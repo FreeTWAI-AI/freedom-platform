@@ -1,0 +1,70 @@
+schema_version: freedom.review-retraction-success-proposal/v1
+fixture_id: proposed_retract_success_response_v1
+kind: retract_success_response_proposal
+status: proposal_not_applied_to_canonical
+source: FW-12; RQ-060; ADR-061; T11; 05 §3.2/3.3
+aligned_sequence_fixture: sequence_accepted_retracted_replay_v1
+proposal_diff: docs/platform-plan/execution/proposals/retract-success-response.diff
+proposal_markers:
+- FW-12 PROPOSAL
+- proposal_not_merged
+- NOT APPLIED TO CANONICAL CONTRACTS
+canonical_gap:
+  path: /quality-reviews/{reviewId}:retract
+  operationId: retractQualityReview
+  current_200: description_only_no_typed_content_schema
+  note: Canonical openapi-outline.yaml must not yet define RetractQualityReviewSuccess.
+proposed_schema_name: RetractQualityReviewSuccess
+proposed_schema:
+  type: object
+  additionalProperties: false
+  required:
+  - retraction_ref
+  - original_review_ref
+  - aggregate_version
+  - state
+  properties:
+    retraction_ref:
+      $ref: "#/components/schemas/OpaqueId"
+    original_review_ref:
+      $ref: "#/components/schemas/OpaqueId"
+    aggregate_version:
+      $ref: "#/components/schemas/AggregateVersion"
+    state:
+      const: retracted
+  description: >-
+    Typed retract success response. Confirms an appended retraction fact while
+    retaining original_review_ref. Does not delete or overwrite acceptance history.
+    Clients use aggregate_version for optimistic concurrency on later mutations.
+proposed_200:
+  description_must_include:
+  - original review history retained
+  - does not imply the original review was deleted
+  headers:
+    ETag:
+      purpose: quoted_aggregate_version_for_If-Match_optimistic_concurrency
+  content_schema_ref: "#/components/schemas/RetractQualityReviewSuccess"
+proposed_additional_responses:
+  "412":
+    $ref: "#/components/responses/VersionConflict"
+example_success_body:
+  retraction_ref: retr_synthetic_001
+  original_review_ref: rev_synthetic_001
+  aggregate_version: 2
+  state: retracted
+example_etag: '"2"'
+parity:
+  state_machine: review_outcome
+  transition_command: retract_accepted_review
+  transition_to: retracted
+  event: freedom.quality.review.retracted.v1
+  event_payload_minimum:
+  - retracted_by
+  - reason
+  - original_review_ref
+  concurrency:
+  - If-Match required on retract path
+  - aggregate_version usable as next If-Match / ETag
+  history:
+  - append_only
+  - original_review_not_deleted_on_200

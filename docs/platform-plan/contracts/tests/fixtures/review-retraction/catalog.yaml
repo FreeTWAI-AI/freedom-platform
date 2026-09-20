@@ -1,6 +1,6 @@
 schema_version: freedom.review-retraction-fixtures/v1
 status: synthetic_planning_fixtures_not_runtime
-source: RQ-060; ADR-061; T11; FW-03; 03 §3.5/7.4; openapi retractQualityReview
+source: RQ-060; ADR-061; T11; FW-03; FW-12 proposal; 03 §3.5/7.4; openapi retractQualityReview
 scenario: accepted_then_retracted_then_old_receipt_replay
 fixed_problem_code: receipt_superseded_by_retraction
 fixed_problem_status: 409
@@ -17,3 +17,13 @@ contract_paths:
 - contracts/state-machines/core.example.yaml#/machines/review_outcome
 - contracts/event-catalog.example.yaml#/events
 - contracts/xp-policy.example.yaml#/policy/source_contract
+fw12_proposal:
+  status: proposal_not_applied_to_canonical
+  diff: docs/platform-plan/execution/proposals/retract-success-response.diff
+  success_response_fixture: proposed_retract_success_response_v1.yaml
+  proposed_schema: RetractQualityReviewSuccess
+fixture_files:
+- catalog.yaml
+- sequence_accepted_retracted_replay_v1.yaml
+- expected_projections_after_retraction_v1.yaml
+- proposed_retract_success_response_v1.yaml
