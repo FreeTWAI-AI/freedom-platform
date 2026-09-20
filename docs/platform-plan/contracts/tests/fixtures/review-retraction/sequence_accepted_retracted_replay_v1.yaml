@@ -1,0 +1,78 @@
+schema_version: freedom.review-retraction-sequence/v1
+fixture_id: sequence_accepted_retracted_replay_v1
+kind: accepted_retracted_replay
+status: synthetic_planning_fixtures_not_runtime
+actors:
+  member_ref: usr_synthetic_contributor
+  original_reviewer_ref: usr_synthetic_reviewer_a
+  retractor_ref: usr_synthetic_reviewer_a
+  profession_key: platform_engineering
+contribution_record:
+  contribution_record_id: contrib_synthetic_maint_001
+  member_ref: usr_synthetic_contributor
+  profession_key: platform_engineering
+  contribution_kind: documentation
+  track: maintenance
+  declared_xp: 42
+  append_only: true
+steps:
+- seq: 1
+  name: accept_review
+  at: '2026-09-16T10:00:00Z'
+  command: submit_accepted_quality_review
+  event: freedom.quality.version.accepted.v1
+  review_receipt:
+    receipt_id: rcpt_synthetic_review_001
+    review_id: rev_synthetic_001
+    original_review_ref: rev_synthetic_001
+    decision: accepted
+    reviewed_digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    reviewer_ref: usr_synthetic_reviewer_a
+    contribution_record_id: contrib_synthetic_maint_001
+    aggregate_version: 1
+  review_outcome_state: accepted
+  effects:
+  - include_contribution_in_xp_matching_priority_and_entitlement_projections
+- seq: 2
+  name: retract_accepted_review
+  at: '2026-09-16T12:00:00Z'
+  command: retract_accepted_review
+  http:
+    method: POST
+    path: /quality-reviews/{reviewId}:retract
+    operationId: retractQualityReview
+    request:
+      reason: Synthetic retraction for FW-03 negative receipt replay fixture
+      original_review_ref: rev_synthetic_001
+    expected_status: 200
+  event: freedom.quality.review.retracted.v1
+  retraction_fact:
+    retraction_id: retr_synthetic_001
+    retracted_by: usr_synthetic_reviewer_a
+    reason: Synthetic retraction for FW-03 negative receipt replay fixture
+    original_review_ref: rev_synthetic_001
+    aggregate_version: 2
+  review_outcome_state: retracted
+  effects:
+  - remove_this_outcome_from_xp_matching_priority_and_entitlement_projections_on_rebuild
+  - mark_original_receipt_as_superseded_by_retraction
+  history_note: original acceptance retained; retraction appended
+- seq: 3
+  name: replay_old_acceptance_receipt
+  at: '2026-09-16T13:00:00Z'
+  command: replay_original_review_receipt
+  replayed_receipt_id: rcpt_synthetic_review_001
+  expected_http_problem:
+    status: 409
+    code: receipt_superseded_by_retraction
+    title: Receipt superseded by retraction
+    type: https://contracts.freedom.example/problems/receipt-superseded-by-retraction
+    detail: Original review receipt was superseded by an appended retraction and cannot
+      restore acceptance.
+    request_id: req_synthetic_replay_001
+  must_not:
+  - restore_acceptance
+  - delete_retraction_fact
+  - mutate_original_review_history
+  - reinclude_outcome_in_xp_matching_or_entitlement
+  review_outcome_state_after: retracted

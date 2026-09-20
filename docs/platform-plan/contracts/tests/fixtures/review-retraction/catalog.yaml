@@ -1,0 +1,19 @@
+schema_version: freedom.review-retraction-fixtures/v1
+status: synthetic_planning_fixtures_not_runtime
+source: RQ-060; ADR-061; T11; FW-03; 03 §3.5/7.4; openapi retractQualityReview
+scenario: accepted_then_retracted_then_old_receipt_replay
+fixed_problem_code: receipt_superseded_by_retraction
+fixed_problem_status: 409
+projections_invalidated_on_retract:
+- xp
+- matching_priority
+- entitlement
+history_rule: append_only_never_delete_original_review_or_acceptance
+contract_paths:
+- contracts/openapi-outline.yaml#/paths/~1quality-reviews~1{reviewId}:retract
+- contracts/openapi-outline.yaml#/components/schemas/ReceiptSupersededByRetractionProblem
+- contracts/openapi-outline.yaml#/components/responses/ReceiptSupersededByRetraction
+- contracts/openapi-outline.yaml#/components/schemas/RetractQualityReviewRequest
+- contracts/state-machines/core.example.yaml#/machines/review_outcome
+- contracts/event-catalog.example.yaml#/events
+- contracts/xp-policy.example.yaml#/policy/source_contract

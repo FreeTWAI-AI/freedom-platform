@@ -1,0 +1,38 @@
+schema_version: freedom.review-retraction-expected/v1
+fixture_id: expected_projections_after_retraction_v1
+kind: projection_rebuild_expected
+status: synthetic_planning_fixtures_not_runtime
+source_sequence_fixture: sequence_accepted_retracted_replay_v1
+review_filter: accepted_and_not_retracted
+excluded_contribution_record_ids:
+- contrib_synthetic_maint_001
+excluded_review_ids:
+- rev_synthetic_001
+xp_projection:
+  member_ref: usr_synthetic_contributor
+  profession_key: platform_engineering
+  track: maintenance
+  xp: 0
+  policy_version: 1
+  rebuilt_from_event_seq: 3
+  rebuilt_at: '2026-09-16T13:00:00Z'
+  included_contribution_record_ids: []
+matching_priority_projection:
+  member_ref: usr_synthetic_contributor
+  included_review_ids: []
+  excluded_because_retracted:
+  - rev_synthetic_001
+entitlement_projection:
+  member_ref: usr_synthetic_contributor
+  qc_or_listing_entitlements_from_review: []
+  excluded_because_retracted:
+  - rev_synthetic_001
+  note: retracted accepted result must not feed entitlement snapshot; membership/unrelated
+    evidence unchanged
+history_preserved:
+  original_review_receipt_id: rcpt_synthetic_review_001
+  original_review_id: rev_synthetic_001
+  retraction_id: retr_synthetic_001
+  review_outcome_state: retracted
+  deleted_facts: []
+  overwritten_facts: []
