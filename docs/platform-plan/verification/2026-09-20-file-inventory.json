@@ -1,0 +1,1126 @@
+{
+  "version": "0.1.0-local-core",
+  "scope": "source files, including historical evidence; excludes self, secrets, dependencies, build and test artifacts",
+  "files": [
+    {
+      "path": ".github/workflows/verify.yml",
+      "bytes": 1504,
+      "sha256": "3c170b487778484c5bf0d43d870e8cfa59260a2992d58ee199184ef067a0334d"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 130,
+      "sha256": "4f8e27bce1038ca2b9e9b32564058d972d6ed90b40e58080ac346f2e3414136e"
+    },
+    {
+      "path": "CHANGES-2026-09-19.md",
+      "bytes": 6380,
+      "sha256": "8db2d91b6e21fb352e685039acd9d16cbc172b31bfbeb4941838bcc18ba8c568"
+    },
+    {
+      "path": "README.md",
+      "bytes": 3655,
+      "sha256": "327cf290f23850d89f617d5c0cb511e7ca3f7dec5a94bc3f6d0f75817a34c82f"
+    },
+    {
+      "path": "apps/platform-api/src/app.ts",
+      "bytes": 8218,
+      "sha256": "90bfbf471b8076fbf197eec74efe19ad523bfc22f413065b110a260cd68d265e"
+    },
+    {
+      "path": "apps/platform-api/src/server.ts",
+      "bytes": 1063,
+      "sha256": "d59835dec31383b1809f7225608542d0d3487b26de5f93bdb6a1c5c69dbf0e92"
+    },
+    {
+      "path": "apps/portal-web/index.html",
+      "bytes": 434,
+      "sha256": "8e0ce6e1160f9f3dfc4de20744d19d25bf361e0eb1d0f8d6c9b29ed0c13f9362"
+    },
+    {
+      "path": "apps/portal-web/src/App.tsx",
+      "bytes": 56053,
+      "sha256": "58933f6092172b71cb966c5435d362fae72b37b4204d0ab2a206261beb318899"
+    },
+    {
+      "path": "apps/portal-web/src/api.ts",
+      "bytes": 5869,
+      "sha256": "b7efcf734a94bcecc1b77ffedefaffd8e09b1766bc7492b5fd7dd6e64b46ed94"
+    },
+    {
+      "path": "apps/portal-web/src/format.ts",
+      "bytes": 4535,
+      "sha256": "ba4c3f5c085fdf0194ff77cd290fb357e264e6ed5d0aac09ca7d6128909a17cb"
+    },
+    {
+      "path": "apps/portal-web/src/main.tsx",
+      "bytes": 307,
+      "sha256": "ef127a7946fbaf6b10d3e6e44e8eaf2b8a2edaa548f3dc1a86edd60f59bb425d"
+    },
+    {
+      "path": "apps/portal-web/src/styles.css",
+      "bytes": 8470,
+      "sha256": "18d0474d729ce9da89e8bc041a457f17d6da90bfbaa98983808472476da3a71b"
+    },
+    {
+      "path": "apps/portal-web/src/types.ts",
+      "bytes": 3737,
+      "sha256": "b1f2b6392d24c7790451082fbd2b2017094f08127abd22cd5901016260f95fae"
+    },
+    {
+      "path": "apps/portal-web/src/vite-env.d.ts",
+      "bytes": 23,
+      "sha256": "ccfc86914e457fcf4348a14cb5d58aaf76bbd50ba136a3246df2e6de493037bb"
+    },
+    {
+      "path": "apps/portal-web/vite.config.ts",
+      "bytes": 526,
+      "sha256": "23db7a8d5de6bce3a1d27de3700b78a2d96c3b8706bade8ac21f931991880849"
+    },
+    {
+      "path": "compose.yaml",
+      "bytes": 561,
+      "sha256": "c67545bb427cce0ab38420f7e12f9e13e5f0c6874b71beb23c08dafa8259aa68"
+    },
+    {
+      "path": "docs/development/local-runtime.md",
+      "bytes": 7234,
+      "sha256": "cdac30f07656560e6cffce34bfe4be9348aeda1ce5f2d9e8cdfc749a4e29ae7e"
+    },
+    {
+      "path": "docs/development/operating-validation.md",
+      "bytes": 2796,
+      "sha256": "c2aab381e5451eb48fa349845f1d9024d03112a5b0b70c9c22ef961998b95565"
+    },
+    {
+      "path": "docs/platform-plan/00-current-requirements-baseline.md",
+      "bytes": 22120,
+      "sha256": "b52efa7ecd3ab5052ed39564e283fd44d07020777a633cfc01413387ce8eb091"
+    },
+    {
+      "path": "docs/platform-plan/01-product-community-model.md",
+      "bytes": 52774,
+      "sha256": "8e24e649662ee90ab98c86fd5310d92a1911e007f9ef27b65d9fbc5db7f3d25a"
+    },
+    {
+      "path": "docs/platform-plan/02-architecture-repositories.md",
+      "bytes": 77276,
+      "sha256": "144174366d80613debe99dcd6d070f41cd6ac688fbece73241e6316daa2c0450"
+    },
+    {
+      "path": "docs/platform-plan/03-domain-events-state-machines.md",
+      "bytes": 143946,
+      "sha256": "69017313d2c949e77656cda0684e1bfe83c4c9a31b1050931c57897023ffc11a"
+    },
+    {
+      "path": "docs/platform-plan/04-module-specifications.md",
+      "bytes": 145116,
+      "sha256": "59b6f3502429127da8da06ae86e937e7ee936c4ace4baa3821dec761c5c99498"
+    },
+    {
+      "path": "docs/platform-plan/05-integration-contracts.md",
+      "bytes": 107078,
+      "sha256": "6a21bcad834b1de529399ca424345c4521e9020c1a605206de0817a2e7c4fd20"
+    },
+    {
+      "path": "docs/platform-plan/06-delivery-plan.md",
+      "bytes": 74639,
+      "sha256": "81f9c1d6691540b17adf48352b476543e6384a1b34527a25facae32187a9ccaf"
+    },
+    {
+      "path": "docs/platform-plan/07-decisions-risks-traceability.md",
+      "bytes": 101963,
+      "sha256": "76532ee695730c4b1fa05f043c47c47cc7a185c982ec3fc214772669616736e8"
+    },
+    {
+      "path": "docs/platform-plan/08-bootstrap-hosting-project-lifecycle.md",
+      "bytes": 145183,
+      "sha256": "f478e79b66e857b33c7c7e7364afa84e212d5b2aefcd0a989516a9cb1c8f6762"
+    },
+    {
+      "path": "docs/platform-plan/09-handoff-record.md",
+      "bytes": 11146,
+      "sha256": "ddfc3f80d64bcd431c6a95bb5387a87d950ff051a55774acf4dc9a3a0f01d9f6"
+    },
+    {
+      "path": "docs/platform-plan/10-member-agent-narrative.md",
+      "bytes": 3699,
+      "sha256": "8b9845408d50f893d03b15f392b4b52f766e64b93a700be45c9f5e420ad50bad"
+    },
+    {
+      "path": "docs/platform-plan/11-operator-agent-narrative.md",
+      "bytes": 21760,
+      "sha256": "b7828e49db0e139683fe9f6b5f4bedc18aef42ff5055ccaec4a484ceba925daf"
+    },
+    {
+      "path": "docs/platform-plan/12-low-ops-mutual-benefit.md",
+      "bytes": 18332,
+      "sha256": "de2c00b9c2393545db6bd0e8f86a9d24efdf1a688d3dd8ed6b70356a6d1f0624"
+    },
+    {
+      "path": "docs/platform-plan/README.md",
+      "bytes": 28367,
+      "sha256": "e5ce5374e19230e5346ac71f384153e0ea60ab5afebeda1943549c10417fd308"
+    },
+    {
+      "path": "docs/platform-plan/contracts/README.md",
+      "bytes": 33059,
+      "sha256": "4dcf15e8149fbc8de7844675c2f93b829feb7fe881043d0093e48daa6c4f5224"
+    },
+    {
+      "path": "docs/platform-plan/contracts/agent-work-contract.example.yaml",
+      "bytes": 15846,
+      "sha256": "45e141b0be9f5620f59d91396c02a3d2196e18062303628b4735a1ef3803d79a"
+    },
+    {
+      "path": "docs/platform-plan/contracts/commerce-distribution.example.yaml",
+      "bytes": 12841,
+      "sha256": "b68e05d65561435d33a1f59e0f97a07f4cccba25099384ce8a2e088f8ba73dd1"
+    },
+    {
+      "path": "docs/platform-plan/contracts/discord-channel-map.example.yaml",
+      "bytes": 2800,
+      "sha256": "4cab5ac01cc6faa79fc3ef852bfa8a90e2dc796e4db7aa2e430d5aab807a0f0c"
+    },
+    {
+      "path": "docs/platform-plan/contracts/domain-skill-overlay.example.json",
+      "bytes": 4015,
+      "sha256": "e1c1c504d886d105941b4a10864c06f1b8fb7d0efed174d2ee193808de870c3e"
+    },
+    {
+      "path": "docs/platform-plan/contracts/domain-skill-overlay.schema.json",
+      "bytes": 9637,
+      "sha256": "aca28b3347a403911437c5e86f1431ccf9518269e6c346a665e22c2b55b63a2d"
+    },
+    {
+      "path": "docs/platform-plan/contracts/entitlement-catalog.example.yaml",
+      "bytes": 5875,
+      "sha256": "a199f08607805602629adbd937f4ba14ccd37db9b5265cdb0170ce3bd2806a2b"
+    },
+    {
+      "path": "docs/platform-plan/contracts/entity-playbook.example.yaml",
+      "bytes": 12012,
+      "sha256": "9d1f2d9717ac0436e96337053ade0f9963695d5ca8ad85ae1276274ed1940a7f"
+    },
+    {
+      "path": "docs/platform-plan/contracts/entity-playbook.schema.json",
+      "bytes": 6766,
+      "sha256": "81d522598a8e3df937e5166ada74c0413ce015a4e935a5f1c08d849094797346"
+    },
+    {
+      "path": "docs/platform-plan/contracts/event-catalog.example.yaml",
+      "bytes": 41767,
+      "sha256": "150e9c7bffd550cc7463e08d7ded03e71b5ccdfcfe78dd2578eff022c822fc8d"
+    },
+    {
+      "path": "docs/platform-plan/contracts/event-envelope.schema.json",
+      "bytes": 5009,
+      "sha256": "edfa09250e9ab6f140f473000c6bf7d1a6ab2b5c111222ba5eb4e3f89ff9af80"
+    },
+    {
+      "path": "docs/platform-plan/contracts/line-template-map.example.yaml",
+      "bytes": 5310,
+      "sha256": "4e9c5ae3ac721b8acb0e621883b82f3fa8c12115c336b2feff6dd2c37d02d114"
+    },
+    {
+      "path": "docs/platform-plan/contracts/member-onboarding.example.yaml",
+      "bytes": 5389,
+      "sha256": "0846c815de60b6e808222ee3ca51a7f070e5f2a83d51ffc8c4477a481dd2318c"
+    },
+    {
+      "path": "docs/platform-plan/contracts/member-onboarding.schema.json",
+      "bytes": 8791,
+      "sha256": "d70fd4a131a84caddd40f28dcf39a926327b130f25ba1e41125bbb77981f768f"
+    },
+    {
+      "path": "docs/platform-plan/contracts/openapi-outline.yaml",
+      "bytes": 435471,
+      "sha256": "6fdf922f9333bceb992407ff8b7d9a5379fb89620df34336875c0561033097b8"
+    },
+    {
+      "path": "docs/platform-plan/contracts/operating-policy.example.yaml",
+      "bytes": 3432,
+      "sha256": "5301f805b301c9be8d2b722feac8c7f1a8c0a6869d7e6ce3766c9e60cf8fadfa"
+    },
+    {
+      "path": "docs/platform-plan/contracts/organization-professions.example.yaml",
+      "bytes": 21300,
+      "sha256": "a830886e00cebe08bc6eb61b830ac81b5749d12e2d01a016506b0f46e1b8def3"
+    },
+    {
+      "path": "docs/platform-plan/contracts/portable-activation.example.json",
+      "bytes": 43805,
+      "sha256": "5bd08c00ba3a7b8a8eec2e758066f7af3950bee54385bb2f41836f743b7846cd"
+    },
+    {
+      "path": "docs/platform-plan/contracts/portable-activation.schema.json",
+      "bytes": 88546,
+      "sha256": "e19d02cd0940cf55f0faa3f6ff184a57d4546525344cff5ec264a12f631deeb5"
+    },
+    {
+      "path": "docs/platform-plan/contracts/project-manifest.example.yaml",
+      "bytes": 5091,
+      "sha256": "59711b481afa1398f97e4b23c5615bf2039a01ad7d115e0cadf127c7f3ee20d1"
+    },
+    {
+      "path": "docs/platform-plan/contracts/project-manifest.external-personal-fork.example.yaml",
+      "bytes": 5305,
+      "sha256": "74ea2598ef8f7c9e79040e050a0dcae481459ced1b1961aebef45778a41e9b3a"
+    },
+    {
+      "path": "docs/platform-plan/contracts/project-manifest.schema.json",
+      "bytes": 59935,
+      "sha256": "d818f12dc0cdf25db7a2fc529b7b01a5f0df78f9282f339940a08a3caa0b2304"
+    },
+    {
+      "path": "docs/platform-plan/contracts/project-status-attestation.example.yaml",
+      "bytes": 5603,
+      "sha256": "12dc8c670057639bddafa8b88c478a652415095fc672a0d0081433b9bb08a598"
+    },
+    {
+      "path": "docs/platform-plan/contracts/project-status-attestation.schema.json",
+      "bytes": 35381,
+      "sha256": "b403bb198d12cad43da8aec7c54cd07eb63469fcff013100ca12f649dab7f5e8"
+    },
+    {
+      "path": "docs/platform-plan/contracts/skill-package.example.yaml",
+      "bytes": 2058,
+      "sha256": "e2cfe4c558e4497566638cacbd706b827d2e6c1c233094796741f406a841dbd0"
+    },
+    {
+      "path": "docs/platform-plan/contracts/skill-package.schema.json",
+      "bytes": 18144,
+      "sha256": "ad4d96a05694a19fd270dadde48a5ce56ae444b80bbc90b861fea6b37341fb1f"
+    },
+    {
+      "path": "docs/platform-plan/contracts/state-machines/core.example.yaml",
+      "bytes": 93988,
+      "sha256": "a34a9f3fec27b5eee76e2f74b68399965812f2e0440c516ae8eb961b7d7ae836"
+    },
+    {
+      "path": "docs/platform-plan/contracts/submission-intake.example.yaml",
+      "bytes": 12884,
+      "sha256": "f3974f432cfd494a68001ccf1c73adbaf691564845491302aee87792a21a7d3f"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/README.stage-1a.md",
+      "bytes": 4433,
+      "sha256": "40667eb97fbb9dfde42e3080e6b22f9a6cc440066e91c1923d00ed70266eb82a"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/cases.yaml",
+      "bytes": 3974,
+      "sha256": "d4aadd45de1a5924020e7556ea0dc53c1413d1ddaa8c7ea21d3e2aea7bafd6f4"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/catalog.yaml",
+      "bytes": 1280,
+      "sha256": "03eadca48ed9a28e231fa4966a1207d2f97b3a6e40cbe9bbfa1152075da10011"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/golden-meta.json",
+      "bytes": 353,
+      "sha256": "1d5fae481dacdf0f3b8b729f86ce3801bc4db0268181314809fd2757b01c0c19"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/keys/nonprod-test-keys.json",
+      "bytes": 2178,
+      "sha256": "631ea49a2aabe719964108839afe0ddaae8f10d466b3cc0e7253ff38d179ebcb"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/negative/expired.json",
+      "bytes": 5624,
+      "sha256": "2b0097a6fd432b79dc590d40df97231dc78a3681ebc1a104bab6068b4df86dd4"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/negative/extra-root.json",
+      "bytes": 7147,
+      "sha256": "922acd65016b28ca1839399ca5dfdad9a05a76eb011e7f4573ceff72af27c74e"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/negative/host-shadow.json",
+      "bytes": 1338,
+      "sha256": "99fcfff6a34146456ffd3d8f40e0503f61315abc28c30e912d5b22fa7da8802e"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/negative/missing-root.json",
+      "bytes": 4100,
+      "sha256": "1f98ecc9324a6125faf31bdfd401eb7bdaffd6338277fcd7443ef01013777dff"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/negative/reordered-root.json",
+      "bytes": 5624,
+      "sha256": "4f98795a88f9e3fc7f365cbb8fdc1ec89ea344e57f630451519658e4f3b19d7d"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/negative/revoked.json",
+      "bytes": 5630,
+      "sha256": "9e640d939fd2e40f33750a2af676b593f21d8e9bef917d32400b6a6b3edaf40b"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/negative/self-review.json",
+      "bytes": 5622,
+      "sha256": "9ae53a7cf1d346108220cf0cf447f053b654fc088fc92d5ddd112e14e63c1d79"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/negative/unsupported-isolation.json",
+      "bytes": 916,
+      "sha256": "fbd47b76251eef3371359a46e4104c51facba653b59b9984633dc712f7137814"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/valid/golden-overlay.json",
+      "bytes": 5624,
+      "sha256": "a58dd00240e70057bb89563091c78748e2dd7d6b840b63fd066dd02d47655961"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/catalog.yaml",
+      "bytes": 3374,
+      "sha256": "e720c37d6aa2ac9750691508cfc6855a626eb2f0b03cf59438149288b336abdf"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/delivery/delivery_boundary_v1.yaml",
+      "bytes": 287,
+      "sha256": "97793ae2dd6590286980e39eb3ffd9cdfa35cf6b0602ae4a5767c29ce8371f1c"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/delivery/delivery_neg_claim_by.yaml",
+      "bytes": 171,
+      "sha256": "d9fa9a3b4c2871b5674798115dad98a39b848d81079e1b43a2b14b7d7909e03d"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/delivery/delivery_neg_fencing_token.yaml",
+      "bytes": 181,
+      "sha256": "887c39601d389d3ab764ca9f4ef7db76e27d2532b13b57bd1598c06d53ba4e60"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/delivery/delivery_neg_grant_expires_at.yaml",
+      "bytes": 187,
+      "sha256": "e82a0d320d0273694b73858cec4bf33832bea901fd24e354936dac82e3ab5bb7"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/delivery/delivery_neg_review_by.yaml",
+      "bytes": 173,
+      "sha256": "df57a077bab179b6cc039044cbbc106df10f155282616964a262534a023d9486"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/delivery/delivery_neg_task_lease_expires_at.yaml",
+      "bytes": 197,
+      "sha256": "6a92682deb6292056cb9be91dc9f6be08114542726b12c310dccea60c4b3fedc"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/delivery/delivery_neg_valid_until.yaml",
+      "bytes": 177,
+      "sha256": "9950112b5712bb6f0265289af4e168f5d5a343a4b49aa8bf918a1fec863843d0"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/delivery/delivery_positive_v1.yaml",
+      "bytes": 319,
+      "sha256": "033525f456a5aa2d56e68a27619b99ac9b302edeb908436770c89b28a654aeb3"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/evidence_appointment/evidence_appointment_boundary_v1.yaml",
+      "bytes": 261,
+      "sha256": "fff6a8b8cf50d35e743a798630f03f30458ee26debd66ca16898bdd309336aea"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/evidence_appointment/evidence_appointment_neg_claim_by.yaml",
+      "bytes": 205,
+      "sha256": "cf73c6985b2d21de048fb421ab7286e95cd5f3e9529ddfb870be073fdeea1c7b"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/evidence_appointment/evidence_appointment_neg_due_at.yaml",
+      "bytes": 201,
+      "sha256": "256cf93afe695cc43c83139ee8604f130fbd5ce0f23d131ecf6056eadbd94d93"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/evidence_appointment/evidence_appointment_neg_expires_at_as_lease.yaml",
+      "bytes": 227,
+      "sha256": "885bced4bcef6b7495e30019bf689a7710eb2e32f6ba2a8359893dc8acf05ac9"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/evidence_appointment/evidence_appointment_neg_fencing_token.yaml",
+      "bytes": 215,
+      "sha256": "ebbce49bd792518cd38a9e9f31b935fc79240b89f78a5bace0a9a70be3c399db"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/evidence_appointment/evidence_appointment_neg_grant_expires_at.yaml",
+      "bytes": 221,
+      "sha256": "96692680349c0467f8528fddfb4b294f4ea683d874aeab81637681145ad0e9af"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/evidence_appointment/evidence_appointment_neg_task_lease_expires_at.yaml",
+      "bytes": 231,
+      "sha256": "090f6d05fdc973987dc86bc4500e94614372e704fcf3beca1800bf366745cb4c"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/evidence_appointment/evidence_appointment_positive_v1.yaml",
+      "bytes": 303,
+      "sha256": "e0c3e7553b176976379d13d12ed7adbd552157acb404c829ac046f28d7aa2e86"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/grant/grant_boundary_v1.yaml",
+      "bytes": 237,
+      "sha256": "a399737f33751675b70fdf64417b5bf96d9fd189616e6449c405834a285f4efb"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/grant/grant_neg_claim_by.yaml",
+      "bytes": 170,
+      "sha256": "5366c010cb0ab8160424ba2c8d3e86b5956e1d8ec64060ddcd0988a32484373a"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/grant/grant_neg_due_at.yaml",
+      "bytes": 166,
+      "sha256": "b7e3043aace6ca53290536877801f5d9c0eb1120dd5161f7d260bba6d35b4028"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/grant/grant_neg_fencing_token.yaml",
+      "bytes": 180,
+      "sha256": "df985ca2d679fb74e25d8752058cbb4748308072207e021feccd86eaf044f9b0"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/grant/grant_neg_review_by.yaml",
+      "bytes": 172,
+      "sha256": "347361e8b2995042773f63275208ca3ffa5e459506293a408801ef0f842e9e5d"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/grant/grant_neg_task_lease_expires_at.yaml",
+      "bytes": 196,
+      "sha256": "78e87ab2746ac33b69bbd9be47fb584c073b46bea1bbb74563a1c3c8ca2adf11"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/grant/grant_neg_valid_until.yaml",
+      "bytes": 176,
+      "sha256": "dbb0652c0c38921c85e20a1fd198ae32a30ff7908243b17865ab04192a6e6958"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/grant/grant_positive_v1.yaml",
+      "bytes": 213,
+      "sha256": "bfb7796e8fcafc29fc4fef7033d67d871cd0dc0e4ef0a4be5f8b7e5a15659706"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/invite_claim/invite_claim_boundary_v1.yaml",
+      "bytes": 372,
+      "sha256": "b45c03c8bf41b2bc64a065a799422ef08187cb931ebbddd5f79b28e5aee541e9"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/invite_claim/invite_claim_neg_due_at.yaml",
+      "bytes": 172,
+      "sha256": "b7d4fa450c483da655a411162a68a67ae418ef5c40c7ee8f317450f703575fda"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/invite_claim/invite_claim_neg_fencing_token.yaml",
+      "bytes": 186,
+      "sha256": "f0ee82095138348b13e6ac37c02901ecc50351ee006fdc7e563b41023da7f5a5"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/invite_claim/invite_claim_neg_grant_expires_at.yaml",
+      "bytes": 192,
+      "sha256": "65329226867ba6dc82fb137a55e96cf22b7916c1baccc117e8fa322a6dfe9ca2"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/invite_claim/invite_claim_neg_lease_expires_at.yaml",
+      "bytes": 192,
+      "sha256": "0970536affe7c62906a6d501153a7c99e3f9acb456750a1901a85083fdbd3485"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/invite_claim/invite_claim_neg_review_by.yaml",
+      "bytes": 178,
+      "sha256": "0172452e87b0e14c1f409818ba683a9b0f58d6b6e9ee9957039162131045b31e"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/invite_claim/invite_claim_neg_valid_until.yaml",
+      "bytes": 182,
+      "sha256": "35b1c62fad7e1ad69c478d95e7a025e64c4992c2f3c3f4af0930bfb78b35c44d"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/invite_claim/invite_claim_positive_v1.yaml",
+      "bytes": 348,
+      "sha256": "cffeb86655d4e1b1810ede4caa61eab7917b80639718b9943a12c2abad013509"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/lease_fence/lease_fence_boundary_v1.yaml",
+      "bytes": 299,
+      "sha256": "0b573b6aeb2361a2c7e1e0d9bfb8395ee7621dc79fb38a8be4dc06996aab621a"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/lease_fence/lease_fence_neg_claim_by.yaml",
+      "bytes": 194,
+      "sha256": "7045784297741b4a50d3fd3f49d935aed35ee615af6a6e9f50042fbac13641a3"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/lease_fence/lease_fence_neg_due_at.yaml",
+      "bytes": 190,
+      "sha256": "50de079754b6eb94d01848aaad01cfa8d4b2e5da8d35227bdcc439ce7100092e"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/lease_fence/lease_fence_neg_grant_expires_at.yaml",
+      "bytes": 210,
+      "sha256": "56068f663997807cc57622a06bd8463dfc4a54bd24afd2dadafacac1e57723db"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/lease_fence/lease_fence_neg_lease_expires_at.yaml",
+      "bytes": 210,
+      "sha256": "ecab495207171eae8ed58ff4525cc7365128a775c8a45cc84a378717d88f0100"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/lease_fence/lease_fence_neg_review_by.yaml",
+      "bytes": 196,
+      "sha256": "743e72b8f89ecbb095feed3efcd24aed617446024a87cd38c625c50b161cb061"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/lease_fence/lease_fence_neg_valid_until.yaml",
+      "bytes": 200,
+      "sha256": "cf735509c7b05e499f85e54cf9e3face4984d44f37fe197af4bf235f1534f5fb"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/five-clocks/lease_fence/lease_fence_positive_v1.yaml",
+      "bytes": 518,
+      "sha256": "63291f49fa821e9f14e86c79cfd9a9eb3db380ba5bce2315776c4221cbb2b506"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/github-mock/cases.yaml",
+      "bytes": 7630,
+      "sha256": "8112347f99fa7bf27ad4f2803afa39eb64048825f549ae9fa4d08345acfc9968"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/github-mock/catalog.yaml",
+      "bytes": 2402,
+      "sha256": "ba1eff5dbeba2213194a6d1fa8314150ddd6e71d381d7ddd5b1dedd3657f0351"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/github-mock/expected/issue_normalized.json",
+      "bytes": 1075,
+      "sha256": "a7b1326eabdfd868b57337b32241e66c1a324fd406fe50f91ced1987d5749a92"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/github-mock/expected/pull_request_normalized.json",
+      "bytes": 1277,
+      "sha256": "b1ebb3a1f8729adb8d5c34a24cf903651717964bd1815831b2bf189955621510"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/github-mock/expected/release_normalized.json",
+      "bytes": 1107,
+      "sha256": "68183b09983b431b54e2ed976a3ebdce61fb284d1cdcae68ee7e17e620ab387a"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/github-mock/expected/repo_normalized.json",
+      "bytes": 1064,
+      "sha256": "6f1812f0829e633698843d56ee10768d85b8ce35db7f3d216717d3ca5bd26c76"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/github-mock/expected/webhook_pull_request_normalized.json",
+      "bytes": 1349,
+      "sha256": "7efee5879780fe9c2f67fed102214d56f84c60c0355a3dce517a83d1b4f43730"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/github-mock/expected/webhook_push_normalized.json",
+      "bytes": 1015,
+      "sha256": "e4d7cb33155f6b7bf012e163a704db212ab621d3f5c50f1eabde5fc75154f505"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/github-mock/malicious/comment_grant_injection.json",
+      "bytes": 1892,
+      "sha256": "8f9c81edef09dfbb8ec3aa5f860b1ebc61a607c9b414eb1f93e214d1b7762963"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/github-mock/malicious/issue_body_privilege_escalation.json",
+      "bytes": 1901,
+      "sha256": "d5f1539f8830938f11e4156d4a603ac1cf7b23961d7c5911952d95ea4bc3245f"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/github-mock/malicious/pr_body_payee_rewrite.json",
+      "bytes": 1940,
+      "sha256": "1bb627a3a3ad4c0336e48b81f755bc3cba3fc4b13da8f6a279b77efca9ac7eab"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/github-mock/responses/issue_get.json",
+      "bytes": 792,
+      "sha256": "39cbc1909b890e7e8fcf2d723170ee8f38bf02484bc2d259f2dc230179d9bd3f"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/github-mock/responses/pull_request_get.json",
+      "bytes": 1100,
+      "sha256": "4a5de4137fc9dd32a252c8d639eaf3d6efebab97f51e3966cf85457fedfeda41"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/github-mock/responses/release_get.json",
+      "bytes": 738,
+      "sha256": "a74d2aca3785614e3c4d42269e027c4c99bf07d6fe2b6a1201a34154e348c016"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/github-mock/responses/repo_get.json",
+      "bytes": 868,
+      "sha256": "baa673158dad7ef6a7f5c21ad810c79584e12c034d6d9b4a31162bd5c6ad203e"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/github-mock/responses/webhook_pull_request.json",
+      "bytes": 1655,
+      "sha256": "63c2294dea3a74a7115286703aa07e0133059b4b17ed6cfe71150bdd382b070c"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/github-mock/responses/webhook_push.json",
+      "bytes": 1260,
+      "sha256": "ecf326c3009f75701a61a1b2465f3f4bcbd7a50d316a2932f9a132280a83ef9a"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/portable-bundle/cases.yaml",
+      "bytes": 1754,
+      "sha256": "e661c9e8e2d777bd66ec3c7682bf544f5dfd1b6bbe48fbd3ee99284cc5b50a33"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/portable-bundle/catalog.yaml",
+      "bytes": 738,
+      "sha256": "7eb38d391b39e190b7b1513528f94a89bd356202073280c7b4c1de642b263dc5"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/portable-bundle/keys/nonprod-test-keys.json",
+      "bytes": 2173,
+      "sha256": "cc4fdab8c7d9b1a54b313241218b373c31b7edd6a26bd9bdc4edc0b01c2f5d92"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/portable-bundle/negative/host-shadow.json",
+      "bytes": 1050,
+      "sha256": "c79542cbdc6f9046b265329a8de435c84d482bcc5b6c451439ce08c9e9e4a6eb"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/portable-bundle/negative/revoked-signer.json",
+      "bytes": 8274,
+      "sha256": "d06585e05628f9fc9c75e1168c3b95b0ebe3d541a9361d5d164bf1cc4ba6eabe"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/portable-bundle/negative/tampered-digest.json",
+      "bytes": 1405,
+      "sha256": "b34f00585d2b8087e65fc21943faa5721c0be1eb90afbfa2a0b0c858bd9b7c18"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/portable-bundle/negative/unknown-major.json",
+      "bytes": 1404,
+      "sha256": "2aceedfd6464d40bcc9943badcca099efcc22998a9be26b27fe5029f8dc92ba0"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/portable-bundle/valid/minimal-bundle-manifest.json",
+      "bytes": 1462,
+      "sha256": "4d091135a67670ca93ee9a8618f0831170bc8b19b9d63ec9eee206368fb5cf8a"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/review-retraction/catalog.yaml",
+      "bytes": 1423,
+      "sha256": "acb3f95044e8e2045c68529ce80e381f033e4846b1145595fbdaf265cfe50f73"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/review-retraction/expected_projections_after_retraction_v1.yaml",
+      "bytes": 1298,
+      "sha256": "322ac41f506652d6637e3bda4d78ab85f61fc35e3c95919ee7bae20cc0e527f9"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/review-retraction/proposed_retract_success_response_v1.yaml",
+      "bytes": 2439,
+      "sha256": "d7a48ba94e2e0d2150e7171ff71efd6ea44b7276c402cdf0b80f3999d731d123"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/review-retraction/sequence_accepted_retracted_replay_v1.yaml",
+      "bytes": 2903,
+      "sha256": "bf2d923f7af3c0d86f9952f317e7031d6b1d5874b32cdffd2a355046fdcf7903"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/reviewer-appointments/actors.yaml",
+      "bytes": 718,
+      "sha256": "5c356f1f30012007138fb1196ccb42816e6e18f3f78cbbb1ea8ef8e61e461769"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/reviewer-appointments/cases.yaml",
+      "bytes": 11285,
+      "sha256": "85e3a920e94ed1faa97921ac83a8928917d6c6c68548d21b7072b178f7ce127d"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/reviewer-appointments/catalog.yaml",
+      "bytes": 1524,
+      "sha256": "3cfad2f746a4f6e1367290957e5f73ee71f8c5980bb9199058d8b41129c4e0e5"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/reviewer-appointments/expected_projection_rules.yaml",
+      "bytes": 916,
+      "sha256": "2769a7bbce71cc83e2098cca74a0015b5b99a591263213ced4b5d79f4c2d1e9b"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/settlement-modes/cases.yaml",
+      "bytes": 30266,
+      "sha256": "5bffb65505a6456d58e228c5f4876eb6d27cf6657ec06591e685754e6f0c4a64"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/settlement-modes/catalog.yaml",
+      "bytes": 1042,
+      "sha256": "1ac286fefb8122e033af6d87a46cd65e0374ccfee16ec310a479d747fb00c47b"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/settlement-modes/fake_provider.py",
+      "bytes": 2075,
+      "sha256": "16a4c3215477ce3f4d8233822bba578e5f7f63c8bedb9037a734a6735430386b"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/xp-rebuild/expected-projection.json",
+      "bytes": 722,
+      "sha256": "e7f43c3d7d660b5ad95477a41a519a616ed964f1e6c4dab722cd86e0c198dbc7"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/fixtures/xp-rebuild/ordered-source-records.json",
+      "bytes": 4621,
+      "sha256": "ed57987560c39cf6c0c07506f45600c836a972cbdaa9daac7510804a3b7880da"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/requirements-static.txt",
+      "bytes": 134,
+      "sha256": "bf4f658c046bb321c47e19ef91d924556fef20ece2137d4132ed0344b4f68ec1"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/test_domain_skill_overlay_contract.py",
+      "bytes": 25555,
+      "sha256": "942ddb41f46e52fd5bb3ccca1e32c424f48fb4c8012adff233a9f54073ed54aa"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/test_five_clock_invariants.py",
+      "bytes": 18999,
+      "sha256": "7ee4cdf0e26f4370cadb0d873e2cb09b54b12ad86d908e49df40e4dd106a90d2"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/test_github_mock_semantics.py",
+      "bytes": 23281,
+      "sha256": "efa1d2c188c6a02ab7edd65dcce2ae7ab2388e5b42a8d434bfedc0c473894d99"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/test_low_ops_contracts.py",
+      "bytes": 9989,
+      "sha256": "2135666d1f18e3f8723df06c7986d255decc80293fffb4caedf62d4b7b66dac9"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/test_portable_bundle_boundaries.py",
+      "bytes": 13398,
+      "sha256": "303f0ff8038e6039ca19cb635e18198689cc400ea83d93a83b3eb7bd15a7ac8b"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/test_retract_contract_parity.py",
+      "bytes": 16382,
+      "sha256": "5aaad0567b82adac447570ce68eb71d82a20593a57984182f304828910b2cb10"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/test_retracted_receipt_replay.py",
+      "bytes": 21327,
+      "sha256": "63ddb858a87a87d8c1b3ae09306e93a383e3857002447756634b86454b7ac68b"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/test_reviewer_appointment_entitlement.py",
+      "bytes": 22703,
+      "sha256": "db80a5c6c0d94810bc94de34dbbab171ce6064efeabae5d3d30364acc12747df"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/test_settlement_execution_modes.py",
+      "bytes": 17990,
+      "sha256": "5b32236811b5def5b9256f86e479efd894ce99963518b85cb54fab603da776e7"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/test_work_reviewer_capacity.py",
+      "bytes": 5184,
+      "sha256": "77789637f762c36075227427dda72af95523355a05238552e85aa1a2447ee1fd"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/test_xp_projection_rebuild.py",
+      "bytes": 8236,
+      "sha256": "98fc3eae96108ab78e6c707edf7b4e0ca8ac55e21cb9a19e089baa415807920f"
+    },
+    {
+      "path": "docs/platform-plan/contracts/work-participation.example.yaml",
+      "bytes": 4565,
+      "sha256": "96a0178f8e3a4c97ffa08e99c3165c822d323e6f2f9d4570d0e384c00ff75ab4"
+    },
+    {
+      "path": "docs/platform-plan/contracts/work-participation.schema.json",
+      "bytes": 21517,
+      "sha256": "dcbca22a27750f53867744408a63494b1f7d336f1cb6ef12cfda9728c350673a"
+    },
+    {
+      "path": "docs/platform-plan/contracts/xp-policy.example.yaml",
+      "bytes": 1743,
+      "sha256": "4adba5f3d4a8d60cce93a443587a418ed4008a11a16193627434644fbe164e4d"
+    },
+    {
+      "path": "docs/platform-plan/contracts/xp-policy.schema.json",
+      "bytes": 4805,
+      "sha256": "4e76f90c5e23b8d727206234b598901b15f388d2f87bc6506ea7b2f5698cfc86"
+    },
+    {
+      "path": "docs/platform-plan/execution/acceptance-matrix.md",
+      "bytes": 13447,
+      "sha256": "b99bd64a2677425174fd4be0184ca174be1bc0ebc2cc80d0e2435f0ea339301f"
+    },
+    {
+      "path": "docs/platform-plan/execution/first-work-batch.md",
+      "bytes": 25536,
+      "sha256": "84586ac0a66a96430acf8cb177d548e6e40c8d184be3b12817c11c7021d53c8a"
+    },
+    {
+      "path": "docs/platform-plan/execution/human-foundation-plan.md",
+      "bytes": 22360,
+      "sha256": "31a85553f92ac6c665d68ab48ca3c9755b83043d6d56a9e41d2edc358716d0bf"
+    },
+    {
+      "path": "docs/platform-plan/execution/milestones.md",
+      "bytes": 16195,
+      "sha256": "7bdae9124964544d4037aac81f9888ca801bd621efdbd521f8d78eb912fe73d6"
+    },
+    {
+      "path": "docs/platform-plan/execution/proposals/domain-skill-overlay-stage-1a-contract.diff",
+      "bytes": 2852,
+      "sha256": "74f9d3ce527dec51bc464087a2e7b8eab18c81b494498714dd6b217e4e99a59c"
+    },
+    {
+      "path": "docs/platform-plan/execution/proposals/retract-success-response.diff",
+      "bytes": 4026,
+      "sha256": "6a6a97c41cf6f0cefa8e45f4c88d0a91494a1343d9d4c5a3cd7752e4f16696b7"
+    },
+    {
+      "path": "docs/platform-plan/execution/spec-index.md",
+      "bytes": 22897,
+      "sha256": "99846e5ec5500b29166254e7ae4c8bfd1828dd7ecc1c8617dccd431e34f46346"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/AGT-01.md",
+      "bytes": 4330,
+      "sha256": "3f3943eac11454ae7c30dc44f6da0b0964946831703061452388ad001974b4ce"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/AGT-02.md",
+      "bytes": 4340,
+      "sha256": "7fc11b4d92a294e2e792b719112bdbc0d5131d432c43abdbcd1c6661ff9e7e9e"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/AGT-04.md",
+      "bytes": 6103,
+      "sha256": "242641da434de890423cab429dc03cea0a01527f3112e9a144fbb370e12a0914"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/AGT-05.md",
+      "bytes": 6181,
+      "sha256": "8f77ce2b082a061d6e14060e7f28a75d0a39e4624b73b47d28d1c2c4363d84ce"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/BLD-01.md",
+      "bytes": 4123,
+      "sha256": "fda660c17efd2c276ba79a6aeff313d898e17f6f9b42df9c09bc8dbeeed07b18"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/BLD-02.md",
+      "bytes": 4116,
+      "sha256": "34cb0501cd2c73022352a15cb7ceb20632c848bfa3acc13599cd79b994db0415"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/BLD-03.md",
+      "bytes": 4134,
+      "sha256": "e5a0d6a557b69f197255a3d3ef3014eea3f8dd4f78b645d04c2c60786650f32d"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/BLD-04.md",
+      "bytes": 6858,
+      "sha256": "912595a300fe6f55d76cd068d64bfa7debf7ddea29fe758b31d35a4880a7518a"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/BLD-05.md",
+      "bytes": 6888,
+      "sha256": "d7d3fe7655d85888944c404f0ea4ff4828949c0317799d5a5e53fc2425353e0d"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/FND-01.md",
+      "bytes": 4879,
+      "sha256": "5dd6eb7e1aee96f3c897e3cac76f4568626082e4457f8cfd366477ed98304c10"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/FND-02.md",
+      "bytes": 4545,
+      "sha256": "33d0458a394cd808395298eb77accc8817530589e04cc4cde9f45db006456e43"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/FND-03.md",
+      "bytes": 4301,
+      "sha256": "7a368f045665697103e612bb68eb37c07e2a751729be6cb700903e3431265890"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/FND-04.md",
+      "bytes": 4688,
+      "sha256": "fd5dadfcc7050abb8f2f13b01eaa8bdff0abb2deac2ad8f7092773605ea476a0"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/FND-06.md",
+      "bytes": 4610,
+      "sha256": "5384665824b22deb0c25116e1d4e77aa52c39e78f26b80e262e1f8efd2dfd489"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/INT-03A.md",
+      "bytes": 3903,
+      "sha256": "ae93d7cd9f65fd277438422a46972ff68c5555251b4f593d324f74fe91ff8e98"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/INT-03B.md",
+      "bytes": 6257,
+      "sha256": "11388c4ee5cbefe65e70a01b1a0254876fc94fed96063ecac47cde0b0c0b1d45"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/ORG-01.md",
+      "bytes": 5019,
+      "sha256": "e99f979675323a2c88714cf374be97b47363add08c735babc536aaf7f4bdd2bd"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/ORG-02.md",
+      "bytes": 4022,
+      "sha256": "35f5dc3ddcb75cefd9e2c92f4038cf2d80db198e171d339bb1a3d1e11bc112fc"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/SKL-01.md",
+      "bytes": 6078,
+      "sha256": "ca74e78be446164be7433964767508083064c71456e7445c607a0ed3859458ca"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/SKL-03.md",
+      "bytes": 6709,
+      "sha256": "6e994c21ff089d6f4f3d0a307ac97cab112b12f62300e6e5807c2e91ff4fcedf"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/WRK-01.md",
+      "bytes": 6190,
+      "sha256": "16eb9f2b9321fa74a41a02e26cb6f05f88314698625341f14b2018e95343e9ea"
+    },
+    {
+      "path": "docs/platform-plan/execution/tools/check_package_dag.py",
+      "bytes": 11326,
+      "sha256": "cd3e20ca8d0b9366bc7733cc284fa93929e8356703da1a1712574faffe9b93cd"
+    },
+    {
+      "path": "docs/platform-plan/execution/tools/check_specs.py",
+      "bytes": 14559,
+      "sha256": "3e633f2f2fe19702ff7f14ed9abca9022bee654589c64bf141d5e4e9415acf0d"
+    },
+    {
+      "path": "docs/platform-plan/execution/tools/tests/test_check_package_dag.py",
+      "bytes": 6041,
+      "sha256": "2196568d178be901ca489110828a35e38fd931b4cf495da75ca53fde8fbce5c9"
+    },
+    {
+      "path": "docs/platform-plan/execution/tools/tests/test_check_specs.py",
+      "bytes": 8804,
+      "sha256": "32c139fd3a7ed3e3b9dbc3d2e22f0e314f8be8d4f23803d73647c07ae4195a35"
+    },
+    {
+      "path": "docs/platform-plan/verification/2026-09-17-tree-verification.md",
+      "bytes": 8874,
+      "sha256": "a4154495dd3901fd64c411b8a63afa17fc2f034c0281a93d9e16d1bc30ab4ff4"
+    },
+    {
+      "path": "docs/platform-plan/verification/2026-09-19-file-inventory.json",
+      "bytes": 19375,
+      "sha256": "e457df4417b210bb13f25b5c11a146bdf7e4908e810df0ff6be1496cd26015c9"
+    },
+    {
+      "path": "docs/platform-plan/verification/2026-09-19-revision-check.md",
+      "bytes": 3236,
+      "sha256": "eed32db0dad0a84f091c1140bbbf8c24a9daa5f1a7fef0699c0ae32dc29ac10b"
+    },
+    {
+      "path": "docs/platform-plan/verification/2026-09-19-static-tests.txt",
+      "bytes": 179,
+      "sha256": "bc1ed09b8d2790af5bf164ccddd025a62f3318312b653ff306de50d67088173f"
+    },
+    {
+      "path": "docs/platform-plan/verification/verify_revision.py",
+      "bytes": 2655,
+      "sha256": "21c9f8402b5464da1630d2e0e05115eb6a1a11f8d99ad521ca9bd34f2f7013b0"
+    },
+    {
+      "path": "docs/releases/2026-09-20-local-core.md",
+      "bytes": 5837,
+      "sha256": "f5c6636ee5dc40c62499afed57e037893dee3ac87579a3d8d1923df938981deb"
+    },
+    {
+      "path": "migrations/001_local_core.sql",
+      "bytes": 7122,
+      "sha256": "d3b9e4b8caf93d111ef76b0f0180f6ff581d0d350628a5bf7375f3bc2773b7d3"
+    },
+    {
+      "path": "modules/identity-membership/service.ts",
+      "bytes": 3608,
+      "sha256": "416a6a713520befd2d37388e75d0d4c9d22bfcba0ce5465c113827ec116bb835"
+    },
+    {
+      "path": "modules/opportunity-project-work/business.ts",
+      "bytes": 10548,
+      "sha256": "9e1ae99bb3b88e119ad985c624b20b4660ede7927c8add3f59919fa3fb35c575"
+    },
+    {
+      "path": "modules/opportunity-project-work/work.ts",
+      "bytes": 13426,
+      "sha256": "6d5b9412c73e1915a2ac9c290157458df566ce9acd8447c7d9124bc7d1aefe88"
+    },
+    {
+      "path": "package-lock.json",
+      "bytes": 63926,
+      "sha256": "7de077353ba3c6425d518d7c88c3ff9710f3a5beb9586dd92700f38ac38ba95b"
+    },
+    {
+      "path": "package.json",
+      "bytes": 1409,
+      "sha256": "6f1891e47ea54217f3d791191c9b6b210dd581972e5cbfdc7251fc605e1774eb"
+    },
+    {
+      "path": "packages/db/index.ts",
+      "bytes": 3803,
+      "sha256": "6107a260e69b1a20ec267093eda2f8eec48db4a86c51f5336509dd098c359d00"
+    },
+    {
+      "path": "packages/shared/problem.ts",
+      "bytes": 315,
+      "sha256": "b59135e1896c332182a0b6c0273656b61e60fd77bfaa898469ebeb37fc789dec"
+    },
+    {
+      "path": "packages/shared/validation.ts",
+      "bytes": 472,
+      "sha256": "19b8c98e770e92785b0351e06623feb62827968edc314743f704beeb5c847bed"
+    },
+    {
+      "path": "packages/testing/seed.ts",
+      "bytes": 3179,
+      "sha256": "94a03d42778d2c27ab53b3795cf599ceab0f293209da3c799e59b7d438478453"
+    },
+    {
+      "path": "playwright.config.ts",
+      "bytes": 607,
+      "sha256": "5a76cd432138339d7199341d62dde3141654ad9b0e4c7fdfb200fd3e57f6d7ec"
+    },
+    {
+      "path": "scripts/database.ts",
+      "bytes": 1823,
+      "sha256": "d9d860c7e0ae9aae2973fb2117acf2a07cea52904544bd69547c22807ec0ee64"
+    },
+    {
+      "path": "scripts/e2e-server.ts",
+      "bytes": 1386,
+      "sha256": "b61f0029916c756d6dcac76e654fa2b49c17ed1b9eb83d670533e76e860e1a3b"
+    },
+    {
+      "path": "scripts/update-inventory.py",
+      "bytes": 964,
+      "sha256": "303c5edf31af35ab34d9ba9d13f9492f5b908a8518e93b3e9429292ee8df2ecc"
+    },
+    {
+      "path": "tests/e2e/journeys.spec.ts",
+      "bytes": 7954,
+      "sha256": "6ccd3c7967669d43cbebc8d059aef3475dace2194fafd4f89ca10c85315709ce"
+    },
+    {
+      "path": "tests/runtime/flows.test.ts",
+      "bytes": 21016,
+      "sha256": "784238133e91a4b67b477ebc12151616c2cc4bb77c878a55d96e0efeeda4adaf"
+    },
+    {
+      "path": "tsconfig.json",
+      "bytes": 451,
+      "sha256": "3281258efa37b3515aec8334e79d7e775669d202fa7aeaed911287d30e20993c"
+    }
+  ]
+}

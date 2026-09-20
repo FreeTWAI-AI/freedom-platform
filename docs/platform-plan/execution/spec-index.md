@@ -8,7 +8,7 @@ Owner 欄保留 [`06 §4`](../06-delivery-plan.md#4-stable-work-packages) 的 Gu
 
 ### 2026-09-19 運作範圍修訂
 
-56 packages及M00–M09技術membership保留；FW-13–FW-15是既有package的工作卡增量。全形狀建置／帳號／sandbox不等於四線同步營運。首批只一種真需求互助，真人容量、雙方實益、總維持工時與資金證據決定新增對外服務承諾，詳見 `../12-low-ops-mutual-benefit.md`；不封鎖一般貢獻。所有原runtime／真人測試仍未跑。
+56 packages及M00–M09技術membership保留；FW-13–FW-15是既有package的工作卡增量。全形狀建置／帳號／sandbox不等於四線同步營運。首批兩條平行驗證路徑：有限互助，以及自願作品展示／外展／商機／合作／外部實收證據；詳見 `../12-low-ops-mutual-benefit.md`。資源與容量只約束已承諾的真人服務，不阻擋一般參與或外展。產品／營運／真人測試仍待跑；契約 fixture 與本機 scoped runtime milestone 另見 `../verification/2026-09-19-revision-check.md` 與 [`2026-09-20-local-core.md`](../../releases/2026-09-20-local-core.md)。不宣稱完整 package 或 milestone 完成。
 
 
 ## 執行層職能對照 `06` Owner／Accountable Squad
@@ -21,7 +21,7 @@ Owner 欄保留 [`06 §4`](../06-delivery-plan.md#4-stable-work-packages) 的 Gu
 | Identity / Security | Foundation；Agent grant scope 為 Agent Workflow/Security |
 | Work / Opportunities | Agent Workflow；opportunity scope 為 Agent/Opportunity |
 | Quality / Commercialization | Open Product/QC；service/commercialization scope 為 Open Product |
-| People / Identity | Talent/Agent；identity lifecycle scope 為 Foundation |
+| Talent / Agent | Talent/Agent；identity lifecycle scope 為 Foundation |
 | Agent Runtime | Agent Workflow |
 | Skills / Integrations | Open Product；GitHub/integration scope 為 Community & Migration |
 | Build / Release | Foundation & Contracts；control/project scope 為 Open Product & Skills；runtime scope 為 Agent Workflow |
@@ -40,7 +40,7 @@ Owner 欄保留 [`06 §4`](../06-delivery-plan.md#4-stable-work-packages) 的 Gu
 | [FND-04](./specs/FND-04.md) | Ted（Foundation；建議預設，五人共同閱讀時確認） | `06 §4.1`；`02 §8.4–8.5`；`08 §5` | M01 | draft-ready；credential/object/observability/restore |
 | [FND-06](./specs/FND-06.md) | Ted（Foundation & Contracts；建議預設，五人共同閱讀時確認） | `06 §4.1/.1.1`；`01 §12`；entitlement catalog | M01 | draft-ready；八 entitlement、A4 boundary |
 | [ORG-01](./specs/ORG-01.md) | Hao（Foundation／Organizations & Guilds；建議預設，五人共同閱讀時確認） | `06 §4.1`；`03 §3.1.1` | M01 | draft-ready；Guild/Profession/Rank/Office/Stewardship |
-| [ORG-02](./specs/ORG-02.md) | Hao（Talent/Agent；建議預設，五人共同閱讀時確認） | `06 §4.1`；`03 §3.14` | M01 | draft-ready；equipped skills/availability/WorkIntent |
+| [ORG-02](./specs/ORG-02.md) | Jason（Talent/Agent；建議預設，五人共同閱讀時確認） | `06 §4.1`；`03 §3.14` | M01 | draft-ready；equipped skills/availability/WorkIntent |
 | [WRK-01](./specs/WRK-01.md) | Jason（Agent Workflow；建議預設，五人共同閱讀時確認） | `06 §4.1/.6`；`03 §7.5` | M01 | draft-ready；WorkItem/Claim/Result/capacity navigation |
 | [AGT-01](./specs/AGT-01.md) | Ted（Agent Workflow；建議預設，五人共同閱讀時確認） | `06 §4.1`；`03 §3.14/7.18`；agent work contract | M01 | draft-ready；WorkContext/Connection/Run/lease/receipt |
 | [AGT-02](./specs/AGT-02.md) | Ted（Agent Workflow；建議預設，五人共同閱讀時確認） | `06 §4.1`；`03 §3.14`；`05 §3.3.1` | M01 | draft-ready；ExecutionGrant/A4/ActionIntent/provenance |
@@ -61,10 +61,10 @@ Owner 欄保留 [`06 §4`](../06-delivery-plan.md#4-stable-work-packages) 的 Gu
 | QLT-02 | Mini（Open Product/QC；建議預設，五人共同閱讀時確認） | `06 §4.3/.6`；RQ-060 | M03 | 後續；retraction/projection invalidation |
 | FND-05 | Ted（Foundation/Agent；建議預設，五人共同閱讀時確認） | `06 §4.1.1`；entity-playbook contract | M04 | 後續；readiness/navigation |
 | ORG-03 | Hao（Organization/Community；建議預設，五人共同閱讀時確認） | `06 §4.1.1`；`04 §8.5` | M04 | 後續；Guild lifecycle/starter |
-| ONB-01 | Hao（Talent/Agent/Community；建議預設，五人共同閱讀時確認） | `06 §4.1.1`；member-onboarding contract | M04 | 後續；day-one/welcome/stuck |
-| POS-01 | Hao（Talent；建議預設，五人共同閱讀時確認） | `06 §4.2`；`04 §2` | M04 | 後續；deterministic assessment parity |
-| POS-02 | Hao（Talent；建議預設，五人共同閱讀時確認） | `06 §4.2`；`04 §2` | M04 | 後續；guided draft/confirmation |
-| COA-01 | Hao（Talent；建議預設，五人共同閱讀時確認） | `06 §4.2`；`04 §9` | M04 | 後續；free knowledge/checkpoints |
+| ONB-01 | Jason（Talent/Agent/Community；建議預設，五人共同閱讀時確認） | `06 §4.1.1`；member-onboarding contract | M04 | 後續；day-one/welcome/stuck |
+| POS-01 | Jason（Talent；建議預設，五人共同閱讀時確認） | `06 §4.2`；`04 §2` | M04 | 後續；deterministic assessment parity |
+| POS-02 | Jason（Talent；建議預設，五人共同閱讀時確認） | `06 §4.2`；`04 §2` | M04 | 後續；guided draft/confirmation |
+| COA-01 | Jason（Talent；建議預設，五人共同閱讀時確認） | `06 §4.2`；`04 §9` | M04 | 後續；free knowledge/checkpoints |
 | SKL-02 | Ted（Open Product；建議預設，五人共同閱讀時確認） | `06 §4.3`；`04 §7` | M04 | 後續；maintainer/discussion/run evidence |
 | INTK-01 | Hao（Agent Workflow／Community；建議預設，五人共同閱讀確認） | `06 §4.2`；submission-intake contract | M04 | 後續；private intake/exact-source receipt |
 | INT-01 | Hao（Community；建議預設，五人共同閱讀時確認） | `06 §4.2`；`05 §7` | M04 | 後續；LINE adapter |
@@ -74,7 +74,7 @@ Owner 欄保留 [`06 §4`](../06-delivery-plan.md#4-stable-work-packages) 的 Gu
 | OPP-01 | Jason（Agent/Opportunity；建議預設，五人共同閱讀時確認） | `06 §4.3/.6`；`04 §10.2` | M06 | 後續；private opportunity/supply owner |
 | SRV-01 | Ted（Open Product service／Skills／OSS／commercialization；建議預設，五人共同閱讀確認） | `06 §4.3`；`04 §10.2` | M06 | 後續；ServiceEngagement/SOW/milestone |
 | SRV-02 | Ted（Open Product service／Skills／OSS／commercialization；建議預設，五人共同閱讀確認） | `06 §4.3`；`04 §10.2` | M06 | 後續；allocation/three-human completeness |
-| COA-02 | Hao（Talent；建議預設，五人共同閱讀時確認） | `06 §4.2`；`04 §9` | M06 | 後續；paid human capacity |
+| COA-02 | Jason（Talent；建議預設，五人共同閱讀時確認） | `06 §4.2`；`04 §9` | M06 | 後續；paid human capacity |
 | CAT-01 | Mini（Commerce/QC；建議預設，五人共同閱讀時確認） | `06 §4.4`；`04 §3` | M07 | 後續；Supplier/Product/Offer/QC |
 | CAT-02 | Mini（Commerce；建議預設，五人共同閱讀時確認） | `06 §4.4`；`04 §3` | M07 | 後續；arrangement/listing/guidance |
 | CAT-03 | Mini（Commerce/QC；建議預設，五人共同閱讀時確認） | `06 §4.4`；`03 §7.7` | M07 | 後續；acceptance/reservation/revoke |
@@ -94,19 +94,19 @@ Owner 欄保留 [`06 §4`](../06-delivery-plan.md#4-stable-work-packages) 的 Gu
 ## Global cross-spec constraints
 
 - Canonical entities／states／events 不在 execution specs 另定義；只以相對連結引用 [`03`](../03-domain-events-state-machines.md)、[`04`](../04-module-specifications.md)、[`05`](../05-integration-contracts.md) 與 [`contracts/`](../contracts/README.md)。
-- 所有 M00–M02 測試命令都只是 future command，明標「未跑」；目前沒有相應 tests 或 runtime。
+- M00–M02 spec 內的產品／runtime 測試命令仍是 future command，明標「未跑」。FW-01–FW-12 的契約／fixture／validator 已有第一批靜態交付，本機 scoped runtime 另見 [`2026-09-20-local-core.md`](../../releases/2026-09-20-local-core.md)；兩者都不把任何 spec 列改成 implemented 或 verified。
 - Repo／contract authoring source、external account、key、sandbox 與 release 都依 `02 §4.6`、`06 §6`、`08 §13` 的技術依賴與 evidence 語意執行；缺 evidence 令相應標籤或 claim 為 false，其他工作照常。
 
 ## 引用稽核表
 
-本表將每張 FW 卡與每份 M00–M02 spec 的「來源與需求 ID」對回 `07 §3`、`07 §5`、`07 §8` 的穩定 ID；此表是 topic-match 稽核，不取代 `07` 全文。
+本表將每張 FW 卡與每份 M00–M02 spec 的「來源與需求 ID」對回 `07 §3`、`07 §5`、`07 §8` 的穩定 ID；此表是 topic-match 稽核，不取代 `07` 全文。T&D 指 Talent & Direction（定位＋陪跑）。
 
 | 卡／spec | 引用 ID → `07` 標題原文 |
 | --- | --- |
 | FW-01 | RQ-061 → 五種時間各自有欄位與到期語意；ADR-062 → Invite／claim、delivery、TaskLease＋fence… |
 | FW-02 | RQ-058 → XP依profession與training／maintenance…；RQ-060 → Accepted review可更正撤回且舊receipt不復活；ADR-059 → XP採每profession、每track可刪除重建…；ADR-061 → Accepted review可追加retraction fact… |
 | FW-03 | RQ-060 → Accepted review可更正撤回且舊receipt不復活；ADR-061 → Accepted review可追加retraction fact… |
-| FW-04 | RQ-059 → v1 Reviewer任命以具名、scoped、可撤回…；ADR-060 → ReviewerAppointment是qc.review唯一取得路徑；OD-10 → 建議預設 steward：Ted＝Platform／Agent Control／Contracts、Settlement／ledger、AI Vibe／Skills／OSS；Hao＝Growth、Media、Member／Community、Talent；Mini＝Delivery PM、Product Quality／Supply、Commerce／Storefront；Jason＝Opportunity／Partnership 與 Work 流程；韋銘＝dev implementation。`official` 的具名獨立 reviewer 可由五人中任一非作者擔任，建議預設韋銘；韋銘為作者時改 Mini 或 Jason。五人共同閱讀時確認；Seller／Supplier／Skill／opportunity seed 同步建立 |
+| FW-04 | RQ-059 → v1 Reviewer任命以具名、scoped、可撤回…；ADR-060 → ReviewerAppointment是qc.review唯一取得路徑；OD-10 → 建議預設 steward：Ted＝Platform／Agent Control／Contracts、Settlement／ledger、AI Vibe／Skills／OSS；Hao＝Growth、Media、Member／Community；Mini＝Delivery PM、Product Quality／Supply、Commerce／Storefront；Jason＝T&D、Opportunity／Partnership 與 Work 流程；韋銘＝dev implementation。`official` 的具名獨立 reviewer 可由五人中任一非作者擔任，建議預設韋銘；韋銘為作者時改 Mini 或 Jason。五人共同閱讀時確認；Seller／Supplier／Skill／opportunity seed 同步建立 |
 | FW-05 | RQ-062 → Seller 資金執行預設 `record_only`，`authorized_mandate` 綁平台 flag 與 exact mandate；ADR-063 → Seller settlement 有 `record_only\|authorized_mandate` 兩個 mode，`money_movement_enabled=false`；OD-28 → `money_movement_enabled=false`、每個 Seller=`record_only`；`authorized_mandate` 只在 Payer 當事人的 A4 與 Ted 付款類 A4 都位於同一 exact `SettlementMandate` digest 時可用，缺一則維持 `record_only` 且商店、listing、對帳照常；明細在 confirmed reconciliation 前只顯示「已記錄」 |
 | FW-06 | RQ-063 → Review-required 工作可公開作 candidate；exact-scope reviewer capacity 控制 `official` label readiness；ADR-064 → Review-required WorkItem 保留正交 review-capacity 導航狀態 ID `waiting_reviewer_capacity`，但 capacity 不控制 candidate 是否可領 |
 | FW-07 | `06 §5` package dependency map；`milestones.md` Package 依賴表 |
@@ -128,7 +128,7 @@ Owner 欄保留 [`06 §4`](../06-delivery-plan.md#4-stable-work-packages) 的 Gu
 | FND-02 | RQ-041 → Rules／config可改但歷史可重現；RQ-043 → 五個repos contract-first平行開發 |
 | FND-03 | RQ-003 → Discord／LINE／GitHub／Platform facts分工；RQ-005 → Guild縱向、Squad橫向、一人多職；RQ-039 → 會員可export／deactivate並保留必要facts |
 | FND-04 | RQ-039 → export／deactivate保留必要facts；RQ-043 → contract-first／Credential Broker；RQ-045 → GitHub Organization＋Cloudflare＋managed PostgreSQL launch topology |
-| FND-06 | RQ-004 → 低摩擦、零 automated compliance 阻擋；RQ-023 → A0–A4授權、exact signature與ActionIntent；RQ-059 → 自然人 Reviewer 以具名、scoped、可撤回且有 review date 的 appointment 成立；AI review 不建立 entitlement；ADR-056 → Launch entitlement 只有八個 canonical keys，與 catalog exact-set／conditions 一致，含 `store.deploy`；ADR-060 → `ReviewerAppointment` 是自然人取得 `qc.review:<scope>` 的唯一路徑；AI review 不建立該 entitlement；OD-10 → 建議預設 steward：Ted＝Platform／Agent Control／Contracts、Settlement／ledger、AI Vibe／Skills／OSS；Hao＝Growth、Media、Member／Community、Talent；Mini＝Delivery PM、Product Quality／Supply、Commerce／Storefront；Jason＝Opportunity／Partnership 與 Work 流程；韋銘＝dev implementation。`official` 的具名獨立 reviewer 可由五人中任一非作者擔任，建議預設韋銘；韋銘為作者時改 Mini 或 Jason。五人共同閱讀時確認；Seller／Supplier／Skill／opportunity seed 同步建立 |
+| FND-06 | RQ-004 → 低摩擦、零 automated compliance 阻擋；RQ-023 → A0–A4授權、exact signature與ActionIntent；RQ-059 → 自然人 Reviewer 以具名、scoped、可撤回且有 review date 的 appointment 成立；AI review 不建立 entitlement；ADR-056 → Launch entitlement 只有八個 canonical keys，與 catalog exact-set／conditions 一致，含 `store.deploy`；ADR-060 → `ReviewerAppointment` 是自然人取得 `qc.review:<scope>` 的唯一路徑；AI review 不建立該 entitlement；OD-10 → 建議預設 steward：Ted＝Platform／Agent Control／Contracts、Settlement／ledger、AI Vibe／Skills／OSS；Hao＝Growth、Media、Member／Community；Mini＝Delivery PM、Product Quality／Supply、Commerce／Storefront；Jason＝T&D、Opportunity／Partnership 與 Work 流程；韋銘＝dev implementation。`official` 的具名獨立 reviewer 可由五人中任一非作者擔任，建議預設韋銘；韋銘為作者時改 Mini 或 Jason。五人共同閱讀時確認；Seller／Supplier／Skill／opportunity seed 同步建立 |
 | INT-03A | RQ-024 → Platform與GitHub雙向追蹤fork／PR／review；RQ-046 → project manifest／generated Page／canonical link |
 | INT-03B | RQ-024 → Platform與GitHub雙向追蹤fork／PR／review；RQ-064 → GitHub真實本人互動／禁操弄；ADR-021 → Platform／GitHub truth boundary；ADR-065 → GitHub真實評價與平台操弄分開 |
 | ORG-01 | RQ-005 → Guild縱向／Squad橫向；RQ-006 → Rank與office分開；RQ-007 → 單一stewardship／delegate；RQ-008 → 三Guild一Division；RQ-009 → commercial-ready三個不同自然人；RQ-059 → ReviewerAppointment；ADR-007/008/009/010/011 → 對應組織／rank／stewardship／Division／三人決策；ADR-060 → appointment-only；OD-10 → 首批具名holders |

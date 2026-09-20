@@ -2,11 +2,16 @@
 
 > 狀態：現行 canonical baseline（2026-09-19 低維運互惠修訂）；planning 文件，不代表已部署。
 
-FW-01–FW-12保留；新增FW-13–FW-15併入既有package，合計15張。這些卡可在 planning workspace直接開始；不要求先建立雲端資源、外部帳號、provider key、採購或 production release。它們產生 contract／fixture／test／validator evidence，不表示 runtime 已存在。每卡 reviewer 固定為 Grok，verifier 固定為 Claude；AI checks 產生修復工作，不形成開始工作的停點。
+FW-01–FW-12保留；新增FW-13–FW-15併入既有package，合計15張。這些卡可在 planning workspace直接開始；不要求先建立雲端資源、外部帳號、provider key、採購或 production release。它們產生 contract／fixture／test／validator evidence，不表示完整 runtime 或 milestone 已完成。每卡 reviewer 固定為 Grok，verifier 固定為 Claude；AI checks 產生修復工作，不形成開始工作的停點。本檔不登錄通過數、具名 reviewer 成功、部署或真人使用證據。
 
-測試命令均為將來完成卡片時的預期命令，現在**未跑**。卡片編號不取代 requirement 或 package ID。
+### 2026-09-20 交付現況
 
-Test stack 固定為 `python3`＋`pytest`＋`PyYAML`＋`jsonschema`（Draft 2020-12）。`x-uniqueBy`／`x-invariants` 不是 JSON Schema 關鍵字，標準 validator 不會執行；每張卡的測試必須另寫檢查明示驗證這些規則。
+- FW-01–FW-12 已有第一批靜態交付（tests／fixtures／validators 已落盤）。FW-11 的 stage-1A README 已 materialized；FW-12 的 typed retract success response 已合入 OpenAPI。卡片內產品／runtime 驗收仍未滿，不把任何 package 標為完成。
+- FW-13–FW-15 仍為部分規劃／未滿驗收。
+- 契約 fixture 檢查已有本地紀錄；產品／營運／真人測試仍待跑。本機 scoped runtime milestone 見 [`docs/releases/2026-09-20-local-core.md`](../../releases/2026-09-20-local-core.md)，涵蓋 login→claim→submit→accept→gains 的原型。
+- 首批營運驗證是兩條平行路徑：有限互助，以及自願作品展示／外展／商機／合作／外部實收證據。不要求先完成十次免費互助才准找客戶；不承諾付費名單或未來收入；目前沒有已證明的真實付費成交。收款維持 Seller 自有、平台不 custody。
+
+卡片編號不取代 requirement 或 package ID。Test stack 固定為 `python3`＋`pytest`＋`PyYAML`＋`jsonschema`（Draft 2020-12）。`x-uniqueBy`／`x-invariants` 不是 JSON Schema 關鍵字，標準 validator 不會執行；每張卡的測試必須另寫檢查明示驗證這些規則。
 
 ## 外包規則
 
@@ -34,11 +39,11 @@ Test stack 固定為 `python3`＋`pytest`＋`PyYAML`＋`jsonschema`（Draft 2020
 | 允許修改路徑 | `docs/platform-plan/contracts/tests/test_five_clock_invariants.py`（新建）；`docs/platform-plan/contracts/tests/fixtures/five-clocks/`（新建） |
 | 依賴 | 無；只讀既有 `contracts/**` |
 | acceptance | invite／claim、delivery、lease＋fence、grant、evidence／appointment 五類各有正例、setter／expiry 邊界與「另一 clock 不能替代」負例；schema path 全部 resolve；無 runtime claim |
-| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_five_clock_invariants.py`（新建；未跑） |
+| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_five_clock_invariants.py`（已建立；2026-09-20 已納入全套重跑，結果見版本紀錄） |
 | reviewer | Grok |
 | verifier | Claude |
 | official reviewer（建議預設） | Mini 或 Jason（五人共同閱讀確認）；由非作者擔任，只控制 `official` evidence |
-| Ted 三類一鍵點／外部資源 | **無／無**；允許修正上述來源契約與對應測試，不執行runtime、簽名或外部副作用 |
+| Ted 三類一鍵點／外部資源 | **無／無**；只新增 `contracts/tests` 與 synthetic fixtures |
 
 ## FW-02 — XP deterministic rebuild golden fixture
 
@@ -53,7 +58,7 @@ Test stack 固定為 `python3`＋`pytest`＋`PyYAML`＋`jsonschema`（Draft 2020
 | 允許修改路徑 | `docs/platform-plan/contracts/tests/test_xp_projection_rebuild.py`（新建）；`docs/platform-plan/contracts/tests/fixtures/xp-rebuild/`（新建） |
 | 依賴 | FW-01 無；現有 XP policy fixture即可開始 |
 | acceptance | 三軌涵蓋；retracted outcome 被排除；同 policy/source ordering 重建 byte/digest一致；XP 未成為 entitlement/rank/appointment/A4 input |
-| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_xp_projection_rebuild.py`（新建；未跑） |
+| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_xp_projection_rebuild.py`（已建立；2026-09-20 已納入全套重跑，結果見版本紀錄） |
 | reviewer | Grok |
 | verifier | Claude |
 | official reviewer（建議預設） | Mini 或 Jason（五人共同閱讀確認）；由非作者擔任，只控制 `official` evidence |
@@ -72,7 +77,7 @@ Test stack 固定為 `python3`＋`pytest`＋`PyYAML`＋`jsonschema`（Draft 2020
 | 允許修改路徑 | `docs/platform-plan/contracts/tests/test_retracted_receipt_replay.py`（新建）；`docs/platform-plan/contracts/tests/fixtures/review-retraction/`（新建） |
 | 依賴 | 無；不需真的發 event |
 | acceptance | 舊 receipt 不復活 outcome；XP/matching/entitlement expected outputs 不含該 review；原 review/retraction history都保存 |
-| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_retracted_receipt_replay.py`（新建；未跑） |
+| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_retracted_receipt_replay.py`（已建立；2026-09-20 已納入全套重跑，結果見版本紀錄） |
 | reviewer | Grok |
 | verifier | Claude |
 | official reviewer（建議預設） | Mini 或 Jason（五人共同閱讀確認）；由非作者擔任，只控制 `official` evidence |
@@ -91,7 +96,7 @@ Test stack 固定為 `python3`＋`pytest`＋`PyYAML`＋`jsonschema`（Draft 2020
 | 允許修改路徑 | `docs/platform-plan/contracts/tests/test_reviewer_appointment_entitlement.py`（新建）；`docs/platform-plan/contracts/tests/fixtures/reviewer-appointments/`（新建） |
 | 依賴 | 無；named OD-10 holder 全用 synthetic IDs |
 | acceptance | 只有 active exact-scope appointment 投影 `qc.review:<scope>`；自然人獨立性與 expiry/revoke boundary 明確 |
-| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_reviewer_appointment_entitlement.py`（新建；未跑） |
+| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_reviewer_appointment_entitlement.py`（已建立；2026-09-20 已納入全套重跑，結果見版本紀錄） |
 | reviewer | Grok |
 | verifier | Claude |
 | official reviewer（建議預設） | Mini 或 Jason（五人共同閱讀確認）；由非作者擔任，只控制 `official` evidence |
@@ -110,7 +115,7 @@ Test stack 固定為 `python3`＋`pytest`＋`PyYAML`＋`jsonschema`（Draft 2020
 | 允許修改路徑 | `docs/platform-plan/contracts/tests/test_settlement_execution_modes.py`（新建）；`docs/platform-plan/contracts/tests/fixtures/settlement-modes/`（新建） |
 | 依賴 | 無；provider 用 pure fake object，不連網；fake provider 介面由本卡定義並存於 `contracts/tests/fixtures/settlement-modes/`，只需支援 accept／confirm／unknown 三種回應以測 retry 與 reconcile 斷言 |
 | acceptance | `record_only` 只顯示 `recorded`；authorized branch 必須同時滿足 platform flag＋active exact mandate；operation key可穩定重試 |
-| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_settlement_execution_modes.py`（新建；未跑） |
+| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_settlement_execution_modes.py`（已建立；2026-09-20 已納入全套重跑，結果見版本紀錄） |
 | reviewer | Grok |
 | verifier | Claude |
 | official reviewer（建議預設） | Mini 或 Jason（五人共同閱讀確認）；由非作者擔任，只控制 `official` evidence |
@@ -129,7 +134,7 @@ Test stack 固定為 `python3`＋`pytest`＋`PyYAML`＋`jsonschema`（Draft 2020
 | 允許修改路徑 | `docs/platform-plan/contracts/state-machines/core.example.yaml`；`docs/platform-plan/contracts/agent-work-contract.example.yaml`；`docs/platform-plan/contracts/tests/test_work_reviewer_capacity.py`；相關synthetic fixtures；`03`／`SPEC-WRK-01`的一致性說明 |
 | 依賴 | FW-04 fixture conventions（可平行，最後對齊） |
 | acceptance | core/example 的 candidate lifecycle 一致維持 `open`／published 且可領；`waiting_reviewer_capacity` 僅為正交導航狀態；support card 冪等；capacity 出現只更新 review route／卡片／`official` evidence，不更改 Person membership/rank/entitlement/discoverability |
-| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_work_reviewer_capacity.py`（新建；未跑） |
+| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_work_reviewer_capacity.py`（已建立；2026-09-20 已納入全套重跑，結果見版本紀錄） |
 | reviewer | Grok |
 | verifier | Claude |
 | official reviewer（建議預設） | Mini 或 Jason（五人共同閱讀確認）；由非作者擔任，只控制 `official` evidence |
@@ -148,7 +153,7 @@ Test stack 固定為 `python3`＋`pytest`＋`PyYAML`＋`jsonschema`（Draft 2020
 | 允許修改路徑 | `docs/platform-plan/execution/tools/check_package_dag.py`（新建）；`docs/platform-plan/execution/tools/tests/test_check_package_dag.py`（新建） |
 | 依賴 | 現行 `milestones.md` |
 | acceptance | canonical 56 IDs exact set；目前 dependency table通過；故意加入 dangling/cycle fixture時失敗 |
-| 測試 | `pytest -q docs/platform-plan/execution/tools/tests/test_check_package_dag.py`（新建；未跑） |
+| 測試 | `pytest -q docs/platform-plan/execution/tools/tests/test_check_package_dag.py`（已建立；2026-09-20 已納入全套重跑，結果見版本紀錄） |
 | reviewer | Grok |
 | verifier | Claude |
 | official reviewer（建議預設） | Mini 或 Jason（五人共同閱讀確認）；由非作者擔任，只控制 `official` evidence |
@@ -167,7 +172,7 @@ Test stack 固定為 `python3`＋`pytest`＋`PyYAML`＋`jsonschema`（Draft 2020
 | 允許修改路徑 | `docs/platform-plan/execution/tools/check_specs.py`（新建）；`docs/platform-plan/execution/tools/tests/test_check_specs.py`（新建） |
 | 依賴 | 21 份 M00–M02 specs |
 | acceptance | 缺 section、orphan spec、missing file或聲稱 test passed時失敗；目前 corpus通過 |
-| 測試 | `pytest -q docs/platform-plan/execution/tools/tests/test_check_specs.py`（新建；未跑） |
+| 測試 | `pytest -q docs/platform-plan/execution/tools/tests/test_check_specs.py`（已建立；2026-09-20 已納入全套重跑，結果見版本紀錄） |
 | reviewer | Grok |
 | verifier | Claude |
 | official reviewer（建議預設） | Mini 或 Jason（五人共同閱讀確認）；由非作者擔任，只控制 `official` evidence |
@@ -186,7 +191,7 @@ Test stack 固定為 `python3`＋`pytest`＋`PyYAML`＋`jsonschema`（Draft 2020
 | 允許修改路徑 | `docs/platform-plan/contracts/tests/test_portable_bundle_boundaries.py`（新建）；`docs/platform-plan/contracts/tests/fixtures/portable-bundle/`（新建） |
 | 依賴 | 無；簽章用 non-production test key fixture，不建 trust root |
 | acceptance | valid fixture schema pass；每個 negative有固定 failure class且 zero execution assertion |
-| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_portable_bundle_boundaries.py`（新建；未跑） |
+| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_portable_bundle_boundaries.py`（已建立；2026-09-20 已納入全套重跑，結果見版本紀錄） |
 | reviewer | Grok |
 | verifier | Claude |
 | official reviewer（建議預設） | Mini 或 Jason（五人共同閱讀確認）；由非作者擔任，只控制 `official` evidence |
@@ -205,7 +210,7 @@ Test stack 固定為 `python3`＋`pytest`＋`PyYAML`＋`jsonschema`（Draft 2020
 | 允許修改路徑 | `docs/platform-plan/contracts/tests/test_github_mock_semantics.py`（新建）；`docs/platform-plan/contracts/tests/fixtures/github-mock/`（新建） |
 | 依賴 | 無；禁止真實 GitHub token/account/network |
 | acceptance | read-only golden穩定；Agent write/star拒絕；外部文字不能改 grant/owner/payee；fixtures通過 secret scan |
-| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_github_mock_semantics.py`（新建；未跑） |
+| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_github_mock_semantics.py`（已建立；2026-09-20 已納入全套重跑，結果見版本紀錄） |
 | reviewer | Grok |
 | verifier | Claude |
 | official reviewer（建議預設） | Mini 或 Jason（五人共同閱讀確認）；由非作者擔任，只控制 `official` evidence |
@@ -224,7 +229,7 @@ Test stack 固定為 `python3`＋`pytest`＋`PyYAML`＋`jsonschema`（Draft 2020
 | 允許修改路徑 | `docs/platform-plan/execution/proposals/domain-skill-overlay-<topic>.diff`（新建）；`docs/platform-plan/contracts/tests/test_domain_skill_overlay_contract.py`（新建，只測現況）；`docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/`（新建） |
 | 依賴 | FW-09 fixture/key conventions；可先建立negative cases再對齊 |
 | acceptance | exact roots-set digest、2-of-N natural-Person independence、current authority/revocation與mode條件可驗；所有negative均零domain execution assertion；control activation digest不變 |
-| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_domain_skill_overlay_contract.py`（新建；未跑） |
+| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_domain_skill_overlay_contract.py`（已建立；2026-09-20 已納入全套重跑，結果見版本紀錄） |
 | reviewer | Grok |
 | verifier | Claude |
 | official reviewer（建議預設） | Mini 或 Jason（五人共同閱讀確認）；由非作者擔任，只控制 `official` evidence |
@@ -243,7 +248,7 @@ Test stack 固定為 `python3`＋`pytest`＋`PyYAML`＋`jsonschema`（Draft 2020
 | 允許修改路徑 | `docs/platform-plan/execution/proposals/retract-success-response.diff`（新建）；`docs/platform-plan/contracts/tests/test_retract_contract_parity.py`（新建，只測現況）；`docs/platform-plan/contracts/tests/fixtures/review-retraction/`（新建） |
 | 依賴 | FW-03（共享 fixture；可平行起草） |
 | acceptance | 200 response不暗示原 review被刪；version可供 optimistic concurrency；schema references resolve；proposal差異單獨標示 |
-| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_retract_contract_parity.py`（新建；未跑） |
+| 測試 | `pytest -q docs/platform-plan/contracts/tests/test_retract_contract_parity.py`（已建立；2026-09-20 已納入全套重跑，結果見版本紀錄） |
 | reviewer | Grok |
 | verifier | Claude |
 | official reviewer（建議預設） | Mini 或 Jason（五人共同閱讀確認）；由非作者擔任，只控制 `official` evidence |
@@ -283,7 +288,7 @@ FW-11／FW-12 的 canonical contract 內容由 Grok＋Claude 與自動 checks �
 
 - Requirement：RQ-067／RQ-070；primary OPP-01，People／Coaching／WRK-01參與；owner沿用現有對應職能。
 - 修改範圍：既有Portal Now／Next／Gained、Squad／cohort、matching reason、pilot去識別觀察及報表；不建立新委員會。
-- Outcome：三個入口、成員自願提案／續組、有界容量與可重用成果；T29、UAT-M1–M5。
-- AI可協助整理觀察，不能冒充真人回饋或自動增加對外服務承諾。未取得證據維持未知。
+- Outcome：三個入口、成員自願提案／續組、有界容量與可重用成果；平行記錄作品展示／外展／商機／合作／Seller 實收；T29、UAT-M1–M5。不要求先完成十次免費互助才准找客戶；不承諾付費名單或未來收入。
+- AI可協助整理觀察，不能冒充真人回饋、自動增加對外服務承諾或虛構成交。未取得證據維持未知。本卡仍為部分規劃／未滿驗收。
 
 上述新增卡沿用本檔reviewer／verifier規劃，但本次未執行Grok／Claude或任何具名真人review。產品實作與真人驗證仍未完成。

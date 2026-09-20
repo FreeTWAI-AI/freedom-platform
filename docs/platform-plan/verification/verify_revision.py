@@ -2,20 +2,34 @@
 from pathlib import Path
 import hashlib
 import json
+import os
 import re
 import sys
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[3]
-MANIFEST = ROOT / "docs/platform-plan/verification/2026-09-19-file-inventory.json"
-IGNORE = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".DS_Store", "__MACOSX"}
+MANIFEST = ROOT / "docs/platform-plan/verification/2026-09-20-file-inventory.json"
+IGNORE = {".git", ".gitdata", ".venv", "venv", "__pycache__", ".pytest_cache", ".DS_Store", "__MACOSX", "node_modules", "dist", "test-results", "playwright-report"}
+
+def source_files():
+    """Shared archive inventory boundary; never traverse installed/build artifacts."""
+    for directory, dirs, names in os.walk(ROOT):
+        dirs[:] = sorted(d for d in dirs if d not in IGNORE)
+        for name in sorted(names):
+            if name in IGNORE or name.endswith((".pyc", ".pyo", ".log")):
+                continue
+            if (name == ".env" or name.startswith(".env.")) and name != ".env.example":
+                continue
+            path = Path(directory) / name
+            if path != MANIFEST:
+                yield path
 
 def main():
     manifest = json.loads(MANIFEST.read_text())
     failures = []
     listed = {e["path"] for e in manifest["files"]}
-    actual = {str(p.relative_to(ROOT)) for p in ROOT.rglob("*") if p.is_file()
-              and not IGNORE.intersection(p.relative_to(ROOT).parts) and p != MANIFEST}
+    files = list(source_files())
+    actual = {str(p.relative_to(ROOT)) for p in files}
     if actual != listed:
         failures.append(f"File set changed: extra={sorted(actual-listed)}, missing={sorted(listed-actual)}")
     for entry in manifest["files"]:
@@ -26,8 +40,8 @@ def main():
         if hashlib.sha256(data).hexdigest() != entry["sha256"] or len(data) != entry["bytes"]:
             failures.append(f"Byte or digest mismatch: {entry['path']}")
     links = 0
-    for path in ROOT.rglob("*.md"):
-        if IGNORE.intersection(path.relative_to(ROOT).parts):
+    for path in files:
+        if path.suffix != ".md":
             continue
         for raw in re.findall(r"(?<!!)\[[^\]\n]*\]\(([^\s)]+)(?:\s+\"[^\"]*\")?\)", path.read_text()):
             target = raw.split("#", 1)[0]

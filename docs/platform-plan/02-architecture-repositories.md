@@ -2,7 +2,7 @@
 
 > 狀態：現行 canonical baseline（2026-09-19 低維運互惠修訂）；planning 文件，不代表已部署。
 
-本文所有測試均未跑；帳號、repo、runtime、queue、database、provider connection 與部署拓撲的描述都是目標架構，不代表資源已建立或功能已上線。
+本文描述完整目標架構；其中帳號、runtime、queue、provider connection 與部署拓撲不能因規格存在就推定已建立或上線。2026-09-20 已有本機 API／Portal／PostgreSQL 與限定範圍的實跑測試，見[版本紀錄](../releases/2026-09-20-local-core.md)；不等於本文完整 runtime、雲端與部署驗收完成。
 
 ## 1. 一張圖看懂平台
 

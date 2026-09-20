@@ -11,9 +11,9 @@
 | 人 | 建議閱讀路徑 | 可略過 |
 | --- | --- | --- |
 | Ted | 全部；共同閱讀時另看 `06 §3.1` 與 `08 §3／§12` 的自己那列 | 無 |
-| Hao | README、`01`、`10`、`04 §2／§5／§8／§9`、`08 §13.2`；共同閱讀時另看 `06 §3.1` 與 `08 §3／§12` 的自己那列 | 其餘架構細節、contracts 與 package specs 可按工作需要查閱 |
+| Hao（行銷長才、community leader 與精神領袖） | README、`01`、`10`、`04 §5／§8`、`08 §13.2`；共同閱讀時另看 `06 §3.1` 與 `08 §3／§12` 的自己那列 | 其餘架構細節、contracts 與 package specs 可按工作需要查閱 |
 | Mini | README、`01`、`02`、`06`、execution 的 milestones／spec-index／acceptance-matrix；共同閱讀時另看 `06 §3.1` 與 `08 §3／§12` 的自己那列 | contracts 與非負責 track 的 package specs 可按工作需要查閱 |
-| Jason | README、`01`、`06 §5`、execution/first-work-batch、`09`；共同閱讀時另看 `06 §3.1` 與 `08 §3／§12` 的自己那列 | contracts 與非負責 track 的 package specs 可按工作需要查閱 |
+| Jason | README、`01`、`04 §2／§9`、`06 §5`、execution/first-work-batch、`09`；共同閱讀時另看 `06 §3.1` 與 `08 §3／§12` 的自己那列 | contracts 與非負責 track 的 package specs 可按工作需要查閱 |
 | 韋銘 | README、`02`、`03`、`05`、execution/specs；共同閱讀時另看 `06 §3.1` 與 `08 §3／§12` 的自己那列 | 產品敘事與營運細節可按工作需要查閱 |
 
 非開發者可略過 `contracts/` 與 `execution/specs/`；它們是開發者資料。`verification/2026-09-17-tree-verification.md` 只保留原版歷史檢查，不是本版驗證；本版看 `verification/2026-09-19-revision-check.md`。
@@ -43,13 +43,13 @@ Freedom Platform 是讓真實問題被共同解決、幫助者與受助者各自
 - `Next`：可選的求助／協助／共同成果／自助行動，明列實益、時間與容量。
 - `Gained`：各自的實益、共同成果、幫到誰與可重用資產；未知、已確認及實收分列。
 
-平台不建立萬用總分；定位、各 Guild rank、貢獻、QC 熟悉度、商業成果與權益分開保存。目前所有文件與 machine-readable artifacts 都是 planning baseline；帳號、repo、資源、deploy 與測試均不宣稱已完成，產品／runtime／真人測試仍「未跑」；本次靜態文件檢查另見verification。
+平台不建立萬用總分；定位、各 Guild rank、貢獻、QC 熟悉度、商業成果與權益分開保存。目前所有文件與 machine-readable artifacts 都是 planning baseline；帳號、repo、資源與 deploy 均不宣稱已完成。產品／營運／真人測試仍「未跑」；契約 fixture 靜態檢查見 [2026-09-19修訂檢查](./verification/2026-09-19-revision-check.md)，本機 scoped runtime milestone 見 [`docs/releases/2026-09-20-local-core.md`](../releases/2026-09-20-local-core.md)。不宣稱完整 package、milestone、部署、真人使用或收款證據。
 
 ### 1.1 本次修訂的執行重點
 
-先讀 [12 低維運互惠運作契約](./12-low-ops-mutual-benefit.md)。完整架構保留，首批只有一種真需求互助營運情境；不再四線同時承諾真人服務。三種參與模式、雙方當次收益、最大投入及結束條件進原WorkItem；共同成果使用原Squad／cohort。
+先讀 [12 低維運互惠運作契約](./12-low-ops-mutual-benefit.md)。完整架構保留（56 packages、9 repos、12 runtimes）。首批兩條平行驗證路徑：有限互助，以及自願作品展示／外展／商機／合作／外部實收證據；不再四線同時承諾真人服務，也不要求先做完十次免費互助才准找客戶。三種參與模式、雙方當次收益、最大投入及結束條件進原WorkItem；共同成果使用原Squad／cohort。
 
-總工時計核心與其他成員，容量不足不隱性補位；普通志願請求可有界結束，付費／付款／安全／正式權益責任保留。真人實益與資源證據影響擴張承諾，不阻擋一般參與。新增的是規格、schema及本地靜態檢查；產品／runtime／真人試行未完成。
+總工時計核心與其他成員，容量不足不隱性補位；普通志願請求可有界結束，付費／付款／安全／正式權益責任保留。資源與容量只約束已承諾的真人服務，不阻擋一般參與或外展。平台不承諾付費名單或未來收入；目前沒有已證明的真實付費成交。收款維持 Seller 自有、平台不 custody。產品／runtime／真人試行未完成。
 
 ## 2. 不可破壞的設計原則
 
@@ -121,12 +121,14 @@ Talent、QC & Supply、Commerce、Marketing、Media、Platform…]
 | 人 | 建議預設分工摘要 |
 | --- | --- |
 | Ted | Infra、Platform Engineering、Platform／Agent Control／Contracts、Settlement／ledger、AI Vibe Guild Master；GitHub organization owner、Cloudflare billing owner／Super Administrator、Signer A custodian與三類 A4 |
-| Hao | Growth & Marketing、Media Automation、Member & Community Operations、Talent & Direction；Freedom 品牌 ChannelConnections campaign／account owner、Discord server／LINE OA 營運 admin |
+| Hao | 行銷長才、community leader 與精神領袖；Growth & Marketing、Media Automation、Member & Community Operations；Freedom 品牌 ChannelConnections campaign／account owner、Discord server／LINE OA 營運 admin |
 | Mini | Delivery PM、Product Quality & Supply、Commerce & Sales；GitHub break-glass co-owner、Signer B custodian、`commercial-ready` 的 Project |
-| Jason | Opportunity／Project／Squad／Work 日常協調、Opportunity & Partnership；Cloudflare 第二 Super Administrator、offline recovery custodian、`commercial-ready` 的 Field |
+| Jason | Talent & Direction（定位＋陪跑）、Opportunity／Project／Squad／Work 日常協調、Opportunity & Partnership；Cloudflare 第二 Super Administrator、offline recovery custodian、`commercial-ready` 的 Field |
 | 韋銘 | Dev implementation track、非作者時的 `official` 獨立 QC reviewer、`commercial-ready` 的 Vibe |
 
 Ted 仍持有 infra／platform／設計／建置 ownership 與付款、法律文件、對外正式發布三類 A4，並在 Day 1 一次建齊，不等待共同閱讀。Mini 的 break-glass co-owner 與 Jason 的第二 Super Administrator 邀請在 Day 1 寄出；接受狀態只影響 `recovery` 標籤。AI review 由 Grok adversarial review、Claude verification 與自動 checks 完成，不設定期會議或多人簽核流程。
+
+Hao 的精神領袖是社群角色描述，不是 office 或 A4 簽名點，也不新增權限或閘門。
 
 Open AI Product & Skills Division 把開源 Skill、AI Product Forge 與 implementation 放在同一生命週期。Vibe／Field／Project 的建議預設分別是韋銘／Jason／Mini，五人共同閱讀時確認；三個不同自然人各自接受 assignment 時 `commercial-ready=true`，否則維持 false，產品工作照常。Exact artifact 由不同自然人完成 scoped QC 時 `official=true`；Signer A／B custodian 是不同自然人時 `production-signed=true`。同一人切角色或換 Agent 不增加自然人數。
 
@@ -266,8 +268,8 @@ Foundation Day 1 依 `08 §13` 一次建立 O1／O2 與 production／staging res
 
 - [Execution 索引](./execution/spec-index.md)：工作包、owner、AI reviewer／verifier 與 acceptance 導覽。
 - [階段 bundles](./execution/milestones.md)：M00–M09 stable bundle IDs 對應階段 1A／1B／1C／2。
-- [驗收矩陣](./execution/acceptance-matrix.md)：T01–T34、UAT-M1–M5；產品／真人狀態均以實跑evidence為準。
-- [首批工作卡](./execution/first-work-batch.md)：FW-01–FW-15、Grok review、Claude verification 與 Ted 三類 A4。
+- [驗收矩陣](./execution/acceptance-matrix.md)：T01–T34、UAT-M1–M5；產品／真人狀態均以實跑evidence為準，契約 fixture 與本機 scoped runtime 另記。
+- [首批工作卡](./execution/first-work-batch.md)：FW-01–FW-15；FW-01–12 有第一批靜態交付，FW-13–15 仍部分／未滿驗收。
 - [Foundation Day 1 執行清單](./execution/human-foundation-plan.md)：O1／O2／O3、Infrastructure Ready 與 Day 1 技術順序。
 - [Package specs](./execution/specs/)：各 package 的 scope、依賴、acceptance 與 evidence。
 
@@ -293,6 +295,7 @@ Foundation Day 1 依 `08 §13` 一次建立 O1／O2 與 production／staging res
 - Entitlement、state machine、Discord／LINE channel／template maps。
 - PostgreSQL migration interface／execution plan、seed contracts、outbox／inbox contracts 與 cross-repo contract-test harness；可執行 migrations 在階段 1B 建立。
 
-這些 artifacts 由同一 spec 拆成 Platform WorkItems 與 GitHub Issues，讓人與 Agent 依標準 branch／PR／AI review 流程共同完成。所有測試在實跑前維持「未跑」。
+這些 artifacts 由同一 spec 拆成 Platform WorkItems 與 GitHub Issues，讓人與 Agent 依標準 branch／PR／AI review 流程共同完成。產品／營運／真人測試在實跑前維持「未跑」。
 
-- [2026-09-19修訂檢查](./verification/2026-09-19-revision-check.md)：本次syntax、schema、example及狀態機靜態證據；不代表runtime或真人驗證。
+- [2026-09-19修訂檢查](./verification/2026-09-19-revision-check.md)：syntax、schema、example及狀態機靜態證據；不代表產品 runtime 或真人驗證。
+- [2026-09-20 本機核心](../releases/2026-09-20-local-core.md)：scoped prototype（login→claim→submit→accept→gains）；不宣稱完整 package、milestone、部署或收款證據。

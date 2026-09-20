@@ -2235,13 +2235,24 @@ paths:
           application/json:
             schema: {$ref: "#/components/schemas/RetractQualityReviewRequest"}
       responses:
-        "200": {description: Retraction appended; original review history retained and projections invalidated}
+        "200":
+          description: >-
+            Retraction appended; original review history retained and projections
+            invalidated. HTTP 200 does not imply the original review was deleted.
+          headers:
+            ETag:
+              description: Quoted post-retraction aggregate_version for subsequent If-Match optimistic concurrency
+              schema: {type: string}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/RetractQualityReviewSuccess"}
         "403":
           description: Authenticated principal has no active ReviewerAppointment for the review's exact scope
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
         "409": {$ref: "#/components/responses/ReceiptSupersededByRetraction"}
+        "412": {$ref: "#/components/responses/VersionConflict"}
         "422": {$ref: "#/components/responses/ValidationFailed"}
   /opportunity-stubs:
     post:
@@ -6091,6 +6102,27 @@ components:
           $ref: "#/components/schemas/OpaqueId"
           description: Required only when the authenticated retractor is not the original reviewer; must identify a distinct natural person's exact authorization.
       description: retracted_by is always derived from the authenticated principal and is intentionally not client-supplied.
+    RetractQualityReviewSuccess:
+      type: object
+      additionalProperties: false
+      required: [retraction_ref, original_review_ref, aggregate_version, state]
+      properties:
+        retraction_ref:
+          $ref: "#/components/schemas/OpaqueId"
+          description: Opaque id of the appended retraction fact (not a delete tombstone).
+        original_review_ref:
+          $ref: "#/components/schemas/OpaqueId"
+          description: Retained reference to the original accepted review; history is append-only.
+        aggregate_version:
+          $ref: "#/components/schemas/AggregateVersion"
+          description: Post-retraction aggregate version; wire value matches the ETag / next If-Match.
+        state:
+          const: retracted
+          description: review_outcome terminal state after retract_accepted_review.
+      description: >-
+        Typed retract success response. Confirms an appended retraction fact while
+        retaining original_review_ref. Does not delete or overwrite acceptance history.
+        Clients use aggregate_version for optimistic concurrency on later mutations.
     ReviewerAppointment:
       type: object
       additionalProperties: false

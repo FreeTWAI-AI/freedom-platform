@@ -1,5 +1,5 @@
-# FW-12 PROPOSAL — NOT APPLIED TO CANONICAL CONTRACTS
-# status: proposal_not_merged
+# FW-12 HISTORICAL PROPOSAL — APPLIED TO CANONICAL / SUPERSEDED BY OPENAPI
+# status: applied_superseded
 # card: FW-12 / QLT-02
 # source: RQ-060; ADR-061; T11; 05 §3.2/3.3; openapi retractQualityReview
 # target: docs/platform-plan/contracts/openapi-outline.yaml
@@ -9,7 +9,12 @@
 #   - HTTP 200 does NOT imply the original review was deleted
 #   - aggregate_version (and ETag) is usable for subsequent If-Match optimistic concurrency
 #   - schema $refs resolve against current components (OpaqueId, AggregateVersion, VersionConflict)
-# apply: only after Grok review + Claude verify; do not edit openapi-outline.yaml in FW-12
+# applied_to: docs/platform-plan/contracts/openapi-outline.yaml now defines
+#   RetractQualityReviewSuccess 200 content, ETag, and 412 VersionConflict.
+# record: This file is retained as the historical proposal diff. It is not a live
+#   contract gap and is not an instruction to leave OpenAPI unedited.
+# reviews: This closure record does not claim that named Grok review or Claude
+#   verification passed. No named-reviewer pass is asserted here.
 
 --- a/docs/platform-plan/contracts/openapi-outline.yaml
 +++ b/docs/platform-plan/contracts/openapi-outline.yaml

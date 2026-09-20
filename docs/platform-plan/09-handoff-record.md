@@ -1,6 +1,18 @@
 # Freedom Platform 現況紀錄
 
-> 現行修訂：2026-09-19；規劃與本地靜態檢查，不代表功能已部署。
+> 現行更新：2026-09-20；已增加本機程式與實跑證據，尚未對外部署。
+
+## 2026-09-20 本機版本增補
+
+`0.1.0-local-core` 已提供 React Portal、Hono API、PostgreSQL migration／seed 與持久化的工作、驗收、成果、作品、商機、合作及收款觀察。操作入口見 [運行手冊](../development/local-runtime.md)，實跑結果、範圍與待辦見 [版本紀錄](../releases/2026-09-20-local-core.md)。驗收只產生工作成果；不授予正式 QC、A4、rank 或款項。收款回報／對方確認不等於 provider／bank 核實。
+
+FW-01 至 FW-12 的現有契約測試納入全套重跑；FW-12 retract typed response 已落入 OpenAPI，FW-11 的 stage-1A schema／fixtures 狀態已對齊。這不代表 retract、Skill overlay 或五種時間的完整產品 runtime 均已實作。
+
+九個 GitHub repositories 已在接續盤點時查得；本次程式只在 `freedom-platform` 收斂。完整 56 packages／12 runtimes、正式登入供應商、production／staging、雲端與外部連接尚未取得本次可驗證完成證據。原工作樹保留，使用獨立 continuation checkout 完成開發。
+
+現行檔案 inventory 為 [2026-09-20-file-inventory.json](./verification/2026-09-20-file-inventory.json)，以 `python3 scripts/update-inventory.py` 重建、`npm run verify:inventory` 驗證。排除依賴、建置產物、測試產物、環境密鑰與 manifest 自身；舊 inventory 不再冒充現行檔案雜湊。
+
+以下第 1–6 節保留 **2026-09-19 時點紀錄**。「尚未實作」「未跑」應按該時點與指定測試範圍解讀；本次 runtime／瀏覽器測試以新版本紀錄為準，T01–T34、UAT、真人與 provider 驗收仍不能據此宣稱完成。
 
 本次以原始 `Freedom-Platform.zip` 與當輪檢視修訂。沒有查詢外部帳號、repo、雲端或銀行，因此「未建立」一律解讀為本包沒有可驗證的建立證據，不推定外部世界目前狀態。
 

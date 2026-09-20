@@ -1,12 +1,27 @@
-# Freedom Platform 規劃與規格
+# Freedom Platform
 
-本 workspace 保存 Freedom 大平台的現行產品、社群、組織、技術與交付規格。內容是可拆工的 canonical planning baseline，不代表帳號、repo、雲端資源、功能或 production 已建立、部署或上線；所有測試在實跑前均為「未跑」。
+本 workspace 保存 Freedom 大平台的完整規格，以及 **0.1.0-local-core 本機可運行版本**。目前可跑通「登入 → 認領工作 → 提交 → 驗收 → 看見成果」，也可操作「作品曝光 → 商機 → 合作 → 外部收款回報及雙方確認」。資料存入 PostgreSQL，重啟後保留。
+
+## 啟動本機版本
+
+需要 Node.js 24 與 Docker Compose：
+
+```sh
+npm ci
+npm run demo
+```
+
+開啟 <http://127.0.0.1:4310>。示範帳號為 `maker@local.test`、`reviewer@local.test`、`client@local.test`，共用示範密碼 `freedom-local-demo`。
+
+操作方式、架構位置與重跑檢查見 [本機運行手冊](./docs/development/local-runtime.md)；已完成範圍、驗證結果與下一階段見 [版本紀錄](./docs/releases/2026-09-20-local-core.md)。這是本機開發版本，尚未對外部署；示範收款紀錄不代表真實收入或銀行核實。
+
+## 完整計畫與營運驗證
 
 Freedom Platform 是社群的接點、共同資料庫、核心 codebase 協作索引、工作／商業事實帳本與狀態機。Discord 承接討論與讀書會，LINE 承接即時聯絡，GitHub 承接程式版本與 PR；money 的權威事實留在 Seller 的 provider／bank，客戶 raw data 留在 client／Squad storage，平台只保存必要的 ref、digest 與 fact。
 
-本次修訂：**2026-09-19，低維運／共同成果／互助得利。** 首批只承諾一種真需求互助，完整架構保留；不把未來案源當報酬、不把delegate工時藏起來、不預設核心補位。
+現行推進：**2026-09-20，可運行核心與兩條首批營運驗證路徑。** 真需求互助與作品／商機／合作／實收並行；完整架構保留，不把未來案源當報酬，不預設核心補位。第一筆真實合作與收款仍待真人證據，見 [首批營運驗證](./docs/development/operating-validation.md)。
 
-先讀 [低維運互惠運作契約](./docs/platform-plan/12-low-ops-mutual-benefit.md) 與 [本次變更及接手說明](./CHANGES-2026-09-19.md)。本地靜態檢查結果在 [verification](./docs/platform-plan/verification/2026-09-19-revision-check.md)；API、部署、真人試行仍未完成。
+先讀 [低維運互惠運作契約](./docs/platform-plan/12-low-ops-mutual-benefit.md) 與 [現況紀錄](./docs/platform-plan/09-handoff-record.md)。[2026-09-19 變更說明](./CHANGES-2026-09-19.md) 與當日 verification 保留作歷史紀錄；本次實跑結果以新版本紀錄為準。
 
 第一次接觸專案，可先讀兩份白話敘事：
 

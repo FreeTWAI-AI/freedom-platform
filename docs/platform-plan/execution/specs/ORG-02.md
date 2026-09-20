@@ -6,7 +6,7 @@
 | --- | --- |
 | Spec ID／狀態 | `SPEC-ORG-02`／draft-ready |
 | 所屬 milestone／原 package | M01／`ORG-02` |
-| Accountable role／implementation agent／AI reviewer／AI verifier | Talent/Agent owner；owner＝Hao（建議預設，五人共同閱讀確認）／韋銘＋Codex（implementation；建議預設，五人共同閱讀確認）／Grok／Claude |
+| Accountable role／implementation agent／AI reviewer／AI verifier | Talent/Agent owner；owner＝Jason（建議預設，五人共同閱讀確認）／韋銘＋Codex（implementation；建議預設，五人共同閱讀確認）／Grok／Claude |
 | official reviewer（建議預設） | Mini 或 Jason（五人共同閱讀確認）；implementation＝韋銘時由非作者擔任，只控制 official evidence |
 
 ## 來源與需求 ID

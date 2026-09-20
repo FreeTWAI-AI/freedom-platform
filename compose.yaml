@@ -1,0 +1,19 @@
+name: freedom-platform-local
+services:
+  postgres:
+    image: postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
+    environment:
+      POSTGRES_USER: freedom_local
+      POSTGRES_PASSWORD: local-development-only
+      POSTGRES_DB: freedom_local
+    ports:
+      - "127.0.0.1:54339:5432"
+    volumes:
+      - freedom-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U freedom_local -d freedom_local"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+volumes:
+  freedom-postgres:

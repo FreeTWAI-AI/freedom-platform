@@ -1,16 +1,17 @@
-"""FW-12: retract success response proposal + OpenAPI/state/event parity (static only).
+"""FW-12: retract success response canonical OpenAPI + state/event parity (static only).
 
 Acceptance (first-work-batch FW-12 / RQ-060 / ADR-061 / T11 / 05 §3.2/3.3):
-  - typed success response proposal (retraction_ref, original_review_ref,
-    aggregate_version, state)
-  - OpenAPI / state / event parity against *current* contracts
+  - typed 200 success body RetractQualityReviewSuccess is in canonical OpenAPI
+    (retraction_ref, original_review_ref, aggregate_version, state)
   - HTTP 200 does not imply the original review was deleted
-  - aggregate_version usable for optimistic concurrency
-  - schema $refs resolve; proposal diff separately marked (not merged)
-  - FW-03 fixtures / test_retracted_receipt_replay.py remain green
+  - aggregate_version / ETag usable for optimistic concurrency; 412 VersionConflict
+  - schema $refs resolve
+  - historical proposal diff is applied/superseded (not a live gap)
+  - FW-03 fixtures remain present; this module does not claim named reviewers passed
 """
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -49,7 +50,7 @@ REQUIRED_SUCCESS_FIELDS = (
 def _local_ref_target(ref: str, root: dict):
     """Resolve an OpenAPI local $ref against a document root."""
     name, _, fragment = ref.partition("#")
-    assert not name, f"FW-12 proposal must use local refs only, got {ref}"
+    assert not name, f"FW-12 canonical refs must be local, got {ref}"
     assert fragment.startswith("/"), ref
     obj = root
     for token in unquote(fragment).split("/")[1:]:
@@ -74,13 +75,43 @@ def step_by_name(name: str) -> dict:
     return next(s for s in SEQUENCE["steps"] if s["name"] == name)
 
 
+def retract_op() -> dict:
+    return PATHS[RETRACT_PATH]["post"]
+
+
+def canonical_success_schema() -> dict:
+    return SCHEMAS[PROPOSED_SCHEMA_NAME]
+
+
+def inline_success_schema() -> dict:
+    """Inline local component $refs so Draft 2020-12 can validate bodies."""
+    schema = canonical_success_schema()
+    return {
+        "type": schema["type"],
+        "additionalProperties": schema["additionalProperties"],
+        "required": list(schema["required"]),
+        "properties": {
+            "retraction_ref": SCHEMAS["OpaqueId"],
+            "original_review_ref": SCHEMAS["OpaqueId"],
+            "aggregate_version": SCHEMAS["AggregateVersion"],
+            "state": schema["properties"]["state"],
+        },
+    }
+
+
+def success_validator() -> Draft202012Validator:
+    inline = inline_success_schema()
+    Draft202012Validator.check_schema(inline)
+    return Draft202012Validator(inline, format_checker=FormatChecker())
+
+
 # ---------------------------------------------------------------------------
 # Current-contract parity (OpenAPI path × state machine × event catalog)
 # ---------------------------------------------------------------------------
 
 def test_current_retract_path_exists_with_request_and_errors():
     assert RETRACT_PATH in PATHS
-    op = PATHS[RETRACT_PATH]["post"]
+    op = retract_op()
     assert op["operationId"] == "retractQualityReview"
     assert "200" in op["responses"]
     assert "409" in op["responses"]
@@ -89,21 +120,41 @@ def test_current_retract_path_exists_with_request_and_errors():
     _local_ref_target(body_ref, API)
 
 
-def test_current_200_description_retains_history_and_does_not_imply_delete():
+def test_canonical_200_typed_success_retains_history_and_does_not_imply_delete():
     """Acceptance: 200 response does not imply original review deleted."""
-    op = PATHS[RETRACT_PATH]["post"]
-    desc = op["responses"]["200"]["description"].lower()
+    op = retract_op()
+    resp_200 = op["responses"]["200"]
+    desc = resp_200["description"].lower()
     assert "retained" in desc or "history" in desc
-    assert "deleted" not in desc or "without deleting" in op["description"].lower()
-    # Operation description is the strong guarantee in current contracts.
+    assert "does not imply" in desc and "deleted" in desc
     op_desc = op["description"].lower()
     assert "without deleting" in op_desc or "appends a retraction" in op_desc
-    # Current 200 is description-only (typed body is the FW-12 proposal gap).
-    assert "content" not in op["responses"]["200"]
+    content_ref = resp_200["content"]["application/json"]["schema"]["$ref"]
+    assert content_ref.endswith(PROPOSED_SCHEMA_NAME)
+    _local_ref_target(content_ref, API)
+    schema = canonical_success_schema()
+    schema_desc = schema["description"].lower()
+    assert "does not delete" in schema_desc or "retaining original_review_ref" in schema_desc
+    assert "append" in schema_desc or "retaining" in schema_desc
 
 
-def test_current_retract_requires_if_match_for_concurrency():
-    op = PATHS[RETRACT_PATH]["post"]
+def test_canonical_success_schema_required_fields_and_refs():
+    schema = canonical_success_schema()
+    assert schema["type"] == "object"
+    assert schema["additionalProperties"] is False
+    assert set(schema["required"]) == set(REQUIRED_SUCCESS_FIELDS)
+    for field in REQUIRED_SUCCESS_FIELDS:
+        assert field in schema["properties"]
+    assert schema["properties"]["state"]["const"] == "retracted"
+    for ref in _walk_refs(schema):
+        _local_ref_target(ref, API)
+    assert schema["properties"]["retraction_ref"]["$ref"].endswith("OpaqueId")
+    assert schema["properties"]["original_review_ref"]["$ref"].endswith("OpaqueId")
+    assert schema["properties"]["aggregate_version"]["$ref"].endswith("AggregateVersion")
+
+
+def test_current_retract_requires_if_match_etag_and_412_for_concurrency():
+    op = retract_op()
     param_refs = [
         p.get("$ref", "") for p in op.get("parameters", []) if isinstance(p, dict)
     ]
@@ -111,9 +162,24 @@ def test_current_retract_requires_if_match_for_concurrency():
     if_match = API["components"]["parameters"]["IfMatch"]
     assert if_match["name"] == "If-Match"
     assert if_match["required"] is True
-    # AggregateVersion documents ETag / If-Match wire form.
     agg = SCHEMAS["AggregateVersion"]
     assert "If-Match" in agg["description"] or "ETag" in agg["description"]
+
+    etag = op["responses"]["200"]["headers"]["ETag"]
+    assert etag["schema"]["type"] == "string"
+    etag_desc = etag["description"].lower()
+    assert "if-match" in etag_desc or "optimistic" in etag_desc
+    assert "aggregate_version" in etag_desc
+
+    ref_412 = op["responses"]["412"]["$ref"]
+    assert ref_412.endswith("VersionConflict")
+    conflict = _local_ref_target(ref_412, API)
+    assert "optimistic" in conflict["description"].lower()
+    problem_ref = conflict["content"]["application/problem+json"]["schema"]["$ref"]
+    _local_ref_target(problem_ref, API)
+
+    agg_prop = canonical_success_schema()["properties"]["aggregate_version"]
+    assert "If-Match" in agg_prop["description"] or "ETag" in agg_prop["description"]
 
 
 def test_state_machine_accepted_to_retracted_emits_catalog_event():
@@ -171,141 +237,129 @@ def test_receipt_superseded_response_ref_resolves():
 
 
 # ---------------------------------------------------------------------------
-# Proposal artifact (separately marked; not applied to canonical OpenAPI)
+# Canonical success body vs historical planning example (not a live gap)
 # ---------------------------------------------------------------------------
 
-def test_proposal_diff_exists_and_is_separately_marked():
-    assert PROPOSAL_DIFF.is_file()
-    text = PROPOSAL_DIFF.read_text()
-    for marker in (
-        "FW-12 PROPOSAL",
-        "NOT APPLIED TO CANONICAL CONTRACTS",
-        "proposal_not_merged",
-        "RetractQualityReviewSuccess",
-        "retraction_ref",
-        "original_review_ref",
-        "aggregate_version",
-        "state",
-    ):
-        assert marker in text, f"missing proposal marker/field: {marker}"
-    # Must not claim it was applied.
-    assert "proposal_not_merged" in text
-    assert "do not edit openapi-outline.yaml in FW-12" in text
-
-
-def test_canonical_openapi_does_not_yet_define_success_schema():
-    """Proposal差異單獨標示 — typed success schema is proposal-only until verified."""
-    assert PROPOSED_SCHEMA_NAME not in SCHEMAS
-    op = PATHS[RETRACT_PATH]["post"]
-    resp_200 = op["responses"]["200"]
-    assert "content" not in resp_200
-    # 412 VersionConflict is also proposal-only for this path today.
-    assert "412" not in op["responses"]
-
-
-def test_proposed_fixture_declares_typed_success_fields():
-    assert PROPOSED["status"] == "proposal_not_applied_to_canonical"
-    assert PROPOSED["proposed_schema_name"] == PROPOSED_SCHEMA_NAME
-    schema = PROPOSED["proposed_schema"]
-    assert set(schema["required"]) == set(REQUIRED_SUCCESS_FIELDS)
-    for field in REQUIRED_SUCCESS_FIELDS:
-        assert field in schema["properties"]
-    assert schema["properties"]["state"]["const"] == "retracted"
-    assert schema["additionalProperties"] is False
-
-
-def test_proposed_schema_refs_resolve_against_current_openapi():
-    schema = PROPOSED["proposed_schema"]
-    for ref in _walk_refs(schema):
-        _local_ref_target(ref, API)
-    # Also resolve VersionConflict response referenced by the proposal.
-    _local_ref_target("#/components/responses/VersionConflict", API)
-    _local_ref_target("#/components/schemas/OpaqueId", API)
-    _local_ref_target("#/components/schemas/AggregateVersion", API)
-
-
-def test_proposed_example_validates_against_proposed_schema():
-    """Example body from FW-03 sequence aligns with proposed typed success."""
-    schema = PROPOSED["proposed_schema"]
-    # Build a Draft202012 validator with local component resolution via id map.
-    components = {
-        "OpaqueId": SCHEMAS["OpaqueId"],
-        "AggregateVersion": SCHEMAS["AggregateVersion"],
-    }
-
-    def resolver(uri: str):
-        # jsonschema store keys we register below.
-        return None
-
-    store = {
-        "#/components/schemas/OpaqueId": SCHEMAS["OpaqueId"],
-        "#/components/schemas/AggregateVersion": SCHEMAS["AggregateVersion"],
-    }
-    # Inline $refs for validation without a full OpenAPI resolver.
-    inline = {
-        "type": "object",
-        "additionalProperties": False,
-        "required": list(schema["required"]),
-        "properties": {
-            "retraction_ref": SCHEMAS["OpaqueId"],
-            "original_review_ref": SCHEMAS["OpaqueId"],
-            "aggregate_version": SCHEMAS["AggregateVersion"],
-            "state": {"const": "retracted"},
-        },
-    }
-    Draft202012Validator.check_schema(inline)
-    validator = Draft202012Validator(inline, format_checker=FormatChecker())
+def test_historical_example_validates_against_canonical_success_schema():
+    """FW-03 sequence example body must satisfy the canonical typed 200 schema."""
+    validator = success_validator()
     example = PROPOSED["example_success_body"]
     validator.validate(example)
 
-    # Align with FW-03 sequence retraction fact.
     fact = step_by_name("retract_accepted_review")["retraction_fact"]
     assert example["retraction_ref"] == fact["retraction_id"]
     assert example["original_review_ref"] == fact["original_review_ref"]
     assert example["aggregate_version"] == fact["aggregate_version"]
     assert example["state"] == "retracted"
 
-
-def test_proposed_200_does_not_imply_original_review_deleted():
-    phrases = [p.lower() for p in PROPOSED["proposed_200"]["description_must_include"]]
-    assert any("retained" in p or "history" in p for p in phrases)
-    assert any("does not imply" in p and "deleted" in p for p in phrases)
-    desc = PROPOSED["proposed_schema"]["description"].lower()
-    assert "does not delete" in desc or "retaining original_review_ref" in desc
-    # Diff text must carry the same guarantee.
-    diff = PROPOSAL_DIFF.read_text().lower()
-    assert "does not imply the original review was deleted" in diff
-    assert "does not delete" in diff or "retaining original_review_ref" in diff
+    quoted = PROPOSED["example_etag"]
+    assert quoted == f'"{example["aggregate_version"]}"'
 
 
-def test_proposed_aggregate_version_usable_for_optimistic_concurrency():
-    """Acceptance: version usable for optimistic concurrency."""
+def test_historical_planning_shape_matches_canonical_required_fields():
+    """Planning fixture still names the same fields now frozen in OpenAPI."""
     schema = PROPOSED["proposed_schema"]
-    agg_prop = schema["properties"]["aggregate_version"]
-    assert agg_prop["$ref"].endswith("AggregateVersion")
-    agg = SCHEMAS["AggregateVersion"]
-    assert agg["type"] == "integer"
-    assert "If-Match" in agg["description"] or "ETag" in agg["description"]
+    canonical = canonical_success_schema()
+    assert set(schema["required"]) == set(REQUIRED_SUCCESS_FIELDS)
+    assert set(canonical["required"]) == set(schema["required"])
+    assert schema["properties"]["state"]["const"] == canonical["properties"]["state"]["const"]
+    assert schema["additionalProperties"] is False
+    assert canonical["additionalProperties"] is False
+    for ref in _walk_refs(schema):
+        _local_ref_target(ref, API)
 
-    etag = PROPOSED["proposed_200"]["headers"]["ETag"]
-    assert "If-Match" in etag["purpose"] or "optimistic" in etag["purpose"]
-    assert PROPOSED["example_etag"] == f'"{PROPOSED["example_success_body"]["aggregate_version"]}"'
 
-    # Proposal adds 412 VersionConflict alongside required If-Match.
-    assert PROPOSED["proposed_additional_responses"]["412"]["$ref"].endswith(
-        "VersionConflict"
+@pytest.mark.parametrize(
+    "mutator,fragment",
+    [
+        (lambda b: b.pop("retraction_ref"), "retraction_ref"),
+        (lambda b: b.pop("original_review_ref"), "original_review_ref"),
+        (lambda b: b.pop("aggregate_version"), "aggregate_version"),
+        (lambda b: b.pop("state"), "state"),
+    ],
+)
+def test_success_body_rejects_missing_required_field(mutator, fragment):
+    body = deepcopy(PROPOSED["example_success_body"])
+    mutator(body)
+    errors = list(success_validator().iter_errors(body))
+    assert errors
+    assert any(fragment in e.message or fragment in list(e.path) for e in errors)
+
+
+def test_success_body_rejects_additional_properties():
+    body = deepcopy(PROPOSED["example_success_body"])
+    body["deleted"] = True
+    errors = list(success_validator().iter_errors(body))
+    assert errors
+    assert any("additional" in e.message.lower() for e in errors)
+
+
+def test_success_body_rejects_non_retracted_state():
+    body = deepcopy(PROPOSED["example_success_body"])
+    body["state"] = "accepted"
+    errors = list(success_validator().iter_errors(body))
+    assert errors
+    assert any("retracted" in e.message or "const" in e.message.lower() for e in errors)
+
+
+def test_success_body_rejects_non_integer_aggregate_version():
+    body = deepcopy(PROPOSED["example_success_body"])
+    body["aggregate_version"] = "2"
+    errors = list(success_validator().iter_errors(body))
+    assert errors
+
+
+def test_canonical_200_does_not_describe_a_delete_tombstone():
+    schema = canonical_success_schema()
+    retr_desc = schema["properties"]["retraction_ref"]["description"].lower()
+    orig_desc = schema["properties"]["original_review_ref"]["description"].lower()
+    assert "not a delete tombstone" in retr_desc or "appended retraction" in retr_desc
+    assert "retained" in orig_desc or "append-only" in orig_desc
+    assert "original_review_ref" in schema["required"]
+
+
+def test_historical_proposal_diff_is_applied_superseded_without_false_review_claims():
+    assert PROPOSAL_DIFF.is_file()
+    text = PROPOSAL_DIFF.read_text()
+    header = text.split("---", 1)[0]
+    header_lower = header.lower()
+    assert "applied_superseded" in header_lower or (
+        "applied" in header_lower and "superseded" in header_lower
     )
-    diff = PROPOSAL_DIFF.read_text()
-    assert "ETag" in diff
-    assert "VersionConflict" in diff
-    assert "optimistic concurrency" in diff.lower()
+    assert "RetractQualityReviewSuccess" in text
+    for field in REQUIRED_SUCCESS_FIELDS:
+        assert field in text, f"missing proposal field: {field}"
+    assert "does not imply the original review was deleted" in text.lower()
+    assert "etag" in text.lower()
+    assert "VersionConflict" in text
+    assert "optimistic concurrency" in text.lower()
+    # Honest record: do not treat named reviewer pass as a recorded fact.
+    assert "reviewers passed" not in header_lower
+    assert "grok review passed" not in header_lower
+    assert "claude verify passed" not in header_lower
+    assert "claude verification passed" not in header_lower
+    assert "proposal_not_merged" not in header_lower
+    assert "do not edit openapi-outline.yaml in fw-12" not in header_lower
 
-    parity = PROPOSED["parity"]["concurrency"]
-    assert any("If-Match" in c for c in parity)
-    assert any("aggregate_version" in c for c in parity)
+
+def test_catalog_historical_pointer_and_fw03_anchors_remain():
+    prop = CATALOG["fw12_proposal"]
+    assert prop["proposed_schema"] == PROPOSED_SCHEMA_NAME
+    assert prop["success_response_fixture"] == "proposed_retract_success_response_v1.yaml"
+    diff_rel = prop["diff"]
+    assert (REPO / diff_rel).is_file() or (PLAN.parent.parent / diff_rel).is_file()
+    assert PROPOSAL_DIFF.is_file()
+    assert "proposed_retract_success_response_v1.yaml" in CATALOG["fixture_files"]
+    # FW-03 asserted fields untouched. Catalog status text is a historical
+    # pointer and is not rewritten here; canonical OpenAPI now has the schema.
+    assert CATALOG["fixed_problem_code"] == "receipt_superseded_by_retraction"
+    assert CATALOG["fixed_problem_status"] == 409
+    assert CATALOG["scenario"] == "accepted_then_retracted_then_old_receipt_replay"
+    assert PROPOSED_SCHEMA_NAME in SCHEMAS
+    assert CATALOG["history_rule"] == "append_only_never_delete_original_review_or_acceptance"
 
 
-def test_proposed_parity_block_matches_current_state_and_event():
+def test_historical_parity_block_matches_current_state_and_event():
     parity = PROPOSED["parity"]
     t = REVIEW_OUTCOME["transitions"][0]
     assert parity["state_machine"] == "review_outcome"
@@ -316,22 +370,9 @@ def test_proposed_parity_block_matches_current_state_and_event():
     assert parity["event"] in types
     for field in parity["event_payload_minimum"]:
         assert field in ("retracted_by", "reason", "original_review_ref")
-
-
-def test_catalog_fw12_proposal_pointer_is_marked_not_applied():
-    prop = CATALOG["fw12_proposal"]
-    assert prop["status"] == "proposal_not_applied_to_canonical"
-    assert prop["proposed_schema"] == PROPOSED_SCHEMA_NAME
-    assert prop["success_response_fixture"] == "proposed_retract_success_response_v1.yaml"
-    diff_rel = prop["diff"]
-    assert (REPO / diff_rel).is_file() or (PLAN.parent.parent / diff_rel).is_file()
-    # Prefer resolve from PLAN root: docs/platform-plan/../.. is repo
-    assert PROPOSAL_DIFF.is_file()
-    assert "proposed_retract_success_response_v1.yaml" in CATALOG["fixture_files"]
-    # FW-03 asserted fields untouched.
-    assert CATALOG["fixed_problem_code"] == "receipt_superseded_by_retraction"
-    assert CATALOG["fixed_problem_status"] == 409
-    assert CATALOG["scenario"] == "accepted_then_retracted_then_old_receipt_replay"
+    assert any("If-Match" in c for c in parity["concurrency"])
+    assert any("aggregate_version" in c for c in parity["concurrency"])
+    assert "original_review_not_deleted_on_200" in parity["history"]
 
 
 def test_fw03_fixture_files_still_present():

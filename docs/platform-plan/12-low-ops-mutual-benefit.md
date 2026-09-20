@@ -8,11 +8,13 @@
 
 本章與 `00`、`01`、`03`、`04`、`06` 及對應 machine-readable contracts 一起構成現行規格。舊的「四條營運線同時啟動」「免費一定有人回覆」「增加 delegates 就等於低維運」不再是現行承諾；歷史 verification 只證明當時版本。56 packages、9 repos、12 runtimes、八模組與五 cores 的邊界不變，不新增社群治理層或專用互助微服務。
 
-P10 的不阻擋工作，是允許自助、開發、candidate、公開知識與一般貢獻持續；不是允許無人、無預算時向別人承諾服務。P11 降低的是反覆找人、催促、報告及審批，不取消共同解題、需求交流與專業判斷。既有 A4、正式 QC 獨立性、付款及安全責任保留。
+P10 的不阻擋工作，是允許自助、開發、candidate、公開知識、一般貢獻與自願外展持續；不是允許無人、無預算時向別人承諾服務。P11 降低的是反覆找人、催促、報告及審批，不取消共同解題、需求交流、專業判斷或找客戶。既有 A4、正式 QC 獨立性、付款及安全責任保留。資源與容量只約束已承諾的真人服務，不約束成員參與或外展。
 
 ## 2. 一條主要循環，三個平等入口
 
 主循環：**我有真實問題 → 我們自願共同改善 → 雙方各自獲益 → 留下可重用成果 → 下一位直接受益。** 有付費需求時才分支到既有 ServiceEngagement，不假定每個成果都能賣錢。
+
+與互助平行、互不前置的第一條商業驗證路徑是：**可展示作品／可交付資源 → 自願推廣與找需求 → 合格商機 → 範圍／報價／明示分配 → 交付 → Seller 實收 → 經當事人同意分享案例 → 再次合作。** 沿用既有 Opportunity、WorkItem、ServiceEngagement、allocation 與 reconciliation，不另建帳本或全站抽成。不把曝光、名單或預期分潤當成已付報酬；目前沒有已證明的真實付費成交個案。
 
 Portal 以既有 Now／Next／Gained 呈現「我需要幫助」「我能提供協助」「我們正在一起做」。不使用 Agent、不先貢獻、不買方案，也能提出需求與參與；不用積分決定誰值得被幫助。定位、職業與技能可以改善配對，但不是新人必須完成的問卷。
 
@@ -42,7 +44,7 @@ Portal 以既有 Now／Next／Gained 呈現「我需要幫助」「我能提供�
 
 Claim pin `participation_terms_revision` 與 `participation_terms_sha256`；多人協作的每個 Claim 保存本人 acting role 與具體收益說明。改版只作用於新的承接，既有承接需當事人明示接受差異才變更。正式合約仍使用原 A4，不把一般互助確認升級成多方簽核。
 
-## 5. 容量先於服務承諾，不先於一般參與
+## 5. 容量先於服務承諾，不先於一般參與或外展
 
 ReviewerAppointment 只證明資格，不代表有時間。任一真人支援承諾都需要對應本人已接受、具期限／範圍的容量保留；跨 Guild、Squad、coaching 使用同一人的可用量，不能每個模組各算一次。容量保留由 Work／Coaching 的既有交易服務處理，operations projection 只能讀取，不能另造第二份真相。
 
@@ -94,11 +96,16 @@ Matching 先依公開需求、能力條件、興趣與可用時間；相同條�
 
 ## 9. 首批範圍與擴張
 
-保留完整架構及 sandbox，首批對外只承諾一種互助情境，例如「把重複資料整理改成可重用模板／工具」。選擇有真實需求的題目，而不是先為產品清單找人。例子的資料須為合成或已授權去識別資料，不移入客戶原始資料。
+保留完整架構及 sandbox（56 packages、9 repos、12 runtimes、八模組與五 cores），不新增社群治理層或專用互助微服務。首批對外驗證走兩條可平行、互不前置的路徑：
 
-先觀察約 10 次真人合作，建議視窗 30 天；10 次與30天是起始採樣設定，不是業界標準或自動通過線。未滿樣本、回饋不足或工時未知都標 evidence_insufficient，可維持原本有容量的範圍繼續收集，不補造結果。
+1. **有限互助：** 自願、有投入上限的共同解題，例如「把重複資料整理改成可重用模板／工具」。選擇有真實需求的題目，而不是先為產品清單找人。例子的資料須為合成或已授權去識別資料，不移入客戶原始資料。
+2. **自願作品展示／外展／商機／合作／外部實收證據：** 成員可選擇公開可展示作品與可交付資源、自行推廣與找需求、形成合格 Opportunity、談範圍／報價／明示分配、交付，並以 Seller 既有 payment reconciliation 記錄外部已收款事實；經當事人同意才分享案例。成交機率可以很低且如實揭露；鼓勵在不確定轉換的情況下仍去外展。平台不承諾付費名單或未來收入。目前沒有已證明的真實付費成交個案。
 
-Finished Goods、額外 Open Products 與其他 Professional Services 保留 engineering backlog、介面與 mock／sandbox，不預設同步承擔售後、QC、陪跑或維護。已簽責任不得藉「尚未啟動」移除。每次擴張應指出新增需求、實際接受的供给、資金、總工時及保護既有責任的方法；沒有這些資料，不擴大對外承諾，開發與一般參與仍持續。
+兩條路徑都不要求先完成約十次免費互助才准找客戶。約 10 次真人合作、建議視窗 30 天，只是互助觀察的起始採樣設定，不是外展門檻、業界標準或自動通過線。未滿樣本、回饋不足或工時未知都標 evidence_insufficient，可維持原本有容量的範圍繼續收集，不補造結果。
+
+資源與已接受容量只約束「已承諾的真人服務」，不約束成員參與、自助、開發或外展。收款維持 Seller 自有、平台不 custody、無 wallet、無統一抽成。
+
+Finished Goods、額外 Open Products 與其他 Professional Services 保留 engineering backlog、介面與 mock／sandbox，不預設同步承擔售後、QC、陪跑或維護。已簽責任不得藉「尚未啟動」移除。每次擴張應指出新增需求、實際接受的供给、資金、總工時及保護既有責任的方法；沒有這些資料，不擴大對外服務承諾，開發、一般參與與外展仍持續。
 
 ## 10. 真人驗證與可反駁條件
 
@@ -129,7 +136,7 @@ Finished Goods、額外 Open Products 與其他 Professional Services 保留 eng
 
 `contracts/work-participation.schema.json` 是新條款／實益回報的唯一結構來源；`work-participation.example.yaml` 是合成例子；`operating-policy.example.yaml` 是未啟用的容量與觀察設定範本。OpenAPI、agent work contract、state machine、事件目錄及 acceptance matrix 同步。
 
-本次提供的本地檢查只驗文件、schema、範例與狀態機圖；API authorization、並發容量、真正通知、部署、金流與真人試行仍需實作及驗證。舊 signed PlanBundle／ContractBundle 不可回寫；新 authoring source 與 consumer 一起發新 immutable release，重新產生 digest／signature，scaffold 不能直接成 production active channel。
+契約／fixture 靜態檢查與本機 scoped runtime milestone 另有紀錄，見 `verification/2026-09-19-revision-check.md` 與 [`docs/releases/2026-09-20-local-core.md`](../releases/2026-09-20-local-core.md)；本機 runtime 是 login→claim→submit→accept→gains 的原型，不宣稱完整 package、milestone、部署、真人使用或收款證據。API authorization、並發容量、真正通知、部署、金流與真人試行仍待產品／營運驗證。舊 signed PlanBundle／ContractBundle 不可回寫；新 authoring source 與 consumer 一起發新 immutable release，重新產生 digest／signature，scaffold 不能直接成 production active channel。
 
 ### 12.1 新增條款的相容性細節
 

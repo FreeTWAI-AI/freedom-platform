@@ -2,11 +2,11 @@
 
 > 狀態：現行 canonical baseline（2026-09-19 低維運互惠修訂）；planning 文件，不代表已部署。
 
-本文件記錄 Ted 的 O1／Seller lane 與 Hao 的品牌 lane（建議預設，五人共同閱讀確認）；Ted 的 O1 不等待任何人，並一併記錄 AI 自動化動作與建立事實證據。產品模組地圖以 `02 §4.7` 為準，框架決定以 `07 §3` 為準，AI 協定以 `06 §3.3` 為準；所有外部帳號、採購、資源、連線與測試目前均未建立或未跑。
+本文件記錄 Ted 的 O1／Seller lane 與 Hao 的品牌 lane（建議預設，五人共同閱讀確認）；Ted 的 O1 不等待任何人，並一併記錄 AI 自動化動作與建立事實證據。產品模組地圖以 `02 §4.7` 為準，框架決定以 `07 §3` 為準，AI 協定以 `06 §3.3` 為準。外部帳號、採購、資源與連線目前均未建立；產品／營運／真人測試仍待跑。契約 fixture 與本機 scoped runtime milestone 另見 `../verification/2026-09-19-revision-check.md` 與 [`2026-09-20-local-core.md`](../../releases/2026-09-20-local-core.md)。
 
 ### 2026-09-19 運作範圍修訂
 
-56 packages及M00–M09技術membership保留；FW-13–FW-15是既有package的工作卡增量。全形狀建置／帳號／sandbox不等於四線同步營運。首批只一種真需求互助，真人容量、雙方實益、總維持工時與資金證據決定新增對外服務承諾，詳見 `../12-low-ops-mutual-benefit.md`；不封鎖一般貢獻。所有原runtime／真人測試仍未跑。
+56 packages及M00–M09技術membership保留；FW-13–FW-15是既有package的工作卡增量。全形狀建置／帳號／sandbox不等於四線同步營運。首批兩條平行驗證路徑：有限互助，以及自願作品展示／外展／商機／合作／外部實收證據；詳見 `../12-low-ops-mutual-benefit.md`。資源與容量只約束已承諾的真人服務，不阻擋一般參與或外展。產品／營運／真人測試仍待跑；不宣稱完整 package 或 milestone 完成，也不登錄通過數、具名 reviewer 成功、部署或真人使用證據。
 
 
 ## 1. 決策拍板欄
@@ -77,7 +77,7 @@ Ted 依舊持有 infra／platform／設計／建置 owner 與三類 A4；其餘 
 | HF-P11 Organizations / Guilds | Hao | Codex／Grok／Claude | □ |
 | HF-P12 Product / Operations | Mini | Codex／Grok／Claude | □ |
 | HF-P13 Finance / Legal | Ted | AI 整理 issue；專業者同步提供意見 | □ |
-| HF-P14 定位＋陪跑 Master | Hao | Codex／Grok／Claude | □ |
+| HF-P14 定位＋陪跑 Master | Jason | Codex／Grok／Claude | □ |
 | HF-P15 貨品／Supplier／QC Master | Mini | Codex／Grok／Claude | □ |
 | HF-P16 電商／Storefront Master | Mini | Codex／Grok／Claude | □ |
 | HF-P17 自動行銷 Master | Hao | Codex／Grok／Claude | □ |
@@ -91,7 +91,7 @@ Ted 依舊持有 infra／platform／設計／建置 owner 與三類 A4；其餘 
 | HF-P25 Cloudflare break-glass Super Administrator | Jason | 邀請 evidence 檢查 | 候選＿＿／接受 ref＿＿ |
 | HF-P26 Signer A／B／offline C custodians | Ted／Mini／Jason | custody evidence 檢查 | A＿＿／B＿＿／C＿＿ |
 | HF-P27 Vibe／Field／Project | 韋銘／Jason／Mini | provenance 檢查 | V＿＿／F＿＿／P＿＿ |
-| HF-P28 training／maintenance／real demand supply | training＝Hao；maintenance＝各模組 steward；real demand＝Jason＋Mini（建議預設，五人共同閱讀確認） | supply evidence 檢查 | owners＿＿ |
+| HF-P28 training／maintenance／real demand supply | training＝Jason（Talent & Direction；或該 Guild delegate）；maintenance＝各模組 steward；real demand＝Jason＋Mini（建議預設，五人共同閱讀確認） | supply evidence 檢查 | owners＿＿ |
 | HF-P29 official QC | 韋銘（非作者時） | Grok／Claude | 人類 pool＿＿ |
 | HF-P30 support／incident／reconciliation on-call | Ted／Jason | AI alerts／runbook checks | delegates＿＿ |
 

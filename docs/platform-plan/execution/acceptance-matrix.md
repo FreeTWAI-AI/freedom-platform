@@ -2,7 +2,7 @@
 
 > 狀態：現行 canonical baseline（2026-09-19 低維運互惠修訂）；planning 文件，不代表已部署。
 
-T01–T26保持穩定，新增T27–T34與UAT-M1–M5。下表產品／runtime／真人測試全部為「未跑」；本次靜態文件驗證另見 `../verification/2026-09-19-revision-check.md`，不代替下表。Fixture、命令與 evidence path 是預定位置，不表示 code、tests、runtime、帳號或資源存在。Owner 以「職能（建議預設：人名）」對回 `spec-index.md` 與 `06 §4`；所有分工皆為建議預設，五人共同閱讀確認。平台建置檢查固定為 Grok adversarial review＋Claude verification＋自動 checks。
+T01–T26保持穩定，新增T27–T34與UAT-M1–M5。下表產品／營運／真人測試仍為「未跑」。契約 fixture 靜態檢查見 `../verification/2026-09-19-revision-check.md`；本機 scoped runtime milestone 見 [`docs/releases/2026-09-20-local-core.md`](../../releases/2026-09-20-local-core.md)（login→claim→submit→accept→gains 原型）。兩者都不代替下表，也不宣稱完整 package、milestone、部署、真人使用或收款證據。Fixture、命令與 evidence path 是預定位置，不表示對應產品測試已跑。Owner 以「職能（建議預設：人名）」對回 `spec-index.md` 與 `06 §4`；所有分工皆為建議預設，五人共同閱讀確認。平台建置檢查固定為 Grok adversarial review＋Claude verification＋自動 checks。
 
 | ID | 分類 | assertion | fixture／執行方法 | owner | A4 語意 | 預定 evidence | 狀態 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -17,7 +17,7 @@ T01–T26保持穩定，新增T27–T34與UAT-M1–M5。下表產品／runtime�
 | T09 | unit／contract | Agent success claim 缺 minimum evidence 時不算 pass，回 missing list | omission table＋response snapshots | Work / Opportunities（建議預設：Jason） | 無 | `execution/evidence/T09/` | 未跑 |
 | T10 | integration／AI scenario check | changes-requested、補件、拒絕不錯發 contribution；revision 有 lineage 與 next step | workflow integration＋AI journey transcript | Quality / Commercialization（建議預設：Mini） | Product exact review decision 由具權當事人簽署 | `execution/evidence/T10/` | 未跑 |
 | T11 | contract／operational drill | accepted outcome retracted 後 old receipt 固定拒絕；XP／matching／entitlement rebuild 不復活 | API negative＋projection rebuild／digest compare | Quality / Commercialization（建議預設：Mini） | 成員 retraction authority 依 exact artifact | `execution/evidence/T11/` | 未跑 |
-| T12 | AI scenario check／integration | inactive、skip、install failure、普通逾期不自動降 rank、封會員或降低 discoverability | member scenarios＋policy assertions | People / Identity（建議預設：Hao） | 無 | `execution/evidence/T12/` | 未跑 |
+| T12 | AI scenario check／integration | inactive、skip、install failure、普通逾期不自動降 rank、封會員或降低 discoverability | member scenarios＋policy assertions | Talent / Agent（建議預設：Jason） | 無 | `execution/evidence/T12/` | 未跑 |
 | T13 | contract／AI scenario check | training／maintenance 不被分類或推薦理由冒充 customer delivery | classification contract＋copy comprehension checks | Work / Opportunities（建議預設：Jason） | 無 | `execution/evidence/T13/` | 未跑 |
 | T14 | security | 高 XP／Master 無 active exact-scope ReviewerAppointment 不能產品 QC；Agent 不取代自然人 appointment | entitlement negative matrix | Identity / Security（建議預設：Ted） | 產品 QC exact A4 保留 | `execution/evidence/T14/` | 未跑 |
 | T15 | integration | 三 CLI 取得同 approved version 時 activation／domain roots 一致且不混版 | clean-environment activation comparison | Skills / Integrations（建議預設：Ted） | 無 | `execution/evidence/T15/` | 未跑 |
@@ -50,7 +50,7 @@ T01–T26保持穩定，新增T27–T34與UAT-M1–M5。下表產品／runtime�
 
 | ID | 最小實验／觀察 | 決策用途 | 狀態 |
 | --- | --- | --- | --- |
-| UAT-M1 | 約10次真人合作分列每位參與者實益、partial／no gain／unknown；不壓成任務完成率 | 題目與互惠條件是否需修改 | 未跑 |
+| UAT-M1 | 約10次真人合作分列每位參與者實益、partial／no gain／unknown；不壓成任務完成率。10次是互助採樣，不是外展門檻 | 題目與互惠條件是否需修改；不阻擋平行外展／商機路徑 | 未跑 |
 | UAT-M2 | 觀察自願再參與、共同目標由成員提出及合法成果重用；意願與行為分開 | 共同參與與非金錢價值，不催活躍 | 未跑 |
 | UAT-M3 | 普通互助七天無核心找人催促，維持必要安全／既有履約；量測所有人的行政工時 | 核心依賴、工時及記錄覆蓋 | 未跑 |
 | UAT-M4 | 兩位幫助者不再接受新工作，系統縮減新供給而不轉派核心；舊責任保留 | 容量枯竭與降載是否誠實 | 未跑 |
@@ -75,4 +75,4 @@ T01–T26保持穩定，新增T27–T34與UAT-M1–M5。下表產品／runtime�
 - Provider sandbox 先有相應 O1／O2 owner connection；O3 只跑 contract tests＋deterministic mocks，不能冒充真帳號或 live。
 - AI checks 取代平台建置的人類排隊；Grok report、Claude verification 與自動輸出都進 evidence。
 - Ted 只處理付款、法律文件、對外正式發布三類 exact A4；成員 A4 依產品契約保留。
-- `execution/evidence/` 尚未建立；沒有 artifact 時所有 row 維持「未跑」。
+- `execution/evidence/` 尚未建立；沒有 artifact 時本表產品／營運／真人 row 維持「未跑」。契約 fixture 與本機 scoped runtime 另存，不填入本表通過數。

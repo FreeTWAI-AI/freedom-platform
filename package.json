@@ -1,0 +1,42 @@
+{
+  "name": "freedom-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "db:up": "docker compose up -d --wait postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "tsx scripts/database.ts migrate",
+    "db:seed": "tsx scripts/database.ts seed",
+    "build": "vite build --config apps/portal-web/vite.config.ts",
+    "start": "tsx apps/platform-api/src/server.ts",
+    "dev": "vite --config apps/portal-web/vite.config.ts",
+    "demo": "npm run db:up && npm run db:migrate && npm run db:seed && npm run build && npm start",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test --test-concurrency=1 tests/runtime/*.test.ts",
+    "test:e2e": "playwright test",
+    "test:contracts": "python3 -m pytest -q -p no:cacheprovider docs/platform-plan/contracts/tests docs/platform-plan/execution/tools/tests",
+    "verify:inventory": "python3 docs/platform-plan/verification/verify_revision.py"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.1",
+    "hono": "4.13.8",
+    "pg": "8.23.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "26.6.2",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vite": "8.3.0"
+  }
+}

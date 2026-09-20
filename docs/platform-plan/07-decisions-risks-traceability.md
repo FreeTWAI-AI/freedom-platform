@@ -16,7 +16,7 @@
 4. 其他 planning 文件與來源附件。
 5. 既有 repo 的 code、schema 與 tests；它們只描述 legacy current behavior。
 
-`target`、`legacy current`、`verified evidence`、`working default` 與現行假設分開。帳號存在不表示功能上線，sandbox 不表示 live，所有測試目前均為「未跑」。
+`target`、`legacy current`、`verified evidence`、`working default` 與現行假設分開。帳號存在不表示功能上線，sandbox 不表示 live。產品／營運／真人測試仍待跑；契約 fixture 與本機 scoped runtime milestone 另見 `verification/2026-09-19-revision-check.md` 與 [`docs/releases/2026-09-20-local-core.md`](../releases/2026-09-20-local-core.md)，不得解讀為產品驗收、部署或真人證據。
 
 ### 1.2 P5／P10／P11 五人分工、零阻擋與最少人際對接
 
@@ -40,9 +40,9 @@ P5 的角色供給由五人核心團隊直接承接：Ted、Hao、Mini、Jason�
 
 ### 1.3 2026-09-19 現行運作修訂
 
-本次使用者要求低維運、共同參與、互助得利，並同意修改本ZIP；僅採本次資料與檢視，不引入過去個人記憶。`00 §1.2`與`12`解析P10／P11：不阻擋一般工作，不等於對無容量服務做承諾；減少行政，不取消共同解題。四條技術價值循環保留，原四線同步營運seed由單一互助情境取代。
+本次使用者要求低維運、共同參與、互助得利，並同意修改本ZIP；僅採本次資料與檢視，不引入過去個人記憶。`00 §1.2`與`12`解析P10／P11：不阻擋一般工作，不等於對無容量服務做承諾；減少行政，不取消共同解題、需求交流或外展。四條技術價值循環與 56 packages／9 repos／12 runtimes 保留；原四線同步營運 seed 改為兩條平行的首批驗證路徑（有限互助，以及自願作品展示／外展／商機／合作／外部實收證據）。
 
-本次文件修改與本地驗證由本修訂工具執行；不宣稱原規劃的Grok／Claude reviewer、任何具名holder或真人試行已執行。
+本次文件修改與本地驗證由本修訂工具執行；不宣稱原規劃的Grok／Claude reviewer、任何具名holder或真人試行已執行。契約 fixture 與本機 scoped runtime 另見 verification 與 [`docs/releases/2026-09-20-local-core.md`](../releases/2026-09-20-local-core.md)；不登錄通過數。
 
 ## 2. 來源 inventory 與現行事實
 
@@ -175,7 +175,7 @@ ADR 編號穩定供其他文件引用；`adopted` 表示 target design 已決定
 | --- | --- | --- |
 | ADR-080 | 主體驗是真實需求、共同成果、雙方實益與重用；不以任務量代替互惠 | `01/04/12`、既有Squad／Work／Result；不新增組織 |
 | ADR-081 | appointment與容量分離；總維持工時含核心及其他會員；無人不隱性補位 | capacity reservation、bounded提醒、保護既有義務 |
-| ADR-082 | 全架構保留，首批單一營運情境；真人與資源證據決定擴大新承諾 | `01 §15`、`06 §11`；不封鎖一般貢獻或開發 |
+| ADR-082 | 全架構保留，首批兩條平行驗證路徑（有限互助＋自願作品展示／外展／商機／合作／外部實收）；真人與資源證據決定擴大新服務承諾，不阻擋參與或外展 | `01 §15`、`06 §11`、`12 §9`；不封鎖一般貢獻、開發或找客戶 |
 | ADR-083 | reviewer容量只做正交導航；新增條款及實益回報不等於review／payment | core machine、agent contract、OpenAPI、append-only observations |
 
 ## 4. 來源採用、調整與拒絕矩陣
@@ -239,7 +239,7 @@ ADR 編號穩定供其他文件引用；`adopted` 表示 target design 已決定
 
 ## 5. 已決定的 launch decisions（working defaults，Ted 可改）
 
-OD-01…OD-28 都是現行決定；外部專業意見與 evidence 會回填並產生後續工作，不中斷無關工作。非 canonical 的供應商、數量、日期或週數均是建議預設。Ted 可在最後一欄寫入 replacement 與日期；未改寫時依表中決定執行。
+OD-01…OD-28 都是現行決定；外部專業意見與 evidence 會回填並產生後續工作，不中斷無關工作。非 canonical 的供應商、數量、日期或週數均是建議預設。Ted 可在最後一欄寫入 replacement 與日期；未改寫時依表中決定執行。T&D 指 Talent & Direction（定位＋陪跑）。
 
 | OD | 決定 | 依據 | 標籤或技術依賴 | Ted 可改欄 |
 | --- | --- | --- | --- | --- |
@@ -252,8 +252,8 @@ OD-01…OD-28 都是現行決定；外部專業意見與 evidence 會回填並�
 | OD-07 | Paid fact 後建立 settlement instruction；確認收款才授權出貨；refund／chargeback 建 reverse obligation 或 future netting | ADR-030、ADR-031；`03 §3.8`、`03 §3.9` | payment fact 與 reconciliation 是 domain action 的技術條件 | 可：＿＿／日期＿＿ |
 | OD-08 | MSRP／floor 永遠標「建議」；Supplier 對 exact revision 接受；不做自動低價封鎖 | ADR-027、ADR-028；`01 §7.2` | `DistributionAcceptance` 控制該 listing revision 的 checkout action | 可：＿＿／日期＿＿ |
 | OD-09 | Attribution per Offer configurable；支援 signed link＋documented manual claim | `03 §3.8`；`04 §3` | claim 必須綁 Offer policy version 與 evidence | 可：＿＿／日期＿＿ |
-| OD-10 | 建議預設 steward：Ted＝Platform／Agent Control／Contracts、Settlement／ledger、AI Vibe／Skills／OSS；Hao＝Growth、Media、Member／Community、Talent；Mini＝Delivery PM、Product Quality／Supply、Commerce／Storefront；Jason＝Opportunity／Partnership 與 Work 流程；韋銘＝dev implementation。`official` 的具名獨立 reviewer 可由五人中任一非作者擔任，建議預設韋銘；韋銘為作者時改 Mini 或 Jason。五人共同閱讀時確認；Seller／Supplier／Skill／opportunity seed 同步建立 | 五人核心團隊；ADR-009、ADR-060、ADR-064 | Grok review、Claude verification與自動 checks 照常；獨立自然人 evidence 只控制 `official`，缺少時不阻擋 candidate | 可：＿＿／日期＿＿ |
-| OD-11 | rank 採 evidence rubric；routine work 可委派；office 有 scope／start／end／successor。Guild Master 是 office；每個產品的 Vibe／Field／Project 是三筆 `ProductRoleAssignment` 且必須由不同自然人承擔。建議預設 office holder：Ted＝Platform Engineering、AI Vibe、Settlement；Hao＝Growth、Media、Member／Community、Talent；Mini＝Product Quality／Supply、Commerce；Jason＝Opportunity／Partnership。平台自身軟體建議預設 Vibe＝韋銘、Field＝Jason、Project＝Mini；Ted 的 AI Vibe Guild Master office 不衝突，Ted 另自任 Vibe 時三人改為 Ted／Jason／Mini | ADR-008、ADR-010、ADR-011；`01 §3.4` | evidence 不自動授權；office assignment 控制 scoped capability，產品三人 evidence 只控制 `commercial-ready` | 可：＿＿／日期＿＿ |
+| OD-10 | 建議預設 steward：Ted＝Platform／Agent Control／Contracts、Settlement／ledger、AI Vibe／Skills／OSS；Hao＝Growth、Media、Member／Community；Mini＝Delivery PM、Product Quality／Supply、Commerce／Storefront；Jason＝T&D、Opportunity／Partnership 與 Work 流程；韋銘＝dev implementation。`official` 的具名獨立 reviewer 可由五人中任一非作者擔任，建議預設韋銘；韋銘為作者時改 Mini 或 Jason。五人共同閱讀時確認；Seller／Supplier／Skill／opportunity seed 同步建立 | 五人核心團隊；ADR-009、ADR-060、ADR-064 | Grok review、Claude verification與自動 checks 照常；獨立自然人 evidence 只控制 `official`，缺少時不阻擋 candidate | 可：＿＿／日期＿＿ |
+| OD-11 | rank 採 evidence rubric；routine work 可委派；office 有 scope／start／end／successor。Guild Master 是 office；每個產品的 Vibe／Field／Project 是三筆 `ProductRoleAssignment` 且必須由不同自然人承擔。建議預設 office holder：Ted＝Platform Engineering、AI Vibe、Settlement；Hao＝Growth、Media、Member／Community；Mini＝Product Quality／Supply、Commerce；Jason＝T&D、Opportunity／Partnership。平台自身軟體建議預設 Vibe＝韋銘、Field＝Jason、Project＝Mini；Ted 的 AI Vibe Guild Master office 不衝突，Ted 另自任 Vibe 時三人改為 Ted／Jason／Mini | ADR-008、ADR-010、ADR-011；`01 §3.4` | evidence 不自動授權；office assignment 控制 scoped capability，產品三人 evidence 只控制 `commercial-ready` | 可：＿＿／日期＿＿ |
 | OD-12 | text provider 建議預設 OpenAI API＋Anthropic API＋xAI API；render 建議預設 Runway API；publication adapters 全開 sandbox | O1；`04 §5`、`04 §6` | account／budget 存在後 sandbox Job API 才能真接；測試未跑 | 可：＿＿／日期＿＿ |
 | OD-13 | Day 1 盤點 legacy URL／traffic／credentials／data；保留 strangler adapter；migration 結果如實標記 | `02 §4.5`；`06 §10` | legacy access 是 inventory 技術依賴；未取得時走 deterministic fixture | 可：＿＿／日期＿＿ |
 | OD-14 | 未確認權利的 legacy asset 只作行為參考；新 brand／font／image 使用已授權來源 | ADR-017；`06 §10` | license evidence 控制特定 asset 是否可進 release artifact | 可：＿＿／日期＿＿ |
@@ -304,7 +304,7 @@ Likelihood/Impact 使用 L/M/H。Owner 是風險處理責任，不代表最終�
 | Risk | L/I | Trigger/metric | Prevention | Contingency | Owner/階段 |
 | --- | --- | --- | --- | --- | --- |
 | R-ORG-01 Guild/Master/Officer/rank權限爭議 | M/H | Permission/office dispute | Rank、office、Entitlement、delegation分表；scope/term/successor | Revoke specific office grant、audit、公開交接 | Organization 1B+ |
-| R-ORG-02 核心或志工承擔隱形維持工作 | H/H | 核心與非核心總維持／協調工時、accepted capacity、介入覆蓋率 | 單一互助情境、有限容量、scope／episode去重、模板與自助；appointment不等於可用時間 | 縮減新承諾、未認領志願到期；不自動核心補位；保護既有合約／安全義務 | Guild Masters與Work／Coaching既有owner |
+| R-ORG-02 核心或志工承擔隱形維持工作 | H/H | 核心與非核心總維持／協調工時、accepted capacity、介入覆蓋率 | 兩條平行首批路徑、有限容量、scope／episode去重、模板與自助；appointment不等於可用時間 | 縮減新服務承諾、未認領志願到期；不自動核心補位；不禁止外展；保護既有合約／安全義務 | Guild Masters與Work／Coaching既有owner |
 | R-ORG-03 一人多職造成責任不清或三職標籤誤標 | H/H | Same natural person 跨 required roles | Resolve human principal；Agent 不算自然人；建議預設 Vibe＝韋銘、Field＝Jason、Project＝Mini；標籤投影驗 exact assignments | 修正 `commercial-ready`，補 label evidence；工作照常 | Mini／Jason／韋銘 1C+ |
 | R-ORG-04 工作被做完但貢獻／得到不清楚 | M/H | Orphan Results、member complaints | WorkItem先列evidence/expected gain；accepted Result才建Contribution | Repair provenance/projector、人工attach evidence | Work Core 1B+ |
 | R-AGT-01 Agent取得過多私密context | M/H | Prompt/log DLP alert | Purpose-limited WorkContext；raw positioning/chat/PII/secret排除 | Revoke grant/connection、rotate、incident response | Agent Control all |
@@ -420,7 +420,7 @@ Likelihood/Impact 使用 L/M/H。Owner 是風險處理責任，不代表最終�
 
 ## 8. Requirement traceability matrix
 
-本表保存 RQ-001…RQ-065 的穩定追溯。所有列的測試狀態都是「未跑」；target 已定義不表示 implementation、provider setup 或 production evidence 已存在。Implementation repo 以 `requirements.yaml` 連回同一 RQ ID，補 `implementation_pr`、`test_run`、`release` 與 evidence URL。
+本表保存 RQ-001…RQ-065 的穩定追溯。產品／營運／真人列的測試狀態仍是「未跑」；契約 fixture 與本機 scoped runtime 另見 verification 與 [`docs/releases/2026-09-20-local-core.md`](../releases/2026-09-20-local-core.md)，不得改寫本表為已通過。target 已定義不表示 implementation、provider setup 或 production evidence 已存在。Implementation repo 以 `requirements.yaml` 連回同一 RQ ID，補 `implementation_pr`、`test_run`、`release` 與 evidence URL。
 
 | Req | Requirement | Canonical owner/entities | Spec/contracts | Minimum acceptance | 階段/測試狀態 |
 | --- | --- | --- | --- | --- | --- |
@@ -498,7 +498,7 @@ Likelihood/Impact 使用 L/M/H。Owner 是風險處理責任，不代表最終�
 | RQ-067 | 求助／協助／共同成果入口，既有Squad自願參與 | `04 §1.1`、`12 §2/6` | T29；UAT-M2 |
 | RQ-068 | 核心／非核心總工時、容量原子保留、不隱性補位 | `06 §12.1`、operating-policy | T30/T31；UAT-M3 |
 | RQ-069 | 無人／未知回饋有界；保留履約、付款、安全與權益義務 | `12 §5`、core machine | T32/T33；UAT-M4 |
-| RQ-070 | 單情境首批、資金來源與真人證據控制擴張承諾 | `01 §15/16`、`06 §11`、`08 §3.4` | UAT-M1–M5；不做會員門檻 |
+| RQ-070 | 兩條平行首批驗證路徑、資金來源與真人證據控制擴張承諾，不以前置互助次數阻擋外展 | `01 §15/16`、`06 §11`、`08 §3.4`、`12 §9` | UAT-M1–M5；不做會員門檻或外展門檻 |
 | RQ-071 | reviewer導航一致；條款版本、server actor與結果語意一致 | core／agent contract／OpenAPI／events | FW-06、T27/T28/T34及本地靜態檢查 |
 
 ## 9. Professional confirmation，不阻擋會員與工作

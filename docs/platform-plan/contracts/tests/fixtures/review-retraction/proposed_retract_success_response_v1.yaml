@@ -1,19 +1,19 @@
 schema_version: freedom.review-retraction-success-proposal/v1
 fixture_id: proposed_retract_success_response_v1
 kind: retract_success_response_proposal
-status: proposal_not_applied_to_canonical
+status: applied_to_canonical_2026_09_20
 source: FW-12; RQ-060; ADR-061; T11; 05 §3.2/3.3
 aligned_sequence_fixture: sequence_accepted_retracted_replay_v1
 proposal_diff: docs/platform-plan/execution/proposals/retract-success-response.diff
 proposal_markers:
 - FW-12 PROPOSAL
-- proposal_not_merged
-- NOT APPLIED TO CANONICAL CONTRACTS
-canonical_gap:
+- applied_superseded
+- APPLIED TO CANONICAL CONTRACTS
+canonical_resolution:
   path: /quality-reviews/{reviewId}:retract
   operationId: retractQualityReview
-  current_200: description_only_no_typed_content_schema
-  note: Canonical openapi-outline.yaml must not yet define RetractQualityReviewSuccess.
+  current_200: typed_RetractQualityReviewSuccess_with_ETag
+  note: Canonical OpenAPI now defines RetractQualityReviewSuccess; original proposal fields are retained for traceability.
 proposed_schema_name: RetractQualityReviewSuccess
 proposed_schema:
   type: object

@@ -18,7 +18,7 @@ contract_paths:
 - contracts/event-catalog.example.yaml#/events
 - contracts/xp-policy.example.yaml#/policy/source_contract
 fw12_proposal:
-  status: proposal_not_applied_to_canonical
+  status: applied_to_canonical_2026_09_20
   diff: docs/platform-plan/execution/proposals/retract-success-response.diff
   success_response_fixture: proposed_retract_success_response_v1.yaml
   proposed_schema: RetractQualityReviewSuccess

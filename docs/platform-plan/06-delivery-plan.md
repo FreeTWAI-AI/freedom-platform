@@ -19,7 +19,8 @@ Marketing 與 editing 是 `AI-BUSINESS`／`COMMERCE` 的放大器：canonical so
 
 ### 2.1 五人核心團隊基準情境
 
-核心團隊由 Ted、Hao、Mini、Jason、韋銘與 AI 共同建立完整形狀；Ted 負責 infra、platform、設計與建置並在 Day 1 一次建齊，不等待共同閱讀或其他 holder。Hao 負責 growth、media、member／community 與 talent，Mini 負責 delivery PM、product quality／supply 與 commerce，Jason 負責 coordination、Opportunity／Project／Squad／Work 流程，韋銘負責 dev implementation 與非作者時的獨立 QC。Grok 執行 adversarial review、Claude 執行 verification，自動 checks 驗 schema、tests、security、docs 與 contract impact。以上分工都是建議預設，在一次性的五人共同閱讀時確認；確認後各自 own track，不設固定會議或人員等待點。
+核心團隊由 Ted、Hao、Mini、Jason、韋銘與 AI 共同建立完整形狀；Ted 負責 infra、platform、設計與建置並在 Day 1 一次建齊，不等待共同閱讀或其他 holder。Hao 是行銷長才、community leader 與精神領袖，負責 growth、media 與 member／community；Mini 負責 delivery PM、product quality／supply 與 commerce。
+Jason 負責 Talent & Direction（定位＋陪跑）、coordination、Opportunity／Project／Squad／Work 流程，韋銘負責 dev implementation 與非作者時的獨立 QC。Grok 執行 adversarial review、Claude 執行 verification，自動 checks 驗 schema、tests、security、docs 與 contract impact。以上分工都是建議預設，在一次性的五人共同閱讀時確認；確認後各自 own track，不設固定會議或人員等待點。
 
 | 執行配置 | 工作方式 | 時程語意 |
 | --- | --- | --- |
@@ -52,7 +53,7 @@ Guild 是長期縱向職業線；Squad 是為 Project 組成的橫向交付隊�
 
 | 模組／共同核心 | Accountable Master／Guild | 建議預設 holder（五人共同閱讀時確認） | 固定協作 Guild |
 | --- | --- | --- | --- |
-| 定位＋陪跑 | Talent & Direction Guild Master | Hao | Member Operations、各接收 Profession Guild |
+| 定位＋陪跑 | Talent & Direction Guild Master | Jason | Member Operations、各接收 Profession Guild |
 | 貨品上架／Supplier／實體 QC | Product Quality & Supply Guild Master | Mini | Commerce、Marketing、Field |
 | 電商／Storefront／Distribution | Commerce & Sales Guild Master | Mini | Product & QC、Settlement、Marketing |
 | 自動行銷 | Growth & Marketing Guild Master | Hao | Commerce、Project、Field |
@@ -65,6 +66,8 @@ Guild 是長期縱向職業線；Squad 是為 Project 組成的橫向交付隊�
 
 Open AI Product & Skills Division 由 AI Vibe、AI Field、AI Project 三個 Profession Guild 組成；三個 Guild 的當期 Guild Master OfficeAssignment 持有人共組 Product Council，不新增第四層長官。`commercial-ready` 三個 assignment 的建議預設是 Vibe＝韋銘、Field＝Jason、Project＝Mini，在五人共同閱讀時確認；三個不同自然人的 active assignments 成立時 `commercial-ready=true`，否則維持 false，而工作、candidate、sandbox、staging、內部 demo 與發布準備照常。
 
+Hao 在本分工中的角色描述是「行銷長才、community leader 與精神領袖」。
+
 規則：Guild Master 是 office；Vibe／Field／Project 是每個產品各自的 `ProductRoleAssignment`，三者必須由不同自然人承擔。Ted 擔任 AI Vibe Guild Master 不與產品角色衝突，也可另在某產品自任 Vibe；該產品此時的三人即為 Ted／Jason／Mini。建議預設：平台自身軟體的 Vibe＝韋銘、Field＝Jason、Project＝Mini。
 
 ### 3.2 建議 delivery tracks
@@ -72,9 +75,9 @@ Open AI Product & Skills Division 由 AI Vibe、AI Field、AI Project 三個 Pro
 | 建議預設 holder（五人共同閱讀時確認） | Delivery tracks | 主要 repo／目錄 | Outcome |
 | --- | --- | --- | --- |
 | Ted | Foundation & Contracts；Platform／Agent Control；Settlement & Ledger；AI Vibe／Skills／OSS | `freedom-platform` contracts、identity、DB、integration、agent-control、settlement、registry | identity/event/job/signature spine、三 CLI control 與 settlement evidence |
-| Hao | Talent Journey；Growth & Media；Member & Community Operations | positioning、coaching、portal、marketing、media、growth repo、Discord／LINE | free knowledge／paid time 邊界、source-locked publication／clip 與 community evidence |
+| Hao（行銷長才、community leader 與精神領袖） | Growth & Media；Member & Community Operations | portal、marketing、media、growth repo、Discord／LINE | source-locked publication／clip 與 community evidence |
 | Mini | Delivery PM；Open Product Quality & Supply；Commerce & Storefront | milestones、spec-index、acceptance-matrix、quality、commerce、storefront | delivery evidence、candidate→QC 與 one-Seller commerce evidence |
-| Jason | Coordination；Opportunity／Project／Squad／Work；Partnership | opportunity/work、project factory、WorkItem routing | 日常派卡、claim→result 與 opportunity evidence |
+| Jason | Talent Journey；Coordination；Opportunity／Project／Squad／Work；Partnership | positioning、coaching、opportunity/work、project factory、WorkItem routing | free knowledge／paid time 邊界、日常派卡、claim→result 與 opportunity evidence |
 | 韋銘 | Dev implementation；non-author official QC | 各 package repo／目錄與 implementation WorkItems | packages 與 Codex 配對實作、獨立 QC evidence |
 
 同一人可在不同時間以不同 `ProfessionMembership`／acting profession 參與多個 Squad；WorkItem 必須記 acting role。平台自身建置不等待真人 reviewer：Grok adversarial review、Claude verification 與自動 checks 形成 review evidence。產品語意中的獨立自然人與 A4 signer 仍按 principal 判斷，換 Agent 不算換人，且不同自然人 evidence 只控制相應標籤。
@@ -111,7 +114,7 @@ Open AI Product & Skills Division 由 AI Vibe、AI Field、AI Project 三個 Pro
 | FND-05 | EntityPlaybookVersion、per-instance readiness、stable item resolver與missing→WorkItem | FND-01/02, WRK-01 | Foundation/Agent |
 | FND-06 | canonical entitlement keys／conditions、A4 named-application boundary與contract consistency tests | FND-01 | Foundation & Contracts |
 | ORG-01 | Division/Guild/Profession/Rank/OfficeAssignment/ModuleStewardship | FND-03 | Foundation；Hao（建議預設，五人共同閱讀確認） |
-| ORG-02 | equipped Skills、availability、本人可直接自述並確認的 WorkIntent 與 Guild directory | ORG-01 | Talent/Agent；Hao（建議預設，五人共同閱讀確認） |
+| ORG-02 | equipped Skills、availability、本人可直接自述並確認的 WorkIntent 與 Guild directory | ORG-01 | Talent/Agent；Jason（建議預設，五人共同閱讀確認） |
 | ORG-03 | Guild lifecycle/create/update、private-channel readiness slot、ProfessionStarterTrack與per-membership progress | ORG-01/02, FND-05 | Organization/Community；Hao（建議預設，五人共同閱讀確認） |
 | WRK-01 | Opportunity/Project/Squad/WorkItem/Claim/Result；review-required publish的capacity導航 | FND-02/03, ORG-01 | Agent Workflow |
 | AGT-01 | WorkContextBundle、AgentConnection、AgentRun、TaskLease、source-bound local verification receipt／failure provenance | WRK-01 | Agent Workflow |
@@ -120,7 +123,7 @@ Open AI Product & Skills Division 由 AI Vibe、AI Field、AI Project 三個 Pro
 | AGT-04 | `freedom-agent-kit` MCP facade＋Claude/Codex/Grok Platform adapters | AGT-01/02, BLD-04/05 | Agent Workflow |
 | AGT-05 | `agent.bootstrap.read`、day-one A0–A2 standing grant模板與grant instantiation | AGT-01/02, ORG-02 | Agent Workflow/Security |
 | WRK-02 | Platform-native Draft/Diff/Review/Apply for non-code artifacts | WRK-01, AGT-02 | Agent Workflow |
-| ONB-01 | rebuildable day-one journey、welcome ritual、Strategist/Master typed cards與deterministic stuck assistance | FND-05, ORG-03, SKL-03, AGT-05, WRK-01 | Talent/Agent/Community |
+| ONB-01 | rebuildable day-one journey、welcome ritual、Strategist/Master typed cards與deterministic stuck assistance | FND-05, ORG-03, SKL-03, AGT-05, WRK-01 | Talent/Agent/Community；Jason（建議預設，五人共同閱讀確認） |
 
 #### 4.1.1 特定 packages 的階段與驗收
 
@@ -151,10 +154,10 @@ Open AI Product & Skills Division 由 AI Vibe、AI Field、AI Project 三個 Pro
 
 | ID | 交付 | 依賴 | Owner Squad |
 | --- | --- | --- | --- |
-| POS-01 | versioned deterministic assessment core、`ai-online` golden parity | FND-01/02/03 | Talent |
-| POS-02 | `GuidedDiscoveryRun`、unified positioning-card schema、CareerProfile/WorkIntent confirmation | POS-01 | Talent |
-| COA-01 | free knowledge paths、program/checkpoints、Guild handoff | POS-02, ORG-01, WRK-01 | Talent |
-| COA-02 | paid human-time booking／ServiceOffer refs、coach workbench | COA-01, SRV-01 | Talent |
+| POS-01 | versioned deterministic assessment core、`ai-online` golden parity | FND-01/02/03 | Talent；Jason（建議預設，五人共同閱讀確認） |
+| POS-02 | `GuidedDiscoveryRun`、unified positioning-card schema、CareerProfile/WorkIntent confirmation | POS-01 | Talent；Jason（建議預設，五人共同閱讀確認） |
+| COA-01 | free knowledge paths、program/checkpoints、Guild handoff | POS-02, ORG-01, WRK-01 | Talent；Jason（建議預設，五人共同閱讀確認） |
+| COA-02 | paid human-time booking／ServiceOffer refs、coach workbench | COA-01, SRV-01 | Talent；Jason（建議預設，五人共同閱讀確認） |
 | INTK-01 | Canonical SubmissionDraft aggregate＋Portal inbox；typed create/get/confirm/reject、owner/org-operator authorization、source／HTTP idempotency、privacy/retention與local Agent document-reference adapter。External document confirm只acknowledge saved exact ref/revision/digest、不得fetch或聲稱current verification；Document WorkItem綁exact requirement，OpportunityStub不授予Agent access；之後bound local Agent才驗exact revision並記success／known-failure receipt | FND-02/03, WRK-01, AGT-01 | Agent Workflow＋Community |
 | INT-01 | LINE Login／Messaging adapter、delivery status、deep links與verified LINE→SubmissionDraft source adapter | FND-03/04, INTK-01 | Community |
 | INT-02 | Discord bot、Guild/channel/thread bindings、study-group入口與verified Discord→SubmissionDraft source adapter | FND-03/04, ORG-01, INTK-01 | Community |
@@ -295,7 +298,7 @@ Critical paths：
 
 ## 6. 階段、建議工期與 evidence
 
-Foundation Day 1 依 `08 §13` 同次建立 O1／O2 所需帳號與 production／staging resources；本節描述其後的交付結構。順序只由 API、resource、schema 與 state 等技術依賴決定。週數皆是五人核心團隊容量下的建議預設，可因吞吐、外包量與 provider lead time重估；標籤或 evidence 缺失不停止無關工作。本文所列產品／營運測試目前全部未跑；本次文件／schema 靜態檢查另見 verification/2026-09-19-revision-check.md。
+Foundation Day 1 依 `08 §13` 同次建立 O1／O2 所需帳號與 production／staging resources；本節描述其後的交付結構。順序只由 API、resource、schema 與 state 等技術依賴決定。週數皆是五人核心團隊容量下的建議預設，可因吞吐、外包量與 provider lead time重估；標籤或 evidence 缺失不停止無關工作。本文所列產品／營運／真人測試仍待跑；契約 fixture 靜態檢查見 verification/2026-09-19-revision-check.md，本機 scoped runtime milestone 見 [`docs/releases/2026-09-20-local-core.md`](../releases/2026-09-20-local-core.md)。不宣稱完整 package 或 milestone 完成。
 
 ### 階段 1A：契約凍結（建議預設第 1–2 週）
 
@@ -378,7 +381,7 @@ Outcome：在完整形狀與sandbox真連上補齊領域細節、migration、可
 
 階段 evidence／標籤：
 
-- 四條閉環在production-like環境有成功、重送、失敗與人工修復evidence，不靠工程師直接改DB；所有測試狀態在實跑前維持「未跑」。
+- 四條閉環在production-like環境有成功、重送、失敗與人工修復evidence，不靠工程師直接改DB；產品／營運測試在實跑前維持「未跑」。契約 fixture 與本機 scoped runtime 另記，不代替本階段閉環驗收。
 - P0/P1為0、P2具owner／workaround／date作建議release evidence；Ops能處理replay、rebind、result-unknown、manual payment evidence與dispute。
 - 每項公開宣稱如實標示live、beta、planned或unsupported；`time_to_first_gain`、review queue、settlement latency、manual exception rate與provider cost有量測基準。
 - Grok adversarial review、Claude verification與自動checks完成平台review；Ted只對付款、法律文件、對外正式release三類exact artifact一鍵A4。成員的Seller／Supplier／Squad／SettlementMandate／ProjectRelease A4語意維持不變。
@@ -457,7 +460,7 @@ plan/spec acceptance criterion
 
 ### 9.1 測試層
 
-下表是目標測試矩陣；截至2026-09-17全部為「未跑」。頻率與Owner是啟動後的建議預設，不代表測試已執行。
+下表是目標測試矩陣。產品／營運／真人列仍待跑；契約 fixture 與本機 scoped runtime 另見 verification 與 [`docs/releases/2026-09-20-local-core.md`](../releases/2026-09-20-local-core.md)，不得把那些檢查寫成本表已通過。頻率與Owner是啟動後的建議預設，不代表測試已執行。
 
 | Layer | 必測 | 頻率／Owner |
 | --- | --- | --- |
@@ -536,23 +539,30 @@ GitHub／community／growth：
 
 ## 11. Pilot 與冷啟動
 
-### 11.1 一種首批營運情境
+### 11.1 兩條平行的首批驗證路徑
 
-保留完整四條價值循環的工程設計、skeleton與sandbox；首批只對外承諾一種真需求的互助，例如共同做一個可重用資料整理模板／工具。不再同時承諾3–5商品、2–3產品與2–3專業服務的真人營運。
+保留完整四條價值循環的工程設計、skeleton與sandbox，以及 56 packages、9 repos、12 runtimes；不把四線同時變成有人維護的真人服務承諾。
 
-每個既有Squad圍繞真實受益者、單一共同成果、各自gain與投入上限。邀請需求、使用測試、文件與開發等不同參與方式；兩人能開始，3–5人／1–2週是建議預設，非資格或開工門檻。
+首批對外驗證走兩條可平行、互不前置的路徑：
+
+1. **有限互助：** 自願、有投入上限的共同解題，例如共同做一個可重用資料整理模板／工具。雙方當次實益、容量與結束條件明示；沒有容量就不保證真人回覆。
+2. **自願作品展示／外展／商機／合作／外部實收證據：** 成員可選擇公開作品、自行找需求與客戶、形成 Opportunity、談範圍／報價／明示分配、交付，並以 Seller 既有對帳記錄外部已收款事實。成交機率可以很低且如實揭露；鼓勵在不確定轉換時仍去外展。不承諾平台提供付費名單或未來收入。目前沒有已證明的真實付費成交個案。
+
+兩條路徑都不要求先完成約十次免費互助才准找客戶。資源與容量只約束已承諾的真人服務，不約束成員參與、自助、開發或外展。收款維持 Seller 自有、平台不 custody。
+
+每個既有Squad圍繞真實受益者、單一共同成果、各自gain與投入上限。邀請需求、使用測試、文件、開發與外展等不同參與方式；兩人能開始，3–5人／1–2週是建議預設，非資格或開工門檻。
 
 ### 11.2 真人觀察與擴張
 
-起始觀察約10次真人合作、建議30天。每次用既有事件與可略過的極短回報記錄雙方實益、核心補位、維持／協調工時與再參與意願；資料不足為evidence_insufficient，不讓AI填成功紀錄。不以人數100／300作為自動擴張標準。
+互助路徑的起始觀察約10次真人合作、建議30天；這是採樣設定，不是外展門檻、業界標準或自動通過線。每次用既有事件與可略過的極短回報記錄雙方實益、核心補位、維持／協調工時與再參與意願；資料不足為evidence_insufficient，不讓AI填成功紀錄。不以人數100／300作為自動擴張標準。
 
-先檢視：七天無核心催促的普通互助、兩位幫助者不再接受新工作、沒有付費客戶時的非金錢價值。安全、既有合約、付款與正式權益責任全程維持，不拿保護措施做停機實驗。
+先檢視：七天無核心催促的普通互助、兩位幫助者不再接受新工作、沒有付費客戶時的非金錢價值。平行記錄接觸、有效需求、提案、成交、交付、Seller 實收與實際參與者收益；未知就保留未知。安全、既有合約、付款與正式權益責任全程維持，不拿保護措施做停機實驗。
 
-擴張前以versioned policy列出新增需求、已接受容量、資金、總工時與證據；未設定或資料不足維持現有有容量範圍，不擴大對外服務承諾。開發、candidate、自助與一般貢獻照常。詳細指標及反例見`12 §7–10`。
+擴張前以versioned policy列出新增需求、已接受容量、資金、總工時與證據；未設定或資料不足維持現有有容量範圍，不擴大對外服務承諾。開發、candidate、自助、一般貢獻與外展照常。詳細指標及反例見`12 §7–10`。
 
 ### 11.3 已完成與尚未完成分開
 
-本次修訂只有文件與契約靜態檢查；真人觀察、API／並發／通知E2E及正式營運均未跑。工程測試通過不代表真人願意持續合作。
+產品／營運／真人觀察、API／並發／通知E2E及正式營運仍待跑。契約／fixture 靜態檢查見 `verification/2026-09-19-revision-check.md`；本機 scoped runtime milestone 見 [`docs/releases/2026-09-20-local-core.md`](../releases/2026-09-20-local-core.md)，涵蓋 login→claim→submit→accept→gains 的原型，不宣稱完整 package、milestone、部署、真人使用或收款證據。工程測試通過不代表真人願意持續合作，也不代表已有付費成交。
 
 ## 12. Operations automation 與人工邊界
 
@@ -622,7 +632,7 @@ GitHub／community／growth：
 
 ## 15. Release Definition of Done
 
-以下是module/release的DoD evidence與標籤投影，不是工作啟動條件。工作、candidate、sandbox、staging、內部demo與發布準備持續；對外正式release由Grok adversarial review、Claude verification、自動checks與Ted對exact release一鍵A4構成平台發布路徑。五人分工、具名 reviewer 與 custodian 都是建議預設，在五人共同閱讀時確認；各項測試在實跑前均標「未跑」。
+以下是module/release的DoD evidence與標籤投影，不是工作啟動條件。工作、candidate、sandbox、staging、內部demo與發布準備持續；對外正式release由Grok adversarial review、Claude verification、自動checks與Ted對exact release一鍵A4構成平台發布路徑。五人分工、具名 reviewer 與 custodian 都是建議預設，在五人共同閱讀時確認。產品／營運／真人測試在實跑前均標「未跑」；契約 fixture 與本機 scoped runtime 不代替本節 DoD。
 
 - journey、domain entities、states、commands、events、errors、permissions 與 ownership 一致。
 - OpenAPI/schema/SDK、migration、fixtures、tests、observability、runbook 同步。

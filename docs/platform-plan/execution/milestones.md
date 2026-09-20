@@ -2,11 +2,11 @@
 
 > 狀態：現行 canonical baseline（2026-09-19 低維運互惠修訂）；planning 文件，不代表已部署。
 
-M00–M09 是穩定 bundle ID，不是日期承諾；階段 membership 完全以 `06 §6` 為準且可重疊。每個 package 只有一個 unique primary bundle，其他使用處列為參與；本表 primary 只標後續 sandbox／成熟度主場，不是階段排他清單。階段 1B 依 `06 §6` 建立全 56 packages 的 skeleton，包含 unique primary 落在 M06–M09 的 19 個 packages；M01／M02 中不屬 `06 §6` 階段 1A contract／fixture 集合的 primary 工作也屬階段 1B skeleton。Owner 沿用 `06 §4`；平台建置一律由 Grok adversarial review、Claude verification 與自動 checks 驗收。所有測試均未跑。
+M00–M09 是穩定 bundle ID，不是日期承諾；階段 membership 完全以 `06 §6` 為準且可重疊。每個 package 只有一個 unique primary bundle，其他使用處列為參與；本表 primary 只標後續 sandbox／成熟度主場，不是階段排他清單。階段 1B 依 `06 §6` 建立全 56 packages 的 skeleton，包含 unique primary 落在 M06–M09 的 19 個 packages；M01／M02 中不屬 `06 §6` 階段 1A contract／fixture 集合的 primary 工作也屬階段 1B skeleton。Owner 沿用 `06 §4`；平台建置一律由 Grok adversarial review、Claude verification 與自動 checks 驗收。產品／營運／真人測試仍待跑；契約 fixture 與本機 scoped runtime 另記，不把任何 bundle 標為完成。
 
 ### 2026-09-19 運作範圍修訂
 
-56 packages及M00–M09技術membership保留；FW-13–FW-15是既有package的工作卡增量。全形狀建置／帳號／sandbox不等於四線同步營運。首批只一種真需求互助，真人容量、雙方實益、總維持工時與資金證據決定新增對外服務承諾，詳見 `../12-low-ops-mutual-benefit.md`；不封鎖一般貢獻。所有原runtime／真人測試仍未跑。
+56 packages及M00–M09技術membership保留；FW-13–FW-15是既有package的工作卡增量。全形狀建置／帳號／sandbox不等於四線同步營運。首批兩條平行驗證路徑：有限互助，以及自願作品展示／外展／商機／合作／外部實收證據；詳見 `../12-low-ops-mutual-benefit.md`。資源與容量只約束已承諾的真人服務，不阻擋一般參與或外展。產品／營運／真人測試仍待跑；契約 fixture 與本機 scoped runtime milestone 另見 `../verification/2026-09-19-revision-check.md` 與 [`2026-09-20-local-core.md`](../../releases/2026-09-20-local-core.md)。不宣稱完整 package 或 milestone 完成。
 
 
 ## M00 — 階段 1A：現況與契約基準
@@ -25,7 +25,8 @@ M00–M09 是穩定 bundle ID，不是日期承諾；階段 membership 完全以
 - Scope：FND／ORG／WRK／AGT contracts、entitlement、credential、restore 與 GitHub deterministic mocks。
 - Non-goal：不把 contract／mock 說成 provider sandbox 或功能上線。
 - 技術依賴／標籤：`FND-01` contract vocabulary；repo 與 test harness 存在後才有 executable evidence。provider 或 custody evidence 只控制對應 live／`production-signed` claim。
-- Owner：Ted（Foundation／Agent Control／GitHub organization & App，含 `INT-03A`）、Hao（Organization／Community）、Jason（Work）；implementation＝韋銘＋Codex。保留各 package 的 `06 §4` 職能名（建議預設，五人共同閱讀確認）。Reviewer：Grok。Verifier：Claude。
+- Owner：Ted（Foundation／Agent Control／GitHub organization & App，含 `INT-03A`）、Jason（Talent／Work）；implementation＝韋銘＋Codex。保留各 package 的 `06 §4` 職能名（建議預設，五人共同閱讀確認）。Reviewer：Grok。Verifier：Claude。
+- Organization／Community owner：Hao（建議預設，五人共同閱讀確認）。
 - Evidence：migration dry-run、identity isolation、idempotency、replay、five-clock negatives、restore plan；全部未跑。
 - 主 packages：`FND-05`、`FND-06`、`INT-03A` 的階段 1A contract／fixture；`FND-02`、`FND-03`、`FND-04`、`ORG-01`、`ORG-02`、`WRK-01`、`AGT-01`、`AGT-02` 的階段 1B skeleton。
 - 參與：`FND-01`；`ORG-03`、`ONB-01` 的階段 1A contract／fixture。
@@ -58,7 +59,8 @@ M00–M09 是穩定 bundle ID，不是日期承諾；階段 membership 完全以
 - Scope：readiness、Guild lifecycle、onboarding、positioning、coaching、starter Skill、intake、LINE／Discord ports。
 - Non-goal：不把 welcome、private channel、installation、stuck 或 connector 變成人身條件；不自動建立新 Guild。
 - 技術依賴／標籤：`M01`；installation contract 來自 `M02`。三類 supply owner evidence 只控制 `supply-ready`。
-- Owner：Hao（Talent／Community／`INTK-01`）、Ted（Skills）；Jason 只持參與 package `WRK-01` 的 Work 日常派卡。保留各 package 的 `06 §4` 職能名（建議預設，五人共同閱讀確認）。Reviewer：Grok。Verifier：Claude。
+- Owner：Jason（Talent，含 `ONB-01`、`POS-01`、`POS-02`、`COA-01`，以及參與 package `ORG-02`／`WRK-01` 的 Talent／Work 責任）、Ted（Skills）；保留各 package 的 `06 §4` 職能名（建議預設，五人共同閱讀確認）。Reviewer：Grok。Verifier：Claude。
+- Community／`INTK-01` owner：Hao（建議預設，五人共同閱讀確認）。
 - Evidence：positioning skip、multi-Guild、no-CLI path、outage fallback、support cards、supply fixtures；全部未跑。
 - 主 packages：`ORG-03`、`ONB-01`、`POS-01`、`POS-02`、`COA-01`、`SKL-02`、`INTK-01`、`INT-01`、`INT-02`。
 - 參與：`FND-05`、`ORG-01`、`ORG-02`、`WRK-01`、`AGT-05`、`SKL-03`。
@@ -80,7 +82,7 @@ M00–M09 是穩定 bundle ID，不是日期承諾；階段 membership 完全以
 - Scope：Opportunity、CommercialEdition、ServiceEngagement、SOW、milestone、allocation、paid coaching capacity。
 - Non-goal：不強制平台金流、不把 community QC 變付費認證、不由 Contribution 推算 payable。
 - 技術依賴／標籤：`M03` work／quality 與 `M04` intake／people journey；三個不同自然人 evidence 只控制 `commercial-ready`。
-- Owner：Ted（`SRV-01`／`SRV-02` 的 Skills／OSS／commercialization steward）、Jason（`OPP-01` 與 WRK 日常派卡）、Hao（`COA-02`）；Mini 是 `commercial-ready` 的 Project 產品角色，不是 package owner。以上為建議預設，五人共同閱讀確認。Reviewer：Grok。Verifier：Claude。
+- Owner：Ted（`SRV-01`／`SRV-02` 的 Skills／OSS／commercialization steward）、Jason（`OPP-01`、`COA-02` 與 WRK 日常派卡）；Mini 是 `commercial-ready` 的 Project 產品角色，不是 package owner。以上為建議預設，五人共同閱讀確認。Reviewer：Grok。Verifier：Claude。
 - Evidence：accepted intake、signed SOW、成員 `EngagementAllocationPlan` exact A4、change／withdraw／support、無 payable negatives；全部未跑。
 - 主 packages：`OPP-01`、`SRV-01`、`SRV-02`、`COA-02`。
 - 參與：`ORG-01`、`WRK-01`、`AGT-02`、`QLT-01`、`QLT-02`、`SKL-01`。

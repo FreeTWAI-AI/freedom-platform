@@ -6,7 +6,7 @@
 
 本文是給幹部與 NotebookLM 的敘事入口，不是另一份規格。權威仍是 `00`–`08` 與 `contracts/`。成員與幹部的 Agent 只能執行具備 signed overlay、runtime-scope QC、current publisher authority、current revocation 與隔離載入 evidence 的 domain Skill；條件不成立就回 `capability_unavailable`。
 
-先講事實：目前不宣稱 Portal、雲端資源、production、sandbox 或可啟用 Skill 已建立、部署或上線，所有測試均為「未跑」。現行執行結構如下：
+先講事實：2026-09-20 已有本機 Portal／API 與限定流程的實跑測試，見[版本紀錄](../releases/2026-09-20-local-core.md)。雲端 production、外部 sandbox、可啟用 Skill 與完整產品／真人驗收仍未取得完成證據。現行目標執行結構如下：
 
 ```text
 Foundation Day 1   O1／O2 一次開齊；production＋staging 同日建立；AI 完成可自動化設定
@@ -26,7 +26,7 @@ Foundation Day 1   O1／O2 一次開齊；production＋staging 同日建立；AI
 
 共同目標由成員在既有Squad／cohort自願提出與承接，管理者不必供應所有題目、主持固定報告會或逐張驗證普通互助。真人交流保留給解題，行政由範本與系統減少。
 
-只有一種首批互助情境承諾營運；商品、其他軟體與專業服務仍可建介面及sandbox，沒有真人／資金證據就不新增保證服務。觀察雙方實益與約10次真人合作，不以AI persona或本次靜態檢查宣稱已驗證。詳見`12`。
+首批並行驗證有限互助，以及自願作品曝光 → 商機 → 合作 → Seller 外部實收；商品、其他軟體與專業服務仍可建介面及sandbox，沒有真人／資金證據就不新增保證服務。約10次真人合作是互助觀察採樣，不是找客戶的前置門檻；不以AI persona、本機示範帳號或靜態檢查宣稱真人實益及成交已驗證。詳見`12`與[首批營運驗證](../development/operating-validation.md)。
 
 ## 1. 這套平台裡，管理者是誰
 
@@ -203,7 +203,7 @@ Mode 與 Skill refs 由 server 從 immutable WorkItem、current equipment 與 gr
 | 新軟體要不要測、按星星 | A1 隔離測試、A2 交 reproduction；star 需明示 scope | 決定是否測與公開背書；獨立 reviewer 簽 official QC | 1B skeleton；1C sandbox；2 細節成熟 |
 | 規格上了，要不要開發 | A0 解釋、A2 claim／branch／draft PR | 選工單；project party 保留自己的 release A4 | 1B 平台 dogfood；1C 真實接線；2 成熟 |
 
-Planning fixtures 使用 fake digest／signature，永遠不得啟用。所有測試目前未跑；在真實 evidence 形成前，不宣稱任何成員 Agent 已在 production 執行 domain Skill。
+Planning fixtures 使用 fake digest／signature，永遠不得啟用。靜態 fixture 檢查與本機會員工作流程已另有實跑紀錄；本節 domain Skill runtime 尚未驗收，在真實 evidence 形成前，不宣稱任何成員 Agent 已在 production 執行 domain Skill。
 
 ## 9. Seller、Supplier、客服與對帳：另一條幹部日常
 

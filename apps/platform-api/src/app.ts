@@ -1,0 +1,102 @@
+import { Hono } from 'hono';
+import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
+import { z } from 'zod';
+import type { Pool } from 'pg';
+import { timingSafeEqual } from 'node:crypto';
+import { authenticate, login, sessionView, type Actor } from '../../../modules/identity-membership/service.js';
+import { createWork,claimWork,changeClaim,listWorks,dashboard } from '../../../modules/opportunity-project-work/work.js';
+import { createShowcase,listShowcases,createOpportunity,listOpportunities,proposeEngagement,listEngagements,changeEngagement } from '../../../modules/opportunity-project-work/business.js';
+import { Problem,requireCondition } from '../../../packages/shared/problem.js';
+import type { Command } from '../../../packages/db/index.js';
+
+const COOKIE='freedom_local_session';
+// PostgreSQL bigint stays lossless internally; canonical AggregateVersion is a JSON safe integer.
+function wireVersions(value:any):any {
+  if(Array.isArray(value))return value.map(wireVersions);
+  if(value && typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>{
+    if(k==='aggregate_version' && typeof v==='string') {
+      const n=Number(v);requireCondition(Number.isSafeInteger(n)&&n>=0,500,'version_overflow','版本超出此 API 可表示範圍。');return [k,n];
+    }
+    return [k,wireVersions(v)];
+  }));
+  return value;
+}
+export function createApp(pool:Pool,origin='http://127.0.0.1:4310') {
+  const configuredOrigin=new URL(origin);
+  const localHosts=['127.0.0.1','localhost','[::1]'];
+  if(configuredOrigin.protocol!=='http:' || !localHosts.includes(configuredOrigin.hostname) || configuredOrigin.origin!==origin) throw new Error('APP_ORIGIN must be an HTTP loopback origin.');
+  const allowedOrigins=new Set(localHosts.map(host=>`http://${host}${configuredOrigin.port?`:${configuredOrigin.port}`:''}`));
+  const app=new Hono<{Variables:{actor:Actor}}>();
+  app.onError((err,c)=>{
+    if(err instanceof z.ZodError) return c.json({type:'about:blank',title:'Validation failed',status:422,code:'validation_failed',detail:err.issues.map(i=>`${i.path.join('.')}: ${i.message}`).join('; ')},422);
+    if(err instanceof Problem) return c.json({type:'about:blank',title:err.code,status:err.status,code:err.code,detail:err.message},err.status as 400);
+    // Never echo SQL, request bodies, credentials, raw errors, or stack traces.
+    console.error('request_failed', err instanceof Error ? err.name : 'unknown');
+    return c.json({type:'about:blank',title:'Internal error',status:500,code:'internal_error',detail:'操作未完成，請重新整理並查看目前狀態。'},500);
+  });
+  app.use('*',async(c,next)=>{
+    const host=new URL(c.req.url).hostname;
+    requireCondition(localHosts.includes(host),403,'local_host_required','此版本只提供本機使用。');
+    c.header('Cache-Control','no-store');c.header('X-Content-Type-Options','nosniff');c.header('Referrer-Policy','no-referrer');
+    c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+    if(!['GET','HEAD','OPTIONS'].includes(c.req.method)) {
+      requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected','操作來源不正確，請從本機工作台操作。');
+      requireCondition(c.req.header('Content-Type')?.split(';')[0]==='application/json',415,'json_required','操作需要 JSON。');
+      requireCondition(Number(c.req.header('Content-Length')??0)<=32768,413,'body_too_large','內容過長。');
+      const raw=await c.req.text();requireCondition(Buffer.byteLength(raw)<=32768,413,'body_too_large','內容過長。');
+      try { JSON.parse(raw); } catch { throw new Problem(400,'invalid_json','JSON 格式不正確。'); }
+    }
+    await next();
+    if(c.req.path.startsWith('/api/') && c.res.headers.get('Content-Type')?.includes('application/json')) {
+      const data=wireVersions(await c.res.json());
+      c.res=new Response(JSON.stringify(data),{status:c.res.status,headers:c.res.headers});
+    }
+  });
+  app.get('/api/v1/health',c=>c.json({status:'ok',mode:'local',version:'0.1.0',money_movement_enabled:false,official:false}));
+  app.post('/api/v1/auth/login',async c=>{
+    const body=z.object({email:z.email().max(200),password:z.string().min(1).max(200)}).strict().parse(await c.req.json());
+    const result=await login(pool,body.email,body.password);
+    // Replace any old session on login, so changing accounts never keeps an active old cookie.
+    const old=getCookie(c,COOKIE);
+    if(old) { const {tokenHash}=await import('../../../modules/identity-membership/service.js');await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[tokenHash(old)]); }
+    setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',path:'/',maxAge:8*60*60});
+    return c.json(sessionView(result.actor));
+  });
+  app.use('/api/v1/*',async(c,next)=>{
+    const actor=await authenticate(pool,getCookie(c,COOKIE));c.set('actor',actor);
+    if(!['GET','HEAD'].includes(c.req.method)) {
+      const got=Buffer.from(c.req.header('X-CSRF-Token')??''),expected=Buffer.from(actor.csrf_token);
+      requireCondition(got.length===expected.length && timingSafeEqual(got,expected),403,'csrf_rejected','登入狀態已變更，請重新整理。');
+    }
+    await next();
+  });
+  const cmd=async(c:any):Promise<Command>=>{
+    const ifMatch=c.req.header('If-Match') as string|undefined;
+    if(ifMatch) requireCondition(/^"[1-9][0-9]*"$/.test(ifMatch),400,'invalid_version','If-Match 須為加引號的整數版本。');
+    return {actor:c.get('actor'),operation:`${c.req.method} ${c.req.path}`,key:c.req.header('Idempotency-Key')??'',body:await c.req.json(),expected:ifMatch?.slice(1,-1)};
+  };
+  const routeId=(c:any,name='id')=>z.uuid().parse(c.req.param(name).split(':')[0]);
+  const respond=(c:any,value:any,status=200)=>{if(value?.aggregate_version)c.header('ETag',`"${value.aggregate_version}"`);return c.json(value,status);};
+  app.get('/api/v1/session',c=>c.json(sessionView(c.get('actor'))));
+  app.post('/api/v1/auth/logout',async c=>{await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[c.get('actor').session_hash]);deleteCookie(c,COOKIE,{path:'/'});return c.json({logged_out:true});});
+  app.get('/api/v1/work-items',async c=>c.json({items:await listWorks(pool,c.get('actor'))}));
+  app.post('/api/v1/work-items',async c=>respond(c,await createWork(pool,await cmd(c)),201));
+  // Action suffix is part of the constrained segment; validate its UUID separately.
+  app.post('/api/v1/work-items/:id{[0-9a-f-]+:claim}',async c=>respond(c,await claimWork(pool,await cmd(c),routeId(c)),201));
+  for(const action of ['start','submit','begin-review','decide'] as const) {
+    app.post(`/api/v1/work-claims/:id{[0-9a-f-]+:${action}}`,async c=>respond(c,await changeClaim(pool,await cmd(c),routeId(c),action)));
+  }
+  app.get('/api/v1/dashboard',async c=>c.json(await dashboard(pool,c.get('actor'))));
+  app.get('/api/v1/showcases',async c=>c.json({items:await listShowcases(pool,c.get('actor'))}));
+  app.post('/api/v1/showcases',async c=>respond(c,await createShowcase(pool,await cmd(c)),201));
+  app.get('/api/v1/opportunities',async c=>c.json({items:await listOpportunities(pool,c.get('actor'))}));
+  app.post('/api/v1/opportunities',async c=>respond(c,await createOpportunity(pool,await cmd(c)),201));
+  app.post('/api/v1/opportunities/:id/engagements',async c=>respond(c,await proposeEngagement(pool,await cmd(c),routeId(c)),201));
+  app.get('/api/v1/engagements',async c=>c.json({items:await listEngagements(pool,c.get('actor'))}));
+  for(const action of ['agree','deliver','accept','confirm-receipt'] as const) {
+    app.post(`/api/v1/engagements/:id{[0-9a-f-]+:${action}}`,async c=>respond(c,await changeEngagement(pool,await cmd(c),routeId(c),action)));
+  }
+  app.post('/api/v1/engagements/:id/receipts',async c=>respond(c,await changeEngagement(pool,await cmd(c),routeId(c),'receipt'),201));
+  app.all('/api/*',c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'此版本尚未提供這個 API。'},404));
+  return app;
+}

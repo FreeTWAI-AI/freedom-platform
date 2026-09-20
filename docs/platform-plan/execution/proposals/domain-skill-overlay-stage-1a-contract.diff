@@ -1,10 +1,17 @@
 *** FW-11 / BLD-05 stage 1A proposal (contract fixtures only; NOT stage 1B runtime) ***
 *** Proposal topic: domain-skill-overlay-stage-1a-contract
-*** Status: proposal-only artifact; does not mutate canonical schema/example
+*** Status: materialized; README.stage-1a.md now exists beside the stage-1A fixtures
 *** Source: RQ-049, RQ-047, ADR-052, T02/T06/T16, SPEC-BLD-05, FW-09 key conventions
 
-This unified diff documents the stage-1A contract freeze proposed by FW-11.
+This unified diff documented the stage-1A contract freeze proposed by FW-11.
+The README body is now materialized at:
+docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/README.stage-1a.md
+
+This is documentation-only materialization of existing fixture boundaries.
 It does NOT implement stage 1B enable→execute→revoke runtime paths.
+It does not claim cryptographic verification, a live runtime, production
+activation, or that named Grok/Claude reviewers passed.
+Canonical schema/example were not mutated by this documentation-only step.
 
 --- /dev/null
 +++ b/docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/README.stage-1a.md
