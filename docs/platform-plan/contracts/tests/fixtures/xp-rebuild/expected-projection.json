@@ -1,0 +1,29 @@
+[
+  {
+    "member_ref": "usr_xp_golden_member",
+    "profession_key": "platform_engineering",
+    "track": "training",
+    "xp": 25,
+    "policy_version": 1,
+    "rebuilt_from_event_seq": 118,
+    "rebuilt_at": "2026-09-20T15:00:00Z"
+  },
+  {
+    "member_ref": "usr_xp_golden_member",
+    "profession_key": "platform_engineering",
+    "track": "maintenance",
+    "xp": 27,
+    "policy_version": 1,
+    "rebuilt_from_event_seq": 118,
+    "rebuilt_at": "2026-09-20T15:00:00Z"
+  },
+  {
+    "member_ref": "usr_xp_golden_member",
+    "profession_key": "platform_engineering",
+    "track": "real_delivery",
+    "xp": 75,
+    "policy_version": 1,
+    "rebuilt_from_event_seq": 118,
+    "rebuilt_at": "2026-09-20T15:00:00Z"
+  }
+]

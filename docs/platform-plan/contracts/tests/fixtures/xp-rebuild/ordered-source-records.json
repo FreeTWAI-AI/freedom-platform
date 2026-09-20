@@ -1,0 +1,147 @@
+{
+  "schema_version": "freedom.xp-rebuild-source/v1",
+  "rebuilt_at": "2026-09-20T15:00:00Z",
+  "events": [
+    {
+      "event_seq": 100,
+      "fact_type": "contribution_record",
+      "canonical_contribution_record_id": "contrib_training_exercise",
+      "member_ref": "usr_xp_golden_member",
+      "profession_key": "platform_engineering",
+      "contribution_kind": "training_exercise",
+      "declared_xp": 10
+    },
+    {
+      "event_seq": 101,
+      "fact_type": "review_outcome",
+      "canonical_contribution_record_id": "contrib_training_exercise",
+      "outcome": "accepted"
+    },
+    {
+      "event_seq": 102,
+      "fact_type": "contribution_record",
+      "canonical_contribution_record_id": "contrib_supervised_practice",
+      "member_ref": "usr_xp_golden_member",
+      "profession_key": "platform_engineering",
+      "contribution_kind": "supervised_practice",
+      "declared_xp": 15
+    },
+    {
+      "event_seq": 103,
+      "fact_type": "review_outcome",
+      "canonical_contribution_record_id": "contrib_supervised_practice",
+      "outcome": "accepted"
+    },
+    {
+      "event_seq": 104,
+      "fact_type": "contribution_record",
+      "canonical_contribution_record_id": "contrib_retracted_training",
+      "member_ref": "usr_xp_golden_member",
+      "profession_key": "platform_engineering",
+      "contribution_kind": "training_exercise",
+      "declared_xp": 99
+    },
+    {
+      "event_seq": 105,
+      "fact_type": "review_outcome",
+      "canonical_contribution_record_id": "contrib_retracted_training",
+      "outcome": "accepted"
+    },
+    {
+      "event_seq": 106,
+      "fact_type": "review_outcome",
+      "canonical_contribution_record_id": "contrib_retracted_training",
+      "outcome": "retracted"
+    },
+    {
+      "event_seq": 107,
+      "fact_type": "contribution_record",
+      "canonical_contribution_record_id": "contrib_bug_fix",
+      "member_ref": "usr_xp_golden_member",
+      "profession_key": "platform_engineering",
+      "contribution_kind": "bug_fix",
+      "declared_xp": 20
+    },
+    {
+      "event_seq": 108,
+      "fact_type": "review_outcome",
+      "canonical_contribution_record_id": "contrib_bug_fix",
+      "outcome": "accepted"
+    },
+    {
+      "event_seq": 109,
+      "fact_type": "contribution_record",
+      "canonical_contribution_record_id": "contrib_documentation",
+      "member_ref": "usr_xp_golden_member",
+      "profession_key": "platform_engineering",
+      "contribution_kind": "documentation",
+      "declared_xp": 7
+    },
+    {
+      "event_seq": 110,
+      "fact_type": "review_outcome",
+      "canonical_contribution_record_id": "contrib_documentation",
+      "outcome": "accepted"
+    },
+    {
+      "event_seq": 111,
+      "fact_type": "review_outcome",
+      "canonical_contribution_record_id": "contrib_documentation",
+      "outcome": "accepted"
+    },
+    {
+      "event_seq": 112,
+      "fact_type": "contribution_record",
+      "canonical_contribution_record_id": "contrib_customer_delivery",
+      "member_ref": "usr_xp_golden_member",
+      "profession_key": "platform_engineering",
+      "contribution_kind": "customer_delivery",
+      "declared_xp": 50
+    },
+    {
+      "event_seq": 113,
+      "fact_type": "review_outcome",
+      "canonical_contribution_record_id": "contrib_customer_delivery",
+      "outcome": "accepted"
+    },
+    {
+      "event_seq": 114,
+      "fact_type": "contribution_record",
+      "canonical_contribution_record_id": "contrib_production_support",
+      "member_ref": "usr_xp_golden_member",
+      "profession_key": "platform_engineering",
+      "contribution_kind": "production_support",
+      "declared_xp": 25
+    },
+    {
+      "event_seq": 115,
+      "fact_type": "review_outcome",
+      "canonical_contribution_record_id": "contrib_production_support",
+      "outcome": "accepted"
+    },
+    {
+      "event_seq": 116,
+      "fact_type": "contribution_record",
+      "canonical_contribution_record_id": "contrib_github_star",
+      "member_ref": "usr_xp_golden_member",
+      "profession_key": "platform_engineering",
+      "contribution_kind": "github_star",
+      "declared_xp": 500
+    },
+    {
+      "event_seq": 117,
+      "fact_type": "review_outcome",
+      "canonical_contribution_record_id": "contrib_github_star",
+      "outcome": "accepted"
+    },
+    {
+      "event_seq": 118,
+      "fact_type": "contribution_record",
+      "canonical_contribution_record_id": "contrib_unreviewed_training",
+      "member_ref": "usr_xp_golden_member",
+      "profession_key": "platform_engineering",
+      "contribution_kind": "training_exercise",
+      "declared_xp": 100
+    }
+  ]
+}
