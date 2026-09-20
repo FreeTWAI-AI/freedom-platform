@@ -1,0 +1,26 @@
+schema_version: freedom.settlement-mode-fixtures/v1
+status: synthetic_planning_fixtures_not_runtime
+source: RQ-062; ADR-063; OD-28; T21; FW-05
+scenario: settlement_execution_mode_and_platform_condition_parity
+modes: [record_only, authorized_mandate]
+platform_default:
+  money_movement_enabled: false
+seller_default:
+  settlement_execution_mode: record_only
+record_only_display_status: recorded
+forbidden_record_only_display_statuses: [paid, settled, paid_by_platform, settled_by_platform]
+authorized_requires: [money_movement_enabled_is_true, active_exact_settlement_mandate]
+enqueue_transfer:
+  guard: platform_money_movement_enabled_and_seller_mode_is_authorized_mandate_with_active_exact_mandate
+  effect: create_transfer_job
+transfer_job:
+  operation_key_field: stable_provider_operation_key
+  retry_rule: retry_never_changes_the_provider_operation_key
+fake_provider:
+  module: fake_provider.py
+  responses: [accept, confirm, unknown]
+  network: false
+  real_money: false
+  provider_sandbox: false
+no_secrets: true
+no_runtime_claim: true

@@ -1,0 +1,794 @@
+schema_version: freedom.settlement-mode-cases/v1
+status: synthetic_planning_fixtures_not_runtime
+as_of: '2026-09-20T16:00:00Z'
+cases:
+- case_id: default_record_only_platform_disabled
+  kind: default
+  platform:
+    money_movement_enabled: false
+  seller_settlement_execution_mode: record_only
+  mandate: null
+  instruction:
+    instruction_id: si_synthetic_supplier_payable_001
+    obligation_type: supplier_payable
+    obligation_ref: obl_synthetic_supplier_payable_001
+    source_type: distribution_acceptance
+    source_version_ref: da_synthetic_v3
+    payer_party_ref: party_synthetic_seller_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    beneficiary_party_ref: party_synthetic_supplier_001
+    payout_destination_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_beneficiary_dest_001
+      purpose: beneficiary_payout_destination
+    buyer_order_ref: bo_synthetic_001
+    supply_order_ref: so_synthetic_001
+    order_line_ref: ol_synthetic_001
+    order_split_snapshot_ref: oss_synthetic_001
+    amount:
+      amount_minor: '15000'
+      currency: TWD
+    due_at: '2026-09-21T00:00:00Z'
+    idempotency_key: idem_si_synthetic_supplier_payable_001
+    aggregate_version: 1
+    state: created
+  expect:
+    effective_mode: record_only
+    display_status: recorded
+    executable_transfer_jobs: 0
+    denial_reason: platform_money_movement_disabled_or_record_only_mode
+- case_id: record_only_with_active_mandate_but_flag_false
+  kind: negative
+  platform:
+    money_movement_enabled: false
+  seller_settlement_execution_mode: authorized_mandate
+  mandate:
+    mandate_id: sm_synthetic_active_001
+    payer_party_ref: party_synthetic_seller_001
+    action_intent_ref: ai_synthetic_mandate_sign_001
+    human_signature_ref: sig_synthetic_payer_a4_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    settlement_execution_mode: authorized_mandate
+    bounds:
+    - bound_id: smb_synthetic_001
+      beneficiary_party_ref: party_synthetic_supplier_001
+      payout_destination_ref:
+        provider: fake_provider_local
+        connection_id: conn_synthetic_beneficiary_dest_001
+        purpose: beneficiary_payout_destination
+      currency: TWD
+      payout_action_types:
+      - supplier_payable_settlement
+      scope_mode: all_signed_sources_for_beneficiary
+      per_transfer_cap: '500000'
+      period_cap: '2000000'
+      period: week
+      period_timezone: Asia/Taipei
+      week_starts_on: monday
+    starts_at: '2026-09-01T00:00:00Z'
+    expires_at: '2026-12-31T00:00:00Z'
+    artifact_sha256: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    state: active
+    aggregate_version: 1
+    payer_member_a4_on_exact_digest: true
+    ted_payment_a4_on_exact_digest: true
+  instruction:
+    instruction_id: si_synthetic_supplier_payable_001
+    obligation_type: supplier_payable
+    obligation_ref: obl_synthetic_supplier_payable_001
+    source_type: distribution_acceptance
+    source_version_ref: da_synthetic_v3
+    payer_party_ref: party_synthetic_seller_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    beneficiary_party_ref: party_synthetic_supplier_001
+    payout_destination_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_beneficiary_dest_001
+      purpose: beneficiary_payout_destination
+    buyer_order_ref: bo_synthetic_001
+    supply_order_ref: so_synthetic_001
+    order_line_ref: ol_synthetic_001
+    order_split_snapshot_ref: oss_synthetic_001
+    amount:
+      amount_minor: '15000'
+      currency: TWD
+    due_at: '2026-09-21T00:00:00Z'
+    idempotency_key: idem_si_synthetic_supplier_payable_001
+    aggregate_version: 1
+    state: ready
+    mandate_ref: sm_synthetic_active_001
+    mandate_bound_ref: smb_synthetic_001
+    mandate_usage_reservation_ref: smur_synthetic_001
+    action_intent_ref: ai_synthetic_transfer_001
+    authorization_basis_snapshot_ref: abs_synthetic_001
+  expect:
+    effective_mode: record_only
+    display_status: recorded
+    executable_transfer_jobs: 0
+    denial_reason: platform_money_movement_disabled
+- case_id: authorized_flag_true_but_mandate_revoked
+  kind: negative
+  platform:
+    money_movement_enabled: true
+  seller_settlement_execution_mode: authorized_mandate
+  mandate:
+    mandate_id: sm_synthetic_revoked_001
+    payer_party_ref: party_synthetic_seller_001
+    action_intent_ref: ai_synthetic_mandate_sign_001
+    human_signature_ref: sig_synthetic_payer_a4_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    settlement_execution_mode: authorized_mandate
+    bounds:
+    - bound_id: smb_synthetic_001
+      beneficiary_party_ref: party_synthetic_supplier_001
+      payout_destination_ref:
+        provider: fake_provider_local
+        connection_id: conn_synthetic_beneficiary_dest_001
+        purpose: beneficiary_payout_destination
+      currency: TWD
+      payout_action_types:
+      - supplier_payable_settlement
+      scope_mode: all_signed_sources_for_beneficiary
+      per_transfer_cap: '500000'
+      period_cap: '2000000'
+      period: week
+      period_timezone: Asia/Taipei
+      week_starts_on: monday
+    starts_at: '2026-09-01T00:00:00Z'
+    expires_at: '2026-12-31T00:00:00Z'
+    artifact_sha256: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    state: revoked
+    aggregate_version: 1
+    payer_member_a4_on_exact_digest: true
+    ted_payment_a4_on_exact_digest: true
+  instruction:
+    instruction_id: si_synthetic_supplier_payable_001
+    obligation_type: supplier_payable
+    obligation_ref: obl_synthetic_supplier_payable_001
+    source_type: distribution_acceptance
+    source_version_ref: da_synthetic_v3
+    payer_party_ref: party_synthetic_seller_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    beneficiary_party_ref: party_synthetic_supplier_001
+    payout_destination_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_beneficiary_dest_001
+      purpose: beneficiary_payout_destination
+    buyer_order_ref: bo_synthetic_001
+    supply_order_ref: so_synthetic_001
+    order_line_ref: ol_synthetic_001
+    order_split_snapshot_ref: oss_synthetic_001
+    amount:
+      amount_minor: '15000'
+      currency: TWD
+    due_at: '2026-09-21T00:00:00Z'
+    idempotency_key: idem_si_synthetic_supplier_payable_001
+    aggregate_version: 1
+    state: ready
+    mandate_ref: sm_synthetic_revoked_001
+    mandate_bound_ref: smb_synthetic_001
+    mandate_usage_reservation_ref: smur_synthetic_001
+    action_intent_ref: ai_synthetic_transfer_001
+    authorization_basis_snapshot_ref: abs_synthetic_001
+  expect:
+    effective_mode: record_only
+    display_status: recorded
+    executable_transfer_jobs: 0
+    denial_reason: mandate_not_active
+- case_id: authorized_flag_true_but_mandate_expired
+  kind: negative
+  platform:
+    money_movement_enabled: true
+  seller_settlement_execution_mode: authorized_mandate
+  mandate:
+    mandate_id: sm_synthetic_expired_001
+    payer_party_ref: party_synthetic_seller_001
+    action_intent_ref: ai_synthetic_mandate_sign_001
+    human_signature_ref: sig_synthetic_payer_a4_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    settlement_execution_mode: authorized_mandate
+    bounds:
+    - bound_id: smb_synthetic_001
+      beneficiary_party_ref: party_synthetic_supplier_001
+      payout_destination_ref:
+        provider: fake_provider_local
+        connection_id: conn_synthetic_beneficiary_dest_001
+        purpose: beneficiary_payout_destination
+      currency: TWD
+      payout_action_types:
+      - supplier_payable_settlement
+      scope_mode: all_signed_sources_for_beneficiary
+      per_transfer_cap: '500000'
+      period_cap: '2000000'
+      period: week
+      period_timezone: Asia/Taipei
+      week_starts_on: monday
+    starts_at: '2026-09-01T00:00:00Z'
+    expires_at: '2026-09-01T00:00:00Z'
+    artifact_sha256: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    state: expired
+    aggregate_version: 1
+    payer_member_a4_on_exact_digest: true
+    ted_payment_a4_on_exact_digest: true
+  instruction:
+    instruction_id: si_synthetic_supplier_payable_001
+    obligation_type: supplier_payable
+    obligation_ref: obl_synthetic_supplier_payable_001
+    source_type: distribution_acceptance
+    source_version_ref: da_synthetic_v3
+    payer_party_ref: party_synthetic_seller_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    beneficiary_party_ref: party_synthetic_supplier_001
+    payout_destination_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_beneficiary_dest_001
+      purpose: beneficiary_payout_destination
+    buyer_order_ref: bo_synthetic_001
+    supply_order_ref: so_synthetic_001
+    order_line_ref: ol_synthetic_001
+    order_split_snapshot_ref: oss_synthetic_001
+    amount:
+      amount_minor: '15000'
+      currency: TWD
+    due_at: '2026-09-21T00:00:00Z'
+    idempotency_key: idem_si_synthetic_supplier_payable_001
+    aggregate_version: 1
+    state: ready
+    mandate_ref: sm_synthetic_expired_001
+    mandate_bound_ref: smb_synthetic_001
+    mandate_usage_reservation_ref: smur_synthetic_001
+    action_intent_ref: ai_synthetic_transfer_001
+    authorization_basis_snapshot_ref: abs_synthetic_001
+  expect:
+    effective_mode: record_only
+    display_status: recorded
+    executable_transfer_jobs: 0
+    denial_reason: mandate_not_active
+- case_id: authorized_flag_true_but_mandate_superseded
+  kind: negative
+  platform:
+    money_movement_enabled: true
+  seller_settlement_execution_mode: authorized_mandate
+  mandate:
+    mandate_id: sm_synthetic_superseded_001
+    payer_party_ref: party_synthetic_seller_001
+    action_intent_ref: ai_synthetic_mandate_sign_001
+    human_signature_ref: sig_synthetic_payer_a4_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    settlement_execution_mode: authorized_mandate
+    bounds:
+    - bound_id: smb_synthetic_001
+      beneficiary_party_ref: party_synthetic_supplier_001
+      payout_destination_ref:
+        provider: fake_provider_local
+        connection_id: conn_synthetic_beneficiary_dest_001
+        purpose: beneficiary_payout_destination
+      currency: TWD
+      payout_action_types:
+      - supplier_payable_settlement
+      scope_mode: all_signed_sources_for_beneficiary
+      per_transfer_cap: '500000'
+      period_cap: '2000000'
+      period: week
+      period_timezone: Asia/Taipei
+      week_starts_on: monday
+    starts_at: '2026-09-01T00:00:00Z'
+    expires_at: '2026-12-31T00:00:00Z'
+    artifact_sha256: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    state: superseded
+    aggregate_version: 1
+    payer_member_a4_on_exact_digest: true
+    ted_payment_a4_on_exact_digest: true
+  instruction:
+    instruction_id: si_synthetic_supplier_payable_001
+    obligation_type: supplier_payable
+    obligation_ref: obl_synthetic_supplier_payable_001
+    source_type: distribution_acceptance
+    source_version_ref: da_synthetic_v3
+    payer_party_ref: party_synthetic_seller_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    beneficiary_party_ref: party_synthetic_supplier_001
+    payout_destination_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_beneficiary_dest_001
+      purpose: beneficiary_payout_destination
+    buyer_order_ref: bo_synthetic_001
+    supply_order_ref: so_synthetic_001
+    order_line_ref: ol_synthetic_001
+    order_split_snapshot_ref: oss_synthetic_001
+    amount:
+      amount_minor: '15000'
+      currency: TWD
+    due_at: '2026-09-21T00:00:00Z'
+    idempotency_key: idem_si_synthetic_supplier_payable_001
+    aggregate_version: 1
+    state: ready
+    mandate_ref: sm_synthetic_superseded_001
+    mandate_bound_ref: smb_synthetic_001
+    mandate_usage_reservation_ref: smur_synthetic_001
+    action_intent_ref: ai_synthetic_transfer_001
+    authorization_basis_snapshot_ref: abs_synthetic_001
+  expect:
+    effective_mode: record_only
+    display_status: recorded
+    executable_transfer_jobs: 0
+    denial_reason: mandate_not_active
+- case_id: authorized_flag_true_but_no_exact_bound
+  kind: negative
+  platform:
+    money_movement_enabled: true
+  seller_settlement_execution_mode: authorized_mandate
+  mandate:
+    mandate_id: sm_synthetic_mismatch_001
+    payer_party_ref: party_synthetic_seller_001
+    action_intent_ref: ai_synthetic_mandate_sign_001
+    human_signature_ref: sig_synthetic_payer_a4_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    settlement_execution_mode: authorized_mandate
+    bounds:
+    - bound_id: smb_synthetic_other_currency
+      beneficiary_party_ref: party_synthetic_supplier_001
+      payout_destination_ref:
+        provider: fake_provider_local
+        connection_id: conn_synthetic_beneficiary_dest_001
+        purpose: beneficiary_payout_destination
+      currency: USD
+      payout_action_types:
+      - supplier_payable_settlement
+      scope_mode: all_signed_sources_for_beneficiary
+      per_transfer_cap: '500000'
+      period_cap: '2000000'
+      period: week
+      period_timezone: Asia/Taipei
+      week_starts_on: monday
+    starts_at: '2026-09-01T00:00:00Z'
+    expires_at: '2026-12-31T00:00:00Z'
+    artifact_sha256: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    state: active
+    aggregate_version: 1
+    payer_member_a4_on_exact_digest: true
+    ted_payment_a4_on_exact_digest: true
+  instruction:
+    instruction_id: si_synthetic_supplier_payable_001
+    obligation_type: supplier_payable
+    obligation_ref: obl_synthetic_supplier_payable_001
+    source_type: distribution_acceptance
+    source_version_ref: da_synthetic_v3
+    payer_party_ref: party_synthetic_seller_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    beneficiary_party_ref: party_synthetic_supplier_001
+    payout_destination_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_beneficiary_dest_001
+      purpose: beneficiary_payout_destination
+    buyer_order_ref: bo_synthetic_001
+    supply_order_ref: so_synthetic_001
+    order_line_ref: ol_synthetic_001
+    order_split_snapshot_ref: oss_synthetic_001
+    amount:
+      amount_minor: '15000'
+      currency: TWD
+    due_at: '2026-09-21T00:00:00Z'
+    idempotency_key: idem_si_synthetic_supplier_payable_001
+    aggregate_version: 1
+    state: ready
+    mandate_ref: sm_synthetic_mismatch_001
+    mandate_bound_ref: smb_synthetic_other_currency
+    mandate_usage_reservation_ref: smur_synthetic_001
+    action_intent_ref: ai_synthetic_transfer_001
+    authorization_basis_snapshot_ref: abs_synthetic_001
+  expect:
+    effective_mode: record_only
+    display_status: recorded
+    executable_transfer_jobs: 0
+    denial_reason: no_exact_active_mandate_bound
+- case_id: authorized_missing_ted_payment_a4
+  kind: negative
+  platform:
+    money_movement_enabled: true
+  seller_settlement_execution_mode: authorized_mandate
+  mandate:
+    mandate_id: sm_synthetic_missing_ted_a4_001
+    payer_party_ref: party_synthetic_seller_001
+    action_intent_ref: ai_synthetic_mandate_sign_001
+    human_signature_ref: sig_synthetic_payer_a4_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    settlement_execution_mode: authorized_mandate
+    bounds:
+    - bound_id: smb_synthetic_001
+      beneficiary_party_ref: party_synthetic_supplier_001
+      payout_destination_ref:
+        provider: fake_provider_local
+        connection_id: conn_synthetic_beneficiary_dest_001
+        purpose: beneficiary_payout_destination
+      currency: TWD
+      payout_action_types:
+      - supplier_payable_settlement
+      scope_mode: all_signed_sources_for_beneficiary
+      per_transfer_cap: '500000'
+      period_cap: '2000000'
+      period: week
+      period_timezone: Asia/Taipei
+      week_starts_on: monday
+    starts_at: '2026-09-01T00:00:00Z'
+    expires_at: '2026-12-31T00:00:00Z'
+    artifact_sha256: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    state: active
+    aggregate_version: 1
+    payer_member_a4_on_exact_digest: true
+    ted_payment_a4_on_exact_digest: false
+  instruction:
+    instruction_id: si_synthetic_supplier_payable_001
+    obligation_type: supplier_payable
+    obligation_ref: obl_synthetic_supplier_payable_001
+    source_type: distribution_acceptance
+    source_version_ref: da_synthetic_v3
+    payer_party_ref: party_synthetic_seller_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    beneficiary_party_ref: party_synthetic_supplier_001
+    payout_destination_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_beneficiary_dest_001
+      purpose: beneficiary_payout_destination
+    buyer_order_ref: bo_synthetic_001
+    supply_order_ref: so_synthetic_001
+    order_line_ref: ol_synthetic_001
+    order_split_snapshot_ref: oss_synthetic_001
+    amount:
+      amount_minor: '15000'
+      currency: TWD
+    due_at: '2026-09-21T00:00:00Z'
+    idempotency_key: idem_si_synthetic_supplier_payable_001
+    aggregate_version: 1
+    state: ready
+    mandate_ref: sm_synthetic_missing_ted_a4_001
+    mandate_bound_ref: smb_synthetic_001
+    mandate_usage_reservation_ref: smur_synthetic_001
+    action_intent_ref: ai_synthetic_transfer_001
+    authorization_basis_snapshot_ref: abs_synthetic_001
+  expect:
+    effective_mode: record_only
+    display_status: recorded
+    executable_transfer_jobs: 0
+    denial_reason: missing_dual_a4_on_exact_mandate_digest
+- case_id: authorized_missing_payer_member_a4
+  kind: negative
+  platform:
+    money_movement_enabled: true
+  seller_settlement_execution_mode: authorized_mandate
+  mandate:
+    mandate_id: sm_synthetic_missing_payer_a4_001
+    payer_party_ref: party_synthetic_seller_001
+    action_intent_ref: ai_synthetic_mandate_sign_001
+    human_signature_ref: sig_synthetic_payer_a4_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    settlement_execution_mode: authorized_mandate
+    bounds:
+    - bound_id: smb_synthetic_001
+      beneficiary_party_ref: party_synthetic_supplier_001
+      payout_destination_ref:
+        provider: fake_provider_local
+        connection_id: conn_synthetic_beneficiary_dest_001
+        purpose: beneficiary_payout_destination
+      currency: TWD
+      payout_action_types:
+      - supplier_payable_settlement
+      scope_mode: all_signed_sources_for_beneficiary
+      per_transfer_cap: '500000'
+      period_cap: '2000000'
+      period: week
+      period_timezone: Asia/Taipei
+      week_starts_on: monday
+    starts_at: '2026-09-01T00:00:00Z'
+    expires_at: '2026-12-31T00:00:00Z'
+    artifact_sha256: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    state: active
+    aggregate_version: 1
+    payer_member_a4_on_exact_digest: false
+    ted_payment_a4_on_exact_digest: true
+  instruction:
+    instruction_id: si_synthetic_supplier_payable_001
+    obligation_type: supplier_payable
+    obligation_ref: obl_synthetic_supplier_payable_001
+    source_type: distribution_acceptance
+    source_version_ref: da_synthetic_v3
+    payer_party_ref: party_synthetic_seller_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    beneficiary_party_ref: party_synthetic_supplier_001
+    payout_destination_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_beneficiary_dest_001
+      purpose: beneficiary_payout_destination
+    buyer_order_ref: bo_synthetic_001
+    supply_order_ref: so_synthetic_001
+    order_line_ref: ol_synthetic_001
+    order_split_snapshot_ref: oss_synthetic_001
+    amount:
+      amount_minor: '15000'
+      currency: TWD
+    due_at: '2026-09-21T00:00:00Z'
+    idempotency_key: idem_si_synthetic_supplier_payable_001
+    aggregate_version: 1
+    state: ready
+    mandate_ref: sm_synthetic_missing_payer_a4_001
+    mandate_bound_ref: smb_synthetic_001
+    mandate_usage_reservation_ref: smur_synthetic_001
+    action_intent_ref: ai_synthetic_transfer_001
+    authorization_basis_snapshot_ref: abs_synthetic_001
+  expect:
+    effective_mode: record_only
+    display_status: recorded
+    executable_transfer_jobs: 0
+    denial_reason: missing_dual_a4_on_exact_mandate_digest
+- case_id: seller_still_record_only_despite_flag_and_mandate_row
+  kind: negative
+  platform:
+    money_movement_enabled: true
+  seller_settlement_execution_mode: record_only
+  mandate:
+    mandate_id: sm_synthetic_active_001
+    payer_party_ref: party_synthetic_seller_001
+    action_intent_ref: ai_synthetic_mandate_sign_001
+    human_signature_ref: sig_synthetic_payer_a4_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    settlement_execution_mode: record_only
+    bounds:
+    - bound_id: smb_synthetic_001
+      beneficiary_party_ref: party_synthetic_supplier_001
+      payout_destination_ref:
+        provider: fake_provider_local
+        connection_id: conn_synthetic_beneficiary_dest_001
+        purpose: beneficiary_payout_destination
+      currency: TWD
+      payout_action_types:
+      - supplier_payable_settlement
+      scope_mode: all_signed_sources_for_beneficiary
+      per_transfer_cap: '500000'
+      period_cap: '2000000'
+      period: week
+      period_timezone: Asia/Taipei
+      week_starts_on: monday
+    starts_at: '2026-09-01T00:00:00Z'
+    expires_at: '2026-12-31T00:00:00Z'
+    artifact_sha256: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    state: active
+    aggregate_version: 1
+    payer_member_a4_on_exact_digest: true
+    ted_payment_a4_on_exact_digest: true
+  instruction:
+    instruction_id: si_synthetic_supplier_payable_001
+    obligation_type: supplier_payable
+    obligation_ref: obl_synthetic_supplier_payable_001
+    source_type: distribution_acceptance
+    source_version_ref: da_synthetic_v3
+    payer_party_ref: party_synthetic_seller_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    beneficiary_party_ref: party_synthetic_supplier_001
+    payout_destination_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_beneficiary_dest_001
+      purpose: beneficiary_payout_destination
+    buyer_order_ref: bo_synthetic_001
+    supply_order_ref: so_synthetic_001
+    order_line_ref: ol_synthetic_001
+    order_split_snapshot_ref: oss_synthetic_001
+    amount:
+      amount_minor: '15000'
+      currency: TWD
+    due_at: '2026-09-21T00:00:00Z'
+    idempotency_key: idem_si_synthetic_supplier_payable_001
+    aggregate_version: 1
+    state: created
+  expect:
+    effective_mode: record_only
+    display_status: recorded
+    executable_transfer_jobs: 0
+    denial_reason: platform_money_movement_disabled_or_record_only_mode
+- case_id: authorized_happy_path_creates_one_transfer_job
+  kind: positive
+  platform:
+    money_movement_enabled: true
+  seller_settlement_execution_mode: authorized_mandate
+  mandate:
+    mandate_id: sm_synthetic_active_001
+    payer_party_ref: party_synthetic_seller_001
+    action_intent_ref: ai_synthetic_mandate_sign_001
+    human_signature_ref: sig_synthetic_payer_a4_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    settlement_execution_mode: authorized_mandate
+    bounds:
+    - bound_id: smb_synthetic_001
+      beneficiary_party_ref: party_synthetic_supplier_001
+      payout_destination_ref:
+        provider: fake_provider_local
+        connection_id: conn_synthetic_beneficiary_dest_001
+        purpose: beneficiary_payout_destination
+      currency: TWD
+      payout_action_types:
+      - supplier_payable_settlement
+      scope_mode: all_signed_sources_for_beneficiary
+      per_transfer_cap: '500000'
+      period_cap: '2000000'
+      period: week
+      period_timezone: Asia/Taipei
+      week_starts_on: monday
+    starts_at: '2026-09-01T00:00:00Z'
+    expires_at: '2026-12-31T00:00:00Z'
+    artifact_sha256: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    state: active
+    aggregate_version: 1
+    payer_member_a4_on_exact_digest: true
+    ted_payment_a4_on_exact_digest: true
+  instruction:
+    instruction_id: si_synthetic_supplier_payable_001
+    obligation_type: supplier_payable
+    obligation_ref: obl_synthetic_supplier_payable_001
+    source_type: distribution_acceptance
+    source_version_ref: da_synthetic_v3
+    payer_party_ref: party_synthetic_seller_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    beneficiary_party_ref: party_synthetic_supplier_001
+    payout_destination_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_beneficiary_dest_001
+      purpose: beneficiary_payout_destination
+    buyer_order_ref: bo_synthetic_001
+    supply_order_ref: so_synthetic_001
+    order_line_ref: ol_synthetic_001
+    order_split_snapshot_ref: oss_synthetic_001
+    amount:
+      amount_minor: '15000'
+      currency: TWD
+    due_at: '2026-09-21T00:00:00Z'
+    idempotency_key: idem_si_synthetic_supplier_payable_001
+    aggregate_version: 1
+    state: ready
+    mandate_ref: sm_synthetic_active_001
+    mandate_bound_ref: smb_synthetic_001
+    mandate_usage_reservation_ref: smur_synthetic_001
+    action_intent_ref: ai_synthetic_transfer_001
+    authorization_basis_snapshot_ref: abs_synthetic_001
+  expect:
+    effective_mode: authorized_mandate
+    display_status: null
+    executable_transfer_jobs: 1
+    denial_reason: null
+- case_id: stable_operation_key_retry_after_unknown
+  kind: retry
+  platform:
+    money_movement_enabled: true
+  seller_settlement_execution_mode: authorized_mandate
+  mandate:
+    mandate_id: sm_synthetic_active_001
+    payer_party_ref: party_synthetic_seller_001
+    action_intent_ref: ai_synthetic_mandate_sign_001
+    human_signature_ref: sig_synthetic_payer_a4_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    settlement_execution_mode: authorized_mandate
+    bounds:
+    - bound_id: smb_synthetic_001
+      beneficiary_party_ref: party_synthetic_supplier_001
+      payout_destination_ref:
+        provider: fake_provider_local
+        connection_id: conn_synthetic_beneficiary_dest_001
+        purpose: beneficiary_payout_destination
+      currency: TWD
+      payout_action_types:
+      - supplier_payable_settlement
+      scope_mode: all_signed_sources_for_beneficiary
+      per_transfer_cap: '500000'
+      period_cap: '2000000'
+      period: week
+      period_timezone: Asia/Taipei
+      week_starts_on: monday
+    starts_at: '2026-09-01T00:00:00Z'
+    expires_at: '2026-12-31T00:00:00Z'
+    artifact_sha256: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    state: active
+    aggregate_version: 1
+    payer_member_a4_on_exact_digest: true
+    ted_payment_a4_on_exact_digest: true
+  instruction:
+    instruction_id: si_synthetic_supplier_payable_001
+    obligation_type: supplier_payable
+    obligation_ref: obl_synthetic_supplier_payable_001
+    source_type: distribution_acceptance
+    source_version_ref: da_synthetic_v3
+    payer_party_ref: party_synthetic_seller_001
+    payer_disbursement_connection_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_payer_disbursement_001
+      purpose: payer_disbursement
+    beneficiary_party_ref: party_synthetic_supplier_001
+    payout_destination_ref:
+      provider: fake_provider_local
+      connection_id: conn_synthetic_beneficiary_dest_001
+      purpose: beneficiary_payout_destination
+    buyer_order_ref: bo_synthetic_001
+    supply_order_ref: so_synthetic_001
+    order_line_ref: ol_synthetic_001
+    order_split_snapshot_ref: oss_synthetic_001
+    amount:
+      amount_minor: '15000'
+      currency: TWD
+    due_at: '2026-09-21T00:00:00Z'
+    idempotency_key: idem_si_synthetic_supplier_payable_001
+    aggregate_version: 1
+    state: ready
+    mandate_ref: sm_synthetic_active_001
+    mandate_bound_ref: smb_synthetic_001
+    mandate_usage_reservation_ref: smur_synthetic_001
+    action_intent_ref: ai_synthetic_transfer_001
+    authorization_basis_snapshot_ref: abs_synthetic_001
+  fake_provider_script:
+  - unknown
+  - accept
+  - confirm
+  expect:
+    effective_mode: authorized_mandate
+    executable_transfer_jobs: 1
+    operation_key_stable_across_retry: true
+    fake_provider_responses_seen:
+    - unknown
+    - accept
+    - confirm
