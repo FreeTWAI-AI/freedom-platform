@@ -1,0 +1,132 @@
+status: synthetic_planning_examples_not_real_commitments
+terms_examples:
+  voluntary:
+    schema_version: freedom.work-participation/v1
+    participation_mode: voluntary_contribution
+    beneficiary:
+      party_ref: null
+      problem: 每週重複整理同類合成資料
+      intended_gain: 能自行使用資料整理模板
+    contributor_gain:
+      kind: voluntary_public_good
+      description: 本人自願改善公開範例，不保證回饋或收入
+      assurance: aspirational
+      resource_refs: []
+    effort:
+      estimated_minutes: 60
+      maximum_minutes: 90
+    shared_goal_ref: null
+    human_support:
+      promised: false
+      reservation_ref: null
+      scope: 不保證真人回饋；需求者自願實測
+      no_capacity_fallback: self_service
+    completion:
+      criteria:
+      - 合成樣本能依說明完成整理
+      - 留下可重用說明，不含私人資料
+      claim_by: '2026-10-01T00:00:00Z'
+      finish_by: '2026-10-08T00:00:00Z'
+      feedback_due: '2026-10-15T00:00:00Z'
+      unanswered_outcome: expire_unclaimed
+    reuse:
+      visibility: community
+      artifact_license_ref: license_synthetic_authorized_template
+      consent_required: true
+    funding: null
+    newcomer_friendly: true
+  mutual:
+    schema_version: freedom.work-participation/v1
+    participation_mode: bounded_mutual_help
+    beneficiary:
+      party_ref: user_synthetic_requester
+      problem: 每週重複整理同類合成資料
+      intended_gain: 能自行使用資料整理模板
+    contributor_gain:
+      kind: usable_asset
+      description: 取得自己也要使用的可重用模板及真實測試結果
+      assurance: available_resource
+      resource_refs:
+      - asset_synthetic_template
+    effort:
+      estimated_minutes: 60
+      maximum_minutes: 90
+    shared_goal_ref: squad_synthetic_shared_template
+    human_support:
+      promised: false
+      reservation_ref: null
+      scope: 不保證真人回饋；需求者自願實測
+      no_capacity_fallback: self_service
+    completion:
+      criteria:
+      - 合成樣本能依說明完成整理
+      - 留下可重用說明，不含私人資料
+      claim_by: '2026-10-01T00:00:00Z'
+      finish_by: '2026-10-08T00:00:00Z'
+      feedback_due: '2026-10-15T00:00:00Z'
+      unanswered_outcome: close_unconfirmed
+    reuse:
+      visibility: community
+      artifact_license_ref: license_synthetic_authorized_template
+      consent_required: true
+    funding: null
+    newcomer_friendly: true
+  funded:
+    schema_version: freedom.work-participation/v1
+    participation_mode: funded_work
+    beneficiary:
+      party_ref: user_synthetic_requester
+      problem: 每週重複整理同類合成資料
+      intended_gain: 能自行使用資料整理模板
+    contributor_gain:
+      kind: payment
+      description: 依另簽SOW／allocation條件支付，尚未付款
+      assurance: conditional_payment
+      resource_refs:
+      - sow_synthetic_v1
+    effort:
+      estimated_minutes: 60
+      maximum_minutes: 90
+    shared_goal_ref: squad_synthetic_shared_template
+    human_support:
+      promised: false
+      reservation_ref: null
+      scope: 不保證真人回饋；需求者自願實測
+      no_capacity_fallback: self_service
+    completion:
+      criteria:
+      - 合成樣本能依說明完成整理
+      - 留下可重用說明，不含私人資料
+      claim_by: '2026-10-01T00:00:00Z'
+      finish_by: '2026-10-08T00:00:00Z'
+      feedback_due: '2026-10-15T00:00:00Z'
+      unanswered_outcome: contact_accountable_owner
+    reuse:
+      visibility: community
+      artifact_license_ref: license_synthetic_authorized_template
+      consent_required: true
+    funding:
+      payer_ref: org_synthetic_client
+      budget_ref: budget_synthetic_committed
+      budget_state: committed
+      payment_terms_ref: sow_synthetic_v1
+      service_engagement_ref: eng_synthetic_example
+      signed_allocation_ref: allocation_synthetic_signed_example
+      settlement_mode: record_only
+    newcomer_friendly: true
+benefit_observation_example:
+  work_claim_ref: claim_synthetic_helper
+  role: contributor
+  outcome: gained
+  actual_gain: 模板可用於自己的工作
+  evidence_refs:
+  - artifact_synthetic_template_v1
+  would_participate_again: true
+  effort_minutes:
+    platform_maintenance: 0
+    coordination_friction: 5
+    collaborative_value: 60
+    paid_delivery: 0
+  supersedes_observation_ref: null
+authority_warning: Example references are synthetic. Schema validation never proves consent, capacity, a signed
+  contract or payment.

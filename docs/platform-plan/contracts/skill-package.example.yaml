@@ -1,0 +1,75 @@
+# FAKE PLANNING FIXTURE ONLY. GitHub identity and URLs are placeholders.
+schema_version: freedom.skill/v1
+id: skill:namespace/slug
+name: Human readable name
+version: 1.2.0
+source:
+  repository: https://github.com/org/repo
+  repository_id: "123456789"
+  repository_is_fork: false
+  commit: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  manifest_path: freedom-skill.yaml
+summary: Explain the problem solved by this Skill.
+requested_capabilities:
+  - documentation
+  - installation
+  - execution
+  - dependency_resolution
+  - version_sync
+  - commercial_binding
+license: Apache-2.0
+targets:
+  tracks:
+    - track-key
+  level: starter
+requirements:
+  time_minutes: 60
+  cost_hint: free
+  platforms:
+    - web
+  dependencies:
+    - package_id: skill:namespace/base
+      version_range: ">=1.0.0 <2.0.0"
+entrypoints:
+  learn: references/README.md
+  install: scripts/install
+  run: scripts/run
+demo_url: https://example.invalid/demo
+discussion_bindings:
+  - purpose: general
+    audience_level: all
+    binding_key: skills-namespace-slug
+  - purpose: beginner_help
+    audience_level: starter
+    binding_key: skills-namespace-slug-beginner
+  - purpose: maintainer
+    audience_level: maintainer
+    binding_key: skills-namespace-slug-maintainers
+  - purpose: study_group
+    audience_level: starter
+    binding_key: study-namespace-slug
+maintainers:
+  - github: maintainer-handle
+limitations:
+  - Known limitations require human confirmation.
+data_and_runtime:
+  sends_data_to: []
+  secrets_required: []
+human_control:
+  principal_required: true
+  independent_review_same_agent_is_insufficient: true
+  a4_exact_digest_signature: true
+  never_store_chain_of_thought: true
+review_policy:
+  community_review_fee: "0"
+  independent_human_review: true
+  version_scoped: true
+  funded_review_requires_project_terms: true
+commercialization:
+  modes:
+    - packaged
+    - implementation
+    - support
+  license_evidence_ref: evidence:license-scan-and-human-review
+  obligations:
+    - Preserve the Apache-2.0 notice and attribution; the source license remains authoritative.

@@ -1,0 +1,80 @@
+schema_version: freedom.discord-map/v1
+map:
+  id: community-default
+  community_id: com_replace_with_launch_community_id
+  version: "1"
+  status: draft
+bindings:
+  - key: guild-ai-field
+    purpose: profession_guild
+    internal_resource:
+      type: guild
+      id: guild_ai_field
+    provider_tenant_id: replace-with-discord-guild-id
+    external_resource:
+      type: channel
+      id: replace-with-channel-id
+    visibility: public_community
+    direction: bidirectional
+    managed_by: platform
+    allowed_outbound_events:
+      - freedom.community.activity.published.v1
+      - freedom.opportunity.opened.v1
+  - key: skill-example-discussion
+    purpose: skill_discussion
+    internal_resource:
+      type: skill_package
+      id: skill:example/first-package
+    provider_tenant_id: replace-with-discord-guild-id
+    external_resource:
+      type: channel
+      id: replace-with-channel-id
+    visibility: public_community
+    direction: bidirectional
+    managed_by: platform
+    allowed_outbound_events:
+      - freedom.skill.version.published.v1
+  - key: project-example-squad
+    purpose: project_squad
+    internal_resource:
+      type: project
+      id: project_replace_with_id
+    provider_tenant_id: replace-with-discord-guild-id
+    external_resource:
+      type: thread
+      id: replace-with-thread-id
+    visibility: squad_private
+    direction: reference_only
+    managed_by: platform
+    allowed_outbound_events:
+      - freedom.project.squad.formed.v1
+      - freedom.work.item.opened.v1
+  - key: guild-ai-field-member-support
+    purpose: member_support_notifications
+    internal_resource:
+      type: member_support_feed
+      id: support_feed_ai_field
+    provider_tenant_id: replace-with-discord-guild-id
+    external_resource:
+      type: channel
+      id: replace-with-private-delegate-channel-id
+    visibility: guild_delegates_private
+    direction: outbound_only
+    managed_by: platform
+    source_of_truth: portal_feed_card
+    allowed_outbound_notification_types:
+      - new_runner_joined
+      - starter_installation_verified
+      - member_stuck
+      - member_requested_help
+rules:
+  - discord_role_is_never_platform_authority
+  - message_body_is_not_mirrored_by_default
+  - attendance_is_not_a_skill_result
+  - discussion_may_create_a_draft_work_item_or_decision_ref_but_never_authorizes_an_A4_action
+  - changing_discord_role_never_changes_profession_rank_office_or_entitlement
+  - member_support_dismissal_is_portal_projection_only_and_never_enters_chat_history
+  - member_support_notification_or_reply_is_never_an_A4_artifact_or_signature
+  - member_support_channel_outage_leaves_only_the_portal_feed_card
+  - discord_message_and_delivery_state_are_never_domain_truth
+  - missing_private_member_support_channel_never_blocks_guild_active_or_runner_self_join

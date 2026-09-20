@@ -1,0 +1,1014 @@
+{
+  "schema_version": "freedom.portable-activation-fixture-set/v1",
+  "note": "planning_fixture_only_fake_digests_and_signatures_never_activate",
+  "bundle_manifests": [
+    {
+      "schema_version": "freedom.bundle-manifest/v1",
+      "artifact_profile": "planning_fixture",
+      "bundle_kind": "skill_package",
+      "bundle_id": "skill:freedom/freedom-build-system",
+      "version": "0.1.0",
+      "source": {
+        "repository_id": "100000001",
+        "release_id": "200000001",
+        "release_tag": "v0.1.0",
+        "commit_sha": "1111111111111111111111111111111111111111"
+      },
+      "digest_profile": "freedom-file-list-jcs-sha256-v1",
+      "execution_mode_profile": "path-derived-readonly-v1",
+      "payload_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "size": 2048,
+          "sha256": "sha256:1212121212121212121212121212121212121212121212121212121212121212"
+        },
+        {
+          "path": "freedom-skill.yaml",
+          "size": 1024,
+          "sha256": "sha256:1313131313131313131313131313131313131313131313131313131313131313"
+        },
+        {
+          "path": "scripts/new-project",
+          "size": 4096,
+          "sha256": "sha256:1414141414141414141414141414141414141414141414141414141414141414"
+        }
+      ],
+      "archive": {
+        "asset_name": "freedom-build-system-v0.1.0.tar.gz",
+        "media_type": "application/gzip",
+        "size": 8192,
+        "sha256": "sha256:1515151515151515151515151515151515151515151515151515151515151515"
+      },
+      "skill_metadata": {
+        "frontmatter_profile": "freedom-agent-skill-frontmatter-v1",
+        "body_profile": "static-skill-body-linter-v1",
+        "name": "freedom-build-system",
+        "description": "Routes project bootstrap, build, preview, release and deployment work through the Freedom control contracts. Use for governed project lifecycle tasks."
+      },
+      "contract_snapshot": null
+    },
+    {
+      "schema_version": "freedom.bundle-manifest/v1",
+      "artifact_profile": "planning_fixture",
+      "bundle_kind": "skill_package",
+      "bundle_id": "skill:freedom/github-project-adapter",
+      "version": "1.2.3",
+      "source": {
+        "repository_id": "100000002",
+        "release_id": "200000002",
+        "release_tag": "v1.2.3",
+        "commit_sha": "2222222222222222222222222222222222222222"
+      },
+      "digest_profile": "freedom-file-list-jcs-sha256-v1",
+      "execution_mode_profile": "path-derived-readonly-v1",
+      "payload_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "size": 1024,
+          "sha256": "sha256:2323232323232323232323232323232323232323232323232323232323232323"
+        },
+        {
+          "path": "freedom-skill.yaml",
+          "size": 512,
+          "sha256": "sha256:2424242424242424242424242424242424242424242424242424242424242424"
+        }
+      ],
+      "archive": {
+        "asset_name": "github-project-adapter-v1.2.3.tar.gz",
+        "media_type": "application/gzip",
+        "size": 4096,
+        "sha256": "sha256:2525252525252525252525252525252525252525252525252525252525252525"
+      },
+      "skill_metadata": {
+        "frontmatter_profile": "freedom-agent-skill-frontmatter-v1",
+        "body_profile": "static-skill-body-linter-v1",
+        "name": "github-project-adapter",
+        "description": "Adapts governed Freedom project lifecycle requests to exact GitHub operations. Use only when selected by the control Skill."
+      },
+      "contract_snapshot": null
+    },
+    {
+      "schema_version": "freedom.bundle-manifest/v1",
+      "artifact_profile": "planning_fixture",
+      "bundle_kind": "contract_bundle",
+      "bundle_id": "freedom-contracts",
+      "version": "0.1.0",
+      "source": {
+        "repository_id": "100000003",
+        "release_id": "200000003",
+        "release_tag": "v0.1.0",
+        "commit_sha": "3333333333333333333333333333333333333333"
+      },
+      "digest_profile": "freedom-file-list-jcs-sha256-v1",
+      "execution_mode_profile": "path-derived-readonly-v1",
+      "payload_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "files": [
+        {
+          "path": "openapi.yaml",
+          "size": 65536,
+          "sha256": "sha256:3434343434343434343434343434343434343434343434343434343434343434"
+        }
+      ],
+      "archive": {
+        "asset_name": "freedom-contracts-v0.1.0.tar.gz",
+        "media_type": "application/gzip",
+        "size": 16384,
+        "sha256": "sha256:3535353535353535353535353535353535353535353535353535353535353535"
+      },
+      "skill_metadata": null,
+      "contract_snapshot": null
+    },
+    {
+      "schema_version": "freedom.bundle-manifest/v1",
+      "artifact_profile": "planning_fixture",
+      "bundle_kind": "plan_bundle",
+      "bundle_id": "freedom-platform-plan",
+      "version": "0.1.0",
+      "source": {
+        "repository_id": "100000004",
+        "release_id": "200000004",
+        "release_tag": "v0.1.0",
+        "commit_sha": "4444444444444444444444444444444444444444"
+      },
+      "digest_profile": "freedom-file-list-jcs-sha256-v1",
+      "execution_mode_profile": "path-derived-readonly-v1",
+      "payload_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "files": [
+        {
+          "path": "README.md",
+          "size": 4096,
+          "sha256": "sha256:4545454545454545454545454545454545454545454545454545454545454545"
+        },
+        {
+          "path": "contracts/openapi.yaml",
+          "size": 65536,
+          "sha256": "sha256:3434343434343434343434343434343434343434343434343434343434343434"
+        },
+        {
+          "path": "docs/architecture.md",
+          "size": 32768,
+          "sha256": "sha256:4646464646464646464646464646464646464646464646464646464646464646"
+        }
+      ],
+      "archive": {
+        "asset_name": "freedom-platform-plan-v0.1.0.tar.gz",
+        "media_type": "application/gzip",
+        "size": 49152,
+        "sha256": "sha256:4747474747474747474747474747474747474747474747474747474747474747"
+      },
+      "skill_metadata": null,
+      "contract_snapshot": {
+        "bundle_id": "freedom-contracts",
+        "version": "0.1.0",
+        "source": {
+          "repository_id": "100000003",
+          "release_id": "200000003",
+          "release_tag": "v0.1.0",
+          "commit_sha": "3333333333333333333333333333333333333333"
+        },
+        "payload_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "manifest_sha256": "sha256:3636363636363636363636363636363636363636363636363636363636363636",
+        "archive_sha256": "sha256:3535353535353535353535353535353535353535353535353535353535353535"
+      }
+    }
+  ],
+  "registry_snapshot": {
+    "schema_version": "freedom.skill-registry-snapshot/v1",
+    "artifact_profile": "planning_fixture",
+    "snapshot_id": "registry-snapshot/test-1",
+    "generated_at": "2026-09-15T11:55:00Z",
+    "digest_profile": "freedom-registry-snapshot-jcs-sha256-v1",
+    "packages": [
+      {
+        "bundle_kind": "skill_package",
+        "artifact_profile": "planning_fixture",
+        "package_id": "skill:freedom/github-project-adapter",
+        "version": "1.2.3",
+        "skill_package_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "package_manifest_sha256": "sha256:2626262626262626262626262626262626262626262626262626262626262626",
+        "package_archive_sha256": "sha256:2525252525252525252525252525252525252525252525252525252525252525",
+        "manifest_locator": {
+          "source": {
+            "repository_id": "100000002",
+            "release_id": "200000002",
+            "release_tag": "v1.2.3",
+            "commit_sha": "2222222222222222222222222222222222222222"
+          },
+          "asset_id": "300000003",
+          "asset_name": "skill-package.manifest.json"
+        },
+        "archive_locator": {
+          "source": {
+            "repository_id": "100000002",
+            "release_id": "200000002",
+            "release_tag": "v1.2.3",
+            "commit_sha": "2222222222222222222222222222222222222222"
+          },
+          "asset_id": "300000004",
+          "asset_name": "github-project-adapter-v1.2.3.tar.gz"
+        }
+      }
+    ],
+    "snapshot_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+  },
+  "signed_channel": {
+    "schema_version": "freedom.signed-channel/v1",
+    "statement": {
+      "channel_profile": "planning_fixture",
+      "channel_id": "freedom/control/test",
+      "sequence": "1",
+      "previous_statement_sha256": null,
+      "previous_artifact_sha256": null,
+      "previous_artifact_uri": null,
+      "issued_at": "2026-09-15T12:00:00Z",
+      "valid_from": "2026-09-15T12:00:00Z",
+      "expires_at": "2026-09-16T12:00:00Z",
+      "minimum_accepted_sequence": "1",
+      "publisher_policy_id": "publisher-policy/test-v1",
+      "root_skill": {
+        "bundle_kind": "skill_package",
+        "artifact_profile": "planning_fixture",
+        "package_id": "skill:freedom/freedom-build-system",
+        "version": "0.1.0",
+        "skill_package_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "package_manifest_sha256": "sha256:1616161616161616161616161616161616161616161616161616161616161616",
+        "package_archive_sha256": "sha256:1515151515151515151515151515151515151515151515151515151515151515",
+        "manifest_locator": {
+          "source": {
+            "repository_id": "100000001",
+            "release_id": "200000001",
+            "release_tag": "v0.1.0",
+            "commit_sha": "1111111111111111111111111111111111111111"
+          },
+          "asset_id": "300000001",
+          "asset_name": "skill-package.manifest.json"
+        },
+        "archive_locator": {
+          "source": {
+            "repository_id": "100000001",
+            "release_id": "200000001",
+            "release_tag": "v0.1.0",
+            "commit_sha": "1111111111111111111111111111111111111111"
+          },
+          "asset_id": "300000002",
+          "asset_name": "freedom-build-system-v0.1.0.tar.gz"
+        }
+      },
+      "dependency_closure": {
+        "resolver_id": "freedom-semver-resolver",
+        "resolver_version": "1.0.0",
+        "registry_snapshot": {
+          "snapshot_id": "registry-snapshot/test-1",
+          "snapshot_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "artifact_sha256": "sha256:6464646464646464646464646464646464646464646464646464646464646464",
+          "artifact_locator": {
+            "source": {
+              "repository_id": "100000001",
+              "release_id": "200000001",
+              "release_tag": "v0.1.0",
+              "commit_sha": "1111111111111111111111111111111111111111"
+            },
+            "asset_id": "300000009",
+            "asset_name": "registry-snapshot.json"
+          }
+        },
+        "entries": [
+          {
+            "bundle_kind": "skill_package",
+            "artifact_profile": "planning_fixture",
+            "package_id": "skill:freedom/github-project-adapter",
+            "version": "1.2.3",
+            "skill_package_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "package_manifest_sha256": "sha256:2626262626262626262626262626262626262626262626262626262626262626",
+            "package_archive_sha256": "sha256:2525252525252525252525252525252525252525252525252525252525252525",
+            "manifest_locator": {
+              "source": {
+                "repository_id": "100000002",
+                "release_id": "200000002",
+                "release_tag": "v1.2.3",
+                "commit_sha": "2222222222222222222222222222222222222222"
+              },
+              "asset_id": "300000003",
+              "asset_name": "skill-package.manifest.json"
+            },
+            "archive_locator": {
+              "source": {
+                "repository_id": "100000002",
+                "release_id": "200000002",
+                "release_tag": "v1.2.3",
+                "commit_sha": "2222222222222222222222222222222222222222"
+              },
+              "asset_id": "300000004",
+              "asset_name": "github-project-adapter-v1.2.3.tar.gz"
+            }
+          }
+        ],
+        "closure_digest": "sha256:5656565656565656565656565656565656565656565656565656565656565656"
+      },
+      "plan_bundle": {
+        "bundle_kind": "plan_bundle",
+        "artifact_profile": "planning_fixture",
+        "bundle_id": "freedom-platform-plan",
+        "version": "0.1.0",
+        "payload_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "bundle_manifest_sha256": "sha256:4848484848484848484848484848484848484848484848484848484848484848",
+        "bundle_archive_sha256": "sha256:4747474747474747474747474747474747474747474747474747474747474747",
+        "manifest_locator": {
+          "source": {
+            "repository_id": "100000004",
+            "release_id": "200000004",
+            "release_tag": "v0.1.0",
+            "commit_sha": "4444444444444444444444444444444444444444"
+          },
+          "asset_id": "300000007",
+          "asset_name": "freedom-plan-bundle.manifest.json"
+        },
+        "archive_locator": {
+          "source": {
+            "repository_id": "100000004",
+            "release_id": "200000004",
+            "release_tag": "v0.1.0",
+            "commit_sha": "4444444444444444444444444444444444444444"
+          },
+          "asset_id": "300000008",
+          "asset_name": "freedom-platform-plan-v0.1.0.tar.gz"
+        }
+      },
+      "contract_bundle": {
+        "bundle_kind": "contract_bundle",
+        "artifact_profile": "planning_fixture",
+        "bundle_id": "freedom-contracts",
+        "version": "0.1.0",
+        "payload_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "bundle_manifest_sha256": "sha256:3636363636363636363636363636363636363636363636363636363636363636",
+        "bundle_archive_sha256": "sha256:3535353535353535353535353535353535353535353535353535353535353535",
+        "manifest_locator": {
+          "source": {
+            "repository_id": "100000003",
+            "release_id": "200000003",
+            "release_tag": "v0.1.0",
+            "commit_sha": "3333333333333333333333333333333333333333"
+          },
+          "asset_id": "300000005",
+          "asset_name": "contract-bundle.manifest.json"
+        },
+        "archive_locator": {
+          "source": {
+            "repository_id": "100000003",
+            "release_id": "200000003",
+            "release_tag": "v0.1.0",
+            "commit_sha": "3333333333333333333333333333333333333333"
+          },
+          "asset_id": "300000006",
+          "asset_name": "freedom-contracts-v0.1.0.tar.gz"
+        }
+      },
+      "revocation_requirement": {
+        "registry_id": "freedom-revocations/test",
+        "minimum_snapshot_sequence": "1",
+        "max_staleness_seconds": 900,
+        "clock_skew_seconds": 60
+      }
+    },
+    "proof": {
+      "profile": "freedom-rfc7797-detached-jws-multisig-jcs-v1",
+      "algorithm": "EdDSA",
+      "typ": "freedom.signed-channel+jws",
+      "payload_sha256": "sha256:5757575757575757575757575757575757575757575757575757575757575757",
+      "signature_policy_id": "publisher-policy/test-v1",
+      "threshold": 2,
+      "signatures": [
+        {
+          "kid": "publisher-key/test-a",
+          "protected_b64u": "ZXhhbXBsZS1wcm90ZWN0ZWQtYQ",
+          "signature_b64u": "ZXhhbXBsZS1zaWduYXR1cmUtYS1ub3QtdmFsaWQ"
+        },
+        {
+          "kid": "publisher-key/test-b",
+          "protected_b64u": "ZXhhbXBsZS1wcm90ZWN0ZWQtYg",
+          "signature_b64u": "ZXhhbXBsZS1zaWduYXR1cmUtYi1ub3QtdmFsaWQ"
+        }
+      ]
+    }
+  },
+  "revocation_snapshot": {
+    "schema_version": "freedom.revocation-snapshot/v1",
+    "statement": {
+      "registry_profile": "planning_fixture",
+      "registry_id": "freedom-revocations/test",
+      "sequence": "1",
+      "previous_statement_sha256": null,
+      "previous_artifact_sha256": null,
+      "previous_artifact_uri": null,
+      "publisher_policy_id": "publisher-policy/test-v1",
+      "issued_at": "2026-09-15T12:00:00Z",
+      "expires_at": "2026-09-15T12:15:00Z",
+      "max_staleness_seconds": 900,
+      "clock_skew_seconds": 60,
+      "minimum_channel_sequences": [
+        {
+          "channel_id": "freedom/control/test",
+          "minimum_sequence": "1"
+        }
+      ],
+      "revoked_keys": [],
+      "revoked_packages": []
+    },
+    "proof": {
+      "profile": "freedom-rfc7797-detached-jws-multisig-jcs-v1",
+      "algorithm": "EdDSA",
+      "typ": "freedom.revocation-snapshot+jws",
+      "payload_sha256": "sha256:5858585858585858585858585858585858585858585858585858585858585858",
+      "signature_policy_id": "publisher-policy/test-v1",
+      "threshold": 2,
+      "signatures": [
+        {
+          "kid": "publisher-key/test-a",
+          "protected_b64u": "ZXhhbXBsZS1wcm90ZWN0ZWQtYQ",
+          "signature_b64u": "ZXhhbXBsZS1zaWduYXR1cmUtYS1ub3QtdmFsaWQ"
+        },
+        {
+          "kid": "publisher-key/test-b",
+          "protected_b64u": "ZXhhbXBsZS1wcm90ZWN0ZWQtYg",
+          "signature_b64u": "ZXhhbXBsZS1zaWduYXR1cmUtYi1ub3QtdmFsaWQ"
+        }
+      ]
+    }
+  },
+  "publisher_policy": {
+    "schema_version": "freedom.publisher-policy/v1",
+    "policy_profile": "planning_fixture",
+    "policy": {
+      "policy_id": "publisher-policy/test-v1",
+      "algorithm": "EdDSA",
+      "threshold": 2,
+      "keys": [
+        {
+          "kid": "publisher-key/test-a",
+          "algorithm": "EdDSA",
+          "public_jwk": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+          },
+          "not_before": "2026-09-01T00:00:00Z",
+          "not_after": null
+        },
+        {
+          "kid": "publisher-key/test-b",
+          "algorithm": "EdDSA",
+          "public_jwk": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+          },
+          "not_before": "2026-09-01T00:00:00Z",
+          "not_after": null
+        },
+        {
+          "kid": "publisher-key/test-c",
+          "algorithm": "EdDSA",
+          "public_jwk": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+          },
+          "not_before": "2026-09-01T00:00:00Z",
+          "not_after": null
+        }
+      ],
+      "channel_authorizations": [
+        {
+          "artifact_profile": "planning_fixture",
+          "channel_id": "freedom/control/test",
+          "minimum_channel_sequence": "1",
+          "channel_checkpoint": {
+            "channel_id": "freedom/control/test",
+            "sequence": "1",
+            "artifact_sha256": "sha256:6161616161616161616161616161616161616161616161616161616161616161",
+            "statement_sha256": "sha256:5757575757575757575757575757575757575757575757575757575757575757",
+            "artifact_uri": "https://trust.freedom.example/v1/channels/history/6161616161616161616161616161616161616161616161616161616161616161.json"
+          },
+          "revocation_registry_id": "freedom-revocations/test",
+          "minimum_revocation_sequence": "1",
+          "revocation_checkpoint": {
+            "registry_id": "freedom-revocations/test",
+            "sequence": "1",
+            "artifact_sha256": "sha256:6262626262626262626262626262626262626262626262626262626262626262",
+            "statement_sha256": "sha256:5858585858585858585858585858585858585858585858585858585858585858",
+            "artifact_uri": "https://trust.freedom.example/v1/revocations/history/6262626262626262626262626262626262626262626262626262626262626262.json"
+          }
+        }
+      ],
+      "network_fetch_profile": {
+        "profile_id": "freedom-network-fetch-v1",
+        "maximum_redirects": 3,
+        "maximum_dns_answers": 16,
+        "maximum_response_header_bytes": 32768,
+        "connect_timeout_ms": 5000,
+        "per_response_elapsed_ms": 20000,
+        "overall_activation_elapsed_ms": 600000,
+        "maximum_authority_requests": 1200,
+        "maximum_authority_download_bytes": 536870912,
+        "maximum_payload_download_bytes": 1073741824,
+        "response_byte_limits": {
+          "publisher_bootstrap_index": 4194304,
+          "publisher_keyset_transition": 4194304,
+          "signed_channel": 8388608,
+          "revocation_snapshot": 67108864,
+          "registry_snapshot": 33554432,
+          "bundle_manifest": 4194304,
+          "bundle_archive": 536870912
+        }
+      },
+      "distribution": {
+        "registry_repository_id": "100000001",
+        "registry_repository_full_name": "freedom-example/freedom-skill-registry",
+        "channel_index_endpoint": "https://trust.freedom.example/v1/channels",
+        "channel_history_endpoint": "https://trust.freedom.example/v1/channels/history",
+        "revocation_endpoint": "https://trust.freedom.example/v1/revocations/current",
+        "revocation_history_endpoint": "https://trust.freedom.example/v1/revocations/history",
+        "keyset_endpoint": "https://trust.freedom.example/v1/publisher-bootstrap-index",
+        "keyset_history_endpoint": "https://trust.freedom.example/v1/keyset-transitions"
+      }
+    }
+  },
+  "publisher_keyset_transition": {
+    "schema_version": "freedom.publisher-keyset-transition/v1",
+    "statement": {
+      "transition_profile": "planning_fixture",
+      "transition_id": "publisher-transition/test-1",
+      "sequence": "1",
+      "previous_policy_sha256": "sha256:6565656565656565656565656565656565656565656565656565656565656565",
+      "old_policy_id": "publisher-policy/test-v1",
+      "new_policy": {
+        "policy_id": "publisher-policy/test-v2",
+        "algorithm": "EdDSA",
+        "threshold": 2,
+        "keys": [
+          {
+            "kid": "publisher-key/test-b",
+            "algorithm": "EdDSA",
+            "public_jwk": {
+              "kty": "OKP",
+              "crv": "Ed25519",
+              "x": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+            },
+            "not_before": "2026-09-15T11:00:00Z",
+            "not_after": null
+          },
+          {
+            "kid": "publisher-key/test-c",
+            "algorithm": "EdDSA",
+            "public_jwk": {
+              "kty": "OKP",
+              "crv": "Ed25519",
+              "x": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+            },
+            "not_before": "2026-09-15T11:00:00Z",
+            "not_after": null
+          },
+          {
+            "kid": "publisher-key/test-d",
+            "algorithm": "EdDSA",
+            "public_jwk": {
+              "kty": "OKP",
+              "crv": "Ed25519",
+              "x": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"
+            },
+            "not_before": "2026-09-15T11:00:00Z",
+            "not_after": null
+          }
+        ],
+        "channel_authorizations": [
+          {
+            "artifact_profile": "planning_fixture",
+            "channel_id": "freedom/control/test",
+            "minimum_channel_sequence": "1",
+            "channel_checkpoint": {
+              "channel_id": "freedom/control/test",
+              "sequence": "1",
+              "artifact_sha256": "sha256:6161616161616161616161616161616161616161616161616161616161616161",
+              "statement_sha256": "sha256:5757575757575757575757575757575757575757575757575757575757575757",
+              "artifact_uri": "https://trust.freedom.example/v1/channels/history/6161616161616161616161616161616161616161616161616161616161616161.json"
+            },
+            "revocation_registry_id": "freedom-revocations/test",
+            "minimum_revocation_sequence": "1",
+            "revocation_checkpoint": {
+              "registry_id": "freedom-revocations/test",
+              "sequence": "1",
+              "artifact_sha256": "sha256:6262626262626262626262626262626262626262626262626262626262626262",
+              "statement_sha256": "sha256:5858585858585858585858585858585858585858585858585858585858585858",
+              "artifact_uri": "https://trust.freedom.example/v1/revocations/history/6262626262626262626262626262626262626262626262626262626262626262.json"
+            }
+          }
+        ],
+        "network_fetch_profile": {
+          "profile_id": "freedom-network-fetch-v1",
+          "maximum_redirects": 3,
+          "maximum_dns_answers": 16,
+          "maximum_response_header_bytes": 32768,
+          "connect_timeout_ms": 5000,
+          "per_response_elapsed_ms": 20000,
+          "overall_activation_elapsed_ms": 600000,
+          "maximum_authority_requests": 1200,
+          "maximum_authority_download_bytes": 536870912,
+          "maximum_payload_download_bytes": 1073741824,
+          "response_byte_limits": {
+            "publisher_bootstrap_index": 4194304,
+            "publisher_keyset_transition": 4194304,
+            "signed_channel": 8388608,
+            "revocation_snapshot": 67108864,
+            "registry_snapshot": 33554432,
+            "bundle_manifest": 4194304,
+            "bundle_archive": 536870912
+          }
+        },
+        "distribution": {
+          "registry_repository_id": "100000001",
+          "registry_repository_full_name": "freedom-example/freedom-skill-registry",
+          "channel_index_endpoint": "https://trust.freedom.example/v1/channels",
+          "channel_history_endpoint": "https://trust.freedom.example/v1/channels/history",
+          "revocation_endpoint": "https://trust.freedom.example/v1/revocations/current",
+          "revocation_history_endpoint": "https://trust.freedom.example/v1/revocations/history",
+          "keyset_endpoint": "https://trust.freedom.example/v1/publisher-bootstrap-index",
+          "keyset_history_endpoint": "https://trust.freedom.example/v1/keyset-transitions"
+        }
+      },
+      "issued_at": "2026-09-15T12:00:00Z",
+      "effective_at": "2026-09-16T12:00:00Z",
+      "clock_skew_seconds": 60
+    },
+    "old_policy_proof": {
+      "profile": "freedom-rfc7797-detached-jws-multisig-jcs-v1",
+      "algorithm": "EdDSA",
+      "typ": "freedom.publisher-keyset-transition+jws",
+      "payload_sha256": "sha256:6060606060606060606060606060606060606060606060606060606060606060",
+      "signature_policy_id": "publisher-policy/test-v1",
+      "threshold": 2,
+      "signatures": [
+        {
+          "kid": "publisher-key/test-a",
+          "protected_b64u": "ZXhhbXBsZS1wcm90ZWN0ZWQtYQ",
+          "signature_b64u": "ZXhhbXBsZS1zaWduYXR1cmUtYS1ub3QtdmFsaWQ"
+        },
+        {
+          "kid": "publisher-key/test-b",
+          "protected_b64u": "ZXhhbXBsZS1wcm90ZWN0ZWQtYg",
+          "signature_b64u": "ZXhhbXBsZS1zaWduYXR1cmUtYi1ub3QtdmFsaWQ"
+        }
+      ]
+    },
+    "new_policy_proof": {
+      "profile": "freedom-rfc7797-detached-jws-multisig-jcs-v1",
+      "algorithm": "EdDSA",
+      "typ": "freedom.publisher-keyset-transition+jws",
+      "payload_sha256": "sha256:6060606060606060606060606060606060606060606060606060606060606060",
+      "signature_policy_id": "publisher-policy/test-v2",
+      "threshold": 2,
+      "signatures": [
+        {
+          "kid": "publisher-key/test-b",
+          "protected_b64u": "ZXhhbXBsZS1wcm90ZWN0ZWQtYg",
+          "signature_b64u": "ZXhhbXBsZS1zaWduYXR1cmUtYi1ub3QtdmFsaWQ"
+        },
+        {
+          "kid": "publisher-key/test-c",
+          "protected_b64u": "ZXhhbXBsZS1wcm90ZWN0ZWQtYw",
+          "signature_b64u": "ZXhhbXBsZS1zaWduYXR1cmUtYy1ub3QtdmFsaWQ"
+        }
+      ]
+    }
+  },
+  "publisher_bootstrap_index": {
+    "schema_version": "freedom.publisher-bootstrap-index/v1",
+    "statement": {
+      "index_profile": "planning_fixture",
+      "initial_policy_sha256": "sha256:6565656565656565656565656565656565656565656565656565656565656565",
+      "signing_policy_id": "publisher-policy/test-v1",
+      "published_head_policy_id": "publisher-policy/test-v2",
+      "published_head_policy_sha256": "sha256:6969696969696969696969696969696969696969696969696969696969696969",
+      "issued_at": "2026-09-15T12:00:00Z",
+      "expires_at": "2026-09-15T12:05:00Z",
+      "max_staleness_seconds": 300,
+      "clock_skew_seconds": 60,
+      "maximum_history_links": 64,
+      "transition_locators": [
+        {
+          "sequence": "1",
+          "transition_artifact_sha256": "sha256:6767676767676767676767676767676767676767676767676767676767676767",
+          "transition_statement_sha256": "sha256:6060606060606060606060606060606060606060606060606060606060606060",
+          "artifact_uri": "https://trust.freedom.example/v1/keyset-transitions/6767676767676767676767676767676767676767676767676767676767676767.json"
+        }
+      ],
+      "channel_authorizations": [
+        {
+          "artifact_profile": "planning_fixture",
+          "channel_id": "freedom/control/test",
+          "minimum_channel_sequence": "1",
+          "channel_checkpoint": {
+            "channel_id": "freedom/control/test",
+            "sequence": "1",
+            "artifact_sha256": "sha256:6161616161616161616161616161616161616161616161616161616161616161",
+            "statement_sha256": "sha256:5757575757575757575757575757575757575757575757575757575757575757",
+            "artifact_uri": "https://trust.freedom.example/v1/channels/history/6161616161616161616161616161616161616161616161616161616161616161.json"
+          },
+          "current_channel": {
+            "channel_id": "freedom/control/test",
+            "sequence": "1",
+            "artifact_sha256": "sha256:6161616161616161616161616161616161616161616161616161616161616161",
+            "statement_sha256": "sha256:5757575757575757575757575757575757575757575757575757575757575757",
+            "artifact_uri": "https://trust.freedom.example/v1/channels/history/6161616161616161616161616161616161616161616161616161616161616161.json",
+            "issued_at": "2026-09-15T12:00:00Z",
+            "valid_from": "2026-09-15T12:00:00Z",
+            "expires_at": "2026-09-16T12:00:00Z"
+          },
+          "revocation_registry_id": "freedom-revocations/test",
+          "minimum_revocation_sequence": "1",
+          "revocation_checkpoint": {
+            "registry_id": "freedom-revocations/test",
+            "sequence": "1",
+            "artifact_sha256": "sha256:6262626262626262626262626262626262626262626262626262626262626262",
+            "statement_sha256": "sha256:5858585858585858585858585858585858585858585858585858585858585858",
+            "artifact_uri": "https://trust.freedom.example/v1/revocations/history/6262626262626262626262626262626262626262626262626262626262626262.json"
+          },
+          "current_revocation": {
+            "registry_id": "freedom-revocations/test",
+            "sequence": "1",
+            "artifact_sha256": "sha256:6262626262626262626262626262626262626262626262626262626262626262",
+            "statement_sha256": "sha256:5858585858585858585858585858585858585858585858585858585858585858",
+            "artifact_uri": "https://trust.freedom.example/v1/revocations/history/6262626262626262626262626262626262626262626262626262626262626262.json",
+            "issued_at": "2026-09-15T12:00:00Z",
+            "expires_at": "2026-09-15T12:15:00Z"
+          }
+        }
+      ]
+    },
+    "proof": {
+      "profile": "freedom-rfc7797-detached-jws-multisig-jcs-v1",
+      "algorithm": "EdDSA",
+      "typ": "freedom.publisher-bootstrap-index+jws",
+      "payload_sha256": "sha256:7171717171717171717171717171717171717171717171717171717171717171",
+      "signature_policy_id": "publisher-policy/test-v1",
+      "threshold": 2,
+      "signatures": [
+        {
+          "kid": "publisher-key/test-a",
+          "protected_b64u": "ZXhhbXBsZS1wcm90ZWN0ZWQtYQ",
+          "signature_b64u": "ZXhhbXBsZS1zaWduYXR1cmUtYS1ub3QtdmFsaWQ"
+        },
+        {
+          "kid": "publisher-key/test-b",
+          "protected_b64u": "ZXhhbXBsZS1wcm90ZWN0ZWQtYg",
+          "signature_b64u": "ZXhhbXBsZS1zaWduYXR1cmUtYi1ub3QtdmFsaWQ"
+        }
+      ]
+    }
+  },
+  "activation_lock": {
+    "schema_version": "freedom.activation-lock/v1",
+    "activation_profile": "planning_fixture",
+    "channel_id": "freedom/control/test",
+    "channel_sequence": "1",
+    "channel_self_minimum_sequence": "1",
+    "trusted_channel_minimum_sequence": "1",
+    "trusted_channel_checkpoint": {
+      "channel_id": "freedom/control/test",
+      "sequence": "1",
+      "artifact_sha256": "sha256:6161616161616161616161616161616161616161616161616161616161616161",
+      "statement_sha256": "sha256:5757575757575757575757575757575757575757575757575757575757575757",
+      "artifact_uri": "https://trust.freedom.example/v1/channels/history/6161616161616161616161616161616161616161616161616161616161616161.json"
+    },
+    "channel_artifact_sha256": "sha256:6161616161616161616161616161616161616161616161616161616161616161",
+    "channel_statement_sha256": "sha256:5757575757575757575757575757575757575757575757575757575757575757",
+    "channel_issued_at": "2026-09-15T12:00:00Z",
+    "channel_valid_from": "2026-09-15T12:00:00Z",
+    "channel_expires_at": "2026-09-16T12:00:00Z",
+    "revocation_registry_id": "freedom-revocations/test",
+    "revocation_sequence": "1",
+    "revocation_required_minimum_snapshot_sequence": "1",
+    "trusted_revocation_minimum_sequence": "1",
+    "trusted_revocation_checkpoint": {
+      "registry_id": "freedom-revocations/test",
+      "sequence": "1",
+      "artifact_sha256": "sha256:6262626262626262626262626262626262626262626262626262626262626262",
+      "statement_sha256": "sha256:5858585858585858585858585858585858585858585858585858585858585858",
+      "artifact_uri": "https://trust.freedom.example/v1/revocations/history/6262626262626262626262626262626262626262626262626262626262626262.json"
+    },
+    "registry_minimum_channel_sequence": "1",
+    "revocation_artifact_sha256": "sha256:6262626262626262626262626262626262626262626262626262626262626262",
+    "revocation_statement_sha256": "sha256:5858585858585858585858585858585858585858585858585858585858585858",
+    "revocation_issued_at": "2026-09-15T12:00:00Z",
+    "revocation_expires_at": "2026-09-15T12:15:00Z",
+    "verification_clock_skew_seconds": 60,
+    "initial_publisher_policy_sha256": "sha256:6565656565656565656565656565656565656565656565656565656565656565",
+    "publisher_policy_sha256": "sha256:6565656565656565656565656565656565656565656565656565656565656565",
+    "publisher_bootstrap_index_artifact_sha256": "sha256:7070707070707070707070707070707070707070707070707070707070707070",
+    "publisher_bootstrap_index_statement_sha256": "sha256:7171717171717171717171717171717171717171717171717171717171717171",
+    "publisher_bootstrap_index_issued_at": "2026-09-15T12:00:00Z",
+    "publisher_bootstrap_index_expires_at": "2026-09-15T12:05:00Z",
+    "maximum_history_links": 64,
+    "keyset_transition_chain": [],
+    "keyset_chain_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+    "root_skill": {
+      "bundle_kind": "skill_package",
+      "artifact_profile": "planning_fixture",
+      "package_id": "skill:freedom/freedom-build-system",
+      "version": "0.1.0",
+      "skill_package_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "package_manifest_sha256": "sha256:1616161616161616161616161616161616161616161616161616161616161616",
+      "package_archive_sha256": "sha256:1515151515151515151515151515151515151515151515151515151515151515",
+      "manifest_locator": {
+        "source": {
+          "repository_id": "100000001",
+          "release_id": "200000001",
+          "release_tag": "v0.1.0",
+          "commit_sha": "1111111111111111111111111111111111111111"
+        },
+        "asset_id": "300000001",
+        "asset_name": "skill-package.manifest.json"
+      },
+      "archive_locator": {
+        "source": {
+          "repository_id": "100000001",
+          "release_id": "200000001",
+          "release_tag": "v0.1.0",
+          "commit_sha": "1111111111111111111111111111111111111111"
+        },
+        "asset_id": "300000002",
+        "asset_name": "freedom-build-system-v0.1.0.tar.gz"
+      }
+    },
+    "dependency_closure": {
+      "resolver_id": "freedom-semver-resolver",
+      "resolver_version": "1.0.0",
+      "registry_snapshot": {
+        "snapshot_id": "registry-snapshot/test-1",
+        "snapshot_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "artifact_sha256": "sha256:6464646464646464646464646464646464646464646464646464646464646464",
+        "artifact_locator": {
+          "source": {
+            "repository_id": "100000001",
+            "release_id": "200000001",
+            "release_tag": "v0.1.0",
+            "commit_sha": "1111111111111111111111111111111111111111"
+          },
+          "asset_id": "300000009",
+          "asset_name": "registry-snapshot.json"
+        }
+      },
+      "entries": [
+        {
+          "bundle_kind": "skill_package",
+          "artifact_profile": "planning_fixture",
+          "package_id": "skill:freedom/github-project-adapter",
+          "version": "1.2.3",
+          "skill_package_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "package_manifest_sha256": "sha256:2626262626262626262626262626262626262626262626262626262626262626",
+          "package_archive_sha256": "sha256:2525252525252525252525252525252525252525252525252525252525252525",
+          "manifest_locator": {
+            "source": {
+              "repository_id": "100000002",
+              "release_id": "200000002",
+              "release_tag": "v1.2.3",
+              "commit_sha": "2222222222222222222222222222222222222222"
+            },
+            "asset_id": "300000003",
+            "asset_name": "skill-package.manifest.json"
+          },
+          "archive_locator": {
+            "source": {
+              "repository_id": "100000002",
+              "release_id": "200000002",
+              "release_tag": "v1.2.3",
+              "commit_sha": "2222222222222222222222222222222222222222"
+            },
+            "asset_id": "300000004",
+            "asset_name": "github-project-adapter-v1.2.3.tar.gz"
+          }
+        }
+      ],
+      "closure_digest": "sha256:5656565656565656565656565656565656565656565656565656565656565656"
+    },
+    "plan_bundle": {
+      "bundle_kind": "plan_bundle",
+      "artifact_profile": "planning_fixture",
+      "bundle_id": "freedom-platform-plan",
+      "version": "0.1.0",
+      "payload_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "bundle_manifest_sha256": "sha256:4848484848484848484848484848484848484848484848484848484848484848",
+      "bundle_archive_sha256": "sha256:4747474747474747474747474747474747474747474747474747474747474747",
+      "manifest_locator": {
+        "source": {
+          "repository_id": "100000004",
+          "release_id": "200000004",
+          "release_tag": "v0.1.0",
+          "commit_sha": "4444444444444444444444444444444444444444"
+        },
+        "asset_id": "300000007",
+        "asset_name": "freedom-plan-bundle.manifest.json"
+      },
+      "archive_locator": {
+        "source": {
+          "repository_id": "100000004",
+          "release_id": "200000004",
+          "release_tag": "v0.1.0",
+          "commit_sha": "4444444444444444444444444444444444444444"
+        },
+        "asset_id": "300000008",
+        "asset_name": "freedom-platform-plan-v0.1.0.tar.gz"
+      }
+    },
+    "contract_bundle": {
+      "bundle_kind": "contract_bundle",
+      "artifact_profile": "planning_fixture",
+      "bundle_id": "freedom-contracts",
+      "version": "0.1.0",
+      "payload_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "bundle_manifest_sha256": "sha256:3636363636363636363636363636363636363636363636363636363636363636",
+      "bundle_archive_sha256": "sha256:3535353535353535353535353535353535353535353535353535353535353535",
+      "manifest_locator": {
+        "source": {
+          "repository_id": "100000003",
+          "release_id": "200000003",
+          "release_tag": "v0.1.0",
+          "commit_sha": "3333333333333333333333333333333333333333"
+        },
+        "asset_id": "300000005",
+        "asset_name": "contract-bundle.manifest.json"
+      },
+      "archive_locator": {
+        "source": {
+          "repository_id": "100000003",
+          "release_id": "200000003",
+          "release_tag": "v0.1.0",
+          "commit_sha": "3333333333333333333333333333333333333333"
+        },
+        "asset_id": "300000006",
+        "asset_name": "freedom-contracts-v0.1.0.tar.gz"
+      }
+    },
+    "activation_digest": "sha256:6363636363636363636363636363636363636363636363636363636363636363",
+    "read_only": true,
+    "cache_key_encoding": "sha256-lowerhex-no-prefix-v1",
+    "cache_layout_profile": "flat-content-addressed-v1",
+    "session_root_layout": "s/<16-lowerhex>",
+    "gc_profile": "lease-lock-mark-sweep-v1",
+    "gc_grace_seconds": 86400,
+    "cache_quota_bytes": 10737418240,
+    "minimum_free_space_bytes": 1073741824,
+    "maximum_live_session_leases": 64,
+    "maximum_marked_activation_records": 16,
+    "portable_absolute_path_limit": 240,
+    "session_paths": {
+      "skills": "skills",
+      "plan": "plan",
+      "contracts": "plan/contracts"
+    },
+    "authority_paths": {
+      "signed_channel": "authority/signed-channel.json",
+      "channel_history": "authority/channel-history",
+      "revocation_snapshot": "authority/revocation-snapshot.json",
+      "revocation_history": "authority/revocation-history",
+      "publisher_bootstrap_index": "authority/publisher-bootstrap-index.json",
+      "initial_publisher_policy": "authority/publisher-policies/initial.json",
+      "current_publisher_policy": "authority/publisher-policies/current.json",
+      "keyset_transitions": "authority/keyset-transitions",
+      "registry_snapshot": "authority/registry-snapshot.json",
+      "bundle_manifests": "authority/bundle-manifests"
+    }
+  },
+  "activation_pointer": {
+    "schema_version": "freedom.activation-pointer/v1",
+    "activation_profile": "planning_fixture",
+    "generation": "1",
+    "previous_pointer_sha256": null,
+    "channel_id": "freedom/control/test",
+    "channel_sequence": "1",
+    "activation_digest": "sha256:6363636363636363636363636363636363636363636363636363636363636363",
+    "activation_lock_sha256": "sha256:6767676767676767676767676767676767676767676767676767676767676767",
+    "activation_record_dir": "a/6363636363636363636363636363636363636363636363636363636363636363",
+    "installer": {
+      "installer_id": "freedom-skill-installer",
+      "version": "0.1.0"
+    },
+    "updated_at": "2026-09-15T12:01:01Z"
+  },
+  "activation_session_lease": {
+    "schema_version": "freedom.activation-session-lease/v1",
+    "lease_id": "abcdef0123456789",
+    "pointer_generation": "1",
+    "activation_pointer_sha256": "sha256:6969696969696969696969696969696969696969696969696969696969696969",
+    "activation_digest": "sha256:6363636363636363636363636363636363636363636363636363636363636363",
+    "activation_lock_sha256": "sha256:6767676767676767676767676767676767676767676767676767676767676767",
+    "activation_record_dir": "a/6363636363636363636363636363636363636363636363636363636363636363",
+    "session_dir": "s/abcdef0123456789",
+    "process_start_token": "process-start-test-0001",
+    "created_at": "2026-09-15T12:01:02Z",
+    "heartbeat_at": "2026-09-15T12:01:03Z",
+    "expires_at": "2026-09-15T12:06:03Z",
+    "state": "active"
+  }
+}

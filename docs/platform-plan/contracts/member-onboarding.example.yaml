@@ -1,0 +1,68 @@
+schema_version: freedom.member-onboarding/v1
+fixture_status: fake_planning_fixture_never_activate
+journey:
+  journey_id: journey_demo_member_ai_vibe
+  definition_version: "1"
+  overall_readiness: {state: in_progress, enforcement: navigation}
+  steps:
+    - {step_id: day1.identity, kind: identity, enforcement: navigation, skippable: false, status: {state: satisfied, enforcement: navigation}, output_refs: [user_demo]}
+    - {step_id: day1.positioning, kind: positioning, enforcement: navigation, skippable: true, status: {state: skipped, enforcement: navigation}}
+    - {step_id: day1.profession-confirmation, kind: profession_confirmation, enforcement: navigation, skippable: false, status: {state: satisfied, enforcement: navigation}, output_refs: [membership_demo_runner]}
+    - {step_id: day1.route-choice, kind: route_choice, enforcement: navigation, skippable: true, status: {state: satisfied, enforcement: navigation}, output_refs: [starter_package_demo]}
+    - {step_id: day1.skill-equip, kind: skill_equip, enforcement: navigation, skippable: true, status: {state: satisfied, enforcement: navigation}, output_refs: [equip_revision_demo]}
+    - {step_id: day1.installation-verify, kind: installation_verify, enforcement: navigation, skippable: true, status: {state: stuck, enforcement: navigation, reason_code: verification-command-failed}, output_refs: [installation_demo]}
+    - {step_id: day1.welcome-ritual, kind: welcome_ritual, enforcement: navigation, skippable: true, status: {state: in_progress, enforcement: navigation}, output_refs: [welcome_demo]}
+    - {step_id: day1.first-work-item, kind: first_work_item, enforcement: navigation, skippable: true, status: {state: ready, enforcement: navigation}, output_refs: [work_first_demo]}
+welcome_ritual:
+  trigger: freedom.organization.profession.confirmed.v1
+  overall_readiness: {state: in_progress, enforcement: navigation}
+  steps:
+    - {step_id: welcome.resolve-starter-track, execution: system_no_human, enforcement: navigation, status: {state: satisfied, enforcement: navigation}}
+    - {step_id: welcome.summarize-starter-track, execution: agent_a0, enforcement: navigation, status: {state: satisfied, enforcement: navigation}}
+    - {step_id: welcome.suggest-packages, execution: agent_a0, enforcement: navigation, status: {state: satisfied, enforcement: navigation}}
+    - {step_id: welcome.create-card-and-channel-link, execution: system_no_human, enforcement: navigation, status: {state: satisfied, enforcement: navigation}}
+    - {step_id: welcome.ask-one-line-goal, execution: member_one_line_optional, enforcement: navigation, status: {state: in_progress, enforcement: navigation}, prompt_key: welcome.first-goal}
+    - {step_id: welcome.preflight-selected-package, execution: agent_a1, enforcement: navigation, status: {state: ready, enforcement: navigation}}
+installation_profile:
+  installation_id: install_demo_member_package
+  member_ref: user_demo
+  agent_connection_ref: agent_connection_demo
+  package_version_ref: skill_version_demo
+  status: {state: failed, enforcement: navigation, reason_code: verification-command-failed}
+  receipt:
+    validator_version: "1.0.0"
+    package_digest: sha256:6666666666666666666666666666666666666666666666666666666666666666
+    platform_profile: linux-x86_64-codex
+    checked_at: "2026-09-15T12:05:00Z"
+    outcome: fail
+    enforcement: navigation
+stuck_rules:
+  - rule_id: stuck.starter-idle
+    condition: starter_item_idle_past_due
+    threshold: due_at passed and no progress receipt
+    enforcement: navigation
+    actions: [show_next, suggest_alternative, offer_help_request, notify_delegate_pool]
+  - rule_id: stuck.install-failed
+    condition: installation_verification_failed
+    threshold: latest A1 receipt outcome is fail or degraded
+    enforcement: navigation
+    actions: [show_next, suggest_alternative, offer_help_request, materialize_work_item, notify_delegate_pool]
+  - rule_id: stuck.claim-no-progress
+    condition: claimed_work_has_no_progress
+    threshold: claim-specific expected_update_at passed and no checkpoint or submission
+    enforcement: navigation
+    actions: [show_next, suggest_alternative, offer_help_request, notify_delegate_pool]
+feed_card_rules:
+  - {card_type: new_runner_joined, route: strategist_or_delegate_pool, enforcement: navigation, dismissal_effect: none_for_member}
+  - {card_type: starter_installation_verified, route: strategist_or_delegate_pool, enforcement: navigation, dismissal_effect: none_for_member}
+  - {card_type: member_stuck, route: strategist_or_delegate_pool, enforcement: navigation, dismissal_effect: none_for_member}
+  - {card_type: member_requested_help, route: strategist_or_delegate_pool, enforcement: navigation, dismissal_effect: none_for_member}
+  - {card_type: member_requested_help, route: master_exception_feed, enforcement: navigation, dismissal_effect: none_for_member, master_escalation_reasons: [major_version, rule_change, dispute, succession]}
+standing_grant_template:
+  template_key: day1.learn-equip-and-claim
+  authorization_levels: [A0, A1, A2]
+  max_duration_hours: 72
+  resource_selectors: [confirmed_profession, resolved_starter_package, first_low_risk_work_item]
+  action_types: [status.read, starter.preflight, skill.equip, skill.install.verify, work_item.claim, checkpoint.record]
+  revocable: true
+  signature_semantics: execution_grant_not_a4_artifact_signature

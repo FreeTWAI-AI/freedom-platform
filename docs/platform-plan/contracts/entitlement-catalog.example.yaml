@@ -1,0 +1,96 @@
+schema_version: freedom.entitlements/v1
+catalog:
+  id: community-default
+  community_id: com_replace_with_launch_community_id
+  version: "2"
+  status: draft
+  principle: career-navigates-entitlement-authorizes
+  canonical_key_source: this_catalog_and_01_section_12_are_exact_projections_of_the_same_contract
+definitions:
+  - key: community.member
+    display_gain: 進入會員狀態頁、公開資源與一般社群互動
+    scope_type: global
+    capabilities: [profile.read_own, positioning.start, skill_progress.save]
+    acquisition:
+      mode: self_service
+      conditions: [authenticated_user]
+    notices:
+      - community_rules_are_versioned_and_acknowledgeable_but_ack_is_not_a_general_interaction_precondition
+    obligations: []
+    revocation: {mode: manual_scoped, restore_path: contact-community-operator}
+  - key: opportunity.claim.basic
+    display_gain: 可瀏覽並以自助選定的acting profession認領低風險WorkItem；WorkIntent只改善matching
+    scope_type: work_type
+    capabilities: [work_feed.read, work_item.claim_low_risk, submission.create]
+    acquisition:
+      mode: self_service
+      conditions: [authenticated_user, acting_profession_is_selected]
+    obligations:
+      - acting profession逐action保存；缺少時可在claim command自助選擇或建立Runner，不經人審
+    revocation: {mode: manual_scoped, restore_path: resolve-the-specific-work-scope-issue}
+  - key: skill.submit
+    display_gain: 可提交具可追溯來源的 Skill／repo／artifact candidate
+    scope_type: source
+    capabilities: [skill_candidate.submit, submission.create, source_ref.attach]
+    acquisition:
+      mode: self_service
+      conditions: [authenticated_user]
+    obligations:
+      - 每次提交附可追溯 source；缺 connector 時可用 Portal upload/reference，不阻擋一般互動
+    revocation: {mode: manual_scoped, restore_path: resolve-the-specific-submission-scope-issue}
+  - key: "qc.review:<scope>"
+    display_gain: 可在指定 protocol／產品／技能版本範圍執行日常 review
+    scope_type: product_or_skill
+    capabilities: [review.claim, review.submit, qc.recommend]
+    acquisition:
+      mode: reviewer_appointment_only
+      conditions: [active_reviewer_appointment_for_exact_scope]
+    obligations: [reviewer_is_a_different_human_from_the_submission_author, decision_binds_an_exact_version_or_commit]
+    revocation: {mode: appointment_expiry_or_manual_scoped, restore_path: guild-officeholders-council-appointment-review}
+  - key: seller.list
+    display_gain: 可管理自己 SellerParty／Store 的 listing revision；sellable 仍逐版本驗 QC 與供貨接受
+    scope_type: store
+    capabilities: [seller_listing.create_revision, distribution_acceptance.request, storefront.catalog.manage, buyer_order.read_own_store, attribution_link.create, promotion_assets.use, earnings.read_own]
+    acquisition:
+      mode: self_service
+      conditions: [seller_party_is_registered, seller_accepts_biller_invoice_refund_and_settlement_responsibilities]
+    obligations: [每個可售 listing 只使用已 QC 且 Supplier 接受的實際售價版本, 對買家明示單一 Seller／biller並履行退款與Supplier結算責任]
+    revocation: {mode: manual_scoped, restore_path: resolve-the-specific-store-or-transaction-issue}
+  - key: store.deploy
+    display_gain: 可部署自己的 Store fork；缺 deployment connector 只停該部署動作
+    scope_type: store
+    capabilities: [store.preview, store.deploy, store.binding.reconcile]
+    acquisition:
+      mode: self_service
+      conditions: [store_fork_is_owned_by_principal, deployment_connection_is_ready_for_this_action]
+    obligations: [部署不得夾帶 provider secret, production deploy 遵守 exact release與工程安全檢查]
+    revocation: {mode: self_or_manual_scoped, restore_path: reconnect-or-reissue-the-specific-deploy-scope}
+  - key: coaching.offer
+    display_gain: 可提出指定範圍、時間與責任的免費或付費陪跑 capacity
+    scope_type: coaching_program
+    capabilities: [coaching_program.propose, coaching_capacity.offer, coaching_feedback.create]
+    acquisition:
+      mode: self_service
+      conditions: [program_scope_time_and_responsibility_are_declared]
+    obligations: [只使用該program所需的會員資料, 付費只代表專屬人力容量而非知識解鎖]
+    revocation: {mode: self_or_manual_scoped, restore_path: program-owner-review}
+  - key: "module.delegate:<scope>"
+    display_gain: 在指定 module／action 範圍承接日常委派
+    scope_type: module
+    capabilities: [module_routine_work.perform, module_policy.propose, module_review.recommend]
+    acquisition:
+      mode: delegation_acceptance
+      conditions: [active_module_stewardship_delegation, delegate_accepts_scope_and_expiry]
+    obligations: [不把日常委派擴張成重大版本規則爭議或succession決策, 維持可追溯交接]
+    revocation: {mode: self_or_owner_scoped, restore_path: module-steward-redelegates}
+invariants:
+  - these_eight_keys_are_the_only_launch_canonical_keys_and_01_section_12_uses_them_verbatim
+  - rules_notice_ack_is_trackable_but_never_a_precondition_for_registration_discussion_learning_browsing_or_general_contribution
+  - work_intent_improves_matching_but_is_not_person_qualification_for_low_risk_claim
+  - career_profile_and_profession_rank_never_grant_privileged_capability_directly
+  - qc_review_scope_is_projected_only_from_an_active_exact_scope_reviewer_appointment
+  - xp_rank_master_office_and_product_familiarity_never_create_a_reviewer_appointment
+  - master_rank_and_guild_master_office_are_distinct
+  - agent_never_holds_an_entitlement_independently_of_its_principal
+  - skip_stuck_missing_connector_quota_or_navigation_readiness_never_revoke_entitlement_or_lower_discoverability
+  - revocation_never_deletes_user_result_or_ledger_history

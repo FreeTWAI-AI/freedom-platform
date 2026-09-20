@@ -1,0 +1,191 @@
+schema_version: freedom.commerce-distribution/v1
+status: planning
+community_id: com_replace_with_launch_community_id
+
+store_model:
+  master_store:
+    purpose: forkable_reference_catalog_ui_and_connector_example
+    may_sell: false
+    contains_secrets: false
+    rule: fork_does_not_copy_orders_connections_credentials_or_financial_ledger
+  live_store:
+    required_bindings: [seller_party, seller_collection_connection, public_origin, contract_version]
+    checkout_rule: exactly_one_seller_party_and_one_buyer_facing_biller_per_checkout
+    cart_segmentation_rule: segment_before_checkout_by_complete_buyer_facing_responsibility_tuple
+    responsibility_tuple: [seller_of_record, payment_collector, invoice_issuer, refund_owner, price_owner]
+    line_rule: every_line_snapshots_supplier_fulfillment_party_and_the_responsibility_tuple
+    price_display_rule: fork_reads_canonical_listing_price_from_storefront_BFF_and_cannot_submit_or_override_price
+    buyer_confirmation_rule: server_or_provider_checkout_repeats_seller_biller_items_effective_prices_shipping_tax_and_total_before_payment
+
+arrangements:
+  reseller:
+    default_for_launch: true
+    seller_of_record: seller_party
+    payment_collector: seller_party
+    invoice_issuer: seller_party
+    refund_owner: seller_party
+    price_owner: seller_party
+    fulfillment_party: supplier_or_named_fulfiller
+  sales_agent:
+    default_for_launch: false
+    rule: every_responsibility_must_be_explicit_and_buyer_still_sees_one_biller
+    required_responsibilities: [seller_of_record, payment_collector, invoice_issuer, refund_owner, price_owner, fulfillment_party]
+
+pricing:
+  offer_terms:
+    fields: [supplier_net, msrp, recommended_floor, suggested_margin_or_split, currency]
+    msrp_semantics: advisory
+    recommended_floor_semantics: advisory
+    invariant: platform_never_auto_blocks_or_auto_terminates_supply_only_because_actual_price_is_below_an_advisory_price
+  seller_listing_revision:
+    required: [listing_revision_id, seller_party_ref, product_version_ref, pricing_mode, default_unit_price, currency, terms_hash, effective_window]
+    default_unit_price_definition: buyer_facing_item_price when no signed schedule condition applies, before separately itemized shipping and tax
+    pricing_modes: [fixed, preaccepted_schedule]
+    rule: every_actual_price_or_supply_term_change_creates_a_new_revision
+    effective_price_schedule:
+      required_when: pricing_mode_is_preaccepted_schedule
+      required: [schedule_ref, version, sha256, currency, condition_entries, stacking_rule, effective_window]
+      entry_required: [condition_key, machine_evaluable_condition, effective_unit_price]
+      rule: coupon_promotion_or_volume_condition_can_change_effective_item_price_only_through_this_supplier_signed_immutable_schedule
+    checkout_resolution: server_resolves_the_condition_and_snapshots_schedule_version_condition_key_and_effective_unit_price
+  distribution_acceptance:
+    signer: supplier_human_or_authorized_organization_signer
+    binds: [seller_listing_revision_id, pricing_mode, default_unit_price, effective_price_schedule_ref_and_sha256_if_any, supplier_settlement_rule, fulfillment_commitment, quantity_or_availability, return_terms, effective_window, artifact_sha256]
+    supplier_settlement_rule_modes: [fixed_supplier_net_per_unit, supplier_share_basis_points, signed_amount_schedule]
+    before_sellable: required
+    supplier_choices: [accept, decline, request_change]
+    revocation_effect: blocks_new_supply_reservations_immediately
+    active_reservation_rule: a_preexisting_short_reservation_remains_honored_until_its_declared_expiry
+    paid_order_rule: supplier_cannot_refuse_an_already_paid_order_only_for_the_actual_price_it_previously_accepted
+    no_acceptance_rule: checkout_disabled_before_buyer_payment
+
+order_model:
+  supply_reservation:
+    created_before: provider_payment_session
+    required: [reservation_id, distribution_acceptance_ref, seller_listing_revision_ref, quantity, effective_item_price, expires_at, state]
+    states: [active, consumed, released, expired]
+    rule: checkout_revalidates_active_reservations_before_charge_and_verified_payment_consumes_them_atomically
+  buyer_order:
+    buyer_facing: true
+    required: [buyer_order_id, seller_party_ref, biller_snapshot, total, currency, line_snapshots, payment_state]
+  supply_order:
+    created_per: supplier_plus_fulfillment_terms
+    created_at: accepted_checkout_before_buyer_payment
+    initial_state: awaiting_buyer_payment
+    required: [supply_order_id, buyer_order_id, supplier_party_ref, accepted_listing_revision_ref, supplier_due, fulfillment_commitment, settlement_state, fulfillment_state]
+  immutable_at_order_creation:
+    - seller_and_biller_responsibility_snapshot
+    - default_price_schedule_resolved_effective_price_and_currency
+    - resolved_supplier_due_and_supplier_settlement_rule
+    - supplier_acceptance_and_supply_terms
+    - distribution_margin_or_split
+    - seller_controlled_discount_or_price_schedule
+    - refund_and_fulfillment_terms
+
+financial_obligations:
+  common_required: [source_type, source_version_ref, beneficiary_party_ref, resolved_amount, currency]
+  supplier_payable:
+    applies_to: reseller
+    source: signed_DistributionAcceptance_and_verified_buyer_payment
+    required_context: [buyer_order_ref, supply_order_ref, order_line_ref]
+    rule: seller_margin_is_retained_economics_not_a_commission_payable
+  commission_obligation:
+    applies_to: explicit_sales_agent_or_referral_only
+    source: signed_commission_rule_and_verified_buyer_payment
+    required_context: [buyer_order_ref, order_line_ref]
+  service_payable:
+    applies_to: ServiceEngagement_only
+    source: signed_EngagementAllocationPlan_plus_accepted_exact_ServiceMilestone_and_verified_payment_trigger
+    required_context: [service_engagement_ref, service_milestone_ref, engagement_allocation_plan_ref]
+  invariant: contribution_PR_QC_rank_or_product_familiarity_never_infers_a_money_obligation
+
+commerce_connection_purposes:
+  seller_collection:
+    owner: seller_party
+    authority: collect_buyer_payment_and_issue_supported_refund
+  payer_disbursement:
+    owner: payer_party
+    authority: initiate_or_export_a_bounded_outbound_settlement
+  beneficiary_payout_destination:
+    owner: beneficiary_party
+    authority: identify_and_verify_where_the_beneficiary_receives_funds
+  invariant: one_underlying_provider_account_may_support_multiple_purpose_bindings_but_no_purpose_or_connection_reference_implies_another
+
+money_flow:
+  custody: platform_never_receives_or_holds_funds
+  launch_sequence:
+    - buyer_pays_seller_owned_collection_connection
+    - verified_webhook_creates_payment_fact
+    - platform_creates_supplier_payable_from_signed_distribution_acceptance_and_order_snapshot
+    - platform_creates_settlement_instruction_for_that_due_obligation
+    - branch_by_settlement_execution_mode:
+        record_only:
+          settlement_execution_mode: record_only
+          steps: [project_manual_settlement_detail_with_display_status_recorded]
+        authorized_mandate:
+          settlement_execution_mode: authorized_mandate
+          requires: [money_movement_enabled_is_true, active_exact_settlement_mandate]
+          steps:
+            - settlement_worker_uses_payer_owned_disbursement_connector_under_settlement_mandate
+            - provider_webhook_or_reconciliation_confirms_beneficiary_transfer
+            - confirmed_supplier_payable_settlement_authorizes_fulfillment
+  fallback: when_provider_cannot_initiate_transfer_create_approve_or_export_task_and_accept_evidence
+
+settlement_mandate:
+  signer: payer_party_authorized_human
+  commerce_default_payer: seller_party
+  service_payer: party_named_by_ServiceEngagement
+  signed_once: creation_or_change_of_the_exact_mandate_is_A4
+  in_bound_execution: deterministic_transfer_jobs_execute_without_a_new_per_transfer_signature
+  required_bounds: [payer_disbursement_connection_ref, beneficiary_currency_bounds, payout_action_types, source_scope, per_transfer_cap, period_cap, period, period_timezone, starts_at, expires_at]
+  payout_action_types: [supplier_payable_settlement, commission_obligation_settlement, service_payable_settlement, signed_refund_netting, signed_chargeback_netting]
+  beneficiary_currency_rule: every_bound_names_one_beneficiary_one_purpose_tagged_payout_destination_and_one_currency_with_positive_minor_unit_caps_denominated_only_by_that_bound_currency
+  identity_binding_rule: payer_and_beneficiary_are_named_once_by_the_enclosing_contract_and_the_server_resolves_and_rejects_any_connection_or_destination_ownership_mismatch
+  period_rule: calendar_day_week_or_month_in_bound_IANA_timezone_with_Monday_as_week_start
+  timezone_rule: period_timezone_must_exist_in_the_contract_release_pinned_IANA_tzdb_and_usage_buckets_must_recompute_exactly_from_that_bound
+  uniqueness_rule: bound_id_unique_and_no_overlapping_applicability_for_same_beneficiary_destination_currency_action_and_intersecting_scope
+  secret_rule: ordinary_domain_tables_store_only_an_opaque_reference_to_either_a_provider_managed_handle_or_an_isolated_postgres_envelope_record_while_root_keys_stay_in_a_purpose_scoped_secret_or_KMS_and_plaintext_is_forbidden
+  revocation_rule: execution_rechecks_authority_blocks_ready_operations_and_preserves_existing_facts_and_obligations
+  revocation_cutoff: ready_instructions_release_capacity_and_return_to_authorization_required_while_executing_provider_accepted_or_result_unknown_operations_retain_capacity_and_reconcile
+
+settlement_mandate_usage_reservation:
+  required: [reservation_id, settlement_instruction_ref, mandate_ref, mandate_bound_ref, payer_party_ref, beneficiary_party_ref, payout_action_type, amount, period_bucket_start, period_bucket_end, period_timezone, state, aggregate_version]
+  states: [reserved, consumed, released]
+  atomic_cap_rule: selecting_one_bound_and_reserving_capacity_is_one_transaction_that_counts_reserved_plus_consumed_amount_in_the_exact_period_bucket
+  concurrency_rule: unique_instruction_and_bound_reservation_prevents_two_workers_from_spending_the_same_remaining_capacity
+  retain_rule: executing_provider_accepted_result_unknown_and_reconciling_instructions_keep_capacity_reserved
+  release_rule: release_only_before_provider_submission_or_after_reconciliation_proves_no_external_effect
+  consume_rule: verified_transfer_confirmation_consumes_capacity
+
+settlement_instruction:
+  common_required: [instruction_id, obligation_type, obligation_ref, source_type, source_version_ref, payer_party_ref, payer_disbursement_connection_ref, beneficiary_party_ref, payout_destination_ref, amount, due_at, idempotency_key, state, aggregate_version]
+  money_rule: amount_is_positive_money_and_its_currency_must_equal_the_selected_mandate_bound_currency
+  obligation_types: [supplier_payable, commission_obligation, service_payable]
+  supplier_payable_refs: [buyer_order_ref, supply_order_ref, order_line_ref, order_split_snapshot_ref]
+  commission_obligation_refs: [buyer_order_ref, order_line_ref]
+  service_payable_refs: [service_engagement_ref, service_milestone_ref, engagement_allocation_plan_ref]
+  automated_authorization_refs: [mandate_ref, mandate_bound_ref, mandate_usage_reservation_ref, action_intent_ref, authorization_basis_snapshot_ref]
+  states: [created, authorization_required, ready, executing, provider_accepted, confirmed, result_unknown, reconciling, manual_required, reversed, written_off]
+  action_rule: after_atomic_capacity_reservation_platform_creates_one_typed_ActionIntent_authorized_by_the_exact_signed_mandate_bound_without_a_per_transfer_signature
+  fulfillment_rule: only_confirmed_supplier_payable_authorizes_its_SupplyOrder_fulfillment
+
+transfer_job:
+  required: [transfer_job_id, instruction_ref, action_intent_ref, stable_provider_operation_key, lease_id, fencing_token, state]
+  rules:
+    - retry_never_changes_the_provider_operation_key
+    - timeout_after_provider_acceptance_enters_result_unknown_then_reconciliation
+    - provider_confirmation_and_daily_reconciliation_are_both_supported
+    - fulfillment_never_uses_a_browser_redirect_as_settlement_proof
+
+refund_and_chargeback:
+  rule: append_new_payment_fact_and_reverse_obligations_against_the_immutable_order_snapshot
+  recovery: create_reverse_obligation_or_net_against_future_settlement_under_signed_terms
+  invariant: no_platform_wallet_or_silent_balance_rewrite
+
+service_and_software_projects:
+  community_software_and_skill_qc_price: always_zero
+  funded_testing_or_review_rule: separate_ServiceEngagement_not_a_paid_mode_of_community_QC
+  funded_work: [funded_testing, funded_review, funded_development, implementation, managed_service, support]
+  allocation_rule: squad_negotiates_and_signs_engagement_allocation_plan_before_paid_work
+  no_platform_formula: true
+  no_automatic_royalty_from_contribution: true

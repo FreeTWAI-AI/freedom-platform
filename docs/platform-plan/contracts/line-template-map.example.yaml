@@ -1,0 +1,200 @@
+schema_version: freedom.line-templates/v1
+map:
+  id: community-default
+  community_id: com_replace_with_launch_community_id
+  version: "1"
+  status: draft
+defaults:
+  timezone_source: user_profile
+  quiet_hours:
+    start_local: "22:00"
+    end_local: "08:00"
+  fallback: portal_inbox
+support_card_delivery:
+  source_of_truth: portal_feed_card
+  dismissal_recording: portal_projection_only_never_chat_history
+  a4_semantics: never_an_artifact_or_signature
+  channel_outage: portal_feed_only
+templates:
+  daily_work_feed_ready:
+    version: "1"
+    category: work_feed
+    allowed_variables:
+      - display_name
+      - work_item_count
+      - top_match_reason
+      - short_lived_action_token
+    action:
+      type: portal_deep_link
+      token_ttl_seconds: 900
+      single_use: true
+    deduplication_key:
+      - feed_revision_id
+      - user_id
+      - local_date
+      - destination
+  exact_signature_needed:
+    version: "1"
+    category: action_attention
+    allowed_variables:
+      - action_title
+      - consequence_summary
+      - expires_local
+      - short_lived_action_token
+    action:
+      type: portal_deep_link
+      token_ttl_seconds: 600
+      single_use: true
+    deduplication_key:
+      - action_intent_id
+      - artifact_sha256
+      - user_id
+      - destination
+  coaching_checkpoint_due:
+    version: "3"
+    category: coaching_reminder
+    allowed_variables:
+      - display_name
+      - action_title
+      - due_local
+      - short_lived_action_token
+    action:
+      type: portal_deep_link
+      token_ttl_seconds: 900
+      single_use: true
+    deduplication_key:
+      - domain_event_id
+      - user_id
+      - template_version
+      - destination
+  settlement_manual_required:
+    version: "1"
+    category: commerce_attention
+    allowed_variables:
+      - seller_display_name
+      - settlement_reference
+      - reason_code
+      - due_local
+      - short_lived_action_token
+    action:
+      type: portal_deep_link
+      token_ttl_seconds: 900
+      single_use: true
+    deduplication_key:
+      - domain_event_id
+      - user_id
+      - template_version
+      - destination
+  settlement_needs_attention:
+    version: "1"
+    category: commerce_attention
+    allowed_variables:
+      - seller_display_name
+      - settlement_reference
+      - reason_code
+      - short_lived_action_token
+    action:
+      type: portal_deep_link
+      token_ttl_seconds: 600
+      single_use: true
+    deduplication_key:
+      - settlement_instruction_id
+      - attention_revision
+      - user_id
+      - destination
+  new_runner_joined:
+    version: "1"
+    category: member_support
+    allowed_variables:
+      - member_display_name
+      - profession_name
+      - membership_id
+      - reason_summary
+      - suggested_action
+      - support_card_id
+      - short_lived_action_token
+    action:
+      type: portal_deep_link
+      target: portal_member_support_feed_card
+      token_ttl_seconds: 900
+      single_use: true
+    deduplication_key:
+      - support_card_id
+      - card_revision
+      - destination
+  starter_installation_verified:
+    version: "1"
+    category: member_support
+    allowed_variables:
+      - member_display_name
+      - profession_name
+      - membership_id
+      - package_name
+      - latest_receipt_ref
+      - suggested_action
+      - support_card_id
+      - short_lived_action_token
+    action:
+      type: portal_deep_link
+      target: portal_member_support_feed_card
+      token_ttl_seconds: 900
+      single_use: true
+    deduplication_key:
+      - support_card_id
+      - card_revision
+      - destination
+  member_stuck:
+    version: "1"
+    category: member_support
+    allowed_variables:
+      - member_display_name
+      - profession_name
+      - membership_id
+      - journey_item_title
+      - latest_receipt_ref
+      - reason_summary
+      - suggested_action
+      - support_card_id
+      - short_lived_action_token
+    action:
+      type: portal_deep_link
+      target: portal_member_support_feed_card
+      token_ttl_seconds: 900
+      single_use: true
+    deduplication_key:
+      - support_card_id
+      - card_revision
+      - destination
+  member_requested_help:
+    version: "1"
+    category: member_support
+    allowed_variables:
+      - member_display_name
+      - profession_name
+      - membership_id
+      - journey_item_title
+      - latest_receipt_ref
+      - reason_summary
+      - suggested_action
+      - support_card_id
+      - short_lived_action_token
+    action:
+      type: portal_deep_link
+      target: portal_member_support_feed_card
+      token_ttl_seconds: 900
+      single_use: true
+    deduplication_key:
+      - support_card_id
+      - card_revision
+      - destination
+rules:
+  - private_chat_body_is_not_stored_by_default
+  - undeliverable_notification_never_pauses_member
+  - action_token_never_contains_user_id_or_privileged_command
+  - line_reply_never_counts_as_an_A4_signature
+  - notification_failure_never_changes_work_claim_rank_or_entitlement
+  - settlement_templates_are_exception_or_status_messages_not_the_primary_transfer_mechanism
+  - support_card_dismissal_never_enters_line_chat_history
+  - support_card_notification_or_reply_is_never_an_A4_artifact_or_signature
+  - support_card_channel_outage_leaves_only_the_portal_feed_card
+  - line_message_and_delivery_state_are_never_domain_truth

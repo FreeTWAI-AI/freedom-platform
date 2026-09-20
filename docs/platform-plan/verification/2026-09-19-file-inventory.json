@@ -1,0 +1,581 @@
+{
+  "revision": "2026-09-19",
+  "scope": "planning_revision_not_signed_release",
+  "source_archive_sha256": "b2a09f579dc6953cdd2722aba2c4f00e1b94879a8f1706e3b32b005d51c510bb",
+  "original_substantive_files": 70,
+  "distributed_file_count": 82,
+  "manifest_excludes_itself": true,
+  "changed_original": 26,
+  "added": 12,
+  "unchanged_original": 44,
+  "deleted_original": [],
+  "files": [
+    {
+      "path": "CHANGES-2026-09-19.md",
+      "bytes": 6380,
+      "lines": 86,
+      "sha256": "8db2d91b6e21fb352e685039acd9d16cbc172b31bfbeb4941838bcc18ba8c568",
+      "change": "added"
+    },
+    {
+      "path": "README.md",
+      "bytes": 2903,
+      "lines": 27,
+      "sha256": "c901335804f15d777120265bed8d7281b4609bb95deda623f6c4c2e4cffb44f7",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/00-current-requirements-baseline.md",
+      "bytes": 21975,
+      "lines": 189,
+      "sha256": "1a70f762cd66a10a02ff7b2d46dc1107a158c90eb159f1cd0281e537c165d357",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/01-product-community-model.md",
+      "bytes": 52404,
+      "lines": 535,
+      "sha256": "8d2e221be2ff560a8686e07d52972390b01bfb59554604e744a3c272b243e65b",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/02-architecture-repositories.md",
+      "bytes": 77106,
+      "lines": 637,
+      "sha256": "ebd94478ce8a971c7f0e6a337d46d23f5492cd7eab729f555c4e3e181664ff16",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/03-domain-events-state-machines.md",
+      "bytes": 143946,
+      "lines": 1746,
+      "sha256": "69017313d2c949e77656cda0684e1bfe83c4c9a31b1050931c57897023ffc11a",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/04-module-specifications.md",
+      "bytes": 145116,
+      "lines": 1350,
+      "sha256": "59b6f3502429127da8da06ae86e937e7ee936c4ace4baa3821dec761c5c99498",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/05-integration-contracts.md",
+      "bytes": 107078,
+      "lines": 1142,
+      "sha256": "6a21bcad834b1de529399ca424345c4521e9020c1a605206de0817a2e7c4fd20",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/06-delivery-plan.md",
+      "bytes": 72176,
+      "lines": 641,
+      "sha256": "5167a14c4a7028832f7581786a4b626f2aa3cf20f8a3e2838af12d30c0e8c8fa",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/07-decisions-risks-traceability.md",
+      "bytes": 100884,
+      "lines": 542,
+      "sha256": "eee018afdb384e810f7b24009c7a4229071e9f96c9c1949c90308142e923a90d",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/08-bootstrap-hosting-project-lifecycle.md",
+      "bytes": 145183,
+      "lines": 765,
+      "sha256": "f478e79b66e857b33c7c7e7364afa84e212d5b2aefcd0a989516a9cb1c8f6762",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/09-handoff-record.md",
+      "bytes": 9484,
+      "lines": 85,
+      "sha256": "e507255c50d074cec3d66c34ec1958763b1b9358b08234222b7683fd4691950e",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/10-member-agent-narrative.md",
+      "bytes": 3567,
+      "lines": 43,
+      "sha256": "950ccbf43378f55b2147dff81791d331c79d561ea5a8539206c2fd2550c18027",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/11-operator-agent-narrative.md",
+      "bytes": 21378,
+      "lines": 244,
+      "sha256": "f41dd95d7852aad2c6418cdacfb974fac8cafacf62a8d4d06440b517cf156053",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/12-low-ops-mutual-benefit.md",
+      "bytes": 16384,
+      "lines": 138,
+      "sha256": "d8ce86b40fc36616f9bbdf5aeffd4ca8c605879e090b303a95c2762467b55baf",
+      "change": "added"
+    },
+    {
+      "path": "docs/platform-plan/README.md",
+      "bytes": 27326,
+      "lines": 298,
+      "sha256": "e2b2653cfcc8a411bdd3b1f060b2f6cc724939509745065bde4875f3c2a6a36d",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/contracts/README.md",
+      "bytes": 33059,
+      "lines": 98,
+      "sha256": "4dcf15e8149fbc8de7844675c2f93b829feb7fe881043d0093e48daa6c4f5224",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/contracts/agent-work-contract.example.yaml",
+      "bytes": 15846,
+      "lines": 288,
+      "sha256": "45e141b0be9f5620f59d91396c02a3d2196e18062303628b4735a1ef3803d79a",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/contracts/commerce-distribution.example.yaml",
+      "bytes": 12841,
+      "lines": 191,
+      "sha256": "b68e05d65561435d33a1f59e0f97a07f4cccba25099384ce8a2e088f8ba73dd1",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/discord-channel-map.example.yaml",
+      "bytes": 2800,
+      "lines": 80,
+      "sha256": "4cab5ac01cc6faa79fc3ef852bfa8a90e2dc796e4db7aa2e430d5aab807a0f0c",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/domain-skill-overlay.example.json",
+      "bytes": 4015,
+      "lines": 77,
+      "sha256": "e1c1c504d886d105941b4a10864c06f1b8fb7d0efed174d2ee193808de870c3e",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/domain-skill-overlay.schema.json",
+      "bytes": 9637,
+      "lines": 245,
+      "sha256": "aca28b3347a403911437c5e86f1431ccf9518269e6c346a665e22c2b55b63a2d",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/entitlement-catalog.example.yaml",
+      "bytes": 5875,
+      "lines": 96,
+      "sha256": "a199f08607805602629adbd937f4ba14ccd37db9b5265cdb0170ce3bd2806a2b",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/entity-playbook.example.yaml",
+      "bytes": 12012,
+      "lines": 164,
+      "sha256": "9d1f2d9717ac0436e96337053ade0f9963695d5ca8ad85ae1276274ed1940a7f",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/entity-playbook.schema.json",
+      "bytes": 6766,
+      "lines": 163,
+      "sha256": "81d522598a8e3df937e5166ada74c0413ce015a4e935a5f1c08d849094797346",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/event-catalog.example.yaml",
+      "bytes": 41767,
+      "lines": 195,
+      "sha256": "150e9c7bffd550cc7463e08d7ded03e71b5ccdfcfe78dd2578eff022c822fc8d",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/contracts/event-envelope.schema.json",
+      "bytes": 5009,
+      "lines": 173,
+      "sha256": "edfa09250e9ab6f140f473000c6bf7d1a6ab2b5c111222ba5eb4e3f89ff9af80",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/line-template-map.example.yaml",
+      "bytes": 5310,
+      "lines": 200,
+      "sha256": "4e9c5ae3ac721b8acb0e621883b82f3fa8c12115c336b2feff6dd2c37d02d114",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/member-onboarding.example.yaml",
+      "bytes": 5389,
+      "lines": 68,
+      "sha256": "0846c815de60b6e808222ee3ca51a7f070e5f2a83d51ffc8c4477a481dd2318c",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/member-onboarding.schema.json",
+      "bytes": 8791,
+      "lines": 174,
+      "sha256": "d70fd4a131a84caddd40f28dcf39a926327b130f25ba1e41125bbb77981f768f",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/openapi-outline.yaml",
+      "bytes": 433592,
+      "lines": 9139,
+      "sha256": "1bfb6dc592fe159f25a4d3b1a0dec4e4a3b3341c4f9625c5364b1e09f8ea4961",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/contracts/operating-policy.example.yaml",
+      "bytes": 3432,
+      "lines": 101,
+      "sha256": "5301f805b301c9be8d2b722feac8c7f1a8c0a6869d7e6ce3766c9e60cf8fadfa",
+      "change": "added"
+    },
+    {
+      "path": "docs/platform-plan/contracts/organization-professions.example.yaml",
+      "bytes": 21300,
+      "lines": 347,
+      "sha256": "a830886e00cebe08bc6eb61b830ac81b5749d12e2d01a016506b0f46e1b8def3",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/portable-activation.example.json",
+      "bytes": 43805,
+      "lines": 1014,
+      "sha256": "5bd08c00ba3a7b8a8eec2e758066f7af3950bee54385bb2f41836f743b7846cd",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/portable-activation.schema.json",
+      "bytes": 88546,
+      "lines": 1153,
+      "sha256": "e19d02cd0940cf55f0faa3f6ff184a57d4546525344cff5ec264a12f631deeb5",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/project-manifest.example.yaml",
+      "bytes": 5091,
+      "lines": 181,
+      "sha256": "59711b481afa1398f97e4b23c5615bf2039a01ad7d115e0cadf127c7f3ee20d1",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/project-manifest.external-personal-fork.example.yaml",
+      "bytes": 5305,
+      "lines": 180,
+      "sha256": "74ea2598ef8f7c9e79040e050a0dcae481459ced1b1961aebef45778a41e9b3a",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/project-manifest.schema.json",
+      "bytes": 59935,
+      "lines": 2325,
+      "sha256": "d818f12dc0cdf25db7a2fc529b7b01a5f0df78f9282f339940a08a3caa0b2304",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/project-status-attestation.example.yaml",
+      "bytes": 5603,
+      "lines": 132,
+      "sha256": "12dc8c670057639bddafa8b88c478a652415095fc672a0d0081433b9bb08a598",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/project-status-attestation.schema.json",
+      "bytes": 35381,
+      "lines": 1151,
+      "sha256": "b403bb198d12cad43da8aec7c54cd07eb63469fcff013100ca12f649dab7f5e8",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/skill-package.example.yaml",
+      "bytes": 2058,
+      "lines": 75,
+      "sha256": "e2cfe4c558e4497566638cacbd706b827d2e6c1c233094796741f406a841dbd0",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/skill-package.schema.json",
+      "bytes": 18144,
+      "lines": 473,
+      "sha256": "ad4d96a05694a19fd270dadde48a5ce56ae444b80bbc90b861fea6b37341fb1f",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/state-machines/core.example.yaml",
+      "bytes": 93962,
+      "lines": 2115,
+      "sha256": "3fa99764cb4d71ce651150e99f98a532f231856662abea466162ecc781ec2eb8",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/contracts/submission-intake.example.yaml",
+      "bytes": 12884,
+      "lines": 201,
+      "sha256": "f3974f432cfd494a68001ccf1c73adbaf691564845491302aee87792a21a7d3f",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/requirements-static.txt",
+      "bytes": 134,
+      "lines": 4,
+      "sha256": "bf4f658c046bb321c47e19ef91d924556fef20ece2137d4132ed0344b4f68ec1",
+      "change": "added"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/test_low_ops_contracts.py",
+      "bytes": 9989,
+      "lines": 195,
+      "sha256": "2135666d1f18e3f8723df06c7986d255decc80293fffb4caedf62d4b7b66dac9",
+      "change": "added"
+    },
+    {
+      "path": "docs/platform-plan/contracts/tests/test_work_reviewer_capacity.py",
+      "bytes": 3365,
+      "lines": 69,
+      "sha256": "292aa680ff22a923df1ce220e32da26c2e26b81ba3341e4368898647784f4663",
+      "change": "added"
+    },
+    {
+      "path": "docs/platform-plan/contracts/work-participation.example.yaml",
+      "bytes": 4565,
+      "lines": 132,
+      "sha256": "96a0178f8e3a4c97ffa08e99c3165c822d323e6f2f9d4570d0e384c00ff75ab4",
+      "change": "added"
+    },
+    {
+      "path": "docs/platform-plan/contracts/work-participation.schema.json",
+      "bytes": 21517,
+      "lines": 808,
+      "sha256": "dcbca22a27750f53867744408a63494b1f7d336f1cb6ef12cfda9728c350673a",
+      "change": "added"
+    },
+    {
+      "path": "docs/platform-plan/contracts/xp-policy.example.yaml",
+      "bytes": 1743,
+      "lines": 36,
+      "sha256": "4adba5f3d4a8d60cce93a443587a418ed4008a11a16193627434644fbe164e4d",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/contracts/xp-policy.schema.json",
+      "bytes": 4805,
+      "lines": 132,
+      "sha256": "4e76f90c5e23b8d727206234b598901b15f388d2f87bc6506ea7b2f5698cfc86",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/acceptance-matrix.md",
+      "bytes": 13029,
+      "lines": 78,
+      "sha256": "dce85eda68a378a270ece99ccd67330305c5cdce80fbf34a5ea321b2ad20cf39",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/execution/first-work-batch.md",
+      "bytes": 23746,
+      "lines": 289,
+      "sha256": "9f002c81e9f5cbe9ca2c7097224751da9e8ff176b1555f4284477c240feb60e9",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/execution/human-foundation-plan.md",
+      "bytes": 21928,
+      "lines": 220,
+      "sha256": "3a5c8b9b32b867724065d1c32b9a389690d6af4d3852fc5c41c05a12d2c06bfe",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/execution/milestones.md",
+      "bytes": 15641,
+      "lines": 198,
+      "sha256": "60d5c5c48c443bba8083759fbebd5efef7c5b8a2b6ca7cf6434014a074921fb8",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/execution/spec-index.md",
+      "bytes": 22341,
+      "lines": 138,
+      "sha256": "197208be9d35d6b994333d69ae12ea354e55f02cd11935997cc3951cc0fa5c95",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/AGT-01.md",
+      "bytes": 4330,
+      "lines": 84,
+      "sha256": "3f3943eac11454ae7c30dc44f6da0b0964946831703061452388ad001974b4ce",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/AGT-02.md",
+      "bytes": 4340,
+      "lines": 84,
+      "sha256": "7fc11b4d92a294e2e792b719112bdbc0d5131d432c43abdbcd1c6661ff9e7e9e",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/AGT-04.md",
+      "bytes": 6103,
+      "lines": 85,
+      "sha256": "242641da434de890423cab429dc03cea0a01527f3112e9a144fbb370e12a0914",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/AGT-05.md",
+      "bytes": 6181,
+      "lines": 85,
+      "sha256": "8f77ce2b082a061d6e14060e7f28a75d0a39e4624b73b47d28d1c2c4363d84ce",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/BLD-01.md",
+      "bytes": 4123,
+      "lines": 84,
+      "sha256": "fda660c17efd2c276ba79a6aeff313d898e17f6f9b42df9c09bc8dbeeed07b18",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/BLD-02.md",
+      "bytes": 4116,
+      "lines": 84,
+      "sha256": "34cb0501cd2c73022352a15cb7ceb20632c848bfa3acc13599cd79b994db0415",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/BLD-03.md",
+      "bytes": 4134,
+      "lines": 84,
+      "sha256": "e5a0d6a557b69f197255a3d3ef3014eea3f8dd4f78b645d04c2c60786650f32d",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/BLD-04.md",
+      "bytes": 6858,
+      "lines": 85,
+      "sha256": "912595a300fe6f55d76cd068d64bfa7debf7ddea29fe758b31d35a4880a7518a",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/BLD-05.md",
+      "bytes": 6888,
+      "lines": 85,
+      "sha256": "d7d3fe7655d85888944c404f0ea4ff4828949c0317799d5a5e53fc2425353e0d",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/FND-01.md",
+      "bytes": 4879,
+      "lines": 84,
+      "sha256": "5dd6eb7e1aee96f3c897e3cac76f4568626082e4457f8cfd366477ed98304c10",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/FND-02.md",
+      "bytes": 4545,
+      "lines": 84,
+      "sha256": "33d0458a394cd808395298eb77accc8817530589e04cc4cde9f45db006456e43",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/FND-03.md",
+      "bytes": 4301,
+      "lines": 84,
+      "sha256": "7a368f045665697103e612bb68eb37c07e2a751729be6cb700903e3431265890",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/FND-04.md",
+      "bytes": 4688,
+      "lines": 84,
+      "sha256": "fd5dadfcc7050abb8f2f13b01eaa8bdff0abb2deac2ad8f7092773605ea476a0",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/FND-06.md",
+      "bytes": 4610,
+      "lines": 84,
+      "sha256": "5384665824b22deb0c25116e1d4e77aa52c39e78f26b80e262e1f8efd2dfd489",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/INT-03A.md",
+      "bytes": 3903,
+      "lines": 84,
+      "sha256": "ae93d7cd9f65fd277438422a46972ff68c5555251b4f593d324f74fe91ff8e98",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/INT-03B.md",
+      "bytes": 6257,
+      "lines": 85,
+      "sha256": "11388c4ee5cbefe65e70a01b1a0254876fc94fed96063ecac47cde0b0c0b1d45",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/ORG-01.md",
+      "bytes": 5019,
+      "lines": 88,
+      "sha256": "e99f979675323a2c88714cf374be97b47363add08c735babc536aaf7f4bdd2bd",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/ORG-02.md",
+      "bytes": 4020,
+      "lines": 84,
+      "sha256": "88433752c40c138c0e23c4799943339f07f632282af1b396a8031b2ee6b8b530",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/SKL-01.md",
+      "bytes": 6078,
+      "lines": 85,
+      "sha256": "ca74e78be446164be7433964767508083064c71456e7445c607a0ed3859458ca",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/SKL-03.md",
+      "bytes": 6709,
+      "lines": 85,
+      "sha256": "6e994c21ff089d6f4f3d0a307ac97cab112b12f62300e6e5807c2e91ff4fcedf",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/execution/specs/WRK-01.md",
+      "bytes": 6190,
+      "lines": 92,
+      "sha256": "16eb9f2b9321fa74a41a02e26cb6f05f88314698625341f14b2018e95343e9ea",
+      "change": "modified"
+    },
+    {
+      "path": "docs/platform-plan/verification/2026-09-17-tree-verification.md",
+      "bytes": 8874,
+      "lines": 108,
+      "sha256": "a4154495dd3901fd64c411b8a63afa17fc2f034c0281a93d9e16d1bc30ab4ff4",
+      "change": "unchanged"
+    },
+    {
+      "path": "docs/platform-plan/verification/2026-09-19-revision-check.md",
+      "bytes": 3236,
+      "lines": 44,
+      "sha256": "eed32db0dad0a84f091c1140bbbf8c24a9daa5f1a7fef0699c0ae32dc29ac10b",
+      "change": "added"
+    },
+    {
+      "path": "docs/platform-plan/verification/2026-09-19-static-tests.txt",
+      "bytes": 179,
+      "lines": 3,
+      "sha256": "bc1ed09b8d2790af5bf164ccddd025a62f3318312b653ff306de50d67088173f",
+      "change": "added"
+    },
+    {
+      "path": "docs/platform-plan/verification/verify_revision.py",
+      "bytes": 2126,
+      "lines": 46,
+      "sha256": "e2346021bb36e10c5cdb438ab792747e25093e9b2095e6880c99f6288458a446",
+      "change": "added"
+    }
+  ]
+}

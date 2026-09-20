@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.freedom.example/entity-playbook.schema.json",
+  "title": "Freedom entity playbook and readiness planning contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "fixture_status", "playbook_versions", "readiness_projections"],
+  "properties": {
+    "schema_version": {"const": "freedom.entity-playbook/v1"},
+    "fixture_status": {"const": "fake_planning_fixture_never_activate"},
+    "playbook_versions": {
+      "type": "array",
+      "minItems": 5,
+      "items": {"$ref": "#/$defs/playbook_version"}
+    },
+    "readiness_projections": {
+      "type": "array",
+      "minItems": 5,
+      "items": {"$ref": "#/$defs/readiness_projection"}
+    }
+  },
+  "$defs": {
+    "stable_key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]{1,99}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "enforcement": {
+      "enum": ["navigation", "action_gate"]
+    },
+    "rule_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "hash"],
+      "properties": {
+        "id": {"$ref": "#/$defs/stable_key"},
+        "version": {"type": "string", "minLength": 1, "maxLength": 50},
+        "hash": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "work_item_template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template_key", "work_type", "owner_pool", "claim_mode", "idempotency_scope"],
+      "properties": {
+        "template_key": {"$ref": "#/$defs/stable_key"},
+        "work_type": {"$ref": "#/$defs/stable_key"},
+        "owner_pool": {"$ref": "#/$defs/stable_key"},
+        "claim_mode": {"const": "self_service_low_risk"},
+        "idempotency_scope": {"const": "entity_instance_playbook_version_item"}
+      }
+    },
+    "playbook_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item_id", "title", "enforcement", "resolver", "missing_work_item_template"],
+      "properties": {
+        "item_id": {"$ref": "#/$defs/stable_key"},
+        "title": {"type": "string", "minLength": 1, "maxLength": 200},
+        "description": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "enforcement": {"$ref": "#/$defs/enforcement"},
+        "gate_class": {
+          "enum": ["engineering_safety", "money_integrity", "product_version_qc", "a4_exact_artifact_signature"]
+        },
+        "target_action": {"$ref": "#/$defs/stable_key"},
+        "resolver": {"$ref": "#/$defs/rule_ref"},
+        "missing_work_item_template": {"$ref": "#/$defs/work_item_template"},
+        "alternative_evidence_allowed": {"type": "boolean"},
+        "skippable": {"type": "boolean"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"enforcement": {"const": "action_gate"}}, "required": ["enforcement"]},
+          "then": {"required": ["gate_class", "target_action"]},
+          "else": {
+            "not": {"anyOf": [{"required": ["gate_class"]}, {"required": ["target_action"]}]}
+          }
+        }
+      ]
+    },
+    "playbook_version": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["playbook_id", "entity_kind", "version", "hash", "lifecycle", "items"],
+      "properties": {
+        "playbook_id": {"$ref": "#/$defs/stable_key"},
+        "entity_kind": {"enum": ["guild", "profession_starter", "coaching_program", "seller_store", "skill_package"]},
+        "version": {"type": "string", "minLength": 1, "maxLength": 50},
+        "hash": {"$ref": "#/$defs/digest"},
+        "lifecycle": {"enum": ["draft", "published", "retired"]},
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/playbook_item"}
+        }
+      }
+    },
+    "readiness_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "enforcement"],
+      "properties": {
+        "state": {"enum": ["satisfied", "missing", "in_progress", "not_applicable", "unknown"]},
+        "enforcement": {"$ref": "#/$defs/enforcement"},
+        "reason_code": {"$ref": "#/$defs/stable_key"}
+      }
+    },
+    "overall_readiness_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "enforcement"],
+      "properties": {
+        "state": {"enum": ["satisfied", "missing", "in_progress", "not_applicable", "unknown"]},
+        "enforcement": {"const": "navigation"},
+        "reason_code": {"$ref": "#/$defs/stable_key"}
+      }
+    },
+    "readiness_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item_id", "readiness"],
+      "properties": {
+        "item_id": {"$ref": "#/$defs/stable_key"},
+        "readiness": {"$ref": "#/$defs/readiness_status"},
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 4, "maxLength": 200}
+        },
+        "materialized_work_item_ref": {"type": "string", "minLength": 4, "maxLength": 100}
+      }
+    },
+    "readiness_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projection_id", "entity_kind", "entity_ref", "playbook_ref", "overall_readiness", "items", "calculated_at"],
+      "properties": {
+        "projection_id": {"type": "string", "minLength": 4, "maxLength": 100},
+        "entity_kind": {"enum": ["guild", "profession_starter", "coaching_program", "seller_store", "skill_package"]},
+        "entity_ref": {"type": "string", "minLength": 4, "maxLength": 100},
+        "playbook_ref": {"$ref": "#/$defs/rule_ref"},
+        "overall_readiness": {"$ref": "#/$defs/overall_readiness_status"},
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/readiness_item"}
+        },
+        "calculated_at": {"type": "string", "format": "date-time"}
+      }
+    }
+  },
+  "x-invariants": [
+    "Every playbook item and every readiness status carries enforcement=navigation|action_gate",
+    "Navigation is the default and never blocks registration, discussion, learning, browsing, profession self-join, equip, ordinary submission, or low-risk WorkItem claim",
+    "Action_gate is limited to engineering safety, money integrity, official/sellable product-version QC, or A4 exact-artifact human signature",
+    "Missing navigation items may materialize one idempotent claimable WorkItem and never reduce discoverability or revoke an entitlement",
+    "A readiness projection preserves stable item IDs and the exact playbook version/hash used by its resolvers",
+    "This planning fixture can never be activated in production"
+  ]
+}

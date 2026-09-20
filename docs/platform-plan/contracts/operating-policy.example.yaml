@@ -1,0 +1,101 @@
+schema_version: freedom.low-ops-policy/v1
+status: planning_not_activated
+runtime_activation: false
+ownership:
+  terms: existing_work_owner
+  benefits: existing_result_owner
+  capacity: shared_work_coaching_transaction_service
+  operations: read_projection_only
+working_defaults_not_approved:
+  pilot_target_completed_collaborations: 10
+  pilot_observation_days: 30
+  suggested_squad_size:
+  - 3
+  - 5
+  suggested_cycle_days:
+  - 7
+  - 14
+  suggested_core_maintenance_and_coordination_minutes_per_week: 120
+  suggested_non_core_maintenance_and_coordination_minutes_per_week: 180
+  note: Illustrative planning ceilings only, not observed costs or accepted labor commitments. Replace before activating
+    promises.
+active_resources:
+  accepted_core_overhead_minutes_per_week: null
+  accepted_non_core_overhead_minutes_per_week: null
+  confirmed_human_support_reservations: []
+  funding_sources: []
+  currency: null
+  cash_received: null
+  can_claim_sustainability: false
+participation:
+  ordinary_help_open_without_contribution_history: true
+  agent_required: false
+  paywall_on_open_knowledge: false
+  mutual_help_default_execution_mode: collaborative
+  fallbacks:
+  - self_service
+  - waitlist
+  - offer_smaller_scope
+  - expire_unclaimed
+  no_implicit_core_backfill: true
+  capacity_shortage_does_not_block_claim_or_candidate: true
+  promise_requires_accepted_capacity_reservation: true
+  new_work_revision_never_rewrites_existing_claim: true
+notifications:
+  digest_opt_in: true
+  digest_period_days: 7
+  ordinary_feedback_reminders_per_recipient_per_cycle: 1
+  dedupe_key:
+  - scope_ref
+  - root_cause
+  - episode_ref
+  reopen_requires_new_material_fact: true
+  protected_notification_policy: existing_incident_contract_payment_and_rights_obligations
+protected_obligations:
+- signed_delivery
+- payment
+- refund
+- safety_incident
+- formal_rights_dispute
+measurements:
+  overhead_categories:
+  - platform_maintenance
+  - coordination_friction
+  separate_categories:
+  - collaborative_value
+  - paid_delivery
+  split_by:
+  - core
+  - non_core
+  missing_minutes: unknown_not_zero
+  zero_completed_denominator: not_available
+  include_failed_and_pending_overhead: true
+  reporting: optional_event_linked_estimate_no_timesheet
+  exclude_private_chat_or_keystroke_monitoring: true
+expansion:
+  single_initial_operating_scenario: shared_reusable_workflow_template
+  engineering_scope: all_existing_modules_and_seams_retained
+  human_evidence_required_for_more_service_promises: true
+  thresholds_status: not_configured
+  observed_results: null
+  missing_evidence_decision: continue_within_existing_accepted_capacity_no_expansion
+  decision_options:
+  - continue_current_scope
+  - revise_offer
+  - reduce_new_commitments
+  - expand_with_evidence
+  no_membership_or_ordinary_work_gate: true
+money:
+  default_execution_mode: record_only
+  money_movement_enabled: false
+  benefit_report_creates_payable: false
+  automatic_global_commission: false
+  member_revenue_is_platform_revenue: false
+  cash_received_source: existing_authoritative_payment_reconciliation_not_user_gain_report
+capacity_invariants:
+- appointment_is_qualification_not_available_time
+- server_resolves_real_owner_scope_expiry_and_consent
+- atomic_principal_window_reservation_across_work_and_coaching
+- agent_lease_expiry_does_not_release_human_commitment
+- withdrawal_only_reduces_uncommitted_new_supply
+- protected_obligations_never_auto_expire_due_to_budget_or_silence

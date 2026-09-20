@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.freedom.example/schemas/domain-skill-overlay.schema.json",
+  "title": "Freedom signed domain Skill runtime overlay planning contract",
+  "description": "Planning contract for a separately signed, QC-gated and revocation-checked set of domain Skill roots loaded beside the already verified Freedom control-Skill activation. Example signatures, digests, IDs and URLs are fixtures and confer no production authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "fixture_status", "artifact"],
+  "properties": {
+    "schema_version": {"const": "freedom.domain-skill-overlay-fixture/v1"},
+    "fixture_status": {"const": "fake_planning_fixture_never_activate"},
+    "artifact": {"$ref": "#/$defs/signed_overlay_artifact"}
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "opaque_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+    },
+    "https_uri": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://[A-Za-z0-9]"
+    },
+    "qc_admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quality_review_ref",
+        "protocol_version_ref",
+        "reviewed_skill_package_digest",
+        "reviewed_package_archive_sha256",
+        "decision",
+        "reviewer_user_ref",
+        "submitter_user_ref",
+        "independent_natural_person",
+        "decision_signature_ref",
+        "decided_at"
+      ],
+      "properties": {
+        "quality_review_ref": {"$ref": "#/$defs/opaque_ref"},
+        "protocol_version_ref": {"$ref": "#/$defs/opaque_ref"},
+        "reviewed_skill_package_digest": {"$ref": "#/$defs/sha256"},
+        "reviewed_package_archive_sha256": {"$ref": "#/$defs/sha256"},
+        "decision": {"const": "accepted_for_isolated_runtime"},
+        "reviewer_user_ref": {"$ref": "#/$defs/opaque_ref"},
+        "submitter_user_ref": {"$ref": "#/$defs/opaque_ref"},
+        "independent_natural_person": {"const": true},
+        "decision_signature_ref": {"$ref": "#/$defs/opaque_ref"},
+        "decided_at": {"$ref": "#/$defs/timestamp"}
+      },
+      "x-invariants": [
+        "reviewer_user_ref_must_not_equal_submitter_user_ref",
+        "decision_signature_ref_must_bind_the_exact_reviewed_skill_package_and_archive_digests",
+        "runtime_admission_qc_does_not_by_itself_grant_official_or_commercial_ready_status"
+      ]
+    },
+    "domain_root": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "skill_version_ref",
+        "package_id",
+        "version",
+        "skill_name",
+        "package_manifest_sha256",
+        "skill_package_digest",
+        "package_archive_sha256",
+        "package_archive_uri",
+        "dependency_closure_digest",
+        "qc_admission"
+      ],
+      "properties": {
+        "skill_version_ref": {"$ref": "#/$defs/opaque_ref"},
+        "package_id": {
+          "type": "string",
+          "pattern": "^skill:[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*$"
+        },
+        "version": {"$ref": "#/$defs/semver"},
+        "skill_name": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$"
+        },
+        "package_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "skill_package_digest": {"$ref": "#/$defs/sha256"},
+        "package_archive_sha256": {"$ref": "#/$defs/sha256"},
+        "package_archive_uri": {"$ref": "#/$defs/https_uri"},
+        "dependency_closure_digest": {"$ref": "#/$defs/sha256"},
+        "qc_admission": {"$ref": "#/$defs/qc_admission"}
+      }
+    },
+    "revocation_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registry_id",
+        "minimum_sequence",
+        "current_sequence",
+        "artifact_sha256",
+        "statement_sha256",
+        "expires_at"
+      ],
+      "properties": {
+        "registry_id": {"$ref": "#/$defs/opaque_ref"},
+        "minimum_sequence": {"type": "integer", "minimum": 1},
+        "current_sequence": {"type": "integer", "minimum": 1},
+        "artifact_sha256": {"$ref": "#/$defs/sha256"},
+        "statement_sha256": {"$ref": "#/$defs/sha256"},
+        "expires_at": {"$ref": "#/$defs/timestamp"}
+      },
+      "x-invariants": [
+        "current_sequence_must_be_greater_than_or_equal_to_minimum_sequence",
+        "every_new_session_must_reverify_current_nonexpired_revocation_state",
+        "any_revoked_root_dependency_publisher_key_or_qc_signature_fails_closed"
+      ]
+    },
+    "publisher_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "publisher_policy_sha256",
+        "keyset_chain_digest",
+        "bootstrap_index_artifact_sha256",
+        "bootstrap_index_statement_sha256",
+        "bootstrap_index_expires_at"
+      ],
+      "properties": {
+        "publisher_policy_sha256": {"$ref": "#/$defs/sha256"},
+        "keyset_chain_digest": {"$ref": "#/$defs/sha256"},
+        "bootstrap_index_artifact_sha256": {"$ref": "#/$defs/sha256"},
+        "bootstrap_index_statement_sha256": {"$ref": "#/$defs/sha256"},
+        "bootstrap_index_expires_at": {"$ref": "#/$defs/timestamp"}
+      }
+    },
+    "overlay_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "overlay_id",
+        "sequence",
+        "community_id",
+        "runtime_mode",
+        "control_activation_digest",
+        "contract_bundle_digest",
+        "runtime_roots_set_digest",
+        "isolation_profile",
+        "issued_at",
+        "valid_from",
+        "expires_at",
+        "publisher_authority",
+        "revocation_binding",
+        "domain_roots"
+      ],
+      "properties": {
+        "schema_version": {"const": "freedom.domain-skill-overlay-statement/v1"},
+        "overlay_id": {"$ref": "#/$defs/opaque_ref"},
+        "sequence": {"type": "integer", "minimum": 1},
+        "community_id": {"$ref": "#/$defs/opaque_ref"},
+        "runtime_mode": {"const": "signed_isolated_overlay_v1"},
+        "control_activation_digest": {"$ref": "#/$defs/sha256"},
+        "contract_bundle_digest": {"$ref": "#/$defs/sha256"},
+        "runtime_roots_set_digest": {"$ref": "#/$defs/sha256"},
+        "isolation_profile": {"const": "per-run-sealed-domain-overlay-v1"},
+        "issued_at": {"$ref": "#/$defs/timestamp"},
+        "valid_from": {"$ref": "#/$defs/timestamp"},
+        "expires_at": {"$ref": "#/$defs/timestamp"},
+        "publisher_authority": {"$ref": "#/$defs/publisher_authority"},
+        "revocation_binding": {"$ref": "#/$defs/revocation_binding"},
+        "domain_roots": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "x-uniqueBy": "skill_version_ref",
+          "items": {"$ref": "#/$defs/domain_root"}
+        }
+      },
+      "x-invariants": [
+        "issued_at_must_be_less_than_or_equal_to_valid_from_and_valid_from_must_be_less_than_expires_at",
+        "domain_roots_must_be_sorted_by_skill_version_ref_and_have_unique_skill_name_under_ascii_case_fold",
+        "runtime_roots_set_digest_is_sha256_of_jcs_object_with_control_activation_digest_and_ordered_domain_root_identity_package_dependency_and_qc_digests",
+        "the_server_derived_work_item_skill_version_set_must_exactly_equal_domain_roots_skill_version_ref_set",
+        "control_activation_digest_remains_the_existing_eight_input_activation_digest_and_is_not_redefined_by_this_overlay"
+      ]
+    },
+    "jws_proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kid", "alg", "b64", "crit", "signature"],
+      "properties": {
+        "kid": {"$ref": "#/$defs/opaque_ref"},
+        "alg": {"const": "EdDSA"},
+        "b64": {"const": false},
+        "crit": {
+          "type": "array",
+          "prefixItems": [{"const": "b64"}],
+          "items": false
+        },
+        "signature": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{40,120}$"
+        }
+      }
+    },
+    "signed_overlay_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "statement", "proof"],
+      "properties": {
+        "schema_version": {"const": "freedom.domain-skill-overlay-artifact/v1"},
+        "statement": {"$ref": "#/$defs/overlay_statement"},
+        "proof": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "x-uniqueBy": "kid",
+          "items": {"$ref": "#/$defs/jws_proof"}
+        }
+      },
+      "x-invariants": [
+        "proof_must_be_sorted_by_kid_and_contain_exactly_two_distinct_valid_statement_time_authorized_signers",
+        "detached_jws_signatures_cover_the_rfc8785_jcs_statement_bytes",
+        "unknown_missing_or_extra_fields_fail_closed"
+      ]
+    }
+  },
+  "x-invariants": [
+    "this_planning_fixture_never_authorizes_runtime_execution",
+    "signed_isolated_overlay_v1_requires_a_current_control_activation_current_publisher_authority_current_revocation_exact_accepted_qc_and_supported_isolation_before_materialization",
+    "any_failed_gate_returns_capability_unavailable_with_zero_domain_skill_execution_or_consequential_effect"
+  ]
+}

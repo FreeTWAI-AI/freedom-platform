@@ -1,0 +1,132 @@
+# FAKE PLANNING FIXTURE ONLY. The repository, release, issuer, URLs, digests,
+# nonce, and detached JWS below are invented and MUST NOT be trusted or used
+# to establish official status. example.invalid is deliberately non-resolving.
+schema_version: freedom.project-status-attestation/v1
+kind: ProjectStatusAttestation
+statement:
+  attestation_profile: planning_fixture
+  attestation_id: attestation:00000000-0000-0000-0000-000000000000
+  project_id: project:fake-planning-project
+  repository:
+    provider: github
+    repository_id: "999999999999999999"
+    full_name: freedom-example/fake-planning-project
+    html_url: https://github.com/freedom-example/fake-planning-project
+    owner:
+      type: Organization
+      organization_id: "999999999999999995"
+      login: freedom-example
+    is_fork: false
+  release:
+    release_id: "999999999999999998"
+    commit_sha: "0000000000000000000000000000000000000000"
+    release_tag: v0.0.0-planning
+    release_url: https://github.com/freedom-example/fake-planning-project/releases/tag/v0.0.0-planning
+    immutable: true
+    published_at: "2026-09-14T11:58:30Z"
+  release_authorization: null
+  artifacts:
+    - artifact_id: artifact:fake-linux-amd64
+      release_asset_id: "999999999999999997"
+      name: fake-linux-amd64.oci.json
+      role: runtime_bundle
+      media_type: application/vnd.oci.image.manifest.v1+json
+      digest: sha256:1111111111111111111111111111111111111111111111111111111111111111
+      uri: https://github.com/freedom-example/fake-planning-project/releases/download/v0.0.0-planning/fake-linux-amd64.oci.json
+    - artifact_id: artifact:fake-sbom
+      release_asset_id: "999999999999999996"
+      name: fake-sbom.spdx.json
+      role: sbom
+      media_type: application/spdx+json
+      digest: sha256:2222222222222222222222222222222222222222222222222222222222222222
+      uri: https://github.com/freedom-example/fake-planning-project/releases/download/v0.0.0-planning/fake-sbom.spdx.json
+  manifest:
+    path: freedom.project.yaml
+    media_type: application/yaml
+    digest: sha256:3333333333333333333333333333333333333333333333333333333333333333
+    uri: https://example.invalid/manifests/0000000000000000000000000000000000000000/freedom.project.yaml
+  decision:
+    decision: deny
+    status: not_official
+    decided_at: "2026-09-14T11:59:00Z"
+    reason_codes:
+      - planning_fixture
+      - nonexistent_subject
+    summary: Fake negative decision used only to exercise parsers and schema validation.
+  quality_control:
+    outcome: fail
+    completed_at: "2026-09-14T11:58:00Z"
+    protocol:
+      protocol_id: qc-protocol:fake-release-review
+      version: 0.0.0
+      digest: sha256:4444444444444444444444444444444444444444444444444444444444444444
+      uri: https://example.invalid/qc/protocols/fake-release-review/0.0.0
+    evidence_bundle:
+      evidence_id: qc-evidence:fake-planning-run
+      media_type: application/json
+      digest: sha256:5555555555555555555555555555555555555555555555555555555555555555
+      uri: https://example.invalid/qc/evidence/fake-planning-run.json
+  issuer:
+    issuer_id: issuer:fake-planning-authority
+    authority_url: https://example.invalid/status-authority
+    key_id: key:fake-planning-key-2026
+    verification_method_url: https://example.invalid/keys/fake-planning-key-2026.jwk
+    status_registry_url: https://example.invalid/status/attestations
+  validity:
+    issued_at: "2026-09-14T12:00:00Z"
+    valid_from: "2026-09-14T12:05:00Z"
+    expires_at: "2026-09-14T12:35:00Z"
+  nonce: AAAAAAAAAAAAAAAAAAAAAA
+  lifecycle:
+    action: issue
+    sequence: 1
+    supersedes: null
+    revokes: null
+    reason: Initial fake planning fixture; it has no production authority.
+  verification_policy:
+    mode: fail_closed
+    positive_status: official
+    missing_attestation_result: not_official
+    not_yet_valid_result: not_official
+    expired_result: not_official
+    superseded_result: not_official
+    revoked_result: not_official
+    unverifiable_result: not_official
+    required_checks:
+      - schema_valid
+      - profile_is_production
+      - github_repository_identity_matches
+      - repository_owner_is_approved_organization
+      - repository_is_not_fork
+      - github_release_identity_matches
+      - release_tag_resolves_to_commit
+      - release_is_published_and_immutable
+      - release_authorization_policy_matches
+      - grant_has_current_exact_a4_release_approval
+      - release_asset_set_matches
+      - artifact_digests_match
+      - manifest_digest_matches
+      - manifest_semantics_match
+      - manifest_url_policy_matches
+      - qc_protocol_is_trusted
+      - qc_evidence_digest_matches
+      - qc_outcome_is_pass
+      - issuer_and_key_are_trusted
+      - jcs_payload_digest_matches
+      - signature_verifies
+      - within_validity_window
+      - nonce_is_not_replayed
+      - status_registry_is_fresh_and_authoritative
+      - attestation_is_current
+      - not_superseded
+      - not_revoked
+proof:
+  type: DetachedJWS
+  canonicalization: RFC8785
+  signed_object: statement
+  payload_digest: sha256:fe36c71710452da788b0baf7d7ad33ba5ee10d998564a8991072e91d16d541d6
+  algorithm: EdDSA
+  key_id: key:fake-planning-key-2026
+  # Protected header decodes to alg=EdDSA, b64=false, crit=[b64], matching kid,
+  # and the contract typ. The all-A signature segment is intentionally fake.
+  jws: eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImtpZCI6ImtleTpmYWtlLXBsYW5uaW5nLWtleS0yMDI2IiwidHlwIjoiZnJlZWRvbS5wcm9qZWN0LXN0YXR1cy1hdHRlc3RhdGlvbitqd3MifQ..AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA

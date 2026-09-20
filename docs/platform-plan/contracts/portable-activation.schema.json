@@ -1,0 +1,1153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.freedom.example/schemas/portable-activation/v1.json",
+  "title": "Freedom portable control-Skill supply-chain artifacts v1",
+  "description": "Planning schema for bundle file manifests, signed control-Skill channels, exact dependency closures, revocation snapshots, publisher-key rotations, short-lived bootstrap indexes, deterministic activation locks/pointers and live-session GC leases. Production may use the individual $defs as artifact schemas; a planning fixture set packages them together only for contract tests.",
+  "oneOf": [
+    {"$ref": "#/$defs/bundle_manifest"},
+    {"$ref": "#/$defs/skill_registry_snapshot"},
+    {"$ref": "#/$defs/signed_channel"},
+    {"$ref": "#/$defs/revocation_snapshot"},
+    {"$ref": "#/$defs/publisher_policy_artifact"},
+    {"$ref": "#/$defs/publisher_keyset_transition"},
+    {"$ref": "#/$defs/publisher_bootstrap_index"},
+    {"$ref": "#/$defs/activation_lock"},
+    {"$ref": "#/$defs/activation_pointer"},
+    {"$ref": "#/$defs/activation_session_lease"},
+    {"$ref": "#/$defs/planning_fixture_set"}
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "strict_https_uri": {
+      "type": "string",
+      "format": "uri",
+      "minLength": 9,
+      "maxLength": 2000,
+      "pattern": "^https://[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?(?:/[A-Za-z0-9._~!$&'()*+,;=:@/-]*)?$",
+      "description": "Structurally restricted HTTPS URL with no userinfo, port, query, fragment, percent escape, backslash or non-ASCII character. Semantic fetch rules additionally validate DNS labels, address classes, redirect targets, origin/path allowlists and resource bounds."
+    },
+    "network_fetch_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_id", "maximum_redirects", "maximum_dns_answers", "maximum_response_header_bytes", "connect_timeout_ms", "per_response_elapsed_ms", "overall_activation_elapsed_ms", "maximum_authority_requests", "maximum_authority_download_bytes", "maximum_payload_download_bytes", "response_byte_limits"],
+      "properties": {
+        "profile_id": {"const": "freedom-network-fetch-v1"},
+        "maximum_redirects": {"const": 3},
+        "maximum_dns_answers": {"const": 16},
+        "maximum_response_header_bytes": {"const": 32768},
+        "connect_timeout_ms": {"const": 5000},
+        "per_response_elapsed_ms": {"const": 20000},
+        "overall_activation_elapsed_ms": {"const": 600000},
+        "maximum_authority_requests": {"const": 1200},
+        "maximum_authority_download_bytes": {"const": 536870912},
+        "maximum_payload_download_bytes": {"const": 1073741824},
+        "response_byte_limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["publisher_bootstrap_index", "publisher_keyset_transition", "signed_channel", "revocation_snapshot", "registry_snapshot", "bundle_manifest", "bundle_archive"],
+          "properties": {
+            "publisher_bootstrap_index": {"const": 4194304},
+            "publisher_keyset_transition": {"const": 4194304},
+            "signed_channel": {"const": 8388608},
+            "revocation_snapshot": {"const": 67108864},
+            "registry_snapshot": {"const": 33554432},
+            "bundle_manifest": {"const": 4194304},
+            "bundle_archive": {"const": 536870912}
+          }
+        }
+      },
+      "description": "Normative portable-v1 fetch budget. Byte caps apply to decoded identity responses while compressed HTTP content encodings are rejected; authority totals cover bootstrap index, transition and channel/revocation history artifacts, while payload totals cover GitHub registry/manifests/archives for one activation."
+    },
+    "positive_sequence": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,18}$",
+      "format": "positive-int64-decimal-string"
+    },
+    "semver": {
+      "type": "string",
+      "maxLength": 255,
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$"
+    },
+    "release_tag": {
+      "type": "string",
+      "maxLength": 256,
+      "pattern": "^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?$"
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$"
+    },
+    "base64url": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 4096,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "payload_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^(?:[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9_-])?)(?:/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9_-])?)*$",
+      "description": "Conservative cross-platform v1 path: at most 160 ASCII bytes, POSIX-relative segments, no spaces, empty/dot segments, leading dot or trailing dot. Validators first reject every backslash and never repair a Windows path; the installer separately enforces the complete absolute-path budget."
+    },
+    "skill_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frontmatter_profile", "body_profile", "name", "description"],
+      "properties": {
+        "frontmatter_profile": {"const": "freedom-agent-skill-frontmatter-v1"},
+        "body_profile": {"const": "static-skill-body-linter-v1"},
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "description": "A deliberately narrow, authority-neutral subset of the Open Agent Skills frontmatter. Optional or client-specific fields, especially allowed-tools and dynamic execution controls, are forbidden in portable v1."
+    },
+    "file_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "size", "sha256"],
+      "properties": {
+        "path": {"$ref": "#/$defs/payload_path"},
+        "size": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        "sha256": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "archive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asset_name", "media_type", "size", "sha256"],
+      "properties": {
+        "asset_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "media_type": {
+          "enum": ["application/gzip", "application/vnd.freedom.bundle+tar"]
+        },
+        "size": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+        "sha256": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "source_release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository_id", "release_id", "release_tag", "commit_sha"],
+      "properties": {
+        "repository_id": {"type": "string", "pattern": "^[1-9][0-9]{0,19}$"},
+        "release_id": {"type": "string", "pattern": "^[1-9][0-9]{0,19}$"},
+        "release_tag": {"$ref": "#/$defs/release_tag"},
+        "commit_sha": {"type": "string", "pattern": "^[a-f0-9]{40}$"}
+      }
+    },
+    "release_asset_locator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "asset_id", "asset_name"],
+      "properties": {
+        "source": {"$ref": "#/$defs/source_release"},
+        "asset_id": {"type": "string", "pattern": "^[1-9][0-9]{0,19}$"},
+        "asset_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        }
+      },
+      "description": "Immutable GitHub API locator. The installer fetches by stable repository, release and asset IDs, then verifies tag, commit, name and digest; a mutable URL or tag alone is insufficient."
+    },
+    "channel_history_checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["channel_id", "sequence", "artifact_sha256", "statement_sha256", "artifact_uri"],
+      "properties": {
+        "channel_id": {"type": "string", "pattern": "^[a-z][a-z0-9._/-]{1,127}$"},
+        "sequence": {"$ref": "#/$defs/positive_sequence"},
+        "artifact_sha256": {"$ref": "#/$defs/digest"},
+        "statement_sha256": {"$ref": "#/$defs/digest"},
+        "artifact_uri": {"$ref": "#/$defs/strict_https_uri"}
+      }
+    },
+    "revocation_history_checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["registry_id", "sequence", "artifact_sha256", "statement_sha256", "artifact_uri"],
+      "properties": {
+        "registry_id": {"$ref": "#/$defs/identifier"},
+        "sequence": {"$ref": "#/$defs/positive_sequence"},
+        "artifact_sha256": {"$ref": "#/$defs/digest"},
+        "statement_sha256": {"$ref": "#/$defs/digest"},
+        "artifact_uri": {"$ref": "#/$defs/strict_https_uri"}
+      }
+    },
+    "current_channel_pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["channel_id", "sequence", "artifact_sha256", "statement_sha256", "artifact_uri", "issued_at", "valid_from", "expires_at"],
+      "properties": {
+        "channel_id": {"type": "string", "pattern": "^[a-z][a-z0-9._/-]{1,127}$"},
+        "sequence": {"$ref": "#/$defs/positive_sequence"},
+        "artifact_sha256": {"$ref": "#/$defs/digest"},
+        "statement_sha256": {"$ref": "#/$defs/digest"},
+        "artifact_uri": {"$ref": "#/$defs/strict_https_uri"},
+        "issued_at": {"type": "string", "format": "date-time"},
+        "valid_from": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "current_revocation_pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["registry_id", "sequence", "artifact_sha256", "statement_sha256", "artifact_uri", "issued_at", "expires_at"],
+      "properties": {
+        "registry_id": {"$ref": "#/$defs/identifier"},
+        "sequence": {"$ref": "#/$defs/positive_sequence"},
+        "artifact_sha256": {"$ref": "#/$defs/digest"},
+        "statement_sha256": {"$ref": "#/$defs/digest"},
+        "artifact_uri": {"$ref": "#/$defs/strict_https_uri"},
+        "issued_at": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "contract_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bundle_id", "version", "source", "payload_digest", "manifest_sha256", "archive_sha256"],
+      "properties": {
+        "bundle_id": {"$ref": "#/$defs/identifier"},
+        "version": {"$ref": "#/$defs/semver"},
+        "source": {"$ref": "#/$defs/source_release"},
+        "payload_digest": {"$ref": "#/$defs/digest"},
+        "manifest_sha256": {"$ref": "#/$defs/digest"},
+        "archive_sha256": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "bundle_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-invariants": [
+        "Before normalization, reject every backslash and every non-regular file, symlink, hardlink and device; never rewrite a rejected path into an accepted path",
+        "Each path matches the conservative ASCII portable profile, every segment is at most 100 bytes, and no segment case-insensitively equals a Windows device basename such as CON, PRN, AUX, NUL, CLOCK$, COM1 through COM9 or LPT1 through LPT9 even with an extension",
+        "Each path is unique both byte-for-byte and by the portable collision key formed by ASCII-lowercasing every segment and removing no characters; A/a, trailing-dot/space aliases and other cross-filesystem collisions are rejected before extraction",
+        "Entries are sorted by accepted path UTF-8 bytes",
+        "payload_digest equals SHA-256 over RFC 8785 JCS of exactly the files array with no line-ending or byte transcoding",
+        "Archive owner, group, uid, gid, timestamps, file modes, setuid/setgid/sticky bits, ACLs, xattrs, Windows alternate data streams, resource forks and every other container/filesystem metadata field are ignored and stripped. After byte verification, path-derived-readonly-v1 creates directories as 0555, regular files beneath scripts/ as 0555 and every other regular file as 0444 on POSIX, with an equivalent deny-write/read-or-read-execute ACL in the sealed Windows session; inability to enforce this profile fails closed",
+        "Scripts are invoked as an exact argv path through the trusted versioned adapter runner profile, never by concatenating a shell command and never because an archive executable bit, shebang lookup, file association or ambient PATH grants authority",
+        "manifest_sha256 is intentionally absent because this object is the manifest whose canonical full-object digest is recorded by its signed channel pin",
+        "A plan_bundle contracts subtree, with its contracts/ prefix removed, is byte-for-byte identical to the referenced contract bundle and recomputes the same payload_digest",
+        "A skill_package file set contains root freedom-skill.yaml and SKILL.md plus only published regular files beneath agents, scripts, references and assets; its external manifest is never included in its own files array",
+        "For skill_package, freedom-skill.yaml is parsed only with freedom-yaml-json-v1 (UTF-8 no BOM, one YAML 1.2 document, JSON-schema scalar resolution/JSON data model, and no directives, tags, anchors, aliases, merge keys, duplicate or complex/non-string keys, non-JSON numbers, tab indentation or trailing content); the result must prove capability id equals bundle_id, capability version equals bundle version, capability source repository_id and commit equal bundle source, capability source manifest_path is freedom-skill.yaml, and the exact manifest bytes, size and digest equal that files entry"
+        ,"For skill_package, hashed SKILL.md bytes use LF only, begin with an exact --- line, contain one bounded YAML frontmatter mapping, an exact closing --- line and a non-empty Markdown body. The frontmatter is parsed with freedom-yaml-json-v1 and contains exactly name then description with no aliases, duplicates or optional/client-specific keys; the result byte-for-value equals skill_metadata. Its name matches ^[a-z0-9]+(?:-[a-z0-9]+)*$, has 1 through 64 characters, equals the final slash component of bundle_id and equals the directory name exposed to each native client; description has 1 through 1024 Unicode scalar values. allowed-tools, hooks, model/context controls and executable frontmatter are forbidden in portable v1",
+        "The complete SKILL.md passes static-skill-body-linter-v1 for every supported client version: outside ordinary fenced code examples it rejects client-specific dynamic command/include syntax, shell interpolation directives, argument/session substitutions and auto-executing markup, including Claude !`command`, $ARGUMENTS, positional $0-style and ${...} substitutions. Body links and operational references are normalized relative paths to hashed package files; no remote or absolute executable source is permitted. A newly supported client syntax requires a linter/profile version change and compatibility fixtures before activation"
+      ],
+      "required": ["schema_version", "artifact_profile", "bundle_kind", "bundle_id", "version", "source", "digest_profile", "execution_mode_profile", "payload_digest", "files", "archive", "skill_metadata", "contract_snapshot"],
+      "properties": {
+        "schema_version": {"const": "freedom.bundle-manifest/v1"},
+        "artifact_profile": {"enum": ["production", "planning_fixture"]},
+        "bundle_kind": {"enum": ["skill_package", "plan_bundle", "contract_bundle"]},
+        "bundle_id": {"$ref": "#/$defs/identifier"},
+        "version": {"$ref": "#/$defs/semver"},
+        "source": {"$ref": "#/$defs/source_release"},
+        "digest_profile": {"const": "freedom-file-list-jcs-sha256-v1"},
+        "execution_mode_profile": {"const": "path-derived-readonly-v1"},
+        "payload_digest": {"$ref": "#/$defs/digest"},
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100000,
+          "uniqueItems": true,
+          "x-uniqueBy": "path",
+          "items": {"$ref": "#/$defs/file_entry"}
+        },
+        "archive": {"$ref": "#/$defs/archive"},
+        "skill_metadata": {
+          "oneOf": [
+            {"$ref": "#/$defs/skill_metadata"},
+            {"type": "null"}
+          ]
+        },
+        "contract_snapshot": {
+          "oneOf": [
+            {"$ref": "#/$defs/contract_snapshot"},
+            {"type": "null"}
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"bundle_kind": {"const": "plan_bundle"}},
+            "required": ["bundle_kind"]
+          },
+          "then": {
+            "properties": {
+              "contract_snapshot": {"$ref": "#/$defs/contract_snapshot"}
+            }
+          },
+          "else": {
+            "properties": {
+              "contract_snapshot": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"bundle_kind": {"const": "skill_package"}},
+            "required": ["bundle_kind"]
+          },
+          "then": {
+            "properties": {
+              "skill_metadata": {"$ref": "#/$defs/skill_metadata"}
+            }
+          },
+          "else": {
+            "properties": {
+              "skill_metadata": {"type": "null"}
+            }
+          }
+        }
+      ]
+    },
+    "skill_registry_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-invariants": [
+        "packages are sorted by package_id then SemVer precedence then full version bytes and each package_id plus version pair is unique; every package pin artifact_profile equals this snapshot artifact_profile",
+        "snapshot_digest equals SHA-256 over RFC 8785 JCS of exactly packages",
+        "This artifact never contains its own release or asset locator; the signed channel registry_snapshot pin supplies its immutable locator and complete-artifact SHA-256 after upload, avoiding asset-ID self-reference",
+        "planning_fixture can never be used by a production resolver"
+      ],
+      "required": ["schema_version", "artifact_profile", "snapshot_id", "generated_at", "digest_profile", "packages", "snapshot_digest"],
+      "properties": {
+        "schema_version": {"const": "freedom.skill-registry-snapshot/v1"},
+        "artifact_profile": {"enum": ["production", "planning_fixture"]},
+        "snapshot_id": {"$ref": "#/$defs/identifier"},
+        "generated_at": {"type": "string", "format": "date-time"},
+        "digest_profile": {"const": "freedom-registry-snapshot-jcs-sha256-v1"},
+        "packages": {
+          "type": "array",
+          "maxItems": 100000,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/package_pin"}
+        },
+        "snapshot_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "package_pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bundle_kind", "artifact_profile", "package_id", "version", "skill_package_digest", "package_manifest_sha256", "package_archive_sha256", "manifest_locator", "archive_locator"],
+      "properties": {
+        "bundle_kind": {"const": "skill_package"},
+        "artifact_profile": {"enum": ["production", "planning_fixture"]},
+        "package_id": {"type": "string", "pattern": "^skill:[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*$"},
+        "version": {"$ref": "#/$defs/semver"},
+        "skill_package_digest": {"$ref": "#/$defs/digest"},
+        "package_manifest_sha256": {"$ref": "#/$defs/digest"},
+        "package_archive_sha256": {"$ref": "#/$defs/digest"},
+        "manifest_locator": {"$ref": "#/$defs/release_asset_locator"},
+        "archive_locator": {"$ref": "#/$defs/release_asset_locator"}
+      },
+      "x-invariants": [
+        "Both locators identify assets in the same immutable source release and their names and bytes match the referenced bundle manifest and archive",
+        "The fetched complete bundle-manifest JSON validates and its RFC 8785 JCS SHA-256 equals package_manifest_sha256; its bundle_kind, artifact_profile, bundle_id, version and source equal this pin, so only skill_package can satisfy a root or dependency pin",
+        "The fetched manifest payload_digest equals skill_package_digest, its archive.sha256 and archive.asset_name equal package_archive_sha256 and archive_locator.asset_name, and the manifest locator name identifies the fetched manifest. Downloaded archive bytes recompute package_archive_sha256 and, after safe extraction and metadata stripping, every byte/size/path recomputes the manifest file list and skill_package_digest",
+        "The freedom-yaml-json-v1 parsed, hashed freedom-skill.yaml id and version equal package_id and version; its source repository_id and commit equal both locator source releases and its own file-list entry"
+      ]
+    },
+    "bundle_pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bundle_kind", "artifact_profile", "bundle_id", "version", "payload_digest", "bundle_manifest_sha256", "bundle_archive_sha256", "manifest_locator", "archive_locator"],
+      "properties": {
+        "bundle_kind": {"enum": ["plan_bundle", "contract_bundle"]},
+        "artifact_profile": {"enum": ["production", "planning_fixture"]},
+        "bundle_id": {"$ref": "#/$defs/identifier"},
+        "version": {"$ref": "#/$defs/semver"},
+        "payload_digest": {"$ref": "#/$defs/digest"},
+        "bundle_manifest_sha256": {"$ref": "#/$defs/digest"},
+        "bundle_archive_sha256": {"$ref": "#/$defs/digest"},
+        "manifest_locator": {"$ref": "#/$defs/release_asset_locator"},
+        "archive_locator": {"$ref": "#/$defs/release_asset_locator"}
+      },
+      "x-invariants": [
+        "Manifest and archive locators identify two assets in the same immutable source release",
+        "The fetched manifest complete-object JCS digest equals bundle_manifest_sha256 and its bundle_kind, artifact_profile, bundle_id, version, source and payload_digest equal this pin",
+        "The fetched manifest archive name and SHA-256 equal archive_locator.asset_name and bundle_archive_sha256; downloaded archive bytes recompute that digest and file-list payload_digest"
+      ]
+    },
+    "plan_bundle_pin": {
+      "allOf": [
+        {"$ref": "#/$defs/bundle_pin"},
+        {"properties": {"bundle_kind": {"const": "plan_bundle"}}}
+      ]
+    },
+    "contract_bundle_pin": {
+      "allOf": [
+        {"$ref": "#/$defs/bundle_pin"},
+        {"properties": {"bundle_kind": {"const": "contract_bundle"}}}
+      ]
+    },
+    "registry_snapshot_pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshot_id", "snapshot_digest", "artifact_sha256", "artifact_locator"],
+      "properties": {
+        "snapshot_id": {"$ref": "#/$defs/identifier"},
+        "snapshot_digest": {"$ref": "#/$defs/digest"},
+        "artifact_sha256": {"$ref": "#/$defs/digest"},
+        "artifact_locator": {"$ref": "#/$defs/release_asset_locator"}
+      },
+      "x-invariants": [
+        "Fetched complete registry-snapshot JSON canonicalized with RFC 8785 JCS recomputes artifact_sha256",
+        "The fetched snapshot schema validates, its snapshot_id and snapshot_digest equal this outer pin, and its profile is production for a production channel",
+        "The locator asset name and stable repository, release and asset IDs equal GitHub API facts before resolver use"
+      ]
+    },
+    "dependency_closure": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-invariants": [
+        "entries are sorted by package_id then version using UTF-8 byte order",
+        "closure_digest equals SHA-256 over RFC 8785 JCS of the ordered projection [{package_id,version,skill_package_digest},...] only; package_manifest_sha256 and package_archive_sha256 remain channel artifact pins but are not inputs to the semantic closure digest",
+        "the publisher resolves every dependency from the pinned immutable registry snapshot and rejects cycles, conflicts, missing packages and equal-precedence build-metadata ambiguity"
+      ],
+      "required": ["resolver_id", "resolver_version", "registry_snapshot", "entries", "closure_digest"],
+      "properties": {
+        "resolver_id": {"const": "freedom-semver-resolver"},
+        "resolver_version": {"$ref": "#/$defs/semver"},
+        "registry_snapshot": {"$ref": "#/$defs/registry_snapshot_pin"},
+        "entries": {
+          "type": "array",
+          "maxItems": 1000,
+          "uniqueItems": true,
+          "x-uniqueBy": "package_id",
+          "items": {"$ref": "#/$defs/package_pin"}
+        },
+        "closure_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "detached_multisignature_proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-invariants": [
+        "payload_sha256 equals SHA-256 of UTF-8 RFC 8785 JCS(statement)",
+        "Each protected_b64u decodes to the exact UTF-8 JCS object {alg:'EdDSA',b64:false,crit:['b64'],kid:<signature.kid>,typ:<proof.typ>} with no extra header",
+        "Each signing input is ASCII(protected_b64u) || '.' || UTF8(JCS(statement)); signature_b64u is raw Ed25519 signature bytes in unpadded base64url",
+        "The array contains exactly threshold signatures, every listed signature verifies, and its distinct kid values belong to the independently derived eligible key set for signature_policy_id and are not invalid at the signed statement time under the current cumulative revocation snapshot; no invalid or surplus signature is tolerated and the statement cannot choose its own trusted keys. For channel/revocation/bootstrap-index artifacts the stated policy must satisfy their exact active-policy rule; keyset-transition old/new proofs are the only explicit dual-policy exception",
+        "The detached envelope has no payload member; an empty or attacker-supplied payload member is rejected",
+        "signatures is serialized in strictly increasing kid UTF-8 byte order; an unsorted proof is rejected rather than silently normalized. The exact signer set is part of artifact identity, so a different valid signer set is a distinct artifact"
+      ],
+      "required": ["profile", "algorithm", "typ", "payload_sha256", "signature_policy_id", "threshold", "signatures"],
+      "properties": {
+        "profile": {"const": "freedom-rfc7797-detached-jws-multisig-jcs-v1"},
+        "algorithm": {"const": "EdDSA"},
+        "typ": {
+          "enum": [
+            "freedom.signed-channel+jws",
+            "freedom.revocation-snapshot+jws",
+            "freedom.publisher-keyset-transition+jws",
+            "freedom.publisher-bootstrap-index+jws"
+          ]
+        },
+        "payload_sha256": {"$ref": "#/$defs/digest"},
+        "signature_policy_id": {"$ref": "#/$defs/identifier"},
+        "threshold": {"const": 2},
+        "signatures": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "x-uniqueBy": "kid",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kid", "protected_b64u", "signature_b64u"],
+            "properties": {
+              "kid": {"$ref": "#/$defs/identifier"},
+              "protected_b64u": {"$ref": "#/$defs/base64url"},
+              "signature_b64u": {"$ref": "#/$defs/base64url"}
+            }
+          }
+        }
+      }
+    },
+    "signed_channel_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-invariants": [
+        "sequence is strictly greater than every previously accepted sequence for channel_id and is greater than or equal to minimum_accepted_sequence",
+        "For sequence one, previous_statement_sha256, previous_artifact_sha256 and previous_artifact_uri are all null. For every later sequence all three are non-null, identify the complete immediately preceding sequence artifact and statement, and the fetched artifact has the same channel_id and channel_profile; gaps, forks or a link whose sequence is not exactly current minus one are rejected",
+        "issued_at is no later than valid_from, valid_from is strictly before expires_at, and verifier time must be no earlier than valid_from minus the fixed 60-second v1 skew and must be strictly earlier than expires_at",
+        "root_skill and every dependency pin match exact bundle_kind=skill_package manifests and archives; every root/dependency/Plan/Contract pin artifact_profile equals channel_profile, so a production channel rejects every planning fixture",
+        "After every pinned skill manifest is fetched and bound to its hashed SKILL.md metadata, the root and complete dependency closure have pairwise-distinct skill_metadata.name values under both byte and ASCII-case-insensitive comparison; each is exposed only at skills/<name> in the sealed native discovery namespace",
+        "plan_bundle has bundle_kind=plan_bundle, contract_bundle has bundle_kind=contract_bundle, and contract_bundle equals the plan bundle manifest contract_snapshot by source identity and all digests",
+        "planning_fixture can never activate a production run"
+      ],
+      "required": ["channel_profile", "channel_id", "sequence", "previous_statement_sha256", "previous_artifact_sha256", "previous_artifact_uri", "issued_at", "valid_from", "expires_at", "minimum_accepted_sequence", "publisher_policy_id", "root_skill", "dependency_closure", "plan_bundle", "contract_bundle", "revocation_requirement"],
+      "properties": {
+        "channel_profile": {"enum": ["production", "planning_fixture"]},
+        "channel_id": {"type": "string", "pattern": "^[a-z][a-z0-9._/-]{1,127}$"},
+        "sequence": {"$ref": "#/$defs/positive_sequence"},
+        "previous_statement_sha256": {
+          "oneOf": [
+            {"$ref": "#/$defs/digest"},
+            {"type": "null"}
+          ]
+        },
+        "previous_artifact_sha256": {
+          "oneOf": [
+            {"$ref": "#/$defs/digest"},
+            {"type": "null"}
+          ]
+        },
+        "previous_artifact_uri": {
+          "oneOf": [
+            {"$ref": "#/$defs/strict_https_uri"},
+            {"type": "null"}
+          ]
+        },
+        "issued_at": {"type": "string", "format": "date-time"},
+        "valid_from": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date-time"},
+        "minimum_accepted_sequence": {"$ref": "#/$defs/positive_sequence"},
+        "publisher_policy_id": {"$ref": "#/$defs/identifier"},
+        "root_skill": {"$ref": "#/$defs/package_pin"},
+        "dependency_closure": {"$ref": "#/$defs/dependency_closure"},
+        "plan_bundle": {"$ref": "#/$defs/plan_bundle_pin"},
+        "contract_bundle": {"$ref": "#/$defs/contract_bundle_pin"},
+        "revocation_requirement": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["registry_id", "minimum_snapshot_sequence", "max_staleness_seconds", "clock_skew_seconds"],
+          "properties": {
+            "registry_id": {"$ref": "#/$defs/identifier"},
+            "minimum_snapshot_sequence": {"$ref": "#/$defs/positive_sequence"},
+            "max_staleness_seconds": {"const": 900},
+            "clock_skew_seconds": {"const": 60}
+          }
+        }
+      }
+    },
+    "signed_channel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "statement", "proof"],
+      "properties": {
+        "schema_version": {"const": "freedom.signed-channel/v1"},
+        "statement": {"$ref": "#/$defs/signed_channel_statement"},
+        "proof": {"$ref": "#/$defs/detached_multisignature_proof"}
+      },
+      "x-invariants": [
+        "proof.typ is freedom.signed-channel+jws",
+        "proof.signature_policy_id equals statement.publisher_policy_id",
+        "statement.publisher_policy_id is exactly the sole policy active at statement.issued_at: the initial policy applies before the first accepted transition effective_at, and each transition new policy applies on the half-open interval from its effective_at inclusive until the next effective_at exclusive. The fixed 60-second verifier clock allowance never moves these signed-statement interval boundaries",
+        "When the signing policy has a following accepted transition boundary, statement.expires_at is no later than that next effective_at. Expiry is exclusive, so an artifact signed under old keys can never remain current at or after cutover even if issued_at was backdated",
+        "For a non-null previous_artifact_uri, the URL is beneath the channel_history_endpoint origin and path prefix of the policy active at this statement issued_at, and the fetched complete artifact and statement recompute the two previous digests before any parse result is trusted"
+      ]
+    },
+    "revoked_key": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kid", "invalid_from", "revoked_at", "reason_code"],
+      "properties": {
+        "kid": {"$ref": "#/$defs/identifier"},
+        "invalid_from": {"type": "string", "format": "date-time"},
+        "revoked_at": {"type": "string", "format": "date-time"},
+        "reason_code": {"enum": ["compromised", "retired", "superseded", "policy_violation"]}
+      },
+      "x-invariants": [
+        "invalid_from is no later than revoked_at and revoked_at is no later than the containing snapshot issued_at",
+        "A signature is invalidated only when its statement issued_at is at or after invalid_from. Earlier historical signatures remain valid unless invalid_from is deliberately backdated across them",
+        "For normal retired or superseded reasons invalid_from equals revoked_at; routine policy removal is otherwise represented by policy effective boundaries/not_after and never retroactively destroys the keyset chain. For compromised or policy_violation, invalid_from may be backdated to the earliest unsafe time; if that invalidates a transition needed from the out-of-band root, activation fails and requires the explicit out-of-band root redistribution ceremony"
+      ]
+    },
+    "revoked_package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package_id", "version", "skill_package_digest", "revoked_at", "reason_code"],
+      "properties": {
+        "package_id": {"type": "string", "pattern": "^skill:[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*$"},
+        "version": {"$ref": "#/$defs/semver"},
+        "skill_package_digest": {"$ref": "#/$defs/digest"},
+        "revoked_at": {"type": "string", "format": "date-time"},
+        "reason_code": {"enum": ["compromised", "malicious", "superseded", "policy_violation"]}
+      }
+    },
+    "revocation_snapshot_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-invariants": [
+        "sequence strictly increases for registry_id",
+        "For sequence one, previous_statement_sha256, previous_artifact_sha256 and previous_artifact_uri are all null. For every later sequence all three are non-null, identify the complete immediately preceding sequence artifact and statement, and the fetched artifact has the same registry_id and registry_profile; gaps, forks or a link whose sequence is not exactly current minus one are rejected",
+        "issued_at is strictly before expires_at and expires_at is no more than 900 seconds after issued_at",
+        "With the fixed v1 clock-skew allowance, a snapshot is current only when verifier time is no earlier than issued_at minus 60 seconds and is strictly earlier than expires_at; a future snapshot outside that bound is rejected before monotonic state advances",
+        "A new activation fails closed after expires_at or when this sequence is below the highest locally accepted sequence",
+        "A channel is rejected when below its listed minimum, signed by a revoked key, or when its root or any closure package digest is revoked",
+        "Across every verified predecessor link, revoked_keys and revoked_packages are cumulative append-only sets: every prior key tombstone remains byte-for-value identical including invalid_from, revoked_at and reason_code, and every package tombstone remains identical including revoked_at and reason_code. Every prior channel_id minimum remains present and its minimum_sequence never decreases. Omission, lowered floor or conflicting tombstone fails closed before monotonic state advances",
+        "Every signature in the current channel, bootstrap index, revocation history and initial-to-current transition proof chain is re-evaluated against revoked_key.invalid_from; statement time before invalid_from remains historically valid, while equality or later is invalid",
+        "Before JCS, minimum_channel_sequences is in strictly increasing channel_id UTF-8 byte order, revoked_keys is in strictly increasing kid UTF-8 byte order, and revoked_packages is in strictly increasing (package_id,version,skill_package_digest) UTF-8 tuple order; unsorted input is rejected"
+      ],
+      "required": ["registry_profile", "registry_id", "sequence", "previous_statement_sha256", "previous_artifact_sha256", "previous_artifact_uri", "publisher_policy_id", "issued_at", "expires_at", "max_staleness_seconds", "clock_skew_seconds", "minimum_channel_sequences", "revoked_keys", "revoked_packages"],
+      "properties": {
+        "registry_profile": {"enum": ["production", "planning_fixture"]},
+        "registry_id": {"$ref": "#/$defs/identifier"},
+        "sequence": {"$ref": "#/$defs/positive_sequence"},
+        "previous_statement_sha256": {
+          "oneOf": [
+            {"$ref": "#/$defs/digest"},
+            {"type": "null"}
+          ]
+        },
+        "previous_artifact_sha256": {
+          "oneOf": [
+            {"$ref": "#/$defs/digest"},
+            {"type": "null"}
+          ]
+        },
+        "previous_artifact_uri": {
+          "oneOf": [
+            {"$ref": "#/$defs/strict_https_uri"},
+            {"type": "null"}
+          ]
+        },
+        "publisher_policy_id": {"$ref": "#/$defs/identifier"},
+        "issued_at": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date-time"},
+        "max_staleness_seconds": {"const": 900},
+        "clock_skew_seconds": {"const": 60},
+        "minimum_channel_sequences": {
+          "type": "array",
+          "maxItems": 1000,
+          "uniqueItems": true,
+          "x-uniqueBy": "channel_id",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["channel_id", "minimum_sequence"],
+            "properties": {
+              "channel_id": {"type": "string", "pattern": "^[a-z][a-z0-9._/-]{1,127}$"},
+              "minimum_sequence": {"$ref": "#/$defs/positive_sequence"}
+            }
+          }
+        },
+        "revoked_keys": {
+          "type": "array",
+          "maxItems": 10000,
+          "uniqueItems": true,
+          "x-uniqueBy": "kid",
+          "items": {"$ref": "#/$defs/revoked_key"}
+        },
+        "revoked_packages": {
+          "type": "array",
+          "maxItems": 100000,
+          "uniqueItems": true,
+          "x-uniqueBy": "skill_package_digest",
+          "items": {"$ref": "#/$defs/revoked_package"}
+        }
+      }
+    },
+    "revocation_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "statement", "proof"],
+      "properties": {
+        "schema_version": {"const": "freedom.revocation-snapshot/v1"},
+        "statement": {"$ref": "#/$defs/revocation_snapshot_statement"},
+        "proof": {"$ref": "#/$defs/detached_multisignature_proof"}
+      },
+      "x-invariants": [
+        "proof.typ is freedom.revocation-snapshot+jws",
+        "proof.signature_policy_id equals statement.publisher_policy_id",
+        "statement.publisher_policy_id is exactly the sole policy active at statement.issued_at: the initial policy applies before the first accepted transition effective_at, and each transition new policy applies on the half-open interval from its effective_at inclusive until the next effective_at exclusive. An old policy may verify only an artifact issued before its transition boundary; the fixed 60-second verifier clock allowance does not extend old-key issuance authority",
+        "When the signing policy has a following accepted transition boundary, statement.expires_at is no later than that next effective_at. Expiry is exclusive, so a snapshot signed under old keys can never remain current at or after cutover even if issued_at was backdated",
+        "For a non-null previous_artifact_uri, the URL is beneath the revocation_history_endpoint origin and path prefix of the policy active at this statement issued_at, and the fetched complete artifact and statement recompute the two previous digests before any parse result is trusted"
+      ]
+    },
+    "publisher_key": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kid", "algorithm", "public_jwk", "not_before", "not_after"],
+      "properties": {
+        "kid": {"$ref": "#/$defs/identifier"},
+        "algorithm": {"const": "EdDSA"},
+        "public_jwk": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kty", "crv", "x"],
+          "properties": {
+            "kty": {"const": "OKP"},
+            "crv": {"const": "Ed25519"},
+            "x": {"type": "string", "pattern": "^[A-Za-z0-9_-]{43}$"}
+          }
+        },
+        "not_before": {"type": "string", "format": "date-time"},
+        "not_after": {"type": ["string", "null"], "format": "date-time"}
+      },
+      "x-invariants": ["When not_after is non-null, not_before is strictly earlier than not_after"]
+    },
+    "channel_authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_profile", "channel_id", "minimum_channel_sequence", "channel_checkpoint", "revocation_registry_id", "minimum_revocation_sequence", "revocation_checkpoint"],
+      "properties": {
+        "artifact_profile": {"enum": ["production", "planning_fixture"]},
+        "channel_id": {"type": "string", "pattern": "^[a-z][a-z0-9._/-]{1,127}$"},
+        "minimum_channel_sequence": {"$ref": "#/$defs/positive_sequence"},
+        "channel_checkpoint": {"$ref": "#/$defs/channel_history_checkpoint"},
+        "revocation_registry_id": {"$ref": "#/$defs/identifier"},
+        "minimum_revocation_sequence": {"$ref": "#/$defs/positive_sequence"},
+        "revocation_checkpoint": {"$ref": "#/$defs/revocation_history_checkpoint"}
+      },
+      "x-invariants": [
+        "channel_checkpoint.channel_id equals channel_id, channel_checkpoint.sequence is no greater than minimum_channel_sequence, revocation_checkpoint.registry_id equals revocation_registry_id, and revocation_checkpoint.sequence is no greater than minimum_revocation_sequence",
+        "The checkpoint URLs are beneath the matching history endpoint origin and path prefix in the containing policy distribution",
+        "A fetched checkpoint validates as the declared artifact_profile, exact identity and sequence and recomputes both complete-artifact and statement digests before its signatures are verified"
+      ]
+    },
+    "activation_authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_profile", "channel_id", "minimum_channel_sequence", "channel_checkpoint", "current_channel", "revocation_registry_id", "minimum_revocation_sequence", "revocation_checkpoint", "current_revocation"],
+      "properties": {
+        "artifact_profile": {"enum": ["production", "planning_fixture"]},
+        "channel_id": {"type": "string", "pattern": "^[a-z][a-z0-9._/-]{1,127}$"},
+        "minimum_channel_sequence": {"$ref": "#/$defs/positive_sequence"},
+        "channel_checkpoint": {"$ref": "#/$defs/channel_history_checkpoint"},
+        "current_channel": {"$ref": "#/$defs/current_channel_pin"},
+        "revocation_registry_id": {"$ref": "#/$defs/identifier"},
+        "minimum_revocation_sequence": {"$ref": "#/$defs/positive_sequence"},
+        "revocation_checkpoint": {"$ref": "#/$defs/revocation_history_checkpoint"},
+        "current_revocation": {"$ref": "#/$defs/current_revocation_pin"}
+      },
+      "x-invariants": [
+        "channel_checkpoint.channel_id and current_channel.channel_id equal channel_id; revocation_checkpoint.registry_id and current_revocation.registry_id equal revocation_registry_id",
+        "channel_checkpoint.sequence is no greater than minimum_channel_sequence and current_channel.sequence is no lower than both; revocation_checkpoint.sequence is no greater than minimum_revocation_sequence and current_revocation.sequence is no lower than both",
+        "All four complete artifacts are fetched only by their exact URI and must recompute both artifact and statement digests before bounded duplicate-safe schema parsing and signature/history verification"
+      ]
+    },
+    "publisher_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_id", "algorithm", "threshold", "keys", "channel_authorizations", "network_fetch_profile", "distribution"],
+      "properties": {
+        "policy_id": {"$ref": "#/$defs/identifier"},
+        "algorithm": {"const": "EdDSA"},
+        "threshold": {"const": 2},
+        "keys": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "x-uniqueBy": "kid",
+          "items": {"$ref": "#/$defs/publisher_key"}
+        },
+        "channel_authorizations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "uniqueItems": true,
+          "x-uniqueBy": "channel_id",
+          "items": {"$ref": "#/$defs/channel_authorization"}
+        },
+        "network_fetch_profile": {"$ref": "#/$defs/network_fetch_profile"},
+        "distribution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["registry_repository_id", "registry_repository_full_name", "channel_index_endpoint", "channel_history_endpoint", "revocation_endpoint", "revocation_history_endpoint", "keyset_endpoint", "keyset_history_endpoint"],
+          "properties": {
+            "registry_repository_id": {"type": "string", "pattern": "^[1-9][0-9]{0,19}$"},
+            "registry_repository_full_name": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$"},
+            "channel_index_endpoint": {"$ref": "#/$defs/strict_https_uri"},
+            "channel_history_endpoint": {"$ref": "#/$defs/strict_https_uri"},
+            "revocation_endpoint": {"$ref": "#/$defs/strict_https_uri"},
+            "revocation_history_endpoint": {"$ref": "#/$defs/strict_https_uri"},
+            "keyset_endpoint": {"$ref": "#/$defs/strict_https_uri"},
+            "keyset_history_endpoint": {"$ref": "#/$defs/strict_https_uri"}
+          },
+          "description": "Bootstrap-trusted discovery and content-addressed history origins only. HTTPS fetch does not replace channel authorization, checkpoint/history walk, signature, sequence, freshness, stable GitHub ID or digest verification."
+        }
+      },
+      "x-invariants": [
+        "At least threshold distinct keys are eligible at every artifact statement time accepted under this policy",
+        "A key is eligible only when statement time is at or after not_before and strictly before non-null not_after",
+        "keys is serialized in strictly increasing kid UTF-8 byte order and channel_authorizations in strictly increasing channel_id UTF-8 byte order before JCS; unsorted input is rejected",
+        "Every distribution and checkpoint URI uses one canonical HTTPS serialization with a lowercase valid DNS hostname and no IP literal, userinfo, non-default port, query, fragment, percent escape, backslash, control/non-ASCII character, empty/dot path segment or hostname-label ambiguity",
+        "Every fetch resolves no more than network_fetch_profile.maximum_dns_answers DNS answers and rejects loopback, private, link-local, carrier-grade NAT, documentation, benchmark, multicast, reserved and otherwise non-public addresses for IPv4 and IPv6; it re-resolves and revalidates the exact approved origin and path prefix after every redirect, rejects HTTPS downgrade and cross-origin redirects, sends no ambient cookie or authorization credential, requests identity encoding and rejects any Content-Encoding, and enforces the exact typed redirect/header/per-response/request-count/decoded-byte/elapsed-time budgets before duplicate-safe parsing",
+        "All redirect and retry hops consume the same maximum_authority_requests, byte totals and monotonic overall_activation_elapsed_ms deadline, which begins before the first DNS lookup and is never reset. Content-Length absent, incorrect or over-limit never relaxes streaming byte enforcement. A boundary value equal to a byte/request/redirect cap is accepted, the next unit is rejected; reaching an elapsed deadline is rejected",
+        "Installer bootstrap invokes the exact keyset_endpoint only as HTTPS GET with no query, fragment, request body, cookie or ambient authorization and requires 200 application/json plus no-store; its response must validate as freedom.publisher-bootstrap-index/v1. Exact history artifact_uri values are likewise GET-only. Other method/status/content type or any client-constructed URL template is rejected",
+        "A channel index is discovery data only. Installer input contains an out-of-band selected channel_id that must match exactly one channel_authorizations entry in the accepted policy; neither a project, index response, package nor signed channel may choose or synthesize that authority",
+        "For a publisher-policy artifact, every authorization artifact_profile equals policy_profile; for a transition new_policy, every authorization artifact_profile equals statement.transition_profile",
+        "In portable v1, keyset_endpoint, keyset_history_endpoint and network_fetch_profile are immutable bootstrap parameters: every transition new_policy repeats their exact values from the out-of-band initial policy. Changing any of them requires a new out-of-band root redistribution ceremony"
+      ]
+    },
+    "publisher_policy_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "policy_profile", "policy"],
+      "properties": {
+        "schema_version": {"const": "freedom.publisher-policy/v1"},
+        "policy_profile": {"enum": ["production", "planning_fixture"]},
+        "policy": {"$ref": "#/$defs/publisher_policy"}
+      },
+      "x-invariants": [
+        "The initial production artifact and SHA-256 fingerprint are delivered out of band; later current artifacts are accepted only when exactly derived from an accepted cross-signed keyset transition",
+        "planning_fixture can never become a production trust root"
+      ]
+    },
+    "publisher_keyset_transition_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["transition_profile", "transition_id", "sequence", "previous_policy_sha256", "old_policy_id", "new_policy", "issued_at", "effective_at", "clock_skew_seconds"],
+      "properties": {
+        "transition_profile": {"enum": ["production", "planning_fixture"]},
+        "transition_id": {"$ref": "#/$defs/identifier"},
+        "sequence": {"$ref": "#/$defs/positive_sequence"},
+        "previous_policy_sha256": {"$ref": "#/$defs/digest"},
+        "old_policy_id": {"$ref": "#/$defs/identifier"},
+        "new_policy": {"$ref": "#/$defs/publisher_policy"},
+        "issued_at": {"type": "string", "format": "date-time"},
+        "effective_at": {"type": "string", "format": "date-time"},
+        "clock_skew_seconds": {"const": 60}
+      }
+    },
+    "publisher_keyset_transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "statement", "old_policy_proof", "new_policy_proof"],
+      "properties": {
+        "schema_version": {"const": "freedom.publisher-keyset-transition/v1"},
+        "statement": {"$ref": "#/$defs/publisher_keyset_transition_statement"},
+        "old_policy_proof": {"$ref": "#/$defs/detached_multisignature_proof"},
+        "new_policy_proof": {"$ref": "#/$defs/detached_multisignature_proof"}
+      },
+      "x-invariants": [
+        "The transition is accepted only when the old proof meets the currently trusted old threshold and the new proof meets the proposed new threshold over the same exact statement",
+        "Both proof typ values are freedom.publisher-keyset-transition+jws; old_policy_proof.signature_policy_id equals statement.old_policy_id and new_policy_proof.signature_policy_id equals statement.new_policy.policy_id",
+        "sequence and previous_policy_sha256 extend the locally accepted policy chain: the first transition after the unsequenced out-of-band initial policy has sequence one and later transitions increment by exactly one; rollback, gaps, same-sequence conflict and an effective time less than 900 seconds after issued_at are rejected. The lead time is a v1 security constant that exceeds the bootstrap-index maximum lifetime plus clock allowance",
+        "No verifier adopts the new policy or advances its keyset sequence until verifier time is at least effective_at minus the fixed 60-second skew; before that exact inclusive boundary a future transition may be cached but is not accepted. This clock allowance controls local adoption only: for channel/revocation signatures the new policy is the sole active signer when statement.issued_at is at or after effective_at, while the old policy is sole active before effective_at",
+        "Every old-policy proof signer is eligible at issued_at, every new-policy proof signer is eligible at issued_at under new_policy, and at least the new threshold remains eligible at effective_at; key not_before/not_after bounds are never ignored",
+        "If the old threshold cannot be met after compromise, recovery is an explicit out-of-band root redistribution ceremony and never an artifact-selected fallback"
+      ]
+    },
+    "keyset_transition_locator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequence", "transition_artifact_sha256", "transition_statement_sha256", "artifact_uri"],
+      "properties": {
+        "sequence": {"$ref": "#/$defs/positive_sequence"},
+        "transition_artifact_sha256": {"$ref": "#/$defs/digest"},
+        "transition_statement_sha256": {"$ref": "#/$defs/digest"},
+        "artifact_uri": {"$ref": "#/$defs/strict_https_uri"}
+      }
+    },
+    "publisher_bootstrap_index_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index_profile", "initial_policy_sha256", "signing_policy_id", "published_head_policy_id", "published_head_policy_sha256", "issued_at", "expires_at", "max_staleness_seconds", "clock_skew_seconds", "maximum_history_links", "transition_locators", "channel_authorizations"],
+      "properties": {
+        "index_profile": {"enum": ["production", "planning_fixture"]},
+        "initial_policy_sha256": {"$ref": "#/$defs/digest"},
+        "signing_policy_id": {"$ref": "#/$defs/identifier"},
+        "published_head_policy_id": {"$ref": "#/$defs/identifier"},
+        "published_head_policy_sha256": {"$ref": "#/$defs/digest"},
+        "issued_at": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date-time"},
+        "max_staleness_seconds": {"const": 300},
+        "clock_skew_seconds": {"const": 60},
+        "maximum_history_links": {"const": 64},
+        "transition_locators": {
+          "type": "array",
+          "maxItems": 1000,
+          "uniqueItems": true,
+          "x-uniqueBy": "sequence",
+          "items": {"$ref": "#/$defs/keyset_transition_locator"}
+        },
+        "channel_authorizations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "uniqueItems": true,
+          "x-uniqueBy": "channel_id",
+          "items": {"$ref": "#/$defs/activation_authorization"}
+        }
+      },
+      "x-invariants": [
+        "initial_policy_sha256 must equal the complete out-of-band initial publisher-policy artifact fingerprint before any locator is used",
+        "issued_at is strictly before expires_at, expires_at is no more than 300 seconds after issued_at, and the statement is current only when verifier time is at least issued_at minus 60 seconds and strictly before expires_at",
+        "transition_locators are serialized in exact sequence order beginning at one with no gap; every artifact_uri is beneath the immutable out-of-band initial policy keyset_history_endpoint origin and path prefix",
+        "Each fetched complete transition artifact recomputes both listed digests, has index_profile, passes old and new threshold proofs, and extends the exact prior policy digest and ID. The next item is not fetched or trusted until the prior item succeeds",
+        "With no transition, published_head_policy_id and published_head_policy_sha256 equal the out-of-band initial policy. Otherwise they equal the policy artifact deterministically constructed from the final fetched transition new_policy and index_profile",
+        "signing_policy_id is the sole policy active at issued_at as derived from the verified transition chain and exact effective-time intervals; future valid transitions may be cached but are adopted only at their effective-time rule",
+        "channel_authorizations is sorted by channel_id and contains exactly the same channel IDs, profiles and revocation registry IDs as that active signing policy. Each minimum is no lower than the policy minimum and each checkpoint sequence is no earlier than the matching policy checkpoint; every channel checkpoint URI is beneath that exact active policy channel_history_endpoint origin/path prefix and every revocation checkpoint URI is beneath its revocation_history_endpoint origin/path prefix. These short-lived signed checkpoints may advance to bound fresh-install history walks but may never add a channel, change its registry, choose another origin or lower a floor",
+        "For each selected channel, current_channel and current_revocation are the only authoritative current-artifact discovery pins. Their exact URIs and artifact/statement digests are beneath the active policy matching history endpoint origins/path prefixes; mutable channel_index_endpoint and revocation_endpoint results are advisory and never used to select activation bytes",
+        "For each selected channel, current_channel.sequence minus channel_checkpoint.sequence and current_revocation.sequence minus revocation_checkpoint.sequence are each between zero and maximum_history_links inclusive. A longer, cyclic or non-decrementing walk fails closed and requires the publisher to issue a fresh signed index checkpoint; a verifier never performs an unbounded history fetch",
+        "Before signing, each index signer fetches or reads the exact candidate transition/current/history closure and rejects it when any resource or the complete authority request/decoded-byte closure exceeds the active policy network_fetch_profile. A syntactically valid index cannot promise a chain that conforming clients must exceed their portable-v1 authority budget to verify",
+        "A locator or authorization omission, duplicate, gap, same-sequence fork, lowered floor, digest mismatch, invalid transition, stale index, excessive response or partial chain fails closed. The verifier derives active policy and authorization from verified data and time, never from published-head fields alone",
+        "Each index signer independently reads the canonical append-only transition journal and refuses to sign an index that omits any accepted transition whose issued_at is no later than index issued_at, changes a previously published locator or selects a fork. Publisher-independent monitors compare signed heads and page Security on equivocation; threshold-key compromise still requires the explicit out-of-band recovery ceremony",
+        "The index and every fetched transition use duplicate-name-safe bounded JSON parsing; network fetches apply the out-of-band initial policy strict URL, DNS, redirect, credential, size and time rules"
+      ]
+    },
+    "publisher_bootstrap_index": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "statement", "proof"],
+      "properties": {
+        "schema_version": {"const": "freedom.publisher-bootstrap-index/v1"},
+        "statement": {"$ref": "#/$defs/publisher_bootstrap_index_statement"},
+        "proof": {"$ref": "#/$defs/detached_multisignature_proof"}
+      },
+      "x-invariants": [
+        "proof.typ is freedom.publisher-bootstrap-index+jws, proof.signature_policy_id equals statement.signing_policy_id and proof.payload_sha256 equals the exact statement JCS digest",
+        "The proof reaches threshold under the sole policy active at statement.issued_at after the transition chain is verified from the out-of-band initial policy. A future published-head policy cannot sign the index before it becomes active",
+        "The initial policy keyset_endpoint serves this complete artifact with no-store semantics; a truncated but formerly valid index can be replayed only until its exclusive expiry. Every transition is announced at least 900 seconds before cutover while an index lives at most 300 seconds, so every honestly signed pre-announcement prefix expires before cutover"
+      ]
+    },
+    "keyset_transition_pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequence", "transition_artifact_sha256", "transition_statement_sha256", "previous_policy_sha256", "old_policy_id", "new_policy_id", "new_policy_sha256"],
+      "properties": {
+        "sequence": {"$ref": "#/$defs/positive_sequence"},
+        "transition_artifact_sha256": {"$ref": "#/$defs/digest"},
+        "transition_statement_sha256": {"$ref": "#/$defs/digest"},
+        "previous_policy_sha256": {"$ref": "#/$defs/digest"},
+        "old_policy_id": {"$ref": "#/$defs/identifier"},
+        "new_policy_id": {"$ref": "#/$defs/identifier"},
+        "new_policy_sha256": {"$ref": "#/$defs/digest"}
+      },
+      "x-invariants": [
+        "The complete fetched transition artifact RFC-8785 JCS digest equals transition_artifact_sha256 and its statement JCS digest equals transition_statement_sha256",
+        "The fetched statement sequence, previous_policy_sha256, old_policy_id and new_policy.policy_id equal this pin",
+        "new_policy_sha256 equals SHA-256 over JCS of the exact freedom.publisher-policy/v1 artifact constructed from the fetched new_policy and the same production/planning profile"
+      ]
+    },
+    "activation_lock": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-invariants": [
+        "channel_artifact_sha256 and revocation_artifact_sha256 are SHA-256 over JCS of their complete signed JSON artifacts; statement digests are SHA-256 over JCS of only their statements",
+        "initial_publisher_policy_sha256 and publisher_policy_sha256 equal SHA-256 over RFC 8785 JCS of their complete cached freedom.publisher-policy/v1 artifacts",
+        "The complete initial and current freedom.publisher-policy/v1 artifacts are cached at authority_paths.initial_publisher_policy and authority_paths.current_publisher_policy; their exact JCS digests equal initial_publisher_policy_sha256 and publisher_policy_sha256",
+        "The initial and current policy network_fetch_profile objects are byte-for-value identical and equal freedom-network-fetch-v1. Every authority and GitHub asset fetch consumes that profile's non-resetting request/time/streaming-byte budgets; each fetched bundle archive declared size and cumulative activation payload size must also fit before extraction",
+        "keyset_transition_chain is strictly ordered and contiguous beginning with transition sequence one (the out-of-band initial policy itself is unsequenced); effective_at values strictly increase; its first previous_policy_sha256 and old_policy_id equal the initial cached policy digest and ID, every later previous_policy_sha256 and old_policy_id equal the prior new_policy_sha256 and new_policy_id, and every pin is bound to its complete cached transition artifact and statement",
+        "keyset_transition_chain is exactly the adopted active prefix, at lock construction time, of the fully verified publisher bootstrap-index transition_locators; later published transitions may be cached but are excluded until their effective-time adoption boundary",
+        "When the chain is empty the complete initial and current policy artifacts are byte-identical and publisher_policy_sha256 equals initial_publisher_policy_sha256; otherwise the terminal new_policy_sha256 equals publisher_policy_sha256 and terminal new_policy_id equals the current cached policy.policy_id",
+        "keyset_chain_digest equals SHA-256 over RFC 8785 JCS of the exact ordered keyset_transition_chain; an empty initial chain hashes the empty array",
+        "publisher_bootstrap_index_artifact_sha256 equals SHA-256 over JCS of the complete current signed bootstrap index, and publisher_bootstrap_index_statement_sha256 equals SHA-256 over JCS of only its statement; its copied issued/expires times, profile, maximum_history_links and selected authorization match this lock and it is current under the exclusive-expiry rule",
+        "activation_digest equals SHA-256 over JCS({channel_artifact_sha256,channel_statement_sha256,keyset_chain_digest,publisher_bootstrap_index_artifact_sha256,publisher_bootstrap_index_statement_sha256,publisher_policy_sha256,revocation_artifact_sha256,revocation_statement_sha256}) with keys serialized by RFC 8785",
+        "All copied pins exactly equal the verified channel statement, including exact bundle kinds and profiles; every pin artifact_profile equals activation_profile. channel_self_minimum_sequence equals the channel minimum_accepted_sequence. Revocation identity, sequence and times exactly equal the verified current snapshot",
+        "The current signed publisher bootstrap index contains exactly one authorization for channel_id and activation_profile. trusted_channel_minimum_sequence, trusted_channel_checkpoint, trusted_revocation_minimum_sequence and trusted_revocation_checkpoint exactly copy that index authorization; it has the same channel and registry IDs, its minima/checkpoints are no lower/earlier than the matching active publisher-policy authorization, and fully verified channel and revocation predecessor walks terminate at these exact copied checkpoints",
+        "channel identity, sequence, artifact/statement digests and issued/valid/expires times exactly equal that index authorization current_channel pin; revocation identity, sequence, artifact/statement digests and issued/expires times exactly equal its current_revocation pin. A different still-valid predecessor or pre-revocation snapshot is not current and cannot activate",
+        "revocation_registry_id equals the channel revocation_requirement.registry_id, revocation_required_minimum_snapshot_sequence equals its minimum_snapshot_sequence, and revocation_sequence is greater than or equal to that required minimum as well as the separately durable local revocation high-water",
+        "The current revocation snapshot contains exactly one minimum_channel_sequences entry for channel_id; registry_minimum_channel_sequence equals that entry, channel_sequence is greater than or equal to channel_self_minimum_sequence, registry_minimum_channel_sequence and trusted_channel_minimum_sequence, and revocation_sequence is greater than or equal to trusted_revocation_minimum_sequence",
+        "For the channel and revocation artifacts, publisher_policy_id and proof.signature_policy_id equal the sole policy active at each statement issued_at according to the complete accepted transition chain: initial before the first effective_at, then each new policy on [effective_at,next effective_at). The 60-second local adoption skew does not change these signed-time intervals",
+        "The lock is generated outside every package and bundle payload, never participates in their digest, never rewrites verified bytes and is never itself a signature or authority source",
+        "The lock is a deterministic projection of the exact authority and payload pins plus versioned layout constants; it contains no observation time, installer version, host path or other run-local value. Independent conforming installers produce byte-identical RFC 8785 JCS lock bytes for the same activation inputs",
+        "flat-content-addressed-v1 stores activation records under a/<activation-digest-hex>, every verified payload tree under o/<payload-digest-hex>, and authority artifacts under the activation record using only the exact fixed mapping below; channel IDs, package IDs, versions and unpadded decimal sequences are never path segments",
+        "Within the activation record, current channel and revocation use the two fixed filenames, each fetched predecessor from trusted checkpoint through immediate predecessor uses channel-history or revocation-history plus its exact 19-digit zero-padded sequence and .json, fully verified publisher-bootstrap-index transition locator positions use keyset-transitions/0001.json through /1000.json even when a later item is not yet active, and bundle manifests use root-skill.json, dependency-0001.json through dependency-1000.json in exact closure order, plan.json and contract.json. Empty predecessor/transition/dependency sets create empty read-only directories; no alternate width, sequence-derived keyset filename, raw ID or implementation-selected alias is permitted",
+        "The sealed session exposes root and dependencies at skills/<verified skill_metadata.name>, plan at plan and its byte-identical contract subtree at plan/contracts; skill names are pairwise portable-collision-free. Adapters may use internal read-only bind mounts, immutable layers or verified copies only when resolved regular files remain beneath the session root and byte-identical to pinned object trees; mutable filesystem links are not accepted",
+        "lease-lock-mark-sweep-v1 roots reachability only from a freshly revalidated active.json and every valid activation-session-lease whose OS lock is held or whose unlocked heartbeat/process/grace checks still protect it. It transitively marks each root activation record, exact authority files and payload object trees from the validated lock; directory scanning never creates authority or a fallback",
+        "GC runs under the installer/GC lock, atomically renames only unmarked regular directories older than gc_grace_seconds into a same-filesystem private trash generation, fsyncs, then re-reads active.json and all leases before irreversible removal. If any target became reachable, validation/lock status is ambiguous, quota would require deleting a marked object, or recovery sees a partial generation, deletion stops or restores the rename. Crash recovery is idempotent and never follows links/reparse points",
+        "The cache root, including activation records, payloads, sessions, staging and trash generations, has the fixed cache_quota_bytes hard ceiling and must retain minimum_free_space_bytes on its filesystem. At most maximum_live_session_leases valid live leases and maximum_marked_activation_records distinct reachable activations may exist. Under the same exclusive installer/GC lock, admission performs GC then recomputes actual allocated bytes, free space, live leases and distinct marked roots; a new activation or session that would exceed any bound fails cache_quota_exceeded before pointer/lease publication and never deletes a marked or within-grace object",
+        "Before activation the installer computes every resulting absolute cache and session path and requires no path to exceed portable_absolute_path_limit ASCII characters; it then performs create/open/read/execute/delete probes through the exact filesystem, runtime and CLI adapter. Failure or inability to probe is path_profile_unsupported and cannot advance the active pointer",
+        "A production activation requires production channel and revocation profiles, verifier time no earlier than each issued/valid-from time minus the fixed 60-second skew and strictly earlier than both expiries, monotonic local sequence state and no matching revocation; a future snapshot never advances local monotonic state before this check"
+      ],
+      "required": ["schema_version", "activation_profile", "channel_id", "channel_sequence", "channel_self_minimum_sequence", "trusted_channel_minimum_sequence", "trusted_channel_checkpoint", "channel_artifact_sha256", "channel_statement_sha256", "channel_issued_at", "channel_valid_from", "channel_expires_at", "revocation_registry_id", "revocation_sequence", "revocation_required_minimum_snapshot_sequence", "trusted_revocation_minimum_sequence", "trusted_revocation_checkpoint", "registry_minimum_channel_sequence", "revocation_artifact_sha256", "revocation_statement_sha256", "revocation_issued_at", "revocation_expires_at", "verification_clock_skew_seconds", "initial_publisher_policy_sha256", "publisher_policy_sha256", "publisher_bootstrap_index_artifact_sha256", "publisher_bootstrap_index_statement_sha256", "publisher_bootstrap_index_issued_at", "publisher_bootstrap_index_expires_at", "maximum_history_links", "keyset_transition_chain", "keyset_chain_digest", "root_skill", "dependency_closure", "plan_bundle", "contract_bundle", "activation_digest", "read_only", "cache_key_encoding", "cache_layout_profile", "session_root_layout", "gc_profile", "gc_grace_seconds", "cache_quota_bytes", "minimum_free_space_bytes", "maximum_live_session_leases", "maximum_marked_activation_records", "portable_absolute_path_limit", "session_paths", "authority_paths"],
+      "properties": {
+        "schema_version": {"const": "freedom.activation-lock/v1"},
+        "activation_profile": {"enum": ["production", "planning_fixture"]},
+        "channel_id": {"type": "string", "pattern": "^[a-z][a-z0-9._/-]{1,127}$"},
+        "channel_sequence": {"$ref": "#/$defs/positive_sequence"},
+        "channel_self_minimum_sequence": {"$ref": "#/$defs/positive_sequence"},
+        "trusted_channel_minimum_sequence": {"$ref": "#/$defs/positive_sequence"},
+        "trusted_channel_checkpoint": {"$ref": "#/$defs/channel_history_checkpoint"},
+        "channel_artifact_sha256": {"$ref": "#/$defs/digest"},
+        "channel_statement_sha256": {"$ref": "#/$defs/digest"},
+        "channel_issued_at": {"type": "string", "format": "date-time"},
+        "channel_valid_from": {"type": "string", "format": "date-time"},
+        "channel_expires_at": {"type": "string", "format": "date-time"},
+        "revocation_registry_id": {"$ref": "#/$defs/identifier"},
+        "revocation_sequence": {"$ref": "#/$defs/positive_sequence"},
+        "revocation_required_minimum_snapshot_sequence": {"$ref": "#/$defs/positive_sequence"},
+        "trusted_revocation_minimum_sequence": {"$ref": "#/$defs/positive_sequence"},
+        "trusted_revocation_checkpoint": {"$ref": "#/$defs/revocation_history_checkpoint"},
+        "registry_minimum_channel_sequence": {"$ref": "#/$defs/positive_sequence"},
+        "revocation_artifact_sha256": {"$ref": "#/$defs/digest"},
+        "revocation_statement_sha256": {"$ref": "#/$defs/digest"},
+        "revocation_issued_at": {"type": "string", "format": "date-time"},
+        "revocation_expires_at": {"type": "string", "format": "date-time"},
+        "verification_clock_skew_seconds": {"const": 60},
+        "initial_publisher_policy_sha256": {"$ref": "#/$defs/digest"},
+        "publisher_policy_sha256": {"$ref": "#/$defs/digest"},
+        "publisher_bootstrap_index_artifact_sha256": {"$ref": "#/$defs/digest"},
+        "publisher_bootstrap_index_statement_sha256": {"$ref": "#/$defs/digest"},
+        "publisher_bootstrap_index_issued_at": {"type": "string", "format": "date-time"},
+        "publisher_bootstrap_index_expires_at": {"type": "string", "format": "date-time"},
+        "maximum_history_links": {"const": 64},
+        "keyset_transition_chain": {
+          "type": "array",
+          "maxItems": 1000,
+          "uniqueItems": true,
+          "x-uniqueBy": "sequence",
+          "items": {"$ref": "#/$defs/keyset_transition_pin"}
+        },
+        "keyset_chain_digest": {"$ref": "#/$defs/digest"},
+        "root_skill": {"$ref": "#/$defs/package_pin"},
+        "dependency_closure": {"$ref": "#/$defs/dependency_closure"},
+        "plan_bundle": {"$ref": "#/$defs/plan_bundle_pin"},
+        "contract_bundle": {"$ref": "#/$defs/contract_bundle_pin"},
+        "activation_digest": {"$ref": "#/$defs/digest"},
+        "read_only": {"const": true},
+        "cache_key_encoding": {"const": "sha256-lowerhex-no-prefix-v1"},
+        "cache_layout_profile": {"const": "flat-content-addressed-v1"},
+        "session_root_layout": {"const": "s/<16-lowerhex>"},
+        "gc_profile": {"const": "lease-lock-mark-sweep-v1"},
+        "gc_grace_seconds": {"const": 86400},
+        "cache_quota_bytes": {"const": 10737418240},
+        "minimum_free_space_bytes": {"const": 1073741824},
+        "maximum_live_session_leases": {"const": 64},
+        "maximum_marked_activation_records": {"const": 16},
+        "portable_absolute_path_limit": {"const": 240},
+        "session_paths": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["skills", "plan", "contracts"],
+          "properties": {
+            "skills": {"const": "skills"},
+            "plan": {"const": "plan"},
+            "contracts": {"const": "plan/contracts"}
+          }
+        },
+        "authority_paths": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["signed_channel", "channel_history", "revocation_snapshot", "revocation_history", "publisher_bootstrap_index", "initial_publisher_policy", "current_publisher_policy", "keyset_transitions", "registry_snapshot", "bundle_manifests"],
+          "properties": {
+            "signed_channel": {"const": "authority/signed-channel.json"},
+            "channel_history": {"const": "authority/channel-history"},
+            "revocation_snapshot": {"const": "authority/revocation-snapshot.json"},
+            "revocation_history": {"const": "authority/revocation-history"},
+            "publisher_bootstrap_index": {"const": "authority/publisher-bootstrap-index.json"},
+            "initial_publisher_policy": {"const": "authority/publisher-policies/initial.json"},
+            "current_publisher_policy": {"const": "authority/publisher-policies/current.json"},
+            "keyset_transitions": {"const": "authority/keyset-transitions"},
+            "registry_snapshot": {"const": "authority/registry-snapshot.json"},
+            "bundle_manifests": {"const": "authority/bundle-manifests"}
+          },
+          "description": "Read-only package-external copies of the complete authority artifacts, including signatures/proofs; activation.lock is only an index and never substitutes for them."
+        }
+      }
+    },
+    "activation_pointer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "activation_profile", "generation", "previous_pointer_sha256", "channel_id", "channel_sequence", "activation_digest", "activation_lock_sha256", "activation_record_dir", "installer", "updated_at"],
+      "properties": {
+        "schema_version": {"const": "freedom.activation-pointer/v1"},
+        "activation_profile": {"enum": ["production", "planning_fixture"]},
+        "generation": {"$ref": "#/$defs/positive_sequence"},
+        "previous_pointer_sha256": {
+          "oneOf": [
+            {"$ref": "#/$defs/digest"},
+            {"type": "null"}
+          ]
+        },
+        "channel_id": {"type": "string", "pattern": "^[a-z][a-z0-9._/-]{1,127}$"},
+        "channel_sequence": {"$ref": "#/$defs/positive_sequence"},
+        "activation_digest": {"$ref": "#/$defs/digest"},
+        "activation_lock_sha256": {"$ref": "#/$defs/digest"},
+        "activation_record_dir": {"type": "string", "pattern": "^a/[a-f0-9]{64}$"},
+        "installer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["installer_id", "version"],
+          "properties": {
+            "installer_id": {"const": "freedom-skill-installer"},
+            "version": {"$ref": "#/$defs/semver"}
+          }
+        },
+        "updated_at": {"type": "string", "format": "date-time"}
+      },
+      "x-invariants": [
+        "The artifact is stored only at the fixed cache-root-relative path active.json; it is an untrusted launcher index, never a signature, trust root, monotonic high-water record or substitute for activation.lock and its complete cached authority proofs",
+        "activation_record_dir equals 'a/' plus the 64 lowercase hexadecimal characters after the activation_digest sha256: prefix; traversal, an absolute path, alternate separator, symlink or reparse-point hop, case alias and a resolved target outside the configured cache root are rejected",
+        "activation_lock_sha256 equals SHA-256 over RFC 8785 JCS of the complete deterministic referenced activation.lock; that lock has the same activation_profile, channel_id, channel_sequence and activation_digest, and every authority, cache, session and path-compatibility verification succeeds before this pointer can be committed or used",
+        "generation starts at one and increases by exactly one; generation one has null previous_pointer_sha256, and every later value equals SHA-256 over RFC 8785 JCS of the complete immediately previous activation-pointer artifact",
+        "An update holds the installer lock and performs compare-and-swap against the exact previous pointer bytes and digest, writes and fsyncs a same-filesystem temporary regular file, then atomically replaces active.json and fsyncs its parent where supported; a CAS conflict, partial write, non-regular file or unavailable required durability primitive fails without changing the accepted pointer",
+        "Channel sequence rollback or a same-sequence different activation conflict is rejected against separately durable monotonic state before commit; a future channel, key transition or revocation snapshot never advances that state",
+        "A launcher performs a bounded duplicate-name-safe JSON parse, rejects unknown fields, re-resolves the cache-contained regular-file target, and fully re-verifies the referenced activation and current revocation state on every new session; it never searches cache directories for a fallback when active.json is invalid"
+      ]
+    },
+    "activation_session_lease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "lease_id", "pointer_generation", "activation_pointer_sha256", "activation_digest", "activation_lock_sha256", "activation_record_dir", "session_dir", "process_start_token", "created_at", "heartbeat_at", "expires_at", "state"],
+      "properties": {
+        "schema_version": {"const": "freedom.activation-session-lease/v1"},
+        "lease_id": {"type": "string", "pattern": "^[a-f0-9]{16}$"},
+        "pointer_generation": {"$ref": "#/$defs/positive_sequence"},
+        "activation_pointer_sha256": {"$ref": "#/$defs/digest"},
+        "activation_digest": {"$ref": "#/$defs/digest"},
+        "activation_lock_sha256": {"$ref": "#/$defs/digest"},
+        "activation_record_dir": {"type": "string", "pattern": "^a/[a-f0-9]{64}$"},
+        "session_dir": {"type": "string", "pattern": "^s/[a-f0-9]{16}$"},
+        "process_start_token": {"type": "string", "minLength": 16, "maxLength": 200, "pattern": "^[A-Za-z0-9._:-]+$"},
+        "created_at": {"type": "string", "format": "date-time"},
+        "heartbeat_at": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date-time"},
+        "state": {"enum": ["active", "closed"]}
+      },
+      "x-invariants": [
+        "lease_id is cryptographically random; session_dir equals s/ plus lease_id and activation_record_dir is derived exactly from activation_digest as for active.json. pointer_generation and activation_pointer_sha256 identify the exact complete RFC-8785-JCS active.json bytes from which every activation field was copied",
+        "The launcher takes the same global installer/GC lock exclusively before reading active.json and holds it through bounded pointer/lock/authority validation, quota/live-root admission, atomic creation and fsync of s/<lease_id>/lease.json plus regular lease.lock, acquisition of the lease.lock OS lock, and a final exact active.json byte/digest comparison. Only then may it release the global lock and expose discovery paths. Any change or failure removes the unpublished session and retries from a fresh pointer; GC and pointer updates use that same global exclusive lock, closing the read-to-lease TOCTOU window",
+        "After publication the launcher holds a reliable OS-level lock on lease.lock for the entire native client lifetime. If the filesystem/runtime cannot provide a non-spoofable non-blocking lock and process-start token, the adapter is unsupported",
+        "created_at is no later than heartbeat_at, heartbeat_at is strictly before expires_at and expires_at is no more than 300 seconds after heartbeat_at. Heartbeat replacement is same-filesystem CAS/atomic and cannot change identity fields; graceful close writes state closed, fsyncs, releases the lock and removes the session",
+        "GC never trusts lease paths before bounded duplicate-safe parsing and beneath-root resolution. A lease whose OS lock is held is live even if heartbeat is late; an unlocked active lease is reclaimable only after expiry, process_start_token is not live and the fixed 86400-second grace has elapsed"
+      ]
+    },
+    "planning_fixture_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "note", "bundle_manifests", "registry_snapshot", "signed_channel", "revocation_snapshot", "publisher_policy", "publisher_keyset_transition", "publisher_bootstrap_index", "activation_lock", "activation_pointer", "activation_session_lease"],
+      "properties": {
+        "schema_version": {"const": "freedom.portable-activation-fixture-set/v1"},
+        "note": {"const": "planning_fixture_only_fake_digests_and_signatures_never_activate"},
+        "bundle_manifests": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 100,
+          "items": {"$ref": "#/$defs/bundle_manifest"}
+        },
+        "registry_snapshot": {"$ref": "#/$defs/skill_registry_snapshot"},
+        "signed_channel": {"$ref": "#/$defs/signed_channel"},
+        "revocation_snapshot": {"$ref": "#/$defs/revocation_snapshot"},
+        "publisher_policy": {"$ref": "#/$defs/publisher_policy_artifact"},
+        "publisher_keyset_transition": {"$ref": "#/$defs/publisher_keyset_transition"},
+        "publisher_bootstrap_index": {"$ref": "#/$defs/publisher_bootstrap_index"},
+        "activation_lock": {"$ref": "#/$defs/activation_lock"},
+        "activation_pointer": {"$ref": "#/$defs/activation_pointer"},
+        "activation_session_lease": {"$ref": "#/$defs/activation_session_lease"}
+      },
+      "x-invariants": [
+        "The set includes root Skill, one dependency, ContractBundle and derived PlanBundle examples whose pins agree structurally",
+        "Every profile is planning_fixture and every digest/signature is fake; this set is positive only for schema shape and must fail every production cryptographic activation path"
+      ]
+    }
+  }
+}

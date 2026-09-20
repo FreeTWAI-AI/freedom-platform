@@ -1,0 +1,181 @@
+schema_version: freedom.project/v1
+kind: Project
+project_id: project:freedom-platform
+slug: freedom-platform
+name: Freedom Platform
+summary: Shared control plane for membership, work, projects, products, releases, and auditable transaction facts.
+project_type: platform
+lifecycle: incubating
+
+description:
+  problem: Give people, squads, and their local agents one governed place to discover work, build projects, publish releases, and report verifiable outcomes.
+  audiences:
+    - community members
+    - vertical leads
+    - contributors and local agent operators
+  capabilities:
+    - maintain membership and project state
+    - turn approved work into GitHub issues and pull requests
+    - publish verified project and release status
+  limitations:
+    - does not store client raw datasets or client database credentials
+    - does not custody buyer or supplier funds
+    - is not production-ready while lifecycle is incubating
+
+ownership:
+  ownership_mode: managed_team
+  accountable_team: freedom-example/platform-leads
+  external_owner: null
+  accountable_party_ref: office:platform-engineering-master
+  module_stewardship_ref: null
+  vertical: platform
+  maintainer_teams:
+    - freedom-example/platform-maintainers
+  maintainer_accounts: []
+  security_contact: mailto:security@freedom.example
+
+repository:
+  full_name: freedom-example/freedom-platform
+  html_url: https://github.com/freedom-example/freedom-platform
+  repository_id: "123456789"
+  default_branch: main
+  visibility: public
+  is_fork: false
+  upstream: null
+  creation_method: original
+  source_lineage: []
+
+modules:
+  module:identity-membership:
+    path: modules/identity-membership
+    owner_type: managed_team
+    owner_team: freedom-example/member-operations
+    owner_account: null
+  module:agent-control:
+    path: modules/agent-control-provenance
+    owner_type: managed_team
+    owner_team: freedom-example/agent-control
+    owner_account: null
+
+page:
+  publication: github_pages
+  requested_trust_label: incubating
+  source: generated
+  canonical_platform_url: https://freedom.example/projects/freedom-platform
+  github_pages_url: https://freedom-example.github.io/freedom-platform/
+  exception_reason: null
+  required_sections:
+    - identity_and_status
+    - problem_and_audience
+    - capabilities_and_limitations
+    - links
+    - release
+    - ownership_and_security
+    - license_and_data_boundary
+    - fork_lineage
+    - build_provenance
+    - canonical_platform_link
+
+fork_policy:
+  mode: allowed
+  allowed_purposes:
+    - contribution
+    - distribution
+  allow_private_forks: false
+  new_independent_project_method: template
+  official_status_inherited: false
+  fork_badge: "Community fork — not an official Freedom release"
+
+release:
+  policy: freedom.semver-immutable/v1
+  tag_format: vMAJOR.MINOR.PATCH[-PRERELEASE]
+  source_branch: main
+  immutable: true
+  page_from: published_release
+
+toolchain:
+  profile: freedom.cloudflare-react/v1
+  runtime_version_file: .tool-versions
+  package_manager: pnpm
+  lockfile: pnpm-lock.yaml
+  commands_source: trusted_build_profile
+
+licensing:
+  spdx_expression: Apache-2.0
+  license_file: LICENSE
+  source_distribution: open_source
+  commercial_terms_url: null
+
+deployment:
+  runtime: cloudflare_workers
+  environments:
+    preview:
+      provider: cloudflare_workers_preview
+      trigger: pull_request
+      url: null
+      requires_human_approval: false
+      external_fork_policy: artifact_only
+      external_fork_preview_exception: trusted_manual_two_stage_static_only
+    staging:
+      provider: cloudflare_workers
+      trigger: main
+      url: https://staging.freedom.example/
+      requires_human_approval: false
+    production:
+      provider: cloudflare_workers
+      trigger: published_release
+      url: https://app.freedom.example/
+      requires_human_approval: true
+  database_migration_strategy: expand_backfill_switch_contract
+
+data_boundary:
+  classification: internal
+  platform_record_types:
+    - User
+    - ProfessionMembership
+    - Project
+    - WorkItem
+    - AgentRun
+    - Product
+    - Order
+    - PaymentFact
+    - LedgerEvent
+  customer_data_mode: external_client_owned
+  credential_reference_metadata_in_postgres: true
+  dynamic_credential_storage:
+    - provider_managed
+    - postgres_envelope_vault
+  credential_root_key_storage: cloudflare_worker_secret
+  stores_payment_instrument_data: false
+  stores_plaintext_credentials: false
+  external_systems_of_record:
+    - github
+    - client_storage
+    - discord
+    - line
+    - client_database
+    - payment_provider
+    - bank
+
+quality:
+  required_checks:
+    - manifest/schema
+    - manifest/github-consistency
+    - test
+    - page/build
+    - security
+    - release-policy
+  minimum_human_reviews: 1
+  production_human_approval: true
+  sensitive_paths:
+    - freedom.project.yaml
+    - .github/**
+    - SECURITY.md
+    - LICENSE
+    - site/assets/brand/**
+
+links:
+  documentation: https://freedom.example/projects/freedom-platform/docs
+  demo: null
+  support: https://freedom.example/support
+  issues: https://github.com/freedom-example/freedom-platform/issues

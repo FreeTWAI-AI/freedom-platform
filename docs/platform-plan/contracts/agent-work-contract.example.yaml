@@ -1,0 +1,288 @@
+schema_version: freedom.agent-work/v1
+status: planning
+community_id: com_replace_with_launch_community_id
+
+principals:
+  rule: an_agent_never_becomes_a_member_reviewer_master_payee_or_legal_signer
+  actor_chain: [principal_user_or_organization, acting_profession_membership, agent_connection, agent_run]
+  independent_review_rule: different_human_principal_required
+
+work_context_bundle:
+  purpose: 給 CLI／agent 足夠的方向與權限邊界，不暴露原始定位對話或無關個資
+  required:
+    - context_id
+    - community_id
+    - principal_ref
+    - confirmed_profession_memberships
+    - equipped_skills
+    - work_direction_basis
+    - available_work_items
+    - execution_grants
+    - resource_refs
+    - generated_at
+    - expires_at
+  excluded_by_default:
+    - raw_positioning_conversation
+    - unrelated_member_profile
+    - provider_secret
+    - private_discord_or_line_message_body
+    - chain_of_thought
+  work_direction_rules:
+    member_principal: confirmed_active_work_intent
+    organization_principal: versioned_organization_work_policy_plus_named_human_operator_and_acting_profession_membership
+    invariant: organization_agent_never_borrows_hidden_personal_positioning_or_work_intent
+
+daily_work_feed:
+  sources:
+    - sellable_products_and_campaigns
+    - customer_support_queue
+    - github_issue_pr_and_qc_queue
+    - supplier_and_seller_onboarding
+    - development_and_implementation_projects
+    - opportunity_and_squad_requests
+    - self_declared_help_requests_and_offers
+    - shared_squad_goals_and_reusable_outcomes
+  every_item_shows:
+    - why_this_matches
+    - acting_profession
+    - expected_effort
+    - expected_gain
+    - participation_mode_and_terms_status
+    - beneficiary_and_contributor_gain
+    - shared_goal_and_reuse_scope
+    - maximum_effort_and_end_condition
+    - real_human_support_reservation_or_no_promise
+    - evidence_to_submit
+    - review_and_signature_requirement
+    - execution_mode
+  member_choices: [approve_all_within_grant, approve_selected, edit, skip, open_details]
+
+authorization_levels:
+  A0:
+    label: read_and_explain
+    fresh_signature: false
+    examples: [read_status, explain_task, compare_versions]
+  A1:
+    label: draft_test_sandbox
+    fresh_signature: false
+    examples: [draft_copy, run_tests, create_local_patch, simulate_settlement]
+  A2:
+    label: bounded_reversible_work
+    grant: bounded_or_standing
+    examples: [claim_low_risk_work, create_branch, commit, open_draft_pr, save_listing_draft]
+  A3:
+    label: bounded_public_or_channel_action
+    grant: explicit_channel_time_count_and_content_policy
+    examples: [publish_scheduled_post, send_approved_faq_reply]
+  A4:
+    label: exact_human_signature_or_release_authority
+    grant: fresh_exact_artifact_signature
+    examples: [accept_actual_price, change_split, create_or_change_settlement_mandate, approve_out_of_bound_payout, approve_refund, sign_contract, official_qc, release_official_or_production]
+    mandate_rule: a_human_fresh_signs_the_exact_bounded_mandate_but_each_deterministic_in_bound_execution_does_not_need_another_signature
+
+execution_grant:
+  required:
+    - grant_id
+    - agent_connection_ref
+    - acting_profession_membership_ref
+    - action_types
+    - resource_scopes
+    - authorization_level
+    - starts_at
+    - expires_at
+    - state
+  optional_bounds: [currency, amount_per_action, amount_per_period, beneficiary, channel, count, time_window, content_policy_ref]
+  A3_required_bounds: [nonempty_channel_refs, max_action_count, time_window, content_policy_ref]
+  invariant: standing_grant_never_substitutes_for_A4_exact_signature
+  budget_invariants: [max_and_remaining_count_are_pair_present_and_remaining_never_exceeds_max, cost_cap_and_consumed_are_pair_present_in_summaries_with_one_currency_and_consumed_never_exceeds_cap]
+
+work_item:
+  canonical_owner: platform
+  required:
+    - work_item_id
+    - objective
+    - problem
+    - expected_user_gain
+    - scope
+    - work_type
+    - profession_refs
+    - skill_version_refs
+    - target_resource_refs
+    - dependency_refs
+    - input_refs
+    - allowed_tools
+    - data_sensitivity
+    - resource_refs
+    - acceptance_criteria
+    - expected_evidence
+    - expected_gain
+    - expected_effort
+    - review_requirements
+    - signature_level
+    - execution_mode
+    - failure_retry_handback
+    - state
+  execution_modes: [exclusive, collaborative, competitive]
+  states: [draft, open, active, claiming_closed, accepted, cancelled, expired]
+  capacity_rule: waiting_reviewer_capacity_is_orthogonal_navigation_never_lifecycle_or_claim_gate
+  human_support_rule: appointment_is_qualification_and_only_accepted_reserved_capacity_can_promise_human_time
+  participation_terms_schema: work-participation.schema.json#/$defs/ParticipationTerms
+  participation_terms_rule: new_published_help_requires_versioned_terms_legacy_is_explicitly_unclassified
+  claim_terms_rule: pin_viewed_revision_and_sha256_new_revision_never_rewrites_existing_claim
+  benefit_rule: agent_may_draft_but_only_actual_participant_session_confirms_personal_gain
+  expiry_rule: unclaimed_ordinary_voluntary_only_never_protected_obligations
+  claim_rule: claim_belongs_to_a_person_team_or_squad_not_to_an_agent_process
+  agent_claim_rule: work_claim_is_a_pre_run_A2_command_allowed_only_when_the_agent_execution_token_grant_explicitly_allows_work.claim_and_names_the_work_item_scope
+  mode_rule: exclusive_closes_after_one_claim_while_collaborative_and_competitive_accept_separate_claims_until_capacity_or_deadline
+  work_claim_states: [claimed, in_progress, submitted, in_review, changes_requested, accepted, released, cancelled, expired]
+
+work_item_bootstrap_import:
+  required_per_record: [external_key, source_revision, source_sha256, work_item]
+  stable_key_rule: external_key_is_unique_within_the_declared_bootstrap_source
+  idempotency_rule: same_external_key_source_revision_and_source_sha256_returns_the_existing_work_item_without_a_second_effect
+  collision_rule: same_external_key_with_changed_content_requires_a_new_source_revision_and_expected_current_hash_or_returns_conflict
+  source_transition: before_WRK_01_the_contract_steward_reviews_the_versioned_file_and_GitHub_issue_binding_after_import_platform_becomes_the_only_work_and_business_state_writer
+
+submission_draft:
+  purpose: one_owner_private_intake_boundary_for_portal_LINE_Discord_and_owner_controlled_document_refs
+  canonical_owner: opportunities-results
+  states: [draft, confirmed, rejected, expired]
+  create_tool: create_submission_draft
+  create_authorization: A1_agent_execution_token_requires_intake.draft_in_the_current_grant
+  agent_limit: agent_can_create_but_never_confirm_reject_or_treat_an_external_message_as_A4
+  ownership_rule: principal_is_server_derived_from_the_agent_grant_and_the_request_has_no_owner_or_community_field
+  document_rule: raw_external_client_document_stays_at_the_owner_or_Squad_endpoint_and_only_opaque_ref_revision_digest_media_and_access_policy_refs_enter_Platform
+  confirmation_rule: owner_or_authorized_organization_operator_uses_Portal_session_CSRF_idempotency_and_exact_version_to_acknowledge_the_saved_exact_source_ref_revision_digest_and_create_one_draft_WorkItem_or_private_OpportunityStub
+  document_confirmation_limit: no_source_fetch_and_no_claim_of_current_reachability_or_current_bytes_endpoint_outage_alone_does_not_block_confirmation
+  explicit_revocation_rule: a_document_access_policy_ref_already_recorded_as_revoked_in_Platform_conflicts_before_target_creation
+  later_verification_rule: a_bound_local_Agent_fetches_the_exact_owner_side_ref_revision_and_hashes_bytes_locally_before_outputs_or_consequential_ActionIntent
+  opportunity_stub_rule: confirmation_grants_no_Agent_access_the_stub_may_remain_metadata_only_and_a_later_Project_WorkItem_needing_the_document_must_copy_the_exact_immutable_source_requirement
+  contract_fixture: submission-intake.example.yaml
+
+draft_artifact:
+  purpose: platform_native_Draft_Diff_Review_Apply_for_non_code_business_changes
+  required: [draft_artifact_id, lineage_id, revision_number, work_item_id, work_claim_id, acting_profession_membership_ref, author_principal_ref, artifact_type, artifact_schema_ref, target_ref, base_target_version, content, artifact_sha256, deterministic_diff, state, aggregate_version, created_at]
+  states: [draft, superseded, applied, abandoned]
+  revision_rule: each_draft_artifact_id_is_one_immutable_schema_validated_revision_and_successors_share_lineage_id
+  authorship_rule: agent_run_may_be_provenance_but_the_human_or_organization_is_the_author_principal
+  apply_rule: separate_ActionIntent_must_bind_exact_artifact_digest_current_target_version_required_review_and_target_A0_to_A4_authorization
+  code_rule: source_code_uses_GitHub_branch_pull_request_checks_and_review_instead
+
+agent_run:
+  required:
+    - agent_run_id
+    - work_item_id
+    - claim_id
+    - agent_connection_ref
+    - agent_client_version
+    - execution_grant_id
+    - execution_grant_snapshot_ref
+    - acting_profession_membership_ref
+    - equipped_skill_version_refs
+    - domain_skill_runtime_mode
+    - domain_skill_overlay
+    - external_source_requirements
+    - external_source_verification_receipts
+    - context_id
+    - work_context_bundle_digest
+    - activation_channel_id
+    - activation_sequence
+    - activation_digest
+    - skill_package_digest
+    - skill_dependency_closure_digest
+    - plan_bundle_digest
+    - contract_bundle_digest
+    - model_ref
+    - tool_contract_version_ref
+    - input_artifact_refs
+    - output_artifact_refs
+    - human_signature_refs
+    - result_refs
+    - started_at
+    - completed_at
+    - state
+    - outcome
+  states: [prepared, running, awaiting_human, submitted, succeeded, failed, cancelled, result_unknown, reconciling, manual_unknown]
+  task_lease_rule: short_lease_belongs_to_one_agent_run_and_never_changes_the_human_claim_owner
+  equipped_skill_rule: server_derives_the_exact_domain_work_skill_version_set_from_the_immutable_WorkItem_requires_every_ref_to_be_currently_equipped_in_WorkContext_and_grant_task_compatible_returns_and_persists_it_allows_an_empty_set_when_the_WorkItem_requires_none_and_never_accepts_client_supplied_extra_or_missing_refs
+  domain_skill_runtime_modes: [eligibility_and_provenance_only_v1, signed_isolated_overlay_v1]
+  domain_skill_runtime_default: eligibility_and_provenance_only_v1
+  domain_skill_runtime_rule: server_selects_signed_isolated_overlay_v1_only_when_the_BLD_05_signed_overlay_exact_runtime_QC_current_publisher_authority_current_revocation_runtime_roots_set_digest_and_per_run_isolated_loading_all_pass_otherwise_a_task_requiring_domain_runtime_bytes_fails_capability_unavailable_with_zero_execution_or_consequential_effect
+  domain_skill_overlay_rule: null_is_required_for_eligibility_only_mode_and_a_schema_valid_domain_skill_overlay_artifact_is_required_for_signed_mode_the_existing_eight_input_control_activation_digest_remains_separate_and_unchanged
+  runtime_roots_set_rule: sha256_of_JCS_control_activation_digest_plus_domain_roots_sorted_by_skill_version_ref_each_root_binds_identity_package_archive_dependency_closure_and_exact_QC_digests
+  runtime_gate_rule: client_cannot_supply_mode_roots_or_overlay_server_derived_WorkItem_refs_must_exactly_equal_overlay_roots_and_every_new_session_rechecks_expiry_revocation_QC_and_isolation
+  external_source_rule: server_derives_exact_external_source_requirements_from_the_immutable_WorkItem_SubmissionDraft_lineage_confirmation_is_not_verification_and_the_bound_local_Agent_must_record_a_current_lease_fenced_exact_tuple_SHA256_result_before_output_or_consequential_action
+  external_source_assurance_rule: the_receipt_is_an_authenticated_fenced_Agent_assertion_and_provenance_not_independent_server_attestation_of_remote_bytes_and_it_never_bypasses_review_signature_or_A4
+  external_source_failure_rule: unavailable_access_denied_revision_unavailable_or_digest_mismatch_is_recorded_as_an_immutable_receipt_fails_the_AgentRun_and_produces_zero_DraftArtifact_PR_Result_Contribution_ActionIntent_execution_domain_or_provider_effects
+  provenance_rule: server_persists_the_exact_context_digest_acting_profession_grant_snapshot_client_model_tool_input_output_signature_result_external_source_verification_and_outcome_fields_using_explicit_null_scalars_or_empty_arrays_when_no_value_exists_and_never_persists_chain_of_thought
+  activation_rule: server_loads_and_verifies_the_publisher_resolved_signed_control_channel_with_its_trusted_root_and_current_revocation_snapshot_and_persists_the_exact_channel_id_monotonic_sequence_activation_skill_dependency_closure_plan_and_formal_contract_digests_neither_server_nor_installer_reselects_dependency_versions_from_a_mutable_registry_domain_overlay_digests_are_separate_provenance_and_client_assertions_never_authorize_a_run
+  domain_skill_overlay_contract: domain-skill-overlay.schema.json
+
+action_intent:
+  required:
+    - action_intent_id
+    - origin
+    - authorization_principal_ref
+    - acting_role_ref
+    - authorization_basis_snapshot_ref
+    - action_type
+    - target_ref
+    - expected_target_version
+    - artifact_ref
+    - artifact_sha256
+    - request_sha256
+    - idempotency_key
+    - required_authorization_level
+    - consequence_summary
+    - consequence_summary_sha256
+    - state
+    - aggregate_version
+  states: [drafted, awaiting_signature, authorized, executing, succeeded, failed, expired, superseded, result_unknown, manual_unknown]
+  external_effect_rule: every_external_effect_uses_one_stable_action_intent_and_idempotency_key
+  origins:
+    principal_session: [authenticated_principal_ref, acting_role_ref, session_authority_snapshot_ref]
+    agent_run: [work_item_id, claim_id, agent_run_id, agent_connection_ref, execution_grant_snapshot_ref]
+    system_mandate: [settlement_instruction_ref, mandate_ref, mandate_bound_ref, mandate_usage_reservation_ref, authorization_basis_snapshot_ref]
+  origin_rule: principal_session_agent_run_and_system_mandate_are_mutually_exclusive_and_execution_credentials_must_match
+  target_version_rule: execute_atomically_rechecks_current_target_version_against_the_immutable_expected_target_version
+  system_mandate_rule: no_agent_is_the_principal_and_the_action_must_fit_the_exact_human_signed_mandate_digest_and_atomically_reserved_bound_capacity
+
+human_signature:
+  required:
+    - signature_id
+    - human_principal_ref
+    - acting_office_or_profession_ref
+    - action_intent_id
+    - artifact_sha256
+    - consequence_summary_sha256
+    - signed_at
+    - authentication_context_ref
+  invariants:
+    - signature_binds_the_exact_version_digest_action_and_scope
+    - a_general_chat_yes_is_not_a_signature
+    - line_and_discord_messages_are_not_signatures
+    - a_new_artifact_digest_requires_a_new_signature
+
+source_of_truth:
+  platform:
+    - identity_profession_and_work_intent
+    - submission_draft_opportunity_project_squad_work_item_claim_grant_signature
+    - non_code_business_revision_and_review
+    - result_contribution_provenance_and_financial_obligation
+  github:
+    - repositories_issues_commits_branches_pull_requests_reviews_checks_releases
+  discord:
+    - discussion_and_reading_group
+    - verified_interaction_may_request_an_owner_private_submission_draft_only
+  line:
+    - reminder_and_deep_link
+    - verified_explicit_command_may_request_an_owner_private_submission_draft_only
+    - never_the_canonical_signature_surface
+  owner_document_endpoint:
+    - external_client_owned_raw_document_and_current_access_policy
+    - platform_receives_only_opaque_ref_revision_digest_and_media_metadata
+
+ledgers:
+  work_event: every_meaningful_attempt_decision_and_external_effect_without_chain_of_thought
+  contribution_record: created_only_from_an_accepted_result_with_evidence
+  financial_obligation: separate_from_contribution_and_never_inferred_from_a_pull_request

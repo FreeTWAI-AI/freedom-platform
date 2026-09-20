@@ -1,0 +1,164 @@
+schema_version: freedom.entity-playbook/v1
+fixture_status: fake_planning_fixture_never_activate
+playbook_versions:
+  - playbook_id: guild.launch-readiness
+    entity_kind: guild
+    version: "1"
+    hash: sha256:1111111111111111111111111111111111111111111111111111111111111111
+    lifecycle: published
+    items:
+      - item_id: guild.master-office
+        title: Guild 有可交接且 delegate-first 的 Master office 路徑
+        description: 缺少 holder 時以 interim stewardship、delegates 與 succession WorkItem 導航；不是 Guild create、active 或 Runner 加入門檻。
+        enforcement: navigation
+        resolver: {id: guild.master-office-resolver, version: "1", hash: sha256:1111111111111111111111111111111111111111111111111111111111111118}
+        missing_work_item_template: {template_key: guild.establish-master-office, work_type: community.master-office.establish, owner_pool: community-ops-or-guild-delegates, claim_mode: self_service_low_risk, idempotency_scope: entity_instance_playbook_version_item}
+        alternative_evidence_allowed: true
+        skippable: true
+      - item_id: guild.training-route
+        title: Guild 有可發現的 training route
+        description: 缺少時可先用公開替代學習路徑並建立 WorkItem；不是 Guild create、active 或 Runner 加入門檻。
+        enforcement: navigation
+        resolver: {id: guild.training-route-resolver, version: "1", hash: sha256:1111111111111111111111111111111111111111111111111111111111111119}
+        missing_work_item_template: {template_key: guild.establish-training-route, work_type: learning.training-route.setup, owner_pool: talent-or-guild-delegates, claim_mode: self_service_low_risk, idempotency_scope: entity_instance_playbook_version_item}
+        alternative_evidence_allowed: true
+        skippable: true
+      - item_id: guild.public-community-route
+        title: 公開 Guild 討論與學習入口
+        enforcement: navigation
+        resolver: {id: guild.public-route-resolver, version: "1", hash: sha256:1111111111111111111111111111111111111111111111111111111111111112}
+        missing_work_item_template: {template_key: guild.open-public-route, work_type: community.route.setup, owner_pool: community-ops-or-guild-delegates, claim_mode: self_service_low_risk, idempotency_scope: entity_instance_playbook_version_item}
+        alternative_evidence_allowed: true
+        skippable: true
+      - item_id: guild.private-discord-channel
+        title: 可選的 private Discord 工作頻道
+        description: 缺少時由 Community Ops／Master pool 開一張 WorkItem；不影響 Guild active 或 Runner 自助加入。
+        enforcement: navigation
+        resolver: {id: guild.private-channel-resolver, version: "1", hash: sha256:1111111111111111111111111111111111111111111111111111111111111113}
+        missing_work_item_template: {template_key: guild.open-private-discord-channel, work_type: community.discord-private-channel.setup, owner_pool: community-ops-or-guild-delegates, claim_mode: self_service_low_risk, idempotency_scope: entity_instance_playbook_version_item}
+        alternative_evidence_allowed: false
+        skippable: true
+  - playbook_id: profession-starter.runner-day-one
+    entity_kind: profession_starter
+    version: "1"
+    hash: sha256:2222222222222222222222222222222222222222222222222222222222222222
+    lifecycle: published
+    items:
+      - item_id: starter.choose-package
+        title: 選一個建議 starter package
+        enforcement: navigation
+        resolver: {id: starter.package-selection-resolver, version: "1", hash: sha256:2222222222222222222222222222222222222222222222222222222222222223}
+        missing_work_item_template: {template_key: starter.choose-package-help, work_type: learning.package.select, owner_pool: talent-or-guild-delegates, claim_mode: self_service_low_risk, idempotency_scope: entity_instance_playbook_version_item}
+        alternative_evidence_allowed: true
+        skippable: true
+      - item_id: starter.first-bounded-work
+        title: 嘗試第一張 30–90 分鐘 WorkItem
+        enforcement: navigation
+        resolver: {id: starter.first-work-resolver, version: "1", hash: sha256:2222222222222222222222222222222222222222222222222222222222222224}
+        missing_work_item_template: {template_key: starter.first-bounded-work, work_type: learning.first-contribution, owner_pool: profession-runner-pool, claim_mode: self_service_low_risk, idempotency_scope: entity_instance_playbook_version_item}
+        alternative_evidence_allowed: true
+        skippable: true
+  - playbook_id: coaching-program.launch-readiness
+    entity_kind: coaching_program
+    version: "1"
+    hash: sha256:3333333333333333333333333333333333333333333333333333333333333333
+    lifecycle: published
+    items:
+      - item_id: coaching.fallback-route
+        title: 每個 checkpoint 都有 fallback 與求助路徑
+        enforcement: navigation
+        resolver: {id: coaching.fallback-resolver, version: "1", hash: sha256:3333333333333333333333333333333333333333333333333333333333333334}
+        missing_work_item_template: {template_key: coaching.add-fallback, work_type: coaching.program.improve, owner_pool: coaching-program-delegates, claim_mode: self_service_low_risk, idempotency_scope: entity_instance_playbook_version_item}
+        alternative_evidence_allowed: false
+        skippable: true
+  - playbook_id: seller-store.launch-readiness
+    entity_kind: seller_store
+    version: "1"
+    hash: sha256:4444444444444444444444444444444444444444444444444444444444444444
+    lifecycle: published
+    items:
+      - item_id: store.brand-and-support-copy
+        title: 商店有品牌、客服與責任說明
+        enforcement: navigation
+        resolver: {id: store.copy-resolver, version: "1", hash: sha256:4444444444444444444444444444444444444444444444444444444444444445}
+        missing_work_item_template: {template_key: store.complete-copy, work_type: store.copy.complete, owner_pool: seller-store-operators, claim_mode: self_service_low_risk, idempotency_scope: entity_instance_playbook_version_item}
+        alternative_evidence_allowed: true
+        skippable: true
+      - item_id: store.sellable-listing
+        title: Checkout 只使用 exact sellable listing revision
+        enforcement: action_gate
+        gate_class: product_version_qc
+        target_action: storefront.checkout.create
+        resolver: {id: store.sellable-listing-resolver, version: "1", hash: sha256:4444444444444444444444444444444444444444444444444444444444444446}
+        missing_work_item_template: {template_key: store.prepare-sellable-listing, work_type: store.listing.prepare, owner_pool: seller-store-operators, claim_mode: self_service_low_risk, idempotency_scope: entity_instance_playbook_version_item}
+        alternative_evidence_allowed: false
+        skippable: false
+  - playbook_id: skill-package.capability-profile
+    entity_kind: skill_package
+    version: "1"
+    hash: sha256:5555555555555555555555555555555555555555555555555555555555555555
+    lifecycle: published
+    items:
+      - item_id: skill.installation-documentation
+        title: Package 提供可重現的安裝說明
+        enforcement: navigation
+        resolver: {id: skill.install-doc-resolver, version: "1", hash: sha256:5555555555555555555555555555555555555555555555555555555555555556}
+        missing_work_item_template: {template_key: skill.add-install-docs, work_type: skill.documentation.improve, owner_pool: skill-contributors, claim_mode: self_service_low_risk, idempotency_scope: entity_instance_playbook_version_item}
+        alternative_evidence_allowed: true
+        skippable: true
+      - item_id: skill.official-runtime-qc
+        title: 執行 exact package bytes 前具備 runtime-scope QC
+        enforcement: action_gate
+        gate_class: product_version_qc
+        target_action: skill.runtime.execute
+        resolver: {id: skill.runtime-qc-resolver, version: "1", hash: sha256:5555555555555555555555555555555555555555555555555555555555555557}
+        missing_work_item_template: {template_key: skill.prepare-runtime-qc, work_type: skill.qc.prepare, owner_pool: skill-field-reviewers, claim_mode: self_service_low_risk, idempotency_scope: entity_instance_playbook_version_item}
+        alternative_evidence_allowed: false
+        skippable: false
+readiness_projections:
+  - projection_id: readiness_guild_ai_vibe
+    entity_kind: guild
+    entity_ref: guild_ai_vibe
+    playbook_ref: {id: guild.launch-readiness, version: "1", hash: sha256:1111111111111111111111111111111111111111111111111111111111111111}
+    overall_readiness: {state: missing, enforcement: navigation, reason_code: private-channel-not-yet-bound}
+    items:
+      - {item_id: guild.master-office, readiness: {state: satisfied, enforcement: navigation}, evidence_refs: [office_assignment_ai_vibe_master]}
+      - {item_id: guild.training-route, readiness: {state: missing, enforcement: navigation, reason_code: training-route-not-yet-published}, materialized_work_item_ref: work_open_training_route_ai_vibe}
+      - {item_id: guild.public-community-route, readiness: {state: satisfied, enforcement: navigation}, evidence_refs: [discord_binding_public_ai_vibe]}
+      - {item_id: guild.private-discord-channel, readiness: {state: missing, enforcement: navigation, reason_code: optional-channel-missing}, materialized_work_item_ref: work_open_private_ai_vibe}
+    calculated_at: "2026-09-15T12:00:00Z"
+  - projection_id: readiness_starter_runner
+    entity_kind: profession_starter
+    entity_ref: starter_ai_vibe_runner_v1
+    playbook_ref: {id: profession-starter.runner-day-one, version: "1", hash: sha256:2222222222222222222222222222222222222222222222222222222222222222}
+    overall_readiness: {state: in_progress, enforcement: navigation}
+    items:
+      - {item_id: starter.choose-package, readiness: {state: satisfied, enforcement: navigation}, evidence_refs: [equip_revision_1]}
+      - {item_id: starter.first-bounded-work, readiness: {state: in_progress, enforcement: navigation}, materialized_work_item_ref: work_first_ai_vibe}
+    calculated_at: "2026-09-15T12:00:00Z"
+  - projection_id: readiness_coaching_basic
+    entity_kind: coaching_program
+    entity_ref: coaching_basic_v1
+    playbook_ref: {id: coaching-program.launch-readiness, version: "1", hash: sha256:3333333333333333333333333333333333333333333333333333333333333333}
+    overall_readiness: {state: satisfied, enforcement: navigation}
+    items:
+      - {item_id: coaching.fallback-route, readiness: {state: satisfied, enforcement: navigation}, evidence_refs: [program_version_basic_1]}
+    calculated_at: "2026-09-15T12:00:00Z"
+  - projection_id: readiness_store_demo
+    entity_kind: seller_store
+    entity_ref: store_demo
+    playbook_ref: {id: seller-store.launch-readiness, version: "1", hash: sha256:4444444444444444444444444444444444444444444444444444444444444444}
+    overall_readiness: {state: missing, enforcement: navigation, reason_code: support-copy-missing}
+    items:
+      - {item_id: store.brand-and-support-copy, readiness: {state: missing, enforcement: navigation}, materialized_work_item_ref: work_store_copy}
+      - {item_id: store.sellable-listing, readiness: {state: satisfied, enforcement: action_gate}, evidence_refs: [listing_revision_sellable_1]}
+    calculated_at: "2026-09-15T12:00:00Z"
+  - projection_id: readiness_skill_demo
+    entity_kind: skill_package
+    entity_ref: pkg_demo
+    playbook_ref: {id: skill-package.capability-profile, version: "1", hash: sha256:5555555555555555555555555555555555555555555555555555555555555555}
+    overall_readiness: {state: in_progress, enforcement: navigation}
+    items:
+      - {item_id: skill.installation-documentation, readiness: {state: missing, enforcement: navigation}, materialized_work_item_ref: work_skill_docs}
+      - {item_id: skill.official-runtime-qc, readiness: {state: unknown, enforcement: action_gate, reason_code: qc-not-requested}}
+    calculated_at: "2026-09-15T12:00:00Z"

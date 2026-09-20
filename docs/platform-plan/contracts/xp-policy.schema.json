@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.freedom.example/xp-policy.schema.json",
+  "title": "Freedom XP policy and projection planning contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "policy", "projection_example"],
+  "properties": {
+    "schema_version": {"const": "freedom.xp-policy/v1"},
+    "policy": {"$ref": "#/$defs/XpPolicyVersion"},
+    "projection_example": {"$ref": "#/$defs/MemberProfessionXpProjection"}
+  },
+  "$defs": {
+    "StableKey": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]{1,99}$"
+    },
+    "OpaqueRef": {
+      "type": "string",
+      "minLength": 4,
+      "maxLength": 200
+    },
+    "Track": {
+      "type": "string",
+      "enum": ["training", "maintenance", "real_delivery"]
+    },
+    "TrackRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["track", "formula", "eligible_contribution_kinds", "dedupe_key"],
+      "properties": {
+        "track": {"$ref": "#/$defs/Track"},
+        "formula": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "description": "Human-readable deterministic formula; implementations must not replace it with an opaque model."
+        },
+        "eligible_contribution_kinds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/StableKey"}
+        },
+        "dedupe_key": {
+          "type": "string",
+          "const": "canonical_contribution_record_id"
+        }
+      }
+    },
+    "XpPolicyVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_id",
+        "profession_key",
+        "policy_version",
+        "status",
+        "effective_from",
+        "formula_language",
+        "source_contract",
+        "tracks",
+        "rebuild_contract"
+      ],
+      "properties": {
+        "policy_id": {"$ref": "#/$defs/OpaqueRef"},
+        "profession_key": {"$ref": "#/$defs/StableKey"},
+        "policy_version": {"type": "integer", "minimum": 1},
+        "status": {"enum": ["draft", "active", "retired"]},
+        "effective_from": {"type": "string", "format": "date-time"},
+        "formula_language": {"const": "human_readable_deterministic_v1"},
+        "source_contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["facts", "review_filter"],
+          "properties": {
+            "facts": {
+              "type": "array",
+              "const": ["append_only_contribution_record", "review_outcome"]
+            },
+            "review_filter": {"const": "accepted_and_not_retracted"}
+          }
+        },
+        "tracks": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"$ref": "#/$defs/TrackRule"},
+          "x-uniqueBy": ["track"]
+        },
+        "rebuild_contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["full_delete_and_rebuild_allowed", "cross_profession_total_forbidden", "authorization_input_forbidden"],
+          "properties": {
+            "full_delete_and_rebuild_allowed": {"const": true},
+            "cross_profession_total_forbidden": {"const": true},
+            "authorization_input_forbidden": {
+              "type": "array",
+              "const": ["entitlement_snapshot", "rank_decision", "reviewer_appointment", "a4_signature"]
+            }
+          }
+        }
+      },
+      "x-invariants": [
+        "at_most_one_active_policy_version_per_profession",
+        "tracks_are_the_exact_closed_set_training_maintenance_real_delivery",
+        "formula_is_auditable_and_uses_only_currently_effective_accepted_review_outcomes_over_append_only_contribution_records"
+      ]
+    },
+    "MemberProfessionXpProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["member_ref", "profession_key", "track", "xp", "policy_version", "rebuilt_from_event_seq", "rebuilt_at"],
+      "properties": {
+        "member_ref": {"$ref": "#/$defs/OpaqueRef"},
+        "profession_key": {"$ref": "#/$defs/StableKey"},
+        "track": {"$ref": "#/$defs/Track"},
+        "xp": {"type": "integer", "minimum": 0},
+        "policy_version": {"type": "integer", "minimum": 1},
+        "rebuilt_from_event_seq": {"type": "integer", "minimum": 0},
+        "rebuilt_at": {"type": "string", "format": "date-time"}
+      },
+      "x-invariants": [
+        "primary_key_is_member_ref_profession_key_track",
+        "projection_can_be_deleted_and_rebuilt_without_losing_authoritative_facts",
+        "projection_is_never_an_entitlement_rank_reviewer_appointment_or_a4_input"
+      ]
+    }
+  }
+}

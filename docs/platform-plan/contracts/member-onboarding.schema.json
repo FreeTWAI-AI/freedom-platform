@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.freedom.example/member-onboarding.schema.json",
+  "title": "Freedom day-one onboarding and support automation planning contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "fixture_status", "journey", "welcome_ritual", "installation_profile", "stuck_rules", "feed_card_rules", "standing_grant_template"],
+  "properties": {
+    "schema_version": {"const": "freedom.member-onboarding/v1"},
+    "fixture_status": {"const": "fake_planning_fixture_never_activate"},
+    "journey": {"$ref": "#/$defs/journey"},
+    "welcome_ritual": {"$ref": "#/$defs/welcome_ritual"},
+    "installation_profile": {"$ref": "#/$defs/installation_profile"},
+    "stuck_rules": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/stuck_rule"}},
+    "feed_card_rules": {"type": "array", "minItems": 4, "items": {"$ref": "#/$defs/feed_card_rule"}},
+    "standing_grant_template": {"$ref": "#/$defs/standing_grant_template"}
+  },
+  "$defs": {
+    "stable_key": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{1,99}$"},
+    "enforcement": {"enum": ["navigation", "action_gate"]},
+    "navigation_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "enforcement"],
+      "properties": {
+        "state": {"enum": ["not_started", "ready", "in_progress", "satisfied", "skipped", "stuck", "unavailable"]},
+        "enforcement": {"const": "navigation"},
+        "reason_code": {"$ref": "#/$defs/stable_key"}
+      }
+    },
+    "journey_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step_id", "kind", "enforcement", "skippable", "status"],
+      "properties": {
+        "step_id": {"$ref": "#/$defs/stable_key"},
+        "kind": {"enum": ["identity", "positioning", "profession_confirmation", "route_choice", "skill_equip", "installation_verify", "welcome_ritual", "first_work_item"]},
+        "enforcement": {"const": "navigation"},
+        "skippable": {"type": "boolean"},
+        "status": {"$ref": "#/$defs/navigation_status"},
+        "output_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 4, "maxLength": 200}}
+      }
+    },
+    "journey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["journey_id", "definition_version", "overall_readiness", "steps"],
+      "properties": {
+        "journey_id": {"type": "string", "minLength": 4, "maxLength": 100},
+        "definition_version": {"type": "string", "minLength": 1, "maxLength": 50},
+        "overall_readiness": {"$ref": "#/$defs/navigation_status"},
+        "steps": {"type": "array", "minItems": 8, "items": {"$ref": "#/$defs/journey_step"}}
+      }
+    },
+    "automation_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step_id", "execution", "enforcement", "status"],
+      "properties": {
+        "step_id": {"$ref": "#/$defs/stable_key"},
+        "execution": {"enum": ["system_no_human", "agent_a0", "agent_a1", "member_one_line_optional"]},
+        "enforcement": {"const": "navigation"},
+        "status": {"$ref": "#/$defs/navigation_status"},
+        "prompt_key": {"$ref": "#/$defs/stable_key"}
+      }
+    },
+    "welcome_ritual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trigger", "overall_readiness", "steps"],
+      "properties": {
+        "trigger": {"const": "freedom.organization.profession.confirmed.v1"},
+        "overall_readiness": {"$ref": "#/$defs/navigation_status"},
+        "steps": {"type": "array", "minItems": 5, "items": {"$ref": "#/$defs/automation_step"}}
+      }
+    },
+    "installation_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["installation_id", "member_ref", "agent_connection_ref", "package_version_ref", "status", "receipt"],
+      "properties": {
+        "installation_id": {"type": "string", "minLength": 4, "maxLength": 100},
+        "member_ref": {"type": "string", "minLength": 4, "maxLength": 100},
+        "agent_connection_ref": {"type": "string", "minLength": 4, "maxLength": 100},
+        "package_version_ref": {"type": "string", "minLength": 4, "maxLength": 100},
+        "status": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "enforcement"],
+          "properties": {
+            "state": {"enum": ["recommended", "equipped", "installing", "verified", "failed", "degraded", "outdated", "removed"]},
+            "enforcement": {"const": "navigation"},
+            "reason_code": {"$ref": "#/$defs/stable_key"}
+          }
+        },
+        "receipt": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["validator_version", "package_digest", "platform_profile", "checked_at", "outcome", "enforcement"],
+          "properties": {
+            "validator_version": {"type": "string", "minLength": 1, "maxLength": 50},
+            "package_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+            "platform_profile": {"$ref": "#/$defs/stable_key"},
+            "checked_at": {"type": "string", "format": "date-time"},
+            "outcome": {"enum": ["pass", "fail", "degraded"]},
+            "enforcement": {"const": "navigation"}
+          }
+        }
+      }
+    },
+    "stuck_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "condition", "enforcement", "actions"],
+      "properties": {
+        "rule_id": {"$ref": "#/$defs/stable_key"},
+        "condition": {"enum": ["starter_item_idle_past_due", "installation_verification_failed", "claimed_work_has_no_progress"]},
+        "threshold": {"type": "string", "minLength": 1, "maxLength": 80},
+        "enforcement": {"const": "navigation"},
+        "actions": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {"enum": ["show_next", "suggest_alternative", "offer_help_request", "materialize_work_item", "notify_delegate_pool"]}
+        }
+      }
+    },
+    "feed_card_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["card_type", "route", "enforcement", "dismissal_effect"],
+      "properties": {
+        "card_type": {"enum": ["new_runner_joined", "starter_installation_verified", "member_stuck", "member_requested_help"]},
+        "route": {"enum": ["strategist_or_delegate_pool", "master_exception_feed"]},
+        "enforcement": {"const": "navigation"},
+        "dismissal_effect": {"const": "none_for_member"},
+        "master_escalation_reasons": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["major_version", "rule_change", "dispute", "succession"]}
+        }
+      }
+    },
+    "standing_grant_template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template_key", "authorization_levels", "max_duration_hours", "resource_selectors", "action_types", "revocable", "signature_semantics"],
+      "properties": {
+        "template_key": {"const": "day1.learn-equip-and-claim"},
+        "authorization_levels": {"type": "array", "const": ["A0", "A1", "A2"]},
+        "max_duration_hours": {"type": "integer", "minimum": 1, "maximum": 72},
+        "resource_selectors": {
+          "type": "array",
+          "const": ["confirmed_profession", "resolved_starter_package", "first_low_risk_work_item"]
+        },
+        "action_types": {
+          "type": "array",
+          "const": ["status.read", "starter.preflight", "skill.equip", "skill.install.verify", "work_item.claim", "checkpoint.record"]
+        },
+        "revocable": {"const": true},
+        "signature_semantics": {"const": "execution_grant_not_a4_artifact_signature"}
+      }
+    }
+  },
+  "x-invariants": [
+    "The journey and welcome ritual are rebuildable projections and never gate the member",
+    "Profession confirmation is self-service Runner entry with no Master approval state or queue",
+    "A stuck, skipped, missing, connector-unavailable, failed, degraded, or outdated status has zero penalty, never lowers future discoverability, and never automatically revokes an entitlement",
+    "Member installation is scoped to member plus AgentConnection plus PackageVersion and is distinct from package capability_readiness, equipped selection, and AgentRun provenance",
+    "Master and Strategist cards are notifications and offers of help; dismissal or non-response has no consequence for the member",
+    "The standing grant cannot authorize A3, A4, payment, contract, official QC, release, or future unspecified artifacts",
+    "This planning fixture can never be activated in production"
+  ]
+}

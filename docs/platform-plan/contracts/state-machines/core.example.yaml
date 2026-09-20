@@ -1,0 +1,2115 @@
+schema_version: freedom.state-machines/v1
+status: planning
+transition_journal_contract:
+  accepted_mutation: every_accepted_state_mutation_appends_one_internal_StateTransitionRecord_and_increments_aggregate_version
+  event_field: optional_published_integration_event_not_the_internal_transition_record
+  public_sequence: eventsequence_is_contiguous_per_aggregate_public_event_stream_and_independent_of_aggregate_version
+  aggregate_version_semantics: canonical_state_version_may_jump_between_published_events
+  canonical_rebuild: owning_module_uses_internal_transition_journal_and_snapshots
+  external_rebuild: consumers_use_published_events_or_authoritative_query_snapshot_and_never_wait_for_missing_aggregate_versions
+projections:
+  manual_settlement_detail:
+    display_status: recorded
+    invariant: record_only_projection_never_displays_paid_or_settled_by_platform
+  review_capacity_navigation:
+    enforcement: navigation
+    states:
+    - not_required
+    - available
+    - waiting_reviewer_capacity
+    derive_from:
+    - work_item_review_scope
+    - active_exact_scope_reviewer_appointments
+    interpretation: available_means_a_qualified_route_exists_not_a_response_time_promise
+    support_time_source: accepted_scoped_capacity_reservation_separate_from_appointment
+    on_capacity_changed:
+    - recompute_navigation_and_route_only
+    - upsert_or_resolve_one_scope_episode_card
+    - do_not_reopen_work_item_or_emit_work_item_opened
+    - do_not_set_official_true_without_exact_review_evidence
+    never_changes:
+    - work_item_lifecycle
+    - claimability
+    - membership
+    - rank
+    - entitlement
+    - discoverability
+machines:
+  guild:
+    initial: draft
+    terminal: [archived]
+    emitted_on_create: freedom.organization.guild.created.v1
+    transitions:
+      - {from: draft, command: activate_guild, to: active, event: freedom.organization.guild.state_changed.v1}
+      - {from: active, command: mark_degraded, to: degraded, event: freedom.organization.guild.state_changed.v1}
+      - {from: degraded, command: restore_active, to: active, event: freedom.organization.guild.state_changed.v1}
+      - {from: draft, command: update_guild_profile, to: draft, event: freedom.organization.guild.updated.v1}
+      - {from: active, command: update_guild_profile, to: active, event: freedom.organization.guild.updated.v1}
+      - {from: degraded, command: update_guild_profile, to: degraded, event: freedom.organization.guild.updated.v1}
+      - {from: [draft, active, degraded], command: archive_guild, to: archived, event: freedom.organization.guild.state_changed.v1}
+    invariants:
+      - missing_navigation_readiness_including_private_discord_never_blocks_draft_or_active
+      - archived_blocks_only_new_guild_scoped_mutations_and_never_deletes_members_results_or_history
+      - profession_membership_self_join_is_a_separate_runner_command_with_no_master_approval
+
+  welcome_ritual_run:
+    initial: queued
+    terminal: [completed, skipped]
+    emitted_on_create: freedom.organization.welcome.started.v1
+    transitions:
+      - {from: queued, command: automation_starts, to: running, event: freedom.organization.welcome.progressed.v1}
+      - {from: running, command: record_automation_or_optional_member_step, to: running, event: freedom.organization.welcome.progressed.v1}
+      - {from: [queued, running], command: member_skips_remaining_steps, to: skipped, event: freedom.organization.welcome.completed.v1}
+      - {from: running, command: finish_available_steps, to: completed, event: freedom.organization.welcome.completed.v1}
+    invariants:
+      - every_step_and_status_has_navigation_enforcement
+      - no_step_blocks_learning_submission_low_risk_claim_or_future_discoverability
+      - master_or_delegate_response_is_never_a_completion_guard
+
+  member_skill_installation:
+    initial: recommended
+    terminal: [removed]
+    transitions:
+      - {from: recommended, command: select_exact_package_version, to: equipped}
+      - {from: [recommended, equipped, failed, degraded, outdated], command: start_installation_or_recheck, to: installing, event: freedom.skill.member_installation.started.v1}
+      - {from: installing, command: record_passing_a1_receipt, to: verified, event: freedom.skill.member_installation.verified.v1}
+      - {from: installing, command: record_failing_a1_receipt, to: failed, event: freedom.skill.member_installation.failed.v1}
+      - {from: installing, command: record_degraded_a1_receipt, to: degraded, event: freedom.skill.member_installation.degraded.v1}
+      - {from: verified, command: newer_recommended_version_detected, to: outdated, event: freedom.skill.member_installation.outdated.v1}
+      - {from: [recommended, equipped, installing, verified, failed, degraded, outdated], command: member_removes_local_installation, to: removed}
+    invariants:
+      - key_is_member_plus_agent_connection_plus_package_version
+      - state_and_receipt_enforcement_is_navigation
+      - package_capability_readiness_equipped_selection_agent_run_and_member_installation_are_four_distinct_facts
+      - failure_degraded_outdated_or_removal_never_revokes_membership_entitlement_or_discoverability
+
+  profession_membership:
+    initial: runner
+    terminal: [left]
+    emitted_on_create: freedom.organization.profession.confirmed.v1
+    transitions:
+      - from: runner
+        command: request_strategist_evidence_review
+        to: strategist_review
+      - from: strategist_review
+        command: request_more_evidence
+        to: runner
+      - from: strategist_review
+        command: confirm_strategist_rank
+        guards: [versioned_profession_criteria_met, human_review_evidence_present]
+        to: strategist
+        event: freedom.organization.rank.recorded.v1
+      - from: strategist
+        command: request_master_evidence_review
+        to: master_review
+      - from: master_review
+        command: request_more_evidence
+        to: strategist
+      - from: master_review
+        command: confirm_master_rank
+        guards: [versioned_profession_criteria_met, human_review_evidence_present]
+        to: master
+        event: freedom.organization.rank.recorded.v1
+      - from: runner
+        command: update_membership_profile_or_equipped_skill_refs
+        to: runner
+        event: freedom.organization.profession_membership.updated.v1
+      - from: strategist_review
+        command: update_membership_profile_or_equipped_skill_refs
+        to: strategist_review
+        event: freedom.organization.profession_membership.updated.v1
+      - from: strategist
+        command: update_membership_profile_or_equipped_skill_refs
+        to: strategist
+        event: freedom.organization.profession_membership.updated.v1
+      - from: master_review
+        command: update_membership_profile_or_equipped_skill_refs
+        to: master_review
+        event: freedom.organization.profession_membership.updated.v1
+      - from: master
+        command: update_membership_profile_or_equipped_skill_refs
+        to: master
+        event: freedom.organization.profession_membership.updated.v1
+      - from: [runner, strategist_review, strategist, master_review, master]
+        command: member_leaves_guild
+        to: left
+    invariants:
+      - rank_is_profession_specific_and_never_a_universal_member_score
+      - office_entitlement_payment_and_project_role_are_separate
+      - inactivity_never_auto_demotes_or_removes_the_member
+      - rejected_rank_review_preserves_prior_rank_and_evidence
+
+  work_intent:
+    initial: draft
+    terminal: [superseded, withdrawn]
+    transitions:
+      - from: draft
+        command: member_confirms_professions_work_types_and_availability
+        to: active
+        event: freedom.organization.work_intent.confirmed.v1
+      - from: active
+        command: create_and_confirm_new_revision
+        to: superseded
+      - from: [draft, active]
+        command: member_withdraws
+        to: withdrawn
+    invariants:
+      - positioning_result_or_ai_draft_never_activates_work_intent_without_member_confirmation
+      - one_member_may_select_multiple_professions_and_change_availability
+      - work_intent_guides_matching_and_never_grants_office_entitlement_or_payment
+      - superseding_a_revision_does_not_rewrite_prior_work_claims_or_results
+
+  office_assignment:
+    initial: proposed
+    terminal: [ended, declined]
+    transitions:
+      - from: proposed
+        command: nominee_accepts_scope_term_and_handover_duty
+        to: active
+        event: freedom.organization.office.assigned.v1
+      - from: proposed
+        command: nominee_declines
+        to: declined
+      - from: active
+        command: begin_handover
+        to: handing_over
+      - from: handing_over
+        command: successor_accepts_and_artifacts_transfer
+        guards: [successor_office_assignment_is_accepted, required_handover_artifacts_are_transferred, replacement_module_stewardship_revisions_are_valid]
+        to: ended
+        event: freedom.organization.office.handed_off.v1
+        effects: [atomically_activate_successor_office_and_replacement_module_stewardships_before_ending_current_office]
+      - from: active
+        command: end_without_ready_successor
+        guards: [reason_is_present, temporary_delegate_and_open_succession_task_exist, formal_interim_stewardship_revisions_are_valid_for_every_affected_module]
+        to: ended
+        effects: [atomically_activate_formal_interim_stewardships_before_ending_current_office]
+    invariants:
+      - profession_rank_is_not_an_office_assignment
+      - office_has_scope_start_end_accountabilities_and_handover_record
+      - ending_office_does_not_remove_profession_membership_rank_or_results
+      - an_office_cannot_end_until_successor_or_formal_interim_stewardship_is_active_for_every_affected_module
+
+  module_stewardship:
+    initial: proposed
+    terminal: [superseded]
+    transitions:
+      - from: proposed
+        command: assign_one_accountable_office_holder
+        guards: [module_revision_scope_and_office_assignment_are_active]
+        to: active
+        event: freedom.organization.module_stewardship.assigned.v1
+      - from: active
+        command: add_or_change_bounded_delegate
+        to: active
+      - from: active
+        command: begin_successor_handover
+        to: handing_over
+      - from: active
+        command: accountable_office_begins_handover
+        to: handing_over
+      - from: handing_over
+        command: activate_new_stewardship_revision
+        to: superseded
+    invariants:
+      - exactly_one_active_accountable_stewardship_per_module_revision
+      - delegates_must_have_action_resource_and_time_scope
+      - master_is_not_required_to_review_every_routine_item
+      - delegation_never_removes_accountability_or_auditability
+      - no_active_stewardship_may_reference_an_ended_office_assignment
+      - office_end_and_successor_or_formal_interim_stewardship_activation_are_atomic
+
+  guided_discovery_run:
+    initial: created
+    terminal: [completed, abandoned, expired]
+    emitted_on_create: freedom.positioning.guided_discovery.started.v1
+    transitions:
+      - from: created
+        command: begin_conversation
+        to: in_progress
+      - from: in_progress
+        command: save_member_words_and_ai_suggestions
+        to: in_progress
+      - from: in_progress
+        command: create_positioning_draft
+        guards: [user_words_present, unknowns_are_explicit, first_evidence_and_falsifier_present]
+        to: completed
+        event: freedom.positioning.guided_discovery.draft_created.v1
+      - from: [created, in_progress]
+        command: abandon
+        to: abandoned
+      - from: [created, in_progress]
+        command: expire
+        to: expired
+    invariants:
+      - ai_output_is_a_draft_until_member_confirms_a_career_profile_or_work_intent
+      - draft_never_creates_paid_entitlement_or_profession_rank
+      - user_words_ai_suggestions_unknowns_first_evidence_falsifier_and_fallback_remain_distinguishable
+      - raw_conversation_is_not_in_an_agent_work_context_by_default
+  assessment_run:
+    initial: created
+    terminal: [completed, abandoned, expired]
+    emitted_on_create: freedom.positioning.assessment.started.v1
+    transitions:
+      - from: created
+        command: save_answers
+        to: in_progress
+      - from: in_progress
+        command: save_answers
+        to: in_progress
+      - from: [created, in_progress]
+        command: submit
+        guards: [answers_are_structurally_complete, server_evaluation_succeeds]
+        to: completed
+        event: freedom.positioning.assessment.completed.v1
+      - from: [created, in_progress]
+        command: abandon
+        to: abandoned
+      - from: [created, in_progress]
+        command: expire_at_declared_time
+        to: expired
+    invariants:
+      - completed_result_is_immutable
+      - repeating_assessment_creates_new_run
+      - incomplete_run_never_blocks_other_modules
+  assessment_claim:
+    initial: unclaimed
+    terminal: [claimed, expired, manually_linked, legacy_unclaimable]
+    lifecycle_relation: orthogonal_to_assessment_run
+    transitions:
+      - from: unclaimed
+        command: claim_with_authenticated_session_and_one_time_secret
+        guards: [secret_hash_matches, secret_not_expired, run_not_claimed_by_other_user]
+        to: claimed
+        event: freedom.positioning.assessment.claimed.v1
+      - from: unclaimed
+        command: expire_claim_secret
+        to: expired
+      - from: unclaimed
+        command: classify_legacy_with_contemporaneous_identity_evidence
+        guards: [evidence_is_present]
+        to: legacy_resolution_required
+      - from: unclaimed
+        command: classify_legacy_without_contemporaneous_identity_evidence
+        to: legacy_unclaimable
+      - from: legacy_resolution_required
+        command: link_from_contemporaneous_verified_identity_evidence
+        guards: [authorized_identity_operator, evidence_is_present, reason_is_present]
+        to: manually_linked
+        event: freedom.positioning.assessment.claimed.v1
+    invariants:
+      - claim_does_not_rewrite_assessment_completion_event
+      - client_cannot_supply_claimed_by_user_id
+      - same_user_replay_returns_original_result
+  member_connection:
+    initial: requested
+    terminal: [declined, cancelled, ended]
+    emitted_on_create: freedom.membership.member_connection.requested.v1
+    transitions:
+      - from: requested
+        command: recipient_accepts_contact_scope
+        guards: [requester_and_recipient_are_distinct_users, no_other_requested_or_active_unordered_pair_exists]
+        to: active
+        event: freedom.membership.member_connection.accepted.v1
+      - from: requested
+        command: recipient_declines
+        to: declined
+      - from: requested
+        command: requester_cancels
+        to: cancelled
+      - from: active
+        command: either_member_ends_connection
+        to: ended
+        event: freedom.membership.member_connection.ended.v1
+    invariants:
+      - this_is_a_mutually_accepted_member_relationship_not_an_external_provider_connection
+      - the_relationship_grants_no_private_message_contact_book_or_integration_credential_access
+
+  entitlement:
+    initial: available
+    terminal: [expired]
+    emitted_on_create: freedom.entitlement.granted.v1
+    transitions:
+      - from: available
+        command: activate
+        to: active
+        event: freedom.entitlement.activated.v1
+      - from: active
+        command: pause_scoped
+        guards: [authorized_actor, reason_is_present]
+        to: paused
+        event: freedom.entitlement.paused.v1
+      - from: paused
+        command: restore
+        to: active
+        event: freedom.entitlement.restored.v1
+      - from: [available, active, paused]
+        command: revoke_scoped
+        guards: [authorized_actor, reason_is_present]
+        to: revoked
+        event: freedom.entitlement.revoked.v1
+      - from: revoked
+        command: restore
+        guards: [authorized_actor, reason_is_present]
+        to: active
+        event: freedom.entitlement.restored.v1
+      - from: [active, paused]
+        command: expire_at_explicit_time
+        to: expired
+        event: freedom.entitlement.expired.v1
+    invariants:
+      - career_profile_is_not_authority
+      - quota_exhaustion_does_not_transition_entitlement
+      - transition_never_deletes_user_result_or_ledger
+  order:
+    initial: created
+    terminal: [cancelled]
+    emitted_on_create: freedom.commerce.order.created.v1
+    orthogonal_projections: [payment_status, fulfillment_status]
+    transitions:
+      - from: created
+        command: accept_order
+        guards: [offer_snapshot_is_valid, exactly_one_seller_and_biller, every_line_has_active_distribution_acceptance_for_exact_actual_price_revision]
+        to: accepted
+        effects: [command_create_supply_orders_from_immutable_line_snapshots]
+      - from: [created, accepted]
+        command: cancel
+        guards: [cancellation_is_allowed]
+        to: cancelled
+      - from: accepted
+        command: complete
+        guards: [payment_is_confirmed, fulfillment_is_accepted_or_not_required]
+        to: completed
+      - from: [accepted, completed]
+        command: open_dispute
+        to: disputed
+      - from: disputed
+        command: resolve_and_complete
+        to: completed
+      - from: accepted
+        command: record_verified_full_refund
+        guards: [new_payment_refund_fact_is_linked, cumulative_verified_refund_equals_confirmed_paid_amount]
+        to: accepted
+        event: freedom.commerce.order.refunded.v1
+      - from: completed
+        command: record_verified_full_refund
+        guards: [new_payment_refund_fact_is_linked, cumulative_verified_refund_equals_confirmed_paid_amount]
+        to: completed
+        event: freedom.commerce.order.refunded.v1
+      - from: disputed
+        command: record_verified_full_refund
+        guards: [new_payment_refund_fact_is_linked, cumulative_verified_refund_equals_confirmed_paid_amount]
+        to: disputed
+        event: freedom.commerce.order.refunded.v1
+    invariants:
+      - offer_split_and_responsibility_snapshots_never_change
+      - payment_redirect_is_not_payment_confirmation
+      - one_order_has_exactly_one_seller
+      - cart_is_segmented_before_checkout_when_seller_parties_differ
+      - paid_order_keeps_the_supplier_commitment_that_was_accepted_before_checkout
+      - seller_controlled_coupon_or_discount_must_resolve_to_a_preaccepted_effective_item_price_revision
+      - shipping_and_tax_are_separately_itemized_from_the_accepted_item_price
+      - partial_refund_updates_the_orthogonal_payment_projection_without_emitting_order_refunded
+
+  seller_listing:
+    initial: draft
+    terminal: [superseded, retired]
+    emitted_on_create: freedom.commerce.seller_listing.created.v1
+    transitions:
+      - from: draft
+        command: request_supplier_acceptance
+        guards: [actual_price_currency_supply_terms_and_artifact_hash_are_present, qc_verdict_allows_official_listing]
+        to: awaiting_supply_acceptance
+        event: freedom.commerce.distribution_acceptance.requested.v1
+      - from: awaiting_supply_acceptance
+        command: observe_supplier_acceptance
+        guards: [acceptance_is_active_and_within_its_effective_window, acceptance_binds_exact_listing_revision_and_actual_price, qc_scope_is_currently_satisfied, seller_collection_connection_is_active_and_owned_by_seller, fulfillment_path_is_ready]
+        to: sellable
+      - from: awaiting_supply_acceptance
+        command: observe_supplier_decline
+        to: changes_requested
+      - from: awaiting_supply_acceptance
+        command: observe_supplier_change_request
+        to: changes_requested
+      - from: [awaiting_supply_acceptance, changes_requested, sellable, paused]
+        command: create_new_revision
+        to: superseded
+        event: freedom.commerce.seller_listing.revised.v1
+      - from: sellable
+        command: observe_distribution_acceptance_revoked
+        to: paused
+      - from: sellable
+        command: observe_distribution_acceptance_expired
+        to: paused
+      - from: sellable
+        command: observe_distribution_acceptance_superseded
+        to: paused
+      - from: awaiting_supply_acceptance
+        command: observe_distribution_acceptance_expired
+        to: changes_requested
+      - from: awaiting_supply_acceptance
+        command: observe_distribution_acceptance_superseded
+        to: superseded
+      - from: [draft, awaiting_supply_acceptance, changes_requested, sellable, paused]
+        command: retire
+        to: retired
+    invariants:
+      - msrp_and_recommended_floor_are_advisory_fields
+      - platform_does_not_auto_block_or_revoke_supply_only_because_actual_price_is_below_an_advisory_value
+      - every_actual_price_change_creates_a_new_revision_and_new_supplier_acceptance
+      - every_transition_to_sellable_rechecks_current_QC_acceptance_collection_and_fulfillment_readiness
+      - no_active_acceptance_means_checkout_is_disabled_before_payment
+      - revocation_expiry_or_supersession_of_the_linked_acceptance_removes_sellability_without_touching_prior_reservations_or_orders
+      - revocation_blocks_new_reservations_and_orders_but_preserves_preexisting_unexpired_reservations_and_their_awaiting_payment_orders_until_TTL
+
+  distribution_acceptance:
+    initial: requested
+    terminal: [changes_requested, declined, revoked, expired, superseded]
+    transitions:
+      - from: requested
+        command: supplier_accept_exact_revision
+        guards: [authorized_human_signature, artifact_digest_matches, actual_price_and_supply_terms_are_visible]
+        to: accepted
+        event: freedom.commerce.distribution_acceptance.accepted.v1
+      - from: requested
+        command: supplier_decline
+        to: declined
+        event: freedom.commerce.distribution_acceptance.declined.v1
+      - from: requested
+        command: supplier_request_change
+        guards: [reason_and_requested_change_are_present]
+        to: changes_requested
+        event: freedom.commerce.distribution_acceptance.change_requested.v1
+      - from: accepted
+        command: supplier_revoke_future_supply
+        guards: [authorized_human_signature, reason_is_present]
+        to: revoked
+        event: freedom.commerce.distribution_acceptance.revoked.v1
+      - from: [requested, accepted]
+        command: listing_revision_is_superseded
+        to: superseded
+      - from: [requested, accepted]
+        command: expire_at_declared_time
+        to: expired
+    invariants:
+      - acceptance_is_supplier_choice_not_an_automatic_price_gate
+      - acceptance_binds_default_actual_price_and_the_exact_effective_price_schedule_digest_if_present
+      - acceptance_binds_supplier_due_fulfillment_returns_quantity_or_availability_and_effective_window
+      - accepted_paid_supply_orders_and_unexpired_checkout_supply_reservations_survive_future_revocation
+
+  supply_reservation:
+    initial: active
+    terminal: [consumed, released]
+    emitted_on_create: freedom.commerce.supply_reservation.created.v1
+    transitions:
+      - from: [active, expired]
+        command: consume_atomically_with_verified_payment
+        guards: [provider_payment_is_verified, provider_occurred_at_not_after_reservation_expiry, exact_listing_acceptance_price_and_quantity_match]
+        to: consumed
+        event: freedom.commerce.supply_reservation.consumed.v1
+      - from: active
+        command: checkout_cancelled_or_payment_known_failed
+        to: released
+      - from: active
+        command: expire_before_payment
+        to: expired
+        event: freedom.commerce.supply_reservation.expired.v1
+    invariants:
+      - reservation_is_created_before_provider_payment_session
+      - supplier_revocation_blocks_new_reservations_but_does_not_break_an_unexpired_one
+      - payment_after_reservation_expiry_is_rejected_before_charge_or_reconciled_to_refund_if_provider_raced
+      - scheduler_expiry_does_not_reject_a_late_webhook_for_a_verified_payment_whose_provider_occurred_at_was_within_TTL
+      - consumption_and_paid_order_link_are_idempotent
+
+  supply_order:
+    initial: awaiting_buyer_payment
+    terminal: [cancelled, refunded]
+    emitted_on_create: freedom.commerce.supply_order.created.v1
+    transitions:
+      - from: awaiting_buyer_payment
+        command: observe_verified_buyer_payment
+        to: settlement_due
+        effects: [command_create_settlement_instruction]
+      - from: settlement_due
+        command: observe_confirmed_supplier_settlement
+        to: fulfillment_authorized
+        event: freedom.commerce.fulfillment.authorized.v1
+      - from: settlement_due
+        command: apply_explicit_credit_terms
+        guards: [signed_credit_terms_cover_this_supply_order]
+        to: fulfillment_authorized
+        event: freedom.commerce.fulfillment.authorized.v1
+      - from: fulfillment_authorized
+        command: supplier_accept_fulfillment
+        to: fulfilling
+      - from: fulfilling
+        command: record_fulfillment
+        to: fulfilled
+        event: freedom.commerce.order.fulfilled.v1
+      - from: awaiting_buyer_payment
+        command: cancel_unpaid
+        to: cancelled
+      - from: [settlement_due, fulfillment_authorized, fulfilling, fulfilled]
+        command: observe_verified_full_refund
+        to: refunded
+    invariants:
+      - supply_order_references_the_exact_precheckout_distribution_acceptance
+      - supplier_cannot_decline_a_paid_order_only_for_an_already_accepted_actual_price
+      - seller_payment_and_supplier_settlement_are_distinct_facts
+      - fulfillment_requires_confirmed_settlement_or_explicit_signed_credit_terms
+  payment:
+    initial: unpaid
+    terminal: [refunded, chargeback]
+    transitions:
+      - from: unpaid
+        command: create_provider_session
+        to: pending
+      - from: pending
+        command: append_verified_authorization_fact
+        guards: [fact_is_verified, amount_and_currency_match_order]
+        to: authorized
+        event: freedom.commerce.payment.authorized.v1
+      - from: [pending, authorized]
+        command: append_verified_paid_fact
+        guards: [fact_is_verified, amount_and_currency_match_order]
+        to: paid
+        event: freedom.commerce.payment.confirmed.v1
+      - from: [pending, authorized]
+        command: record_provider_failure
+        to: failed
+      - from: failed
+        command: retry_with_same_payment_identity
+        to: pending
+      - from: paid
+        command: append_partial_refund_fact
+        guards: [fact_is_verified, refund_amount_is_positive, currency_matches_payment, cumulative_refund_remains_below_paid_amount]
+        to: partially_refunded
+        event: freedom.commerce.payment.refund.confirmed.v1
+        effects: [command_order_record_refund, command_ledger_append_proportional_reversal]
+      - from: partially_refunded
+        command: append_another_partial_refund_fact
+        guards: [fact_is_verified, refund_amount_is_positive, currency_matches_payment, cumulative_refund_remains_below_paid_amount]
+        to: partially_refunded
+        event: freedom.commerce.payment.refund.confirmed.v1
+        effects: [command_order_record_refund, command_ledger_append_proportional_reversal]
+      - from: [paid, partially_refunded]
+        command: append_full_refund_fact
+        guards: [fact_is_verified, refund_amount_is_positive, currency_matches_payment, cumulative_refund_equals_paid_amount]
+        to: refunded
+        event: freedom.commerce.payment.refund.confirmed.v1
+        effects: [command_order_record_refund, command_ledger_append_remaining_reversal]
+      - from: [paid, partially_refunded]
+        command: append_chargeback_fact
+        guards: [fact_is_verified, currency_matches_payment, chargeback_references_original_transaction]
+        to: chargeback
+        event: freedom.commerce.payment.chargeback.recorded.v1
+        effects: [command_order_record_chargeback, command_ledger_append_remaining_reversal]
+    invariants:
+      - browser_return_is_not_a_verified_payment_fact
+      - provider_connection_and_transaction_id_are_unique
+      - refund_and_chargeback_append_facts_and_ledger_reversals
+      - cumulative_refund_never_exceeds_refundable_confirmed_payment
+      - authorization_never_accrues_a_financial_obligation
+      - every_refund_fact_has_its_own_amount_and_external_or_resolution_reference
+  refund_request:
+    initial: requested
+    terminal: [refunded, rejected, withdrawn, manually_resolved_not_refunded]
+    emitted_on_create: freedom.commerce.refund.requested.v1
+    transitions:
+      - from: requested
+        command: accept
+        to: accepted
+        event: freedom.commerce.refund.accepted.v1
+      - from: requested
+        command: reject
+        to: rejected
+        event: freedom.commerce.refund.rejected.v1
+      - from: requested
+        command: withdraw
+        to: withdrawn
+      - from: accepted
+        command: execute_with_provider
+        to: executing
+      - from: executing
+        command: observe_verified_refund_fact
+        guards: [fact_matches_request_and_executed_amount]
+        to: refunded
+        effects: [link_payment_refund_fact]
+      - from: executing
+        command: record_provider_failure
+        to: failed
+      - from: failed
+        command: retry_execution
+        to: executing
+      - from: [accepted, executing, failed]
+        command: resolve_manually_as_refunded
+        guards: [authorized_actor, evidence_is_present, resolved_refund_fact_is_verified, fact_matches_request_and_executed_amount]
+        to: refunded
+        effects: [link_payment_refund_fact]
+      - from: [accepted, executing, failed]
+        command: resolve_manually_as_not_refunded
+        guards: [authorized_actor, evidence_is_present, resolution_explicitly_confirms_no_refund, reason_is_present]
+        to: manually_resolved_not_refunded
+    invariants:
+      - accepted_is_not_refunded
+      - only_verified_or_resolved_fact_changes_payment_projection
+      - refund_ledger_effect_is_append_only_reversal
+  supplier_payable:
+    initial: pending
+    terminal: [due]
+    transitions:
+      - from: pending
+        command: accrue_from_verified_reseller_payment
+        guards: [arrangement_is_reseller, source_snapshot_is_a_signed_distribution_acceptance, supplier_due_is_resolved_for_exact_order_line]
+        to: qualified
+        event: freedom.ledger.supplier_payable.accrued.v1
+      - from: qualified
+        command: mark_due
+        to: due
+    invariants:
+      - money_uses_minor_units
+      - original_accrual_is_never_updated_or_deleted
+      - reversal_references_original_ledger_event
+      - authorization_without_paid_fact_never_qualifies
+      - obligation_names_source_type_source_version_order_line_and_supplier_beneficiary
+      - seller_margin_is_retained_reseller_economics_not_a_commission_payable
+
+  commission_obligation:
+    initial: pending
+    terminal: [due]
+    transitions:
+      - from: pending
+        command: accrue_from_verified_payment_and_signed_commission_rule
+        guards: [arrangement_is_sales_agent_or_explicit_referral, signed_source_rule_is_active, exact_order_line_and_beneficiary_present]
+        to: qualified
+        event: freedom.ledger.commission_obligation.accrued.v1
+      - from: qualified
+        command: mark_due
+        to: due
+    invariants:
+      - commission_never_exists_in_reseller_mode_only_because_seller_retains_margin
+      - obligation_names_source_type_source_version_order_line_and_beneficiary
+      - contribution_PR_or_QC_never_infers_a_commission_rule
+
+  service_payable:
+    initial: pending
+    terminal: [due]
+    transitions:
+      - from: pending
+        command: accrue_from_signed_engagement_trigger
+        guards: [service_engagement_is_active, signed_allocation_plan_names_this_entry_and_beneficiary, configured_payment_trigger_is_verified, exact_source_version_and_milestone_present, milestone_state_is_accepted]
+        to: qualified
+        event: freedom.ledger.service_payable.accrued.v1
+      - from: qualified
+        command: mark_due
+        to: due
+    invariants:
+      - allocation_is_defined_by_the_Squad_and_signed_parties_not_a_global_platform_formula
+      - community_QC_contribution_or_profession_rank_never_infers_a_service_payable
+      - obligation_names_source_type_source_version_milestone_beneficiary_amount_and_currency
+      - original_accrual_is_immutable_and_any_refund_or_clawback_uses_a_referenced_reversal
+
+  financial_obligation_reversal:
+    initial: none
+    terminal: [fully_reversed]
+    lifecycle_relation: orthogonal_to_supplier_payable_commission_obligation_or_service_payable
+    transitions:
+      - from: none
+        command: append_partial_reversal
+        guards: [original_accrual_reference_is_valid, currency_matches_original_accrual, effect_idempotency_key_is_new_or_same_request, reversal_amount_is_positive, cumulative_reversal_below_accrual]
+        to: partially_reversed
+        event: freedom.ledger.obligation.reversed.v1
+      - from: partially_reversed
+        command: append_another_partial_reversal
+        guards: [original_accrual_reference_is_valid, currency_matches_original_accrual, effect_idempotency_key_is_new_or_same_request, reversal_amount_is_positive, cumulative_reversal_below_accrual]
+        to: partially_reversed
+        event: freedom.ledger.obligation.reversed.v1
+      - from: [none, partially_reversed]
+        command: append_remaining_reversal
+        guards: [original_accrual_reference_is_valid, currency_matches_original_accrual, effect_idempotency_key_is_new_or_same_request, reversal_equals_unreversed_remainder]
+        to: fully_reversed
+        event: freedom.ledger.obligation.reversed.v1
+    invariants:
+      - each_reversal_is_an_immutable_ledger_event
+      - cumulative_reversal_never_exceeds_original_accrual
+      - partial_refunds_do_not_force_lifecycle_state_to_terminal
+  settlement_mandate:
+    initial: draft
+    terminal: [revoked, expired, superseded]
+    transitions:
+      - from: draft
+        command: payer_sign_bounded_mandate
+        guards: [A4_exact_signature, payer_owned_disbursement_connection_and_beneficiary_destination_are_purpose_verified, currency_action_scope_and_amount_bounds_present, bound_ids_are_unique, no_bounds_have_overlapping_applicability]
+        to: active
+        event: freedom.commerce.settlement_mandate.activated.v1
+      - from: active
+        command: payer_revoke
+        to: revoked
+        event: freedom.commerce.settlement_mandate.revoked.v1
+        effects: [release_ready_instruction_capacity_and_move_those_instructions_to_authorization_required, reconcile_executing_provider_accepted_and_result_unknown_operations, preserve_all_obligations]
+      - from: active
+        command: expire_at_declared_time
+        to: expired
+        effects: [release_ready_instruction_capacity_and_move_those_instructions_to_authorization_required, reconcile_executing_provider_accepted_and_result_unknown_operations, preserve_all_obligations]
+      - from: active
+        command: replace_with_new_signed_revision
+        to: superseded
+        effects: [release_ready_instruction_capacity_and_move_those_instructions_to_authorization_required, reconcile_executing_provider_accepted_and_result_unknown_operations, preserve_all_obligations]
+    invariants:
+      - mandate_belongs_to_payer_party_and_uses_that_partys_purpose_tagged_disbursement_connection
+      - collection_disbursement_and_beneficiary_destination_authorities_are_distinct_even_when_one_provider_account_supports_more_than_one
+      - each_bound_has_a_unique_bound_id_and_one_beneficiary_destination_currency_calendar_period_and_IANA_timezone
+      - weeks_begin_Monday_and_period_bucket_boundaries_are_snapshotted
+      - applicability_must_not_overlap_inside_one_mandate_for_the_same_beneficiary_destination_currency_action_and_intersecting_scope
+      - each_instruction_resolves_to_exactly_one_bound
+      - mandate_never_gives_platform_custody_of_funds
+      - mandate_secret_material_is_never_stored_in_domain_rows_events_or_logs
+      - revocation_expiry_and_supersession_recheck_execution_authority_block_ready_operations_and_do_not_erase_existing_obligations_or_facts
+      - executing_provider_accepted_and_result_unknown_operations_reconcile_after_revocation_expiry_or_supersession_and_are_never_blindly_retried
+
+  settlement_mandate_usage_reservation:
+    initial: reserved
+    terminal: [consumed, released]
+    emitted_on_create: freedom.commerce.settlement_mandate.capacity_reserved.v1
+    transitions:
+      - from: reserved
+        command: consume_after_verified_transfer_confirmation
+        to: consumed
+        event: freedom.commerce.settlement_mandate.capacity_consumed.v1
+      - from: reserved
+        command: release_before_provider_submission_or_after_proven_no_external_effect
+        guards: [instruction_is_not_executing_and_provider_has_not_accepted_or_reconciliation_proves_no_effect]
+        to: released
+        event: freedom.commerce.settlement_mandate.capacity_released.v1
+    invariants:
+      - exactly_one_usage_reservation_per_instruction_and_resolved_mandate_bound
+      - reservation_creation_atomically_checks_per_transfer_cap_and_reserved_plus_consumed_period_cap
+      - period_bucket_start_end_timezone_and_bound_revision_are_immutable
+      - provider_accepted_executing_result_unknown_and_reconciling_states_retain_capacity
+      - confirmed_transfer_consumes_capacity
+      - capacity_is_released_only_when_no_external_financial_effect_is_possible_or_proven
+
+  settlement_instruction:
+    initial: created
+    terminal: [reversed, written_off]
+    emitted_on_create: freedom.commerce.settlement_instruction.created.v1
+    transitions:
+      - from: created
+        command: match_active_mandate_and_reserve_capacity
+        guards: [payable_is_due_and_source_snapshot_is_immutable, payer_beneficiary_destination_currency_action_and_scope_match_exactly_one_active_bound, amount_within_per_transfer_cap, period_cap_capacity_is_atomically_reserved]
+        to: ready
+        effects: [create_system_action_intent_bound_to_usage_reservation]
+      - from: created
+        command: record_authorization_required
+        guards: [no_exact_active_mandate_bound_matches]
+        to: authorization_required
+      - from: authorization_required
+        command: match_new_active_mandate_and_reserve_capacity
+        guards: [payable_is_due_and_source_snapshot_is_immutable, payer_beneficiary_destination_currency_action_and_scope_match_exactly_one_active_bound, amount_within_per_transfer_cap, period_cap_capacity_is_atomically_reserved]
+        to: ready
+        effects: [create_system_action_intent_bound_to_usage_reservation]
+      - from: ready
+        command: enqueue_transfer
+        guards: [platform_money_movement_enabled_and_seller_mode_is_authorized_mandate_with_active_exact_mandate, mandate_still_active, usage_reservation_still_reserved, payer_disbursement_connection_still_authorized, exact_target_version_matches]
+        to: executing
+        effects: [create_transfer_job]
+      - from: ready
+        command: provider_cannot_initiate
+        to: manual_required
+        effects: [release_usage_capacity, supersede_system_action_intent]
+      - from: ready
+        command: matching_mandate_revoked_or_expired
+        to: authorization_required
+        effects: [release_usage_capacity, supersede_system_action_intent]
+      - from: executing
+        command: observe_provider_acceptance
+        to: provider_accepted
+        event: freedom.commerce.transfer.provider_accepted.v1
+      - from: [executing, provider_accepted]
+        command: observe_verified_transfer
+        to: confirmed
+        event: freedom.commerce.transfer.confirmed.v1
+        effects: [consume_usage_capacity, command_confirm_ledger_settlement, conditionally_authorize_supply_order_fulfillment_only_for_supplier_payable]
+      - from: [executing, provider_accepted]
+        command: record_ambiguous_timeout
+        to: result_unknown
+      - from: [executing, provider_accepted, result_unknown]
+        command: mandate_revoked_or_begin_reconciliation
+        to: reconciling
+      - from: reconciling
+        command: reconcile_confirmed
+        to: confirmed
+        event: freedom.commerce.transfer.confirmed.v1
+        effects: [consume_usage_capacity, command_confirm_ledger_settlement, conditionally_authorize_supply_order_fulfillment_only_for_supplier_payable]
+      - from: reconciling
+        command: reconcile_safe_to_retry
+        guards: [same_mandate_is_active, same_usage_capacity_remains_reserved, stable_provider_operation_key_is_reusable]
+        to: ready
+      - from: reconciling
+        command: reconcile_no_effect_but_authorization_is_no_longer_active
+        to: authorization_required
+        effects: [release_usage_capacity, supersede_system_action_intent]
+      - from: reconciling
+        command: require_manual_evidence
+        to: manual_required
+        effects: [release_usage_capacity_if_reconciliation_proves_no_external_effect]
+      - from: manual_required
+        command: confirm_from_verified_evidence
+        guards: [authorized_human_signature, evidence_matches_instruction]
+        to: confirmed
+        event: freedom.commerce.settlement_instruction.manual_evidence_confirmed.v1
+        effects: [consume_usage_capacity_if_still_reserved, command_confirm_ledger_settlement, conditionally_authorize_supply_order_fulfillment_only_for_supplier_payable]
+      - from: [confirmed, manual_required]
+        command: append_refund_or_chargeback_reverse_obligation
+        to: reversed
+      - from: manual_required
+        command: write_off_after_authorized_resolution
+        guards: [authorized_actor, reason_and_evidence_are_present]
+        to: written_off
+    invariants:
+      - instruction_references_exactly_one_supplier_payable_commission_obligation_or_service_payable_and_its_immutable_source_version
+      - supplier_payable_has_order_line_supply_order_and_order_split_snapshot_commission_has_order_line_and_service_has_accepted_milestone_and_allocation_plan
+      - ready_or_later_automated_instruction_has_one_system_created_typed_action_intent_exact_signed_mandate_bound_snapshot_and_usage_reservation
+      - authorization_required_may_exist_without_an_active_mandate_or_action_intent
+      - transfer_uses_payer_owned_purpose_tagged_disbursement_connection_and_verified_beneficiary_destination
+      - retry_uses_one_stable_provider_operation_key
+      - timeout_after_possible_provider_acceptance_never_blindly_retries
+      - refund_or_chargeback_appends_a_reverse_obligation_or_signed_future_netting_fact
+      - only_confirmed_supplier_payable_authorizes_supply_order_fulfillment
+      - no_platform_wallet_or_silent_balance_rewrite
+
+  settlement:
+    initial: due
+    terminal: [reversed, written_off]
+    emitted_on_create: freedom.ledger.settlement.reported.v1
+    transitions:
+      - from: due
+        command: link_instruction
+        to: instructed
+      - from: instructed
+        command: observe_transfer_confirmation
+        to: recipient_confirmed
+        event: freedom.ledger.settlement.confirmed.v1
+      - from: instructed
+        command: recipient_disputes
+        to: disputed
+        event: freedom.ledger.settlement.disputed.v1
+      - from: disputed
+        command: resolve_received
+        to: recipient_confirmed
+        event: freedom.ledger.settlement.confirmed.v1
+      - from: [due, instructed, disputed, recipient_confirmed]
+        command: append_reverse_obligation
+        to: reversed
+      - from: disputed
+        command: write_off
+        guards: [authorized_actor, reason_is_present]
+        to: written_off
+    invariants:
+      - obligation_ledger_is_separate_from_provider_transfer_fact
+      - contribution_or_review_never_auto_creates_a_settlement
+  coaching_suggestion:
+    initial: offered
+    terminal: [accepted, dismissed, expired]
+    transitions:
+      - from: offered
+        command: accept
+        to: accepted
+        event: freedom.coaching.suggestion.accepted.v1
+      - from: offered
+        command: dismiss
+        to: dismissed
+        event: freedom.coaching.suggestion.dismissed.v1
+      - from: offered
+        command: expire
+        to: expired
+        event: freedom.coaching.suggestion.expired.v1
+    emitted_on_create: freedom.coaching.suggestion.offered.v1
+    invariants:
+      - suggestion_never_creates_enrollment_or_payment_without_member_command
+  coaching_enrollment:
+    initial: requested
+    terminal: [completed, withdrawn]
+    emitted_on_create: freedom.coaching.enrollment.requested.v1
+    transitions:
+      - from: requested
+        command: match_or_assign_cohort
+        to: matched
+        event: freedom.coaching.enrollment.matched.v1
+      - from: requested
+        command: place_on_waitlist
+        to: waitlisted
+        event: freedom.coaching.enrollment.waitlisted.v1
+      - from: waitlisted
+        command: match_or_assign_cohort
+        to: matched
+        event: freedom.coaching.enrollment.matched.v1
+      - from: matched
+        command: activate
+        to: active
+        event: freedom.coaching.enrollment.activated.v1
+      - from: active
+        command: pause
+        to: paused
+        event: freedom.coaching.enrollment.paused.v1
+      - from: paused
+        command: resume
+        to: active
+        event: freedom.coaching.enrollment.resumed.v1
+      - from: [requested, waitlisted, matched, active, paused]
+        command: member_ends_enrollment
+        to: withdrawn
+        event: freedom.coaching.enrollment.withdrawn.v1
+      - from: active
+        command: submit_outcome_candidate_to_result_core
+        to: active
+        event: freedom.coaching.outcome.submitted.v1
+      - from: matched
+        command: transfer_coach_or_cohort
+        to: matched
+        event: freedom.coaching.enrollment.transferred.v1
+      - from: active
+        command: transfer_coach_or_cohort
+        to: active
+        event: freedom.coaching.enrollment.transferred.v1
+      - from: paused
+        command: transfer_coach_or_cohort
+        to: paused
+        event: freedom.coaching.enrollment.transferred.v1
+      - from: [active, paused]
+        command: observe_result_core_confirmation
+        guards: [confirmed_result_subject_is_learner, result_matches_pinned_program_target]
+        to: completed
+        event: freedom.coaching.enrollment.completed.v1
+    annotations:
+      overdue_checkin: projection_only
+      stuck: support_signal_only
+    invariants:
+      - no_failed_member_state
+      - missing_checkin_never_revokes_member_or_entitlement
+      - learner_and_coach_results_are_separate_result_events_owned_by_result_core
+  coaching_checkpoint:
+    initial: planned
+    terminal: [confirmed, skipped]
+    orthogonal_machines: [coaching_checkpoint_attention]
+    transitions:
+      - from: planned
+        command: begin
+        to: in_progress
+      - from: [planned, in_progress]
+        command: report_stuck
+        to: in_progress
+        effects: [command_attention_request_help]
+      - from: [planned, in_progress]
+        command: report_done
+        to: submitted
+      - from: submitted
+        command: confirm_checkpoint
+        to: confirmed
+        event: freedom.coaching.checkpoint.completed.v1
+        effects: [command_attention_resolve_help]
+      - from: [planned, in_progress]
+        command: skip
+        to: skipped
+        effects: [command_attention_resolve_help]
+      - from: planned
+        command: reschedule
+        to: planned
+      - from: in_progress
+        command: reschedule
+        to: in_progress
+    invariants:
+      - needs_help_is_orthogonal_support_state
+      - repeated_stuck_never_withdraws_member
+      - report_commands_are_idempotent_and_version_checked
+  coaching_checkpoint_attention:
+    initial: none
+    transitions:
+      - from: none
+        command: request_help
+        to: needs_help
+        event: freedom.coaching.checkpoint.help_requested.v1
+      - from: needs_help
+        command: request_help
+        to: needs_help
+      - from: needs_help
+        command: resolve_help
+        to: none
+    invariants:
+      - attention_state_never_changes_enrollment_or_member_entitlement
+
+  submission_draft:
+    initial: draft
+    terminal: [confirmed, rejected, expired]
+    emitted_on_create: freedom.work.submission_draft.created.v1
+    transitions:
+      - from: draft
+        command: owner_confirms_typed_target
+        guards:
+          - authenticated_owner_or_authorized_organization_operator_portal_session_with_csrf
+          - expected_aggregate_version_matches
+          - acknowledged_source_ref_revision_and_content_sha256_exactly_match_the_saved_immutable_source_tuple
+          - document_access_policy_is_not_explicitly_revoked_in_Platform
+          - confirmed_target_kind_matches_original_typed_proposal
+        to: confirmed
+        event: freedom.work.submission_draft.confirmed.v1
+        effects:
+          - atomically_invoke_exactly_one_create_draft_work_item_or_create_private_opportunity_stub_command_and_store_target_ref
+      - from: draft
+        command: owner_rejects
+        guards:
+          - authenticated_owner_or_authorized_organization_operator_portal_session_with_csrf
+          - expected_aggregate_version_matches
+        to: rejected
+        event: freedom.work.submission_draft.rejected.v1
+      - from: draft
+        command: expire
+        guards: [server_time_is_at_or_after_expires_at]
+        to: expired
+        event: freedom.work.submission_draft.expired.v1
+    invariants:
+      - create_is_owner_private_and_external_adapter_or_agent_token_can_never_confirm_or_reject
+      - source_identity_revision_hash_custody_and_dedupe_key_are_immutable
+      - same_source_dedupe_key_and_hash_returns_original_but_changed_hash_conflicts
+      - confirmed_has_exactly_one_typed_target_ref_and_rejected_or_expired_has_none
+      - confirmation_never_opens_publishes_claims_grants_signs_or_approves_the_target
+      - document_confirmation_performs_no_fetch_and_proves_neither_current_source_reachability_nor_current_bytes
+      - a_confirmed_OpportunityStub_grants_no_Agent_access_and_any_later_WorkItem_needing_the_document_must_copy_the_exact_source_requirement
+      - raw_line_discord_or_external_client_document_content_is_not_stored_centrally_or_emitted
+
+  work_item:
+    initial: draft
+    terminal:
+    - accepted
+    - cancelled
+    - expired
+    transitions:
+    - from: draft
+      command: publish_review_required_without_current_reviewer_capacity
+      guards:
+      - objective_acceptance_evidence_gain_profession_and_skill_refs_present
+      - review_required_is_true
+      - no_active_reviewer_appointment_for_exact_scope
+      - participation_terms_declared_or_pre_revision_legacy_explicitly_unclassified
+      to: open
+      effects:
+      - recompute_orthogonal_review_capacity_navigation
+      - upsert_one_scope_episode_navigation_card_without_backfill_promise
+      event: freedom.work.item.opened.v1
+    - from: draft
+      command: open
+      guards:
+      - objective_acceptance_evidence_gain_profession_and_skill_refs_present
+      - participation_terms_declared_or_pre_revision_legacy_explicitly_unclassified
+      to: open
+      event: freedom.work.item.opened.v1
+      effects:
+      - recompute_orthogonal_review_capacity_navigation_without_changing_claimability
+    - from: open
+      command: add_first_nonexclusive_claim
+      guards:
+      - execution_mode_is_collaborative_or_competitive
+      - claim_window_open
+      - claim_capacity_available
+      - viewed_participation_terms_revision_and_digest_match_or_legacy_is_explicitly_unclassified
+      to: active
+      effects:
+      - pin_terms_snapshot_to_claim_without_inventing_human_support
+    - from: active
+      command: add_additional_nonexclusive_claim
+      guards:
+      - execution_mode_is_collaborative_or_competitive
+      - claim_window_open
+      - claim_capacity_available
+      - viewed_participation_terms_revision_and_digest_match_or_legacy_is_explicitly_unclassified
+      to: active
+      effects:
+      - pin_terms_snapshot_to_claim_without_inventing_human_support
+    - from: open
+      command: add_exclusive_claim_atomically
+      guards:
+      - execution_mode_is_exclusive
+      - no_existing_claim
+      - viewed_participation_terms_revision_and_digest_match_or_legacy_is_explicitly_unclassified
+      to: claiming_closed
+      effects:
+      - pin_terms_snapshot_to_claim_without_inventing_human_support
+    - from:
+      - open
+      - active
+      command: close_claiming_at_capacity_or_deadline
+      to: claiming_closed
+    - from:
+      - active
+      - claiming_closed
+      command: apply_accepted_result_policy
+      guards:
+      - accepted_claim_result_exists
+      - configured_completion_policy_satisfied
+      to: accepted
+      effects:
+      - close_or_preserve_remaining_claims_per_pinned_policy
+      - update_now_next_gained_projection
+    - from:
+      - draft
+      - open
+      - active
+      - claiming_closed
+      command: cancel_with_reason
+      to: cancelled
+      guards:
+      - cancellation_respects_existing_claim_terms_and_protected_obligation_owner_process
+    - from:
+      - open
+      - active
+      command: expire
+      to: expired
+      guards:
+      - configured_unclaimed_expiry_reached
+      - no_active_human_commitments
+      - no_submitted_unresolved_claims
+      - no_protected_obligations
+    invariants:
+    - each_claim_is_a_separate_work_claim_aggregate_owned_by_a_person_team_or_squad
+    - exclusive_mode_atomically_closes_claimability_after_one_claim
+    - collaborative_and_competitive_modes_allow_multiple_claims_until_pinned_capacity_or_deadline
+    - one_claim_submission_never_overwrites_another_claim_or_result
+    - waiting_reviewer_capacity_is_only_an_orthogonal_navigation_projection_never_work_item_lifecycle
+    - reviewer_appointment_is_qualification_not_a_reservation_of_human_time
+    - capacity_change_alone_never_changes_lifecycle_claimability_or_sets_official_true
+    - no_support_card_creates_an_obligation_for_core_or_volunteers_to_backfill
+    - ordinary_claims_do_not_require_a_reviewer_or_promised_support_capacity
+    - new_guaranteed_human_support_requires_accepted_atomic_capacity_reservation
+    - ordinary_expiry_never_erases_signed_delivery_payment_refund_safety_or_rights_obligations
+  work_claim:
+    initial: claimed
+    terminal:
+    - accepted
+    - released
+    - cancelled
+    - expired
+    emitted_on_create: freedom.work.item.claimed.v1
+    transitions:
+    - from: claimed
+      command: begin_work
+      to: in_progress
+    - from: in_progress
+      command: submit_evidence
+      to: submitted
+      event: freedom.work.submission.created.v1
+    - from: submitted
+      command: begin_review
+      to: in_review
+    - from: in_review
+      command: request_changes
+      to: changes_requested
+    - from: changes_requested
+      command: resubmit
+      to: submitted
+      event: freedom.work.submission.created.v1
+    - from: in_review
+      command: accept
+      guards:
+      - acceptance_criteria_met
+      - authorized_human_or_pinned_objective_system_confirmation
+      to: accepted
+      event: freedom.work.submission.accepted.v1
+      effects:
+      - command_create_contribution_record_and_now_next_gained_update
+    - from:
+      - claimed
+      - in_progress
+      - submitted
+      - changes_requested
+      command: claimant_releases
+      to: released
+      guards:
+      - exit_respects_pinned_terms_and_preserves_protected_obligation_owner_process
+      effects:
+      - notify_affected_participants_without_auto_assigning_core
+      - retain_outstanding_protected_obligations_in_owning_aggregate
+    - from:
+      - claimed
+      - in_progress
+      - submitted
+      - in_review
+      - changes_requested
+      command: cancel_with_reason
+      to: cancelled
+      guards:
+      - exit_respects_pinned_terms_and_preserves_protected_obligation_owner_process
+      effects:
+      - notify_affected_participants_without_auto_assigning_core
+      - retain_outstanding_protected_obligations_in_owning_aggregate
+    - from:
+      - claimed
+      - in_progress
+      command: expire
+      to: expired
+      guards:
+      - configured_voluntary_claim_deadline_reached
+      - no_protected_obligations
+      - no_accepted_outstanding_human_support_without_agreed_exit_process
+      effects:
+      - retain_terms_evidence_and_audit_history
+      - release_only_uncommitted_capacity_without_erasing_existing_duties
+    invariants:
+    - claim_owner_is_a_person_team_or_squad_never_an_agent_process
+    - agent_task_lease_is_orthogonal_to_claim
+    - rejection_release_or_expiry_does_not_create_a_permanent_member_penalty
+    - accepted_work_creates_evidence_not_automatic_money_or_ownership
+    - claim_exit_does_not_cancel_sow_payable_refund_safety_or_formal_dispute
+    - terms_revision_and_digest_are_pinned_per_claim
+    - benefit_observation_never_changes_acceptance_or_creates_payment
+  draft_artifact:
+    initial: draft
+    terminal: [superseded, applied, abandoned]
+    emitted_on_create: freedom.work.draft_artifact.created.v1
+    transitions:
+      - from: draft
+        command: create_new_immutable_revision
+        guards: [same_artifact_type_schema_and_target, expected_aggregate_version_matches]
+        to: superseded
+        event: freedom.work.draft_artifact.revised.v1
+        effects: [create_successor_draft_artifact_in_same_lineage_and_emit_created_event]
+      - from: draft
+        command: apply_through_action_intent
+        guards: [artifact_digest_matches, target_version_matches, required_review_present, action_authorized_under_target_A0_to_A4_rule]
+        to: applied
+        event: freedom.work.draft_artifact.applied.v1
+      - from: draft
+        command: author_or_claim_owner_abandons
+        to: abandoned
+    invariants:
+      - every_revision_is_immutable_and_schema_validated
+      - draft_artifact_id_identifies_one_revision_and_lineage_id_links_successors
+      - revision_author_is_a_human_or_organization_principal_never_an_agent_process
+      - drafting_never_applies_a_domain_change
+      - code_artifacts_use_GitHub_branch_PR_and_review_as_the_canonical_change_path
+      - changed_content_requires_a_new_digest_revision_and_when_applicable_a_new_A4_signature
+
+  execution_grant:
+    initial: draft
+    terminal: [revoked, expired, exhausted, superseded]
+    transitions:
+      - from: draft
+        command: principal_grants_exact_bounds
+        guards: [principal_identity_verified, action_resource_time_and_cost_bounds_present]
+        to: active
+        event: freedom.agent.execution_grant.created.v1
+      - from: active
+        command: principal_revokes
+        to: revoked
+        event: freedom.agent.execution_grant.revoked.v1
+      - from: active
+        command: expire
+        to: expired
+      - from: active
+        command: consume_final_bound
+        to: exhausted
+      - from: active
+        command: replace_with_new_revision
+        to: superseded
+    invariants:
+      - agent_is_not_the_principal_or_entitlement_holder
+      - A4_requires_a_fresh_signature_for_the_exact_artifact_or_bounded_mandate_digest
+      - deterministic_actions_inside_an_A4_signed_mandate_execute_without_a_new_signature_but_any_out_of_bounds_action_requires_one
+      - revocation_stops_new_actions_but_does_not_rewrite_prior_facts
+
+  agent_connection:
+    initial: pending_user_approval
+    terminal: [denied, expired, revoked]
+    transitions:
+      - from: pending_user_approval
+        command: human_approves_displayed_client_and_principal
+        guards: [device_code_active, client_instance_proof_matches, signer_can_represent_principal]
+        to: active
+        event: freedom.agent.connection.registered.v1
+      - from: pending_user_approval
+        command: human_denies
+        to: denied
+      - from: pending_user_approval
+        command: expire_device_authorization
+        to: expired
+      - from: active
+        command: principal_revokes_connection
+        to: revoked
+        event: freedom.agent.connection.revoked.v1
+    invariants:
+      - connection_binds_one_principal_and_one_displayed_client_instance
+      - connection_registration_grants_no_work_action_without_an_active_execution_grant
+      - connection_or_token_never_contains_A4_signing_authority
+      - access_tokens_are_short_lived_and_refresh_credentials_are_rotation_bound
+      - revocation_stops_new_actions_but_ambiguous_external_effects_continue_reconciliation
+
+  agent_run:
+    initial: prepared
+    terminal: [succeeded, failed, cancelled, manual_unknown]
+    transitions:
+      - from: prepared
+        command: start_with_current_task_lease
+        guards: [human_claim_active, execution_grant_active, skill_versions_pinned]
+        to: running
+        event: freedom.agent.run.started.v1
+      - from: running
+        command: record_bound_external_source_verification_success
+        guards:
+          - current_task_lease_and_fence_match
+          - exact_WorkItem_bound_source_ref_revision_and_expected_digest_match
+          - bound_local_agent_asserts_it_fetched_the_exact_owner_side_revision_and_observed_digest_matches
+        to: running
+        effects: [store_immutable_external_source_verification_receipt_without_raw_bytes]
+      - from: running
+        command: record_bound_external_source_known_failure
+        guards:
+          - current_task_lease_and_fence_match
+          - exact_WorkItem_bound_source_ref_revision_and_expected_digest_match
+          - outcome_is_source_unavailable_access_denied_revision_unavailable_or_digest_mismatch
+        to: failed
+        effects: [store_immutable_external_source_failure_receipt, create_zero_consequential_effects]
+      - from: running
+        command: needs_human_choice_or_signature
+        to: awaiting_human
+      - from: awaiting_human
+        command: receive_valid_bounded_choice
+        to: running
+      - from: running
+        command: submit_outputs
+        guards: [every_required_external_source_has_a_successful_exact_tuple_verification_receipt]
+        to: submitted
+      - from: submitted
+        command: record_success
+        to: succeeded
+      - from: [prepared, running, awaiting_human, submitted]
+        command: cancel
+        to: cancelled
+      - from: running
+        command: record_known_failure
+        to: failed
+      - from: running
+        command: record_ambiguous_external_effect
+        to: result_unknown
+      - from: result_unknown
+        command: begin_reconciliation
+        to: reconciling
+      - from: reconciling
+        command: reconcile_success
+        to: succeeded
+      - from: reconciling
+        command: exhaust_lookup
+        to: manual_unknown
+    invariants:
+      - agent_run_never_changes_human_claim_ownership
+      - outputs_record_provenance_not_private_chain_of_thought
+      - every_external_effect_references_one_action_intent
+      - SubmissionDraft_confirmation_is_not_external_source_verification
+      - source_bound_runs_cannot_submit_outputs_or_execute_consequential_actions_before_successful_local_verification
+      - a_local_verification_receipt_is_authenticated_fenced_Agent_provenance_not_independent_server_attestation_and_never_bypasses_review_signature_or_A4
+      - known_source_access_or_digest_failure_is_recorded_and_creates_no_DraftArtifact_PR_Result_Contribution_ActionIntent_execution_or_external_effect
+
+  action_intent:
+    initial: drafted
+    terminal: [succeeded, failed, expired, superseded, manual_unknown]
+    emitted_on_create: freedom.agent.action_intent.created.v1
+    transitions:
+      - from: drafted
+        command: require_A4_signature
+        to: awaiting_signature
+      - from: drafted
+        command: authorize_authenticated_principal_session
+        guards: [origin_is_principal_session, principal_and_acting_role_authority_snapshot_present, action_minimum_is_A0_to_A3, request_hash_and_expected_target_version_are_bound]
+        to: authorized
+      - from: drafted
+        command: authorize_from_active_A0_to_A3_grant
+        guards: [origin_is_agent_run, action_is_within_exact_grant_bounds, immutable_execution_grant_snapshot_present, all_required_external_source_verification_receipts_are_successful, request_hash_and_expected_target_version_are_bound]
+        to: authorized
+      - from: drafted
+        command: authorize_system_action_from_signed_mandate_snapshot
+        guards: [origin_is_system_mandate, action_is_deterministic_and_within_exact_active_mandate_bound, immutable_authorization_basis_snapshot_present, matching_mandate_usage_capacity_is_atomically_reserved]
+        to: authorized
+      - from: awaiting_signature
+        command: human_sign_exact_artifact
+        guards: [signer_is_authorized, artifact_and_consequence_digests_match]
+        to: authorized
+        event: freedom.agent.action_intent.signed.v1
+      - from: authorized
+        command: execute_once
+        guards: [credential_execution_mode_matches_origin, current_target_version_equals_bound_expected_target_version, request_and_artifact_digests_match, agent_lease_and_fence_current_when_agent_origin, all_required_external_source_verification_receipts_are_successful_when_agent_origin, mandate_and_capacity_reservation_current_when_system_origin]
+        to: executing
+      - from: executing
+        command: observe_success
+        to: succeeded
+        event: freedom.agent.action_intent.succeeded.v1
+      - from: executing
+        command: record_known_failure
+        to: failed
+      - from: executing
+        command: record_ambiguous_external_effect
+        to: result_unknown
+      - from: result_unknown
+        command: reconcile_success
+        to: succeeded
+        event: freedom.agent.action_intent.succeeded.v1
+      - from: result_unknown
+        command: reconcile_no_effect_and_authorization_still_current
+        guards: [same_provider_operation_and_idempotency_key_are_preserved]
+        to: authorized
+      - from: result_unknown
+        command: reconcile_no_effect_but_authorization_revoked
+        to: superseded
+        effects: [release_matching_mandate_usage_capacity_when_system_origin]
+      - from: result_unknown
+        command: require_human_resolution
+        to: manual_unknown
+      - from: [drafted, awaiting_signature, authorized]
+        command: expire
+        to: expired
+      - from: [drafted, awaiting_signature, authorized]
+        command: artifact_digest_changed
+        to: superseded
+    invariants:
+      - action_target_artifact_digest_consequence_and_idempotency_key_are_immutable
+      - authorization_principal_acting_role_request_hash_expected_target_version_and_authorization_basis_snapshot_are_immutable
+      - principal_session_agent_run_and_system_mandate_origins_are_mutually_exclusive
+      - chat_confirmation_is_not_an_A4_signature
+      - a_changed_digest_requires_a_new_action_intent_and_signature
+      - ambiguous_external_effect_is_reconciled_before_retry
+      - system_mandate_origin_has_no_agent_process_and_references_the_exact_settlement_instruction_mandate_bound_usage_reservation_and_authorization_basis_snapshot
+
+  review_submission:
+    initial: submitted
+    terminal: [accepted, withdrawn, superseded]
+    emitted_on_create: freedom.quality.submission.created.v1
+    transitions:
+      - from: submitted
+        command: independent_reviewer_claim
+        guards: [reviewer_is_a_different_human_principal, reviewer_scope_matches]
+        to: in_review
+        event: freedom.quality.review.claimed.v1
+      - from: in_review
+        command: request_changes
+        to: changes_requested
+        event: freedom.quality.version.changes_requested.v1
+        effects: [publish_freedom.quality.review.submitted.v1]
+      - from: changes_requested
+        command: author_submits_new_version
+        to: superseded
+      - from: in_review
+        command: submit_acceptance
+        guards: [review_evidence_complete, exact_version_digest_matches, human_reviewer_signature]
+        to: accepted
+        event: freedom.quality.version.accepted.v1
+        effects: [publish_freedom.quality.review.submitted.v1]
+      - from: [submitted, changes_requested]
+        command: author_withdraws
+        to: withdrawn
+    invariants:
+      - every_official_or_commercial_listing_has_an_accepted_version_scoped_qc_verdict
+      - same_person_using_another_role_or_agent_is_not_independent_review
+      - open_source_software_and_skill_community_review_always_has_zero_fee
+      - funded_testing_review_or_development_requires_a_separate_customer_sponsored_project
+      - review_creates_product_familiarity_and_opportunity_priority_not_automatic_royalty
+
+  reviewer_appointment:
+    initial: active
+    terminal: [revoked, expired]
+    emitted_on_create: freedom.quality.reviewer_appointment.granted.v1
+    transitions:
+      - from: active
+        command: authorized_appointer_revokes_with_reason
+        guards: [appointer_is_named_natural_person_holder_of_od_10_guild_officeholders_council, exact_scope_and_reason_present]
+        to: revoked
+        event: freedom.quality.reviewer_appointment.revoked.v1
+      - from: active
+        command: expire_at_review_by
+        guards: [server_time_is_at_or_after_review_by]
+        to: expired
+        event: freedom.quality.reviewer_appointment.expired.v1
+    invariants:
+      - fields_are_appointment_id_appointer_ref_subject_member_ref_scope_granted_at_review_by_revoked_at_optional_and_reason
+      - appointer_ref_is_a_named_natural_person_holder_in_the_OD_10_guild_officeholders_council_not_an_agent_or_council_aggregate
+      - only_an_active_exact_scope_appointment_projects_qc_review_entitlement
+      - xp_rank_master_office_and_product_familiarity_never_create_an_appointment
+      - renewal_creates_a_new_traceable_appointment_and_never_rewrites_the_prior_record
+
+  review_outcome:
+    initial: accepted
+    terminal: [retracted]
+    transitions:
+      - from: accepted
+        command: retract_accepted_review
+        guards:
+          - retractor_has_active_reviewer_appointment_for_exact_scope
+          - original_reviewer_or_second_distinct_appointment_holder_has_exactly_authorized_the_retraction
+          - retracted_by_reason_and_original_review_ref_are_present
+        to: retracted
+        event: freedom.quality.review.retracted.v1
+        effects:
+          - remove_this_outcome_from_xp_matching_priority_and_entitlement_projections_on_rebuild
+          - mark_original_receipt_as_superseded_by_retraction
+    invariants:
+      - original_review_and_acceptance_history_are_never_deleted_or_overwritten
+      - replaying_the_original_receipt_returns_receipt_superseded_by_retraction_and_never_restores_acceptance
+      - when_retractor_is_not_the_original_reviewer_the_second_authorizer_is_a_different_natural_person_with_an_active_exact_scope_appointment
+
+  commercial_edition:
+    initial: draft
+    terminal: [retired]
+    emitted_on_create: freedom.product.commercial_edition.created.v1
+    transitions:
+      - from: draft
+        command: link_reviewed_open_source_version_and_license_evidence
+        guards: [exact_repo_commit_or_skill_version_present, accepted_qc_verdict_present, license_obligations_recorded]
+        to: product_ready
+      - from: product_ready
+        command: assign_commercial_product_triangle
+        guards: [vibe_field_and_project_each_have_an_active_self_accepted_assignment, vibe_field_and_project_are_three_different_human_principals]
+        to: team_ready
+      - from: team_ready
+        command: sign_offer_or_service_route
+        guards: [three_active_self_accepted_assignments_still_satisfy_the_distinct_human_triangle, packaged_hosted_custom_implementation_managed_or_support_mode_selected, exact_terms_signed]
+        to: ready
+        event: freedom.product.commercial_edition.ready.v1
+      - from: team_ready
+        command: observe_product_triangle_no_longer_ready
+        to: product_ready
+      - from: ready
+        command: observe_product_triangle_no_longer_ready
+        to: paused
+      - from: ready
+        command: pause_future_offers
+        to: paused
+      - from: paused
+        command: restore_after_exact_version_review
+        guards: [exact_version_qc_license_and_terms_still_valid, three_active_self_accepted_assignments_still_satisfy_the_distinct_human_triangle]
+        to: ready
+      - from: [draft, product_ready, team_ready, ready, paused]
+        command: retire
+        to: retired
+        event: freedom.product.commercial_edition.retired.v1
+    invariants:
+      - commercial_open_source_does_not_mean_proprietary
+      - source_license_and_copyright_records_remain_authoritative
+      - contribution_or_review_never_implies_ownership_or_perpetual_royalty
+      - a_new_material_source_version_requires_version_scoped_qc_and_readiness_again
+      - entry_to_team_ready_or_ready_and_restore_to_ready_always_recheck_three_active_self_accepted_assignments_owned_by_distinct_humans
+      - loss_of_a_required_active_assignment_stops_future_commercial_ready_offers_without_rewriting_prior_orders
+
+  sow_version:
+    initial: draft
+    terminal: [withdrawn, superseded]
+    emitted_on_create: freedom.service.sow.version.created.v1
+    transitions:
+      - from: draft
+        command: request_required_signatures
+        guards: [scope_deliverables_acceptance_milestones_support_change_rule_and_signer_set_present]
+        to: collecting_signatures
+      - from: collecting_signatures
+        command: append_one_exact_signer_signature
+        guards: [A4_signature_matches_sow_digest, signer_party_is_required, signer_not_already_recorded]
+        to: collecting_signatures
+      - from: collecting_signatures
+        command: observe_required_signature_set_complete
+        to: signed
+        event: freedom.service.sow.version.signed.v1
+      - from: [draft, collecting_signatures]
+        command: withdraw
+        to: withdrawn
+      - from: signed
+        command: activate_new_fully_signed_version
+        to: superseded
+    invariants:
+      - signed_sow_version_is_immutable
+      - scope_change_creates_a_new_version_and_never_edits_a_signed_one
+      - agent_or_role_switch_never_duplicates_a_required_human_or_organization_signature
+
+  engagement_allocation_plan:
+    initial: draft
+    terminal: [withdrawn, superseded]
+    emitted_on_create: freedom.service.allocation.proposed.v1
+    transitions:
+      - from: draft
+        command: request_named_participant_acceptances
+        guards: [sow_version_fixed, every_entry_has_person_scope_milestones_and_calculation]
+        to: collecting_acceptances
+      - from: collecting_acceptances
+        command: append_participant_exact_signature
+        guards: [A4_signature_matches_plan_and_entry_digests, signer_is_named_participant, signer_not_already_recorded]
+        to: collecting_acceptances
+      - from: collecting_acceptances
+        command: observe_all_required_participants_accepted
+        to: signed
+        event: freedom.service.engagement.allocation_signed.v1
+      - from: [draft, collecting_acceptances]
+        command: withdraw
+        to: withdrawn
+      - from: signed
+        command: activate_new_fully_signed_plan
+        to: superseded
+    invariants:
+      - platform_never_infers_an_entry_from_contribution_PR_QC_rank_or_prior_project
+      - squad_defines_each_entry_and_the_platform_has_no_global_commission_formula
+      - signed_plan_is_immutable_and_changes_require_a_new_fully_signed_version
+
+  service_milestone:
+    initial: planned
+    terminal: [accepted, cancelled]
+    transitions:
+      - from: planned
+        command: begin_delivery
+        guards: [service_engagement_active, signed_sow_and_allocation_plan_active]
+        to: in_progress
+      - from: in_progress
+        command: submit_exact_deliverable_and_evidence
+        to: submitted
+        event: freedom.service.milestone.submitted.v1
+      - from: submitted
+        command: customer_requests_scoped_changes
+        guards: [reason_is_present]
+        to: changes_requested
+        event: freedom.service.milestone.change_requested.v1
+      - from: changes_requested
+        command: resume_delivery
+        to: in_progress
+      - from: submitted
+        command: customer_accepts_exact_deliverable
+        guards: [A4_signature_matches_deliverable_digest_and_acceptance_criteria]
+        to: accepted
+        event: freedom.service.milestone.accepted.v1
+        effects: [evaluate_signed_payment_trigger_and_emit_freedom_ledger_service_payable_accrued_v1_only_for_defined_entries]
+      - from: [planned, in_progress, submitted, changes_requested]
+        command: cancel_under_signed_terms
+        to: cancelled
+    invariants:
+      - accepted_milestone_creates_only_obligations_defined_by_the_signed_allocation_plan
+      - community_QC_or_contribution_evidence_alone_never_creates_a_service_payable
+
+  service_change_request:
+    initial: opened
+    terminal: [accepted, rejected, withdrawn]
+    emitted_on_create: freedom.service.change_request.opened.v1
+    transitions:
+      - from: opened
+        command: parties_accept_scope_schedule_and_price_delta
+        to: accepted
+        effects: [create_new_sow_version_and_new_allocation_plan_if_needed]
+      - from: opened
+        command: reject_with_reason
+        to: rejected
+      - from: opened
+        command: requester_withdraws
+        to: withdrawn
+    invariants:
+      - accepted_change_never_mutates_a_signed_sow_or_allocation_plan_in_place
+
+  service_engagement:
+    initial: draft
+    terminal: [completed, cancelled]
+    emitted_on_create: freedom.service.engagement.opened.v1
+    transitions:
+      - from: draft
+        command: create_proposal_and_sow_revision
+        to: proposed
+      - from: proposed
+        command: form_squad
+        to: squad_forming
+        event: freedom.project.squad.formed.v1
+      - from: squad_forming
+        command: observe_sow_and_allocation_plan_fully_signed
+        guards: [customer_and_provider_scope_signed, named_people_accept_allocation, three_distinct_profession_people_present_when_commercializing_ai_product]
+        to: active
+      - from: active
+        command: submit_milestone
+        to: milestone_review
+      - from: milestone_review
+        command: customer_requests_change
+        to: active
+      - from: milestone_review
+        command: customer_accepts_milestone
+        to: active
+      - from: active
+        command: accept_final_milestone
+        to: support_period
+      - from: support_period
+        command: close_after_support
+        to: completed
+      - from: [draft, proposed, squad_forming, active]
+        command: cancel_under_signed_terms
+        to: cancelled
+    invariants:
+      - squad_is_horizontal_and_scoped_to_this_project
+      - guild_memberships_continue_after_the_squad_ends
+      - service_allocation_is_squad_negotiated_not_a_global_platform_formula
+      - pull_request_or_qc_evidence_never_implies_project_ownership_or_payment
+      - opportunity_may_keep_sensitive_source_external_using_a_minimal_private_stub
+  community_activity:
+    initial: draft
+    terminal: [archived]
+    transitions:
+      - from: draft
+        command: publish
+        guards: [activity_config_is_functionally_valid]
+        to: published
+        event: freedom.community.activity.published.v1
+      - from: published
+        command: open_registration
+        to: registration_open
+      - from: [published, registration_open]
+        command: start_on_server_clock
+        to: live
+      - from: live
+        command: complete_on_server_clock_or_host_command
+        to: completed
+      - from: [published, registration_open]
+        command: cancel_with_reason
+        to: cancelled
+      - from: [completed, cancelled]
+        command: archive
+        to: archived
+    invariants:
+      - activity_role_and_social_energy_are_event_scoped
+      - server_not_big_screen_owns_round_time
+      - archive_never_deletes_global_user_result_or_ledger_history
+      - there_is_no_destructive_global_reset_transition
+  activity_participation:
+    initial: registered
+    emitted_on_create: freedom.community.activity.registration.recorded.v1
+    terminal: [completed, withdrawn]
+    transitions:
+      - from: registered
+        command: update_self_declared_activity_preferences
+        to: registered
+        event: freedom.community.activity.participation.updated.v1
+      - from: registered
+        command: check_in
+        to: checked_in
+        event: freedom.community.activity.participation.updated.v1
+      - from: checked_in
+        command: record_attendance
+        to: participating
+        event: freedom.community.activity.participation.updated.v1
+        effects: [command_create_attendance_fact]
+      - from: checked_in
+        command: update_self_declared_activity_preferences
+        to: checked_in
+        event: freedom.community.activity.participation.updated.v1
+      - from: participating
+        command: update_self_declared_activity_preferences
+        to: participating
+        event: freedom.community.activity.participation.updated.v1
+      - from: participating
+        command: finish_activity_participation
+        to: completed
+        event: freedom.community.activity.participation.updated.v1
+      - from: [registered, checked_in, participating]
+        command: withdraw
+        to: withdrawn
+        event: freedom.community.activity.participation.updated.v1
+    invariants:
+      - participant_uniqueness_is_enforced_by_activity_and_actor_in_one_transaction
+      - attendance_is_not_a_skill_or_coaching_result
+      - nickname_photo_role_and_energy_never_identify_or_authorize_a_user
+  community_match_round:
+    initial: scheduled
+    terminal: [completed, cancelled]
+    transitions:
+      - from: scheduled
+        command: start_on_server_clock
+        to: running
+      - from: running
+        command: complete_once_on_server_clock
+        to: completed
+        event: freedom.community.match.round.completed.v1
+      - from: scheduled
+        command: cancel
+        to: cancelled
+    invariants:
+      - round_completion_is_idempotent
+      - directed_assignment_is_not_a_mutual_encounter
+      - zero_one_two_three_and_odd_participant_sets_are_total_and_deterministic_for_a_fixed_seed
+  community_encounter_report:
+    initial: unreported
+    terminal: [reported, declined, expired]
+    transitions:
+      - from: unreported
+        command: participant_reports_encounter
+        to: reported
+        event: freedom.community.encounter.reported.v1
+      - from: unreported
+        command: participant_declines_to_report
+        to: declined
+      - from: unreported
+        command: expire_report_window
+        to: expired
+    invariants:
+      - assignment_never_auto_creates_an_encounter_report
+      - reporter_can_only_report_their_own_activity_scoped_encounter
+  integration_connection:
+    initial: pending
+    terminal: [revoked]
+    transitions:
+      - from: pending
+        command: verify
+        to: active
+      - from: active
+        command: record_transient_degradation
+        to: degraded
+      - from: degraded
+        command: verify_recovered
+        to: active
+      - from: [active, degraded]
+        command: require_reauthentication
+        to: reauth_required
+      - from: reauth_required
+        command: complete_reauthentication
+        to: active
+      - from: [pending, active, degraded, reauth_required]
+        command: owner_or_operator_revoke
+        to: revoked
+    invariants:
+      - owner_can_revoke_immediately_from_every_nonterminal_state
+      - revoke_stops_new_credential_issuance_and_new_jobs
+      - secret_material_is_never_in_domain_events_or_logs
+  outbound_delivery:
+    initial: queued
+    terminal: [accepted_no_receipt, delivered, failed_permanent, dead_letter, manual_unknown, cancelled]
+    transitions:
+      - from: queued
+        command: begin_send
+        to: sending
+      - from: sending
+        command: provider_accepts_without_receipt_capability
+        guards: [connection_capability_is_no_receipt]
+        to: accepted_no_receipt
+      - from: sending
+        command: provider_accepts_with_receipt_capability
+        guards: [connection_supports_delivery_receipt]
+        to: accepted
+      - from: accepted
+        command: observe_delivery_receipt
+        to: delivered
+      - from: accepted
+        command: receipt_deadline_elapsed
+        to: result_unknown
+      - from: accepted
+        command: observe_retryable_negative_receipt
+        guards: [provider_confirms_side_effect_was_not_delivered]
+        to: retry_wait
+      - from: accepted
+        command: observe_permanent_negative_receipt
+        to: failed_permanent
+      - from: sending
+        command: record_retryable_failure
+        to: retry_wait
+      - from: retry_wait
+        command: retry_when_due
+        to: sending
+      - from: sending
+        command: record_ambiguous_timeout
+        to: result_unknown
+      - from: result_unknown
+        command: begin_reconciliation
+        to: reconciling
+      - from: reconciling
+        command: reconcile_as_accepted
+        guards: [connection_supports_delivery_receipt]
+        to: accepted
+      - from: reconciling
+        command: reconcile_as_accepted_without_receipt_capability
+        guards: [connection_capability_is_no_receipt]
+        to: accepted_no_receipt
+      - from: reconciling
+        command: reconcile_as_delivered
+        to: delivered
+      - from: reconciling
+        command: reconcile_as_safe_to_retry
+        to: retry_wait
+      - from: reconciling
+        command: exhaust_automated_lookup
+        to: manual_unknown
+      - from: sending
+        command: record_permanent_failure
+        to: failed_permanent
+      - from: [queued, retry_wait]
+        command: cancel
+        to: cancelled
+      - from: retry_wait
+        command: exhaust_retry_policy
+        to: dead_letter
+    invariants:
+      - timeout_never_blindly_recreates_an_external_side_effect
+      - accepted_no_receipt_is_terminal_only_when_connection_capability_is_no_receipt
+      - unknown_external_side_effect_is_never_classified_as_dead_letter
+      - receipt_timeout_and_negative_receipt_have_explicit_transitions
+      - payload_and_provider_response_refs_are_redacted
+  provider_job:
+    initial: queued
+    terminal: [succeeded, failed_permanent, cancelled, manual_unknown]
+    transitions:
+      - from: queued
+        command: claim
+        guards:
+          - job_type_is_in_closed_GeneralProviderJobType_registry
+          - requested_type_is_in_authenticated_OAuth_client_server_side_allowlist
+          - OAuth_client_and_source_queue_match_registry_executor_group
+          - job_registry_version_matches_active_immutable_general_provider_registry
+          - current_DB_backed_delivery_handle_matches_exact_requested_job_delivery_queue_group_registry_and_OAuth_audience
+          - delivery_handle_hash_is_atomically_consumed_into_this_lease
+        to: leased
+      - from: leased
+        command: begin_provider_operation
+        guards: [stable_provider_operation_key_is_persisted_before_external_call]
+        to: running
+      - from: leased
+        command: heartbeat_current_lease
+        to: leased
+      - from: running
+        command: heartbeat_current_lease
+        to: running
+      - from: running
+        command: complete_current_lease
+        to: succeeded
+      - from: [leased, running]
+        command: fail_retryable_attempt
+        guards: [external_side_effect_is_known_not_accepted_or_safely_idempotent]
+        to: retry_wait
+      - from: retry_wait
+        command: retry_when_due
+        to: queued
+      - from: running
+        command: record_result_unknown
+        to: result_unknown
+      - from: result_unknown
+        command: begin_reconciliation
+        to: reconciling
+      - from: reconciling
+        command: reconcile_success
+        to: succeeded
+      - from: reconciling
+        command: reconcile_safe_to_retry
+        to: retry_wait
+      - from: reconciling
+        command: exhaust_automated_lookup
+        to: manual_unknown
+      - from: [leased, running]
+        command: fail_permanently
+        to: failed_permanent
+      - from: [leased, running]
+        command: fail_needs_input
+        guards: [no_unreconciled_external_side_effect, actionable_redacted_input_request_is_present]
+        to: manual_unknown
+      - from: leased
+        command: expire_lease
+        to: queued
+      - from: running
+        command: expire_lease
+        to: result_unknown
+      - from: [queued, retry_wait]
+        command: cancel
+        to: cancelled
+    invariants:
+      - provider_job_surface_structurally_excludes_every_release_status_job_type
+      - every_general_provider_job_type_maps_to_exactly_one_of_integration_growth_or_media_executor_group
+      - integration_growth_and_media_queues_each_have_exactly_one_matching_active_consumer
+      - claim_eligibility_is_request_intersection_OAuth_client_allowlist_and_active_registry
+      - executor_group_is_derived_from_trusted_registry_and_never_granted_by_caller_assertion
+      - claim_leases_only_requested_job_id_and_never_scans_or_substitutes_another_row
+      - terminal_or_superseded_exact_delivery_may_ack_without_a_lease_but_conflict_must_retry
+      - raw_delivery_handle_is_never_stored_or_logged_and_a_retry_uses_a_new_delivery_handle
+      - every_claim_has_a_unique_lease_id_and_monotonic_fencing_token
+      - heartbeat_complete_and_fail_require_the_current_lease_and_fencing_token
+      - stale_worker_mutations_return_stale_job_lease_without_side_effect
+      - job_payload_contains_connection_ref_and_object_refs_not_long_lived_credentials
+      - provider_operation_key_is_stable_across_all_lease_attempts
+      - completion_is_accepted_only_from_running_after_the_atomic_begin_provider_operation_transition
+      - needs_input_may_enter_manual_unknown_only_when_no_unreconciled_external_side_effect_exists
+      - running_lease_expiry_never_directly_requeues_an_external_side_effect
+      - successful_quota_and_output_effects_are_idempotent
+  release_status_job:
+    initial: queued
+    terminal: [succeeded, failed_permanent, manual_review, cancelled]
+    transitions:
+      - from: queued
+        command: claim_release_status_job
+        guards:
+          - job_type_is_in_closed_ReleaseStatusJobType_registry
+          - caller_is_dedicated_release_status_worker
+          - requested_type_is_in_authenticated_OAuth_client_server_side_allowlist
+          - job_registry_version_matches_active_immutable_release_status_registry
+          - current_DB_backed_delivery_handle_matches_exact_requested_status_job_delivery_queue_registry_and_OAuth_audience
+          - delivery_handle_hash_is_atomically_consumed_into_this_lease
+        to: leased
+      - from: leased
+        command: begin_verification
+        guards:
+          - exact_release_status_intent_and_subject_are_loaded
+          - current_lease_and_fencing_token_match
+        to: verifying
+      - from: leased
+        command: heartbeat_current_release_status_lease
+        to: leased
+      - from: verifying
+        command: heartbeat_current_release_status_lease
+        to: verifying
+      - from: verifying
+        command: complete_verified_status_decision
+        guards:
+          - canonical_release_QC_A4_revocation_and_key_facts_were_re_read
+          - exact_status_intent_was_committed_idempotently
+          - attested_official_has_exact_signed_attestation_ref
+          - non_official_revoked_and_expired_decisions_have_no_attestation_ref
+        to: succeeded
+      - from: [leased, verifying]
+        command: fail_retryable_verification_attempt
+        guards:
+          - canonical_status_and_signer_effects_are_proven_absent_or_reconciled
+        to: retry_wait
+      - from: retry_wait
+        command: retry_release_status_verification_when_due
+        to: queued
+      - from: verifying
+        command: record_verification_unknown
+        to: verification_unknown
+      - from: verification_unknown
+        command: begin_release_status_reconciliation
+        to: reconciling
+      - from: reconciling
+        command: reconcile_completed_status_decision
+        to: succeeded
+      - from: reconciling
+        command: reconcile_safe_to_retry
+        guards: [no_status_record_or_signature_effect_was_committed]
+        to: retry_wait
+      - from: reconciling
+        command: require_manual_review
+        to: manual_review
+      - from: [leased, verifying]
+        command: fail_permanently
+        guards: [failure_is_not_a_valid_not_official_domain_decision]
+        to: failed_permanent
+      - from: [leased, verifying]
+        command: require_manual_review
+        to: manual_review
+      - from: leased
+        command: expire_release_status_lease
+        to: queued
+      - from: verifying
+        command: expire_release_status_lease
+        to: verification_unknown
+      - from: [queued, retry_wait]
+        command: cancel
+        to: cancelled
+    invariants:
+      - release_status_job_uses_only_dedicated_claim_begin_verification_heartbeat_complete_and_fail_surfaces
+      - general_provider_job_types_are_structurally_invalid_on_release_status_surfaces
+      - only_dedicated_release_status_worker_identity_and_scopes_can_claim_or_mutate
+      - claim_leases_only_requested_job_id_and_never_scans_or_substitutes_another_status_row
+      - raw_delivery_handle_is_never_stored_or_logged_and_a_retry_uses_a_new_delivery_handle
+      - every_claim_has_a_unique_lease_id_and_monotonic_fencing_token
+      - begin_heartbeat_complete_and_fail_require_current_lease_and_fencing_token
+      - stale_worker_mutations_return_stale_job_lease_without_side_effect
+      - lease_and_result_payloads_have_no_connection_provider_operation_provider_reference_or_credential_fields
+      - release_status_worker_has_status_signer_binding_and_no_credential_broker_binding
+      - verifying_lease_expiry_never_blindly_reissues_or_revokes_an_attestation
+      - completion_is_accepted_only_from_verifying_after_canonical_facts_are_rechecked
+      - status_record_and_attestation_effects_are_idempotent_for_the_exact_immutable_status_intent

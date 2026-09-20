@@ -1,0 +1,347 @@
+schema_version: freedom.organization-professions/v1
+status: planning
+community_id: com_replace_with_launch_community_id
+
+language:
+  division: 多個互補 Guild 的共同產品或事業線；不取代各 Guild 的專業責任
+  guild: 長期縱向專業組織；維持方法、技能、人才、訓練與品質
+  squad: 為一個 Project／Opportunity 組成的橫向交付團隊；完成或停止後解散
+  rank: 個人在某一 Profession 的能力級別；不是平台權限
+  office: 有範圍、任期、交接人的組織責任；權限來自 office assignment，不來自 rank 名稱
+
+rank_ladder:
+  - key: runner
+    meaning: 依 Skill／task contract 完成工作並提交可驗證 evidence
+    normal_actions: [learn, claim_bounded_work, submit_candidate, request_review]
+  - key: strategist
+    meaning: 能拆工作、設計方案、帶 Runner、執行日常 review
+    normal_actions: [design_work_package, mentor_runner, review_routine_submission, recommend_release]
+  - key: master
+    meaning: 能維持整條專業線的方法、人力、訓練與重大品質決策
+    normal_actions: [maintain_master_skill, appoint_delegates, decide_major_method_change, prepare_successor]
+
+offices:
+  guild_master:
+    display_pattern: "{profession} Guild Master"
+    business_title_pattern: "Chief {profession} Officer"
+    default_eligible_rank: master
+    accountabilities:
+      - maintain_profession_direction
+      - maintain_people_pipeline_and_training
+      - own_master_skill_repository
+      - appoint_bounded_review_and_release_delegates
+      - attend_board_direction_meetings
+      - keep_a_named_successor_or_open_succession_path
+    rule: one_accountable_office_holder_per_guild_scope
+  module_steward:
+    meaning: 單一模組的最終可追責人；預設由最相關 Guild Master 擔任，可委派日常工作但不可丟失 accountability
+    rule: exactly_one_active_steward_per_module_revision
+  project_lead:
+    meaning: 單一 Project／Squad 的交付責任，不因此取得 Guild Master 身分
+
+canonical_aggregates:
+  profession_membership: ProfessionMembership
+  office_assignment: OfficeAssignment
+  module_stewardship: ModuleStewardship
+  distribution_acceptance: DistributionAcceptance
+
+guild_catalog_contract:
+  required_fields:
+    - {field: id, enforcement: navigation}
+    - {field: profession, enforcement: navigation}
+    - {field: purpose, enforcement: navigation}
+    - {field: stewardship, enforcement: navigation}
+    - {field: rank_work, enforcement: navigation}
+    - {field: core_skills, enforcement: navigation}
+    - {field: evidence_examples, enforcement: navigation}
+    - {field: immediate_gains, enforcement: navigation}
+    - {field: paid_opportunity_paths, enforcement: navigation}
+  optional_completeness_slots:
+    - field: private_discord_channel
+      enforcement: navigation
+      missing_work_item_template: guild.open-private-discord-channel
+      owner_pool: community_ops_or_guild_delegates
+      semantics: missing_never_blocks_guild_active_or_runner_self_join
+  playbook_profile_ref: guild.launch-readiness@1
+  required_rank_work:
+    - {field: runner, enforcement: navigation}
+    - {field: strategist, enforcement: navigation}
+    - {field: master, enforcement: navigation}
+  required_stewardship_fields:
+    - {field: accountable_module_ids, enforcement: navigation}
+    - {field: accountable_core_ids, enforcement: navigation}
+    - {field: owned_capabilities, enforcement: navigation}
+  semantics:
+    rank_is_not_office: true
+    evidence_examples_are_not_automatic_admission_gates: true
+    immediate_gain_is_not_money_promise: true
+    paid_path_is_discoverability_not_entitlement: true
+    one_person_may_have_multiple_profession_memberships: true
+    every_action_records_one_acting_profession: true
+
+divisions:
+  - id: div_open_ai_product_skills
+    name: Open AI Product & Skills Division
+    purpose: 把開源資產持續做成可學、可測、可部署、可販售、可代管的 AI 產品與技能
+    guild_ids: [guild_ai_vibe, guild_ai_field, guild_ai_project]
+    governance:
+      model: three_guild_council
+      council_offices:
+        - guild_ai_vibe.guild_master
+        - guild_ai_field.guild_master
+        - guild_ai_project.guild_master
+      default: no_fourth_permanent_boss
+      product_profitability_ready_when:
+        - one_named_ai_vibe_natural_person
+        - one_different_named_ai_field_natural_person
+        - one_different_named_ai_project_natural_person
+        - reviewed_exact_version_and_clear_license
+        - signed_project_or_distribution_terms
+      independence_rule: 同一自然人切換 ProfessionMembership、acting role 或 AgentRun，不能填滿兩個以上 commercial product responsibility seats
+
+guild_catalog:
+  - id: guild_talent_direction
+    profession: Talent and Direction
+    purpose: 幫會員確認方向、進入目的 Guild，並把公開學習與付費專屬陪跑清楚分開
+    stewardship:
+      accountable_module_ids: [positioning, coaching]
+      accountable_core_ids: []
+      owned_capabilities: [guided_discovery, guild_routing, coaching_capacity]
+    rank_work:
+      runner: 依 Skill 執行 onboarding、整理 user-confirmed draft 與 session evidence
+      strategist: 引導 discovery、設計短期學習路徑、帶 Runner 並 review routine outcome
+      master: 維護方法、人才容量、訓練、重大模組版本與 succession
+    core_skills: [inquiry, active_listening, facilitation, career_mapping, privacy_and_referral]
+    evidence_examples: [confirmed_positioning_card, confirmed_work_intent, coaching_session_result, successful_guild_handoff]
+    immediate_gains: [feedback, facilitation_portfolio, cross_guild_relationships, next_work_visibility]
+    paid_opportunity_paths: [dedicated_one_to_one_coaching, cohort_accountability, organization_talent_program]
+
+  - id: guild_product_quality_supply
+    profession: Product Quality and Supply
+    purpose: 讓 Supplier、實體或第三方商品、供貨條件與 listing 可負責地進入下游通路
+    stewardship:
+      accountable_module_ids: [product_listing_revenue_share]
+      accountable_core_ids: []
+      owned_capabilities: [supplier_onboarding, physical_product_qc, listing_readiness, supply_terms]
+    rank_work:
+      runner: 蒐集規格、依 protocol 跑指定批次檢驗並提交供貨 evidence
+      strategist: 設計 test plan、review listing 或例外並協調供貨條件
+      master: 維護品質方法、reviewer 與 Supplier 能力、重大爭議和模組版本
+    core_skills: [product_specification, sampling_and_testing, traceability, supplier_operations, fulfillment_terms]
+    evidence_examples: [batch_scoped_qc_report, supplier_onboarding_result, distribution_acceptance, fulfillment_result]
+    immediate_gains: [product_familiarity, review_evidence, seller_supplier_network, supply_feedback]
+    paid_opportunity_paths: [disclosed_physical_inspection, bespoke_product_verification, supplier_enablement, supply_operations]
+
+  - id: guild_commerce_sales
+    profession: Commerce and Sales
+    purpose: 維持 one-Seller Store、buyer journey、客服、銷售與訂單健康
+    stewardship:
+      accountable_module_ids: [ecommerce_storefront]
+      accountable_core_ids: []
+      owned_capabilities: [seller_store, merchandising, buyer_service, sales_operations]
+    rank_work:
+      runner: 建立已接受 listing、營運店面、回應買家並提交銷售 evidence
+      strategist: 規劃 assortment、售價與 channel，處理訂單例外並帶銷售 Squad
+      master: 維護 store 與 sales 方法、人才容量和重大 buyer-journey 版本
+    core_skills: [consultative_sales, merchandising, pricing, crm, customer_service]
+    evidence_examples: [active_distribution_acceptance, conversion_result, resolved_buyer_case, healthy_order_result]
+    immediate_gains: [sellable_products, sales_feedback, customer_relationships, transaction_history]
+    paid_opportunity_paths: [seller_margin, locked_product_distribution_share, sales_service_engagement, managed_store_service]
+
+  - id: guild_marketing
+    profession: Growth and Marketing
+    purpose: 把已核准事實轉成可發布、可歸因、可學習的 campaign
+    stewardship:
+      accountable_module_ids: [automated_marketing]
+      accountable_core_ids: []
+      owned_capabilities: [campaign_design, content_operations, publication, attribution]
+    rank_work:
+      runner: 依 brief 產生或調整內容並執行 bounded publication task
+      strategist: 設計 campaign、experiment、channel mix 並做 routine review
+      master: 維護行銷方法、channel policy、人才與重大 automation 版本
+    core_skills: [copywriting, creative_brief, channel_operations, attribution, analytics, brand_truth]
+    evidence_examples: [approved_content, publication_reference, attributed_outcome, reusable_campaign_template]
+    immediate_gains: [portfolio, channel_feedback, reusable_templates, performance_evidence]
+    paid_opportunity_paths: [campaign_execution, marketing_operations, growth_strategy, marketing_implementation]
+
+  - id: guild_media_automation
+    profession: Media Automation
+    purpose: 把來源素材可靠地變成字幕、clip、render 與多版本媒體
+    stewardship:
+      accountable_module_ids: [automated_editing]
+      accountable_core_ids: []
+      owned_capabilities: [transcription, editing, captions, rendering, media_lineage]
+    rank_work:
+      runner: 轉錄、剪輯、上字幕並依 profile render
+      strategist: 設計 workflow 或 template、執行 media QA 並帶製作
+      master: 維護媒體標準、工具鏈、人才與重大 render 版本
+    core_skills: [editing, story_and_timing, captioning, media_pipeline, rights_and_accessibility]
+    evidence_examples: [source_to_render_lineage, qa_result, accepted_media_asset, adopted_media_outcome]
+    immediate_gains: [portfolio, render_feedback, reusable_workflow, production_relationships]
+    paid_opportunity_paths: [dedicated_editing, content_production, custom_media_automation, managed_media_pipeline]
+
+  - id: guild_member_operations
+    profession: Member and Community Operations
+    purpose: 維持 membership、身份找回、Now／Next／Gained 與 Discord／LINE 日常接點
+    stewardship:
+      accountable_module_ids: [membership]
+      accountable_core_ids: []
+      owned_capabilities: [member_onboarding, identity_recovery, community_programs, member_status_support]
+    rank_work:
+      runner: 執行 onboarding、活動或問題 routing 並處理 bounded support queue
+      strategist: 設計 community program、處理 recovery 或 escalation 並改善營運
+      master: 維護會員方法、connector 原則、人才、服務連續性與重大版本
+    core_skills: [community_facilitation, member_support, identity_and_consent, discord_operations, line_operations]
+    evidence_examples: [resolved_member_case, event_to_result_trace, identity_recovery_trail, community_outcome]
+    immediate_gains: [relationships, trust, operations_evidence, cross_guild_visibility]
+    paid_opportunity_paths: [community_management, member_success, organization_community_operations, support_implementation]
+
+  - id: guild_opportunity_partnership
+    profession: Opportunity and Partnership
+    purpose: 把大型 lead、sponsor、fund、investor 與外部合作帶入清楚且可行的下一步
+    stewardship:
+      accountable_module_ids: []
+      accountable_core_ids: [opportunity_core]
+      owned_capabilities: [opportunity_intake, qualification, partner_portfolio, external_relationships]
+    rank_work:
+      runner: 建立最小 OpportunityStub、研究並完成 bounded follow-up
+      strategist: qualify、配對 professions、形成 Squad 或 proposal
+      master: 維護 partner portfolio、triage 方法、關係與重大對外方向
+    core_skills: [discovery, relationship_management, qualification, negotiation, confidential_handling]
+    evidence_examples: [sourced_opportunity, qualified_handoff, formed_squad, signed_sow_or_sponsor_agreement]
+    immediate_gains: [relationship_map, opportunity_history, trusted_handoffs, collaborator_network]
+    paid_opportunity_paths: [signed_squad_allocation, project_role, partnership_management, sponsored_program_management]
+
+  - id: guild_platform_engineering
+    profession: Platform Engineering
+    purpose: 維持共用 contracts、agent control、integration、資料與平台可靠性
+    stewardship:
+      accountable_module_ids: []
+      accountable_core_ids: [agent_control_core, platform_shared_foundation]
+      owned_capabilities: [platform_contracts, integrations, data_platform, reliability, agent_control]
+    rank_work:
+      runner: 修 Issue、寫 test 或文件並提交 bounded PR
+      strategist: 設計 contract 或 work package、review 並處理 reliability 問題
+      master: 維護架構、master skills、工程人才、重大 release 與核心 stewardship
+    core_skills: [domain_and_api_design, data_and_events, security, observability, agent_control]
+    evidence_examples: [merged_change, released_change, contract_test, incident_and_recovery_result]
+    immediate_gains: [code_review, system_familiarity, engineering_portfolio, maintainer_relationships]
+    paid_opportunity_paths: [funded_development, integration_service, customization, platform_hosting, reliability_support]
+
+  - id: guild_commerce_settlement
+    profession: Commerce Settlement
+    purpose: 讓 Seller-owned 收款、Supplier transfer、退款或 reversal 與 reconciliation 可重試、可對帳
+    stewardship:
+      accountable_module_ids: []
+      accountable_core_ids: [settlement_core]
+      owned_capabilities: [seller_collection_connection, payer_disbursement_connection, beneficiary_payout_destination, settlement_mandate, transfer_jobs, refunds_and_reversals, reconciliation]
+    rank_work:
+      runner: 跑 sandbox 或 connector test、對帳並提交例外 evidence
+      strategist: 設計 mandate、retry 或 reversal runbook 並 review connector
+      master: 維護 settlement contracts、provider strategy、事故處理、人才與重大版本
+    core_skills: [payment_api, webhook_security, idempotency, ledger, reconciliation, data_privacy]
+    evidence_examples: [signed_sandbox_trace, matched_transfer, reconciled_statement, reversal_or_incident_resolution]
+    immediate_gains: [payment_evidence, provider_familiarity, operations_trust, exception_feedback]
+    paid_opportunity_paths: [payment_integration, merchant_setup_support, reconciliation_operations, funded_incident_work]
+
+  - id: guild_ai_vibe
+    profession: AI Vibe
+    division_id: div_open_ai_product_skills
+    purpose: 把 repo 或需求做成可重現、可維護、可技能化的軟體
+    stewardship:
+      accountable_module_ids: [open_skills_and_ai_products]
+      accountable_core_ids: []
+      owned_capabilities: [source_maintenance, skill_packaging, software_build, release_engineering]
+    rank_work:
+      runner: 寫 code、test 或文件，修 Issue 並提交 PR
+      strategist: 拆架構與 work package、帶 Runner、review 並做 release planning
+      master: 維護系統 design、master coding skills、maintainer 人才與重大 release
+    core_skills: [ai_vibe_coding, software_architecture, testing, git_and_ci, skill_packaging]
+    evidence_examples: [reproducible_run, accepted_pull_request, released_commit, maintenance_result]
+    immediate_gains: [review_feedback, portfolio, product_familiarity, maintainer_relationships]
+    paid_opportunity_paths: [customization, commercial_edition_work, funded_development, architecture_service, hosting]
+
+  - id: guild_ai_field
+    profession: AI Field
+    aliases: [FAE]
+    division_id: div_open_ai_product_skills
+    purpose: 證明 exact version 在真實場域可安裝、可用、可部署且可支援
+    stewardship:
+      accountable_module_ids: []
+      accountable_core_ids: []
+      owned_capabilities: [software_skill_community_qc, implementation_readiness, deployment, support_playbooks]
+      council_scope: open_skills_and_ai_products
+    rank_work:
+      runner: 安裝測試、重現 bug、回饋並練習 demo 或部署
+      strategist: 設計場域 test plan、review、部署與 support playbook
+      master: 維護 field protocol、reviewer 或 FAE 人才、導入品質與重大 readiness 決策
+    core_skills: [test_design, debugging, deployment, observability, customer_enablement]
+    evidence_examples: [environment_scoped_test, reproducible_bug_report, signed_qc_review, successful_deployment_or_support]
+    immediate_gains: [review_feedback, product_familiarity, field_evidence, implementation_network]
+    paid_opportunity_paths: [implementation, fae_service, support, maintenance, customer_funded_service_engagement]
+
+  - id: guild_ai_project
+    profession: AI Project
+    division_id: div_open_ai_product_skills
+    purpose: 把客戶問題、商機與產品能力組成可簽、可交付、可驗收的案件
+    stewardship:
+      accountable_module_ids: []
+      accountable_core_ids: []
+      owned_capabilities: [commercial_readiness, product_opportunity, project_portfolio, customer_coordination]
+      council_scope: open_skills_and_ai_products
+    rank_work:
+      runner: 整理需求、研究 lead 並協調 demo 或紀錄
+      strategist: 設計 scope、proposal、風險或排程並組 Squad
+      master: 維護 product opportunity、客戶策略、PM 或 sales 人才與重大 portfolio 決策
+    core_skills: [customer_discovery, project_management, scope_and_sow, proposal_and_sales, stakeholder_coordination]
+    evidence_examples: [qualified_opportunity, signed_sow, accepted_milestone, delivery_outcome]
+    immediate_gains: [customer_insight, opportunity_history, delivery_evidence, cross_guild_relationships]
+    paid_opportunity_paths: [software_sales, project_management, signed_squad_allocation, delivery_coordination]
+
+module_stewardship_contract:
+  aggregate: ModuleStewardship
+  required_instance_refs:
+    accountable_master_profession_membership_id: ProfessionMembership
+    accountable_office_assignment_id: OfficeAssignment
+  invariants:
+    - exactly_one_active_stewardship_per_module_revision
+    - routine_work_may_be_delegated_without_moving_accountability
+    - office_assignment_must_have_scope_term_handover_and_successor_process
+
+default_module_stewardship:
+  - {module_id: positioning, accountable_guild: guild_talent_direction, accountable_office_type: guild_master}
+  - {module_id: coaching, accountable_guild: guild_talent_direction, accountable_office_type: guild_master}
+  - {module_id: product_listing_revenue_share, accountable_guild: guild_product_quality_supply, accountable_office_type: guild_master}
+  - {module_id: ecommerce_storefront, accountable_guild: guild_commerce_sales, accountable_office_type: guild_master}
+  - {module_id: automated_marketing, accountable_guild: guild_marketing, accountable_office_type: guild_master}
+  - {module_id: automated_editing, accountable_guild: guild_media_automation, accountable_office_type: guild_master}
+  - {module_id: open_skills_and_ai_products, accountable_guild: guild_ai_vibe, accountable_office_type: guild_master, consulted_council: div_open_ai_product_skills}
+  - {module_id: membership, accountable_guild: guild_member_operations, accountable_office_type: guild_master}
+  - {module_id: opportunity_core, accountable_guild: guild_opportunity_partnership, accountable_office_type: guild_master}
+  - {module_id: agent_control_core, accountable_guild: guild_platform_engineering, accountable_office_type: guild_master}
+  - {module_id: platform_shared_foundation, accountable_guild: guild_platform_engineering, accountable_office_type: guild_master}
+  - {module_id: settlement_core, accountable_guild: guild_commerce_settlement, accountable_office_type: guild_master}
+
+participation_rules:
+  - one_person_may_hold_multiple_profession_memberships_and_different_ranks
+  - first_structurally_valid_and_contributor_confirmed_software_skill_or_code_submission_creates_ai_vibe_runner_membership_and_starting_evidence_only
+  - every_work_action_records_one_acting_profession_and_one_principal
+  - profession_rank_never_implies_office_assignment
+  - switching_role_or_agent_does_not_create_independent_review
+  - commercial_ai_product_vibe_field_project_seats_require_three_distinct_natural_persons
+  - guild_teaches_profession_and_maintains_skills
+  - squad_negotiates_project_delivery_and_paid_allocation
+  - contribution_evidence_creates_visibility_and_priority_not_automatic_ownership_or_royalty
+  - open_knowledge_docs_and_guild_teaching_are_free
+  - software_and_skill_community_qc_fee_is_always_zero
+  - customer_funded_testing_review_or_development_is_a_separate_service_engagement
+  - physical_or_third_party_product_inspection_may_have_a_disclosed_fee
+  - dedicated_one_to_one_time_custom_work_hosting_compute_support_and_implementation_may_be_paid
+
+scale_rules:
+  - master_owns_direction_and_delegation_not_every_queue_item
+  - strategist_or_named_skill_owner_handles_routine_review_within_scope
+  - queues_shard_by_guild_product_skill_language_region_and_priority
+  - every_office_assignment_and_delegation_has_scope_start_end_and_successor
+  - policy_changes_are_versioned_and_prospective
+  - no_universal_score_or_automatic_compliance_gate

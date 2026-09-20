@@ -1,0 +1,36 @@
+schema_version: freedom.xp-policy/v1
+policy:
+  policy_id: xp_policy_platform_engineering_v1
+  profession_key: platform_engineering
+  policy_version: 1
+  status: active
+  effective_from: "2026-09-16T00:00:00Z"
+  formula_language: human_readable_deterministic_v1
+  source_contract:
+    facts: [append_only_contribution_record, review_outcome]
+    review_filter: accepted_and_not_retracted
+  tracks:
+    - track: training
+      formula: Sum the declared training XP of each unique eligible ContributionRecord whose current review outcome is accepted and not retracted.
+      eligible_contribution_kinds: [training_exercise, supervised_practice]
+      dedupe_key: canonical_contribution_record_id
+    - track: maintenance
+      formula: Sum the declared maintenance XP of each unique eligible ContributionRecord whose current review outcome is accepted and not retracted.
+      eligible_contribution_kinds: [bug_fix, documentation, tool_validation, community_service]
+      dedupe_key: canonical_contribution_record_id
+    - track: real_delivery
+      formula: Sum the declared real-delivery XP of each unique eligible ContributionRecord whose current review outcome is accepted and not retracted.
+      eligible_contribution_kinds: [customer_delivery, production_support]
+      dedupe_key: canonical_contribution_record_id
+  rebuild_contract:
+    full_delete_and_rebuild_allowed: true
+    cross_profession_total_forbidden: true
+    authorization_input_forbidden: [entitlement_snapshot, rank_decision, reviewer_appointment, a4_signature]
+projection_example:
+  member_ref: usr_example_member
+  profession_key: platform_engineering
+  track: maintenance
+  xp: 42
+  policy_version: 1
+  rebuilt_from_event_seq: 128
+  rebuilt_at: "2026-09-16T01:00:00Z"

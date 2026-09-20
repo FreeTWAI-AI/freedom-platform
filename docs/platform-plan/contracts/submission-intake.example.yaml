@@ -1,0 +1,201 @@
+schema_version: freedom.submission-intake/v1
+status: planning
+community_id: com_replace_with_launch_community_id
+
+aggregate:
+  name: SubmissionDraft
+  owner: opportunities-results
+  states: [draft, confirmed, rejected, expired]
+  target_kinds: [work_item, opportunity_stub]
+  privacy_scope: owner_private
+  distinct_from: [work_submission_after_a_claim, draft_artifact_for_non_code_review]
+  invariants:
+    - external_adapter_or_agent_token_can_create_but_never_confirm_or_reject
+    - confirmed_has_exactly_one_draft_work_item_or_private_opportunity_stub_target_ref
+    - rejected_or_expired_has_no_target_ref
+    - confirmation_never_opens_publishes_claims_grants_signs_or_approves_the_target
+    - external_message_or_postback_is_never_an_A4_signature
+    - document_confirmation_acknowledges_only_the_saved_exact_source_tuple_and_does_not_prove_current_reachability_or_bytes
+
+commands:
+  create:
+    endpoint: POST /api/v1/submission-drafts
+    authentication:
+      portal: userSession_plus_csrfHeader
+      line_or_discord: serviceOAuth_intake.drafts.create_plus_verified_normalized_inbox_binding
+      document: userSession_plus_csrfHeader_or_agentExecutionToken_with_intake.draft_grant
+    owner_rule: server_derives_owner_from_session_grant_or_active_external_identity_and_request_has_no_owner_field
+    idempotency_rule: same_source_key_and_source_hash_returns_original_and_changed_hash_conflicts
+  confirm:
+    endpoint: POST /api/v1/submission-drafts/{submissionDraftId}:confirm
+    authentication: owner_or_authorized_organization_operator_userSession_plus_csrfHeader_only
+    concurrency: Idempotency-Key_plus_If-Match_plus_matching_body_expected_aggregate_version
+    source_rule: acknowledged_source_ref_revision_and_content_sha256_must_equal_the_saved_immutable_source_tuple_without_dereferencing_the_source
+    document_policy_rule: an_access_policy_ref_known_by_Platform_to_be_revoked_conflicts_but_endpoint_outage_or_unreachability_does_not
+    effect: atomically_create_exactly_one_same_kind_draft_work_item_or_private_opportunity_stub
+  reject:
+    endpoint: POST /api/v1/submission-drafts/{submissionDraftId}:reject
+    authentication: owner_or_authorized_organization_operator_userSession_plus_csrfHeader_only
+    concurrency: Idempotency-Key_plus_If-Match_plus_matching_body_expected_aggregate_version
+
+source_adapters:
+  portal:
+    trusted_binding: authenticated_user_session
+    raw_custody: platform_consented_content_only
+  line:
+    trusted_binding: verified_webhook_connection_delivery_revision_and_active_external_identity
+    raw_custody: external_provider
+  discord:
+    trusted_binding: verified_installation_interaction_channel_revision_and_active_external_identity
+    raw_custody: external_provider
+  document:
+    trusted_binding: owner_or_bound_agent_plus_registered_access_policy
+    raw_custody: owner_controlled_storage
+    external_ref_rule: opaque_extdoc_identifier_never_URL_object_key_or_reusable_credential
+    confirmation_semantics: owner_acknowledgement_only_no_fetch_no_reachability_or_byte_verification
+
+post_confirmation_document_verification:
+  executor: bound_local_agent_only
+  timing: after_a_confirmed_SubmissionDraft_has_created_a_source_bound_draft_WorkItem_and_before_outputs_or_any_consequential_ActionIntent
+  opportunity_stub_rule: confirmation_grants_no_Agent_access_an_OpportunityStub_may_remain_metadata_only_and_any_later_Project_WorkItem_that_needs_the_document_must_copy_the_exact_immutable_source_requirement
+  input: exact_saved_source_ref_external_document_ref_source_revision_content_sha256_and_access_policy_ref
+  method: owner_side_fetch_exact_ref_and_revision_then_compute_SHA256_locally_without_uploading_raw_bytes_to_Platform
+  assurance_boundary: authenticated_current_lease_fenced_Agent_assertion_and_provenance_not_independent_server_attestation_of_remote_bytes
+  success: record_immutable_verified_receipt_on_the_AgentRun_then_allow_the_run_to_continue_within_its_grant_subject_to_all_normal_review_and_A4_controls
+  known_failure:
+    outcomes: [source_unavailable, access_denied, revision_unavailable, digest_mismatch]
+    effect: record_immutable_failure_receipt_and_fail_the_AgentRun
+    consequential_effects: zero
+  invariants:
+    - SubmissionDraft_confirmation_is_never_used_as_a_source_verification_receipt
+    - a_success_receipt_must_match_the_exact_WorkItem_bound_source_tuple_and_current_TaskLease_fence
+    - a_success_receipt_neither_independently_proves_remote_host_behavior_nor_bypasses_review_signature_or_A4
+    - unavailable_or_mismatched_source_creates_no_ActionIntent_execution_DraftArtifact_PR_Result_Contribution_or_external_provider_effect
+
+central_data_allowlist:
+  - server_derived_owner_and_community
+  - normalized_source_ref_type_revision_and_digest
+  - media_type_and_size
+  - access_and_retention_policy_refs
+  - data_classification
+  - minimum_redacted_summary
+  - typed_target_proposal_and_terminal_result_refs
+central_data_denylist:
+  - line_or_discord_message_body_or_transcript
+  - external_client_document_body
+  - reusable_download_URL_or_bearer_credential
+  - provider_secret
+  - raw_content_in_event_log_trace_or_prompt
+
+positive_fixtures:
+  - name: portal_creates_private_work_item_draft
+    authentication: userSession_plus_csrfHeader
+    request:
+      source: {source_type: portal, client_source_ref: psi_example_01, source_revision: "1"}
+      proposed_target:
+        target_kind: work_item
+        title: 補齊模組說明頁
+        objective: 依核准規格建立一個可review的介紹頁工作
+        expected_output: GitHub draft pull request
+        execution_mode: collaborative
+        intended_visibility: community
+      redacted_summary: 需要一個介紹頁實作草稿
+      data_classification: internal
+    expected: {http_status: 201, state: draft, privacy_scope: owner_private, target_ref: null}
+  - name: verified_line_receipt_creates_private_opportunity_draft
+    authentication: serviceOAuth_intake.drafts.create
+    request:
+      source: {source_type: line, normalized_delivery_ref: inb_line_example_01}
+      proposed_target:
+        target_kind: opportunity_stub
+        opportunity_kind: partner_lead
+        next_action: 請owner回Portal檢查最小摘要與來源
+        privacy_scope: private
+      redacted_summary: 有一個待確認的合作來源
+      data_classification: confidential
+    expected: {http_status: 201, state: draft, owner_source: active_external_identity, target_ref: null}
+  - name: verified_discord_interaction_creates_private_work_item_draft
+    authentication: serviceOAuth_intake.drafts.create
+    request:
+      source: {source_type: discord, normalized_delivery_ref: inb_discord_example_01}
+      proposed_target:
+        target_kind: work_item
+        title: 整理讀書會共識
+        objective: 把已同意公開的重點整理成文件草稿
+        expected_output: documentation draft pull request
+        execution_mode: collaborative
+      redacted_summary: 已由本人觸發的讀書會整理進件
+      data_classification: internal
+    expected: {http_status: 201, state: draft, owner_source: active_external_identity, target_ref: null}
+  - name: local_agent_registers_owner_controlled_document_reference
+    authentication: agentExecutionToken_with_intake.draft_grant
+    request:
+      source:
+        source_type: document
+        external_document_ref: extdoc:clientcase_01rev1
+        source_revision: "1"
+        content_sha256: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        media_type: application/pdf
+        size_bytes: 48291
+        access_policy_ref: dap_example_01
+      proposed_target:
+        target_kind: work_item
+        title: 根據外部文件建立交付檢查工作
+        objective: 在owner端點讀取exact revision並產生redacted evidence
+        expected_output: review evidence references
+        execution_mode: exclusive
+      redacted_summary: 客戶原文留在小隊端點的文件檢查
+      data_classification: restricted
+    expected: {http_status: 201, state: draft, source_ref: src_document_clientcase_01rev1, raw_document_stored_by_platform: false, target_ref: null}
+  - name: owner_confirms_exact_work_item_target
+    authentication: userSession_plus_csrfHeader
+    if_match: '"3"'
+    request:
+      expected_aggregate_version: 3
+      acknowledged_source_ref: src_document_clientcase_01rev1
+      acknowledged_source_revision: "1"
+      acknowledged_source_content_sha256: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      confirmed_target:
+        target_kind: work_item
+        title: 根據外部文件建立交付檢查工作
+        objective: 在owner端點讀取exact revision並產生redacted evidence
+        expected_output: review evidence references
+        execution_mode: exclusive
+    source_endpoint_state: offline
+    expected: {http_status: 200, state: confirmed, target_kind: work_item, target_state: draft, target_count: 1, source_fetches_during_confirm: 0, source_verification_claimed: false}
+  - name: owner_rejects_without_target
+    authentication: userSession_plus_csrfHeader
+    if_match: '"1"'
+    request: {expected_aggregate_version: 1, reason_code: not_actionable, redacted_reason: null}
+    expected: {http_status: 200, state: rejected, target_ref: null}
+
+negative_fixtures:
+  - {name: request_supplies_owner_or_community, expected_http_status: 422, side_effects: zero}
+  - {name: line_or_discord_receipt_has_no_active_external_identity, expected_http_status: 403, side_effects: zero, fallback: link_account_deep_link}
+  - {name: external_identity_resolves_ambiguously, expected_http_status: 409, side_effects: zero}
+  - {name: service_caller_uses_portal_or_document_source, expected_http_status: 403, side_effects: zero}
+  - {name: agent_token_uses_line_or_discord_source, expected_http_status: 403, side_effects: zero}
+  - {name: agent_grant_omits_intake_draft, expected_http_status: 403, side_effects: zero}
+  - {name: same_source_key_same_hash_replay, expected_http_status: 201, result: original_submission_draft, additional_effects: zero}
+  - {name: same_source_key_changed_hash, expected_http_status: 409, side_effects: zero}
+  - {name: same_idempotency_key_changed_canonical_request, expected_http_status: 409, side_effects: zero}
+  - {name: document_ref_is_URL_object_key_or_credential, expected_http_status: 422, side_effects: zero}
+  - {name: acknowledged_source_ref_differs_from_saved_source_ref, expected_http_status: 409, side_effects: zero}
+  - {name: acknowledged_source_revision_differs_from_saved_source_revision, expected_http_status: 409, side_effects: zero}
+  - {name: acknowledged_source_content_sha256_differs_from_saved_digest, expected_http_status: 409, side_effects: zero}
+  - {name: document_access_policy_is_explicitly_revoked_in_Platform_before_confirm, expected_http_status: 409, side_effects: zero}
+  - {name: confirm_attempts_to_fetch_or_claim_current_source_reachability_or_bytes, expected: contract_test_failure_and_zero_target_creation}
+  - {name: confirmed_target_changes_target_kind, expected_http_status: 422, side_effects: zero}
+  - {name: service_or_agent_token_calls_confirm_or_reject, expected_http_status: 403, side_effects: zero}
+  - {name: stale_If_Match_or_body_version_mismatch, expected_http_status: 412, side_effects: zero}
+  - {name: concurrent_confirm_and_reject, expected: exactly_one_terminal_transition_and_at_most_one_target}
+  - {name: raw_message_document_or_reusable_credential_reaches_event_log_trace_or_prompt, expected: contract_test_failure_and_zero_publish}
+  - {name: external_message_is_presented_as_A4_signature_QC_contract_payment_or_release_approval, expected_http_status: 403, side_effects: zero}
+  - {name: bound_local_agent_cannot_fetch_exact_document_revision_after_confirm, expected: failure_receipt_plus_failed_AgentRun, consequential_effects: zero}
+  - {name: bound_local_agent_observes_document_digest_mismatch_after_confirm, expected: failure_receipt_with_observed_digest_plus_failed_AgentRun, consequential_effects: zero}
+  - {name: source_bound_agent_attempts_output_or_ActionIntent_before_successful_verification_receipt, expected_http_status: 409, consequential_effects: zero}
+  - {name: OpportunityStub_confirmation_is_used_as_document_read_authority, expected_http_status: 403, consequential_effects: zero}
+  - {name: later_Project_WorkItem_omits_exact_external_source_requirement_but_Agent_attempts_document_read, expected_http_status: 403, consequential_effects: zero}
+  - {name: external_source_receipt_uses_stale_lease_or_fence, expected_http_status: 423, consequential_effects: zero}
+  - {name: external_source_receipt_uses_wrong_source_tuple, expected_http_status: 409, consequential_effects: zero}
+  - {name: verified_Agent_receipt_is_used_to_bypass_required_review_signature_or_A4, expected_http_status: 403, consequential_effects: zero}

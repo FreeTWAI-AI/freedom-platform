@@ -1,0 +1,1151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.freedom.example/schemas/project-status-attestation/v1.json",
+  "title": "Freedom Project Status Attestation v1",
+  "description": "Strict, immutable, signed Platform decision about the official status and QC result of one exact GitHub project release. The JCS-canonical statement is the detached-JWS payload; the proof is not part of that payload.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-invariants": [
+    "An official result exists only when a schema-valid production-profile attestation has decision=grant, status=official, a passing trusted QC protocol, a currently trusted issuer and key, and a valid proof for the exact statement; a self-declared repository or manifest value is never authoritative",
+    "Absence of an attestation, a missing required field, an invalid schema, an unknown or unavailable issuer/key/status registry, a digest mismatch, an invalid signature, a not-yet-valid or expired validity window, replay, ambiguity, supersession, or revocation MUST fail closed to not_official",
+    "Before returning official, a verifier resolves repository.repository_id through the GitHub API and requires the returned full_name, fork state, owner type, stable owner organization database ID and owner login to equal the signed values; the owner organization ID must appear in the verifier's local approved-organization allowlist, never an allowlist supplied by this statement; a rename or transfer requires a new attestation",
+    "Before returning official, a verifier fetches the GitHub Release by repository.repository_id and release.release_id and requires the API result to match the signed release tag, the tag's peeled commit SHA, published_at, draft=false, immutable=true, and the canonical release_url derived from repository.full_name and release.release_tag; prerelease tags are allowed but SemVer build metadata is not",
+    "Before returning official, release_authorization is non-null and the verifier re-reads the canonical ReleaseApproval, ActionIntent, HumanSignature and authority snapshot by their signed IDs; it requires authorization_level=A4, meaning=approve_official_or_production_immutable_release, an active authorized human signer, no revocation or supersession, matching approval artifact and candidate digests, and exact equality of repository ID, commit SHA, intended tag, complete artifact digest set and production/Page targets with this released subject; client-supplied approval text or a GitHub Environment approval is insufficient",
+    "Before returning official, a verifier requires statement.artifacts to match the GitHub Release API uploaded-assets set exactly: release_asset_id equals API id, name equals API name, media_type equals API content_type, digest equals API digest, and uri equals canonical browser_download_url; GitHub's automatic source archives are outside that set and are never deployment inputs",
+    "artifact_id, release_asset_id and name are each unique within statement.artifacts; duplicate identifiers or names are rejected before set comparison",
+    "The trusted build-profile and QC-policy registry, not this statement alone, defines the required artifact roles for that project type, including applicable runtime/page bundles, SBOM, provenance and migrations; every required role must be present exactly as the trusted policy requires",
+    "Before returning official, a verifier independently recomputes every artifact digest and the project manifest digest from immutable bytes, parses the attested freedom.project.yaml with the exact freedom-yaml-json-v1 profile (UTF-8 without BOM, one YAML 1.2 document, JSON-schema scalar resolution/JSON data model, and no directives, tags, anchors, aliases, merge keys, duplicate or complex/non-string keys, non-JSON numbers, tab indentation or trailing document content), and requires its project_id, GitHub repository identity and immutable release policy to match this statement",
+    "The parsed manifest must pass the trusted URL policy: canonical Platform, GitHub Pages and official production origins are derived from the verifier's approved domain registry, URL userinfo and ambiguous encodings are rejected, and each external demo/documentation/support/issues origin has field-specific approval; signed URLs or manifest text are not trust roots",
+    "proof.payload_digest equals SHA-256 over the UTF-8 RFC 8785 JSON Canonicalization Scheme serialization of statement",
+    "proof.jws is RFC 7797 compact JWS with a detached unencoded payload: the middle segment is empty and the signing input is ASCII(BASE64URL(protected_header)) || '.' || UTF8(JCS(statement))",
+    "The protected JWS header contains alg equal to proof.algorithm, kid equal to both proof.key_id and statement.issuer.key_id, b64=false, crit containing b64, and typ=freedom.project-status-attestation+jws; none, algorithm substitution, unknown critical headers, duplicate JSON names, invalid Unicode, and non-I-JSON input are rejected",
+    "Verification order is fail-closed: first apply a bounded duplicate-name-safe parse and schema validation, recompute the JCS payload digest, resolve issuer and key only from local trusted configuration, require the signed endpoint identifiers to equal that configuration, and verify the detached JWS; no URI from the statement is dereferenced before signature verification",
+    "The verification key and authoritative status-registry endpoint are resolved from the verifier's trusted issuer configuration; signed authority_url, verification_method_url and status_registry_url must match that configuration but are never themselves trust roots",
+    "After signature verification, every signed HTTPS URI fetch applies a purpose-specific origin allowlist, rejects userinfo and private/link-local/loopback destinations, revalidates every redirect and DNS resolution, enforces size/time/content limits, and never exposes cloud metadata or ambient credentials; unknown origins fail closed",
+    "for a grant, release_authorization.approved_at <= release.published_at <= decision.decided_at <= validity.issued_at <= validity.valid_from < validity.expires_at; quality_control.completed_at <= decision.decided_at, and current verifier time including its bounded clock-skew policy must be inside the validity window",
+    "nonce is unique for the issuer key and may not be accepted twice for a different statement",
+    "A supersede or revoke statement is effective only if it independently passes every applicable schema, signature, issuer, time, sequence, subject, and registry check; its referenced attestation_id, statement_digest, and sequence must match an earlier statement for the same project_id, repository_id, release tag, and commit",
+    "A superseded or revoked statement never becomes current again merely because the later statement expires; reinstatement requires a new valid higher-sequence grant, and any gap or unverifiable link resolves to not_official",
+    "The authoritative status registry is checked at decision time for later supersession or revocation; unavailable, stale, forked, conflicting, or same-sequence registry state is unverifiable and therefore not_official"
+  ],
+  "required": [
+    "schema_version",
+    "kind",
+    "statement",
+    "proof"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "freedom.project-status-attestation/v1"
+    },
+    "kind": {
+      "const": "ProjectStatusAttestation"
+    },
+    "statement": {
+      "$ref": "#/$defs/statement"
+    },
+    "proof": {
+      "$ref": "#/$defs/proof"
+    }
+  },
+  "$defs": {
+    "statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attestation_profile",
+        "attestation_id",
+        "project_id",
+        "repository",
+        "release",
+        "release_authorization",
+        "artifacts",
+        "manifest",
+        "decision",
+        "quality_control",
+        "issuer",
+        "validity",
+        "nonce",
+        "lifecycle",
+        "verification_policy"
+      ],
+      "properties": {
+        "attestation_profile": {
+          "enum": [
+            "production",
+            "planning_fixture"
+          ],
+          "description": "planning_fixture is structurally testable but can never establish official status."
+        },
+        "attestation_id": {
+          "$ref": "#/$defs/attestation_id"
+        },
+        "project_id": {
+          "$ref": "#/$defs/project_id"
+        },
+        "repository": {
+          "$ref": "#/$defs/repository"
+        },
+        "release": {
+          "$ref": "#/$defs/release"
+        },
+        "release_authorization": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/release_authorization"
+            }
+          ]
+        },
+        "artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "x-uniqueBy": "artifact_id",
+          "x-uniqueFields": [
+            "artifact_id",
+            "release_asset_id",
+            "name"
+          ],
+          "items": {
+            "$ref": "#/$defs/artifact"
+          }
+        },
+        "manifest": {
+          "$ref": "#/$defs/manifest"
+        },
+        "decision": {
+          "$ref": "#/$defs/decision"
+        },
+        "quality_control": {
+          "$ref": "#/$defs/quality_control"
+        },
+        "issuer": {
+          "$ref": "#/$defs/issuer"
+        },
+        "validity": {
+          "$ref": "#/$defs/validity"
+        },
+        "nonce": {
+          "type": "string",
+          "minLength": 22,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "description": "At least 128 bits of issuer-generated randomness encoded as unpadded base64url."
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/lifecycle"
+        },
+        "verification_policy": {
+          "$ref": "#/$defs/verification_policy"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "attestation_profile": {
+                "const": "planning_fixture"
+              }
+            },
+            "required": [
+              "attestation_profile"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision": {
+                "properties": {
+                  "decision": {
+                    "const": "deny"
+                  },
+                  "status": {
+                    "const": "not_official"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "decision": {
+                "properties": {
+                  "decision": {
+                    "const": "grant"
+                  }
+                },
+                "required": [
+                  "decision"
+                ]
+              }
+            },
+            "required": [
+              "decision"
+            ]
+          },
+          "then": {
+            "properties": {
+              "attestation_profile": {
+                "const": "production"
+              },
+              "repository": {
+                "properties": {
+                  "is_fork": {
+                    "const": false
+                  }
+                }
+              },
+              "release_authorization": {
+                "$ref": "#/$defs/release_authorization"
+              },
+              "decision": {
+                "properties": {
+                  "status": {
+                    "const": "official"
+                  }
+                }
+              },
+              "quality_control": {
+                "properties": {
+                  "outcome": {
+                    "const": "pass"
+                  }
+                }
+              },
+              "lifecycle": {
+                "properties": {
+                  "action": {
+                    "enum": [
+                      "issue",
+                      "supersede"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "decision": {
+                "properties": {
+                  "decision": {
+                    "const": "deny"
+                  }
+                },
+                "required": [
+                  "decision"
+                ]
+              }
+            },
+            "required": [
+              "decision"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision": {
+                "properties": {
+                  "status": {
+                    "const": "not_official"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "decision": {
+                "properties": {
+                  "decision": {
+                    "const": "suspend"
+                  }
+                },
+                "required": [
+                  "decision"
+                ]
+              }
+            },
+            "required": [
+              "decision"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision": {
+                "properties": {
+                  "status": {
+                    "const": "suspended"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "decision": {
+                "properties": {
+                  "decision": {
+                    "const": "revoke"
+                  }
+                },
+                "required": [
+                  "decision"
+                ]
+              }
+            },
+            "required": [
+              "decision"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision": {
+                "properties": {
+                  "status": {
+                    "const": "revoked"
+                  }
+                }
+              },
+              "lifecycle": {
+                "properties": {
+                  "action": {
+                    "const": "revoke"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "lifecycle": {
+                "properties": {
+                  "action": {
+                    "const": "issue"
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            },
+            "required": [
+              "lifecycle"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision": {
+                "properties": {
+                  "decision": {
+                    "enum": [
+                      "grant",
+                      "deny"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "lifecycle": {
+                "properties": {
+                  "action": {
+                    "const": "supersede"
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            },
+            "required": [
+              "lifecycle"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision": {
+                "properties": {
+                  "decision": {
+                    "enum": [
+                      "grant",
+                      "deny",
+                      "suspend"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "lifecycle": {
+                "properties": {
+                  "action": {
+                    "const": "revoke"
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            },
+            "required": [
+              "lifecycle"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision": {
+                "properties": {
+                  "decision": {
+                    "const": "revoke"
+                  },
+                  "status": {
+                    "const": "revoked"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "repository_id",
+        "full_name",
+        "html_url",
+        "owner",
+        "is_fork"
+      ],
+      "properties": {
+        "provider": {
+          "const": "github"
+        },
+        "repository_id": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "description": "Immutable GitHub repository database ID encoded as a decimal string to avoid numeric precision loss."
+        },
+        "full_name": {
+          "$ref": "#/$defs/github_repository_name"
+        },
+        "html_url": {
+          "$ref": "#/$defs/github_repository_url"
+        },
+        "owner": {
+          "$ref": "#/$defs/github_organization"
+        },
+        "is_fork": {
+          "type": "boolean"
+        }
+      }
+    },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "release_id",
+        "commit_sha",
+        "release_tag",
+        "release_url",
+        "immutable",
+        "published_at"
+      ],
+      "properties": {
+        "release_id": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "description": "Stable GitHub Release database ID encoded as a decimal string to avoid numeric precision loss."
+        },
+        "commit_sha": {
+          "$ref": "#/$defs/commit_sha"
+        },
+        "release_tag": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^v(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?$",
+          "description": "Project v1 SemVer release tag. Pre-release identifiers are allowed; +build metadata is forbidden."
+        },
+        "release_url": {
+          "$ref": "#/$defs/github_release_url"
+        },
+        "immutable": {
+          "const": true
+        },
+        "published_at": {
+          "$ref": "#/$defs/date_time"
+        }
+      }
+    },
+    "release_authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "release_approval_id",
+        "action_intent_id",
+        "human_signature_id",
+        "signer_user_id",
+        "authority_snapshot_ref",
+        "authorization_level",
+        "meaning",
+        "approval_artifact_digest",
+        "approved_candidate_digest",
+        "approved_at"
+      ],
+      "properties": {
+        "release_approval_id": {
+          "type": "string",
+          "pattern": "^release-approval:[A-Za-z0-9][A-Za-z0-9._:-]{1,127}$"
+        },
+        "action_intent_id": {
+          "type": "string",
+          "pattern": "^action-intent:[A-Za-z0-9][A-Za-z0-9._:-]{1,127}$"
+        },
+        "human_signature_id": {
+          "type": "string",
+          "pattern": "^human-signature:[A-Za-z0-9][A-Za-z0-9._:-]{1,127}$"
+        },
+        "signer_user_id": {
+          "type": "string",
+          "pattern": "^user:[A-Za-z0-9][A-Za-z0-9._:-]{1,127}$"
+        },
+        "authority_snapshot_ref": {
+          "type": "string",
+          "pattern": "^authority-snapshot:[A-Za-z0-9][A-Za-z0-9._:-]{1,127}$"
+        },
+        "authorization_level": {
+          "const": "A4"
+        },
+        "meaning": {
+          "const": "approve_official_or_production_immutable_release"
+        },
+        "approval_artifact_digest": {
+          "$ref": "#/$defs/sha256_digest"
+        },
+        "approved_candidate_digest": {
+          "$ref": "#/$defs/sha256_digest"
+        },
+        "approved_at": {
+          "$ref": "#/$defs/date_time"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "release_asset_id",
+        "name",
+        "role",
+        "media_type",
+        "digest",
+        "uri"
+      ],
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "pattern": "^artifact:[a-z0-9][a-z0-9._-]{1,127}$"
+        },
+        "release_asset_id": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "description": "Stable GitHub release-asset database ID encoded as a decimal string."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,254}$"
+        },
+        "role": {
+          "enum": [
+            "runtime_bundle",
+            "page_bundle",
+            "source_bundle",
+            "database_migrations",
+            "sbom",
+            "provenance",
+            "checksums",
+            "documentation",
+            "other"
+          ]
+        },
+        "media_type": {
+          "$ref": "#/$defs/media_type"
+        },
+        "digest": {
+          "$ref": "#/$defs/sha256_digest"
+        },
+        "uri": {
+          "$ref": "#/$defs/github_release_asset_url"
+        }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "media_type",
+        "digest",
+        "uri"
+      ],
+      "properties": {
+        "path": {
+          "const": "freedom.project.yaml"
+        },
+        "media_type": {
+          "enum": [
+            "application/yaml",
+            "application/x-yaml"
+          ]
+        },
+        "digest": {
+          "$ref": "#/$defs/sha256_digest"
+        },
+        "uri": {
+          "$ref": "#/$defs/https_uri"
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision",
+        "status",
+        "decided_at",
+        "reason_codes",
+        "summary"
+      ],
+      "properties": {
+        "decision": {
+          "enum": [
+            "grant",
+            "deny",
+            "suspend",
+            "revoke"
+          ]
+        },
+        "status": {
+          "enum": [
+            "official",
+            "not_official",
+            "suspended",
+            "revoked"
+          ]
+        },
+        "decided_at": {
+          "$ref": "#/$defs/date_time"
+        },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,63}$"
+          }
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      }
+    },
+    "quality_control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome",
+        "completed_at",
+        "protocol",
+        "evidence_bundle"
+      ],
+      "properties": {
+        "outcome": {
+          "enum": [
+            "pass",
+            "fail"
+          ]
+        },
+        "completed_at": {
+          "$ref": "#/$defs/date_time"
+        },
+        "protocol": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "protocol_id",
+            "version",
+            "digest",
+            "uri"
+          ],
+          "properties": {
+            "protocol_id": {
+              "type": "string",
+              "pattern": "^qc-protocol:[a-z0-9][a-z0-9._-]{1,127}$"
+            },
+            "version": {
+              "type": "string",
+              "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+            },
+            "digest": {
+              "$ref": "#/$defs/sha256_digest"
+            },
+            "uri": {
+              "$ref": "#/$defs/https_uri"
+            }
+          }
+        },
+        "evidence_bundle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "evidence_id",
+            "media_type",
+            "digest",
+            "uri"
+          ],
+          "properties": {
+            "evidence_id": {
+              "type": "string",
+              "pattern": "^qc-evidence:[a-z0-9][a-z0-9._-]{1,127}$"
+            },
+            "media_type": {
+              "$ref": "#/$defs/media_type"
+            },
+            "digest": {
+              "$ref": "#/$defs/sha256_digest"
+            },
+            "uri": {
+              "$ref": "#/$defs/https_uri"
+            }
+          }
+        }
+      }
+    },
+    "issuer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issuer_id",
+        "authority_url",
+        "key_id",
+        "verification_method_url",
+        "status_registry_url"
+      ],
+      "properties": {
+        "issuer_id": {
+          "type": "string",
+          "pattern": "^issuer:[a-z0-9][a-z0-9._:-]{1,127}$"
+        },
+        "authority_url": {
+          "$ref": "#/$defs/https_uri"
+        },
+        "key_id": {
+          "$ref": "#/$defs/key_id"
+        },
+        "verification_method_url": {
+          "$ref": "#/$defs/https_uri"
+        },
+        "status_registry_url": {
+          "$ref": "#/$defs/https_uri"
+        }
+      }
+    },
+    "validity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issued_at",
+        "valid_from",
+        "expires_at"
+      ],
+      "properties": {
+        "issued_at": {
+          "$ref": "#/$defs/date_time"
+        },
+        "valid_from": {
+          "$ref": "#/$defs/date_time"
+        },
+        "expires_at": {
+          "$ref": "#/$defs/date_time"
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "sequence",
+        "supersedes",
+        "revokes",
+        "reason"
+      ],
+      "properties": {
+        "action": {
+          "enum": [
+            "issue",
+            "supersede",
+            "revoke"
+          ]
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "supersedes": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/prior_attestation"
+            }
+          ]
+        },
+        "revokes": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/prior_attestation"
+            }
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "issue"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "sequence": {
+                "const": 1
+              },
+              "supersedes": {
+                "type": "null"
+              },
+              "revokes": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "supersede"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "sequence": {
+                "minimum": 2
+              },
+              "supersedes": {
+                "$ref": "#/$defs/prior_attestation"
+              },
+              "revokes": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "revoke"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "sequence": {
+                "minimum": 2
+              },
+              "supersedes": {
+                "type": "null"
+              },
+              "revokes": {
+                "$ref": "#/$defs/prior_attestation"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "prior_attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attestation_id",
+        "statement_digest",
+        "sequence"
+      ],
+      "properties": {
+        "attestation_id": {
+          "$ref": "#/$defs/attestation_id"
+        },
+        "statement_digest": {
+          "$ref": "#/$defs/sha256_digest"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "verification_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "positive_status",
+        "missing_attestation_result",
+        "not_yet_valid_result",
+        "expired_result",
+        "superseded_result",
+        "revoked_result",
+        "unverifiable_result",
+        "required_checks"
+      ],
+      "properties": {
+        "mode": {
+          "const": "fail_closed"
+        },
+        "positive_status": {
+          "const": "official"
+        },
+        "missing_attestation_result": {
+          "const": "not_official"
+        },
+        "not_yet_valid_result": {
+          "const": "not_official"
+        },
+        "expired_result": {
+          "const": "not_official"
+        },
+        "superseded_result": {
+          "const": "not_official"
+        },
+        "revoked_result": {
+          "const": "not_official"
+        },
+        "unverifiable_result": {
+          "const": "not_official"
+        },
+        "required_checks": {
+          "const": [
+            "schema_valid",
+            "profile_is_production",
+            "github_repository_identity_matches",
+            "repository_owner_is_approved_organization",
+            "repository_is_not_fork",
+            "github_release_identity_matches",
+            "release_tag_resolves_to_commit",
+            "release_is_published_and_immutable",
+            "release_authorization_policy_matches",
+            "grant_has_current_exact_a4_release_approval",
+            "release_asset_set_matches",
+            "artifact_digests_match",
+            "manifest_digest_matches",
+            "manifest_semantics_match",
+            "manifest_url_policy_matches",
+            "qc_protocol_is_trusted",
+            "qc_evidence_digest_matches",
+            "qc_outcome_is_pass",
+            "issuer_and_key_are_trusted",
+            "jcs_payload_digest_matches",
+            "signature_verifies",
+            "within_validity_window",
+            "nonce_is_not_replayed",
+            "status_registry_is_fresh_and_authoritative",
+            "attestation_is_current",
+            "not_superseded",
+            "not_revoked"
+          ]
+        }
+      }
+    },
+    "proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "canonicalization",
+        "signed_object",
+        "payload_digest",
+        "algorithm",
+        "key_id",
+        "jws"
+      ],
+      "properties": {
+        "type": {
+          "const": "DetachedJWS"
+        },
+        "canonicalization": {
+          "const": "RFC8785"
+        },
+        "signed_object": {
+          "const": "statement"
+        },
+        "payload_digest": {
+          "$ref": "#/$defs/sha256_digest"
+        },
+        "algorithm": {
+          "enum": [
+            "EdDSA",
+            "ES256"
+          ]
+        },
+        "key_id": {
+          "$ref": "#/$defs/key_id"
+        },
+        "jws": {
+          "type": "string",
+          "minLength": 35,
+          "maxLength": 4096,
+          "pattern": "^[A-Za-z0-9_-]{16,2048}\\.\\.[A-Za-z0-9_-]{16,2048}$",
+          "description": "RFC 7797 compact JWS with the unencoded payload detached, so the middle segment is empty."
+        }
+      }
+    },
+    "attestation_id": {
+      "type": "string",
+      "pattern": "^attestation:[a-z0-9][a-z0-9._:-]{7,127}$"
+    },
+    "project_id": {
+      "type": "string",
+      "pattern": "^project:[a-z0-9][a-z0-9-]{1,62}$"
+    },
+    "key_id": {
+      "type": "string",
+      "pattern": "^key:[A-Za-z0-9][A-Za-z0-9._:/#-]{2,255}$"
+    },
+    "commit_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "sha256_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "github_repository_name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$"
+    },
+    "github_repository_url": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 500,
+      "pattern": "^https://github\\.com/[A-Za-z0-9][A-Za-z0-9._-]{0,99}/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$"
+    },
+    "github_organization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "organization_id",
+        "login"
+      ],
+      "properties": {
+        "type": {
+          "const": "Organization"
+        },
+        "organization_id": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "description": "Stable GitHub organization database ID encoded as a decimal string."
+        },
+        "login": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,98}[A-Za-z0-9])?$"
+        }
+      }
+    },
+    "github_release_url": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 700,
+      "pattern": "^https://github\\.com/[A-Za-z0-9][A-Za-z0-9._-]{0,99}/[A-Za-z0-9][A-Za-z0-9._-]{0,99}/releases/tag/v[0-9A-Za-z.-]+$"
+    },
+    "github_release_asset_url": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 1200,
+      "pattern": "^https://github\\.com/[A-Za-z0-9][A-Za-z0-9._-]{0,99}/[A-Za-z0-9][A-Za-z0-9._-]{0,99}/releases/download/[^/?#]+/[A-Za-z0-9][A-Za-z0-9._+-]{0,254}$",
+      "description": "Canonical GitHub Release browser_download_url. Semantic validation binds owner/repo, tag and asset name to the signed repository, release and artifact fields."
+    },
+    "https_uri": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 2048,
+      "pattern": "^https://(?![^/?#]*(?:@|%40|%2[fF]|%5[cC]))(?![^/?#]*\\\\)[^\\s/?#]+(?:[/?#][^\\s\\\\]*)?$"
+    },
+    "date_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "media_type": {
+      "type": "string",
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*(?:;[ -~]+)?$"
+    }
+  }
+}
