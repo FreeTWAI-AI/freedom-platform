@@ -1,0 +1,5 @@
+clock: lease_fence
+kind: negative_substitute
+fixture_id: lease_fence_neg_grant_expires_at
+forbidden_field: grant_expires_at
+assertion: another_clock_or_dual_name_cannot_stand_in_for_lease_expires_at_plus_fence

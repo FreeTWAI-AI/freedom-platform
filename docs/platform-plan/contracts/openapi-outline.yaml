@@ -5638,7 +5638,7 @@ components:
         task_lease_id: {$ref: "#/components/schemas/OpaqueId"}
         fencing_token: {type: string, pattern: "^[1-9][0-9]*$"}
         state: {enum: [prepared, running, awaiting_human, submitted]}
-        expires_at: {type: string, format: date-time, description: TaskLease executor-authority expiry; it appears with fencing_token on this lease object and is never a WorkItem/Claim/Grant/evidence expiry, delivery deadline or evidence validity time.}
+        expires_at: {type: string, format: date-time, description: "TaskLease executor-authority expiry; it appears with fencing_token on this lease object and is never a WorkItem/Claim/Grant/evidence expiry, delivery deadline or evidence validity time."}
       allOf:
         - if:
             properties:
@@ -8362,13 +8362,17 @@ components:
     ReleaseStatusLeaseProof:
       type: object
       additionalProperties: false
-      required: [lease_id, fencing_token]
+      required: [lease_id, fencing_token, expires_at]
       properties:
         lease_id: {$ref: "#/components/schemas/OpaqueId"}
         fencing_token:
           type: string
           pattern: "^[1-9][0-9]*$"
           description: Decimal monotonic token scoped to the release-status job; compare as an integer, never float.
+        expires_at:
+          type: string
+          format: date-time
+          description: "Lease-object executor-authority expiry; appears with fencing_token on this proof and is never a WorkItem/Claim/Grant/evidence expiry, delivery deadline, or evidence validity time."
     SignProjectStatusAttestationRequest:
       type: object
       additionalProperties: false

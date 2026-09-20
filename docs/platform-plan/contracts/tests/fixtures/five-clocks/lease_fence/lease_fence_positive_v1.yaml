@@ -1,0 +1,17 @@
+clock: lease_fence
+kind: positive
+fixture_id: lease_fence_positive_v1
+agent_run_lease:
+  task_lease_id: lease_synthetic_1
+  fencing_token: '1'
+  expires_at: '2026-09-20T08:00:00Z'
+job_lease:
+  lease_id: lease_synthetic_job_1
+  fencing_token: '7'
+  expires_at: '2026-09-20T08:05:00Z'
+release_status_lease_proof:
+  lease_id: lease_synthetic_rs_1
+  fencing_token: '3'
+  expires_at: '2026-09-20T08:10:00Z'
+same_object_rule: expires_at_and_fencing_token_required_together_on_lease_object
+banned_dual_name: lease_expires_at

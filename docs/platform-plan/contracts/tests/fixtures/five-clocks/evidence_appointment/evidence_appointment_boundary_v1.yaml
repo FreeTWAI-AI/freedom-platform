@@ -1,0 +1,7 @@
+clock: evidence_appointment
+kind: setter_expiry_boundary
+fixture_id: evidence_appointment_boundary_v1
+after_review_by:
+  usable_for_current_official_decision: false
+  history_retained: true
+renew_rule: revalidate_and_create_new_evidence_or_appointment_revision

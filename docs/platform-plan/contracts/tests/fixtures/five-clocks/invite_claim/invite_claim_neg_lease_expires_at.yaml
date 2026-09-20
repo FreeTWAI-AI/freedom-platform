@@ -1,0 +1,5 @@
+clock: invite_claim
+kind: negative_substitute
+fixture_id: invite_claim_neg_lease_expires_at
+forbidden_field: lease_expires_at
+assertion: another_clock_field_cannot_open_or_extend_claim_window

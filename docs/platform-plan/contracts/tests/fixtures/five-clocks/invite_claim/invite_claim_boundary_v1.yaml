@@ -1,0 +1,11 @@
+clock: invite_claim
+kind: setter_expiry_boundary
+fixture_id: invite_claim_boundary_v1
+before_expiry:
+  server_now: '2026-09-30T23:59:59Z'
+  may_create_new_claim: true
+at_or_after_expiry:
+  server_now: '2026-10-01T00:00:00Z'
+  may_create_new_claim: false
+existing_claim_preserved: true
+extension_rule: new_revision_or_explicit_extend_before_expiry_keeps_audit_of_old_value

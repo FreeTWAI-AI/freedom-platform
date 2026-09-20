@@ -1,0 +1,5 @@
+clock: grant
+kind: negative_substitute
+fixture_id: grant_neg_task_lease_expires_at
+forbidden_field: task_lease_expires_at
+assertion: another_clock_field_cannot_authorize_or_extend_execution_grant

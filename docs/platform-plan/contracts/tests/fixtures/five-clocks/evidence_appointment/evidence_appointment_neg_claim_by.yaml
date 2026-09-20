@@ -1,0 +1,5 @@
+clock: evidence_appointment
+kind: negative_substitute
+fixture_id: evidence_appointment_neg_claim_by
+forbidden_field: claim_by
+assertion: another_clock_field_cannot_refresh_evidence_or_appointment_currency

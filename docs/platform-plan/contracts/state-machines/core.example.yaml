@@ -1129,6 +1129,7 @@ machines:
       command: add_exclusive_claim_atomically
       guards:
       - execution_mode_is_exclusive
+      - claim_window_open
       - no_existing_claim
       - viewed_participation_terms_revision_and_digest_match_or_legacy_is_explicitly_unclassified
       to: claiming_closed

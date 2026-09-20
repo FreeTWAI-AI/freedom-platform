@@ -1,0 +1,5 @@
+clock: delivery
+kind: negative_substitute
+fixture_id: delivery_neg_grant_expires_at
+forbidden_field: grant_expires_at
+assertion: another_clock_field_cannot_satisfy_or_extend_delivery_due

@@ -1,0 +1,5 @@
+clock: grant
+kind: negative_substitute
+fixture_id: grant_neg_valid_until
+forbidden_field: valid_until
+assertion: another_clock_field_cannot_authorize_or_extend_execution_grant

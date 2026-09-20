@@ -1,0 +1,106 @@
+schema_version: freedom.five-clocks-fixtures/v1
+status: synthetic_planning_fixtures_not_runtime
+source: 03 §11; ADR-062; RQ-061; FW-01
+clocks:
+  invite_claim:
+    canonical_fields:
+    - expires_at
+    - claim_by
+    objects:
+    - WorkItem invite/claim window
+    - ParticipationTerms.completion.claim_by
+    setter: requester_or_work_item_publisher_per_pinned_policy
+    expiry_consequence: no_new_claim_after_expiry_existing_claims_preserved
+    forbidden_substitutes:
+    - due_at
+    - fencing_token
+    - ExecutionGrant.expires_at
+    - valid_until
+    - review_by
+    schema_paths:
+    - contracts/work-participation.schema.json#/$defs/ParticipationTerms
+    - contracts/state-machines/core.example.yaml#/machines/work_item
+  delivery:
+    canonical_fields:
+    - due_at
+    - finish_by
+    objects:
+    - Milestone/WorkItem delivery
+    - ParticipationTerms.completion.finish_by
+    setter: requester_and_claimant_per_sow_or_accepted_revision
+    expiry_consequence: overdue_enters_coordination_not_auto_fail_or_rank_drop
+    forbidden_substitutes:
+    - claim_by
+    - fencing_token
+    - ExecutionGrant.expires_at
+    - valid_until
+    - review_by
+    - TaskLease.expires_at
+    schema_paths:
+    - contracts/openapi-outline.yaml#/components/schemas/SowMilestoneDefinition
+    - contracts/work-participation.schema.json#/$defs/ParticipationTerms
+  lease_fence:
+    canonical_fields:
+    - expires_at
+    - fencing_token
+    same_object_rule: expires_at_must_appear_with_fencing_token_on_the_lease_object
+    objects:
+    - TaskLease/AgentRunLease
+    - JobLease
+    - ReleaseStatusLeaseProof
+    setter: server_lease_coordinator
+    expiry_consequence: stale_fence_rejects_new_writes_workclaim_preserved
+    forbidden_substitutes:
+    - due_at
+    - claim_by
+    - ExecutionGrant.expires_at
+    - valid_until
+    - review_by
+    - lease_expires_at
+    schema_paths:
+    - contracts/openapi-outline.yaml#/components/schemas/AgentRunLease
+    - contracts/openapi-outline.yaml#/components/schemas/JobLease
+    - contracts/openapi-outline.yaml#/components/schemas/ReleaseStatusLeaseProof
+  grant:
+    canonical_fields:
+    - expires_at
+    objects:
+    - ExecutionGrant
+    setter: principal_within_bounded_grant_server_cap
+    expiry_consequence: stop_new_controlled_actions_reconcile_uncertain_side_effects
+    forbidden_substitutes:
+    - due_at
+    - claim_by
+    - fencing_token
+    - valid_until
+    - review_by
+    - TaskLease.expires_at
+    schema_paths:
+    - contracts/openapi-outline.yaml#/components/schemas/ExecutionGrantSummary
+    - contracts/openapi-outline.yaml#/components/schemas/CreateExecutionGrantRequest
+  evidence_appointment:
+    canonical_fields:
+    - valid_until
+    - review_by
+    objects:
+    - evidence/credential valid_until
+    - ReviewerAppointment.review_by
+    setter: evidence_issuer_or_named_appointer
+    expiry_consequence: not_usable_for_current_decisions_history_retained
+    forbidden_substitutes:
+    - due_at
+    - claim_by
+    - fencing_token
+    - ExecutionGrant.expires_at
+    - TaskLease.expires_at
+    schema_paths:
+    - contracts/openapi-outline.yaml#/components/schemas/ReviewerAppointment
+    - contracts/openapi-outline.yaml#/components/schemas/CreateReviewerAppointmentRequest
+non_clocks:
+- occurred_at
+- recorded_at
+- provider_timestamp
+- retention_deadline
+- oauth_token_expiry
+- authority_ttl
+- overlay_ttl

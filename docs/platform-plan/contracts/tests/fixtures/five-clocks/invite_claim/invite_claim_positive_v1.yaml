@@ -1,0 +1,11 @@
+clock: invite_claim
+kind: positive
+fixture_id: invite_claim_positive_v1
+participation_terms_completion:
+  claim_by: '2026-10-01T00:00:00Z'
+  finish_by: '2026-10-08T00:00:00Z'
+  feedback_due: '2026-10-15T00:00:00Z'
+core_guards_expected:
+- claim_window_open
+notes: claim window uses claim_by / claim_window_open; not delivery due_at or lease
+  fence

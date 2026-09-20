@@ -1,0 +1,10 @@
+clock: evidence_appointment
+kind: positive
+fixture_id: evidence_appointment_positive_v1
+reviewer_appointment:
+  appointment_id: ra_synthetic_1
+  review_by: '2026-10-31T00:00:00Z'
+  state: active
+evidence_currency_field: valid_until
+appointment_field: review_by
+must_not_use_for_membership_or_rank: true

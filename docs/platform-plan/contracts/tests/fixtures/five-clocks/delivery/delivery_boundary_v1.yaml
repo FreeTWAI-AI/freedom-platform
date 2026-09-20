@@ -1,0 +1,9 @@
+clock: delivery
+kind: setter_expiry_boundary
+fixture_id: delivery_boundary_v1
+at_or_after_due:
+  server_now: '2026-10-08T00:00:00Z'
+  shows_overdue: true
+  auto_fail: false
+  rank_drop: false
+change_rule: versioned_change_accepted_by_authorized_parties_does_not_rewrite_original_promise

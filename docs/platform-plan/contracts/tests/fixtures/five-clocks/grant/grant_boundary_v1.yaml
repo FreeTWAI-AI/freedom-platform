@@ -1,0 +1,7 @@
+clock: grant
+kind: setter_expiry_boundary
+fixture_id: grant_boundary_v1
+after_expiry:
+  may_start_new_controlled_action: false
+  uncertain_side_effects: reconciliation_only
+extension_rule: new_grant_or_revision_required_no_silent_extend

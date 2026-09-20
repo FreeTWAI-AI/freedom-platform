@@ -1,0 +1,13 @@
+clock: delivery
+kind: positive
+fixture_id: delivery_positive_v1
+sow_milestone:
+  milestone_id: ms_synthetic_1
+  title: Synthetic delivery checkpoint
+  acceptance_criteria:
+  - synthetic criteria
+  value:
+    amount: '0'
+    currency: XXX
+  due_at: '2026-10-08T00:00:00Z'
+participation_finish_by: '2026-10-08T00:00:00Z'

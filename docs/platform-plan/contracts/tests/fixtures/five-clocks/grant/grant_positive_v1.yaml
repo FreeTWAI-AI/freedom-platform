@@ -1,0 +1,11 @@
+clock: grant
+kind: positive
+fixture_id: grant_positive_v1
+execution_grant:
+  grant_id: grant_synthetic_1
+  expires_at: '2026-09-21T00:00:00Z'
+  state: active
+must_not_carry:
+- fencing_token
+- due_at
+- valid_until

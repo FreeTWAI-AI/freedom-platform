@@ -1,0 +1,9 @@
+clock: lease_fence
+kind: setter_expiry_boundary
+fixture_id: lease_fence_boundary_v1
+stale_fence:
+  fencing_token: '1'
+  current_fencing_token: '2'
+  write_accepted: false
+renew_rule: renew_or_reassign_issues_new_expiry_and_new_fence_never_reuses_old_token
+work_claim_preserved_on_lease_expiry: true

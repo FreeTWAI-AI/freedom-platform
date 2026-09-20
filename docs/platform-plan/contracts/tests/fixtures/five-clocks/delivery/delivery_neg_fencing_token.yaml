@@ -1,0 +1,5 @@
+clock: delivery
+kind: negative_substitute
+fixture_id: delivery_neg_fencing_token
+forbidden_field: fencing_token
+assertion: another_clock_field_cannot_satisfy_or_extend_delivery_due
