@@ -1,0 +1,58 @@
+schema_version: freedom.portable-bundle-cases/v1
+status: synthetic_planning_fixtures_not_runtime
+as_of: '2026-09-20T16:30:00Z'
+production_trust_root: false
+cases:
+  - case_id: valid_minimal_bundle_manifest
+    kind: valid
+    artifact: valid/minimal-bundle-manifest.json
+    artifact_kind: bundle_manifest
+    expect:
+      schema_valid: true
+      failure_class: null
+      execution_allowed: false
+      executable_effects: 0
+      note: planning_fixture_schema_pass_never_production_activate
+
+  - case_id: negative_tampered_digest
+    kind: negative
+    artifact: negative/tampered-digest.json
+    artifact_kind: bundle_manifest
+    expected_payload_digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    expect:
+      schema_valid: true
+      failure_class: tampered_digest
+      execution_allowed: false
+      executable_effects: 0
+
+  - case_id: negative_unknown_major
+    kind: negative
+    artifact: negative/unknown-major.json
+    artifact_kind: bundle_manifest
+    supported_schema_majors: [1]
+    expect:
+      schema_valid: false
+      failure_class: unknown_major
+      execution_allowed: false
+      executable_effects: 0
+
+  - case_id: negative_revoked_signer
+    kind: negative
+    artifact: negative/revoked-signer.json
+    artifact_kind: signed_channel_with_revocation
+    keys_fixture: keys/nonprod-test-keys.json
+    expect:
+      schema_valid: true
+      failure_class: revoked_signer
+      execution_allowed: false
+      executable_effects: 0
+
+  - case_id: negative_host_shadow
+    kind: negative
+    artifact: negative/host-shadow.json
+    artifact_kind: host_shadow_fixture
+    expect:
+      schema_valid: null
+      failure_class: host_shadow
+      execution_allowed: false
+      executable_effects: 0

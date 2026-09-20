@@ -1,0 +1,41 @@
+{
+  "schema_version": "freedom.bundle-manifest/v1",
+  "artifact_profile": "planning_fixture",
+  "bundle_kind": "skill_package",
+  "bundle_id": "skill:freedom/fw09-minimal-control",
+  "version": "0.1.0",
+  "source": {
+    "repository_id": "900000001",
+    "release_id": "900000101",
+    "release_tag": "v0.1.0",
+    "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "digest_profile": "freedom-file-list-jcs-sha256-v1",
+  "execution_mode_profile": "path-derived-readonly-v1",
+  "payload_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "files": [
+    {
+      "path": "SKILL.md",
+      "size": 256,
+      "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "path": "freedom-skill.yaml",
+      "size": 128,
+      "sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "archive": {
+    "asset_name": "fw09-minimal-control-v0.1.0.tar.gz",
+    "media_type": "application/gzip",
+    "size": 1024,
+    "sha256": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "skill_metadata": {
+    "frontmatter_profile": "freedom-agent-skill-frontmatter-v1",
+    "body_profile": "static-skill-body-linter-v1",
+    "name": "fw09-minimal-control",
+    "description": "FW-09 tampered digest negative. Never activates."
+  },
+  "contract_snapshot": null
+}

@@ -1,0 +1,208 @@
+{
+  "schema_version": "freedom.portable-bundle-revoked-signer-fixture/v1",
+  "note": "NON_PRODUCTION_planning_fixture_revoked_signer_never_activate",
+  "production_use": false,
+  "production_trust_root": false,
+  "keys_fixture": "keys/nonprod-test-keys.json",
+  "signed_channel": {
+    "schema_version": "freedom.signed-channel/v1",
+    "statement": {
+      "channel_profile": "planning_fixture",
+      "channel_id": "freedom/control/fw09-test",
+      "sequence": "1",
+      "previous_statement_sha256": null,
+      "previous_artifact_sha256": null,
+      "previous_artifact_uri": null,
+      "issued_at": "2026-09-15T12:00:00Z",
+      "valid_from": "2026-09-15T12:00:00Z",
+      "expires_at": "2026-09-16T12:00:00Z",
+      "minimum_accepted_sequence": "1",
+      "publisher_policy_id": "publisher-policy/fw09-test-nonprod-v1",
+      "root_skill": {
+        "bundle_kind": "skill_package",
+        "artifact_profile": "planning_fixture",
+        "package_id": "skill:freedom/fw09-minimal-control",
+        "version": "0.1.0",
+        "skill_package_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "package_manifest_sha256": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "package_archive_sha256": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "manifest_locator": {
+          "source": {
+            "repository_id": "900000001",
+            "release_id": "900000101",
+            "release_tag": "v0.1.0",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "asset_id": "900000201",
+          "asset_name": "skill-package.manifest.json"
+        },
+        "archive_locator": {
+          "source": {
+            "repository_id": "900000001",
+            "release_id": "900000101",
+            "release_tag": "v0.1.0",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "asset_id": "900000202",
+          "asset_name": "fw09-minimal-control-v0.1.0.tar.gz"
+        }
+      },
+      "dependency_closure": {
+        "resolver_id": "freedom-semver-resolver",
+        "resolver_version": "1.0.0",
+        "registry_snapshot": {
+          "snapshot_id": "registry-snapshot/fw09-test-1",
+          "snapshot_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "artifact_sha256": "sha256:5656565656565656565656565656565656565656565656565656565656565656",
+          "artifact_locator": {
+            "source": {
+              "repository_id": "900000001",
+              "release_id": "900000101",
+              "release_tag": "v0.1.0",
+              "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "asset_id": "900000209",
+            "asset_name": "registry-snapshot.json"
+          }
+        },
+        "entries": [],
+        "closure_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+      },
+      "plan_bundle": {
+        "bundle_kind": "plan_bundle",
+        "artifact_profile": "planning_fixture",
+        "bundle_id": "freedom-platform-plan-fw09",
+        "version": "0.1.0",
+        "payload_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "bundle_manifest_sha256": "sha256:4848484848484848484848484848484848484848484848484848484848484848",
+        "bundle_archive_sha256": "sha256:4747474747474747474747474747474747474747474747474747474747474747",
+        "manifest_locator": {
+          "source": {
+            "repository_id": "900000004",
+            "release_id": "900000104",
+            "release_tag": "v0.1.0",
+            "commit_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "asset_id": "900000207",
+          "asset_name": "freedom-plan-bundle.manifest.json"
+        },
+        "archive_locator": {
+          "source": {
+            "repository_id": "900000004",
+            "release_id": "900000104",
+            "release_tag": "v0.1.0",
+            "commit_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "asset_id": "900000208",
+          "asset_name": "freedom-platform-plan-fw09-v0.1.0.tar.gz"
+        }
+      },
+      "contract_bundle": {
+        "bundle_kind": "contract_bundle",
+        "artifact_profile": "planning_fixture",
+        "bundle_id": "freedom-contracts-fw09",
+        "version": "0.1.0",
+        "payload_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "bundle_manifest_sha256": "sha256:3636363636363636363636363636363636363636363636363636363636363636",
+        "bundle_archive_sha256": "sha256:3535353535353535353535353535353535353535353535353535353535353535",
+        "manifest_locator": {
+          "source": {
+            "repository_id": "900000003",
+            "release_id": "900000103",
+            "release_tag": "v0.1.0",
+            "commit_sha": "cccccccccccccccccccccccccccccccccccccccc"
+          },
+          "asset_id": "900000205",
+          "asset_name": "contract-bundle.manifest.json"
+        },
+        "archive_locator": {
+          "source": {
+            "repository_id": "900000003",
+            "release_id": "900000103",
+            "release_tag": "v0.1.0",
+            "commit_sha": "cccccccccccccccccccccccccccccccccccccccc"
+          },
+          "asset_id": "900000206",
+          "asset_name": "freedom-contracts-fw09-v0.1.0.tar.gz"
+        }
+      },
+      "revocation_requirement": {
+        "registry_id": "freedom-revocations/fw09-test",
+        "minimum_snapshot_sequence": "1",
+        "max_staleness_seconds": 900,
+        "clock_skew_seconds": 60
+      }
+    },
+    "proof": {
+      "profile": "freedom-rfc7797-detached-jws-multisig-jcs-v1",
+      "algorithm": "EdDSA",
+      "typ": "freedom.signed-channel+jws",
+      "payload_sha256": "sha256:5757575757575757575757575757575757575757575757575757575757575757",
+      "signature_policy_id": "publisher-policy/fw09-test-nonprod-v1",
+      "threshold": 2,
+      "signatures": [
+        {
+          "kid": "publisher-key/fw09-test-nonprod-a",
+          "protected_b64u": "ZXhhbXBsZS1wcm90ZWN0ZWQtYQ",
+          "signature_b64u": "ZXhhbXBsZS1zaWduYXR1cmUtYS1ub3QtdmFsaWQ"
+        },
+        {
+          "kid": "publisher-key/fw09-test-nonprod-revoked",
+          "protected_b64u": "ZXhhbXBsZS1wcm90ZWN0ZWQtUg",
+          "signature_b64u": "ZXhhbXBsZS1zaWduYXR1cmUtUi1ub3QtdmFsaWQ"
+        }
+      ]
+    }
+  },
+  "revocation_snapshot": {
+    "schema_version": "freedom.revocation-snapshot/v1",
+    "statement": {
+      "registry_profile": "planning_fixture",
+      "registry_id": "freedom-revocations/fw09-test",
+      "sequence": "1",
+      "previous_statement_sha256": null,
+      "previous_artifact_sha256": null,
+      "previous_artifact_uri": null,
+      "publisher_policy_id": "publisher-policy/fw09-test-nonprod-v1",
+      "issued_at": "2026-09-15T12:00:00Z",
+      "expires_at": "2026-09-15T12:15:00Z",
+      "max_staleness_seconds": 900,
+      "clock_skew_seconds": 60,
+      "minimum_channel_sequences": [
+        {
+          "channel_id": "freedom/control/fw09-test",
+          "minimum_sequence": "1"
+        }
+      ],
+      "revoked_keys": [
+        {
+          "kid": "publisher-key/fw09-test-nonprod-revoked",
+          "invalid_from": "2026-09-15T11:00:00Z",
+          "revoked_at": "2026-09-15T11:00:00Z",
+          "reason_code": "compromised"
+        }
+      ],
+      "revoked_packages": []
+    },
+    "proof": {
+      "profile": "freedom-rfc7797-detached-jws-multisig-jcs-v1",
+      "algorithm": "EdDSA",
+      "typ": "freedom.revocation-snapshot+jws",
+      "payload_sha256": "sha256:5858585858585858585858585858585858585858585858585858585858585858",
+      "signature_policy_id": "publisher-policy/fw09-test-nonprod-v1",
+      "threshold": 2,
+      "signatures": [
+        {
+          "kid": "publisher-key/fw09-test-nonprod-a",
+          "protected_b64u": "ZXhhbXBsZS1wcm90ZWN0ZWQtYQ",
+          "signature_b64u": "ZXhhbXBsZS1zaWduYXR1cmUtYS1ub3QtdmFsaWQ"
+        },
+        {
+          "kid": "publisher-key/fw09-test-nonprod-b",
+          "protected_b64u": "ZXhhbXBsZS1wcm90ZWN0ZWQtYg",
+          "signature_b64u": "ZXhhbXBsZS1zaWduYXR1cmUtYi1ub3QtdmFsaWQ"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "schema_version": "freedom.portable-bundle-host-shadow-fixture/v1",
+  "note": "planning_fixture_host_shadow_never_activate",
+  "artifact_profile": "planning_fixture",
+  "production_use": false,
+  "sealed_session": {
+    "session_dir": "s/fw09hostshadow001",
+    "skills": [
+      {
+        "name": "fw09-minimal-control",
+        "path": "skills/fw09-minimal-control",
+        "bundle_id": "skill:freedom/fw09-minimal-control",
+        "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source": "signed_channel_pin"
+      }
+    ]
+  },
+  "host_discovery_candidates": [
+    {
+      "adapter": "claude",
+      "source": "host_user_skills",
+      "path": ".claude/skills/fw09-minimal-control",
+      "name": "fw09-minimal-control",
+      "payload_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+      "mutable": true,
+      "shadows_sealed_root": true
+    }
+  ],
+  "isolation": {
+    "host_discovery_masked": false,
+    "adapter_isolation_supported": true
+  }
+}

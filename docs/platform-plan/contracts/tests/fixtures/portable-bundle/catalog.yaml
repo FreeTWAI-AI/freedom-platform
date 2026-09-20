@@ -1,0 +1,21 @@
+schema_version: freedom.portable-bundle-fixtures/v1
+status: synthetic_planning_fixtures_not_runtime
+source: RQ-047; ADR-049; T16; FW-09; BLD-01/02/03/04; portable-activation.schema.json
+scenario: portable_bundle_tamper_and_compatibility_boundaries
+artifact_profile: planning_fixture
+production_trust_root: false
+production_use: false
+production_signed: false
+keys:
+  fixture: keys/nonprod-test-keys.json
+  rule: non_production_test_key_fixture_only_never_build_trust_root
+failure_classes:
+  - tampered_digest
+  - unknown_major
+  - revoked_signer
+  - host_shadow
+zero_execution_rule: every_negative_failure_class_implies_execution_allowed_false_and_executable_effects_zero
+network: false
+money: false
+secrets: false
+no_runtime_claim: true
