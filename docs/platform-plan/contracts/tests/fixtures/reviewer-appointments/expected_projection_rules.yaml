@@ -1,0 +1,25 @@
+schema_version: freedom.reviewer-appointment-expected-rules/v1
+status: synthetic_planning_fixtures_not_runtime
+rules:
+  sole_source: ReviewerAppointment
+  entitlement_key_pattern: "qc.review:<scope>"
+  required_appointment_state: active
+  scope_match: exact
+  currency_field: review_by
+  currency_predicate: as_of_strictly_before_review_by
+  subject_must_be: natural_person_member
+  appointer_must_be: named_od10_guild_officeholders_council_natural_person
+  agent_never_holds_independently: true
+  xp_rank_master_familiarity_never_create_appointment: true
+  self_review:
+    entitlement_may_exist: true
+    independent_review: false
+    official_label: false
+  revoke:
+    clears_future_projection: true
+    deletes_history: false
+  expire:
+    command: expire_at_review_by
+    guard: server_time_is_at_or_after_review_by
+    terminal_state: expired
+  renewal: creates_new_traceable_appointment_never_rewrites_prior

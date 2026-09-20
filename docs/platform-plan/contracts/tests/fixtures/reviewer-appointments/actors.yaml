@@ -1,0 +1,15 @@
+# Synthetic IDs only — not real people, accounts, or OD-10 production holders.
+schema_version: freedom.reviewer-appointment-actors/v1
+status: synthetic_planning_fixtures_not_runtime
+as_of: "2026-09-20T16:00:00Z"
+guild_id: guild_synthetic_platform_001
+scope_exact: protocol.product.field-review.v1
+scope_other: protocol.product.other-skill.v1
+actors:
+  od10_appointer_ref: person_synthetic_od10_holder_001
+  subject_reviewer_ref: person_synthetic_reviewer_002
+  submission_author_ref: person_synthetic_author_003
+  high_xp_master_ref: person_synthetic_high_xp_master_004
+  familiar_member_ref: person_synthetic_familiar_005
+  agent_ref: agent_synthetic_006
+  agent_principal_ref: person_synthetic_agent_principal_007

@@ -1,0 +1,277 @@
+schema_version: freedom.reviewer-appointment-cases/v1
+status: synthetic_planning_fixtures_not_runtime
+as_of: "2026-09-20T16:00:00Z"
+# Pure fixture cases for projecting qc.review:<scope>. No money, network, or secrets.
+cases:
+  - case_id: positive_active_exact_scope
+    kind: positive
+    description: Active exact-scope appointment projects qc.review for that scope only
+    actor_ref: person_synthetic_reviewer_002
+    requested_scope: protocol.product.field-review.v1
+    submission_author_ref: person_synthetic_author_003
+    appointments:
+      - appointment_id: ra_synthetic_active_001
+        appointer_ref: person_synthetic_od10_holder_001
+        subject_member_ref: person_synthetic_reviewer_002
+        scope: protocol.product.field-review.v1
+        granted_at: "2026-09-01T00:00:00Z"
+        review_by: "2026-12-31T00:00:00Z"
+        reason: synthetic OD-10 scoped appointment for field-review
+        state: active
+        aggregate_version: 1
+    non_appointment_signals: {}
+    expect:
+      projects_qc_review: true
+      entitlement_keys: ["qc.review:protocol.product.field-review.v1"]
+      independent_of_author: true
+      denial_reason: null
+
+  - case_id: positive_second_scope_isolated
+    kind: positive
+    description: A second active appointment for another exact scope projects only that other key
+    actor_ref: person_synthetic_reviewer_002
+    requested_scope: protocol.product.other-skill.v1
+    submission_author_ref: person_synthetic_author_003
+    appointments:
+      - appointment_id: ra_synthetic_active_001
+        appointer_ref: person_synthetic_od10_holder_001
+        subject_member_ref: person_synthetic_reviewer_002
+        scope: protocol.product.field-review.v1
+        granted_at: "2026-09-01T00:00:00Z"
+        review_by: "2026-12-31T00:00:00Z"
+        reason: synthetic field-review appointment
+        state: active
+        aggregate_version: 1
+      - appointment_id: ra_synthetic_active_002
+        appointer_ref: person_synthetic_od10_holder_001
+        subject_member_ref: person_synthetic_reviewer_002
+        scope: protocol.product.other-skill.v1
+        granted_at: "2026-09-05T00:00:00Z"
+        review_by: "2026-12-31T00:00:00Z"
+        reason: synthetic other-skill appointment
+        state: active
+        aggregate_version: 1
+    non_appointment_signals: {}
+    expect:
+      projects_qc_review: true
+      entitlement_keys: ["qc.review:protocol.product.other-skill.v1"]
+      all_active_keys_for_member:
+        - "qc.review:protocol.product.field-review.v1"
+        - "qc.review:protocol.product.other-skill.v1"
+      independent_of_author: true
+      denial_reason: null
+
+  - case_id: negative_high_xp_no_appointment
+    kind: negative
+    description: High XP never creates qc.review without an appointment
+    actor_ref: person_synthetic_high_xp_master_004
+    requested_scope: protocol.product.field-review.v1
+    submission_author_ref: person_synthetic_author_003
+    appointments: []
+    non_appointment_signals:
+      xp_by_profession_track:
+        profession_key: software-field
+        track: real_delivery
+        xp: 99000
+    expect:
+      projects_qc_review: false
+      entitlement_keys: []
+      denial_reason: missing_active_exact_scope_reviewer_appointment
+
+  - case_id: negative_rank_master_no_appointment
+    kind: negative
+    description: Profession Master rank and Guild Master office never create qc.review
+    actor_ref: person_synthetic_high_xp_master_004
+    requested_scope: protocol.product.field-review.v1
+    submission_author_ref: person_synthetic_author_003
+    appointments: []
+    non_appointment_signals:
+      profession_rank: Master
+      guild_master_office: true
+      office_title: Guild Master
+    expect:
+      projects_qc_review: false
+      entitlement_keys: []
+      denial_reason: missing_active_exact_scope_reviewer_appointment
+
+  - case_id: negative_familiarity_no_appointment
+    kind: negative
+    description: Product familiarity never creates qc.review
+    actor_ref: person_synthetic_familiar_005
+    requested_scope: protocol.product.field-review.v1
+    submission_author_ref: person_synthetic_author_003
+    appointments: []
+    non_appointment_signals:
+      product_familiarity_score: 100
+      reviewed_versions_count: 42
+    expect:
+      projects_qc_review: false
+      entitlement_keys: []
+      denial_reason: missing_active_exact_scope_reviewer_appointment
+
+  - case_id: negative_agent_cannot_hold_appointment
+    kind: negative
+    description: Agent identity cannot hold ReviewerAppointment or qc.review independently
+    actor_ref: agent_synthetic_006
+    requested_scope: protocol.product.field-review.v1
+    submission_author_ref: person_synthetic_author_003
+    appointments:
+      - appointment_id: ra_synthetic_agent_attempt_001
+        appointer_ref: person_synthetic_od10_holder_001
+        subject_member_ref: agent_synthetic_006
+        subject_kind: agent
+        principal_ref: person_synthetic_agent_principal_007
+        scope: protocol.product.field-review.v1
+        granted_at: "2026-09-01T00:00:00Z"
+        review_by: "2026-12-31T00:00:00Z"
+        reason: invalid synthetic agent subject — must be rejected by projection
+        state: active
+        aggregate_version: 1
+    non_appointment_signals:
+      actor_kind: agent
+    expect:
+      projects_qc_review: false
+      entitlement_keys: []
+      denial_reason: agent_cannot_hold_reviewer_appointment
+      appointment_rejected: true
+
+  - case_id: negative_expired_appointment
+    kind: negative
+    description: Expired appointment (state=expired or as_of >= review_by) projects nothing
+    actor_ref: person_synthetic_reviewer_002
+    requested_scope: protocol.product.field-review.v1
+    submission_author_ref: person_synthetic_author_003
+    appointments:
+      - appointment_id: ra_synthetic_expired_001
+        appointer_ref: person_synthetic_od10_holder_001
+        subject_member_ref: person_synthetic_reviewer_002
+        scope: protocol.product.field-review.v1
+        granted_at: "2026-01-01T00:00:00Z"
+        review_by: "2026-06-30T00:00:00Z"
+        reason: synthetic expired appointment
+        state: expired
+        aggregate_version: 2
+    non_appointment_signals: {}
+    expect:
+      projects_qc_review: false
+      entitlement_keys: []
+      denial_reason: appointment_expired_at_review_by
+
+  - case_id: negative_revoked_appointment
+    kind: negative
+    description: Revoked appointment clears future qc.review without deleting history
+    actor_ref: person_synthetic_reviewer_002
+    requested_scope: protocol.product.field-review.v1
+    submission_author_ref: person_synthetic_author_003
+    appointments:
+      - appointment_id: ra_synthetic_revoked_001
+        appointer_ref: person_synthetic_od10_holder_001
+        subject_member_ref: person_synthetic_reviewer_002
+        scope: protocol.product.field-review.v1
+        granted_at: "2026-09-01T00:00:00Z"
+        review_by: "2026-12-31T00:00:00Z"
+        revoked_at: "2026-09-15T12:00:00Z"
+        reason: synthetic revoke for scope cleanup
+        state: revoked
+        aggregate_version: 2
+    non_appointment_signals: {}
+    expect:
+      projects_qc_review: false
+      entitlement_keys: []
+      denial_reason: appointment_revoked
+      history_preserved: true
+
+  - case_id: negative_mismatched_scope
+    kind: negative
+    description: Active appointment for a different scope does not project the requested scope
+    actor_ref: person_synthetic_reviewer_002
+    requested_scope: protocol.product.field-review.v1
+    submission_author_ref: person_synthetic_author_003
+    appointments:
+      - appointment_id: ra_synthetic_other_scope_001
+        appointer_ref: person_synthetic_od10_holder_001
+        subject_member_ref: person_synthetic_reviewer_002
+        scope: protocol.product.other-skill.v1
+        granted_at: "2026-09-01T00:00:00Z"
+        review_by: "2026-12-31T00:00:00Z"
+        reason: synthetic appointment for a different exact scope
+        state: active
+        aggregate_version: 1
+    non_appointment_signals: {}
+    expect:
+      projects_qc_review: false
+      entitlement_keys: []
+      denial_reason: no_active_appointment_for_requested_exact_scope
+      other_scope_keys: ["qc.review:protocol.product.other-skill.v1"]
+
+  - case_id: negative_self_review
+    kind: negative
+    description: Author cannot review own submission even with active exact-scope appointment
+    actor_ref: person_synthetic_author_003
+    requested_scope: protocol.product.field-review.v1
+    submission_author_ref: person_synthetic_author_003
+    appointments:
+      - appointment_id: ra_synthetic_author_self_001
+        appointer_ref: person_synthetic_od10_holder_001
+        subject_member_ref: person_synthetic_author_003
+        scope: protocol.product.field-review.v1
+        granted_at: "2026-09-01T00:00:00Z"
+        review_by: "2026-12-31T00:00:00Z"
+        reason: synthetic appointment held by submission author
+        state: active
+        aggregate_version: 1
+    non_appointment_signals: {}
+    expect:
+      # Entitlement may still project for other authors' work, but self-review is denied.
+      projects_qc_review: true
+      entitlement_keys: ["qc.review:protocol.product.field-review.v1"]
+      independent_of_author: false
+      self_review_allowed: false
+      denial_reason: self_review_not_independent_natural_person
+
+  - case_id: boundary_expire_at_exact_review_by
+    kind: boundary
+    description: At as_of == review_by the appointment is no longer current (server_time >= review_by)
+    actor_ref: person_synthetic_reviewer_002
+    requested_scope: protocol.product.field-review.v1
+    submission_author_ref: person_synthetic_author_003
+    as_of_override: "2026-12-31T00:00:00Z"
+    appointments:
+      - appointment_id: ra_synthetic_boundary_001
+        appointer_ref: person_synthetic_od10_holder_001
+        subject_member_ref: person_synthetic_reviewer_002
+        scope: protocol.product.field-review.v1
+        granted_at: "2026-09-01T00:00:00Z"
+        review_by: "2026-12-31T00:00:00Z"
+        reason: synthetic boundary expiry at review_by
+        state: active
+        aggregate_version: 1
+    non_appointment_signals: {}
+    expect:
+      projects_qc_review: false
+      entitlement_keys: []
+      denial_reason: appointment_expired_at_review_by
+
+  - case_id: boundary_active_just_before_review_by
+    kind: boundary
+    description: One second before review_by an otherwise active exact-scope appointment still projects
+    actor_ref: person_synthetic_reviewer_002
+    requested_scope: protocol.product.field-review.v1
+    submission_author_ref: person_synthetic_author_003
+    as_of_override: "2026-12-30T23:59:59Z"
+    appointments:
+      - appointment_id: ra_synthetic_boundary_001
+        appointer_ref: person_synthetic_od10_holder_001
+        subject_member_ref: person_synthetic_reviewer_002
+        scope: protocol.product.field-review.v1
+        granted_at: "2026-09-01T00:00:00Z"
+        review_by: "2026-12-31T00:00:00Z"
+        reason: synthetic still-current before review_by
+        state: active
+        aggregate_version: 1
+    non_appointment_signals: {}
+    expect:
+      projects_qc_review: true
+      entitlement_keys: ["qc.review:protocol.product.field-review.v1"]
+      independent_of_author: true
+      denial_reason: null

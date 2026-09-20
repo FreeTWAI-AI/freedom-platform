@@ -423,15 +423,14 @@ def test_retraction_fact_payload_minimum_fields_from_canon():
     assert req["reason"] == retract["reason"]
 
 
-def test_fw03_allowed_paths_only_and_no_fw02_touch():
-    """Guardrail: this card must not create/alter FW-02 Codex-owned paths."""
-    fw02_test = Path(__file__).resolve().parent / "test_xp_projection_rebuild.py"
-    fw02_fix = Path(__file__).resolve().parent / "fixtures" / "xp-rebuild"
-    assert not fw02_test.exists()
-    assert not fw02_fix.exists()
+def test_fw03_fixture_paths_present():
+    """FW-03 owns review-retraction fixtures; FW-02 may coexist after it lands on main."""
     assert FIX.is_dir()
+    assert (FIX / "catalog.yaml").is_file()
     assert (FIX / "sequence_accepted_retracted_replay_v1.yaml").is_file()
+    assert (FIX / "expected_projections_after_retraction_v1.yaml").is_file()
     assert Path(__file__).name == "test_retracted_receipt_replay.py"
+    # Do not assert FW-02 absence — that card has landed on main (test_xp_projection_rebuild.py).
 
 
 def test_catalog_contract_paths_resolve():

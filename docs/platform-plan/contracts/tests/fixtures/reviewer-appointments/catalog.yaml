@@ -1,0 +1,30 @@
+schema_version: freedom.reviewer-appointment-fixtures/v1
+status: synthetic_planning_fixtures_not_runtime
+source: RQ-059; ADR-060; OD-10; T08; T14; FW-04; 01 §12; entitlement-catalog; openapi ReviewerAppointment; state-machines reviewer_appointment
+scenario: qc_review_sole_source_is_active_exact_scope_appointment
+entitlement_key_template: "qc.review:<scope>"
+projection_rule: only_active_exact_scope_appointment_projects_qc_review
+non_sources_never_project_qc_review:
+- xp
+- profession_rank
+- master_rank
+- guild_master_office
+- product_familiarity
+- agent_identity
+- expired_appointment
+- revoked_appointment
+- mismatched_scope
+independence_rule: reviewer_must_be_different_natural_person_from_submission_author
+expiry_field: review_by
+revoke_clears_future_authority_without_deleting_history: true
+named_od10_appointers_are_synthetic_ids_only: true
+contract_paths:
+- contracts/entitlement-catalog.example.yaml#/definitions
+- contracts/openapi-outline.yaml#/paths/~1guilds~1{guild_id}~1reviewer-appointments
+- contracts/openapi-outline.yaml#/paths/~1reviewer-appointments~1{id}~1revoke
+- contracts/openapi-outline.yaml#/paths/~1me~1reviewer-appointments
+- contracts/openapi-outline.yaml#/components/schemas/ReviewerAppointment
+- contracts/openapi-outline.yaml#/components/schemas/CreateReviewerAppointmentRequest
+- contracts/openapi-outline.yaml#/components/schemas/RevokeReviewerAppointmentRequest
+- contracts/state-machines/core.example.yaml#/machines/reviewer_appointment
+- contracts/event-catalog.example.yaml#/events
