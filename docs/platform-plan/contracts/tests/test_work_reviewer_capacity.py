@@ -67,3 +67,33 @@ def test_fw06_can_modify_the_two_source_contracts():
 
 def test_state_machine_aggregate_count_not_increased():
     assert len(S['machines']) == 56
+
+def test_capacity_never_changes_person_fields():
+    p = S['projections']['review_capacity_navigation']
+    for field in ['membership', 'rank', 'entitlement', 'discoverability']:
+        assert field in p['never_changes']
+    assert 'work_item_lifecycle' in p['never_changes']
+    assert 'claimability' in p['never_changes']
+
+def test_support_card_is_idempotent_upsert_per_scope_episode():
+    t = transition('publish_review_required_without_current_reviewer_capacity')
+    assert any('upsert_one_scope_episode' in e for e in t['effects'])
+    p = S['projections']['review_capacity_navigation']
+    assert any('upsert_or_resolve_one_scope_episode_card' in e for e in p['on_capacity_changed'])
+    assert 'no_support_card_creates_an_obligation_for_core_or_volunteers_to_backfill' in W['invariants']
+
+def test_capacity_updates_route_card_official_only():
+    p = S['projections']['review_capacity_navigation']
+    assert 'recompute_navigation_and_route_only' in p['on_capacity_changed']
+    assert 'do_not_set_official_true_without_exact_review_evidence' in p['on_capacity_changed']
+    assert 'do_not_reopen_work_item_or_emit_work_item_opened' in p['on_capacity_changed']
+    assert 'capacity_change_alone_never_changes_lifecycle_claimability_or_sets_official_true' in W['invariants']
+
+def test_agent_work_contract_capacity_parity():
+    import yaml as _yaml
+    aw = _yaml.safe_load((C / 'agent-work-contract.example.yaml').read_text())
+    wi = aw['work_item']
+    assert wi['states'] == ['draft', 'open', 'active', 'claiming_closed', 'accepted', 'cancelled', 'expired']
+    assert 'waiting_reviewer_capacity' not in wi['states']
+    assert wi['capacity_rule'] == 'waiting_reviewer_capacity_is_orthogonal_navigation_never_lifecycle_or_claim_gate'
+    assert 'appointment_is_qualification' in wi['human_support_rule']
