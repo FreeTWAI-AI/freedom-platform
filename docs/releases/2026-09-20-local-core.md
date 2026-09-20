@@ -28,6 +28,8 @@
 
 本機 Chromium 初次因系統 `/tmp` 配額耗盡失敗，改用有空間的 `TMPDIR` 後完整重跑通過；沒有把失敗計為通過。測試用獨立暫存 PostgreSQL schema，不覆寫示範工作。CI 以新的 PostgreSQL service 重跑同一組命令，遠端執行狀態以 GitHub Actions 的實際紀錄為準。
 
+推送後 GitHub 指出既有 pytest 暫存目錄漏洞；測試依賴已從 9.0.2 升至 [9.0.3 修正版](https://github.com/pytest-dev/pytest/releases/tag/9.0.3)，並於專用 `.venv` 重跑契約與 API 整合測試。舊版 verification 記載的 9.0.2 保留作歷史環境證據。
+
 Grok 4.6 協助 Portal、契約與文件，並做一次只讀程式審查。審查提出 localhost Origin 不一致，接手者已修正並加入 API／瀏覽器回歸測試；另修正工作建立的逾期重播與參與條款文字長度。未宣稱具名真人 reviewer、Claude verification、A4 或正式 QC 已通過。
 
 ## 明確範圍

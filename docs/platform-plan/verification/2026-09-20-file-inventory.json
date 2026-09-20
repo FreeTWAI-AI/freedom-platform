@@ -770,7 +770,7 @@
     {
       "path": "docs/platform-plan/contracts/tests/requirements-static.txt",
       "bytes": 134,
-      "sha256": "bf4f658c046bb321c47e19ef91d924556fef20ece2137d4132ed0344b4f68ec1"
+      "sha256": "fb0e23e38ea43106fd21c1aca3c8477467f63c7227fd81d95a2625e67858c8c8"
     },
     {
       "path": "docs/platform-plan/contracts/tests/test_domain_skill_overlay_contract.py",
@@ -1034,8 +1034,8 @@
     },
     {
       "path": "docs/releases/2026-09-20-local-core.md",
-      "bytes": 5837,
-      "sha256": "f5c6636ee5dc40c62499afed57e037893dee3ac87579a3d8d1923df938981deb"
+      "bytes": 6128,
+      "sha256": "6c8fd4ffc3bb6f1b500d4af038092eb145188bea1f3dddd5a90db4f80ea90056"
     },
     {
       "path": "migrations/001_local_core.sql",
