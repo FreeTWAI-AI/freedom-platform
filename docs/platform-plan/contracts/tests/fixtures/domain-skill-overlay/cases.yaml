@@ -1,0 +1,129 @@
+schema_version: freedom.domain-skill-overlay-cases/v1
+status: synthetic_planning_fixtures_not_runtime
+as_of: '2026-09-20T12:00:00Z'
+production_trust_root: false
+baseline_control_activation_digest: 'sha256:1111111111111111111111111111111111111111111111111111111111111111'
+server_derived_skill_version_refs:
+  - skill-version:inventory-insight-1.0.0
+  - skill-version:store-curation-1.0.0
+cases:
+  - case_id: valid_golden_overlay
+    kind: valid
+    artifact: valid/golden-overlay.json
+    artifact_kind: signed_overlay
+    expect:
+      schema_valid: true
+      gates_pass: true
+      failure_class: null
+      roots_set_digest_match: true
+      natural_person_independent: true
+      proof_threshold_met: true
+      authority_current: true
+      revocation_current: true
+      mode_verifiable: true
+      control_activation_digest_unchanged: true
+      domain_execution_allowed: false
+      domain_executable_effects: 0
+      note: planning_fixture_gates_pass_never_production_activate
+
+  - case_id: negative_missing_root
+    kind: negative
+    artifact: negative/missing-root.json
+    artifact_kind: signed_overlay
+    expect:
+      schema_valid: true
+      gates_pass: false
+      failure_class: missing_root
+      roots_set_digest_match: true
+      control_activation_digest_unchanged: true
+      domain_execution_allowed: false
+      domain_executable_effects: 0
+
+  - case_id: negative_extra_root
+    kind: negative
+    artifact: negative/extra-root.json
+    artifact_kind: signed_overlay
+    expect:
+      schema_valid: true
+      gates_pass: false
+      failure_class: extra_root
+      roots_set_digest_match: true
+      control_activation_digest_unchanged: true
+      domain_execution_allowed: false
+      domain_executable_effects: 0
+
+  - case_id: negative_reordered_root
+    kind: negative
+    artifact: negative/reordered-root.json
+    artifact_kind: signed_overlay
+    expect:
+      schema_valid: true
+      gates_pass: false
+      failure_class: reordered_root
+      roots_set_digest_match: false
+      control_activation_digest_unchanged: true
+      domain_execution_allowed: false
+      domain_executable_effects: 0
+
+  - case_id: negative_self_review
+    kind: negative
+    artifact: negative/self-review.json
+    artifact_kind: signed_overlay
+    expect:
+      schema_valid: true
+      gates_pass: false
+      failure_class: self_review
+      natural_person_independent: false
+      control_activation_digest_unchanged: true
+      domain_execution_allowed: false
+      domain_executable_effects: 0
+
+  - case_id: negative_expired
+    kind: negative
+    artifact: negative/expired.json
+    artifact_kind: signed_overlay
+    expect:
+      schema_valid: true
+      gates_pass: false
+      failure_class: expired
+      authority_current: false
+      revocation_current: false
+      control_activation_digest_unchanged: true
+      domain_execution_allowed: false
+      domain_executable_effects: 0
+
+  - case_id: negative_revoked
+    kind: negative
+    artifact: negative/revoked.json
+    artifact_kind: signed_overlay
+    expect:
+      schema_valid: true
+      gates_pass: false
+      failure_class: revoked
+      control_activation_digest_unchanged: true
+      domain_execution_allowed: false
+      domain_executable_effects: 0
+
+  - case_id: negative_host_shadow
+    kind: negative
+    artifact: negative/host-shadow.json
+    artifact_kind: host_shadow_fixture
+    expect:
+      schema_valid: null
+      gates_pass: false
+      failure_class: host_shadow
+      control_activation_digest_unchanged: true
+      domain_execution_allowed: false
+      domain_executable_effects: 0
+
+  - case_id: negative_unsupported_isolation
+    kind: negative
+    artifact: negative/unsupported-isolation.json
+    artifact_kind: unsupported_isolation_fixture
+    expect:
+      schema_valid: null
+      gates_pass: false
+      failure_class: unsupported_isolation
+      control_activation_digest_unchanged: true
+      domain_execution_allowed: false
+      domain_executable_effects: 0

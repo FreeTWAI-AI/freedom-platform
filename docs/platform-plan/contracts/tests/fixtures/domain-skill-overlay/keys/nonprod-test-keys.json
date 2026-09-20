@@ -1,0 +1,75 @@
+{
+  "schema_version": "freedom.domain-skill-overlay-test-keys/v1",
+  "note": "NON_PRODUCTION_TEST_KEYS_ONLY_never_activate_never_build_production_trust_root",
+  "production_use": false,
+  "production_trust_root": false,
+  "production_signed": false,
+  "artifact_profile": "planning_fixture",
+  "algorithm": "EdDSA",
+  "curve": "Ed25519",
+  "threshold": 2,
+  "policy_id": "publisher-policy/fw11-test-nonprod-v1",
+  "keys": [
+    {
+      "kid": "publisher-key:fw11-test-nonprod-a",
+      "algorithm": "EdDSA",
+      "role": "signer_a",
+      "public_jwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "not_before": "2026-09-01T00:00:00Z",
+      "not_after": null,
+      "private_material": null,
+      "production_use": false
+    },
+    {
+      "kid": "publisher-key:fw11-test-nonprod-b",
+      "algorithm": "EdDSA",
+      "role": "signer_b",
+      "public_jwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+      },
+      "not_before": "2026-09-01T00:00:00Z",
+      "not_after": null,
+      "private_material": null,
+      "production_use": false
+    },
+    {
+      "kid": "publisher-key:fw11-test-nonprod-c",
+      "algorithm": "EdDSA",
+      "role": "spare_c",
+      "public_jwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+      },
+      "not_before": "2026-09-01T00:00:00Z",
+      "not_after": null,
+      "private_material": null,
+      "production_use": false
+    },
+    {
+      "kid": "publisher-key:fw11-test-nonprod-revoked",
+      "algorithm": "EdDSA",
+      "role": "revoked_fixture_only",
+      "public_jwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"
+      },
+      "not_before": "2026-09-01T00:00:00Z",
+      "not_after": "2026-09-20T11:50:00Z",
+      "private_material": null,
+      "production_use": false,
+      "revocation_fixture": {
+        "invalid_from": "2026-09-20T11:50:00Z",
+        "revoked_at": "2026-09-20T11:50:00Z",
+        "reason_code": "compromised"
+      }
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "schema_version": "freedom.domain-skill-overlay-host-shadow-fixture/v1",
+  "note": "planning_fixture_host_shadow_never_activate",
+  "artifact_profile": "planning_fixture",
+  "production_use": false,
+  "production_trust_root": false,
+  "overlay_fixture": "valid/golden-overlay.json",
+  "sealed_session": {
+    "session_dir": "s/fw11hostshadow001",
+    "control_root": "skills/freedom-build-system",
+    "domain_skills": [
+      {
+        "name": "inventory-insight",
+        "path": "skills/inventory-insight",
+        "skill_version_ref": "skill-version:inventory-insight-1.0.0",
+        "source": "signed_overlay_pin"
+      },
+      {
+        "name": "store-curation",
+        "path": "skills/store-curation",
+        "skill_version_ref": "skill-version:store-curation-1.0.0",
+        "source": "signed_overlay_pin"
+      }
+    ]
+  },
+  "host_discovery_candidates": [
+    {
+      "adapter": "claude",
+      "source": "host_user_skills",
+      "path": ".claude/skills/store-curation",
+      "name": "store-curation",
+      "payload_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+      "mutable": true,
+      "shadows_sealed_root": true
+    }
+  ],
+  "isolation": {
+    "profile": "per-run-sealed-domain-overlay-v1",
+    "host_discovery_masked": false,
+    "adapter_isolation_supported": true
+  }
+}

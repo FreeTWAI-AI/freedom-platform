@@ -1,0 +1,32 @@
+schema_version: freedom.domain-skill-overlay-fixtures/v1
+status: synthetic_planning_fixtures_not_runtime
+source: RQ-049; RQ-047; ADR-052; T02; T06; T16; FW-11; BLD-05 stage 1A; domain-skill-overlay.schema.json
+scenario: signed_domain_overlay_stage_1a_contract
+artifact_profile: planning_fixture
+production_trust_root: false
+production_use: false
+production_signed: false
+stage: 1A
+stage_boundary: contract_fixtures_only_not_1B_runtime
+keys:
+  fixture: keys/nonprod-test-keys.json
+  rule: non_production_test_key_fixture_only_never_build_trust_root
+control_activation_digest_rule: overlay_must_not_redefine_existing_eight_input_control_activation_digest
+roots_set_digest_formula: SHA-256(JCS({control_activation_digest,domain_roots}))
+roots_set_projection: identity_package_archive_dependency_closure_and_qc_digests_sorted_by_skill_version_ref
+proof_threshold: 2-of-N
+natural_person_independence: qc_reviewer_user_ref_must_not_equal_submitter_user_ref
+failure_classes:
+  - missing_root
+  - extra_root
+  - reordered_root
+  - self_review
+  - expired
+  - revoked
+  - host_shadow
+  - unsupported_isolation
+zero_domain_execution_rule: every_case_implies_domain_execution_allowed_false_and_domain_executable_effects_zero
+network: false
+money: false
+secrets: false
+no_runtime_claim: true

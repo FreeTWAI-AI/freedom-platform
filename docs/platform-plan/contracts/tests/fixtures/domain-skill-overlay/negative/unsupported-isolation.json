@@ -1,0 +1,28 @@
+{
+  "schema_version": "freedom.domain-skill-overlay-isolation-fixture/v1",
+  "note": "planning_fixture_unsupported_isolation_never_activate",
+  "artifact_profile": "planning_fixture",
+  "production_use": false,
+  "production_trust_root": false,
+  "overlay_fixture": "valid/golden-overlay.json",
+  "adapters": [
+    {
+      "adapter": "codex",
+      "isolation_profile_requested": "per-run-sealed-domain-overlay-v1",
+      "adapter_isolation_supported": false,
+      "reason_code": "adapter_lacks_sealed_namespace"
+    },
+    {
+      "adapter": "claude",
+      "isolation_profile_requested": "per-run-sealed-domain-overlay-v1",
+      "adapter_isolation_supported": true,
+      "reason_code": null
+    },
+    {
+      "adapter": "grok",
+      "isolation_profile_requested": "host-mutable-global-discovery-v0",
+      "adapter_isolation_supported": false,
+      "reason_code": "unsupported_isolation_profile"
+    }
+  ]
+}

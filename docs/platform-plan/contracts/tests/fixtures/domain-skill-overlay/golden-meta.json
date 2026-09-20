@@ -1,0 +1,8 @@
+{
+  "control_activation_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "golden_runtime_roots_set_digest": "sha256:801c0005d5604ea6a606c78a710e77e87eb1763985bfc398ebdbc47ba842feeb",
+  "server_derived_skill_version_refs": [
+    "skill-version:inventory-insight-1.0.0",
+    "skill-version:store-curation-1.0.0"
+  ]
+}

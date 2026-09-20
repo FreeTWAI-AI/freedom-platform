@@ -1,0 +1,57 @@
+*** FW-11 / BLD-05 stage 1A proposal (contract fixtures only; NOT stage 1B runtime) ***
+*** Proposal topic: domain-skill-overlay-stage-1a-contract
+*** Status: proposal-only artifact; does not mutate canonical schema/example
+*** Source: RQ-049, RQ-047, ADR-052, T02/T06/T16, SPEC-BLD-05, FW-09 key conventions
+
+This unified diff documents the stage-1A contract freeze proposed by FW-11.
+It does NOT implement stage 1B enable→execute→revoke runtime paths.
+
+--- /dev/null
++++ b/docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/README.stage-1a.md
+@@ -0,0 +1,48 @@
++# Domain Skill Overlay — stage 1A contract fixtures (proposed)
++
++## Boundary
++- Stage **1A**: freeze schema/example consumption, JCS roots-set projection,
++  2-of-N proof, QC natural-person independence, authority/revocation/mode gates,
++  and golden + negative fixtures.
++- Stage **1B** (out of scope here): three-CLI skeleton, sealed load, mid-run
++  revoke drills, live enable→execute→revoke→capability_unavailable.
++
++## Exact roots-set digest (frozen projection)
++
++```
++runtime_roots_set_digest = SHA-256(JCS({
++  control_activation_digest,
++  domain_roots: [ /* sorted by skill_version_ref UTF-8 bytes */ {
++    skill_version_ref, package_id, version, skill_name,
++    package_manifest_sha256, skill_package_digest, package_archive_sha256,
++    dependency_closure_digest,
++    qc_admission: {
++      quality_review_ref, decision_signature_ref,
++      reviewed_skill_package_digest, reviewed_package_archive_sha256
++    }
++  }, ...]
++}))
++```
++
++`control_activation_digest` remains the existing eight-input control activation
++digest and is never redefined by the overlay.
++
++## Negatives (all → capability_unavailable, zero domain execution)
++- missing_root / extra_root / reordered_root (vs server-derived WorkItem refs)
++- self_review (reviewer_user_ref == submitter_user_ref)
++- expired (overlay / bootstrap index / revocation window)
++- revoked (proof kid in non-prod revocation fixture)
++- host_shadow (unmasked host discovery candidate)
++- unsupported_isolation (adapter lacks per-run sealed profile)
++
++## Keys
++- `keys/nonprod-test-keys.json` only (FW-09 conventions)
++- `production_use=false`, `production_trust_root=false`, no private material
++
++## Planning fixture rule
++- `fixture_status=fake_planning_fixture_never_activate`
++- Even gate-pass golden asserts `domain_execution_allowed=false` in stage 1A
++
++# end proposal body

@@ -1,0 +1,104 @@
+{
+  "schema_version": "freedom.domain-skill-overlay-fixture/v1",
+  "fixture_status": "fake_planning_fixture_never_activate",
+  "artifact": {
+    "schema_version": "freedom.domain-skill-overlay-artifact/v1",
+    "statement": {
+      "schema_version": "freedom.domain-skill-overlay-statement/v1",
+      "overlay_id": "overlay:fw11-planning-daily-commerce",
+      "sequence": 1,
+      "community_id": "community:fw11-planning",
+      "runtime_mode": "signed_isolated_overlay_v1",
+      "control_activation_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "contract_bundle_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "runtime_roots_set_digest": "sha256:801c0005d5604ea6a606c78a710e77e87eb1763985bfc398ebdbc47ba842feeb",
+      "isolation_profile": "per-run-sealed-domain-overlay-v1",
+      "issued_at": "2026-09-20T11:55:00Z",
+      "valid_from": "2026-09-20T11:55:00Z",
+      "expires_at": "2026-09-20T12:10:00Z",
+      "publisher_authority": {
+        "publisher_policy_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "keyset_chain_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "bootstrap_index_artifact_sha256": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "bootstrap_index_statement_sha256": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "bootstrap_index_expires_at": "2026-09-20T12:05:00Z"
+      },
+      "revocation_binding": {
+        "registry_id": "registry:fw11-planning",
+        "minimum_sequence": 7,
+        "current_sequence": 7,
+        "artifact_sha256": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "statement_sha256": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "expires_at": "2026-09-20T12:15:00Z"
+      },
+      "domain_roots": [
+        {
+          "skill_version_ref": "skill-version:inventory-insight-1.0.0",
+          "package_id": "skill:freedom/inventory-insight",
+          "version": "1.0.0",
+          "skill_name": "inventory-insight",
+          "package_manifest_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "skill_package_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "package_archive_sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "package_archive_uri": "https://example.invalid/artifacts/inventory-insight.tar",
+          "dependency_closure_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "qc_admission": {
+            "quality_review_ref": "quality-review:fw11-inventory-insight",
+            "protocol_version_ref": "review-protocol:domain-runtime-v1",
+            "reviewed_skill_package_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "reviewed_package_archive_sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "decision": "accepted_for_isolated_runtime",
+            "reviewer_user_ref": "user:fw11-reviewer-alpha",
+            "submitter_user_ref": "user:fw11-author-alpha",
+            "independent_natural_person": true,
+            "decision_signature_ref": "human-signature:fw11-qc-inventory",
+            "decided_at": "2026-09-20T11:30:00Z"
+          }
+        },
+        {
+          "skill_version_ref": "skill-version:store-curation-1.0.0",
+          "package_id": "skill:freedom/store-curation",
+          "version": "1.0.0",
+          "skill_name": "store-curation",
+          "package_manifest_sha256": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "skill_package_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "package_archive_sha256": "sha256:1010101010101010101010101010101010101010101010101010101010101010",
+          "package_archive_uri": "https://example.invalid/artifacts/store-curation.tar",
+          "dependency_closure_digest": "sha256:2020202020202020202020202020202020202020202020202020202020202020",
+          "qc_admission": {
+            "quality_review_ref": "quality-review:fw11-store-curation",
+            "protocol_version_ref": "review-protocol:domain-runtime-v1",
+            "reviewed_skill_package_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "reviewed_package_archive_sha256": "sha256:1010101010101010101010101010101010101010101010101010101010101010",
+            "decision": "accepted_for_isolated_runtime",
+            "reviewer_user_ref": "user:fw11-reviewer-beta",
+            "submitter_user_ref": "user:fw11-author-beta",
+            "independent_natural_person": true,
+            "decision_signature_ref": "human-signature:fw11-qc-store",
+            "decided_at": "2026-09-20T11:30:00Z"
+          }
+        }
+      ]
+    },
+    "proof": [
+      {
+        "kid": "publisher-key:fw11-test-nonprod-b",
+        "alg": "EdDSA",
+        "b64": false,
+        "crit": [
+          "b64"
+        ],
+        "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+      },
+      {
+        "kid": "publisher-key:fw11-test-nonprod-revoked",
+        "alg": "EdDSA",
+        "b64": false,
+        "crit": [
+          "b64"
+        ],
+        "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      }
+    ]
+  }
+}
