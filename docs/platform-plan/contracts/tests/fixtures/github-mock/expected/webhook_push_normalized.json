@@ -1,0 +1,27 @@
+{
+  "schema_version": "freedom.github-normalized-fact/v1",
+  "provider": "github",
+  "resource_kind": "push",
+  "installation_id": 5001001,
+  "repository_stable_id": 900100200,
+  "display_full_name": "synthetic-org/example-skill",
+  "default_branch": "main",
+  "commit_sha": "dddddddddddddddddddddddddddddddddddddddd",
+  "ref": "refs/heads/main",
+  "delivery_id": "11111111-2222-4333-8444-555555555555",
+  "occurred_at": "2026-09-18T12:00:00Z",
+  "source_provenance": {
+    "fixture_id": "gh_resp_webhook_push_001",
+    "response_kind": "synthetic_github_webhook_delivery",
+    "network": false
+  },
+  "official_claim": false,
+  "authority_snapshot": {
+    "grant_id": "grant_synthetic_readonly_001",
+    "grant_scopes": ["metadata", "contents:read", "issues:read", "pull_requests:read", "checks:read", "workflows:read"],
+    "owner_party_ref": "party_synthetic_repo_owner_001",
+    "payee_party_ref": "party_synthetic_payee_unchanged_001",
+    "settlement_mandate_ref": null,
+    "authorization_level": "A0"
+  }
+}

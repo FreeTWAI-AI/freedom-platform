@@ -1,0 +1,27 @@
+{
+  "fixture_id": "gh_resp_repo_get_001",
+  "kind": "synthetic_github_api_response",
+  "http": {"method": "GET", "path": "/repositories/900100200", "status": 200},
+  "network": false,
+  "credential_used": null,
+  "body": {
+    "id": 900100200,
+    "node_id": "R_SYNTHETIC_REPO_900100200",
+    "name": "example-skill",
+    "full_name": "synthetic-org/example-skill",
+    "private": false,
+    "owner": {
+      "login": "synthetic-org",
+      "id": 7001001,
+      "type": "Organization"
+    },
+    "html_url": "https://github.example.invalid/synthetic-org/example-skill",
+    "description": "Synthetic planning fixture repository — not a live GitHub resource",
+    "fork": false,
+    "default_branch": "main",
+    "visibility": "public",
+    "pushed_at": "2026-09-18T12:00:00Z",
+    "created_at": "2026-08-01T00:00:00Z",
+    "updated_at": "2026-09-18T12:00:00Z"
+  }
+}

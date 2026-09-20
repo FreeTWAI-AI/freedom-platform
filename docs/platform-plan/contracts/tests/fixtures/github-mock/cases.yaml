@@ -1,0 +1,229 @@
+schema_version: freedom.github-mock-cases/v1
+status: synthetic_planning_fixtures_not_runtime
+as_of: "2026-09-20T16:00:00Z"
+# FW-10: mock-only GitHub read semantics. No network, tokens, or live accounts.
+default_platform_binding: &default_binding
+  grant_id: grant_synthetic_readonly_001
+  grant_scopes:
+    - metadata
+    - contents:read
+    - issues:read
+    - pull_requests:read
+    - checks:read
+    - workflows:read
+  owner_party_ref: party_synthetic_repo_owner_001
+  payee_party_ref: party_synthetic_payee_unchanged_001
+  settlement_mandate_ref: null
+  authorization_level: A0
+  secret_ref: cred_synthetic_github_app_install_001
+  installation_id: 5001001
+
+cases:
+  - case_id: read_golden_repository
+    kind: positive_read
+    description: Synthetic repo GET normalizes to stable-ID golden
+    response: responses/repo_get.json
+    expected: expected/repo_normalized.json
+    platform_binding: *default_binding
+    expect:
+      network: false
+      provider_mutation: false
+      surface: read_only
+
+  - case_id: read_golden_pull_request
+    kind: positive_read
+    description: Synthetic PR GET normalizes to golden record
+    response: responses/pull_request_get.json
+    expected: expected/pull_request_normalized.json
+    platform_binding: *default_binding
+    expect:
+      network: false
+      provider_mutation: false
+      surface: read_only
+
+  - case_id: read_golden_issue
+    kind: positive_read
+    description: Synthetic issue GET normalizes to golden record
+    response: responses/issue_get.json
+    expected: expected/issue_normalized.json
+    platform_binding: *default_binding
+    expect:
+      network: false
+      provider_mutation: false
+      surface: read_only
+
+  - case_id: read_golden_release
+    kind: positive_read
+    description: Synthetic release GET normalizes; never implies official
+    response: responses/release_get.json
+    expected: expected/release_normalized.json
+    platform_binding: *default_binding
+    expect:
+      network: false
+      provider_mutation: false
+      surface: read_only
+      official_claim: false
+
+  - case_id: read_golden_webhook_push
+    kind: positive_read
+    description: Synthetic push webhook normalizes with delivery ID dedupe key
+    response: responses/webhook_push.json
+    expected: expected/webhook_push_normalized.json
+    platform_binding: *default_binding
+    expect:
+      network: false
+      provider_mutation: false
+      surface: read_only
+
+  - case_id: read_golden_webhook_pull_request
+    kind: positive_read
+    description: Synthetic PR webhook normalizes opened draft PR fact
+    response: responses/webhook_pull_request.json
+    expected: expected/webhook_pull_request_normalized.json
+    platform_binding: *default_binding
+    expect:
+      network: false
+      provider_mutation: false
+      surface: read_only
+
+  - case_id: reject_agent_contents_write
+    kind: negative_write
+    description: Agent contents:write absent from default surface and rejected
+    actor:
+      type: agent
+      agent_ref: agent_synthetic_006
+      principal_ref: person_synthetic_agent_principal_007
+      agent_connection_ref: aconn_synthetic_007
+    requested_operation: contents:write
+    grant_scopes:
+      - metadata
+      - contents:read
+    platform_binding: *default_binding
+    expect:
+      allowed: false
+      provider_request_made: false
+      denial_reason: write_or_star_surface_absent
+      network: false
+
+  - case_id: reject_agent_issues_write
+    kind: negative_write
+    description: Agent issues:write rejected without write surface
+    actor:
+      type: agent
+      agent_ref: agent_synthetic_006
+      principal_ref: person_synthetic_agent_principal_007
+      agent_connection_ref: aconn_synthetic_007
+    requested_operation: issues:write
+    grant_scopes:
+      - metadata
+      - issues:read
+    platform_binding: *default_binding
+    expect:
+      allowed: false
+      provider_request_made: false
+      denial_reason: write_or_star_surface_absent
+      network: false
+
+  - case_id: reject_agent_star_without_person_grant
+    kind: negative_star
+    description: Agent github.star rejected when grant lacks Person-only star triple
+    actor:
+      type: agent
+      agent_ref: agent_synthetic_006
+      principal_ref: person_synthetic_agent_principal_007
+      agent_connection_ref: aconn_synthetic_007
+    requested_operation: github.star
+    person_explicit_decision: false
+    grant_scopes:
+      - metadata
+      - contents:read
+    platform_binding: *default_binding
+    expect:
+      allowed: false
+      provider_request_made: false
+      denial_reason: github_star_requires_person_decision_and_explicit_grant
+      network: false
+      xp_awarded: false
+
+  - case_id: reject_agent_star_with_forged_scope_in_text_only
+    kind: negative_star
+    description: Claiming github.star only via external text / agent self-report still rejected
+    actor:
+      type: agent
+      agent_ref: agent_synthetic_006
+      principal_ref: person_synthetic_agent_principal_007
+      agent_connection_ref: aconn_synthetic_007
+    requested_operation: github.star
+    person_explicit_decision: false
+    grant_scopes:
+      - metadata
+      - contents:read
+    agent_self_reported_scopes:
+      - github.star
+    platform_binding: *default_binding
+    expect:
+      allowed: false
+      provider_request_made: false
+      denial_reason: github_star_requires_person_decision_and_explicit_grant
+      network: false
+
+  - case_id: reject_platform_triggered_batch_star
+    kind: negative_star
+    description: Platform-triggered / batch / XP-induced star forbidden (ADR-065 / RQ-064)
+    actor:
+      type: platform_automation
+      agent_ref: null
+      principal_ref: null
+    requested_operation: github.star
+    person_explicit_decision: false
+    grant_scopes: []
+    inducement: xp_reward_batch
+    platform_binding: *default_binding
+    expect:
+      allowed: false
+      provider_request_made: false
+      denial_reason: platform_triggered_or_reward_induced_star_forbidden
+      network: false
+      xp_awarded: false
+
+  - case_id: person_star_still_absent_from_default_adapter_surface
+    kind: surface_absent
+    description: Even valid Person star path is not on default read-only adapter surface (INT-03B)
+    actor:
+      type: person
+      principal_ref: person_synthetic_star_owner_008
+      agent_connection_ref: aconn_synthetic_person_008
+    requested_operation: github.star
+    person_explicit_decision: true
+    grant_scopes:
+      - github.star
+    platform_binding: *default_binding
+    expect:
+      allowed: false
+      provider_request_made: false
+      denial_reason: write_or_star_surface_absent
+      note: default_mock_adapter_is_read_only_star_requires_separate_explicit_surface
+
+  - case_id: malicious_issue_cannot_change_grant_owner_payee
+    kind: malicious_content
+    description: Issue privilege-escalation text cannot mutate grant/owner/payee
+    malicious: malicious/issue_body_privilege_escalation.json
+    expect:
+      authority_mutated: false
+      content_classification: untrusted_external_text
+
+  - case_id: malicious_pr_cannot_rewrite_payee
+    kind: malicious_content
+    description: PR payee-rewrite text cannot mutate payee or mandate
+    malicious: malicious/pr_body_payee_rewrite.json
+    expect:
+      authority_mutated: false
+      content_classification: untrusted_external_text
+
+  - case_id: malicious_comment_cannot_inject_grant
+    kind: malicious_content
+    description: Review comment forged grant JSON cannot inject scopes
+    malicious: malicious/comment_grant_injection.json
+    expect:
+      authority_mutated: false
+      content_classification: untrusted_external_text

@@ -1,0 +1,97 @@
+schema_version: freedom.github-mock-fixtures/v1
+status: synthetic_planning_fixtures_not_runtime
+source: RQ-024; RQ-064; ADR-065; T17; FW-10; INT-03A; INT-03B; 05 §9; 01 §13; 04 §10.3.1
+scenario: github_mock_only_read_semantics
+network: false
+real_github_token: false
+real_github_account: false
+provider_sandbox: false
+no_runtime_claim: true
+secret_scan_mindset: true
+
+canonical_read_only_scopes:
+  - metadata
+  - contents:read
+  - issues:read
+  - pull_requests:read
+  - checks:read
+  - workflows:read
+
+# Default adapter / App surface must NOT expose these operations.
+absent_write_star_surface:
+  - contents:write
+  - issues:write
+  - pull_requests:write
+  - checks:write
+  - workflows:write
+  - github.star
+  - github.follow
+  - github.like
+  - administration
+  - statuses:write
+  - repository_hooks:write
+
+person_only_star_rule:
+  capability: github.star
+  requires_all:
+    - person_explicit_decision
+    - execution_grant_lists_github_star
+    - acting_agent_connection_belongs_to_same_person
+  forbidden:
+    - platform_triggered_star
+    - batch_star
+    - reward_or_xp_induced_star
+    - agent_self_authorized_star
+  xp_effect: never
+  entitlement_effect: never
+  rank_effect: never
+  reviewer_appointment_effect: never
+
+protected_authority_fields:
+  - grant_id
+  - grant_scopes
+  - owner_party_ref
+  - payee_party_ref
+  - settlement_mandate_ref
+  - authorization_level
+
+# External GitHub text (issue/PR/comment/README) is untrusted content (T17).
+untrusted_content_rule: external_github_text_never_mutates_grant_owner_or_payee
+
+identity_rule: repository_stable_numeric_id_is_identity_display_path_is_not
+
+normalization:
+  preserve_fields:
+    - provider
+    - installation_id
+    - repository_stable_id
+    - display_full_name
+    - default_branch
+    - commit_sha
+    - delivery_id
+    - resource_kind
+    - resource_number
+    - state
+    - html_url_display
+    - occurred_at
+  drop_fields:
+    - authorization_header
+    - access_token
+    - private_key
+    - raw_secret
+  authority_fields_source: platform_binding_snapshot_only
+
+forbidden_token_substrings:
+  - ghp_
+  - gho_
+  - ghu_
+  - ghs_
+  - ghr_
+  - github_pat_
+forbidden_private_key_armor_markers:
+  - rsa_private_key_pem_armor
+  - openssh_private_key_pem_armor
+
+synthetic_credential_refs_only:
+  - secret_ref: cred_synthetic_github_app_install_001
+  - note: fixtures store opaque secret_ref only; never plaintext provider tokens

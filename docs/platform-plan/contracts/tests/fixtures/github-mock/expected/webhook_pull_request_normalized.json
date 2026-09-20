@@ -1,0 +1,36 @@
+{
+  "schema_version": "freedom.github-normalized-fact/v1",
+  "provider": "github",
+  "resource_kind": "pull_request",
+  "installation_id": 5001001,
+  "repository_stable_id": 900100200,
+  "display_full_name": "synthetic-org/example-skill",
+  "resource_number": 42,
+  "state": "open",
+  "draft": true,
+  "merged": false,
+  "title": "Add validator scaffolding",
+  "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "head_ref": "feat/validator",
+  "base_ref": "main",
+  "actor_external_id": 7002002,
+  "html_url_display": "https://github.example.invalid/synthetic-org/example-skill/pull/42",
+  "delivery_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+  "occurred_at": "2026-09-17T10:00:00Z",
+  "webhook_action": "opened",
+  "source_provenance": {
+    "fixture_id": "gh_resp_webhook_pr_001",
+    "response_kind": "synthetic_github_webhook_delivery",
+    "network": false
+  },
+  "official_claim": false,
+  "authority_snapshot": {
+    "grant_id": "grant_synthetic_readonly_001",
+    "grant_scopes": ["metadata", "contents:read", "issues:read", "pull_requests:read", "checks:read", "workflows:read"],
+    "owner_party_ref": "party_synthetic_repo_owner_001",
+    "payee_party_ref": "party_synthetic_payee_unchanged_001",
+    "settlement_mandate_ref": null,
+    "authorization_level": "A0"
+  }
+}

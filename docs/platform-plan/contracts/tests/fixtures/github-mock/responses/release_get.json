@@ -1,0 +1,19 @@
+{
+  "fixture_id": "gh_resp_release_get_001",
+  "kind": "synthetic_github_api_response",
+  "http": {"method": "GET", "path": "/repos/synthetic-org/example-skill/releases/tags/v0.0.1-fixture", "status": 200},
+  "network": false,
+  "credential_used": null,
+  "body": {
+    "id": 6600001,
+    "tag_name": "v0.0.1-fixture",
+    "target_commitish": "cccccccccccccccccccccccccccccccccccccccc",
+    "name": "Fixture release — not official",
+    "draft": false,
+    "prerelease": true,
+    "created_at": "2026-09-15T08:00:00Z",
+    "published_at": "2026-09-15T08:05:00Z",
+    "html_url": "https://github.example.invalid/synthetic-org/example-skill/releases/tag/v0.0.1-fixture",
+    "author": {"login": "synthetic-releaser", "id": 7004004}
+  }
+}

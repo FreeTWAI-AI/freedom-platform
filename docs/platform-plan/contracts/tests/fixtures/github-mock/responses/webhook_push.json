@@ -1,0 +1,38 @@
+{
+  "fixture_id": "gh_resp_webhook_push_001",
+  "kind": "synthetic_github_webhook_delivery",
+  "http": {"method": "POST", "path": "/webhooks/github", "status": 200},
+  "network": false,
+  "headers": {
+    "X-GitHub-Event": "push",
+    "X-GitHub-Delivery": "11111111-2222-4333-8444-555555555555",
+    "X-Hub-Signature-256": "sha256=synthetic_signature_not_a_real_hmac"
+  },
+  "credential_used": null,
+  "body": {
+    "ref": "refs/heads/main",
+    "before": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "after": "dddddddddddddddddddddddddddddddddddddddd",
+    "repository": {
+      "id": 900100200,
+      "name": "example-skill",
+      "full_name": "synthetic-org/example-skill",
+      "private": false,
+      "default_branch": "main",
+      "owner": {"login": "synthetic-org", "id": 7001001}
+    },
+    "installation": {"id": 5001001},
+    "sender": {"login": "synthetic-contributor", "id": 7002002},
+    "created": false,
+    "deleted": false,
+    "forced": false,
+    "commits": [
+      {
+        "id": "dddddddddddddddddddddddddddddddddddddddd",
+        "message": "chore: synthetic fixture commit",
+        "timestamp": "2026-09-18T12:00:00Z",
+        "author": {"name": "Synthetic Contributor", "email": "synthetic@example.invalid"}
+      }
+    ]
+  }
+}

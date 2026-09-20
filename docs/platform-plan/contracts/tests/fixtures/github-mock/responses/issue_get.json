@@ -1,0 +1,21 @@
+{
+  "fixture_id": "gh_resp_issue_get_001",
+  "kind": "synthetic_github_api_response",
+  "http": {"method": "GET", "path": "/repos/synthetic-org/example-skill/issues/7", "status": 200},
+  "network": false,
+  "credential_used": null,
+  "body": {
+    "id": 7700007,
+    "number": 7,
+    "state": "open",
+    "title": "Document read-only sync semantics",
+    "body": "Synthetic issue for FW-10. Track WorkItem binding only.",
+    "user": {"login": "synthetic-maintainer", "id": 7003003},
+    "html_url": "https://github.example.invalid/synthetic-org/example-skill/issues/7",
+    "created_at": "2026-09-16T09:00:00Z",
+    "updated_at": "2026-09-16T09:30:00Z",
+    "closed_at": null,
+    "pull_request": null,
+    "repository_url": "https://api.github.example.invalid/repositories/900100200"
+  }
+}

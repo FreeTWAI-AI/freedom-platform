@@ -1,0 +1,29 @@
+{
+  "schema_version": "freedom.github-normalized-fact/v1",
+  "provider": "github",
+  "resource_kind": "issue",
+  "installation_id": 5001001,
+  "repository_stable_id": 900100200,
+  "display_full_name": "synthetic-org/example-skill",
+  "resource_number": 7,
+  "state": "open",
+  "title": "Document read-only sync semantics",
+  "actor_external_id": 7003003,
+  "html_url_display": "https://github.example.invalid/synthetic-org/example-skill/issues/7",
+  "delivery_id": null,
+  "occurred_at": "2026-09-16T09:30:00Z",
+  "source_provenance": {
+    "fixture_id": "gh_resp_issue_get_001",
+    "response_kind": "synthetic_github_api_response",
+    "network": false
+  },
+  "official_claim": false,
+  "authority_snapshot": {
+    "grant_id": "grant_synthetic_readonly_001",
+    "grant_scopes": ["metadata", "contents:read", "issues:read", "pull_requests:read", "checks:read", "workflows:read"],
+    "owner_party_ref": "party_synthetic_repo_owner_001",
+    "payee_party_ref": "party_synthetic_payee_unchanged_001",
+    "settlement_mandate_ref": null,
+    "authorization_level": "A0"
+  }
+}
