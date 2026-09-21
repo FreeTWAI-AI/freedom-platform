@@ -8,6 +8,7 @@ import { createWork,claimWork,changeClaim,listWorks,dashboard } from '../../../m
 import { createShowcase,listShowcases,createOpportunity,listOpportunities,proposeEngagement,listEngagements,changeEngagement } from '../../../modules/opportunity-project-work/business.js';
 import { Problem,requireCondition } from '../../../packages/shared/problem.js';
 import type { Command } from '../../../packages/db/index.js';
+import { allowedBrowserOrigins, allowedRequestHosts, type FreedomEnv } from './env.js';
 
 const COOKIE='freedom_local_session';
 // PostgreSQL bigint stays lossless internally; canonical AggregateVersion is a JSON safe integer.
@@ -21,11 +22,10 @@ function wireVersions(value:any):any {
   }));
   return value;
 }
-export function createApp(pool:Pool,origin='http://127.0.0.1:4310') {
-  const configuredOrigin=new URL(origin);
-  const localHosts=['127.0.0.1','localhost','[::1]'];
-  if(configuredOrigin.protocol!=='http:' || !localHosts.includes(configuredOrigin.hostname) || configuredOrigin.origin!==origin) throw new Error('APP_ORIGIN must be an HTTP loopback origin.');
-  const allowedOrigins=new Set(localHosts.map(host=>`http://${host}${configuredOrigin.port?`:${configuredOrigin.port}`:''}`));
+export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:FreedomEnv='local') {
+  const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
+  const allowedHosts=allowedRequestHosts(freedomEnv,origin);
+  const secureCookies=freedomEnv==='staging';
   const app=new Hono<{Variables:{actor:Actor}}>();
   app.onError((err,c)=>{
     if(err instanceof z.ZodError) return c.json({type:'about:blank',title:'Validation failed',status:422,code:'validation_failed',detail:err.issues.map(i=>`${i.path.join('.')}: ${i.message}`).join('; ')},422);
@@ -36,11 +36,11 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310') {
   });
   app.use('*',async(c,next)=>{
     const host=new URL(c.req.url).hostname;
-    requireCondition(localHosts.includes(host),403,'local_host_required','此版本只提供本機使用。');
+    requireCondition(allowedHosts.has(host),403,'host_rejected',freedomEnv==='local'?'此版本只提供本機使用。':'請從 staging 工作台操作。');
     c.header('Cache-Control','no-store');c.header('X-Content-Type-Options','nosniff');c.header('Referrer-Policy','no-referrer');
     c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
     if(!['GET','HEAD','OPTIONS'].includes(c.req.method)) {
-      requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected','操作來源不正確，請從本機工作台操作。');
+      requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected',freedomEnv==='local'?'操作來源不正確，請從本機工作台操作。':'操作來源不正確，請從 staging 工作台操作。');
       requireCondition(c.req.header('Content-Type')?.split(';')[0]==='application/json',415,'json_required','操作需要 JSON。');
       requireCondition(Number(c.req.header('Content-Length')??0)<=32768,413,'body_too_large','內容過長。');
       const raw=await c.req.text();requireCondition(Buffer.byteLength(raw)<=32768,413,'body_too_large','內容過長。');
@@ -52,14 +52,14 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310') {
       c.res=new Response(JSON.stringify(data),{status:c.res.status,headers:c.res.headers});
     }
   });
-  app.get('/api/v1/health',c=>c.json({status:'ok',mode:'local',version:'0.1.0',money_movement_enabled:false,official:false}));
+  app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:'0.1.0',money_movement_enabled:false,official:false}));
   app.post('/api/v1/auth/login',async c=>{
     const body=z.object({email:z.email().max(200),password:z.string().min(1).max(200)}).strict().parse(await c.req.json());
     const result=await login(pool,body.email,body.password);
     // Replace any old session on login, so changing accounts never keeps an active old cookie.
     const old=getCookie(c,COOKIE);
     if(old) { const {tokenHash}=await import('../../../modules/identity-membership/service.js');await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[tokenHash(old)]); }
-    setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',path:'/',maxAge:8*60*60});
+    setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:8*60*60});
     return c.json(sessionView(result.actor));
   });
   app.use('/api/v1/*',async(c,next)=>{

@@ -15,7 +15,7 @@ assertOriginAllowed(freedomEnv, origin);
 
 const pool = createPool();
 await pool.query('SELECT 1');
-const app = createApp(pool, origin);
+const app = createApp(pool, origin, freedomEnv);
 app.use('/*', serveStatic({ root: './apps/portal-web/dist' }));
 app.get('*', serveStatic({ path: './apps/portal-web/dist/index.html' }));
 
