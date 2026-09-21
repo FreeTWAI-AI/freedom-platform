@@ -1,5 +1,7 @@
 # 首批營運驗證：合作成果與首筆實收
 
+**真人證據計數（截至文件更新時）：未知／尚未驗證。** 開案與填表見 [第一筆真人案紀錄包](./first-real-case-pack.md)；空白表 [`cases/CASE-TEMPLATE.md`](./cases/CASE-TEMPLATE.md)、下一筆草稿 [`cases/CASE-OPEN-next.md`](./cases/CASE-OPEN-next.md)。
+
 兩條路徑平行進行；一般參與、作品宣傳與找客戶，不必等待十次免費互助。容量限制適用於有明示承諾的人類服務，不是會員跑業務的門檻。
 
 ## 路徑 A：登入到看見成果
