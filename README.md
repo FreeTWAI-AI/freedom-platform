@@ -13,7 +13,7 @@ npm run demo
 
 開啟 <http://127.0.0.1:4310>。示範帳號為 `maker@local.test`、`reviewer@local.test`、`client@local.test`，共用示範密碼 `freedom-local-demo`。
 
-操作方式、架構位置與重跑檢查見 [本機運行手冊](./docs/development/local-runtime.md)；已完成範圍、驗證結果與下一階段見 [版本紀錄](./docs/releases/2026-09-20-local-core.md)。這是本機開發版本，尚未對外部署；示範收款紀錄不代表真實收入或銀行核實。
+操作方式、架構位置與重跑檢查見 [本機運行手冊](./docs/development/local-runtime.md)；要讓筆電／手機打得開的內部預覽見 [Staging＋Access 佈署清單](./docs/development/staging-access-deploy.md)；已完成範圍、驗證結果與下一階段見 [版本紀錄](./docs/releases/2026-09-20-local-core.md)。這是本機開發版本，尚未對外部署；示範收款紀錄不代表真實收入或銀行核實。
 
 ## 完整計畫與營運驗證
 
