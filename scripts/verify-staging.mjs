@@ -40,23 +40,37 @@ try {
   await page.getByLabel('電子郵件', { exact: true }).fill('maker@local.test');
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
   await page.getByRole('button', { name: '登入', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '工作台', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '會員首頁', exact: true })).toBeVisible();
   const cookie = (await context.cookies()).find(c => c.name === 'freedom_local_session');
   expect(cookie?.secure).toBe(true);
   expect(cookie?.httpOnly).toBe(true);
   await page.reload();
-  await expect(page.getByRole('heading', { name: '工作台', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '現在進行', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '會員首頁', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '整理我的定位', exact: true })).toBeVisible();
   await mkdir(evidence, { recursive: true, mode: 0o700 });
-  await page.screenshot({ path: join(evidence, 'staging-workbench.png'), fullPage: true });
+  await page.screenshot({ path: join(evidence, 'staging-member-home.png'), fullPage: true });
   console.log('HTTPS browser login, secure session and reload: PASS');
 
-  await page.getByRole('button', { name: '作品與商機', exact: true }).click();
-  await expect(page.getByRole('button', { name: '發布作品', exact: true })).toBeVisible();
-  await page.screenshot({ path: join(evidence, 'staging-opportunities.png'), fullPage: true });
-  await page.setViewportSize({ width: 390, height: 844 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: join(evidence, 'staging-mobile.png'), fullPage: true });
+  const modules = [
+    ['我的定位', '我的定位', 'positioning'],
+    ['職業公會', '職業公會', 'guilds'],
+    ['供貨中心', '供貨中心', 'supplier'],
+    ['開店與銷售', '開店與銷售', 'retail'],
+    ['開源作品', '開源作品', 'opensource'],
+    ['行銷工作室', '行銷工作室', 'marketing'],
+    ['我的工作', '工作台', 'workbench'],
+    ['一般作品與需求', '一般作品與需求', 'showcase'],
+  ];
+  for (const [navigation, heading, file] of modules) {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.getByRole('button', { name: navigation, exact: true }).click();
+    await expect(page.getByRole('heading', { name: heading, exact: true }).first()).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await page.screenshot({ path: join(evidence, `staging-${file}.png`), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${file} mobile overflow`).toBe(true);
+    await page.screenshot({ path: join(evidence, `staging-${file}-mobile.png`), fullPage: true });
+  }
   await page.getByRole('button', { name: '登出', exact: true }).click();
   await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
   expect(errors).toEqual([]);

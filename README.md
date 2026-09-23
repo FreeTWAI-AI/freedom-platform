@@ -1,6 +1,8 @@
 # Freedom Platform
 
-本 workspace 保存 Freedom 大平台的完整規格，以及 **0.1.0-local-core 本機可運行版本**。目前可跑通「登入 → 認領工作 → 提交 → 驗收 → 看見成果」，也可操作「作品曝光 → 商機 → 合作 → 外部收款回報及雙方確認」。資料存入 PostgreSQL，重啟後保留。
+本 workspace 保存 Freedom 大平台的完整規格，以及 **0.2.0-modules-preview 會員模組內部預覽**。會員首頁分開呈現「我的定位、職業公會、供貨中心、開店與銷售、開源作品、行銷工作室」。供貨商可建立商品與供貨條件，店主可選品並提出供貨合作；開源作品直接連結 GitHub。各模組共用會員與 PostgreSQL，資料在重啟後保留。
+
+內部入口：<https://staging.freetwai.com>（Cloudflare Access 限定名單）。模組責任、中央資料設計與上游取用判斷見 [擴建設計](./docs/development/module-expansion-design.md) 及 [上游研究](./docs/development/research/README.md)。
 
 ## 啟動本機版本
 
@@ -13,13 +15,13 @@ npm run demo
 
 開啟 <http://127.0.0.1:4310>。示範帳號為 `maker@local.test`、`reviewer@local.test`、`client@local.test`，共用示範密碼 `freedom-local-demo`。
 
-操作方式、架構位置與重跑檢查見 [本機運行手冊](./docs/development/local-runtime.md)；要讓筆電／手機打得開的內部預覽見 [Staging＋Access 佈署清單](./docs/development/staging-access-deploy.md)；已完成範圍、驗證結果與下一階段見 [版本紀錄](./docs/releases/2026-09-20-local-core.md)。這是本機開發版本，尚未對外部署；示範收款紀錄不代表真實收入或銀行核實。
+操作方式、架構位置與重跑檢查見 [本機運行手冊](./docs/development/local-runtime.md)；筆電／手機入口見 [Staging＋Access 佈署清單](./docs/development/staging-access-deploy.md)；已完成範圍與驗證見 [模組版本紀錄](./docs/releases/2026-09-23-modules-preview.md)。舊版工作認領、交付驗收與合作流程保留。這是內部預覽，供貨回應屬演練，尚無正式結帳；示範收款紀錄不代表真實收入或銀行核實。
 
 ## 完整計畫與營運驗證
 
 Freedom Platform 是社群的接點、共同資料庫、核心 codebase 協作索引、工作／商業事實帳本與狀態機。Discord 承接討論與讀書會，LINE 承接即時聯絡，GitHub 承接程式版本與 PR；money 的權威事實留在 Seller 的 provider／bank，客戶 raw data 留在 client／Squad storage，平台只保存必要的 ref、digest 與 fact。
 
-現行推進：**2026-09-20，可運行核心與兩條首批營運驗證路徑。** 真需求互助與作品／商機／合作／實收並行；完整架構保留，不把未來案源當報酬，不預設核心補位。第一筆真實合作與收款仍待真人證據，見 [首批營運驗證](./docs/development/operating-validation.md)。
+現行推進：**2026-09-23，分開的會員模組、共用中央資料與內部 staging。** 完整架構保留，不把未來案源當報酬，不預設核心補位。第一筆真實合作與收款仍待真人證據，見 [首批營運驗證](./docs/development/operating-validation.md)。
 
 先讀 [低維運互惠運作契約](./docs/platform-plan/12-low-ops-mutual-benefit.md) 與 [現況紀錄](./docs/platform-plan/09-handoff-record.md)。[2026-09-19 變更說明](./CHANGES-2026-09-19.md) 與當日 verification 保留作歷史紀錄；本次實跑結果以新版本紀錄為準。
 

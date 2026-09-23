@@ -114,7 +114,7 @@ export class PortalClient {
       })
     } catch {
       throw new ApiError({
-        message: '無法連線到伺服器。請確認本機服務後再試，不會自動重送。',
+        message: '無法連線到伺服器。請確認網路連線後再試，不會自動重送。',
         network: true,
       })
     }

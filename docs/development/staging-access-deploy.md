@@ -2,13 +2,13 @@
 
 ## 目前可用的入口
 
-<https://staging.freetwai.com>。Cloudflare Access 的真人名單只有 `ted@ted-h.com`。通過 email／OTP 後，可用頁面的三個示範帳號操作工作台、作品商機、合作紀錄；密碼是頁面列出的 `freedom-local-demo`。
+<https://staging.freetwai.com>。Cloudflare Access 的真人名單只有 `ted@ted-h.com`。通過 email／OTP 後，可用頁面的三個示範帳號操作會員首頁、定位／公會、供貨、開店、開源、行銷，以及既有工作與合作紀錄；密碼是頁面列出的 `freedom-local-demo`。
 
 ```text
 瀏覽器 → Cloudflare DNS / HTTPS → Access
        → freedom-staging Tunnel
        → Castle：Node / Hono API + React Portal（127.0.0.1:4310）
-       → Castle：PostgreSQL Docker volume（127.0.0.1:54339）
+       → Castle：freedom_staging PostgreSQL／獨立 role（127.0.0.1:54339）
 ```
 
 這是內部 staging。程式與資料仍在 Castle；Workers、Hyperdrive、managed Postgres 尚未部署。示範帳號不是自然人；合作／收款回報不是銀行核實，平台不執行付款。
@@ -19,7 +19,7 @@
 
 - Cloudflare 與 Google 公共 DNS 均可解析；TLS 正常。
 - 公共 HTTPS 經 Access 機器身分驗證後可讀健康端點；未驗證訪客會被導向 Access。
-- Chromium 經真實 HTTPS／Tunnel 完成示範登入、讀取完整工作台、重整、作品頁、手機版與登出；session cookie 使用 Secure／HttpOnly。
+- Chromium 經真實 HTTPS／Tunnel 完成示範登入、讀取會員模組與既有工作流程、重整、桌面／手機版與登出；session cookie 使用 Secure／HttpOnly。
 - 測試用 Access service token 和 policy 在測試後刪除，真人名單維持只有 Ted。
 - 備份實際還原到獨立暫存 DB，沒有覆寫 staging。
 - 真人 email／OTP 仍由 Ted 確認；機器測試不能代替收信或真人登入證據。

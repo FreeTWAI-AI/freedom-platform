@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError, PortalClient, requireDashboard, requireItems } from './api'
+import { MemberHome } from './modules/MemberHome'
+import { PositioningPanel, GuildsPanel } from './modules/PositioningPanels'
+import { SupplierPanel, RetailPanel } from './modules/CommercePanels'
+import { OpenSourcePanel, MarketingPanel } from './modules/OpenSourcePanels'
 import {
   claimStateLabel,
   engagementStateLabel,
@@ -213,7 +217,7 @@ function LoginView({
       </header>
       <section className="card login-card" aria-labelledby="login-heading">
         <h2 id="login-heading">登入</h2>
-        <p className="lede">使用電子郵件與密碼進入互助工作台、作品商機與合作紀錄。</p>
+        <p className="lede">找到你的方向，參與供貨、開店、開源作品與職業公會。</p>
         {notice && (
           <p className="banner banner-info" role="status">
             {notice}
@@ -288,7 +292,16 @@ function Workspace({
   onLoggedOut: () => void
   onSessionExpired: () => void
 }) {
-  const [tab, setTab] = useState<TabId>('workbench')
+  const [tab, setTab] = useState<TabId>(() => tabFromHash())
+  const selectTab = useCallback((next: TabId) => {
+    setTab(next)
+    window.location.hash = next
+  }, [])
+  useEffect(() => {
+    const changed = () => setTab(tabFromHash())
+    window.addEventListener('hashchange', changed)
+    return () => window.removeEventListener('hashchange', changed)
+  }, [])
   const [pending, setPending] = useState<string | null>(null)
   const [error, setError] = useState<ActionError | null>(null)
   const keysRef = useRef(new Map<string, string>())
@@ -345,7 +358,10 @@ function Workspace({
     const ok = await mutate('logout', async (key) => {
       await client.logout(key)
     })
-    if (ok) onLoggedOut()
+    if (ok) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      onLoggedOut()
+    }
   }
 
   return (
@@ -365,17 +381,20 @@ function Workspace({
               </div>
             </div>
             <nav className="nav" aria-label="主要工作區">
-              <TabButton current={tab} id="workbench" onSelect={setTab}>
-                工作台
-              </TabButton>
-              <TabButton current={tab} id="showcase" onSelect={setTab}>
-                作品與商機
-              </TabButton>
-              <TabButton current={tab} id="engagement" onSelect={setTab}>
-                合作紀錄
-              </TabButton>
+              <TabButton current={tab} id="home" onSelect={selectTab}>會員首頁</TabButton>
+              <TabButton current={tab} id="positioning" onSelect={selectTab}>我的定位</TabButton>
+              <TabButton current={tab} id="guilds" onSelect={selectTab}>職業公會</TabButton>
+              <span className="nav-group-label">參與平台</span>
+              <TabButton current={tab} id="supplier" onSelect={selectTab}>供貨中心</TabButton>
+              <TabButton current={tab} id="retail" onSelect={selectTab}>開店與銷售</TabButton>
+              <TabButton current={tab} id="opensource" onSelect={selectTab}>開源作品</TabButton>
+              <TabButton current={tab} id="marketing" onSelect={selectTab}>行銷工作室</TabButton>
+              <span className="nav-group-label">我的協作</span>
+              <TabButton current={tab} id="workbench" onSelect={selectTab}>我的工作</TabButton>
+              <TabButton current={tab} id="showcase" onSelect={selectTab}>一般作品與需求</TabButton>
+              <TabButton current={tab} id="engagement" onSelect={selectTab}>合作紀錄</TabButton>
             </nav>
-            <p className="sidebar-note">作品曝光 → 商機 → 合作 → 交付 → 實收回報</p>
+            <p className="sidebar-note">不同專長，各自發展。<br />需要合作時，在這裡相遇。</p>
           </aside>
           <div className="main" id="main-content">
             <header className="topbar">
@@ -398,6 +417,13 @@ function Workspace({
             {tab === 'workbench' && <WorkbenchPanel />}
             {tab === 'showcase' && <ShowcasePanel />}
             {tab === 'engagement' && <EngagementPanel />}
+            {tab === 'home' && <MemberHome client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'positioning' && <PositioningPanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'guilds' && <GuildsPanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'supplier' && <SupplierPanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'retail' && <RetailPanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'opensource' && <OpenSourcePanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'marketing' && <MarketingPanel client={client} session={session} onNavigate={selectTab} />}
           </div>
         </div>
       </div>
@@ -406,9 +432,16 @@ function Workspace({
 }
 
 function tabTitle(tab: TabId): string {
-  if (tab === 'showcase') return '作品與商機'
-  if (tab === 'engagement') return '合作紀錄'
-  return '工作台'
+  return TAB_TITLES[tab]
+}
+
+const TAB_TITLES: Record<TabId, string> = {
+  home: '會員首頁', positioning: '我的定位', guilds: '職業公會', supplier: '供貨中心', retail: '開店與銷售',
+  opensource: '開源作品', marketing: '行銷工作室', workbench: '工作台', showcase: '一般作品與需求', engagement: '合作紀錄',
+}
+function tabFromHash(): TabId {
+  const value = window.location.hash.slice(1)
+  return Object.hasOwn(TAB_TITLES, value) ? value as TabId : 'home'
 }
 
 function TabButton({

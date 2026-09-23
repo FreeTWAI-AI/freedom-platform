@@ -9,6 +9,9 @@ import { createShowcase,listShowcases,createOpportunity,listOpportunities,propos
 import { Problem,requireCondition } from '../../../packages/shared/problem.js';
 import type { Command } from '../../../packages/db/index.js';
 import { allowedBrowserOrigins, allowedRequestHosts, type FreedomEnv } from './env.js';
+import { createPositioningRoutes } from './routes/positioning.js';
+import { createCommerceRoutes } from './routes/commerce.js';
+import { createOpenSourceRoutes } from './routes/opensource.js';
 
 const COOKIE='freedom_local_session';
 // PostgreSQL bigint stays lossless internally; canonical AggregateVersion is a JSON safe integer.
@@ -38,7 +41,7 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
     const host=new URL(c.req.url).hostname;
     requireCondition(allowedHosts.has(host),403,'host_rejected',freedomEnv==='local'?'此版本只提供本機使用。':'請從 staging 工作台操作。');
     c.header('Cache-Control','no-store');c.header('X-Content-Type-Options','nosniff');c.header('Referrer-Policy','no-referrer');
-    c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+    c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
     if(!['GET','HEAD','OPTIONS'].includes(c.req.method)) {
       requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected',freedomEnv==='local'?'操作來源不正確，請從本機工作台操作。':'操作來源不正確，請從 staging 工作台操作。');
       requireCondition(c.req.header('Content-Type')?.split(';')[0]==='application/json',415,'json_required','操作需要 JSON。');
@@ -52,7 +55,7 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
       c.res=new Response(JSON.stringify(data),{status:c.res.status,headers:c.res.headers});
     }
   });
-  app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:'0.1.0',money_movement_enabled:false,official:false}));
+  app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:'0.2.0-modules-preview',money_movement_enabled:false,official:false}));
   app.post('/api/v1/auth/login',async c=>{
     const body=z.object({email:z.email().max(200),password:z.string().min(1).max(200)}).strict().parse(await c.req.json());
     const result=await login(pool,body.email,body.password);
@@ -97,6 +100,9 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
     app.post(`/api/v1/engagements/:id{[0-9a-f-]+:${action}}`,async c=>respond(c,await changeEngagement(pool,await cmd(c),routeId(c),action)));
   }
   app.post('/api/v1/engagements/:id/receipts',async c=>respond(c,await changeEngagement(pool,await cmd(c),routeId(c),'receipt'),201));
+  app.route('/api/v1',createPositioningRoutes(pool));
+  app.route('/api/v1',createCommerceRoutes(pool));
+  app.route('/api/v1',createOpenSourceRoutes(pool));
   app.all('/api/*',c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'此版本尚未提供這個 API。'},404));
   return app;
 }

@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0-local-core",
+  "version": "0.2.0-modules-preview",
   "scope": "source files, including historical evidence; excludes self, secrets, dependencies, build and test artifacts",
   "files": [
     {
@@ -19,18 +19,38 @@
     },
     {
       "path": "README.md",
-      "bytes": 3783,
-      "sha256": "43a1494d576c77f729d1f15764d6533b8ba7f6c11235ddcedfb95c6b6a4894b4"
+      "bytes": 4132,
+      "sha256": "c92bfe91736886bb96a0f20f44567aaf39cefcd23c9c24246c19dad7d14a2972"
     },
     {
       "path": "apps/platform-api/src/app.ts",
-      "bytes": 8245,
-      "sha256": "47bd08aea2c243d19717bd1b2fdb0897e260c1f3b6594824fabda491e60d5d17"
+      "bytes": 8619,
+      "sha256": "9d304b2000d2d05eff73b26bd780e7d324ead79acef2de6f24ea4b2faa2a5343"
     },
     {
       "path": "apps/platform-api/src/env.ts",
       "bytes": 2066,
       "sha256": "d02e6d41a254725aa4eea9767d341d4b47dc4419b562419da492069a6169b384"
+    },
+    {
+      "path": "apps/platform-api/src/module-context.ts",
+      "bytes": 841,
+      "sha256": "2f33e9e08663e8c915d45e728f41595012510231b70ae4cb84ac2d100b3cc114"
+    },
+    {
+      "path": "apps/platform-api/src/routes/commerce.ts",
+      "bytes": 1782,
+      "sha256": "69c7fa33cad3ec89b6907c3e7d4a806c938f0f345f3d059794b175ee13f359ba"
+    },
+    {
+      "path": "apps/platform-api/src/routes/opensource.ts",
+      "bytes": 1899,
+      "sha256": "388cfe85065e5cbbdc2fb974fdacc62b243ca76086d0b2f0d2ee9f9f77c216a1"
+    },
+    {
+      "path": "apps/platform-api/src/routes/positioning.ts",
+      "bytes": 1108,
+      "sha256": "3ae4b3bd599db4b87ac2cf3d7ad31c62890972a964a4c777624b0dfacbfd0ef9"
     },
     {
       "path": "apps/platform-api/src/server.ts",
@@ -44,13 +64,13 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 56017,
-      "sha256": "1ff33c5255b83fa62618ce9475522b769023bd41be13e4fe1f26be1c8c0e25b1"
+      "bytes": 58619,
+      "sha256": "3821a31f749041ac1ce05997dbb6b25ebb9d88137221068b1b717f64edd3c212"
     },
     {
       "path": "apps/portal-web/src/api.ts",
       "bytes": 5869,
-      "sha256": "b7efcf734a94bcecc1b77ffedefaffd8e09b1766bc7492b5fd7dd6e64b46ed94"
+      "sha256": "def76286af994fa650ba652327cdc97393a6ee6b9f7847d28c110d167d6e7edb"
     },
     {
       "path": "apps/portal-web/src/format.ts",
@@ -63,14 +83,39 @@
       "sha256": "ef127a7946fbaf6b10d3e6e44e8eaf2b8a2edaa548f3dc1a86edd60f59bb425d"
     },
     {
+      "path": "apps/portal-web/src/modules/CommercePanels.tsx",
+      "bytes": 15766,
+      "sha256": "9d8e741300e1c3da5047797b2ae7b7ff25a5fad5653d232378772e16946b151b"
+    },
+    {
+      "path": "apps/portal-web/src/modules/MemberHome.tsx",
+      "bytes": 5308,
+      "sha256": "81a33e2c844d7a7784fd1fa7cf0a5d448ca8125d84227e15d25c0f6aab54b6d9"
+    },
+    {
+      "path": "apps/portal-web/src/modules/OpenSourcePanels.tsx",
+      "bytes": 19879,
+      "sha256": "3715051bc5ab16c8c1d0e526ecc4314c402a8c85b65bfd0d0a947b693bcde72a"
+    },
+    {
+      "path": "apps/portal-web/src/modules/PositioningPanels.tsx",
+      "bytes": 10874,
+      "sha256": "a9ef3469e30dc6665043152f72e8ad58e2722f91d459911a5158b8689aefc852"
+    },
+    {
+      "path": "apps/portal-web/src/modules/shared.tsx",
+      "bytes": 1562,
+      "sha256": "c1f1999515139281998b16d5541f21f601cce0024b5348a2881e404a7593d80d"
+    },
+    {
       "path": "apps/portal-web/src/styles.css",
-      "bytes": 8470,
-      "sha256": "18d0474d729ce9da89e8bc041a457f17d6da90bfbaa98983808472476da3a71b"
+      "bytes": 14918,
+      "sha256": "83daff6c027af52ec4f8de2c6826d4fcf3161e2eca32c4e506ad5e8f7df1d8dc"
     },
     {
       "path": "apps/portal-web/src/types.ts",
-      "bytes": 3737,
-      "sha256": "b1f2b6392d24c7790451082fbd2b2017094f08127abd22cd5901016260f95fae"
+      "bytes": 3826,
+      "sha256": "379897c5ce9f74af82d3633a25b71563832dcc358e0d20750961465446e25576"
     },
     {
       "path": "apps/portal-web/src/vite-env.d.ts",
@@ -89,8 +134,8 @@
     },
     {
       "path": "deploy/staging/backup.sh",
-      "bytes": 563,
-      "sha256": "c5a683d0be0083b6e9c30e677c4d2f6dd8e4d875f3a1de9312bc7d15fa37ff2e"
+      "bytes": 719,
+      "sha256": "03e8af07111956c768dd8bacabb5062fa8da1f547d8dbd8b49a707c4845f6908"
     },
     {
       "path": "deploy/staging/compose.override.yaml",
@@ -99,8 +144,8 @@
     },
     {
       "path": "deploy/staging/freedom-staging-backup.service",
-      "bytes": 229,
-      "sha256": "ffbc369819719e0021a4c671288b71c944a202a4f1d544fc7471f4414a39475e"
+      "bytes": 280,
+      "sha256": "9f0159581df4f60a6ae8f76c81c9bfcd1211214ee4b77c7b8929f6b1b67af8ec"
     },
     {
       "path": "deploy/staging/freedom-staging-backup.timer",
@@ -138,19 +183,44 @@
       "sha256": "cdac30f07656560e6cffce34bfe4be9348aeda1ce5f2d9e8cdfc749a4e29ae7e"
     },
     {
+      "path": "docs/development/module-expansion-design.md",
+      "bytes": 6850,
+      "sha256": "95bb52a3fb3a8b26ed8f38cffce46c74fb61cb151a1021c3665e6f1e9c8e1e5a"
+    },
+    {
       "path": "docs/development/operating-validation.md",
       "bytes": 3091,
       "sha256": "8d5b3431b88482c9004d573b8b570b05e151e74a318eab478babd09368af1d94"
     },
     {
+      "path": "docs/development/research/README.md",
+      "bytes": 2209,
+      "sha256": "8f1a19bb76b2979a903a1d17d83adf355ddfd8e7c90a0d6f85d1471abe4a325b"
+    },
+    {
+      "path": "docs/development/research/commerce-upstreams.md",
+      "bytes": 5882,
+      "sha256": "6d56efda32d1190d698a5ce901eef2c14db66b8d11461e742d09e9bb438df895"
+    },
+    {
+      "path": "docs/development/research/oss-marketing-upstreams.md",
+      "bytes": 8221,
+      "sha256": "81f53c045a98b3f03304380e39c2cce61df06e7f27f79162a87ea2e1027e5ea5"
+    },
+    {
+      "path": "docs/development/research/positioning-upstream.md",
+      "bytes": 2523,
+      "sha256": "ea85943482a077a4c5178b895a0a8f277793e4e2f36e221bc83525e1433fccd2"
+    },
+    {
       "path": "docs/development/staging-access-deploy.md",
-      "bytes": 3327,
-      "sha256": "0c82f1f3e4e444fef3563af8a876fb3193f8fc77e7c713b3817ea07c97a4867a"
+      "bytes": 3421,
+      "sha256": "eafb5f56735c16de6ad44434f94c5a2a384ffdc9cde800fab9cbe33710ee9eb9"
     },
     {
       "path": "docs/development/staging-operations.md",
-      "bytes": 4396,
-      "sha256": "30e3c7dba3f7b92d50afb4d086c959fa19b70f5f2707226a17852b5b420c85d2"
+      "bytes": 5806,
+      "sha256": "75a4494c37b84328b18a14e5d0ed2e57cd982781fd9a46138849325de7911c01"
     },
     {
       "path": "docs/platform-plan/00-current-requirements-baseline.md",
@@ -1098,14 +1168,49 @@
       "sha256": "6c8fd4ffc3bb6f1b500d4af038092eb145188bea1f3dddd5a90db4f80ea90056"
     },
     {
+      "path": "docs/releases/2026-09-23-modules-preview.md",
+      "bytes": 4183,
+      "sha256": "f3f51afdffe3cd413bc111ba8fd7ffb58bea8e3036bbdc44b8e605eb22337e86"
+    },
+    {
       "path": "migrations/001_local_core.sql",
       "bytes": 7122,
       "sha256": "d3b9e4b8caf93d111ef76b0f0180f6ff581d0d350628a5bf7375f3bc2773b7d3"
     },
     {
+      "path": "migrations/002_positioning_guilds.sql",
+      "bytes": 8615,
+      "sha256": "512754def01e91ad947524bf6f629bead58d4442e5b9288b585b9d1e494107b6"
+    },
+    {
+      "path": "migrations/003_supplier_retail.sql",
+      "bytes": 4956,
+      "sha256": "b05efd7ce3b6563d2331d59db21276669befcc74ec3c0420de282993d366e299"
+    },
+    {
+      "path": "migrations/004_oss_marketing.sql",
+      "bytes": 4339,
+      "sha256": "9a629bfd285be6882dc97ec003bf8bcf06869c715661ae2241c71f338859b4d6"
+    },
+    {
+      "path": "modules/catalog-commerce/service.ts",
+      "bytes": 14038,
+      "sha256": "754c512bdd5514e1460b4a8397a25ce7d45821d6fb89118c62d03bc3951ff95a"
+    },
+    {
       "path": "modules/identity-membership/service.ts",
       "bytes": 3608,
       "sha256": "416a6a713520befd2d37388e75d0d4c9d22bfcba0ce5465c113827ec116bb835"
+    },
+    {
+      "path": "modules/opensource-marketing/github.ts",
+      "bytes": 5560,
+      "sha256": "43314cc47a9e4dd94ca78ec258ec2db38b2c90fa6ff79ba62375f64ec1d98ee2"
+    },
+    {
+      "path": "modules/opensource-marketing/service.ts",
+      "bytes": 13417,
+      "sha256": "661b37d6741d5283ad95c0c18ae1e6ab88146f3967d6d478ec4622855fcdd61b"
     },
     {
       "path": "modules/opportunity-project-work/business.ts",
@@ -1118,14 +1223,19 @@
       "sha256": "6d5b9412c73e1915a2ac9c290157458df566ce9acd8447c7d9124bc7d1aefe88"
     },
     {
+      "path": "modules/positioning/service.ts",
+      "bytes": 6939,
+      "sha256": "fc37ae851860b9808a1ab0f60c8e223ed351eed3c90b3229cdbdff2936bcbf6a"
+    },
+    {
       "path": "package-lock.json",
-      "bytes": 63926,
-      "sha256": "7de077353ba3c6425d518d7c88c3ff9710f3a5beb9586dd92700f38ac38ba95b"
+      "bytes": 63958,
+      "sha256": "ac4ec46d522429d5b3f06cdb8b9e1594c6122f24af4605a09303fa319fce5445"
     },
     {
       "path": "package.json",
-      "bytes": 1409,
-      "sha256": "6f1891e47ea54217f3d791191c9b6b210dd581972e5cbfdc7251fc605e1774eb"
+      "bytes": 1425,
+      "sha256": "2cb9b1ba513caa0770b1c7f0f5b85d36e55a5c82a53db5f228a80f2be018ad0c"
     },
     {
       "path": "packages/db/index.ts",
@@ -1164,18 +1274,38 @@
     },
     {
       "path": "scripts/update-inventory.py",
-      "bytes": 964,
-      "sha256": "303c5edf31af35ab34d9ba9d13f9492f5b908a8518e93b3e9429292ee8df2ecc"
+      "bytes": 1004,
+      "sha256": "b7dec5dbdc192c9e940637ef3e4f363d25e163ac5c990fa615a112d14a193e97"
     },
     {
       "path": "scripts/verify-staging.mjs",
-      "bytes": 4354,
-      "sha256": "fb31be2337397cedf672c850045c12db053c37d39a45aef2d46a155c4ec80113"
+      "bytes": 5028,
+      "sha256": "52d745e1dfc2e3a5b45eb78226dd398712a2175e4211fce29c14d1fbb2fad0e8"
+    },
+    {
+      "path": "tests/e2e/commerce-modules.spec.ts",
+      "bytes": 5127,
+      "sha256": "a967dabc7bd3ab0e629456bb45bd21d2584e494b77ee57246732e70115e55b1d"
     },
     {
       "path": "tests/e2e/journeys.spec.ts",
-      "bytes": 7954,
-      "sha256": "6ccd3c7967669d43cbebc8d059aef3475dace2194fafd4f89ca10c85315709ce"
+      "bytes": 8308,
+      "sha256": "b239e029b60d10bcb9f8496d391b78d253abe64da171ec6143688aadf4c9f417"
+    },
+    {
+      "path": "tests/e2e/opensource-modules.spec.ts",
+      "bytes": 4774,
+      "sha256": "8d8ca8abfd640f2060b1ef3efafaec0adaf32920895d6507775ab80945c589e9"
+    },
+    {
+      "path": "tests/e2e/positioning-modules.spec.ts",
+      "bytes": 3181,
+      "sha256": "10859850b4be71b76c768be65e4ec3745afe27cf8990972fb1909b845c54bb6b"
+    },
+    {
+      "path": "tests/runtime/commerce.test.ts",
+      "bytes": 13428,
+      "sha256": "4ecc05299c4033f5013cbcecfe027e549b0a262ee33e1fa52f0477b407f550be"
     },
     {
       "path": "tests/runtime/flows.test.ts",
@@ -1186,6 +1316,16 @@
       "path": "tests/runtime/freedom_env.test.ts",
       "bytes": 1493,
       "sha256": "dd96b0aaa18004a2b3f8a7511b3a9e7a823ecb433ef159a61d550b94da9d06a7"
+    },
+    {
+      "path": "tests/runtime/opensource-marketing.test.ts",
+      "bytes": 16618,
+      "sha256": "b834f02585e286c19654704b2ef945ea98acc66646191e3508256e6e35a5b9ae"
+    },
+    {
+      "path": "tests/runtime/positioning.test.ts",
+      "bytes": 8467,
+      "sha256": "216be5db80c28daefb0630bc6ab156c8dabc96aa092c10931240d8cfc62cb3d8"
     },
     {
       "path": "tsconfig.json",

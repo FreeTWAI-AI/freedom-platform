@@ -4,6 +4,8 @@ async function login(page:Page,email:string) {
   await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill(email);
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
   await page.getByRole('button',{name:'登入',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'會員首頁',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'我的工作',exact:true}).click();
   await expect(page.getByRole('heading',{name:'工作台',exact:true})).toBeVisible();
 }
 async function switchAccount(page:Page,email:string) {await page.getByRole('button',{name:'登出',exact:true}).click();await expect(page.getByRole('heading',{name:'登入',exact:true})).toBeVisible();await login(page,email);}
@@ -14,6 +16,8 @@ test('localhost alias permits browser login and logout',async({page,baseURL})=>{
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
   await page.getByRole('button',{name:'登入',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'會員首頁',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'我的工作',exact:true}).click();
   await expect(page.getByRole('heading',{name:'工作台',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'登出',exact:true}).click();
   await expect(page.getByRole('heading',{name:'登入',exact:true})).toBeVisible();
@@ -41,19 +45,19 @@ test('member completes work, reviewer accepts it, result survives reload and log
 });
 
 test('showcase and opportunity become a bilateral cooperation and attributed receipt report',async({page})=>{
-  await login(page,'maker@local.test');await page.getByRole('button',{name:'作品與商機',exact:true}).click();
+  await login(page,'maker@local.test');await page.getByRole('button',{name:'一般作品與需求',exact:true}).click();
   await page.getByLabel('作品標題',{exact:true}).fill('瀏覽器驗證的週報模板');
   await page.getByLabel('說明',{exact:true}).fill('用合成資料產生可重用週報。');
   await page.getByLabel(artifactLabel).fill('artifact:browser-showcase-v1');
   await page.getByLabel('我同意以社群可見方式分享這件作品').check();
   await page.getByRole('button',{name:'發布作品',exact:true}).click();
   await expect(page.getByRole('heading',{name:'瀏覽器驗證的週報模板',exact:true})).toBeVisible();
-  await switchAccount(page,'client@local.test');await page.getByRole('button',{name:'作品與商機',exact:true}).click();
+  await switchAccount(page,'client@local.test');await page.getByRole('button',{name:'一般作品與需求',exact:true}).click();
   await page.getByRole('button',{name:'提出商機',exact:true}).click();
   await page.getByLabel('你的需求',{exact:true}).fill('希望調整三個週報欄位。');
   await page.getByRole('button',{name:'送出商機',exact:true}).click();
   await expect(page.getByText('希望調整三個週報欄位。',{exact:true})).toBeVisible();
-  await switchAccount(page,'maker@local.test');await page.getByRole('button',{name:'作品與商機',exact:true}).click();
+  await switchAccount(page,'maker@local.test');await page.getByRole('button',{name:'一般作品與需求',exact:true}).click();
   await page.getByRole('button',{name:'提出合作',exact:true}).click();
   await page.getByLabel('合作範圍',{exact:true}).fill('調整三個欄位並提供使用說明');
   await page.getByLabel('完成條件',{exact:true}).fill('合成範例產出正確週報');
@@ -87,7 +91,7 @@ test('phone viewport, wrong password, logout, and unavailable API remain honest'
   await page.setViewportSize({width:390,height:844});await page.goto('/');
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');await page.getByLabel('密碼',{exact:true}).fill('wrong');
   await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('alert')).toContainText('帳號或密碼不正確');
-  await login(page,'maker@local.test');await page.getByRole('button',{name:'作品與商機',exact:true}).click();
+  await login(page,'maker@local.test');await page.getByRole('button',{name:'一般作品與需求',exact:true}).click();
   const size=await page.evaluate(()=>({w:window.innerWidth,scroll:document.documentElement.scrollWidth}));expect(size.scroll).toBeLessThanOrEqual(size.w);
   await page.screenshot({path:'test-results/workspace-mobile.png',fullPage:true});
   await page.route('**/api/v1/engagements',r=>r.abort());await page.getByRole('button',{name:'合作紀錄',exact:true}).click();
