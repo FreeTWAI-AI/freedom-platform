@@ -49,3 +49,5 @@
 .admin-guild-management .admin-guild-experts li .admin-candidate-status { display: block; }
 .admin-guild-management .admin-guild-experts li > button { flex-shrink: 0; }
 @media(max-width:600px){.admin-guild-management .admin-guild-role-actions { justify-content: flex-start; max-width: 100%; }}
+.admin-guild-management .admin-expert-capacity { margin-left: 8px; color: #bdc7ff; font-variant-numeric: tabular-nums; }
+.admin-guild-management .admin-guild-experts .admin-expert-limit { margin: 0 0 12px; color: #ffd18a; font-size: .85rem; }

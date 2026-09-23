@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { DEMO_COMMUNITY, DEMO_USERS } from '../../packages/testing/seed.js';
 
 const guilds = [
-  { guild_key: 'guild_event_space', name: '活動與空間公會', guild_master: { user_id: 'member-0', display_name: '同名夥伴' }, guild_experts: [{user_id:'member-0',display_name:'同名夥伴'},{user_id:'member-2',display_name:'活動夥伴 2'}] },
+  { guild_key: 'guild_event_space', name: '活動與空間公會', guild_master: { user_id: 'member-0', display_name: '同名夥伴' }, guild_experts: [{user_id:'member-0',display_name:'同名夥伴'},{user_id:'member-2',display_name:'活動夥伴 2'},{user_id:'member-3',display_name:'專注活動動線與展場光影設計的專家'}] },
   { guild_key: 'guild_security', name: '資安公會', guild_master: null },
 ].map(guild => ({ ...guild, purpose: '一起分享專業與合作', first_step: '認識公會夥伴', track_count: 1, is_primary: false, skill_books: [], membership: null }));
 function member(index: number, nickname = `活動夥伴 ${index}`) {
@@ -34,6 +34,10 @@ test('guild member lists load on demand, preserve guild filtering across pages a
   });
   await login(page); const card = page.getByRole('article', { name: '活動與空間公會', exact: true });
   await expect(card.getByRole('button', { name: '查看成員', exact: true })).toBeVisible(); expect(queries).toHaveLength(0);
+  const leaders=card.locator('.guild-leadership-row');await expect(leaders).toHaveCount(4);await expect(leaders.first()).toHaveClass(/guild-master/);for(const row of await leaders.all())await expect(row).toBeVisible();
+  const assertRows=async()=>{const boxes=await leaders.evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,bottom:r.bottom};}));for(let i=1;i<boxes.length;i++){expect(boxes[i].x).toBeCloseTo(boxes[0].x,0);expect(boxes[i].width).toBeCloseTo(boxes[0].width,0);expect(boxes[i].y).toBeGreaterThanOrEqual(boxes[i-1].bottom);}};
+  await page.setViewportSize({width:1440,height:960});await assertRows();await card.locator('.guild-leadership').scrollIntoViewIfNeeded();await page.screenshot({path:'test-results/guild-leadership-desktop.png'});
+  await page.setViewportSize({width:320,height:844});await assertRows();await card.locator('.guild-leadership').scrollIntoViewIfNeeded();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'test-results/guild-leadership-phone.png'});await page.setViewportSize({width:1280,height:900});
   await card.getByRole('button', { name: '查看成員', exact: true }).click();
   const panel = card.getByRole('region', { name: '活動與空間公會成員', exact: true });
   await expect(panel.locator('.directory-member')).toHaveCount(10); await expect(panel).toContainText('顯示 10 / 11 位成員');
@@ -123,4 +127,14 @@ test('guild browsing uses the real membership filter and exposes only permitted 
     await pool.query('DELETE FROM positioning_profession_memberships WHERE user_id=ANY($1::uuid[])', [ids]);
     await pool.query('DELETE FROM users WHERE user_id=ANY($1::uuid[])', [ids]);
   }
+});
+
+
+test('onboarding recommendations show the master above three separate expert rows and retain guild selection',async({page})=>{
+  await page.route('**/api/v1/guilds/directory',async route=>{const response=await route.fetch(),value=await response.json();value.items=value.items.map((guild:any)=>({...guild,guild_master:{user_id:'synthetic-master',display_name:'推薦公會會長'},guild_experts:[{user_id:'synthetic-master',display_name:'推薦公會會長'},{user_id:'synthetic-expert-2',display_name:'第二位專家'},{user_id:'synthetic-expert-3',display_name:'第三位專家'}]}));return route.fulfill({response,json:value});});
+  await page.goto('/');await page.getByRole('button',{name:'建立帳號',exact:true}).click();await page.getByLabel('喜歡的暱稱',{exact:true}).fill('公會人物列測試');await page.getByLabel('電子郵件',{exact:true}).fill(`guild-people-${randomUUID()}@example.test`);await page.getByLabel('密碼',{exact:true}).fill('freedom-leadership-test-2026');await page.getByRole('button',{name:'註冊並開始定位',exact:true}).click();
+  for(const title of ['你喜歡怎麼做事？','遇到這些情境，你會怎麼做？']){await expect(page.getByRole('heading',{name:title,exact:true})).toBeVisible();for(const question of await page.locator('.quiz-question').all())await question.getByRole('radio').first().check();await page.getByRole('button',{name:'保存，繼續下一步 →',exact:true}).click();}
+  await expect(page.getByRole('heading',{name:'你從哪裡來，帶著哪些能力？',exact:true})).toBeVisible();await page.getByRole('button',{name:'保存，繼續下一步 →',exact:true}).click();await page.getByRole('button',{name:'看看適合我的公會',exact:true}).click();
+  const card=page.locator('.recommendation-card').first(),rows=card.locator('.guild-leadership-row');await expect(rows).toHaveCount(4);await expect(rows.first()).toHaveText('公會長：推薦公會會長');await expect(rows.nth(1)).toHaveText('公會專家：推薦公會會長');await expect(rows.nth(3)).toHaveText('公會專家：第三位專家');
+  await page.setViewportSize({width:320,height:844});await card.locator('.guild-leadership').scrollIntoViewIfNeeded();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'test-results/onboarding-guild-leadership-phone.png'});await card.getByRole('checkbox').check();await card.getByRole('radio').check();await expect(page.getByRole('button',{name:'確認加入公會，領取技能書',exact:true})).toBeEnabled();
 });

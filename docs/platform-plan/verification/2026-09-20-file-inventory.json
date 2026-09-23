@@ -1,5 +1,5 @@
 {
-  "version": "0.9.4-onboarding-recovery",
+  "version": "0.9.5-guild-leadership",
   "scope": "source files, including historical evidence; excludes self, secrets, dependencies, build and test artifacts",
   "files": [
     {
@@ -39,13 +39,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 8451,
-      "sha256": "2f581f0d52294a46e14fceca772a373f5e3bb48973bee98bee480ca35a21a910"
+      "bytes": 8514,
+      "sha256": "3bec5a793a316c6685de3eabb210a209f550a7faa0ee4008f15e6623a10e2533"
     },
     {
       "path": "apps/platform-api/src/app.ts",
-      "bytes": 14624,
-      "sha256": "a91e3b73c20895f821e1957ac753db988a85d5478c6be9f662ef18d7ba8f7d18"
+      "bytes": 14621,
+      "sha256": "df7da382157f84f9a45a1f906f2d92bdf8a7311a6c14c0c5e306429a3ffb9c89"
     },
     {
       "path": "apps/platform-api/src/env.ts",
@@ -319,13 +319,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/AdminGuildManagement.css",
-      "bytes": 5017,
-      "sha256": "2fe6a2e940b76e3a8e34f5647bcff7c615e35764252df9555d353ce40fdb1a70"
+      "bytes": 5260,
+      "sha256": "e4f9632a8d5ba05a3ea7251ab723cf69e3d609693e53a3ef5e1c00bc87fafff4"
     },
     {
       "path": "apps/portal-web/src/modules/AdminGuildManagement.tsx",
-      "bytes": 14382,
-      "sha256": "88ec27c465afb2c3879a7eb2dab94f3d91afdf7430adfc08e0fdeaa15a39f25c"
+      "bytes": 14664,
+      "sha256": "fe9b69156506bd8927093b06c83e2e7a6cc34df92fc12787e7faa5bed5852b6c"
     },
     {
       "path": "apps/portal-web/src/modules/AdminPanel.tsx",
@@ -408,9 +408,19 @@
       "sha256": "ea0d7d07c02fee632596636ff06cb7f7a260a756cf8f7f2311f47799874cf030"
     },
     {
+      "path": "apps/portal-web/src/modules/GuildLeadership.css",
+      "bytes": 1657,
+      "sha256": "b67f0ffeb7ec90485ae04b57d3601d53e6ec7682583d9cd0711ab5da50a0f98a"
+    },
+    {
+      "path": "apps/portal-web/src/modules/GuildLeadership.tsx",
+      "bytes": 1105,
+      "sha256": "7bc1bd3176d4adc557de4c9bbe09452ad9a6e75979a35c1bbc3d20eeb8589b3f"
+    },
+    {
       "path": "apps/portal-web/src/modules/GuildMembers.css",
-      "bytes": 1738,
-      "sha256": "bb70c902f2054ae58228d3028c4906bbee84ea4b90a63c42c53f148267d94e15"
+      "bytes": 1525,
+      "sha256": "55a399316f1207de234a967a40d9dbcdbea41c022f859ca385a8cd98f759d3cb"
     },
     {
       "path": "apps/portal-web/src/modules/GuildMembers.tsx",
@@ -479,8 +489,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Onboarding.tsx",
-      "bytes": 20120,
-      "sha256": "ef02913008a2f44073a5c4729ff02f49e022431fcd38a2ceb1b2f0c252d015c2"
+      "bytes": 20307,
+      "sha256": "5c7f678ad3a38c8d4ee735409ced7983fcdd06e06bcd5d735580942bd50fbfdc"
     },
     {
       "path": "apps/portal-web/src/modules/OpenSourcePanels.tsx",
@@ -489,8 +499,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/PositioningPanels.tsx",
-      "bytes": 13240,
-      "sha256": "3926ee09f6b9784a60be45b3dd09f72e1d7a46e91f11be2885ca2a4822f47e31"
+      "bytes": 13132,
+      "sha256": "44b00ca2b90a24580251cc5d38262ac3ec2980d5f72b8777dcb37526c9d100be"
     },
     {
       "path": "apps/portal-web/src/modules/SkillBookBadges.tsx",
@@ -794,8 +804,8 @@
     },
     {
       "path": "docs/development/platform-admin-api.md",
-      "bytes": 10441,
-      "sha256": "8759c17d050b8eb7a877a864c00e7d5ab0617124d28d31754d40a373cb9fc251"
+      "bytes": 11271,
+      "sha256": "2d4f131863962df18a58cb9504ce05c25faba29636eb813648f2f6e1109df7af"
     },
     {
       "path": "docs/development/public-operations.md",
@@ -1994,8 +2004,8 @@
     },
     {
       "path": "modules/development/pages.ts",
-      "bytes": 12888,
-      "sha256": "030aae5d31392045b7950e6fca54826b779f04e9e30ce1c1e629f3ce06f53979"
+      "bytes": 13058,
+      "sha256": "8f123c0ce987c3d6eede53d8e4a24d23d05c73ad198ff4a5d1f24234c72d878e"
     },
     {
       "path": "modules/development/service.ts",
@@ -2079,8 +2089,8 @@
     },
     {
       "path": "modules/platform-admin/guild-experts.ts",
-      "bytes": 2401,
-      "sha256": "7321205211fb33b9c6fb0d8914ca31bca068963e409e128b52c23f2c0b655b6d"
+      "bytes": 3204,
+      "sha256": "62be2e9abf4c43ca5faeb4956388cc2b2498422c03850a931c2181bc1b040be4"
     },
     {
       "path": "modules/platform-admin/leadership.ts",
@@ -2114,13 +2124,13 @@
     },
     {
       "path": "package-lock.json",
-      "bytes": 83855,
-      "sha256": "c5b3eecbfb0ed649b3d6501348166c89c652d73442176abcf34ecd2af458b5d5"
+      "bytes": 83849,
+      "sha256": "078bd6eb6332871f0d007c415648caa951dab94207d80373a4910dc23ef6fb42"
     },
     {
       "path": "package.json",
-      "bytes": 1631,
-      "sha256": "e2bf84fb4cc386694239456262b347b6eb6973bdd244605b21cede6decf53c8b"
+      "bytes": 1628,
+      "sha256": "bd98968820fd136a4b9a28ee1ba47c376251dd238186da6a2713d4395e8da810"
     },
     {
       "path": "packages/client-connections/cli.mjs",
@@ -2249,8 +2259,8 @@
     },
     {
       "path": "scripts/verify-public.mjs",
-      "bytes": 33617,
-      "sha256": "f93561d267656ea731bd89d7a8adc2129335cc9d486568c2ad684cfc23849503"
+      "bytes": 34838,
+      "sha256": "594458e632933fe2bbc404282770a4b7ebbf6bcfdee093f2bb1e12ceb023f9bb"
     },
     {
       "path": "scripts/verify-staging.mjs",
@@ -2259,8 +2269,8 @@
     },
     {
       "path": "tests/e2e/admin-guilds.spec.ts",
-      "bytes": 17612,
-      "sha256": "1ea90ad7fb5014961547db5ed2b2d8dd1f41cc093ad85f6afd955a30799320b0"
+      "bytes": 22193,
+      "sha256": "a7583ad9b62cc95f138675fa46328d2ea523f93f63467f1b895df97432d7ac15"
     },
     {
       "path": "tests/e2e/admin.spec.ts",
@@ -2309,8 +2319,8 @@
     },
     {
       "path": "tests/e2e/guild-members.spec.ts",
-      "bytes": 14047,
-      "sha256": "0beafbe505f005928bebfa5b70b31a35b097ede8d0939d5a6a84e6774feacf67"
+      "bytes": 17883,
+      "sha256": "b39f7727154577a87324b1dd3f0ea5573de53cb45c2f1e61cb7d2abc4c879609"
     },
     {
       "path": "tests/e2e/guild-workspace.spec.ts",
@@ -2459,8 +2469,8 @@
     },
     {
       "path": "tests/runtime/guild-experts.test.ts",
-      "bytes": 21102,
-      "sha256": "533fdaf497275f594293fec31d84850b0933cd613f9dc85f7d840dab49e51ad5"
+      "bytes": 27335,
+      "sha256": "c05158a71a3d672811b6492c4ce13618bfebc64766caa25d08a4faffbe578e0b"
     },
     {
       "path": "tests/runtime/guild-workspace.test.ts",

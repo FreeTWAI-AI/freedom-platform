@@ -333,6 +333,26 @@ try {
   await expect(page.locator('.primary-guild')).toContainText('公會長：');
   await expect(page.locator('.guild-card').first()).toHaveClass(/primary-guild/);
   await expect(page.locator('.guild-card').first()).toContainText('公會技能庫');
+  for(const width of [1440,320]){
+    await page.setViewportSize({width,height:960});
+    const teams=page.locator('.guild-card .guild-leadership');
+    await expect(teams).toHaveCount(await page.locator('.guild-card').count());
+    for(const team of await teams.all()){
+      const rows=team.locator('.guild-leadership-row');
+      await expect(rows.first()).toHaveClass(/guild-master/);
+      expect(await team.locator('.guild-expert').count()).toBeLessThanOrEqual(3);
+      let previous;
+      for(const row of await rows.all()){
+        await expect(row).toBeVisible();const box=await row.boundingBox();expect(box).not.toBeNull();
+        if(previous){expect(box.y).toBeGreaterThanOrEqual(previous.y+previous.height);expect(Math.abs(box.x-previous.x)).toBeLessThanOrEqual(1);expect(Math.abs(box.width-previous.width)).toBeLessThanOrEqual(1);}
+        previous=box;
+      }
+    }
+    await noOverflow('Guild leadership rows overflow');
+    await screenshot(width===320?'public-guild-leadership-mobile.png':'public-guild-leadership-desktop.png');
+  }
+  await page.setViewportSize({width:390,height:844});
+  console.log('Guild master first and each expert in a separate full-width visible row on desktop/mobile: PASS');
   await page.locator('.guild-card').first().getByRole('button',{name:'查看成員',exact:true}).click();
   const guildMembers=page.locator('#members-'+onboarding.primary_guild_key);
   await expect(guildMembers).toBeVisible();

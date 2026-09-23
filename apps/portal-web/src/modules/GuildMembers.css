@@ -17,6 +17,4 @@
   .guild-members .directory-member-name h3 { font-size: 1rem; }
   .guild-members .directory-member-skills { padding-left: 0; }
 }
-.guilds-panel .guild-experts { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 8px 0; font-size: .85rem; color: #bdc7ff; overflow-wrap: anywhere; }
-.guilds-panel .guild-experts strong { font-weight: 500; }
 .guild-members .directory-member-meta .guild-member-expert { color: #bdc7ff; border-color: #535f9b; background: #3044ff16; }

@@ -160,3 +160,55 @@ test('admin candidate and guild projections retain revocation versions and allow
  candidates=await adminHttp(candidatePath);assert.equal(candidates.data.items[0].is_expert,false);assert.equal(candidates.data.items[0].expert_version,2);assert.equal(candidates.data.items[0].eligible,false);assert.equal(candidates.data.items[0].eligibility_reason,'inactive');
  assert.deepEqual((await adminHttp('/guilds')).data.items.find((row:any)=>row.guild_key===guild).guild_experts,[]);
 });
+
+
+async function extraMember(label:string){
+ const id=randomUUID();await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref)
+  SELECT $1,$2,$3,$4,password_hash,$5 FROM users WHERE user_id=$6`,[id,DEMO_COMMUNITY,id+'@expert-limit.invalid',label,randomUUID(),actors[0].user_id]);return id;
+}
+const full=(error:any)=>error.status===409&&error.code==='guild_expert_limit_reached';
+
+test('three expert seats exclude the separately appointed master; a fourth is rejected before membership, book or audit side effects',async()=>{
+ for(const actor of actors)assert.equal((await setGuildExpert(pool,input(actor.user_id),guild)).active,true);
+ const master=await extraMember('另列的會長'),fourth=await extraMember('第四位專家候選');
+ const masterResult=await adminHttp('/guilds/'+guild+'/master',{user_id:master,reason:'會長職位與三位專家名額分開。'});assert.equal(masterResult.status,200,JSON.stringify(masterResult.data));
+ assert.equal(await count('positioning_guild_experts','guild_key=$1 AND active',[guild]),3);assert.equal(await expert(master),undefined);
+ const auditBefore=await count('platform_admin_audit'),receiptBefore=await count('platform_admin_receipts');
+ const rejected=await adminHttp('/guilds/'+guild+'/experts',expertBody(fourth));assert.equal(rejected.status,409);assert.equal(rejected.data.code,'guild_expert_limit_reached');assert.match(rejected.data.detail,/最多 3 位公會專家/);
+ assert.equal(await membership(fourth),undefined);assert.equal(await expert(fourth),undefined);assert.equal(await count('member_skill_book_grants','user_id=$1',[fourth]),0);assert.equal(await count('platform_admin_audit'),auditBefore);assert.equal(await count('platform_admin_receipts'),receiptBefore);
+ // An inactive member remains an appointed expert until explicitly removed.
+ await pool.query('UPDATE users SET active=false WHERE user_id=$1',[actors[1].user_id]);await assert.rejects(setGuildExpert(pool,input(fourth),guild),full);assert.equal(await membership(fourth),undefined);
+ // Capacity is scoped to a guild, not a community-wide expert total.
+ const other=await setGuildExpert(pool,input(fourth,true,undefined,randomUUID(),otherGuild),otherGuild);assert.equal(other.active,true);
+});
+
+test('removal and leaving free a seat while reappointment at capacity preserves inactive roles and left membership',async()=>{
+ for(const actor of actors)await setGuildExpert(pool,input(actor.user_id),guild);const replacement=await extraMember('遞補專家');
+ const removed=await setGuildExpert(pool,input(actors[0].user_id,false,1),guild);assert.equal(removed.aggregate_version,2);
+ await setGuildExpert(pool,input(replacement),guild);assert.equal(await count('positioning_guild_experts','guild_key=$1 AND active',[guild]),3);
+ await assert.rejects(setGuildExpert(pool,input(actors[0].user_id,true,2),guild),full);assert.equal((await expert()).active,false);assert.equal((await expert()).aggregate_version,'2');
+ const joined=await membership(actors[1].user_id);await changeGuildMembership(pool,memberCommand(actors[1],'leave-capacity',Number(joined.aggregate_version)),guild,'leave');assert.equal((await expert(actors[1].user_id)).active,false);
+ const reappointed=await setGuildExpert(pool,input(actors[0].user_id,true,2),guild);assert.equal(reappointed.aggregate_version,3);
+ await assert.rejects(setGuildExpert(pool,input(actors[1].user_id,true,2),guild),full);assert.equal((await membership(actors[1].user_id)).state,'left');assert.equal((await expert(actors[1].user_id)).aggregate_version,'2');
+});
+
+test('a full guild accepts receipt replays and versioned updates to an already active expert without allocating another seat',async()=>{
+ const command=input(),first=await setGuildExpert(pool,command,guild);await setGuildExpert(pool,input(actors[1].user_id),guild);await setGuildExpert(pool,input(actors[2].user_id),guild);
+ const auditBefore=await count('platform_admin_audit');assert.deepEqual(await setGuildExpert(pool,command,guild),first);assert.equal(await count('platform_admin_audit'),auditBefore);
+ const updated=await setGuildExpert(pool,input(actors[0].user_id,true,1),guild);assert.equal(updated.aggregate_version,2);assert.equal(updated.membership_joined,false);assert.equal(await count('positioning_guild_experts','guild_key=$1 AND active',[guild]),3);
+ await assert.rejects(setGuildExpert(pool,input(actors[0].user_id,true,1),guild),denied(412));
+});
+
+test('two different members racing for the final expert seat produce one success and one clean capacity rejection',async()=>{
+ await setGuildExpert(pool,input(actors[0].user_id),guild);await setGuildExpert(pool,input(actors[1].user_id),guild);const rivals=[actors[2].user_id,await extraMember('競爭最後名額')];
+ // Stretch the insertion window inside PostgreSQL so count-then-insert without
+ // a guild lock would admit both requests. No production schema is touched.
+ await pool.query(`CREATE FUNCTION test_slow_expert_insert() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(0.08); RETURN NEW; END; $$`);
+ await pool.query('CREATE TRIGGER test_slow_expert_insert BEFORE INSERT ON positioning_guild_experts FOR EACH ROW EXECUTE FUNCTION test_slow_expert_insert()');
+ try{
+  const results=await Promise.allSettled(rivals.map(id=>setGuildExpert(pool,input(id),guild)));
+  assert.equal(results.filter(result=>result.status==='fulfilled').length,1);assert.equal(results.filter(result=>result.status==='rejected').length,1);
+  const failedIndex=results.findIndex(result=>result.status==='rejected'),failed=results[failedIndex] as PromiseRejectedResult;assert.ok(full(failed.reason),String(failed.reason));
+  assert.equal(await count('positioning_guild_experts','guild_key=$1 AND active',[guild]),3);assert.equal(await membership(rivals[failedIndex]),undefined);assert.equal(await expert(rivals[failedIndex]),undefined);assert.equal(await count('member_skill_book_grants','user_id=$1',[rivals[failedIndex]]),0);assert.equal(await count('platform_admin_audit',"action='appoint_guild_expert'"),3);
+ }finally{await pool.query('DROP TRIGGER test_slow_expert_insert ON positioning_guild_experts');await pool.query('DROP FUNCTION test_slow_expert_insert()');}
+});
