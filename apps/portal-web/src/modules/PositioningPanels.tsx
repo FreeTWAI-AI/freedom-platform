@@ -5,6 +5,7 @@ import { Onboarding, SkillBooks, guildMasterLabel, type GuildSummary, type Onboa
 import { loadLabels, type MemberCardData } from './Membership';
 import './GuildDesign.css';
 import {GuildAnnouncements} from './GuildWorkspace';
+import {GuildMembers} from './GuildMembers';
 
 function failure(error:unknown){return error instanceof Error?error.message:'暫時無法取得資料，請重試。';}
 
@@ -44,6 +45,7 @@ export function PositioningPanel({client,session,onNavigate}:ModulePanelProps) {
 }
 
 export function GuildsPanel({client}:ModulePanelProps) {
+  const [memberGuild,setMemberGuild]=useState<string|null>(null);
   const [guilds,setGuilds]=useState<GuildSummary[]>([]),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState<string|null>(null),[notice,setNotice]=useState(''),[preferences,setPreferences]=useState<{primary_guild_key:string|null;aggregate_version?:number}|null>(null),[books,setBooks]=useState<SkillBook[]>([]),[applications,setApplications]=useState<{application_id:string;name:string;profession:string;state:string}[]>([]),[showApply,setShowApply]=useState(false);
   const {mutate,busy,error}=useModuleMutation(client);
   async function load(){setLoadError(null);try{const [g,p,b,a]=await Promise.all([client.get<{items:GuildSummary[]}>('/guilds/directory'),client.get<{primary_guild_key:string|null;aggregate_version?:number}>('/me/guild-preferences'),client.get<{items:SkillBook[]}>('/me/skill-books'),client.get<{items:typeof applications}>('/guild-applications')]);setGuilds(g.items);setPreferences(p);setBooks(b.items);setApplications(a.items);}catch(e){setLoadError(failure(e));}finally{setLoading(false);}}
@@ -61,11 +63,13 @@ export function GuildsPanel({client}:ModulePanelProps) {
     {!loading&&!loadError&&<div className="guild-overview" aria-label="我的公會概況"><div><strong>{guilds.length}</strong><span>職業公會</span></div><div><strong>{joinedCount}</strong><span>已加入公會</span></div><div><strong>{books.length}</strong><span>我的技能書</span></div></div>}
     {loading&&<p role="status">正在載入職業公會…</p>}{loadError&&<div role="alert">{loadError}<button onClick={()=>void load()}>重新載入公會</button></div>}{error&&<p role="alert">{error}</p>}{notice&&<p role="status" className="banner status-note">{notice}</p>}
     {showApply&&<form id="guild-application" className="card stack guild-application" onSubmit={apply}><h3>讓你的專業，也有自己的公會</h3><label className="field">希望成立的公會名稱<input name="name" required minLength={2} maxLength={100}/></label><label className="field">專業／職業領域<input name="profession" required maxLength={120}/></label><label className="field">為什麼想成立？希望一起做什麼？<textarea name="reason" required minLength={10} maxLength={2000}/></label><p className="muted">先送申請，由管理員確認成立與公會長人選。</p><button className="btn btn-primary" disabled={busy}>送出創建公會申請</button>{applications.map((a,index)=><p key={a.application_id??index}>{a.name} · {a.state==='pending'?'待討論':a.state}</p>)}</form>}
-    <div className="card-grid guild-directory">{sortedGuilds.map(g=><article className={`card guild-card${g.is_primary?' primary-guild':g.membership?.state==='active'?' joined-guild':''}`} key={g.guild_key} aria-label={g.name}>
+    <div className="card-grid guild-directory">{sortedGuilds.map(g=><article className={`card guild-card${g.is_primary?' primary-guild':g.membership?.state==='active'?' joined-guild':''}${memberGuild===g.guild_key?' members-open':''}`} key={g.guild_key} aria-label={g.name}>
       <div className="guild-card-topline"><span className="guild-orbit" aria-hidden="true"><span/></span>{g.is_primary?<span className="badge">主要公會</span>:g.membership?.state==='active'?<span className="badge">次要公會</span>:<span className="guild-card-kicker">GUILD / 自由工坊</span>}</div>
       <div className="card-head"><h3>{g.name}</h3></div><p className="guild-master">公會長：{guildMasterLabel(g)}</p><p className="guild-purpose">{g.purpose}</p><small>{typeof g.track_count==='number'?`${g.track_count} 個職業方向 · `:''}公開知識與共同學習免費</small>
       <div className="guild-book-list"><strong>公會技能庫</strong>{g.skill_books.length?g.skill_books.map(book=><SkillBookIntro key={book.id??book.book_id} book={book} guildName={g.name} label={book.title}/>):<p className="muted">技能書整理中</p>}</div>
       {g.membership?.state==='active'&&<GuildAnnouncements client={client} guildKey={g.guild_key}/>}
+      <button type="button" className="btn btn-ghost" aria-expanded={memberGuild===g.guild_key} aria-controls={`members-${g.guild_key}`} onClick={()=>setMemberGuild(current=>current===g.guild_key?null:g.guild_key)}>{memberGuild===g.guild_key?'收起成員':'查看成員'}</button>
+      {memberGuild===g.guild_key&&<GuildMembers key={`${g.guild_key}:${g.membership?.aggregate_version??'none'}`} client={client} guildKey={g.guild_key} guildName={g.name} masterId={g.guild_master?.user_id}/>}
       <div className="actions">{g.membership?.state==='active'&&!g.is_primary&&<button className="btn btn-primary" disabled={busy} onClick={()=>void primary(g)}>設為主要公會</button>}<button type="button" className="btn btn-ghost" disabled={busy||g.is_primary} onClick={()=>void change(g)}>{g.membership?.state==='active'?'退出':'加入'}{g.name}</button></div>{g.is_primary&&<p className="field-hint">若要退出，先將另一個已加入的公會設為主要公會。</p>}
     </article>)}</div>
     <section className="stack guild-bookshelf"><header className="section-heading"><p className="eyebrow">YOUR SKILL LIBRARY</p><h3>我的技能書架</h3></header>{books.length?<SkillBooks books={books}/>:<p className="guild-books-empty">加入公會，就能取得第一本技能書。</p>}</section>

@@ -52,7 +52,7 @@ export async function adminMembers(pool:Pool,admin:AdminActor,limit:number,offse
   const rows=(await pool.query(`SELECT u.${administrativeMember.replaceAll(',',',u.')},
     COALESCE((SELECT jsonb_agg(jsonb_build_object('guild_key',m.guild_key,'name',g.name)) FROM positioning_profession_memberships m JOIN positioning_guild_catalog g USING(guild_key) WHERE m.user_id=u.user_id AND m.community_id=u.community_id AND m.state='active'),'[]'::jsonb) AS guilds,
     CASE WHEN a.admin_id IS NULL THEN NULL ELSE jsonb_build_object('admin_id',a.admin_id,'active',a.active,'aggregate_version',a.aggregate_version,'access_state',${adminAccessStateSql('a')}) END AS platform_admin
-    FROM users u LEFT JOIN platform_admins a ON a.community_id=u.community_id AND a.email=lower(u.email) WHERE u.community_id=$1 AND ($4='' OR u.display_name ILIKE '%'||$4||'%' OR u.email ILIKE '%'||$4||'%') ORDER BY u.display_name,u.user_id LIMIT $2 OFFSET $3`,[admin.community_id,limit+1,offset,search])).rows;
+    FROM users u LEFT JOIN platform_admins a ON a.community_id=u.community_id AND a.email=lower(u.email) WHERE u.community_id=$1 AND ($4='' OR strpos(lower(u.display_name),lower($4))>0 OR strpos(lower(u.email),lower($4))>0) ORDER BY u.display_name,u.user_id LIMIT $2 OFFSET $3`,[admin.community_id,limit+1,offset,search])).rows;
   return {items:rows.slice(0,limit),next_offset:rows.length>limit?offset+limit:null};
 }
 async function scopedUser(q:PoolClient,admin:AdminActor,id:string,lock=false){
@@ -101,6 +101,35 @@ export async function adminGuilds(pool:Pool,admin:AdminActor){
     CASE WHEN u.user_id IS NULL THEN NULL ELSE jsonb_build_object('user_id',u.user_id,'display_name',u.display_name) END AS guild_master,
     (SELECT count(*)::int FROM positioning_profession_memberships m JOIN users mu ON mu.user_id=m.user_id AND mu.active WHERE m.community_id=$1 AND m.guild_key=g.guild_key AND m.state='active') AS member_count
     FROM positioning_guild_catalog g LEFT JOIN positioning_guild_officers o ON o.guild_key=g.guild_key AND o.community_id=$1 LEFT JOIN users u ON u.user_id=o.user_id AND u.community_id=$1 AND u.active ORDER BY g.name,g.guild_key`,[admin.community_id])).rows.map(row=>({...row,officer_version:row.officer_version?Number(row.officer_version):null}));
+}
+export const AdminGuildCandidateQuery=z.object({
+ q:z.string().trim().max(100).refine(value=>!/[\x00-\x1f\x7f]/.test(value),'請使用單行搜尋文字。').default(''),
+ scope:z.enum(['eligible','all']).default('eligible'),
+ limit:z.coerce.number().int().min(1).max(100).default(20),offset:z.coerce.number().int().min(0).max(100000).default(0),
+}).strict();
+export async function adminGuildMasterCandidates(pool:Pool,admin:AdminActor,key:string,raw:unknown={}){
+ z.string().min(1).max(100).regex(/^guild_[a-z0-9_]+$/).parse(key);
+ const query=AdminGuildCandidateQuery.parse(raw);
+ // Count and page share one snapshot, and eligibility is applied BEFORE LIMIT.
+ // This is an admin-only projection; member email never enters public search.
+ const result=(await pool.query(`WITH scoped AS (
+   SELECT u.user_id,u.display_name,u.email,u.active,
+    EXISTS(SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=u.community_id
+      AND m.user_id=u.user_id AND m.guild_key=$2 AND m.state='active') AS joined,
+    EXISTS(SELECT 1 FROM positioning_guild_officers o WHERE o.community_id=u.community_id
+      AND o.guild_key=$2 AND o.user_id=u.user_id) AS is_current
+   FROM users u WHERE u.community_id=$1 AND ($3='' OR strpos(lower(u.display_name),lower($3))>0 OR strpos(lower(u.email),lower($3))>0)
+ ), matched AS (
+   SELECT user_id,display_name,email,active,active AND joined AS eligible,
+    CASE WHEN NOT active THEN 'inactive' WHEN NOT joined THEN 'not_joined' ELSE NULL END AS eligibility_reason,is_current
+   FROM scoped WHERE $4='all' OR active AND joined
+ ), page AS (SELECT * FROM matched ORDER BY display_name,user_id LIMIT $5 OFFSET $6)
+ SELECT EXISTS(SELECT 1 FROM positioning_guild_catalog WHERE guild_key=$2) AS guild_exists,
+   (SELECT count(*)::int FROM matched) AS total,
+   COALESCE((SELECT jsonb_agg(to_jsonb(page) ORDER BY display_name,user_id) FROM page),'[]'::jsonb) AS items`,
+  [admin.community_id,key,query.q,query.scope,query.limit,query.offset])).rows[0];
+ requireCondition(result.guild_exists,404,'guild_not_found','找不到這個公會。');
+ return {items:result.items,total:result.total,next_offset:query.offset+query.limit<result.total?query.offset+query.limit:null};
 }
 export async function appointGuildMaster(pool:Pool,input:AdminCommand,key:string){
   const body=z.object({user_id:z.uuid(),reason}).strict().parse(input.body);

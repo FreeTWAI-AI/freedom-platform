@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures.js';
 const password='freedom-workshop-member-2026';
 async function register(page:Page, nickname:string){
   const email=`member-${Date.now()}-${Math.random().toString(16).slice(2)}@example.test`;

@@ -1,4 +1,4 @@
-import {test,expect,type Page,type Route} from '@playwright/test';
+import {test,expect,type Page,type Route} from './fixtures.js';
 
 const csrf='synthetic-admin-setup-csrf',state='s'.repeat(43),code='synthetic_manifest_code_2026';
 const app={configured:true,app_id:'4242',app_slug:'synthetic-freedom-star',html_url:'https://github.com/apps/synthetic-freedom-star'};

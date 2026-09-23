@@ -16,11 +16,17 @@
 會員、權限、公會、商品、商店、合作和稽核的權威寫入在本 repo 的 API／PostgreSQL。外倉用版本化契約；本機、staging、public 使用分開的資料庫。GitHub Issue／PR 保存程式協作事實；Seller／bank 保存實收事實。 跨 repo 的協定由[中央平台](https://github.com/FreeTWAI-AI/freedom-platform)維護。
 <!-- freedom-repository-guide:end -->
 
-本 workspace 保存 Freedom 大平台的完整規格，以及 **0.9.0-guild-collaboration 自由工坊會員入口**。新會員註冊後完成定位，選擇主力公會並取得 Repo 技能書，再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
+本 workspace 保存 Freedom 大平台的完整規格，以及 **0.9.2-community-profiles 自由工坊會員入口**。新會員註冊後完成定位，選擇主力公會並取得 Repo 技能書，再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
 
 公開會員入口：<https://freetwai.com>；內部入口：<https://staging.freetwai.com>（Cloudflare Access 限定名單，獨立 DB）。本輪行為與邊界見 [會員入口設計](./docs/development/member-onboarding-release.md)，運行方式見 [公開站手冊](./docs/development/public-operations.md)。
 
-本版新增活動與空間、光影光雕、人類圖研究所三個公會，25 本技能書的一鍵分享與 Agent SKILL.md、公會指定技能標章、真實加星週／月榜，以及會長公告、技能負責人編輯與會長討論區。使用方式與資料邊界見 [公會共作與技能分享](./docs/development/guild-collaboration.md)。
+工坊夥伴名冊支援公開資料搜尋、公會篩選、加入日期／暱稱排序與緊湊列表；詳細技能和聯絡方式可展開。舊會員依開站日 2026/9/23 記錄，新會員保存實際加入時間。
+
+名片可新增多個社群帳號或頻道，同平台也可重複加入；每筆獨立編輯、刪除及設定可見範圍，預設只有本人可見。詳見 [會員社群連結](./docs/development/member-social-links.md)。
+
+後台公會長任命改為公會內直接搜尋人選，顯示現任會長、資格與任命結果；不符合條件的會員會標示原因。
+
+本版包含活動與空間、光影光雕、人類圖研究所三個公會，25 本技能書的一鍵分享與 Agent SKILL.md、公會指定技能標章、真實加星週／月榜，以及會長公告、技能負責人編輯與會長討論區。使用方式與資料邊界見 [公會共作與技能分享](./docs/development/guild-collaboration.md)。
 
 前版新增 GitHub 真實 Stars／Forks／追蹤與更新指標、會員授權後直接加星／取消星星，以及後台 GitHub App 設定，詳見 [GitHub 連結與部署](./docs/development/github-social.md)。前版包含會員頭像、22 本專屬技能書插圖與原作者 Star 連結、任務／商品／小隊篩選，以及後台管理員任命。定位只保留一套流程，調整方向由「重新探索定位」進入。詳見 [0.7 操作與部署](./docs/development/member-toolkit.md)。既有共創與 Repo 指引見 [0.5 版本紀錄](./docs/releases/2026-09-23-collaboration-optimization.md)、[原計畫對照](./docs/development/plan-drift-2026-09-23.md) 與[網站／Agent 開發導覽](./docs/development/agent-development-guide.md)。
 

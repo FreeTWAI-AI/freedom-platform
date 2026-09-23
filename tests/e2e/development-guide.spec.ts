@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './fixtures.js';
 
 test('development hints stay collapsed and follow the current page on desktop and phone',async({page})=>{
  await page.goto('/');

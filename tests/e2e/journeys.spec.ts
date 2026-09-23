@@ -1,4 +1,4 @@
-import { test,expect,type Page } from '@playwright/test';
+import { test,expect,type Page } from './fixtures.js';
 
 async function login(page:Page,email:string) {
   await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill(email);

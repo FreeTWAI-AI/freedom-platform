@@ -1,0 +1,42 @@
+.admin-guild-management .admin-guild-filter { max-width: 560px; }
+.admin-guild-management .admin-guild-list { display: grid; gap: 16px; }
+.admin-guild-management .admin-guild-card { min-width: 0; }
+.admin-guild-management .admin-guild-card.is-editing { border-color: #63743c; }
+.admin-guild-management .admin-guild-heading { display: flex; justify-content: space-between; align-items: start; gap: 24px; }
+.admin-guild-management .admin-guild-heading > div { min-width: 0; }
+.admin-guild-management .admin-guild-heading h3 { margin: 0; font-size: 1.1rem; }
+.admin-guild-management .admin-guild-heading p { margin: 8px 0 0; font-size: .85rem; line-height: 1.65; color: #aeb5c2; }
+.admin-guild-management .admin-guild-heading .admin-guild-current { color: #d8e7b3; }
+.admin-guild-management .admin-guild-heading > .btn { flex-shrink: 0; }
+.admin-guild-management .admin-guild-picker { border-top: 1px solid #333943; padding-top: 20px; }
+.admin-guild-management .admin-guild-candidate-search { display: flex; align-items: end; gap: 12px; }
+.admin-guild-management .admin-guild-candidate-search .field { flex: 1; min-width: 0; margin: 0; }
+.admin-guild-management .admin-guild-candidate-search > .btn { flex-shrink: 0; }
+.admin-guild-management .admin-candidate-scopes { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-guild-management .admin-candidate-scopes [aria-pressed=true] { color: #d7ff84; border-color: #6f8838; background: #c4ff2010; }
+.admin-guild-management .admin-candidate-count { font-size: .85rem; color: #bdc8da; margin: 0; }
+.admin-guild-management .admin-candidate-list { display: grid; gap: 8px; padding: 0; margin: 0; border: 0; min-width: 0; }
+.admin-guild-management .admin-candidate-list legend { font-size: .9rem; color: #c5cddd; padding: 0 0 10px; }
+.admin-guild-management .admin-candidate { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 14px; align-items: center; padding: 14px; border: 1px solid #3b4453; border-radius: 10px; cursor: pointer; min-height: 70px; }
+.admin-guild-management .admin-candidate.is-selected { border-color: #a2c947; background: #c4ff200a; }
+.admin-guild-management .admin-candidate:has(input:focus-visible) { outline: 2px solid #c4ff20; outline-offset: 2px; }
+.admin-guild-management .admin-candidate.is-unavailable { cursor: default; background: #08090b; }
+.admin-guild-management .admin-candidate input { margin: 0; }
+.admin-guild-management .admin-candidate strong { color: #eef1f8; font-size: .95rem; overflow-wrap: anywhere; }
+.admin-guild-management .admin-candidate-email { display: block; margin-top: 4px; font-size: .8rem; color: #aeb5c2; overflow-wrap: anywhere; }
+.admin-guild-management .admin-candidate-status { font-size: .75rem; color: #d3e4ae; }
+.admin-guild-management .admin-candidate.is-unavailable .admin-candidate-status { color: #c0c7d3; }
+.admin-guild-management .admin-candidate-empty { padding: 20px; border: 1px dashed #414b5a; border-radius: 10px; }
+.admin-guild-management .admin-candidate-empty p { margin: 0 0 12px; font-size: .85rem; color: #aeb5c2; }
+.admin-guild-management .admin-guild-appointment { border-top: 1px solid #333943; padding-top: 20px; }
+.admin-guild-management .admin-candidate-selected { margin: 0; overflow-wrap: anywhere; color: #cbd3e2; }
+.admin-guild-management .admin-guild-success { color: #d7ff84; }
+@media(max-width:600px){
+  .admin-guild-management .admin-guild-heading { flex-direction: column; gap: 14px; }
+  .admin-guild-management .admin-guild-candidate-search { flex-direction: column; align-items: stretch; }
+  .admin-guild-management input,.admin-guild-management select,.admin-guild-management textarea { font-size: 16px; }
+  .admin-guild-management .admin-candidate { gap: 10px; grid-template-columns: auto minmax(0,1fr); }
+  .admin-guild-management .admin-candidate-status { grid-column: 2; }
+  .admin-guild-management .admin-candidate-scopes { display: grid; }
+  .admin-guild-management .admin-guild-appointment .actions { display: grid; grid-template-columns: 1fr 1fr; }
+}

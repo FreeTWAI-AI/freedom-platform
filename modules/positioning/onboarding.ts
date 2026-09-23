@@ -154,7 +154,7 @@ export async function setPrimaryGuild(pool:Pool,input:Command,guildKey:string){
 export async function guildDirectory(pool:Pool,actor:Actor){
  const result=(await pool.query(`SELECT g.*,CASE WHEN m.membership_id IS NULL THEN NULL ELSE jsonb_build_object('membership_id',m.membership_id,'state',m.state,'rank',m.rank,'aggregate_version',m.aggregate_version) END AS membership,
      COALESCE(p.primary_guild_key=g.guild_key,false) AS is_primary,
-     CASE WHEN u.user_id IS NULL THEN NULL ELSE jsonb_build_object('display_name',u.display_name) END AS guild_master,
+     CASE WHEN u.user_id IS NULL THEN NULL ELSE jsonb_build_object('user_id',u.user_id,'display_name',u.display_name) END AS guild_master,
      CASE WHEN u.user_id IS NULL AND a.admin_id IS NOT NULL THEN jsonb_build_object('display_name',a.display_name,'state','pending') ELSE NULL END AS guild_master_nominee
    FROM positioning_guild_catalog g
    LEFT JOIN positioning_profession_memberships m ON m.guild_key=g.guild_key AND m.community_id=$1 AND m.user_id=$2
@@ -167,11 +167,11 @@ export async function guildDirectory(pool:Pool,actor:Actor){
  return Promise.all(result.map(async guild=>({...guild,skill_books:await listGuildSkillBooks(pool,actor.community_id,guild.guild_key)})));
 }
 export async function memberPositioningSummary(pool:Queryable,communityId:string,userId:string){
- const membership=(await pool.query(`SELECT g.guild_key,g.name,COALESCE(p.primary_guild_key=g.guild_key,false) AS is_primary FROM positioning_profession_memberships m
+ const membership=(await pool.query(`SELECT g.guild_key,g.name,m.joined_at,COALESCE(p.primary_guild_key=g.guild_key,false) AS is_primary FROM positioning_profession_memberships m
   JOIN positioning_guild_catalog g USING(guild_key) LEFT JOIN guild_member_preferences p ON p.community_id=m.community_id AND p.user_id=m.user_id
   WHERE m.community_id=$1 AND m.user_id=$2 AND m.state='active' ORDER BY g.guild_key`,[communityId,userId])).rows;
  const row=(await pool.query("SELECT published_profile FROM onboarding_assessments WHERE community_id=$1 AND user_id=$2",[communityId,userId])).rows[0];
- const primary=membership.find(g=>g.is_primary),select=(g:any)=>({guild_key:g.guild_key,name:g.name}),profile=row?.published_profile;
+ const primary=membership.find(g=>g.is_primary),select=(g:any)=>({guild_key:g.guild_key,name:g.name,joined_at:new Date(g.joined_at).toISOString()}),profile=row?.published_profile;
  return {positioning_title:primary?(guildTitles[primary.guild_key]??'專業探索者'):null,primary_guild:primary?select(primary):null,secondary_guilds:membership.filter(g=>!g.is_primary).map(select),capabilities:profile?.capabilities??[],equipment:profile?.equipment??[],custom_capabilities:profile?.custom_capabilities??[],custom_equipment:profile?.custom_equipment??[],featured_capabilities:featuredChoices(profile)};
 }
 const ApplicationInput=z.object({name:z.string().trim().min(2).max(100),profession:z.string().trim().min(1).max(160),reason:z.string().trim().min(10).max(2000)}).strict();

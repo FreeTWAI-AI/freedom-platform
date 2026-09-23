@@ -13,6 +13,7 @@
 | `GET /guild-applications?state=pending&limit=25&offset=0` | state 為 pending、approved、declined、all。回傳申請、申請者姓名與 email，以及審查者、理由、時間、核准的 guild key。 |
 | `POST /guild-applications/:id/review` | `{decision:'approve'|'reject',reason,guild?}`。核准必須提供完整 guild，拒絕不得帶 guild。每件僅能處理一次；重試相同操作回原結果。 |
 | `GET /guilds` | `{items}`；包含公會目錄、有效會員數、`guild_master:{user_id,display_name}|null`、`officer_version:number|null`。 |
+| `GET /guilds/:key/master-candidates?q=&scope=eligible&limit=20&offset=0` | 在整份本站會員資料篩選後分頁，回傳 `{items,total,next_offset}`。`q` 搜尋暱稱／Email 的字面片段；`scope=eligible` 只列有效公會成員，`scope=all` 同時列出不符合條件者及原因。人選包含 `user_id,display_name,email,active,eligible,eligibility_reason,is_current`；原因為 `inactive`／`not_joined` 或 null。管理專用結果不可放進公開會員名冊。 |
 | `POST /guilds/:key/master` | `{user_id,reason}`；目標必須是同社群、有效且已加入該公會的會員。首次任命不傳 If-Match，後續任命使用 officer_version。 |
 | `GET /admins` | `{items}`；管理名單、有效狀態、aggregate_version、access_state 及是否有相同 email 的會員。相同 email 不代表已驗證帳號歸屬。 |
 | `POST /members/:id/admin` | `{reason,confirmed:true}`，使用會員 aggregate_version；任命同社群的啟用中會員。已有管理紀錄回409，改用狀態操作。 |
@@ -36,6 +37,8 @@
 目前基礎公會目錄為全域資料；資料庫只有一個社群時可核准建立新公會。若有多個社群，核准回 `409 guild_catalog_scope_required`，待目錄隔離完成後再開放；會員、申請、管理名單、操作紀錄及任命一律依管理員的 community_id 限定。
 
 公會長明確離會時，任命會在同一交易解除。每次任命取得單調遞增版本；即使離會後重新任命，舊版本也不能覆蓋新任命。停用會員不會移除 Access 管理權：管理員身分與一般會員帳號分別管理。因此即使有人用管理員信箱搶註冊尚未驗證的會員，仍可停用該會員，不會鎖死真正管理員。
+
+後台「公會管理」先找公會，再按「設定公會長」。人選搜尋直接限定該公會，可按暱稱或 Email 找人、載入更多、點選人選及確認任命。搜尋所有會員時，未入會及停用者仍可見，旁邊顯示不能任命的原因；不再把搜尋結果偷偷過濾成空選單。更改查詢會清除舊人選，較慢的舊回應不能覆蓋新結果。任命仍由伺服器重新檢查資格及版本，不會因出現在搜尋結果就直接取得職務，也不會替未入會的人自動加入。
 
 `/admins` 的 `identity_binding` 為 `no_member_account`、`unverified_email_match` 或 `verified_email_match`。API 同時提供 `member_account_present`、`member_account_active`、`member_email_verified`；未驗證相同地址不得標示為已確認的管理員會員身分。本模組不提供公開授權管理員、email 密碼重設或自動 email 身分綁定功能。
 

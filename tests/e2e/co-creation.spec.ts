@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 
 test('member reads GitHub-backed co-creation tasks, copies a bounded brief, and sees merged PR authors',async({page,context})=>{
   const browserErrors:string[]=[];page.on('pageerror',error=>browserErrors.push(error.message));

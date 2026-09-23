@@ -1,7 +1,7 @@
 // Live public deployment verification. Creates exactly one clearly synthetic member.
 // The operator must deactivate that member afterward using the private run record.
 // No database credentials, demo users, Cloudflare changes, or business writes.
-import { chromium, request, expect } from '@playwright/test';
+import { chromium, request, expect as baseExpect } from '@playwright/test';
 import { randomUUID, randomBytes } from 'node:crypto';
 import sharp from 'sharp';
 import { mkdir, chmod, readFile, writeFile } from 'node:fs/promises';
@@ -13,6 +13,9 @@ if (target.protocol !== 'https:' || target.username || target.password || target
   throw new Error('FREEDOM_PUBLIC_ORIGIN must be a plain HTTPS origin.');
 }
 const origin = target.origin;
+// Unlike the test runner, this live script does not inherit playwright.config.
+// Allow the actual HTTPS/Access route its bounded network budget.
+const expect=baseExpect.configure({timeout:20000});
 const evidence = join(homedir(), '.local/state/freedom-public/verification');
 await mkdir(evidence, { recursive: true, mode: 0o700 });
 await chmod(evidence, 0o700);
@@ -93,7 +96,7 @@ try {
     expect((await art.body()).byteLength).toBeGreaterThan(1000);
   }
   expect((await anonymous.get(origin + '/api/v1/session', { maxRedirects: 0 })).status()).toBe(401);
-  for(const path of ['/admin','/admin/api/bootstrap']) {
+  for(const path of ['/admin','/admin/api/bootstrap','/admin/api/guilds/guild_security/master-candidates']) {
     const admin=await anonymous.get(origin+path,{maxRedirects:0});
     expect(admin.status()).toBe(302);expect(admin.headers().location).toContain('cloudflareaccess.com');
   }
@@ -283,6 +286,35 @@ try {
   const account = await accountResponse.json();
   expect(account.contacts.email.value).toBe(email);
   expect(account.contacts.discord.value === privateContact && JSON.stringify([...account.contacts.discord.audiences].sort()) === JSON.stringify(['friends','guild'])).toBe(true);
+  stage='multiple social links and per-entry persistence';
+  const socialSession=await (await page.request.get(origin+'/api/v1/session')).json();
+  secrets.push(socialSession.csrf_token);
+  const socialWrite=async(path,body,version)=>{
+    const response=await page.request.post(origin+'/api/v1'+path,{headers:{Origin:origin,'X-CSRF-Token':socialSession.csrf_token,'Idempotency-Key':randomUUID(),...(version?{'If-Match':`"${version}"`}:{})},data:body});
+    expect(response.ok(),'Synthetic social link write').toBe(true);return response.json();
+  };
+  const socialBodies=[
+    {platform:'facebook',label:'部署驗證粉絲團一',url:'https://www.facebook.com/freedom-verification-'+runId+'-one',audiences:[]},
+    {platform:'facebook',label:'部署驗證粉絲團二',url:'https://www.facebook.com/freedom-verification-'+runId+'-two',audiences:[]},
+    {platform:'instagram',label:'部署驗證 IG',url:'https://www.instagram.com/freedom_verify_'+runId.slice(0,8)+'/',audiences:[]},
+  ];
+  const socialEntries=[];
+  for(const body of socialBodies)socialEntries.push(await socialWrite('/me/social-links',body));
+  const socialPage=await (await page.request.get(origin+'/api/v1/me/social-links?limit=2&offset=0')).json();
+  expect(socialPage.total).toBe(3);expect(socialPage.items).toHaveLength(2);expect(socialPage.next_offset).toBe(2);
+  const changedLink=await socialWrite('/me/social-links/'+socialEntries[1].link_id+'/edit',{...socialBodies[1],label:'部署驗證粉絲團二・已更新'},socialEntries[1].aggregate_version);
+  expect(changedLink.label).toBe('部署驗證粉絲團二・已更新');expect(changedLink.audiences).toEqual([]);
+  await socialWrite('/me/social-links/'+socialEntries[0].link_id+'/delete',{},socialEntries[0].aggregate_version);
+  const socialPersisted=await (await page.request.get(origin+'/api/v1/me/social-links')).json();
+  expect(socialPersisted.total).toBe(2);expect(socialPersisted.items.some(link=>link.link_id===socialEntries[0].link_id)).toBe(false);
+  expect((await anonymous.get(origin+'/api/v1/members/'+record.user_id+'/social-links')).status()).toBe(401);
+  const visibleSocial=await (await page.request.get(origin+'/api/v1/members/'+record.user_id+'/social-links')).json();
+  expect(visibleSocial.total).toBe(2);
+  await page.reload({waitUntil:'networkidle'});
+  await expect(page.locator('.member-card').getByRole('link',{name:/部署驗證粉絲團二・已更新/})).toBeVisible();
+  await expect(page.locator('.member-card').getByRole('link',{name:/部署驗證 IG/})).toBeVisible();
+  console.log('Multiple same-platform social links, paged persistence, individual edit/delete and anonymous privacy: PASS');
+  stage='member card and directory';
   const selfResponse = await page.request.get(origin + '/api/v1/members/' + record.user_id);
   expect(selfResponse.status()).toBe(200);
   const self = await selfResponse.json();
@@ -301,6 +333,19 @@ try {
   await expect(page.locator('.primary-guild')).toContainText('公會長：');
   await expect(page.locator('.guild-card').first()).toHaveClass(/primary-guild/);
   await expect(page.locator('.guild-card').first()).toContainText('公會技能庫');
+  await page.locator('.guild-card').first().getByRole('button',{name:'查看成員',exact:true}).click();
+  const guildMembers=page.locator('#members-'+onboarding.primary_guild_key);
+  await expect(guildMembers).toBeVisible();
+  await guildMembers.getByRole('searchbox',{name:'搜尋公會成員',exact:true}).fill(nickname);
+  await guildMembers.getByRole('button',{name:'搜尋成員',exact:true}).click();
+  await expect(guildMembers.locator('.directory-rows')).toHaveAttribute('aria-busy','false');
+  await expect(guildMembers.locator('.directory-member')).toHaveCount(1);
+  await expect(guildMembers.locator('.directory-member')).toHaveAttribute('data-member-id',record.user_id);
+  await expect(guildMembers).toContainText('顯示 1 / 1 位成員');
+  await noOverflow('Guild members mobile overflow');
+  await page.locator('.guild-card').first().getByRole('button',{name:'收起成員',exact:true}).click();
+  await expect(guildMembers).toHaveCount(0);
+  console.log('Guild member list opens in-place, filters only that guild and closes cleanly: PASS');
   await page.locator('.guild-card').first().locator('.skill-intro-trigger').first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('dialog').getByRole('link',{name:'原作者 GitHub ↗',exact:true})).toHaveAttribute('href',/^https:\/\/github\.com\//);
@@ -318,11 +363,37 @@ try {
   await expect(page.getByRole('button', { name: '我的名片', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '工坊夥伴', exact: true }).click();
   await expect(page.getByRole('heading', { name: '工坊夥伴', exact: true }).first()).toBeVisible();
-  await expect(page.getByRole('status').filter({ hasText: '正在尋找工坊夥伴' })).toHaveCount(0);
+  await expect(page.locator('.member-directory')).toHaveAttribute('aria-busy','false');
+  const directoryQuery=new URLSearchParams({search:nickname,guild_key:onboarding.primary_guild_key,sort:'newest',limit:'1'});
+  const directoryResponse=await page.request.get(origin+'/api/v1/members?'+directoryQuery);
+  expect(directoryResponse.status()).toBe(200);
+  const directory=await directoryResponse.json();
+  expect(directory.total).toBe(1);expect(directory.next_offset).toBeNull();
+  expect(directory.items).toHaveLength(1);
+  expect(directory.items[0]).toMatchObject({user_id:record.user_id,joined_at_source:'registered'});
+  expect(Number.isFinite(Date.parse(directory.items[0].joined_at))).toBe(true);
+  const privateSearch=await page.request.get(origin+'/api/v1/members?'+new URLSearchParams({search:privateContact}));
+  expect(privateSearch.status()).toBe(200);expect((await privateSearch.json()).total).toBe(0);
+  await page.getByRole('searchbox',{name:'搜尋夥伴',exact:true}).fill(nickname);
+  await page.getByRole('button',{name:'搜尋',exact:true}).click();
+  await page.getByLabel('依公會篩選',{exact:true}).selectOption(onboarding.primary_guild_key);
+  await page.getByLabel('排序方式',{exact:true}).selectOption('oldest');
+  await expect(page.locator('.member-directory')).toHaveAttribute('aria-busy','false');
+  await expect(page.locator('.directory-member')).toHaveCount(1);
+  const directoryRow=page.locator('.directory-member');
+  await expect(directoryRow).toHaveAttribute('data-member-id',record.user_id);
+  await expect(page.locator('.directory-result-count')).toHaveText('顯示 1 / 1 位夥伴');
+  await expect(directoryRow.locator('.directory-member-details')).not.toHaveAttribute('open','');
+  await expect(directoryRow.locator('.directory-member-meta time')).toHaveAttribute('datetime',directory.items[0].joined_at);
+  await directoryRow.getByText('更多資料',{exact:true}).click();
+  await expect(directoryRow.getByText(privateContact,{exact:true})).toBeVisible();
+  await expect(directoryRow.getByRole('heading',{name:'公會加入紀錄',exact:true})).toBeVisible();
+  await expect(directoryRow.locator('.directory-guild-dates time').first()).toBeVisible();
   await noVisibleError();
   await noOverflow('Member directory mobile overflow');
-  // No directory screenshot: preserve only this run's synthetic member and generic public surfaces.
-  console.log('Own member card, contact-audience persistence, Guild identity and responsive member navigation: PASS');
+  // The filtered page contains only this run's synthetic member.
+  await screenshot('public-member-directory-mobile.png');
+  console.log('Own member card, contact privacy, directory search/Guild filter/sort/joining date/fold and responsive navigation: PASS');
 
   stage = 'specialist Guilds and real co-creation repository';
   const guildResponse=await page.request.get(origin+'/api/v1/guilds/directory');

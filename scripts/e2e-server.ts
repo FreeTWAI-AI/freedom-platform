@@ -6,12 +6,13 @@ import { createApp } from '../apps/platform-api/src/app.js';
 import { migrate } from './database.js';
 import { seedLocal } from '../packages/testing/seed.js';
 import { collaborationGitHubFixture } from '../packages/testing/github-collaboration.js';
+import { e2eSchema } from '../packages/testing/e2e-auth-isolation.js';
 
 if(process.env.NODE_ENV==='production'||(process.env.FREEDOM_ENV&&process.env.FREEDOM_ENV!=='local'))throw Error('Browser test server is local-only.');
 if(process.env.FREEDOM_E2E_GITHUB_FIXTURES==='1')globalThis.fetch=async input=>collaborationGitHubFixture(input);
 
 // Dedicated schema; browser tests never reset the user's local demo records.
-const schema=`fp_e2e_${process.pid}_${Date.now()}`;
+const schema=e2eSchema(process.env.FREEDOM_E2E_SCHEMA);
 const url=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
 const admin=createPool(url);await admin.query(`CREATE SCHEMA ${schema}`);
 const pool=new Pool({connectionString:url,options:`-c search_path=${schema}`});

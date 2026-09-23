@@ -5,6 +5,8 @@ import { command,checkVersion,journal,transaction,type Command } from '../../pac
 import { requireCondition } from '../../packages/shared/problem.js';
 import { hashPasswordAsync,tokenHash,type Actor } from './service.js';
 import { memberPositioningSummary } from '../positioning/onboarding.js';
+import {guildTitles} from '../positioning/assessment.js';
+import {capabilityCategories} from '../community/catalog.js';
 import { avatarMetadata, avatarUrl } from './avatars.js';
 
 const audienceKeys=['public','friends','squad','guild'] as const;
@@ -79,8 +81,8 @@ async function ensureAccount(q:Pool|PoolClient,actor:Actor) {
 }
 export async function accountView(pool:Pool,actor:Actor) {
   await ensureAccount(pool,actor);
-  const row=(await pool.query(`SELECT a.*,u.email,u.display_name,u.email_verified_at FROM member_accounts a JOIN users u USING(user_id) WHERE a.user_id=$1 AND a.community_id=$2`,[actor.user_id,actor.community_id])).rows[0];
-  return {user_id:row.user_id,nickname:row.display_name,login_email:row.email,email_verified:Boolean(row.email_verified_at),contacts:Object.fromEntries(Object.entries(normalizedContacts(row.contacts,row.email)).map(([key,value])=>[key,{...value,verified:false}])),aggregate_version:row.aggregate_version,avatar:await avatarMetadata(pool,actor)};
+  const row=(await pool.query(`SELECT a.*,u.email,u.display_name,u.email_verified_at,u.created_at,u.created_at_source FROM member_accounts a JOIN users u USING(user_id) WHERE a.user_id=$1 AND a.community_id=$2`,[actor.user_id,actor.community_id])).rows[0];
+  return {user_id:row.user_id,nickname:row.display_name,joined_at:row.created_at?new Date(row.created_at).toISOString():null,joined_at_source:row.created_at_source,login_email:row.email,email_verified:Boolean(row.email_verified_at),contacts:Object.fromEntries(Object.entries(normalizedContacts(row.contacts,row.email)).map(([key,value])=>[key,{...value,verified:false}])),aggregate_version:row.aggregate_version,avatar:await avatarMetadata(pool,actor)};
 }
 export async function saveAccount(pool:Pool,input:Command) {
   const body=AccountInput.parse(input.body);
@@ -106,7 +108,7 @@ export async function memberCard(pool:Pool,actor:Actor,id:string) {
   // Contact values and their audience predicates must share ONE database snapshot.
   // Split reads can combine an old friendship with a newly changed private value.
   const [projection,positioning]=await Promise.all([
-    pool.query(`SELECT u.user_id,u.display_name,u.email,account.contacts,avatar.aggregate_version AS avatar_version,avatar.image_bytes IS NOT NULL AS avatar_present,
+    pool.query(`SELECT u.user_id,u.display_name,u.created_at,u.created_at_source,u.email,account.contacts,avatar.aggregate_version AS avatar_version,avatar.image_bytes IS NOT NULL AS avatar_present,
       (SELECT jsonb_build_object('state',f.state,'requester_ref',f.requester_ref,'aggregate_version',f.aggregate_version) FROM member_friendships f WHERE f.community_id=$1 AND f.low_ref=$2 AND f.high_ref=$3) AS friendship,
       EXISTS(SELECT 1 FROM positioning_profession_memberships a JOIN positioning_profession_memberships b USING(community_id,guild_key) WHERE a.community_id=$1 AND a.user_id=$4 AND b.user_id=$5 AND a.state='active' AND b.state='active') AS guild,
       EXISTS(SELECT 1 FROM member_squad_memberships a JOIN member_squad_memberships b USING(squad_id) JOIN member_squads s USING(squad_id) WHERE s.community_id=$1 AND a.user_id=$4 AND b.user_id=$5 AND a.state='active' AND b.state='active') AS squad
@@ -121,11 +123,45 @@ export async function memberCard(pool:Pool,actor:Actor,id:string) {
     const audience=field.audiences;
     if(field.value&&(isSelf||audience.includes('public')||audience.includes('friends')&&relation.friendship?.state==='accepted'||audience.includes('guild')&&relation.guild||audience.includes('squad')&&relation.squad))contacts[key]=field.value;
   }
-  return {user_id:id,nickname:relation.display_name,...positioning,avatar_url:avatarUrl(id,relation.avatar_version,relation.avatar_present),contacts,is_self:isSelf,friendship:relation.friendship??{state:'none'}};
+  return {user_id:id,nickname:relation.display_name,joined_at:relation.created_at?new Date(relation.created_at).toISOString():null,joined_at_source:relation.created_at_source,...positioning,avatar_url:avatarUrl(id,relation.avatar_version,relation.avatar_present),contacts,is_self:isSelf,friendship:relation.friendship??{state:'none'}};
 }
-export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:number) {
-  const rows=(await pool.query(`SELECT user_id FROM users WHERE community_id=$1 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL) ORDER BY display_name,user_id LIMIT $2 OFFSET $3`,[actor.community_id,limit+1,offset])).rows;
-  return {items:await Promise.all(rows.slice(0,limit).map(row=>memberCard(pool,actor,row.user_id))),next_offset:rows.length>limit?offset+limit:null};
+export const MemberDirectoryQuery=z.object({
+ limit:z.coerce.number().int().min(1).max(50).default(20),offset:z.coerce.number().int().min(0).max(10000).default(0),
+ search:z.string().trim().max(100).refine(value=>!/[\x00-\x1f\x7f]/.test(value),'請使用單行搜尋文字。').default(''),
+ guild_key:z.union([z.literal(''),z.string().max(100).regex(/^guild_[a-z0-9_]+$/)]).default(''),
+ sort:z.enum(['newest','oldest','nickname']).default('nickname'),
+}).strict();
+type MemberDirectoryFilters=Partial<Pick<z.infer<typeof MemberDirectoryQuery>,'search'|'guild_key'|'sort'>>;
+const capabilityLabels=Object.fromEntries(capabilityCategories.flatMap(category=>category.items.map(option=>[option.id,option.label])));
+const memberSort={newest:'created_at DESC NULLS LAST,user_id',oldest:'created_at ASC NULLS LAST,user_id',nickname:'lower(display_name),display_name,user_id'} as const;
+export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:number,filters:MemberDirectoryFilters={}) {
+  const input=MemberDirectoryQuery.parse({...filters,limit,offset});
+  // Search only the public, last-confirmed profile. Raw assessment answers,
+  // occupation, drafts and contact handles/email are never search predicates.
+  // Count and page selection share one snapshot; filtering happens before LIMIT.
+  const result=(await pool.query(`WITH visible AS (
+    SELECT u.user_id,u.display_name,u.created_at,a.published_profile,
+      CASE WHEN EXISTS(SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=u.community_id
+        AND m.user_id=u.user_id AND m.guild_key=p.primary_guild_key AND m.state='active')
+        THEN COALESCE($6::jsonb->>p.primary_guild_key,'專業探索者') ELSE NULL END AS positioning_title
+    FROM users u LEFT JOIN onboarding_assessments a ON a.user_id=u.user_id AND a.community_id=u.community_id
+      LEFT JOIN guild_member_preferences p ON p.user_id=u.user_id AND p.community_id=u.community_id
+    WHERE u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
+      AND ($5='' OR EXISTS(SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=u.community_id
+        AND m.user_id=u.user_id AND m.guild_key=$5 AND m.state='active'))
+  ), matched AS (
+    SELECT user_id,display_name,created_at FROM visible
+    WHERE $4='' OR strpos(lower(display_name),lower($4))>0 OR strpos(lower(positioning_title),lower($4))>0
+      OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(COALESCE(published_profile->'capabilities','[]'::jsonb)) AS capability(id)
+        WHERE strpos(lower(COALESCE($7::jsonb->>capability.id,capability.id)),lower($4))>0
+          OR strpos(lower(capability.id),lower($4))>0)
+      OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(COALESCE(published_profile->'custom_capabilities','[]'::jsonb)) AS custom(label)
+        WHERE strpos(lower(custom.label),lower($4))>0)
+  ) SELECT (SELECT count(*)::int FROM matched) AS total,
+    ARRAY(SELECT user_id FROM matched ORDER BY ${memberSort[input.sort]} LIMIT $2 OFFSET $3) AS user_ids`,
+    [actor.community_id,input.limit,input.offset,input.search,input.guild_key,JSON.stringify(guildTitles),JSON.stringify(capabilityLabels)])).rows[0];
+  const items=await Promise.all((result.user_ids as string[]).map(id=>memberCard(pool,actor,id)));
+  return {items,total:result.total,next_offset:input.offset+input.limit<result.total?input.offset+input.limit:null};
 }
 export async function listFriends(pool:Pool,actor:Actor) {
   return (await pool.query(`SELECT u.user_id,u.display_name AS nickname,f.state,f.requester_ref,f.aggregate_version FROM member_friendships f JOIN users u ON u.user_id=CASE WHEN f.low_ref=$2 THEN f.high_ref ELSE f.low_ref END WHERE f.community_id=$1 AND (f.low_ref=$2 OR f.high_ref=$2) AND f.state<>'removed' AND u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) ORDER BY f.updated_at DESC LIMIT 100`,[actor.community_id,actor.user_id])).rows;

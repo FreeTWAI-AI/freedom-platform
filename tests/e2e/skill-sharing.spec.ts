@@ -1,4 +1,4 @@
-import {test,expect,type Page} from '@playwright/test';
+import {test,expect,type Page} from './fixtures.js';
 
 const metadata=(book_id:string,extra:Record<string,unknown>={})=>({book_id,published_at:null,official_guild_keys:[],is_new_today:false,week_rank:null,month_rank:null,week_stars:0,month_stars:0,...extra});
 const discovery={as_of:'2026-09-23T14:00:00Z',timezone:'Asia/Taipei',ranking_basis:'distinct_verified_workshop_stars',books:[metadata('social-post',{official_guild_keys:['marketing'],week_rank:2,month_rank:1,week_stars:2,month_stars:7}),metadata('video-autopilot',{week_rank:1,month_rank:2,week_stars:5,month_stars:6}),metadata('event-space',{is_new_today:true,published_at:'2026-09-23T08:00:00Z'})],weekly:[{book_id:'video-autopilot',rank:1,stars:5},{book_id:'social-post',rank:2,stars:2}],monthly:[{book_id:'social-post',rank:1,stars:7},{book_id:'video-autopilot',rank:2,stars:6}]};

@@ -1,0 +1,19 @@
+.guilds-panel .guild-card.members-open { grid-column: 1 / -1; }
+.guild-members { display: grid; gap: 16px; min-width: 0; margin-top: 16px; padding-top: 20px; border-top: 1px solid #333943; }
+.guild-members-heading { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; align-items: center; }
+.guild-members-heading h4 { margin: 0; color: #f4f6ef; font-size: 1rem; }
+.guild-members-heading p { color: #aeb5c2; font-size: .85rem; }
+.guild-members-filters { display: grid; grid-template-columns: minmax(0,1fr) minmax(150px,.6fr) auto; align-items: end; gap: 12px; }
+.guild-members-filters .field { min-width: 0; margin: 0; }
+.guild-members-filters .btn { min-height: 44px; }
+.guild-members .directory-member-name h3 { font-size: 1.1rem; }
+.guild-members .directory-member-meta .guild-member-leader { color: #d2ff61; border-color: #626f3a; background: #c4ff2012; }
+.guild-members-empty { padding: 20px; border: 1px dashed #333943; border-radius: 12px; color: #aeb5c2; }
+.guild-members > .btn { justify-self: start; }
+@media(max-width:600px) {
+  .guild-members-filters { grid-template-columns: minmax(0,1fr); }
+  .guild-members-filters input,.guild-members-filters select { font-size: 16px; }
+  .guild-members .directory-member { padding: 14px 12px 0; }
+  .guild-members .directory-member-name h3 { font-size: 1rem; }
+  .guild-members .directory-member-skills { padding-left: 0; }
+}

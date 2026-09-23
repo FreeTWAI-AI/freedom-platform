@@ -1,0 +1,55 @@
+import {test,expect,type Page,type Route} from './fixtures.js';
+
+const guildKey='guild_test',csrf='synthetic-admin-csrf';
+const candidate=(id:string,extra:Record<string,unknown>={})=>({user_id:id,display_name:`人選 ${id}`,email:`${id}@example.test`,active:true,eligible:true,eligibility_reason:null,is_current:false,...extra});
+type Fixture={candidates:(route:Route)=>Promise<void>;appoint?:(route:Route)=>Promise<void>;members?:(route:Route)=>Promise<void>;expectedVersion?:()=>number};
+async function setup(page:Page,options:Fixture){
+  let current:{user_id:string;display_name:string}|null=null,version=7;let generalReads=0;
+  await page.route('**/admin/api/**',async route=>{
+    const path=new URL(route.request().url()).pathname.replace('/admin/api','');
+    if(path==='/bootstrap')return route.fulfill({json:{admin:{admin_id:'synthetic-admin',display_name:'測試管理員',email:'admin@example.test',role:'super_admin',community_id:'synthetic-community'},csrf_token:csrf,summary:{members:40,active_members:40,pending_guild_applications:0,guilds:1,admins:1},available_skill_books:[],pending_guild_appointments:[]}});
+    if(path==='/members'){generalReads++;if(options.members)return options.members(route);return route.fulfill({json:{items:[],next_offset:null}});}
+    if(path==='/guilds')return route.fulfill({json:{items:[{guild_key:guildKey,name:'測試活動公會',purpose:'一起安排活動與聚會',guild_master:current,officer_version:version}]}});
+    if(path===`/guilds/${guildKey}/master-candidates`)return options.candidates(route);
+    if(path===`/guilds/${guildKey}/master`){const body=route.request().postDataJSON();expect(route.request().headers()['x-admin-csrf']).toBe(csrf);expect(route.request().headers()['if-match']).toBe(`"${options.expectedVersion?.()??7}"`);current={user_id:body.user_id,display_name:`人選 ${body.user_id}`};version=8;return options.appoint?options.appoint(route):route.fulfill({json:{user_id:body.user_id,aggregate_version:8}});}
+    return route.fulfill({status:404,json:{detail:'Unexpected synthetic request'}});
+  });
+  await page.goto('/admin');await page.getByRole('button',{name:'公會管理',exact:true}).click();await page.getByRole('button',{name:'設定公會長',exact:true}).click();
+  return {panel:page.getByRole('region',{name:'測試活動公會公會長人選',exact:true}),reads:()=>generalReads,setGuild:(nextVersion:number,nextCurrent:{user_id:string;display_name:string}|null)=>{version=nextVersion;current=nextCurrent;}};
+}
+
+test('guild candidates paginate independently from the general member list and show a named appointment result',async({page})=>{
+  const queries:URLSearchParams[]=[];let saved:any;
+  const {panel,reads}=await setup(page,{candidates:route=>{const query=new URL(route.request().url()).searchParams;queries.push(query);return route.fulfill({json:{items:query.get('offset')==='20'?[candidate('last')]:Array.from({length:20},(_,index)=>candidate(`candidate-${index}`)),total:21,next_offset:query.get('offset')==='20'?null:20}});},appoint:route=>{saved=route.request().postDataJSON();return route.fulfill({json:{aggregate_version:8}});}});
+  await expect(panel.getByRole('radio')).toHaveCount(20);expect(queries[0].get('scope')).toBe('eligible');expect(reads()).toBe(1);await panel.getByRole('button',{name:'查看更多人選',exact:true}).click();await panel.getByRole('radio',{name:'人選 last · last@example.test',exact:true}).check();await panel.getByLabel('任命理由',{exact:true}).fill('本人同意帶領下一輪活動');await panel.getByRole('button',{name:'確認任命',exact:true}).click();await expect(page.getByText('公會長：人選 last',{exact:true})).toBeVisible();await expect(page.getByText('已任命 人選 last 為測試活動公會會長。',{exact:true})).toBeVisible();expect(saved).toEqual({user_id:'last',reason:'本人同意帶領下一輪活動'});expect(queries.find(query=>query.get('offset')==='20')?.get('scope')).toBe('eligible');
+});
+
+test('all-member results explain unavailable people and changing the query clears a selected appointment',async({page})=>{
+  const {panel}=await setup(page,{candidates:route=>{const query=new URL(route.request().url()).searchParams;return route.fulfill({json:query.get('scope')==='eligible'?{items:[],total:0,next_offset:null}:{items:[candidate('outsider',{eligible:false,eligibility_reason:'not_joined'}),candidate('inactive',{active:false,eligible:false,eligibility_reason:'inactive'}),candidate('current',{is_current:true}),candidate('eligible')],total:4,next_offset:null}});}});
+  await expect(panel).toContainText('沒有符合的公會會員');await panel.getByRole('button',{name:'查看所有平台會員',exact:true}).click();await expect(panel.getByRole('radio',{name:'人選 outsider · outsider@example.test',exact:true})).toBeDisabled();await expect(panel.getByText('未加入此公會',{exact:true})).toBeVisible();await expect(panel.getByRole('radio',{name:'人選 inactive · inactive@example.test',exact:true})).toBeDisabled();await expect(panel.getByText('帳號已停用',{exact:true})).toBeVisible();await expect(panel.getByRole('radio',{name:'人選 current · current@example.test',exact:true})).toBeDisabled();await expect(panel.getByText('現任公會長',{exact:true})).toBeVisible();
+  await panel.getByRole('radio',{name:'人選 eligible · eligible@example.test',exact:true}).check();await panel.getByLabel('任命理由',{exact:true}).fill('本人已同意帶領公會');await expect(panel.getByRole('button',{name:'確認任命',exact:true})).toBeEnabled();await panel.getByRole('searchbox',{name:'搜尋公會長人選',exact:true}).fill('新的搜尋');await expect(panel.getByRole('button',{name:'確認任命',exact:true})).toBeDisabled();await expect(panel.getByLabel('任命理由',{exact:true})).toHaveValue('本人已同意帶領公會');await page.setViewportSize({width:320,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('a slower prior candidate request cannot replace the latest search',async({page})=>{
+  let release!:()=>void,requested!:()=>void;const pending=new Promise<void>(resolve=>{release=resolve;}),started=new Promise<void>(resolve=>{requested=resolve;});
+  const {panel}=await setup(page,{candidates:async route=>{const query=new URL(route.request().url()).searchParams;if(query.get('q')==='Mini')return route.fulfill({json:{items:[candidate('new')],total:1,next_offset:null}});requested();await pending;return route.fulfill({json:{items:[candidate('old')],total:1,next_offset:null}});}});
+  await started;await panel.getByRole('searchbox',{name:'搜尋公會長人選',exact:true}).fill('Mini');await panel.getByRole('button',{name:'查詢人選',exact:true}).click();await expect(panel.getByRole('radio',{name:'人選 new · new@example.test',exact:true})).toBeVisible();const delivered=page.waitForResponse(response=>response.url().includes('/master-candidates?')&&new URL(response.url()).searchParams.get('q')==='');release();await delivered;await expect(panel.getByRole('radio',{name:'人選 new · new@example.test',exact:true})).toBeVisible();await expect(panel.getByRole('radio',{name:'人選 old · old@example.test',exact:true})).toHaveCount(0);
+});
+
+test('unknown assignment results retain the candidate, reason and idempotency key for an explicit retry',async({page})=>{
+  const keys:string[]=[];
+  const {panel}=await setup(page,{candidates:route=>route.fulfill({json:{items:[candidate('retry')],total:1,next_offset:null}}),appoint:route=>{keys.push(route.request().headers()['idempotency-key']);return keys.length===1?route.fulfill({status:503,json:{detail:'回應中斷，任命結果尚未確認。'}}):route.fulfill({json:{aggregate_version:8}});}});
+  await panel.getByRole('radio',{name:'人選 retry · retry@example.test',exact:true}).check();await panel.getByLabel('任命理由',{exact:true}).fill('本人同意接手公會活動');await panel.getByRole('button',{name:'確認任命',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('尚未確認');await expect(panel.getByRole('radio',{name:'人選 retry · retry@example.test',exact:true})).toBeChecked();await expect(panel.getByLabel('任命理由',{exact:true})).toHaveValue('本人同意接手公會活動');await panel.getByRole('button',{name:'確認任命',exact:true}).click();await expect(page.getByText('已任命 人選 retry 為測試活動公會會長。',{exact:true})).toBeVisible();expect(keys).toHaveLength(2);expect(keys[0]).toBeTruthy();expect(keys[1]).toBe(keys[0]);
+});
+
+test('a version conflict offers a read-only refresh before selecting and appointing again',async({page})=>{
+  let attempt=0,expectedVersion=7,fixture:Awaited<ReturnType<typeof setup>>;
+  fixture=await setup(page,{expectedVersion:()=>expectedVersion,candidates:route=>route.fulfill({json:{items:[candidate('changed')],total:1,next_offset:null}}),appoint:route=>{attempt++;if(attempt===1){fixture.setGuild(8,{user_id:'other',display_name:'另一位會長'});return route.fulfill({status:412,json:{detail:'公會長任命已變更，請重新載入。'}});}return route.fulfill({json:{aggregate_version:9}});}});
+  const {panel}=fixture;await panel.getByRole('radio',{name:'人選 changed · changed@example.test',exact:true}).check();await panel.getByLabel('任命理由',{exact:true}).fill('本人同意接續管理工作');await panel.getByRole('button',{name:'確認任命',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('任命已變更');await panel.getByRole('button',{name:'重讀公會與人選',exact:true}).click();await expect(page.getByText('公會長：另一位會長',{exact:true})).toBeVisible();await expect(panel.getByRole('radio',{name:'人選 changed · changed@example.test',exact:true})).not.toBeChecked();await expect(panel.getByLabel('任命理由',{exact:true})).toHaveValue('本人同意接續管理工作');await expect(panel.getByRole('button',{name:'確認任命',exact:true})).toBeDisabled();expect(attempt).toBe(1);expectedVersion=8;await panel.getByRole('radio',{name:'人選 changed · changed@example.test',exact:true}).check();await panel.getByRole('button',{name:'確認任命',exact:true}).click();await expect(page.getByText('已任命 人選 changed 為測試活動公會會長。',{exact:true})).toBeVisible();expect(attempt).toBe(2);
+});
+
+test('general member pagination uses the submitted query while a new search is still being typed',async({page})=>{
+  const queries:URLSearchParams[]=[];
+  await setup(page,{candidates:route=>route.fulfill({json:{items:[],total:0,next_offset:null}}),members:route=>{const query=new URL(route.request().url()).searchParams;queries.push(query);const offset=Number(query.get('offset')),term=query.get('q');return route.fulfill({json:{items:[{user_id:`${term||'initial'}-${offset}`,display_name:`${term||'原始'}會員 ${offset}`,email:`sample-${offset}@example.test`,active:true,onboarding_required:false,onboarding_completed_at:null,aggregate_version:1,guilds:[]}],next_offset:offset||term?null:25}});}});
+  await page.getByRole('button',{name:'會員管理',exact:true}).click();await page.getByLabel('搜尋會員',{exact:true}).fill('新查詢');await page.getByRole('button',{name:'查看更多會員',exact:true}).click();await expect(page.getByRole('heading',{name:'原始會員 25',exact:true})).toBeVisible();expect(queries.at(-1)!.get('q')).toBe('');expect(queries.at(-1)!.get('offset')).toBe('25');await page.getByRole('button',{name:'搜尋',exact:true}).click();await expect(page.getByRole('heading',{name:'新查詢會員 0',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'原始會員 25',exact:true})).toHaveCount(0);expect(queries.at(-1)!.get('q')).toBe('新查詢');expect(queries.at(-1)!.get('offset')).toBe('0');
+});

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures.js';
 
 async function fits(page: Page, label: string) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), label).toBe(true);

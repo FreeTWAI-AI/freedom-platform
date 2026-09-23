@@ -1,4 +1,4 @@
-import {test,expect,type Page,type Locator} from '@playwright/test';
+import {test,expect,type Page,type Locator} from './fixtures.js';
 const origin='http://127.0.0.1:4311';
 async function login(page:Page,email:string){const r=await page.request.post('/api/v1/auth/login',{headers:{Origin:origin},data:{email,password:'freedom-local-demo'}});expect(r.status()).toBe(200);return r.json();}
 async function post(page:Page,session:any,path:string,body:unknown,version?:number){

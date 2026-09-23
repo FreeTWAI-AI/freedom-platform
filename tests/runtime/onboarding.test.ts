@@ -282,7 +282,7 @@ test('guild directory shows only active pending nominees in its community and ne
  assert.equal((await request('/guilds/guild_security/join',member,{})).status,200);
  await pool.query("INSERT INTO positioning_guild_officers(community_id,guild_key,user_id) VALUES($1,'guild_security',$2)",[community,member.user.user_id]);
  rows=(await request('/guilds/directory',member)).data.items;
- const appointed=rows.find((g:any)=>g.guild_key==='guild_security');assert.equal(appointed.guild_master.display_name,member.user.display_name);assert.equal(appointed.guild_master_nominee,null);
+ const appointed=rows.find((g:any)=>g.guild_key==='guild_security');assert.equal(appointed.guild_master.display_name,member.user.display_name);assert.equal(appointed.guild_master.user_id,member.user.user_id);assert.deepEqual(Object.keys(appointed.guild_master).sort(),['display_name','user_id']);assert.equal(appointed.guild_master_nominee,null);
  await pool.query("UPDATE guild_leadership_nominations SET state='bound',bound_user_id=$2,activated_at=now() WHERE community_id=$1 AND guild_key='guild_security'",[community,member.user.user_id]);
  await pool.query("DELETE FROM positioning_guild_officers WHERE community_id=$1 AND guild_key='guild_security'",[community]);
  rows=(await request('/guilds/directory',member)).data.items;

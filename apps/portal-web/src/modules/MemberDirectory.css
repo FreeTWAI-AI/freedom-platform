@@ -1,0 +1,63 @@
+.members-panel .directory-filters { display: grid; grid-template-columns: minmax(230px,1.6fr) minmax(160px,1fr) minmax(140px,.8fr) auto; align-items: end; gap: 14px; padding: 20px; border: 1px solid #333943; border-radius: 16px; background: #14161b; }
+.members-panel .directory-filters .field { min-width: 0; margin: 0; }
+.members-panel .directory-search > div { display: flex; min-width: 0; gap: 6px; align-items: center; }
+.members-panel .directory-search input { min-width: 0; flex: 1; }
+.members-panel .directory-filter-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.members-panel .directory-filter-actions .btn,.members-panel .directory-search .btn { min-height: 44px; white-space: nowrap; }
+.members-panel .directory-results-heading { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; }
+.members-panel .directory-results-heading p { margin: 0; font-size: .85rem; }
+.members-panel .directory-result-count { color: #d5dce9; }
+.members-panel .directory-options-error { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.members-panel .directory-rows { display: grid; gap: 10px; grid-template-columns: minmax(0,1fr); }
+.members-panel .directory-member { display: grid; grid-template-columns: minmax(240px,1.4fr) minmax(150px,1fr) minmax(180px,.8fr); align-items: center; column-gap: 24px; padding: 18px 22px 0; border: 1px solid #333943; border-radius: 14px; background: #14161b; min-width: 0; }
+.members-panel .directory-member-identity { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.members-panel .directory-member-identity > div:last-child { min-width: 0; }
+.members-panel .directory-member .member-avatar { width: 48px; height: 48px; border-radius: 12px; }
+.members-panel .directory-member-name { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.members-panel .directory-member-name h3 { margin: 0; font-size: 1.1rem; line-height: 1.4; overflow-wrap: anywhere; }
+.members-panel .directory-member-identity p { margin: 4px 0 0; font-size: .8rem; line-height: 1.55; overflow-wrap: anywhere; }
+.members-panel .directory-member-title { color: #d6e9b1; }
+.members-panel .directory-member-guild { color: #aeb5c2; }
+.members-panel .directory-member-skills { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.members-panel .directory-member-skills .pill { font-size: .75rem; line-height: 1.4; padding: 4px 8px; overflow-wrap: anywhere; max-width: 100%; }
+.members-panel .directory-member-meta { display: grid; gap: 6px; justify-items: end; color: #aeb5c2; font-size: .75rem; }
+.members-panel .directory-friend-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.members-panel .directory-friend-actions .btn { min-height: 44px; padding: 6px 12px; font-size: .8rem; }
+.members-panel .directory-member-details { grid-column: 1 / -1; margin-top: 8px; min-width: 0; }
+.members-panel .directory-member-details > summary { cursor: pointer; min-height: 44px; padding: 12px 0; color: #aeb5c2; font-size: .8rem; }
+.members-panel .directory-member-details > summary:hover,.members-panel .directory-member-details > summary:focus-visible { color: #c4ff20; }
+.members-panel .directory-member-details[open] > summary { border-bottom: 1px solid #333943; color: #d7ff84; }
+.members-panel .directory-member-expanded { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px 28px; padding: 20px 0; }
+.members-panel .directory-member-expanded h4 { margin: 0 0 8px; font-size: .8rem; color: #aeb5c2; }
+.members-panel .directory-member-expanded p,.members-panel .directory-member-expanded dl { margin: 0; font-size: .85rem; line-height: 1.7; color: #d7deea; overflow-wrap: anywhere; }
+.members-panel .directory-member-expanded dl > div { display: grid; grid-template-columns: 100px minmax(0,1fr); gap: 12px; margin: 6px 0; }
+.members-panel .directory-member-expanded dt { color: #aeb5c2; }
+.members-panel .directory-member-expanded dd { margin: 0; }
+.members-panel .directory-guild-dates { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.members-panel .directory-guild-dates li { display: grid; gap: 3px; font-size: .85rem; }
+.members-panel .directory-guild-dates span { font-size: .75rem; color: #aeb5c2; }
+.members-panel .directory-member-expanded .pill { font-size: .75rem; overflow-wrap: anywhere; max-width: 100%; }
+.members-panel .directory-empty { padding: 32px 20px; border: 1px dashed #454c59; border-radius: 14px; text-align: center; color: #aeb5c2; }
+.members-panel .directory-empty .btn { margin-top: 12px; }
+.members-panel .directory-load-more { justify-self: center; }
+@media(max-width:1100px){
+  .members-panel .directory-filters { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+  .members-panel .directory-search { grid-column: 1 / -1; }
+  .members-panel .directory-filter-actions { grid-column: 1 / -1; }
+  .members-panel .directory-member { grid-template-columns: minmax(0,1.5fr) minmax(140px,1fr); gap: 8px 20px; }
+  .members-panel .directory-member-skills { grid-column: 1; }
+  .members-panel .directory-member-meta { grid-column: 2; grid-row: 1 / 3; }
+}
+@media(max-width:600px){
+  .members-panel .directory-filters { padding: 16px; gap: 12px; }
+  .members-panel .directory-filters input,.members-panel .directory-filters select { font-size: 16px; }
+  .members-panel .directory-filter-actions > .btn { flex: 1; }
+  .members-panel .directory-member { grid-template-columns: minmax(0,1fr); padding: 16px 16px 0; gap: 12px; }
+  .members-panel .directory-member-identity { gap: 12px; }
+  .members-panel .directory-member-name h3 { font-size: 1rem; }
+  .members-panel .directory-member-meta { grid-column: 1; grid-row: auto; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .members-panel .directory-member-skills { padding-left: 60px; }
+  .members-panel .directory-member-details { margin-top: -6px; }
+  .members-panel .directory-member-expanded { grid-template-columns: minmax(0,1fr); gap: 18px; }
+  .members-panel .directory-member-expanded dl > div { grid-template-columns: minmax(90px,.7fr) minmax(0,1.3fr); }
+}

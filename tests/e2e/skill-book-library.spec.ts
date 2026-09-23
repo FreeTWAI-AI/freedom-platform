@@ -1,4 +1,4 @@
-import {test,expect,type Page} from '@playwright/test';
+import {test,expect,type Page} from './fixtures.js';
 import type {SkillBook} from '../../modules/community/catalog';
 
 test.beforeEach(async({page})=>{
