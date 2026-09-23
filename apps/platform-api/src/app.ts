@@ -25,6 +25,8 @@ import { createBenefitRoutes } from './routes/benefits.js';
 import { createDevelopmentRoutes } from './routes/development.js';
 import { createPublicClientConnectionRoutes,createClientConnectionRoutes,createClientApiRoutes } from './routes/client-connections.js';
 import protocolMetadata from '../../../contracts/preview/v1/metadata.json' with { type: 'json' };
+import {createGitHubMetricsRoutes,createGitHubSocialRoutes,socialLoader,type GitHubSocialOptions} from './routes/github-social.js';
+import {GitHubSocial} from '../../../modules/github-social/service.js';
 
 const COOKIE='freedom_local_session';
 function authNetwork(c:Context) {
@@ -51,10 +53,12 @@ function wireVersions(value:any):any {
   }));
   return value;
 }
-export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:FreedomEnv='local',options:{adminVerifier?:AdminAccessVerifier}={}) {
+export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:FreedomEnv='local',options:{adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions}={}) {
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
   const allowedHosts=allowedRequestHosts(freedomEnv,origin);
   const secureCookies=freedomEnv!=='local';
+  const loadSocial=socialLoader(pool,origin,options.githubSocial);
+  const publicSocial=new GitHubSocial(pool,undefined,options.githubSocial?.fetcher??fetch);
   const app=new Hono<{Variables:{actor:Actor}}>();
   app.onError((err,c)=>{
     if(err instanceof z.ZodError) return c.json({type:'about:blank',title:'Validation failed',status:422,code:'validation_failed',detail:err.issues.map(i=>`${i.path.join('.')}: ${i.message}`).join('; ')},422);
@@ -67,7 +71,8 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
     const host=new URL(c.req.url).hostname;
     requireCondition(allowedHosts.has(host),403,'host_rejected',freedomEnv==='local'?'此版本只提供本機使用。':'請從自由工坊網站操作。');
     c.header('Cache-Control','no-store');c.header('X-Content-Type-Options','nosniff');c.header('Referrer-Policy','no-referrer');
-    c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+    const githubSetupForm=c.req.path==='/admin'||c.req.path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI-AI/settings/apps/new':'';
+    c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm);
     if(!['GET','HEAD','OPTIONS'].includes(c.req.method)) {
       requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected',freedomEnv==='local'?'操作來源不正確，請從本機工作台操作。':'操作來源不正確，請從自由工坊網站操作。');
       if(isAvatarUpload(c.req.method,c.req.path)) {
@@ -87,12 +92,13 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
       c.res=new Response(JSON.stringify(data),{status:c.res.status,headers:c.res.headers});
     }
   });
-  app.route('/admin/api',createAdminRoutes(pool,options.adminVerifier));
-  app.route('/',createDevelopmentRoutes());
-  app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:'0.7.0-member-toolkit',money_movement_enabled:false,official:false}));
+  app.route('/admin/api',createAdminRoutes(pool,options.adminVerifier,{origin,tokenKey:options.githubSocial?.tokenKey??process.env.GITHUB_SOCIAL_TOKEN_KEY,fetcher:options.githubSocial?.fetcher}));
+  app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id)));
+  app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:'0.8.0-github-social',money_movement_enabled:false,official:false}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
   app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(process.env.FREEDOM_REGISTRATION_COMMUNITY_ID),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog}));
   app.get('/api/v1/community',c=>c.json(communityCatalog));
+  app.route('/api/v1',createGitHubMetricsRoutes(async()=>publicSocial));
   app.route('/api/v1',createPublicClientConnectionRoutes(pool,origin,authNetwork));
   app.route('/client-api/v1',createClientApiRoutes(pool));
   app.post('/api/v1/auth/register',async c=>{
@@ -153,6 +159,7 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
   }
   app.post('/api/v1/engagements/:id/receipts',async c=>respond(c,await changeEngagement(pool,await cmd(c),routeId(c),'receipt'),201));
   app.route('/api/v1',createMemberRoutes(pool));
+  app.route('/api/v1',createGitHubSocialRoutes(loadSocial));
   app.route('/api/v1',createAvatarRoutes(pool));
   app.route('/api/v1',createClientConnectionRoutes(pool));
   app.route('/api/v1',createPositioningRoutes(pool));

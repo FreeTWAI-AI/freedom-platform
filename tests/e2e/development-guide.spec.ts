@@ -28,7 +28,8 @@ test('a visitor without JavaScript can follow real repo links and read a complet
   await expect(page.getByRole('heading',{name:'要 Fork 哪一個 Repo？'})).toBeVisible();
   await expect(page.getByRole('link',{name:'https://github.com/FreeTWAI-AI/freedom-supplier-client',exact:false}).first()).toBeVisible();
   await page.goto('/development/skills/security-scanner');
-  await expect(page.getByRole('link',{name:'Fork 專案 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI-AI/ai-security-scanner/fork');
+  await expect(page.getByRole('link',{name:'Fork 專案 ↗',exact:true})).toHaveAttribute('href','https://github.com/teddashh/ai-security-scanner/fork');
+  await expect(page.getByRole('link',{name:'Fork 工坊版本 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI-AI/ai-security-scanner/fork');
   await expect(page.getByRole('link',{name:'閱讀技能書 ↗',exact:true})).toBeVisible();
   await page.getByText('完整指南與來源',{exact:true}).click();
   await expect(page.getByRole('heading',{name:'第一個練習'})).toBeVisible();

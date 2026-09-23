@@ -1,5 +1,5 @@
 {
-  "version": "0.7.0-member-toolkit",
+  "version": "0.8.0-github-social",
   "scope": "source files, including historical evidence; excludes self, secrets, dependencies, build and test artifacts",
   "files": [
     {
@@ -39,13 +39,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 7146,
-      "sha256": "3d4b3571f0bb5042dd17ce02a73a1e2aafa042e2e6776dbf10c9c8440b74af6c"
+      "bytes": 7361,
+      "sha256": "744072fba0cfe8e67997945473622c5cc82b41c1cfd31949cd3a667a93ecada0"
     },
     {
       "path": "apps/platform-api/src/app.ts",
-      "bytes": 13111,
-      "sha256": "12ff214003638d55c7de63eb3a113ae277c361f7acb5394277dae802b923f547"
+      "bytes": 13972,
+      "sha256": "241b4ef57d42319fdd669270f16094b07d80d6bea1aff865ed7a2770d3464bcb"
     },
     {
       "path": "apps/platform-api/src/env.ts",
@@ -59,8 +59,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/admin.ts",
-      "bytes": 4249,
-      "sha256": "b4c506f34b44caefe43776b95384f3f183c481885af0e1b2177aa7b0505077d6"
+      "bytes": 5313,
+      "sha256": "cf8499d0364f916c11b5d1e9dc31a27edf4b8a584957f4f3dbcfc951f4b5171e"
     },
     {
       "path": "apps/platform-api/src/routes/avatars.ts",
@@ -89,8 +89,13 @@
     },
     {
       "path": "apps/platform-api/src/routes/development.ts",
-      "bytes": 1453,
-      "sha256": "f236236658080a0c0bbad9058f9e7189f37657470ed5837fd9393fd5d599b9f7"
+      "bytes": 1837,
+      "sha256": "d92bce0351ef992d4aec5acb3f102a125b05095201935b2f870855afdb1464cd"
+    },
+    {
+      "path": "apps/platform-api/src/routes/github-social.ts",
+      "bytes": 2525,
+      "sha256": "c7d54f62fba4f2506e51d109b514bea3390f6a88c85627b2aedb62d55bf7285e"
     },
     {
       "path": "apps/platform-api/src/routes/members.ts",
@@ -254,8 +259,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 67022,
-      "sha256": "3d08975d1365186ff2be8a0664deb96c46e73a17b7670aa5731549e6d52e715c"
+      "bytes": 67307,
+      "sha256": "eded665a9b0a9abf9748f8daa957166e882a08cafd76dfed91285c8e707b024c"
     },
     {
       "path": "apps/portal-web/src/WorkshopIcon.tsx",
@@ -278,9 +283,14 @@
       "sha256": "64703f18c1d921e263a3e4843cd8ab8a9c0c2d24c35e7fabb023d62c57237329"
     },
     {
+      "path": "apps/portal-web/src/modules/AdminGitHubSetup.tsx",
+      "bytes": 3337,
+      "sha256": "f002ac2ea0881e087d595bff84bdc9d60a29be0d6e0b139aafe8eaefbfb642db"
+    },
+    {
       "path": "apps/portal-web/src/modules/AdminPanel.tsx",
-      "bytes": 25723,
-      "sha256": "9a82cec56aac6d265a4203fbefded8e2192fdcb9ccab685e6d8d9d6c7a27e91c"
+      "bytes": 25933,
+      "sha256": "d29f57de7ed81953a27d5078c4630ff3825e0cc37edbfa57cf819307524ecdb6"
     },
     {
       "path": "apps/portal-web/src/modules/AdminPermissions.css",
@@ -338,6 +348,21 @@
       "sha256": "9470b91a879437972316daa0e367b0dea9267a2c2ad79ffa0f0b2f561eea45d1"
     },
     {
+      "path": "apps/portal-web/src/modules/GitHubCallback.tsx",
+      "bytes": 1478,
+      "sha256": "c09b6163a2045517ebafb9664795c68e44de207b28c8121e78524a8a4acef6be"
+    },
+    {
+      "path": "apps/portal-web/src/modules/GitHubSocial.css",
+      "bytes": 2174,
+      "sha256": "86d5fe77d99045a21269e8e7f600da0dd06e040aa5b095598861e8d94d825cd3"
+    },
+    {
+      "path": "apps/portal-web/src/modules/GitHubSocial.tsx",
+      "bytes": 7884,
+      "sha256": "a2aba6fb4d89710154e563a49da09bbdc2afc2f9417976d1fcfe1cffd16651a6"
+    },
+    {
       "path": "apps/portal-web/src/modules/GuildDesign.css",
       "bytes": 23398,
       "sha256": "ea0d7d07c02fee632596636ff06cb7f7a260a756cf8f7f2311f47799874cf030"
@@ -364,8 +389,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Membership.tsx",
-      "bytes": 13327,
-      "sha256": "ed09fcbc0c9d8e872ac661404d2921527cfe6cdb21a7f9bb6933d17071f00f14"
+      "bytes": 13412,
+      "sha256": "202377e93efa7e5b3e0f86e5d01387eb3ccb1fa3d16cc1d88bf433c4e10da244"
     },
     {
       "path": "apps/portal-web/src/modules/ModuleBanner.tsx",
@@ -394,8 +419,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SkillBookCover.tsx",
-      "bytes": 1575,
-      "sha256": "0d40065bc0b4a946a46f98da546ac0c5de2f2c59179f5ae41983d84ae826f102"
+      "bytes": 1603,
+      "sha256": "bcd4836c5ebb84bc329efc3ed816719dd99a6cdc87ed326b3deb364fff4bad60"
     },
     {
       "path": "apps/portal-web/src/modules/SkillBookIntro.css",
@@ -404,8 +429,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SkillBookIntro.tsx",
-      "bytes": 6958,
-      "sha256": "1f3165e9ea9511beeea0e3103cb77543b7a239ff8b86634659d3e57011929cba"
+      "bytes": 7289,
+      "sha256": "c8296992cd28beb6a90102ba27fed9e8a0f9a3a6f7a9cafdcbdfb86b0a716ee8"
     },
     {
       "path": "apps/portal-web/src/modules/Squads.tsx",
@@ -416,6 +441,11 @@
       "path": "apps/portal-web/src/modules/avatar-client.ts",
       "bytes": 1701,
       "sha256": "59e7a90b8068446a67fa64f18e397b64d435a3d1b123ab4dc6cdabf5a44d2260"
+    },
+    {
+      "path": "apps/portal-web/src/modules/github-social-client.ts",
+      "bytes": 5364,
+      "sha256": "70aa77837305478d776a3593d91f3bd1df1c124370c73e55ce1cb3da9bb823d8"
     },
     {
       "path": "apps/portal-web/src/modules/shared.tsx",
@@ -606,6 +636,11 @@
       "path": "docs/development/first-real-case-pack.md",
       "bytes": 3597,
       "sha256": "9f290bfe03c98a571597bc2c02b1f035deeeb0129e0117f9ce60717aa7f538d7"
+    },
+    {
+      "path": "docs/development/github-social.md",
+      "bytes": 5088,
+      "sha256": "fc868bb9497366eac2ded0c1c5c27ccce3ec70e0cada8aeb73458b2175bd458a"
     },
     {
       "path": "docs/development/local-runtime.md",
@@ -1768,6 +1803,16 @@
       "sha256": "ce99906e4b4995bbc05f51463d1cfbb23f92e997c4d1b548290358b9a32e0112"
     },
     {
+      "path": "migrations/018_github_social.sql",
+      "bytes": 1571,
+      "sha256": "5cb02049d73b541de8ef0bd46f3694937b41291145034f631b232ec1d397311b"
+    },
+    {
+      "path": "migrations/019_github_app_setup.sql",
+      "bytes": 1355,
+      "sha256": "9a3768129ae22aed5f42c7cdcd391b082e8bd9754cdfe7bcac3d13b634edf8c8"
+    },
+    {
       "path": "modules/catalog-commerce/service.ts",
       "bytes": 14038,
       "sha256": "754c512bdd5514e1460b4a8397a25ce7d45821d6fb89118c62d03bc3951ff95a"
@@ -1804,8 +1849,23 @@
     },
     {
       "path": "modules/development/service.ts",
-      "bytes": 12962,
-      "sha256": "265282dc279cff307c9a4394b698ec49ba8a474450adb749dc5a0cafdbaf795a"
+      "bytes": 14137,
+      "sha256": "5df86b747b5204936e342f79796ce73f5935e2589495bd91fbe3373a72001860"
+    },
+    {
+      "path": "modules/github-social/provider.ts",
+      "bytes": 7273,
+      "sha256": "17e3c37cd76dd68ea76bd090c519a78ed13b26cced1536ade35b444e716c8ac4"
+    },
+    {
+      "path": "modules/github-social/service.ts",
+      "bytes": 17368,
+      "sha256": "e8cf855fd25d0b293676cf76a8fd28d2baa4b07ea4d3691f25c2523f6dff1309"
+    },
+    {
+      "path": "modules/github-social/setup.ts",
+      "bytes": 12532,
+      "sha256": "6fe47e0cdbc642c55183bbd1628fe68594b949c6d095f90d56f6aee6e39d3f2f"
     },
     {
       "path": "modules/identity-membership/avatars.ts",
@@ -1884,13 +1944,13 @@
     },
     {
       "path": "package-lock.json",
-      "bytes": 83845,
-      "sha256": "6a3513d5de9af23f66d7bf84d3d70fb3f6d444c833ae9e623bfdaf4b4476b889"
+      "bytes": 83843,
+      "sha256": "2f525069b22a5a2e5a3310a5fc8829ac679d6265c5d6b089aded43437a5332fc"
     },
     {
       "path": "package.json",
-      "bytes": 1626,
-      "sha256": "def823cd3013c4643388412014b64ed27a37b40f79a7f7fcf220b6309ffd2fe8"
+      "bytes": 1625,
+      "sha256": "55bdba34305009bd1260475fb72830861864575dcc558d88b6ae4c49de1537bd"
     },
     {
       "path": "packages/client-connections/cli.mjs",
@@ -2014,8 +2074,8 @@
     },
     {
       "path": "scripts/verify-public.mjs",
-      "bytes": 24667,
-      "sha256": "d1027e948c0b09e382a8ac6168c0cf7ce103e4d4897e1975deb5efd857658595"
+      "bytes": 25080,
+      "sha256": "0e3ac6246556e6a0afb38705a044e694ba221ecdcaef465ca7e3059febc7f318"
     },
     {
       "path": "scripts/verify-staging.mjs",
@@ -2049,8 +2109,18 @@
     },
     {
       "path": "tests/e2e/development-guide.spec.ts",
-      "bytes": 3156,
-      "sha256": "0de086bda667c55ce43dad6d9dabe943d8fc0f81f86b207fdeb4e932d2e31324"
+      "bytes": 3317,
+      "sha256": "cdb71b5883e987e9895c004adaa20583618ed6a825fb5f94cea4842d3185c8fe"
+    },
+    {
+      "path": "tests/e2e/github-setup.spec.ts",
+      "bytes": 9876,
+      "sha256": "348c822ebe9ae25d01e404e4f3d2e47243682316a6436f9f58c5766bbba95722"
+    },
+    {
+      "path": "tests/e2e/github-social.spec.ts",
+      "bytes": 10863,
+      "sha256": "de3449866bdfc156f2d05da7a0f17b4b1fe4c90fd33a0f1075b58a2d0205724c"
     },
     {
       "path": "tests/e2e/journeys.spec.ts",
@@ -2079,8 +2149,8 @@
     },
     {
       "path": "tests/e2e/skill-book-library.spec.ts",
-      "bytes": 12627,
-      "sha256": "96b78a07636bd240c0a47bab227bcc78ee2ba7b9461238b79cdf615b8b841f8e"
+      "bytes": 13369,
+      "sha256": "fedf57b681299754f3200f7da69c4f75517396e2d397dabc436fd50a56f7a7a7"
     },
     {
       "path": "tests/e2e/workshop-design.spec.ts",
@@ -2134,8 +2204,8 @@
     },
     {
       "path": "tests/runtime/development-map.test.ts",
-      "bytes": 4510,
-      "sha256": "d3335ac5de68a6adda052c15cf15db98da08c6c352c851c74a45e06a7782a6e6"
+      "bytes": 5252,
+      "sha256": "f387dc6dde839a2440ff646d2288154a72d5ee57a00aeb30c03f1e03843c9d70"
     },
     {
       "path": "tests/runtime/flows.test.ts",
@@ -2146,6 +2216,21 @@
       "path": "tests/runtime/freedom_env.test.ts",
       "bytes": 2564,
       "sha256": "92e0fd6f3622b736d2c3dac2ed5353173a592807119e9b445ac0a72d77f4dff0"
+    },
+    {
+      "path": "tests/runtime/github-app-setup.test.ts",
+      "bytes": 19256,
+      "sha256": "6927039ad975d374f61e66aac7e63c7470173cf2dbe4ecfa7610285f53ff1f97"
+    },
+    {
+      "path": "tests/runtime/github-social-routes.test.ts",
+      "bytes": 10359,
+      "sha256": "0bcf5d810b93d6b6666a6b8d69e111c0502007765d3bac011ebab7f5b4a626c5"
+    },
+    {
+      "path": "tests/runtime/github-social.test.ts",
+      "bytes": 20025,
+      "sha256": "db7fcf55cb99c4e03a51acf2e10878ad4a0279bb11691ae17de050522e887b0a"
     },
     {
       "path": "tests/runtime/identity-member.test.ts",
@@ -2179,8 +2264,8 @@
     },
     {
       "path": "tests/runtime/skill-book-guides.test.ts",
-      "bytes": 5807,
-      "sha256": "fe8a9e416fdf16141f29a541d57eebd5d6701224645d997d54b85008f746e0b3"
+      "bytes": 5827,
+      "sha256": "c007fdf5a5959249f51a9d072ea5a28cb42bfad49bbaa8c2e7caa6865c92cb21"
     },
     {
       "path": "tsconfig.json",

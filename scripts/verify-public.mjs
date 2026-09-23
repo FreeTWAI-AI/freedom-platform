@@ -286,7 +286,10 @@ try {
   await expect(page.locator('.guild-card').first()).toContainText('公會技能庫');
   await page.locator('.guild-card').first().locator('.skill-intro-trigger').first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.getByRole('dialog').getByRole('link',{name:'到 GitHub 點星星',exact:true})).toHaveAttribute('href',/^https:\/\/github\.com\//);
+  await expect(page.getByRole('dialog').getByRole('link',{name:'原作者 GitHub ↗',exact:true})).toHaveAttribute('href',/^https:\/\/github\.com\//);
+  await expect(page.getByRole('dialog').getByRole('link',{name:'Fork 專案 ↗',exact:true})).toHaveAttribute('href',/^https:\/\/github\.com\/[^/]+\/[^/]+\/fork$/);
+  const social=await (await page.request.get(origin+'/api/v1/me/github')).json();
+  await expect(page.getByRole('dialog').getByRole('button',{name:social.configured?'連結 GitHub 後 Star':'GitHub 連結尚未啟用',exact:true})).toBeVisible();
   await page.getByRole('dialog').getByText('練習與設定',{exact:true}).click();
   await expect(page.getByRole('dialog').getByRole('link',{name:'完整指南 ↗',exact:true})).toHaveAttribute('href',/^\/development\/skills\//);
   await noOverflow('Guild skill book introduction mobile overflow');

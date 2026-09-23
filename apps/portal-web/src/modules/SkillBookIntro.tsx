@@ -1,7 +1,8 @@
 import {useEffect,useId,useRef,useState} from 'react';
 import type {SkillBookGuide} from '../../../../modules/community/skill-book-guides';
-import { SkillBookCover, SkillBookStar } from './SkillBookCover';
+import { SkillBookCover, SkillBookStar,skillBookStarUrl } from './SkillBookCover';
 import './SkillBookIntro.css';
+import './GitHubSocial.css';
 
 export type IntroBook={id?:string;book_id?:string;title:string;description:string;repository_url:string;fork_url?:string|null;introduction_url?:string|null;upstream_url?:string;source_commit?:string|null;license_status?:string;guide?:SkillBookGuide;cover_url?:string;star_url?:string};
 function httpsLink(value?:string|null){
@@ -10,7 +11,7 @@ function httpsLink(value?:string|null){
 export function SkillBookIntro({book,guildName,label='閱讀技能書'}:{book:IntroBook;guildName?:string;label?:string}){
   const [open,setOpen]=useState(false),dialog=useRef<HTMLDialogElement>(null),trigger=useRef<HTMLButtonElement>(null),id=useId();
   const guide=book.guide,beginner=guide?.beginner,repository=httpsLink(book.repository_url),upstream=httpsLink(book.upstream_url)||repository;
-  const reading=httpsLink(guide?.reading_url)||repository,website=httpsLink(book.introduction_url)||httpsLink(guide?.website_url),fork=httpsLink(book.fork_url),contribute=httpsLink(guide?.contribution_url);
+  const original=skillBookStarUrl(book),reading=httpsLink(guide?.reading_url)||repository,website=httpsLink(book.introduction_url)||httpsLink(guide?.website_url),fork=original?`${original}/fork`:httpsLink(book.fork_url),workshopFork=httpsLink(book.fork_url),contribute=httpsLink(guide?.contribution_url);
   const source=upstream?new URL(upstream):null,account=source?.hostname==='github.com'?source.pathname.split('/').filter(Boolean)[0]:null;
   useEffect(()=>{if(open&&!dialog.current?.open)dialog.current?.showModal();else if(!open&&dialog.current?.open)dialog.current.close();},[open]);
   function close(){dialog.current?.close();setOpen(false);trigger.current?.focus();}
@@ -19,7 +20,8 @@ export function SkillBookIntro({book,guildName,label='閱讀技能書'}:{book:In
       <div className="stack"><header className="skill-intro-header"><div><p className="eyebrow">自由工坊 · 公會技能庫</p><h2 id={id}>{book.title}</h2></div><button className="btn btn-ghost" type="button" onClick={close} autoFocus aria-label="關閉技能書介紹">關閉</button></header>
         <div className="skill-intro-cover"><div className="skill-intro-cover-copy"><div className="tag-list">{beginner&&<span className="badge">{beginner.category}</span>}{guide&&<span className="badge">{guide.format}</span>}{guildName&&<span className="badge">{guildName}</span>}</div>
         <p className="skill-intro-purpose" id={`${id}-purpose`}>{beginner?.purpose??guide?.summary??book.description}</p></div>{open&&<SkillBookCover book={book} className="skill-intro-art"/>}</div>
-        <div className="actions skill-intro-primary-actions">{reading&&<a className="btn btn-primary" href={reading} target="_blank" rel="noopener noreferrer">閱讀技能書 ↗</a>}{upstream&&<a className="btn btn-ghost" href={upstream} target="_blank" rel="noopener noreferrer">開啟專案 ↗</a>}{fork&&<a className="btn btn-ghost" href={fork} target="_blank" rel="noopener noreferrer">Fork 專案 ↗</a>}<SkillBookStar book={book}/></div>
+        <div className="actions skill-intro-primary-actions">{reading&&<a className="btn btn-primary" href={reading} target="_blank" rel="noopener noreferrer">閱讀技能書 ↗</a>}{upstream&&<a className="btn btn-ghost" href={upstream} target="_blank" rel="noopener noreferrer">開啟專案 ↗</a>}{fork&&<a className="btn btn-ghost" href={fork} target="_blank" rel="noopener noreferrer">Fork 專案 ↗</a>}{workshopFork&&workshopFork!==fork&&<a className="btn btn-ghost" href={workshopFork} target="_blank" rel="noopener noreferrer">Fork 工坊版本 ↗</a>}</div>
+        {open&&<SkillBookStar book={book} showFork={false}/>}
         {guide&&<><p className="skill-intro-example">{guide.first_result}</p>
           <details className="skill-intro-details"><summary>練習與設定</summary><div className="stack"><section><h3>準備</h3><ul>{guide.prerequisites.map(item=><li key={item}>{item}</li>)}</ul></section><section><h3>練習</h3><ol>{guide.first_steps.map(step=><li key={step}>{step}</li>)}</ol></section>{guide.quickstart&&<section className="stack"><h3>啟動指令</h3><p className="field-hint">{guide.quickstart.context}</p><pre className="skill-intro-command"><code>{guide.quickstart.commands}</code></pre></section>}{(book.id??book.book_id)&&<a href={`/development/skills/${encodeURIComponent((book.id??book.book_id)!)}`} target="_blank" rel="noopener noreferrer">完整指南 ↗</a>}</div></details>
           <details className="skill-intro-details"><summary>功能與使用範圍</summary><div className="stack"><p className="skill-intro-status">{guide.status}</p><p className="muted">{guide.audience.join('、')}</p><ul className="skill-intro-features">{guide.features.map(feature=><li key={feature}>{feature}</li>)}</ul>{website&&<a href={website} target="_blank" rel="noopener noreferrer">專案網站 ↗</a>}</div></details>

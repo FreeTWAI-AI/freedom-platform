@@ -52,7 +52,8 @@ test('all 22 books expose distinct covers, original-author stars and the same be
     for(const value of [book.cover_url!,book.star_url!,book.repository_url,book.fork_url,guide.first_result,guide.status,guide.source_commit])assert.ok(markdown.includes(value),`${book.id}/${value}`);
     const html=pageHtml(book.title,markdown,book.markdown_url);
     assert.ok(html.includes(`src="${book.cover_url}"`),book.id);
-    assert.ok(html.includes(`href="${book.upstream_url}" target="_blank" rel="noopener noreferrer">到 GitHub 點星星`),book.id);
+    assert.ok(html.includes('href="/#community">登入工坊 Star'),book.id);
+    assert.ok(html.includes(`href="${book.upstream_url}/fork"`),book.id);
   }
   assert.equal(covers.size,22);
   const external=communityCatalog.skill_books.find(book=>book.id==='social-post')!;

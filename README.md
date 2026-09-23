@@ -16,11 +16,11 @@
 會員、權限、公會、商品、商店、合作和稽核的權威寫入在本 repo 的 API／PostgreSQL。外倉用版本化契約；本機、staging、public 使用分開的資料庫。GitHub Issue／PR 保存程式協作事實；Seller／bank 保存實收事實。 跨 repo 的協定由[中央平台](https://github.com/FreeTWAI-AI/freedom-platform)維護。
 <!-- freedom-repository-guide:end -->
 
-本 workspace 保存 Freedom 大平台的完整規格，以及 **0.7.0-member-toolkit 自由工坊會員入口**。新會員註冊後完成定位，選擇主力公會並取得 Repo 技能書，再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
+本 workspace 保存 Freedom 大平台的完整規格，以及 **0.8.0-github-social 自由工坊會員入口**。新會員註冊後完成定位，選擇主力公會並取得 Repo 技能書，再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
 
 公開會員入口：<https://freetwai.com>；內部入口：<https://staging.freetwai.com>（Cloudflare Access 限定名單，獨立 DB）。本輪行為與邊界見 [會員入口設計](./docs/development/member-onboarding-release.md)，運行方式見 [公開站手冊](./docs/development/public-operations.md)。
 
-本版新增會員頭像、22 本專屬技能書插圖與原作者 Star 連結、任務／商品／小隊篩選，以及後台管理員任命。定位只保留一套流程，調整方向由「重新探索定位」進入。詳見 [0.7 操作與部署](./docs/development/member-toolkit.md)。既有共創與 Repo 指引見 [0.5 版本紀錄](./docs/releases/2026-09-23-collaboration-optimization.md)、[原計畫對照](./docs/development/plan-drift-2026-09-23.md) 與[網站／Agent 開發導覽](./docs/development/agent-development-guide.md)。
+本版新增 GitHub 真實 Stars／Forks／追蹤與更新指標、會員授權後直接加星／取消星星，以及後台 GitHub App 設定，詳見 [GitHub 連結與部署](./docs/development/github-social.md)。前版包含會員頭像、22 本專屬技能書插圖與原作者 Star 連結、任務／商品／小隊篩選，以及後台管理員任命。定位只保留一套流程，調整方向由「重新探索定位」進入。詳見 [0.7 操作與部署](./docs/development/member-toolkit.md)。既有共創與 Repo 指引見 [0.5 版本紀錄](./docs/releases/2026-09-23-collaboration-optimization.md)、[原計畫對照](./docs/development/plan-drift-2026-09-23.md) 與[網站／Agent 開發導覽](./docs/development/agent-development-guide.md)。
 
 各產品模板已依 [九倉分工與串接方式](./docs/development/repository-integration.md) 獨立保存，透過固定版本的 API／SDK 共用中央會員與資料。
 

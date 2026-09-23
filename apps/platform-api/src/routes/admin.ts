@@ -8,8 +8,9 @@ import type {Pool} from 'pg';
 import {requireCondition} from '../../../../packages/shared/problem.js';
 import {verifyAdminAccess,type AdminAccessVerifier} from '../../../../modules/platform-admin/access.js';
 import {authenticateAdmin,adminBootstrap,adminMembers,changeMemberStatus,adminApplications,reviewGuildApplication,adminGuilds,appointGuildMaster,adminNominees,adminAudit,appointPlatformAdmin,changePlatformAdminStatus,type AdminActor,type AdminCommand} from '../../../../modules/platform-admin/service.js';
+import {startGitHubAppSetup,completeGitHubAppSetup,githubAppSetupStatus} from '../../../../modules/github-social/setup.js';
 type AdminEnv={Variables:{admin:AdminActor;adminCsrf:string}};
-export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=verifyAdminAccess){
+export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=verifyAdminAccess,github:{origin:string;tokenKey?:string;fetcher?:typeof fetch}={origin:'http://127.0.0.1:4310'}){
   const app=new Hono<AdminEnv>();
   app.use('*',async(c,next)=>{
     const identity=await verifyAccess(c.req.raw),admin=await authenticateAdmin(pool,identity);
@@ -28,6 +29,17 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
   const paging=(c:Context<AdminEnv>)=>z.object({limit:z.coerce.number().int().min(1).max(100).default(25),offset:z.coerce.number().int().min(0).max(100000).default(0)}).parse(c.req.query());
   const result=(c:Context<AdminEnv>,value:any)=>{if(value.aggregate_version)c.header('ETag',`"${value.aggregate_version}"`);return c.json(value);};
   app.get('/bootstrap',async c=>c.json({...await adminBootstrap(pool,c.get('admin')),csrf_token:c.get('adminCsrf'),pending_guild_appointments:await nominatedGuildAppointments(pool,c.get('admin'))}));
+  app.get('/github-app',async c=>c.json({...await githubAppSetupStatus(pool,c.get('admin')),setup_available:Boolean(github.tokenKey)}));
+  app.post('/github-app/start',async c=>{
+    z.object({}).strict().parse(await c.req.json());
+    requireCondition(github.tokenKey,503,'github_setup_unavailable','GitHub 連結設定尚未啟用。');
+    return c.json(await startGitHubAppSetup(pool,c.get('admin'),github.origin,github.tokenKey));
+  });
+  app.post('/github-app/complete',async c=>{
+    const body=z.object({code:z.string().min(1).max(512),state:z.string().min(20).max(200)}).strict().parse(await c.req.json());
+    requireCondition(github.tokenKey,503,'github_setup_unavailable','GitHub 連結設定尚未啟用。');
+    return c.json(await completeGitHubAppSetup(pool,c.get('admin'),body,github.tokenKey,{fetcher:github.fetcher}));
+  });
   app.post('/link-member',async c=>{const input=await command(c),member=await authenticate(pool,getCookie(c,'freedom_local_session'));return result(c,await linkNominatedMember(pool,input,member));});
   app.get('/members',async c=>{const {limit,offset}=paging(c),q=z.string().trim().max(100).parse(c.req.query('q')??'');return c.json(await adminMembers(pool,c.get('admin'),limit,offset,q));});
   app.post('/members/:id/admin',async c=>result(c,await appointPlatformAdmin(pool,await command(c),c.req.param('id'))));

@@ -1,6 +1,7 @@
 import {developmentPages,type DevelopmentPage} from './pages.js';
 import {communityCatalog} from '../community/catalog.js';
 import repositoryIndex from '../../docs/development/repository-guidance-index.json' with {type:'json'};
+import type {GitHubMetrics} from '../github-social/service.js';
 export const platformRepository='FreeTWAI-AI/freedom-platform';
 const gh=(repository:string)=>`https://github.com/${repository}`;
 export function developmentPage(id:string){return developmentPages.find(p=>p.id===id);}
@@ -29,7 +30,7 @@ export function skillMarkdown(id:string){
  const guide=book.guide;if(!guide)return null;
  return [`# ${book.title}：技能書與協作來源`,guide.beginner.purpose,
   '## 工坊收錄說明',guide.beginner.category,guide.beginner.for_whom,guide.beginner.make,guide.beginner.workshop_use,guide.beginner.next_step,
-  '## 封面與原作者',`封面插畫：${book.cover_url}`,`到 GitHub 點星星：${book.star_url}`,'喜歡這個專案，可以在原作者的 GitHub 頁面按 Star，收藏並支持作者。',
+  '## 封面與原作者',`封面插畫：${book.cover_url}`,`原作者 GitHub：${book.star_url}`,'登入自由工坊並連結自己的 GitHub，即可在技能書加星或取消星星。',`原作數據：/api/v1/github/books/${book.id}/metrics`,'Stars、Forks、追蹤數、未結 Issues 與 PR 合計、最近程式更新時間以 GitHub 回覆為準；數據附核對時間，讀取失敗不冒充零。',
   '## 讀者與格式',guide.format,...guide.audience.map(value=>'- '+value),
   '## 功能與使用範圍',guide.status,...guide.features.map(value=>'- '+value),
   '## 開始前準備',...guide.prerequisites.map(value=>'- '+value),
@@ -67,14 +68,18 @@ export function markdownBody(markdown:string){
  }
  closeList();if(code)html+='</code></pre>';return html;
 }
-export function pageHtml(title:string,markdown:string,markdownUrl:string){
+export function pageHtml(title:string,markdown:string,markdownUrl:string,metrics?:GitHubMetrics){
  const skillId=/^\/development\/skills\/([a-z0-9-]+)\.md$/.exec(markdownUrl)?.[1];
  const book=skillId?communityCatalog.skill_books.find(value=>value.id===skillId):undefined;
  const markdownLink='<p><a href="'+escape(markdownUrl)+'">讀取 Markdown 原文</a></p>';
  if(book?.guide){
   const cover=book.cover_url?'<figure class="public-skill-cover"><img src="'+escape(book.cover_url)+'" alt="" width="768" height="512"></figure>':'';
-  const actions=[[book.guide.reading_url,'閱讀技能書 ↗'],[book.upstream_url,'開啟專案 ↗'],[book.fork_url,'Fork 專案 ↗'],[book.star_url,'到 GitHub 點星星 ↗']].filter(([url])=>!!url).map(([url,label])=>'<a href="'+escape(url!)+'" target="_blank" rel="noopener noreferrer">'+label+'</a>').join('');
-  const entry='<section class="public-skill-entry">'+cover+'<div><p class="public-skill-purpose">'+escape(book.guide.beginner.purpose)+'</p><div class="public-skill-actions">'+actions+'</div><p class="public-skill-example">'+escape(book.guide.first_result)+'</p></div></section>';
+  const upstreamFork=book.upstream_url+'/fork';
+  const actions=[[book.guide.reading_url,'閱讀技能書 ↗'],[book.upstream_url,'開啟專案 ↗'],[upstreamFork,'Fork 專案 ↗'],...(book.fork_url!==upstreamFork?[[book.fork_url,'Fork 工坊版本 ↗']]:[])].filter(([url])=>!!url).map(([url,label])=>'<a href="'+escape(url!)+'" target="_blank" rel="noopener noreferrer">'+label+'</a>').join('')+'<a href="/#community">登入工坊 Star</a>';
+  const count=(value:number|null|undefined)=>typeof value==='number'&&Number.isSafeInteger(value)&&value>=0?String(value):'—';
+  const date=(value:string|null|undefined)=>value&&!Number.isNaN(Date.parse(value))?escape(new Date(value).toISOString().slice(0,10)):'—';
+  const stats='<section aria-label="原作者 GitHub 數據"><p>Stars '+count(metrics?.stargazers_count)+' · Forks '+count(metrics?.forks_count)+' · 追蹤 '+count(metrics?.subscribers_count)+'</p><p>未結 Issues／PR '+count(metrics?.open_issues_count)+' · 程式更新 '+date(metrics?.pushed_at)+'</p><p>'+(metrics?.checked_at?(metrics.stale?'上次取得的數據':'數據更新')+' · '+date(metrics.checked_at):'尚未取得 GitHub 數據')+'</p></section>';
+  const entry='<section class="public-skill-entry">'+cover+'<div><p class="public-skill-purpose">'+escape(book.guide.beginner.purpose)+'</p>'+stats+'<div class="public-skill-actions">'+actions+'</div><p class="public-skill-example">'+escape(book.guide.first_result)+'</p></div></section>';
   return developmentHtml(book.title,entry+'<details class="public-skill-details"><summary>完整指南與來源</summary>'+markdownLink+markdownBody(markdown)+'</details>');
  }
  return developmentHtml(title,markdownLink+markdownBody(markdown));

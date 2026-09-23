@@ -1,6 +1,11 @@
 import {test,expect,type Page} from '@playwright/test';
 import type {SkillBook} from '../../modules/community/catalog';
 
+test.beforeEach(async({page})=>{
+  await page.route('**/api/v1/me/github',route=>route.fulfill({json:{configured:false,connected:false,github_user:null}}));
+  await page.route('**/api/v1/github/books/*/metrics',route=>route.fulfill({json:{book_id:route.request().url().split('/').at(-2),repository_url:null,stargazers_count:null,forks_count:null,open_issues_count:null,subscribers_count:null,pushed_at:null,language:null,archived:null,checked_at:null,stale:false,error:'fixture_unavailable'}}));
+});
+
 async function openLibrary(page:Page){
   await page.goto('/');
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
@@ -86,7 +91,7 @@ test('book cards credit the original GitHub author and offer direct reading acti
   await expect(card.locator('.skill-library-purpose')).toBeVisible();
   await expect(card).not.toContainText('你能做出什麼');
   await expect(card.locator('.skill-book-illustration')).toHaveAttribute('src',book.cover_url!);
-  const star=card.getByRole('link',{name:'到 GitHub 點星星',exact:true});
+  const star=card.getByRole('link',{name:'原作者 GitHub ↗',exact:true});
   await expect(star).toHaveAttribute('href','https://github.com/Hao0321/claude-skill-social-post');
   await expect(star).toHaveAttribute('target','_blank');
   await expect(star).toHaveAttribute('rel',/\bnoopener\b/);
@@ -102,10 +107,12 @@ test('book cards credit the original GitHub author and offer direct reading acti
   await expect(modal.locator('.skill-intro-art')).toHaveAttribute('src',book.cover_url!);
   await expect(modal.locator('.skill-intro-art')).toHaveJSProperty('complete',true);
   await expect.poll(()=>modal.locator('.skill-intro-art').evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
-  await expect(modal.getByRole('link',{name:'到 GitHub 點星星',exact:true})).toHaveAttribute('href',book.upstream_url);
+  await expect(modal.getByRole('link',{name:'原作者 GitHub ↗',exact:true})).toHaveAttribute('href',book.upstream_url);
+  await expect(modal.getByRole('button',{name:'GitHub 連結尚未啟用',exact:true})).toBeDisabled();
   await expect(modal.getByRole('link',{name:'開啟專案 ↗',exact:true})).toHaveAttribute('href',book.upstream_url);
   await expect(modal.getByRole('link',{name:'閱讀技能書 ↗',exact:true})).toHaveAttribute('href',book.guide!.reading_url);
-  await expect(modal.getByRole('link',{name:'Fork 專案 ↗',exact:true})).toHaveAttribute('href',book.fork_url);
+  await expect(modal.getByRole('link',{name:'Fork 專案 ↗',exact:true})).toHaveAttribute('href',`${book.upstream_url}/fork`);
+  await expect(modal.getByRole('link',{name:'Fork 工坊版本 ↗',exact:true})).toHaveAttribute('href',book.fork_url);
   const practice=modal.locator('details').filter({has:page.getByText('練習與設定',{exact:true})});
   await expect(practice).not.toHaveAttribute('open');await practice.locator('summary').click();
   for(const step of book.guide!.first_steps)await expect(practice.getByText(step,{exact:true})).toBeVisible();
@@ -136,7 +143,7 @@ test('all public book pages and Markdown preserve beginner summaries, covers, or
       expect(html,book.id).toContain(value);expect(markdown,book.id).toContain(value);
     }
     expect(html,book.id).toContain(`src="${book.cover_url}"`);
-    expect(html,book.id).toContain(`href="${book.upstream_url}" target="_blank" rel="noopener noreferrer">到 GitHub 點星星`);
+    expect(html,book.id).toContain('href="/#community">登入工坊 Star');
     expect(html,book.id).not.toContain('<script');
   }
   const example=map.skill_books.find(book=>book.id==='social-post')!;
@@ -147,12 +154,12 @@ test('all public book pages and Markdown preserve beginner summaries, covers, or
   await expect(details).not.toHaveAttribute('open');
   await expect(page.getByRole('link',{name:'閱讀技能書 ↗',exact:true})).toHaveAttribute('href',example.guide!.reading_url);
   await expect(page.getByRole('link',{name:'開啟專案 ↗',exact:true})).toHaveAttribute('href',example.upstream_url);
-  await expect(page.getByRole('link',{name:'Fork 專案 ↗',exact:true})).toHaveAttribute('href',example.fork_url);
+  await expect(page.getByRole('link',{name:'Fork 專案 ↗',exact:true})).toHaveAttribute('href',`${example.upstream_url}/fork`);
+  await expect(page.getByRole('link',{name:'Fork 工坊版本 ↗',exact:true})).toHaveAttribute('href',example.fork_url);
   await expect(page.locator('.public-skill-cover img')).toHaveAttribute('src',example.cover_url!);
   await expect.poll(()=>page.locator('.public-skill-cover img').evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
-  const star=page.getByRole('link',{name:'到 GitHub 點星星 ↗',exact:true});
-  await expect(star).toHaveAttribute('href',example.upstream_url);
-  await expect(star).toHaveAttribute('rel','noopener noreferrer');
+  const star=page.getByRole('link',{name:'登入工坊 Star',exact:true});
+  await expect(star).toHaveAttribute('href','/#community');
   await details.locator('summary').click();
   await expect(details.getByText(example.guide!.beginner.workshop_use,{exact:true})).toBeVisible();
   await page.setViewportSize({width:390,height:844});

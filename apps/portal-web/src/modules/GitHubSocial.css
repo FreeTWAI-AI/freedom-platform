@@ -1,0 +1,23 @@
+.github-book-social { width: 100%; min-width: 0; display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid #333943; }
+.github-social-source { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.github-social-source a { color: #aeb5c2; font-size: .8rem; text-decoration: none; min-height: 24px; }
+.github-social-source a:hover,.github-social-source a:focus-visible { color: #c4ff20; text-decoration: underline; }
+.github-book-metrics { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px 16px; margin: 0; }
+.github-book-metrics > div { min-width: 0; display: grid; gap: 2px; }
+.github-book-metrics dt { font-size: .75rem; color: #aeb5c2; }
+.github-book-metrics dd { margin: 0; color: #f4f6ef; font-size: .95rem; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.github-book-social .github-metrics-note { color: #aeb5c2; font-size: .7rem; margin: 0; line-height: 1.6; }
+.github-social-actions { display: flex; gap: 8px 12px; align-items: center; flex-wrap: wrap; }
+.github-book-social .btn { min-height: 44px; font-size: .8rem; padding: 8px 14px; }
+.github-book-social .skill-book-star[aria-pressed="true"] { color: #c4ff20; border-color: #758e37; }
+.github-book-social .skill-book-star:hover,.github-book-social .skill-book-star:focus-visible { text-decoration: none; }
+.github-fork-link,.github-retry { display: inline-flex; align-items: center; min-height: 44px; color: #aebcff; font-size: .8rem; }
+.github-retry { padding: 0; border: 0; background: transparent; cursor: pointer; text-align: left; }
+.github-retry:hover,.github-retry:focus-visible,.github-fork-link:hover,.github-fork-link:focus-visible { color: #c4ff20; }
+.github-book-social .github-social-error { margin: 0; color: #ffb4b8; font-size: .8rem; line-height: 1.65; overflow-wrap: anywhere; }
+.skill-intro-dialog .github-book-metrics { grid-template-columns: repeat(5,minmax(0,1fr)); }
+.github-connection-panel > .btn { width: fit-content; }
+@media(max-width:600px) {
+  .skill-intro-dialog .github-book-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .github-social-actions { align-items: stretch; }
+}

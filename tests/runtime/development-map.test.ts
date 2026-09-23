@@ -7,8 +7,12 @@ import {developmentPages} from '../../modules/development/pages.js';
 import {developmentMap,markdownBody} from '../../modules/development/service.js';
 
 const origin='http://127.0.0.1:4310';
-// Public guidance must be static: any database query in these requests fails.
-const pool={query:()=>{throw new Error('public guidance accessed private database');}} as unknown as Pool;
+// Guidance may enrich a skill page from the public repository cache only.
+let privateQueries=0;
+const pool={query:(sql:string)=>{
+ if(sql==='SELECT snapshot,checked_at,retry_after,last_error FROM github_repository_metrics WHERE repository_key=$1')return Promise.resolve({rows:[]});
+ privateQueries++;throw new Error('public guidance accessed private database');
+}} as unknown as Pool;
 const app=createApp(pool,origin);
 
 test('every workspace page and entry flow maps to existing source, tests and an actual managed repository',()=>{
@@ -52,6 +56,13 @@ test('unauthenticated crawlers get useful HTML, Markdown and JSON without JavaSc
  assert.equal((await app.request(origin+'/api/v1/me/account')).status,401);
  assert.equal((await app.request(origin+'/api/v1/dashboard')).status,401);
  assert.equal((await app.request(origin+'/admin/api/bootstrap')).status,503); // no Access configuration in local tests
+ assert.equal(privateQueries,0);
+});
+
+test('public skill guidance survives a repository cache outage without substituting zero counts',async()=>{
+ const offline=createApp({query:()=>Promise.reject(Error('cache unavailable'))} as unknown as Pool,origin);
+ const response=await offline.request(origin+'/development/skills/security-scanner');assert.equal(response.status,200);
+ const html=await response.text();assert.ok(html.includes('Stars —'));assert.ok(html.includes('尚未取得 GitHub 數據'));assert.ok(html.includes('Fork 專案'));
 });
 
 test('unknown guide paths do not become an SPA fallback and authored text cannot inject executable HTML',async()=>{
