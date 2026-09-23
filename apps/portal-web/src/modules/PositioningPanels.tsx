@@ -4,6 +4,7 @@ import { SkillBookIntro } from './SkillBookIntro';
 import { Onboarding, SkillBooks, guildMasterLabel, type GuildSummary, type OnboardingView, type SkillBook } from './Onboarding';
 import { loadLabels, type MemberCardData } from './Membership';
 import './GuildDesign.css';
+import {GuildAnnouncements} from './GuildWorkspace';
 
 function failure(error:unknown){return error instanceof Error?error.message:'暫時無法取得資料，請重試。';}
 
@@ -64,6 +65,7 @@ export function GuildsPanel({client}:ModulePanelProps) {
       <div className="guild-card-topline"><span className="guild-orbit" aria-hidden="true"><span/></span>{g.is_primary?<span className="badge">主要公會</span>:g.membership?.state==='active'?<span className="badge">次要公會</span>:<span className="guild-card-kicker">GUILD / 自由工坊</span>}</div>
       <div className="card-head"><h3>{g.name}</h3></div><p className="guild-master">公會長：{guildMasterLabel(g)}</p><p className="guild-purpose">{g.purpose}</p><small>{typeof g.track_count==='number'?`${g.track_count} 個職業方向 · `:''}公開知識與共同學習免費</small>
       <div className="guild-book-list"><strong>公會技能庫</strong>{g.skill_books.length?g.skill_books.map(book=><SkillBookIntro key={book.id??book.book_id} book={book} guildName={g.name} label={book.title}/>):<p className="muted">技能書整理中</p>}</div>
+      {g.membership?.state==='active'&&<GuildAnnouncements client={client} guildKey={g.guild_key}/>}
       <div className="actions">{g.membership?.state==='active'&&!g.is_primary&&<button className="btn btn-primary" disabled={busy} onClick={()=>void primary(g)}>設為主要公會</button>}<button type="button" className="btn btn-ghost" disabled={busy||g.is_primary} onClick={()=>void change(g)}>{g.membership?.state==='active'?'退出':'加入'}{g.name}</button></div>{g.is_primary&&<p className="field-hint">若要退出，先將另一個已加入的公會設為主要公會。</p>}
     </article>)}</div>
     <section className="stack guild-bookshelf"><header className="section-heading"><p className="eyebrow">YOUR SKILL LIBRARY</p><h3>我的技能書架</h3></header>{books.length?<SkillBooks books={books}/>:<p className="guild-books-empty">加入公會，就能取得第一本技能書。</p>}</section>

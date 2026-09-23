@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { PortalClient } from '../api';
 import { SkillBookCard, type IntroBook } from './SkillBookIntro';
+import {SkillDiscoveryFilters,type SkillDiscoveryView} from './SkillDiscovery';
+import {useSkillDiscovery} from './skill-discovery-client';
 
 export type SiteConfig = { registration_enabled: boolean; demo_accounts_enabled: boolean; public_mode: boolean };
 export function BrandPoster({ compact = false }: { compact?: boolean }) {
@@ -21,7 +23,8 @@ type CommunityCatalog = { name: string; tagline: string; metrics: { label: strin
 
 export function RepositoryLibrary({ client, ids, title = '社群技能書' }: { client: PortalClient; ids?: string[]; title?: string }) {
   const [catalog, setCatalog] = useState<CommunityCatalog | null>(null), [error, setError] = useState('');
-  const [search,setSearch]=useState(''),[category,setCategory]=useState(''),[reload,setReload]=useState(0);
+  const [search,setSearch]=useState(''),[category,setCategory]=useState(''),[reload,setReload]=useState(0),[view,setView]=useState<SkillDiscoveryView>('all');
+  const discovery=useSkillDiscovery();
   useEffect(() => {
     let active = true;
     setError('');setCatalog(null);
@@ -31,7 +34,16 @@ export function RepositoryLibrary({ client, ids, title = '社群技能書' }: { 
   const available=ids?catalog?.skill_books.filter(book=>ids.includes(book.id))??[]:catalog?.skill_books??[];
   const categories=[...new Set(available.map(book=>book.guide?.beginner?.category).filter((value):value is NonNullable<typeof value>=>!!value))];
   const term=search.trim().toLocaleLowerCase();
-  const books=available.filter(book=>(!category||book.guide?.beginner?.category===category)&&(!term||[book.title,book.description,...Object.values(book.guide?.beginner??{})].join(' ').toLocaleLowerCase().includes(term)));
+  const bookMeta=new Map(discovery.data?.books.map(book=>[book.book_id,book]));
+  const discovered=available.filter(book=>{
+    if(view==='all')return true;
+    if(discovery.error)return false;
+    const meta=bookMeta.get(book.id);
+    if(!meta)return false;
+    return view==='official'?meta.official_guild_keys.length>0:view==='today'?meta.is_new_today:view==='week'?meta.week_rank!==null:meta.month_rank!==null;
+  });
+  if(view==='week'||view==='month')discovered.sort((a,b)=>(view==='week'?bookMeta.get(a.id)!.week_rank!:bookMeta.get(a.id)!.month_rank!)-(view==='week'?bookMeta.get(b.id)!.week_rank!:bookMeta.get(b.id)!.month_rank!));
+  const books=discovered.filter(book=>(!category||book.guide?.beginner?.category===category)&&(!term||[book.title,book.description,...Object.values(book.guide?.beginner??{})].join(' ').toLocaleLowerCase().includes(term)));
   return <section className="stack community-library">
     <header className="community-library-heading">
       <div><p className="home-eyebrow">THE SHARED LIBRARY</p><h3>{title}</h3></div>
@@ -39,9 +51,9 @@ export function RepositoryLibrary({ client, ids, title = '社群技能書' }: { 
     </header>
     {error && <div role="alert"><p>{error}</p><button type="button" className="btn btn-ghost" onClick={()=>setReload(value=>value+1)}>重新載入技能書</button></div>}
     {!catalog && !error && <p role="status">正在載入技能書…</p>}
-    {catalog&&<><div className="skill-library-filters"><label className="field">搜尋技能書<input type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="例如：貼文、商店、剪輯、找方向…"/></label><label className="field">依工坊用途篩選<select value={category} onChange={event=>setCategory(event.target.value)}><option value="">全部用途</option>{categories.map(value=><option key={value} value={value}>{value}</option>)}</select></label></div><p className="skill-library-count" role="status">顯示 {books.length} / {available.length} 本技能書</p></>}
+    {catalog&&<><SkillDiscoveryFilters value={view} onChange={setView}/><div className="skill-library-filters"><label className="field">搜尋技能書<input type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="例如：貼文、商店、剪輯、找方向…"/></label><label className="field">依工坊用途篩選<select value={category} onChange={event=>setCategory(event.target.value)}><option value="">全部用途</option>{categories.map(value=><option key={value} value={value}>{value}</option>)}</select></label></div><p className="skill-library-count" role="status">顯示 {books.length} / {available.length} 本技能書</p></>}
     <div className="card-grid community-book-grid">{books.map(book=><SkillBookCard key={book.id} book={book} className="community-book"/>)}</div>
-    {catalog&&!books.length&&<p className="muted">沒有符合的技能書。試試另一個關鍵字或用途。</p>}
+    {catalog&&!books.length&&<p className="muted">{view!=='all'&&discovery.error?'請重讀徽章與榜單，或先查看全部技能。':view!=='all'&&discovery.loading&&!discovery.data?'正在載入技能書…':(view==='week'||view==='month')&&!discovered.length?'目前還沒有上榜的技能書。連結 GitHub，Star 你喜歡的技能。':view==='today'&&!discovered.length?'今天尚未收錄新技能。':view==='official'&&!discovered.length?'目前尚未指定官方公會技能。':'沒有符合的技能書。試試另一個關鍵字或用途。'}</p>}
   </section>;
 }
 

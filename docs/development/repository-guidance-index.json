@@ -768,6 +768,96 @@
       "repository": "FreeTWAI-AI/video-autopilot-kit",
       "default_branch": "main",
       "kind": "upstream_fork"
+    },
+    {
+      "purpose": "活動與場地規劃的原創手冊、模板與共同開發入口。",
+      "current_scope": "原創手冊、模板、合成案例與結構驗證。",
+      "future_scope": "BACKLOG 為 planned 提案，不代表已完成實地活動、硬體校準或研究成效。",
+      "upstream": null,
+      "key_paths": [
+        "SKILL.md",
+        "BACKLOG.md",
+        "templates/",
+        "examples/",
+        "scripts/validate.py",
+        "tests/test_validate.py"
+      ],
+      "validation_commands": [
+        "python3 scripts/validate.py examples/event-plan.json",
+        "python3 -m unittest discover -s tests -v"
+      ],
+      "validation_note": "依本 repo 的 validator 與 unittest 入口執行；發布前核對實際結果。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md",
+        "SKILL.md",
+        "BACKLOG.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-event-space",
+      "repository": "FreeTWAI-AI/freedom-skill-event-space",
+      "default_branch": "main",
+      "kind": "starter"
+    },
+    {
+      "purpose": "光影與光雕製作的原創手冊、模板與共同開發入口。",
+      "current_scope": "原創手冊、模板、合成案例與結構驗證。",
+      "future_scope": "BACKLOG 為 planned 提案，不代表已完成實地活動、硬體校準或研究成效。",
+      "upstream": null,
+      "key_paths": [
+        "SKILL.md",
+        "BACKLOG.md",
+        "templates/",
+        "examples/",
+        "scripts/validate.py",
+        "tests/test_validate.py"
+      ],
+      "validation_commands": [
+        "python3 scripts/validate.py examples/projection-plan.json",
+        "python3 -m unittest discover -s tests -v"
+      ],
+      "validation_note": "依本 repo 的 validator 與 unittest 入口執行；發布前核對實際結果。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md",
+        "SKILL.md",
+        "BACKLOG.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-projection-mapping",
+      "repository": "FreeTWAI-AI/freedom-skill-projection-mapping",
+      "default_branch": "main",
+      "kind": "starter"
+    },
+    {
+      "purpose": "人類圖研究的原創手冊、模板與共同開發入口。",
+      "current_scope": "原創手冊、模板、合成案例與結構驗證。",
+      "future_scope": "BACKLOG 為 planned 提案，不代表已完成實地活動、硬體校準或研究成效。",
+      "upstream": null,
+      "key_paths": [
+        "SKILL.md",
+        "BACKLOG.md",
+        "templates/",
+        "examples/",
+        "scripts/validate.py",
+        "tests/test_validate.py"
+      ],
+      "validation_commands": [
+        "python3 scripts/validate.py examples/research-notes.json",
+        "python3 -m unittest discover -s tests -v"
+      ],
+      "validation_note": "依本 repo 的 validator 與 unittest 入口執行；發布前核對實際結果。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md",
+        "SKILL.md",
+        "BACKLOG.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-human-design",
+      "repository": "FreeTWAI-AI/freedom-skill-human-design",
+      "default_branch": "main",
+      "kind": "starter"
     }
   ]
 }

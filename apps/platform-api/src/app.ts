@@ -27,6 +27,10 @@ import { createPublicClientConnectionRoutes,createClientConnectionRoutes,createC
 import protocolMetadata from '../../../contracts/preview/v1/metadata.json' with { type: 'json' };
 import {createGitHubMetricsRoutes,createGitHubSocialRoutes,socialLoader,type GitHubSocialOptions} from './routes/github-social.js';
 import {GitHubSocial} from '../../../modules/github-social/service.js';
+import {createSkillDiscoveryRoutes} from './routes/skill-discovery.js';
+import {skillDiscovery} from '../../../modules/community/discovery.js';
+import {readSkillEditorial} from '../../../modules/guild-workspace/service.js';
+import {createGuildWorkspaceRoutes} from './routes/guild-workspace.js';
 
 const COOKIE='freedom_local_session';
 function authNetwork(c:Context) {
@@ -93,12 +97,13 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
     }
   });
   app.route('/admin/api',createAdminRoutes(pool,options.adminVerifier,{origin,tokenKey:options.githubSocial?.tokenKey??process.env.GITHUB_SOCIAL_TOKEN_KEY,fetcher:options.githubSocial?.fetcher}));
-  app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id)));
-  app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:'0.8.0-github-social',money_movement_enabled:false,official:false}));
+  app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id)));
+  app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:'0.9.0-guild-collaboration',money_movement_enabled:false,official:false}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
   app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(process.env.FREEDOM_REGISTRATION_COMMUNITY_ID),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog}));
   app.get('/api/v1/community',c=>c.json(communityCatalog));
   app.route('/api/v1',createGitHubMetricsRoutes(async()=>publicSocial));
+  app.route('/api/v1',createSkillDiscoveryRoutes(pool));
   app.route('/api/v1',createPublicClientConnectionRoutes(pool,origin,authNetwork));
   app.route('/client-api/v1',createClientApiRoutes(pool));
   app.post('/api/v1/auth/register',async c=>{
@@ -160,6 +165,7 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
   app.post('/api/v1/engagements/:id/receipts',async c=>respond(c,await changeEngagement(pool,await cmd(c),routeId(c),'receipt'),201));
   app.route('/api/v1',createMemberRoutes(pool));
   app.route('/api/v1',createGitHubSocialRoutes(loadSocial));
+  app.route('/api/v1',createGuildWorkspaceRoutes(pool));
   app.route('/api/v1',createAvatarRoutes(pool));
   app.route('/api/v1',createClientConnectionRoutes(pool));
   app.route('/api/v1',createPositioningRoutes(pool));

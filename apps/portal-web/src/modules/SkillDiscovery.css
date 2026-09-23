@@ -1,0 +1,33 @@
+.skill-book-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.skill-book-badges:empty { display: none; }
+.skill-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; border: 1px solid #4b5365; border-radius: 999px; font-size: .72rem; line-height: 1.5; color: #cbd3e3; }
+.skill-badge-official { border-color: #6e852c; color: #d7ff84; background: #c4ff2010; }
+.skill-badge-new { border-color: #555ea3; color: #c0c7ff; background: #3044ff18; }
+.skill-badge-rank { border-color: #535967; color: #e2e6ed; background: #202329; }
+.skill-discovery { display: grid; gap: 10px; }
+.skill-discovery-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.skill-discovery-tabs .btn { min-height: 44px; font-size: .85rem; }
+.skill-discovery-tabs .is-selected { border-color: #91b737; color: #d9ff9d; background: #c4ff2012; }
+.skill-discovery .field-hint { margin: 0; color: #aeb5c2; font-size: .8rem; line-height: 1.7; }
+.skill-discovery-error { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: .85rem; }
+.skill-share { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.skill-share > .btn { min-height: 44px; font-size: .85rem; }
+.skill-share-status { margin: 0; font-size: .8rem; color: #c1cbd8; }
+.skill-share .field { width: 100%; }
+.skill-share input { width: 100%; min-width: 0; font-size: 16px; }
+.skill-library-actions > .skill-share { flex-basis: 100%; }
+.skill-intro-collaboration { padding: 20px; border: 1px solid #404b65; border-radius: 12px; background: #10131c; }
+.skill-intro-collaboration h3 { font-size: 1rem; margin: 0; }
+.skill-intro-collaboration p { margin: 10px 0 16px; color: #c4cddd; font-size: .9rem; line-height: 1.7; }
+.guild-book-list > .skill-intro-entry { display: grid; gap: 6px; padding: 6px 0 10px; }
+.guild-book-list .skill-intro-entry .skill-book-badges { padding-left: 12px; }
+@media (max-width: 600px) {
+  .skill-intro-collaboration { padding: 16px; }
+  .skill-share { width: 100%; }
+  .skill-share > .btn { width: 100%; }
+  .skill-discovery-tabs { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .skill-discovery-tabs .btn:first-child { grid-column: 1 / -1; }
+}
+
+.skill-library-actions > .skill-intro-entry { display: contents; }
+.skill-library-actions .skill-intro-trigger { margin: 0; font-size: .85rem; }

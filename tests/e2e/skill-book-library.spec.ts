@@ -14,7 +14,7 @@ async function openLibrary(page:Page){
   await page.getByRole('button',{name:'自由工坊社群',exact:true}).click();
   const library=page.locator('.community-library');
   await expect(library.getByRole('heading',{name:'自由工坊的作品與技能書',exact:true})).toBeVisible();
-  await expect(library.locator('.skill-library-book')).toHaveCount(22);
+  await expect(library.locator('.skill-library-book')).toHaveCount(25);
   return library;
 }
 
@@ -45,14 +45,14 @@ test('guild skill book introduces a real first deliverable before external readi
 });
 
 
-test('public library searches all 22 books and intersects workshop categories without granting books',async({page})=>{
+test('public library searches all 25 books and intersects workshop categories without granting books',async({page})=>{
   const library=await openLibrary(page),cards=library.locator('article.skill-library-book');
   const grantedBefore=await (await page.request.get('/api/v1/me/skill-books')).json();
-  await expect(library.getByRole('status')).toHaveText('顯示 22 / 22 本技能書');
+  await expect(library.getByRole('status')).toHaveText('顯示 25 / 25 本技能書');
   const illustrations=cards.locator('.skill-book-illustration');
-  await expect(illustrations).toHaveCount(22);
+  await expect(illustrations).toHaveCount(25);
   const urls=await illustrations.evaluateAll(images=>images.map(image=>image.getAttribute('src')));
-  expect(new Set(urls).size).toBe(22);
+  expect(new Set(urls).size).toBe(25);
   for(const url of urls){
     expect(url).toMatch(/^\/art\/skills\/[a-z0-9-]+\.webp$/);
     const response=await page.request.get(url!);
@@ -66,14 +66,14 @@ test('public library searches all 22 books and intersects workshop categories wi
   // Search must narrow the selected category, not replace it or search only featured books.
   await search.fill('社群貼文');
   await expect(cards).toHaveCount(0);
-  await expect(library.getByRole('status')).toHaveText('顯示 0 / 22 本技能書');
+  await expect(library.getByRole('status')).toHaveText('顯示 0 / 25 本技能書');
   await expect(library.getByText('沒有符合的技能書。試試另一個關鍵字或用途。',{exact:true})).toBeVisible();
   await category.selectOption({label:'內容與行銷'});
   await expect(cards).toHaveCount(1);
   await expect(cards.first().getByRole('heading')).toHaveText('Hao 社群貼文技能書');
-  await expect(library.getByRole('status')).toHaveText('顯示 1 / 22 本技能書');
+  await expect(library.getByRole('status')).toHaveText('顯示 1 / 25 本技能書');
   await search.fill('');await category.selectOption({label:'全部用途'});
-  await expect(cards).toHaveCount(22);
+  await expect(cards).toHaveCount(25);
   const grantedAfter=await (await page.request.get('/api/v1/me/skill-books')).json();
   expect(grantedAfter).toEqual(grantedBefore);
   await page.setViewportSize({width:390,height:844});
@@ -130,7 +130,7 @@ test('book cards credit the original GitHub author and offer direct reading acti
 test('all public book pages and Markdown preserve beginner summaries, covers, original stars and source facts',async({page,request})=>{
   const response=await request.get('/api/v1/development-map');expect(response.status()).toBe(200);
   const map=await response.json() as {skill_books:(SkillBook&{guide_url:string;markdown_url:string})[]};
-  expect(map.skill_books).toHaveLength(22);
+  expect(map.skill_books).toHaveLength(25);
   for(const book of map.skill_books){
     const htmlResponse=await request.get(book.guide_url),markdownResponse=await request.get(book.markdown_url);
     expect(htmlResponse.status(),book.id).toBe(200);expect(markdownResponse.status(),book.id).toBe(200);
@@ -144,7 +144,8 @@ test('all public book pages and Markdown preserve beginner summaries, covers, or
     }
     expect(html,book.id).toContain(`src="${book.cover_url}"`);
     expect(html,book.id).toContain('href="/#community">登入工坊 Star');
-    expect(html,book.id).not.toContain('<script');
+    expect(html.match(/<script[^>]*>/g),book.id).toEqual(['<script src="/development-share.js" defer>']);
+    expect(html,book.id).not.toMatch(/<script(?![^>]*src=)[^>]*>/);
   }
   const example=map.skill_books.find(book=>book.id==='social-post')!;
   await page.goto(example.guide_url);

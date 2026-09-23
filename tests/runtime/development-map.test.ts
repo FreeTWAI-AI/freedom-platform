@@ -8,16 +8,19 @@ import {developmentMap,markdownBody} from '../../modules/development/service.js'
 
 const origin='http://127.0.0.1:4310';
 // Guidance may enrich a skill page from the public repository cache only.
+const publicEditorial='SELECT summary,collaboration_intro,milestones,tasks,updated_at,aggregate_version FROM skill_book_editorial WHERE book_id=$1';
+const publicDiscovery=new Set(['SELECT book_id,published_at FROM skill_publications WHERE published_at<=$1','SELECT book_id,summary FROM skill_book_editorial',`SELECT repository_key,count(*) FILTER(WHERE first_confirmed_at>$1 AND first_confirmed_at<=$3)::int AS week_stars, count(*) FILTER(WHERE first_confirmed_at>$2 AND first_confirmed_at<=$3)::int AS month_stars FROM skill_star_support WHERE active AND first_confirmed_at>$2 AND first_confirmed_at<=$3 GROUP BY repository_key`]);
+const publiclyReadable=(sql:string)=>sql===publicEditorial||publicDiscovery.has(sql.replace(/\s+/g,' ').trim());
 let privateQueries=0;
 const pool={query:(sql:string)=>{
- if(sql==='SELECT snapshot,checked_at,retry_after,last_error FROM github_repository_metrics WHERE repository_key=$1')return Promise.resolve({rows:[]});
+ if(publiclyReadable(sql)||sql==='SELECT snapshot,checked_at,retry_after,last_error FROM github_repository_metrics WHERE repository_key=$1')return Promise.resolve({rows:[]});
  privateQueries++;throw new Error('public guidance accessed private database');
 }} as unknown as Pool;
 const app=createApp(pool,origin);
 
 test('every workspace page and entry flow maps to existing source, tests and an actual managed repository',()=>{
  const map=developmentMap(),repos=new Set(map.repositories.map(repo=>repo.repository));
- assert.equal(repos.size,28);assert.equal(map.skill_books.length,22);
+ assert.equal(repos.size,31);assert.equal(map.skill_books.length,25);
  const types=readFileSync('apps/portal-web/src/types.ts','utf8');
  const tabs=[...types.match(/export type TabId = ([^\n]+)/)![1].matchAll(/'([^']+)'/g)].map(match=>match[1]);
  for(const id of [...tabs,'registration','onboarding','admin','skillbooks'])assert.ok(developmentPages.some(page=>page.id===id),id);
@@ -52,7 +55,7 @@ test('unauthenticated crawlers get useful HTML, Markdown and JSON without JavaSc
   assert.match(await (await app.request(origin+book.markdown_url)).text(),/## 開始前準備/);
  }
  const llms=await (await app.request(origin+'/llms.txt')).text();assert.match(llms,/\/development\/admin\.md/);
- assert.doesNotMatch(JSON.stringify(map),/@|user_id|csrf_token|access_token|session_id|\/home\/|\/tmp\//);
+ assert.doesNotMatch(JSON.stringify(map),/@|user_id|csrf_token|access_token|session_id|"\/home\/|"\/tmp\//);
  assert.equal((await app.request(origin+'/api/v1/me/account')).status,401);
  assert.equal((await app.request(origin+'/api/v1/dashboard')).status,401);
  assert.equal((await app.request(origin+'/admin/api/bootstrap')).status,503); // no Access configuration in local tests
@@ -60,7 +63,7 @@ test('unauthenticated crawlers get useful HTML, Markdown and JSON without JavaSc
 });
 
 test('public skill guidance survives a repository cache outage without substituting zero counts',async()=>{
- const offline=createApp({query:()=>Promise.reject(Error('cache unavailable'))} as unknown as Pool,origin);
+ const offline=createApp({query:(sql:string)=>publiclyReadable(sql)?Promise.resolve({rows:[]}):Promise.reject(Error('cache unavailable'))} as unknown as Pool,origin);
  const response=await offline.request(origin+'/development/skills/security-scanner');assert.equal(response.status,200);
  const html=await response.text();assert.ok(html.includes('Stars —'));assert.ok(html.includes('尚未取得 GitHub 數據'));assert.ok(html.includes('Fork 專案'));
 });

@@ -1,4 +1,5 @@
 import {Hono,type Context} from 'hono';
+import {createGuildWorkspaceAdminRoutes} from './guild-workspace.js';
 import {timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
 import {getCookie} from 'hono/cookie';
@@ -21,6 +22,7 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
     }
     await next();
   });
+  app.route('/',createGuildWorkspaceAdminRoutes(pool));
   const command=async(c:Context<AdminEnv>):Promise<AdminCommand>=>{
     const version=c.req.header('If-Match');
     if(version)requireCondition(/^"[1-9][0-9]*"$/.test(version),400,'invalid_version','If-Match 須為加引號的整數版本。');

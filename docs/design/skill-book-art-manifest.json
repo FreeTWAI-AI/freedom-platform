@@ -2,7 +2,7 @@
   "generated_at": "2026-09-23",
   "mode": "builtin-imagegen",
   "style_anchor": "apps/portal-web/public/brand/freedom-workshop.webp",
-  "description": "22 separately generated original skill-book covers. No original logo edits; only mechanical WebP encoding for delivery.",
+  "description": "25 separately generated original skill-book covers. No original logo edits; only mechanical WebP encoding for delivery.",
   "assets": [
     {
       "id": "career-guide",
@@ -223,6 +223,36 @@
       "height": 1254,
       "bytes": 188326,
       "sha256": "6199ec19c3243a13dc0649e7337a0e6b0cdc91a1ef4db52c43df3f6cc5ab039b"
+    },
+    {
+      "id": "event-space",
+      "title": "活動與空間規劃入門",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. A futuristic guild skill book, never medieval fantasy. One thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Immediately identifiable thumbnail silhouette, generous black margin, restrained orbital accent, rich reflective metal, high quality 3D product render. Single image, not grid/collage. No text, letters, numbers, logos, watermark, readable screens. Do not redraw or alter Freedom Workshop logo.\nUnique subject: A miniature modular event venue with a small circular stage, neatly arranged seating and an open spatial planning grid; bringing a real reading group together.",
+      "path": "apps/portal-web/public/art/skills/event-space.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 337188,
+      "sha256": "c0dd85299a056fb0fa2ea4c6c92f618b0bf92f231d5eb7d985313d205de7a869"
+    },
+    {
+      "id": "projection-mapping",
+      "title": "光影光雕入門",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. A futuristic guild skill book, never medieval fantasy. One thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Immediately identifiable thumbnail silhouette, generous black margin, restrained orbital accent, rich reflective metal, high quality 3D product render. Single image, not grid/collage. No text, letters, numbers, logos, watermark, readable screens. Do not redraw or alter Freedom Workshop logo.\nUnique subject: Two sculptural chrome projectors casting electric-blue and lime geometric light onto an angular architectural facade, a projection mapping installation; elegant and legible.",
+      "path": "apps/portal-web/public/art/skills/projection-mapping.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 197982,
+      "sha256": "8c7d528424a8f04ab5fd9a29e16fcf59318bdcbda51ded081f9dbef06a69d7bc"
+    },
+    {
+      "id": "human-design",
+      "title": "人類圖研究與讀書會",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. A futuristic guild skill book, never medieval fantasy. One thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Immediately identifiable thumbnail silhouette, generous black margin, restrained orbital accent, rich reflective metal, high quality 3D product render. Single image, not grid/collage. No text, letters, numbers, logos, watermark, readable screens. Do not redraw or alter Freedom Workshop logo.\nUnique subject: An abstract reflective human silhouette within a luminous orbital diagram of connected geometric nodes, a book for interpretive self-reflection study, not medical technology; no recognizable proprietary chart.",
+      "path": "apps/portal-web/public/art/skills/human-design.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 332506,
+      "sha256": "cd7f256322682ba11826aab110d37df640fbbc30c84ec77c8c56f55d64ba3f57"
     }
   ]
 }

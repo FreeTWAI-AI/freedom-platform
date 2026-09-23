@@ -1,0 +1,29 @@
+.guild-workspace { display: grid; gap: 24px; }
+.guild-workspace h2,.guild-workspace h3,.guild-workspace h4 { margin: 0; }
+.guild-workspace-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.guild-workspace-tabs [aria-pressed=true] { color: #d7ff84; border-color: #7a9837; background: #c4ff2010; }
+.guild-workspace-columns { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-items: start; gap: 20px; }
+.guild-workspace-columns > * { min-width: 0; }
+.guild-workspace-body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.75; }
+.guild-workspace textarea { min-height: 100px; }
+.guild-workspace fieldset { min-width: 0; }
+.guild-workspace legend { padding: 0 8px; color: #d7def0; }
+.guild-milestone-row,.guild-maintainer-row { display: flex; align-items: end; gap: 12px; justify-content: space-between; }
+.guild-milestone-row .field { flex: 1; min-width: 0; }
+.guild-maintainer-row { align-items: center; }
+.guild-task-editor { padding: 20px 0; border-bottom: 1px solid #333943; }
+.guild-thread-select { display: grid; gap: 8px; text-align: left; background: #14161b; color: #f4f6ef; padding: 16px; border: 1px solid #333943; border-radius: 12px; cursor: pointer; min-height: 64px; overflow-wrap: anywhere; }
+.guild-thread-select span { color: #aeb5c2; font-size: .8rem; }
+.guild-thread-select.is-selected { border-color: #7a9837; }
+.guild-thread-select:hover,.guild-thread-select:focus-visible { border-color: #9ba7ff; }
+.guild-council-reply { border-top: 1px solid #333943; padding-top: 12px; }
+.guild-announcements { border-top: 1px solid #333943; margin-top: 10px; font-size: .85rem; }
+.guild-announcements summary { cursor: pointer; min-height: 44px; padding: 12px 0; color: #cbd3e3; }
+.guild-announcements article { padding: 12px 0; border-top: 1px solid #333943; }
+.guild-announcements time { color: #aeb5c2; font-size: .75rem; }
+@media(max-width:700px){
+  .guild-workspace-columns { grid-template-columns: 1fr; }
+  .guild-workspace input,.guild-workspace select,.guild-workspace textarea { font-size: 16px; }
+  .guild-workspace-tabs .btn { flex: 1; }
+  .guild-maintainer-row { align-items: stretch; flex-direction: column; }
+}

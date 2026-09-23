@@ -45,7 +45,7 @@ async function member(community:string):Promise<Actor>{
   return {...user,session_hash:session,csrf_token:csrf};
 }
 beforeEach(async()=>{
-  await pool.query('TRUNCATE communities,github_repository_metrics CASCADE');
+  await pool.query('TRUNCATE communities,github_repository_metrics,skill_star_support CASCADE');
   const community=randomUUID(),outsideCommunity=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2),($3,$4)',[community,'Social tests',outsideCommunity,'Other community']);
   actor=await member(community);other=await member(community);outsider=await member(outsideCommunity);mock=new GitHubMock();social=new GitHubSocial(pool,config,mock.fetch);
 });
@@ -54,6 +54,21 @@ async function connect(service=social,memberActor=actor){
   const start=await service.start(memberActor,'#guilds'),state=new URL(start.authorization_url).searchParams.get('state')!;
   return {start,state,complete:await service.complete(memberActor,state,'synthetic-code')};
 }
+
+test('only successful member-directed GitHub writes enter workshop rankings; reads and rejected writes do not',async()=>{
+  await connect();mock.starred=true;
+  await social.starred(actor,book);
+  assert.equal((await pool.query('SELECT count(*) FROM skill_star_support')).rows[0].count,'0');
+  mock.starStatus=403;
+  await assert.rejects(()=>social.star(actor,book,true));
+  assert.equal((await pool.query('SELECT count(*) FROM skill_star_support')).rows[0].count,'0');
+  mock.starStatus=204;
+  await social.star(actor,book,true);await social.star(actor,book,true);
+  let rows=(await pool.query('SELECT * FROM skill_star_support')).rows;
+  assert.equal(rows.length,1);assert.equal(rows[0].github_user_id,'12345');assert.equal(rows[0].active,true);
+  mock.starred=false;await social.starred(actor,book);
+  rows=(await pool.query('SELECT * FROM skill_star_support')).rows;assert.equal(rows[0].active,false);
+});
 
 test('public metrics use original allowlisted repository and persist real counts across service instances',async()=>{
   const unconfigured=new GitHubSocial(pool,undefined,mock.fetch),another=new GitHubSocial(pool,undefined,mock.fetch);

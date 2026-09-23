@@ -5,6 +5,7 @@ import {transaction} from '../../packages/db/index.js';
 import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {communityCatalog} from '../community/catalog.js';
+import {recordConfirmedStar,reconcileConfirmedStar} from '../community/discovery.js';
 import {GitHubProviderError,GitHubSocialProvider,type GitHubSocialConfig,type GitHubTokens,type RepositorySnapshot} from './provider.js';
 export type {GitHubSocialConfig} from './provider.js';
 
@@ -122,7 +123,10 @@ export class GitHubSocial {
     return this.member(actor,async q=>{
       const connection=await this.connection(q,actor);if(!this.config||!connection)return {book_id:bookId,connected:false,starred:null};
       await this.rate(q,actor,'star-read',90);
-      return {book_id:bookId,connected:true,starred:await this.withToken(q,actor,connection,token=>this.provider.starred(book.repository,token))};
+      await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-star/${connection.github_user_id}/${book.repository.toLowerCase()}`]);
+      const starred=await this.withToken(q,actor,connection,token=>this.provider.starred(book.repository,token));
+      await reconcileConfirmedStar(q,connection.github_user_id,book.repository,starred);
+      return {book_id:bookId,connected:true,starred};
     });
   }
   async star(actor:Actor,bookId:string,desired:boolean){
@@ -130,7 +134,9 @@ export class GitHubSocial {
     return this.member(actor,async q=>{
       await this.rate(q,actor,'star-write',30);
       const connection=await this.connection(q,actor);requireCondition(connection,409,'github_connect_required','請先連接自己的 GitHub 帳號。');
+      await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-star/${connection.github_user_id}/${book.repository.toLowerCase()}`]);
       const token=await this.withToken(q,actor,connection,async token=>{await this.provider.star(book.repository,token,desired);return token;});
+      await recordConfirmedStar(q,connection.github_user_id,book.repository,desired);
       // The star is already confirmed. Refresh public counts from GitHub itself;
       // never calculate +/-1 or turn a metrics failure into a failed star result.
       const key=book.repository.toLowerCase();

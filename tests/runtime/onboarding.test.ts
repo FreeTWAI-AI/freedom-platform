@@ -30,7 +30,7 @@ const chosen=['guild_product_quality_supply','guild_commerce_sales','guild_marke
 async function evaluated(member:Session){const saved=await request('/me/onboarding/answers',member,body);assert.equal(saved.status,200,JSON.stringify(saved.data));const evaluated=await request('/me/onboarding/evaluate',member,{},saved.data.draft.aggregate_version);assert.equal(evaluated.status,200,JSON.stringify(evaluated.data));return evaluated.data;}
 async function completed(member:Session){const data=await evaluated(member),r=await request('/me/onboarding/complete',member,{guild_keys:chosen,primary_guild_key:chosen[0],confirmed:true},data.draft.aggregate_version);assert.equal(r.status,200,JSON.stringify(r.data));return r.data;}
 
-test('original assessment deterministically recommends three of fifteen guilds without exposing scores or diagnostic labels',async()=>{
+test('original assessment deterministically recommends three of eighteen guilds without exposing scores or diagnostic labels',async()=>{
  const result=evaluateAssessment(answers);assert.deepEqual(evaluateAssessment({...answers}),result);assert.equal(result.recommendations.length,3);assert.equal(new Set(result.recommendations.map(r=>r.guild_key)).size,3);
  assert.equal(result.ability_feedback.length,9);assert.ok(result.recommendations.every(r=>r.reason&&r.title));assert.equal('scores' in result,false);
  const member=await signIn(),definition=await request('/assessment-definition',member);assert.equal(definition.status,200);assert.equal(definition.data.assessment_sha256,ASSESSMENT_SHA256);
@@ -110,7 +110,7 @@ test('guild applications remain pending, scoped to applicant, and never create g
  const applied=await request('/guild-applications',member,input,undefined,key);assert.equal(applied.status,201,JSON.stringify(applied.data));assert.equal(applied.data.state,'pending');
  assert.deepEqual((await request('/guild-applications',member,input,undefined,key)).data,applied.data);assert.equal((await request('/guild-applications',member,input)).status,409);
  assert.equal((await request('/guild-applications',member)).data.items.length,1);assert.equal((await request('/guild-applications',other)).data.items.length,0);
- assert.equal((await pool.query('SELECT count(*) FROM positioning_guild_catalog')).rows[0].count,'15');assert.equal((await pool.query('SELECT count(*) FROM positioning_guild_officers')).rows[0].count,'0');
+ assert.equal((await pool.query('SELECT count(*) FROM positioning_guild_catalog')).rows[0].count,'18');assert.equal((await pool.query('SELECT count(*) FROM positioning_guild_officers')).rows[0].count,'0');
  assert.equal((await request('/me/onboarding',other)).data.draft,null);assert.deepEqual((await request('/me/skill-books',other)).data.items,[]);
 });
 
@@ -123,14 +123,14 @@ test('retaking the assessment preserves the last confirmed public capabilities u
  assert.equal((await request('/work-items',member)).status,200);
 });
 
-for(const [choice,guildKey,bookId] of [['security','guild_security','security-scanner'],['music_mv','guild_music_mv','music-mv'],['commercial_production','guild_commercial_production','commercial-production']] as const)test(`${guildKey} is recommendable as primary and grants its actual repository book with unassigned leader`,async()=>{
+for(const [choice,guildKey,bookId] of [['security','guild_security','security-scanner'],['music_mv','guild_music_mv','music-mv'],['commercial_production','guild_commercial_production','commercial-production'],['event_space','guild_event_space','event-space'],['projection_mapping','guild_projection_mapping','projection-mapping'],['human_design','guild_human_design','human-design']] as const)test(`${guildKey} is recommendable as primary and grants its actual repository book with unassigned leader`,async()=>{
  const member=await signIn(),specialistAnswers={...answers,preferred_result:choice,work_material:choice,learning_focus:choice};
  assert.equal(evaluateAssessment(specialistAnswers).recommendations[0].guild_key,guildKey);
  const saved=await request('/me/onboarding/answers',member,{...body,answers:specialistAnswers});assert.equal(saved.status,200);
  const evaluated=await request('/me/onboarding/evaluate',member,{},saved.data.draft.aggregate_version);assert.equal(evaluated.data.result.recommendations[0].guild_key,guildKey);
  const complete=await request('/me/onboarding/complete',member,{guild_keys:[guildKey],primary_guild_key:guildKey,confirmed:true},evaluated.data.draft.aggregate_version);assert.equal(complete.status,200,JSON.stringify(complete.data));assert.equal(complete.data.primary_guild_key,guildKey);
  const books=(await request('/me/skill-books',member)).data.items;assert.equal(books[0].book_id,bookId);assert.match(books[0].repository_url,/^https:\/\/github\.com\/FreeTWAI-AI\//);
- const directory=(await request('/guilds/directory',member)).data.items;assert.equal(directory.length,15);const guild=directory.find((g:any)=>g.guild_key===guildKey);assert.equal(guild.guild_master,null);assert.equal(guild.is_primary,true);
+ const directory=(await request('/guilds/directory',member)).data.items;assert.equal(directory.length,18);const guild=directory.find((g:any)=>g.guild_key===guildKey);assert.equal(guild.guild_master,null);assert.equal(guild.is_primary,true);
 });
 
 const oldVersion='freedom-orientation-v1',oldHash='fa485d9b23a0b7626c85284788297ef4b0425d45f2b7950842646b2a39e844cf';

@@ -100,13 +100,30 @@ try {
   console.log('Public HTTPS landing, admin Access boundary, anonymous boundary and brand asset: PASS');
   const mapResponse=await anonymous.get(origin+'/api/v1/development-map');
   expect(mapResponse.status()).toBe(200);const development=await mapResponse.json();
-  expect(development.pages).toHaveLength(19);expect(development.repositories).toHaveLength(28);expect(development.skill_books).toHaveLength(22);
+  expect(development.pages).toHaveLength(20);expect(development.repositories).toHaveLength(31);expect(development.skill_books).toHaveLength(25);
   expect(JSON.stringify(development)).not.toMatch(/user_id|access_token|csrf_token/);
   for(const path of ['/llms.txt','/development','/development/guilds.md','/development/skills/security-scanner']){
     const response=await anonymous.get(origin+path);expect(response.status(),path).toBe(200);
     expect((await response.text()).length).toBeGreaterThan(100);
   }
-  console.log('Anonymous Agent discovery, 19 page guides, 28 repository guides and 22 skill books: PASS');
+  console.log('Anonymous Agent discovery, 20 page guides, 31 repository guides and 25 skill books: PASS');
+  const discoveryResponse=await anonymous.get(origin+'/api/v1/skills/discovery');
+  expect(discoveryResponse.status()).toBe(200);
+  const discovery=await discoveryResponse.json();expect(discovery.books).toHaveLength(25);
+  expect(discovery.timezone).toBe('Asia/Taipei');
+  expect(JSON.stringify(discovery)).not.toMatch(/github_user_id|client_secret|csrf_token/);
+  for(const id of ['video-autopilot','event-space','projection-mapping','human-design']){
+    const share=await anonymous.get(origin+'/development/skills/'+id);expect(share.status()).toBe(200);
+    const html=await share.text();expect(html).toContain('og:image');expect(html).toContain('SKILL.md');
+    const skill=await anonymous.get(origin+'/development/skills/'+id+'/SKILL.md');expect(skill.status()).toBe(200);
+    expect(await skill.text()).toMatch(/^---\nname:/);
+    const cooperation=await anonymous.get(origin+'/api/v1/skills/'+id+'/collaboration');expect(cooperation.status()).toBe(200);
+    const guide=await cooperation.json();expect(guide.book_id).toBe(id);expect(guide.repository.fork_url).toMatch(/^https:\/\/github\.com\//);expect(Array.isArray(guide.tasks)).toBe(true);if(!guide.editorial)expect(guide.tasks.length).toBeGreaterThan(0);
+  }
+  for(const pageId of ['home','guilds','guild-workspace','admin']){
+    const skill=await anonymous.get(origin+'/development/'+pageId+'/SKILL.md');expect(skill.status()).toBe(200);expect(await skill.text()).toMatch(/^---\nname:/);
+  }
+  console.log('Public share metadata, 25-book discovery and readable skill/page Agent instructions: PASS');
 
 
   browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH } : {}) });
@@ -225,7 +242,7 @@ try {
 
   stage = 'skill-book cover delivery';
   const covers=JSON.parse(await readFile(new URL('../docs/design/skill-book-art-manifest.json',import.meta.url),'utf8')).assets;
-  expect(covers).toHaveLength(22);
+  expect(covers).toHaveLength(25);
   for(const cover of covers){
     const image=await anonymous.get(origin+'/art/skills/'+cover.id+'.webp');
     expect(image.status()).toBe(200);
@@ -234,7 +251,7 @@ try {
     expect(metadata.width).toBe(cover.width);
     expect(metadata.height).toBe(cover.height);
   }
-  console.log('All 22 distinct skill-book covers delivered over HTTPS: PASS');
+  console.log('All 25 distinct skill-book covers delivered over HTTPS: PASS');
 
   stage = 'member card and privacy';
   await page.getByRole('button', { name: '我的名片', exact: true }).click();
@@ -311,8 +328,11 @@ try {
   const guildResponse=await page.request.get(origin+'/api/v1/guilds/directory');
   expect(guildResponse.status()).toBe(200);
   const guilds=(await guildResponse.json()).items;
-  expect(guilds).toHaveLength(15);
-  for(const key of ['guild_security','guild_music_mv','guild_commercial_production']) expect(guilds.some(g=>g.guild_key===key)).toBe(true);
+  expect(guilds).toHaveLength(18);
+  for(const key of ['guild_security','guild_music_mv','guild_commercial_production','guild_event_space','guild_projection_mapping','guild_human_design']) expect(guilds.some(g=>g.guild_key===key)).toBe(true);
+  const workspaceResponse=await page.request.get(origin+'/api/v1/guild-workspace');expect(workspaceResponse.status()).toBe(200);
+  expect(await workspaceResponse.json()).toMatchObject({managed_guilds:[],managed_books:[],can_discuss:false});
+  expect((await page.request.get(origin+'/api/v1/guild-council/threads')).status()).toBe(403);
   await page.getByRole('button',{name:'一起開發',exact:true}).click();
   await expect(page.getByRole('heading',{name:'一起開發',exact:true}).first()).toBeVisible();
   const liveActivity=await page.request.get(origin+'/api/v1/co-creation/projects/workshop-video-autopilot/activity');
@@ -324,7 +344,7 @@ try {
   await screenshot('public-co-creation-mobile.png');
   await page.setViewportSize({width:1440,height:1000});await page.evaluate(()=>scrollTo(0,0));
   await screenshot('public-co-creation-desktop.png');
-  console.log('15 Guilds and real GitHub co-creation Issues through deployed Platform: PASS');
+  console.log('18 Guilds and real GitHub co-creation Issues through deployed Platform: PASS');
 
   stage = 'logout and fresh login';
   await page.getByRole('button', { name: '登出', exact: true }).click();

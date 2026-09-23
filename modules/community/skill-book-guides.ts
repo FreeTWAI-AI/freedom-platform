@@ -1115,5 +1115,170 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
       "workshop_use": "用在作品討論或小隊腦力激盪，整理不同意見後再一起決定。",
       "next_step": "先看安裝方式，選一個公開問題，送到已登入的 AI 分頁比較。"
     }
+  },
+"event-space": {
+  "format": "實作手冊與模板",
+  "summary": "把讀書會、聚會或小型展演整理成場地 brief、動線與現場分工。",
+  "audience": [
+    "場地承包與空間規劃者",
+    "讀書會主持人",
+    "活動執行與接待夥伴"
+  ],
+  "status": "適用讀書會、社群聚會與小型活動的需求整理。模板不會替你訂場地、簽約、收款或認證現場安全。",
+  "features": [
+    "活動 brief 與場地條件比較",
+    "流程、分工與備援模板",
+    "容量與時間重疊結構檢查"
+  ],
+  "prerequisites": [
+    "活動目的、預計人數、日期範圍與可用預算",
+    "候選場地提供的設備、容量及使用條件",
+    "可投入的夥伴與主办人確認的聯絡方式（公開範例使用虛構資料）"
+  ],
+  "first_steps": [
+    "複製 templates/event-brief.md，填活動目的、人數、日期與場地需求。",
+    "比較候選場地，記錄報價來源、進撤場時段、無障礙需求與場地方待確認項目。",
+    "用 templates/run-of-show.csv 排出報到、開場、討論、收尾；每一段填負責角色。",
+    "在 templates/event-plan.json 寫容量、人數與分工，再執行驗證。",
+    "由主辦人核對未決事項；活動後記錄實際變更，刪除個資再提交模板改善 PR。"
+  ],
+  "first_result": "一份可交接的讀書會企劃：場地條件、流程、分工與備援。",
+  "contribution": "從 BACKLOG.md 選一項模板或合成案例改善，以 Fork／PR 附實測結果一起完成。",
+  "contribution_url": "https://github.com/FreeTWAI-AI/freedom-skill-event-space/issues",
+  "reading_url": "https://github.com/FreeTWAI-AI/freedom-skill-event-space/blob/574c00b651e89248876c2846484c105623076cac/SKILL.md",
+  "source_commit": "574c00b651e89248876c2846484c105623076cac",
+  "reviewed_at": "2026-09-23",
+  "source_evidence": [
+    {
+      "path": "SKILL.md",
+      "url": "https://github.com/FreeTWAI-AI/freedom-skill-event-space/blob/574c00b651e89248876c2846484c105623076cac/SKILL.md"
+    },
+    {
+      "path": "README.md",
+      "url": "https://github.com/FreeTWAI-AI/freedom-skill-event-space/blob/574c00b651e89248876c2846484c105623076cac/README.md"
+    },
+    {
+      "path": "BACKLOG.md",
+      "url": "https://github.com/FreeTWAI-AI/freedom-skill-event-space/blob/574c00b651e89248876c2846484c105623076cac/BACKLOG.md"
+    }
+  ],
+  "beginner": {
+    "category": "定位與社群",
+    "purpose": "把讀書會、聚會或小型展演整理成場地 brief、動線與現場分工。",
+    "for_whom": "場地承包與空間規劃者、讀書會主持人、活動執行與接待夥伴。",
+    "make": "一份可交接的讀書會企劃：場地條件、流程、分工與備援。",
+    "workshop_use": "在活動與空間公會分享原創模板、討論待辦，透過 Fork／PR 留下可重用成果。",
+    "next_step": "複製 templates/event-brief.md，填活動目的、人數、日期與場地需求。"
   }
+},
+"projection-mapping": {
+  "format": "實作手冊與模板",
+  "summary": "把投影光雕構想整理成場勘、畫面分區、素材規格與播放 cue。",
+  "audience": [
+    "光雕與投影設計者",
+    "燈光與影像技術夥伴",
+    "展演視覺創作者"
+  ],
+  "status": "先做提案、素材與播放排程；不包含硬體控制、實際投影校正或現場技術認證。",
+  "features": [
+    "場勘與投影表面配置",
+    "素材來源與播放 cue 清單",
+    "素材引用與 cue 結構檢查"
+  ],
+  "prerequisites": [
+    "投影表面、觀看距離、環境光與場地可用時段",
+    "可用投影機與播放設備的已確認规格或待查項目",
+    "原創或獲授權的素材及輸出尺寸、幀率、長度"
+  ],
+  "first_steps": [
+    "複製 templates/site-survey.md，記錄表面尺寸、環境光、觀眾位置與設備限制。",
+    "用 templates/surface-map.md 為每個投影區域命名，附原創線框示意與對應尺寸。",
+    "在 templates/cue-sheet.csv 列出 cue、素材檔名、觸發時點、操作角色與黑場備援。",
+    "填 templates/projection-plan.json，執行驗證，排除重複 cue 與未列入清單的素材。",
+    "現場試播另留紀錄；只有實際量測與播放才標完成，提案測試不算現場驗收。"
+  ],
+  "first_result": "一份可交接的光雕製作提案：場勘紀錄、畫面配置與播放 cue 表。",
+  "contribution": "從 BACKLOG.md 選一項模板或合成案例改善，以 Fork／PR 附實測結果一起完成。",
+  "contribution_url": "https://github.com/FreeTWAI-AI/freedom-skill-projection-mapping/issues",
+  "reading_url": "https://github.com/FreeTWAI-AI/freedom-skill-projection-mapping/blob/4d43669501aabbaf329989d32e4e404a80f1a539/SKILL.md",
+  "source_commit": "4d43669501aabbaf329989d32e4e404a80f1a539",
+  "reviewed_at": "2026-09-23",
+  "source_evidence": [
+    {
+      "path": "SKILL.md",
+      "url": "https://github.com/FreeTWAI-AI/freedom-skill-projection-mapping/blob/4d43669501aabbaf329989d32e4e404a80f1a539/SKILL.md"
+    },
+    {
+      "path": "README.md",
+      "url": "https://github.com/FreeTWAI-AI/freedom-skill-projection-mapping/blob/4d43669501aabbaf329989d32e4e404a80f1a539/README.md"
+    },
+    {
+      "path": "BACKLOG.md",
+      "url": "https://github.com/FreeTWAI-AI/freedom-skill-projection-mapping/blob/4d43669501aabbaf329989d32e4e404a80f1a539/BACKLOG.md"
+    }
+  ],
+  "beginner": {
+    "category": "內容與行銷",
+    "purpose": "把投影光雕構想整理成場勘、畫面分區、素材規格與播放 cue。",
+    "for_whom": "光雕與投影設計者、燈光與影像技術夥伴、展演視覺創作者。",
+    "make": "一份可交接的光雕製作提案：場勘紀錄、畫面配置與播放 cue 表。",
+    "workshop_use": "在光影光雕公會分享原創模板、討論待辦，透過 Fork／PR 留下可重用成果。",
+    "next_step": "複製 templates/site-survey.md，記錄表面尺寸、環境光、觀眾位置與設備限制。"
+  }
+},
+"human-design": {
+  "format": "實作手冊與模板",
+  "summary": "整理人類圖共讀筆記、來源與反思提問，保留不同解讀及本人選擇。",
+  "audience": [
+    "人類圖共讀者",
+    "讀書會引導者",
+    "想整理不同觀點的研究夥伴"
+  ],
+  "status": "人類圖是供討論與自我反思的詮釋框架；本包不提供科學診斷、醫療建議、能力認證或職業配對。",
+  "features": [
+    "附來源的原創共讀摘要",
+    "多觀點、限制與自由回應",
+    "匿名資料與主張分類檢查"
+  ],
+  "prerequisites": [
+    "一本已合法取得的讀物、公開文章或自己寫的摘要",
+    "這次想討論的概念與可查來源連結",
+    "參與者願意公開的匿名反思；不需要出生時間、出生地或真實姓名"
+  ],
+  "first_steps": [
+    "複製 templates/reading-notes.md，先寫來源與自己的轉述，不整段搬運書籍或課程。",
+    "把「原作者主張」「自己的解讀」「生活觀察」分欄，留一欄不同觀點。",
+    "用 templates/discussion-plan.md 排出共讀與自由回應；參與者可跳過任何個人分享。",
+    "填 templates/research-notes.json 並驗證來源、主張標籤及匿名資料狀態。",
+    "以去識別範例提交 PR；讓讀者看見限制與待釐清問題，不替他人貼上固定標籤。"
+  ],
+  "first_result": "一份附來源、不同觀點與匿名反思提問的共讀紀錄。",
+  "contribution": "從 BACKLOG.md 選一項模板或合成案例改善，以 Fork／PR 附實測結果一起完成。",
+  "contribution_url": "https://github.com/FreeTWAI-AI/freedom-skill-human-design/issues",
+  "reading_url": "https://github.com/FreeTWAI-AI/freedom-skill-human-design/blob/74f4a7fc6e6abb2bf36a75980ee72448563385d4/SKILL.md",
+  "source_commit": "74f4a7fc6e6abb2bf36a75980ee72448563385d4",
+  "reviewed_at": "2026-09-23",
+  "source_evidence": [
+    {
+      "path": "SKILL.md",
+      "url": "https://github.com/FreeTWAI-AI/freedom-skill-human-design/blob/74f4a7fc6e6abb2bf36a75980ee72448563385d4/SKILL.md"
+    },
+    {
+      "path": "README.md",
+      "url": "https://github.com/FreeTWAI-AI/freedom-skill-human-design/blob/74f4a7fc6e6abb2bf36a75980ee72448563385d4/README.md"
+    },
+    {
+      "path": "BACKLOG.md",
+      "url": "https://github.com/FreeTWAI-AI/freedom-skill-human-design/blob/74f4a7fc6e6abb2bf36a75980ee72448563385d4/BACKLOG.md"
+    }
+  ],
+  "beginner": {
+    "category": "定位與社群",
+    "purpose": "整理人類圖共讀筆記、來源與反思提問，保留不同解讀及本人選擇。",
+    "for_whom": "人類圖共讀者、讀書會引導者、想整理不同觀點的研究夥伴。",
+    "make": "一份附來源、不同觀點與匿名反思提問的共讀紀錄。",
+    "workshop_use": "在人類圖研究所分享原創模板、討論待辦，透過 Fork／PR 留下可重用成果。",
+    "next_step": "複製 templates/reading-notes.md，先寫來源與自己的轉述，不整段搬運書籍或課程。"
+  }
+}
 };

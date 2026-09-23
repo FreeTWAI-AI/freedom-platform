@@ -36,7 +36,7 @@ test('guides keep working client, local demo, alpha and unimplemented service bo
   assert.match(skillBookGuides['social-post'].status,/未全面驗收/);
 });
 
-test('all 22 books expose distinct covers, original-author stars and the same beginner guidance in public formats',()=>{
+test('all 25 books expose distinct covers, original-author stars and the same beginner guidance in public formats',()=>{
   const covers=new Set<string>();
   for(const book of developmentMap().skill_books){
     const guide=book.guide!;
@@ -55,7 +55,7 @@ test('all 22 books expose distinct covers, original-author stars and the same be
     assert.ok(html.includes('href="/#community">登入工坊 Star'),book.id);
     assert.ok(html.includes(`href="${book.upstream_url}/fork"`),book.id);
   }
-  assert.equal(covers.size,22);
+  assert.equal(covers.size,25);
   const external=communityCatalog.skill_books.find(book=>book.id==='social-post')!;
   assert.notEqual(external.star_url,external.repository_url);
   assert.equal(external.star_url,'https://github.com/Hao0321/claude-skill-social-post');

@@ -1836,7 +1836,111 @@ export const capabilityCategories:CatalogCategory[] = [
         ]
       }
     ]
-  }
+  },
+{
+  "id": "projection_mapping",
+  "label": "光影與光雕",
+  "items": [
+    {
+      "id": "projection_survey",
+      "label": "投影場勘與表面配置"
+    },
+    {
+      "id": "projection_visuals",
+      "label": "光雕視覺與動態素材"
+    },
+    {
+      "id": "projection_cues",
+      "label": "播放 cue 與排程"
+    },
+    {
+      "id": "projection_calibration",
+      "label": "投影對位與校正"
+    }
+  ],
+  "subcategories": [
+    {
+      "id": "planning",
+      "label": "場勘與畫面規劃",
+      "items": [
+        {
+          "id": "projection_survey",
+          "label": "投影場勘與表面配置"
+        },
+        {
+          "id": "projection_visuals",
+          "label": "光雕視覺與動態素材"
+        }
+      ]
+    },
+    {
+      "id": "playback",
+      "label": "播放與交接",
+      "items": [
+        {
+          "id": "projection_cues",
+          "label": "播放 cue 與排程"
+        },
+        {
+          "id": "projection_calibration",
+          "label": "投影對位與校正"
+        }
+      ]
+    }
+  ]
+},
+{
+  "id": "human_design",
+  "label": "人類圖共讀",
+  "items": [
+    {
+      "id": "human_design_reading",
+      "label": "人類圖概念共讀"
+    },
+    {
+      "id": "human_design_sources",
+      "label": "多來源筆記與觀點整理"
+    },
+    {
+      "id": "reflection_facilitation",
+      "label": "自我反思提問"
+    },
+    {
+      "id": "study_facilitation",
+      "label": "共讀主持與匿名紀錄"
+    }
+  ],
+  "subcategories": [
+    {
+      "id": "reading",
+      "label": "閱讀與來源",
+      "items": [
+        {
+          "id": "human_design_reading",
+          "label": "人類圖概念共讀"
+        },
+        {
+          "id": "human_design_sources",
+          "label": "多來源筆記與觀點整理"
+        }
+      ]
+    },
+    {
+      "id": "facilitation",
+      "label": "引導與反思",
+      "items": [
+        {
+          "id": "reflection_facilitation",
+          "label": "自我反思提問"
+        },
+        {
+          "id": "study_facilitation",
+          "label": "共讀主持與匿名紀錄"
+        }
+      ]
+    }
+  ]
+}
 ];
 export const equipmentCategories:CatalogCategory[] = [
   {
@@ -2786,6 +2890,42 @@ const communityCatalogBase = {
       "upstream_url": "https://github.com/FreeTWAI-AI/freedom-skill-commercial-production",
       "source_commit": "815b0a2f2bff90f9c9624d35a144d8bb70477667",
       "introduction_url": null
+    },
+    {
+      "id": "event-space",
+      "title": "活動與空間實作手冊",
+      "repository_url": "https://github.com/FreeTWAI-AI/freedom-skill-event-space",
+      "description": "把讀書會、聚會或小型展演整理成場地 brief、動線與現場分工。",
+      "kind": "starter",
+      "fork_url": "https://github.com/FreeTWAI-AI/freedom-skill-event-space/fork",
+      "license_status": "MIT",
+      "upstream_url": "https://github.com/FreeTWAI-AI/freedom-skill-event-space",
+      "source_commit": "574c00b651e89248876c2846484c105623076cac",
+      "introduction_url": null
+    },
+    {
+      "id": "projection-mapping",
+      "title": "光影與光雕製作手冊",
+      "repository_url": "https://github.com/FreeTWAI-AI/freedom-skill-projection-mapping",
+      "description": "把投影光雕構想整理成場勘、畫面分區、素材規格與播放 cue。",
+      "kind": "starter",
+      "fork_url": "https://github.com/FreeTWAI-AI/freedom-skill-projection-mapping/fork",
+      "license_status": "MIT",
+      "upstream_url": "https://github.com/FreeTWAI-AI/freedom-skill-projection-mapping",
+      "source_commit": "4d43669501aabbaf329989d32e4e404a80f1a539",
+      "introduction_url": null
+    },
+    {
+      "id": "human-design",
+      "title": "人類圖共讀與研究手冊",
+      "repository_url": "https://github.com/FreeTWAI-AI/freedom-skill-human-design",
+      "description": "整理人類圖共讀筆記、來源與反思提問，保留不同解讀及本人選擇。",
+      "kind": "starter",
+      "fork_url": "https://github.com/FreeTWAI-AI/freedom-skill-human-design/fork",
+      "license_status": "MIT",
+      "upstream_url": "https://github.com/FreeTWAI-AI/freedom-skill-human-design",
+      "source_commit": "74f4a7fc6e6abb2bf36a75980ee72448563385d4",
+      "introduction_url": null
     }
   ],
   "open_data_source": {
@@ -2806,6 +2946,9 @@ export const communityCatalog = {...communityCatalogBase,
 };
 
 const guildBooks:Record<string,string[]> = {
+  "guild_event_space": ["event-space"],
+  "guild_projection_mapping": ["projection-mapping"],
+  "guild_human_design": ["human-design"],
   "guild_talent_direction": [
     "career-guide"
   ],

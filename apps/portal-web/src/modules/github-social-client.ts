@@ -1,8 +1,9 @@
 import {ApiError,PortalClient} from '../api';
+import {refreshSkillDiscovery} from './skill-discovery-client';
 
 export type GitHubMetrics={book_id:string;repository_url:string;stargazers_count:number|null;forks_count:number|null;open_issues_count:number|null;subscribers_count:number|null;pushed_at:string|null;language:string|null;archived:boolean|null;checked_at:string|null;stale:boolean;error:string|null};
 export type GitHubConnection={configured:boolean;connected:boolean;github_user:{id:string;login:string}|null};
-export type GitHubStarState={book_id:string;starred:boolean|null;connected:boolean};
+export type GitHubStarState={book_id:string;starred:boolean|null;connected:boolean;confirmed?:boolean};
 type Entry<T>={value?:T;loading:boolean;error:string;received:number};
 const entry=<T>():Entry<T>=>({loading:false,error:'',received:0});
 const message=(cause:unknown)=>cause instanceof Error?cause.message:'目前無法讀取 GitHub，請稍後重試。';
@@ -51,6 +52,7 @@ export class GitHubSocialStore {
       if(!result.connected||typeof result.starred!=='boolean')state.error='GitHub 連結已變更，請重新連結後再試。';
       // Public counters are independently cached by the server. Never add or subtract locally.
       await this.loadMetrics(bookId,true);
+      if(result.confirmed)void refreshSkillDiscovery(true);
     }catch(cause){
       state.value=undefined;state.received=0;
       await this.loadStar(bookId,true);

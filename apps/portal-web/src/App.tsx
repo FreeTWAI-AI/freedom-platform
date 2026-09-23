@@ -11,6 +11,7 @@ import { CoCreationPanel } from './modules/CoCreationPanel'
 import { AdminPanel } from './modules/AdminPanel'
 import { GitHubCallback } from './modules/GitHubCallback'
 import { GitHubSocialProvider } from './modules/GitHubSocial'
+import {MemberGuildWorkspace} from './modules/GuildWorkspace'
 import { DevelopmentContext } from './modules/DevelopmentContext'
 import { BenefitObservations } from './modules/BenefitObservations'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
@@ -350,6 +351,8 @@ function Workspace({
   onSessionExpired: () => void
 }) {
   const [headerMember,setHeaderMember]=useState<MemberCardData|null>(null)
+  const [canManageGuild,setCanManageGuild]=useState(false)
+  useEffect(()=>{let active=true;const refresh=()=>void client.get<{managed_guilds:unknown[];managed_books:unknown[];can_discuss:boolean}>('/guild-workspace').then(value=>{if(active)setCanManageGuild(Boolean(value.can_discuss||value.managed_guilds.length||value.managed_books.length))}).catch(()=>{if(active)setCanManageGuild(false)});refresh();window.addEventListener('focus',refresh);return()=>{active=false;window.removeEventListener('focus',refresh)}},[session.user.user_id])
   useEffect(()=>{let active=true,generation=0;const refresh=()=>{const current=++generation;void client.get<MemberCardData>(`/members/${session.user.user_id}`).then(value=>{if(active&&current===generation)setHeaderMember(value)}).catch(()=>{})};refresh();window.addEventListener('freedom-profile-updated',refresh);return()=>{active=false;generation++;window.removeEventListener('freedom-profile-updated',refresh)}},[session.user.user_id])
   const [tab, setTab] = useState<TabId>(() => tabFromHash())
   const selectTab = useCallback((next: TabId) => {
@@ -443,6 +446,7 @@ function Workspace({
               <TabButton current={tab} id="home" onSelect={selectTab}>會員首頁</TabButton>
               <TabButton current={tab} id="positioning" onSelect={selectTab}>我的定位</TabButton>
               <TabButton current={tab} id="guilds" onSelect={selectTab}>職業公會</TabButton>
+              {canManageGuild&&<TabButton current={tab} id="guild-workspace" onSelect={selectTab}>公會與技能管理</TabButton>}
               <TabButton current={tab} id="squads" onSelect={selectTab}>小隊集合</TabButton>
               <span className="nav-group-label">參與平台</span>
               <TabButton current={tab} id="supplier" onSelect={selectTab}>供貨中心</TabButton>
@@ -489,6 +493,7 @@ function Workspace({
             {tab === 'home' && <MemberHome client={client} session={session} onNavigate={selectTab} />}
             {tab === 'positioning' && <PositioningPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'guilds' && <GuildsPanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'guild-workspace' && <MemberGuildWorkspace client={client}/>}
             {tab === 'supplier' && <SupplierPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'retail' && <RetailPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'opensource' && <OpenSourcePanel client={client} session={session} onNavigate={selectTab} />}
@@ -506,6 +511,7 @@ function tabTitle(tab: TabId): string {
 }
 
 const TAB_TITLES: Record<TabId, string> = {
+  'guild-workspace':'公會與技能管理',
   cocreation:'一起開發', account:'我的名片', members:'工坊夥伴', community:'自由工坊社群', squads:'小隊集合',
   home: '會員首頁', positioning: '我的定位', guilds: '職業公會', supplier: '供貨中心', retail: '開店與銷售',
   opensource: '開源作品', marketing: '行銷工作室', workbench: '工作台', showcase: '一般作品與需求', engagement: '合作紀錄',
