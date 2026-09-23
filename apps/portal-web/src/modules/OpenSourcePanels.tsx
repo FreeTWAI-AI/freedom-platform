@@ -1,7 +1,7 @@
 import { ModuleBanner } from './ModuleBanner';
+import { RepositoryLibrary } from './Community';
 import { useCallback,useEffect,useState,type FormEvent } from 'react';
 import { requireItems } from '../api';
-import { RepositoryLibrary } from './Community';
 import { useModuleMutation,type ModulePanelProps } from './shared';
 
 type SourceVersion={version_id:string;commit_sha:string;license_spdx:string;license_evidence_url:string|null;is_fork:boolean;archived:boolean;readme_url:string;inspected_at:string};
@@ -35,9 +35,8 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
     if(saved){setDraft({...blankProject});setNotice('作品已登錄。你填寫的來源關係會清楚標示為自行聲明。');await refresh();}
   }
   return <div className="stack">
-    <ModuleBanner eyebrow="OPEN SOURCE / 分享程式，累積使用與協作" title="讓作品被找到，也讓別人知道怎麼開始" description="登錄 GitHub 作品，寫下用途與使用方式，讓夥伴找到你。" art="/art/rpg/skill-codex.webp"><div className="actions"><button className="btn btn-primary" type="button" onClick={()=>onNavigate?.('cocreation')}>一起開發這些作品</button></div></ModuleBanner>
-    <details className="card"><summary>作品怎麼成為技能書？</summary><div className="stack"><p>Fork 是把專案複製到自己的 GitHub，方便練習或改造。請保留原作者、來源與授權；原始作品仍由作者維護。</p><p>準備一頁介紹：用途、畫面、如何開始，以及原始碼連結。可使用下方模板。</p><a href="https://github.com/FreeTWAI-AI/freedom-project-page" target="_blank" rel="noopener noreferrer">使用專案介紹頁模板 ↗</a></div></details>
-    <RepositoryLibrary client={client} title="工坊精選作品"/>
+    <ModuleBanner eyebrow="OPEN SOURCE / 分享程式，累積使用與協作" title="分享你的 GitHub 專案" description="" art="/art/rpg/skill-codex.webp"><div className="actions"><button className="btn btn-ghost" type="button" onClick={()=>onNavigate?.('skills')}>閱讀技能書</button><button className="btn btn-ghost" type="button" onClick={()=>onNavigate?.('cocreation')}>一起開發</button></div></ModuleBanner>
+
     {notice&&<p role="status" className="banner banner-info">{notice}</p>}
     {error&&<p role="alert" className="banner banner-error">{error}</p>}
     <LoadError error={loadError} retry={()=>void refresh()}/>
@@ -60,6 +59,7 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
         {projects.map(project=><ProjectCard key={project.project_id} project={project} own={project.owner_ref===session.user.user_id} client={client} session={session} reload={refresh} onNavigate={onNavigate}/>)}
       </section>
     </div>
+    <details className="card"><summary>作品怎麼成為技能書？</summary><div className="stack"><p>Fork 是把專案複製到自己的 GitHub，方便練習或改造。請保留原作者、來源與授權；原始作品仍由作者維護。</p><p>準備一頁介紹：用途、畫面、如何開始，以及原始碼連結。可使用下方模板。</p><a href="https://github.com/FreeTWAI-AI/freedom-project-page" target="_blank" rel="noopener noreferrer">使用專案介紹頁模板 ↗</a></div></details>
   </div>;
 }
 
@@ -89,7 +89,7 @@ export function MarketingPanel({client,session}:ModulePanelProps) {
   const refresh=useCallback(async()=>{setLoading(true);setLoadError(null);try{const [campaignData,projectData,productData]=await Promise.all([client.get('/marketing/campaigns'),client.get('/opensource/projects'),client.get('/supplier/products')]);setCampaigns(requireItems<Campaign>(campaignData,'行銷草稿'));setProjects(requireItems<Project>(projectData,'開源作品').filter(p=>p.owner_ref===session.user.user_id));setProducts(requireItems<SupplierProduct>(productData,'供貨商品'));}catch(cause){setLoadError(cause instanceof Error?cause.message:'無法載入行銷工作室。');}finally{setLoading(false);}},[client,session.user.user_id]);
   useEffect(()=>{void refresh();},[refresh]);
   async function create(event:FormEvent){event.preventDefault();setNotice(null);const {source_selection,...content}=draft;const [kind,sourceId]=source_selection.split(':');const saved=await mutate('/marketing/campaigns',{...content,source_project_id:kind==='oss'?sourceId:null,source_supplier_product_id:kind==='supplier'?sourceId:null,source_brief:source_selection?'':draft.source_brief});if(saved){setDraft({...blankCampaign});setNotice('私人草稿已儲存，可以繼續編輯或自行分享。');await refresh();}}
-  return <div className="stack"><ModuleBanner eyebrow="MARKETING / 從真實作品與商品，說出清楚的價值" title="先準備好，再把值得分享的內容帶出去" description="選一件作品或商品，寫好介紹後自行分享。草稿只有你看得到。" art="/art/rpg/cooperation-forge.webp"/>
+  return <div className="stack">
     <details className="card"><summary>行銷與影音公會的技能書</summary><RepositoryLibrary client={client} ids={['social-post','typo-studio','video-autopilot','short-drama','hao-studio','media-generator']} title="Hao 的行銷與影音技能書"/></details>
     {notice&&<p className="banner banner-info" role="status">{notice}</p>}{error&&<p className="banner banner-error" role="alert">{error}</p>}<LoadError error={loadError} retry={()=>void refresh()}/>
     <div className="card-grid"><section className="card stack"><div className="section-head"><h2>建立行銷草稿</h2><p>先寫文案，再到你選擇的平台自行發布。</p></div>

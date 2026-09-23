@@ -1,0 +1,84 @@
+/* Management keeps the same authority checks; only the information layout changes. */
+.admin-layout.admin-workspace {
+  width: min(1440px, 100%);
+  padding: 24px;
+  gap: 16px;
+  min-width: 0;
+}
+.admin-workspace .admin-header {
+  padding: 0 0 12px;
+  gap: 12px;
+}
+.admin-workspace .admin-header h1 { font-size: 1.4rem; }
+.admin-workspace .admin-header .eyebrow { display: none; }
+.admin-workspace .admin-context-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 8px 16px;
+  border-bottom: 1px solid #333943;
+  padding-bottom: 8px;
+}
+.admin-workspace .admin-context-row details { min-width: 0; }
+.admin-workspace .admin-context-row summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: 8px 0;
+  font-size: .875rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.admin-workspace .admin-context-row summary span { margin-left: 8px; color: #aeb5c2; }
+.admin-workspace .admin-context-row summary .badge { color: #d5ff82; }
+.admin-workspace .admin-context-row summary:hover { color: #c4ff20; }
+.admin-workspace .admin-context-row summary:focus-visible {
+  outline: 2px solid #c4ff20;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.admin-workspace .admin-account-details { display: flex; gap: 8px 16px; flex-wrap: wrap; align-items: center; padding: 8px 0; }
+.admin-workspace .admin-account-details p { margin: 0; overflow-wrap: anywhere; font-size: .875rem; }
+.admin-workspace .admin-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin: 4px 0 8px;
+}
+.admin-workspace .admin-summary > div { display: grid; gap: 2px; }
+.admin-workspace .admin-summary dt { color: #aeb5c2; font-size: .875rem; }
+.admin-workspace .admin-summary dd { margin: 0; color: #f4f6ef; font-size: 1.1rem; font-weight: 700; }
+.admin-workspace .admin-tabs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 12px;
+  padding: 0 0 16px;
+  border-bottom: 1px solid #333943;
+}
+.admin-workspace .admin-nav-group { display: grid; align-content: start; gap: 6px; min-width: 0; }
+.admin-workspace .admin-nav-label { color: #aeb5c2; font-size: .875rem; }
+.admin-workspace .admin-nav-items { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.admin-workspace .admin-tabs .btn { min-height: 44px; font-size: .875rem; padding: 8px 12px; flex: 0 1 auto; }
+.admin-workspace .admin-pending-appointments { gap: 8px; padding: 14px; }
+.admin-workspace .admin-pending-appointments h2 { font-size: 1rem; }
+.admin-workspace .admin-pending-appointments p,
+.admin-workspace .admin-pending-appointments ul { margin: 0; font-size: .875rem; }
+.admin-workspace .admin-pending-appointments ul { padding-left: 20px; }
+.admin-workspace > .stack > h2 { font-size: 1.2rem; }
+@media (max-width: 900px) {
+  .admin-workspace .admin-tabs { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .admin-workspace .admin-nav-group { grid-template-columns: 6rem minmax(0, 1fr); align-items: center; }
+}
+@media (max-width: 600px) {
+  .admin-layout.admin-workspace { padding: 14px 12px; gap: 12px; }
+  .admin-workspace .admin-header { align-items: center; flex-wrap: nowrap; }
+  .admin-workspace .admin-header .brand { gap: 8px; min-width: 0; }
+  .admin-workspace .admin-header h1 { font-size: 1.2rem; }
+  .admin-workspace .admin-header > .btn { flex-shrink: 0; padding-inline: 10px; font-size: .875rem; }
+  .admin-workspace .admin-context-row { gap: 8px; }
+  .admin-workspace .admin-context-row summary span { display: block; margin-left: 0; }
+  .admin-workspace .admin-context-row summary .badge { display: inline-block; margin-top: 2px; }
+  .admin-workspace .admin-nav-group { grid-template-columns: 4rem minmax(0, 1fr); gap: 8px; }
+  .admin-workspace .admin-tabs .btn { padding-inline: 10px; }
+  .admin-workspace .admin-search .field { min-width: 0; flex-basis: 100%; }
+  .admin-workspace .admin-pending-appointments .btn { width: 100%; }
+}

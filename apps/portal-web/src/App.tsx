@@ -1,4 +1,5 @@
-import { WorkshopIcon } from './WorkshopIcon'
+import { Navigation, TAB_TITLES } from './Navigation'
+import { SkillsPanel } from './modules/SkillsPanel'
 import { ModuleBanner } from './modules/ModuleBanner'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError, PortalClient, requireDashboard, requireItems } from './api'
@@ -355,7 +356,20 @@ function Workspace({
   useEffect(()=>{let active=true;const refresh=()=>void client.get<{managed_guilds:unknown[];managed_books:unknown[];can_discuss:boolean}>('/guild-workspace').then(value=>{if(active)setCanManageGuild(Boolean(value.can_discuss||value.managed_guilds.length||value.managed_books.length))}).catch(()=>{if(active)setCanManageGuild(false)});refresh();window.addEventListener('focus',refresh);return()=>{active=false;window.removeEventListener('focus',refresh)}},[session.user.user_id])
   useEffect(()=>{let active=true,generation=0;const refresh=()=>{const current=++generation;void client.get<MemberCardData>(`/members/${session.user.user_id}`).then(value=>{if(active&&current===generation)setHeaderMember(value)}).catch(()=>{})};refresh();window.addEventListener('freedom-profile-updated',refresh);return()=>{active=false;generation++;window.removeEventListener('freedom-profile-updated',refresh)}},[session.user.user_id])
   const [tab, setTab] = useState<TabId>(() => tabFromHash())
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const menuToggle = useRef<HTMLButtonElement>(null)
+  const mainContent = useRef<HTMLElement>(null)
+  const previousTab = useRef(tab)
+  useEffect(() => {
+    if (previousTab.current === tab) return
+    previousTab.current = tab
+    setMobileOpen(false)
+    mainContent.current?.focus({ preventScroll: true })
+    mainContent.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
+  }, [tab])
   const selectTab = useCallback((next: TabId) => {
+    setMobileOpen(false)
+    mainContent.current?.focus({ preventScroll: true })
     setTab(next)
     window.location.hash = next
   }, [])
@@ -430,49 +444,27 @@ function Workspace({
     <PortalContext.Provider value={value}>
       <div className="app-frame">
         {site?.demo_accounts_enabled && <DemoBanner />}
-        <a className="skip" href="#main-content">
+        <a className="skip" href="#main-content" onClick={event => { event.preventDefault(); mainContent.current?.focus(); }}>
           跳到主要內容
         </a>
         <div className="shell">
-          <aside className="sidebar">
-            <div className="brand">
+          <aside className="sidebar" onKeyDown={event => { if (event.key === 'Escape' && mobileOpen) { setMobileOpen(false); menuToggle.current?.focus(); } }}>
+            <div className="sidebar-heading"><div className="brand">
               <img className="sidebar-brand-art" src="/brand/freedom-workshop.webp" alt="" width="1280" height="720"/>
               <div>
                 <p className="eyebrow">FREEDOM WORKSHOP</p>
                 <strong>自由工坊</strong>
               </div>
             </div>
-            <nav className="nav" aria-label="主要工作區">
-              <TabButton current={tab} id="home" onSelect={selectTab}>會員首頁</TabButton>
-              <TabButton current={tab} id="positioning" onSelect={selectTab}>我的定位</TabButton>
-              <TabButton current={tab} id="guilds" onSelect={selectTab}>職業公會</TabButton>
-              {canManageGuild&&<TabButton current={tab} id="guild-workspace" onSelect={selectTab}>公會與技能管理</TabButton>}
-              <TabButton current={tab} id="squads" onSelect={selectTab}>小隊集合</TabButton>
-              <span className="nav-group-label">參與平台</span>
-              <TabButton current={tab} id="supplier" onSelect={selectTab}>供貨中心</TabButton>
-              <TabButton current={tab} id="retail" onSelect={selectTab}>開店與銷售</TabButton>
-              <TabButton current={tab} id="opensource" onSelect={selectTab}>開源作品</TabButton>
-              <TabButton current={tab} id="cocreation" onSelect={selectTab}>一起開發</TabButton>
-              <TabButton current={tab} id="marketing" onSelect={selectTab}>行銷工作室</TabButton>
-              <span className="nav-group-label">我的協作</span>
-              <TabButton current={tab} id="workbench" onSelect={selectTab}>我的工作</TabButton>
-              <TabButton current={tab} id="showcase" onSelect={selectTab}>一般作品與需求</TabButton>
-              <TabButton current={tab} id="engagement" onSelect={selectTab}>合作紀錄</TabButton>
-              <TabButton current={tab} id="community" onSelect={selectTab}>自由工坊社群</TabButton>
-              <a className="nav-item" href="/admin">平台管理 ↗</a>
-            </nav>
-            <p className="sidebar-note">不同專長，各自發展。<br />需要合作時，在這裡相遇。</p>
+            <button ref={menuToggle} type="button" className="btn btn-ghost mobile-menu-toggle" aria-expanded={mobileOpen} aria-controls="workspace-navigation" onClick={() => setMobileOpen(value => !value)}>{mobileOpen ? '關閉選單' : '開啟選單'}</button></div>
+            <Navigation current={tab} onSelect={selectTab} canManageGuild={canManageGuild} mobileOpen={mobileOpen}/>
           </aside>
-          <div className="main" id="main-content">
+          <main ref={mainContent} className="main" id="main-content" tabIndex={-1}>
             <header className="topbar">
               <div>
-                <p className="workspace-eyebrow">FREEDOM WORKSHOP / 共同創造，自由成長</p>
                 <h1>{tabTitle(tab)}</h1>
-                <p className="muted">
-                  {headerMember?.nickname??session.user.display_name}{headerMember?.positioning_title?` · ${headerMember.positioning_title}`:' · 自由工坊會員'}{headerMember?.primary_guild?` · ${headerMember.primary_guild.name}`:''}
-                </p>
               </div>
-              <div className="topbar-actions"><button className="btn btn-ghost topbar-profile" aria-label="我的名片" type="button" onClick={()=>selectTab('account')}><MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>我的名片</button><button className="btn btn-ghost" type="button" onClick={()=>selectTab('members')}>工坊夥伴</button><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
+              <div className="topbar-actions"><button className="btn btn-ghost topbar-profile" aria-label="我的名片" type="button" onClick={()=>selectTab('account')}><MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>我的名片</button><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
                 登出
               </button></div>
             </header>
@@ -485,7 +477,8 @@ function Workspace({
             {tab === 'account' && <AccountPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'members' && <MembersPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'cocreation' && <CoCreationPanel client={client} session={session} onNavigate={selectTab} />}
-            {tab === 'community' && <CommunityPanel client={client} />}
+            {tab === 'community' && <CommunityPanel client={client} onNavigate={selectTab} />}
+            {tab === 'skills' && <SkillsPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'squads' && <SquadsPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'workbench' && <WorkbenchPanel />}
             {tab === 'showcase' && <ShowcasePanel />}
@@ -499,7 +492,7 @@ function Workspace({
             {tab === 'opensource' && <OpenSourcePanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'marketing' && <MarketingPanel client={client} session={session} onNavigate={selectTab} />}
             <DevelopmentContext moduleId={tab}/>
-          </div>
+          </main>
         </div>
       </div>
     </PortalContext.Provider>
@@ -510,39 +503,9 @@ function tabTitle(tab: TabId): string {
   return TAB_TITLES[tab]
 }
 
-const TAB_TITLES: Record<TabId, string> = {
-  'guild-workspace':'公會與技能管理',
-  cocreation:'一起開發', account:'我的名片', members:'工坊夥伴', community:'自由工坊社群', squads:'小隊集合',
-  home: '會員首頁', positioning: '我的定位', guilds: '職業公會', supplier: '供貨中心', retail: '開店與銷售',
-  opensource: '開源作品', marketing: '行銷工作室', workbench: '工作台', showcase: '一般作品與需求', engagement: '合作紀錄',
-}
 function tabFromHash(): TabId {
   const value = window.location.hash.slice(1)
   return Object.hasOwn(TAB_TITLES, value) ? value as TabId : 'home'
-}
-
-function TabButton({
-  current,
-  id,
-  onSelect,
-  children,
-}: {
-  current: TabId
-  id: TabId
-  onSelect: (id: TabId) => void
-  children: React.ReactNode
-}) {
-  const selected = current === id
-  return (
-    <button
-      type="button"
-      className={selected ? 'nav-item is-active' : 'nav-item'}
-      aria-current={selected ? 'page' : undefined}
-      onClick={() => onSelect(id)}
-    >
-      <WorkshopIcon name={id}/><span>{children}</span>
-    </button>
-  )
 }
 
 function WorkbenchPanel() {
@@ -587,7 +550,7 @@ function WorkbenchPanel() {
 
   return (
     <div className="panels">
-      <ModuleBanner eyebrow="YOUR QUESTS / 協作任務" title="每一份貢獻，都有下一步" description="認領一件做得到的事，提交成果，留下當事人確認的合作紀錄。" art="/art/rpg/cooperation-forge.webp"/>
+      <ModuleBanner eyebrow="YOUR QUESTS / 協作任務" title="認領與交付" description="" art="/art/rpg/cooperation-forge.webp"/>
       <section className="summary-strip" aria-label="成果摘要">
         <div>
           <span className="summary-label">已接受成果</span>
@@ -1134,7 +1097,7 @@ function ShowcasePanel() {
 
   return (
     <div className="panels">
-      <ModuleBanner eyebrow="SHOWCASE / 讓能力與機會相遇" title="把完成的事，帶到下一次合作" description="分享你的作品，也可以提出具體需求，讓適合的夥伴主動聯絡。" art="/art/rpg/cooperation-forge.webp"/>
+      <ModuleBanner eyebrow="SHOWCASE / 讓能力與機會相遇" title="分享作品或提出需求" description="" art="/art/rpg/cooperation-forge.webp"/>
       <FlowLegend />
       <CreateShowcaseForm pending={pending} mutate={mutate} onCreated={load} />
       <Section title="社群作品" description="經本人同意分享的作品。可向其他作者提出商機。">
@@ -1473,7 +1436,7 @@ function EngagementPanel() {
 
   return (
     <div className="panels">
-      <ModuleBanner eyebrow="JOURNAL / 一起完成的旅程" title="合作的每一步，都能回來查看" description="從約定、交付到雙方確認，保留清楚的紀錄。"/>
+      <ModuleBanner eyebrow="JOURNAL / 一起完成的旅程" title="約定、交付與確認" description=""/>
       <FlowLegend />
       <p className="lede">
         付款由雙方自行處理，平台只記錄約定與收款回報，不代收款，也不核實銀行入帳。

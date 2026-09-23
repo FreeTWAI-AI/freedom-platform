@@ -1,3 +1,4 @@
+import { navigate } from './navigation.js';
 import { test, expect, type Page } from './fixtures.js';
 
 async function fits(page: Page, label: string) {
@@ -29,16 +30,19 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
   }
   await page.screenshot({ path: 'test-results/design-home-desktop.png', fullPage: true });
   const destinations = [
-    ['會員首頁', '會員首頁'], ['我的定位', '我的定位'], ['職業公會', '職業公會'], ['小隊集合', '小隊集合'],
-    ['供貨中心', '供貨中心'], ['開店與銷售', '開店與銷售'], ['開源作品', '開源作品'], ['一起開發', '一起開發'],
-    ['行銷工作室', '行銷工作室'], ['我的工作', '工作台'], ['一般作品與需求', '一般作品與需求'], ['合作紀錄', '合作紀錄'], ['自由工坊社群', '自由工坊社群'],
+    ['會員首頁', '會員首頁'], ['我的定位', '我的定位'], ['職業公會', '職業公會'], ['技能書架', '技能書架'], ['工坊夥伴', '工坊夥伴'], ['小隊集合', '小隊集合'],
+    ['供貨中心', '供貨中心'], ['開店與銷售', '開店與銷售'], ['開源投稿', '開源投稿'], ['一起開發', '一起開發'],
+    ['行銷工作室', '行銷工作室'], ['我的工作', '我的工作'], ['作品與需求', '作品與需求'], ['合作紀錄', '合作紀錄'], ['自由工坊社群', '自由工坊社群'],
   ];
-  for (const width of [390, 320]) {
+  for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     for (const [button, heading] of destinations) {
-      await page.getByRole('navigation', { name: '主要工作區' }).getByRole('button', { name: button, exact: true }).click();
+      await navigate(page, button);
       await expect(page.getByRole('heading', { name: heading, level: 1, exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
       await expect(page.locator('.development-context')).toBeVisible();
+      await expect(page.locator('.expedition-banner-art,.positioning-heading,.home-direction,.home-cooperation')).toHaveCount(0);
+      if (['開源投稿','我的名片','自由工坊社群'].includes(button)) await expect(page.locator('.community-library')).toHaveCount(0);
       await expect(page.getByRole('status').filter({ hasText: /載入|讀取/ })).toHaveCount(0);
       await expect(page.getByRole('alert')).toHaveCount(0);
       if(button==='會員首頁'){
@@ -50,16 +54,13 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
           expect((await card.boundingBox())!.height).toBeLessThan(220);
         }
       }
-      for(const banner of await page.locator('.expedition-banner-illustrated').all()){
-        const art=await banner.locator('.expedition-banner-art').boundingBox();
-        expect(art!.width,'Module decoration stays beside the content on phones').toBeLessThanOrEqual(140);
-      }
       if (width === 390 && button === '職業公會') await page.screenshot({ path: 'test-results/design-guild-phone.png' });
       if(width===390&&['我的定位','小隊集合','供貨中心','一起開發'].includes(button))await page.screenshot({path:`test-results/compact-module-${destinations.findIndex(item=>item[0]===button)}-phone.png`});
       await fits(page, `${width}px ${heading}`);
+      if(width!==320)await page.screenshot({path:`test-results/ia-page-${destinations.findIndex(item=>item[0]===button)}-${width}.png`});
     }
   }
-  await page.getByRole('button', { name: '會員首頁', exact: true }).click();
+  await navigate(page, '會員首頁');
   await page.screenshot({ path: 'test-results/design-home-phone.png', fullPage: true });
   await page.screenshot({ path: 'test-results/design-home-phone-viewport.png' });
   for (const file of ['workshop-hub', 'skill-codex', 'cooperation-forge', 'market-network']) {

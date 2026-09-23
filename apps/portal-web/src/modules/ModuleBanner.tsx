@@ -10,15 +10,13 @@ type ModuleBannerProps = {
   children?: ReactNode;
 };
 
-/** A decorative workshop cover; module names and actions remain accessible HTML. */
-export function ModuleBanner({ eyebrow, title, description, art, headingId, children }: ModuleBannerProps) {
-  return <header className={`section-heading expedition-banner${art ? ' expedition-banner-illustrated' : ''}`}>
+/** A compact task header; the app shell already provides the page title and brand. */
+export function ModuleBanner({ title, description, headingId, children }: ModuleBannerProps) {
+  return <header className="section-heading expedition-banner">
     <div className="expedition-banner-copy">
-      <p className="eyebrow">{eyebrow}</p>
       <h2 id={headingId}>{title}</h2>
-      <p className="expedition-banner-description">{description}</p>
-      {children}
+      {description && <p className="expedition-banner-description">{description}</p>}
     </div>
-    {art && <div className="expedition-banner-art" aria-hidden="true"><img src={art} alt="" decoding="async"/></div>}
+    {children && <div className="expedition-banner-actions">{children}</div>}
   </header>;
 }

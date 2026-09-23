@@ -1,3 +1,4 @@
+import { navigate } from './navigation.js';
 import {test,expect} from './fixtures.js';
 
 test('development hints stay collapsed and follow the current page on desktop and phone',async({page})=>{
@@ -11,7 +12,7 @@ test('development hints stay collapsed and follow the current page on desktop an
  await expect(entry).toHaveAttribute('data-development-guide','/development/home');
  await entry.locator('summary').click();
  await expect(entry.getByRole('link',{name:'給 Agent 的文字版 ↗'})).toHaveAttribute('href','/development/home.md');
- await page.getByRole('button',{name:'職業公會',exact:true}).click();
+ await navigate(page, '職業公會');
  await expect(entry).toHaveAttribute('data-development-guide','/development/guilds');
  await expect(entry.locator('details')).not.toHaveAttribute('open');
  await page.setViewportSize({width:390,height:844});await entry.locator('summary').click();

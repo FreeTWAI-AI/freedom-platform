@@ -51,7 +51,7 @@ export function GitHubBookSocial({bookId,repositoryUrl,showFork=true,compact=fal
   const old=Boolean(value?.stale||value?.error||metrics.error),unknown=!value||value.error&&!value.checked_at;
   async function connect(){
     setConnecting(true);setConnectError('');
-    try{window.location.assign(await store.connect(window.location.hash||'#community'));}
+    try{window.location.assign(await store.connect(window.location.hash||'#skills'));}
     catch(cause){setConnectError(cause instanceof Error?cause.message:'無法連結 GitHub，請重試。');setConnecting(false);}
   }
   const secondaryMetrics=<><div><dt>待處理 Issues／PR</dt><dd>{count(value?.open_issues_count)}</dd></div><div><dt>追蹤</dt><dd>{count(value?.subscribers_count)}</dd></div><div><dt>最近更新</dt><dd>{date(value?.pushed_at)}</dd></div></>;
@@ -69,7 +69,7 @@ export function GitHubBookSocial({bookId,repositoryUrl,showFork=true,compact=fal
   return <div className={`github-book-social${compact?' github-book-social-compact':''}`} ref={ref} data-github-book={bookId} aria-label="原作者 GitHub 數據與操作">
     {!compact&&source}
     <div className="github-social-overview"><div className="github-social-actions">
-      {!store.member?<a className="btn btn-ghost github-star-control" href="/#community" aria-label={actionLabel} aria-describedby={starCountId} title={actionLabel}>{starContents}</a>:<button className="btn btn-ghost skill-book-star github-star-control" aria-label={actionLabel} aria-description={actionHint} aria-describedby={starCountId} title={`${actionHint} · ${count(value?.stargazers_count)} Stars`} aria-pressed={connected&&known?star.value!.starred!:undefined} aria-busy={star.saving||connecting||accountLoading} disabled={disabled} onClick={starAction}>{starContents}</button>}
+      {!store.member?<a className="btn btn-ghost github-star-control" href="/#skills" aria-label={actionLabel} aria-describedby={starCountId} title={actionLabel}>{starContents}</a>:<button className="btn btn-ghost skill-book-star github-star-control" aria-label={actionLabel} aria-description={actionHint} aria-describedby={starCountId} title={`${actionHint} · ${count(value?.stargazers_count)} Stars`} aria-pressed={connected&&known?star.value!.starred!:undefined} aria-busy={star.saving||connecting||accountLoading} disabled={disabled} onClick={starAction}>{starContents}</button>}
       {showFork?<a className="github-fork-link github-count-control" href={`${repositoryUrl}/fork`} target="_blank" rel="noopener noreferrer" aria-label="Fork 專案 ↗" title={`Fork 專案 · ${count(value?.forks_count)} Forks`}>{forkContents}</a>:<span className="github-count-control github-fork-stat" title="GitHub Forks" aria-label={`${count(value?.forks_count)} Forks`}>{forkContents}</span>}
       {(metrics.error||value?.error)&&<button className="github-retry" onClick={()=>void store.loadMetrics(bookId,true)} disabled={metrics.loading}>重讀數據</button>}
       {connected&&star.error&&<button className="github-retry" onClick={()=>void store.loadStar(bookId,true)} disabled={star.loading||star.saving}>重讀 Star 狀態</button>}

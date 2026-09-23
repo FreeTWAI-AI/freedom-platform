@@ -1,3 +1,4 @@
+import { navigate } from './navigation.js';
 import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from './fixtures.js';
 
@@ -31,7 +32,7 @@ test('task discovery combines real labels and assignment, remembers filters, and
     }] } });
   });
   await login(page);
-  await page.getByRole('button', { name: '一起開發', exact: true }).click();
+  await navigate(page, '一起開發');
   const issues = page.locator('.expedition-issue');
   await expect(issues).toHaveCount(2);
   await page.getByRole('combobox', { name: '任務標籤', exact: true }).selectOption('documentation');
@@ -77,7 +78,7 @@ test('product discovery distinguishes self-reported stock and leads to a real se
   await page.getByRole('button', { name: '登出', exact: true }).click();
   await login(page, 'client@local.test');
   const store = await command(page, '/retail/stores', { name: `${prefix} 選物店`, description: '合成選品測試', support_contact: '請聯絡測試店主' });
-  await page.getByRole('button', { name: '開店與銷售', exact: true }).click();
+  await navigate(page, '開店與銷售');
   const catalog = page.getByRole('region', { name: '挑選供貨商品', exact: true });
   await catalog.getByLabel('搜尋商品', { exact: true }).fill(prefix);
   await expect(catalog.locator('.product-card')).toHaveCount(3);
@@ -125,7 +126,7 @@ test('squad search recovers after failure and preserves pending membership until
   await login(page, 'reviewer@local.test');
   let failList = true;
   await page.route('**/api/v1/squads?*', route => failList ? route.abort() : route.continue());
-  await page.getByRole('button', { name: '小隊集合', exact: true }).click();
+  await navigate(page, '小隊集合');
   await expect(page.getByRole('alert')).toContainText('無法連線');
   await expect(page.getByRole('heading', { name: '還沒有小隊', exact: true })).toHaveCount(0);
   failList = false;

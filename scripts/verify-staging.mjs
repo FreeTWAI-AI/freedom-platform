@@ -6,6 +6,19 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 const origin = 'https://staging.freetwai.com';
+async function navigate(page, name) {
+  await expect(page.locator('.shell')).toBeVisible();
+  const menu=page.getByRole('button',{name:'開啟選單',exact:true});
+  if(await menu.isVisible())await menu.click();
+  const nav=page.getByRole('navigation',{name:'主要工作區',includeHidden:true});
+  await expect(nav).toBeVisible();
+  const target=nav.getByRole('button',{name,exact:true,includeHidden:true});
+  await expect(target).toHaveCount(1);
+  const group=target.locator('xpath=ancestor::details[1]');
+  if(await group.count()&&!await group.evaluate(element=>element.open))await group.locator(':scope > summary').click();
+  await target.click();
+}
+
 const credentialFile = process.env.FREEDOM_ACCESS_TOKEN_FILE;
 if (!credentialFile) throw new Error('Set FREEDOM_ACCESS_TOKEN_FILE to a private service-token JSON file.');
 const token = JSON.parse(await readFile(credentialFile, 'utf8'));
@@ -69,7 +82,7 @@ try {
   await page.reload();
   await reloadReads;
   await expect(page.getByRole('heading', { name: '會員首頁', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '查看我的定位', exact: true })).toBeVisible();
+  await expect(page.locator('.home-shortcuts')).toBeVisible();
   await mkdir(evidence, { recursive: true, mode: 0o700 });
   await page.screenshot({ path: join(evidence, 'staging-member-home.png'), fullPage: true });
   console.log('HTTPS browser login, secure session and reload: PASS');
@@ -77,24 +90,30 @@ try {
   const modules = [
     ['我的定位', '我的定位', 'positioning', ['/me/onboarding', '/assessment-definition']],
     ['職業公會', '職業公會', 'guilds', ['/guilds/directory']],
+    ['技能書架', '技能書架', 'skills', ['/community', '/me/skill-books']],
     ['供貨中心', '供貨中心', 'supplier', ['/supplier/products', '/supplier/requests']],
     ['開店與銷售', '開店與銷售', 'retail', ['/retail/catalog', '/retail/stores', '/retail/listings']],
-    ['開源作品', '開源作品', 'opensource', ['/opensource/projects']],
+    ['開源投稿', '開源投稿', 'opensource', ['/opensource/projects']],
     ['行銷工作室', '行銷工作室', 'marketing', ['/marketing/campaigns', '/opensource/projects', '/supplier/products']],
-    ['我的工作', '工作台', 'workbench', ['/dashboard', '/work-items']],
-    ['一般作品與需求', '一般作品與需求', 'showcase', ['/showcases', '/opportunities']],
+    ['我的工作', '我的工作', 'workbench', ['/dashboard', '/work-items']],
+    ['作品與需求', '作品與需求', 'showcase', ['/showcases', '/opportunities']],
   ];
   for (const [navigation, heading, file, endpoints] of modules) {
     await page.setViewportSize({ width: 1440, height: 1000 });
     const responses = readResponses(endpoints);
-    await page.getByRole('button', { name: navigation, exact: true }).click();
+    await navigate(page, navigation);
     const data = await responses;
-    await expect(page.getByRole('heading', { name: heading, exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: heading, level:1, exact: true })).toBeVisible();
+    await expect(page.getByRole('heading',{level:1})).toHaveCount(1);
     // SPA tab switches don't restart the document's networkidle lifecycle.
     // Wait for module responses and rendered data, not just the new heading.
     await expect(page.getByRole('status').filter({ hasText: /正在載入|載入中/ })).toHaveCount(0);
     await expect(page.getByRole('alert')).toHaveCount(0);
-    if (file === 'opensource') await expect(page.getByRole('article', { name: /^開源作品：/ })).toHaveCount(data[0].body.items.length);
+    if (file === 'opensource') {
+      await expect(page.getByRole('article', { name: /^開源作品：/ })).toHaveCount(data[0].body.items.length);
+      await expect(page.locator('.community-library')).toHaveCount(0);
+    }
+    if(file==='skills')await expect(page.locator('.community-library article[data-book-id]')).toHaveCount(data[0].body.skill_books.length);
     if (file === 'marketing') await expect(page.getByRole('article', { name: /^行銷活動：/ })).toHaveCount(data[0].body.items.length);
     if (file === 'guilds') {
       await expect(page.locator('.guild-master .guild-leadership-role').first()).toHaveText('公會長');
@@ -106,6 +125,13 @@ try {
     await page.screenshot({ path: join(evidence, `staging-${file}-mobile.png`), fullPage: true });
     console.log(`HTTPS ${file} data and desktop/mobile rendering: PASS`);
   }
+  const menu=page.getByRole('button',{name:/^(開啟|關閉)選單$/});
+  const nav=page.getByRole('navigation',{name:'主要工作區',includeHidden:true});
+  await expect(nav).toBeHidden();await menu.click();await expect(nav).toBeVisible();
+  await page.keyboard.press('Escape');await expect(nav).toBeHidden();await expect(menu).toBeFocused();
+  await navigate(page,'技能書架');await expect(nav).toBeHidden();
+  await expect(page.getByRole('heading',{name:'技能書架',level:1,exact:true})).toBeVisible();
+  console.log('HTTPS phone grouped navigation opens, closes, returns focus and reaches the shared shelf: PASS');
   await page.getByRole('button', { name: '登出', exact: true }).click();
   await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
   expect(errors).toEqual([]);

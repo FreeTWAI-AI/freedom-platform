@@ -1,8 +1,9 @@
+import { navigate } from './navigation.js';
 import {test,expect,type Page} from './fixtures.js';
 
 const guilds=[{guild_key:'engineering',name:'平台工程公會'},{guild_key:'media',name:'媒體自動化公會'}];
 function member(index:number,extra:Record<string,unknown>={}){return {user_id:`synthetic-member-${index}`,nickname:`夥伴 ${String(index).padStart(2,'0')}`,positioning_title:'共同創作者',primary_guild:{...guilds[0],joined_at:'2026-09-22T10:00:00Z'},secondary_guilds:[{...guilds[1],joined_at:'2026-09-23T10:00:00Z'}],capabilities:['typescript','react','node','python'],featured_capabilities:['typescript','react','node'],custom_capabilities:['活動企劃'],equipment:['codex'],custom_equipment:[],contacts:{},is_self:false,friendship:{state:'none'},joined_at:'2026-09-23T10:00:00Z',...extra};}
-async function openDirectory(page:Page){await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();await page.getByRole('button',{name:'工坊夥伴',exact:true}).click();return page.locator('.members-panel');}
+async function openDirectory(page:Page){await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();await navigate(page, '工坊夥伴');return page.locator('.members-panel');}
 test.beforeEach(async({page})=>{
   await page.route('**/api/v1/guilds/directory',route=>route.fulfill({json:{items:guilds}}));
   await page.route('**/api/v1/friends',route=>route.fulfill({json:{items:[]}}));

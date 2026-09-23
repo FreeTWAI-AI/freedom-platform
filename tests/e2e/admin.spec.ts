@@ -7,8 +7,9 @@ test('admin entry never grants access through a member login or onboarding',asyn
   await expect(page.getByLabel('電子郵件',{exact:true})).toHaveCount(0);
   const anonymous=await page.request.get('/admin/api/bootstrap');expect([401,403,503]).toContain(anonymous.status());
   await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();
-  await expect(page.getByRole('navigation',{name:'主要工作區'})).toBeVisible();
-  await page.getByRole('link',{name:'平台管理 ↗',exact:true}).click();
+  await expect(page.locator('.shell')).toBeVisible();
+  await page.getByRole('navigation',{name:'主要工作區'}).locator('details > summary').filter({hasText:/^管理/}).click();
+  await page.getByRole('link',{name:/^平台管理/}).click();
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole('heading',{name:'需要管理員驗證',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'會員管理',exact:true})).toHaveCount(0);

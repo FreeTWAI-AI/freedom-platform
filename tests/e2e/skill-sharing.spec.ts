@@ -1,3 +1,4 @@
+import { navigate } from './navigation.js';
 import {test,expect,type Page} from './fixtures.js';
 
 const metadata=(book_id:string,extra:Record<string,unknown>={})=>({book_id,published_at:null,official_guild_keys:[],is_new_today:false,week_rank:null,month_rank:null,week_stars:0,month_stars:0,...extra});
@@ -7,7 +8,7 @@ test.beforeEach(async({page})=>{
   await page.route('**/api/v1/github/books/*/metrics',route=>route.fulfill({json:{repository_url:null,stargazers_count:null,forks_count:null,open_issues_count:null,subscribers_count:null,pushed_at:null,language:null,checked_at:null,stale:false,error:'fixture'}}));
 });
 async function library(page:Page){
-  await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();await page.getByRole('button',{name:'自由工坊社群',exact:true}).click();return page.locator('.community-library');
+  await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();await navigate(page, '技能書架');return page.locator('.community-library');
 }
 test('one discovery request supplies card and dialog badges; week and month use actual ranked order',async({page})=>{
   let reads=0;await page.route('**/api/v1/skills/discovery',route=>{reads++;return route.fulfill({json:discovery});});

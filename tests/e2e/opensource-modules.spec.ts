@@ -1,3 +1,4 @@
+import { navigate } from './navigation.js';
 import { test,expect,type Page } from './fixtures.js';
 
 async function login(page:Page,email='maker@local.test'){
@@ -8,7 +9,7 @@ async function login(page:Page,email='maker@local.test'){
 
 test('member writes a private campaign, revises it and records a manual share that persists',async({page})=>{
   const title=`手動行銷驗證 ${Date.now()}`;
-  await login(page);await page.getByRole('button',{name:'行銷工作室',exact:true}).click();
+  await login(page);await navigate(page, '行銷工作室');
   await page.getByLabel('活動來源簡述',{exact:true}).fill('會員自願交流活動，分享開源工具的使用經驗。');
   await page.getByLabel('活動名稱',{exact:true}).fill(title);
   await page.getByLabel('想分享給誰',{exact:true}).fill('剛加入的會員');
@@ -28,18 +29,18 @@ test('member writes a private campaign, revises it and records a manual share th
   await card.getByLabel('分享備註（選填）',{exact:true}).fill('這是測試用人工紀錄。');
   await card.getByRole('button',{name:'儲存分享紀錄',exact:true}).click();
   await expect(card.getByText(/自行回報，未驗證發布或成效/)).toBeVisible();
-  await page.reload();await page.getByRole('button',{name:'行銷工作室',exact:true}).click();
+  await page.reload();await navigate(page, '行銷工作室');
   card=page.getByRole('article',{name:`行銷活動：${title}`,exact:true});await expect(card.getByRole('link',{name:'社群討論 ↗',exact:true})).toBeVisible();
   await page.screenshot({path:'test-results/marketing-workspace.png',fullPage:true});
   await page.getByRole('button',{name:'登出',exact:true}).click();
   await expect(page.getByRole('heading',{name:'登入',exact:true})).toBeVisible();
   await login(page,'client@local.test');
-  await page.getByRole('button',{name:'行銷工作室',exact:true}).click();await expect(page.getByRole('heading',{name:'我的行銷草稿',exact:true})).toBeVisible();
+  await navigate(page, '行銷工作室');await expect(page.getByRole('heading',{name:'我的行銷草稿',exact:true})).toBeVisible();
   await expect(page.getByRole('heading',{name:title,exact:true})).toHaveCount(0);
 });
 
 test('open-source entry clearly collects GitHub/use/license context and rejects arbitrary fetch targets',async({page})=>{
-  await login(page);await page.getByRole('button',{name:'開源作品',exact:true}).click();
+  await login(page);await navigate(page, '開源投稿');
   await expect(page.getByRole('heading',{name:'登錄開源作品',exact:true})).toBeVisible();
   await page.getByLabel('GitHub 儲存庫網址',{exact:true}).fill('https://untrusted.example/owner/repository');
   await page.getByLabel('作品名稱',{exact:true}).fill('不應送出網路的測試');

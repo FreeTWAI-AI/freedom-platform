@@ -1,3 +1,4 @@
+import { navigate } from './navigation.js';
 import { test, expect, type Page } from './fixtures.js';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
@@ -15,7 +16,7 @@ async function login(page: Page) {
   await page.getByLabel('電子郵件', { exact: true }).fill('maker@local.test');
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
   await page.getByRole('button', { name: '登入', exact: true }).click();
-  await page.getByRole('button', { name: '職業公會', exact: true }).click();
+  await navigate(page, '職業公會');
 }
 async function fixtureGuilds(page: Page) {
   await page.route('**/api/v1/guilds/directory', route => route.fulfill({ json: { items: guilds } }));

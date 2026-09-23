@@ -51,6 +51,7 @@ test('admin callback clears sensitive query parameters and completes once across
   await expect(page.getByRole('link',{name:'檢查 GitHub App 權限 ↗',exact:true})).toHaveAttribute('href','https://github.com/organizations/FreeTWAI-AI/settings/apps/synthetic-freedom-star/permissions');
   await expect(page.getByRole('link',{name:'安裝到技能書 Repo ↗',exact:true})).toHaveAttribute('href','https://github.com/apps/synthetic-freedom-star/installations/new');
   await expect(page.getByRole('button',{name:'建立 GitHub App',exact:true})).toHaveCount(0);
+  await page.locator('.admin-account > summary').click();
   await page.getByRole('button',{name:'重新確認管理身分',exact:true}).click();await expect(page.getByRole('heading',{name:'GitHub App 已連結',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'會員管理',exact:true}).click();await expect(page.getByRole('heading',{name:'會員管理',exact:true})).toBeVisible();await page.getByRole('button',{name:'GitHub 連結',exact:true}).click();await expect(page.getByRole('heading',{name:'GitHub App 已連結',exact:true})).toBeVisible();
   const complete=calls.filter(call=>call.path==='/github-app/complete');expect(complete).toHaveLength(1);expectAdminCommand(complete[0]);expect(complete[0].body).toEqual({code,state});

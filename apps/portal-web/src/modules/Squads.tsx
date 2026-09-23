@@ -20,7 +20,7 @@ export function SquadsPanel({client,session}:ModulePanelProps){
   const visibleSquads=squads.filter(squad=>(kind==='all'||squad.kind===kind)&&(!search||[squad.name,squad.purpose,squad.owner_name].join(' ').toLocaleLowerCase().includes(search)));
   const filtered=Boolean(search||kind!=='all');
   return <section className="module-panel squad-panel">
-    <ModuleBanner eyebrow="BUILD SOMETHING TOGETHER" title="小隊集合" description="找一支小隊加入，或找幾位夥伴一起完成一件事。" art="/art/rpg/cooperation-forge.webp"><div className="actions"><button className="btn btn-primary" onClick={()=>nameInput.current?.focus()}>成立一支小隊</button></div></ModuleBanner>
+    <ModuleBanner eyebrow="BUILD SOMETHING TOGETHER" title="加入或成立小隊" description="" art="/art/rpg/cooperation-forge.webp"><div className="actions"><button className="btn btn-primary" onClick={()=>nameInput.current?.focus()}>成立一支小隊</button></div></ModuleBanner>
     <Status error={loadError||detailError||error} notice={notice}/>
     <section className="squad-directory" aria-labelledby="squad-directory-heading">
       <h3 id="squad-directory-heading">尋找小隊</h3>

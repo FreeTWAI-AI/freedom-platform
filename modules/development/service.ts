@@ -84,7 +84,7 @@ export function pageHtml(title:string,markdown:string,markdownUrl:string,metrics
  if(book?.guide){
   const cover=book.cover_url?'<figure class="public-skill-cover"><img src="'+escape(book.cover_url)+'" alt="" width="768" height="512"></figure>':'';
   const upstreamFork=book.upstream_url+'/fork';
-  const actions=[[book.guide.reading_url,'閱讀技能書 ↗'],[book.upstream_url,'開啟專案 ↗'],[upstreamFork,'Fork 專案 ↗'],...(book.fork_url!==upstreamFork?[[book.fork_url,'Fork 工坊版本 ↗']]:[])].filter(([url])=>!!url).map(([url,label])=>'<a href="'+escape(url!)+'" target="_blank" rel="noopener noreferrer">'+label+'</a>').join('')+'<a href="/#community">登入工坊 Star</a>';
+  const actions=[[book.guide.reading_url,'閱讀技能書 ↗'],[book.upstream_url,'開啟專案 ↗'],[upstreamFork,'Fork 專案 ↗'],...(book.fork_url!==upstreamFork?[[book.fork_url,'Fork 工坊版本 ↗']]:[])].filter(([url])=>!!url).map(([url,label])=>'<a href="'+escape(url!)+'" target="_blank" rel="noopener noreferrer">'+label+'</a>').join('')+'<a href="/#skills">登入工坊 Star</a>';
   const count=(value:number|null|undefined)=>typeof value==='number'&&Number.isSafeInteger(value)&&value>=0?String(value):'—';
   const date=(value:string|null|undefined)=>value&&!Number.isNaN(Date.parse(value))?escape(new Date(value).toISOString().slice(0,10)):'—';
   const stats='<section aria-label="原作者 GitHub 數據"><p>Stars '+count(metrics?.stargazers_count)+' · Forks '+count(metrics?.forks_count)+' · 追蹤 '+count(metrics?.subscribers_count)+'</p><p>未結 Issues／PR '+count(metrics?.open_issues_count)+' · 程式更新 '+date(metrics?.pushed_at)+'</p><p>'+(metrics?.checked_at?(metrics.stale?'上次取得的數據':'數據更新')+' · '+date(metrics.checked_at):'尚未取得 GitHub 數據')+'</p></section>';

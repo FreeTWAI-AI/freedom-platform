@@ -13,6 +13,19 @@ if (target.protocol !== 'https:' || target.username || target.password || target
   throw new Error('FREEDOM_PUBLIC_ORIGIN must be a plain HTTPS origin.');
 }
 const origin = target.origin;
+async function navigate(page, name) {
+  await expect(page.locator('.shell')).toBeVisible();
+  const menu=page.getByRole('button',{name:'開啟選單',exact:true});
+  if(await menu.isVisible())await menu.click();
+  const nav=page.getByRole('navigation',{name:'主要工作區',includeHidden:true});
+  await expect(nav).toBeVisible();
+  const target=nav.getByRole('button',{name,exact:true,includeHidden:true});
+  await expect(target).toHaveCount(1);
+  const group=target.locator('xpath=ancestor::details[1]');
+  if(await group.count()&&!await group.evaluate(element=>element.open))await group.locator(':scope > summary').click();
+  await target.click();
+}
+
 // Unlike the test runner, this live script does not inherit playwright.config.
 // Allow the actual HTTPS/Access route its bounded network budget.
 const expect=baseExpect.configure({timeout:20000});
@@ -103,13 +116,13 @@ try {
   console.log('Public HTTPS landing, admin Access boundary, anonymous boundary and brand asset: PASS');
   const mapResponse=await anonymous.get(origin+'/api/v1/development-map');
   expect(mapResponse.status()).toBe(200);const development=await mapResponse.json();
-  expect(development.pages).toHaveLength(20);expect(development.repositories).toHaveLength(31);expect(development.skill_books).toHaveLength(25);
+  expect(development.pages).toHaveLength(21);expect(development.repositories).toHaveLength(31);expect(development.skill_books).toHaveLength(25);
   expect(JSON.stringify(development)).not.toMatch(/user_id|access_token|csrf_token/);
   for(const path of ['/llms.txt','/development','/development/guilds.md','/development/skills/security-scanner']){
     const response=await anonymous.get(origin+path);expect(response.status(),path).toBe(200);
     expect((await response.text()).length).toBeGreaterThan(100);
   }
-  console.log('Anonymous Agent discovery, 20 page guides, 31 repository guides and 25 skill books: PASS');
+  console.log('Anonymous Agent discovery, 21 page guides, 31 repository guides and 25 skill books: PASS');
   const discoveryResponse=await anonymous.get(origin+'/api/v1/skills/discovery');
   expect(discoveryResponse.status()).toBe(200);
   const discovery=await discoveryResponse.json();expect(discovery.books).toHaveLength(25);
@@ -216,7 +229,7 @@ try {
   await page.getByRole('button', {name:'關閉技能書介紹',exact:true}).click();
   await screenshot('public-onboarding-completed.png');
   await page.getByRole('button', { name: '進入自由工坊 →', exact: true }).click();
-  await expect(page.getByRole('navigation', { name: '主要工作區' })).toBeVisible();
+  await expect(page.locator('.shell')).toBeVisible();
   await expect(page.locator('.demo-banner')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '會員首頁', exact: true })).toBeVisible();
   const completed = await page.request.get(origin + '/api/v1/me/onboarding');
@@ -232,9 +245,13 @@ try {
   console.log('Full 15-question preference and ability assessment, explicit primary Guild and skill-book grants: PASS');
 
   stage = 'completed positioning result';
-  await page.getByRole('button', { name: '我的定位', exact: true }).click();
+  await navigate(page, '我的定位');
   await expect(page.getByRole('heading', { name: '我的定位結果', exact: true })).toBeVisible();
   await expect(page.locator('.positioning-result')).toContainText('主要公會');
+  await expect(page.getByRole('heading',{level:1})).toHaveCount(1);
+  await expect(page.locator('.positioning-heading')).toHaveCount(0);
+  await page.getByRole('link',{name:'跳到主要內容',exact:true}).focus();await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#positioning$/);await expect(page.locator('#main-content')).toBeFocused();
   await expect(page.getByText('合作偏好（選填）', { exact: true })).toHaveCount(0);
   await expect(page.getByLabel('我現在想完成的事')).toHaveCount(0);
   await expect(page.getByLabel('搜尋職業方向')).toHaveCount(0);
@@ -258,7 +275,7 @@ try {
 
   stage = 'member card and privacy';
   await page.getByRole('button', { name: '我的名片', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '我的會員名片', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '我的名片', level: 1, exact: true })).toBeVisible();
   const avatarFixture=await sharp({create:{width:320,height:240,channels:3,background:'#3044ff'}}).png().toBuffer();
   const editor=page.locator('.avatar-editor');
   await editor.getByLabel('選擇頭像',{exact:true}).setInputFiles({name:'synthetic-verification.png',mimeType:'image/png',buffer:avatarFixture});
@@ -328,7 +345,7 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await noOverflow('Member card mobile overflow');
   await screenshot('public-member-card-mobile.png');
-  await page.getByRole('button', { name: '職業公會', exact: true }).click();
+  await navigate(page, '職業公會');
   await expect(page.locator('.primary-guild')).toHaveCount(1);
   await expect(page.locator('.primary-guild .guild-master .guild-leadership-role')).toHaveText('公會長');
   await expect(page.locator('.guild-card').first()).toHaveClass(/primary-guild/);
@@ -389,7 +406,7 @@ try {
   await noOverflow('Guild mobile overflow');
   await screenshot('public-guilds-mobile.png');
   await expect(page.getByRole('button', { name: '我的名片', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '工坊夥伴', exact: true }).click();
+  await navigate(page, '工坊夥伴');
   await expect(page.getByRole('heading', { name: '工坊夥伴', exact: true }).first()).toBeVisible();
   await expect(page.locator('.member-directory')).toHaveAttribute('aria-busy','false');
   const directoryQuery=new URLSearchParams({search:nickname,guild_key:onboarding.primary_guild_key,sort:'newest',limit:'1'});
@@ -440,7 +457,7 @@ try {
   const workspaceResponse=await page.request.get(origin+'/api/v1/guild-workspace');expect(workspaceResponse.status()).toBe(200);
   expect(await workspaceResponse.json()).toMatchObject({managed_guilds:[],managed_books:[],can_discuss:false});
   expect((await page.request.get(origin+'/api/v1/guild-council/threads')).status()).toBe(403);
-  await page.getByRole('button',{name:'一起開發',exact:true}).click();
+  await navigate(page, '一起開發');
   await expect(page.getByRole('heading',{name:'一起開發',exact:true}).first()).toBeVisible();
   const liveActivity=await page.request.get(origin+'/api/v1/co-creation/projects/workshop-video-autopilot/activity');
   expect(liveActivity.status()).toBe(200);
@@ -454,7 +471,7 @@ try {
   console.log('18 Guilds and real GitHub co-creation Issues through deployed Platform: PASS');
 
   stage='compact shared skill library';
-  await page.getByRole('button',{name:'自由工坊社群',exact:true}).click();
+  await navigate(page, '技能書架');
   const library=page.locator('.community-library');
   await expect(library.locator('.skill-library-book')).toHaveCount(25);
   for(const width of [1440,390,320]){
@@ -474,7 +491,14 @@ try {
     await noOverflow('Compact skill library overflow');
     await screenshot(`public-compact-skill-library-${width}.png`);
   }
-  console.log('All 25 books retain covers and reading actions in compact desktop/mobile rows: PASS');
+  const fullBookIds=await library.locator('article[data-book-id]').evaluateAll(cards=>cards.map(card=>card.getAttribute('data-book-id')));
+  const granted=(await (await page.request.get(origin+'/api/v1/me/skill-books')).json()).items.map(book=>book.book_id);
+  await page.getByRole('group',{name:'技能書範圍'}).getByRole('button',{name:/^我的技能書(?: · \d+)?$/}).click();
+  const personalIds=fullBookIds.filter(id=>granted.includes(id)).sort();
+  await expect(library.locator('article[data-book-id]')).toHaveCount(personalIds.length);
+  expect(await library.locator('article[data-book-id]').evaluateAll(cards=>cards.map(card=>card.getAttribute('data-book-id')).sort())).toEqual(personalIds);
+  await page.getByRole('button',{name:'全部技能書',exact:true}).click();await expect(library.locator('.skill-library-book')).toHaveCount(25);
+  console.log('One shared shelf, authoritative personal book IDs and compact desktop/mobile rows: PASS');
   const githubConnection=await (await page.request.get(origin+'/api/v1/me/github')).json();
   if(githubConnection.configured){
     expect(githubConnection.connected).toBe(false);
@@ -499,10 +523,24 @@ try {
     const authorization=new URL(handoff.authorizationUrl);
     expect(authorization.origin+authorization.pathname).toBe('https://github.com/login/oauth/authorize');
     expect(authorization.searchParams.has('state')).toBe(true);
-    await page.unroute(connectUrl);await page.unroute(authorizePattern);await page.goto(origin+'/#community',{waitUntil:'networkidle'});
+    await page.unroute(connectUrl);await page.unroute(authorizePattern);await page.goto(origin+'/#skills',{waitUntil:'networkidle'});
     await expect(page.locator('.community-library')).toBeVisible();
     console.log('Visible star icon starts real platform OAuth handoff; provider consent and Star were not submitted: PASS');
   }
+
+  stage = 'grouped mobile navigation';
+  const mobileMenu=page.getByRole('button',{name:/^(開啟|關閉)選單$/});
+  const memberNavigation=page.getByRole('navigation',{name:'主要工作區',includeHidden:true});
+  await expect(memberNavigation).toBeHidden();await mobileMenu.click();await expect(memberNavigation).toBeVisible();
+  await expect(memberNavigation.locator('details > summary')).toHaveCount(3);
+  await expect(memberNavigation.getByRole('button',{name:'公會管理',exact:true,includeHidden:true})).toHaveCount(0);
+  await page.keyboard.press('Escape');await expect(memberNavigation).toBeHidden();await expect(mobileMenu).toBeFocused();
+  await navigate(page,'自由工坊社群');await expect(page.locator('.community-library')).toHaveCount(0);
+  await page.getByRole('button',{name:'前往技能書架',exact:true}).click();await expect(page).toHaveURL(/#skills$/);
+  await navigate(page,'開源投稿');await expect(page.locator('.community-library')).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'登錄開源作品',exact:true})).toBeVisible();
+  await expect(memberNavigation).toBeHidden();await noOverflow('Grouped phone menu and source submission overflow');
+  console.log('Grouped phone menu, Escape focus, selected-page closure, distinct community/submission and preserved skip-link route: PASS');
 
   stage = 'logout and fresh login';
   await page.getByRole('button', { name: '登出', exact: true }).click();
@@ -511,7 +549,7 @@ try {
   await page.getByLabel('電子郵件', { exact: true }).fill(email);
   await page.getByLabel('密碼', { exact: true }).fill(password);
   await page.getByRole('button', { name: '登入', exact: true }).click();
-  await expect(page.getByRole('navigation', { name: '主要工作區' })).toBeVisible();
+  await expect(page.locator('.shell')).toBeVisible();
   await expect(page.locator('.demo-banner')).toHaveCount(0);
   const renewedCookie = (await context.cookies(origin)).find(cookie => cookie.name === 'freedom_local_session');
   if (renewedCookie) secrets.push(renewedCookie.value);

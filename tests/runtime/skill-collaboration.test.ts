@@ -33,7 +33,7 @@ test('all catalog books route agents to the actual managed repository and branch
 });
 
 test('all pages expose a loadable agent skill and discovery links without granting private access',async()=>{
- const app=createDevelopmentRoutes();const map=developmentMap();assert.equal(map.pages.length,20);
+ const app=createDevelopmentRoutes();const map=developmentMap();assert.equal(map.pages.length,21);
  const index=await(await app.request(origin+'/llms.txt')).text();
  for(const page of developmentPages){
   const item=map.pages.find(item=>item.id===page.id)!;assert.ok(index.includes(item.agent_skill_url));

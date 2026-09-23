@@ -1,3 +1,4 @@
+import { navigate } from './navigation.js';
 import { test, expect } from './fixtures.js';
 
 test('member reads GitHub-backed co-creation tasks, copies a bounded brief, and sees merged PR authors',async({page,context})=>{
@@ -7,12 +8,12 @@ test('member reads GitHub-backed co-creation tasks, copies a bounded brief, and 
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
   await page.getByRole('button',{name:'登入',exact:true}).click();
-  await page.getByRole('button',{name:'一起開發',exact:true}).click();
+  await navigate(page, '一起開發');
   await expect(page.getByRole('heading',{name:'一起開發',exact:true}).first()).toBeVisible();
   const issue=page.getByRole('article').filter({has:page.getByRole('heading',{name:'建立可重現的剪輯測試素材',exact:true})});
   await expect(issue).toBeVisible();
   await expect(issue.getByRole('link',{name:'到任務頁參與 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI-AI/video-autopilot-kit/issues/1');
-  await expect(page.getByText('任務認領與進度在 GitHub 確認；PR 是交給專案維護者審查的修改提案。想參與之前，先看看是否有人正在做。')).toBeVisible();
+  await expect(page.getByText('先到 GitHub 任務留言認領；完成後提交 PR，交由維護者審查。')).toBeVisible();
   await issue.getByRole('button',{name:'複製工作說明',exact:true}).click();
   const brief=page.getByLabel('給協作夥伴與 AI 的工作說明',{exact:true});
   await expect(brief).toBeVisible();
@@ -29,7 +30,7 @@ test('member reads GitHub-backed co-creation tasks, copies a bounded brief, and 
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/co-creation-mobile.png',fullPage:true});
   await page.getByRole('button',{name:'發起共創邀請',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'邀請夥伴，一起把作品往前推',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'發起共創邀請',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'登錄我的作品',exact:true})).toBeVisible();
   expect(browserErrors).toEqual([]);
 });

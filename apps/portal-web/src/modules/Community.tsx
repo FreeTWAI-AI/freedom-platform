@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { PortalClient } from '../api';
+import type { TabId } from '../types';
 import { SkillBookCard, type IntroBook } from './SkillBookIntro';
 import {SkillDiscoveryFilters,type SkillDiscoveryView} from './SkillDiscovery';
 import {useSkillDiscovery} from './skill-discovery-client';
@@ -21,7 +22,7 @@ export function CommunityLinks() {
 type CatalogBook = IntroBook & { id: string; fork_url: string | null; license_status: string };
 type CommunityCatalog = { name: string; tagline: string; metrics: { label: string; value: number; as_of: string; note: string }[]; featured_projects: CatalogBook[]; skill_books: CatalogBook[]; project_links?: { title: string; url: string; description: string }[] };
 
-export function RepositoryLibrary({ client, ids, title = '社群技能書' }: { client: PortalClient; ids?: string[]; title?: string }) {
+export function RepositoryLibrary({ client, ids, title = '社群技能書', compact = false }: { client: PortalClient; ids?: string[]; title?: string; compact?: boolean }) {
   const [catalog, setCatalog] = useState<CommunityCatalog | null>(null), [error, setError] = useState('');
   const [search,setSearch]=useState(''),[category,setCategory]=useState(''),[reload,setReload]=useState(0),[view,setView]=useState<SkillDiscoveryView>('all');
   const discovery=useSkillDiscovery();
@@ -44,11 +45,11 @@ export function RepositoryLibrary({ client, ids, title = '社群技能書' }: { 
   });
   if(view==='week'||view==='month')discovered.sort((a,b)=>(view==='week'?bookMeta.get(a.id)!.week_rank!:bookMeta.get(a.id)!.month_rank!)-(view==='week'?bookMeta.get(b.id)!.week_rank!:bookMeta.get(b.id)!.month_rank!));
   const books=discovered.filter(book=>(!category||book.guide?.beginner?.category===category)&&(!term||[book.title,book.description,...Object.values(book.guide?.beginner??{})].join(' ').toLocaleLowerCase().includes(term)));
-  return <section className="stack community-library">
-    <header className="community-library-heading">
+  return <section className="stack community-library" aria-label={title}>
+    {!compact && <header className="community-library-heading">
       <div><p className="home-eyebrow">THE SHARED LIBRARY</p><h3>{title}</h3></div>
       <img src="/art/rpg/skill-codex.webp" alt="" width="360" height="240" loading="lazy"/>
-    </header>
+    </header>}
     {error && <div role="alert"><p>{error}</p><button type="button" className="btn btn-ghost" onClick={()=>setReload(value=>value+1)}>重新載入技能書</button></div>}
     {!catalog && !error && <p role="status">正在載入技能書…</p>}
     {catalog&&<><SkillDiscoveryFilters value={view} onChange={setView}/><div className="skill-library-filters"><label className="field">搜尋技能書<input type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="例如：貼文、商店、剪輯、找方向…"/></label><label className="field">依工坊用途篩選<select value={category} onChange={event=>setCategory(event.target.value)}><option value="">全部用途</option>{categories.map(value=><option key={value} value={value}>{value}</option>)}</select></label></div><p className="skill-library-count" role="status">顯示 {books.length} / {available.length} 本技能書</p></>}
@@ -57,7 +58,7 @@ export function RepositoryLibrary({ client, ids, title = '社群技能書' }: { 
   </section>;
 }
 
-export function CommunityPanel({ client }: { client: PortalClient }) {
+export function CommunityPanel({ client, onNavigate }: { client: PortalClient; onNavigate: (id: TabId) => void }) {
   const [data, setData] = useState<CommunityCatalog | null>(null), [error, setError] = useState('');
   useEffect(() => {
     let active = true;
@@ -66,7 +67,7 @@ export function CommunityPanel({ client }: { client: PortalClient }) {
   }, [client]);
   return <section className="module-panel freedom-community">
     <header className="community-entry-hero">
-      <div className="community-entry-copy"><p className="home-eyebrow">FREE TO BUILD TOGETHER</p><h2>這裡是<br/><span>自由工坊</span></h2><p>從你的專長出發，用技能書做出第一個作品，<br/>在公會與小隊找到一起前進的人。</p><span className="community-entry-signoff">每一種專業，都有自己的位置。 <span aria-hidden="true">✦</span></span></div>
+      <div className="community-entry-copy"><h2>加入社群</h2><p>到 Discord 與 LINE 找夥伴、交流作品。</p></div>
       <BrandPoster compact/>
     </header>
     <CommunityLinks/>
@@ -79,7 +80,7 @@ export function CommunityPanel({ client }: { client: PortalClient }) {
       </div>)}</div>
       <div className="community-metric-source"><p>由社群提供的概數，不是即時或去重後的人數。</p><a href="https://github.com/Hao0321/freeworkshop-open-data" target="_blank" rel="noopener noreferrer">查看社群開放資料 ↗</a></div>
     </section>
-    <RepositoryLibrary client={client} title="自由工坊的作品與技能書"/>
+    <button className="btn btn-ghost" onClick={() => onNavigate('skills')}>前往技能書架</button>
     {Boolean(data?.project_links?.length) && <section className="stack community-projects" aria-labelledby="community-project-links">
       <header className="home-section-heading"><div><p className="home-eyebrow">MADE IN THE WORKSHOP</p><h3 id="community-project-links">更多工坊作品</h3></div></header>
       <div className="card-grid">{data?.project_links?.filter(project => { try { return new URL(project.url).protocol === 'https:'; } catch { return false; } }).map(project => <article className="card stack community-project" key={project.url}>

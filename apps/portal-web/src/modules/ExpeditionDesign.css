@@ -1,33 +1,25 @@
-/* Shared workshop covers and real member / collaboration records. */
-.section-heading.expedition-banner {
-  position: relative;
-  isolation: isolate;
-  display: grid;
-  gap: 0;
-  overflow: hidden;
-  border: 1px solid #333943;
-  border-radius: 18px;
-  background: #14161b;
-}
-.section-heading.expedition-banner-illustrated {
-  grid-template-columns: minmax(0, 1fr) 148px;
-}
-.expedition-banner-copy {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  align-content: center;
-  gap: .4rem;
-  padding: clamp(.9rem, 1.8vw, 1.25rem);
+/* Compact task headers and real member / collaboration records. */
+header.section-heading.expedition-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  padding: 4px 0 12px;
+  border-bottom: 1px solid #333943;
   min-width: 0;
 }
-.expedition-banner .eyebrow { color: #c4ff20; font-size: .72rem; letter-spacing: .14em; }
-.expedition-banner h2 { margin: 0; font-size: clamp(1.3rem, 2.1vw, 1.75rem); line-height: 1.25; letter-spacing: -.04em; }
-.expedition-banner-description { color: #aeb5c2; max-width: 44rem; margin: 0; line-height: 1.7; }
-.expedition-banner .actions { margin-top: .55rem; }
-.expedition-banner-art { position: relative; min-width: 0; min-height: 112px; background: #0a0c11; }
-.expedition-banner-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #14161b, transparent 45%); }
-.expedition-banner-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.expedition-banner-copy {
+  display: grid;
+  flex: 1 1 18rem;
+  gap: 4px;
+  min-width: 0;
+}
+.expedition-banner h2 { margin: 0; font-size: 1.12rem; line-height: 1.5; letter-spacing: 0; }
+.expedition-banner-description { color: #aeb5c2; max-width: 44rem; margin: 0; font-size: .875rem; line-height: 1.6; }
+.expedition-banner-actions { min-width: 0; }
+.expedition-banner .actions { margin: 0; gap: 8px; }
+.expedition-banner-actions .btn { min-height: 44px; }
 
 .card.member-card.expedition-dossier {
   position: relative;
@@ -121,12 +113,10 @@
   .account-panel .expedition-dossier .member-card-body { border-left: 1px solid #333943; padding-left: 1rem; margin-top: 0; }
 }
 @media (max-width: 700px) {
-  .section-heading.expedition-banner-illustrated { grid-template-columns: minmax(0, 1fr); }
-  .expedition-banner-art { position: absolute; inset: 0 0 0 auto; width: 32%; min-height: 0; max-height: none; opacity: .28; z-index: -1; }
-  .expedition-banner-art::after { background: linear-gradient(90deg, #14161b, transparent 75%); }
-  .expedition-banner-art img { object-position: center 46%; }
-  .expedition-banner-illustrated .expedition-banner-copy { padding: .9rem 1rem; }
-  .expedition-banner h2 { font-size: 1.35rem; }
+  header.section-heading.expedition-banner { align-items: flex-start; gap: 8px; }
+  .expedition-banner-copy { flex-basis: 100%; }
+  .expedition-banner-actions { width: 100%; }
+  .expedition-banner-actions .btn { flex: 1 1 auto; }
   .card.member-card.expedition-dossier { padding: .9rem; }
   .expedition-dossier .member-avatar { width: 3rem; height: 3rem; font-size: 1.2rem; }
   .expedition-dossier .member-card-heading { gap: .9rem; }

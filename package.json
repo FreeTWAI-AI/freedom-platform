@@ -1,6 +1,6 @@
 {
   "name": "freedom-platform",
-  "version": "0.9.7-github-permissions",
+  "version": "0.10.0-workspace",
   "private": true,
   "type": "module",
   "engines": {

@@ -1,3 +1,4 @@
+import { navigate } from './navigation.js';
 import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from './fixtures.js';
 const password='freedom-workshop-member-2026';
@@ -29,7 +30,7 @@ async function finishGuild(page:Page){
   await expect(page.getByRole('heading',{name:'你的第一段旅程，現在開始。'})).toBeVisible();
   await expect(page.getByRole('button',{name:'閱讀技能書',exact:true}).first()).toBeVisible();
   await page.getByRole('button',{name:'進入自由工坊 →',exact:true}).click();
-  await expect(page.getByRole('navigation',{name:'主要工作區'})).toBeVisible();
+  await expect(page.locator('.shell')).toBeVisible();
 }
 async function completeOrientation(page:Page){
   await answerQuestions(page);
@@ -57,7 +58,7 @@ test('new member completes required positioning, chooses primary guild and gets 
   await expect(page.getByRole('heading',{name:'開店與銷售',exact:true}).first()).toBeVisible();
   await expect(page).toHaveURL(/#retail$/);
   await page.getByRole('button',{name:'我的名片',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'我的會員名片',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'我的名片',level:1,exact:true})).toBeVisible();
   await expect(page.getByLabel('聯絡 E-mail',{exact:true})).toHaveValue(email);
   await expect(page.getByLabel('聯絡 E-mail',{exact:true})).toHaveJSProperty('readOnly',true);
   await page.getByLabel('Discord 帳號',{exact:true}).fill('new.member');
@@ -72,7 +73,7 @@ test('new member completes required positioning, chooses primary guild and gets 
   expect(profileBody.contacts.email).toEqual({audiences:[]});
   expect(profileBody.contacts.discord).toEqual({value:'new.member',audiences:['friends','guild']});
   await expect(page.getByText('個人資料與每一項聯絡方式的可見範圍已保存。')).toBeVisible();
-  await page.getByRole('button',{name:'職業公會',exact:true}).click();await expect(page.locator('.primary-guild')).toHaveCount(1);
+  await navigate(page, '職業公會');await expect(page.locator('.primary-guild')).toHaveCount(1);
   await expect(page.locator('.primary-guild .guild-master .guild-leadership-name')).toHaveText('待任命');
   await expect(page.locator('.guild-card').first()).toHaveClass(/primary-guild/);
   const secondary=page.locator('.guild-card').filter({has:page.getByRole('button',{name:/^加入/})}).first();
@@ -98,9 +99,9 @@ test('new member completes required positioning, chooses primary guild and gets 
   await page.unroute('**/api/v1/guilds/directory');
 
 
-  await page.getByRole('button',{name:'工坊夥伴',exact:true}).click();await expect(page.getByRole('heading',{name:/工坊新夥伴/})).toBeVisible();
+  await navigate(page, '工坊夥伴');await expect(page.getByRole('heading',{name:/工坊新夥伴/})).toBeVisible();
   await page.getByRole('button',{name:'登出',exact:true}).click();await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill(password);await page.getByRole('button',{name:'登入',exact:true}).click();
-  await expect(page.getByRole('navigation',{name:'主要工作區'})).toBeVisible();await page.getByRole('button',{name:'我的名片',exact:true}).click();await expect(page.getByLabel('Discord 帳號',{exact:true})).toHaveValue('new.member');
+  await expect(page.locator('.shell')).toBeVisible();await page.getByRole('button',{name:'我的名片',exact:true}).click();await expect(page.getByLabel('Discord 帳號',{exact:true})).toHaveValue('new.member');
   const restoredAudiences=page.getByRole('group',{name:'Discord 帳號可見範圍',exact:true});
   await expect(restoredAudiences.getByRole('checkbox',{name:'平台好友',exact:true})).toBeChecked();
   await expect(restoredAudiences.getByRole('checkbox',{name:'公會夥伴',exact:true})).toBeChecked();
@@ -123,7 +124,7 @@ test('mobile registration and mandatory orientation remain usable without horizo
   let dimensions=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.width);
   await page.screenshot({path:'test-results/member-onboarding-phone.png',fullPage:true});
   await completeOrientation(page);
-  await page.getByRole('button',{name:'我的名片',exact:true}).click();await expect(page.getByRole('heading',{name:'我的會員名片'})).toBeVisible();
+  await page.getByRole('button',{name:'我的名片',exact:true}).click();await expect(page.getByRole('heading',{name:'我的名片',level:1,exact:true})).toBeVisible();
   dimensions=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.width);
 });
 test('member explicitly approves then revokes a scoped supplier client read connection',async({page})=>{
@@ -178,6 +179,7 @@ test('skill trees preserve choices across screen sizes and show only three featu
   await expect(page.locator('.member-featured .pill')).toHaveCount(3);
   await expect(page.locator('.member-featured')).toContainText('手工皮革製作');
   await expect(page.locator('.member-card')).not.toContainText('這是我的私人補充');
+  await page.getByRole('button',{name:'我的名片',exact:true}).click();
   const details=page.locator('.member-full-profile');await expect(details).not.toHaveAttribute('open');
   await details.locator('summary').click();for(const choice of choices)await expect(details).toContainText(choice.label);
   await expect(details).toContainText('我的錄音設備');
@@ -196,7 +198,7 @@ test('completed positioning shows only the published result and never creates a 
   expect((await (await page.request.get('/api/v1/me/positioning')).json()).profile).toBeNull();
   const legacyRequests:string[]=[];
   page.on('request',request=>{if(new URL(request.url()).pathname==='/api/v1/me/positioning')legacyRequests.push(request.method());});
-  await page.getByRole('button',{name:'我的定位',exact:true}).click();
+  await navigate(page, '我的定位');
   await expect(page.getByRole('heading',{name:'我的定位結果',exact:true})).toBeVisible();
   const result=page.locator('.positioning-result');
   await expect(result).toContainText('主要公會');
@@ -249,12 +251,13 @@ test('re-exploration preserves the confirmed profile until completion and keeps 
   const legacy=await page.request.post('/api/v1/me/positioning',{headers:{Origin:'http://127.0.0.1:4311','X-CSRF-Token':session.csrf_token,'Idempotency-Key':randomUUID()},data:{real_world_occupations:['舊職業'],background:'保留舊資料',strengths:['舊專長'],goals:'保留舊合作目標',weekly_minutes:45,desired_roles:[],selected_tracks:[],confirmed:true}});
   expect(legacy.ok()).toBe(true);
   const legacyBefore=(await (await page.request.get('/api/v1/me/positioning')).json()).profile;
-  await page.getByRole('button',{name:'我的定位',exact:true}).click();
+  await navigate(page, '我的定位');
   const result=page.locator('.positioning-result');
   await expect(result).toContainText('原本的教學整理');
   await expect(result).not.toContainText('保留舊合作目標');
   await expect(page.getByText(/合作偏好|想探索的職業方向/)).toHaveCount(0);
   await page.getByRole('button',{name:'重新探索定位',exact:true}).click();
+  await expect(page.getByRole('main')).toHaveCount(1);await expect(page.getByRole('heading',{level:1})).toHaveCount(1);
   await expect(page.getByRole('heading',{name:'你喜歡怎麼做事？',exact:true})).toBeVisible();
   const definition=await (await page.request.get('/api/v1/assessment-definition')).json();
   await expect(page.locator('.quiz-question')).toHaveCount(definition.questions.filter((question:any)=>question.kind==='preference').length);
@@ -282,8 +285,9 @@ test('re-exploration preserves the confirmed profile until completion and keeps 
   await page.getByRole('button',{name:'我的名片',exact:true}).click();
   await expect(page.locator('.member-featured')).toContainText('原本的教學整理');
   await expect(page.locator('.member-card')).not.toContainText('草稿裡的私人職業');
-  await page.getByRole('button',{name:'我的定位',exact:true}).click();
+  await navigate(page, '我的定位');
   await page.getByRole('button',{name:'重新探索定位',exact:true}).click();
+  await expect(page.getByRole('main')).toHaveCount(1);await expect(page.getByRole('heading',{level:1})).toHaveCount(1);
   await answerQuestions(page,true);
   await expect(page.getByLabel('精選能力：新的研究整理',{exact:true})).toBeChecked();
   await expect(page.getByLabel('你的職業／目前身分',{exact:true})).toHaveValue('草稿裡的私人職業');

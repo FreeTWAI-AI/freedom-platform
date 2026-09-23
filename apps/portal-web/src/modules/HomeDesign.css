@@ -13,176 +13,51 @@
   object-fit: contain;
 }
 
+/* One member summary, followed immediately by useful destinations. */
 .member-home.freedom-home,
-.module-panel.freedom-community {
-  gap: 1rem;
-  width: 100%;
-  max-width: 1440px;
-  min-width: 0;
-}
-.freedom-home .home-eyebrow,
+.module-panel.freedom-community { display: grid; gap: 1rem; width: 100%; max-width: 1440px; min-width: 0; }
 .freedom-community .home-eyebrow,
-.community-library .home-eyebrow {
-  margin: 0 0 .4rem;
-  font-size: .69rem;
-  font-weight: 700;
-  line-height: 1.5;
-  letter-spacing: .14em;
-  color: #aeb5c2;
-}
-.freedom-home h2,
-.freedom-community h2,
-.freedom-community h3 { letter-spacing: -.035em; }
-.freedom-home .guild-base-hero {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  min-height: 176px;
-  display: flex;
-  align-items: center;
-  border: 1px solid #333943;
-  border-radius: 20px;
-  background: #0c101b;
-}
-.freedom-home .guild-base-art {
-  position: absolute;
-  z-index: -2;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 70% 48%;
-}
-.freedom-home .guild-base-hero::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(90deg, #08090bf5 0%, #08090bdc 25%, #08090b88 48%, #08090b08 78%), linear-gradient(0deg, #08090b66, transparent 50%);
-}
-.freedom-home .guild-base-copy { padding: 1.25rem; width: min(100%, 40rem); }
-.freedom-home .guild-base-copy .home-eyebrow { color: #c4ff20; }
-.freedom-home .guild-base-copy .home-eyebrow > span { font-size: 1.15rem; margin-right: .5rem; }
-.freedom-home .guild-base-copy h2 {
-  color: #f4f6ef;
-  font-size: clamp(1.6rem, 2.5vw, 2.25rem);
-  line-height: 1.18;
-  font-weight: 800;
-  margin: .5rem 0;
-  text-wrap: balance;
-}
-.freedom-home .guild-base-copy h2 br { display: none; }
-.freedom-home .guild-base-copy > p:not(.home-eyebrow) { color: #c5cbd6; font-size: .94rem; line-height: 1.8; }
-.freedom-home .guild-base-caption {
-  display: inline-flex;
-  align-items: center;
-  gap: 1.8rem;
-  color: #c4ff20;
-  margin-top: .65rem;
-  font-size: .83rem;
-  font-weight: 600;
-}
-.freedom-home .guild-base-caption > span { font-size: 1.2rem; }
-.freedom-home .guild-base-coordinate {
-  position: absolute;
-  bottom: 1.25rem;
-  right: 1.5rem;
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  color: #d9dfeb;
-  font-size: .6rem;
-  letter-spacing: .16em;
-}
-.freedom-home .guild-base-coordinate > span { color: #c4ff20; font-size: 1.8rem; }
-
+.community-library .home-eyebrow { margin: 0 0 .4rem; font-size: .875rem; font-weight: 700; line-height: 1.5; color: #aeb5c2; }
 .freedom-home .home-member-summary {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: .65rem 1rem;
-  margin-top: 0;
-  padding: .8rem 1rem;
-  border: 1px solid #333943;
-  border-radius: 14px;
-  background: #14161b;
+  position: relative; isolation: isolate; overflow: hidden;
+  display: flex; align-items: center; flex-wrap: wrap; gap: .75rem 1rem;
+  min-height: 100px; padding: 1rem; margin: 0;
+  border: 1px solid #333943; border-radius: 14px; background: #101318;
 }
-.freedom-home .home-member-identity { display: flex; align-items: center; gap: .8rem; min-width: 0; }
+.freedom-home .guild-base-art { position: absolute; z-index: -2; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 80% 45%; opacity: .3; }
+.freedom-home .guild-base-hero::after { content: ''; position: absolute; z-index: -1; inset: 0; background: linear-gradient(90deg, #101318, #101318e8 50%, #10131866); }
+.freedom-home .home-member-identity { display: flex; align-items: center; gap: .75rem; min-width: 0; }
 .freedom-home .home-member-identity > div:last-child { min-width: 0; }
-.freedom-home .home-member-initial {
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: #24293c;
-  border: 1px solid #6573bb;
-  color: #f4f6ef;
-  font-weight: 700;
-}
-.freedom-home .home-member-name { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem .7rem; color: #f4f6ef; font-weight: 700; overflow-wrap: anywhere; }
-.freedom-home .home-member-name > span { color: #c4ff20; font-size: .8rem; font-weight: 500; }
-.freedom-home .home-member-guild { color: #aeb5c2; font-size: .8rem; margin-top: .15rem; overflow-wrap: anywhere; }
-.freedom-home .home-member-skills { display: flex; flex-wrap: wrap; gap: .4rem; flex: 1 1 140px; }
-.freedom-home .home-member-skills > span { padding: .3rem .6rem; border: 1px solid #333943; border-radius: 6px; color: #c4cbd5; font-size: .76rem; overflow-wrap: anywhere; }
-.freedom-home .home-member-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
-.freedom-home .home-member-actions .btn { min-height: 44px; font-size: .78rem; padding: .5rem .8rem; }
-.freedom-home .home-member-details { flex: 0 0 100%; min-width: 0; margin-top: -.35rem; border-top: 1px solid #333943; }
-.freedom-home .home-member-details > summary { display: list-item; min-height: 44px; padding: .65rem 0; margin-left: 1rem; color: #aeb5c2; font-size: .875rem; cursor: pointer; }
-.freedom-home .home-member-details > summary:hover { color: #c4ff20; }
-.freedom-home .home-member-details > summary:focus-visible { color: #c4ff20; outline: 3px solid #c4ff20; outline-offset: 3px; }
-.freedom-home .home-member-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 1.2rem; padding: .5rem 0; }
-.freedom-home .home-member-detail-grid h3 { margin: 0 0 .6rem; font-size: .875rem; color: #d0d6e0; }
-.freedom-home .home-member-detail-grid .pill,
-.freedom-home .home-member-detail-grid p { font-size: .875rem; overflow-wrap: anywhere; }
-
+.freedom-home .home-member-initial { flex: 0 0 48px; width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; background: #24293c; border: 1px solid #6573bb; color: #f4f6ef; font-weight: 700; }
+.freedom-home .home-member-name { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .65rem; margin: 0; color: #f4f6ef; font-weight: 700; overflow-wrap: anywhere; }
+.freedom-home .home-member-name > span { color: #c4ff20; font-size: .875rem; font-weight: 500; }
+.freedom-home .home-member-guild { color: #aeb5c2; font-size: .875rem; margin: .2rem 0 0; overflow-wrap: anywhere; }
+.freedom-home .home-member-skills { display: flex; flex-wrap: wrap; gap: .4rem; flex: 1 1 180px; min-width: 0; }
+.freedom-home .home-member-skills > span { padding: .25rem .5rem; border: 1px solid #3a414d; border-radius: 6px; color: #d0d6df; font-size: .875rem; background: #14161bd9; overflow-wrap: anywhere; }
+.freedom-home .home-member-actions { margin-left: auto; }
+.freedom-home .home-member-actions .btn { min-height: 44px; font-size: .875rem; padding: .5rem .8rem; background: #14161be6; }
+.freedom-home .home-shortcuts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .65rem; }
+.freedom-home .home-shortcut { display: flex; align-items: center; gap: .65rem; min-width: 0; min-height: 64px; padding: .85rem; border: 1px solid #3b4350; border-radius: 12px; background: #1b1f27; color: #f4f6ef; font-size: 1rem; font-weight: 650; text-align: left; cursor: pointer; }
+.freedom-home .home-shortcut .workshop-icon { flex: 0 0 20px; color: #c4ff20; }
+.freedom-home .home-shortcut > span { overflow-wrap: anywhere; }
+.freedom-home .home-shortcut-arrow { margin-left: auto; color: #aeb5c2; }
+.freedom-home .home-shortcut:hover,
+.freedom-home .home-shortcut:focus-visible { background: #252b21; border-color: #91ae3d; }
 .freedom-home .home-module-section { display: grid; gap: .75rem; min-width: 0; }
 .freedom-home .home-section-heading,
-.freedom-community .home-section-heading { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: .5rem 1rem; }
-.freedom-home .home-section-heading h2 { font-size: 1.5rem; line-height: 1.35; margin: 0; }
-.freedom-home .home-section-heading > p { color: #aeb5c2; font-size: .86rem; }
+.freedom-community .home-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; }
+.freedom-home .home-section-heading h2 { font-size: 1.05rem; line-height: 1.5; margin: .35rem 0 0; color: #d1d7e0; }
 .freedom-home .home-module-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
-.freedom-home .home-module-card {
-  display: grid;
-  grid-template-columns: 80px minmax(0, 1fr);
-  overflow: hidden;
-  min-width: 0;
-  border: 1px solid #30353e;
-  border-radius: 14px;
-  background: #14161b;
-  transition: border-color .18s ease, background .18s ease;
-}
+.freedom-home .home-module-card { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: .75rem; padding: .75rem; min-width: 0; border: 1px solid #30353e; border-radius: 12px; background: #14161b; }
 .freedom-home .home-module-card:hover,
-.freedom-home .home-module-card:focus-within { border-color: #849257; background: #1b1e24; }
-.freedom-home .home-module-cover { position: relative; align-self: start; overflow: hidden; height: 80px; min-height: 0; aspect-ratio: auto; background: #171d31; border-radius: 10px; }
-.freedom-home .home-module-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, #08090bd9, transparent 48%); pointer-events: none; }
-.freedom-home .home-module-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .3s ease; }
-.freedom-home .home-module-card:hover .home-module-cover img,
-.freedom-home .home-module-card:focus-within .home-module-cover img { transform: scale(1.035); }
-.freedom-home .home-module-supplier .home-module-cover img { object-position: 62% center; }
-.freedom-home .home-module-retail .home-module-cover img { object-position: 78% center; }
-.freedom-home .home-module-index { position: absolute; z-index: 1; bottom: .6rem; left: .4rem; max-width: calc(100% - .8rem); color: #c4ff20; font-size: .65rem; font-weight: 700; letter-spacing: .14em; }
-.freedom-home .home-module-body { display: flex; flex: 1; flex-direction: column; gap: .35rem; padding: .75rem; }
-.freedom-home .home-module-name { color: #f4f6ef; font-size: 1.12rem; font-weight: 700; }
-.freedom-home .home-module-body h3 { font-size: .87rem; line-height: 1.6; color: #d0d6e0; margin: 0; font-weight: 500; }
-.freedom-home .home-module-description { font-size: .84rem; line-height: 1.7; color: #aeb5c2; }
-.freedom-home .home-module-outcome { margin-top: auto; padding-top: .6rem; color: #aeb5c2; font-size: .72rem; line-height: 1.65; }
-.freedom-home .home-module-button {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: .25rem;
-  padding: .6rem .8rem;
-  min-height: 44px;
-  border: 1px solid #3d444e;
-  border-radius: 999px;
-  background: #22262d;
-  color: #f4f6ef;
-  font-size: .83rem;
-}
-.freedom-home .home-module-button > span { color: #c4ff20; font-size: 1.2rem; }
+.freedom-home .home-module-card:focus-within { border-color: #64724a; }
+.freedom-home .home-module-cover { position: relative; overflow: hidden; width: 64px; height: 64px; border-radius: 10px; background: #171d31; }
+.freedom-home .home-module-cover img { width: 100%; height: 100%; object-fit: cover; }
+.freedom-home .home-module-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .25rem .65rem; min-width: 0; }
+.freedom-home .home-module-body .home-module-name { margin: 0; color: #f4f6ef; font-size: 1rem; line-height: 1.5; font-weight: 650; }
+.freedom-home .home-module-description { grid-column: 1; margin: 0; color: #aeb5c2; font-size: .875rem; line-height: 1.6; }
+.freedom-home .home-module-button { grid-column: 2; grid-row: 1 / 3; display: inline-flex; align-items: center; justify-content: space-between; gap: .65rem; min-height: 44px; padding: .5rem .75rem; margin: 0; border: 1px solid #3d444e; border-radius: 999px; background: #22262d; color: #f4f6ef; font-size: .875rem; }
+.freedom-home .home-module-button > span { color: #c4ff20; font-size: 1.15rem; }
 .freedom-home .home-module-button:hover,
 .freedom-home .home-module-button:focus-visible { background: #c4ff20; color: #101500; border-color: #c4ff20; }
 .freedom-home .home-module-button:hover > span,
@@ -190,42 +65,8 @@
 .freedom-home button:focus-visible,
 .freedom-home a:focus-visible,
 .freedom-community button:focus-visible,
-.freedom-community a:focus-visible { outline: 3px solid #c4ff20; outline-offset: 4px; }
-
-.freedom-home .home-direction {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  border: 1px solid #3d4656;
-  border-radius: 16px;
-  background: linear-gradient(105deg, #171b2c, #13161c 75%);
-}
-.freedom-home .home-direction-symbol { width: 44px; height: 44px; flex: 0 0 44px; display: grid; place-items: center; border-radius: 50%; border: 1px solid #47579b; box-shadow: inset 0 0 0 4px #161b2f, inset 0 0 0 5px #35406b; }
-.freedom-home .home-direction-symbol > span { color: #9ba7ff; font-size: 1.9rem; line-height: 1; }
-.freedom-home .home-direction-copy { min-width: 0; flex: 1; }
-.freedom-home .home-direction-copy .home-eyebrow { color: #9ba7ff; }
-.freedom-home .home-direction-copy h2 { font-size: 1.45rem; margin: 0 0 .5rem; }
-.freedom-home .home-direction-copy > p:not(.home-eyebrow) { overflow-wrap: anywhere; font-size: .92rem; color: #d0d6e0; }
-.freedom-home .home-direction-copy .home-direction-detail { margin-top: .45rem; color: #aeb5c2; font-size: .8rem; }
-.freedom-home .home-direction-actions { display: flex; flex-direction: column; gap: .6rem; flex: 0 0 auto; }
-.freedom-home .home-direction-actions .btn { font-size: .85rem; }
-.freedom-home .home-cooperation { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 0; overflow: hidden; border: 1px solid #333943; border-radius: 16px; background: #14161b; }
-.freedom-home .home-cooperation-image { position: relative; min-height: 0; background: #111728; }
-.freedom-home .home-cooperation-image::after { position: absolute; content: ''; inset: 0; background: linear-gradient(90deg, transparent 60%, #14161b); }
-.freedom-home .home-cooperation-image > img { width: 100%; height: 100%; object-fit: cover; position: absolute; }
-.freedom-home .home-cooperation-copy { padding: 1rem; align-self: center; }
-.freedom-home .home-cooperation-copy .home-eyebrow { color: #c4ff20; }
-.freedom-home .home-cooperation-copy h2 { margin: .4rem 0 .65rem; font-size: 1.65rem; }
-.freedom-home .home-cooperation-copy > p:not(.home-eyebrow) { color: #aeb5c2; font-size: .92rem; }
-.freedom-home .home-cooperation-copy .actions { margin-top: .75rem; }
-.freedom-home .home-cooperation-copy .btn { font-size: .87rem; }
-.freedom-home .home-community-signature { display: grid; grid-template-columns: 156px minmax(0, 1fr); gap: 1rem; align-items: center; border-top: 1px solid #333943; padding-top: 1rem; }
-.freedom-home .home-community-signature .brand-poster { border-radius: 10px; }
-.freedom-home .home-community-signature .community-footer { margin: 0; padding: 0; border: 0; gap: 1rem; }
-.freedom-home .community-footer a,
+.freedom-community a:focus-visible { outline: 3px solid #c4ff20; outline-offset: 3px; }
 .freedom-community .community-footer a { min-height: 44px; display: inline-flex; align-items: center; gap: .5rem; }
-.freedom-home .community-footer nav,
 .freedom-community .community-footer nav { gap: .25rem 1.2rem; }
 
 .freedom-community .community-entry-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, .8fr); gap: 1.25rem; align-items: center; padding: 1.25rem; border: 1px solid #333943; border-radius: 20px; background: #101216; }
@@ -269,47 +110,23 @@
 .freedom-community .community-project-orbit { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid #6470a1; color: #c4ff20; border-radius: 50%; font-size: 1.2rem; }
 .freedom-community .community-project .btn { width: fit-content; margin-top: auto; }
 
+
 @media (max-width: 1250px) {
-  .freedom-home .home-module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .freedom-home .home-module-card { grid-template-columns: 72px minmax(0, 1fr); }
-  .freedom-home .home-member-actions { margin-left: auto; }
+  .freedom-home .home-module-body { grid-template-columns: minmax(0, 1fr); }
+  .freedom-home .home-module-button { grid-column: 1; grid-row: auto; width: fit-content; margin-top: .35rem; }
   .community-library .community-book-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .freedom-community .community-entry-hero { gap: 1.25rem; padding: 1.5rem; }
 }
 @media (max-width: 700px) {
-  .member-home.freedom-home,
-  .module-panel.freedom-community { gap: 1rem; }
-  .freedom-home .guild-base-hero { min-height: 160px; }
-  .freedom-home .guild-base-copy { padding: 1rem; }
-  .freedom-home .guild-base-copy h2 { font-size: 1.65rem; }
-  .freedom-home .guild-base-art { object-position: 65% center; }
-  .freedom-home .guild-base-hero::after { background: linear-gradient(90deg, #08090bea, #08090b75), linear-gradient(0deg, #08090b75, transparent); }
-  .freedom-home .guild-base-coordinate { display: none; }
-  .freedom-home .home-member-summary { padding: 1rem; gap: .8rem; }
+  .freedom-home .home-member-summary { gap: .6rem; padding: .875rem; }
   .freedom-home .home-member-identity { width: 100%; }
   .freedom-home .home-member-actions { margin-left: 0; }
+  .freedom-home .home-member-skills { flex-basis: 100%; }
+  .freedom-home .home-shortcuts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+  .freedom-home .home-shortcut { padding: .75rem .6rem; gap: .45rem; min-height: 56px; font-size: .875rem; }
   .freedom-home .home-module-grid { grid-template-columns: minmax(0, 1fr); gap: .65rem; }
-  .freedom-home .home-module-body { padding: .7rem .8rem; }
-  .freedom-home .home-module-card { grid-template-columns: 64px minmax(0, 1fr); }
-  .freedom-home .home-module-cover { height: 64px; }
-  .freedom-home .home-module-name { font-size: 1.08rem; }
-  .freedom-home .home-module-description { font-size: .84rem; }
-  .freedom-home .home-module-index { left: .4rem; font-size: .58rem; }
-  .freedom-home .home-module-button { font-size: .78rem; padding: .5rem .65rem; }
-  .freedom-home .home-direction { flex-wrap: wrap; gap: .75rem; padding: 1rem; }
-  .freedom-home .home-direction-symbol { width: 40px; height: 40px; flex-basis: 40px; }
-  .freedom-home .home-direction-symbol > span { font-size: 1.8rem; }
-  .freedom-home .home-direction-copy { flex-basis: calc(100% - 56px); }
-  .freedom-home .home-direction-actions { flex-direction: row; flex-wrap: wrap; width: 100%; }
-  .freedom-home .home-direction-actions .btn { flex: 1; }
-  .freedom-home .home-cooperation { grid-template-columns: 64px minmax(0, 1fr); }
-  .freedom-home .home-cooperation-image { min-height: 0; }
-  .freedom-home .home-cooperation-image::after { background: linear-gradient(0deg, #14161b, transparent 60%); }
-  .freedom-home .home-cooperation-image > img { object-position: center 45%; }
-  .freedom-home .home-cooperation-copy { padding: 1rem; }
-  .freedom-home .home-cooperation-copy h2 { font-size: 1.4rem; }
-  .freedom-home .home-community-signature { grid-template-columns: minmax(0, 1fr); gap: .75rem; }
-  .freedom-home .home-community-signature .brand-poster { max-width: 156px; }
+  .freedom-home .home-module-card { grid-template-columns: 48px minmax(0, 1fr); gap: .65rem; }
+  .freedom-home .home-module-cover { width: 48px; height: 48px; align-self: start; }
   .freedom-community .community-entry-hero { grid-template-columns: minmax(0, 1fr); gap: 1rem; padding: 1rem; }
   .freedom-community .community-entry-copy h2 { font-size: 1.8rem; }
   .freedom-community .community-entry-hero .brand-poster { transform: none; width: min(100%, 280px); justify-self: center; }
@@ -321,21 +138,8 @@
   .community-library .community-library-heading h3 { font-size: 1.25rem; }
 }
 @media (max-width: 440px) {
-  .freedom-home .home-module-grid,
   .community-library .community-book-grid { grid-template-columns: minmax(0, 1fr); }
-  .freedom-home .home-module-card { grid-template-columns: 56px minmax(0, 1fr); }
-  .freedom-home .home-module-body { padding: .7rem; }
-  .freedom-home .home-module-description { font-size: .88rem; }
-  .freedom-home .home-member-actions { width: 100%; }
-  .freedom-home .home-member-actions .btn { flex: 1; padding: .5rem .6rem; }
-  .freedom-home .home-direction-symbol { display: none; }
-  .freedom-home .home-direction-copy { flex-basis: 100%; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .freedom-home .home-module-card,
-  .freedom-home .home-module-cover img { transition: none; }
-  .freedom-home .home-module-card:hover .home-module-cover img,
-  .freedom-home .home-module-card:focus-within .home-module-cover img { transform: none; }
+  .freedom-home .home-shortcut-arrow { display: none; }
 }
 
 /* Search across the public collection without changing member book grants. */

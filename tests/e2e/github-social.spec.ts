@@ -1,3 +1,4 @@
+import { navigate } from './navigation.js';
 import {test,expect,type Page} from './fixtures.js';
 
 const original='https://github.com/Hao0321/claude-skill-social-post';
@@ -6,7 +7,7 @@ async function login(page:Page,email='maker@local.test'){
   await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();
 }
 async function book(page:Page){
-  await page.getByRole('button',{name:'自由工坊社群',exact:true}).click();
+  await navigate(page, '技能書架');
   const library=page.locator('.community-library');await library.getByLabel('搜尋技能書',{exact:true}).fill('社群貼文');
   const card=library.locator('article[data-book-id="social-post"]');await card.scrollIntoViewIfNeeded();return card;
 }
@@ -23,7 +24,7 @@ test('visible book widgets share actual metrics and confirmed Star state across 
   });
   await login(page);
   // All guild dialogs exist in the DOM, but closed dialogs must not contact GitHub.
-  await page.getByRole('button',{name:'職業公會',exact:true}).click();await expect(page.getByRole('button',{name:'供應端工作台',exact:true})).toBeVisible();expect(reads.size).toBe(0);
+  await navigate(page, '職業公會');await expect(page.getByRole('button',{name:'供應端工作台',exact:true})).toBeVisible();expect(reads.size).toBe(0);
   const card=await book(page),widget=card.locator('.github-book-social');
   await expect(widget.getByRole('button',{name:'Star',exact:true})).toBeEnabled();
   await expect(widget.locator('.github-star-count,.github-fork-count,.github-book-metrics dd')).toHaveText(['127','18','4','6','2026/9/20']);
@@ -84,8 +85,8 @@ test('GitHub connect navigates to real authorization and returning never stars a
   await page.route('**/api/v1/me/github/connect',route=>{connects.push(route.request().postDataJSON());expect(route.request().headers()['x-csrf-token']).toBeTruthy();return route.fulfill({json:{authorization_url:'https://github.com/login/oauth/authorize?client_id=synthetic-test-client&state=synthetic-test-state'}});});
   await page.route('https://github.com/login/oauth/authorize?*',route=>route.fulfill({contentType:'text/html',body:'<p>Synthetic authorization page</p>'}));
   await login(page);const card=await book(page);await expect(card.getByRole('button',{name:'連結 GitHub 後 Star',exact:true})).toBeEnabled();await card.locator('.github-star-count').click();
-  await expect(page).toHaveURL(/^https:\/\/github\.com\/login\/oauth\/authorize\?/);expect(connects).toEqual([{return_to:'#community'}]);expect(starWrites).toBe(0);
-  connected=true;await page.goto('/#community');const returned=await book(page);await expect(returned.getByRole('button',{name:'Star',exact:true})).toBeEnabled();expect(starWrites).toBe(0);
+  await expect(page).toHaveURL(/^https:\/\/github\.com\/login\/oauth\/authorize\?/);expect(connects).toEqual([{return_to:'#skills'}]);expect(starWrites).toBe(0);
+  connected=true;await page.goto('/#skills');const returned=await book(page);await expect(returned.getByRole('button',{name:'Star',exact:true})).toBeEnabled();expect(starWrites).toBe(0);
 });
 
 test('failed GitHub reads and writes preserve platform login and private state does not cross member sessions',async({page})=>{
