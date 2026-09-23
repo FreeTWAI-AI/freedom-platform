@@ -30,7 +30,11 @@ test('a visitor without JavaScript can follow real repo links and read a complet
   await page.goto('/development/skills/security-scanner');
   await expect(page.getByRole('heading',{name:'第一個練習'})).toBeVisible();
   await expect(page.getByRole('link',{name:'https://github.com/FreeTWAI-AI/ai-security-scanner/fork',exact:true})).toBeVisible();
-  expect(await page.locator('body').evaluate(element=>element.scrollWidth<=window.innerWidth)).toBe(true);
+  for(const width of [320,390]){
+   await page.setViewportSize({width,height:844});
+   const dimensions=await page.locator('body').evaluate(element=>({scroll:element.scrollWidth,viewport:window.innerWidth}));
+   expect(dimensions.scroll,`guide body overflow at ${width}px`).toBeLessThanOrEqual(dimensions.viewport);
+  }
   await page.screenshot({path:'test-results/development-guide-phone.png',fullPage:true});
  }finally{await context.close();}
 });

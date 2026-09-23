@@ -20,6 +20,8 @@
 
 獨立審查實際執行：Claude Code `opus` 回應 `claude-opus-5-5`；Codex CLI `gpt-6-sol`；Grok CLI 請求 `grok-4.7`，回應使用紀錄為 `grok-4.7-build`。採納並核實的修正包含 vendor 分工、來源／工坊貢獻路徑、不同工具的成熟度、中文標點造成的錯誤 Repo 網址，以及瀏覽器測試前需要先 build。
 
+遠端第一輪 browser CI 額外抓到保存回報時狀態提示選擇不夠明確，以及長版本碼在不同手機字型下超寬。本輪修正測試定位、獨立工作卡範圍與文字換行，並加入 320px／390px 檢查；不能只憑原本本機綠燈發布。
+
 ## 驗證與部署
 
 整合 checkout：TypeScript、production build、140 runtime、20 browser、5 跨倉測試通過；Python 契約／工具測試 628 passed、4 skipped。九個周邊 client／template 的 Verify 和 CodeQL 共 18 個 workflow 通過。核心 CI、實際部署 SHA 與 HTTPS 驗證以該次 GitHub run／deployment 狀態為準。

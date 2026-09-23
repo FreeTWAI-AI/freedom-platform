@@ -1439,8 +1439,8 @@
     },
     {
       "path": "docs/releases/2026-09-23-collaboration-optimization.md",
-      "bytes": 3560,
-      "sha256": "c129bc7b13ac9cf5514cdc34578f8c2555ce3e860c7a1751a92f98de0424bbe5"
+      "bytes": 3838,
+      "sha256": "d5b2e2170f2622a788241a4b59931ffb924f70198bd93c65ea27207bb17c4410"
     },
     {
       "path": "docs/releases/2026-09-23-modules-preview.md",
@@ -1569,8 +1569,8 @@
     },
     {
       "path": "modules/development/service.ts",
-      "bytes": 9504,
-      "sha256": "4dc7f981a34fedbff1e9614890fbe63deac1aa73945a56ab6e681f46431fbf0d"
+      "bytes": 9527,
+      "sha256": "1878ebc4a72c8de339cfd35513629fcc3493c5cae6bfe4b7980c14077f253cd3"
     },
     {
       "path": "modules/identity-membership/members.ts",
@@ -1779,8 +1779,8 @@
     },
     {
       "path": "tests/e2e/benefits.spec.ts",
-      "bytes": 4878,
-      "sha256": "f460d47d9052943171ba178d71ee217ecb9b86895ce2b68287a5dbf046fd13c2"
+      "bytes": 5178,
+      "sha256": "12eba522f10ac55c0f62a64252dfb666c9ef5162a2cfd8e06cb012c3189d4af0"
     },
     {
       "path": "tests/e2e/co-creation.spec.ts",
@@ -1794,13 +1794,13 @@
     },
     {
       "path": "tests/e2e/development-guide.spec.ts",
-      "bytes": 2621,
-      "sha256": "5a0756a09550b048c3b0219363385595bf5da0cc7783bcddafdcfa1d1f31ac75"
+      "bytes": 2834,
+      "sha256": "fd324424d175481dc5ce3600e7d26d98b03ea83a4ae2602e3b431368a04e2ae2"
     },
     {
       "path": "tests/e2e/journeys.spec.ts",
-      "bytes": 8308,
-      "sha256": "b239e029b60d10bcb9f8496d391b78d253abe64da171ec6143688aadf4c9f417"
+      "bytes": 9073,
+      "sha256": "dd298790cc52d8cf680e09bc914436187d09865e2a2ee5e75c756029ab31b1bf"
     },
     {
       "path": "tests/e2e/onboarding-members.spec.ts",
