@@ -330,10 +330,10 @@ try {
   await screenshot('public-member-card-mobile.png');
   await page.getByRole('button', { name: '職業公會', exact: true }).click();
   await expect(page.locator('.primary-guild')).toHaveCount(1);
-  await expect(page.locator('.primary-guild')).toContainText('公會長：');
+  await expect(page.locator('.primary-guild .guild-master .guild-leadership-role')).toHaveText('公會長');
   await expect(page.locator('.guild-card').first()).toHaveClass(/primary-guild/);
   await expect(page.locator('.guild-card').first()).toContainText('公會技能庫');
-  for(const width of [1440,320]){
+  for(const width of [1440,390,320]){
     await page.setViewportSize({width,height:960});
     const teams=page.locator('.guild-card .guild-leadership');
     await expect(teams).toHaveCount(await page.locator('.guild-card').count());
@@ -344,15 +344,23 @@ try {
       let previous;
       for(const row of await rows.all()){
         await expect(row).toBeVisible();const box=await row.boundingBox();expect(box).not.toBeNull();
+        const portrait=row.locator('.guild-leadership-avatar'),name=row.locator('.guild-leadership-name'),role=row.locator('.guild-leadership-role');
+        await expect(portrait).toBeVisible();await expect(name).toBeVisible();await expect(role).toBeVisible();
+        const portraitBox=await portrait.boundingBox(),nameBox=await name.boundingBox(),roleBox=await role.boundingBox();
+        expect(portraitBox.width).toBeGreaterThanOrEqual(44);expect(portraitBox.height).toBe(portraitBox.width);
+        expect(nameBox.x).toBeGreaterThan(portraitBox.x+portraitBox.width);expect(roleBox.y).toBeGreaterThanOrEqual(nameBox.y+nameBox.height);
+        const photo=portrait.locator('img');
+        if(await photo.count())await expect(photo).toHaveAttribute('src',/^\/api\/v1\/members\/[0-9a-f-]{36}\/avatar\?v=[1-9][0-9]*$/);
+        else await expect(portrait.locator('span')).not.toBeEmpty();
         if(previous){expect(box.y).toBeGreaterThanOrEqual(previous.y+previous.height);expect(Math.abs(box.x-previous.x)).toBeLessThanOrEqual(1);expect(Math.abs(box.width-previous.width)).toBeLessThanOrEqual(1);}
         previous=box;
       }
     }
     await noOverflow('Guild leadership rows overflow');
-    await screenshot(width===320?'public-guild-leadership-mobile.png':'public-guild-leadership-desktop.png');
+    await screenshot(width===1440?'public-guild-leadership-desktop.png':`public-guild-leadership-mobile-${width}.png`);
   }
   await page.setViewportSize({width:390,height:844});
-  console.log('Guild master first and each expert in a separate full-width visible row on desktop/mobile: PASS');
+  console.log('Guild master first, experts below, portrait/name/role rows on desktop and 390/320 px mobile: PASS');
   await page.locator('.guild-card').first().getByRole('button',{name:'查看成員',exact:true}).click();
   const guildMembers=page.locator('#members-'+onboarding.primary_guild_key);
   await expect(guildMembers).toBeVisible();
@@ -422,9 +430,10 @@ try {
   expect(guilds).toHaveLength(18);
   for(const guild of guilds){
     expect(Array.isArray(guild.guild_experts),'Guild expert projection available after migration').toBe(true);
-    for(const expert of guild.guild_experts){
-      expect(Object.keys(expert).sort()).toEqual(['display_name','user_id']);
-      expect(typeof expert.display_name).toBe('string');expect(typeof expert.user_id).toBe('string');
+    for(const person of [guild.guild_master,...guild.guild_experts].filter(Boolean)){
+      expect(Object.keys(person).sort()).toEqual(['avatar_url','display_name','user_id']);
+      expect(typeof person.display_name).toBe('string');expect(typeof person.user_id).toBe('string');
+      if(person.avatar_url!==null)expect(person.avatar_url).toMatch(new RegExp(`^/api/v1/members/${person.user_id}/avatar\\?v=[1-9][0-9]*$`));
     }
   }
   for(const key of ['guild_security','guild_music_mv','guild_commercial_production','guild_event_space','guild_projection_mapping','guild_human_design']) expect(guilds.some(g=>g.guild_key===key)).toBe(true);
@@ -443,6 +452,48 @@ try {
   await page.setViewportSize({width:1440,height:1000});await page.evaluate(()=>scrollTo(0,0));
   await screenshot('public-co-creation-desktop.png');
   console.log('18 Guilds and real GitHub co-creation Issues through deployed Platform: PASS');
+
+  stage='compact shared skill library';
+  await page.getByRole('button',{name:'自由工坊社群',exact:true}).click();
+  const library=page.locator('.community-library');
+  await expect(library.locator('.skill-library-book')).toHaveCount(25);
+  for(const width of [1440,390,320]){
+    await page.setViewportSize({width,height:960});
+    const firstBook=library.locator('.skill-library-book').first();
+    await firstBook.scrollIntoViewIfNeeded();
+    const cover=firstBook.locator('.skill-book-illustration');
+    await expect(cover).toBeVisible();
+    await expect.poll(()=>cover.evaluate(node=>node.naturalWidth)).toBeGreaterThan(0);
+    const coverBox=await cover.boundingBox();
+    expect(coverBox.width).toBeLessThanOrEqual(128);expect(coverBox.height).toBeLessThanOrEqual(128);
+    await expect(firstBook.getByRole('heading')).toBeVisible();
+    await expect(firstBook.getByRole('button',{name:'閱讀技能書',exact:true})).toBeVisible();
+    await expect(firstBook.locator('.github-star-control')).toBeVisible();
+    await expect(firstBook.locator('.github-star-icon')).toHaveText('☆');
+    await expect(firstBook.locator('.github-fork-count')).toBeVisible();
+    await noOverflow('Compact skill library overflow');
+    await screenshot(`public-compact-skill-library-${width}.png`);
+  }
+  console.log('All 25 books retain covers and reading actions in compact desktop/mobile rows: PASS');
+  const githubConnection=await (await page.request.get(origin+'/api/v1/me/github')).json();
+  if(githubConnection.configured){
+    expect(githubConnection.connected).toBe(false);
+    const starControl=library.locator('.skill-library-book').first().locator('.github-star-control');
+    await expect(starControl).toBeEnabled();
+    // Capture only the provider handoff; never authorize or Star as a real person.
+    const authorizePattern='https://github.com/login/oauth/authorize?**';
+    await page.route(authorizePattern,route=>route.fulfill({contentType:'text/html',body:'<title>Authorization handoff captured</title>'}));
+    const started=page.waitForResponse(response=>response.url()===origin+'/api/v1/me/github/connect'&&response.request().method()==='POST');
+    await starControl.click();const response=await started;expect(response.status()).toBe(200);
+    const authorization=new URL((await response.json()).authorization_url);
+    expect(authorization.origin+authorization.pathname).toBe('https://github.com/login/oauth/authorize');
+    expect(authorization.searchParams.has('state')).toBe(true);
+    secrets.push(authorization.searchParams.get('state'));
+    await page.waitForURL('https://github.com/login/oauth/authorize?**');
+    await page.unroute(authorizePattern);await page.goto(origin+'/#community',{waitUntil:'networkidle'});
+    await expect(page.locator('.community-library')).toBeVisible();
+    console.log('Visible star icon starts real platform OAuth handoff; provider consent and Star were not submitted: PASS');
+  }
 
   stage = 'logout and fresh login';
   await page.getByRole('button', { name: '登出', exact: true }).click();

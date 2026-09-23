@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import './MemberAvatar.css';
 
+const initials = new Intl.Segmenter('zh-TW', { granularity: 'grapheme' });
+
 export type AvatarMetadata = { avatar_url: string | null; aggregate_version: number };
 
 export function MemberAvatar({ nickname, avatarUrl, className = '' }: { nickname: string; avatarUrl?: string | null; className?: string }) {
@@ -11,6 +13,6 @@ export function MemberAvatar({ nickname, avatarUrl, className = '' }: { nickname
   return <div className={`member-avatar member-avatar-photo ${className}`}>
     {safeUrl && failedUrl !== safeUrl
       ? <img src={safeUrl} alt={`${nickname}的頭像`} width="256" height="256" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedUrl(safeUrl)}/>
-      : <span aria-hidden="true">{nickname.slice(0, 1)}</span>}
+      : <span aria-hidden="true">{initials.segment(nickname.trim())[Symbol.iterator]().next().value?.segment || '?'}</span>}
   </div>;
 }

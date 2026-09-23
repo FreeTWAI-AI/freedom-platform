@@ -24,6 +24,9 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
   await page.getByRole('button', { name: '登入', exact: true }).click();
   await expect(page.getByRole('heading', { name: '會員首頁', exact: true })).toBeVisible();
   await page.setViewportSize({ width: 1440, height: 1000 });
+  for(const cover of await page.locator('.home-module-cover').all()){
+    const box=await cover.boundingBox();expect(box!.width).toBeLessThanOrEqual(112);expect(box!.height).toBeLessThanOrEqual(112);
+  }
   await page.screenshot({ path: 'test-results/design-home-desktop.png', fullPage: true });
   const destinations = [
     ['會員首頁', '會員首頁'], ['我的定位', '我的定位'], ['職業公會', '職業公會'], ['小隊集合', '小隊集合'],
@@ -38,7 +41,21 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
       await expect(page.locator('.development-context')).toBeVisible();
       await expect(page.getByRole('status').filter({ hasText: /載入|讀取/ })).toHaveCount(0);
       await expect(page.getByRole('alert')).toHaveCount(0);
+      if(button==='會員首頁'){
+        await expect(page.locator('.home-module-card')).toHaveCount(4);
+        for(const card of await page.locator('.home-module-card').all()){
+          const cover=card.locator('.home-module-cover'),box=await cover.boundingBox();
+          expect(box!.height,'Module artwork should not dominate the phone').toBeLessThanOrEqual(96);
+          expect(box!.width).toBeLessThanOrEqual(96);
+          expect((await card.boundingBox())!.height).toBeLessThan(220);
+        }
+      }
+      for(const banner of await page.locator('.expedition-banner-illustrated').all()){
+        const art=await banner.locator('.expedition-banner-art').boundingBox();
+        expect(art!.width,'Module decoration stays beside the content on phones').toBeLessThanOrEqual(140);
+      }
       if (width === 390 && button === '職業公會') await page.screenshot({ path: 'test-results/design-guild-phone.png' });
+      if(width===390&&['我的定位','小隊集合','供貨中心','一起開發'].includes(button))await page.screenshot({path:`test-results/compact-module-${destinations.findIndex(item=>item[0]===button)}-phone.png`});
       await fits(page, `${width}px ${heading}`);
     }
   }

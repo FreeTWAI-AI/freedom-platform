@@ -24,7 +24,7 @@ export function SkillBookCover({ book, className = '' }: { book: BookIdentity; c
   return url ? <img className={`skill-book-illustration ${className}`} src={url} alt="" width="768" height="512" loading="lazy" decoding="async"/> : null;
 }
 
-export function SkillBookStar({ book,showFork=true }: { book: BookSource;showFork?:boolean }) {
+export function SkillBookStar({ book,showFork=true,compact=false }: { book: BookSource;showFork?:boolean;compact?:boolean }) {
   const url = skillBookStarUrl(book),id=book.id??book.book_id;
-  return url&&id ? <GitHubBookSocial bookId={id} repositoryUrl={url} showFork={showFork}/> : null;
+  return url&&id ? <GitHubBookSocial bookId={id} repositoryUrl={url} showFork={showFork} compact={compact}/> : null;
 }

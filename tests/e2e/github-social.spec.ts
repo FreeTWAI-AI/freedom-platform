@@ -26,18 +26,21 @@ test('visible book widgets share actual metrics and confirmed Star state across 
   await page.getByRole('button',{name:'職業公會',exact:true}).click();await expect(page.getByRole('button',{name:'供應端工作台',exact:true})).toBeVisible();expect(reads.size).toBe(0);
   const card=await book(page),widget=card.locator('.github-book-social');
   await expect(widget.getByRole('button',{name:'Star',exact:true})).toBeEnabled();
-  await expect(widget.locator('dd')).toHaveText(['127','18','4','6','2026/9/20']);
+  await expect(widget.locator('.github-star-count,.github-fork-count,.github-book-metrics dd')).toHaveText(['127','18','4','6','2026/9/20']);
+  await expect(widget.locator('.github-star-icon')).toHaveText('☆');
+  await widget.locator('.github-metrics-details > summary').click();
   await expect(widget.getByRole('link',{name:'原作者 GitHub ↗',exact:true})).toHaveAttribute('href',original);
   await expect(widget.getByRole('link',{name:'Fork 專案 ↗',exact:true})).toHaveAttribute('href',`${original}/fork`);
+  await widget.locator('.github-metrics-details > summary').click();
   expect(accounts).toBe(1);expect(reads.get('social-post')).toBe(1);expect(reads.size).toBeLessThan(22);
   await card.getByRole('button',{name:'閱讀技能書',exact:true}).click();
   const modal=page.getByRole('dialog',{name:'Hao 社群貼文技能書',exact:true});
   await expect(modal.getByRole('button',{name:'Star',exact:true})).toBeEnabled();expect(starReads).toBe(1);expect(reads.get('social-post')).toBe(1);
-  await modal.getByRole('button',{name:'Star',exact:true}).click();await expect(modal.getByRole('button',{name:'取消 Star',exact:true})).toHaveAttribute('aria-pressed','true');
+  await modal.locator('.github-star-count').click();await expect(modal.getByRole('button',{name:'取消 Star',exact:true})).toHaveAttribute('aria-pressed','true');await expect(modal.locator('.github-star-icon')).toHaveText('★');
   // The provider's public count still says 127; a local click must not invent 128.
-  await expect(modal.locator('.github-book-metrics dd').first()).toHaveText('127');
+  await expect(modal.locator('.github-star-count')).toHaveText('127');
   await page.keyboard.press('Escape');await expect(widget.getByRole('button',{name:'取消 Star',exact:true})).toBeVisible();
-  await widget.getByRole('button',{name:'取消 Star',exact:true}).click();await expect(widget.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');
+  await widget.getByRole('button',{name:'取消 Star',exact:true}).focus();await page.keyboard.press('Space');await expect(widget.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');await expect(widget.locator('.github-star-icon')).toHaveText('☆');
   expect(writes).toEqual([{starred:true,confirmed:true},{starred:false,confirmed:true}]);
   await page.setViewportSize({width:320,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
@@ -47,7 +50,8 @@ test('unconfigured and unavailable GitHub states never fabricate counts or offer
   await page.route('**/api/v1/github/books/*/metrics',route=>route.fulfill({json:{...metrics,stargazers_count:null,forks_count:null,open_issues_count:null,subscribers_count:null,pushed_at:null,language:null,checked_at:null,error:'github_unavailable'}}));
   await login(page);const card=await book(page);
   await expect(card.getByRole('button',{name:'GitHub 連結尚未啟用',exact:true})).toBeDisabled();
-  await expect(card.locator('.github-book-metrics dd')).toHaveText(['—','—','—','—','—']);
+  await expect(card.locator('.github-star-count,.github-fork-count,.github-book-metrics dd')).toHaveText(['—','—','—','—','—']);
+  await expect(card.getByText('GitHub Star 尚未啟用',{exact:true})).toBeVisible();
   await expect(card.getByText('GitHub 數據暫時無法讀取',{exact:true})).toBeVisible();
   await expect(card.getByRole('button',{name:'重讀數據',exact:true})).toBeEnabled();
 });
@@ -59,7 +63,7 @@ test('GitHub connect navigates to real authorization and returning never stars a
   await page.route('**/api/v1/me/github/books/*/star',route=>{if(route.request().method()==='POST')starWrites++;return route.fulfill({json:{book_id:'social-post',starred:false,connected}});});
   await page.route('**/api/v1/me/github/connect',route=>{connects.push(route.request().postDataJSON());expect(route.request().headers()['x-csrf-token']).toBeTruthy();return route.fulfill({json:{authorization_url:'https://github.com/login/oauth/authorize?client_id=synthetic-test-client&state=synthetic-test-state'}});});
   await page.route('https://github.com/login/oauth/authorize?*',route=>route.fulfill({contentType:'text/html',body:'<p>Synthetic authorization page</p>'}));
-  await login(page);const card=await book(page);await card.getByRole('button',{name:'連結 GitHub 後 Star',exact:true}).click();
+  await login(page);const card=await book(page);await expect(card.getByRole('button',{name:'連結 GitHub 後 Star',exact:true})).toBeEnabled();await card.locator('.github-star-count').click();
   await expect(page).toHaveURL(/^https:\/\/github\.com\/login\/oauth\/authorize\?/);expect(connects).toEqual([{return_to:'#community'}]);expect(starWrites).toBe(0);
   connected=true;await page.goto('/#community');const returned=await book(page);await expect(returned.getByRole('button',{name:'Star',exact:true})).toBeEnabled();expect(starWrites).toBe(0);
 });
@@ -76,7 +80,7 @@ test('failed GitHub reads and writes preserve platform login and private state d
   await login(page);const card=await book(page);await expect(card.getByRole('alert')).toContainText('GitHub 連結需要重新確認');await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();
   await expect(card.getByText(/上次取得的數據/)).toBeVisible();
   brokenRead=false;await card.getByRole('button',{name:'重讀 Star 狀態',exact:true}).click();await expect(card.getByRole('button',{name:'Star',exact:true})).toBeEnabled();
-  await card.getByRole('button',{name:'Star',exact:true}).click();await expect(card.getByRole('alert')).toContainText('Star 操作未確認');await expect(card.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');await expect(card.locator('.github-book-metrics dd').first()).toHaveText('127');
+  await card.getByRole('button',{name:'Star',exact:true}).click();await expect(card.getByRole('alert')).toContainText('Star 操作未確認');await expect(card.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');await expect(card.locator('.github-star-count')).toHaveText('127');
   starred=true;await card.getByRole('button',{name:'重讀 Star 狀態',exact:true}).click();await expect(card.getByRole('button',{name:'取消 Star',exact:true})).toBeEnabled();
   await page.getByRole('button',{name:'登出',exact:true}).click();member='second';starred=false;await login(page,'client@local.test');const second=await book(page);await expect(second.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');await expect(second.getByRole('button',{name:'取消 Star',exact:true})).toHaveCount(0);
 });

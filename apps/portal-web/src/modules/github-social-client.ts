@@ -7,10 +7,12 @@ export type GitHubStarState={book_id:string;starred:boolean|null;connected:boole
 type Entry<T>={value?:T;loading:boolean;error:string;received:number};
 const entry=<T>():Entry<T>=>({loading:false,error:'',received:0});
 const message=(cause:unknown)=>cause instanceof Error?cause.message:'目前無法讀取 GitHub，請稍後重試。';
+const disconnected=(cause:unknown)=>cause instanceof ApiError&&cause.status===409&&(cause.code==='github_reconnect_required'||cause.code==='github_connect_required');
 
 /** A provider owns each member's private state; only public metrics may outlive it. */
 export class GitHubSocialStore {
   private revision=0;
+  private connectionRevision=0;
   private listeners=new Set<()=>void>();
   private requests=new Map<string,Promise<void>>();
   private metrics=new Map<string,Entry<GitHubMetrics>>();
@@ -22,40 +24,67 @@ export class GitHubSocialStore {
   private emit(){this.revision++;this.listeners.forEach(listener=>listener());}
   metric(bookId:string){if(!this.metrics.has(bookId))this.metrics.set(bookId,entry());return this.metrics.get(bookId)!;}
   star(bookId:string){if(!this.stars.has(bookId))this.stars.set(bookId,{...entry<GitHubStarState>(),saving:false});return this.stars.get(bookId)!;}
-  private async read<T>(key:string,target:Entry<T>,path:string,ttl:number,force=false){
+  private async read<T>(key:string,target:Entry<T>,path:string,ttl:number,force=false,hooks:{received?:(value:T)=>void|Promise<void>;failed?:(cause:unknown)=>void|Promise<void>}={}){
     const pending=this.requests.get(key);if(pending)return pending;
     if(!force&&target.received&&Date.now()-target.received<ttl)return;
     target.loading=true;target.error='';this.emit();
     let request!:Promise<void>;
     request=(async()=>{
-      try{const value=await this.client.get<T>(path,{skipAuthHandler:true});if(this.requests.get(key)===request){target.value=value;target.received=Date.now();}}
-      catch(cause){if(this.requests.get(key)===request){target.error=message(cause);target.received=Date.now();}}
+      try{const value=await this.client.get<T>(path,{skipAuthHandler:true});if(this.requests.get(key)===request){target.value=value;target.received=Date.now();await hooks.received?.(value);}}
+      catch(cause){if(this.requests.get(key)===request){target.error=message(cause);target.received=Date.now();await hooks.failed?.(cause);}}
       finally{if(this.requests.get(key)===request){target.loading=false;this.requests.delete(key);this.emit();}}
     })();
     this.requests.set(key,request);return request;
   }
   loadMetrics(bookId:string,force=false){return this.read(`metrics:${bookId}`,this.metric(bookId),`/github/books/${encodeURIComponent(bookId)}/metrics`,5*60_000,force);}
-  loadAccount(force=false){if(!this.member)return Promise.resolve();return this.read('account',this.account,'/me/github',30_000,force);}
-  loadStar(bookId:string,force=false){if(!this.member||!this.account.value?.connected)return Promise.resolve();return this.read(`star:${bookId}`,this.star(bookId),`/me/github/books/${encodeURIComponent(bookId)}/star`,30_000,force);}
+  loadAccount(force=false){
+    if(!this.member)return Promise.resolve();
+    const previous=this.account.value?.github_user?.id;
+    return this.read('account',this.account,'/me/github',30_000,force,{received:value=>{
+      if(!value.connected||previous&&previous!==value.github_user?.id)this.clearStars();
+    }});
+  }
+  loadStar(bookId:string,force=false){
+    if(!this.member||!this.account.value?.connected)return Promise.resolve();
+    return this.read(`star:${bookId}`,this.star(bookId),`/me/github/books/${encodeURIComponent(bookId)}/star`,30_000,force,{
+      received:value=>{if(!value.connected)return this.refreshConnection();},
+      failed:cause=>{
+        if(disconnected(cause))return this.refreshConnection();
+        if(cause instanceof ApiError&&(cause.status===401||cause.status===403))return this.loadAccount(true);
+      },
+    });
+  }
+  private clearStars(){
+    this.connectionRevision++;
+    for(const key of this.requests.keys())if(key.startsWith('star:'))this.requests.delete(key);
+    this.stars.clear();
+  }
   async refreshConnection(){
-    for(const key of this.requests.keys())if(key==='account'||key.startsWith('star:'))this.requests.delete(key);
-    this.account.value=undefined;this.account.received=0;this.stars.clear();this.emit();
+    this.requests.delete('account');this.clearStars();
+    this.account.value=undefined;this.account.received=0;this.account.loading=false;this.account.error='';this.emit();
     await this.loadAccount(true);
   }
   async toggleStar(bookId:string){
     const state=this.star(bookId);
     if(state.saving||typeof state.value?.starred!=='boolean'||!this.account.value?.connected)return;
+    const connectionRevision=this.connectionRevision;
+    const current=()=>connectionRevision===this.connectionRevision&&this.stars.get(bookId)===state;
     const desired=!state.value.starred;state.saving=true;state.error='';this.emit();
     try{
       const result=await this.client.post<GitHubStarState>(`/me/github/books/${encodeURIComponent(bookId)}/star`,{starred:desired,confirmed:true},{skipAuthHandler:true});
+      if(!current())return;
+      if(!result.connected){await this.refreshConnection();return;}
       state.value=result;state.received=Date.now();
       if(!result.connected||typeof result.starred!=='boolean')state.error='GitHub 連結已變更，請重新連結後再試。';
       // Public counters are independently cached by the server. Never add or subtract locally.
       await this.loadMetrics(bookId,true);
       if(result.confirmed)void refreshSkillDiscovery(true);
     }catch(cause){
+      if(!current())return;
       state.value=undefined;state.received=0;
+      if(disconnected(cause)){await this.refreshConnection();return;}
       await this.loadStar(bookId,true);
+      if(!current())return;
       state.error=`Star 操作未確認。${message(cause)}`;
       if(cause instanceof ApiError&&(cause.status===401||cause.status===403))await this.loadAccount(true);
     }finally{state.saving=false;this.emit();}

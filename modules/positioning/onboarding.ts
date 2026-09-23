@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { command, journal, checkVersion, type Command } from '../../packages/db/index.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 import type { Actor } from '../identity-membership/service.js';
+import { avatarUrl } from '../identity-membership/avatars.js';
 import { skillBooksForGuild, communityCatalog, capabilityCategories, equipmentCategories, type SkillBook } from '../community/catalog.js';
 import { ASSESSMENT_VERSION, ASSESSMENT_SHA256, assessmentQuestions, publicAssessmentDefinition, evaluateAssessment, guildTitles } from './assessment.js';
 
@@ -152,12 +153,24 @@ export async function setPrimaryGuild(pool:Pool,input:Command,guildKey:string){
  });
 }
 export async function guildDirectory(pool:Pool,actor:Actor){
- const result=(await pool.query(`SELECT g.*,CASE WHEN m.membership_id IS NULL THEN NULL ELSE jsonb_build_object('membership_id',m.membership_id,'state',m.state,'rank',m.rank,'aggregate_version',m.aggregate_version) END AS membership,
+ // Avatar metadata uses the same visibility snapshot as the roles. New members
+ // may browse guild choices, but cannot receive another member's avatar URL.
+ const result=(await pool.query(`WITH visible_avatars AS (
+   SELECT av.user_id,av.aggregate_version FROM member_avatars av
+   JOIN users owner ON owner.user_id=av.user_id AND owner.community_id=av.community_id
+   JOIN users viewer ON viewer.user_id=$2 AND viewer.community_id=av.community_id
+   JOIN sessions viewer_session ON viewer_session.user_id=viewer.user_id AND viewer_session.token_hash=$3
+   WHERE av.community_id=$1 AND av.image_bytes IS NOT NULL
+     AND owner.active AND (NOT owner.onboarding_required OR owner.onboarding_completed_at IS NOT NULL)
+     AND viewer.active AND (NOT viewer.onboarding_required OR viewer.onboarding_completed_at IS NOT NULL)
+     AND viewer_session.revoked_at IS NULL AND viewer_session.expires_at>now()
+ ) SELECT g.*,CASE WHEN m.membership_id IS NULL THEN NULL ELSE jsonb_build_object('membership_id',m.membership_id,'state',m.state,'rank',m.rank,'aggregate_version',m.aggregate_version) END AS membership,
      COALESCE(p.primary_guild_key=g.guild_key,false) AS is_primary,
-     CASE WHEN u.user_id IS NULL THEN NULL ELSE jsonb_build_object('user_id',u.user_id,'display_name',u.display_name) END AS guild_master,
-     COALESCE((SELECT jsonb_agg(jsonb_build_object('user_id',eu.user_id,'display_name',eu.display_name) ORDER BY eu.display_name,eu.user_id)
+     CASE WHEN u.user_id IS NULL THEN NULL ELSE jsonb_build_object('user_id',u.user_id,'display_name',u.display_name,'avatar_version',ma.aggregate_version) END AS guild_master,
+     COALESCE((SELECT jsonb_agg(jsonb_build_object('user_id',eu.user_id,'display_name',eu.display_name,'avatar_version',ea.aggregate_version) ORDER BY eu.display_name,eu.user_id)
        FROM positioning_guild_experts e JOIN users eu ON eu.user_id=e.user_id AND eu.community_id=e.community_id AND eu.active
        JOIN positioning_profession_memberships em ON em.community_id=e.community_id AND em.guild_key=e.guild_key AND em.user_id=e.user_id AND em.state='active'
+       LEFT JOIN visible_avatars ea ON ea.user_id=eu.user_id
        WHERE e.community_id=$1 AND e.guild_key=g.guild_key AND e.active),'[]'::jsonb) AS guild_experts,
      CASE WHEN u.user_id IS NULL AND a.admin_id IS NOT NULL THEN jsonb_build_object('display_name',a.display_name,'state','pending') ELSE NULL END AS guild_master_nominee
    FROM positioning_guild_catalog g
@@ -165,10 +178,12 @@ export async function guildDirectory(pool:Pool,actor:Actor){
    LEFT JOIN guild_member_preferences p ON p.community_id=$1 AND p.user_id=$2
    LEFT JOIN positioning_guild_officers o ON o.community_id=$1 AND o.guild_key=g.guild_key
    LEFT JOIN users u ON u.user_id=o.user_id AND u.community_id=$1 AND u.active
+   LEFT JOIN visible_avatars ma ON ma.user_id=u.user_id
    LEFT JOIN guild_leadership_nominations n ON n.community_id=$1 AND n.guild_key=g.guild_key AND n.state='pending'
    LEFT JOIN platform_admins a ON a.admin_id=n.admin_id AND a.community_id=$1 AND a.active
-   ORDER BY is_primary DESC,COALESCE(m.state='active',false) DESC,g.guild_key`,[actor.community_id,actor.user_id])).rows;
- return Promise.all(result.map(async guild=>({...guild,skill_books:await listGuildSkillBooks(pool,actor.community_id,guild.guild_key)})));
+   ORDER BY is_primary DESC,COALESCE(m.state='active',false) DESC,g.guild_key`,[actor.community_id,actor.user_id,actor.session_hash])).rows;
+ const person=(row:any)=>({user_id:row.user_id,display_name:row.display_name,avatar_url:avatarUrl(row.user_id,row.avatar_version??'1',row.avatar_version!=null)});
+ return Promise.all(result.map(async guild=>({...guild,guild_master:guild.guild_master?person(guild.guild_master):null,guild_experts:guild.guild_experts.map(person),skill_books:await listGuildSkillBooks(pool,actor.community_id,guild.guild_key)})));
 }
 export async function memberPositioningSummary(pool:Queryable,communityId:string,userId:string){
  const membership=(await pool.query(`SELECT g.guild_key,g.name,m.joined_at,COALESCE(p.primary_guild_key=g.guild_key,false) AS is_primary FROM positioning_profession_memberships m

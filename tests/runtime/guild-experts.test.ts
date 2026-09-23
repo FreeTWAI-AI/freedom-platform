@@ -136,14 +136,14 @@ test('the expert HTTP route requires verified administration and CSRF, returns e
 
 test('guild directory projects only public identity for active experts with current active membership, excluding removed, left, disabled and foreign records',async()=>{
  await setGuildExpert(pool,input(actors[0].user_id),guild);await setGuildExpert(pool,input(actors[1].user_id),guild);
- let shown=await publicGuild();assert.equal(shown.guild_experts.length,2);for(const row of shown.guild_experts)assert.deepEqual(Object.keys(row).sort(),['display_name','user_id']);
+ let shown=await publicGuild();assert.equal(shown.guild_experts.length,2);for(const row of shown.guild_experts)assert.deepEqual(Object.keys(row).sort(),['avatar_url','display_name','user_id']);
  const foreignCommunity=randomUUID(),foreignUser=randomUUID(),foreignAdmin=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[foreignCommunity,'外部社群']);
  await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref) SELECT $1,$2,'hidden-expert@example.invalid','不可洩漏的外部專家',password_hash,$3 FROM users WHERE user_id=$4`,[foreignUser,foreignCommunity,randomUUID(),actors[0].user_id]);
  await pool.query("INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,'foreign-expert-admin@example.invalid','外部管理員')",[foreignAdmin,foreignCommunity]);
  await pool.query("INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,$4,'active')",[randomUUID(),foreignCommunity,foreignUser,guild]);
  await pool.query('INSERT INTO positioning_guild_experts(community_id,guild_key,user_id,appointed_by) VALUES($1,$2,$3,$4)',[foreignCommunity,guild,foreignUser,foreignAdmin]);
  assert.equal(JSON.stringify((await publicGuild()).guild_experts).includes('不可洩漏'),false);
- await setGuildExpert(pool,input(actors[1].user_id,false,1),guild);assert.deepEqual((await publicGuild()).guild_experts,[{user_id:actors[0].user_id,display_name:actors[0].display_name}]);
+ await setGuildExpert(pool,input(actors[1].user_id,false,1),guild);assert.deepEqual((await publicGuild()).guild_experts,[{user_id:actors[0].user_id,display_name:actors[0].display_name,avatar_url:null}]);
  const member=await membership();await changeGuildMembership(pool,memberCommand(actors[0],'leave',Number(member.aggregate_version)),guild,'leave');assert.deepEqual((await publicGuild()).guild_experts,[]);
  // Even an inconsistent legacy role row cannot bypass the current membership join.
  await pool.query('UPDATE positioning_guild_experts SET active=true WHERE community_id=$1 AND user_id=$2',[DEMO_COMMUNITY,actors[0].user_id]);assert.deepEqual((await publicGuild()).guild_experts,[]);

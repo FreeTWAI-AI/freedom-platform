@@ -1,14 +1,18 @@
-.guild-leadership { display: grid; gap: 8px; width: 100%; min-width: 0; margin: 8px 0; }
+.guild-leadership { display: grid; gap: 8px; width: 100%; min-width: 0; margin: 6px 0; }
 .guild-leadership .guild-experts { display: grid; gap: 8px; width: 100%; min-width: 0; }
-.guild-leadership .guild-leadership-row { display: grid; grid-template-columns: 90px minmax(0,1fr); align-items: center; gap: 14px; width: 100%; min-width: 0; min-height: 66px; padding: 13px 16px; border: 1px solid #404835; border-left: 3px solid #c4ff20; border-radius: 12px; background: #c4ff2008; }
+.guild-leadership .guild-leadership-row { display: grid; grid-template-columns: 48px minmax(0,1fr); align-items: center; gap: 14px; width: 100%; min-width: 0; min-height: 80px; padding: 12px 14px; border: 1px solid #404835; border-left: 3px solid #c4ff20; border-radius: 14px; background: #c4ff2008; }
 .guild-leadership .guild-expert { border-color: #353f6b; border-left-color: #6979ff; background: #3044ff0b; }
-.guild-leadership .guild-leadership-role { display: inline-flex; justify-content: center; position: relative; width: fit-content; white-space: nowrap; border: 1px solid #607536; border-radius: 999px; padding: 4px 9px; color: #d2ff61; font-size: .75rem; font-weight: 600; line-height: 1.5; }
+.guild-leadership .guild-leadership-avatar { width: 48px; height: 48px; border-radius: 13px; box-shadow: none; border: 1px solid #73834d; background: #26321b; color: #deff9d; font-size: 1.25rem; }
+.guild-leadership .guild-expert .guild-leadership-avatar { border-color: #4c5a9a; background: #20294a; color: #d5dcff; }
+.guild-leadership .guild-leadership-person { display: grid; justify-items: start; gap: 5px; min-width: 0; }
+.guild-leadership .guild-leadership-role { display: inline-flex; width: fit-content; white-space: nowrap; border: 1px solid #607536; border-radius: 999px; padding: 2px 7px; color: #d2ff61; font-size: .6875rem; font-weight: 600; line-height: 1.4; }
 .guild-leadership .guild-expert .guild-leadership-role { border-color: #4c5a9a; color: #bdc7ff; }
-.guild-leadership .guild-leadership-name { min-width: 0; font-size: 1.125rem; font-weight: 700; line-height: 1.5; color: #f4f6ef; overflow-wrap: anywhere; }
+.guild-leadership .guild-leadership-name { min-width: 0; max-width: 100%; font-size: 1.125rem; font-weight: 700; line-height: 1.35; color: #f4f6ef; overflow-wrap: anywhere; }
 .guild-leadership .guild-master.is-unlinked .guild-leadership-name { color: #c4cbb9; }
-.guild-leadership .guild-leadership-colon { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media(max-width:600px){
-  .guild-leadership .guild-leadership-row { grid-template-columns: 75px minmax(0,1fr); gap: 10px; padding: 12px 10px; }
-  .guild-leadership .guild-leadership-role { padding: 4px 7px; }
+  .guild-leadership { gap: 7px; margin: 4px 0; }
+  .guild-leadership .guild-experts { gap: 7px; }
+  .guild-leadership .guild-leadership-row { grid-template-columns: 44px minmax(0,1fr); gap: 11px; min-height: 76px; padding: 10px 11px; border-radius: 12px; }
+  .guild-leadership .guild-leadership-avatar { width: 44px; height: 44px; border-radius: 12px; font-size: 1.125rem; }
   .guild-leadership .guild-leadership-name { font-size: 1.0625rem; }
 }

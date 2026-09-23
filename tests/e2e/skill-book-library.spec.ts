@@ -1,4 +1,4 @@
-import {test,expect,type Page} from './fixtures.js';
+import {test,expect,type Page,type Locator} from './fixtures.js';
 import type {SkillBook} from '../../modules/community/catalog';
 
 test.beforeEach(async({page})=>{
@@ -91,11 +91,13 @@ test('book cards credit the original GitHub author and offer direct reading acti
   await expect(card.locator('.skill-library-purpose')).toBeVisible();
   await expect(card).not.toContainText('你能做出什麼');
   await expect(card.locator('.skill-book-illustration')).toHaveAttribute('src',book.cover_url!);
+  await card.locator('.github-metrics-details > summary').click();
   const star=card.getByRole('link',{name:'原作者 GitHub ↗',exact:true});
   await expect(star).toHaveAttribute('href','https://github.com/Hao0321/claude-skill-social-post');
   await expect(star).toHaveAttribute('target','_blank');
   await expect(star).toHaveAttribute('rel',/\bnoopener\b/);
   await expect(star).toHaveAttribute('rel',/\bnoreferrer\b/);
+  await card.locator('.github-metrics-details > summary').click();
   expect(book.repository_url).toBe('https://github.com/FreeTWAI-AI/claude-skill-social-post');
   const trigger=card.getByRole('button',{name:'閱讀技能書',exact:true});
   await trigger.click();
@@ -163,6 +165,41 @@ test('all public book pages and Markdown preserve beginner summaries, covers, or
   await expect(star).toHaveAttribute('href','/#community');
   await details.locator('summary').click();
   await expect(details.getByText(example.guide!.beginner.workshop_use,{exact:true})).toBeVisible();
-  await page.setViewportSize({width:390,height:844});
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  for(const width of [390,320]){
+    await page.setViewportSize({width,height:844});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    expect((await page.locator('.public-skill-cover img').boundingBox())!.height).toBeLessThanOrEqual(82);
+  }
+  await page.screenshot({path:'test-results/public-skill-compact-phone.png',fullPage:true});
+  await details.locator('summary').click();await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:'test-results/public-skill-compact-viewport.png'});
+});
+
+test('every bookshelf uses compact illustrated rows with full copy, live counts and expandable secondary metrics',async({page})=>{
+  const metrics={repository_url:'https://github.com/Hao0321/claude-skill-social-post',stargazers_count:127,forks_count:18,open_issues_count:4,subscribers_count:6,pushed_at:'2026-09-20T10:00:00Z',language:'TypeScript',archived:false,checked_at:'2026-09-23T10:00:00Z',stale:false,error:null};
+  await page.route('**/api/v1/me/github',route=>route.fulfill({json:{configured:true,connected:true,github_user:{id:'synthetic-density',login:'synthetic-density'}}}));
+  await page.route('**/api/v1/me/github/books/*/star',route=>route.fulfill({json:{book_id:route.request().url().split('/').at(-2),starred:false,connected:true}}));
+  await page.route('**/api/v1/github/books/*/metrics',route=>route.fulfill({json:{...metrics,book_id:route.request().url().split('/').at(-2)}}));
+  const library=await openLibrary(page),catalog=await (await page.request.get('/api/v1/community')).json() as {skill_books:SkillBook[]},book=catalog.skill_books.find(value=>value.id==='social-post')!;
+  await page.route('**/api/v1/me/skill-books',route=>route.fulfill({json:{items:[book]}}));
+  await library.getByLabel('搜尋技能書',{exact:true}).fill('社群貼文');
+  async function check(card:Locator,width:number){
+    await page.setViewportSize({width,height:900});await card.scrollIntoViewIfNeeded();
+    await expect(card.locator('.skill-library-purpose')).toHaveText(book.guide!.beginner.purpose);
+    await expect(card.locator('.github-star-count,.github-fork-count')).toHaveText(['127','18']);
+    const sizes=await card.evaluate(element=>{
+      const cover=element.querySelector('.skill-library-heading > img')!,heading=element.querySelector('.skill-library-copy')!,purpose=element.querySelector<HTMLElement>('.skill-library-purpose')!,title=element.querySelector<HTMLElement>('h4')!;
+      return {cover:cover.getBoundingClientRect().toJSON(),heading:heading.getBoundingClientRect().toJSON(),cardHeight:element.getBoundingClientRect().height,purposeHeight:purpose.clientHeight,purposeScroll:purpose.scrollHeight,titleHeight:title.clientHeight,titleScroll:title.scrollHeight,font:parseFloat(getComputedStyle(purpose).fontSize),overflow:element.scrollWidth>element.clientWidth};
+    });
+    expect(sizes.cover.width).toBeLessThanOrEqual(width<=600?64:80);expect(sizes.cover.height).toBeLessThanOrEqual(60);
+    expect(sizes.cover.right).toBeLessThan(sizes.heading.left);expect(Math.abs(sizes.cover.top-sizes.heading.top)).toBeLessThan(35);
+    expect(sizes.purposeScroll).toBeLessThanOrEqual(sizes.purposeHeight+1);expect(sizes.titleScroll).toBeLessThanOrEqual(sizes.titleHeight+1);expect(sizes.font).toBeGreaterThanOrEqual(14);
+    expect(sizes.overflow).toBe(false);expect(sizes.cardHeight).toBeLessThan(300);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    for(const label of ['閱讀技能書','分享技能'])expect((await card.getByRole('button',{name:label,exact:true}).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+  const card=library.locator('article[data-book-id="social-post"]');
+  for(const width of [320,390,1440]){await check(card,width);await card.screenshot({path:`test-results/skill-shelf-compact-${width}.png`});}
+  const more=card.locator('.github-metrics-details');await expect(more).not.toHaveAttribute('open');await expect(more.locator('dd').first()).not.toBeVisible();await more.locator('summary').click();await expect(more.locator('dd')).toHaveText(['4','6','2026/9/20']);await expect(more.getByText('數據更新',{exact:false})).toBeVisible();await more.locator('summary').click();
+  await page.setViewportSize({width:320,height:900});await card.getByRole('button',{name:'閱讀技能書',exact:true}).click();const modal=page.getByRole('dialog',{name:book.title,exact:true});expect((await modal.locator('.skill-intro-art').boundingBox())!.height).toBeLessThanOrEqual(48);await expect(modal.locator('.skill-intro-purpose')).toHaveText(book.guide!.beginner.purpose);expect(await modal.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);await page.screenshot({path:'test-results/skill-dialog-compact-phone.png'});await page.keyboard.press('Escape');
+  await page.getByRole('button',{name:'職業公會',exact:true}).click();await check(page.locator('.guild-bookshelf article[data-book-id="social-post"]'),320);
+  await page.getByRole('button',{name:'我的名片',exact:true}).click();await check(page.locator('.member-bookshelf article[data-book-id="social-post"]'),320);
 });

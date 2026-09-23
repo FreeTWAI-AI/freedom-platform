@@ -96,7 +96,10 @@ try {
     await expect(page.getByRole('alert')).toHaveCount(0);
     if (file === 'opensource') await expect(page.getByRole('article', { name: /^開源作品：/ })).toHaveCount(data[0].body.items.length);
     if (file === 'marketing') await expect(page.getByRole('article', { name: /^行銷活動：/ })).toHaveCount(data[0].body.items.length);
-    if (file === 'guilds') await expect(page.getByText('公會長：待任命', { exact: false }).first()).toBeVisible();
+    if (file === 'guilds') {
+      await expect(page.locator('.guild-master .guild-leadership-role').first()).toHaveText('公會長');
+      await expect(page.locator('.guild-master .guild-leadership-avatar').first()).toBeVisible();
+    }
     await page.screenshot({ path: join(evidence, `staging-${file}.png`), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${file} mobile overflow`).toBe(true);

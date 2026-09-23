@@ -15,7 +15,10 @@
 .skill-share-status { margin: 0; font-size: .8rem; color: #c1cbd8; }
 .skill-share .field { width: 100%; }
 .skill-share input { width: 100%; min-width: 0; font-size: 16px; }
-.skill-library-actions > .skill-share { flex-basis: 100%; }
+.skill-library-actions > .skill-share { flex: 0 1 auto; width: auto; }
+.skill-library-actions > .skill-share > .btn { width: auto; }
+.skill-library-book .skill-book-badges { gap: 4px; }
+.skill-library-book .skill-badge { padding: 2px 7px; font-size: .68rem; }
 .skill-intro-collaboration { padding: 20px; border: 1px solid #404b65; border-radius: 12px; background: #10131c; }
 .skill-intro-collaboration h3 { font-size: 1rem; margin: 0; }
 .skill-intro-collaboration p { margin: 10px 0 16px; color: #c4cddd; font-size: .9rem; line-height: 1.7; }

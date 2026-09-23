@@ -49,8 +49,9 @@ export function SkillBookIntro({book,guildName,label='閱讀技能書'}:{book:In
 export function SkillBookCard({book,className=''}:{book:IntroBook;className?:string}) {
   const beginner=book.guide?.beginner,discovery=useSkillDiscovery(),summaryOverride=discovery.data?.books.find(item=>item.book_id===(book.id??book.book_id))?.summary_override??book.summary_override;
   return <article className={`card skill-book skill-book-volume skill-library-book ${className}`} data-book-id={book.id??book.book_id}>
-    <SkillBookCover book={book}/>
-    <div className="skill-library-copy"><p className="eyebrow">{beginner?.category??'公會技能書'}</p><h4>{book.title}</h4><SkillBookBadges bookId={book.id??book.book_id}/><p className="skill-library-purpose">{summaryOverride??beginner?.purpose??book.description}</p>{book.license_status==='NOASSERTION'&&<p className="field-hint">授權待確認</p>}</div>
-    <div className="skill-library-actions"><SkillBookIntro book={book}/><SkillShare bookId={book.id??book.book_id} title={book.title}/><SkillBookStar book={book}/></div>
+    <div className="skill-library-heading"><SkillBookCover book={book}/><div className="skill-library-copy"><p className="eyebrow">{beginner?.category??'公會技能書'}</p><h4>{book.title}</h4></div></div>
+    <div className="skill-library-description"><p className="skill-library-purpose">{summaryOverride??beginner?.purpose??book.description}</p><SkillBookBadges bookId={book.id??book.book_id}/>{book.license_status==='NOASSERTION'&&<p className="field-hint">授權待確認</p>}</div>
+    <div className="skill-library-actions"><SkillBookIntro book={book}/><SkillShare bookId={book.id??book.book_id} title={book.title}/></div>
+    <SkillBookStar book={book} compact/>
   </article>;
 }

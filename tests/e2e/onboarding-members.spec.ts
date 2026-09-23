@@ -73,7 +73,7 @@ test('new member completes required positioning, chooses primary guild and gets 
   expect(profileBody.contacts.discord).toEqual({value:'new.member',audiences:['friends','guild']});
   await expect(page.getByText('個人資料與每一項聯絡方式的可見範圍已保存。')).toBeVisible();
   await page.getByRole('button',{name:'職業公會',exact:true}).click();await expect(page.locator('.primary-guild')).toHaveCount(1);
-  await expect(page.locator('.primary-guild')).toContainText('公會長：待任命');
+  await expect(page.locator('.primary-guild .guild-master .guild-leadership-name')).toHaveText('待任命');
   await expect(page.locator('.guild-card').first()).toHaveClass(/primary-guild/);
   const secondary=page.locator('.guild-card').filter({has:page.getByRole('button',{name:/^加入/})}).first();
   const secondaryName=await secondary.getByRole('heading').innerText();
@@ -93,8 +93,8 @@ test('new member completes required positioning, chooses primary guild and gets 
     value.items=value.items.map((guild:any)=>({...guild,guild_master:guild.is_primary?null:{display_name:'測試正式會長'},guild_master_nominee:{display_name:'測試預定會長',state:'pending'}}));
     await route.fulfill({response,json:value});
   });
-  await page.reload();await expect(page.locator('.primary-guild .guild-master')).toHaveText('公會長：測試預定會長（待連結會員帳號）');
-  await expect(page.locator('.guild-card:not(.primary-guild) .guild-master').first()).toHaveText('公會長：測試正式會長');
+  await page.reload();await expect(page.locator('.primary-guild .guild-master .guild-leadership-name')).toHaveText('測試預定會長（待連結會員帳號）');
+  await expect(page.locator('.guild-card:not(.primary-guild) .guild-master .guild-leadership-name').first()).toHaveText('測試正式會長');
   await page.unroute('**/api/v1/guilds/directory');
 
 

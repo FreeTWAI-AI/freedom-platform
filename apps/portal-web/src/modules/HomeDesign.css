@@ -15,7 +15,7 @@
 
 .member-home.freedom-home,
 .module-panel.freedom-community {
-  gap: 2rem;
+  gap: 1rem;
   width: 100%;
   max-width: 1440px;
   min-width: 0;
@@ -23,7 +23,7 @@
 .freedom-home .home-eyebrow,
 .freedom-community .home-eyebrow,
 .community-library .home-eyebrow {
-  margin: 0 0 .65rem;
+  margin: 0 0 .4rem;
   font-size: .69rem;
   font-weight: 700;
   line-height: 1.5;
@@ -37,7 +37,7 @@
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  min-height: 340px;
+  min-height: 176px;
   display: flex;
   align-items: center;
   border: 1px solid #333943;
@@ -60,24 +60,25 @@
   z-index: -1;
   background: linear-gradient(90deg, #08090bf5 0%, #08090bdc 25%, #08090b88 48%, #08090b08 78%), linear-gradient(0deg, #08090b66, transparent 50%);
 }
-.freedom-home .guild-base-copy { padding: 2.5rem; width: min(100%, 40rem); }
+.freedom-home .guild-base-copy { padding: 1.25rem; width: min(100%, 40rem); }
 .freedom-home .guild-base-copy .home-eyebrow { color: #c4ff20; }
 .freedom-home .guild-base-copy .home-eyebrow > span { font-size: 1.15rem; margin-right: .5rem; }
 .freedom-home .guild-base-copy h2 {
   color: #f4f6ef;
-  font-size: clamp(2rem, 3.8vw, 3.35rem);
+  font-size: clamp(1.6rem, 2.5vw, 2.25rem);
   line-height: 1.18;
   font-weight: 800;
-  margin: 1rem 0;
+  margin: .5rem 0;
   text-wrap: balance;
 }
+.freedom-home .guild-base-copy h2 br { display: none; }
 .freedom-home .guild-base-copy > p:not(.home-eyebrow) { color: #c5cbd6; font-size: .94rem; line-height: 1.8; }
 .freedom-home .guild-base-caption {
   display: inline-flex;
   align-items: center;
   gap: 1.8rem;
   color: #c4ff20;
-  margin-top: 1.5rem;
+  margin-top: .65rem;
   font-size: .83rem;
   font-weight: 600;
 }
@@ -99,9 +100,9 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 1rem 1.5rem;
-  margin-top: -.75rem;
-  padding: 1.15rem 1.25rem;
+  gap: .65rem 1rem;
+  margin-top: 0;
+  padding: .8rem 1rem;
   border: 1px solid #333943;
   border-radius: 14px;
   background: #14161b;
@@ -136,15 +137,15 @@
 .freedom-home .home-member-detail-grid .pill,
 .freedom-home .home-member-detail-grid p { font-size: .875rem; overflow-wrap: anywhere; }
 
-.freedom-home .home-module-section { display: grid; gap: 1.1rem; min-width: 0; }
+.freedom-home .home-module-section { display: grid; gap: .75rem; min-width: 0; }
 .freedom-home .home-section-heading,
 .freedom-community .home-section-heading { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: .5rem 1rem; }
 .freedom-home .home-section-heading h2 { font-size: 1.5rem; line-height: 1.35; margin: 0; }
 .freedom-home .home-section-heading > p { color: #aeb5c2; font-size: .86rem; }
-.freedom-home .home-module-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
+.freedom-home .home-module-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
 .freedom-home .home-module-card {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
   overflow: hidden;
   min-width: 0;
   border: 1px solid #30353e;
@@ -154,15 +155,15 @@
 }
 .freedom-home .home-module-card:hover,
 .freedom-home .home-module-card:focus-within { border-color: #849257; background: #1b1e24; }
-.freedom-home .home-module-cover { position: relative; overflow: hidden; aspect-ratio: 1.36; background: #171d31; }
+.freedom-home .home-module-cover { position: relative; align-self: start; overflow: hidden; height: 80px; min-height: 0; aspect-ratio: auto; background: #171d31; border-radius: 10px; }
 .freedom-home .home-module-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, #08090bd9, transparent 48%); pointer-events: none; }
-.freedom-home .home-module-cover img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s ease; }
+.freedom-home .home-module-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .3s ease; }
 .freedom-home .home-module-card:hover .home-module-cover img,
 .freedom-home .home-module-card:focus-within .home-module-cover img { transform: scale(1.035); }
 .freedom-home .home-module-supplier .home-module-cover img { object-position: 62% center; }
 .freedom-home .home-module-retail .home-module-cover img { object-position: 78% center; }
-.freedom-home .home-module-index { position: absolute; z-index: 1; bottom: .9rem; left: 1rem; color: #c4ff20; font-size: .65rem; font-weight: 700; letter-spacing: .14em; }
-.freedom-home .home-module-body { display: flex; flex: 1; flex-direction: column; gap: .6rem; padding: 1.05rem; }
+.freedom-home .home-module-index { position: absolute; z-index: 1; bottom: .6rem; left: .4rem; max-width: calc(100% - .8rem); color: #c4ff20; font-size: .65rem; font-weight: 700; letter-spacing: .14em; }
+.freedom-home .home-module-body { display: flex; flex: 1; flex-direction: column; gap: .35rem; padding: .75rem; }
 .freedom-home .home-module-name { color: #f4f6ef; font-size: 1.12rem; font-weight: 700; }
 .freedom-home .home-module-body h3 { font-size: .87rem; line-height: 1.6; color: #d0d6e0; margin: 0; font-weight: 500; }
 .freedom-home .home-module-description { font-size: .84rem; line-height: 1.7; color: #aeb5c2; }
@@ -194,14 +195,14 @@
 .freedom-home .home-direction {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-  padding: 1.6rem;
+  gap: 1rem;
+  padding: 1rem;
   border: 1px solid #3d4656;
   border-radius: 16px;
   background: linear-gradient(105deg, #171b2c, #13161c 75%);
 }
-.freedom-home .home-direction-symbol { width: 84px; height: 84px; flex: 0 0 84px; display: grid; place-items: center; border-radius: 50%; border: 1px solid #47579b; box-shadow: inset 0 0 0 9px #161b2f, inset 0 0 0 10px #35406b; }
-.freedom-home .home-direction-symbol > span { color: #9ba7ff; font-size: 3.6rem; line-height: 1; }
+.freedom-home .home-direction-symbol { width: 44px; height: 44px; flex: 0 0 44px; display: grid; place-items: center; border-radius: 50%; border: 1px solid #47579b; box-shadow: inset 0 0 0 4px #161b2f, inset 0 0 0 5px #35406b; }
+.freedom-home .home-direction-symbol > span { color: #9ba7ff; font-size: 1.9rem; line-height: 1; }
 .freedom-home .home-direction-copy { min-width: 0; flex: 1; }
 .freedom-home .home-direction-copy .home-eyebrow { color: #9ba7ff; }
 .freedom-home .home-direction-copy h2 { font-size: 1.45rem; margin: 0 0 .5rem; }
@@ -209,17 +210,17 @@
 .freedom-home .home-direction-copy .home-direction-detail { margin-top: .45rem; color: #aeb5c2; font-size: .8rem; }
 .freedom-home .home-direction-actions { display: flex; flex-direction: column; gap: .6rem; flex: 0 0 auto; }
 .freedom-home .home-direction-actions .btn { font-size: .85rem; }
-.freedom-home .home-cooperation { display: grid; grid-template-columns: minmax(200px, .8fr) minmax(0, 1.5fr); gap: 0; overflow: hidden; border: 1px solid #333943; border-radius: 16px; background: #14161b; }
-.freedom-home .home-cooperation-image { position: relative; min-height: 240px; background: #111728; }
+.freedom-home .home-cooperation { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 0; overflow: hidden; border: 1px solid #333943; border-radius: 16px; background: #14161b; }
+.freedom-home .home-cooperation-image { position: relative; min-height: 0; background: #111728; }
 .freedom-home .home-cooperation-image::after { position: absolute; content: ''; inset: 0; background: linear-gradient(90deg, transparent 60%, #14161b); }
 .freedom-home .home-cooperation-image > img { width: 100%; height: 100%; object-fit: cover; position: absolute; }
-.freedom-home .home-cooperation-copy { padding: 2rem; align-self: center; }
+.freedom-home .home-cooperation-copy { padding: 1rem; align-self: center; }
 .freedom-home .home-cooperation-copy .home-eyebrow { color: #c4ff20; }
 .freedom-home .home-cooperation-copy h2 { margin: .4rem 0 .65rem; font-size: 1.65rem; }
 .freedom-home .home-cooperation-copy > p:not(.home-eyebrow) { color: #aeb5c2; font-size: .92rem; }
-.freedom-home .home-cooperation-copy .actions { margin-top: 1.25rem; }
+.freedom-home .home-cooperation-copy .actions { margin-top: .75rem; }
 .freedom-home .home-cooperation-copy .btn { font-size: .87rem; }
-.freedom-home .home-community-signature { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 1.75rem; align-items: center; border-top: 1px solid #333943; padding-top: 1.7rem; }
+.freedom-home .home-community-signature { display: grid; grid-template-columns: 156px minmax(0, 1fr); gap: 1rem; align-items: center; border-top: 1px solid #333943; padding-top: 1rem; }
 .freedom-home .home-community-signature .brand-poster { border-radius: 10px; }
 .freedom-home .home-community-signature .community-footer { margin: 0; padding: 0; border: 0; gap: 1rem; }
 .freedom-home .community-footer a,
@@ -227,18 +228,19 @@
 .freedom-home .community-footer nav,
 .freedom-community .community-footer nav { gap: .25rem 1.2rem; }
 
-.freedom-community .community-entry-hero { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1fr); gap: 2rem; align-items: center; padding: 2rem; border: 1px solid #333943; border-radius: 20px; background: #101216; }
+.freedom-community .community-entry-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, .8fr); gap: 1.25rem; align-items: center; padding: 1.25rem; border: 1px solid #333943; border-radius: 20px; background: #101216; }
 .freedom-community .community-entry-copy .home-eyebrow { color: #c4ff20; }
-.freedom-community .community-entry-copy h2 { margin: 1rem 0; font-size: clamp(2rem, 4vw, 3.8rem); line-height: 1.2; font-weight: 800; color: #f4f6ef; }
+.freedom-community .community-entry-copy h2 { margin: .5rem 0; font-size: clamp(1.6rem, 2.8vw, 2.4rem); line-height: 1.2; font-weight: 800; color: #f4f6ef; }
+.freedom-community .community-entry-copy h2 br { display: none; }
 .freedom-community .community-entry-copy h2 > span { color: #c4ff20; }
 .freedom-community .community-entry-copy > p:not(.home-eyebrow) { color: #aeb5c2; line-height: 1.8; font-size: .93rem; }
-.freedom-community .community-entry-signoff { display: block; margin-top: 1.5rem; font-size: .8rem; color: #cbd2df; }
+.freedom-community .community-entry-signoff { display: block; margin-top: .75rem; font-size: .8rem; color: #cbd2df; }
 .freedom-community .community-entry-signoff > span { color: #9ba7ff; padding-left: .75rem; }
 .freedom-community .community-entry-hero .brand-poster { transform: rotate(-2deg); border-radius: 12px; box-shadow: 0 15px 38px #0008; }
 .freedom-community > .community-footer { margin: -.5rem 0 0; border: 1px solid #333943; padding: 1.25rem 1.5rem; border-radius: 14px; background: #14161b; align-items: center; }
-.freedom-community .community-footprint { border-bottom: 1px solid #333943; padding-bottom: 1.75rem; }
+.freedom-community .community-footprint { border-bottom: 1px solid #333943; padding-bottom: 1rem; }
 .freedom-community .community-footprint h3 { font-size: 1.4rem; margin: 0; }
-.freedom-community .community-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-top: 1.2rem; }
+.freedom-community .community-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: .75rem; }
 .freedom-community .community-metric { border-left: 2px solid #3044ff; padding-left: 1rem; }
 .freedom-community .community-metric > p:first-child { color: #d3d8e0; font-size: .88rem; }
 .freedom-community .community-metric > strong { display: block; color: #f4f6ef; font-variant-numeric: tabular-nums; font-size: clamp(1.5rem, 3vw, 2.5rem); line-height: 1.6; }
@@ -247,7 +249,7 @@
 .freedom-community .community-metric-source { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; justify-content: space-between; align-items: center; color: #aeb5c2; margin-top: 1.2rem; font-size: .8rem; }
 .freedom-community .community-metric-source a { color: #c4ff20; min-height: 44px; display: inline-flex; align-items: center; }
 
-.community-library .community-library-heading { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 154px; padding: 1.5rem 1.75rem; border: 1px solid #333943; border-radius: 14px; background: #14161b; overflow: hidden; isolation: isolate; }
+.community-library .community-library-heading { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 88px; padding: 1rem 1.25rem; border: 1px solid #333943; border-radius: 14px; background: #14161b; overflow: hidden; isolation: isolate; }
 .community-library .community-library-heading > div { position: relative; z-index: 1; max-width: 75%; }
 .community-library .community-library-heading .home-eyebrow { color: #9ba7ff; }
 .community-library .community-library-heading h3 { margin: 0 0 .5rem; font-size: 1.45rem; color: #f4f6ef; }
@@ -264,55 +266,56 @@
 .freedom-community .community-projects h3 { margin: 0; font-size: 1.45rem; }
 .freedom-community .community-project { position: relative; background: #14161b; border-color: #333943; border-radius: 14px; }
 .freedom-community .community-project h4 { font-size: 1.05rem; }
-.freedom-community .community-project-orbit { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid #6470a1; color: #c4ff20; border-radius: 50%; font-size: 1.2rem; }
+.freedom-community .community-project-orbit { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid #6470a1; color: #c4ff20; border-radius: 50%; font-size: 1.2rem; }
 .freedom-community .community-project .btn { width: fit-content; margin-top: auto; }
 
 @media (max-width: 1250px) {
   .freedom-home .home-module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .freedom-home .home-module-cover { aspect-ratio: 1.8; }
+  .freedom-home .home-module-card { grid-template-columns: 72px minmax(0, 1fr); }
   .freedom-home .home-member-actions { margin-left: auto; }
   .community-library .community-book-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .freedom-community .community-entry-hero { gap: 1.25rem; padding: 1.5rem; }
 }
 @media (max-width: 700px) {
   .member-home.freedom-home,
-  .module-panel.freedom-community { gap: 1.5rem; }
-  .freedom-home .guild-base-hero { min-height: 340px; }
-  .freedom-home .guild-base-copy { padding: 1.5rem; }
-  .freedom-home .guild-base-copy h2 { font-size: 2.4rem; }
+  .module-panel.freedom-community { gap: 1rem; }
+  .freedom-home .guild-base-hero { min-height: 160px; }
+  .freedom-home .guild-base-copy { padding: 1rem; }
+  .freedom-home .guild-base-copy h2 { font-size: 1.65rem; }
   .freedom-home .guild-base-art { object-position: 65% center; }
   .freedom-home .guild-base-hero::after { background: linear-gradient(90deg, #08090bea, #08090b75), linear-gradient(0deg, #08090b75, transparent); }
   .freedom-home .guild-base-coordinate { display: none; }
   .freedom-home .home-member-summary { padding: 1rem; gap: .8rem; }
   .freedom-home .home-member-identity { width: 100%; }
   .freedom-home .home-member-actions { margin-left: 0; }
-  .freedom-home .home-module-grid { gap: .75rem; }
-  .freedom-home .home-module-body { padding: .9rem; }
-  .freedom-home .home-module-cover { aspect-ratio: 1.25; }
+  .freedom-home .home-module-grid { grid-template-columns: minmax(0, 1fr); gap: .65rem; }
+  .freedom-home .home-module-body { padding: .7rem .8rem; }
+  .freedom-home .home-module-card { grid-template-columns: 64px minmax(0, 1fr); }
+  .freedom-home .home-module-cover { height: 64px; }
   .freedom-home .home-module-name { font-size: 1.08rem; }
   .freedom-home .home-module-description { font-size: .84rem; }
-  .freedom-home .home-module-index { left: .8rem; font-size: .58rem; }
+  .freedom-home .home-module-index { left: .4rem; font-size: .58rem; }
   .freedom-home .home-module-button { font-size: .78rem; padding: .5rem .65rem; }
-  .freedom-home .home-direction { flex-wrap: wrap; gap: 1rem; padding: 1.25rem; }
-  .freedom-home .home-direction-symbol { width: 58px; height: 58px; flex-basis: 58px; }
-  .freedom-home .home-direction-symbol > span { font-size: 2.3rem; }
-  .freedom-home .home-direction-copy { flex-basis: calc(100% - 80px); }
+  .freedom-home .home-direction { flex-wrap: wrap; gap: .75rem; padding: 1rem; }
+  .freedom-home .home-direction-symbol { width: 40px; height: 40px; flex-basis: 40px; }
+  .freedom-home .home-direction-symbol > span { font-size: 1.8rem; }
+  .freedom-home .home-direction-copy { flex-basis: calc(100% - 56px); }
   .freedom-home .home-direction-actions { flex-direction: row; flex-wrap: wrap; width: 100%; }
   .freedom-home .home-direction-actions .btn { flex: 1; }
-  .freedom-home .home-cooperation { grid-template-columns: minmax(0, 1fr); }
-  .freedom-home .home-cooperation-image { min-height: 170px; }
+  .freedom-home .home-cooperation { grid-template-columns: 64px minmax(0, 1fr); }
+  .freedom-home .home-cooperation-image { min-height: 0; }
   .freedom-home .home-cooperation-image::after { background: linear-gradient(0deg, #14161b, transparent 60%); }
   .freedom-home .home-cooperation-image > img { object-position: center 45%; }
-  .freedom-home .home-cooperation-copy { padding: .75rem 1.25rem 1.5rem; }
+  .freedom-home .home-cooperation-copy { padding: 1rem; }
   .freedom-home .home-cooperation-copy h2 { font-size: 1.4rem; }
-  .freedom-home .home-community-signature { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
-  .freedom-home .home-community-signature .brand-poster { max-width: 260px; }
-  .freedom-community .community-entry-hero { grid-template-columns: minmax(0, 1fr); gap: 1.8rem; padding: 1.5rem; }
-  .freedom-community .community-entry-copy h2 { font-size: 2.6rem; }
-  .freedom-community .community-entry-hero .brand-poster { transform: none; }
+  .freedom-home .home-community-signature { grid-template-columns: minmax(0, 1fr); gap: .75rem; }
+  .freedom-home .home-community-signature .brand-poster { max-width: 156px; }
+  .freedom-community .community-entry-hero { grid-template-columns: minmax(0, 1fr); gap: 1rem; padding: 1rem; }
+  .freedom-community .community-entry-copy h2 { font-size: 1.8rem; }
+  .freedom-community .community-entry-hero .brand-poster { transform: none; width: min(100%, 280px); justify-self: center; }
   .freedom-community .community-entry-signoff { margin-top: 1rem; }
   .freedom-community > .community-footer { padding: 1rem 1.25rem; }
-  .community-library .community-library-heading { padding: 1.25rem; }
+  .community-library .community-library-heading { padding: .9rem 1rem; }
   .community-library .community-library-heading > div { max-width: 90%; }
   .community-library .community-library-heading > img { width: 45%; opacity: .65; }
   .community-library .community-library-heading h3 { font-size: 1.25rem; }
@@ -320,8 +323,8 @@
 @media (max-width: 440px) {
   .freedom-home .home-module-grid,
   .community-library .community-book-grid { grid-template-columns: minmax(0, 1fr); }
-  .freedom-home .home-module-cover { aspect-ratio: 1.9; }
-  .freedom-home .home-module-body { padding: 1.1rem; }
+  .freedom-home .home-module-card { grid-template-columns: 56px minmax(0, 1fr); }
+  .freedom-home .home-module-body { padding: .7rem; }
   .freedom-home .home-module-description { font-size: .88rem; }
   .freedom-home .home-member-actions { width: 100%; }
   .freedom-home .home-member-actions .btn { flex: 1; padding: .5rem .6rem; }
@@ -341,7 +344,6 @@
 .community-library .skill-library-filters input,
 .community-library .skill-library-filters select { width: 100%; min-height: 48px; font-size: 1rem; }
 .community-library .skill-library-count { margin: 0; color: #aeb5c2; font-size: .85rem; }
-.community-library .community-book.skill-library-book { align-items: stretch; padding: 12px; gap: 16px; }
 .community-library .community-book.skill-library-book .skill-library-copy { width: 100%; }
 .community-library .community-book.skill-library-book .skill-intro-trigger { margin: 0; }
 @media (max-width: 700px) {

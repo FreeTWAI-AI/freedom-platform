@@ -1,22 +1,22 @@
 .member-avatar.member-avatar-photo { overflow: hidden; position: relative; }
 .member-avatar.member-avatar-photo > img { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
-.avatar-editor.card { display: flex; align-items: flex-start; gap: 1.5rem; padding: 1.5rem; border: 1px solid #333943; background: #14161b; border-radius: 16px; }
-.avatar-editor .avatar-editor-preview { flex: 0 0 104px; display: grid; justify-items: center; gap: .6rem; }
+.avatar-editor.card { display: flex; align-items: flex-start; gap: 1rem; padding: 1rem; border: 1px solid #333943; background: #14161b; border-radius: 16px; }
+.avatar-editor .avatar-editor-preview { flex: 0 0 72px; display: grid; justify-items: center; gap: .6rem; }
 .avatar-editor .avatar-editor-preview > img,
-.avatar-editor .avatar-editor-preview .member-avatar-photo { width: 104px; height: 104px; border-radius: 20px; object-fit: cover; box-shadow: none; border: 1px solid #6573bb; }
+.avatar-editor .avatar-editor-preview .member-avatar-photo { width: 72px; height: 72px; border-radius: 20px; object-fit: cover; box-shadow: none; border: 1px solid #6573bb; }
 .avatar-editor .avatar-editor-preview > span { color: #aeb5c2; font-size: .875rem; }
 .avatar-editor .avatar-editor-content { flex: 1; min-width: 0; display: grid; gap: .6rem; }
 .avatar-editor .avatar-editor-content > h3 { margin: 0; }
 .avatar-editor .avatar-editor-content > p { color: #aeb5c2; font-size: .875rem; line-height: 1.7; }
 .avatar-editor .avatar-file-field { margin-top: .5rem; max-width: 100%; }
 .avatar-editor .avatar-file-field input { min-height: 44px; width: 100%; min-width: 0; max-width: 100%; font-size: 1rem; }
-.avatar-editor .avatar-file-field input::file-selector-button { border: 1px solid #596173; background: #202329; color: #f4f6ef; border-radius: 999px; min-height: 36px; padding: .35rem .8rem; margin-right: .7rem; cursor: pointer; }
+.avatar-editor .avatar-file-field input::file-selector-button { border: 1px solid #596173; background: #202329; color: #f4f6ef; border-radius: 999px; min-height: 44px; padding: .35rem .8rem; margin-right: .7rem; cursor: pointer; }
 .avatar-editor .actions { margin-top: .35rem; flex-wrap: wrap; }
 .avatar-editor .btn { min-height: 44px; }
 .avatar-editor .btn:focus-visible,
 .avatar-editor input:focus-visible { outline: 3px solid #c4ff20; outline-offset: 3px; }
 @media(max-width: 620px) {
-  .avatar-editor.card { flex-direction: column; padding: 1.1rem; gap: 1rem; }
+  .avatar-editor.card { flex-direction: column; padding: .9rem; gap: .75rem; }
   .avatar-editor .avatar-editor-preview { flex-basis: auto; }
   .avatar-editor .avatar-editor-content { width: 100%; }
 }
