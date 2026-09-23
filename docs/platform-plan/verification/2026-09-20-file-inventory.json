@@ -2364,8 +2364,8 @@
     },
     {
       "path": "tests/e2e/guild-organization.spec.ts",
-      "bytes": 13312,
-      "sha256": "1966fd5da46e79e67eb49a81a685c9e17b2da8bd2e0b83fbe0896a3f549b67de"
+      "bytes": 13613,
+      "sha256": "579a6414297eaa5c97212e5020d2a648b0a181dd689cc9d90c20b968a354408d"
     },
     {
       "path": "tests/e2e/guild-workspace.spec.ts",

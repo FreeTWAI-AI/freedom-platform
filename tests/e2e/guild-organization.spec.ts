@@ -22,7 +22,10 @@ async function setupGuilds(page: Page) {
     guild_experts: Array.from({ length: [0, 3, 1, 2, 3, 0][index] }, (_, expert) => ({ user_id: `expert-${index}-${expert}`, display_name: expert === 2 ? '專注跨領域音樂影像與內容共創的測試專家' : `測試專家 ${index}-${expert}`, avatar_url: null })),
     skill_books: index === 0 ? books : [books[index % books.length]],
   }));
-  await page.route('**/api/v1/guilds/directory', route => route.fulfill({ json: { items: directory() } }));
+  await page.route('**/api/v1/guilds/directory', async route => {
+    if(writes.length)await new Promise(resolve=>setTimeout(resolve,120));
+    await route.fulfill({ json: { items: directory() } });
+  });
   await page.route('**/api/v1/me/guild-preferences', route => route.fulfill({ json: preferences }));
   await page.route('**/api/v1/me/guild-preferences/secondary', route => {
     const body = route.request().postDataJSON();
@@ -104,15 +107,17 @@ test('the secondary-guild editor sends a versioned command and reloads the synth
   await choice(2).uncheck(); await expect(choice(3)).toBeEnabled(); await choice(3).check();
   await expect(choice(2)).toBeDisabled(); await expect(choice(4)).toBeDisabled();
   await editor.getByRole('button', { name: '儲存次要公會', exact: true }).click();
-  await expect(editor).toHaveCount(0); await expect(page.getByRole('region', { name: '公會目錄', exact: true }).getByRole('status')).toContainText('次要公會已儲存。');
+  await expect(editor).toHaveCount(0); await expect(page.getByRole('region', { name: '公會目錄', exact: true }).getByRole('status').filter({ hasText: '次要公會已儲存。' })).toBeVisible();
   expect(fixture.writes).toHaveLength(1);
   expect(fixture.writes[0].body).toEqual({ secondary_guild_keys: [keys[1], keys[3]] });
   expect(fixture.writes[0].headers['if-match']).toBe('"7"');
   expect(fixture.writes[0].headers['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
   expect(fixture.writes[0].headers['x-csrf-token']).toBeTruthy();
+  await expect(group(page, '主要與次要公會').locator('.guild-card')).toHaveCount(3);
   expect(await guildIds(page, '主要與次要公會')).toEqual([keys[0], keys[1], keys[3]]);
   expect(await guildIds(page, '其他已加入公會')).toEqual([keys[2], keys[4]]);
   await page.reload(); await expect(group(page, '主要與次要公會').locator('.guild-card')).toHaveCount(3);
+  await expect(group(page, '主要與次要公會').locator('.guild-card')).toHaveCount(3);
   expect(await guildIds(page, '主要與次要公會')).toEqual([keys[0], keys[1], keys[3]]);
   expect(fixture.directory().map(guild => guild.membership)).toEqual(membershipsBefore);
   await page.getByRole('button', { name: '設定次要公會', exact: true }).click();
