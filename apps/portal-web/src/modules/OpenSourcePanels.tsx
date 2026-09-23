@@ -1,5 +1,6 @@
 import { useCallback,useEffect,useState,type FormEvent } from 'react';
 import { requireItems } from '../api';
+import { RepositoryLibrary } from './Community';
 import { useModuleMutation,type ModulePanelProps } from './shared';
 
 type SourceVersion={version_id:string;commit_sha:string;license_spdx:string;license_evidence_url:string|null;is_fork:boolean;archived:boolean;readme_url:string;inspected_at:string};
@@ -34,6 +35,8 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
   }
   return <div className="stack">
     <section className="member-direction"><div className="direction-copy"><p className="module-kicker">分享程式，累積使用與協作</p><h2>讓作品被找到，也讓別人知道怎麼開始</h2><p>貼上公開 GitHub 專案、說明用途與使用方式。會員可以直接看文件、使用與參與開發。</p></div></section>
+    <details className="card"><summary>作品怎麼成為技能書？</summary><div className="stack"><p>原始公開 Repo 由作者保留，工坊可以 Fork 保存與後續改造；原作者、來源與授權會保留。</p><p>請準備一個專案介紹頁（建議 GitHub Pages），寫清楚用途、畫面、如何開始與原始碼連結，方便大家理解你的作品。</p><a href="https://github.com/FreeTWAI-AI/freedom-project-page" target="_blank" rel="noopener noreferrer">使用專案介紹頁模板 ↗</a></div></details>
+    <RepositoryLibrary client={client} title="工坊精選作品"/>
     {notice&&<p role="status" className="banner banner-info">{notice}</p>}
     {error&&<p role="alert" className="banner banner-error">{error}</p>}
     <LoadError error={loadError} retry={()=>void refresh()}/>
@@ -86,6 +89,7 @@ export function MarketingPanel({client,session}:ModulePanelProps) {
   useEffect(()=>{void refresh();},[refresh]);
   async function create(event:FormEvent){event.preventDefault();setNotice(null);const {source_selection,...content}=draft;const [kind,sourceId]=source_selection.split(':');const saved=await mutate('/marketing/campaigns',{...content,source_project_id:kind==='oss'?sourceId:null,source_supplier_product_id:kind==='supplier'?sourceId:null,source_brief:source_selection?'':draft.source_brief});if(saved){setDraft({...blankCampaign});setNotice('私人草稿已儲存，可以繼續編輯或自行分享。');await refresh();}}
   return <div className="stack"><section className="member-direction"><div className="direction-copy"><p className="module-kicker">從真實作品與商品，說出清楚的價值</p><h2>先準備好，再把值得分享的內容帶出去</h2><p>選自己的作品、供貨商品或寫一份活動簡述，整理受眾、目標和文案。草稿只有你看得到。</p></div></section>
+    <details className="card"><summary>行銷與影音公會的技能書</summary><RepositoryLibrary client={client} ids={['social-post','typo-studio','video-autopilot','short-drama','hao-studio','media-generator']} title="Hao 的行銷與影音技能書"/></details>
     {notice&&<p className="banner banner-info" role="status">{notice}</p>}{error&&<p className="banner banner-error" role="alert">{error}</p>}<LoadError error={loadError} retry={()=>void refresh()}/>
     <div className="card-grid"><section className="card stack"><div className="section-head"><h2>建立行銷草稿</h2><p>目前支援手動文案與分享紀錄；尚未連接社群自動發布。</p></div>
       <form className="stack" onSubmit={create}>

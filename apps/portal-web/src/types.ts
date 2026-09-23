@@ -177,4 +177,4 @@ export type Engagement = {
   receipt: Receipt | null
 }
 
-export type TabId = 'home' | 'positioning' | 'supplier' | 'retail' | 'opensource' | 'marketing' | 'guilds' | 'workbench' | 'showcase' | 'engagement'
+export type TabId = 'account' | 'members' | 'community' | 'squads' | 'home' | 'positioning' | 'supplier' | 'retail' | 'opensource' | 'marketing' | 'guilds' | 'workbench' | 'showcase' | 'engagement'

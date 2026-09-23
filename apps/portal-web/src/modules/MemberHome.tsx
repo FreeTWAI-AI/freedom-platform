@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { ModulePanelProps } from './shared';
 import type { TabId } from '../types';
+import { BrandPoster, CommunityLinks } from './Community';
+import { MemberCard, loadLabels, type MemberCardData } from './Membership';
 
 const entries: { id: TabId; number: string; title: string; action: string; description: string; outcome: string }[] = [
   { id: 'supplier', number: '01', title: '供貨中心', action: '我有實體商品可以供貨', description: '整理商品、供貨價格與出貨條件，找到願意合作的店主。', outcome: '商品資料 → 供貨方案 → 店主合作' },
@@ -15,6 +17,9 @@ type MemberDirection = {
   recommendations: { name: string; first_result: string; reason: string }[];
 };
 export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
+  const [member, setMember] = useState<MemberCardData|null>(null);
+  const [labels, setLabels] = useState<Record<string,string>>({});
+  useEffect(()=>{void client.get<MemberCardData>(`/members/${session.user.user_id}`).then(setMember).catch(()=>{});void loadLabels(client).then(setLabels).catch(()=>{});},[client,session.user.user_id]);
   const [direction, setDirection] = useState<MemberDirection | null>(null);
   const [guildNames, setGuildNames] = useState<string[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -31,13 +36,15 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
     return () => { active = false; };
   }, [client, session.user.user_id]);
   return <div className="member-home">
+    <BrandPoster compact/>
+    {member&&<MemberCard member={member} labels={labels}><div className="actions"><button className="btn btn-ghost" onClick={()=>onNavigate?.('account')}>編輯我的名片</button><button className="btn btn-ghost" onClick={()=>onNavigate?.('guilds')}>我的公會與技能書</button></div></MemberCard>}
     <section className="member-welcome">
       <div>
         <p className="eyebrow">YOUR PLACE TO BUILD</p>
-        <h2>{session.user.display_name}，從你想參與的事開始。</h2>
+        <h2>{member?.nickname??session.user.display_name}，從你想參與的事開始。</h2>
         <p>把你的能力、商品與作品，接到需要它們的人。你可以同時參與不同角色。</p>
       </div>
-      <span className="member-stage">內部預覽</span>
+      <span className="member-stage">自由工坊會員</span>
     </section>
     <section className="member-direction" aria-labelledby="member-direction-title">
       <div className="direction-copy">
@@ -49,7 +56,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
           {guildNames.length > 0 && <p className="hint">已加入：{guildNames.join('、')}</p>}
         </> : <>
           <p>整理你的專長、目標與可投入時間，選擇想發展的職業方向，找到一起成長的公會。</p>
-          <p className="hint">定位可以隨時調整，也可以先逛其他模組。</p>
+          <p className="hint">定位可以隨時調整，讓方向跟著你的成長改變。</p>
         </>}
         {loadError && <p role="alert">{loadError}</p>}
       </div>
@@ -72,5 +79,6 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       <div><h2>已經在一起做事？</h2><p>回到你認領的工作，或繼續處理雙方的合作紀錄。</p></div>
       <div className="actions"><button className="btn btn-ghost" onClick={() => onNavigate?.('workbench')}>查看我的工作</button><button className="btn btn-ghost" onClick={() => onNavigate?.('engagement')}>查看合作紀錄</button></div>
     </section>
+    <CommunityLinks/>
   </div>;
 }

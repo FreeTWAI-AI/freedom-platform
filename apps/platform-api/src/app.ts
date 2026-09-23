@@ -1,4 +1,6 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
+import { getConnInfo } from '@hono/node-server/conninfo';
+import { isIP } from 'node:net';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { z } from 'zod';
 import type { Pool } from 'pg';
@@ -11,10 +13,27 @@ import type { Command } from '../../../packages/db/index.js';
 import { allowedBrowserOrigins, allowedRequestHosts, type FreedomEnv } from './env.js';
 import { createPositioningRoutes } from './routes/positioning.js';
 import { createCommerceRoutes } from './routes/commerce.js';
+import { createMemberRoutes } from './routes/members.js';
+import { authRateLimit,registerMember } from '../../../modules/identity-membership/members.js';
+import { communityCatalog } from '../../../modules/community/catalog.js';
 import { createOpenSourceRoutes } from './routes/opensource.js';
+import { createPublicClientConnectionRoutes,createClientConnectionRoutes,createClientApiRoutes } from './routes/client-connections.js';
 import protocolMetadata from '../../../contracts/preview/v1/metadata.json' with { type: 'json' };
 
 const COOKIE='freedom_local_session';
+function authNetwork(c:Context) {
+  let address='';try {address=getConnInfo(c).remote.address??'';} catch { /* direct in-process tests have no socket */ }
+  const loopback=['127.0.0.1','::1','::ffff:127.0.0.1'].includes(address);
+  const forwarded=c.req.header('CF-Connecting-IP')??'';
+  if(process.env.FREEDOM_TRUST_CF==='true'&&loopback&&isIP(forwarded))return forwarded;
+  return address&&isIP(address)?address:'shared-server';
+}
+function onboardingAllowed(path:string,method:string) {
+  if(path==='/api/v1/session'||path==='/api/v1/auth/logout'||path==='/api/v1/me/account')return true;
+  if(method==='GET'&&['/api/v1/assessment-definition','/api/v1/career-tracks','/api/v1/guilds','/api/v1/me/skill-books','/api/v1/me/guild-preferences','/api/v1/guilds/directory'].includes(path))return true;
+  if(/^\/api\/v1\/me\/onboarding(?:\/(answers|evaluate|complete))?$/.test(path))return true;
+  return method==='POST'&&/^\/api\/v1\/guilds\/[^/]+\/(join|leave|primary)$/.test(path);
+}
 // PostgreSQL bigint stays lossless internally; canonical AggregateVersion is a JSON safe integer.
 function wireVersions(value:any):any {
   if(Array.isArray(value))return value.map(wireVersions);
@@ -29,7 +48,7 @@ function wireVersions(value:any):any {
 export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:FreedomEnv='local') {
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
   const allowedHosts=allowedRequestHosts(freedomEnv,origin);
-  const secureCookies=freedomEnv==='staging';
+  const secureCookies=freedomEnv!=='local';
   const app=new Hono<{Variables:{actor:Actor}}>();
   app.onError((err,c)=>{
     if(err instanceof z.ZodError) return c.json({type:'about:blank',title:'Validation failed',status:422,code:'validation_failed',detail:err.issues.map(i=>`${i.path.join('.')}: ${i.message}`).join('; ')},422);
@@ -40,25 +59,41 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
   });
   app.use('*',async(c,next)=>{
     const host=new URL(c.req.url).hostname;
-    requireCondition(allowedHosts.has(host),403,'host_rejected',freedomEnv==='local'?'此版本只提供本機使用。':'請從 staging 工作台操作。');
+    requireCondition(allowedHosts.has(host),403,'host_rejected',freedomEnv==='local'?'此版本只提供本機使用。':'請從自由工坊網站操作。');
     c.header('Cache-Control','no-store');c.header('X-Content-Type-Options','nosniff');c.header('Referrer-Policy','no-referrer');
     c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
     if(!['GET','HEAD','OPTIONS'].includes(c.req.method)) {
-      requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected',freedomEnv==='local'?'操作來源不正確，請從本機工作台操作。':'操作來源不正確，請從 staging 工作台操作。');
+      requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected',freedomEnv==='local'?'操作來源不正確，請從本機工作台操作。':'操作來源不正確，請從自由工坊網站操作。');
       requireCondition(c.req.header('Content-Type')?.split(';')[0]==='application/json',415,'json_required','操作需要 JSON。');
       requireCondition(Number(c.req.header('Content-Length')??0)<=32768,413,'body_too_large','內容過長。');
       const raw=await c.req.text();requireCondition(Buffer.byteLength(raw)<=32768,413,'body_too_large','內容過長。');
       try { JSON.parse(raw); } catch { throw new Problem(400,'invalid_json','JSON 格式不正確。'); }
     }
     await next();
-    if(c.req.path.startsWith('/api/') && c.res.headers.get('Content-Type')?.includes('application/json')) {
+    if((c.req.path.startsWith('/api/')||c.req.path.startsWith('/client-api/')) && c.res.headers.get('Content-Type')?.includes('application/json')) {
       const data=wireVersions(await c.res.json());
       c.res=new Response(JSON.stringify(data),{status:c.res.status,headers:c.res.headers});
     }
   });
-  app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:'0.2.0-modules-preview',money_movement_enabled:false,official:false}));
+  app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:'0.3.0-member-beta',money_movement_enabled:false,official:false}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(process.env.FREEDOM_REGISTRATION_COMMUNITY_ID),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog}));
+  app.get('/api/v1/community',c=>c.json(communityCatalog));
+  app.route('/api/v1',createPublicClientConnectionRoutes(pool,origin,authNetwork));
+  app.route('/client-api/v1',createClientApiRoutes(pool));
+  app.post('/api/v1/auth/register',async c=>{
+    await authRateLimit(pool,'registration-network',authNetwork(c),8);
+    await authRateLimit(pool,'registration-global','global',100,60);
+    const raw=await c.req.json();
+    const result=await registerMember(pool,raw,{communityId:process.env.FREEDOM_REGISTRATION_COMMUNITY_ID,allowSingleCommunity:freedomEnv==='local',publicMode:freedomEnv==='public'});
+    const old=getCookie(c,COOKIE);
+    if(old) {const {tokenHash}=await import('../../../modules/identity-membership/service.js');await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[tokenHash(old)]);}
+    setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:8*60*60});
+    return c.json(sessionView(result.actor),201);
+  });
   app.post('/api/v1/auth/login',async c=>{
+    await authRateLimit(pool,'login-network',authNetwork(c),60);
+    await authRateLimit(pool,'login-global','global',240,60);
     const body=z.object({email:z.email().max(200),password:z.string().min(1).max(200)}).strict().parse(await c.req.json());
     const result=await login(pool,body.email,body.password);
     // Replace any old session on login, so changing accounts never keeps an active old cookie.
@@ -73,6 +108,7 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
       const got=Buffer.from(c.req.header('X-CSRF-Token')??''),expected=Buffer.from(actor.csrf_token);
       requireCondition(got.length===expected.length && timingSafeEqual(got,expected),403,'csrf_rejected','登入狀態已變更，請重新整理。');
     }
+    requireCondition(!actor.onboarding_required||Boolean(actor.onboarding_completed_at)||onboardingAllowed(c.req.path,c.req.method),403,'onboarding_required','請先完成定位測驗並選擇主要公會。');
     await next();
   });
   const cmd=async(c:any):Promise<Command>=>{
@@ -102,6 +138,8 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
     app.post(`/api/v1/engagements/:id{[0-9a-f-]+:${action}}`,async c=>respond(c,await changeEngagement(pool,await cmd(c),routeId(c),action)));
   }
   app.post('/api/v1/engagements/:id/receipts',async c=>respond(c,await changeEngagement(pool,await cmd(c),routeId(c),'receipt'),201));
+  app.route('/api/v1',createMemberRoutes(pool));
+  app.route('/api/v1',createClientConnectionRoutes(pool));
   app.route('/api/v1',createPositioningRoutes(pool));
   app.route('/api/v1',createCommerceRoutes(pool));
   app.route('/api/v1',createOpenSourceRoutes(pool));

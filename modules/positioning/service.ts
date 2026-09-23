@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { command, journal, checkVersion, type Command } from '../../packages/db/index.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 import type { Actor } from '../identity-membership/service.js';
+import { lockMemberGuilds,grantGuildBooks,assertCanLeaveGuild } from './onboarding.js';
 
 const short=z.string().trim().min(1).max(100);
 const uniqueStrings=(max:number)=>z.array(short).max(max).refine(a=>new Set(a).size===a.length,'請移除重複選項。');
@@ -55,9 +56,10 @@ export async function changeGuildMembership(pool:Pool,input:Command,guildKey:str
   return command(pool,input,async q=>{
     requireCondition((await q.query('SELECT 1 FROM positioning_guild_catalog WHERE guild_key=$1',[guildKey])).rowCount===1,404,'guild_not_found','找不到這個公會。');
   },async q=>{
-    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`guild/${input.actor.community_id}/${input.actor.user_id}/${guildKey}`]);
+    await lockMemberGuilds(q,input.actor);
+    if(action==='leave')await assertCanLeaveGuild(q,input.actor,guildKey);
     let membership=(await q.query('SELECT * FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 FOR UPDATE',[input.actor.community_id,input.actor.user_id,guildKey])).rows[0];
-    if(action==='join'&&membership?.state==='active')return membership;
+    if(action==='join'&&membership?.state==='active'){await grantGuildBooks(q,input.actor,guildKey);return membership;}
     if(membership)checkVersion(membership.aggregate_version,input.expected);
     else { requireCondition(action==='join',404,'membership_not_found','你尚未加入這個公會。');requireCondition(!input.expected,412,'version_conflict','公會狀態已變更，請重新整理。'); }
     const state=action==='join'?'active':'left';
@@ -65,6 +67,7 @@ export async function changeGuildMembership(pool:Pool,input:Command,guildKey:str
     if(membership)membership=(await q.query(`UPDATE positioning_profession_memberships SET state=$1,aggregate_version=aggregate_version+1,left_at=CASE WHEN $1='left' THEN now() ELSE NULL END,
       joined_at=CASE WHEN $1='active' THEN now() ELSE joined_at END WHERE membership_id=$2 RETURNING *`,[state,membership.membership_id])).rows[0];
     else membership=(await q.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,$4,'active') RETURNING *`,[randomUUID(),input.actor.community_id,input.actor.user_id,guildKey])).rows[0];
+    if(action==='join')await grantGuildBooks(q,input.actor,guildKey);
     await journal(q,input.actor,'profession_membership',membership.membership_id,membership.aggregate_version,`${action}_guild`,{guild_key:guildKey,state,rank:'runner'},'freedom.organization.profession_membership.updated.v1');
     return membership;
   });

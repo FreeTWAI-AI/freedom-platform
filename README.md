@@ -1,8 +1,8 @@
 # Freedom Platform
 
-本 workspace 保存 Freedom 大平台的完整規格，以及 **0.2.0-modules-preview 會員模組內部預覽**。會員首頁分開呈現「我的定位、職業公會、供貨中心、開店與銷售、開源作品、行銷工作室」。供貨商可建立商品與供貨條件，店主可選品並提出供貨合作；開源作品直接連結 GitHub。各模組共用會員與 PostgreSQL，資料在重啟後保留。
+本 workspace 保存 Freedom 大平台的完整規格，以及 **0.3.0-member-beta 自由工坊會員入口**。新會員註冊後完成定位，選擇主力公會並取得 Repo 技能書，再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
 
-內部入口：<https://staging.freetwai.com>（Cloudflare Access 限定名單）。模組責任、中央資料設計與上游取用判斷見 [擴建設計](./docs/development/module-expansion-design.md) 及 [上游研究](./docs/development/research/README.md)。
+公開會員入口：<https://freetwai.com>；內部入口：<https://staging.freetwai.com>（Cloudflare Access 限定名單，獨立 DB）。本輪行為與邊界見 [會員入口設計](./docs/development/member-onboarding-release.md)，運行方式見 [公開站手冊](./docs/development/public-operations.md)。
 
 各產品模板已依 [九倉分工與串接方式](./docs/development/repository-integration.md) 獨立保存，透過固定版本的 API／SDK 共用中央會員與資料。
 
@@ -23,7 +23,7 @@ npm run demo
 
 Freedom Platform 是社群的接點、共同資料庫、核心 codebase 協作索引、工作／商業事實帳本與狀態機。Discord 承接討論與讀書會，LINE 承接即時聯絡，GitHub 承接程式版本與 PR；money 的權威事實留在 Seller 的 provider／bank，客戶 raw data 留在 client／Squad storage，平台只保存必要的 ref、digest 與 fact。
 
-現行推進：**2026-09-23，分開的會員模組、共用中央資料與內部 staging。** 完整架構保留，不把未來案源當報酬，不預設核心補位。第一筆真實合作與收款仍待真人證據，見 [首批營運驗證](./docs/development/operating-validation.md)。
+現行推進：**2026-09-23，封閉式新人定位、主力公會、Repo 技能書與公開會員 Beta。** 完整架構保留，不把未來案源當報酬，不預設核心補位。第一筆真實合作與收款仍待真人證據，見 [首批營運驗證](./docs/development/operating-validation.md)。
 
 先讀 [低維運互惠運作契約](./docs/platform-plan/12-low-ops-mutual-benefit.md) 與 [現況紀錄](./docs/platform-plan/09-handoff-record.md)。[2026-09-19 變更說明](./CHANGES-2026-09-19.md) 與當日 verification 保留作歷史紀錄；本次實跑結果以新版本紀錄為準。
 

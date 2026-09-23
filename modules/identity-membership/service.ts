@@ -1,4 +1,4 @@
-import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { Pool } from 'pg';
 import { transaction } from '../../packages/db/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
@@ -6,21 +6,26 @@ import { Problem, requireCondition } from '../../packages/shared/problem.js';
 export interface Actor {
   user_id: string; community_id: string; email: string; display_name: string;
   profession_membership_ref: string; session_hash: string; csrf_token: string;
+  onboarding_required?: boolean; onboarding_completed_at?: string|null;
 }
 export const tokenHash = (raw: string) => createHash('sha256').update(raw).digest('hex');
 export function hashPassword(password: string) {
   const salt = randomBytes(16).toString('hex');
   return `${salt}:${scryptSync(password,salt,64).toString('hex')}`;
 }
-function matches(password: string, saved: string) {
+const derive = (password:string,salt:string):Promise<Buffer> => new Promise((resolve,reject)=>scrypt(password,salt,64,(error,key)=>error?reject(error):resolve(key)));
+export async function hashPasswordAsync(password:string) {
+  const salt=randomBytes(16).toString('hex');return `${salt}:${(await derive(password,salt)).toString('hex')}`;
+}
+async function matches(password: string, saved: string) {
   const [salt,expected] = saved.split(':');
-  const actual = scryptSync(password,salt,64);
+  const actual = await derive(password,salt);
   const other = Buffer.from(expected,'hex');
   return other.length===actual.length && timingSafeEqual(other,actual);
 }
 const DUMMY_HASH = hashPassword(randomBytes(24).toString('hex'));
 export async function login(pool: Pool, email: string, password: string) {
-  const normalized = email.toLowerCase();
+  const normalized = email.trim().toLowerCase();
   const attemptKey = tokenHash(normalized);
   const result = await transaction(pool,async q => {
     await q.query(`INSERT INTO login_attempts VALUES($1,0,now()) ON CONFLICT DO NOTHING`,[attemptKey]);
@@ -30,7 +35,7 @@ export async function login(pool: Pool, email: string, password: string) {
     }
     if (attempt.failures>=10) return {blocked:true} as const;
     const user = (await q.query('SELECT * FROM users WHERE email=$1',[normalized])).rows[0];
-    const valid = matches(password,user?.password_hash ?? DUMMY_HASH);
+    const valid = await matches(password,user?.password_hash ?? DUMMY_HASH);
     if (!valid || !user?.active) {
       await q.query('UPDATE login_attempts SET failures=failures+1 WHERE attempt_key=$1',[attemptKey]);
       return {invalid:true} as const;
@@ -47,7 +52,7 @@ export async function login(pool: Pool, email: string, password: string) {
 }
 export async function authenticate(pool: Pool, raw: string | undefined): Promise<Actor> {
   requireCondition(raw && /^[A-Za-z0-9_-]{43}$/.test(raw),401,'login_required','請先登入。');
-  const result = await pool.query(`SELECT u.user_id,u.community_id,u.email,u.display_name,u.profession_membership_ref,
+  const result = await pool.query(`SELECT u.user_id,u.community_id,u.email,u.display_name,u.profession_membership_ref,u.onboarding_required,u.onboarding_completed_at,
     s.token_hash AS session_hash,s.csrf_token FROM sessions s JOIN users u USING(user_id)
     WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>now() AND u.active`,[tokenHash(raw)]);
   requireCondition(result.rowCount===1,401,'session_expired','登入已到期，請重新登入。');

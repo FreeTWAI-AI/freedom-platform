@@ -1,6 +1,7 @@
 import { useEffect,useState,type FormEvent } from 'react';
 import { useModuleMutation,type ModulePanelProps } from './shared';
 import type { TabId } from '../types';
+import { Onboarding, SkillBooks, type GuildSummary, type OnboardingView, type SkillBook } from './Onboarding';
 
 type Profile={profile_id:string;aggregate_version:number;source:'self_declared';real_world_occupations:string[];background:string;strengths:string[];goals:string;weekly_minutes:number;desired_roles:string[];selected_tracks:string[];confirmed_at:string};
 type Track={track_key:string;name:string;description:string;guild_key:string;guild_name:string;role_key:string;first_result:string;estimated_minutes:number};
@@ -12,6 +13,8 @@ const words=(value:string)=>[...new Set(value.split(/[,，、\n]/).map(v=>v.trim
 function failure(error:unknown){return error instanceof Error?error.message:'暫時無法取得資料，請重試。';}
 
 export function PositioningPanel({client,onNavigate}:ModulePanelProps) {
+  const [assessment,setAssessment]=useState<OnboardingView|null>(null),[retaking,setRetaking]=useState(false);
+  useEffect(()=>{void client.get<OnboardingView>('/me/onboarding').then(setAssessment).catch(()=>{});},[client]);
   const [view,setView]=useState<View|null>(null),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState<string|null>(null);
   const [occupations,setOccupations]=useState(''),[background,setBackground]=useState(''),[strengths,setStrengths]=useState(''),[goals,setGoals]=useState(''),[minutes,setMinutes]=useState(120);
   const [selectedRoles,setSelectedRoles]=useState<string[]>([]),[tracks,setTracks]=useState<string[]>([]),[confirmed,setConfirmed]=useState(false),[saved,setSaved]=useState(false),[search,setSearch]=useState(''),[showAll,setShowAll]=useState(false);
@@ -23,8 +26,10 @@ export function PositioningPanel({client,onNavigate}:ModulePanelProps) {
   const toggle=(current:string[],key:string,set:(value:string[])=>void)=>set(current.includes(key)?current.filter(v=>v!==key):[...current,key]);
   const filteredTracks=view?.tracks.filter(t=>`${t.name} ${t.description} ${t.guild_name}`.includes(search))??[];
   const visibleTracks=search||showAll?filteredTracks:filteredTracks.filter((t,index)=>index<6||tracks.includes(t.track_key));
+  if(retaking&&assessment)return <Onboarding client={client} initial={assessment} optional onCompleted={()=>{setRetaking(false);window.dispatchEvent(new Event('freedom-profile-updated'));void client.get<OnboardingView>('/me/onboarding').then(setAssessment);}}/>;
   return <section className="module-panel" aria-labelledby="positioning-title">
-    <header className="section-heading"><p className="eyebrow">從你自己開始</p><h2 id="positioning-title">我的定位</h2><p>寫下你會什麼、想做什麼，再挑一個可以開始的方向。可以隨時修改，也可以直接使用其他模組。</p></header>
+    <header className="section-heading"><p className="eyebrow">從你自己開始</p><h2 id="positioning-title">我的定位</h2><p>寫下你會什麼、想做什麼，再挑一個可以開始的方向。定位會隨著你的經驗成長，可以重新整理方向。</p></header>
+    {assessment&&<section className="card stack"><h3>我的定位旅程</h3><p>{assessment.completed?'已完成定位，你可以重新探索不同的公會方向。':'用做事偏好與實作情境，找到適合你的公會與第一本技能書。'}</p><button className="btn btn-primary" onClick={()=>setRetaking(true)}>{assessment.completed?'重新探索我的定位':'開始定位測驗'}</button></section>}
     {loading&&<p role="status">正在載入你的方向卡…</p>}
     {loadError&&<div role="alert">{loadError}<button type="button" onClick={()=>void load()}>重新載入方向卡</button></div>}
     {!loading&&view&&<><div className="card"><h3>我的方向卡</h3><p>{view.profile?`已保存第 ${view.profile.aggregate_version} 版 · 本人自述`:'還沒有方向卡。先用自己的話寫下目前想法。'}</p>
@@ -54,13 +59,17 @@ export function PositioningPanel({client,onNavigate}:ModulePanelProps) {
 }
 
 export function GuildsPanel({client}:ModulePanelProps) {
-  const [guilds,setGuilds]=useState<Guild[]>([]),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState<string|null>(null),[notice,setNotice]=useState('');
+  const [guilds,setGuilds]=useState<GuildSummary[]>([]),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState<string|null>(null),[notice,setNotice]=useState(''),[preferences,setPreferences]=useState<{primary_guild_key:string|null;aggregate_version?:number}|null>(null),[books,setBooks]=useState<SkillBook[]>([]),[applications,setApplications]=useState<{application_id:string;name:string;profession:string;state:string}[]>([]),[showApply,setShowApply]=useState(false);
   const {mutate,busy,error}=useModuleMutation(client);
-  async function load(){setLoadError(null);try{setGuilds((await client.get<{items:Guild[]}>('/guilds')).items);}catch(e){setLoadError(failure(e));}finally{setLoading(false);}}
+  async function load(){setLoadError(null);try{const [g,p,b,a]=await Promise.all([client.get<{items:GuildSummary[]}>('/guilds/directory'),client.get<{primary_guild_key:string|null;aggregate_version?:number}>('/me/guild-preferences'),client.get<{items:SkillBook[]}>('/me/skill-books'),client.get<{items:typeof applications}>('/guild-applications')]);setGuilds(g.items);setPreferences(p);setBooks(b.items);setApplications(a.items);}catch(e){setLoadError(failure(e));}finally{setLoading(false);}}
   useEffect(()=>{void load();},[client]);
-  async function change(g:Guild){const joining=g.membership?.state!=='active';setNotice('');const result=await mutate(`/guilds/${g.guild_key}/${joining?'join':'leave'}`,{},g.membership?.aggregate_version);if(result){setNotice(joining?`已加入${g.name}，從 Runner 開始交流與實作。`:`已退出${g.name}。既有成果與其他公會關係保留。`);await load();}}
-  return <section className="module-panel" aria-labelledby="guilds-title"><header className="section-heading"><p className="eyebrow">找到一起做事的人</p><h2 id="guilds-title">職業公會</h2><p>公會是長期的專業交流與學習空間。同時加入多個也可以；不用先完成定位測驗。</p></header>
-    {loading&&<p role="status">正在載入職業公會…</p>}{loadError&&<div role="alert">{loadError}<button onClick={()=>void load()}>重新載入公會</button></div>}{error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
-    <div className="card-grid">{guilds.map(g=><article className="card" key={g.guild_key} aria-label={g.name}><div className="card-head"><h3>{g.name}</h3>{g.membership?.state==='active'&&<span className="badge">已加入 · Runner</span>}</div><p>{g.purpose}</p><p>可以先做：{g.first_step}</p><small>{g.track_count} 個職業方向 · 公開知識與共同學習免費</small><p className="field-hint">目前提供站內參與登記，公會主持與活動由實際參與者另行安排。</p><button type="button" disabled={busy} onClick={()=>void change(g)}>{g.membership?.state==='active'?'退出':'加入'}{g.name}</button></article>)}</div>
+  async function change(g:GuildSummary){const joining=g.membership?.state!=='active';setNotice('');const result=await mutate(`/guilds/${g.guild_key}/${joining?'join':'leave'}`,{},g.membership?.aggregate_version);if(result){setNotice(joining?`已加入${g.name}，技能書已放入你的書架。`:`已退出${g.name}。既有成果與其他公會關係保留。`);await load();}}
+  async function primary(g:GuildSummary){const result=await mutate(`/guilds/${g.guild_key}/primary`,{},preferences?.aggregate_version);if(result){setNotice(`主要公會已設為${g.name}。`);await load();window.dispatchEvent(new Event('freedom-profile-updated'));}}
+  async function apply(event:FormEvent<HTMLFormElement>){event.preventDefault();const form=event.currentTarget,d=new FormData(form);const result=await mutate('/guild-applications',{name:d.get('name'),profession:d.get('profession'),reason:d.get('reason')});if(result){form.reset();setNotice('創建公會申請已送出，等待社群討論與安排。');await load();}}
+  return <section className="module-panel" aria-labelledby="guilds-title"><header className="section-heading"><p className="eyebrow">FIND YOUR GUILD</p><h2 id="guilds-title">職業公會</h2><p>找到一起精進專業的人。可以加入多個公會，再選一個作為主力；每個公會都有自己的技能書。</p><button className="btn btn-ghost" onClick={()=>setShowApply(!showApply)}>{showApply?'收起創建申請':'申請創建公會'}</button></header>
+    {loading&&<p role="status">正在載入職業公會…</p>}{loadError&&<div role="alert">{loadError}<button onClick={()=>void load()}>重新載入公會</button></div>}{error&&<p role="alert">{error}</p>}{notice&&<p role="status" className="banner status-note">{notice}</p>}
+    {showApply&&<form className="card stack" onSubmit={apply}><h3>讓你的專業，也有自己的公會</h3><label className="field">希望成立的公會名稱<input name="name" required minLength={2} maxLength={100}/></label><label className="field">專業／職業領域<input name="profession" required maxLength={120}/></label><label className="field">為什麼想成立？希望一起做什麼？<textarea name="reason" required minLength={10} maxLength={2000}/></label><p className="muted">送出的是創建申請。公會長與公會成立會經後續安排，不會自動授予權限。</p><button className="btn btn-primary" disabled={busy}>送出創建公會申請</button>{applications.map((a,index)=><p key={a.application_id??index}>{a.name} · {a.state==='pending'?'待討論':a.state}</p>)}</form>}
+    <div className="card-grid">{guilds.map(g=><article className={`card guild-card${g.is_primary?' primary-guild':''}`} key={g.guild_key} aria-label={g.name}><div className="card-head"><h3>{g.name}</h3>{g.is_primary?<span className="badge">主要公會</span>:g.membership?.state==='active'&&<span className="badge">次要公會</span>}</div><p className="guild-master">公會長：{g.guild_master?.display_name??'待任命'}</p><p>{g.purpose}</p><p>可以先做：{g.first_step}</p><small>{g.track_count} 個職業方向 · 公開知識與共同學習免費</small><div className="guild-book-list"><strong>入會技能書</strong>{g.skill_books.length?g.skill_books.map(book=><a key={book.book_id} href={book.repository_url} target="_blank" rel="noopener noreferrer">{book.title} ↗</a>):<p className="muted">技能書整理中</p>}</div><div className="actions">{g.membership?.state==='active'&&!g.is_primary&&<button className="btn btn-primary" disabled={busy} onClick={()=>void primary(g)}>設為主要公會</button>}<button type="button" className="btn btn-ghost" disabled={busy||g.is_primary} onClick={()=>void change(g)}>{g.membership?.state==='active'?'退出':'加入'}{g.name}</button></div>{g.is_primary&&<p className="field-hint">若要退出，先將另一個已加入的公會設為主要公會。</p>}</article>)}</div>
+    <section className="stack"><h3>我的技能書架</h3><p className="muted">技能書是可以閱讀與 Fork 的專案。Fork 會前往 GitHub，由你登入並確認；不會自動安裝或取得你的帳號權限。</p>{books.length?<SkillBooks books={books}/>:<p>加入公會，就能取得第一本技能書。</p>}</section>
   </section>;
 }

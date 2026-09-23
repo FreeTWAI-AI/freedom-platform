@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError, PortalClient, requireDashboard, requireItems } from './api'
 import { MemberHome } from './modules/MemberHome'
+import { Onboarding, type OnboardingView } from './modules/Onboarding'
+import { AccountPanel, MembersPanel, type MemberCardData } from './modules/Membership'
+import { SquadsPanel } from './modules/Squads'
+import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PositioningPanel, GuildsPanel } from './modules/PositioningPanels'
 import { SupplierPanel, RetailPanel } from './modules/CommercePanels'
 import { OpenSourcePanel, MarketingPanel } from './modules/OpenSourcePanels'
@@ -88,9 +92,23 @@ export function App() {
   const [session, setSession] = useState<SessionPayload | null>(null)
   const [bootError, setBootError] = useState<ActionError | null>(null)
   const [loginNotice, setLoginNotice] = useState<string | null>(null)
+  const [site, setSite] = useState<SiteConfig | null>(null)
+  const [onboarding, setOnboarding] = useState<OnboardingView | null>(null)
+  const [gateError, setGateError] = useState('')
+  const sessionGeneration = useRef(0)
+  const loadOnboarding = useCallback(async () => {
+    const generation = sessionGeneration.current
+    setGateError('')
+    try { const value=await client.get<OnboardingView>('/me/onboarding');if(generation===sessionGeneration.current)setOnboarding(value) }
+    catch (error) { if(generation===sessionGeneration.current)setGateError(describeError(error).message) }
+  }, [])
+  useEffect(() => { void client.get<SiteConfig>('/site').then(setSite).catch(() => setSite(null)) }, [])
+  useEffect(() => { if (session) void loadOnboarding(); else setOnboarding(null) }, [session, loadOnboarding])
 
   const applySession = useCallback((next: SessionPayload) => {
+    sessionGeneration.current += 1
     client.csrfToken = next.csrf_token
+    setOnboarding(null)
     setSession(next)
     setPhase('ready')
     setBootError(null)
@@ -98,7 +116,9 @@ export function App() {
   }, [])
 
   const toLogin = useCallback((notice?: string) => {
+    sessionGeneration.current += 1
     client.csrfToken = null
+    setOnboarding(null)
     setSession(null)
     setPhase('login')
     if (notice) setLoginNotice(notice)
@@ -131,7 +151,7 @@ export function App() {
   if (phase === 'boot') {
     return (
       <div className="app-frame">
-        <DemoBanner />
+        {site?.demo_accounts_enabled && <DemoBanner />}
         <div className="centered">
           <p className="muted" role="status">
             正在確認登入狀態…
@@ -144,8 +164,9 @@ export function App() {
   if (phase !== 'ready' || !session) {
     return (
       <div className="app-frame">
-        <DemoBanner />
+        {site?.demo_accounts_enabled && <DemoBanner />}
         <LoginView
+          site={site}
           notice={loginNotice}
           bootError={bootError}
           onRetrySession={() => void bootstrap()}
@@ -155,8 +176,12 @@ export function App() {
     )
   }
 
+  if (!onboarding) return <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
+  if (onboarding.required && !onboarding.completed) return <Onboarding client={client} initial={onboarding} onCompleted={() => void loadOnboarding()} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
+
   return (
     <Workspace
+      site={site}
       session={session}
       onLoggedOut={() => toLogin()}
       onSessionExpired={() => toLogin('登入已過期，請重新登入。')}
@@ -173,16 +198,21 @@ function DemoBanner() {
 }
 
 function LoginView({
+  site,
   notice,
   bootError,
   onRetrySession,
   onLoggedIn,
 }: {
+  site: SiteConfig | null
   notice: string | null
   bootError: ActionError | null
   onRetrySession: () => void
   onLoggedIn: (session: SessionPayload) => void
 }) {
+  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [nickname, setNickname] = useState('')
+  const [contacts, setContacts] = useState<Record<string, {value:string;visibility:string}>>({discord:{value:'',visibility:'private'},github:{value:'',visibility:'private'},line:{value:'',visibility:'private'},email:{value:'',visibility:'private'}})
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [pending, setPending] = useState(false)
@@ -194,7 +224,9 @@ function LoginView({
     setPending(true)
     setError(null)
     try {
-      const session = await client.login(email.trim(), password)
+      const session = mode === 'register'
+        ? await client.register({email:email.trim(),password,nickname:nickname.trim(),contacts:{...contacts,email:{...contacts.email,value:contacts.email.value||email.trim()}}})
+        : await client.login(email.trim(), password)
       if (!session?.user || !session.csrf_token) {
         throw new Error('登入回應不完整')
       }
@@ -208,15 +240,17 @@ function LoginView({
 
   return (
     <main className="login-layout">
-      <header className="login-brand">
+      <section className="login-story"><BrandPoster/><div className="login-story-copy"><p className="eyebrow">BUILD WITHOUT LIMITS</p><h1>找到你的定位。<br/>和夥伴一起，把想法做出來。</h1><p>加入專業公會，領取技能書。從供貨、開店到開源創作，每種專長都能成為起點。</p><div className="tag-list"><span>定位</span><span>公會</span><span>技能書</span><span>一起實現</span></div></div></section>
+      <div className="login-form-area"><header className="login-brand">
         <span className="mark" aria-hidden="true" />
         <div>
-          <p className="eyebrow">Freedom</p>
-          <h1>會員工作區</h1>
+          <p className="eyebrow">FREEDOM WORKSHOP</p>
+          <h2>自由工坊</h2>
         </div>
       </header>
       <section className="card login-card" aria-labelledby="login-heading">
-        <h2 id="login-heading">登入</h2>
+        <div className="auth-switch"><button type="button" className={mode==='login'?'selected':''} onClick={()=>{setMode('login');setError(null)}}>會員登入</button>{site?.registration_enabled&&<button type="button" className={mode==='register'?'selected':''} onClick={()=>{setMode('register');setError(null)}}>建立帳號</button>}</div>
+        <h2 id="login-heading">{mode==='register'?'加入自由工坊':'登入'}</h2>
         <p className="lede">找到你的方向，參與供貨、開店、開源作品與職業公會。</p>
         {notice && (
           <p className="banner banner-info" role="status">
@@ -228,6 +262,7 @@ function LoginView({
         )}
         {error && <ErrorPanel error={error} />}
         <form className="stack" onSubmit={(event) => void onSubmit(event)}>
+          {mode==='register'&&<label className="field"><span className="field-label">喜歡的暱稱</span><input name="nickname" required minLength={1} maxLength={60} autoComplete="nickname" value={nickname} onChange={event=>setNickname(event.target.value)} disabled={pending}/></label>}
           <label className="field">
             <span className="field-label">電子郵件</span>
             <input
@@ -245,18 +280,21 @@ function LoginView({
             <input
               name="password"
               type="password"
-              autoComplete="current-password"
+              autoComplete={mode==='register'?'new-password':'current-password'}
+              minLength={mode==='register'?12:undefined}
+              maxLength={128}
               required
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               disabled={pending}
             />
           </label>
+          {mode==='register'&&<><p className="field-hint">密碼至少 12 個字元，請妥善保存；目前尚未提供 E-mail 找回密碼。註冊後會先帶你完成定位與選擇公會。</p><details className="registration-contacts"><summary>社群帳號與公開範圍（選填）</summary><div className="stack">{([['email','聯絡 E-mail'],['discord','Discord 帳號'],['github','GitHub 帳號'],['line','LINE ID']] as const).map(([key,label])=><div key={key} className="contact-row"><label className="field">{label}<input type={key==='email'?'email':'text'} maxLength={key==='github'?39:key==='email'?200:100} value={contacts[key].value} onChange={e=>setContacts({...contacts,[key]:{...contacts[key],value:e.target.value}})}/></label><label className="field">{label}可見範圍<select aria-label={`${label}可見範圍`} value={contacts[key].visibility} onChange={e=>setContacts({...contacts,[key]:{...contacts[key],visibility:e.target.value}})}><option value="private">不公開</option><option value="public">平台公開</option><option value="friends">平台好友</option><option value="squad">小隊夥伴</option><option value="guild">公會夥伴</option></select></label></div>)}</div></details></>}
           <button className="btn btn-primary" type="submit" disabled={pending} aria-busy={pending}>
-            {pending ? '登入中…' : '登入'}
+            {pending ? (mode==='register'?'建立帳號中…':'登入中…') : (mode==='register'?'註冊並開始定位':'登入')}
           </button>
         </form>
-        <aside className="help-box" aria-label="示範帳號">
+        {site?.demo_accounts_enabled&&mode==='login'&&<aside className="help-box" aria-label="示範帳號">
           <p>
             示範帳號（虛構身分，不是真實人士）。密碼皆為 <code>{DEMO_PASSWORD}</code>。
           </p>
@@ -277,21 +315,26 @@ function LoginView({
               </button>
             ))}
           </div>
-        </aside>
-      </section>
+        </aside>}
+      </section></div>
+      <CommunityLinks/>
     </main>
   )
 }
 
 function Workspace({
+  site,
   session,
   onLoggedOut,
   onSessionExpired,
 }: {
+  site: SiteConfig | null
   session: SessionPayload
   onLoggedOut: () => void
   onSessionExpired: () => void
 }) {
+  const [headerMember,setHeaderMember]=useState<MemberCardData|null>(null)
+  useEffect(()=>{let active=true;const refresh=()=>{void client.get<MemberCardData>(`/members/${session.user.user_id}`).then(value=>{if(active)setHeaderMember(value)}).catch(()=>{})};refresh();window.addEventListener('freedom-profile-updated',refresh);return()=>{active=false;window.removeEventListener('freedom-profile-updated',refresh)}},[session.user.user_id])
   const [tab, setTab] = useState<TabId>(() => tabFromHash())
   const selectTab = useCallback((next: TabId) => {
     setTab(next)
@@ -367,7 +410,7 @@ function Workspace({
   return (
     <PortalContext.Provider value={value}>
       <div className="app-frame">
-        <DemoBanner />
+        {site?.demo_accounts_enabled && <DemoBanner />}
         <a className="skip" href="#main-content">
           跳到主要內容
         </a>
@@ -376,14 +419,15 @@ function Workspace({
             <div className="brand">
               <span className="mark" aria-hidden="true" />
               <div>
-                <p className="eyebrow">Freedom</p>
-                <strong>會員工作區</strong>
+                <p className="eyebrow">FREEDOM WORKSHOP</p>
+                <strong>自由工坊</strong>
               </div>
             </div>
             <nav className="nav" aria-label="主要工作區">
               <TabButton current={tab} id="home" onSelect={selectTab}>會員首頁</TabButton>
               <TabButton current={tab} id="positioning" onSelect={selectTab}>我的定位</TabButton>
               <TabButton current={tab} id="guilds" onSelect={selectTab}>職業公會</TabButton>
+              <TabButton current={tab} id="squads" onSelect={selectTab}>小隊集合</TabButton>
               <span className="nav-group-label">參與平台</span>
               <TabButton current={tab} id="supplier" onSelect={selectTab}>供貨中心</TabButton>
               <TabButton current={tab} id="retail" onSelect={selectTab}>開店與銷售</TabButton>
@@ -393,6 +437,7 @@ function Workspace({
               <TabButton current={tab} id="workbench" onSelect={selectTab}>我的工作</TabButton>
               <TabButton current={tab} id="showcase" onSelect={selectTab}>一般作品與需求</TabButton>
               <TabButton current={tab} id="engagement" onSelect={selectTab}>合作紀錄</TabButton>
+              <TabButton current={tab} id="community" onSelect={selectTab}>自由工坊社群</TabButton>
             </nav>
             <p className="sidebar-note">不同專長，各自發展。<br />需要合作時，在這裡相遇。</p>
           </aside>
@@ -401,12 +446,12 @@ function Workspace({
               <div>
                 <h1>{tabTitle(tab)}</h1>
                 <p className="muted">
-                  {session.user.display_name} · {session.user.email}
+                  {headerMember?.nickname??session.user.display_name}{headerMember?.positioning_title?` · ${headerMember.positioning_title}`:' · 自由工坊會員'}{headerMember?.primary_guild?` · ${headerMember.primary_guild.name}`:''}
                 </p>
               </div>
-              <button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
+              <div className="topbar-actions"><button className="btn btn-ghost" type="button" onClick={()=>selectTab('account')}>我的名片</button><button className="btn btn-ghost" type="button" onClick={()=>selectTab('members')}>工坊夥伴</button><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
                 登出
-              </button>
+              </button></div>
             </header>
             {error && (
               <ErrorPanel
@@ -414,6 +459,10 @@ function Workspace({
                 onReload={() => window.location.reload()}
               />
             )}
+            {tab === 'account' && <AccountPanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'members' && <MembersPanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'community' && <CommunityPanel client={client} />}
+            {tab === 'squads' && <SquadsPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'workbench' && <WorkbenchPanel />}
             {tab === 'showcase' && <ShowcasePanel />}
             {tab === 'engagement' && <EngagementPanel />}
@@ -436,6 +485,7 @@ function tabTitle(tab: TabId): string {
 }
 
 const TAB_TITLES: Record<TabId, string> = {
+  account:'我的名片', members:'工坊夥伴', community:'自由工坊社群', squads:'小隊集合',
   home: '會員首頁', positioning: '我的定位', guilds: '職業公會', supplier: '供貨中心', retail: '開店與銷售',
   opensource: '開源作品', marketing: '行銷工作室', workbench: '工作台', showcase: '一般作品與需求', engagement: '合作紀錄',
 }

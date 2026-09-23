@@ -69,7 +69,7 @@ try {
 
   const modules = [
     ['我的定位', '我的定位', 'positioning', ['/me/positioning']],
-    ['職業公會', '職業公會', 'guilds', ['/guilds']],
+    ['職業公會', '職業公會', 'guilds', ['/guilds/directory']],
     ['供貨中心', '供貨中心', 'supplier', ['/supplier/products', '/supplier/requests']],
     ['開店與銷售', '開店與銷售', 'retail', ['/retail/catalog', '/retail/stores', '/retail/listings']],
     ['開源作品', '開源作品', 'opensource', ['/opensource/projects']],
@@ -89,7 +89,7 @@ try {
     await expect(page.getByRole('alert')).toHaveCount(0);
     if (file === 'opensource') await expect(page.getByRole('article', { name: /^開源作品：/ })).toHaveCount(data[0].body.items.length);
     if (file === 'marketing') await expect(page.getByRole('article', { name: /^行銷活動：/ })).toHaveCount(data[0].body.items.length);
-    if (file === 'guilds') await expect(page.getByRole('article')).toHaveCount(data[0].body.items.length);
+    if (file === 'guilds') await expect(page.getByText('公會長：待任命', { exact: false }).first()).toBeVisible();
     await page.screenshot({ path: join(evidence, `staging-${file}.png`), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${file} mobile overflow`).toBe(true);

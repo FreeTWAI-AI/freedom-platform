@@ -1,10 +1,11 @@
-export type FreedomEnv = 'local' | 'staging';
+export type FreedomEnv = 'local' | 'staging' | 'public';
 
 export function resolveFreedomEnv(raw = process.env.FREEDOM_ENV): FreedomEnv {
   const v = (raw ?? 'local').trim().toLowerCase();
   if (v === 'staging') return 'staging';
+  if (v === 'public') return 'public';
   if (v === 'local' || v === '') return 'local';
-  throw new Error(`Unsupported FREEDOM_ENV=${raw}. Use local or staging (production is not enabled).`);
+  throw new Error(`Unsupported FREEDOM_ENV=${raw}. Use local, staging or public.`);
 }
 
 export function assertOriginAllowed(env: FreedomEnv, origin: string): void {
@@ -24,10 +25,10 @@ export function assertOriginAllowed(env: FreedomEnv, origin: string): void {
     return;
   }
   if (url.protocol !== 'https:') {
-    throw new Error('APP_ORIGIN must be https when FREEDOM_ENV=staging.');
+    throw new Error('APP_ORIGIN must be https outside local mode.');
   }
-  if (['127.0.0.1', 'localhost'].includes(url.hostname)) {
-    throw new Error('APP_ORIGIN must be a non-loopback https host when FREEDOM_ENV=staging.');
+  if (['localhost','[::1]','[::]','0.0.0.0'].includes(url.hostname)||/^127\./.test(url.hostname)||/^\[::ffff:7f[0-9a-f]{2}:[0-9a-f]{1,4}\]$/i.test(url.hostname)) {
+    throw new Error('APP_ORIGIN must be a non-loopback https host outside local mode.');
   }
 }
 

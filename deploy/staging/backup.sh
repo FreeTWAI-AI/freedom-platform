@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 umask 077
-backup_dir="${XDG_STATE_HOME:-$HOME/.local/state}/freedom-staging/backups"
+backup_scope="${FREEDOM_BACKUP_SCOPE:-freedom-staging}"
+[[ "$backup_scope" =~ ^freedom-(staging|public)$ ]] || { printf 'Invalid backup scope\n' >&2; exit 1; }
+backup_dir="${XDG_STATE_HOME:-$HOME/.local/state}/$backup_scope/backups"
 mkdir -p "$backup_dir"
 backup_file="$backup_dir/freedom-$(date -u +%Y%m%dT%H%M%SZ)-$$.dump"
 partial_file="$backup_file.partial"

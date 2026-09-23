@@ -1,0 +1,19 @@
+[Unit]
+Description=Freedom Workshop public member platform
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.local/share/freedom-public/current
+EnvironmentFile=%h/.config/freedom-public/app.env
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStartPre=/usr/bin/docker compose -f compose.yaml -f deploy/staging/compose.override.yaml up -d --wait postgres
+ExecStart=/usr/bin/node --import tsx apps/platform-api/src/server.ts
+Restart=always
+RestartSec=5
+TimeoutStartSec=120
+TimeoutStopSec=30
+UMask=0077
+
+[Install]
+WantedBy=default.target

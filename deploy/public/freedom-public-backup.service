@@ -1,0 +1,10 @@
+[Unit]
+Description=Back up Freedom public membership database locally
+After=freedom-public.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/.local/share/freedom-public/current
+EnvironmentFile=%h/.config/freedom-public/app.env
+ExecStart=/bin/bash deploy/staging/backup.sh
+UMask=0077

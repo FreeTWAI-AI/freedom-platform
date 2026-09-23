@@ -2,6 +2,8 @@
 
 > 狀態：現行 canonical baseline（2026-09-19 低維運互惠修訂）；planning 文件，不代表已部署。
 
+> 2026-09-23 會員入口修訂：Ted 明示新註冊會員必須完成重新設計的定位，再選主力公會、領技能書、進入平台。這項指示取代本 planning baseline 對新會員的 optional assessment／可略過入口；保留本人選擇公會、無診斷／資格推定、平台不過手錢等邊界。實作與其餘本輪決定見 [會員入口修訂](../development/member-onboarding-release.md)。
+
 日期：2026-09-19
 代號：`SRC-CURRENT`
 

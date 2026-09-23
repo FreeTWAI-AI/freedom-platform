@@ -80,13 +80,17 @@ export class PortalClient {
     )
   }
 
+  async register(body: {email:string;password:string;nickname:string;contacts:Record<string,{value:string;visibility:string}>}): Promise<SessionPayload> {
+    return this.post<SessionPayload>('/auth/register', body, { skipAuthHandler:true })
+  }
+
   async logout(idempotencyKey: string): Promise<void> {
     await this.post('/auth/logout', {}, { idempotencyKey })
   }
 
   private async request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
     const headers: Record<string, string> = { Accept: 'application/json' }
-    const isLogin = method === 'POST' && path === '/auth/login'
+    const isLogin = method === 'POST' && (path === '/auth/login' || path === '/auth/register')
     const needsCsrf = method !== 'GET' && !isLogin
 
     if (options.body !== undefined) {

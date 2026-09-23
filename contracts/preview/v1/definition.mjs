@@ -17,7 +17,7 @@ export const schemas={
  Protocol:object({protocol:{const:'freedom.preview/v1'},revision:str(30),protocol_sha256:{type:'string',pattern:'^[a-f0-9]{64}$'},operations:array(str(100)),authentication:{const:'member_session_csrf'},external_job_execution:{const:false},public_checkout:{const:false}},undefined,true),
  Empty:object({}),
  Problem:object({type:str(),title:str(),status:integer(400,599),code:str(100),detail:str(20000,0)},undefined,true),
- Health:object({status:{const:'ok'},mode:{enum:['local','staging']},version:str(100),money_movement_enabled:{const:false},official:{const:false}},undefined,true),
+ Health:object({status:{const:'ok'},mode:{enum:['local','staging','public']},version:str(100),money_movement_enabled:{const:false},official:{const:false}},undefined,true),
  Login:object({email:str(200),password:str(200)}),
  Session:object({user:object({user_id:uuid,email:str(200),display_name:str(200)},undefined,true),csrf_token:str(200)},undefined,true),
  LoggedOut:object({logged_out:{const:true}}),
@@ -74,4 +74,4 @@ op('refreshProject','POST','/opensource/projects/{id}:refresh','Project','Empty'
 op('listCampaigns','GET','/marketing/campaigns','CampaignList');op('createCampaign','POST','/marketing/campaigns','Campaign','CampaignInput','none',201);
 op('reviseCampaign','POST','/marketing/campaigns/{id}:revise','Campaign','CampaignMetadata','required');op('recordShare','POST','/marketing/campaigns/{id}/shares','Campaign','ShareInput','required',201);
 op('listWorks','GET','/work-items','WorkList');op('getDashboard','GET','/dashboard','Dashboard');
-export const protocol={version:'freedom.preview/v1',revision:'0.2.0',api_prefix:'/api/v1',operations,schemas,auth:'member_session_csrf',external_job_execution:false,public_checkout:false};
+export const protocol={version:'freedom.preview/v1',revision:'0.3.0',api_prefix:'/api/v1',operations,schemas,auth:'member_session_csrf',external_job_execution:false,public_checkout:false};

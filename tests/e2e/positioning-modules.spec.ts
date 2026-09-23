@@ -18,5 +18,5 @@ test('positioning remains usable at phone width and reports unavailable API hone
   await expect(page.getByRole('heading',{name:'我的方向卡',exact:true})).toBeVisible();
   const dimensions=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.width);
   await page.screenshot({path:'test-results/positioning-phone.png',fullPage:true});
-  await page.route('**/api/v1/guilds',r=>r.abort());await page.getByRole('button',{name:'職業公會',exact:true}).click();await expect(page.getByRole('alert')).toContainText('無法連線');
+  await page.route('**/api/v1/guilds/directory',r=>r.abort());await page.getByRole('button',{name:'職業公會',exact:true}).click();await expect(page.getByRole('alert')).toContainText('無法連線');
 });

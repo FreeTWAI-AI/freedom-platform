@@ -1,0 +1,261 @@
+// Live public deployment verification. Creates exactly one clearly synthetic member.
+// The operator must deactivate that member afterward using the private run record.
+// No database credentials, demo users, Cloudflare changes, or business writes.
+import { chromium, request, expect } from '@playwright/test';
+import { randomUUID, randomBytes } from 'node:crypto';
+import { mkdir, chmod, readFile, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
+const target = new URL(process.env.FREEDOM_PUBLIC_ORIGIN ?? 'https://freetwai.com');
+if (target.protocol !== 'https:' || target.username || target.password || target.pathname !== '/' || target.search || target.hash) {
+  throw new Error('FREEDOM_PUBLIC_ORIGIN must be a plain HTTPS origin.');
+}
+const origin = target.origin;
+const evidence = join(homedir(), '.local/state/freedom-public/verification');
+await mkdir(evidence, { recursive: true, mode: 0o700 });
+await chmod(evidence, 0o700);
+const runId = randomUUID();
+const accountFile = join(evidence, 'verification-account.json');
+const runFile = join(evidence, `verification-account-${runId}.json`);
+const email = `verification-${runId}@example.invalid`;
+const nickname = `部署驗證・測試帳號 ${runId.slice(0, 8)}`;
+const password = randomBytes(36).toString('base64url');
+const privateContact = `deployment.verify.${runId.slice(0, 8)}`;
+const secrets = [password];
+const errors = [];
+const redact = value => secrets.reduce((text, secret) => secret ? text.split(secret).join('[REDACTED]') : text, String(value));
+const record = {
+  run_id: runId,
+  origin,
+  started_at: new Date().toISOString(),
+  user_id: null,
+  email,
+  nickname,
+  synthetic: true,
+  purpose: 'public deployment verification; deactivate this synthetic member after verification',
+  status: 'not_registered',
+  cleanup_required: false,
+  completed_at: null,
+};
+let previousAccounts = [];
+try {
+  const previous = JSON.parse(await readFile(accountFile, 'utf8'));
+  previousAccounts = Array.isArray(previous.created_accounts)
+    ? previous.created_accounts
+    : previous.user_id ? [{ run_id: previous.run_id, user_id: previous.user_id, email: previous.email }] : [];
+} catch (error) {
+  if (error?.code !== 'ENOENT') throw new Error('Existing private verification-account.json could not be read; preserve it and inspect before another run.');
+}
+async function privateJson(path, value) {
+  await writeFile(path, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 });
+  await chmod(path, 0o600);
+}
+async function saveRecord() {
+  const own = record.user_id ? [{ run_id: runId, user_id: record.user_id, email }] : [];
+  await privateJson(runFile, record);
+  await privateJson(accountFile, { ...record, created_accounts: [...previousAccounts, ...own] });
+}
+await saveRecord();
+const anonymous = await request.newContext({ timeout: 30000, ignoreHTTPSErrors: false });
+let browser;
+let context;
+let page;
+let stage = 'anonymous site';
+async function screenshot(name) {
+  const path = join(evidence, name);
+  await page.screenshot({ path, fullPage: true });
+  await chmod(path, 0o600);
+}
+async function noOverflow(label) {
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), label).toBe(true);
+}
+async function noVisibleError() {
+  await expect(page.getByRole('alert')).toHaveCount(0);
+}
+try {
+  const landing = await anonymous.get(origin, { maxRedirects: 0 });
+  expect(landing.status(), 'Public landing must load directly without an Access redirect').toBe(200);
+  expect(landing.headers().location ?? '', 'Public landing must not redirect to Access').not.toContain('cloudflareaccess.com');
+  const siteResponse = await anonymous.get(origin + '/api/v1/site', { maxRedirects: 0 });
+  expect(siteResponse.status()).toBe(200);
+  const site = await siteResponse.json();
+  expect(site).toMatchObject({ brand: '自由工坊', public_mode: true, registration_enabled: true, demo_accounts_enabled: false });
+  const brandResponse = await anonymous.get(origin + '/brand/freedom-workshop.webp', { maxRedirects: 0 });
+  expect(brandResponse.status()).toBe(200);
+  expect(brandResponse.headers()['content-type']).toContain('image/');
+  expect((await brandResponse.body()).byteLength).toBeGreaterThan(1000);
+  expect((await anonymous.get(origin + '/api/v1/session', { maxRedirects: 0 })).status()).toBe(401);
+  console.log('Public HTTPS landing, site configuration, anonymous boundary and brand asset: PASS');
+
+  browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH } : {}) });
+  context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, ignoreHTTPSErrors: false });
+  page = await context.newPage();
+  page.setDefaultTimeout(20000);
+  page.on('pageerror', error => errors.push(redact(error.message)));
+  await page.goto(origin, { waitUntil: 'networkidle' });
+  expect(new URL(page.url()).origin).toBe(origin);
+  await expect(page.locator('.demo-banner')).toHaveCount(0);
+  await expect(page.getByRole('complementary', { name: '示範帳號' })).toHaveCount(0);
+  await expect(page.locator('.brand-poster img')).toBeVisible();
+  expect(await page.locator('.brand-poster img').evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true);
+  await screenshot('public-landing-desktop.png');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await noOverflow('Anonymous mobile landing overflow');
+  await screenshot('public-landing-mobile.png');
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
+  stage = 'registration';
+  await page.getByRole('button', { name: '建立帳號', exact: true }).click();
+  await page.getByLabel('喜歡的暱稱', { exact: true }).fill(nickname);
+  await page.getByLabel('電子郵件', { exact: true }).fill(email);
+  await page.getByLabel('密碼', { exact: true }).fill(password);
+  const registrationPromise = page.waitForResponse(response => response.url() === origin + '/api/v1/auth/register' && response.request().method() === 'POST');
+  // Preserve an exact synthetic email even when a connection dies after the server creates the account.
+  record.status = 'registration_attempted';
+  record.cleanup_required = true;
+  await saveRecord();
+  await page.getByRole('button', { name: '註冊並開始定位', exact: true }).click();
+  const registration = await registrationPromise;
+  expect(registration.status(), 'Synthetic member registration').toBe(201);
+  const registered = await registration.json();
+  if (typeof registered.csrf_token === 'string') secrets.push(registered.csrf_token);
+  const registeredId = registered.user?.user_id;
+  if (typeof registeredId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(registeredId)) {
+    throw new Error('Registration did not provide a valid cleanup user ID.');
+  }
+  record.user_id = registeredId;
+  record.status = 'registered';
+  await saveRecord();
+  const sessionCookie = (await context.cookies(origin)).find(cookie => cookie.name === 'freedom_local_session');
+  if (sessionCookie) secrets.push(sessionCookie.value);
+  expect(Boolean(sessionCookie?.secure && sessionCookie?.httpOnly && sessionCookie?.sameSite === 'Strict'), 'HTTPS session must be Secure, HttpOnly and SameSite Strict').toBe(true);
+  await expect(page.getByRole('heading', { name: '你從哪裡來，帶著哪些能力？', exact: true })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: '主要工作區' })).toHaveCount(0);
+  const blocked = await page.request.get(origin + '/api/v1/retail/catalog');
+  expect(blocked.status()).toBe(403);
+  expect((await blocked.json()).code).toBe('onboarding_required');
+  expect((await page.request.get(origin + '/api/v1/members')).status()).toBe(403);
+  await page.goto(origin + '/#retail', { waitUntil: 'networkidle' });
+  await expect(page.getByRole('heading', { name: '你從哪裡來，帶著哪些能力？', exact: true })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: '主要工作區' })).toHaveCount(0);
+  console.log('Real signup, secure session and server-enforced pre-onboarding access denial: PASS');
+
+  stage = 'mandatory orientation';
+  await page.getByLabel('你的職業／目前身分').fill('部署驗證用合成測試帳號');
+  await page.getByLabel('剛開始探索，想從基礎學起', { exact: true }).check();
+  await page.getByRole('button', { name: '保存，繼續下一步 →', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '你的裝備庫', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '保存，繼續下一步 →', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '你喜歡怎麼做事？', exact: true })).toBeVisible();
+  await expect(page.locator('.quiz-question')).toHaveCount(6);
+  for (const field of await page.locator('.quiz-question').all()) await field.getByRole('radio').first().check();
+  await page.getByRole('button', { name: '保存，繼續下一步 →', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '遇到這些情境，你會怎麼做？', exact: true })).toBeVisible();
+  await expect(page.locator('.quiz-question')).toHaveCount(6);
+  for (const field of await page.locator('.quiz-question').all()) await field.getByRole('radio').first().check();
+  await page.getByRole('button', { name: '看看適合我的公會', exact: true }).click();
+  await expect(page.locator('.recommendation-card')).toHaveCount(3);
+  const recommendation = page.locator('.recommendation-card').first();
+  await recommendation.getByRole('checkbox').check();
+  await recommendation.getByRole('radio').check();
+  await page.getByRole('button', { name: '確認加入公會，領取技能書', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '你的第一段旅程，現在開始。', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: '閱讀技能書 ↗', exact: true }).first()).toBeVisible();
+  await screenshot('public-onboarding-completed.png');
+  await page.getByRole('button', { name: '進入自由工坊 →', exact: true }).click();
+  await expect(page.getByRole('navigation', { name: '主要工作區' })).toBeVisible();
+  await expect(page.locator('.demo-banner')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: '會員首頁', exact: true })).toBeVisible();
+  const completed = await page.request.get(origin + '/api/v1/me/onboarding');
+  expect(completed.status()).toBe(200);
+  const onboarding = await completed.json();
+  expect(onboarding.completed).toBe(true);
+  expect(onboarding.required).toBe(false);
+  expect(typeof onboarding.primary_guild_key).toBe('string');
+  expect(onboarding.skill_books.length).toBeGreaterThan(0);
+  record.status = 'orientation_completed';
+  await saveRecord();
+  await screenshot('public-member-home-desktop.png');
+  console.log('Full preference and ability assessment, explicit primary Guild and skill-book grants: PASS');
+
+  stage = 'member card and privacy';
+  await page.getByRole('button', { name: '我的名片', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '我的會員名片', exact: true })).toBeVisible();
+  await page.getByLabel('Discord 帳號', { exact: true }).fill(privateContact);
+  await page.getByRole('combobox', { name: 'Discord 帳號可見範圍', exact: true }).selectOption('private');
+  await page.getByRole('button', { name: '保存個人資料與公開範圍', exact: true }).click();
+  await expect(page.getByText('個人資料與每一項聯絡方式的可見範圍已保存。', { exact: true })).toBeVisible();
+  const accountResponse = await page.request.get(origin + '/api/v1/me/account');
+  expect(accountResponse.status()).toBe(200);
+  const account = await accountResponse.json();
+  expect(account.contacts.discord.value === privateContact && account.contacts.discord.visibility === 'private').toBe(true);
+  const selfResponse = await page.request.get(origin + '/api/v1/members/' + record.user_id);
+  expect(selfResponse.status()).toBe(200);
+  const self = await selfResponse.json();
+  expect(self.nickname === nickname && self.primary_guild?.guild_key === onboarding.primary_guild_key).toBe(true);
+  expect(typeof self.positioning_title).toBe('string');
+  expect(self.capabilities).toContain('getting_started');
+  await noVisibleError();
+  await screenshot('public-member-card-desktop.png');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await noOverflow('Member card mobile overflow');
+  await screenshot('public-member-card-mobile.png');
+  await page.getByRole('button', { name: '職業公會', exact: true }).click();
+  await expect(page.locator('.primary-guild')).toHaveCount(1);
+  await expect(page.locator('.primary-guild')).toContainText('公會長：');
+  await noVisibleError();
+  await noOverflow('Guild mobile overflow');
+  await screenshot('public-guilds-mobile.png');
+  await expect(page.getByRole('button', { name: '我的名片', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '工坊夥伴', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '工坊夥伴', exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: '正在尋找工坊夥伴' })).toHaveCount(0);
+  await noVisibleError();
+  await noOverflow('Member directory mobile overflow');
+  // No directory screenshot: preserve only this run's synthetic member and generic public surfaces.
+  console.log('Own member card, private contact persistence, Guild identity and responsive member navigation: PASS');
+
+  stage = 'logout and fresh login';
+  await page.getByRole('button', { name: '登出', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
+  expect((await page.request.get(origin + '/api/v1/session')).status()).toBe(401);
+  await page.getByLabel('電子郵件', { exact: true }).fill(email);
+  await page.getByLabel('密碼', { exact: true }).fill(password);
+  await page.getByRole('button', { name: '登入', exact: true }).click();
+  await expect(page.getByRole('navigation', { name: '主要工作區' })).toBeVisible();
+  await expect(page.locator('.demo-banner')).toHaveCount(0);
+  const renewedCookie = (await context.cookies(origin)).find(cookie => cookie.name === 'freedom_local_session');
+  if (renewedCookie) secrets.push(renewedCookie.value);
+  expect(Boolean(renewedCookie?.secure && renewedCookie?.httpOnly && renewedCookie?.sameSite === 'Strict')).toBe(true);
+  await page.getByRole('button', { name: '我的名片', exact: true }).click();
+  await expect(page.getByLabel('Discord 帳號', { exact: true })).toHaveValue(privateContact);
+  await expect(page.getByRole('combobox', { name: 'Discord 帳號可見範圍', exact: true })).toHaveValue('private');
+  await page.reload({ waitUntil: 'networkidle' });
+  await expect(page.getByLabel('Discord 帳號', { exact: true })).toHaveValue(privateContact);
+  await noVisibleError();
+  await noOverflow('Reloaded mobile account overflow');
+  await page.getByRole('button', { name: '登出', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
+  expect((await page.request.get(origin + '/api/v1/session')).status()).toBe(401);
+  expect(errors.length, 'Browser JavaScript errors').toBe(0);
+  await privateJson(join(evidence, 'page-errors.json'), errors);
+  record.status = 'passed';
+  record.completed_at = new Date().toISOString();
+  await saveRecord();
+  console.log('Fresh HTTPS login, reload persistence, final logout and no browser errors: PASS');
+  console.log('Private evidence and synthetic-account cleanup record saved: PASS');
+} catch (error) {
+  record.status = 'failed';
+  record.failed_stage = stage;
+  await saveRecord();
+  await privateJson(join(evidence, `failure-${runId}.json`), { stage, error: redact(error?.stack ?? error), page_errors: errors, occurred_at: new Date().toISOString() });
+  if (page) await screenshot(`failure-${runId}.png`).catch(() => {});
+  // Playwright exceptions can contain typed input values. Never print their text or stack.
+  console.error(`Public deployment verification failed during ${stage}; inspect the private evidence and clean up the recorded synthetic account.`);
+  process.exitCode = 1;
+} finally {
+  await context?.close();
+  await browser?.close();
+  await anonymous.dispose();
+}
