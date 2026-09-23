@@ -114,8 +114,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Community.tsx",
-      "bytes": 4628,
-      "sha256": "07c99961a8d0ff9071abe640afa6f570fb1d0d51a33a22b34c6ec568759b9f1f"
+      "bytes": 5301,
+      "sha256": "2dc32f18c1093e61d5e22373c49d63a4aa36c5919780deffd3dd9a90193c6855"
     },
     {
       "path": "apps/portal-web/src/modules/MemberHome.tsx",
@@ -1509,8 +1509,8 @@
     },
     {
       "path": "repositories.lock.json",
-      "bytes": 1176,
-      "sha256": "afe3a89d113639482de41232f9702468f1679300d0a9b4975922d5959651b1cf"
+      "bytes": 1307,
+      "sha256": "9c3fa41224f3daacbf09b6151d3652706d09c334219e9df4e999e5a32b22ef06"
     },
     {
       "path": "scripts/bootstrap-public.ts",
