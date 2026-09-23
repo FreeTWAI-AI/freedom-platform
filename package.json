@@ -19,7 +19,9 @@
     "test": "tsx --test --test-concurrency=1 tests/runtime/*.test.ts",
     "test:e2e": "playwright test",
     "test:contracts": "python3 -m pytest -q -p no:cacheprovider docs/platform-plan/contracts/tests docs/platform-plan/execution/tools/tests",
-    "verify:inventory": "python3 docs/platform-plan/verification/verify_revision.py"
+    "verify:inventory": "python3 docs/platform-plan/verification/verify_revision.py",
+    "contracts:build": "node scripts/build-contract-bundle.mjs",
+    "test:repos": "tsx --test --test-concurrency=1 tests/integration/repositories.test.ts"
   },
   "dependencies": {
     "@hono/node-server": "2.1.1",

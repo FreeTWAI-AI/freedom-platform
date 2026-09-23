@@ -12,6 +12,7 @@ import { allowedBrowserOrigins, allowedRequestHosts, type FreedomEnv } from './e
 import { createPositioningRoutes } from './routes/positioning.js';
 import { createCommerceRoutes } from './routes/commerce.js';
 import { createOpenSourceRoutes } from './routes/opensource.js';
+import protocolMetadata from '../../../contracts/preview/v1/metadata.json' with { type: 'json' };
 
 const COOKIE='freedom_local_session';
 // PostgreSQL bigint stays lossless internally; canonical AggregateVersion is a JSON safe integer.
@@ -56,6 +57,7 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
     }
   });
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:'0.2.0-modules-preview',money_movement_enabled:false,official:false}));
+  app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
   app.post('/api/v1/auth/login',async c=>{
     const body=z.object({email:z.email().max(200),password:z.string().min(1).max(200)}).strict().parse(await c.req.json());
     const result=await login(pool,body.email,body.password);

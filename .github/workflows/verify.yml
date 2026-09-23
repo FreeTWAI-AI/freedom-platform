@@ -35,6 +35,8 @@ jobs:
       - run: npm ci
       - run: python -m pip install -r docs/platform-plan/contracts/tests/requirements-static.txt
       - run: npx playwright install --with-deps chromium
+      - run: npm run contracts:build
+      - run: git diff --exit-code -- contracts/preview/v1 packages/sdk
       - run: npm run typecheck
       - run: npm run build
       - run: npm test
