@@ -1,5 +1,5 @@
 {
-  "version": "0.9.3-guild-appointments",
+  "version": "0.9.4-onboarding-recovery",
   "scope": "source files, including historical evidence; excludes self, secrets, dependencies, build and test artifacts",
   "files": [
     {
@@ -39,13 +39,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 8450,
-      "sha256": "e35e45717943e0ebbf20d9acac15cad7053279003beeb7d0a55d4394b1f4cae9"
+      "bytes": 8451,
+      "sha256": "2f581f0d52294a46e14fceca772a373f5e3bb48973bee98bee480ca35a21a910"
     },
     {
       "path": "apps/platform-api/src/app.ts",
-      "bytes": 14494,
-      "sha256": "5ecaa87dc8b632f980a346fd982f72126fd2220777d05f18747e8e75e19e5c5b"
+      "bytes": 14624,
+      "sha256": "a91e3b73c20895f821e1957ac753db988a85d5478c6be9f662ef18d7ba8f7d18"
     },
     {
       "path": "apps/platform-api/src/env.ts",
@@ -56,6 +56,11 @@
       "path": "apps/platform-api/src/module-context.ts",
       "bytes": 841,
       "sha256": "2f33e9e08663e8c915d45e728f41595012510231b70ae4cb84ac2d100b3cc114"
+    },
+    {
+      "path": "apps/platform-api/src/onboarding-diagnostics.ts",
+      "bytes": 1213,
+      "sha256": "98acf574f7a73ca7da86746ed485d3969f75699fbe66ecaecec2fc6df2d2dbfa"
     },
     {
       "path": "apps/platform-api/src/routes/admin.ts",
@@ -294,8 +299,8 @@
     },
     {
       "path": "apps/portal-web/src/api.ts",
-      "bytes": 6090,
-      "sha256": "d0922d71a4604f2dfce68e7ae76479c1d3aaa7d767d534d58dba92a63038a001"
+      "bytes": 8915,
+      "sha256": "1ab86b33ee670fb54c00dc7777b0f6003748a448c4dfa635cfd2fbe707a6f509"
     },
     {
       "path": "apps/portal-web/src/format.ts",
@@ -474,8 +479,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Onboarding.tsx",
-      "bytes": 16674,
-      "sha256": "a907a0ac09a3a3c1ee1abd382cbd41e0ad728f699031593829f55530255e4993"
+      "bytes": 20120,
+      "sha256": "ef02913008a2f44073a5c4729ff02f49e022431fcd38a2ceb1b2f0c252d015c2"
     },
     {
       "path": "apps/portal-web/src/modules/OpenSourcePanels.tsx",
@@ -774,8 +779,8 @@
     },
     {
       "path": "docs/development/onboarding-api.md",
-      "bytes": 10564,
-      "sha256": "439f5f297c365f5b32774de5ac9dc342ce9977f96b62753c628c73baaae76191"
+      "bytes": 11920,
+      "sha256": "ad9225b9220a6d8257925b6be941a3c796ba1d4de68863748673396b3e3ca1ae"
     },
     {
       "path": "docs/development/operating-validation.md",
@@ -794,8 +799,8 @@
     },
     {
       "path": "docs/development/public-operations.md",
-      "bytes": 3628,
-      "sha256": "598795c3186073499ab75a75fb40e8b21768881e10833e23d5d0ea369ba4bded"
+      "bytes": 5239,
+      "sha256": "654f23be8a2ca3c37ac072d19be3f88902223dbd76e15f026c4d50d8c024ed2c"
     },
     {
       "path": "docs/development/repository-guidance-index.json",
@@ -2109,13 +2114,13 @@
     },
     {
       "path": "package-lock.json",
-      "bytes": 83853,
-      "sha256": "278070aae3174f672662c65d790cad0f965d43f162853f341ff40bcbc553db21"
+      "bytes": 83855,
+      "sha256": "c5b3eecbfb0ed649b3d6501348166c89c652d73442176abcf34ecd2af458b5d5"
     },
     {
       "path": "package.json",
-      "bytes": 1630,
-      "sha256": "6e7e279e2c92167e15aac58a3a81417dd48dc24269320cc0621d2d458a654503"
+      "bytes": 1631,
+      "sha256": "e2bf84fb4cc386694239456262b347b6eb6973bdd244605b21cede6decf53c8b"
     },
     {
       "path": "packages/client-connections/cli.mjs",
@@ -2304,8 +2309,8 @@
     },
     {
       "path": "tests/e2e/guild-members.spec.ts",
-      "bytes": 14023,
-      "sha256": "010c8b51b28ed5a80d9951e90b036fefe66750d6e6bf56cdb4f108820b3ab68d"
+      "bytes": 14047,
+      "sha256": "0beafbe505f005928bebfa5b70b31a35b097ede8d0939d5a6a84e6774feacf67"
     },
     {
       "path": "tests/e2e/guild-workspace.spec.ts",
@@ -2319,8 +2324,8 @@
     },
     {
       "path": "tests/e2e/member-directory.spec.ts",
-      "bytes": 10652,
-      "sha256": "39df93ba3a68cb46584a2cc4ab79036e2e1ff26b78a62dcfbf6149130ac0b970"
+      "bytes": 10676,
+      "sha256": "852cd0874e649c692143af44389e929ac8a080e053b63635f0839551629e76c1"
     },
     {
       "path": "tests/e2e/modules-beginners.spec.ts",
@@ -2331,6 +2336,11 @@
       "path": "tests/e2e/onboarding-members.spec.ts",
       "bytes": 29020,
       "sha256": "7a523d54092b69dd0a65abedeb715a16b4b42fb3858147f43ecca7a698b4edcd"
+    },
+    {
+      "path": "tests/e2e/onboarding-recovery.spec.ts",
+      "bytes": 10968,
+      "sha256": "ff85fff7f59bc3c4ae17f2326d6ae5a97950f58515e7c095f9a06811b25a7a55"
     },
     {
       "path": "tests/e2e/opensource-modules.spec.ts",
@@ -2468,6 +2478,11 @@
       "sha256": "417ddcab0cecb3c8b66b40824c708c96425d5451534e13779d82179c7b6f60b1"
     },
     {
+      "path": "tests/runtime/onboarding-diagnostics.test.ts",
+      "bytes": 2946,
+      "sha256": "7da89a338f50dd985984cdbd0c9c7f805982f89138579aff49c54b827fa072da"
+    },
+    {
       "path": "tests/runtime/onboarding.test.ts",
       "bytes": 33731,
       "sha256": "347864d6dcb34c474042750eb5dc2d97b8be31fa8d5997184cb30ce314607efe"
@@ -2481,6 +2496,11 @@
       "path": "tests/runtime/platform-admin.test.ts",
       "bytes": 32157,
       "sha256": "5d9666b83a5e1af2b0567f712471bd34b6370fb582222385760bd5cdfc31eeef"
+    },
+    {
+      "path": "tests/runtime/portal-client-recovery.test.ts",
+      "bytes": 5791,
+      "sha256": "e8d153d8a908eac4f07fbe604242345907a48fa17cd434a452341d7ba7245cc1"
     },
     {
       "path": "tests/runtime/positioning.test.ts",

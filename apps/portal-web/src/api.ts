@@ -11,6 +11,9 @@ export class ApiError extends Error {
   readonly network: boolean
   readonly unauthorized: boolean
   readonly conflict: boolean
+  readonly timedOut: boolean
+  readonly cfRay?: string
+  readonly requestId?: string
 
   constructor(init: {
     message: string
@@ -20,6 +23,9 @@ export class ApiError extends Error {
     detail?: string
     code?: string
     network?: boolean
+    timedOut?: boolean
+    cfRay?: string
+    requestId?: string
   }) {
     super(init.message)
     this.name = 'ApiError'
@@ -29,6 +35,9 @@ export class ApiError extends Error {
     this.detail = init.detail
     this.code = init.code
     this.network = init.network ?? false
+    this.timedOut = init.timedOut ?? false
+    this.cfRay = init.cfRay
+    this.requestId = init.requestId
     this.unauthorized = this.status === 401
     this.conflict = this.status === 409 || this.status === 412 || this.code === 'conflict'
   }
@@ -47,18 +56,35 @@ function quoteEtag(version: number): string {
   return `"${trimmed}"`
 }
 
-function messageFromProblem(status: number, problem: ProblemDetails | null, fallback: string): string {
-  const title = problem?.title?.trim()
-  const detail = problem?.detail?.trim()
+function messageFromProblem(status: number, problem: ProblemDetails | null, mutation = false): string {
+  // Upstream outages may return an HTML page or a JSON wrapper with raw proxy text.
+  // Neither belongs in a member's form; keep the HTTP code on ApiError for recovery.
+  if (status >= 500) return `服務暫時無法回應（${status}）。${mutation?'尚未確認結果，請稍後重試。':'請稍後重試。'}`
+  const title = typeof problem?.title === 'string' ? problem.title.trim() : ''
+  const detail = typeof problem?.detail === 'string' ? problem.detail.trim() : ''
   if (title && detail) return `${title}：${detail}`
   if (detail) return detail
   if (title) return title
-  return fallback || `請求失敗（${status}）`
+  if (status === 401) return '登入已過期，請重新登入。'
+  if (status === 403) return '目前無法執行此操作，請重新確認登入狀態。'
+  return `請求未完成（${status}），請稍後重試。`
+}
+
+function cloudflareRay(response?: Response): string | undefined {
+  const value=response?.headers.get('cf-ray')?.trim()
+  return value&&/^[a-f0-9]{8,32}(?:-[a-z0-9]{2,12})?$/i.test(value)?value:undefined
+}
+
+function requestId(response?: Response): string | undefined {
+  const value=response?.headers.get('x-freedom-request-id')?.trim()
+  return value&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value)?value:undefined
 }
 
 export class PortalClient {
   csrfToken: string | null = null
   onUnauthorized: (() => void) | null = null
+
+  constructor(private readonly options: {timeoutMs?: number} = {}) {}
 
   async get<T>(path: string, options: { skipAuthHandler?: boolean } = {}): Promise<T> {
     return this.request<T>('GET', path, options)
@@ -108,52 +134,61 @@ export class PortalClient {
       headers['If-Match'] = quoteEtag(options.ifMatch)
     }
 
-    let response: Response
-    try {
+    const controller = new AbortController()
+    let response: Response | undefined
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new ApiError({
+          message: '連線等候過久，尚未確認結果。請稍後重試。',
+          status: response?.status, cfRay:cloudflareRay(response), requestId:requestId(response), network: true, timedOut: true,
+        }))
+        controller.abort()
+      }, this.options.timeoutMs ?? 20_000)
+    })
+    const operation = async () => {
       response = await fetch(`${API_BASE}${path}`, {
-        method,
-        headers,
-        credentials: 'same-origin',
+        method, headers, credentials: 'same-origin', signal: controller.signal,
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
       })
-    } catch {
-      throw new ApiError({
-        message: '無法連線到伺服器。請確認網路連線後再試，不會自動重送。',
-        network: true,
-      })
+      // A malformed or stalled error body must not suppress an actual 401.
+      if (response.status === 401 && !options.skipAuthHandler) {
+        this.csrfToken = null
+        this.onUnauthorized?.()
+      }
+      let payload: unknown
+      try { payload = await readJson(response) }
+      catch {
+        if (!response.ok) {
+          throw new ApiError({message: messageFromProblem(response.status, null, method !== 'GET'), status: response.status, cfRay:cloudflareRay(response), requestId:requestId(response), network: response.status >= 500 && method !== 'GET'})
+        }
+        throw new ApiError({message:'回應未完整收到，尚未確認結果。請稍後重試。', status: response.status, cfRay:cloudflareRay(response), requestId:requestId(response), network:true})
+      }
+      if (!response.ok) {
+        const problem = isProblem(payload) ? payload : null
+        const serverFailure = response.status >= 500
+        throw new ApiError({
+          message: messageFromProblem(response.status, problem, method !== 'GET'), status: response.status, cfRay:cloudflareRay(response), requestId:requestId(response),
+          type: serverFailure ? undefined : problem?.type,
+          title: serverFailure ? undefined : problem?.title,
+          detail: serverFailure ? undefined : problem?.detail,
+          code: serverFailure ? undefined : problem?.code, network: serverFailure && method !== 'GET',
+        })
+      }
+      return payload as T
     }
-
-    let payload: unknown
-    try { payload = await readJson(response) }
-    catch {
-      throw new ApiError({message:'回應未完整收到，操作結果尚未確認。請重新整理或用同一操作重試。',network:method!=='GET'})
-    }
-
-    if (response.status === 401 && !options.skipAuthHandler) {
-      this.csrfToken = null
-      this.onUnauthorized?.()
-    }
-
-    if (!response.ok) {
-      const problem = isProblem(payload) ? payload : null
-      throw new ApiError({
-        message: messageFromProblem(response.status, problem, response.statusText),
-        status: response.status,
-        type: problem?.type,
-        title: problem?.title,
-        detail: problem?.detail,
-        code: problem?.code,
-        network: response.status >= 500 && method !== 'GET',
-      })
-    }
-
-    return payload as T
+    try { return await Promise.race([operation(), timeout]) }
+    catch (cause) {
+      if (cause instanceof ApiError) throw cause
+      throw new ApiError({message:'無法連線到伺服器，尚未確認結果。請確認網路後重試。', status: response?.status, cfRay:cloudflareRay(response), requestId:requestId(response), network:true})
+    } finally { clearTimeout(timer) }
   }
+
 }
 
 async function readJson(response: Response): Promise<unknown> {
   const text = await response.text()
-  if (!text) return null
+  if (!text && (response.status === 204 || response.status === 205)) return null
   try {
     return JSON.parse(text) as unknown
   } catch {

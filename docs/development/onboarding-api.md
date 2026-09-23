@@ -2,6 +2,16 @@
 
 All paths below are under `/api/v1`; authenticated writes use CSRF, `Idempotency-Key`, and `If-Match` of the current assessment `aggregate_version` (omit only the first draft save). Server scoring alone is authoritative. Public member cards never expose answers, occupation, raw scores or founding interest.
 
+## Interrupted saves
+
+The portal bounds a request, including its response body, to 20 seconds. A network error, incomplete success response, or HTTP 5xx leaves the write outcome unknown: the database may already have committed. Keep the exact command body, `Idempotency-Key`, and `If-Match` in page memory; freeze its inputs and offer **重試保存**. Replay only that command after an explicit click. In particular, a failed `evaluate` response must not repeat the preceding `answers` command, and a failed `complete` response must not submit different guild choices. Do not automatically retry mutations or invent a successful completion.
+
+A confirmed 412/428 permits **重讀保存版本**: fetch the latest onboarding view, retain the member's current input, and require another explicit save. This read does not overwrite the remote draft. Answers are not placed in localStorage; reloading or leaving the page can lose input that has not been confirmed saved.
+
+POST responses from the application include a generated `X-Freedom-Request-ID`. The error panel's folded **問題資訊** shows the HTTP status and validated request ID / Cloudflare Ray when present. An edge-generated error may have no application request ID. Operational logging records only stage, status, duration and these correlation IDs, never the assessment payload.
+
+## Endpoints
+
 - `GET /assessment-definition`: `{assessment_version,assessment_sha256,questions:[{id,kind:"preference"|"ability",prompt,options:[{id,label}]}],capability_categories,equipment_categories}`. Render server options. Capability/equipment options have stable `id`, `label`; each category has `id`,`label`,`options` plus `subcategories:[{id,label,options}]`. Flattened `options` remain compatible and are exactly the unique union of the subcategories. Answers have no client scoring inputs.
 - `GET /me/onboarding`: `{required,completed,assessment_update_required,current_assessment_version,current_assessment_sha256,state:"new"|"draft"|"evaluated"|"completed",draft:null|{aggregate_version,assessment_version,assessment_sha256,answers,occupation,founding_interest,capabilities,equipment},result:null|{recommendations:[{guild_key,name,reason,title}],assessment_version,assessment_sha256},primary_guild_key:null|string,skill_books:[]}`.
 - `POST /me/onboarding/answers`: `{assessment_version,assessment_sha256,answers:{[question_id]:option_id},occupation:string,founding_interest:boolean,capabilities:string[],equipment:string[]}`. Partial answers permit saving progress; full category selections are validated. Replacing an evaluated draft clears its recommendation result. Returns the same onboarding view. On completed users, a new save starts a change-of-direction draft without re-locking the account.

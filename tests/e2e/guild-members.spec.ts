@@ -83,7 +83,7 @@ test('guild list distinguishes empty/error states and compact details fit a narr
   });
   await login(page); const card = page.getByRole('article', { name: '活動與空間公會', exact: true }); await card.getByRole('button', { name: '查看成員', exact: true }).click();
   const panel = card.getByRole('region', { name: '活動與空間公會成員', exact: true });
-  await expect(panel.getByRole('alert')).toContainText('成員清單暫時無法讀取'); await expect(panel.getByText('目前沒有可顯示的公會成員。', { exact: true })).toHaveCount(0);
+  await expect(panel.getByRole('alert')).toContainText('服務暫時無法回應（503）。請稍後重試。'); await expect(panel.getByText('目前沒有可顯示的公會成員。', { exact: true })).toHaveCount(0);
   unavailable = false; await panel.getByRole('button', { name: '重新載入成員', exact: true }).click();
   await expect(panel.locator('.directory-member')).toHaveCount(1); await expect(panel.getByText('allowed-contact-only', { exact: true })).not.toBeVisible();
   await panel.locator('.directory-member-details > summary').click(); await expect(panel.getByText('allowed-contact-only', { exact: true })).toBeVisible();

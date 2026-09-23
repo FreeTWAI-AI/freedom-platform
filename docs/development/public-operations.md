@@ -30,3 +30,13 @@
 換版失敗就回到同環境上一個 release；若涉及不相容 schema，需要先保存新寫入並用對應 migration／資料恢復計畫。新站首次失敗可移除本次新增的 apex DNS／ingress，保留私密 DB 與診斷資料，不停用 staging 或其他專案 Tunnel。
 
 每日觀察失敗登入、API errors、DB／磁碟與備份結果。營運管理與會長任命介面已實作，見 [管理 API](platform-admin-api.md)，透過獨立 Access 驗證而非一般未驗證會員 Email 取得權限。一般 Email 寄送、帳號恢復、異地備份與 managed PostgreSQL 為後續工作；不得以未驗證聯絡方式直接認領或重設他人帳號。
+
+## 定位保存逾時
+
+先請會員留在原頁面。新版顯示「重試保存」時按一次即可；尚未確認保存前，不要要求重整或登出。若顯示「重讀保存版本」，讀取後由會員確認原頁答案，再按保存。已開啟的舊版頁面不會隨部署自動更新；先用原來的保存按鈕重試，避免丟失未保存的答案。
+
+取得發生時間、使用網址，以及折疊「問題資訊」內的 HTTP／CF-Ray／工坊請求編號即可，不需要索取定位答案。比較 Cloudflare Tunnel 狀態、同時段的 connector journal、loopback health 與應用程式紀錄。只看到公開 health 恢復，不能證明該筆保存成功或已找出網路根因。
+
+`journalctl --user -u freedom-public.service --since '10 minutes ago' -o cat` 中的 `onboarding_request` JSON 只有 `request_id`、`cf_ray`、`stage`、`status`、`elapsed_ms` 與事件名稱；journal 提供時間。staging 使用對應 service。若請求沒到應用程式，可能沒有這筆紀錄；不能把缺少紀錄當成會員沒有按保存。禁止追加答案、Email、Cookie、權杖或整份 request body 到診斷紀錄。
+
+522 表示 Cloudflare 與來源連線逾時，可能早於應用程式處理；參閱 [Cloudflare 官方說明](https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-522/)。2026-09-23 的回報未取得確切故障時間與 Ray：排查時服務健康、DB 無阻塞，隔離保存測試無 5xx。修正提供安全重試與後續診斷，並未據此宣稱已確定或修復當次網路原因。
