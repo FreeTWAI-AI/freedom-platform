@@ -1,0 +1,15 @@
+.admin-layout .admin-member-permissions { display: grid; align-items: start; gap: .5rem; border-top: 1px solid #333943; padding-top: .85rem; }
+.admin-layout .admin-member-permissions > .badge { justify-self: start; }
+.admin-layout .admin-member-permissions > a { min-height: 44px; display: inline-flex; align-items: center; color: #c4ff20; }
+.admin-layout .admin-permission-review { background: #0d1017; border: 1px solid #53618a; border-radius: 12px; padding: 1rem; font-size: .875rem; line-height: 1.7; }
+.admin-layout .admin-permission-review h4 { margin-bottom: .55rem; color: #c4ff20; font-size: 1rem; }
+.admin-layout .admin-permission-review p { overflow-wrap: anywhere; }
+.admin-layout .admin-permission-review textarea { width: 100%; max-width: 100%; min-height: 90px; font-size: 1rem; }
+.admin-layout .admin-permission-review .actions { flex-wrap: wrap; }
+.admin-layout .admin-permission-card > .card-head { flex-wrap: wrap; gap: .7rem; align-items: start; }
+.admin-layout .admin-access-state { border-left: 2px solid #6573bb; padding-left: .7rem; font-size: .875rem; color: #cbd2df; }
+.admin-layout .admin-access-ready { color: #c4ff20; border-color: #c4ff20; }
+.admin-layout .admin-access-pending,
+.admin-layout .admin-access-pending_removal { color: #ffd18a; border-color: #ffd18a; }
+.admin-layout .admin-permission-review button:focus-visible,
+.admin-layout .admin-member-permissions a:focus-visible { outline: 3px solid #c4ff20; outline-offset: 3px; }

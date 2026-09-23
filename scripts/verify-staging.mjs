@@ -58,24 +58,24 @@ try {
   await page.goto(origin, { waitUntil: 'networkidle' });
   await page.getByLabel('電子郵件', { exact: true }).fill('maker@local.test');
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
-  const homeReads = readResponses(['/me/positioning', '/guilds']);
+  const homeReads = readResponses(['/assessment-definition']);
   await page.getByRole('button', { name: '登入', exact: true }).click();
   await homeReads;
   await expect(page.getByRole('heading', { name: '會員首頁', exact: true })).toBeVisible();
   const cookie = (await context.cookies()).find(c => c.name === 'freedom_local_session');
   expect(cookie?.secure).toBe(true);
   expect(cookie?.httpOnly).toBe(true);
-  const reloadReads = readResponses(['/me/positioning', '/guilds']);
+  const reloadReads = readResponses(['/assessment-definition']);
   await page.reload();
   await reloadReads;
   await expect(page.getByRole('heading', { name: '會員首頁', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '整理我的定位', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '查看我的定位', exact: true })).toBeVisible();
   await mkdir(evidence, { recursive: true, mode: 0o700 });
   await page.screenshot({ path: join(evidence, 'staging-member-home.png'), fullPage: true });
   console.log('HTTPS browser login, secure session and reload: PASS');
 
   const modules = [
-    ['我的定位', '我的定位', 'positioning', ['/me/positioning']],
+    ['我的定位', '我的定位', 'positioning', ['/me/onboarding', '/assessment-definition']],
     ['職業公會', '職業公會', 'guilds', ['/guilds/directory']],
     ['供貨中心', '供貨中心', 'supplier', ['/supplier/products', '/supplier/requests']],
     ['開店與銷售', '開店與銷售', 'retail', ['/retail/catalog', '/retail/stores', '/retail/listings']],

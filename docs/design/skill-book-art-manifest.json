@@ -1,0 +1,228 @@
+{
+  "generated_at": "2026-09-23",
+  "mode": "builtin-imagegen",
+  "style_anchor": "apps/portal-web/public/brand/freedom-workshop.webp",
+  "description": "22 separately generated original skill-book covers. No original logo edits; only mechanical WebP encoding for delivery.",
+  "assets": [
+    {
+      "id": "career-guide",
+      "title": "方向探索與陪跑入門",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (career-guide): a precise chrome compass with a luminous lime needle and several branching orbital paths; discovering one's next direction.",
+      "path": "apps/portal-web/public/art/skills/career-guide.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 402252,
+      "sha256": "2029760f090a8aa0ebc78fc5b29e8a31a9b051b8d82f1b21ac808624cd152eb4"
+    },
+    {
+      "id": "supplier-client",
+      "title": "供應端工作台",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (supplier-client): a chrome inventory crate with three small product boxes and connected logistics rails; managing supply inventory.",
+      "path": "apps/portal-web/public/art/skills/supplier-client.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 315694,
+      "sha256": "51894b86efbd94c61780f021842b1dca067f274063be13f0a9cfcda79b9b4c58"
+    },
+    {
+      "id": "storefront",
+      "title": "我的第一間商店",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (storefront): a miniature chrome storefront with a striped blue awning and a single lime product display; opening a first shop.",
+      "path": "apps/portal-web/public/art/skills/storefront.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 467320,
+      "sha256": "ef83890b0113df1b4be65ec81bc32afe53588e6a051c6cf3346345ddd1a851ba"
+    },
+    {
+      "id": "community-ops",
+      "title": "新人接待與社群活動",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (community-ops): a welcoming ring of five abstract chrome person-shaped tokens around a blue community beacon; welcoming newcomers.",
+      "path": "apps/portal-web/public/art/skills/community-ops.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 416980,
+      "sha256": "e63bf6055a2bd7363cc89958a8ab953110380c8bd48a6b37c1b9c04ca57dfdec"
+    },
+    {
+      "id": "partnership",
+      "title": "需求訪談與合作提案",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (partnership): two interlocking polished chrome links and a shared luminous proposal tile; agreeing on collaboration.",
+      "path": "apps/portal-web/public/art/skills/partnership.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 360964,
+      "sha256": "5a515398fc5d6ca33fc375c64d9ec6145c5080a315c1465f827c59869c6123f4"
+    },
+    {
+      "id": "reconciliation",
+      "title": "商家對帳入門",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (reconciliation): two symmetric chrome ledger panels with matching geometric rows and a balancing beam; comparing records.",
+      "path": "apps/portal-web/public/art/skills/reconciliation.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 330376,
+      "sha256": "38ff7b0031ca101d977b1ba98eae50429d2dc2f3e9377a1b91008ca22b34b2e1"
+    },
+    {
+      "id": "project-delivery",
+      "title": "專案交付與 Sprint",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (project-delivery): three chrome milestone platforms connected in sequence ending in a lime check emblem; delivering a small project.",
+      "path": "apps/portal-web/public/art/skills/project-delivery.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 307864,
+      "sha256": "082bdf267a8dc6476f1a74988096af8f5a43a88c569fd2449167cb038c694e41"
+    },
+    {
+      "id": "agent-kit",
+      "title": "平台工具接入包",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (agent-kit): a futuristic chrome connector plug linking three electric-blue data nodes; connecting tools.",
+      "path": "apps/portal-web/public/art/skills/agent-kit.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 377104,
+      "sha256": "e5a5cb8471a673b13236b4be57b491c692baa70c9cf41f7b7b40624960e09b91"
+    },
+    {
+      "id": "project-template",
+      "title": "開源專案起始包",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (project-template): an open modular chrome cube assembled from smaller interlocking blocks; starting a software project.",
+      "path": "apps/portal-web/public/art/skills/project-template.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 311360,
+      "sha256": "dccdd36528d8bbb261e237374df1fbf03691ac590ce8e69a260aafcaef2e5e05"
+    },
+    {
+      "id": "social-post",
+      "title": "Hao 社群貼文技能書",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (social-post): a chrome megaphone projecting three blue and lime rounded speech tiles; drafting a social post.",
+      "path": "apps/portal-web/public/art/skills/social-post.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 351710,
+      "sha256": "a6da7f2a9b5e4f72c6602ff387f6dd7aefc41544347777d0b0095de1a4beb41a"
+    },
+    {
+      "id": "typo-studio",
+      "title": "Typo Studio 排版工作室",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (typo-studio): a fan of three chrome bordered editorial layout cards with blank geometric blue and lime blocks; visual typesetting.",
+      "path": "apps/portal-web/public/art/skills/typo-studio.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 450622,
+      "sha256": "8d69978ec8758b109a557d9c3edd3a7939c1696360da7953d1f5f40f8d550bce"
+    },
+    {
+      "id": "video-autopilot",
+      "title": "影片自動化工具包",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (video-autopilot): a polished chrome film reel paired with a luminous segmented editing timeline and small cutter; editing video.",
+      "path": "apps/portal-web/public/art/skills/video-autopilot.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 195812,
+      "sha256": "ee34827685a473dcacf488410eaae606c7a550df3e07db72578a9a72e79ed1f3"
+    },
+    {
+      "id": "short-drama",
+      "title": "AI 短劇工作流",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (short-drama): two expressive abstract theatre masks above a chrome clapperboard; planning a short drama.",
+      "path": "apps/portal-web/public/art/skills/short-drama.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 436734,
+      "sha256": "863209b4c74815dc2a3a1c19e0c9651127a0933764b16917ed49c076e7778a0a"
+    },
+    {
+      "id": "hao-studio",
+      "title": "Hao Studio Web",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (hao-studio): a miniature chrome gallery portal with three framed artwork-like blue abstract panels; a creator's portfolio.",
+      "path": "apps/portal-web/public/art/skills/hao-studio.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 279742,
+      "sha256": "56d386a0a492df46634519663928ffb9b18fd446d84bd6df166e3f287961dd87"
+    },
+    {
+      "id": "media-generator",
+      "title": "AI 影音生成技能書",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (media-generator): a triangular chrome prism emitting a lime cinematic beam and electric blue sound waves; generating audiovisual ideas.",
+      "path": "apps/portal-web/public/art/skills/media-generator.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 344122,
+      "sha256": "9d8cfcac46d904a38da3a3c3a69524ebbb2be58e047f71621f31d17a659ec485"
+    },
+    {
+      "id": "pos-pro",
+      "title": "POS Pro 商店工具",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (pos-pro): a futuristic chrome point of sale touchscreen terminal with a small barcode scanner and blank receipt; shop operations.",
+      "path": "apps/portal-web/public/art/skills/pos-pro.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 185290,
+      "sha256": "a4f486426657b8eb46532dcf614e21a0b18d7385cf8c022fbac10f6cf944944e"
+    },
+    {
+      "id": "security-scanner",
+      "title": "AI Security Scanner",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (security-scanner): a strong polished chrome shield passing through a blue scanning ring with tiny lime detection points; code security review.",
+      "path": "apps/portal-web/public/art/skills/security-scanner.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 179972,
+      "sha256": "8575a17ba4f0142d0c92bc037c41a7fed050e2a63f44c594d60590c0cca97887"
+    },
+    {
+      "id": "ai-sister",
+      "title": "AI Sister",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (ai-sister): a luminous blue memory orb inside an open chrome cradle surrounded by three linked source frames; personal sourced memory.",
+      "path": "apps/portal-web/public/art/skills/ai-sister.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 353400,
+      "sha256": "208c2a4c86b1315864d8c9e0f894097cd3ec23f837fc47cc7eff92cb2b39aa64"
+    },
+    {
+      "id": "multi-ai-desktop",
+      "title": "Multi-AI Chat Desktop",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (multi-ai-desktop): one chrome desktop monitor with three distinct orbiting blue and lime thought orbs; comparing AI assistants on desktop.",
+      "path": "apps/portal-web/public/art/skills/multi-ai-desktop.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 470514,
+      "sha256": "3940d28fac1bfab345e726e9a95b9675ca3e1b2a3d0261b255ec29c97f401086"
+    },
+    {
+      "id": "multi-ai-chat",
+      "title": "Multi-AI Chat",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (multi-ai-chat): three layered chrome browser-tab panels with distinct speech bubbles and a lime shared connection; AI conversations in browser.",
+      "path": "apps/portal-web/public/art/skills/multi-ai-chat.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 360982,
+      "sha256": "354d5504dc5f35710c671000dec730c1cae3837fd0e771959ed4272409b3cc90"
+    },
+    {
+      "id": "music-mv",
+      "title": "音樂與 MV 製作入門手冊",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (music-mv): a sculpted chrome musical note inside a blue video frame above a lime waveform; creating a music video.",
+      "path": "apps/portal-web/public/art/skills/music-mv.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 154164,
+      "sha256": "00465ea9ab6ed80834df16f771dab0bfce975fbb45941823852e06094ab3bd6a"
+    },
+    {
+      "id": "commercial-production",
+      "title": "廣告攝影與影片製作入門手冊",
+      "prompt": "Use case: stylized-concept. Create one original square collectible RPG skill-book illustration for the Freedom Workshop website. Visual anchor: the provided Freedom Workshop brand poster uses black, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, orbital lines, four-point stars and futuristic Y2K workshop energy. This is a futuristic guild skill book, never medieval fantasy. Composition: one thick closed chrome hardbound book floating at a three-quarter angle, lime page edges, a sculpted subject emblem emerging from its blue cover, above a small dark blue disc. Subject must be immediately identifiable at thumbnail scale. Generous black margin, restrained orbital accent, rich reflective metal, clear simple silhouette, high quality 3D product render. Render one single image, not a grid or collage. No text, letters, numbers, readable screens, brand marks or watermark. Do not redraw the supplied logo.\nUnique subject for this book (commercial-production): a chrome camera lens with a small studio softbox illuminating a minimal product pedestal; commercial photography.",
+      "path": "apps/portal-web/public/art/skills/commercial-production.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 188326,
+      "sha256": "6199ec19c3243a13dc0649e7337a0e6b0cdc91a1ef4db52c43df3f6cc5ab039b"
+    }
+  ]
+}

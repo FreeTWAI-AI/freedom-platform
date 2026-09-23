@@ -34,7 +34,7 @@ test('member completes work, reviewer accepts it, result survives reload and log
   await workCard.getByLabel('提交摘要',{exact:true}).fill('已完成可重用範例與三個步驟。');
   await workCard.getByLabel(artifactLabel).fill('artifact:browser-result-v1');
   await workCard.getByRole('button',{name:'提交成果',exact:true}).click();
-  await expect(workCard.getByText('已提交，等待被指派的回饋者處理。提交會進入回饋佇列。')).toBeVisible();
+  await expect(workCard.getByText('已提交，等待回饋。')).toBeVisible();
   await switchAccount(page,'reviewer@local.test');
   const reviewSection=page.locator('section.section').filter({has:page.getByRole('heading',{name:'待你回饋',exact:true})});
   const reviewCard=reviewSection.locator('article.card').filter({has:page.getByRole('heading',{name:title,exact:true})});

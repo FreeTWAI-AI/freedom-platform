@@ -3,7 +3,7 @@ import { skillBookGuides, type SkillBookGuide } from './skill-book-guides.js';
 export type CatalogOption = {id:string;label:string};
 export type CatalogSubcategory = {id:string;label:string;items:CatalogOption[]};
 export type CatalogCategory = {id:string;label:string;items:CatalogOption[];subcategories?:CatalogSubcategory[]};
-export type SkillBook = {id:string;title:string;repository_url:string;description:string;kind:string;fork_url:string;license_status:string;upstream_url:string;source_commit:string|null;introduction_url:string|null;guide?:SkillBookGuide};
+export type SkillBook = {id:string;title:string;repository_url:string;description:string;kind:string;fork_url:string;license_status:string;upstream_url:string;source_commit:string|null;introduction_url:string|null;guide?:SkillBookGuide;cover_url?:string;star_url?:string};
 export const capabilityCategories:CatalogCategory[] = [
   {
     "id": "start",
@@ -2797,7 +2797,8 @@ const communityCatalogBase = {
 };
 function withSkillBookGuide(book:SkillBook):SkillBook {
   const guide=skillBookGuides[book.id];
-  return guide?{...book,description:guide.summary,source_commit:book.source_commit??guide.source_commit,introduction_url:book.introduction_url??guide.website_url??null,guide}:book;
+  const visuals={cover_url:`/art/skills/${book.id}.webp`,star_url:book.upstream_url};
+  return guide?{...book,...visuals,description:guide.summary,source_commit:book.source_commit??guide.source_commit,introduction_url:book.introduction_url??guide.website_url??null,guide}:{...book,...visuals};
 }
 export const communityCatalog = {...communityCatalogBase,
   skill_books:communityCatalogBase.skill_books.map(withSkillBookGuide),

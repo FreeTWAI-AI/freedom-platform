@@ -47,3 +47,89 @@ test('verified admin UI keeps member, guild, nomination and audit operations sep
   await page.getByRole('button',{name:'連結我的會員帳號並確認會長任命',exact:true}).click();await expect(page.getByText('預定公會 · 已連結會員並確認任命',{exact:true})).toBeVisible();expect(calls.find(call=>call.path==='/link-member')?.headers['x-admin-csrf']).toBe(csrf);
   await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+test('admin appointment, access sync, revocation and reactivation use real isolated records',async({page,browser})=>{
+  const [{Pool},{serve},{serveStatic},{createPool,LOCAL_DATABASE_URL},{migrate},{seedLocal,DEMO_COMMUNITY,DEMO_USERS},{createApp},{Problem},{randomUUID}]=await Promise.all([
+    import('pg'),import('@hono/node-server'),import('@hono/node-server/serve-static'),import('../../packages/db/index'),import('../../scripts/database'),import('../../packages/testing/seed'),import('../../apps/platform-api/src/app'),import('../../packages/shared/problem'),import('node:crypto'),
+  ]);
+  const database=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL,schema=`fp_admin_browser_${process.pid}_${Date.now()}`;
+  const dbAdmin=createPool(database),pool=new Pool({connectionString:database,options:`-c search_path=${schema}`});
+  const ownerEmail='admin-owner@example.test',targetEmail='appointed-admin@example.test',ownerId=randomUUID(),targetId=DEMO_USERS[0].user_id;
+  const identities={owner:{email:ownerEmail,subject:'verified-synthetic-owner',csrfToken:'synthetic-owner-csrf'},target:{email:targetEmail,subject:'verified-synthetic-target',csrfToken:'synthetic-target-csrf'}};
+  let server:ReturnType<typeof serve>|undefined,second:Awaited<ReturnType<typeof browser.newContext>>|undefined;
+  await dbAdmin.query(`CREATE SCHEMA ${schema}`);
+  try{
+    await migrate(pool);await seedLocal(pool);
+    await pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)',[ownerId,DEMO_COMMUNITY,ownerEmail,'測試現任管理員']);
+    await pool.query('UPDATE users SET email=$2,display_name=$3,email_verified_at=now() WHERE user_id=$1',[targetId,targetEmail,'測試新管理員']);
+    let app:ReturnType<typeof createApp>;
+    server=serve({fetch:request=>app.fetch(request),hostname:'127.0.0.1',port:0});
+    await new Promise<void>(resolve=>server!.listening?resolve():server!.once('listening',resolve));
+    const address=server.address();expect(address&&typeof address!=='string').toBeTruthy();
+    const origin=`http://127.0.0.1:${(address as {port:number}).port}`;
+    app=createApp(pool,origin,'local',{adminVerifier:async request=>{
+      const identity=request.headers.get('X-Synthetic-Admin');
+      if(identity!=='owner'&&identity!=='target')throw new Problem(401,'admin_identity_required','請先通過管理員信箱驗證。');
+      return identities[identity];
+    }});
+    app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));app.get('*',serveStatic({path:'./apps/portal-web/dist/index.html'}));
+    await page.context().setExtraHTTPHeaders({'X-Synthetic-Admin':'owner'});
+    second=await browser.newContext({extraHTTPHeaders:{'X-Synthetic-Admin':'target'}});
+    const targetPage=await second.newPage();
+    await targetPage.goto(origin+'/admin');
+    await expect(targetPage.getByRole('heading',{name:'需要管理員驗證',exact:true})).toBeVisible();
+    await page.goto(origin+'/admin');
+    const member=page.locator('article.card').filter({has:page.getByRole('heading',{name:'測試新管理員',exact:true})});
+    await member.getByRole('button',{name:'任命管理員',exact:true}).click();
+    const review=member.getByRole('form',{name:'任命管理員',exact:true});
+    await expect(review).toContainText(targetEmail);await expect(review).toContainText('平台全部管理權限');
+    await expect(review.getByRole('button',{name:'確認任命',exact:true})).toBeDisabled();
+    await review.getByLabel('任命理由',{exact:true}).fill('測試本人同意承擔平台管理工作');
+    const grant=page.waitForResponse(response=>response.url().endsWith(`/admin/api/members/${targetId}/admin`)&&response.request().method()==='POST');
+    await review.getByRole('button',{name:'確認任命',exact:true}).click();
+    const granted=await grant;expect(granted.status()).toBe(200);expect(granted.request().postDataJSON()).toEqual({reason:'測試本人同意承擔平台管理工作',confirmed:true});
+    expect(granted.request().headers()['if-match']).toBe('"1"');expect(granted.request().headers()['x-admin-csrf']).toBe(identities.owner.csrfToken);expect(granted.request().headers()['idempotency-key']).toBeTruthy();
+    await expect(member.getByText('平台管理員',{exact:true})).toBeVisible();
+    await expect(member.getByText('登入權限同步中',{exact:true})).toBeVisible();
+    const row=(await pool.query('SELECT * FROM platform_admins WHERE email=$1',[targetEmail])).rows[0];expect(row.active).toBe(true);
+    await member.getByRole('link',{name:'前往管理員名單 ↗',exact:true}).click();
+    const listed=page.locator('article.admin-permission-card').filter({has:page.getByRole('heading',{name:'測試新管理員',exact:true})});
+    const self=page.locator('article.admin-permission-card').filter({has:page.getByRole('heading',{name:'測試現任管理員',exact:true})});
+    await expect(self.getByRole('button',{name:'停用管理權限',exact:true})).toHaveCount(0);
+    // Acknowledge the isolated fixture's Access sync, without contacting Cloudflare.
+    await pool.query('UPDATE platform_admins SET access_synced_version=aggregate_version,access_synced_at=now() WHERE admin_id=$1',[row.admin_id]);
+    await page.getByRole('button',{name:'更新登入狀態',exact:true}).click();
+    await expect(listed.getByText('可登入管理頁',{exact:true})).toBeVisible();
+    await targetPage.getByRole('button',{name:'重新確認管理身分',exact:true}).click();
+    await expect(targetPage.getByRole('navigation',{name:'平台管理選單'})).toBeVisible();
+    await listed.getByRole('button',{name:'停用管理權限',exact:true}).click();
+    await listed.getByLabel('管理權限調整理由',{exact:true}).fill('測試管理任務結束，停止管理權限');
+    await listed.getByRole('button',{name:'確認停用管理權限',exact:true}).click();
+    await expect(listed.getByText('管理權限已停用',{exact:true})).toBeVisible();
+    await expect(listed.getByText('停用同步中',{exact:true})).toBeVisible();
+    expect((await pool.query('SELECT active FROM users WHERE user_id=$1',[targetId])).rows[0].active).toBe(true);
+    expect((await targetPage.request.get(origin+'/admin/api/bootstrap')).status()).toBe(403);
+    await targetPage.reload();await expect(targetPage.getByRole('heading',{name:'需要管理員驗證',exact:true})).toBeVisible();
+    await pool.query('UPDATE platform_admins SET access_synced_version=aggregate_version,access_synced_at=now() WHERE admin_id=$1',[row.admin_id]);
+    await page.getByRole('button',{name:'更新登入狀態',exact:true}).click();
+    await expect(listed.getByText('登入權限已停用',{exact:true})).toBeVisible();
+    await listed.getByRole('button',{name:'重新啟用管理權限',exact:true}).click();
+    await listed.getByLabel('管理權限調整理由',{exact:true}).fill('測試新一輪管理任務，確認重新啟用');
+    await listed.getByRole('button',{name:'確認重新啟用',exact:true}).click();
+    await expect(listed.getByText('登入權限同步中',{exact:true})).toBeVisible();
+    await pool.query('UPDATE platform_admins SET access_synced_version=aggregate_version,access_synced_at=now() WHERE admin_id=$1',[row.admin_id]);
+    await page.getByRole('button',{name:'更新登入狀態',exact:true}).click();
+    await expect(listed.getByText('可登入管理頁',{exact:true})).toBeVisible();
+    await targetPage.getByRole('button',{name:'重新確認管理身分',exact:true}).click();
+    await expect(targetPage.getByRole('navigation',{name:'平台管理選單'})).toBeVisible();
+    expect((await pool.query('SELECT active FROM users WHERE user_id=$1',[targetId])).rows[0].active).toBe(true);
+    await page.getByRole('button',{name:'操作紀錄',exact:true}).click();
+    await expect(page.getByText('任命平台管理員',{exact:true})).toBeVisible();
+    await expect(page.getByText('調整管理權限',{exact:true})).toHaveCount(2);
+    await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  }finally{
+    await second?.close();await page.goto('about:blank');
+    if(server)await new Promise<void>((resolve,reject)=>server!.close(error=>error?reject(error):resolve()));
+    await pool.end();await dbAdmin.query(`DROP SCHEMA ${schema} CASCADE`);await dbAdmin.end();
+  }
+});

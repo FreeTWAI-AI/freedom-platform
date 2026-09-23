@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from '@playwright/test';
 const password='freedom-workshop-member-2026';
 async function register(page:Page, nickname:string){
@@ -12,9 +13,9 @@ async function register(page:Page, nickname:string){
   expect((await registrationRequest).postDataJSON()).toEqual({email,password,nickname});
   await expect(page.getByRole('heading',{name:'你喜歡怎麼做事？'})).toBeVisible();return email;
 }
-async function answerQuestions(page:Page){
+async function answerQuestions(page:Page,lastPreference=false){
   await expect(page.getByRole('heading',{name:'你喜歡怎麼做事？'})).toBeVisible();
-  for(const field of await page.locator('.quiz-question').all())await field.getByRole('radio').first().check();
+  for(const field of await page.locator('.quiz-question').all())await (lastPreference?field.getByRole('radio').last():field.getByRole('radio').first()).check();
   await page.getByRole('button',{name:'保存，繼續下一步 →',exact:true}).click();
   await expect(page.getByRole('heading',{name:'遇到這些情境，你會怎麼做？'})).toBeVisible();
   for(const field of await page.locator('.quiz-question').all())await field.getByRole('radio').first().check();
@@ -26,7 +27,7 @@ async function finishGuild(page:Page){
   await card.getByRole('checkbox').check();await card.getByRole('radio').check();
   await page.getByRole('button',{name:'確認加入公會，領取技能書',exact:true}).click();
   await expect(page.getByRole('heading',{name:'你的第一段旅程，現在開始。'})).toBeVisible();
-  await expect(page.getByRole('button',{name:'查看技能書介紹',exact:true}).first()).toBeVisible();
+  await expect(page.getByRole('button',{name:'閱讀技能書',exact:true}).first()).toBeVisible();
   await page.getByRole('button',{name:'進入自由工坊 →',exact:true}).click();
   await expect(page.getByRole('navigation',{name:'主要工作區'})).toBeVisible();
 }
@@ -189,40 +190,149 @@ test('skill trees preserve choices across screen sizes and show only three featu
 });
 
 
-test('completed positioning opens the published result without a second required profile',async({page})=>{
+test('completed positioning shows only the published result and never creates a second profile',async({page})=>{
   await register(page,'連貫定位夥伴');
   await completeOrientation(page);
-  const before=await (await page.request.get('/api/v1/me/positioning')).json();
-  expect(before.profile).toBeNull();
+  expect((await (await page.request.get('/api/v1/me/positioning')).json()).profile).toBeNull();
+  const legacyRequests:string[]=[];
+  page.on('request',request=>{if(new URL(request.url()).pathname==='/api/v1/me/positioning')legacyRequests.push(request.method());});
   await page.getByRole('button',{name:'我的定位',exact:true}).click();
   await expect(page.getByRole('heading',{name:'我的定位結果',exact:true})).toBeVisible();
   const result=page.locator('.positioning-result');
   await expect(result).toContainText('主要公會');
-  await expect(page.getByText('還沒有方向卡',{exact:false})).toHaveCount(0);
-  const preferences=page.locator('details').filter({has:page.getByText('合作偏好（選填）',{exact:true})});
-  await expect(preferences).not.toHaveAttribute('open');
-  await expect(page.getByLabel('我現在想完成的事')).not.toBeVisible();
+  await expect(page.getByRole('button',{name:'重新探索定位',exact:true})).toHaveCount(1);
+  await expect(page.locator('.positioning-panel form')).toHaveCount(0);
+  await expect(page.getByText(/合作偏好|想探索的職業方向|還沒有方向卡/)).toHaveCount(0);
+  await expect(page.getByLabel('我現在想完成的事')).toHaveCount(0);
+  await expect(page.getByLabel('搜尋職業方向')).toHaveCount(0);
   const resultBefore=await result.innerText();
   await page.reload();
   await expect(result).toHaveText(resultBefore,{useInnerText:true});
+  await expect(page.locator('.positioning-panel form')).toHaveCount(0);
+  expect(legacyRequests).toEqual([]);
   expect((await (await page.request.get('/api/v1/me/positioning')).json()).profile).toBeNull();
   await page.setViewportSize({width:390,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/positioning-completed-phone.png',fullPage:true});
-  await preferences.locator('summary').click();
-  await expect(page.getByLabel('現實職業／目前身分')).toHaveValue('自由工作者');
-  await page.getByLabel('我現在想完成的事').fill('和公會夥伴共同完成第一個作品');
-  await page.getByLabel('這些是我目前的想法，我確認保存').check();
-  await page.getByRole('button',{name:'保存合作偏好',exact:true}).click();
-  await expect(page.getByText('合作偏好已保存。你可以隨時調整。',{exact:true})).toBeVisible();
-  expect((await (await page.request.get('/api/v1/me/positioning')).json()).profile.goals).toBe('和公會夥伴共同完成第一個作品');
-  await expect(result).toHaveText(resultBefore,{useInnerText:true});
-  // Failed authoritative result fetch is visible and can be retried; no blank second survey.
-  await page.route('**/api/v1/me/onboarding',route=>route.abort());
-  await page.getByRole('button',{name:'會員首頁',exact:true}).click();
+});
+
+function publicPosition(member:any){
+  return {positioning_title:member.positioning_title,primary_guild:member.primary_guild,secondary_guilds:member.secondary_guilds,
+    capabilities:member.capabilities,custom_capabilities:member.custom_capabilities,featured_capabilities:member.featured_capabilities,
+    equipment:member.equipment,custom_equipment:member.custom_equipment};
+}
+
+test('re-exploration preserves the confirmed profile until completion and keeps prior guilds and books',async({page})=>{
+  test.setTimeout(120000);
+  await register(page,'重新定位夥伴');
+  await answerQuestions(page);
+  await page.getByLabel('你的職業／目前身分',{exact:true}).fill('原本的私人職業');
+  await page.getByLabel('自訂能力',{exact:true}).fill('原本的教學整理');
+  await page.getByRole('button',{name:'加入能力',exact:true}).click();
+  await page.getByLabel('精選能力：原本的教學整理',{exact:true}).check();
+  await page.getByRole('button',{name:'保存，繼續下一步 →',exact:true}).click();
+  await page.getByLabel('自訂裝備',{exact:true}).fill('原本的筆記本');
+  await page.getByRole('button',{name:'加入裝備',exact:true}).click();
+  await page.getByRole('button',{name:'看看適合我的公會',exact:true}).click();
+  await finishGuild(page);
+  const session=await (await page.request.get('/api/v1/session')).json();
+  const memberPath=`/api/v1/members/${session.user.user_id}`;
+  const initialDirectory=(await (await page.request.get('/api/v1/guilds/directory')).json()).items;
+  const secondary=initialDirectory.find((guild:any)=>guild.membership?.state!=='active');
+  const joined=await page.request.post(`/api/v1/guilds/${secondary.guild_key}/join`,{headers:{Origin:'http://127.0.0.1:4311','X-CSRF-Token':session.csrf_token,'Idempotency-Key':randomUUID()},data:{}});
+  expect(joined.ok()).toBe(true);
+  const before=await (await page.request.get(memberPath)).json();
+  const beforeBooks=(await (await page.request.get('/api/v1/me/skill-books')).json()).items;
+  expect(before.primary_guild).not.toBeNull();
+  expect(before.featured_capabilities).toEqual(['custom:原本的教學整理']);
+  // Existing saved preferences remain server data; the removed form must never rewrite them.
+  const legacy=await page.request.post('/api/v1/me/positioning',{headers:{Origin:'http://127.0.0.1:4311','X-CSRF-Token':session.csrf_token,'Idempotency-Key':randomUUID()},data:{real_world_occupations:['舊職業'],background:'保留舊資料',strengths:['舊專長'],goals:'保留舊合作目標',weekly_minutes:45,desired_roles:[],selected_tracks:[],confirmed:true}});
+  expect(legacy.ok()).toBe(true);
+  const legacyBefore=(await (await page.request.get('/api/v1/me/positioning')).json()).profile;
   await page.getByRole('button',{name:'我的定位',exact:true}).click();
-  await expect(page.getByRole('alert')).toBeVisible();
-  await page.unroute('**/api/v1/me/onboarding');
-  await page.getByRole('button',{name:'重新載入定位結果',exact:true}).click();
+  const result=page.locator('.positioning-result');
+  await expect(result).toContainText('原本的教學整理');
+  await expect(result).not.toContainText('保留舊合作目標');
+  await expect(page.getByText(/合作偏好|想探索的職業方向/)).toHaveCount(0);
+  await page.getByRole('button',{name:'重新探索定位',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'你喜歡怎麼做事？',exact:true})).toBeVisible();
+  const definition=await (await page.request.get('/api/v1/assessment-definition')).json();
+  await expect(page.locator('.quiz-question')).toHaveCount(definition.questions.filter((question:any)=>question.kind==='preference').length);
+  await answerQuestions(page,true);
+  await page.getByRole('button',{name:'移除能力：原本的教學整理',exact:true}).click();
+  await page.getByLabel('自訂能力',{exact:true}).fill('新的研究整理');
+  await page.getByRole('button',{name:'加入能力',exact:true}).click();
+  await page.getByLabel('精選能力：新的研究整理',{exact:true}).check();
+  await page.getByLabel('你的職業／目前身分',{exact:true}).fill('草稿裡的私人職業');
+  await page.getByRole('button',{name:'保存，繼續下一步 →',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'你的裝備庫',exact:true})).toBeVisible();
+  const draft=await (await page.request.get('/api/v1/me/onboarding')).json();
+  expect(draft.state).toBe('draft');expect(draft.completed).toBe(true);expect(draft.required).toBe(false);
+  expect(draft.draft.featured_capabilities).toEqual(['custom:新的研究整理']);
+  expect(publicPosition(await (await page.request.get(memberPath)).json())).toEqual(publicPosition(before));
+  await page.getByRole('button',{name:'返回我的定位',exact:true}).click();
+  await expect(result).toContainText('原本的教學整理');
+  await expect(result).not.toContainText('新的研究整理');
+  await expect(result).toContainText(before.primary_guild.name);
+  await page.reload();
+  await expect(result).toContainText('原本的教學整理');
+  await expect(result).not.toContainText('新的研究整理');
+  expect(publicPosition(await (await page.request.get(memberPath)).json())).toEqual(publicPosition(before));
+  expect((await (await page.request.get('/api/v1/me/skill-books')).json()).items).toEqual(beforeBooks);
+  await page.getByRole('button',{name:'我的名片',exact:true}).click();
+  await expect(page.locator('.member-featured')).toContainText('原本的教學整理');
+  await expect(page.locator('.member-card')).not.toContainText('草稿裡的私人職業');
+  await page.getByRole('button',{name:'我的定位',exact:true}).click();
+  await page.getByRole('button',{name:'重新探索定位',exact:true}).click();
+  await answerQuestions(page,true);
+  await expect(page.getByLabel('精選能力：新的研究整理',{exact:true})).toBeChecked();
+  await expect(page.getByLabel('你的職業／目前身分',{exact:true})).toHaveValue('草稿裡的私人職業');
+  await page.getByRole('button',{name:'保存，繼續下一步 →',exact:true}).click();
+  await page.getByRole('button',{name:'移除裝備：原本的筆記本',exact:true}).click();
+  await page.getByLabel('自訂裝備',{exact:true}).fill('新的錄音設備');
+  await page.getByRole('button',{name:'加入裝備',exact:true}).click();
+  await page.getByRole('button',{name:'看看適合我的公會',exact:true}).click();
+  await expect(page.locator('.recommendation-card').first()).toBeVisible();
+  const evaluated=await (await page.request.get('/api/v1/me/onboarding')).json();
+  const previousGuilds=[before.primary_guild,...before.secondary_guilds];
+  await page.locator('.other-guild-choices > summary').click();
+  for(const guild of previousGuilds){
+    const recommended=evaluated.result.recommendations.some((candidate:any)=>candidate.guild_key===guild.guild_key);
+    const checkbox=recommended?page.locator('.recommendation-card').filter({has:page.getByRole('heading',{name:guild.name,exact:true})}).getByRole('checkbox'):page.locator('.other-guild-choices').getByRole('checkbox',{name:guild.name,exact:true});
+    await expect(checkbox).toBeChecked();
+  }
+  const originalMain=evaluated.result.recommendations.some((guild:any)=>guild.guild_key===before.primary_guild.guild_key)
+    ?page.locator('.recommendation-card').filter({has:page.getByRole('heading',{name:before.primary_guild.name,exact:true})}).getByRole('radio')
+    :page.getByRole('radio',{name:`以${before.primary_guild.name}作為主要公會`,exact:true});
+  await expect(originalMain).toBeChecked();
+  const chosen=evaluated.result.recommendations.find((guild:any)=>!previousGuilds.some(previous=>previous.guild_key===guild.guild_key));
+  expect(chosen).toBeTruthy();
+  expect(publicPosition(await (await page.request.get(memberPath)).json())).toEqual(publicPosition(before));
+  const recommendation=page.locator('.recommendation-card').filter({has:page.getByRole('heading',{name:chosen.name,exact:true})});
+  await recommendation.getByRole('checkbox').check();
+  await recommendation.getByRole('radio').check();
+  await page.getByRole('button',{name:'確認加入公會，領取技能書',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'你的第一段旅程，現在開始。',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'進入自由工坊 →',exact:true}).click();
   await expect(page.getByRole('heading',{name:'我的定位結果',exact:true})).toBeVisible();
+  await expect(result).toContainText('新的研究整理');
+  await expect(result).not.toContainText('原本的教學整理');
+  await expect(result).toContainText(chosen.name);
+  const after=await (await page.request.get(memberPath)).json();
+  expect(after.positioning_title).toBe(chosen.title);
+  expect(after.primary_guild.guild_key).toBe(chosen.guild_key);
+  expect(after.secondary_guilds.map((guild:any)=>guild.guild_key)).toEqual(expect.arrayContaining(previousGuilds.map(guild=>guild.guild_key)));
+  expect(after.custom_capabilities).toEqual(['新的研究整理']);
+  expect(after.featured_capabilities).toEqual(['custom:新的研究整理']);
+  expect(after.custom_equipment).toEqual(['新的錄音設備']);
+  const directory=(await (await page.request.get('/api/v1/guilds/directory')).json()).items;
+  for(const previous of previousGuilds)expect(directory.find((guild:any)=>guild.guild_key===previous.guild_key).membership.state).toBe('active');
+  expect(directory.find((guild:any)=>guild.guild_key===chosen.guild_key).membership.state).toBe('active');
+  const afterBooks=(await (await page.request.get('/api/v1/me/skill-books')).json()).items;
+  expect(afterBooks.map((book:any)=>book.book_id)).toEqual(expect.arrayContaining(beforeBooks.map((book:any)=>book.book_id)));
+  expect(afterBooks.some((book:any)=>book.guild_keys.includes(chosen.guild_key))).toBe(true);
+  expect((await (await page.request.get('/api/v1/me/positioning')).json()).profile).toEqual(legacyBefore);
+  await page.reload();
+  await expect(result).toContainText('新的研究整理');
+  expect(publicPosition(await (await page.request.get(memberPath)).json())).toEqual(publicPosition(after));
 });

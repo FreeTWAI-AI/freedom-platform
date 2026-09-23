@@ -10,6 +10,12 @@ export type AdminActor={admin_id:string;community_id:string;email:string;display
 export type AdminCommand={admin:AdminActor;operation:string;key:string;body:unknown;expected?:string};
 const reason=z.string().trim().min(3).max(1000);
 const administrativeMember=`user_id,email,display_name,active,onboarding_required,onboarding_completed_at,email_verified_at,admin_status_version AS aggregate_version`;
+const adminAccessStateSql=(alias:string)=>`CASE WHEN ${alias}.active THEN CASE WHEN ${alias}.access_synced_version=${alias}.aggregate_version THEN 'ready' ELSE 'pending' END ELSE CASE WHEN ${alias}.access_synced_version=${alias}.aggregate_version THEN 'revoked' ELSE 'pending_removal' END END`;
+function withAdminAccessState(row:any){
+  const aggregate_version=Number(row.aggregate_version),access_synced_version=row.access_synced_version===null?null:Number(row.access_synced_version);
+  return {...row,aggregate_version,access_synced_version,access_state:row.active?(access_synced_version===aggregate_version?'ready':'pending'):(access_synced_version===aggregate_version?'revoked':'pending_removal')};
+}
+
 export async function authenticateAdmin(q:Pool|PoolClient,identity:VerifiedAdminIdentity):Promise<AdminActor>{
   const email=z.email().max(200).parse(identity.email).toLowerCase();
   const row=(await q.query('SELECT admin_id,community_id,email,display_name,role FROM platform_admins WHERE email=$1 AND active',[email])).rows[0];
@@ -17,9 +23,12 @@ export async function authenticateAdmin(q:Pool|PoolClient,identity:VerifiedAdmin
   return {...row,subject:identity.subject};
 }
 function publicAdmin(admin:AdminActor){return {admin_id:admin.admin_id,community_id:admin.community_id,email:admin.email,display_name:admin.display_name,role:admin.role};}
-export async function adminCommand<T>(pool:Pool,input:AdminCommand,authorize:(q:PoolClient)=>Promise<unknown>,run:(q:PoolClient)=>Promise<T>):Promise<T>{
+export async function adminCommand<T>(pool:Pool,input:AdminCommand,authorize:(q:PoolClient)=>Promise<unknown>,run:(q:PoolClient)=>Promise<T>,lockRoles=false):Promise<T>{
   requireCondition(/^[A-Za-z0-9_-]{8,128}$/.test(input.key),400,'idempotency_required','請提供有效的 Idempotency-Key。');
   return transaction(pool,async q=>{
+    // Role mutations and Access synchronization serialize before locking the
+    // acting admin. Otherwise two admins revoking one another can deadlock.
+    if(lockRoles)await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`admin-roles/${input.admin.community_id}`]);
     requireCondition((await q.query('SELECT 1 FROM platform_admins WHERE admin_id=$1 AND community_id=$2 AND email=$3 AND active FOR SHARE',[input.admin.admin_id,input.admin.community_id,input.admin.email])).rowCount===1,403,'admin_required','管理權限已變更，請重新整理。');
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`admin-command/${input.admin.admin_id}/${input.operation}/${input.key}`]);
     await authorize(q);
@@ -41,8 +50,9 @@ export async function adminBootstrap(pool:Pool,admin:AdminActor){
 }
 export async function adminMembers(pool:Pool,admin:AdminActor,limit:number,offset:number,search=''){
   const rows=(await pool.query(`SELECT u.${administrativeMember.replaceAll(',',',u.')},
-    COALESCE((SELECT jsonb_agg(jsonb_build_object('guild_key',m.guild_key,'name',g.name)) FROM positioning_profession_memberships m JOIN positioning_guild_catalog g USING(guild_key) WHERE m.user_id=u.user_id AND m.community_id=u.community_id AND m.state='active'),'[]'::jsonb) AS guilds
-    FROM users u WHERE u.community_id=$1 AND ($4='' OR u.display_name ILIKE '%'||$4||'%' OR u.email ILIKE '%'||$4||'%') ORDER BY u.display_name,u.user_id LIMIT $2 OFFSET $3`,[admin.community_id,limit+1,offset,search])).rows;
+    COALESCE((SELECT jsonb_agg(jsonb_build_object('guild_key',m.guild_key,'name',g.name)) FROM positioning_profession_memberships m JOIN positioning_guild_catalog g USING(guild_key) WHERE m.user_id=u.user_id AND m.community_id=u.community_id AND m.state='active'),'[]'::jsonb) AS guilds,
+    CASE WHEN a.admin_id IS NULL THEN NULL ELSE jsonb_build_object('admin_id',a.admin_id,'active',a.active,'aggregate_version',a.aggregate_version,'access_state',${adminAccessStateSql('a')}) END AS platform_admin
+    FROM users u LEFT JOIN platform_admins a ON a.community_id=u.community_id AND a.email=lower(u.email) WHERE u.community_id=$1 AND ($4='' OR u.display_name ILIKE '%'||$4||'%' OR u.email ILIKE '%'||$4||'%') ORDER BY u.display_name,u.user_id LIMIT $2 OFFSET $3`,[admin.community_id,limit+1,offset,search])).rows;
   return {items:rows.slice(0,limit),next_offset:rows.length>limit?offset+limit:null};
 }
 async function scopedUser(q:PoolClient,admin:AdminActor,id:string,lock=false){
@@ -109,10 +119,48 @@ export async function appointGuildMaster(pool:Pool,input:AdminCommand,key:string
   });
 }
 export async function adminNominees(pool:Pool,admin:AdminActor){
-  return (await pool.query(`SELECT a.admin_id,a.email,a.display_name,a.role,a.active,a.created_at,
+  return (await pool.query(`SELECT a.admin_id,a.email,a.display_name,a.role,a.active,a.created_at,a.aggregate_version,a.access_synced_version,a.access_synced_at,u.user_id,
     u.user_id IS NOT NULL AS member_account_present,u.active AS member_account_active,u.email_verified_at IS NOT NULL AS member_email_verified,
     CASE WHEN u.user_id IS NULL THEN 'no_member_account' WHEN u.email_verified_at IS NULL THEN 'unverified_email_match' ELSE 'verified_email_match' END AS identity_binding
-    FROM platform_admins a LEFT JOIN users u ON lower(u.email)=a.email AND u.community_id=a.community_id WHERE a.community_id=$1 ORDER BY a.display_name,a.admin_id`,[admin.community_id])).rows;
+    FROM platform_admins a LEFT JOIN users u ON lower(u.email)=a.email AND u.community_id=a.community_id WHERE a.community_id=$1 ORDER BY a.display_name,a.admin_id`,[admin.community_id])).rows.map(withAdminAccessState);
+}
+const AdminAppointmentInput=z.object({reason,confirmed:z.literal(true)}).strict();
+const AdminStatusInput=z.object({active:z.boolean(),reason,confirmed:z.literal(true)}).strict();
+async function scopedAdmin(q:PoolClient,admin:AdminActor,id:string,lock=false){
+  const row=(await q.query(`SELECT a.*,(SELECT u.user_id FROM users u WHERE u.community_id=a.community_id AND lower(u.email)=a.email) AS user_id
+    FROM platform_admins a WHERE a.admin_id=$1 AND a.community_id=$2${lock?' FOR UPDATE OF a':''}`,[id,admin.community_id])).rows[0];
+  requireCondition(row,404,'admin_not_found','找不到這個社群的管理員。');return row;
+}
+export async function appointPlatformAdmin(pool:Pool,input:AdminCommand,userId:string){
+  z.uuid().parse(userId);const body=AdminAppointmentInput.parse(input.body);
+  return adminCommand(pool,input,q=>scopedUser(q,input.admin,userId),async q=>{
+    const member=await scopedUser(q,input.admin,userId,true);checkVersion(member.aggregate_version,input.expected);
+    requireCondition(member.active,422,'active_member_required','請選擇啟用中的會員。');
+    const email=member.email.toLowerCase();
+    const row=(await q.query(`INSERT INTO platform_admins(admin_id,community_id,email,display_name,role)
+      VALUES($1,$2,$3,$4,'super_admin') ON CONFLICT(email) DO NOTHING RETURNING *`,[randomUUID(),input.admin.community_id,email,member.display_name])).rows[0];
+    requireCondition(row,409,'admin_already_exists','這位會員已有管理員紀錄，請從管理員名單調整狀態。');
+    const result=withAdminAccessState({...row,user_id:member.user_id});
+    await audit(q,input.admin,'appoint_platform_admin','platform_admin',row.admin_id,body.reason,null,{admin_id:row.admin_id,user_id:member.user_id,email,role:row.role,active:row.active,aggregate_version:result.aggregate_version,access_state:result.access_state});
+    return result;
+  },true);
+}
+export async function changePlatformAdminStatus(pool:Pool,input:AdminCommand,id:string){
+  z.uuid().parse(id);const body=AdminStatusInput.parse(input.body);
+  return adminCommand(pool,input,q=>scopedAdmin(q,input.admin,id),async q=>{
+    const prior=await scopedAdmin(q,input.admin,id,true);checkVersion(prior.aggregate_version,input.expected);
+    requireCondition(body.active||prior.admin_id!==input.admin.admin_id,409,'self_admin_revocation','不能撤銷自己的管理權限，請由另一位管理員處理。');
+    requireCondition(prior.active!==body.active,409,'admin_status_unchanged','管理員已是這個狀態，請重新整理。');
+    if(body.active){
+      requireCondition((await q.query('SELECT user_id FROM users WHERE community_id=$1 AND lower(email)=$2 AND active FOR SHARE',[input.admin.community_id,prior.email])).rowCount===1,422,'active_member_required','重新任命需要同信箱的啟用中會員帳號。');
+    }else{
+      requireCondition((await q.query('SELECT count(*)::int AS count FROM platform_admins WHERE community_id=$1 AND active',[input.admin.community_id])).rows[0].count>1,409,'last_admin_required','社群至少需要一位啟用中的管理員。');
+    }
+    const updated=(await q.query('UPDATE platform_admins SET active=$2,aggregate_version=aggregate_version+1 WHERE admin_id=$1 AND community_id=$3 RETURNING *',[id,body.active,input.admin.community_id])).rows[0];
+    const result=withAdminAccessState({...updated,user_id:prior.user_id});
+    await audit(q,input.admin,'platform_admin_status','platform_admin',id,body.reason,{active:prior.active,aggregate_version:Number(prior.aggregate_version)},{active:result.active,aggregate_version:result.aggregate_version,access_state:result.access_state});
+    return result;
+  },true);
 }
 export async function adminAudit(pool:Pool,admin:AdminActor){
   return (await pool.query(`SELECT a.audit_id,a.action,a.target_type,a.target_ref,a.reason,a.before_state,a.after_state,a.created_at,p.display_name AS admin_name

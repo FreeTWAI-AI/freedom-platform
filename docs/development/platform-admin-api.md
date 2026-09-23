@@ -1,6 +1,6 @@
 # 平台管理介面 API
 
-管理介面位於 `/admin`；後端為 `/admin/api/*`。它使用 Cloudflare Access 簽章驗證後的真人身分，再查詢私下建立的 `platform_admins` 有效名單。平台一般註冊、會員 cookie、自填 email、GitHub slug 或自行加上的 email header 都不授予管理權。真實管理員信箱及 Access 設定不放進 repo。
+管理介面位於 `/admin`；後端為 `/admin/api/*`。它使用 Cloudflare Access 簽章驗證後的真人身分，再查詢 `platform_admins` 有效名單；初始人選私下建立，後續由既有管理員在後台任命。平台一般註冊、會員 cookie、自填 email、GitHub slug 或自行加上的 email header 都不授予管理權。真實管理員信箱及 Access 設定不放進 repo。
 
 所有讀取重新驗證 Access JWT 和管理名單；所有修改還需要同源 JSON、`X-Admin-CSRF`（取自 bootstrap）與 `Idempotency-Key`（8–128 個英數、底線或連字號）。修改既有資料需要 `If-Match: "<aggregate_version>"`。缺版本回 428、版本過期 412、重用操作識別碼但內容不同 409。API 採 `Cache-Control: no-store`，失敗不回傳 JWT、SQL、密碼或 provider 原始錯誤。
 
@@ -14,7 +14,9 @@
 | `POST /guild-applications/:id/review` | `{decision:'approve'|'reject',reason,guild?}`。核准必須提供完整 guild，拒絕不得帶 guild。每件僅能處理一次；重試相同操作回原結果。 |
 | `GET /guilds` | `{items}`；包含公會目錄、有效會員數、`guild_master:{user_id,display_name}|null`、`officer_version:number|null`。 |
 | `POST /guilds/:key/master` | `{user_id,reason}`；目標必須是同社群、有效且已加入該公會的會員。首次任命不傳 If-Match，後續任命使用 officer_version。 |
-| `GET /admins` | `{items}`；私下指定的管理名單、有效狀態及是否有相同 email 的會員。相同 email 不代表已驗證帳號歸屬。 |
+| `GET /admins` | `{items}`；管理名單、有效狀態、aggregate_version、access_state 及是否有相同 email 的會員。相同 email 不代表已驗證帳號歸屬。 |
+| `POST /members/:id/admin` | `{reason,confirmed:true}`，使用會員 aggregate_version；任命同社群的啟用中會員。已有管理紀錄回409，改用狀態操作。 |
+| `POST /admins/:id/status` | `{active,reason,confirmed:true}`，使用管理員 aggregate_version；不可停用自己，重新啟用須有啟用中的同信箱會員。 |
 | `GET /audit` | `{items}`；最近100筆本站管理操作，包含操作人顯示名、理由、對象、前後狀態與時間。 |
 
 核准的 `guild` 格式：
@@ -42,3 +44,9 @@
 修改會把已驗證的 Access subject 與管理員 ID、理由、前後狀態寫入獨立 audit；JWT 本身不落盤。所有權限與版本會在交易中重查，相同 idempotency 重試不重複記錄。
 
 驗證：`npx tsx --test --test-concurrency=1 tests/runtime/admin-access.test.ts tests/runtime/platform-admin.test.ts` 使用隔離 PostgreSQL schema 與測試用 RSA/JWKS 簽章；不使用正式 DB 或 Cloudflare 服務。`createApp` 的明確 verifier 注入僅供程式測試，正式 server 使用預設驗證器，沒有環境變數繞過登入的模式。
+
+## 管理員任命與登入同步
+
+`GET /members` 附帶 `platform_admin`（null 或 admin_id、active、aggregate_version、access_state），方便直接任命。所有任命由既有 Access 管理員明確確認並留下 audit；會員信箱只是被任命的地址，仍須本人通過 Access OTP 才能使用管理權限。
+
+`access_state` 為 pending、ready、pending_removal、revoked。獨立操作服務每15秒執行 `scripts/sync-admin-access.ts`，將啟用中管理員的精確信箱名單同步到 Access；讀回比對成功才寫入 access_synced_version/at。Web API 不持有 Cloudflare token。停用先在資料庫立即生效，舊 Access JWT 也無法再管理；邊緣名單移除可能稍後完成。服務失敗時維持待同步，不假報可登入。詳見 [部署設定](member-toolkit.md)。

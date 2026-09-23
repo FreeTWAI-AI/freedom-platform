@@ -79,3 +79,25 @@ real socket IP; in-process requests share one budget. Registration caps are 8 pe
 network / 15 min, 3 per email / 15 min and 100 global / min; login 60 per network /
 15 min, 240 global / min plus 10 failures per account / 15 min. PostgreSQL persists
 these limits across worker restarts. Password hashing uses async scrypt.
+
+## Member avatars
+
+`GET /me/avatar` returns `{avatar_url:null|string,aggregate_version:number}`; the
+same metadata is included as `avatar` in `/me/account`. Member cards include
+`avatar_url` without bytes or other private settings.
+
+`POST /me/avatar` accepts raw `image/jpeg`, `image/png` or `image/webp` bytes (not
+JSON/multipart). Same-origin session, CSRF, Idempotency-Key and the avatar's own
+If-Match revision are required. Maximum input is 2 MiB, static, at most4096×4096.
+The server validates signatures and decodes pixels, auto-orients, crops centrally
+to256×256 WebP and strips metadata; stored output is capped128KiB. Upload rate
+limits are12/member/minute and120/global/minute. Account edits keep a separate
+version so photo changes do not accidentally save nickname/contact drafts.
+
+`POST /me/avatar/remove` takes `{}` and the same revision/CSRF/idempotency rules.
+A tombstone retains revision history. `GET /members/:id/avatar?v=<revision>`
+serves only the current photo to authenticated, active, completed members of the
+same community. Responses are private/no-store; removed/old revisions are404;
+anonymous callers are401. Migration016 stores normalized bytes in PostgreSQL,
+so existing database backups include avatars. No external image URL fetching,
+SVG, animated upload or anonymous avatar endpoint is enabled.

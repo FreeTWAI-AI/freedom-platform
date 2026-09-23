@@ -5,6 +5,7 @@ import { command,checkVersion,journal,transaction,type Command } from '../../pac
 import { requireCondition } from '../../packages/shared/problem.js';
 import { hashPasswordAsync,tokenHash,type Actor } from './service.js';
 import { memberPositioningSummary } from '../positioning/onboarding.js';
+import { avatarMetadata, avatarUrl } from './avatars.js';
 
 const audienceKeys=['public','friends','squad','guild'] as const;
 type Audience=typeof audienceKeys[number];
@@ -79,7 +80,7 @@ async function ensureAccount(q:Pool|PoolClient,actor:Actor) {
 export async function accountView(pool:Pool,actor:Actor) {
   await ensureAccount(pool,actor);
   const row=(await pool.query(`SELECT a.*,u.email,u.display_name,u.email_verified_at FROM member_accounts a JOIN users u USING(user_id) WHERE a.user_id=$1 AND a.community_id=$2`,[actor.user_id,actor.community_id])).rows[0];
-  return {user_id:row.user_id,nickname:row.display_name,login_email:row.email,email_verified:Boolean(row.email_verified_at),contacts:Object.fromEntries(Object.entries(normalizedContacts(row.contacts,row.email)).map(([key,value])=>[key,{...value,verified:false}])),aggregate_version:row.aggregate_version};
+  return {user_id:row.user_id,nickname:row.display_name,login_email:row.email,email_verified:Boolean(row.email_verified_at),contacts:Object.fromEntries(Object.entries(normalizedContacts(row.contacts,row.email)).map(([key,value])=>[key,{...value,verified:false}])),aggregate_version:row.aggregate_version,avatar:await avatarMetadata(pool,actor)};
 }
 export async function saveAccount(pool:Pool,input:Command) {
   const body=AccountInput.parse(input.body);
@@ -105,11 +106,12 @@ export async function memberCard(pool:Pool,actor:Actor,id:string) {
   // Contact values and their audience predicates must share ONE database snapshot.
   // Split reads can combine an old friendship with a newly changed private value.
   const [projection,positioning]=await Promise.all([
-    pool.query(`SELECT u.user_id,u.display_name,u.email,account.contacts,
+    pool.query(`SELECT u.user_id,u.display_name,u.email,account.contacts,avatar.aggregate_version AS avatar_version,avatar.image_bytes IS NOT NULL AS avatar_present,
       (SELECT jsonb_build_object('state',f.state,'requester_ref',f.requester_ref,'aggregate_version',f.aggregate_version) FROM member_friendships f WHERE f.community_id=$1 AND f.low_ref=$2 AND f.high_ref=$3) AS friendship,
       EXISTS(SELECT 1 FROM positioning_profession_memberships a JOIN positioning_profession_memberships b USING(community_id,guild_key) WHERE a.community_id=$1 AND a.user_id=$4 AND b.user_id=$5 AND a.state='active' AND b.state='active') AS guild,
       EXISTS(SELECT 1 FROM member_squad_memberships a JOIN member_squad_memberships b USING(squad_id) JOIN member_squads s USING(squad_id) WHERE s.community_id=$1 AND a.user_id=$4 AND b.user_id=$5 AND a.state='active' AND b.state='active') AS squad
       FROM users u LEFT JOIN member_accounts account ON account.user_id=u.user_id AND account.community_id=u.community_id
+      LEFT JOIN member_avatars avatar ON avatar.user_id=u.user_id AND avatar.community_id=u.community_id
       WHERE u.user_id=$5 AND u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)`,[actor.community_id,low,high,actor.user_id,id]),
     memberPositioningSummary(pool,actor.community_id,id),
   ]);
@@ -119,7 +121,7 @@ export async function memberCard(pool:Pool,actor:Actor,id:string) {
     const audience=field.audiences;
     if(field.value&&(isSelf||audience.includes('public')||audience.includes('friends')&&relation.friendship?.state==='accepted'||audience.includes('guild')&&relation.guild||audience.includes('squad')&&relation.squad))contacts[key]=field.value;
   }
-  return {user_id:id,nickname:relation.display_name,...positioning,contacts,is_self:isSelf,friendship:relation.friendship??{state:'none'}};
+  return {user_id:id,nickname:relation.display_name,...positioning,avatar_url:avatarUrl(id,relation.avatar_version,relation.avatar_present),contacts,is_self:isSelf,friendship:relation.friendship??{state:'none'}};
 }
 export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:number) {
   const rows=(await pool.query(`SELECT user_id FROM users WHERE community_id=$1 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL) ORDER BY display_name,user_id LIMIT $2 OFFSET $3`,[actor.community_id,limit+1,offset])).rows;

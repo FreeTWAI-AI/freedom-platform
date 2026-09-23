@@ -3,6 +3,7 @@
 // No database credentials, demo users, Cloudflare changes, or business writes.
 import { chromium, request, expect } from '@playwright/test';
 import { randomUUID, randomBytes } from 'node:crypto';
+import sharp from 'sharp';
 import { mkdir, chmod, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -189,7 +190,7 @@ try {
   await recommendation.getByRole('radio').check();
   await page.getByRole('button', { name: '確認加入公會，領取技能書', exact: true }).click();
   await expect(page.getByRole('heading', { name: '你的第一段旅程，現在開始。', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '查看技能書介紹', exact: true }).first().click();
+  await page.getByRole('button', { name: '閱讀技能書', exact: true }).first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('dialog').getByRole('link', { name: '閱讀技能書 ↗', exact: true })).toBeVisible();
   await page.getByRole('button', {name:'關閉技能書介紹',exact:true}).click();
@@ -214,16 +215,46 @@ try {
   await page.getByRole('button', { name: '我的定位', exact: true }).click();
   await expect(page.getByRole('heading', { name: '我的定位結果', exact: true })).toBeVisible();
   await expect(page.locator('.positioning-result')).toContainText('主要公會');
-  const preferences = page.locator('details').filter({ has: page.getByText('合作偏好（選填）', { exact: true }) });
-  await expect(preferences).not.toHaveAttribute('open');
-  await expect(page.getByLabel('我現在想完成的事')).not.toBeVisible();
+  await expect(page.getByText('合作偏好（選填）', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('我現在想完成的事')).toHaveCount(0);
+  await expect(page.getByLabel('搜尋職業方向')).toHaveCount(0);
+  await expect(page.getByRole('button', {name:'重新探索定位',exact:true})).toBeVisible();
   expect((await (await page.request.get(origin + '/api/v1/me/positioning')).json()).profile).toBeNull();
   await screenshot('public-positioning-result.png');
   console.log('Completed positioning shows published result without requiring another profile: PASS');
 
+  stage = 'skill-book cover delivery';
+  const covers=JSON.parse(await readFile(new URL('../docs/design/skill-book-art-manifest.json',import.meta.url),'utf8')).assets;
+  expect(covers).toHaveLength(22);
+  for(const cover of covers){
+    const image=await anonymous.get(origin+'/art/skills/'+cover.id+'.webp');
+    expect(image.status()).toBe(200);
+    expect(image.headers()['content-type']).toContain('image/webp');
+    const metadata=await sharp(await image.body()).metadata();
+    expect(metadata.width).toBe(cover.width);
+    expect(metadata.height).toBe(cover.height);
+  }
+  console.log('All 22 distinct skill-book covers delivered over HTTPS: PASS');
+
   stage = 'member card and privacy';
   await page.getByRole('button', { name: '我的名片', exact: true }).click();
   await expect(page.getByRole('heading', { name: '我的會員名片', exact: true })).toBeVisible();
+  const avatarFixture=await sharp({create:{width:320,height:240,channels:3,background:'#3044ff'}}).png().toBuffer();
+  const editor=page.locator('.avatar-editor');
+  await editor.getByLabel('選擇頭像',{exact:true}).setInputFiles({name:'synthetic-verification.png',mimeType:'image/png',buffer:avatarFixture});
+  await expect(editor.getByRole('img',{name:'頭像預覽',exact:true})).toBeVisible();
+  await editor.getByRole('button',{name:'保存頭像',exact:true}).click();
+  await expect(editor.getByRole('status')).toHaveText('頭像已保存，工坊夥伴現在可以看見。');
+  const avatarUrl=(await (await page.request.get(origin+'/api/v1/me/avatar')).json()).avatar_url;
+  expect(typeof avatarUrl).toBe('string');
+  expect((await anonymous.get(origin+avatarUrl)).status()).toBe(401);
+  await page.reload({waitUntil:'networkidle'});
+  await expect(page.locator('.member-card .member-avatar-photo img')).toHaveAttribute('src',avatarUrl);
+  await expect.poll(()=>page.locator('.member-card .member-avatar-photo img').evaluate(image=>image.naturalWidth)).toBe(256);
+  await editor.getByRole('button',{name:'移除頭像',exact:true}).click();
+  await expect(editor.getByRole('status')).toHaveText('頭像已移除。');
+  expect((await page.request.get(origin+avatarUrl)).status()).toBe(404);
+  console.log('Own avatar HTTPS upload, normalized image, private visibility, reload and removal: PASS');
   await page.getByLabel('Discord 帳號', { exact: true }).fill(privateContact);
   const audiences = page.getByRole('group', { name: 'Discord 帳號可見範圍', exact: true });
   await audiences.getByRole('checkbox', { name: '平台好友', exact: true }).check();
@@ -255,8 +286,9 @@ try {
   await expect(page.locator('.guild-card').first()).toContainText('公會技能庫');
   await page.locator('.guild-card').first().locator('.skill-intro-trigger').first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.getByRole('dialog').getByText('你的第一個成果',{exact:true})).toBeVisible();
-  await expect(page.getByRole('dialog').getByRole('link',{name:'開啟技能書完整指南 ↗',exact:true})).toHaveAttribute('href',/^\/development\/skills\//);
+  await expect(page.getByRole('dialog').getByRole('link',{name:'到 GitHub 點星星',exact:true})).toHaveAttribute('href',/^https:\/\/github\.com\//);
+  await page.getByRole('dialog').getByText('練習與設定',{exact:true}).click();
+  await expect(page.getByRole('dialog').getByRole('link',{name:'完整指南 ↗',exact:true})).toHaveAttribute('href',/^\/development\/skills\//);
   await noOverflow('Guild skill book introduction mobile overflow');
   await screenshot('public-guild-library-mobile.png');
   await page.getByRole('button',{name:'關閉技能書介紹',exact:true}).click();

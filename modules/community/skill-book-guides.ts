@@ -1,5 +1,10 @@
 /** Repo-specific reading guides. Reviewed against pinned primary source files, not live-service certification. */
+export type SkillBookBeginner = {
+  category:'定位與社群'|'供貨與商店'|'作品與開源'|'內容與行銷'|'小隊與協作'|'資訊安全';
+  purpose:string; for_whom:string; make:string; workshop_use:string; next_step:string;
+};
 export type SkillBookGuide = {
+  beginner:SkillBookBeginner;
   format:string; summary:string; audience:string[]; status:string; features:string[]; prerequisites:string[];
   first_steps:string[]; first_result:string; contribution:string; contribution_url:string; reading_url:string;
   source_commit:string; reviewed_at:string; source_evidence:{path:string;url:string}[];
@@ -43,7 +48,15 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
         "path": "README.md",
         "url": "https://github.com/FreeTWAI-AI/freedom-skill-career-guide/blob/22b1ff3fb3051ff98c330024f7507f5e9da13574/README.md"
       }
-    ]
+    ],
+    "beginner": {
+      "category": "定位與社群",
+      "purpose": "把想做的事，整理成這週能開始的一個小練習。",
+      "for_whom": "還在找方向，或想陪新人一起起步的人。",
+      "make": "一張方向卡與本週練習計畫。",
+      "workshop_use": "完成會員定位後，想進一步整理目標時，可帶到公會找夥伴討論。",
+      "next_step": "先挑一件這週想完成的小事，照手冊填一張方向卡。"
+    }
   },
   "community-ops": {
     "format": "實作手冊",
@@ -83,7 +96,15 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
         "path": "README.md",
         "url": "https://github.com/FreeTWAI-AI/freedom-skill-community-ops/blob/716f668a883c2333d4b7d6a8bd79e809d1c740a6/README.md"
       }
-    ]
+    ],
+    "beginner": {
+      "category": "定位與社群",
+      "purpose": "準備一套好上手的新人歡迎與小活動流程。",
+      "for_whom": "公會接待夥伴、社群志工與活動主持人。",
+      "make": "歡迎話術、活動說明與交接摘要。",
+      "workshop_use": "用在公會迎新、讀書會或小隊聚會，讓下一位主持人也能接手。",
+      "next_step": "先選一次迎新或一場小活動，寫下參加方式與主持分工。"
+    }
   },
   "partnership": {
     "format": "實作手冊",
@@ -123,7 +144,15 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
         "path": "README.md",
         "url": "https://github.com/FreeTWAI-AI/freedom-skill-partnership/blob/7117120a635a0782f170de9448ef85314a16be5d/README.md"
       }
-    ]
+    ],
+    "beginner": {
+      "category": "小隊與協作",
+      "purpose": "把聊出來的需求，寫成雙方看得懂的小合作。",
+      "for_whom": "想找合作夥伴、接案，或釐清客戶需求的人。",
+      "make": "一頁有範圍與下一步的合作提案。",
+      "workshop_use": "和公會或小隊夥伴討論合作時，先確認要交付什麼、誰負責。",
+      "next_step": "用手冊的問題訪談一位需求方，再寫出一個小試作。"
+    }
   },
   "reconciliation": {
     "format": "實作手冊",
@@ -162,7 +191,15 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
         "path": "README.md",
         "url": "https://github.com/FreeTWAI-AI/freedom-skill-reconciliation/blob/c43eac1fa37418a6b7d7569bddf54e2eb4822815/README.md"
       }
-    ]
+    ],
+    "beginner": {
+      "category": "供貨與商店",
+      "purpose": "學會比對訂單與收款紀錄，找出需要確認的差異。",
+      "for_whom": "小店營運者與協助整理帳目的人。",
+      "make": "三筆紀錄的對照表與差異清單。",
+      "workshop_use": "有商家合作時，用自己的資料整理差異，再請當事人核對；不會連銀行。",
+      "next_step": "先用三筆範例紀錄練習，標出金額、時間與待確認項目。"
+    }
   },
   "project-delivery": {
     "format": "實作手冊",
@@ -202,7 +239,15 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
         "path": "README.md",
         "url": "https://github.com/FreeTWAI-AI/freedom-skill-project-delivery/blob/ae381bcc77e82b4d646e5c3d7f7b63db2a0c0dd2/README.md"
       }
-    ]
+    ],
+    "beginner": {
+      "category": "小隊與協作",
+      "purpose": "把小隊的大想法，拆成這一輪能完成的小成果。",
+      "for_whom": "小隊召集人、專案協調者與一起做作品的夥伴。",
+      "make": "一份任務板與成果回顧。",
+      "workshop_use": "小隊開始合作時，拿來確認分工、驗收方式與下一輪待辦。",
+      "next_step": "先選一個小成果，列出完成條件與每個人的可投入時間。"
+    }
   },
   "music-mv": {
     "format": "製作手冊",
@@ -242,7 +287,15 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
         "path": "README.md",
         "url": "https://github.com/FreeTWAI-AI/freedom-skill-music-mv/blob/c189cbcbde61d2a4b109ba6e72f2ee8882f9ee07/README.md"
       }
-    ]
+    ],
+    "beginner": {
+      "category": "內容與行銷",
+      "purpose": "先規劃一小段音樂或 MV，讓聲音與畫面接得起來。",
+      "for_whom": "音樂創作者、剪輯者與第一次跨影音合作的人。",
+      "make": "一份音樂或 MV 企劃與素材來源表。",
+      "workshop_use": "帶到音樂與 MV 公會找夥伴，先對齊分工，再用各自工具實作。",
+      "next_step": "先選 30–60 秒的段落，寫出聲音、畫面與需要的素材。"
+    }
   },
   "commercial-production": {
     "format": "製作手冊",
@@ -282,7 +335,15 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
         "path": "README.md",
         "url": "https://github.com/FreeTWAI-AI/freedom-skill-commercial-production/blob/815b0a2f2bff90f9c9624d35a144d8bb70477667/README.md"
       }
-    ]
+    ],
+    "beginner": {
+      "category": "內容與行銷",
+      "purpose": "把商品拍攝需求，整理成攝影師和品牌都看得懂的計畫。",
+      "for_whom": "商品攝影師、廣告影片小隊與品牌窗口。",
+      "make": "一份拍攝說明、鏡位表與交付清單。",
+      "workshop_use": "供貨者與影像夥伴合作時，可用同一份拍攝計畫確認重點與修改。",
+      "next_step": "先選一件商品，寫清受眾、用途和三個必拍重點。"
+    }
   },
   "supplier-client": {
     "format": "讀取客戶端",
@@ -325,6 +386,14 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     "quickstart": {
       "commands": "npm ci --ignore-scripts\nnpm test\nnpm run connect\nnpm run read -- products",
       "context": "在自己的專案副本根目錄執行；指令已對照收錄版本的說明，這次介紹核對沒有代為安裝或執行。"
+    },
+    "beginner": {
+      "category": "供貨與商店",
+      "purpose": "在自己的電腦查看工坊商品與供貨申請。",
+      "for_whom": "已在工坊供貨的人，以及協助整理資料的開發者。",
+      "make": "一份只讀取自己資料的供貨檢視。",
+      "workshop_use": "搭配供貨中心查看自己的商品；刊登、改價與供貨決定仍回網站處理。",
+      "next_step": "先讀準備步驟，再由本人核准自己的供應端讀取連線。"
     }
   },
   "storefront": {
@@ -368,6 +437,14 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     "quickstart": {
       "commands": "npm ci --ignore-scripts\nnpm test\nnpm run build -- --template single-product --input examples/demo-snapshot.json --output dist/product.html --listing-id demo-listing",
       "context": "在自己的專案副本根目錄執行；指令已對照收錄版本的說明，這次介紹核對沒有代為安裝或執行。"
+    },
+    "beginner": {
+      "category": "供貨與商店",
+      "purpose": "把想賣的商品，排成可以在自己電腦看的商店樣稿。",
+      "for_whom": "想練習開店，或替商家設計商品展示頁的人。",
+      "make": "一張商店或單品展示頁。",
+      "workshop_use": "搭配「開店與銷售」的選品，先討論版面；樣稿目前不能下單或結帳。",
+      "next_step": "挑一個商品，先用範例做出展示頁，再換成自己的內容。"
     }
   },
   "agent-kit": {
@@ -411,6 +488,14 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     "quickstart": {
       "commands": "npm ci\nnpm test",
       "context": "在自己的專案副本根目錄執行；指令已對照收錄版本的說明，這次介紹核對沒有代為安裝或執行。"
+    },
+    "beginner": {
+      "category": "作品與開源",
+      "purpose": "用現成範例，練習讓 AI 工具讀取平台狀態。",
+      "for_whom": "想研究工坊工具串接、能操作程式環境的人。",
+      "make": "一個能跑測試的本機查詢小改動。",
+      "workshop_use": "適合平台工程與 AI 公會研究工具接入；目前先用本機示範練習。",
+      "next_step": "照準備步驟啟動本機範例，先看懂一次查詢的輸入與輸出。"
     }
   },
   "project-template": {
@@ -458,6 +543,14 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     "quickstart": {
       "commands": "npm test\nnpm run build\nnpm run dev",
       "context": "在自己的專案副本根目錄執行；指令已對照收錄版本的說明，這次介紹核對沒有代為安裝或執行。"
+    },
+    "beginner": {
+      "category": "作品與開源",
+      "purpose": "從能開啟的範例頁面，開始自己的第一個開源作品。",
+      "for_whom": "想做第一個程式作品的會員或小隊。",
+      "make": "一個有用途說明與測試的新專案。",
+      "workshop_use": "在作品共創中練習修改、提出任務與送出修改審查。",
+      "next_step": "先把範例在自己電腦打開，再改成你的作品名稱與用途。"
     }
   },
   "social-post": {
@@ -498,7 +591,15 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
         "path": "README.md",
         "url": "https://github.com/Hao0321/claude-skill-social-post/blob/c2641ba5ac7d7f722f1cef54b03fbfe553502c7b/README.md"
       }
-    ]
+    ],
+    "beginner": {
+      "category": "內容與行銷",
+      "purpose": "讓 AI 先認識你的口吻，再一起寫社群貼文。",
+      "for_whom": "社群小編、個人品牌創作者與行銷夥伴。",
+      "make": "自己的口吻簡卡與一篇貼文草稿。",
+      "workshop_use": "為商品、作品或公會活動寫介紹，內容由本人確認後再發布。",
+      "next_step": "選幾篇你有權使用的文字，先整理口吻，再改好第一篇草稿。"
+    }
   },
   "typo-studio": {
     "format": "排版工具",
@@ -547,7 +648,15 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
       "commands": "npm install\nnpm start",
       "context": "在自己的專案副本根目錄執行；指令已對照收錄版本的說明，這次介紹核對沒有代為安裝或執行。"
     },
-    "website_url": "https://hao0321.github.io/typo-studio/"
+    "website_url": "https://hao0321.github.io/typo-studio/",
+    "beginner": {
+      "category": "內容與行銷",
+      "purpose": "把一段中文內容，排成清楚好讀的社群輪播圖。",
+      "for_whom": "想做知識圖卡、商品介紹或社群設計的人。",
+      "make": "五頁輪播圖與可再編輯的專案檔。",
+      "workshop_use": "把商品重點、公會活動或作品教學整理成能分享的圖卡。",
+      "next_step": "先準備五個重點，套入一組輪播，再調整字級與斷行。"
+    }
   },
   "video-autopilot": {
     "format": "剪輯工具與方法框架",
@@ -595,6 +704,14 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     "quickstart": {
       "commands": "python examples/04_shorts_gate.py",
       "context": "在自己的專案副本根目錄執行；指令已對照收錄版本的說明，這次介紹核對沒有代為安裝或執行。"
+    },
+    "beginner": {
+      "category": "內容與行銷",
+      "purpose": "把影片素材的檢查與剪輯步驟，整理成可重跑的流程。",
+      "for_whom": "會剪短影音、經營頻道或想改造剪輯工具的人。",
+      "make": "一份短影音判定結果與調整紀錄。",
+      "workshop_use": "影音公會或小隊可用來比較剪輯規則，再逐步套用到自己的素材。",
+      "next_step": "先跑不需真素材的範例，理解規則後再準備自己的影片。"
     }
   },
   "short-drama": {
@@ -639,6 +756,14 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     "quickstart": {
       "commands": "python scripts/studio_lint.py examples/studio-plan.example.json --studio-ready",
       "context": "在自己的專案副本根目錄執行；指令已對照收錄版本的說明，這次介紹核對沒有代為安裝或執行。"
+    },
+    "beginner": {
+      "category": "內容與行銷",
+      "purpose": "把一個短劇點子，整理成角色、分集與鏡頭計畫。",
+      "for_whom": "編劇、短劇創作者與影片企劃小隊。",
+      "make": "三集試播概要與製作計畫草稿。",
+      "workshop_use": "先和影音公會夥伴確認故事，再交給各自選用的生成或剪輯工具製作。",
+      "next_step": "先寫一句故事點子與主角目標，照步驟展開三集概要。"
     }
   },
   "hao-studio": {
@@ -680,7 +805,15 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
         "url": "https://github.com/Hao0321/Hao0321-Studio-WEB/blob/40766413d3263e80d573e7c7928e1816c9f441e0/game-api/README.md"
       }
     ],
-    "website_url": "https://hao0321.com/"
+    "website_url": "https://hao0321.com/",
+    "beginner": {
+      "category": "作品與開源",
+      "purpose": "從真實網站學習怎麼介紹作品、文章與社群。",
+      "for_whom": "想做個人作品集、品牌頁或研究網站的人。",
+      "make": "一張內容地圖與自己的單頁練習。",
+      "workshop_use": "可作為介紹工坊作品的版面參考；練習頁請使用自己的素材。",
+      "next_step": "先看首頁怎麼分類內容，畫一張地圖，再做自己的小頁面。"
+    }
   },
   "media-generator": {
     "format": "影音提示與生成 Skill",
@@ -720,7 +853,15 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
         "path": "README.md",
         "url": "https://github.com/Hao0321/ai-media-generator/blob/edc8aa5227f4a58f9a3a88c7bf3e99bdda2a4361/README.md"
       }
-    ]
+    ],
+    "beginner": {
+      "category": "內容與行銷",
+      "purpose": "把模糊的影音想法，寫成清楚的分鏡與生成提示。",
+      "for_whom": "想用 AI 做商品素材、影片或音樂企劃的人。",
+      "make": "一份三個鏡頭的生成說明。",
+      "workshop_use": "和行銷、影音公會討論同一份分鏡，再選擇工具實際生成。",
+      "next_step": "先決定一個主題，寫出三個鏡頭的畫面、聲音與風格。"
+    }
   },
   "pos-pro": {
     "format": "離線零售 POS",
@@ -764,6 +905,14 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     "quickstart": {
       "commands": "npm install\nnpm run dev",
       "context": "在自己的專案副本根目錄執行；指令已對照收錄版本的說明，這次介紹核對沒有代為安裝或執行。"
+    },
+    "beginner": {
+      "category": "供貨與商店",
+      "purpose": "在自己的裝置，練習小店收銀、庫存與報表。",
+      "for_whom": "小店店主、門市夥伴與零售工具開發者。",
+      "make": "一份測試銷售、退款與庫存紀錄。",
+      "workshop_use": "可在銷售或對帳公會討論門市流程；不會自動同步工坊商品或帳務。",
+      "next_step": "先建測試商品，練習一筆銷售與退款，再核對庫存變化。"
     }
   },
   "security-scanner": {
@@ -804,7 +953,15 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
         "path": "package.json",
         "url": "https://github.com/teddashh/ai-security-scanner/blob/9fae58fbf0e78f25fad5b1e9f70104ac5ab73153/package.json"
       }
-    ]
+    ],
+    "beginner": {
+      "category": "資訊安全",
+      "purpose": "檢查自己的網站或程式，找出應優先處理的安全問題。",
+      "for_whom": "維護自有系統的開發者與資安公會夥伴。",
+      "make": "一份能重開的安全報告。",
+      "workshop_use": "拿自己的或已獲授權的測試專案練習，再和夥伴討論修正順序。",
+      "next_step": "先讀支援範圍與安裝狀態，挑一個已獲授權的小專案開始。"
+    }
   },
   "ai-sister": {
     "format": "本機記憶桌面助理",
@@ -849,7 +1006,15 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
       "commands": "cargo build --release -p sister-cli --locked\n./target/release/sister --data-dir ./data replay scenarios/bill-lookup.json\n./target/release/sister --data-dir ./data query 電話",
       "context": "在自己的專案副本根目錄執行；指令已對照收錄版本的說明，這次介紹核對沒有代為安裝或執行。"
     },
-    "website_url": "https://teddashh.github.io/AI-Sister/"
+    "website_url": "https://teddashh.github.io/AI-Sister/",
+    "beginner": {
+      "category": "作品與開源",
+      "purpose": "研究怎麼把看過的資訊存成記憶，回答時找回來源。",
+      "for_whom": "想研究個人知識工具或桌面助理的人。",
+      "make": "一份範例問答與來源核對筆記。",
+      "workshop_use": "AI 公會可用範例資料討論記憶與搜尋，先不用私人螢幕內容。",
+      "next_step": "先讀支援平台與隱私說明，再用範例核對一次答案的出處。"
+    }
   },
   "multi-ai-desktop": {
     "format": "多 AI 桌面工作台",
@@ -889,7 +1054,15 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
         "path": "package.json",
         "url": "https://github.com/teddashh/multi-ai-chat-desktop/blob/dd22b21178212cd9b717aafd9cca82d25b85f681/package.json"
       }
-    ]
+    ],
+    "beginner": {
+      "category": "小隊與協作",
+      "purpose": "在桌面視窗，安排多個 AI 輪流提案與檢查。",
+      "for_whom": "常用多種 AI、想整理協作流程的人。",
+      "make": "一份多 AI 討論結果與自己的判斷。",
+      "workshop_use": "小隊可用公開題目比較提案，再由夥伴決定採用什麼。",
+      "next_step": "選一個不含機密的小問題，先跑一輪提案與審查。"
+    }
   },
   "multi-ai-chat": {
     "format": "Chrome 側欄外掛",
@@ -933,6 +1106,14 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     "quickstart": {
       "commands": "npm ci\nnpm run verify",
       "context": "在自己的專案副本根目錄執行；指令已對照收錄版本的說明，這次介紹核對沒有代為安裝或執行。"
+    },
+    "beginner": {
+      "category": "小隊與協作",
+      "purpose": "在瀏覽器側欄，比較多個 AI 的回答。",
+      "for_whom": "慣用 Chrome、常在多個 AI 分頁之間切換的人。",
+      "make": "一份回答比較與採用理由。",
+      "workshop_use": "用在作品討論或小隊腦力激盪，整理不同意見後再一起決定。",
+      "next_step": "先看安裝方式，選一個公開問題，送到已登入的 AI 分頁比較。"
     }
   }
 };

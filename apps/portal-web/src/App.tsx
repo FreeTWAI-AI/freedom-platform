@@ -5,6 +5,7 @@ import { ApiError, PortalClient, requireDashboard, requireItems } from './api'
 import { MemberHome } from './modules/MemberHome'
 import { Onboarding, type OnboardingView } from './modules/Onboarding'
 import { AccountPanel, MembersPanel, type MemberCardData } from './modules/Membership'
+import { MemberAvatar } from './modules/MemberAvatar'
 import { SquadsPanel } from './modules/Squads'
 import { CoCreationPanel } from './modules/CoCreationPanel'
 import { AdminPanel } from './modules/AdminPanel'
@@ -260,7 +261,7 @@ function LoginView({
       <section className="card login-card" aria-labelledby="login-heading">
         <div className="auth-switch"><button type="button" className={mode==='login'?'selected':''} onClick={()=>{setMode('login');setError(null)}}>會員登入</button>{site?.registration_enabled&&<button type="button" className={mode==='register'?'selected':''} onClick={()=>{setMode('register');setError(null)}}>建立帳號</button>}</div>
         <h2 id="login-heading">{mode==='register'?'加入自由工坊':'登入'}</h2>
-        <p className="lede">找到你的方向，參與供貨、開店、開源作品與職業公會。</p>
+        <p className="lede">{mode==='register'?'先認識你的專長，再找公會與夥伴。':'歡迎回來，繼續你的作品與合作。'}</p>
         {notice && (
           <p className="banner banner-info" role="status">
             {notice}
@@ -298,7 +299,7 @@ function LoginView({
               disabled={pending}
             />
           </label>
-          {mode==='register'&&<><p className="field-hint">密碼至少 12 個字元，請妥善保存；目前尚未提供 E-mail 找回密碼。註冊後會先帶你完成定位與選擇公會。</p><p className="field-hint">Email 就是你的登入與聯絡信箱，預設不公開。社群帳號與分享對象可在「我的名片」設定。</p></>}
+          {mode==='register'&&<><p className="field-hint">密碼至少 12 個字元。請妥善保存，目前無法用 E-mail 找回密碼。</p><p className="field-hint">Email 同時用於登入與聯絡，預設不公開。之後可在「我的名片」調整。</p></>}
           <button className="btn btn-primary" type="submit" disabled={pending} aria-busy={pending}>
             {pending ? (mode==='register'?'建立帳號中…':'登入中…') : (mode==='register'?'註冊並開始定位':'登入')}
           </button>
@@ -344,7 +345,7 @@ function Workspace({
   onSessionExpired: () => void
 }) {
   const [headerMember,setHeaderMember]=useState<MemberCardData|null>(null)
-  useEffect(()=>{let active=true;const refresh=()=>{void client.get<MemberCardData>(`/members/${session.user.user_id}`).then(value=>{if(active)setHeaderMember(value)}).catch(()=>{})};refresh();window.addEventListener('freedom-profile-updated',refresh);return()=>{active=false;window.removeEventListener('freedom-profile-updated',refresh)}},[session.user.user_id])
+  useEffect(()=>{let active=true,generation=0;const refresh=()=>{const current=++generation;void client.get<MemberCardData>(`/members/${session.user.user_id}`).then(value=>{if(active&&current===generation)setHeaderMember(value)}).catch(()=>{})};refresh();window.addEventListener('freedom-profile-updated',refresh);return()=>{active=false;generation++;window.removeEventListener('freedom-profile-updated',refresh)}},[session.user.user_id])
   const [tab, setTab] = useState<TabId>(() => tabFromHash())
   const selectTab = useCallback((next: TabId) => {
     setTab(next)
@@ -462,7 +463,7 @@ function Workspace({
                   {headerMember?.nickname??session.user.display_name}{headerMember?.positioning_title?` · ${headerMember.positioning_title}`:' · 自由工坊會員'}{headerMember?.primary_guild?` · ${headerMember.primary_guild.name}`:''}
                 </p>
               </div>
-              <div className="topbar-actions"><button className="btn btn-ghost" type="button" onClick={()=>selectTab('account')}>我的名片</button><button className="btn btn-ghost" type="button" onClick={()=>selectTab('members')}>工坊夥伴</button><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
+              <div className="topbar-actions"><button className="btn btn-ghost topbar-profile" aria-label="我的名片" type="button" onClick={()=>selectTab('account')}><MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>我的名片</button><button className="btn btn-ghost" type="button" onClick={()=>selectTab('members')}>工坊夥伴</button><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
                 登出
               </button></div>
             </header>
@@ -581,7 +582,7 @@ function WorkbenchPanel() {
           <span className="summary-label">已接受成果</span>
           <strong>{dashboard.summary.accepted_count}</strong>
         </div>
-        <p>接受代表當事人認可這次提交，不是官方品管通過。</p>
+        <p>成果由合作當事人確認，不代表官方認證。</p>
       </section>
 
       <Section title="現在進行" description="你正在處理的互助工作。">
@@ -828,14 +829,14 @@ function WorkItemCard({
               disabled={busy}
               placeholder="artifact:template-v1"
             />
-            <span className="field-hint">只填不透明引用，不要貼私人檔案、簽章網址或原始資料。</span>
+            <span className="field-hint">填成果代號，例如 artifact:logo-v1。檔案另行分享，別貼含登入權限的連結或私人資料。</span>
           </label>
           <button className="btn btn-primary" type="submit" disabled={busy}>
             提交成果
           </button>
         </form>
       )}
-      {claim?.state === 'submitted' && <p className="hint">已提交，等待被指派的回饋者處理。提交會進入回饋佇列。</p>}
+      {claim?.state === 'submitted' && <p className="hint">已提交，等待回饋。</p>}
       {claim?.state === 'in_review' && <p className="hint">回饋進行中。</p>}
       {claim?.state === 'accepted' && <p className="hint">這次提交已被接受，非正式官方品管。</p>}
       {(isOwnRef(session.user,item.owner_ref)||(claim&&claim.state!=='claimed'))&&<BenefitObservations client={client} workItemId={item.work_item_id}/>}
@@ -1030,7 +1031,7 @@ function CreateWorkForm({
   return (
     <section className="card">
       <h2>發布自願互助工作</h2>
-      <p className="lede">說明真實問題、幫助者當次可得到什麼、投入上限與完成條件。沒有人認領時不會自動找人補位。</p>
+      <p className="lede">說清楚需要什麼幫忙、花多少時間，以及怎樣算完成。由夥伴自願認領，平台不會自動派人。</p>
       {formError && (
         <p className="banner banner-error" role="alert">
           {formError}
@@ -1213,7 +1214,7 @@ function CreateShowcaseForm({
   return (
     <section className="card">
       <h2>分享作品</h2>
-      <p className="lede">這是本人同意把作品曝光給社群，不是平台代為發布。</p>
+      <p className="lede">把你的作品分享給社群，讓有需求的人找到你。</p>
       {formError && (
         <p className="banner banner-error" role="alert">
           {formError}
@@ -1464,10 +1465,10 @@ function EngagementPanel() {
       <ModuleBanner eyebrow="JOURNAL / 一起完成的旅程" title="合作的每一步，都能回來查看" description="從約定、交付到雙方確認，保留清楚的紀錄。"/>
       <FlowLegend />
       <p className="lede">
-        這裡的金額是約定價格。收款回報由提供者自行填寫，對方確認後仍標示為未核對銀行，不是實際金流或已驗證付款。
+        付款由雙方自行處理，平台只記錄約定與收款回報，不代收款，也不核實銀行入帳。
       </p>
       {engagements.length === 0 ? (
-        <EmptyState title="還沒有合作紀錄" body="流程：作品曝光 → 商機 → 合作 → 交付 → 實收回報。先到「作品與商機」開始。" />
+        <EmptyState title="還沒有合作紀錄" body="先到「一般作品與需求」分享作品或提出需求；雙方建立合作後，紀錄會出現在這裡。" />
       ) : (
         <div className="card-grid">
           {engagements.map((engagement) => (

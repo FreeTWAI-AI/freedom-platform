@@ -334,3 +334,16 @@
   .freedom-home .home-module-card:hover .home-module-cover img,
   .freedom-home .home-module-card:focus-within .home-module-cover img { transform: none; }
 }
+
+/* Search across the public collection without changing member book grants. */
+.community-library .skill-library-filters { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: end; gap: 16px; }
+.community-library .skill-library-filters .field { min-width: 0; font-size: .85rem; }
+.community-library .skill-library-filters input,
+.community-library .skill-library-filters select { width: 100%; min-height: 48px; font-size: 1rem; }
+.community-library .skill-library-count { margin: 0; color: #aeb5c2; font-size: .85rem; }
+.community-library .community-book.skill-library-book { align-items: stretch; padding: 12px; gap: 16px; }
+.community-library .community-book.skill-library-book .skill-library-copy { width: 100%; }
+.community-library .community-book.skill-library-book .skill-intro-trigger { margin: 0; }
+@media (max-width: 700px) {
+  .community-library .skill-library-filters { grid-template-columns: 1fr; gap: 14px; }
+}

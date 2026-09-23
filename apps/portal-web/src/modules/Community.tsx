@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { PortalClient } from '../api';
-import { SkillBookIntro } from './SkillBookIntro';
+import { SkillBookCard, type IntroBook } from './SkillBookIntro';
 
 export type SiteConfig = { registration_enabled: boolean; demo_accounts_enabled: boolean; public_mode: boolean };
 export function BrandPoster({ compact = false }: { compact?: boolean }) {
@@ -16,30 +16,32 @@ export function CommunityLinks() {
   return <footer className="community-footer"><div><strong>自由工坊</strong><p>自由創作，讓每一種專業都有位置。</p></div><nav aria-label="自由工坊社群">{communityLinks.map(link => <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">{link.label} <span aria-hidden="true">↗</span></a>)}</nav></footer>;
 }
 
-type CatalogBook = { id: string; title: string; repository_url: string; fork_url: string | null; description: string; license_status: string; introduction_url?: string | null; upstream_url?: string; source_commit?: string | null };
+type CatalogBook = IntroBook & { id: string; fork_url: string | null; license_status: string };
 type CommunityCatalog = { name: string; tagline: string; metrics: { label: string; value: number; as_of: string; note: string }[]; featured_projects: CatalogBook[]; skill_books: CatalogBook[]; project_links?: { title: string; url: string; description: string }[] };
 
 export function RepositoryLibrary({ client, ids, title = '社群技能書' }: { client: PortalClient; ids?: string[]; title?: string }) {
   const [catalog, setCatalog] = useState<CommunityCatalog | null>(null), [error, setError] = useState('');
+  const [search,setSearch]=useState(''),[category,setCategory]=useState(''),[reload,setReload]=useState(0);
   useEffect(() => {
     let active = true;
+    setError('');setCatalog(null);
     void client.get<CommunityCatalog>('/community').then(data => { if (active) setCatalog(data); }).catch(() => { if (active) setError('社群技能書暫時無法載入。'); });
     return () => { active = false; };
-  }, [client]);
-  const books = ids ? catalog?.skill_books.filter(book => ids.includes(book.id)) : catalog?.featured_projects;
+  }, [client,reload]);
+  const available=ids?catalog?.skill_books.filter(book=>ids.includes(book.id))??[]:catalog?.skill_books??[];
+  const categories=[...new Set(available.map(book=>book.guide?.beginner?.category).filter((value):value is NonNullable<typeof value>=>!!value))];
+  const term=search.trim().toLocaleLowerCase();
+  const books=available.filter(book=>(!category||book.guide?.beginner?.category===category)&&(!term||[book.title,book.description,...Object.values(book.guide?.beginner??{})].join(' ').toLocaleLowerCase().includes(term)));
   return <section className="stack community-library">
     <header className="community-library-heading">
-      <div><p className="home-eyebrow">THE SHARED LIBRARY</p><h3>{title}</h3><p>從原作者的公開作品出發，在工坊持續學習與改造。</p></div>
+      <div><p className="home-eyebrow">THE SHARED LIBRARY</p><h3>{title}</h3></div>
       <img src="/art/rpg/skill-codex.webp" alt="" width="360" height="240" loading="lazy"/>
     </header>
-    {error && <p role="alert">{error}</p>}
+    {error && <div role="alert"><p>{error}</p><button type="button" className="btn btn-ghost" onClick={()=>setReload(value=>value+1)}>重新載入技能書</button></div>}
     {!catalog && !error && <p role="status">正在載入技能書…</p>}
-    <div className="card-grid community-book-grid">{books?.map((book, index) => <article className="card skill-book community-book" key={book.id}>
-      <div className="community-book-spine" aria-hidden="true"><span>SKILL BOOK</span><span>{String(index + 1).padStart(2, '0')}</span></div>
-      <h4>{book.title}</h4><p>{book.description}</p>
-      {book.license_status === 'NOASSERTION' && <p className="field-hint">授權尚待確認；使用、修改與再發布前請先閱讀來源說明。</p>}
-      <SkillBookIntro book={book}/>
-    </article>)}</div>
+    {catalog&&<><div className="skill-library-filters"><label className="field">搜尋技能書<input type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="例如：貼文、商店、剪輯、找方向…"/></label><label className="field">依工坊用途篩選<select value={category} onChange={event=>setCategory(event.target.value)}><option value="">全部用途</option>{categories.map(value=><option key={value} value={value}>{value}</option>)}</select></label></div><p className="skill-library-count" role="status">顯示 {books.length} / {available.length} 本技能書</p></>}
+    <div className="card-grid community-book-grid">{books.map(book=><SkillBookCard key={book.id} book={book} className="community-book"/>)}</div>
+    {catalog&&!books.length&&<p className="muted">沒有符合的技能書。試試另一個關鍵字或用途。</p>}
   </section>;
 }
 
