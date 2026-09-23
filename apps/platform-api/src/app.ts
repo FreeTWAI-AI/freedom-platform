@@ -25,6 +25,7 @@ import { createBenefitRoutes } from './routes/benefits.js';
 import { createDevelopmentRoutes } from './routes/development.js';
 import { createPublicClientConnectionRoutes,createClientConnectionRoutes,createClientApiRoutes } from './routes/client-connections.js';
 import protocolMetadata from '../../../contracts/preview/v1/metadata.json' with { type: 'json' };
+import packageMetadata from '../../../package.json' with { type: 'json' };
 import {createGitHubMetricsRoutes,createGitHubSocialRoutes,socialLoader,type GitHubSocialOptions} from './routes/github-social.js';
 import {GitHubSocial} from '../../../modules/github-social/service.js';
 import {createSkillDiscoveryRoutes} from './routes/skill-discovery.js';
@@ -100,7 +101,7 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
   });
   app.route('/admin/api',createAdminRoutes(pool,options.adminVerifier,{origin,tokenKey:options.githubSocial?.tokenKey??process.env.GITHUB_SOCIAL_TOKEN_KEY,fetcher:options.githubSocial?.fetcher}));
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id)));
-  app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:'0.9.6-compact-workshop',money_movement_enabled:false,official:false}));
+  app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
   app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(process.env.FREEDOM_REGISTRATION_COMMUNITY_ID),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog}));
   app.get('/api/v1/community',c=>c.json(communityCatalog));

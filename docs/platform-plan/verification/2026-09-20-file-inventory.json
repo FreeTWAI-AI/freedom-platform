@@ -44,8 +44,8 @@
     },
     {
       "path": "apps/platform-api/src/app.ts",
-      "bytes": 14621,
-      "sha256": "555ef3552aa9c77a3a15d58fca9fcf6c008beb372c7660ebb42c73908f8e523c"
+      "bytes": 14695,
+      "sha256": "bb9c3e4557e1c08a451b13716f3b257d70ce45f8f3a4cb649b08a6a45be00628"
     },
     {
       "path": "apps/platform-api/src/env.ts",
