@@ -1,0 +1,23 @@
+{
+  "mode": "built-in image_gen",
+  "reference": "apps/portal-web/public/brand/freedom-workshop.webp",
+  "direction": "Original user brand is the highest visual authority: black, chartreuse lime, cobalt, liquid chrome, orbital grids. Original logo remains unmodified.",
+  "assets": [
+    {
+      "path": "apps/portal-web/public/art/rpg/workshop-hub.webp",
+      "prompt": "Use case: stylized-concept. Asset for Freedom Workshop community website, futuristic RPG. Reference image is STYLE AND BRAND COLOR authority only; do not edit/reproduce its logo. Original new scene. Pure black graphite background, polished liquid chrome with electric cobalt-blue reflections, fluorescent chartreuse lime accents #c4ff20, cobalt #3044ff, sparse orbital paths and wireframe grid and abstract four-point stars, luxurious Y2K cyber workshop art faithful to the supplied poster. No text, letters, logos, watermarks, UI or borders. No medieval castles, forests, wooden props, gold/brass, weapons or combat. Friendly imaginative constructive collaboration. Crisp 3D render with art-directed negative space, not noisy concept art. Wide 16:9 hero: an orbital guild workshop campus, an elegant central chrome geometric pavilion with small floating chrome creative modules and a luminous lime orbital ring, resting on a blue wireframe curved planet; minimal composition hero sculpture on right two thirds and calm black negative space left, eye-level isometric perspective. The chrome sculpture is sculptural and futuristic; black dominates, careful lime highlights, cobalt platform underglow."
+    },
+    {
+      "path": "apps/portal-web/public/art/rpg/skill-codex.webp",
+      "prompt": "undefined Square 1:1 isolated collectible SKILL CODEX: a thick closed futuristic chrome book with bevelled metallic covers, luminous lime page edges, a cobalt circular inset and abstract four-point chrome star relief on the cover. Floating 3/4 view above a thin cobalt circular platform, delicate lime orbit around the book, subtle black wireframe background. High-end collectible game inventory artifact, not a medieval leather book, no lettering, generous dark space around whole object."
+    },
+    {
+      "path": "apps/portal-web/public/art/rpg/cooperation-forge.webp",
+      "prompt": "undefined Landscape 3:2 CO-CREATION FORGE: two elegant sculptural chrome robotic hands delicately assembling a luminous cobalt modular cube together above a black circular workbench, tiny lime connecting nodes between floating modules, a single fluorescent lime orbit connects both hands as a team. No humanoid faces, no weapons, no literal coding text, bold readable silhouette, close composition, generous black negative space upper left. Looks like an exquisite chrome RPG crafting station tied to this brand, not an industrial photograph."
+    },
+    {
+      "path": "apps/portal-web/public/art/rpg/market-network.webp",
+      "prompt": "Use case: stylized-concept. Asset for Freedom Workshop community website, futuristic RPG. Reference image is STYLE AND BRAND COLOR authority only; do not edit/reproduce its logo. Original new scene. Pure black graphite background, polished liquid chrome with electric cobalt-blue reflections, fluorescent chartreuse lime accents #c4ff20, cobalt #3044ff, sparse orbital paths and wireframe grid and abstract four-point stars, luxurious Y2K cyber workshop art faithful to the supplied poster. No text, letters, logos, watermarks, UI or borders. No medieval castles, forests, wooden props, gold/brass, weapons or combat. Friendly imaginative constructive collaboration. Crisp 3D render with art-directed negative space, not noisy concept art. Square 1:1 MARKET NETWORK collectible sculpture: three polished chrome modular shipping crates, one with an abstract electric-blue storefront arch, floating in a linked triangular arrangement around a luminous lime sphere; hairline orbits connect these maker/shop nodes over a cobalt circular wireframe disc. Bold simple geometric silhouette, premium futuristic game item cover, near-black background, tiny checkerboard accent, all objects comfortably framed, no actual product brands or labels."
+    }
+  ]
+}

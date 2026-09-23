@@ -82,7 +82,7 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
   });
   app.route('/admin/api',createAdminRoutes(pool,options.adminVerifier));
   app.route('/',createDevelopmentRoutes());
-  app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:'0.5.0-community-collaboration',money_movement_enabled:false,official:false}));
+  app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:'0.6.0-orbital-workshop',money_movement_enabled:false,official:false}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
   app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(process.env.FREEDOM_REGISTRATION_COMMUNITY_ID),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog}));
   app.get('/api/v1/community',c=>c.json(communityCatalog));

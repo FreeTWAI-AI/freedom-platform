@@ -1,3 +1,4 @@
+import { ModuleBanner } from './ModuleBanner';
 import { useCallback,useEffect,useState,type FormEvent } from 'react';
 import { requireItems } from '../api';
 import { RepositoryLibrary } from './Community';
@@ -34,7 +35,7 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
     if(saved){setDraft({...blankProject});setNotice('作品已登錄。你填寫的來源關係會清楚標示為自行聲明。');await refresh();}
   }
   return <div className="stack">
-    <section className="member-direction"><div className="direction-copy"><p className="module-kicker">分享程式，累積使用與協作</p><h2>讓作品被找到，也讓別人知道怎麼開始</h2><p>貼上公開 GitHub 專案、說明用途與使用方式。會員可以直接看文件、使用與參與開發。</p><div className="actions"><button className="btn btn-primary" type="button" onClick={()=>onNavigate?.('cocreation')}>一起開發這些作品</button></div></div></section>
+    <ModuleBanner eyebrow="OPEN SOURCE / 分享程式，累積使用與協作" title="讓作品被找到，也讓別人知道怎麼開始" description="貼上公開 GitHub 專案、說明用途與使用方式。會員可以直接看文件、使用與參與開發。" art="/art/rpg/skill-codex.webp"><div className="actions"><button className="btn btn-primary" type="button" onClick={()=>onNavigate?.('cocreation')}>一起開發這些作品</button></div></ModuleBanner>
     <details className="card"><summary>作品怎麼成為技能書？</summary><div className="stack"><p>原始公開 Repo 由作者保留，工坊可以 Fork 保存與後續改造；原作者、來源與授權會保留。</p><p>請準備一個專案介紹頁（建議 GitHub Pages），寫清楚用途、畫面、如何開始與原始碼連結，方便大家理解你的作品。</p><a href="https://github.com/FreeTWAI-AI/freedom-project-page" target="_blank" rel="noopener noreferrer">使用專案介紹頁模板 ↗</a></div></details>
     <RepositoryLibrary client={client} title="工坊精選作品"/>
     {notice&&<p role="status" className="banner banner-info">{notice}</p>}
@@ -88,7 +89,7 @@ export function MarketingPanel({client,session}:ModulePanelProps) {
   const refresh=useCallback(async()=>{setLoading(true);setLoadError(null);try{const [campaignData,projectData,productData]=await Promise.all([client.get('/marketing/campaigns'),client.get('/opensource/projects'),client.get('/supplier/products')]);setCampaigns(requireItems<Campaign>(campaignData,'行銷草稿'));setProjects(requireItems<Project>(projectData,'開源作品').filter(p=>p.owner_ref===session.user.user_id));setProducts(requireItems<SupplierProduct>(productData,'供貨商品'));}catch(cause){setLoadError(cause instanceof Error?cause.message:'無法載入行銷工作室。');}finally{setLoading(false);}},[client,session.user.user_id]);
   useEffect(()=>{void refresh();},[refresh]);
   async function create(event:FormEvent){event.preventDefault();setNotice(null);const {source_selection,...content}=draft;const [kind,sourceId]=source_selection.split(':');const saved=await mutate('/marketing/campaigns',{...content,source_project_id:kind==='oss'?sourceId:null,source_supplier_product_id:kind==='supplier'?sourceId:null,source_brief:source_selection?'':draft.source_brief});if(saved){setDraft({...blankCampaign});setNotice('私人草稿已儲存，可以繼續編輯或自行分享。');await refresh();}}
-  return <div className="stack"><section className="member-direction"><div className="direction-copy"><p className="module-kicker">從真實作品與商品，說出清楚的價值</p><h2>先準備好，再把值得分享的內容帶出去</h2><p>選自己的作品、供貨商品或寫一份活動簡述，整理受眾、目標和文案。草稿只有你看得到。</p></div></section>
+  return <div className="stack"><ModuleBanner eyebrow="MARKETING / 從真實作品與商品，說出清楚的價值" title="先準備好，再把值得分享的內容帶出去" description="選自己的作品、供貨商品或寫一份活動簡述，整理受眾、目標和文案。草稿只有你看得到。" art="/art/rpg/cooperation-forge.webp"/>
     <details className="card"><summary>行銷與影音公會的技能書</summary><RepositoryLibrary client={client} ids={['social-post','typo-studio','video-autopilot','short-drama','hao-studio','media-generator']} title="Hao 的行銷與影音技能書"/></details>
     {notice&&<p className="banner banner-info" role="status">{notice}</p>}{error&&<p className="banner banner-error" role="alert">{error}</p>}<LoadError error={loadError} retry={()=>void refresh()}/>
     <div className="card-grid"><section className="card stack"><div className="section-head"><h2>建立行銷草稿</h2><p>目前支援手動文案與分享紀錄；尚未連接社群自動發布。</p></div>

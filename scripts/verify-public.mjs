@@ -85,6 +85,12 @@ try {
   expect(brandResponse.status()).toBe(200);
   expect(brandResponse.headers()['content-type']).toContain('image/');
   expect((await brandResponse.body()).byteLength).toBeGreaterThan(1000);
+  for (const name of ['workshop-hub','skill-codex','cooperation-forge','market-network']) {
+    const art = await anonymous.get(origin + '/art/rpg/' + name + '.webp', { maxRedirects: 0 });
+    expect(art.status(), name).toBe(200);
+    expect(art.headers()['content-type']).toContain('image/webp');
+    expect((await art.body()).byteLength).toBeGreaterThan(1000);
+  }
   expect((await anonymous.get(origin + '/api/v1/session', { maxRedirects: 0 })).status()).toBe(401);
   for(const path of ['/admin','/admin/api/bootstrap']) {
     const admin=await anonymous.get(origin+path,{maxRedirects:0});
@@ -203,6 +209,17 @@ try {
   await saveRecord();
   await screenshot('public-member-home-desktop.png');
   console.log('Full 15-question preference and ability assessment, explicit primary Guild and skill-book grants: PASS');
+
+  stage = 'completed positioning result';
+  await page.getByRole('button', { name: '我的定位', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '我的定位結果', exact: true })).toBeVisible();
+  await expect(page.locator('.positioning-result')).toContainText('主要公會');
+  const preferences = page.locator('details').filter({ has: page.getByText('合作偏好（選填）', { exact: true }) });
+  await expect(preferences).not.toHaveAttribute('open');
+  await expect(page.getByLabel('我現在想完成的事')).not.toBeVisible();
+  expect((await (await page.request.get(origin + '/api/v1/me/positioning')).json()).profile).toBeNull();
+  await screenshot('public-positioning-result.png');
+  console.log('Completed positioning shows published result without requiring another profile: PASS');
 
   stage = 'member card and privacy';
   await page.getByRole('button', { name: '我的名片', exact: true }).click();

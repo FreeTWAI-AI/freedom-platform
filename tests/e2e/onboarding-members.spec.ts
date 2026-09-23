@@ -187,3 +187,42 @@ test('skill trees preserve choices across screen sizes and show only three featu
   await page.setViewportSize({width:390,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+
+test('completed positioning opens the published result without a second required profile',async({page})=>{
+  await register(page,'連貫定位夥伴');
+  await completeOrientation(page);
+  const before=await (await page.request.get('/api/v1/me/positioning')).json();
+  expect(before.profile).toBeNull();
+  await page.getByRole('button',{name:'我的定位',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'我的定位結果',exact:true})).toBeVisible();
+  const result=page.locator('.positioning-result');
+  await expect(result).toContainText('主要公會');
+  await expect(page.getByText('還沒有方向卡',{exact:false})).toHaveCount(0);
+  const preferences=page.locator('details').filter({has:page.getByText('合作偏好（選填）',{exact:true})});
+  await expect(preferences).not.toHaveAttribute('open');
+  await expect(page.getByLabel('我現在想完成的事')).not.toBeVisible();
+  const resultBefore=await result.innerText();
+  await page.reload();
+  await expect(result).toHaveText(resultBefore,{useInnerText:true});
+  expect((await (await page.request.get('/api/v1/me/positioning')).json()).profile).toBeNull();
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/positioning-completed-phone.png',fullPage:true});
+  await preferences.locator('summary').click();
+  await expect(page.getByLabel('現實職業／目前身分')).toHaveValue('自由工作者');
+  await page.getByLabel('我現在想完成的事').fill('和公會夥伴共同完成第一個作品');
+  await page.getByLabel('這些是我目前的想法，我確認保存').check();
+  await page.getByRole('button',{name:'保存合作偏好',exact:true}).click();
+  await expect(page.getByText('合作偏好已保存。你可以隨時調整。',{exact:true})).toBeVisible();
+  expect((await (await page.request.get('/api/v1/me/positioning')).json()).profile.goals).toBe('和公會夥伴共同完成第一個作品');
+  await expect(result).toHaveText(resultBefore,{useInnerText:true});
+  // Failed authoritative result fetch is visible and can be retried; no blank second survey.
+  await page.route('**/api/v1/me/onboarding',route=>route.abort());
+  await page.getByRole('button',{name:'會員首頁',exact:true}).click();
+  await page.getByRole('button',{name:'我的定位',exact:true}).click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await page.unroute('**/api/v1/me/onboarding');
+  await page.getByRole('button',{name:'重新載入定位結果',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'我的定位結果',exact:true})).toBeVisible();
+});

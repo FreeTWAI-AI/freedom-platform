@@ -1,3 +1,5 @@
+import { WorkshopIcon } from './WorkshopIcon'
+import { ModuleBanner } from './modules/ModuleBanner'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError, PortalClient, requireDashboard, requireItems } from './api'
 import { MemberHome } from './modules/MemberHome'
@@ -247,7 +249,7 @@ function LoginView({
 
   return (
     <main className="login-layout">
-      <section className="login-story"><BrandPoster/><div className="login-story-copy"><p className="eyebrow">BUILD WITHOUT LIMITS</p><h1>找到你的定位。<br/>和夥伴一起，把想法做出來。</h1><p>加入專業公會，領取技能書。從供貨、開店到開源創作，每種專長都能成為起點。</p><div className="tag-list"><span>定位</span><span>公會</span><span>技能書</span><span>一起實現</span></div></div></section>
+      <section className="login-story"><BrandPoster/><div className="login-story-copy"><p className="eyebrow">BUILD WITHOUT LIMITS</p><h1>找到你的定位。<br/>和夥伴一起，把想法做出來。</h1><p>加入專業公會，領取技能書。從供貨、開店到開源創作，每種專長都能成為起點。</p><ol className="login-journey"><li><span>01 / DISCOVER</span>找到你的定位</li><li><span>02 / BELONG</span>加入你的公會</li><li><span>03 / CREATE</span>一起做出作品</li></ol></div></section>
       <div className="login-form-area"><header className="login-brand">
         <span className="mark" aria-hidden="true" />
         <div>
@@ -425,7 +427,7 @@ function Workspace({
         <div className="shell">
           <aside className="sidebar">
             <div className="brand">
-              <span className="mark" aria-hidden="true" />
+              <img className="sidebar-brand-art" src="/brand/freedom-workshop.webp" alt="" width="1280" height="720"/>
               <div>
                 <p className="eyebrow">FREEDOM WORKSHOP</p>
                 <strong>自由工坊</strong>
@@ -454,6 +456,7 @@ function Workspace({
           <div className="main" id="main-content">
             <header className="topbar">
               <div>
+                <p className="workspace-eyebrow">FREEDOM WORKSHOP / 共同創造，自由成長</p>
                 <h1>{tabTitle(tab)}</h1>
                 <p className="muted">
                   {headerMember?.nickname??session.user.display_name}{headerMember?.positioning_title?` · ${headerMember.positioning_title}`:' · 自由工坊會員'}{headerMember?.primary_guild?` · ${headerMember.primary_guild.name}`:''}
@@ -525,7 +528,7 @@ function TabButton({
       aria-current={selected ? 'page' : undefined}
       onClick={() => onSelect(id)}
     >
-      {children}
+      <WorkshopIcon name={id}/><span>{children}</span>
     </button>
   )
 }
@@ -572,6 +575,7 @@ function WorkbenchPanel() {
 
   return (
     <div className="panels">
+      <ModuleBanner eyebrow="YOUR QUESTS / 協作任務" title="每一份貢獻，都有下一步" description="認領一件做得到的事，提交成果，留下當事人確認的合作紀錄。" art="/art/rpg/cooperation-forge.webp"/>
       <section className="summary-strip" aria-label="成果摘要">
         <div>
           <span className="summary-label">已接受成果</span>
@@ -1118,6 +1122,7 @@ function ShowcasePanel() {
 
   return (
     <div className="panels">
+      <ModuleBanner eyebrow="SHOWCASE / 讓能力與機會相遇" title="把完成的事，帶到下一次合作" description="分享你的作品，也可以提出具體需求，讓適合的夥伴主動聯絡。" art="/art/rpg/cooperation-forge.webp"/>
       <FlowLegend />
       <CreateShowcaseForm pending={pending} mutate={mutate} onCreated={load} />
       <Section title="社群作品" description="經本人同意分享的作品。可向其他作者提出商機。">
@@ -1456,6 +1461,7 @@ function EngagementPanel() {
 
   return (
     <div className="panels">
+      <ModuleBanner eyebrow="JOURNAL / 一起完成的旅程" title="合作的每一步，都能回來查看" description="從約定、交付到雙方確認，保留清楚的紀錄。"/>
       <FlowLegend />
       <p className="lede">
         這裡的金額是約定價格。收款回報由提供者自行填寫，對方確認後仍標示為未核對銀行，不是實際金流或已驗證付款。

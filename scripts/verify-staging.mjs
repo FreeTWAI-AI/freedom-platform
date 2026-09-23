@@ -28,6 +28,13 @@ try {
   expect(health.status()).toBe(200);
   expect(await health.json()).toMatchObject({ status: 'ok', mode: 'staging', money_movement_enabled: false });
   console.log('Authenticated public HTTPS health through Tunnel: PASS');
+  for (const name of ['workshop-hub','skill-codex','cooperation-forge','market-network']) {
+    const art = await http.get(origin + '/art/rpg/' + name + '.webp', { headers, maxRedirects: 0 });
+    expect(art.status(), name).toBe(200);
+    expect(art.headers()['content-type']).toContain('image/webp');
+    expect((await art.body()).byteLength).toBeGreaterThan(1000);
+  }
+  console.log('All four workshop illustrations served through Access: PASS');
 
   const protocol = await http.get(origin + '/api/v1/protocol', { headers, maxRedirects: 0 });
   expect(protocol.status()).toBe(200);

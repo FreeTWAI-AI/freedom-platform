@@ -12,12 +12,12 @@ export function SkillBookIntro({book,guildName,label='查看技能書介紹'}:{b
   const reading=httpsLink(guide?.reading_url)||repository,website=httpsLink(book.introduction_url)||httpsLink(guide?.website_url),fork=httpsLink(book.fork_url),contribute=httpsLink(guide?.contribution_url);
   const source=upstream?new URL(upstream):null,account=source?.hostname==='github.com'?source.pathname.split('/').filter(Boolean)[0]:null;
   useEffect(()=>{if(open&&!dialog.current?.open)dialog.current?.showModal();else if(!open&&dialog.current?.open)dialog.current.close();},[open]);
-  function close(){setOpen(false);trigger.current?.focus();}
+  function close(){dialog.current?.close();setOpen(false);trigger.current?.focus();}
   return <><button ref={trigger} type="button" className="btn btn-ghost skill-intro-trigger" aria-haspopup="dialog" onClick={()=>setOpen(true)}>{label}</button>
-    <dialog ref={dialog} className="skill-intro-dialog" aria-labelledby={id} data-book-id={book.id??book.book_id} onCancel={event=>{event.preventDefault();close();}} onClose={()=>setOpen(false)}>
+    <dialog ref={dialog} className="skill-intro-dialog" aria-labelledby={id} aria-describedby={`${id}-purpose`} data-book-id={book.id??book.book_id} onCancel={event=>{event.preventDefault();close();}} onClose={()=>{setOpen(false);trigger.current?.focus();}}>
       <div className="stack"><header className="skill-intro-header"><div><p className="eyebrow">自由工坊 · 公會技能庫</p><h2 id={id}>{book.title}</h2></div><button className="btn btn-ghost" type="button" onClick={close} autoFocus aria-label="關閉技能書介紹">關閉</button></header>
-        <div className="tag-list">{guide&&<span className="badge">{guide.format}</span>}{guildName&&<span className="badge">{guildName}</span>}</div>
-        <p className="skill-intro-purpose">{guide?.summary??book.description}</p>
+        <div className="skill-intro-cover"><div className="skill-intro-cover-copy"><div className="tag-list">{guide&&<span className="badge">{guide.format}</span>}{guildName&&<span className="badge">{guildName}</span>}</div>
+        <p className="skill-intro-purpose" id={`${id}-purpose`}>{guide?.summary??book.description}</p></div>{open&&<img className="skill-intro-art" src="/art/rpg/skill-codex.webp" alt="" width="1536" height="1024"/>}</div>
         {guide?<><p className="muted">適合：{guide.audience.join('、')}</p><section className="skill-intro-result"><p className="eyebrow">你的第一個成果</p><p>{guide.first_result}</p></section>
           <section className="stack"><h3>現在能做什麼</h3><ul className="skill-intro-features">{guide.features.map(feature=><li key={feature}>{feature}</li>)}</ul><p className="skill-intro-status">{guide.status}</p></section>
           <details className="skill-intro-details"><summary>開始練習：準備與步驟</summary><div className="stack"><section><h3>先準備</h3><ul>{guide.prerequisites.map(item=><li key={item}>{item}</li>)}</ul></section><section><h3>跟著做第一輪</h3><ol>{guide.first_steps.map(step=><li key={step}>{step}</li>)}</ol></section>{guide.quickstart&&<section className="stack"><h3>開發者啟動指令</h3><p className="field-hint">{guide.quickstart.context}</p><pre className="skill-intro-command"><code>{guide.quickstart.commands}</code></pre></section>}</div></details>

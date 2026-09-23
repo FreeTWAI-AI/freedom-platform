@@ -1,6 +1,8 @@
 # Agent 工作說明
 
 <!-- freedom-repository-guide:start -->
+UI 與視覺工作必讀 [DESIGN.md](DESIGN.md)：自由工坊原始 Logo 是所有主題（包括 RPG）的最高視覺錨點。
+
 ## 自由工坊協作範圍
 
 [自由工坊](https://freetwai.com) 讓會員先完成定位、選擇公會並領取 Repo 技能書，再以供貨、商店、開源作品、行銷與小隊共同完成成果。
