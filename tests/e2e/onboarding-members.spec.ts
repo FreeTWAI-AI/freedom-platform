@@ -34,6 +34,16 @@ test('new member completes required positioning, chooses primary guild and gets 
   const blocked=await page.request.get('/api/v1/retail/catalog');expect(blocked.status()).toBe(403);
   await page.goto('/#retail');await expect(page.getByRole('heading',{name:'你從哪裡來，帶著哪些能力？'})).toBeVisible();
   await completeOrientation(page);
+  // An attempted deep link while gated must not steal the first completed member landing.
+  await expect(page).toHaveURL(/#home$/);
+  await expect(page.getByRole('heading',{name:'會員首頁',exact:true})).toBeVisible();
+  await expect(page.locator('.member-card')).toContainText('工坊新夥伴');
+  await expect(page.locator('.member-card')).toContainText('主要公會');
+  await expect(page.locator('.member-card .positioning-title')).not.toHaveText('探索自己的方向');
+  // Once onboarding is complete, ordinary deep links still open their requested module.
+  await page.goto('/#retail');
+  await expect(page.getByRole('heading',{name:'開店與銷售',exact:true}).first()).toBeVisible();
+  await expect(page).toHaveURL(/#retail$/);
   await page.getByRole('button',{name:'我的名片',exact:true}).click();
   await expect(page.getByRole('heading',{name:'我的會員名片',exact:true})).toBeVisible();
   await page.getByLabel('Discord 帳號',{exact:true}).fill('new.member');await page.getByLabel('Discord 帳號可見範圍',{exact:true}).selectOption('guild');

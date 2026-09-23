@@ -84,8 +84,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 65499,
-      "sha256": "8aa681794cd28ab7ea406412353154c5662b5e893ef71e5225e667f0ff34231c"
+      "bytes": 65534,
+      "sha256": "aa4884938fc65944b917b7afbc0676ac2c1f1a277f4848a2bdb0cd6154fea1da"
     },
     {
       "path": "apps/portal-web/src/api.ts",
@@ -1584,8 +1584,8 @@
     },
     {
       "path": "tests/e2e/onboarding-members.spec.ts",
-      "bytes": 7342,
-      "sha256": "5f837cddbf257f8b38be34532304e6ceea81f598a64fa0e4f6446d81561be5b4"
+      "bytes": 8090,
+      "sha256": "08ed6a95db4fbca0e41cdc26e975f8be9d74ab421eac24b580db0eb0274612d0"
     },
     {
       "path": "tests/e2e/opensource-modules.spec.ts",
