@@ -4,6 +4,8 @@ import { MemberHome } from './modules/MemberHome'
 import { Onboarding, type OnboardingView } from './modules/Onboarding'
 import { AccountPanel, MembersPanel, type MemberCardData } from './modules/Membership'
 import { SquadsPanel } from './modules/Squads'
+import { CoCreationPanel } from './modules/CoCreationPanel'
+import { AdminPanel } from './modules/AdminPanel'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PositioningPanel, GuildsPanel } from './modules/PositioningPanels'
 import { SupplierPanel, RetailPanel } from './modules/CommercePanels'
@@ -88,6 +90,10 @@ function describeError(err: unknown): ActionError {
 }
 
 export function App() {
+  return window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? <AdminPanel/> : <MemberApp/>
+}
+
+function MemberApp() {
   const [phase, setPhase] = useState<'boot' | 'login' | 'ready'>('boot')
   const [session, setSession] = useState<SessionPayload | null>(null)
   const [bootError, setBootError] = useState<ActionError | null>(null)
@@ -212,7 +218,6 @@ function LoginView({
 }) {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [nickname, setNickname] = useState('')
-  const [contacts, setContacts] = useState<Record<string, {value:string;visibility:string}>>({discord:{value:'',visibility:'private'},github:{value:'',visibility:'private'},line:{value:'',visibility:'private'},email:{value:'',visibility:'private'}})
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [pending, setPending] = useState(false)
@@ -225,7 +230,7 @@ function LoginView({
     setError(null)
     try {
       const session = mode === 'register'
-        ? await client.register({email:email.trim(),password,nickname:nickname.trim(),contacts:{...contacts,email:{...contacts.email,value:contacts.email.value||email.trim()}}})
+        ? await client.register({email:email.trim(),password,nickname:nickname.trim()})
         : await client.login(email.trim(), password)
       if (!session?.user || !session.csrf_token) {
         throw new Error('登入回應不完整')
@@ -289,7 +294,7 @@ function LoginView({
               disabled={pending}
             />
           </label>
-          {mode==='register'&&<><p className="field-hint">密碼至少 12 個字元，請妥善保存；目前尚未提供 E-mail 找回密碼。註冊後會先帶你完成定位與選擇公會。</p><details className="registration-contacts"><summary>社群帳號與公開範圍（選填）</summary><div className="stack">{([['email','聯絡 E-mail'],['discord','Discord 帳號'],['github','GitHub 帳號'],['line','LINE ID']] as const).map(([key,label])=><div key={key} className="contact-row"><label className="field">{label}<input type={key==='email'?'email':'text'} maxLength={key==='github'?39:key==='email'?200:100} value={contacts[key].value} onChange={e=>setContacts({...contacts,[key]:{...contacts[key],value:e.target.value}})}/></label><label className="field">{label}可見範圍<select aria-label={`${label}可見範圍`} value={contacts[key].visibility} onChange={e=>setContacts({...contacts,[key]:{...contacts[key],visibility:e.target.value}})}><option value="private">不公開</option><option value="public">平台公開</option><option value="friends">平台好友</option><option value="squad">小隊夥伴</option><option value="guild">公會夥伴</option></select></label></div>)}</div></details></>}
+          {mode==='register'&&<><p className="field-hint">密碼至少 12 個字元，請妥善保存；目前尚未提供 E-mail 找回密碼。註冊後會先帶你完成定位與選擇公會。</p><p className="field-hint">Email 就是你的登入與聯絡信箱，預設不公開。社群帳號與分享對象可在「我的名片」設定。</p></>}
           <button className="btn btn-primary" type="submit" disabled={pending} aria-busy={pending}>
             {pending ? (mode==='register'?'建立帳號中…':'登入中…') : (mode==='register'?'註冊並開始定位':'登入')}
           </button>
@@ -432,12 +437,14 @@ function Workspace({
               <TabButton current={tab} id="supplier" onSelect={selectTab}>供貨中心</TabButton>
               <TabButton current={tab} id="retail" onSelect={selectTab}>開店與銷售</TabButton>
               <TabButton current={tab} id="opensource" onSelect={selectTab}>開源作品</TabButton>
+              <TabButton current={tab} id="cocreation" onSelect={selectTab}>一起開發</TabButton>
               <TabButton current={tab} id="marketing" onSelect={selectTab}>行銷工作室</TabButton>
               <span className="nav-group-label">我的協作</span>
               <TabButton current={tab} id="workbench" onSelect={selectTab}>我的工作</TabButton>
               <TabButton current={tab} id="showcase" onSelect={selectTab}>一般作品與需求</TabButton>
               <TabButton current={tab} id="engagement" onSelect={selectTab}>合作紀錄</TabButton>
               <TabButton current={tab} id="community" onSelect={selectTab}>自由工坊社群</TabButton>
+              <a className="nav-item" href="/admin">平台管理 ↗</a>
             </nav>
             <p className="sidebar-note">不同專長，各自發展。<br />需要合作時，在這裡相遇。</p>
           </aside>
@@ -461,6 +468,7 @@ function Workspace({
             )}
             {tab === 'account' && <AccountPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'members' && <MembersPanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'cocreation' && <CoCreationPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'community' && <CommunityPanel client={client} />}
             {tab === 'squads' && <SquadsPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'workbench' && <WorkbenchPanel />}
@@ -485,7 +493,7 @@ function tabTitle(tab: TabId): string {
 }
 
 const TAB_TITLES: Record<TabId, string> = {
-  account:'我的名片', members:'工坊夥伴', community:'自由工坊社群', squads:'小隊集合',
+  cocreation:'一起開發', account:'我的名片', members:'工坊夥伴', community:'自由工坊社群', squads:'小隊集合',
   home: '會員首頁', positioning: '我的定位', guilds: '職業公會', supplier: '供貨中心', retail: '開店與銷售',
   opensource: '開源作品', marketing: '行銷工作室', workbench: '工作台', showcase: '一般作品與需求', engagement: '合作紀錄',
 }

@@ -22,7 +22,7 @@ test('published preview SDK negotiates exact protocol and drives real HTTP/PG ac
  const seller=await PlatformClient.loginDemo({baseUrl,email:'client@local.test',password:'freedom-local-demo'});
  assert.equal((await maker.assertCompatible()).protocol_sha256,metadata.protocol_sha256);
  assert.equal((await maker.call('getHealth')).status,'ok');assert.equal((await maker.call('getSession')).user.email,'maker@local.test');
- assert.equal((await maker.call('listCareerTracks')).items.length,28);assert.equal((await maker.call('listGuilds')).items.length,12);
+ assert.equal((await maker.call('listCareerTracks')).items.length,31);assert.equal((await maker.call('listGuilds')).items.length,15);
  const profile=await maker.call('savePositioning',{...key(),body:{real_world_occupations:['示範'],background:'',strengths:['規格整理'],goals:'供貨測試',weekly_minutes:30,desired_roles:['supplier'],selected_tracks:['food_supplier'],confirmed:true}});
  assert.equal((await maker.call('getPositioning')).profile?.profile_id,profile.profile_id);
  const membership=await maker.call('joinGuild',{...key(),params:{key:'guild_product_quality_supply'},body:{}});

@@ -34,7 +34,7 @@ export async function login(pool: Pool, email: string, password: string) {
       await q.query('UPDATE login_attempts SET failures=0,window_start=now() WHERE attempt_key=$1',[attemptKey]); attempt.failures=0;
     }
     if (attempt.failures>=10) return {blocked:true} as const;
-    const user = (await q.query('SELECT * FROM users WHERE email=$1',[normalized])).rows[0];
+    const user = (await q.query('SELECT * FROM users WHERE email=$1 FOR SHARE',[normalized])).rows[0];
     const valid = await matches(password,user?.password_hash ?? DUMMY_HASH);
     if (!valid || !user?.active) {
       await q.query('UPDATE login_attempts SET failures=failures+1 WHERE attempt_key=$1',[attemptKey]);

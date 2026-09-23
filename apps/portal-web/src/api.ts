@@ -80,7 +80,7 @@ export class PortalClient {
     )
   }
 
-  async register(body: {email:string;password:string;nickname:string;contacts:Record<string,{value:string;visibility:string}>}): Promise<SessionPayload> {
+  async register(body: {email:string;password:string;nickname:string}): Promise<SessionPayload> {
     return this.post<SessionPayload>('/auth/register', body, { skipAuthHandler:true })
   }
 

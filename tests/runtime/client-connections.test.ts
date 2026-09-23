@@ -142,3 +142,38 @@ test('forked Node read helper completes a real HTTP pairing and reads scoped Pos
    assert.equal(revoke.status,200);await assert.rejects(client.read('stores'),{status:401});
  }finally{await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}
 });
+
+async function deactivateWhileWaiting(userId:string,operation:()=>ReturnType<typeof request>){
+ const q=await pool.connect();let pending:ReturnType<typeof request>|undefined;
+ try{
+   await q.query('BEGIN');await q.query("SET LOCAL lock_timeout='1000ms'");
+   const pid=(await q.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+   await q.query('UPDATE users SET active=false WHERE user_id=$1',[userId]);
+   pending=operation();
+   // Observe an actual PostgreSQL lock wait, rather than assuming a timer races.
+   let waiting=false;
+   for(let attempt=0;attempt<100;attempt++){
+     waiting=(await pool.query('SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))) AS waiting',[pid])).rows[0].waiting;
+     if(waiting)break;
+     await new Promise(resolve=>setTimeout(resolve,10));
+   }
+   assert.equal(waiting,true,'read or token exchange must wait for the member status transaction');
+   // A connection-first reader would deadlock here: it holds c while waiting for u.
+   await q.query('UPDATE member_client_connections SET revoked_at=now(),aggregate_version=aggregate_version+1 WHERE user_id=$1 AND revoked_at IS NULL',[userId]);
+   await q.query('COMMIT');return await pending;
+ }finally{await q.query('ROLLBACK');q.release();if(pending)await pending;}
+}
+
+test('administrative deactivation and an in-flight bearer read use the same member-first lock order',async()=>{
+ const member=await ready(),connected=await connect(member,'supplier');
+ const response=await deactivateWhileWaiting(member.user.user_id,()=>client('/supplier/products',connected.access_token));
+ assert.equal(response.status,401);assert.equal(response.data.code,'client_token_invalid');
+});
+
+test('a pending approved token exchange waits for member deactivation and never mints a credential afterwards',async()=>{
+ const member=await ready(),pairing=await start('supplier');
+ assert.equal((await api(`/client-connections/${pairing.user_code}/approve`,member,{confirmed:true})).status,200);
+ const response=await deactivateWhileWaiting(member.user.user_id,()=>api('/client-connections/poll',undefined,{device_secret:pairing.device_secret}));
+ assert.equal(response.status,400);assert.equal(response.data.status,'invalid_grant');
+ assert.equal((await pool.query('SELECT token_hash FROM member_client_connections WHERE user_id=$1',[member.user.user_id])).rows[0].token_hash,null);
+});

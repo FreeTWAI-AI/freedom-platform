@@ -32,8 +32,14 @@ export async function pollClientPairing(pool:Pool,raw:unknown,network:string){
    if(pending.last_polled_at&&Date.now()-new Date(pending.last_polled_at).getTime()<5000)return {status:'slow_down',interval:5} as const;
    await q.query('UPDATE client_pairing_requests SET last_polled_at=now() WHERE pairing_id=$1',[pending.pairing_id]);
    if(pending.state==='pending')return {status:'authorization_pending',interval:5} as const;
-   const connection=(await q.query(`SELECT c.* FROM member_client_connections c JOIN users u ON u.user_id=c.user_id AND u.community_id=c.community_id
-      WHERE c.connection_id=$1 AND c.revoked_at IS NULL AND c.expires_at>now() AND u.active AND u.onboarding_completed_at IS NOT NULL FOR UPDATE OF c`,[pending.connection_id])).rows[0];
+   const owner=(await q.query('SELECT user_id,community_id FROM member_client_connections WHERE connection_id=$1 AND revoked_at IS NULL AND expires_at>now()',[pending.connection_id])).rows[0];
+   if(!owner)return {status:'invalid_grant'} as const;
+   // Lock the member before a credential row, matching administrative disable.
+   // Recheck both records after any wait before minting the one-time credential.
+   const member=await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active AND onboarding_completed_at IS NOT NULL FOR SHARE',[owner.user_id,owner.community_id]);
+   if(member.rowCount!==1)return {status:'invalid_grant'} as const;
+   const connection=(await q.query(`SELECT * FROM member_client_connections WHERE connection_id=$1 AND user_id=$2 AND community_id=$3
+      AND revoked_at IS NULL AND expires_at>now() FOR UPDATE`,[pending.connection_id,owner.user_id,owner.community_id])).rows[0];
    if(!connection)return {status:'invalid_grant'} as const;
    const token='fw_read_'+randomBytes(32).toString('base64url');
    await q.query('UPDATE member_client_connections SET token_hash=$2 WHERE connection_id=$1',[connection.connection_id,tokenHash(token)]);
@@ -88,9 +94,13 @@ type ClientResource='connection'|'catalog'|'stores'|'listings'|'products'|'reque
 export async function readClientResource(pool:Pool,authorization:string|undefined,resource:ClientResource,requestedStoreId?:string){
  requireCondition(authorization&&/^Bearer fw_read_[A-Za-z0-9_-]{43}$/.test(authorization),401,'client_token_invalid','讀取連線已失效，請重新配對。');
  return transaction(pool,async q=>{
-   const client=(await q.query(`SELECT c.connection_id,c.community_id,c.user_id,c.kind,c.scope,c.store_id,c.expires_at FROM member_client_connections c
-      JOIN users u ON u.user_id=c.user_id AND u.community_id=c.community_id
-      WHERE c.token_hash=$1 AND c.revoked_at IS NULL AND c.expires_at>now() AND u.active AND u.onboarding_completed_at IS NOT NULL FOR SHARE OF c,u`,[tokenHash(authorization.slice(7))])).rows[0];
+   const credentialHash=tokenHash(authorization.slice(7));
+   const owner=(await q.query('SELECT user_id,community_id FROM member_client_connections WHERE token_hash=$1 AND revoked_at IS NULL AND expires_at>now()',[credentialHash])).rows[0];
+   requireCondition(owner,401,'client_token_invalid','讀取連線已失效，請重新配對。');
+   // Member → connection is the same lock order as administrative deactivation.
+   requireCondition((await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active AND onboarding_completed_at IS NOT NULL FOR SHARE',[owner.user_id,owner.community_id])).rowCount===1,401,'client_token_invalid','讀取連線已失效，請重新配對。');
+   const client=(await q.query(`SELECT connection_id,community_id,user_id,kind,scope,store_id,expires_at FROM member_client_connections
+      WHERE token_hash=$1 AND user_id=$2 AND community_id=$3 AND revoked_at IS NULL AND expires_at>now() FOR SHARE`,[credentialHash,owner.user_id,owner.community_id])).rows[0];
    requireCondition(client,401,'client_token_invalid','讀取連線已失效，請重新配對。');
    if(resource==='connection')return {connection_id:client.connection_id,kind:client.kind,scope:client.scope,store_id:client.store_id,expires_at:client.expires_at,read_only:true};
    requireCondition((client.kind==='storefront'&&['catalog','stores','listings'].includes(resource))||(client.kind==='supplier'&&['products','requests'].includes(resource)),403,'client_scope_denied','這個讀取連線沒有此資料的權限。');

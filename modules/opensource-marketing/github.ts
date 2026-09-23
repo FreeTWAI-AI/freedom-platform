@@ -23,7 +23,7 @@ const repoSchema=z.object({id:z.number().int().positive().max(Number.MAX_SAFE_IN
 const commitSchema=z.object({sha:z.string().regex(/^[a-f0-9]{40}$/)});
 const licenseSchema=z.object({license:z.object({spdx_id:z.string().min(1).max(100)}).nullable(),path:z.string().min(1).max(500)});
 
-async function publicJson(path:string,signal:AbortSignal,fetcher:typeof fetch,missingLicense=false):Promise<unknown> {
+export async function publicJson(path:string,signal:AbortSignal,fetcher:typeof fetch,missingLicense=false,maxBytes=196608):Promise<unknown> {
   let response:Response;
   try {
     response=await fetcher(`https://api.github.com${path}`,{headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'Freedom-Platform-public-registry'},redirect:'error',signal});
@@ -37,7 +37,7 @@ async function publicJson(path:string,signal:AbortSignal,fetcher:typeof fetch,mi
   const chunks:Uint8Array[]=[];let size=0;
   try {
     while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;
-      if(size>196608){await reader.cancel();throw new Problem(503,'github_response_too_large','GitHub 回應過大，這次未匯入。');}chunks.push(value);}
+      if(size>maxBytes){await reader.cancel();throw new Problem(503,'github_response_too_large','GitHub 回應過大，這次未匯入。');}chunks.push(value);}
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch(error){if(error instanceof Problem)throw error;throw new Problem(503,'github_invalid_response','GitHub 回應不完整，請稍後重試。');}
 }

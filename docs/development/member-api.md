@@ -9,16 +9,20 @@ uses persisted rate limits instead. IDs are UUIDs.
 - `GET /api/v1/site`: brand, registration_enabled, demo_accounts_enabled, community.
 - `POST /auth/register`: `{email,password,nickname,contacts?}`. Password 12–128
   characters, nickname 1–60. Returns the existing session JSON and cookie (201).
-  Contacts are optional fields `discord`, `github`, `line`, `email`, each
-  `{value,visibility}`. Visibility defaults private. Login email is copied to
-  contact email privately on registration, but thereafter the two are separate.
+  Optional social contacts are `discord`, `github`, `line`, each `{value,audiences?}`
+  with a private default. Registration has exactly one email input: `email`.
+  A separate `contacts.email` input is rejected. Contact email always comes from
+  the login identity; its audience starts empty (private).
 - `POST /auth/login`: existing `{email,password}`. Email remains **unverified**;
   there is no mail sender/reset/automatic provider linking. Slugs confer no
   GitHub/Discord/LINE ownership or privileged action.
 - `GET /me/account`: `{user_id,nickname,login_email,email_verified,contacts,
   aggregate_version}`. Each contact additionally has `verified:false`.
 - `POST /me/account`: `{nickname,contacts}` (all four contact entries, **without**
-  `verified`); returns current account, never another member's private settings.
+  `verified`); social entries are `{value,audiences}`; email is **only**
+  `{audiences}`. Sending `email.value` is rejected. GET still includes the
+  authoritative email value for display. This API cannot change the login email.
+  Returns current account, never another member's private settings.
 - `GET /members?limit=20&offset=0`: `{items,next_offset}`. Limit 1–50. Each card:
   `{user_id,nickname,positioning_title,primary_guild,secondary_guilds,capabilities,
   equipment,contacts,is_self,friendship}`. Only visible nonempty contact values
@@ -44,12 +48,24 @@ uses persisted rate limits instead. IDs are UUIDs.
   squad-scoped contact access. Owner transfer/deletion is not implemented; owner
   cannot leave. No three-person minimum or commercial eligibility is implied.
 
-Contact visibility: `public|private|friends|squad|guild`. Public means all signed-in
-members of the same community through this directory. There is no anonymous
-people endpoint yet. Friends requires an accepted mutual friendship; squad and
-guild require both members to have a currently active membership in the same
-community. Every read rechecks relationships; contact values and audience predicates use one PostgreSQL statement snapshot, preventing a revoked relationship from being combined with newly changed contacts. Nothing exposes login email,
-password hashes, private assessment answers or equipment secrets.
+Contact visibility uses `audiences`, an array of unique values from
+`public`, `friends`, `squad`, `guild` (at most four). `[]` means private.
+Selected groups combine with **OR**: `['friends','guild']` exposes a contact to
+accepted friends **or** current guild partners. `public` supersedes subsets and
+is returned/stored as `['public']`. Public means signed-in members of the same
+community; there is no anonymous people endpoint. Friends requires an accepted
+mutual friendship; squad/guild requires both members to have active membership.
+Every read rechecks these relationships in the same PostgreSQL statement
+snapshot as the contact value. No hidden email, password hashes, private
+assessment answers or equipment secrets are included.
+
+Migration `008_contact_visibility.sql` converts prior scalar visibility fields
+to audience arrays. If a former separately editable contact email differs from
+the login email (including a blank contact email), its audience resets to private
+so replacing the address cannot accidentally publish the login identity. Prior
+sharing of the same address is preserved. Changed records increment their
+aggregate version; open editors must refresh. Reads also normalize legacy
+stored rows, but new writes accept only the new strict audience-array shape.
 
 New accounts have a server-enforced onboarding gate. Only session/logout,
 account settings, assessment definition/answers/evaluation/completion, current

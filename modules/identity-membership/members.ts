@@ -6,16 +6,34 @@ import { requireCondition } from '../../packages/shared/problem.js';
 import { hashPasswordAsync,tokenHash,type Actor } from './service.js';
 import { memberPositioningSummary } from '../positioning/onboarding.js';
 
-const Visibility=z.enum(['public','private','friends','squad','guild']);
-const contact=(value:z.ZodType<string>)=>z.object({value,visibility:Visibility.default('private')}).strict();
+const audienceKeys=['public','friends','squad','guild'] as const;
+type Audience=typeof audienceKeys[number];
+const Audiences=z.array(z.enum(audienceKeys)).max(4).refine(values=>new Set(values).size===values.length,'請移除重複的公開對象。')
+  .transform(values=>values.includes('public')?['public'] as Audience[]:[...values].sort());
+const contact=(value:z.ZodType<string>)=>z.object({value,audiences:Audiences.default([])}).strict();
 const contactValue=z.string().trim().max(100).refine(v=>!/[\x00-\x1f\x7f]/.test(v));
-export const ContactInput=z.object({
+const SocialContacts=z.object({
   discord:contact(contactValue),github:contact(z.string().trim().max(39).refine(v=>v===''||/^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(v),'請填 GitHub 帳號，不要貼網址。')),
-  line:contact(contactValue),email:contact(z.union([z.literal(''),z.email().max(200)])),
+  line:contact(contactValue),
 }).strict();
-export const RegistrationInput=z.object({email:z.email().max(200),password:z.string().min(12).max(128),nickname:z.string().trim().min(1).max(60),contacts:ContactInput.partial().optional()}).strict();
+export const ContactInput=SocialContacts.extend({email:z.object({audiences:Audiences}).strict()}).strict();
+export const RegistrationInput=z.object({email:z.email().max(200),password:z.string().min(12).max(128),nickname:z.string().trim().min(1).max(60),contacts:SocialContacts.partial().optional()}).strict();
 const AccountInput=z.object({nickname:z.string().trim().min(1).max(60),contacts:ContactInput}).strict();
-export const emptyContacts=()=>({discord:{value:'',visibility:'private'},github:{value:'',visibility:'private'},line:{value:'',visibility:'private'},email:{value:'',visibility:'private'}});
+export const emptyContacts=()=>({discord:{value:'',audiences:[] as string[]},github:{value:'',audiences:[] as string[]},line:{value:'',audiences:[] as string[]},email:{audiences:[] as string[]}});
+
+// Compatible reads for older stored scalar rows, never for new API writes.
+// A former separate contact email cannot authorize exposing the login address.
+function normalizedContacts(raw:unknown,email:string) {
+  const source=raw&&typeof raw==='object'?raw as Record<string,any>:{};
+  return Object.fromEntries(['discord','github','line','email'].map(key=>{
+    const field=source[key]&&typeof source[key]==='object'?source[key]:{};
+    let audiences:Audience[]=Array.isArray(field.audiences)?field.audiences.filter((v:unknown):v is Audience=>typeof v==='string'&&audienceKeys.includes(v as Audience)):
+      audienceKeys.includes(field.visibility)?[field.visibility]:[];
+    if(key==='email'&&Object.hasOwn(field,'value')&&(typeof field.value!=='string'||field.value.toLowerCase()!==email.toLowerCase()))audiences=[];
+    audiences=audiences.includes('public')?['public']:[...new Set(audiences)].sort();
+    return [key,{value:key==='email'?email:typeof field.value==='string'?field.value:'',audiences}];
+  })) as Record<'discord'|'github'|'line'|'email',{value:string;audiences:Audience[]}>;
+}
 
 // Persistent per-network budgets run before password hashing. A separate email
 // budget survives changing networks. No mail or provider ownership is inferred.
@@ -48,7 +66,7 @@ export async function registerMember(pool:Pool,raw:unknown,options:{communityId?
     const user=(await q.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
       VALUES($1,$2,$3,$4,$5,$6,true) ON CONFLICT(email) DO NOTHING RETURNING user_id,community_id,email,display_name,profession_membership_ref,onboarding_required,onboarding_completed_at`,[randomUUID(),communityId,email,body.nickname,passwordHash,randomUUID()])).rows[0];
     requireCondition(user,409,'account_unavailable','無法使用這個註冊資料；已有帳號請登入。');
-    const contacts={...emptyContacts(),email:{value:email,visibility:'private'},...body.contacts};
+    const contacts={...emptyContacts(),...body.contacts};
     await q.query('INSERT INTO member_accounts(user_id,community_id,contacts) VALUES($1,$2,$3)',[user.user_id,communityId,JSON.stringify(contacts)]);
     const token=randomBytes(32).toString('base64url'),csrf=randomBytes(32).toString('base64url');
     await q.query(`INSERT INTO sessions VALUES($1,$2,$3,now()+interval '8 hours',NULL)`,[tokenHash(token),user.user_id,csrf]);
@@ -61,7 +79,7 @@ async function ensureAccount(q:Pool|PoolClient,actor:Actor) {
 export async function accountView(pool:Pool,actor:Actor) {
   await ensureAccount(pool,actor);
   const row=(await pool.query(`SELECT a.*,u.email,u.display_name,u.email_verified_at FROM member_accounts a JOIN users u USING(user_id) WHERE a.user_id=$1 AND a.community_id=$2`,[actor.user_id,actor.community_id])).rows[0];
-  return {user_id:row.user_id,nickname:row.display_name,login_email:row.email,email_verified:Boolean(row.email_verified_at),contacts:Object.fromEntries(Object.entries(row.contacts).map(([key,value])=>[key,{...value as object,verified:false}])),aggregate_version:row.aggregate_version};
+  return {user_id:row.user_id,nickname:row.display_name,login_email:row.email,email_verified:Boolean(row.email_verified_at),contacts:Object.fromEntries(Object.entries(normalizedContacts(row.contacts,row.email)).map(([key,value])=>[key,{...value,verified:false}])),aggregate_version:row.aggregate_version};
 }
 export async function saveAccount(pool:Pool,input:Command) {
   const body=AccountInput.parse(input.body);
@@ -87,7 +105,7 @@ export async function memberCard(pool:Pool,actor:Actor,id:string) {
   // Contact values and their audience predicates must share ONE database snapshot.
   // Split reads can combine an old friendship with a newly changed private value.
   const [projection,positioning]=await Promise.all([
-    pool.query(`SELECT u.user_id,u.display_name,account.contacts,
+    pool.query(`SELECT u.user_id,u.display_name,u.email,account.contacts,
       (SELECT jsonb_build_object('state',f.state,'requester_ref',f.requester_ref,'aggregate_version',f.aggregate_version) FROM member_friendships f WHERE f.community_id=$1 AND f.low_ref=$2 AND f.high_ref=$3) AS friendship,
       EXISTS(SELECT 1 FROM positioning_profession_memberships a JOIN positioning_profession_memberships b USING(community_id,guild_key) WHERE a.community_id=$1 AND a.user_id=$4 AND b.user_id=$5 AND a.state='active' AND b.state='active') AS guild,
       EXISTS(SELECT 1 FROM member_squad_memberships a JOIN member_squad_memberships b USING(squad_id) JOIN member_squads s USING(squad_id) WHERE s.community_id=$1 AND a.user_id=$4 AND b.user_id=$5 AND a.state='active' AND b.state='active') AS squad
@@ -97,8 +115,9 @@ export async function memberCard(pool:Pool,actor:Actor,id:string) {
   ]);
   const relation=projection.rows[0];requireCondition(relation,404,'member_not_found','找不到這位會員。');
   const contacts:Record<string,string>={};
-  for(const [key,field] of Object.entries(relation.contacts??emptyContacts()) as [string,{value:string;visibility:string}][]) {
-    if(field.value&&(isSelf||field.visibility==='public'||field.visibility==='friends'&&relation.friendship?.state==='accepted'||field.visibility==='guild'&&relation.guild||field.visibility==='squad'&&relation.squad))contacts[key]=field.value;
+  for(const [key,field] of Object.entries(normalizedContacts(relation.contacts,relation.email))) {
+    const audience=field.audiences;
+    if(field.value&&(isSelf||audience.includes('public')||audience.includes('friends')&&relation.friendship?.state==='accepted'||audience.includes('guild')&&relation.guild||audience.includes('squad')&&relation.squad))contacts[key]=field.value;
   }
   return {user_id:id,nickname:relation.display_name,...positioning,contacts,is_self:isSelf,friendship:relation.friendship??{state:'none'}};
 }

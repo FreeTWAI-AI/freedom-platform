@@ -5,6 +5,10 @@ import { createPool,LOCAL_DATABASE_URL } from '../packages/db/index.js';
 import { createApp } from '../apps/platform-api/src/app.js';
 import { migrate } from './database.js';
 import { seedLocal } from '../packages/testing/seed.js';
+import { collaborationGitHubFixture } from '../packages/testing/github-collaboration.js';
+
+if(process.env.NODE_ENV==='production'||(process.env.FREEDOM_ENV&&process.env.FREEDOM_ENV!=='local'))throw Error('Browser test server is local-only.');
+if(process.env.FREEDOM_E2E_GITHUB_FIXTURES==='1')globalThis.fetch=async input=>collaborationGitHubFixture(input);
 
 // Dedicated schema; browser tests never reset the user's local demo records.
 const schema=`fp_e2e_${process.pid}_${Date.now()}`;

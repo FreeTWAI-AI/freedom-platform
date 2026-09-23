@@ -1,0 +1,35 @@
+import { test, expect } from '@playwright/test';
+
+test('member reads GitHub-backed co-creation tasks, copies a bounded brief, and sees merged PR authors',async({page,context})=>{
+  const browserErrors:string[]=[];page.on('pageerror',error=>browserErrors.push(error.message));
+  await context.grantPermissions(['clipboard-read','clipboard-write']);
+  await page.goto('/');
+  await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
+  await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
+  await page.getByRole('button',{name:'登入',exact:true}).click();
+  await page.getByRole('button',{name:'一起開發',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'一起開發',exact:true}).first()).toBeVisible();
+  const issue=page.getByRole('article').filter({has:page.getByRole('heading',{name:'建立可重現的剪輯測試素材',exact:true})});
+  await expect(issue).toBeVisible();
+  await expect(issue.getByRole('link',{name:'到任務頁參與 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI-AI/video-autopilot-kit/issues/1');
+  await expect(page.getByText('任務認領與進度在 GitHub 確認；PR 是交給專案維護者審查的修改提案。想參與之前，先看看是否有人正在做。')).toBeVisible();
+  await issue.getByRole('button',{name:'複製工作說明',exact:true}).click();
+  const brief=page.getByLabel('給協作夥伴與 AI 的工作說明',{exact:true});
+  await expect(brief).toBeVisible();
+  await expect(brief).toHaveValue(/建立可重現的剪輯測試素材/);
+  const text=await brief.inputValue();
+  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(text);
+  const contribution=page.getByRole('article').filter({has:page.getByRole('heading',{name:'補上剪輯測試說明',exact:true})});
+  await expect(contribution).toContainText('GitHub 作者：contributor-demo');
+  await expect(contribution.getByRole('link',{name:'查看修改與審查 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI-AI/video-autopilot-kit/pull/8');
+  await expect(page.getByText('以下依 GitHub 已合併的 PR 顯示，作者是 GitHub 帳號；尚未連結成平台會員的成果認證。')).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await page.screenshot({path:'test-results/co-creation-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/co-creation-mobile.png',fullPage:true});
+  await page.getByRole('button',{name:'發起共創邀請',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'邀請夥伴，一起把作品往前推',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'登錄我的作品',exact:true})).toBeVisible();
+  expect(browserErrors).toEqual([]);
+});

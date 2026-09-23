@@ -24,10 +24,10 @@ async function request(path:string,session?:Session,body?:unknown,version?:numbe
 async function signIn(email=DEMO_USERS[0].email):Promise<Session>{const r=await request('/auth/login',undefined,{email,password:DEMO_PASSWORD});assert.equal(r.status,200,JSON.stringify(r.data));return {cookie:r.response.headers.get('set-cookie')!.split(';')[0],csrf:r.data.csrf_token,user:r.data.user};}
 const profile={real_world_occupations:['茶農','店面經營者'],background:'自家茶園與小量包裝能力',strengths:['產品知識','攝影'],goals:'整理茶葉供貨條件，找到合作銷售者',weekly_minutes:60,desired_roles:['supplier','seller'],selected_tracks:['food_supplier'],confirmed:true};
 
-test('expanded directions remain separate from 12 Guild professions and do not expose private profiles',async()=>{
+test('expanded directions remain separate from 15 Guild professions and do not expose private profiles',async()=>{
   const member=await signIn();const view=await request('/me/positioning',member),guilds=await request('/guilds',member);
   assert.equal(view.status,200);assert.equal(view.data.profile,null);assert.ok(view.data.tracks.length>=20);
-  assert.equal(guilds.data.items.length,12);assert.equal(new Set(guilds.data.items.map((g:any)=>g.profession_key)).size,12);
+  assert.equal(guilds.data.items.length,15);assert.equal(new Set(guilds.data.items.map((g:any)=>g.profession_key)).size,15);
   assert.ok(guilds.data.items.every((g:any)=>g.membership===null));assert.deepEqual(view.data.recommendations,[]);
   assert.equal((await request('/me/positioning')).status,401);
 });

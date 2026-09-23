@@ -1,0 +1,10 @@
+.skill-intro-dialog {width:min(760px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:28px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-elev);color:var(--ink);box-shadow:var(--shadow);overflow:auto;overflow-wrap:anywhere;}
+.skill-intro-dialog::backdrop {background:rgba(0,0,0,.7);}
+.skill-intro-header {display:flex;align-items:flex-start;justify-content:space-between;gap:20px;}
+.skill-intro-header .btn {flex-shrink:0;}
+.skill-intro-dialog ol {margin:0;padding-left:1.4em;}
+.skill-intro-dialog li+li {margin-top:8px;}
+.skill-intro-source {border-top:1px solid var(--line);padding-top:18px;}
+.skill-intro-dialog .actions {flex-wrap:wrap;}
+.skill-intro-trigger {text-align:left;}
+@media(max-width:600px){.skill-intro-dialog{padding:18px;}.skill-intro-header{gap:10px;}.skill-intro-dialog .actions{display:grid;grid-template-columns:1fr;}.skill-intro-dialog .actions a{text-align:center;}}

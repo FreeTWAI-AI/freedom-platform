@@ -1,8 +1,10 @@
 # Freedom Platform
 
-本 workspace 保存 Freedom 大平台的完整規格，以及 **0.3.0-member-beta 自由工坊會員入口**。新會員註冊後完成定位，選擇主力公會並取得 Repo 技能書，再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
+本 workspace 保存 Freedom 大平台的完整規格，以及 **0.4.0-co-creation-beta 自由工坊會員入口**。新會員註冊後完成定位，選擇主力公會並取得 Repo 技能書，再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
 
 公開會員入口：<https://freetwai.com>；內部入口：<https://staging.freetwai.com>（Cloudflare Access 限定名單，獨立 DB）。本輪行為與邊界見 [會員入口設計](./docs/development/member-onboarding-release.md)，運行方式見 [公開站手冊](./docs/development/public-operations.md)。
+
+本版加入[管理介面與會長任命](./docs/development/platform-admin-api.md)、公會藏經閣、可收合技能樹與三項精選能力。[0.4 版本紀錄](./docs/releases/2026-09-23-co-creation-beta.md) 列出功能與驗證範圍。
 
 各產品模板已依 [九倉分工與串接方式](./docs/development/repository-integration.md) 獨立保存，透過固定版本的 API／SDK 共用中央會員與資料。
 
@@ -44,3 +46,9 @@ Freedom Platform 是社群的接點、共同資料庫、核心 codebase 協作�
 - 56 packages、9 repos、12 runtimes／consumers、contracts、tests 與完整交付計畫。
 
 文件中的 adopted／decided 只表示設計已納入現行 baseline，不表示功能已上線。Machine-readable contracts 在階段 1A 凍結，並於後續階段實作、取得驗證 evidence 後，才可能成為可發布的 production contract。
+
+## 一起開發
+
+會員可從「一起開發」找到專案缺少的角色，讀取 GitHub Issues、複製給 Agent 的任務說明，再由維護者審查 PR。詳見 [共創與貢獻紀錄](docs/development/co-creation.md)。示範 repo：[工坊 video-autopilot-kit](https://github.com/FreeTWAI-AI/video-autopilot-kit/issues)。
+
+會員註冊只填一個 Email；登入信箱即聯絡信箱，公開範圍於名片多選設定。現有 15 個公會包含資安、音樂創作與 MV、廣告攝影與影片；公會長未任命時如實顯示待任命。

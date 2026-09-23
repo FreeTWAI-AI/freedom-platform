@@ -1,6 +1,6 @@
 {
   "name": "freedom-platform",
-  "version": "0.3.0-member-beta",
+  "version": "0.4.0-co-creation-beta",
   "private": true,
   "type": "module",
   "engines": {
@@ -26,6 +26,7 @@
   "dependencies": {
     "@hono/node-server": "2.1.1",
     "hono": "4.13.8",
+    "jose": "6.2.12",
     "pg": "8.23.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",

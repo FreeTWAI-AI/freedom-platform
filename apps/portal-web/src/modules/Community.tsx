@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { PortalClient } from '../api';
+import {SkillBookIntro} from './SkillBookIntro';
 
 export type SiteConfig = { registration_enabled: boolean; demo_accounts_enabled: boolean; public_mode: boolean };
 export function BrandPoster({ compact = false }: { compact?: boolean }) {
@@ -14,13 +15,13 @@ export const communityLinks = [
 export function CommunityLinks() {
   return <footer className="community-footer"><div><strong>自由工坊</strong><p>自由創作，讓每一種專業都有位置。</p></div><nav aria-label="自由工坊社群">{communityLinks.map(link => <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">{link.label} ↗</a>)}</nav></footer>;
 }
-type CatalogBook={id:string;title:string;repository_url:string;fork_url:string|null;description:string;license_status:string;introduction_url?:string|null;upstream_url?:string};
+type CatalogBook={id:string;title:string;repository_url:string;fork_url:string|null;description:string;license_status:string;introduction_url?:string|null;upstream_url?:string;source_commit?:string|null};
 type CommunityCatalog={name:string;tagline:string;metrics:{label:string;value:number;as_of:string;note:string}[];featured_projects:CatalogBook[];skill_books:CatalogBook[];project_links?:{title:string;url:string;description:string}[]};
 export function RepositoryLibrary({client,ids,title='社群技能書'}:{client:PortalClient;ids?:string[];title?:string}){
   const [catalog,setCatalog]=useState<CommunityCatalog|null>(null),[error,setError]=useState('');
   useEffect(()=>{let active=true;void client.get<CommunityCatalog>('/community').then(data=>{if(active)setCatalog(data)}).catch(()=>{if(active)setError('社群技能書暫時無法載入。')});return()=>{active=false};},[client]);
   const books=ids?catalog?.skill_books.filter(book=>ids.includes(book.id)):catalog?.featured_projects;
-  return <section className="stack"><header className="section-heading"><h3>{title}</h3><p className="muted">從原作者的公開作品出發，在工坊持續學習與改造。</p></header>{error&&<p role="alert">{error}</p>}{!catalog&&!error&&<p role="status">正在載入技能書…</p>}<div className="card-grid">{books?.map(book=><article className="card skill-book" key={book.id}><h4>{book.title}</h4><p>{book.description}</p>{book.license_status==='NOASSERTION'&&<p className="field-hint">授權尚待確認；使用、修改與再發布前請先閱讀來源說明。</p>}<div className="actions"><a className="btn btn-ghost" href={book.repository_url} target="_blank" rel="noopener noreferrer">閱讀技能書 ↗</a>{book.fork_url&&<a className="btn btn-primary" href={book.fork_url} target="_blank" rel="noopener noreferrer">Fork ↗</a>}{book.introduction_url&&<a href={book.introduction_url} target="_blank" rel="noopener noreferrer">專案介紹 ↗</a>}{book.upstream_url&&book.upstream_url!==book.repository_url&&<a href={book.upstream_url} target="_blank" rel="noopener noreferrer">原作者 ↗</a>}</div></article>)}</div></section>;
+  return <section className="stack"><header className="section-heading"><h3>{title}</h3><p className="muted">從原作者的公開作品出發，在工坊持續學習與改造。</p></header>{error&&<p role="alert">{error}</p>}{!catalog&&!error&&<p role="status">正在載入技能書…</p>}<div className="card-grid">{books?.map(book=><article className="card skill-book" key={book.id}><h4>{book.title}</h4><p>{book.description}</p>{book.license_status==='NOASSERTION'&&<p className="field-hint">授權尚待確認；使用、修改與再發布前請先閱讀來源說明。</p>}<SkillBookIntro book={book}/></article>)}</div></section>;
 }
 export function CommunityPanel({ client }: { client: PortalClient }) {
   const [data,setData]=useState<CommunityCatalog|null>(null),[error,setError]=useState('');

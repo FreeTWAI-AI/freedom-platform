@@ -30,10 +30,14 @@ export async function command<T>(pool: Pool, input: Command,
   authorize: (q: PoolClient) => Promise<unknown>, run: (q: PoolClient) => Promise<T>): Promise<T> {
   requireCondition(/^[A-Za-z0-9_-]{8,128}$/.test(input.key),400,'idempotency_required','請提供有效的 Idempotency-Key。');
   return transaction(pool, async q => {
-    const active = await q.query(`SELECT s.token_hash FROM sessions s JOIN users u USING(user_id)
-      WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>now() AND u.active
-      ${input.lockUser ? 'FOR UPDATE OF u FOR SHARE OF s' : 'FOR SHARE OF s,u'}`,[input.actor.session_hash]);
-    requireCondition(active.rowCount === 1,401,'session_expired','請重新登入。');
+    // Every mutation locks the user before any session. Administration revokes
+    // sessions after locking users, so a join locking sessions first can deadlock.
+    const activeUser=await q.query(`SELECT user_id FROM users WHERE user_id=$1 AND community_id=$2 AND active
+      ${input.lockUser ? 'FOR UPDATE' : 'FOR SHARE'}`,[input.actor.user_id,input.actor.community_id]);
+    requireCondition(activeUser.rowCount===1,401,'session_expired','請重新登入。');
+    const active=await q.query(`SELECT token_hash FROM sessions WHERE token_hash=$1 AND user_id=$2
+      AND revoked_at IS NULL AND expires_at>now() FOR SHARE`,[input.actor.session_hash,input.actor.user_id]);
+    requireCondition(active.rowCount===1,401,'session_expired','請重新登入。');
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`${input.actor.user_id}/${input.operation}/${input.key}`]);
     await authorize(q); // Current authority is checked even for a replay.
     const hash = digest({body: input.body, expected: input.expected ?? null});

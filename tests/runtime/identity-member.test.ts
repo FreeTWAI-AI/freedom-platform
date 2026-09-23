@@ -27,11 +27,11 @@ async function signIn(email=DEMO_USERS[0].email):Promise<Session>{const r=await 
 async function account(s:Session,contacts=emptyContacts(),nickname='會員暱稱'){const before=await request('/me/account',s);return request('/me/account',s,{nickname,contacts},before.data.aggregate_version);}
 
 test('registration saves salted password, private unverified contacts and server-side closed onboarding',async()=>{
-  const registration={email:'New.Person@example.com',password:'long-enough-new-password',nickname:'新的職人',contacts:{github:{value:'hello-member',visibility:'private'}}};
+  const registration={email:'New.Person@example.com',password:'long-enough-new-password',nickname:'新的職人',contacts:{github:{value:'hello-member',audiences:[]}}};
   const result=await request('/auth/register',undefined,registration);assert.equal(result.status,201,JSON.stringify(result.data));const member=session(result);
   const row=(await pool.query('SELECT * FROM users WHERE user_id=$1',[member.user.user_id])).rows[0];
   assert.equal(row.email,'new.person@example.com');assert.notEqual(row.password_hash,registration.password);assert.equal(row.email_verified_at,null);assert.equal(row.onboarding_required,true);assert.equal(row.onboarding_completed_at,null);
-  const own=await request('/me/account',member);assert.equal(own.data.contacts.email.visibility,'private');assert.equal(own.data.contacts.github.verified,false);
+  const own=await request('/me/account',member);assert.deepEqual(own.data.contacts.email.audiences,[]);assert.equal(own.data.contacts.email.value,row.email);assert.equal(own.data.contacts.github.verified,false);
   assert.equal((await request('/session',member)).status,200);assert.equal((await request('/assessment-definition',member)).status,200);assert.equal((await request('/guilds',member)).status,200);
   for(const path of ['/work-items','/dashboard','/members','/squads','/supplier/products','/retail/stores','/marketing/campaigns','/opensource/projects']) {
     const blocked=await request(path,member);assert.equal(blocked.status,403,`${path}: ${JSON.stringify(blocked.data)}`);assert.equal(blocked.data.code,'onboarding_required');
@@ -45,7 +45,7 @@ test('registration saves salted password, private unverified contacts and server
 test('registration rejects forged contacts and weak passwords, persists per-network and per-email limits',async()=>{
   const body={email:'abuse@example.com',password:'long-enough-password',nickname:'正常名字'};
   assert.equal((await request('/auth/register',undefined,{...body,password:'short'})).status,422);
-  assert.equal((await request('/auth/register',undefined,{...body,contacts:{github:{value:'admin',visibility:'private',verified:true}}})).status,422);
+  assert.equal((await request('/auth/register',undefined,{...body,contacts:{github:{value:'admin',audiences:[],verified:true}}})).status,422);
   assert.equal((await request('/auth/register',undefined,body)).status,201);
   assert.equal((await request('/auth/register',undefined,body)).status,409);
   assert.equal((await request('/auth/register',undefined,body)).status,409);
@@ -65,7 +65,7 @@ test('failed login budget survives requests and never accepts wrong or inactive 
 
 test('directory omits login email and private contacts; accepted friendships grant and removal revokes access',async()=>{
   const owner=await signIn(),viewer=await signIn(DEMO_USERS[1].email);
-  const contacts={...emptyContacts(),email:{value:'private-contact@example.com',visibility:'private'},github:{value:'public-maker',visibility:'public'},discord:{value:'friend-only',visibility:'friends'}};
+  const contacts={...emptyContacts(),email:{audiences:[]},github:{value:'public-maker',audiences:['public']},discord:{value:'friend-only',audiences:['friends']}};
   assert.equal((await account(owner,contacts)).status,200);
   const card=await request('/members/'+owner.user.user_id,viewer);assert.deepEqual(card.data.contacts,{github:'public-maker'});assert.ok(!JSON.stringify(card.data).includes(owner.user.email));assert.ok(!JSON.stringify(card.data).includes('private-contact'));
   const pending=await request('/friends/'+owner.user.user_id+'/request',viewer,{});assert.equal(pending.status,200);assert.equal((await request('/members/'+owner.user.user_id,viewer)).data.contacts.discord,undefined);
@@ -77,7 +77,7 @@ test('directory omits login email and private contacts; accepted friendships gra
 
 test('guild contact audience follows both active memberships and revokes after leaving',async()=>{
   const owner=await signIn(),viewer=await signIn(DEMO_USERS[1].email);
-  await account(owner,{...emptyContacts(),line:{value:'guild-only',visibility:'guild'}});
+  await account(owner,{...emptyContacts(),line:{value:'guild-only',audiences:['guild']}});
   await request('/guilds/guild_ai_vibe/join',owner,{});const membership=await request('/guilds/guild_ai_vibe/join',viewer,{});
   assert.equal((await request('/members/'+owner.user.user_id,viewer)).data.contacts.line,'guild-only');
   assert.equal((await request('/guilds/guild_ai_vibe/leave',viewer,{},membership.data.aggregate_version)).status,200);
@@ -86,7 +86,7 @@ test('guild contact audience follows both active memberships and revokes after l
 
 test('squad contact audience needs own request plus owner acceptance and immediately revokes on leave',async()=>{
   const owner=await signIn(),viewer=await signIn(DEMO_USERS[1].email),third=await signIn(DEMO_USERS[2].email);
-  await account(owner,{...emptyContacts(),line:{value:'squad-only',visibility:'squad'}});
+  await account(owner,{...emptyContacts(),line:{value:'squad-only',audiences:['squad']}});
   const made=await request('/squads',owner,{name:'第一個專案小隊',kind:'project',purpose:'一起完成一個公開作品'});assert.equal(made.status,201);const id=made.data.squad_id;
   assert.equal((await request(`/squads/${id}/members/${viewer.user.user_id}/accept`,owner,{})).status,404);
   const pending=await request(`/squads/${id}/request`,viewer,{});assert.equal(pending.status,200);assert.equal(pending.data.state,'pending');
@@ -115,12 +115,12 @@ test('inactive and other-community accounts never appear or accept friends/squad
 
 test('account mutation uses versions and strict privacy fields without changing login identity',async()=>{
   const user=await signIn();const before=await request('/me/account',user);
-  const input={nickname:'新的公開暱稱',contacts:{...emptyContacts(),email:{value:'visible@example.com',visibility:'public'}}};
+  const input={nickname:'新的公開暱稱',contacts:{...emptyContacts(),email:{audiences:['public']}}};
   const updated=await request('/me/account',user,input,before.data.aggregate_version);assert.equal(updated.status,200);assert.equal(updated.data.login_email,DEMO_USERS[0].email);
   assert.equal((await request('/me/account',user,input,before.data.aggregate_version)).status,412);
   assert.equal((await request('/me/account',user,{...input,login_email:'forged@example.com'},updated.data.aggregate_version)).status,422);
-  assert.equal((await request('/me/account',user,{...input,contacts:{...input.contacts,github:{value:'https://github.com/admin',visibility:'public'}}},updated.data.aggregate_version)).status,422);
-  const viewer=await signIn(DEMO_USERS[1].email),card=await request('/members/'+user.user.user_id,viewer);assert.equal(card.data.nickname,'新的公開暱稱');assert.equal(card.data.contacts.email,'visible@example.com');assert.ok(!JSON.stringify(card.data).includes(DEMO_USERS[0].email));
+  assert.equal((await request('/me/account',user,{...input,contacts:{...input.contacts,github:{value:'https://github.com/admin',audiences:['public']}}},updated.data.aggregate_version)).status,422);
+  const viewer=await signIn(DEMO_USERS[1].email),card=await request('/members/'+user.user.user_id,viewer);assert.equal(card.data.nickname,'新的公開暱稱');assert.equal(card.data.contacts.email,DEMO_USERS[0].email);
 });
 
 test('real TCP clients cannot bypass network registration budget by spoofing proxy headers',async()=>{
@@ -149,7 +149,7 @@ test('public mode exposes no demo login metadata and sets Secure cookie on regis
 
 test('privacy projection never combines a revoked audience with a newly changed contact',async()=>{
   const owner=await signIn(),viewer=await signIn(DEMO_USERS[1].email);
-  await account(owner,{...emptyContacts(),discord:{value:'old-friend-contact',visibility:'friends'}});
+  await account(owner,{...emptyContacts(),discord:{value:'old-friend-contact',audiences:['friends']}});
   const pending=await request('/friends/'+owner.user.user_id+'/request',viewer,{});
   await request('/friends/'+viewer.user.user_id+'/accept',owner,{},pending.data.aggregate_version);
   const blocker=await pool.connect();let reading:ReturnType<typeof request>|undefined;
@@ -164,7 +164,7 @@ test('privacy projection never combines a revoked audience with a newly changed 
     }
     assert.equal(waiting,true,'member read must be waiting on the private contact table');
     await blocker.query("UPDATE member_friendships SET state='removed',aggregate_version=aggregate_version+1 WHERE community_id=$1",[DEMO_COMMUNITY]);
-    await blocker.query('UPDATE member_accounts SET contacts=$2 WHERE user_id=$1',[owner.user.user_id,JSON.stringify({...emptyContacts(),discord:{value:'new-contact-after-revocation',visibility:'friends'}})]);
+    await blocker.query('UPDATE member_accounts SET contacts=$2 WHERE user_id=$1',[owner.user.user_id,JSON.stringify({...emptyContacts(),discord:{value:'new-contact-after-revocation',audiences:['friends']}})]);
     await blocker.query('COMMIT');
     const result=await reading;assert.equal(result.status,200);
     assert.notEqual(result.data.contacts.discord,'new-contact-after-revocation');
@@ -195,11 +195,66 @@ test('malformed IDs reject before SQL and UUID casing cannot create a self frien
 
 test('legacy module reads never bypass contact privacy or return authentication material',async()=>{
   const owner=await signIn(),viewer=await signIn(DEMO_USERS[1].email);
-  const sentinel='do-not-share-identity@example.com';await account(owner,{...emptyContacts(),email:{value:sentinel,visibility:'private'},discord:{value:'private-social-sentinel',visibility:'private'}});
+  const sentinel='do-not-share-identity@example.com';await account(owner,{...emptyContacts(),email:{audiences:[]},discord:{value:'private-social-sentinel',audiences:[]}});
   const showcase=await request('/showcases',owner,{title:'Public artifact title',description:'An intentionally shared artifact description',artifact_ref:'artifact:public-example',consent_to_share:true});assert.equal(showcase.status,201);
   const forbidden=[sentinel,'private-social-sentinel',owner.user.email,'password_hash','csrf_token','session_hash','login_email'];
   for(const path of ['/work-items','/dashboard','/showcases','/opportunities','/engagements','/supplier/products','/supplier/requests','/retail/catalog','/retail/stores','/retail/listings','/opensource/projects','/marketing/campaigns','/members','/guilds/directory','/squads']) {
     const response=await request(path,viewer);assert.equal(response.status,200,`${path}: ${JSON.stringify(response.data)}`);
     for(const secret of forbidden)assert.ok(!JSON.stringify(response.data).includes(secret),`${path} leaked ${secret}`);
   }
+});
+
+test('contact audiences combine friends, guild and squad with OR and revoke after the final relationship ends',async()=>{
+  const owner=await signIn(),viewer=await signIn(DEMO_USERS[1].email);
+  const saved=await account(owner,{...emptyContacts(),line:{value:'shared-with-selected-groups',audiences:['friends','squad','guild']}});assert.equal(saved.status,200);
+  const view=()=>request('/members/'+owner.user.user_id,viewer);
+  assert.equal((await view()).data.contacts.line,undefined);
+  const invitation=await request('/friends/'+owner.user.user_id+'/request',viewer,{});assert.equal((await view()).data.contacts.line,undefined);
+  const friend=await request('/friends/'+viewer.user.user_id+'/accept',owner,{},invitation.data.aggregate_version);
+  assert.equal((await view()).data.contacts.line,'shared-with-selected-groups');
+  await request('/guilds/guild_ai_vibe/join',owner,{});const guild=await request('/guilds/guild_ai_vibe/join',viewer,{});
+  await request('/friends/'+owner.user.user_id+'/remove',viewer,{},friend.data.aggregate_version);
+  assert.equal((await view()).data.contacts.line,'shared-with-selected-groups','guild remains selected after friendship removal');
+  const squad=await request('/squads',owner,{name:'一起做事',kind:'project',purpose:'確認多組公開範圍'});
+  const pending=await request(`/squads/${squad.data.squad_id}/request`,viewer,{});
+  const membership=await request(`/squads/${squad.data.squad_id}/members/${viewer.user.user_id}/accept`,owner,{},pending.data.aggregate_version);
+  await request('/guilds/guild_ai_vibe/leave',viewer,{},guild.data.aggregate_version);
+  assert.equal((await view()).data.contacts.line,'shared-with-selected-groups','squad remains selected after leaving guild');
+  await request(`/squads/${squad.data.squad_id}/leave`,viewer,{},membership.data.aggregate_version);
+  assert.equal((await view()).data.contacts.line,undefined);
+});
+
+test('single login email is private by default, can be explicitly shared, and cannot be changed through contact settings',async()=>{
+  const result=await request('/auth/register',undefined,{email:'One.Address@example.com',password:'one-email-login-password',nickname:'只有一個Email'});assert.equal(result.status,201);const owner=session(result);
+  const own=await request('/me/account',owner);assert.equal(own.data.contacts.email.value,'one.address@example.com');assert.deepEqual(own.data.contacts.email.audiences,[]);
+  assert.equal((await pool.query('SELECT contacts FROM member_accounts WHERE user_id=$1',[owner.user.user_id])).rows[0].contacts.email.value,undefined,'email value must not be duplicated in contact storage');
+  await pool.query('UPDATE users SET onboarding_completed_at=now() WHERE user_id=$1',[owner.user.user_id]);
+  const viewer=await signIn();assert.equal((await request('/members/'+owner.user.user_id,viewer)).data.contacts.email,undefined);
+  const body={nickname:'只有一個Email',contacts:{...emptyContacts(),email:{audiences:['public','friends','guild']}}};
+  const saved=await request('/me/account',owner,body,own.data.aggregate_version);assert.equal(saved.status,200);assert.deepEqual(saved.data.contacts.email.audiences,['public']);assert.equal(saved.data.contacts.email.value,'one.address@example.com');
+  assert.equal((await request('/members/'+owner.user.user_id,viewer)).data.contacts.email,'one.address@example.com');
+  assert.equal((await request('/members/'+owner.user.user_id)).status,401,'public contact still requires platform member login');
+  assert.equal((await request('/me/account',owner,{...body,contacts:{...body.contacts,email:{value:'different@example.com',audiences:['public']}}},saved.data.aggregate_version)).status,422);
+  assert.equal((await request('/auth/register',undefined,{email:'another@example.com',password:'another-long-password',nickname:'Rejected duplicate input',contacts:{email:{value:'separate@example.com',audiences:[]}}})).status,422);
+  assert.equal((await pool.query('SELECT email FROM users WHERE user_id=$1',[owner.user.user_id])).rows[0].email,'one.address@example.com');
+  const privateAgain=await request('/me/account',owner,{...body,contacts:emptyContacts()},saved.data.aggregate_version);assert.equal(privateAgain.status,200);
+  assert.equal((await request('/members/'+owner.user.user_id,viewer)).data.contacts.email,undefined);
+  for(const audiences of [['friends','friends'],['private'],['admin'],['public','friends','guild','squad','extra'],'friends'])assert.equal((await request('/me/account',owner,{...body,contacts:{...body.contacts,email:{audiences}}},privateAgain.data.aggregate_version)).status,422);
+});
+
+test('legacy scalar contact migration preserves social audiences but does not expose substituted login email',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const owner=await signIn(),viewer=await signIn(DEMO_USERS[1].email);
+  await request('/me/account',owner);await request('/me/account',viewer);
+  await pool.query('UPDATE member_accounts SET contacts=$2 WHERE user_id=$1',[owner.user.user_id,JSON.stringify({discord:{value:'old-friends-only',visibility:'friends'},github:{value:'old-public-handle',visibility:'public'},line:{value:'old-private-line',visibility:'private'},email:{value:'formerly-separate@example.com',visibility:'public'}})]);
+  await pool.query('UPDATE member_accounts SET contacts=$2 WHERE user_id=$1',[viewer.user.user_id,JSON.stringify({discord:{value:'hidden',visibility:'unknown'},email:{value:viewer.user.email,visibility:'public'}})]);
+  const legacyRead=await request('/me/account',owner);assert.deepEqual(legacyRead.data.contacts.discord.audiences,['friends']);assert.deepEqual(legacyRead.data.contacts.email.audiences,[]);assert.equal(legacyRead.data.contacts.email.value,owner.user.email);
+  assert.equal((await request('/members/'+owner.user.user_id,viewer)).data.contacts.email,undefined);
+  const migration=await readFile(new URL('../../migrations/008_contact_visibility.sql',import.meta.url),'utf8');await pool.query(migration);
+  const migrated=await request('/me/account',owner);assert.equal(migrated.data.aggregate_version,legacyRead.data.aggregate_version+1);assert.deepEqual(migrated.data.contacts.email.audiences,[]);assert.deepEqual(migrated.data.contacts.github.audiences,['public']);
+  assert.equal((await request('/members/'+owner.user.user_id,viewer)).data.contacts.github,'old-public-handle');
+  assert.equal((await request('/members/'+viewer.user.user_id,owner)).data.contacts.email,viewer.user.email,'same-address sharing remains authorized');
+  const stored=(await pool.query('SELECT contacts FROM member_accounts WHERE user_id=$1',[owner.user.user_id])).rows[0].contacts;
+  assert.deepEqual(stored.email,{audiences:[]});assert.equal(stored.github.visibility,undefined);
+  await pool.query(migration);assert.equal((await request('/me/account',owner)).data.aggregate_version,migrated.data.aggregate_version,'normalizing the same state is idempotent');
 });

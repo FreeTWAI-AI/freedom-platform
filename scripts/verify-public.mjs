@@ -86,7 +86,11 @@ try {
   expect(brandResponse.headers()['content-type']).toContain('image/');
   expect((await brandResponse.body()).byteLength).toBeGreaterThan(1000);
   expect((await anonymous.get(origin + '/api/v1/session', { maxRedirects: 0 })).status()).toBe(401);
-  console.log('Public HTTPS landing, site configuration, anonymous boundary and brand asset: PASS');
+  for(const path of ['/admin','/admin/api/bootstrap']) {
+    const admin=await anonymous.get(origin+path,{maxRedirects:0});
+    expect(admin.status()).toBe(302);expect(admin.headers().location).toContain('cloudflareaccess.com');
+  }
+  console.log('Public HTTPS landing, admin Access boundary, anonymous boundary and brand asset: PASS');
 
   browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH } : {}) });
   context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, ignoreHTTPSErrors: false });
@@ -130,30 +134,38 @@ try {
   const sessionCookie = (await context.cookies(origin)).find(cookie => cookie.name === 'freedom_local_session');
   if (sessionCookie) secrets.push(sessionCookie.value);
   expect(Boolean(sessionCookie?.secure && sessionCookie?.httpOnly && sessionCookie?.sameSite === 'Strict'), 'HTTPS session must be Secure, HttpOnly and SameSite Strict').toBe(true);
-  await expect(page.getByRole('heading', { name: '你從哪裡來，帶著哪些能力？', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '你喜歡怎麼做事？', exact: true })).toBeVisible();
   await expect(page.getByRole('navigation', { name: '主要工作區' })).toHaveCount(0);
   const blocked = await page.request.get(origin + '/api/v1/retail/catalog');
   expect(blocked.status()).toBe(403);
   expect((await blocked.json()).code).toBe('onboarding_required');
   expect((await page.request.get(origin + '/api/v1/members')).status()).toBe(403);
   await page.goto(origin + '/#retail', { waitUntil: 'networkidle' });
-  await expect(page.getByRole('heading', { name: '你從哪裡來，帶著哪些能力？', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '你喜歡怎麼做事？', exact: true })).toBeVisible();
   await expect(page.getByRole('navigation', { name: '主要工作區' })).toHaveCount(0);
   console.log('Real signup, secure session and server-enforced pre-onboarding access denial: PASS');
 
   stage = 'mandatory orientation';
-  await page.getByLabel('你的職業／目前身分').fill('部署驗證用合成測試帳號');
-  await page.getByLabel('剛開始探索，想從基礎學起', { exact: true }).check();
-  await page.getByRole('button', { name: '保存，繼續下一步 →', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '你的裝備庫', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '保存，繼續下一步 →', exact: true }).click();
   await expect(page.getByRole('heading', { name: '你喜歡怎麼做事？', exact: true })).toBeVisible();
   await expect(page.locator('.quiz-question')).toHaveCount(6);
   for (const field of await page.locator('.quiz-question').all()) await field.getByRole('radio').first().check();
   await page.getByRole('button', { name: '保存，繼續下一步 →', exact: true }).click();
   await expect(page.getByRole('heading', { name: '遇到這些情境，你會怎麼做？', exact: true })).toBeVisible();
-  await expect(page.locator('.quiz-question')).toHaveCount(6);
+  await expect(page.locator('.quiz-question')).toHaveCount(9);
   for (const field of await page.locator('.quiz-question').all()) await field.getByRole('radio').first().check();
+  await page.getByRole('button', { name: '保存，繼續下一步 →', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '你從哪裡來，帶著哪些能力？', exact: true })).toBeVisible();
+  await page.getByLabel('你的職業／目前身分').fill('部署驗證用合成測試帳號');
+  await page.getByLabel('剛開始探索，想從基礎學起', { exact: true }).check();
+  await page.getByLabel('精選能力：剛開始探索，想從基礎學起', { exact: true }).check();
+  await page.setViewportSize({width:390,height:844});
+  await expect(page.locator('.category-group > .tree-toggle').first()).toHaveAttribute('aria-expanded','false');
+  await noOverflow('Mobile collapsed skill tree overflow');
+  await screenshot('public-skills-mobile.png');
+  await page.setViewportSize({width:1440,height:1000});
+  await expect(page.getByLabel('剛開始探索，想從基礎學起', { exact: true })).toBeChecked();
+  await page.getByRole('button', { name: '保存，繼續下一步 →', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '你的裝備庫', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '看看適合我的公會', exact: true }).click();
   await expect(page.locator('.recommendation-card')).toHaveCount(3);
   const recommendation = page.locator('.recommendation-card').first();
@@ -161,7 +173,10 @@ try {
   await recommendation.getByRole('radio').check();
   await page.getByRole('button', { name: '確認加入公會，領取技能書', exact: true }).click();
   await expect(page.getByRole('heading', { name: '你的第一段旅程，現在開始。', exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: '閱讀技能書 ↗', exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: '查看技能書介紹', exact: true }).first().click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('dialog').getByRole('link', { name: '閱讀技能書 ↗', exact: true })).toBeVisible();
+  await page.getByRole('button', {name:'關閉技能書介紹',exact:true}).click();
   await screenshot('public-onboarding-completed.png');
   await page.getByRole('button', { name: '進入自由工坊 →', exact: true }).click();
   await expect(page.getByRole('navigation', { name: '主要工作區' })).toBeVisible();
@@ -177,25 +192,30 @@ try {
   record.status = 'orientation_completed';
   await saveRecord();
   await screenshot('public-member-home-desktop.png');
-  console.log('Full preference and ability assessment, explicit primary Guild and skill-book grants: PASS');
+  console.log('Full 15-question preference and ability assessment, explicit primary Guild and skill-book grants: PASS');
 
   stage = 'member card and privacy';
   await page.getByRole('button', { name: '我的名片', exact: true }).click();
   await expect(page.getByRole('heading', { name: '我的會員名片', exact: true })).toBeVisible();
   await page.getByLabel('Discord 帳號', { exact: true }).fill(privateContact);
-  await page.getByRole('combobox', { name: 'Discord 帳號可見範圍', exact: true }).selectOption('private');
+  const audiences = page.getByRole('group', { name: 'Discord 帳號可見範圍', exact: true });
+  await audiences.getByRole('checkbox', { name: '平台好友', exact: true }).check();
+  await audiences.getByRole('checkbox', { name: '公會夥伴', exact: true }).check();
   await page.getByRole('button', { name: '保存個人資料與公開範圍', exact: true }).click();
   await expect(page.getByText('個人資料與每一項聯絡方式的可見範圍已保存。', { exact: true })).toBeVisible();
   const accountResponse = await page.request.get(origin + '/api/v1/me/account');
   expect(accountResponse.status()).toBe(200);
   const account = await accountResponse.json();
-  expect(account.contacts.discord.value === privateContact && account.contacts.discord.visibility === 'private').toBe(true);
+  expect(account.contacts.email.value).toBe(email);
+  expect(account.contacts.discord.value === privateContact && JSON.stringify([...account.contacts.discord.audiences].sort()) === JSON.stringify(['friends','guild'])).toBe(true);
   const selfResponse = await page.request.get(origin + '/api/v1/members/' + record.user_id);
   expect(selfResponse.status()).toBe(200);
   const self = await selfResponse.json();
   expect(self.nickname === nickname && self.primary_guild?.guild_key === onboarding.primary_guild_key).toBe(true);
   expect(typeof self.positioning_title).toBe('string');
   expect(self.capabilities).toContain('getting_started');
+  expect(self.featured_capabilities).toEqual(['getting_started']);
+  await expect(page.locator('.member-featured .pill')).toHaveCount(1);
   await noVisibleError();
   await screenshot('public-member-card-desktop.png');
   await page.setViewportSize({ width: 390, height: 844 });
@@ -204,6 +224,13 @@ try {
   await page.getByRole('button', { name: '職業公會', exact: true }).click();
   await expect(page.locator('.primary-guild')).toHaveCount(1);
   await expect(page.locator('.primary-guild')).toContainText('公會長：');
+  await expect(page.locator('.guild-card').first()).toHaveClass(/primary-guild/);
+  await expect(page.locator('.guild-card').first()).toContainText('公會藏經閣');
+  await page.locator('.guild-card').first().locator('.skill-intro-trigger').first().click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await noOverflow('Guild skill book introduction mobile overflow');
+  await screenshot('public-guild-library-mobile.png');
+  await page.getByRole('button',{name:'關閉技能書介紹',exact:true}).click();
   await noVisibleError();
   await noOverflow('Guild mobile overflow');
   await screenshot('public-guilds-mobile.png');
@@ -214,7 +241,26 @@ try {
   await noVisibleError();
   await noOverflow('Member directory mobile overflow');
   // No directory screenshot: preserve only this run's synthetic member and generic public surfaces.
-  console.log('Own member card, private contact persistence, Guild identity and responsive member navigation: PASS');
+  console.log('Own member card, contact-audience persistence, Guild identity and responsive member navigation: PASS');
+
+  stage = 'specialist Guilds and real co-creation repository';
+  const guildResponse=await page.request.get(origin+'/api/v1/guilds/directory');
+  expect(guildResponse.status()).toBe(200);
+  const guilds=(await guildResponse.json()).items;
+  expect(guilds).toHaveLength(15);
+  for(const key of ['guild_security','guild_music_mv','guild_commercial_production']) expect(guilds.some(g=>g.guild_key===key)).toBe(true);
+  await page.getByRole('button',{name:'一起開發',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'一起開發',exact:true}).first()).toBeVisible();
+  const liveActivity=await page.request.get(origin+'/api/v1/co-creation/projects/workshop-video-autopilot/activity');
+  expect(liveActivity.status()).toBe(200);
+  const activity=await liveActivity.json();
+  expect(activity.issues.length).toBeGreaterThanOrEqual(5);
+  await expect(page.getByRole('button',{name:'複製工作說明',exact:true}).first()).toBeVisible();
+  await noVisibleError();await noOverflow('Co-creation mobile overflow');await page.evaluate(()=>scrollTo(0,0));
+  await screenshot('public-co-creation-mobile.png');
+  await page.setViewportSize({width:1440,height:1000});await page.evaluate(()=>scrollTo(0,0));
+  await screenshot('public-co-creation-desktop.png');
+  console.log('15 Guilds and real GitHub co-creation Issues through deployed Platform: PASS');
 
   stage = 'logout and fresh login';
   await page.getByRole('button', { name: '登出', exact: true }).click();
@@ -230,7 +276,8 @@ try {
   expect(Boolean(renewedCookie?.secure && renewedCookie?.httpOnly && renewedCookie?.sameSite === 'Strict')).toBe(true);
   await page.getByRole('button', { name: '我的名片', exact: true }).click();
   await expect(page.getByLabel('Discord 帳號', { exact: true })).toHaveValue(privateContact);
-  await expect(page.getByRole('combobox', { name: 'Discord 帳號可見範圍', exact: true })).toHaveValue('private');
+  await expect(page.getByRole('group', { name: 'Discord 帳號可見範圍', exact: true }).getByRole('checkbox', { name: '平台好友', exact: true })).toBeChecked();
+  await expect(page.getByRole('group', { name: 'Discord 帳號可見範圍', exact: true }).getByRole('checkbox', { name: '公會夥伴', exact: true })).toBeChecked();
   await page.reload({ waitUntil: 'networkidle' });
   await expect(page.getByLabel('Discord 帳號', { exact: true })).toHaveValue(privateContact);
   await noVisibleError();
