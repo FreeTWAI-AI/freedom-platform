@@ -345,6 +345,7 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await noOverflow('Member card mobile overflow');
   await screenshot('public-member-card-mobile.png');
+  stage='guild grouping and responsive cards';
   await navigate(page, '職業公會');
   await expect(page.locator('.primary-guild')).toHaveCount(1);
   await expect(page.locator('.primary-guild .guild-master .guild-leadership-role')).toHaveText('公會長');
@@ -364,7 +365,8 @@ try {
     await expect.poll(async()=>page.locator('.guild-card').evaluateAll(cards=>{
       const heights=cards.map(card=>card.getBoundingClientRect().height);return Math.max(...heights)-Math.min(...heights);
     })).toBeLessThanOrEqual(2);
-    expect(await page.locator('.guild-card').evaluateAll(cards=>cards.every(card=>card.scrollHeight<=card.clientHeight+1&&card.scrollWidth<=card.clientWidth+1))).toBe(true);
+    const overflow=await page.locator('.guild-card').evaluateAll(cards=>cards.filter(card=>card.scrollHeight>card.clientHeight+1||card.scrollWidth>card.clientWidth+1).map(card=>({guild:card.getAttribute('data-guild-key'),height:card.clientHeight,scrollHeight:card.scrollHeight,width:card.clientWidth,scrollWidth:card.scrollWidth})));
+    expect(overflow,`Guild content must fit at ${width}px`).toEqual([]);
     const teams=page.locator('.guild-card .guild-leadership');
     await expect(teams).toHaveCount(await page.locator('.guild-card').count());
     for(const team of await teams.all()){

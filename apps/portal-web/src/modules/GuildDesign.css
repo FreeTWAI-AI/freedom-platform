@@ -278,7 +278,7 @@
 .guild-secondary-choices input { flex: none; }
 .guild-secondary-choices .muted { font-size: .875rem; margin-left: auto; }
 .guilds-panel .guild-directory { grid-template-columns: repeat(3,minmax(0,1fr)); }
-.guilds-panel .guild-card { box-sizing: border-box; display: flex; flex-direction: column; height: var(--guild-card-height,auto); gap: 16px; }
+.guilds-panel .guild-card { box-sizing: border-box; display: flex; flex-direction: column; min-height: var(--guild-card-height,0); gap: 16px; }
 .guild-card-content,.guild-card-controls { display: grid; gap: 10px; min-width: 0; flex-shrink: 0; }
 .guild-card-controls { margin-top: auto; }
 .guilds-panel .guild-card-topline { align-items: flex-start; }

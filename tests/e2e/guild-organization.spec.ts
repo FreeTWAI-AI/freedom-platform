@@ -135,6 +135,8 @@ test('guild cards stay equal across all groups and keep every leader and expert 
   const cards = page.locator('.guild-card'); await expect(cards).toHaveCount(6);
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 960 });
+    // Content must still fit before a new shared-height measurement arrives.
+    expect(await cards.evaluateAll(nodes => nodes.every(node => node.scrollHeight <= node.clientHeight + 1 && node.scrollWidth <= node.clientWidth + 1))).toBe(true);
     // ResizeObserver may update the common intrinsic height on the next frame.
     await expect.poll(async () => cards.evaluateAll(nodes => {
       const heights = nodes.map(node => node.getBoundingClientRect().height); return Math.max(...heights) - Math.min(...heights);

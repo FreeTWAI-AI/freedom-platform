@@ -1,5 +1,5 @@
 {
-  "version": "0.11.0-guild-library",
+  "version": "0.11.1-guild-library",
   "scope": "source files, including historical evidence; excludes self, secrets, dependencies, build and test artifacts",
   "files": [
     {
@@ -40,7 +40,7 @@
     {
       "path": "README.md",
       "bytes": 9660,
-      "sha256": "2850a61530c923d2d31a087a3ea172538bbdfe5de386aeb5494375b25e34ca1c"
+      "sha256": "357ffeec2c98790737cf7623507e9ffac6959f6feb52a35c792e118c4c12f8be"
     },
     {
       "path": "apps/platform-api/src/app.ts",
@@ -419,13 +419,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildCard.tsx",
-      "bytes": 5713,
-      "sha256": "c7f23945cbe1e67c788885ab6edfabfaa474ac34da8c01f492b916d84b2f3a89"
+      "bytes": 5768,
+      "sha256": "c0ab24fb01f741fe542810ecbed1ec3203a635744ccf1a595e0485bc09643e20"
     },
     {
       "path": "apps/portal-web/src/modules/GuildDesign.css",
-      "bytes": 26041,
-      "sha256": "3e30da975227bc27475c3adb079a88c3d6d9e8aed2ada4a03a206d5ade598ebb"
+      "bytes": 26042,
+      "sha256": "8d5acce0fcae0394fe2814eed9c7e61ff2ad1ddd82530c25be138d07dcfdbbea"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLeadership.css",
@@ -785,7 +785,7 @@
     {
       "path": "docs/development/guild-library-layout.md",
       "bytes": 2522,
-      "sha256": "64669cdc1b89fcfcddebea412a8529aae9d2b9b6bf1f3f147c2022f478c83ff8"
+      "sha256": "a3b5f07f21ed757958f3c7797695a6fde93af6cee2ff84e84f48e9e4c8509039"
     },
     {
       "path": "docs/development/local-runtime.md",
@@ -2165,12 +2165,12 @@
     {
       "path": "package-lock.json",
       "bytes": 83845,
-      "sha256": "b5d8fd17ac43fa8b5caae7444b241dba81e7dd79a957b55e48b893fc26868362"
+      "sha256": "dc50b467bbe2845b4ea049cd9ab471468b4cc5d24112d153f23ccd9248abf63b"
     },
     {
       "path": "package.json",
       "bytes": 1626,
-      "sha256": "7fbd8fbfd62a2889df4f529748df1a672703f1525b3db1daaea49049415734d1"
+      "sha256": "070e568c9010c21f2f27685bcebb16956150fa59fb1fbe6909169be693a32931"
     },
     {
       "path": "packages/client-connections/cli.mjs",
@@ -2299,8 +2299,8 @@
     },
     {
       "path": "scripts/verify-public.mjs",
-      "bytes": 45373,
-      "sha256": "b9fdad1fa9b9284d3df76558932ff1c31ca004b359c2a775b1f4dcf9c98cf6de"
+      "bytes": 45653,
+      "sha256": "2e78c3123230e90a913a17c6c18b8b256ff6e08fc8c0a3e38731f897983c9fc1"
     },
     {
       "path": "scripts/verify-staging.mjs",
@@ -2364,8 +2364,8 @@
     },
     {
       "path": "tests/e2e/guild-organization.spec.ts",
-      "bytes": 13613,
-      "sha256": "579a6414297eaa5c97212e5020d2a648b0a181dd689cc9d90c20b968a354408d"
+      "bytes": 13857,
+      "sha256": "8e540601486bb7af32cce31ed2a369b59d2029354a98e8549897868051392f48"
     },
     {
       "path": "tests/e2e/guild-workspace.spec.ts",

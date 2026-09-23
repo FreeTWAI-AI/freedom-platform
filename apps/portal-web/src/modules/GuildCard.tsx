@@ -37,7 +37,8 @@ export function GuildCard({guild:g,client,busy,onPrimary,onMembership}:{guild:Gu
 }
 
 // Measure intrinsic content, not stretched cards. Long names, portraits and
-// responsive widths can change the required height without clipping content.
+// responsive widths can change the required minimum height without clipping
+// content while the next measurement is still pending.
 export function useUniformGuildCards(key:string){
   const root=useRef<HTMLDivElement>(null);
   useEffect(()=>{
