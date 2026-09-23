@@ -376,8 +376,8 @@ try {
   expect(privateSearch.status()).toBe(200);expect((await privateSearch.json()).total).toBe(0);
   await page.getByRole('searchbox',{name:'搜尋夥伴',exact:true}).fill(nickname);
   await page.getByRole('button',{name:'搜尋',exact:true}).click();
-  await page.getByLabel('依公會篩選',{exact:true}).selectOption(onboarding.primary_guild_key);
-  await page.getByLabel('排序方式',{exact:true}).selectOption('oldest');
+  await page.getByRole('combobox',{name:'依公會篩選',exact:true}).selectOption(onboarding.primary_guild_key);
+  await page.getByRole('combobox',{name:'排序方式',exact:true}).selectOption('oldest');
   await expect(page.locator('.member-directory')).toHaveAttribute('aria-busy','false');
   await expect(page.locator('.directory-member')).toHaveCount(1);
   const directoryRow=page.locator('.directory-member');

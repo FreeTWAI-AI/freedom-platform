@@ -2229,8 +2229,8 @@
     },
     {
       "path": "scripts/verify-public.mjs",
-      "bytes": 33210,
-      "sha256": "fb780cd7fcacf910410e2a534938a79d1db998990c110dd1e1ffe3faba40ea3d"
+      "bytes": 33240,
+      "sha256": "0b70afe99049baa732348a01b29acc1a569b699c8c9e501580ff36620aea50bf"
     },
     {
       "path": "scripts/verify-staging.mjs",
