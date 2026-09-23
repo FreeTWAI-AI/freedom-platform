@@ -483,14 +483,23 @@ try {
     // Capture only the provider handoff; never authorize or Star as a real person.
     const authorizePattern='https://github.com/login/oauth/authorize?**';
     await page.route(authorizePattern,route=>route.fulfill({contentType:'text/html',body:'<title>Authorization handoff captured</title>'}));
-    const started=page.waitForResponse(response=>response.url()===origin+'/api/v1/me/github/connect'&&response.request().method()==='POST');
-    await starControl.click();const response=await started;expect(response.status()).toBe(200);
-    const authorization=new URL((await response.json()).authorization_url);
+    const connectUrl=origin+'/api/v1/me/github/connect';
+    let handoff;
+    // Read the real origin response before forwarding it: the app immediately
+    // navigates away, after which Chromium may discard the old response body.
+    await page.route(connectUrl,async route=>{
+      const response=await route.fetch();const body=await response.json();
+      handoff={status:response.status(),authorizationUrl:body.authorization_url};
+      if(handoff.authorizationUrl)secrets.push(new URL(handoff.authorizationUrl).searchParams.get('state'));
+      await route.fulfill({response});
+    });
+    await starControl.click();
+    await page.waitForURL(authorizePattern);
+    expect(handoff?.status).toBe(200);
+    const authorization=new URL(handoff.authorizationUrl);
     expect(authorization.origin+authorization.pathname).toBe('https://github.com/login/oauth/authorize');
     expect(authorization.searchParams.has('state')).toBe(true);
-    secrets.push(authorization.searchParams.get('state'));
-    await page.waitForURL('https://github.com/login/oauth/authorize?**');
-    await page.unroute(authorizePattern);await page.goto(origin+'/#community',{waitUntil:'networkidle'});
+    await page.unroute(connectUrl);await page.unroute(authorizePattern);await page.goto(origin+'/#community',{waitUntil:'networkidle'});
     await expect(page.locator('.community-library')).toBeVisible();
     console.log('Visible star icon starts real platform OAuth handoff; provider consent and Star were not submitted: PASS');
   }
