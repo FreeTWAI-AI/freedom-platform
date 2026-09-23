@@ -8,8 +8,8 @@ type MemberPage = { items: MemberCardData[]; total: number; next_offset: number 
 const defaults: Filters = { search: '', sort: 'nickname' };
 
 /** Mounted only while one guild is expanded; the server owns membership/privacy. */
-export function GuildMembers({ client, guildKey, guildName, masterId }: {
-  client: PortalClient; guildKey: string; guildName: string; masterId?: string;
+export function GuildMembers({ client, guildKey, guildName, masterId, expertIds = [] }: {
+  client: PortalClient; guildKey: string; guildName: string; masterId?: string; expertIds?: string[];
 }) {
   const [search, setSearch] = useState(''), [filters, setFilters] = useState<Filters>(defaults);
   const [members, setMembers] = useState<MemberCardData[]>([]), [total, setTotal] = useState<number | null>(null);
@@ -60,7 +60,7 @@ export function GuildMembers({ client, guildKey, guildName, masterId }: {
       <button className="btn btn-ghost" type="submit">搜尋成員</button>
     </form>
     {error && <div className="banner banner-error" role="alert"><p>{error}</p><button type="button" className="btn btn-ghost" disabled={loading} onClick={() => void load(offsetRef.current)}>重新載入成員</button></div>}
-    <div className="directory-rows" aria-busy={loading}>{members.map(member => <DirectoryMemberRow key={member.user_id} member={member} labels={labels} client={client}>{member.user_id === masterId && <span className="badge guild-member-leader">公會長</span>}</DirectoryMemberRow>)}</div>
+    <div className="directory-rows" aria-busy={loading}>{members.map(member => <DirectoryMemberRow key={member.user_id} member={member} labels={labels} client={client}>{member.user_id === masterId && <span className="badge guild-member-leader">公會長</span>}{expertIds.includes(member.user_id)&&<span className="badge guild-member-expert">公會專家</span>}</DirectoryMemberRow>)}</div>
     {loading && members.length > 0 && <p role="status">正在載入更多成員…</p>}
     {!loading && !error && !members.length && <p className="guild-members-empty">{filters.search ? '沒有符合的公會成員。' : '目前沒有可顯示的公會成員。'}</p>}
     {next !== null && !error && <button className="btn btn-ghost" type="button" disabled={loading} onClick={() => void load(next)}>查看更多成員</button>}

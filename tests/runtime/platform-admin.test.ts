@@ -114,20 +114,51 @@ test('concurrent guild reviews and concurrent identical requests cannot double a
  assert.equal((await request('/audit')).data.items.length,2);
 });
 
-test('officers must be active existing guild members; appointment is explicit, versioned, scoped and revoked on leave',async()=>{
- const path=`/guilds/${guild}/master`,body={user_id:DEMO_USERS[0].user_id,reason:'本人與公會成員已確認。'};
- assert.equal((await request(path,body)).data.code,'active_guild_member_required');await join();await join(DEMO_USERS[1].user_id);
- await pool.query('UPDATE users SET active=false WHERE user_id=$1',[DEMO_USERS[1].user_id]);assert.equal((await request(path,{...body,user_id:DEMO_USERS[1].user_id})).status,422);
+test('explicit administrator appointment joins active nonmembers, grants books, preserves primary selection and ends on leave',async()=>{
+ const path=`/guilds/${guild}/master`,body={user_id:DEMO_USERS[0].user_id,reason:'管理員確認由此人帶領公會。'};
+ await join(DEMO_USERS[1].user_id);await pool.query('UPDATE users SET active=false WHERE user_id=$1',[DEMO_USERS[1].user_id]);assert.equal((await request(path,{...body,user_id:DEMO_USERS[1].user_id})).status,422);
  const first=await request(path,body);assert.equal(first.status,200,JSON.stringify(first.data));assert.ok(first.data.aggregate_version>=2);
+ const membership=(await pool.query('SELECT * FROM positioning_profession_memberships WHERE user_id=$1 AND guild_key=$2',[body.user_id,guild])).rows[0];assert.equal(membership.state,'active');assert.equal((await pool.query('SELECT count(*) FROM guild_member_preferences WHERE user_id=$1',[body.user_id])).rows[0].count,'0');
+ assert.deepEqual((await pool.query('SELECT book_id FROM member_skill_book_grants WHERE user_id=$1 AND guild_key=$2 ORDER BY book_id',[body.user_id,guild])).rows.map(row=>row.book_id),['social-post','typo-studio']);
  assert.equal((await request(path,body)).status,428);const listed=(await request('/guilds')).data.items.find((g:any)=>g.guild_key===guild);assert.equal(listed.officer_version,first.data.aggregate_version);assert.equal(listed.guild_master.user_id,body.user_id);assert.equal(listed.member_count,1);
- const outsiderUser=await outsider();assert.equal((await request(path,{...body,user_id:outsiderUser.user},1)).status,422);
- const memberSession=await login(),left=await member(`/guilds/${guild}/leave`,memberSession.cookie,{},memberSession.csrf,1);assert.equal(left.status,200,JSON.stringify(left.data));assert.equal((await pool.query('SELECT count(*) FROM positioning_guild_officers')).rows[0].count,'0');assert.equal((await request(path,body,1)).status,422);
+ const outsiderUser=await outsider();assert.equal((await request(path,{...body,user_id:outsiderUser.user},first.data.aggregate_version)).status,422);
+ const memberSession=await login(),left=await member(`/guilds/${guild}/leave`,memberSession.cookie,{},memberSession.csrf,Number(membership.aggregate_version));assert.equal(left.status,200,JSON.stringify(left.data));assert.equal((await pool.query('SELECT count(*) FROM positioning_guild_officers')).rows[0].count,'0');
+ assert.equal((await request(path,body,first.data.aggregate_version)).status,412);assert.equal((await pool.query('SELECT state FROM positioning_profession_memberships WHERE user_id=$1 AND guild_key=$2',[body.user_id,guild])).rows[0].state,'left');
+ const reappointed=await request(path,body);assert.equal(reappointed.status,200);assert.ok(reappointed.data.aggregate_version>first.data.aggregate_version);assert.equal((await pool.query('SELECT state FROM positioning_profession_memberships WHERE user_id=$1 AND guild_key=$2',[body.user_id,guild])).rows[0].state,'active');
 });
 
-test('concurrent guild leave and appointment never leave a nonmember as officer',async()=>{
+test('automatic guild admission does not rewrite primary guild, onboarding state or administrator roles',async()=>{
+ const user=DEMO_USERS[0].user_id;await join(user,'guild_security');await pool.query('INSERT INTO guild_member_preferences(community_id,user_id,primary_guild_key) VALUES($1,$2,$3)',[DEMO_COMMUNITY,user,'guild_security']);await pool.query('UPDATE users SET onboarding_required=true,onboarding_completed_at=NULL WHERE user_id=$1',[user]);
+ const before=(await pool.query('SELECT onboarding_required,onboarding_completed_at,email_verified_at FROM users WHERE user_id=$1',[user])).rows[0],preference=(await pool.query('SELECT * FROM guild_member_preferences WHERE user_id=$1',[user])).rows[0];
+ const result=await request(`/guilds/${guild}/master`,{user_id:user,reason:'由管理員任命，原定位稍後由會員本人完成。'});assert.equal(result.status,200,JSON.stringify(result.data));
+ assert.deepEqual((await pool.query('SELECT onboarding_required,onboarding_completed_at,email_verified_at FROM users WHERE user_id=$1',[user])).rows[0],before);assert.deepEqual((await pool.query('SELECT * FROM guild_member_preferences WHERE user_id=$1',[user])).rows[0],preference);
+ assert.equal((await pool.query('SELECT count(*) FROM platform_admins')).rows[0].count,'1');const session=await login();assert.equal((await member('/members',session.cookie)).status,403);
+});
+
+test('replaying an old appointment after leave does not rejoin, add newly bound books or create fresh audit',async()=>{
+ const path=`/guilds/${guild}/master`,body={user_id:DEMO_USERS[0].user_id,reason:'首次明確任命。'},key=randomUUID();const first=await request(path,body,undefined,key);assert.equal(first.status,200);
+ const session=await login();const membership=(await pool.query('SELECT aggregate_version FROM positioning_profession_memberships WHERE user_id=$1 AND guild_key=$2',[body.user_id,guild])).rows[0];assert.equal((await member(`/guilds/${guild}/leave`,session.cookie,{},session.csrf,Number(membership.aggregate_version))).status,200);
+ const before=(await pool.query('SELECT * FROM member_skill_book_grants WHERE user_id=$1 ORDER BY book_id',[body.user_id])).rows;await pool.query('INSERT INTO guild_skill_book_bindings(community_id,guild_key,book_id) VALUES($1,$2,$3)',[DEMO_COMMUNITY,guild,'event-space']);
+ const replay=await request(path,body,undefined,key);assert.equal(replay.status,200);assert.deepEqual(replay.data,first.data);assert.equal((await pool.query('SELECT state FROM positioning_profession_memberships WHERE user_id=$1 AND guild_key=$2',[body.user_id,guild])).rows[0].state,'left');assert.equal((await pool.query('SELECT count(*) FROM positioning_guild_officers')).rows[0].count,'0');assert.deepEqual((await pool.query('SELECT * FROM member_skill_book_grants WHERE user_id=$1 ORDER BY book_id',[body.user_id])).rows,before);
+ assert.equal((await pool.query("SELECT count(*) FROM platform_admin_audit WHERE action='appoint_guild_master'")).rows[0].count,'1');assert.equal((await pool.query('SELECT count(*) FROM platform_admin_receipts WHERE idempotency_key=$1',[key])).rows[0].count,'1');
+});
+
+test('failed book grants roll back automatic membership, officer assignment and administrator receipts together',async()=>{
+ await pool.query("CREATE FUNCTION reject_test_grant() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic grant failure'; END; $$");
+ await pool.query('CREATE TRIGGER reject_test_grant BEFORE INSERT ON member_skill_book_grants FOR EACH ROW EXECUTE FUNCTION reject_test_grant()');
+ try{
+  const result=await request(`/guilds/${guild}/master`,{user_id:DEMO_USERS[0].user_id,reason:'測試交易必須一併完成。'});assert.equal(result.status,500);
+  for(const table of ['positioning_profession_memberships','member_skill_book_grants','positioning_guild_officers','platform_admin_audit','platform_admin_receipts'])assert.equal((await pool.query(`SELECT count(*) FROM ${table}`)).rows[0].count,'0',table);
+ }finally{await pool.query('DROP TRIGGER reject_test_grant ON member_skill_book_grants');await pool.query('DROP FUNCTION reject_test_grant()');}
+});
+
+test('concurrent guild leave and a new explicit appointment yield a serial order without a nonmember officer',async()=>{
  await join();const session=await login(),body={user_id:DEMO_USERS[0].user_id,reason:'已確認成員參與。'};
  const [appointment,left]=await Promise.all([request(`/guilds/${guild}/master`,body),member(`/guilds/${guild}/leave`,session.cookie,{},session.csrf,1)]);
- assert.ok([200,422].includes(appointment.status),JSON.stringify(appointment));assert.equal(left.status,200,JSON.stringify(left));assert.equal((await pool.query('SELECT count(*) FROM positioning_guild_officers')).rows[0].count,'0');
+ assert.equal(appointment.status,200,JSON.stringify(appointment));assert.equal(left.status,200,JSON.stringify(left));
+ const membership=(await pool.query('SELECT state FROM positioning_profession_memberships WHERE user_id=$1 AND guild_key=$2',[body.user_id,guild])).rows[0];const officers=(await pool.query('SELECT user_id FROM positioning_guild_officers WHERE guild_key=$1',[guild])).rows;
+ if(membership.state==='active')assert.deepEqual(officers.map(row=>row.user_id),[body.user_id]);else{assert.equal(membership.state,'left');assert.deepEqual(officers,[]);}
+ assert.equal((await pool.query(`SELECT count(*) FROM positioning_guild_officers o LEFT JOIN positioning_profession_memberships m ON m.community_id=o.community_id AND m.guild_key=o.guild_key AND m.user_id=o.user_id AND m.state='active' WHERE m.membership_id IS NULL`)).rows[0].count,'0');
 });
 
 async function waitForBlocker(pid:number){
@@ -165,12 +196,13 @@ test('login racing deactivation cannot leave a fresh session that revives after 
 });
 
 test('officer removal and replacement never reuse an old revision for a stale administrator',async()=>{
- await Promise.all(DEMO_USERS.map(user=>join(user.user_id)));
+ await Promise.all(DEMO_USERS.slice(0,2).map(user=>join(user.user_id)));
  const path=`/guilds/${guild}/master`,body={user_id:DEMO_USERS[0].user_id,reason:'第一位公會長的確認紀錄。'},first=await request(path,body);assert.equal(first.status,200);
  await pool.query("UPDATE positioning_profession_memberships SET state='left' WHERE user_id=$1 AND guild_key=$2",[DEMO_USERS[0].user_id,guild]);
  const second=await request(path,{...body,user_id:DEMO_USERS[1].user_id});assert.equal(second.status,200);assert.ok(second.data.aggregate_version>first.data.aggregate_version);
  const stale=await request(path,{...body,user_id:DEMO_USERS[2].user_id},first.data.aggregate_version);assert.equal(stale.status,412);
  assert.equal((await request('/guilds')).data.items.find((g:any)=>g.guild_key===guild).guild_master.user_id,DEMO_USERS[1].user_id);
+ assert.equal((await pool.query('SELECT count(*) FROM positioning_profession_memberships WHERE user_id=$1',[DEMO_USERS[2].user_id])).rows[0].count,'0');assert.equal((await pool.query('SELECT count(*) FROM member_skill_book_grants WHERE user_id=$1',[DEMO_USERS[2].user_id])).rows[0].count,'0');
 });
 
 async function matchingMember(){await pool.query('UPDATE users SET email=$2 WHERE user_id=$1',[DEMO_USERS[0].user_id,email]);return login({...DEMO_USERS[0],email});}

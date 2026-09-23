@@ -26,7 +26,7 @@ export function assessmentDefinition(){return {...publicAssessmentDefinition(),
  capability_categories:capabilityCategories.map(({id,label,items,subcategories})=>({id,label,options:items,subcategories:(subcategories??[{id:'all',label,items}]).map(group=>({id:group.id,label:group.label,options:group.items}))})),
  equipment_categories:equipmentCategories.map(({id,label,items,subcategories})=>({id,label,options:items,subcategories:(subcategories??[{id:'all',label,items}]).map(group=>({id:group.id,label:group.label,options:group.items}))})),
  disclaimer:'這是方向與興趣探索；能力題提供入門情境回饋，不代表證照、職業資格或心理診斷。能力、訂閱與精選技能皆為本人自填；補充文字不參與評分。'};}
-export async function lockMemberGuilds(q:PoolClient,actor:Actor){
+export async function lockMemberGuilds(q:PoolClient,actor:Pick<Actor,'community_id'|'user_id'>){
  await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`guild-member/${actor.community_id}/${actor.user_id}`]);
 }
 export async function listGuildSkillBooks(q:Queryable,communityId:string,guildKey:string):Promise<SkillBook[]>{
@@ -35,7 +35,7 @@ export async function listGuildSkillBooks(q:Queryable,communityId:string,guildKe
  for(const binding of bound){const book=communityCatalog.skill_books.find(book=>book.id===binding.book_id);if(book)books.set(book.id,book);}
  return [...books.values()];
 }
-export async function grantGuildBooks(q:PoolClient,actor:Actor,guildKey:string){
+export async function grantGuildBooks(q:PoolClient,actor:Pick<Actor,'community_id'|'user_id'>,guildKey:string){
  for(const book of await listGuildSkillBooks(q,actor.community_id,guildKey))await q.query(`INSERT INTO member_skill_book_grants(grant_id,community_id,user_id,guild_key,book_id) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,[randomUUID(),actor.community_id,actor.user_id,guildKey,book.id]);
 }
 export async function assertCanLeaveGuild(q:PoolClient,actor:Actor,guildKey:string){
@@ -155,6 +155,10 @@ export async function guildDirectory(pool:Pool,actor:Actor){
  const result=(await pool.query(`SELECT g.*,CASE WHEN m.membership_id IS NULL THEN NULL ELSE jsonb_build_object('membership_id',m.membership_id,'state',m.state,'rank',m.rank,'aggregate_version',m.aggregate_version) END AS membership,
      COALESCE(p.primary_guild_key=g.guild_key,false) AS is_primary,
      CASE WHEN u.user_id IS NULL THEN NULL ELSE jsonb_build_object('user_id',u.user_id,'display_name',u.display_name) END AS guild_master,
+     COALESCE((SELECT jsonb_agg(jsonb_build_object('user_id',eu.user_id,'display_name',eu.display_name) ORDER BY eu.display_name,eu.user_id)
+       FROM positioning_guild_experts e JOIN users eu ON eu.user_id=e.user_id AND eu.community_id=e.community_id AND eu.active
+       JOIN positioning_profession_memberships em ON em.community_id=e.community_id AND em.guild_key=e.guild_key AND em.user_id=e.user_id AND em.state='active'
+       WHERE e.community_id=$1 AND e.guild_key=g.guild_key AND e.active),'[]'::jsonb) AS guild_experts,
      CASE WHEN u.user_id IS NULL AND a.admin_id IS NOT NULL THEN jsonb_build_object('display_name',a.display_name,'state','pending') ELSE NULL END AS guild_master_nominee
    FROM positioning_guild_catalog g
    LEFT JOIN positioning_profession_memberships m ON m.guild_key=g.guild_key AND m.community_id=$1 AND m.user_id=$2

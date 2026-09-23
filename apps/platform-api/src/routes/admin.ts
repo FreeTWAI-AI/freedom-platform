@@ -5,6 +5,7 @@ import {z} from 'zod';
 import {getCookie} from 'hono/cookie';
 import {authenticate} from '../../../../modules/identity-membership/service.js';
 import {linkNominatedMember,nominatedGuildAppointments} from '../../../../modules/platform-admin/leadership.js';
+import {setGuildExpert} from '../../../../modules/platform-admin/guild-experts.js';
 import type {Pool} from 'pg';
 import {requireCondition} from '../../../../packages/shared/problem.js';
 import {verifyAdminAccess,type AdminAccessVerifier} from '../../../../modules/platform-admin/access.js';
@@ -51,6 +52,7 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
   app.get('/guilds',async c=>c.json({items:await adminGuilds(pool,c.get('admin'))}));
   app.get('/guilds/:key/master-candidates',async c=>c.json(await adminGuildMasterCandidates(pool,c.get('admin'),c.req.param('key'),c.req.query())));
   app.post('/guilds/:key/master',async c=>result(c,await appointGuildMaster(pool,await command(c),z.string().min(1).max(100).parse(c.req.param('key')))));
+  app.post('/guilds/:key/experts',async c=>result(c,await setGuildExpert(pool,await command(c),z.string().min(1).max(100).parse(c.req.param('key')))));
   app.get('/admins',async c=>c.json({items:await adminNominees(pool,c.get('admin'))}));
   app.post('/admins/:id/status',async c=>result(c,await changePlatformAdminStatus(pool,await command(c),c.req.param('id'))));
   app.get('/audit',async c=>c.json({items:await adminAudit(pool,c.get('admin'))}));

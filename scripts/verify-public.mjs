@@ -400,6 +400,13 @@ try {
   expect(guildResponse.status()).toBe(200);
   const guilds=(await guildResponse.json()).items;
   expect(guilds).toHaveLength(18);
+  for(const guild of guilds){
+    expect(Array.isArray(guild.guild_experts),'Guild expert projection available after migration').toBe(true);
+    for(const expert of guild.guild_experts){
+      expect(Object.keys(expert).sort()).toEqual(['display_name','user_id']);
+      expect(typeof expert.display_name).toBe('string');expect(typeof expert.user_id).toBe('string');
+    }
+  }
   for(const key of ['guild_security','guild_music_mv','guild_commercial_production','guild_event_space','guild_projection_mapping','guild_human_design']) expect(guilds.some(g=>g.guild_key===key)).toBe(true);
   const workspaceResponse=await page.request.get(origin+'/api/v1/guild-workspace');expect(workspaceResponse.status()).toBe(200);
   expect(await workspaceResponse.json()).toMatchObject({managed_guilds:[],managed_books:[],can_discuss:false});

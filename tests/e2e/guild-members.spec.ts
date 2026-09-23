@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { DEMO_COMMUNITY, DEMO_USERS } from '../../packages/testing/seed.js';
 
 const guilds = [
-  { guild_key: 'guild_event_space', name: '活動與空間公會', guild_master: { user_id: 'member-0', display_name: '同名夥伴' } },
+  { guild_key: 'guild_event_space', name: '活動與空間公會', guild_master: { user_id: 'member-0', display_name: '同名夥伴' }, guild_experts: [{user_id:'member-0',display_name:'同名夥伴'},{user_id:'member-2',display_name:'活動夥伴 2'}] },
   { guild_key: 'guild_security', name: '資安公會', guild_master: null },
 ].map(guild => ({ ...guild, purpose: '一起分享專業與合作', first_step: '認識公會夥伴', track_count: 1, is_primary: false, skill_books: [], membership: null }));
 function member(index: number, nickname = `活動夥伴 ${index}`) {
@@ -40,6 +40,10 @@ test('guild member lists load on demand, preserve guild filtering across pages a
   expect(queries[0].get('guild_key')).toBe('guild_event_space'); expect(queries[0].get('sort')).toBe('nickname');
   await expect(panel.locator('[data-member-id="member-0"] .guild-member-leader')).toHaveText('公會長');
   await expect(panel.locator('[data-member-id="member-1"] .guild-member-leader')).toHaveCount(0);
+  await expect(card.locator('.guild-experts')).toContainText('同名夥伴');await expect(card.locator('.guild-experts')).toContainText('活動夥伴 2');
+  await expect(panel.locator('[data-member-id="member-0"] .guild-member-expert')).toHaveText('公會專家');await expect(panel.locator('[data-member-id="member-2"] .guild-member-expert')).toHaveText('公會專家');await expect(panel.locator('[data-member-id="member-1"] .guild-member-expert')).toHaveCount(0);
+  await page.setViewportSize({width:1440,height:960});await panel.scrollIntoViewIfNeeded();await page.screenshot({path:'test-results/guild-experts-desktop.png'});
+  await page.setViewportSize({width:320,height:844});await panel.scrollIntoViewIfNeeded();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'test-results/guild-experts-phone.png'});await page.setViewportSize({width:1280,height:720});
   await panel.getByRole('button', { name: '查看更多成員', exact: true }).click();
   await expect(panel.locator('.directory-member')).toHaveCount(11); expect(queries.at(-1)?.get('guild_key')).toBe('guild_event_space'); expect(queries.at(-1)?.get('offset')).toBe('10');
   await panel.getByRole('searchbox', { name: '搜尋公會成員', exact: true }).fill('剪輯');

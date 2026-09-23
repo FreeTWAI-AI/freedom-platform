@@ -40,3 +40,12 @@
   .admin-guild-management .admin-candidate-scopes { display: grid; }
   .admin-guild-management .admin-guild-appointment .actions { display: grid; grid-template-columns: 1fr 1fr; }
 }
+.admin-guild-management .admin-guild-role-actions { flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; max-width: 320px; }
+.admin-guild-management .admin-guild-experts h4 { margin: 0 0 10px; font-size: .9rem; }
+.admin-guild-management .admin-guild-experts > p { margin: 0; font-size: .85rem; }
+.admin-guild-management .admin-guild-experts ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.admin-guild-management .admin-guild-experts li { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid #333943; padding-bottom: 8px; }
+.admin-guild-management .admin-guild-experts li > span { min-width: 0; overflow-wrap: anywhere; }
+.admin-guild-management .admin-guild-experts li .admin-candidate-status { display: block; }
+.admin-guild-management .admin-guild-experts li > button { flex-shrink: 0; }
+@media(max-width:600px){.admin-guild-management .admin-guild-role-actions { justify-content: flex-start; max-width: 100%; }}

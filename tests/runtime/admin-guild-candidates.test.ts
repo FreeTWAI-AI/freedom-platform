@@ -23,20 +23,21 @@ async function candidates(query:Record<string,string|number>={},key=guild){retur
 async function user(name:string,options:{email?:string;community?:string;active?:boolean}={}){const id=randomUUID();await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,active) SELECT $1,$2,$3,$4,password_hash,$5,$6 FROM users WHERE user_id=$7`,[id,options.community??DEMO_COMMUNITY,options.email??id+'@example.invalid',name,randomUUID(),options.active??true,DEMO_USERS[0].user_id]);return id;}
 async function join(id:string,state='active',community=DEMO_COMMUNITY,key=guild){await pool.query('INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,$4,$5)',[randomUUID(),community,id,key,state]);}
 
-test('eligible candidates are filtered on the server before pagination, including a member beyond the first 25 all-member rows',async()=>{
- for(let i=0;i<35;i++)await user('A'+String(i).padStart(2,'0')+' 尚未入會');const target=await user('Zulu 真正公會會員');await join(target);
+test('eligible candidates include active nonmembers before pagination and search can reach someone beyond the first 25 rows',async()=>{
+ for(let i=0;i<35;i++)await user('A'+String(i).padStart(2,'0')+' 尚未入會');const target=await user('Zulu 真正公會會員');await join(target);await user('A00 已停用',{active:false});
  const oldPage=await request('/members?limit=25');assert.equal(oldPage.status,200);assert.ok(!oldPage.data.items.some((m:any)=>m.user_id===target));
- const result=await candidates();assert.equal(result.status,200);assert.equal(result.data.total,1);assert.equal(result.data.next_offset,null);assert.deepEqual(result.data.items.map((m:any)=>m.user_id),[target]);assert.equal(result.data.items[0].eligible,true);assert.equal(result.data.items[0].eligibility_reason,null);
- const all=await candidates({scope:'all',limit:20});assert.equal(all.data.items.length,20);assert.equal(all.data.total,39);assert.equal(all.data.next_offset,20);assert.ok(all.data.items.every((m:any)=>m.eligible===false&&m.eligibility_reason==='not_joined'));
- const search=await candidates({q:'Zulu',scope:'all'});assert.deepEqual(search.data.items.map((m:any)=>m.user_id),[target]);
+ const result=await candidates();assert.equal(result.status,200);assert.equal(result.data.total,39);assert.equal(result.data.next_offset,20);assert.equal(result.data.items.length,20);assert.ok(result.data.items.every((m:any)=>m.active&&m.eligible&&!m.joined&&m.eligibility_reason===null));
+ const all=await candidates({scope:'all',limit:20});assert.equal(all.data.items.length,20);assert.equal(all.data.total,40);assert.equal(all.data.next_offset,20);assert.ok(all.data.items.some((m:any)=>!m.active&&!m.eligible&&m.eligibility_reason==='inactive'));
+ const search=await candidates({q:'Zulu'});assert.deepEqual(search.data.items.map((m:any)=>m.user_id),[target]);assert.equal(search.data.items[0].joined,true);assert.equal(search.data.items[0].eligible,true);assert.equal(search.data.items[0].is_expert,false);assert.equal(search.data.items[0].expert_version,null);
 });
 
-test('all scope explains inactive, absent or left memberships and marks the actual currently appointed person',async()=>{
+test('candidate eligibility is independent of joining and leaving removes the current officer marker',async()=>{
  const current=await user('候選甲'),inactive=await user('候選乙',{active:false}),left=await user('候選丙'),absent=await user('候選丁');await join(current);await join(inactive);await join(left,'left');
  await pool.query('INSERT INTO positioning_guild_officers(community_id,guild_key,user_id) VALUES($1,$2,$3)',[DEMO_COMMUNITY,guild,current]);
- const all=await candidates({q:'候選',scope:'all'});assert.equal(all.status,200);const rows=new Map<string,any>(all.data.items.map((m:any)=>[m.user_id,m]));assert.equal(rows.get(current).is_current,true);assert.equal(rows.get(current).eligible,true);assert.equal(rows.get(inactive).eligibility_reason,'inactive');assert.equal(rows.get(left).eligibility_reason,'not_joined');assert.equal(rows.get(absent).eligibility_reason,'not_joined');assert.ok([...rows.values()].filter(m=>m.user_id!==current).every(m=>m.is_current===false));
- assert.deepEqual((await candidates({q:'候選'})).data.items.map((m:any)=>m.user_id),[current]);
- await pool.query("UPDATE positioning_profession_memberships SET state='left' WHERE user_id=$1 AND guild_key=$2",[current,guild]);const changed=(await candidates({q:'候選甲',scope:'all'})).data.items[0];assert.equal(changed.is_current,false);assert.equal(changed.eligible,false);assert.equal(changed.eligibility_reason,'not_joined');assert.equal((await candidates({q:'候選'})).data.total,0);
+ const all=await candidates({q:'候選',scope:'all'});assert.equal(all.status,200);const rows=new Map<string,any>(all.data.items.map((m:any)=>[m.user_id,m]));assert.equal(rows.get(current).is_current,true);assert.equal(rows.get(current).eligible,true);assert.equal(rows.get(current).joined,true);assert.equal(rows.get(inactive).eligibility_reason,'inactive');
+ for(const id of [left,absent]){assert.equal(rows.get(id).joined,false);assert.equal(rows.get(id).eligible,true);assert.equal(rows.get(id).eligibility_reason,null);}assert.ok([...rows.values()].filter(m=>m.user_id!==current).every(m=>m.is_current===false));
+ assert.deepEqual((await candidates({q:'候選'})).data.items.map((m:any)=>m.user_id).sort(),[current,left,absent].sort());
+ await pool.query("UPDATE positioning_profession_memberships SET state='left' WHERE user_id=$1 AND guild_key=$2",[current,guild]);const changed=(await candidates({q:'候選甲',scope:'all'})).data.items[0];assert.equal(changed.is_current,false);assert.equal(changed.joined,false);assert.equal(changed.eligible,true);assert.equal(changed.eligibility_reason,null);assert.equal((await candidates({q:'候選'})).data.total,3);
 });
 
 test('matching remains community scoped even if the foreign account has matching membership or appointment',async()=>{
@@ -62,11 +63,14 @@ test('the route requires verified active administration, validates query bounds 
  await pool.query('UPDATE platform_admins SET active=false WHERE admin_id=$1',[adminId]);assert.equal((await candidates()).status,403);
 });
 
-test('candidate discovery grants no membership or appointment and existing assignment still rejects ineligible or stale decisions',async()=>{
- const eligible=await user('可任命會員'),absent=await user('尚未加入會員');await join(eligible);await candidates({scope:'all'});
- assert.equal((await pool.query('SELECT count(*)::int AS n FROM positioning_guild_officers')).rows[0].n,0);assert.equal((await pool.query('SELECT count(*)::int AS n FROM positioning_profession_memberships WHERE user_id=$1',[absent])).rows[0].n,0);
- const path='/guilds/'+guild+'/master',body={user_id:absent,reason:'測試不合法的未入會任命'};assert.equal((await request(path,body)).status,422);
- assert.equal((await request(path,{...body,user_id:eligible},{headers:{'X-Admin-CSRF':''}})).status,403);const appointed=await request(path,{...body,user_id:eligible});assert.equal(appointed.status,200,JSON.stringify(appointed.data));assert.equal((await candidates({q:'可任命'})).data.items[0].is_current,true);
- assert.equal((await request(path,{...body,user_id:eligible},{version:appointed.data.aggregate_version+1})).status,412);
- await pool.query("UPDATE positioning_profession_memberships SET state='left' WHERE user_id=$1",[eligible]);assert.equal((await request(path,{...body,user_id:eligible},{version:appointed.data.aggregate_version})).status,422);assert.equal((await pool.query("SELECT count(*)::int AS n FROM platform_admin_audit WHERE action='appoint_guild_master'")).rows[0].n,1);
+test('candidate discovery never joins anyone, but an explicit versioned appointment atomically joins an active nonmember',async()=>{
+ const first=await user('第一位尚未入會會員'),second=await user('第二位尚未入會會員'),inactive=await user('已停用人選',{active:false});await candidates({scope:'all'});
+ assert.equal((await pool.query('SELECT count(*)::int AS n FROM positioning_guild_officers')).rows[0].n,0);assert.equal((await pool.query('SELECT count(*)::int AS n FROM positioning_profession_memberships WHERE user_id=ANY($1::uuid[])',[[first,second]])).rows[0].n,0);
+ const path='/guilds/'+guild+'/master',body={user_id:first,reason:'管理員確認由此人帶領公會'};
+ assert.equal((await request(path,body,{headers:{'X-Admin-CSRF':''}})).status,403);assert.equal((await request(path,{...body,user_id:inactive})).status,422);
+ const appointed=await request(path,body);assert.equal(appointed.status,200,JSON.stringify(appointed.data));assert.equal((await candidates({q:'第一位'})).data.items[0].is_current,true);assert.equal((await candidates({q:'第一位'})).data.items[0].joined,true);
+ assert.equal((await pool.query("SELECT state FROM positioning_profession_memberships WHERE user_id=$1 AND guild_key=$2",[first,guild])).rows[0].state,'active');assert.deepEqual((await pool.query('SELECT book_id FROM member_skill_book_grants WHERE user_id=$1 AND guild_key=$2',[first,guild])).rows.map(row=>row.book_id),['event-space']);
+ assert.equal((await request(path,{...body,user_id:second},{version:appointed.data.aggregate_version+1})).status,412);
+ assert.equal((await pool.query('SELECT count(*)::int AS n FROM positioning_profession_memberships WHERE user_id=$1',[second])).rows[0].n,0);assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_skill_book_grants WHERE user_id=$1',[second])).rows[0].n,0);
+ const next=await request(path,{...body,user_id:second},{version:appointed.data.aggregate_version});assert.equal(next.status,200,JSON.stringify(next.data));assert.equal((await candidates({q:'第二位'})).data.items[0].joined,true);assert.equal((await pool.query("SELECT count(*)::int AS n FROM platform_admin_audit WHERE action='appoint_guild_master'")).rows[0].n,2);
 });

@@ -4,6 +4,7 @@ import type {Pool,PoolClient} from 'pg';
 import {transaction,digest,checkVersion} from '../../packages/db/index.js';
 import {communityCatalog} from '../community/catalog.js';
 import {requireCondition} from '../../packages/shared/problem.js';
+import {authorizeGuildAppointee,ensureGuildAppointeeMembership} from './guild-appointment-membership.js';
 
 export type VerifiedAdminIdentity={email:string;subject:string;csrfToken:string};
 export type AdminActor={admin_id:string;community_id:string;email:string;display_name:string;role:'super_admin';subject:string};
@@ -99,6 +100,9 @@ export async function reviewGuildApplication(pool:Pool,input:AdminCommand,id:str
 export async function adminGuilds(pool:Pool,admin:AdminActor){
   return (await pool.query(`SELECT g.*,o.aggregate_version AS officer_version,
     CASE WHEN u.user_id IS NULL THEN NULL ELSE jsonb_build_object('user_id',u.user_id,'display_name',u.display_name) END AS guild_master,
+    COALESCE((SELECT jsonb_agg(jsonb_build_object('user_id',eu.user_id,'display_name',eu.display_name,'active',e.active,'member_active',eu.active,'aggregate_version',e.aggregate_version) ORDER BY eu.display_name,eu.user_id)
+      FROM positioning_guild_experts e JOIN users eu ON eu.user_id=e.user_id AND eu.community_id=e.community_id
+      WHERE e.community_id=$1 AND e.guild_key=g.guild_key AND e.active),'[]'::jsonb) AS guild_experts,
     (SELECT count(*)::int FROM positioning_profession_memberships m JOIN users mu ON mu.user_id=m.user_id AND mu.active WHERE m.community_id=$1 AND m.guild_key=g.guild_key AND m.state='active') AS member_count
     FROM positioning_guild_catalog g LEFT JOIN positioning_guild_officers o ON o.guild_key=g.guild_key AND o.community_id=$1 LEFT JOIN users u ON u.user_id=o.user_id AND u.community_id=$1 AND u.active ORDER BY g.name,g.guild_key`,[admin.community_id])).rows.map(row=>({...row,officer_version:row.officer_version?Number(row.officer_version):null}));
 }
@@ -117,12 +121,14 @@ export async function adminGuildMasterCandidates(pool:Pool,admin:AdminActor,key:
     EXISTS(SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=u.community_id
       AND m.user_id=u.user_id AND m.guild_key=$2 AND m.state='active') AS joined,
     EXISTS(SELECT 1 FROM positioning_guild_officers o WHERE o.community_id=u.community_id
-      AND o.guild_key=$2 AND o.user_id=u.user_id) AS is_current
+      AND o.guild_key=$2 AND o.user_id=u.user_id) AS is_current,
+    COALESCE((SELECT e.active FROM positioning_guild_experts e WHERE e.community_id=u.community_id AND e.guild_key=$2 AND e.user_id=u.user_id),false) AS is_expert,
+    (SELECT e.aggregate_version FROM positioning_guild_experts e WHERE e.community_id=u.community_id AND e.guild_key=$2 AND e.user_id=u.user_id) AS expert_version
    FROM users u WHERE u.community_id=$1 AND ($3='' OR strpos(lower(u.display_name),lower($3))>0 OR strpos(lower(u.email),lower($3))>0)
  ), matched AS (
-   SELECT user_id,display_name,email,active,active AND joined AS eligible,
-    CASE WHEN NOT active THEN 'inactive' WHEN NOT joined THEN 'not_joined' ELSE NULL END AS eligibility_reason,is_current
-   FROM scoped WHERE $4='all' OR active AND joined
+   SELECT user_id,display_name,email,active,joined,active AS eligible,
+    CASE WHEN NOT active THEN 'inactive' ELSE NULL END AS eligibility_reason,is_current,is_expert,expert_version
+   FROM scoped WHERE $4='all' OR active
  ), page AS (SELECT * FROM matched ORDER BY display_name,user_id LIMIT $5 OFFSET $6)
  SELECT EXISTS(SELECT 1 FROM positioning_guild_catalog WHERE guild_key=$2) AS guild_exists,
    (SELECT count(*)::int FROM matched) AS total,
@@ -133,18 +139,14 @@ export async function adminGuildMasterCandidates(pool:Pool,admin:AdminActor,key:
 }
 export async function appointGuildMaster(pool:Pool,input:AdminCommand,key:string){
   const body=z.object({user_id:z.uuid(),reason}).strict().parse(input.body);
-  const authorize=async(q:PoolClient)=>{
-    requireCondition((await q.query('SELECT 1 FROM positioning_guild_catalog WHERE guild_key=$1',[key])).rowCount===1,404,'guild_not_found','找不到這個公會。');
-    const user=await q.query('SELECT user_id FROM users WHERE community_id=$1 AND user_id=$2 AND active FOR SHARE',[input.admin.community_id,body.user_id]);
-    requireCondition(user.rowCount===1,422,'active_guild_member_required','請選擇已加入這個公會的有效會員。');
-    requireCondition((await q.query(`SELECT membership_id FROM positioning_profession_memberships WHERE community_id=$1 AND guild_key=$2 AND user_id=$3 AND state='active' FOR SHARE`,[input.admin.community_id,key,body.user_id])).rowCount===1,422,'active_guild_member_required','請選擇已加入這個公會的有效會員。');
-  };
+  const authorize=(q:PoolClient)=>authorizeGuildAppointee(q,input.admin,body.user_id,key);
   return adminCommand(pool,input,authorize,async q=>{
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`guild-officer/${input.admin.community_id}/${key}`]);
     const prior=(await q.query('SELECT * FROM positioning_guild_officers WHERE community_id=$1 AND guild_key=$2 FOR UPDATE',[input.admin.community_id,key])).rows[0];
     if(prior)checkVersion(prior.aggregate_version,input.expected);else requireCondition(!input.expected,412,'version_conflict','公會長資料已變更，請重新整理。');
+    const membership=await ensureGuildAppointeeMembership(q,input.admin,body.user_id,key,body.reason);
     const row=(await q.query(`INSERT INTO positioning_guild_officers(community_id,guild_key,user_id) VALUES($1,$2,$3) ON CONFLICT(community_id,guild_key) DO UPDATE SET user_id=$3,appointed_at=now(),aggregate_version=nextval('positioning_guild_officer_revision') RETURNING *`,[input.admin.community_id,key,body.user_id])).rows[0];
-    await audit(q,input.admin,'appoint_guild_master','guild',key,body.reason,prior?{user_id:prior.user_id,aggregate_version:prior.aggregate_version}:null,{user_id:row.user_id,aggregate_version:row.aggregate_version});return row;
+    await audit(q,input.admin,'appoint_guild_master','guild',key,body.reason,prior?{user_id:prior.user_id,aggregate_version:prior.aggregate_version}:null,{user_id:row.user_id,aggregate_version:row.aggregate_version,membership_joined:membership.membership_joined});return {...row,membership_joined:membership.membership_joined};
   });
 }
 export async function adminNominees(pool:Pool,admin:AdminActor){
