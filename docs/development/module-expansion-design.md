@@ -1,6 +1,6 @@
 # 會員模組擴建與中央資料設計
 
-本設計依 Ted 對產品入口的修正：會員要先能辨認「我的定位、供貨、零售、開源作品」，再使用共同工作／合作流程。對齊 [架構 §3](../platform-plan/02-architecture-repositories.md#3-8-個使用體驗模組與-5-個共同營運核心)、[模組規格](../platform-plan/04-module-specifications.md)、[產品與社群](../platform-plan/01-product-community-model.md)。各模組以可保存資料的內部 staging 操作推進，不以新選單代替功能。
+本設計依 Ted 對產品入口的修正：會員要先能辨認「我的定位、供貨、零售、開源作品」，再使用共同工作／合作流程。對齊 [架構 §3](../platform-plan/02-architecture-repositories.md#3-8-個使用體驗模組與-5-個共同營運核心)、[模組規格](../platform-plan/04-module-specifications.md)、[產品與社群](../platform-plan/01-product-community-model.md)。2026-09-23 已延伸至公開會員 beta，public 與 staging 的資料及運行副本分開；各模組以可保存的實際操作推進，不以新選單代替功能。
 
 ## 使用入口與責任
 
@@ -15,7 +15,7 @@
 | 行銷工作室 | 以來源事實編輯行銷草稿，保存人工分享紀錄 | Marketing：private draft、source snapshot、manual share record |
 | 我的工作／合作紀錄 | 處理已認領工作、交付與雙方合作 | Opportunity／Project／Work；供貨商品不必繞經一般 Showcase |
 
-定位是可跳過的導覽，不是註冊／加入／供貨／使用作品的門檻。一個人可以同時有供貨、銷售、開發與行銷角色；職業、公會 rank、office appointment、每案責任互不推定。新增職業方向不更動 legacy assessment 的原型或分數。
+2026-09-23 Ted 明示新註冊會員必須先完成重新設計的定位，再確認主力／次要公會並領取技能書；這取代本文件先前可跳過定位的入口。既有完成會員保留存取，題目更新不默默重算舊答案。一個人可以同時有供貨、銷售、開發與行銷角色；職業、公會 rank、office appointment、每案責任互不推定。原創評量版本與相容規則見 [會員入口修訂](member-onboarding-release.md)。
 
 ## 中央 PostgreSQL 與模組寫入邊界
 
@@ -27,7 +27,7 @@ flowchart TB
   API --> O[OSS Registry]
   API --> M[Marketing]
   API --> W[Work / Cooperation]
-  P --> PG[(中央 freedom_staging PostgreSQL)]
+  P --> PG[(中央 PostgreSQL<br/>public 與 staging 分庫)]
   C --> PG
   O --> PG
   M --> PG
@@ -43,7 +43,7 @@ flowchart TB
 - 每個 command 與 receipt／journal 同一交易；可重送的 mutation 帶 Idempotency-Key，既有 aggregate 更新核對 If-Match。
 - 本人資料按 user scope、公會與作品按明示社群可見性隔離；擁有 repo URL 不代表擁有或管理該 repo。
 - Product offer、listing、OSS version、campaign source 保留版本／digest，既有引用不隨下一次編輯悄悄改動。
-- `freedom_staging` 使用獨立非 superuser 應用帳號；`freedom_local` 只供開發測試。測試建立唯一暫存 schema，不清空 staging。
+- `freedom_public`／`freedom_staging` 各使用獨立非 superuser 應用帳號；`freedom_local` 只供開發測試。測試建立唯一暫存 schema，不清空 public／staging；公開 DB 不載入 demo seed。
 - 遷移採新增 migration；部署前停止舊 app、備份並複製現有資料，套用新 migration，再切換 app 的 DATABASE_URL。舊 DB 保留作回退來源。
 - 目前 DB 仍在 Castle。managed PostgreSQL、異地備份、Workers／Hyperdrive 屬後續實際雲端資源，不宣稱本輪已完成。
 
@@ -56,7 +56,7 @@ flowchart TB
 店主：看到該版本的供貨回應 → 準備後續銷售
 ```
 
-本輪供貨接受是內部演練，並非 production DistributionAcceptance A4。正式訂單／付款尚未啟用；介面不能稱已可真實結帳、銀行已收款、QC 已認證或平台已付款。下個完整商業階段依 canonical 補足 SupplierParty／SellerParty、簽名、QC、單一 Seller checkout、庫存 reservation、履約與 record_only reconciliation。
+目前供貨接受是 beta 合作回覆，並非 production DistributionAcceptance A4。正式訂單／付款尚未啟用；介面不能稱已可真實結帳、銀行已收款、QC 已認證或平台已付款。下個完整商業階段依 canonical 補足 SupplierParty／SellerParty、簽名、QC、單一 Seller checkout、庫存 reservation、履約與 record_only reconciliation。
 
 商品照片僅在使用者瀏覽器以 HTTPS 載入，不由 server 代抓任意網址。原始圖檔上傳、R2／quarantine、惡意檔案掃描另作實際功能，不以 URL 欄位宣稱完整資產庫已建好。
 

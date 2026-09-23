@@ -20,6 +20,8 @@ import { createOpenSourceRoutes } from './routes/opensource.js';
 import { createAdminRoutes } from './routes/admin.js';
 import type { AdminAccessVerifier } from '../../../modules/platform-admin/access.js';
 import { createCoCreationRoutes } from './routes/co-creation.js';
+import { createBenefitRoutes } from './routes/benefits.js';
+import { createDevelopmentRoutes } from './routes/development.js';
 import { createPublicClientConnectionRoutes,createClientConnectionRoutes,createClientApiRoutes } from './routes/client-connections.js';
 import protocolMetadata from '../../../contracts/preview/v1/metadata.json' with { type: 'json' };
 
@@ -79,7 +81,8 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
     }
   });
   app.route('/admin/api',createAdminRoutes(pool,options.adminVerifier));
-  app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:'0.4.0-co-creation-beta',money_movement_enabled:false,official:false}));
+  app.route('/',createDevelopmentRoutes());
+  app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:'0.5.0-community-collaboration',money_movement_enabled:false,official:false}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
   app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(process.env.FREEDOM_REGISTRATION_COMMUNITY_ID),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog}));
   app.get('/api/v1/community',c=>c.json(communityCatalog));
@@ -148,6 +151,7 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
   app.route('/api/v1',createCommerceRoutes(pool));
   app.route('/api/v1',createOpenSourceRoutes(pool));
   app.route('/api/v1',createCoCreationRoutes(pool));
+  app.route('/api/v1',createBenefitRoutes(pool));
   app.all('/api/*',c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'此版本尚未提供這個 API。'},404));
   return app;
 }

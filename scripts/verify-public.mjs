@@ -91,6 +91,16 @@ try {
     expect(admin.status()).toBe(302);expect(admin.headers().location).toContain('cloudflareaccess.com');
   }
   console.log('Public HTTPS landing, admin Access boundary, anonymous boundary and brand asset: PASS');
+  const mapResponse=await anonymous.get(origin+'/api/v1/development-map');
+  expect(mapResponse.status()).toBe(200);const development=await mapResponse.json();
+  expect(development.pages).toHaveLength(19);expect(development.repositories).toHaveLength(28);expect(development.skill_books).toHaveLength(22);
+  expect(JSON.stringify(development)).not.toMatch(/user_id|access_token|csrf_token/);
+  for(const path of ['/llms.txt','/development','/development/guilds.md','/development/skills/security-scanner']){
+    const response=await anonymous.get(origin+path);expect(response.status(),path).toBe(200);
+    expect((await response.text()).length).toBeGreaterThan(100);
+  }
+  console.log('Anonymous Agent discovery, 19 page guides, 28 repository guides and 22 skill books: PASS');
+
 
   browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH } : {}) });
   context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, ignoreHTTPSErrors: false });
@@ -225,9 +235,11 @@ try {
   await expect(page.locator('.primary-guild')).toHaveCount(1);
   await expect(page.locator('.primary-guild')).toContainText('公會長：');
   await expect(page.locator('.guild-card').first()).toHaveClass(/primary-guild/);
-  await expect(page.locator('.guild-card').first()).toContainText('公會藏經閣');
+  await expect(page.locator('.guild-card').first()).toContainText('公會技能庫');
   await page.locator('.guild-card').first().locator('.skill-intro-trigger').first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('dialog').getByText('你的第一個成果',{exact:true})).toBeVisible();
+  await expect(page.getByRole('dialog').getByRole('link',{name:'開啟技能書完整指南 ↗',exact:true})).toHaveAttribute('href',/^\/development\/skills\//);
   await noOverflow('Guild skill book introduction mobile overflow');
   await screenshot('public-guild-library-mobile.png');
   await page.getByRole('button',{name:'關閉技能書介紹',exact:true}).click();

@@ -2,7 +2,7 @@ import { test,before,after,beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
-import { createPool,LOCAL_DATABASE_URL } from '../../packages/db/index.js';
+import { createPool,LOCAL_DATABASE_URL,digest } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal,DEMO_WORK,DEMO_USERS,DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
@@ -224,6 +224,18 @@ test('generated participation terms conform to the existing schema, including ma
   assert.match(execFileSync('python3',['-c',script],{input:JSON.stringify(w.participation_terms),encoding:'utf8'}),/valid/);
   const r=await request('/work-items',owner,{title:'長度邊界',objective:'a'.repeat(1001),acceptance_criteria:'有效條件',gain:'公共成果',estimated_minutes:10,maximum_minutes:20,claim_by:new Date(Date.now()+86400000).toISOString(),finish_by:new Date(Date.now()+2*86400000).toISOString(),will_review:false});
   assert.equal(r.status,422);
+});
+test('new work has no fabricated reuse license while existing Work and Claim terms retain their historical bytes and hashes',async()=>{
+  const owner=await signIn(DEMO_USERS[1].email),maker=await signIn(),old=await work(owner);
+  // Simulate a persisted pre-upgrade row without rewriting it through an API.
+  const legacy={...old.participation_terms,reuse:{...old.participation_terms.reuse,artifact_license_ref:'local-demo-author-consent'}},legacyHash=digest(legacy);
+  await pool.query('UPDATE work_items SET participation_terms=$1,participation_terms_sha256=$2 WHERE work_item_id=$3',[JSON.stringify(legacy),legacyHash,DEMO_WORK]);
+  const existingClaim=await claim(maker),fresh=await newWork(owner);
+  assert.deepEqual(fresh.participation_terms.reuse,{visibility:'community',artifact_license_ref:null,consent_required:true});
+  await seedLocal(pool); // Repeat bootstrap must not replace already persisted terms.
+  const persisted=await work(maker),claimRow=(await pool.query('SELECT terms_snapshot,terms_sha256 FROM work_claims WHERE claim_id=$1',[existingClaim.claim_id])).rows[0];
+  assert.deepEqual(persisted.participation_terms,legacy);assert.equal(persisted.participation_terms_sha256,legacyHash);
+  assert.deepEqual(claimRow.terms_snapshot,legacy);assert.equal(claimRow.terms_sha256,legacyHash);
 });
 test('logout revokes an existing session and unsuccessful login does not issue a cookie',async()=>{
   const bad=await request('/auth/login',undefined,{email:DEMO_USERS[0].email,password:'wrong'});assert.equal(bad.status,401);assert.equal(bad.response.headers.get('set-cookie'),null);

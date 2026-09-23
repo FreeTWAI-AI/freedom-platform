@@ -42,7 +42,7 @@ FREEDOM_REPOSITORIES_ROOT=/absolute/path/to/consumer-checkouts npm run test:repo
 
 ## Auth 與副作用邊界
 
-本輪是使用現有會員 session 的內部模板接線。瀏覽器沿用同源 Portal，不放寬 CORS。Node demo login 只接受 HTTP loopback 及已播種的三個假帳號；CLI 不輸出 session cookie／CSRF。正式外部 Store、Agent、growth worker 須各接原計畫 purpose token／ExecutionGrant／leased Job API，不能拿會員 demo session 當 production service account。
+32-operation preview SDK 仍使用會員 session；Node demo login 只接受 HTTP loopback 及已播種的三個假帳號，CLI 不輸出 session cookie／CSRF。2026-09-23 另已加入 [外部客戶端讀取接線](client-read-connections.md)：商店／供應端經本人在平台批准取得七天、可撤銷的 scoped bearer，只讀核准資源，不可寫入、讀會員聯絡或當 browser session。這兩種接線要分清楚。瀏覽器仍沿用同源 Portal，不放寬 CORS。完整 Store purpose token、Agent ExecutionGrant 與 growth leased Job API 仍待開發，不能拿會員 demo session 當 production service account。
 
 寫入需本人已有 authority、明確重送 key 與原版本。409／412 要重新讀取確認；來源 snapshots 不被後續供貨改價或 GitHub 更新覆寫。事件 transport、provider publication、結帳與金流沒有因檔案放入 repo 就啟用。
 

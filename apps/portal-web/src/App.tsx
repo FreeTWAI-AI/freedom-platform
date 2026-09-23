@@ -6,6 +6,8 @@ import { AccountPanel, MembersPanel, type MemberCardData } from './modules/Membe
 import { SquadsPanel } from './modules/Squads'
 import { CoCreationPanel } from './modules/CoCreationPanel'
 import { AdminPanel } from './modules/AdminPanel'
+import { DevelopmentContext } from './modules/DevelopmentContext'
+import { BenefitObservations } from './modules/BenefitObservations'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PositioningPanel, GuildsPanel } from './modules/PositioningPanels'
 import { SupplierPanel, RetailPanel } from './modules/CommercePanels'
@@ -90,7 +92,7 @@ function describeError(err: unknown): ActionError {
 }
 
 export function App() {
-  return window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? <AdminPanel/> : <MemberApp/>
+  return window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? <><AdminPanel/><DevelopmentContext moduleId="admin"/></> : <MemberApp/>
 }
 
 function MemberApp() {
@@ -322,6 +324,7 @@ function LoginView({
           </div>
         </aside>}
       </section></div>
+      <DevelopmentContext moduleId="registration"/>
       <CommunityLinks/>
     </main>
   )
@@ -481,6 +484,7 @@ function Workspace({
             {tab === 'retail' && <RetailPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'opensource' && <OpenSourcePanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'marketing' && <MarketingPanel client={client} session={session} onNavigate={selectTab} />}
+            <DevelopmentContext moduleId={tab}/>
           </div>
         </div>
       </div>
@@ -627,6 +631,7 @@ function WorkbenchPanel() {
                     <dd>{formatIsoLocal(gain.accepted_at)}</dd>
                   </div>
                 </dl>
+                <BenefitObservations client={client} workItemId={gain.work_item_id}/>
               </article>
             ))}
           </div>
@@ -764,6 +769,7 @@ function WorkItemCard({
           </div>
         )}
       </dl>
+      {item.participation_terms?.reuse?.consent_required && <p className="hint">{!item.participation_terms.reuse.artifact_license_ref||item.participation_terms.reuse.artifact_license_ref==='local-demo-author-consent'?'成果重用前仍需取得權利人同意；目前未記錄明確授權。':'成果重用前請確認記錄的授權與權利人同意。'}</p>}
       {item.review_capacity === 'waiting_reviewer_capacity' && (
         <p className="hint">目前沒有回饋容量，仍可認領與提交，但不保證有人回饋，也不表示官方品管。</p>
       )}
@@ -828,6 +834,7 @@ function WorkItemCard({
       {claim?.state === 'submitted' && <p className="hint">已提交，等待被指派的回饋者處理。提交會進入回饋佇列。</p>}
       {claim?.state === 'in_review' && <p className="hint">回饋進行中。</p>}
       {claim?.state === 'accepted' && <p className="hint">這次提交已被接受，非正式官方品管。</p>}
+      {(isOwnRef(session.user,item.owner_ref)||(claim&&claim.state!=='claimed'))&&<BenefitObservations client={client} workItemId={item.work_item_id}/>}
     </article>
   )
 }

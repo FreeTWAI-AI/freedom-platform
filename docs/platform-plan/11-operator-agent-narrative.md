@@ -2,6 +2,8 @@
 
 > 狀態：現行 canonical baseline（2026-09-19 低維運互惠修訂）；planning 文件，不代表已部署。
 
+> 2026-09-23 現況：公開會員 beta 與 Access 驗證管理／會長任命已有實作；完整簽章平面、Agent domain Skill、營運工時／容量首頁仍未完成。下文 2026-09-20 現況按其時點解讀，現行實作與缺口見 [落差盤點](../development/plan-drift-2026-09-23.md)。
+
 日期：2026-09-17
 
 本文是給幹部與 NotebookLM 的敘事入口，不是另一份規格。權威仍是 `00`–`08` 與 `contracts/`。成員與幹部的 Agent 只能執行具備 signed overlay、runtime-scope QC、current publisher authority、current revocation 與隔離載入 evidence 的 domain Skill；條件不成立就回 `capability_unavailable`。

@@ -8,7 +8,7 @@
 
 交付目標不是做出八個空選單，而是讓以下四條閉環在 production-like 環境可重複運作：
 
-1. `PEOPLE`：登入 → AI 引導／optional assessment → 本人確認 CareerProfile／WorkIntent → 加入 Guild、裝備 Skill → Work Feed → 完成 Result → Now/Next/Gained。
+1. `PEOPLE`：登入 → 定位（2026-09-23 起新註冊必填，取代舊 optional 入口）→ 本人確認方向及主力／次要 Guild → 領取技能書 → Work Feed → 完成 Result → Now/Next/Gained。完整 CareerProfile／WorkIntent、Agent equipped Skill 屬分階段實作，不與會員「裝備＝工具／訂閱」混用。
 2. `BUILD`：規格 → WorkItem → GitHub Issue → 人／Agent claim → fork/branch/PR → checks → Grok adversarial review → Claude verification → module release → ContributionRecord。
 3. `AI-BUSINESS`：開源 asset → SkillPackage／Product Candidate → unpaid community QC → CommercialEdition／ServiceEngagement → Vibe＋Field＋Project assignments → proposal／delivery／support → Squad 自訂收益分配；三個不同自然人的 evidence 只控制 `commercial-ready`。
 4. `COMMERCE`：SupplierOffer → SellerListing 價格 → Supplier 接受 → fork Store → 單一 Seller checkout → Seller 收款 → 自動 settlement → Supplier 履約 → refund/reversal/reconciliation。

@@ -29,4 +29,4 @@
 
 換版失敗就回到同環境上一個 release；若涉及不相容 schema，需要先保存新寫入並用對應 migration／資料恢復計畫。新站首次失敗可移除本次新增的 apex DNS／ingress，保留私密 DB 與診斷資料，不停用 staging 或其他專案 Tunnel。
 
-每日觀察失敗登入、API errors、DB／磁碟與備份結果。Email 寄送、帳號恢復、營運管理任命介面、異地備份與 managed PostgreSQL 為後續工作；不得以未驗證聯絡方式直接認領或重設他人帳號。
+每日觀察失敗登入、API errors、DB／磁碟與備份結果。營運管理與會長任命介面已實作，見 [管理 API](platform-admin-api.md)，透過獨立 Access 驗證而非一般未驗證會員 Email 取得權限。一般 Email 寄送、帳號恢復、異地備份與 managed PostgreSQL 為後續工作；不得以未驗證聯絡方式直接認領或重設他人帳號。

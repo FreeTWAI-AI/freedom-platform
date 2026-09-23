@@ -1,10 +1,26 @@
 # Freedom Platform
 
-本 workspace 保存 Freedom 大平台的完整規格，以及 **0.4.0-co-creation-beta 自由工坊會員入口**。新會員註冊後完成定位，選擇主力公會並取得 Repo 技能書，再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
+<!-- freedom-repository-guide:start -->
+## 在自由工坊的位置
+
+[自由工坊](https://freetwai.com) 讓會員先完成定位、選擇公會並領取 Repo 技能書，再以供貨、商店、開源作品、行銷與小隊共同完成成果。
+
+自由工坊的會員入口、中央資料庫與跨模組業務規則。 已提供 email 註冊、封閉定位、公會與技能書、會員隱私、小隊、供貨與商店草稿、作品共創、行銷紀錄、Access 管理與公會長本人確認。
+
+正式買家結帳、平台代收款、銀行實收核實、通用 Agent 執行授權都不能由目前的預覽紀錄推定已完成。
+
+本 repo 的維護者負責「自由工坊的會員入口、中央資料庫與跨模組業務規則。」這個模組；公會職稱與自填 GitHub slug 不授予寫入權。
+
+程式／內容入口：[apps/portal-web/src/modules/](apps/portal-web/src/modules/)、[apps/platform-api/src/routes/](apps/platform-api/src/routes/)、[modules/](modules/)、[migrations/](migrations/)、[packages/db/](packages/db/)。協作先讀 [CONTRIBUTING.md](CONTRIBUTING.md)，讓 Agent 讀 [AGENTS.md](AGENTS.md)；從[本倉 Issues](https://github.com/FreeTWAI-AI/freedom-platform/issues)認領、[查看既有 PR](https://github.com/FreeTWAI-AI/freedom-platform/pulls)避免重工。
+
+會員、權限、公會、商品、商店、合作和稽核的權威寫入在本 repo 的 API／PostgreSQL。外倉用版本化契約；本機、staging、public 使用分開的資料庫。GitHub Issue／PR 保存程式協作事實；Seller／bank 保存實收事實。 跨 repo 的協定由[中央平台](https://github.com/FreeTWAI-AI/freedom-platform)維護。
+<!-- freedom-repository-guide:end -->
+
+本 workspace 保存 Freedom 大平台的完整規格，以及 **0.5.0-community-collaboration 自由工坊會員入口**。新會員註冊後完成定位，選擇主力公會並取得 Repo 技能書，再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
 
 公開會員入口：<https://freetwai.com>；內部入口：<https://staging.freetwai.com>（Cloudflare Access 限定名單，獨立 DB）。本輪行為與邊界見 [會員入口設計](./docs/development/member-onboarding-release.md)，運行方式見 [公開站手冊](./docs/development/public-operations.md)。
 
-本版加入[管理介面與會長任命](./docs/development/platform-admin-api.md)、公會藏經閣、可收合技能樹與三項精選能力。[0.4 版本紀錄](./docs/releases/2026-09-23-co-creation-beta.md) 列出功能與驗證範圍。
+本版強化 22 本技能書、公會技能庫、每頁的開發入口與 28 個 Repo 的獨立協作指南，並補上選填的本人實益回報。詳見 [0.5 版本紀錄](./docs/releases/2026-09-23-collaboration-optimization.md)、[原計畫對照](./docs/development/plan-drift-2026-09-23.md) 與[網站／Agent 開發導覽](./docs/development/agent-development-guide.md)。
 
 各產品模板已依 [九倉分工與串接方式](./docs/development/repository-integration.md) 獨立保存，透過固定版本的 API／SDK 共用中央會員與資料。
 
@@ -19,7 +35,7 @@ npm run demo
 
 開啟 <http://127.0.0.1:4310>。示範帳號為 `maker@local.test`、`reviewer@local.test`、`client@local.test`，共用示範密碼 `freedom-local-demo`。
 
-操作方式、架構位置與重跑檢查見 [本機運行手冊](./docs/development/local-runtime.md)；筆電／手機入口見 [Staging＋Access 佈署清單](./docs/development/staging-access-deploy.md)；已完成範圍與驗證見 [模組版本紀錄](./docs/releases/2026-09-23-modules-preview.md)。舊版工作認領、交付驗收與合作流程保留。這是內部預覽，供貨回應屬演練，尚無正式結帳；示範收款紀錄不代表真實收入或銀行核實。
+操作方式、架構位置與重跑檢查見 [本機運行手冊](./docs/development/local-runtime.md)；筆電／手機入口見 [Staging＋Access 佈署清單](./docs/development/staging-access-deploy.md)；已完成範圍與驗證見 [模組版本紀錄](./docs/releases/2026-09-23-modules-preview.md)。舊版工作認領、交付驗收與合作流程保留。供貨與合作流程仍屬會員內部預覽，供貨回應屬演練，尚無正式結帳；示範收款紀錄不代表真實收入或銀行核實。
 
 ## 完整計畫與營運驗證
 

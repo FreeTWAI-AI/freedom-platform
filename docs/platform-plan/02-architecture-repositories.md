@@ -259,6 +259,8 @@ freedom-skill-registry/
 
 ### 4.5 既有 repo 的角色
 
+> 2026-09-23 覆寫：`ai-online` 現在只參考探索形式，依 Ted 指示重設原創公會題目；新會員必填定位，不採下表 legacy optional／golden parity 的遷移承諾。新舊 version/hash 與本人選擇規則見 [會員入口修訂](../development/member-onboarding-release.md)。
+
 | Repo | 現在的定位 | 遷移方式 |
 | --- | --- | --- |
 | `ai-online` | 可重現的 deterministic 定位評量參考 | 固定 snapshot/golden fixtures；新 evaluator shadow parity 後成 optional assessment |
@@ -282,6 +284,8 @@ Machine-readable contract 變更的 review 是工程完整性，不是社群內�
 其他 repo 與 PlanBundle 只 pin exact `ContractBundle` digest；contracts 子樹不可手改。
 
 ### 4.7 模組邊界與接點地圖
+
+> 2026-09-23 現況：下列完整 Connection／Credential Broker／Ingress／Job API 是目標 seam，尚非目前已部署全貌。Node core 先執行有界的公開 GitHub GET，商店／供應端走本人批准的 scoped read API；外部 repo 仍不直連平台 DB、不拿管理權限。此過渡讀取子集不是 provider write／leased worker／Broker 已完成；資料 owner 邊界保持不變。詳見 [落差盤點](../development/plan-drift-2026-09-23.md)。
 
 **鐵律。** 平台是接點、database、code base 協作核心與每個人的狀態機。Money 的權威事實在 Seller 的 provider／bank，code 在 GitHub，chat 在 Discord／LINE，客戶 raw data 在 client／Squad storage；平台只存 ref、digest、fact，不建立第二份外部權威。收款方一律是 `SellerParty`，付款方使用 payer-owned `payer_disbursement`，受款方使用 beneficiary-owned destination；平台不申請、不持有 merchant／live payment account，也不作 merchant of record、escrow、wallet 或代收方。Seller 契約見 `01 §7`，connector 唯一寫入路徑見 `05 §5.8`。
 

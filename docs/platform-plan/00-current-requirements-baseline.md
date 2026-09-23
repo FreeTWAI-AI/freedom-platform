@@ -4,6 +4,8 @@
 
 > 2026-09-23 會員入口修訂：Ted 明示新註冊會員必須完成重新設計的定位，再選主力公會、領技能書、進入平台。這項指示取代本 planning baseline 對新會員的 optional assessment／可略過入口；保留本人選擇公會、無診斷／資格推定、平台不過手錢等邊界。實作與其餘本輪決定見 [會員入口修訂](../development/member-onboarding-release.md)。
 
+> 2026-09-23 實作範圍對照：code 共創任務及 PR 以 GitHub 為真相，平台先保存協調資料與唯讀摘要，尚非下文完整雙向 WorkItem 同步。Guild 由本人選擇加入，登錄作品不自動替本人加入其他 Guild。會員「裝備」指工具／訂閱，「技能書」指 Repo，不等於 Agent installation。公開會員 beta 以 Node＋PostgreSQL 運行，完整 56 packages／12 runtimes 與 signed control plane 仍是目標，見 [落差盤點](../development/plan-drift-2026-09-23.md)。
+
 日期：2026-09-19
 代號：`SRC-CURRENT`
 

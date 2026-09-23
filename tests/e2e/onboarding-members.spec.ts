@@ -80,7 +80,7 @@ test('new member completes required positioning, chooses primary guild and gets 
   await expect(page.locator('.guild-card').nth(1).getByRole('heading')).toHaveText(secondaryName);
   await expect(page.locator('.guild-card').first()).toHaveClass(/primary-guild/);
   const firstLibrary=page.locator('.guild-card').first().locator('.guild-book-list');
-  await expect(firstLibrary).toContainText('公會藏經閣');
+  await expect(firstLibrary).toContainText('公會技能庫');
   const bookButton=firstLibrary.getByRole('button').first(),bookTitle=await bookButton.innerText();
   await bookButton.click();const intro=page.getByRole('dialog');await expect(intro).toBeVisible();
   await expect(intro.getByRole('heading',{name:bookTitle,exact:true})).toBeVisible();

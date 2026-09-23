@@ -52,7 +52,7 @@ export type ParticipationTerms = {
   }
   reuse?: {
     visibility?: string
-    artifact_license_ref?: string
+    artifact_license_ref?: string | null
     consent_required?: boolean
   }
   funding?: unknown

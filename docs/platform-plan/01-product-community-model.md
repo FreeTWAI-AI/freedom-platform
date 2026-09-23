@@ -79,6 +79,8 @@ Guild 是專業連結，不要求成員只能做一種工作。例如 AI Develop
 
 ### 3.2 Squad：因一個成果而組成
 
+> 2026-09-23 會員版對應：小隊先提供 `project`（專案交付）與 `mutual_help`（共同目標互助），由發起人選擇、參與者本人申請及發起人接受。這是起步對應，不代表下列完整 Squad lifecycle 已實作，也不同於 Work 的 participation mode；專案可為自願貢獻。共同目標週期、Work／GitHub 連結、結束及移交仍待補。見 [落差盤點](../development/plan-drift-2026-09-23.md)。
+
 Squad 只為一個 `Opportunity`、`Project`、`ServiceEngagement` 或產品商業化目標存在，應記錄：
 
 - 目標、scope、交付、時程與結束條件。
@@ -514,6 +516,8 @@ GitHub 的本人評價遵守「本人決定、授權明示、本人 AgentConnect
 原journey、Guild、Agent、open-source、commerce、service與community品質指標持續保留為診斷，不代替以上三項核心目標。詳細定義、反例、負荷與擴張規則見 [12 §7–10](./12-low-ops-mutual-benefit.md)。
 
 ## 17. 產品驗收準則
+
+2026-09-23 已授權的公開會員 beta 不等於本節完整 integrated release。以下仍是目標驗收；缺項須如實列為後續，不因此撤回已授權的會員入口或加上一般參與門檻。現況與後續指示見 [落差盤點](../development/plan-drift-2026-09-23.md)。
 
 第一個正式 integrated release 至少通過：
 

@@ -27,7 +27,7 @@ export function voluntaryTerms(input: z.infer<typeof createWorkInput>, actor: Ac
     human_support:{promised:false,reservation_ref:null,scope:'不保證真人回饋，不自動轉派核心團隊。',no_capacity_fallback:'self_service'},
     completion:{criteria:[input.acceptance_criteria],claim_by:input.claim_by,finish_by:input.finish_by,
       feedback_due:new Date(Date.parse(input.finish_by)+7*86400000).toISOString(),unanswered_outcome:'expire_unclaimed'},
-    reuse:{visibility:'community',artifact_license_ref:'local-demo-author-consent',consent_required:true},funding:null,newcomer_friendly:true
+    reuse:{visibility:'community',artifact_license_ref:null,consent_required:true},funding:null,newcomer_friendly:true
   };
 }
 export async function createWork(pool: Pool, input: Command) {

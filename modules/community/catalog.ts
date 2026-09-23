@@ -1,8 +1,9 @@
+import { skillBookGuides, type SkillBookGuide } from './skill-book-guides.js';
 // Community-owned catalog. Source repositories are linked/forked, never executed during onboarding.
 export type CatalogOption = {id:string;label:string};
 export type CatalogSubcategory = {id:string;label:string;items:CatalogOption[]};
 export type CatalogCategory = {id:string;label:string;items:CatalogOption[];subcategories?:CatalogSubcategory[]};
-export type SkillBook = {id:string;title:string;repository_url:string;description:string;kind:string;fork_url:string;license_status:string;upstream_url:string;source_commit:string|null;introduction_url:string|null};
+export type SkillBook = {id:string;title:string;repository_url:string;description:string;kind:string;fork_url:string;license_status:string;upstream_url:string;source_commit:string|null;introduction_url:string|null;guide?:SkillBookGuide};
 export const capabilityCategories:CatalogCategory[] = [
   {
     "id": "start",
@@ -2359,7 +2360,7 @@ export const equipmentCategories:CatalogCategory[] = [
     ]
   }
 ];
-export const communityCatalog = {
+const communityCatalogBase = {
   "name": "自由工坊",
   "tagline": "找到你的定位，帶著技能，和夥伴一起做出作品。",
   "links": [
@@ -2794,6 +2795,15 @@ export const communityCatalog = {
     "note": "較新的規模由主辦方於2026-09-23提供，保留不同來源與日期。"
   }
 };
+function withSkillBookGuide(book:SkillBook):SkillBook {
+  const guide=skillBookGuides[book.id];
+  return guide?{...book,description:guide.summary,source_commit:book.source_commit??guide.source_commit,introduction_url:book.introduction_url??guide.website_url??null,guide}:book;
+}
+export const communityCatalog = {...communityCatalogBase,
+  skill_books:communityCatalogBase.skill_books.map(withSkillBookGuide),
+  featured_projects:communityCatalogBase.featured_projects.map(withSkillBookGuide),
+};
+
 const guildBooks:Record<string,string[]> = {
   "guild_talent_direction": [
     "career-guide"

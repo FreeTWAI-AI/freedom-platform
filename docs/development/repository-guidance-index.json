@@ -1,0 +1,773 @@
+{
+  "schema_version": 1,
+  "platform_repository": "FreeTWAI-AI/freedom-platform",
+  "repositories": [
+    {
+      "purpose": "FreeTWAI-AI 的組織介紹、共用 Issue／PR 範本与唯讀 CI 入口。",
+      "current_scope": "已有 profile、任務表單與可供各倉用 commit SHA 固定的 reusable verification workflow。",
+      "future_scope": "workflow 存在或跑綠不表示 ruleset 已強制、維護者已審核、release 已簽章或網站已部署。",
+      "upstream": null,
+      "key_paths": [
+        "profile/README.md",
+        ".github/ISSUE_TEMPLATE/",
+        ".github/PULL_REQUEST_TEMPLATE.md",
+        ".github/workflows/verify-template.yml",
+        "scripts/verify-contracts.mjs"
+      ],
+      "validation_commands": [
+        "npm test",
+        "npm run build"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/.github",
+      "repository": "FreeTWAI-AI/.github",
+      "default_branch": "main",
+      "kind": "platform_module"
+    },
+    {
+      "purpose": "行銷與媒體公會的 AI 影像、影片、音樂提示詞與執行知識來源。",
+      "current_scope": "保留上游 Skill、平台能力檔、提示詞 templates、automation profiles 與 eval 案例。",
+      "future_scope": "工坊尚未提供共用生成帳號、免費模型額度或平台自動渲染服務；每個 provider 的能力需按當前版本確認。",
+      "upstream": "https://github.com/Hao0321/ai-media-generator",
+      "key_paths": [
+        "SKILL.md",
+        "automation/",
+        "references/",
+        "templates/",
+        "evals/"
+      ],
+      "validation_commands": [
+        "git diff --check"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/ai-media-generator",
+      "repository": "FreeTWAI-AI/ai-media-generator",
+      "default_branch": "main",
+      "kind": "upstream_fork"
+    },
+    {
+      "purpose": "資安公會的授權範圍檢查與報告工具來源。",
+      "current_scope": "工坊保留上游桌面／CLI、scanner adapters 與報告程式，可用於有權測試的自有環境練習。",
+      "future_scope": "此 fork 沒有串接平台掃描服務或授予任何掃描目標權限；上游候選包／Release 狀態以原 repo 為準。",
+      "upstream": "https://github.com/teddashh/ai-security-scanner",
+      "key_paths": [
+        "docs/product-spec.md",
+        "src/",
+        "src-tauri/",
+        "engines/",
+        "runtime/",
+        "tests/frontend/"
+      ],
+      "validation_commands": [
+        "npm run test:frontend",
+        "npm run test:component",
+        "npm run typecheck"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/ai-security-scanner",
+      "repository": "FreeTWAI-AI/ai-security-scanner",
+      "default_branch": "main",
+      "kind": "upstream_fork"
+    },
+    {
+      "purpose": "媒體與音樂公會的短劇敘事、製作包與剪輯交接技能來源。",
+      "current_scope": "保留上游 Skill、故事／Studio schemas、lint、範例和測試。",
+      "future_scope": "核心 Skill 可產出製作規劃；成片渲染依賴另外的執行器，不因 Fork 就有雲端生成或自動發布。",
+      "upstream": "https://github.com/Hao0321/ai-short-drama",
+      "key_paths": [
+        "SKILL.md",
+        "scripts/drama_lint.py",
+        "scripts/studio_lint.py",
+        "examples/",
+        "references/",
+        "tests/"
+      ],
+      "validation_commands": [
+        "python3 -m unittest discover -s tests -v",
+        "python3 scripts/studio_lint.py examples/studio-plan.example.json --studio-ready"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/ai-short-drama",
+      "repository": "FreeTWAI-AI/ai-short-drama",
+      "default_branch": "main",
+      "kind": "upstream_fork"
+    },
+    {
+      "purpose": "AI 導入與開發公會可研究的本機記憶／桌面工具。",
+      "current_scope": "保留上游本機記錄、記憶、CLI brain 與 consent 邊界的程式與產品文件。",
+      "future_scope": "工坊 fork 沒有平台會員同步、雲端記憶儲存或新的桌面 release；平台整合仍需獨立設計與本人同意。",
+      "upstream": "https://github.com/teddashh/AI-Sister",
+      "key_paths": [
+        "docs/PRODUCT.md",
+        "docs/PHASES.md",
+        "docs/HANDOFF-CODEX.md",
+        "crates/",
+        "apps/desktop/",
+        "scripts/"
+      ],
+      "validation_commands": [
+        "cargo fmt --all -- --check",
+        "cargo test --workspace",
+        "./scripts/check-no-network.sh"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/AI-Sister",
+      "repository": "FreeTWAI-AI/AI-Sister",
+      "default_branch": "main",
+      "kind": "upstream_fork"
+    },
+    {
+      "purpose": "行銷公會的社群內容、聲線與經確認發布技能来源。",
+      "current_scope": "保留上游 social-post 工作流、模板、腳本、browser contracts 與離線自測。",
+      "future_scope": "加入公會／Fork 不代表已連接本人社群帳號，也不表示 live 回覆／發布全面驗收或已自動上線。",
+      "upstream": "https://github.com/Hao0321/claude-skill-social-post",
+      "key_paths": [
+        "social-post/SKILL.md",
+        "social-post/scripts/",
+        "social-post/references/",
+        "chatgpt-socialpost/",
+        "docs/"
+      ],
+      "validation_commands": [
+        "python3 social-post/scripts/self_test.py"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/claude-skill-social-post",
+      "repository": "FreeTWAI-AI/claude-skill-social-post",
+      "default_branch": "main",
+      "kind": "upstream_fork"
+    },
+    {
+      "purpose": "讓不同 AI 工具使用同一份平台協定與會員狀態入口。",
+      "current_scope": "已提供 pinned client/protocol 匯出、本機示範狀態 CLI 及 adapter 說明。",
+      "future_scope": "真正的 Agent device flow、ExecutionGrant 與可執行 MCP server 尚未實作；會員客戶端的讀取授權不等同 Agent 執行權。",
+      "upstream": null,
+      "key_paths": [
+        "src/cli.mjs",
+        "packages/client/",
+        "packages/protocol/",
+        "adapters/",
+        "mcp/freedom-work-server/",
+        "tests/"
+      ],
+      "validation_commands": [
+        "npm test",
+        "npm run build"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-agent-kit",
+      "repository": "FreeTWAI-AI/freedom-agent-kit",
+      "default_branch": "main",
+      "kind": "platform_module"
+    },
+    {
+      "purpose": "行銷公會的活動草稿、來源引用與人工分享紀錄工具。",
+      "current_scope": "已提供 campaign helpers、文案／LINE 文字離線預覽與人工分享紀錄接線。",
+      "future_scope": "沒有 LINE 傳訊、自動社群發布、背景 worker 排程、真實流量統計或影片渲染。",
+      "upstream": null,
+      "key_paths": [
+        "src/index.mjs",
+        "services/campaign-worker/",
+        "services/publication-worker/",
+        "services/media-worker/",
+        "packages/channel-adapters/",
+        "examples/",
+        "tests/"
+      ],
+      "validation_commands": [
+        "npm test",
+        "npm run preview"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-growth-automation",
+      "repository": "FreeTWAI-AI/freedom-growth-automation",
+      "default_branch": "main",
+      "kind": "platform_module"
+    },
+    {
+      "purpose": "自由工坊的會員入口、中央資料庫與跨模組業務規則。",
+      "current_scope": "已提供 email 註冊、封閉定位、公會與技能書、會員隱私、小隊、供貨與商店草稿、作品共創、行銷紀錄、Access 管理與公會長本人確認。",
+      "future_scope": "正式買家結帳、平台代收款、銀行實收核實、通用 Agent 執行授權都不能由目前的預覽紀錄推定已完成。",
+      "upstream": null,
+      "key_paths": [
+        "apps/portal-web/src/modules/",
+        "apps/platform-api/src/routes/",
+        "modules/",
+        "migrations/",
+        "packages/db/",
+        "packages/client-connections/",
+        "contracts/preview/v1/",
+        "docs/platform-plan/contracts/"
+      ],
+      "validation_commands": [
+        "npm run typecheck",
+        "npm run build",
+        "npm test",
+        "npm run test:e2e",
+        "npm run test:contracts",
+        "npm run test:repos"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-platform",
+      "repository": "FreeTWAI-AI/freedom-platform",
+      "default_branch": "main",
+      "kind": "platform_module"
+    },
+    {
+      "purpose": "從公開 manifest 產生可分享的專案介紹頁。",
+      "current_scope": "已有固定欄位投影、HTML escaping、安全連結及可重現 dist/index.html 產出。",
+      "future_scope": "build 不會啟用 GitHub Pages、發布網站、簽署版本或證明 official status。",
+      "upstream": null,
+      "key_paths": [
+        "src/index.mjs",
+        "scripts/build.mjs",
+        "test/",
+        "freedom.project.yaml"
+      ],
+      "validation_commands": [
+        "npm test",
+        "npm run build"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-project-page",
+      "repository": "FreeTWAI-AI/freedom-project-page",
+      "default_branch": "main",
+      "kind": "platform_module"
+    },
+    {
+      "purpose": "建立獨立新專案的 Node 24 範本。",
+      "current_scope": "已有本機 HTTP preview、原生測試、可重現 build、GitHub 任務表單與 pinned 契約。",
+      "future_scope": "新建專案仍須設定自己的 repo 身分；模板不自動建立雲端服務、登入、付款或正式資格。",
+      "upstream": null,
+      "key_paths": [
+        "src/server.mjs",
+        "scripts/build.mjs",
+        "test/",
+        "docs/initialize-project.md",
+        ".github/ISSUE_TEMPLATE/"
+      ],
+      "validation_commands": [
+        "npm test",
+        "npm run build"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-project-template",
+      "repository": "FreeTWAI-AI/freedom-project-template",
+      "default_branch": "main",
+      "kind": "platform_module"
+    },
+    {
+      "purpose": "方向探索與陪跑公會的原創入門手冊與可填模板。",
+      "current_scope": "已有訪談問題、本人確認的下一步與陪跑紀錄，可手動操作或交給自己的 AI 輔助。",
+      "future_scope": "目前是文件技能書，沒有背景服務、會員登入或自動平台同步。",
+      "upstream": null,
+      "key_paths": [
+        "SKILL.md",
+        "RESULT-TEMPLATE.md",
+        "skill-book.json"
+      ],
+      "validation_commands": [
+        "python3 -m json.tool skill-book.json > /dev/null",
+        "git diff --check"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-career-guide",
+      "repository": "FreeTWAI-AI/freedom-skill-career-guide",
+      "default_branch": "main",
+      "kind": "skill_book"
+    },
+    {
+      "purpose": "廣告攝影與影片製作公會的原創入門手冊與可填模板。",
+      "current_scope": "已有拍攝企劃、交付成果模板與素材來源登錄，可手動操作或交給自己的 AI 輔助。",
+      "future_scope": "目前是文件技能書，沒有背景服務、會員登入或自動平台同步。",
+      "upstream": null,
+      "key_paths": [
+        "SKILL.md",
+        "RESULT-TEMPLATE.md",
+        "skill-book.json",
+        "SOURCE-REGISTER.md"
+      ],
+      "validation_commands": [
+        "python3 -m json.tool skill-book.json > /dev/null",
+        "git diff --check"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-commercial-production",
+      "repository": "FreeTWAI-AI/freedom-skill-commercial-production",
+      "default_branch": "main",
+      "kind": "skill_book"
+    },
+    {
+      "purpose": "新人接待與社群營運公會的原創入門手冊與可填模板。",
+      "current_scope": "已有歡迎流程、活動規劃與交接模板，可手動操作或交給自己的 AI 輔助。",
+      "future_scope": "目前是文件技能書，沒有背景服務、會員登入或自動平台同步。",
+      "upstream": null,
+      "key_paths": [
+        "SKILL.md",
+        "RESULT-TEMPLATE.md",
+        "skill-book.json"
+      ],
+      "validation_commands": [
+        "python3 -m json.tool skill-book.json > /dev/null",
+        "git diff --check"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-community-ops",
+      "repository": "FreeTWAI-AI/freedom-skill-community-ops",
+      "default_branch": "main",
+      "kind": "skill_book"
+    },
+    {
+      "purpose": "音樂與 MV 製作公會的原創入門手冊與可填模板。",
+      "current_scope": "已有歌曲／MV 企劃、成果模板與素材來源登錄，可手動操作或交給自己的 AI 輔助。",
+      "future_scope": "目前是文件技能書，沒有背景服務、會員登入或自動平台同步。",
+      "upstream": null,
+      "key_paths": [
+        "SKILL.md",
+        "RESULT-TEMPLATE.md",
+        "skill-book.json",
+        "SOURCE-REGISTER.md"
+      ],
+      "validation_commands": [
+        "python3 -m json.tool skill-book.json > /dev/null",
+        "git diff --check"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-music-mv",
+      "repository": "FreeTWAI-AI/freedom-skill-music-mv",
+      "default_branch": "main",
+      "kind": "skill_book"
+    },
+    {
+      "purpose": "需求訪談與合作提案公會的原創入門手冊與可填模板。",
+      "current_scope": "已有訪談、合作範圍、交付與風險的提案模板，可手動操作或交給自己的 AI 輔助。",
+      "future_scope": "目前是文件技能書，沒有背景服務、會員登入或自動平台同步。",
+      "upstream": null,
+      "key_paths": [
+        "SKILL.md",
+        "RESULT-TEMPLATE.md",
+        "skill-book.json"
+      ],
+      "validation_commands": [
+        "python3 -m json.tool skill-book.json > /dev/null",
+        "git diff --check"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-partnership",
+      "repository": "FreeTWAI-AI/freedom-skill-partnership",
+      "default_branch": "main",
+      "kind": "skill_book"
+    },
+    {
+      "purpose": "專案交付與 Sprint公會的原創入門手冊與可填模板。",
+      "current_scope": "已有需求切分、Sprint、驗收與交接模板，可手動操作或交給自己的 AI 輔助。",
+      "future_scope": "目前是文件技能書，沒有背景服務、會員登入或自動平台同步。",
+      "upstream": null,
+      "key_paths": [
+        "SKILL.md",
+        "RESULT-TEMPLATE.md",
+        "skill-book.json"
+      ],
+      "validation_commands": [
+        "python3 -m json.tool skill-book.json > /dev/null",
+        "git diff --check"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-project-delivery",
+      "repository": "FreeTWAI-AI/freedom-skill-project-delivery",
+      "default_branch": "main",
+      "kind": "skill_book"
+    },
+    {
+      "purpose": "商家對帳公會的原創入門手冊與可填模板。",
+      "current_scope": "已有對帳步驟、差異清單及可填成果表，可手動操作或交給自己的 AI 輔助。",
+      "future_scope": "目前是文件技能書，沒有背景服務、會員登入或自動平台同步。",
+      "upstream": null,
+      "key_paths": [
+        "SKILL.md",
+        "RESULT-TEMPLATE.md",
+        "skill-book.json"
+      ],
+      "validation_commands": [
+        "python3 -m json.tool skill-book.json > /dev/null",
+        "git diff --check"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-reconciliation",
+      "repository": "FreeTWAI-AI/freedom-skill-reconciliation",
+      "default_branch": "main",
+      "kind": "skill_book"
+    },
+    {
+      "purpose": "公開技能與作品的宣告入口及匯入轉換工具。",
+      "current_scope": "已有 project import helpers、manifest 轉換、starter-skill 與空的 PR 維護宣告清單。",
+      "future_scope": "技能安裝、能力驗證、版本自動同步與正式審核轉移尚未實作；空清單不是平台沒有技能書。",
+      "upstream": null,
+      "key_paths": [
+        "src/index.mjs",
+        "registry/packages.yaml",
+        "templates/starter-skill/",
+        "scripts/check-registry.mjs",
+        "test/"
+      ],
+      "validation_commands": [
+        "npm test",
+        "npm run build"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-registry",
+      "repository": "FreeTWAI-AI/freedom-skill-registry",
+      "default_branch": "main",
+      "kind": "platform_module"
+    },
+    {
+      "purpose": "可 Fork 的商店模板、薄 SDK 與私人預覽，供電商與銷售公會改造。",
+      "current_scope": "已有四種商店版型、HTML 預覽、中央商店 SDK 與會員核准的 storefront:read 客戶端。",
+      "future_scope": "公開商品 feed、正式 checkout、訂單、付款、分潤與自動部署尚未實作。",
+      "upstream": null,
+      "key_paths": [
+        "templates/",
+        "packages/storefront-sdk/",
+        "packages/templates/",
+        "client/",
+        "scripts/run-client.mjs",
+        "scripts/build-preview.mjs",
+        "tests/"
+      ],
+      "validation_commands": [
+        "npm test",
+        "npm run verify:client-source"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-storefront",
+      "repository": "FreeTWAI-AI/freedom-storefront",
+      "default_branch": "main",
+      "kind": "platform_module"
+    },
+    {
+      "purpose": "可 Fork 的供應端客戶端，讓供貨者讀取自己的中央商品與供貨申請。",
+      "current_scope": "Node 24 CLI 已提供 connect、products／requests／connection 私人 JSON 讀取。",
+      "future_scope": "商品新增、改價與供貨決定目前回中央網站操作；沒有客戶端寫入、訂單、付款或公開 feed。",
+      "upstream": null,
+      "key_paths": [
+        "src/index.mjs",
+        "client/",
+        "scripts/run-client.mjs",
+        "scripts/verify-client-source.mjs",
+        "tests/"
+      ],
+      "validation_commands": [
+        "npm test",
+        "npm run verify:client-source"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-supplier-client",
+      "repository": "FreeTWAI-AI/freedom-supplier-client",
+      "default_branch": "main",
+      "kind": "platform_module"
+    },
+    {
+      "purpose": "自由工坊公開原始碼導覽頁的產生器。",
+      "current_scope": "已有受限公開 repo 目錄與靜態 HTML 產生器；目前的目錄資料是導覽清單。",
+      "future_scope": "本 repo 不包含會員 Portal、中央 project registry 或 signed-status 服務；本機 build 不代表 Pages 已部署。",
+      "upstream": null,
+      "key_paths": [
+        "data/directory.json",
+        "src/index.mjs",
+        "scripts/build.mjs",
+        "test/"
+      ],
+      "validation_commands": [
+        "npm test",
+        "npm run build"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io",
+      "repository": "FreeTWAI-AI/FreeTWAI-AI.github.io",
+      "default_branch": "main",
+      "kind": "platform_module"
+    },
+    {
+      "purpose": "行銷與媒體公會可研究的品牌作品網站來源。",
+      "current_scope": "目前 fork 包含静態網站、作品／資源頁、素材與部分獨立 API／工具來源。",
+      "future_scope": "工坊尚未把它改為通用白標模板，也未授予重用所有品牌／影像素材的額外權利或部署新的網站。",
+      "upstream": "https://github.com/Hao0321/Hao0321-Studio-WEB",
+      "key_paths": [
+        "index.html",
+        "site.css",
+        "site.js",
+        "works/",
+        "resources/",
+        "game-api/",
+        "scripts/"
+      ],
+      "validation_commands": [
+        "node --check site.js",
+        "git diff --check"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/Hao0321-Studio-WEB",
+      "repository": "FreeTWAI-AI/Hao0321-Studio-WEB",
+      "default_branch": "main",
+      "kind": "upstream_fork"
+    },
+    {
+      "purpose": "AI 開發公會可用的 Chrome 側欄多模型協作工具來源。",
+      "current_scope": "保留 Chrome extension、頁面 adapters 與同步對話介面。",
+      "future_scope": "工坊 fork 沒有發布自己的 Chrome Web Store 版本，也不共用平台登入或會員 cookie。",
+      "upstream": "https://github.com/teddashh/multi-ai-chat",
+      "key_paths": [
+        "src/",
+        "public/",
+        "test/",
+        "scripts/check-version.js",
+        "webpack.config.js"
+      ],
+      "validation_commands": [
+        "npm run typecheck",
+        "npm test",
+        "npm run check:version"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/multi-ai-chat",
+      "repository": "FreeTWAI-AI/multi-ai-chat",
+      "default_branch": "master",
+      "kind": "upstream_fork"
+    },
+    {
+      "purpose": "AI 開發公會可用的多模型桌面協作工具來源。",
+      "current_scope": "保留 Tauri 桌面端、provider adapters、注入腳本與 Agent source lane。",
+      "future_scope": "工坊 fork 沒有平台 SSO、代管 provider 帳號或新桌面 release；登入仍由本人完成。",
+      "upstream": "https://github.com/teddashh/multi-ai-chat-desktop",
+      "key_paths": [
+        "src/",
+        "src-tauri/",
+        "adapters/",
+        "injected/",
+        "scripts/agent/",
+        "docs/COMPATIBILITY.md"
+      ],
+      "validation_commands": [
+        "pnpm typecheck",
+        "pnpm test",
+        "pnpm agent:verify"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/multi-ai-chat-desktop",
+      "repository": "FreeTWAI-AI/multi-ai-chat-desktop",
+      "default_branch": "main",
+      "kind": "upstream_fork"
+    },
+    {
+      "purpose": "電商與銷售公會可研究的單店 POS／庫存／對帳工具來源。",
+      "current_scope": "保留上游 Electron/PWA、單店資料儲存與選用 Supabase 同步程式。",
+      "future_scope": "工坊 fork 未與中央會員、供貨或商店資料雙向同步，也不是平台支付 gateway 或多租戶正式部署。",
+      "upstream": "https://github.com/Hao0321/pos-pro",
+      "key_paths": [
+        "src/",
+        "src/utils/",
+        "electron/",
+        "supabase/",
+        "SETUP_SUPABASE.md",
+        "TESTING_CHECKLIST.md"
+      ],
+      "validation_commands": [
+        "npm test",
+        "npm run build"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/pos-pro",
+      "repository": "FreeTWAI-AI/pos-pro",
+      "default_branch": "main",
+      "kind": "upstream_fork"
+    },
+    {
+      "purpose": "行銷公會的中文輪播貼文排版與圖像輸出工具來源。",
+      "current_scope": "保留上游離線 editor、PWA／Electron shell、排版及匯出程式。",
+      "future_scope": "工坊 fork 尚未發布自己的桌面／PWA 版本，也沒有中央會員同步或代發社群貼文。",
+      "upstream": "https://github.com/Hao0321/typo-studio",
+      "key_paths": [
+        "index.html",
+        "vendor/app.jsx",
+        "main.js",
+        "preload.js",
+        "sw.js",
+        "TUTORIAL.md"
+      ],
+      "validation_commands": [
+        "node --check main.js",
+        "node --check preload.js",
+        "npm run compile"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/typo-studio",
+      "repository": "FreeTWAI-AI/typo-studio",
+      "default_branch": "main",
+      "kind": "upstream_fork"
+    },
+    {
+      "purpose": "媒體自動化公會的剪輯框架與第一個公開共創試點。",
+      "current_scope": "保留 Hao 的 Editkin v4 流程、素材／QA 工具、範例，以及工坊 Issue／PR 任務入口。",
+      "future_scope": "工坊 fork 尚未因此完成新的剪輯功能、啟用自動發布或取得真人收入；上游 release 的聲明不自動成為此 fork 的驗證。",
+      "upstream": "https://github.com/Hao0321/video-autopilot-kit",
+      "key_paths": [
+        "src/",
+        "scripts/",
+        "examples/",
+        "templates/",
+        "TASKS.md",
+        "collaboration/"
+      ],
+      "validation_commands": [
+        "python3 src/system_health.py --quick",
+        "python3 examples/02_caption_broll_match.py",
+        "python3 examples/04_shorts_gate.py"
+      ],
+      "validation_note": "命令入口已對照此 repo 的 package scripts／來源檔；本次純文件修改不宣稱已重跑所有上游產品測試。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/FreeTWAI-AI/video-autopilot-kit",
+      "repository": "FreeTWAI-AI/video-autopilot-kit",
+      "default_branch": "main",
+      "kind": "upstream_fork"
+    }
+  ]
+}

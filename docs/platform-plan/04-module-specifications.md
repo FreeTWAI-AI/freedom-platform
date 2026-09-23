@@ -75,6 +75,8 @@
 
 ## 2. 模組一：定位模組
 
+> 2026-09-23 Ted 明示新註冊會員必須完成原創定位並自行確認公會；以下 B「不想做測驗」及 legacy parity 敘述不再適用新會員入口。既有會員存取與重新定位相容規則以 [會員入口修訂](../development/member-onboarding-release.md) 為準，不新增能力及格或職業資格判定。
+
 ### 2.1 目的與非目標
 
 目的不是替人貼一個永久標籤，而是在三分鐘內給出一張可修改的方向草圖，接到真實的技能包、Guild、陪跑與第一個結果。
@@ -1129,6 +1131,8 @@ Guild lifecycle是`draft→active↔degraded→archived`。`POST/PATCH /guilds`�
 - Guild Master對方向、training、人才容量、master skills repo、重大版本／爭議負責；產品與成員工作中的routine PR/QC由 Strategist／skill owner依 protocol流動，平台自身建置則由 Grok adversarial review、Claude verification 與自動 checks處理。
 
 ### 10.2 Opportunity、Project、Squad & Work
+
+> 2026-09-23 實作範圍：code 共創以 GitHub Issues／PR 為任務及 review 真相，平台只保存協調紀錄、引用與有界唯讀摘要；下文的雙向同步／Agent intake 仍是後續目標。一般非 code WorkItem 留在平台；本人實益回報的本輪子集见 [實益 API](../development/benefit-observations.md)，完整 Squad／capacity／service contracts 並未一起完成。
 
 ```text
 Portal / LINE / Discord / local Agent document ref

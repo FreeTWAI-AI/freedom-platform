@@ -91,7 +91,7 @@ export async function changeEngagement(pool:Pool,input:Command,id:string,action:
       await q.query("UPDATE engagements SET state='delivered',delivery_ref=$2,aggregate_version=aggregate_version+1 WHERE engagement_id=$1",[id,(body as {artifact_ref:string}).artifact_ref]);
     } else if(action==='receipt') {
       const data=body as z.infer<typeof receiptInput>;
-      requireCondition(row.state==='accepted',409,'invalid_state','本機驗證流程請先完成交付驗收，再記錄收款回報。');
+      requireCondition(row.state==='accepted',409,'invalid_state','請先完成交付驗收，再記錄收款回報。');
       requireCondition(String(data.amount_minor)===row.amount_minor && data.currency===row.currency,422,'receipt_amount_mismatch','此版本只支援與合作條款一致的一次全額收款回報。');
       requireCondition(Date.parse(data.received_at)<=Date.now() && Date.parse(data.received_at)>=new Date(row.agreed_at).getTime(),422,'invalid_receipt_time','收款時間須在確認合作之後，且不能在未來。');
       const exists=await q.query('SELECT 1 FROM receipt_observations WHERE engagement_id=$1 OR (reporter_ref=$2 AND evidence_ref=$3)',[id,input.actor.user_id,data.evidence_ref]);

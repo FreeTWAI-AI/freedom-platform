@@ -1,6 +1,6 @@
 # Freedom Platform 現況紀錄
 
-> 現行更新：2026-09-20；已增加本機程式與實跑證據，尚未對外部署。
+> 歷史更新：2026-09-20；以下本機交付紀錄保留其當時證據。2026-09-23 的公開會員 beta、user overrides 與仍未完成的能力見 [落差盤點](../development/plan-drift-2026-09-23.md)、[會員入口](../development/member-onboarding-release.md) 與 [公開運行手冊](../development/public-operations.md)；不把本頁舊「未部署」當作今日狀態。
 
 ## 2026-09-20 本機版本增補
 
