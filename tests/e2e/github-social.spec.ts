@@ -119,3 +119,21 @@ test('account disconnect clears shared Star state and distinguishes local remova
   await expect(panel.getByRole('button',{name:'連結 GitHub',exact:true})).toBeEnabled();
   const disconnected=await book(page);await expect(disconnected.getByRole('button',{name:'連結 GitHub 後 Star',exact:true})).toBeEnabled();await expect(disconnected.getByRole('button',{name:'取消 Star',exact:true})).toHaveCount(0);
 });
+
+test('a denied Star shows the permission problem without claiming an outage, retrying writes or changing counters',async({page})=>{
+  let writes=0;
+  await page.route('**/api/v1/me/github',route=>route.fulfill({json:{configured:true,connected:true,github_user:{id:'synthetic-permissions',login:'synthetic-permissions'}}}));
+  await page.route('**/api/v1/github/books/*/metrics',route=>route.fulfill({json:metrics}));
+  await page.route('**/api/v1/me/github/books/*/star',route=>{
+    if(route.request().method()==='POST'){
+      writes++;return route.fulfill({status:403,json:{code:'github_permission_required',detail:'GitHub 暫時無法回應，請稍後再試。'}});
+    }
+    return route.fulfill({json:{book_id:'social-post',connected:true,starred:false}});
+  });
+  await login(page);const card=await book(page);
+  await expect(card.getByRole('button',{name:'Star',exact:true})).toBeEnabled();await card.locator('.github-star-count').click();
+  await expect(card.getByRole('alert')).toHaveText('GitHub 權限不足，請管理員檢查 App 權限與專案存取設定。');
+  await expect(card.getByRole('alert')).not.toContainText(/暫時|稍後|github_permission_required/);
+  await expect(card.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');await expect(card.locator('.github-star-count')).toHaveText('127');
+  expect(writes).toBe(1);await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();
+});

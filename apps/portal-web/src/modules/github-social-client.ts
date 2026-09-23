@@ -6,7 +6,8 @@ export type GitHubConnection={configured:boolean;connected:boolean;github_user:{
 export type GitHubStarState={book_id:string;starred:boolean|null;connected:boolean;confirmed?:boolean};
 type Entry<T>={value?:T;loading:boolean;error:string;received:number};
 const entry=<T>():Entry<T>=>({loading:false,error:'',received:0});
-const message=(cause:unknown)=>cause instanceof Error?cause.message:'目前無法讀取 GitHub，請稍後重試。';
+const permissionDenied=(cause:unknown)=>cause instanceof ApiError&&cause.code==='github_permission_required';
+const message=(cause:unknown)=>permissionDenied(cause)?'GitHub 權限不足，請管理員檢查 App 權限與專案存取設定。':cause instanceof Error?cause.message:'目前無法讀取 GitHub，請稍後重試。';
 const disconnected=(cause:unknown)=>cause instanceof ApiError&&cause.status===409&&(cause.code==='github_reconnect_required'||cause.code==='github_connect_required');
 
 /** A provider owns each member's private state; only public metrics may outlive it. */
@@ -85,7 +86,7 @@ export class GitHubSocialStore {
       if(disconnected(cause)){await this.refreshConnection();return;}
       await this.loadStar(bookId,true);
       if(!current())return;
-      state.error=`Star 操作未確認。${message(cause)}`;
+      state.error=permissionDenied(cause)?message(cause):`Star 操作未確認。${message(cause)}`;
       if(cause instanceof ApiError&&(cause.status===401||cause.status===403))await this.loadAccount(true);
     }finally{state.saving=false;this.emit();}
   }

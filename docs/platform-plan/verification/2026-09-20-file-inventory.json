@@ -1,5 +1,5 @@
 {
-  "version": "0.9.6-compact-workshop",
+  "version": "0.9.7-github-permissions",
   "scope": "source files, including historical evidence; excludes self, secrets, dependencies, build and test artifacts",
   "files": [
     {
@@ -39,8 +39,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 8718,
-      "sha256": "010e2c5ce4649852ed948032441ddc6dba69add58810d36051ebd8ebe4a18e0c"
+      "bytes": 8957,
+      "sha256": "f321d985e0c15d2dd8d30ced315c6c2a6f9fc57820d9baf1147dc5aac47f5745"
     },
     {
       "path": "apps/platform-api/src/app.ts",
@@ -314,8 +314,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AdminGitHubSetup.tsx",
-      "bytes": 3337,
-      "sha256": "f002ac2ea0881e087d595bff84bdc9d60a29be0d6e0b139aafe8eaefbfb642db"
+      "bytes": 3742,
+      "sha256": "bc48909e9f236d5381bad4be10cb218cd39500db854d29587d9dc822c2e0d5a3"
     },
     {
       "path": "apps/portal-web/src/modules/AdminGuildManagement.css",
@@ -549,8 +549,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/github-social-client.ts",
-      "bytes": 6874,
-      "sha256": "2a766909c79054279434f9763137cb0b70f70e3ede867ac404b2cd875792bf4f"
+      "bytes": 7125,
+      "sha256": "7c51977283f80c7ea903204a3abdfaa96b6fb8957a659831a2d1773a2c55927b"
     },
     {
       "path": "apps/portal-web/src/modules/shared.tsx",
@@ -749,8 +749,8 @@
     },
     {
       "path": "docs/development/github-social.md",
-      "bytes": 5240,
-      "sha256": "c6e49ed676357b568f4cf45131ac9a0b79743bac3e4033495376852079959262"
+      "bytes": 6433,
+      "sha256": "447b4f1667781acd31992133b044f7534d6dae84c07e90117bf8f827d818700a"
     },
     {
       "path": "docs/development/guild-collaboration.md",
@@ -2014,8 +2014,8 @@
     },
     {
       "path": "modules/github-social/provider.ts",
-      "bytes": 7273,
-      "sha256": "17e3c37cd76dd68ea76bd090c519a78ed13b26cced1536ade35b444e716c8ac4"
+      "bytes": 7393,
+      "sha256": "506af1c02bb6ddd3a78181a22aaba0068905c403fc4e3600eba603edc6261f54"
     },
     {
       "path": "modules/github-social/service.ts",
@@ -2024,8 +2024,8 @@
     },
     {
       "path": "modules/github-social/setup.ts",
-      "bytes": 12532,
-      "sha256": "6fe47e0cdbc642c55183bbd1628fe68594b949c6d095f90d56f6aee6e39d3f2f"
+      "bytes": 12589,
+      "sha256": "9a3e600e2dd02ba6a5674c4716cbb2aea4fab54dc843e00c9ba091d115a9ba6e"
     },
     {
       "path": "modules/guild-workspace/service.ts",
@@ -2124,13 +2124,13 @@
     },
     {
       "path": "package-lock.json",
-      "bytes": 83849,
-      "sha256": "890cf89cce1faf18cd78fea3b006a728c450ce5026674511c2561f0658bc9a34"
+      "bytes": 83853,
+      "sha256": "a514e8a80cbf31d7b04f1bfab8a398bd3606474eee33faaa6fb28183742481f5"
     },
     {
       "path": "package.json",
-      "bytes": 1628,
-      "sha256": "34a0e4bdd6a14a8a59fc73634c82bc0d24192283ee255f9a9a6f8299c397e8be"
+      "bytes": 1630,
+      "sha256": "72d2d48cd13c6c485b1c2344427380d9450a92b20ede4636e84f580d38d8e694"
     },
     {
       "path": "packages/client-connections/cli.mjs",
@@ -2309,13 +2309,13 @@
     },
     {
       "path": "tests/e2e/github-setup.spec.ts",
-      "bytes": 9873,
-      "sha256": "79dc907c33266ec1d615045eba3bb9dc9b2b492cceb95c697582d56f967ff98f"
+      "bytes": 10295,
+      "sha256": "79fdb98ff5a7cfa2adcc9e850635bdb0a93436075ae5f89f5c514c268dbcfb0a"
     },
     {
       "path": "tests/e2e/github-social.spec.ts",
-      "bytes": 13190,
-      "sha256": "0321fea5f444309ff197440b58218639db416711adc554b5f7bd6520072ea8b4"
+      "bytes": 14658,
+      "sha256": "8622c989e3f449a0888ba03bdba36c29acd96d25135efb6dc10b6bb59fd10a3f"
     },
     {
       "path": "tests/e2e/guild-members.spec.ts",
@@ -2454,23 +2454,23 @@
     },
     {
       "path": "tests/runtime/github-app-setup.test.ts",
-      "bytes": 19256,
-      "sha256": "6927039ad975d374f61e66aac7e63c7470173cf2dbe4ecfa7610285f53ff1f97"
+      "bytes": 19361,
+      "sha256": "a353375e79afd8b997b1e1a0ca15da9e85e5bbbc75bf0c6d731e5ca391367286"
     },
     {
       "path": "tests/runtime/github-social-routes.test.ts",
-      "bytes": 10359,
-      "sha256": "0bcf5d810b93d6b6666a6b8d69e111c0502007765d3bac011ebab7f5b4a626c5"
+      "bytes": 10375,
+      "sha256": "ce2092b5c7812fbf7f58e0111c107919f32c2a6be892371138c0442ed7e57ac1"
     },
     {
       "path": "tests/runtime/github-social-store.test.ts",
-      "bytes": 8682,
-      "sha256": "b25a74b49367aed414ca067c2df85bc3a7732664bacc7ffb0a831357e5cb15f7"
+      "bytes": 8770,
+      "sha256": "aec48da41ab7b405921d1240eb5168c90fa4a7a90f35d6d473322595eba301c9"
     },
     {
       "path": "tests/runtime/github-social.test.ts",
-      "bytes": 20955,
-      "sha256": "f1df7d78f4df907c59490c9f5adbd03b8660b13e7b274125d21a562ac5492310"
+      "bytes": 21917,
+      "sha256": "9b38fead661b753facdabb5b4bce2273dce5f837307703e5cf87ba23169f8c1f"
     },
     {
       "path": "tests/runtime/guild-experts.test.ts",

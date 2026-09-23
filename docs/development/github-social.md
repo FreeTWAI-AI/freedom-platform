@@ -11,8 +11,9 @@ GitHub 數據每小時快取，附核對時間；讀取失敗保留舊快照並�
 1. 操作端在 public／staging 的私有環境各設定 `GITHUB_SOCIAL_TOKEN_KEY`：32 bytes 隨機值的標準 base64。保留金鑰以供資料庫還原；不寫進 repo、瀏覽器或日誌。
 2. 套用 migration018、019，部署這個版本。既有 Access 後台權限不變。
 3. 管理員開 `/admin` →「GitHub 連結」→「建立 GitHub App」。以 FreeTWAI-AI 組織擁有者身分，在 GitHub 按 Create GitHub App；回到工坊完成設定。這是一次性的外部帳號操作。
-4. App 只申請 `starring:write`（以及 GitHub 隱含的 metadata read），不申請 repository content write、Issue、PR、Email、組織或管理權限。Webhook 關閉、沒有事件訂閱；每個環境使用自己的 App 與回呼。
-5. 會員在自己的名片或技能書連結 GitHub，再按 Star。不能用管理員或伺服器的 GitHub CLI token 代替會員授權。
+4. App 明確申請 `starring:write` 與 `metadata:read`，並在建立完成時驗證兩項都存在。公開專案可讀不代表 Star 寫入具備所需權限；不能以隱含讀取取代 manifest 的 Metadata 權限。不申請 repository content write、Issue、PR、Email、組織或管理權限。Webhook 關閉、沒有事件訂閱；每個環境使用自己的 App 與回呼。
+5. Repo 擁有者從後台的「安裝到技能書 Repo」入口安裝 App，只選擇技能書對應的原作 Repo。原作在其他人的帳號時，要由該擁有者授予 Repo 存取；會員連結 GitHub 不等於 App 已安裝到原作。
+6. 會員在自己的名片或技能書連結 GitHub，再按 Star。不能用管理員或伺服器的 GitHub CLI token 代替會員授權。
 
 後台透過 GitHub 的 manifest flow 產生設定；回呼受 Access、管理員 CSRF、管理員綁定的短效 state 保護。Server 交換代碼，驗證擁有者、站點及權限後加密保存 client secret。PEM、webhook secret 不保留。成功 receipt 可安全重讀；提供者失敗不顯示完成。若 GitHub 已消耗代碼而設定未收到，需重新建立 App；不以另一個 App 覆蓋既有連結。
 
@@ -38,6 +39,12 @@ OAuth 採 PKCE 與單次 state，綁定同一工坊 session，回到 `/github/ca
 | `POST /admin/api/github-app/complete` | `{state,code}`；完成設定，憑證不回傳瀏覽器 |
 
 所有會員操作須既有 session、同源與 CSRF，且完成定位。GitHub API 僅使用固定 host／路徑、timeout、回應大小上限與併發限制；公開數據依原作座標共用快取。失敗不推定為未加星或零人氣。
+
+## Star 權限錯誤
+
+`github_permission_required` 代表 GitHub 拒絕這次存取，不能顯示成暫時斷線或保證稍後重試會成功。先檢查 App 的 Starring 寫入、Metadata 讀取及目標專案存取；後台提供權限設定入口。舊版 manifest 只申請 Starring，既有 App 需由擁有者在 GitHub 修改；部署新程式不會自動更動外部 App。若 GitHub 要求更新安裝或會員授權，須完成該流程再驗證。
+
+App 已連結只代表設定已保存。讀取星數、OAuth 回呼及單元測試通過，都不代表對原作者專案的實際 Star 寫入已通過。修正外部權限後，應由本人對選定的技能書操作並核對 GitHub 回應；不改用管理員 token，也不悄悄擴大到 OAuth `public_repo` 或程式碼寫入權限。
 
 ## 驗證
 

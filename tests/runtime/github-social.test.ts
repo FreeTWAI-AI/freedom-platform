@@ -121,6 +121,16 @@ test('provider aborts requests at the deadline and limits simultaneous outbound 
   await Promise.all(requests);assert.equal(maximum,4);
 });
 
+test('GitHub permission denial directs administrators to permissions, while rate limits remain retryable',async()=>{
+  const forbidden:typeof fetch=async()=>Response.json({message:'Resource not accessible by integration',secret:'must-not-leak'},{status:403,headers:{'x-accepted-github-permissions':'starring=write,metadata=read','x-ratelimit-remaining':'100'}});
+  await assert.rejects(()=>new GitHubSocialProvider(forbidden).star(repository,'ghu_synthetic',true),error=>{
+    assert.ok(errorCode('github_permission_required')(error));
+    assert.match(String(error),/存取權限不足.*管理員/);assert.doesNotMatch(String(error),/暫時|稍後|must-not-leak/);return true;
+  });
+  const limited:typeof fetch=async()=>Response.json({message:'synthetic secondary rate limit'},{status:403,headers:{'retry-after':'60'}});
+  await assert.rejects(()=>new GitHubSocialProvider(limited).star(repository,'ghu_synthetic',true),errorCode('github_rate_limited'));
+});
+
 test('OAuth uses PKCE, verifies GitHub identity, stores encrypted tokens and never stars during connection',async()=>{
   const {start,state,complete}=await connect(),url=new URL(start.authorization_url),tokenCall=mock.calls.find(call=>call.url.includes('/access_token'))!,body=new URLSearchParams(tokenCall.body);
   assert.equal(url.origin,'https://github.com');assert.equal(url.pathname,'/login/oauth/authorize');assert.equal(url.searchParams.get('redirect_uri'),config.redirectUri);assert.equal(url.searchParams.has('scope'),false);assert.equal(url.searchParams.get('code_challenge_method'),'S256');assert.equal(url.searchParams.get('code_challenge'),createHash('sha256').update(body.get('code_verifier')!).digest('base64url'));

@@ -13,7 +13,7 @@ const API='https://api.github.com';
 const VERSION='2026-03-10';
 const MAX_BODY=128*1024;
 export class GitHubProviderError extends Problem {
-  constructor(code='github_unavailable',status=502){super(status,code,code==='github_reconnect_required'?'GitHub 連線已失效，請重新連接。':code==='github_rate_limited'?'GitHub 請求過於頻繁，請稍後再試。':'GitHub 暫時無法回應，請稍後再試。');}
+  constructor(code='github_unavailable',status=502){super(status,code,code==='github_reconnect_required'?'GitHub 連線已失效，請重新連接。':code==='github_rate_limited'?'GitHub 請求過於頻繁，請稍後再試。':code==='github_permission_required'?'GitHub 存取權限不足，請管理員檢查 App 權限與專案存取設定。':'GitHub 暫時無法回應，請稍後再試。');}
 }
 
 /** Only fixed GitHub endpoints; bounded concurrency, deadline and response size.

@@ -1,6 +1,6 @@
 {
   "name": "freedom-platform",
-  "version": "0.9.6-compact-workshop",
+  "version": "0.9.7-github-permissions",
   "private": true,
   "type": "module",
   "engines": {

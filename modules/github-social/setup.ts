@@ -93,7 +93,7 @@ export async function startGitHubAppSetup(pool: Pool, admin: AdminActor, origin:
       VALUES($1,$2,$3,$4,now()+interval '10 minutes') RETURNING expires_at`, [hash(state), admin.community_id, admin.admin_id, site])).rows[0];
     const manifest = { name: `freedom-workshop-${randomBytes(6).toString('hex')}`, description: '自由工坊技能書：由會員授權，為原作者的公開作品點星星。',
       url: site, redirect_url: `${site}/admin/github/callback`, callback_urls: [`${site}/github/callback`], public: true,
-      hook_attributes: { url: `${site}/github/events`, active: false }, default_permissions: { starring: 'write' } };
+      hook_attributes: { url: `${site}/github/events`, active: false }, default_permissions: { starring: 'write', metadata: 'read' } };
     return { target: `https://github.com/organizations/${organization}/settings/apps/new?state=${encodeURIComponent(state)}`,
       manifest: JSON.stringify(manifest), expires_at: (saved.expires_at as Date).toISOString() };
   });
@@ -129,7 +129,7 @@ async function convertManifest(code: string, origin: string, fetcher: typeof fet
     const app = appResponse.parse(await boundedJson(response));
     const expectedUrl = `https://github.com/apps/${app.slug}`;
     if (app.owner.login.toLowerCase() !== organization.toLowerCase() || normalizedOrigin(app.external_url) !== origin || app.html_url !== expectedUrl ||
-      app.permissions.starring !== 'write' || Object.entries(app.permissions).some(([permission, value]) => permission !== 'starring' && !(permission === 'metadata' && value === 'read')) || app.events.length) throw Error();
+      app.permissions.starring !== 'write' || app.permissions.metadata !== 'read' || Object.entries(app.permissions).some(([permission, value]) => permission !== 'starring' && !(permission === 'metadata' && value === 'read')) || app.events.length) throw Error();
     return app;
   } catch { throw new Problem(502, 'github_setup_provider_failed', 'GitHub App 尚未完成連線設定，請重試。若 GitHub 代碼已失效，請重新建立 App。'); }
 }

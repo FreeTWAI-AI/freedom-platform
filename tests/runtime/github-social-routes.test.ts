@@ -102,7 +102,7 @@ test('admin setup is separately authorized and limits the external form destinat
  const adminRequest=(path:string,body?:unknown,csrf='admin-csrf')=>app.request(origin+'/admin/api'+path,{method:body===undefined?'GET':'POST',headers:{Origin:origin,'Content-Type':'application/json','X-Synthetic-Admin':'valid','X-Admin-CSRF':csrf},...(body!==undefined?{body:JSON.stringify(body)}:{})});
  assert.equal((await adminRequest('/github-app/start',{},'wrong')).status,403);
  const start=await adminRequest('/github-app/start',{});assert.equal(start.status,200);const setup=await start.json() as any,manifest=JSON.parse(setup.manifest);
- assert.equal(new URL(setup.target).pathname,'/organizations/FreeTWAI-AI/settings/apps/new');assert.deepEqual(manifest.default_permissions,{starring:'write'});assert.deepEqual(manifest.callback_urls,[origin+'/github/callback']);
+ assert.equal(new URL(setup.target).pathname,'/organizations/FreeTWAI-AI/settings/apps/new');assert.deepEqual(manifest.default_permissions,{starring:'write',metadata:'read'});assert.deepEqual(manifest.callback_urls,[origin+'/github/callback']);
  assert.equal(manifest.hook_attributes.active,false);assert.ok(!JSON.stringify(setup).includes('client_secret'));
  assert.deepEqual(await (await adminRequest('/github-app')).json(),{configured:false,setup_available:true});
  for(const path of ['/admin','/admin/github/callback'])assert.match((await app.request(origin+path)).headers.get('content-security-policy')!,/form-action 'self' https:\/\/github\.com\/organizations\/FreeTWAI-AI\/settings\/apps\/new/);

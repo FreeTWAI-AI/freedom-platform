@@ -56,7 +56,7 @@ async function complete(state: string, remote = provider(), admin = actor) {
   return completeGitHubAppSetup(pool, admin, { code, state }, tokenKey, { fetcher: remote.fetcher });
 }
 
-test('manifest requests only public starring, fixed callbacks and a disabled webhook; database stores a hashed ten-minute state', async () => {
+test('manifest requests starring write and metadata read, fixed callbacks and a disabled webhook; database stores a hashed ten-minute state', async () => {
   assert.deepEqual(await githubAppSetupStatus(pool, actor), { configured: false });
   assert.equal(await readSocialConfig(pool, tokenKey), null);
   const before = Date.now(), result = await start(), manifest = JSON.parse(result.manifest), target = new URL(result.target);
@@ -65,7 +65,7 @@ test('manifest requests only public starring, fixed callbacks and a disabled web
   assert.match(manifest.description, /自由工坊技能書/);
   assert.deepEqual({ ...manifest, name: undefined, description: undefined }, { name: undefined, description: undefined, url: origin,
     redirect_url: `${origin}/admin/github/callback`, callback_urls: [`${origin}/github/callback`], public: true,
-    default_permissions: { starring: 'write' }, hook_attributes: { url: `${origin}/github/events`, active: false } });
+    default_permissions: { starring: 'write', metadata: 'read' }, hook_attributes: { url: `${origin}/github/events`, active: false } });
   const [saved] = await setupRows();
   assert.equal(saved.state_hash, hash(result.state)); assert.equal(saved.admin_id, actor.admin_id); assert.equal(saved.community_id, actor.community_id);
   assert.equal(saved.origin, origin); assert.equal(saved.consumed_at, null); assert.equal(saved.code_hash, null);
@@ -192,6 +192,7 @@ const providerFailures: { name: string; response: () => Promise<Response> }[] = 
     'unsafe app URL': { html_url: 'https://github.com.evil.invalid/apps/freedom-workshop-fixture' },
     'wrong app slug URL': { html_url: 'https://github.com/apps/unrelated-app' },
     'insufficient starring permission': { permissions: { starring: 'read' } },
+    'missing metadata permission': { permissions: { starring: 'write' } },
     'additional write permission': { permissions: { starring: 'write', contents: 'write' } },
     'metadata write permission': { permissions: { starring: 'write', metadata: 'write' } },
     'subscribed events': { events: ['push'] },
