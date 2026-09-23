@@ -4,8 +4,8 @@
   "files": [
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 1766,
-      "sha256": "042ff33da9b662dff667e10e0cf0bed2c1252ffa02d6f24569e3be9cd51d6505"
+      "bytes": 1870,
+      "sha256": "15e7a8bb28ee64a2a48e423c910ab8f06d015abad57bfdbd9f441849d5e95d05"
     },
     {
       "path": ".gitignore",
