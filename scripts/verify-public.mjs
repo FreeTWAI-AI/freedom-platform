@@ -349,9 +349,22 @@ try {
   await expect(page.locator('.primary-guild')).toHaveCount(1);
   await expect(page.locator('.primary-guild .guild-master .guild-leadership-role')).toHaveText('公會長');
   await expect(page.locator('.guild-card').first()).toHaveClass(/primary-guild/);
-  await expect(page.locator('.guild-card').first()).toContainText('公會技能庫');
+  await expect(page.locator('.guild-card').first().locator('.guild-book-list')).toContainText('入門技能');
+  await expect(page.locator('.guild-card').first().locator('.guild-book-list .skill-intro-trigger')).toHaveCount(1);
+  const preferenceResponse=await page.request.get(origin+'/api/v1/me/guild-preferences');expect(preferenceResponse.status()).toBe(200);
+  const preferences=await preferenceResponse.json();
+  expect(preferences.primary_guild_key).toBe(onboarding.primary_guild_key);expect(preferences.secondary_guild_keys.length).toBeLessThanOrEqual(2);
+  const featuredGuilds=page.getByRole('region',{name:'主要與次要公會',exact:true});
+  await expect(featuredGuilds.locator('.guild-card')).toHaveCount(1+preferences.secondary_guild_keys.length);
+  expect(await featuredGuilds.locator('.guild-card').evaluateAll(cards=>cards.map(card=>card.getAttribute('data-guild-key')))).toEqual([preferences.primary_guild_key,...preferences.secondary_guild_keys]);
+  await expect(page.getByRole('region',{name:'其他已加入公會',exact:true})).toBeVisible();
+  await expect(page.getByRole('region',{name:'未加入公會',exact:true})).toBeVisible();
   for(const width of [1440,390,320]){
     await page.setViewportSize({width,height:960});
+    await expect.poll(async()=>page.locator('.guild-card').evaluateAll(cards=>{
+      const heights=cards.map(card=>card.getBoundingClientRect().height);return Math.max(...heights)-Math.min(...heights);
+    })).toBeLessThanOrEqual(2);
+    expect(await page.locator('.guild-card').evaluateAll(cards=>cards.every(card=>card.scrollHeight<=card.clientHeight+1&&card.scrollWidth<=card.clientWidth+1))).toBe(true);
     const teams=page.locator('.guild-card .guild-leadership');
     await expect(teams).toHaveCount(await page.locator('.guild-card').count());
     for(const team of await teams.all()){
@@ -388,9 +401,9 @@ try {
   await expect(guildMembers.locator('.directory-member')).toHaveAttribute('data-member-id',record.user_id);
   await expect(guildMembers).toContainText('顯示 1 / 1 位成員');
   await noOverflow('Guild members mobile overflow');
-  await page.locator('.guild-card').first().getByRole('button',{name:'收起成員',exact:true}).click();
+  await page.locator('.guild-card').first().getByRole('button',{name:'關閉公會視窗',exact:true}).click();
   await expect(guildMembers).toHaveCount(0);
-  console.log('Guild member list opens in-place, filters only that guild and closes cleanly: PASS');
+  console.log('Guild member dialog filters only that guild and closes cleanly; three groups and equal-height cards: PASS');
   await page.locator('.guild-card').first().locator('.skill-intro-trigger').first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('dialog').getByRole('link',{name:'原作者 GitHub ↗',exact:true})).toHaveAttribute('href',/^https:\/\/github\.com\//);
@@ -470,10 +483,35 @@ try {
   await screenshot('public-co-creation-desktop.png');
   console.log('18 Guilds and real GitHub co-creation Issues through deployed Platform: PASS');
 
-  stage='compact shared skill library';
+  stage='unlocked and locked skill shelves';
+  const publicCatalogResponse=await page.request.get(origin+'/api/v1/community');expect(publicCatalogResponse.status()).toBe(200);
+  const fullBookIds=(await publicCatalogResponse.json()).skill_books.map(book=>book.id).sort();
+  const grantResponse=await page.request.get(origin+'/api/v1/me/skill-books');expect(grantResponse.status()).toBe(200);
+  const granted=(await grantResponse.json()).items.map(book=>book.book_id);
+  const unlockedIds=fullBookIds.filter(id=>granted.includes(id)),lockedIds=fullBookIds.filter(id=>!granted.includes(id));
   await navigate(page, '技能書架');
-  const library=page.locator('.community-library');
-  await expect(library.locator('.skill-library-book')).toHaveCount(25);
+  const library=page.locator('.community-library'),shelfTabs=page.getByRole('group',{name:'技能書範圍'});
+  const unlockedTab=shelfTabs.getByRole('button',{name:/^已解鎖(?: · \d+)?$/}),lockedTab=shelfTabs.getByRole('button',{name:'未解鎖',exact:true});
+  await expect(unlockedTab).toHaveAttribute('aria-pressed','true');
+  await expect(library.locator('article[data-book-id]')).toHaveCount(unlockedIds.length);
+  expect(await library.locator('article[data-book-id]').evaluateAll(cards=>cards.map(card=>card.getAttribute('data-book-id')).sort())).toEqual(unlockedIds);
+  await expect(library.locator('article[data-access="unlocked"]')).toHaveCount(unlockedIds.length);
+  await lockedTab.click();await expect(lockedTab).toHaveAttribute('aria-pressed','true');
+  await expect(library.locator('article[data-book-id]')).toHaveCount(lockedIds.length);
+  expect(await library.locator('article[data-book-id]').evaluateAll(cards=>cards.map(card=>card.getAttribute('data-book-id')).sort())).toEqual(lockedIds);
+  await expect(library.locator('article[data-access="locked"]')).toHaveCount(lockedIds.length);
+  expect([...unlockedIds,...lockedIds].sort()).toEqual(fullBookIds);
+  // Previewing a public guide does not join a guild or write a skill grant.
+  if(lockedIds.length){
+    await library.locator('.skill-library-book').first().getByRole('button',{name:'預覽技能書',exact:true}).click();
+    const preview=page.getByRole('dialog');await expect(preview).toBeVisible();
+    await expect(preview.getByRole('link',{name:'閱讀技能書 ↗',exact:true})).toBeVisible();
+    await preview.getByRole('button',{name:'關閉技能書介紹',exact:true}).click();
+    expect((await (await page.request.get(origin+'/api/v1/me/skill-books')).json()).items.map(book=>book.book_id)).toEqual(granted);
+  }
+  // New member onboarding has granted at least its primary guild's first book.
+  expect(unlockedIds.length).toBeGreaterThan(0);await unlockedTab.click();
+  await expect(library.locator('.skill-library-book')).toHaveCount(unlockedIds.length);
   for(const width of [1440,390,320]){
     await page.setViewportSize({width,height:960});
     const firstBook=library.locator('.skill-library-book').first();
@@ -488,17 +526,10 @@ try {
     await expect(firstBook.locator('.github-star-control')).toBeVisible();
     await expect(firstBook.locator('.github-star-icon')).toHaveText('☆');
     await expect(firstBook.locator('.github-fork-count')).toBeVisible();
-    await noOverflow('Compact skill library overflow');
+    await noOverflow('Compact unlocked skill shelf overflow');
     await screenshot(`public-compact-skill-library-${width}.png`);
   }
-  const fullBookIds=await library.locator('article[data-book-id]').evaluateAll(cards=>cards.map(card=>card.getAttribute('data-book-id')));
-  const granted=(await (await page.request.get(origin+'/api/v1/me/skill-books')).json()).items.map(book=>book.book_id);
-  await page.getByRole('group',{name:'技能書範圍'}).getByRole('button',{name:/^我的技能書(?: · \d+)?$/}).click();
-  const personalIds=fullBookIds.filter(id=>granted.includes(id)).sort();
-  await expect(library.locator('article[data-book-id]')).toHaveCount(personalIds.length);
-  expect(await library.locator('article[data-book-id]').evaluateAll(cards=>cards.map(card=>card.getAttribute('data-book-id')).sort())).toEqual(personalIds);
-  await page.getByRole('button',{name:'全部技能書',exact:true}).click();await expect(library.locator('.skill-library-book')).toHaveCount(25);
-  console.log('One shared shelf, authoritative personal book IDs and compact desktop/mobile rows: PASS');
+  console.log('Default unlocked shelf and free locked previews form a complete, disjoint catalog; responsive rows: PASS');
   const githubConnection=await (await page.request.get(origin+'/api/v1/me/github')).json();
   if(githubConnection.configured){
     expect(githubConnection.connected).toBe(false);

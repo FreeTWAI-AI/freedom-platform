@@ -1,6 +1,10 @@
 import { navigate } from './navigation.js';
 import {test,expect,type Page} from './fixtures.js';
 
+test.beforeEach(async({page})=>{
+  await page.route('**/api/v1/me/skill-books',route=>route.fulfill({json:{items:[]}}));
+});
+
 const original='https://github.com/Hao0321/claude-skill-social-post';
 const metrics={book_id:'social-post',repository_url:original,stargazers_count:127,forks_count:18,open_issues_count:4,subscribers_count:6,pushed_at:'2026-09-20T10:00:00Z',language:'TypeScript',archived:false,checked_at:'2026-09-23T10:00:00Z',stale:false,error:null};
 async function login(page:Page,email='maker@local.test'){
@@ -8,6 +12,7 @@ async function login(page:Page,email='maker@local.test'){
 }
 async function book(page:Page){
   await navigate(page, '技能書架');
+  await page.getByRole('button',{name:'未解鎖',exact:true}).click();
   const library=page.locator('.community-library');await library.getByLabel('搜尋技能書',{exact:true}).fill('社群貼文');
   const card=library.locator('article[data-book-id="social-post"]');await card.scrollIntoViewIfNeeded();return card;
 }
@@ -34,7 +39,7 @@ test('visible book widgets share actual metrics and confirmed Star state across 
   await expect(widget.getByRole('link',{name:'Fork 專案 ↗',exact:true})).toHaveAttribute('href',`${original}/fork`);
   await widget.locator('.github-metrics-details > summary').click();
   expect(accounts).toBe(1);expect(reads.get('social-post')).toBe(1);expect(reads.size).toBeLessThan(22);
-  const opener=card.getByRole('button',{name:'閱讀技能書',exact:true});await opener.click();
+  const opener=card.getByRole('button',{name:'預覽技能書',exact:true});await opener.click();
   const modal=page.getByRole('dialog',{name:'Hao 社群貼文技能書',exact:true});
   await expect(modal.getByRole('button',{name:'Star',exact:true})).toBeEnabled();expect(starReads).toBe(1);expect(reads.get('social-post')).toBe(1);
   await modal.locator('.github-star-count').click();await expect(modal.getByRole('button',{name:'取消 Star',exact:true})).toHaveAttribute('aria-pressed','true');await expect(modal.locator('.github-star-icon')).toHaveText('★');
@@ -51,7 +56,7 @@ test('a delayed dialog close event does not steal focus from the next keyboard a
   await page.route('**/api/v1/github/books/*/metrics',route=>route.fulfill({json:metrics}));
   await page.route('**/api/v1/me/github/books/*/star',route=>route.fulfill({json:{book_id:'social-post',starred:false,connected:true}}));
   await login(page);const card=await book(page);await expect(card.getByRole('button',{name:'Star',exact:true})).toBeEnabled();
-  await card.getByRole('button',{name:'閱讀技能書',exact:true}).click();await expect(page.getByRole('dialog')).toBeVisible();
+  await card.getByRole('button',{name:'預覽技能書',exact:true}).click();await expect(page.getByRole('dialog')).toBeVisible();
   // Native close queues an event. A member may already have moved focus by the
   // time it is delivered; that late event must not restore the opener again.
   const retained=await page.evaluate(async()=>{

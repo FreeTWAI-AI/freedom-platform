@@ -89,7 +89,7 @@ try {
 
   const modules = [
     ['我的定位', '我的定位', 'positioning', ['/me/onboarding', '/assessment-definition']],
-    ['職業公會', '職業公會', 'guilds', ['/guilds/directory']],
+    ['職業公會', '職業公會', 'guilds', ['/guilds/directory', '/me/guild-preferences']],
     ['技能書架', '技能書架', 'skills', ['/community', '/me/skill-books']],
     ['供貨中心', '供貨中心', 'supplier', ['/supplier/products', '/supplier/requests']],
     ['開店與銷售', '開店與銷售', 'retail', ['/retail/catalog', '/retail/stores', '/retail/listings']],
@@ -113,9 +113,36 @@ try {
       await expect(page.getByRole('article', { name: /^開源作品：/ })).toHaveCount(data[0].body.items.length);
       await expect(page.locator('.community-library')).toHaveCount(0);
     }
-    if(file==='skills')await expect(page.locator('.community-library article[data-book-id]')).toHaveCount(data[0].body.skill_books.length);
+    if(file==='skills'){
+      const catalog=data.find(item=>item.path==='/community').body.skill_books.map(book=>book.id).sort();
+      const grants=data.find(item=>item.path==='/me/skill-books').body.items.map(book=>book.book_id);
+      const unlocked=catalog.filter(id=>grants.includes(id)),locked=catalog.filter(id=>!grants.includes(id));
+      const cards=page.locator('.community-library article[data-book-id]'),tabs=page.getByRole('group',{name:'技能書範圍'});
+      const unlockedTab=tabs.getByRole('button',{name:/^已解鎖(?: · \d+)?$/});
+      await expect(unlockedTab).toHaveAttribute('aria-pressed','true');await expect(cards).toHaveCount(unlocked.length);
+      expect(await cards.evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-book-id')).sort())).toEqual(unlocked);
+      await tabs.getByRole('button',{name:'未解鎖',exact:true}).click();await expect(cards).toHaveCount(locked.length);
+      expect(await cards.evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-book-id')).sort())).toEqual(locked);
+      await expect(cards.getByRole('button',{name:'預覽技能書',exact:true})).toHaveCount(locked.length);
+      expect([...unlocked,...locked].sort()).toEqual(catalog);
+      await unlockedTab.click();await expect(cards).toHaveCount(unlocked.length);
+    }
     if (file === 'marketing') await expect(page.getByRole('article', { name: /^行銷活動：/ })).toHaveCount(data[0].body.items.length);
     if (file === 'guilds') {
+      const guilds=data.find(item=>item.path==='/guilds/directory').body.items;
+      const preferences=data.find(item=>item.path==='/me/guild-preferences').body;
+      const featured=[preferences.primary_guild_key,...preferences.secondary_guild_keys].filter(Boolean);
+      expect(featured.length).toBeLessThanOrEqual(3);
+      const joined=guilds.filter(guild=>guild.membership?.state==='active'&&!featured.includes(guild.guild_key));
+      const unjoined=guilds.filter(guild=>guild.membership?.state!=='active');
+      for(const [name,ids]of [['主要與次要公會',featured],['其他已加入公會',joined.map(guild=>guild.guild_key)],['未加入公會',unjoined.map(guild=>guild.guild_key)]]){
+        const cards=page.getByRole('region',{name,exact:true}).locator('.guild-card');await expect(cards).toHaveCount(ids.length);
+        expect(await cards.evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-guild-key')))).toEqual(ids);
+      }
+      await expect(page.locator('.guild-book-list > strong').first()).toHaveText('入門技能');
+      await expect.poll(async()=>page.locator('.guild-card').evaluateAll(cards=>{
+        const heights=cards.map(card=>card.getBoundingClientRect().height);return Math.max(...heights)-Math.min(...heights);
+      })).toBeLessThanOrEqual(2);
       await expect(page.locator('.guild-master .guild-leadership-role').first()).toHaveText('公會長');
       await expect(page.locator('.guild-master .guild-leadership-avatar').first()).toBeVisible();
     }

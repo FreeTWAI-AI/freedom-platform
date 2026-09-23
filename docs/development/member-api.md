@@ -24,7 +24,7 @@ uses persisted rate limits instead. IDs are UUIDs.
   authoritative email value for display. This API cannot change the login email.
   Returns current account, never another member's private settings.
 - `GET /members?limit=20&offset=0`: `{items,next_offset}`. Limit 1–50. Each card:
-  `{user_id,nickname,positioning_title,primary_guild,secondary_guilds,capabilities,
+  `{user_id,nickname,positioning_title,primary_guild,secondary_guilds,joined_guilds,capabilities,
   equipment,contacts,is_self,friendship}`. Only visible nonempty contact values
   are present in `contacts` (a string map), not concealed values or settings.
 - `GET /members/:id`: same card; inactive, incomplete and other-community users
@@ -101,3 +101,38 @@ same community. Responses are private/no-store; removed/old revisions are404;
 anonymous callers are401. Migration016 stores normalized bytes in PostgreSQL,
 so existing database backups include avatars. No external image URL fetching,
 SVG, animated upload or anonymous avatar endpoint is enabled.
+
+## Primary, secondary and other joined guilds
+
+These preferences order a member's display; they never grant membership, offices,
+private contact access, repository permission or additional skill books.
+
+- `GET /me/guild-preferences` returns `{primary_guild_key,
+  secondary_guild_keys,aggregate_version}`. `secondary_guild_keys` is an ordered
+  array of at most two currently active memberships, excluding the primary.
+- `POST /me/guild-preferences/secondary` accepts exactly
+  `{secondary_guild_keys:string[]}` with session, CSRF, `Idempotency-Key` and the
+  current preferences `If-Match`. An empty array explicitly clears the choices.
+  Duplicates, more than two or including the primary return 422; a non-active
+  or unknown guild returns 409. Missing/stale versions return 428/412. The
+  response and ETag contain the new preferences version. All membership and
+  preference changes share the per-member guild transaction lock.
+- `GET /guilds/directory` adds `is_secondary:boolean` and
+  `secondary_position:1|2|null`. Member cards add `joined_guilds` for remaining
+  active memberships; `secondary_guilds` contains at most two in chosen order.
+  Each guild entry retains `guild_key`, `name`, and `joined_at`.
+- Migration `027_secondary_guild_preferences.sql` saves existing choices as the
+  first two active non-primary guild keys in ascending key order (or `[]`).
+  Setting a primary for the first time also saves the initial choices. Later
+  joins, including administrator appointments, never displace these selections.
+  NULL remains supported for legacy imports: reads project the same default
+  without writing anything. Explicit `[]` never falls back to this rule.
+- Changing the primary removes the new primary from the secondary choices. If
+  a slot is available, the previous active primary goes last; explicitly empty
+  choices stay empty. Changing to the same primary preserves the choices.
+  Re-exploration uses this same rule and preserves explicit secondary order.
+- Leaving a guild removes it from the chosen secondaries in the same transaction
+  and advances the preferences version when needed. A legacy NULL preference is
+  frozen to its effective choices at that point. Rejoining therefore does not
+  silently restore a secondary slot. Other joined guilds remain available for
+  selection and keep their existing skill grants.

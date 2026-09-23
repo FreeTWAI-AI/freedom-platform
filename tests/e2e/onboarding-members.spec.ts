@@ -82,7 +82,7 @@ test('new member completes required positioning, chooses primary guild and gets 
   await expect(page.locator('.guild-card').nth(1).getByRole('heading')).toHaveText(secondaryName);
   await expect(page.locator('.guild-card').first()).toHaveClass(/primary-guild/);
   const firstLibrary=page.locator('.guild-card').first().locator('.guild-book-list');
-  await expect(firstLibrary).toContainText('公會技能庫');
+  await expect(firstLibrary).toContainText('入門技能');
   const bookButton=firstLibrary.getByRole('button').first(),bookTitle=await bookButton.innerText();
   await bookButton.click();const intro=page.getByRole('dialog');await expect(intro).toBeVisible();
   await expect(intro.getByRole('heading',{name:bookTitle,exact:true})).toBeVisible();
@@ -219,7 +219,7 @@ test('completed positioning shows only the published result and never creates a 
 });
 
 function publicPosition(member:any){
-  return {positioning_title:member.positioning_title,primary_guild:member.primary_guild,secondary_guilds:member.secondary_guilds,
+  return {positioning_title:member.positioning_title,primary_guild:member.primary_guild,secondary_guilds:member.secondary_guilds,joined_guilds:member.joined_guilds,
     capabilities:member.capabilities,custom_capabilities:member.custom_capabilities,featured_capabilities:member.featured_capabilities,
     equipment:member.equipment,custom_equipment:member.custom_equipment};
 }
@@ -245,6 +245,9 @@ test('re-exploration preserves the confirmed profile until completion and keeps 
   expect(joined.ok()).toBe(true);
   const before=await (await page.request.get(memberPath)).json();
   const beforeBooks=(await (await page.request.get('/api/v1/me/skill-books')).json()).items;
+  const beforePreferences=await (await page.request.get('/api/v1/me/guild-preferences')).json();
+  expect(beforePreferences.secondary_guild_keys).toEqual([]);
+  expect(before.joined_guilds.map((guild:any)=>guild.guild_key)).toContain(secondary.guild_key);
   expect(before.primary_guild).not.toBeNull();
   expect(before.featured_capabilities).toEqual(['custom:原本的教學整理']);
   // Existing saved preferences remain server data; the removed form must never rewrite them.
@@ -298,7 +301,7 @@ test('re-exploration preserves the confirmed profile until completion and keeps 
   await page.getByRole('button',{name:'看看適合我的公會',exact:true}).click();
   await expect(page.locator('.recommendation-card').first()).toBeVisible();
   const evaluated=await (await page.request.get('/api/v1/me/onboarding')).json();
-  const previousGuilds=[before.primary_guild,...before.secondary_guilds];
+  const previousGuilds=[before.primary_guild,...before.secondary_guilds,...before.joined_guilds];
   await page.locator('.other-guild-choices > summary').click();
   for(const guild of previousGuilds){
     const recommended=evaluated.result.recommendations.some((candidate:any)=>candidate.guild_key===guild.guild_key);
@@ -325,7 +328,14 @@ test('re-exploration preserves the confirmed profile until completion and keeps 
   const after=await (await page.request.get(memberPath)).json();
   expect(after.positioning_title).toBe(chosen.title);
   expect(after.primary_guild.guild_key).toBe(chosen.guild_key);
-  expect(after.secondary_guilds.map((guild:any)=>guild.guild_key)).toEqual(expect.arrayContaining(previousGuilds.map(guild=>guild.guild_key)));
+  const afterPreferences=await (await page.request.get('/api/v1/me/guild-preferences')).json();
+  expect(after.secondary_guilds.length).toBeLessThanOrEqual(2);
+  expect(after.secondary_guilds.map((guild:any)=>guild.guild_key)).toEqual(afterPreferences.secondary_guild_keys);
+  // Re-exploration preserves an explicit empty secondary selection; changing
+  // primary guild does not silently promote prior memberships into that list.
+  expect(afterPreferences.secondary_guild_keys).toEqual(beforePreferences.secondary_guild_keys);
+  expect(after.joined_guilds.map((guild:any)=>guild.guild_key)).toContain(before.primary_guild.guild_key);
+  expect([...after.secondary_guilds,...after.joined_guilds].map((guild:any)=>guild.guild_key).sort()).toEqual(previousGuilds.map(guild=>guild.guild_key).sort());
   expect(after.custom_capabilities).toEqual(['新的研究整理']);
   expect(after.featured_capabilities).toEqual(['custom:新的研究整理']);
   expect(after.custom_equipment).toEqual(['新的錄音設備']);

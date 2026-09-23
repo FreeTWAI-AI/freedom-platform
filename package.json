@@ -1,6 +1,6 @@
 {
   "name": "freedom-platform",
-  "version": "0.10.0-workspace",
+  "version": "0.11.0-guild-library",
   "private": true,
   "type": "module",
   "engines": {

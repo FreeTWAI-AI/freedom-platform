@@ -3,6 +3,8 @@ import {test,expect,type Page,type Locator} from './fixtures.js';
 import type {SkillBook} from '../../modules/community/catalog';
 
 test.beforeEach(async({page})=>{
+  // Preview every catalog book without pretending the fixture member has guild grants.
+  await page.route('**/api/v1/me/skill-books',route=>route.fulfill({json:{items:[]}}));
   await page.route('**/api/v1/me/github',route=>route.fulfill({json:{configured:false,connected:false,github_user:null}}));
   await page.route('**/api/v1/github/books/*/metrics',route=>route.fulfill({json:{book_id:route.request().url().split('/').at(-2),repository_url:null,stargazers_count:null,forks_count:null,open_issues_count:null,subscribers_count:null,pushed_at:null,language:null,archived:null,checked_at:null,stale:false,error:'fixture_unavailable'}}));
 });
@@ -15,7 +17,7 @@ async function openLibrary(page:Page){
   await navigate(page, '技能書架');
   const library=page.locator('.community-library');
   await expect(page.getByRole('heading',{name:'技能書架',level:1,exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'全部技能書',exact:true}).click();
+  await page.getByRole('button',{name:'未解鎖',exact:true}).click();
   await expect(library.locator('.skill-library-book')).toHaveCount(25);
   return library;
 }
@@ -101,7 +103,7 @@ test('book cards credit the original GitHub author and offer direct reading acti
   await expect(star).toHaveAttribute('rel',/\bnoreferrer\b/);
   await card.locator('.github-metrics-details > summary').click();
   expect(book.repository_url).toBe('https://github.com/FreeTWAI-AI/claude-skill-social-post');
-  const trigger=card.getByRole('button',{name:'閱讀技能書',exact:true});
+  const trigger=card.getByRole('button',{name:/^(閱讀|預覽)技能書$/});
   await trigger.click();
   const modal=page.getByRole('dialog',{name:book.title,exact:true});
   await expect(modal).toBeVisible();
@@ -196,14 +198,14 @@ test('every bookshelf uses compact illustrated rows with full copy, live counts 
     expect(sizes.cover.right).toBeLessThan(sizes.heading.left);expect(Math.abs(sizes.cover.top-sizes.heading.top)).toBeLessThan(35);
     expect(sizes.purposeScroll).toBeLessThanOrEqual(sizes.purposeHeight+1);expect(sizes.titleScroll).toBeLessThanOrEqual(sizes.titleHeight+1);expect(sizes.font).toBeGreaterThanOrEqual(14);
     expect(sizes.overflow).toBe(false);expect(sizes.cardHeight).toBeLessThan(300);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-    for(const label of ['閱讀技能書','分享技能'])expect((await card.getByRole('button',{name:label,exact:true}).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    for(const control of [card.getByRole('button',{name:/^(閱讀|預覽)技能書$/}),card.getByRole('button',{name:'分享技能',exact:true})])expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
   const card=library.locator('article[data-book-id="social-post"]');
   for(const width of [320,390,1440]){await check(card,width);await card.screenshot({path:`test-results/skill-shelf-compact-${width}.png`});}
   const more=card.locator('.github-metrics-details');await expect(more).not.toHaveAttribute('open');await expect(more.locator('dd').first()).not.toBeVisible();await more.locator('summary').click();await expect(more.locator('dd')).toHaveText(['4','6','2026/9/20']);await expect(more.getByText('數據更新',{exact:false})).toBeVisible();await more.locator('summary').click();
-  await page.setViewportSize({width:320,height:900});await card.getByRole('button',{name:'閱讀技能書',exact:true}).click();const modal=page.getByRole('dialog',{name:book.title,exact:true});expect((await modal.locator('.skill-intro-art').boundingBox())!.height).toBeLessThanOrEqual(48);await expect(modal.locator('.skill-intro-purpose')).toHaveText(book.guide!.beginner.purpose);expect(await modal.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);await page.screenshot({path:'test-results/skill-dialog-compact-phone.png'});await page.keyboard.press('Escape');
+  await page.setViewportSize({width:320,height:900});await card.getByRole('button',{name:/^(閱讀|預覽)技能書$/}).click();const modal=page.getByRole('dialog',{name:book.title,exact:true});expect((await modal.locator('.skill-intro-art').boundingBox())!.height).toBeLessThanOrEqual(48);await expect(modal.locator('.skill-intro-purpose')).toHaveText(book.guide!.beginner.purpose);expect(await modal.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);await page.screenshot({path:'test-results/skill-dialog-compact-phone.png'});await page.keyboard.press('Escape');
   await navigate(page, '會員首頁');await navigate(page, '技能書架');
-  await page.getByRole('button',{name:/^我的技能書(?: · \d+)?$/}).click();await check(page.locator('.community-library article[data-book-id="social-post"]'),320);
+  await page.getByRole('button',{name:/^已解鎖(?: · \d+)?$/}).click();await check(page.locator('.community-library article[data-book-id="social-post"]'),320);
   await navigate(page, '職業公會');await expect(page.locator('.guild-bookshelf')).toHaveCount(0);
   await page.getByRole('button',{name:'我的名片',exact:true}).click();await expect(page.locator('.member-bookshelf')).toHaveCount(0);
 });

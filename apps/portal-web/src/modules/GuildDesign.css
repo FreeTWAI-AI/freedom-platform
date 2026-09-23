@@ -262,3 +262,52 @@
   .guild-scope { width: 100%; }
   .guild-scope .btn { flex: 1; }
 }
+
+/* One primary and two secondary guilds; other memberships stay distinct. */
+.guild-groups { display: grid; gap: 28px; min-width: 0; }
+.guild-group { min-width: 0; }
+.guild-group-heading { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+.guild-group-heading h2 { margin: 0; font-size: 1.125rem; }
+.guild-secondary-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.guild-secondary-toolbar > span { font-size: .875rem; }
+.guild-secondary-editor { gap: 12px; padding: 16px; }
+.guild-secondary-editor fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.guild-secondary-editor legend { margin-bottom: 12px; }
+.guild-secondary-choices { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.guild-secondary-choices .checkbox-row { min-height: 44px; padding: 8px; gap: 8px; flex-wrap: wrap; background: #202329; border-radius: 8px; }
+.guild-secondary-choices input { flex: none; }
+.guild-secondary-choices .muted { font-size: .875rem; margin-left: auto; }
+.guilds-panel .guild-directory { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.guilds-panel .guild-card { box-sizing: border-box; display: flex; flex-direction: column; height: var(--guild-card-height,auto); gap: 16px; }
+.guild-card-content,.guild-card-controls { display: grid; gap: 10px; min-width: 0; flex-shrink: 0; }
+.guild-card-controls { margin-top: auto; }
+.guilds-panel .guild-card-topline { align-items: flex-start; }
+.guilds-panel .guild-card h3 { font-size: 1.125rem; line-height: 1.5; overflow-wrap: anywhere; }
+.guilds-panel .guild-card .guild-leadership-row { min-height: 64px; padding: 8px 10px; gap: 10px; }
+.guilds-panel .guild-card .guild-leadership { margin: 0; }
+.guilds-panel .guild-card .guild-leadership .member-avatar { width: 44px; height: 44px; }
+.guild-card-links { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.guilds-panel .guild-card-controls .actions { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 0; padding: 0; }
+.guilds-panel .guild-card-controls .btn { min-width: 0; min-height: 44px; padding: 8px 10px; font-size: .875rem; overflow-wrap: anywhere; }
+.guilds-panel .guild-card .guild-purpose { font-size: .875rem; }
+.guilds-panel .guild-card .guild-book-list { display: grid; padding-top: 10px; }
+.guild-detail-dialog { box-sizing: border-box; width: min(800px,calc(100% - 24px)); max-height: calc(100dvh - 32px); padding: 20px; border: 1px solid #4b5363; border-radius: 16px; background: #14161b; color: #f4f6ef; overflow: auto; }
+.guild-detail-dialog::backdrop { background: #000b; }
+.guild-detail-heading { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+.guild-detail-heading h2 { margin: 0; font-size: 1.2rem; overflow-wrap: anywhere; }
+.guild-detail-heading .btn { flex: none; min-height: 44px; }
+.guild-library-books { display: grid; gap: 12px; }
+.guild-library-entry { display: grid; gap: 8px; padding: 12px; border: 1px solid #333943; border-radius: 10px; }
+.guild-library-entry p { font-size: .875rem; }
+.guild-library-entry .skill-intro-trigger { white-space: normal; }
+.skill-unlock-state { font-size: .875rem; color: #aeb5c2; }
+.skill-unlock-state.unlocked { color: #d2ff61; }
+.skill-unlock-prompt { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.skill-unlock-prompt p { margin: 0; font-size: .875rem; color: #aeb5c2; }
+.member-other-guilds summary { min-height: 44px; cursor: pointer; display: list-item; padding-block: 10px; }
+@media(max-width:1199px) { .guilds-panel .guild-directory { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(max-width:760px) {
+  .guilds-panel .guild-directory { grid-template-columns: 1fr; }
+  .guild-secondary-choices { grid-template-columns: 1fr; }
+  .guild-detail-dialog { padding: 14px; }
+}

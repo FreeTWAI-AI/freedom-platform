@@ -3,7 +3,7 @@ import type { Pool } from 'pg';
 import { moduleCommand, type PlatformEnv } from '../module-context.js';
 import { positioningView,saveProfile,listTracks,listGuilds,changeGuildMembership } from '../../../../modules/positioning/service.js';
 
-import { assessmentDefinition,onboardingView,saveAssessmentAnswers,evaluateSavedAssessment,completeOnboarding,guildDirectory,guildPreferences,setPrimaryGuild,listSkillBooks,createGuildApplication,listGuildApplications } from '../../../../modules/positioning/onboarding.js';
+import { assessmentDefinition,onboardingView,saveAssessmentAnswers,evaluateSavedAssessment,completeOnboarding,guildDirectory,guildPreferences,setSecondaryGuilds,setPrimaryGuild,listSkillBooks,createGuildApplication,listGuildApplications } from '../../../../modules/positioning/onboarding.js';
 
 export function createPositioningRoutes(pool:Pool) {
   const app=new Hono<PlatformEnv>();
@@ -26,6 +26,10 @@ export function createPositioningRoutes(pool:Pool) {
   });
   app.get('/guilds/directory',async c=>c.json({items:await guildDirectory(pool,c.get('actor'))}));
   app.get('/me/guild-preferences',async c=>c.json(await guildPreferences(pool,c.get('actor'))));
+  app.post('/me/guild-preferences/secondary',async c=>{
+    const result=await setSecondaryGuilds(pool,await moduleCommand(c));
+    c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);
+  });
   app.post('/guilds/:key/primary',async c=>{
     const result=await setPrimaryGuild(pool,await moduleCommand(c),c.req.param('key'));
     c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);

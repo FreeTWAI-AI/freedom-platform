@@ -93,47 +93,63 @@ test('skip navigation preserves the module, and deep links plus browser history 
   await expect(page.locator('.member-bookshelf,.community-library')).toHaveCount(0);
 });
 
-test('the personal shelf displays only authoritative granted book IDs and can return to the full catalog', async ({ page }) => {
+test('unlocked and locked shelves partition the authoritative catalog and free previews do not grant a book', async ({ page }) => {
   await login(page);
   const catalog = await (await page.request.get('/api/v1/community')).json();
-  const chosen = catalog.skill_books.filter((book: { id: string }) => ['social-post', 'video-autopilot'].includes(book.id));
-  expect(chosen).toHaveLength(2);
-  await page.route('**/api/v1/me/skill-books', route => route.fulfill({ json: { items: chosen.map((book: { id: string }) => ({ ...book, book_id: book.id })) } }));
+  const chosen = ['social-post', 'video-autopilot'];
+  const allIds = catalog.skill_books.map((book: { id: string }) => book.id).sort();
+  const actualGrants = await (await page.request.get('/api/v1/me/skill-books')).json();
+  await page.route('**/api/v1/me/skill-books', route => route.fulfill({ json: { items: chosen.map(book_id => ({ book_id })) } }));
   await navigate(page, '技能書架');
-  const library = page.locator('.community-library');
-  await expect(library.locator('article[data-book-id]')).toHaveCount(catalog.skill_books.length);
+  const library = page.locator('.community-library'), cards = library.locator('article[data-book-id]');
   const tabs = page.getByRole('group', { name: '技能書範圍', exact: true });
-  // This category exists only in the full catalog, not in these two granted books.
+  const unlocked = tabs.getByRole('button', { name: /^已解鎖(?: · \d+)?$/ }), locked = tabs.getByRole('button', { name: '未解鎖', exact: true });
+  const ids = () => cards.evaluateAll(nodes => nodes.map(node => node.getAttribute('data-book-id')!).sort());
+  await expect(unlocked).toHaveAttribute('aria-pressed', 'true');
+  await expect(cards).toHaveCount(2); expect(await ids()).toEqual(chosen);
+  await expect(cards.getByRole('button', { name: '閱讀技能書', exact: true })).toHaveCount(2);
+  await expect(cards.getByRole('button', { name: '預覽技能書', exact: true })).toHaveCount(0);
+  await locked.click(); await expect(locked).toHaveAttribute('aria-pressed', 'true');
+  await expect(cards).toHaveCount(allIds.length - chosen.length);
+  const lockedIds = await ids();
+  expect(lockedIds.filter(id => chosen.includes(id))).toEqual([]);
+  expect([...chosen, ...lockedIds].sort()).toEqual(allIds);
+  await expect(cards.getByRole('button', { name: '預覽技能書', exact: true })).toHaveCount(lockedIds.length);
+  await expect(cards.getByRole('button', { name: '閱讀技能書', exact: true })).toHaveCount(0);
+  // A category absent from the unlocked subset must not leave that subset empty.
   const category = library.getByRole('combobox', { name: '依工坊用途篩選', exact: true });
-  await category.selectOption({ label: '資訊安全' });
-  await expect(library.locator('article[data-book-id]')).toHaveCount(1);
-  await expect(library.locator('article[data-book-id]')).toHaveAttribute('data-book-id', 'security-scanner');
-  await tabs.getByRole('button', { name: /^我的技能書(?: · \d+)?$/ }).click();
-  await expect(tabs.getByRole('button', { name: /^我的技能書(?: · \d+)?$/ })).toHaveAttribute('aria-pressed', 'true');
-  await expect(library.locator('article[data-book-id]')).toHaveCount(2);
-  await expect(category).toHaveValue('');
-  await expect(category.locator('option').filter({ hasText: /^資訊安全$/ })).toHaveCount(0);
-  expect(await library.locator('article[data-book-id]').evaluateAll(cards => cards.map(card => card.getAttribute('data-book-id')).sort())).toEqual(['social-post', 'video-autopilot']);
-  await tabs.getByRole('button', { name: '全部技能書', exact: true }).click();
-  await expect(library.locator('article[data-book-id]')).toHaveCount(catalog.skill_books.length);
-  await expect(tabs.getByRole('button', { name: '全部技能書', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await category.selectOption({ label: '資訊安全' }); await expect(cards).toHaveCount(1);
+  await expect(cards).toHaveAttribute('data-book-id', 'security-scanner');
+  await cards.getByRole('button', { name: '預覽技能書', exact: true }).click();
+  const preview = page.getByRole('dialog', { name: 'AI Security Scanner', exact: true });
+  await expect(preview).toBeVisible(); await expect(preview.getByRole('link', { name: '閱讀技能書 ↗', exact: true })).toBeVisible();
+  await preview.getByRole('button', { name: '關閉技能書介紹', exact: true }).click();
+  await unlocked.click(); await expect(cards).toHaveCount(2); expect(await ids()).toEqual(chosen);
+  await expect(category).toHaveValue(''); await expect(category.locator('option').filter({ hasText: /^資訊安全$/ })).toHaveCount(0);
+  await locked.click(); await expect(cards).toHaveCount(lockedIds.length); expect(await ids()).toEqual(lockedIds);
+  expect(await (await page.request.get('/api/v1/me/skill-books')).json()).toEqual(actualGrants);
 });
 
-test('a failed personal-shelf read never falls back to all books and retries without changing scope', async ({ page }) => {
+test('an unavailable grant list never classifies all books as locked and retry preserves the selected scope', async ({ page }) => {
   await login(page);
   let failing = true;
   await page.route('**/api/v1/me/skill-books', route => failing
     ? route.fulfill({ status: 503, json: { detail: 'Synthetic shelf read failure' } })
     : route.fulfill({ json: { items: [{ book_id: 'social-post' }] } }));
   await navigate(page, '技能書架');
-  await expect(page.locator('.community-library article[data-book-id]')).toHaveCount(25);
-  await page.getByRole('group', { name: '技能書範圍' }).getByRole('button', { name: /^我的技能書(?: · \d+)?$/ }).click();
-  await expect(page.getByRole('alert')).toContainText('我的技能書暫時無法載入');
+  const tabs = page.getByRole('group', { name: '技能書範圍' });
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page.locator('.community-library article[data-book-id]')).toHaveCount(0);
+  await tabs.getByRole('button', { name: '未解鎖', exact: true }).click();
+  await expect(page.getByRole('alert')).toBeVisible();
   await expect(page.locator('.community-library article[data-book-id]')).toHaveCount(0);
   failing = false;
-  await page.getByRole('button', { name: '重新載入我的技能書', exact: true }).click();
+  await page.getByRole('button', { name: '重新載入解鎖紀錄', exact: true }).click();
+  await expect(page.locator('.community-library article[data-book-id]')).toHaveCount(24);
+  await expect(page.locator('.community-library article[data-book-id="social-post"]')).toHaveCount(0);
+  await expect(tabs.getByRole('button', { name: '未解鎖', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await tabs.getByRole('button', { name: /^已解鎖(?: · \d+)?$/ }).click();
   await expect(page.locator('.community-library article[data-book-id]')).toHaveCount(1);
   await expect(page.locator('.community-library article[data-book-id]')).toHaveAttribute('data-book-id', 'social-post');
-  await expect(page.getByRole('group', { name: '技能書範圍' }).getByRole('button', { name: /^我的技能書(?: · \d+)?$/ })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByRole('alert')).toHaveCount(0);
 });

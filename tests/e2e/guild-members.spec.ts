@@ -20,7 +20,7 @@ async function login(page: Page) {
 }
 async function fixtureGuilds(page: Page) {
   await page.route('**/api/v1/guilds/directory', route => route.fulfill({ json: { items: guilds } }));
-  await page.route('**/api/v1/me/guild-preferences', route => route.fulfill({ json: { primary_guild_key: null } }));
+  await page.route('**/api/v1/me/guild-preferences', route => route.fulfill({ json: { primary_guild_key: null, secondary_guild_keys: [], aggregate_version: 1 } }));
   await page.route('**/api/v1/me/skill-books', route => route.fulfill({ json: { items: [] } }));
   await page.route('**/api/v1/guild-applications', route => route.fulfill({ json: { items: [] } }));
   await page.route('**/api/v1/members/*/social-links?*', route => route.fulfill({ json: { items: [], total: 0, next_offset: null } }));
@@ -57,6 +57,7 @@ test('guild member lists load on demand, preserve guild filtering across pages a
   await panel.getByRole('button', { name: '搜尋成員', exact: true }).click();
   await expect(panel.locator('.directory-member')).toHaveCount(1); await expect(panel).toContainText('剪輯活動夥伴');
   expect(queries.at(-1)?.get('guild_key')).toBe('guild_event_space'); expect(queries.at(-1)?.get('sort')).toBe('newest'); expect(queries.at(-1)?.get('offset')).toBe('0');
+  await card.getByRole('button',{name:'關閉公會視窗',exact:true}).click();
   await page.getByRole('article', { name: '資安公會', exact: true }).getByRole('button', { name: '查看成員', exact: true }).click();
   await expect(panel).toHaveCount(0); await expect(page.getByRole('region', { name: '資安公會成員', exact: true })).toContainText('目前沒有可顯示的公會成員。');
   expect(queries.at(-1)?.get('guild_key')).toBe('guild_security'); expect(queries.at(-1)?.has('search')).toBe(false);
@@ -72,10 +73,11 @@ test('closing a pending guild list prevents its response from leaking into anoth
   });
   await login(page); const first = page.getByRole('article', { name: '活動與空間公會', exact: true }), second = page.getByRole('article', { name: '資安公會', exact: true });
   await first.getByRole('button', { name: '查看成員', exact: true }).click(); await requested;
-  await first.getByRole('button', { name: '收起成員', exact: true }).click();
+  await first.getByRole('button', { name: '關閉公會視窗', exact: true }).click();
   await second.getByRole('button', { name: '查看成員', exact: true }).click(); await expect(second).toContainText('目前資安成員');
   const delivered = page.waitForResponse(response => response.url().includes('/api/v1/members?') && new URL(response.url()).searchParams.get('guild_key') === 'guild_event_space');
   release(); await delivered; await expect(page.getByText('已過期的活動回應', { exact: true })).toHaveCount(0);
+  await second.getByRole('button',{name:'關閉公會視窗',exact:true}).click();
   await first.getByRole('button', { name: '查看成員', exact: true }).click(); await expect(first).toContainText('重新讀取的活動成員');
   await expect(second.getByRole('region')).toHaveCount(0); expect(visits).toBe(2);
 });
@@ -95,7 +97,7 @@ test('guild list distinguishes empty/error states and compact details fit a narr
   await panel.locator('.directory-member-details > summary').click(); await expect(panel.getByText('allowed-contact-only', { exact: true })).toBeVisible();
   await page.setViewportSize({ width: 320, height: 844 }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await panel.getByRole('searchbox', { name: '搜尋公會成員', exact: true }).fill('沒有這位成員'); await expect(panel).toContainText('沒有符合的公會成員。');
-  await card.getByRole('button', { name: '收起成員', exact: true }).click(); await card.getByRole('button', { name: '查看成員', exact: true }).click();
+  await card.getByRole('button', { name: '關閉公會視窗', exact: true }).click(); await card.getByRole('button', { name: '查看成員', exact: true }).click();
   await expect(panel.getByRole('searchbox', { name: '搜尋公會成員', exact: true })).toHaveValue(''); await expect(panel.locator('.directory-member')).toHaveCount(1);
 });
 

@@ -25,10 +25,10 @@ function retrySafeWriter(send:<T>(path:string,body:unknown,version:number|undefi
 function useMemberClient(client:PortalClient){return useMemo<ReaderWriter>(()=>({get:path=>client.get(path),post:retrySafeWriter((path,body,version,key)=>client.post(path,body,{ifMatch:version,idempotencyKey:key}))}),[client]);}
 function useAdminClient(client:AdminClient){return useMemo<ReaderWriter>(()=>({get:path=>client.request(path),post:retrySafeWriter((path,body,version,key)=>client.request(path,body,{version,key}))}),[client]);}
 
-export function GuildAnnouncements({client,guildKey}:{client:PortalClient;guildKey:string}){
+export function GuildAnnouncements({client,guildKey,expanded=false}:{client:PortalClient;guildKey:string;expanded?:boolean}){
   const [items,setItems]=useState<Announcement[]|null>(null),[error,setError]=useState(''),[retry,setRetry]=useState(0);
   useEffect(()=>{let active=true;setError('');void client.get<{items:Announcement[]}>(`/guilds/${encodeURIComponent(guildKey)}/announcements`).then(data=>{if(active)setItems(data.items.filter(item=>item.state==='published'));}).catch(cause=>{if(active)setError(failure(cause));});return()=>{active=false;};},[client,guildKey,retry]);
-  return <details className="guild-announcements"><summary>公會公告{items?.length?` · ${items.length}`:''}</summary>{error?<div role="alert"><p>{error}</p><button className="btn btn-ghost" onClick={()=>setRetry(value=>value+1)}>重讀公告</button></div>:items===null?<p>正在載入公告…</p>:!items.length?<p className="muted">目前沒有公告。</p>:items.map(item=><article key={item.announcement_id}><h4>{item.title}</h4><p className="guild-workspace-body">{item.body}</p><time dateTime={item.updated_at}>{date(item.updated_at)}</time></article>)}</details>;
+  return <details className="guild-announcements" open={expanded||undefined}><summary>公會公告{items?.length?` · ${items.length}`:''}</summary>{error?<div role="alert"><p>{error}</p><button className="btn btn-ghost" onClick={()=>setRetry(value=>value+1)}>重讀公告</button></div>:items===null?<p>正在載入公告…</p>:!items.length?<p className="muted">目前沒有公告。</p>:items.map(item=><article key={item.announcement_id}><h4>{item.title}</h4><p className="guild-workspace-body">{item.body}</p><time dateTime={item.updated_at}>{date(item.updated_at)}</time></article>)}</details>;
 }
 
 export function MemberGuildWorkspace({client}:{client:PortalClient}){
