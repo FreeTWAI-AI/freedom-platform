@@ -1279,8 +1279,8 @@
     },
     {
       "path": "scripts/verify-staging.mjs",
-      "bytes": 5028,
-      "sha256": "52d745e1dfc2e3a5b45eb78226dd398712a2175e4211fce29c14d1fbb2fad0e8"
+      "bytes": 6650,
+      "sha256": "52fe62dc4fecba693dab7dc30ef05cd1f5535fd246a5d071983568e97cbde360"
     },
     {
       "path": "tests/e2e/commerce-modules.spec.ts",

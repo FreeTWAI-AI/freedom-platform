@@ -36,15 +36,25 @@ try {
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
+  const readResponses = paths => Promise.all(paths.map(path => page.waitForResponse(response =>
+    response.url() === origin + '/api/v1' + path && response.request().method() === 'GET'
+  ).then(async response => {
+    expect(response.status(), path).toBe(200);
+    return { path, body: await response.json() };
+  })));
   await page.goto(origin, { waitUntil: 'networkidle' });
   await page.getByLabel('電子郵件', { exact: true }).fill('maker@local.test');
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
+  const homeReads = readResponses(['/me/positioning', '/guilds']);
   await page.getByRole('button', { name: '登入', exact: true }).click();
+  await homeReads;
   await expect(page.getByRole('heading', { name: '會員首頁', exact: true })).toBeVisible();
   const cookie = (await context.cookies()).find(c => c.name === 'freedom_local_session');
   expect(cookie?.secure).toBe(true);
   expect(cookie?.httpOnly).toBe(true);
+  const reloadReads = readResponses(['/me/positioning', '/guilds']);
   await page.reload();
+  await reloadReads;
   await expect(page.getByRole('heading', { name: '會員首頁', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '整理我的定位', exact: true })).toBeVisible();
   await mkdir(evidence, { recursive: true, mode: 0o700 });
@@ -52,24 +62,33 @@ try {
   console.log('HTTPS browser login, secure session and reload: PASS');
 
   const modules = [
-    ['我的定位', '我的定位', 'positioning'],
-    ['職業公會', '職業公會', 'guilds'],
-    ['供貨中心', '供貨中心', 'supplier'],
-    ['開店與銷售', '開店與銷售', 'retail'],
-    ['開源作品', '開源作品', 'opensource'],
-    ['行銷工作室', '行銷工作室', 'marketing'],
-    ['我的工作', '工作台', 'workbench'],
-    ['一般作品與需求', '一般作品與需求', 'showcase'],
+    ['我的定位', '我的定位', 'positioning', ['/me/positioning']],
+    ['職業公會', '職業公會', 'guilds', ['/guilds']],
+    ['供貨中心', '供貨中心', 'supplier', ['/supplier/products', '/supplier/requests']],
+    ['開店與銷售', '開店與銷售', 'retail', ['/retail/catalog', '/retail/stores', '/retail/listings']],
+    ['開源作品', '開源作品', 'opensource', ['/opensource/projects']],
+    ['行銷工作室', '行銷工作室', 'marketing', ['/marketing/campaigns', '/opensource/projects', '/supplier/products']],
+    ['我的工作', '工作台', 'workbench', ['/dashboard', '/work-items']],
+    ['一般作品與需求', '一般作品與需求', 'showcase', ['/showcases', '/opportunities']],
   ];
-  for (const [navigation, heading, file] of modules) {
+  for (const [navigation, heading, file, endpoints] of modules) {
     await page.setViewportSize({ width: 1440, height: 1000 });
+    const responses = readResponses(endpoints);
     await page.getByRole('button', { name: navigation, exact: true }).click();
+    const data = await responses;
     await expect(page.getByRole('heading', { name: heading, exact: true }).first()).toBeVisible();
-    await page.waitForLoadState('networkidle');
+    // SPA tab switches don't restart the document's networkidle lifecycle.
+    // Wait for module responses and rendered data, not just the new heading.
+    await expect(page.getByRole('status').filter({ hasText: /正在載入|載入中/ })).toHaveCount(0);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    if (file === 'opensource') await expect(page.getByRole('article', { name: /^開源作品：/ })).toHaveCount(data[0].body.items.length);
+    if (file === 'marketing') await expect(page.getByRole('article', { name: /^行銷活動：/ })).toHaveCount(data[0].body.items.length);
+    if (file === 'guilds') await expect(page.getByRole('article')).toHaveCount(data[0].body.items.length);
     await page.screenshot({ path: join(evidence, `staging-${file}.png`), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${file} mobile overflow`).toBe(true);
     await page.screenshot({ path: join(evidence, `staging-${file}-mobile.png`), fullPage: true });
+    console.log(`HTTPS ${file} data and desktop/mobile rendering: PASS`);
   }
   await page.getByRole('button', { name: '登出', exact: true }).click();
   await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
