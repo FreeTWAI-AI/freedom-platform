@@ -99,6 +99,33 @@ test('session, Origin and CSRF controls reject forged mutations and revoked cook
   const logout=await request('/auth/logout',maker,{});assert.equal(logout.status,200);
   assert.equal((await request('/dashboard',maker)).status,401);
 });
+test('staging login uses secure cookies and preserves Origin, Host and CSRF enforcement',async()=>{
+  const stagingOrigin='https://staging.freetwai.com';
+  const staging=createApp(pool,stagingOrigin,'staging');
+  const credentials=JSON.stringify({email:DEMO_USERS[0].email,password:DEMO_PASSWORD});
+  for(const rejectedOrigin of [origin,'https://evil.example','null']) {
+    const denied=await staging.request(stagingOrigin+'/api/v1/auth/login',{
+      method:'POST',headers:{Origin:rejectedOrigin,'Content-Type':'application/json'},body:credentials,
+    });
+    assert.equal(denied.status,403);assert.equal(denied.headers.get('set-cookie'),null);
+  }
+  assert.equal((await staging.request('https://evil.example/api/v1/health')).status,403);
+  const loggedIn=await staging.request(stagingOrigin+'/api/v1/auth/login',{
+    method:'POST',headers:{Origin:stagingOrigin,'Content-Type':'application/json'},body:credentials,
+  });
+  assert.equal(loggedIn.status,200);
+  const setCookie=loggedIn.headers.get('set-cookie')!;
+  assert.match(setCookie,/; Secure/);assert.match(setCookie,/; HttpOnly/);assert.match(setCookie,/; SameSite=Strict/);
+  const session:any=await loggedIn.json();
+  const headers={Cookie:setCookie.split(';')[0],Origin:stagingOrigin,'Content-Type':'application/json'};
+  assert.equal((await staging.request(stagingOrigin+'/api/v1/session',{headers})).status,200);
+  assert.equal((await staging.request(stagingOrigin+'/api/v1/auth/logout',{method:'POST',headers,body:'{}'})).status,403);
+  const logout=await staging.request(stagingOrigin+'/api/v1/auth/logout',{
+    method:'POST',headers:{...headers,'X-CSRF-Token':session.csrf_token},body:'{}',
+  });
+  assert.equal(logout.status,200);
+  assert.equal((await staging.request(stagingOrigin+'/api/v1/session',{headers})).status,401);
+});
 test('localhost alias works on the configured port while other ports and remote hosts are rejected',async()=>{
   const credentials={email:DEMO_USERS[0].email,password:DEMO_PASSWORD};
   const r=await request('/auth/login',undefined,credentials,undefined,randomUUID(),{Origin:'http://localhost:4310'});

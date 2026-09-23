@@ -163,7 +163,7 @@ export function App() {
 function DemoBanner() {
   return (
     <div className="demo-banner" role="status">
-      這是本機示範工作區。所有紀錄只存在本機示範資料，沒有實際轉帳、對外連線或銀行核對。示範帳號為虛構身分，不是真實人士。
+      這是內部示範工作區。紀錄保存在示範資料庫，沒有實際轉帳或銀行核對。示範帳號為虛構身分，不是真實人士。
     </div>
   )
 }
@@ -252,9 +252,9 @@ function LoginView({
             {pending ? '登入中…' : '登入'}
           </button>
         </form>
-        <aside className="help-box" aria-label="本機示範帳號">
+        <aside className="help-box" aria-label="示範帳號">
           <p>
-            本機示範帳號（虛構身分，不是真實人士）。密碼皆為 <code>{DEMO_PASSWORD}</code>。
+            示範帳號（虛構身分，不是真實人士）。密碼皆為 <code>{DEMO_PASSWORD}</code>。
           </p>
           <div className="chip-row">
             {DEMO_ACCOUNTS.map((account) => (

@@ -1,0 +1,9 @@
+[Unit]
+Description=Back up Freedom staging PostgreSQL locally
+After=freedom-staging.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/.local/share/freedom-staging/current
+ExecStart=/bin/bash deploy/staging/backup.sh
+UMask=0077

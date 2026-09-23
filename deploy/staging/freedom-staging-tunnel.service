@@ -1,0 +1,16 @@
+[Unit]
+Description=Cloudflare Tunnel for Freedom internal staging
+After=freedom-staging.service
+Wants=freedom-staging.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/cloudflared --no-autoupdate tunnel --config %h/.config/freedom-staging/cloudflared.yml run --token-file %h/.config/freedom-staging/tunnel.token
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+
+[Install]
+WantedBy=default.target

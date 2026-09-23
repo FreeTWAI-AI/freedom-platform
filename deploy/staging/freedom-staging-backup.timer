@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Freedom staging database backup
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=300
+Unit=freedom-staging-backup.service
+
+[Install]
+WantedBy=timers.target

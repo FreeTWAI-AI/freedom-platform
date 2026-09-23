@@ -19,18 +19,23 @@
     },
     {
       "path": "README.md",
-      "bytes": 3655,
-      "sha256": "327cf290f23850d89f617d5c0cb511e7ca3f7dec5a94bc3f6d0f75817a34c82f"
+      "bytes": 3783,
+      "sha256": "43a1494d576c77f729d1f15764d6533b8ba7f6c11235ddcedfb95c6b6a4894b4"
     },
     {
       "path": "apps/platform-api/src/app.ts",
-      "bytes": 8218,
-      "sha256": "90bfbf471b8076fbf197eec74efe19ad523bfc22f413065b110a260cd68d265e"
+      "bytes": 8245,
+      "sha256": "47bd08aea2c243d19717bd1b2fdb0897e260c1f3b6594824fabda491e60d5d17"
+    },
+    {
+      "path": "apps/platform-api/src/env.ts",
+      "bytes": 2066,
+      "sha256": "d02e6d41a254725aa4eea9767d341d4b47dc4419b562419da492069a6169b384"
     },
     {
       "path": "apps/platform-api/src/server.ts",
-      "bytes": 1063,
-      "sha256": "d59835dec31383b1809f7225608542d0d3487b26de5f93bdb6a1c5c69dbf0e92"
+      "bytes": 1216,
+      "sha256": "008d72bf0bbc6b86cc069eba0689963f8e488ae78630035b3bec0519ca0e94e2"
     },
     {
       "path": "apps/portal-web/index.html",
@@ -39,8 +44,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 56053,
-      "sha256": "58933f6092172b71cb966c5435d362fae72b37b4204d0ab2a206261beb318899"
+      "bytes": 56017,
+      "sha256": "1ff33c5255b83fa62618ce9475522b769023bd41be13e4fe1f26be1c8c0e25b1"
     },
     {
       "path": "apps/portal-web/src/api.ts",
@@ -83,14 +88,69 @@
       "sha256": "c67545bb427cce0ab38420f7e12f9e13e5f0c6874b71beb23c08dafa8259aa68"
     },
     {
+      "path": "deploy/staging/backup.sh",
+      "bytes": 563,
+      "sha256": "c5a683d0be0083b6e9c30e677c4d2f6dd8e4d875f3a1de9312bc7d15fa37ff2e"
+    },
+    {
+      "path": "deploy/staging/compose.override.yaml",
+      "bytes": 50,
+      "sha256": "d1295c49ceda8e68a3d3253bc8bd7dc28d490b2bfecf3f4462b081cce7f3d1b8"
+    },
+    {
+      "path": "deploy/staging/freedom-staging-backup.service",
+      "bytes": 229,
+      "sha256": "ffbc369819719e0021a4c671288b71c944a202a4f1d544fc7471f4414a39475e"
+    },
+    {
+      "path": "deploy/staging/freedom-staging-backup.timer",
+      "bytes": 201,
+      "sha256": "24821f6bba8a3db54a1a1f575423ed03ee45b1763377a12b28a1e04ca47a2135"
+    },
+    {
+      "path": "deploy/staging/freedom-staging-tunnel.service",
+      "bytes": 433,
+      "sha256": "0458db63bba0dbb86980fcb328f264c0715e059bdcb8d11688f72dc2698a73ba"
+    },
+    {
+      "path": "deploy/staging/freedom-staging.service",
+      "bytes": 556,
+      "sha256": "d7bd638cac432db0cc10f9fefb6f9981d4059767e44c1ad76a326f366a85d4d2"
+    },
+    {
+      "path": "docs/development/cases/CASE-OPEN-next.md",
+      "bytes": 3954,
+      "sha256": "bd0fdb72b7f2e5c21bf69885ceb1f6976d2726c1910ef86dd904b2fda9244a91"
+    },
+    {
+      "path": "docs/development/cases/CASE-TEMPLATE.md",
+      "bytes": 3959,
+      "sha256": "a72d453f6563ac835aa49d27fc05e6a497036ae0ee2f86ab66bd85375fa10566"
+    },
+    {
+      "path": "docs/development/first-real-case-pack.md",
+      "bytes": 3597,
+      "sha256": "9f290bfe03c98a571597bc2c02b1f035deeeb0129e0117f9ce60717aa7f538d7"
+    },
+    {
       "path": "docs/development/local-runtime.md",
       "bytes": 7234,
       "sha256": "cdac30f07656560e6cffce34bfe4be9348aeda1ce5f2d9e8cdfc749a4e29ae7e"
     },
     {
       "path": "docs/development/operating-validation.md",
-      "bytes": 2796,
-      "sha256": "c2aab381e5451eb48fa349845f1d9024d03112a5b0b70c9c22ef961998b95565"
+      "bytes": 3091,
+      "sha256": "8d5b3431b88482c9004d573b8b570b05e151e74a318eab478babd09368af1d94"
+    },
+    {
+      "path": "docs/development/staging-access-deploy.md",
+      "bytes": 3327,
+      "sha256": "0c82f1f3e4e444fef3563af8a876fb3193f8fc77e7c713b3817ea07c97a4867a"
+    },
+    {
+      "path": "docs/development/staging-operations.md",
+      "bytes": 4396,
+      "sha256": "30e3c7dba3f7b92d50afb4d086c959fa19b70f5f2707226a17852b5b420c85d2"
     },
     {
       "path": "docs/platform-plan/00-current-requirements-baseline.md",
@@ -1108,14 +1168,24 @@
       "sha256": "303c5edf31af35ab34d9ba9d13f9492f5b908a8518e93b3e9429292ee8df2ecc"
     },
     {
+      "path": "scripts/verify-staging.mjs",
+      "bytes": 4354,
+      "sha256": "fb31be2337397cedf672c850045c12db053c37d39a45aef2d46a155c4ec80113"
+    },
+    {
       "path": "tests/e2e/journeys.spec.ts",
       "bytes": 7954,
       "sha256": "6ccd3c7967669d43cbebc8d059aef3475dace2194fafd4f89ca10c85315709ce"
     },
     {
       "path": "tests/runtime/flows.test.ts",
-      "bytes": 21016,
-      "sha256": "784238133e91a4b67b477ebc12151616c2cc4bb77c878a55d96e0efeeda4adaf"
+      "bytes": 22817,
+      "sha256": "ba0f5f9c1700bbde4f8d5d61dab7d80d13386cce47dba4923820ef52e3d9dfd7"
+    },
+    {
+      "path": "tests/runtime/freedom_env.test.ts",
+      "bytes": 1493,
+      "sha256": "dd96b0aaa18004a2b3f8a7511b3a9e7a823ecb433ef159a61d550b94da9d06a7"
     },
     {
       "path": "tsconfig.json",
