@@ -519,8 +519,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SkillBookIntro.tsx",
-      "bytes": 9783,
-      "sha256": "f4bed4de800f528d7484fdeb029f8acc96cc88df62fc25d8bf6de4e45f2765fd"
+      "bytes": 9755,
+      "sha256": "950ef7c941d42baedd292badf9962c8a820b32e13ba1eb233f4c40f039c2fff0"
     },
     {
       "path": "apps/portal-web/src/modules/SkillDiscovery.css",
@@ -2314,8 +2314,8 @@
     },
     {
       "path": "tests/e2e/github-social.spec.ts",
-      "bytes": 11445,
-      "sha256": "cc0029fa882518c1a7a1085c2b0892fdbf63cb180b013244f4191ffff7a5ecb5"
+      "bytes": 13190,
+      "sha256": "0321fea5f444309ff197440b58218639db416711adc554b5f7bd6520072ea8b4"
     },
     {
       "path": "tests/e2e/guild-members.spec.ts",

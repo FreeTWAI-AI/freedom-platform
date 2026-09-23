@@ -33,16 +33,36 @@ test('visible book widgets share actual metrics and confirmed Star state across 
   await expect(widget.getByRole('link',{name:'Fork 專案 ↗',exact:true})).toHaveAttribute('href',`${original}/fork`);
   await widget.locator('.github-metrics-details > summary').click();
   expect(accounts).toBe(1);expect(reads.get('social-post')).toBe(1);expect(reads.size).toBeLessThan(22);
-  await card.getByRole('button',{name:'閱讀技能書',exact:true}).click();
+  const opener=card.getByRole('button',{name:'閱讀技能書',exact:true});await opener.click();
   const modal=page.getByRole('dialog',{name:'Hao 社群貼文技能書',exact:true});
   await expect(modal.getByRole('button',{name:'Star',exact:true})).toBeEnabled();expect(starReads).toBe(1);expect(reads.get('social-post')).toBe(1);
   await modal.locator('.github-star-count').click();await expect(modal.getByRole('button',{name:'取消 Star',exact:true})).toHaveAttribute('aria-pressed','true');await expect(modal.locator('.github-star-icon')).toHaveText('★');
   // The provider's public count still says 127; a local click must not invent 128.
   await expect(modal.locator('.github-star-count')).toHaveText('127');
-  await page.keyboard.press('Escape');await expect(widget.getByRole('button',{name:'取消 Star',exact:true})).toBeVisible();
-  await widget.getByRole('button',{name:'取消 Star',exact:true}).focus();await page.keyboard.press('Space');await expect(widget.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');await expect(widget.locator('.github-star-icon')).toHaveText('☆');
+  await page.keyboard.press('Escape');await expect(modal).not.toBeVisible();await expect(opener).toBeFocused();
+  const cancelStar=widget.getByRole('button',{name:'取消 Star',exact:true});await expect(cancelStar).toBeEnabled();await cancelStar.focus();await expect(cancelStar).toBeFocused();await page.keyboard.press('Space');await expect(widget.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');await expect(widget.locator('.github-star-icon')).toHaveText('☆');
   expect(writes).toEqual([{starred:true,confirmed:true},{starred:false,confirmed:true}]);
   await page.setViewportSize({width:320,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('a delayed dialog close event does not steal focus from the next keyboard action',async({page})=>{
+  await page.route('**/api/v1/me/github',route=>route.fulfill({json:{configured:true,connected:true,github_user:{id:'synthetic-focus',login:'synthetic-focus'}}}));
+  await page.route('**/api/v1/github/books/*/metrics',route=>route.fulfill({json:metrics}));
+  await page.route('**/api/v1/me/github/books/*/star',route=>route.fulfill({json:{book_id:'social-post',starred:false,connected:true}}));
+  await login(page);const card=await book(page);await expect(card.getByRole('button',{name:'Star',exact:true})).toBeEnabled();
+  await card.getByRole('button',{name:'閱讀技能書',exact:true}).click();await expect(page.getByRole('dialog')).toBeVisible();
+  // Native close queues an event. A member may already have moved focus by the
+  // time it is delivered; that late event must not restore the opener again.
+  const retained=await page.evaluate(async()=>{
+    const modal=document.querySelector<HTMLDialogElement>('dialog[open]')!,next=document.querySelector<HTMLButtonElement>('article[data-book-id="social-post"] > .github-book-social .github-star-control')!;
+    await new Promise<void>(resolve=>{
+      modal.addEventListener('close',()=>setTimeout(resolve,0),{once:true});
+      modal.querySelector<HTMLButtonElement>('button[aria-label="關閉技能書介紹"]')!.click();
+      next.focus();
+    });
+    return document.activeElement===next;
+  });
+  expect(retained).toBe(true);await expect(page.getByRole('dialog')).not.toBeVisible();await expect(card.getByRole('button',{name:'Star',exact:true})).toBeFocused();
 });
 
 test('unconfigured and unavailable GitHub states never fabricate counts or offer a fake connection',async({page})=>{
