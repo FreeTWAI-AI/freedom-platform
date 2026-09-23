@@ -1,0 +1,38 @@
+{
+  "format": "freedom.repository-set/v1",
+  "purpose": "Exact consumer commits used by the cross-repository HTTP/PostgreSQL tests",
+  "repositories": [
+    {
+      "repository": "FreeTWAI-AI/.github",
+      "commit": "fb74d43e623f05c849664da6f2f1a630de25a898"
+    },
+    {
+      "repository": "FreeTWAI-AI/FreeTWAI-AI.github.io",
+      "commit": "86502527ecb5e5aa095cca8f7ce640154b67e6b7"
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-agent-kit",
+      "commit": "b2a3cfa56e3d5c477b07b38dc2e7bdd7576e0661"
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-growth-automation",
+      "commit": "5f7d35ed351c9d168f4b7d2419a8ad23618cbb77"
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-project-page",
+      "commit": "dfe54cee63b24e36f179c176200585433528e296"
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-project-template",
+      "commit": "d46b14568f704f7d5799d92bc227f7579619e209"
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-skill-registry",
+      "commit": "4d4b0c52b9fece611c546de9aca9a2091713c5ef"
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-storefront",
+      "commit": "370cdb308691efaa9bbd4593f45156662a482d2e"
+    }
+  ]
+}

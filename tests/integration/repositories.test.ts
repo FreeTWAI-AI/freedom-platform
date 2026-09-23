@@ -260,3 +260,15 @@ test('registry import joins growth and public page metadata without inheriting o
   assert.doesNotMatch(html, /<script/);
   assert.throws(() => page.renderProjectPage({ ...manifest, data_boundary: { ...manifest.data_boundary, classification: 'internal' } }), /Private\/internal/);
 });
+
+test('agent-kit uses its pinned client for canonical member/work state without exposing session secrets',async()=>{
+ const kit=await importRepo('freedom-agent-kit');
+ const {PlatformClient}=await importRepo('freedom-agent-kit','packages/client/index.mjs');
+ const client=await login(PlatformClient);
+ const workspace=await kit.loadMemberWorkspace(client);
+ assert.equal(workspace.member.email,'maker@local.test');assert(Array.isArray(workspace.work));assert.equal(workspace.guilds.length,12);
+ assert.equal(workspace.agent_execution_grant,false);assert.equal(Object.hasOwn(workspace,'csrf_token'),false);
+ assert(!JSON.stringify(workspace).includes('freedom_local_session='));
+ await client.call('logout',{body:{}});
+ await assert.rejects(kit.loadMemberWorkspace(client),{status:401});
+});

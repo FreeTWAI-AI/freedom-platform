@@ -4,8 +4,8 @@
   "files": [
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 1612,
-      "sha256": "e4552d58ef03c8cd6644543f5497aca3ba07bdf1045075e8ad4dd59a7ea5b333"
+      "bytes": 1766,
+      "sha256": "042ff33da9b662dff667e10e0cf0bed2c1252ffa02d6f24569e3be9cd51d6505"
     },
     {
       "path": ".gitignore",
@@ -24,8 +24,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 4132,
-      "sha256": "c92bfe91736886bb96a0f20f44567aaf39cefcd23c9c24246c19dad7d14a2972"
+      "bytes": 4309,
+      "sha256": "ec1fc67d47a20adfab432c0cdf8c72a13949b58ecca0223b13fd025f297caca4"
     },
     {
       "path": "apps/platform-api/src/app.ts",
@@ -259,8 +259,8 @@
     },
     {
       "path": "docs/development/repository-integration.md",
-      "bytes": 3604,
-      "sha256": "c82ca292a691ce75ae27e963b7432595e6249b9099a3e0f03813fecdeb32e942"
+      "bytes": 3761,
+      "sha256": "1a38e8e81dfecdcd71abedff7c6688f998860707ea9ae4a7837d2dff0b043fe2"
     },
     {
       "path": "docs/development/research/README.md",
@@ -1248,6 +1248,11 @@
       "sha256": "f3f51afdffe3cd413bc111ba8fd7ffb58bea8e3036bbdc44b8e605eb22337e86"
     },
     {
+      "path": "docs/releases/2026-09-23-repository-templates.md",
+      "bytes": 2338,
+      "sha256": "8cb53a1f824ea7af8e48f16f5c3585733bb924ce13378c58659043179599ddfa"
+    },
+    {
       "path": "freedom.project.yaml",
       "bytes": 5948,
       "sha256": "0cba297f5db8c901a92af3296233e229af4362d49c9185aa459a1c81cdefd481"
@@ -1363,9 +1368,19 @@
       "sha256": "5a76cd432138339d7199341d62dde3141654ad9b0e4c7fdfb200fd3e57f6d7ec"
     },
     {
+      "path": "repositories.lock.json",
+      "bytes": 1176,
+      "sha256": "afe3a89d113639482de41232f9702468f1679300d0a9b4975922d5959651b1cf"
+    },
+    {
       "path": "scripts/build-contract-bundle.mjs",
       "bytes": 5569,
       "sha256": "a1ecb02cf407a5062958d7c487ba93fa840011fc8ce4b7d018a89941eabb5452"
+    },
+    {
+      "path": "scripts/checkout-repositories.mjs",
+      "bytes": 1392,
+      "sha256": "b60b970743d8d73de18e1f93d042590b29b4ee6866fb63a2eecf11e753634b01"
     },
     {
       "path": "scripts/database.ts",
@@ -1404,8 +1419,8 @@
     },
     {
       "path": "scripts/verify-staging.mjs",
-      "bytes": 6650,
-      "sha256": "52fe62dc4fecba693dab7dc30ef05cd1f5535fd246a5d071983568e97cbde360"
+      "bytes": 7061,
+      "sha256": "7ae74eed15644ca496470f452caf1bc66871a36eb38348cb0a3f003ea9c032a4"
     },
     {
       "path": "tests/e2e/commerce-modules.spec.ts",
@@ -1429,8 +1444,8 @@
     },
     {
       "path": "tests/integration/repositories.test.ts",
-      "bytes": 16721,
-      "sha256": "e9d4b8b5d318c23c45dbdf1b9d149325581b3f05c2a384405879a9d941c6369d"
+      "bytes": 17512,
+      "sha256": "f7a8fc8af5f20723817cc3f4c3eb7a79bb53bf952eacef920b2d802bba0c256c"
     },
     {
       "path": "tests/runtime/commerce.test.ts",

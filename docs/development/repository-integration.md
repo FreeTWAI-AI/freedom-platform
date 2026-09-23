@@ -11,7 +11,7 @@
 | freedom-skill-registry | declaration index、文件型 skill starter、GitHub project import client；不是第二份會員／作品 DB |
 | freedom-project-template | 新專案可運行骨架、測試與身分初始化指引 |
 | freedom-project-page | 公開 manifest 的固定介紹頁 builder；不宣稱 signed status／official |
-| FreeTWAI-AI.github.io | 九倉專案目錄來源與靜態 build；Pages 尚未啟用 |
+| FreeTWAI-AI.github.io | 九倉專案目錄來源與靜態 build；Pages 改用自訂 workflow，未配置 deploy workflow，網站未發布 |
 | .github | 社群模板、共用驗證 workflow；中央 ruleset 強制執行尚未配置，不宣稱已有管理員 gate |
 
 ```mermaid
@@ -34,6 +34,7 @@ Core 的 `tests/integration/repositories.test.ts` 啟動真正的 HTTP API 與�
 ```sh
 npm run contracts:build
 npm test
+FREEDOM_REPOSITORIES_ROOT=/absolute/path/to/consumer-checkouts node scripts/checkout-repositories.mjs
 FREEDOM_REPOSITORIES_ROOT=/absolute/path/to/consumer-checkouts npm run test:repos
 ```
 

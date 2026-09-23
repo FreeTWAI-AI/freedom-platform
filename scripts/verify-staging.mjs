@@ -29,6 +29,12 @@ try {
   expect(await health.json()).toMatchObject({ status: 'ok', mode: 'staging', money_movement_enabled: false });
   console.log('Authenticated public HTTPS health through Tunnel: PASS');
 
+  const protocol = await http.get(origin + '/api/v1/protocol', { headers, maxRedirects: 0 });
+  expect(protocol.status()).toBe(200);
+  const expectedProtocol = JSON.parse(await readFile(new URL('../contracts/preview/v1/metadata.json', import.meta.url), 'utf8'));
+  expect(await protocol.json()).toEqual(expectedProtocol);
+  console.log('Live HTTPS protocol matches the repository contract and SDK pin: PASS');
+
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   // Never attach the service secret to a redirect or request to another hostname.

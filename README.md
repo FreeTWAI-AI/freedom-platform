@@ -4,6 +4,8 @@
 
 內部入口：<https://staging.freetwai.com>（Cloudflare Access 限定名單）。模組責任、中央資料設計與上游取用判斷見 [擴建設計](./docs/development/module-expansion-design.md) 及 [上游研究](./docs/development/research/README.md)。
 
+各產品模板已依 [九倉分工與串接方式](./docs/development/repository-integration.md) 獨立保存，透過固定版本的 API／SDK 共用中央會員與資料。
+
 ## 啟動本機版本
 
 需要 Node.js 24 與 Docker Compose：
