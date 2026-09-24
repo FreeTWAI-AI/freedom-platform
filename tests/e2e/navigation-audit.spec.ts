@@ -134,6 +134,7 @@ test('unlocked and locked shelves partition the authoritative catalog and free p
 
 test('an unavailable grant list never classifies all books as locked and retry preserves the selected scope', async ({ page }) => {
   await login(page);
+  const catalog = await (await page.request.get('/api/v1/community')).json();
   let failing = true;
   await page.route('**/api/v1/me/skill-books', route => failing
     ? route.fulfill({ status: 503, json: { detail: 'Synthetic shelf read failure' } })
@@ -147,7 +148,7 @@ test('an unavailable grant list never classifies all books as locked and retry p
   await expect(page.locator('.community-library article[data-book-id]')).toHaveCount(0);
   failing = false;
   await page.getByRole('button', { name: '重新載入解鎖紀錄', exact: true }).click();
-  await expect(page.locator('.community-library article[data-book-id]')).toHaveCount(24);
+  await expect(page.locator('.community-library article[data-book-id]')).toHaveCount(catalog.skill_books.length - 1);
   await expect(page.locator('.community-library article[data-book-id="social-post"]')).toHaveCount(0);
   await expect(tabs.getByRole('button', { name: '未解鎖', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('alert')).toHaveCount(0);

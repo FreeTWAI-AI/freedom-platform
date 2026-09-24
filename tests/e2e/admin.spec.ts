@@ -144,7 +144,7 @@ test('admin appointment, access sync, revocation and reactivation use real isola
     await expect(guildCard.getByText(`公會長：${leaderName}`,{exact:true})).toBeVisible();await expect(guildCard.getByText(`已任命 ${leaderName} 為${guildName}會長。`,{exact:true})).toBeVisible();
     expect((await pool.query('SELECT user_id FROM positioning_guild_officers WHERE community_id=$1 AND guild_key=$2',[DEMO_COMMUNITY,guildKey])).rows[0].user_id).toBe(targetId);
     expect((await pool.query('SELECT state FROM positioning_profession_memberships WHERE user_id=$1 AND guild_key=$2',[targetId,guildKey])).rows[0].state).toBe('active');
-    expect((await pool.query('SELECT book_id FROM member_skill_book_grants WHERE user_id=$1 AND guild_key=$2',[targetId,guildKey])).rows.map(item=>item.book_id)).toEqual(['event-space']);
+    expect((await pool.query('SELECT book_id FROM member_skill_book_grants WHERE user_id=$1 AND guild_key=$2',[targetId,guildKey])).rows.map(item=>item.book_id).sort()).toEqual(['event-space','freedom-party-guild-lounge']);
     expect((await pool.query('SELECT onboarding_required,onboarding_completed_at FROM users WHERE user_id=$1',[targetId])).rows[0]).toEqual(beforeAppointment);
     const appointmentAudit=(await pool.query("SELECT reason,after_state FROM platform_admin_audit WHERE community_id=$1 AND action='appoint_guild_master' AND target_ref=$2",[DEMO_COMMUNITY,guildKey])).rows;
     expect(appointmentAudit).toHaveLength(1);expect(appointmentAudit[0].after_state.user_id).toBe(targetId);expect(appointmentAudit[0].after_state.membership_joined).toBe(true);expect(appointmentAudit[0].reason).toBe('本人同意帶領讀書會與活動安排');

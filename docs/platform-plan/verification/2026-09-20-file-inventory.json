@@ -2794,8 +2794,8 @@
     },
     {
       "path": "tests/e2e/admin.spec.ts",
-      "bytes": 20466,
-      "sha256": "506266d80de01e978da86d24d9e4e16029928697a11b9b0671265016467fa503"
+      "bytes": 20502,
+      "sha256": "714c9877378ecb139b134233ab213b9b055f952b3386fd1dad2da52a91c4d7b1"
     },
     {
       "path": "tests/e2e/avatar.spec.ts",
@@ -2874,8 +2874,8 @@
     },
     {
       "path": "tests/e2e/navigation-audit.spec.ts",
-      "bytes": 11842,
-      "sha256": "cdc0e0227ad276f6c8316b4135f3aff801a3d003f2fe61ca5f15a9e87f925051"
+      "bytes": 11948,
+      "sha256": "2f31949ed5c4e0ea1fe9ba038d94fe650fe2673cdf9f6e2bf4624f12b7042a3e"
     },
     {
       "path": "tests/e2e/navigation.ts",
