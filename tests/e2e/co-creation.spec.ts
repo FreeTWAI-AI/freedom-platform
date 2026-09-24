@@ -10,6 +10,13 @@ test('member reads GitHub-backed co-creation tasks, copies a bounded brief, and 
   await page.getByRole('button',{name:'登入',exact:true}).click();
   await navigate(page, '一起開發');
   await expect(page.getByRole('heading',{name:'一起開發',exact:true}).first()).toBeVisible();
+  await expect(page.getByRole('heading',{name:'自動剪輯共創：一起把可用的底層疊起來',exact:true})).toHaveCount(1);
+  await expect(page.locator('.expedition-project')).toHaveCount(0);
+  await page.getByRole('button',{name:'複製專案開發指令',exact:true}).click();
+  const projectBrief=page.getByLabel('給 Agent 的專案開發指令',{exact:true});
+  await expect(projectBrief).toHaveValue(/原作 Repo：https:\/\/github.com\/Hao0321\/video-autopilot-kit/);
+  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(await projectBrief.inputValue());
+  await page.getByRole('button',{name:'收起指令',exact:true}).click();
   const issue=page.getByRole('article').filter({has:page.getByRole('heading',{name:'建立可重現的剪輯測試素材',exact:true})});
   await expect(issue).toBeVisible();
   await expect(issue.getByRole('link',{name:'到任務頁參與 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI-AI/video-autopilot-kit/issues/1');
@@ -20,6 +27,7 @@ test('member reads GitHub-backed co-creation tasks, copies a bounded brief, and 
   await expect(brief).toHaveValue(/建立可重現的剪輯測試素材/);
   const text=await brief.inputValue();
   expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(text);
+  await page.getByRole('button',{name:'收起指令',exact:true}).click();
   const contribution=page.getByRole('article').filter({has:page.getByRole('heading',{name:'補上剪輯測試說明',exact:true})});
   await expect(contribution).toContainText('GitHub 作者：contributor-demo');
   await expect(contribution.getByRole('link',{name:'查看修改與審查 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI-AI/video-autopilot-kit/pull/8');
@@ -33,4 +41,28 @@ test('member reads GitHub-backed co-creation tasks, copies a bounded brief, and 
   await expect(page.getByRole('heading',{name:'發起共創邀請',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'登錄我的作品',exact:true})).toBeVisible();
   expect(browserErrors).toEqual([]);
+});
+
+test('guild discovery has recoverable empty states and project prompts survive activity and clipboard failures',async({page})=>{
+  await page.route('**/api/v1/co-creation/projects/*/activity',route=>route.abort());
+  await page.addInitScript(()=>{Object.defineProperty(navigator,'clipboard',{value:{writeText:async()=>{throw new Error('denied');}}});});
+  await page.goto('/');
+  await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
+  await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
+  await page.getByRole('button',{name:'登入',exact:true}).click();
+  await navigate(page,'一起開發');
+  await page.getByRole('combobox',{name:'公會分類',exact:true}).selectOption('guild_platform_engineering');
+  await expect(page.getByRole('heading',{name:'這個公會還沒有共創邀請',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'複製專案開發指令',exact:true})).toHaveCount(0);
+  await page.getByRole('combobox',{name:'公會分類',exact:true}).selectOption('guild_ai_vibe');
+  await expect(page.getByRole('combobox',{name:'選擇專案',exact:true})).toHaveValue('workshop-video-autopilot');
+  await expect(page.getByRole('button',{name:'重新載入任務',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'複製專案開發指令',exact:true}).click();
+  await expect(page.getByLabel('給 Agent 的專案開發指令',{exact:true})).toHaveValue(/最多三項/);
+  await expect(page.getByText('指令已準備好。瀏覽器未允許複製，請從下方自行選取複製。',{exact:true})).toBeVisible();
+  await expect(page.getByText('目前沒有開放中的任務。',{exact:true})).toHaveCount(0);
+  await page.getByRole('combobox',{name:'公會分類',exact:true}).selectOption('guild_media_automation');
+  await expect(page.getByRole('combobox',{name:'選擇專案',exact:true})).toHaveValue('workshop-video-autopilot');
+  await page.setViewportSize({width:320,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });

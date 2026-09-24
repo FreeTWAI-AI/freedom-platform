@@ -65,7 +65,7 @@ test('unauthenticated crawlers get useful HTML, Markdown and JSON without JavaSc
 test('public skill guidance survives a repository cache outage without substituting zero counts',async()=>{
  const offline=createApp({query:(sql:string)=>publiclyReadable(sql)?Promise.resolve({rows:[]}):Promise.reject(Error('cache unavailable'))} as unknown as Pool,origin);
  const response=await offline.request(origin+'/development/skills/security-scanner');assert.equal(response.status,200);
- const html=await response.text();assert.ok(html.includes('Stars —'));assert.ok(html.includes('尚未取得 GitHub 數據'));assert.ok(html.includes('Fork 專案'));
+ const html=await response.text();assert.ok(html.includes('Stars —'));assert.ok(html.includes('尚未取得 GitHub 數據'));assert.ok(html.includes('Fork 原作'));
 });
 
 test('unknown guide paths do not become an SPA fallback and authored text cannot inject executable HTML',async()=>{

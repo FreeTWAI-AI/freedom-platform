@@ -8,6 +8,7 @@ import {seedLocal,DEMO_USERS,DEMO_PASSWORD} from '../../packages/testing/seed.js
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {CollaborationGitHub,type Repo} from '../../modules/co-creation/github.js';
 import {emptyContacts} from '../../modules/identity-membership/members.js';
+import {categoriesForLabels} from '../../packages/shared/task-categories.js';
 
 const origin='http://127.0.0.1:4310',databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
 const schema=`fp_co_creation_${process.pid}_${Date.now()}`,admin=createPool(databaseUrl);
@@ -54,9 +55,10 @@ async function created(owner:Session,source:any){const r=await request('/co-crea
 const errorCode=(expected:string)=>(error:any)=>{assert.equal(error.code,expected);return true;};
 
 test('import owner opens coordination metadata idempotently without GitHub writes or conferring repository ownership',async t=>{
- const {seen}=upstream(t),owner=await login(),source=await imported(owner),key=randomUUID(),body={...coInput,source_project_id:source.project_id};
+ const {seen}=upstream(t),owner=await login(),source=await imported(owner),key=randomUUID(),body={...coInput,source_project_id:source.project_id,guild_keys:['guild_ai_field','guild_ai_vibe']};
  assert.equal(source.relationship_verification,'self_declared');
  const first=await request('/co-creation/projects',owner,body,undefined,key);assert.equal(first.status,201,JSON.stringify(first.data));assert.equal(first.data.coordinator_ref,owner.user.user_id);
+ assert.deepEqual(first.data.guild_keys,body.guild_keys);
  const count=seen.length;assert.deepEqual((await request('/co-creation/projects',owner,body,undefined,key)).data,first.data);assert.equal(seen.length,count);
  assert.equal((await request('/co-creation/projects',owner,{...body,title:'不同內容'},undefined,key)).status,409);
  assert.equal((await request('/co-creation/projects',owner,body)).data.code,'co_creation_exists');
@@ -64,21 +66,55 @@ test('import owner opens coordination metadata idempotently without GitHub write
  const fact=(await pool.query("SELECT data FROM transition_journal WHERE aggregate_type='co_creation_project'")).rows[0].data;
  assert.equal(fact.authority,'coordination_only');assert.equal(fact.tasks_system_of_record,'github');assert.ok(seen.every(r=>r.method==='GET'));
  assert.equal((await request('/co-creation/projects',owner)).data.items.filter((item:any)=>item.source_kind==='member_project').length,1);
+ const catalog=(await request('/co-creation/projects',owner)).data;
+ assert.ok(catalog.guilds.some((guild:any)=>guild.guild_key==='guild_platform_engineering'));
+ assert.deepEqual(catalog.items.find((item:any)=>item.project_id===first.data.project_id).guild_keys,body.guild_keys);
+ assert.equal((await pool.query('SELECT count(*) FROM co_creation_project_guilds')).rows[0].count,'2');
+});
+
+test('guild classification rejects unknown, duplicate and oversized groups without creating a project',async t=>{
+ upstream(t);const owner=await login(),source=await imported(owner);
+ for(const guild_keys of [['guild_unknown'],['guild_ai_vibe','guild_ai_vibe'],Array.from({length:6},(_,i)=>`guild_group_${i}`)]){
+  assert.equal((await request('/co-creation/projects',owner,{...coInput,source_project_id:source.project_id,guild_keys})).status,422);
+ }
+ assert.equal((await pool.query('SELECT count(*) FROM co_creation_projects')).rows[0].count,'0');
+ assert.deepEqual((await created(owner,source)).guild_keys,[]);
+});
+
+test('project prompt is available during a GitHub outage, preserves original credit and never writes externally',async t=>{
+ const {seen,state}=upstream(t),owner=await login(),source=await imported(owner),project=await created(owner,source);
+ state.status=503;const before=seen.length;
+ const brief=await request(`/co-creation/projects/${project.project_id}/brief`,owner);
+ assert.equal(brief.status,200);assert.equal(seen.length,before);
+ assert.match(brief.data.text,/https:\/\/github.com\/example\/shared-project/);
+ assert.match(brief.data.text,/最多三項/);assert.match(brief.data.text,/完整 commit SHA/);
+ const pilot=await request('/co-creation/projects/workshop-video-autopilot/brief',owner);
+ assert.equal(pilot.status,200);assert.match(pilot.data.text,/原作 Repo：https:\/\/github.com\/Hao0321\/video-autopilot-kit/);
+ assert.match(pilot.data.text,/本頁任務來源：https:\/\/github.com\/FreeTWAI-AI\/video-autopilot-kit\/issues/);
+ assert.match(pilot.data.text,/未回送原因/);assert.match(pilot.data.text,/不移轉作者權利/);
+ assert.equal(seen.length,before);assert.ok(!pilot.data.text.includes(owner.csrf));
+});
+
+test('task categories use explicit labels, preserve multiple kinds and leave ambiguous work unclassified',()=>{
+ assert.deepEqual(categoriesForLabels([' Type: Bug ','documentation','bug']),['bug','documentation']);
+ assert.deepEqual(categoriesForLabels(['enhancement','kind/testing','security']),['feature','testing','security']);
+ assert.deepEqual(categoriesForLabels(['good first issue','debugger','constructor','__proto__']),['unclassified']);
+ assert.deepEqual(categoriesForLabels([]),['unclassified']);
 });
 
 test('session, onboarding and owner scopes protect project creation, activity and brief across communities',async t=>{
  const {seen}=upstream(t),owner=await login(),other=await login(DEMO_USERS[1].email),source=await imported(owner),project=await created(owner,source);
- for(const path of ['/co-creation/projects',`/co-creation/projects/${project.project_id}/activity`,`/co-creation/projects/${project.project_id}/issues/7/brief`])assert.equal((await request(path)).status,401);
+ for(const path of ['/co-creation/projects',`/co-creation/projects/${project.project_id}/activity`,`/co-creation/projects/${project.project_id}/issues/7/brief`,`/co-creation/projects/${project.project_id}/brief`])assert.equal((await request(path)).status,401);
  assert.equal((await request('/co-creation/projects',other,{...coInput,source_project_id:source.project_id})).status,404);
  assert.equal((await request('/co-creation/projects',owner,{...coInput,source_project_id:source.project_id},undefined,randomUUID(),{'X-CSRF-Token':'forged'})).status,403);
  for(const forged of [{coordinator_ref:other.user.user_id},{official:true},{github_owner:true},{xp:100},{help_wanted:['testing','testing']}])assert.equal((await request('/co-creation/projects',owner,{...coInput,source_project_id:source.project_id,...forged})).status,422);
  const community=randomUUID(),id=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[community,'Another community']);
  await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref) SELECT $1,$2,'co-outsider@local.test','Outside',password_hash,$3 FROM users WHERE user_id=$4`,[id,community,randomUUID(),owner.user.user_id]);
  const outsider=await login('co-outsider@local.test'),before=seen.length;
- for(const path of [`/co-creation/projects/${project.project_id}/activity`,`/co-creation/projects/${project.project_id}/issues/7/brief`])assert.equal((await request(path,outsider)).status,404);
+ for(const path of [`/co-creation/projects/${project.project_id}/activity`,`/co-creation/projects/${project.project_id}/issues/7/brief`,`/co-creation/projects/${project.project_id}/brief`])assert.equal((await request(path,outsider)).status,404);
  assert.equal(seen.length,before);assert.ok(!(await request('/co-creation/projects',outsider)).data.items.some((item:any)=>item.project_id===project.project_id));
  await pool.query('UPDATE users SET onboarding_required=true,onboarding_completed_at=NULL WHERE user_id=$1',[other.user.user_id]);
- assert.equal((await request('/co-creation/projects',other)).data.code,'onboarding_required');assert.equal((await request(`/co-creation/projects/${project.project_id}/activity`,other)).data.code,'onboarding_required');
+ assert.equal((await request('/co-creation/projects',other)).data.code,'onboarding_required');assert.equal((await request(`/co-creation/projects/${project.project_id}/brief`,other)).data.code,'onboarding_required');assert.equal((await request(`/co-creation/projects/${project.project_id}/activity`,other)).data.code,'onboarding_required');
  assert.equal((await request('/co-creation/projects/not-a-uuid/activity',owner)).status,422);assert.equal((await request(`/co-creation/projects/${project.project_id}/issues/not-a-number/brief`,owner)).status,422);
 });
 

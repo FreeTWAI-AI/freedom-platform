@@ -9,21 +9,28 @@ import {developmentPages} from '../../modules/development/pages.js';
 const origin='https://freetwai.com';
 const editorial:SkillEditorial={summary:'維護者的新剪輯摘要',collaboration_intro:'共做字幕同步與分享範例',milestones:[{id:'m-one',title:'可重現範例'}],tasks:[{id:'t-one',title:'補字幕壞例',description:'修改單一 fixture',acceptance:['倒序時間必須拒絕'],issue_url:'https://github.com/FreeTWAI-AI/video-autopilot-kit/issues/3',milestone_id:'m-one',status:'in_progress'}],updated_at:'2026-09-23T12:00:00Z',aggregate_version:2};
 
-test('all catalog books route agents to the actual managed repository and branch with distinct proposals',()=>{
+test('all books default contributions to their original source and keep workshop task provenance separate',()=>{
  const map=developmentMap();assert.equal(map.skill_books.length,25);
  for(const book of communityCatalog.skill_books){
   const data=getSkillCollaboration(book.id);assert.ok(data,book.id);
-  const metadata=map.repositories.find(repo=>repo.contribution_target===book.repository_url)!;
+  const metadata=map.repositories.find(repo=>repo.repository===new URL(book.repository_url).pathname.slice(1))!;
   assert.equal(data.repository.url,book.repository_url);assert.equal(data.repository.default_branch,metadata.default_branch);
   assert.equal(data.repository.fork_url,book.fork_url);assert.equal(data.repository.upstream_url,book.upstream_url);
+  assert.equal(data.contribution.url,book.upstream_url);assert.equal(data.contribution.fork_url,book.upstream_url+'/fork');
+  assert.equal(data.contribution.default_branch,metadata.contribution_default_branch);assert.equal(metadata.contribution_target,book.upstream_url);
   assert.ok(data.tasks.length>0);assert.ok(data.tasks.every(task=>task.acceptance.length>0&&task.scope.length>10));
   assert.ok(data.validation_commands.length>0);assert.ok(data.read_first.some(source=>source.label==='AGENTS.md'));
   const agent=skillAgentMarkdown(book.id)!;assert.match(agent,/^---\nname: [a-z0-9-]{1,63}\ndescription: "[^\n]+"\n---\n/);
   assert.ok(agent.includes(data.repository.name+':'+metadata.default_branch));assert.ok(agent.includes('/issues'));
+  assert.ok(agent.includes('預設 PR 目標：'+data.contribution.name+':'+data.contribution.default_branch));
+  assert.ok(!agent.includes('回送原作者上游需另行協調'));assert.ok(agent.includes('commit 作者'));
   assert.ok(agent.includes('not_run'));assert.equal(data.editorial,null);
   if(book.id!=='video-autopilot')assert.ok(data.tasks.every(task=>task.status==='proposed'&&task.source_url===null));
  }
  assert.equal(getSkillCollaboration('multi-ai-chat')?.repository.default_branch,'master');
+ assert.equal(getSkillCollaboration('multi-ai-chat')?.contribution.default_branch,'master');
+ assert.equal(getSkillCollaboration('multi-ai-chat')?.contribution.name,'teddashh/multi-ai-chat');
+ assert.equal(getSkillCollaboration('career-guide')?.contribution.name,'FreeTWAI-AI/freedom-skill-career-guide');
  assert.equal(getSkillCollaboration('unknown'),null);assert.equal(skillAgentMarkdown('unknown'),null);
  const video=getSkillCollaboration('video-autopilot')!;
  assert.equal(video.tasks.length,5);assert.ok(video.tasks.every(task=>task.status==='github_issue'&&task.source_url?.startsWith(video.repository.url+'/issues/')));
@@ -56,10 +63,27 @@ test('public share HTML is crawler-readable with canonical metadata, visible coo
  assert.match(html,/<link rel="canonical" href="https:\/\/freetwai\.com\/development\/skills\/video-autopilot">/);
  assert.match(html,/<meta property="og:image" content="https:\/\/freetwai\.com\/brand\/skill-illustrations\/video-autopilot.webp">/);
  assert.ok(html.indexOf('id="collaboration-title"')<html.indexOf('<details class="public-skill-details"'));
- assert.ok(html.includes('Fork 共創版本'));assert.ok(html.includes('/development/skills/video-autopilot/SKILL.md'));
+ assert.ok(html.includes('href="https://github.com/Hao0321/video-autopilot-kit/fork">從原作開始共創'));
+ assert.ok(html.includes('預設 PR → Hao0321/video-autopilot-kit:main'));
+ assert.ok(!html.includes('Fork 共創版本'));assert.ok(html.includes('/development/skills/video-autopilot/SKILL.md'));
  assert.ok(html.includes('官方公會技能'));assert.ok(!html.includes('工坊週榜 #'));
  assert.match(html,/<script src="\/development-share\.js" defer><\/script>/);assert.doesNotMatch(html,/<script(?! src=)|onclick=|onerror=/);
  const script=await app.request(origin+'/development-share.js');assert.equal(script.status,200);assert.match(script.headers.get('content-type')??'',/javascript/);
+});
+
+test('maintainer editorial changes cannot redirect the original fork or take ownership of upstream credit',async()=>{
+ const app=createDevelopmentRoutes(undefined,async()=>editorial);
+ const response=await app.request(origin+'/api/v1/skills/video-autopilot/collaboration');
+ const data=await response.json();
+ assert.equal(data.contribution.url,'https://github.com/Hao0321/video-autopilot-kit');
+ assert.equal(data.contribution.fork_url,'https://github.com/Hao0321/video-autopilot-kit/fork');
+ assert.equal(data.repository.url,'https://github.com/FreeTWAI-AI/video-autopilot-kit');
+ assert.equal(data.tasks[0].source_url,editorial.tasks[0].issue_url,'existing workshop Issues stay real workshop evidence');
+ const markdown=await(await app.request(origin+'/development/skills/video-autopilot/SKILL.md')).text();
+ assert.ok(markdown.includes('預設 PR 目標：Hao0321/video-autopilot-kit:main'));
+ assert.ok(markdown.includes('不把工坊新增的規則當成原作者的規則'));
+ assert.ok(markdown.includes('工坊整合參考路徑'));
+ assert.ok(markdown.includes('由原作維護者決定是否合併'));
 });
 
 test('published maintainer edits appear consistently in HTML, Markdown, Agent Skill and JSON without becoming GitHub merge facts',async()=>{

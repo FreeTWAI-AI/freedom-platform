@@ -27,7 +27,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/.github",
       "repository": "FreeTWAI-AI/.github",
       "default_branch": "main",
-      "kind": "platform_module"
+      "kind": "platform_module",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "行銷與媒體公會的 AI 影像、影片、音樂提示詞與執行知識來源。",
@@ -50,10 +51,18 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/ai-media-generator",
+      "contribution_target": "https://github.com/Hao0321/ai-media-generator",
       "repository": "FreeTWAI-AI/ai-media-generator",
       "default_branch": "main",
-      "kind": "upstream_fork"
+      "kind": "upstream_fork",
+      "contribution_default_branch": "main",
+      "fork_lineage": {
+        "repository_id": "1382968207",
+        "parent": "Hao0321/ai-media-generator",
+        "source": "Hao0321/ai-media-generator",
+        "verified_at": "2026-09-23",
+        "provider": "github_public_api"
+      }
     },
     {
       "purpose": "資安公會的授權範圍檢查與報告工具來源。",
@@ -79,10 +88,18 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/ai-security-scanner",
+      "contribution_target": "https://github.com/teddashh/ai-security-scanner",
       "repository": "FreeTWAI-AI/ai-security-scanner",
       "default_branch": "main",
-      "kind": "upstream_fork"
+      "kind": "upstream_fork",
+      "contribution_default_branch": "main",
+      "fork_lineage": {
+        "repository_id": "1382968296",
+        "parent": "teddashh/ai-security-scanner",
+        "source": "teddashh/ai-security-scanner",
+        "verified_at": "2026-09-23",
+        "provider": "github_public_api"
+      }
     },
     {
       "purpose": "媒體與音樂公會的短劇敘事、製作包與剪輯交接技能來源。",
@@ -107,10 +124,18 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/ai-short-drama",
+      "contribution_target": "https://github.com/Hao0321/ai-short-drama",
       "repository": "FreeTWAI-AI/ai-short-drama",
       "default_branch": "main",
-      "kind": "upstream_fork"
+      "kind": "upstream_fork",
+      "contribution_default_branch": "main",
+      "fork_lineage": {
+        "repository_id": "1382968134",
+        "parent": "Hao0321/ai-short-drama",
+        "source": "Hao0321/ai-short-drama",
+        "verified_at": "2026-09-23",
+        "provider": "github_public_api"
+      }
     },
     {
       "purpose": "AI 導入與開發公會可研究的本機記憶／桌面工具。",
@@ -136,10 +161,18 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/AI-Sister",
+      "contribution_target": "https://github.com/teddashh/AI-Sister",
       "repository": "FreeTWAI-AI/AI-Sister",
       "default_branch": "main",
-      "kind": "upstream_fork"
+      "kind": "upstream_fork",
+      "contribution_default_branch": "main",
+      "fork_lineage": {
+        "repository_id": "1382968338",
+        "parent": "teddashh/AI-Sister",
+        "source": "teddashh/AI-Sister",
+        "verified_at": "2026-09-23",
+        "provider": "github_public_api"
+      }
     },
     {
       "purpose": "行銷公會的社群內容、聲線與經確認發布技能来源。",
@@ -162,10 +195,18 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/claude-skill-social-post",
+      "contribution_target": "https://github.com/Hao0321/claude-skill-social-post",
       "repository": "FreeTWAI-AI/claude-skill-social-post",
       "default_branch": "main",
-      "kind": "upstream_fork"
+      "kind": "upstream_fork",
+      "contribution_default_branch": "main",
+      "fork_lineage": {
+        "repository_id": "1382967983",
+        "parent": "Hao0321/claude-skill-social-post",
+        "source": "Hao0321/claude-skill-social-post",
+        "verified_at": "2026-09-23",
+        "provider": "github_public_api"
+      }
     },
     {
       "purpose": "讓不同 AI 工具使用同一份平台協定與會員狀態入口。",
@@ -193,7 +234,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-agent-kit",
       "repository": "FreeTWAI-AI/freedom-agent-kit",
       "default_branch": "main",
-      "kind": "platform_module"
+      "kind": "platform_module",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "行銷公會的活動草稿、來源引用與人工分享紀錄工具。",
@@ -222,7 +264,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-growth-automation",
       "repository": "FreeTWAI-AI/freedom-growth-automation",
       "default_branch": "main",
-      "kind": "platform_module"
+      "kind": "platform_module",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "自由工坊的會員入口、中央資料庫與跨模組業務規則。",
@@ -256,7 +299,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-platform",
       "repository": "FreeTWAI-AI/freedom-platform",
       "default_branch": "main",
-      "kind": "platform_module"
+      "kind": "platform_module",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "從公開 manifest 產生可分享的專案介紹頁。",
@@ -282,7 +326,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-project-page",
       "repository": "FreeTWAI-AI/freedom-project-page",
       "default_branch": "main",
-      "kind": "platform_module"
+      "kind": "platform_module",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "建立獨立新專案的 Node 24 範本。",
@@ -309,7 +354,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-project-template",
       "repository": "FreeTWAI-AI/freedom-project-template",
       "default_branch": "main",
-      "kind": "platform_module"
+      "kind": "platform_module",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "方向探索與陪跑公會的原創入門手冊與可填模板。",
@@ -334,7 +380,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-career-guide",
       "repository": "FreeTWAI-AI/freedom-skill-career-guide",
       "default_branch": "main",
-      "kind": "skill_book"
+      "kind": "skill_book",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "廣告攝影與影片製作公會的原創入門手冊與可填模板。",
@@ -360,7 +407,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-commercial-production",
       "repository": "FreeTWAI-AI/freedom-skill-commercial-production",
       "default_branch": "main",
-      "kind": "skill_book"
+      "kind": "skill_book",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "新人接待與社群營運公會的原創入門手冊與可填模板。",
@@ -385,7 +433,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-community-ops",
       "repository": "FreeTWAI-AI/freedom-skill-community-ops",
       "default_branch": "main",
-      "kind": "skill_book"
+      "kind": "skill_book",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "音樂與 MV 製作公會的原創入門手冊與可填模板。",
@@ -411,7 +460,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-music-mv",
       "repository": "FreeTWAI-AI/freedom-skill-music-mv",
       "default_branch": "main",
-      "kind": "skill_book"
+      "kind": "skill_book",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "需求訪談與合作提案公會的原創入門手冊與可填模板。",
@@ -436,7 +486,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-partnership",
       "repository": "FreeTWAI-AI/freedom-skill-partnership",
       "default_branch": "main",
-      "kind": "skill_book"
+      "kind": "skill_book",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "專案交付與 Sprint公會的原創入門手冊與可填模板。",
@@ -461,7 +512,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-project-delivery",
       "repository": "FreeTWAI-AI/freedom-skill-project-delivery",
       "default_branch": "main",
-      "kind": "skill_book"
+      "kind": "skill_book",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "商家對帳公會的原創入門手冊與可填模板。",
@@ -486,7 +538,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-reconciliation",
       "repository": "FreeTWAI-AI/freedom-skill-reconciliation",
       "default_branch": "main",
-      "kind": "skill_book"
+      "kind": "skill_book",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "公開技能與作品的宣告入口及匯入轉換工具。",
@@ -513,7 +566,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-registry",
       "repository": "FreeTWAI-AI/freedom-skill-registry",
       "default_branch": "main",
-      "kind": "platform_module"
+      "kind": "platform_module",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "可 Fork 的商店模板、薄 SDK 與私人預覽，供電商與銷售公會改造。",
@@ -542,7 +596,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-storefront",
       "repository": "FreeTWAI-AI/freedom-storefront",
       "default_branch": "main",
-      "kind": "platform_module"
+      "kind": "platform_module",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "可 Fork 的供應端客戶端，讓供貨者讀取自己的中央商品與供貨申請。",
@@ -569,7 +624,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-supplier-client",
       "repository": "FreeTWAI-AI/freedom-supplier-client",
       "default_branch": "main",
-      "kind": "platform_module"
+      "kind": "platform_module",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "自由工坊公開原始碼導覽頁的產生器。",
@@ -595,7 +651,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io",
       "repository": "FreeTWAI-AI/FreeTWAI-AI.github.io",
       "default_branch": "main",
-      "kind": "platform_module"
+      "kind": "platform_module",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "行銷與媒體公會可研究的品牌作品網站來源。",
@@ -621,10 +678,18 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/Hao0321-Studio-WEB",
+      "contribution_target": "https://github.com/Hao0321/Hao0321-Studio-WEB",
       "repository": "FreeTWAI-AI/Hao0321-Studio-WEB",
       "default_branch": "main",
-      "kind": "upstream_fork"
+      "kind": "upstream_fork",
+      "contribution_default_branch": "main",
+      "fork_lineage": {
+        "repository_id": "1382968172",
+        "parent": "Hao0321/Hao0321-Studio-WEB",
+        "source": "Hao0321/Hao0321-Studio-WEB",
+        "verified_at": "2026-09-23",
+        "provider": "github_public_api"
+      }
     },
     {
       "purpose": "AI 開發公會可用的 Chrome 側欄多模型協作工具來源。",
@@ -649,10 +714,18 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/multi-ai-chat",
+      "contribution_target": "https://github.com/teddashh/multi-ai-chat",
       "repository": "FreeTWAI-AI/multi-ai-chat",
       "default_branch": "master",
-      "kind": "upstream_fork"
+      "kind": "upstream_fork",
+      "contribution_default_branch": "master",
+      "fork_lineage": {
+        "repository_id": "1382968424",
+        "parent": "teddashh/multi-ai-chat",
+        "source": "teddashh/multi-ai-chat",
+        "verified_at": "2026-09-23",
+        "provider": "github_public_api"
+      }
     },
     {
       "purpose": "AI 開發公會可用的多模型桌面協作工具來源。",
@@ -678,10 +751,18 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/multi-ai-chat-desktop",
+      "contribution_target": "https://github.com/teddashh/multi-ai-chat-desktop",
       "repository": "FreeTWAI-AI/multi-ai-chat-desktop",
       "default_branch": "main",
-      "kind": "upstream_fork"
+      "kind": "upstream_fork",
+      "contribution_default_branch": "main",
+      "fork_lineage": {
+        "repository_id": "1382968388",
+        "parent": "teddashh/multi-ai-chat-desktop",
+        "source": "teddashh/multi-ai-chat-desktop",
+        "verified_at": "2026-09-23",
+        "provider": "github_public_api"
+      }
     },
     {
       "purpose": "電商與銷售公會可研究的單店 POS／庫存／對帳工具來源。",
@@ -706,10 +787,18 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/pos-pro",
+      "contribution_target": "https://github.com/Hao0321/pos-pro",
       "repository": "FreeTWAI-AI/pos-pro",
       "default_branch": "main",
-      "kind": "upstream_fork"
+      "kind": "upstream_fork",
+      "contribution_default_branch": "main",
+      "fork_lineage": {
+        "repository_id": "1382968255",
+        "parent": "Hao0321/pos-pro",
+        "source": "Hao0321/pos-pro",
+        "verified_at": "2026-09-23",
+        "provider": "github_public_api"
+      }
     },
     {
       "purpose": "行銷公會的中文輪播貼文排版與圖像輸出工具來源。",
@@ -735,10 +824,18 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/typo-studio",
+      "contribution_target": "https://github.com/Hao0321/typo-studio",
       "repository": "FreeTWAI-AI/typo-studio",
       "default_branch": "main",
-      "kind": "upstream_fork"
+      "kind": "upstream_fork",
+      "contribution_default_branch": "main",
+      "fork_lineage": {
+        "repository_id": "1382968035",
+        "parent": "Hao0321/typo-studio",
+        "source": "Hao0321/typo-studio",
+        "verified_at": "2026-09-23",
+        "provider": "github_public_api"
+      }
     },
     {
       "purpose": "媒體自動化公會的剪輯框架與第一個公開共創試點。",
@@ -764,10 +861,18 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/video-autopilot-kit",
+      "contribution_target": "https://github.com/Hao0321/video-autopilot-kit",
       "repository": "FreeTWAI-AI/video-autopilot-kit",
       "default_branch": "main",
-      "kind": "upstream_fork"
+      "kind": "upstream_fork",
+      "contribution_default_branch": "main",
+      "fork_lineage": {
+        "repository_id": "1382968090",
+        "parent": "Hao0321/video-autopilot-kit",
+        "source": "Hao0321/video-autopilot-kit",
+        "verified_at": "2026-09-23",
+        "provider": "github_public_api"
+      }
     },
     {
       "purpose": "活動與場地規劃的原創手冊、模板與共同開發入口。",
@@ -797,7 +902,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-event-space",
       "repository": "FreeTWAI-AI/freedom-skill-event-space",
       "default_branch": "main",
-      "kind": "starter"
+      "kind": "starter",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "光影與光雕製作的原創手冊、模板與共同開發入口。",
@@ -827,7 +933,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-projection-mapping",
       "repository": "FreeTWAI-AI/freedom-skill-projection-mapping",
       "default_branch": "main",
-      "kind": "starter"
+      "kind": "starter",
+      "contribution_default_branch": "main"
     },
     {
       "purpose": "人類圖研究的原創手冊、模板與共同開發入口。",
@@ -857,7 +964,8 @@
       "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-human-design",
       "repository": "FreeTWAI-AI/freedom-skill-human-design",
       "default_branch": "main",
-      "kind": "starter"
+      "kind": "starter",
+      "contribution_default_branch": "main"
     }
   ]
 }

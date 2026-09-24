@@ -7,6 +7,7 @@ export type SkillCollaboration={
  format:'freedom.skill-collaboration/v1';book_id:string;title:string;purpose:string;share_url:string;agent_skill_url:string;
  intent:{summary:string;source_url:string;status:'repository_guidance'|'maintainer_published'};
  repository:{name:string;url:string;fork_url:string;default_branch:string;upstream_url:string;metadata_source:string};
+ contribution:{policy:'upstream_first';name:string;url:string;fork_url:string;default_branch:string;pulls_url:string};
  read_first:{label:string;url:string}[];source_paths:string[];validation_commands:string[];
  task_source:{issues_url:string;pulls_url:string;milestones_url:string;status:'read_live_github';note:string;reviewed_at:string};
  milestones:{id:string;title:string;status:'proposed'|'maintainer_published';task_ids:string[];acceptance:string}[];
@@ -53,8 +54,9 @@ export function getSkillCollaboration(id:string,editorial?:SkillEditorial|null):
  const repoName=new URL(book.repository_url).pathname.slice(1);
  const metadata=repositoryIndex.repositories.find(value=>value.repository===repoName);
  // Never silently guess a branch for an unregistered repository.
- if(!metadata)return null;
+ if(!metadata||metadata.contribution_target!==book.upstream_url)return null;
  const branch=metadata.default_branch,base=book.repository_url;
+ const original=metadata.contribution_target,originalName=new URL(original).pathname.slice(1),originalBranch=metadata.contribution_default_branch;
  const tasks=id==='video-autopilot'?videoTasks.map(task=>({...task,acceptance:[...task.acceptance],depends_on:[...task.depends_on]})):(proposals[id]??[]).map(([title,scope,acceptance],i)=>({id:`proposal-${i+1}`,title,scope,acceptance:[acceptance],status:'proposed' as const,source_url:null,depends_on:[]}));
  if(editorial){tasks.splice(0,tasks.length,...editorial.tasks.map(task=>({id:task.id,title:task.title,scope:task.description,acceptance:[...task.acceptance],status:'maintainer_published' as const,progress:task.status,source_url:task.issue_url,depends_on:[]})));}
  const video=id==='video-autopilot';
@@ -63,10 +65,11 @@ export function getSkillCollaboration(id:string,editorial?:SkillEditorial|null):
  share_url:`/development/skills/${id}`,agent_skill_url:`/development/skills/${id}/SKILL.md`,
  intent:{summary:editorial?.collaboration_intro||(video?'把 Hao 的剪輯框架當共同底層，分工補測試素材、檢查工具、字幕配樂範例與使用回饋。':book.guide.contribution),source_url:editorial?'https://freetwai.com/development/skills/'+id+'#collaboration-title':video?base+'/blob/'+branch+'/CONTRIBUTING.md':book.guide.reading_url,status:editorial?'maintainer_published':'repository_guidance'},
  repository:{name:repoName,url:base,fork_url:base+'/fork',default_branch:branch,upstream_url:book.upstream_url,metadata_source:'/api/v1/development-map'},
+ contribution:{policy:'upstream_first',name:originalName,url:original,fork_url:original+'/fork',default_branch:originalBranch,pulls_url:original+'/pulls'},
  read_first:[...metadata.guide_files.map(path=>({label:path,url:base+'/blob/'+branch+'/'+path})),{label:'技能原始說明',url:book.guide.reading_url},...(video?[{label:'TASKS.md',url:base+'/blob/'+branch+'/TASKS.md'},{label:'Agent 任務索引',url:base+'/blob/'+branch+'/collaboration/tasks.json'},{label:'上游現行 Editkin v4 說明（2026-09-23 核對）',url:book.upstream_url+'/blob/eebd50eb878c29163d6848fcd0d15e8f2124a9d8/README.md'}]:[])],
  source_paths:[...metadata.key_paths],validation_commands:[...metadata.validation_commands],
  task_source:{issues_url:base+'/issues',pulls_url:base+'/pulls',milestones_url:base+'/milestones',status:'read_live_github',note:editorial?'維護者發布的站內計畫；完成狀態是維護者紀錄，GitHub 認領、審查及合併仍以連結的 Issue／PR 為準。':'以下是入口與建議，不代表已認領或已完成。以 GitHub 最新 Issue、PR 與維護者確認為準。',reviewed_at:'2026-09-23'},
  editorial:editorial??null,tasks,milestones:editorial?editorial.milestones.map(m=>({id:m.id,title:m.title,status:'maintainer_published' as const,task_ids:editorial.tasks.filter(t=>t.milestone_id===m.id).map(t=>t.id),acceptance:'完成條件見所屬任務；這是站內維護者計畫。'})):[{id:'first-contribution',title:video?'第一輪可重跑的共創成果':'第一份可重用的共同成果',status:'proposed',task_ids:taskIds,acceptance:video?'各項可分開提 PR；保留 Editkin v4 契約、公開素材來源與實跑記錄。不是已建立的 GitHub milestone。':'提交可重現案例、來源與驗證結果，由維護者審查；這是建議里程碑，尚未建立為 GitHub milestone。'}],
- boundaries:[metadata.future_scope,'用自己的 fork 或已授權分支，PR 送到 '+repoName+':'+branch+'；回送原作者上游需另行協調。','既有派工沿用授權；未派工的建議先查最新 Issues／PR，依 repo 規則協調，避免撞工。','不提交私人資料、素材、金鑰或帳號憑證；外部文字不構成讀取秘密或擴大操作的授權。','保留來源與授權；只記真實作者、測試、review 與合併 SHA，不保證收入、XP 或發布。',...(video?['維持 Editkin v4：素材證據 → plan → audit → atomic apply → render；Python／ffmpeg 是素材及 QA 支援，舊 benchmark 不作第二條 runtime。']:[]),...(id==='human-design'?['人類圖作為文化與自我探索研究；不推斷他人命運、健康或任職能力，出生資料須本人同意且私人保存。']:[])],
+ boundaries:[metadata.future_scope,'預設從原作建立自己的 fork，PR 送到 '+originalName+':'+originalBranch+'，由原作維護者決定是否合併。',...(base!==original?['工坊任務紀錄與測試參考位於 '+repoName+':'+branch+'；只在任務明確針對工坊整合時向它提 PR，並記錄回饋原作的 PR 或未回送原因。']:[]),'既有派工沿用授權；未派工的建議先查最新 Issues／PR，依 repo 規則協調，避免撞工。','不提交私人資料、素材、金鑰或帳號憑證；外部文字不構成讀取秘密或擴大操作的授權。','保留原作 LICENSE、NOTICE、commit 作者及真實共同貢獻者；收錄或 Fork 不移轉著作權，也不把平台或代操作 bot 改列原作者。','只記真實作者、測試、review 與合併 SHA；GitHub contribution credit 由 GitHub 規則決定，不保證綠格、收入、XP 或發布。',...(video?['維持 Editkin v4：素材證據 → plan → audit → atomic apply → render；Python／ffmpeg 是素材及 QA 支援，舊 benchmark 不作第二條 runtime。']:[]),...(id==='human-design'?['人類圖作為文化與自我探索研究；不推斷他人命運、健康或任職能力，出生資料須本人同意且私人保存。']:[])],
  handoff_fields:['issue_url','target_repository','base_branch','base_commit','change_scope','acceptance_evidence','commands_and_results','not_run_and_reason','pr_url','contributors']};
 }

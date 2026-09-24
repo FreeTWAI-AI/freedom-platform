@@ -115,10 +115,10 @@ test('book cards credit the original GitHub author and offer direct reading acti
   await expect.poll(()=>modal.locator('.skill-intro-art').evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await expect(modal.getByRole('link',{name:'原作者 GitHub ↗',exact:true})).toHaveAttribute('href',book.upstream_url);
   await expect(modal.getByRole('button',{name:'GitHub 連結尚未啟用',exact:true})).toBeDisabled();
-  await expect(modal.getByRole('link',{name:'開啟專案 ↗',exact:true})).toHaveAttribute('href',book.upstream_url);
+  await expect(modal.getByRole('link',{name:'開啟原作 ↗',exact:true})).toHaveAttribute('href',book.upstream_url);
   await expect(modal.getByRole('link',{name:'閱讀技能書 ↗',exact:true})).toHaveAttribute('href',book.guide!.reading_url);
-  await expect(modal.getByRole('link',{name:'Fork 專案 ↗',exact:true})).toHaveAttribute('href',`${book.upstream_url}/fork`);
-  await expect(modal.getByRole('link',{name:'Fork 工坊版本 ↗',exact:true})).toHaveAttribute('href',book.fork_url);
+  await expect(modal.getByRole('link',{name:'Fork 原作 ↗',exact:true})).toHaveAttribute('href',`${book.upstream_url}/fork`);
+  await expect(modal.getByRole('link',{name:'查看工坊整合版本 ↗',exact:true})).toHaveAttribute('href',book.repository_url);
   const practice=modal.locator('details').filter({has:page.getByText('練習與設定',{exact:true})});
   await expect(practice).not.toHaveAttribute('open');await practice.locator('summary').click();
   for(const step of book.guide!.first_steps)await expect(practice.getByText(step,{exact:true})).toBeVisible();
@@ -160,9 +160,9 @@ test('all public book pages and Markdown preserve beginner summaries, covers, or
   const details=page.locator('.public-skill-details');
   await expect(details).not.toHaveAttribute('open');
   await expect(page.getByRole('link',{name:'閱讀技能書 ↗',exact:true})).toHaveAttribute('href',example.guide!.reading_url);
-  await expect(page.getByRole('link',{name:'開啟專案 ↗',exact:true})).toHaveAttribute('href',example.upstream_url);
-  await expect(page.getByRole('link',{name:'Fork 專案 ↗',exact:true})).toHaveAttribute('href',`${example.upstream_url}/fork`);
-  await expect(page.getByRole('link',{name:'Fork 工坊版本 ↗',exact:true})).toHaveAttribute('href',example.fork_url);
+  await expect(page.getByRole('link',{name:'開啟原作 ↗',exact:true})).toHaveAttribute('href',example.upstream_url);
+  await expect(page.getByRole('link',{name:'Fork 原作 ↗',exact:true})).toHaveAttribute('href',`${example.upstream_url}/fork`);
+  await expect(page.getByRole('link',{name:'查看工坊整合版本 ↗',exact:true})).toHaveAttribute('href',example.repository_url);
   await expect(page.locator('.public-skill-cover img')).toHaveAttribute('src',example.cover_url!);
   await expect.poll(()=>page.locator('.public-skill-cover img').evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   const star=page.getByRole('link',{name:'登入工坊 Star',exact:true});

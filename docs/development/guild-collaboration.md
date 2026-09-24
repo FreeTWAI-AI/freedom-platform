@@ -35,7 +35,9 @@
 
 Agent 指引包含目標 Repo／分支、先讀文件、任務來源、驗收命令、完成條件與交接欄位。指引不授予部署、帳號、私人資料或付款權限。原作者 Repo 與工坊 fork 的 PR 目標明確區分。
 
-Hao 的 autopilot 以工坊共作 fork 的現行文件為入口，標示上游 Editkin v4 路線。建議任務在維護者確認前仍是提案；GitHub Issues／PR 是認領、審查和程式合併的實際記錄。
+Hao 的 autopilot 預設从 Hao 的原作開始共創並向原作提交 PR，標示上游 Editkin v4 路線。既有工坊 Issues 保留在原位置，工坊整合任務可向工坊 fork 提 PR 並記錄回送原作的狀態。建議任務在維護者確認前仍是提案；GitHub Issues／PR 是認領、審查和程式合併的實際記錄。
+
+協作 JSON 的 `contribution` 是預設原作 Fork／PR 目標；`repository` 保留工坊工作區資料，`task_source` 保留既有真實任務來源。公開頁、Markdown、Agent SKILL.md 與會員介紹都使用相同的原作優先原則。這些導覽變更不建立 PR、不搬移 repo、不替會員改 Git 作者。版本與署名規則見[原作、版本與貢獻歸屬](./author-owned-collaboration.md)。
 
 ## 公會管理與編輯
 

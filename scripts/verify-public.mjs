@@ -449,7 +449,7 @@ try {
   await page.locator('.guild-card').first().locator('.skill-intro-trigger').first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('dialog').getByRole('link',{name:'原作者 GitHub ↗',exact:true})).toHaveAttribute('href',/^https:\/\/github\.com\//);
-  await expect(page.getByRole('dialog').getByRole('link',{name:'Fork 專案 ↗',exact:true})).toHaveAttribute('href',/^https:\/\/github\.com\/[^/]+\/[^/]+\/fork$/);
+  await expect(page.getByRole('dialog').getByRole('link',{name:'Fork 原作 ↗',exact:true})).toHaveAttribute('href',/^https:\/\/github\.com\/[^/]+\/[^/]+\/fork$/);
   const social=await (await page.request.get(origin+'/api/v1/me/github')).json();
   await expect(page.getByRole('dialog').getByRole('button',{name:social.configured?'連結 GitHub 後 Star':'GitHub 連結尚未啟用',exact:true})).toBeVisible();
   await page.getByRole('dialog').getByText('練習與設定',{exact:true}).click();
@@ -514,6 +514,14 @@ try {
   expect((await page.request.get(origin+'/api/v1/guild-council/threads')).status()).toBe(403);
   await navigate(page, '一起開發');
   await expect(page.getByRole('heading',{name:'一起開發',exact:true}).first()).toBeVisible();
+  await expect(page.getByRole('heading',{name:'自動剪輯共創：一起把可用的底層疊起來',exact:true})).toHaveCount(1);
+  await expect(page.getByRole('button',{name:'複製專案開發指令',exact:true})).toBeVisible();
+  await page.getByRole('combobox',{name:'公會分類',exact:true}).selectOption('guild_ai_vibe');
+  await expect(page.getByRole('combobox',{name:'選擇專案',exact:true})).toHaveValue('workshop-video-autopilot');
+  const projectBriefResponse=await page.request.get(origin+'/api/v1/co-creation/projects/workshop-video-autopilot/brief');
+  expect(projectBriefResponse.status()).toBe(200);
+  expect((await projectBriefResponse.json()).text).toContain('原作 Repo：https://github.com/Hao0321/video-autopilot-kit');
+  await expect(page.getByRole('combobox',{name:'任務類型',exact:true})).toBeVisible();
   const liveActivity=await page.request.get(origin+'/api/v1/co-creation/projects/workshop-video-autopilot/activity');
   expect(liveActivity.status()).toBe(200);
   const activity=await liveActivity.json();

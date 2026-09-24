@@ -1,0 +1,8 @@
+.cocreation-panel .expedition-project-detail { border-color: var(--green); }
+.cocreation-panel .expedition-project-detail h3 { margin: 0; }
+.cocreation-panel .expedition-project-detail p { margin-block: 0; }
+.cocreation-panel .expedition-project-detail .module-optional { border-top: 1px solid var(--line); padding-top: .25rem; }
+.cocreation-panel .cocreation-project-picker { margin-bottom: 0; }
+.cocreation-panel .expedition-brief { min-width: 0; }
+.cocreation-panel .expedition-brief textarea { width: 100%; line-height: 1.65; }
+.cocreation-panel .cocreation-task-source { overflow-wrap: anywhere; }

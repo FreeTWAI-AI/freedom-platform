@@ -1,6 +1,6 @@
 # 共創專案與 GitHub 任務入口
 
-平台資料庫保存共創專案的目標、募集角色、協調者及合作說明。**GitHub Issues 是任務紀錄，PR 是提交、審查與合併紀錄。** 平台不另建一套 Issue 狀態，也不代替 repo 維護者分派權限、合併 PR 或保證報酬。
+平台資料庫保存共創專案的目標、公會分類、募集角色、協調者及合作說明。**GitHub Issues 是任務紀錄，PR 是提交、審查與合併紀錄。** 平台不另建一套 Issue 狀態，也不代替 repo 維護者分派權限、合併 PR 或保證報酬。
 
 目前提供自由工坊 `video-autopilot-kit` 共創示範入口，以及會員為自己已登錄的公開作品建立的入口。協調者是平台紀錄的建立者；這不代表已驗證 GitHub repo 管理權限。GitHub、Discord、LINE 帳號文字仍是本人填寫的聯絡資料，不可據此把外部貢獻掛到某個會員身上。
 
@@ -10,9 +10,10 @@
 
 | 方法與路徑 | 內容 |
 |---|---|
-| `GET /co-creation/projects` | `{items}`：示範入口與同社群的共創專案，會員專案最多 100 筆。 |
+| `GET /co-creation/projects` | `{items,guilds}`：示範入口與同社群的共創專案，會員專案最多 100 筆；`guilds` 提供現有公會的 key 與名稱。每個 project 含 `guild_keys`。 |
 | `POST /co-creation/projects` | 建立協調入口，回傳專案紀錄（201）。 |
 | `GET /co-creation/projects/:id/activity` | 讀取該 repo 的公開 Issue 與近期已合併 PR 摘要。 |
+| `GET /co-creation/projects/:id/brief` | `{text}`：專案 Agent prompt，包含來源、讀取文件、挑選任務、驗證與回饋原作流程；不呼叫 GitHub。 |
 | `GET /co-creation/projects/:id/issues/:number/brief` | `{text}`：可交給人類或 AI 的任務說明，包含來源、讀取時間與 Issue 原文。 |
 
 建立內容為：
@@ -23,13 +24,26 @@
   "title": "這個共創專案的名稱",
   "goal": "這一輪共同想完成的具體成果",
   "help_wanted": ["development", "testing"],
+  "guild_keys": ["guild_ai_vibe", "guild_ai_field"],
   "contribution_notes": "認領、合作與交付方式"
 }
 ```
 
 `help_wanted` 可選 `development`、`testing`、`design`、`documentation`、`marketing`、`sales`、`operations`、`security`、`music`、`media`，至少一項且不可重複。來源必須是本人在同社群登錄的作品，且其已記錄的版本未封存；同一來源只建一個共創入口。找不到可操作來源回傳 404，重複入口或封存來源回傳 409。示範入口 ID 為 `workshop-video-autopilot`，一般會員專案使用 UUID。
 
-建立入口只寫入 `co_creation_projects` 與協調事件；不建立 GitHub Issue、不更動 assignee、不送 PR、不寄信。真正的認領流程是到 Issue 留言提案，取得維護者確認，再使用自己的 fork 或已授權分支完成工作、測試並提交連回 Issue 的 PR。
+`guild_keys` 可選最多五個現有公會，不可重複；省略時為空陣列。Migration `029_co_creation_guilds.sql` 以關聯表保存分類，既有會員專案保留「尚未分類」。示範剪輯專案列於媒體、AI 開發與 AI 導入公會。這是跨公會的專案索引，不是加入公會或取得 GitHub 權限；會員授權／撤銷的待實作流程另見 [公會開發權限](guild-development-access.md)。
+
+建立入口只寫入 `co_creation_projects`、`co_creation_project_guilds` 與協調事件；不建立 GitHub Issue、不更動 assignee、不送 PR、不寄信。認領沿用 repo 規則與既有派工授權，再使用自己的 fork 或已授權分支完成工作、測試並提交連回 Issue 的 PR。
+
+## 頁面與 Agent 指令
+
+頁面以「公會分類 → 專案選擇 → 單一專案說明」取代重複的邀請卡與參與卡。公會只篩選目前已發起的共創專案，不宣稱涵蓋公會所有 repo。尚無專案時可返回全部公會。發起邀請可以跨公會分類；既有入口目前沒有編輯分類介面。
+
+主按鈕複製專案開發指令；Issue 另有對應的任務說明。專案指令不依賴 GitHub 活動查詢，GitHub 暫時無法讀取時仍可使用；剪貼簿被拒絕時提供可選取的文字欄位。切換專案會清除前一個專案的指令，忽略晚到的請求回應。
+
+指令包含 repo、Issues／PR、現行文件與版本核對、最多三項可選任務、完成條件、驗證與交付欄位。通用改善預設回饋原作；工坊專用整合另記回送原作的 PR 或未回送原因。原作來源未記錄的會員專案要求 Agent 先核對 fork 關係，不把登錄人認定成作者。複製指令不代表授權留言、推送、發版、部署或自動認領。
+
+任務類型依 GitHub 明確標籤分成 Bug 修復、功能改善、測試、文件教學、設計、資安與推廣協作；同一 Issue 可有多種類型。沒有可識別類型就顯示「未分類」，不從標題臆測。保留原始 labels、指派者與搜尋篩選；所有篩選只涵蓋本次讀取的有界清單。
 
 ## 讀取範圍與可用性
 

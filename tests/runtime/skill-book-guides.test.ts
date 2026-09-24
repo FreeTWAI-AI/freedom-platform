@@ -49,7 +49,7 @@ test('all 25 books expose distinct covers, original-author stars and the same be
     covers.add(book.cover_url!);
     const markdown=skillMarkdown(book.id)!;
     for(const value of Object.values(guide.beginner))assert.ok(markdown.includes(value),book.id);
-    for(const value of [book.cover_url!,book.star_url!,book.repository_url,book.fork_url,guide.first_result,guide.status,guide.source_commit])assert.ok(markdown.includes(value),`${book.id}/${value}`);
+    for(const value of [book.cover_url!,book.star_url!,book.repository_url,book.upstream_url+'/fork',guide.first_result,guide.status,guide.source_commit])assert.ok(markdown.includes(value),`${book.id}/${value}`);
     const html=pageHtml(book.title,markdown,book.markdown_url);
     assert.ok(html.includes(`src="${book.cover_url}"`),book.id);
     assert.ok(html.includes('href="/#skills">登入工坊 Star'),book.id);

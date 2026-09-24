@@ -35,6 +35,10 @@ test('task discovery combines real labels and assignment, remembers filters, and
   await navigate(page, '一起開發');
   const issues = page.locator('.expedition-issue');
   await expect(issues).toHaveCount(2);
+  await page.getByRole('combobox', { name: '任務類型', exact: true }).selectOption('bug');
+  await expect(page.getByRole('heading', { name: '沒有符合條件的任務', exact: true })).toBeVisible();
+  await page.getByRole('combobox', { name: '任務類型', exact: true }).selectOption('documentation');
+  await expect(issues).toHaveCount(1);
   await page.getByRole('combobox', { name: '任務標籤', exact: true }).selectOption('documentation');
   await page.getByRole('combobox', { name: '任務負責人', exact: true }).selectOption('assigned');
   await page.getByLabel('搜尋任務', { exact: true }).fill('安裝步驟');
@@ -45,6 +49,7 @@ test('task discovery combines real labels and assignment, remembers filters, and
   await expect(page.getByLabel('搜尋任務', { exact: true })).toHaveValue('安裝步驟');
   await expect(page.getByRole('combobox', { name: '任務標籤', exact: true })).toHaveValue('documentation');
   await expect(page.getByRole('combobox', { name: '任務負責人', exact: true })).toHaveValue('assigned');
+  await expect(page.getByRole('combobox', { name: '任務類型', exact: true })).toHaveValue('documentation');
   await expect(issues).toHaveCount(1);
   await page.getByRole('combobox', { name: '任務負責人', exact: true }).selectOption('unassigned');
   await expect(page.getByRole('heading', { name: '沒有符合條件的任務', exact: true })).toBeVisible();
@@ -52,6 +57,7 @@ test('task discovery combines real labels and assignment, remembers filters, and
   await page.getByRole('button', { name: '查看未指派任務', exact: true }).click();
   await expect(page.getByLabel('搜尋任務', { exact: true })).toBeFocused();
   await expect(page.getByRole('combobox', { name: '任務標籤', exact: true })).toHaveValue('');
+  await expect(page.getByRole('combobox', { name: '任務類型', exact: true })).toHaveValue('');
   await expect(issues).toHaveCount(1);
   await expect(issues).toContainText('建立可重現的剪輯測試素材');
   await expect(issues).toContainText('尚未指派負責人；請先到任務頁留言協調。');

@@ -29,10 +29,14 @@ test('a visitor without JavaScript can follow real repo links and read a complet
   await expect(page.getByRole('heading',{name:'要 Fork 哪一個 Repo？'})).toBeVisible();
   await expect(page.getByRole('link',{name:'https://github.com/FreeTWAI-AI/freedom-supplier-client',exact:false}).first()).toBeVisible();
   await page.goto('/development/skills/security-scanner');
-  await expect(page.getByRole('link',{name:'Fork 專案 ↗',exact:true})).toHaveAttribute('href','https://github.com/teddashh/ai-security-scanner/fork');
-  await expect(page.getByRole('link',{name:'Fork 工坊版本 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI-AI/ai-security-scanner/fork');
+  await expect(page.getByRole('link',{name:'Fork 原作 ↗',exact:true})).toHaveAttribute('href','https://github.com/teddashh/ai-security-scanner/fork');
+  await expect(page.getByRole('link',{name:'查看工坊整合版本 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI-AI/ai-security-scanner');
   await expect(page.getByRole('link',{name:'閱讀技能書 ↗',exact:true})).toBeVisible();
   await expect(page.getByRole('heading',{name:'一起開發',exact:true})).toBeVisible();
+  await expect(page.getByRole('link',{name:'從原作開始共創 ↗',exact:true})).toHaveAttribute('href','https://github.com/teddashh/ai-security-scanner/fork');
+  await expect(page.locator('.collaboration-repository')).toHaveText('預設 PR → teddashh/ai-security-scanner:main');
+  await expect(page.getByRole('link',{name:'查看原作 PR ↗',exact:true})).toHaveAttribute('href','https://github.com/teddashh/ai-security-scanner/pulls');
+  await expect(page.getByText('工坊整合與任務來源',{exact:true})).toBeVisible();
   await expect(page.getByRole('link',{name:'下載 Agent SKILL.md',exact:true}).first()).toBeVisible();
   await page.getByText('完整指南與來源',{exact:true}).click();
   await expect(page.getByRole('heading',{name:'第一個練習'})).toBeVisible();
