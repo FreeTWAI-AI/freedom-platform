@@ -18,6 +18,12 @@ const nullSnapshot={stargazers_count:null,forks_count:null,open_issues_count:nul
 const poolState=new WeakMap<Pool,{inflight:Map<string,Promise<MetricsRow>>;providers:WeakMap<typeof fetch,GitHubSocialProvider>}>();
 const identityTaken='這個 GitHub 帳號已連結另一個工坊帳號。請先從原本的工坊帳號解除連結，或改用其他 GitHub 帳號。';
 const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
+// Serializes every change to one member's GitHub connection (connect, reconnect,
+// refresh, disconnect) with every read that authorizes from it. Lock order:
+// user -> member-guild -> github-social -> grant rows. Re-entrant per transaction.
+export async function lockGitHubSocialMember(q:PoolClient,userId:string){
+  await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-social/${userId}`]);
+}
 function upstream(bookId:string){
   const book=communityCatalog.skill_books.find(item=>item.id===bookId);
   requireCondition(book,404,'skill_book_not_found','找不到這本技能書。');
@@ -54,7 +60,7 @@ export class GitHubSocial {
   private async actorLock(q:PoolClient,actor:Actor){
     requireCondition((await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active FOR SHARE',[actor.user_id,actor.community_id])).rowCount===1,401,'session_expired','請重新登入。');
     requireCondition((await q.query('SELECT 1 FROM sessions WHERE token_hash=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at>now() FOR SHARE',[actor.session_hash,actor.user_id])).rowCount===1,401,'session_expired','請重新登入。');
-    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-social/${actor.user_id}`]);
+    await lockGitHubSocialMember(q,actor.user_id);
   }
   private async member<T>(actor:Actor,run:(q:PoolClient)=>Promise<T>):Promise<T>{
     // Commit consumed OAuth states, attempt budgets and invalid-token removal even
@@ -81,7 +87,7 @@ export class GitHubSocial {
   // Caller already holds user -> member-guild locks; never open a nested transaction.
   async developmentEvidence(q:PoolClient,actor:Actor,target:string,working:string){
     this.configured();requireCondition(this.config?.appId,503,'github_development_not_configured','GitHub App 尚未完成開發連動設定。');
-    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-social/${actor.user_id}`]);
+    await lockGitHubSocialMember(q,actor.user_id);
     const connection=await this.connection(q,actor);requireCondition(connection,409,'github_connect_required','請先連結 GitHub。');
     return this.withToken(q,actor,connection,async token=>{
       const identity=await this.provider.identity(token);

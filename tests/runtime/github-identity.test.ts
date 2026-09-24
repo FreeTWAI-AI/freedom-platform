@@ -124,32 +124,73 @@ test('the database rejects any direct duplicate, and a racing direct write still
   }finally{await writer.query('ROLLBACK');writer.release();}
 });
 
-test('migration 034 fails atomically on existing duplicates without choosing, merging or deleting rows',async()=>{
-  const legacy=`${schema}_legacy`,legacyPool=new Pool({connectionString:databaseUrl,options:`-c search_path=${legacy}`,max:2});
+// Isolated schema migrated through 033, i.e. an environment that has not yet applied 034.
+async function withLegacySchema(suffix:string,run:(legacyPool:Pool,legacy:string)=>Promise<void>){
+  const legacy=`${schema}_${suffix}`,legacyPool=new Pool({connectionString:databaseUrl,options:`-c search_path=${legacy}`,max:4});
   await database.query(`CREATE SCHEMA ${legacy}`);
   try{
     await legacyPool.query('CREATE TABLE schema_migrations (name text PRIMARY KEY,sha256 text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now())');
     for(const name of (await readdir('migrations')).filter(name=>name.endsWith('.sql')&&name<'034').sort()){
       const sql=await readFile('migrations/'+name,'utf8');await legacyPool.query(sql);await legacyPool.query('INSERT INTO schema_migrations(name,sha256) VALUES($1,$2)',[name,digest(sql)]);
     }
-    const community=randomUUID();await legacyPool.query('INSERT INTO communities VALUES($1,$2)',[community,'Legacy']);
-    const people=[await member(community,'LegacyOne',legacyPool),await member(community,'LegacyTwo',legacyPool),await member(community,'LegacyThree',legacyPool)];
-    for(const [person,id] of [[people[0],'4242'],[people[1],'4242'],[people[2],'5151']] as const)
-      await legacyPool.query('INSERT INTO github_social_connections(user_id,community_id,github_user_id,github_login,encrypted_tokens) VALUES($1,$2,$3,$4,$5)',[person.user_id,community,id,'legacy-'+id,'ciphertext-'+person.user_id]);
-    const snapshot=async()=>(await legacyPool.query('SELECT * FROM github_social_connections ORDER BY user_id')).rows;
-    const before=await snapshot();
-    await assert.rejects(()=>migrate(legacyPool),error=>{
-      assert.match(String(error),/github_identity_duplicate: 1 GitHub user ID\(s\) are linked to more than one member \(2 connection rows\)/);
-      for(const secret of ['4242',...people.map(person=>person.user_id),...people.map(person=>person.email)])assert.equal(String(error).includes(secret),false);
-      return true;
-    });
-    assert.deepEqual(await snapshot(),before);
-    assert.equal((await legacyPool.query("SELECT count(*) FROM schema_migrations WHERE name>='034'")).rows[0].count,'0');
-    assert.equal((await legacyPool.query("SELECT count(*) FROM pg_constraint WHERE conname='github_social_connections_github_user_unique' AND connamespace=$1::regnamespace",[legacy])).rows[0].count,'0');
-    // An operator resolves the duplicate explicitly; only then does the migration apply.
-    await legacyPool.query('DELETE FROM github_social_connections WHERE user_id=$1',[people[1].user_id]);
-    await migrate(legacyPool);
-    assert.equal((await legacyPool.query("SELECT count(*) FROM schema_migrations WHERE name='034_github_identity_unique.sql'")).rows[0].count,'1');
-    await assert.rejects(()=>legacyPool.query('UPDATE github_social_connections SET github_user_id=$1 WHERE user_id=$2',['4242',people[2].user_id]),(error:{code?:string})=>error.code==='23505');
+    await run(legacyPool,legacy);
   }finally{await legacyPool.end();await database.query(`DROP SCHEMA ${legacy} CASCADE`);}
-});
+}
+const uniqueInstalled=async(legacyPool:Pool,legacy:string)=>(await legacyPool.query("SELECT count(*) FROM pg_constraint WHERE conname='github_social_connections_github_user_unique' AND connamespace=$1::regnamespace",[legacy])).rows[0].count==='1';
+
+test('migration 034 fails atomically on existing duplicates without choosing, merging or deleting rows',()=>withLegacySchema('legacy',async(legacyPool,legacy)=>{
+  const community=randomUUID();await legacyPool.query('INSERT INTO communities VALUES($1,$2)',[community,'Legacy']);
+  const people=[await member(community,'LegacyOne',legacyPool),await member(community,'LegacyTwo',legacyPool),await member(community,'LegacyThree',legacyPool)];
+  for(const [person,id] of [[people[0],'4242'],[people[1],'4242'],[people[2],'5151']] as const)
+    await legacyPool.query('INSERT INTO github_social_connections(user_id,community_id,github_user_id,github_login,encrypted_tokens) VALUES($1,$2,$3,$4,$5)',[person.user_id,community,id,'legacy-'+id,'ciphertext-'+person.user_id]);
+  const snapshot=async()=>(await legacyPool.query('SELECT * FROM github_social_connections ORDER BY user_id')).rows;
+  const before=await snapshot();
+  await assert.rejects(()=>migrate(legacyPool),error=>{
+    assert.match(String(error),/github_identity_duplicate: 1 GitHub user ID\(s\) are linked to more than one member \(2 connection rows\)/);
+    for(const secret of ['4242',...people.map(person=>person.user_id),...people.map(person=>person.email)])assert.equal(String(error).includes(secret),false);
+    return true;
+  });
+  assert.deepEqual(await snapshot(),before);
+  assert.equal((await legacyPool.query("SELECT count(*) FROM schema_migrations WHERE name>='034'")).rows[0].count,'0');
+  assert.equal(await uniqueInstalled(legacyPool,legacy),false);
+  // An operator resolves the duplicate explicitly; only then does the migration apply.
+  await legacyPool.query('DELETE FROM github_social_connections WHERE user_id=$1',[people[1].user_id]);
+  await migrate(legacyPool);
+  assert.equal((await legacyPool.query("SELECT count(*) FROM schema_migrations WHERE name='034_github_identity_unique.sql'")).rows[0].count,'1');
+  await assert.rejects(()=>legacyPool.query('UPDATE github_social_connections SET github_user_id=$1 WHERE user_id=$2',['4242',people[2].user_id]),(error:{code?:string})=>error.code==='23505');
+}));
+
+test('migration 034 queues behind an in-flight callback that read the table, then installs the constraint without deadlock',()=>withLegacySchema('lock',async(legacyPool,legacy)=>{
+  const community=randomUUID();await legacyPool.query('INSERT INTO communities VALUES($1,$2)',[community,'Legacy']);
+  const existing=await member(community,'LockExisting',legacyPool),caller=await member(community,'LockCaller',legacyPool);
+  await legacyPool.query("INSERT INTO github_social_connections(user_id,community_id,github_user_id,github_login,encrypted_tokens) VALUES($1,$2,'6001','existing','x')",[existing.user_id,community]);
+  const callback=await legacyPool.connect();let migration:Promise<void>|undefined,open=false;
+  try{
+    // Callback transaction: the identity precheck leaves an ACCESS SHARE lock held until commit.
+    await callback.query('BEGIN');open=true;const callbackPid=(await callback.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    assert.equal((await callback.query("SELECT 1 FROM github_social_connections WHERE github_user_id='6002' AND user_id<>$1",[caller.user_id])).rowCount,0);
+    let settled=false;migration=migrate(legacyPool).finally(()=>{settled=true;});void migration.catch(()=>{});
+    // Barrier: the migration backend is waiting on the callback (no timing assumption).
+    let waiting:{pid:number;query:string}|undefined;
+    for(let attempt=0;attempt<400&&!waiting&&!settled;attempt++){
+      waiting=(await legacyPool.query("SELECT pid,query FROM pg_stat_activity WHERE wait_event_type='Lock' AND $1=ANY(pg_blocking_pids(pid))",[callbackPid])).rows[0];
+      if(!waiting)await new Promise(resolve=>setTimeout(resolve,25));
+    }
+    assert.ok(waiting,'migration 034 should wait for the callback that already read github_social_connections');
+    assert.match(waiting.query,/LOCK TABLE github_social_connections IN /,'the waiter is migration 034');
+    // While queued, the migration must hold nothing on the table: a granted SHARE ROW EXCLUSIVE here is
+    // what blocks the callback's INSERT and turns the later ACCESS EXCLUSIVE upgrade into a deadlock.
+    const locks=(await legacyPool.query("SELECT mode,granted FROM pg_locks WHERE pid=$1 AND relation=$2::regclass ORDER BY granted",[waiting.pid,`${legacy}.github_social_connections`])).rows;
+    // The callback continues with its INSERT and commit; the queued migration must neither block it nor deadlock.
+    await callback.query("INSERT INTO github_social_connections(user_id,community_id,github_user_id,github_login,encrypted_tokens) VALUES($1,$2,'6002','caller','y') ON CONFLICT(user_id) DO UPDATE SET github_user_id=EXCLUDED.github_user_id",[caller.user_id,community]);
+    await callback.query('COMMIT');open=false;
+    await migration;
+    assert.deepEqual(locks,[{mode:'AccessExclusiveLock',granted:false}]);
+    assert.equal(await uniqueInstalled(legacyPool,legacy),true);
+    assert.equal((await legacyPool.query("SELECT count(*) FROM schema_migrations WHERE name='034_github_identity_unique.sql'")).rows[0].count,'1');
+    assert.deepEqual((await legacyPool.query('SELECT user_id,github_user_id FROM github_social_connections ORDER BY github_user_id')).rows,[{user_id:existing.user_id,github_user_id:'6001'},{user_id:caller.user_id,github_user_id:'6002'}]);
+  }finally{
+    if(open)await callback.query('ROLLBACK').catch(()=>{});
+    callback.release();if(migration)await Promise.allSettled([migration]);
+  }
+}));

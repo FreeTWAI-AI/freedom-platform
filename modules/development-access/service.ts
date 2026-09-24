@@ -8,7 +8,7 @@ import {lockMemberGuilds} from '../positioning/onboarding.js';
 import {communityCatalog} from '../community/catalog.js';
 import {developmentPages} from '../development/pages.js';
 import {githubCoordinate} from '../opensource-marketing/github.js';
-import type {GitHubSocial} from '../github-social/service.js';
+import {lockGitHubSocialMember,type GitHubSocial} from '../github-social/service.js';
 
 export const DEVELOPMENT_POLICY='development-proposal-v1';
 import {developmentGuilds,type Capability} from './guild-eligibility.js';
@@ -102,7 +102,10 @@ export class DevelopmentAccess {
     });
   }
   private async authorizeGrant(q:PoolClient,actor:Actor,capability:Capability,targetKey:string,grantId?:string){
-    const target=targetFor(capability,targetKey);await this.prerequisites(q,actor,capability);
+    const target=targetFor(capability,targetKey);
+    // Read the grant only after any in-flight reconnect/disconnect has committed
+    // its revocation; a row read before this lock may already be stale.
+    await lockGitHubSocialMember(q,actor.user_id);await this.prerequisites(q,actor,capability);
     const row=(await q.query(`SELECT * FROM development_grants WHERE user_id=$1 AND community_id=$2 AND capability=$3 AND target_key=$4 AND revoked_at IS NULL AND expires_at>now() ${grantId?'AND grant_id=$5':''}`,grantId?[actor.user_id,actor.community_id,capability,targetKey,grantId]:[actor.user_id,actor.community_id,capability,targetKey])).rows[0];
     requireCondition(row&&row.policy_version===DEVELOPMENT_POLICY&&row.target_repository===target.repository,403,'development_grant_required','開發授權已失效，請重新完成設定。');
     try{
@@ -155,6 +158,7 @@ export class DevelopmentAccess {
     requireCondition(stored,401,'development_key_required','開發憑證無效。');
     const actor={user_id:stored.user_id,community_id:stored.community_id} as Actor;
     return this.member(actor,async q=>{
+      await lockGitHubSocialMember(q,actor.user_id);
       requireCondition((await q.query('SELECT 1 FROM development_keys WHERE key_id=$1 AND revoked_at IS NULL AND expires_at>now()',[stored.key_id])).rowCount,403,'development_key_revoked','開發憑證已到期或撤銷。');
       const grant=await this.authorizeGrant(q,actor,stored.capability,stored.target_key,stored.grant_id);
       return this.proposal(q,{actor,operation:`agent-development/${stored.key_id}`,body,key},grant);

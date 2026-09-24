@@ -2,7 +2,11 @@
 -- member platform-wide. Login and email are mutable/untrusted and never keys.
 -- Existing duplicates fail the whole migration: no owner is chosen, merged or
 -- deleted automatically. The message carries counts only, never member data.
-LOCK TABLE github_social_connections IN SHARE ROW EXCLUSIVE MODE;
+-- ALTER ... ADD CONSTRAINT needs ACCESS EXCLUSIVE anyway; take it up front.
+-- A weaker first lock (e.g. SHARE ROW EXCLUSIVE) must later be upgraded while
+-- blocking an in-flight callback's INSERT, which deadlocks against that
+-- callback's earlier read. Waiting once here lets such callbacks finish first.
+LOCK TABLE github_social_connections IN ACCESS EXCLUSIVE MODE;
 DO $$
 DECLARE duplicate_ids bigint; duplicate_rows bigint;
 BEGIN

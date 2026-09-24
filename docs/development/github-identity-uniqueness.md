@@ -17,14 +17,18 @@
 
 ## 升級既有環境
 
-Migration034 先鎖表並統計重複：若有任何 GitHub user ID 對到多位會員，整個 migration 失敗並回滾，錯誤只列重複的 GitHub user ID 數與連線筆數，不列會員資料：
+Migration034 一開始就以 `ACCESS EXCLUSIVE` 鎖表，再統計重複：若有任何 GitHub user ID 對到多位會員，整個 migration 失敗並回滾，錯誤只列重複的 GitHub user ID 數與連線筆數，不列會員資料：
 
 ```
 github_identity_duplicate: N GitHub user ID(s) are linked to more than one member (M connection rows)
 ```
 
+鎖定方式：加唯一約束的 `ALTER TABLE ... ADD CONSTRAINT` 本來就需要 `ACCESS EXCLUSIVE`，所以 migration 一開始就取得這個鎖，不先拿較弱的鎖再升級。原本先取 `SHARE ROW EXCLUSIVE` 時，若有進行中的 GitHub callback 已讀過這張表（持有 `ACCESS SHARE` 到 commit），它接下來的 INSERT 會被 migration 擋住，而 migration 的 ALTER 又在等 callback，於是 PostgreSQL 回報 deadlock（`40P01`）。現在 migration 只在一開始等一次：已開始的 callback 可以完成 INSERT 並 commit，之後 migration 才檢查重複並安裝 `github_social_connections_github_user_unique`；套用期間新的 callback 會短暫等待。
+
 Migration 不會自動選擇擁有者、合併或刪除任何連線。操作端需與相關會員確認誰是本人，由其他會員自行解除連結（或經授權的人工修正並留紀錄）後，再重新套用 migration。2026-09-24 主控端唯讀核對 staging 與 public 的重複群數皆為 0（只看總數）；實際套用時仍以 migration 本身的檢查為準。
 
 ## 測試
 
-`tests/runtime/github-identity.test.ts`：衝突與隱私、state 消耗與重放、占用帳號時保留原連線、兩位會員同時連結一勝一 409、同人重連與改名、原擁有者解除後他人以新 state 連結且 Star／已撤銷資格不變、DB 約束與繞過鎖的並行直接寫入、migration 對既有重複 atomic 失敗且資料不變（在獨立 schema 先套到 033 再套 034）。
+`tests/runtime/github-identity.test.ts`：衝突與隱私、state 消耗與重放、占用帳號時保留原連線、兩位會員同時連結一勝一 409、同人重連與改名、原擁有者解除後他人以新 state 連結且 Star／已撤銷資格不變、DB 約束與繞過鎖的並行直接寫入、migration 對既有重複 atomic 失敗且資料不變（在獨立 schema 先套到 033 再套 034）、migration 與進行中 callback 的鎖順序（callback 先讀表，以 `pg_stat_activity`／`pg_blocking_pids` 確認 migration 正在等它，且此時 migration 在表上只有尚未取得的 `AccessExclusiveLock`；callback 接著 INSERT 並 commit，migration 完成且約束已安裝）。
+
+2026-09-24 實跑 `npx tsx --test --test-concurrency=1 tests/runtime/github-identity.test.ts`：修正前（`SHARE ROW EXCLUSIVE`）8 項中 7 過 1 敗，新測試得到 PostgreSQL `40P01 deadlock detected`；修正後 8／8 通過（連跑 3 次）。`npm run typecheck` 通過。
