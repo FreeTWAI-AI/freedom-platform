@@ -298,7 +298,7 @@ Critical paths：
 
 ## 6. 階段、建議工期與 evidence
 
-Foundation Day 1 依 `08 §13` 同次建立 O1／O2 所需帳號與 production／staging resources；本節描述其後的交付結構。順序只由 API、resource、schema 與 state 等技術依賴決定。週數皆是五人核心團隊容量下的建議預設，可因吞吐、外包量與 provider lead time重估；標籤或 evidence 缺失不停止無關工作。本文所列產品／營運／真人測試仍待跑；契約 fixture 靜態檢查見 verification/2026-09-19-revision-check.md，本機 scoped runtime milestone 見 [`docs/releases/2026-09-20-local-core.md`](../releases/2026-09-20-local-core.md)。不宣稱完整 package 或 milestone 完成。
+Foundation Day 1 依 `08 §13` 同次建立 O1／O2 所需帳號與 production／staging resources；本節描述其後的交付結構。順序只由 API、resource、schema 與 state 等技術依賴決定。週數皆是五人核心團隊容量下的建議預設，可因吞吐、外包量與 provider lead time重估；標籤或 evidence 缺失不停止無關工作。本文所列產品／營運／真人測試仍待跑；契約 fixture 靜態檢查見 verification/2026-09-19-revision-check.md，本機 scoped runtime milestone 見 [`docs/releases/2026-09-20-local-core.md`](../releases/2026-09-20-local-core.md)；2026-09-24 公開會員 beta 對照見 §11.3。不宣稱完整 package 或 milestone 完成。
 
 ### 階段 1A：契約凍結（建議預設第 1–2 週）
 
@@ -564,9 +564,26 @@ GitHub／community／growth：
 
 產品／營運／真人觀察、API／並發／通知E2E及正式營運仍待跑。契約／fixture 靜態檢查見 `verification/2026-09-19-revision-check.md`；本機 scoped runtime milestone 見 [`docs/releases/2026-09-20-local-core.md`](../releases/2026-09-20-local-core.md)，涵蓋 login→claim→submit→accept→gains 的原型，不宣稱完整 package、milestone、部署、真人使用或收款證據。工程測試通過不代表真人願意持續合作，也不代表已有付費成交。
 
+#### 2026-09-24 公開會員 beta 對照
+
+Base `8338a42` 已部署為 `freetwai.com` 公開會員 beta（Castle Node＋PostgreSQL＋Tunnel，見 [公開站運行手冊](../development/public-operations.md)）；本輪文件修正尚未部署。它是下列 package 的局部 runtime 子集，不改任何 package、milestone 或 acceptance 狀態；逐項來源見 [2026-09-23 落差對照](../development/plan-drift-2026-09-23.md)。
+
+| 範圍（相關 package） | 目前 runtime | 仍未實作，不可推定完成 |
+| --- | --- | --- |
+| Identity／會員（FND-03、ORG-01 局部） | email／密碼、session 撤銷、跨社群拒絕、聯絡欄位可見範圍、GitHub 可選 OAuth 連結 | ExternalIdentity 唯一性、LINE／Discord login、merge、帳號恢復、一般 email 驗證 |
+| 定位／公會（POS-01、ORG-01/03 局部） | 封閉定位（新註冊必填）、多公會與唯一主力、技能書 grant、管理員任命公會長／專家 | `ai-online` parity、Rank review、Office handover／ModuleStewardship、starter track、CareerProfile／WorkIntent |
+| 開發資格 | 公會 OR 資格→GitHub repo 驗證→七日目標 grant／60 分鐘提案 key，離會或解除連結同交易撤銷（[說明](../development/guild-development-access.md)） | GitHub team／collaborator 寫入權、App webhook 對帳、ExecutionGrant／A0–A4、ActionIntent |
+| Work／Result（WRK-01、FW-13 局部） | 單人 exclusive claim、條款 revision／hash pin、無 reviewer 仍可領、submit／review／accept、本人實益回報 | Squad／Team Claim、ReviewerAppointment、條款 revision API、到期排程、跨 Work／Coaching 容量 |
+| 商務（CAT-01、STF-01 局部） | 商品、供貨版本、選品、供貨請求、商店草稿與七日可撤 client read token | Order、checkout、PaymentFact、Supplier acceptance 簽章、SettlementMandate／TransferJob |
+| 作品合作 | 商機→雙方合作→交付→`self_reported`／`counterparty_confirmed` 收款回報 | provider／銀行實收核實、法律簽章、ServiceEngagement／AllocationPlan |
+| 開源／行銷／共創 | repo 版本登錄、campaign 草稿與人工分享紀錄、GitHub Issue／PR 有界讀取 | attribution、自動發布、Issue 雙向同步、media executor |
+| 平台底座 | 單一 Node app、本地 journal／outbox、本機每日備份 | 其餘 runtimes、Workers／R2／Queues、KMS／HSM、signed ContractBundle、三 CLI activation |
+
+T27–T34 與 UAT-M1–M5 仍未跑，局部 runtime evidence 只列在 acceptance matrix；真人付費成交、平台代收款與銀行實收核實仍無證據。Grok／Claude 的平台 review 流程與產品 official QC 都不是此 beta 的完成證明。
+
 ## 12. Operations automation 與人工邊界
 
-目標自階段1B起自動化；目前功能與測試均不宣稱已上線：
+目標自階段1B起自動化；下列自動化目前均未上線，§11.3 的公開會員 beta 只含其中會員手動操作的局部子集：
 
 - task matching、claim/lease、GitHub sync、tests、review routing、status projection。
 - identity/connection health、webhook validation/dedupe、retry、polling、reconciliation。

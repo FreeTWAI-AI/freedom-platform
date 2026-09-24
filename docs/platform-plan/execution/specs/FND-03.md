@@ -15,7 +15,15 @@
 
 ## 使用者結果與明確不包含
 
-同一自然人在 Portal/LINE/Discord/GitHub 仍對應同一 canonical user，且跨 user/community 存取 fail closed。不包含 fuzzy merge、通用 KYC、已啟用 provider login 或 production sessions。
+同一自然人在 Portal/LINE/Discord/GitHub 仍對應同一 canonical user，且跨 user/community 存取 fail closed。不包含 fuzzy merge、通用 KYC 或已啟用的外部 provider login（LINE 等）。公開會員 beta 已有第一方 email／密碼 session，見下節；它不等於本 SPEC 的 provider-neutral identity core。
+
+## 2026-09-24 現行 runtime 對照
+
+以 base `8338a42` 核對；此節取代「尚無 session／login 事實」類舊說法，但不改變本 SPEC 未完成。
+
+- 已有：email／密碼註冊登入、server-side `sessions`（token hash、CSRF、`expires_at`、`revoked_at`）、logout 與管理員停權撤銷 session、Origin／CSRF 驗證與跨社群拒絕。來源 `migrations/001_local_core.sql`、`apps/platform-api/src/app.ts`；測試 `tests/runtime/flows.test.ts`、`tests/runtime/identity-member.test.ts`、`tests/runtime/platform-admin.test.ts`。
+- 已有：GitHub 可選 OAuth 連結（PKCE、驗 GitHub user ID、加密 token、state 綁 exact session），供 Star 與[公會開發資格](../../../development/guild-development-access.md)的 grant／revoke 使用。來源 `migrations/018_github_social.sql`、`modules/github-social/`；測試 `tests/runtime/github-social.test.ts`、`tests/runtime/development-access.test.ts`。它不是登入 adapter，也不是 `ExternalIdentity` aggregate。
+- 未完成：`ExternalIdentity`／`provider+tenant+subject` active unique（`github_social_connections` 只以 `user_id` 為 PK，尚未拒絕兩位會員連同一 GitHub user ID）、link collision→Identity Resolution、LINE／Discord login、unlink／merge audit、帳號恢復與一般 email 驗證。
 
 ## Actor／principal／acting role／資源範圍
 
@@ -65,7 +73,7 @@ Legacy rows保留 source/hash/status；無 contemporaneous proof 不自動歸戶
 
 ## 實際測試命令（將來會這樣跑；未跑）
 
-以下 `docs/platform-plan/contracts/tests/*.py` 均為（新建）路徑，目前尚不存在。
+以下 `docs/platform-plan/contracts/tests/*.py` 均為（新建）路徑，2026-09-24 核對仍不存在；上節 `tests/runtime/` 只涵蓋公開 beta 子集，不代替這三支。
 
 ```bash
 python -m pytest docs/platform-plan/contracts/tests/test_external_identity_uniqueness.py -q
@@ -77,7 +85,7 @@ python -m pytest docs/platform-plan/contracts/tests/test_session_revocation.py -
 
 ## 缺 evidence 時的標籤／技術依賴
 
-首個 login provider與recovery operator尚無建立事實；本地identity core可繼續。Sandbox claim需要`08 §13`的provider connection與evidence。
+首個外部 login provider（LINE 等）與recovery operator尚無建立事實；第一方 email／密碼 session 已在公開 beta，不能當成 provider adapter evidence。本地identity core可繼續。Sandbox claim需要`08 §13`的provider connection與evidence。
 
 ## 完成證據
 

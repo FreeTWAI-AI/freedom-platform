@@ -9,6 +9,7 @@ FW-01–FW-12保留；新增FW-13–FW-15併入既有package，合計15張。這
 - FW-01–FW-12 已有第一批靜態交付（tests／fixtures／validators 已落盤）。FW-11 的 stage-1A README 已 materialized；FW-12 的 typed retract success response 已合入 OpenAPI。卡片內產品／runtime 驗收仍未滿，不把任何 package 標為完成。
 - FW-13–FW-15 仍為部分規劃／未滿驗收。
 - 契約 fixture 檢查已有本地紀錄；產品／營運／真人測試仍待跑。本機 scoped runtime milestone 見 [`docs/releases/2026-09-20-local-core.md`](../../releases/2026-09-20-local-core.md)，涵蓋 login→claim→submit→accept→gains 的原型。
+- 2026-09-24 對照：base `8338a42` 公開會員 beta 已含 FW-13 的局部 runtime（Claim pin 條款、本人實益回報），FW-14／FW-15 仍無容量 reservation、到期排程、三個入口或共同目標 runtime（`project`／`mutual_help` 小隊目前只有名單與加入關係）；範圍與未實作清單見 [`06 §11.3`](../06-delivery-plan.md)。本檔卡片狀態不因此改為完成。
 - 首批營運驗證是兩條平行路徑：有限互助，以及自願作品展示／外展／商機／合作／外部實收證據。不要求先完成十次免費互助才准找客戶；不承諾付費名單或未來收入；目前沒有已證明的真實付費成交。收款維持 Seller 自有、平台不 custody。
 
 卡片編號不取代 requirement 或 package ID。Test stack 固定為 `python3`＋`pytest`＋`PyYAML`＋`jsonschema`（Draft 2020-12）。`x-uniqueBy`／`x-invariants` 不是 JSON Schema 關鍵字，標準 validator 不會執行；每張卡的測試必須另寫檢查明示驗證這些規則。
@@ -273,7 +274,7 @@ FW-11／FW-12 的 canonical contract 內容由 Grok＋Claude 與自動 checks �
 ## FW-13 — 互助條款與當事人實益
 
 - Requirement：RQ-066／RQ-071；primary WRK-01，OPP-01參與；owner沿用Jason職能分工，非新增人員。
-- 修改範圍：work-participation schema／examples、agent contract、OpenAPI、event catalog、Work／Result實作與對應tests；本包只已完成planning與靜態例子，runtime待做。
+- 修改範圍：work-participation schema／examples、agent contract、OpenAPI、event catalog、Work／Result實作與對應tests。2026-09-24：planning與靜態例子之外，公開 beta 已有局部 runtime——建立時產生 `voluntary_contribution` 條款、Claim pin revision／sha256、需求者／承接者本人實益回報（`modules/results/benefits.ts`、`tests/runtime/benefits.test.ts`、[實益 API](../../development/benefit-observations.md)）；條款 revision API、組織代表、三模式與 T27／T28 完整產品驗收仍待做。
 - Outcome：Claim pin terms、當事人自願回報、unknown保留、回報不改QC／contribution／ledger；T27/T28。
 - 真人capacity／付款承諾不得由schema fixture、AI或request的自填ref證明；必須server讀取有效來源。
 

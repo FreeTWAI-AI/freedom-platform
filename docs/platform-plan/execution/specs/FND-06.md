@@ -17,6 +17,10 @@
 
 以 `01 §12`／catalog 的八個 launch entitlement keys 閉集為準：`community.member`、`opportunity.claim.basic`、`skill.submit`、`qc.review:<scope>`、`seller.list`、`store.deploy`、`coaching.offer`、`module.delegate:<scope>`；取得條件與 A4 named-action boundary 在 prose/fixture/API 間不漂移。不包含會員 compliance score、XP/rank 自動授權或 Agent A4 standing grant。
 
+## 2026-09-24 現行 runtime 對照
+
+以 base `8338a42` 核對：公開會員 beta 沒有 `EntitlementDefinition`／Snapshot、上述八個 key 或 ReviewerAppointment runtime。現有授權是各模組的 scoped relationship：公會 membership→技能書 grant、管理員任命公會長／專家、公會開發資格（OR 條件→七日目標 grant／60 分鐘 key，離會同交易撤銷，見[開發資格](../../../development/guild-development-access.md)）。它們不得被稱為 `qc.review:<scope>`、`skill.submit` 或 `module.delegate:<scope>`；OD-10 仍未解除。
+
 ## Actor／principal／acting role／資源範圍
 
 Human/org principal；entitlement owner；authorized operator；Agent 只代表 principal 使用 active grant，不能獨立持 entitlement。
@@ -65,7 +69,7 @@ Rule rollback不倒改歷史；新 projection 明示使用版本。移除 key �
 
 ## 實際測試命令（將來會這樣跑；未跑）
 
-以下 `docs/platform-plan/contracts/tests/*.py` 均為（新建）路徑，目前尚不存在。
+2026-09-24 核對：`test_entitlement_exact_set.py`、`test_a4_named_action_boundary.py` 仍為（新建）路徑、尚不存在；`test_reviewer_appointment_entitlement.py` 已由 FW-04 建立，只以 synthetic fixture 靜態檢查 appointment→`qc.review:<scope>` 投影，不測 runtime API，其紀錄在 verification，不作本 SPEC 完成證據。
 
 ```bash
 python -m pytest docs/platform-plan/contracts/tests/test_entitlement_exact_set.py -q
@@ -73,7 +77,7 @@ python -m pytest docs/platform-plan/contracts/tests/test_a4_named_action_boundar
 python -m pytest docs/platform-plan/contracts/tests/test_reviewer_appointment_entitlement.py -q
 ```
 
-路徑尚不存在，**未跑**。
+前兩支尚未建立；本 SPEC 的 entitlement runtime 驗收**未跑**。
 
 ## 缺 evidence 時的標籤／技術依賴
 

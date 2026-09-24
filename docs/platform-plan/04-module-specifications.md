@@ -1,6 +1,8 @@
 # 八個使用者模組與五個共通營運核心規格
 
 > 狀態：現行 canonical baseline（2026-09-19 低維運互惠修訂）；planning 文件，不代表已部署。
+>
+> 2026-09-24 對照：base `8338a42` 的公開會員 beta 只實作本文局部子集（email 會員與 session、封閉定位、公會與技能書、會員隱私、小隊名單、供貨／商店草稿與 client read、開源／行銷紀錄、作品共創、單人 WorkItem claim、本人實益回報、商機合作與雙方收款回報、公會開發 grant）。現況與缺口以 [2026-09-23 落差對照](../development/plan-drift-2026-09-23.md) 為準；本文 API 表是 target contract，除非該處另註，不代表路徑已存在。
 
 日期：2026-09-17
 
@@ -54,7 +56,7 @@
 
 每個模組的 Definition of Done：
 
-本文列出的所有測試與驗收目前均為「未跑」；以下各項是目標 evidence，不代表已通過、已部署或已上線。
+本文列出的模組驗收目前均為「未跑」；以下各項是目標 evidence，不代表已通過、已部署或已上線。公開 beta 局部子集的 `tests/runtime/` 只證明該子集，不填作本文驗收。
 
 - 主路徑、重送路徑、外部服務失敗路徑與人工修復路徑都有測試。
 - API、event、DB migration、status projection、audit metadata 和操作畫面同一個 release 完成。
@@ -75,7 +77,7 @@
 
 ## 2. 模組一：定位模組
 
-> 2026-09-23 Ted 明示新註冊會員必須完成原創定位並自行確認公會；以下 B「不想做測驗」及 legacy parity 敘述不再適用新會員入口。既有會員存取與重新定位相容規則以 [會員入口修訂](../development/member-onboarding-release.md) 為準，不新增能力及格或職業資格判定。
+> 2026-09-23 Ted 明示新註冊會員必須完成原創定位並自行確認公會；以下 B「不想做測驗」、§2.7「跳過測驗仍可進入」及 legacy parity 敘述不再適用新會員入口。既有會員存取與重新定位相容規則以 [會員入口修訂](../development/member-onboarding-release.md) 為準，不新增能力及格或職業資格判定。
 
 ### 2.1 目的與非目標
 
@@ -836,6 +838,8 @@ GitHub webhooks：installation/repository/installation_repositories、push/tag/r
 
 ### 8.2 登入與身份連結
 
+> 2026-09-24 現況：公開 beta 以 email／密碼＋server session 登入，註冊即收登入 email（取代下文對 email 的 progressive collection）。GitHub 只是可選 OAuth 連結（驗 GitHub user ID，用於 Star 與公會開發資格），不是登入 adapter，也尚未拒絕兩位會員連同一 GitHub 帳號。LINE Login、Discord 連結、identity merge、帳號恢復與一般 email 驗證仍待做；下文為目標規格。
+
 - 身份核心對 provider neutral；可回復 guest session 不依賴外部服務。現行 working default 以 LINE Login 作首個 adapter；LINE OA 與渠道的採購、帳號及環境細節只依 `08 §13`。OIDC/OAuth callback 只交換平台 session，不把 LINE access token 發給前端長期保存。Ted 可依轉換率 evidence 改換 provider，而不改 domain identity。
 - Discord/GitHub 是可選連結。未連結仍能定位與瀏覽；需要在相應外部系統執行動作時才提示連結。
 - email／手機只在通知、買家交付或賣家付款需要時 progressive collection。
@@ -880,6 +884,8 @@ XP 是獨立的 People read model：`GET /me/xp` 只按 `profession × training|
 - 讀書會出席是 attendance；只有完成輸出／分享／實作才另建 ResultEvent。
 
 #### 8.5.1 第一天 bundle、starter track 與歡迎 automation
+
+> 2026-09-23 起新註冊會員須先完成封閉定位並自行確認公會才開放平台（Ted 明示 override，見 §2 註）；下文「可跳過定位」不再適用新註冊會員，「任何step都不鎖…」只適用定位以外的 step。
 
 Portal在建檔後顯示可重建的`MemberOnboardingJourney`：建檔 → 可跳過定位 → 接受建議或self-declare profession → 自助成Runner → 選coaching或starter package → equip → member-scoped install/verify → 歡迎儀式 → 第一張30–90分鐘WorkItem。每個step與overall readiness都是含`enforcement=navigation`的object，不顯示完成率／總分；任何step都不鎖registration、discussion、learning、browse、join、equip、submission或low-risk claim。
 
@@ -1175,7 +1181,12 @@ Canonical service APIs：
 
 主要events：`freedom.service.engagement.opened.v1`、`freedom.service.sow.version.created.v1`、`freedom.service.sow.version.signed.v1`、`freedom.service.allocation.proposed.v1`、`freedom.service.engagement.allocation_signed.v1`、`freedom.service.milestone.submitted.v1`、`freedom.service.milestone.change_requested.v1`、`freedom.service.milestone.accepted.v1`、`freedom.ledger.service_payable.accrued.v1`、`freedom.service.change_request.opened.v1`。
 
-低維運互惠補充APIs：`GET/PUT /api/v1/work-items/{workItemId}/participation-terms`讀取／建立條款revision，`POST /api/v1/work-items/{workItemId}/benefit-observations`由當事人回報實益。精確request、auth、version與errors見OpenAPI；benefit報告不是A4，不可經Agent token代本人確認。事件為`freedom.work.participation_terms.revised.v1`與`freedom.result.benefit_observed.v1`，producer分別為Work與Results既有owner。尚未部署。
+低維運互惠補充APIs：
+
+- `GET/PUT /api/v1/work-items/{workItemId}/participation-terms`讀取／建立條款revision：future contract，**尚未實作**。目前條款只在`POST /api/v1/work-items`建立時產生（僅`voluntary_contribution`），Claim pin revision／sha256。
+- `POST /api/v1/work-items/{workItemId}/benefit-observations`由當事人回報實益：**已在公開會員 beta 實作**，限會員 cookie＋CSRF＋`Idempotency-Key`＋`If-Match`，另有 OpenAPI 未列的本人 `GET` 摘要；未納入 preview SDK，見[實益 API](../development/benefit-observations.md)。
+
+精確request、auth、version與errors見OpenAPI；benefit報告不是A4，不可經Agent token代本人確認。事件`freedom.work.participation_terms.revised.v1`尚無producer；`freedom.result.benefit_observed.v1`目前只由Results寫入本地transition journal／outbox（refs＋revision），不是完整canonical envelope或跨模組dispatch。
 
 Work與Coaching執行容量reservation的交易檢查；統計介面只讀projection。API一致性檢查不得把reviewer appointment／available capacity變成一般認領資格，只有「新增保證真人服務」需要有效reservation。
 

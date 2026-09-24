@@ -17,6 +17,14 @@
 
 Secret、public/private/quarantine object、logs 與 backup 有分離邊界且可恢復。不包含建立雲端資源、宣稱 R2 put-only IAM、保存客戶 raw files 或 production key。
 
+## 2026-09-24 現行 runtime 對照
+
+以 base `8338a42` 核對；公開會員 beta 只有下列局部做法，不構成本 SPEC 的 broker／KMS／restore evidence。
+
+- 公開站是 Castle loopback＋Tunnel、獨立非 superuser `freedom_public` DB 與 0600 env 檔；運行手冊規定每日本機 custom dump 與首次 restore rehearsal，尚無異地備份（[公開站運行手冊](../../../development/public-operations.md)）。
+- GitHub OAuth token 以應用層金鑰加密存 DB（`modules/github-social/`）；client read token、開發 key 只存 hash（`tests/runtime/client-connections.test.ts`、`tests/runtime/development-access.test.ts`）。
+- 尚未：Credential Broker、KMS／HSM、status signer、R2／quarantine、secret rotation 演練、root recovery material 分離與 restore 後 credential 不復活的驗證。
+
 ## Actor／principal／acting role／資源範圍
 
 Credential broker、status signer、quarantine writer/sweeper、SRE operator 各有獨立 deployment/role；一般 Agent/API 無 vault root、signer key或 quarantine read/list。
@@ -65,7 +73,7 @@ Envelope key rotation支援 rewrap；storage provider 可換但保留 opaque con
 
 ## 實際測試命令（將來會這樣跑；未跑）
 
-以下 `docs/platform-plan/contracts/tests/*.py` 均為（新建）路徑，目前尚不存在。
+以下 `docs/platform-plan/contracts/tests/*.py` 均為（新建）路徑，2026-09-24 核對仍不存在。
 
 ```bash
 python -m pytest docs/platform-plan/contracts/tests/test_broker_signer_separation.py -q

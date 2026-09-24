@@ -33,7 +33,7 @@ T01–T26保持穩定，新增T27–T34與UAT-M1–M5。下表產品／營運／
 | T25 | security | raw customer data／secret 進 log、prompt、event 時攔截／redact／限權，不建中央 raw-content lake | synthetic canaries＋access checks | Identity / Security（建議預設：Ted） | 無 | `execution/evidence/T25/` | 未跑 |
 | T26 | operational drill／security | restore、projection rebuild、key revoke 後 authority、valid evidence、money state 一致；revoked rights 不復活 | isolated restore＋all projections rebuild | Platform（建議預設：Ted） | 適用的付款與 release exact A4 receipts 必須保持可驗 | `execution/evidence/T26/` | 未跑 |
 
-## 低維運互惠：產品測試增量（尚未實作／未跑）
+## 低維運互惠：產品測試增量（產品驗收未跑；部分 runtime 子集見表後）
 
 | ID | assertion | 方法與owner | 狀態 |
 | --- | --- | --- | --- |
@@ -45,6 +45,15 @@ T01–T26保持穩定，新增T27–T34與UAT-M1–M5。下表產品／營運／
 | T32 | 普通未認領志願工作到期結束；無回報為unknown；scope／episode去重且有界提醒 | frozen clock／queue replay／notification counts；Work／Notifications | 未跑 |
 | T33 | 已簽履約、付款、退款、安全與正式權益爭議不可普通auto-expire；責任及升級保留 | protected-obligation expiry negatives；Work／Payments／Security | 未跑 |
 | T34 | reviewer缺席時open仍可claim；available只改導航不改lifecycle／official證據 | state／command／API tests；WRK-01／QLT-01 | 未跑 |
+
+2026-09-24 現況證據（base `8338a42` 公開會員 beta；只證明所列 scope，上表狀態不變）：
+
+- T27 局部：建立 WorkItem 時產生 `voluntary_contribution` 條款並符合 schema；Claim pin revision／sha256 與 snapshot，條款不符 409、舊 Claim bytes 不被改寫（`tests/runtime/flows.test.ts`）。缺三模式、條款 revision API 與改版流程。
+- T28 局部：需求者／承接者本人回報、append-only 修正、他人只見聚合、不改 Contribution／付款（`tests/runtime/benefits.test.ts`、[實益 API](../../development/benefit-observations.md)）。只接受會員 cookie＋CSRF，不含組織代表或跨合作週期去重。
+- T31 局部：回報工時四類可分別為 null，零與未知分開（同上）；尚無總量、覆蓋率或核心／非核心投影。
+- T32 局部：claim window 過期拒絕新 Claim 且不抹除已成立 Claim（`tests/runtime/flows.test.ts`）；尚無未認領自動到期、提醒或 scope／episode 去重。
+- T34 局部：無回饋者時 `review_capacity=waiting_reviewer_capacity` 仍可 claim、lifecycle 不變（`tests/runtime/flows.test.ts`）；回饋者是發布者自選，不是 ReviewerAppointment，也沒有 official 標籤路徑。
+- T29、T30、T33：尚無對應 runtime。
 
 ## 真人營運觀察（不是AI模擬驗收）
 

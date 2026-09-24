@@ -8,6 +8,10 @@ M00–M09 是穩定 bundle ID，不是日期承諾；階段 membership 完全以
 
 56 packages及M00–M09技術membership保留；FW-13–FW-15是既有package的工作卡增量。全形狀建置／帳號／sandbox不等於四線同步營運。首批兩條平行驗證路徑：有限互助，以及自願作品展示／外展／商機／合作／外部實收證據；詳見 `../12-low-ops-mutual-benefit.md`。資源與容量只約束已承諾的真人服務，不阻擋一般參與或外展。產品／營運／真人測試仍待跑；契約 fixture 與本機 scoped runtime milestone 另見 `../verification/2026-09-19-revision-check.md` 與 [`2026-09-20-local-core.md`](../../releases/2026-09-20-local-core.md)。不宣稱完整 package 或 milestone 完成。
 
+### 2026-09-24 公開會員 beta 對照
+
+Base `8338a42` 公開會員 beta 只落在 M01（`FND-03` session／隱私、`WRK-01` 單人 claim 與實益回報）、M04（封閉定位、公會與技能書）及 M07（`CAT-01`／`STF-01` 草稿與 client read）的局部 runtime；沒有任何 bundle 因此完成，M02／M03／M05／M06／M08／M09 的主要 evidence 仍為未跑。範圍與未實作清單見 [`06 §11.3`](../06-delivery-plan.md)。
+
 
 ## M00 — 階段 1A：現況與契約基準
 
@@ -55,13 +59,13 @@ M00–M09 是穩定 bundle ID，不是日期承諾；階段 membership 完全以
 
 ## M04 — 階段 1B：Guild 與完整首日旅程 skeleton
 
-- Outcome：新人可跳過定位、自助加入既有 Guild、裝備／驗證、做第一件事並理解 Gained／Next。
+- Outcome：新人自助加入既有 Guild、裝備／驗證、做第一件事並理解 Gained／Next。2026-09-23 起新註冊須先完成封閉定位並自行確認公會（Ted 明示 override 原「可跳過定位」）；既有會員不被重新封鎖。
 - Scope：readiness、Guild lifecycle、onboarding、positioning、coaching、starter Skill、intake、LINE／Discord ports。
 - Non-goal：不把 welcome、private channel、installation、stuck 或 connector 變成人身條件；不自動建立新 Guild。
 - 技術依賴／標籤：`M01`；installation contract 來自 `M02`。三類 supply owner evidence 只控制 `supply-ready`。
 - Owner：Jason（Talent，含 `ONB-01`、`POS-01`、`POS-02`、`COA-01`，以及參與 package `ORG-02`／`WRK-01` 的 Talent／Work 責任）、Ted（Skills）；保留各 package 的 `06 §4` 職能名（建議預設，五人共同閱讀確認）。Reviewer：Grok。Verifier：Claude。
 - Community／`INTK-01` owner：Hao（建議預設，五人共同閱讀確認）。
-- Evidence：positioning skip、multi-Guild、no-CLI path、outage fallback、support cards、supply fixtures；全部未跑。
+- Evidence：positioning（既有會員相容與新註冊必填）、multi-Guild、no-CLI path、outage fallback、support cards、supply fixtures；全部未跑。
 - 主 packages：`ORG-03`、`ONB-01`、`POS-01`、`POS-02`、`COA-01`、`SKL-02`、`INTK-01`、`INT-01`、`INT-02`。
 - 參與：`FND-05`、`ORG-01`、`ORG-02`、`WRK-01`、`AGT-05`、`SKL-03`。
 

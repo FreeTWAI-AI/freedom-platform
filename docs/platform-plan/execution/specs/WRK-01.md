@@ -21,9 +21,17 @@
 
 WorkItem的`participation_terms`明列三模式、真實受益者與幫助者實益、最大投入、容量／結束／reuse；Claim pin revision/hash。條款與Result的本人實益回報依新schema／OpenAPI，Server驗來源、身份及authorised relation；Agent不能代認真人受益，回報不建立Contribution／payable或official。
 
-reviewer容量卡按scope／episode聚合，不自動補位。未認領志願到期、回饋未知與保護中的付費／付款／安全／權益義務分開。跨Work／Coaching容量transaction與工時projection見`12`，T27–T34為待實作runtime驗收。
+reviewer容量卡按scope／episode聚合，不自動補位。未認領志願到期、回饋未知與保護中的付費／付款／安全／權益義務分開。跨Work／Coaching容量transaction與工時projection見`12`，T27–T34產品驗收仍未跑；T27／T28／T34已有下節所列的局部runtime子集。
 
-本次新增可執行静態檢查`contracts/tests/test_work_reviewer_capacity.py`與`test_low_ops_contracts.py`；它們只測契約／合成資料，不能替代並發／權限／產品驗收。原列尚未新增的runtime tests仍未跑。
+本次新增可執行静態檢查`contracts/tests/test_work_reviewer_capacity.py`與`test_low_ops_contracts.py`；它們只測契約／合成資料，不能替代並發／權限／產品驗收。
+
+## 2026-09-24 現行 runtime 對照
+
+以 base `8338a42` 核對；取代「Claim pin／本人回報尚無 runtime」類舊說法，本 SPEC 仍未完成。
+
+- 已有：本人建立 WorkItem→單一會員 exclusive claim→start→submit→changes requested→另一會員 accept→Contribution／gains；claim pin `participation_terms_revision`／`participation_terms_sha256` 與 terms snapshot，條款或版本不符回 409、claim window 過期拒絕且零寫入；無回饋者時 `review_capacity=waiting_reviewer_capacity` 仍可 claim；需求者與承接者的本人實益回報（[實益 API](../../../development/benefit-observations.md)）。來源 `modules/opportunity-project-work/work.ts`、`modules/results/benefits.ts`；測試 `tests/runtime/flows.test.ts`、`tests/runtime/benefits.test.ts`。
+- 範圍限制：WorkItem 只用 `open/claiming_closed/accepted`；條款只有 `voluntary_contribution`，於建立 WorkItem 時產生，無 revision API；回饋路徑是發布者自選，不是 ReviewerAppointment；無 Council support card。
+- 未完成：Opportunity／Project／Squad 與 WorkItem 串接（現有商機合作與 `project`／`mutual_help` 小隊都未接 Claim）、Team／Squad Claim、collaborative／competitive、TaskLease、回饋改派、未認領到期排程、跨 Work／Coaching 容量。
 
 ## Actor／principal／acting role／資源範圍
 
@@ -73,7 +81,7 @@ WorkItem 只保存必要 refs/digest；private Opportunity raw data不進 genera
 
 ## 實際測試命令（將來會這樣跑；未跑）
 
-以下原列runtime測試仍為待實作路徑；另有本次新增的靜態契約測試，結果見verification，不混用。
+2026-09-24 核對：`test_reviewer_capacity_navigation.py`、`test_claim_concurrency.py` 仍為待實作路徑；`test_five_clock_invariants.py` 已由 FW-01 建立，但只是 five-clock 契約／fixture 靜態檢查，不是本 SPEC 的 runtime 驗收。另有本次新增的靜態契約測試，結果見verification，不混用。
 
 ```bash
 python -m pytest docs/platform-plan/contracts/tests/test_reviewer_capacity_navigation.py -q
@@ -81,7 +89,7 @@ python -m pytest docs/platform-plan/contracts/tests/test_claim_concurrency.py -q
 python -m pytest docs/platform-plan/contracts/tests/test_five_clock_invariants.py -q
 ```
 
-上述runtime tests尚未實作／未跑；本次靜態測試另列，不代表此SPEC完成。
+本 SPEC 的 runtime 驗收**未跑**；`tests/runtime/` 的公開 beta 子集與靜態測試另列，不代表此SPEC完成。
 
 ## 缺 evidence 時的標籤／技術依賴
 

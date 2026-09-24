@@ -1,6 +1,8 @@
 # 領域模型、事件、簽名與狀態機規格
 
 > 狀態：現行 canonical baseline（2026-09-19 低維運互惠修訂）；planning 文件，不代表已部署。
+>
+> 2026-09-24 對照：本文是 canonical target。base `8338a42` 的公開會員 beta 只用到局部子集：`sessions`、WorkItem `open/claiming_closed/accepted`、WorkClaim `claimed…accepted`（無 released／cancelled／expired）、BenefitObservation，以及本地 `transition_journal`／`outbox`（非 §4 envelope、無 eventsequence／dispatcher）。`identity.external_identities`、Party、Entitlement、ReviewerAppointment、Agent Control 與其餘 aggregate 尚未實作；差異見 [2026-09-23 落差對照](../development/plan-drift-2026-09-23.md)。
 
 本文的事件名稱與狀態名是其他文件及 machine-readable scaffold 的 canonical vocabulary。
 
@@ -1002,7 +1004,7 @@ resource refs and external connector capabilities
 | `freedom.work.participation_terms.revised.v1` | agent-control（Work owner） | work_item | work_item_ref、terms_revision、terms_sha256；私密條款另依scope查，不廣播真人身份／時間 |
 | `freedom.result.benefit_observed.v1` | opportunities-results（Result owner） | benefit_observation | observation_ref、work_item_ref、revision；可重建read model，不建立contribution／payable或改QC |
 
-Event envelope、序號、transaction outbox與dataschema materialization沿用原規範；以上仍為planning types，不宣稱production producer存在。
+Event envelope、序號、transaction outbox與dataschema materialization沿用原規範。`freedom.work.participation_terms.revised.v1`尚無producer；`freedom.result.benefit_observed.v1`目前由`modules/results/benefits.ts`寫入本地outbox（只含observation／work_item refs、community與revision），尚未符合上述envelope、dataschema或consumer protocol，不能當作canonical producer已完成。
 
 ## 6. Command 與 Event 的界線
 
