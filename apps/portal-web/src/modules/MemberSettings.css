@@ -26,6 +26,9 @@
 .member-task-actions,.messages-actions{display:flex;flex-wrap:wrap;gap:.5rem}
 .member-task-actions .btn,.messages-actions .btn,.member-messages .btn{min-height:44px}
 .member-task p{margin:0}
+.member-tasks-group{display:grid;gap:.6rem;min-width:0}
+.member-task{min-width:0;overflow-wrap:anywhere}
+.member-task:focus-visible{outline:2px solid #c4ff20;outline-offset:2px}
 
 .messages-tabs{display:flex;gap:.4rem;flex-wrap:wrap}
 .messages-tabs [role=tab]{min-height:44px}
