@@ -5,7 +5,7 @@ import {test,expect,type Page,type Route} from './fixtures.js';
 // skills group's real-API spec covers the same six tasks against PostgreSQL.
 const SHOTS='/tmp/freedom-member-todos-shots';
 type Guild={key:string;state:string|null};
-type Facts={required:boolean;completed:boolean;state:'new'|'draft'|'evaluated'|'completed';primary:string|null;books:number;guilds:Guild[];avatar:string|null;links:number;github:{configured:boolean;connected:boolean}};
+type Facts={required:boolean;completed:boolean;state:'new'|'draft'|'evaluated'|'completed';primary:string|null;books:number;guilds:Guild[];avatar:string|null;links:number;linksTotal?:number;github:{configured:boolean;connected:boolean}};
 type Fail=Partial<Record<'onboarding'|'directory'|'account'|'social'|'github',boolean>>;
 const base=():Facts=>({required:false,completed:false,state:'new',primary:null,books:0,guilds:[{key:'maker',state:'active'},{key:'writer',state:null}],avatar:null,links:0,github:{configured:true,connected:false}});
 
@@ -27,7 +27,7 @@ async function sources(page:Page,facts:Facts,fail:Fail={},opts:{live?:()=>boolea
     return fail.directory?unavailable(route):route.fulfill({json:{items:facts.guilds.map(guildDto)}});});
   await page.route('**/api/v1/me/account',route=>live()?route.fallback():fail.account?unavailable(route):route.fulfill({json:accountDto(facts)}));
   await page.route(/\/api\/v1\/me\/social-links\?limit=1&offset=0$/,route=>live()?route.fallback():fail.social?unavailable(route):
-    route.fulfill({json:{items:facts.links?[linkDto(1)]:[],total:facts.links,next_offset:facts.links>1?1:null}}));
+    route.fulfill({json:{items:facts.links?[linkDto(1)]:[],total:facts.linksTotal??facts.links,next_offset:facts.links>1?1:null}}));
   await page.route('**/api/v1/me/github',route=>live()?route.fallback():fail.github?unavailable(route):
     route.fulfill({json:{...facts.github,github_user:facts.github.connected?{id:'synthetic-id',login:'synthetic-owner'}:null}}));
 }
@@ -77,7 +77,13 @@ test('recorded completion survives re-exploring, while an inactive or missing pr
   await expectStates(page,{onboarding:'done','primary-guild':'todo','skill-book':'done',avatar:'done','social-link':'done'});
   await expect(task(page,'primary-guild')).toContainText('不在已加入狀態');
   await expect(task(page,'skill-book')).toContainText('已領取 1 本技能書');
-  await expect(task(page,'social-link')).toContainText('已新增 2 個社群連結');
+  await expect(task(page,'social-link')).toContainText('已新增社群連結。');
+  // Only a returned link counts; a total without items stays open, and items win over a zero total.
+  facts.links=0;facts.linksTotal=2;await refocus(page);
+  await expectStates(page,{'social-link':'todo'});
+  facts.links=1;facts.linksTotal=0;await refocus(page);
+  await expectStates(page,{'social-link':'done'});
+  await expect(task(page,'social-link')).toContainText('已新增社群連結。');
   facts.guilds=[{key:'maker',state:'active'}];facts.primary=null;
   await profileUpdated(page);
   await expectStates(page,{'primary-guild':'todo',onboarding:'done'});

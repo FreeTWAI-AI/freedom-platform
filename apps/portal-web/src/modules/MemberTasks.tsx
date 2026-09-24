@@ -10,7 +10,7 @@ const stateLabels:Record<TaskState,string>={loading:'讀取中',error:'狀態讀
 
 type Onboarding={completed:boolean;primaryGuildKey:string|null;bookCount:number};
 type Guild={key:string;name:string;active:boolean};
-type Sources={onboarding:Onboarding;directory:Guild[];avatar:boolean;social:number};
+type Sources={onboarding:Onboarding;directory:Guild[];avatar:boolean;social:boolean};
 type SourceId=keyof Sources;
 type Source<T>={value?:T;loading:boolean;error:string};
 const SOURCE_IDS:SourceId[]=['onboarding','directory','avatar','social'];
@@ -39,8 +39,8 @@ const readers:{[K in SourceId]:[string,(value:unknown)=>Sources[K]]}={
   }],
   social:['/me/social-links?limit=1&offset=0',value=>{
     if(!isRecord(value)||!Array.isArray(value.items))throw malformed();
-    const items=value.items;
-    return typeof value.total==='number'&&value.total>=items.length?value.total:items.length;
+    // Only a returned link means done; `total` is not trusted for completion.
+    return value.items.length>0;
   }],
 };
 
@@ -144,7 +144,7 @@ export function MemberTasks({client,onNavigate}:{client:PortalClient;onNavigate:
   cards.push({key:'social-link',required:false,title:'新增社群連結',
     ...(social.error?{state:'error',body:null,error:social.error,retry:retrying(['social'],'重新讀取社群連結狀態')}
       :social.value===undefined?loadingCard('正在確認社群連結…')
-      :social.value>0?{state:'done',body:<p>已新增 {social.value} 個社群連結。</p>,action:go('account','到我的名片管理社群連結',false)}
+      :social.value?{state:'done',body:<p>已新增社群連結。</p>,action:go('account','到我的名片管理社群連結',false)}
       :{state:'todo',body:<p>在名片加上一個社群連結，每筆可各自設定公開範圍。</p>,action:go('account','前往我的名片新增連結',true)})});
 
   cards.push({key:'skill-book',required:false,title:'領取第一本技能書',
