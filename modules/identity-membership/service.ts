@@ -23,7 +23,10 @@ async function matches(password: string, saved: string) {
   const other = Buffer.from(expected,'hex');
   return other.length===actual.length && timingSafeEqual(other,actual);
 }
-const DUMMY_HASH = hashPassword(randomBytes(24).toString('hex'));
+// Unknown emails still pay one scrypt derive and compare. Created lazily because
+// Workers forbid random generation at module scope; it can never match (random key).
+let dummyHash: string | undefined;
+const unknownUserHash = () => dummyHash ??= `${randomBytes(16).toString('hex')}:${randomBytes(64).toString('hex')}`;
 export async function login(pool: Pool, email: string, password: string) {
   const normalized = email.trim().toLowerCase();
   const attemptKey = tokenHash(normalized);
@@ -35,7 +38,7 @@ export async function login(pool: Pool, email: string, password: string) {
     }
     if (attempt.failures>=10) return {blocked:true} as const;
     const user = (await q.query('SELECT * FROM users WHERE email=$1 FOR SHARE',[normalized])).rows[0];
-    const valid = await matches(password,user?.password_hash ?? DUMMY_HASH);
+    const valid = await matches(password,user?.password_hash ?? unknownUserHash());
     if (!valid || !user?.active) {
       await q.query('UPDATE login_attempts SET failures=failures+1 WHERE attempt_key=$1',[attemptKey]);
       return {invalid:true} as const;

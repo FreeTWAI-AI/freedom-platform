@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
-import sharp from 'sharp';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import { checkVersion, command, journal, type Command } from '../../packages/db/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
+import { normalizeImage } from '../../packages/shared/image-runtime.js';
 import type { Actor } from './service.js';
 
 export const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
@@ -36,14 +36,18 @@ async function normalizeAvatar(bytes: Buffer, mime: string): Promise<Buffer> {
       if (length > bytes.length - offset - 12 || bytes.toString('ascii', offset + 4, offset + 8) === 'acTL') throw invalidImage();
       offset += length + 12;
     }
+  } else if (format === 'webp') {
+    // Reject animated WebP before any processor, not only via decoder page counts.
+    for (let offset = 12; offset + 8 <= bytes.length;) {
+      const type = bytes.toString('ascii', offset, offset + 4), length = bytes.readUInt32LE(offset + 4);
+      if (length > bytes.length - offset - 8 || type === 'ANIM' || type === 'ANMF' || (type === 'VP8X' && length >= 1 && (bytes[offset + 8] & 0x02))) throw invalidImage();
+      offset += 8 + length + (length & 1);
+    }
   }
   try {
-    const image = sharp(bytes, { limitInputPixels: AVATAR_MAX_DIMENSION ** 2, failOn: 'warning', sequentialRead: true });
-    const metadata = await image.metadata();
-    if (metadata.format !== format || !metadata.width || !metadata.height || metadata.width > AVATAR_MAX_DIMENSION || metadata.height > AVATAR_MAX_DIMENSION || (metadata.pages ?? 1) !== 1) throw invalidImage();
-    // No keepMetadata/withMetadata: EXIF, GPS, comments and profiles are removed.
-    // toBuffer performs the actual decode; header-only metadata is never stored.
-    const normalized = await image.autoOrient().resize(256, 256, { fit: 'cover', position: 'centre' }).webp({ quality: 82, effort: 3 }).timeout({ seconds: 5 }).toBuffer();
+    // The request's processor (sharp on Node) fully decodes, orients and strips metadata.
+    const normalized = await normalizeImage(bytes, { purpose: 'avatar', format, maxDimension: AVATAR_MAX_DIMENSION, maxPixels: AVATAR_MAX_DIMENSION ** 2,
+      output: { width: 256, height: 256, fit: 'cover', quality: 82, effort: 3 } });
     requireCondition(normalized.length <= 131072, 422, 'invalid_avatar', '這張圖片無法縮成頭像，請換一張圖片。');
     return normalized;
   } catch (error) {

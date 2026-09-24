@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
-import sharp from 'sharp';
 import { z } from 'zod';
 import { digest } from '../../packages/db/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { text } from '../../packages/shared/validation.js';
+import { normalizeImage } from '../../packages/shared/image-runtime.js';
 import { externalLink, githubCoordinate } from '../opensource-marketing/github.js';
 
 export const SHARE_INTRODUCTION_COUNT = 100;
@@ -107,14 +107,9 @@ export async function normalizeCoverImage(mime: string, data: string): Promise<{
   if (!format || mime !== `image/${format}`) throw invalidCover();
   rejectAnimation(original, format);
   try {
-    const image = sharp(original, { limitInputPixels: COVER_MAX_PIXELS, failOn: 'warning', sequentialRead: true, animated: false });
-    const metadata = await image.metadata();
-    if (metadata.format !== format || !metadata.width || !metadata.height || metadata.width > COVER_MAX_DIMENSION || metadata.height > COVER_MAX_DIMENSION
-      || metadata.width * metadata.height > COVER_MAX_PIXELS || (metadata.pages ?? 1) !== 1) throw invalidCover();
-    // No keepMetadata/withMetadata: EXIF, GPS, comments and ICC profiles are removed.
-    const webp = await image.autoOrient()
-      .resize(COVER_OUTPUT_WIDTH, COVER_OUTPUT_HEIGHT, { fit: 'contain', background: '#101827' })
-      .webp({ quality: 82, effort: 4 }).timeout({ seconds: 5 }).toBuffer();
+    // The request's processor (sharp on Node) fully decodes, orients and strips metadata.
+    const webp = await normalizeImage(original, { purpose: 'skill_cover', format, maxDimension: COVER_MAX_DIMENSION, maxPixels: COVER_MAX_PIXELS,
+      output: { width: COVER_OUTPUT_WIDTH, height: COVER_OUTPUT_HEIGHT, fit: 'contain', background: '#101827', quality: 82, effort: 4 } });
     requireCondition(webp.length > 0 && webp.length <= COVER_MAX_BYTES, 422, 'invalid_cover_image', '這張示意圖壓縮後仍過大，請換一張較簡單的圖片。');
     return { original, webp };
   } catch (error) {
