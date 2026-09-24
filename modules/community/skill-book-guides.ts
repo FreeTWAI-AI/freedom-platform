@@ -1,4 +1,5 @@
 /** Repo-specific reading guides. Reviewed against pinned primary source files, not live-service certification. */
+import {communityAuthorGuides} from './community-author-skills.js';
 import {memberSkillBookGuides} from './member-skill-books.js';
 export type SkillBookBeginner = {
   category:'定位與社群'|'供貨與商店'|'作品與開源'|'內容與行銷'|'小隊與協作'|'資訊安全';
@@ -14,6 +15,7 @@ export type SkillBookGuide = {
 };
 export const skillBookGuides:Record<string,SkillBookGuide> = {
   ...memberSkillBookGuides,
+  ...communityAuthorGuides,
   "career-guide": {
     "format": "實作手冊",
     "summary": "把「不知道自己能做什麼」整理成由本人選定的一個小練習。",

@@ -123,6 +123,35 @@ test('account mutation uses versions and strict privacy fields without changing 
   const viewer=await signIn(DEMO_USERS[1].email),card=await request('/members/'+user.user.user_id,viewer);assert.equal(card.data.nickname,'新的公開暱稱');assert.equal(card.data.contacts.email,DEMO_USERS[0].email);
 });
 
+test('member-card labels are optional, self-selected, versioned and clearable while community names propagate',async()=>{
+  const owner=await signIn(),viewer=await signIn(DEMO_USERS[1].email);
+  let current=(await request('/me/account',owner)).data;
+  assert.equal(current.identity_label,null);
+  assert.equal((await request('/members/'+owner.user.user_id,viewer)).data.identity_label,null);
+  const contacts=emptyContacts();
+  for(const identity_label of ['male','female','alien','ai']){
+    const body={nickname:'社群常用名字',identity_label,contacts};
+    const saved=await request('/me/account',owner,body,current.aggregate_version);
+    assert.equal(saved.status,200);assert.equal(saved.data.identity_label,identity_label);
+    assert.equal((await request('/me/account',owner,{...body,identity_label:null},current.aggregate_version)).status,412);
+    current=saved.data;
+    const visible=(await request('/members/'+owner.user.user_id,viewer)).data;
+    assert.equal(visible.identity_label,identity_label);assert.equal(visible.nickname,body.nickname);assert.deepEqual(visible.contacts,{});
+  }
+  assert.equal((await request('/session',owner)).data.user.display_name,'社群常用名字');
+  const directory=(await request('/members?search='+encodeURIComponent('社群常用名字'),viewer)).data;
+  assert.equal(directory.total,1);assert.equal(directory.items[0].identity_label,'ai');
+  for(const identity_label of ['robot','',{},false])assert.equal((await request('/me/account',owner,{nickname:'不應保存',identity_label,contacts},current.aggregate_version)).status,422);
+  assert.equal((await request('/members/'+owner.user.user_id)).status,401);
+  // Older clients can edit names/contacts without erasing the optional label.
+  const legacy=await request('/me/account',owner,{nickname:'社群常用名字',contacts},current.aggregate_version);
+  assert.equal(legacy.data.identity_label,'ai');
+  const cleared=await request('/me/account',owner,{nickname:'社群常用名字',identity_label:null,contacts},legacy.data.aggregate_version);
+  assert.equal(cleared.status,200);assert.equal(cleared.data.identity_label,null);
+  assert.equal((await request('/members/'+owner.user.user_id,viewer)).data.identity_label,null);
+  assert.equal(cleared.data.login_email,DEMO_USERS[0].email);
+});
+
 test('real TCP clients cannot bypass network registration budget by spoofing proxy headers',async()=>{
   const {serve}=await import('@hono/node-server');
   const previousTrust=process.env.FREEDOM_TRUST_CF;delete process.env.FREEDOM_TRUST_CF;

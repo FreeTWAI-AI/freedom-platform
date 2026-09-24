@@ -21,7 +21,7 @@ const SocialContacts=z.object({
 }).strict();
 export const ContactInput=SocialContacts.extend({email:z.object({audiences:Audiences}).strict()}).strict();
 export const RegistrationInput=z.object({email:z.email().max(200),password:z.string().min(12).max(128),nickname:z.string().trim().min(1).max(60),contacts:SocialContacts.partial().optional()}).strict();
-const AccountInput=z.object({nickname:z.string().trim().min(1).max(60),contacts:ContactInput}).strict();
+const AccountInput=z.object({nickname:z.string().trim().min(1).max(60),identity_label:z.enum(['male','female','alien','ai']).nullable().optional(),contacts:ContactInput}).strict();
 export const emptyContacts=()=>({discord:{value:'',audiences:[] as string[]},github:{value:'',audiences:[] as string[]},line:{value:'',audiences:[] as string[]},email:{audiences:[] as string[]}});
 
 // Compatible reads for older stored scalar rows, never for new API writes.
@@ -82,7 +82,7 @@ async function ensureAccount(q:Pool|PoolClient,actor:Actor) {
 export async function accountView(pool:Pool,actor:Actor) {
   await ensureAccount(pool,actor);
   const row=(await pool.query(`SELECT a.*,u.email,u.display_name,u.email_verified_at,u.created_at,u.created_at_source FROM member_accounts a JOIN users u USING(user_id) WHERE a.user_id=$1 AND a.community_id=$2`,[actor.user_id,actor.community_id])).rows[0];
-  return {user_id:row.user_id,nickname:row.display_name,joined_at:row.created_at?new Date(row.created_at).toISOString():null,joined_at_source:row.created_at_source,login_email:row.email,email_verified:Boolean(row.email_verified_at),contacts:Object.fromEntries(Object.entries(normalizedContacts(row.contacts,row.email)).map(([key,value])=>[key,{...value,verified:false}])),aggregate_version:row.aggregate_version,avatar:await avatarMetadata(pool,actor)};
+  return {user_id:row.user_id,nickname:row.display_name,identity_label:row.identity_label,joined_at:row.created_at?new Date(row.created_at).toISOString():null,joined_at_source:row.created_at_source,login_email:row.email,email_verified:Boolean(row.email_verified_at),contacts:Object.fromEntries(Object.entries(normalizedContacts(row.contacts,row.email)).map(([key,value])=>[key,{...value,verified:false}])),aggregate_version:row.aggregate_version,avatar:await avatarMetadata(pool,actor)};
 }
 export async function saveAccount(pool:Pool,input:Command) {
   const body=AccountInput.parse(input.body);
@@ -90,7 +90,7 @@ export async function saveAccount(pool:Pool,input:Command) {
     const account=(await q.query('SELECT * FROM member_accounts WHERE user_id=$1 AND community_id=$2 FOR UPDATE',[input.actor.user_id,input.actor.community_id])).rows[0];
     checkVersion(account.aggregate_version,input.expected);
     await q.query('UPDATE users SET display_name=$2 WHERE user_id=$1',[input.actor.user_id,body.nickname]);
-    const updated=(await q.query('UPDATE member_accounts SET contacts=$2,aggregate_version=aggregate_version+1 WHERE user_id=$1 RETURNING aggregate_version',[input.actor.user_id,JSON.stringify(body.contacts)])).rows[0];
+    const updated=(await q.query('UPDATE member_accounts SET contacts=$2,identity_label=$3,aggregate_version=aggregate_version+1 WHERE user_id=$1 RETURNING aggregate_version',[input.actor.user_id,JSON.stringify(body.contacts),body.identity_label===undefined?account.identity_label:body.identity_label])).rows[0];
     await journal(q,input.actor,'member_account',input.actor.user_id,updated.aggregate_version,'update_account',{});
     // Do not persist contacts in command receipts: all reads recheck current privacy.
     return {updated:true,aggregate_version:updated.aggregate_version};
@@ -108,7 +108,7 @@ export async function memberCard(pool:Pool,actor:Actor,id:string) {
   // Contact values and their audience predicates must share ONE database snapshot.
   // Split reads can combine an old friendship with a newly changed private value.
   const [projection,positioning]=await Promise.all([
-    pool.query(`SELECT u.user_id,u.display_name,u.created_at,u.created_at_source,u.email,account.contacts,avatar.aggregate_version AS avatar_version,avatar.image_bytes IS NOT NULL AS avatar_present,
+    pool.query(`SELECT u.user_id,u.display_name,u.created_at,u.created_at_source,u.email,account.contacts,account.identity_label,avatar.aggregate_version AS avatar_version,avatar.image_bytes IS NOT NULL AS avatar_present,
       (SELECT jsonb_build_object('state',f.state,'requester_ref',f.requester_ref,'aggregate_version',f.aggregate_version) FROM member_friendships f WHERE f.community_id=$1 AND f.low_ref=$2 AND f.high_ref=$3) AS friendship,
       EXISTS(SELECT 1 FROM positioning_profession_memberships a JOIN positioning_profession_memberships b USING(community_id,guild_key) WHERE a.community_id=$1 AND a.user_id=$4 AND b.user_id=$5 AND a.state='active' AND b.state='active') AS guild,
       EXISTS(SELECT 1 FROM member_squad_memberships a JOIN member_squad_memberships b USING(squad_id) JOIN member_squads s USING(squad_id) WHERE s.community_id=$1 AND a.user_id=$4 AND b.user_id=$5 AND a.state='active' AND b.state='active') AS squad
@@ -123,7 +123,7 @@ export async function memberCard(pool:Pool,actor:Actor,id:string) {
     const audience=field.audiences;
     if(field.value&&(isSelf||audience.includes('public')||audience.includes('friends')&&relation.friendship?.state==='accepted'||audience.includes('guild')&&relation.guild||audience.includes('squad')&&relation.squad))contacts[key]=field.value;
   }
-  return {user_id:id,nickname:relation.display_name,joined_at:relation.created_at?new Date(relation.created_at).toISOString():null,joined_at_source:relation.created_at_source,...positioning,avatar_url:avatarUrl(id,relation.avatar_version,relation.avatar_present),contacts,is_self:isSelf,friendship:relation.friendship??{state:'none'}};
+  return {user_id:id,nickname:relation.display_name,identity_label:relation.identity_label??null,joined_at:relation.created_at?new Date(relation.created_at).toISOString():null,joined_at_source:relation.created_at_source,...positioning,avatar_url:avatarUrl(id,relation.avatar_version,relation.avatar_present),contacts,is_self:isSelf,friendship:relation.friendship??{state:'none'}};
 }
 export const MemberDirectoryQuery=z.object({
  limit:z.coerce.number().int().min(1).max(50).default(20),offset:z.coerce.number().int().min(0).max(10000).default(0),

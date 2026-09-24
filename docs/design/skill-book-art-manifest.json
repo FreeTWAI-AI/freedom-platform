@@ -2,7 +2,7 @@
   "generated_at": "2026-09-23",
   "mode": "builtin-imagegen",
   "style_anchor": "apps/portal-web/public/brand/freedom-workshop.webp",
-  "description": "29 separately generated original skill-book covers. No original logo edits; only mechanical WebP encoding for delivery.",
+  "description": "37 separately generated original skill-book covers. No original logo edits; only mechanical WebP encoding for delivery.",
   "assets": [
     {
       "id": "career-guide",
@@ -297,6 +297,102 @@
       "sha256": "b8c9817ee7aabfb1e516a1f757572e55bdf58ec3294cd8bee43103ee194b4441",
       "generated_at": "2026-09-24",
       "mode": "builtin-imagegen"
+    },
+    {
+      "id": "bidding-radar-concept",
+      "prompt": "Use case: stylized-concept. Asset: one original skill-book cover for Freedom Workshop. Square composition. Futuristic polished chrome hardcover book floating at a three-quarter angle with electric blue cover, acid lime page edges and sculpted emblem. Black charcoal backdrop, acid lime #c4ff20, electric cobalt #3044ff, restrained orbital line and four-point star accents, generous dark margins, premium 3D render, clear silhouette at thumbnail size. No words, letters, numbers, logos, watermark, collage, medieval objects. Subject emblem: a chrome radar dish scanning stacked proposal documents beside a small grant seedling",
+      "path": "apps/portal-web/public/art/skills/bidding-radar-concept.webp",
+      "width": 768,
+      "height": 512,
+      "bytes": 38098,
+      "sha256": "b11abc55d117a8aedef98334e0e2ba33b2f6d13e14720c3134fabecda898121d",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-9e77174e-f5ed-45e7-b725-86908c3c7db1.png"
+    },
+    {
+      "id": "aiwff-runtime",
+      "prompt": "Use case: stylized-concept. Asset: one original skill-book cover for Freedom Workshop. Square composition. Futuristic polished chrome hardcover book floating at a three-quarter angle with electric blue cover, acid lime page edges and sculpted emblem. Black charcoal backdrop, acid lime #c4ff20, electric cobalt #3044ff, restrained orbital line and four-point star accents, generous dark margins, premium 3D render, clear silhouette at thumbnail size. No words, letters, numbers, logos, watermark, collage, medieval objects. Subject emblem: a compact chrome brain processor connected to a task tray and a result folder",
+      "path": "apps/portal-web/public/art/skills/aiwff-runtime.webp",
+      "width": 768,
+      "height": 512,
+      "bytes": 31538,
+      "sha256": "f8c9a8fb008ca93cb55a89fd70d1919f10805792cbf40542988981388acb2704",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-e6511047-945d-4eec-8556-bf9de711ade9.png"
+    },
+    {
+      "id": "n8n-marketing-flows",
+      "prompt": "Use case: stylized-concept. Asset: one original skill-book cover for Freedom Workshop. Square composition. Futuristic polished chrome hardcover book floating at a three-quarter angle with electric blue cover, acid lime page edges and sculpted emblem. Black charcoal backdrop, acid lime #c4ff20, electric cobalt #3044ff, restrained orbital line and four-point star accents, generous dark margins, premium 3D render, clear silhouette at thumbnail size. No words, letters, numbers, logos, watermark, collage, medieval objects. Subject emblem: three connected chrome workflow nodes and a small announcement megaphone",
+      "path": "apps/portal-web/public/art/skills/n8n-marketing-flows.webp",
+      "width": 768,
+      "height": 512,
+      "bytes": 28800,
+      "sha256": "57b70292537209ea8041768c620b62e330efb4e2b6162c468535d9c6672e5b9a",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-51fd0ee5-f873-4dae-a05e-3caa4da3305f.png"
+    },
+    {
+      "id": "anti-gambling-trader-tw",
+      "prompt": "Use case: stylized-concept. Asset: one original skill-book cover for Freedom Workshop. Square composition. Futuristic polished chrome hardcover book floating at a three-quarter angle with electric blue cover, acid lime page edges and sculpted emblem. Black charcoal backdrop, acid lime #c4ff20, electric cobalt #3044ff, restrained orbital line and four-point star accents, generous dark margins, premium 3D render, clear silhouette at thumbnail size. No words, letters, numbers, logos, watermark, collage, medieval objects. Subject emblem: a chrome magnifying glass over a neutral statistical distribution curve and a small shield",
+      "path": "apps/portal-web/public/art/skills/anti-gambling-trader-tw.webp",
+      "width": 768,
+      "height": 512,
+      "bytes": 30726,
+      "sha256": "8a5794d372e07c6f75fe03124b8601217f05896d1e3520522b27921ac31b0c92",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-6046e7f0-b7a5-4721-93c5-ca07296c4a32.png"
+    },
+    {
+      "id": "web-card-game-skill",
+      "prompt": "Use case: stylized-concept. Asset: one original skill-book cover for Freedom Workshop. Square composition. Futuristic polished chrome hardcover book floating at a three-quarter angle with electric blue cover, acid lime page edges and sculpted emblem. Black charcoal backdrop, acid lime #c4ff20, electric cobalt #3044ff, restrained orbital line and four-point star accents, generous dark margins, premium 3D render, clear silhouette at thumbnail size. No words, letters, numbers, logos, watermark, collage, medieval objects. Subject emblem: a small fan of futuristic chrome collectible game cards with geometric emblems",
+      "path": "apps/portal-web/public/art/skills/web-card-game-skill.webp",
+      "width": 768,
+      "height": 512,
+      "bytes": 29760,
+      "sha256": "400e1e3a59aceb6265901443dfba8601e8c11b3563087c5c8d0bc9857eefa91f",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-25dcf803-a933-49d1-9bc3-e3fbc2191aa2.png"
+    },
+    {
+      "id": "ai-avatar-bot",
+      "prompt": "Use case: stylized-concept. Asset: one original skill-book cover for Freedom Workshop. Square composition. Futuristic polished chrome hardcover book floating at a three-quarter angle with electric blue cover, acid lime page edges and sculpted emblem. Black charcoal backdrop, acid lime #c4ff20, electric cobalt #3044ff, restrained orbital line and four-point star accents, generous dark margins, premium 3D render, clear silhouette at thumbnail size. No words, letters, numbers, logos, watermark, collage, medieval objects. Subject emblem: a friendly chrome avatar bust with an orbital voice waveform",
+      "path": "apps/portal-web/public/art/skills/ai-avatar-bot.webp",
+      "width": 768,
+      "height": 512,
+      "bytes": 29554,
+      "sha256": "a67dc6f00489d029cf6f36b4c437a72abf2b52d301e0ff59c2155f393f3cc0ff",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-d4d19a03-5535-4c4c-ac37-0452ea4cfc2b.png"
+    },
+    {
+      "id": "ai-manga-translator",
+      "prompt": "Use case: stylized-concept. Asset: one original skill-book cover for Freedom Workshop. Square composition. Futuristic polished chrome hardcover book floating at a three-quarter angle with electric blue cover, acid lime page edges and sculpted emblem. Black charcoal backdrop, acid lime #c4ff20, electric cobalt #3044ff, restrained orbital line and four-point star accents, generous dark margins, premium 3D render, clear silhouette at thumbnail size. No words, letters, numbers, logos, watermark, collage, medieval objects. Subject emblem: a chrome speech balloon floating over a stylized comic panel and a translation lens",
+      "path": "apps/portal-web/public/art/skills/ai-manga-translator.webp",
+      "width": 768,
+      "height": 512,
+      "bytes": 32964,
+      "sha256": "b17fddb2dd0b9f80d23befd52d5d2c2b7bf50cb7bf88b1c3aec8d81973252e25",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-8b794700-2695-4a22-8bef-ceba390766e7.png"
+    },
+    {
+      "id": "line-persona",
+      "prompt": "Use case: stylized-concept. Asset: one original skill-book cover for Freedom Workshop. Square composition. Futuristic polished chrome hardcover book floating at a three-quarter angle with electric blue cover, acid lime page edges and sculpted emblem. Black charcoal backdrop, acid lime #c4ff20, electric cobalt #3044ff, restrained orbital line and four-point star accents, generous dark margins, premium 3D render, clear silhouette at thumbnail size. No words, letters, numbers, logos, watermark, collage, medieval objects. Subject emblem: two chrome conversational speech bubbles linked to a small persona silhouette",
+      "path": "apps/portal-web/public/art/skills/line-persona.webp",
+      "width": 768,
+      "height": 512,
+      "bytes": 29966,
+      "sha256": "8ceb59ce1cafb2f67413d2ba5b76bc4f972146427ccc744c487adac6a998088c",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-d34dd687-0ecb-49ab-bb0e-c4d11032076c.png"
     }
   ],
   "updated_at": "2026-09-24"

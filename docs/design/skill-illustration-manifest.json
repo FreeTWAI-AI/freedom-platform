@@ -2,7 +2,7 @@
   "generated_at": "2026-09-23",
   "mode": "builtin-imagegen",
   "style_anchor": "apps/portal-web/public/brand/freedom-workshop.webp",
-  "description": "29 distinct functional workflow illustrations for skill introduction pages and social thumbnails; mechanical WebP encoding with contain fit, original logo unchanged.",
+  "description": "37 distinct functional workflow illustrations for skill introduction pages and social thumbnails; mechanical WebP encoding with contain fit, original logo unchanged.",
   "assets": [
     {
       "id": "agent-kit",
@@ -272,6 +272,102 @@
       "sha256": "172a77c63a171240d255e00f2fe72ff805d236ad5afbeb5f64600d72d9a09fee",
       "generated_at": "2026-09-24",
       "mode": "builtin-imagegen"
+    },
+    {
+      "id": "bidding-radar-concept",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 functional workflow illustration for Freedom Workshop skill introduction and social share. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital lines and four-point star accents. Futuristic 3D isometric editorial art, clear input/action/output, generous clean margins. No books, words, letters, numbers, logos, readable UI, statistics, watermark. Depict: company description card enters a document comparison scanner, three groups of grant eligibility cards emerge, a radar dish scans tender documents",
+      "path": "apps/portal-web/public/brand/skill-illustrations/bidding-radar-concept.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 102808,
+      "sha256": "3516369fc2dc4ac01c6161e0a6452188c3f13a0c34498d8213f3c31a1d118c63",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-ddab73da-dc2f-461f-88f8-55692031eddf.png"
+    },
+    {
+      "id": "aiwff-runtime",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 functional workflow illustration for Freedom Workshop skill introduction and social share. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital lines and four-point star accents. Futuristic 3D isometric editorial art, clear input/action/output, generous clean margins. No books, words, letters, numbers, logos, readable UI, statistics, watermark. Depict: a task card enters a local desktop brain engine with a queue of cards and a progress dial, completed files emerge into a folder",
+      "path": "apps/portal-web/public/brand/skill-illustrations/aiwff-runtime.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 81874,
+      "sha256": "5cfd6527b939e96febd6f5fd62aaf870d783d7c3ec22f503c0fc7c1af92b334b",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-7ad80a88-f010-4dad-bf8c-52ab1b5db7da.png"
+    },
+    {
+      "id": "n8n-marketing-flows",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 functional workflow illustration for Freedom Workshop skill introduction and social share. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital lines and four-point star accents. Futuristic 3D isometric editorial art, clear input/action/output, generous clean margins. No books, words, letters, numbers, logos, readable UI, statistics, watermark. Depict: news feed sheets enter connected automation nodes with a local model cube, draft social content emerges on preview cards",
+      "path": "apps/portal-web/public/brand/skill-illustrations/n8n-marketing-flows.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 75642,
+      "sha256": "d0d09c247531764641ef86d01eaf3d0f7cf595663a66025bad987fabbdf02a02",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-135fa2b6-dd2a-4ff2-b555-71fbc7500172.png"
+    },
+    {
+      "id": "anti-gambling-trader-tw",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 functional workflow illustration for Freedom Workshop skill introduction and social share. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital lines and four-point star accents. Futuristic 3D isometric editorial art, clear input/action/output, generous clean margins. No books, words, letters, numbers, logos, readable UI, statistics, watermark. Depict: trade record sheets enter a local statistical analyzer, neutral distribution and comparison panels emerge, no upward profit arrow or money",
+      "path": "apps/portal-web/public/brand/skill-illustrations/anti-gambling-trader-tw.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 72128,
+      "sha256": "f1424c3fe84d69c1a1ecf1efad722efada8f500efaac2a545795e6c622b4b9d6",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-dc109594-2c95-4cd6-b944-6ece05090f31.png"
+    },
+    {
+      "id": "web-card-game-skill",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 functional workflow illustration for Freedom Workshop skill introduction and social share. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital lines and four-point star accents. Futuristic 3D isometric editorial art, clear input/action/output, generous clean margins. No books, words, letters, numbers, logos, readable UI, statistics, watermark. Depict: a plain code tile connects to a browser game table with collectible cards, deck arrangement and card pack opening shown as one coherent workflow",
+      "path": "apps/portal-web/public/brand/skill-illustrations/web-card-game-skill.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 88992,
+      "sha256": "624aea08970552be5d9c5b5b7650f59b7ac0b69928a57cd4d3ce6e6920db2608",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-a7d9f4c5-6366-48e7-84b0-f87b92f09874.png"
+    },
+    {
+      "id": "ai-avatar-bot",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 functional workflow illustration for Freedom Workshop skill introduction and social share. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital lines and four-point star accents. Futuristic 3D isometric editorial art, clear input/action/output, generous clean margins. No books, words, letters, numbers, logos, readable UI, statistics, watermark. Depict: a website panel and question bubble connect to a knowledge card stack and friendly avatar bust, speech wave and lip sync emit from the avatar",
+      "path": "apps/portal-web/public/brand/skill-illustrations/ai-avatar-bot.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 67190,
+      "sha256": "b14449942e11a7f15776d6f1bfe88aa6c225f711aed9950c27e20f15012a02e3",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-cc6fd329-c04e-4b09-897a-22783e789506.png"
+    },
+    {
+      "id": "ai-manga-translator",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 functional workflow illustration for Freedom Workshop skill introduction and social share. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital lines and four-point star accents. Futuristic 3D isometric editorial art, clear input/action/output, generous clean margins. No books, words, letters, numbers, logos, readable UI, statistics, watermark. Depict: a blank original comic page with two speech bubbles enters a translation lens, a parallel comic page has bright overlay bubbles linked to a glossary card",
+      "path": "apps/portal-web/public/brand/skill-illustrations/ai-manga-translator.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 102748,
+      "sha256": "e174470b2ba779bfd22c5f263b3bf537c0a7e9e7edb8c2e9ade5c333e31d3709",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-b3516258-7d8b-4093-941a-03a89edad2fd.png"
+    },
+    {
+      "id": "line-persona",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 functional workflow illustration for Freedom Workshop skill introduction and social share. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital lines and four-point star accents. Futuristic 3D isometric editorial art, clear input/action/output, generous clean margins. No books, words, letters, numbers, logos, readable UI, statistics, watermark. Depict: personal knowledge cards and a persona profile enter a selectable AI engine, a phone with conversation bubbles receives replies",
+      "path": "apps/portal-web/public/brand/skill-illustrations/line-persona.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 93732,
+      "sha256": "77a449604dbf04189099c51135119086b7bdb6fb41a0b8e70f24b10577354804",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-bc14614e-d759-4d5a-970a-0b61b9ba9725.png"
     }
   ],
   "updated_at": "2026-09-24"

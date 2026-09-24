@@ -116,19 +116,19 @@ try {
   console.log('Public HTTPS landing, admin Access boundary, anonymous boundary and brand asset: PASS');
   const mapResponse=await anonymous.get(origin+'/api/v1/development-map');
   expect(mapResponse.status()).toBe(200);const development=await mapResponse.json();
-  expect(development.pages).toHaveLength(21);expect(development.repositories).toHaveLength(35);expect(development.skill_books).toHaveLength(29);
+  expect(development.pages).toHaveLength(21);expect(development.repositories).toHaveLength(43);expect(development.skill_books).toHaveLength(37);
   expect(JSON.stringify(development)).not.toMatch(/user_id|access_token|csrf_token/);
   for(const path of ['/llms.txt','/development','/development/guilds.md','/development/skills/security-scanner']){
     const response=await anonymous.get(origin+path);expect(response.status(),path).toBe(200);
     expect((await response.text()).length).toBeGreaterThan(100);
   }
-  console.log('Anonymous Agent discovery, 21 page guides, 35 repository guides and 29 skill books: PASS');
+  console.log('Anonymous Agent discovery, 21 page guides, 43 repository guides and 37 skill books: PASS');
   const discoveryResponse=await anonymous.get(origin+'/api/v1/skills/discovery');
   expect(discoveryResponse.status()).toBe(200);
-  const discovery=await discoveryResponse.json();expect(discovery.books).toHaveLength(29);
+  const discovery=await discoveryResponse.json();expect(discovery.books).toHaveLength(37);
   expect(discovery.timezone).toBe('Asia/Taipei');
   expect(JSON.stringify(discovery)).not.toMatch(/github_user_id|client_secret|csrf_token/);
-  for(const [id,author,repo] of [['local-workspace-mcp','Mini','arumwu/local-workspace-mcp'],['editkin','Hao','Hao0321/Editkin'],['positioning-companion','Jason','jason201385-commits/positioning-companion'],['freedom-party-guild-lounge','David','davidni0729/freedom-party-guild-lounge']]){
+  for(const [id,author,repo] of [['local-workspace-mcp','Mini','arumwu/local-workspace-mcp'],['editkin','Hao','Hao0321/Editkin'],['positioning-companion','Jason','jason201385-commits/positioning-companion'],['freedom-party-guild-lounge','David','davidni0729/freedom-party-guild-lounge'],["bidding-radar-concept", "綠豆", "greenQQQ/bidding-radar-concept"],["aiwff-runtime", "隊長", "zaxardery8011-design/aiwff-runtime"],["n8n-marketing-flows", "Yuri", "YuriCrystal/n8n-marketing-flows"],["anti-gambling-trader-tw", "阿軒哥哥（阿軒割割）", "mars-tw/anti-gambling-trader-tw"],["web-card-game-skill", "阿軒哥哥（阿軒割割）", "mars-tw/web-card-game-skill"],["ai-avatar-bot", "Yuri", "YuriCrystal/ai-avatar-bot"],["ai-manga-translator", "綠豆", "greenQQQ/ai-manga-translator"],["line-persona", "隊長", "zaxardery8011-design/line-persona"]]){
     const book=development.skill_books.find(value=>value.id===id);expect(book.guide.author_name).toBe(author);
     expect(book.repository_url).toBe('https://github.com/'+repo);expect(book.upstream_url).toBe(book.repository_url);expect(book.star_url).toBe(book.upstream_url);
     const share=await anonymous.get(origin+'/development/skills/'+id);expect(share.status()).toBe(200);expect(await share.text()).toContain('作者：'+author);
@@ -146,7 +146,7 @@ try {
   for(const pageId of ['home','guilds','guild-workspace','admin']){
     const skill=await anonymous.get(origin+'/development/'+pageId+'/SKILL.md');expect(skill.status()).toBe(200);expect(await skill.text()).toMatch(/^---\nname:/);
   }
-  console.log('Public share metadata, 29-book discovery and readable skill/page Agent instructions: PASS');
+  console.log('Public share metadata, 37-book discovery and readable skill/page Agent instructions: PASS');
 
   stage='public skill introductions, illustrations and client download';
   const shareContentById=new Map();
@@ -321,7 +321,7 @@ try {
 
   stage = 'skill-book cover delivery';
   const covers=JSON.parse(await readFile(new URL('../docs/design/skill-book-art-manifest.json',import.meta.url),'utf8')).assets;
-  expect(covers).toHaveLength(29);
+  expect(covers).toHaveLength(37);
   for(const cover of covers){
     const image=await anonymous.get(origin+'/art/skills/'+cover.id+'.webp');
     expect(image.status()).toBe(200);
@@ -330,7 +330,7 @@ try {
     expect(metadata.width).toBe(cover.width);
     expect(metadata.height).toBe(cover.height);
   }
-  console.log('All 29 distinct skill-book covers delivered over HTTPS: PASS');
+  console.log('All 37 distinct skill-book covers delivered over HTTPS: PASS');
 
   stage = 'member card and privacy';
   await page.getByRole('button', { name: '我的名片', exact: true }).click();
@@ -663,7 +663,7 @@ try {
     await expect(uploadTrigger).toBeFocused();await noOverflow('Skill shelf after upload preview at 320 px');
     expect(uploadWritePaths,'Preview must not issue a key, draft, upload grant or publication').toEqual([]);
   }finally{await page.unroute(uploadApiPattern,readOnlyUploads);}
-  console.log('29 × 100 introductions, 29 real 1200×630 illustrations, chosen OG text, gzip client, dice preview and read-only upload entry at 320 px: PASS');
+  console.log('37 × 100 introductions, 37 real 1200×630 illustrations, chosen OG text, gzip client, dice preview and read-only upload entry at 320 px: PASS');
   const githubConnection=await (await page.request.get(origin+'/api/v1/me/github')).json();
   if(githubConnection.configured){
     expect(githubConnection.connected).toBe(false);
@@ -733,6 +733,31 @@ try {
   await expect(page.getByLabel('Discord 帳號', { exact: true })).toHaveValue(privateContact);
   await noVisibleError();
   await noOverflow('Reloaded mobile account overflow');
+  stage='community display name and optional member-card label';
+  const renamed=nickname+'・名片驗證';
+  await page.getByLabel('社群顯示名稱',{exact:true}).fill(renamed);
+  const identity=page.getByRole('combobox',{name:'我是（選填）',exact:true});
+  await expect(identity.locator('option')).toHaveText(['不顯示','男','女','外星人','AI']);
+  await identity.selectOption('alien');
+  await page.getByRole('button',{name:'保存個人資料與公開範圍',exact:true}).click();
+  await expect(page.locator('.member-card').getByLabel('自我介紹：外星人',{exact:true})).toBeVisible();
+  await page.reload({waitUntil:'domcontentloaded'});
+  await expect(identity).toHaveValue('alien');await expect(page.getByLabel('社群顯示名稱',{exact:true})).toHaveValue(renamed);
+  const renamedSession=await (await page.request.get(origin+'/api/v1/session')).json();
+  expect(renamedSession.user.display_name).toBe(renamed);
+  const renamedDirectory=await (await page.request.get(origin+'/api/v1/members?'+new URLSearchParams({search:renamed}))).json();
+  expect(renamedDirectory.items.find(member=>member.user_id===record.user_id)).toMatchObject({nickname:renamed,identity_label:'alien'});
+  expect((await anonymous.get(origin+'/api/v1/members/'+record.user_id)).status()).toBe(401);
+  await page.setViewportSize({width:320,height:844});await noOverflow('Optional member identity mobile overflow');
+  await screenshot('public-member-identity-mobile.png');
+  await identity.selectOption('');await page.getByLabel('社群顯示名稱',{exact:true}).fill(nickname);
+  await page.getByRole('button',{name:'保存個人資料與公開範圍',exact:true}).click();
+  await expect(page.getByText('個人資料與每一項聯絡方式的可見範圍已保存。',{exact:true})).toBeVisible();
+  await expect(page.locator('.member-card').getByLabel('自我介紹：外星人',{exact:true})).toHaveCount(0);
+  const clearedProfile=await (await page.request.get(origin+'/api/v1/me/account')).json();
+  expect(clearedProfile.identity_label).toBeNull();expect(clearedProfile.nickname).toBe(nickname);
+  console.log('Community name and optional identity persist in cards and directory, stay authenticated, and clear at 320 px: PASS');
+
   await page.getByRole('button', { name: '登出', exact: true }).click();
   await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
   expect((await page.request.get(origin + '/api/v1/session')).status()).toBe(401);

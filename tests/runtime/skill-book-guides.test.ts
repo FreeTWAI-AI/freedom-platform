@@ -14,7 +14,7 @@ test('every catalog and featured skill book carries a complete, specific guide w
     assert.ok(guide.audience.length&&guide.features.length>=2&&guide.prerequisites.length&&guide.first_steps.length>=2,book.id);
     assert.ok(guide.first_result.length>15&&guide.status.length>15&&guide.contribution.length>15,book.id);
     const upstream=new URL(book.upstream_url);
-    for(const evidence of guide.source_evidence){const url=new URL(evidence.url);assert.equal(url.protocol,'https:');assert.equal(url.hostname,'github.com');assert.equal(url.username,'');assert.equal(url.pathname,`${upstream.pathname}/blob/${guide.source_commit}/${evidence.path}`);}
+    for(const evidence of guide.source_evidence){const url=new URL(evidence.url);assert.equal(url.protocol,'https:');assert.equal(url.hostname,'github.com');assert.equal(url.username,'');assert.equal(url.pathname,`${upstream.pathname}/blob/${guide.source_commit}/${encodeURI(evidence.path)}`);}
     assert.ok(guide.source_evidence.some(evidence=>evidence.url===guide.reading_url),book.id);
     assert.equal(new URL(guide.contribution_url).pathname,`${new URL(book.repository_url).pathname}/issues`);
     if(guide.website_url){const url=new URL(guide.website_url);assert.equal(url.protocol,'https:');assert.equal(url.username,'');}
@@ -36,7 +36,7 @@ test('guides keep working client, local demo, alpha and unimplemented service bo
   assert.match(skillBookGuides['social-post'].status,/未全面驗收/);
 });
 
-test('all 29 books expose distinct covers, original-author stars and the same beginner guidance in public formats',()=>{
+test('all 37 books expose distinct covers, original-author stars and the same beginner guidance in public formats',()=>{
   const covers=new Set<string>();
   for(const book of developmentMap().skill_books){
     const guide=book.guide!;
@@ -55,7 +55,7 @@ test('all 29 books expose distinct covers, original-author stars and the same be
     assert.ok(html.includes('href="/#skills">登入工坊 Star'),book.id);
     assert.ok(html.includes(`href="${book.upstream_url}/fork"`),book.id);
   }
-  assert.equal(covers.size,29);
+  assert.equal(covers.size,37);
   const external=communityCatalog.skill_books.find(book=>book.id==='social-post')!;
   assert.notEqual(external.star_url,external.repository_url);
   assert.equal(external.star_url,'https://github.com/Hao0321/claude-skill-social-post');

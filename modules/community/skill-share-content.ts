@@ -1,3 +1,11 @@
+import communityAuthor0 from './share-introductions/bidding-radar-concept.json' with {type:'json'};
+import communityAuthor1 from './share-introductions/aiwff-runtime.json' with {type:'json'};
+import communityAuthor2 from './share-introductions/n8n-marketing-flows.json' with {type:'json'};
+import communityAuthor3 from './share-introductions/anti-gambling-trader-tw.json' with {type:'json'};
+import communityAuthor4 from './share-introductions/web-card-game-skill.json' with {type:'json'};
+import communityAuthor5 from './share-introductions/ai-avatar-bot.json' with {type:'json'};
+import communityAuthor6 from './share-introductions/ai-manga-translator.json' with {type:'json'};
+import communityAuthor7 from './share-introductions/line-persona.json' with {type:'json'};
 import localWorkspaceMcp from './share-introductions/local-workspace-mcp.json' with {type:'json'};
 import editkin from './share-introductions/editkin.json' with {type:'json'};
 import positioningCompanion from './share-introductions/positioning-companion.json' with {type:'json'};
@@ -29,10 +37,18 @@ import supplierClient from './share-introductions/supplier-client.json' with {ty
 import typoStudio from './share-introductions/typo-studio.json' with {type:'json'};
 import videoAutopilot from './share-introductions/video-autopilot.json' with {type:'json'};
 
-export const skillShareContentVersion='2026-09-24.1';
+export const skillShareContentVersion='2026-09-24.2';
 export type SkillShareContent = {introductions:string[];illustration_url:string;illustration_alt:string};
 
 const content:Record<string,{introductions:string[];illustration_alt:string}> = {
+  'bidding-radar-concept':{introductions:communityAuthor0,illustration_alt:"公司描述與補助文件逐條比對後分組，旁邊的雷達掃描標案資料，呈現設計概念。"},
+  'aiwff-runtime':{introductions:communityAuthor1,illustration_alt:"任務卡進入本機背景執行器，依序顯示進度並把完成檔案放回資料夾。"},
+  'n8n-marketing-flows':{introductions:communityAuthor2,illustration_alt:"新聞資料通過串接的工作流節點與模型，輸出可供人工確認的貼文草稿。"},
+  'anti-gambling-trader-tw':{introductions:communityAuthor3,illustration_alt:"合成交易紀錄進入本機統計分析，輸出分布、比較與待覆核的報表。"},
+  'web-card-game-skill':{introductions:communityAuthor4,illustration_alt:"程式資料連到瀏覽器中的卡牌對戰、牌組排列與開卡包流程。"},
+  'ai-avatar-bot':{introductions:communityAuthor5,illustration_alt:"網站問題連到知識資料與虛擬角色，再以語音波形呈現角色回答。"},
+  'ai-manga-translator':{introductions:communityAuthor6,illustration_alt:"原圖的對話框經圖片翻譯後覆蓋譯文，旁邊的作品詞彙表連接跨頁人名。"},
+  'line-persona':{introductions:communityAuthor7,illustration_alt:"人格與知識文件連到自選模型，再把常見問答送到手機的 LINE 對話。"},
   'local-workspace-mcp':{introductions:localWorkspaceMcp,illustration_alt:"私人對話通道連到本機檔案，將合成資料整理成報表與圖表。"},
   'editkin':{introductions:editkin,illustration_alt:"合成影片片段進入可編輯時間軸，調整後在畫面中預覽剪輯結果。"},
   'positioning-companion':{introductions:positioningCompanion,illustration_alt:"人物比較方向與證據卡，選擇一條由本人確認的小實驗路徑。"},

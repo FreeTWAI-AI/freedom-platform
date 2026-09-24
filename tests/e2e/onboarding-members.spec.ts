@@ -41,6 +41,30 @@ async function completeOrientation(page:Page){
   await page.getByRole('button',{name:'看看適合我的公會',exact:true}).click();
   await finishGuild(page);
 }
+test('member changes community name and optional identity, sees persisted cards and can hide the label on mobile',async({page})=>{
+  const email=await register(page,'名片選項測試');await completeOrientation(page);
+  await page.getByRole('button',{name:'我的名片',exact:true}).click();
+  const name=page.getByLabel('社群顯示名稱',{exact:true}),identity=page.getByRole('combobox',{name:'我是（選填）',exact:true});
+  await expect(identity).toHaveValue('');await expect(identity.locator('option')).toHaveText(['不顯示','男','女','外星人','AI']);
+  await expect(page.getByText('建議使用你在社群最常用的名字，方便夥伴認出你。',{exact:true})).toBeVisible();
+  await name.fill('社群常用的測試名字');await identity.selectOption('alien');
+  await page.getByRole('button',{name:'保存個人資料與公開範圍',exact:true}).click();
+  await expect(page.locator('.account-panel .member-card')).toContainText('社群常用的測試名字');
+  await expect(page.locator('.account-panel .member-card').getByLabel('自我介紹：外星人',{exact:true})).toBeVisible();
+  await page.reload();await expect(name).toHaveValue('社群常用的測試名字');await expect(identity).toHaveValue('alien');
+  await navigate(page,'工坊夥伴');await page.getByRole('searchbox',{name:'搜尋夥伴',exact:true}).fill('社群常用的測試名字');
+  const row=page.getByRole('article',{name:'社群常用的測試名字',exact:true});await expect(row.getByLabel('自我介紹：外星人',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'登出',exact:true}).click();
+  await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill(password);await page.getByRole('button',{name:'登入',exact:true}).click();
+  await page.getByRole('button',{name:'我的名片',exact:true}).click();await expect(identity).toHaveValue('alien');await expect(name).toHaveValue('社群常用的測試名字');
+  await page.setViewportSize({width:320,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/member-identity-phone.png',fullPage:true});
+  await identity.selectOption('');await page.getByRole('button',{name:'保存個人資料與公開範圍',exact:true}).click();
+  await expect(page.getByText('個人資料與每一項聯絡方式的可見範圍已保存。',{exact:true})).toBeVisible();
+  await expect(page.locator('.member-card').getByLabel('自我介紹：外星人',{exact:true})).toHaveCount(0);
+  await page.reload();await expect(identity).toHaveValue('');await expect(name).toHaveValue('社群常用的測試名字');
+});
 test('new member completes required positioning, chooses primary guild and gets a persistent member card',async({page})=>{
   const email=await register(page,'工坊新夥伴');
   await expect(page.getByRole('navigation',{name:'主要工作區'})).toHaveCount(0);

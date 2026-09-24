@@ -1,4 +1,5 @@
 import { skillBookGuides, type SkillBookGuide } from './skill-book-guides.js';
+import {communityAuthorBooks,communityAuthorSources} from './community-author-skills.js';
 import {memberSkillBooks} from './member-skill-books.js';
 // Community-owned catalog. Source repositories are linked/forked, never executed during onboarding.
 export type CatalogOption = {id:string;label:string};
@@ -2629,6 +2630,7 @@ const communityCatalogBase = {
   ],
   "skill_books": [
     ...memberSkillBooks,
+    ...communityAuthorBooks,
     {
       "id": "career-guide",
       "title": "方向探索與陪跑入門",
@@ -3008,6 +3010,9 @@ const guildBooks:Record<string,string[]> = {
     "commercial-production"
   ]
 };
+for(const [id,source] of Object.entries(communityAuthorSources)){
+  for(const guild of source.guilds)guildBooks[guild].push(id);
+}
 export function skillBooksForGuild(guildKey:string):SkillBook[]{
   const books:SkillBook[]=[];
   for(const id of guildBooks[guildKey]??[]){

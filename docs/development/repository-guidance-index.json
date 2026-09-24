@@ -1066,6 +1066,204 @@
       "default_branch": "main",
       "kind": "author_source",
       "contribution_default_branch": "main"
+    },
+    {
+      "purpose": "綠豆的從公開資料設計標案搜尋、追蹤、決標分析與公司補助資格比對。",
+      "current_scope": "原作僅公開概念與設計，沒有可安裝程式。可交給 AI 參考再自行開發；資料取得須依來源規範，資格與期限回到官方公告確認。",
+      "future_scope": "收錄不代表工坊已安裝、代為部署或驗證所有上游功能；原作者保有 repo 與審查決定。",
+      "upstream": null,
+      "key_paths": [
+        "實作指南.md",
+        "README.md"
+      ],
+      "validation_commands": [
+        "git diff --check"
+      ],
+      "validation_note": "依 2026-09-24 的固定 commit 文件與設定核對檢查入口；本輪登錄未執行上游專案，細節以原作文件為準。",
+      "guide_files": [
+        "README.md",
+        "實作指南.md"
+      ],
+      "contribution_target": "https://github.com/greenQQQ/bidding-radar-concept",
+      "repository": "greenQQQ/bidding-radar-concept",
+      "default_branch": "main",
+      "kind": "author_source",
+      "contribution_default_branch": "main"
+    },
+    {
+      "purpose": "隊長的交辦任務、查看背景進度，將成果檔案留在自己的電腦。",
+      "current_scope": "MIT 開源；預設 mock 模擬模式免費、不需 API key。真正執行 AI 任務需自己的 Claude CLI 帳號與費用；接 Claude 或 Telegram 時會有資料傳往相應服務。",
+      "future_scope": "收錄不代表工坊已安裝、代為部署或驗證所有上游功能；原作者保有 repo 與審查決定。",
+      "upstream": null,
+      "key_paths": [
+        "templates/",
+        "docs/",
+        "agent/",
+        "README.md"
+      ],
+      "validation_commands": [
+        "npm test"
+      ],
+      "validation_note": "依 2026-09-24 的固定 commit 文件與設定核對檢查入口；本輪登錄未執行上游專案，細節以原作文件為準。",
+      "guide_files": [
+        "README.zh-TW.md",
+        "AGENTS.md"
+      ],
+      "contribution_target": "https://github.com/zaxardery8011-design/aiwff-runtime",
+      "repository": "zaxardery8011-design/aiwff-runtime",
+      "default_branch": "master",
+      "kind": "author_source",
+      "contribution_default_branch": "master"
+    },
+    {
+      "purpose": "Yuri的匯入新聞整理、貼文草稿與行銷流程，再接自己的模型與服務。",
+      "current_scope": "MIT 模板庫，包含本機 Ollama 版本與待接 API 的 skeleton。架構範本的匯入檢查不代表已驗證真實平台發布；外部服務費用與授權另計。",
+      "future_scope": "收錄不代表工坊已安裝、代為部署或驗證所有上游功能；原作者保有 repo 與審查決定。",
+      "upstream": null,
+      "key_paths": [
+        "templates/",
+        "docs/",
+        "README.md"
+      ],
+      "validation_commands": [
+        "git diff --check"
+      ],
+      "validation_note": "依 2026-09-24 的固定 commit 文件與設定核對檢查入口；本輪登錄未執行上游專案，細節以原作文件為準。",
+      "guide_files": [
+        "README.md"
+      ],
+      "contribution_target": "https://github.com/YuriCrystal/n8n-marketing-flows",
+      "repository": "YuriCrystal/n8n-marketing-flows",
+      "default_branch": "main",
+      "kind": "author_source",
+      "contribution_default_branch": "main"
+    },
+    {
+      "purpose": "阿軒哥哥（阿軒割割）的用交易紀錄檢查期望值、樣本外表現與偏差，練習以證據判讀績效。",
+      "current_scope": "MIT 開源，核心統計在本機處理。提供統計輔助，不保證獲利，也不構成投資建議；產生的交易專案預設 PaperBroker，真實券商連線需另行實作與驗證。",
+      "future_scope": "收錄不代表工坊已安裝、代為部署或驗證所有上游功能；原作者保有 repo 與審查決定。",
+      "upstream": null,
+      "key_paths": [
+        "core/",
+        "tests/",
+        "docs/",
+        ".agents/skills/anti-gambling-trader/SKILL.md"
+      ],
+      "validation_commands": [
+        "git diff --check"
+      ],
+      "validation_note": "依 2026-09-24 的固定 commit 文件與設定核對檢查入口；本輪登錄未執行上游專案，細節以原作文件為準。",
+      "guide_files": [
+        "README.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/mars-tw/anti-gambling-trader-tw",
+      "repository": "mars-tw/anti-gambling-trader-tw",
+      "default_branch": "main",
+      "kind": "author_source",
+      "contribution_default_branch": "main"
+    },
+    {
+      "purpose": "阿軒哥哥（阿軒割割）的研究卡牌對戰、開包與牌組系統，從可玩的原生網頁遊戲開始改造。",
+      "current_scope": "MIT 原始碼，遊戲執行期無外部依賴；本機開發及測試另需工具。AI 美術生成可選，需自行準備服務與費用，素材依 CREDITS 核對。",
+      "future_scope": "收錄不代表工坊已安裝、代為部署或驗證所有上游功能；原作者保有 repo 與審查決定。",
+      "upstream": null,
+      "key_paths": [
+        "templates/",
+        "references/",
+        "scripts/",
+        "SKILL.md"
+      ],
+      "validation_commands": [
+        "npm test"
+      ],
+      "validation_note": "依 2026-09-24 的固定 commit 文件與設定核對檢查入口；本輪登錄未執行上游專案，細節以原作文件為準。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "SKILL.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/mars-tw/web-card-game-skill",
+      "repository": "mars-tw/web-card-game-skill",
+      "default_branch": "main",
+      "kind": "author_source",
+      "contribution_default_branch": "main"
+    },
+    {
+      "purpose": "Yuri的讓網站角色結合知識庫、語音回覆與嘴型同步，並可換成自己的角色。",
+      "current_scope": "專案自有程式採 MIT；Live2D Cubism Core 與 Haru 示範模型另有專有授權，不包含在 MIT 中。語音、模型服務與部署費用需依自己的設定確認。",
+      "future_scope": "收錄不代表工坊已安裝、代為部署或驗證所有上游功能；原作者保有 repo 與審查決定。",
+      "upstream": null,
+      "key_paths": [
+        "widget.html",
+        "embed.js",
+        "knowledge.js",
+        "api/",
+        "tests/"
+      ],
+      "validation_commands": [
+        "npm test"
+      ],
+      "validation_note": "依 2026-09-24 的固定 commit 文件與設定核對檢查入口；本輪登錄未執行上游專案，細節以原作文件為準。",
+      "guide_files": [
+        "README.md"
+      ],
+      "contribution_target": "https://github.com/YuriCrystal/ai-avatar-bot",
+      "repository": "YuriCrystal/ai-avatar-bot",
+      "default_branch": "main",
+      "kind": "author_source",
+      "contribution_default_branch": "main"
+    },
+    {
+      "purpose": "綠豆的將譯文疊回漫畫對話框，利用作品詞彙表保持跨頁人名一致。",
+      "current_scope": "MIT 開源擴充；自備看圖模型的 API 或本地模型。雲端模式會傳送待翻譯圖片給所選服務，可能計費；定位與翻譯準確度依模型和圖片而異。",
+      "future_scope": "收錄不代表工坊已安裝、代為部署或驗證所有上游功能；原作者保有 repo 與審查決定。",
+      "upstream": null,
+      "key_paths": [
+        "manifest.json",
+        "content.js",
+        "background.js",
+        "popup.js"
+      ],
+      "validation_commands": [
+        "git diff --check"
+      ],
+      "validation_note": "依 2026-09-24 的固定 commit 文件與設定核對檢查入口；本輪登錄未執行上游專案，細節以原作文件為準。",
+      "guide_files": [
+        "README.md"
+      ],
+      "contribution_target": "https://github.com/greenQQQ/ai-manga-translator",
+      "repository": "greenQQQ/ai-manga-translator",
+      "default_branch": "main",
+      "kind": "author_source",
+      "contribution_default_branch": "main"
+    },
+    {
+      "purpose": "隊長的把自己的介紹與知識接到 LINE，讓分身依設定口吻回答常見問題。",
+      "current_scope": "MIT 開源，支援相容雲端或本機模型。LINE 訊息仍經 LINE 服務；雲端模型也會收到問答資料，並非所有資料都只留本機。服務額度與模型費用另計。",
+      "future_scope": "收錄不代表工坊已安裝、代為部署或驗證所有上游功能；原作者保有 repo 與審查決定。",
+      "upstream": null,
+      "key_paths": [
+        "src/",
+        "persona/",
+        "distill.js",
+        "使用手冊.md"
+      ],
+      "validation_commands": [
+        "git diff --check"
+      ],
+      "validation_note": "依 2026-09-24 的固定 commit 文件與設定核對檢查入口；本輪登錄未執行上游專案，細節以原作文件為準。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "contribution_target": "https://github.com/zaxardery8011-design/line-persona",
+      "repository": "zaxardery8011-design/line-persona",
+      "default_branch": "master",
+      "kind": "author_source",
+      "contribution_default_branch": "master"
     }
   ]
 }

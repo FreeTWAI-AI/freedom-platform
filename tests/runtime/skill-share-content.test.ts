@@ -8,7 +8,7 @@ const catalogIds=communityCatalog.skill_books.map(book=>book.id).sort();
 const length=(text:string)=>[...text].length;
 
 test('every catalog skill book has exactly 100 distinct, bounded share introductions',()=>{
-  assert.equal(catalogIds.length,29);
+  assert.equal(catalogIds.length,37);
   assert.match(skillShareContentVersion,/^\d{4}-\d{2}-\d{2}\.\d+$/);
   const everyLine=new Set<string>();
   for(const id of catalogIds){
@@ -25,7 +25,7 @@ test('every catalog skill book has exactly 100 distinct, bounded share introduct
       assert.ok(!everyLine.has(line),`duplicated across books: ${line}`);everyLine.add(line);
     }
   }
-  assert.equal(everyLine.size,2900);
+  assert.equal(everyLine.size,3700);
 });
 
 test('share content maps exactly the catalog ids and no unknown or extra ids',()=>{

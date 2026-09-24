@@ -15,7 +15,7 @@ test('member previews, saves, reloads and removes a synthetic avatar without sav
   const fixture = await sharp({ create: { width: 320, height: 240, channels: 3, background: '#c4ff20' } }).png().toBuffer();
   const editor = page.locator('.avatar-editor');
   await expect(editor.getByRole('heading', { name: '我的頭像', exact: true })).toBeVisible();
-  const nickname = page.getByLabel('喜歡的暱稱', { exact: true }), originalNickname = await nickname.inputValue();
+  const nickname = page.getByLabel('社群顯示名稱', { exact: true }), originalNickname = await nickname.inputValue();
   await nickname.fill('尚未保存的暱稱草稿');
   await editor.getByLabel('選擇頭像', { exact: true }).setInputFiles({ name: 'synthetic-avatar.png', mimeType: 'image/png', buffer: fixture });
   await expect(editor.getByRole('img', { name: '頭像預覽', exact: true })).toBeVisible();

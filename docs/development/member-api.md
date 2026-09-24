@@ -16,15 +16,19 @@ uses persisted rate limits instead. IDs are UUIDs.
 - `POST /auth/login`: existing `{email,password}`. Email remains **unverified**;
   there is no mail sender/reset/automatic provider linking. Slugs confer no
   GitHub/Discord/LINE ownership or privileged action.
-- `GET /me/account`: `{user_id,nickname,login_email,email_verified,contacts,
+- `GET /me/account`: `{user_id,nickname,identity_label,login_email,email_verified,contacts,
   aggregate_version}`. Each contact additionally has `verified:false`.
-- `POST /me/account`: `{nickname,contacts}` (all four contact entries, **without**
+- `POST /me/account`: `{nickname,identity_label?,contacts}` (all four contact entries, **without**
   `verified`); social entries are `{value,audiences}`; email is **only**
   `{audiences}`. Sending `email.value` is rejected. GET still includes the
   authoritative email value for display. This API cannot change the login email.
   Returns current account, never another member's private settings.
+  `identity_label` is optional `male | female | alien | ai | null`: omitted preserves
+  the current value, null clears it. Default null; self-selected, never inferred.
+  It is visible with the authenticated same-community card, and does not grant authority.
+  Nickname is the editable community display name; use the name familiar to your community.
 - `GET /members?limit=20&offset=0`: `{items,next_offset}`. Limit 1–50. Each card:
-  `{user_id,nickname,positioning_title,primary_guild,secondary_guilds,joined_guilds,capabilities,
+  `{user_id,nickname,identity_label,positioning_title,primary_guild,secondary_guilds,joined_guilds,capabilities,
   equipment,contacts,is_self,friendship}`. Only visible nonempty contact values
   are present in `contacts` (a string map), not concealed values or settings.
 - `GET /members/:id`: same card; inactive, incomplete and other-community users

@@ -10,7 +10,7 @@ const origin='https://freetwai.com';
 const editorial:SkillEditorial={summary:'維護者的新剪輯摘要',collaboration_intro:'共做字幕同步與分享範例',milestones:[{id:'m-one',title:'可重現範例'}],tasks:[{id:'t-one',title:'補字幕壞例',description:'修改單一 fixture',acceptance:['倒序時間必須拒絕'],issue_url:'https://github.com/FreeTWAI-AI/video-autopilot-kit/issues/3',milestone_id:'m-one',status:'in_progress'}],updated_at:'2026-09-23T12:00:00Z',aggregate_version:2};
 
 test('all books default contributions to their original source and keep workshop task provenance separate',()=>{
- const map=developmentMap();assert.equal(map.skill_books.length,29);
+ const map=developmentMap();assert.equal(map.skill_books.length,37);
  for(const book of communityCatalog.skill_books){
   const data=getSkillCollaboration(book.id);assert.ok(data,book.id);
   const metadata=map.repositories.find(repo=>repo.repository===new URL(book.repository_url).pathname.slice(1))!;

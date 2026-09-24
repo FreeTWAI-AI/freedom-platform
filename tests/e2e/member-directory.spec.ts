@@ -51,7 +51,7 @@ test('compact rows keep three skills visible and fold permitted contact and guil
   await details.locator('summary').click();await expect(row.getByText('visible-handle',{exact:true})).toBeVisible();await expect(row.getByRole('heading',{name:'公會加入紀錄',exact:true})).toBeVisible();await expect(row.locator('.directory-guild-dates time')).toHaveText(['2026/09/22','2026/09/23']);await expect(row.getByText('活動企劃',{exact:true})).toBeVisible();
   const privateRow=panel.getByRole('article',{name:'隱私夥伴',exact:true});await privateRow.locator('summary').click();await expect(privateRow).toContainText('沒有對你公開的聯絡方式');await expect(privateRow.locator('.directory-member-meta')).toContainText('加入日期未記錄');
   await page.setViewportSize({width:320,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'test-results/member-directory-phone.png'});
-  await page.getByRole('button',{name:'我的名片',exact:true}).click();await expect(page.locator('.account-panel .member-card')).toHaveCount(1);await expect(page.locator('.account-panel .directory-member')).toHaveCount(0);await expect(page.getByLabel('喜歡的暱稱',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'保存個人資料與公開範圍',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'我的名片',exact:true}).click();await expect(page.locator('.account-panel .member-card')).toHaveCount(1);await expect(page.locator('.account-panel .directory-member')).toHaveCount(0);await expect(page.getByLabel('社群顯示名稱',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'保存個人資料與公開範圍',exact:true})).toBeVisible();
 });
 
 test('empty search and retry states remain distinct and keep the selected filters',async({page})=>{
