@@ -2,7 +2,7 @@
   "generated_at": "2026-09-23",
   "mode": "builtin-imagegen",
   "style_anchor": "apps/portal-web/public/brand/freedom-workshop.webp",
-  "description": "25 separately generated original skill-book covers. No original logo edits; only mechanical WebP encoding for delivery.",
+  "description": "29 separately generated original skill-book covers. No original logo edits; only mechanical WebP encoding for delivery.",
   "assets": [
     {
       "id": "career-guide",
@@ -253,6 +253,51 @@
       "height": 1254,
       "bytes": 332506,
       "sha256": "cd7f256322682ba11826aab110d37df640fbbc30c84ec77c8c56f55d64ba3f57"
+    },
+    {
+      "id": "local-workspace-mcp",
+      "prompt": "Use case: stylized-concept. Create one original square collectible futuristic skill-book illustration for Freedom Workshop. Style: black charcoal background, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, restrained orbital line and four-point star accents. One closed thick chrome book floating at a three-quarter angle, lime page edges, a sculpted subject emblem above its blue cover, small dark blue pedestal. Clean simple silhouette legible at thumbnail size, generous black margins, premium 3D render. No words, letters, numbers, logos, readable UI, watermark, grid, collage, medieval objects. Unique subject: a chrome desktop folder connected to a small blue terminal tile and a document sheet, local files and tools",
+      "path": "apps/portal-web/public/art/skills/local-workspace-mcp.webp",
+      "width": 768,
+      "height": 512,
+      "bytes": 29434,
+      "sha256": "c667cf80cc03b0c62ee453d5827ae0da4bf8ecbfb9e76a3a6963e6bf7a3c15d9",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen"
+    },
+    {
+      "id": "editkin",
+      "prompt": "Use case: stylized-concept. Create one original square collectible futuristic skill-book illustration for Freedom Workshop. Style: black charcoal background, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, restrained orbital line and four-point star accents. One closed thick chrome book floating at a three-quarter angle, lime page edges, a sculpted subject emblem above its blue cover, small dark blue pedestal. Clean simple silhouette legible at thumbnail size, generous black margins, premium 3D render. No words, letters, numbers, logos, readable UI, watermark, grid, collage, medieval objects. Unique subject: a chrome video clapperboard with three blue timeline clips and a lime playback triangle, editable video timeline",
+      "path": "apps/portal-web/public/art/skills/editkin.webp",
+      "width": 768,
+      "height": 512,
+      "bytes": 36302,
+      "sha256": "95ccfa288b8e939529986c32df942a6fe963a5f7e21251d971234a636f896384",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen"
+    },
+    {
+      "id": "positioning-companion",
+      "prompt": "Use case: stylized-concept. Create one original square collectible futuristic skill-book illustration for Freedom Workshop. Style: black charcoal background, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, restrained orbital line and four-point star accents. One closed thick chrome book floating at a three-quarter angle, lime page edges, a sculpted subject emblem above its blue cover, small dark blue pedestal. Clean simple silhouette legible at thumbnail size, generous black margins, premium 3D render. No words, letters, numbers, logos, readable UI, watermark, grid, collage, medieval objects. Unique subject: a chrome compass above three route tiles and one selected lime path, self-directed career exploration",
+      "path": "apps/portal-web/public/art/skills/positioning-companion.webp",
+      "width": 768,
+      "height": 512,
+      "bytes": 39010,
+      "sha256": "42b8b22df5c1773cc3a8e6ac0c3ffe47f332398e2abd13933aeb0dc0525f761b",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen"
+    },
+    {
+      "id": "freedom-party-guild-lounge",
+      "prompt": "Use case: stylized-concept. Create one original square collectible futuristic skill-book illustration for Freedom Workshop. Style: black charcoal background, acid lime #c4ff20, electric blue #3044ff, polished liquid chrome, restrained orbital line and four-point star accents. One closed thick chrome book floating at a three-quarter angle, lime page edges, a sculpted subject emblem above its blue cover, small dark blue pedestal. Clean simple silhouette legible at thumbnail size, generous black margins, premium 3D render. No words, letters, numbers, logos, readable UI, watermark, grid, collage, medieval objects. Unique subject: two chrome identification badges linked by a lime meeting arc, a community event and introductions",
+      "path": "apps/portal-web/public/art/skills/freedom-party-guild-lounge.webp",
+      "width": 768,
+      "height": 512,
+      "bytes": 28624,
+      "sha256": "b8c9817ee7aabfb1e516a1f757572e55bdf58ec3294cd8bee43103ee194b4441",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen"
     }
-  ]
+  ],
+  "updated_at": "2026-09-24"
 }

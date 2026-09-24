@@ -10,7 +10,7 @@ const origin='https://freetwai.com';
 const editorial:SkillEditorial={summary:'維護者的新剪輯摘要',collaboration_intro:'共做字幕同步與分享範例',milestones:[{id:'m-one',title:'可重現範例'}],tasks:[{id:'t-one',title:'補字幕壞例',description:'修改單一 fixture',acceptance:['倒序時間必須拒絕'],issue_url:'https://github.com/FreeTWAI-AI/video-autopilot-kit/issues/3',milestone_id:'m-one',status:'in_progress'}],updated_at:'2026-09-23T12:00:00Z',aggregate_version:2};
 
 test('all books default contributions to their original source and keep workshop task provenance separate',()=>{
- const map=developmentMap();assert.equal(map.skill_books.length,25);
+ const map=developmentMap();assert.equal(map.skill_books.length,29);
  for(const book of communityCatalog.skill_books){
   const data=getSkillCollaboration(book.id);assert.ok(data,book.id);
   const metadata=map.repositories.find(repo=>repo.repository===new URL(book.repository_url).pathname.slice(1))!;
@@ -19,7 +19,7 @@ test('all books default contributions to their original source and keep workshop
   assert.equal(data.contribution.url,book.upstream_url);assert.equal(data.contribution.fork_url,book.upstream_url+'/fork');
   assert.equal(data.contribution.default_branch,metadata.contribution_default_branch);assert.equal(metadata.contribution_target,book.upstream_url);
   assert.ok(data.tasks.length>0);assert.ok(data.tasks.every(task=>task.acceptance.length>0&&task.scope.length>10));
-  assert.ok(data.validation_commands.length>0);assert.ok(data.read_first.some(source=>source.label==='AGENTS.md'));
+  assert.ok(data.validation_commands.length>0);for(const file of metadata.guide_files)assert.ok(data.read_first.some(source=>source.label===file));
   const agent=skillAgentMarkdown(book.id)!;assert.match(agent,/^---\nname: [a-z0-9-]{1,63}\ndescription: "[^\n]+"\n---\n/);
   assert.ok(agent.includes(data.repository.name+':'+metadata.default_branch));assert.ok(agent.includes('/issues'));
   assert.ok(agent.includes('預設 PR 目標：'+data.contribution.name+':'+data.contribution.default_branch));

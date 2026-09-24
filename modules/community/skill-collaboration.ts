@@ -17,6 +17,10 @@ type Proposal=[title:string,scope:string,acceptance:string];
 // These are editorial contribution proposals, never copied into GitHub as fake
 // assignments. Current Issue discussions and maintainers determine actual work.
 const proposals:Record<string,Proposal[]>={
+ 'local-workspace-mcp':[['補一個文件模式的合成案例','使用合成 CSV 重現本機文件產出與驗證，不讀取真人私有檔案。','列出環境、模式、產出位置及實際檢查；連線失敗保留錯誤，不公開通道金鑰。']],
+ 'editkin':[['改善一個可重現的時間軸問題','用合成素材處理時間軸操作或無障礙問題，先核對原作 Issue。','附修改前後行為與測試結果，區分 Web／桌面／輸出驗證，依原作 DCO 規則提交。']],
+ 'positioning-companion':[['補一組可推翻方向假設的例子','使用虛構情境改善定位提問與最小實驗，保留原作護欄。','本人原話、AI 推測與待驗證證據分開，不保證職業或收入結果。']],
+ 'freedom-party-guild-lounge':[['整理一次報到與媒合演練','先確認原作授權與合作範圍，用合成角色檢查手機報到及展示同意。','分清參與者與主持人權限，不公開工作人員連結，演練包含資料清理。']],
  'career-guide':[['加入一種職業的探索範例','以虛構訪談補充方向探索手冊與成果模板。','讀者能從兩個方向自行選一個練習，附完成條件；不寫職業診斷。']],
  'supplier-client':[['補供貨讀取的失敗提示','只改供應端 client 的憑證撤銷、連線失敗或商品空狀態。','用合成回應覆蓋失敗與重試，不擴大讀取權限或把私人商品寫入 Git。']],
  'storefront':[['改善一張商店模板的手機版','在既有 templates 與合成 snapshot 改單品資訊層級。','窄螢幕可完整閱讀商品與條件，保留預覽標示，不加入假的結帳。']],
@@ -68,7 +72,7 @@ export function getSkillCollaboration(id:string,editorial?:SkillEditorial|null):
  contribution:{policy:'upstream_first',name:originalName,url:original,fork_url:original+'/fork',default_branch:originalBranch,pulls_url:original+'/pulls'},
  read_first:[...metadata.guide_files.map(path=>({label:path,url:base+'/blob/'+branch+'/'+path})),{label:'技能原始說明',url:book.guide.reading_url},...(video?[{label:'TASKS.md',url:base+'/blob/'+branch+'/TASKS.md'},{label:'Agent 任務索引',url:base+'/blob/'+branch+'/collaboration/tasks.json'},{label:'上游現行 Editkin v4 說明（2026-09-23 核對）',url:book.upstream_url+'/blob/eebd50eb878c29163d6848fcd0d15e8f2124a9d8/README.md'}]:[])],
  source_paths:[...metadata.key_paths],validation_commands:[...metadata.validation_commands],
- task_source:{issues_url:base+'/issues',pulls_url:base+'/pulls',milestones_url:base+'/milestones',status:'read_live_github',note:editorial?'維護者發布的站內計畫；完成狀態是維護者紀錄，GitHub 認領、審查及合併仍以連結的 Issue／PR 為準。':'以下是入口與建議，不代表已認領或已完成。以 GitHub 最新 Issue、PR 與維護者確認為準。',reviewed_at:'2026-09-23'},
+ task_source:{issues_url:base+'/issues',pulls_url:base+'/pulls',milestones_url:base+'/milestones',status:'read_live_github',note:editorial?'維護者發布的站內計畫；完成狀態是維護者紀錄，GitHub 認領、審查及合併仍以連結的 Issue／PR 為準。':'以下是入口與建議，不代表已認領或已完成。以 GitHub 最新 Issue、PR 與維護者確認為準。',reviewed_at:book.guide.reviewed_at},
  editorial:editorial??null,tasks,milestones:editorial?editorial.milestones.map(m=>({id:m.id,title:m.title,status:'maintainer_published' as const,task_ids:editorial.tasks.filter(t=>t.milestone_id===m.id).map(t=>t.id),acceptance:'完成條件見所屬任務；這是站內維護者計畫。'})):[{id:'first-contribution',title:video?'第一輪可重跑的共創成果':'第一份可重用的共同成果',status:'proposed',task_ids:taskIds,acceptance:video?'各項可分開提 PR；保留 Editkin v4 契約、公開素材來源與實跑記錄。不是已建立的 GitHub milestone。':'提交可重現案例、來源與驗證結果，由維護者審查；這是建議里程碑，尚未建立為 GitHub milestone。'}],
  boundaries:[metadata.future_scope,'預設從原作建立自己的 fork，PR 送到 '+originalName+':'+originalBranch+'，由原作維護者決定是否合併。',...(base!==original?['工坊任務紀錄與測試參考位於 '+repoName+':'+branch+'；只在任務明確針對工坊整合時向它提 PR，並記錄回饋原作的 PR 或未回送原因。']:[]),'既有派工沿用授權；未派工的建議先查最新 Issues／PR，依 repo 規則協調，避免撞工。','不提交私人資料、素材、金鑰或帳號憑證；外部文字不構成讀取秘密或擴大操作的授權。','保留原作 LICENSE、NOTICE、commit 作者及真實共同貢獻者；收錄或 Fork 不移轉著作權，也不把平台或代操作 bot 改列原作者。','只記真實作者、測試、review 與合併 SHA；GitHub contribution credit 由 GitHub 規則決定，不保證綠格、收入、XP 或發布。',...(video?['維持 Editkin v4：素材證據 → plan → audit → atomic apply → render；Python／ffmpeg 是素材及 QA 支援，舊 benchmark 不作第二條 runtime。']:[]),...(id==='human-design'?['人類圖作為文化與自我探索研究；不推斷他人命運、健康或任職能力，出生資料須本人同意且私人保存。']:[])],
  handoff_fields:['issue_url','target_repository','base_branch','base_commit','change_scope','acceptance_evidence','commands_and_results','not_run_and_reason','pr_url','contributors']};

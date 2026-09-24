@@ -18,7 +18,7 @@ async function openLibrary(page:Page){
   const library=page.locator('.community-library');
   await expect(page.getByRole('heading',{name:'技能書架',level:1,exact:true})).toBeVisible();
   await page.getByRole('button',{name:'未解鎖',exact:true}).click();
-  await expect(library.locator('.skill-library-book')).toHaveCount(25);
+  await expect(library.locator('.skill-library-book')).toHaveCount(29);
   return library;
 }
 
@@ -49,14 +49,14 @@ test('guild skill book introduces a real first deliverable before external readi
 });
 
 
-test('public library searches all 25 books and intersects workshop categories without granting books',async({page})=>{
+test('public library searches all 29 books and intersects workshop categories without granting books',async({page})=>{
   const library=await openLibrary(page),cards=library.locator('article.skill-library-book');
   const grantedBefore=await (await page.request.get('/api/v1/me/skill-books')).json();
-  await expect(library.getByRole('status')).toHaveText('顯示 25 / 25 本技能書');
+  await expect(library.getByRole('status')).toHaveText('顯示 29 / 29 本技能書');
   const illustrations=cards.locator('.skill-book-illustration');
-  await expect(illustrations).toHaveCount(25);
+  await expect(illustrations).toHaveCount(29);
   const urls=await illustrations.evaluateAll(images=>images.map(image=>image.getAttribute('src')));
-  expect(new Set(urls).size).toBe(25);
+  expect(new Set(urls).size).toBe(29);
   for(const url of urls){
     expect(url).toMatch(/^\/art\/skills\/[a-z0-9-]+\.webp$/);
     const response=await page.request.get(url!);
@@ -70,18 +70,36 @@ test('public library searches all 25 books and intersects workshop categories wi
   // Search must narrow the selected category, not replace it or search only featured books.
   await search.fill('社群貼文');
   await expect(cards).toHaveCount(0);
-  await expect(library.getByRole('status')).toHaveText('顯示 0 / 25 本技能書');
+  await expect(library.getByRole('status')).toHaveText('顯示 0 / 29 本技能書');
   await expect(library.getByText('沒有符合的技能書。試試另一個關鍵字或用途。',{exact:true})).toBeVisible();
   await category.selectOption({label:'內容與行銷'});
   await expect(cards).toHaveCount(1);
   await expect(cards.first().getByRole('heading')).toHaveText('Hao 社群貼文技能書');
-  await expect(library.getByRole('status')).toHaveText('顯示 1 / 25 本技能書');
+  await expect(library.getByRole('status')).toHaveText('顯示 1 / 29 本技能書');
   await search.fill('');await category.selectOption({label:'全部用途'});
-  await expect(cards).toHaveCount(25);
+  await expect(cards).toHaveCount(29);
   const grantedAfter=await (await page.request.get('/api/v1/me/skill-books')).json();
   expect(grantedAfter).toEqual(grantedBefore);
   await page.setViewportSize({width:390,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('new member books are discoverable by author, retain original links and work on a narrow phone',async({page})=>{
+  const library=await openLibrary(page);
+  for(const [id,author,repo] of [['local-workspace-mcp','Mini','arumwu/local-workspace-mcp'],['editkin','Hao','Hao0321/Editkin'],['positioning-companion','Jason','jason201385-commits/positioning-companion'],['freedom-party-guild-lounge','David','davidni0729/freedom-party-guild-lounge']]){
+    await library.getByLabel('搜尋技能書',{exact:true}).fill(author);
+    const card=library.locator(`article[data-book-id="${id}"]`);await expect(card).toContainText('作者：'+author);
+    await card.getByRole('button',{name:'預覽技能書',exact:true}).click();
+    const modal=page.locator(`dialog.skill-intro-dialog[data-book-id="${id}"]`);
+    await expect(modal).toContainText('作者：'+author);
+    await expect(modal.getByRole('link',{name:'Fork 原作 ↗',exact:true})).toHaveAttribute('href','https://github.com/'+repo+'/fork');
+    await expect(modal.getByRole('link',{name:'開啟原作 ↗',exact:true})).toHaveAttribute('href','https://github.com/'+repo);
+    await expect(modal.getByRole('link',{name:'查看工坊整合版本 ↗',exact:true})).toHaveCount(0);
+    await page.setViewportSize({width:320,height:844});expect(await modal.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+    if(author==='David'){await modal.getByText('作者、授權與收錄來源',{exact:true}).click();await expect(modal).toContainText('來源未明確宣告授權條款');}
+    await page.keyboard.press('Escape');await expect(modal).not.toBeVisible();
+  }
+  await page.screenshot({path:'test-results/member-skill-books-mobile.png'});
 });
 
 test('book cards credit the original GitHub author and offer direct reading actions with details available on demand',async({page})=>{
@@ -136,7 +154,7 @@ test('book cards credit the original GitHub author and offer direct reading acti
 test('all public book pages and Markdown preserve beginner summaries, covers, original stars and source facts',async({page,request})=>{
   const response=await request.get('/api/v1/development-map');expect(response.status()).toBe(200);
   const map=await response.json() as {skill_books:(SkillBook&{guide_url:string;markdown_url:string})[]};
-  expect(map.skill_books).toHaveLength(25);
+  expect(map.skill_books).toHaveLength(29);
   for(const book of map.skill_books){
     const htmlResponse=await request.get(book.guide_url),markdownResponse=await request.get(book.markdown_url);
     expect(htmlResponse.status(),book.id).toBe(200);expect(markdownResponse.status(),book.id).toBe(200);

@@ -20,6 +20,8 @@
 
 技能書分享可從每本 100 則介紹擲骰子選文，再分享或複製介紹與連結；25 本技能各有功能示意圖，供介紹頁與分享縮圖使用。新增「上傳技能」私人 Agent 指令、60 分鐘一次性投稿授權，以及可撤銷的投稿專用 API 金鑰與 Node 客戶端。Agent 上傳後由本人預覽送出，公開介紹頁保留 GitHub 來源、固定版本與授權；社群投稿不自動成為官方技能。詳見 [Agent 技能草稿上傳](./docs/development/agent-skill-upload.md) 與 [0.12 版本紀錄](./docs/releases/2026-09-23-agent-skill-sharing.md)。
 
+2026-09-24 新增 Mini 的 Local Workspace MCP、Hao 的 Editkin、Jason 的定位小書僮與 David 的巫師公會交誼廳，技能目錄共 29 本。保留原作署名、版本與授權觀察，詳見 [四位作者技能書登錄](./docs/development/member-skill-registration.md)。
+
 前版 0.9.7 修正 GitHub Star 權限錯誤提示，App 建立流程明確申請 Metadata 讀取，後台提供權限與 Repo 安裝入口。既有 App 仍需在 GitHub 補齊設定；站內連結成功不代表原作已授予 Star 存取。
 
 公開會員入口：<https://freetwai.com>；內部入口：<https://staging.freetwai.com>（Cloudflare Access 限定名單，獨立 DB）。本輪行為與邊界見 [會員入口設計](./docs/development/member-onboarding-release.md)，運行方式見 [公開站手冊](./docs/development/public-operations.md)。

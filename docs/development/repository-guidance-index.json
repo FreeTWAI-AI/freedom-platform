@@ -966,6 +966,106 @@
       "default_branch": "main",
       "kind": "starter",
       "contribution_default_branch": "main"
+    },
+    {
+      "purpose": "Mini 的本機 MCP 文件與工具接入。",
+      "current_scope": "alpha；支援 macOS／Linux，文件模式與完整權限模式分開。",
+      "future_scope": "收錄不代表工坊已安裝、代為部署或驗證所有上游功能；原作者保有 repo 與審查決定。",
+      "upstream": null,
+      "key_paths": [
+        "src/local_workspace_mcp/",
+        "tests/",
+        "docs/"
+      ],
+      "validation_commands": [
+        "uv run pytest"
+      ],
+      "validation_note": "依 2026-09-24 原作文件與設定核對的檢查入口；本輪登錄未執行上游專案。",
+      "guide_files": [
+        "README.md",
+        "CONTRIBUTING.md",
+        "SECURITY.md"
+      ],
+      "contribution_target": "https://github.com/arumwu/local-workspace-mcp",
+      "repository": "arumwu/local-workspace-mcp",
+      "default_branch": "main",
+      "kind": "author_source",
+      "contribution_default_branch": "main"
+    },
+    {
+      "purpose": "Hao 的本機影片剪輯器與結構化 AI 剪輯指令。",
+      "current_scope": "社群原始碼版；Web 建置不等於正式桌面安裝包已發行。",
+      "future_scope": "收錄不代表工坊已安裝、代為部署或驗證所有上游功能；原作者保有 repo 與審查決定。",
+      "upstream": null,
+      "key_paths": [
+        "src/",
+        "src-tauri/",
+        "docs/"
+      ],
+      "validation_commands": [
+        "npm test",
+        "npm run build"
+      ],
+      "validation_note": "依 2026-09-24 原作文件與設定核對的檢查入口；本輪登錄未執行上游專案。",
+      "guide_files": [
+        "README.zh-TW.md",
+        "CONTRIBUTING.md",
+        "SECURITY.md"
+      ],
+      "contribution_target": "https://github.com/Hao0321/Editkin",
+      "repository": "Hao0321/Editkin",
+      "default_branch": "main",
+      "kind": "author_source",
+      "contribution_default_branch": "main"
+    },
+    {
+      "purpose": "Jason 的方向探索 Skill、提問框架與最小實驗。",
+      "current_scope": "可貼給 AI 或依原作安裝；方向由本人決定，保留護欄與去識別資料。",
+      "future_scope": "收錄不代表工坊已安裝、代為部署或驗證所有上游功能；原作者保有 repo 與審查決定。",
+      "upstream": null,
+      "key_paths": [
+        "SKILL.md",
+        "references/",
+        "docs/"
+      ],
+      "validation_commands": [
+        "git diff --check"
+      ],
+      "validation_note": "依 2026-09-24 原作文件與設定核對的檢查入口；本輪登錄未執行上游專案。",
+      "guide_files": [
+        "README.md",
+        "SKILL.md"
+      ],
+      "contribution_target": "https://github.com/jason201385-commits/positioning-companion",
+      "repository": "jason201385-commits/positioning-companion",
+      "default_branch": "main",
+      "kind": "author_source",
+      "contribution_default_branch": "main"
+    },
+    {
+      "purpose": "David 的現場報到、名牌、大屏展示與自願媒合工具。",
+      "current_scope": "完整運作需要 Worker／D1／R2；未附明確授權文件，先確認重用與協作範圍。",
+      "future_scope": "收錄不代表工坊已安裝、代為部署或驗證所有上游功能；原作者保有 repo 與審查決定。",
+      "upstream": null,
+      "key_paths": [
+        "src/",
+        "worker/",
+        "tests/"
+      ],
+      "validation_commands": [
+        "npm run build",
+        "npm run test:sites"
+      ],
+      "validation_note": "依 2026-09-24 原作文件與設定核對的檢查入口；本輪登錄未執行上游專案。",
+      "guide_files": [
+        "README.md",
+        "AGENTS.md"
+      ],
+      "contribution_target": "https://github.com/davidni0729/freedom-party-guild-lounge",
+      "repository": "davidni0729/freedom-party-guild-lounge",
+      "default_branch": "main",
+      "kind": "author_source",
+      "contribution_default_branch": "main"
     }
   ]
 }

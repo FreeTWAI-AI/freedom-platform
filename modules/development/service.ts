@@ -36,7 +36,7 @@ export function skillMarkdown(id:string,editorial?:SkillEditorial|null){
  const collaboration=getSkillCollaboration(id,editorial);
  return [`# ${book.title}：技能書與協作來源`,(editorial?.summary||guide.beginner.purpose),
   '## 工坊收錄說明',guide.beginner.category,guide.beginner.for_whom,guide.beginner.make,guide.beginner.workshop_use,guide.beginner.next_step,
-  '## 封面與原作者',`封面插畫：${book.cover_url}`,`原作者 GitHub：${book.star_url}`,'登入自由工坊並連結自己的 GitHub，即可在技能書加星或取消星星。',`原作數據：/api/v1/github/books/${book.id}/metrics`,'Stars、Forks、追蹤數、未結 Issues 與 PR 合計、最近程式更新時間以 GitHub 回覆為準；數據附核對時間，讀取失敗不冒充零。',
+  '## 封面與原作者',...(guide.author_name?[`作者：${guide.author_name}`]:[]),`封面插畫：${book.cover_url}`,`原作者 GitHub：${book.star_url}`,'登入自由工坊並連結自己的 GitHub，即可在技能書加星或取消星星。',`原作數據：/api/v1/github/books/${book.id}/metrics`,'Stars、Forks、追蹤數、未結 Issues 與 PR 合計、最近程式更新時間以 GitHub 回覆為準；數據附核對時間，讀取失敗不冒充零。',
   '## 讀者與格式',guide.format,...guide.audience.map(value=>'- '+value),
   '## 功能與使用範圍',guide.status,...guide.features.map(value=>'- '+value),
   '## 開始前準備',...guide.prerequisites.map(value=>'- '+value),
@@ -108,7 +108,7 @@ export function pageHtml(title:string,markdown:string,markdownUrl:string,metrics
   const stats='<section aria-label="原作者 GitHub 數據"><p>Stars '+count(metrics?.stargazers_count)+' · Forks '+count(metrics?.forks_count)+' · 追蹤 '+count(metrics?.subscribers_count)+'</p><p>未結 Issues／PR '+count(metrics?.open_issues_count)+' · 程式更新 '+date(metrics?.pushed_at)+'</p><p>'+(metrics?.checked_at?(metrics.stale?'上次取得的數據':'數據更新')+' · '+date(metrics.checked_at):'尚未取得 GitHub 數據')+'</p></section>';
   const guilds=Object.keys(guildTitles).filter(key=>skillBooksForGuild(key).some(value=>value.id===book.id));
   const badges='<div class="public-skill-badges" aria-label="技能書徽章">'+(guilds.length?'<span title="自由工坊公會指定技能；不代表原作者背書">✦ 官方公會技能</span>':'')+(discovery?.is_new_today?'<span>每日新技能</span>':'')+(discovery?.week_rank?'<span>工坊週榜 #'+discovery.week_rank+'</span>':'')+(discovery?.month_rank?'<span>工坊月榜 #'+discovery.month_rank+'</span>':'')+'</div>';
-  const entry='<section class="public-skill-entry">'+cover+'<div><p class="public-skill-purpose">'+escape(editorial?.summary||book.guide.beginner.purpose)+'</p>'+badges+stats+'<div class="public-skill-actions">'+actions+'</div><p class="public-skill-example">'+escape(book.guide.first_result)+'</p></div></section>';
+  const entry='<section class="public-skill-entry">'+cover+'<div><p class="public-skill-purpose">'+escape(editorial?.summary||book.guide.beginner.purpose)+'</p>'+(book.guide.author_name?'<p>作者：'+escape(book.guide.author_name)+'</p>':'')+badges+stats+'<div class="public-skill-actions">'+actions+'</div><p class="public-skill-example">'+escape(book.guide.first_result)+'</p></div></section>';
   const cooperation=getSkillCollaboration(book.id,editorial);
   const content=shareContentFor(book.id),selected=shareIntroNumber(intro,content.introductions.length),selectedText=selected?content.introductions[selected-1]:null;
   const illustration=content.illustration?'<figure class="public-skill-illustration"><img src="'+escape(content.illustration.url)+'" alt="'+escape(content.illustration.alt)+'" width="1200" height="630" loading="lazy" decoding="async"></figure>':'';

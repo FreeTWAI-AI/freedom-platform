@@ -44,7 +44,7 @@ export function RepositoryLibrary({ client, ids, excludeIds, access, title = 'ç¤
     return view==='official'?meta.official_guild_keys.length>0:view==='today'?meta.is_new_today:view==='week'?meta.week_rank!==null:meta.month_rank!==null;
   });
   if(view==='week'||view==='month')discovered.sort((a,b)=>(view==='week'?bookMeta.get(a.id)!.week_rank!:bookMeta.get(a.id)!.month_rank!)-(view==='week'?bookMeta.get(b.id)!.week_rank!:bookMeta.get(b.id)!.month_rank!));
-  const books=discovered.filter(book=>(!category||book.guide?.beginner?.category===category)&&(!term||[book.title,book.description,...Object.values(book.guide?.beginner??{})].join(' ').toLocaleLowerCase().includes(term)));
+  const books=discovered.filter(book=>(!category||book.guide?.beginner?.category===category)&&(!term||[book.title,book.description,book.guide?.author_name??'',book.upstream_url??'',...Object.values(book.guide?.beginner??{})].join(' ').toLocaleLowerCase().includes(term)));
   return <section className="stack community-library" aria-label={title}>
     {!compact && <header className="community-library-heading">
       <div><p className="home-eyebrow">THE SHARED LIBRARY</p><h3>{title}</h3></div>

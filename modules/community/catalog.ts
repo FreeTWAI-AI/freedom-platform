@@ -1,4 +1,5 @@
 import { skillBookGuides, type SkillBookGuide } from './skill-book-guides.js';
+import {memberSkillBooks} from './member-skill-books.js';
 // Community-owned catalog. Source repositories are linked/forked, never executed during onboarding.
 export type CatalogOption = {id:string;label:string};
 export type CatalogSubcategory = {id:string;label:string;items:CatalogOption[]};
@@ -2627,6 +2628,7 @@ const communityCatalogBase = {
     }
   ],
   "skill_books": [
+    ...memberSkillBooks,
     {
       "id": "career-guide",
       "title": "方向探索與陪跑入門",
@@ -2946,11 +2948,11 @@ export const communityCatalog = {...communityCatalogBase,
 };
 
 const guildBooks:Record<string,string[]> = {
-  "guild_event_space": ["event-space"],
+  "guild_event_space": ["event-space", "freedom-party-guild-lounge"],
   "guild_projection_mapping": ["projection-mapping"],
   "guild_human_design": ["human-design"],
   "guild_talent_direction": [
-    "career-guide"
+    "career-guide", "positioning-companion"
   ],
   "guild_product_quality_supply": [
     "supplier-client"
@@ -2967,10 +2969,10 @@ const guildBooks:Record<string,string[]> = {
     "video-autopilot",
     "short-drama",
     "hao-studio",
-    "media-generator"
+    "media-generator", "editkin"
   ],
   "guild_member_operations": [
-    "community-ops"
+    "community-ops", "freedom-party-guild-lounge"
   ],
   "guild_opportunity_partnership": [
     "partnership"
@@ -2987,11 +2989,11 @@ const guildBooks:Record<string,string[]> = {
     "project-template",
     "multi-ai-desktop",
     "multi-ai-chat",
-    "ai-sister"
+    "ai-sister", "local-workspace-mcp"
   ],
   "guild_ai_field": [
     "security-scanner",
-    "agent-kit"
+    "agent-kit", "local-workspace-mcp"
   ],
   "guild_ai_project": [
     "project-delivery"

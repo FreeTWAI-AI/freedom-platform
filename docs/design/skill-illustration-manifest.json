@@ -2,7 +2,7 @@
   "generated_at": "2026-09-23",
   "mode": "builtin-imagegen",
   "style_anchor": "apps/portal-web/public/brand/freedom-workshop.webp",
-  "description": "25 distinct functional workflow illustrations for skill introduction pages and social thumbnails; mechanical WebP encoding with contain fit, original logo unchanged.",
+  "description": "29 distinct functional workflow illustrations for skill introduction pages and social thumbnails; mechanical WebP encoding with contain fit, original logo unchanged.",
   "assets": [
     {
       "id": "agent-kit",
@@ -228,6 +228,51 @@
       "height": 630,
       "bytes": 130534,
       "sha256": "0f1cd83730c238d77f0a049f4d8d4d78423b0bfe9c3ba0cc3c3ac0752961cddc"
+    },
+    {
+      "id": "local-workspace-mcp",
+      "prompt": "Use case: stylized-concept. Asset: one original wide landscape 1200x630 functional workflow illustration for Freedom Workshop skill introduction and social share. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic 3D isometric editorial art with clear input/action/output. Clean generous margins, coherent uncluttered scene legible at thumbnail size. Not a book, no book covers. No text, letters, numbers, logos, interface words, watermark, grid or collage. Scene: a private chat bubble connected through a chrome tunnel ring to one personal computer; a local folder and spreadsheet become a clean report with a chart. Show files processed on the computer, no server farm",
+      "path": "apps/portal-web/public/brand/skill-illustrations/local-workspace-mcp.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 78250,
+      "sha256": "678ef6d708926b6e34aa9450b169453af0bd713bc0d1581b59ab492c1c1ba2d2",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen"
+    },
+    {
+      "id": "editkin",
+      "prompt": "Use case: stylized-concept. Asset: one original wide landscape 1200x630 functional workflow illustration for Freedom Workshop skill introduction and social share. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic 3D isometric editorial art with clear input/action/output. Clean generous margins, coherent uncluttered scene legible at thumbnail size. Not a book, no book covers. No text, letters, numbers, logos, interface words, watermark, grid or collage. Scene: two synthetic landscape clip tiles entering an editable multitrack video timeline, one chrome playhead, then a preview monitor; visible blue and lime clip blocks and a simple audio waveform",
+      "path": "apps/portal-web/public/brand/skill-illustrations/editkin.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 91124,
+      "sha256": "e416b84399458f6fd707e9c0ebf6aac0f7772f0d04f2f70e64ef994c541c3cd7",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen"
+    },
+    {
+      "id": "positioning-companion",
+      "prompt": "Use case: stylized-concept. Asset: one original wide landscape 1200x630 functional workflow illustration for Freedom Workshop skill introduction and social share. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic 3D isometric editorial art with clear input/action/output. Clean generous margins, coherent uncluttered scene legible at thumbnail size. Not a book, no book covers. No text, letters, numbers, logos, interface words, watermark, grid or collage. Scene: one chrome person comparing three possible paths, gathering evidence cards, and choosing one lime route toward a small experiment tile; a compass, thoughtful self-directed choice, no rankings or financial symbols",
+      "path": "apps/portal-web/public/brand/skill-illustrations/positioning-companion.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 121754,
+      "sha256": "1e9915de3cf42faff76a87adabc48c1314caf700975083df8858c587b6a1efa1",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen"
+    },
+    {
+      "id": "freedom-party-guild-lounge",
+      "prompt": "Use case: stylized-concept. Asset: one original wide landscape 1200x630 functional workflow illustration for Freedom Workshop skill introduction and social share. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic 3D isometric editorial art with clear input/action/output. Clean generous margins, coherent uncluttered scene legible at thumbnail size. Not a book, no book covers. No text, letters, numbers, logos, interface words, watermark, grid or collage. Scene: a phone scanning an abstract code-like tile at an event, making an identification badge, two consenting chrome people receiving matching badges and starting a conversation, a modest event wall in the background",
+      "path": "apps/portal-web/public/brand/skill-illustrations/freedom-party-guild-lounge.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 91070,
+      "sha256": "172a77c63a171240d255e00f2fe72ff805d236ad5afbeb5f64600d72d9a09fee",
+      "generated_at": "2026-09-24",
+      "mode": "builtin-imagegen"
     }
-  ]
+  ],
+  "updated_at": "2026-09-24"
 }
