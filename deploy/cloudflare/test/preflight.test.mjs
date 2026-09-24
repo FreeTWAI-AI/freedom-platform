@@ -561,9 +561,39 @@ test('OCI probe sanitizes output, interprets limits and never leaks OCIDs', asyn
   assert.equal(report.pg18_default_configs, 1);
   assert.equal(report.pg_limits.status, 'capacity_available');
   assert.equal(report.checks.ci_limit_values.status, 'error');
+  assert.deepEqual(
+    { exit_code: report.checks.ci_limit_values.exit_code, code: report.checks.ci_limit_values.code, detail: report.checks.ci_limit_values.detail },
+    { exit_code: 0, code: null, detail: undefined },
+  );
   const text = JSON.stringify(redactDeep(report));
   assert.doesNotMatch(text, /ocid1\./);
   assert.doesNotMatch(text, /tenancy-id|fingerprint|key_file|root-child/);
+});
+
+test('OCI error report keeps the exit code and an allowlisted code, never a raw CLI line', async () => {
+  const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+  const ocid = 'ocid1.tenancy.oc1..aaaaaaaafaketenancyxyz';
+  const { run } = mockOci();
+  const withFailure = (fail) => probeOci({
+    profile: 'oracle1',
+    readConfig: () => OCI_CONFIG,
+    run: async (args, profile) => (args.join(' ').includes('container-instances') ? fail() : run(args, profile)),
+  });
+  const leaked = `ServiceError: {"code": "NotAuthorizedOrNotFound", "message": "denied for ${ocid} token=${jwt}"}`;
+  const report = await withFailure(async () => ({ code: 1, stdout: '', stderr: leaked }));
+  assert.deepEqual(report.checks.ci_limit_values, { status: 'error', exit_code: 1, code: 'NotAuthorizedOrNotFound' });
+  const text = JSON.stringify(report);
+  assert.equal(text.includes(jwt), false);
+  assert.equal(text.includes(ocid), false);
+  assert.equal(text.includes('ServiceError'), false);
+  assert.equal(text.includes('denied for'), false);
+
+  const badCode = await withFailure(async () => ({ code: 3, stdout: JSON.stringify({ code: jwt, message: `nope ${ocid}` }), stderr: `Error: ${jwt}` }));
+  assert.deepEqual(badCode.checks.ci_limit_values, { status: 'error', exit_code: 3, code: null });
+  const badText = JSON.stringify(badCode);
+  assert.equal(badText.includes(jwt), false);
+  assert.equal(badText.includes(ocid), false);
+  assert.equal(badText.includes('Error:'), false);
 });
 
 test('PG limit interpretation distinguishes deprecated aggregate, active zero and missing definitions', () => {

@@ -60,6 +60,33 @@ export function defaultOciRunner(bin = 'oci') {
   });
 }
 
+const OCI_ERROR_CODE = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** Allowlisted `code` from a JSON error object, if one is present. Raw CLI text is never returned. */
+function allowlistedOciCode(text) {
+  if (typeof text !== 'string' || !text) return null;
+  const slices = [text];
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start >= 0 && end > start) slices.push(text.slice(start, end + 1));
+  for (const slice of slices) {
+    try {
+      const value = JSON.parse(slice);
+      const code = value && typeof value === 'object' && !Array.isArray(value) ? value.code : null;
+      if (typeof code === 'string' && OCI_ERROR_CODE.test(code)) return code;
+    } catch { /* not JSON; do not keep the line */ }
+  }
+  return null;
+}
+
+function ociErrorCheck(res) {
+  return {
+    status: 'error',
+    exit_code: Number.isInteger(res?.code) ? res.code : null,
+    code: allowlistedOciCode(res?.stdout) ?? allowlistedOciCode(res?.stderr),
+  };
+}
+
 const items = (body) => (Array.isArray(body?.data) ? body.data : Array.isArray(body?.data?.items) ? body.data.items : []);
 const freedomName = (n) => typeof n === 'string' && n.startsWith('freedom');
 
@@ -105,7 +132,7 @@ export async function probeOci({ profile = 'oracle1', run = defaultOciRunner(), 
     let body = null;
     try { body = JSON.parse(res.stdout); } catch { body = null; }
     if (res.code !== 0 || !body) {
-      report.checks[id] = { status: 'error', detail: redactText((res.stderr || res.stdout || '').split('\n').find((l) => /"code"|"message"|Error/.test(l)) ?? `exit ${res.code}`).slice(0, 200) };
+      report.checks[id] = ociErrorCheck(res);
       continue;
     }
     report.checks[id] = { status: 'ok', data: SANITIZE[id](body) };
