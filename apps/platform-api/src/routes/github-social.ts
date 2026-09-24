@@ -6,9 +6,9 @@ import {GitHubSocial} from '../../../../modules/github-social/service.js';
 import {readSocialConfig} from '../../../../modules/github-social/setup.js';
 
 export type GitHubSocialOptions={config?:{clientId:string;clientSecret:string;tokenKey:string;redirectUri:string;appId?:string;appSlug?:string};tokenKey?:string;fetcher?:typeof fetch};
-export function socialLoader(pool:Pool,origin:string,options:GitHubSocialOptions={}){
+export function socialLoader(pool:Pool,origin:string,options:GitHubSocialOptions={},readTokenKey:()=>string|undefined=()=>process.env.GITHUB_SOCIAL_TOKEN_KEY){
   return async()=>{
-    const key=options.tokenKey??process.env.GITHUB_SOCIAL_TOKEN_KEY;
+    const key=options.tokenKey??readTokenKey();
     let config=options.config;
     if(!config&&key){
       const stored=await readSocialConfig(pool,key);

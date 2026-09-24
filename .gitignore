@@ -11,3 +11,4 @@ test-results/
 !.env.example
 *.log
 /apps/portal-web/public/downloads/freedom-skill-client.tgz
+.wrangler/
