@@ -113,6 +113,13 @@ test('structural prechecks refuse truncated, animated and oversized inputs befor
     ['image/webp', riffFixed], ['image/webp', webp.subarray(0, webp.length - 4)],
     ['image/png', await solid(4097, 1, 'red').png().toBuffer()], ['image/jpeg', await solid(1, 4097, 'red').jpeg().toBuffer()],
   ];
+  // Extended (VP8X) WebP whose canvas is forged to differ from the coded
+  // VP8/VP8L frame: a small canvas must not hide an oversized bitstream.
+  const forgeCanvas = (bytes: Buffer, width: number) => { const out = Buffer.from(bytes); assert.equal(out.toString('ascii', 12, 16), 'VP8X'); out.writeUIntLE(width - 1, 24, 3); return out; };
+  for (const lossless of [false, true]) {
+    const extended = (width: number, height: number) => solid(width, height, 'red').withExif({ IFD0: { Artist: 'a' } }).webp({ lossless }).toBuffer();
+    cases.push(['image/webp', forgeCanvas(await extended(4097, 1), 9)], ['image/webp', forgeCanvas(await extended(9, 7), 8)]);
+  }
   for (const [mime, bytes] of cases) await rejects(cover(images, mime, bytes), 422, 'invalid_cover_image');
   assert.deepEqual(calls, []);
   // Legitimate inputs with metadata chunks and lossless/alpha WebP still pass the precheck.

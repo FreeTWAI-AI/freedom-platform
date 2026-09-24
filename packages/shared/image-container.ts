@@ -2,7 +2,8 @@ import type { RasterFormat } from './image-runtime.js';
 
 // Cheap structural walk for processors whose decoder warnings are not visible
 // (the Cloudflare Images binding): the file must be one complete static
-// container with bounded header dimensions. It does not decode pixels.
+// container with bounded header dimensions. It checks framing only, not that
+// compressed data is complete or decodable; the binding must still decode it.
 export interface RasterHeader { readonly width: number; readonly height: number }
 
 const ascii = (bytes: Uint8Array, start: number, end: number) => String.fromCharCode(...bytes.subarray(start, end));
@@ -15,7 +16,8 @@ function png(bytes: Uint8Array, view: DataView): RasterHeader {
     const length = view.getUint32(offset), type = ascii(bytes, offset + 4, offset + 8);
     if (length > bytes.length - offset - 12 || type === 'acTL' || type === 'fcTL' || type === 'fdAT') fail('PNG chunk');
     offset += length + 12;
-    // IEND must be the last bytes: a truncated IDAT stream cannot end this way.
+    // IEND must be the last bytes (structural framing only; IDAT contents are
+    // not inflated here, so the binding must still decode them).
     if (type === 'IEND') { if (length || offset !== bytes.length) fail('PNG end'); break; }
   }
   return { width: view.getUint32(16), height: view.getUint32(20) };
@@ -45,26 +47,28 @@ function jpeg(bytes: Uint8Array, view: DataView): RasterHeader {
 
 function webp(bytes: Uint8Array, view: DataView): RasterHeader {
   if (bytes.length < 20 || ascii(bytes, 0, 4) !== 'RIFF' || ascii(bytes, 8, 12) !== 'WEBP' || view.getUint32(4, true) + 8 !== bytes.length) fail('WebP container');
-  let header: RasterHeader | null = null, bitstreams = 0;
+  let canvas: RasterHeader | null = null, header: RasterHeader | null = null, bitstreams = 0;
   for (let offset = 12; offset < bytes.length;) {
     if (offset + 8 > bytes.length) fail('WebP chunk');
     const type = ascii(bytes, offset, offset + 4), length = view.getUint32(offset + 4, true), data = offset + 8;
     if (length > bytes.length - data - (length & 1)) fail('WebP chunk');
     if (type === 'ANIM' || type === 'ANMF' || (type === 'VP8X' && (length < 10 || (bytes[data] & 0x02)))) fail('static WebP');
-    if (type === 'VP8X' && offset === 12) header = { width: 1 + (bytes[data + 4] | bytes[data + 5] << 8 | bytes[data + 6] << 16), height: 1 + (bytes[data + 7] | bytes[data + 8] << 8 | bytes[data + 9] << 16) };
+    if (type === 'VP8X' && offset === 12) canvas = { width: 1 + (bytes[data + 4] | bytes[data + 5] << 8 | bytes[data + 6] << 16), height: 1 + (bytes[data + 7] | bytes[data + 8] << 8 | bytes[data + 9] << 16) };
     if (type === 'VP8 ') {
       if (length < 10 || bytes[data + 3] !== 0x9d || bytes[data + 4] !== 0x01 || bytes[data + 5] !== 0x2a) fail('VP8 frame');
-      header ??= { width: view.getUint16(data + 6, true) & 0x3fff, height: view.getUint16(data + 8, true) & 0x3fff };
+      header = { width: view.getUint16(data + 6, true) & 0x3fff, height: view.getUint16(data + 8, true) & 0x3fff };
       bitstreams++;
     } else if (type === 'VP8L') {
       if (length < 5 || bytes[data] !== 0x2f) fail('VP8L frame');
       const bits = view.getUint32(data + 1, true);
-      header ??= { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 };
+      header = { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 };
       bitstreams++;
     }
     offset = data + length + (length & 1);
   }
   if (bitstreams !== 1 || !header) fail('WebP bitstream');
+  // The coded frame is what gets decoded and bounded; a VP8X canvas must match it.
+  if (canvas && (canvas.width !== header!.width || canvas.height !== header!.height)) fail('WebP canvas');
   return header!;
 }
 
