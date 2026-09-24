@@ -4,10 +4,12 @@ import {randomUUID} from 'node:crypto';
 import {Pool} from 'pg';
 import {createPool,LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
-import {seedLocal,DEMO_USERS,DEMO_PASSWORD} from '../../packages/testing/seed.js';
+import {seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {CollaborationGitHub,type Repo} from '../../modules/co-creation/github.js';
 import {emptyContacts} from '../../modules/identity-membership/members.js';
+import {reviewGuildApplication} from '../../modules/platform-admin/service.js';
+import {communityCatalog} from '../../modules/community/catalog.js';
 import {categoriesForLabels} from '../../packages/shared/task-categories.js';
 
 const origin='http://127.0.0.1:4310',databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
@@ -79,6 +81,33 @@ test('guild classification rejects unknown, duplicate and oversized groups witho
  }
  assert.equal((await pool.query('SELECT count(*) FROM co_creation_projects')).rows[0].count,'0');
  assert.deepEqual((await created(owner,source)).guild_keys,[]);
+});
+
+for(const [label,passed] of [['lowercase',(id:string)=>id],['uppercase',(id:string)=>id.toUpperCase()]] as const)
+test(`admin-approved custom guilds (${label} approval id) classify co-creation projects while unknown, duplicate, oversized and foreign sources stay rejected`,async t=>{
+ // Keep a hexadecimal letter so the alternate-case rejection can never become the same key by chance.
+ upstream(t);const adminId=randomUUID(),application='a'+randomUUID().slice(1),approvalId=passed(application);
+ await pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)',[adminId,DEMO_COMMUNITY,'co-admin@example.invalid','Verified Admin']);
+ await pool.query('INSERT INTO guild_creation_applications(application_id,community_id,user_id,name,profession,reason) VALUES($1,$2,$3,$4,$5,$6)',[application,DEMO_COMMUNITY,DEMO_USERS[0].user_id,'開源協作研究公會','研究','整理共同研究的方法。']);
+ const actor={admin_id:adminId,community_id:DEMO_COMMUNITY,email:'co-admin@example.invalid',display_name:'Verified Admin',role:'super_admin' as const,subject:'verified-human-fixture'};
+ const approved=await reviewGuildApplication(pool,{admin:actor,operation:'POST /guild-applications/review',key:randomUUID(),expected:'1',body:{decision:'approve',reason:'已確認公會目標與第一步。',guild:{name:'開源協作研究公會',purpose:'整理公開研究的方法與範例。',first_step:'提出第一份可以共同重現的研究。',module_key:'guilds',skill_book_ids:[communityCatalog.skill_books[0].id]}}},approvalId);
+ const custom=approved.approved_guild_key;t.after(async()=>{await pool.query('TRUNCATE communities CASCADE');await pool.query('DELETE FROM positioning_guild_catalog WHERE guild_key=$1',[custom]);});
+ assert.equal(custom,'guild_custom_'+approvalId.replaceAll('-',''));assert.match(custom,label==='uppercase'?/^guild_custom_[0-9A-F]{32}$/:/^guild_custom_[0-9a-f]{32}$/);
+ const owner=await login(),other=await login(DEMO_USERS[1].email),source=await imported(owner),post=(session:Session,guild_keys:string[],source_project_id=source.project_id)=>request('/co-creation/projects',session,{...coInput,source_project_id,guild_keys});
+ const guilds=(await request('/co-creation/projects',owner)).data.guilds;assert.ok(guilds.some((guild:any)=>guild.guild_key===custom&&guild.name==='開源協作研究公會'));
+ const opened=await post(owner,['guild_ai_vibe',custom]);assert.equal(opened.status,201,JSON.stringify(opened.data));assert.deepEqual(opened.data.guild_keys,['guild_ai_vibe',custom].sort());
+ assert.deepEqual((await pool.query('SELECT guild_key FROM co_creation_project_guilds WHERE project_id=$1 ORDER BY guild_key',[opened.data.project_id])).rows.map(row=>row.guild_key),['guild_ai_vibe',custom].sort());
+ const listed=(await request('/co-creation/projects',other)).data.items.filter((item:any)=>item.guild_keys.includes(custom));
+ assert.deepEqual(listed.map((item:any)=>item.project_id),[opened.data.project_id]);
+ const second=await imported(other),builtins=['guild_ai_field','guild_ai_vibe','guild_marketing','guild_security','guild_music_mv'];
+ for(const key of [...builtins,custom])assert.ok(guilds.some((guild:any)=>guild.guild_key===key),key);
+ const unknown=await post(other,['guild_custom_'+passed(randomUUID()).replaceAll('-','')],second.project_id);assert.equal(unknown.status,422);assert.equal(unknown.data.code,'invalid_guild');
+ const otherCase='guild_custom_'+(label==='uppercase'?application:application.toUpperCase()).replaceAll('-','');assert.notEqual(otherCase,custom);
+ const recased=await post(other,[otherCase],second.project_id);assert.equal(recased.status,422);assert.equal(recased.data.code,'invalid_guild');
+ const duplicate=await post(other,[custom,custom],second.project_id);assert.equal(duplicate.status,422);assert.match(duplicate.data.detail,/公會不可重複/);
+ const oversized=await post(other,[...builtins,custom],second.project_id);assert.equal(oversized.status,422);assert.equal(oversized.data.code,'validation_failed');assert.match(oversized.data.detail,/^guild_keys: /);assert.doesNotMatch(oversized.data.detail,/guild_keys\.\d/);
+ assert.equal((await post(owner,[custom],second.project_id)).status,404);
+ assert.equal((await pool.query('SELECT count(*) FROM co_creation_projects')).rows[0].count,'1');
 });
 
 test('project prompt is available during a GitHub outage, preserves original credit and never writes externally',async t=>{

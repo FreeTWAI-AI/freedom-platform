@@ -19,8 +19,10 @@ export const pilotProject={
   upstream_url:'https://github.com/Hao0321/video-autopilot-kit',
   coordinator_ref:null,coordinator_name:'自由工坊',aggregate_version:1,source_kind:'community_pilot',
 };
+// Built-in keys, or the admin-approved shape from reviewGuildApplication (hex keeps the case of the approved UUID); the catalog lookup below stays authoritative.
+const guildKey=/^guild_(?:[a-z_]+|custom_[0-9a-fA-F]{32})$/;
 const createInput=z.object({source_project_id:z.uuid(),title:text(120),goal:text(3000),
-  guild_keys:z.array(z.string().regex(/^guild_[a-z_]+$/)).max(5).refine(v=>new Set(v).size===v.length,'公會不可重複').default([]),
+  guild_keys:z.array(z.string().regex(guildKey)).max(5).refine(v=>new Set(v).size===v.length,'公會不可重複').default([]),
   help_wanted:z.array(z.enum(contributionRoles)).min(1).max(contributionRoles.length).refine(v=>new Set(v).size===v.length,'角色不可重複'),
   contribution_notes:text(3000)}).strict();
 async function view(q:Pool|PoolClient,actor:Actor,id?:string){
