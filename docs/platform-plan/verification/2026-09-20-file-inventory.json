@@ -3214,8 +3214,8 @@
     },
     {
       "path": "tests/runtime/platform-admin.test.ts",
-      "bytes": 32157,
-      "sha256": "5d9666b83a5e1af2b0567f712471bd34b6370fb582222385760bd5cdfc31eeef"
+      "bytes": 32179,
+      "sha256": "896313cf8de15c29459c0c3bedc2353a6c1eb130669a457f306cf125f095afc4"
     },
     {
       "path": "tests/runtime/portal-client-recovery.test.ts",
