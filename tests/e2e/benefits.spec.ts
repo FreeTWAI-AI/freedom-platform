@@ -1,5 +1,6 @@
+import { e2eOrigin } from '../../packages/testing/e2e-origin.js';
 import {test,expect,type Page,type Locator} from './fixtures.js';
-const origin='http://127.0.0.1:4311';
+const origin=e2eOrigin();
 async function login(page:Page,email:string){const r=await page.request.post('/api/v1/auth/login',{headers:{Origin:origin},data:{email,password:'freedom-local-demo'}});expect(r.status()).toBe(200);return r.json();}
 async function post(page:Page,session:any,path:string,body:unknown,version?:number){
  const r=await page.request.post('/api/v1'+path,{headers:{Origin:origin,'X-CSRF-Token':session.csrf_token,'Idempotency-Key':crypto.randomUUID(),...(version?{'If-Match':`"${version}"`}:{})},data:body});

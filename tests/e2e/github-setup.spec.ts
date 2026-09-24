@@ -1,8 +1,9 @@
+import { e2eOrigin } from '../../packages/testing/e2e-origin.js';
 import {test,expect,type Page,type Route} from './fixtures.js';
 
 const csrf='synthetic-admin-setup-csrf',state='s'.repeat(43),code='synthetic_manifest_code_2026';
 const app={configured:true,app_id:'4242',app_slug:'synthetic-freedom-star',html_url:'https://github.com/apps/synthetic-freedom-star'};
-const manifest={name:'synthetic-freedom-star',description:'Synthetic browser setup fixture',url:'http://127.0.0.1:4311',redirect_url:'http://127.0.0.1:4311/admin/github/callback',callback_urls:['http://127.0.0.1:4311/github/callback'],public:true,hook_attributes:{url:'http://127.0.0.1:4311/github/events',active:false},default_permissions:{starring:'write',metadata:'read'}};
+const manifest={name:'synthetic-freedom-star',description:'Synthetic browser setup fixture',url:e2eOrigin(),redirect_url:`${e2eOrigin()}/admin/github/callback`,callback_urls:[`${e2eOrigin()}/github/callback`],public:true,hook_attributes:{url:`${e2eOrigin()}/github/events`,active:false},default_permissions:{starring:'write',metadata:'read'}};
 const target=`https://github.com/organizations/FreeTWAI-AI/settings/apps/new?state=${state}`;
 type Call={path:string;method:string;body:unknown;headers:Record<string,string>};
 async function adminFixtures(page:Page,options:{status?:()=>unknown;start?:(route:Route)=>Promise<void>;complete?:(route:Route)=>Promise<void>}={}){

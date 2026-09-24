@@ -34,3 +34,7 @@ npm run test:repos
 
 自願貢獻不保證案源、XP、收益或雇用。若產生付費合作，由當事人另定條款與 Seller 外部收款；平台不代收。秘密、客戶資料、真實交易單據與未授權素材不進公開 Issue／PR。
 <!-- freedom-repository-guide:end -->
+
+## 平行頁面審查
+
+每組使用自己的工作樹與建置產物；E2E 會各自建立 PostgreSQL schema。可用 `FREEDOM_E2E_PORT=4321 npm run test:e2e` 指定另一個 localhost 埠，預設仍是 4311；4310／4312 保留給已部署服務。每組仍使用一個 Playwright worker，先 build 再跑瀏覽器，勿在測試中重建同一份前端。測試的 Origin 應由目前測試網址取得，不能寫死另一組的埠。

@@ -220,7 +220,7 @@ try {
 
   stage = 'registration';
   await page.getByRole('button', { name: '建立帳號', exact: true }).click();
-  await page.getByLabel('喜歡的暱稱', { exact: true }).fill(nickname);
+  await page.getByLabel('社群顯示名稱', { exact: true }).fill(nickname);
   await page.getByLabel('電子郵件', { exact: true }).fill(email);
   await page.getByLabel('密碼', { exact: true }).fill(password);
   const registrationPromise = page.waitForResponse(response => response.url() === origin + '/api/v1/auth/register' && response.request().method() === 'POST');

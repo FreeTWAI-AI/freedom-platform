@@ -23,7 +23,8 @@
 
 - 已有：email／密碼註冊登入、server-side `sessions`（token hash、CSRF、`expires_at`、`revoked_at`）、logout 與管理員停權撤銷 session、Origin／CSRF 驗證與跨社群拒絕。來源 `migrations/001_local_core.sql`、`apps/platform-api/src/app.ts`；測試 `tests/runtime/flows.test.ts`、`tests/runtime/identity-member.test.ts`、`tests/runtime/platform-admin.test.ts`。
 - 已有：GitHub 可選 OAuth 連結（PKCE、驗 GitHub user ID、加密 token、state 綁 exact session），供 Star 與[公會開發資格](../../../development/guild-development-access.md)的 grant／revoke 使用。來源 `migrations/018_github_social.sql`、`modules/github-social/`；測試 `tests/runtime/github-social.test.ts`、`tests/runtime/development-access.test.ts`。它不是登入 adapter，也不是 `ExternalIdentity` aggregate。
-- 未完成：`ExternalIdentity`／`provider+tenant+subject` active unique（`github_social_connections` 只以 `user_id` 為 PK，尚未拒絕兩位會員連同一 GitHub user ID）、link collision→Identity Resolution、LINE／Discord login、unlink／merge audit、帳號恢復與一般 email 驗證。
+- 已有（GitHub 子集）：同一 GitHub stable user ID 全平台只能連一位會員。`migrations/034_github_identity_unique.sql` 加唯一約束，遇既有重複整筆失敗、不自動歸戶；連結 callback 以 GitHub user ID 鎖序列化，衝突回 409 `github_identity_already_linked` 且不洩漏原會員。說明 [GitHub 身分唯一性](../../../development/github-identity-uniqueness.md)；測試 `tests/runtime/github-identity.test.ts`。
+- 未完成：通用 `ExternalIdentity`／`provider+tenant+subject` active unique、link collision→Identity Resolution、LINE／Discord login、unlink／merge audit、帳號恢復與一般 email 驗證。
 
 ## Actor／principal／acting role／資源範圍
 

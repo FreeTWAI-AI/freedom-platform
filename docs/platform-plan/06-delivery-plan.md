@@ -452,7 +452,7 @@ plan/spec acceptance criterion
 ### 8.3 Contributor onboarding
 
 - `good first contribution`：文案、fixture、Skill manifest、測試、translation、UI 小修。
-- 結構有效且本人確認的首次 software／Skill／code submission 建 AI Vibe Runner ProfessionMembership 與起始 evidence；其他 submission 依 acting／對應 Profession 建 evidence，不要求先取得頭銜。
+- 結構有效且本人確認的 software／Skill／code submission 保存來源、固定版本與起始 evidence；其他 submission 依 acting／對應 Profession 建 evidence，不要求先取得頭銜。投稿不自動入會；公會由本人另行選擇並確認，受保護的開發操作另查適用公會資格。
 - Work Feed 說明「為何推薦、要花多少、能得到什麼、AI review或產品標籤evidence路徑、下一步」。
 - 高頻問題沉澱成 Skill、template、fixture、runbook 或 WorkItem；每次幫助放大成下一人的捷徑。
 

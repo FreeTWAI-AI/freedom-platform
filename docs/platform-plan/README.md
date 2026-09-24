@@ -2,6 +2,12 @@
 
 > 狀態：現行 canonical baseline（2026-09-19 低維運互惠修訂）；planning 文件，不代表已部署。
 
+> **2026-09-24 今日狀態與優先序：** 公開會員 beta 以 `main` `8338a42` 運行（root 已部署驗證，見 `09` 的 9/24 狀態）。它是 Node＋PostgreSQL 的已實作子集：email 註冊、封閉定位、18 個公會、37 本技能書（43 個原作 repo）、名片、GitHub Star 與開發資格 grant／revoke。本頁的 56 packages、12 runtimes、signed channel 與金流仍是目標，下文「未跑／不宣稱完成」只適用這些目標與真人／provider 驗收。
+>
+> 優先序：① 修正已上線 beta 的可用性；② 開發資格路徑（公會 → GitHub OAuth → App 安裝 → 短效 key）；③ 使用者明確要求但尚未落地的強制 Star（建議替代尚未獲同意）與找回密碼寄信；LINE Login 只是後續 adapter 需求；④ 後續架構。
+>
+> 矛盾與對齊表見 [2026-09-24 計畫對齊](../development/audit-2026-09-24-plan.md)；9/23 落差見 [落差盤點](../development/plan-drift-2026-09-23.md)。
+
 日期：2026-09-19
 
 ## 0. 第一次看這份計畫

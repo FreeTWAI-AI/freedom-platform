@@ -324,7 +324,7 @@ Runtime-scope QC 必須由非 exact package submitter 的另一位自然人，�
 
 切換驗證是逐 AgentRun、逐新 session 執行，不是全域 feature flag：server-derived WorkItem refs 必須與 overlay roots exact-set 相等，client request 不得自報 mode、roots 或 overlay。任一缺件、過期、撤銷、digest/QC mismatch、name collision、host shadow 或 adapter isolation unsupported，若 task 需要 domain runtime 就回 `capability_unavailable`，且不得執行任何 domain Skill bytes或 consequential effect；不需要 runtime 的 task仍可留在 eligibility-only mode。
 
-任何人都可提交 candidate；結構有效且本人確認的首次 software／Skill／code submission建立 `Submission`，並可啟用`ai_vibe` Runner ProfessionMembership／起始evidence，讓提交者能立刻進該Guild的工作與training。這條啟用規則只適用software／Skill／code；實體貨品、行銷、供應或service submission只形成該次acting／corresponding Profession的candidate evidence，不會一律變成Vibe Runner。Submitted、accepted、QC decision與official狀態始終分開。社群可以自由測試 candidate；官方推薦、商業綁定或Store sellable listing必須指向已完成相應scope的`QualityReview`。
+任何人都可提交 candidate；結構有效且本人確認的 software／Skill／code submission 建立 `Submission`，保存來源、固定版本與起始 evidence。實體貨品、行銷、供應或 service submission 形成該次 acting／corresponding Profession 的 candidate evidence。所有投稿均不自動建立 ProfessionMembership；公會由本人另行選擇並確認加入，受保護的開發操作另查適用公會資格。Submitted、accepted、QC decision 與 official 狀態始終分開。社群可以自由測試 candidate；官方推薦、商業綁定或 Store sellable listing 必須指向已完成相應 scope 的 `QualityReview`。
 
 `quality.review_protocols`、`quality.reviewer_appointments`、`quality.review_submissions`、`quality.reviews`：
 

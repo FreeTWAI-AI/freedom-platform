@@ -44,6 +44,21 @@ P5 的角色供給由五人核心團隊直接承接：Ted、Hao、Mini、Jason�
 
 本次文件修改與本地驗證由本修訂工具執行；不宣稱原規劃的Grok／Claude reviewer、任何具名holder或真人試行已執行。契約 fixture 與本機 scoped runtime 另見 verification 與 [`docs/releases/2026-09-20-local-core.md`](../releases/2026-09-20-local-core.md)；不登錄通過數。
 
+### 1.4 2026-09-23／24 使用者決策與實作對照
+
+以下增補不改 ADR／OD／RQ 的穩定 ID，只記錄後續 Ted／使用者決策如何覆蓋或延續既有條目。實作證據與分類見 [2026-09-24 計畫對齊](../development/audit-2026-09-24-plan.md)。
+
+| 條目 | 現行決策 | 狀態 |
+| --- | --- | --- |
+| ADR-039／RQ-010「定位可跳過」 | 9/23 起新會員必須完成封閉式定位；不連帶恢復其他入會考核 | 已實作；見 `00` 標頭 |
+| ADR-006「LINE Login 為第一 adapter」 | 使用者 9/23 明示改為 email 註冊，已覆寫舊計畫；GitHub OAuth 只連結 Star 與開發身分，不是登入 | 已實作並修正 ADR-006 本文；LINE Login 只是後續 adapter 需求，不再待決 |
+| ADR-053／ADR-058（自助入會、有界 grant） | 加入 `guild_ai_vibe`／`guild_ai_field` 取得技能開發 grant；加入 `guild_platform_engineering` 取得平台開發 grant；最後一個資格來源消失時撤銷 grant 與衍生 key，舊 key 不復活 | 已實作（migration 030）；不需要管理員核准 |
+| 站內技能書編修（root 9/24 決定） | 需同時有 AI 開發或 AI 導入與驗證公會有效會籍，以及該書既有具名維護者任命；一般 `skill.submit` 投稿與公開閱讀不變 | 本輪修改中（ops 組）；同交易讀寫、replay 與離會鎖的證據待整合後由 root 補 |
+| ADR-034／ADR-050（憑證不外流；broker＋KMS） | GitHub user OAuth、App installation（只有 `starring:write`＋`metadata:read`）與工坊 `development:propose` key 分層 | 分層已實作；token 目前用環境金鑰 AES-256-GCM 加密，broker／KMS 仍是後續實作 |
+| ADR-065／RQ-064（只允許本人真實 Star） | 使用者明確要求「先 Star 才能領書／推廣」 | 尚未落地；建議替代尚未獲同意。GitHub AUP §4 列有 rank abuse 與 incentivized inauthentic 條款，但沒有針對本案的裁定 |
+| ADR-048、`08 §8`（fork lineage） | 37 本書、43 個原作 repo 保留作者與授權；Star、Fork、PR 指向原作 | 已實作；作者授權確認屬外部證據 |
+| ADR-045／046、OD-01（GHEC＋Workers＋PlanetScale） | Beta 暫用 Node＋PostgreSQL＋Cloudflare Tunnel | 過渡拓撲，不推翻目標 |
+
 ## 2. 來源 inventory 與現行事實
 
 本規劃的決策權威是 Ted 明示決策與 `SRC-CURRENT`；其餘 artifacts 只供模型、風險、migration 與 legacy behavior 取材。
@@ -94,7 +109,7 @@ ADR 編號穩定供其他文件引用；`adopted` 表示 target design 已決定
 | ADR-003 | 起步採 modular monolith＋background workers | adopted | 優先交易一致、部署與維護簡單；有負載／安全證據才拆 service |
 | ADR-004 | 四個協作 workspaces、五個 first-party product repos、四個 governance repos、三個 legacy/reference repos | adopted | Product repos 是 `freedom-platform`、`freedom-agent-kit`、`freedom-storefront`、`freedom-growth-automation`、`freedom-skill-registry`；legacy 以 adapter/migration 處理 |
 | ADR-005 | PostgreSQL 是 canonical relational store，S3-compatible storage 放 assets，Postgres outbox／jobs 起步 | adopted | 不先引進 Kafka、Redis 或 distributed transaction；projection 可重建 |
-| ADR-006 | User/session provider-neutral；LINE Login 是第一個 adapter，Discord/GitHub progressive link | adopted working default | 不用 nickname、email 或聊天名 fuzzy merge identity；Ted 可替換 provider 而不改 domain identity |
+| ADR-006 | User/session provider-neutral；現行 default 是單一 email 註冊與登入（2026-09-23 使用者明示，覆寫 9/17 的「LINE Login 是第一個 adapter」）；GitHub 只做 Star／開發身分連結，不是登入；LINE Login 等其他 provider 是後續需求的 adapter，Discord/GitHub progressive link | adopted working default（2026-09-24 修正） | 不用 nickname、email 或聊天名 fuzzy merge identity；Ted 可替換 provider 而不改 domain identity |
 | ADR-007 | Guild 是長期縱向 Profession 線；Squad 是一個 Opportunity／Project 的短期橫向交付隊 | adopted | Guild 維持知識、人才、training；Squad 完工即 close，不擁有永久 Guild 權力 |
 | ADR-008 | Profession rank 固定 `Runner → Strategist → Master`；Officer／maintainer／reviewer／Squad Lead 是 scoped office | adopted | 一人可有多筆 `ProfessionMembership` 與不同 rank；rank 不自動授權、發錢或取得職務 |
 | ADR-009 | 每個模組恰有一筆 active `ModuleStewardship` 與一位 accountable Master／Officer | adopted | Master 負責方向、人力、training、master skills、major release 與 succession；routine review/release 可委派 |
@@ -103,7 +118,7 @@ ADR 編號穩定供其他文件引用；`adopted` 表示 target design 已決定
 | ADR-012 | 公開知識、Skill、Guild teaching 與一般 software/community QC 免費；專屬人力、責任、算力、hosting、implementation、support/SLA 可收費 | adopted | 付費買 capacity/service，不把專業知識鎖在陪跑付款後 |
 | ADR-013 | Product distribution split 與 paid project allocation 分開；不再假設所有收益都是 affiliate commission | adopted | 商品以 versioned DistributionAgreement／Offer 算；ServiceEngagement 由 Squad 簽 `EngagementAllocationPlan`，平台不訂統一費率 |
 | ADR-014 | Contribution、Result 與 financial ledger 分開；不做 universal score | adopted | PR/QC 形成 evidence/familiarity，不自動形成 ownership、薪資、永久 royalty 或專案分配 |
-| ADR-015 | 所有候選可提交／討論；version/commit/batch-scoped QC evidence 與獨立自然人 reviewer 控制 `official` 標籤 | adopted | 結構有效且本人確認的首次 software／Skill／code 提交直接建立 AI Vibe Runner ProfessionMembership 與起始 evidence；AI review 與自動 checks 不排隊，獨立自然人不足時標籤維持 false |
+| ADR-015 | 所有候選可提交／討論；version/commit/batch-scoped QC evidence 與獨立自然人 reviewer 控制 `official` 標籤 | adopted | 結構有效且本人確認的投稿保存來源、固定版本與起始 evidence，不自動入會；公會由本人另行選擇並確認。AI review 與自動 checks 不排隊，獨立自然人不足時標籤維持 false |
 | ADR-016 | Software／Skill community review 一律無償；funded testing/review/development 另建 paid ServiceEngagement | adopted | Community QC 不存在付費模式；隱性客戶交付也不得包成免費 QC。費率、scope、acceptance、allocation 只由另案 Squad 明示協議 |
 | ADR-017 | `CommercialEdition` 必須指向 OSS PackageVersion／repo commit、license obligations、QC 與 commercial mode | adopted | Open Source 可商業使用但不等於 proprietary；是否可用及義務依實際 license 判斷，[OSI FAQ](https://opensource.org/faq) 作共同概念參考 |
 | ADR-018 | Platform 對 Agent 使用 principal chain、WorkContextBundle、WorkItem/Claim、AgentRun/TaskLease、ActionIntent 與 provenance | adopted | Agent 不是會員、Master、reviewer、締約人、legal signer 或 payee；不保存 chain-of-thought |
@@ -436,7 +451,7 @@ Likelihood/Impact 使用 L/M/H。Owner 是風險處理責任，不代表最終�
 | RQ-010 | Deterministic定位可跳過、重做、重現 | Assessment/CareerProfile | 04 §2；03 §3.2 | Golden parity；server recompute；self-declare path | 1C；未跑 |
 | RQ-011 | Guided discovery產生可修正draft，須本人確認 | GuidedDiscoveryRun/PositioningDraft | 03 §3.2；04 §2.2（C）；OpenAPI | User/AI/unknown分離；unconfirmed draft無權益效果 | 1C；未跑 |
 | RQ-012 | 定位後接免費Guild路徑與可選付費人力 | CoachingProgram/Enrollment | 01 §6；04 §9 | Free path always available；paid item標time/capacity/SLA | 1C–2；未跑 |
-| RQ-013 | 人人可提交 candidate；有效且本人確認的 software／Skill／code 首次提交建立 Vibe Runner membership＋起始 evidence，其他提交形成相應 Profession evidence | Submission/ProfessionMembership/ReviewSubmission/QualityReview | 03 §3.5；04 §7/10.4；ADR-015 | Submission／acceptance／QC 分開；exact version／protocol／evidence 與獨立自然人 reviewer 控制 `official` 標籤 | 1C–2；未跑 |
+| RQ-013 | 人人可提交 candidate；有效且本人確認的投稿保存來源、固定版本及相應 Profession 起始 evidence；入會由本人另選確認，不因投稿自動建立 membership | Submission/ProfessionMembership/ReviewSubmission/QualityReview | 03 §3.5；04 §7/10.4；ADR-015 | Submission／入會／acceptance／QC 分開；exact version／protocol／evidence 與獨立自然人 reviewer 控制 `official` 標籤 | 1C–2；未跑 |
 | RQ-014 | Software community QC免費；funded work另立案 | ServiceEngagement/EngagementAllocationPlan | 01 §5.3；04 §7/10.4；ADR-016 | Unpaid/funded明示；Platform不套global rate | 2；未跑 |
 | RQ-015 | GitHub skills有version、maintainers、discussion、lineage | SkillPackage/PackageVersion | 04 §7；05 §9；skill schema | Commit/hash/license/maintainer/repo-change tests | 1C–2；未跑 |
 | RQ-016 | OSS可連CommercialEdition且保留license obligations | CommercialEdition | 03 §3.5；04 §7；ADR-017 | Source commit/license/QC/commercial-mode refs齊全 | 2；未跑 |

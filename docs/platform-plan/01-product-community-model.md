@@ -4,7 +4,7 @@
 
 本文完整產品／營運驗收尚未完成；文中的流程、標籤與驗收項目是目標契約，不因描述存在就代表正式服務已存在。2026-09-20 的本機工作／合作流程與實跑測試，另見[版本紀錄](../releases/2026-09-20-local-core.md)；真人與正式環境驗收仍待取得證據。
 
-2026-09-24 適用範圍：公開站與 staging 的會員 beta（`8338a42`）只實作本文子集，包括新人必填定位、15 公會／37 技能書、公會範圍開發提案 grant 與本人 Star；逐項對照見[身分與計畫對齊稽核](../development/audit-2026-09-24-identity-plan.md)。
+2026-09-24 適用範圍：公開站與 staging 的會員 beta（`8338a42`）只實作本文子集，包括新人必填定位、18 公會／37 技能書、公會範圍開發提案 grant 與本人 Star；逐項對照見[身分與計畫對齊稽核](../development/audit-2026-09-24-identity-plan.md)。
 
 本文件對外用語與 canonical entity 的固定對照如下；介面暱稱不得改變授權語意：
 
@@ -193,7 +193,7 @@ Repo / SkillPackage Candidate
 
 重要規則：
 
-- 任何人可提交 candidate。結構有效且本人確認的首次 software／Skill／code submission，直接建立 AI Vibe Runner `ProfessionMembership` 與起始 evidence；其他 submission 依其 acting／對應 Profession 建 evidence。不把 submission 本身冒充 accepted quality、QC 或更高 rank。
+- 任何人可提交 candidate。結構有效且本人確認的 software／Skill／code submission 保存來源、固定版本與起始 evidence；其他 submission 依其 acting／對應 Profession 建 evidence。投稿不自動建立 `ProfessionMembership` 或改主要公會；公會由本人另行選擇並確認加入，受保護的開發操作另查適用公會資格。不把 submission 本身冒充 accepted quality、QC 或更高 rank。
 - candidate 可公開、fork、討論與改進；指定 version／commit 有完成的 QC 與獨立自然人 reviewer evidence 時，`official=true`。缺少該 evidence 時維持 `official=false`，不阻擋 candidate、staging、sandbox、內部 demo 或後續工作。
 - 軟體／Skill community test、review 與 QC 維持 zero-fee；公開知識及提交流程免費，不承諾無上限真人審查或固定回覆時間。每張工作區分當次實益、自願公益、已保留回饋與未來可能機會；熟練者的重複維護若缺乏自願供給，縮減新服務承諾或另開有預算工作。
 - AI preflight 可跑測試、掃 manifest、重現安裝並整理報告；成員產品語意中的正式 QC conclusion 由有 scope 的自然人簽 exact commit／artifact digest。平台自身建置則使用 §3.4 的 AI review 與自動 checks。
@@ -468,7 +468,7 @@ Entitlement 只回答「API 現在准許做什麼」，不代表人的價值。L
 
 GitHub 的本人評價遵守「本人決定、授權明示、本人 AgentConnection 執行」三項同時成立：只有 grant 精確包含 `github.star`，且可由本人撤回時，Agent 才可代表本人建立或撤回真實評價。平台觸發、批量、獎勵導向，或以 XP 誘導的 star／follow／like 一律禁止；star 不進任何 XP track，也不影響 entitlement、rank 或 reviewer appointment。
 
-2026-09-24 現況：會員以本人 GitHub 授權，對明確點選的單一 repo 執行 Star／取消；入會、授權或離會都不批量變更。「先 Star 才推廣／領書」未實作為 gate，產品上尚未決定，見[公會開發資格](../development/guild-development-access.md#新會員-github-連結與-star-授權)。
+2026-09-24 現況：會員以本人 GitHub 授權，對明確點選的單一 repo 執行 Star／取消；入會、授權或離會都不批量變更。「先 Star 才推廣／領書」是使用者明確提出的要求，目前未實作為 gate；建議替代方案尚未獲同意，見[公會開發資格](../development/guild-development-access.md#新會員-github-連結與-star-授權)。
 
 ## 14. 能管理一萬人的輕量治理
 

@@ -258,18 +258,11 @@ function LoginView({
 
   return (
     <main className="login-layout">
-      <section className="login-story"><BrandPoster/><div className="login-story-copy"><p className="eyebrow">BUILD WITHOUT LIMITS</p><h1>找到你的定位。<br/>和夥伴一起，把想法做出來。</h1><p>加入專業公會，領取技能書。從供貨、開店到開源創作，每種專長都能成為起點。</p><ol className="login-journey"><li><span>01 / DISCOVER</span>找到你的定位</li><li><span>02 / BELONG</span>加入你的公會</li><li><span>03 / CREATE</span>一起做出作品</li></ol></div></section>
-      <div className="login-form-area"><header className="login-brand">
-        <span className="mark" aria-hidden="true" />
-        <div>
-          <p className="eyebrow">FREEDOM WORKSHOP</p>
-          <h2>自由工坊</h2>
-        </div>
-      </header>
+      <section className="login-story"><BrandPoster/><div className="login-story-copy"><h1>完成定位、加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。</h1></div></section>
+      <div className="login-form-area">
       <section className="card login-card" aria-labelledby="login-heading">
-        <div className="auth-switch"><button type="button" className={mode==='login'?'selected':''} onClick={()=>{setMode('login');setError(null)}}>會員登入</button>{site?.registration_enabled&&<button type="button" className={mode==='register'?'selected':''} onClick={()=>{setMode('register');setError(null)}}>建立帳號</button>}</div>
+        <div className="auth-switch" role="group" aria-label="登入或建立帳號"><button type="button" className={mode==='login'?'selected':''} aria-pressed={mode==='login'} onClick={()=>{setMode('login');setError(null)}}>會員登入</button>{site?.registration_enabled&&<button type="button" className={mode==='register'?'selected':''} aria-pressed={mode==='register'} onClick={()=>{setMode('register');setError(null)}}>建立帳號</button>}</div>
         <h2 id="login-heading">{mode==='register'?'加入自由工坊':'登入'}</h2>
-        <p className="lede">{mode==='register'?'先認識你的專長，再找公會與夥伴。':'歡迎回來，繼續你的作品與合作。'}</p>
         {notice && (
           <p className="banner banner-info" role="status">
             {notice}
@@ -280,7 +273,7 @@ function LoginView({
         )}
         {error && <ErrorPanel error={error} />}
         <form className="stack" onSubmit={(event) => void onSubmit(event)}>
-          {mode==='register'&&<label className="field"><span className="field-label">喜歡的暱稱</span><input name="nickname" required minLength={1} maxLength={60} autoComplete="nickname" value={nickname} onChange={event=>setNickname(event.target.value)} disabled={pending}/></label>}
+          {mode==='register'&&<label className="field"><span className="field-label" id="register-nickname-label">社群顯示名稱</span><input name="nickname" required minLength={1} maxLength={60} autoComplete="nickname" aria-labelledby="register-nickname-label" aria-describedby="register-nickname-hint" value={nickname} onChange={event=>setNickname(event.target.value)} disabled={pending}/><span className="field-hint" id="register-nickname-hint">建議使用大家熟悉的社群名字</span></label>}
           <label className="field">
             <span className="field-label">電子郵件</span>
             <input
@@ -354,7 +347,17 @@ function Workspace({
 }) {
   const [headerMember,setHeaderMember]=useState<MemberCardData|null>(null)
   const [canManageGuild,setCanManageGuild]=useState(false)
-  useEffect(()=>{let active=true;const refresh=()=>void client.get<{managed_guilds:unknown[];managed_books:unknown[];can_discuss:boolean}>('/guild-workspace').then(value=>{if(active)setCanManageGuild(Boolean(value.can_discuss||value.managed_guilds.length||value.managed_books.length))}).catch(()=>{if(active)setCanManageGuild(false)});refresh();window.addEventListener('focus',refresh);return()=>{active=false;window.removeEventListener('focus',refresh)}},[session.user.user_id])
+  useEffect(()=>{
+    let active=true,generation=0;
+    const refresh=()=>{
+      const current=++generation;
+      void client.get<{managed_guilds:unknown[];managed_books:unknown[];can_discuss:boolean;skill_editor_access?:{requires_development_guild:boolean}}>('/guild-workspace')
+        .then(value=>{if(active&&current===generation)setCanManageGuild(Boolean(value.can_discuss||value.managed_guilds.length||value.managed_books.length||value.skill_editor_access?.requires_development_guild))})
+        .catch(()=>{if(active&&current===generation)setCanManageGuild(false)});
+    };
+    refresh();window.addEventListener('focus',refresh);window.addEventListener('freedom-profile-updated',refresh);
+    return()=>{active=false;generation++;window.removeEventListener('focus',refresh);window.removeEventListener('freedom-profile-updated',refresh)};
+  },[session.user.user_id])
   useEffect(()=>{let active=true,generation=0;const refresh=()=>{const current=++generation;void client.get<MemberCardData>(`/members/${session.user.user_id}`).then(value=>{if(active&&current===generation)setHeaderMember(value)}).catch(()=>{})};refresh();window.addEventListener('freedom-profile-updated',refresh);return()=>{active=false;generation++;window.removeEventListener('freedom-profile-updated',refresh)}},[session.user.user_id])
   const [tab, setTab] = useState<TabId>(() => tabFromHash())
   const [mobileOpen, setMobileOpen] = useState(false)

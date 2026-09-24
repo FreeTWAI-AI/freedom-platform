@@ -1,3 +1,4 @@
+import { e2eOrigin } from '../../packages/testing/e2e-origin.js';
 import { test, expect, type Page } from './fixtures.js';
 import sharp from 'sharp';
 
@@ -73,7 +74,7 @@ test('avatar editor reconciles a historical mutation receipt with a newer remova
     // A second tab removes the photo before the first tab receives its
     // successful (now historical) upload receipt.
     const removed = await page.request.post('/api/v1/me/avatar/remove', {
-      headers: { Origin: 'http://127.0.0.1:4311', 'X-CSRF-Token': route.request().headers()['x-csrf-token'], 'Idempotency-Key': crypto.randomUUID(), 'If-Match': `"${receipt.aggregate_version}"` }, data: {},
+      headers: { Origin: e2eOrigin(), 'X-CSRF-Token': route.request().headers()['x-csrf-token'], 'Idempotency-Key': crypto.randomUUID(), 'If-Match': `"${receipt.aggregate_version}"` }, data: {},
     });
     expect(removed.status()).toBe(200);
     await route.fulfill({ response });

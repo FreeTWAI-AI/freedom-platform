@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { createPool, LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { e2eSchema, resetE2eAuthState } from '../../packages/testing/e2e-auth-isolation.js';
+import { e2ePort } from '../../packages/testing/e2e-origin.js';
 import { authRateLimit } from '../../modules/identity-membership/members.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal } from '../../packages/testing/seed.js';
@@ -35,6 +36,13 @@ test('schema guard rejects ordinary databases, malformed names and non-local mod
   }
   assert.throws(() => e2eSchema(schema, { NODE_ENV: 'production' }), /local-only/);
   for (const mode of ['staging', 'public']) assert.throws(() => e2eSchema(schema, { FREEDOM_ENV: mode }), /local-only/);
+});
+
+test('parallel audit ports exclude deployed services and malformed endpoints', () => {
+  assert.equal(e2ePort('4321'), 4321);
+  for (const value of ['', '4310', '4312', '80', '65536', '4321/path', 'https://example.test', '4321.5']) {
+    assert.throws(() => e2ePort(value));
+  }
 });
 
 test('rate budgets stay effective inside a case and renew only when the isolated fixture resets', async () => {

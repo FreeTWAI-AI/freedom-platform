@@ -35,7 +35,7 @@ async function register(page: Page, nickname: string, shotPrefix?: string) {
   await page.getByRole('button', { name: '建立帳號', exact: true }).click();
   await oneTitle(page, 'register');
   if (shotPrefix) await page.screenshot({ path: `${shots}/${shotPrefix}-register.png`, fullPage: true });
-  await page.getByLabel('喜歡的暱稱', { exact: true }).fill(nickname);
+  await page.getByLabel('社群顯示名稱', { exact: true }).fill(nickname);
   await page.getByLabel('電子郵件', { exact: true }).fill(email);
   await page.getByLabel('密碼', { exact: true }).fill(password);
   await page.getByRole('button', { name: '註冊並開始定位', exact: true }).click();

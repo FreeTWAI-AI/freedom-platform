@@ -204,7 +204,7 @@ test('refresh identity mismatch and moved ciphertext cannot act on another membe
   mock.expires=1;await connect();mock.userId=99999;
   await assert.rejects(()=>social.star(actor,book,true),errorCode('github_reconnect_required'));assert.equal((await social.session(actor)).connected,false);assert.equal(mock.calls.some(call=>call.method==='PUT'),false);
   mock.expires=28800;mock.userId=12345;await connect();
-  await pool.query(`INSERT INTO github_social_connections(user_id,community_id,github_user_id,github_login,encrypted_tokens) SELECT $1,$2,github_user_id,github_login,encrypted_tokens FROM github_social_connections WHERE user_id=$3`,[other.user_id,other.community_id,actor.user_id]);
+  await pool.query(`INSERT INTO github_social_connections(user_id,community_id,github_user_id,github_login,encrypted_tokens) SELECT $1,$2,'67890',github_login,encrypted_tokens FROM github_social_connections WHERE user_id=$3`,[other.user_id,other.community_id,actor.user_id]);
   await assert.rejects(()=>social.star(other,book,true),errorCode('github_reconnect_required'));assert.equal((await social.session(other)).connected,false);assert.equal((await social.session(actor)).connected,true);
 });
 

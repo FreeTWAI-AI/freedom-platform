@@ -43,6 +43,35 @@ test('malformed successful responses remain unknown but known business conflicts
   assert.equal(await client.post('/example',{}),null);
 });
 
+test('machine-code problem titles are hidden from members while ApiError keeps the code for recovery',async t=>{
+  const responses=[
+    Response.json({type:'about:blank',title:'skill_maintainer_required',detail:'此操作限目前 AI 公會的技能書維護者。',code:'skill_maintainer_required'},{status:403}),
+    Response.json({title:'guild_membership_missing',detail:'請先加入公會。',code:'forbidden'},{status:403}),
+    Response.json({title:'skill_maintainer_required',code:'skill_maintainer_required'},{status:403}),
+    Response.json({title:'invalid_payload'},{status:422}),
+    Response.json({title:'版本已變更',detail:'版本已變更',code:'conflict'},{status:409}),
+    Response.json({title:'版本已變更',detail:'請重新讀取後再送出。',code:'conflict'},{status:412}),
+    Response.json({title:'internal_error',detail:'stack trace at db.query',code:'internal_error'},{status:500}),
+  ];
+  t.mock.method(globalThis,'fetch',async()=>responses.shift()!);
+  const client=new PortalClient();client.csrfToken='synthetic';
+  const reject=async()=>{try{await client.post('/example',{});}catch(cause){assert.ok(cause instanceof ApiError);return cause;}assert.fail('expected rejection');};
+  let cause=await reject();
+  assert.equal(cause.message,'此操作限目前 AI 公會的技能書維護者。');assert.equal(cause.code,'skill_maintainer_required');assert.equal(cause.title,'skill_maintainer_required');assert.equal(cause.type,'about:blank');assert.equal(cause.status,403);
+  cause=await reject();
+  assert.equal(cause.message,'請先加入公會。');assert.equal(cause.code,'forbidden');
+  cause=await reject();
+  assert.equal(cause.message,'目前無法執行此操作，請重新確認登入狀態。');assert.equal(cause.code,'skill_maintainer_required');
+  cause=await reject();
+  assert.equal(cause.message,'請求未完成（422），請稍後重試。');
+  cause=await reject();
+  assert.equal(cause.message,'版本已變更');assert.equal(cause.conflict,true);
+  cause=await reject();
+  assert.equal(cause.message,'版本已變更：請重新讀取後再送出。');
+  cause=await reject();
+  assert.equal(cause.message,'服務暫時無法回應（500）。尚未確認結果，請稍後重試。');assert.equal(cause.code,undefined);assert.equal(cause.detail,undefined);assert.equal(cause.network,true);
+});
+
 test('malformed 401 responses still clear the current session and preserve unauthorized status',async t=>{
   t.mock.method(globalThis,'fetch',async()=>new Response('<html>expired session</html>',{status:401}));
   const client=new PortalClient();client.csrfToken='synthetic';let expired=0;client.onUnauthorized=()=>{expired++;};

@@ -2,6 +2,12 @@
 
 > 狀態：現行 canonical baseline（2026-09-19 低維運互惠修訂）；planning 文件，不代表已部署。
 
+> 2026-09-24 現況：公開會員 beta 使用 Node＋PostgreSQL＋Cloudflare Tunnel（`deploy/public`、`deploy/staging`），不是本文件的 Workers／Hyperdrive／PlanetScale 拓撲。
+>
+> 已有的 GitHub App 只申請 `starring:write` 與 `metadata:read`。程式修改由會員自己的 GitHub 授權完成；原作 repo 的 App 安裝由 repo 擁有者決定。
+>
+> 本文件的 Day 1 清單、KMS／HSM、signed channel 與 Pages attestation 仍是後續實作，HF-I01…I17 仍無完成紀錄。見 [2026-09-24 計畫對齊](../development/audit-2026-09-24-plan.md)。
+
 ## 1. 四項基礎定義
 
 | 使用者方向 | 本規格的精確解讀 | 狀態 |

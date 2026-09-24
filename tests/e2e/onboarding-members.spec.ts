@@ -1,3 +1,4 @@
+import { e2eOrigin } from '../../packages/testing/e2e-origin.js';
 import { navigate } from './navigation.js';
 import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from './fixtures.js';
@@ -5,7 +6,7 @@ const password='freedom-workshop-member-2026';
 async function register(page:Page, nickname:string){
   const email=`member-${Date.now()}-${Math.random().toString(16).slice(2)}@example.test`;
   await page.goto('/');await page.getByRole('button',{name:'建立帳號',exact:true}).click();
-  await page.getByLabel('喜歡的暱稱',{exact:true}).fill(nickname);
+  await page.getByLabel('社群顯示名稱',{exact:true}).fill(nickname);
   await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill(password);
   await expect(page.locator('input[type=email]')).toHaveCount(1);
   await expect(page.getByLabel('聯絡 E-mail',{exact:true})).toHaveCount(0);
@@ -153,12 +154,12 @@ test('mobile registration and mandatory orientation remain usable without horizo
 });
 test('member explicitly approves then revokes a scoped supplier client read connection',async({page})=>{
   await register(page,'客戶端連線夥伴');await completeOrientation(page);
-  const start=await page.request.post('/api/v1/client-connections/start',{headers:{Origin:'http://127.0.0.1:4311'},data:{kind:'supplier',client_name:'我的供應端測試客戶端'}});expect(start.status()).toBe(201);
+  const start=await page.request.post('/api/v1/client-connections/start',{headers:{Origin:e2eOrigin()},data:{kind:'supplier',client_name:'我的供應端測試客戶端'}});expect(start.status()).toBe(201);
   const pending=await start.json();
   await page.getByRole('button',{name:'我的名片',exact:true}).click();await page.getByLabel('客戶端一次性代碼',{exact:true}).fill(pending.user_code);
   await page.getByRole('button',{name:'查看連線請求',exact:true}).click();await expect(page.getByText('你自己的商品與供貨條件',{exact:false})).toBeVisible();
   await page.getByRole('button',{name:'確認並允許這次讀取連線',exact:true}).click();await expect(page.getByText('讀取連線已核准，請回到你的客戶端繼續。')).toBeVisible();
-  const poll=await page.request.post('/api/v1/client-connections/poll',{headers:{Origin:'http://127.0.0.1:4311'},data:{device_secret:pending.device_secret}});expect(poll.status()).toBe(200);
+  const poll=await page.request.post('/api/v1/client-connections/poll',{headers:{Origin:e2eOrigin()},data:{device_secret:pending.device_secret}});expect(poll.status()).toBe(200);
   const authorized=await poll.json();expect(authorized.status).toBe('authorized');
   const read=await page.request.get('/client-api/v1/supplier/products',{headers:{Authorization:`Bearer ${authorized.access_token}`}});expect(read.status()).toBe(200);expect((await read.json()).read_only).toBe(true);
   await page.getByRole('button',{name:'撤銷連線',exact:true}).click();await expect(page.getByText('讀取連線已撤銷。')).toBeVisible();
@@ -265,7 +266,7 @@ test('re-exploration preserves the confirmed profile until completion and keeps 
   const memberPath=`/api/v1/members/${session.user.user_id}`;
   const initialDirectory=(await (await page.request.get('/api/v1/guilds/directory')).json()).items;
   const secondary=initialDirectory.find((guild:any)=>guild.membership?.state!=='active');
-  const joined=await page.request.post(`/api/v1/guilds/${secondary.guild_key}/join`,{headers:{Origin:'http://127.0.0.1:4311','X-CSRF-Token':session.csrf_token,'Idempotency-Key':randomUUID()},data:{}});
+  const joined=await page.request.post(`/api/v1/guilds/${secondary.guild_key}/join`,{headers:{Origin:e2eOrigin(),'X-CSRF-Token':session.csrf_token,'Idempotency-Key':randomUUID()},data:{}});
   expect(joined.ok()).toBe(true);
   const before=await (await page.request.get(memberPath)).json();
   const beforeBooks=(await (await page.request.get('/api/v1/me/skill-books')).json()).items;
@@ -275,7 +276,7 @@ test('re-exploration preserves the confirmed profile until completion and keeps 
   expect(before.primary_guild).not.toBeNull();
   expect(before.featured_capabilities).toEqual(['custom:原本的教學整理']);
   // Existing saved preferences remain server data; the removed form must never rewrite them.
-  const legacy=await page.request.post('/api/v1/me/positioning',{headers:{Origin:'http://127.0.0.1:4311','X-CSRF-Token':session.csrf_token,'Idempotency-Key':randomUUID()},data:{real_world_occupations:['舊職業'],background:'保留舊資料',strengths:['舊專長'],goals:'保留舊合作目標',weekly_minutes:45,desired_roles:[],selected_tracks:[],confirmed:true}});
+  const legacy=await page.request.post('/api/v1/me/positioning',{headers:{Origin:e2eOrigin(),'X-CSRF-Token':session.csrf_token,'Idempotency-Key':randomUUID()},data:{real_world_occupations:['舊職業'],background:'保留舊資料',strengths:['舊專長'],goals:'保留舊合作目標',weekly_minutes:45,desired_roles:[],selected_tracks:[],confirmed:true}});
   expect(legacy.ok()).toBe(true);
   const legacyBefore=(await (await page.request.get('/api/v1/me/positioning')).json()).profile;
   await navigate(page, '我的定位');

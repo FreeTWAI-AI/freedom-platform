@@ -16,6 +16,7 @@ export type GitHubSession={configured:boolean;connected:boolean;github_user:{id:
 export type GitHubMetrics={book_id:string;repository_url:string;stargazers_count:number|null;forks_count:number|null;open_issues_count:number|null;subscribers_count:number|null;pushed_at:string|null;language:string|null;archived:boolean|null;checked_at:string|null;stale:boolean;error:string|null};
 const nullSnapshot={stargazers_count:null,forks_count:null,open_issues_count:null,subscribers_count:null,pushed_at:null,language:null,archived:null};
 const poolState=new WeakMap<Pool,{inflight:Map<string,Promise<MetricsRow>>;providers:WeakMap<typeof fetch,GitHubSocialProvider>}>();
+const identityTaken='這個 GitHub 帳號已連結另一個工坊帳號。請先從原本的工坊帳號解除連結，或改用其他 GitHub 帳號。';
 const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
 function upstream(bookId:string){
   const book=communityCatalog.skill_books.find(item=>item.id===bookId);
@@ -110,8 +111,25 @@ export class GitHubSocial {
       requireCondition(row,409,'github_oauth_expired','GitHub 授權已到期或不是從這個登入工作階段發起，請重新連接。');
       const verifier=decode<string>(this.key!,this.context(actor,`state/${hash(state)}/${actor.session_hash}`),row.encrypted_verifier);
       const tokens=await this.provider.exchange(config,code,verifier),identity=await this.provider.identity(tokens.access_token);
-      const connected=(await q.query(`INSERT INTO github_social_connections(user_id,community_id,github_user_id,github_login,encrypted_tokens) VALUES($1,$2,$3,$4,$5)
-        ON CONFLICT(user_id) DO UPDATE SET community_id=$2,github_user_id=$3,github_login=$4,encrypted_tokens=$5,connected_at=now(),updated_at=now() RETURNING *`,[actor.user_id,actor.community_id,identity.id,identity.login,encode(this.key!,this.context(actor,'tokens'),tokens)])).rows[0];
+      // One GitHub user ID links to one member. Serialize every callback for this
+      // ID after the actor lock; a conflict keeps both members' rows untouched and
+      // never revokes the provider grant, which may be the other member's token.
+      await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-identity/${identity.id}`]);
+      const taken=(await q.query('SELECT 1 FROM github_social_connections WHERE github_user_id=$1 AND user_id<>$2',[identity.id,actor.user_id])).rowCount;
+      requireCondition(!taken,409,'github_identity_already_linked',identityTaken);
+      // The unique constraint is the final guard (e.g. a direct database write).
+      // Roll back only the insert so the consumed OAuth state still commits.
+      await q.query('SAVEPOINT github_identity_link');
+      let connected:Connection;
+      try{
+        connected=(await q.query(`INSERT INTO github_social_connections(user_id,community_id,github_user_id,github_login,encrypted_tokens) VALUES($1,$2,$3,$4,$5)
+          ON CONFLICT(user_id) DO UPDATE SET community_id=$2,github_user_id=$3,github_login=$4,encrypted_tokens=$5,connected_at=now(),updated_at=now() RETURNING *`,[actor.user_id,actor.community_id,identity.id,identity.login,encode(this.key!,this.context(actor,'tokens'),tokens)])).rows[0];
+      }catch(error){
+        if((error as {code?:string;constraint?:string}).code!=='23505'||(error as {constraint?:string}).constraint!=='github_social_connections_github_user_unique')throw error;
+        await q.query('ROLLBACK TO SAVEPOINT github_identity_link');
+        throw new Problem(409,'github_identity_already_linked',identityTaken);
+      }
+      await q.query('RELEASE SAVEPOINT github_identity_link');
       return {...this.view(connected),return_to:row.return_to as string};
     });
   }

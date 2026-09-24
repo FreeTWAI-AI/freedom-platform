@@ -60,9 +60,12 @@ function messageFromProblem(status: number, problem: ProblemDetails | null, muta
   // Upstream outages may return an HTML page or a JSON wrapper with raw proxy text.
   // Neither belongs in a member's form; keep the HTTP code on ApiError for recovery.
   if (status >= 500) return `服務暫時無法回應（${status}）。${mutation?'尚未確認結果，請稍後重試。':'請稍後重試。'}`
-  const title = typeof problem?.title === 'string' ? problem.title.trim() : ''
+  const rawTitle = typeof problem?.title === 'string' ? problem.title.trim() : ''
+  const code = typeof problem?.code === 'string' ? problem.code.trim() : ''
+  // Some routes send the machine code as title; members only need the readable detail.
+  const title = rawTitle && (rawTitle === code || /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/.test(rawTitle)) ? '' : rawTitle
   const detail = typeof problem?.detail === 'string' ? problem.detail.trim() : ''
-  if (title && detail) return `${title}：${detail}`
+  if (title && detail && title !== detail) return `${title}：${detail}`
   if (detail) return detail
   if (title) return title
   if (status === 401) return '登入已過期，請重新登入。'

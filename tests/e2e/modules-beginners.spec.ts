@@ -1,3 +1,4 @@
+import { e2eOrigin } from '../../packages/testing/e2e-origin.js';
 import { navigate } from './navigation.js';
 import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from './fixtures.js';
@@ -13,7 +14,7 @@ async function login(page: Page, email = 'maker@local.test') {
 async function command(page: Page, path: string, data: unknown) {
   const session = await (await page.request.get('/api/v1/session')).json();
   const response = await page.request.post(`/api/v1${path}`, {
-    headers: { Origin: 'http://127.0.0.1:4311', 'X-CSRF-Token': session.csrf_token, 'Idempotency-Key': randomUUID() },
+    headers: { Origin: e2eOrigin(), 'X-CSRF-Token': session.csrf_token, 'Idempotency-Key': randomUUID() },
     data,
   });
   expect(response.ok(), `Create isolated test fixture: ${path}`).toBe(true);

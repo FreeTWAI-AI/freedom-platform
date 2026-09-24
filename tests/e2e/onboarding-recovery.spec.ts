@@ -3,7 +3,7 @@ import {test,expect,type Page,type Route} from './fixtures.js';
 
 async function startStepThree(page:Page){
   await page.goto('/');await page.getByRole('button',{name:'建立帳號',exact:true}).click();
-  await page.getByLabel('喜歡的暱稱',{exact:true}).fill('定位恢復測試夥伴');await page.getByLabel('電子郵件',{exact:true}).fill(`recovery-${randomUUID()}@example.test`);await page.getByLabel('密碼',{exact:true}).fill('freedom-recovery-test-2026');
+  await page.getByLabel('社群顯示名稱',{exact:true}).fill('定位恢復測試夥伴');await page.getByLabel('電子郵件',{exact:true}).fill(`recovery-${randomUUID()}@example.test`);await page.getByLabel('密碼',{exact:true}).fill('freedom-recovery-test-2026');
   await page.getByRole('button',{name:'註冊並開始定位',exact:true}).click();
   for(const title of ['你喜歡怎麼做事？','遇到這些情境，你會怎麼做？']){
     await expect(page.getByRole('heading',{name:title,exact:true})).toBeVisible();

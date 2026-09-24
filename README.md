@@ -16,13 +16,13 @@
 會員、權限、公會、商品、商店、合作和稽核的權威寫入在本 repo 的 API／PostgreSQL。外倉用版本化契約；本機、staging、public 使用分開的資料庫。GitHub Issue／PR 保存程式協作事實；Seller／bank 保存實收事實。 跨 repo 的協定由[中央平台](https://github.com/FreeTWAI-AI/freedom-platform)維護。
 <!-- freedom-repository-guide:end -->
 
-本 workspace 保存 Freedom 大平台的完整規格，以及 **0.12.0-skill-sharing 自由工坊會員入口**。新會員註冊後完成定位，選擇主力公會並取得 Repo 技能書，再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
+本 workspace 保存 Freedom 大平台的完整規格，以及 **0.12.0-skill-sharing 自由工坊會員入口**。目前目錄為 18 個公會、37 本技能書（43 個原作 repo 指引）。新會員註冊後完成定位，選擇主力公會並取得 Repo 技能書，再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
 
 技能書分享可從每本 100 則介紹擲骰子選文，再分享或複製介紹與連結；37 本技能各有功能示意圖，供介紹頁與分享縮圖使用。新增「上傳技能」私人 Agent 指令、60 分鐘一次性投稿授權，以及可撤銷的投稿專用 API 金鑰與 Node 客戶端。Agent 上傳後由本人預覽送出，公開介紹頁保留 GitHub 來源、固定版本與授權；社群投稿不自動成為官方技能。詳見 [Agent 技能草稿上傳](./docs/development/agent-skill-upload.md) 與 [0.12 版本紀錄](./docs/releases/2026-09-23-agent-skill-sharing.md)。
 
-2026-09-24 新增 Mini 的 Local Workspace MCP、Hao 的 Editkin、Jason 的定位小書僮與 David 的巫師公會交誼廳，技能目錄共 29 本。保留原作署名、版本與授權觀察，詳見 [四位作者技能書登錄](./docs/development/member-skill-registration.md)。
+歷史（2026-09-24 第一批）：新增 Mini 的 Local Workspace MCP、Hao 的 Editkin、Jason 的定位小書僮與 David 的巫師公會交誼廳，當時目錄 29 本。保留原作署名、版本與授權觀察，詳見 [四位作者技能書登錄](./docs/development/member-skill-registration.md)。
 
-2026-09-24 再加入綠豆、隊長、Yuri、阿軒哥哥的 8 個作品，目錄共 37 本；名片可修改社群顯示名稱，並選填男／女／外星人／AI。詳見 [社群原作技能書與名片更新](./docs/development/community-author-skills.md)。
+2026-09-24 第二批：加入綠豆、隊長、Yuri、阿軒哥哥的 8 個作品，成為目前的 37 本；名片可修改社群顯示名稱，並選填男／女／外星人／AI。詳見 [社群原作技能書與名片更新](./docs/development/community-author-skills.md)。
 
 前版 0.9.7 修正 GitHub Star 權限錯誤提示，App 建立流程明確申請 Metadata 讀取，後台提供權限與 Repo 安裝入口。既有 App 仍需在 GitHub 補齊設定；站內連結成功不代表原作已授予 Star 存取。
 
@@ -38,9 +38,9 @@
 
 公會長與專家各占一列，會長在上、專家在下；頭像、姓名與職稱一起呈現，手機版以精簡人物列保留閱讀寬度。技能書架使用小封面橫列，首頁與模組入口縮減裝飾圖和留白，完整介紹仍可展開閱讀。每個公會最多三位專家；後台可從啟用中的平台會員直接任命，未入會者會同時加入該公會並領取技能書，保留原主要公會與定位。專家標章不增加管理權限，詳見 [公會管理 API](./docs/development/platform-admin-api.md)。
 
-本版包含活動與空間、光影光雕、人類圖研究所三個公會，25 本技能書的一鍵分享與 Agent SKILL.md、公會指定技能標章、真實加星週／月榜，以及會長公告、技能負責人編輯與會長討論區。使用方式與資料邊界見 [公會共作與技能分享](./docs/development/guild-collaboration.md)。
+歷史（2026-09-23 公會共作版）：加入活動與空間、光影光雕、人類圖研究所三個公會，當時 25 本技能書的一鍵分享與 Agent SKILL.md、公會指定技能標章、真實加星週／月榜，以及會長公告、技能負責人編輯與會長討論區。使用方式與資料邊界見 [公會共作與技能分享](./docs/development/guild-collaboration.md)。
 
-前版新增 GitHub 真實 Stars／Forks／追蹤與更新指標、會員授權後直接加星／取消星星，以及後台 GitHub App 設定，詳見 [GitHub 連結與部署](./docs/development/github-social.md)。前版包含會員頭像、22 本專屬技能書插圖與原作者 Star 連結、任務／商品／小隊篩選，以及後台管理員任命。定位只保留一套流程，調整方向由「重新探索定位」進入。詳見 [0.7 操作與部署](./docs/development/member-toolkit.md)。既有共創與 Repo 指引見 [0.5 版本紀錄](./docs/releases/2026-09-23-collaboration-optimization.md)、[原計畫對照](./docs/development/plan-drift-2026-09-23.md) 與[網站／Agent 開發導覽](./docs/development/agent-development-guide.md)。
+前版新增 GitHub 真實 Stars／Forks／追蹤與更新指標、會員授權後直接加星／取消星星，以及後台 GitHub App 設定，詳見 [GitHub 連結與部署](./docs/development/github-social.md)。0.7 版包含會員頭像、當時 22 本專屬技能書插圖與原作者 Star 連結、任務／商品／小隊篩選，以及後台管理員任命。定位只保留一套流程，調整方向由「重新探索定位」進入。詳見 [0.7 操作與部署](./docs/development/member-toolkit.md)。既有共創與 Repo 指引見 [0.5 版本紀錄](./docs/releases/2026-09-23-collaboration-optimization.md)、[原計畫對照](./docs/development/plan-drift-2026-09-23.md) 與[網站／Agent 開發導覽](./docs/development/agent-development-guide.md)。
 
 各產品模板已依 [九倉分工與串接方式](./docs/development/repository-integration.md) 獨立保存，透過固定版本的 API／SDK 共用中央會員與資料。
 
@@ -61,7 +61,7 @@ npm run demo
 
 Freedom Platform 是社群的接點、共同資料庫、核心 codebase 協作索引、工作／商業事實帳本與狀態機。Discord 承接討論與讀書會，LINE 承接即時聯絡，GitHub 承接程式版本與 PR；money 的權威事實留在 Seller 的 provider／bank，客戶 raw data 留在 client／Squad storage，平台只保存必要的 ref、digest 與 fact。
 
-現行推進：**2026-09-23，封閉式新人定位、主力公會、Repo 技能書與公開會員 Beta。** 完整架構保留，不把未來案源當報酬，不預設核心補位。第一筆真實合作與收款仍待真人證據，見 [首批營運驗證](./docs/development/operating-validation.md)。
+現行推進：**2026-09-23，封閉式新人定位、主力公會、Repo 技能書與公開會員 Beta。** 2026-09-24：加入 AI 開發或 AI 導入與驗證公會取得技能開發資格，加入平台開發公會取得平台開發資格，離會即撤銷；GitHub OAuth、App 安裝與細範圍 key 分開驗證。見[公會開發資格](./docs/development/guild-development-access.md)，計畫對齊與今日優先序見 [2026-09-24 計畫對齊](./docs/development/audit-2026-09-24-plan.md)。 完整架構保留，不把未來案源當報酬，不預設核心補位。第一筆真實合作與收款仍待真人證據，見 [首批營運驗證](./docs/development/operating-validation.md)。
 
 先讀 [低維運互惠運作契約](./docs/platform-plan/12-low-ops-mutual-benefit.md) 與 [現況紀錄](./docs/platform-plan/09-handoff-record.md)。[2026-09-19 變更說明](./CHANGES-2026-09-19.md) 與當日 verification 保留作歷史紀錄；本次實跑結果以新版本紀錄為準。
 
@@ -87,4 +87,4 @@ Freedom Platform 是社群的接點、共同資料庫、核心 codebase 協作�
 
 會員可從「一起開發」找到專案缺少的角色，讀取 GitHub Issues、複製給 Agent 的任務說明，再由維護者審查 PR。詳見 [共創與貢獻紀錄](docs/development/co-creation.md)。示範 repo：[工坊 video-autopilot-kit](https://github.com/FreeTWAI-AI/video-autopilot-kit/issues)。
 
-會員註冊只填一個 Email；登入信箱即聯絡信箱，公開範圍於名片多選設定。現有 15 個公會包含資安、音樂創作與 MV、廣告攝影與影片；公會長未任命時如實顯示待任命。
+會員註冊只填一個 Email；登入信箱即聯絡信箱，公開範圍於名片多選設定。目前 18 個公會，包含資安、音樂創作與 MV、廣告攝影與影片；公會長未任命時如實顯示待任命。

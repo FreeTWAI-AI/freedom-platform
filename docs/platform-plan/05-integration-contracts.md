@@ -665,7 +665,7 @@ QualityReview綁`repository_id + commit_sha + artifact_digest + ReviewProtocolVe
 
 ### 10.1 Login、capability discovery 與職業選擇
 
-Claude、Codex、Grok CLI與其他相容Agent使用上述device/browser flow登入。Platform顯示client instance、principal、固定`agent.bootstrap.read`與expiry；核准後的connection token可A0讀本人最小Status／Feed，但要由active ExecutionGrant另換execution token才能執行A1–A3。本人可從定位draft確認，或直接以`POST /api/v1/me/onboarding-bundles`用stable profession key self-declare並原子取得Runner membership、WorkIntent、equipped set及全部後續refs；定位測驗不是工作入口條件，agent／UI不得要求手貼opaque ID。之後可一次建立`day1.learn-equip-and-claim`短效A0–A2 grant，server由journey解析單一profession、starter package與first low-risk WorkItem；它不是A4或未來合約同意。Agent不能代簽、不自行推定Master或工作承諾。Organization不得以員工的隱藏定位資料填空。
+Claude、Codex、Grok CLI 與其他相容 Agent 使用上述 device/browser flow 登入。Platform 顯示 client instance、principal、固定 `agent.bootstrap.read` 與 expiry；核准後的 connection token 可 A0 讀本人最小 Status／Feed，但要由 active ExecutionGrant 另換 execution token 才能執行 A1–A3。新註冊會員須先完成平台的封閉定位與主要公會；這個帳號前提同樣適用 Agent，不得用 `onboarding-bundles` 或 WorkIntent 繞過。已完成者與既有 `onboarding_required=false` 會員，可從定位 draft 確認，或以 `POST /api/v1/me/onboarding-bundles` 用 stable profession key 自行確認後續公會、WorkIntent、equipped set 與相關 refs；重新定位、公會歡迎與安裝旅程仍可略過，不是每次工作的前置條件。agent／UI 不得要求手貼 opaque ID。之後可建立 `day1.learn-equip-and-claim` 短效 A0–A2 grant，server 由 journey 解析單一 profession、starter package 與 first low-risk WorkItem；它不是 A4 或未來合約同意。Agent 不能代簽、不自行推定 Master 或工作承諾。Organization 不得以員工的隱藏定位資料填空。
 
 ### 10.2 每日工作與標準交付
 

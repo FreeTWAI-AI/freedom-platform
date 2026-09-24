@@ -257,7 +257,7 @@ Promoter不直接向Buyer收款；若某推廣者要統一結帳與收款，他�
 
 #### A. 供應者與賣家上架
 
-1. 任何人以 repo/commit、batch 或 service definition 提交 candidate；結構有效且本人確認即公開成「候選／待 QC」，可討論與測試（code/Skill亦可fork）。只有software／Skill／code的首次有效submission可啟用AI Vibe Runner ProfessionMembership／起始evidence；實體貨品、行銷、供應或service只形成其acting／corresponding Profession candidate evidence。兩者都不代表accepted、QC通過或official。
+1. 任何人以 repo/commit、batch 或 service definition 提交 candidate；結構有效且本人確認即公開成「候選／待 QC」，可討論與測試（code/Skill 亦可 fork）。software／Skill／code submission 保存來源、固定版本與起始 evidence；實體貨品、行銷、供應或 service 形成其 acting／corresponding Profession candidate evidence。投稿不自動入會，公會由本人另行選擇並確認；受保護的開發操作另查適用公會資格。這些 evidence 不代表 accepted、QC 通過或 official。
 2. 系統依 product type 指派公開的 `ReviewProtocolVersion`；AI／CI 執行 preflight 與 review evidence 準備。持該 exact scope 有效 `ReviewerAppointment`、且與 submitter 為不同自然人的 reviewer 檢視 evidence 並簽 exact digest 時，`official=true`；缺少此 evidence 時 `official=false`，candidate、修正、sandbox、staging 與內部 demo 仍照常進行。XP、rank 或 Master 身分不會自動任命 reviewer。
 3. Software／Skill community QC 永遠零費，累積 Field/Vibe 熟悉度與未來 FAE／support／implementation 優先；客戶出資的 testing/review/development 必須另建 customer-sponsored Project／ServiceEngagement，由 Squad 談 SOW／milestone／AllocationPlan，不把免費 QC 改成付費。實體／第三方商品的專門檢驗可另有 QC service Offer。
 4. Supplier 先發布 immutable SupplierOfferVersion：supplier net、availability、交付／退貨、`msrp`、`recommended_floor` 等；它只是可被 Seller 採用／協商的單方提案。Supplier 與 Seller 再對 exact version／overrides 建 DistributionAgreement，簽下 `reseller|sales_agent`、六個交易責任、供貨、payout/return 與 promotion split。MSRP/floor 是建議資訊，不是平台自動拒售規則。
@@ -745,7 +745,7 @@ Manifest 可增加欄位但不能偷換 capability readiness 的最低語意。`
 
 #### A. 上架
 
-1. 任何提交者連結 GitHub，選 software／Skill／code repository、tag／commit；最小 repository/commit/name/source relationship 結構驗證且本人確認後，立即建立公開 candidate，並可啟用 AI Vibe Runner ProfessionMembership／起始evidence；submitted、accepted、QC與official仍各自判定。非software／Skill／code submission不套用此Vibe啟用規則。
+1. 任何提交者連結 GitHub，選 software／Skill／code repository、tag／commit；最小 repository/commit/name/source relationship 結構驗證且本人確認後，建立公開 candidate 並保存來源、固定版本與起始 evidence。投稿不自動啟用 AI Vibe 或其他公會的 ProfessionMembership；本人另行選擇並確認入會，受保護的開發操作另查適用公會資格。submitted、accepted、QC 與 official 仍各自判定。
 2. GitHub App 讀完整 manifest，或提供建立 PR 的 scaffold。
 3. CI/schema validator 逐 capability 回報 path、欄位與修法；PackageVersion 保存 `capability_readiness{capability,state,validated_at,validator_version,report_ref}`，不再用一個全有或全無的 `integration_ready` 遮蔽差異。
 4. ReviewProtocol 產生 test/review WorkItems；AI/CI preflight 與 evidence review 不等真人排程。另一自然人 Field/authorized reviewer 提交 evidence，且有 authority 的人簽 exact commit decision 時 `official=true`；evidence 不足時維持 false，其他工作照常。Community software／Skill QC 永遠零費；funded testing/review另屬customer-sponsored Project／ServiceEngagement。
@@ -838,7 +838,7 @@ GitHub webhooks：installation/repository/installation_repositories、push/tag/r
 
 ### 8.2 登入與身份連結
 
-> 2026-09-24 現況：公開 beta 以 email／密碼＋server session 登入，註冊即收登入 email（取代下文對 email 的 progressive collection）。GitHub 只是可選 OAuth 連結（驗 GitHub user ID，用於 Star 與公會開發資格），不是登入 adapter，也尚未拒絕兩位會員連同一 GitHub 帳號。LINE Login、Discord 連結、identity merge、帳號恢復與一般 email 驗證仍待做；下文為目標規格。
+> 2026-09-24 現況：公開 beta 以 email／密碼＋server session 登入，註冊即收登入 email（取代下文對 email 的 progressive collection）。GitHub 只是可選 OAuth 連結（驗 GitHub user ID，用於 Star 與公會開發資格），不是登入 adapter；同一 GitHub user ID 全平台只能連一位會員，衝突回 409 且不洩漏原會員（[GitHub 身分唯一性](../development/github-identity-uniqueness.md)）。LINE Login、Discord 連結、identity merge、帳號恢復與一般 email 驗證仍待做；下文為目標規格。
 
 - 身份核心對 provider neutral；可回復 guest session 不依賴外部服務。現行 working default 以 LINE Login 作首個 adapter；LINE OA 與渠道的採購、帳號及環境細節只依 `08 §13`。OIDC/OAuth callback 只交換平台 session，不把 LINE access token 發給前端長期保存。Ted 可依轉換率 evidence 改換 provider，而不改 domain identity。
 - Discord/GitHub 是可選連結。未連結仍能定位與瀏覽；需要在相應外部系統執行動作時才提示連結。

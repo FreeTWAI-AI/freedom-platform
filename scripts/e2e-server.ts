@@ -7,20 +7,22 @@ import { migrate } from './database.js';
 import { seedLocal } from '../packages/testing/seed.js';
 import { collaborationGitHubFixture } from '../packages/testing/github-collaboration.js';
 import { e2eSchema } from '../packages/testing/e2e-auth-isolation.js';
+import { e2eOrigin, e2ePort } from '../packages/testing/e2e-origin.js';
 
 if(process.env.NODE_ENV==='production'||(process.env.FREEDOM_ENV&&process.env.FREEDOM_ENV!=='local'))throw Error('Browser test server is local-only.');
 if(process.env.FREEDOM_E2E_GITHUB_FIXTURES==='1')globalThis.fetch=async input=>collaborationGitHubFixture(input);
 
 // Dedicated schema; browser tests never reset the user's local demo records.
 const schema=e2eSchema(process.env.FREEDOM_E2E_SCHEMA);
+const port=e2ePort(),origin=e2eOrigin();
 const url=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
 const admin=createPool(url);await admin.query(`CREATE SCHEMA ${schema}`);
 const pool=new Pool({connectionString:url,options:`-c search_path=${schema}`});
 try {await migrate(pool);await seedLocal(pool);} catch(e) {await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();throw e;}
-const app=createApp(pool,'http://127.0.0.1:4311');
+const app=createApp(pool,origin);
 app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));
 app.get('*',serveStatic({path:'./apps/portal-web/dist/index.html'}));
-const server=serve({fetch:app.fetch,hostname:'127.0.0.1',port:4311});
+const server=serve({fetch:app.fetch,hostname:'127.0.0.1',port});
 let stopping=false;
 async function stop(){if(stopping)return;stopping=true;server.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();process.exit(0);}
 process.on('SIGTERM',()=>void stop());process.on('SIGINT',()=>void stop());

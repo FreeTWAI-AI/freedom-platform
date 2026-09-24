@@ -4,6 +4,10 @@
 
 > 2026-09-23 現況：公開會員 beta 與 Access 驗證管理／會長任命已有實作；完整簽章平面、Agent domain Skill、營運工時／容量首頁仍未完成。下文 2026-09-20 現況按其時點解讀，現行實作與缺口見 [落差盤點](../development/plan-drift-2026-09-23.md)。
 
+> 2026-09-24 現況：加入公會就取得對應的開發資格，離開最後一個適用公會就撤銷：技能開發對應 AI 開發或 AI 導入與驗證公會，平台開發對應平台開發公會。
+>
+> 幹部不需要逐件核准，也沒有替會員保管 GitHub 權限。Agent 只拿到 60 分鐘、只能提交提案的 key，不是本文 A0–A3 grant 或 domain Skill runtime 已經完成。見 [公會開發資格](../development/guild-development-access.md)。
+
 日期：2026-09-17
 
 本文是給幹部與 NotebookLM 的敘事入口，不是另一份規格。權威仍是 `00`–`08` 與 `contracts/`。成員與幹部的 Agent 只能執行具備 signed overlay、runtime-scope QC、current publisher authority、current revocation 與隔離載入 evidence 的 domain Skill；條件不成立就回 `capability_unavailable`。

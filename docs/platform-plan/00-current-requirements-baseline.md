@@ -6,6 +6,16 @@
 
 > 2026-09-23 實作範圍對照：code 共創任務及 PR 以 GitHub 為真相，平台先保存協調資料與唯讀摘要，尚非下文完整雙向 WorkItem 同步。Guild 由本人選擇加入，登錄作品不自動替本人加入其他 Guild。會員「裝備」指工具／訂閱，「技能書」指 Repo，不等於 Agent installation。公開會員 beta 以 Node＋PostgreSQL 運行，完整 56 packages／12 runtimes 與 signed control plane 仍是目標，見 [落差盤點](../development/plan-drift-2026-09-23.md)。
 
+> 2026-09-24 使用者需求（優先於下文舊說法）：
+> - 技能書技術開發需加入 AI 開發（`guild_ai_vibe`）或 AI 導入與驗證（`guild_ai_field`）公會；參與平台開發需加入平台開發公會（`guild_platform_engineering`）。加入即取得 grant，離開最後一個適用公會即 revoke。
+> - GitHub 身分 OAuth、App 安裝與細範圍 key 是不同層，任一層都不能代替另一層。
+> - 原作者 repo 與署名保留，共創從原作 fork。
+> - 名片可選男／女／外星人／AI，社群顯示名稱可改。
+>
+> 實作見 [公會開發資格](../development/guild-development-access.md) 與 [9/24 名片說明](../development/community-author-skills.md)。
+>
+> P9 與 §9 的「所有 test 未跑」保留為 9/19 規劃時點的描述；已上線 beta 子集的實跑結果見各版本紀錄。見 [2026-09-24 計畫對齊](../development/audit-2026-09-24-plan.md)。
+
 日期：2026-09-19
 代號：`SRC-CURRENT`
 
@@ -105,7 +115,7 @@ Vibe、Field、Project 的建議預設 holder 分別是韋銘、Jason、Mini，�
 - 專業知識、技能文件、社群教學與一般 Guild 訓練維持開源／免費；專屬於一人的時間、陪跑、責任、客製、部署、代管、算力或 SLA 可以收費。
 - 定位與陪跑由同一 Talent & Direction Guild 負責。定位指出方向，Guild 負責把人教會；付費陪跑購買專屬時間與容量，不是購買被鎖住的知識。
 - 任何人都能送出商品、技能、repo 或 PR candidate；candidate 可見、可討論、可改進。`official` 取決於 exact version／commit／batch 的 QC evidence 與獨立自然人 reviewer 標籤；標籤為 false 不影響 candidate 流程。
-- 結構有效且提交者本人確認的首次 software／Skill／code candidate，直接建立 AI Vibe Runner `ProfessionMembership` 與起始 evidence；不因此推定 submission accepted、QC 完成或 rank 提升。
+- 結構有效且提交者本人確認的 software／Skill／code candidate 保存來源、固定版本與起始 evidence；投稿不自動建立 `ProfessionMembership`。公會由本人另行選擇並確認加入，受保護的開發操作另查適用公會資格；不因此推定 submission accepted、QC 完成或 rank 提升。
 - 開源軟體／SkillPackage 的 community testing、review 與 QC 不收 review fee；客戶出資的 testing／review 是另一筆 `ServiceEngagement`。
 - 實體或第三方貨品的專業檢驗可以由 Product Quality & Supply Guild 定義檢驗費；費用與 QC 結論分開記錄。
 - 客戶或 sponsor 帶入 funded testing、review 或 development 時，由該案 Squad 協議 scope、費用與 `EngagementAllocationPlan`。

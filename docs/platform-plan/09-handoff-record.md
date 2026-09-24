@@ -2,6 +2,21 @@
 
 > 歷史更新：2026-09-20；以下本機交付紀錄保留其當時證據。2026-09-23 的公開會員 beta、user overrides 與仍未完成的能力見 [落差盤點](../development/plan-drift-2026-09-23.md)、[會員入口](../development/member-onboarding-release.md) 與 [公開運行手冊](../development/public-operations.md)；不把本頁舊「未部署」當作今日狀態。
 
+## 2026-09-24 狀態
+
+- 公開 beta：`main` `8338a424a40ec959e9fc7e22ba77cce64192301e` 已由 root 部署並驗證（既有交接 `/home/ted-h/projects/Freedom-Platform/HANDOFF-CODEX-EIGHT-AUTHOR-SKILLS-PROFILE-2026-09-24.md`：staging deployment 6632758320、16 項 HTTPS 檢查；public deployment 6632891104、22 項 HTTPS 檢查；CI Verify run 35970930028）。本審查引用該交接，沒有重新部署或重跑這些檢查。
+- 內容：37 本技能書、43 個原作 repo；GitHub Star 與開發資格 grant／revoke；名片的自選身分標籤與可改社群名稱。
+- 仍未建立完成證據：
+  - Day 1 的 HF-I01…I17
+  - Workers／Hyperdrive
+  - KMS／HSM 與 signed channel
+  - 金流
+  - LINE／Discord bot
+  - 真人互惠
+- `/home/ted-h/projects/Freedom-Platform/docs/platform-plan` 是 9/17 舊鏡像，內容落後且與現況矛盾（例如寫「不是 Git repository」），不能覆蓋本目錄。root 已在該目錄的兩個 README 加入指向本倉的現行來源指標，歷史副本保留。
+
+矛盾清單、對齊表與今日優先序見 [2026-09-24 計畫對齊](../development/audit-2026-09-24-plan.md)。
+
 ## 2026-09-20 本機版本增補
 
 `0.1.0-local-core` 已提供 React Portal、Hono API、PostgreSQL migration／seed 與持久化的工作、驗收、成果、作品、商機、合作及收款觀察。操作入口見 [運行手冊](../development/local-runtime.md)，實跑結果、範圍與待辦見 [版本紀錄](../releases/2026-09-20-local-core.md)。驗收只產生工作成果；不授予正式 QC、A4、rank 或款項。收款回報／對方確認不等於 provider／bank 核實。

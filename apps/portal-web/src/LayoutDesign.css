@@ -28,6 +28,15 @@
 .freedom-community .community-footprint { padding: 16px; }
 .account-panel { max-width: 1000px; }
 .account-panel > .btn { justify-self: start; }
+/* The skip link is taller than its old -40px offset and peeked into every page; hide it fully until focused. */
+.skip { top: 0; transform: translateY(-150%); display: inline-flex; align-items: center; min-height: 44px; }
+.skip:focus { top: 12px; transform: none; }
+/* DESIGN: touch targets are at least 44px; older rules left these at 42px. */
+.topbar-actions .btn, .auth-switch button { min-height: 44px; }
+.login-card .help-box { padding: 12px; border-radius: 12px; }
+.login-card .help-box p { margin: 0; }
+/* Sign-in keeps the whole logo and one concrete sentence; the form carries the rest. */
+.login-story-copy h1 { font-size: clamp(1.2rem, 1.8vw, 1.55rem); line-height: 1.55; letter-spacing: 0; margin: 0; word-break: keep-all; text-wrap: balance; }
 
 @media (min-width: 861px) {
   .shell { grid-template-columns: 224px minmax(0, 1fr); }
@@ -65,4 +74,12 @@
   .skills-panel .skill-library-filters { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 10px; }
   .freedom-community .community-entry-hero { grid-template-columns: minmax(0, 1fr); padding: 14px; gap: 12px; }
   .freedom-community .community-entry-hero .brand-poster { max-width: 240px; }
+  /* Phones: whole logo, then the sign-in form, then the story copy; members should not scroll past the pitch to log in. */
+  .login-story { display: contents; }
+  .login-story .brand-poster { order: 0; }
+  .login-form-area { order: 1; }
+  .login-story-copy { order: 2; }
+  .login-layout > .development-context { order: 3; }
+  .login-layout > .community-footer { order: 4; }
+  .login-story-copy h1 { font-size: 1.1rem; }
 }
