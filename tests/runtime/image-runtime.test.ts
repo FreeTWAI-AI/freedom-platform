@@ -91,7 +91,7 @@ test('shared checks reject APNG, animated WebP, mislabels and oversize before an
 
 test('Node processor enforces dimension and pixel limits from the frozen spec', async () => {
   await rejects(normalizeCoverImage('image/png', b64(await solid(4097, 1, 'red').png().toBuffer())), 422, 'invalid_cover_image');
-  const spec: ImageNormalizeSpec = { purpose: 'skill_cover', format: 'png', maxDimension: 4096, maxPixels: 64 * 48 - 1, output: { width: 16, height: 16, fit: 'cover', quality: 82, effort: 3 } };
+  const spec: ImageNormalizeSpec = { purpose: 'skill_cover', format: 'png', maxDimension: 4096, maxPixels: 64 * 48 - 1, maxOutputBytes: 4096, output: { width: 16, height: 16, fit: 'cover', quality: 82, effort: 3 } };
   await assert.rejects(nodeImageProcessor.normalize(png, spec));
   await assert.rejects(nodeImageProcessor.normalize(png, { ...spec, maxPixels: 1 << 20, maxDimension: 63 }));
   await assert.rejects(nodeImageProcessor.normalize(png, { ...spec, maxPixels: 1 << 20, format: 'jpeg' }));
@@ -169,7 +169,7 @@ test('processors get a frozen spec and a private copy of the input bytes', async
   } };
   const tampered = await runWithImageProcessor(tamper, () => normalizeCoverImage('image/png', b64(png)));
   assert.ok(tampered.original.equals(png));
-  assert.deepEqual(seen, { purpose: 'skill_cover', format: 'png', maxDimension: 4096, maxPixels: 16_777_216, output: { width: 1200, height: 630, fit: 'contain', background: '#101827', quality: 82, effort: 4 } });
+  assert.deepEqual(seen, { purpose: 'skill_cover', format: 'png', maxDimension: 4096, maxPixels: 16_777_216, maxOutputBytes: 524288, output: { width: 1200, height: 630, fit: 'contain', background: '#101827', quality: 82, effort: 4 } });
 });
 
 test('processor scope is request-local across interleaved async work and restores the Node default', async () => {

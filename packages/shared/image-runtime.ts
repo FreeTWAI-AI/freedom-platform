@@ -17,6 +17,8 @@ export interface ImageNormalizeSpec {
   readonly format: RasterFormat;
   readonly maxDimension: number;
   readonly maxPixels: number;
+  // Callers still apply their own limit; streaming processors stop reading here.
+  readonly maxOutputBytes: number;
   readonly output: ImageOutputSpec;
 }
 export interface ImageProcessor {

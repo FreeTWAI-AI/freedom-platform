@@ -108,7 +108,7 @@ export async function normalizeCoverImage(mime: string, data: string): Promise<{
   rejectAnimation(original, format);
   try {
     // The request's processor (sharp on Node) fully decodes, orients and strips metadata.
-    const webp = await normalizeImage(original, { purpose: 'skill_cover', format, maxDimension: COVER_MAX_DIMENSION, maxPixels: COVER_MAX_PIXELS,
+    const webp = await normalizeImage(original, { purpose: 'skill_cover', format, maxDimension: COVER_MAX_DIMENSION, maxPixels: COVER_MAX_PIXELS, maxOutputBytes: COVER_MAX_BYTES,
       output: { width: COVER_OUTPUT_WIDTH, height: COVER_OUTPUT_HEIGHT, fit: 'contain', background: '#101827', quality: 82, effort: 4 } });
     requireCondition(webp.length > 0 && webp.length <= COVER_MAX_BYTES, 422, 'invalid_cover_image', '這張示意圖壓縮後仍過大，請換一張較簡單的圖片。');
     return { original, webp };

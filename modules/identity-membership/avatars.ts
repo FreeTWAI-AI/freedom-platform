@@ -8,6 +8,7 @@ import type { Actor } from './service.js';
 
 export const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 export const AVATAR_MAX_DIMENSION = 4096;
+const AVATAR_MAX_OUTPUT_BYTES = 131072;
 export const AVATAR_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const invalidImage = () => new Problem(422, 'invalid_avatar', '圖片無法使用。請選擇完整的靜態 JPEG、PNG 或 WebP，長寬各不超過 4096 像素。');
 
@@ -46,9 +47,9 @@ async function normalizeAvatar(bytes: Buffer, mime: string): Promise<Buffer> {
   }
   try {
     // The request's processor (sharp on Node) fully decodes, orients and strips metadata.
-    const normalized = await normalizeImage(bytes, { purpose: 'avatar', format, maxDimension: AVATAR_MAX_DIMENSION, maxPixels: AVATAR_MAX_DIMENSION ** 2,
+    const normalized = await normalizeImage(bytes, { purpose: 'avatar', format, maxDimension: AVATAR_MAX_DIMENSION, maxPixels: AVATAR_MAX_DIMENSION ** 2, maxOutputBytes: AVATAR_MAX_OUTPUT_BYTES,
       output: { width: 256, height: 256, fit: 'cover', quality: 82, effort: 3 } });
-    requireCondition(normalized.length <= 131072, 422, 'invalid_avatar', '這張圖片無法縮成頭像，請換一張圖片。');
+    requireCondition(normalized.length <= AVATAR_MAX_OUTPUT_BYTES, 422, 'invalid_avatar', '這張圖片無法縮成頭像，請換一張圖片。');
     return normalized;
   } catch (error) {
     if (error instanceof Problem) throw error;
