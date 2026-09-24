@@ -168,6 +168,30 @@ test('read cursors are scoped to one room, only move forward, exclude own messag
   assert.equal((await request('/me/channels?kind=guild',b)).data.unread_count,1,'B still has A\'s message unread');
 });
 
+test('squad path aliases share one idempotency operation, so a key never inserts twice or hides a later message',async()=>{
+  const [a,b]=await signInAll();const s=await squad(A,[B]);
+  // Uppercase, lowercase and a percent-encoded uppercase spelling name the same room.
+  const encoded=s.toUpperCase().replace(/[A-F-]/g,ch=>'%'+ch.charCodeAt(0).toString(16).toUpperCase());
+  const receiptsFor=(key:string)=>count('command_receipts WHERE user_id=$1 AND idempotency_key=$2',[A,key]);
+  const sendKey=randomUUID(),sends=[];
+  for(const alias of [s.toUpperCase(),s,encoded])sends.push(await post(a,'squad',alias,'別名同一則',{key:sendKey}));
+  for(const sent of sends){assert.equal(sent.status,201,JSON.stringify(sent.data));assert.deepEqual(sent.data,sends[0].data);}
+  assert.equal(sends[0].data.sequence,'1');assert.equal(sends[0].data.channel_key,s);
+  assert.equal(await count('member_channel_messages WHERE channel_key=$1',[s]),1);assert.equal(await receiptsFor(sendKey),1);
+  assert.equal((await post(a,'squad',s,'不同內容',{key:sendKey})).data.code,'idempotency_conflict');
+
+  const m1=(await post(b,'squad',s,'一')).data,readKey=randomUUID();
+  const marked=await read(a,'squad',s.toUpperCase(),m1.message_id,{key:readKey});assert.equal(marked.status,200,JSON.stringify(marked.data));
+  const m2=(await post(b,'squad',s,'二')).data;
+  assert.deepEqual(await read(a,'squad',s,m1.message_id,{key:readKey}),marked,'a lowercase replay returns the original result');
+  assert.deepEqual(await read(a,'squad',encoded,m1.message_id,{key:readKey}),marked,'an encoded replay returns the original result');
+  assert.equal(await receiptsFor(readKey),1);
+  const moved=await read(a,'squad',s,m2.message_id,{key:readKey});
+  assert.equal(moved.status,409,JSON.stringify(moved.data));assert.equal(moved.data.code,'idempotency_conflict');
+  assert.equal((await messages(a,'squad',s)).data.unread_count,1,'the later message stays unread');
+  assert.equal((await pool.query('SELECT last_read_sequence::int AS n FROM member_channel_reads WHERE user_id=$1',[A])).rows[0].n,Number(m1.sequence));
+});
+
 test('one sender budget covers guild and squad sends under concurrency, while same-key requests and replays add nothing',async()=>{
   const [a]=await signInAll();
   await joinGuild(A,'guild_marketing');const s=await squad(A);
