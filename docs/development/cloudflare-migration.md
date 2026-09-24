@@ -106,6 +106,7 @@ node --test deploy/cloudflare/test/*.test.mjs
 - Roles（[10-create-roles.psql](../../deploy/cloudflare/sql/10-create-roles.psql)）：
   - 先以 PlanetScale default role 建立 `freedom_staging_next`／`freedom_next` database，再建立 least-privilege 的 `*_migrator` 與 `*_app`。
   - 密碼以 `\getenv` 讀取；psql 與 pg_restore 一律用 `service=<name>`（PGSERVICEFILE／PGPASSFILE 在 0600 目錄），命令列上沒有 host、user 或密碼。
+  - PlanetScale 路由：SQL `CREATE ROLE`／`GRANT`／`ALTER DEFAULT PRIVILEGES` 用**不帶後綴**的 role 名（勿修改）；TLS 連線 username 必須是 `<role>.<branch-id>`（migrator service entry、Hyperdrive `user=${runtime}.<branch-id>`），`<branch-id>` 是 provider connect metadata 的實際 branch ID，不是字面 `main` 或猜測值；default role 用 provider 提供的 username 原樣。依據 [PlanetScale roles](https://planetscale.com/docs/postgres/connecting/roles)。
 - Grants（[20-runtime-grants.psql](../../deploy/cloudflare/sql/20-runtime-grants.psql)）：runtime 只有 DML，ledger 唯讀。所有 advisory lock 都是 transaction-scoped，相容於 Hyperdrive pooling。
 - 驗證（[30-verify-readonly.psql](../../deploy/cloudflare/sql/30-verify-readonly.psql)）：只輸出計數與布林值，`@local.test` 帳號數必須為 0。
 - 還原：`pg_restore --no-owner --no-privileges --exit-on-error --single-transaction` 到空 DB，之後重跑 grants 與驗證。

@@ -4,7 +4,10 @@ import { assertMutationTarget } from './manifest.mjs';
 // Placeholders are literal strings; the plan never contains IDs, hosts, passwords, tokens or signatures.
 const HD_API = 'https://api.cloudflare.com/client/v4/accounts/<account>/hyperdrive/configs';
 // libpq service names resolve through PGSERVICEFILE/PGPASSFILE in the chmod 600 private directory,
-// so no host, user or password is on a command line.
+// so no host, user or password is on a command line. PlanetScale TLS usernames carry the branch
+// routing suffix: the migrator service entry uses user=<migrator>.<branch-id>, the admin entry the
+// provider-supplied default-role username as given. SQL role names (CREATE ROLE/GRANT) never do.
+const BRANCH_ID = '<branch-id>';
 const svc = (prefix, role) => `service=${prefix}_${role}`;
 
 /**
@@ -40,7 +43,7 @@ export function buildProvisionPlan(manifest, envKey) {
       ? { id: 'schema', mutation: true, target: ['database', db.name], actor: 'operator', action: 'Apply migrations 001–037 as the migrator with the repository runner, then a synthetic community only. Never seedLocal (no @local.test), never staging/public data.' }
       : { id: 'restore-rehearsal', mutation: true, target: ['database', db.name], actor: 'operator', command: `pg_restore --no-owner --no-privileges --exit-on-error --single-transaction -d "${svc(prefix, 'migrator')}" <verified full public backup in private dir>`, action: 'Take and checksum-verify a fresh full freedom_public backup first (old site keeps running); restore into the EMPTY candidate DB; migration runner must be a no-op; revoke restored sessions; read-only verification SQL.' },
     { id: 'grants', mutation: true, target: ['db_role', db.roles.runtime], actor: 'operator', command: `psql "${svc(prefix, 'migrator')}" -v ON_ERROR_STOP=1 -v env_prefix=${prefix} -f deploy/cloudflare/sql/20-runtime-grants.psql`, action: 'DML-only runtime role; ledger read-only.' },
-    { id: 'hyperdrive', mutation: true, target: ['hyperdrive', hd.name], actor: 'operator (deploy token)', command: `curl -X POST ${HD_API} -H @<auth header fd> --data-binary @<chmod 600 body: name=${hd.name}, origin=PlanetScale ${db.name} over TLS, user=${db.roles.runtime}, caching.disabled=true>`, action: `The only DB config for binding ${hd.binding}; caching disabled for every platform query.` },
+    { id: 'hyperdrive', mutation: true, target: ['hyperdrive', hd.name], actor: 'operator (deploy token)', command: `curl -X POST ${HD_API} -H @<auth header fd> --data-binary @<chmod 600 body: name=${hd.name}, origin=PlanetScale ${db.name} over TLS, user=${db.roles.runtime}.${BRANCH_ID} (actual provider branch ID from connect metadata, not literal main or guessed; SQL role stays ${db.roles.runtime}), caching.disabled=true>`, action: `The only DB config for binding ${hd.binding}; caching disabled for every platform query.` },
     { id: 'hyperdrive-verify', mutation: false, actor: 'operator', command: `node deploy/cloudflare/preflight.mjs wrangler --config <runtime wrangler.jsonc with real id> --env-file <chmod 600>`, action: 'Hard gate: provider GET must return caching.disabled === true. A comment, variable or HTTP no-store header is not proof.' },
     ...env.r2_buckets.map((b) => ({ id: `r2-${b.name}`, mutation: true, optional: b.optional, target: ['r2_bucket', b.name], actor: 'operator (deploy token)', command: `wrangler r2 bucket create ${b.name}`, action: 'Private bucket; no r2.dev, no custom domain. Only when the Worker binds it.' })),
     { id: 'secrets', mutation: true, target: ['worker', env.worker.name], actor: 'operator (deploy token)', command: `wrangler secret put <NAME> --name ${env.worker.name} < <private file>`, action: `Secrets ${env.secret_names.join(', ')} from stdin. ${env.data_source === 'synthetic' ? 'Fresh random values.' : 'Rehearsal uses a NEW GITHUB_SOCIAL_TOKEN_KEY so restored GitHub credentials cannot be used (no stars/messages); the live key moves only at cutover.'}` },

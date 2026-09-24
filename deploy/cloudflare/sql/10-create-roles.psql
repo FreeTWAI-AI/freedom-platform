@@ -2,6 +2,8 @@
 -- Not executed in the preflight phase. Passwords are read from the environment of a subshell
 -- that sourced a chmod 600 file; they never appear in argv, this file, or shell history.
 --   psql "service=freedom_next_admin" -v ON_ERROR_STOP=1 -v env_prefix=freedom_next -f 10-create-roles.psql
+-- Role names here are plain SQL names; do NOT append .<branch-id>. Only PlanetScale TLS connection
+-- usernames (psql service entries, Hyperdrive user) use <role>.<branch-id> for branch routing.
 \getenv migrator_password FREEDOM_MIGRATOR_PASSWORD
 \getenv runtime_password FREEDOM_RUNTIME_PASSWORD
 \if :{?migrator_password}

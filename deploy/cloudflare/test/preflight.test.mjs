@@ -228,6 +228,12 @@ test('provision plan is dry-run, guarded, secret-free and never produces a billi
     assert.ok(idx('access-app') < idx('deploy'), 'Access before deploy');
     assert.ok(idx('hyperdrive') < idx('hyperdrive-verify') && idx('hyperdrive-verify') < idx('deploy'), 'caching read-back gates deploy');
     assert.match(plan.steps[idx('hyperdrive')].command, /caching\.disabled=true/);
+    const roles = manifest().environments[env].database.roles;
+    assert.ok(plan.steps[idx('hyperdrive')].command.includes(`user=${roles.runtime}.<branch-id> `), 'TLS username carries branch suffix');
+    assert.deepEqual(plan.steps[idx('roles')].target, ['db_role', roles.migrator]);
+    assert.deepEqual(plan.steps[idx('grants')].target, ['db_role', roles.runtime]);
+    assert.doesNotMatch(roles.migrator + roles.runtime, /\./, 'SQL role names stay unsuffixed');
+    assert.doesNotMatch(plan.steps[idx('roles')].command + plan.steps[idx('grants')].command, /<branch-id>/);
     assert.equal(plan.steps.filter((s) => s.target?.[0] === 'hyperdrive').length, 1, 'exactly one Hyperdrive config');
     const db = plan.steps[idx('ps-database')];
     assert.match(db.alternatives.cli, /^wrangler hyperdrive planetscale signature \| DBUS_SESSION_BUS_ADDRESS=unix:path=\/dev\/null pscale database create freedom-(staging-)?next-pg --org ted-ted-h --engine postgresql --region ap-northeast --cloudflare-billing @- --format json$/);
