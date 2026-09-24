@@ -5,7 +5,7 @@ Local tests of the tool: `tests/e2e/cloud-candidate-acceptance.spec.ts`.
 
 ## Current state (2026-09-24)
 
-- No cloud candidate resources exist yet. `https://staging-next.freetwai.com` and `https://next.freetwai.com` are **not provisioned**.
+- Candidate Workers, PlanetScale databases and Hyperdrive configurations are not yet provisioned. Four candidate Access apps have been created and GET-verified, as recorded in [the 2026-09-24 migration status](../docs/development/cloudflare-migration-status-2026-09-24.md). `https://staging-next.freetwai.com` and `https://next.freetwai.com` are **not provisioned**.
 - Every remote gate below is **not_run**. A passing local spec only shows the tool works against the isolated loopback E2E server. Its report says `harness: local_harness`, `cloud_proof: false`. The local Node server's health has the five Node fields only; the harness checks that shape and reports `provenance: not_asserted_local_node`, so it proves no runtime or release SHA.
 - `cloud_proof: true` needs an `execute` against a candidate where every selected phase passed, including health with the Worker runtime and the expected release SHA. It proves nothing about Cloudflare, the candidate databases or production performance.
 - The old live hosts `freetwai.com` and `staging.freetwai.com` cannot be addressed by this tool. The old `verify-staging.mjs`, `verify-public.mjs` and `verify-member-settings.mjs` are not imported or reused. They hard-code old hosts, use demo accounts, create accounts or read member inboxes.
