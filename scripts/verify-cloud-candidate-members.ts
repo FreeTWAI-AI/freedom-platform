@@ -109,6 +109,13 @@ async function revokeSession(client: MemberClient): Promise<'restored' | 'restor
     return reply.status === 200 && !client.hasSession() ? 'restored' : 'restore_failed';
   } catch { return 'restore_failed'; }
 }
+/** After HTTP 201, revoke on this origin and always name the label for root. Never throws. */
+async function recordRegisteredMemberCleanup(ctx: MemberCtx, client: MemberClient, label: string, holdSession: boolean) {
+  let revoked: 'restored' | 'restore_failed' = 'restore_failed';
+  try { revoked = holdSession ? await revokeSession(client) : 'restore_failed'; } catch { revoked = 'restore_failed'; }
+  ctx.cleanup(`revoked sessions of synthetic member ${label}`, revoked);
+  ctx.cleanup(`synthetic member ${label}: root deactivates this cand-reg member in the candidate database`, 'cleanup_required');
+}
 function rememberSession(secrets: SecretBag, client: MemberClient, reply: MemberReply) {
   const body = payload(secrets, reply);
   secrets.add(body?.user?.email);
@@ -126,6 +133,13 @@ function firstGuild(items: unknown, developmentGuilds: readonly string[], skip: 
     if (builtinGuild(key, developmentGuilds, skip)) return key;
   }
   return null;
+}
+/** Catalog rows plus the caller's own membership. No other member's identity. */
+async function guildCatalog(secrets: SecretBag, client: MemberClient) {
+  const reply = await client.request('GET', '/api/v1/guilds');
+  const body = payload(secrets, reply);
+  const items = Array.isArray(body?.items) ? body.items as any[] : [];
+  return { reply, items };
 }
 function answersFrom(definition: any) {
   const questions = definition?.questions;
@@ -159,10 +173,9 @@ async function establishMember(deps: MemberPhaseDeps, client: MemberClient, guil
   const version = evaluatedBody?.draft?.aggregate_version;
   let key = guildKey;
   if (!key) {
-    const directory = await client.request('GET', '/api/v1/guilds/directory');
-    seal(secrets, directory.status === 200 ? directory.json() : undefined);
-    key = directory.status === 200 ? firstGuild(directory.json()?.items, developmentGuilds) : null;
-    ctx.check(ids.guild, directory.status === 200 && !!key, problem(directory));
+    const catalog = await guildCatalog(secrets, client);
+    key = catalog.reply.status === 200 ? firstGuild(catalog.items, developmentGuilds) : null;
+    ctx.check(ids.guild, catalog.reply.status === 200 && !!key, problem(catalog.reply));
   }
   const completeBody = { guild_keys: [key], primary_guild_key: key, confirmed: true };
   const completeKey = randomUUID();
@@ -250,25 +263,25 @@ export async function runRegistrationPhase(deps: MemberPhaseDeps) {
     const reloginFailed = loggedOut.status !== 200 || !noStore(loggedOut) ? loggedOut : !cleared ? loggedOut : replayed.status !== 401 ? replayed : again.status !== 200 ? again : still;
     ctx.check('relogin_same_account', reloginOk, !cleared && loggedOut.status === 200 ? 'cookie_not_cleared' : problem(reloginFailed));
 
-    const directory = await client.request('GET', '/api/v1/guilds/directory');
-    const directoryBody = payload(secrets, directory);
-    const guild = Array.isArray(directoryBody?.items) ? directoryBody.items.find((item: any) => item?.guild_key === established.guildKey) : undefined;
+    const catalog = await guildCatalog(secrets, client);
+    const guild = catalog.items.find((item: any) => item?.guild_key === established.guildKey);
+    const primaryRead = await client.request('GET', '/api/v1/me/guild-preferences');
+    const primaryBody = payload(secrets, primaryRead);
     const github = await client.request('GET', '/api/v1/me/github');
     const githubBody = payload(secrets, github);
     const githubState = github.status === 200 ? (githubBody?.connected === true ? 'done' : githubBody?.configured === true ? 'incomplete' : 'unavailable')
       : github.status === 503 || githubBody?.code === 'github_setup_unavailable' ? 'unavailable' : 'error';
     const positioning = stillBody?.completed === true ? 'done' : 'incomplete';
-    const primary = guild?.membership?.state === 'active' && guild?.is_primary === true ? 'done' : 'incomplete';
+    const primary = catalog.reply.status === 200 && guild?.membership?.state === 'active' && primaryRead.status === 200 && primaryBody?.primary_guild_key === established.guildKey ? 'done' : 'incomplete';
     ctx.metric('member_todos', { positioning, primary_guild: primary, github: githubState });
-    ctx.check('member_todos_state', positioning === 'done' && primary === 'done' && (githubState === 'unavailable' || githubState === 'incomplete'), githubState === 'error' ? problem(github) : githubState === 'done' ? 'github_done' : problem(directory));
+    const primaryProblem = catalog.reply.status === 200 ? primaryRead : catalog.reply;
+    ctx.check('member_todos_state', positioning === 'done' && primary === 'done' && (githubState === 'unavailable' || githubState === 'incomplete'), githubState === 'error' ? problem(github) : githubState === 'done' ? 'github_done' : problem(primaryProblem));
     ctx.metric('member_label', who.label);
     ctx.metric('onboarding_completed', true);
     state.primary = { ...who, userId, guildKey: established.guildKey };
   } finally {
     if (created) {
-      const revoked = uncaptured ? 'restore_failed' : await revokeSession(client);
-      ctx.cleanup(`revoked sessions of synthetic member ${who.label}`, revoked);
-      ctx.cleanup(`synthetic member ${who.label}: root deactivates this cand-reg member in the candidate database`, 'cleanup_required');
+      await recordRegisteredMemberCleanup(ctx, client, who.label, !uncaptured);
       ctx.cleanup('member row, command receipts, positioning assessment and guild membership of the synthetic member', 'residual_expected');
     }
   }
@@ -287,11 +300,16 @@ async function registerPeer(deps: MemberPhaseDeps, guildKey: string) {
   secrets.add(who.email); secrets.add(who.password);
   const client = deps.openClient();
   const registered = await client.request('POST', '/api/v1/auth/register', { json: { email: who.email, password: who.password, nickname: who.nickname }, csrf: null });
+  const created = registered.status === 201;
   const body = rememberSession(secrets, client, registered);
-  ctx.check('peer_register_created', registered.status === 201 && client.hasSession() && typeof body?.user?.user_id === 'string' && body?.user?.display_name === who.nickname, problem(registered));
-  const established = await establishMember(deps, client, guildKey, PEER_STEPS);
-  ctx.check('peer_primary_matches', established.guildKey === guildKey);
-  return { client, member: { ...who, userId: String(body.user.user_id), guildKey } as ProvisionedMember };
+  try {
+    ctx.check('peer_register_created', created && client.hasSession() && typeof body?.user?.user_id === 'string' && body?.user?.display_name === who.nickname, problem(registered));
+    const established = await establishMember(deps, client, guildKey, PEER_STEPS);
+    return { client, member: { ...who, userId: String(body.user.user_id), guildKey: established.guildKey } as ProvisionedMember };
+  } catch (error) {
+    if (created) await recordRegisteredMemberCleanup(ctx, client, who.label, client.hasSession());
+    throw error;
+  }
 }
 async function directCount(secrets: SecretBag, client: MemberClient, peerId: string) {
   const reply = await client.request('GET', `/api/v1/me/conversations/${peerId}/messages?limit=20&offset=0`);
@@ -299,16 +317,16 @@ async function directCount(secrets: SecretBag, client: MemberClient, peerId: str
   return { reply, body, count: reply.status === 200 ? listItems(body).length : -1 };
 }
 async function joinGuild(secrets: SecretBag, client: MemberClient, key: string) {
-  const directory = await client.request('GET', '/api/v1/guilds/directory');
-  const item = listItems(payload(secrets, directory)).find(entry => entry?.guild_key === key);
+  const catalog = await guildCatalog(secrets, client);
+  const item = catalog.items.find(entry => entry?.guild_key === key);
   const version = item?.membership?.aggregate_version;
   const reply = await client.request('POST', `/api/v1/guilds/${key}/join`, { json: {}, idempotency: true, ...(version === undefined || version === null ? {} : { ifMatch: version }) });
   payload(secrets, reply);
   return reply;
 }
 async function leaveGuild(secrets: SecretBag, client: MemberClient, key: string) {
-  const directory = await client.request('GET', '/api/v1/guilds/directory');
-  const item = listItems(payload(secrets, directory)).find(entry => entry?.guild_key === key);
+  const catalog = await guildCatalog(secrets, client);
+  const item = catalog.items.find(entry => entry?.guild_key === key);
   if (item?.membership?.state !== 'active') return { status: item?.membership?.state === 'left' || item?.membership == null ? 'absent' : 'unknown' as const, reply: null };
   const reply = await client.request('POST', `/api/v1/guilds/${key}/leave`, { json: {}, ifMatch: item.membership.aggregate_version, idempotency: true });
   payload(secrets, reply);
@@ -337,8 +355,8 @@ async function guildChannels(deps: MemberPhaseDeps, a: MemberClient, b: MemberCl
   const afterRoom = listItems(afterBody).find(item => item?.channel_key === guildKey);
   ctx.check('guild_channel_marked_read', marked.status === 200 && after.status === 200 && afterRoom?.unread_count === 0, problem(marked.status === 200 ? after : marked));
 
-  const directory = await a.request('GET', '/api/v1/guilds/directory');
-  const secondary = firstGuild(payload(secrets, directory)?.items, developmentGuilds, [guildKey]);
+  const catalog = await guildCatalog(secrets, a);
+  const secondary = firstGuild(catalog.items, developmentGuilds, [guildKey]);
   if (!secondary) {
     ctx.metric('secondary_guild', 'not_run');
     ctx.metric('secondary_guild_reason', 'secondary_guild_join_unavailable');
@@ -543,7 +561,7 @@ export async function runMessagesPhase(deps: MemberPhaseDeps) {
 }
 
 /** Mobile viewport UI for the direct-message thread. Returns whether UI logout completed. */
-export async function runMessagesMobile(page: any, context: any, ctx: MemberCtx, state: MemberRunState, secrets: SecretBag, origin: string): Promise<boolean> {
+export async function runMessagesMobile(page: any, context: any, ctx: MemberCtx, state: MemberRunState, secrets: SecretBag, origin: string, guildSummaryUnreadAllowed = false): Promise<boolean> {
   const primary = state.primary, peer = state.peer, last = state.lastDirectBody;
   ctx.check('messages_context_available', !!primary && !!peer && typeof last === 'string' && last.length > 0);
   if (!primary || !peer || !last) return false;
@@ -581,7 +599,9 @@ export async function runMessagesMobile(page: any, context: any, ctx: MemberCtx,
   try { await direct.filter({ hasText: '沒有未讀' }).waitFor({ timeout: 20000 }); tabClear = true; } catch { tabClear = false; }
   const rowAfter = String(await row.innerText());
   const dot = await page.locator('.settings-dot').count();
-  ctx.check('unread_consistent', !rowUnread && tabClear && !rowAfter.includes('則未讀') && dot === 0);
+  // On next the shell's guild summary can count real messages. That badge is not cleared: history stays closed.
+  if (guildSummaryUnreadAllowed) ctx.metric('guild_summary_unread', 'not_cleared');
+  ctx.check('unread_consistent', !rowUnread && tabClear && !rowAfter.includes('則未讀') && (guildSummaryUnreadAllowed || dot === 0));
   ctx.check('no_horizontal_overflow', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth) === true);
   await page.getByRole('button', { name: '登出', exact: true }).click();
   await page.getByRole('button', { name: '登入', exact: true }).waitFor({ state: 'visible', timeout: 20000 });

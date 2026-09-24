@@ -205,6 +205,25 @@ test('secrets that JSON escapes and long echoed secrets are redacted, never trun
   expect(report.redaction_applied).toBe(true);
 });
 
+test('Secrets.scrub removes an injected secret from a note and a metric and sets redaction_applied',()=>{
+  const secret='injected-report-secret-0001';
+  const secrets=new Secrets();
+  secrets.add(secret);
+  const draft={
+    redaction_applied:false,
+    phases:[{checks:[{id:'injected',status:'fail' as const,note:`before ${secret} after`}],metrics:{leaked:secret}}],
+  };
+  const {value,hit}=secrets.scrub(draft);
+  value.redaction_applied=hit;
+  expect(hit).toBe(true);
+  expect(value.redaction_applied).toBe(true);
+  const text=JSON.stringify(value);
+  expect(text).not.toContain(secret);
+  expect(value.phases[0]?.checks[0]?.note).toBe('before [REDACTED] after');
+  expect(value.phases[0]?.metrics?.leaked).toBe('[REDACTED]');
+  expect(JSON.parse(text)).toEqual(value);
+});
+
 /** Join response override: body version (`raw` is sent verbatim as JSON text) and ETag (null omits it). */
 type JoinWire={version?:unknown;raw?:string;etag?:string|null};
 /** In-memory candidate for guild-cache: real-shaped routes plus knobs for stale reads, failed cleanup lookups and the join wire shape. */
@@ -230,7 +249,7 @@ function guildCandidate(knobs:{stale?:'join'|'leave';failAfterJoin?:'status500'|
       const eligible=stale>0?(stale--,staleEligible):state==='active';
       return {status:200,json:{eligible,enabled:false,consent:null,guilds:[{guild_key:'guild_ai_vibe',state}],keys:[],grant:null,app:{configured:false}}};
     }
-    if(path==='/api/v1/guilds/directory'){
+    if(path==='/api/v1/guilds'){
       if(joined&&knobs.failAfterJoin==='status500')return {status:500,json:{code:'internal'}};
       if(joined&&knobs.failAfterJoin==='throw')throw Object.assign(new Error('reset'),{name:'TypeError'});
       return {status:200,json:{items:[{guild_key:'guild_ai_vibe',membership:state?{state,aggregate_version:version}:null}]}};
@@ -307,7 +326,7 @@ test('guild join fails on a mismatched or malformed ETag and on any non positive
     expect(phase,label).toMatchObject({status:'fail',reason:'join_active_versioned',metrics:{join_etag:'invalid'}});
     expect(phase.checks.at(-1),label).toEqual({id:'join_active_versioned',status:'fail',note:'etag invalid'});
     expect(report.cloud_proof).toBe(false);
-    // No stale or leave write was attempted from the rejected response; cleanup left through a fresh directory read.
+    // No stale or leave write was attempted from the rejected response; cleanup left through a fresh catalog read.
     const leaves=server.calls.filter(call=>call.method==='POST'&&new URL(call.url).pathname.endsWith('/leave'));
     expect(leaves,label).toHaveLength(1);expect(leaves[0].headers['If-Match']).toBe('"1"');
     expect(guildCleanup(report),label).toBe('restored');expect(server.membership(),label).toBe('left');
@@ -322,7 +341,7 @@ test('guild-cache cleanup reports restore_failed, never restored, when the membe
     expect(guildCleanup(report),failAfterJoin).toBe('restore_failed');
     expect(report.cleanup.required).toBe(true);
     // The lookup failure is not turned into a check or a leave attempt.
-    const finalCalls=server.calls.slice(server.calls.findLastIndex(call=>new URL(call.url).pathname==='/api/v1/guilds/directory')+1);
+    const finalCalls=server.calls.slice(server.calls.findLastIndex(call=>new URL(call.url).pathname==='/api/v1/guilds')+1);
     expect(finalCalls.some(call=>call.method==='POST'&&new URL(call.url).pathname.endsWith('/leave'))).toBe(false);
   }
 });
@@ -626,21 +645,53 @@ function phaseFailures(phases:{id:string;status:string;reason?:string;checks:{id
   return phases.filter(phase=>phase.status==='fail').map(phase=>`${phase.id}:${phase.reason??''} ${phase.checks.filter(check=>check.status==='fail').map(check=>`${check.id}${check.note?`(${check.note})`:''}`).join(',')}`);
 }
 
+function remember(seen:Set<string>,value:unknown){
+  if(typeof value==='string'&&value.length>0)seen.add(value);
+}
+function rememberJson(seen:Set<string>,node:unknown,key?:string){
+  if(typeof node==='string'){
+    if(key==='body'||key==='password'||key==='email'||key==='csrf_token'||node.includes('@'))remember(seen,node);
+    if(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(node))remember(seen,node);
+    return;
+  }
+  if(Array.isArray(node)){for(const item of node)rememberJson(seen,item);return;}
+  if(node&&typeof node==='object')for(const [child,item] of Object.entries(node))rememberJson(seen,item,child);
+}
+function rememberHeaders(seen:Set<string>,headers:Record<string,string|undefined>){
+  remember(seen,headers['Idempotency-Key']??headers['idempotency-key']);
+  remember(seen,headers['X-CSRF-Token']??headers['x-csrf-token']);
+  const cookie=headers.Cookie??headers.cookie??'';
+  remember(seen,/(?:^|;\s*)freedom_local_session=([^;]+)/.exec(cookie)?.[1]);
+  for(const match of (headers['set-cookie']??'').matchAll(/freedom_local_session=([^;,\s]+)/g))remember(seen,match[1]);
+}
+function requestPath(url:string){
+  try{const parsed=new URL(url);return parsed.pathname+parsed.search;}catch{return url;}
+}
+
 test('registration, messages and messages-mobile pass on the local harness and the report stays scrubbed',async({browser,e2eAuthPool})=>{
   test.setTimeout(240000);
   const seen=new Set<string>();
   const transport:Transport=async request=>{
-    if(typeof request.body==='string'){
-      try{
-        const json=JSON.parse(request.body) as {email?:unknown;password?:unknown;body?:unknown};
-        for(const value of [json.email,json.password,json.body])if(typeof value==='string')seen.add(value);
-      }catch{/* non-JSON body */}
-    }
+    rememberHeaders(seen,request.headers);
+    if(typeof request.body==='string'){try{rememberJson(seen,JSON.parse(request.body));}catch{/* non-JSON body */}}
     for(const id of request.url.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi)??[])seen.add(id);
-    return fetchTransport(request);
+    const response=await fetchTransport(request);
+    for(const line of response.headers.getSetCookie())remember(seen,/^freedom_local_session=([^;]+)/.exec(line)?.[1]);
+    try{rememberJson(seen,JSON.parse(Buffer.from(response.body).toString('utf8')));}catch{/* image or empty */}
+    return response;
   };
+  const observed:BrowserLike={newContext:async options=>{
+    const context=await browser.newContext(options);
+    context.on('request',request=>{
+      rememberHeaders(seen,request.headers());
+      const post=request.postData();
+      if(post){try{rememberJson(seen,JSON.parse(post));}catch{/* not json */}}
+    });
+    context.on('response',response=>rememberHeaders(seen,response.headers()));
+    return context;
+  }};
   const target=localHarnessTarget(e2eOrigin());
-  const report=await runCandidate({target,run:'execute',phases:selectPhases(['registration','messages','messages-mobile']),expectedVersion:packageMetadata.version,contract:metadata,browser,transport});
+  const report=await runCandidate({target,run:'execute',phases:selectPhases(['registration','messages','messages-mobile']),expectedVersion:packageMetadata.version,contract:metadata,browser:observed,transport});
   expect(phaseFailures(report.phases)).toEqual([]);
   const status=Object.fromEntries(report.phases.map(phase=>[phase.id,phase.status]));
   expect(status.preflight).toBe('pass');
@@ -681,6 +732,9 @@ test('registration, messages and messages-mobile pass on the local harness and t
     UNION ALL SELECT invitation_id::text FROM member_squad_invitations WHERE owner_ref=ANY($1::uuid[]) OR recipient_ref=ANY($1::uuid[])
     UNION ALL SELECT notification_id::text FROM member_notifications WHERE recipient_ref=ANY($1::uuid[])`,[ids]);
   for(const row of extras.rows as {secret:string}[])seen.add(row.secret);
+  const others=await e2eAuthPool.query(`SELECT display_name FROM users WHERE email NOT LIKE 'cand-reg-%@example.invalid' AND display_name IS NOT NULL
+    UNION ALL SELECT display_name FROM platform_admins WHERE display_name IS NOT NULL`);
+  for(const row of others.rows as {display_name:string}[])if(row.display_name.length>=2)seen.add(row.display_name);
   const text=JSON.stringify(report);
   const leaked=[...seen].filter(secret=>text.includes(secret)).map(secret=>secret.length);
   expect(leaked).toEqual([]);
@@ -688,18 +742,62 @@ test('registration, messages and messages-mobile pass on the local harness and t
   expect((await e2eAuthPool.query('SELECT count(*)::int AS n FROM sessions WHERE user_id=ANY($1::uuid[]) AND revoked_at IS NULL',[ids])).rows[0].n).toBe(0);
 });
 
-test('target next does not read or write a guild channel',async()=>{
-  test.setTimeout(180000);
+test('target next does not read or write a guild channel',async({browser})=>{
+  test.setTimeout(240000);
   const loop=localHarnessTarget(e2eOrigin());
   const target={...loop,name:'next' as const};
   const urls:string[]=[];
   const transport:Transport=async request=>{urls.push(request.url);return fetchTransport(request);};
-  const report=await runCandidate({target,run:'execute',phases:selectPhases(['registration','messages']),expectedVersion:packageMetadata.version,contract:metadata,transport});
+  const observed:BrowserLike={newContext:async options=>{
+    const context=await browser.newContext(options);
+    context.on('request',request=>urls.push(request.url()));
+    return context;
+  }};
+  const report=await runCandidate({target,run:'execute',phases:selectPhases(['registration','messages','messages-mobile']),expectedVersion:packageMetadata.version,contract:metadata,browser:observed,transport});
   expect(phaseFailures(report.phases)).toEqual([]);
   expect(report).toMatchObject({harness:'local_harness',cloud_proof:false,overall:'pass',target:{name:'next',origin:loop.origin,expected_mode:'local'}});
   expect(report.phases.find(phase=>phase.id==='messages')?.metrics).toMatchObject({guild_channel:'not_run',guild_channel_reason:'real_history_guarded',rate_limit:'not_covered'});
-  expect(urls.filter(url=>/\/me\/channels\/guild|kind=guild/.test(url))).toEqual([]);
+  expect(report.phases.find(phase=>phase.id==='messages-mobile')?.status).toBe('pass');
+  const paths=urls.map(requestPath);
+  const history=paths.filter(path=>path.includes('/me/channels/guild/'));
+  expect(history).toEqual([]);
+  expect(paths.some(path=>/\/api\/v1\/me\/channels\?/.test(path)&&/(?:^|[?&])kind=guild(?:&|$)/.test(path))).toBe(true);
+  expect(paths.some(path=>path.includes('/guilds/directory'))).toBe(false);
   expect(urls.every(url=>url.startsWith(loop.origin))).toBe(true);
+});
+
+test('a failure after peer registration still revokes B and records the label',async()=>{
+  test.setTimeout(180000);
+  let registers=0,injected=false,peerLabel='',peerCookie='';
+  const transport:Transport=async request=>{
+    const path=new URL(request.url).pathname;
+    if(registers>=2&&!injected&&path==='/api/v1/assessment-definition'){
+      injected=true;
+      throw Object.assign(new Error('injected'),{name:'TypeError'});
+    }
+    const response=await fetchTransport(request);
+    if(path==='/api/v1/auth/register'&&response.status===201){
+      registers++;
+      if(registers===2){
+        try{peerLabel=String((JSON.parse(String(request.body)) as {nickname?:unknown}).nickname??'');}catch{peerLabel='';}
+        const line=response.headers.getSetCookie().find(value=>value.startsWith('freedom_local_session='));
+        peerCookie=/^freedom_local_session=([^;]+)/.exec(line??'')?.[1]??'';
+      }
+    }
+    return response;
+  };
+  const target=localHarnessTarget(e2eOrigin());
+  const report=await runCandidate({target,run:'execute',phases:selectPhases(['registration','messages']),expectedVersion:packageMetadata.version,contract:metadata,transport});
+  expect(injected).toBe(true);
+  expect(report.phases.find(phase=>phase.id==='registration')?.status).toBe('pass');
+  expect(report.phases.find(phase=>phase.id==='messages')).toMatchObject({status:'fail',reason:'TypeError'});
+  expect(peerLabel).toMatch(/^cand-reg-[0-9a-f]{8}$/);
+  expect(report.cleanup.items).toContainEqual({phase:'messages',item:`synthetic member ${peerLabel}: root deactivates this cand-reg member in the candidate database`,state:'cleanup_required'});
+  expect(report.cleanup.items).toContainEqual({phase:'messages',item:`revoked sessions of synthetic member ${peerLabel}`,state:'restored'});
+  expect(peerCookie.length).toBeGreaterThan(20);
+  const probe=await fetch(new URL('/api/v1/session',target.origin),{headers:{cookie:`freedom_local_session=${peerCookie}`,accept:'application/json'},redirect:'manual'});
+  expect(probe.status).toBe(401);
+  expect(JSON.stringify(report)).not.toContain(peerCookie);
 });
 
 test('registration phases do not require an account file',async()=>{

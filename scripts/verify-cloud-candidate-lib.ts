@@ -5,8 +5,8 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { crc32, deflateSync } from 'node:zlib';
-import { runMessagesMobile, runMessagesPhase, runRegistrationPhase, type MemberRunState } from './verify-cloud-candidate-members.js';
-export { guildChannelsRealHistoryGuarded } from './verify-cloud-candidate-members.js';
+import { guildChannelsRealHistoryGuarded, runMessagesMobile, runMessagesPhase, runRegistrationPhase, type MemberRunState } from './verify-cloud-candidate-members.js';
+export { guildChannelsRealHistoryGuarded };
 
 export const TOOL_VERSION = 'cloud-candidate-acceptance/1';
 export type Mode = 'staging' | 'public' | 'local';
@@ -220,7 +220,11 @@ export class CandidateClient {
     const csrf = options.csrf === undefined ? this.csrf : options.csrf;
     if (method !== 'GET' && method !== 'HEAD' && csrf) headers['X-CSRF-Token'] = csrf;
     if (options.ifMatch !== undefined) headers['If-Match'] = `"${options.ifMatch}"`;
-    if (options.idempotency) headers['Idempotency-Key'] = typeof options.idempotency === 'string' ? options.idempotency : randomUUID();
+    if (options.idempotency) {
+      const idempotencyKey = typeof options.idempotency === 'string' ? options.idempotency : randomUUID();
+      headers['Idempotency-Key'] = idempotencyKey;
+      this.secrets.add(idempotencyKey);
+    }
     let body: Uint8Array | string | undefined;
     if (options.bytes) { body = options.bytes; headers['Content-Type'] = options.contentType ?? 'application/octet-stream'; }
     else if (options.json !== undefined) { body = JSON.stringify(options.json); headers['Content-Type'] = 'application/json'; }
@@ -643,17 +647,17 @@ async function guildPhase(ctx: PhaseContext, client: CandidateClient, options: R
   };
   type Membership = { state: string; aggregate_version: number } | null;
   const membership = async () => {
-    const reply = await client.request('GET', '/api/v1/guilds/directory');
-    ctx.check('directory_200', reply.status === 200);
+    const reply = await client.request('GET', '/api/v1/guilds');
+    ctx.check('guilds_200', reply.status === 200);
     const item = (reply.json()?.items ?? []).find((value: any) => value?.guild_key === guild);
-    ctx.check('guild_in_directory', !!item);
+    ctx.check('guild_in_catalog', !!item);
     return item.membership as Membership;
   };
   // Cleanup lookup records no checks and never throws. A failed or unreadable
   // lookup is 'unknown', which is distinct from a successfully read absent membership.
   const cleanupLookup = async (): Promise<{ known: true; membership: Membership } | { known: false }> => {
     try {
-      const reply = await client.request('GET', '/api/v1/guilds/directory');
+      const reply = await client.request('GET', '/api/v1/guilds');
       const items = reply.status === 200 ? reply.json()?.items : undefined;
       const item = Array.isArray(items) ? items.find((value: any) => value?.guild_key === guild) : undefined;
       if (!item || typeof item !== 'object' || !('membership' in item)) return { known: false };
@@ -807,6 +811,11 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
   // the browser, so the abort after a failed fulfill can itself throw.
   const handle = async (route: any) => {
     const url = new URL(route.request().url());
+    const requestHeaders = route.request().headers() as Record<string, string>;
+    const sessionValue = /(?:^|;\s*)freedom_local_session=([^;]+)/.exec(requestHeaders.cookie ?? '')?.[1];
+    if (sessionValue) secrets.add(sessionValue);
+    if (requestHeaders['x-csrf-token']) secrets.add(requestHeaders['x-csrf-token']);
+    if (requestHeaders['idempotency-key']) secrets.add(requestHeaders['idempotency-key']);
     if (url.protocol === 'data:' || url.protocol === 'blob:') { await settle('continue', () => route.continue()); return; }
     if (url.origin !== target.origin) { blocked++; await settle('abort_blocked', () => route.abort('blockedbyclient')); return; }
     if (!synthetic && isInboxPath(url.pathname)) { inboxBlocked++; await settle('abort_blocked', () => route.abort('blockedbyclient')); return; }
@@ -843,7 +852,7 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
     context.on('response', (response: any) => { try { if (isInboxPath(new URL(response.url()).pathname)) inboxResponses++; } catch { inboxResponses++; } });
     if (synthetic) {
       ctx.metric('viewport', { width: 390, height: 844, device_scale_factor: 3, mobile: true, touch: true });
-      loggedOut = await runMessagesMobile(page, context, ctx, members, secrets, target.origin);
+      loggedOut = await runMessagesMobile(page, context, ctx, members, secrets, target.origin, guildChannelsRealHistoryGuarded(target));
     } else {
       const landing = await page.goto(target.origin + '/', { waitUntil: 'domcontentloaded' });
       ctx.check('landing_200', landing?.status() === 200, `status ${landing?.status() ?? 'none'}`);
