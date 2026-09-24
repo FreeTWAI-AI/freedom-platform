@@ -584,7 +584,7 @@ test('local harness: real session, CSRF, guild grant/revoke freshness, avatar, b
     const status=Object.fromEntries(report.phases.map(p=>[p.id,p.status]));
     const failures=report.phases.filter(p=>p.status==='fail').map(p=>`${p.id}:${p.reason}`);
     expect(failures).toEqual([]);
-    expect(status).toEqual({preflight:'pass',health:'pass',protocol:'pass',assets:'pass',anonymous:'pass',session:'pass',browser:'pass','guild-cache':'pass','github-handoff':'not_run',avatar:'pass',load:'pass',logout:'pass'});
+    expect(status).toEqual({preflight:'pass',health:'pass',protocol:'pass',assets:'pass',anonymous:'pass',session:'pass',browser:'pass','guild-cache':'pass','github-handoff':'not_run',avatar:'pass',registration:'not_run',messages:'not_run','messages-mobile':'not_run',load:'pass',logout:'pass'});
     expect(report.phases.find(p=>p.id==='github-handoff')?.reason).toBe('github_oauth_not_configured_on_candidate');
     expect(report).toMatchObject({harness:'local_harness',cloud_proof:false,overall:'incomplete',expected_release_sha:null});
     // The local Node server has no runtime or release_sha; the harness proves no deployed SHA.

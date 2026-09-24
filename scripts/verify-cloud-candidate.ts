@@ -8,7 +8,7 @@ import { lstat, readFile } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  LOAD_LIMITS, PHASES, READ_ONLY_PHASES, UsageError, candidateTarget, describeError, loadOptions, runCandidate, selectPhases,
+  LOAD_LIMITS, PHASES, READ_ONLY_PHASES, UsageError, accountFileRequired, candidateTarget, describeError, loadOptions, runCandidate, selectPhases,
   type AccessCredential, type Account, type PhaseId, type Target,
 } from './verify-cloud-candidate-lib.js';
 
@@ -133,12 +133,11 @@ export async function main(argv: readonly string[], env: NodeJS.ProcessEnv = pro
     process.stdout.write(JSON.stringify(await runCandidate({ ...base, run: 'plan' }), null, 2) + '\n');
     return 0;
   }
-  const needsAccount = cli.phases.some(id => ['session', 'browser', 'guild-cache', 'github-handoff', 'avatar', 'logout'].includes(id));
-  const account = needsAccount ? validateAccount(await readPrivateJson(env[ACCOUNT_ENV], 'account'), target) : null;
+  const account = accountFileRequired(cli.phases) ? validateAccount(await readPrivateJson(env[ACCOUNT_ENV], 'account'), target) : null;
   const access = env[ACCESS_ENV] ? validateAccess(await readPrivateJson(env[ACCESS_ENV], 'access'), target) : null;
   let browser: { close(): Promise<void>; newContext(options?: Record<string, unknown>): Promise<any> } | null = null;
   try {
-    if (cli.phases.includes('browser')) browser = await (await import('@playwright/test')).chromium.launch({ headless: true });
+    if (cli.phases.includes('browser') || cli.phases.includes('messages-mobile')) browser = await (await import('@playwright/test')).chromium.launch({ headless: true });
     const report = await runCandidate({ ...base, run: 'execute', account, access, browser, log: line => process.stderr.write(line + '\n') });
     process.stdout.write(JSON.stringify(report, null, 2) + '\n');
     return report.overall === 'pass' ? 0 : 1;

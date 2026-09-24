@@ -5,6 +5,8 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { crc32, deflateSync } from 'node:zlib';
+import { runMessagesMobile, runMessagesPhase, runRegistrationPhase, type MemberRunState } from './verify-cloud-candidate-members.js';
+export { guildChannelsRealHistoryGuarded } from './verify-cloud-candidate-members.js';
 
 export const TOOL_VERSION = 'cloud-candidate-acceptance/1';
 export type Mode = 'staging' | 'public' | 'local';
@@ -42,21 +44,29 @@ class NotRun extends Error { override name = 'NotRun'; constructor(readonly reas
 /** Thrown before any request leaves for a non-candidate URL. */
 export class OriginGuardError extends Error { override name = 'OriginGuardError'; }
 
-export const PHASES = ['preflight', 'health', 'protocol', 'assets', 'anonymous', 'session', 'browser', 'guild-cache', 'github-handoff', 'avatar', 'load', 'logout'] as const;
+export const PHASES = ['preflight', 'health', 'protocol', 'assets', 'anonymous', 'session', 'browser', 'guild-cache', 'github-handoff', 'avatar', 'registration', 'messages', 'messages-mobile', 'load', 'logout'] as const;
 export type PhaseId = typeof PHASES[number];
 export const READ_ONLY_PHASES: readonly PhaseId[] = ['preflight', 'health', 'protocol', 'assets', 'anonymous'];
-const DEPENDS: Partial<Record<PhaseId, PhaseId[]>> = {
+/** Later phases run only after every dependency passed. `load` stays independent; `logout` stays last and has none. */
+export const PHASE_DEPENDENCIES: Partial<Record<PhaseId, readonly PhaseId[]>> = {
   health: ['preflight'], protocol: ['preflight'], assets: ['preflight'], anonymous: ['preflight'], load: ['preflight'],
   session: ['health'], browser: ['health'], 'guild-cache': ['session'], 'github-handoff': ['session'], avatar: ['session'],
-  // logout has no dependency: any tool session that exists is always revoked.
+  registration: ['health'], messages: ['registration'], 'messages-mobile': ['messages'],
 };
 const NEEDS_ACCOUNT: readonly PhaseId[] = ['session', 'browser', 'guild-cache', 'github-handoff', 'avatar', 'logout'];
-const WRITES: Partial<Record<PhaseId, string>> = {
+/** Registration and messaging provision their own members and ignore an account file. */
+export function accountFileRequired(phases: readonly PhaseId[]) {
+  return phases.some(id => NEEDS_ACCOUNT.includes(id));
+}
+export const WRITE_DESCRIPTIONS: Partial<Record<PhaseId, string>> = {
   session: 'creates and revokes sessions of the dedicated synthetic account',
   browser: 'creates and revokes one browser session of the dedicated synthetic account',
   'guild-cache': 'joins then leaves one non-primary AI guild of the dedicated synthetic account; leaves a left-state membership row, retained skill-book grants and command receipts',
   'github-handoff': 'creates one unconsumed OAuth state row (expires in 10 minutes); the provider URL is never requested',
   avatar: 'uploads then removes a generated avatar of the dedicated synthetic account',
+  registration: 'registers one synthetic cand-reg member, completes positioning and one primary guild, then revokes that member\'s sessions',
+  messages: 'registers a second synthetic member, creates one squad containing only those two members, and writes direct and squad messages; guild-channel writes run only when the target is not next',
+  'messages-mobile': 'opens one mobile browser session of the synthetic member registered in this run and sends one direct message',
   logout: 'revokes the tool session',
 };
 
@@ -290,7 +300,7 @@ export function planReport(options: Omit<RunOptions, 'run'>): Report {
   const started = (options.now ?? (() => new Date()))().toISOString();
   const shaMissing = options.target.harness === 'cloud_candidate' && !validReleaseSha(options.expectedReleaseSha);
   const reason = (id: PhaseId) => id === 'preflight' ? 'plan_only' : !options.phases.includes(id) ? 'not_selected' : id === 'health' && shaMissing ? 'plan_only_execute_requires_expected_release_sha' : 'plan_only';
-  const phases: PhaseReport[] = PHASES.map(id => ({ id, status: 'not_run', reason: reason(id), ...(WRITES[id] ? { writes: WRITES[id] } : {}), checks: [] }));
+  const phases: PhaseReport[] = PHASES.map(id => ({ id, status: 'not_run', reason: reason(id), ...(WRITE_DESCRIPTIONS[id] ? { writes: WRITE_DESCRIPTIONS[id] } : {}), checks: [] }));
   return finish(options.target, 'plan', options, phases, [], started, new Secrets(), options.now);
 }
 
@@ -412,6 +422,7 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
     return { reply, userId: String(body.user.user_id) };
   };
   let userId: string | null = null;
+  const members: MemberRunState = { primary: null, peer: null, lastDirectBody: null };
 
   const phases: Record<PhaseId, (ctx: PhaseContext) => Promise<void>> = {
     async preflight(ctx) {
@@ -421,7 +432,7 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
       const sha = options.expectedReleaseSha ?? null;
       ctx.check('expected_release_sha_set', target.harness === 'local_harness' || !options.phases.includes('health') ? sha === null || validReleaseSha(sha) : validReleaseSha(sha), 'execute requires a full lowercase 40-hex expected release SHA');
       ctx.check('local_contract_loaded', !!options.contract && typeof (options.contract as { protocol?: unknown }).protocol === 'string');
-      const needsAccount = options.phases.some(id => NEEDS_ACCOUNT.includes(id));
+      const needsAccount = accountFileRequired(options.phases);
       ctx.check('account_available_when_needed', !needsAccount || !!account, needsAccount ? 'selected phases need a dedicated synthetic account' : undefined);
       ctx.metric('network_requests', 0);
     },
@@ -528,6 +539,13 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
       ctx.metric('provider_url_requested', false); ctx.metric('consent_submitted', false);
       ctx.cleanup('unconsumed OAuth state row (expires after 10 minutes)', 'residual_expected');
     },
+    async registration(ctx) {
+      await runRegistrationPhase({ ctx, openClient: () => client.withoutSession(), target, secrets, state: members, developmentGuilds: DEVELOPMENT_GUILDS, cookieChecks: sessionCookieChecks });
+    },
+    async messages(ctx) {
+      await runMessagesPhase({ ctx, openClient: () => client.withoutSession(), target, secrets, state: members, developmentGuilds: DEVELOPMENT_GUILDS, cookieChecks: sessionCookieChecks });
+    },
+    async 'messages-mobile'(ctx) { await messagesMobilePhase(ctx, options, target, access, secrets, client, members); },
     async avatar(ctx) {
       const before = await client.request('GET', '/api/v1/me/avatar');
       ctx.check('avatar_status_200', before.status === 200, `status ${before.status}`);
@@ -578,9 +596,9 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
   };
 
   for (const id of PHASES) {
-    const writes = WRITES[id] ? { writes: WRITES[id] } : {};
+    const writes = WRITE_DESCRIPTIONS[id] ? { writes: WRITE_DESCRIPTIONS[id] } : {};
     if (!options.phases.includes(id)) { results.set(id, { id, status: 'not_run', reason: 'not_selected', ...writes, checks: [] }); continue; }
-    const missing = (DEPENDS[id] ?? []).find(dep => results.get(dep)?.status !== 'pass');
+    const missing = (PHASE_DEPENDENCIES[id] ?? []).find(dep => results.get(dep)?.status !== 'pass');
     if (missing) { results.set(id, { id, status: 'blocked', reason: `requires ${missing} pass`, ...writes, checks: [] }); continue; }
     const report: PhaseReport = { id, status: 'pass', ...writes, checks: [] }, began = performance.now();
     const ctx: PhaseContext = {
@@ -757,10 +775,14 @@ async function revokeBrowserSession(client: CandidateClient, value: string, secr
   } catch { return 'restore_failed'; }
 }
 
-async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Target, access: AccessCredential | null, account: Account | null, secrets: Secrets, client: CandidateClient) {
+async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Target, access: AccessCredential | null, account: Account | null, secrets: Secrets, client: CandidateClient, members: MemberRunState | null = null) {
+  const synthetic = members !== null;
   if (!options.browser) ctx.skip('no_browser_supplied');
-  if (!account) throw new CheckFailed('account_required');
-  const context = await options.browser!.newContext({ viewport: { width: 1280, height: 900 } });
+  if (!synthetic && !account) throw new CheckFailed('account_required');
+  // messages-mobile uses a phone viewport. The account browser phase stays at the desktop size.
+  const context = await options.browser!.newContext(synthetic
+    ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true }
+    : { viewport: { width: 1280, height: 900 } });
   let blocked = 0, inboxBlocked = 0, inboxResponses = 0, pageErrors = 0, closing = false, loggedOut = false;
   let sessionCookie: string | null = null;
   // Route failures are kept as `stage:ErrorClass` counts only: never messages, URLs, headers or bodies.
@@ -777,8 +799,9 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
   const settle = async (stage: string, action: () => Promise<unknown>, secondary = false) => { try { await action(); return true; } catch (error) { failed(stage, error, secondary); return false; } };
   // Every request is fetched by Playwright without following redirects; only the
   // exact candidate origin is allowed and only it ever receives Access headers.
-  // The signed-in shell loads inbox previews (including a last message body) on
-  // its own; those are aborted before any fetch, never answered with fake data.
+  // The account browser phase aborts inbox previews (they include a last message
+  // body) before any fetch. messages-mobile allows them: that session is only
+  // the synthetic member this run registered. Nothing is answered with fake data.
   // A handler never rejects: Playwright re-raises a rejected handler as an
   // unhandled rejection. Playwright marks a route handled before fulfill reaches
   // the browser, so the abort after a failed fulfill can itself throw.
@@ -786,7 +809,7 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
     const url = new URL(route.request().url());
     if (url.protocol === 'data:' || url.protocol === 'blob:') { await settle('continue', () => route.continue()); return; }
     if (url.origin !== target.origin) { blocked++; await settle('abort_blocked', () => route.abort('blockedbyclient')); return; }
-    if (isInboxPath(url.pathname)) { inboxBlocked++; await settle('abort_blocked', () => route.abort('blockedbyclient')); return; }
+    if (!synthetic && isInboxPath(url.pathname)) { inboxBlocked++; await settle('abort_blocked', () => route.abort('blockedbyclient')); return; }
     // Once teardown starts nothing new leaves the browser.
     if (closing) { await settle('abort_closing', () => route.abort('failed')); return; }
     const headers = { ...route.request().headers(), ...(access ? { 'CF-Access-Client-Id': access.clientId, 'CF-Access-Client-Secret': access.clientSecret } : {}) };
@@ -815,35 +838,44 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
     await context.route('**/*', track);
     const page = await context.newPage();
     page.on('pageerror', () => { pageErrors++; });
-    // Independent of the route guard: any inbox response reaching the page is a failure.
+    // The account browser phase fails if an inbox response reaches the page.
+    // messages-mobile allows those responses and only counts them.
     context.on('response', (response: any) => { try { if (isInboxPath(new URL(response.url()).pathname)) inboxResponses++; } catch { inboxResponses++; } });
-    const landing = await page.goto(target.origin + '/', { waitUntil: 'domcontentloaded' });
-    ctx.check('landing_200', landing?.status() === 200, `status ${landing?.status() ?? 'none'}`);
-    await page.getByLabel('電子郵件', { exact: true }).fill(account.email);
-    await page.getByLabel('密碼', { exact: true }).fill(account.password);
-    await page.getByRole('button', { name: '登入', exact: true }).click();
-    const logoutButton = page.getByRole('button', { name: '登出', exact: true });
-    await logoutButton.waitFor({ state: 'visible', timeout: 20000 });
-    const cookie = (await context.cookies(target.origin)).find((value: any) => value.name === SESSION_COOKIE);
-    secrets.add(cookie?.value);
-    const https = target.origin.startsWith('https:');
-    ctx.check('browser_cookie_secure', https ? cookie?.secure === true : !!cookie);
-    ctx.check('browser_cookie_http_only', cookie?.httpOnly === true);
-    ctx.check('browser_cookie_same_site_strict', cookie?.sameSite === 'Strict');
-    ctx.check('browser_cookie_script_invisible', !(await page.evaluate(() => document.cookie)).includes(SESSION_COOKIE));
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await logoutButton.waitFor({ state: 'visible', timeout: 20000 });
-    ctx.check('reload_keeps_session', true);
-    await logoutButton.click();
-    await page.getByRole('button', { name: '登入', exact: true }).waitFor({ state: 'visible', timeout: 20000 });
-    ctx.check('logout_returns_to_login', true);
-    const cleared = !(await context.cookies(target.origin)).some((value: any) => value.name === SESSION_COOKIE && value.value);
-    ctx.check('browser_cookie_cleared', cleared);
-    loggedOut = true;
+    if (synthetic) {
+      ctx.metric('viewport', { width: 390, height: 844, device_scale_factor: 3, mobile: true, touch: true });
+      loggedOut = await runMessagesMobile(page, context, ctx, members, secrets, target.origin);
+    } else {
+      const landing = await page.goto(target.origin + '/', { waitUntil: 'domcontentloaded' });
+      ctx.check('landing_200', landing?.status() === 200, `status ${landing?.status() ?? 'none'}`);
+      await page.getByLabel('電子郵件', { exact: true }).fill(account!.email);
+      await page.getByLabel('密碼', { exact: true }).fill(account!.password);
+      await page.getByRole('button', { name: '登入', exact: true }).click();
+      const logoutButton = page.getByRole('button', { name: '登出', exact: true });
+      await logoutButton.waitFor({ state: 'visible', timeout: 20000 });
+      const cookie = (await context.cookies(target.origin)).find((value: any) => value.name === SESSION_COOKIE);
+      secrets.add(cookie?.value);
+      const https = target.origin.startsWith('https:');
+      ctx.check('browser_cookie_secure', https ? cookie?.secure === true : !!cookie);
+      ctx.check('browser_cookie_http_only', cookie?.httpOnly === true);
+      ctx.check('browser_cookie_same_site_strict', cookie?.sameSite === 'Strict');
+      ctx.check('browser_cookie_script_invisible', !(await page.evaluate(() => document.cookie)).includes(SESSION_COOKIE));
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await logoutButton.waitFor({ state: 'visible', timeout: 20000 });
+      ctx.check('reload_keeps_session', true);
+      await logoutButton.click();
+      await page.getByRole('button', { name: '登入', exact: true }).waitFor({ state: 'visible', timeout: 20000 });
+      ctx.check('logout_returns_to_login', true);
+      const cleared = !(await context.cookies(target.origin)).some((value: any) => value.name === SESSION_COOKIE && value.value);
+      ctx.check('browser_cookie_cleared', cleared);
+      loggedOut = true;
+    }
     ctx.metric('cross_origin_requests_blocked', blocked);
     ctx.metric('inbox_requests_blocked', inboxBlocked);
-    ctx.metric('member_inbox', 'not_covered');
-    ctx.check('no_inbox_response_received', inboxResponses === 0, `${inboxResponses} inbox responses`);
+    if (synthetic) ctx.metric('member_inbox', 'synthetic_member');
+    else {
+      ctx.metric('member_inbox', 'not_covered');
+      ctx.check('no_inbox_response_received', inboxResponses === 0, `${inboxResponses} inbox responses`);
+    }
     ctx.check('no_page_errors', pageErrors === 0, `${pageErrors} page errors`);
     ctx.check('no_routing_failures', Object.keys(routing).length === 0, 'see metrics.routing_failures');
   } catch (error) { failure = { error }; }
@@ -869,7 +901,7 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
   ctx.metric('teardown', teardown);
   // The browser session is revoked even when the UI flow did not finish.
   const revoked = loggedOut ? 'restored' : teardown.cookie_read ? 'restore_failed' : sessionCookie ? await revokeBrowserSession(client, sessionCookie, secrets) : 'restored';
-  ctx.cleanup('browser session of the synthetic account', revoked);
+  ctx.cleanup(synthetic ? 'mobile browser session of the synthetic member' : 'browser session of the synthetic account', revoked);
 
   if (failure) {
     // Recorded without replacing the original failure reason.
@@ -878,4 +910,8 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
     throw failure.error;
   }
   ctx.check('browser_teardown_clean', teardown.context_close === 'ok' && teardown.routes_pending_after_close === 0 && unexpectedAtTeardown === 0 && !teardown.page_close, 'see metrics.teardown');
+}
+
+async function messagesMobilePhase(ctx: PhaseContext, options: RunOptions, target: Target, access: AccessCredential | null, secrets: Secrets, client: CandidateClient, members: MemberRunState) {
+  await browserPhase(ctx, options, target, access, null, secrets, client, members);
 }
