@@ -836,10 +836,10 @@ try {
   console.log('Community name and optional identity persist in cards and directory, stay authenticated, and clear at 320 px: PASS');
 
   stage='settings, GitHub todo and private inbox';
-  for(const path of ['/me/notifications','/me/conversations','/me/squad-invitations'])expect((await anonymous.get(origin+'/api/v1'+path)).status()).toBe(401);
+  for(const path of ['/me/notifications','/me/conversations','/me/squad-invitations','/me/channels?kind=guild','/me/channels?kind=squad'])expect((await anonymous.get(origin+'/api/v1'+path)).status()).toBe(401);
   await verifyMemberSettings(page,{navigate,get:path=>page.request.get(origin+'/api/v1'+path),emptyInbox:true});
   await screenshot('public-member-messages-mobile.png');
-  console.log('Settings menu, GitHub task and empty synthetic inbox work on desktop and phone with authenticated boundaries: PASS');
+  console.log('Settings, GitHub task, empty synthetic inbox and membership channel lists work on desktop and phone: PASS');
 
   await page.getByRole('button', { name: '登出', exact: true }).click();
   await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
