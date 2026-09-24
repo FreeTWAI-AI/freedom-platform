@@ -31,7 +31,7 @@
 
 `help_wanted` 可選 `development`、`testing`、`design`、`documentation`、`marketing`、`sales`、`operations`、`security`、`music`、`media`，至少一項且不可重複。來源必須是本人在同社群登錄的作品，且其已記錄的版本未封存；同一來源只建一個共創入口。找不到可操作來源回傳 404，重複入口或封存來源回傳 409。示範入口 ID 為 `workshop-video-autopilot`，一般會員專案使用 UUID。
 
-`guild_keys` 可選最多五個現有公會，不可重複；省略時為空陣列。Migration `029_co_creation_guilds.sql` 以關聯表保存分類，既有會員專案保留「尚未分類」。示範剪輯專案列於媒體、AI 開發與 AI 導入公會。這是跨公會的專案索引，不是加入公會或取得 GitHub 權限；會員授權／撤銷的待實作流程另見 [公會開發權限](guild-development-access.md)。
+`guild_keys` 可選最多五個現有公會，不可重複；省略時為空陣列。Migration `029_co_creation_guilds.sql` 以關聯表保存分類，既有會員專案保留「尚未分類」。示範剪輯專案列於媒體、AI 開發與 AI 導入公會。這是跨公會的專案索引，不是加入公會或取得 GitHub 權限；會員依公會取得與撤銷開發授權的流程已實作，見 [公會開發權限](guild-development-access.md)。
 
 建立入口只寫入 `co_creation_projects`、`co_creation_project_guilds` 與協調事件；不建立 GitHub Issue、不更動 assignee、不送 PR、不寄信。認領沿用 repo 規則與既有派工授權，再使用自己的 fork 或已授權分支完成工作、測試並提交連回 Issue 的 PR。
 

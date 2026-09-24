@@ -41,7 +41,7 @@ Agent 使用 `POST /development-agent/v1/proposals`，Bearer `fpd_…`、JSON �
 | --- | --- | --- | --- |
 | 技能書技術開發 | `guild_ai_vibe` 或 `guild_ai_field` | 在指定技能／repo 提交修改提案 | GitHub 身分、相應連線／同意、目標作品權限 |
 | 平台頁面與功能開發 | `guild_platform_engineering` | 參與指定平台任務、提交修改提案 | GitHub 身分、相應連線／同意、目標 repo／任務權限 |
-| 直接編輯既有作品 | 對應開發資格 | 不因入會自動取得所有作品的編輯權 | 本人作品或具名、有效的作品維護任命 |
+| 直接編輯既有作品 | 對應開發資格 | 不因入會自動取得所有作品的編輯權 | 本人作品或具名、有效的作品維護任命；站內既有技能書 metadata 另需有效 AI 開發／AI 導入公會其中之一（見「本輪整合」） |
 | 合併、正式發布、部署 | 相應職務及專案規則 | 不由一般入會授予 | 該操作既有審查與發布授權 |
 
 畫面名稱沿用實際公會目錄；目前平台公會 canonical key 為 `guild_platform_engineering`，不可因「平台開發公會／平台工程公會」文字差異另建重複公會。
@@ -134,37 +134,56 @@ Repo Stars 以 GitHub 為準。讀取作品計數、取得會員本人 Star 狀�
 
 ## 整合位置與現況
 
-| 位置 | 現有實作 | 本規格需補的部分 |
+「已實作」指本 repo 程式與測試已存在；是否已部署仍以 deployment ledger 為準。
+
+| 位置 | 已實作 | 仍屬後續擴充 |
 | --- | --- | --- |
-| `modules/positioning/service.ts`、`onboarding.ts` | 入會／離會、membership version、每人公會鎖、領書 | 共用能力推導、最後資格來源消失時的撤權 |
-| `modules/github-social/` | GitHub 個人授權、加密 user token、本人 Star | App installation／指定 repo 驗證、失效事件與對帳 |
-| `modules/skill-submissions/` | 一般技能候選草稿、投稿 key、一次性 grant、本人公開 | 若增加開發用途，新增明確用途及 source grant；保留一般投稿契約 |
-| `modules/guild-workspace/service.ts` | 會長依有效公會與任命驗證；技能內容依維護任命驗證 | 技術開發 grant 與既有內容職務的明確分工 |
-| `apps/portal-web/src/modules/DevelopmentContext.tsx` | 每頁公開開發指引 | 平台開發啟用入口、任務進度及返回原頁 |
-| `apps/portal-web/src/modules/SkillBookIntro.tsx` | 技能介紹、公開任務與 Agent 指引 | 技能開發啟用入口，重用同一清單元件 |
+| `migrations/030_development_access.sql`、`modules/positioning/` | membership 寫入 trigger 依 OR 來源重算；最後來源消失、停權、GitHub 解除／重連於同一交易撤銷 grant 與衍生 key；重新入會需新 grant，舊 key 不復活 | 作品維護任命撤銷仍由既有內容職務流程處理，未併入開發 grant |
+| `modules/development-access/`、`apps/platform-api/src/routes/development-access.ts` | 版本化同意、七日目標 grant、60 分鐘 `fpd_` key（每 grant 最多五個、只存 hash）、私人提案、Agent 端點、重送 receipt 重驗 grant | 排程 worker、outbox 與外部撤權狀態（目前沒有 worker，也沒有授予外部 GitHub 權限） |
+| `modules/github-social/` | GitHub 個人授權、加密 user token、本人 Star；`developmentEvidence` 即時核對 user ID、App、installation、repo ID、Fork 來源與 push 權限 | App webhook 簽章驗證／去重、獨立對帳 worker；組織管理者待核准的等待狀態 |
+| `modules/skill-submissions/` | 一般投稿 `fpk_` 金鑰與一次性 `fpg_` grant 契約不變；上傳端點只接受這兩種前綴 | 若要增加「開發」用途的上傳，需版本化用途並記錄 `source_grant_id` |
+| `modules/guild-workspace/service.ts` | 會長依有效公會與任命驗證；技能內容依維護任命驗證；開發 grant 不授予內容編輯 | 既有技能書 metadata editor 加上「有效 AI 開發／AI 導入公會其中之一」條件，由 operations 組另一分支實作（見下文），本分支未含該程式 |
+| `apps/portal-web/src/modules/DevelopmentAccess.tsx`、`DevelopmentContext.tsx`、`SkillBookIntro.tsx` | 共用「開發啟用任務」視窗：平台頁面與技能書入口、公會選擇、同意、Repo 驗證、一次顯示 Agent 指令、安全返回原頁；在書內入會後，技能書架於對話框關閉後重讀解鎖紀錄 | — |
+| `apps/portal-web/src/modules/SkillsPanel.tsx`、`GitHubSocial.tsx`（`GitHubConnectionSummary`） | 技能書架最上層的共用 GitHub 連線：重用 `GitHubSocialStore`，一般會員不需 AI 公會即可連結；OAuth 返回 `#skills`；連結不 Star、不另跳確認；已連結顯示帳號與「管理 GitHub 連結」（解除在我的名片）；未啟用與讀取失敗照實顯示並可重讀。每本書的 Star／Fork／Follow 原作操作不變 | 新會員首次啟用流程中的 GitHub 步驟、強制 Star gate（見上文，尚未決策） |
 
-本規格不新增通用永久寫入金鑰，也不把目前公開導覽包成有名無實的「已授權開發」。操作尚未支援時應顯示具體缺項。
+仍未實作且不應推定完成：GitHub App webhook 與獨立對帳 worker、外部撤權 outbox、原作完整版本登錄與 credit 同步（見[原作、版本與貢獻歸屬](./author-owned-collaboration.md)），以及上文的強制 Star gate。本規格不新增通用永久寫入金鑰，也不把公開導覽包成有名無實的「已授權開發」。操作尚未支援時應顯示具體缺項。
 
-## 驗收案例
+## 驗收案例與實跑證據
 
-以下為待實作測試要求，尚未執行：
+實跑紀錄（2026-09-24，本分支 `audit/skills-20260924`，基於 `8338a42`）：
 
-1. 無適用公會點技能開發：顯示兩個公會選項；選一個即可，保留原主力、原技能與返回位置。
-2. 無平台公會點頁面開發：引導加入平台公會；技能開發資格不能替代平台資格，反之亦然。
-3. 只有手填 slug、其他 App 安裝、未授權的 repo、遭停用 installation、缺必要 permission：均不能完成對應啟用任務。
-4. 同時在兩個 AI 公會：離開第一個仍可操作；離開最後一個後，瀏覽器、既有 Agent key、一次性 grant、重送 receipt、排程 worker 都拒絕受影響操作。
-5. 仍有另一種能力：撤銷技能開發不影響平台開發；不同社群、不同會員或不同作品不得串用授權。
-6. 重入公會取得新資格，舊 key／grant 即使未過期仍不可用。
-7. 在不同分頁退出公會，舊頁面的按鈕即使尚未更新，下一次 API 操作仍被拒絕並指出恢復路徑。
-8. 入會、離會與發 key／上傳／啟動任務併發：交易結果一致，不遺留無資格的有效寫入授權。
-9. 斷開 GitHub 或卸載 App：需要該連線的操作被拒絕；不刪除歷史作品、Stars 或無關公會資格。
-10. 會員離會後仍能看自己的草稿、撤銷金鑰；一般分享與手動候選投稿符合既有契約。
-11. 普通公會成員不能編輯別人的書、合併平台程式或部署；任命撤銷立即反映在相關操作。
-12. 外部撤權失敗：本地先拒絕，顯示外部待處理；重試可去重，成功後對帳，不移除外部獨立授權。
-13. GitHub 授權返回、取消後續作、已完成項目重用、鍵盤焦點、手機窄螢幕及公開無 JavaScript 指引都可用。
-14. 未加入開發公會的普通會員可以完成 GitHub 個人連結與 Star 授權；授權本身不替任何 repo 按星。
-15. 有效連線在領書、閱讀、分享與開發入口重用；本人明確按 Star 時只對所選原作執行一次，重讀以 provider 狀態為準，不以本地數字加一冒充成功。
-16. 第三方原作缺 App 存取時不顯示 Star 成功，不反覆要求會員授權自己的無關 repo；斷線／取消授權後引導恢復。
-17. 新會員啟用與 OAuth 返回不批量 Star；公會離會也不批量 Unstar。強制 Star gate 尚未實作，驗收不得將建議的自願流程冒充使用者已採納的決策。
+- `node --import tsx --test --test-concurrency=1 tests/runtime/development-access.test.ts`：10 項通過、0 失敗。使用測試自建並於結束時刪除的隔離 schema 與合成 GitHub fixture，未連正式或 staging 資料，也未呼叫真實 GitHub。
+- 瀏覽器（技能組同輪，隔離 port 4322 與新建 `fp_e2e_*` schema，1280px 與 390px）：`development-access.spec.ts` 4 項、`github-social.spec.ts`、`skill-book-library.spec.ts`、`audit-skills.spec.ts` 等 10 個 spec 共 76 項全部通過。`audit-skills.spec.ts` 的相關案例：書內加入 AI 開發公會後，開發視窗關閉仍回到原書、書關閉後書架更新為新解鎖數且焦點不遺失；書架最上層 GitHub 連線返回 `#skills` 且 0 次 Star 寫入；GitHub 未啟用與讀取失敗不顯示成功。這些案例使用合成 GitHub 回應，未連真實 GitHub。
+
+以下以「本地已實作／有測試」「部分」「未實作／外部需求」標注。標「未實作」的項目是後續擴充的驗收要求，不是本地測試失敗。
+
+| # | 案例 | 狀態 | 證據或缺口 |
+| --- | --- | --- | --- |
+| 1 | 無適用公會點技能開發：顯示兩個公會選項；選一個即可，保留原主力、原技能與返回位置 | 本地已實作／有測試 | runtime「task readiness…」；E2E「skill development offers either AI guild…」 |
+| 2 | 無平台公會點頁面開發：引導加入平台公會；技能資格不能替代平台資格，反之亦然 | 本地已實作／有測試 | runtime「task readiness…」「capabilities, targets…」；E2E「platform onboarding…」 |
+| 3 | 只有手填 slug、其他 App 安裝、未授權 repo、遭停用 installation、缺必要 permission 均不能啟用 | 本地已實作／有測試 | runtime「wrong App, suspended installation…」；未連結 GitHub 時 `github_connect_required` |
+| 4 | 兩個 AI 公會：離開第一個仍可操作；離開最後一個後瀏覽器、既有 Agent key、重送 receipt 都拒絕 | 部分 | 瀏覽器／Agent key／receipt 有 runtime 測試；**排程 worker 尚不存在**，待其實作時補測 |
+| 5 | 撤銷技能開發不影響平台開發；不同會員或不同作品不得串用授權 | 本地已實作／有測試 | runtime「losing skill eligibility preserves platform…」「capabilities, targets and owners…」；跨社群隔離依 `community_id` 查詢，無專門測試 |
+| 6 | 重入公會取得新資格，舊 key／grant 即使未過期仍不可用 | 本地已實作／有測試 | runtime「OR membership…rejoining never revives…」與舊 activation receipt 案例 |
+| 7 | 不同分頁退出公會後，舊頁面下一次 API 操作仍被拒絕並指出恢復路徑 | 部分 | 伺服器每次重查資格（runtime 覆蓋）；多分頁瀏覽器情境無 E2E |
+| 8 | 入會、離會與發 key 併發：交易結果一致，不遺留有效授權 | 部分 | runtime「concurrent issuance and departure…」覆蓋發 key；開發用途上傳與啟動任務尚不存在 |
+| 9 | 斷開 GitHub 或卸載 App：需要該連線的操作被拒絕；不刪除歷史作品、Stars 或無關資格 | 部分 | 斷開 GitHub、installation 變更／移出清單有 runtime 測試；卸載只在下一次受保護操作發現，**無 webhook** |
+| 10 | 離會後仍能看自己的提案、撤銷金鑰；一般分享與手動投稿符合既有契約 | 部分 | runtime 驗證離會後提案保留；`revoke` 不要求資格，但無離會後撤銷的專門測試；投稿契約見 skill-submissions 測試 |
+| 11 | 普通成員不能編輯別人的書、合併或部署；任命撤銷立即反映 | 部分 | 開發 grant 只允許私人提案（`development:propose`）；內容任命沿用 guild-workspace 既有流程與測試 |
+| 12 | 外部撤權失敗：本地先拒絕、顯示外部待處理、重試去重並對帳 | 未實作／外部需求 | 目前沒有授予外部 GitHub 權限，也沒有 outbox／對帳 worker；GitHub 暫時故障時拒絕且不撤銷已有 runtime 測試 |
+| 13 | GitHub 授權返回、取消後續作、焦點、手機窄螢幕、公開無 JavaScript 指引 | 部分 | E2E 覆蓋 Escape 焦點返回、320px／390px 無水平捲動、重新載入恢復目標且不保存憑證、書架 OAuth 以合成回應返回 `#skills`、取消授權不誤稱原有連結失效；真實 GitHub OAuth 未在此驗證 |
+| 14 | 未加入開發公會的會員可完成 GitHub 個人連結與 Star 授權；授權不按星 | 部分 | `github-social.test.ts`「OAuth…never stars during connection」；GitHub 路由不檢查公會；書架最上層連線入口有 E2E（無公會合成會員、0 次 Star 寫入）；新會員首次啟用流程尚未加入 GitHub 步驟 |
+| 15 | 有效連線在領書、閱讀、分享與開發入口重用；明確按 Star 只執行一次，以 provider 狀態為準 | 部分 | 書架、書卡、介紹視窗與我的名片共用同一 `GitHubSocialStore`（E2E 確認連線後書卡直接出現 Star）；開發視窗仍以自己的「連結 GitHub」按鈕發起同一 OAuth；Star 以 GitHub 確認狀態有 runtime 測試 |
+| 16 | 第三方原作缺 App 存取時不顯示 Star 成功，不要求授權無關 repo；斷線後引導恢復 | 部分 | 權限拒絕與斷線有 `github-social.test.ts` 案例；完整 UI 引導未在此驗證 |
+| 17 | 新會員啟用與 OAuth 返回不批量 Star；離會不批量 Unstar | 部分；Star gate 未實作 | OAuth 不按星有測試；離會流程沒有 Unstar 程式路徑，但無專門測試；**強制 Star gate 是使用者明確要求但未落地，建議的自願流程尚未獲使用者同意**，驗收不得冒充已採納 |
+
+## 本輪整合：既有技能書 metadata editor 的公會條件
+
+依使用者原話，root 已決定：站內**既有技能書 metadata editor** 需同時符合「具名、有效的 maintainer 任命」**且**「目前為 AI 開發公會或 AI 導入與驗證公會其中之一的有效成員」。這是內容編輯權限，與上文「GitHub 身分＋同意＋目標 grant」的私人開發提案流程分開：
+
+- 共用判斷由 operations 組在另一個 worktree 實作（`modules/development-access/guild-eligibility.ts` 與 guild-workspace gate）；本分支沒有修改該 helper 或 `guild-workspace`，也不在此記錄其測試結果，由 root 整合時補上。
+- 一般 `skill.submit` 投稿資格與 `fpk_`／`fpg_` 契約不變。
+- `fpd_` 開發 key 只保存私人提案，不能當作 metadata editor 權限，也不是原作 repo 寫入權。
+- 仍保留 OR 公會語意、離開最後一個適用公會即撤銷 key，以及原作者權利與 37 本技能書收錄。
 
 相關既有實作：[GitHub 連結](./github-social.md)、[技能投稿](./agent-skill-upload.md)、[公會共作](./guild-collaboration.md)、[開發指引](./agent-development-guide.md)。

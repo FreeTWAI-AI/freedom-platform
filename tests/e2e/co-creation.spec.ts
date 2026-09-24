@@ -20,7 +20,7 @@ test('member reads GitHub-backed co-creation tasks, copies a bounded brief, and 
   const issue=page.getByRole('article').filter({has:page.getByRole('heading',{name:'建立可重現的剪輯測試素材',exact:true})});
   await expect(issue).toBeVisible();
   await expect(issue.getByRole('link',{name:'到任務頁參與 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI-AI/video-autopilot-kit/issues/1');
-  await expect(page.getByText('先到 GitHub 任務留言認領；完成後提交 PR，交由維護者審查。')).toBeVisible();
+  await expect(page.getByText('到 GitHub 任務留言認領；完成程式、測試、設計或文件後提交 PR，交由維護者審查。')).toBeVisible();
   await issue.getByRole('button',{name:'複製工作說明',exact:true}).click();
   const brief=page.getByLabel('給協作夥伴與 AI 的工作說明',{exact:true});
   await expect(brief).toBeVisible();

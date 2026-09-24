@@ -3,10 +3,13 @@ import {test,expect,type Page} from './fixtures.js';
 
 const metadata=(book_id:string,extra:Record<string,unknown>={})=>({book_id,published_at:null,official_guild_keys:[],is_new_today:false,week_rank:null,month_rank:null,week_stars:0,month_stars:0,...extra});
 const discovery={as_of:'2026-09-23T14:00:00Z',timezone:'Asia/Taipei',ranking_basis:'distinct_verified_workshop_stars',books:[metadata('social-post',{official_guild_keys:['marketing'],week_rank:2,month_rank:1,week_stars:2,month_stars:7}),metadata('video-autopilot',{week_rank:1,month_rank:2,week_stars:5,month_stars:6}),metadata('event-space',{is_new_today:true,published_at:'2026-09-23T08:00:00Z'})],weekly:[{book_id:'video-autopilot',rank:1,stars:5},{book_id:'social-post',rank:2,stars:2}],monthly:[{book_id:'social-post',rank:1,stars:7},{book_id:'video-autopilot',rank:2,stars:6}]};
-const origin='http://127.0.0.1:4311',title='Hao 社群貼文技能書';
+const title='Hao 社群貼文技能書';
+// Share URLs use the page origin; follow whichever baseURL this run serves.
+let origin='';
 const introductions=(bookId:string)=>Array.from({length:100},(_,index)=>`${bookId} 介紹 ${index+1}：一句給朋友的真實推薦。`);
 const shareContent=(bookId:string)=>({introductions:introductions(bookId),illustration_url:`/brand/skill-illustrations/${bookId}.webp`,illustration_alt:`${bookId} 技能書的橫幅插畫`});
-test.beforeEach(async({page})=>{
+test.beforeEach(async({page,baseURL})=>{
+  origin=new URL(baseURL!).origin;
   await page.route('**/api/v1/me/skill-books',route=>route.fulfill({json:{items:[]}}));
   await page.route('**/api/v1/me/github',route=>route.fulfill({json:{configured:false,connected:false,github_user:null}}));
   await page.route('**/api/v1/skills/*/share-content',route=>route.fulfill({json:shareContent(route.request().url().split('/').at(-2)!)}));

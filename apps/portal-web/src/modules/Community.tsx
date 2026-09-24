@@ -52,19 +52,21 @@ export function RepositoryLibrary({ client, ids, excludeIds, access, title = '�
     </header>}
     {error && <div role="alert"><p>{error}</p><button type="button" className="btn btn-ghost" onClick={()=>setReload(value=>value+1)}>重新載入技能書</button></div>}
     {!catalog && !error && <p role="status">正在載入技能書…</p>}
-    {catalog&&<><SkillDiscoveryFilters value={view} onChange={setView}/><div className="skill-library-filters"><label className="field">搜尋技能書<input type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="例如：貼文、商店、剪輯、找方向…"/></label><label className="field">依工坊用途篩選<select value={category} onChange={event=>setCategory(event.target.value)}><option value="">全部用途</option>{categories.map(value=><option key={value} value={value}>{value}</option>)}</select></label></div><p className="skill-library-count" role="status">顯示 {books.length} / {available.length} 本技能書</p></>}
+    {catalog&&available.length===0&&<p className="muted">目前沒有可顯示的技能書。</p>}
+    {catalog&&available.length>0&&<><SkillDiscoveryFilters value={view} onChange={setView}/><div className="skill-library-filters"><label className="field">搜尋技能書<input type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="例如：貼文、商店、剪輯、找方向…"/></label><label className="field">依工坊用途篩選<select value={category} onChange={event=>setCategory(event.target.value)}><option value="">全部用途</option>{categories.map(value=><option key={value} value={value}>{value}</option>)}</select></label></div><p className="skill-library-count" role="status">顯示 {books.length} / {available.length} 本技能書</p></>}
     <div className="card-grid community-book-grid">{books.map(book=><SkillBookCard key={book.id} book={book} className="community-book" access={access}/>)}</div>
-    {catalog&&!books.length&&<p className="muted">{view!=='all'&&discovery.error?'請重讀徽章與榜單，或先查看全部技能。':view!=='all'&&discovery.loading&&!discovery.data?'正在載入技能書…':(view==='week'||view==='month')&&!discovered.length?'目前還沒有上榜的技能書。連結 GitHub，Star 你喜歡的技能。':view==='today'&&!discovered.length?'今天尚未收錄新技能。':view==='official'&&!discovered.length?'目前尚未指定官方公會技能。':'沒有符合的技能書。試試另一個關鍵字或用途。'}</p>}
+    {catalog&&available.length>0&&!books.length&&<p className="muted">{view!=='all'&&discovery.error?'請重讀徽章與榜單，或先查看全部技能。':view!=='all'&&discovery.loading&&!discovery.data?'正在載入技能書…':(view==='week'||view==='month')&&!discovered.length?'目前還沒有上榜的技能書。連結 GitHub，Star 你喜歡的技能。':view==='today'&&!discovered.length?'今天尚未收錄新技能。':view==='official'&&!discovered.length?'目前尚未指定官方公會技能。':'沒有符合的技能書。試試另一個關鍵字或用途。'}</p>}
   </section>;
 }
 
 export function CommunityPanel({ client, onNavigate }: { client: PortalClient; onNavigate: (id: TabId) => void }) {
-  const [data, setData] = useState<CommunityCatalog | null>(null), [error, setError] = useState('');
+  const [data, setData] = useState<CommunityCatalog | null>(null), [error, setError] = useState(''), [reload, setReload] = useState(0);
   useEffect(() => {
     let active = true;
+    setError('');
     void client.get<CommunityCatalog>('/community').then(value => { if (active) setData(value); }).catch(() => { if (active) setError('社群資料暫時無法載入。'); });
     return () => { active = false; };
-  }, [client]);
+  }, [client, reload]);
   return <section className="module-panel freedom-community">
     <header className="community-entry-hero">
       <div className="community-entry-copy"><h2>加入社群</h2><p>到 Discord 與 LINE 找夥伴、交流作品。</p></div>
@@ -73,12 +75,12 @@ export function CommunityPanel({ client, onNavigate }: { client: PortalClient; o
     <CommunityLinks/>
     <section className="community-footprint" aria-labelledby="community-footprint-title">
       <header><p className="home-eyebrow">OUR FOOTPRINT</p><h3 id="community-footprint-title">社群足跡</h3></header>
-      {error && <p role="alert">{error}</p>}
+      {error && <div role="alert" className="banner banner-error"><p>{error}</p><button type="button" className="btn btn-ghost" onClick={() => setReload(value => value + 1)}>重新載入社群足跡</button></div>}
       {!data && !error && <p role="status">正在載入社群足跡…</p>}
       <div className="community-metrics">{data?.metrics.map(metric => <div className="community-metric" key={metric.label}>
         <p>{metric.label}</p><strong><span>約</span> {metric.value.toLocaleString('zh-TW')}</strong><p>{metric.note} · {metric.as_of}</p>
       </div>)}</div>
-      <div className="community-metric-source"><p>由社群提供的概數，不是即時或去重後的人數。</p><a href="https://github.com/Hao0321/freeworkshop-open-data" target="_blank" rel="noopener noreferrer">查看社群開放資料 ↗</a></div>
+      <div className="community-metric-source"><a href="https://github.com/Hao0321/freeworkshop-open-data" target="_blank" rel="noopener noreferrer">查看社群開放資料 ↗</a></div>
     </section>
     <button className="btn btn-ghost" onClick={() => onNavigate('skills')}>前往技能書架</button>
     {Boolean(data?.project_links?.length) && <section className="stack community-projects" aria-labelledby="community-project-links">

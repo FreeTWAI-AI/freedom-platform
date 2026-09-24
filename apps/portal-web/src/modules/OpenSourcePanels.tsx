@@ -36,7 +36,7 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
     if(saved){setDraft({...blankProject});setNotice('作品已登錄。你填寫的來源關係會清楚標示為自行聲明。');await refresh();}
   }
   return <div className="stack">
-    <ModuleBanner eyebrow="OPEN SOURCE / 分享程式，累積使用與協作" title="分享你的 GitHub 專案" description="" art="/art/rpg/skill-codex.webp"><div className="actions"><button className="btn btn-ghost" type="button" onClick={()=>onNavigate?.('skills')}>閱讀技能書</button><button className="btn btn-ghost" type="button" onClick={()=>onNavigate?.('cocreation')}>一起開發</button></div></ModuleBanner>
+    <ModuleBanner eyebrow="OPEN SOURCE" title="分享你的 GitHub 專案" description="" art="/art/rpg/skill-codex.webp"><div className="actions"><button className="btn btn-ghost" type="button" onClick={()=>onNavigate?.('skills')}>閱讀技能書</button><button className="btn btn-ghost" type="button" onClick={()=>onNavigate?.('cocreation')}>一起開發</button></div></ModuleBanner>
 
     {notice&&<p role="status" className="banner banner-info">{notice}</p>}
     {error&&<p role="alert" className="banner banner-error">{error}</p>}
@@ -52,7 +52,7 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
           <label className="field">這個作品可以做什麼<textarea required maxLength={2000} value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})}/></label>
           <label className="field">如何開始使用<textarea required maxLength={3000} placeholder="適合誰、需要什麼，以及第一個使用步驟。" value={draft.use_notes} onChange={e=>setDraft({...draft,use_notes:e.target.value})}/></label>
           <label className="field">展示網址（選填）<input type="url" maxLength={2000} placeholder="https://…" value={draft.demo_url} onChange={e=>setDraft({...draft,demo_url:e.target.value})}/></label>
-          <label className="field">我與作品的關係<select value={draft.relationship} onChange={e=>setDraft({...draft,relationship:e.target.value})}>{Object.entries(relationshipLabels).map(([key,label])=><option value={key} key={key}>{label}</option>)}</select><span className="field-hint">自行聲明；平台目前尚未驗證你的 GitHub 身分。</span></label>
+          <label className="field">我與作品的關係<select value={draft.relationship} onChange={e=>setDraft({...draft,relationship:e.target.value})}>{Object.entries(relationshipLabels).map(([key,label])=><option value={key} key={key}>{label}</option>)}</select><span className="field-hint">由你自行聲明；平台不以這次登錄驗證你與作品的來源、作者或擁有權關係。</span></label>
           <label className="choice"><input type="checkbox" required checked={draft.consent_to_share} onChange={e=>setDraft({...draft,consent_to_share:e.target.checked})}/>我同意讓社群會員看見作品介紹與來源關係</label>
           <button className="btn btn-primary" disabled={busy}>{busy?'正在讀取公開版本…':'從 GitHub 登錄'}</button>
         </form>

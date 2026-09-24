@@ -1,15 +1,15 @@
 .github-book-social { width: 100%; min-width: 0; display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid #333943; }
 .github-social-overview { display: grid; gap: 10px; min-width: 0; }
 .github-social-source { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
-.github-social-source a { color: #aeb5c2; font-size: .8rem; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+.github-social-source a { color: #aeb5c2; font-size: .875rem; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
 .github-social-source a:hover,.github-social-source a:focus-visible { color: #c4ff20; text-decoration: underline; }
 .github-book-metrics { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px 16px; margin: 0; }
 .github-book-metrics > div { min-width: 0; display: grid; gap: 2px; }
-.github-book-metrics dt { font-size: .75rem; color: #aeb5c2; }
+.github-book-metrics dt { font-size: .875rem; color: #aeb5c2; }
 .github-book-metrics dd { margin: 0; color: #f4f6ef; font-size: .95rem; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.github-book-social .github-metrics-note { color: #aeb5c2; font-size: .7rem; margin: 0; line-height: 1.6; }
+.github-book-social .github-metrics-note { color: #aeb5c2; font-size: .875rem; margin: 0; line-height: 1.6; }
 .github-social-actions { display: flex; gap: 8px 12px; align-items: center; flex-wrap: wrap; }
-.github-book-social .btn { min-height: 44px; font-size: .8rem; padding: 8px 14px; }
+.github-book-social .btn { min-height: 44px; font-size: .875rem; padding: 8px 14px; }
 .github-book-social .skill-book-star[aria-pressed="true"] { color: #c4ff20; border-color: #758e37; }
 .github-book-social .skill-book-star:hover,.github-book-social .skill-book-star:focus-visible { text-decoration: none; }
 .github-star-control,.github-count-control { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 64px; min-height: 44px; font-variant-numeric: tabular-nums; }
@@ -26,22 +26,26 @@
 .public-github-social .btn:disabled { cursor: wait; }
 .public-github-social button:focus-visible { outline: 3px solid #c4ff20; outline-offset: 4px; }
 .public-github-social .github-social-source a { display: inline-flex; align-items: center; min-height: 44px; }
-.github-action-status { margin: 0; font-size: .75rem; line-height: 1.5; color: #aeb5c2; }
-.github-fork-link,.github-retry { display: inline-flex; align-items: center; min-height: 44px; color: #aebcff; font-size: .8rem; }
+.github-action-status { margin: 0; font-size: .875rem; line-height: 1.5; color: #aeb5c2; }
+.github-fork-link,.github-retry { display: inline-flex; align-items: center; min-height: 44px; color: #aebcff; font-size: .875rem; }
 .github-retry { padding: 0; border: 0; background: transparent; cursor: pointer; text-align: left; }
 .github-retry:hover,.github-retry:focus-visible,.github-fork-link:hover,.github-fork-link:focus-visible { color: #c4ff20; }
-.github-book-social .github-social-error { margin: 0; color: #ffb4b8; font-size: .8rem; line-height: 1.65; overflow-wrap: anywhere; }
+.github-book-social .github-social-error { margin: 0; color: #ffb4b8; font-size: .875rem; line-height: 1.65; overflow-wrap: anywhere; }
 .skill-intro-dialog .github-book-metrics { grid-template-columns: repeat(3,minmax(0,1fr)); }
 .github-connection-panel > .btn { width: fit-content; }
+.github-connection-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 12px 16px; border: 1px solid #333943; border-radius: 12px; background: #14161b; }
+.github-connection-summary p { flex: 1 1 18rem; margin: 0; font-size: .875rem; line-height: 1.6; color: #d5dbe5; overflow-wrap: anywhere; }
+.github-connection-summary .btn { min-height: 44px; }
+.github-connection-summary [role="alert"] { color: #ffb4b8; }
 .github-book-social-compact { gap: 4px; padding-top: 8px; }
 .github-book-social-compact .github-social-overview { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; }
 .github-book-social-compact .github-social-source { flex-wrap: wrap; gap: 4px; }
-.github-book-social-compact .github-social-source a { display: inline-flex; align-items: center; font-size: .72rem; min-height: 44px; }
-.github-book-social-compact .github-book-metrics dt { font-size: .7rem; }
-.github-book-social-compact .github-book-metrics dd { font-size: .8rem; }
+.github-book-social-compact .github-social-source a { display: inline-flex; align-items: center; font-size: .875rem; min-height: 44px; }
+.github-book-social-compact .github-book-metrics dt { font-size: .875rem; }
+.github-book-social-compact .github-book-metrics dd { font-size: .875rem; }
 .github-book-social-compact .github-social-actions { gap: 4px 12px; }
 .github-book-social-compact .btn { padding: 6px 10px; }
-.github-metrics-details { min-width: 0; font-size: .75rem; }
+.github-metrics-details { min-width: 0; font-size: .875rem; }
 .github-metrics-details[open] { flex-basis: 100%; }
 .github-metrics-details > summary { min-width: 44px; min-height: 44px; padding: 12px 0; color: #aeb5c2; cursor: pointer; width: fit-content; }
 .github-metrics-details > summary:hover,.github-metrics-details > summary:focus-visible { color: #c4ff20; }

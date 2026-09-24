@@ -30,6 +30,23 @@ export function GitHubConnectionPanel(){
     {notice&&<p role="status">{notice}{remoteRemaining&&<> <a href="https://github.com/settings/apps/authorizations" target="_blank" rel="noopener noreferrer">GitHub 授權設定 ↗</a></>}</p>}
   </section>;
 }
+/** Compact shelf entry: one connect action, no disconnect; connecting never stars anything. */
+export function GitHubConnectionSummary({returnTo,onManage}:{returnTo:string;onManage?:()=>void}){
+  const store=useContext(SocialContext)??publicStore;
+  useSyncExternalStore(store.subscribe,store.snapshot,store.snapshot);
+  const [busy,setBusy]=useState(false),[error,setError]=useState('');
+  useEffect(()=>{void store.loadAccount();},[store]);
+  if(!store.member)return null;
+  const {value,loading}=store.account,failure=error||store.account.error;
+  async function connect(){setBusy(true);setError('');try{window.location.assign(await store.connect(returnTo));}catch(cause){setError(cause instanceof Error?cause.message:'無法連結 GitHub，請重試。');setBusy(false);}}
+  return <section className="github-connection-summary" aria-label="GitHub 連結">
+    {failure?<><p role="alert">{failure}</p><button className="btn btn-ghost" disabled={busy||loading} onClick={()=>{setError('');void store.refreshConnection();}}>重新讀取 GitHub 連結</button></>
+      :!value?<p role="status">正在確認 GitHub 連結…</p>
+      :value.connected?<><p>GitHub 已連結 <strong>@{value.github_user?.login??'GitHub'}</strong>，可直接在書上 Star 原作。</p>{onManage&&<button className="btn btn-ghost" onClick={onManage}>管理 GitHub 連結</button>}</>
+      :value.configured?<><p>連結 GitHub 後，可在每本技能書直接 Star 原作；連結本身不會替你 Star。</p><button className="btn btn-primary" disabled={busy||loading} onClick={()=>void connect()}>{busy?'前往 GitHub…':'連結 GitHub'}</button></>
+      :<p>GitHub 連結尚未啟用；仍可到 GitHub 上 Star、Fork 原作。</p>}
+  </section>;
+}
 function count(value:number|null|undefined){return typeof value==='number'&&Number.isFinite(value)?value.toLocaleString('zh-TW'):'—';}
 function date(value:string|null|undefined){return value&&!Number.isNaN(Date.parse(value))?new Date(value).toLocaleDateString('zh-TW'):'—';}
 

@@ -11,7 +11,8 @@ export function GitHubCallback(){
       window.history.replaceState(null,'','/github/callback');
       operation.current=(async()=>{
         const state=parameters.get('state'),code=parameters.get('code');
-        if(parameters.has('error')||!state||!code)throw Error('尚未連結 GitHub。');
+        if(parameters.get('error')==='access_denied')throw Error('你已取消這次 GitHub 授權，原有的連結狀態不受影響。需要時可回到原頁面再連結。');
+        if(parameters.has('error')||!state||!code)throw Error('GitHub 沒有回傳授權結果，這次連結未完成。請回到原頁面重新連結。');
         const client=new PortalClient(),session=await client.getSession();
         client.csrfToken=session.csrf_token;
         const result=await client.post<{return_to:string}>('/me/github/complete',{state,code});

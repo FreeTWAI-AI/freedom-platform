@@ -43,6 +43,7 @@
 .skill-intro-command code { padding: 0; background: transparent; color: #c8d0ef; }
 .skill-intro-source { padding-top: 4px; }
 .skill-intro-source .field-hint { color: #aeb5c2; }
+.skill-intro-dialog .field-hint { font-size: .875rem; line-height: 1.6; }
 @media (max-width: 600px) {
   .skill-intro-dialog { padding: 18px; width: calc(100vw - 24px); max-height: calc(100dvh - 24px); border-radius: 16px; }
   .skill-intro-header { top: -18px; gap: 12px; padding-top: 10px; padding-bottom: 16px; }
@@ -67,7 +68,7 @@
 .skill-library-copy > p { margin: 0; }
 .skill-library-description { display: grid; gap: 8px; min-width: 0; }
 .skill-library-description .skill-library-purpose { margin: 0; color: #c9d0db; line-height: 1.6; font-size: .875rem; overflow-wrap: anywhere; }
-.skill-library-description .field-hint { margin: 0; font-size: .72rem; color: #e0c796; line-height: 1.5; }
+.skill-library-description .field-hint { margin: 0; font-size: .875rem; color: #e0c796; line-height: 1.5; }
 .skill-library-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: auto; padding: 0; }
 .skill-library-actions .btn { min-height: 44px; padding: 8px 12px; }
 .skill-library-actions > .skill-intro-trigger { margin: 0; font-size: .85rem; }
