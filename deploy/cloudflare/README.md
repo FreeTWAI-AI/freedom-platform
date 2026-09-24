@@ -6,9 +6,9 @@
 
 | 檔案 | 內容 |
 | --- | --- |
-| [environments.json](environments.json) | `staging-next`／`next` 的名稱與隔離規則、單一 `HYPERDRIVE`、PS-5 size、catalog snapshot、OCI／D1 替代方案 |
+| [environments.json](environments.json) | `staging-next`／`next` 的名稱與隔離規則、單一 `HYPERDRIVE`、PS-5 size（價格 catalog_required）、OCI／D1 替代方案 |
 | [preflight.mjs](preflight.mjs) | CLI：`manifest`、`migrations`、`wrangler`、`cost`、`oci-alternative`、`cloudflare`、`oci`、`planetscale`、`plan`、`all` |
-| [lib/wrangler.mjs](lib/wrangler.mjs) | runtime config checker：分開回報 structural 與 deployment readiness |
+| [lib/wrangler.mjs](lib/wrangler.mjs) | runtime config 靜態 checker：分開回報 structural、static checks 與 deployment readiness（注入未證明時為 false） |
 | [lib/credentials.mjs](lib/credentials.mjs) | `CLOUDFLARE_API_TOKEN`／`CLOUDFLARE_ACCOUNT_ID`（接受舊名 `CF_*`，衝突即拒絕） |
 | [lib/](lib/manifest.mjs) | manifest guard、cost、GET-only Cloudflare client、唯讀 pscale／OCI runner、migration scanner、redaction |
 | [sql/](sql/10-create-roles.psql) | 之後階段使用的 role／grant／唯讀驗證 SQL template（本階段未執行） |

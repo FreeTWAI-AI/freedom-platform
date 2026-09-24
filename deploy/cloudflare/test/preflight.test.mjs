@@ -91,11 +91,27 @@ test('manifest selects Cloudflare-billed PlanetScale PG18, PS-5 sizes, one HYPER
   assert.doesNotMatch(text, /"authorized_cap_usd_month":\s*60/);
 });
 
-test('cost arithmetic: PlanetScale list prices and OCI alternative with E4/A1 connector rates', () => {
-  const ps = planetscaleCost(manifest());
-  assert.equal(ps.environments['staging-next'].usd_month, 5);
-  assert.equal(ps.environments.next.usd_month, 15);
-  assert.equal(ps.total, 25);
+test('cost arithmetic: unknown PlanetScale SKU prices keep the total pending; OCI alternative with E4/A1 connector rates', () => {
+  const m = manifest();
+  assert.equal(m.providers.planetscale.catalog.status, 'catalog_required');
+  assert.deepEqual(m.providers.planetscale.topology_nodes.ha, { nodes: 3, primary: 1, replicas: 2 });
+  const ps = planetscaleCost(m);
+  assert.deepEqual(ps.environments['staging-next'], { sku: 'PS-5 single_node', nodes: 1, usd_month: null });
+  assert.deepEqual(ps.environments.next, { sku: 'PS-5 ha', nodes: 3, usd_month: null });
+  assert.equal(ps.total, null);
+  assert.equal(ps.total_status, 'pending_quote');
+  assert.deepEqual(ps.quote_required, ['staging-next: PS-5 single_node', 'next: PS-5 ha']);
+  assert.equal(ps.cloudflare_workers_paid, 5);
+  assert.equal(ps.public_starting_price_single_node, 5);
+  assert.match(ps.public_starting_price_meaning, /not the regional or organization quote/);
+  assert.doesNotMatch(JSON.stringify(ps), /NaN|\b(15|25|41)\b/);
+  // One known, one unknown: still pending, never a partial sum.
+  const partial = clone(m);
+  partial.providers.planetscale.catalog.monthly_usd['PS-5 single_node'] = 7;
+  assert.equal(planetscaleCost(partial).total, null);
+  // Only when every selected SKU has a recorded quote is a total computed.
+  partial.providers.planetscale.catalog.monthly_usd['PS-5 ha'] = 30;
+  assert.deepEqual([planetscaleCost(partial).total, planetscaleCost(partial).total_status], [42, 'computed']);
   assert.match(ps.org_size_availability, /not_run/);
   assert.ok(!('exceeds_user_estimate' in ps) && !('authorized_cap' in ps), 'no spend gate');
   const e4 = ociAlternativeCost(manifest());
@@ -138,7 +154,10 @@ test('manifest rejects unsafe configurations', () => {
     [(m) => { m.environments.next.hyperdrive.name = 'freedom-staging-next-hd'; }, /prefix|shared/],
     [(m) => { m.environments['staging-next'].data_source = 'rehearsal-restore-of-public-backup'; }, /synthetic/],
     [(m) => { m.environments.next.database.topology = 'single_node'; }, /HA/],
-    [(m) => { m.environments['staging-next'].database.size = 'PS-7'; }, /no catalog price/],
+    [(m) => { m.environments['staging-next'].database.size = 'PS-7'; }, /not a catalog SKU/],
+    [(m) => { m.providers.planetscale.catalog.monthly_usd['PS-5 ha'] = 'NaN'; }, /null \(unknown\) or a recorded number/],
+    [(m) => { m.providers.planetscale.topology_nodes.ha.nodes = 2; }, /3 nodes/],
+    [(m) => { delete m.providers.planetscale.catalog.status; }, /catalog_required/],
     [(m) => { m.database_defaults.engine = 'mysql'; }, /PostgreSQL 18/],
     [(m) => { m.database_defaults.major_version = 17; }, /18/],
     [(m) => { m.environments.next.var_names.push('GITHUB_SOCIAL_TOKEN_KEY'); }, /secret/],
@@ -408,7 +427,8 @@ test('CLI: provider probes are opt-in; oci compare covers oracle2; bad profiles 
   assert.equal(oci.calls.length, 0, 'all does not touch OCI without --oci');
   assert.equal(pscale.length, 0, 'PlanetScale only runs on explicit request');
   const parsed = JSON.parse(all.output);
-  assert.equal(parsed.cost.selected.total, 25);
+  assert.equal(parsed.cost.selected.total, null);
+  assert.equal(parsed.cost.selected.total_status, 'pending_quote');
   assert.equal(parsed.oci_alternative.quota.status, 'blocked');
   assert.equal(parsed.provider_mutations, 0);
   assert.equal(parsed.plan.length, 2);
@@ -488,14 +508,27 @@ test('wrangler: runtime config with placeholder ids is structurally valid but no
   assert.ok(!r.readiness_blockers.some((b) => /shared/.test(b)) && !r.errors.some((e) => /shared/.test(e)), 'identical placeholders are not a sharing error');
 });
 
-test('wrangler: provisioned ids still need a provider caching.disabled read; only then deployment-ready', () => {
+test('wrangler: provisioned ids still need a provider caching.disabled read; only then static checks pass', () => {
   const noRead = checkWranglerConfig(writeWrangler(provisioned()), manifest());
   assert.equal(noRead.structural, 'valid');
   assert.equal(noRead.deployment_ready, false);
   assert.equal(noRead.readiness_blockers.filter((b) => /caching\.disabled not read/.test(b)).length, 2);
   const ready = checkWranglerConfig(writeWrangler(provisioned()), manifest(), { hyperdriveConfigs: cachingOff });
-  assert.deepEqual([ready.structural, ready.deployment_ready, ready.readiness_blockers], ['valid', true, []]);
-  assert.ok(ready.required_injections.some((i) => /FREEDOM_RELEASE_SHA/.test(i)), 'release SHA injection still reported');
+  assert.deepEqual([ready.structural, ready.static_checks_pass, ready.readiness_blockers], ['valid', true, []]);
+  assert.equal(ready.deployment_ready, false, 'static checks alone are not deployment readiness');
+});
+
+test('wrangler: real-shaped ids, cache-off read-back and valid routes are still not deployment-ready without release SHA and secrets', () => {
+  const r = checkWranglerConfig(writeWrangler(provisioned()), manifest(), { hyperdriveConfigs: cachingOff });
+  assert.equal(r.status, 'pass');
+  assert.equal(r.static_checks_pass, true);
+  assert.equal(r.deployment_ready, false);
+  assert.match(r.deployment_ready_scope, /required injection/);
+  for (const env of ['staging-next', 'next']) {
+    assert.ok(r.required_injections.some((i) => i.startsWith(`${env}: FREEDOM_RELEASE_SHA via`)), env);
+    for (const secret of ['GITHUB_SOCIAL_TOKEN_KEY', 'FREEDOM_ADMIN_CSRF_SECRET']) assert.ok(r.required_injections.includes(`${env}: secret ${secret} (wrangler secret put)`), `${env} ${secret}`);
+    assert.ok(r.required_injections.some((i) => i === `${env}: var FREEDOM_DATABASE_NAME supplied outside the config`), env);
+  }
 });
 
 test('wrangler: exact two-env mocks catch every binding, cache, id, origin, Images and release mistake', () => {
@@ -558,7 +591,8 @@ test('CLI wrangler with a fake env file reads caching back through the mock only
   const envFile = privateEnvFile(`CLOUDFLARE_ACCOUNT_ID=${ACCOUNT}\nCLOUDFLARE_API_TOKEN=${FAKE_TOKEN}\n`);
   const out = await run(['wrangler', '--config', writeWrangler(provisioned()), '--env-file', envFile], { fetchImpl });
   assert.equal(out.code, 0);
-  assert.equal(JSON.parse(out.output).wrangler.deployment_ready, true);
+  const wr = JSON.parse(out.output).wrangler;
+  assert.deepEqual([wr.static_checks_pass, wr.deployment_ready], [true, false]);
   assert.ok(calls.every((c) => c.method === 'GET' && /hyperdrive\/configs\//.test(c.url)));
   assert.doesNotMatch(out.output, new RegExp(`${FAKE_TOKEN}|${ACCOUNT}`));
 });

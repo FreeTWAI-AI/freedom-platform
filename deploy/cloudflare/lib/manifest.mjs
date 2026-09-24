@@ -39,7 +39,8 @@ export function validateManifest(m) {
   if (m.providers?.selected !== 'planetscale_cloudflare_billed') err('selected provider must be planetscale_cloudflare_billed');
   const ps = m.providers?.planetscale ?? {};
   if (ps.billing !== 'cloudflare') err('PlanetScale must be billed through Cloudflare');
-  if (!ps.catalog?.source || !ps.catalog?.retrieved) err('PlanetScale catalog needs a source and retrieval date');
+  if (!ps.catalog?.source || !['catalog_required', 'org_quote_recorded'].includes(ps.catalog?.status)) err('PlanetScale catalog needs a source and a status (catalog_required until an org quote is recorded)');
+  if (ps.topology_nodes?.ha?.nodes !== 3 || ps.topology_nodes?.ha?.replicas !== 2) err('PlanetScale HA is 1 primary + 2 replicas (3 nodes)');
   if (m.providers?.oci && m.providers.oci.provisioning !== false) err('OCI is a surveyed alternative; provisioning must be false');
   if (m.providers?.d1 && m.providers.d1.drop_in !== false) err('D1 is not a drop-in replacement');
   if (m.budget?.authorized_cap_usd_month !== null && typeof m.budget?.authorized_cap_usd_month !== 'number') err('budget.authorized_cap_usd_month must be null (none given) or a user-provided number');
@@ -66,7 +67,9 @@ export function validateManifest(m) {
     if (key === 'staging-next' && env.data_source !== 'synthetic') err('staging-next: must use synthetic data only (no live data, no local demo accounts)');
     if (key === 'staging-next' && env.database?.topology !== 'single_node') err('staging-next: starts as a single_node PS-5');
     if (key === 'next' && env.database?.topology !== 'ha') err('next: production candidate must be HA before cutover');
-    if (!ps.catalog?.monthly_usd?.[`${env.database?.size} ${env.database?.topology} arm64`]) err(`${key}: size ${env.database?.size} ${env.database?.topology} has no catalog price`);
+    const price = ps.catalog?.monthly_usd?.[`${env.database?.size} ${env.database?.topology}`];
+    if (price === undefined) err(`${key}: size ${env.database?.size} ${env.database?.topology} is not a catalog SKU`);
+    else if (price !== null && !(typeof price === 'number' && price >= 0)) err(`${key}: catalog price must be null (unknown) or a recorded number`);
     if ((env.secret_names ?? []).includes('DATABASE_URL')) err(`${key}: runtime DB access must come from the Hyperdrive binding, not a DATABASE_URL secret`);
     for (const secret of env.secret_names ?? []) if ((env.var_names ?? []).includes(secret)) err(`${key}: ${secret} listed as both secret and plain var`);
     for (const v of env.var_names ?? []) if (/(URL|KEY|SECRET|TOKEN|PASSWORD)$/.test(v) && v !== 'APP_ORIGIN') err(`${key}: ${v} looks secret and must not be a plain var`);

@@ -27,9 +27,12 @@ const HYPERDRIVE_ID = /^[0-9a-f]{32}$/;
 
 /**
  * Validate a wrangler.json/jsonc owned by the runtime workstream against the manifest. Read-only.
- * Two separate answers: `structural` (the config is shaped correctly) and `deployment_ready`
- * (every provider fact is proven). Placeholder zero Hyperdrive IDs are deliberately unprovisioned:
- * structurally valid, not deployment-ready. Cache-disabled Hyperdrive is proven only by a provider
+ * Three separate answers: `structural` (the config is shaped correctly), `static_checks_pass`
+ * (structural plus no config-level blocker: real ids, provider cache read-back, routes) and
+ * `deployment_ready`, which additionally needs every required injection (release SHA, vars supplied
+ * outside the config, secrets) proven. This checker cannot see injected values, so any listed
+ * injection keeps `deployment_ready` false; it is not a full provider readiness proof. Placeholder
+ * zero Hyperdrive IDs are deliberately unprovisioned: structurally valid, not deployment-ready. Cache-disabled Hyperdrive is proven only by a provider
  * read of `caching.disabled === true` (pass `hyperdriveConfigs`, keyed by id); no comment, variable
  * or HTTP no-store header proves the query cache is off.
  */
@@ -107,10 +110,13 @@ export function checkWranglerConfig(path, manifest, { hyperdriveConfigs } = {}) 
     for (const s of env.secret_names) injections.push(`${label}: secret ${s} (wrangler secret put)`);
   }
   const structural = errors.length ? 'invalid' : 'valid';
+  const staticPass = structural === 'valid' && blockers.length === 0;
   return {
     status: errors.length ? 'fail' : 'pass',
     structural,
-    deployment_ready: structural === 'valid' && blockers.length === 0,
+    static_checks_pass: staticPass,
+    deployment_ready: staticPass && injections.length === 0,
+    deployment_ready_scope: 'false while any required injection is unproven; injected values are outside this static check',
     readiness_blockers: blockers,
     required_injections: injections,
     errors,

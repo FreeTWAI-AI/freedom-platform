@@ -1,6 +1,7 @@
-// Monthly cost arithmetic from the catalog snapshots in the manifest. Items that are not in a
-// snapshot (storage above included amounts, backups, NAT, egress, tax, credits) are listed as
-// excluded rather than guessed. The user's US$50–100 is context, never a gate.
+// Monthly cost arithmetic from the manifest. A selected SKU whose regional/organization price is
+// not recorded stays null and makes the total pending: it is never summed as 0, NaN or a guess.
+// Items outside any quote (storage, backups, NAT, egress, tax, credits) are listed as excluded.
+// The user's US$50–100 is context, never a gate.
 const round = (n) => Math.round(n * 100) / 100;
 
 /** Selected path: Cloudflare-billed PlanetScale (same prices as direct per the Cloudflare page). */
@@ -8,16 +9,22 @@ export function planetscaleCost(manifest) {
   const ps = manifest.providers.planetscale;
   const environments = {};
   for (const [key, env] of Object.entries(manifest.environments)) {
-    const sku = `${env.database.size} ${env.database.topology} arm64`;
-    environments[key] = { sku, usd_month: ps.catalog.monthly_usd[sku] };
+    const sku = `${env.database.size} ${env.database.topology}`;
+    const usd = ps.catalog.monthly_usd[sku];
+    environments[key] = { sku, nodes: ps.topology_nodes[env.database.topology].nodes, usd_month: typeof usd === 'number' ? usd : null };
   }
   const workers = manifest.cloudflare.workers_paid_usd_month;
-  const db = Object.values(environments).reduce((s, e) => s + e.usd_month, 0);
+  const unknown = Object.entries(environments).filter(([, e]) => e.usd_month === null).map(([k, e]) => `${k}: ${e.sku}`);
+  const db = Object.values(environments).reduce((s, e) => s + (e.usd_month ?? 0), 0);
   return {
-    basis: `${ps.catalog.source} (${ps.catalog.retrieved}); billed through Cloudflare at the same price`,
+    basis: `${ps.catalog.source} (${ps.catalog.status}); billed through Cloudflare at the same price`,
     environments,
     cloudflare_workers_paid: workers,
-    total: round(db + workers),
+    public_starting_price_single_node: ps.catalog.public_summary?.public_starting_price_usd_month ?? null,
+    public_starting_price_meaning: 'public "starts at" figure only; not the regional or organization quote for any selected SKU',
+    total: unknown.length ? null : round(db + workers),
+    total_status: unknown.length ? 'pending_quote' : 'computed',
+    quote_required: unknown,
     org_size_availability: 'not_run (needs authenticated pscale organization)',
     excluded: ['storage/egress above plan inclusions', 'Cloudflare usage above Workers Paid included amounts', 'tax'],
     user_estimate: manifest.budget.user_context_estimate_usd_month,
@@ -36,6 +43,7 @@ export function ociAlternativeCost(manifest, { connectorShape = 'CI.Standard.E4.
   const connector = round((p[rates.ocpu].usd * oci.connector.ocpu + p[rates.memory].usd * oci.connector.memory_gb) * h);
   const environments = {};
   for (const [key, env] of Object.entries(manifest.environments)) {
+    // OCI's own survey assumption (HA = 2 nodes); PlanetScale HA is 3 nodes and is not mixed in here.
     const nodes = env.database.topology === 'ha' ? 2 : 1;
     environments[key] = { db_nodes: nodes, db: round(dbNode * nodes), connector, subtotal: round(dbNode * nodes + connector) };
   }
