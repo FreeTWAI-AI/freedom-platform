@@ -1,10 +1,11 @@
 {
   "schema": "freedom.cloudflare-migration-plan/v3",
   "phase": "preflight",
-  "status": "partial_provisioning_blocked",
-  "execution": "none: this phase has no execute capability; provisioning is a later reviewed phase",
+  "status": "candidate_deployments_verified",
+  "status_meaning": "Observed provider progress on 2026-09-24 from root evidence; each entry carries its own UTC observation time (last 20:15:39). Both candidates are deployed and passed the selected acceptance gates; there is no cutover. Independent of this tool's capability (see execution). Details: docs/development/cloudflare-migration-status-2026-09-24.md.",
+  "execution": "none: this tool has no execute capability; provisioning runs through the operator's private helper outside this versioned tool",
   "zone": "freetwai.com",
-  "notes": "Names only. Observed state: the four Access applications were created and verified by root, and Workers Paid is active; the PlanetScale DB, Worker deployments, Hyperdrive configs and DNS records are not created. Any other resource in this file exists only once a provisioning phase records its provider ID in a private evidence file. This tool remains read-only. Runtime DB connections come only from the single HYPERDRIVE binding; migrator credentials stay in the operator private directory.",
+  "notes": "Names only; provider IDs, Access AUDs, branch IDs and credentials live only in private evidence and overlays. Observed: Workers Paid and the PlanetScale partnership are active; both PlanetScale databases are ready; staging-next (synthetic) and next (rehearsal restore of the 2026-09-24 18:51 UTC public backup) are deployed at aed75a2636a0680b2fb9cf1ecd31ed14cbcb6293 and passed the 10 selected acceptance phases (132 checks each) plus a separate bounded load run; temporary acceptance accounts and Access tokens are cleaned up. No cutover: the old sites keep accepting writes, so next is a stale rehearsal, not a synchronized copy. Runtime DB connections come only from the single HYPERDRIVE binding; migrator credentials stay in the operator private directory.",
   "protected": {
     "hostnames": ["freetwai.com", "staging.freetwai.com"],
     "hostname_policy": "Every hostname in the zone except the candidate hostnames below is protected; tools deny by default.",
@@ -61,7 +62,19 @@
       },
       "pscale_cli_min_version": "0.313.0",
       "pscale_cli_observed": {"version": "0.338.0", "source": "root setup 2026-09-24"},
-      "pscale_auth_observed": {"status": "authenticated", "method": "oauth", "org": "ted-ted-h", "orgs_visible": 1, "databases_listed": 0, "source": "root check 2026-09-24: `DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/null pscale auth check --format json` returned authenticated true (oauth) through pscale's documented file fallback when no desktop keyring is reachable; sole org ted-ted-h; database list empty. The earlier TOKEN_SAVE_FAILED was resolved by root. The override is process-scoped only (no global environment/config change); tools never start a login and never read stored credentials.", "process_env": {"DBUS_SESSION_BUS_ADDRESS": "unix:path=/dev/null"}},
+      "pscale_auth_observed": {"status": "authenticated", "method": "oauth", "org": "ted-ted-h", "orgs_visible": 1, "source": "root check 2026-09-24: `DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/null pscale auth check --format json` returned authenticated true (oauth) through pscale's documented file fallback when no desktop keyring is reachable; sole org ted-ted-h. The override is process-scoped only (no global environment/config change); tools never start a login and never read stored credentials.", "process_env": {"DBUS_SESSION_BUS_ADDRESS": "unix:path=/dev/null"}},
+      "databases_observed": {
+        "status": "ready",
+        "source": "root evidence 2026-09-24 (not re-queried here)",
+        "org": "ted-ted-h",
+        "region": "ap-northeast",
+        "postgres_major_verified_by_sql": 18,
+        "created_via": "Cloudflare billing signature streamed on stdin to `pscale database create --cloudflare-billing @-` by the operator's private helper; temporary billing tokens revoked afterwards",
+        "databases": {
+          "freedom-staging-next-pg": {"cluster": "PS_5_AWS_ARM", "replicas": 0, "state": "ready"},
+          "freedom-next-pg": {"cluster": "PS_5_AWS_ARM", "replicas": 2, "state": "ready"}
+        }
+      },
       "automation": {
         "output": "--format json on every automated pscale command",
         "org_flag": "--org is passed to resource-level subcommands",
@@ -151,20 +164,25 @@
   },
   "cloudflare": {
     "workers_paid_usd_month": 5,
-    "workers_paid": "verified active 2026-09-24 17:39:58 UTC by root (account subscriptions read: rate plan workers_paid, Workers Paid, account scope, US$5 monthly, state Paid); not a blocker. This tool made no provider call.",
-    "workers_namespace": "freetwai initialized by the root identity; not a blocker",
+    "workers_paid": "verified active 2026-09-24 17:39:58 UTC by root (account subscriptions read: rate plan workers_paid, Workers Paid, account scope, US$5 monthly, state Paid). This tool made no provider call.",
+    "workers_namespace": "freetwai initialized by the root identity",
     "planetscale_partnership": {
-      "status": "blocked_not_entitled",
-      "observed": "2026-09-24 17:48:20 UTC root signature probe returned Cloudflare error 2025: the account is not entitled to create Cloudflare-billed PlanetScale databases until the PlanetScale partnership subscription is purchased. This entitlement is separate from Workers Paid.",
-      "effect": "Billing signature and Cloudflare-billed DB creation are blocked until the official Cloudflare PlanetScale activation. No signature succeeded, no DB was created, temporary tokens were revoked. Do not continue scope guessing; the minimum/sufficient scopes remain unproven.",
-      "cost": "Partnership activation terms and any additional charge are unverified until the official activation review; the US$25 base quote does not cover them."
+      "status": "active",
+      "observed": "Enabled by the user after Cloudflare code 2025 (not entitled) on 2026-09-24; root's recheck billing signature succeeded 18:21:19 UTC. This entitlement is separate from Workers Paid.",
+      "scope_note": "Temporary billing tokens were revoked. The minimum/sufficient token scopes remain unproven.",
+      "cost": "Official Cloudflare documentation states price parity with buying from PlanetScale directly; the actual monthly invoice has not been observed yet."
     },
     "access_applications": {
       "status": "verified",
-      "source": "root created and verified 2026-09-24 (not re-queried here); account application count 19 -> 23",
+      "source": "root created and GET-verified 2026-09-24 17:35 UTC (not re-queried here); the 19 existing applications unchanged, account total 23; named operators reuse the existing staging list",
+      "acceptance_tokens": "each candidate used its own temporary Access policy and service token; both cleaned (next confirmed 20:14:13 UTC), private credential files absent, original single-email operator and admin policies restored",
       "applications": ["staging-next.freetwai.com", "staging-next.freetwai.com/admin", "next.freetwai.com", "next.freetwai.com/admin"]
     },
-    "not_created": ["PlanetScale databases", "Worker candidate deployments", "Hyperdrive configs", "DNS records and routes"]
+    "acceptance_scope": "10 selected phases: preflight, health, protocol, assets, anonymous, session, browser, guild-cache, avatar, logout (verifier 9bec626). github-handoff not selected; load run separately.",
+    "not_verified": ["new member registration", "whole-app end-to-end behaviour", "full GitHub OAuth/App consent/install and star/fork/follow", "member message UI", "Taiwan latency", "provider-native backup/PITR restore drill", "database load and 10k concurrency", "actual monthly invoice"],
+    "cache_rules_check": "Final provider addenda at 2026-09-24 19:19:48 UTC (staging-next) and 19:44:51 UTC (next): no_applicable_cache_rule each time (applicable rules 0, zone cache phase rulesets 0, page rules 0, account level not applicable), cache_clear true. A specific entrypoint lookup with the child token returned 403 (kept); absence rests on the complete zone Rulesets list (200) read with the parent token. Valid only for those observation times.",
+    "dns_snapshot": "2026-09-24 20:14:49 UTC: both candidate hostnames resolve through the normal operator resolver and match fresh DoH; anonymous /, /admin and /api/v1/health return 302 with valid TLS; the 2 protected old DNS records (freetwai.com 1, staging.freetwai.com 1) match the 3 recorded baselines; zone Worker routes 0 (no historical route fingerprint exists). No global DNS or hosts change.",
+    "not_started": ["cutover (write freeze, fresh final backup and restore, verification, reviewed live-key transfer, real GitHub validation, rollback handling of new writes)"]
   },
   "runtime": {
     "config_source": "freedom-platform runtime worktree wrangler.jsonc at f089a84 (read-only here)",
@@ -176,6 +194,7 @@
     "hyperdrive_binding": "HYPERDRIVE",
     "release_var": "FREEDOM_RELEASE_SHA",
     "release_var_injection": "deploy supplies --var FREEDOM_RELEASE_SHA:$(git rev-parse HEAD); never hardcoded in the config",
+    "hyperdrive_ids_in_repo": "All-zero template placeholders by design; real IDs live only in the operator's private overlay. Zeros mean the repository alone is not deploy-ready, not that the resources are absent.",
     "source_ip_var": {"name": "FREEDOM_TRUST_CF_CONNECTING_IP", "value": "true"}
   },
   "environments": {
@@ -196,7 +215,16 @@
       },
       "r2_buckets": [{"name": "freedom-staging-next-private", "public": false, "optional": true}],
       "secret_names": ["GITHUB_SOCIAL_TOKEN_KEY", "FREEDOM_ADMIN_CSRF_SECRET"],
-      "var_names": ["APP_ORIGIN", "FREEDOM_ENV", "FREEDOM_RELEASE_SHA", "FREEDOM_TRUST_CF_CONNECTING_IP", "FREEDOM_DATABASE_NAME", "FREEDOM_REGISTRATION_COMMUNITY_ID", "FREEDOM_ADMIN_ACCESS_ISSUER", "FREEDOM_ADMIN_ACCESS_AUD"]
+      "var_names": ["APP_ORIGIN", "FREEDOM_ENV", "FREEDOM_RELEASE_SHA", "FREEDOM_TRUST_CF_CONNECTING_IP", "FREEDOM_DATABASE_NAME", "FREEDOM_REGISTRATION_COMMUNITY_ID", "FREEDOM_ADMIN_ACCESS_ISSUER", "FREEDOM_ADMIN_ACCESS_AUD"],
+      "observed": {
+        "database": "ready (PS_5_AWS_ARM, replicas 0)",
+        "bootstrap": "verified 2026-09-24 18:42:45 UTC: PG18, ledger 36 names/checksums (001-037, gap 022), 81 public tables, one fresh synthetic community, zero accounts at bootstrap; a separately authorized synthetic acceptance account was created 18:55 UTC",
+        "roles": "runtime DML only; migrator owns all public objects; temporary provider admin role deleted",
+        "deployment": "release aed75a2636a0680b2fb9cf1ecd31ed14cbcb6293; provider reconciliation 9/9 gates pass; Hyperdrive caching.disabled true by provider GET, strict TLS with uploaded ISRG Root X2 CA read back; two fresh secret names; Worker, custom domain and DNS in place; no old target modified; root health HTTP 200 with runtime cloudflare-workers and that SHA",
+        "acceptance": "2026-09-24 19:39 UTC, 10 selected phases / 132 checks: cloud_proof true, overall pass; github-handoff not selected; inbox requests blocked, no response bodies read. Private report staging-next-account-3.json sha256 eb72f47345324d3ccfd4def159a11fcb71fa6c517851e6bc9f7f9ede42cb774f",
+        "load": "120/120 HTTP 200, 0 errors, p50 66.5 ms, p95 104.6 ms, p99 212.2 ms at 10 rps, concurrency 4 (health + 2 static images, from the operator host); not Taiwan latency, DB load or capacity proof",
+        "cleanup": "complete 2026-09-24 19:43:17 UTC: synthetic account inactive, its 8 sessions revoked, avatar images 0, history kept; temporary Access policy and service token removed; original policies unchanged; no member deletions"
+      }
     },
     "next": {
       "purpose": "Production candidate. Protected by Access during rehearsal; becomes production only after the reviewed cutover.",
@@ -215,7 +243,21 @@
       },
       "r2_buckets": [{"name": "freedom-next-private", "public": false, "optional": true}],
       "secret_names": ["GITHUB_SOCIAL_TOKEN_KEY", "FREEDOM_ADMIN_CSRF_SECRET"],
-      "var_names": ["APP_ORIGIN", "FREEDOM_ENV", "FREEDOM_RELEASE_SHA", "FREEDOM_TRUST_CF_CONNECTING_IP", "FREEDOM_DATABASE_NAME", "FREEDOM_REGISTRATION_COMMUNITY_ID", "FREEDOM_ADMIN_ACCESS_ISSUER", "FREEDOM_ADMIN_ACCESS_AUD"]
+      "var_names": ["APP_ORIGIN", "FREEDOM_ENV", "FREEDOM_RELEASE_SHA", "FREEDOM_TRUST_CF_CONNECTING_IP", "FREEDOM_DATABASE_NAME", "FREEDOM_REGISTRATION_COMMUNITY_ID", "FREEDOM_ADMIN_ACCESS_ISSUER", "FREEDOM_ADMIN_ACCESS_AUD"],
+      "observed": {
+        "database": "ready (PS_5_AWS_ARM, replicas 2: 1 primary + 2 replicas)",
+        "source_backup": "fresh freedom_public backup 2026-09-24 18:51:51 UTC via the existing freedom-public-backup.service oneshot (read-only pg_dump, new file only); sha256 e8c584d5b16512d5ced178c8bfc908b7565529e5894aefc48a3a13c1fb3bf73a, checked before and after the private copy",
+        "restore": "pg_restore --no-owner --no-privileges --exit-on-error --single-transaction succeeded 19:04:47 UTC into the empty migrator-owned freedom_next; ledger 36 names/checksums match, repository migrate no-op 36->36; restored sessions all revoked",
+        "verified_after_admin_delete": "2026-09-24 19:11:34.948 UTC: PG18, 81 public tables, ownership/grants correct, zero local demo accounts, zero unrevoked sessions, temporary admin absent",
+        "schema_compare": "schema_digest_equal_strict false; only three root-reviewed CHECK parenthesization pairs accepted as semantically equal; all other drift refused",
+        "synthetic_acceptance_account": "separately authorized next-only synthetic account created 2026-09-24 19:17:20 UTC with exactly six own INSERTs, independently read-only verified; no source/restored member data changed. Earlier target counts (19:12:42 UTC) predate it and are historical, not current totals",
+        "github_social_token_key": "fresh candidate key set and its secret name read back; the live key was never read or copied",
+        "github_isolation": "first acceptance report (next-account-1) failed with 503 github_setup_unavailable because the restored GitHub App config could not be decrypted under the fresh key; kept as failure history. A reviewed sanitizer (2026-09-24 20:11 UTC) removed exactly the copied App config and its dependent consumed setup receipt from the candidate DB only, after an encrypted backup; readSocialConfig is null_unconfigured, member connections, OAuth state and audit unchanged. Candidate-only rehearsal step, not a cutover procedure",
+        "deployment": "release aed75a2636a0680b2fb9cf1ecd31ed14cbcb6293; custom domain attached 19:42:15 UTC; final provider verification 19:44:51 UTC 9/9 gates pass (provider GET plus fresh DoH/TLS); the initial provisioning receipt stays partial_stopped (operator local DNS ENOTFOUND only) with the final verification as a separate addendum; Hyperdrive caching.disabled true, strict TLS with ISRG Root X2 CA; secret names read back; no old target modified",
+        "acceptance": "2026-09-24 20:12:32 UTC, 10 selected phases / 132 checks: cloud_proof true, overall pass; 8 inbox requests blocked, 0 route/page/teardown errors; github-handoff not selected, app_configured false by design (not GitHub integration proof). Private report next-account-2.json sha256 b127674d48a830a71b9aa853e86cc6673eb871ea181d57e589daa68ba93e9e94",
+        "load": "19:52:10 UTC, next-load-1.json sha256 43bc4ea08aa5c1661a5446be65f405f6b0ff3d37e240411326f2695e12abf1bd: 120/120 HTTP 200, 0 errors, p50 70.7 ms, p95 118.8 ms, p99 933.3 ms, ~12 s at 10 rps, concurrency 4 (health + 2 static images, from the operator host, before the GitHub isolation); not Taiwan latency, DB load or capacity proof",
+        "cleanup": "Access cleaned 20:14:13 UTC; synthetic account cleanup committed 20:15:18 UTC and independently read-only verified 20:15:39 UTC: account inactive, its 5 sessions revoked with none active, avatar images 0, history kept; no member or source DB changes"
+      }
     }
   }
 }
