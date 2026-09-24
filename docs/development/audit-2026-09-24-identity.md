@@ -105,3 +105,7 @@
 - 修正後 E2E：`audit-identity onboarding-members onboarding-recovery member-directory social-links guild-members guild-organization navigation-audit positioning-modules avatar workshop-design journeys modules-beginners` 共 57 個測試，`56 passed (1.8m)`。唯一失敗的是 audit-identity 桌面測試的第一張登入頁截圖，Chromium 回報 `Page.captureScreenshot: Unable to capture screenshot`，發生在任何受測程式執行前。單獨重跑 `audit-identity.spec.ts`：`8 passed (40.4s)`。
 - runtime 91 個測試沒有重跑：這輪只改前端元件與 E2E，沒有動 API 或資料層。
 - `not_run`：`test:contracts`、`test:repos`，以及全量 `test:e2e`／`npm test`，由 root 在整合時執行。
+
+## 整合後補記
+
+本頁 §4 轉交的三項已完成：登入重複品牌標題由 root 移除；共用開發 summary 已達 44px；定位完成書架改用 h2、重新探索改用 h3，維持相同字級與外觀。最終 follow-up 另修首次書架誤報新增、公告／議事恢復資格連結保留草稿，新增五案對舊版全紅、修正版定向 22 過與相關技能書 26 過。最終全套數字以[整合總報告](./audit-2026-09-24.md)為準。

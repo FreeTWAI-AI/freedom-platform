@@ -265,7 +265,10 @@ try {
   await page.getByRole('button', { name: '保存，繼續下一步 →', exact: true }).click();
   await expect(page.getByRole('heading', { name: '你從哪裡來，帶著哪些能力？', exact: true })).toBeVisible();
   await page.getByLabel('你的職業／目前身分').fill('部署驗證用合成測試帳號');
+  await expect(page.locator('.category-group > .tree-toggle').first()).toHaveAttribute('aria-expanded','false');
+  await page.getByLabel('搜尋能力', { exact: true }).fill('剛開始探索，想從基礎學起');
   await page.getByLabel('剛開始探索，想從基礎學起', { exact: true }).check();
+  await page.getByLabel('搜尋能力', { exact: true }).fill('');
   await page.getByLabel('精選能力：剛開始探索，想從基礎學起', { exact: true }).check();
   await page.setViewportSize({width:390,height:844});
   await expect(page.locator('.category-group > .tree-toggle').first()).toHaveAttribute('aria-expanded','false');
@@ -707,7 +710,7 @@ try {
   const manualUpload=page.locator('details.manual-upload');
   await expect(manualUpload).not.toHaveAttribute('open');
   await expect(page.getByRole('heading',{name:'登錄開源作品',exact:true})).toBeHidden();
-  await manualUpload.getByText('手動上傳',{exact:true}).click();
+  await manualUpload.getByText('手動登錄作品',{exact:true}).click();
   await expect(manualUpload.getByRole('heading',{name:'登錄開源作品',exact:true})).toBeVisible();
   await expect(manualUpload.getByRole('button',{name:'從 GitHub 登錄',exact:true})).toBeVisible();
   await expect(memberNavigation).toBeHidden();await noOverflow('Grouped phone menu and source submission overflow');
