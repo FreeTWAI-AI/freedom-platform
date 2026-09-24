@@ -78,7 +78,7 @@ npx tsx scripts/verify-cloud-candidate.ts execute --target next --expected-versi
 
 `execute` refuses to start (exit `2`, before any request or credential read) without `--expected-release-sha`, because every network run includes health. Uppercase hex is lowercased; anything but 40 hex characters is rejected.
 
-The JSON report goes to stdout, and the caller keeps it as the canonical record. Progress lines on stderr carry phase names and statuses only. Exit code: `0` only when every selected phase passed, `1` for any fail, blocked or not_run phase, and `2` for usage or credential-file errors.
+The JSON report goes to stdout, and the caller keeps it as the canonical record. Progress lines on stderr carry phase names and statuses only. For `execute`, the exit code is `0` only when every selected phase passed, `1` for any fail, blocked or not_run phase, and `2` for usage or credential-file errors. `plan` exits `0` after printing the report even though every phase is `not_run`; that `0` means the plan was written, not that any phase passed, and usage errors still exit `2`.
 
 ## Phases and acceptance gates
 
