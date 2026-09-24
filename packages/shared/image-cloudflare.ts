@@ -8,9 +8,9 @@ import { assertCanonicalWebp } from './image-webp.js';
 export interface ImagesInfo { readonly format: string; readonly fileSize?: number; readonly width?: number; readonly height?: number }
 export interface ImagesTransform {
   width: number; height: number;
-  fit: 'cover' | 'pad';
+  fit: 'cover' | 'squeeze';
   gravity?: 'center';
-  background?: string;
+  border?: { color: string; top?: number; right?: number; bottom?: number; left?: number };
 }
 export interface ImagesOutputOptions { format: 'image/webp'; quality: number; anim: false }
 export interface ImagesTransformationResult { contentType(): string; image(): ReadableStream<Uint8Array> }
@@ -66,6 +66,19 @@ async function readBounded(stream: ReadableStream<Uint8Array>, max: number, dead
   return out;
 }
 
+// sharp `contain`: scale the oriented image to fit (rounded, at least 1px),
+// centre it at floor offsets and fill only the bands with the background.
+// Cloudflare `pad` instead flattens transparent content onto `background`,
+// so the service gets an exact squeeze plus an opaque per-side border.
+export function containTransform(width: number, height: number, boxWidth: number, boxHeight: number, color: string): ImagesTransform {
+  const scale = Math.min(boxWidth / width, boxHeight / height);
+  const w = Math.max(1, Math.min(boxWidth, Math.round(width * scale))), h = Math.max(1, Math.min(boxHeight, Math.round(height * scale)));
+  const left = Math.floor((boxWidth - w) / 2), top = Math.floor((boxHeight - h) / 2);
+  const sides = { top, right: boxWidth - w - left, bottom: boxHeight - h - top, left };
+  const border = Object.fromEntries(Object.entries(sides).filter(([, size]) => size > 0));
+  return Object.keys(border).length ? { width: w, height: h, fit: 'squeeze', border: { color, ...border } } : { width: w, height: h, fit: 'squeeze' };
+}
+
 const streamOf = (bytes: Uint8Array) => new Blob([new Uint8Array(bytes)]).stream();
 const isImagesError = (error: unknown): error is { code: number } => typeof (error as { code?: unknown } | null)?.code === 'number';
 
@@ -88,8 +101,8 @@ export function createCloudflareImageProcessor(binding: ImagesBinding | undefine
         const w = info?.width, h = info?.height;
         if (info?.format !== `image/${spec.format}` || !Number.isInteger(w) || !Number.isInteger(h) || w! < 1 || h! < 1
           || w! > spec.maxDimension || h! > spec.maxDimension || w! * h! > spec.maxPixels) throw new ImageRejected('image rejected by info bounds');
-        // Cloudflare `contain` does not fill the box; `pad` matches sharp contain + background.
-        const transform: ImagesTransform = fit === 'cover' ? { width, height, fit: 'cover', gravity: 'center' } : { width, height, fit: 'pad', background };
+        // info reports EXIF-oriented dimensions, the same ones sharp resizes after autoOrient.
+        const transform: ImagesTransform = fit === 'cover' ? { width, height, fit: 'cover', gravity: 'center' } : containTransform(w!, h!, width, height, background ?? '#000000');
         // WebP output is a full decode/re-encode that drops metadata; anim:false
         // is only a backstop because animated input never reaches this call.
         const result = await deadline.race(binding.input(streamOf(bytes)).transform(transform).output({ format: 'image/webp', quality, anim: false }));

@@ -11,14 +11,16 @@ import { seedLocal, DEMO_USERS, DEMO_PASSWORD } from '../../packages/testing/see
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { Problem } from '../../packages/shared/problem.js';
 import { runWithImageProcessor } from '../../packages/shared/image-runtime.js';
-import { createCloudflareImageProcessor, type ImagesBinding, type ImagesInfo, type ImagesOutputOptions, type ImagesTransform } from '../../packages/shared/image-cloudflare.js';
+import { containTransform, createCloudflareImageProcessor, type ImagesBinding, type ImagesInfo, type ImagesOutputOptions, type ImagesTransform } from '../../packages/shared/image-cloudflare.js';
 import { assertCompleteRaster } from '../../packages/shared/image-container.js';
 import { inspectCanonicalWebp } from '../../packages/shared/image-webp.js';
 import { normalizeCoverImage } from '../../modules/skill-submissions/payload.js';
 
 // Synthetic binding fixtures only. `sharpRender` stands in for the Images
-// service with real sharp (applying EXIF orientation as the docs describe);
-// it proves the adapter contract and validators, not Cloudflare production transforms.
+// service with real sharp (applying EXIF orientation as the docs describe,
+// `info` reporting oriented dimensions and `pad` flattening transparency onto
+// `background`, as observed remotely); it proves the adapter contract and
+// validators, not Cloudflare production transforms.
 type Call = { kind: 'info' | 'input'; transform?: ImagesTransform; output?: ImagesOutputOptions };
 const read = async (stream: ReadableStream<Uint8Array>) => Buffer.from(await new Response(stream).arrayBuffer());
 const streamOf = (bytes: Uint8Array) => new Blob([new Uint8Array(bytes)]).stream();
@@ -28,10 +30,15 @@ interface Fake {
 }
 async function sharpInfo(bytes: Buffer): Promise<ImagesInfo> {
   const meta = await sharp(bytes).metadata();
-  return { format: `image/${meta.format}`, fileSize: bytes.length, width: meta.width, height: meta.height };
+  return { format: `image/${meta.format}`, fileSize: bytes.length, ...meta.autoOrient };
 }
 async function sharpRender(bytes: Buffer, t: ImagesTransform, o: ImagesOutputOptions): Promise<{ type?: string; stream: ReadableStream<Uint8Array> }> {
-  const image = sharp(bytes).autoOrient().resize(t.width, t.height, t.fit === 'cover' ? { fit: 'cover', position: 'centre' } : { fit: 'contain', background: t.background });
+  const oriented = sharp(bytes).autoOrient(), { background } = t as { background?: string };
+  const { color, top = 0, right = 0, bottom = 0, left = 0 } = t.border ?? { color: '#000000' };
+  const image = t.fit === 'cover' ? oriented.resize(t.width, t.height, { fit: 'cover', position: 'centre' })
+    : t.fit === 'squeeze' ? sharp(await oriented.resize(t.width, t.height, { fit: 'fill' }).png().toBuffer()).extend({ top, right, bottom, left, background: color })
+    // Legacy `pad` + background, as the real service rendered it: content flattened too.
+    : sharp(await oriented.flatten({ background }).png().toBuffer()).resize(t.width, t.height, { fit: 'contain', background });
   return { stream: streamOf(await image.webp({ quality: o.quality }).toBuffer()) };
 }
 function binding(fake: Fake = {}) {
@@ -74,7 +81,7 @@ test('binding receives the documented transform and output options for covers an
   const { images, calls } = binding();
   const { webp: out } = await cover(images, 'image/png', png);
   assert.deepEqual(inspectCanonicalWebp(out), { width: 1200, height: 630, chunks: ['VP8 '] });
-  assert.deepEqual(calls, [{ kind: 'info' }, { kind: 'input', transform: { width: 1200, height: 630, fit: 'pad', background: '#101827' }, output: { format: 'image/webp', quality: 82, anim: false } }]);
+  assert.deepEqual(calls, [{ kind: 'info' }, { kind: 'input', transform: { width: 840, height: 630, fit: 'squeeze', border: { color: '#101827', left: 180, right: 180 } }, output: { format: 'image/webp', quality: 82, anim: false } }]);
   const avatar = await createCloudflareImageProcessor(images).normalize(jpeg, { purpose: 'avatar', format: 'jpeg', maxDimension: 4096, maxPixels: 4096 ** 2, maxOutputBytes: 131072, output: { width: 256, height: 256, fit: 'cover', quality: 82, effort: 3 } });
   assert.deepEqual(inspectCanonicalWebp(avatar), { width: 256, height: 256, chunks: ['VP8 '] });
   assert.deepEqual(calls[3].transform, { width: 256, height: 256, fit: 'cover', gravity: 'center' });
@@ -93,6 +100,44 @@ test('sharp-backed fixture: orientation, metadata removal, alpha and padding pas
   assert.ok(px(40, 315).every((v, i) => Math.abs(v - [0x10, 0x18, 0x27][i]) < 12), 'pad uses the canonical background');
   const alpha = await sharp({ create: { width: 30, height: 30, channels: 4, background: { r: 0, g: 255, b: 0, alpha: 0.5 } } }).png().toBuffer();
   assert.deepEqual(inspectCanonicalWebp((await cover(binding().images, 'image/png', alpha)).webp).chunks, ['VP8X', 'ALPH', 'VP8 ']);
+});
+
+test('cover alpha parity with Node sharp contain: content keeps its alpha, only the bands are opaque background', async () => {
+  const rgba = async (bytes: Buffer) => { const { data } = await sharp(bytes).ensureAlpha().raw().toBuffer({ resolveWithObject: true }); return (x: number, y: number) => [...data.subarray((y * 1200 + x) * 4, (y * 1200 + x) * 4 + 4)]; };
+  const near = (a: number[], b: number[], tolerance: number) => a.every((v, i) => Math.abs(v - b[i]) <= tolerance);
+  // Same shape as the remote vector: 300x300 green at alpha 0.3 (77) -> 630x630 content, 285px bands.
+  const alpha = await sharp({ create: { width: 300, height: 300, channels: 4, background: { r: 0, g: 255, b: 0, alpha: 0.3 } } }).png().toBuffer();
+  const node = await rgba((await normalizeCoverImage('image/png', b64(alpha))).webp);
+  const { images, calls } = binding();
+  const worker = await rgba((await cover(images, 'image/png', alpha)).webp);
+  assert.deepEqual(calls[1].transform, { width: 630, height: 630, fit: 'squeeze', border: { color: '#101827', left: 285, right: 285 } });
+  for (const px of [node, worker]) {
+    for (const [x, y] of [[600, 315], [290, 4], [909, 625]]) assert.ok(near(px(x, y), [0, 255, 0, 77], 8), `content ${x},${y}: ${px(x, y)}`);
+    for (const [x, y] of [[0, 0], [280, 315], [919, 629], [1199, 315]]) assert.ok(near(px(x, y), [0x10, 0x18, 0x27, 255], 12), `band ${x},${y}: ${px(x, y)}`);
+  }
+  // The previous pad+background mapping flattened the content (the remote failure).
+  const legacy = binding({ render: (bytes, _t, o) => sharpRender(bytes, { width: 1200, height: 630, fit: 'pad', background: '#101827' } as unknown as ImagesTransform, o) });
+  assert.equal((await rgba((await cover(legacy.images, 'image/png', alpha)).webp))(600, 315)[3], 255);
+
+  // EXIF-6 JPEG: info reports oriented 20x40, so pillarbox bands match Node.
+  const oriented = await solid(40, 20, '#0000ff').composite([{ input: await solid(20, 20, '#ff0000').png().toBuffer(), left: 0, top: 0 }]).jpeg({ quality: 95 }).withMetadata({ orientation: 6 }).toBuffer();
+  const nodeOriented = await rgba((await normalizeCoverImage('image/jpeg', b64(oriented))).webp), second = binding();
+  const workerOriented = await rgba((await cover(second.images, 'image/jpeg', oriented)).webp);
+  assert.deepEqual(second.calls[1].transform, { width: 315, height: 630, fit: 'squeeze', border: { color: '#101827', left: 442, right: 443 } });
+  for (const [x, y] of [[440, 315], [760, 315], [600, 100], [600, 530]]) assert.ok(near(nodeOriented(x, y), workerOriented(x, y), 24), `${x},${y}`);
+
+  // Geometry equals sharp contain for letterbox, pillarbox, exact-aspect and extreme inputs.
+  for (const [w, h] of [[40, 20], [20, 40], [120, 63], [1, 4096], [4096, 1], [999, 524], [333, 177], [7, 3]]) {
+    const t = containTransform(w, h, 1200, 630, '#101827'), b = { top: 0, right: 0, bottom: 0, left: 0, ...t.border };
+    assert.equal(t.width + b.left + b.right, 1200); assert.equal(t.height + b.top + b.bottom, 630);
+    const { data } = await sharp({ create: { width: w, height: h, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).png().toBuffer()
+      .then(input => sharp(input).resize(1200, 630, { fit: 'contain', background: '#101827' }).raw().toBuffer({ resolveWithObject: true }));
+    const clear = (x: number, y: number) => data[(y * 1200 + x) * 4 + 3] === 0;
+    assert.ok(clear(b.left, b.top) && clear(b.left + t.width - 1, b.top + t.height - 1), `${w}x${h} content box`);
+    if (b.left) assert.ok(!clear(b.left - 1, b.top)); if (b.top) assert.ok(!clear(b.left, b.top - 1));
+    if (b.right) assert.ok(!clear(b.left + t.width, b.top)); if (b.bottom) assert.ok(!clear(b.left, b.top + t.height));
+  }
+  assert.deepEqual(containTransform(120, 63, 1200, 630, '#101827'), { width: 1200, height: 630, fit: 'squeeze' });
 });
 
 test('byte-identical canonical re-encodes are accepted; the output validator is the guarantee', async () => {
