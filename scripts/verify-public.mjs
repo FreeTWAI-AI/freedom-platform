@@ -659,7 +659,13 @@ try {
   await navigate(page,'自由工坊社群');await expect(page.locator('.community-library')).toHaveCount(0);
   await page.getByRole('button',{name:'前往技能書架',exact:true}).click();await expect(page).toHaveURL(/#skills$/);
   await navigate(page,'開源投稿');await expect(page.locator('.community-library')).toHaveCount(0);
-  await expect(page.getByRole('heading',{name:'登錄開源作品',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'上傳技能',exact:true})).toBeVisible();
+  const manualUpload=page.locator('details.manual-upload');
+  await expect(manualUpload).not.toHaveAttribute('open');
+  await expect(page.getByRole('heading',{name:'登錄開源作品',exact:true})).toBeHidden();
+  await manualUpload.getByText('手動上傳',{exact:true}).click();
+  await expect(manualUpload.getByRole('heading',{name:'登錄開源作品',exact:true})).toBeVisible();
+  await expect(manualUpload.getByRole('button',{name:'從 GitHub 登錄',exact:true})).toBeVisible();
   await expect(memberNavigation).toBeHidden();await noOverflow('Grouped phone menu and source submission overflow');
   console.log('Grouped phone menu, Escape focus, selected-page closure, distinct community/submission and preserved skip-link route: PASS');
 
