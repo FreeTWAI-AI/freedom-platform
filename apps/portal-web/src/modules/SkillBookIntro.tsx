@@ -6,6 +6,7 @@ import {useSkillDiscovery} from './skill-discovery-client';
 import {SkillShare,fetchSkillShareContent,skillSharePath} from './SkillShare';
 import './SkillBookIntro.css';
 import './GitHubSocial.css';
+import {DevelopmentEntry} from './DevelopmentAccess';
 
 export type IntroBook={id?:string;book_id?:string;title:string;description:string;summary_override?:string;repository_url:string;fork_url?:string|null;introduction_url?:string|null;upstream_url?:string;source_commit?:string|null;license_status?:string;guide?:SkillBookGuide;cover_url?:string;star_url?:string};
 function httpsLink(value?:string|null){
@@ -41,7 +42,7 @@ export function SkillBookIntro({book,guildName,label='閱讀技能書'}:{book:In
         {open&&<SkillBookBadges bookId={bookId}/>}<p className="skill-intro-purpose" id={`${id}-purpose`}>{cooperation?.purpose??summaryOverride??beginner?.purpose??guide?.summary??book.description}</p></div>{open&&<SkillBookCover book={book} className="skill-intro-art"/>}</div>
         {open&&illustration&&illustration.bookId===bookId&&<figure className="skill-intro-illustration"><img src={illustration.url} alt={illustration.alt} width="1200" height="630" decoding="async" onError={()=>setIllustration(null)}/></figure>}
         {upstream&&<p className="field-hint">原作：<a href={upstream} target="_blank" rel="noopener noreferrer">{source?.hostname==='github.com'?source.pathname.slice(1):upstream}</a>。修改預設以 PR 回饋原作，由原作維護者審查。</p>}
-        <div className="actions skill-intro-primary-actions">{reading&&<a className="btn btn-primary" href={reading} target="_blank" rel="noopener noreferrer">閱讀技能書 ↗</a>}{upstream&&<a className="btn btn-ghost" href={upstream} target="_blank" rel="noopener noreferrer">開啟原作 ↗</a>}{fork&&<a className="btn btn-ghost" href={fork} target="_blank" rel="noopener noreferrer">Fork 原作 ↗</a>}{repository&&repository!==upstream&&<a className="btn btn-ghost" href={repository} target="_blank" rel="noopener noreferrer">查看工坊整合版本 ↗</a>}</div>
+        <div className="actions skill-intro-primary-actions">{bookId&&<DevelopmentEntry kind="skill" target={bookId} label="開發這本技能書"/>}{reading&&<a className="btn btn-primary" href={reading} target="_blank" rel="noopener noreferrer">閱讀技能書 ↗</a>}{upstream&&<a className="btn btn-ghost" href={upstream} target="_blank" rel="noopener noreferrer">開啟原作 ↗</a>}{fork&&<a className="btn btn-ghost" href={fork} target="_blank" rel="noopener noreferrer">Fork 原作 ↗</a>}{repository&&repository!==upstream&&<a className="btn btn-ghost" href={repository} target="_blank" rel="noopener noreferrer">查看工坊整合版本 ↗</a>}</div>
         {open&&<SkillBookStar book={book} showFork={false}/>}
         <SkillShare bookId={bookId} title={book.title}/>
         {bookId&&<section className="skill-intro-collaboration"><h3>一起開發</h3><p>{cooperation?.summary??guide?.contribution??'在專案任務中認領一項修改，完成後提交 PR。'}</p>{cooperationError&&<p className="field-hint">{cooperationError}</p>}<div className="actions"><a className="btn btn-primary" href={skillSharePath(bookId)} target="_blank" rel="noopener noreferrer">查看里程碑與任務 ↗</a><a className="btn btn-ghost" href={`${skillSharePath(bookId)}/SKILL.md`} target="_blank" rel="noopener noreferrer">交給 Agent ↗</a></div></section>}

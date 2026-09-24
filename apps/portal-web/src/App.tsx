@@ -13,6 +13,7 @@ import { AdminPanel } from './modules/AdminPanel'
 import { GitHubCallback } from './modules/GitHubCallback'
 import { GitHubSocialProvider } from './modules/GitHubSocial'
 import {MemberGuildWorkspace} from './modules/GuildWorkspace'
+import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
 import { DevelopmentContext } from './modules/DevelopmentContext'
 import { BenefitObservations } from './modules/BenefitObservations'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
@@ -196,14 +197,14 @@ function MemberApp() {
   if (onboarding.required && !onboarding.completed) return <Onboarding client={client} initial={onboarding} onCompleted={() => { window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
 
   return (
-    <GitHubSocialProvider client={client} session={session}>
+    <GitHubSocialProvider client={client} session={session}><DevelopmentAccessProvider client={client} session={session}>
     <Workspace
       site={site}
       session={session}
       onLoggedOut={() => toLogin()}
       onSessionExpired={() => toLogin('登入已過期，請重新登入。')}
     />
-    </GitHubSocialProvider>
+    </DevelopmentAccessProvider></GitHubSocialProvider>
   )
 }
 

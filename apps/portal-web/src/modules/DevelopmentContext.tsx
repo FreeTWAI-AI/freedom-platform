@@ -1,5 +1,6 @@
 import {developmentPages} from '../../../../modules/development/pages';
 import './DevelopmentContext.css';
+import {DevelopmentEntry} from './DevelopmentAccess';
 
 /** A quiet, contextual entry for contributors; no member or session data is exposed. */
 export function DevelopmentContext({moduleId}:{moduleId:string}){
@@ -10,6 +11,7 @@ export function DevelopmentContext({moduleId}:{moduleId:string}){
    <summary>參與這一頁的開發</summary>
    <div className="development-context-body">
     <p>想改善「{page.title}」？從指引找到程式碼與任務，也可以交給你的 AI Agent 閱讀。</p>
+    <DevelopmentEntry kind="platform" target={page.id} label="啟用這一頁的開發"/>
     <nav aria-label="開發與 Agent 指引">
      <a href={`/development/${page.id}`} target="_blank" rel="noopener noreferrer">查看這一頁的開發指引 ↗</a>
      <a href={`/development/${page.id}.md`} target="_blank" rel="noopener noreferrer">給 Agent 的文字版 ↗</a>

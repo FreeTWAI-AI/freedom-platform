@@ -5,7 +5,7 @@ import type {Actor} from '../../../../modules/identity-membership/service.js';
 import {GitHubSocial} from '../../../../modules/github-social/service.js';
 import {readSocialConfig} from '../../../../modules/github-social/setup.js';
 
-export type GitHubSocialOptions={config?:{clientId:string;clientSecret:string;tokenKey:string;redirectUri:string};tokenKey?:string;fetcher?:typeof fetch};
+export type GitHubSocialOptions={config?:{clientId:string;clientSecret:string;tokenKey:string;redirectUri:string;appId?:string;appSlug?:string};tokenKey?:string;fetcher?:typeof fetch};
 export function socialLoader(pool:Pool,origin:string,options:GitHubSocialOptions={}){
   return async()=>{
     const key=options.tokenKey??process.env.GITHUB_SOCIAL_TOKEN_KEY;

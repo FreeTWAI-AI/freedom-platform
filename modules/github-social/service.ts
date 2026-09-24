@@ -73,6 +73,21 @@ export class GitHubSocial {
   private async connection(q:PoolClient,actor:Actor):Promise<Connection|null>{return (await q.query('SELECT * FROM github_social_connections WHERE user_id=$1 AND community_id=$2',[actor.user_id,actor.community_id])).rows[0]??null;}
   private view(connection:Connection|null):GitHubSession{return {configured:!!this.config,connected:!!this.config&&!!connection,github_user:this.config&&connection?{id:connection.github_user_id,login:connection.github_login}:null};}
   async session(actor:Actor):Promise<GitHubSession>{return this.member(actor,async q=>this.view(await this.connection(q,actor)));}
+  developmentApp(){
+    const configured=Boolean(this.config?.appId&&this.config?.appSlug);
+    return {configured,installation_url:configured?`https://github.com/apps/${this.config!.appSlug}/installations/new`:null};
+  }
+  // Caller already holds user -> member-guild locks; never open a nested transaction.
+  async developmentEvidence(q:PoolClient,actor:Actor,target:string,working:string){
+    this.configured();requireCondition(this.config?.appId,503,'github_development_not_configured','GitHub App 尚未完成開發連動設定。');
+    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-social/${actor.user_id}`]);
+    const connection=await this.connection(q,actor);requireCondition(connection,409,'github_connect_required','請先連結 GitHub。');
+    return this.withToken(q,actor,connection,async token=>{
+      const identity=await this.provider.identity(token);
+      requireCondition(identity.id===connection.github_user_id,409,'github_reconnect_required','GitHub 身分已變更，請重新連結。');
+      return {...await this.provider.developmentAccess(target,working,this.config!.appId!,token),github_user_id:identity.id};
+    });
+  }
   async start(actor:Actor,returnTo='#guilds'){
     const config=this.configured();
     requireCondition(/^#[a-z][a-z0-9_-]{0,63}$/.test(returnTo),422,'github_return_to_invalid','請從工坊頁面重新連接 GitHub。');

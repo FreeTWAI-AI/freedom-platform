@@ -1,8 +1,37 @@
 # 公會開發資格、GitHub 連動與授權生命週期
 
-日期：2026-09-23。
+日期：2026-09-24。
 
-狀態：本次對話確認的產品方向與待實作契約；本文件不代表網站已實作、GitHub 權限已變更或正式環境已部署。
+狀態：公會開發啟用、GitHub Repo 驗證、私人提案 grant／key 與離會撤銷已實作；以下仍包含後續擴充契約。實際發布版本與環境以 deployment ledger 為準，不由文件推定已部署。
+
+## 本輪實作範圍
+
+技能書的「開發這本技能書」與頁面下方的「啟用這一頁的開發」共用任務視窗。未加入時提供相應公會選擇，不要求同時加入兩個 AI 公會，也不改主力公會。OAuth 返回可從分頁儲存的安全 capability／target 恢復任務；不存秘密。公開原作與 Agent 文件仍可閱讀。
+
+`modules/development-access/` 實作 capability `skill`／`platform`，作用為保存本人指定目標的**私人開發提案**。不是原作寫入、合併、平台部署或既有技能書內容管理權。既有投稿 key、一般 `skill.submit` 及具名教材維護任命保持原契約。Agent 執行本機修改與 GitHub push／PR 使用本人另外提供的 GitHub 授權。
+
+Migration `030_development_access.sql` 保存版本化同意、七日目標 grant、60 分鐘 key 與私人提案。每個 grant 最多五個有效 key；只存 SHA-256 hash，secret 只在初次回應顯示，不進 receipt／journal／永久瀏覽器儲存。關閉視窗先清空 secret DOM；晚到的回應不能恢復秘密。提案的 PR URL 必須指向該原作，但仍是本人／Agent 提供的連結，不冒稱已驗證作者、合併或成果認證。
+
+資料庫 trigger 在所有 membership 寫入路徑共用撤權邊界：最後一個有效資格來源消失時，同一交易撤銷 grant 與全部衍生 key；另一個 OR 來源仍有效則保留。停權、GitHub 解除／重新連結同樣永久撤銷舊 grant。撤回同意由服務交易撤銷該能力，其他能力、書籍和既有提案保留。重新入會／重連需新 grant，舊 key 不復活。
+
+啟用、發 key、保存提案（含重送 receipt）都持有 user → guild → GitHub 的鎖序並重查當下資格。GitHub 驗證重用加密的 user access token，核對真實 user ID、原作／工作 repo ID、公開與未封存、本人 push 權限、Fork 來源、正確 App 的有效 installation，以及該 repo 是否在可存取清單。metadata 權限只支援這個核對與站內提案，不宣稱 App 可寫程式。依 [GitHub installation/user access API](https://docs.github.com/en/rest/apps/installations#list-repositories-accessible-to-the-user-access-token) 實作；最多查 300 個 installations 與所選 installation 的前 500 個 repositories，每個清單回應上限 1 MiB；超出範圍不推定有權，建議安裝時只選必要 repo。
+
+GitHub 暫時故障時拒絕操作，不以快取授權；已確認的權限消失、安裝 ID／repo ID 改變會撤銷 grant。這版沒有 App webhook 或獨立 GitHub 對帳 worker，外部變更在下一次受保護操作重新驗證；不能宣稱離線期間已即時收到卸載事件。沒有授予 GitHub team／collaborator 權限，因而沒有可代為移除的外部權限；未來若增加，仍須下文的 outbox 與簽章事件設計。
+
+### 已提供 API
+
+瀏覽器路徑前綴 `/api/v1/me/development/:kind/:target`，使用登入、CSRF、Idempotency-Key。`kind` 為 `skill`／`platform`，`target` 為既有技能／頁面 ID：
+
+| 路徑 | 用途 |
+| --- | --- |
+| `GET /`（即前綴本身） | 本人資格、任務清單、grant/key metadata 與近期私人提案 |
+| `POST /consent` | `{policy_version:"development-proposal-v1",accepted:true/false}` |
+| `POST /activate` | `{working_repository_url}`；GitHub 即時核對後建立目標 grant |
+| `POST /keys` | `{}`；產生一次顯示的 60 分鐘提案 key |
+| `POST /revoke` | `{key_id?}`；指定 key 或本目標所有現行 grant |
+| `POST /proposals` | `{title,summary,pr_url?}`；保存本人私人交接紀錄 |
+
+Agent 使用 `POST /development-agent/v1/proposals`，Bearer `fpd_…`、JSON 與 Idempotency-Key；不接受 cookie 作授權，外站 Origin 拒絕，串流上限 32 KiB，scope 固定 `development:propose`。kind、target、owner 由 key 的 source grant 決定，不接受客戶端改寫。這個 key 不能呼叫一般技能上傳 API，也不能取得其他會員的資料。
 
 會員從技能書或頁面的開發入口開始，選擇適用公會、完成 GitHub 與該操作所需的設定，直接回到原任務。在適用公會期間，平台依目前資格授權；資格失去時，平台撤銷由該資格產生的授權。每個模組使用同一套規則，避免各自維護入會檢查。
 

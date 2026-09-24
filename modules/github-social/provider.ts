@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import {Problem} from '../../packages/shared/problem.js';
 
-export type GitHubSocialConfig={clientId:string;clientSecret:string;tokenKey:string;redirectUri:string};
+export type GitHubSocialConfig={clientId:string;clientSecret:string;tokenKey:string;redirectUri:string;appId?:string;appSlug?:string};
 export type GitHubTokens={access_token:string;refresh_token?:string;expires_at:number|null;refresh_expires_at:number|null};
 export type GitHubIdentity={id:string;login:string};
 export type RepositorySnapshot={stargazers_count:number;forks_count:number;open_issues_count:number;subscribers_count:number;pushed_at:string|null;language:string|null;archived:boolean};
@@ -13,7 +13,7 @@ const API='https://api.github.com';
 const VERSION='2026-03-10';
 const MAX_BODY=128*1024;
 export class GitHubProviderError extends Problem {
-  constructor(code='github_unavailable',status=502){super(status,code,code==='github_reconnect_required'?'GitHub 連線已失效，請重新連接。':code==='github_rate_limited'?'GitHub 請求過於頻繁，請稍後再試。':code==='github_permission_required'?'GitHub 存取權限不足，請管理員檢查 App 權限與專案存取設定。':'GitHub 暫時無法回應，請稍後再試。');}
+  constructor(code='github_unavailable',status=502){super(status,code,code==='github_development_repository_required'?'請選擇你有修改權的公開原作或同來源 Fork，並確認它尚未封存。':code==='github_installation_required'?'請在工作 Repo 所屬帳號安裝工坊 GitHub App；組織安裝若尚未核准，需等管理者核准。':code==='github_installation_repository_required'?'App 尚未開放這個工作 Repo，請到安裝設定只選取需要連動的 Repo 後重試。':code==='github_reconnect_required'?'GitHub 連線已失效，請重新連接。':code==='github_rate_limited'?'GitHub 請求過於頻繁，請稍後再試。':code==='github_permission_required'?'GitHub 存取權限不足，請管理員檢查 App 權限與專案存取設定。':'GitHub 暫時無法回應，請稍後再試。');}
 }
 
 /** Only fixed GitHub endpoints; bounded concurrency, deadline and response size.
@@ -23,7 +23,7 @@ export class GitHubSocialProvider {
   private active=0;
   private waiting:(()=>void)[]=[];
   constructor(private fetcher:typeof fetch=fetch){}
-  private async request(url:string,init:RequestInit={},allowed=[200]):Promise<{status:number;body:unknown}>{
+  private async request(url:string,init:RequestInit={},allowed=[200],maxBody=MAX_BODY):Promise<{status:number;body:unknown}>{
     if(this.active>=4){
       if(this.waiting.length>=32)throw new GitHubProviderError('github_busy',503);
       await new Promise<void>(resolve=>this.waiting.push(resolve));
@@ -38,9 +38,9 @@ export class GitHubSocialProvider {
         throw new GitHubProviderError(response.status===403?'github_permission_required':response.status===404?'github_repository_unavailable':'github_unavailable',response.status===403?403:502);
       }
       if(response.status===204||response.status===404){await response.body?.cancel();return {status:response.status,body:null};}
-      if(Number(response.headers.get('content-length'))>MAX_BODY){await response.body?.cancel();throw new GitHubProviderError('github_invalid_response');}
+      if(Number(response.headers.get('content-length'))>maxBody){await response.body?.cancel();throw new GitHubProviderError('github_invalid_response');}
       const reader=response.body?.getReader();let size=0;const chunks:Uint8Array[]=[];
-      if(reader)while(true){const chunk=await reader.read();if(chunk.done)break;size+=chunk.value.byteLength;if(size>MAX_BODY){await reader.cancel();throw new GitHubProviderError('github_invalid_response');}chunks.push(chunk.value);}
+      if(reader)while(true){const chunk=await reader.read();if(chunk.done)break;size+=chunk.value.byteLength;if(size>maxBody){await reader.cancel();throw new GitHubProviderError('github_invalid_response');}chunks.push(chunk.value);}
       let body:unknown;try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw new GitHubProviderError('github_invalid_response');}
       return {status:response.status,body};
     }catch(error){if(error instanceof GitHubProviderError)throw error;throw new GitHubProviderError();}
@@ -73,5 +73,32 @@ export class GitHubSocialProvider {
   }
   async revoke(config:GitHubSocialConfig,token:string):Promise<void>{
     await this.request(`${API}/applications/${encodeURIComponent(config.clientId)}/token`,{method:'DELETE',headers:{Authorization:`Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')}`,'Content-Type':'application/json'},body:JSON.stringify({access_token:token})},[204,404]);
+  }
+  async developmentAccess(target:string,working:string,appId:string,token:string){
+    const repo=z.object({id:z.number().int().positive().safe(),full_name:z.string(),private:z.literal(false),archived:z.literal(false),owner:z.object({id:z.number().int().positive().safe()}),
+      permissions:z.object({push:z.boolean()}).optional(),parent:z.object({id:z.number().int().positive().safe()}).optional(),source:z.object({id:z.number().int().positive().safe()}).optional()});
+    const auth={headers:{Authorization:`Bearer ${token}`}};
+    const original=repo.safeParse((await this.request(`${API}/repos/${target}`)).body);
+    const own=repo.safeParse((await this.request(`${API}/repos/${working}`,auth)).body);
+    if(!original.success||!own.success||original.data.full_name.toLowerCase()!==target.toLowerCase()||own.data.full_name.toLowerCase()!==working.toLowerCase()||!own.data.permissions?.push||
+      !(own.data.id===original.data.id||own.data.parent?.id===original.data.id||own.data.source?.id===original.data.id))throw new GitHubProviderError('github_development_repository_required',403);
+    const install=z.object({id:z.number().int().positive().safe(),app_id:z.number().int().positive().safe(),account:z.object({id:z.number().int().positive().safe()}),suspended_at:z.string().nullable(),permissions:z.record(z.string(),z.string())});
+    let installation:z.infer<typeof install>|undefined;
+    for(let page=1;page<=3&&!installation;page++){
+      const parsed=z.object({installations:z.array(install).max(100)}).safeParse((await this.request(`${API}/user/installations?per_page=100&page=${page}`,auth,[200],1048576)).body);
+      if(!parsed.success)throw new GitHubProviderError('github_invalid_response');
+      installation=parsed.data.installations.find(value=>String(value.app_id)===appId&&value.account.id===own.data.owner.id&&value.suspended_at===null&&['read','write'].includes(value.permissions.metadata));
+      if(parsed.data.installations.length<100)break;
+    }
+    if(!installation)throw new GitHubProviderError('github_installation_required',403);
+    for(let page=1;page<=5;page++){
+      const parsed=z.object({repositories:z.array(z.object({id:z.number().int().positive().safe(),full_name:z.string(),private:z.boolean(),permissions:z.object({push:z.boolean()})})).max(100)}).safeParse(
+        (await this.request(`${API}/user/installations/${installation.id}/repositories?per_page=100&page=${page}`,auth,[200],1048576)).body);
+      if(!parsed.success)throw new GitHubProviderError('github_invalid_response');
+      if(parsed.data.repositories.some(value=>value.id===own.data.id&&value.full_name.toLowerCase()===working.toLowerCase()&&!value.private&&value.permissions.push))
+        return {target_repository_id:String(original.data.id),working_repository_id:String(own.data.id),installation_id:String(installation.id),app_id:appId};
+      if(parsed.data.repositories.length<100)break;
+    }
+    throw new GitHubProviderError('github_installation_repository_required',403);
   }
 }

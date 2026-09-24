@@ -80,7 +80,7 @@ test('successful conversion encrypts only the client secret, returns safe metada
   assert.equal(await readSocialConfig(pool, tokenKey), null);
   assert.deepEqual(await complete(state, remote), publicResult); assert.equal(remote.calls(), 1);
   assert.deepEqual(await githubAppSetupStatus(pool, actor), publicResult);
-  assert.deepEqual(await readSocialConfig(pool, tokenKey), { clientId: app.client_id, clientSecret: secret, tokenKey });
+  assert.deepEqual(await readSocialConfig(pool, tokenKey), { clientId: app.client_id, clientSecret: secret, tokenKey,appId:String(app.id),appSlug:app.slug });
   const rows = (await pool.query('SELECT * FROM github_social_apps')).rows;
   assert.equal(rows.length, 1); assert.match(rows[0].client_secret_encrypted, /^v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
   assert.equal(rows[0].configured_by, actor.admin_id);

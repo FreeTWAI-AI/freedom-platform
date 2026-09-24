@@ -532,6 +532,23 @@ try {
   await page.setViewportSize({width:1440,height:1000});await page.evaluate(()=>scrollTo(0,0));
   await screenshot('public-co-creation-desktop.png');
   console.log('18 Guilds and real GitHub co-creation Issues through deployed Platform: PASS');
+  stage='development activation checklist';
+  const developmentEntry=page.getByRole('complementary',{name:'這一頁的開發入口'});
+  await developmentEntry.getByText('參與這一頁的開發',{exact:true}).click();
+  await developmentEntry.getByRole('button',{name:'啟用這一頁的開發',exact:true}).click();
+  const developmentDialog=page.getByRole('dialog',{name:'開發啟用任務',exact:true});
+  await expect(developmentDialog.getByRole('heading',{name:'連結 GitHub',exact:true})).toBeVisible();
+  const developmentState=await page.request.get(origin+'/api/v1/me/development/platform/cocreation');
+  expect(developmentState.status()).toBe(200);
+  const developmentAccess=await developmentState.json();
+  expect(developmentAccess.target.repository).toBe('FreeTWAI-AI/freedom-platform');
+  expect(developmentAccess.enabled).toBe(false);expect(developmentAccess.keys).toEqual([]);
+  await expect(developmentDialog.getByRole('button',{name:'驗證 Repo 並啟用開發',exact:true})).toBeDisabled();
+  await page.setViewportSize({width:320,height:960});await noOverflow('Development activation mobile overflow');
+  await screenshot('public-development-access-mobile.png');
+  await developmentDialog.getByRole('button',{name:'關閉開發任務',exact:true}).click();
+  await expect(developmentDialog).not.toBeVisible();
+  console.log('Development guild/GitHub/consent checklist and private authority boundary over HTTPS: PASS');
 
   stage='unlocked and locked skill shelves';
   const publicCatalogResponse=await page.request.get(origin+'/api/v1/community');expect(publicCatalogResponse.status()).toBe(200);

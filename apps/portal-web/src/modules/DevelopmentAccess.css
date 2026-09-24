@@ -1,0 +1,9 @@
+.development-access-dialog { width: min(760px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); box-sizing: border-box; overflow: auto; background: var(--surface, #14161b); color: var(--ink); border: 1px solid var(--line); border-radius: 18px; padding: 1.25rem; }
+.development-access-dialog::backdrop { background: #000b; }
+.development-access-dialog input, .development-access-dialog textarea { max-width: 100%; min-width: 0; font-size: 16px; }
+.development-access-dialog p { overflow-wrap: anywhere; }
+.development-checklist { display: grid; gap: 1rem; padding-left: 1.5rem; }
+.development-checklist > li { padding-left: .25rem; }
+.development-checklist h3 { font-size: 1rem; }
+.development-checklist .checkbox-row { align-items: start; }
+@media(max-width: 420px) { .development-access-dialog { padding: .875rem; } }
