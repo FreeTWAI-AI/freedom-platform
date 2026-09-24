@@ -128,7 +128,7 @@ export async function memberCard(pool:Pool,actor:Actor,id:string) {
 export const MemberDirectoryQuery=z.object({
  limit:z.coerce.number().int().min(1).max(50).default(20),offset:z.coerce.number().int().min(0).max(10000).default(0),
  search:z.string().trim().max(100).refine(value=>!/[\x00-\x1f\x7f]/.test(value),'請使用單行搜尋文字。').default(''),
- guild_key:z.union([z.literal(''),z.string().max(100).regex(/^guild_[a-z0-9_]+$/)]).default(''),
+ guild_key:z.union([z.literal(''),z.string().max(100).regex(/^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/)]).default(''),
  sort:z.enum(['newest','oldest','nickname']).default('nickname'),
 }).strict();
 type MemberDirectoryFilters=Partial<Pick<z.infer<typeof MemberDirectoryQuery>,'search'|'guild_key'|'sort'>>;

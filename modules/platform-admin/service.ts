@@ -112,7 +112,7 @@ export const AdminGuildCandidateQuery=z.object({
  limit:z.coerce.number().int().min(1).max(100).default(20),offset:z.coerce.number().int().min(0).max(100000).default(0),
 }).strict();
 export async function adminGuildMasterCandidates(pool:Pool,admin:AdminActor,key:string,raw:unknown={}){
- z.string().min(1).max(100).regex(/^guild_[a-z0-9_]+$/).parse(key);
+ z.string().min(1).max(100).regex(/^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/).parse(key);
  const query=AdminGuildCandidateQuery.parse(raw);
  // Count and page share one snapshot, and eligibility is applied BEFORE LIMIT.
  // This is an admin-only projection; member email never enters public search.

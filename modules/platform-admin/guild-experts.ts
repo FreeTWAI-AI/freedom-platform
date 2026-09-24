@@ -7,7 +7,7 @@ import {authorizeGuildAppointee,ensureGuildAppointeeMembership} from './guild-ap
 
 const ExpertInput=z.object({user_id:z.uuid(),active:z.boolean(),reason:z.string().trim().min(3).max(1000)}).strict();
 export async function setGuildExpert(pool:Pool,input:AdminCommand,key:string){
- z.string().min(1).max(100).regex(/^guild_[a-z0-9_]+$/).parse(key);
+ z.string().min(1).max(100).regex(/^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/).parse(key);
  const body=ExpertInput.parse(input.body);
  return adminCommand(pool,input,
   q=>authorizeGuildAppointee(q,input.admin,body.user_id,key,body.active),

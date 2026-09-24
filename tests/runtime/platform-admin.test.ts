@@ -114,6 +114,30 @@ test('concurrent guild reviews and concurrent identical requests cannot double a
  assert.equal((await request('/audit')).data.items.length,2);
 });
 
+test('a guild approved through an uppercase application id stays usable for directory filtering, master and expert appointment',async()=>{
+ // PostgreSQL matches UUIDs case-insensitively, so the review keeps the caller's hex case in the generated key.
+ const id=await application(),upper=id.toUpperCase(),review=await request(`/guild-applications/${upper}/review`,approval,1);assert.equal(review.status,200,JSON.stringify(review.data));
+ const key=review.data.approved_guild_key;assert.equal(key,'guild_custom_'+upper.replaceAll('-',''));assert.match(key,/[A-F]/);
+ const session=await login(),directory=(guildKey:string)=>member('/members?guild_key='+encodeURIComponent(guildKey),session.cookie);
+ const empty=await directory(key);assert.equal(empty.status,200,JSON.stringify(empty.data));assert.equal(empty.data.total,0);
+ const candidates=await request(`/guilds/${key}/master-candidates?q=`+encodeURIComponent(DEMO_USERS[0].email));assert.equal(candidates.status,200,JSON.stringify(candidates.data));assert.equal(candidates.data.items[0].user_id,DEMO_USERS[0].user_id);
+ const denied=await sign(DEMO_USERS[0].email),masterBody={user_id:DEMO_USERS[0].user_id,reason:'管理員確認由此人帶領新公會。'},expertBody={user_id:DEMO_USERS[1].user_id,active:true,reason:'管理員確認任命新公會專家。'};
+ assert.equal((await request(`/guilds/${key}/master`,masterBody,undefined,randomUUID(),{'Cf-Access-Jwt-Assertion':denied})).status,403);assert.equal((await request(`/guilds/${key}/experts`,expertBody,undefined,randomUUID(),{'Cf-Access-Jwt-Assertion':denied})).status,403);
+ const master=await request(`/guilds/${key}/master`,masterBody);assert.equal(master.status,200,JSON.stringify(master.data));assert.equal(master.data.guild_key,key);
+ const expert=await request(`/guilds/${key}/experts`,expertBody);assert.equal(expert.status,200,JSON.stringify(expert.data));assert.equal(expert.data.guild_key,key);
+ const listed=await directory(key);assert.equal(listed.status,200);assert.deepEqual(listed.data.items.map((m:any)=>m.user_id).sort(),[DEMO_USERS[0].user_id,DEMO_USERS[1].user_id].sort());
+ const shown=(await request('/guilds')).data.items.find((g:any)=>g.guild_key===key);assert.equal(shown.guild_master.user_id,DEMO_USERS[0].user_id);assert.deepEqual(shown.guild_experts.map((e:any)=>e.user_id),[DEMO_USERS[1].user_id]);
+ // Only the generated 32-hex custom form may carry uppercase; other keys keep the lowercase shape.
+ const hex=upper.replaceAll('-','');
+ for(const bad of ['guild_CUSTOM_'+hex,'guild_custom_'+hex.slice(1),'guild_custom_'+hex+'A','guild_custom_'+'G'.repeat(32),'guild_Security']){
+  assert.equal((await directory(bad)).status,422,bad);assert.equal((await request(`/guilds/${bad}/master-candidates`)).status,422,bad);assert.equal((await request(`/guilds/${bad}/experts`,{...expertBody,user_id:DEMO_USERS[2].user_id})).status,422,bad);
+ }
+ const unknown='guild_custom_'+randomUUID().replaceAll('-','').toUpperCase();
+ assert.equal((await directory(unknown)).data.total,0);assert.equal((await request(`/guilds/${unknown}/master-candidates`)).status,404);
+ assert.equal((await request(`/guilds/${unknown}/master`,masterBody)).status,404);assert.equal((await request(`/guilds/${unknown}/experts`,expertBody)).status,404);
+ assert.equal((await pool.query('SELECT count(*)::int AS n FROM positioning_guild_experts')).rows[0].n,1);assert.equal((await pool.query('SELECT count(*)::int AS n FROM positioning_guild_officers WHERE guild_key<>$1',[key])).rows[0].n,0);
+});
+
 test('explicit administrator appointment joins active nonmembers, grants books, preserves primary selection and ends on leave',async()=>{
  const path=`/guilds/${guild}/master`,body={user_id:DEMO_USERS[0].user_id,reason:'管理員確認由此人帶領公會。'};
  await join(DEMO_USERS[1].user_id);await pool.query('UPDATE users SET active=false WHERE user_id=$1',[DEMO_USERS[1].user_id]);assert.equal((await request(path,{...body,user_id:DEMO_USERS[1].user_id})).status,422);
