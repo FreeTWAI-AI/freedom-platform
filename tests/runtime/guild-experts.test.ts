@@ -56,7 +56,7 @@ test('existing membership is reused, left membership is reactivated and book gra
  const result=await setGuildExpert(pool,input(),guild);assert.equal(result.membership_joined,false);assert.equal((await membership()).membership_id,joined.membership_id);
  const left=await changeGuildMembership(pool,memberCommand(actors[1],'join'),guild,'join');await changeGuildMembership(pool,memberCommand(actors[1],'leave',Number(left.aggregate_version)),guild,'leave');
  const reactivated=await setGuildExpert(pool,input(actors[1].user_id),guild);assert.equal(reactivated.membership_joined,true);assert.equal((await membership(actors[1].user_id)).membership_id,left.membership_id);assert.equal((await membership(actors[1].user_id)).aggregate_version,'3');
- await setGuildExpert(pool,input(actors[0].user_id,true,1),guild);assert.equal(await count('member_skill_book_grants','user_id=$1 AND guild_key=$2',[actors[0].user_id,guild]),1);
+ await setGuildExpert(pool,input(actors[0].user_id,true,1),guild);assert.deepEqual((await pool.query('SELECT book_id FROM member_skill_book_grants WHERE user_id=$1 AND guild_key=$2 ORDER BY book_id',[actors[0].user_id,guild])).rows.map(row=>row.book_id),['event-space','freedom-party-guild-lounge']);
 });
 
 test('revocation and reappointment retain monotonic versions and reject missing or stale If-Match before joining',async()=>{
@@ -82,7 +82,7 @@ test('leaving atomically deactivates the role; ordinary rejoin and stale appoint
 });
 
 test('idempotent commands do not duplicate membership, books, role or audit; replay checks current admin and appointee authority',async()=>{
- const command=input();const [one,two]=await Promise.all([setGuildExpert(pool,command,guild),setGuildExpert(pool,command,guild)]);assert.deepEqual(one,two);assert.equal(await count('positioning_guild_experts'),1);assert.equal(await count('platform_admin_audit',"action='appoint_guild_expert'"),1);assert.equal(await count('member_skill_book_grants'),1);
+ const command=input();const [one,two]=await Promise.all([setGuildExpert(pool,command,guild),setGuildExpert(pool,command,guild)]);assert.deepEqual(one,two);assert.equal(await count('positioning_guild_experts'),1);assert.equal(await count('platform_admin_audit',"action='appoint_guild_expert'"),1);assert.deepEqual((await pool.query('SELECT book_id FROM member_skill_book_grants ORDER BY book_id')).rows.map(row=>row.book_id),['event-space','freedom-party-guild-lounge']);
  await assert.rejects(setGuildExpert(pool,{...command,body:{...(command.body as any),reason:'換了一個任命原因'}},guild),denied(409));
  await pool.query('UPDATE users SET active=false WHERE user_id=$1',[actors[0].user_id]);await assert.rejects(setGuildExpert(pool,command,guild),denied(422));
  // Removal remains available for an inactive member, without reactivating them.

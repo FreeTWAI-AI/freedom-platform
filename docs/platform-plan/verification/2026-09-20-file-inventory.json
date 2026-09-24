@@ -2949,8 +2949,8 @@
     },
     {
       "path": "tests/runtime/admin-guild-candidates.test.ts",
-      "bytes": 12390,
-      "sha256": "980b622377fd6a6d711b205d5c4fff59a766b1470fad171186352bad7bb49a0f"
+      "bytes": 12426,
+      "sha256": "c5c1d5cb2bbe69dc3b485bdb94c5a5d0f9f65152b98206d43478231844dc6686"
     },
     {
       "path": "tests/runtime/avatar.test.ts",
@@ -3024,8 +3024,8 @@
     },
     {
       "path": "tests/runtime/guild-experts.test.ts",
-      "bytes": 27364,
-      "sha256": "ee1ea336f54b95ad80cd21281b4b8023da4743f942ce5febb81a007b8f8412b9"
+      "bytes": 27604,
+      "sha256": "0d72f66a67a623e1e2b98e3923c96040599dc1dbedfe4c2354b5b2f11faa71d9"
     },
     {
       "path": "tests/runtime/guild-preferences.test.ts",
