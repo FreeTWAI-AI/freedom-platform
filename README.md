@@ -16,7 +16,7 @@
 會員、權限、公會、商品、商店、合作和稽核的權威寫入在本 repo 的 API／PostgreSQL。外倉用版本化契約；本機、staging、public 使用分開的資料庫。GitHub Issue／PR 保存程式協作事實；Seller／bank 保存實收事實。 跨 repo 的協定由[中央平台](https://github.com/FreeTWAI-AI/freedom-platform)維護。
 <!-- freedom-repository-guide:end -->
 
-本 workspace 保存 Freedom 大平台的完整規格，以及 **0.12.0-skill-sharing 自由工坊會員入口**。目前目錄為 18 個公會、37 本技能書（43 個原作 repo 指引）。新會員註冊後完成定位，選擇主力公會並取得 Repo 技能書，再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
+本 workspace 保存 Freedom 大平台的完整規格，以及 **0.12.0-skill-sharing 自由工坊會員入口**。內建目錄為 18 個公會、37 本技能書（43 個原作 repo 指引）；管理員另可核准會員申請的自訂公會。新會員註冊後完成定位，選擇主力公會並取得 Repo 技能書，再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
 
 技能書分享可從每本 100 則介紹擲骰子選文，再分享或複製介紹與連結；37 本技能各有功能示意圖，供介紹頁與分享縮圖使用。新增「上傳技能」私人 Agent 指令、60 分鐘一次性投稿授權，以及可撤銷的投稿專用 API 金鑰與 Node 客戶端。Agent 上傳後由本人預覽送出，公開介紹頁保留 GitHub 來源、固定版本與授權；社群投稿不自動成為官方技能。詳見 [Agent 技能草稿上傳](./docs/development/agent-skill-upload.md) 與 [0.12 版本紀錄](./docs/releases/2026-09-23-agent-skill-sharing.md)。
 
@@ -87,4 +87,4 @@ Freedom Platform 是社群的接點、共同資料庫、核心 codebase 協作�
 
 會員可從「一起開發」找到專案缺少的角色，讀取 GitHub Issues、複製給 Agent 的任務說明，再由維護者審查 PR。詳見 [共創與貢獻紀錄](docs/development/co-creation.md)。示範 repo：[工坊 video-autopilot-kit](https://github.com/FreeTWAI-AI/video-autopilot-kit/issues)。
 
-會員註冊只填一個 Email；登入信箱即聯絡信箱，公開範圍於名片多選設定。目前 18 個公會，包含資安、音樂創作與 MV、廣告攝影與影片；公會長未任命時如實顯示待任命。
+會員註冊只填一個 Email；登入信箱即聯絡信箱，公開範圍於名片多選設定。目前有 18 個內建公會，包含資安、音樂創作與 MV、廣告攝影與影片，另可加入已核准的自訂公會；公會長未任命時如實顯示待任命。

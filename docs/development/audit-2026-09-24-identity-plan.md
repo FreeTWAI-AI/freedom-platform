@@ -7,7 +7,7 @@
 | 主題 | 目前行為 | 依據 |
 | --- | --- | --- |
 | 新人定位 | 2026-09-23 起新註冊帳號 `onboarding_required=true`；完成封閉定位並選主要公會前，登入後的 `/api/v1/*` 會員 API 只放行 `onboardingAllowed` 白名單（session、登出、帳號、定位、入會／離會／主要公會與定位所需唯讀目錄），其他會員 API 不論讀寫皆 403。未登入可讀的公開路徑不受影響；Agent 投稿與開發 Bearer 路徑各自檢查同一狀態。舊會員欄位預設 `false`，不追溯。 | `modules/identity-membership/members.ts`、`apps/platform-api/src/app.ts` `onboardingAllowed`、`modules/skill-submissions/service.ts`、`modules/development-access/service.ts`、`migrations/005`／`006` |
-| 公會與技能書 | 18 個公會、37 本技能書；入會即領該公會技能書，離會後已領書目保留。 | `modules/positioning/assessment.ts`（18 個 guild keys）、`modules/community/catalog.ts`（37 本） |
+| 公會與技能書 | 18 個內建公會（另有核准的自訂公會）、37 本技能書；入會即領該公會技能書，離會後已領書目保留。 | `modules/positioning/assessment.ts`（18 個 guild keys）、`modules/community/catalog.ts`（37 本） |
 | 公會貢獻範圍 | `development-access` 的 `skill`／`platform` 私人開發提案 grant：只在持有適用公會資格、GitHub 身分與 repo 核對成立時有效；最後一個資格來源消失時由 DB trigger 在同一交易撤銷 grant 與衍生 key。不授予原作寫入、合併或部署權。 | `modules/development-access/service.ts`、`migrations/030`、[公會開發資格](guild-development-access.md) |
 | GitHub 身分 | 以 provider 真實 user ID、App installation 與 repo ID 驗證；自填 slug、作者署名或按過安裝連結都不授權。 | 同上、[GitHub 連結](github-social.md) |
 | 投稿 `skill.submit` | 一般技能候選草稿：已登入、帳號啟用且完成定位即可；不需特定公會。與公會範圍的開發提案 key（`development:propose`）互不通用。 | `modules/skill-submissions/service.ts`、[Agent 技能上傳](agent-skill-upload.md) |

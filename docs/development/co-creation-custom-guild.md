@@ -43,6 +43,6 @@
 
 `not_run`：完整 `npm test`、`npm run build`、E2E、contracts。原因是沒有修改 UI 或跨模組契約，由整合端統一執行。
 
-## 範圍外（未修改）
+## 另組修正
 
-`modules/identity-membership/members.ts:131` 與 `modules/platform-admin/guild-experts.ts:10` 的會員相關 key 格式檢查仍只接受小寫字母、數字及底線，不屬於本次範圍，由對應模組處理。
+本分支另發現會員篩選、會長候選查詢和專家任命仍只接受小寫 key。身分組已補上合法大寫 custom key 的支援，保留原目錄與權限查核；真 PG 分別重現三處原本的 422，修正後 54 項相關測試通過。完整結果見[整合總報告](./audit-2026-09-24.md)。
