@@ -63,7 +63,7 @@ Runtime config 以 runtime 工作流的 `wrangler.jsonc`（commit `f089a84`）�
 
 - **Dashboard**：Cloudflare dashboard 可直接建立並由 Cloudflare 計費的 PlanetScale DB。
 - **CLI**：`wrangler hyperdrive planetscale signature` **只**產生類似憑證的 billing authorization，本身不建立任何東西；要以 `pscale database create <name> --org <org> --engine postgresql --cloudflare-billing @-` 從 stdin 讀入才會建立 DB。需要已認證的 pscale organization 與 pscale CLI ≥ 0.313.0（root 已安裝 0.338.0）。自動化命令一律加 `--format json`，`--org` 放在資源層級子命令。Signature 視同 secret：直接 pipe，不列印、不存檔、不貼上。
-- **只有 Cloudflare API token 不能建立 DB。** root 最新 auth check 為 **NO_AUTH**；root 已啟動**一次** device login，等待瀏覽器核准。不得再啟動另一次登入，也不讀取 root 的 auth log；本工具不登入、不產生 signature、不建立 DB。
+- **只有 Cloudflare API token 不能建立 DB。** root 的 device login 已不再 pending：瀏覽器交換後以 `TOKEN_SAVE_FAILED`（Object does not exist at path '/'）結束，root 最新觀察為 credential 儲存失敗、process 已結束，認證**仍未就緒**，由 root 協調修正。pscale CLI 0.338 版本足夠，但不宣稱 setup 完成。不得再啟動新的登入，也不讀取 root 的 auth log；本工具不登入、不產生 signature、不建立 DB。
 - 官方 agent setup：root 已讀 agent-setup prompt 與 `pscale agent-guide --format json`；建議的 skills／MCP **未安裝**，也不加為依賴（CLI 已足夠），不宣稱 setup 已完成。
 - `preflight planetscale` 只跑唯讀 argv（version、auth check、org／database／region／size list），會檢查 CLI 版本 ≥ 0.313.0。
 

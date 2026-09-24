@@ -61,7 +61,7 @@
       },
       "pscale_cli_min_version": "0.313.0",
       "pscale_cli_observed": {"version": "0.338.0", "source": "root setup 2026-09-24"},
-      "pscale_auth_observed": {"status": "unauthenticated", "source": "root setup 2026-09-24: latest auth check NO_AUTH; root started ONE device login, browser approval pending. Tools never start another login and never read the root auth log."},
+      "pscale_auth_observed": {"status": "unauthenticated", "source": "root setup 2026-09-24: root's device login is no longer pending; after the browser exchange it exited TOKEN_SAVE_FAILED (Object does not exist at path '/'), so credential save failed and the process ended. Authentication is not ready; root coordinates the fix. pscale 0.338 is adequate. Tools never start another login and never read the root auth log."},
       "automation": {
         "output": "--format json on every automated pscale command",
         "org_flag": "--org is passed to resource-level subcommands",

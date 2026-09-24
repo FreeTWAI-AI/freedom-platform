@@ -221,6 +221,13 @@ test('provision plan is dry-run, guarded, secret-free and never produces a billi
     assert.match(plan.steps[0].action, /0\.313\.0/);
     assert.match(plan.steps[0].action, /unauthenticated/);
     assert.match(plan.steps[idx('deploy')].command, /--var FREEDOM_RELEASE_SHA:<git rev-parse HEAD>/);
+    assert.match(plan.steps[0].action, /TOKEN_SAVE_FAILED/);
+    assert.doesNotMatch(text, /single pending device login/);
+    const deployGate = plan.steps[idx('deploy')].action;
+    assert.match(deployGate, /structural valid AND static_checks_pass true/);
+    assert.match(deployGate, /separate explicit evidence for every required injection/);
+    assert.match(deployGate, /wrangler secret list --env /);
+    assert.doesNotMatch(deployGate, /AND deployment_ready|deployment_ready true/, 'deploy must not wait on a boolean the checker cannot prove');
     assert.doesNotMatch(text, /\bcap\b|approval|gate-cost/i);
     assert.ok(idx('rollback') > idx('verify'));
   }
