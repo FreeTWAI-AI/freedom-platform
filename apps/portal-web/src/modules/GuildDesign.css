@@ -207,12 +207,12 @@
 .positioning-result-guilds > div:first-child { border-color: #c4ff20; }
 .positioning-result-guilds dt { margin-bottom: 4px; color: #aeb5c2; font-size: .875rem; }
 .positioning-result-guilds dd { margin: 0; color: #e0e5ef; font-size: 1rem; overflow-wrap: anywhere; }
-.positioning-featured h4 { margin: 0 0 10px; color: #aeb5c2; font-size: .85rem; font-weight: 500; }
+.positioning-featured h3 { margin: 0 0 10px; color: #aeb5c2; font-size: .85rem; font-weight: 500; }
 .positioning-panel .positioning-featured .pill { border: 1px solid #4c5677; border-radius: 999px; padding: 6px 12px; background: #3044ff14; color: #ced5ff; font-size: .875rem; }
 .positioning-result-skills { border-top: 1px solid #333943; border-bottom: 1px solid #333943; }
 .positioning-result-skills > summary { cursor: pointer; padding: 14px 0; min-height: 48px; color: #bac4d8; font-size: .875rem; }
 .positioning-result-skills > div { display: grid; gap: 18px; padding: 0 0 20px; }
-.positioning-result-skills h4 { margin: 0 0 10px; font-size: .875rem; }
+.positioning-result-skills h3 { margin: 0 0 10px; font-size: .875rem; }
 .positioning-result-skills p { margin: 0; font-size: .875rem; }
 .positioning-result-next p { margin: 0 0 16px; color: #c1c9d5; }
 .positioning-result-next .actions { gap: 8px; margin: 0; }

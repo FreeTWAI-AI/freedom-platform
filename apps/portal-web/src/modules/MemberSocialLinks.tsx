@@ -18,7 +18,7 @@ const failure=(cause:unknown)=>cause instanceof Error?cause.message:'無法載�
 const audienceLabel=(value:Audience[])=>value.includes('public')?'平台公開':value.length?value.map(item=>audiences.find(([key])=>key===item)?.[1]).filter(Boolean).join('、'):'不公開';
 function safeUrl(value:string){try{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password?url.href:null;}catch{return null;}}
 
-export function SocialLinksList({client,memberId}:{client:PortalClient;memberId:string}){
+export function SocialLinksList({client,memberId,self=false}:{client:PortalClient;memberId:string;self?:boolean}){
   const [items,setItems]=useState<VisibleLink[]>([]),[next,setNext]=useState<number|null>(null),[total,setTotal]=useState<number|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
   const generation=useRef(0),offsetRef=useRef(0),lock=useRef(false);
   const load=useCallback(async(offset=0)=>{
@@ -35,7 +35,7 @@ export function SocialLinksList({client,memberId}:{client:PortalClient;memberId:
     window.addEventListener('freedom-social-links-updated',refresh);window.addEventListener('focus',focus);
     return()=>{generation.current++;window.removeEventListener('freedom-social-links-updated',refresh);window.removeEventListener('focus',focus);};
   },[load,memberId]);
-  return <section className="member-social-display" aria-label="社群帳號與網站"><h4>社群帳號與網站</h4>{error?<div role="alert"><p>{error}</p><button type="button" className="btn btn-ghost" onClick={()=>void load()}>重讀社群連結</button></div>:<><div className="member-social-buttons">{items.map(item=>{const href=safeUrl(item.url);return href?<a className="member-social-link" key={item.link_id} href={href} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer"><span>{platformName(item.platform)}</span><strong>{item.label}</strong><span aria-hidden="true">↗</span></a>:null;})}</div>{!loading&&total===0&&<p className="field-hint">沒有對你公開的社群連結。</p>}{loading&&<p className="field-hint">正在載入社群連結…</p>}{next!==null&&<button type="button" className="btn btn-ghost" disabled={loading} onClick={()=>{if(!lock.current)void load(next);}}>查看更多社群連結</button>}</>}</section>;
+  return <section className="member-social-display" aria-label="社群帳號與網站"><h4>社群帳號與網站</h4>{error?<div role="alert"><p>{error}</p><button type="button" className="btn btn-ghost" onClick={()=>void load()}>重讀社群連結</button></div>:<><div className="member-social-buttons">{items.map(item=>{const href=safeUrl(item.url);return href?<a className="member-social-link" key={item.link_id} href={href} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer"><span>{platformName(item.platform)}</span><strong>{item.label}</strong><span aria-hidden="true">↗</span></a>:null;})}</div>{!loading&&total===0&&<p className="field-hint">{self?'尚未新增社群連結。':'沒有對你公開的社群連結。'}</p>}{loading&&<p className="field-hint">正在載入社群連結…</p>}{next!==null&&<button type="button" className="btn btn-ghost" disabled={loading} onClick={()=>{if(!lock.current)void load(next);}}>查看更多社群連結</button>}</>}</section>;
 }
 
 export function MemberSocialLinks({client,memberId}:{client:PortalClient;memberId:string}){

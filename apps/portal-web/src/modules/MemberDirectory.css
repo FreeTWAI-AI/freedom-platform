@@ -61,3 +61,8 @@
   .members-panel .directory-member-expanded { grid-template-columns: minmax(0,1fr); gap: 18px; }
   .members-panel .directory-member-expanded dl > div { grid-template-columns: minmax(90px,.7fr) minmax(0,1.3fr); }
 }
+/* Account contacts: keep each field beside its compact audience choices. */
+.account-panel .contact-row { align-items: start; }
+.account-panel .contact-row .fieldset { display: flex; flex-wrap: wrap; column-gap: 16px; row-gap: 0; margin: 0; min-width: 0; }
+.account-panel .contact-row .fieldset legend { width: 100%; }
+.account-panel .contact-row .fieldset .field-hint { flex-basis: 100%; margin: 4px 0 0; }
