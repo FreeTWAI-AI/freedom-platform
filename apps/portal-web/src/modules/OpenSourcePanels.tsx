@@ -3,6 +3,7 @@ import { RepositoryLibrary } from './Community';
 import { useCallback,useEffect,useState,type FormEvent } from 'react';
 import { requireItems } from '../api';
 import { useModuleMutation,type ModulePanelProps } from './shared';
+import { SkillUpload } from './SkillUpload';
 
 type SourceVersion={version_id:string;commit_sha:string;license_spdx:string;license_evidence_url:string|null;is_fork:boolean;archived:boolean;readme_url:string;inspected_at:string};
 type Project={project_id:string;owner_ref:string;owner_name:string;title:string;description:string;use_notes:string;demo_url:string|null;repository_url:string;repository_full_name:string;repository_id:string;relationship:string;aggregate_version:number;current_version:SourceVersion};
@@ -41,7 +42,10 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
     {error&&<p role="alert" className="banner banner-error">{error}</p>}
     <LoadError error={loadError} retry={()=>void refresh()}/>
     <div className="card-grid">
-      <section className="card"><div className="section-head"><h2>登錄開源作品</h2><p>貼上公開專案網址，再補上用途與使用說明。</p></div>
+      <div className="stack">
+      <section className="card stack"><div className="actions"><SkillUpload client={client} onPublished={refresh}/></div><p className="hint">由你選擇的 Agent 讀取專案並建立草稿，你預覽後再送出。</p></section>
+      <details className="card manual-upload"><summary>手動上傳</summary>
+      <section><div className="section-head"><h2>登錄開源作品</h2><p>貼上公開專案網址，再補上用途與使用說明。</p></div>
         <form className="stack" onSubmit={submit}>
           <label className="field">GitHub 儲存庫網址<input required type="url" maxLength={300} placeholder="https://github.com/owner/repository" value={draft.repository_url} onChange={e=>setDraft({...draft,repository_url:e.target.value})}/></label>
           <label className="field">作品名稱<input required maxLength={120} value={draft.title} onChange={e=>setDraft({...draft,title:e.target.value})}/></label>
@@ -53,6 +57,8 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
           <button className="btn btn-primary" disabled={busy}>{busy?'正在讀取公開版本…':'從 GitHub 登錄'}</button>
         </form>
       </section>
+      </details>
+      </div>
       <section className="stack" aria-label="社群開源作品"><div className="section-head"><h2>社群開源作品</h2><p>已登錄 {projects.length} 件 · 自由探索，不必先談商務合作</p></div>
         {loading&&<p role="status">正在載入作品…</p>}
         {!loading&&!loadError&&projects.length===0&&<div className="card empty"><h3>第一件作品，從你開始</h3><p>登錄後會顯示使用說明、授權與固定版本，方便其他會員試用和參與。</p></div>}

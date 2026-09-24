@@ -33,6 +33,8 @@ import {skillDiscovery} from '../../../modules/community/discovery.js';
 import {readSkillEditorial} from '../../../modules/guild-workspace/service.js';
 import {createGuildWorkspaceRoutes} from './routes/guild-workspace.js';
 import {onboardingDiagnostics} from './onboarding-diagnostics.js';
+import {createSkillSubmissionRoutes,createAgentSkillSubmissionRoutes,isAgentSkillUploadPath} from './routes/skill-submissions.js';
+import {createPublishedSkillRoutes} from './routes/published-skills.js';
 
 const COOKIE='freedom_local_session';
 function authNetwork(c:Context) {
@@ -81,8 +83,13 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
     const githubSetupForm=c.req.path==='/admin'||c.req.path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI-AI/settings/apps/new':'';
     c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm);
     if(!['GET','HEAD','OPTIONS'].includes(c.req.method)) {
-      requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected',freedomEnv==='local'?'操作來源不正確，請從本機工作台操作。':'操作來源不正確，請從自由工坊網站操作。');
-      if(isAvatarUpload(c.req.method,c.req.path)) {
+      const agentUpload=isAgentSkillUploadPath(c.req.method,c.req.path);
+      // Only the two narrow Bearer-authenticated Agent endpoints accept a CLI
+      // without Origin. Browser requests keep the normal same-origin checks.
+      if(!agentUpload||c.req.header('Origin')!==undefined)requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected',freedomEnv==='local'?'操作來源不正確，請從本機工作台操作。':'操作來源不正確，請從自由工坊網站操作。');
+      if(agentUpload) {
+        // The Agent route authenticates and consumes a bounded stream itself.
+      } else if(isAvatarUpload(c.req.method,c.req.path)) {
         // Only this route accepts binary input. Its bounded stream reader runs
         // after session, CSRF and completed-member checks, before decoding.
         checkAvatarUploadHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
@@ -94,12 +101,13 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
       }
     }
     await next();
-    if((c.req.path.startsWith('/api/')||c.req.path.startsWith('/client-api/')||c.req.path.startsWith('/admin/api/')) && c.res.headers.get('Content-Type')?.includes('application/json')) {
+    if((c.req.path.startsWith('/api/')||c.req.path.startsWith('/agent-api/')||c.req.path.startsWith('/client-api/')||c.req.path.startsWith('/admin/api/')) && c.res.headers.get('Content-Type')?.includes('application/json')) {
       const data=wireVersions(await c.res.json());
       c.res=new Response(JSON.stringify(data),{status:c.res.status,headers:c.res.headers});
     }
   });
   app.route('/admin/api',createAdminRoutes(pool,options.adminVerifier,{origin,tokenKey:options.githubSocial?.tokenKey??process.env.GITHUB_SOCIAL_TOKEN_KEY,fetcher:options.githubSocial?.fetcher}));
+  app.route('/',createPublishedSkillRoutes(pool));
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id)));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
@@ -109,6 +117,7 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
   app.route('/api/v1',createSkillDiscoveryRoutes(pool));
   app.route('/api/v1',createPublicClientConnectionRoutes(pool,origin,authNetwork));
   app.route('/client-api/v1',createClientApiRoutes(pool));
+  app.route('/agent-api/v1',createAgentSkillSubmissionRoutes(pool,origin,authNetwork));
   app.post('/api/v1/auth/register',async c=>{
     await authRateLimit(pool,'registration-network',authNetwork(c),8);
     await authRateLimit(pool,'registration-global','global',100,60);
@@ -171,6 +180,7 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
   app.route('/api/v1',createGuildWorkspaceRoutes(pool));
   app.route('/api/v1',createAvatarRoutes(pool));
   app.route('/api/v1',createClientConnectionRoutes(pool));
+  app.route('/api/v1',createSkillSubmissionRoutes(pool,origin));
   app.route('/api/v1',createPositioningRoutes(pool));
   app.route('/api/v1',createCommerceRoutes(pool));
   app.route('/api/v1',createOpenSourceRoutes(pool));

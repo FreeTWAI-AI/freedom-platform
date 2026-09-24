@@ -40,6 +40,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       - run: npm test
+      - run: npm run test:skill-client
       - run: node scripts/checkout-repositories.mjs
         env:
           FREEDOM_REPOSITORIES_ROOT: ${{ runner.temp }}/freedom-consumers

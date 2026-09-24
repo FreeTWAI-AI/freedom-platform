@@ -41,6 +41,7 @@ test('member writes a private campaign, revises it and records a manual share th
 
 test('open-source entry clearly collects GitHub/use/license context and rejects arbitrary fetch targets',async({page})=>{
   await login(page);await navigate(page, '開源投稿');
+  await page.getByText('手動上傳',{exact:true}).click();
   await expect(page.getByRole('heading',{name:'登錄開源作品',exact:true})).toBeVisible();
   await page.getByLabel('GitHub 儲存庫網址',{exact:true}).fill('https://untrusted.example/owner/repository');
   await page.getByLabel('作品名稱',{exact:true}).fill('不應送出網路的測試');

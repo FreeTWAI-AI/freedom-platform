@@ -48,12 +48,26 @@ export async function listProjects(pool:Pool,actor:Actor) {
 }
 export async function importProject(pool:Pool,input:Command) {
   const body=projectInput.parse(input.body);
-  return command(pool,input,async()=>{},async q=>{
-    // Only bounded public reads; the transaction also guarantees command retries never re-import.
+  return command(pool,input,async()=>{},q=>importProjectWithinTransaction(q,input,body));
+}
+// The caller already holds the authenticated user's mutation locks. Keeping
+// repository import on that same client lets publication commit source facts
+// and the public submission atomically without a second pool checkout.
+export async function importProjectWithinTransaction(q:PoolClient,input:Pick<Command,'actor'>,raw:unknown,options:{reuseOwned?:boolean}={}) {
+    const body=projectInput.parse(raw);
     const source=await inspectGitHubRepository(body.repository_url);
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`oss/${input.actor.community_id}/${input.actor.user_id}/${source.repository_id}`]);
-    const prior=(await q.query('SELECT project_id FROM oss_projects WHERE community_id=$1 AND owner_ref=$2 AND repository_id=$3',[input.actor.community_id,input.actor.user_id,source.repository_id])).rows[0];
-    requireCondition(!prior,409,'project_exists','你已登錄這件作品，請使用更新 GitHub 版本。');
+    const prior=(await q.query('SELECT project_id,current_version_id,aggregate_version FROM oss_projects WHERE community_id=$1 AND owner_ref=$2 AND repository_id=$3 FOR UPDATE',[input.actor.community_id,input.actor.user_id,source.repository_id])).rows[0];
+    if(prior) {
+      requireCondition(options.reuseOwned,409,'project_exists','你已登錄這件作品，請使用更新 GitHub 版本。');
+      const versionId=await insertVersion(q,prior.project_id,source);
+      if(versionId!==prior.current_version_id) {
+        const updated=(await q.query(`UPDATE oss_projects SET current_version_id=$2,repository_full_name=$3,repository_url=$4,
+          aggregate_version=aggregate_version+1,updated_at=now() WHERE project_id=$1 RETURNING aggregate_version`,[prior.project_id,versionId,source.repository_full_name,source.repository_url])).rows[0];
+        await journal(q,input.actor,'oss_project',prior.project_id,updated.aggregate_version,'refresh_for_skill_publication',{version_id:versionId,commit_sha:source.commit_sha},'freedom.skills.candidate.versioned.v1');
+      }
+      return projectView(q,input.actor,prior.project_id);
+    }
     const id=randomUUID();
     await q.query(`INSERT INTO oss_projects(project_id,community_id,owner_ref,title,description,use_notes,demo_url,repository_id,repository_full_name,repository_url,relationship)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,[id,input.actor.community_id,input.actor.user_id,body.title,body.description,body.use_notes,body.demo_url,source.repository_id,source.repository_full_name,source.repository_url,body.relationship]);
@@ -61,7 +75,6 @@ export async function importProject(pool:Pool,input:Command) {
     await q.query('UPDATE oss_projects SET current_version_id=$2 WHERE project_id=$1',[id,versionId]);
     await journal(q,input.actor,'oss_project',id,1,'import_public_repository',{repository_id:source.repository_id,commit_sha:source.commit_sha,relationship:body.relationship,relationship_verification:'self_declared'},'freedom.skills.candidate.registered.v1');
     return projectView(q,input.actor,id);
-  });
 }
 export async function refreshProject(pool:Pool,input:Command,id:string) {
   z.object({}).strict().parse(input.body);

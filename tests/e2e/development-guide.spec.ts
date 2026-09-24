@@ -47,7 +47,7 @@ test('a visitor without JavaScript can follow real repo links and read a complet
 });
 
 
-test('public skill share copies its canonical collaboration page and exposes an Agent skill on a phone',async({page})=>{
+test('public skill share previews and copies the chosen introduction with its persistent URL on a phone',async({page})=>{
  await page.addInitScript(()=>{
   Object.defineProperty(navigator,'share',{configurable:true,value:undefined});
   Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async(value:string)=>{(window as any).__sharedSkillUrl=value;}}});
@@ -57,8 +57,20 @@ test('public skill share copies its canonical collaboration page and exposes an 
  await expect(page.getByRole('heading',{name:'一起開發',exact:true})).toBeVisible();
  await expect(page.getByRole('heading',{name:'建立可重現的剪輯測試素材',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'分享技能書',exact:true}).click();
- await expect(page.getByRole('status')).toHaveText('連結已複製');
- expect(await page.evaluate(()=>(window as any).__sharedSkillUrl)).toBe('https://freetwai.com/development/skills/video-autopilot');
+ const preview=page.locator('[data-share-dialog]');
+ await expect(preview).toBeVisible();
+ expect(await page.evaluate(()=>(window as any).__sharedSkillUrl)).toBeUndefined();
+ const first=await preview.locator('[data-share-text]').innerText();
+ await preview.getByRole('button',{name:'換一句',exact:true}).click();
+ await expect(preview.locator('[data-share-text]')).not.toHaveText(first);
+ const introduction=await preview.locator('[data-share-text]').innerText(),url=await preview.locator('[data-share-url]').innerText();
+ expect(url).toMatch(/^https:\/\/freetwai\.com\/development\/skills\/video-autopilot\?intro=([1-9][0-9]?|100)$/);
+ await preview.getByRole('button',{name:'複製介紹與連結',exact:true}).click();
+ await expect(preview.getByRole('status')).toHaveText('已複製介紹與連結');
+ expect(await page.evaluate(()=>(window as any).__sharedSkillUrl)).toBe(introduction+'\n'+url);
+ expect(await preview.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+ await preview.getByRole('button',{name:'關閉分享預覽',exact:true}).click();
+ await expect(page.getByRole('button',{name:'分享技能書',exact:true})).toBeFocused();
  await expect(page.getByRole('link',{name:'下載 Agent SKILL.md',exact:true}).first()).toHaveAttribute('href','/development/skills/video-autopilot/SKILL.md');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:'test-results/skill-collaboration-share-phone.png',fullPage:true});

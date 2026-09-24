@@ -89,3 +89,6 @@
 
 .skill-library-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; }
 .skill-library-meta .skill-unlock-state { font-size: .875rem; white-space: nowrap; }
+
+.skill-intro-illustration { margin: 0; overflow: hidden; border: 1px solid #333d55; border-radius: 12px; background: #0c0f17; }
+.skill-intro-illustration img { display: block; width: 100%; height: auto; aspect-ratio: 40 / 21; object-fit: cover; }

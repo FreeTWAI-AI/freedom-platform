@@ -1,0 +1,233 @@
+{
+  "generated_at": "2026-09-23",
+  "mode": "builtin-imagegen",
+  "style_anchor": "apps/portal-web/public/brand/freedom-workshop.webp",
+  "description": "25 distinct functional workflow illustrations for skill introduction pages and social thumbnails; mechanical WebP encoding with contain fit, original logo unchanged.",
+  "assets": [
+    {
+      "id": "agent-kit",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a local terminal panel linked through a chrome plug to a platform data hub, a one-way arrow returning a small status panel; learning a read-only local API sample, no autonomous agents controlling accounts",
+      "path": "apps/portal-web/public/brand/skill-illustrations/agent-kit.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 131140,
+      "sha256": "d725452be5e878ac641eb049c91f1372bbfcc07a7e5ab1c71bcdcfaec8ad612e"
+    },
+    {
+      "id": "ai-sister",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a desktop screen captured as layered memory cards passing through a character-recognition lens into an indexed archive, a search beam returning a source-linked answer card; local memory and traceable retrieval",
+      "path": "apps/portal-web/public/brand/skill-illustrations/ai-sister.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 185230,
+      "sha256": "6bedb1a71a2f1d31d812b1e40744e90853679947f417ed50f6f97d2099a4d7c6"
+    },
+    {
+      "id": "career-guide",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a person-shaped faceless chrome marker facing three practical route boards, with one lime selected path leading to a small achievable workbench task; reflecting on options and starting a small practice",
+      "path": "apps/portal-web/public/brand/skill-illustrations/career-guide.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 160672,
+      "sha256": "5130377488715350db9a74397fe0aa88953c9d1b073ea2ef532cc354c41cbaf7"
+    },
+    {
+      "id": "commercial-production",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a real product still-life on a studio plinth with camera, two light stands and a shot-planning board, connected to three differently proportioned deliverable frames; commercial photography preparation",
+      "path": "apps/portal-web/public/brand/skill-illustrations/commercial-production.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 131968,
+      "sha256": "88e6562ab20d9e979fcff54e103aee17a8ae631bc4003c5158285a3b420c903f"
+    },
+    {
+      "id": "community-ops",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a small welcome desk greeting a new faceless chrome figure, connected to a circle of seats and a compact activity planning board; human welcoming and organizing community events",
+      "path": "apps/portal-web/public/brand/skill-illustrations/community-ops.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 173754,
+      "sha256": "0f6c591e5caf1e0d8af0a38585e2b9967dd830c11175040d2472c7f133b1c21b"
+    },
+    {
+      "id": "event-space",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: an isometric small gathering venue with entrance desk, chairs, stage and clear lime visitor flow arrows, adjacent compact agenda and human role cards; planning a reading group or small event",
+      "path": "apps/portal-web/public/brand/skill-illustrations/event-space.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 158788,
+      "sha256": "b3604073997cd8eebce1b22b0f98bfd7ad7cef9a8bfab39aec353442b3d2f2bc"
+    },
+    {
+      "id": "hao-studio",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a polished static portfolio website model on a desktop panel, arranged with work thumbnails, article cards and community hub icons; studying a portfolio source website",
+      "path": "apps/portal-web/public/brand/skill-illustrations/hao-studio.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 167368,
+      "sha256": "a826d8653c47cd203151803bbf836b2575efb7fa32cbe54830af56c174214043"
+    },
+    {
+      "id": "human-design",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a circle of reading and reflection cards surrounding an abstract human silhouette, multiple distinct viewpoint paths and source-linked notes, an open blank journal; non-scientific community reflection, no medical graphics or predictive diagnosis",
+      "path": "apps/portal-web/public/brand/skill-illustrations/human-design.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 129320,
+      "sha256": "28a00a4d29385088b931e655b36469d715ffa5af193bf97d4aa5abc8c7a41d30"
+    },
+    {
+      "id": "media-generator",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a rough film idea bubble turning into storyboard frames with tiny camera, light and sound symbols, then a well-structured prompt sheet; preparing audiovisual prompts rather than claiming final generated video",
+      "path": "apps/portal-web/public/brand/skill-illustrations/media-generator.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 184890,
+      "sha256": "9e081319fff7b1e9894e848415e9352e14fd79b6dff15e6c29eca2908bd271d9"
+    },
+    {
+      "id": "multi-ai-chat",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a browser page beside a compact sidebar with three AI conversation bubbles, one question branching outward and answers returning for comparison; browser multi-model consulting",
+      "path": "apps/portal-web/public/brand/skill-illustrations/multi-ai-chat.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 161594,
+      "sha256": "a33d6e4f75f9e9c0499dcdbed0d71638c21e7897c2b0bf3c2646aa3550375f71"
+    },
+    {
+      "id": "multi-ai-desktop",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: one desktop application window holding three separate cobalt conversation panels, chrome branching paths carrying proposals to a comparison and review panel, a small checkpoint timeline below",
+      "path": "apps/portal-web/public/brand/skill-illustrations/multi-ai-desktop.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 137712,
+      "sha256": "ef00bbf998fc666f3f9ae28c782a5330f219fa577940095883fdfb7359d24bfd"
+    },
+    {
+      "id": "music-mv",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: audio waveform and song section markers aligned precisely below cinematic storyboard frames, connected to headphones and a camera outline; planning music and MV with sound-picture alignment",
+      "path": "apps/portal-web/public/brand/skill-illustrations/music-mv.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 175612,
+      "sha256": "0ea16ac5ed79c0f3bc5f5b1238c561ccaa34ee0c095de7e405af7904ef8c8bcd"
+    },
+    {
+      "id": "partnership",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: two equal meeting chairs and a table, conversation bubbles leading to a concise proposal sheet made of geometric lines, then a small shared prototype on a plinth; understanding a need and agreeing a scoped collaboration",
+      "path": "apps/portal-web/public/brand/skill-illustrations/partnership.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 141488,
+      "sha256": "b35e4f31895c9423a67df82e2323b79e4224860b75e05fe29f5ce7a0aa833fb4"
+    },
+    {
+      "id": "pos-pro",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a compact small-shop checkout desk with handheld scanner and product shelf, transactions represented by geometric receipt lines leading to local stock columns and a ledger panel; offline point-of-sale workflow",
+      "path": "apps/portal-web/public/brand/skill-illustrations/pos-pro.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 166518,
+      "sha256": "6b38baef104dffa232b2ca2bd965f9d83696b87a34d545410d4848bd3c73aac2"
+    },
+    {
+      "id": "project-delivery",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a large abstract idea split into three small task cards on a sprint board, connected to a checked-off delivered prototype and review loop; human team project delivery",
+      "path": "apps/portal-web/public/brand/skill-illustrations/project-delivery.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 173962,
+      "sha256": "55a635d6803ce1f5bb3d42c8d8a8074af3e26b528161c6e3d63d75cfe7467478"
+    },
+    {
+      "id": "project-template",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a structured source-code folder with chrome modular blocks becoming a running small browser page, beside a branch fork and review merge diagram; starting an open source project",
+      "path": "apps/portal-web/public/brand/skill-illustrations/project-template.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 136500,
+      "sha256": "a93574b7419e0ec12aab40aefd5e0ff9a30975180c796d502729c0e94076eeae"
+    },
+    {
+      "id": "projection-mapping",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a projector casting carefully aligned cobalt geometric light onto a sculptural architectural surface, beside surface mapping wireframes and a cue timeline; planning projection surfaces and media, not hardware control",
+      "path": "apps/portal-web/public/brand/skill-illustrations/projection-mapping.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 155480,
+      "sha256": "3f11decbab831b78e429d48d1af4b620bf718b1073b98a1f00efb1dd2405bfb8"
+    },
+    {
+      "id": "reconciliation",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: two separate rows of order receipts and payment statements sliding onto a comparison desk, matching pairs joined in cobalt and one lime highlighted mismatch under a lens; manual record comparison, no money movement",
+      "path": "apps/portal-web/public/brand/skill-illustrations/reconciliation.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 159174,
+      "sha256": "db7007bbb95feab5d197924f67c6b0165b4497f089c77926b95db64b9f7c08e0"
+    },
+    {
+      "id": "security-scanner",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a website and source folder inside a clearly bounded inspection workspace, multiple small scanner tools inspecting them with lenses, a prioritized vulnerability report showing lime/cobalt markers; authorized asset auditing with human review, no attacker imagery",
+      "path": "apps/portal-web/public/brand/skill-illustrations/security-scanner.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 171854,
+      "sha256": "3f8d11df068735c78feeb6e53920e59c63f1e49de92955091d1d121cc7d7dbdd"
+    },
+    {
+      "id": "short-drama",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: character silhouette cards and a plot arc leading into six storyboard panels and a timeline of episodes; writing and validating a short drama production plan, no generated film claims",
+      "path": "apps/portal-web/public/brand/skill-illustrations/short-drama.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 199770,
+      "sha256": "b0a2fa2c28292a1bbe08f1780b3198d213ff9182a06d4011c770aac437a8b91c"
+    },
+    {
+      "id": "social-post",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a small set of original voice sample cards entering a writing desk with a distinctive abstract audio fingerprint, branching into three different post draft panels; crafting social drafts with consistent voice, no automatic publishing",
+      "path": "apps/portal-web/public/brand/skill-illustrations/social-post.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 146936,
+      "sha256": "a3322d294cc21fe4e26e60745251f27e093a03462cec2c0c844a35955473b980"
+    },
+    {
+      "id": "storefront",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a few product boxes on left being arranged into an abstract browser product grid and a desktop shop preview on right; sample storefront planning, no checkout, coins or payments",
+      "path": "apps/portal-web/public/brand/skill-illustrations/storefront.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 158508,
+      "sha256": "a7ef3d10d32a9155a9379f3ca36d07e862186bce31320002e0666f80abb07fda"
+    },
+    {
+      "id": "supplier-client",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a supplier laptop showing abstract stock shelves and product tiles through a one-way lime arrow from a warehouse data hub; a second read-only panel with incoming supply request envelopes; no payment, no trucks autonomously dispatched",
+      "path": "apps/portal-web/public/brand/skill-illustrations/supplier-client.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 174386,
+      "sha256": "201b3a47b6798f19911c9500222e890dec466f6fe2102ac0c443337a4ff47f69"
+    },
+    {
+      "id": "typo-studio",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 social-sharing and skill introduction illustration for Freedom Workshop. Original Freedom Workshop logo poster is style reference only. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital trails and small four-point stars. Futuristic RPG maker workshop, not medieval. Depict a coherent functional workflow in 3D isometric editorial art, clear shapes and distinct input/action/output, informative enough to identify the skill at thumbnail size. Generous clean margins, balanced wide composition. NOT a book cover; no books. No letters, text, numbers, logos, interface text, fake statistics or watermark. Never redraw the original logo. Scene: a paragraph represented by geometric text lines transforming into four beautifully aligned vertical carousel slides with cobalt image blocks and lime editorial guides, ready for image export",
+      "path": "apps/portal-web/public/brand/skill-illustrations/typo-studio.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 131228,
+      "sha256": "a358959b4004479a0dc363cb3b257c49f00f2a1b115ba69120dd21a4b8469c5b"
+    },
+    {
+      "id": "video-autopilot",
+      "prompt": "Use case: stylized-concept. Create a single landscape 1200x630 social sharing illustration for Freedom Workshop skill: Video Autopilot Kit. The provided original Freedom Workshop brand poster is STYLE REFERENCE ONLY, not an edit target. Black charcoal background, electric cobalt blue, acid lime #c4ff20, polished chrome, precise orbital accents, futuristic RPG maker workshop. Illustrate the ACTUAL WORKFLOW as a coherent wide isometric scene: raw footage film tiles at left, a central non-readable video timeline with separate clip blocks and audio waveform, tiny magnifying lens checking one clip, connected at right to a finished widescreen and vertical preview. Show organizing and checking video materials, not magical fully automatic rendering. Visually legible at thumbnail size, ample clean margins, three obvious stages, professional editorial 3D illustration with restrained highlights. No book, no closed codex, no mock website, no lettering, no Chinese text, no watermark, no metrics or claims. Do not redraw or insert the logo.",
+      "path": "apps/portal-web/public/brand/skill-illustrations/video-autopilot.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 130534,
+      "sha256": "0f1cd83730c238d77f0a049f4d8d4d78423b0bfe9c3ba0cc3c3ac0752961cddc"
+    }
+  ]
+}

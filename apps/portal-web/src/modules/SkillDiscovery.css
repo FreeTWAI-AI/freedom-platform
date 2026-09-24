@@ -34,3 +34,25 @@
 
 .skill-library-actions > .skill-intro-entry { display: contents; }
 .skill-library-actions .skill-intro-trigger { margin: 0; font-size: .85rem; }
+
+.skill-share-dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 20px; border: 1px solid #535e77; border-radius: 16px; background: #202329; color: #f4f6ef; box-shadow: 0 24px 80px #000b; overflow: auto; overflow-wrap: anywhere; overscroll-behavior: contain; }
+.skill-share-dialog::backdrop { background: #050609cc; }
+.skill-share-preview { display: grid; gap: 12px; }
+.skill-share-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.skill-share-head h2 { margin: 0; font-size: 1.1rem; line-height: 1.5; }
+.skill-share-dialog .btn { min-height: 44px; font-size: .875rem; }
+.skill-share-head .btn { flex-shrink: 0; }
+.skill-share-count { margin: 0; color: #9ba7ff; font-size: .75rem; }
+.skill-share-text { margin: 0; padding: 4px 0 4px 14px; border-left: 3px solid #c4ff20; color: #f4f6ef; font-size: 1rem; line-height: 1.7; }
+.skill-share-url { margin: 0; color: #aeb5c2; font-size: .8rem; word-break: break-all; }
+.skill-share-error { display: grid; gap: 8px; justify-items: start; }
+.skill-share-error p { margin: 0; color: #ffd18a; font-size: .9rem; line-height: 1.6; }
+.skill-share-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.skill-share-dialog .field { display: grid; gap: 6px; font-size: .85rem; }
+.skill-share-dialog textarea { width: 100%; min-width: 0; box-sizing: border-box; font: inherit; font-size: 16px; line-height: 1.6; resize: vertical; }
+.skill-share-dialog .btn:focus-visible, .skill-share-dialog textarea:focus-visible { outline: 3px solid #9ba7ff; outline-offset: 2px; }
+@media (max-width: 600px) {
+  .skill-share-dialog { width: calc(100vw - 24px); max-height: calc(100dvh - 24px); padding: 16px; }
+  .skill-share-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .skill-share-actions > .btn-primary { grid-column: 1 / -1; order: -1; }
+}

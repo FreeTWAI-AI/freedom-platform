@@ -141,6 +141,46 @@ try {
   }
   console.log('Public share metadata, 25-book discovery and readable skill/page Agent instructions: PASS');
 
+  stage='public skill introductions, illustrations and client download';
+  const shareContentById=new Map();
+  for(const book of development.skill_books){
+    const response=await anonymous.get(origin+'/api/v1/skills/'+encodeURIComponent(book.id)+'/share-content',{maxRedirects:0});
+    expect(response.status(),book.id+' share content').toBe(200);
+    const content=await response.json();
+    expect(content.introductions,book.id+' introductions').toHaveLength(100);
+    expect(content.introductions.every(value=>typeof value==='string'&&value.trim().length>0),book.id+' readable introductions').toBe(true);
+    expect(new Set(content.introductions).size,book.id+' distinct introductions').toBe(100);
+    expect(content.illustration_url).toBe('/brand/skill-illustrations/'+book.id+'.webp');
+    expect(typeof content.illustration_alt==='string'&&content.illustration_alt.trim().length>0).toBe(true);
+    shareContentById.set(book.id,content);
+    const illustration=await anonymous.get(origin+content.illustration_url,{maxRedirects:0});
+    expect(illustration.status(),book.id+' illustration').toBe(200);
+    expect(illustration.headers()['content-type']).toContain('image/webp');
+    const metadata=await sharp(await illustration.body()).metadata();
+    expect(metadata.format).toBe('webp');expect(metadata.width).toBe(1200);expect(metadata.height).toBe(630);
+  }
+  const sampleBook=development.skill_books[0],sampleContent=shareContentById.get(sampleBook.id);
+  const samplePath='/development/skills/'+sampleBook.id;
+  const selectedShare=await anonymous.get(origin+samplePath+'?intro=17',{maxRedirects:0});
+  expect(selectedShare.status()).toBe(200);
+  const selectedHtml=await selectedShare.text();
+  const escaped=value=>value.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
+  expect(selectedHtml).toContain('<meta property="og:image" content="https://freetwai.com'+sampleContent.illustration_url+'">');
+  expect(selectedHtml).toContain('<meta property="og:image:width" content="1200">');
+  expect(selectedHtml).toContain('<meta property="og:image:height" content="630">');
+  expect(selectedHtml).toContain('<meta property="og:description" content="'+escaped(sampleContent.introductions[16])+'">');
+  expect(selectedHtml).toContain('<meta property="og:url" content="https://freetwai.com'+samplePath+'?intro=17">');
+  expect(selectedHtml).toContain('<link rel="canonical" href="https://freetwai.com'+samplePath+'">');
+  const clientDownload=await anonymous.get(origin+'/downloads/freedom-skill-client.tgz',{maxRedirects:0});
+  expect(clientDownload.status()).toBe(200);
+  const clientArchive=await clientDownload.body();
+  expect(clientArchive.byteLength).toBeGreaterThan(1000);
+  expect([...clientArchive.subarray(0,2)],'Upload client must be a gzip archive').toEqual([0x1f,0x8b]);
+  for(const path of ['/development/skill-upload','/development/skill-upload/SKILL.md','/development/skill-upload/protocol.md']){
+    const guide=await anonymous.get(origin+path,{maxRedirects:0});expect(guide.status(),path).toBe(200);
+    expect((await guide.text()).length).toBeGreaterThan(100);
+  }
+
 
   browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH } : {}) });
   context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, ignoreHTTPSErrors: false });
@@ -532,6 +572,54 @@ try {
     await screenshot(`public-compact-skill-library-${width}.png`);
   }
   console.log('Default unlocked shelf and free locked previews form a complete, disjoint catalog; responsive rows: PASS');
+
+  stage='read-only skill dice preview and upload entry';
+  // Guard every upload mutation during this read-only check, including an accidental
+  // automatic request. Never mint a credential, create a draft or publish a skill.
+  const uploadWritePaths=[];
+  const uploadApiPattern=/\/api\/v1\/me\/skill-(?:submissions|upload-keys)(?:[/?]|$)/;
+  const readOnlyUploads=async route=>{
+    if(route.request().method()==='GET')return route.fallback();
+    uploadWritePaths.push(new URL(route.request().url()).pathname);await route.abort();
+  };
+  await page.route(uploadApiPattern,readOnlyUploads);
+  try{
+    const firstBook=library.locator('.skill-library-book').first(),bookId=await firstBook.getAttribute('data-book-id');
+    const content=shareContentById.get(bookId);expect(content).toBeTruthy();
+    const shareTrigger=firstBook.getByRole('button',{name:'分享技能',exact:true});await shareTrigger.click();
+    const preview=page.locator('.skill-share-dialog[open]');await expect(preview).toBeVisible();
+    await expect(preview).toHaveAttribute('data-book-id',bookId);
+    const selectedText=await preview.locator('.skill-share-text').innerText();
+    const selectedUrl=new URL(await preview.locator('.skill-share-url').innerText());
+    expect(selectedUrl.origin).toBe(origin);expect(selectedUrl.pathname).toBe('/development/skills/'+bookId);
+    expect(selectedUrl.searchParams.get('intro')).toMatch(/^(?:[1-9][0-9]?|100)$/);
+    expect(selectedText).toBe(content.introductions[Number(selectedUrl.searchParams.get('intro'))-1]);
+    await preview.getByRole('button',{name:'換一句',exact:true}).click();
+    await expect(preview.locator('.skill-share-text')).not.toHaveText(selectedText);
+    const rerolledUrl=new URL(await preview.locator('.skill-share-url').innerText());
+    expect(rerolledUrl.origin+rerolledUrl.pathname).toBe(selectedUrl.origin+selectedUrl.pathname);
+    expect(rerolledUrl.searchParams.get('intro')).not.toBe(selectedUrl.searchParams.get('intro'));
+    expect(await preview.locator('.skill-share-text').innerText()).toBe(content.introductions[Number(rerolledUrl.searchParams.get('intro'))-1]);
+    expect(await preview.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+    await page.keyboard.press('Escape');await expect(preview).toBeHidden();await expect(shareTrigger).toBeFocused();
+    const uploadTrigger=page.getByRole('button',{name:'上傳技能',exact:true});await uploadTrigger.click();
+    const upload=page.getByRole('dialog',{name:'上傳技能',exact:true});await expect(upload).toBeVisible();
+    await expect(upload.getByRole('heading',{name:'交給 Agent 讀取專案',exact:true})).toBeVisible();
+    await expect(upload.getByText('還沒有草稿。',{exact:true})).toBeVisible();
+    await expect(upload.getByRole('button',{name:'產生私人上傳指令',exact:true})).toBeEnabled();
+    await expect(upload.getByLabel('私人上傳指令',{exact:true})).toHaveCount(0);
+    await expect(upload.getByRole('link',{name:'公開指南 ↗',exact:true})).toHaveAttribute('href','/development/skill-upload/SKILL.md');
+    await upload.getByText('安裝上傳工具與長期金鑰',{exact:true}).click();
+    await expect(upload.getByRole('link',{name:'下載上傳工具',exact:true})).toBeVisible();
+    await expect(upload.getByRole('link',{name:'下載上傳工具',exact:true})).toHaveAttribute('href','/downloads/freedom-skill-client.tgz');
+    await expect(upload.getByRole('link',{name:'安裝說明 ↗',exact:true})).toHaveAttribute('href','/development/skill-upload');
+    expect(await upload.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+    await noOverflow('Read-only skill upload entry at 320 px');
+    await upload.getByRole('button',{name:'關閉上傳技能',exact:true}).click();await expect(upload).toBeHidden();
+    await expect(uploadTrigger).toBeFocused();await noOverflow('Skill shelf after upload preview at 320 px');
+    expect(uploadWritePaths,'Preview must not issue a key, draft, upload grant or publication').toEqual([]);
+  }finally{await page.unroute(uploadApiPattern,readOnlyUploads);}
+  console.log('25 × 100 introductions, 25 real 1200×630 illustrations, chosen OG text, gzip client, dice preview and read-only upload entry at 320 px: PASS');
   const githubConnection=await (await page.request.get(origin+'/api/v1/me/github')).json();
   if(githubConnection.configured){
     expect(githubConnection.connected).toBe(false);

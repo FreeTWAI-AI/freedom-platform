@@ -3,7 +3,7 @@ import type {SkillBookGuide} from '../../../../modules/community/skill-book-guid
 import { SkillBookCover, SkillBookStar,skillBookStarUrl } from './SkillBookCover';
 import {SkillBookBadges} from './SkillBookBadges';
 import {useSkillDiscovery} from './skill-discovery-client';
-import {SkillShare,skillSharePath} from './SkillShare';
+import {SkillShare,fetchSkillShareContent,skillSharePath} from './SkillShare';
 import './SkillBookIntro.css';
 import './GitHubSocial.css';
 
@@ -14,6 +14,7 @@ function httpsLink(value?:string|null){
 export function SkillBookIntro({book,guildName,label='閱讀技能書'}:{book:IntroBook;guildName?:string;label?:string}){
   const [open,setOpen]=useState(false),dialog=useRef<HTMLDialogElement>(null),trigger=useRef<HTMLButtonElement>(null),id=useId();
   const [cooperation,setCooperation]=useState<{purpose:string;summary:string}|null>(null),[cooperationError,setCooperationError]=useState('');
+  const [illustration,setIllustration]=useState<{bookId:string;url:string;alt:string}|null>(null);
   const bookId=book.id??book.book_id,discovery=useSkillDiscovery(),summaryOverride=discovery.data?.books.find(item=>item.book_id===bookId)?.summary_override??book.summary_override;
   const guide=book.guide,beginner=guide?.beginner,repository=httpsLink(book.repository_url),upstream=httpsLink(book.upstream_url)||repository;
   const original=skillBookStarUrl(book),reading=httpsLink(guide?.reading_url)||repository,website=httpsLink(book.introduction_url)||httpsLink(guide?.website_url),fork=original?`${original}/fork`:httpsLink(book.fork_url),workshopFork=httpsLink(book.fork_url),contribute=httpsLink(guide?.contribution_url);
@@ -25,12 +26,20 @@ export function SkillBookIntro({book,guildName,label='閱讀技能書'}:{book:In
     void fetch(`/api/v1/skills/${encodeURIComponent(bookId)}/collaboration`,{credentials:'omit',signal:controller.signal,headers:{Accept:'application/json'}}).then(async response=>{if(!response.ok)throw new Error('unavailable');const data=await response.json();if(typeof data.purpose!=='string'||typeof data.intent?.summary!=='string')throw new Error('invalid');if(active)setCooperation({purpose:data.purpose,summary:data.intent.summary});}).catch(()=>{if(active)setCooperationError('協作說明暫時無法更新，請開啟分享頁查看。');});
     return()=>{active=false;controller.abort();};
   },[open,bookId]);
+  useEffect(()=>{
+    if(!open||!bookId)return;
+    const controller=new AbortController();setIllustration(null);
+    // The landscape illustration is supplementary; a missing asset or content leaves the compact cover in place.
+    void fetchSkillShareContent(bookId,controller.signal).then(content=>{if(!controller.signal.aborted&&content.illustration_url)setIllustration({bookId,url:content.illustration_url,alt:content.illustration_alt});}).catch(()=>{});
+    return()=>controller.abort();
+  },[open,bookId]);
   function close(){dialog.current?.close();setOpen(false);trigger.current?.focus();}
   return <><span className="skill-intro-entry"><button ref={trigger} type="button" className="btn btn-ghost skill-intro-trigger" aria-haspopup="dialog" onClick={()=>setOpen(true)}>{label}</button>{guildName&&<SkillBookBadges bookId={bookId}/>}</span>
-    <dialog ref={dialog} className="skill-intro-dialog" aria-labelledby={id} aria-describedby={`${id}-purpose`} data-book-id={book.id??book.book_id} onCancel={event=>{event.preventDefault();close();}} onClose={()=>setOpen(false)}>
+    <dialog ref={dialog} className="skill-intro-dialog" aria-labelledby={id} aria-describedby={`${id}-purpose`} data-book-id={book.id??book.book_id} onCancel={event=>{if(event.target!==event.currentTarget)return;event.preventDefault();close();}} onClose={event=>{if(event.target===event.currentTarget)setOpen(false);}}>
       <div className="stack"><header className="skill-intro-header"><div><p className="eyebrow">自由工坊 · 公會技能庫</p><h2 id={id}>{book.title}</h2></div><button className="btn btn-ghost" type="button" onClick={close} autoFocus aria-label="關閉技能書介紹">關閉</button></header>
         <div className="skill-intro-cover"><div className="skill-intro-cover-copy"><div className="tag-list">{beginner&&<span className="badge">{beginner.category}</span>}{guide&&<span className="badge">{guide.format}</span>}{guildName&&<span className="badge">{guildName}</span>}</div>
         {open&&<SkillBookBadges bookId={bookId}/>}<p className="skill-intro-purpose" id={`${id}-purpose`}>{cooperation?.purpose??summaryOverride??beginner?.purpose??guide?.summary??book.description}</p></div>{open&&<SkillBookCover book={book} className="skill-intro-art"/>}</div>
+        {open&&illustration&&illustration.bookId===bookId&&<figure className="skill-intro-illustration"><img src={illustration.url} alt={illustration.alt} width="1200" height="630" decoding="async" onError={()=>setIllustration(null)}/></figure>}
         <div className="actions skill-intro-primary-actions">{reading&&<a className="btn btn-primary" href={reading} target="_blank" rel="noopener noreferrer">閱讀技能書 ↗</a>}{upstream&&<a className="btn btn-ghost" href={upstream} target="_blank" rel="noopener noreferrer">開啟專案 ↗</a>}{fork&&<a className="btn btn-ghost" href={fork} target="_blank" rel="noopener noreferrer">Fork 專案 ↗</a>}{workshopFork&&workshopFork!==fork&&<a className="btn btn-ghost" href={workshopFork} target="_blank" rel="noopener noreferrer">Fork 工坊版本 ↗</a>}</div>
         {open&&<SkillBookStar book={book} showFork={false}/>}
         <SkillShare bookId={bookId} title={book.title}/>

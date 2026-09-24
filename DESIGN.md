@@ -44,7 +44,9 @@
 
 新增頁面先沿用這裡的 token、版型與圖片資產；不要再次建立獨立色盤。每次修改先 build，再以隔離資料跑桌面與手機瀏覽器驗證。測試和真實公開會員資料分離。
 
-生成圖片的工具、完整提示詞與最後檔案路徑記錄於 `docs/design/rpg-art-manifest.json` 與 `docs/design/skill-book-art-manifest.json`。原圖作者權利不由生成圖片宣稱取代。
+生成圖片的工具、完整提示詞與最後檔案路徑記錄於 `docs/design/rpg-art-manifest.json`、`docs/design/skill-book-art-manifest.json` 與 `docs/design/skill-illustration-manifest.json`。原圖作者權利不由生成圖片宣稱取代。
+
+技能書架保留小書封；介紹頁以獨立的 1200×630 功能示意圖呈現使用流程，分享預覽使用該示意圖。分享先顯示隨機抽中的介紹，可擲骰子換一句，再由使用者按分享或複製。投稿憑證只出現在本人開啟的私人視窗，不進公開介紹、網址或瀏覽器永久儲存。
 
 ## 導覽與頁面責任
 

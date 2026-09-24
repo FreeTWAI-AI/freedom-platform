@@ -1,6 +1,6 @@
 {
   "name": "freedom-platform",
-  "version": "0.11.1-guild-library",
+  "version": "0.12.0-skill-sharing",
   "private": true,
   "type": "module",
   "engines": {
@@ -11,12 +11,13 @@
     "db:down": "docker compose down",
     "db:migrate": "tsx scripts/database.ts migrate",
     "db:seed": "tsx scripts/database.ts seed",
-    "build": "vite build --config apps/portal-web/vite.config.ts",
+    "build": "node scripts/build-skill-upload-client.mjs && vite build --config apps/portal-web/vite.config.ts",
     "start": "tsx apps/platform-api/src/server.ts",
     "dev": "vite --config apps/portal-web/vite.config.ts",
     "demo": "npm run db:up && npm run db:migrate && npm run db:seed && npm run build && npm start",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test --test-concurrency=1 tests/runtime/*.test.ts",
+    "test:skill-client": "node --test packages/skill-upload-client/test/*.test.mjs",
     "test:e2e": "playwright test",
     "test:contracts": "python3 -m pytest -q -p no:cacheprovider docs/platform-plan/contracts/tests docs/platform-plan/execution/tools/tests",
     "verify:inventory": "python3 docs/platform-plan/verification/verify_revision.py",

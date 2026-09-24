@@ -1,9 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {runInNewContext} from 'node:vm';
 import {communityCatalog} from '../../modules/community/catalog.js';
 import {getSkillCollaboration,type SkillEditorial} from '../../modules/community/skill-collaboration.js';
-import {developmentMap,skillAgentMarkdown,pageAgentMarkdown,developmentShareJs} from '../../modules/development/service.js';
+import {developmentMap,skillAgentMarkdown,pageAgentMarkdown} from '../../modules/development/service.js';
 import {createDevelopmentRoutes} from '../../apps/platform-api/src/routes/development.js';
 import {developmentPages} from '../../modules/development/pages.js';
 
@@ -55,7 +54,7 @@ test('public share HTML is crawler-readable with canonical metadata, visible coo
  const response=await app.request(origin+'/development/skills/video-autopilot');assert.equal(response.status,200);
  const html=await response.text();
  assert.match(html,/<link rel="canonical" href="https:\/\/freetwai\.com\/development\/skills\/video-autopilot">/);
- assert.match(html,/<meta property="og:image" content="https:\/\/freetwai\.com\/art\/skills\/video-autopilot.webp">/);
+ assert.match(html,/<meta property="og:image" content="https:\/\/freetwai\.com\/brand\/skill-illustrations\/video-autopilot.webp">/);
  assert.ok(html.indexOf('id="collaboration-title"')<html.indexOf('<details class="public-skill-details"'));
  assert.ok(html.includes('Fork 共創版本'));assert.ok(html.includes('/development/skills/video-autopilot/SKILL.md'));
  assert.ok(html.includes('官方公會技能'));assert.ok(!html.includes('工坊週榜 #'));
@@ -86,17 +85,4 @@ test('public HTML escapes authored editorial text and omits unknown or unavailab
  assert.ok(html.includes('每日新技能'));assert.ok(html.includes('工坊週榜 #2'));assert.ok(html.includes('工坊月榜 #3'));
 });
 
-async function shareHarness(navigator:Record<string,unknown>){
- let handler:()=>Promise<void>=async()=>{};
- const status={textContent:''},fallback={hidden:true,focused:false,selected:false,focus(){this.focused=true;},select(){this.selected=true;}};
- const area={querySelector:(selector:string)=>selector==='[data-share-status]'?status:fallback};
- const button={disabled:false,dataset:{shareUrl:origin+'/development/skills/video-autopilot',shareTitle:'影片自動化工具包'},closest:()=>area,addEventListener:(_name:string,fn:()=>Promise<void>)=>{handler=fn;}};
- runInNewContext(developmentShareJs,{document:{querySelectorAll:()=>[button]},navigator,window:{isSecureContext:true}});
- await handler();return {status,fallback,button};
-}
-test('one-click share uses native share or clipboard, cancellation stays quiet and denied clipboard exposes a selectable URL',async()=>{
- let payload:any;const native=await shareHarness({share:async(value:any)=>{payload=value;}});assert.equal(payload.url,origin+'/development/skills/video-autopilot');assert.equal(native.button.disabled,false);assert.equal(native.fallback.hidden,true);
- let copied='';const clipboard=await shareHarness({clipboard:{writeText:async(value:string)=>{copied=value;}}});assert.equal(copied,payload.url);assert.equal(clipboard.status.textContent,'連結已複製');
- const canceled=await shareHarness({share:async()=>{throw {name:'AbortError'};}});assert.equal(canceled.status.textContent,'');assert.equal(canceled.fallback.hidden,true);
- const denied=await shareHarness({clipboard:{writeText:async()=>{throw Error('denied');}}});assert.equal(denied.fallback.hidden,false);assert.equal(denied.fallback.selected,true);assert.equal(denied.button.disabled,false);
-});
+// Share preview, dice, clipboard and native cancellation behavior are covered in skill-sharing.test.ts.

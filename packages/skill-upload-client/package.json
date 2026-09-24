@@ -1,0 +1,23 @@
+{
+  "name": "@freetwai/skill-upload",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "Upload a private skill draft to 自由工坊 (freetwai.com) with a member-issued upload key. Drafts are never published without the member's approval on the site.",
+  "type": "module",
+  "bin": {
+    "freedom-skill-upload": "bin/freedom-skill-upload.mjs"
+  },
+  "files": [
+    "bin/freedom-skill-upload.mjs",
+    "README.md",
+    "SKILL.md",
+    "protocol.md"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}
