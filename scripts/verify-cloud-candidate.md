@@ -65,7 +65,8 @@ FREEDOM_CANDIDATE_ACCOUNT_FILE=/path/to/private/account.json FREEDOM_CANDIDATE_A
   > /path/to/private/reports/staging-next-account.json
 
 # Synthetic registration and messaging. No account file; these phases register their own cand-reg members.
-# The same command with --target next leaves guild-channel checks not_run (real_history_guarded) and does not request them.
+# The same command with --target next leaves guild-channel checks not_run (real_history_guarded).
+# It does not request /api/v1/me/channels/guild/. The mobile shell still GETs /api/v1/me/channels?kind=guild (summary only).
 npx tsx scripts/verify-cloud-candidate.ts execute --target staging-next --expected-version <version> --expected-release-sha <40-hex commit> \
   --phases registration,messages,messages-mobile \
   > /path/to/private/reports/staging-next-messages.json
@@ -94,15 +95,15 @@ The JSON report goes to stdout, and the caller keeps it as the canonical record.
 | guild-cache | See below | own membership |
 | github-handoff | If configured and not connected: `POST /me/github/connect` gives a `github.com/login/oauth/authorize` URL whose `redirect_uri` is `<origin>/github/callback`, with a 43-character state and PKCE S256. The URL is never requested and no consent is submitted. If unconfigured the phase is **not_run**, not pass. | OAuth state row |
 | avatar | Only when the account has no avatar. Generated PNG upload goes through If-Match and Idempotency-Key. The private `image/webp` is `private, no-store`. Anonymous gets 401. Remove, then the old URL returns 404. The avatar is removed again in `finally`. | own avatar |
-| registration | No account file. Identity `cand-reg-<8 hex>`, email `<label>@example.invalid`, password 32+ characters from `crypto.randomBytes`. Register returns 201 and the same session cookie policy as `session` (`Secure` on HTTPS, `HttpOnly`, `SameSite=Strict`, `Path=/`, host-only). Missing or foreign Origin is `403 origin_rejected` and creates no account. The same email again is `409 account_unavailable`. Two `GET /api/v1/session` reads agree (there is no `/api/v1/me/session`). Onboarding starts incomplete. A deterministic assessment from `GET /api/v1/assessment-definition` reaches `state: evaluated`. `POST /api/v1/me/onboarding/complete` sets the first built-in, non-development guild from `GET /api/v1/guilds/directory` (never `guild_ai_vibe` or `guild_ai_field`) as primary, with If-Match and Idempotency-Key, and onboarding reports complete. Replaying that command returns the stored response and does not change state. A stale If-Match on the same route is `412 version_conflict`. Logout returns 200, clears the cookie, and a replay is `401 session_expired`; login again is the same account with onboarding still complete. Member-todo sources report positioning `done`, primary guild `done`, and GitHub `unavailable` or `incomplete`. | one new member |
-| messages | Requires `registration` in the same run. Registers member B the same way and completes positioning into A's primary guild. Direct message: A sends (201), B's unread for A is 1, the stored body matches, B marks read and unread is 0, A's unread stays 0, the same Idempotency-Key returns the stored message without a duplicate, and a foreign Origin is `403 origin_rejected`. Squad of only A and B: A creates it, invites B, B sees the invitation and a notification, B accepts, both list the squad channel, A sends, B's unread is 1, offset pages have unique message ids, B marks read, B leaves, and B's read and send are `404 channel_not_available` while A can still read. Notification mark-read decreases the unread count. On target `next`, guild-channel sub-checks are `guild_channel: not_run` with reason `real_history_guarded`: the phase does not read or write any guild channel. On `staging-next` and the local harness, A and B use the primary guild channel (send, unread, read, mark read). Revocation uses a second built-in guild when `POST /api/v1/guilds/:key/join` works; otherwise `secondary_guild: not_run` with reason `secondary_guild_join_unavailable`. B does not leave the primary guild. `rate_limit: not_covered` (the 20-message limit is not exercised). | second member, one squad, messages |
-| messages-mobile | Requires `messages`. Real Chromium, viewport 390×844, `deviceScaleFactor` 3, `isMobile`, `hasTouch`. Same origin guard, no screenshots, page-error capture and teardown as `browser`. Inbox paths are allowed because the browser session is only synthetic member A. Landing 200, UI login as A, open 「我的訊息」, the direct conversation with B shows the last body sent in `messages`, one UI send appears, unread badges stay consistent with own messages excluded, `document.documentElement.scrollWidth <= window.innerWidth`, and UI logout clears the cookie. | one mobile browser session |
+| registration | No account file. Identity `cand-reg-<8 hex>`, email `<label>@example.invalid`, password 32+ characters from `crypto.randomBytes`. Register returns 201 and the same session cookie policy as `session` (`Secure` on HTTPS, `HttpOnly`, `SameSite=Strict`, `Path=/`, host-only). Missing or foreign Origin is `403 origin_rejected` and creates no account. The same email again is `409 account_unavailable`. Two `GET /api/v1/session` reads agree (there is no `/api/v1/me/session`). Onboarding starts incomplete. A deterministic assessment from `GET /api/v1/assessment-definition` reaches `state: evaluated`. `POST /api/v1/me/onboarding/complete` sets the first built-in, non-development guild from `GET /api/v1/guilds` (catalog `guild_key` and the caller's own membership only; never `guild_ai_vibe`, `guild_ai_field`, or `GET /api/v1/guilds/directory`) as primary, with If-Match and Idempotency-Key, and onboarding reports complete. Replaying that command returns the stored response and does not change state. A stale If-Match on the same route is `412 version_conflict`. Logout returns 200, clears the cookie, and a replay is `401 session_expired`; login again is the same account with onboarding still complete. Member-todo sources report positioning `done`, primary guild `done` (catalog membership `active` and `primary_guild_key` from `GET /api/v1/me/guild-preferences`), and GitHub `unavailable` or `incomplete`. If any step throws after the 201, the session is still revoked and the label is still recorded `cleanup_required`. | one new member |
+| messages | Requires `registration` in the same run. Registers member B the same way and completes positioning into A's primary guild. Direct message: A sends (201), B's unread for A is 1, the stored body matches, B marks read and unread is 0, A's unread stays 0, the same Idempotency-Key returns the stored message without a duplicate, and a foreign Origin is `403 origin_rejected`. Squad of only A and B: A creates it, invites B, B sees the invitation and a notification, B accepts, both list the squad channel, A sends, B's unread is 1, offset pages have unique message ids, B marks read, B leaves, and B's read and send are `404 channel_not_available` while A can still read. Notification mark-read decreases the unread count. On target `next`, guild-channel sub-checks are `guild_channel: not_run` with reason `real_history_guarded`: the phase does not read or write any guild channel and does not call `GET /api/v1/guilds`. On `staging-next` and the local harness, A and B use the primary guild channel (send, unread, read, mark read). A second built-in guild, when used, is chosen from `GET /api/v1/guilds` and joined with `POST /api/v1/guilds/:key/join`; otherwise `secondary_guild: not_run` with reason `secondary_guild_join_unavailable`. If B's registration returns 201 and a later step throws, B's session is revoked on the exact origin and B's label is recorded `cleanup_required`. B does not leave the primary guild. `rate_limit: not_covered` (the 20-message limit is not exercised). | second member, one squad, messages |
+| messages-mobile | Requires `messages`. Real Chromium, viewport 390×844, `deviceScaleFactor` 3, `isMobile`, `hasTouch`. Same origin guard, no screenshots, page-error capture and teardown as `browser`. Inbox paths are allowed because the browser session is only synthetic member A. Landing 200, UI login as A, open 「我的訊息」, the direct conversation with B shows the last body sent in `messages`, one UI send appears, direct-message unread badges stay consistent with own messages excluded, `document.documentElement.scrollWidth <= window.innerWidth`, and UI logout clears the cookie. On `next` the shell still requests `GET /api/v1/me/channels?kind=guild` (summary fields only: `channel_key`, `name`, `unread_count`, `last_message_at`) and `GET /api/v1/members/:id` for the member's own card. No guild-channel history is opened (`/api/v1/me/channels/guild/` is not requested). The settings dot may stay lit from that summary's unread count; the phase does not clear it. | one mobile browser session |
 | load | Anonymous GETs of health and two static images only. Bounded by requests ≤600, concurrency ≤16, rps ≤30, timeout ≤30 s. Reports the actual request count, status distribution, network errors by class, error rate, p50/p95/p99 and duration. Passes only within the configured thresholds. It stays not_run until executed. | none |
 | logout | Runs whenever a tool session exists. Returns 200 with `no-store` and clears the cookie. Replaying the revoked cookie gets 401 `session_expired`. | session revoked |
 
 ### guild-cache (grant/revoke and freshness)
 
-Uses the real routes `POST /api/v1/guilds/:key/{join,leave}` (If-Match, Idempotency-Key, Origin, CSRF) and `GET /api/v1/me/development/skill/:book`.
+Uses the real routes `POST /api/v1/guilds/:key/{join,leave}` (If-Match, Idempotency-Key, Origin, CSRF), `GET /api/v1/guilds` (catalog plus the caller's own membership, for If-Match and cleanup), and `GET /api/v1/me/development/skill/:book`. It does not call `GET /api/v1/guilds/directory`.
 
 1. Baseline. The primary guild is not a development guild, and neither AI guild is active. Two identical status reads are both `eligible: false` and `no-store`. Otherwise the phase is **not_run**, and the tool never leaves memberships it did not create.
 2. Joining `--dev-guild` (default `guild_ai_vibe`) returns `active` with a body version that is a positive safe integer `N` and a response ETag of exactly `"N"` or `W/"N"` (a compressing edge may weaken it); any other shape or number fails, and only the ETag kind is recorded. Requests always send a strong If-Match. The **first** status read after the commit must be `eligible: true` (`join_first_read_eligible`), and so must the next one. It is still `enabled: false` with no active grant. Eligibility is not a GitHub App grant or key.
@@ -115,15 +116,83 @@ A stale first read fails the phase even if a later read would be fresh. The tool
 
 Only booleans, states, counts and version numbers are reported. No GitHub login, proposals, key ids, member ids or content.
 
+## Requests on target `next`
+
+Every `execute` also selects `health` (`GET /api/v1/health`) and `preflight` (no request). The three phases below do not call `GET /api/v1/guilds/directory`. That route returns every guild's `guild_master`, `guild_experts` (`user_id`, `display_name`, `avatar_url`) and pending nominee display names. Guild choice uses `GET /api/v1/guilds`, whose items are catalog fields (`guild_key`, `name`, `purpose`, `first_step`, `module_key`, `profession_key`, `catalog_version`, `track_count`) plus the caller's own `membership` (`membership_id`, `state`, `rank`, `aggregate_version`). The primary guild is read from `GET /api/v1/me/guild-preferences` (`primary_guild_key`, `secondary_guild_keys`, `aggregate_version`).
+
+`GET /api/v1/guilds` exposes `guild_key`, which is enough to pick the first built-in, non-development guild (`guild_[a-z_]+`, skipping `guild_custom_*`, `guild_ai_vibe` and `guild_ai_field`).
+
+### `registration` (HTTP client)
+
+- `POST /api/v1/auth/register` (missing origin, foreign origin, the create, the duplicate)
+- `POST /api/v1/auth/login` (rejected-origin proof, then login again)
+- `GET /api/v1/session` (two agreeing reads, then the revoked-cookie replay)
+- `GET /api/v1/me/onboarding`
+- `GET /api/v1/assessment-definition`
+- `POST /api/v1/me/onboarding/answers`
+- `POST /api/v1/me/onboarding/evaluate`
+- `GET /api/v1/guilds`
+- `POST /api/v1/me/onboarding/complete` (complete, idempotent replay, stale If-Match)
+- `GET /api/v1/me/guild-preferences` (after complete, after the idempotent replay, and again for the member-todo primary)
+- `GET /api/v1/me/github`
+- `POST /api/v1/auth/logout` (the check, and again in cleanup)
+
+These responses name only the new member. `GET /api/v1/me/github` is that member's own connection status.
+
+### `messages` on `next` (HTTP client)
+
+Requires `registration`. Peer positioning is given A's primary guild key, so this phase does not call `GET /api/v1/guilds` or any `/api/v1/me/channels/guild/` route.
+
+- `POST /api/v1/auth/login` (A)
+- `POST /api/v1/auth/register` (B)
+- `GET /api/v1/assessment-definition`
+- `POST /api/v1/me/onboarding/answers`, `POST /api/v1/me/onboarding/evaluate`, `POST /api/v1/me/onboarding/complete`
+- `GET /api/v1/me/guild-preferences` (B's stored primary)
+- `POST /api/v1/me/conversations/:userId/messages` and `GET /api/v1/me/conversations/:userId/messages`
+- `GET /api/v1/me/conversations`
+- `POST /api/v1/me/conversations/:userId/read`
+- `POST /api/v1/squads`
+- `POST /api/v1/squads/:squadId/invitations`
+- `GET /api/v1/me/squad-invitations`
+- `GET /api/v1/me/notifications`
+- `POST /api/v1/squad-invitations/:invitationId/accept`
+- `GET /api/v1/me/channels?kind=squad`
+- `POST /api/v1/me/channels/squad/:squadId/messages`, `GET /api/v1/me/channels/squad/:squadId/messages`, `POST /api/v1/me/channels/squad/:squadId/read`
+- `GET /api/v1/squads/:squadId`
+- `POST /api/v1/squads/:squadId/leave`
+- `POST /api/v1/me/notifications/:notificationId/read`
+- `POST /api/v1/auth/logout` (A and B)
+
+Conversation participants, squad members, invitation names, notification text and squad-channel `sender_name` are only the two `cand-reg-*` members this run registered. The squad is new and contains only those two.
+
+On `staging-next` and the local harness the same phase also calls `GET /api/v1/guilds`, `POST /api/v1/guilds/:key/join`, `POST /api/v1/guilds/:key/leave`, `GET /api/v1/me/channels?kind=guild` and `/api/v1/me/channels/guild/:key/messages` and `/read`. Those guild-channel calls stay off `next`.
+
+### `messages-mobile` on `next` (browser shell)
+
+The phase drives Chromium. It does not add its own HTTP client calls except a logout through the exact-origin API when UI logout did not finish. The signed-in shell requests:
+
+- `GET /api/v1/session` and `GET /api/v1/site` before login
+- `POST /api/v1/auth/login`
+- `GET /api/v1/me/onboarding`
+- `GET /api/v1/guild-workspace` (the caller's own officer and maintainer flags; empty for a new member)
+- `GET /api/v1/members/:id` for this member's own card
+- `GET /api/v1/assessment-definition` (home skill labels)
+- inbox summaries: `GET /api/v1/me/notifications`, `GET /api/v1/me/conversations`, `GET /api/v1/me/channels?kind=guild`, `GET /api/v1/me/channels?kind=squad` (the menu uses `limit=1`; opening 「我的訊息」 uses `limit=20` because every panel stays mounted)
+- `GET /api/v1/me/conversations/:userId/messages` and `POST /api/v1/me/conversations/:userId/messages` for the direct thread with B
+- `POST /api/v1/auth/logout`
+
+`GET /api/v1/me/channels?kind=guild` returns summary fields only: `channel_key`, `name`, `unread_count`, `last_message_at`. The summary has no message body and no sender. No channel history is opened on `next`: nothing requests a path containing `/api/v1/me/channels/guild/`. The member search `GET /api/v1/members` is not called. A window focus re-reads the same summaries and does not open history.
+
 ## Redaction
 
-The report is built from whitelisted fields. Error reasons are check ids or `ErrorClass[:SYSCODE]`, never messages, URLs or stacks. Remote metadata strings (health `mode`/`version`, asset `content-type`/`cache-control`) are kept whole or replaced by `omitted_too_long`, never truncated, so a reflected secret cannot leak a prefix. Before output, every string in the report is scrubbed against the raw, URI-encoded and JSON-escaped form of every secret seen: password, email, Access id/secret, session cookie values, CSRF tokens, user id, OAuth URL, state and challenge, and avatar URL. `redaction_applied` shows whether anything had to be removed.
+The report is built from whitelisted fields. Error reasons are check ids or `ErrorClass[:SYSCODE]`, never messages, URLs or stacks. Remote metadata strings (health `mode`/`version`, asset `content-type`/`cache-control`) are kept whole or replaced by `omitted_too_long`, never truncated, so a reflected secret cannot leak a prefix. Before output, every string in the report is scrubbed against the raw, URI-encoded and JSON-escaped form of every secret seen: password, email, Access id/secret, session cookie values, CSRF tokens, Idempotency-Key values, user id, OAuth URL, state and challenge, and avatar URL. `redaction_applied` is set from that scrub and is true when a secret had to be removed.
 
 ## Cleanup and rollback ownership
 
 - The tool revokes its own sessions (including the browser session when the browser phase fails before UI logout), restores the test guild membership and removes its avatar. It records each item in `cleanup.items`.
 - Expected residue on the dedicated synthetic account: a `left` membership row, retained guild skill-book grants, command receipts, revoked session rows, and an unconsumed OAuth state that expires in 10 minutes.
 - `registration`, `messages` and `messages-mobile` do not read `FREEDOM_CANDIDATE_ACCOUNT_FILE`. They register `cand-reg-*` members themselves, revoke every session they opened, and record `cleanup_required` with those labels. Residue is the member row, positioning, guild membership, and any squad, message, notification and receipt rows that phase created. An account file supplied for other phases is ignored here.
+- If registration returns 201 and a later step throws, that member's session is still revoked on the exact origin (best effort; the result is recorded) and the label is still `cleanup_required`. The same applies to member B inside `registerPeer` when positioning or any later step in that function throws after B's 201: B is revoked and named even though `messages` has not stored B on the run yet.
 - **Root** deactivates each `cand-reg-*` member named in `cleanup.items` in the candidate database after acceptance, so the member can no longer log in, and removes or retains the rows listed above according to the candidate's retention practice. Root also deactivates or deletes the dedicated synthetic account when that account was used, and revokes the temporary Access service token and policy. The tool has no database access and no account-deletion API, so it cannot confirm remote cleanup.
 - Rollback of the candidate deployment, DNS and Access belongs to root and the deploy owner, outside this tool.
 
@@ -133,7 +202,7 @@ The report is built from whitelisted fields. Error reasons are check ids or `Err
 - The full GitHub OAuth, App installation, consent and key issuance flow, which needs an authorized synthetic GitHub identity. A fresh `cand-reg-*` member only proves GitHub is `unavailable` or `incomplete`.
 - Registration of anyone except the tool's own `cand-reg-*` members. The dedicated account file is still required for `session`, `browser`, `guild-cache`, `github-handoff`, `avatar` and `logout`.
 - The account `browser` phase still does not read the inbox. It aborts `/api/v1/me/notifications`, `/api/v1/me/conversations` and `/api/v1/me/channels` and reports `member_inbox: not_covered`.
-- Guild channel history on target `next`. `messages` reports `guild_channel: not_run` with reason `real_history_guarded` and does not call those routes. `staging-next` runs them because that community is synthetic.
+- Guild channel history on target `next`. `messages` reports `guild_channel: not_run` with reason `real_history_guarded` and does not call those routes. `messages-mobile` does not open one either. The shell's `GET /api/v1/me/channels?kind=guild` is the summary list only. `staging-next` runs the history checks because that community is synthetic.
 - The direct-message and channel rate limit (`429 message_rate_limited` after 20 messages in 60 seconds). `messages` reports `rate_limit: not_covered` so the run does not leave a burst of messages behind.
 - Provider configuration (Hyperdrive or other database cache settings, Access policies). Root checks these; the tool has no provider access.
 - Capacity or performance claims for Cloudflare or the database. Local load numbers are not evidence.
