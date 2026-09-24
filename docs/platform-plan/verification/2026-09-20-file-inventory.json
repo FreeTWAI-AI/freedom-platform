@@ -1089,8 +1089,8 @@
     },
     {
       "path": "docs/development/audit-2026-09-24.md",
-      "bytes": 9576,
-      "sha256": "f773b5443625d4341c26dada06f644e0594a26a6baa3503fad4c4ef359ce80fa"
+      "bytes": 10090,
+      "sha256": "315135b3af8e8c72b1e350965d2fe01ec4109c31e682ab893a22d84a9f8d2b0c"
     },
     {
       "path": "docs/development/author-owned-collaboration.md",
@@ -3004,8 +3004,8 @@
     },
     {
       "path": "scripts/verify-staging.mjs",
-      "bytes": 11728,
-      "sha256": "7f05c3729afe9936b0ef8452404739caa8823648c1335477e5bea68ba155d684"
+      "bytes": 12237,
+      "sha256": "7e6e5f81e336fb2932bcfba5f1e25600cda74a9a893d3d0a83f71d15913b83ee"
     },
     {
       "path": "tests/e2e/admin-guilds.spec.ts",

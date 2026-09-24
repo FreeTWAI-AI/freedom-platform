@@ -90,7 +90,7 @@ try {
   const modules = [
     ['我的定位', '我的定位', 'positioning', ['/me/onboarding', '/assessment-definition']],
     ['職業公會', '職業公會', 'guilds', ['/guilds/directory', '/me/guild-preferences']],
-    ['技能書架', '技能書架', 'skills', ['/community', '/me/skill-books']],
+    ['技能書架', '技能書架', 'skills', ['/me/skill-books']],
     ['供貨中心', '供貨中心', 'supplier', ['/supplier/products', '/supplier/requests']],
     ['開店與銷售', '開店與銷售', 'retail', ['/retail/catalog', '/retail/stores', '/retail/listings']],
     ['開源投稿', '開源投稿', 'opensource', ['/opensource/projects']],
@@ -114,13 +114,21 @@ try {
       await expect(page.locator('.community-library')).toHaveCount(0);
     }
     if(file==='skills'){
-      const catalog=data.find(item=>item.path==='/community').body.skill_books.map(book=>book.id).sort();
+      // An empty unlocked shelf intentionally does not mount the catalog. Read the
+      // reference through the authenticated API, then verify both rendered scopes.
+      const catalogResponse=await context.request.get(origin+'/api/v1/community',{headers,maxRedirects:0});
+      expect(catalogResponse.status()).toBe(200);
+      const catalog=(await catalogResponse.json()).skill_books.map(book=>book.id).sort();
       const grants=data.find(item=>item.path==='/me/skill-books').body.items.map(book=>book.book_id);
       const unlocked=catalog.filter(id=>grants.includes(id)),locked=catalog.filter(id=>!grants.includes(id));
       const cards=page.locator('.community-library article[data-book-id]'),tabs=page.getByRole('group',{name:'技能書範圍'});
       const unlockedTab=tabs.getByRole('button',{name:/^已解鎖(?: · \d+)?$/});
       await expect(unlockedTab).toHaveAttribute('aria-pressed','true');await expect(cards).toHaveCount(unlocked.length);
       expect(await cards.evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-book-id')).sort())).toEqual(unlocked);
+      if(!unlocked.length){
+        await expect(page.locator('.community-library')).toHaveCount(0);
+        await expect(page.getByRole('button',{name:'免費預覽技能書',exact:true})).toBeVisible();
+      }
       await tabs.getByRole('button',{name:'未解鎖',exact:true}).click();await expect(cards).toHaveCount(locked.length);
       expect(await cards.evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-book-id')).sort())).toEqual(locked);
       await expect(cards.getByRole('button',{name:'預覽技能書',exact:true})).toHaveCount(locked.length);
