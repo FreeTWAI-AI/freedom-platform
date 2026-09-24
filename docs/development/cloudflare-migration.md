@@ -1,6 +1,6 @@
 # Cloudflare Workers＋PlanetScale Postgres 遷移：preflight、演練、切換與回退
 
-> 狀態（2026-09-24）：**preflight 階段，沒有 execute 能力**。沒有建立任何 Cloudflare／PlanetScale／OCI 資源，沒有產生 billing signature、沒有新的 pscale login、沒有讀寫或匯出任何資料庫，也沒有切換流量。名稱是計畫值；PlanetScale 價格是 root 2026-09-24 讀取的 organization 報價（見 §3）；實際 provider ID 只在之後的 provisioning 階段寫入私密 evidence 檔。
+> 狀態（2026-09-24 快照）：本工具仍是**唯讀 preflight，沒有 execute 能力**。工具外、經 root 驗證：Workers Paid 已啟用，4 個 Access app 已建立；`pscale auth` 可用。PlanetScale 資料庫、Worker 部署、Hyperdrive、DNS／routes 都尚未建立；Cloudflare PlanetScale partnership 回傳 error 2025，目前阻擋 provisioning。沒有切換任何流量。名稱是計畫值；PlanetScale 價格是 root 讀取的 organization 報價（見 §3）；實際 provider ID 只寫入私密 evidence 檔。
 
 Canonical 方向見 [08 Bootstrap／Hosting](../platform-plan/08-bootstrap-hosting-project-lifecycle.md) §3.3、§5.1：Workers → Hyperdrive → managed PostgreSQL。依使用者最新指示，預設 provider 是 **由 Cloudflare 計費的 PlanetScale Postgres 18**（[Cloudflare 官方頁](https://developers.cloudflare.com/hyperdrive/planetscale/)）。OCI 是已調查的替代方案，不 provision；D1 是未來選項但不是 drop-in。工具與測試在 [deploy/cloudflare](../../deploy/cloudflare/README.md)。
 
@@ -76,7 +76,7 @@ Runtime config 以 runtime 工作流的 `wrangler.jsonc`（commit `f089a84`）�
 - **部署用 child token**：由 root 另行建立（0600，期限 10/1），有 Workers Scripts、Hyperdrive、R2、Workers Routes、DNS 寫入與 Billing Read，沒有 Tokens Write。
 - Workers namespace `freetwai` 已由 root 身分初始化，不是阻擋。
 - Workers Paid **已啟用**：root 於 2026-09-24 17:39:58 UTC 讀取帳戶 subscriptions（rate plan `workers_paid`、Workers Paid、account scope、US$5／月、state Paid），不再是阻擋。
-- **PlanetScale partnership 未開通（目前阻擋）**：root 於 2026-09-24 17:48:20 UTC 的 signature probe 得到 Cloudflare error 2025（帳戶未獲授權建立 Cloudflare 計費的 PlanetScale DB，需購買 PlanetScale partnership subscription）。這與 Workers Paid 是不同的 entitlement。在官方 Cloudflare PlanetScale 開通前，signature 與 Cloudflare 計費的 DB 建立都受阻；沒有 signature 成功、沒有建立 DB、暫時 token 已撤銷。補權限不是解法；probe 所用 scope 不代表最小或足夠的權限組合。使用者已核准的 US$25 基本費不需重新授權。
+- **PlanetScale partnership 未開通（目前阻擋）**：root 於 2026-09-24 17:48:20 UTC 的 signature probe 得到 Cloudflare error 2025（帳戶未獲授權建立 Cloudflare 計費的 PlanetScale DB，需購買 PlanetScale partnership subscription）。這與 Workers Paid 是不同的 entitlement。在官方 Cloudflare PlanetScale 開通前，signature 與 Cloudflare 計費的 DB 建立都受阻；沒有 signature 成功、沒有建立 DB、暫時 token 已撤銷。不要繼續猜測 scope；最小／足夠的權限組合仍未證實。使用者已核准的 US$25 基本費不需重新授權。
 - Access application：root 已於 2026-09-24 建立並驗證 `staging-next.freetwai.com`、`staging-next.freetwai.com/admin`、`next.freetwai.com`、`next.freetwai.com/admin` 四個（帳戶 application 數 19→23；本工作流未重新查詢）。既有網站與 OCI 上 3 台 VM 未變動。
 - 仍需：Cache Rules Read 確認沒有規則快取 `/api/*`。
 
@@ -202,6 +202,6 @@ node --test deploy/cloudflare/test/*.test.mjs
 - 資料庫、Worker 候選部署、Hyperdrive config、DNS／route 都**尚未**建立。外部已有的部分 provisioning 只有 root 建立的 4 個 Access application（§5）；本目錄的唯讀 preflight 工具仍沒有任何 mutation。
 - Cloudflare remote Images：identity/root 已記錄證據（非本工作流執行）— alpha 修正 `125b022` 遠端 targeted proof 6/6 PASS（5 transforms + 1 APNG zero-call），原始 alpha 77 完整保留、padded bands 不透明、與 Node 比對 max_alpha_diff 0；EXIF 6 odd padding、vertical padding、avatar、reupload 亦通過（`/tmp/freedom-cloudflare-images-remote-20260924/verify-alpha-remote.json`）。這只是 targeted image proof，不代表整體部署／readiness；候選整合驗收與其他部署前置仍為 not_run。
 - OCI TLS 可驗證路徑；OCI 資源一律不建立。
-- 所有 provider mutation、SQL 執行、restore drill、負載測試、瀏覽器驗證與台灣延遲量測。
+- 其餘候選 provider mutation（PlanetScale DB、Hyperdrive、Worker／DNS deployment；四個 Access app 已由 root 建立並驗證）、SQL 執行、restore drill、負載測試、瀏覽器驗證與台灣延遲量測。
 
 參考：[Hyperdrive × PlanetScale](https://developers.cloudflare.com/hyperdrive/planetscale/)、[Hyperdrive query caching](https://developers.cloudflare.com/hyperdrive/concepts/query-caching/)、[Workers previews](https://developers.cloudflare.com/workers/configuration/previews/)、[PlanetScale pricing](https://planetscale.com/pricing)、[OCI PostgreSQL pricing](https://www.oracle.com/cloud/postgresql/pricing/)、[OCI connect to DB](https://docs.oracle.com/en-us/iaas/Content/postgresql/connect-to-db.htm)。

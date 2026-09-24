@@ -1,10 +1,10 @@
 {
   "schema": "freedom.cloudflare-migration-plan/v3",
   "phase": "preflight",
-  "status": "planned_not_provisioned",
+  "status": "partial_provisioning_blocked",
   "execution": "none: this phase has no execute capability; provisioning is a later reviewed phase",
   "zone": "freetwai.com",
-  "notes": "Names only. No resource in this file exists until a provisioning phase records its provider ID in a private evidence file. Runtime DB connections come only from the single HYPERDRIVE binding; migrator credentials stay in the operator private directory.",
+  "notes": "Names only. Observed state: the four Access applications were created and verified by root, and Workers Paid is active; the PlanetScale DB, Worker deployments, Hyperdrive configs and DNS records are not created. Any other resource in this file exists only once a provisioning phase records its provider ID in a private evidence file. This tool remains read-only. Runtime DB connections come only from the single HYPERDRIVE binding; migrator credentials stay in the operator private directory.",
   "protected": {
     "hostnames": ["freetwai.com", "staging.freetwai.com"],
     "hostname_policy": "Every hostname in the zone except the candidate hostnames below is protected; tools deny by default.",
@@ -156,7 +156,7 @@
     "planetscale_partnership": {
       "status": "blocked_not_entitled",
       "observed": "2026-09-24 17:48:20 UTC root signature probe returned Cloudflare error 2025: the account is not entitled to create Cloudflare-billed PlanetScale databases until the PlanetScale partnership subscription is purchased. This entitlement is separate from Workers Paid.",
-      "effect": "Billing signature and Cloudflare-billed DB creation are blocked until the official Cloudflare PlanetScale activation. No signature succeeded, no DB was created, temporary tokens were revoked. The probe scopes are not a proven minimal or sufficient permission set; more permissions are not the fix.",
+      "effect": "Billing signature and Cloudflare-billed DB creation are blocked until the official Cloudflare PlanetScale activation. No signature succeeded, no DB was created, temporary tokens were revoked. Do not continue scope guessing; the minimum/sufficient scopes remain unproven.",
       "cost": "Partnership activation terms and any additional charge are unverified until the official activation review; the US$25 base quote does not cover them."
     },
     "access_applications": {
