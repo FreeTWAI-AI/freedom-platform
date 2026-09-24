@@ -408,12 +408,18 @@ test('re-reading the open channel also re-reads its tab and list unread totals w
   const button=squad.getByRole('button',{name:'合成小隊甲',exact:true});
   await button.click();await expect(thread.getByText('這個頻道還沒有訊息。')).toBeVisible();
   await expect(tab(page,'小隊閒聊')).toContainText('沒有未讀');await expect(button).not.toContainText('則未讀');
+  // The settings menu stays closed throughout, so opening it cannot be what refreshes its total.
+  const toggle=page.getByRole('button',{name:'設定',exact:true});await expect(toggle).toHaveAccessibleDescription('我的訊息2 則未讀');
+  const menuReads=server.log.lists.filter(info=>info.limit===1).length;
   const box=thread.getByLabel('在 合成小隊甲 發言');await box.fill('回覆前的草稿');
   // Another member replies while this one has the room open; no window focus follows.
   const channel=server.get('squad',squadA);channel.messages.unshift(server.message(channel,'夥伴剛回覆的合成訊息'));
   await thread.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
   await expect(bubbles).toHaveText(['夥伴剛回覆的合成訊息']);await expect(thread.getByText('1 則未讀',{exact:true})).toBeVisible();
   await expect(tab(page,'小隊閒聊')).toContainText('1 則未讀');await expect(button).toContainText('1 則未讀');
+  // The settings total is re-read from all four sources, not summed from channel counts.
+  await expect(toggle).toHaveAccessibleDescription('我的訊息3 則未讀');await expect(toggle).toHaveAttribute('aria-expanded','false');
+  expect(server.log.lists.filter(info=>info.limit===1).length-menuReads).toBe(2);
   await expect(squad.getByRole('button',{name:'合成小隊乙',exact:true})).not.toContainText('則未讀');
   await expect(box).toHaveValue('回覆前的草稿');expect(server.log.reads).toEqual([]);
   // The other kind and the private tab keep their own totals.
