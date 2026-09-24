@@ -8,6 +8,8 @@ GitHub 連結固定列為必做待辦，以 `/me/github` 的真實狀態顯示�
 
 「我的訊息」分為通知與私訊，支援未讀、已讀、分頁及失敗重試。通知只使用固定站內頁面動作，不接受任意跳轉網址。
 
+設定選單的未讀提示於初次載入、開啟選單、回到視窗及站內已讀／傳送後更新；訊息頁提供重新整理。API、鎖定順序與私人資料存取細節見 [通知與私訊服務](member-communications.md)。
+
 | 來源 | 收件人與時機 |
 | --- | --- |
 | 好友邀請 | 對方收到邀請；接受或婉拒後通知邀請人 |
@@ -41,6 +43,8 @@ GitHub 連結固定列為必做待辦，以 `/me/github` 的真實狀態顯示�
 
 小隊邀請回覆帶 `If-Match` 邀請版本；邀請本身不建立小隊成員資格，也不開放小隊聯絡資料。接受時沿用既有小隊成員鎖，與申請、核准及退出協調；退出後重播舊的接受收據不會重新加入。
 
+每隊最多 50 份待回覆邀請，並行送出也受限制。受邀人停用或重設定位後，發起人仍能撤回原邀請釋放名額，列表將對方顯示為「目前不可用的會員」。新邀請與接受仍需要雙方資格有效。
+
 通知與私訊標為已讀是冪等操作，不需要 `If-Match`。GET 不改變已讀狀態。
 
 ## 驗證入口
@@ -50,5 +54,5 @@ GitHub 連結固定列為必做待辦，以 `/me/github` 的真實狀態顯示�
 - `tests/runtime/member-communications.test.ts`
 - `tests/runtime/notification-events.test.ts`
 - `tests/e2e/member-settings.spec.ts`
-- 小隊邀請的 runtime 與 E2E 測試
+- `tests/runtime/squad-invitations.test.ts`、`tests/e2e/squad-invitations.spec.ts`
 - `scripts/verify-staging.mjs`、`scripts/verify-public.mjs`

@@ -53,7 +53,7 @@ POST 走既有的 Origin、CSRF 與 `Idempotency-Key` 規則，不需要 `If-Mat
 
 不通知的情況：邀請者自己取消、移除已是好友的關係、重複送出仍在等待的邀請、重送同一 key、專家狀態沒有真的改變（即使版本號增加）、重新任命同一位公會長、提名確認時席位原本就是本人。公會申請通知會附上審查說明；申請者原本就能在自己的申請列表看到這段文字。其他通知只用顯示名稱與公會名稱，不放 email、管理員身分或內部識別碼。
 
-`squad_invitation` 由小隊邀請的後續工作（migration 036）呼叫同一個 `notifyMember`。
+`squad_invitation` 由小隊邀請（migration 036）呼叫同一個 `notifyMember`。
 
 ## 測試
 
