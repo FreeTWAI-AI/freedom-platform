@@ -2,7 +2,7 @@
 
 這是 Cloudflare Workers＋Hyperdrive＋PlanetScale Postgres 18（由 Cloudflare 計費）遷移的 preflight 工具。流程、費用、替代方案與回退見 [遷移手冊](../../docs/development/cloudflare-migration.md)。
 
-目前在 preflight 階段，沒有 execute 能力：本目錄沒有任何會改動 provider、資料庫或既有主機的程式，也不會產生 billing signature 或登入 pscale。pscale 目前已認證（root 以 process-scoped `DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/null` 檢查，organization `ted-ted-h`），Tokyo（`ap-northeast`）organization 報價已記錄：PS-5 single node US$5、PS-5 HA US$15，加 Workers Paid 月基本費 US$25（不含 storage／用量／稅）。資料庫、binding 與 custom domain 都尚未建立。受保護的對象見 [environments.json](environments.json) 的 `protected`，包括 `freetwai.com`、`staging.freetwai.com`、既有 Tunnel／Access／R2、OCI 上既有的 VM，以及 Castle 上的 systemd units 與資料庫。
+目前在 preflight 階段，沒有 execute 能力：本目錄沒有任何會改動 provider、資料庫或既有主機的程式，也不會產生 billing signature 或登入 pscale。pscale 目前已認證（root 以 process-scoped `DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/null` 檢查，organization `ted-ted-h`），Tokyo（`ap-northeast`）organization 報價已記錄：PS-5 single node US$5、PS-5 HA US$15，加 Workers Paid 月基本費 US$25（不含 storage／用量／稅，也不含尚未驗證的 PlanetScale partnership 條款或費用）。Workers Paid 已由 root 驗證啟用；目前阻擋是 PlanetScale partnership 未開通（Cloudflare error 2025），signature 與 DB 建立須等官方開通。root 已建立 `staging-next`／`next` 及其 `/admin` 共 4 個 Access application；資料庫、Worker 候選部署、Hyperdrive、DNS／route 都尚未建立。受保護的對象見 [environments.json](environments.json) 的 `protected`，包括 `freetwai.com`、`staging.freetwai.com`、既有 Tunnel／Access／R2、OCI 上既有的 VM，以及 Castle 上的 systemd units 與資料庫。
 
 | 檔案 | 內容 |
 | --- | --- |

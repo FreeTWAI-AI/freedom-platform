@@ -151,8 +151,20 @@
   },
   "cloudflare": {
     "workers_paid_usd_month": 5,
-    "workers_paid": "may still be inactive; the user already authorized it, so no renewed approval is requested",
-    "workers_namespace": "freetwai initialized by the root identity; not a blocker"
+    "workers_paid": "verified active 2026-09-24 17:39:58 UTC by root (account subscriptions read: rate plan workers_paid, Workers Paid, account scope, US$5 monthly, state Paid); not a blocker. This tool made no provider call.",
+    "workers_namespace": "freetwai initialized by the root identity; not a blocker",
+    "planetscale_partnership": {
+      "status": "blocked_not_entitled",
+      "observed": "2026-09-24 17:48:20 UTC root signature probe returned Cloudflare error 2025: the account is not entitled to create Cloudflare-billed PlanetScale databases until the PlanetScale partnership subscription is purchased. This entitlement is separate from Workers Paid.",
+      "effect": "Billing signature and Cloudflare-billed DB creation are blocked until the official Cloudflare PlanetScale activation. No signature succeeded, no DB was created, temporary tokens were revoked. The probe scopes are not a proven minimal or sufficient permission set; more permissions are not the fix.",
+      "cost": "Partnership activation terms and any additional charge are unverified until the official activation review; the US$25 base quote does not cover them."
+    },
+    "access_applications": {
+      "status": "verified",
+      "source": "root created and verified 2026-09-24 (not re-queried here); account application count 19 -> 23",
+      "applications": ["staging-next.freetwai.com", "staging-next.freetwai.com/admin", "next.freetwai.com", "next.freetwai.com/admin"]
+    },
+    "not_created": ["PlanetScale databases", "Worker candidate deployments", "Hyperdrive configs", "DNS records and routes"]
   },
   "runtime": {
     "config_source": "freedom-platform runtime worktree wrangler.jsonc at f089a84 (read-only here)",

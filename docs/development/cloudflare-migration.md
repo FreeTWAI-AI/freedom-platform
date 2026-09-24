@@ -49,12 +49,12 @@ Runtime config 以 runtime 工作流的 `wrangler.jsonc`（commit `f089a84`）�
 | --- | --- | --- |
 | staging-next PS-5 single_node（1 node） | CLI cluster `PS_5_AWS_ARM`／`PS_5_AWS_X86`（`display_name` PS-5，`replicas` "0"，single node） | US$5 |
 | next PS-5 HA（1 primary＋2 replicas） | 同上 cluster，`replicas` "2"，highly available | US$15 |
-| Workers Paid | 已由使用者授權 | US$5 |
+| Workers Paid | 已啟用（root 2026-09-24 驗證，state Paid） | US$5 |
 | **月基本費合計** | `cost` 回傳 `total: 25`、`total_status: computed` | **US$25** |
 
 - 來源：root 2026-09-24 以已認證 organization `ted-ted-h` 執行 `DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/null pscale size cluster list --org ted-ted-h --engine postgresql --region ap-northeast --format json`（Tokyo 的實際 slug 是 `ap-northeast`，不是 `aws-ap-northeast-1`）。非秘密 catalogue 存在 `~/.local/state/freedom-cloudflare-migration/pscale-tokyo-sizes.json`；本工作流沒有呼叫 provider。參考：`PS_10_AWS_ARM` HA 為 US$41。
 - CLI 欄位：`name` 是 cluster 識別碼（例如 `PS_5_AWS_ARM`），`display_name`（PS-5）只是標籤；`rate` 是月費、`replicas` 是字串。
-- US$25 只是**月基本費**，不是總用量：PlanetScale storage／用量、Cloudflare 超出 Workers Paid 內含量的用量與稅**未計入**。
+- US$25 只是**月基本費**，不是總用量：PlanetScale storage／用量、Cloudflare 超出 Workers Paid 內含量的用量與稅**未計入**。PlanetScale partnership subscription 的開通條款與是否另有費用**未驗證**，須待官方開通審查；不可假設免費。
 - 先前 `pricing.md?region=ap-northeast` 的 403 已不再是缺報價的阻擋；先前未經驗證的 CLI 價格說法不是這份報價的來源。
 - 若之後需要重新報價，把 manifest 對應 SKU 設為 `null`：`preflight cost` 的合計會回到 `null`（pending），不以 0、NaN 或猜測值加總。
 - 依 Cloudflare 官方頁，經 Cloudflare 計費的 PlanetScale 價格與直接向 PlanetScale 購買相同。
@@ -75,8 +75,10 @@ Runtime config 以 runtime 工作流的 `wrangler.jsonc`（commit `f089a84`）�
 - **管理用 parent token**：不變，只作管理，不用於新部署。
 - **部署用 child token**：由 root 另行建立（0600，期限 10/1），有 Workers Scripts、Hyperdrive、R2、Workers Routes、DNS 寫入與 Billing Read，沒有 Tokens Write。
 - Workers namespace `freetwai` 已由 root 身分初始化，不是阻擋。
-- Workers Paid 可能仍未啟用，但使用者已授權（US$5／月），不需要再次核准。
-- 仍需：Access application 由有 Access 權限的身分建立；Cache Rules Read 確認沒有規則快取 `/api/*`。
+- Workers Paid **已啟用**：root 於 2026-09-24 17:39:58 UTC 讀取帳戶 subscriptions（rate plan `workers_paid`、Workers Paid、account scope、US$5／月、state Paid），不再是阻擋。
+- **PlanetScale partnership 未開通（目前阻擋）**：root 於 2026-09-24 17:48:20 UTC 的 signature probe 得到 Cloudflare error 2025（帳戶未獲授權建立 Cloudflare 計費的 PlanetScale DB，需購買 PlanetScale partnership subscription）。這與 Workers Paid 是不同的 entitlement。在官方 Cloudflare PlanetScale 開通前，signature 與 Cloudflare 計費的 DB 建立都受阻；沒有 signature 成功、沒有建立 DB、暫時 token 已撤銷。補權限不是解法；probe 所用 scope 不代表最小或足夠的權限組合。使用者已核准的 US$25 基本費不需重新授權。
+- Access application：root 已於 2026-09-24 建立並驗證 `staging-next.freetwai.com`、`staging-next.freetwai.com/admin`、`next.freetwai.com`、`next.freetwai.com/admin` 四個（帳戶 application 數 19→23；本工作流未重新查詢）。既有網站與 OCI 上 3 台 VM 未變動。
+- 仍需：Cache Rules Read 確認沒有規則快取 `/api/*`。
 
 ## 6. Preflight 工具
 
@@ -195,10 +197,9 @@ node --test deploy/cloudflare/test/*.test.mjs
 
 ## 13. 未驗證項目（not_run）
 
-- `--cloudflare-billing` 實際建立流程（pscale 認證與 Tokyo size／報價已由 root 讀取，見 §3、§4）。
-- Workers Paid 啟用狀態（已授權，由 root 處理）。
+- `--cloudflare-billing` 實際建立流程：受 PlanetScale partnership 未開通（error 2025）阻擋，見 §5；pscale 認證與 Tokyo size／報價已由 root 讀取，見 §3、§4。
 - 真實 Hyperdrive id 與 `caching.disabled` 讀回。
-- 資料庫、Hyperdrive binding、custom domain 都**尚未**建立或部署。
+- 資料庫、Worker 候選部署、Hyperdrive config、DNS／route 都**尚未**建立。外部已有的部分 provisioning 只有 root 建立的 4 個 Access application（§5）；本目錄的唯讀 preflight 工具仍沒有任何 mutation。
 - Cloudflare remote Images：identity/root 已記錄證據（非本工作流執行）— alpha 修正 `125b022` 遠端 targeted proof 6/6 PASS（5 transforms + 1 APNG zero-call），原始 alpha 77 完整保留、padded bands 不透明、與 Node 比對 max_alpha_diff 0；EXIF 6 odd padding、vertical padding、avatar、reupload 亦通過（`/tmp/freedom-cloudflare-images-remote-20260924/verify-alpha-remote.json`）。這只是 targeted image proof，不代表整體部署／readiness；候選整合驗收與其他部署前置仍為 not_run。
 - OCI TLS 可驗證路徑；OCI 資源一律不建立。
 - 所有 provider mutation、SQL 執行、restore drill、負載測試、瀏覽器驗證與台灣延遲量測。
