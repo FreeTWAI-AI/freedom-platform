@@ -168,7 +168,7 @@ test('all public book pages and Markdown preserve beginner summaries, covers, or
     }
     expect(html,book.id).toContain(`src="${book.cover_url}"`);
     expect(html,book.id).toContain('href="/#skills">登入工坊 Star');
-    expect(html.match(/<script[^>]*>/g),book.id).toEqual(['<script src="/development-share.js" defer>']);
+    expect(html.match(/<script[^>]*>/g),book.id).toEqual(['<script src="/development-share.js" defer>','<script src="/assets/skill-social.js" type="module">']);
     expect(html,book.id).not.toMatch(/<script(?![^>]*src=)[^>]*>/);
   }
   const example=map.skill_books.find(book=>book.id==='social-post')!;

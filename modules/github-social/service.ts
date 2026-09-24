@@ -90,7 +90,7 @@ export class GitHubSocial {
   }
   async start(actor:Actor,returnTo='#guilds'){
     const config=this.configured();
-    requireCondition(/^#[a-z][a-z0-9_-]{0,63}$/.test(returnTo),422,'github_return_to_invalid','請從工坊頁面重新連接 GitHub。');
+    requireCondition(/^#[a-z][a-z0-9_-]{0,63}$/.test(returnTo)||communityCatalog.skill_books.some(book=>returnTo==='/development/skills/'+book.id),422,'github_return_to_invalid','請從工坊頁面重新連接 GitHub。');
     return this.member(actor,async q=>{
       await this.rate(q,actor,'oauth-start',5,600);
       const state=randomBytes(32).toString('base64url'),verifier=randomBytes(32).toString('base64url'),expires=new Date(Date.now()+10*60*1000);

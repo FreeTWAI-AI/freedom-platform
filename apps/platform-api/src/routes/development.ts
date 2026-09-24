@@ -1,3 +1,4 @@
+import {readFileSync} from 'node:fs';
 import {Hono} from 'hono';
 import {developmentMap,developmentPage,pageMarkdown,skillMarkdown,llmsIndex,developmentCss,collaborationCss,developmentShareJs,pageHtml,indexHtml,skillAgentMarkdown,pageAgentMarkdown} from '../../../../modules/development/service.js';
 import {getSkillCollaboration,type SkillEditorial} from '../../../../modules/community/skill-collaboration.js';
@@ -6,6 +7,7 @@ import type {GitHubMetrics} from '../../../../modules/github-social/service.js';
 import {getSkillShareContent,skillShareContentVersion} from '../../../../modules/community/skill-share-content.js';
 export function createDevelopmentRoutes(readMetrics?:(id:string)=>Promise<GitHubMetrics>,readEditorial?:(id:string)=>Promise<SkillEditorial|null>,readDiscovery?:(id:string)=>Promise<SkillDiscoveryBook|undefined>){
  const app=new Hono();
+ const socialCss=readFileSync(new URL('../../../portal-web/src/modules/GitHubSocial.css',import.meta.url),'utf8');
  app.get('/api/v1/skills/:id/share-content',c=>{
    const content=getSkillShareContent(c.req.param('id'));
    return content?c.json({...content,version:skillShareContentVersion}):c.json({error:'skill_not_found'},404);
@@ -17,7 +19,7 @@ export function createDevelopmentRoutes(readMetrics?:(id:string)=>Promise<GitHub
    return c.json(getSkillCollaboration(id,await readEditorial?.(id)));
  });
  app.get('/llms.txt',c=>c.text(llmsIndex()));
- app.get('/development.css',c=>{c.header('Content-Type','text/css; charset=utf-8');return c.body(developmentCss+collaborationCss);});
+ app.get('/development.css',c=>{c.header('Content-Type','text/css; charset=utf-8');return c.body(developmentCss+collaborationCss+socialCss);});
  app.get('/development-share.js',c=>{c.header('Content-Type','text/javascript; charset=utf-8');return c.body(developmentShareJs);});
  app.get('/development',c=>c.html(indexHtml()));
  app.get('/development/',c=>c.html(indexHtml()));

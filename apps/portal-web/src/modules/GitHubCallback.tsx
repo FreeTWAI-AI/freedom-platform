@@ -15,7 +15,7 @@ export function GitHubCallback(){
         const client=new PortalClient(),session=await client.getSession();
         client.csrfToken=session.csrf_token;
         const result=await client.post<{return_to:string}>('/me/github/complete',{state,code});
-        return /^#[a-z-]+$/.test(result.return_to)?'/'+result.return_to:'/#skills';
+        return /^#[a-z][a-z0-9_-]{0,63}$/.test(result.return_to)?'/'+result.return_to:/^\/development\/skills\/[a-z0-9-]+$/.test(result.return_to)?result.return_to:'/#skills';
       })();
     }
     void operation.current.then(target=>{if(active)window.location.replace(target);}).catch(cause=>{if(active)setError(cause instanceof Error?cause.message:'GitHub 連結未完成。');});

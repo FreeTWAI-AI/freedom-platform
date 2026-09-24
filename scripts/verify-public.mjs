@@ -194,6 +194,18 @@ try {
   page = await context.newPage();
   page.setDefaultTimeout(20000);
   page.on('pageerror', error => errors.push(redact(error.message)));
+  stage='public skill GitHub action links';
+  const socialScript=await anonymous.get(origin+'/assets/skill-social.js');expect(socialScript.status()).toBe(200);expect(socialScript.headers()['content-type']).toMatch(/javascript/);expect(socialScript.headers()['cache-control']).toContain('no-store');
+  await page.goto(origin+samplePath,{waitUntil:'networkidle'});
+  const publicSocial=page.locator('[data-skill-social="'+sampleBook.id+'"]');
+  await expect(publicSocial.locator('.github-book-social')).toBeVisible();
+  for(const [name,url] of [['到 GitHub Star ↗',sampleBook.upstream_url],['Fork 專案 ↗',sampleBook.upstream_url+'/fork'],['追蹤專案（Watch）↗',sampleBook.upstream_url],['Follow 原作者 ↗','https://github.com/'+new URL(sampleBook.upstream_url).pathname.split('/')[1]]]){
+    const link=publicSocial.getByRole('link',{name,exact:true});await expect(link).toHaveAttribute('href',url);await expect(link).toHaveAttribute('target','_blank');
+  }
+  await page.setViewportSize({width:320,height:844});await noOverflow('Public GitHub action links at 320 px');await screenshot('public-skill-social-mobile.png');
+  await page.setViewportSize({width:1440,height:1000});
+  console.log('Public skill Star, Fork, Watch and author Follow links, live module and 320 px layout: PASS');
+  stage='anonymous site';
   await page.goto(origin, { waitUntil: 'networkidle' });
   expect(new URL(page.url()).origin).toBe(origin);
   await expect(page.locator('.demo-banner')).toHaveCount(0);

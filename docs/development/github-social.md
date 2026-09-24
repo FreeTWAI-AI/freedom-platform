@@ -6,6 +6,14 @@ GitHub 數據每小時快取，附核對時間；讀取失敗保留舊快照並�
 
 星星圖示與數量是同一個操作入口。尚未連結的會員點星星，到 GitHub 同意後回到工坊；連結本身不會加星。連結後按空心星星加星、實心星星取消，才使用該會員的 user access token 修改原作。Fork 圖示與數量連到原作的 Fork 入口，來源與其他數據可展開查看。收到 GitHub 204 後才顯示成功，數量由 GitHub 重新讀取，不自行加減。自填 GitHub slug 不當作身分證明，連結不修改平台登入、會員權限或聯絡方式公開範圍。
 
+## 公開介紹頁的操作入口
+
+公開 `/development/skills/:id` 的 Stars、Forks、Watch 數字都是操作入口，會員介紹視窗也保留 Fork 連結。登入且已連結 GitHub 的會員可直接在介紹頁 Star／取消 Star；尚未連結時走原有 OAuth，完成後回到同一本書，再由本人按 Star。允許的返回值只有原有工坊 hash 或目錄中精確的技能書路徑，外部網址、查詢參數、未知書目與路徑穿越都拒絕。
+
+HTML 仍只包含公開快照；獨立的 `assets/skill-social.js` 在訪客瀏覽器內讀自己的 session，重用會員書架的 GitHub 元件和 API。未登入、停用 JavaScript 或讀取 session 失敗時保留原作連結；GitHub 權限不足也顯示前往原作 Star 的替代入口。伺服器的 `no-store` 同樣適用此固定名稱的 script，不把舊入口長期快取。
+
+Fork 連到原作 `/fork`，由本人在 GitHub 選擇擁有者與確認建立。Watch 連到原作頁，使用 GitHub 的 Watch 選單設定通知；`subscribers_count` 是專案追蹤數，不是作者粉絲數。Follow 原作者另連作者帳號頁。這些入口不假稱已建立 Fork 或已追蹤，也不新增 App 權限。GitHub 操作說明見 [Watch 通知設定](https://docs.github.com/en/subscriptions-and-notifications/get-started/configuring-notifications)。
+
 ## 初次啟用
 
 1. 操作端在 public／staging 的私有環境各設定 `GITHUB_SOCIAL_TOKEN_KEY`：32 bytes 隨機值的標準 base64。保留金鑰以供資料庫還原；不寫進 repo、瀏覽器或日誌。

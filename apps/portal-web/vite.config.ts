@@ -1,4 +1,4 @@
-import { dirname } from 'node:path'
+import { dirname,join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 
@@ -9,6 +9,10 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    rolldownOptions: {
+      input: {index:join(appRoot,'index.html'),'skill-social':join(appRoot,'src/skill-social.tsx')},
+      output: {entryFileNames: chunk=>chunk.name==='skill-social'?'assets/skill-social.js':'assets/[name]-[hash].js'},
+    },
   },
   server: {
     host: '127.0.0.1',

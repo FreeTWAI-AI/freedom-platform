@@ -148,6 +148,7 @@ test('OAuth uses PKCE, verifies GitHub identity, stores encrypted tokens and nev
 test('OAuth state is bound to current user, community and exact session, with expiry and local-only return target',async()=>{
   await assert.rejects(()=>social.start(actor,'https://elsewhere.example.invalid'),errorCode('github_return_to_invalid'));
   await assert.rejects(()=>social.start(actor,'/#guilds'),errorCode('github_return_to_invalid'));
+  for(const target of ['/development/skills/unknown','//elsewhere.example.invalid','/development/skills/social-post?next=https://elsewhere.example.invalid','/development/skills/social-post/../../admin','/development/skills/%73ocial-post'])await assert.rejects(()=>social.start(actor,target),errorCode('github_return_to_invalid'));
   const initial=await social.start(actor),state=new URL(initial.authorization_url).searchParams.get('state')!;
   await assert.rejects(()=>social.complete(other,state,'code'),errorCode('github_oauth_expired'));
   await assert.rejects(()=>social.complete(outsider,state,'code'),errorCode('github_oauth_expired'));
@@ -223,4 +224,11 @@ test('revoked and expired workshop sessions and inactive members cannot read or 
   assert.equal(mock.calls.length,calls);
   await pool.query("UPDATE sessions SET revoked_at=NULL,expires_at=now()-interval '1 minute' WHERE token_hash=$1",[actor.session_hash]);await assert.rejects(()=>social.session(actor),errorCode('session_expired'));
   await pool.query('UPDATE users SET active=false WHERE user_id=$1',[other.user_id]);await assert.rejects(()=>social.start(other),errorCode('session_expired'));
+});
+
+
+test('OAuth preserves only an exact catalog skill page as a public return destination',async()=>{
+  const start=await social.start(actor,'/development/skills/social-post'),state=new URL(start.authorization_url).searchParams.get('state')!;
+  const result=await social.complete(actor,state,'synthetic-code');assert.equal(result.return_to,'/development/skills/social-post');
+  assert.equal(mock.calls.some(call=>call.url.includes('/starred/')),false);
 });

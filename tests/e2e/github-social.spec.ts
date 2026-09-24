@@ -42,6 +42,9 @@ test('visible book widgets share actual metrics and confirmed Star state across 
   const opener=card.getByRole('button',{name:'預覽技能書',exact:true});await opener.click();
   const modal=page.getByRole('dialog',{name:'Hao 社群貼文技能書',exact:true});
   await expect(modal.getByRole('button',{name:'Star',exact:true})).toBeEnabled();expect(starReads).toBe(1);expect(reads.get('social-post')).toBe(1);
+  await expect(modal.getByRole('link',{name:'Fork 專案 ↗',exact:true})).toHaveAttribute('href',`${original}/fork`);
+  await expect(modal.getByRole('link',{name:'追蹤專案（Watch）↗',exact:true})).toHaveAttribute('href',original);
+  await expect(modal.getByRole('link',{name:'Follow 原作者 ↗',exact:true})).toHaveAttribute('href','https://github.com/Hao0321');
   await modal.locator('.github-star-count').click();await expect(modal.getByRole('button',{name:'取消 Star',exact:true})).toHaveAttribute('aria-pressed','true');await expect(modal.locator('.github-star-icon')).toHaveText('★');
   // The provider's public count still says 127; a local click must not invent 128.
   await expect(modal.locator('.github-star-count')).toHaveText('127');
@@ -141,5 +144,58 @@ test('a denied Star shows the permission problem without claiming an outage, ret
   await expect(card.getByRole('alert')).toHaveText('GitHub 權限不足，請管理員檢查 App 權限與專案存取設定。');
   await expect(card.getByRole('alert')).not.toContainText(/暫時|稍後|github_permission_required/);
   await expect(card.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');await expect(card.locator('.github-star-count')).toHaveText('127');
-  expect(writes).toBe(1);await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();
+  expect(writes).toBe(1);await expect(card.getByRole('link',{name:'前往 GitHub Star ↗',exact:true})).toHaveAttribute('href',original);await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();
+});
+
+
+test('public skill counts are actionable: a connected member stars in place and Fork, Watch and Follow open the original',async({page,context})=>{
+  let starred=false;const writes:unknown[]=[];
+  await page.route('**/api/v1/me/github',route=>route.fulfill({json:{configured:true,connected:true,github_user:{id:'public-skill-member',login:'public-skill-member'}}}));
+  await page.route('**/api/v1/github/books/*/metrics',route=>route.fulfill({json:metrics}));
+  await page.route('**/api/v1/me/github/books/social-post/star',route=>{
+    if(route.request().method()==='POST'){const body=route.request().postDataJSON();writes.push(body);starred=body.starred;expect(route.request().headers()['x-csrf-token']).toBeTruthy();expect(route.request().headers()['idempotency-key']).toBeTruthy();}
+    return route.fulfill({json:{book_id:'social-post',starred,connected:true,confirmed:true}});
+  });
+  await context.route('https://github.com/**',route=>route.fulfill({contentType:'text/html',body:'<h1>Synthetic GitHub destination</h1>'}));
+  await login(page);await page.goto('/development/skills/social-post');
+  const social=page.locator('[data-skill-social="social-post"]');
+  await expect(social.getByRole('button',{name:'Star',exact:true})).toBeEnabled();expect(writes).toEqual([]);
+  await social.locator('.github-star-count').click();await expect(social.getByRole('button',{name:'取消 Star',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(page).toHaveURL(/\/development\/skills\/social-post$/);await expect(social.locator('.github-star-count')).toHaveText('127');
+  await social.getByRole('button',{name:'取消 Star',exact:true}).click();await expect(social.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');
+  expect(writes).toEqual([{starred:true,confirmed:true},{starred:false,confirmed:true}]);
+  await page.setViewportSize({width:320,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  for(const [name,url] of [['Fork 專案 ↗',original+'/fork'],['追蹤專案（Watch）↗',original],['Follow 原作者 ↗','https://github.com/Hao0321']]){
+    const link=social.getByRole('link',{name,exact:true});expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    const opened=page.waitForEvent('popup');await link.click();const popup=await opened;await expect(popup).toHaveURL(url);await expect(popup.getByRole('heading')).toHaveText('Synthetic GitHub destination');await popup.close();
+  }
+  await page.screenshot({path:'test-results/public-skill-github-actions-phone.png',fullPage:false});
+});
+
+test('public skill OAuth returns to the same book and connecting never submits a Star',async({page})=>{
+  let connected=false,writes=0;const connects:unknown[]=[];
+  await page.route('**/api/v1/me/github',route=>route.fulfill({json:{configured:true,connected,github_user:connected?{id:'public-return',login:'public-return'}:null}}));
+  await page.route('**/api/v1/github/books/*/metrics',route=>route.fulfill({json:metrics}));
+  await page.route('**/api/v1/me/github/books/*/star',route=>{if(route.request().method()==='POST')writes++;return route.fulfill({json:{book_id:'social-post',connected:true,starred:false}});});
+  await page.route('**/api/v1/me/github/connect',route=>{connects.push(route.request().postDataJSON());return route.fulfill({json:{authorization_url:'https://github.com/login/oauth/authorize?client_id=synthetic&state=synthetic'}});});
+  await page.route('https://github.com/login/oauth/authorize?*',route=>route.fulfill({contentType:'text/html',body:'<p>Synthetic authorization</p>'}));
+  await page.route('**/api/v1/me/github/complete',route=>{expect(route.request().headers()['x-csrf-token']).toBeTruthy();connected=true;return route.fulfill({json:{return_to:'/development/skills/social-post'}});});
+  await login(page);await page.goto('/development/skills/social-post');
+  await page.getByRole('button',{name:'連結 GitHub 後 Star',exact:true}).click();await expect(page).toHaveURL(/^https:\/\/github.com\/login\/oauth\/authorize/);
+  expect(connects).toEqual([{return_to:'/development/skills/social-post'}]);expect(writes).toBe(0);
+  await page.goto('/github/callback?code=synthetic&state=synthetic');await expect(page).toHaveURL(/\/development\/skills\/social-post$/);
+  await expect(page.getByRole('button',{name:'Star',exact:true})).toBeEnabled();expect(writes).toBe(0);
+});
+
+test('public Star, Fork, Watch and Follow remain links without login or JavaScript',async({page,browser})=>{
+  await page.goto('/development/skills/social-post');
+  const social=page.locator('[data-skill-social="social-post"]');
+  await expect(social.locator('.github-book-social')).toBeVisible();
+  await expect(social.getByRole('link',{name:'到 GitHub Star ↗',exact:true})).toHaveAttribute('href',original);
+  const context=await browser.newContext({javaScriptEnabled:false});
+  try{
+    const plain=await context.newPage();await plain.goto(new URL('/development/skills/social-post',page.url()).href);
+    const links=plain.locator('[data-skill-social="social-post"]');
+    for(const [name,url] of [['到 GitHub Star ↗',original],['Fork 專案 ↗',original+'/fork'],['追蹤專案（Watch）↗',original],['Follow 原作者 ↗','https://github.com/Hao0321']])await expect(links.getByRole('link',{name,exact:true})).toHaveAttribute('href',url);
+  }finally{await context.close();}
 });
