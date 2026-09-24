@@ -14,7 +14,7 @@ const READ_PATHS = [
   /^\/zones\?name=[a-z0-9.-]+$/,
   /^\/zones\/[0-9a-f]{32}$/,
   /^\/zones\/[0-9a-f]{32}\/(workers\/routes|rulesets\/phases\/http_request_cache_settings\/entrypoint)$/,
-  /^\/zones\/[0-9a-f]{32}\/dns_records\?per_page=500$/,
+  /^\/zones\/[0-9a-f]{32}\/dns_records\?per_page=500(?:&page=[1-9][0-9]{0,4})?$/,
 ];
 
 export function createReadOnlyClient({ credentials, fetchImpl = globalThis.fetch }) {
@@ -33,6 +33,7 @@ export function createReadOnlyClient({ credentials, fetchImpl = globalThis.fetch
       success: Boolean(body?.success),
       errors: (body?.errors ?? []).map((e) => ({ code: e.code ?? null, message: redactText(e.message ?? '') })),
       result: body?.result ?? null,
+      result_info: body?.result_info ?? null,
     };
   }
   return Object.freeze({ get });
@@ -51,7 +52,7 @@ export const CAPABILITIES = [
   { id: 'tunnels', scope: 'account', path: (a) => `/accounts/${a}/cfd_tunnel?is_deleted=false&per_page=100`, read: 'Cloudflare Tunnel Read', write: null, needed_for: 'baseline of existing tunnels (read-only protection check)' },
   { id: 'subscriptions', scope: 'account', path: (a) => `/accounts/${a}/subscriptions`, read: 'Billing Read', write: null, needed_for: 'confirm whether Workers Paid is active (CPU limits for password hashing)' },
   { id: 'zone', scope: 'zone', path: (_a, z) => `/zones/${z}`, read: 'Zone Read', write: null, needed_for: 'zone identity and plan' },
-  { id: 'dns', scope: 'zone', path: (_a, z) => `/zones/${z}/dns_records?per_page=500`, read: 'DNS Read', write: 'DNS Edit', needed_for: 'protected-host baseline; candidate hostnames must be absent before provisioning' },
+  { id: 'dns', scope: 'zone', path: (_a, z) => `/zones/${z}/dns_records?per_page=500`, read: 'DNS Read', write: 'DNS Edit', needed_for: 'protected-host baseline; a candidate hostname is absent only when result_info proves the DNS listing is complete' },
   { id: 'workers_routes', scope: 'zone', path: (_a, z) => `/zones/${z}/workers/routes`, read: 'Workers Routes Read', write: 'Workers Routes Edit', needed_for: 'prove no Worker route overlaps freetwai.com or staging.freetwai.com' },
   { id: 'cache_rules', scope: 'zone', path: (_a, z) => `/zones/${z}/rulesets/phases/http_request_cache_settings/entrypoint`, read: 'Cache Rules Read', write: null, needed_for: 'prove no cache rule caches /api/* or session responses' },
 ];
@@ -76,6 +77,66 @@ function countResult(result) {
 
 export function fingerprintRecord(record) {
   return createHash('sha256').update(`${record.type}|${record.content}|${record.proxied}`).digest('hex').slice(0, 16);
+}
+
+// DNS list pages are 500. Past this, the probe cannot prove it saw every name; it fails closed.
+const DNS_PAGE_SIZE = 500;
+const DNS_MAX_PAGES = 40;
+
+function dnsRecordsPath(zoneId, page) {
+  const base = `/zones/${zoneId}/dns_records?per_page=${DNS_PAGE_SIZE}`;
+  return page > 1 ? `${base}&page=${page}` : base;
+}
+
+/** Integers from result_info, or null when they do not describe one complete page-size listing. */
+function dnsResultInfo(info) {
+  if (!info || typeof info !== 'object') return null;
+  const page = info.page;
+  const perPage = info.per_page;
+  const totalCount = info.total_count;
+  const totalPages = info.total_pages;
+  if (![page, perPage, totalCount, totalPages].every((n) => Number.isInteger(n))) return null;
+  if (page < 1 || perPage !== DNS_PAGE_SIZE || totalCount < 0 || totalPages < 0 || totalPages > DNS_MAX_PAGES) return null;
+  if (totalCount === 0) return (totalPages === 0 || totalPages === 1) && page === 1 ? { page, perPage, totalCount, totalPages: 1 } : null;
+  if (totalPages !== Math.ceil(totalCount / perPage)) return null;
+  return { page, perPage, totalCount, totalPages };
+}
+
+function dnsPageLength(page, info) {
+  if (info.totalCount === 0) return 0;
+  return page < info.totalPages ? info.perPage : info.totalCount - info.perPage * (info.totalPages - 1);
+}
+
+function dnsCountAgrees(info, length) {
+  return info?.count === undefined || info.count === length;
+}
+
+/**
+ * Follow result_info until every page is in hand. `complete` is true only when page, per_page,
+ * total_count and total_pages agree and the concatenated records equal total_count. Records from
+ * pages we did read are still returned so a name we have seen can be marked taken.
+ */
+function dnsRows(pages) {
+  return pages.flatMap((p) => (Array.isArray(p?.result) ? p.result : []));
+}
+
+async function collectDnsRecords(client, zoneId, first) {
+  const info = first?.http === 200 && first?.success ? dnsResultInfo(first.result_info) : null;
+  if (!info || info.page !== 1 || !Array.isArray(first?.result) || !/^[0-9a-f]{32}$/.test(String(zoneId))) {
+    return { complete: false, records: dnsRows([first]) };
+  }
+  const pages = [first];
+  for (let page = 2; page <= info.totalPages; page++) {
+    let res;
+    try { res = await client.get(dnsRecordsPath(zoneId, page)); } catch { return { complete: false, records: dnsRows(pages) }; }
+    pages.push(res);
+    const nextInfo = res?.http === 200 && res?.success ? dnsResultInfo(res.result_info) : null;
+    const aligned = nextInfo && Array.isArray(res.result) && nextInfo.page === page && nextInfo.perPage === info.perPage && nextInfo.totalCount === info.totalCount && nextInfo.totalPages === info.totalPages;
+    if (!aligned) return { complete: false, records: dnsRows(pages) };
+  }
+  const records = dnsRows(pages);
+  const complete = pages.every((p, i) => dnsCountAgrees(p.result_info, p.result.length) && p.result.length === dnsPageLength(i + 1, info)) && records.length === info.totalCount;
+  return { complete, records };
 }
 
 export function consoleActionForMissing(groups) {
@@ -140,21 +201,35 @@ export async function probeCloudflare({ client, accountId, manifest }) {
   report.console_actions = consoleActionForMissing(missingRead);
 
   // Protected-host baseline: names and content fingerprints only, never record contents.
+  // `absent` is a readiness claim. It is used only when result_info proves the listing is complete.
   if (results.dns?.status === 'granted') {
-    const records = results.dns.res.result ?? [];
+    const listed = await collectDnsRecords(client, zone?.id, results.dns.res);
+    const records = listed.records;
+    const dnsCapability = report.capabilities.find((c) => c.id === 'dns');
+    if (dnsCapability) dnsCapability.count = listed.complete ? records.length : null;
     const candidates = Object.values(manifest.environments).map((e) => e.hostname);
+    const summarize = (matched) => matched.map((r) => ({ type: r.type, proxied: r.proxied, tunnel_target: /\.cfargotunnel\.com$/.test(r.content ?? ''), fingerprint: fingerprintRecord(r) }));
     for (const host of manifest.protected.hostnames) {
       const matched = records.filter((r) => r.name === host);
-      report.protected_baseline[host] = matched.map((r) => ({ type: r.type, proxied: r.proxied, tunnel_target: /\.cfargotunnel\.com$/.test(r.content ?? ''), fingerprint: fingerprintRecord(r) }));
-      if (!matched.length) report.findings.push({ severity: 'high', id: 'protected_host_missing', detail: `${host} has no DNS record; stop and investigate before any change.` });
+      if (matched.length) report.protected_baseline[host] = summarize(matched);
+      else if (listed.complete) {
+        report.protected_baseline[host] = [];
+        report.findings.push({ severity: 'high', id: 'protected_host_missing', detail: `${host} has no DNS record; stop and investigate before any change.` });
+      } else report.protected_baseline[host] = 'incomplete_listing';
     }
-    const prints = manifest.protected.hostnames.flatMap((h) => (report.protected_baseline[h] ?? []).map((r) => r.fingerprint));
-    if (new Set(prints).size < prints.length) report.findings.push({ severity: 'info', id: 'protected_hosts_share_origin', detail: 'Protected hostnames resolve to the same tunnel target; that tunnel carries live traffic and must not be edited during staging work.' });
+    if (listed.complete) {
+      const prints = manifest.protected.hostnames.flatMap((h) => (report.protected_baseline[h] ?? []).map((r) => r.fingerprint));
+      if (new Set(prints).size < prints.length) report.findings.push({ severity: 'info', id: 'protected_hosts_share_origin', detail: 'Protected hostnames resolve to the same tunnel target; that tunnel carries live traffic and must not be edited during staging work.' });
+    }
     for (const host of candidates) {
       const taken = records.filter((r) => r.name === host);
-      report.protected_baseline[`candidate:${host}`] = taken.length ? 'exists' : 'absent';
-      if (taken.length) report.findings.push({ severity: 'high', id: 'candidate_hostname_taken', detail: `${host} already has DNS records; provisioning must not overwrite them.` });
+      if (taken.length) {
+        report.protected_baseline[`candidate:${host}`] = 'taken';
+        report.findings.push({ severity: 'high', id: 'candidate_hostname_taken', detail: `${host} already has DNS records; provisioning must not overwrite them.` });
+      } else if (listed.complete) report.protected_baseline[`candidate:${host}`] = 'absent';
+      else report.protected_baseline[`candidate:${host}`] = 'incomplete_listing';
     }
+    if (!listed.complete) report.findings.push({ severity: 'high', id: 'dns_listing_incomplete', detail: 'DNS listing was not proven complete. Candidate hostnames that were not seen are incomplete_listing, not absent; this is a readiness blocker and provisioning must not proceed.' });
   }
   if (results.access_apps?.status === 'granted') {
     const names = (results.access_apps.res.result ?? []).map((a) => a.name);

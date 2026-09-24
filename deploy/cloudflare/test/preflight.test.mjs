@@ -35,6 +35,27 @@ function privateEnvFile(body, mode = 0o600) {
   return file;
 }
 
+const PROTECTED_DNS = [
+  { name: 'freetwai.com', type: 'CNAME', content: 'uuid.cfargotunnel.com', proxied: true },
+  { name: 'staging.freetwai.com', type: 'CNAME', content: 'uuid.cfargotunnel.com', proxied: true },
+];
+
+function dnsPage(records, info = {}) {
+  const page = info.page ?? 1;
+  const perPage = info.perPage ?? 500;
+  const totalCount = info.totalCount ?? records.length;
+  const totalPages = info.totalPages ?? 1;
+  return {
+    status: 200,
+    body: {
+      success: true,
+      errors: [],
+      result: records,
+      result_info: { page, per_page: perPage, count: records.length, total_count: totalCount, total_pages: totalPages },
+    },
+  };
+}
+
 function mockCloudflare(overrides = {}) {
   const calls = [];
   const ok = (result) => ({ status: 200, body: { success: true, errors: [], result } });
@@ -53,10 +74,7 @@ function mockCloudflare(overrides = {}) {
     [`/accounts/${ACCOUNT}/cfd_tunnel?is_deleted=false&per_page=100`]: ok([{ name: 'freedom-staging', status: 'healthy' }]),
     [`/accounts/${ACCOUNT}/subscriptions`]: denied,
     [`/zones/${ZONE}`]: ok({ id: ZONE }),
-    [`/zones/${ZONE}/dns_records?per_page=500`]: ok([
-      { name: 'freetwai.com', type: 'CNAME', content: 'uuid.cfargotunnel.com', proxied: true },
-      { name: 'staging.freetwai.com', type: 'CNAME', content: 'uuid.cfargotunnel.com', proxied: true },
-    ]),
+    [`/zones/${ZONE}/dns_records?per_page=500`]: dnsPage(PROTECTED_DNS),
     [`/zones/${ZONE}/workers/routes`]: denied,
     [`/zones/${ZONE}/rulesets/phases/http_request_cache_settings/entrypoint`]: denied,
     ...overrides,
@@ -331,15 +349,67 @@ test('Cloudflare probe reports real gaps, escalation risk and protected baseline
 });
 
 test('Cloudflare probe flags an occupied candidate hostname', async () => {
-  const { fetchImpl } = mockCloudflare({ [`/zones/${ZONE}/dns_records?per_page=500`]: { status: 200, body: { success: true, result: [
+  const { fetchImpl } = mockCloudflare({ [`/zones/${ZONE}/dns_records?per_page=500`]: dnsPage([
     { name: 'freetwai.com', type: 'CNAME', content: 'x', proxied: true },
     { name: 'staging.freetwai.com', type: 'CNAME', content: 'y', proxied: true },
     { name: 'next.freetwai.com', type: 'A', content: '192.0.2.1', proxied: true },
-  ] } } });
+  ]) });
   const client = createReadOnlyClient({ credentials: { authorizationHeader: () => 'Bearer x' }, fetchImpl });
   const report = await probeCloudflare({ client, accountId: ACCOUNT, manifest: manifest() });
+  assert.equal(report.protected_baseline['candidate:next.freetwai.com'], 'taken');
+  assert.equal(report.protected_baseline['candidate:staging-next.freetwai.com'], 'absent');
   assert.ok(report.findings.some((f) => f.id === 'candidate_hostname_taken'));
   assert.ok(!report.findings.some((f) => f.id === 'protected_hosts_share_origin'));
+  assert.ok(!report.findings.some((f) => f.id === 'dns_listing_incomplete'));
+});
+
+test('Cloudflare probe pages DNS and marks a candidate that appears only on page 2 as taken', async () => {
+  const page1 = [...PROTECTED_DNS, ...Array.from({ length: 498 }, (_, i) => ({ name: `h${i}.example.net`, type: 'A', content: '192.0.2.8', proxied: false }))];
+  const page2 = [{ name: 'next.freetwai.com', type: 'A', content: '192.0.2.20', proxied: true }];
+  const totals = { perPage: 500, totalCount: 501, totalPages: 2 };
+  const { fetchImpl, calls } = mockCloudflare({
+    [`/zones/${ZONE}/dns_records?per_page=500`]: dnsPage(page1, { ...totals, page: 1 }),
+    [`/zones/${ZONE}/dns_records?per_page=500&page=2`]: dnsPage(page2, { ...totals, page: 2 }),
+  });
+  const client = createReadOnlyClient({ credentials: { authorizationHeader: () => 'Bearer x' }, fetchImpl });
+  const report = await probeCloudflare({ client, accountId: ACCOUNT, manifest: manifest() });
+  assert.ok(calls.every((c) => c.method === 'GET'));
+  assert.equal(calls.filter((c) => c.url.endsWith('/dns_records?per_page=500&page=2')).length, 1);
+  assert.equal(report.protected_baseline['candidate:next.freetwai.com'], 'taken');
+  assert.equal(report.protected_baseline['candidate:staging-next.freetwai.com'], 'absent');
+  const taken = report.findings.filter((f) => f.id === 'candidate_hostname_taken');
+  assert.equal(taken.length, 1);
+  assert.match(taken[0].detail, /next\.freetwai\.com/);
+  assert.ok(!report.findings.some((f) => f.id === 'dns_listing_incomplete'));
+  assert.equal(report.protected_baseline['freetwai.com'][0].tunnel_target, true);
+  assert.doesNotMatch(JSON.stringify(report), /example\.net|192\.0\.2\.|cfargotunnel/);
+});
+
+test('Cloudflare probe reports incomplete_listing and never absent when the DNS listing is not proven complete', async () => {
+  const fullPage = [...PROTECTED_DNS, ...Array.from({ length: 498 }, (_, i) => ({ name: `h${i}.example.net`, type: 'A', content: '192.0.2.8', proxied: false }))];
+  const cases = {
+    'later page failed': {
+      [`/zones/${ZONE}/dns_records?per_page=500`]: dnsPage(fullPage, { page: 1, perPage: 500, totalCount: 501, totalPages: 2 }),
+    },
+    'result_info omitted': {
+      [`/zones/${ZONE}/dns_records?per_page=500`]: { status: 200, body: { success: true, errors: [], result: PROTECTED_DNS } },
+    },
+  };
+  for (const [label, overrides] of Object.entries(cases)) {
+    const { fetchImpl, calls } = mockCloudflare(overrides);
+    const client = createReadOnlyClient({ credentials: { authorizationHeader: () => 'Bearer x' }, fetchImpl });
+    const report = await probeCloudflare({ client, accountId: ACCOUNT, manifest: manifest() });
+    assert.equal(report.protected_baseline['candidate:next.freetwai.com'], 'incomplete_listing', label);
+    assert.equal(report.protected_baseline['candidate:staging-next.freetwai.com'], 'incomplete_listing', label);
+    for (const [key, value] of Object.entries(report.protected_baseline)) {
+      if (String(key).startsWith('candidate:')) assert.notEqual(value, 'absent', `${label} ${key}`);
+    }
+    assert.equal(report.findings.find((f) => f.id === 'dns_listing_incomplete')?.severity, 'high', label);
+    assert.ok(!report.findings.some((f) => f.id === 'candidate_hostname_taken'), label);
+    assert.ok(!report.findings.some((f) => f.id === 'protected_host_missing'), label);
+    assert.ok(calls.every((c) => c.method === 'GET'), label);
+    if (label === 'later page failed') assert.ok(calls.some((c) => c.url.includes('dns_records?per_page=500&page=2')), label);
+  }
 });
 
 test('pscale runner only accepts read-only argument vectors', async () => {
