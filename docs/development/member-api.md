@@ -1,6 +1,8 @@
 # Member accounts, privacy and small teams
 
 These APIs extend the current server; they are not yet in the pinned preview SDK.
+Notification, direct-message and owner-initiated squad invitation endpoints are
+documented in [member settings and messages](member-settings-messages.md).
 Requests use the existing session cookie and same-origin JSON. All authenticated
 POSTs require CSRF and Idempotency-Key; updates to an existing version require
 `If-Match: "<aggregate_version>"`. Authentication/register is the exception and

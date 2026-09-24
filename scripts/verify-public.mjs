@@ -7,6 +7,7 @@ import sharp from 'sharp';
 import { mkdir, chmod, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import {verifyMemberSettings} from './verify-member-settings.mjs';
 
 const target = new URL(process.env.FREEDOM_PUBLIC_ORIGIN ?? 'https://freetwai.com');
 if (target.protocol !== 'https:' || target.username || target.password || target.pathname !== '/' || target.search || target.hash) {
@@ -833,6 +834,12 @@ try {
   const clearedProfile=await (await page.request.get(origin+'/api/v1/me/account')).json();
   expect(clearedProfile.identity_label).toBeNull();expect(clearedProfile.nickname).toBe(nickname);
   console.log('Community name and optional identity persist in cards and directory, stay authenticated, and clear at 320 px: PASS');
+
+  stage='settings, GitHub todo and private inbox';
+  for(const path of ['/me/notifications','/me/conversations','/me/squad-invitations'])expect((await anonymous.get(origin+'/api/v1'+path)).status()).toBe(401);
+  await verifyMemberSettings(page,{navigate,get:path=>page.request.get(origin+'/api/v1'+path),emptyInbox:true});
+  await screenshot('public-member-messages-mobile.png');
+  console.log('Settings menu, GitHub task and empty synthetic inbox work on desktop and phone with authenticated boundaries: PASS');
 
   await page.getByRole('button', { name: '登出', exact: true }).click();
   await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();

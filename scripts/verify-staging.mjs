@@ -4,6 +4,7 @@ import { chromium, request, expect } from '@playwright/test';
 import { readFile, mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import {verifyMemberSettings} from './verify-member-settings.mjs';
 
 const origin = 'https://staging.freetwai.com';
 async function navigate(page, name) {
@@ -173,6 +174,9 @@ try {
   await navigate(page,'技能書架');await expect(nav).toBeHidden();
   await expect(page.getByRole('heading',{name:'技能書架',level:1,exact:true})).toBeVisible();
   console.log('HTTPS phone grouped navigation opens, closes, returns focus and reaches the shared shelf: PASS');
+  await verifyMemberSettings(page,{navigate,get:path=>context.request.get(origin+'/api/v1'+path,{headers,maxRedirects:0})});
+  await page.screenshot({path:join(evidence,'staging-member-messages-mobile.png'),fullPage:true});
+  console.log('HTTPS settings menu, GitHub task and private inbox match server state on desktop and phone: PASS');
   await page.getByRole('button', { name: '登出', exact: true }).click();
   await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
   expect(errors).toEqual([]);
