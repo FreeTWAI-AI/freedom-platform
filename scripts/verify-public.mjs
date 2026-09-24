@@ -13,6 +13,69 @@ if (target.protocol !== 'https:' || target.username || target.password || target
   throw new Error('FREEDOM_PUBLIC_ORIGIN must be a plain HTTPS origin.');
 }
 const origin = target.origin;
+// Built-in catalog keys from migrations 002, 009 and 020; each profession_key is the key without `guild_`.
+const BUILTIN_GUILD_KEYS=Object.freeze(['guild_talent_direction','guild_product_quality_supply','guild_commerce_sales','guild_marketing','guild_media_automation','guild_member_operations','guild_opportunity_partnership','guild_platform_engineering','guild_commerce_settlement','guild_ai_vibe','guild_ai_field','guild_ai_project','guild_security','guild_music_mv','guild_commercial_production','guild_event_space','guild_projection_mapping','guild_human_design']);
+// Approved applications become guild_custom_<application id without dashes>; the id passed z.uuid() (Zod 4.6.5: version 1-8, variant 8/9/a/b, either case, plus lowercase nil/max).
+const CUSTOM_GUILD_KEY=/^guild_custom_([0-9a-fA-F]{12}[1-8][0-9a-fA-F]{3}[89abAB][0-9a-fA-F]{15}|0{32}|f{32})$/;
+const GUILD_MODULE_KEYS=Object.freeze(['positioning','supplier','retail','marketing','workbench','guilds','engagement','opensource']);
+const GUILD_DIRECTORY_FIELDS=Object.freeze(['catalog_version','first_step','guild_experts','guild_key','guild_master','guild_master_nominee','is_primary','is_secondary','membership','module_key','name','profession_key','purpose','secondary_position','skill_books']);
+// Checks the public directory projection only; an approved-format custom row does not prove its review record.
+// bookIds is the canonical skill book id Set (development-map skill_books mirrors communityCatalog used by approval).
+function verifyGuildDirectory(guilds,bookIds){
+  const fail=message=>{throw new Error(`Guild directory: ${message}`);};
+  if(typeof bookIds?.has!=='function'||!(bookIds.size>0))fail('canonical skill book ids required');
+  // Zod 4.6.5 string min/max count code points (util.codePointLength), matching spread length.
+  const isText=(value,min,max)=>typeof value==='string'&&value.trim()===value&&[...value].length>=min&&[...value].length<=max;
+  if(!Array.isArray(guilds))fail('items must be an array');
+  const keys=guilds.map(guild=>guild?.guild_key);
+  if(new Set(keys).size!==keys.length)fail(`duplicate guild_key in ${JSON.stringify(keys)}`);
+  const names=guilds.map(guild=>typeof guild?.name==='string'?guild.name.toLowerCase():guild?.name);
+  if(new Set(names).size!==names.length)fail('duplicate guild name');
+  const professions=guilds.map(guild=>guild?.profession_key);
+  if(new Set(professions).size!==professions.length)fail('duplicate profession_key');
+  const missing=BUILTIN_GUILD_KEYS.filter(key=>!keys.includes(key));
+  if(missing.length)fail(`missing built-in guilds ${missing.join(',')}`);
+  const custom=[];
+  for(const guild of guilds){
+    const label=String(guild?.guild_key);
+    if(!guild||typeof guild!=='object'||Array.isArray(guild))fail('item must be an object');
+    const fields=Object.keys(guild).sort();
+    if(JSON.stringify(fields)!==JSON.stringify(GUILD_DIRECTORY_FIELDS))fail(`${label} fields ${JSON.stringify(fields)}`);
+    const builtin=BUILTIN_GUILD_KEYS.includes(guild.guild_key),match=typeof guild.guild_key==='string'?CUSTOM_GUILD_KEY.exec(guild.guild_key):null;
+    if(!builtin&&!match)fail(`${label} is neither built-in nor an approved custom guild key`);
+    if(builtin&&guild.profession_key!==guild.guild_key.slice('guild_'.length))fail(`${label} profession_key`);
+    if(!GUILD_MODULE_KEYS.includes(guild.module_key))fail(`${label} module_key`);
+    if(!Number.isInteger(guild.catalog_version)||guild.catalog_version<1)fail(`${label} catalog_version`);
+    if(!isText(guild.name,1,100)||!isText(guild.purpose,1,1000)||!isText(guild.first_step,1,1000))fail(`${label} text fields`);
+    if(match){
+      // Approval stores trimmed name 2-100, purpose/first_step 5-1000, default catalog_version, and at least one bound book.
+      if(guild.profession_key!=='custom_'+match[1])fail(`${label} profession_key`);
+      if(guild.catalog_version!==1)fail(`${label} catalog_version`);
+      if(!isText(guild.name,2,100)||!isText(guild.purpose,5,1000)||!isText(guild.first_step,5,1000))fail(`${label} custom text limits`);
+      if(!Array.isArray(guild.skill_books)||guild.skill_books.length<1||guild.skill_books.length>20)fail(`${label} skill_books`);
+      const unknown=guild.skill_books.filter(book=>!bookIds.has(book?.id)).map(book=>book?.id);
+      if(unknown.length)fail(`${label} unknown bound skill_books ${JSON.stringify(unknown)}`);
+      custom.push(guild.guild_key);
+    }
+    if(!Array.isArray(guild.skill_books)||guild.skill_books.some(book=>!book||typeof book.id!=='string'||!book.id)||new Set(guild.skill_books.map(book=>book.id)).size!==guild.skill_books.length)fail(`${label} skill_books`);
+    if(guild.membership!==null){
+      const membership=guild.membership;
+      if(!membership||typeof membership!=='object'||JSON.stringify(Object.keys(membership).sort())!==JSON.stringify(['aggregate_version','membership_id','rank','state']))fail(`${label} membership fields`);
+      if(typeof membership.membership_id!=='string'||!['active','left'].includes(membership.state)||membership.rank!=='runner'||!Number.isInteger(membership.aggregate_version)||membership.aggregate_version<1)fail(`${label} membership`);
+    }
+    if(typeof guild.is_primary!=='boolean'||typeof guild.is_secondary!=='boolean')fail(`${label} primary/secondary flags`);
+    if(guild.is_secondary?![1,2].includes(guild.secondary_position):guild.secondary_position!==null)fail(`${label} secondary_position`);
+    if(guild.guild_master_nominee!==null&&(!guild.guild_master_nominee||JSON.stringify(Object.keys(guild.guild_master_nominee).sort())!=='["display_name","state"]'||typeof guild.guild_master_nominee.display_name!=='string'||guild.guild_master_nominee.state!=='pending'))fail(`${label} guild_master_nominee`);
+    if(!Array.isArray(guild.guild_experts))fail(`${label} Guild expert projection available after migration`);
+    for(const person of [guild.guild_master,...guild.guild_experts].filter(Boolean)){
+      if(JSON.stringify(Object.keys(person).sort())!=='["avatar_url","display_name","user_id"]')fail(`${label} person fields`);
+      if(typeof person.display_name!=='string'||typeof person.user_id!=='string')fail(`${label} person types`);
+      if(person.avatar_url!==null&&(typeof person.avatar_url!=='string'||!new RegExp(`^/api/v1/members/${person.user_id}/avatar\\?v=[1-9][0-9]*$`).test(person.avatar_url)))fail(`${label} avatar_url`);
+    }
+    if(guild.guild_master!==null&&(typeof guild.guild_master!=='object'||Array.isArray(guild.guild_master)))fail(`${label} guild_master`);
+  }
+  return {builtin:BUILTIN_GUILD_KEYS.length,custom};
+}
 async function navigate(page, name) {
   await expect(page.locator('.shell')).toBeVisible();
   const menu=page.getByRole('button',{name:'開啟選單',exact:true});
@@ -521,16 +584,7 @@ try {
   const guildResponse=await page.request.get(origin+'/api/v1/guilds/directory');
   expect(guildResponse.status()).toBe(200);
   const guilds=(await guildResponse.json()).items;
-  expect(guilds).toHaveLength(18);
-  for(const guild of guilds){
-    expect(Array.isArray(guild.guild_experts),'Guild expert projection available after migration').toBe(true);
-    for(const person of [guild.guild_master,...guild.guild_experts].filter(Boolean)){
-      expect(Object.keys(person).sort()).toEqual(['avatar_url','display_name','user_id']);
-      expect(typeof person.display_name).toBe('string');expect(typeof person.user_id).toBe('string');
-      if(person.avatar_url!==null)expect(person.avatar_url).toMatch(new RegExp(`^/api/v1/members/${person.user_id}/avatar\\?v=[1-9][0-9]*$`));
-    }
-  }
-  for(const key of ['guild_security','guild_music_mv','guild_commercial_production','guild_event_space','guild_projection_mapping','guild_human_design']) expect(guilds.some(g=>g.guild_key===key)).toBe(true);
+  const guildSummary=verifyGuildDirectory(guilds,new Set(development.skill_books.map(book=>book.id)));
   const workspaceResponse=await page.request.get(origin+'/api/v1/guild-workspace');expect(workspaceResponse.status()).toBe(200);
   expect(await workspaceResponse.json()).toMatchObject({managed_guilds:[],managed_books:[],can_discuss:false});
   expect((await page.request.get(origin+'/api/v1/guild-council/threads')).status()).toBe(403);
@@ -553,7 +607,7 @@ try {
   await screenshot('public-co-creation-mobile.png');
   await page.setViewportSize({width:1440,height:1000});await page.evaluate(()=>scrollTo(0,0));
   await screenshot('public-co-creation-desktop.png');
-  console.log('18 Guilds and real GitHub co-creation Issues through deployed Platform: PASS');
+  console.log(`${guildSummary.builtin} built-in Guilds plus ${guildSummary.custom.length} approved-format custom Guilds and real GitHub co-creation Issues through deployed Platform: PASS`);
   stage='development activation checklist';
   const developmentEntry=page.getByRole('complementary',{name:'這一頁的開發入口'});
   await developmentEntry.getByText('參與這一頁的開發',{exact:true}).click();
