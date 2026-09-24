@@ -117,6 +117,9 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate}:Props){
       // A slower answer for an earlier selection must never replace the open channel.
       if(generation!==threadGeneration.current||current.current!==key)return;
       setHistory({...value,items:newestFirst(value.items)});setStatus('ready');setRefresh({loading:false,error:''});setNewerUnseen(false);setCountUnconfirmed('');
+      // A re-read can show newer unread messages; the tab and list totals come from the kind list, never from this channel.
+      // loadList never re-reads a history, so this cannot loop.
+      if(quiet)void loadList(listInFlight.current??listState.current==='ready');
     }catch(cause){
       if(generation===threadGeneration.current)threadInFlight.current=null;
       if(generation!==threadGeneration.current||current.current!==key)return;
