@@ -63,7 +63,7 @@ GitHub 連結固定列為必做待辦，以 `/me/github` 的真實狀態顯示�
 - `tests/runtime/member-communications.test.ts`
 - `tests/runtime/notification-events.test.ts`
 - `tests/runtime/member-channels-core.test.ts`、`tests/runtime/member-channel-access.test.ts`
-- `tests/e2e/member-settings.spec.ts`
+- `tests/e2e/member-settings.spec.ts`、`tests/e2e/member-channels.spec.ts`
 - `tests/e2e/member-settings-real.spec.ts`、`tests/e2e/member-channels-real.spec.ts`
 - `tests/runtime/squad-invitations.test.ts`、`tests/e2e/squad-invitations.spec.ts`
 - `scripts/verify-staging.mjs`、`scripts/verify-public.mjs`
