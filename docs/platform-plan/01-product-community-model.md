@@ -444,9 +444,13 @@ Entitlement 只回答「API 現在准許做什麼」，不代表人的價值。L
 
 銀行、公司、證照或 payment 資料只在啟用相應商業功能時漸進收集，不放在學習入口。必要的技術完整性檢查只拒絕當次不成立的命令，回傳可修正原因。
 
-2026-09-24 beta 對照：新會員未完成定位前，API 拒絕一般寫入；這是帳號層 gate，上表 canonical 條件未改，是否寫入 catalog 待 root 決定。`skill.submit` 對應一般候選草稿與投稿 key（`skill:submit`），不需特定公會。公會範圍的私人開發提案 key（`development:propose`）另依 §3.1 的公會與 GitHub 資格發放，兩者不可互用，也不是原作寫入權。
+上表與 `contracts/entitlement-catalog.example.yaml` 描述未來正式契約的 acquisition conditions，尚未實作為 runtime catalog。2026-09-24 會員 beta 另有兩層現行規則：
 
-以上八個 key 與 `contracts/entitlement-catalog.example.yaml` 是同一 canonical contract 的兩個投影，含 `store.deploy`；名稱與取得條件不得各自演進。任何 rules ack、WorkIntent、starter 進度、stuck、skip、connector 缺失或 navigation readiness 不得隱式加入 acquisition conditions。
+- **帳號狀態前提**：`onboarding_required=true` 且尚未完成定位與主要公會的新會員，登入後 `/api/v1/*` 會員 API 只放行 session、登出、帳號、定位、入會／離會／主要公會，以及定位所需的少數唯讀目錄；其他會員 API 不論讀寫都回 403 `onboarding_required`。未登入可讀的公開路徑（站台資訊、公開技能書與探索）不受影響；Agent 投稿與開發用 Bearer 路徑各自檢查同一狀態。此前提在評估任何 entitlement 之前成立，不是上表的 acquisition condition；正式 catalog 日後以新版本明確收錄，不隱式改寫本表。
+- **投稿與開發提案分開**：`skill.submit` 對應一般候選草稿與投稿 key（`skill:submit`），不需特定公會。公會範圍的私人開發提案 key（`development:propose`）另依 §3.1 的公會與 GitHub 資格發放；兩者不可互用，也不是原作寫入權。
+- **站內技能書編修**：修改既有技能書的 metadata／內容（不是 `skill.submit` 投稿）須同時具備該書現行的具名維護任命，以及 AI 開發公會（`guild_ai_vibe`）或 AI 導入與驗證公會（`guild_ai_field`）至少一個有效會籍。公會會籍不授予整個公會編修權，`development:propose` 也不能轉成編修 token。離開最後一個符合的公會即拒絕編修；仍在另一個符合公會則保留資格。任命仍有效時重新入會可恢復會籍條件，但先前已撤銷的 API token 維持撤銷。公開書目、原作閱讀與一般 `skill.submit` 不變。實作狀態見[身分稽核](../development/audit-2026-09-24-identity-plan.md)。
+
+上表八個 key 與 `contracts/entitlement-catalog.example.yaml` 是同一 canonical contract 的兩個投影，含 `store.deploy`；名稱與取得條件不得各自演進。任何 rules ack、WorkIntent、starter 進度、stuck、skip、connector 缺失或 navigation readiness 不得隱式加入 acquisition conditions。
 
 `qc.review:<scope>` 的唯一取得路徑是該自然人持有同 scope、尚未到 `review_by` 且未撤回的 `ReviewerAppointment`；熟悉度、rank、Master 身分或 XP 只能出現在候選建議／顯示，不得作為 `ReviewerAppointment` command 的規則輸入、grant condition 或任命成立條件。任命只檢查 OD-10 appointer、exact scope、`review_by` 與自然人 identity；reviewer 是否獨立另由 label evaluator 判定，只影響 `official`。XP 本身也不是 `EntitlementSnapshot` 的欄位或規則輸入。
 
@@ -464,7 +468,7 @@ Entitlement 只回答「API 現在准許做什麼」，不代表人的價值。L
 
 GitHub 的本人評價遵守「本人決定、授權明示、本人 AgentConnection 執行」三項同時成立：只有 grant 精確包含 `github.star`，且可由本人撤回時，Agent 才可代表本人建立或撤回真實評價。平台觸發、批量、獎勵導向，或以 XP 誘導的 star／follow／like 一律禁止；star 不進任何 XP track，也不影響 entitlement、rank 或 reviewer appointment。
 
-2026-09-24 現況：會員以本人 GitHub 授權，對明確點選的單一 repo 執行 Star／取消；入會、授權或離會都不批量變更。使用者提出「先 Star 再推廣／領書」，目前未實作為 gate，屬待決策，見[公會開發資格](../development/guild-development-access.md#新會員-github-連結與-star-授權)。
+2026-09-24 現況：會員以本人 GitHub 授權，對明確點選的單一 repo 執行 Star／取消；入會、授權或離會都不批量變更。「先 Star 才推廣／領書」未實作為 gate，產品上尚未決定，見[公會開發資格](../development/guild-development-access.md#新會員-github-連結與-star-授權)。
 
 ## 14. 能管理一萬人的輕量治理
 

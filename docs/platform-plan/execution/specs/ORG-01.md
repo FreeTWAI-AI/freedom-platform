@@ -57,6 +57,8 @@ Portal 分頁顯示 profession rank、office、delegation、review appointment�
 
 已實作：自助入會只有 `rank='runner'`（`migrations/002`）；會長提名需本人確認（`014`）、每公會最多三位專家（`026`），專家與會長不因標章取得平台 Access 權限。入會即取得公會範圍的開發提案資格；離開最後一個適用公會時由 `migrations/030` trigger 同交易撤銷 grant 與衍生 key，已領書目、作者署名與既有成果保留。尚未實作：Strategist／Master rank、OfficeAssignment term／handover、ModuleStewardship、ReviewerAppointment。
 
+站內技能書編修（既有書 metadata／內容，不是 `skill.submit`）的現行要求：該書具名維護任命（`skill_book_maintainers`，`migrations/023`）仍有效，且在 `guild_ai_vibe` 或 `guild_ai_field` 至少一個有效會籍。會籍不授予全公會編修權，`development:propose` 不轉成編修 token；離開最後一個符合公會即拒絕，另一符合公會仍在則保留；任命仍有效時重新入會恢復會籍條件，已撤銷的 API token 不恢復。公開書目、原作閱讀與一般 `skill.submit` 不變。本版實作與 runtime 證據記錄於本版合併稽核；本 spec 不登錄通過結果。
+
 ## 成本／可觀測性／timeout／retry／reconciliation
 
 觀測 stewardship gap、expired delegation、handover conflict；external role drift 只提示 reconcile，不直接覆寫 canonical。
@@ -71,6 +73,10 @@ Legacy title/rank 分欄匯入並保留 source；無證據標 unknown。錯誤 a
 - Given同一人換 Agent/role；When滿足三人或independent review；Then仍只計一個自然人。
 - Givenoffice handover；When commit；Then successor/stewardship revisions原子成立。
 - Given 會員只在一個適用公會；When 離會；Then 該公會衍生的貢獻 grant／key 同交易失效，其他公會資格、已領書目與作者署名保留。
+- Given 有效維護任命且只在一個 AI 開發／AI 導入與驗證公會；When 離開該公會；Then 編修立即拒絕，公開閱讀與一般 `skill.submit` 不受影響。
+- Given 有效維護任命且同時在兩個符合公會；When 離開其中一個；Then 仍可編修。
+- Given 離會後任命仍有效；When 重新加入符合公會；Then 會籍條件恢復，先前已撤銷的 API token 仍為撤銷。
+- Given 會員只有公會會籍或 `development:propose`，沒有具名任命；When 編修技能書；Then 拒絕。
 
 ## 實際測試命令（將來會這樣跑；未跑）
 
