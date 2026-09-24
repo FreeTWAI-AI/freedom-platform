@@ -263,7 +263,7 @@ freedom-skill-registry/
 
 | Repo | 現在的定位 | 遷移方式 |
 | --- | --- | --- |
-| `ai-online` | 可重現的 deterministic 定位評量參考 | 固定 snapshot/golden fixtures；新 evaluator shadow parity 後成 optional assessment |
+| `ai-online` | 只參考探索形式；題目依 Ted 指示重設為原創公會定位 | 不做 golden／shadow parity，也不作 optional assessment；新會員必填重新設計的原創定位，新舊 version/hash 分開保存 |
 | `positioning-companion` | AI 引導探索與陪跑 UX 參考；不是付款或權益真相 | 統一 quick/full schema，保留使用者原話、AI 建議、unknowns、first evidence、falsifier、fallback；輸出 draft 由本人確認 |
 | `freedom-party-guild-lounge` | 活動 companion app 參考 | 以 strangler adapter 對接 canonical activity/user refs；保留 Discord 現場定位，不搬成站內聊天 |
 

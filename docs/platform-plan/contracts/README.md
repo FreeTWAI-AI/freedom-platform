@@ -14,8 +14,8 @@
 | event-catalog.example.yaml | 第一版所有 canonical event types、唯一 producer、aggregate 與 planning `dataschema` 索引 | Core & Contracts |
 | entity-playbook.schema.json | 跨Guild／Profession starter／CoachingProgram／Seller Store／SkillPackage的versioned playbook、stable item、四類gate allowlist與per-instance readiness | Foundation / Organization / Agent Workflow |
 | entity-playbook.example.yaml | schema-valid、永不啟用的五種playbook/readiness planning fixture；示範private Discord missing→WorkItem但不擋Guild | Foundation / Organization / Agent Workflow |
-| member-onboarding.schema.json | 第一天journey、welcome A0/A1/system steps、member installation、stuck rules、typed support cards與day-one grant模板 | Talent / Agent Workflow / Community / Skills |
-| member-onboarding.example.yaml | schema-valid、永不啟用的skip定位、install fail、welcome與delegate/Master routing planning fixture | Talent / Agent Workflow / Community / Skills |
+| member-onboarding.schema.json | 已完成平台新會員定位（或既有`onboarding_required=false`帳號）後的公會與Agent歡迎journey，不是註冊或定位捷徑；welcome A0/A1/system steps、member installation、stuck rules、typed support cards與day-one grant模板 | Talent / Agent Workflow / Community / Skills |
+| member-onboarding.example.yaml | schema-valid、永不啟用；示例是既有`onboarding_required=false`會員故定位為skipped（新會員會是satisfied）、install fail、welcome與delegate/Master routing planning fixture | Talent / Agent Workflow / Community / Skills |
 | xp-policy.schema.json | 每profession的版本化、公式可讀`XpPolicyVersion`，以及member×profession×track的可重建`MemberProfessionXpProjection` contract | People / Organization & Professions |
 | xp-policy.example.yaml | 三軌closed-set、ContributionRecord＋review outcome來源、retraction與full rebuild語意的schema-valid planning fixture | People / Organization & Professions |
 | skill-package.schema.json | GitHub SkillPackage capability manifest v1；依 `requested_capabilities` 逐項驗證，公開 metadata-only 登錄不以此 schema 作 visibility gate | Skills |

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.freedom.example/member-onboarding.schema.json",
-  "title": "Freedom day-one onboarding and support automation planning contract",
+  "title": "Freedom post-positioning Guild and Agent welcome journey planning contract (members who completed platform positioning, or existing onboarding_required=false accounts)",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "fixture_status", "journey", "welcome_ritual", "installation_profile", "stuck_rules", "feed_card_rules", "standing_grant_template"],
@@ -163,6 +163,9 @@
     }
   },
   "x-invariants": [
+    "This journey starts only after the platform new-member entry: the account completed the redesigned platform positioning (onboarding_completed_at recorded) or is an existing account with onboarding_required=false; it is never a registration, signup or positioning shortcut",
+    "navigation enforcement and skippable steps apply only inside this follow-up journey and never waive, replace or satisfy the new-member positioning gate enforced at the member entry",
+    "The positioning step mirrors the entry positioning fact: satisfied for a member who completed platform positioning, and skipped only for an existing onboarding_required=false account, which is never retroactively blocked",
     "The journey and welcome ritual are rebuildable projections and never gate the member",
     "Profession confirmation is self-service Runner entry with no Master approval state or queue",
     "A stuck, skipped, missing, connector-unavailable, failed, degraded, or outdated status has zero penalty, never lowers future discoverability, and never automatically revokes an entitlement",

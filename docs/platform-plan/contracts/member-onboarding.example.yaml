@@ -1,7 +1,12 @@
+# Synthetic planning fixture of the follow-up Guild and Agent welcome journey. It only starts
+# after the platform new-member entry: platform positioning completed, or an existing account
+# with onboarding_required=false. This demo is an existing onboarding_required=false member,
+# so its positioning step is skipped; a new member's step would be satisfied from the completed
+# entry positioning. Navigation/skippable here never waives the new-member positioning gate.
 schema_version: freedom.member-onboarding/v1
 fixture_status: fake_planning_fixture_never_activate
 journey:
-  journey_id: journey_demo_member_ai_vibe
+  journey_id: journey_demo_existing_member_post_positioning_guild_agent_welcome
   definition_version: "1"
   overall_readiness: {state: in_progress, enforcement: navigation}
   steps:

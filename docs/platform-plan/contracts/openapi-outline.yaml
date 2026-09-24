@@ -517,12 +517,23 @@ paths:
       tags: [Organization, Work, Skills]
       operationId: confirmMyOnboardingBundle
       description: >-
-        The canonical day-one command. In one idempotent transaction the authenticated
-        member confirms a stable profession_key, the server resolves the current Guild and
-        starter package, creates or returns Runner ProfessionMembership, confirms WorkIntent,
-        replaces the profession-scoped equipped set and returns all generated opaque refs.
-        A newcomer or agent never hand-enters opaque IDs. The welcome journey starts from
-        the committed profession-confirmed event and none of its steps is an admission gate.
+        The canonical follow-up Guild and Agent welcome command. It is available only to an
+        account that has already passed the platform new-member entry: a new member who
+        completed the redesigned platform positioning (onboarding_completed_at recorded), or
+        an existing account with onboarding_required=false. It is not a registration,
+        signup or positioning shortcut; while onboarding_required is true and positioning is
+        incomplete the member entry keeps refusing it with onboarding_required. In one
+        idempotent transaction the authenticated member confirms a stable profession_key,
+        the server resolves the current Guild and starter package, creates or returns Runner
+        ProfessionMembership, confirms WorkIntent, replaces the profession-scoped equipped set
+        and returns all generated opaque refs. A member or agent never hand-enters opaque IDs.
+        The welcome journey starts from the committed profession-confirmed event; its
+        navigation-only, skippable steps (welcome, skill equip, installation) never become an
+        admission or action gate and never retroactively block existing members.
+      x-invariants:
+        - callable_only_after_platform_new_member_positioning_is_completed_or_for_existing_accounts_with_onboarding_required_false
+        - never_a_registration_signup_or_positioning_gate_shortcut
+        - welcome_skill_equip_and_installation_steps_stay_navigation_and_never_become_action_gates
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -545,8 +556,11 @@ paths:
       tags: [Organization, Work]
       operationId: confirmMyWorkIntent
       description: >-
-        Creates and confirms a self-declared WorkIntent revision without requiring a
-        positioning assessment or guided-discovery run. The authenticated member chooses
+        Creates and confirms a self-declared WorkIntent revision for an account that already
+        passed the platform new-member entry (completed platform positioning, or an existing
+        account with onboarding_required=false). It requires no additional positioning
+        assessment or guided-discovery run beyond that entry and is never a registration or
+        positioning shortcut for a new member. The authenticated member chooses
         existing ProfessionMemberships, availability and desired work types; this affects
         matching only and grants no rank, office, entitlement or payment.
       parameters:
@@ -592,7 +606,14 @@ paths:
     get:
       tags: [Organization, Work, Skills]
       operationId: getMyCurrentOnboardingJourney
-      description: Rebuildable day-one projection from identity, optional positioning, membership, WorkIntent, equip, installation, welcome and first WorkItem facts.
+      description: >-
+        Rebuildable projection of the follow-up Guild and Agent welcome journey for an account
+        that completed platform new-member positioning or an existing account with
+        onboarding_required=false. Built from identity, the entry positioning fact (satisfied
+        for a new member; skipped only for an existing onboarding_required=false account),
+        membership, WorkIntent, equip, installation, welcome and first WorkItem facts. Its
+        navigation status and skippable steps never waive or replace the new-member
+        positioning gate and never retroactively block existing members.
       responses:
         "200":
           description: Current navigation-only journey
@@ -2090,10 +2111,20 @@ paths:
       operationId: createReviewSubmission
       description: >-
         Anyone may submit a product, SkillVersion, commit, batch or listing candidate.
-        A structurally valid, contributor-confirmed first software, Skill or code submission
-        creates that human's AI Vibe Runner ProfessionMembership and starting evidence;
-        physical-product, service, listing or batch submissions create only their corresponding
-        profession evidence. Submission never grants a higher rank or makes an item sellable.
+        A structurally valid, contributor-confirmed submission records its source reference,
+        exact version/digest and evidence refs as candidate evidence attributed to the human
+        submitter. It never creates, changes or infers a Guild or ProfessionMembership (AI Vibe
+        included) and never performs a self-service Guild join on the submitter's behalf; a
+        self-service join stays a separate command in which the member chooses and confirms
+        that Guild. A named maintainer appointment on submitted skill metadata likewise never
+        joins anyone to an AI Guild. A separately authorized, audited administrator
+        appointment is its own command and is not affected by this rule. Submission never
+        grants a rank or makes an item sellable.
+      x-invariants:
+        - submission_records_source_version_digest_and_evidence_only
+        - submission_never_creates_changes_or_infers_guild_or_profession_membership
+        - submission_never_performs_a_self_service_guild_join_which_stays_a_separate_member_selected_and_confirmed_command
+        - a_metadata_maintainer_appointment_never_joins_the_appointee_to_an_ai_guild
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -4265,11 +4296,43 @@ components:
         membership_id: {$ref: "#/components/schemas/OpaqueId"}
         profession_key: {$ref: "#/components/schemas/StableKey"}
         guild_id: {$ref: "#/components/schemas/OpaqueId"}
-        rank: {type: string, const: runner}
+        rank: {enum: [runner, strategist, master]}
         state: {enum: [runner, strategist_review, strategist, master_review, master, left]}
         aggregate_version: {$ref: "#/components/schemas/AggregateVersion"}
         starter_track_ref: {$ref: "#/components/schemas/ImmutableRuleRef"}
-      description: Creation and self-confirmation always enter runner; no pending or Master-approval state exists.
+      allOf:
+        - if:
+            properties:
+              state: {enum: [runner, strategist_review]}
+            required: [state]
+          then:
+            properties:
+              rank: {const: runner}
+        - if:
+            properties:
+              state: {enum: [strategist, master_review]}
+            required: [state]
+          then:
+            properties:
+              rank: {const: strategist}
+        - if:
+            properties:
+              state: {const: master}
+            required: [state]
+          then:
+            properties:
+              rank: {const: master}
+      x-invariants:
+        - a_newly_created_or_self_confirmed_membership_has_state_runner_and_rank_runner
+        - an_idempotent_create_that_returns_an_existing_membership_returns_its_current_recorded_rank_unchanged
+        - a_review_state_keeps_the_prior_recorded_rank_until_a_human_reviewed_RankRecord_is_confirmed
+        - left_retains_the_last_recorded_rank_as_history
+      description: >-
+        Read model of one membership. rank is the current recorded RankRecord and follows the
+        profession_membership state machine: runner and strategist_review carry runner,
+        strategist and master_review carry strategist, master carries master, and left keeps
+        the last recorded rank. Creation and self-confirmation always enter runner; no pending
+        or Master-approval state exists, and joining never grants a higher rank.
     XpTrack:
       type: string
       enum: [training, maintenance, real_delivery]
@@ -4411,7 +4474,13 @@ components:
         one_line_goal: {type: string, minLength: 1, maxLength: 300}
         expected_versions: {$ref: "#/components/schemas/OnboardingExpectedVersions"}
         acknowledgement: {type: string, const: confirm_my_profession_work_intent_and_optional_starter_equip}
-      description: Positioning is intentionally absent as a prerequisite; self-declared profession confirmation is equally valid.
+      description: >-
+        Positioning is intentionally absent as a field and as a prerequisite of this command
+        only because the platform new-member entry already enforces it: the caller either
+        completed platform positioning (onboarding_completed_at recorded) or is an existing
+        account with onboarding_required=false. Within that journey a self-declared
+        profession confirmation is as valid as one drafted from the positioning result. This
+        request never waives, substitutes or satisfies the new-member positioning gate.
     OnboardingBundleSummary:
       type: object
       additionalProperties: false
