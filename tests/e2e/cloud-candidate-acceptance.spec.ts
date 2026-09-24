@@ -18,14 +18,14 @@ import {main,parseArgs,readPrivateJson,validateAccess,validateAccount} from '../
 const staging=candidateTarget('staging-next');
 const account={email:'synthetic-candidate@example.invalid',password:'Synthetic-Password-For-Tests-0001',label:'synthetic-test'};
 const access={clientId:'access-client-id-0001',clientSecret:'access-client-secret-000000001'};
-type Reply={status:number;json?:unknown;headers?:Record<string,string>;cookies?:string[];bytes?:number};
+type Reply={status:number;json?:unknown;text?:string;headers?:Record<string,string>;cookies?:string[];bytes?:number};
 function mock(handler:(request:TransportRequest)=>Reply|Promise<Reply>){
   const calls:TransportRequest[]=[];
   const transport:Transport=async request=>{
     calls.push(request);
-    const reply=await handler(request),headers=new Headers({'cache-control':'no-store',...(reply.json!==undefined?{'content-type':'application/json'}:{}),...reply.headers});
+    const reply=await handler(request),headers=new Headers({'cache-control':'no-store',...(reply.json!==undefined||reply.text!==undefined?{'content-type':'application/json'}:{}),...reply.headers});
     for(const cookie of reply.cookies??[])headers.append('set-cookie',cookie);
-    const body=reply.json!==undefined?Buffer.from(JSON.stringify(reply.json)):Buffer.alloc(reply.bytes??0);
+    const body=reply.text!==undefined?Buffer.from(reply.text):reply.json!==undefined?Buffer.from(JSON.stringify(reply.json)):Buffer.alloc(reply.bytes??0);
     return {status:reply.status,headers,body};
   };
   return {transport,calls};
@@ -205,10 +205,12 @@ test('secrets that JSON escapes and long echoed secrets are redacted, never trun
   expect(report.redaction_applied).toBe(true);
 });
 
-/** In-memory candidate for guild-cache: real-shaped routes plus knobs for stale reads and failed cleanup lookups. */
-function guildCandidate(knobs:{stale?:'join'|'leave';failAfterJoin?:'status500'|'throw'}={}){
+/** Join response override: body version (`raw` is sent verbatim as JSON text) and ETag (null omits it). */
+type JoinWire={version?:unknown;raw?:string;etag?:string|null};
+/** In-memory candidate for guild-cache: real-shaped routes plus knobs for stale reads, failed cleanup lookups and the join wire shape. */
+function guildCandidate(knobs:{stale?:'join'|'leave';failAfterJoin?:'status500'|'throw';startVersion?:number;join?:(version:number)=>JoinWire}={}){
   const csrf='csrf-mock-token-0000000001',userId=randomUUID(),sessions=new Set<string>(),receipts=new Map<string,Reply>();
-  let logins=0,state:string|null=null,version=0,joined=false,stale=0,staleEligible=false;
+  let logins=0,state:string|null=null,version=knobs.startVersion??0,joined=false,stale=0,staleEligible=false;
   const server=mock(request=>{
     const path=new URL(request.url).pathname,cookie=/^freedom_local_session=(.+)$/.exec(request.headers.Cookie??'')?.[1];
     if(path==='/api/v1/health')return {status:200,json:health()};
@@ -237,7 +239,8 @@ function guildCandidate(knobs:{stale?:'join'|'leave';failAfterJoin?:'status500'|
     if(key&&receipts.has(key))return receipts.get(key)!;
     let reply:Reply;
     if(path==='/api/v1/guilds/guild_ai_vibe/join'){state='active';version++;joined=true;if(knobs.stale==='join'){stale=1;staleEligible=false;}
-      reply={status:200,json:{state,aggregate_version:version},headers:{etag:`"${version}"`}};}
+      const wire=knobs.join?.(version)??{},etag=wire.etag===undefined?`"${version}"`:wire.etag;
+      reply={status:200,...(wire.raw!==undefined?{text:`{"state":"active","aggregate_version":${wire.raw}}`}:{json:{state,aggregate_version:'version' in wire?wire.version:version}}),headers:etag===null?{}:{etag}};}
     else if(path==='/api/v1/guilds/guild_ai_vibe/leave'){
       if(request.headers['If-Match']!==`"${version}"`)return {status:412,json:{code:'version_conflict'}};
       state='left';version++;if(knobs.stale==='leave'){stale=1;staleEligible=true;}
@@ -265,6 +268,49 @@ test('guild-cache passes only when the first read after each commit is current; 
     const paths=server.calls.map(call=>`${call.method} ${new URL(call.url).pathname}`),write=paths.lastIndexOf(`POST /api/v1/guilds/guild_ai_vibe/${stale}`);
     expect(paths.slice(write+1).filter(path=>path==='GET /api/v1/me/development/skill/video-autopilot')).toHaveLength(1);
     expect(guildCleanup(report)).toBe('restored');expect(server.membership()).toBe(final);
+  }
+});
+
+test('guild join accepts an exact strong or edge-weakened ETag for a positive safe body version and always sends a strong If-Match',async()=>{
+  const leaveIfMatch=(calls:TransportRequest[])=>calls.filter(call=>call.method==='POST'&&new URL(call.url).pathname.endsWith('/leave')).map(call=>call.headers['If-Match']);
+  for(const [etag,kind] of [[(v:number)=>`"${v}"`,'strong'],[(v:number)=>`W/"${v}"`,'weak']] as const){
+    const server=guildCandidate({join:v=>({etag:etag(v)})});
+    const report=await runCandidate({...base(['guild-cache']),transport:server.transport,account});
+    const phase=report.phases.find(p=>p.id==='guild-cache')!;
+    expect(phase,kind).toMatchObject({status:'pass',metrics:{join_etag:kind}});
+    expect(phase.checks).toContainEqual({id:'join_active_versioned',status:'pass'});
+    for(const check of ['stale_version_rejected_412','join_first_read_eligible','leave_first_read_revoked','join_receipt_replayed','retained_receipt_does_not_restore_authority'])expect(phase.checks,check).toContainEqual({id:check,status:'pass'});
+    // Stale (version+1), then the real leave: both strong, built from the body version, never the response ETag.
+    expect(leaveIfMatch(server.calls)).toEqual(['"2"','"1"']);
+    expect(guildCleanup(report)).toBe('restored');expect(server.membership()).toBe('left');
+  }
+  // At the largest safe body version the stale header is incremented losslessly as a decimal string.
+  const max=Number.MAX_SAFE_INTEGER,boundary=guildCandidate({startVersion:max-1,join:v=>({etag:`W/"${v}"`})});
+  const edge=await runCandidate({...base(['guild-cache']),transport:boundary.transport,account});
+  expect(edge.phases.find(p=>p.id==='guild-cache')).toMatchObject({status:'pass',metrics:{join_etag:'weak'}});
+  expect(leaveIfMatch(boundary.calls)).toEqual(['"9007199254740992"','"9007199254740991"']);
+});
+
+test('guild join fails on a mismatched or malformed ETag and on any non positive-safe-integer body version, and still restores membership',async()=>{
+  const cases:[string,(v:number)=>JoinWire][]=[
+    ['mismatch strong',v=>({etag:`"${v+1}"`})],['mismatch weak',v=>({etag:`W/"${v+1}"`})],['missing',()=>({etag:null})],['unquoted',v=>({etag:String(v)})],
+    ['half quoted',v=>({etag:`"${v}`})],['leading zero',v=>({etag:`"0${v}"`})],['wildcard',()=>({etag:'*'})],['list',v=>({etag:`"${v}", W/"${v}"`})],
+    ['lowercase weak',v=>({etag:`w/"${v}"`})],['weak whitespace',v=>({etag:`W/ "${v}"`})],['inner whitespace',v=>({etag:`" ${v}"`})],
+    ['string version',v=>({version:String(v)})],['zero',()=>({version:0,etag:'"0"'})],['negative',()=>({version:-1,etag:'"-1"'})],
+    ['fractional',()=>({version:1.5,etag:'"1.5"'})],['nonfinite',()=>({raw:'1e999',etag:'"Infinity"'})],['null',()=>({version:null,etag:'"null"'})],
+    ['unsafe',()=>({version:2**53,etag:`"${2**53}"`})],['unsafe raw',()=>({raw:'9007199254740993',etag:'"9007199254740993"'})],
+  ];
+  for(const [label,join] of cases){
+    const server=guildCandidate({join});
+    const report=await runCandidate({...base(['guild-cache']),transport:server.transport,account});
+    const phase=report.phases.find(p=>p.id==='guild-cache')!;
+    expect(phase,label).toMatchObject({status:'fail',reason:'join_active_versioned',metrics:{join_etag:'invalid'}});
+    expect(phase.checks.at(-1),label).toEqual({id:'join_active_versioned',status:'fail',note:'etag invalid'});
+    expect(report.cloud_proof).toBe(false);
+    // No stale or leave write was attempted from the rejected response; cleanup left through a fresh directory read.
+    const leaves=server.calls.filter(call=>call.method==='POST'&&new URL(call.url).pathname.endsWith('/leave'));
+    expect(leaves,label).toHaveLength(1);expect(leaves[0].headers['If-Match']).toBe('"1"');
+    expect(guildCleanup(report),label).toBe('restored');expect(server.membership(),label).toBe('left');
   }
 });
 
@@ -451,6 +497,7 @@ test('browser teardown: routes pending at context close are drained, nothing new
   // Started during teardown: aborted before any fetch.
   expect(log.fetched).not.toContain('/api/v1/late');expect(log.aborted).toContain('/api/v1/late');
   expect(log.pagesClosed).toBe(1);expect(log.contextClosed).toBe(true);
+  expect(phase.metrics!.teardown).toMatchObject({unexpected_routing_failures:0});
   expect(report.cleanup.items).toContainEqual({phase:'browser',item:'browser session of the synthetic account',state:'restored'});
   expect(JSON.stringify(report)).not.toContain('Target page');
 
@@ -460,6 +507,30 @@ test('browser teardown: routes pending at context close are drained, nothing new
   expect(closeUnhandled).toEqual([]);expect(scripted.log.escaped).toEqual([]);
   expect(closeReport.phases.find(p=>p.id==='browser')).toMatchObject({status:'fail',reason:'browser_teardown_clean',metrics:{teardown:{context_close:'ProtocolError',routes_pending_after_close:0}}});
   expect(closeReport.phases.find(p=>p.id==='logout')?.status).toBe('pass');
+});
+
+test('browser teardown: an unexpected fetch rejection settling at context close fails browser_teardown_clean',async()=>{
+  const server=browserCandidate(),{browser,log}=scriptedBrowser({
+    fetch:async(path,closed)=>{if(path==='/api/v1/work-items'){await closed;throw new TypeError(`fetch failed ${staging.origin}/api/v1/work-items?token=${access.clientSecret}`);}},
+    abort:(path,isClosed)=>{if(path==='/api/v1/work-items'&&isClosed)throw targetClosed();},
+  });
+  const {result:report,unhandled}=await withoutUnhandled(()=>runCandidate({...base(['browser']),transport:server.transport,account,access,browser,browserDrainMs:100}));
+  expect(unhandled).toEqual([]);expect(log.escaped).toEqual([]);
+  const phase=report.phases.find(p=>p.id==='browser')!;
+  expect(phase).toMatchObject({status:'fail',reason:'browser_teardown_clean'});
+  // The in-session check passed; the failure is attributed to teardown, not hidden in a metric.
+  expect(phase.checks).toContainEqual({id:'no_routing_failures',status:'pass'});
+  expect(phase.checks.at(-1)).toEqual({id:'browser_teardown_clean',status:'fail',note:'see metrics.teardown'});
+  expect(phase.metrics).toMatchObject({
+    routing_failures:{},
+    routing_failures_during_teardown:{'fetch:TypeError':1,'abort_after_fetch:TargetClosedError':1},
+    teardown:{routes_pending_at_close:1,context_close:'ok',routes_pending_after_close:0,unexpected_routing_failures:1},
+  });
+  expect(log.fetched).not.toContain('/api/v1/late');expect(log.contextClosed).toBe(true);
+  expect(report.cleanup.items).toContainEqual({phase:'browser',item:'browser session of the synthetic account',state:'restored'});
+  expect(report.overall).toBe('fail');expect(report.cloud_proof).toBe(false);
+  const text=JSON.stringify(report);
+  for(const secret of ['fetch failed','token=',access.clientSecret])expect(text).not.toContain(secret);
 });
 
 /**

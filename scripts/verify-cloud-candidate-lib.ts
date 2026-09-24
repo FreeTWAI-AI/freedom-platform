@@ -607,6 +607,11 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
 }
 
 // ---------------------------------------------------------------- guild grant/revoke
+/** Exactly `"N"` (strong) or `W/"N"` (weak) for the body version N; lists, wildcards, whitespace and `w/` are invalid. */
+function versionEtagKind(etag: string | null, version: number): 'strong' | 'weak' | 'invalid' {
+  if (etag === `"${version}"`) return 'strong';
+  return etag === `W/"${version}"` ? 'weak' : 'invalid';
+}
 async function guildPhase(ctx: PhaseContext, client: CandidateClient, options: RunOptions, login: (c: CandidateClient) => Promise<unknown>, log: (line: string) => void) {
   const book = options.developmentBook ?? 'video-autopilot', guild = options.developmentGuild ?? 'guild_ai_vibe';
   if (!/^[a-z0-9-]{1,100}$/.test(book) || !DEVELOPMENT_GUILDS.includes(guild)) throw new CheckFailed('invalid_development_target');
@@ -661,8 +666,13 @@ async function guildPhase(ctx: PhaseContext, client: CandidateClient, options: R
     joinAttempted = true;
     const join = await client.request('POST', `/api/v1/guilds/${guild}/join`, joinOptions);
     ctx.check('join_200', join.status === 200, `status ${join.status} ${safeCode(join.json()?.code)}`);
-    const version = join.json()?.aggregate_version;
-    ctx.check('join_active_versioned', join.json()?.state === 'active' && Number.isInteger(version) && join.headers.get('etag') === `"${version}"`);
+    // The body version is authoritative: a positive JSON safe integer (never a string).
+    // A compressing edge may weaken the response ETag, so W/"N" for the same N is
+    // accepted; requests still send a strong If-Match built from the body version.
+    const version = join.json()?.aggregate_version, versioned = typeof version === 'number' && Number.isSafeInteger(version) && version > 0;
+    const etagKind = versioned ? versionEtagKind(join.headers.get('etag'), version) : 'invalid';
+    ctx.metric('join_etag', etagKind);
+    ctx.check('join_active_versioned', join.json()?.state === 'active' && versioned && etagKind !== 'invalid', `etag ${etagKind}`);
     // The first read after the commit must already be current; a later fresh read
     // does not excuse a stale first one (no polling past a cache TTL).
     const granted = await readStatus(client);
@@ -675,7 +685,7 @@ async function guildPhase(ctx: PhaseContext, client: CandidateClient, options: R
     const booksAfterJoin = await books();
     ctx.metric('skill_books_after_join', booksAfterJoin);
 
-    const stale = await client.request('POST', `/api/v1/guilds/${guild}/leave`, { json: {}, idempotency: true, ifMatch: Number(version) + 1 });
+    const stale = await client.request('POST', `/api/v1/guilds/${guild}/leave`, { json: {}, idempotency: true, ifMatch: (BigInt(version) + 1n).toString() });
     ctx.check('stale_version_rejected_412', stale.status === 412 && stale.json()?.code === 'version_conflict', `status ${stale.status}`);
 
     const leave = await client.request('POST', `/api/v1/guilds/${guild}/leave`, { json: {}, idempotency: true, ifMatch: version });
@@ -755,8 +765,16 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
   let sessionCookie: string | null = null;
   // Route failures are kept as `stage:ErrorClass` counts only: never messages, URLs, headers or bodies.
   const routing: Record<string, number> = {}, routingAtTeardown: Record<string, number> = {};
-  const failed = (stage: string, error: unknown) => { const into = closing ? routingAtTeardown : routing, key = `${stage}:${describeError(error)}`; into[key] = (into[key] ?? 0) + 1; };
-  const settle = async (stage: string, action: () => Promise<unknown>) => { try { await action(); return true; } catch (error) { failed(stage, error); return false; } };
+  // During teardown only a TargetClosedError (the close cancelling a route) and the
+  // secondary abort after a failed fetch/fulfill are expected; any other primary
+  // failure is counted here and fails browser_teardown_clean.
+  let unexpectedAtTeardown = 0;
+  const failed = (stage: string, error: unknown, secondary = false) => {
+    const kind = describeError(error), into = closing ? routingAtTeardown : routing, key = `${stage}:${kind}`;
+    into[key] = (into[key] ?? 0) + 1;
+    if (closing && !secondary && kind !== 'TargetClosedError') unexpectedAtTeardown++;
+  };
+  const settle = async (stage: string, action: () => Promise<unknown>, secondary = false) => { try { await action(); return true; } catch (error) { failed(stage, error, secondary); return false; } };
   // Every request is fetched by Playwright without following redirects; only the
   // exact candidate origin is allowed and only it ever receives Access headers.
   // The signed-in shell loads inbox previews (including a last message body) on
@@ -773,8 +791,8 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
     if (closing) { await settle('abort_closing', () => route.abort('failed')); return; }
     const headers = { ...route.request().headers(), ...(access ? { 'CF-Access-Client-Id': access.clientId, 'CF-Access-Client-Secret': access.clientSecret } : {}) };
     let response: unknown;
-    try { response = await route.fetch({ headers, maxRedirects: 0 }); } catch (error) { failed('fetch', error); await settle('abort_after_fetch', () => route.abort('failed')); return; }
-    if (!await settle('fulfill', () => route.fulfill({ response }))) await settle('abort_after_fulfill', () => route.abort('failed'));
+    try { response = await route.fetch({ headers, maxRedirects: 0 }); } catch (error) { failed('fetch', error); await settle('abort_after_fetch', () => route.abort('failed'), true); return; }
+    if (!await settle('fulfill', () => route.fulfill({ response }))) await settle('abort_after_fulfill', () => route.abort('failed'), true);
   };
   const pending = new Set<Promise<void>>();
   const track = (route: any) => {
@@ -845,6 +863,7 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
   teardown.routes_pending_at_close = await drain(options.browserDrainMs ?? 15000);
   try { await context.close(); teardown.context_close = 'ok'; } catch (error) { teardown.context_close = describeError(error); }
   teardown.routes_pending_after_close = await drain(Math.min(options.browserDrainMs ?? 15000, 5000));
+  teardown.unexpected_routing_failures = unexpectedAtTeardown;
   ctx.metric('routing_failures', routing);
   ctx.metric('routing_failures_during_teardown', routingAtTeardown);
   ctx.metric('teardown', teardown);
@@ -855,8 +874,8 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
   if (failure) {
     // Recorded without replacing the original failure reason.
     const routingCheckFailed = failure.error instanceof CheckFailed && failure.error.check === 'no_routing_failures';
-    if (Object.keys(routing).length && !routingCheckFailed) try { ctx.check('no_routing_failures', false, 'see metrics.routing_failures'); } catch { /* recorded */ }
+    if ((Object.keys(routing).length || unexpectedAtTeardown) && !routingCheckFailed) try { ctx.check('no_routing_failures', false, 'see metrics.routing_failures'); } catch { /* recorded */ }
     throw failure.error;
   }
-  ctx.check('browser_teardown_clean', teardown.context_close === 'ok' && teardown.routes_pending_after_close === 0 && !teardown.page_close, 'see metrics.teardown');
+  ctx.check('browser_teardown_clean', teardown.context_close === 'ok' && teardown.routes_pending_after_close === 0 && unexpectedAtTeardown === 0 && !teardown.page_close, 'see metrics.teardown');
 }

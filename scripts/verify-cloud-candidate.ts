@@ -8,7 +8,7 @@ import { lstat, readFile } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  LOAD_LIMITS, PHASES, READ_ONLY_PHASES, UsageError, candidateTarget, loadOptions, runCandidate, selectPhases,
+  LOAD_LIMITS, PHASES, READ_ONLY_PHASES, UsageError, candidateTarget, describeError, loadOptions, runCandidate, selectPhases,
   type AccessCredential, type Account, type PhaseId, type Target,
 } from './verify-cloud-candidate-lib.js';
 
@@ -143,8 +143,8 @@ export async function main(argv: readonly string[], env: NodeJS.ProcessEnv = pro
     process.stdout.write(JSON.stringify(report, null, 2) + '\n');
     return report.overall === 'pass' ? 0 : 1;
   } finally {
-    // The report is already written; a close failure is logged by class only.
-    await browser?.close().catch(error => { process.stderr.write(`browser: close failed (${error instanceof Error ? error.name : 'Error'})\n`); });
+    // The report is already written; a close failure is logged by sanitized class only.
+    await browser?.close().catch(error => { process.stderr.write(`browser: close failed (${describeError(error)})\n`); });
   }
 }
 
