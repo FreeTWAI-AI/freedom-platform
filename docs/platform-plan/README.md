@@ -6,7 +6,7 @@
 >
 > 優先序：① 修正已上線 beta 的可用性；② 開發資格路徑（公會 → GitHub OAuth → App 安裝 → 短效 key）；③ 使用者明確要求但尚未落地的強制 Star（建議替代尚未獲同意）與找回密碼寄信；LINE Login 只是後續 adapter 需求；④ 後續架構。
 >
-> 矛盾與對齊表見 [2026-09-24 計畫對齊](../development/audit-2026-09-24-plan.md)；9/23 落差見 [落差盤點](../development/plan-drift-2026-09-23.md)。
+> 矛盾與對齊表見 [2026-09-24 計畫對齊](../development/audit-2026-09-24-plan.md)，修正與完整驗證見 [全站整合報告](../development/audit-2026-09-24.md)；9/23 落差見 [落差盤點](../development/plan-drift-2026-09-23.md)。
 
 日期：2026-09-19
 

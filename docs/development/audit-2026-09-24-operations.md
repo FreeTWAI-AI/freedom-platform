@@ -1,5 +1,6 @@
 # 2026-09-24 商務、工作與管理頁稽核
 
+> 這是各組執行當時的審查與分階段證據；最終合併、完整回歸與發布結果見 [整合總報告](./audit-2026-09-24.md)。
 ## 範圍與執行方式
 
 本組負責 `supplier`、`retail`、`marketing`、`workbench`、`showcase`、`engagement`、`admin`、`guild-workspace`，另處理名片中的 ClientConnections。以 `8338a424a40ec959e9fc7e22ba77cce64192301e` 建立獨立 worktree；未部署、未推送，也未操作正式或 staging 會員。

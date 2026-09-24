@@ -41,7 +41,7 @@ Agent 使用 `POST /development-agent/v1/proposals`，Bearer `fpd_…`、JSON �
 | --- | --- | --- | --- |
 | 技能書技術開發 | `guild_ai_vibe` 或 `guild_ai_field` | 在指定技能／repo 提交修改提案 | GitHub 身分、相應連線／同意、目標作品權限 |
 | 平台頁面與功能開發 | `guild_platform_engineering` | 參與指定平台任務、提交修改提案 | GitHub 身分、相應連線／同意、目標 repo／任務權限 |
-| 直接編輯既有作品 | 對應開發資格 | 不因入會自動取得所有作品的編輯權 | 本人作品或具名、有效的作品維護任命；站內既有技能書 metadata 另需有效 AI 開發／AI 導入公會其中之一（見「本輪整合」） |
+| 直接編輯既有作品 | 對應開發資格 | 不因入會自動取得所有作品的編輯權 | 依各模組作者／任命規則；站內既有技能書 metadata 必須具名、有效的 maintainer 任命，且具有有效 AI 開發／AI 導入公會其中之一資格（見「本輪整合」） |
 | 合併、正式發布、部署 | 相應職務及專案規則 | 不由一般入會授予 | 該操作既有審查與發布授權 |
 
 畫面名稱沿用實際公會目錄；目前平台公會 canonical key 為 `guild_platform_engineering`，不可因「平台開發公會／平台工程公會」文字差異另建重複公會。
@@ -142,9 +142,9 @@ Repo Stars 以 GitHub 為準。讀取作品計數、取得會員本人 Star 狀�
 | `modules/development-access/`、`apps/platform-api/src/routes/development-access.ts` | 版本化同意、七日目標 grant、60 分鐘 `fpd_` key（每 grant 最多五個、只存 hash）、私人提案、Agent 端點、重送 receipt 重驗 grant | 排程 worker、outbox 與外部撤權狀態（目前沒有 worker，也沒有授予外部 GitHub 權限） |
 | `modules/github-social/` | GitHub 個人授權、加密 user token、本人 Star；`developmentEvidence` 即時核對 user ID、App、installation、repo ID、Fork 來源與 push 權限 | App webhook 簽章驗證／去重、獨立對帳 worker；組織管理者待核准的等待狀態 |
 | `modules/skill-submissions/` | 一般投稿 `fpk_` 金鑰與一次性 `fpg_` grant 契約不變；上傳端點只接受這兩種前綴 | 若要增加「開發」用途的上傳，需版本化用途並記錄 `source_grant_id` |
-| `modules/guild-workspace/service.ts` | 會長依有效公會與任命驗證；技能內容依維護任命驗證；開發 grant 不授予內容編輯 | 既有技能書 metadata editor 加上「有效 AI 開發／AI 導入公會其中之一」條件，由 operations 組另一分支實作（見下文），本分支未含該程式 |
+| `modules/guild-workspace/service.ts` | 會長依有效公會與任命驗證；技能內容需有效具名維護任命 AND 目前至少一個 AI 開發／AI 導入公會資格；GET、保存、receipt replay 一致重查；開發 grant 不授予內容編輯 | — |
 | `apps/portal-web/src/modules/DevelopmentAccess.tsx`、`DevelopmentContext.tsx`、`SkillBookIntro.tsx` | 共用「開發啟用任務」視窗：平台頁面與技能書入口、公會選擇、同意、Repo 驗證、一次顯示 Agent 指令、安全返回原頁；在書內入會後，技能書架於對話框關閉後重讀解鎖紀錄 | — |
-| `apps/portal-web/src/modules/SkillsPanel.tsx`、`GitHubSocial.tsx`（`GitHubConnectionSummary`） | 技能書架最上層的共用 GitHub 連線：重用 `GitHubSocialStore`，一般會員不需 AI 公會即可連結；OAuth 返回 `#skills`；連結不 Star、不另跳確認；已連結顯示帳號與「管理 GitHub 連結」（解除在我的名片）；未啟用與讀取失敗照實顯示並可重讀。每本書的 Star／Fork／Follow 原作操作不變 | 新會員首次啟用流程中的 GitHub 步驟、強制 Star gate（見上文，尚未決策） |
+| `apps/portal-web/src/modules/SkillsPanel.tsx`、`GitHubSocial.tsx`（`GitHubConnectionSummary`） | 技能書架最上層的共用 GitHub 連線：重用 `GitHubSocialStore`，一般會員不需 AI 公會即可連結；OAuth 返回 `#skills`；連結不 Star、不另跳確認；已連結顯示帳號與「管理 GitHub 連結」（解除在我的名片）；未啟用與讀取失敗照實顯示並可重讀。每本書的 Star／Fork／Follow 原作操作不變 | 新會員首次啟用流程中的 GitHub 步驟、強制 Star gate（使用者已要求，尚未實作；替代方案尚未獲同意） |
 
 仍未實作且不應推定完成：GitHub App webhook 與獨立對帳 worker、外部撤權 outbox、原作完整版本登錄與 credit 同步（見[原作、版本與貢獻歸屬](./author-owned-collaboration.md)），以及上文的強制 Star gate。本規格不新增通用永久寫入金鑰，也不把公開導覽包成有名無實的「已授權開發」。操作尚未支援時應顯示具體缺項。
 
@@ -179,9 +179,9 @@ Repo Stars 以 GitHub 為準。讀取作品計數、取得會員本人 Star 狀�
 
 ## 本輪整合：既有技能書 metadata editor 的公會條件
 
-依使用者原話，root 已決定：站內**既有技能書 metadata editor** 需同時符合「具名、有效的 maintainer 任命」**且**「目前為 AI 開發公會或 AI 導入與驗證公會其中之一的有效成員」。這是內容編輯權限，與上文「GitHub 身分＋同意＋目標 grant」的私人開發提案流程分開：
+依使用者「能改技能書至少要加入 AI 公會」的要求，本輪包含站內內容編輯：站內**既有技能書 metadata editor** 需同時符合「具名、有效的 maintainer 任命」**且**「目前為 AI 開發公會或 AI 導入與驗證公會其中之一的有效成員」。這是內容編輯權限，與上文「GitHub 身分＋同意＋目標 grant」的私人開發提案流程分開：
 
-- 共用判斷由 operations 組在另一個 worktree 實作（`modules/development-access/guild-eligibility.ts` 與 guild-workspace gate）；本分支沒有修改該 helper 或 `guild-workspace`，也不在此記錄其測試結果，由 root 整合時補上。
+- 共用判斷已整合至 `modules/development-access/guild-eligibility.ts` 與 guild-workspace gate。operations 組 43 項相關 runtime、32 項相關 E2E 通過；包含同時退會、儲存、工作區讀取的資料庫鎖測試，以及缺會籍／退會後保留草稿與恢復的桌機手機案例。詳見 [編輯資格](./skill-editor-guild-access.md)與[整合總報告](./audit-2026-09-24.md)。
 - 一般 `skill.submit` 投稿資格與 `fpk_`／`fpg_` 契約不變。
 - `fpd_` 開發 key 只保存私人提案，不能當作 metadata editor 權限，也不是原作 repo 寫入權。
 - 仍保留 OR 公會語意、離開最後一個適用公會即撤銷 key，以及原作者權利與 37 本技能書收錄。

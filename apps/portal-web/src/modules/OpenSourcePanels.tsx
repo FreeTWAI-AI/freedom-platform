@@ -44,7 +44,7 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
     <div className="card-grid">
       <div className="stack">
       <section className="card stack"><div className="actions"><SkillUpload client={client} onPublished={refresh}/></div><p className="hint">由你選擇的 Agent 讀取專案並建立草稿，你預覽後再送出。</p></section>
-      <details className="card manual-upload"><summary>手動上傳</summary>
+      <details className="card manual-upload"><summary>手動登錄作品</summary>
       <section><div className="section-head"><h2>登錄開源作品</h2><p>貼上公開專案網址，再補上用途與使用說明。</p></div>
         <form className="stack" onSubmit={submit}>
           <label className="field">GitHub 儲存庫網址<input required type="url" maxLength={300} placeholder="https://github.com/owner/repository" value={draft.repository_url} onChange={e=>setDraft({...draft,repository_url:e.target.value})}/></label>

@@ -1,5 +1,6 @@
 # 2026-09-24 大計畫對齊與全站 shell 審查（root）
 
+> 這是各組執行當時的審查與分階段證據；最終合併、完整回歸與發布結果見 [整合總報告](./audit-2026-09-24.md)。
 基線：`main` `8338a424a40ec959e9fc7e22ba77cce64192301e`。此 commit 已由 root 部署並驗證，來源是既有交接 `/home/ted-h/projects/Freedom-Platform/HANDOFF-CODEX-EIGHT-AUTHOR-SKILLS-PROFILE-2026-09-24.md`（staging deployment 6632758320、16 項 HTTPS 檢查；public deployment 6632891104、22 項 HTTPS 檢查；CI Verify run 35970930028）。本審查引用該交接，沒有重新部署或重跑那些檢查。本頁只負責 root 計畫與全站共用 UI；各頁內容由另外三組在各自 worktree 處理，報告為 `audit-2026-09-24-{identity,skills,operations}.md`。
 
 ## 1. 已完整閱讀
@@ -32,7 +33,7 @@
 | C3 | ADR-039／RQ-010：定位可跳過 | 9/23 起新會員必須完成封閉式定位（`app.ts:onboardingAllowed`） | 已在 `00` 標頭記錄；本輪在 `07` 補上交叉註記 |
 | C4 | ADR-045／046、OD-01：GHEC＋Workers／Hyperdrive／PlanetScale | Beta 是 Node＋PostgreSQL＋Cloudflare Tunnel（`deploy/public`、`deploy/staging`） | 屬於「過渡拓撲」，不是目標被推翻；`08` 加狀態註記 |
 | C5 | ADR-050、OD-17：dynamic token 透過 broker 與外部 KMS | GitHub user token 用 AES-256-GCM 加密，金鑰在環境變數（`GITHUB_SOCIAL_TOKEN_KEY`）；沒有 broker 或 KMS | 標為後續實作。不能宣稱已符合 ADR-050 |
-| C6 | ADR-065／RQ-064：只允許本人真實的 Star | 使用者明確要求「先 Star 才能領書／推廣」，尚未落地；建議替代尚未獲同意 | 不把要求改寫成「沒有決定」。GitHub AUP §4 列有 rank abuse 與 incentivized inauthentic 相關條款，但沒有針對本案的裁定；本輪不做 gate，也不重新 browse |
+| C6 | ADR-065／RQ-064：只允許本人真實的 Star | 使用者明確要求「先 Star 才能領書／推廣」，尚未落地；建議替代尚未獲同意 | 不把要求改寫成「沒有決定」。GitHub AUP §4 列有 rank abuse 與 incentivized inauthentic 相關條款，但沒有針對本案的裁定；本輪不做 gate；整合時已重新查閱官方條文，仍未將替代建議當成使用者同意 |
 | C7 | `09 §3`：repos／帳號未建立 | 9/20 查到九個 repo；FreeTWAI-AI org 與 GitHub App 流程存在 | `09` 加 9/24 狀態 |
 
 以下與計畫一致，不算矛盾：
@@ -55,7 +56,7 @@
 | Star／Fork／Follow／Watch | Star 由本人在站內操作；Fork／Watch／Follow 連到 GitHub 原作或作者（`github-social.md`） | 已實作；真實 Star 寫入需 repo 擁有者安裝 App，屬**外部必要證據** |
 | 原作者 repo 與署名；共創從原作 fork | 37 本書、43 個來源 repo；Star、Fork、PR 都指向原作（`community-author-skills.md`、`author-owned-collaboration.md`） | 已實作。作者同意與授權確認屬外部證據（例如 David 的 repo 沒有 LICENSE） |
 | 名片可選男／女／外星人／AI，社群顯示名稱可改 | migration 032；`POST /me/account` | 已實作；註冊欄位本輪同步改名為「社群顯示名稱」（見 §5 U6） |
-| 站內技能書編修：需 AI 開發或 AI 導入與驗證公會有效會籍＋該書既有具名維護者任命；一般 `skill.submit` 投稿與公開閱讀不變 | root 9/24 決定，派 ops 組實作；會籍與任命同交易讀寫、replay、離會鎖都要驗 | **本輪修改中**。本組不改 guild／service 檔；本輪整合完成後由 root 補證據 |
+| 站內技能書編修：需 AI 開發或 AI 導入與驗證公會有效會籍＋該書既有具名維護者任命；一般 `skill.submit` 投稿與公開閱讀不變 | 依使用者「能改技能書至少入 AI 公會」的要求；會籍與任命同交易讀寫、replay、離會鎖皆驗 | **已整合**。43 項相關 runtime、32 項相關 browser 通過；見 `skill-editor-guild-access.md` 與整合總報告 |
 | 強制 Star 才能領書 | 使用者明確要求，未實作 | 尚未落地；建議替代尚未獲同意 |
 | LINE／Discord bot、通知、陪跑 | 只有連結 | 後續實作 |
 | Workers／Hyperdrive、R2 quarantine、KMS／HSM、signed channel、2-of-N | 沒有 | 後續實作。本輪不假裝已完成 |
@@ -104,14 +105,14 @@
 | `npx playwright test tests/e2e/audit-shell.spec.ts` | **9 passed**（`round2-audit-shell-final.txt`）。覆蓋 1280／390／320 登入、註冊（1280／320）、錯誤登入、skip link、工作區 shell；驗單一 h1 與句子可讀（≥16px、可見）、無英文眉標／journey／重複小標、鍵盤 Tab 順序與 focus ring、實際渲染觸控目標 ≥44px、無水平溢出 |
 | 同一 spec 暫時拿掉 U5 的 44px CSS（重新 build，跑完還原並再 build） | 1 failed／8 passed：focused skip link 實測 42.39px 被擋下。topbar 在舊 42px 宣告下實際渲染已 ≥44px（內容撐高），所以該項沒有失敗；44px 宣告仍補上避免之後回退（`round2-touch-against-42px.txt`） |
 | `npx playwright test tests/e2e/navigation-audit.spec.ts tests/e2e/workshop-design.spec.ts tests/e2e/onboarding-recovery.spec.ts tests/e2e/onboarding-members.spec.ts tests/e2e/guild-members.spec.ts` | **24 passed**（navigation-audit 6、workshop-design 1、onboarding-recovery 4、onboarding-members 7、guild-members 6；`round2-adjacent-final.txt`） |
-| 同上但 `FREEDOM_E2E_PORT=4391` | 22 passed、2 failed（`round2-adjacent-specs.txt`）：`onboarding-members` 兩項把 `Origin: http://127.0.0.1:4311` 寫死，換埠後 CSRF origin 不符回 403，與本輪修改無關；預設埠重跑 7/7 通過。寫死 4311 的 spec 還有 `skill-sharing`、`avatar`、`github-setup`、`modules-beginners`、`benefits`，平行 worktree 若改埠會遇到同樣問題（未修，交 root） |
+| 同上但 `FREEDOM_E2E_PORT=4391` | 22 passed、2 failed（`round2-adjacent-specs.txt`）：`onboarding-members` 兩項把 `Origin: http://127.0.0.1:4311` 寫死，換埠後 CSRF origin 不符回 403，與本輪修改無關；預設埠重跑 7/7 通過。寫死 4311 的 spec 還有 `skill-sharing`、`avatar`、`github-setup`、`modules-beginners`、`benefits`，平行 worktree 若改埠會遇到同樣問題（階段紀錄；其後已由 root 修成統一 `e2eOrigin()`／Playwright baseURL，完整整合結果見總報告） |
 | `git diff --check` | OK |
 | 全套 `npm test`、`npm run test:e2e`、`test:contracts`、`test:repos`、`verify:inventory` | **not_run**：依分工由 root 統一執行。文件已修改，舊 inventory hash 預期不符 |
 
 ## 7. 今日優先序與未完成
 
 1. 修正已上線 beta 的可用性：本輪 shell 修正加上三組各頁審查，由 root 整合後跑全套測試。
-2. 開發資格路徑（公會 → GitHub OAuth → App 安裝 → key）的 UX 由技能組負責；站內技能書編修的公會會籍＋具名任命要求由 ops 組修改中，整合後由 root 補證據。
+2. 開發資格路徑（公會 → GitHub OAuth → App 安裝 → key）的 UX 由技能組負責；站內技能書編修的公會會籍＋具名任命要求已整合，證據見 `skill-editor-guild-access.md`。
 3. 使用者明確要求但尚未落地：強制 Star gate（建議替代尚未獲同意）。找回密碼本輪不實作（需要寄信 provider），註冊頁的真實限制保留。LINE Login 只是後續 adapter 需求；現行 default 是 email 註冊，已寫入 ADR-006。
 4. 後續架構（Workers、KMS、signed channel、金流）不在本輪範圍，也不宣稱完成。
 

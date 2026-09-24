@@ -1,5 +1,6 @@
 # 2026-09-24 會員身分與公會頁審查
 
+> 這是各組執行當時的審查與分階段證據；最終合併、完整回歸與發布結果見 [整合總報告](./audit-2026-09-24.md)。
 範圍：會員首頁、註冊／登入、定位（含重新探索）、我的名片、工坊夥伴、我的定位、職業公會（含成員視窗）、小隊集合。基準 commit `8338a42`（分支 `audit/identity-20260924`）。本輪只改動 `apps/portal-web/src/modules/` 內負責的元件與專用 CSS，並新增 `tests/e2e/audit-identity.spec.ts`。同日的後續輪次（§3 第 12–14 項）只改 `MemberHome.tsx`、`Squads.tsx`、`CapabilityTree.tsx`、相關 E2E 與本文。沒有新增權限、API、資料欄位或未來架構；原始 `freedom-workshop.webp`、作者署名、隱私可見範圍語意，以及名片「社群顯示名稱」和「男／女／外星人／AI」選項都保留。
 
 ## 1. 完整閱讀的文件

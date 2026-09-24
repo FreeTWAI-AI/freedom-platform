@@ -312,7 +312,7 @@ test('open-source panel keeps manual GitHub form folded and the upload dialog fi
   const manual = page.locator('details.manual-upload');
   await expect(manual).not.toHaveAttribute('open');
   await expect(page.getByRole('heading', { name: '登錄開源作品', exact: true })).toBeHidden();
-  await manual.getByText('手動上傳', { exact: true }).click();
+  await manual.getByText('手動登錄作品', { exact: true }).click();
   await expect(manual.getByRole('heading', { name: '登錄開源作品', exact: true })).toBeVisible();
   await expect(manual.getByRole('button', { name: '從 GitHub 登錄', exact: true })).toBeVisible();
 

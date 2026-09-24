@@ -53,7 +53,7 @@ P5 的角色供給由五人核心團隊直接承接：Ted、Hao、Mini、Jason�
 | ADR-039／RQ-010「定位可跳過」 | 9/23 起新會員必須完成封閉式定位；不連帶恢復其他入會考核 | 已實作；見 `00` 標頭 |
 | ADR-006「LINE Login 為第一 adapter」 | 使用者 9/23 明示改為 email 註冊，已覆寫舊計畫；GitHub OAuth 只連結 Star 與開發身分，不是登入 | 已實作並修正 ADR-006 本文；LINE Login 只是後續 adapter 需求，不再待決 |
 | ADR-053／ADR-058（自助入會、有界 grant） | 加入 `guild_ai_vibe`／`guild_ai_field` 取得技能開發 grant；加入 `guild_platform_engineering` 取得平台開發 grant；最後一個資格來源消失時撤銷 grant 與衍生 key，舊 key 不復活 | 已實作（migration 030）；不需要管理員核准 |
-| 站內技能書編修（root 9/24 決定） | 需同時有 AI 開發或 AI 導入與驗證公會有效會籍，以及該書既有具名維護者任命；一般 `skill.submit` 投稿與公開閱讀不變 | 本輪修改中（ops 組）；同交易讀寫、replay 與離會鎖的證據待整合後由 root 補 |
+| 站內技能書編修（依使用者要求，9/24 納入內容編輯） | 需同時有 AI 開發或 AI 導入與驗證公會有效會籍，以及該書既有具名維護者任命；一般 `skill.submit` 投稿與公開閱讀不變 | 已整合；同交易讀寫、replay 與離會鎖測試通過，詳見 [編輯資格](../development/skill-editor-guild-access.md)與[整合總報告](../development/audit-2026-09-24.md) |
 | ADR-034／ADR-050（憑證不外流；broker＋KMS） | GitHub user OAuth、App installation（只有 `starring:write`＋`metadata:read`）與工坊 `development:propose` key 分層 | 分層已實作；token 目前用環境金鑰 AES-256-GCM 加密，broker／KMS 仍是後續實作 |
 | ADR-065／RQ-064（只允許本人真實 Star） | 使用者明確要求「先 Star 才能領書／推廣」 | 尚未落地；建議替代尚未獲同意。GitHub AUP §4 列有 rank abuse 與 incentivized inauthentic 條款，但沒有針對本案的裁定 |
 | ADR-048、`08 §8`（fork lineage） | 37 本書、43 個原作 repo 保留作者與授權；Star、Fork、PR 指向原作 | 已實作；作者授權確認屬外部證據 |

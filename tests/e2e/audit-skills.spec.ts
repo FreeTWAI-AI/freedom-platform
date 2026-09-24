@@ -123,7 +123,7 @@ for (const width of [1280, 390]) {
       await failure.getByRole('button', { name: '重新載入', exact: true }).click();
       await expect(failure).toHaveCount(0);
       await expect(page.getByRole('region', { name: '社群開源作品' }).getByText(/已登錄 \d+ 件/)).toBeVisible();
-      await page.getByText('手動上傳', { exact: true }).click();
+      await page.getByText('手動登錄作品', { exact: true }).click();
       await expect(page.getByText('由你自行聲明；平台不以這次登錄驗證你與作品的來源、作者或擁有權關係。', { exact: true })).toBeVisible();
       await expect(page.getByText('平台目前尚未驗證你的 GitHub 身分', { exact: false })).toHaveCount(0);
       await page.getByLabel('GitHub 儲存庫網址', { exact: true }).fill('https://untrusted.example/owner/repository');

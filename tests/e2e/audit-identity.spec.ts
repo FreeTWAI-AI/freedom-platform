@@ -168,7 +168,7 @@ test('keyboard users land on a squad after creating or opening it and return on 
   await page.getByRole('button', { name: '收起', exact: true }).click();
   await expect(heading).toHaveCount(0);
   // The visible label stays short; the accessible name still identifies the squad.
-  const open = page.getByRole('button', { name: `查看${squad}`, exact: true });
+  const open = page.getByRole('button', { name: `查看小隊：${squad}`, exact: true });
   await expect(open).toHaveText('查看小隊');
   await open.focus(); await page.keyboard.press('Enter');
   await expect(heading).toBeFocused();

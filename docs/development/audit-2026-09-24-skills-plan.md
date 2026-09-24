@@ -267,3 +267,9 @@ root 讀過 member-onboarding 的 schema／example 和 `05` §10.1 後確認：�
 - `docs/platform-plan/02-architecture-repositories.md`：只改 §4.5 表格 `ai-online` 那一列（第二輪）。
 - 新增 `docs/platform-plan/contracts/tests/test_membership_submission_contract.py`（第二輪擴充）。
 - 新增這份報告。
+
+## 8. 整合時的契約分類補充
+
+第二次唯讀交叉審查確認：`rank.recorded` 的 `profession_rank_record` 是不可變事實的發布者，membership 狀態轉換更新職業身分；核心文件也明寫 event 是 integration fact，不能只因名稱不同判定衝突。`left` 不命中 rank 的三組條件，合法保留 runner／strategist／master 的歷史 rank；同一筆 JSON 無法驗證跨版本的「上一個值」，留給正式指令實作。
+
+`member-onboarding` 是 `fake_planning_fixture` 專用 schema（definition_version），OpenAPI `OnboardingJourney` 是另一個正式化輪廓（definition_ref／aggregate_version），兩者目前不是同一 wire 型別。專用七種 navigation 狀態是通用十種的子集合，既有範例都有效；尚未找到必須表達其餘三種狀態卻被拒絕的旅程，因此不直接擴大 enum。未來正式交換時需明寫映射與相容性。`review-submissions` 的 201 response schema 尚缺，列為 canonical API 正式化工作。以上不再列為已證實的會員 beta 功能錯誤。

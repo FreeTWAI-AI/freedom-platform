@@ -61,7 +61,7 @@ npm run demo
 
 Freedom Platform 是社群的接點、共同資料庫、核心 codebase 協作索引、工作／商業事實帳本與狀態機。Discord 承接討論與讀書會，LINE 承接即時聯絡，GitHub 承接程式版本與 PR；money 的權威事實留在 Seller 的 provider／bank，客戶 raw data 留在 client／Squad storage，平台只保存必要的 ref、digest 與 fact。
 
-現行推進：**2026-09-23，封閉式新人定位、主力公會、Repo 技能書與公開會員 Beta。** 2026-09-24：加入 AI 開發或 AI 導入與驗證公會取得技能開發資格，加入平台開發公會取得平台開發資格，離會即撤銷；GitHub OAuth、App 安裝與細範圍 key 分開驗證。見[公會開發資格](./docs/development/guild-development-access.md)，計畫對齊與今日優先序見 [2026-09-24 計畫對齊](./docs/development/audit-2026-09-24-plan.md)。 完整架構保留，不把未來案源當報酬，不預設核心補位。第一筆真實合作與收款仍待真人證據，見 [首批營運驗證](./docs/development/operating-validation.md)。
+現行推進：**2026-09-23，封閉式新人定位、主力公會、Repo 技能書與公開會員 Beta。** 2026-09-24：加入 AI 開發或 AI 導入與驗證公會取得技能開發資格，加入平台開發公會取得平台開發資格，離會即撤銷；GitHub OAuth、App 安裝與細範圍 key 分開驗證。見[公會開發資格](./docs/development/guild-development-access.md)，計畫對齊、逐頁稽核與驗證見 [2026-09-24 全站整合報告](./docs/development/audit-2026-09-24.md)。 完整架構保留，不把未來案源當報酬，不預設核心補位。第一筆真實合作與收款仍待真人證據，見 [首批營運驗證](./docs/development/operating-validation.md)。
 
 先讀 [低維運互惠運作契約](./docs/platform-plan/12-low-ops-mutual-benefit.md) 與 [現況紀錄](./docs/platform-plan/09-handoff-record.md)。[2026-09-19 變更說明](./CHANGES-2026-09-19.md) 與當日 verification 保留作歷史紀錄；本次實跑結果以新版本紀錄為準。
 

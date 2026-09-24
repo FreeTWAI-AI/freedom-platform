@@ -30,7 +30,7 @@ test('navigation separates collaboration, commerce and management without granti
   await expect(page.getByRole('heading', { name: '開源投稿', level: 1, exact: true })).toBeVisible();
   await expect(page.locator('.community-library')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '上傳技能', exact: true })).toBeVisible();
-  await page.getByText('手動上傳', { exact: true }).click();
+  await page.getByText('手動登錄作品', { exact: true }).click();
   await expect(page.getByRole('heading', { name: '登錄開源作品', exact: true })).toBeVisible();
   await navigate(page, '供貨中心');
   await expect(page.getByRole('heading', { name: '供貨中心', level: 1, exact: true })).toBeVisible();
