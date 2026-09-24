@@ -8,7 +8,7 @@ import {e2eOrigin} from '../../packages/testing/e2e-origin.js';
 import metadata from '../../contracts/preview/v1/metadata.json' with {type:'json'};
 import packageMetadata from '../../package.json' with {type:'json'};
 import {
-  CandidateClient,OriginGuardError,PHASES,Secrets,candidateTarget,describeError,isInboxPath,loadOptions,localHarnessTarget,runCandidate,runLoad,selectPhases,summarizeLoad,
+  CandidateClient,OriginGuardError,PHASES,Secrets,accountFileRequired,candidateTarget,describeError,fetchTransport,guildChannelsRealHistoryGuarded,isInboxPath,loadOptions,localHarnessTarget,runCandidate,runLoad,selectPhases,summarizeLoad,
   type BrowserLike,type PhaseId,type Transport,type TransportRequest,
 } from '../../scripts/verify-cloud-candidate-lib.js';
 import {main,parseArgs,readPrivateJson,validateAccess,validateAccount} from '../../scripts/verify-cloud-candidate.js';
@@ -620,4 +620,109 @@ test('local harness: real session, CSRF, guild grant/revoke freshness, avatar, b
   // Always remove the generated user and its own rows; neither failure hides the other.
   try{await removeHarnessUser(e2eAuthPool,id,email);}catch(error){failure=failure?new AggregateError([failure,error],'test and cleanup both failed'):error;}
   if(failure)throw failure;
+});
+
+function phaseFailures(phases:{id:string;status:string;reason?:string;checks:{id:string;status:string;note?:string}[]}[]){
+  return phases.filter(phase=>phase.status==='fail').map(phase=>`${phase.id}:${phase.reason??''} ${phase.checks.filter(check=>check.status==='fail').map(check=>`${check.id}${check.note?`(${check.note})`:''}`).join(',')}`);
+}
+
+test('registration, messages and messages-mobile pass on the local harness and the report stays scrubbed',async({browser,e2eAuthPool})=>{
+  test.setTimeout(240000);
+  const seen=new Set<string>();
+  const transport:Transport=async request=>{
+    if(typeof request.body==='string'){
+      try{
+        const json=JSON.parse(request.body) as {email?:unknown;password?:unknown;body?:unknown};
+        for(const value of [json.email,json.password,json.body])if(typeof value==='string')seen.add(value);
+      }catch{/* non-JSON body */}
+    }
+    for(const id of request.url.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi)??[])seen.add(id);
+    return fetchTransport(request);
+  };
+  const target=localHarnessTarget(e2eOrigin());
+  const report=await runCandidate({target,run:'execute',phases:selectPhases(['registration','messages','messages-mobile']),expectedVersion:packageMetadata.version,contract:metadata,browser,transport});
+  expect(phaseFailures(report.phases)).toEqual([]);
+  const status=Object.fromEntries(report.phases.map(phase=>[phase.id,phase.status]));
+  expect(status.preflight).toBe('pass');
+  expect(status.health).toBe('pass');
+  expect(status.registration).toBe('pass');
+  expect(status.messages).toBe('pass');
+  expect(status['messages-mobile']).toBe('pass');
+  expect(report).toMatchObject({harness:'local_harness',cloud_proof:false,overall:'pass',account_label:null});
+  const messages=report.phases.find(phase=>phase.id==='messages')!;
+  expect(messages.metrics).toMatchObject({guild_channel:'pass',rate_limit:'not_covered',secondary_guild:'pass'});
+  expect(messages.checks).toEqual(expect.arrayContaining([
+    {id:'dm_sent',status:'pass'},{id:'dm_unread_one',status:'pass'},{id:'dm_body_matches',status:'pass'},{id:'dm_marked_read',status:'pass'},
+    {id:'dm_sender_unread_excludes_own',status:'pass'},{id:'dm_replay_idempotent',status:'pass'},{id:'dm_foreign_origin_rejected',status:'pass'},
+    {id:'squad_left_read_denied',status:'pass'},{id:'squad_left_send_denied',status:'pass'},{id:'squad_message_ids_unique',status:'pass'},
+    {id:'notification_mark_read_decreases',status:'pass'},
+  ]));
+  const registration=report.phases.find(phase=>phase.id==='registration')!;
+  for(const id of ['register_created','register_duplicate_rejected','session_reads_same_account','onboarding_positioning_required','positioning_completed','primary_guild_set','primary_guild_replay_idempotent','stale_if_match_rejected','relogin_same_account','member_todos_state'])
+    expect(registration.checks).toContainEqual({id,status:'pass'});
+  expect(registration.metrics).toMatchObject({member_todos:{positioning:'done',primary_guild:'done',github:'unavailable'}});
+  const mobile=report.phases.find(phase=>phase.id==='messages-mobile')!;
+  for(const id of ['landing_200','conversation_visible','last_message_visible','ui_message_visible','unread_consistent','no_horizontal_overflow','ui_logout_clears_cookie','no_page_errors','browser_teardown_clean'])
+    expect(mobile.checks).toContainEqual({id,status:'pass'});
+  expect(mobile.metrics).toMatchObject({viewport:{width:390,height:844,mobile:true,touch:true},member_inbox:'synthetic_member'});
+  expect(report.cleanup.required).toBe(true);
+  const labels=JSON.stringify(report.cleanup).match(/cand-reg-[0-9a-f]{8}/g)??[];
+  expect(new Set(labels).size).toBe(2);
+
+  const users=(await e2eAuthPool.query(`SELECT user_id::text,email FROM users WHERE email LIKE 'cand-reg-%@example.invalid'`)).rows as {user_id:string;email:string}[];
+  expect(users).toHaveLength(2);
+  const ids=users.map(user=>user.user_id);
+  for(const user of users)seen.add(user.user_id).add(user.email);
+  const extras=await e2eAuthPool.query(`SELECT body AS secret FROM member_direct_messages WHERE sender_ref=ANY($1::uuid[]) OR recipient_ref=ANY($1::uuid[])
+    UNION ALL SELECT body FROM member_channel_messages WHERE sender_ref=ANY($1::uuid[])
+    UNION ALL SELECT message_id::text FROM member_direct_messages WHERE sender_ref=ANY($1::uuid[])
+    UNION ALL SELECT message_id::text FROM member_channel_messages WHERE sender_ref=ANY($1::uuid[])
+    UNION ALL SELECT squad_id::text FROM member_squads WHERE owner_ref=ANY($1::uuid[])
+    UNION ALL SELECT invitation_id::text FROM member_squad_invitations WHERE owner_ref=ANY($1::uuid[]) OR recipient_ref=ANY($1::uuid[])
+    UNION ALL SELECT notification_id::text FROM member_notifications WHERE recipient_ref=ANY($1::uuid[])`,[ids]);
+  for(const row of extras.rows as {secret:string}[])seen.add(row.secret);
+  const text=JSON.stringify(report);
+  const leaked=[...seen].filter(secret=>text.includes(secret)).map(secret=>secret.length);
+  expect(leaked).toEqual([]);
+  expect(text).not.toContain('@example.invalid');
+  expect((await e2eAuthPool.query('SELECT count(*)::int AS n FROM sessions WHERE user_id=ANY($1::uuid[]) AND revoked_at IS NULL',[ids])).rows[0].n).toBe(0);
+});
+
+test('target next does not read or write a guild channel',async()=>{
+  test.setTimeout(180000);
+  const loop=localHarnessTarget(e2eOrigin());
+  const target={...loop,name:'next' as const};
+  const urls:string[]=[];
+  const transport:Transport=async request=>{urls.push(request.url);return fetchTransport(request);};
+  const report=await runCandidate({target,run:'execute',phases:selectPhases(['registration','messages']),expectedVersion:packageMetadata.version,contract:metadata,transport});
+  expect(phaseFailures(report.phases)).toEqual([]);
+  expect(report).toMatchObject({harness:'local_harness',cloud_proof:false,overall:'pass',target:{name:'next',origin:loop.origin,expected_mode:'local'}});
+  expect(report.phases.find(phase=>phase.id==='messages')?.metrics).toMatchObject({guild_channel:'not_run',guild_channel_reason:'real_history_guarded',rate_limit:'not_covered'});
+  expect(urls.filter(url=>/\/me\/channels\/guild|kind=guild/.test(url))).toEqual([]);
+  expect(urls.every(url=>url.startsWith(loop.origin))).toBe(true);
+});
+
+test('registration phases do not require an account file',async()=>{
+  expect(accountFileRequired(selectPhases(['registration','messages','messages-mobile']))).toBe(false);
+  expect(accountFileRequired(selectPhases(['session']))).toBe(true);
+  expect(selectPhases(['registration','messages','messages-mobile'])).toEqual(['preflight','health','registration','messages','messages-mobile']);
+  expect(selectPhases(['messages'])).toEqual(['preflight','health','messages']);
+  expect(guildChannelsRealHistoryGuarded(candidateTarget('next'))).toBe(true);
+  expect(guildChannelsRealHistoryGuarded(candidateTarget('staging-next'))).toBe(false);
+  expect(guildChannelsRealHistoryGuarded(localHarnessTarget('http://127.0.0.1:4400'))).toBe(false);
+  expect(parseArgs(['plan','--target','next','--phases','registration,messages,messages-mobile']).phases).toEqual(['preflight','health','registration','messages','messages-mobile']);
+  const plan=await runCandidate({target:candidateTarget('next'),run:'plan',phases:selectPhases(['registration','messages','messages-mobile']),expectedVersion:'1.2.3',expectedReleaseSha:sha,contract:metadata});
+  expect(plan.overall).toBe('not_run');
+  expect(plan.phases.find(phase=>phase.id==='registration')?.writes).toMatch(/cand-reg/);
+  expect(plan.phases.find(phase=>phase.id==='messages')?.writes).toMatch(/not next/);
+  expect(plan.phases.find(phase=>phase.id==='messages-mobile')?.writes).toMatch(/mobile/);
+  expect(plan.phases.find(phase=>phase.id==='logout')).toMatchObject({status:'not_run',reason:'not_selected'});
+  let requests=0;
+  const report=await runCandidate({...base(['registration','messages','messages-mobile']),transport:async()=>{requests++;throw new Error('unexpected');}});
+  expect(report.phases.find(phase=>phase.id==='preflight')).toMatchObject({status:'pass'});
+  expect(report.phases.find(phase=>phase.id==='preflight')?.checks).toContainEqual({id:'account_available_when_needed',status:'pass'});
+  expect(report.phases.find(phase=>phase.id==='health')?.status).toBe('fail');
+  expect(report.phases.find(phase=>phase.id==='registration')?.status).toBe('blocked');
+  expect(requests).toBe(1);
+  expect(report.account_label).toBeNull();
 });
