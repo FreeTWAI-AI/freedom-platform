@@ -34,7 +34,7 @@ async function member(path:string,cookie='',body?:unknown,memberCsrf='',version?
  return {status:response.status,data:await response.json() as any,response};
 }
 async function login(user=DEMO_USERS[0]){const result=await member('/auth/login','',{email:user.email,password:DEMO_PASSWORD});assert.equal(result.status,200);return {cookie:result.response.headers.get('set-cookie')!.split(';')[0],csrf:result.data.csrf_token};}
-async function application(community=DEMO_COMMUNITY,user=DEMO_USERS[0].user_id){const id=randomUUID();await pool.query('INSERT INTO guild_creation_applications(application_id,community_id,user_id,name,profession,reason) VALUES($1,$2,$3,$4,$5,$6)',[id,community,user,'研究與協作公會','研究','把共同研究的方法整理清楚。']);return id;}
+async function application(community=DEMO_COMMUNITY,user=DEMO_USERS[0].user_id,id:string=randomUUID()){await pool.query('INSERT INTO guild_creation_applications(application_id,community_id,user_id,name,profession,reason) VALUES($1,$2,$3,$4,$5,$6)',[id,community,user,'研究與協作公會','研究','把共同研究的方法整理清楚。']);return id;}
 async function outsider(){const community=randomUUID(),user=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[community,'Other community']);await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref) SELECT $1,$2,'outsider@example.invalid','Outsider',password_hash,$3 FROM users LIMIT 1`,[user,community,randomUUID()]);return {community,user};}
 const approval={decision:'approve',reason:'已確認公會目標與第一步。',guild:{name:'研究與協作公會',purpose:'整理公開研究的方法與範例。',first_step:'提出第一份可以共同重現的研究。',module_key:'guilds',skill_book_ids:[communityCatalog.skill_books[0].id]}};
 const disabled={active:false,reason:'會員要求暫停帳號。'};
@@ -116,7 +116,7 @@ test('concurrent guild reviews and concurrent identical requests cannot double a
 
 test('a guild approved through an uppercase application id stays usable for directory filtering, master and expert appointment',async()=>{
  // PostgreSQL matches UUIDs case-insensitively, so the review keeps the caller's hex case in the generated key.
- const id=await application(),upper=id.toUpperCase(),review=await request(`/guild-applications/${upper}/review`,approval,1);assert.equal(review.status,200,JSON.stringify(review.data));
+ const id=await application(undefined,undefined,'abcd1234-abcd-4abc-8abc-abcdef123456'),upper=id.toUpperCase(),review=await request(`/guild-applications/${upper}/review`,approval,1);assert.equal(review.status,200,JSON.stringify(review.data));
  const key=review.data.approved_guild_key;assert.equal(key,'guild_custom_'+upper.replaceAll('-',''));assert.match(key,/[A-F]/);
  const session=await login(),directory=(guildKey:string)=>member('/members?guild_key='+encodeURIComponent(guildKey),session.cookie);
  const empty=await directory(key);assert.equal(empty.status,200,JSON.stringify(empty.data));assert.equal(empty.data.total,0);
