@@ -14,6 +14,7 @@ import { nodeImageProcessor } from '../../packages/shared/image-node.js';
 import unavailableSharp from '../../packages/shared/sharp-unavailable.js';
 import { createUnavailableImageProcessor, currentImageProcessor, runWithImageProcessor, type ImageNormalizeSpec, type ImageProcessor } from '../../packages/shared/image-runtime.js';
 import { normalizeCoverImage, normalizeSubmission } from '../../modules/skill-submissions/payload.js';
+import { inspectCanonicalWebp } from '../../packages/shared/image-webp.js';
 
 // Synthetic fixtures only. Node evidence uses real sharp/libvips; fake
 // processors prove the shared guards, not Cloudflare production transforms.
@@ -111,10 +112,51 @@ test('processor output is re-checked: originals, non-WebP, oversize and thrown e
     [createUnavailableImageProcessor(), 'image/png', png, 503],
   ];
   for (const [processor, mime, bytes, status] of cases) await runWithImageProcessor(processor, () => rejects(normalizeCoverImage(mime, b64(bytes)), status));
-  const accepted = await runWithImageProcessor(fixed(riff(64)), () => normalizeCoverImage('image/png', b64(png)));
-  assert.equal(accepted.webp.length, 64); assert.ok(accepted.original.equals(png));
+  // Wrong-size, metadata-bearing and animated WebP from a processor are refused too.
+  const canonical = await solid(1200, 630, '#336699').webp().toBuffer();
+  for (const output of [await solid(1200, 631, '#336699').webp().toBuffer(), await sharp(canonical).withExif({ IFD0: { Artist: 'x' } }).webp().toBuffer()]) {
+    await runWithImageProcessor(fixed(output), () => rejects(normalizeCoverImage('image/png', b64(png)), 422));
+  }
+  const accepted = await runWithImageProcessor(fixed(canonical), () => normalizeCoverImage('image/png', b64(png)));
+  assert.ok(accepted.webp.equals(canonical)); assert.ok(accepted.original.equals(png));
   await assert.rejects(Promise.resolve().then(() => runWithImageProcessor({} as ImageProcessor, () => 1)), TypeError);
   assert.throws(() => unavailableSharp(), (error: unknown) => error instanceof Problem && error.status === 503);
+});
+
+test('re-uploading an own normalized flat cover is accepted even when re-encoding is byte-identical', async () => {
+  // Real sharp: a flat canonical WebP re-encodes to the same bytes on the first pass,
+  // so output equality does not mean the processor passed the input through.
+  const first = (await normalizeCoverImage('image/png', b64(await solid(1200, 630, '#101827').png().toBuffer()))).webp;
+  const again = await normalizeCoverImage('image/webp', b64(first));
+  assert.ok(again.webp.equals(first), 'fixture reproduces the identical re-encode');
+  assert.deepEqual(inspectCanonicalWebp(again.webp), { width: 1200, height: 630, chunks: ['VP8 '] });
+  // Malformed or non-WebP bytes are still refused.
+  await rejects(normalizeCoverImage('image/webp', b64(first.subarray(0, first.length - 2))), 422, 'invalid_cover_image');
+  await rejects(normalizeCoverImage('image/webp', b64(png)), 422, 'invalid_cover_image');
+});
+
+test('canonical WebP check accepts lossy, alpha and lossless output and refuses metadata, animation and bad containers', async () => {
+  const shape = async (image: ReturnType<typeof sharp>) => inspectCanonicalWebp(await image.toBuffer());
+  assert.deepEqual(await shape(solid(40, 20, 'red').webp()), { width: 40, height: 20, chunks: ['VP8 '] });
+  const alpha = sharp({ create: { width: 30, height: 10, channels: 4, background: { r: 0, g: 255, b: 0, alpha: 0.5 } } });
+  assert.deepEqual(await shape(alpha.clone().webp()), { width: 30, height: 10, chunks: ['VP8X', 'ALPH', 'VP8 '] });
+  assert.deepEqual((await shape(solid(17, 9, 'blue').webp({ lossless: true }))).chunks, ['VP8L']);
+  assert.equal((await shape(alpha.clone().webp({ lossless: true }))).width, 30);
+  const base = await solid(40, 20, 'red').webp().toBuffer(), frames = await Promise.all(['red', 'blue'].map(c => solid(8, 8, c).png().toBuffer()));
+  const alphaBytes = await alpha.clone().webp().toBuffer();
+  const bad: [string, Buffer][] = [
+    ['exif', await sharp(base).withExif({ IFD0: { Artist: 'synthetic' } }).webp().toBuffer()],
+    ['icc', await sharp(base).withIccProfile('p3').webp().toBuffer()],
+    ['animated', await sharp(frames, { join: { animated: true } }).webp({ loop: 0, delay: [100, 100] }).toBuffer()],
+    ['truncated', base.subarray(0, base.length - 1)],
+    ['trailing', Buffer.concat([base, Buffer.alloc(2)])],
+    ['riff size', (() => { const out = Buffer.concat([base, Buffer.alloc(8)]); out.writeUInt32LE(out.length - 8, 4); return out; })()],
+    ['unknown chunk', (() => { const extra = Buffer.from('JUNK\x02\0\0\0ab', 'latin1'), out = Buffer.concat([base, extra]); out.writeUInt32LE(out.length - 8, 4); return out; })()],
+    ['second bitstream', (() => { const out = Buffer.concat([base, base.subarray(12)]); out.writeUInt32LE(out.length - 8, 4); return out; })()],
+    ['canvas mismatch', (() => { const out = Buffer.from(alphaBytes); out[24] ^= 1; return out; })()],
+    ['png', png],
+  ];
+  for (const [name, bytes] of bad) assert.throws(() => inspectCanonicalWebp(bytes), /non-canonical WebP/, name);
 });
 
 test('processors get a frozen spec and a private copy of the input bytes', async () => {
@@ -205,4 +247,20 @@ test('concurrent avatar requests each use only their own processor; fail-closed 
   assert.equal((await runWithImageProcessor(fixed(png), () => upload(closedUser, png))).status, 422);
   assert.equal((await runWithImageProcessor(fixed(riff(131073)), () => upload(closedUser, png))).status, 422);
   assert.equal(await stored(closedUser.userId), null);
+});
+
+test('re-uploading an own normalized flat avatar through the Node route is accepted', async () => {
+  const session = await login(DEMO_USERS[0].email);
+  const flat = await solid(256, 256, '#336699').png().toBuffer();
+  assert.equal((await upload(session, flat)).status, 200);
+  const first = (await stored(session.userId))!;
+  const second = await app.request(origin + '/api/v1/me/avatar', { method: 'POST', headers: { Origin: origin, Cookie: session.cookie, 'X-CSRF-Token': session.csrf, 'Content-Type': 'image/webp', 'Idempotency-Key': randomUUID(), 'If-Match': '"2"' }, body: new Uint8Array(first) });
+  assert.equal(second.status, 200, await second.text());
+  const again = (await stored(session.userId))!;
+  assert.ok(again.equals(first), 'real sharp re-encode of the canonical flat avatar is byte-identical');
+  assert.deepEqual(inspectCanonicalWebp(again), { width: 256, height: 256, chunks: ['VP8 '] });
+  // A raw non-image WebP label and a truncated copy are still refused without a write.
+  const refused = await app.request(origin + '/api/v1/me/avatar', { method: 'POST', headers: { Origin: origin, Cookie: session.cookie, 'X-CSRF-Token': session.csrf, 'Content-Type': 'image/webp', 'Idempotency-Key': randomUUID(), 'If-Match': '"3"' }, body: new Uint8Array(first.subarray(0, first.length - 2)) });
+  assert.equal(refused.status, 422);
+  assert.ok((await stored(session.userId))!.equals(first));
 });

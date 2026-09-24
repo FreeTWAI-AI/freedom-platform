@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { Problem } from './problem.js';
 import { nodeImageProcessor } from './image-node.js';
+import { assertCanonicalWebp } from './image-webp.js';
 
 export type RasterFormat = 'png' | 'jpeg' | 'webp';
 export interface ImageOutputSpec {
@@ -41,13 +42,13 @@ export function createUnavailableImageProcessor(): ImageProcessor {
   return Object.freeze({ name: 'unavailable', normalize: async () => { throw imageProcessingUnavailable(); } });
 }
 
-const isWebp = (bytes: Buffer) => bytes.length >= 16 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP'
-  && bytes.readUInt32LE(4) + 8 === bytes.length;
-
 export async function normalizeImage(bytes: Buffer, spec: ImageNormalizeSpec): Promise<Buffer> {
   const frozen: ImageNormalizeSpec = Object.freeze({ ...spec, output: Object.freeze({ ...spec.output }) });
   // The processor gets its own copy so it cannot alter bytes the caller digests.
   const output = await currentImageProcessor().normalize(Buffer.from(bytes), frozen);
-  if (!Buffer.isBuffer(output) || !isWebp(output) || output.equals(bytes)) throw new Error('image processor returned non-canonical output');
+  if (!Buffer.isBuffer(output)) throw new Error('image processor returned non-canonical output');
+  // Deliberately no output-equals-input check: re-encoding an already canonical
+  // flat image can be byte-identical. The container check is the guarantee.
+  assertCanonicalWebp(output, frozen.output.width, frozen.output.height);
   return output;
 }
