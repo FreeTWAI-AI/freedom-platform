@@ -2544,8 +2544,8 @@
     },
     {
       "path": "packages/skill-upload-client/SKILL.md",
-      "bytes": 3862,
-      "sha256": "b8ca5859d421d5aca2243f2a7db59cd02e1c0db08c7106711ddc2d572a1ff98d"
+      "bytes": 4110,
+      "sha256": "ea1444dea13e9ea34bbe1af5b18c2c2a6906d29de4c43dd09801409697db5f84"
     },
     {
       "path": "packages/skill-upload-client/bin/freedom-skill-upload.mjs",
@@ -2559,8 +2559,8 @@
     },
     {
       "path": "packages/skill-upload-client/protocol.md",
-      "bytes": 4203,
-      "sha256": "0c2d4238596f4aa870f2627b57608124d5d38f51f6f81c78b48d3eb1506984f2"
+      "bytes": 4293,
+      "sha256": "a67029c52297451604723231e9de9b50d5f1ed5747e3e110b0d5daa27d5b516c"
     },
     {
       "path": "packages/skill-upload-client/test/cli.test.mjs",

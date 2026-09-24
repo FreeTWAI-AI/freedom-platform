@@ -9,7 +9,7 @@ description: 把一個真實的公開 GitHub 技能 repo 整理成自由工坊�
 
 ## 開始前
 
-1. 確認會員已用 `freedom-skill-upload init --origin https://freetwai.com --key-stdin` 設定好上傳金鑰（`freedom-skill-upload config` 會顯示 `keyConfigured: true`）。
+1. 先選會員提供的方式。**一次性私人指令**：直接以 HTTP POST 把 JSON 送到指令內指定的 `submit_url`，使用其 Bearer 憑證；不需要安裝工具、建立長期金鑰或讀取瀏覽器。**已安裝的長期客戶端**：會員先用 `freedom-skill-upload init --origin https://freetwai.com --key-stdin` 設定好投稿金鑰；之後以 `freedom-skill-upload config` 確認 `keyConfigured: true`。
 2. 持久金鑰由會員事先設定，不要讀出或要求貼出設定檔。若會員提供私人一次性指令，可使用其中只授權指定草稿的 `fpg_` 憑證；透過 stdin 或環境變數交給工具，不能放在命令列參數、輸出、repo 或分享文字。若憑證已出現在公開對話、截圖或日誌，提醒會員撤銷並重新建立。
 3. 只使用會員真實擁有、維護、貢獻或推薦的 **公開** GitHub repo。
 
