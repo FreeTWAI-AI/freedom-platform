@@ -116,7 +116,16 @@ test('skill shelf issues a private scoped Agent instruction only on request and 
   expect(clipboard).not.toMatch(/^cookie:/im);
   await expectNoStoredSecret(page, GRANT);
 
+  await dialog.evaluate((element, secret) => {
+    const native = element as HTMLDialogElement, originalClose = native.close;
+    native.close = function (...args) {
+      native.dataset.secretPresentAtClose = String(native.outerHTML.includes(secret) || native.querySelector('textarea[data-private]') !== null);
+      native.close = originalClose;
+      return originalClose.apply(native, args);
+    };
+  }, GRANT);
   await page.keyboard.press('Escape');
+  expect(await page.locator('.skill-upload-dialog').getAttribute('data-secret-present-at-close')).toBe('false');
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
   expect(await page.content()).not.toContain(GRANT);
@@ -126,6 +135,42 @@ test('skill shelf issues a private scoped Agent instruction only on request and 
   await expect(trigger).toBeFocused();
   await expectNoStoredSecret(page, GRANT);
   expect(logs.join('\n')).not.toContain(GRANT);
+});
+
+test('close button clears secret DOM before native close and its queued event preserves an immediate reopen', async ({ page }) => {
+  await mockUploads(page);
+  await login(page); await navigate(page, '技能書架');
+  await page.getByRole('button', { name: '上傳技能', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
+  await dialog.getByRole('button', { name: '產生私人上傳指令', exact: true }).click();
+  await expect(dialog.getByLabel('私人上傳指令', { exact: true })).toHaveValue(new RegExp(GRANT));
+
+  const result = await page.evaluate(async secret => {
+    const native = document.querySelector<HTMLDialogElement>('.skill-upload-dialog')!;
+    const trigger = document.querySelector<HTMLButtonElement>('.skill-upload-trigger')!;
+    const originalClose = native.close;
+    let secretPresentAtClose = true;
+    const queuedClose = new Promise<void>(resolve => native.addEventListener('close', () => resolve(), { once: true }));
+    native.close = function (...args) {
+      secretPresentAtClose = native.outerHTML.includes(secret) || native.querySelector('textarea[data-private]') !== null;
+      native.close = originalClose;
+      return originalClose.apply(native, args);
+    };
+    native.querySelector<HTMLButtonElement>('[aria-label="關閉上傳技能"]')!.click();
+    const closedImmediately = !native.open && document.activeElement === trigger;
+    trigger.click();
+    const reopenedImmediately = native.open;
+    await queuedClose;
+    return {
+      secretPresentAtClose, closedImmediately, reopenedImmediately,
+      stillOpen: native.open,
+      secretPresentAfterReopen: native.outerHTML.includes(secret) || native.querySelector('textarea[data-private]') !== null,
+    };
+  }, GRANT);
+  expect(result).toEqual({ secretPresentAtClose: false, closedImmediately: true, reopenedImmediately: true, stillOpen: true, secretPresentAfterReopen: false });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: '產生私人上傳指令', exact: true }).click();
+  await expect(dialog.getByLabel('私人上傳指令', { exact: true })).toHaveValue(new RegExp(GRANT));
 });
 
 test('replayed, expired and off-origin grants never display a token and offer a replacement grant', async ({ page }) => {

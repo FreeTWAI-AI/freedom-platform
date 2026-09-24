@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { requireItems, type PortalClient } from '../api';
 import { formatIsoLocal } from '../format';
 import { useModuleMutation } from './shared';
@@ -136,7 +137,6 @@ export function SkillUpload({ client, onPublished }: { client: PortalClient; onP
 
   useEffect(() => {
     if (!open) return;
-    if (!dialog.current?.open) dialog.current?.showModal();
     void refresh(); void refreshKeys();
   }, [open, refresh, refreshKeys]);
   // Drop an expired one-time grant instead of leaving a dead credential on screen.
@@ -146,15 +146,25 @@ export function SkillUpload({ client, onPublished }: { client: PortalClient; onP
     return () => window.clearInterval(timer);
   }, [secret]);
 
-  // Secrets live only in this component's state and are discarded whenever the dialog closes.
+  // Remove secret DOM before native close() hides the dialog and queues its close event.
   function closed() {
     dialogSession.current += 1; dialogActive.current = false;
-    setSecret(null); setIssuedKey(null); setIssue(null); setNotice(null); setPreview(null); setPreviewError(null);
-    setOpen(false); trigger.current?.focus();
+    flushSync(() => {
+      setSecret(null); setIssuedKey(null); setIssue(null); setNotice(null); setPreview(null); setPreviewError(null);
+      setOpen(false);
+    });
   }
-  function show() { dialogSession.current += 1; dialogActive.current = true; setOpen(true); }
+  function show() {
+    dialogSession.current += 1; dialogActive.current = true;
+    flushSync(() => setOpen(true));
+    if (!dialog.current?.open) dialog.current?.showModal();
+  }
   function sessionActive(session: number) { return dialogActive.current && dialog.current?.open === true && dialogSession.current === session; }
-  function close() { if (dialog.current?.open) dialog.current.close(); else closed(); }
+  function close() {
+    closed();
+    if (dialog.current?.open) dialog.current.close();
+    trigger.current?.focus();
+  }
   function acceptGrant(result: GrantResult | undefined) {
     if (!result) return;
     setItems(current => [result.submission, ...current.filter(item => item.submission_id !== result.submission.submission_id)]);
@@ -211,7 +221,10 @@ export function SkillUpload({ client, onPublished }: { client: PortalClient; onP
   const instruction = secret ? agentInstruction(window.location.origin, secret) : '';
   return <>
     <button ref={trigger} type="button" className="btn btn-primary skill-upload-trigger" aria-haspopup="dialog" onClick={show}>上傳技能</button>
-    <dialog ref={dialog} className="skill-upload-dialog" aria-labelledby={titleId} onCancel={event => { if (event.target === event.currentTarget) { event.preventDefault(); close(); } }} onClose={event => { if (event.target === event.currentTarget) closed(); }}>
+    <dialog ref={dialog} className="skill-upload-dialog" aria-labelledby={titleId} onCancel={event => { if (event.target === event.currentTarget) { event.preventDefault(); close(); } }} onClose={event => {
+      // Explicit closes already cleared state; a queued old event must not close a reopened dialog.
+      if (event.target === event.currentTarget && !event.currentTarget.open && dialogActive.current) close();
+    }}>
       {open && <div className="stack">
         <header className="skill-upload-header"><div><p className="eyebrow">自由工坊 · 技能上傳</p><h2 id={titleId}>上傳技能</h2></div><button type="button" className="btn btn-ghost" onClick={close} aria-label="關閉上傳技能">關閉</button></header>
 

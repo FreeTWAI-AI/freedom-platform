@@ -424,8 +424,8 @@
     },
     {
       "path": "apps/portal-web/public/downloads/freedom-skill-client.tgz",
-      "bytes": 11015,
-      "sha256": "7704974f4e5c0c5b675cf5f01235b5995d5336718e5a9f1d0efda8aa4f0a2751"
+      "bytes": 11177,
+      "sha256": "8ea0f8826156a0f8b0c702659686c663372c59414203192019df38fc1fec8137"
     },
     {
       "path": "apps/portal-web/src/App.tsx",
@@ -709,8 +709,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SkillUpload.tsx",
-      "bytes": 22093,
-      "sha256": "08f99bc0f56a0f9d82810dd1f07fae175e8008ad64a2f25a4fca7b35187939ef"
+      "bytes": 22360,
+      "sha256": "dbf11d52aea0bb85562998a4d61908e5583c8761044edf6322c457be94619728"
     },
     {
       "path": "apps/portal-web/src/modules/SkillsPanel.tsx",
@@ -2784,8 +2784,8 @@
     },
     {
       "path": "tests/e2e/skill-upload.spec.ts",
-      "bytes": 19989,
-      "sha256": "3db6d4b4a9c19ea04b0b7a2599a7559a26475e3da7be4d9f67d1d8e12f767ce8"
+      "bytes": 22706,
+      "sha256": "e2a7012babceb0857dbeb825059cd1cbd9b629426a7e9bc30a67a731ffdb96bb"
     },
     {
       "path": "tests/e2e/social-links.spec.ts",
