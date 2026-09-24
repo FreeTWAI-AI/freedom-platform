@@ -6,6 +6,7 @@ import {requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {grantGuildBooks,lockMemberGuilds} from '../positioning/onboarding.js';
 import {adminCommand,audit,type AdminActor,type AdminCommand} from './service.js';
+import {notifyGuildMasterChange} from '../member-communications/events.js';
 
 export async function nominatedGuildAppointments(pool:Pool,admin:AdminActor){
   return (await pool.query(`SELECT n.guild_key,g.name,n.state,n.bound_user_id FROM guild_leadership_nominations n
@@ -37,7 +38,10 @@ export async function linkNominatedMember(pool:Pool,input:AdminCommand,member:Ac
         await journal(q,member,'profession_membership',membership.membership_id,membership.aggregate_version,'join_guild',{guild_key:key,state:'active',rank:membership.rank},'freedom.organization.profession_membership.updated.v1');
       }
       await grantGuildBooks(q,member,key);
-      if(!officer)await q.query('INSERT INTO positioning_guild_officers(community_id,guild_key,user_id) VALUES($1,$2,$3)',[member.community_id,key,member.user_id]);
+      if(!officer){
+        const appointed=(await q.query('INSERT INTO positioning_guild_officers(community_id,guild_key,user_id) VALUES($1,$2,$3) RETURNING guild_key,user_id,aggregate_version',[member.community_id,key,member.user_id])).rows[0];
+        await notifyGuildMasterChange(q,member.community_id,null,appointed);
+      }
       await q.query("UPDATE guild_leadership_nominations SET state='bound',bound_user_id=$3,activated_at=now() WHERE community_id=$1 AND guild_key=$2",[member.community_id,key,member.user_id]);
       await audit(q,input.admin,'accept_nominated_guild_master','guild',key,'本人通過信箱驗證並登入同信箱會員，確認平台負責人的公會長任命。',{state:'pending'},{state:'bound',user_id:member.user_id});
       activated.push({guild_key:key,name:nomination.name});

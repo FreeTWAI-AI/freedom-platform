@@ -4,6 +4,7 @@ import {checkVersion} from '../../packages/db/index.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import {adminCommand,audit,type AdminCommand} from './service.js';
 import {authorizeGuildAppointee,ensureGuildAppointeeMembership} from './guild-appointment-membership.js';
+import {notifyGuildExpertChange} from '../member-communications/events.js';
 
 const ExpertInput=z.object({user_id:z.uuid(),active:z.boolean(),reason:z.string().trim().min(3).max(1000)}).strict();
 export async function setGuildExpert(pool:Pool,input:AdminCommand,key:string){
@@ -35,6 +36,8 @@ export async function setGuildExpert(pool:Pool,input:AdminCommand,key:string){
     SET active=$4,appointed_by=$5,appointed_at=now(),aggregate_version=positioning_guild_experts.aggregate_version+1
     RETURNING guild_key,user_id,active,aggregate_version`,[input.admin.community_id,key,body.user_id,body.active,input.admin.admin_id])).rows[0];
    const result={...row,aggregate_version:Number(row.aggregate_version),membership_joined:membership?.membership_joined??false};
+   // Rewriting the same state still bumps the version; only real changes notify.
+   if(Boolean(prior?.active)!==row.active)await notifyGuildExpertChange(q,input.admin.community_id,row);
    await audit(q,input.admin,body.active?'appoint_guild_expert':'remove_guild_expert','guild',key,body.reason,
     prior?{user_id:prior.user_id,active:prior.active,aggregate_version:Number(prior.aggregate_version)}:null,result);
    return result;

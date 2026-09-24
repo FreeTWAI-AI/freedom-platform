@@ -8,6 +8,7 @@ import { memberPositioningSummary } from '../positioning/onboarding.js';
 import {guildTitles} from '../positioning/assessment.js';
 import {capabilityCategories} from '../community/catalog.js';
 import { avatarMetadata, avatarUrl } from './avatars.js';
+import { notifyFriendshipChange } from '../member-communications/events.js';
 
 const audienceKeys=['public','friends','squad','guild'] as const;
 type Audience=typeof audienceKeys[number];
@@ -179,6 +180,7 @@ export async function changeFriendship(pool:Pool,input:Command,id:string,action:
     const state=action==='request'?'pending':action==='accept'?'accepted':'removed';
     const result=(await q.query(`INSERT INTO member_friendships(community_id,low_ref,high_ref,requester_ref,state) VALUES($1,$2,$3,$4,$5)
       ON CONFLICT(community_id,low_ref,high_ref) DO UPDATE SET state=$5,requester_ref=CASE WHEN $5='pending' THEN $4 ELSE member_friendships.requester_ref END,aggregate_version=member_friendships.aggregate_version+1,updated_at=now() RETURNING *`,[input.actor.community_id,low,high,input.actor.user_id,state])).rows[0];
+    await notifyFriendshipChange(q,input.actor.community_id,input.actor.user_id,row,result);
     return result;
   });
 }

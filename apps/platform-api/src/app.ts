@@ -36,6 +36,7 @@ import {createGuildWorkspaceRoutes} from './routes/guild-workspace.js';
 import {onboardingDiagnostics} from './onboarding-diagnostics.js';
 import {createSkillSubmissionRoutes,createAgentSkillSubmissionRoutes,isAgentSkillUploadPath} from './routes/skill-submissions.js';
 import {createPublishedSkillRoutes} from './routes/published-skills.js';
+import {createMemberCommunicationRoutes} from './routes/member-communications.js';
 
 const COOKIE='freedom_local_session';
 function authNetwork(c:Context) {
@@ -178,6 +179,7 @@ export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:Fr
   }
   app.post('/api/v1/engagements/:id/receipts',async c=>respond(c,await changeEngagement(pool,await cmd(c),routeId(c),'receipt'),201));
   app.route('/api/v1',createMemberRoutes(pool));
+  app.route('/api/v1',createMemberCommunicationRoutes(pool));
   app.route('/api/v1',createGitHubSocialRoutes(loadSocial));
   app.route('/api/v1',createDevelopmentAccessRoutes(pool,loadSocial));
   app.route('/api/v1',createGuildWorkspaceRoutes(pool));

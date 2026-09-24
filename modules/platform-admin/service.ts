@@ -5,6 +5,7 @@ import {transaction,digest,checkVersion} from '../../packages/db/index.js';
 import {communityCatalog} from '../community/catalog.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import {authorizeGuildAppointee,ensureGuildAppointeeMembership} from './guild-appointment-membership.js';
+import {notifyGuildApplicationReview,notifyGuildMasterChange} from '../member-communications/events.js';
 
 export type VerifiedAdminIdentity={email:string;subject:string;csrfToken:string};
 export type AdminActor={admin_id:string;community_id:string;email:string;display_name:string;role:'super_admin';subject:string};
@@ -94,6 +95,7 @@ export async function reviewGuildApplication(pool:Pool,input:AdminCommand,id:str
       for(const bookId of body.guild!.skill_book_ids)await q.query('INSERT INTO guild_skill_book_bindings(community_id,guild_key,book_id) VALUES($1,$2,$3)',[input.admin.community_id,guildKey,bookId]);
     }
     const updated=(await q.query(`UPDATE guild_creation_applications SET state=$2,aggregate_version=aggregate_version+1,reviewed_by=$3,reviewed_at=now(),review_reason=$4,approved_guild_key=$5 WHERE application_id=$1 RETURNING *`,[id,body.decision==='approve'?'approved':'declined',input.admin.admin_id,body.reason,guildKey])).rows[0];
+    await notifyGuildApplicationReview(q,updated);
     await audit(q,input.admin,'guild_application_review','guild_application',id,body.reason,{state:previous.state,aggregate_version:previous.aggregate_version},{state:updated.state,aggregate_version:updated.aggregate_version,guild_key:guildKey,guild:body.guild??null});return updated;
   });
 }
@@ -146,6 +148,7 @@ export async function appointGuildMaster(pool:Pool,input:AdminCommand,key:string
     if(prior)checkVersion(prior.aggregate_version,input.expected);else requireCondition(!input.expected,412,'version_conflict','公會長資料已變更，請重新整理。');
     const membership=await ensureGuildAppointeeMembership(q,input.admin,body.user_id,key,body.reason);
     const row=(await q.query(`INSERT INTO positioning_guild_officers(community_id,guild_key,user_id) VALUES($1,$2,$3) ON CONFLICT(community_id,guild_key) DO UPDATE SET user_id=$3,appointed_at=now(),aggregate_version=nextval('positioning_guild_officer_revision') RETURNING *`,[input.admin.community_id,key,body.user_id])).rows[0];
+    await notifyGuildMasterChange(q,input.admin.community_id,prior?.user_id??null,row);
     await audit(q,input.admin,'appoint_guild_master','guild',key,body.reason,prior?{user_id:prior.user_id,aggregate_version:prior.aggregate_version}:null,{user_id:row.user_id,aggregate_version:row.aggregate_version,membership_joined:membership.membership_joined});return {...row,membership_joined:membership.membership_joined};
   });
 }
