@@ -15,7 +15,9 @@
 
 ## 使用者結果與明確不包含
 
-本人能確認想投入的 profession/work/capacity 並裝備 Skill，Agent Feed 有可解釋 basis。不包含定位強制、equipped＝installed/qualified 或 organization 借用個人私密 WorkIntent。
+本人能確認想投入的 profession/work/capacity 並裝備 Skill，Agent Feed 有可解釋 basis。2026-09-23 起新註冊會員須先完成一次封閉定位並選主要公會；定位結果仍不自動成為 confirmed WorkIntent、rank 或 entitlement。不包含以 WorkIntent 作為入會或一般參與門檻、equipped＝installed/qualified，或 organization 借用個人私密 WorkIntent。
+
+2026-09-24 beta 對應：已實作必填定位、主要／次要公會與入會領書（`modules/positioning/`、`migrations/006`／`027`）；尚無 WorkIntent revision、EquippedSkillSet 或 Agent Feed basis。舊會員 `onboarding_required=false`，不追溯。
 
 ## Actor／principal／acting role／資源範圍
 
@@ -35,7 +37,7 @@ WorkIntent、ProfessionMembership、EquippedSkillSet、availability、work_direc
 
 ## 版本與獨立驗收
 
-每次修改新 revision；Feed item保存 basis ref/reason。獨立 reviewer 驗 personal/org separation與skip positioning path。
+每次修改新 revision；Feed item保存 basis ref/reason。獨立 reviewer 驗 personal/org separation、新會員必填定位 gate，以及舊會員未定位時的 WorkIntent path。
 
 ## 冪等／業務唯一鍵／並發／fencing／lease／時間
 
@@ -59,7 +61,9 @@ Legacy preference 可成 draft/source evidence，不自動 active；rollback 是
 
 ## Given–When–Then
 
-- Given member跳過定位；When self-confirm intent；Then可取得一般 low-risk Feed。
+- Given 新會員未完成定位；When 呼叫定位與入會以外的寫入；Then 403 `onboarding_required`，完成定位與主要公會後可繼續。
+- Given 舊會員（`onboarding_required=false`）未定位；When self-confirm intent；Then可取得一般 low-risk Feed。
+- Given 已完成定位；When 未確認 WorkIntent；Then 定位結果不被當成 confirmed intent。
 - Given equipped package；When installation不存在；Then不冒充 verified installation。
 - Given org bundle 缺 named operator；When request；Then拒絕且不帶個人 intent。
 

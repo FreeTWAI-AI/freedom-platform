@@ -4,6 +4,8 @@
 
 本文完整產品／營運驗收尚未完成；文中的流程、標籤與驗收項目是目標契約，不因描述存在就代表正式服務已存在。2026-09-20 的本機工作／合作流程與實跑測試，另見[版本紀錄](../releases/2026-09-20-local-core.md)；真人與正式環境驗收仍待取得證據。
 
+2026-09-24 適用範圍：公開站與 staging 的會員 beta（`8338a42`）只實作本文子集，包括新人必填定位、15 公會／37 技能書、公會範圍開發提案 grant 與本人 Star；逐項對照見[身分與計畫對齊稽核](../development/audit-2026-09-24-identity-plan.md)。
+
 本文件對外用語與 canonical entity 的固定對照如下；介面暱稱不得改變授權語意：
 
 | 對外用語 | Canonical entity／判定 |
@@ -76,6 +78,8 @@ Guild 是專業連結，不要求成員只能做一種工作。例如 AI Develop
 每個Guild使用versioned`EntityPlaybookVersion`與per-instance readiness，逐項都帶`enforcement=navigation|action_gate`。預設`navigation`：缺項顯示完整形狀、可一鍵依stable item ID建立可認領WorkItem，不阻擋Guild active或任何人自助加入。Private Discord channel是完整度slot，交給Community Ops／Guild delegates補；現行profession頻道仍可為`public_community`，沒有private channel也可在Portal學習、討論、提交與認領。現行一般會員若要新職業線，在Guild目錄建立Board WorkItem；Guild create/update由Board或delegated Community Ops command處理。
 
 加入既有Guild只有self-service Runner路徑：本人以stable profession key確認後直接得到`ProfessionMembership(rank=runner)`，沒有`applied`、`pending_master`或admission approval。這同時觸發歡迎儀式與Strategist／delegate Feed卡；卡是通知與協助，Master不簽、不回或略過都不影響新人。
+
+公會貢獻範圍只在會期間有效：現行 beta 以適用公會資格、GitHub provider 驗證的 user ID 與目標 repo 核對，發出限目標的私人開發提案 grant；離開最後一個適用公會、停權或解除 GitHub 連結即撤銷 grant 與衍生 key。自填 slug、作者署名或公會職稱不授權。原作署名、版本與授權、既有 PR／成果、已領書目，以及公開介紹、公開 repo 與 fork／PR 途徑不因離會鎖住或改寫。見[公會開發資格](../development/guild-development-access.md)。
 
 ### 3.2 Squad：因一個成果而組成
 
@@ -204,11 +208,11 @@ Repo / SkillPackage Candidate
 
 ## 6. 定位、Guild 教學與陪跑
 
-定位是導航，不是人格判決或入會審查。會員可以：
+定位是導航，不是人格判決或入會審查。自 2026-09-23 起，新註冊會員須先完成一次封閉定位並選一個主要公會（同時領該公會技能書），才使用其他會員功能；舊會員不追溯。這一步沒有人工核准，也不以貢獻、收入或 QC 為門檻。完成後會員可以：
 
-1. 直接選擇想加入的 profession／Guild。
-2. 使用 deterministic 快速評估取得 archetype 建議。
-3. 使用 AI guided discovery 把 `user_words`、`unknowns`、`first_evidence`、`falsifier` 與 fallback 整理成 `PositioningDraft`。
+1. 直接加入其他 profession／Guild，或調整主要與次要公會。
+2. 從「重新探索定位」以 deterministic 評估取得新的 archetype 建議。
+3. （未實作）使用 AI guided discovery 把 `user_words`、`unknowns`、`first_evidence`、`falsifier` 與 fallback 整理成 `PositioningDraft`。
 
 只有使用者確認後才形成 `CareerProfile`／`WorkIntent`；AI draft 不授予 rank、Entitlement、付費 enrollment 或工作代表權。Strategy mode 是工作方式建議，不另外發明一條職業。
 
@@ -345,7 +349,7 @@ Freedom Platform 自己是第一個 Project：本規格拆 WorkItem／GitHub Iss
 
 ```mermaid
 flowchart LR
-  A[定位或自選 Guild] --> B[SkillPackage / Discord 讀書會]
+  A[必填定位＋主要 Guild，之後自選其他 Guild] --> B[SkillPackage / Discord 讀書會]
   B --> C[WorkItem + agent 協作]
   C --> D[artifact / PR / field evidence]
   D --> E[review + accepted Result]
@@ -440,6 +444,8 @@ Entitlement 只回答「API 現在准許做什麼」，不代表人的價值。L
 
 銀行、公司、證照或 payment 資料只在啟用相應商業功能時漸進收集，不放在學習入口。必要的技術完整性檢查只拒絕當次不成立的命令，回傳可修正原因。
 
+2026-09-24 beta 對照：新會員未完成定位前，API 拒絕一般寫入；這是帳號層 gate，上表 canonical 條件未改，是否寫入 catalog 待 root 決定。`skill.submit` 對應一般候選草稿與投稿 key（`skill:submit`），不需特定公會。公會範圍的私人開發提案 key（`development:propose`）另依 §3.1 的公會與 GitHub 資格發放，兩者不可互用，也不是原作寫入權。
+
 以上八個 key 與 `contracts/entitlement-catalog.example.yaml` 是同一 canonical contract 的兩個投影，含 `store.deploy`；名稱與取得條件不得各自演進。任何 rules ack、WorkIntent、starter 進度、stuck、skip、connector 缺失或 navigation readiness 不得隱式加入 acquisition conditions。
 
 `qc.review:<scope>` 的唯一取得路徑是該自然人持有同 scope、尚未到 `review_by` 且未撤回的 `ReviewerAppointment`；熟悉度、rank、Master 身分或 XP 只能出現在候選建議／顯示，不得作為 `ReviewerAppointment` command 的規則輸入、grant condition 或任命成立條件。任命只檢查 OD-10 appointer、exact scope、`review_by` 與自然人 identity；reviewer 是否獨立另由 label evaluator 判定，只影響 `official`。XP 本身也不是 `EntitlementSnapshot` 的欄位或規則輸入。
@@ -457,6 +463,8 @@ Entitlement 只回答「API 現在准許做什麼」，不代表人的價值。L
 | 對外推廣 | 各 channel | campaign、publication job、attribution 與結果摘要 | 不假裝控制第三方演算法 |
 
 GitHub 的本人評價遵守「本人決定、授權明示、本人 AgentConnection 執行」三項同時成立：只有 grant 精確包含 `github.star`，且可由本人撤回時，Agent 才可代表本人建立或撤回真實評價。平台觸發、批量、獎勵導向，或以 XP 誘導的 star／follow／like 一律禁止；star 不進任何 XP track，也不影響 entitlement、rank 或 reviewer appointment。
+
+2026-09-24 現況：會員以本人 GitHub 授權，對明確點選的單一 repo 執行 Star／取消；入會、授權或離會都不批量變更。使用者提出「先 Star 再推廣／領書」，目前未實作為 gate，屬待決策，見[公會開發資格](../development/guild-development-access.md#新會員-github-連結與-star-授權)。
 
 ## 14. 能管理一萬人的輕量治理
 

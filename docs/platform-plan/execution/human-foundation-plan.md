@@ -2,12 +2,15 @@
 
 > 狀態：現行 canonical baseline（2026-09-19 低維運互惠修訂）；planning 文件，不代表已部署。
 
-本文件記錄 Ted 的 O1／Seller lane 與 Hao 的品牌 lane（建議預設，五人共同閱讀確認）；Ted 的 O1 不等待任何人，並一併記錄 AI 自動化動作與建立事實證據。產品模組地圖以 `02 §4.7` 為準，框架決定以 `07 §3` 為準，AI 協定以 `06 §3.3` 為準。外部帳號、採購、資源與連線目前均未建立；產品／營運／真人測試仍待跑。契約 fixture 與本機 scoped runtime milestone 另見 `../verification/2026-09-19-revision-check.md` 與 [`2026-09-20-local-core.md`](../../releases/2026-09-20-local-core.md)。
+本文件記錄 Ted 的 O1／Seller lane 與 Hao 的品牌 lane（建議預設，五人共同閱讀確認）；Ted 的 O1 不等待任何人，並一併記錄 AI 自動化動作與建立事實證據。產品模組地圖以 `02 §4.7` 為準，框架決定以 `07 §3` 為準，AI 協定以 `06 §3.3` 為準。下列 O1／O2 Day 1 項目沒有 evidence index，均維持未建立；產品／營運／真人測試仍待跑。契約 fixture 與本機 scoped runtime milestone 另見 `../verification/2026-09-19-revision-check.md` 與 [`2026-09-20-local-core.md`](../../releases/2026-09-20-local-core.md)。
 
 ### 2026-09-19 運作範圍修訂
 
 56 packages及M00–M09技術membership保留；FW-13–FW-15是既有package的工作卡增量。全形狀建置／帳號／sandbox不等於四線同步營運。首批兩條平行驗證路徑：有限互助，以及自願作品展示／外展／商機／合作／外部實收證據；詳見 `../12-low-ops-mutual-benefit.md`。資源與容量只約束已承諾的真人服務，不阻擋一般參與或外展。產品／營運／真人測試仍待跑；不宣稱完整 package 或 milestone 完成，也不登錄通過數、具名 reviewer 成功、部署或真人使用證據。
 
+### 2026-09-24 會員 beta 與 Day 1 的區別
+
+已運行的是範圍較小的會員 beta：`freedom-platform` repo、公開站與 staging 部署 `8338a42`、各環境獨立 PostgreSQL、Cloudflare Tunnel／staging Access，以及只含 metadata／starring 權限的 GitHub App（見[公開站手冊](../../development/public-operations.md)、[身分稽核](../../development/audit-2026-09-24-identity-plan.md)）。這些不是本表的 GHEC、9 repos、managed PostgreSQL＋HA／PITR、KMS／HSM、Queues／R2／Workflows 或 12 runtimes；HF-B／HF-I／HF-C 欄位不因 beta 勾選。
 
 ## 1. 決策拍板欄
 

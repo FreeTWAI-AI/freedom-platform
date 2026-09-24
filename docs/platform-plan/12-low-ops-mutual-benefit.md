@@ -2,7 +2,7 @@
 
 > 修訂：2026-09-19；現行設計，不是已部署或已證明有效的營運模式。
 
-> 2026-09-23 入口覆寫及進度：Ted 後續明示新註冊會員必須完成定位、選公會、領技能書；取代本章「不是新人必填問卷」的舊入口，不新增先貢獻、收入或 QC 門檻。已有公開 Node＋PostgreSQL 會員 beta；本輪補上本人實益回報子集，詳見 [落差盤點](../development/plan-drift-2026-09-23.md)／[回報 API](../development/benefit-observations.md)。完整低維運、跨模組容量、真人互惠及銀行實收仍未因此證明；下文規格與舊本機驗證按其日期解讀。
+> 2026-09-23 入口覆寫及進度：Ted 後續明示新註冊會員必須完成定位、選公會、領技能書；§2 已改寫，不新增先貢獻、收入或 QC 門檻。2026-09-24 公開站與 staging 已部署 `8338a42` 會員 beta（對照見[身分稽核](../development/audit-2026-09-24-identity-plan.md)）；本輪補上本人實益回報子集，詳見 [落差盤點](../development/plan-drift-2026-09-23.md)／[回報 API](../development/benefit-observations.md)。完整低維運、跨模組容量、真人互惠及銀行實收仍未因此證明；下文規格與舊本機驗證按其日期解讀。
 
 ## 1. 目的與邊界
 
@@ -18,7 +18,7 @@ P10 的不阻擋工作，是允許自助、開發、candidate、公開知識、�
 
 與互助平行、互不前置的第一條商業驗證路徑是：**可展示作品／可交付資源 → 自願推廣與找需求 → 合格商機 → 範圍／報價／明示分配 → 交付 → Seller 實收 → 經當事人同意分享案例 → 再次合作。** 沿用既有 Opportunity、WorkItem、ServiceEngagement、allocation 與 reconciliation，不另建帳本或全站抽成。不把曝光、名單或預期分潤當成已付報酬；目前沒有已證明的真實付費成交個案。
 
-Portal 以既有 Now／Next／Gained 呈現「我需要幫助」「我能提供協助」「我們正在一起做」。不使用 Agent、不先貢獻、不買方案，也能提出需求與參與；不用積分決定誰值得被幫助。定位、職業與技能可以改善配對，但不是新人必須完成的問卷。
+Portal 以既有 Now／Next／Gained 呈現「我需要幫助」「我能提供協助」「我們正在一起做」。不使用 Agent、不先貢獻、不買方案，也能提出需求與參與；不用積分決定誰值得被幫助。新會員註冊時須完成一次封閉定位並選主要公會（2026-09-23 起）；這是一次性入口，不是求助或參與的資格審查。之後的職業、技能與重新定位只改善配對。
 
 空的互助入口顯示可用範本、自助資源及目前無人承諾支援，不由 AI 虛構需求、幫助者、受益者、名額或活動熱度。
 
@@ -138,7 +138,7 @@ Finished Goods、額外 Open Products 與其他 Professional Services 保留 eng
 
 `contracts/work-participation.schema.json` 是新條款／實益回報的唯一結構來源；`work-participation.example.yaml` 是合成例子；`operating-policy.example.yaml` 是未啟用的容量與觀察設定範本。OpenAPI、agent work contract、state machine、事件目錄及 acceptance matrix 同步。
 
-契約／fixture 靜態檢查與本機 scoped runtime milestone 另有紀錄，見 `verification/2026-09-19-revision-check.md` 與 [`docs/releases/2026-09-20-local-core.md`](../releases/2026-09-20-local-core.md)；本機 runtime 是 login→claim→submit→accept→gains 的原型，不宣稱完整 package、milestone、部署、真人使用或收款證據。API authorization、並發容量、真正通知、部署、金流與真人試行仍待產品／營運驗證。舊 signed PlanBundle／ContractBundle 不可回寫；新 authoring source 與 consumer 一起發新 immutable release，重新產生 digest／signature，scaffold 不能直接成 production active channel。
+契約／fixture 靜態檢查與本機 scoped runtime milestone 另有紀錄，見 `verification/2026-09-19-revision-check.md` 與 [`docs/releases/2026-09-20-local-core.md`](../releases/2026-09-20-local-core.md)；本機 runtime 是 login→claim→submit→accept→gains 的原型，不宣稱完整 package、milestone、部署、真人使用或收款證據。2026-09-24 已部署的會員 beta 含 participation terms／Claim digest pin、實益與工時回報子集及會員 API 授權；真人支援一律 `promised=false`，尚無本人容量保留、跨模組容量或觀察窗低維運統計。並發容量、真正通知、金流與真人試行仍待產品／營運驗證。舊 signed PlanBundle／ContractBundle 不可回寫；新 authoring source 與 consumer 一起發新 immutable release，重新產生 digest／signature，scaffold 不能直接成 production active channel。
 
 ### 12.1 新增條款的相容性細節
 

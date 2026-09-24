@@ -53,6 +53,10 @@ Portal 分頁顯示 profession rank、office、delegation、review appointment�
 
 委派只轉責任，不降低總人力；core／non-core維持與協調均記入有限預算。Office／ReviewerAppointment只授權，不推定可用時間。普通互助由既有Squad／cohort自願組成、提出共同目標及續組，不新增任務審批或報告會；capacity gap只聚合導航，不自動核心補位。
 
+## 2026-09-24 會員 beta 對應
+
+已實作：自助入會只有 `rank='runner'`（`migrations/002`）；會長提名需本人確認（`014`）、每公會最多三位專家（`026`），專家與會長不因標章取得平台 Access 權限。入會即取得公會範圍的開發提案資格；離開最後一個適用公會時由 `migrations/030` trigger 同交易撤銷 grant 與衍生 key，已領書目、作者署名與既有成果保留。尚未實作：Strategist／Master rank、OfficeAssignment term／handover、ModuleStewardship、ReviewerAppointment。
+
 ## 成本／可觀測性／timeout／retry／reconciliation
 
 觀測 stewardship gap、expired delegation、handover conflict；external role drift 只提示 reconcile，不直接覆寫 canonical。
@@ -66,6 +70,7 @@ Legacy title/rank 分欄匯入並保留 source；無證據標 unknown。錯誤 a
 - Given AI Vibe Master rank 無 office；When governance write；Then拒絕。
 - Given同一人換 Agent/role；When滿足三人或independent review；Then仍只計一個自然人。
 - Givenoffice handover；When commit；Then successor/stewardship revisions原子成立。
+- Given 會員只在一個適用公會；When 離會；Then 該公會衍生的貢獻 grant／key 同交易失效，其他公會資格、已領書目與作者署名保留。
 
 ## 實際測試命令（將來會這樣跑；未跑）
 

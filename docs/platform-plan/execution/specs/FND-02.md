@@ -77,7 +77,7 @@ python -m pytest docs/platform-plan/contracts/tests/test_projection_rebuild.py -
 
 ## 缺 evidence 時的標籤／技術依賴
 
-DB provider／region／HA／PITR未建立；port／schema本地工作照常。`08 §13`的PostgreSQL資源與restore evidence是sandbox／production claim的技術依賴。
+2026-09-24：會員 beta 已在本機、staging、公開站各用獨立 PostgreSQL，套用 `migrations/`（編號至 `033`）；`001` 有 outbox 表。公開 DB 在 Castle 主機，僅每日本機 dump，無異地備份（見 [公開站手冊](../../../development/public-operations.md)）。本 spec 的 inbox、job lease／fencing、projection checkpoint、managed provider／region／HA／PITR 均未建立；port／schema本地工作照常。`08 §13`的PostgreSQL資源與restore evidence是sandbox／production claim的技術依賴。
 
 ## 完成證據
 

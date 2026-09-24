@@ -73,11 +73,11 @@ python -m pytest docs/platform-plan/contracts/tests/test_event_catalog_parity.py
 python -m pytest docs/platform-plan/contracts/tests/test_xp_policy_contract.py -q
 ```
 
-以上命令對應的 repo/tests 尚不存在，**未跑**，沒有結果可報。
+上列三個檔案尚不存在，**未跑**，沒有結果可報。同目錄已有其他靜態檢查（例如 `test_xp_projection_rebuild.py`），由 `npm run test:contracts` 執行，不能替代本 spec 的三項驗收。
 
 ## 缺 evidence 時的標籤／技術依賴
 
-Formal repo／contract source未建立；authoring source依`02 §4.6`搬入implementation repo後才能產生formal bundle。現行fixtures與checks照常。
+2026-09-24：`freedom-platform` implementation repo 已存在，已部署的會員 beta 使用 `contracts/preview/v1/`（`npm run contracts:build` 產生的 preview OpenAPI／schema／client）。它是 beta API 的 preview 契約，不是本 spec 的正式 signed ContractBundle，也未涵蓋全部 `03` vocabulary 與 event catalog。Formal contract source 與 bundle 仍待依 `02 §4.6` 建立；現行 fixtures 與 checks 照常。
 
 ## 完成證據
 
