@@ -34,6 +34,14 @@ export function defaultRunner(bin = PSCALE_BIN) {
   });
 }
 
+export function versionAtLeast(version, min) {
+  const a = /^v?(\d+)\.(\d+)\.(\d+)/.exec(version ?? '');
+  if (!a) return null;
+  const b = min.split('.').map(Number);
+  for (let i = 0; i < 3; i++) if (Number(a[i + 1]) !== b[i]) return Number(a[i + 1]) > b[i];
+  return true;
+}
+
 function parseJson(text) {
   try { return JSON.parse(text); } catch { return null; }
 }
@@ -44,12 +52,14 @@ export async function probePlanetScale({ run = defaultRunner(), manifest, org } 
   const version = await call(['version']);
   if (version.missing) return { ...report, cli: { installed: false }, auth: { status: 'not_run', reason: 'pscale not installed' } };
   report.cli = { installed: true, version: /pscale version (\S+)/.exec(version.stdout)?.[1] ?? 'unknown' };
+  report.cli.meets_cloudflare_billing_minimum = versionAtLeast(report.cli.version, manifest.providers.planetscale.pscale_cli_min_version);
+  if (report.cli.meets_cloudflare_billing_minimum === false) report.findings.push({ severity: 'high', id: 'pscale_too_old', detail: `--cloudflare-billing needs pscale >= ${manifest.providers.planetscale.pscale_cli_min_version}.` });
 
   const auth = await call(['auth', 'check', '--format', 'json']);
   const authBody = parseJson(auth.stdout) ?? parseJson(auth.stderr);
   report.auth = { status: authBody?.authenticated === true ? 'authenticated' : 'unauthenticated', method: authBody?.auth_method ?? null };
   if (report.auth.status !== 'authenticated') {
-    report.findings.push({ severity: 'blocker', id: 'planetscale_login_required', detail: 'Run `pscale auth login --format json` interactively and approve the device code in the browser with the intended PlanetScale account.' });
+    report.findings.push({ severity: 'high', id: 'planetscale_not_authenticated', detail: 'Creating the Cloudflare-billed database needs an authenticated pscale organization (or the Cloudflare dashboard). This tool never logs in; org size availability stays not_run.' });
     return report;
   }
 
@@ -57,7 +67,7 @@ export async function probePlanetScale({ run = defaultRunner(), manifest, org } 
   report.orgs = orgs.map((o) => ({ name: o.name, billing_via_cloudflare: o.billing_provider ? /cloudflare/i.test(o.billing_provider) : 'unknown' }));
   const chosen = org ?? (report.orgs.length === 1 ? report.orgs[0].name : null);
   if (!chosen) {
-    report.findings.push({ severity: 'blocker', id: 'planetscale_org_ambiguous', detail: 'Pass --pscale-org explicitly; the tool does not guess between organizations.' });
+    report.findings.push({ severity: 'high', id: 'planetscale_org_ambiguous', detail: 'Pass --pscale-org explicitly; the tool does not guess between organizations.' });
     return report;
   }
   report.org = chosen;
@@ -70,7 +80,7 @@ export async function probePlanetScale({ run = defaultRunner(), manifest, org } 
 
   const regions = parseJson((await call(['region', 'list', '--format', 'json'])).stdout) ?? [];
   report.regions = regions.map((r) => ({ slug: r.slug, provider: r.provider, enabled: r.enabled, postgres: r.postgresql_enabled ?? r.supports_postgres ?? null }));
-  const preferred = manifest.database_defaults.region_preference;
+  const preferred = manifest.providers.planetscale.region_preference;
   const available = new Set(report.regions.map((r) => r.slug));
   report.region_choice = preferred.map((p) => ({ ...p, listed: available.has(p.pscale_slug) }));
   const slug = preferred.map((p) => p.pscale_slug).find((s) => available.has(s));

@@ -1,21 +1,23 @@
 # deploy/cloudflare
 
-Cloudflare Workers＋Hyperdrive＋PlanetScale Postgres 遷移的 preflight 工具。流程、阻擋與回退見 [遷移手冊](../../docs/development/cloudflare-migration.md)。
+這是 Cloudflare Workers＋Hyperdrive＋PlanetScale Postgres 18（由 Cloudflare 計費）遷移的 preflight 工具。流程、費用、替代方案與回退見 [遷移手冊](../../docs/development/cloudflare-migration.md)。
 
-目前是 preflight 階段：這裡沒有任何會改動 provider、資料庫或既有主機的程式。`freetwai.com`、`staging.freetwai.com`、既有 Tunnel／Access／R2、Castle 上的 systemd units 與資料庫都受保護，見 [environments.json](environments.json) 的 `protected`。
+目前在 preflight 階段，沒有 execute 能力：本目錄沒有任何會改動 provider、資料庫或既有主機的程式，也不會產生 billing signature 或登入 pscale。受保護的對象見 [environments.json](environments.json) 的 `protected`，包括 `freetwai.com`、`staging.freetwai.com`、既有 Tunnel／Access／R2、OCI 上既有的 VM，以及 Castle 上的 systemd units 與資料庫。
 
 | 檔案 | 內容 |
 | --- | --- |
-| [environments.json](environments.json) | `staging-next`／`next` 的名稱、隔離規則、region 偏好與 catalog 價格快照 |
-| [preflight.mjs](preflight.mjs) | CLI：`manifest`、`migrations`、`wrangler`、`cloudflare`、`planetscale`、`plan`、`all` |
-| [lib/](lib/manifest.mjs) | manifest guard、GET-only Cloudflare client、allowlisted pscale runner、migration scanner、redaction |
+| [environments.json](environments.json) | `staging-next`／`next` 的名稱與隔離規則、單一 `HYPERDRIVE`、PS-5 size、catalog snapshot、OCI／D1 替代方案 |
+| [preflight.mjs](preflight.mjs) | CLI：`manifest`、`migrations`、`wrangler`、`cost`、`oci-alternative`、`cloudflare`、`oci`、`planetscale`、`plan`、`all` |
+| [lib/wrangler.mjs](lib/wrangler.mjs) | runtime config checker：分開回報 structural 與 deployment readiness |
+| [lib/credentials.mjs](lib/credentials.mjs) | `CLOUDFLARE_API_TOKEN`／`CLOUDFLARE_ACCOUNT_ID`（接受舊名 `CF_*`，衝突即拒絕） |
+| [lib/](lib/manifest.mjs) | manifest guard、cost、GET-only Cloudflare client、唯讀 pscale／OCI runner、migration scanner、redaction |
 | [sql/](sql/10-create-roles.psql) | 之後階段使用的 role／grant／唯讀驗證 SQL template（本階段未執行） |
-| [test/](test/preflight.test.mjs) | mock provider 的 node:test 測試 |
+| [test/](test/preflight.test.mjs) | 以 mock provider 撰寫的 node:test 測試 |
 
 ```sh
 node --test deploy/cloudflare/test/*.test.mjs
 node deploy/cloudflare/preflight.mjs all
-node deploy/cloudflare/preflight.mjs cloudflare --env-file <chmod 600 file> --report
+node deploy/cloudflare/preflight.mjs wrangler --config <runtime wrangler.jsonc>
 ```
 
-Worker entry、`wrangler` config、`apps/platform-api`、`packages/db` 與套件依賴由其他工作流負責；本目錄只讀取並驗證它們。
+Worker entry、`wrangler.jsonc`、`apps/platform-api`、`packages/db` 與套件依賴由其他工作流負責；本目錄只讀取並驗證它們。

@@ -5,11 +5,13 @@ import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { inspect } from 'node:util';
-import { loadCloudflareCredentials, parseAllowlistedEnv } from '../lib/credentials.mjs';
-import { createReadOnlyClient, probeCloudflare } from '../lib/cloudflare.mjs';
+import { loadCloudflareCredentials, parseAllowlistedEnv, resolveCloudflareKeys } from '../lib/credentials.mjs';
+import { createReadOnlyClient, probeCloudflare, readHyperdriveCaching } from '../lib/cloudflare.mjs';
 import { assertMutationTarget, loadManifest, validateManifest } from '../lib/manifest.mjs';
+import { ociAlternativeCost, planetscaleCost } from '../lib/cost.mjs';
 import { checkMigrations, migrationDigest } from '../lib/migrations.mjs';
-import { assertReadOnlyArgs, probePlanetScale } from '../lib/planetscale.mjs';
+import { assertProfile, assertReadOnlyOciArgs, CHECKS, interpretPgLimits, ociAlternativeStatus, probeOci, tenancyFromConfig } from '../lib/oci.mjs';
+import { assertReadOnlyArgs, probePlanetScale, versionAtLeast } from '../lib/planetscale.mjs';
 import { buildProvisionPlan } from '../lib/provision-plan.mjs';
 import { redactDeep, redactText } from '../lib/redact.mjs';
 import { checkWranglerConfig, parseJsonc } from '../lib/wrangler.mjs';
@@ -68,10 +70,61 @@ function mockCloudflare(overrides = {}) {
   return { fetchImpl, calls };
 }
 
-test('manifest is valid and keeps environments, names and budget segregated', () => {
-  const result = validateManifest(manifest());
-  assert.deepEqual(result.errors, []);
-  assert.ok(result.database_monthly_usd_after_resize_gates <= manifest().database_defaults.monthly_budget_usd.database_base_cap_without_new_approval);
+test('manifest selects Cloudflare-billed PlanetScale PG18, PS-5 sizes, one HYPERDRIVE and no invented cap', () => {
+  const m = manifest();
+  assert.deepEqual(validateManifest(m).errors, []);
+  assert.equal(m.providers.selected, 'planetscale_cloudflare_billed');
+  assert.equal(m.providers.planetscale.billing, 'cloudflare');
+  assert.equal(m.database_defaults.major_version, 18);
+  assert.deepEqual([m.environments['staging-next'].database.size, m.environments['staging-next'].database.topology], ['PS-5', 'single_node']);
+  assert.deepEqual([m.environments.next.database.size, m.environments.next.database.topology], ['PS-5', 'ha']);
+  for (const env of Object.values(m.environments)) {
+    assert.deepEqual(env.hyperdrive, { name: env.hyperdrive.name, binding: 'HYPERDRIVE', caching_disabled: true });
+    assert.ok(env.var_names.includes('FREEDOM_RELEASE_SHA'));
+  }
+  assert.equal(m.budget.authorized_cap_usd_month, null);
+  assert.equal(m.providers.oci.provisioning, false);
+  assert.equal(m.providers.d1.drop_in, false);
+  assert.match(m.providers.planetscale.catalog.meaning, /not_run/);
+  const text = JSON.stringify(m);
+  assert.doesNotMatch(text, /DB_FRESH|DB_CACHED|max_age_seconds|paid_creation_rule/);
+  assert.doesNotMatch(text, /"authorized_cap_usd_month":\s*60/);
+});
+
+test('cost arithmetic: PlanetScale list prices and OCI alternative with E4/A1 connector rates', () => {
+  const ps = planetscaleCost(manifest());
+  assert.equal(ps.environments['staging-next'].usd_month, 5);
+  assert.equal(ps.environments.next.usd_month, 15);
+  assert.equal(ps.total, 25);
+  assert.match(ps.org_size_availability, /not_run/);
+  assert.ok(!('exceeds_user_estimate' in ps) && !('authorized_cap' in ps), 'no spend gate');
+  const e4 = ociAlternativeCost(manifest());
+  // (0.098 + 0.03) × 1 OCPU + 0.002 × 16 GB = 0.16/h × 730
+  assert.equal(e4.db_per_node, 116.8);
+  // E4 B93113 0.025 + B93114 0.0015 = 0.0265/h × 730 = 19.345
+  assert.equal(e4.environments['staging-next'].connector, 19.35);
+  assert.equal(e4.environments.next.db, 233.6);
+  assert.equal(e4.total_lower_bound, 394.1);
+  const a1 = ociAlternativeCost(manifest(), { connectorShape: 'CI.Standard.A1.Flex' });
+  // A1 B93297 0.01 + B93298 0.0015 = 0.0115/h × 730 = 8.395
+  assert.equal(a1.environments.next.connector, 8.4);
+  assert.equal(a1.total_lower_bound, 372.2);
+  for (const x of ['storage', 'backups', 'NAT', 'egress']) assert.ok(e4.excluded.some((e) => e.includes(x)), x);
+  assert.throws(() => ociAlternativeCost(manifest(), { connectorShape: 'CI.Standard.E5.Flex' }), /No connector rate/);
+  assert.equal(e4.provisioning, false);
+});
+
+test('OCI alternative: zero active dbsystem-count blocks despite E5=20; TLS not_run; no provisioning', () => {
+  const st = ociAlternativeStatus(manifest());
+  assert.equal(st.quota.status, 'blocked');
+  assert.match(st.quota.reason, /do not override/);
+  assert.deepEqual(st.profiles_checked, ['oracle1', 'oracle2']);
+  assert.match(st.profiles.oracle2, /compare-only/);
+  assert.equal(st.tls.status, 'not_run');
+  assert.equal(st.tls.ready, false);
+  assert.match(st.tls.detail, /custom CA/);
+  assert.match(st.tls.detail, /does not prove/);
+  assert.equal(st.provisioning, false);
 });
 
 test('manifest rejects unsafe configurations', () => {
@@ -79,17 +132,25 @@ test('manifest rejects unsafe configurations', () => {
     [(m) => { m.environments.next.worker.preview_urls = true; }, /preview_urls/],
     [(m) => { m.environments.next.worker.workers_dev = true; }, /workers_dev/],
     [(m) => { m.environments.next.hostname = 'freetwai.com'; }, /hostname/],
-    [(m) => { m.environments.next.hyperdrive[0].caching_disabled = false; }, /caching disabled/],
-    [(m) => { m.environments.next.hyperdrive[0].name = 'freedom-staging-next-fresh'; }, /prefix|shared/],
+    [(m) => { m.environments.next.hyperdrive.caching_disabled = false; }, /caching disabled/],
+    [(m) => { m.environments.next.hyperdrive.binding = 'DB_FRESH'; }, /HYPERDRIVE/],
+    [(m) => { m.environments.next.hyperdrive = [m.environments.next.hyperdrive, { name: 'freedom-next-cached', binding: 'DB_CACHED' }]; }, /exactly one/],
+    [(m) => { m.environments.next.hyperdrive.name = 'freedom-staging-next-hd'; }, /prefix|shared/],
     [(m) => { m.environments['staging-next'].data_source = 'rehearsal-restore-of-public-backup'; }, /synthetic/],
     [(m) => { m.environments.next.database.topology = 'single_node'; }, /HA/],
-    [(m) => { m.database_defaults.engine = 'mysql'; }, /not Vitess/],
+    [(m) => { m.environments['staging-next'].database.size = 'PS-7'; }, /no catalog price/],
+    [(m) => { m.database_defaults.engine = 'mysql'; }, /PostgreSQL 18/],
     [(m) => { m.database_defaults.major_version = 17; }, /18/],
     [(m) => { m.environments.next.var_names.push('GITHUB_SOCIAL_TOKEN_KEY'); }, /secret/],
+    [(m) => { m.environments.next.var_names = m.environments.next.var_names.filter((v) => v !== 'FREEDOM_RELEASE_SHA'); }, /FREEDOM_RELEASE_SHA/],
     [(m) => { m.environments.next.secret_names.push('DATABASE_URL'); }, /Hyperdrive binding/],
     [(m) => { m.environments.next.access.application_name = 'Freedom staging'; }, /protected/],
-    [(m) => { m.environments.next.database.resize_gate.catalog_monthly_usd = 500; }, /exceeds cap/],
     [(m) => { m.protected.hostnames = ['freetwai.com']; }, /staging\.freetwai\.com/],
+    [(m) => { m.providers.selected = 'oci'; }, /planetscale_cloudflare_billed/],
+    [(m) => { m.providers.planetscale.billing = 'direct'; }, /Cloudflare/],
+    [(m) => { m.providers.oci.provisioning = true; }, /surveyed alternative/],
+    [(m) => { m.providers.d1.drop_in = true; }, /D1/],
+    [(m) => { m.budget.authorized_cap_usd_month = '60'; }, /null/],
   ];
   for (const [mutate, expected] of cases) {
     const m = clone(manifest());
@@ -100,46 +161,86 @@ test('manifest rejects unsafe configurations', () => {
   }
 });
 
-test('mutation guard is default-deny and protects the old hosts', () => {
+test('mutation guard is default-deny, protects the old site and refuses every OCI kind', () => {
   const m = manifest();
   assert.ok(assertMutationTarget(m, 'next', 'worker', 'freedom-platform-next'));
-  assert.ok(assertMutationTarget(m, 'staging-next', 'hyperdrive', 'freedom-staging-next-fresh'));
+  assert.ok(assertMutationTarget(m, 'staging-next', 'hyperdrive', 'freedom-staging-next-hd'));
+  assert.ok(assertMutationTarget(m, 'next', 'database', 'freedom-next-pg'));
   assert.throws(() => assertMutationTarget(m, 'next', 'hostname', 'freetwai.com'), /protected/);
   assert.throws(() => assertMutationTarget(m, 'next', 'hostname', 'staging.freetwai.com'), /protected/);
   assert.throws(() => assertMutationTarget(m, 'next', 'access_application', 'Freedom staging'), /protected/);
   assert.throws(() => assertMutationTarget(m, 'next', 'database', 'freedom_public'), /protected/);
-  assert.throws(() => assertMutationTarget(m, 'next', 'tunnel', 'freedom-staging'), /never mutated/);
+  assert.throws(() => assertMutationTarget(m, 'next', 'tunnel', 'freedom-staging'), /Unknown resource kind/);
+  assert.throws(() => assertMutationTarget(m, 'next', 'oci_instance', 'oracle1-vm'), /never used or changed/);
+  assert.throws(() => assertMutationTarget(m, 'next', 'oci_compartment', 'freedom-next'), /surveyed alternative/);
+  assert.throws(() => assertMutationTarget(m, 'next', 'hyperdrive', 'freedom-staging-next-hd'), /not owned/);
   assert.throws(() => assertMutationTarget(m, 'next', 'worker', 'freedom-platform-staging-next'), /not owned/);
   assert.throws(() => assertMutationTarget(m, 'next', 'r2_bucket', 'ai-sister'), /not owned/);
   assert.throws(() => assertMutationTarget(m, 'prod', 'worker', 'x'), /Unknown environment/);
 });
 
-test('provision plan is dry-run, guarded, and free of secrets in argv', () => {
+test('provision plan is dry-run, guarded, secret-free and never produces a billing signature', () => {
   for (const env of ['staging-next', 'next']) {
     const plan = buildProvisionPlan(manifest(), env);
     assert.equal(plan.dry_run, true);
+    assert.equal(plan.provider, 'planetscale_cloudflare_billed');
+    assert.match(plan.execution, /not available/);
     const text = JSON.stringify(plan);
     assert.doesNotMatch(text, /postgres(ql)?:\/\/|--connection-string|PGPASSWORD|password=/i);
+    assert.doesNotMatch(text, /DB_FRESH|DB_CACHED|max_age|\boci (psql|iam|network|container)|oracle1|oracle2|ssh /i);
+    assert.doesNotMatch(text, /pscale auth login/);
     assert.equal(plan.hostname, `${env}.freetwai.com`);
-    assert.ok(plan.steps.findIndex((s) => s.id === 'access-app') < plan.steps.findIndex((s) => s.id === 'deploy'), 'Access before deploy');
-    const fresh = plan.steps.find((s) => s.id === 'hyperdrive-fresh');
-    assert.match(fresh.command, /caching\.disabled=true/);
+    const idx = (id) => plan.steps.findIndex((s) => s.id === id);
+    assert.ok(idx('access-app') < idx('deploy'), 'Access before deploy');
+    assert.ok(idx('hyperdrive') < idx('hyperdrive-verify') && idx('hyperdrive-verify') < idx('deploy'), 'caching read-back gates deploy');
+    assert.match(plan.steps[idx('hyperdrive')].command, /caching\.disabled=true/);
+    assert.equal(plan.steps.filter((s) => s.target?.[0] === 'hyperdrive').length, 1, 'exactly one Hyperdrive config');
+    const db = plan.steps[idx('ps-database')];
+    assert.match(db.alternatives.cli, /^wrangler hyperdrive planetscale signature \| pscale database create freedom-(staging-)?next-pg --org <authenticated org> --engine postgresql .*--cloudflare-billing @-$/);
+    assert.match(db.alternatives.dashboard, /Cloudflare dashboard/);
+    assert.match(db.action, /token alone cannot create/);
+    assert.match(plan.steps[0].action, /0\.313\.0/);
+    assert.match(plan.steps[0].action, /unauthenticated/);
+    assert.match(plan.steps[idx('deploy')].command, /--var FREEDOM_RELEASE_SHA:<git rev-parse HEAD>/);
+    assert.doesNotMatch(text, /\bcap\b|approval|gate-cost/i);
+    assert.ok(idx('rollback') > idx('verify'));
   }
   const staging = JSON.stringify(buildProvisionPlan(manifest(), 'staging-next'));
-  assert.match(staging, /Never run seedLocal/);
+  assert.match(staging, /PS-5 single_node/);
+  assert.match(staging, /Never seedLocal/);
   assert.doesNotMatch(staging, /pg_restore/);
-  assert.match(JSON.stringify(buildProvisionPlan(manifest(), 'next')), /NEW GITHUB_SOCIAL_TOKEN_KEY/);
+  const next = JSON.stringify(buildProvisionPlan(manifest(), 'next'));
+  assert.match(next, /PS-5 ha/);
+  assert.match(next, /NEW GITHUB_SOCIAL_TOKEN_KEY/);
+  assert.match(next, /checksum-verify a fresh full freedom_public backup/);
 });
 
-test('credential loader keeps only allowlisted keys and refuses readable files', () => {
-  const parsed = parseAllowlistedEnv(`# c\nCF_ACCOUNT_ID=${ACCOUNT}\nexport CF_API_TOKEN="${FAKE_TOKEN}"\nOTHER_SECRET=nope\n`, ['CF_ACCOUNT_ID', 'CF_API_TOKEN']);
-  assert.deepEqual(Object.keys(parsed).sort(), ['CF_ACCOUNT_ID', 'CF_API_TOKEN']);
-  assert.throws(() => loadCloudflareCredentials(privateEnvFile(`CF_ACCOUNT_ID=${ACCOUNT}\nCF_API_TOKEN=${FAKE_TOKEN}\n`, 0o644)), /chmod 600/);
-  assert.throws(() => loadCloudflareCredentials(privateEnvFile(`CF_ACCOUNT_ID=${ACCOUNT}\n`)), /Missing CF_API_TOKEN/);
-  const creds = loadCloudflareCredentials(privateEnvFile(`CF_ACCOUNT_ID=${ACCOUNT}\nCF_API_TOKEN=${FAKE_TOKEN}\n`));
-  assert.doesNotMatch(JSON.stringify(creds), new RegExp(FAKE_TOKEN));
-  assert.doesNotMatch(inspect(creds), new RegExp(FAKE_TOKEN));
-  assert.doesNotMatch(String(creds), new RegExp(FAKE_TOKEN));
+test('credentials: CLOUDFLARE_* current keys, CF_* legacy aliases, conflicts refused, values never shown', () => {
+  const OTHER = 'Other_Fake_Token_ABCdef0123456789ghijklmn';
+  const parsed = parseAllowlistedEnv(`# c\nCLOUDFLARE_ACCOUNT_ID=${ACCOUNT}\nexport CLOUDFLARE_API_TOKEN="${FAKE_TOKEN}"\nOTHER_SECRET=nope\n`, ['CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN']);
+  assert.deepEqual(Object.keys(parsed).sort(), ['CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN']);
+  // Fake files only; no real environment or credential file is read.
+  const load = (body, mode) => loadCloudflareCredentials(privateEnvFile(body, mode));
+  assert.throws(() => load(`CLOUDFLARE_ACCOUNT_ID=${ACCOUNT}\nCLOUDFLARE_API_TOKEN=${FAKE_TOKEN}\n`, 0o644), /chmod 600/);
+  assert.throws(() => load(`CLOUDFLARE_ACCOUNT_ID=${ACCOUNT}\n`), /Missing CLOUDFLARE_API_TOKEN \(or legacy CF_API_TOKEN\)/);
+  for (const body of [
+    `CLOUDFLARE_ACCOUNT_ID=${ACCOUNT}\nCLOUDFLARE_API_TOKEN=${FAKE_TOKEN}\n`,
+    `CF_ACCOUNT_ID=${ACCOUNT}\nCF_API_TOKEN=${FAKE_TOKEN}\n`,
+    `CLOUDFLARE_ACCOUNT_ID=${ACCOUNT}\nCF_API_TOKEN=${FAKE_TOKEN}\nCLOUDFLARE_API_TOKEN=${FAKE_TOKEN}\n`,
+  ]) {
+    const creds = load(body);
+    assert.equal(creds.accountId, ACCOUNT);
+    assert.equal(creds.authorizationHeader(), `Bearer ${FAKE_TOKEN}`);
+    for (const view of [JSON.stringify(creds), inspect(creds), String(creds)]) assert.doesNotMatch(view, new RegExp(FAKE_TOKEN));
+  }
+  const conflict = (body) => { try { load(body); } catch (e) { return e.message; } assert.fail('conflict accepted'); };
+  const msg = conflict(`CLOUDFLARE_ACCOUNT_ID=${ACCOUNT}\nCLOUDFLARE_API_TOKEN=${FAKE_TOKEN}\nCF_API_TOKEN=${OTHER}\n`);
+  assert.match(msg, /CLOUDFLARE_API_TOKEN and legacy CF_API_TOKEN .* different values/);
+  assert.doesNotMatch(msg, new RegExp(`${FAKE_TOKEN}|${OTHER}`));
+  const idMsg = conflict(`CLOUDFLARE_ACCOUNT_ID=${ACCOUNT}\nCF_ACCOUNT_ID=${'e'.repeat(32)}\nCLOUDFLARE_API_TOKEN=${FAKE_TOKEN}\n`);
+  assert.match(idMsg, /CLOUDFLARE_ACCOUNT_ID and legacy CF_ACCOUNT_ID/);
+  assert.doesNotMatch(idMsg, new RegExp(`${ACCOUNT}|${'e'.repeat(32)}`));
+  assert.throws(() => resolveCloudflareKeys({ CLOUDFLARE_ACCOUNT_ID: 'not-hex', CLOUDFLARE_API_TOKEN: 'x' }) && load(`CLOUDFLARE_ACCOUNT_ID=not-hex\nCLOUDFLARE_API_TOKEN=${FAKE_TOKEN}\n`), /unexpected format \(value not shown\)/);
 });
 
 test('Cloudflare client is GET-only with a path allowlist', async () => {
@@ -197,8 +298,14 @@ test('pscale runner only accepts read-only argument vectors', async () => {
   const seen = [];
   const unauth = await probePlanetScale({ manifest: manifest(), run: async (args) => { seen.push(args.join(' ')); return args[0] === 'version' ? { code: 0, stdout: 'pscale version 0.338.0 (build)' } : { code: 1, stdout: '{"authenticated":false,"auth_method":"none"}' }; } });
   assert.equal(unauth.auth.status, 'unauthenticated');
-  assert.ok(unauth.findings.some((f) => f.id === 'planetscale_login_required'));
-  assert.deepEqual(seen, ['version', 'auth check --format json']);
+  assert.ok(unauth.findings.some((f) => f.id === 'planetscale_not_authenticated' && /never logs in/.test(f.detail)));
+  assert.equal(unauth.cli.meets_cloudflare_billing_minimum, true);
+  assert.deepEqual(seen, ['version', 'auth check --format json'], 'no login, no create, no size read without auth');
+  const old = await probePlanetScale({ manifest: manifest(), run: async (args) => (args[0] === 'version' ? { code: 0, stdout: 'pscale version 0.312.9' } : { code: 1, stdout: '{"authenticated":false}' }) });
+  assert.ok(old.findings.some((f) => f.id === 'pscale_too_old'));
+  assert.equal(versionAtLeast('v0.313.0', '0.313.0'), true);
+  assert.equal(versionAtLeast('1.0.0', '0.313.0'), true);
+  assert.equal(versionAtLeast('garbage', '0.313.0'), null);
 });
 
 test('PlanetScale probe keeps names only and never guesses an organization', async () => {
@@ -206,13 +313,13 @@ test('PlanetScale probe keeps names only and never guesses an organization', asy
     version: 'pscale version 0.338.0',
     'auth check --format json': '{"authenticated":true,"auth_method":"oauth"}',
     'org list --format json': '[{"name":"freedom"}]',
-    'database list --org freedom --format json': '[{"name":"freedom-next","kind":"postgresql","region":{"slug":"ap-northeast"},"state":"ready","html_url":"https://secret.example/x","connection":"postgresql://u:p@h/db"}]',
+    'database list --org freedom --format json': '[{"name":"freedom-next-pg","kind":"postgresql","region":{"slug":"ap-northeast"},"state":"ready","html_url":"https://secret.example/x","connection":"postgresql://u:p@h/db"}]',
     'region list --format json': '[{"slug":"ap-northeast","provider":"AWS","enabled":true}]',
     'size cluster list --org freedom --engine postgresql --region ap-northeast --format json': '[{"name":"PS-5","rate":5}]',
   };
   const report = await probePlanetScale({ manifest: manifest(), run: async (args) => ({ code: 0, stdout: outputs[args.join(' ')] ?? '' }) });
   assert.equal(report.org, 'freedom');
-  assert.deepEqual(report.databases, [{ name: 'freedom-next', kind: 'postgresql', region: 'ap-northeast', state: 'ready' }]);
+  assert.deepEqual(report.databases, [{ name: 'freedom-next-pg', kind: 'postgresql', region: 'ap-northeast', state: 'ready' }]);
   assert.ok(report.findings.some((f) => f.id === 'database_name_taken'));
   assert.equal(report.region_choice[0].listed, true);
   assert.equal(report.sizes.region, 'ap-northeast');
@@ -223,7 +330,96 @@ test('PlanetScale probe keeps names only and never guesses an organization', asy
   assert.equal(two.databases.length, 0);
 });
 
-test('migrations are PlanetScale-compatible, ledger digest matches the repo runner', () => {
+const TENANCY = 'ocid1.tenancy.oc1..aaaaaaaafaketenancyxyz';
+const OCI_CONFIG = `[DEFAULT]\ntenancy=ocid1.tenancy.oc1..aaaaaaaadefaultxyz\n[oracle1]\nuser=ocid1.user.oc1..aaaaaaaauserxyz\nfingerprint=aa:bb\nkey_file=~/.oci/oracle1.pem\ntenancy=${TENANCY}\nregion=us-ashburn-1\n[oracle2]\ntenancy=ocid1.tenancy.oc1..aaaaaaaaothertenancy\n`;
+
+function mockOci(overrides = {}) {
+  const calls = [];
+  const out = {
+    'iam region-subscription list': { data: [{ 'region-name': 'us-ashburn-1', status: 'READY', 'is-home-region': true, 'tenancy-id': TENANCY }] },
+    'iam compartment list': { data: [{ name: 'root-child', id: 'ocid1.compartment.oc1..aaaaaaaaxx' }] },
+    'psql db-system list': { data: { items: [] } },
+    'psql shape-summary list-shapes': { data: { items: [{ shape: 'PostgreSQL.VM.Standard.E5.Flex', 'is-flexible': true, id: 'ocid1.x.oc1..aaaa' }] } },
+    'psql default-configuration-collection list-default-configurations': { data: { items: [{ 'display-name': 'PostgreSQL.VM.Standard.E5.Flex-18-generic', 'db-version': '18', 'is-flexible': true, id: 'ocid1.pgconfig.oc1..aaaa' }] } },
+    'limits value list --service-name postgresql': { data: [{ name: 'dbsystem-count', 'scope-type': 'REGION', value: 0 }, { name: 'dbsystem-e5-count', 'scope-type': 'REGION', value: 20 }] },
+    'limits definition list --service-name postgresql': { data: [{ name: 'dbsystem-count', 'is-deprecated': true, 'scope-type': 'REGION' }, { name: 'dbsystem-e5-count', 'is-deprecated': false, 'scope-type': 'REGION' }] },
+    'limits value list --service-name container-instances': { data: [{ name: 'ci-count', 'scope-type': 'REGION', value: 5 }] },
+    ...overrides,
+  };
+  const run = async (args, profile) => {
+    calls.push({ args, profile });
+    const key = Object.keys(out).find((k) => args.join(' ').startsWith(k));
+    return key ? { code: 0, stdout: JSON.stringify(out[key]), stderr: '' } : { code: 1, stdout: '', stderr: 'ServiceError: {"code": "NotAuthorizedOrNotFound", "message": "denied for ocid1.tenancy.oc1..aaaaaaaafaketenancyxyz"}' };
+  };
+  return { run, calls };
+}
+
+test('OCI wrapper refuses profiles outside oracle1/oracle2 and reads only the tenancy key', async () => {
+  for (const bad of ['DEFAULT', 'prod', 'oracle3', '../x']) {
+    assert.throws(() => assertProfile(bad), /not allowed/);
+    await assert.rejects(probeOci({ profile: bad, run: mockOci().run, readConfig: () => OCI_CONFIG }), /not allowed/);
+  }
+  assert.equal(tenancyFromConfig(OCI_CONFIG, 'oracle1'), TENANCY);
+  assert.throws(() => tenancyFromConfig('[oracle1]\nregion=x\n', 'oracle1'), /no tenancy/);
+  assert.throws(() => tenancyFromConfig('[oracle1]\ntenancy=$(touch_x)\n', 'oracle1'), /not an OCID/);
+});
+
+test('OCI argv allowlist refuses mutations and non-allowlisted reads', () => {
+  for (const bad of [
+    ['psql', 'db-system', 'create', '--from-json', 'file://x'],
+    ['iam', 'compartment', 'create', '--name', 'freedom-next', '--compartment-id', TENANCY],
+    ['iam', 'region-subscription', 'create', '--tenancy-id', TENANCY, '--region-key', 'NRT'],
+    ['compute', 'instance', 'list', '--compartment-id', TENANCY],
+    ['compute', 'instance', 'action', '--action', 'STOP'],
+    ['limits', 'value', 'list', '--service-name', 'compute', '--compartment-id', TENANCY, '--all'],
+    ['iam', 'region-subscription', 'list', '--tenancy-id', 'not-an-ocid'],
+  ]) assert.throws(() => assertReadOnlyOciArgs(bad, TENANCY), /allowlist/, bad.join(' '));
+  for (const build of Object.values(CHECKS)) assert.doesNotThrow(() => assertReadOnlyOciArgs(build(TENANCY), TENANCY));
+});
+
+test('OCI probe sanitizes output, interprets limits and never leaks OCIDs', async () => {
+  const { run, calls } = mockOci({ 'limits value list --service-name container-instances': undefined });
+  const report = await probeOci({ profile: 'oracle2', run, readConfig: () => OCI_CONFIG.replace('ocid1.tenancy.oc1..aaaaaaaaothertenancy', TENANCY) });
+  assert.ok(calls.every((c) => c.profile === 'oracle2'));
+  assert.equal(report.checks.regions.data[0].region, 'us-ashburn-1');
+  assert.deepEqual(report.checks.compartments.data, { count: 1, freedom_named: [] });
+  assert.equal(report.pg18_default_configs, 1);
+  assert.equal(report.pg_limits.status, 'capacity_available');
+  assert.equal(report.checks.ci_limit_values.status, 'error');
+  const text = JSON.stringify(redactDeep(report));
+  assert.doesNotMatch(text, /ocid1\./);
+  assert.doesNotMatch(text, /tenancy-id|fingerprint|key_file|root-child/);
+});
+
+test('PG limit interpretation distinguishes deprecated aggregate, active zero and missing definitions', () => {
+  const values = [{ name: 'dbsystem-count', value: 0 }, { name: 'dbsystem-e5-count', value: 20 }];
+  assert.equal(interpretPgLimits(values, [{ name: 'dbsystem-count', deprecated: true }]).status, 'capacity_available');
+  assert.equal(interpretPgLimits(values, [{ name: 'dbsystem-count', deprecated: false }]).status, 'blocked');
+  assert.equal(interpretPgLimits(values, [{ name: 'dbsystem-e5-count', deprecated: false }]).status, 'unknown');
+  assert.equal(interpretPgLimits(values, null).status, 'unknown');
+  assert.equal(interpretPgLimits([{ name: 'dbsystem-count', value: 0 }, { name: 'dbsystem-e5-count', value: 0 }], [{ name: 'dbsystem-count', deprecated: true }]).status, 'blocked');
+});
+
+test('CLI: provider probes are opt-in; oci compare covers oracle2; bad profiles refused', async () => {
+  const oci = mockOci();
+  const pscale = [];
+  const all = await run(['all'], { ociRun: oci.run, pscaleRun: async (a) => { pscale.push(a); return { code: 0, stdout: '' }; }, ociConfig: () => OCI_CONFIG });
+  assert.equal(all.code, 0);
+  assert.equal(oci.calls.length, 0, 'all does not touch OCI without --oci');
+  assert.equal(pscale.length, 0, 'PlanetScale only runs on explicit request');
+  const parsed = JSON.parse(all.output);
+  assert.equal(parsed.cost.selected.total, 25);
+  assert.equal(parsed.oci_alternative.quota.status, 'blocked');
+  assert.equal(parsed.provider_mutations, 0);
+  assert.equal(parsed.plan.length, 2);
+  const cmp = await run(['oci', '--compare'], { ociRun: oci.run, ociConfig: () => OCI_CONFIG });
+  assert.deepEqual(JSON.parse(cmp.output).oci.map((r) => r.profile), ['oracle1', 'oracle2']);
+  assert.doesNotMatch(cmp.output, /ocid1\./);
+  await assert.rejects(run(['oci', '--oci-profile', 'DEFAULT'], { ociRun: oci.run, ociConfig: () => OCI_CONFIG }), /not allowed/);
+  assert.equal((await run(['oci', '--execute'])).code, 3);
+});
+
+test('migrations are PostgreSQL-18 managed-service compatible, ledger digest matches the repo runner', () => {
   const expected = manifest().database_defaults.migrations;
   const result = checkMigrations(join(ROOT, 'migrations'), expected);
   assert.equal(result.ok, true, JSON.stringify(result.problems.concat(result.privileged)));
@@ -248,27 +444,123 @@ test('migration scanner flags privileged statements and unexpected gaps', () => 
   assert.ok(!result.privileged.some((p) => /role management/.test(p.statement)));
 });
 
-test('wrangler config checker enforces no public preview and candidate-only routes', () => {
+// Mirrors the runtime wrangler.jsonc (runtime worktree commit f089a84): placeholder ids, no routes, no release SHA.
+const RUNTIME_CONFIG = {
+  name: 'freedom-platform-local', main: 'apps/platform-api/src/worker.ts', compatibility_date: '2026-09-21', compatibility_flags: ['nodejs_compat'],
+  workers_dev: false, preview_urls: false,
+  assets: { directory: 'apps/portal-web/dist', binding: 'ASSETS', run_worker_first: true, html_handling: 'auto-trailing-slash', not_found_handling: 'none' },
+  hyperdrive: [{ binding: 'HYPERDRIVE', id: '0'.repeat(32) }],
+  images: { binding: 'IMAGES' },
+  vars: { FREEDOM_ENV: 'local', APP_ORIGIN: 'http://127.0.0.1:8787' },
+  env: {
+    'staging-next': { name: 'freedom-platform-staging-next', workers_dev: false, preview_urls: false, hyperdrive: [{ binding: 'HYPERDRIVE', id: '0'.repeat(32) }], images: { binding: 'IMAGES' }, vars: { FREEDOM_ENV: 'staging', APP_ORIGIN: 'https://staging-next.freetwai.com', FREEDOM_TRUST_CF_CONNECTING_IP: 'true' } },
+    next: { name: 'freedom-platform-next', workers_dev: false, preview_urls: false, hyperdrive: [{ binding: 'HYPERDRIVE', id: '0'.repeat(32) }], images: { binding: 'IMAGES' }, vars: { FREEDOM_ENV: 'public', APP_ORIGIN: 'https://next.freetwai.com', FREEDOM_TRUST_CF_CONNECTING_IP: 'true' } },
+  },
+};
+const ID_S = '1'.repeat(32);
+const ID_N = '2'.repeat(32);
+function writeWrangler(obj) {
   const dir = mkdtempSync(join(tmpdir(), 'fp-wr-'));
-  const write = (obj) => { const f = join(dir, `w${Math.random()}.jsonc`); writeFileSync(f, `// comment\n${JSON.stringify(obj, null, 2).replace(/}$/, ',}')}`); return f; };
-  const good = {
-    name: 'freedom-platform', workers_dev: false, preview_urls: false,
-    env: {
-      'staging-next': { workers_dev: false, preview_urls: false, routes: [{ pattern: 'staging-next.freetwai.com', custom_domain: true }], hyperdrive: [{ binding: 'DB_FRESH', id: '1'.repeat(32) }], vars: { APP_ORIGIN: 'https://staging-next.freetwai.com' } },
-      next: { workers_dev: false, preview_urls: false, routes: [{ pattern: 'next.freetwai.com', custom_domain: true }], hyperdrive: [{ binding: 'DB_FRESH', id: '2'.repeat(32) }], vars: { APP_ORIGIN: 'https://next.freetwai.com' } },
-    },
-  };
-  assert.equal(checkWranglerConfig(write(good), manifest()).status, 'pass');
-  const bad = clone(good);
-  delete bad.env.next.preview_urls; delete bad.preview_urls;
-  bad.env.next.routes.push({ pattern: 'freetwai.com/*', zone_name: 'freetwai.com' });
-  bad.env['staging-next'].hyperdrive[0].id = '2'.repeat(32);
-  bad.env.next.vars.GITHUB_SOCIAL_TOKEN_KEY = 'x';
-  const result = checkWranglerConfig(write(bad), manifest());
-  assert.equal(result.status, 'fail');
-  for (const re of [/preview_urls/, /protected/, /shared/, /must be a secret/]) assert.ok(result.errors.some((e) => re.test(e)), String(re));
-  assert.equal(checkWranglerConfig(join(dir, 'missing.jsonc'), manifest()).status, 'not_run');
+  const f = join(dir, 'wrangler.jsonc');
+  writeFileSync(f, `// comment\n${JSON.stringify(obj, null, 2).replace(/}$/, ',}')}`);
+  return f;
+}
+function provisioned() {
+  const c = clone(RUNTIME_CONFIG);
+  c.env['staging-next'].hyperdrive[0].id = ID_S;
+  c.env.next.hyperdrive[0].id = ID_N;
+  c.env['staging-next'].routes = [{ pattern: 'staging-next.freetwai.com', custom_domain: true }];
+  c.env.next.routes = [{ pattern: 'next.freetwai.com', custom_domain: true }];
+  return c;
+}
+const cachingOff = { [ID_S]: { caching: { disabled: true } }, [ID_N]: { caching: { disabled: true } } };
+
+test('wrangler: runtime config with placeholder ids is structurally valid but not deployment-ready', () => {
+  const r = checkWranglerConfig(writeWrangler(RUNTIME_CONFIG), manifest());
+  assert.equal(r.status, 'pass');
+  assert.equal(r.structural, 'valid');
+  assert.equal(r.deployment_ready, false);
+  assert.deepEqual(r.errors, []);
+  for (const env of ['staging-next', 'next']) {
+    assert.ok(r.readiness_blockers.some((b) => b.startsWith(`${env}: Hyperdrive id is the placeholder`)), env);
+    assert.ok(r.required_injections.some((i) => i.startsWith(`${env}: FREEDOM_RELEASE_SHA via`)), env);
+  }
+  assert.ok(!r.readiness_blockers.some((b) => /shared/.test(b)) && !r.errors.some((e) => /shared/.test(e)), 'identical placeholders are not a sharing error');
+});
+
+test('wrangler: provisioned ids still need a provider caching.disabled read; only then deployment-ready', () => {
+  const noRead = checkWranglerConfig(writeWrangler(provisioned()), manifest());
+  assert.equal(noRead.structural, 'valid');
+  assert.equal(noRead.deployment_ready, false);
+  assert.equal(noRead.readiness_blockers.filter((b) => /caching\.disabled not read/.test(b)).length, 2);
+  const ready = checkWranglerConfig(writeWrangler(provisioned()), manifest(), { hyperdriveConfigs: cachingOff });
+  assert.deepEqual([ready.structural, ready.deployment_ready, ready.readiness_blockers], ['valid', true, []]);
+  assert.ok(ready.required_injections.some((i) => /FREEDOM_RELEASE_SHA/.test(i)), 'release SHA injection still reported');
+});
+
+test('wrangler: exact two-env mocks catch every binding, cache, id, origin, Images and release mistake', () => {
+  const cases = [
+    ['wrong binding', (c) => { c.env.next.hyperdrive[0].binding = 'DB_FRESH'; }, /DB_FRESH is not HYPERDRIVE/],
+    ['extra binding', (c) => { c.env.next.hyperdrive.push({ binding: 'DB_CACHED', id: '3'.repeat(32) }); }, /exactly one Hyperdrive binding/],
+    ['missing binding', (c) => { delete c.env.next.hyperdrive; }, /exactly one Hyperdrive binding required, found 0/],
+    ['cached true', null, /caching is not disabled/],
+    ['shared ids', (c) => { c.env.next.hyperdrive[0].id = ID_S; }, /shared with staging-next/],
+    ['bad id', (c) => { c.env.next.hyperdrive[0].id = 'xyz'; }, /32-hex/],
+    ['wrong origin', (c) => { c.env.next.vars.APP_ORIGIN = 'https://freetwai.com'; }, /APP_ORIGIN must be https:\/\/next\.freetwai\.com/],
+    ['wrong FREEDOM_ENV', (c) => { c.env['staging-next'].vars.FREEDOM_ENV = 'public'; }, /FREEDOM_ENV must be staging/],
+    ['missing Images', (c) => { delete c.env.next.images; }, /images binding IMAGES is required/],
+    ['wrong assets binding', (c) => { c.assets.binding = 'STATIC'; }, /assets binding must be ASSETS/],
+    ['assets not worker-first', (c) => { c.assets.run_worker_first = false; }, /run_worker_first/],
+    ['bad release SHA', (c) => { c.env.next.vars.FREEDOM_RELEASE_SHA = 'main'; }, /40-hex commit SHA/],
+    ['source IP flag', (c) => { delete c.env.next.vars.FREEDOM_TRUST_CF_CONNECTING_IP; }, /FREEDOM_TRUST_CF_CONNECTING_IP/],
+    ['compat date', (c) => { c.compatibility_date = '2026-01-01'; }, /compatibility_date/],
+    ['nodejs_compat', (c) => { c.compatibility_flags = []; }, /nodejs_compat/],
+    ['preview urls', (c) => { delete c.env.next.preview_urls; delete c.preview_urls; }, /preview_urls/],
+    ['protected route', (c) => { c.env.next.routes.push({ pattern: 'freetwai.com/*', zone_name: 'freetwai.com' }); }, /protected/],
+    ['secret var', (c) => { c.env.next.vars.GITHUB_SOCIAL_TOKEN_KEY = 'x'; }, /must be a secret/],
+    ['missing env', (c) => { delete c.env['staging-next']; }, /staging-next: no env block/],
+    ['extra env', (c) => { c.env.prod = { name: 'freedom-platform-prod', routes: ['prod.freetwai.com/*'] }; }, /not in the manifest/],
+    ['wrong worker name', (c) => { c.env.next.name = 'freedom-platform'; }, /name must be freedom-platform-next/],
+    ['remote local string', (c) => { c.env.next.hyperdrive[0].localConnectionString = 'postgres://u:p@db.example:5432/x'; }, /loopback/],
+  ];
+  for (const [label, mutate, expected] of cases) {
+    const c = provisioned();
+    if (mutate) mutate(c);
+    const configs = label === 'cached true' ? { [ID_S]: { caching: { disabled: true } }, [ID_N]: { caching: { disabled: false } } } : cachingOff;
+    const r = checkWranglerConfig(writeWrangler(c), manifest(), { hyperdriveConfigs: configs });
+    assert.equal(r.structural, 'invalid', label);
+    assert.equal(r.deployment_ready, false, label);
+    assert.ok(r.errors.some((e) => expected.test(e)), `${label}: ${expected} not in ${r.errors.join(' | ')}`);
+  }
+  const hard = provisioned();
+  hard.env.next.vars.FREEDOM_RELEASE_SHA = 'f'.repeat(40);
+  assert.ok(checkWranglerConfig(writeWrangler(hard), manifest(), { hyperdriveConfigs: cachingOff }).warnings.some((w) => /hardcoded/.test(w)));
+  assert.equal(checkWranglerConfig(join(tmpdir(), 'fp-missing-wrangler.jsonc'), manifest()).status, 'not_run');
   assert.deepEqual(parseJsonc('{"a":"// not a comment", /* x */ "b":[1,],}'), { a: '// not a comment', b: [1] });
+});
+
+test('Hyperdrive caching read-back is GET-only, skips placeholders, and maps caching.disabled', async () => {
+  const cfg = (disabled) => ({ status: 200, body: { success: true, result: { id: 'x', caching: { disabled }, origin: { password: 'never' } } } });
+  const { fetchImpl, calls } = mockCloudflare({ [`/accounts/${ACCOUNT}/hyperdrive/configs/${ID_S}`]: cfg(true), [`/accounts/${ACCOUNT}/hyperdrive/configs/${ID_N}`]: cfg(false) });
+  const client = createReadOnlyClient({ credentials: { authorizationHeader: () => `Bearer ${FAKE_TOKEN}` }, fetchImpl });
+  const out = await readHyperdriveCaching({ client, accountId: ACCOUNT, ids: [ID_S, ID_N, '0'.repeat(32)] });
+  assert.deepEqual(out, { [ID_S]: { caching: { disabled: true } }, [ID_N]: { caching: { disabled: false } } });
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every((c) => c.method === 'GET'));
+  assert.doesNotMatch(JSON.stringify(out), /never/);
+});
+
+test('CLI wrangler with a fake env file reads caching back through the mock only', async () => {
+  const { fetchImpl, calls } = mockCloudflare({
+    [`/accounts/${ACCOUNT}/hyperdrive/configs/${ID_S}`]: { status: 200, body: { success: true, result: { caching: { disabled: true } } } },
+    [`/accounts/${ACCOUNT}/hyperdrive/configs/${ID_N}`]: { status: 200, body: { success: true, result: { caching: { disabled: true } } } },
+  });
+  const envFile = privateEnvFile(`CLOUDFLARE_ACCOUNT_ID=${ACCOUNT}\nCLOUDFLARE_API_TOKEN=${FAKE_TOKEN}\n`);
+  const out = await run(['wrangler', '--config', writeWrangler(provisioned()), '--env-file', envFile], { fetchImpl });
+  assert.equal(out.code, 0);
+  assert.equal(JSON.parse(out.output).wrangler.deployment_ready, true);
+  assert.ok(calls.every((c) => c.method === 'GET' && /hyperdrive\/configs\//.test(c.url)));
+  assert.doesNotMatch(out.output, new RegExp(`${FAKE_TOKEN}|${ACCOUNT}`));
 });
 
 test('redaction removes bearer tokens, connection strings, ids and secret fields', () => {
@@ -284,6 +576,8 @@ test('CLI: offline commands succeed, --execute is refused, reports are private',
   assert.equal((await run(['plan', '--env', 'next'])).code, 0);
   const refused = await run(['plan', '--env', 'next', '--execute']);
   assert.equal(refused.code, 3);
+  assert.match(refused.output, /no execute capability/);
+  assert.equal((await run(['all', '--execute'])).code, 3);
   await assert.rejects(run(['plan', '--env', 'next', '--force']), /Unknown option/);
   const reportDir = join(mkdtempSync(join(tmpdir(), 'fp-rep-')), 'reports');
   const out = await run(['manifest', '--report'], { reportDir });
@@ -293,6 +587,8 @@ test('CLI: offline commands succeed, --execute is refused, reports are private',
   const { fetchImpl, calls } = mockCloudflare();
   const envFile = privateEnvFile(`CF_ACCOUNT_ID=${ACCOUNT}\nCF_API_TOKEN=${FAKE_TOKEN}\n`);
   const cf = await run(['cloudflare', '--env-file', envFile], { fetchImpl });
+  const conflictFile = privateEnvFile(`CLOUDFLARE_ACCOUNT_ID=${ACCOUNT}\nCLOUDFLARE_API_TOKEN=${FAKE_TOKEN}\nCF_API_TOKEN=x${FAKE_TOKEN}\n`);
+  await assert.rejects(run(['cloudflare', '--env-file', conflictFile], { fetchImpl }), (e) => /different values/.test(e.message) && !e.message.includes(FAKE_TOKEN));
   assert.equal(cf.code, 0);
   assert.equal(JSON.parse(cf.output).provider_mutations, 0);
   assert.ok(calls.every((c) => c.method === 'GET'));
@@ -310,4 +606,19 @@ test('docs: relative links in the migration runbook and README resolve', () => {
       assert.doesNotThrow(() => statSync(target), `${doc}: broken link ${link}`);
     }
   }
+});
+
+test('default `all` makes no network call and renders both plans read-only', async () => {
+  const original = globalThis.fetch;
+  let fetched = 0;
+  globalThis.fetch = async () => { fetched++; throw new Error('network forbidden in tests'); };
+  try {
+    const out = await run(['all'], { ociRun: async () => { throw new Error('oci forbidden'); }, pscaleRun: async () => { throw new Error('pscale forbidden'); } });
+    assert.equal(out.code, 0);
+    const r = JSON.parse(out.output);
+    assert.equal(r.provider_mutations, 0);
+    assert.equal(r.dry_run, true);
+    assert.ok(!('cloudflare' in r) && !('oci' in r) && !('planetscale' in r));
+  } finally { globalThis.fetch = original; }
+  assert.equal(fetched, 0);
 });

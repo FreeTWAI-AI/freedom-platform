@@ -9,6 +9,7 @@ const READ_PATHS = [
   /^\/user\/tokens\/[0-9a-f]{32}$/,
   /^\/accounts\/[0-9a-f]{32}$/,
   /^\/accounts\/[0-9a-f]{32}\/(workers\/scripts|workers\/subdomain|workers\/domains|hyperdrive\/configs|r2\/buckets|queues|access\/apps|subscriptions)$/,
+  /^\/accounts\/[0-9a-f]{32}\/hyperdrive\/configs\/[0-9a-f]{32}$/,
   /^\/accounts\/[0-9a-f]{32}\/cfd_tunnel\?is_deleted=false&per_page=100$/,
   /^\/zones\?name=[a-z0-9.-]+$/,
   /^\/zones\/[0-9a-f]{32}$/,
@@ -43,7 +44,7 @@ export const CAPABILITIES = [
   { id: 'workers_scripts', scope: 'account', path: (a) => `/accounts/${a}/workers/scripts`, read: 'Workers Scripts Read', write: 'Workers Scripts Edit', needed_for: 'upload Worker versions, secrets and custom domains for staging-next / next' },
   { id: 'workers_subdomain', scope: 'account', path: (a) => `/accounts/${a}/workers/subdomain`, read: 'Workers Scripts Read', write: null, needed_for: 'confirm workers.dev stays disabled for Freedom Workers' },
   { id: 'workers_custom_domains', scope: 'account', path: (a) => `/accounts/${a}/workers/domains`, read: 'Workers Scripts Read', write: 'Workers Scripts Edit', needed_for: 'attach staging-next / next custom domains' },
-  { id: 'hyperdrive', scope: 'account', path: (a) => `/accounts/${a}/hyperdrive/configs`, read: 'Hyperdrive Read', write: 'Hyperdrive Edit', needed_for: 'fresh (cache-disabled) and optional cached Hyperdrive configs per environment' },
+  { id: 'hyperdrive', scope: 'account', path: (a) => `/accounts/${a}/hyperdrive/configs`, read: 'Hyperdrive Read', write: 'Hyperdrive Edit', needed_for: 'one cache-disabled Hyperdrive config (binding HYPERDRIVE) per environment; caching.disabled must be read back before deploy' },
   { id: 'r2', scope: 'account', path: (a) => `/accounts/${a}/r2/buckets`, read: 'Workers R2 Storage Read', write: 'Workers R2 Storage Edit', needed_for: 'private per-environment buckets (optional until the Worker binds R2)' },
   { id: 'queues', scope: 'account', optional: true, path: (a) => `/accounts/${a}/queues`, read: 'Queues Read', write: null, needed_for: 'not needed for this migration; recorded for completeness' },
   { id: 'access_apps', scope: 'account', path: (a) => `/accounts/${a}/access/apps`, read: 'Access: Apps and Policies Read', write: 'Access: Apps and Policies Edit', needed_for: 'protect staging-next / next and their /admin paths before any Worker route is live' },
@@ -86,7 +87,7 @@ export function consoleActionForMissing(groups) {
     account.length ? `Permissions → Account → ${[...new Set(account)].join(', ')}; Account Resources → Include → the Freedom account only.` : null,
     zone.length ? `Permissions → Zone → ${[...new Set(zone)].join(', ')}; Zone Resources → Include → Specific zone → freetwai.com.` : null,
     'Client IP Address Filtering → operator host egress IP; TTL → end of the rehearsal window.',
-    'Save the token only into a new chmod 600 file (e.g. ~/.config/freedom-cloudflare/readonly.env with CF_ACCOUNT_ID / CF_API_TOKEN); never paste it into chat, repo or command arguments.',
+    'Save the token only into a new chmod 600 file (e.g. ~/.config/freedom-cloudflare/readonly.env with CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN; legacy CF_* names also accepted); never paste it into chat, repo or command arguments.',
   ].filter(Boolean);
 }
 
@@ -179,4 +180,18 @@ export async function probeCloudflare({ client, accountId, manifest }) {
     }
   }
   return report;
+}
+
+/**
+ * Provider read-back of each Hyperdrive config's caching flag: the only accepted proof that the
+ * query cache is off. Returns { [id]: { caching: { disabled } } } for checkWranglerConfig; GET only.
+ */
+export async function readHyperdriveCaching({ client, accountId, ids }) {
+  const out = {};
+  for (const id of ids) {
+    if (!/^[0-9a-f]{32}$/.test(id) || /^0{32}$/.test(id)) continue;
+    const res = await client.get(`/accounts/${accountId}/hyperdrive/configs/${id}`);
+    if (res.success) out[id] = { caching: { disabled: res.result?.caching?.disabled === true } };
+  }
+  return out;
 }

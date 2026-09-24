@@ -1,15 +1,20 @@
 {
-  "schema": "freedom.cloudflare-migration-plan/v1",
+  "schema": "freedom.cloudflare-migration-plan/v3",
   "phase": "preflight",
   "status": "planned_not_provisioned",
+  "execution": "none: this phase has no execute capability; provisioning is a later reviewed phase",
   "zone": "freetwai.com",
-  "notes": "Runtime DB connections come only from the Hyperdrive binding; migrator credentials stay in the operator private directory. Names only. No resource in this file exists until a reviewed provisioning phase records its provider ID in a private evidence file. Prices are the 2026-09-24 public catalog snapshot, not a quote or purchase.",
+  "notes": "Names only. No resource in this file exists until a provisioning phase records its provider ID in a private evidence file. Runtime DB connections come only from the single HYPERDRIVE binding; migrator credentials stay in the operator private directory.",
   "protected": {
     "hostnames": ["freetwai.com", "staging.freetwai.com"],
     "hostname_policy": "Every hostname in the zone except the candidate hostnames below is protected; tools deny by default.",
     "tunnels": "all-existing",
     "access_applications": ["Freedom public administrators", "Freedom staging", "Freedom staging administrators"],
     "r2_buckets": "all-existing",
+    "oci": {
+      "existing_compute_instances": "all-existing",
+      "policy": "The three existing OCI VMs (oracle1/oracle2) are never SSHed into, reused or changed. No OCI resource is provisioned by this plan."
+    },
     "local": {
       "ports": [4310, 4312, 54339],
       "systemd_user_units": [
@@ -32,20 +37,108 @@
       ]
     }
   },
+  "budget": {
+    "user_context_estimate_usd_month": {"low": 50, "high": 100, "meaning": "engineering estimate from the user brief; not a cap and not a spending gate"},
+    "authorized_cap_usd_month": null,
+    "withdrawn": "The US$60 database cap in 72cc125 was an agent invention, never user-authorized; removed. No artificial spend gate replaces it."
+  },
   "database_defaults": {
-    "provider": "planetscale",
     "engine": "postgresql",
     "major_version": 18,
-    "catalog_checked_at": "2026-09-24",
-    "catalog_source": "https://planetscale.com/pricing.md?region=ap-northeast",
-    "region_preference": [
-      {"provider": "aws", "region": "ap-northeast-1", "pscale_slug": "ap-northeast", "label": "Tokyo", "reason": "closest listed PlanetScale Postgres region to Taiwan users; confirm latency from Castle and Workers placement before purchase"},
-      {"provider": "gcp", "region": "asia-northeast3", "pscale_slug": "gcp-asia-northeast3", "label": "Seoul", "reason": "fallback if Tokyo SKU or Hyperdrive latency is unsuitable"},
-      {"provider": "aws", "region": "ap-southeast-1", "pscale_slug": "ap-southeast", "label": "Singapore", "reason": "second fallback"}
-    ],
-    "monthly_budget_usd": {"engineering_estimate_low": 50, "engineering_estimate_high": 100, "database_base_cap_without_new_approval": 60},
     "extensions_required": [],
     "migrations": {"first": 1, "last": 37, "known_gaps": [22], "ledger_table": "schema_migrations"}
+  },
+  "providers": {
+    "selected": "planetscale_cloudflare_billed",
+    "planetscale": {
+      "service": "PlanetScale Postgres",
+      "billing": "cloudflare",
+      "source": "https://developers.cloudflare.com/hyperdrive/planetscale/",
+      "billing_price_note": "Per the official Cloudflare page, Cloudflare-billed PlanetScale uses the same prices as buying from PlanetScale directly.",
+      "provisioning_paths": {
+        "dashboard": "Cloudflare dashboard can provision a PlanetScale database billed to the Cloudflare account.",
+        "cli": "`wrangler hyperdrive planetscale signature` only prints a credential-like billing authorization; the database is created by `pscale database create --org <org> --engine postgresql --cloudflare-billing @-` reading it from stdin. That needs an authenticated pscale organization and pscale CLI >= 0.313.0. A Cloudflare API token alone does not create the database."
+      },
+      "pscale_cli_min_version": "0.313.0",
+      "pscale_auth_observed": {"status": "unauthenticated", "source": "root safe probe 2026-09-24"},
+      "region_preference": [
+        {"provider": "aws", "region": "ap-northeast-1", "pscale_slug": "ap-northeast", "label": "Tokyo"},
+        {"provider": "gcp", "region": "asia-northeast3", "pscale_slug": "gcp-asia-northeast3", "label": "Seoul"},
+        {"provider": "aws", "region": "ap-southeast-1", "pscale_slug": "ap-southeast", "label": "Singapore"}
+      ],
+      "catalog": {
+        "source": "https://planetscale.com/pricing.md?region=ap-northeast",
+        "retrieved": "2026-09-24 (same-day public catalog snapshot)",
+        "meaning": "Public list prices. Not proof that the size is offered to the authenticated organization; org-level size availability (`pscale size cluster list`) is not_run until pscale is authenticated.",
+        "monthly_usd": {"PS-5 single_node arm64": 5, "PS-5 ha arm64": 15, "PS-10 ha arm64": 41}
+      }
+    },
+    "d1": {
+      "role": "optional_future_alternative",
+      "drop_in": false,
+      "reason": "Not a drop-in: the platform relies on PostgreSQL transactions, row locks, advisory locks, JSONB and a pg driver. Not implemented; no rewrite in this plan."
+    },
+    "oci": {
+      "role": "surveyed_alternative",
+      "provisioning": false,
+      "service": "OCI Database with PostgreSQL",
+      "profiles": {"oracle1": "priority profile of the historical survey", "oracle2": "compare-only"},
+      "region": "us-ashburn-1",
+      "facts": {
+        "source": "root live read 2026-09-24 (not re-queried here)",
+        "pg18_available": true,
+        "db_shape_minimum": {"ocpu": 1, "memory_gb": 16},
+        "limits": {
+          "dbsystem-count": {"value": 0, "definition_is_deprecated": false},
+          "dbsystem-e5-count": {"value": 20}
+        },
+        "profiles_identical": ["oracle1", "oracle2"],
+        "container_shapes_oracle1": ["CI.Standard.A1.Flex", "CI.Standard.E4.Flex"],
+        "container_shape_minimum": {"ocpu": 1, "memory_gb": 1}
+      },
+      "quota_interpretation": "blocked: dbsystem-count is an active (non-deprecated) limit with total 0; the E5 family limit of 20 does not override a zero total.",
+      "tls": {
+        "status": "not_run",
+        "detail": "OCI PostgreSQL presents a certificate from an OCI private CA. Workers VPC does not support a custom CA; a Tunnel public hostname does not match the OCI certificate SAN and there is no SNI override. A cloudflared connector alone does not prove verified end-to-end TLS; PgBouncer double-TLS or another verified path must be validated later."
+      },
+      "connector": {"ocpu": 1, "memory_gb": 1, "image": "cloudflare/cloudflared pinned by digest"},
+      "price_catalog": {
+        "source": "https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/?currencyCode=USD",
+        "retrieved": "2026-09-24 by root; not re-fetched here; paid rates, free credits not assumed",
+        "hours_per_month": 730,
+        "items": {
+          "B99060": {"name": "OCI Database with PostgreSQL OCPU (x86)", "unit": "OCPU-hour", "usd": 0.098},
+          "B97384": {"name": "Compute Standard E5 OCPU (DB node compute)", "unit": "OCPU-hour", "usd": 0.03},
+          "B97385": {"name": "Compute Standard E5 memory (DB node memory)", "unit": "GB-hour", "usd": 0.002},
+          "B99062": {"name": "Database optimized storage", "unit": "GB-month", "usd": 0.072},
+          "B93113": {"name": "Compute Standard E4 OCPU (CI.Standard.E4.Flex connector)", "unit": "OCPU-hour", "usd": 0.025},
+          "B93114": {"name": "Compute Standard E4 memory (CI.Standard.E4.Flex connector)", "unit": "GB-hour", "usd": 0.0015},
+          "B93297": {"name": "Compute Standard A1 OCPU (CI.Standard.A1.Flex connector)", "unit": "OCPU-hour", "usd": 0.01},
+          "B93298": {"name": "Compute Standard A1 memory (CI.Standard.A1.Flex connector)", "unit": "GB-hour", "usd": 0.0015}
+        },
+        "connector_rates": {
+          "CI.Standard.E4.Flex": {"ocpu": "B93113", "memory": "B93114"},
+          "CI.Standard.A1.Flex": {"ocpu": "B93297", "memory": "B93298"}
+        }
+      }
+    }
+  },
+  "cloudflare": {
+    "workers_paid_usd_month": 5,
+    "workers_paid": "may still be inactive; the user already authorized it, so no renewed approval is requested",
+    "workers_namespace": "free initialization is being completed by the root identity; not tracked here as an open blocker"
+  },
+  "runtime": {
+    "config_source": "freedom-platform runtime worktree wrangler.jsonc at f089a84 (read-only here)",
+    "compatibility_date": "2026-09-21",
+    "compatibility_flags": ["nodejs_compat"],
+    "assets_binding": "ASSETS",
+    "assets_run_worker_first": true,
+    "images_binding": "IMAGES",
+    "hyperdrive_binding": "HYPERDRIVE",
+    "release_var": "FREEDOM_RELEASE_SHA",
+    "release_var_injection": "deploy supplies --var FREEDOM_RELEASE_SHA:$(git rev-parse HEAD); never hardcoded in the config",
+    "source_ip_var": {"name": "FREEDOM_TRUST_CF_CONNECTING_IP", "value": "true"}
   },
   "environments": {
     "staging-next": {
@@ -55,22 +148,17 @@
       "data_source": "synthetic",
       "worker": {"name": "freedom-platform-staging-next", "workers_dev": false, "preview_urls": false},
       "access": {"application_name": "Freedom staging-next", "admin_application_name": "Freedom staging-next administrators", "required": true},
-      "hyperdrive": [
-        {"name": "freedom-staging-next-fresh", "binding": "DB_FRESH", "caching_disabled": true, "use": "all authenticated, session, permission, write and read-after-write queries"},
-        {"name": "freedom-staging-next-cached", "binding": "DB_CACHED", "caching_disabled": false, "max_age_seconds": 30, "optional": true, "use": "public catalog display only; never sessions, permissions or member data"}
-      ],
+      "hyperdrive": {"name": "freedom-staging-next-hd", "binding": "HYPERDRIVE", "caching_disabled": true},
       "database": {
-        "name": "freedom-staging-next",
-        "branch": "main",
+        "name": "freedom-staging-next-pg",
+        "dbname": "freedom_staging_next",
+        "size": "PS-5",
         "topology": "single_node",
-        "sku": "PS-5",
-        "architecture": "arm64",
-        "catalog_monthly_usd": 5,
         "roles": {"migrator": "freedom_staging_next_migrator", "runtime": "freedom_staging_next_app"}
       },
       "r2_buckets": [{"name": "freedom-staging-next-private", "public": false, "optional": true}],
       "secret_names": ["GITHUB_SOCIAL_TOKEN_KEY", "FREEDOM_ADMIN_CSRF_SECRET"],
-      "var_names": ["APP_ORIGIN", "FREEDOM_ENV", "FREEDOM_DATABASE_NAME", "FREEDOM_REGISTRATION_COMMUNITY_ID", "FREEDOM_ADMIN_ACCESS_ISSUER", "FREEDOM_ADMIN_ACCESS_AUD"]
+      "var_names": ["APP_ORIGIN", "FREEDOM_ENV", "FREEDOM_RELEASE_SHA", "FREEDOM_TRUST_CF_CONNECTING_IP", "FREEDOM_DATABASE_NAME", "FREEDOM_REGISTRATION_COMMUNITY_ID", "FREEDOM_ADMIN_ACCESS_ISSUER", "FREEDOM_ADMIN_ACCESS_AUD"]
     },
     "next": {
       "purpose": "Production candidate. Protected by Access during rehearsal; becomes production only after the reviewed cutover.",
@@ -79,23 +167,17 @@
       "data_source": "rehearsal-restore-of-public-backup",
       "worker": {"name": "freedom-platform-next", "workers_dev": false, "preview_urls": false},
       "access": {"application_name": "Freedom next candidate", "admin_application_name": "Freedom next administrators", "required": true},
-      "hyperdrive": [
-        {"name": "freedom-next-fresh", "binding": "DB_FRESH", "caching_disabled": true, "use": "all authenticated, session, permission, write and read-after-write queries"},
-        {"name": "freedom-next-cached", "binding": "DB_CACHED", "caching_disabled": false, "max_age_seconds": 30, "optional": true, "use": "public catalog display only; never sessions, permissions or member data"}
-      ],
+      "hyperdrive": {"name": "freedom-next-hd", "binding": "HYPERDRIVE", "caching_disabled": true},
       "database": {
-        "name": "freedom-next",
-        "branch": "main",
+        "name": "freedom-next-pg",
+        "dbname": "freedom_next",
+        "size": "PS-5",
         "topology": "ha",
-        "sku": "PS-5",
-        "architecture": "arm64",
-        "catalog_monthly_usd": 15,
-        "resize_gate": {"sku": "PS-10", "catalog_monthly_usd": 41, "only_if": "load test or connection limits fail on PS-5 HA"},
         "roles": {"migrator": "freedom_next_migrator", "runtime": "freedom_next_app"}
       },
       "r2_buckets": [{"name": "freedom-next-private", "public": false, "optional": true}],
       "secret_names": ["GITHUB_SOCIAL_TOKEN_KEY", "FREEDOM_ADMIN_CSRF_SECRET"],
-      "var_names": ["APP_ORIGIN", "FREEDOM_ENV", "FREEDOM_DATABASE_NAME", "FREEDOM_REGISTRATION_COMMUNITY_ID", "FREEDOM_ADMIN_ACCESS_ISSUER", "FREEDOM_ADMIN_ACCESS_AUD"]
+      "var_names": ["APP_ORIGIN", "FREEDOM_ENV", "FREEDOM_RELEASE_SHA", "FREEDOM_TRUST_CF_CONNECTING_IP", "FREEDOM_DATABASE_NAME", "FREEDOM_REGISTRATION_COMMUNITY_ID", "FREEDOM_ADMIN_ACCESS_ISSUER", "FREEDOM_ADMIN_ACCESS_AUD"]
     }
   }
 }

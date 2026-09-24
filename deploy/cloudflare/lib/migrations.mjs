@@ -2,9 +2,9 @@ import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-// PlanetScale's default role is NOSUPERUSER; these statements fail or need provider support there.
+// PlanetScale's default role (like other managed PostgreSQL admins) is NOSUPERUSER; these statements fail or need provider support.
 const PRIVILEGED = [
-  [/\bCREATE\s+EXTENSION\b/i, 'CREATE EXTENSION (verify against the PlanetScale extension list first)'],
+  [/\bCREATE\s+EXTENSION\b/i, 'CREATE EXTENSION (verify against the provider extension list first)'],
   [/\bALTER\s+SYSTEM\b/i, 'ALTER SYSTEM (use provider cluster parameters instead)'],
   [/\b(CREATE|ALTER)\s+ROLE\b|\bCREATE\s+USER\b/i, 'role management inside a migration (roles are provisioned per environment, not migrated)'],
   [/\bSUPERUSER\b|\bBYPASSRLS\b|\bREPLICATION\b/i, 'superuser-class attribute'],
