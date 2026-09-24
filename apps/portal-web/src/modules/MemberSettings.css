@@ -53,4 +53,10 @@
 .messages-compose{display:grid;gap:.5rem}
 .messages-compose textarea{width:100%;min-height:6rem;font-size:16px;resize:vertical}
 .messages-search input{width:100%;font-size:16px;min-height:44px}
+/* Guild and squad chat: each row is the channel button itself. */
+.member-channel-list>li,.member-channel-list>li.is-unread{padding:0;border:0;background:none}
+.member-channel-list>li.is-unread .messages-peer{border-color:#536925}
+.member-channel-list .messages-peer{padding:.6rem .8rem}
+/* The open channel is marked by an inset bar as well as colour, and wins over the unread border. */
+.member-channel-list>li .messages-peer[aria-current=true]{border-color:#c4ff20;box-shadow:inset 4px 0 0 #c4ff20}
 @media(max-width:760px){.messages-layout{grid-template-columns:1fr}.messages-bubbles>li{max-width:100%}}

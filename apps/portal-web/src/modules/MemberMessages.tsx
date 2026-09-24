@@ -3,6 +3,7 @@ import {ApiError,type PortalClient} from '../api';
 import {formatIsoLocal} from '../format';
 import type {SessionPayload,TabId} from '../types';
 import {MemberAvatar} from './MemberAvatar';
+import {MemberChannels} from './MemberChannels';
 import {announceInboxChange,type InboxUnread} from './member-inbox';
 import type {MemberCardData} from './Membership';
 import './MemberSettings.css';
@@ -30,24 +31,36 @@ const merge=<T,>(current:T[],next:T[],id:(value:T)=>string)=>{const seen=new Set
 const usableAction=(action:NotificationAction|null)=>!action||!Object.hasOwn(actionLabels,action.tab)||action.tab==='messages'&&!uuid.test(action.resource_id??'')?null:action;
 const unreadText=(count:InboxUnread)=>count===undefined?'':count===null?'未讀數未確認':count>0?`${count} 則未讀`:'沒有未讀';
 
+type View='notifications'|'guild'|'squad'|'direct';
+const VIEWS:readonly (readonly [View,string])[]=[['notifications','通知'],['guild','公會閒聊'],['squad','小隊閒聊'],['direct','私人訊息']];
+
 export function MemberMessages({client,session,onNavigate}:Props){
-  const [view,setView]=useState<'notifications'|'direct'>('notifications');
-  const [noticeUnread,setNoticeUnread]=useState<InboxUnread>(),[directUnread,setDirectUnread]=useState<InboxUnread>();
+  const [view,setView]=useState<View>('notifications');
+  const [noticeUnread,setNoticeUnread]=useState<InboxUnread>(),[guildUnread,setGuildUnread]=useState<InboxUnread>(),[squadUnread,setSquadUnread]=useState<InboxUnread>(),[directUnread,setDirectUnread]=useState<InboxUnread>();
+  const unread:Record<View,InboxUnread>={notifications:noticeUnread,guild:guildUnread,squad:squadUnread,direct:directUnread};
   const [openPeer,setOpenPeer]=useState<{id:string;request:number}|null>(null);
   const tabs=useRef<Record<string,HTMLButtonElement|null>>({});
   function tabKey(event:KeyboardEvent){
-    if(event.key!=='ArrowLeft'&&event.key!=='ArrowRight'&&event.key!=='Home'&&event.key!=='End')return;
+    const index=VIEWS.findIndex(([id])=>id===view),last=VIEWS.length-1;
+    const next={ArrowRight:index===last?0:index+1,ArrowLeft:index===0?last:index-1,Home:0,End:last}[event.key];
+    if(next===undefined)return;
     event.preventDefault();
-    const next=event.key==='Home'?'notifications':event.key==='End'?'direct':view==='notifications'?'direct':'notifications';
-    setView(next);tabs.current[next]?.focus();
+    const id=VIEWS[next][0];setView(id);tabs.current[id]?.focus();
   }
-  const tab=(id:'notifications'|'direct',label:string,count:InboxUnread)=><button ref={node=>{tabs.current[id]=node;}} type="button" role="tab" id={`messages-tab-${id}`} aria-controls={`messages-panel-${id}`}
-    aria-selected={view===id} tabIndex={view===id?0:-1} className="btn btn-ghost" onClick={()=>setView(id)}>{label}{count!==undefined&&<span className="messages-count">{unreadText(count)}</span>}</button>;
   return <section className="member-messages">
-    <div className="messages-tabs" role="tablist" aria-label="訊息類型" onKeyDown={tabKey}>{tab('notifications','通知',noticeUnread)}{tab('direct','私訊',directUnread)}</div>
-    {/* Both panels stay mounted so unsent drafts survive switching tabs. */}
+    <div className="messages-tabs" role="tablist" aria-label="訊息類型" onKeyDown={tabKey}>
+      {VIEWS.map(([id,label])=><button key={id} ref={node=>{tabs.current[id]=node;}} type="button" role="tab" id={`messages-tab-${id}`} aria-controls={`messages-panel-${id}`}
+        aria-selected={view===id} tabIndex={view===id?0:-1} className="btn btn-ghost" onClick={()=>setView(id)}>{label}{unread[id]!==undefined&&<span className="messages-count">{unreadText(unread[id])}</span>}</button>)}
+    </div>
+    {/* Every panel stays mounted so unsent drafts survive switching tabs; chat history is read only after a channel is chosen. */}
     <div id="messages-panel-notifications" role="tabpanel" aria-labelledby="messages-tab-notifications" hidden={view!=='notifications'}>
       <Notifications client={client} onUnread={setNoticeUnread} onNavigate={onNavigate} onOpenPeer={id=>{setView('direct');setOpenPeer(current=>({id,request:(current?.request??0)+1}));}}/>
+    </div>
+    <div id="messages-panel-guild" role="tabpanel" aria-labelledby="messages-tab-guild" hidden={view!=='guild'}>
+      <MemberChannels client={client} session={session} kind="guild" onUnread={setGuildUnread} onNavigate={onNavigate}/>
+    </div>
+    <div id="messages-panel-squad" role="tabpanel" aria-labelledby="messages-tab-squad" hidden={view!=='squad'}>
+      <MemberChannels client={client} session={session} kind="squad" onUnread={setSquadUnread} onNavigate={onNavigate}/>
     </div>
     <div id="messages-panel-direct" role="tabpanel" aria-labelledby="messages-tab-direct" hidden={view!=='direct'}>
       <DirectMessages client={client} session={session} onUnread={setDirectUnread} openPeer={openPeer}/>
@@ -302,7 +315,7 @@ function DirectMessages({client,session,onUnread,openPeer}:{client:PortalClient;
       </section>
     </div>
     <section className="messages-thread" aria-labelledby="messages-thread-title" aria-busy={threadStatus==='loading'}>
-      {!peer&&<><h2 id="messages-thread-title">私訊</h2><p className="muted">從對話列表或會員搜尋選擇對象。</p></>}
+      {!peer&&<><h2 id="messages-thread-title">私人訊息</h2><p className="muted">從對話列表或會員搜尋選擇對象。</p></>}
       {peer&&<>
         <h2 id="messages-thread-title" ref={heading} tabIndex={-1}>{participant?`與 ${participant.display_name} 的對話`:'讀取對話中'}</h2>
         {threadStatus==='loading'&&<p role="status">正在讀取訊息…</p>}

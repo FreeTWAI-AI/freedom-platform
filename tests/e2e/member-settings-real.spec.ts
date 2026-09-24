@@ -76,8 +76,8 @@ test('two synthetic members exchange a private message and a friend notification
 
     // The sender finds the receiver through the real member search and writes plain text.
     await settings(s).click();await inboxItem(s).click();await expect(s).toHaveURL(/#messages$/);
-    await s.getByRole('tab',{name:/私訊/}).click();
-    const sPanel=s.getByRole('tabpanel',{name:/私訊/}),sThread=sPanel.locator('.messages-thread');
+    await s.getByRole('tab',{name:/私人訊息/}).click();
+    const sPanel=s.getByRole('tabpanel',{name:/私人訊息/}),sThread=sPanel.locator('.messages-thread');
     await sPanel.getByLabel('搜尋會員').fill(receiver.display_name);await sPanel.getByRole('button',{name:'搜尋會員',exact:true}).click();
     await expect(sPanel.getByRole('list',{name:'會員搜尋結果'}).getByRole('button')).toHaveCount(1);
     await sPanel.getByRole('list',{name:'會員搜尋結果'}).getByRole('button',{name:`傳訊給 ${receiver.display_name}`}).click();
@@ -105,9 +105,9 @@ test('two synthetic members exchange a private message and a friend notification
     await expect(r.getByRole('menuitem')).toHaveText(['我的名片','待辦清單','我的訊息1 則未讀']);
     await noOverflow(r);await shot(r,'settings-320');
     await inboxItem(r).click();await expect(r).toHaveURL(/#messages$/);await expect(r.locator('#main-content')).toBeFocused();
-    await expect(r.getByRole('tab',{name:/私訊/})).toContainText('1 則未讀');await expect(r.getByRole('tab',{name:/通知/})).toContainText('沒有未讀');
-    await r.getByRole('tab',{name:/私訊/}).click();
-    const rPanel=r.getByRole('tabpanel',{name:/私訊/}),rThread=rPanel.locator('.messages-thread'),rList=rPanel.getByRole('list',{name:'對話列表'});
+    await expect(r.getByRole('tab',{name:/私人訊息/})).toContainText('1 則未讀');await expect(r.getByRole('tab',{name:/通知/})).toContainText('沒有未讀');
+    await r.getByRole('tab',{name:/私人訊息/}).click();
+    const rPanel=r.getByRole('tabpanel',{name:/私人訊息/}),rThread=rPanel.locator('.messages-thread'),rList=rPanel.getByRole('list',{name:'對話列表'});
     const fromSender=rList.getByRole('button',{name:new RegExp(sender.display_name)});
     await expect(rList.getByRole('button')).toHaveCount(1);await expect(fromSender).toContainText('1 則未讀');
     await fromSender.click();
@@ -119,7 +119,7 @@ test('two synthetic members exchange a private message and a friend notification
     // 1 → 0 by an explicit read.
     await rThread.getByRole('button',{name:'標為已讀',exact:true}).click();
     // The button is renamed while the read is out; the tab total changes only after the server confirms.
-    await expect(r.getByRole('tab',{name:/私訊/})).toContainText('沒有未讀');await expect(rThread.getByRole('button',{name:/標為已讀|正在標記/})).toHaveCount(0);
+    await expect(r.getByRole('tab',{name:/私人訊息/})).toContainText('沒有未讀');await expect(rThread.getByRole('button',{name:/標為已讀|正在標記/})).toHaveCount(0);
     expect(await receiverSide.unread('conversations')).toBe(0);
     expect((await db.query('SELECT read_at FROM member_direct_messages WHERE message_id=$1',[stored[0].message_id])).rows[0].read_at).not.toBeNull();
     await expect(fromSender).not.toContainText('則未讀');
@@ -133,13 +133,13 @@ test('two synthetic members exchange a private message and a friend notification
     await expect(rThread.getByText(second,{exact:true})).toHaveCount(0);
     const refreshList=rPanel.getByRole('button',{name:'重新整理對話',exact:true});await refreshList.click();
     await expect(fromSender).toContainText(second.slice(0,20));await expect(fromSender).toContainText('1 則未讀');await expect(refreshList).toBeFocused();
-    await expect(r.getByRole('tab',{name:/私訊/})).toContainText('1 則未讀');
+    await expect(r.getByRole('tab',{name:/私人訊息/})).toContainText('1 則未讀');
     const refreshThread=rThread.getByRole('button',{name:'重新讀取訊息',exact:true});await refreshThread.click();
     await expect(rThread.locator('.messages-bubbles .messages-body').last()).toHaveText(second);await expect(refreshThread).toBeFocused();
     await expect(rBox).toHaveValue('還沒送出的草稿');
     expect(await receiverSide.unread('conversations')).toBe(1);
     await rThread.getByRole('button',{name:'標為已讀',exact:true}).click();
-    await expect(r.getByRole('tab',{name:/私訊/})).toContainText('沒有未讀');await expect(rThread.getByRole('button',{name:/標為已讀|正在標記/})).toHaveCount(0);
+    await expect(r.getByRole('tab',{name:/私人訊息/})).toContainText('沒有未讀');await expect(rThread.getByRole('button',{name:/標為已讀|正在標記/})).toHaveCount(0);
     expect(await receiverSide.unread('conversations')).toBe(0);
 
     // The receiver replies; the sender's list goes 0 → 1 on a manual re-read.
@@ -158,7 +158,7 @@ test('two synthetic members exchange a private message and a friend notification
     expect(await badge.evaluate(node=>node.scrollWidth<=node.clientWidth)).toBe(true);expect(badgeBox!.x+badgeBox!.width).toBeLessThanOrEqual(peerBox!.x+peerBox!.width);
     await shot(s,'direct-desktop');
     await sThread.getByRole('button',{name:'標為已讀',exact:true}).click();
-    await expect(s.getByRole('tab',{name:/私訊/})).toContainText('沒有未讀');await expect(sThread.getByRole('button',{name:/標為已讀|正在標記/})).toHaveCount(0);
+    await expect(s.getByRole('tab',{name:/私人訊息/})).toContainText('沒有未讀');await expect(sThread.getByRole('button',{name:/標為已讀|正在標記/})).toHaveCount(0);
     expect(await senderSide.unread('conversations')).toBe(0);
     await expect(rThread.locator('.messages-bubbles .messages-body')).toHaveText([first,second,answer]);
     await noOverflow(r);await shot(r,'direct-320');

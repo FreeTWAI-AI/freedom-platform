@@ -9,6 +9,8 @@ test.beforeEach(async({page})=>{
   // Nothing in these cases may leave the isolated local server.
   await page.route(url=>!['127.0.0.1','localhost'].includes(url.hostname),route=>route.abort());
   await page.route('**/api/v1/me/skill-books',route=>route.fulfill({json:{items:[]}}));
+  // Guild and squad chat lists stay empty (0 unread) here; tests/e2e/member-channels.spec.ts covers them.
+  await page.route(/\/api\/v1\/me\/channels\?/,route=>route.fulfill({json:{items:[],unread_count:0,next_offset:null}}));
 });
 
 async function login(page:Page,hash=''){
@@ -358,9 +360,9 @@ async function direct(page:Page,options:{delayA?:Promise<void>;outcomes?:('abort
 test('direct messages page, send with an unknown result once, and mark read only on request',async({page})=>{
   const {sends,reads}=await direct(page,{outcomes:['abort','ok','500','ok']});
   await login(page,'#messages');
-  await page.getByRole('tab',{name:/私訊/}).click();
-  await expect(page.getByRole('tab',{name:/私訊/})).toContainText('2 則未讀');
-  const panel=page.getByRole('tabpanel',{name:/私訊/});
+  await page.getByRole('tab',{name:/私人訊息/}).click();
+  await expect(page.getByRole('tab',{name:/私人訊息/})).toContainText('2 則未讀');
+  const panel=page.getByRole('tabpanel',{name:/私人訊息/});
   await panel.getByRole('button',{name:/合成夥伴甲/}).click();
   const threadRegion=panel.locator('.messages-thread');
   await expect(threadRegion.getByRole('heading',{name:'與 合成夥伴甲 的對話'})).toBeFocused();
@@ -374,7 +376,7 @@ test('direct messages page, send with an unknown result once, and mark read only
   expect(reads).toEqual([]);
   await threadRegion.getByRole('button',{name:'標為已讀',exact:true}).click();
   await expect(threadRegion.getByRole('button',{name:'標為已讀',exact:true})).toHaveCount(0);
-  await expect(page.getByRole('tab',{name:/私訊/})).toContainText('沒有未讀');expect(reads.length).toBe(1);
+  await expect(page.getByRole('tab',{name:/私人訊息/})).toContainText('沒有未讀');expect(reads.length).toBe(1);
 
   const box=threadRegion.getByLabel('寫給 合成夥伴甲 的訊息');
   await box.fill('  <b>純文字</b> 你好  ');
@@ -398,8 +400,8 @@ test('direct messages page, send with an unknown result once, and mark read only
 
 test('changing an unconfirmed message makes it a new message with a new key',async({page})=>{
   const {sends}=await direct(page,{outcomes:['abort','ok']});
-  await login(page,'#messages');await page.getByRole('tab',{name:/私訊/}).click();
-  const panel=page.getByRole('tabpanel',{name:/私訊/}),threadRegion=panel.locator('.messages-thread');
+  await login(page,'#messages');await page.getByRole('tab',{name:/私人訊息/}).click();
+  const panel=page.getByRole('tabpanel',{name:/私人訊息/}),threadRegion=panel.locator('.messages-thread');
   await panel.getByRole('button',{name:/合成夥伴甲/}).click();
   const box=threadRegion.getByLabel('寫給 合成夥伴甲 的訊息');await box.fill('原稿');
   await threadRegion.getByRole('button',{name:'送出',exact:true}).click();await expect(threadRegion.getByRole('alert')).toContainText('傳送結果未確認');
@@ -411,8 +413,8 @@ test('switching conversations ignores late responses and keeps a draft per recip
   let release:()=>void=()=>{};const delayA=new Promise<void>(resolve=>{release=resolve;});
   const {sends}=await direct(page,{delayA});
   await login(page,'#messages');
-  await page.getByRole('tab',{name:/私訊/}).click();
-  const panel=page.getByRole('tabpanel',{name:/私訊/}),threadRegion=panel.locator('.messages-thread');
+  await page.getByRole('tab',{name:/私人訊息/}).click();
+  const panel=page.getByRole('tabpanel',{name:/私人訊息/}),threadRegion=panel.locator('.messages-thread');
   await panel.getByRole('button',{name:/合成夥伴甲/}).click();
   await expect(threadRegion.getByRole('status')).toHaveText('正在讀取訊息…');
   // Start a new conversation from the real member directory while A is still loading.
@@ -431,7 +433,7 @@ test('switching conversations ignores late responses and keeps a draft per recip
   await panel.getByRole('button',{name:/合成夥伴甲/}).click();
   const boxA=threadRegion.getByLabel('寫給 合成夥伴甲 的訊息');await expect(boxA).toHaveValue('');await boxA.fill('給甲的草稿');
   // Drafts also survive a trip to the notifications tab.
-  await page.getByRole('tab',{name:/通知/}).click();await page.getByRole('tab',{name:/私訊/}).click();await expect(boxA).toHaveValue('給甲的草稿');
+  await page.getByRole('tab',{name:/通知/}).click();await page.getByRole('tab',{name:/私人訊息/}).click();await expect(boxA).toHaveValue('給甲的草稿');
   await results.getByRole('button',{name:/示範合作方/}).click();
   await expect(threadRegion.getByLabel('寫給 合成夥伴乙 的訊息')).toHaveValue('給乙的草稿');
   expect(sends).toEqual([]);
@@ -439,8 +441,8 @@ test('switching conversations ignores late responses and keeps a draft per recip
 
 test('an open messages page can re-read the list and thread to see new mail without losing the draft',async({page})=>{
   const {store,reads}=await direct(page);
-  await login(page,'#messages');await page.getByRole('tab',{name:/私訊/}).click();
-  const panel=page.getByRole('tabpanel',{name:/私訊/}),threadRegion=panel.locator('.messages-thread'),list=panel.getByRole('list',{name:'對話列表'});
+  await login(page,'#messages');await page.getByRole('tab',{name:/私人訊息/}).click();
+  const panel=page.getByRole('tabpanel',{name:/私人訊息/}),threadRegion=panel.locator('.messages-thread'),list=panel.getByRole('list',{name:'對話列表'});
   await expect(list.getByRole('button')).toHaveCount(1);
   await list.getByRole('button',{name:/合成夥伴甲/}).click();
   const box=threadRegion.getByLabel('寫給 合成夥伴甲 的訊息');await box.fill('還沒寫完的回覆');
@@ -450,7 +452,7 @@ test('an open messages page can re-read the list and thread to see new mail with
   const refreshList=panel.getByRole('button',{name:'重新整理對話',exact:true});
   await refreshList.click();
   await expect(list.getByRole('button',{name:/合成夥伴乙/})).toContainText('1 則未讀');await expect(refreshList).toBeFocused();
-  await expect(page.getByRole('tab',{name:/私訊/})).toContainText('4 則未讀');
+  await expect(page.getByRole('tab',{name:/私人訊息/})).toContainText('4 則未讀');
   const refreshThread=threadRegion.getByRole('button',{name:'重新讀取訊息',exact:true});
   await refreshThread.click();
   await expect(threadRegion.locator('.messages-bubbles .messages-body').last()).toHaveText('甲的新回覆');await expect(refreshThread).toBeFocused();
@@ -466,8 +468,8 @@ test('a slow re-read that started before a confirmed send or read never overwrit
   let answered=0;page.on('requestfinished',request=>{if(request.method()==='GET'&&/\/me\/conversations(\/[^/]+\/messages)?\?limit=20&offset=0$/.test(request.url()))answered++;});
   const delivered=async(extra:number)=>{const target=answered+extra;held.splice(0).forEach(done=>done());
     await expect.poll(()=>answered).toBeGreaterThanOrEqual(target);await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));};
-  await login(page,'#messages');await page.getByRole('tab',{name:/私訊/}).click();
-  const panel=page.getByRole('tabpanel',{name:/私訊/}),threadRegion=panel.locator('.messages-thread'),list=panel.getByRole('list',{name:'對話列表'});
+  await login(page,'#messages');await page.getByRole('tab',{name:/私人訊息/}).click();
+  const panel=page.getByRole('tabpanel',{name:/私人訊息/}),threadRegion=panel.locator('.messages-thread'),list=panel.getByRole('list',{name:'對話列表'});
   await list.getByRole('button',{name:/合成夥伴甲/}).click();
   const bubbles=threadRegion.locator('.messages-bubbles .messages-body'),box=threadRegion.getByLabel('寫給 合成夥伴甲 的訊息');
   await expect(bubbles).toHaveCount(20);
@@ -490,10 +492,10 @@ test('a slow re-read that started before a confirmed send or read never overwrit
   holding=true;await refreshList.click();await refreshThread.click();
   await expect.poll(()=>held.length).toBe(2);holding=false;
   await threadRegion.getByRole('button',{name:'標為已讀',exact:true}).click();
-  await expect(threadRegion.getByRole('button',{name:'標為已讀',exact:true})).toHaveCount(0);await expect(page.getByRole('tab',{name:/私訊/})).toContainText('沒有未讀');
+  await expect(threadRegion.getByRole('button',{name:'標為已讀',exact:true})).toHaveCount(0);await expect(page.getByRole('tab',{name:/私人訊息/})).toContainText('沒有未讀');
   await delivered(2);
   await expect(refreshList).toHaveText('重新整理對話');await expect(refreshThread).toHaveText('重新讀取訊息');
   await expect(threadRegion.getByRole('button',{name:'標為已讀',exact:true})).toHaveCount(0);await expect(threadRegion.getByText(' · 未讀')).toHaveCount(0);
-  await expect(peerA).not.toContainText('則未讀');await expect(page.getByRole('tab',{name:/私訊/})).toContainText('沒有未讀');
+  await expect(peerA).not.toContainText('則未讀');await expect(page.getByRole('tab',{name:/私人訊息/})).toContainText('沒有未讀');
   await expect(box).toHaveValue('送出後的新草稿');expect(reads.length).toBe(1);
 });
