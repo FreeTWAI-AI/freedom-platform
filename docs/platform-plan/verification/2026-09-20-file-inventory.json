@@ -709,8 +709,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildDesign.css",
-      "bytes": 26042,
-      "sha256": "f07690a284cf836c77b4d3e5fa66d60a9ddaebdc7aed6456629401c2ff3fb103"
+      "bytes": 26284,
+      "sha256": "0e2072fc23fb81e18874a38a64231bd537c9070fa5c9200251661ca2a72378bb"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLeadership.css",
@@ -794,8 +794,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Onboarding.tsx",
-      "bytes": 20732,
-      "sha256": "e2170a48ba454457fa68d50fa888256c668c22f9c6367070b399eefad561e1c0"
+      "bytes": 22054,
+      "sha256": "bd36e6550266d186be1d52a897dd385c6d536c30c991ce797478d974ff107baa"
     },
     {
       "path": "apps/portal-web/src/modules/OpenSourcePanels.tsx",
@@ -1179,8 +1179,8 @@
     },
     {
       "path": "docs/development/member-onboarding-release.md",
-      "bytes": 5072,
-      "sha256": "280ce3189d4b2e35cd7df708a32e24809e82d8ad76bb95bee3dda2862c0097a9"
+      "bytes": 6040,
+      "sha256": "5ac25c87dfd6b5d2201cb23016411216cd564cee9fc6589b66735405f2930d3f"
     },
     {
       "path": "docs/development/member-skill-registration.md",
@@ -3004,8 +3004,8 @@
     },
     {
       "path": "scripts/verify-public.mjs",
-      "bytes": 67279,
-      "sha256": "a1ab24c986b115c79f2ff3ced30e1e96238e56de18e1b9f8338a0307eb0d9043"
+      "bytes": 68451,
+      "sha256": "5d754e3297fa86545ead10acdf66d74a709f9bdc63ebf97ed9ea334e9e1648c2"
     },
     {
       "path": "scripts/verify-staging.mjs",
@@ -3139,8 +3139,8 @@
     },
     {
       "path": "tests/e2e/onboarding-members.spec.ts",
-      "bytes": 35413,
-      "sha256": "de6dc8cc7d4e2e03c7b4b77fcefe720fd727eb44648f2b46da8b905b8ead811e"
+      "bytes": 39832,
+      "sha256": "c4b0dbb6c3e13d8cd680d22c1d4d2d36e3794ef6954a475cc53fbd8c0a837f44"
     },
     {
       "path": "tests/e2e/onboarding-recovery.spec.ts",

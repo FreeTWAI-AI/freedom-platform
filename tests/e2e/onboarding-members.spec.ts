@@ -397,3 +397,44 @@ test('re-exploration preserves the confirmed profile until completion and keeps 
   await expect(result).toContainText('新的研究整理');
   expect(publicPosition(await (await page.request.get(memberPath)).json())).toEqual(publicPosition(after));
 });
+
+for(const width of [1280,320])test(`missing primary guild has an actionable hint and can be selected beside confirmation at ${width}px`,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  await register(page,'主要公會提示測試');await answerQuestions(page);
+  await page.getByRole('button',{name:'保存，繼續下一步 →',exact:true}).click();
+  await page.getByRole('button',{name:'看看適合我的公會',exact:true}).click();
+  await expect(page.locator('.recommendation-card').first()).toBeVisible();
+  // Members returning to an evaluated draft must see the same way out of the gate.
+  await page.reload();await expect(page.locator('.recommendation-card').first()).toBeVisible();
+  const view=await (await page.request.get('/api/v1/me/onboarding')).json(),[first,second]=view.result.recommendations;
+  const card=(name:string)=>page.locator('.recommendation-card').filter({has:page.getByRole('heading',{name,exact:true})});
+  const confirmation=page.locator('.onboarding-confirmation'),hint=confirmation.getByRole('status'),finish=confirmation.getByRole('button',{name:'確認加入公會，領取技能書',exact:true}),primary=confirmation.getByRole('combobox',{name:'主要公會（必選）',exact:true});
+  const completionWrites:any[]=[];page.on('request',request=>{if(request.url().endsWith('/api/v1/me/onboarding/complete')&&request.method()==='POST')completionWrites.push(request.postDataJSON());});
+  await expect(hint).toHaveText('請先勾選至少一個想加入的公會，再選擇主要公會。');await expect(finish).toBeDisabled();
+  await confirmation.getByRole('button',{name:'前往選擇公會',exact:true}).click();await expect(card(first.name).getByRole('checkbox')).toBeFocused();
+  await card(first.name).getByRole('checkbox').check();
+  await expect(hint).toHaveText('還差一步：請選擇主要公會，才能完成定位。');await expect(primary).toHaveValue('');await expect(finish).toBeDisabled();
+  await expect(primary).toHaveAccessibleDescription('還差一步：請選擇主要公會，才能完成定位。');
+  await card(second.name).getByRole('checkbox').check();
+  await card(first.name).getByRole('radio').check();await expect(primary).toHaveValue(first.guild_key);
+  await card(first.name).getByRole('checkbox').uncheck();await expect(primary).toHaveValue('');await expect(hint).toContainText('還差一步');await expect(finish).toBeDisabled();
+  await expect(primary.locator('option')).toHaveCount(2);expect(completionWrites).toHaveLength(0);
+  let chosen=second;
+  if(width===320){
+    const directory=(await (await page.request.get('/api/v1/guilds/directory')).json()).items;
+    chosen=directory.find((guild:any)=>!view.result.recommendations.some((candidate:any)=>candidate.guild_key===guild.guild_key));
+    await page.locator('.other-guild-choices > summary').click();await page.locator('.other-guild-choices').getByRole('checkbox',{name:chosen.name,exact:true}).check();
+    await page.locator('.other-guild-choices > summary').click();
+    await expect(primary.locator('option')).toHaveCount(3);
+  }
+  await primary.scrollIntoViewIfNeeded();await page.screenshot({path:`test-results/primary-guild-hint-${width}.png`});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(await primary.evaluate(element=>parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
+  expect((await primary.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await primary.selectOption(chosen.guild_key);await expect(primary).toHaveValue(chosen.guild_key);await expect(hint).toBeHidden();await expect(finish).toBeEnabled();
+  if(width===1280)await expect(card(second.name).getByRole('radio')).toBeChecked();
+  await finish.click();await expect(page.getByRole('heading',{name:'你的第一段旅程，現在開始。',exact:true})).toBeVisible();
+  expect(completionWrites).toHaveLength(1);expect(completionWrites[0].primary_guild_key).toBe(chosen.guild_key);expect(completionWrites[0].guild_keys).not.toContain(first.guild_key);
+  const saved=await (await page.request.get('/api/v1/me/onboarding')).json();expect(saved.completed).toBe(true);expect(saved.primary_guild_key).toBe(chosen.guild_key);
+  await page.getByRole('button',{name:'進入自由工坊 →',exact:true}).click();await expect(page.getByRole('heading',{name:'會員首頁',exact:true})).toBeVisible();
+});

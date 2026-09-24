@@ -144,6 +144,9 @@
 .guild-onboarding .other-guild-choices .stack > div { padding: 14px; border: 1px solid #333943; border-radius: 10px; background: #1d2129; }
 .guild-onboarding .onboarding-confirmation { border-color: #677d34; padding: 26px; background: #c4ff2006; }
 .guild-onboarding .onboarding-confirmation .actions { margin-top: 8px; }
+.guild-onboarding .onboarding-guild-hint { color: #ffd18a; font-size: 1rem; }
+.guild-onboarding .onboarding-guild-hint:empty { display: none; }
+.guild-onboarding .onboarding-confirmation select { width: 100%; min-width: 0; font-size: 1rem; }
 
 @media (min-width: 1500px) {
   .guilds-panel .guild-directory { grid-template-columns: repeat(3, minmax(0, 1fr)); }
