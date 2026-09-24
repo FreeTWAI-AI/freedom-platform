@@ -198,7 +198,7 @@ node --test deploy/cloudflare/test/*.test.mjs
 - Workers Paid 啟用狀態（已授權，由 root 處理）。
 - 真實 Hyperdrive id 與 `caching.disabled` 讀回。
 - 資料庫、Hyperdrive binding、custom domain 都**尚未**建立或部署。
-- Cloudflare remote Images 驗收：root 目前 12/13，alpha cover 修正由 root 負責，本工作流維持 pending。
+- Cloudflare remote Images：identity/root 已記錄證據（非本工作流執行）— alpha 修正 `125b022` 遠端 targeted proof 6/6 PASS（5 transforms + 1 APNG zero-call），原始 alpha 77 完整保留、padded bands 不透明、與 Node 比對 max_alpha_diff 0；EXIF 6 odd padding、vertical padding、avatar、reupload 亦通過（`/tmp/freedom-cloudflare-images-remote-20260924/verify-alpha-remote.json`）。這只是 targeted image proof，不代表整體部署／readiness；候選整合驗收與其他部署前置仍為 not_run。
 - OCI TLS 可驗證路徑；OCI 資源一律不建立。
 - 所有 provider mutation、SQL 執行、restore drill、負載測試、瀏覽器驗證與台灣延遲量測。
 
