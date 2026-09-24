@@ -174,30 +174,52 @@ test('skill trees preserve choices across screen sizes and show only three featu
   await answerQuestions(page);
   const definition=await (await page.request.get('/api/v1/assessment-definition')).json();
   const choices=definition.capability_categories.slice(0,4).map((category:any)=>({category:category.label,group:category.subcategories[0].label,...category.subcategories[0].options[0]}));
-  for(const choice of choices)await page.getByLabel(choice.label,{exact:true}).check();
+  const search=page.getByLabel('搜尋能力',{exact:true});
+  const categoryOf=(choice:any)=>page.locator('.category-group').filter({has:page.locator('.tree-toggle strong',{hasText:choice.category})}).first();
+  const groupOf=(choice:any)=>categoryOf(choice).locator('.tree-subcategory').filter({has:page.getByRole('button',{name:new RegExp(choice.group)})}).first();
+  // Desktop starts with the same collapsed category list as phones instead of every chip.
+  await page.setViewportSize({width:1440,height:900});
+  await expect(page.locator('.capability-tree .category-group > .tree-toggle')).toHaveCount(definition.capability_categories.length);
+  await expect(page.locator('.capability-tree .tree-toggle[aria-expanded=true]')).toHaveCount(0);
+  await expect(page.getByLabel(choices[0].label,{exact:true})).toBeHidden();
+  expect(await page.evaluate(()=>document.documentElement.scrollHeight)).toBeLessThan(4500);
+  // Pointer expansion.
+  await categoryOf(choices[0]).locator(':scope > .tree-toggle').click();await groupOf(choices[0]).locator('.tree-subtoggle').click();
+  await page.getByLabel(choices[0].label,{exact:true}).check();
+  // Keyboard expansion.
+  const keyboardCategory=categoryOf(choices[1]).locator(':scope > .tree-toggle');
+  await keyboardCategory.focus();await page.keyboard.press('Enter');await expect(keyboardCategory).toHaveAttribute('aria-expanded','true');
+  const keyboardGroup=groupOf(choices[1]).locator('.tree-subtoggle');await keyboardGroup.focus();await page.keyboard.press('Space');await expect(keyboardGroup).toHaveAttribute('aria-expanded','true');
+  await page.getByLabel(choices[1].label,{exact:true}).check();
+  await expect(categoryOf(choices[1]).locator(':scope > .tree-toggle')).toContainText('1 /');
+  // Search reveals matches in collapsed categories; clearing it restores exactly what the member opened.
+  for(const choice of choices.slice(2)){await search.fill(choice.label);await page.getByLabel(choice.label,{exact:true}).check();}
+  await search.fill('');
+  await expect(page.getByLabel(choices[0].label,{exact:true})).toBeVisible();await expect(page.getByLabel(choices[1].label,{exact:true})).toBeVisible();
+  for(const choice of choices.slice(2)){await expect(page.getByLabel(choice.label,{exact:true})).toBeHidden();await expect(page.getByLabel(choice.label,{exact:true})).toBeChecked();await expect(categoryOf(choice).locator(':scope > .tree-toggle')).toHaveAttribute('aria-expanded','false');}
+  await expect(page.getByRole('status').filter({hasText:'已勾選 4 項能力'})).toBeVisible();
   await page.getByLabel('自訂能力',{exact:true}).fill('手工皮革製作');await page.getByRole('button',{name:'加入能力',exact:true}).click();
   await page.getByLabel(`精選能力：${choices[0].label}`,{exact:true}).check();
   await page.getByLabel(`精選能力：${choices[1].label}`,{exact:true}).check();
   await page.getByLabel('精選能力：手工皮革製作',{exact:true}).check();
   await expect(page.getByLabel(`精選能力：${choices[2].label}`,{exact:true})).toBeDisabled();
+  // Resizing keeps choices, featured picks and the sections the member opened.
   await page.setViewportSize({width:390,height:844});
-  await expect(page.getByLabel(choices[0].label,{exact:true})).toBeHidden();
-  const category=page.locator('.category-group').filter({has:page.locator('.tree-toggle strong',{hasText:choices[0].category})}).first();
-  await category.locator(':scope > .tree-toggle').click();
-  const group=category.locator('.tree-subcategory').filter({has:page.getByRole('button',{name:new RegExp(choices[0].group)})}).first();
-  await group.locator('.tree-subtoggle').click();
-  await expect(page.getByLabel(choices[0].label,{exact:true})).toBeChecked();
-  await page.getByLabel('搜尋能力',{exact:true}).fill(choices[2].label);
+  await expect(page.getByLabel(choices[0].label,{exact:true})).toBeVisible();await expect(page.getByLabel(choices[0].label,{exact:true})).toBeChecked();
+  await expect(page.getByLabel(choices[2].label,{exact:true})).toBeHidden();
+  await search.fill(choices[2].label);
   await expect(page.getByLabel(choices[2].label,{exact:true})).toBeChecked();
-  await page.getByLabel('搜尋能力',{exact:true}).fill('');
+  await search.fill('');
   await page.setViewportSize({width:1280,height:900});
-  await expect(page.getByLabel(choices[3].label,{exact:true})).toBeChecked();
+  await expect(page.getByLabel(choices[1].label,{exact:true})).toBeVisible();
+  for(const choice of choices)await expect(page.getByLabel(choice.label,{exact:true})).toBeChecked();
+  for(const label of [choices[0].label,choices[1].label,'手工皮革製作'])await expect(page.getByLabel(`精選能力：${label}`,{exact:true})).toBeChecked();
   await page.getByRole('button',{name:'保存，繼續下一步 →',exact:true}).click();
   await expect(page.getByRole('heading',{name:'你的裝備庫'})).toBeVisible();
   await page.getByLabel('自訂裝備',{exact:true}).fill('我的錄音設備');await page.getByRole('button',{name:'加入裝備',exact:true}).click();
   await page.getByRole('button',{name:'上一步',exact:true}).click();
   for(const choice of choices)await expect(page.getByLabel(choice.label,{exact:true})).toBeChecked();
-  await expect(page.getByLabel('精選能力：手工皮革製作',{exact:true})).toBeChecked();
+  for(const label of [choices[0].label,choices[1].label,'手工皮革製作'])await expect(page.getByLabel(`精選能力：${label}`,{exact:true})).toBeChecked();
   await page.getByRole('button',{name:'保存，繼續下一步 →',exact:true}).click();
   await expect(page.getByRole('button',{name:'移除裝備：我的錄音設備',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'看看適合我的公會',exact:true}).click();await finishGuild(page);

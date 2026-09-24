@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ModulePanelProps } from './shared';
 import type { TabId } from '../types';
 import { WorkshopIcon } from '../WorkshopIcon';
@@ -21,28 +21,52 @@ const entries: { id: TabId; title: string; description: string; cover: string }[
 
 export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
   const [member, setMember] = useState<MemberCardData | null>(null);
-  const [labels, setLabels] = useState<Record<string, string>>({});
+  const [labels, setLabels] = useState<Record<string, string> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  // Only the newest request of a mounted page may change the card; late or superseded replies are dropped.
+  const request = useRef(0);
+  const summary = useRef<HTMLElement>(null);
+  const alertRef = useRef<HTMLDivElement>(null);
+
+  const load = useCallback((withLabels: boolean) => {
+    const current = ++request.current;
+    setLoading(true);
+    void client.get<MemberCardData>(`/members/${session.user.user_id}`).then(data => {
+      if (current !== request.current) return;
+      const retrying = alertRef.current?.contains(document.activeElement);
+      setMember(data); setLoadError(null); setLoading(false);
+      if (retrying) requestAnimationFrame(() => summary.current?.focus());
+    }).catch((error: unknown) => {
+      if (current !== request.current) return;
+      setLoadError(`名片暫時無法載入。${error instanceof Error ? error.message : ''}`); setLoading(false);
+    });
+    // Labels only decorate featured skills; without them the saved names or ids still show.
+    if (withLabels) void loadLabels(client).then(data => { if (current === request.current) setLabels(data); }).catch(() => {});
+  }, [client, session.user.user_id]);
 
   useEffect(() => {
-    let active = true;
-    void client.get<MemberCardData>(`/members/${session.user.user_id}`).then(data => { if (active) setMember(data); }).catch(() => { if (active) setLoadError('名片暫時無法載入，請重新整理。'); });
-    void loadLabels(client).then(data => { if (active) setLabels(data); }).catch(() => {});
-    return () => { active = false; };
-  }, [client, session.user.user_id]);
+    setMember(null); setLabels(null); setLoadError(null);
+    load(true);
+    return () => { request.current++; };
+  }, [load]);
+
+  // One request at a time and only on an explicit click; the button keeps focus while it waits.
+  const retry = () => { if (!loading) load(labels === null); };
 
   const nickname = member?.nickname ?? session.user.display_name;
   const featured = (member?.featured_capabilities ?? member?.capabilities.slice(0, 3) ?? []).slice(0, 3);
-  const skillLabel = (id: string) => id.startsWith('custom:') ? id.slice(7) : labels[id] ?? id;
+  const skillLabel = (id: string) => id.startsWith('custom:') ? id.slice(7) : labels?.[id] ?? id;
 
   return <div className="member-home freedom-home">
-    <section className="member-card home-member-summary guild-base-hero" aria-label="我的會員摘要">
+    <section ref={summary} tabIndex={-1} className="member-card home-member-summary guild-base-hero" aria-label="我的會員摘要" aria-busy={loading}>
       <img className="guild-base-art" src="/art/rpg/workshop-hub.webp" alt="" width="1536" height="1024" fetchPriority="high"/>
       <div className="home-member-identity">
         <MemberAvatar nickname={nickname} avatarUrl={member?.avatar_url} className="home-member-initial"/>
         <div>
           <p className="home-member-name">{nickname}{member?.positioning_title && <span className="positioning-title">{member.positioning_title}</span>}</p>
-          {member && <p className="home-member-guild">{member.primary_guild ? `主要公會 · ${member.primary_guild.name}` : '尚未設定主要公會'}</p>}
+          {member ? <p className="home-member-guild">{member.primary_guild ? `主要公會 · ${member.primary_guild.name}` : '尚未設定主要公會'}</p>
+            : loading && <p className="home-member-guild" role="status">正在載入名片…</p>}
         </div>
       </div>
       {featured.length > 0 && <div className="member-featured home-member-skills" aria-label="擅長的能力">
@@ -50,7 +74,10 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       </div>}
       <div className="home-member-actions"><button type="button" className="btn btn-ghost" onClick={() => onNavigate?.('account')}>編輯我的名片</button></div>
     </section>
-    {loadError && <p role="alert" className="banner banner-error">{loadError}</p>}
+    {loadError && <div ref={alertRef} role="alert" className="banner banner-error">
+      <p>{loadError}下方常用入口仍可使用。</p>
+      <button type="button" className="btn btn-ghost" aria-disabled={loading} onClick={retry}>{loading ? '正在重新載入名片…' : '重新載入名片'}</button>
+    </div>}
 
     <nav className="home-shortcuts" aria-label="常用入口">
       {shortcuts.map(entry => <button key={entry.id} type="button" className="home-shortcut" onClick={() => onNavigate?.(entry.id)}>

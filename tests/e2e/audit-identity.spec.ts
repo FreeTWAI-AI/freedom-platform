@@ -62,9 +62,14 @@ async function onboard(page: Page, shotPrefix?: string) {
   await page.getByRole('button', { name: '保存，繼續下一步 →', exact: true }).click();
   await expect(page.getByRole('heading', { name: '你從哪裡來，帶著哪些能力？' })).toBeVisible();
   await step('認識自己');
+  // Capability and equipment trees start collapsed at every width instead of listing every chip on desktop.
+  await expect(page.locator('.capability-tree .category-group > .tree-toggle').first()).toBeVisible();
+  await expect(page.locator('.capability-tree [aria-expanded=true]')).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollHeight), 'step three height').toBeLessThan(4500);
   await page.getByRole('button', { name: '保存，繼續下一步 →', exact: true }).click();
   await expect(page.getByRole('heading', { name: '你的裝備庫' })).toBeVisible();
   await step('整理裝備');
+  await expect(page.locator('.capability-tree [aria-expanded=true]')).toHaveCount(0);
   await page.getByRole('button', { name: '看看適合我的公會', exact: true }).click();
   const card = page.locator('.recommendation-card').first();
   await card.getByRole('checkbox').check(); await card.getByRole('radio').check();
@@ -162,7 +167,9 @@ test('keyboard users land on a squad after creating or opening it and return on 
   await expect(heading).toBeInViewport();
   await page.getByRole('button', { name: '收起', exact: true }).click();
   await expect(heading).toHaveCount(0);
+  // The visible label stays short; the accessible name still identifies the squad.
   const open = page.getByRole('button', { name: `查看${squad}`, exact: true });
+  await expect(open).toHaveText('查看小隊');
   await open.focus(); await page.keyboard.press('Enter');
   await expect(heading).toBeFocused();
   await page.getByRole('button', { name: '收起', exact: true }).click();
@@ -182,4 +189,53 @@ test('a failed guild directory load offers a styled retry that recovers', async 
   fail = false; await retry.click();
   await expect(page.getByRole('heading', { name: '主要與次要公會', exact: true })).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('a failed member card load keeps quick links, claims nothing and recovers in place on phone', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await register(page, '名片重試'); await onboard(page);
+  await expect(page.getByRole('heading', { level: 1, name: '會員首頁', exact: true })).toBeVisible();
+  const card = (url: URL) => /^\/api\/v1\/members\/[^/]+$/.test(url.pathname);
+  let mode: 'fail' | 'hold' | 'pass' = 'fail', release!: () => void, requests = 0;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await page.route(card, async route => {
+    requests++;
+    if (mode === 'fail') return route.fulfill({ status: 503, body: '' });
+    if (mode === 'hold') await held;
+    return route.fallback();
+  });
+  // Skill labels only decorate the card; their failure never adds an alert.
+  await page.route('**/api/v1/assessment-definition', route => route.fulfill({ status: 503, body: '' }));
+  await page.reload();
+  const summary = page.getByRole('region', { name: '我的會員摘要', exact: true });
+  const alert = page.getByRole('alert');
+  await expect(alert).toHaveCount(1);
+  await expect(alert).toContainText('名片暫時無法載入');
+  await expect(alert).not.toContainText('重新整理');
+  await expect(summary).toContainText('名片重試');
+  await expect(summary).not.toContainText('主要公會');
+  await expect(page.locator('.member-featured')).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: '常用入口', exact: true }).getByRole('button')).toHaveCount(4);
+  await pageFits(page, 'phone home error');
+  await page.screenshot({ path: `${shots}/phone-home-card-error.png`, fullPage: true });
+  const retry = alert.getByRole('button', { name: '重新載入名片', exact: true });
+  await expect(retry).toHaveClass(/btn/);
+  // Each explicit retry sends exactly one request (the shell's own avatar read is counted in the base).
+  const base = requests;
+  await retry.click();
+  await expect.poll(() => requests).toBe(base + 1);
+  await expect(alert).toContainText('名片暫時無法載入');
+  mode = 'hold'; await retry.click();
+  const pending = alert.getByRole('button', { name: '正在重新載入名片…', exact: true });
+  await expect(pending).toHaveAttribute('aria-disabled', 'true');
+  await expect(pending).toBeFocused();
+  // Pressing the busy button again must not start a second request.
+  await page.keyboard.press('Enter');
+  await expect.poll(() => requests).toBe(base + 2);
+  mode = 'pass'; release();
+  await expect(summary).toContainText('主要公會 ·');
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(summary).toBeFocused();
+  expect(requests).toBe(base + 2);
+  await page.screenshot({ path: `${shots}/phone-home-card-recovered.png`, fullPage: true });
 });

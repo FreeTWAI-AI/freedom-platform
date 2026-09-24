@@ -1,14 +1,15 @@
-import { useEffect, useId, useState } from 'react';
+import { useId, useState } from 'react';
 export type Choice = {id:string;label:string};
 export type ChoiceCategory = {id:string;label:string;options:Choice[];subcategories?:{id:string;label:string;options:Choice[]}[]};
 export function CapabilityTree({categories,values,onToggle,kind}:{categories:ChoiceCategory[];values:string[];onToggle:(id:string)=>void;kind:'能力'|'裝備'}){
-  const uid=useId(),[search,setSearch]=useState(''),[desktop,setDesktop]=useState(()=>window.matchMedia('(min-width: 761px)').matches),[opened,setOpened]=useState<Record<string,boolean>>({});
-  useEffect(()=>{const query=window.matchMedia('(min-width: 761px)');const change=()=>{setDesktop(query.matches);setOpened({});};query.addEventListener('change',change);return()=>query.removeEventListener('change',change);},[]);
+  // Every width starts collapsed and screen size never resets what the member opened.
+  // Search reveals matches through its own overrides, so clearing it restores the member's open sections.
+  const uid=useId(),[search,setSearch]=useState(''),[opened,setOpened]=useState<Record<string,boolean>>({}),[searchOpened,setSearchOpened]=useState<Record<string,boolean>>({});
   const term=search.trim().toLocaleLowerCase();
-  const isOpen=(id:string)=>!!term||(opened[id]??desktop);
-  const toggle=(id:string)=>setOpened(current=>({...current,[id]:!isOpen(id)}));
+  const isOpen=(id:string)=>term?searchOpened[id]??true:!!opened[id];
+  const toggle=(id:string)=>(term?setSearchOpened:setOpened)(current=>({...current,[id]:!isOpen(id)}));
   const filtered=categories.map(category=>({...category,groups:(category.subcategories?.length?category.subcategories:[{id:'all',label:category.label,options:category.options}]).map(group=>({...group,options:group.options.filter(option=>`${category.label} ${group.label} ${option.label}`.toLocaleLowerCase().includes(term))})).filter(group=>group.options.length)})).filter(category=>category.groups.length);
-  return <div className="capability-tree"><label className="field">搜尋{kind}<input type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder={kind==='能力'?'例如：設計、餐飲、Python、溝通…':'例如：Claude、剪輯、設計、專案管理…'}/></label><p className="field-hint" role="status">已勾選 {values.length} 項{kind}。不確定的項目可以先略過，以後再補。</p>{filtered.map(category=>{
+  return <div className="capability-tree"><label className="field">搜尋{kind}<input type="search" value={search} onChange={event=>{setSearch(event.target.value);setSearchOpened({});}} placeholder={kind==='能力'?'例如：設計、餐飲、Python、溝通…':'例如：Claude、剪輯、設計、專案管理…'}/></label><p className="field-hint" role="status">已勾選 {values.length} 項{kind}。不確定的項目可以先略過，以後再補。</p>{filtered.map(category=>{
     const categoryId=`${uid}-${category.id}`,categoryOpen=isOpen(category.id);
     return <section key={category.id} className="category-group"><button type="button" className="tree-toggle" aria-expanded={categoryOpen} aria-controls={categoryId} onClick={()=>toggle(category.id)}><strong>{category.label}</strong><span>{category.options.filter(option=>values.includes(option.id)).length} / {category.options.length} <span aria-hidden="true">{categoryOpen?'−':'＋'}</span></span></button><div id={categoryId} hidden={!categoryOpen} className="tree-subcategories">{category.groups.map(group=>{
       const key=`${category.id}/${group.id}`,groupId=`${uid}-${category.id}-${group.id}`,groupOpen=isOpen(key);
