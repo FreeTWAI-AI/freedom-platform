@@ -330,7 +330,7 @@ test('direct messages page, send with an unknown result once, and mark read only
   await expect(threadRegion.getByRole('alert')).toContainText('傳送結果未確認');
   await expect(box).toHaveValue('  <b>純文字</b> 你好  ');
   // Re-reading the conversation keeps the unconfirmed attempt, so the retry still deduplicates.
-  await threadRegion.getByRole('button',{name:'重新讀取對話',exact:true}).click();
+  await threadRegion.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
   await expect(box).toHaveValue('  <b>純文字</b> 你好  ');
   await threadRegion.getByRole('button',{name:'重試送出',exact:true}).click();
   await expect(bubbles.last()).toHaveText('<b>純文字</b> 你好');await expect(threadRegion.locator('.messages-bubbles b')).toHaveCount(0);
@@ -383,4 +383,26 @@ test('switching conversations ignores late responses and keeps a draft per recip
   await results.getByRole('button',{name:/示範合作方/}).click();
   await expect(threadRegion.getByLabel('寫給 合成夥伴乙 的訊息')).toHaveValue('給乙的草稿');
   expect(sends).toEqual([]);
+});
+
+test('an open messages page can re-read the list and thread to see new mail without losing the draft',async({page})=>{
+  const {store,reads}=await direct(page);
+  await login(page,'#messages');await page.getByRole('tab',{name:/私訊/}).click();
+  const panel=page.getByRole('tabpanel',{name:/私訊/}),threadRegion=panel.locator('.messages-thread'),list=panel.getByRole('list',{name:'對話列表'});
+  await expect(list.getByRole('button')).toHaveCount(1);
+  await list.getByRole('button',{name:/合成夥伴甲/}).click();
+  const box=threadRegion.getByLabel('寫給 合成夥伴甲 的訊息');await box.fill('還沒寫完的回覆');
+  // Mail arrives while the page stays open: a new sender and a new message in the open thread.
+  store[peerB].unshift({message_id:'b-new',sender_ref:peerB,recipient_ref:me,body:'乙的新私訊',created_at:'2026-09-24T11:00:00Z',read_at:null});
+  store[peerA].unshift({message_id:'a-new',sender_ref:peerA,recipient_ref:me,body:'甲的新回覆',created_at:'2026-09-24T11:01:00Z',read_at:null});
+  const refreshList=panel.getByRole('button',{name:'重新整理對話',exact:true});
+  await refreshList.click();
+  await expect(list.getByRole('button',{name:/合成夥伴乙/})).toContainText('1 則未讀');await expect(refreshList).toBeFocused();
+  await expect(page.getByRole('tab',{name:/私訊/})).toContainText('4 則未讀');
+  const refreshThread=threadRegion.getByRole('button',{name:'重新讀取訊息',exact:true});
+  await refreshThread.click();
+  await expect(threadRegion.locator('.messages-bubbles .messages-body').last()).toHaveText('甲的新回覆');await expect(refreshThread).toBeFocused();
+  await expect(box).toHaveValue('還沒寫完的回覆');
+  // Re-reading is not reading: nothing was marked read.
+  expect(reads).toEqual([]);await expect(threadRegion.getByRole('button',{name:'標為已讀',exact:true})).toBeVisible();
 });

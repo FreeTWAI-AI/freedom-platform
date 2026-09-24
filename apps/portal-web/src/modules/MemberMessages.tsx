@@ -144,16 +144,23 @@ function DirectMessages({client,session,onUnread,openPeer}:{client:PortalClient;
   const [threadStatus,setThreadStatus]=useState<'idle'|'loading'|'ready'|'error'>('idle'),[threadError,setThreadError]=useState(''),[threadMore,setThreadMore]=useState({loading:false,error:''});
   const [drafts,setDrafts]=useState<Record<string,string>>({}),[pending,setPending]=useState<Record<string,Pending>>({}),[sendErrors,setSendErrors]=useState<Record<string,string>>({});
   const [reading,setReading]=useState(false),[readError,setReadError]=useState('');
+  // Manual refreshes keep the loaded list/thread (and the focused button) on screen until the new page arrives.
+  const [convRefresh,setConvRefresh]=useState({loading:false,error:''}),[threadRefresh,setThreadRefresh]=useState({loading:false,error:''});
   const convGeneration=useRef(0),threadGeneration=useRef(0),currentPeer=useRef<string|null>(null),readKeys=useRef(new Map<string,string>()),heading=useRef<HTMLHeadingElement>(null),focusThread=useRef(false),alive=useRef(true);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;convGeneration.current++;threadGeneration.current++;};},[]);
 
-  const loadConversations=useCallback(async()=>{
-    const current=++convGeneration.current;setConvStatus('loading');setConvError('');setConvMore({loading:false,error:''});
+  const loadConversations=useCallback(async(quiet=false)=>{
+    const current=++convGeneration.current;setConvMore({loading:false,error:''});
+    if(quiet)setConvRefresh({loading:true,error:''});else{setConvStatus('loading');setConvError('');setConvRefresh({loading:false,error:''});}
     try{
       const page=await client.get<ConversationPage>(`/me/conversations?limit=${PAGE}&offset=0`);
       if(current!==convGeneration.current)return;
-      setConversations(page.items);setConvNext(page.next_offset);onUnread(page.unread_count);setConvStatus('ready');
-    }catch(cause){if(current===convGeneration.current){setConvError(fail(cause));setConvStatus('error');}}
+      setConversations(page.items);setConvNext(page.next_offset);onUnread(page.unread_count);setConvStatus('ready');setConvRefresh({loading:false,error:''});
+    }catch(cause){
+      if(current!==convGeneration.current)return;
+      // The list on screen is kept, but its total is no longer confirmed.
+      if(quiet){setConvRefresh({loading:false,error:fail(cause)});onUnread(null);}else{setConvError(fail(cause));setConvStatus('error');}
+    }
   },[client,onUnread]);
   useEffect(()=>{void loadConversations();},[loadConversations]);
   async function moreConversations(){
@@ -166,15 +173,19 @@ function DirectMessages({client,session,onUnread,openPeer}:{client:PortalClient;
     }catch(cause){if(current===convGeneration.current)setConvMore({loading:false,error:fail(cause)});}
   }
 
-  const loadThread=useCallback(async(id:string)=>{
+  const loadThread=useCallback(async(id:string,quiet=false)=>{
     const current=++threadGeneration.current;
-    setThreadStatus('loading');setThreadError('');setThreadMore({loading:false,error:''});setReadError('');setThread(null);
+    setThreadMore({loading:false,error:''});setReadError('');
+    if(quiet)setThreadRefresh({loading:true,error:''});else{setThreadStatus('loading');setThreadError('');setThreadRefresh({loading:false,error:''});setThread(null);}
     try{
       const value=await client.get<Thread>(`/me/conversations/${encodeURIComponent(id)}/messages?limit=${PAGE}&offset=0`);
       // A slower response for a previously selected member must never replace the open conversation.
       if(current!==threadGeneration.current||currentPeer.current!==id)return;
-      setThread(value);setThreadStatus('ready');
-    }catch(cause){if(current===threadGeneration.current&&currentPeer.current===id){setThreadError(fail(cause));setThreadStatus('error');}}
+      setThread(value);setThreadStatus('ready');setThreadRefresh({loading:false,error:''});
+    }catch(cause){
+      if(current!==threadGeneration.current||currentPeer.current!==id)return;
+      if(quiet)setThreadRefresh({loading:false,error:fail(cause)});else{setThreadError(fail(cause));setThreadStatus('error');}
+    }
   },[client]);
   const select=useCallback((id:string,moveFocus:boolean)=>{
     if(id===me)return;
@@ -251,6 +262,8 @@ function DirectMessages({client,session,onUnread,openPeer}:{client:PortalClient;
         <h2 id="conversation-list-title" className="member-section-title">對話</h2>
         {convStatus==='loading'&&<p role="status">正在讀取對話…</p>}
         {convStatus==='error'&&<div className="banner banner-error" role="alert">對話讀取失敗：{convError}<div className="messages-actions"><button className="btn btn-ghost" type="button" onClick={()=>void loadConversations()}>重新讀取對話</button></div></div>}
+        {convStatus==='ready'&&<div className="messages-actions"><button className="btn btn-ghost" type="button" aria-disabled={convRefresh.loading} onClick={()=>{if(!convRefresh.loading)void loadConversations(true);}}>{convRefresh.loading?'正在整理對話…':'重新整理對話'}</button></div>}
+        {convRefresh.error&&<p className="banner banner-error" role="alert">對話重新整理失敗：{convRefresh.error}</p>}
         {convStatus==='ready'&&(conversations.length===0?<p className="empty">還沒有私訊。可搜尋會員開始對話。</p>:<ul className="messages-list" aria-label="對話列表">
           {conversations.map(item=><li key={item.participant.user_id} className={item.unread_count?'is-unread':undefined}>
             <button type="button" className="messages-peer" aria-current={peer===item.participant.user_id?'true':undefined} onClick={()=>select(item.participant.user_id,true)}>
@@ -271,6 +284,9 @@ function DirectMessages({client,session,onUnread,openPeer}:{client:PortalClient;
         {threadStatus==='loading'&&<p role="status">正在讀取訊息…</p>}
         {threadStatus==='error'&&<div className="banner banner-error" role="alert">訊息讀取失敗：{threadError}<div className="messages-actions"><button className="btn btn-ghost" type="button" onClick={()=>void loadThread(peer)}>重新讀取訊息</button></div></div>}
         {threadStatus==='ready'&&thread&&<>
+          {/* Also the safe way to check an unconfirmed send: the pending key and draft stay as they are. */}
+          <div className="messages-actions"><button className="btn btn-ghost" type="button" aria-disabled={threadRefresh.loading} onClick={()=>{if(!threadRefresh.loading)void loadThread(peer,true);}}>{threadRefresh.loading?'正在讀取訊息…':'重新讀取訊息'}</button></div>
+          {threadRefresh.error&&<p className="banner banner-error" role="alert">訊息重新讀取失敗：{threadRefresh.error}</p>}
           {thread.next_offset!==null&&<button className="btn btn-ghost" type="button" disabled={threadMore.loading} onClick={()=>void earlier()}>{threadMore.loading?'正在讀取…':threadMore.error?'重試載入較早訊息':'載入較早訊息'}</button>}
           {threadMore.error&&<p className="banner banner-error" role="alert">較早訊息讀取失敗：{threadMore.error}</p>}
           {thread.items.length===0?<p className="empty">還沒有訊息。</p>:<ol className="messages-bubbles" aria-label="訊息">
@@ -289,7 +305,6 @@ function DirectMessages({client,session,onUnread,openPeer}:{client:PortalClient;
             {sendError&&<p id="messages-send-error" className="banner banner-error" role="alert">{sendError}</p>}
             <div className="messages-actions">
               <button className="btn btn-primary" type="submit" disabled={attempt?.status==='sending'}>{attempt?.status==='sending'?'正在送出…':attempt?.status==='unknown'&&draft.trim()===attempt.body?'重試送出':'送出'}</button>
-              {attempt?.status==='unknown'&&<button className="btn btn-ghost" type="button" onClick={()=>void loadThread(peer)}>重新讀取對話</button>}
             </div>
           </form>:<p className="muted" role="note">對方目前無法接收私訊，仍可查看過去的訊息。</p>}
         </>}
