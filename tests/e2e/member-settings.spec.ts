@@ -82,10 +82,16 @@ test('settings menu replaces the card button with an accessible keyboard menu',a
   await openPage(page,'我的名片');await expect(page).toHaveURL(/#account$/);await expect(page.locator('#main-content')).toBeFocused();
   await toggle.click();await expectExactItems(page);
   await expect(menu.getByRole('menuitem',{name:'我的名片',exact:true})).toHaveAttribute('aria-current','page');
+  // Choosing the page that is already open by keyboard still closes the menu and lands in main.
+  await expect(menu.getByRole('menuitem',{name:'我的名片',exact:true})).toBeFocused();await page.keyboard.press('Enter');
+  await expect(menu).toHaveCount(0);await expect(page).toHaveURL(/#account$/);await expect(page.locator('#main-content')).toBeFocused();
+  await toggle.click();
   await menu.getByRole('menuitem',{name:'我的訊息',exact:true}).click();
   await expect(page).toHaveURL(/#messages$/);await expect(page.getByRole('heading',{level:1})).toHaveText('我的訊息');await expect(page.locator('#main-content')).toBeFocused();
   // Browser Back while the menu is open closes it.
   await toggle.click();await expect(menu).toBeVisible();await page.goBack();await expect(page).toHaveURL(/#account$/);await expect(menu).toHaveCount(0);
+  // A profile re-read still in flight when the case ends must not fail it after the fact.
+  await page.unrouteAll({behavior:'ignoreErrors'});
 });
 
 test('an unread total that cannot be read is shown as unconfirmed, not zero',async({page})=>{
@@ -218,6 +224,47 @@ test('notifications show errors, page without dropping items, and confirm reads 
   expect(await page.evaluate(()=>(window as unknown as {pwned?:number}).pwned)).toBeUndefined();
 });
 
+test('refreshing notifications keeps the list and the focused button, and a late refresh never undoes a read',async({page})=>{
+  const items=[notice(1,{tab:'guilds',resource_id:null})];
+  let hold:Promise<void>|null=null,release=()=>{},failNext=false;
+  const arm=()=>{hold=new Promise<void>(resolve=>{release=()=>{hold=null;resolve();};});};
+  await page.route(/\/api\/v1\/me\/notifications(\?.*)?$/,async route=>{
+    if(route.request().url().includes('limit=1&'))return route.fulfill({json:{items:[],unread_count:items.filter(item=>!item.read_at).length,next_offset:null}});
+    // The snapshot is taken on arrival; a held answer is the old state.
+    const json={items:items.map(item=>({...item})),unread_count:items.filter(item=>!item.read_at).length,next_offset:null};
+    if(hold)await hold;
+    if(failNext){failNext=false;return route.fulfill({status:503,json:{title:'合成暫停'}});}
+    return route.fulfill({json});
+  });
+  await page.route(/\/api\/v1\/me\/notifications\/[^/]+\/read$/,route=>{
+    const id=route.request().url().split('/').at(-2)!,item=items.find(value=>value.notification_id===id)!;item.read_at='2026-09-24T10:00:00Z';
+    return route.fulfill({json:{notification_id:id,read_at:item.read_at}});
+  });
+  await page.route(/\/api\/v1\/me\/conversations(\?.*)?$/,route=>route.fulfill({json:{items:[],unread_count:0,next_offset:null}}));
+  await login(page,'#messages');
+  const panel=page.getByRole('tabpanel',{name:/通知/}),tab=page.getByRole('tab',{name:/通知/}),titles=panel.getByRole('heading',{level:3});
+  const refresh=panel.getByRole('button',{name:/^(重新整理通知|正在整理通知…)$/});
+  await expect(titles).toHaveText(['合成通知 1']);
+  arm();await refresh.focus();await page.keyboard.press('Enter');
+  await expect(refresh).toHaveText('正在整理通知…');await expect(refresh).toBeFocused();await expect(titles).toHaveText(['合成通知 1']);
+  items.unshift(notice(2,null));release();
+  await expect(titles).toHaveText(['合成通知 1']);// the held answer was taken before 2 arrived
+  await expect(refresh).toHaveText('重新整理通知');await expect(refresh).toBeFocused();
+  await page.keyboard.press('Enter');await expect(titles).toHaveText(['合成通知 2','合成通知 1']);await expect(tab).toContainText('2 則未讀');
+  // A failed refresh keeps what is loaded, makes the total unconfirmed and retries from the same button.
+  failNext=true;await page.keyboard.press('Enter');
+  await expect(panel.getByRole('alert')).toContainText('通知重新整理失敗');await expect(titles).toHaveCount(2);await expect(refresh).toBeFocused();
+  await expect(tab).toContainText('未讀數未確認');
+  await page.keyboard.press('Enter');await expect(panel.getByRole('alert')).toHaveCount(0);await expect(tab).toContainText('2 則未讀');await expect(refresh).toBeFocused();
+  // A confirmed read while an older refresh is still out stays read.
+  arm();await refresh.click();await expect(refresh).toHaveText('正在整理通知…');
+  const second=panel.locator('li',{hasText:'合成通知 2'});await second.getByRole('button',{name:'標為已讀',exact:true}).click();
+  await expect(second.locator('.messages-meta')).toContainText('已讀');
+  release();await expect(refresh).toHaveText('重新整理通知');
+  await expect(second.locator('.messages-meta')).toContainText('已讀');await expect(second.getByRole('button',{name:'標為已讀',exact:true})).toHaveCount(0);
+  await expect(tab).toContainText('1 則未讀');
+});
+
 test('a failed read before navigating can be retried or skipped explicitly',async({page})=>{
   const items=[notice(1,{tab:'squads',resource_id:'00000000-0000-4000-8000-00000000aaaa'})];
   await page.route(/\/api\/v1\/me\/notifications(\?.*)?$/,route=>route.fulfill({json:{items,unread_count:1,next_offset:null}}));
@@ -264,7 +311,8 @@ function thread(peer:string,count:number):Message[]{
     return {message_id:`${peer.slice(-4)}-m${n}`,sender_ref:theirs?peer:me,recipient_ref:theirs?me:peer,body:`${participants[peer].display_name} 訊息 ${n}`,created_at:`2026-09-24T0${Math.min(n,9)}:00:00Z`,read_at:theirs&&n>=count-3?null:'2026-09-24T09:30:00Z'};});
 }
 
-async function direct(page:Page,options:{delayA?:Promise<void>;outcomes?:('abort'|'500'|'ok')[]}={}){
+// `gate` holds a full-page read *after* its snapshot is taken, like a slow server answer.
+async function direct(page:Page,options:{delayA?:Promise<void>;outcomes?:('abort'|'500'|'ok')[];gate?:(kind:'list'|'thread')=>Promise<void>|undefined}={}){
   const store:Record<string,Message[]>={[peerA]:thread(peerA,25),[peerB]:[]};
   const sends:{peer:string;key:string;body:string}[]=[],reads:string[]=[],outcomes=[...options.outcomes??[]];
   const unread=(peer:string)=>store[peer].filter(item=>item.sender_ref===peer&&!item.read_at).length;
@@ -273,14 +321,18 @@ async function direct(page:Page,options:{delayA?:Promise<void>;outcomes?:('abort
     const request=route.request(),url=new URL(request.url()),parts=url.pathname.split('/').slice(4);// ['conversations',peer?,sub?]
     const limit=Number(url.searchParams.get('limit')??20),offset=Number(url.searchParams.get('offset')??0);
     if(parts.length===1){
-      const items=Object.keys(store).filter(peer=>store[peer].length).map(peer=>({participant:participants[peer],can_send:true,last_message:store[peer][0],unread_count:unread(peer)}));
-      return route.fulfill({json:{items,unread_count:Object.keys(store).reduce((sum,peer)=>sum+unread(peer),0),next_offset:null}});
+      const items=Object.keys(store).filter(peer=>store[peer].length).map(peer=>({participant:participants[peer],can_send:true,last_message:{...store[peer][0]},unread_count:unread(peer)}));
+      const json={items,unread_count:Object.keys(store).reduce((sum,peer)=>sum+unread(peer),0),next_offset:null};
+      if(limit>1)await options.gate?.('list');
+      return route.fulfill({json});
     }
     const peer=parts[1];
     if(parts[2]==='messages'&&request.method()==='GET'){
       if(peer===peerA&&options.delayA)await options.delayA;
-      const items=store[peer].slice(offset,offset+limit);
-      return route.fulfill({json:{participant:participants[peer],can_send:true,items,next_offset:offset+limit<store[peer].length?offset+limit:null,unread_count:unread(peer)}});
+      const items=store[peer].slice(offset,offset+limit).map(item=>({...item}));
+      const json={participant:participants[peer],can_send:true,items,next_offset:offset+limit<store[peer].length?offset+limit:null,unread_count:unread(peer)};
+      await options.gate?.('thread');
+      return route.fulfill({json});
     }
     if(parts[2]==='messages'&&request.method()==='POST'){
       const body=request.postDataJSON().body as string;sends.push({peer,key:request.headers()['idempotency-key'],body});
@@ -405,4 +457,43 @@ test('an open messages page can re-read the list and thread to see new mail with
   await expect(box).toHaveValue('還沒寫完的回覆');
   // Re-reading is not reading: nothing was marked read.
   expect(reads).toEqual([]);await expect(threadRegion.getByRole('button',{name:'標為已讀',exact:true})).toBeVisible();
+});
+
+test('a slow re-read that started before a confirmed send or read never overwrites it',async({page})=>{
+  const held:(()=>void)[]=[];let holding=false;
+  const {sends,reads}=await direct(page,{gate:()=>holding?new Promise<void>(resolve=>held.push(resolve)):undefined});
+  // Counts full-page reads the browser has actually received, so late answers are known to be delivered.
+  let answered=0;page.on('requestfinished',request=>{if(request.method()==='GET'&&/\/me\/conversations(\/[^/]+\/messages)?\?limit=20&offset=0$/.test(request.url()))answered++;});
+  const delivered=async(extra:number)=>{const target=answered+extra;held.splice(0).forEach(done=>done());
+    await expect.poll(()=>answered).toBeGreaterThanOrEqual(target);await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));};
+  await login(page,'#messages');await page.getByRole('tab',{name:/私訊/}).click();
+  const panel=page.getByRole('tabpanel',{name:/私訊/}),threadRegion=panel.locator('.messages-thread'),list=panel.getByRole('list',{name:'對話列表'});
+  await list.getByRole('button',{name:/合成夥伴甲/}).click();
+  const bubbles=threadRegion.locator('.messages-bubbles .messages-body'),box=threadRegion.getByLabel('寫給 合成夥伴甲 的訊息');
+  await expect(bubbles).toHaveCount(20);
+  const refreshList=panel.getByRole('button',{name:/^(重新整理對話|正在整理對話…)$/}),refreshThread=threadRegion.getByRole('button',{name:/^(重新讀取訊息|正在讀取訊息…)$/});
+  const peerA=list.getByRole('button',{name:/合成夥伴甲/});
+  // Both re-reads snapshot the old state now and answer only after the write is confirmed.
+  holding=true;await refreshList.click();await refreshThread.click();
+  await expect(refreshList).toHaveText('正在整理對話…');await expect(refreshThread).toHaveText('正在讀取訊息…');
+  await expect.poll(()=>held.length).toBe(2);holding=false;
+  await box.fill('競態中的確認訊息');await threadRegion.getByRole('button',{name:'送出',exact:true}).click();
+  await expect(bubbles.last()).toHaveText('競態中的確認訊息');await expect(box).toHaveValue('');
+  await box.fill('送出後的新草稿');
+  await delivered(2);
+  await expect(refreshList).toHaveText('重新整理對話');await expect(refreshThread).toHaveText('重新讀取訊息');
+  await expect(bubbles.last()).toHaveText('競態中的確認訊息');await expect(peerA).toContainText('你：競態中的確認訊息');
+  await expect(box).toHaveValue('送出後的新草稿');expect(sends.length).toBe(1);
+
+  // The same for a confirmed read: the old unread counts must not come back.
+  await expect(threadRegion.getByRole('button',{name:'標為已讀',exact:true})).toBeVisible();
+  holding=true;await refreshList.click();await refreshThread.click();
+  await expect.poll(()=>held.length).toBe(2);holding=false;
+  await threadRegion.getByRole('button',{name:'標為已讀',exact:true}).click();
+  await expect(threadRegion.getByRole('button',{name:'標為已讀',exact:true})).toHaveCount(0);await expect(page.getByRole('tab',{name:/私訊/})).toContainText('沒有未讀');
+  await delivered(2);
+  await expect(refreshList).toHaveText('重新整理對話');await expect(refreshThread).toHaveText('重新讀取訊息');
+  await expect(threadRegion.getByRole('button',{name:'標為已讀',exact:true})).toHaveCount(0);await expect(threadRegion.getByText(' · 未讀')).toHaveCount(0);
+  await expect(peerA).not.toContainText('則未讀');await expect(page.getByRole('tab',{name:/私訊/})).toContainText('沒有未讀');
+  await expect(box).toHaveValue('送出後的新草稿');expect(reads.length).toBe(1);
 });

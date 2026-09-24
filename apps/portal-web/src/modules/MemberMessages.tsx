@@ -60,16 +60,24 @@ function Notifications({client,onUnread,onNavigate,onOpenPeer}:{client:PortalCli
   const [status,setStatus]=useState<'loading'|'ready'|'error'>('loading'),[error,setError]=useState('');
   const [more,setMore]=useState<{loading:boolean;error:string}>({loading:false,error:''});
   const [busy,setBusy]=useState<Record<string,boolean>>({}),[itemErrors,setItemErrors]=useState<Record<string,{message:string;navigate:boolean}>>({});
-  const generation=useRef(0),keys=useRef(new Map<string,string>()),alive=useRef(true);
+  // A manual refresh keeps the loaded list (and the focused button) on screen until the new page arrives.
+  const [refresh,setRefresh]=useState({loading:false,error:''});
+  // inFlight is the quietness of the full read that is still out, or null.
+  const generation=useRef(0),inFlight=useRef<boolean|null>(null),keys=useRef(new Map<string,string>()),alive=useRef(true);
   // Late responses after leaving the page must not navigate or overwrite anything.
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;generation.current++;};},[]);
-  const load=useCallback(async()=>{
-    const current=++generation.current;setStatus('loading');setError('');setMore({loading:false,error:''});
+  const load=useCallback(async(quiet=false)=>{
+    const current=++generation.current;inFlight.current=quiet;setMore({loading:false,error:''});
+    if(quiet)setRefresh({loading:true,error:''});else{setStatus('loading');setError('');setRefresh({loading:false,error:''});}
     try{
       const page=await client.get<NoticePage>(`/me/notifications?limit=${PAGE}&offset=0`);
       if(current!==generation.current)return;
-      setItems(page.items);setNextOffset(page.next_offset);onUnread(page.unread_count);setStatus('ready');
-    }catch(cause){if(current===generation.current){setError(fail(cause));setStatus('error');}}
+      inFlight.current=null;setItems(page.items);setNextOffset(page.next_offset);onUnread(page.unread_count);setStatus('ready');setRefresh({loading:false,error:''});
+    }catch(cause){
+      if(current!==generation.current)return;
+      inFlight.current=null;
+      if(quiet){setRefresh({loading:false,error:fail(cause)});onUnread(null);}else{setError(fail(cause));setStatus('error');}
+    }
   },[client,onUnread]);
   useEffect(()=>{void load();},[load]);
   async function loadMore(){
@@ -98,6 +106,8 @@ function Notifications({client,onUnread,onNavigate,onOpenPeer}:{client:PortalCli
       keys.current.delete(id);announceInboxChange();
       if(!alive.current)return;
       setItems(value=>value.map(entry=>entry.notification_id===id?{...entry,read_at:result.read_at}:entry));
+      // A list read that was already out may answer with the old state; replace it with one taken now.
+      if(inFlight.current!==null)void load(inFlight.current);
       void refreshUnread();
       if(then)go(then);
     }catch(cause){
@@ -109,7 +119,8 @@ function Notifications({client,onUnread,onNavigate,onOpenPeer}:{client:PortalCli
   if(status==='loading')return <p role="status">正在讀取通知…</p>;
   if(status==='error')return <div className="banner banner-error" role="alert">通知讀取失敗：{error}<div className="messages-actions"><button className="btn btn-ghost" type="button" onClick={()=>void load()}>重新讀取通知</button></div></div>;
   return <div className="stack">
-    <div className="messages-actions"><button className="btn btn-ghost" type="button" onClick={()=>void load()}>重新整理通知</button></div>
+    <div className="messages-actions"><button className="btn btn-ghost" type="button" aria-disabled={refresh.loading} onClick={()=>{if(!refresh.loading)void load(true);}}>{refresh.loading?'正在整理通知…':'重新整理通知'}</button></div>
+    {refresh.error&&<p className="banner banner-error" role="alert">通知重新整理失敗：{refresh.error}</p>}
     <h2 className="member-section-title">最新通知</h2>
     {items.length===0?<p className="empty">目前沒有通知。</p>:<ul className="messages-list" aria-label="通知">
       {items.map(item=>{
@@ -146,18 +157,21 @@ function DirectMessages({client,session,onUnread,openPeer}:{client:PortalClient;
   const [reading,setReading]=useState(false),[readError,setReadError]=useState('');
   // Manual refreshes keep the loaded list/thread (and the focused button) on screen until the new page arrives.
   const [convRefresh,setConvRefresh]=useState({loading:false,error:''}),[threadRefresh,setThreadRefresh]=useState({loading:false,error:''});
+  // The in-flight refs record the full read that is still out, so a confirmed write can supersede it.
+  const convInFlight=useRef<boolean|null>(null),threadInFlight=useRef<{id:string;quiet:boolean}|null>(null);
   const convGeneration=useRef(0),threadGeneration=useRef(0),currentPeer=useRef<string|null>(null),readKeys=useRef(new Map<string,string>()),heading=useRef<HTMLHeadingElement>(null),focusThread=useRef(false),alive=useRef(true);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;convGeneration.current++;threadGeneration.current++;};},[]);
 
   const loadConversations=useCallback(async(quiet=false)=>{
-    const current=++convGeneration.current;setConvMore({loading:false,error:''});
+    const current=++convGeneration.current;convInFlight.current=quiet;setConvMore({loading:false,error:''});
     if(quiet)setConvRefresh({loading:true,error:''});else{setConvStatus('loading');setConvError('');setConvRefresh({loading:false,error:''});}
     try{
       const page=await client.get<ConversationPage>(`/me/conversations?limit=${PAGE}&offset=0`);
       if(current!==convGeneration.current)return;
-      setConversations(page.items);setConvNext(page.next_offset);onUnread(page.unread_count);setConvStatus('ready');setConvRefresh({loading:false,error:''});
+      convInFlight.current=null;setConversations(page.items);setConvNext(page.next_offset);onUnread(page.unread_count);setConvStatus('ready');setConvRefresh({loading:false,error:''});
     }catch(cause){
       if(current!==convGeneration.current)return;
+      convInFlight.current=null;
       // The list on screen is kept, but its total is no longer confirmed.
       if(quiet){setConvRefresh({loading:false,error:fail(cause)});onUnread(null);}else{setConvError(fail(cause));setConvStatus('error');}
     }
@@ -174,15 +188,17 @@ function DirectMessages({client,session,onUnread,openPeer}:{client:PortalClient;
   }
 
   const loadThread=useCallback(async(id:string,quiet=false)=>{
-    const current=++threadGeneration.current;
+    const current=++threadGeneration.current;threadInFlight.current={id,quiet};
     setThreadMore({loading:false,error:''});setReadError('');
     if(quiet)setThreadRefresh({loading:true,error:''});else{setThreadStatus('loading');setThreadError('');setThreadRefresh({loading:false,error:''});setThread(null);}
     try{
       const value=await client.get<Thread>(`/me/conversations/${encodeURIComponent(id)}/messages?limit=${PAGE}&offset=0`);
+      if(current===threadGeneration.current)threadInFlight.current=null;
       // A slower response for a previously selected member must never replace the open conversation.
       if(current!==threadGeneration.current||currentPeer.current!==id)return;
       setThread(value);setThreadStatus('ready');setThreadRefresh({loading:false,error:''});
     }catch(cause){
+      if(current===threadGeneration.current)threadInFlight.current=null;
       if(current!==threadGeneration.current||currentPeer.current!==id)return;
       if(quiet)setThreadRefresh({loading:false,error:fail(cause)});else{setThreadError(fail(cause));setThreadStatus('error');}
     }
@@ -192,6 +208,12 @@ function DirectMessages({client,session,onUnread,openPeer}:{client:PortalClient;
     currentPeer.current=id;focusThread.current=moveFocus;setPeer(id);void loadThread(id);
   },[loadThread,me]);
   useEffect(()=>{if(openPeer)select(openPeer.id,true);},[openPeer,select]);
+  // A read that was already out when a write was confirmed may answer with the state before it.
+  // Starting a new one supersedes it (and its busy flag), so the screen settles on a snapshot taken after the write.
+  function rereadAfterWrite(id:string){
+    if(convInFlight.current!==null)void loadConversations(convInFlight.current);
+    const open=threadInFlight.current;if(open&&open.id===id&&currentPeer.current===id)void loadThread(id,open.quiet);
+  }
   useEffect(()=>{if(threadStatus==='ready'&&focusThread.current){focusThread.current=false;heading.current?.focus();}},[threadStatus]);
 
   async function earlier(){
@@ -213,7 +235,8 @@ function DirectMessages({client,session,onUnread,openPeer}:{client:PortalClient;
       readKeys.current.delete(id);announceInboxChange();
       if(!alive.current)return;
       setConversations(value=>value.map(item=>item.participant.user_id===id?{...item,unread_count:0}:item));
-      if(current===threadGeneration.current)setThread(value=>value&&{...value,unread_count:0,items:value.items.map(message=>message.sender_ref===id&&!message.read_at?{...message,read_at:result.read_at}:message)});
+      if(currentPeer.current===id)setThread(value=>value&&value.participant.user_id===id?{...value,unread_count:0,items:value.items.map(message=>message.sender_ref===id&&!message.read_at?{...message,read_at:result.read_at}:message)}:value);
+      rereadAfterWrite(id);
       try{const page=await client.get<ConversationPage>('/me/conversations?limit=1&offset=0');if(alive.current)onUnread(page.unread_count);}catch{if(alive.current)onUnread(null);}
     }catch(cause){
       if(!unconfirmed(cause))readKeys.current.delete(id);
@@ -243,6 +266,7 @@ function DirectMessages({client,session,onUnread,openPeer}:{client:PortalClient;
         if(!participant)return value;
         return [{participant,can_send:existing?.can_send??true,unread_count:existing?.unread_count??0,last_message:message},...value.filter(item=>item.participant.user_id!==id)];
       });
+      rereadAfterWrite(id);
     }catch(cause){
       if(unconfirmed(cause)){
         setPending(value=>({...value,[id]:{...attempt,status:'unknown'}}));

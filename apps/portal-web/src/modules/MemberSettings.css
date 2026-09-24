@@ -43,6 +43,7 @@
 .messages-peer[aria-current=true]{border-color:#c4ff20}
 .messages-peer .member-avatar{width:32px;height:32px;min-width:32px;font-size:.8rem}
 .messages-peer span{min-width:0;overflow-wrap:anywhere}
+.messages-peer>.messages-count{flex:none;min-width:max-content}
 .messages-count{margin-left:auto;padding:.1rem .5rem;border-radius:100px;background:#273515;color:#d2ff67;font-size:.875rem;white-space:nowrap}
 .messages-thread{display:grid;gap:.7rem;padding:1rem;border:1px solid var(--line);border-radius:14px;background:#14161b;min-width:0}
 .messages-thread h2{margin:0;font-size:1.05rem}
