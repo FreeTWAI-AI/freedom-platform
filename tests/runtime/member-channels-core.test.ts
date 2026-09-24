@@ -11,6 +11,7 @@ import {login} from '../../modules/identity-membership/service.js';
 import {
   listChannels,channelMessages,sendChannelMessage,markChannelRead,CHANNEL_MESSAGE_RATE_LIMIT,
 } from '../../modules/member-communications/channels.js';
+import {notifyMember} from '../../modules/member-communications/notifications.js';
 
 // Core behaviour of guild/squad channels on the mounted API. The exhaustive
 // permission matrix and lock races live in member-channel-access.test.ts.
@@ -37,8 +38,8 @@ async function signIn(email:string):Promise<Session>{
 }
 const signInAll=()=>Promise.all(DEMO_USERS.map(user=>signIn(user.email)));
 /** Synthetic member sharing the demo password hash; not a real person. */
-async function extraMember(label:string,community=DEMO_COMMUNITY,state:{ready?:boolean}={}){
-  const id=randomUUID(),email=`${label}-${id.slice(0,8)}@example.invalid`;
+async function extraMember(label:string,community=DEMO_COMMUNITY,state:{ready?:boolean;id?:string}={}){
+  const id=state.id??randomUUID(),email=`${label}-${id.slice(0,8)}@example.invalid`;
   if(community!==DEMO_COMMUNITY)await pool.query('INSERT INTO communities VALUES($1,$2) ON CONFLICT DO NOTHING',[community,'合成的其他社群']);
   await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
     SELECT $1,$2,$3,$4,password_hash,$5,$6 FROM users WHERE user_id=$7`,[id,community,email,`合成會員${label}`,randomUUID(),state.ready===false,A]);
@@ -262,4 +263,50 @@ test('members read full history from their first join; leaving revokes access bu
   assert.deepEqual(back.data.items.map((m:any)=>m.body),['離開期間','離開前','加入前二','加入前一']);
   assert.equal(back.data.unread_count,2,'resumes from the prior cursor; own message is not unread');
   assert.equal((await request('/me/channels?kind=squad',a)).data.unread_count,2);
+});
+
+// Demo ids are all digits, so case aliases need fixed synthetic ids with hex letters.
+const HEX_PEER='abcdef01-2345-4678-9abc-def012345678',HEX_NOTIFICATION='fedcba98-7654-4321-8fed-cba987654321';
+const encodedUpper=(id:string)=>id.toUpperCase().replace(/[A-F-]/g,ch=>'%'+ch.charCodeAt(0).toString(16).toUpperCase());
+const uuidAliases=(id:string)=>[id.toUpperCase(),id,encodedUpper(id)];
+const receiptsFor=(user:string,key:string)=>count('command_receipts WHERE user_id=$1 AND idempotency_key=$2',[user,key]);
+const dm=(session:Session,to:string,body:string,key?:string)=>request(`/me/conversations/${to}/messages`,session,{body},{key});
+
+test('private message peer aliases share one send operation, so a key inserts once and a changed body conflicts',async()=>{
+  const [a]=await signInAll();await extraMember('hexpeer',DEMO_COMMUNITY,{id:HEX_PEER});
+  const key=randomUUID(),sends=[];
+  for(const alias of uuidAliases(HEX_PEER))sends.push(await dm(a,alias,'別名同一則私訊',key));
+  for(const sent of sends){assert.equal(sent.status,201,JSON.stringify(sent.data));assert.deepEqual(sent.data,sends[0].data);}
+  assert.equal(sends[0].data.recipient_ref,HEX_PEER);
+  assert.equal(await count('member_direct_messages WHERE sender_ref=$1',[A]),1);assert.equal(await receiptsFor(A,key),1);
+  const changed=await dm(a,encodedUpper(HEX_PEER),'不同內容',key);
+  assert.equal(changed.status,409,JSON.stringify(changed.data));assert.equal(changed.data.code,'idempotency_conflict');
+});
+
+test('private conversation read aliases replay the original ack and never swallow a later message',async()=>{
+  const [a]=await signInAll(),peer=await extraMember('hexpeer',DEMO_COMMUNITY,{id:HEX_PEER}),p=await signIn(peer.email);
+  const [upper,...rest]=uuidAliases(HEX_PEER),key=randomUUID(),readPath=(alias:string)=>`/me/conversations/${alias}/read`;
+  const m1=(await dm(p,A,'一')).data,marked=await request(readPath(upper),a,{},{key});
+  assert.equal(marked.status,200,JSON.stringify(marked.data));assert.equal(marked.data.user_id,HEX_PEER);assert.equal(marked.data.updated_count,1);
+  const m2=(await dm(p,A,'二')).data;
+  for(const alias of rest)assert.deepEqual(await request(readPath(alias),a,{},{key}),marked,`${alias} replays the original ack`);
+  assert.equal(await receiptsFor(A,key),1);
+  assert.equal((await request(`/me/conversations/${HEX_PEER}/messages`,a)).data.unread_count,1,'the later message stays unread');
+  const rows=(await pool.query('SELECT message_id,read_at IS NOT NULL AS read FROM member_direct_messages WHERE sender_ref=$1',[HEX_PEER])).rows;
+  assert.deepEqual(Object.fromEntries(rows.map(r=>[r.message_id,r.read])),{[m1.message_id]:true,[m2.message_id]:false});
+});
+
+test('notification read aliases share one operation with a stable ack, and a changed If-Match on the same key conflicts',async()=>{
+  const [a]=await signInAll();
+  // A real row from the shared helper, re-keyed to a fixed hex id.
+  const q=await pool.connect();
+  const note=await notifyMember(q,{community_id:DEMO_COMMUNITY,recipient_ref:A,kind:'friend_request',source_key:`synthetic-alias/${randomUUID()}`,
+    title:'合成好友邀請',body:'合成通知內容',action:{tab:'members',resource_id:null}}).finally(()=>q.release());
+  await pool.query('UPDATE member_notifications SET notification_id=$1 WHERE notification_id=$2',[HEX_NOTIFICATION,note!.notification_id]);
+  const key=randomUUID(),acks=[];
+  for(const alias of uuidAliases(HEX_NOTIFICATION))acks.push(await request(`/me/notifications/${alias}/read`,a,{},{key}));
+  for(const ack of acks){assert.equal(ack.status,200,JSON.stringify(ack.data));assert.deepEqual(ack.data,acks[0].data);}
+  assert.equal(acks[0].data.notification_id,HEX_NOTIFICATION);assert.equal(await receiptsFor(A,key),1);
+  const versioned=await request(`/me/notifications/${HEX_NOTIFICATION}/read`,a,{},{key,ifMatch:'"1"'});
+  assert.equal(versioned.status,409,JSON.stringify(versioned.data));assert.equal(versioned.data.code,'idempotency_conflict');
 });
