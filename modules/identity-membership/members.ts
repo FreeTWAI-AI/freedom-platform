@@ -217,7 +217,8 @@ export async function createSquad(pool:Pool,input:Command) {
   });
 }
 export async function changeSquadMembership(pool:Pool,input:Command,id:string,action:'request'|'accept'|'leave',targetId=input.actor.user_id) {
-  z.object({}).strict().parse(input.body);targetId=z.uuid().parse(targetId).toLowerCase();
+  // Normalized ids keep one advisory lock per (squad,member), shared with squad-invitations.ts.
+  z.object({}).strict().parse(input.body);id=z.uuid().parse(id).toLowerCase();targetId=z.uuid().parse(targetId).toLowerCase();
   return command(pool,input,async q=>{
     const squad=await squadExists(q,input.actor,id);
     if(action==='accept') {requireCondition(squad.owner_ref===input.actor.user_id,403,'squad_owner_required','只有小隊發起人可以接受加入申請。');await visibleMember(q,input.actor,targetId);}
