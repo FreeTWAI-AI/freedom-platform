@@ -1,6 +1,6 @@
 # Cloudflare＋PlanetScale 遷移現況交接（2026-09-24）
 
-> 2026-09-24 候選站階段的完成紀錄，**不是切換紀錄**。`staging-next` 與 `next` 都已部署，所選的驗收關卡全部通過，驗收用的臨時資源也已清理。舊站照常運作並持續接受寫入。各項以所列 UTC 時間為準，最後一次觀察是 20:15:39。實作與私有 helper 皆由 Claude Opus 5.5（`claude-opus-5-5`）撰寫，協調者負責審查、執行已審查的部署／維運工具與測試。程序、架構與回退見 [遷移手冊](cloudflare-migration.md)。
+> 2026-09-24 候選站階段的完成紀錄，**不是切換紀錄**。`staging-next` 與 `next` 都已部署，舊站照常運作並持續接受寫入，**未切換**。§7 所選的 10 個驗收階段全部通過，臨時資源已清理，該段最後一次觀察是 20:15:39。§9 於 22:00–23:30 UTC 補上整合分支 `9912e87` 的本機全套檢查，以及兩站的新會員註冊與會員訊息驗收（皆 `overall=pass`、`cloud_proof=true`），臨時 Access 與合成會員亦已清理；該段最後一次觀察是 23:29:40。各項以所列 UTC 時間為準。截至 §7 所述的實作與私有 helper 由 Claude Opus 5.5（`claude-opus-5-5`）撰寫，協調者負責審查、執行已審查的部署／維運工具與測試。§9 的操作與作者另記。程序、架構與回退見 [遷移手冊](cloudflare-migration.md)。
 
 ## 1. 版本與已驗證範圍
 
@@ -116,9 +116,96 @@ staging-next 與還原後的 next 共比對 1,990 行 metadata。原始 fingerpr
 
 ## 8. 尚未驗證
 
-- 新會員註冊（驗收工具從不註冊帳號）；整個 app 的端到端行為（所選 10 個階段不是全 app E2E）。
+- 所選階段仍不是全 app 的端到端行為。候選站的新會員註冊與會員訊息驗收見 §9。
 - 完整 GitHub OAuth／App consent／安裝與按星、fork、follow；候選站 GitHub 刻意未設定。
-- 私人／會員訊息 UI（驗收工具刻意攔下 inbox 請求）。
-- 台灣實測延遲、PlanetScale 原生 backup／PITR 的額外還原演練、DB 負載與 10k 併發容量。
+- 台灣實測延遲、PlanetScale 原生 backup／PITR 的額外還原演練、DB 負載與 10k 併發容量。訊息速率限制（20／60 秒）、`next` 的公會頻道，以及 §9 那兩次執行未選的 `github-handoff`／`load`，見 §9。
 - 實際月帳單（目前只有 US$25 基本費報價）。
-- 切換：新的最終備份、還原與驗證、live key 轉移、真實 GitHub 驗證與回退，全部尚未進行。
+- 切換尚未進行：新的最終備份、還原與驗證、live key 轉移、真實 GitHub 驗證與回退。舊站**未切換**。`next` 在任何切換前必須從最終備份再還原一次；§9 的合成列是演練資料。
+
+## 9. 2026-09-24 22:00–23:30 UTC 補驗：整合分支本機全套檢查、審查修正、候選新會員註冊與會員訊息驗收
+
+### 本機全套檢查
+
+整合分支 HEAD `9912e87a912cd71c73c13719531871806742256a`，2026-09-24T21:59:52Z→22:10:20Z，主機 castleridge-ai1，Node v24.21.0。隔離的 PG schema 在本機 54339 容器，E2E port 4391。
+
+| 檢查 | 結果 |
+| --- | --- |
+| typecheck | pass |
+| build | pass |
+| runtime tests | 514/514 |
+| skill-client | 10/10 |
+| check:runtime-text | pass |
+| worker:dry-run（local／staging-next／next） | pass |
+| test:worker | 7/7 |
+| deploy/cloudflare tests | 31/31 |
+| preflight `all` dry-run | ok（`deployment_ready=false` 是設計如此） |
+| contracts | 659 passed／4 skipped |
+| contracts:build | no diff |
+| E2E | 248 passed |
+| `git diff --check` | clean |
+| 跑完後的工作樹 | clean |
+
+這只是本機證據。此 SHA 尚無 GitHub run。私有證據：`~/.local/state/freedom-integration-checks-20260924/baseline-9912e87/`（RESULT.md 與帶 sha256 的 logs）。
+
+### 審查與本分支修正
+
+grok-4.7 唯讀審查 `main..9912e87`。證據：`~/.local/state/freedom-integration-checks-20260924/review-9912e87-grok-4.7.md`。沒有查證到的 runtime 缺陷：Worker／Node 共用的 Origin／CSRF／session、每個請求的 pool cleanup、scrypt 格式、image decoder 的拒絕、health 欄位精確吻合。六個會員 todo 保留。
+
+三項工具發現已在本分支修正。修正後 deploy/cloudflare tests 34/34。
+
+| commit | 修正 |
+| --- | --- |
+| `12f07f6` | DNS listing 分頁。候選 hostname 只有在清單被證明完整時才是 `absent`；否則 `incomplete_listing` 阻擋 readiness。基準值 `exists` 改名 `taken` |
+| `608070d` | OCI 失敗只回報 exit code 與 allowlisted code |
+| `65d1864` | plan 的 exit-code 用詞 |
+
+### Verifier 擴充
+
+`7bd4aef`、`86514c0`、`ea1d4c4` 加入 phases `registration`、`messages`、`messages-mobile`。會員由工具自行建立，位址形如 `cand-reg-<8hex>@example.invalid`。real-history guard：目標 `next` 沒有 guild-channel route。
+
+grok-4.7 對抗審查（證據：`~/.local/state/freedom-integration-checks-20260924/adversarial-review-verifier-phases-grok-4.7.md`）發現 2 high／1 medium／1 low，已由 `8d97614` 與 `4343df1` 修正。本機 harness：26 tests pass。
+
+| commit | 修正 |
+| --- | --- |
+| `8d97614` | 公會選擇改走 `GET /api/v1/guilds` 加上本人的 preferences，不再用 `/guilds/directory`（該端點帶有其他會員的姓名）。半註冊會員的 session 會撤銷，並回報其 label。恆真檢查已移除。scrub 測試加強 |
+| `4343df1` | `next` 上每個 phase 的精確請求清單 |
+
+### 雲端驗收
+
+已部署的 app `aed75a2636a0680b2fb9cf1ecd31ed14cbcb6293`。health：runtime `cloudflare-workers`，release SHA 與上列完全一致，version `0.13.0-member-messages`。兩次皆 `overall=pass`、`cloud_proof=true`、`redaction_applied=false`。報告的 leak scan 乾淨（沒有 email／uuid／cookie／CSRF；只有 label）。
+
+| 項目 | staging-next | next |
+| --- | --- | --- |
+| mode | staging | public（18:51Z 備份的演練還原） |
+| 時間 | 2026-09-24T22:44:03Z→22:46:38Z | 2026-09-24T23:27:11Z→23:29:11Z |
+| verifier 內容 | `ea1d4c4`（修正前；directory 讀取只看到合成社群） | `4343df1` |
+| preflight | 5/5 | 5/5 |
+| health | 12/12 | 12/12 |
+| registration | 16/16（todo：positioning done、primary guild done、GitHub unavailable） | 16/16（todo 狀態相同；候選站 GitHub 刻意未設定） |
+| messages | 44/44（guild_channel pass；次要公會 `guild_commerce_sales` join／leave pass 並已 restored；rate_limit not_covered） | 34/34（guild_channel not_run，原因 `real_history_guarded`；rate_limit not_covered） |
+| messages-mobile | 12/12（390×844，跨來源 0，teardown clean） | 12/12 |
+| 報告 | `staging-next-registration-messages-1.json`，SHA-256 `8e11976d3f509bb9975c2ad5a37687cc471cd5593fb342e3bd5efff6db79b741` | `next-registration-messages-1.json`，SHA-256 `3bd15fb85635e7d586446d41e9dd7f86d75490b15753432ec61e645c20cf184e` |
+| 會員 label | `cand-reg-e55afa1e`、`cand-reg-b9d1dea1` | `cand-reg-37ea0707`、`cand-reg-69396540` |
+
+Access：每個目標一個臨時 1 小時 service token，加上一個 `non_identity` policy，只加在該目標的全站 app。helper 目錄 `candidate-test-access-20260924T224350Z`。最小權限的原有設定未改。每次跑完立即清理（token 已刪、credential 已移除、沒有 drift、未解決 0）。staging-next：grant 22:43:53Z，cleanup 22:46:56Z。next：grant 23:27:07Z，cleanup 23:29:11Z。
+
+會員清理用新的私有 helper `registration-acceptance-cleanup-20260924/registration-cleanup.mjs`（18 個離線測試）。守衛是 exact email，且 `created_at` ≥ 該次執行開始。停用語句與管理員 `changeMemberStatus` 相同，不刪除任何列。
+
+| 項目 | staging-next | next |
+| --- | --- | --- |
+| 時間 | 22:47:15Z | 23:29:40Z |
+| 停用 | 2 | 2 |
+| 總數不變 | users 3、sessions 13、direct messages 2、channel messages 4、squads 1 | users 229、sessions 328、direct messages 3、channel messages 2、squads 2 |
+| 驗證 | 獨立驗證通過 | 驗證通過 |
+
+staging-next 的 sessions updated 0（工具已經撤銷）。
+
+預期殘留：每位候選的停用會員列、receipt、定位、成員關係、一個小隊、訊息、通知。
+
+仍未覆蓋：訊息速率限制（20／60 秒）、`next` 的公會頻道、GitHub OAuth／App 流程（未設定）、這兩次執行未選的 `github-handoff` 與 `load`（兩站各這兩項，共四個階段）、台灣延遲、DB 負載、PITR 演練、切換。`next` 在任何切換前必須從最終備份再還原一次；這些合成列是演練資料。
+
+私有證據根目錄：`~/.local/state/freedom-cloudflare-migration/registration-messages-acceptance-20260924/`（plan.md、results.md、reports、stderr）。
+
+### 操作與作者
+
+2026-09-24 由一個 Claude Fable 5.1 session 操作。本節所涉程式變更皆由 grok-4.7 經 grok CLI 撰寫。審查為 grok-4.7。驗證執行由該 operator session 執行。
