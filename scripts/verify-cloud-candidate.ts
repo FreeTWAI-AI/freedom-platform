@@ -1,6 +1,6 @@
 // Cloud candidate acceptance CLI. Default is a plan with no network access.
 //   npx tsx scripts/verify-cloud-candidate.ts plan --target staging-next
-//   npx tsx scripts/verify-cloud-candidate.ts execute --target next --phases health,protocol
+//   npx tsx scripts/verify-cloud-candidate.ts execute --target next --expected-release-sha <40-hex> --phases health,protocol
 // Only https://staging-next.freetwai.com and https://next.freetwai.com are addressable.
 // Credentials come from private files named by environment variables, never argv.
 // The JSON report goes to stdout; progress lines (no values) go to stderr.
@@ -24,6 +24,9 @@ export const HELP = `Usage: npx tsx scripts/verify-cloud-candidate.ts [plan|exec
                           next         (https://next.freetwai.com, mode public)
   --phases a,b            ${PHASES.filter(id => id !== 'preflight').join(', ')}
                           default: ${READ_ONLY_PHASES.filter(id => id !== 'preflight').join(', ')} (read-only)
+                          health is always added to any network run
+  --expected-release-sha S  full 40-hex commit SHA the Worker health.release_sha must equal
+                          (required by execute; plan may omit it and reports health not_run)
   --expected-version V    health.version to require (default: local package.json version)
   --dev-guild KEY         guild_ai_vibe (default) or guild_ai_field for guild-cache
   --dev-book ID           skill book used for /me/development/skill/:book (default video-autopilot)
@@ -40,17 +43,17 @@ Environment (paths to private 0600 files owned by you; read only by execute):
 
 See scripts/verify-cloud-candidate.md for prerequisites, cleanup and acceptance gates.`;
 
-export type Cli = { command: 'help' | 'plan' | 'execute'; target: Target | null; phases: PhaseId[]; expectedVersion: string | null; developmentGuild: string; developmentBook: string; load: ReturnType<typeof loadOptions> };
+export type Cli = { command: 'help' | 'plan' | 'execute'; target: Target | null; phases: PhaseId[]; expectedVersion: string | null; expectedReleaseSha: string | null; developmentGuild: string; developmentBook: string; load: ReturnType<typeof loadOptions> };
 
 /** Strict parser: known flags only, validated values only; nothing free-form can carry a secret. */
 export function parseArgs(argv: readonly string[]): Cli {
   const args = [...argv];
   let command: Cli['command'] = 'plan';
   if (args[0] === 'plan' || args[0] === 'execute') command = args.shift() as Cli['command'];
-  if (args.includes('--help') || args.includes('-h')) return { command: 'help', target: null, phases: [], expectedVersion: null, developmentGuild: 'guild_ai_vibe', developmentBook: 'video-autopilot', load: loadOptions() };
+  if (args.includes('--help') || args.includes('-h')) return { command: 'help', target: null, phases: [], expectedVersion: null, expectedReleaseSha: null, developmentGuild: 'guild_ai_vibe', developmentBook: 'video-autopilot', load: loadOptions() };
   const values = new Map<string, string>();
   const numeric = ['--load-requests', '--load-concurrency', '--load-rps', '--load-timeout-ms', '--load-max-p95-ms'];
-  const known = new Set(['--target', '--phases', '--expected-version', '--dev-guild', '--dev-book', '--load-max-error-rate', ...numeric]);
+  const known = new Set(['--target', '--phases', '--expected-version', '--expected-release-sha', '--dev-guild', '--dev-book', '--load-max-error-rate', ...numeric]);
   while (args.length) {
     const flag = args.shift()!;
     if (!known.has(flag)) throw new UsageError('unknown argument');
@@ -64,6 +67,11 @@ export function parseArgs(argv: readonly string[]): Cli {
   const phases = selectPhases(values.has('--phases') ? values.get('--phases')!.split(',').filter(Boolean) : null);
   const expectedVersion = values.get('--expected-version') ?? null;
   if (expectedVersion !== null && !/^[0-9A-Za-z.+-]{1,64}$/.test(expectedVersion)) throw new UsageError('--expected-version must match [0-9A-Za-z.+-]{1,64}');
+  // The Worker only accepts and reports lowercase SHAs, so uppercase input is normalized.
+  const rawSha = values.get('--expected-release-sha') ?? null;
+  if (rawSha !== null && !/^[0-9A-Fa-f]{40}$/.test(rawSha)) throw new UsageError('--expected-release-sha must be a full 40-hex commit SHA');
+  const expectedReleaseSha = rawSha?.toLowerCase() ?? null;
+  if (command === 'execute' && phases.includes('health') && expectedReleaseSha === null) throw new UsageError('execute needs --expected-release-sha (health verifies the Worker release)');
   const developmentGuild = values.get('--dev-guild') ?? 'guild_ai_vibe';
   if (!['guild_ai_vibe', 'guild_ai_field'].includes(developmentGuild)) throw new UsageError('--dev-guild must be guild_ai_vibe or guild_ai_field');
   const developmentBook = values.get('--dev-book') ?? 'video-autopilot';
@@ -75,7 +83,7 @@ export function parseArgs(argv: readonly string[]): Cli {
     return Number(raw);
   };
   const load = loadOptions({ requests: number('--load-requests'), concurrency: number('--load-concurrency'), rps: number('--load-rps'), timeoutMs: number('--load-timeout-ms'), maxP95Ms: number('--load-max-p95-ms'), maxErrorRate: number('--load-max-error-rate') });
-  return { command, target, phases, expectedVersion, developmentGuild, developmentBook, load };
+  return { command, target, phases, expectedVersion, expectedReleaseSha, developmentGuild, developmentBook, load };
 }
 
 /** Reads a private JSON file: absolute path, regular file, owned by this user, mode 0600 or stricter. */
@@ -120,7 +128,7 @@ export async function main(argv: readonly string[], env: NodeJS.ProcessEnv = pro
   const target = cli.target!;
   const contract = JSON.parse(await readFile(new URL('../contracts/preview/v1/metadata.json', import.meta.url), 'utf8'));
   const expectedVersion = cli.expectedVersion ?? JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version;
-  const base = { target, phases: cli.phases, expectedVersion, contract, load: cli.load, developmentGuild: cli.developmentGuild, developmentBook: cli.developmentBook };
+  const base = { target, phases: cli.phases, expectedVersion, expectedReleaseSha: cli.expectedReleaseSha, contract, load: cli.load, developmentGuild: cli.developmentGuild, developmentBook: cli.developmentBook };
   if (cli.command === 'plan') {
     process.stdout.write(JSON.stringify(await runCandidate({ ...base, run: 'plan' }), null, 2) + '\n');
     return 0;

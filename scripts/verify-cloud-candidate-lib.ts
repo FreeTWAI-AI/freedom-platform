@@ -60,6 +60,16 @@ const WRITES: Partial<Record<PhaseId, string>> = {
   logout: 'revokes the tool session',
 };
 
+/** Full lowercase commit SHA, exactly as the Worker adapter accepts and reports FREEDOM_RELEASE_SHA. */
+export const RELEASE_SHA = /^[0-9a-f]{40}$/;
+export const WORKER_RUNTIME = 'cloudflare-workers';
+/** Exact /api/v1/health keys per harness: the Worker adds runtime and release_sha; the local Node server does not. */
+export const HEALTH_FIELDS: Readonly<Record<Target['harness'], readonly string[]>> = Object.freeze({
+  cloud_candidate: Object.freeze(['mode', 'money_movement_enabled', 'official', 'release_sha', 'runtime', 'status', 'version']),
+  local_harness: Object.freeze(['mode', 'money_movement_enabled', 'official', 'status', 'version']),
+});
+const validReleaseSha = (value: unknown): value is string => typeof value === 'string' && RELEASE_SHA.test(value);
+
 export const LOAD_LIMITS = Object.freeze({
   requests: { default: 60, min: 1, max: 600 },
   concurrency: { default: 4, min: 1, max: 16 },
@@ -240,7 +250,7 @@ export type PhaseReport = { id: PhaseId; status: Status; reason?: string; writes
 export type CleanupItem = { phase: PhaseId; item: string; state: 'restored' | 'cleanup_required' | 'residual_expected' | 'restore_failed' };
 export type Report = {
   tool: string; report_kind: 'cloud_candidate_acceptance'; run: 'plan' | 'execute'; harness: Target['harness']; cloud_proof: boolean;
-  statement: string; target: { name: string; origin: string; expected_mode: Mode }; expected_version: string | null;
+  statement: string; target: { name: string; origin: string; expected_mode: Mode }; expected_version: string | null; expected_release_sha: string | null;
   account_label: string | null; access_credential: 'provided' | 'absent' | 'not_read'; started_at: string; finished_at: string;
   overall: Overall; phases_selected: PhaseId[]; phases: PhaseReport[]; cleanup: { required: boolean; items: CleanupItem[] }; load_thresholds?: LoadOptions; redaction_applied: boolean;
 };
@@ -253,6 +263,8 @@ function statement(target: Target, run: 'plan' | 'execute') {
 
 export type RunOptions = {
   target: Target; run: 'plan' | 'execute'; phases: PhaseId[]; expectedVersion: string | null; contract: unknown;
+  /** Required for cloud_candidate health: the Worker's release_sha must equal it. Unused by the local Node harness. */
+  expectedReleaseSha?: string | null;
   account?: Account | null; access?: AccessCredential | null; transport?: Transport; load?: LoadOptions; developmentBook?: string; developmentGuild?: string;
   browser?: BrowserLike | null; now?: () => Date; log?: (line: string) => void;
 };
@@ -263,15 +275,18 @@ export function selectPhases(requested: readonly string[] | null): PhaseId[] {
   // Fixed text: an argv value pasted by mistake (possibly a secret) is never echoed.
   for (const id of list) if (!(PHASES as readonly string[]).includes(id)) throw new UsageError('unknown phase');
   const selected = new Set<PhaseId>(['preflight', ...(list as PhaseId[])]);
+  // Every network run first verifies the Worker identity and release in health.
+  if ([...selected].some(id => id !== 'preflight')) selected.add('health');
   // API phases share one tool session: select its login and its logout with them.
-  if ((['session', 'guild-cache', 'github-handoff', 'avatar', 'logout'] as PhaseId[]).some(id => selected.has(id))) { selected.add('health'); selected.add('session'); selected.add('logout'); }
-  if (selected.has('browser')) selected.add('health');
+  if ((['session', 'guild-cache', 'github-handoff', 'avatar', 'logout'] as PhaseId[]).some(id => selected.has(id))) { selected.add('session'); selected.add('logout'); }
   return PHASES.filter(id => selected.has(id));
 }
 
 export function planReport(options: Omit<RunOptions, 'run'>): Report {
   const started = (options.now ?? (() => new Date()))().toISOString();
-  const phases: PhaseReport[] = PHASES.map(id => ({ id, status: 'not_run', reason: id === 'preflight' ? 'plan_only' : options.phases.includes(id) ? 'plan_only' : 'not_selected', ...(WRITES[id] ? { writes: WRITES[id] } : {}), checks: [] }));
+  const shaMissing = options.target.harness === 'cloud_candidate' && !validReleaseSha(options.expectedReleaseSha);
+  const reason = (id: PhaseId) => id === 'preflight' ? 'plan_only' : !options.phases.includes(id) ? 'not_selected' : id === 'health' && shaMissing ? 'plan_only_execute_requires_expected_release_sha' : 'plan_only';
+  const phases: PhaseReport[] = PHASES.map(id => ({ id, status: 'not_run', reason: reason(id), ...(WRITES[id] ? { writes: WRITES[id] } : {}), checks: [] }));
   return finish(options.target, 'plan', options, phases, [], started, new Secrets(), options.now);
 }
 
@@ -281,10 +296,10 @@ function finish(target: Target, run: 'plan' | 'execute', options: Omit<RunOption
     : selected.every(p => p.status === 'pass') ? 'pass' : selected.some(p => p.status === 'pass') ? 'incomplete' : 'not_run';
   const report: Report = {
     tool: TOOL_VERSION, report_kind: 'cloud_candidate_acceptance', run, harness: target.harness,
-    // Preflight is offline, so a pass needs at least one network phase to prove anything.
-    cloud_proof: run === 'execute' && target.harness === 'cloud_candidate' && overall === 'pass' && selected.some(p => p.id !== 'preflight' && p.status === 'pass'),
+    // Preflight is offline; only a passed health (Worker runtime and expected release_sha) ties the run to a deployment.
+    cloud_proof: run === 'execute' && target.harness === 'cloud_candidate' && overall === 'pass' && validReleaseSha(options.expectedReleaseSha) && selected.some(p => p.id === 'health' && p.status === 'pass'),
     statement: statement(target, run), target: { name: target.name, origin: target.origin, expected_mode: target.mode },
-    expected_version: options.expectedVersion, account_label: options.account?.label ?? null, access_credential: run === 'plan' ? 'not_read' : options.access ? 'provided' : 'absent',
+    expected_version: options.expectedVersion, expected_release_sha: options.expectedReleaseSha ?? null, account_label: options.account?.label ?? null, access_credential: run === 'plan' ? 'not_read' : options.access ? 'provided' : 'absent',
     started_at: started, finished_at: (now ?? (() => new Date()))().toISOString(), overall, phases_selected: [...options.phases], phases,
     cleanup: { required: cleanup.some(item => item.state === 'cleanup_required' || item.state === 'restore_failed'), items: cleanup },
     ...(options.phases.includes('load') ? { load_thresholds: options.load ?? loadOptions() } : {}),
@@ -398,6 +413,9 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
     async preflight(ctx) {
       ctx.check('target_allowlisted', target.harness === 'local_harness' || Object.values(CANDIDATES).some(c => c.origin === target.origin && c.mode === target.mode));
       ctx.check('expected_version_set', typeof options.expectedVersion === 'string' && /^[0-9A-Za-z.+-]{1,64}$/.test(options.expectedVersion));
+      // Checked before any request: a cloud health run without the expected release cannot prove provenance.
+      const sha = options.expectedReleaseSha ?? null;
+      ctx.check('expected_release_sha_set', target.harness === 'local_harness' || !options.phases.includes('health') ? sha === null || validReleaseSha(sha) : validReleaseSha(sha), 'execute requires a full lowercase 40-hex expected release SHA');
       ctx.check('local_contract_loaded', !!options.contract && typeof (options.contract as { protocol?: unknown }).protocol === 'string');
       const needsAccount = options.phases.some(id => NEEDS_ACCOUNT.includes(id));
       ctx.check('account_available_when_needed', !needsAccount || !!account, needsAccount ? 'selected phases need a dedicated synthetic account' : undefined);
@@ -410,7 +428,7 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
       ctx.check('status_200', reply.status === 200, `status ${reply.status}`);
       ctx.check('json', isJson(reply)); ctx.check('no_store', noStore(reply));
       const body = reply.json() ?? {};
-      ctx.check('exact_fields', isDeepStrictEqual(Object.keys(body).sort(), ['mode', 'money_movement_enabled', 'official', 'status', 'version']));
+      ctx.check('exact_fields', isDeepStrictEqual(Object.keys(body).sort(), HEALTH_FIELDS[target.harness]), target.harness === 'cloud_candidate' ? 'expected Worker health shape' : 'expected local Node health shape');
       ctx.metric('mode', bounded(body.mode, 16));
       ctx.metric('version', bounded(body.version, 64));
       ctx.check('status_ok', body.status === 'ok');
@@ -418,6 +436,11 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
       ctx.check('version_matches_expected', body.version === options.expectedVersion);
       ctx.check('money_movement_disabled', body.money_movement_enabled === false);
       ctx.check('not_official', body.official === false);
+      if (target.harness === 'local_harness') { ctx.metric('provenance', 'not_asserted_local_node'); return; }
+      ctx.check('runtime_cloudflare_workers', body.runtime === WORKER_RUNTIME);
+      ctx.check('release_sha_matches_expected', validReleaseSha(body.release_sha) && body.release_sha === options.expectedReleaseSha);
+      // Reported only after validation, so it is always the known expected value.
+      ctx.metric('provenance', { runtime: WORKER_RUNTIME, release_sha: options.expectedReleaseSha });
     },
     async protocol(ctx) {
       const reply = await client.request('GET', '/api/v1/protocol', { session: false });

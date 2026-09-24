@@ -11,7 +11,7 @@ import {
   CandidateClient,OriginGuardError,PHASES,Secrets,candidateTarget,describeError,isInboxPath,loadOptions,localHarnessTarget,runCandidate,runLoad,selectPhases,summarizeLoad,
   type BrowserLike,type PhaseId,type Transport,type TransportRequest,
 } from '../../scripts/verify-cloud-candidate-lib.js';
-import {parseArgs,readPrivateJson,validateAccess,validateAccount} from '../../scripts/verify-cloud-candidate.js';
+import {main,parseArgs,readPrivateJson,validateAccess,validateAccount} from '../../scripts/verify-cloud-candidate.js';
 
 // Guard tests use in-memory transports. The final case is a local harness run
 // against this worktree's isolated E2E server; it tests the tool, not any cloud.
@@ -30,8 +30,10 @@ function mock(handler:(request:TransportRequest)=>Reply|Promise<Reply>){
   };
   return {transport,calls};
 }
-const health=(overrides={})=>({status:'ok',mode:'staging',version:'1.2.3',money_movement_enabled:false,official:false,...overrides});
-const base=(phases:PhaseId[],extra={})=>({target:staging,run:'execute' as const,phases:selectPhases(phases),expectedVersion:'1.2.3',contract:metadata,...extra});
+// Synthetic release SHA; mocks use the Worker health shape from apps/platform-api/src/worker.ts.
+const sha='0123456789abcdef0123456789abcdef01234567';
+const health=(overrides={})=>({status:'ok',mode:'staging',version:'1.2.3',money_movement_enabled:false,official:false,runtime:'cloudflare-workers',release_sha:sha,...overrides});
+const base=(phases:PhaseId[],extra={})=>({target:staging,run:'execute' as const,phases:selectPhases(phases),expectedVersion:'1.2.3',expectedReleaseSha:sha,contract:metadata,...extra});
 
 test('import, parse and plan make no network request and report every remote phase not_run',async()=>{
   const original=globalThis.fetch;let used=0;
@@ -44,7 +46,38 @@ test('import, parse and plan make no network request and report every remote pha
     expect(report.phases.map(phase=>phase.status)).toEqual(PHASES.map(()=> 'not_run'));
     expect(report.statement).toMatch(/no network request/);
     expect(cli.phases).toEqual(['preflight','health','session','guild-cache','load','logout']);
+    // Plan may omit the release SHA; health is then marked as needing it for execute.
+    expect(report.expected_release_sha).toBeNull();
+    expect(report.phases.find(p=>p.id==='health')).toMatchObject({status:'not_run',reason:'plan_only_execute_requires_expected_release_sha'});
+    const withSha=parseArgs(['plan','--target','next','--expected-release-sha',sha.toUpperCase()]);
+    expect(withSha.expectedReleaseSha).toBe(sha);
+    const planned=await runCandidate({target:withSha.target!,run:'plan',phases:withSha.phases,expectedVersion:'1.2.3',expectedReleaseSha:withSha.expectedReleaseSha,contract:metadata});
+    expect(planned).toMatchObject({expected_release_sha:sha,cloud_proof:false,overall:'not_run'});
+    expect(planned.phases.find(p=>p.id==='health')).toMatchObject({status:'not_run',reason:'plan_only'});
+    expect(used).toBe(0);
   } finally {globalThis.fetch=original;}
+});
+
+test('execute requires an exact expected release SHA before any request',async()=>{
+  // Every network selection adds health; preflight alone stays networkless.
+  for(const phases of [['load'],['protocol'],['assets','anonymous'],['session']])expect(selectPhases(phases),phases.join()).toContain('health');
+  expect(selectPhases(['preflight'])).toEqual(['preflight']);
+  for(const argv of [['execute','--target','next'],['execute','--target','next','--phases','load']])expect(()=>parseArgs(argv)).toThrow(/--expected-release-sha/);
+  for(const value of [sha.slice(1),sha+'0','g'.repeat(40),sha.slice(0,7),'']) expect(()=>parseArgs(['execute','--target','next','--expected-release-sha',value]),value).toThrow();
+  expect(parseArgs(['execute','--target','next','--expected-release-sha',sha]).expectedReleaseSha).toBe(sha);
+  const original=globalThis.fetch;let used=0;
+  globalThis.fetch=(async()=>{used++;throw Error('network');}) as typeof fetch;
+  try{await expect(main(['execute','--target','next'],{})).rejects.toThrow(/--expected-release-sha/);}finally{globalThis.fetch=original;}
+  expect(used).toBe(0);
+  // Library callers get the same guard in preflight: health is blocked, nothing is sent.
+  for(const expectedReleaseSha of [null,'abc',sha.toUpperCase()]){
+    let requests=0;
+    const report=await runCandidate({...base(['health','protocol']),expectedReleaseSha,transport:async()=>{requests++;throw Error('unexpected');}});
+    expect(requests,String(expectedReleaseSha)).toBe(0);
+    expect(report.phases.find(p=>p.id==='preflight')).toMatchObject({status:'fail',reason:'expected_release_sha_set'});
+    expect(report.phases.find(p=>p.id==='health')?.status).toBe('blocked');
+    expect(report.cloud_proof).toBe(false);
+  }
 });
 
 test('a preflight-only execute stays valid but is never cloud proof',async()=>{
@@ -59,7 +92,12 @@ test('a preflight-only execute stays valid but is never cloud proof',async()=>{
   const {transport,calls}=mock(()=>({status:200,json:health()}));
   const report=await runCandidate({...base(['health']),transport});
   expect(calls).toHaveLength(1);
-  expect(report).toMatchObject({overall:'pass',cloud_proof:true});
+  expect(report).toMatchObject({overall:'pass',cloud_proof:true,expected_release_sha:sha});
+  expect(report.phases.find(p=>p.id==='health')!.metrics).toMatchObject({provenance:{runtime:'cloudflare-workers',release_sha:sha}});
+  // A network phase that bypasses health (library caller) never claims cloud provenance.
+  const {transport:protocolOnly}=mock(()=>({status:200,json:metadata}));
+  const bypass=await runCandidate({...base([]),phases:['preflight','protocol'],transport:protocolOnly});
+  expect(bypass).toMatchObject({overall:'pass',cloud_proof:false});
 });
 
 test('only the two exact candidate origins are addressable',()=>{
@@ -93,15 +131,20 @@ test('client refuses other origins before sending and never follows redirects or
   expect(report.overall).toBe('fail');expect(report.cloud_proof).toBe(false);
 });
 
-test('mode and version mismatches fail health and block every dependent phase',async()=>{
-  for(const [body,check] of [[health({mode:'public'}),'mode_matches_target'],[health({version:'1.2.4'}),'version_matches_expected'],[health({official:true}),'not_official'],[health({commit_sha:'x'}),'exact_fields']] as const){
+test('mode, version, Worker runtime and release SHA mismatches fail health and block every dependent phase',async()=>{
+  const {runtime:_runtime,release_sha:_release,...legacyNode}=health(),{release_sha:_missing,...noSha}=health();
+  for(const [body,check] of [[health({mode:'public'}),'mode_matches_target'],[health({version:'1.2.4'}),'version_matches_expected'],[health({official:true}),'not_official'],[health({commit_sha:'x'}),'exact_fields'],
+    [legacyNode,'exact_fields'],[noSha,'exact_fields'],[health({runtime:'node'}),'runtime_cloudflare_workers'],[health({runtime:null}),'runtime_cloudflare_workers'],
+    [health({release_sha:'fedcba9876543210fedcba9876543210fedcba98'}),'release_sha_matches_expected'],[health({release_sha:sha.toUpperCase()}),'release_sha_matches_expected'],
+    [health({release_sha:sha.slice(0,7)}),'release_sha_matches_expected'],[health({release_sha:null}),'release_sha_matches_expected']] as const){
     const {transport,calls}=mock(()=>({status:200,json:body}));
     const report=await runCandidate({...base(['health','guild-cache']),transport,account});
     expect(report.phases.find(p=>p.id==='health')).toMatchObject({status:'fail',reason:check});
     for(const id of ['session','guild-cache'])expect(report.phases.find(p=>p.id===id)?.status,id).toBe('blocked');
     expect(report.phases.find(p=>p.id==='logout')).toMatchObject({status:'not_run',reason:'no_tool_session'});
     expect(calls.map(call=>new URL(call.url).pathname)).toEqual(['/api/v1/health']);
-    expect(report.overall).toBe('fail');
+    expect(report.overall).toBe('fail');expect(report.cloud_proof).toBe(false);
+    expect(report.phases.find(p=>p.id==='health')!.metrics?.provenance,check).toBeUndefined();
   }
 });
 
@@ -332,7 +375,11 @@ test('local harness: real session, CSRF, guild grant/revoke freshness, avatar, b
     expect(failures).toEqual([]);
     expect(status).toEqual({preflight:'pass',health:'pass',protocol:'pass',assets:'pass',anonymous:'pass',session:'pass',browser:'pass','guild-cache':'pass','github-handoff':'not_run',avatar:'pass',load:'pass',logout:'pass'});
     expect(report.phases.find(p=>p.id==='github-handoff')?.reason).toBe('github_oauth_not_configured_on_candidate');
-    expect(report).toMatchObject({harness:'local_harness',cloud_proof:false,overall:'incomplete'});
+    expect(report).toMatchObject({harness:'local_harness',cloud_proof:false,overall:'incomplete',expected_release_sha:null});
+    // The local Node server has no runtime or release_sha; the harness proves no deployed SHA.
+    const healthPhase=report.phases.find(p=>p.id==='health')!;
+    expect(healthPhase.metrics).toMatchObject({provenance:'not_asserted_local_node'});
+    expect(healthPhase.checks.map(check=>check.id)).not.toContain('release_sha_matches_expected');
     expect(report.statement).toMatch(/not evidence of any cloud deployment/);
     // The signed-in shell requests inbox previews by itself; every one was aborted, none answered.
     for(const prefix of ['/api/v1/me/notifications','/api/v1/me/conversations'])expect(inbox.requested.some(path=>path===prefix),prefix).toBe(true);

@@ -6,7 +6,8 @@ Local tests of the tool: `tests/e2e/cloud-candidate-acceptance.spec.ts`.
 ## Current state (2026-09-24)
 
 - No cloud candidate resources exist yet. `https://staging-next.freetwai.com` and `https://next.freetwai.com` are **not provisioned**.
-- Every remote gate below is **not_run**. A passing local spec only shows the tool works against the isolated loopback E2E server. Its report says `harness: local_harness`, `cloud_proof: false`. It proves nothing about Cloudflare, the candidate databases or production performance.
+- Every remote gate below is **not_run**. A passing local spec only shows the tool works against the isolated loopback E2E server. Its report says `harness: local_harness`, `cloud_proof: false`. The local Node server's health has the five Node fields only; the harness checks that shape and reports `provenance: not_asserted_local_node`, so it proves no runtime or release SHA.
+- `cloud_proof: true` needs an `execute` against a candidate where every selected phase passed, including health with the Worker runtime and the expected release SHA. It proves nothing about Cloudflare, the candidate databases or production performance.
 - The old live hosts `freetwai.com` and `staging.freetwai.com` cannot be addressed by this tool. The old `verify-staging.mjs`, `verify-public.mjs` and `verify-member-settings.mjs` are not imported or reused. They hard-code old hosts, use demo accounts, create accounts or read member inboxes.
 
 ## What the tool can address
@@ -22,7 +23,7 @@ Every request is built from the fixed origin plus a path that starts with `/`. R
 
 ## Prerequisites root must supply before executing (not in this repo)
 
-1. **Candidate deployment** on the exact origin, with its own database. It must not share the old staging or public database. `health.version` must equal the release under test.
+1. **Candidate deployment** on the exact origin, with its own database. It must not share the old staging or public database. It is the Cloudflare Worker build, with `FREEDOM_RELEASE_SHA` set to the full commit under test, so health reports `runtime: cloudflare-workers` and that `release_sha`. `health.version` must equal the release under test. Root passes the same commit as `--expected-release-sha`.
 2. **Dedicated synthetic account**, provisioned by root in the new candidate database only:
    - Not a demo account (`@local.test` and the demo password are refused) and not a real member.
    - Onboarding completed or legacy-ready. Its primary guild is **not** `guild_ai_vibe` or `guild_ai_field`. It has no active membership in either, so the guild-cache baseline is not eligible.
@@ -47,25 +48,28 @@ Credentials never go in argv. The CLI only accepts known flags with validated va
 
 ```sh
 # Plan: no network, no credential files read (reads only the local package.json and contract metadata). Every phase is not_run.
+# --expected-release-sha may be omitted here; health then reports plan_only_execute_requires_expected_release_sha.
 npx tsx scripts/verify-cloud-candidate.ts plan --target staging-next --phases health,protocol,assets,anonymous,guild-cache,load
 
 # Read-only gates (default phases: health, protocol, assets, anonymous)
 umask 077
 FREEDOM_CANDIDATE_ACCESS_FILE=/path/to/private/access.json \
-  npx tsx scripts/verify-cloud-candidate.ts execute --target staging-next --expected-version <version> \
+  npx tsx scripts/verify-cloud-candidate.ts execute --target staging-next --expected-version <version> --expected-release-sha <40-hex commit> \
   > /path/to/private/reports/staging-next-readonly.json
 
 # Synthetic-account gates (writes only to that account; see Cleanup)
 FREEDOM_CANDIDATE_ACCOUNT_FILE=/path/to/private/account.json FREEDOM_CANDIDATE_ACCESS_FILE=/path/to/private/access.json \
-  npx tsx scripts/verify-cloud-candidate.ts execute --target staging-next --expected-version <version> \
+  npx tsx scripts/verify-cloud-candidate.ts execute --target staging-next --expected-version <version> --expected-release-sha <40-hex commit> \
   --phases health,protocol,assets,anonymous,session,browser,guild-cache,github-handoff,avatar \
   > /path/to/private/reports/staging-next-account.json
 
-# Bounded anonymous GET load (health + static only), explicit limits
-npx tsx scripts/verify-cloud-candidate.ts execute --target next --expected-version <version> \
+# Bounded anonymous GET load (health + static only), explicit limits; health is added and verified first
+npx tsx scripts/verify-cloud-candidate.ts execute --target next --expected-version <version> --expected-release-sha <40-hex commit> \
   --phases load --load-requests 120 --load-concurrency 4 --load-rps 10 --load-max-error-rate 0.01 --load-max-p95-ms 2000 \
   > /path/to/private/reports/next-load.json
 ```
+
+`execute` refuses to start (exit `2`, before any request or credential read) without `--expected-release-sha`, because every network run includes health. Uppercase hex is lowercased; anything but 40 hex characters is rejected.
 
 The JSON report goes to stdout, and the caller keeps it as the canonical record. Progress lines on stderr carry phase names and statuses only. Exit code: `0` only when every selected phase passed, `1` for any fail, blocked or not_run phase, and `2` for usage or credential-file errors.
 
@@ -73,8 +77,8 @@ The JSON report goes to stdout, and the caller keeps it as the canonical record.
 
 | Phase | Gate (all must hold) | Writes |
 | --- | --- | --- |
-| preflight | Target allowlisted, expected version set, local contract loaded, account present if needed. No network. | none |
-| health | 200 JSON with `no-store`. Exact fields `status, mode, version, money_movement_enabled, official`. `ok`, mode matches target, version matches expected, `false`, `false`. No redirect. There is no commit SHA in health, so deployment provenance is **not** asserted. | none |
+| preflight | Target allowlisted, expected version set, expected release SHA set (40 lowercase hex) when health runs on a candidate, local contract loaded, account present if needed. No network. | none |
+| health | 200 JSON with `no-store`. Exact fields `status, mode, version, money_movement_enabled, official, runtime, release_sha`, no others. `ok`, mode matches target, version matches expected, `false`, `false`, `runtime` is exactly `cloudflare-workers`, `release_sha` is 40 lowercase hex and equals `--expected-release-sha`. No redirect. Only after all of these pass, `provenance` reports the runtime and the expected SHA. The old Node shape without `runtime`/`release_sha` fails `exact_fields`. | none |
 | protocol | `/api/v1/protocol` deep-equals `contracts/preview/v1/metadata.json` | none |
 | assets | Brand plus four RPG images: 200, `image/webp`, more than 1000 bytes. Records `cf-cache-status` and `cf-ray` presence as diagnostics only, not required. | none |
 | anonymous | Session, guild preferences and development status return 401 `login_required` with `no-store` and no session cookie. Login is rejected with `origin_rejected` when Origin is missing, foreign or the old live origin (no credentials sent). Optional Access gate. | none |
