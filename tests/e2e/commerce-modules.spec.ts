@@ -23,6 +23,8 @@ test('supplier and retailer use distinct modules, agree on exact selection, and 
   await page.screenshot({path:'test-results/supplier-module-desktop.png',fullPage:true});
 
   await switchTo(page,'client@local.test');await navigate(page, '開店與銷售');
+  // Sellers who already own a store open the collapsed form; first-time sellers see it directly.
+  const another=page.getByText('再建立一家商店',{exact:true});if(await another.isVisible())await another.click();
   await page.getByLabel('商店名稱',{exact:true}).fill('瀏覽器演練選物店');
   await page.getByLabel('商店介紹',{exact:true}).fill('幫喜歡茶的人挑選好茶。');
   await page.getByLabel('客服聯絡方式',{exact:true}).fill('演練請聯絡店主');
@@ -42,6 +44,7 @@ test('supplier and retailer use distinct modules, agree on exact selection, and 
   const requests=page.getByRole('region',{name:'銷售者的供貨請求',exact:true});
   await expect(requests.getByText('茶葉禮盒；由本店服務買家。',{exact:true})).toBeVisible();
   await expect(requests.getByText(/550\.25/)).toBeVisible();
+  await requests.getByRole('combobox',{name:/^回覆/}).selectOption('accepted');
   await requests.getByLabel('給銷售者的說明',{exact:true}).fill('演練供貨確認，售價與出貨說明已核對。');
   await requests.getByLabel('我已核對以上商品、售價與條件；這是內部演練回覆。',{exact:true}).check();
   await requests.getByRole('button',{name:'保存供貨回覆',exact:true}).click();

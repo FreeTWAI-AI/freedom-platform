@@ -96,11 +96,10 @@ export function MarketingPanel({client,session}:ModulePanelProps) {
   useEffect(()=>{void refresh();},[refresh]);
   async function create(event:FormEvent){event.preventDefault();setNotice(null);const {source_selection,...content}=draft;const [kind,sourceId]=source_selection.split(':');const saved=await mutate('/marketing/campaigns',{...content,source_project_id:kind==='oss'?sourceId:null,source_supplier_product_id:kind==='supplier'?sourceId:null,source_brief:source_selection?'':draft.source_brief});if(saved){setDraft({...blankCampaign});setNotice('私人草稿已儲存，可以繼續編輯或自行分享。');await refresh();}}
   return <div className="stack">
-    <details className="card"><summary>行銷與影音公會的技能書</summary><RepositoryLibrary client={client} ids={['social-post','typo-studio','video-autopilot','short-drama','hao-studio','media-generator']} title="Hao 的行銷與影音技能書"/></details>
     {notice&&<p className="banner banner-info" role="status">{notice}</p>}{error&&<p className="banner banner-error" role="alert">{error}</p>}<LoadError error={loadError} retry={()=>void refresh()}/>
     <div className="card-grid"><section className="card stack"><div className="section-head"><h2>建立行銷草稿</h2><p>先寫文案，再到你選擇的平台自行發布。</p></div>
       <form className="stack" onSubmit={create}>
-        <label className="field">內容來源<select value={draft.source_selection} onChange={e=>setDraft({...draft,source_selection:e.target.value})}><option value="">自行填寫活動簡述</option><optgroup label="我的開源作品">{projects.map(p=><option key={p.project_id} value={`oss:${p.project_id}`}>{p.title} · {p.current_version.commit_sha.slice(0,7)}</option>)}</optgroup><optgroup label="我的供貨商品">{products.map(p=><option key={p.product_id} value={`supplier:${p.product_id}`}>{p.title} · 供貨版本 {p.current_offer.revision}</option>)}</optgroup></select></label>
+        <label className="field">內容來源<select value={draft.source_selection} onChange={e=>setDraft({...draft,source_selection:e.target.value})}><option value="">自行填寫活動簡述</option>{projects.length>0&&<optgroup label="我的開源作品">{projects.map(p=><option key={p.project_id} value={`oss:${p.project_id}`}>{p.title} · {p.current_version.commit_sha.slice(0,7)}</option>)}</optgroup>}{products.length>0&&<optgroup label="我的供貨商品">{products.map(p=><option key={p.product_id} value={`supplier:${p.product_id}`}>{p.title} · 供貨版本 {p.current_offer.revision}</option>)}</optgroup>}</select>{!loading&&!projects.length&&!products.length&&<span className="field-hint">登錄開源作品或供貨商品後，可直接引用固定版本作為來源。</span>}</label>
         {!draft.source_selection&&<label className="field">活動來源簡述<textarea required maxLength={3000} placeholder="真實提供什麼、適用條件與需要注意的限制。" value={draft.source_brief} onChange={e=>setDraft({...draft,source_brief:e.target.value})}/></label>}
         <label className="field">活動名稱<input required maxLength={120} value={draft.title} onChange={e=>setDraft({...draft,title:e.target.value})}/></label>
         <label className="field">想分享給誰<input required maxLength={1000} value={draft.audience} onChange={e=>setDraft({...draft,audience:e.target.value})}/></label>
@@ -110,6 +109,7 @@ export function MarketingPanel({client,session}:ModulePanelProps) {
       </form></section>
       <section className="stack" aria-label="我的行銷草稿"><div className="section-head"><h2>我的行銷草稿</h2><p>來源版本會保留下來，方便日後核對。</p></div>{loading&&<p role="status">正在載入草稿…</p>}{!loading&&!loadError&&campaigns.length===0&&<div className="card empty"><h3>把第一個想法寫下來</h3><p>從你的一件作品或活動開始，先準備一段能讓人理解的介紹。</p></div>}{campaigns.map(campaign=><CampaignCard key={campaign.campaign_id} campaign={campaign} client={client} reload={refresh}/>)}</section>
     </div>
+    <details className="card"><summary>行銷與影音公會的技能書</summary><RepositoryLibrary client={client} ids={['social-post','typo-studio','video-autopilot','short-drama','hao-studio','media-generator']} title="Hao 的行銷與影音技能書"/></details>
   </div>;
 }
 

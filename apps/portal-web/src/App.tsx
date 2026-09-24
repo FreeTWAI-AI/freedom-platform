@@ -566,7 +566,7 @@ function WorkbenchPanel() {
       <Section title="現在進行" description="你正在處理的互助工作。">
         <WorkItemList
           items={dashboard.now}
-          empty="目前沒有進行中的工作。可從下方認領，或發布一張自願互助卡。"
+          empty="目前沒有進行中的工作。可在「接下來」或「其他社群工作」認領，或在頁尾發布一張自願互助卡。"
           pending={pending}
           mutate={mutate}
           onChanged={load}
@@ -577,8 +577,8 @@ function WorkbenchPanel() {
         <WorkItemList items={dashboard.next} empty="接下來沒有待辦。開放中的工作會顯示在認領列表。" pending={pending} mutate={mutate} onChanged={load} />
       </Section>
 
-      <Section title="其他社群工作" description="查看社群工作的進度；開放認領的工作列在上方。">
-        <WorkItemList items={catalog} empty="目前沒有可認領的工作。你可以發布一張，或稍後再來看。" pending={pending} mutate={mutate} onChanged={load} />
+      <Section title="其他社群工作" description="未列在上方的社群工作；開放中的可直接認領。">
+        <WorkItemList items={catalog} empty="目前沒有其他社群工作。你可以在頁尾發布一張，或稍後再來看。" pending={pending} mutate={mutate} onChanged={load} />
       </Section>
 
       <Section title="待你回饋" description="只列出目前指派給你的項目。實際貢獻者不能審自己的提交。">
@@ -778,8 +778,10 @@ function WorkItemCard({
             認領這張工作
           </button>
           {claimExpired && <p className="hint">認領期限已過。</p>}
+          {!session.user.profession_membership_ref && <p className="hint">先到「職業公會」加入一個公會，才能以該職業身分認領。</p>}
         </div>
       )}
+      {!claim && item.state === 'open' && isOwnRef(session.user, item.owner_ref) && <p className="hint">這是你發布的工作，等待夥伴自願認領。</p>}
       {claim?.state === 'claimed' && (
         <div className="actions">
           <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void startClaim()}>
@@ -1210,6 +1212,7 @@ function CreateShowcaseForm({
         <label className="field">
           <span className="field-label">成果引用（例如 artifact:template-v1）</span>
           <input required value={artifactRef} onChange={(event) => setArtifactRef(event.target.value)} disabled={busy} />
+          <span className="field-hint">填成果代號即可，檔案另行分享；不要貼含登入權限的連結或私人資料。</span>
         </label>
         <label className="choice">
           <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} disabled={busy} />
@@ -1365,8 +1368,10 @@ function OpportunityCard({
         </div>
       </dl>
       {provider && opportunity.state === 'proposed' && (
-        <p className="hint">已提出合作，請到「合作紀錄」繼續同意、交付與收款回報。</p>
+        <p className="hint">已提出合作，請到<a href="#engagement">合作紀錄</a>繼續同意、交付與收款回報。</p>
       )}
+      {!provider && opportunity.state === 'open' && <p className="hint">已送出需求，等待作品作者提出合作範圍與價格。</p>}
+      {!provider && opportunity.state === 'proposed' && <p className="hint">作者已提出合作，請到<a href="#engagement">合作紀錄</a>確認內容後再同意。</p>}
       {provider && opportunity.state === 'open' && (
         <div className="actions">
           {!open ? (
@@ -1446,7 +1451,10 @@ function EngagementPanel() {
         付款由雙方自行處理，平台只記錄約定與收款回報，不代收款，也不核實銀行入帳。
       </p>
       {engagements.length === 0 ? (
-        <EmptyState title="還沒有合作紀錄" body="先到「一般作品與需求」分享作品或提出需求；雙方建立合作後，紀錄會出現在這裡。" />
+        <div className="empty">
+          <strong>還沒有合作紀錄</strong>
+          <p>先到<a href="#showcase">作品與需求</a>分享作品或提出需求；作者提出合作後，雙方都會在這裡看到紀錄。</p>
+        </div>
       ) : (
         <div className="card-grid">
           {engagements.map((engagement) => (
@@ -1553,6 +1561,7 @@ function EngagementCard({
         )}
       </dl>
       <ReceiptStatus receipt={engagement.receipt} />
+      {waitingNote(engagement, clientSide, provider) && <p className="hint">{waitingNote(engagement, clientSide, provider)}</p>}
       {formError && (
         <p className="banner banner-error" role="alert">
           {formError}
@@ -1633,6 +1642,16 @@ function EngagementCard({
       )}
     </article>
   )
+}
+
+/** Tells each side what the other party still needs to do, so a card never looks stuck. */
+function waitingNote(engagement: Engagement, clientSide: boolean, provider: boolean): string | null {
+  if (provider && engagement.state === 'proposed') return '等待委託人同意這份合作；對方同意前不需要開始交付。'
+  if (clientSide && engagement.state === 'agreed') return '等待提供者交付成果。'
+  if (provider && engagement.state === 'delivered') return '已交付，等待委託人接受。'
+  if (clientSide && engagement.state === 'accepted' && !engagement.receipt) return '等待提供者回報收款；付款由雙方自行處理，平台不代收。'
+  if (provider && engagement.receipt?.verification_status === 'self_reported') return '等待委託人確認你的收款回報。'
+  return null
 }
 
 function ReceiptStatus({ receipt }: { receipt: Engagement['receipt'] }) {

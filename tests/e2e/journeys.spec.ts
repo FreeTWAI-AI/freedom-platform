@@ -71,7 +71,7 @@ test('showcase and opportunity become a bilateral cooperation and attributed rec
   await page.getByLabel('完成條件',{exact:true}).fill('合成範例產出正確週報');
   await page.getByLabel('約定價格（新台幣，最多兩位小數）').fill('1200.50');
   await page.getByRole('button',{name:'送出合作提案',exact:true}).click();
-  await expect(page.getByText('已提出合作，請到「合作紀錄」繼續同意、交付與收款回報。')).toBeVisible();
+  await expect(page.locator('p.hint',{hasText:'已提出合作'})).toHaveText('已提出合作，請到合作紀錄繼續同意、交付與收款回報。');
   await switchAccount(page,'client@local.test');await navigate(page, '合作紀錄');
   await page.getByRole('button',{name:'同意這份合作',exact:true}).click();
   await expect(page.getByText('已同意',{exact:true})).toBeVisible();

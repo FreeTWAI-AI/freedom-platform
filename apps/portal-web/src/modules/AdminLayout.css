@@ -77,7 +77,9 @@
   .admin-workspace .admin-context-row { gap: 8px; }
   .admin-workspace .admin-context-row summary span { display: block; margin-left: 0; }
   .admin-workspace .admin-context-row summary .badge { display: inline-block; margin-top: 2px; }
-  .admin-workspace .admin-nav-group { grid-template-columns: 4rem minmax(0, 1fr); gap: 8px; }
+  /* Phone: the group label gets its own full row so names like 人員與權限 never break; buttons wrap below. */
+  .admin-workspace .admin-nav-group { grid-template-columns: minmax(0, 1fr); align-items: start; gap: 4px; }
+  .admin-workspace .admin-nav-label { white-space: nowrap; }
   .admin-workspace .admin-tabs .btn { padding-inline: 10px; }
   .admin-workspace .admin-search .field { min-width: 0; flex-basis: 100%; }
   .admin-workspace .admin-pending-appointments .btn { width: 100%; }

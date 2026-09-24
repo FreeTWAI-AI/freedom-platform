@@ -24,6 +24,7 @@
 @media(max-width:700px){
   .guild-workspace-columns { grid-template-columns: 1fr; }
   .guild-workspace input,.guild-workspace select,.guild-workspace textarea { font-size: 16px; }
-  .guild-workspace-tabs .btn { flex: 1; }
+  .guild-workspace-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); }
+  .guild-workspace-tabs .btn { padding-inline: 8px; white-space: nowrap; }
   .guild-maintainer-row { align-items: stretch; flex-direction: column; }
 }

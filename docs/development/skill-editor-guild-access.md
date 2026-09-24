@@ -61,8 +61,15 @@
 
 這個結構固定不變：沒有任命的會員也會拿到整個 `skill_editor_access` 物件，前端不用處理欄位缺少的情況。
 
-### 前端建議
+### 前端行為（`apps/portal-web/src/modules/GuildWorkspace.tsx`）
 
-- `requires_development_guild === true`：說明「你已被任命維護 N 本技能書，加入下列任一 AI 公會後才能編輯」，並把 `required_guilds` 連到職業公會頁的加入流程。會員得自己按加入，前端不能自動替會員加入。
-- 編輯器 API 回 `403 skill_editor_guild_required`：顯示同一段加入公會的提示，不要顯示「不是維護者」。
-- `403 skill_maintainer_required` 仍然代表沒有任命，要由管理員處理。
+已在程式實作，本輪尚未部署；E2E 由 coordinator 統一 build 後執行。
+
+- `Workspace` 型別的 `skill_editor_access` 是選填欄位，舊的 mock／回應沒有這個欄位時照舊以 `managed_books` 判斷。
+- `requires_development_guild === true`：公會管理頁顯示「已被任命維護 N 本技能書，加入「AI 導入與驗證公會」或「AI 開發公會」即可編輯。」（名稱取自 `required_guilds`），附「前往職業公會」連結（`#guilds`）與「重新核對管理權限」按鈕。不會顯示「目前沒有公會或技能書的管理職務」，也不會自動送出任何加入公會的請求。同一位會員的公會公告與公會長議事區照常可用，提示放在分頁上方。
+- 編輯器 GET／POST 回 `403 skill_editor_guild_required`（以 `ApiError.code` 判斷，不比對訊息字串）：表單停用但**保留尚未保存的草稿**，顯示同一段提示；有草稿時改成「在新分頁前往職業公會 ↗」，避免切頁丟掉草稿。父層同時重新讀取 `/guild-workspace`。
+- 重新核對只有在 `/guild-workspace` 成功回應且 `requires_development_guild` 為 false 時才解除鎖定；讀取失敗會在提示內顯示錯誤、保存鈕維持停用，不會沿用舊的可寫狀態。解除後草稿仍在，提示再按保存；原本沒載入成功的編輯器會重新讀取。鎖定期間視窗重新取得焦點、或同分頁觸發 `freedom-profile-updated`（加入／離開公會）時也會自動重新核對。
+- `403 skill_maintainer_required` 等其他錯誤維持原本的錯誤訊息，不顯示加入公會的提示。
+- 側欄「公會管理」入口是否在 `requires_development_guild` 時出現，由 `App.tsx` 的 `canManageGuild` 負責，不在這個模組內。
+
+合成路由的瀏覽器測試在 `tests/e2e/skill-editor-guild-access.spec.ts`（桌機與 390px 手機）。
