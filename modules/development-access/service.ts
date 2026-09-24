@@ -11,8 +11,8 @@ import {githubCoordinate} from '../opensource-marketing/github.js';
 import type {GitHubSocial} from '../github-social/service.js';
 
 export const DEVELOPMENT_POLICY='development-proposal-v1';
-export const developmentGuilds={skill:['guild_ai_vibe','guild_ai_field'],platform:['guild_platform_engineering']};
-export type Capability=keyof typeof developmentGuilds;
+import {developmentGuilds,type Capability} from './guild-eligibility.js';
+export {developmentGuilds,type Capability};
 const kind=z.enum(['skill','platform']);
 const empty=z.object({}).strict();
 const proposalInput=z.object({title:z.string().trim().min(1).max(150),summary:z.string().trim().min(1).max(8000),pr_url:z.string().max(500).nullable().default(null)}).strict();

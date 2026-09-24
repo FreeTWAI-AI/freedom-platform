@@ -104,7 +104,7 @@ test('simultaneous edits serialize per member and one stale version cannot overw
 });
 
 test('expert badges grant no admin, council, announcement or skill editorial rights; the same member can separately be master',async()=>{
- await setGuildExpert(pool,input(),guild);const actor=actors[0];assert.deepEqual(await guildWorkspace(pool,actor),{managed_guilds:[],managed_books:[],can_discuss:false});
+ await setGuildExpert(pool,input(),guild);const actor=actors[0];assert.deepEqual(await guildWorkspace(pool,actor),{managed_guilds:[],managed_books:[],can_discuss:false,skill_editor_access:{appointed_books:0,eligible:false,requires_development_guild:false,active_guilds:[],required_guilds:[{guild_key:'guild_ai_field',name:'AI 導入與驗證公會'},{guild_key:'guild_ai_vibe',name:'AI 開發公會'}]}});
  await assert.rejects(authenticateAdmin(pool,{email:actor.email,subject:'verified-member',csrfToken:'test-only'}),denied(403));await assert.rejects(listGuildCouncil(pool,actor),denied(403));await assert.rejects(skillEditor(pool,actor,'event-space'),denied(403));
  await assert.rejects(createGuildAnnouncement(pool,{...memberCommand(actor,'announcement'),body:{title:'不應發布',body:'專家不代表會長。',state:'published'}},guild),denied(403));
  await pool.query('INSERT INTO positioning_guild_officers(community_id,guild_key,user_id) VALUES($1,$2,$3)',[DEMO_COMMUNITY,guild,actor.user_id]);assert.equal((await guildWorkspace(pool,actor)).can_discuss,true);assert.equal((await expert()).active,true);
