@@ -225,5 +225,5 @@ test('every bookshelf uses compact illustrated rows with full copy, live counts 
   await navigate(page, '會員首頁');await navigate(page, '技能書架');
   await page.getByRole('button',{name:/^已解鎖(?: · \d+)?$/}).click();await check(page.locator('.community-library article[data-book-id="social-post"]'),320);
   await navigate(page, '職業公會');await expect(page.locator('.guild-bookshelf')).toHaveCount(0);
-  await page.getByRole('button',{name:'我的名片',exact:true}).click();await expect(page.locator('.member-bookshelf')).toHaveCount(0);
+  await navigate(page, '我的名片');await expect(page.locator('.member-bookshelf')).toHaveCount(0);
 });

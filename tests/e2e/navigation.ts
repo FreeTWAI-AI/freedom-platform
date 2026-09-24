@@ -3,6 +3,12 @@ import { expect, type Page } from './fixtures.js';
 /** Follow the same visible navigation a member uses, including phone menus and groups. */
 export async function navigate(page: Page, name: string) {
   await expect(page.locator('.shell')).toBeVisible();
+  if (['我的名片', '待辦清單', '我的訊息'].includes(name)) {
+    const settings = page.getByRole('button', { name: '設定', exact: true });
+    if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
+    await page.getByRole('menuitem', { name, exact: true }).click();
+    return;
+  }
   const menu = page.getByRole('button', { name: '開啟選單', exact: true });
   if (await menu.isVisible()) await menu.click();
   const navigation = page.getByRole('navigation', { name: '主要工作區', includeHidden: true });

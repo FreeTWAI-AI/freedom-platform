@@ -1,3 +1,4 @@
+import { navigate } from './navigation.js';
 import { e2eOrigin } from '../../packages/testing/e2e-origin.js';
 import { test, expect, type Page } from './fixtures.js';
 import sharp from 'sharp';
@@ -8,7 +9,7 @@ async function login(page: Page) {
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
   await page.getByRole('button', { name: '登入', exact: true }).click();
   await expect(page.getByRole('button', { name: '登出', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '我的名片', exact: true }).click();
+  await navigate(page, '我的名片');
 }
 
 test('member previews, saves, reloads and removes a synthetic avatar without saving nickname drafts', async ({ page, request }) => {
@@ -32,7 +33,7 @@ test('member previews, saves, reloads and removes a synthetic avatar without sav
   const anonymous = await request.get(avatarUrl!);
   expect(anonymous.status()).toBe(401);
   await page.reload();
-  await page.getByRole('button', { name: '我的名片', exact: true }).click();
+  await navigate(page, '我的名片');
   await expect(nickname).toHaveValue(originalNickname);
   await expect(savedPhoto).toHaveAttribute('src', avatarUrl!);
   await expect.poll(() => savedPhoto.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(256);
@@ -43,7 +44,7 @@ test('member previews, saves, reloads and removes a synthetic avatar without sav
   await expect(savedPhoto).toHaveCount(0);
   expect((await page.request.get(avatarUrl!)).status()).toBe(404);
   await page.reload();
-  await page.getByRole('button', { name: '我的名片', exact: true }).click();
+  await navigate(page, '我的名片');
   await expect(editor.getByRole('heading', { name: '我的頭像', exact: true })).toBeVisible();
   await expect(savedPhoto).toHaveCount(0);
   await expect(editor.getByRole('button', { name: '移除頭像', exact: true })).toHaveCount(0);

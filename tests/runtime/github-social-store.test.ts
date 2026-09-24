@@ -121,8 +121,8 @@ test('permission denial stays visible while retaining confirmed account and neve
   await store.loadAccount();await store.loadStar('book');await store.toggleStar('book');
   assert.deepEqual(store.account.value,connected);
   assert.equal(store.star('book').value?.starred,false);
-  assert.match(store.star('book').error,/GitHub 權限不足.*管理員/);
-  assert.doesNotMatch(store.star('book').error,/github_permission_required|暫時|稍後/);
+  assert.equal(store.star('book').error,'目前無法透過平台替這個 Repo 按星，請前往原作 GitHub 操作。');
+  assert.doesNotMatch(store.star('book').error,/github_permission_required|原作者尚未|暫時|稍後/);
   assert.equal(store.star('book').saving,false);assert.equal(client.posts.length,1);
   assert.equal(client.gets.filter(path=>path==='/me/github').length,2);
 });

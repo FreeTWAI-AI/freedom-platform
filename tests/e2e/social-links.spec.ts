@@ -1,8 +1,8 @@
 import { navigate } from './navigation.js';
 import {test,expect,type Page} from './fixtures.js';
 
-async function login(page:Page,email='maker@local.test'){await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'我的名片',exact:true})).toBeVisible();}
-async function account(page:Page){await page.getByRole('button',{name:'我的名片',exact:true}).click();const editor=page.locator('.social-links-editor');await expect(editor.getByRole('heading',{name:'社群連結',exact:true})).toBeVisible();return editor;}
+async function login(page:Page,email='maker@local.test'){await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();}
+async function account(page:Page){await navigate(page, '我的名片');const editor=page.locator('.social-links-editor');await expect(editor.getByRole('heading',{name:'社群連結',exact:true})).toBeVisible();return editor;}
 const link=(index:number,extra:Record<string,unknown>={})=>({link_id:`synthetic-link-${index}`,platform:'facebook',label:`測試粉專 ${index}`,url:`https://www.facebook.com/synthetic${index}`,audiences:[],aggregate_version:1,created_at:'2026-09-23T10:00:00Z',updated_at:'2026-09-23T10:00:00Z',verified:false,...extra});
 test.beforeEach(async({page})=>{
   await page.route('**/api/v1/me/github',route=>route.fulfill({json:{configured:false,connected:false,github_user:null}}));

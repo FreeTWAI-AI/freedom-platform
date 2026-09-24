@@ -8,6 +8,12 @@ import { join } from 'node:path';
 const origin = 'https://staging.freetwai.com';
 async function navigate(page, name) {
   await expect(page.locator('.shell')).toBeVisible();
+  if (['我的名片', '待辦清單', '我的訊息'].includes(name)) {
+    const settings=page.getByRole('button',{name:'設定',exact:true});
+    if(await settings.getAttribute('aria-expanded')!=='true')await settings.click();
+    await page.getByRole('menuitem',{name,exact:true}).click();
+    return;
+  }
   const menu=page.getByRole('button',{name:'開啟選單',exact:true});
   if(await menu.isVisible())await menu.click();
   const nav=page.getByRole('navigation',{name:'主要工作區',includeHidden:true});

@@ -91,7 +91,7 @@ test('skip navigation preserves the module, and deep links plus browser history 
   await expect(page.locator('.community-library')).toHaveCount(0);
   await page.getByRole('button', { name: '前往技能書架', exact: true }).click();
   await expect(page).toHaveURL(/#skills$/);
-  await page.getByRole('button', { name: '我的名片', exact: true }).click();
+  await navigate(page, '我的名片');
   await expect(page.locator('.member-bookshelf,.community-library')).toHaveCount(0);
 });
 

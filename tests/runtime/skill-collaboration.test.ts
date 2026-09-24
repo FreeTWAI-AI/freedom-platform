@@ -39,7 +39,7 @@ test('all books default contributions to their original source and keep workshop
 });
 
 test('all pages expose a loadable agent skill and discovery links without granting private access',async()=>{
- const app=createDevelopmentRoutes();const map=developmentMap();assert.equal(map.pages.length,21);
+ const app=createDevelopmentRoutes();const map=developmentMap();assert.equal(map.pages.length,23);
  const index=await(await app.request(origin+'/llms.txt')).text();
  for(const page of developmentPages){
   const item=map.pages.find(item=>item.id===page.id)!;assert.ok(index.includes(item.agent_skill_url));

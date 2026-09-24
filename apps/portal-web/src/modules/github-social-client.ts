@@ -7,7 +7,8 @@ export type GitHubStarState={book_id:string;starred:boolean|null;connected:boole
 type Entry<T>={value?:T;loading:boolean;error:string;received:number};
 const entry=<T>():Entry<T>=>({loading:false,error:'',received:0});
 const permissionDenied=(cause:unknown)=>cause instanceof ApiError&&cause.code==='github_permission_required';
-const message=(cause:unknown)=>permissionDenied(cause)?'GitHub 權限不足，請管理員檢查 App 權限與專案存取設定。':cause instanceof Error?cause.message:'目前無法讀取 GitHub，請稍後重試。';
+const message=(cause:unknown)=>permissionDenied(cause)?'目前無法透過平台存取 GitHub，請前往 GitHub 操作。':cause instanceof Error?cause.message:'目前無法讀取 GitHub，請稍後重試。';
+const starMessage=(cause:unknown)=>permissionDenied(cause)?'目前無法透過平台替這個 Repo 按星，請前往原作 GitHub 操作。':message(cause);
 const disconnected=(cause:unknown)=>cause instanceof ApiError&&cause.status===409&&(cause.code==='github_reconnect_required'||cause.code==='github_connect_required');
 
 /** A provider owns each member's private state; only public metrics may outlive it. */
@@ -25,14 +26,14 @@ export class GitHubSocialStore {
   private emit(){this.revision++;this.listeners.forEach(listener=>listener());}
   metric(bookId:string){if(!this.metrics.has(bookId))this.metrics.set(bookId,entry());return this.metrics.get(bookId)!;}
   star(bookId:string){if(!this.stars.has(bookId))this.stars.set(bookId,{...entry<GitHubStarState>(),saving:false});return this.stars.get(bookId)!;}
-  private async read<T>(key:string,target:Entry<T>,path:string,ttl:number,force=false,hooks:{received?:(value:T)=>void|Promise<void>;failed?:(cause:unknown)=>void|Promise<void>}={}){
+  private async read<T>(key:string,target:Entry<T>,path:string,ttl:number,force=false,hooks:{received?:(value:T)=>void|Promise<void>;failed?:(cause:unknown)=>void|Promise<void>;message?:(cause:unknown)=>string}={}){
     const pending=this.requests.get(key);if(pending)return pending;
     if(!force&&target.received&&Date.now()-target.received<ttl)return;
     target.loading=true;target.error='';this.emit();
     let request!:Promise<void>;
     request=(async()=>{
       try{const value=await this.client.get<T>(path,{skipAuthHandler:true});if(this.requests.get(key)===request){target.value=value;target.received=Date.now();await hooks.received?.(value);}}
-      catch(cause){if(this.requests.get(key)===request){target.error=message(cause);target.received=Date.now();await hooks.failed?.(cause);}}
+      catch(cause){if(this.requests.get(key)===request){target.error=(hooks.message??message)(cause);target.received=Date.now();await hooks.failed?.(cause);}}
       finally{if(this.requests.get(key)===request){target.loading=false;this.requests.delete(key);this.emit();}}
     })();
     this.requests.set(key,request);return request;
@@ -48,6 +49,7 @@ export class GitHubSocialStore {
   loadStar(bookId:string,force=false){
     if(!this.member||!this.account.value?.connected)return Promise.resolve();
     return this.read(`star:${bookId}`,this.star(bookId),`/me/github/books/${encodeURIComponent(bookId)}/star`,30_000,force,{
+      message:starMessage,
       received:value=>{if(!value.connected)return this.refreshConnection();},
       failed:cause=>{
         if(disconnected(cause))return this.refreshConnection();
@@ -86,7 +88,7 @@ export class GitHubSocialStore {
       if(disconnected(cause)){await this.refreshConnection();return;}
       await this.loadStar(bookId,true);
       if(!current())return;
-      state.error=permissionDenied(cause)?message(cause):`Star 操作未確認。${message(cause)}`;
+      state.error=permissionDenied(cause)?starMessage(cause):`Star 操作未確認。${message(cause)}`;
       if(cause instanceof ApiError&&(cause.status===401||cause.status===403))await this.loadAccount(true);
     }finally{state.saving=false;this.emit();}
   }

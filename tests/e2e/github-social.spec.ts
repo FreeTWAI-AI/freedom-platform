@@ -121,7 +121,7 @@ test('account disconnect clears shared Star state and distinguishes local remova
   await page.route('**/api/v1/me/github/books/*/star',route=>route.fulfill({json:{book_id:'social-post',starred:true,connected}}));
   await page.route('**/api/v1/me/github/disconnect',route=>{expect(route.request().method()).toBe('POST');expect(route.request().headers()['x-csrf-token']).toBeTruthy();connected=false;return route.fulfill({json:{connected:false,provider_revoked:false}});});
   await login(page);const card=await book(page);await expect(card.getByRole('button',{name:'取消 Star',exact:true})).toBeEnabled();
-  await page.getByRole('button',{name:'我的名片',exact:true}).click();const panel=page.locator('.github-connection-panel');
+  await navigate(page, '我的名片');const panel=page.locator('.github-connection-panel');
   await expect(panel).toContainText('@synthetic-owner');await panel.getByRole('button',{name:'解除 GitHub 連結',exact:true}).click();
   await expect(panel.getByRole('status')).toContainText('已解除工坊連結；可到 GitHub 設定撤銷授權。');
   await expect(panel.getByRole('link',{name:'GitHub 授權設定 ↗',exact:true})).toHaveAttribute('href','https://github.com/settings/apps/authorizations');
@@ -141,7 +141,7 @@ test('a denied Star shows the permission problem without claiming an outage, ret
   });
   await login(page);const card=await book(page);
   await expect(card.getByRole('button',{name:'Star',exact:true})).toBeEnabled();await card.locator('.github-star-count').click();
-  await expect(card.getByRole('alert')).toHaveText('GitHub 權限不足，請管理員檢查 App 權限與專案存取設定。');
+  await expect(card.getByRole('alert')).toHaveText('目前無法透過平台替這個 Repo 按星，請前往原作 GitHub 操作。');
   await expect(card.getByRole('alert')).not.toContainText(/暫時|稍後|github_permission_required/);
   await expect(card.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');await expect(card.locator('.github-star-count')).toHaveText('127');
   expect(writes).toBe(1);await expect(card.getByRole('link',{name:'前往 GitHub Star ↗',exact:true})).toHaveAttribute('href',original);await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();

@@ -78,6 +78,12 @@ function verifyGuildDirectory(guilds,bookIds){
 }
 async function navigate(page, name) {
   await expect(page.locator('.shell')).toBeVisible();
+  if (['我的名片', '待辦清單', '我的訊息'].includes(name)) {
+    const settings=page.getByRole('button',{name:'設定',exact:true});
+    if(await settings.getAttribute('aria-expanded')!=='true')await settings.click();
+    await page.getByRole('menuitem',{name,exact:true}).click();
+    return;
+  }
   const menu=page.getByRole('button',{name:'開啟選單',exact:true});
   if(await menu.isVisible())await menu.click();
   const nav=page.getByRole('navigation',{name:'主要工作區',includeHidden:true});
@@ -179,7 +185,7 @@ try {
   console.log('Public HTTPS landing, admin Access boundary, anonymous boundary and brand asset: PASS');
   const mapResponse=await anonymous.get(origin+'/api/v1/development-map');
   expect(mapResponse.status()).toBe(200);const development=await mapResponse.json();
-  expect(development.pages).toHaveLength(21);expect(development.repositories).toHaveLength(43);expect(development.skill_books).toHaveLength(37);
+  expect(development.pages).toHaveLength(23);expect(development.repositories).toHaveLength(43);expect(development.skill_books).toHaveLength(37);
   expect(JSON.stringify(development)).not.toMatch(/user_id|access_token|csrf_token/);
   for(const path of ['/llms.txt','/development','/development/guilds.md','/development/skills/security-scanner']){
     const response=await anonymous.get(origin+path);expect(response.status(),path).toBe(200);
@@ -412,7 +418,7 @@ try {
   console.log('All 37 distinct skill-book covers delivered over HTTPS: PASS');
 
   stage = 'member card and privacy';
-  await page.getByRole('button', { name: '我的名片', exact: true }).click();
+  await navigate(page, '我的名片');
   await expect(page.getByRole('heading', { name: '我的名片', level: 1, exact: true })).toBeVisible();
   const avatarFixture=await sharp({create:{width:320,height:240,channels:3,background:'#3044ff'}}).png().toBuffer();
   const editor=page.locator('.avatar-editor');
@@ -558,7 +564,7 @@ try {
   await noVisibleError();
   await noOverflow('Guild mobile overflow');
   await screenshot('public-guilds-mobile.png');
-  await expect(page.getByRole('button', { name: '我的名片', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '設定', exact: true })).toBeVisible();
   await navigate(page, '工坊夥伴');
   await expect(page.getByRole('heading', { name: '工坊夥伴', exact: true }).first()).toBeVisible();
   await expect(page.locator('.member-directory')).toHaveAttribute('aria-busy','false');
@@ -795,7 +801,7 @@ try {
   const renewedCookie = (await context.cookies(origin)).find(cookie => cookie.name === 'freedom_local_session');
   if (renewedCookie) secrets.push(renewedCookie.value);
   expect(Boolean(renewedCookie?.secure && renewedCookie?.httpOnly && renewedCookie?.sameSite === 'Strict')).toBe(true);
-  await page.getByRole('button', { name: '我的名片', exact: true }).click();
+  await navigate(page, '我的名片');
   await expect(page.getByLabel('Discord 帳號', { exact: true })).toHaveValue(privateContact);
   await expect(page.getByRole('group', { name: 'Discord 帳號可見範圍', exact: true }).getByRole('checkbox', { name: '平台好友', exact: true })).toBeChecked();
   await expect(page.getByRole('group', { name: 'Discord 帳號可見範圍', exact: true }).getByRole('checkbox', { name: '公會夥伴', exact: true })).toBeChecked();

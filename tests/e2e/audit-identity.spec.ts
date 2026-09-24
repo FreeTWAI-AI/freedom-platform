@@ -95,7 +95,7 @@ for (const [label, viewport] of viewports) {
       await oneTitle(page, `${label} ${title}`);
       await page.screenshot({ path: `${shots}/${label}-${title}.png`, fullPage: true });
     }
-    await page.getByRole('button', { name: '我的名片', exact: true }).click();
+    await navigate(page, '我的名片');
     await expect(page.getByRole('heading', { level: 1, name: '我的名片', exact: true })).toBeVisible();
     await page.waitForLoadState('networkidle');
     await oneTitle(page, `${label} 我的名片`);
@@ -124,7 +124,7 @@ for (const [label, viewport] of viewports) {
 test('account contacts align each field with its choices and state the privacy rules once', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await register(page, '名片審查'); await onboard(page);
-  await page.getByRole('button', { name: '我的名片', exact: true }).click();
+  await navigate(page, '我的名片');
   await expect(page.getByRole('combobox', { name: '我是（選填）', exact: true }).locator('option')).toHaveText(['不顯示', '男', '女', '外星人', 'AI']);
   await expect(page.getByLabel('社群顯示名稱', { exact: true })).toBeVisible();
   await expect(page.getByText(/「平台公開」涵蓋所有已登入的工坊會員/)).toHaveCount(1);

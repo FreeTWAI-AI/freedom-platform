@@ -44,7 +44,7 @@ async function completeOrientation(page:Page){
 }
 test('member changes community name and optional identity, sees persisted cards and can hide the label on mobile',async({page})=>{
   const email=await register(page,'名片選項測試');await completeOrientation(page);
-  await page.getByRole('button',{name:'我的名片',exact:true}).click();
+  await navigate(page, '我的名片');
   const name=page.getByLabel('社群顯示名稱',{exact:true}),identity=page.getByRole('combobox',{name:'我是（選填）',exact:true});
   await expect(identity).toHaveValue('');await expect(identity.locator('option')).toHaveText(['不顯示','男','女','外星人','AI']);
   await expect(page.getByText('建議使用你在社群最常用的名字，方便夥伴認出你。',{exact:true})).toBeVisible();
@@ -57,7 +57,7 @@ test('member changes community name and optional identity, sees persisted cards 
   const row=page.getByRole('article',{name:'社群常用的測試名字',exact:true});await expect(row.getByLabel('自我介紹：外星人',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'登出',exact:true}).click();
   await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill(password);await page.getByRole('button',{name:'登入',exact:true}).click();
-  await page.getByRole('button',{name:'我的名片',exact:true}).click();await expect(identity).toHaveValue('alien');await expect(name).toHaveValue('社群常用的測試名字');
+  await navigate(page, '我的名片');await expect(identity).toHaveValue('alien');await expect(name).toHaveValue('社群常用的測試名字');
   await page.setViewportSize({width:320,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/member-identity-phone.png',fullPage:true});
@@ -82,7 +82,7 @@ test('new member completes required positioning, chooses primary guild and gets 
   await page.goto('/#retail');
   await expect(page.getByRole('heading',{name:'開店與銷售',exact:true}).first()).toBeVisible();
   await expect(page).toHaveURL(/#retail$/);
-  await page.getByRole('button',{name:'我的名片',exact:true}).click();
+  await navigate(page, '我的名片');
   await expect(page.getByRole('heading',{name:'我的名片',level:1,exact:true})).toBeVisible();
   await expect(page.getByLabel('聯絡 E-mail',{exact:true})).toHaveValue(email);
   await expect(page.getByLabel('聯絡 E-mail',{exact:true})).toHaveJSProperty('readOnly',true);
@@ -126,7 +126,7 @@ test('new member completes required positioning, chooses primary guild and gets 
 
   await navigate(page, '工坊夥伴');await expect(page.getByRole('heading',{name:/工坊新夥伴/})).toBeVisible();
   await page.getByRole('button',{name:'登出',exact:true}).click();await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill(password);await page.getByRole('button',{name:'登入',exact:true}).click();
-  await expect(page.locator('.shell')).toBeVisible();await page.getByRole('button',{name:'我的名片',exact:true}).click();await expect(page.getByLabel('Discord 帳號',{exact:true})).toHaveValue('new.member');
+  await expect(page.locator('.shell')).toBeVisible();await navigate(page, '我的名片');await expect(page.getByLabel('Discord 帳號',{exact:true})).toHaveValue('new.member');
   const restoredAudiences=page.getByRole('group',{name:'Discord 帳號可見範圍',exact:true});
   await expect(restoredAudiences.getByRole('checkbox',{name:'平台好友',exact:true})).toBeChecked();
   await expect(restoredAudiences.getByRole('checkbox',{name:'公會夥伴',exact:true})).toBeChecked();
@@ -149,14 +149,14 @@ test('mobile registration and mandatory orientation remain usable without horizo
   let dimensions=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.width);
   await page.screenshot({path:'test-results/member-onboarding-phone.png',fullPage:true});
   await completeOrientation(page);
-  await page.getByRole('button',{name:'我的名片',exact:true}).click();await expect(page.getByRole('heading',{name:'我的名片',level:1,exact:true})).toBeVisible();
+  await navigate(page, '我的名片');await expect(page.getByRole('heading',{name:'我的名片',level:1,exact:true})).toBeVisible();
   dimensions=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.width);
 });
 test('member explicitly approves then revokes a scoped supplier client read connection',async({page})=>{
   await register(page,'客戶端連線夥伴');await completeOrientation(page);
   const start=await page.request.post('/api/v1/client-connections/start',{headers:{Origin:e2eOrigin()},data:{kind:'supplier',client_name:'我的供應端測試客戶端'}});expect(start.status()).toBe(201);
   const pending=await start.json();
-  await page.getByRole('button',{name:'我的名片',exact:true}).click();await page.getByLabel('客戶端一次性代碼',{exact:true}).fill(pending.user_code);
+  await navigate(page, '我的名片');await page.getByLabel('客戶端一次性代碼',{exact:true}).fill(pending.user_code);
   await page.getByRole('button',{name:'查看連線請求',exact:true}).click();await expect(page.getByText('你自己的商品與供貨條件',{exact:false})).toBeVisible();
   await page.getByRole('button',{name:'確認並允許這次讀取連線',exact:true}).click();await expect(page.getByText('讀取連線已核准，請回到你的客戶端繼續。')).toBeVisible();
   const poll=await page.request.post('/api/v1/client-connections/poll',{headers:{Origin:e2eOrigin()},data:{device_secret:pending.device_secret}});expect(poll.status()).toBe(200);
@@ -226,7 +226,7 @@ test('skill trees preserve choices across screen sizes and show only three featu
   await expect(page.locator('.member-featured .pill')).toHaveCount(3);
   await expect(page.locator('.member-featured')).toContainText('手工皮革製作');
   await expect(page.locator('.member-card')).not.toContainText('這是我的私人補充');
-  await page.getByRole('button',{name:'我的名片',exact:true}).click();
+  await navigate(page, '我的名片');
   const details=page.locator('.member-full-profile');await expect(details).not.toHaveAttribute('open');
   await details.locator('summary').click();for(const choice of choices)await expect(details).toContainText(choice.label);
   await expect(details).toContainText('我的錄音設備');
@@ -332,7 +332,7 @@ test('re-exploration preserves the confirmed profile until completion and keeps 
   await expect(result).not.toContainText('新的研究整理');
   expect(publicPosition(await (await page.request.get(memberPath)).json())).toEqual(publicPosition(before));
   expect((await (await page.request.get('/api/v1/me/skill-books')).json()).items).toEqual(beforeBooks);
-  await page.getByRole('button',{name:'我的名片',exact:true}).click();
+  await navigate(page, '我的名片');
   await expect(page.locator('.member-featured')).toContainText('原本的教學整理');
   await expect(page.locator('.member-card')).not.toContainText('草稿裡的私人職業');
   await navigate(page, '我的定位');
