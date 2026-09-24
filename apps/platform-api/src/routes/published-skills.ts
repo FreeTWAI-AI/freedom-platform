@@ -1,11 +1,19 @@
 import {Hono} from 'hono';
 import type {Pool} from 'pg';
-import {developmentHtml,publicSkillShareMarkup,shareIntroNumber} from '../../../../modules/development/service.js';
+import {developmentHtml,LIVE_SITE_ORIGIN,publicSkillShareMarkup,shareIntroNumber} from '../../../../modules/development/service.js';
 import {listPublishedSkillSubmissions,readPublishedSkillSubmission,readPublishedSkillIllustration} from '../../../../modules/skill-submissions/public.js';
 import {skillUploadProtocolMarkdown,skillUploadSkillMarkdown} from '../generated/runtime-text.js';
 
 /** Existing Node deployments link published pages to the live site. */
-export const LIVE_PUBLIC_ORIGIN='https://freetwai.com';
+export const LIVE_PUBLIC_ORIGIN=LIVE_SITE_ORIGIN;
+/**
+ * The bundled upload SKILL.md/protocol.md are authored by this repository and name the
+ * live site in their init/submit examples. Candidates serve them with their own origin;
+ * member-authored content is never rewritten.
+ */
+export function authoredUploadText(text:string,publicOrigin=LIVE_PUBLIC_ORIGIN){
+  return publicOrigin===LIVE_PUBLIC_ORIGIN?text:text.replaceAll(LIVE_PUBLIC_ORIGIN,publicOrigin);
+}
 
 const escape=(value:string)=>value.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
 type Published=NonNullable<Awaited<ReturnType<typeof readPublishedSkillSubmission>>>;
@@ -34,21 +42,22 @@ export function submittedSkillAgentMarkdown(skill:Published,publicOrigin=LIVE_PU
   ].join('\n');
 }
 
-export function submittedSkillHtml(skill:Published,intro?:string){
+export function submittedSkillHtml(skill:Published,intro?:string,publicOrigin=LIVE_PUBLIC_ORIGIN){
   const selected=shareIntroNumber(intro,skill.share_introductions.length);
   const image=skill.illustration_url;
   const illustration=image?`<figure class="public-skill-illustration"><img src="${escape(image)}" alt="${escape(skill.title)}功能示意圖" width="1200" height="630"></figure>`:'';
   const body=`<p class="public-skill-badges"><span>社群投稿</span></p><p class="public-skill-purpose">${escape(skill.description)}</p>`+
     `<div class="public-skill-actions">${external(skill.repository_url,'開啟專案')}${external(skill.repository_url+'/fork','Fork 專案')}${skill.demo_url?external(skill.demo_url,'開啟展示'):''}<a href="${skill.public_path}/SKILL.md">交給 Agent</a></div>`+
-    illustration+publicSkillShareMarkup({title:skill.title,path:skill.public_path,introductions:skill.share_introductions,selected})+
+    illustration+publicSkillShareMarkup({title:skill.title,path:skill.public_path,introductions:skill.share_introductions,selected,origin:publicOrigin})+
     `<section><h2>開始使用</h2><pre>${escape(skill.use_notes)}</pre></section>`+
     `<section><h2>一起開發</h2><p>查看專案任務，認領一項修改並提交 PR。</p><div class="public-skill-actions">${external(skill.repository_url+'/issues','查看任務')}${external(skill.repository_url+'/pulls','查看 PR')}<a href="${skill.public_path}/SKILL.md">讀取協作指令</a></div></section>`+
     `<details class="public-skill-details"><summary>作者、授權與版本</summary><p>來源：${escape(skill.source.repository_full_name)}</p><p>投稿者與來源的關係為自行聲明，尚未核實作者身分；收錄不代表官方採用。</p><p>授權：${escape(skill.source.license_spdx)}</p><p>收錄版本：<code>${escape(skill.source.commit_sha)}</code></p>${skill.source.license_evidence_url?external(skill.source.license_evidence_url,'閱讀授權'):''}</details>`;
-  return developmentHtml(skill.title,body,{path:skill.public_path,description:selected?skill.share_introductions[selected-1]:skill.description,share:true,shareQuery:selected?`intro=${selected}`:undefined,image:image?{url:image,width:1200,height:630,alt:`${skill.title}功能示意圖`}:undefined});
+  return developmentHtml(skill.title,body,{path:skill.public_path,description:selected?skill.share_introductions[selected-1]:skill.description,share:true,shareQuery:selected?`intro=${selected}`:undefined,image:image?{url:image,width:1200,height:630,alt:`${skill.title}功能示意圖`}:undefined,origin:publicOrigin});
 }
 
 export function createPublishedSkillRoutes(pool:Pool,publicOrigin=LIVE_PUBLIC_ORIGIN){
   const app=new Hono();
+  const skillMarkdown=authoredUploadText(skillUploadSkillMarkdown,publicOrigin),protocolMarkdown=authoredUploadText(skillUploadProtocolMarkdown,publicOrigin);
   app.get('/api/v1/skill-submissions/published',async c=>{
     const items=await listPublishedSkillSubmissions(pool);
     // The directory remains small; full100 introductions are read on demand.
@@ -62,11 +71,11 @@ export function createPublishedSkillRoutes(pool:Pool,publicOrigin=LIVE_PUBLIC_OR
   });
   app.get('/development/skill-upload/SKILL.md',c=>{
     c.header('Content-Type','text/markdown; charset=utf-8');
-    return c.body(skillUploadSkillMarkdown);
+    return c.body(skillMarkdown);
   });
   app.get('/development/skill-upload/protocol.md',c=>{
     c.header('Content-Type','text/markdown; charset=utf-8');
-    return c.body(skillUploadProtocolMarkdown);
+    return c.body(protocolMarkdown);
   });
   app.get('/development/skill-upload',async c=>c.html(developmentHtml('上傳技能',
     '<p>在技能書架按「上傳技能」，複製私人指令給你選擇的 Agent。Agent 讀取專案、撰寫 100 則分享介紹，完成後回網站預覽送出。</p>'+
@@ -74,14 +83,14 @@ export function createPublishedSkillRoutes(pool:Pool,publicOrigin=LIVE_PUBLIC_OR
     '<h2>安裝上傳工具</h2><pre><code>npm install -g '+escape(publicOrigin)+'/downloads/freedom-skill-client.tgz\nfreedom-skill-upload --help</code></pre>'+
     '<p>需要 Node.js 24。安裝後依工具說明綁定投稿專用金鑰；從網站可撤銷金鑰。金鑰最長 90 天，只能建立私人投稿。</p>'+
     '<p>一次性指令 60 分鐘有效，不需要安裝工具。圖片選填；投稿者確認後，介紹頁與分享內容才會公開。</p>',
-    {path:'/development/skill-upload',description:'複製指令給 Agent，預覽並分享你的技能專案。'})));
+    {path:'/development/skill-upload',description:'複製指令給 Agent，預覽並分享你的技能專案。',origin:publicOrigin})));
   app.get('/development/submissions/:id/SKILL.md',async c=>{
     const skill=await readPublishedSkillSubmission(pool,c.req.param('id'));if(!skill)return c.notFound();
     c.header('Content-Type','text/markdown; charset=utf-8');return c.body(submittedSkillAgentMarkdown(skill,publicOrigin));
   });
   app.get('/development/submissions/:id',async c=>{
     const skill=await readPublishedSkillSubmission(pool,c.req.param('id'));if(!skill)return c.notFound();
-    return c.html(submittedSkillHtml(skill,c.req.query('intro')));
+    return c.html(submittedSkillHtml(skill,c.req.query('intro'),publicOrigin));
   });
   return app;
 }

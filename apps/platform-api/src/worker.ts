@@ -1,14 +1,15 @@
-import type { ExecutionContext, Hyperdrive } from '@cloudflare/workers-types';
+import type { ExecutionContext, Hyperdrive, ImagesBinding as OfficialImagesBinding } from '@cloudflare/workers-types';
 import type { Context, Hono } from 'hono';
 import { isIP } from 'node:net';
 import type { Pool } from 'pg';
 import { createRequestPool } from '../../../packages/db/index.js';
 import { Problem } from '../../../packages/shared/problem.js';
+import { createUnavailableImageProcessor, runWithImageProcessor } from '../../../packages/shared/image-runtime.js';
+import { createCloudflareImageProcessor, type ImagesBinding } from '../../../packages/shared/image-cloudflare.js';
 import { createAdminAccessVerifier, type AdminAccessVerifier } from '../../../modules/platform-admin/access.js';
 import { assertOriginAllowed, resolveFreedomEnv, type FreedomEnv } from './env.js';
 import { createPlatformApp } from './platform-app.js';
 import { assertDatabaseReady, ReadinessError } from './readiness.js';
-import { LIVE_PUBLIC_ORIGIN } from './routes/published-skills.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 
 /**
@@ -19,12 +20,15 @@ import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
  *   code or its config can disable provider caching; the infrastructure owner
  *   creates and preflights it.
  * - ASSETS: the built browser app (apps/portal-web/dist), with run_worker_first.
+ * - IMAGES (optional): Cloudflare Images binding that decodes and re-encodes uploads.
+ *   Without it only image mutations answer 503; everything else keeps working.
  * Secrets arrive as bindings and are only passed into explicit per-request
  * options; process.env is never read or written here.
  */
 export interface WorkerEnv {
   HYPERDRIVE: { readonly connectionString: string };
   ASSETS: { fetch(request: Request): Promise<Response> };
+  IMAGES?: ImagesBinding;
   FREEDOM_ENV?: string;
   APP_ORIGIN?: string;
   /** Git commit deployed, 40 lowercase hex; required outside local. */
@@ -42,6 +46,9 @@ export type WorkerContext = { waitUntil(promise: Promise<unknown>): void; passTh
 // Compile-time proof that the official binding types satisfy these structural ones.
 type Satisfies<T extends true> = T;
 export type OfficialBindingsFit = Satisfies<Hyperdrive extends WorkerEnv['HYPERDRIVE'] ? ExecutionContext extends WorkerContext ? true : false : false>;
+// workers-types declares its own ReadableStream, which never unifies with the Node lib
+// stream in this compilation, so only the Images method names are checked here.
+export type OfficialImagesFit = Satisfies<keyof ImagesBinding extends keyof OfficialImagesBinding ? true : false>;
 export type WorkerConfig = { freedomEnv: FreedomEnv; origin: string; release: string | null; trustConnectingIp: boolean };
 
 const RELEASE = /^[0-9a-f]{40}$/;
@@ -96,8 +103,9 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     adminVerifier: workerAdminVerifier(env),
     sourceNetwork: cloudflareSourceNetwork(config.trustConnectingIp),
     allowedHosts: new Set([new URL(config.origin).hostname]),
-    // Candidates link to their own origin, never to the existing live site.
-    publicOrigin: config.freedomEnv === 'local' ? LIVE_PUBLIC_ORIGIN : config.origin,
+    // Every Worker links, canonicalizes and documents its own configured origin;
+    // only the existing Node deployments keep the live-site default.
+    publicOrigin: config.origin,
     health: { runtime: 'cloudflare-workers', release_sha: config.release },
   };
 }
@@ -133,9 +141,19 @@ export type WorkerDependencies = {
   scope?: (env: WorkerEnv, run: () => Promise<Response>) => Promise<Response>;
 };
 
+/**
+ * Default request scope: this request's IMAGES binding decodes uploads. Without the
+ * binding, image mutations refuse with 503 image_processing_unavailable while every
+ * other route, login and static file keeps working. The bundle aliases `sharp` to a
+ * fail-closed stub (wrangler.jsonc), so the Node default processor never runs here.
+ */
+export function workerScope(env: WorkerEnv, run: () => Promise<Response>): Promise<Response> {
+  return runWithImageProcessor(env.IMAGES ? createCloudflareImageProcessor(env.IMAGES) : createUnavailableImageProcessor(), run);
+}
+
 export function createWorkerHandler(deps: WorkerDependencies = {}) {
   const createPool = deps.createPool ?? (env => createRequestPool(env.HYPERDRIVE.connectionString));
-  const scope = deps.scope ?? ((_env, run) => run());
+  const scope = deps.scope ?? workerScope;
   // Only a boolean per bindings object: pending I/O is never shared between requests.
   const verified = new WeakSet<object>();
   return {
@@ -151,7 +169,12 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
         if (request.method === 'GET' || request.method === 'HEAD') return new Response(null, { status: 308, headers: { ...SAFE_HEADERS, Location: config.origin + url.pathname + url.search } });
         return problem(403, 'host_rejected', '請從自由工坊網站操作。');
       }
-      const pool = createPool(env);
+      let pool: Pool;
+      // A throwing factory must not escape with its raw error or leave anything to end.
+      try { pool = createPool(env); } catch (error) {
+        console.error('runtime_not_ready', 'pool_unavailable', error instanceof Error ? error.name : 'unknown');
+        return problem(503, 'runtime_not_ready', '服務設定尚未完成。');
+      }
       try {
         if (!verified.has(env)) {
           try { await assertDatabaseReady(pool, config.freedomEnv, { registrationCommunityId: env.FREEDOM_REGISTRATION_COMMUNITY_ID || undefined, databaseName: env.FREEDOM_DATABASE_NAME || undefined }); }

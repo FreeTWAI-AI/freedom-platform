@@ -19,7 +19,7 @@ export type PlatformRuntime = {
   sourceNetwork: (c: Context) => string;
   /** Hostnames accepted on inbound requests. */
   allowedHosts: ReadonlySet<string>;
-  /** Origin used in published-skill links and install commands. */
+  /** Origin for canonical/share URLs, development guidance, published-skill links and upload examples. */
   publicOrigin: string;
   /** Extra non-secret fields merged into /api/v1/health. */
   health?: Readonly<Record<string, string | null>>;
