@@ -12,6 +12,9 @@ import { CoCreationPanel } from './modules/CoCreationPanel'
 import { AdminPanel } from './modules/AdminPanel'
 import { GitHubCallback } from './modules/GitHubCallback'
 import { GitHubSocialProvider } from './modules/GitHubSocial'
+import { SettingsMenu } from './modules/SettingsMenu'
+import { MemberTasks } from './modules/MemberTasks'
+import { MemberMessages } from './modules/MemberMessages'
 import {MemberGuildWorkspace} from './modules/GuildWorkspace'
 import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
 import { DevelopmentContext } from './modules/DevelopmentContext'
@@ -468,7 +471,7 @@ function Workspace({
               <div>
                 <h1>{tabTitle(tab)}</h1>
               </div>
-              <div className="topbar-actions"><button className="btn btn-ghost topbar-profile" aria-label="我的名片" type="button" onClick={()=>selectTab('account')}><MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>我的名片</button><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
+              <div className="topbar-actions"><SettingsMenu client={client} current={tab} onSelect={selectTab} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>}/><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
                 登出
               </button></div>
             </header>
@@ -479,6 +482,8 @@ function Workspace({
               />
             )}
             {tab === 'account' && <AccountPanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'todos' && <MemberTasks onNavigate={selectTab} />}
+            {tab === 'messages' && <MemberMessages client={client} session={session} onNavigate={selectTab} />}
             {tab === 'members' && <MembersPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'cocreation' && <CoCreationPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'community' && <CommunityPanel client={client} onNavigate={selectTab} />}

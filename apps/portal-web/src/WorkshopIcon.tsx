@@ -18,6 +18,8 @@ const paths: Record<TabId, string> = {
   engagement:'M5 3h14v18H5Zm4 5h6m-6 4h6m-6 4h4',
   community:'M21 11a9 9 0 1 0-16 6l-2 4 6-2a9 9 0 0 0 12-8ZM8 11h.1m4 0h.1m4 0h.1',
   account:'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-8 9v-2c0-6 16-6 16 0v2',
+  todos:'M9 6h11M9 12h11M9 18h11M3 6l1 1 2-2M3 12l1 1 2-2M3 18l1 1 2-2',
+  messages:'M4 5h16v11H9l-5 4Zm4 5h8',
   members:'M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-6 9v-3c0-4 12-4 12 0v3m5-13v8m-4-4h8',
 };
 export function WorkshopIcon({ name }: { name: TabId }) {

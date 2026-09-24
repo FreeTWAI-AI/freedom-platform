@@ -1,0 +1,55 @@
+/* Settings menu and the personal todo/message pages it opens. */
+.settings-menu{position:relative;display:inline-flex}
+.settings-menu-button{min-height:44px}
+.settings-menu-button>span[aria-hidden]{display:inline-flex}
+.settings-menu-list{position:absolute;top:calc(100% + 6px);right:0;z-index:40;display:grid;min-width:11rem;padding:6px;border:1px solid var(--line);border-radius:14px;background:#202329;box-shadow:0 14px 40px #000a}
+.settings-menu-item{min-height:44px;padding:.55rem .9rem;border:0;border-radius:10px;background:transparent;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.settings-menu-item:hover,.settings-menu-item:focus-visible{background:#ffffff12}
+.settings-menu-item:focus-visible{outline:2px solid #c4ff20;outline-offset:-2px}
+.settings-menu-item{display:flex;align-items:center;gap:.5rem}
+.settings-menu-badge{margin-left:auto;padding:.05rem .5rem;border-radius:100px;background:#273515;color:#d2ff67;font-size:.875rem;white-space:nowrap}
+.settings-menu-badge.is-unknown{background:transparent;color:#ffd18a;box-shadow:inset 0 0 0 1px #6a5530}
+.settings-dot{width:8px;height:8px;border-radius:50%;background:#c4ff20;box-shadow:0 0 0 2px #08090b}
+.settings-menu-list{min-width:13rem}
+.settings-menu-item.is-current{color:#d0ff53;box-shadow:inset 3px 0 0 #c4ff20}
+@media(max-width:860px){.topbar-actions .settings-menu{flex:1.4}.settings-menu .settings-menu-button{width:100%;white-space:nowrap}}
+
+.member-tasks,.member-messages{display:grid;gap:.9rem;max-width:960px}
+.member-task{display:grid;gap:.6rem;padding:1rem;border:1px solid var(--line);border-radius:14px;background:#14161b}
+.member-task-heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.5rem}
+.member-section-title{margin:0;font-size:1rem;color:var(--muted)}
+.member-task-heading h3{margin:0;font-size:1.05rem}
+.task-state{display:inline-flex;align-items:center;min-height:28px;padding:.15rem .7rem;border-radius:100px;border:1px solid #414b5c;font-size:.875rem}
+.task-state-done{background:#273515;color:#d2ff67;border-color:#536925}
+.task-state-error{color:#ffb4b8;border-color:#773d49}
+.task-state-todo{color:#ffd18a;border-color:#6a5530}
+.member-task-actions,.messages-actions{display:flex;flex-wrap:wrap;gap:.5rem}
+.member-task-actions .btn,.messages-actions .btn,.member-messages .btn{min-height:44px}
+.member-task p{margin:0}
+
+.messages-tabs{display:flex;gap:.4rem;flex-wrap:wrap}
+.messages-tabs [role=tab]{min-height:44px}
+.messages-tabs [aria-selected=true]{background:#c4ff2015;color:#d0ff53;box-shadow:inset 0 0 0 1px #536925}
+.messages-list{display:grid;gap:.6rem;margin:0;padding:0;list-style:none}
+.member-tasks .messages-list>li{padding:0;border:0;background:none}
+.messages-list>li{display:grid;gap:.35rem;padding:.8rem 1rem;border:1px solid var(--line);border-radius:12px;background:#14161b;overflow-wrap:anywhere}
+.messages-list>li.is-unread{border-color:#536925}
+.messages-list h3{margin:0;font-size:.98rem}
+.messages-meta{color:var(--muted);font-size:.875rem}
+.messages-body{white-space:pre-wrap;margin:0}
+.messages-layout{display:grid;grid-template-columns:minmax(0,18rem) minmax(0,1fr);gap:.9rem;align-items:start}
+.messages-side{display:grid;gap:.7rem}
+.messages-peer{display:flex;align-items:center;gap:.6rem;width:100%;min-height:44px;padding:.45rem .6rem;border:1px solid var(--line);border-radius:12px;background:#14161b;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.messages-peer[aria-current=true]{border-color:#c4ff20}
+.messages-peer .member-avatar{width:32px;height:32px;min-width:32px;font-size:.8rem}
+.messages-peer span{min-width:0;overflow-wrap:anywhere}
+.messages-count{margin-left:auto;padding:.1rem .5rem;border-radius:100px;background:#273515;color:#d2ff67;font-size:.875rem;white-space:nowrap}
+.messages-thread{display:grid;gap:.7rem;padding:1rem;border:1px solid var(--line);border-radius:14px;background:#14161b;min-width:0}
+.messages-thread h2{margin:0;font-size:1.05rem}
+.messages-bubbles{display:grid;gap:.5rem;margin:0;padding:0;list-style:none}
+.messages-bubbles>li{max-width:85%;padding:.55rem .8rem;border-radius:12px;background:#202329;overflow-wrap:anywhere}
+.messages-bubbles>li.is-mine{justify-self:end;background:#1d2a12}
+.messages-compose{display:grid;gap:.5rem}
+.messages-compose textarea{width:100%;min-height:6rem;font-size:16px;resize:vertical}
+.messages-search input{width:100%;font-size:16px;min-height:44px}
+@media(max-width:760px){.messages-layout{grid-template-columns:1fr}.messages-bubbles>li{max-width:100%}}

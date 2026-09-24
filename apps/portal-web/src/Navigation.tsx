@@ -8,6 +8,7 @@ export const TAB_TITLES: Record<TabId, string> = {
   opensource: '開源投稿', workbench: '我的工作', showcase: '作品與需求', engagement: '合作紀錄',
   supplier: '供貨中心', retail: '開店與銷售', marketing: '行銷工作室',
   'guild-workspace': '公會管理', community: '自由工坊社群',
+  todos: '待辦清單', messages: '我的訊息',
 };
 
 const primary: TabId[] = ['home', 'positioning', 'guilds', 'skills', 'members'];

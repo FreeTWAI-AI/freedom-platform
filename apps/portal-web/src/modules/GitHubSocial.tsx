@@ -10,6 +10,12 @@ export function GitHubSocialProvider({client,session,children}:{client:PortalCli
   useEffect(()=>{const refresh=()=>void store.refreshConnection();window.addEventListener('freedom-github-updated',refresh);return()=>window.removeEventListener('freedom-github-updated',refresh);},[store]);
   return <SocialContext.Provider value={store}>{children}</SocialContext.Provider>;
 }
+/** Member pages read the same connection store; subscribing keeps them in sync with the card. */
+export function useGitHubSocialStore(){
+  const store=useContext(SocialContext)??publicStore;
+  useSyncExternalStore(store.subscribe,store.snapshot,store.snapshot);
+  return store;
+}
 export function GitHubConnectionPanel(){
   const store=useContext(SocialContext)??publicStore;
   useSyncExternalStore(store.subscribe,store.snapshot,store.snapshot);
