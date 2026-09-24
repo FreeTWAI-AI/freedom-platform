@@ -1,0 +1,17 @@
+-- Read-only verification; safe to run as the migrator after every restore/migrate.
+-- Prints counts and booleans only, never row contents.
+--   psql "service=freedom_next_migrator" -v ON_ERROR_STOP=1 -v env_prefix=freedom_next -f 30-verify-readonly.psql
+\set migrator :env_prefix '_migrator'
+\set runtime :env_prefix '_app'
+SELECT current_setting('server_version_num')::int / 10000 AS pg_major;
+SELECT rolname, rolsuper, rolcreaterole, rolcreatedb, rolbypassrls, rolreplication
+  FROM pg_roles WHERE rolname IN (:'migrator', :'runtime') ORDER BY rolname;
+SELECT has_schema_privilege(:'runtime', 'public', 'CREATE') AS runtime_can_create_in_public;
+SELECT count(*) AS objects_owned_by_runtime FROM pg_class c JOIN pg_roles r ON r.oid = c.relowner WHERE r.rolname = :'runtime';
+SELECT count(*) AS objects_not_owned_by_migrator FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace JOIN pg_roles r ON r.oid = c.relowner
+  WHERE n.nspname = 'public' AND r.rolname <> :'migrator';
+SELECT extname FROM pg_extension WHERE extname <> 'plpgsql' ORDER BY extname;
+SELECT count(*) AS applied_migrations, min(name) AS first_migration, max(name) AS last_migration FROM schema_migrations;
+SELECT count(*) AS local_demo_accounts FROM users WHERE email LIKE '%@local.test';
+SELECT count(*) AS runtime_ledger_write FROM information_schema.role_table_grants
+  WHERE grantee = :'runtime' AND table_name = 'schema_migrations' AND privilege_type IN ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE');
