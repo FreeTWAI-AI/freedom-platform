@@ -64,7 +64,7 @@
 .skill-library-book .skill-library-heading > .skill-book-illustration { display: block; width: 80px; height: 60px; object-fit: cover; border: 1px solid #3a4253; border-radius: 8px; background: #0c0f17; }
 .skill-library-copy { display: grid; align-content: start; gap: 4px; padding: 0; min-width: 0; }
 .skill-book.skill-book-volume.skill-library-book .skill-library-copy > .eyebrow { margin: 0; font-size: .68rem; letter-spacing: .02em; color: #9ba7ff; }
-.skill-book.skill-library-book .skill-library-copy > h4 { margin: 0; font-size: 1rem; line-height: 1.45; color: #f4f6ef; overflow-wrap: anywhere; }
+.skill-book.skill-library-book .skill-library-copy > .skill-library-title { margin: 0; font-size: 1rem; line-height: 1.45; color: #f4f6ef; overflow-wrap: anywhere; }
 .skill-library-copy > p { margin: 0; }
 .skill-library-description { display: grid; gap: 8px; min-width: 0; }
 .skill-library-description .skill-library-purpose { margin: 0; color: #c9d0db; line-height: 1.6; font-size: .875rem; overflow-wrap: anywhere; }

@@ -19,7 +19,8 @@ export function SkillsPanel({ client, onNavigate }: ModulePanelProps) {
     // mounted and apply the new shelf once every dialog has closed.
     const apply = () => {
       if (!active || !pending.current || document.querySelector('dialog[open]')) return;
-      const next = pending.current, added = next.filter(id => !shown.current?.includes(id)).length;
+      // Without a shelf already on screen there is nothing to compare against, so nothing is "new".
+      const next = pending.current, baseline = shown.current, added = baseline ? next.filter(id => !baseline.includes(id)).length : 0;
       pending.current = null; shown.current = next; refocus.current = true;
       setIds(next);
       if (added) setNotice(`已解鎖 ${added} 本新技能書，可在「已解鎖」查看。`);
