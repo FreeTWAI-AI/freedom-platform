@@ -4,6 +4,13 @@
 // The user's US$50–100 is context, never a gate.
 const round = (n) => Math.round(n * 100) / 100;
 
+function orgSizeAvailability(catalog) {
+  const q = catalog.org_quote;
+  if (catalog.status !== 'org_quote_recorded' || !q) return `${catalog.status}: not read from an authenticated organization`;
+  const skus = Object.entries(q.selected).map(([sku, v]) => `${sku} = ${v.cluster_names.join('/')} (${v.display_name}, replicas ${v.replicas}) US$${v.rate_usd_month}`);
+  return `org_quote_recorded ${q.retrieved}: org ${q.org}, region ${q.region}; ${skus.join('; ')}`;
+}
+
 /** Selected path: Cloudflare-billed PlanetScale (same prices as direct per the Cloudflare page). */
 export function planetscaleCost(manifest) {
   const ps = manifest.providers.planetscale;
@@ -25,8 +32,9 @@ export function planetscaleCost(manifest) {
     total: unknown.length ? null : round(db + workers),
     total_status: unknown.length ? 'pending_quote' : 'computed',
     quote_required: unknown,
-    org_size_availability: 'not_run (needs authenticated pscale organization)',
-    excluded: ['storage/egress above plan inclusions', 'Cloudflare usage above Workers Paid included amounts', 'tax'],
+    total_meaning: 'monthly base rates only (cluster rates + Workers Paid); not total usage',
+    org_size_availability: orgSizeAvailability(ps.catalog),
+    excluded: ['PlanetScale storage and usage above the base cluster rate', 'storage/egress above plan inclusions', 'Cloudflare usage above Workers Paid included amounts', 'tax'],
     user_estimate: manifest.budget.user_context_estimate_usd_month,
   };
 }

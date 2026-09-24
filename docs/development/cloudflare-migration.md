@@ -1,6 +1,6 @@
 # Cloudflare Workers＋PlanetScale Postgres 遷移：preflight、演練、切換與回退
 
-> 狀態（2026-09-24）：**preflight 階段，沒有 execute 能力**。沒有建立任何 Cloudflare／PlanetScale／OCI 資源，沒有產生 billing signature、沒有 pscale login、沒有讀寫或匯出任何資料庫，也沒有切換流量。名稱與價格都是計畫值；實際 provider ID 只在之後的 provisioning 階段寫入私密 evidence 檔。
+> 狀態（2026-09-24）：**preflight 階段，沒有 execute 能力**。沒有建立任何 Cloudflare／PlanetScale／OCI 資源，沒有產生 billing signature、沒有新的 pscale login、沒有讀寫或匯出任何資料庫，也沒有切換流量。名稱是計畫值；PlanetScale 價格是 root 2026-09-24 讀取的 organization 報價（見 §3）；實際 provider ID 只在之後的 provisioning 階段寫入私密 evidence 檔。
 
 Canonical 方向見 [08 Bootstrap／Hosting](../platform-plan/08-bootstrap-hosting-project-lifecycle.md) §3.3、§5.1：Workers → Hyperdrive → managed PostgreSQL。依使用者最新指示，預設 provider 是 **由 Cloudflare 計費的 PlanetScale Postgres 18**（[Cloudflare 官方頁](https://developers.cloudflare.com/hyperdrive/planetscale/)）。OCI 是已調查的替代方案，不 provision；D1 是未來選項但不是 drop-in。工具與測試在 [deploy/cloudflare](../../deploy/cloudflare/README.md)。
 
@@ -43,18 +43,20 @@ R2 private bucket（選配）只經 Worker binding。
 
 Runtime config 以 runtime 工作流的 `wrangler.jsonc`（commit `f089a84`）為準：`compatibility_date` 2026-09-21、`nodejs_compat`、兩個 env 各自的 `HYPERDRIVE`＋`IMAGES`、`APP_ORIGIN`、`FREEDOM_ENV`、`FREEDOM_TRUST_CF_CONNECTING_IP="true"`。Hyperdrive id 目前是刻意的全零 placeholder，代表**尚未 provision**：checker 會判為 `structural: valid`、`deployment_ready: false`。`FREEDOM_RELEASE_SHA` 不寫在 config，由 deploy 以 `--var FREEDOM_RELEASE_SHA:$(git rev-parse HEAD)` 注入，checker 列為 `required_injections`，不算失敗也不算 ready。
 
-## 3. 費用（catalog_required，尚無報價）
+## 3. 費用（org_quote_recorded，Tokyo organization 報價）
 
 | 項目 | 狀態 | 月費 |
 | --- | --- | --- |
-| staging-next PS-5 single_node（1 node） | 偏好選擇；Tokyo 區域／organization 報價未取得 | **未知** |
-| next PS-5 HA（1 primary＋2 replicas） | 偏好選擇；Tokyo 區域／organization 報價未取得 | **未知** |
+| staging-next PS-5 single_node（1 node） | CLI cluster `PS_5_AWS_ARM`／`PS_5_AWS_X86`（`display_name` PS-5，`replicas` "0"，single node） | US$5 |
+| next PS-5 HA（1 primary＋2 replicas） | 同上 cluster，`replicas` "2"，highly available | US$15 |
 | Workers Paid | 已由使用者授權 | US$5 |
-| **合計** | `cost` 回傳 `total: null`、`total_status: pending_quote` | **待報價** |
+| **月基本費合計** | `cost` 回傳 `total: 25`、`total_status: computed` | **US$25** |
 
-- root 2026-09-24 只獨立確認 [PlanetScale pricing](https://planetscale.com/pricing) 的公開摘要：single-node **起價** US$5／月、HA 是 1 primary＋2 replicas、storage 與用量可能另計。這個「起價」**不是**所選 SKU 的區域／organization 報價，也不能加總成合計。
-- `pricing.md?region=ap-northeast` 對 root 回傳 403；先前 CLI 聲稱的區域價格未經獨立驗證，本手冊不採用。
-- 任何所選 SKU 價格未知時，`preflight cost` 的合計維持 `null`（pending），不以 0、NaN 或猜測值加總。價格要在建立前由已認證 organization 的 `pscale size cluster list --org <org> ... --format json`（目前 **not_run**）或 Cloudflare dashboard 讀取並記錄。
+- 來源：root 2026-09-24 以已認證 organization `ted-ted-h` 執行 `DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/null pscale size cluster list --org ted-ted-h --engine postgresql --region ap-northeast --format json`（Tokyo 的實際 slug 是 `ap-northeast`，不是 `aws-ap-northeast-1`）。非秘密 catalogue 存在 `~/.local/state/freedom-cloudflare-migration/pscale-tokyo-sizes.json`；本工作流沒有呼叫 provider。參考：`PS_10_AWS_ARM` HA 為 US$41。
+- CLI 欄位：`name` 是 cluster 識別碼（例如 `PS_5_AWS_ARM`），`display_name`（PS-5）只是標籤；`rate` 是月費、`replicas` 是字串。
+- US$25 只是**月基本費**，不是總用量：PlanetScale storage／用量、Cloudflare 超出 Workers Paid 內含量的用量與稅**未計入**。
+- 先前 `pricing.md?region=ap-northeast` 的 403 已不再是缺報價的阻擋；先前未經驗證的 CLI 價格說法不是這份報價的來源。
+- 若之後需要重新報價，把 manifest 對應 SKU 設為 `null`：`preflight cost` 的合計會回到 `null`（pending），不以 0、NaN 或猜測值加總。
 - 依 Cloudflare 官方頁，經 Cloudflare 計費的 PlanetScale 價格與直接向 PlanetScale 購買相同。
 - US$50–100 是使用者脈絡的估算，**不是**上限、也不是支出關卡。72cc125 的 US$60 上限是 agent 自行加的，已移除，沒有替代的人工關卡。
 - `node deploy/cloudflare/preflight.mjs cost` 會列出 PlanetScale 待報價狀態與 OCI 替代方案試算。
@@ -62,10 +64,10 @@ Runtime config 以 runtime 工作流的 `wrangler.jsonc`（commit `f089a84`）�
 ## 4. 建立 PlanetScale DB 的正確途徑（本階段只列步驟）
 
 - **Dashboard**：Cloudflare dashboard 可直接建立並由 Cloudflare 計費的 PlanetScale DB。
-- **CLI**：`wrangler hyperdrive planetscale signature` **只**產生類似憑證的 billing authorization，本身不建立任何東西；要以 `pscale database create <name> --org <org> --engine postgresql --cloudflare-billing @-` 從 stdin 讀入才會建立 DB。需要已認證的 pscale organization 與 pscale CLI ≥ 0.313.0（root 已安裝 0.338.0）。自動化命令一律加 `--format json`，`--org` 放在資源層級子命令。Signature 視同 secret：直接 pipe，不列印、不存檔、不貼上。
-- **只有 Cloudflare API token 不能建立 DB。** root 的 device login 已不再 pending：瀏覽器交換後以 `TOKEN_SAVE_FAILED`（Object does not exist at path '/'）結束，root 最新觀察為 credential 儲存失敗、process 已結束，認證**仍未就緒**，由 root 協調修正。pscale CLI 0.338 版本足夠，但不宣稱 setup 完成。不得再啟動新的登入，也不讀取 root 的 auth log；本工具不登入、不產生 signature、不建立 DB。
+- **CLI**：`wrangler hyperdrive planetscale signature` **只**產生類似憑證的 billing authorization，本身不建立任何東西；要以 `pscale database create <name> --org <org> --engine postgresql --cloudflare-billing @-` 從 stdin 讀入才會建立 DB。需要已認證的 pscale organization 與 pscale CLI ≥ 0.313.0（root 已安裝 0.338.0，足夠）。自動化命令一律加 `--format json`，`--org` 放在資源層級子命令，並只對該 process 設定 `DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/null`。plan 產生的 CLI 形式為 `wrangler hyperdrive planetscale signature | DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/null pscale database create <name> --org ted-ted-h --engine postgresql --region ap-northeast --cloudflare-billing @- --format json`，只供之後明確授權的執行；本工具沒有 execute 能力。Signature 視同 secret：直接 pipe，不列印、不存檔、不貼上。
+- **只有 Cloudflare API token 不能建立 DB。** pscale 認證目前**已就緒**：root 以 `DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/null pscale auth check --format json` 取得 `authenticated: true`（oauth），這是沒有桌面 keyring 時 pscale 官方的檔案 fallback；唯一 organization 為 `ted-ted-h`，database list 為空。先前的 `TOKEN_SAVE_FAILED` 已由 root 解決，不再是阻擋。這個環境變數只作用於單一 pscale process，不改全域環境或設定；不得再啟動新的登入，也不讀取 credential 內容。本工具不登入、不產生 signature、不建立 DB。
 - 官方 agent setup：root 已讀 agent-setup prompt 與 `pscale agent-guide --format json`；建議的 skills／MCP **未安裝**，也不加為依賴（CLI 已足夠），不宣稱 setup 已完成。
-- `preflight planetscale` 只跑唯讀 argv（version、auth check、org／database／region／size list），會檢查 CLI 版本 ≥ 0.313.0。
+- `preflight planetscale` 只跑唯讀 argv（version、auth check、org／database／region／size list），會檢查 CLI 版本 ≥ 0.313.0；child process 只收到 `PATH`／`HOME`／`XDG_CONFIG_HOME`、`NO_COLOR` 與 process-scoped `DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/null`，不轉交任何 token。Region 只在 CLI 回報 `postgresql_supported: true` 時才會選用；`false` 或欄位缺漏都不視為可用。Size 同時回報 `cluster`（CLI 的 `name`）與 `display_name`。
 
 ## 5. Cloudflare 認證與帳戶狀態
 
@@ -192,10 +194,10 @@ node --test deploy/cloudflare/test/*.test.mjs
 
 ## 13. 未驗證項目（not_run）
 
-- pscale 認證、organization 內的 size 可用性、`--cloudflare-billing` 實際建立流程。
+- `--cloudflare-billing` 實際建立流程（pscale 認證與 Tokyo size／報價已由 root 讀取，見 §3、§4）。
 - Workers Paid 啟用狀態（已授權，由 root 處理）。
 - 真實 Hyperdrive id 與 `caching.disabled` 讀回。
-- PlanetScale 所選 SKU 的區域／organization 報價（catalog_required）。
+- 資料庫、Hyperdrive binding、custom domain 都**尚未**建立或部署。
 - Cloudflare remote Images 驗收：root 目前 12/13，alpha cover 修正由 root 負責，本工作流維持 pending。
 - OCI TLS 可驗證路徑；OCI 資源一律不建立。
 - 所有 provider mutation、SQL 執行、restore drill、負載測試、瀏覽器驗證與台灣延遲量測。

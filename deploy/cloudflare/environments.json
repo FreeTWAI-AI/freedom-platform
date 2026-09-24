@@ -57,11 +57,11 @@
       "billing_price_note": "Per the official Cloudflare page, Cloudflare-billed PlanetScale uses the same prices as buying from PlanetScale directly.",
       "provisioning_paths": {
         "dashboard": "Cloudflare dashboard can provision a PlanetScale database billed to the Cloudflare account.",
-        "cli": "`wrangler hyperdrive planetscale signature` only prints a credential-like billing authorization; the database is created by `pscale database create --org <org> --engine postgresql --cloudflare-billing @-` reading it from stdin. That needs an authenticated pscale organization and pscale CLI >= 0.313.0. A Cloudflare API token alone does not create the database."
+        "cli": "`wrangler hyperdrive planetscale signature` only prints a credential-like billing authorization; the database is created by `pscale database create --org <org> --engine postgresql --cloudflare-billing @-` reading it from stdin. That needs an authenticated pscale organization and pscale CLI >= 0.313.0; run pscale with the process-scoped DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/null. A Cloudflare API token alone does not create the database."
       },
       "pscale_cli_min_version": "0.313.0",
       "pscale_cli_observed": {"version": "0.338.0", "source": "root setup 2026-09-24"},
-      "pscale_auth_observed": {"status": "unauthenticated", "source": "root setup 2026-09-24: root's device login is no longer pending; after the browser exchange it exited TOKEN_SAVE_FAILED (Object does not exist at path '/'), so credential save failed and the process ended. Authentication is not ready; root coordinates the fix. pscale 0.338 is adequate. Tools never start another login and never read the root auth log."},
+      "pscale_auth_observed": {"status": "authenticated", "method": "oauth", "org": "ted-ted-h", "orgs_visible": 1, "databases_listed": 0, "source": "root check 2026-09-24: `DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/null pscale auth check --format json` returned authenticated true (oauth) through pscale's documented file fallback when no desktop keyring is reachable; sole org ted-ted-h; database list empty. The earlier TOKEN_SAVE_FAILED was resolved by root. The override is process-scoped only (no global environment/config change); tools never start a login and never read stored credentials.", "process_env": {"DBUS_SESSION_BUS_ADDRESS": "unix:path=/dev/null"}},
       "automation": {
         "output": "--format json on every automated pscale command",
         "org_flag": "--org is passed to resource-level subcommands",
@@ -75,16 +75,28 @@
         {"provider": "aws", "region": "ap-southeast-1", "pscale_slug": "ap-southeast", "label": "Singapore"}
       ],
       "catalog": {
-        "status": "catalog_required",
-        "source": "https://planetscale.com/pricing",
+        "status": "org_quote_recorded",
+        "source": "pscale size cluster list --org ted-ted-h --engine postgresql --region ap-northeast --format json",
+        "org_quote": {
+          "retrieved": "2026-09-24",
+          "org": "ted-ted-h",
+          "region": "ap-northeast",
+          "provenance": "root live organization read (authenticated oauth, process-scoped DBUS fallback); non-secret catalogue at ~/.local/state/freedom-cloudflare-migration/pscale-tokyo-sizes.json. This tool made no provider call.",
+          "selected": {
+            "PS-5 single_node": {"cluster_names": ["PS_5_AWS_ARM", "PS_5_AWS_X86"], "display_name": "PS-5", "configuration": "single node", "replicas": 0, "rate_usd_month": 5},
+            "PS-5 ha": {"cluster_names": ["PS_5_AWS_ARM", "PS_5_AWS_X86"], "display_name": "PS-5", "configuration": "highly available", "replicas": 2, "rate_usd_month": 15}
+          },
+          "reference": {"PS-10 ha": {"cluster_names": ["PS_10_AWS_ARM"], "display_name": "PS-10", "replicas": 2, "rate_usd_month": 41}},
+          "meaning": "Base monthly cluster rate for this org/region only; storage, usage above inclusions and tax are excluded. `name` is the CLI cluster identifier, `display_name` is the label."
+        },
         "public_summary": {
           "source": "root read 2026-09-24",
           "facts": ["single-node starts at US$5/month (a public starting price, not a regional or organization quote)", "HA is 1 primary + 2 replicas", "storage and usage can add charges"],
           "public_starting_price_usd_month": 5
         },
-        "unverified": "https://planetscale.com/pricing.md?region=ap-northeast returned 403 to root; an earlier CLI claim of specific regional PS-5/PS-10 prices was never independently verified and is not carried here.",
-        "meaning": "Preferred sizes are choices, not quotes. Each selected SKU's regional/organization monthly price is unknown until read from the authenticated organization (`pscale size cluster list --org <org> ... --format json`, not_run) or the Cloudflare dashboard at creation time.",
-        "monthly_usd": {"PS-5 single_node": null, "PS-5 ha": null}
+        "superseded": "https://planetscale.com/pricing.md?region=ap-northeast returned 403 to root earlier; that is no longer a missing-quote blocker because the org quote above was read live. Earlier unverified CLI price claims are not the source of these figures.",
+        "meaning": "monthly_usd holds the recorded org/region base rate per selected SKU; set a SKU to null if it must be re-quoted, and the total then stays pending.",
+        "monthly_usd": {"PS-5 single_node": 5, "PS-5 ha": 15}
       }
     },
     "d1": {

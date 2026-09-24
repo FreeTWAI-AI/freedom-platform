@@ -19,16 +19,20 @@ export function assertReadOnlyArgs(args) {
   if (!READ_ONLY.some((ok) => ok(args))) throw new Error(`pscale arguments not in read-only allowlist: ${redactText(args.join(' '))}`);
 }
 
-// Pass only what pscale needs to find its own stored login (config dir or desktop keyring).
-function pscaleEnv() {
+// Documented process-scoped fallback: with no reachable desktop keyring pscale uses its own
+// config-dir file. Set only for the child process; the global environment/config is untouched.
+export const PSCALE_PROCESS_ENV = Object.freeze({ DBUS_SESSION_BUS_ADDRESS: 'unix:path=/dev/null' });
+
+// Pass only what pscale needs to find its own stored login; no tokens or other secrets are forwarded.
+export function pscaleEnv(source = process.env) {
   const env = { NO_COLOR: '1' };
-  for (const k of ['PATH', 'HOME', 'XDG_CONFIG_HOME', 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS']) if (process.env[k]) env[k] = process.env[k];
-  return env;
+  for (const k of ['PATH', 'HOME', 'XDG_CONFIG_HOME']) if (source[k]) env[k] = source[k];
+  return { ...env, ...PSCALE_PROCESS_ENV };
 }
 
-export function defaultRunner(bin = PSCALE_BIN) {
+export function defaultRunner(bin = PSCALE_BIN, { execFileImpl = execFile, source = process.env } = {}) {
   return (args) => new Promise((resolveRun) => {
-    execFile(bin, args, { timeout: 30000, maxBuffer: 4 * 1024 * 1024, env: pscaleEnv() }, (error, stdout, stderr) => {
+    execFileImpl(bin, args, { timeout: 30000, maxBuffer: 4 * 1024 * 1024, env: pscaleEnv(source) }, (error, stdout, stderr) => {
       resolveRun({ code: error ? (typeof error.code === 'number' ? error.code : 1) : 0, stdout: String(stdout), stderr: String(stderr), missing: error?.code === 'ENOENT' });
     });
   });
@@ -44,6 +48,19 @@ export function versionAtLeast(version, min) {
 
 function parseJson(text) {
   try { return JSON.parse(text); } catch { return null; }
+}
+
+const bool = (...v) => v.find((x) => typeof x === 'boolean') ?? null;
+const count = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+
+/** `pscale region list` row; `postgresql_supported` is the current CLI field, older aliases kept. */
+export function parseRegion(r) {
+  return { slug: r.slug, provider: r.provider ?? null, enabled: bool(r.enabled), postgres: bool(r.postgresql_supported, r.postgresql_enabled, r.supports_postgres) };
+}
+
+/** `pscale size cluster list` row: `name` is the CLI cluster identifier, `display_name` only a label. */
+export function parseSize(s) {
+  return { cluster: s.name ?? null, display_name: s.display_name ?? null, configuration: s.configuration ?? null, replicas: count(s.replicas), rate_usd_month: typeof s.rate === 'number' ? s.rate : null, enabled: bool(s.enabled) };
 }
 
 export async function probePlanetScale({ run = defaultRunner(), manifest, org } = {}) {
@@ -79,14 +96,17 @@ export async function probePlanetScale({ run = defaultRunner(), manifest, org } 
   for (const d of report.databases) if (wanted.includes(d.name) && d.kind && !/postgres/i.test(d.kind)) report.findings.push({ severity: 'high', id: 'database_wrong_engine', detail: `${d.name} is ${d.kind}, not Postgres.` });
 
   const regions = parseJson((await call(['region', 'list', '--format', 'json'])).stdout) ?? [];
-  report.regions = regions.map((r) => ({ slug: r.slug, provider: r.provider, enabled: r.enabled, postgres: r.postgresql_enabled ?? r.supports_postgres ?? null }));
+  report.regions = regions.map(parseRegion);
   const preferred = manifest.providers.planetscale.region_preference;
-  const available = new Set(report.regions.map((r) => r.slug));
-  report.region_choice = preferred.map((p) => ({ ...p, listed: available.has(p.pscale_slug) }));
-  const slug = preferred.map((p) => p.pscale_slug).find((s) => available.has(s));
-  if (slug) {
-    const sizes = parseJson((await call(['size', 'cluster', 'list', '--org', chosen, '--engine', 'postgresql', '--region', slug, '--format', 'json'])).stdout) ?? [];
-    report.sizes = { region: slug, skus: sizes.map((s) => ({ name: s.name ?? s.display_name, rate: s.rate ?? s.price ?? null, replicas: s.replicas ?? null })) };
+  const bySlug = new Map(report.regions.map((r) => [r.slug, r]));
+  report.region_choice = preferred.map((p) => ({ ...p, listed: bySlug.has(p.pscale_slug), postgres: bySlug.get(p.pscale_slug)?.postgres ?? null }));
+  // Only a region the CLI reports as PostgreSQL-capable is chosen; false or unknown is never assumed available.
+  const slug = report.region_choice.find((p) => p.listed && p.postgres === true)?.pscale_slug;
+  if (!slug) {
+    report.findings.push({ severity: 'high', id: 'planetscale_region_unavailable', detail: 'No preferred region is listed with PostgreSQL support true; sizes not read.' });
+    return report;
   }
+  const sizes = parseJson((await call(['size', 'cluster', 'list', '--org', chosen, '--engine', 'postgresql', '--region', slug, '--format', 'json'])).stdout) ?? [];
+  report.sizes = { region: slug, skus: sizes.map(parseSize) };
   return report;
 }

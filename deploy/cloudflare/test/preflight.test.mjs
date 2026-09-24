@@ -11,7 +11,7 @@ import { assertMutationTarget, loadManifest, validateManifest } from '../lib/man
 import { ociAlternativeCost, planetscaleCost } from '../lib/cost.mjs';
 import { checkMigrations, migrationDigest } from '../lib/migrations.mjs';
 import { assertProfile, assertReadOnlyOciArgs, CHECKS, interpretPgLimits, ociAlternativeStatus, probeOci, tenancyFromConfig } from '../lib/oci.mjs';
-import { assertReadOnlyArgs, probePlanetScale, versionAtLeast } from '../lib/planetscale.mjs';
+import { assertReadOnlyArgs, defaultRunner, parseRegion, parseSize, probePlanetScale, pscaleEnv, versionAtLeast } from '../lib/planetscale.mjs';
 import { buildProvisionPlan } from '../lib/provision-plan.mjs';
 import { redactDeep, redactText } from '../lib/redact.mjs';
 import { checkWranglerConfig, parseJsonc } from '../lib/wrangler.mjs';
@@ -85,15 +85,30 @@ test('manifest selects Cloudflare-billed PlanetScale PG18, PS-5 sizes, one HYPER
   assert.equal(m.budget.authorized_cap_usd_month, null);
   assert.equal(m.providers.oci.provisioning, false);
   assert.equal(m.providers.d1.drop_in, false);
-  assert.match(m.providers.planetscale.catalog.meaning, /not_run/);
+  assert.equal(m.providers.planetscale.catalog.org_quote.region, 'ap-northeast');
+  assert.equal(m.providers.planetscale.pscale_auth_observed.status, 'authenticated');
   const text = JSON.stringify(m);
   assert.doesNotMatch(text, /DB_FRESH|DB_CACHED|max_age_seconds|paid_creation_rule/);
   assert.doesNotMatch(text, /"authorized_cap_usd_month":\s*60/);
 });
 
-test('cost arithmetic: unknown PlanetScale SKU prices keep the total pending; OCI alternative with E4/A1 connector rates', () => {
-  const m = manifest();
-  assert.equal(m.providers.planetscale.catalog.status, 'catalog_required');
+test('cost arithmetic: recorded Tokyo org quote gives a US$25 base; unknown prices keep the total pending; OCI alternative', () => {
+  const current = manifest();
+  assert.equal(current.providers.planetscale.catalog.status, 'org_quote_recorded');
+  const now = planetscaleCost(current);
+  assert.deepEqual(now.environments['staging-next'], { sku: 'PS-5 single_node', nodes: 1, usd_month: 5 });
+  assert.deepEqual(now.environments.next, { sku: 'PS-5 ha', nodes: 3, usd_month: 15 });
+  assert.deepEqual([now.total, now.total_status, now.quote_required], [25, 'computed', []]);
+  assert.match(now.total_meaning, /not total usage/);
+  assert.ok(now.excluded.some((e) => /storage and usage/.test(e)) && now.excluded.includes('tax'));
+  assert.match(now.org_size_availability, /^org_quote_recorded 2026-09-24: org ted-ted-h, region ap-northeast; PS-5 single_node = PS_5_AWS_ARM\/PS_5_AWS_X86 \(PS-5, replicas 0\) US\$5; PS-5 ha = .*replicas 2\) US\$15$/);
+  assert.equal(current.budget.authorized_cap_usd_month, null);
+  // Clone and forget the quote: unknown prices never become 0.
+  const m = clone(current);
+  m.providers.planetscale.catalog.status = 'catalog_required';
+  delete m.providers.planetscale.catalog.org_quote;
+  m.providers.planetscale.catalog.monthly_usd = { 'PS-5 single_node': null, 'PS-5 ha': null };
+  assert.deepEqual(validateManifest(m).errors, []);
   assert.deepEqual(m.providers.planetscale.topology_nodes.ha, { nodes: 3, primary: 1, replicas: 2 });
   const ps = planetscaleCost(m);
   assert.deepEqual(ps.environments['staging-next'], { sku: 'PS-5 single_node', nodes: 1, usd_month: null });
@@ -112,7 +127,7 @@ test('cost arithmetic: unknown PlanetScale SKU prices keep the total pending; OC
   // Only when every selected SKU has a recorded quote is a total computed.
   partial.providers.planetscale.catalog.monthly_usd['PS-5 ha'] = 30;
   assert.deepEqual([planetscaleCost(partial).total, planetscaleCost(partial).total_status], [42, 'computed']);
-  assert.match(ps.org_size_availability, /not_run/);
+  assert.match(ps.org_size_availability, /^catalog_required: not read/);
   assert.ok(!('exceeds_user_estimate' in ps) && !('authorized_cap' in ps), 'no spend gate');
   const e4 = ociAlternativeCost(manifest());
   // (0.098 + 0.03) × 1 OCPU + 0.002 × 16 GB = 0.16/h × 730
@@ -215,13 +230,17 @@ test('provision plan is dry-run, guarded, secret-free and never produces a billi
     assert.match(plan.steps[idx('hyperdrive')].command, /caching\.disabled=true/);
     assert.equal(plan.steps.filter((s) => s.target?.[0] === 'hyperdrive').length, 1, 'exactly one Hyperdrive config');
     const db = plan.steps[idx('ps-database')];
-    assert.match(db.alternatives.cli, /^wrangler hyperdrive planetscale signature \| pscale database create freedom-(staging-)?next-pg --org <authenticated org> --engine postgresql .*--cloudflare-billing @-$/);
+    assert.match(db.alternatives.cli, /^wrangler hyperdrive planetscale signature \| DBUS_SESSION_BUS_ADDRESS=unix:path=\/dev\/null pscale database create freedom-(staging-)?next-pg --org ted-ted-h --engine postgresql --region ap-northeast --cloudflare-billing @- --format json$/);
+    assert.match(db.action, /no execute capability/);
     assert.match(db.alternatives.dashboard, /Cloudflare dashboard/);
     assert.match(db.action, /token alone cannot create/);
     assert.match(plan.steps[0].action, /0\.313\.0/);
-    assert.match(plan.steps[0].action, /unauthenticated/);
+    assert.match(plan.steps[0].action, /current: authenticated \(oauth\), org ted-ted-h/);
+    assert.match(plan.steps[0].action, /org_quote_recorded 2026-09-24/);
+    assert.match(plan.steps[0].action, /process-scoped DBUS_SESSION_BUS_ADDRESS=unix:path=\/dev\/null/);
+    assert.match(plan.steps[1].action, /US\$25\/month \(base rates only, not total usage/);
     assert.match(plan.steps[idx('deploy')].command, /--var FREEDOM_RELEASE_SHA:<git rev-parse HEAD>/);
-    assert.match(plan.steps[0].action, /TOKEN_SAVE_FAILED/);
+    assert.doesNotMatch(plan.steps[0].action, /TOKEN_SAVE_FAILED|not_run|unauthenticated/);
     assert.doesNotMatch(text, /single pending device login/);
     const deployGate = plan.steps[idx('deploy')].action;
     assert.match(deployGate, /structural valid AND static_checks_pass true/);
@@ -340,7 +359,7 @@ test('PlanetScale probe keeps names only and never guesses an organization', asy
     'auth check --format json': '{"authenticated":true,"auth_method":"oauth"}',
     'org list --format json': '[{"name":"freedom"}]',
     'database list --org freedom --format json': '[{"name":"freedom-next-pg","kind":"postgresql","region":{"slug":"ap-northeast"},"state":"ready","html_url":"https://secret.example/x","connection":"postgresql://u:p@h/db"}]',
-    'region list --format json': '[{"slug":"ap-northeast","provider":"AWS","enabled":true}]',
+    'region list --format json': '[{"slug":"ap-northeast","provider":"AWS","enabled":true,"postgresql_supported":true}]',
     'size cluster list --org freedom --engine postgresql --region ap-northeast --format json': '[{"name":"PS-5","rate":5}]',
   };
   const report = await probePlanetScale({ manifest: manifest(), run: async (args) => ({ code: 0, stdout: outputs[args.join(' ')] ?? '' }) });
@@ -354,6 +373,60 @@ test('PlanetScale probe keeps names only and never guesses an organization', asy
   const two = await probePlanetScale({ manifest: manifest(), run: async (args) => ({ code: 0, stdout: args[0] === 'org' ? '[{"name":"a"},{"name":"b"}]' : outputs[args.join(' ')] ?? '' }) });
   assert.ok(two.findings.some((f) => f.id === 'planetscale_org_ambiguous'));
   assert.equal(two.databases.length, 0);
+});
+
+test('PlanetScale parser reads actual CLI fields: postgresql_supported, cluster name vs display_name, rate and string replicas', async () => {
+  assert.deepEqual(parseRegion({ slug: 'ap-northeast', provider: 'AWS', enabled: true, postgresql_supported: false }).postgres, false);
+  assert.equal(parseRegion({ slug: 'x', postgresql_enabled: true }).postgres, true, 'older alias kept');
+  assert.equal(parseRegion({ slug: 'x' }).postgres, null, 'unknown stays unknown');
+  const actual = [
+    { name: 'PS_5_AWS_ARM', display_name: 'PS-5', enabled: true, rate: 15, configuration: 'highly available', replicas: '2', replica_rate: 5 },
+    { name: 'PS_5_AWS_ARM', display_name: 'PS-5', enabled: true, rate: 5, configuration: 'single node', replicas: '0', replica_rate: 5 },
+    { name: 'PS_10_AWS_ARM', display_name: 'PS-10', enabled: true, rate: 41, configuration: 'highly available', replicas: '2' },
+  ];
+  assert.deepEqual(actual.map(parseSize), [
+    { cluster: 'PS_5_AWS_ARM', display_name: 'PS-5', configuration: 'highly available', replicas: 2, rate_usd_month: 15, enabled: true },
+    { cluster: 'PS_5_AWS_ARM', display_name: 'PS-5', configuration: 'single node', replicas: 0, rate_usd_month: 5, enabled: true },
+    { cluster: 'PS_10_AWS_ARM', display_name: 'PS-10', configuration: 'highly available', replicas: 2, rate_usd_month: 41, enabled: true },
+  ]);
+  assert.deepEqual(parseSize({ display_name: 'PS-5' }), { cluster: null, display_name: 'PS-5', configuration: null, replicas: null, rate_usd_month: null, enabled: null }, 'display_name is never promoted to a CLI identifier; no zero price');
+
+  const probe = (regions) => {
+    const seen = [];
+    const outputs = {
+      version: 'pscale version 0.338.0',
+      'auth check --format json': '{"authenticated":true,"auth_method":"oauth"}',
+      'org list --format json': '[{"name":"ted-ted-h"}]',
+      'database list --org ted-ted-h --format json': '[]',
+      'region list --format json': JSON.stringify(regions),
+      'size cluster list --org ted-ted-h --engine postgresql --region gcp-asia-northeast3 --format json': JSON.stringify(actual),
+    };
+    return probePlanetScale({ manifest: manifest(), run: async (args) => { seen.push(args.join(' ')); return { code: 0, stdout: outputs[args.join(' ')] ?? '' }; } }).then((r) => ({ r, seen }));
+  };
+  // Tokyo listed but not PostgreSQL-capable, Seoul true: Seoul is selected, Tokyo never claimed available.
+  const { r } = await probe([{ slug: 'ap-northeast', provider: 'AWS', enabled: true, postgresql_supported: false }, { slug: 'gcp-asia-northeast3', provider: 'GCP', enabled: true, postgresql_supported: true }]);
+  assert.deepEqual(r.region_choice.slice(0, 2).map((c) => [c.pscale_slug, c.listed, c.postgres]), [['ap-northeast', true, false], ['gcp-asia-northeast3', true, true]]);
+  assert.equal(r.sizes.region, 'gcp-asia-northeast3');
+  assert.equal(r.sizes.skus[0].cluster, 'PS_5_AWS_ARM');
+  // Capability unknown everywhere: nothing selected, no size read.
+  const unknown = await probe([{ slug: 'ap-northeast', provider: 'AWS', enabled: true }]);
+  assert.ok(unknown.r.findings.some((f) => f.id === 'planetscale_region_unavailable'));
+  assert.deepEqual(unknown.r.sizes, {});
+  assert.ok(!unknown.seen.some((a) => a.startsWith('size')));
+});
+
+test('pscale child runner uses the process-scoped DBUS fallback and forwards no credentials', async () => {
+  const source = { PATH: '/usr/bin', HOME: '/home/x', XDG_CONFIG_HOME: '/home/x/.config', DBUS_SESSION_BUS_ADDRESS: 'unix:path=/run/user/1/bus', XDG_RUNTIME_DIR: '/run/user/1', CLOUDFLARE_API_TOKEN: FAKE_TOKEN, PLANETSCALE_SERVICE_TOKEN: 'pscale_tkn_secret', PGPASSWORD: 'pw' };
+  const env = pscaleEnv(source);
+  assert.deepEqual(env, { NO_COLOR: '1', PATH: '/usr/bin', HOME: '/home/x', XDG_CONFIG_HOME: '/home/x/.config', DBUS_SESSION_BUS_ADDRESS: 'unix:path=/dev/null' });
+  const calls = [];
+  const execFileImpl = (bin, args, opts, cb) => { calls.push({ bin, args, opts }); cb(null, '{"authenticated":true}', ''); };
+  const out = await defaultRunner('/fake/pscale', { execFileImpl, source })(['auth', 'check', '--format', 'json']);
+  assert.equal(out.code, 0);
+  assert.deepEqual(calls[0].args, ['auth', 'check', '--format', 'json']);
+  assert.equal(calls[0].opts.env.DBUS_SESSION_BUS_ADDRESS, 'unix:path=/dev/null');
+  assert.doesNotMatch(JSON.stringify(calls[0].opts.env), new RegExp(`${FAKE_TOKEN}|pscale_tkn|PGPASSWORD|/run/user`));
+  assert.equal(source.DBUS_SESSION_BUS_ADDRESS, 'unix:path=/run/user/1/bus', 'caller environment untouched');
 });
 
 const TENANCY = 'ocid1.tenancy.oc1..aaaaaaaafaketenancyxyz';
@@ -434,8 +507,8 @@ test('CLI: provider probes are opt-in; oci compare covers oracle2; bad profiles 
   assert.equal(oci.calls.length, 0, 'all does not touch OCI without --oci');
   assert.equal(pscale.length, 0, 'PlanetScale only runs on explicit request');
   const parsed = JSON.parse(all.output);
-  assert.equal(parsed.cost.selected.total, null);
-  assert.equal(parsed.cost.selected.total_status, 'pending_quote');
+  assert.equal(parsed.cost.selected.total, 25);
+  assert.equal(parsed.cost.selected.total_status, 'computed');
   assert.equal(parsed.oci_alternative.quota.status, 'blocked');
   assert.equal(parsed.provider_mutations, 0);
   assert.equal(parsed.plan.length, 2);

@@ -40,6 +40,11 @@ export function validateManifest(m) {
   const ps = m.providers?.planetscale ?? {};
   if (ps.billing !== 'cloudflare') err('PlanetScale must be billed through Cloudflare');
   if (!ps.catalog?.source || !['catalog_required', 'org_quote_recorded'].includes(ps.catalog?.status)) err('PlanetScale catalog needs a source and a status (catalog_required until an org quote is recorded)');
+  if (ps.catalog?.status === 'org_quote_recorded') {
+    const q = ps.catalog.org_quote;
+    if (!q?.retrieved || !q?.org || !q?.region || !q?.selected) err('org_quote_recorded needs org_quote retrieved/org/region/selected provenance');
+    else for (const [sku, v] of Object.entries(q.selected)) if (ps.catalog.monthly_usd?.[sku] !== null && ps.catalog.monthly_usd?.[sku] !== v.rate_usd_month) err(`${sku}: monthly_usd must match the recorded org quote`);
+  }
   if (ps.topology_nodes?.ha?.nodes !== 3 || ps.topology_nodes?.ha?.replicas !== 2) err('PlanetScale HA is 1 primary + 2 replicas (3 nodes)');
   if (m.providers?.oci && m.providers.oci.provisioning !== false) err('OCI is a surveyed alternative; provisioning must be false');
   if (m.providers?.d1 && m.providers.d1.drop_in !== false) err('D1 is not a drop-in replacement');
