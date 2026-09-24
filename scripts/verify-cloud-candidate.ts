@@ -143,7 +143,8 @@ export async function main(argv: readonly string[], env: NodeJS.ProcessEnv = pro
     process.stdout.write(JSON.stringify(report, null, 2) + '\n');
     return report.overall === 'pass' ? 0 : 1;
   } finally {
-    await browser?.close();
+    // The report is already written; a close failure is logged by class only.
+    await browser?.close().catch(error => { process.stderr.write(`browser: close failed (${error instanceof Error ? error.name : 'Error'})\n`); });
   }
 }
 

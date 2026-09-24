@@ -323,6 +323,146 @@ test('credential files must be private, synthetic and bound to the candidate ori
 });
 
 /**
+ * Scripted browser for route lifecycle regressions. Requests go through the tool's route
+ * handler as in Playwright, where the route event is not awaited: a rejected handler is an
+ * unhandled rejection, so here it is collected in `escaped`. No network, no real page.
+ */
+type RouteScript={fetch?:(path:string,closed:Promise<void>)=>unknown;fulfill?:(path:string)=>void;abort?:(path:string,isClosed:boolean)=>void;closeError?:Error};
+const browserCookie='B'.repeat(43);
+function scriptedBrowser(script:RouteScript){
+  const log={escaped:[] as unknown[],fetched:[] as string[],aborted:[] as string[],fulfilled:[] as string[],pagesClosed:0,contextClosed:false};
+  let handler:((route:unknown)=>Promise<unknown>)|null=null,jar:Record<string,unknown>[]=[],markClosed=()=>{};
+  const closed=new Promise<void>(resolve=>{markClosed=resolve;});
+  const request=async(path:string)=>{
+    let outcome='none';
+    const route={
+      request:()=>({url:()=>staging.origin+path,headers:()=>({accept:'*/*'})}),
+      continue:async()=>{},
+      fetch:async()=>{log.fetched.push(path);return await script.fetch?.(path,closed)??{status:200};},
+      fulfill:async()=>{script.fulfill?.(path);outcome='fulfilled';log.fulfilled.push(path);},
+      abort:async()=>{script.abort?.(path,log.contextClosed);outcome='aborted';log.aborted.push(path);},
+    };
+    await handler!(route).catch(error=>{log.escaped.push(error);});
+    return outcome;
+  };
+  const navigate=async()=>{if(await request('/')!=='fulfilled')throw new Error(`net::ERR_FAILED at ${staging.origin}/`);return {status:()=>200};};
+  const page={
+    on(){},goto:navigate,reload:navigate,evaluate:async()=>'',getByLabel:()=>({fill:async()=>{}}),
+    getByRole:(_role:string,{name}:{name:string})=>({waitFor:async()=>{},click:async()=>{
+      if(name==='登入'){await request('/api/v1/auth/login');jar=[{name:'freedom_local_session',value:browserCookie,secure:true,httpOnly:true,sameSite:'Strict'}];void request('/api/v1/work-items');}
+      else{await request('/api/v1/auth/logout');jar=[];}
+    }}),
+    // A request the page starts while teardown runs.
+    close:async()=>{log.pagesClosed++;void request('/api/v1/late');},
+  };
+  const context={
+    route:async(_pattern:string,h:(route:unknown)=>Promise<unknown>)=>{handler=h;},newPage:async()=>page,on(){},pages:()=>[page],cookies:async()=>jar,
+    close:async()=>{log.contextClosed=true;markClosed();if(script.closeError)throw script.closeError;},
+  };
+  return {browser:{newContext:async()=>context} as BrowserLike,log};
+}
+/** Candidate API for browser tests: the tool session plus the browser's session cookie. */
+function browserCandidate(){
+  const csrf='csrf-browser-mock-00000001',userId=randomUUID(),sessions=new Set([browserCookie]);let logins=0;
+  const server=mock(request=>{
+    const path=new URL(request.url).pathname,cookie=/^freedom_local_session=(.+)$/.exec(request.headers.Cookie??'')?.[1];
+    if(path==='/api/v1/health')return {status:200,json:health()};
+    if(path==='/api/v1/auth/login'){const value=`T${++logins}`.padEnd(43,'x');sessions.add(value);
+      return {status:200,json:{user:{user_id:userId,email:account.email},csrf_token:csrf},cookies:[`freedom_local_session=${value}; Path=/; HttpOnly; Secure; SameSite=Strict`]};}
+    if(!cookie||!sessions.has(cookie))return {status:401,json:{code:cookie?'session_expired':'login_required'}};
+    if(path==='/api/v1/session')return {status:200,json:{user:{user_id:userId},csrf_token:csrf}};
+    if(path==='/api/v1/auth/logout'){
+      if(request.headers.Origin!==staging.origin)return {status:403,json:{code:'origin_rejected'}};
+      if(request.headers['X-CSRF-Token']!==csrf)return {status:403,json:{code:'csrf_rejected'}};
+      sessions.delete(cookie);return {status:200,json:{},cookies:['freedom_local_session=; Path=/; Max-Age=0']};
+    }
+    return {status:404,json:{code:'not_found'}};
+  });
+  return {...server,sessions};
+}
+async function withoutUnhandled<T>(run:()=>Promise<T>){
+  const seen:unknown[]=[],listener=(error:unknown)=>{seen.push(error);};
+  process.on('unhandledRejection',listener);
+  try{const result=await run();await new Promise(resolve=>setTimeout(resolve,50));return {result,unhandled:seen};}
+  finally{process.off('unhandledRejection',listener);}
+}
+const targetClosed=()=>Object.assign(new Error(`Target page, context or browser has been closed ${staging.origin}/api/v1/work-items`),{name:'TargetClosedError'});
+
+test('browser route: a failing route.fetch is aborted, reported by error class only and never escapes',async()=>{
+  const server=browserCandidate();
+  const {browser,log}=scriptedBrowser({fetch:path=>{if(path==='/')throw new TypeError(`fetch failed ${staging.origin}/?token=${access.clientSecret}`);}});
+  const {result:report,unhandled}=await withoutUnhandled(()=>runCandidate({...base(['browser']),transport:server.transport,account,access,browser}));
+  expect(unhandled).toEqual([]);expect(log.escaped).toEqual([]);
+  const phase=report.phases.find(p=>p.id==='browser')!;
+  // The navigation error stays the reason; the routing failure is recorded beside it.
+  expect(phase).toMatchObject({status:'fail',reason:'Error'});
+  expect(phase.checks).toContainEqual({id:'no_routing_failures',status:'fail',note:'see metrics.routing_failures'});
+  expect(phase.metrics).toMatchObject({routing_failures:{'fetch:TypeError':1},routing_failures_during_teardown:{},teardown:{context_close:'ok',routes_pending_after_close:0}});
+  expect(log.fetched).toEqual(['/']);expect(log.fulfilled).toEqual([]);expect(log.aborted).toEqual(['/','/api/v1/late']);
+  expect(report.cleanup.items).toContainEqual({phase:'browser',item:'browser session of the synthetic account',state:'restored'});
+  expect(report.overall).toBe('fail');expect(report.cloud_proof).toBe(false);
+  const text=JSON.stringify(report);
+  for(const secret of ['fetch failed','token=','net::ERR_FAILED',access.clientSecret])expect(text).not.toContain(secret);
+});
+
+test('browser route: fulfill failing then abort "already handled" is contained, reported, and the browser session is still revoked',async()=>{
+  const server=browserCandidate();let pages=0;
+  const {browser,log}=scriptedBrowser({
+    // The reload's fulfill fails after Playwright marked the route handled, so the abort throws too.
+    fulfill:path=>{if(path==='/'&&++pages===2)throw new Error(`Protocol error (Fetch.fulfillRequest): Invalid InterceptionId ${staging.origin}/`);},
+    abort:path=>{if(path==='/')throw new Error('Route is already handled!');},
+  });
+  const {result:report,unhandled}=await withoutUnhandled(()=>runCandidate({...base(['session','browser']),transport:server.transport,account,access,browser}));
+  expect(unhandled).toEqual([]);expect(log.escaped).toEqual([]);
+  const phase=report.phases.find(p=>p.id==='browser')!;
+  expect(phase).toMatchObject({status:'fail',reason:'Error'});
+  expect(phase.metrics!.routing_failures).toEqual({'fulfill:Error':1,'abort_after_fulfill:Error':1});
+  expect(phase.checks).toContainEqual({id:'no_routing_failures',status:'fail',note:'see metrics.routing_failures'});
+  // UI logout never ran: teardown revoked the browser's cookie through the exact-origin client.
+  expect(server.sessions.has(browserCookie)).toBe(false);
+  const revoke=server.calls.filter(call=>call.headers.Cookie===`freedom_local_session=${browserCookie}`);
+  expect(revoke.map(call=>`${call.method} ${new URL(call.url).pathname}`)).toEqual(['GET /api/v1/session','POST /api/v1/auth/logout']);
+  expect(revoke.every(call=>new URL(call.url).origin===staging.origin&&call.headers['CF-Access-Client-Id']===access.clientId)).toBe(true);
+  expect(report.cleanup.items).toContainEqual({phase:'browser',item:'browser session of the synthetic account',state:'restored'});
+  // The API tool session is still logged out by its own phase.
+  expect(report.phases.find(p=>p.id==='logout')?.status).toBe('pass');
+  expect([...server.sessions]).toEqual([]);
+  const text=JSON.stringify(report);
+  for(const secret of ['already handled','InterceptionId',browserCookie])expect(text).not.toContain(secret);
+});
+
+test('browser teardown: routes pending at context close are drained, nothing new is fetched, and close failures are reported',async()=>{
+  // A background request whose fetch only settles when the context closes.
+  const pendingUntilClose:RouteScript={
+    fetch:async(path,closed)=>{if(path==='/api/v1/work-items'){await closed;throw targetClosed();}},
+    abort:(path,isClosed)=>{if(path==='/api/v1/work-items'&&isClosed)throw targetClosed();},
+  };
+  const server=browserCandidate(),{browser,log}=scriptedBrowser(pendingUntilClose);
+  const {result:report,unhandled}=await withoutUnhandled(()=>runCandidate({...base(['browser']),transport:server.transport,account,access,browser,browserDrainMs:100}));
+  expect(unhandled).toEqual([]);expect(log.escaped).toEqual([]);
+  const phase=report.phases.find(p=>p.id==='browser')!;
+  expect(phase.status).toBe('pass');
+  expect(phase.checks).toContainEqual({id:'browser_teardown_clean',status:'pass'});
+  expect(phase.metrics).toMatchObject({
+    routing_failures:{},
+    routing_failures_during_teardown:{'fetch:TargetClosedError':1,'abort_after_fetch:TargetClosedError':1},
+    teardown:{routes_pending_at_close:1,context_close:'ok',routes_pending_after_close:0},
+  });
+  // Started during teardown: aborted before any fetch.
+  expect(log.fetched).not.toContain('/api/v1/late');expect(log.aborted).toContain('/api/v1/late');
+  expect(log.pagesClosed).toBe(1);expect(log.contextClosed).toBe(true);
+  expect(report.cleanup.items).toContainEqual({phase:'browser',item:'browser session of the synthetic account',state:'restored'});
+  expect(JSON.stringify(report)).not.toContain('Target page');
+
+  // A failing context.close is contained and fails the phase with its class.
+  const failing=browserCandidate(),scripted=scriptedBrowser({...pendingUntilClose,closeError:Object.assign(new Error(`close ${staging.origin}`),{name:'ProtocolError'})});
+  const {result:closeReport,unhandled:closeUnhandled}=await withoutUnhandled(()=>runCandidate({...base(['session','browser']),transport:failing.transport,account,access,browser:scripted.browser,browserDrainMs:100}));
+  expect(closeUnhandled).toEqual([]);expect(scripted.log.escaped).toEqual([]);
+  expect(closeReport.phases.find(p=>p.id==='browser')).toMatchObject({status:'fail',reason:'browser_teardown_clean',metrics:{teardown:{context_close:'ProtocolError',routes_pending_after_close:0}}});
+  expect(closeReport.phases.find(p=>p.id==='logout')?.status).toBe('pass');
+});
+
+/**
  * Removes exactly the generated harness user and rows it owns, children first, in one
  * transaction; then proves nothing referencing that user (by foreign-key metadata) or
  * journaled by it remains. Catalog and shared fixture rows are never touched.
@@ -389,6 +529,9 @@ test('local harness: real session, CSRF, guild grant/revoke freshness, avatar, b
     const browserPhase=report.phases.find(p=>p.id==='browser')!;
     expect(browserPhase.metrics).toMatchObject({inbox_requests_blocked:inbox.requested.length,member_inbox:'not_covered'});
     expect(browserPhase.checks).toContainEqual({id:'no_inbox_response_received',status:'pass'});
+    for(const check of ['no_routing_failures','browser_teardown_clean'])expect(browserPhase.checks).toContainEqual({id:check,status:'pass'});
+    expect(browserPhase.metrics).toMatchObject({routing_failures:{},teardown:{context_close:'ok',routes_pending_after_close:0}});
+    expect(report.cleanup.items).toContainEqual({phase:'browser',item:'browser session of the synthetic account',state:'restored'});
     const guild=report.phases.find(p=>p.id==='guild-cache')!;
     expect(guild.metrics).toMatchObject({baseline:{eligible:false,enabled:false},after_join:{eligible:true,enabled:false,grant:'none'},after_leave:{eligible:false,enabled:false,test_guild_state:'left'}});
     expect((guild.metrics!.after_leave as {skill_book_count:number}).skill_book_count).toBe(guild.metrics!.skill_books_after_join);

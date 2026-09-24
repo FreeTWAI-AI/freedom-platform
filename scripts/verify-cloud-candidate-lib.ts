@@ -240,6 +240,8 @@ export class CandidateClient {
   withoutSession() { return new CandidateClient(this.target, this.transport, this.access, this.secrets, this.timeoutMs); }
   /** A second client carrying the same session cookie, used to prove revocation fails closed. */
   withSameSession() { const copy = new CandidateClient(this.target, this.transport, this.access, this.secrets, this.timeoutMs); copy.session = this.session; return copy; }
+  /** A client carrying a session cookie taken from elsewhere (the browser jar), used only to revoke it. */
+  withSession(value: string) { const copy = this.withoutSession(); this.secrets.add(value); copy.session = value; return copy; }
 }
 
 // ---------------------------------------------------------------- report
@@ -267,6 +269,8 @@ export type RunOptions = {
   expectedReleaseSha?: string | null;
   account?: Account | null; access?: AccessCredential | null; transport?: Transport; load?: LoadOptions; developmentBook?: string; developmentGuild?: string;
   browser?: BrowserLike | null; now?: () => Date; log?: (line: string) => void;
+  /** Bound on waiting for in-flight browser route handlers at teardown (default 15000 ms). */
+  browserDrainMs?: number;
 };
 export type BrowserLike = { newContext(options?: Record<string, unknown>): Promise<any> };
 
@@ -500,7 +504,7 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
       const still = await client.request('GET', '/api/v1/session');
       ctx.check('session_survives_rejected_writes', still.status === 200);
     },
-    async browser(ctx) { await browserPhase(ctx, options, target, access, account, secrets); },
+    async browser(ctx) { await browserPhase(ctx, options, target, access, account, secrets, client); },
     async 'guild-cache'(ctx) { await guildPhase(ctx, client, options, login, log); },
     async 'github-handoff'(ctx) {
       const status = await client.request('GET', '/api/v1/me/github');
@@ -728,24 +732,69 @@ export function isInboxPath(pathname: string) {
   return INBOX_PATHS.some(prefix => path === prefix || path.startsWith(prefix + '/'));
 }
 
-async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Target, access: AccessCredential | null, account: Account | null, secrets: Secrets) {
+/** Revokes a session cookie taken from the browser jar through the exact-origin API client; never throws. */
+async function revokeBrowserSession(client: CandidateClient, value: string, secrets: Secrets): Promise<CleanupItem['state']> {
+  try {
+    const session = client.withSession(value);
+    const current = await session.request('GET', '/api/v1/session');
+    if (current.status === 401 && current.json()?.code === 'session_expired') return 'restored';
+    const csrf = current.json()?.csrf_token;
+    secrets.add(csrf);
+    if (current.status !== 200 || typeof csrf !== 'string') return 'restore_failed';
+    session.csrf = csrf;
+    const reply = await session.request('POST', '/api/v1/auth/logout', { json: {} });
+    return reply.status === 200 && !session.hasSession() ? 'restored' : 'restore_failed';
+  } catch { return 'restore_failed'; }
+}
+
+async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Target, access: AccessCredential | null, account: Account | null, secrets: Secrets, client: CandidateClient) {
   if (!options.browser) ctx.skip('no_browser_supplied');
   if (!account) throw new CheckFailed('account_required');
   const context = await options.browser!.newContext({ viewport: { width: 1280, height: 900 } });
-  let blocked = 0, inboxBlocked = 0, inboxResponses = 0, pageErrors = 0;
+  let blocked = 0, inboxBlocked = 0, inboxResponses = 0, pageErrors = 0, closing = false, loggedOut = false;
+  let sessionCookie: string | null = null;
+  // Route failures are kept as `stage:ErrorClass` counts only: never messages, URLs, headers or bodies.
+  const routing: Record<string, number> = {}, routingAtTeardown: Record<string, number> = {};
+  const failed = (stage: string, error: unknown) => { const into = closing ? routingAtTeardown : routing, key = `${stage}:${describeError(error)}`; into[key] = (into[key] ?? 0) + 1; };
+  const settle = async (stage: string, action: () => Promise<unknown>) => { try { await action(); return true; } catch (error) { failed(stage, error); return false; } };
+  // Every request is fetched by Playwright without following redirects; only the
+  // exact candidate origin is allowed and only it ever receives Access headers.
+  // The signed-in shell loads inbox previews (including a last message body) on
+  // its own; those are aborted before any fetch, never answered with fake data.
+  // A handler never rejects: Playwright re-raises a rejected handler as an
+  // unhandled rejection. Playwright marks a route handled before fulfill reaches
+  // the browser, so the abort after a failed fulfill can itself throw.
+  const handle = async (route: any) => {
+    const url = new URL(route.request().url());
+    if (url.protocol === 'data:' || url.protocol === 'blob:') { await settle('continue', () => route.continue()); return; }
+    if (url.origin !== target.origin) { blocked++; await settle('abort_blocked', () => route.abort('blockedbyclient')); return; }
+    if (isInboxPath(url.pathname)) { inboxBlocked++; await settle('abort_blocked', () => route.abort('blockedbyclient')); return; }
+    // Once teardown starts nothing new leaves the browser.
+    if (closing) { await settle('abort_closing', () => route.abort('failed')); return; }
+    const headers = { ...route.request().headers(), ...(access ? { 'CF-Access-Client-Id': access.clientId, 'CF-Access-Client-Secret': access.clientSecret } : {}) };
+    let response: unknown;
+    try { response = await route.fetch({ headers, maxRedirects: 0 }); } catch (error) { failed('fetch', error); await settle('abort_after_fetch', () => route.abort('failed')); return; }
+    if (!await settle('fulfill', () => route.fulfill({ response }))) await settle('abort_after_fulfill', () => route.abort('failed'));
+  };
+  const pending = new Set<Promise<void>>();
+  const track = (route: any) => {
+    const run: Promise<void> = handle(route).catch(error => failed('handler', error)).finally(() => pending.delete(run));
+    pending.add(run);
+    return run;
+  };
+  /** Waits up to `ms` for in-flight handlers; returns how many are still pending. */
+  const drain = async (ms: number) => {
+    const deadline = performance.now() + ms;
+    while (pending.size && performance.now() < deadline) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([Promise.allSettled([...pending]), new Promise(resolve => { timer = setTimeout(resolve, deadline - performance.now()); })]);
+      clearTimeout(timer);
+    }
+    return pending.size;
+  };
+  let failure: { error: unknown } | null = null;
   try {
-    // Every request is fetched by Playwright without following redirects; only the
-    // exact candidate origin is allowed and only it ever receives Access headers.
-    // The signed-in shell loads inbox previews (including a last message body) on
-    // its own; those are aborted before any fetch, never answered with fake data.
-    await context.route('**/*', async (route: any) => {
-      const url = new URL(route.request().url());
-      if (url.protocol === 'data:' || url.protocol === 'blob:') return route.continue();
-      if (url.origin !== target.origin) { blocked++; return route.abort('blockedbyclient'); }
-      if (isInboxPath(url.pathname)) { inboxBlocked++; return route.abort('blockedbyclient'); }
-      const headers = { ...route.request().headers(), ...(access ? { 'CF-Access-Client-Id': access.clientId, 'CF-Access-Client-Secret': access.clientSecret } : {}) };
-      try { return await route.fulfill({ response: await route.fetch({ headers, maxRedirects: 0 }) }); } catch { return route.abort('failed'); }
-    });
+    await context.route('**/*', track);
     const page = await context.newPage();
     page.on('pageerror', () => { pageErrors++; });
     // Independent of the route guard: any inbox response reaching the page is a failure.
@@ -770,13 +819,44 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
     await logoutButton.click();
     await page.getByRole('button', { name: '登入', exact: true }).waitFor({ state: 'visible', timeout: 20000 });
     ctx.check('logout_returns_to_login', true);
-    ctx.check('browser_cookie_cleared', !(await context.cookies(target.origin)).some((value: any) => value.name === SESSION_COOKIE && value.value));
+    const cleared = !(await context.cookies(target.origin)).some((value: any) => value.name === SESSION_COOKIE && value.value);
+    ctx.check('browser_cookie_cleared', cleared);
+    loggedOut = true;
     ctx.metric('cross_origin_requests_blocked', blocked);
     ctx.metric('inbox_requests_blocked', inboxBlocked);
     ctx.metric('member_inbox', 'not_covered');
     ctx.check('no_inbox_response_received', inboxResponses === 0, `${inboxResponses} inbox responses`);
     ctx.check('no_page_errors', pageErrors === 0, `${pageErrors} page errors`);
-  } finally {
-    await context.close();
+    ctx.check('no_routing_failures', Object.keys(routing).length === 0, 'see metrics.routing_failures');
+  } catch (error) { failure = { error }; }
+
+  // Teardown never throws: pages close first so no new request starts, in-flight
+  // handlers are drained (bounded), then the context closes with the route still
+  // installed, so no request is ever sent unguarded.
+  closing = true;
+  const teardown: Record<string, unknown> = {};
+  if (!loggedOut) {
+    try { sessionCookie = (await context.cookies(target.origin)).find((value: any) => value.name === SESSION_COOKIE && value.value)?.value ?? null; secrets.add(sessionCookie); }
+    catch (error) { teardown.cookie_read = describeError(error); }
   }
+  let pages: any[] = [];
+  try { pages = context.pages(); } catch (error) { teardown.page_close = describeError(error); }
+  for (const page of pages) await page.close().catch((error: unknown) => { teardown.page_close = describeError(error); });
+  teardown.routes_pending_at_close = await drain(options.browserDrainMs ?? 15000);
+  try { await context.close(); teardown.context_close = 'ok'; } catch (error) { teardown.context_close = describeError(error); }
+  teardown.routes_pending_after_close = await drain(Math.min(options.browserDrainMs ?? 15000, 5000));
+  ctx.metric('routing_failures', routing);
+  ctx.metric('routing_failures_during_teardown', routingAtTeardown);
+  ctx.metric('teardown', teardown);
+  // The browser session is revoked even when the UI flow did not finish.
+  const revoked = loggedOut ? 'restored' : teardown.cookie_read ? 'restore_failed' : sessionCookie ? await revokeBrowserSession(client, sessionCookie, secrets) : 'restored';
+  ctx.cleanup('browser session of the synthetic account', revoked);
+
+  if (failure) {
+    // Recorded without replacing the original failure reason.
+    const routingCheckFailed = failure.error instanceof CheckFailed && failure.error.check === 'no_routing_failures';
+    if (Object.keys(routing).length && !routingCheckFailed) try { ctx.check('no_routing_failures', false, 'see metrics.routing_failures'); } catch { /* recorded */ }
+    throw failure.error;
+  }
+  ctx.check('browser_teardown_clean', teardown.context_close === 'ok' && teardown.routes_pending_after_close === 0 && !teardown.page_close, 'see metrics.teardown');
 }
