@@ -4,8 +4,8 @@
   "files": [
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 1909,
-      "sha256": "658ee5c61d6b31cd49bd5336880784815f539863bad4e382f6d374842144ed69"
+      "bytes": 2133,
+      "sha256": "6c8f9656bbe3070225b2c4922898afcae35e05b8f72219f78aa017337f605172"
     },
     {
       "path": ".gitignore",
@@ -1059,8 +1059,8 @@
     },
     {
       "path": "deploy/cloudflare/README.md",
-      "bytes": 9166,
-      "sha256": "1997f381e267ad0f572d7d37f56538802033eafedb3ed6ee55ac0691d33ae7dd"
+      "bytes": 9369,
+      "sha256": "fa76e791a49f727c2a1fe4783be61291d153bc7d4604a4fdef654e4c0ca57aa5"
     },
     {
       "path": "deploy/cloudflare/environments.json",
@@ -1344,8 +1344,8 @@
     },
     {
       "path": "docs/development/local-runtime.md",
-      "bytes": 7234,
-      "sha256": "cdac30f07656560e6cffce34bfe4be9348aeda1ce5f2d9e8cdfc749a4e29ae7e"
+      "bytes": 7588,
+      "sha256": "3daf63c0c5b455fdf3df213d3c75120bfa21695c77bab007e1ac74b42cf21b2a"
     },
     {
       "path": "docs/development/member-api.md",
