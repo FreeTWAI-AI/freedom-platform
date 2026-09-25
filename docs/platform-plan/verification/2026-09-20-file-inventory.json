@@ -3199,8 +3199,8 @@
     },
     {
       "path": "playwright.config.ts",
-      "bytes": 1065,
-      "sha256": "050fda4734748acf304d4f10ba85617dd82a41b534f826affb6047e102f29910"
+      "bytes": 1503,
+      "sha256": "c9ba4d86426a1d7bfcd18b7c94f5f225afa2bc13c492ece7a689c8e5dd67581c"
     },
     {
       "path": "repositories.lock.json",
@@ -3234,8 +3234,8 @@
     },
     {
       "path": "scripts/e2e-server.ts",
-      "bytes": 1909,
-      "sha256": "ce55bd58d223d6d51af0fc6223a680c0f724f84fed4227b7ee5b24a18cd297fd"
+      "bytes": 2742,
+      "sha256": "28650b5f0b41abbbd0c3d46a8d7aa90b3f86b78e017eac817188601f0c6fa6b7"
     },
     {
       "path": "scripts/export-contract-bundle.mjs",
@@ -3314,8 +3314,8 @@
     },
     {
       "path": "tests/e2e/admin.spec.ts",
-      "bytes": 20502,
-      "sha256": "714c9877378ecb139b134233ab213b9b055f952b3386fd1dad2da52a91c4d7b1"
+      "bytes": 21319,
+      "sha256": "459219b5d40b9294e7479d16061ac4b76eacc4788f99a33ceaf7dbb387e3d7ed"
     },
     {
       "path": "tests/e2e/audit-identity-final.spec.ts",
@@ -3644,13 +3644,13 @@
     },
     {
       "path": "tests/runtime/guild-preferences.test.ts",
-      "bytes": 13978,
-      "sha256": "9706f7e32aec1233b49d741e8f9ed852ff1195b6866bb16f49c2df4c17d7f525"
+      "bytes": 14271,
+      "sha256": "4c31efd9414538bcfc10c8233a6bf35d79828e33eb32f7006e48075bb1149cad"
     },
     {
       "path": "tests/runtime/guild-workspace.test.ts",
-      "bytes": 32684,
-      "sha256": "0a5094c77a1c25465460069e48188fa0c5c1c2091b525072258a814273820fea"
+      "bytes": 33285,
+      "sha256": "3c6bd2b10ef4c5d7161abd9cd3a097fa396ae7b92f3b4608d070a7b4d9858581"
     },
     {
       "path": "tests/runtime/identity-member.test.ts",

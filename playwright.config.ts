@@ -11,5 +11,10 @@ export default defineConfig({
   reporter:[['list']],
   use:{baseURL:origin,trace:'retain-on-failure',screenshot:'only-on-failure'},
   projects:[{name:'chromium',use:{...devices['Desktop Chrome'],launchOptions:process.env.CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.CHROMIUM_EXECUTABLE_PATH}:undefined}}],
-  webServer:{command:'npx tsx scripts/e2e-server.ts',env:{FREEDOM_E2E_GITHUB_FIXTURES:'1',FREEDOM_E2E_SCHEMA:schema},url:`${origin}/api/v1/health`,reuseExistingServer:false,timeout:30000}
+  // Without gracefulShutdown, Playwright 1.63 SIGKILLs the webServer process group
+  // (runner/index.js attemptToGracefullyClose → processLauncher kill -pid SIGKILL)
+  // and scripts/e2e-server.ts never runs its SIGTERM DROP SCHEMA. The budget has
+  // to cover npx → tsx → node: the group signal reaches the child that owns the
+  // pool, and close waits until that child exits.
+  webServer:{command:'npx tsx scripts/e2e-server.ts',env:{FREEDOM_E2E_GITHUB_FIXTURES:'1',FREEDOM_E2E_SCHEMA:schema},url:`${origin}/api/v1/health`,reuseExistingServer:false,timeout:30000,gracefulShutdown:{signal:'SIGTERM',timeout:15000}}
 });
