@@ -2899,8 +2899,8 @@
     },
     {
       "path": "modules/github-social/provider.ts",
-      "bytes": 10881,
-      "sha256": "a089d6c23e3a07a607886f919c8da1c2265efd3f9aae7565a6a3a08a6e52d20c"
+      "bytes": 11034,
+      "sha256": "49d9626336d547ed1bcaa4a7f145453bdf4d5b4c46444d3a12d1c5cd79f5c064"
     },
     {
       "path": "modules/github-social/service.ts",
@@ -2909,8 +2909,8 @@
     },
     {
       "path": "modules/github-social/setup.ts",
-      "bytes": 12673,
-      "sha256": "b922ecf5d9258e232da761ad4c2d4d222a04ee779b2fed93b7ea09d7658e1074"
+      "bytes": 12765,
+      "sha256": "d0f2663931b1639eb00fd6131e348067266f689924ac94066ce38be621324ed9"
     },
     {
       "path": "modules/guild-workspace/service.ts",
@@ -2974,8 +2974,8 @@
     },
     {
       "path": "modules/opensource-marketing/github.ts",
-      "bytes": 5585,
-      "sha256": "888632c82041bb1d7fadba9cc54d93ff3cbd2183c828c92db4f3bfa2bf8993c3"
+      "bytes": 5696,
+      "sha256": "255d5c5a068d9c598d0cc37deb8253cb24961fb8a95c889cc36b200627213f9a"
     },
     {
       "path": "modules/opensource-marketing/service.ts",
@@ -2994,8 +2994,8 @@
     },
     {
       "path": "modules/platform-admin/access-sync.ts",
-      "bytes": 5177,
-      "sha256": "aec29edf51ac0e6d4ce74820cd5b1510d9bb18220bbb191c20301acb426208ea"
+      "bytes": 5257,
+      "sha256": "d9926ca42bfc27a31091c0d5cb9f3ea8231fb141978ab7205b02e484b6cb1012"
     },
     {
       "path": "modules/platform-admin/access.ts",
@@ -3524,8 +3524,8 @@
     },
     {
       "path": "tests/integration/repositories.test.ts",
-      "bytes": 17512,
-      "sha256": "a297d362888a96dd4a4d16331069ce7183f409be1570091e7e9fcb20750032a6"
+      "bytes": 17561,
+      "sha256": "d26b19e791a9dd1c85c4ad58ff779251f9efd632def1f63e942bc884c0f2c24c"
     },
     {
       "path": "tests/runtime/admin-access-session.test.ts",
@@ -3534,8 +3534,8 @@
     },
     {
       "path": "tests/runtime/admin-access-sync.test.ts",
-      "bytes": 17278,
-      "sha256": "b2b3155cdd4f39c3024ef0a9303c647fa12c70decd6380c1b30d742ed00f9cbd"
+      "bytes": 18623,
+      "sha256": "79d87a6976503f546892551df480fab80928176da088e65e6b9043ccd90a457a"
     },
     {
       "path": "tests/runtime/admin-access.test.ts",
@@ -3574,8 +3574,8 @@
     },
     {
       "path": "tests/runtime/co-creation.test.ts",
-      "bytes": 24343,
-      "sha256": "c3f89847d33f9ff22a793c0ca016b556a906124839b27b3a6cd570e4470f53c1"
+      "bytes": 24503,
+      "sha256": "d49abe7c2fd8cfb0167c70ed139685b01c529028dfc168e24375d3ff3173753b"
     },
     {
       "path": "tests/runtime/commerce.test.ts",
@@ -3584,13 +3584,13 @@
     },
     {
       "path": "tests/runtime/development-access-grant-race.test.ts",
-      "bytes": 9764,
-      "sha256": "540b46887074ecdb9a7a7d59959963589237d9ed58abfd85c88fcd56186a430f"
+      "bytes": 9804,
+      "sha256": "2640c5b693db98efe27baf246ae1c0c3468c522eb0984f2b6912d28a132e36b8"
     },
     {
       "path": "tests/runtime/development-access.test.ts",
-      "bytes": 15728,
-      "sha256": "3371021ff38b5c9716aae88b06adf6482e55b65a2f7bd7554793c7f62bfb5e95"
+      "bytes": 15768,
+      "sha256": "225cf2efa2396005fcde688a0e62f4247335603c99e70c6693ab43b1e2a99eeb"
     },
     {
       "path": "tests/runtime/development-map.test.ts",
@@ -3614,8 +3614,8 @@
     },
     {
       "path": "tests/runtime/github-app-setup.test.ts",
-      "bytes": 19399,
-      "sha256": "053aed0e6764f0d87cef93195eeba63b8860a0c8ef20f809b685e3cfb90dd553"
+      "bytes": 19655,
+      "sha256": "e7ab4e1e7d4d4839b6620e159d0cefe2aa0e8556afdbe7d3249561a000bc07a8"
     },
     {
       "path": "tests/runtime/github-identity.test.ts",
@@ -3634,8 +3634,8 @@
     },
     {
       "path": "tests/runtime/github-social.test.ts",
-      "bytes": 22696,
-      "sha256": "537a0771e0a69f6830398d2924730c0e41dd854fa9df4c7599f6dfe8b89f6265"
+      "bytes": 23574,
+      "sha256": "8856e1d16b13e21ee1b10b8f86601994fdaabedd347c94cc954fcfe4e9024036"
     },
     {
       "path": "tests/runtime/guild-experts.test.ts",
@@ -3709,8 +3709,8 @@
     },
     {
       "path": "tests/runtime/opensource-marketing.test.ts",
-      "bytes": 16618,
-      "sha256": "b834f02585e286c19654704b2ef945ea98acc66646191e3508256e6e35a5b9ae"
+      "bytes": 17797,
+      "sha256": "ec4f0b646df6762180e4a01d2907cdbd73239541d70b23327e014bf4d2f34aad"
     },
     {
       "path": "tests/runtime/password-hash.test.ts",
@@ -3769,8 +3769,8 @@
     },
     {
       "path": "tests/runtime/skill-submissions.test.ts",
-      "bytes": 33758,
-      "sha256": "1cb19aa30257d87ec439ea587ee4c1d6e901f897eeae048dca9ab22db4d72026"
+      "bytes": 33798,
+      "sha256": "ef50bdb88f99c41245aabfb5ea80045628d0822361d34de887417dbf68b521d0"
     },
     {
       "path": "tests/runtime/skill-upload-client.test.ts",
@@ -3791,6 +3791,11 @@
       "path": "tests/runtime/worker-adapter.test.ts",
       "bytes": 33058,
       "sha256": "21befa6edbfebddbce399f8a36668d9890a84e103b5470f649ad141d7402d031"
+    },
+    {
+      "path": "tests/worker/fetch-redirect.test.ts",
+      "bytes": 6598,
+      "sha256": "fc2dba0899afeeff7690ddd5df0b015be001a0005236f2c37e22496605d26699"
     },
     {
       "path": "tests/worker/workerd.test.ts",

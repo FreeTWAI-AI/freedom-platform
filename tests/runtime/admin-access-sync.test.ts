@@ -44,7 +44,7 @@ function policy(emails = activeEmails, overrides: Record<string, unknown> = {}) 
   return { id: config.policyId, name: 'Nominated Freedom super administrators', decision: 'allow',
     include: emails.map(email => ({ email: { email } })), require: [], exclude: [], ...overrides };
 }
-type Step = { path: string; method?: string; result?: unknown; envelope?: unknown; status?: number; error?: Error; before?: () => Promise<void> };
+type Step = { path: string; method?: string; result?: unknown; envelope?: unknown; status?: number; headers?: HeadersInit; error?: Error; before?: () => Promise<void> };
 function provider(steps: Step[]) {
   const calls: { path: string; method: string; body: unknown }[] = [];
   // Every request is consumed locally. An unexpected call fails instead of
@@ -54,13 +54,13 @@ function provider(steps: Step[]) {
     calls.push({ path: url.slice(base.length), method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
     assert.ok(step, `Unexpected provider request ${method} ${url}`);
     assert.equal(url, base + step.path); assert.equal(method, step.method ?? 'GET');
-    assert.equal(init?.redirect, 'error'); assert.ok(init?.signal instanceof AbortSignal);
+    assert.equal(init?.redirect, 'manual'); assert.notEqual(init?.redirect, 'error'); assert.ok(init?.signal instanceof AbortSignal);
     const headers = new Headers(init?.headers);
     assert.equal(headers.get('Authorization'), `Bearer ${config.token}`);
     assert.equal(headers.get('Content-Type'), 'application/json');
     await step.before?.();
     if (step.error) throw step.error;
-    return Response.json(step.envelope ?? { success: true, result: step.result }, { status: step.status ?? 200 });
+    return Response.json(step.envelope ?? { success: true, result: step.result }, { status: step.status ?? 200, headers: step.headers });
   };
   return { fetcher, calls, complete: () => assert.equal(calls.length, steps.length) };
 }
@@ -140,6 +140,8 @@ test('--force worker option detects and repairs remote drift even when all datab
 
 const failures: { name: string; steps: Step[]; expected: RegExp; writes?: number }[] = [
   { name: 'HTTP provider error', steps: [{ path: '', status: 503 }], expected: /provider request failed \(503\)/ },
+  { name: 'redirect response', steps: [{ path: '', status: 302, headers: { Location: 'https://evil.example/steal' } }], expected: /provider request failed \(302\)/ },
+  { name: 'read-back redirect', steps: [...updateSteps().slice(0, 3), { path: policyPath, status: 301, headers: { Location: 'https://evil.example/steal' } }], expected: /provider request failed \(301\)/, writes: 1 },
   { name: 'provider error envelope', steps: [{ path: '', envelope: { success: false, result: app } }], expected: /incomplete result/ },
   { name: 'missing provider result', steps: [{ path: '', envelope: { success: true } }], expected: /incomplete result/ },
   { name: 'network failure', steps: [{ path: '', error: Error('Synthetic provider connection failure') }], expected: /Synthetic provider connection failure/ },
@@ -170,8 +172,22 @@ for (const scenario of failures) test(`${scenario.name} leaves all pending revis
   const initial = await revisions(), remote = provider(scenario.steps);
   await assert.rejects(syncAdminAccess(pool, config, { fetcher: remote.fetcher }), scenario.expected);
   remote.complete(); assert.equal(remote.calls.filter(call => call.method === 'PUT').length, scenario.writes ?? 0);
+  assert.ok(remote.calls.every(call => !String(call.path).includes('evil.example')));
   assert.deepEqual(await revisions(), initial);
   assert.deepEqual(await states(), { [firstEmail]: 'pending', [secondEmail]: 'pending', [revokedEmail]: 'pending_removal' });
+});
+
+test('an opaque redirect is rejected before a policy write and leaves revisions pending', async () => {
+  const initial = await revisions();
+  let calls = 0;
+  const fetcher: typeof fetch = async (input, init) => {
+    calls += 1;
+    assert.equal(init?.redirect, 'manual'); assert.notEqual(init?.redirect, 'error');
+    assert.equal(String(input), base);
+    return { type: 'opaqueredirect', status: 0, ok: true, headers: new Headers({ Location: 'https://evil.example/steal' }), json: async () => { throw new Error('followed opaque redirect'); }, text: async () => 'followed' } as unknown as Response;
+  };
+  await assert.rejects(syncAdminAccess(pool, config, { fetcher }), /provider request failed \(0\)/);
+  assert.equal(calls, 1); assert.deepEqual(await revisions(), initial);
 });
 
 test('an ambiguous community scope and an empty active-admin set fail before calling the provider', async () => {

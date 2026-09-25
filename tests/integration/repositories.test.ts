@@ -84,7 +84,8 @@ function mockGitHub(t: TestContext) {
   t.mock.method(globalThis, 'fetch', async (input: string | URL | Request, options: RequestInit = {}) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     assert.equal(url.hostname, 'api.github.com', 'No other outbound provider network is allowed in this suite.');
-    assert.equal(options.redirect, 'error');
+    assert.equal(options.redirect, 'manual');
+    assert.notEqual(options.redirect, 'error');
     assert.equal(new Headers(options.headers).get('Authorization'), null);
     requests.push(url.href);
     if (url.href === 'https://api.github.com/repos/example/integration-project') return Response.json({

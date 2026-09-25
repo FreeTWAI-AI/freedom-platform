@@ -16,8 +16,8 @@ export async function syncAdminAccess(pool:Pool, config:AccessSyncConfig, option
   const fetcher=options.fetcher??fetch;
   const base=`https://api.cloudflare.com/client/v4/accounts/${config.accountId}/access/apps/${config.appId}`;
   async function call(suffix:string, method='GET', body?:unknown) {
-    const response=await fetcher(base+suffix,{method,redirect:'error',signal:AbortSignal.timeout(10000),headers:{Authorization:`Bearer ${config.token}`,'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});
-    if(!response.ok)throw Error(`Access sync provider request failed (${response.status}).`);
+    const response=await fetcher(base+suffix,{method,redirect:'manual',signal:AbortSignal.timeout(10000),headers:{Authorization:`Bearer ${config.token}`,'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});
+    if(response.type==='opaqueredirect'||(response.status>=300&&response.status<400)||!response.ok)throw Error(`Access sync provider request failed (${response.status}).`);
     const value=await response.json() as {success?:boolean;result?:any;result_info?:{total_pages?:number}};
     if(!value.success||!value.result)throw Error('Access sync provider returned an incomplete result.');
     if((value.result_info?.total_pages??1)>1)throw Error('Unexpected paginated admin policy set.');
