@@ -1,5 +1,7 @@
 # Staging 運行手冊
 
+> 歷史 Castle 運行手冊，2026-09-25 退役。現行 staging 在 Cloudflare Worker，見 [遷移手冊 §14](cloudflare-migration.md#14-切換後現況2026-09-25)。下文不改寫。
+
 ## 位置與依賴
 
 - 主機：Castle／`castleridge-ai1`，Linux 使用者 `ted-h`。

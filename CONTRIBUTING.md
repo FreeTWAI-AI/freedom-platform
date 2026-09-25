@@ -37,4 +37,4 @@ npm run test:repos
 
 ## 平行頁面審查
 
-每組使用自己的工作樹與建置產物；E2E 會各自建立 PostgreSQL schema。可用 `FREEDOM_E2E_PORT=4321 npm run test:e2e` 指定另一個 localhost 埠，預設仍是 4311；4310／4312 保留給已部署服務。每組仍使用一個 Playwright worker，先 build 再跑瀏覽器，勿在測試中重建同一份前端。測試的 Origin 應由目前測試網址取得，不能寫死另一組的埠。
+每組使用自己的工作樹與建置產物；E2E 會各自建立 PostgreSQL schema。可用 `FREEDOM_E2E_PORT=4321 npm run test:e2e` 指定另一個 localhost 埠，預設仍是 4311。4310／4312 自 2026-09-25 起空出來給本機 `npm run demo`，不要再當成 Castle 上的 staging／public 服務埠。每組仍使用一個 Playwright worker，先 build 再跑瀏覽器，勿在測試中重建同一份前端。測試的 Origin 應由目前測試網址取得，不能寫死另一組的埠。

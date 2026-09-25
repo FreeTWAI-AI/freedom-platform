@@ -1,5 +1,7 @@
 # 公開會員 Beta 運行手冊
 
+> 歷史 Castle 運行手冊，2026-09-25 退役。正式環境與 staging 都在 Cloudflare Worker，見 [遷移手冊 §14](cloudflare-migration.md#14-切換後現況2026-09-25)。下文不改寫。
+
 入口 `https://freetwai.com`；staging 保留 `https://staging.freetwai.com` 與 Ted-only Access。公開站由 Castle 的 loopback `127.0.0.1:4312` 經現有 Freedom Tunnel 提供，不是 managed-cloud runtime。Playwright 測試仍使用 4311，兩者不衝突。
 
 ## 隔離與設定

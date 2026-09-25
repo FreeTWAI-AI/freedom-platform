@@ -26,9 +26,9 @@
 
 前版 0.9.7 修正 GitHub Star 權限錯誤提示，App 建立流程明確申請 Metadata 讀取，後台提供權限與 Repo 安裝入口。既有 App 仍需在 GitHub 補齊設定；站內連結成功不代表每個按星請求都已獲 GitHub 允許。
 
-公開會員入口：<https://freetwai.com>；內部入口：<https://staging.freetwai.com>（Cloudflare Access 限定名單，獨立 DB）。本輪行為與邊界見 [會員入口設計](./docs/development/member-onboarding-release.md)，運行方式見 [公開站手冊](./docs/development/public-operations.md)。
+公開會員入口：<https://freetwai.com>；內部入口：<https://staging.freetwai.com>（Cloudflare Access 限定名單）。兩者都由 Cloudflare Worker 提供。現行拓撲見 [遷移手冊 §14](./docs/development/cloudflare-migration.md#14-切換後現況2026-09-25)。本輪行為與邊界見 [會員入口設計](./docs/development/member-onboarding-release.md)。
 
-Cloudflare Workers＋PlanetScale 候選站演練已完成，但**尚未切換**，上述兩站照舊運行並接受寫入；現況與未驗證項目見 [2026-09-24 遷移交接](./docs/development/cloudflare-migration-status-2026-09-24.md)。
+Cloudflare Workers＋PlanetScale 已於 2026-09-25 切換。2026-09-24 候選站紀錄見 [遷移交接](./docs/development/cloudflare-migration-status-2026-09-24.md)。
 
 工坊夥伴名冊支援公開資料搜尋、公會篩選、加入日期／暱稱排序與緊湊列表；詳細技能和聯絡方式可展開。舊會員依開站日 2026/9/23 記錄，新會員保存實際加入時間。
 
