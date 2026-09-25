@@ -9,11 +9,16 @@ import {seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY} from '../../packages/
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {assessmentQuestions,ASSESSMENT_VERSION,ASSESSMENT_SHA256} from '../../modules/positioning/assessment.js';
 const origin='http://127.0.0.1:4310',url=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
-const schema=`fp_guild_prefs_${process.pid}_${Date.now()}`,admin=createPool(url),pool=new Pool({connectionString:url,options:`-c search_path=${schema}`,max:12}),app=createApp(pool,origin);
+const schema=`fp_guild_prefs_${process.pid}_${Date.now()}`,admin=createPool(url),pool=new Pool({connectionString:url,options:`-c search_path=${schema} -c application_name=${schema}`,max:12}),app=createApp(pool,origin);
+admin.on('error',()=>{});pool.on('error',()=>{});
 type Session={cookie:string;csrf:string;user:any};
 const guilds=['guild_security','guild_ai_vibe','guild_marketing','guild_music_mv'];
 before(async()=>{await admin.query(`CREATE SCHEMA ${schema}`);await migrate(pool);});
-after(async()=>{await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();});
+after(async()=>{
+  try{await pool.end();}catch{/* still drop */}
+  await admin.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name=$1 AND pid<>pg_backend_pid()',[schema]).catch(()=>{});
+  try{await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);}finally{await admin.end();}
+});
 beforeEach(async()=>{await pool.query('TRUNCATE communities,login_attempts CASCADE');await seedLocal(pool);});
 async function request(path:string,s?:Session,body?:unknown,version?:string,key:string=randomUUID()){
  const headers:Record<string,string>={Origin:origin,...s?{Cookie:s.cookie,'X-CSRF-Token':s.csrf}:{}};

@@ -14,9 +14,11 @@ import {changeGuildMembership} from '../../modules/positioning/service.js';
 import {developmentGuilds} from '../../modules/development-access/service.js';
 
 const databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL,database=createPool(databaseUrl),schema=`fp_guild_workspace_${process.pid}_${Date.now()}`;
-const pool=new Pool({connectionString:databaseUrl,options:`-c search_path=${schema}`,max:12});
+database.on('error',()=>{});
+const pool=new Pool({connectionString:databaseUrl,options:`-c search_path=${schema} -c application_name=${schema}`,max:12});
+pool.on('error',()=>{});
 // Separate application names let race tests observe exactly which backend is waiting on which lock.
-const racer=(role:string)=>new Pool({connectionString:databaseUrl,options:`-c search_path=${schema}`,application_name:`${schema}_${role}`,max:2});
+const racer=(role:string)=>{const extra=new Pool({connectionString:databaseUrl,options:`-c search_path=${schema}`,application_name:`${schema}_${role}`,max:2});extra.on('error',()=>{});return extra;};
 const guild='guild_event_space',otherGuild='guild_projection_mapping',book='event-space',aiVibe='guild_ai_vibe',aiField='guild_ai_field';
 const requiredGuilds=[{guild_key:aiField,name:'AI 導入與驗證公會'},{guild_key:aiVibe,name:'AI 開發公會'}];
 const access=(appointed_books:number,active_guilds:string[])=>({appointed_books,eligible:active_guilds.length>0,requires_development_guild:appointed_books>0&&!active_guilds.length,active_guilds,required_guilds:requiredGuilds});
@@ -28,7 +30,12 @@ const adm=(body:unknown,expected?:number,key=randomUUID(),who=admin):AdminComman
 const denied=(status:number)=>((error:unknown)=>error instanceof Problem&&error.status===status);
 const editorial={summary:'共讀與場地規劃技能書',collaboration_intro:'一起改善主持模板，範圍以維護者確認的 Issue 為準。',milestones:[{id:'m1',title:'主持模板'}],tasks:[{id:'task1',title:'補充讀書會提問',description:'用合成資料補兩種人數的範例。',acceptance:['主持人可照流程接手。'],issue_url:'https://github.com/FreeTWAI-AI/freedom-skill-event-space/issues/1',milestone_id:'m1',status:'todo' as const}]};
 before(async()=>{await database.query(`CREATE SCHEMA ${schema}`);await migrate(pool);});
-after(async()=>{await pool.end();await database.query(`DROP SCHEMA ${schema} CASCADE`);await database.end();});
+after(async()=>{
+  try{await pool.end();}catch{/* still drop */}
+  // Race pools are named `${schema}_${role}`. End the main pool first so idle clients are not killed out from under it.
+  await database.query(`SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid<>pg_backend_pid() AND (application_name=$1 OR starts_with(application_name,$1||'_'))`,[schema]).catch(()=>{});
+  try{await database.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);}finally{await database.end();}
+});
 beforeEach(async()=>{await pool.query('TRUNCATE communities,login_attempts,auth_rate_limits CASCADE');await seedLocal(pool);await pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)',[admin.admin_id,DEMO_COMMUNITY,admin.email,admin.display_name]);actors=await Promise.all(DEMO_USERS.map(async user=>(await login(pool,user.email,DEMO_PASSWORD)).actor));});
 async function join(actor=actors[0],key=guild){await pool.query("INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,$4,'active') ON CONFLICT(community_id,user_id,guild_key) DO UPDATE SET state='active'",[randomUUID(),actor.community_id,actor.user_id,key]);}
 async function lead(actor=actors[0],key=guild){await join(actor,key);await pool.query('INSERT INTO positioning_guild_officers(community_id,guild_key,user_id) VALUES($1,$2,$3) ON CONFLICT(community_id,guild_key) DO UPDATE SET user_id=$3',[actor.community_id,key,actor.user_id]);}
@@ -176,7 +183,7 @@ test('race: a leave that commits first makes a save waiting on the guild lock fa
   await holder.query('COMMIT');
   const [left,saved]=await Promise.allSettled([leave,save]);assert.equal(left.status,'fulfilled');assert.equal(saved.status,'rejected');assert.ok(code('skill_editor_guild_required')((saved as PromiseRejectedResult).reason));
   assert.equal(await service.readSkillEditorial(pool,book),null);
- }finally{await holder.query('ROLLBACK').catch(()=>{});holder.release();await leaver.end();await saver.end();}
+ }finally{await holder.query('ROLLBACK').catch(()=>{});holder.release();await leaver.end().catch(()=>{});await saver.end().catch(()=>{});}
 });
 
 test('race: a save that already holds the guild lock completes before a concurrent leave, which then denies further edits',async()=>{
@@ -189,7 +196,7 @@ test('race: a save that already holds the guild lock completes before a concurre
   await holder.query('COMMIT');
   const [saved,left]=await Promise.allSettled([save,leave]);assert.equal(saved.status,'fulfilled');assert.equal((saved as PromiseFulfilledResult<any>).value.aggregate_version,1);assert.equal(left.status,'fulfilled');
   assert.equal((await service.readSkillEditorial(pool,book))!.summary,editorial.summary);await assert.rejects(service.skillEditor(pool,actors[0],book),code('skill_editor_guild_required'));
- }finally{await holder.query('ROLLBACK').catch(()=>{});holder.release();await leaver.end();await saver.end();}
+ }finally{await holder.query('ROLLBACK').catch(()=>{});holder.release();await leaver.end().catch(()=>{});await saver.end().catch(()=>{});}
 });
 
 test('race: workspace GET waits on the guild lock of an AI guild officer leaving, without holding membership rows, then reflects the leave',async()=>{
@@ -210,7 +217,7 @@ test('race: workspace GET waits on the guild lock of an AI guild officer leaving
   await holder.query('COMMIT');
   const [left,seen]=await Promise.allSettled([leave,view]);assert.equal(left.status,'fulfilled');assert.equal(seen.status,'fulfilled',String((seen as PromiseRejectedResult).reason));
   assert.deepEqual((seen as PromiseFulfilledResult<any>).value,{...emptyWorkspace,skill_editor_access:access(1,[])},'the committed leave removes officer and editor views');
- }finally{await holder.query('ROLLBACK').catch(()=>{});await probe.query('ROLLBACK').catch(()=>{});holder.release();probe.release();await leaver.end();await reader.end();}
+ }finally{await holder.query('ROLLBACK').catch(()=>{});await probe.query('ROLLBACK').catch(()=>{});holder.release();probe.release();await leaver.end().catch(()=>{});await reader.end().catch(()=>{});}
 });
 
 test('HTTP skill editor routes enforce the AI guild requirement and expose the recovery DTO',async()=>{

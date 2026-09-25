@@ -1,5 +1,9 @@
 import {test,expect} from './fixtures.js';
 
+// The real-database admin test creates fp_admin_browser_*. A timed-out body never reaches its finally.
+let dropAdminBrowserSchema:(()=>Promise<void>)|undefined;
+test.afterEach(async()=>{const drop=dropAdminBrowserSchema;dropAdminBrowserSchema=undefined;if(drop)await drop();});
+
 test('admin entry never grants access through a member login or onboarding',async({page})=>{
   await page.goto('/admin');
   await expect(page.getByRole('heading',{name:'需要管理員驗證',exact:true})).toBeVisible();
@@ -54,12 +58,22 @@ test('admin appointment, access sync, revocation and reactivation use real isola
     import('pg'),import('@hono/node-server'),import('@hono/node-server/serve-static'),import('../../packages/db/index'),import('../../scripts/database'),import('../../packages/testing/seed'),import('../../apps/platform-api/src/app'),import('../../packages/shared/problem'),import('node:crypto'),
   ]);
   const database=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL,schema=`fp_admin_browser_${process.pid}_${Date.now()}`;
-  const dbAdmin=createPool(database),pool=new Pool({connectionString:database,options:`-c search_path=${schema}`});
+  const dbAdmin=createPool(database),pool=new Pool({connectionString:database,options:`-c search_path=${schema}`,application_name:schema});
+  dbAdmin.on('error',()=>{});pool.on('error',()=>{});
   const ownerEmail='admin-owner@example.test',targetEmail='appointed-admin@example.test',ownerId=randomUUID(),targetId=DEMO_USERS[0].user_id;
   const identities={owner:{email:ownerEmail,subject:'verified-synthetic-owner',csrfToken:'synthetic-owner-csrf'},target:{email:targetEmail,subject:'verified-synthetic-target',csrfToken:'synthetic-target-csrf'}};
   let server:ReturnType<typeof serve>|undefined,second:Awaited<ReturnType<typeof browser.newContext>>|undefined;
-  await dbAdmin.query(`CREATE SCHEMA ${schema}`);
+  // Playwright's test timeout abandons the body via Promise.race, so this must also run from afterEach.
+  let dropping:Promise<void>|undefined;
+  const dropSchema=()=>dropping??=(async()=>{
+    if(server)await new Promise<void>(resolve=>server!.close(()=>resolve()));
+    try{await pool.end();}catch{/* still drop */}
+    await dbAdmin.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name=$1 AND pid<>pg_backend_pid()',[schema]).catch(()=>{});
+    try{await dbAdmin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);}finally{await dbAdmin.end();}
+  })();
+  dropAdminBrowserSchema=dropSchema;
   try{
+    await dbAdmin.query(`CREATE SCHEMA ${schema}`);
     await migrate(pool);await seedLocal(pool);
     await pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)',[ownerId,DEMO_COMMUNITY,ownerEmail,'測試現任管理員']);
     await pool.query('UPDATE users SET email=$2,display_name=$3,email_verified_at=now() WHERE user_id=$1',[targetId,targetEmail,'測試新管理員']);
@@ -153,8 +167,7 @@ test('admin appointment, access sync, revocation and reactivation use real isola
     await expect(page.getByText('調整管理權限',{exact:true})).toHaveCount(2);
     await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   }finally{
-    await second?.close();await page.goto('about:blank');
-    if(server)await new Promise<void>((resolve,reject)=>server!.close(error=>error?reject(error):resolve()));
-    await pool.end();await dbAdmin.query(`DROP SCHEMA ${schema} CASCADE`);await dbAdmin.end();
+    try{await second?.close();await page.goto('about:blank');}
+    finally{await dropSchema();}
   }
 });
