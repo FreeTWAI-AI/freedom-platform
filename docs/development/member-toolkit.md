@@ -19,6 +19,7 @@
 3. Web server 仍使用既有 Access issuer、audience、CSRF secret；不加入 Cloudflare API token。
 4. 獨立 worker 以私有環境執行 `node --import tsx scripts/sync-admin-access.ts`，每15秒重試。設定 DATABASE_URL、CF_ACCOUNT_ID、CF_API_TOKEN、FREEDOM_ADMIN_SYNC_APP_ID、FREEDOM_ADMIN_SYNC_POLICY_ID、FREEDOM_ADMIN_SYNC_DOMAIN（例如受保護的host/admin）。以最小 Access application policy 編輯權限供應操作憑證。
 5. 初次以 `--force` 讀回整份名單；之後有未同步版本才呼叫提供者，另每15分鐘用 `--force` 檢查偏移。正式與staging使用各自 DB、app/policy ID，不混用。
+6. 要讓 Castle 關機後名單仍更新，改部署沒有 route 的 cron Worker。設定名稱、secret、發布、確認與回退見 [deploy/cloudflare README](../../deploy/cloudflare/README.md) 的「管理員 Access 同步 Worker」。不要和這個 timer 同時跑。Timer 是該 Worker 失常時的回退。
 
 同步程式只接受單一社群、指定 self-hosted app 與唯一 `Nominated Freedom super administrators` allow policy，保留逐一信箱條件；不改成 everyone、不加 bypass。所有角色變更與同步共用交易鎖；不同步過期快照。提供者失敗或設定不符時維持 pending 並退出非零，下一次重試。權限資料以 DB 為準，舊私有 bootstrap 清單只建立初始人選，不能在部署時復活已停用管理員或覆蓋後台新增人選。
 

@@ -1,0 +1,113 @@
+// Cron Worker that synchronises the administrator Access allowlist.
+//
+// Wrangler cannot give an environment its own `main`, so this is a separate
+// config from wrangler.jsonc. The platform Worker stays the only routed
+// Worker. npm run worker:dry-run checks wrangler.jsonc only. This file is
+// checked by npm run worker:dry-run:admin-sync. deploy/cloudflare preflight's
+// wrangler command does not validate this file: that checker requires the
+// platform routes, assets and images bindings.
+//
+// This Worker exports scheduled and not fetch. It has no routes, no custom
+// domain, and no workers.dev or preview URL, so it answers nothing on the
+// public Internet.
+//
+// env `next` is production: Worker freedom-admin-sync-next, the same database
+// as freedom-platform-next, protected domain freetwai.com/admin.
+// env `staging-next` is staging: Worker freedom-admin-sync-staging-next, the
+// same database as freedom-platform-staging-next, protected domain
+// staging.freetwai.com/admin. One environment per database. Do not bind the
+// staging and production sync Workers to one Hyperdrive configuration.
+//
+// This file holds no provider IDs or credentials. The zero Hyperdrive IDs below
+// are template placeholders; real IDs live only in the operator's private overlay.
+// A zero id makes an unprepared deploy fail. It does not mean the resource is absent.
+// The account id, application id and policy id below are the same kind of
+// placeholder. All-zero and nil values match the shape syncAdminAccess accepts,
+// so the scheduled handler rejects them before any provider call. The domain
+// placeholder does not match that shape. Replace all four per environment.
+//
+// HYPERDRIVE (the only database binding; same name as the platform Worker):
+// - Bind the caching-disabled configuration that environment's platform Worker
+//   already uses (`wrangler hyperdrive create ... --caching-disabled`). The
+//   sync transaction has to read its own writes. A comment here cannot disable
+//   Hyperdrive's query cache.
+// - Local dry-run never reads a committed credential. For a local isolated
+//   database only, export CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE
+//   in the shell. Do not write that URL into this file.
+//
+// Vars (configuration, not secrets; still not committed with real ids):
+//   CF_ACCOUNT_ID, FREEDOM_ADMIN_SYNC_APP_ID, FREEDOM_ADMIN_SYNC_POLICY_ID,
+//   FREEDOM_ADMIN_SYNC_DOMAIN.
+// Secret, uploaded out of band, never in this file:
+//   CF_API_TOKEN via `wrangler secret put CF_API_TOKEN --config <private overlay> --env <env>`.
+//   Minimum Access application policy edit permission for that environment.
+//   Not the platform Worker's CSRF or GitHub secrets. Do not pass the token
+//   as a var or a committed secrets file. Deploy the private overlay so these
+//   placeholders are not the values a live cron runs with.
+//
+// Cron is every minute. Cloudflare's minimum interval is one minute; the
+// Castle timer this replaces ran every 15 seconds. syncAdminAccess only writes
+// when an administrator revision is pending, so the extra delay is the poll
+// floor, not an extra Access write.
+//
+// Forced re-verification is not a second cron and not a var. A missing var
+// would become "never re-verified". The handler forces when the scheduled
+// UTC minute is 0, 15, 30 or 45 (the timer's --force cadence, about every
+// 15 minutes) and forces when the scheduled time is missing. See
+// adminSyncShouldForce in apps/platform-api/src/admin-sync-worker.ts.
+// triggers is inherited; it is restated on each environment so an overlay
+// that replaces the env block cannot drop the only schedule.
+//
+// Top-level is the dry-run shape (freedom-admin-sync-local). Deploy an
+// environment. Only `--dry-run --outdir` is used from this repository
+// (npm run worker:dry-run:admin-sync).
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "freedom-admin-sync-local",
+  "main": "apps/platform-api/src/admin-sync-worker.ts",
+  // Same date as wrangler.jsonc: the newest the pinned workerd (1.20260921.1,
+  // via wrangler 4.138.0) supports. nodejs_compat is what the pg pool needs.
+  "compatibility_date": "2026-09-21",
+  "compatibility_flags": ["nodejs_compat"],
+  // No public hostname. Omitting preview_urls on deploy leaves an existing preview URL in place.
+  "workers_dev": false,
+  "preview_urls": false,
+  "triggers": { "crons": ["* * * * *"] },
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
+  "vars": {
+    "CF_ACCOUNT_ID": "00000000000000000000000000000000",
+    "FREEDOM_ADMIN_SYNC_APP_ID": "00000000-0000-0000-0000-000000000000",
+    "FREEDOM_ADMIN_SYNC_POLICY_ID": "00000000-0000-0000-0000-000000000000",
+    "FREEDOM_ADMIN_SYNC_DOMAIN": "REPLACE_BEFORE_DEPLOY"
+  },
+  "env": {
+    "staging-next": {
+      "name": "freedom-admin-sync-staging-next",
+      "workers_dev": false,
+      "preview_urls": false,
+      // No routes. Staging zone traffic stays on freedom-platform-staging-next.
+      "triggers": { "crons": ["* * * * *"] },
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
+      "vars": {
+        "CF_ACCOUNT_ID": "00000000000000000000000000000000",
+        "FREEDOM_ADMIN_SYNC_APP_ID": "00000000-0000-0000-0000-000000000000",
+        "FREEDOM_ADMIN_SYNC_POLICY_ID": "00000000-0000-0000-0000-000000000000",
+        "FREEDOM_ADMIN_SYNC_DOMAIN": "REPLACE_BEFORE_DEPLOY"
+      }
+    },
+    "next": {
+      "name": "freedom-admin-sync-next",
+      "workers_dev": false,
+      "preview_urls": false,
+      // No routes. Production zone traffic stays on freedom-platform-next.
+      "triggers": { "crons": ["* * * * *"] },
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
+      "vars": {
+        "CF_ACCOUNT_ID": "00000000000000000000000000000000",
+        "FREEDOM_ADMIN_SYNC_APP_ID": "00000000-0000-0000-0000-000000000000",
+        "FREEDOM_ADMIN_SYNC_POLICY_ID": "00000000-0000-0000-0000-000000000000",
+        "FREEDOM_ADMIN_SYNC_DOMAIN": "REPLACE_BEFORE_DEPLOY"
+      }
+    }
+  }
+}

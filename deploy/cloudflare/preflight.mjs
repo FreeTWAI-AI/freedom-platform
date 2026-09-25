@@ -29,8 +29,10 @@ const USAGE = `Usage: node deploy/cloudflare/preflight.mjs <command> [options]
 Commands (all read-only):
   manifest                 validate deploy/cloudflare/environments.json
   migrations               static PG18 compatibility check of migrations/
-  wrangler [--config P] [--env-file P]  validate a Worker config (default: wrangler.jsonc at repo root);
-                           with --env-file also GET each real Hyperdrive id to prove caching.disabled
+  wrangler [--config P] [--env-file P]  validate the platform Worker config (default: wrangler.jsonc at repo root);
+                           with --env-file also GET each real Hyperdrive id to prove caching.disabled.
+                           Does not validate wrangler.admin-sync.jsonc: that checker requires platform routes, assets and images.
+                           The cron Worker is checked by npm run worker:dry-run:admin-sync.
   cost                     PlanetScale (selected) and OCI alternative monthly arithmetic
   oci-alternative          offline OCI alternative status from recorded root facts (no OCI call)
   cloudflare --env-file P  GET-only permission and protected-resource probe

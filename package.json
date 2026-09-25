@@ -16,6 +16,7 @@
     "generate:runtime-text": "node scripts/generate-runtime-text.mjs",
     "check:runtime-text": "node scripts/generate-runtime-text.mjs --check",
     "worker:dry-run": "node scripts/generate-runtime-text.mjs --check && wrangler deploy --dry-run --env \"\" --outdir .wrangler/dry-run/local && wrangler deploy --dry-run --env staging-next --outdir .wrangler/dry-run/staging-next && wrangler deploy --dry-run --env next --outdir .wrangler/dry-run/next",
+    "worker:dry-run:admin-sync": "wrangler deploy --dry-run --config wrangler.admin-sync.jsonc --env \"\" --outdir .wrangler/dry-run/admin-sync-local && wrangler deploy --dry-run --config wrangler.admin-sync.jsonc --env staging-next --outdir .wrangler/dry-run/admin-sync-staging-next && wrangler deploy --dry-run --config wrangler.admin-sync.jsonc --env next --outdir .wrangler/dry-run/admin-sync-next",
     "test:worker": "tsx --test --test-concurrency=1 tests/worker/*.test.ts",
     "dev": "vite --config apps/portal-web/vite.config.ts",
     "demo": "npm run db:up && npm run db:migrate && npm run db:seed && npm run build && npm start",
