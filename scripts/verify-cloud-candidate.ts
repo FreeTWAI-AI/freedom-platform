@@ -1,7 +1,7 @@
 // Cloud candidate acceptance CLI. Default is a plan with no network access.
-//   npx tsx scripts/verify-cloud-candidate.ts plan --target staging-next
-//   npx tsx scripts/verify-cloud-candidate.ts execute --target next --expected-release-sha <40-hex> --phases health,protocol
-// Only https://staging-next.freetwai.com, https://next.freetwai.com and https://freetwai.com are addressable.
+//   npx tsx scripts/verify-cloud-candidate.ts plan --target staging
+//   npx tsx scripts/verify-cloud-candidate.ts execute --target public --expected-release-sha <40-hex> --phases health,protocol
+// Only https://staging.freetwai.com and https://freetwai.com are addressable.
 // Credentials come from private files named by environment variables, never argv.
 // The JSON report goes to stdout; progress lines (no values) go to stderr.
 import { lstat, readFile } from 'node:fs/promises';
@@ -16,13 +16,13 @@ export const ACCOUNT_ENV = 'FREEDOM_CANDIDATE_ACCOUNT_FILE';
 export const ACCESS_ENV = 'FREEDOM_CANDIDATE_ACCESS_FILE';
 const DEMO_PASSWORDS = new Set(['freedom-local-demo']);
 
-export const HELP = `Usage: npx tsx scripts/verify-cloud-candidate.ts [plan|execute] --target staging-next|next|public [options]
+export const HELP = `Usage: npx tsx scripts/verify-cloud-candidate.ts [plan|execute] --target staging|public [options]
 
   plan (default)          Print the acceptance plan as JSON. No network, no credential files read.
   execute                 Run the selected phases against the exact allowlisted origin.
-  --target                staging-next (https://staging-next.freetwai.com, mode staging)
-                          next         (https://next.freetwai.com, mode public)
-                          public       (https://freetwai.com, mode public)
+  --target                staging (https://staging.freetwai.com, mode staging)
+                          public  (https://freetwai.com, mode public)
+                          staging-next and next no longer resolve
   --phases a,b            ${PHASES.filter(id => id !== 'preflight').join(', ')}
                           default: ${READ_ONLY_PHASES.filter(id => id !== 'preflight').join(', ')} (read-only)
                           health is always added to any network run

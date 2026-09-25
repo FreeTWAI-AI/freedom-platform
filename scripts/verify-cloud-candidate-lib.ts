@@ -12,10 +12,9 @@ export const TOOL_VERSION = 'cloud-candidate-acceptance/1';
 export type Mode = 'staging' | 'public' | 'local';
 export type Target = Readonly<{ name: string; origin: string; mode: Mode; harness: 'cloud_candidate' | 'local_harness' }>;
 
-/** Origins the CLI can address. `public` is production after the Workers cutover. `staging.freetwai.com` is absent. */
+/** Origins the CLI can address. `staging` and `public` are the live Workers. `next` and `staging-next` no longer resolve. */
 export const CANDIDATES: Readonly<Record<string, Target>> = Object.freeze({
-  'staging-next': Object.freeze({ name: 'staging-next', origin: 'https://staging-next.freetwai.com', mode: 'staging', harness: 'cloud_candidate' }),
-  next: Object.freeze({ name: 'next', origin: 'https://next.freetwai.com', mode: 'public', harness: 'cloud_candidate' }),
+  staging: Object.freeze({ name: 'staging', origin: 'https://staging.freetwai.com', mode: 'staging', harness: 'cloud_candidate' }),
   public: Object.freeze({ name: 'public', origin: 'https://freetwai.com', mode: 'public', harness: 'cloud_candidate' }),
 });
 
@@ -32,17 +31,18 @@ export function candidateTarget(value: string): Target {
 }
 
 /**
- * Login Origin cases. Candidates still reject the old live origin.
- * On `public` that origin is the target, so the same check uses the candidate origin.
+ * Login Origin cases. The third host is the other live origin, never this target.
+ * `staging` rejects production `https://freetwai.com`.
+ * `public` rejects staging `https://staging.freetwai.com`.
  */
 export function foreignLoginOrigins(target: { name: string }): readonly (readonly [string, string])[] {
   const third: readonly [string, string] = target.name === 'public'
-    ? ['candidate_origin', 'https://next.freetwai.com']
-    : ['old_live_origin', 'https://freetwai.com'];
+    ? ['staging_origin', 'https://staging.freetwai.com']
+    : ['production_origin', 'https://freetwai.com'];
   return [['missing_origin', 'none'], ['foreign_origin', 'https://attacker.invalid'], third];
 }
 
-/** `staging-next` and `next` may sit behind whole-host Access. Production does not. */
+/** `staging` sits behind whole-host Access. Production does not. */
 export function wholeHostAccessGated(target: { name: string }) {
   return target.name !== 'public';
 }
@@ -84,7 +84,7 @@ export const WRITE_DESCRIPTIONS: Partial<Record<PhaseId, string>> = {
   'github-handoff': 'creates one unconsumed OAuth state row (expires in 10 minutes); the provider URL is never requested',
   avatar: 'uploads then removes a generated avatar of the dedicated synthetic account',
   registration: 'registers one synthetic cand-reg member, completes positioning and one primary guild, then revokes that member\'s sessions',
-  messages: 'registers a second synthetic member, creates one squad containing only those two members, and writes direct and squad messages; guild-channel writes run only when the target is not next or public',
+  messages: 'registers a second synthetic member, creates one squad containing only those two members, and writes direct and squad messages; guild-channel writes run only when the target is not public',
   'messages-mobile': 'opens one mobile browser session of the synthetic member registered in this run and sends one direct message',
   logout: 'revokes the tool session',
 };
