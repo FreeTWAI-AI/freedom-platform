@@ -37,7 +37,11 @@ const PLACEHOLDER_ID = /^0{32}$/;
 const HYPERDRIVE_ID = /^[0-9a-f]{32}$/;
 
 /**
- * Validate a wrangler.json/jsonc owned by the runtime workstream against the manifest. Read-only.
+ * Validate the platform Worker wrangler.json/jsonc against the manifest. Read-only.
+ * This checker does not validate wrangler.admin-sync.jsonc. That cron Worker has no
+ * routes, assets or images binding; npm run worker:dry-run:admin-sync bundles it.
+ * Pointing this checker at that file reports missing platform routes and bindings,
+ * which is not a verdict on the cron Worker.
  * Three separate answers: `structural` (the config is shaped correctly), `static_checks_pass`
  * (structural plus no config-level blocker: real ids, provider cache read-back, routes) and
  * `deployment_ready`, which additionally needs every required injection (release SHA, vars supplied

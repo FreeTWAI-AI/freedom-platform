@@ -65,4 +65,4 @@
 
 `GET /members` 附帶 `platform_admin`（null 或 admin_id、active、aggregate_version、access_state），方便直接任命。所有任命由既有 Access 管理員明確確認並留下 audit；會員信箱只是被任命的地址，仍須本人通過 Access OTP 才能使用管理權限。
 
-`access_state` 為 pending、ready、pending_removal、revoked。獨立操作服務每15秒執行 `scripts/sync-admin-access.ts`，將啟用中管理員的精確信箱名單同步到 Access；讀回比對成功才寫入 access_synced_version/at。Web API 不持有 Cloudflare token。停用先在資料庫立即生效，舊 Access JWT 也無法再管理；邊緣名單移除可能稍後完成。服務失敗時維持待同步，不假報可登入。詳見 [部署設定](member-toolkit.md)。
+`access_state` 為 pending、ready、pending_removal、revoked。同步仍是 `scripts/sync-admin-access.ts`：Castle timer 每15秒跑一次，或改由沒有 route 的 cron Worker 每分鐘跑一次（見 [deploy/cloudflare README](../../deploy/cloudflare/README.md)）。兩者不要同時跑。讀回比對成功才寫入 access_synced_version/at。Web API 不持有 Cloudflare token。停用先在資料庫立即生效，舊 Access JWT 也無法再管理；邊緣名單移除可能稍後完成。服務失敗時維持待同步，不假報可登入。Timer 的環境變數見 [部署設定](member-toolkit.md)。

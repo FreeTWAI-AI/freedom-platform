@@ -29,6 +29,8 @@
 // Missing required settings answer 503 for every path, including static files.
 //
 // Only `--dry-run --outdir` is used from this repository (npm run worker:dry-run).
+// That command checks this file only and does not check wrangler.admin-sync.jsonc
+// (npm run worker:dry-run:admin-sync).
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "freedom-platform-local",

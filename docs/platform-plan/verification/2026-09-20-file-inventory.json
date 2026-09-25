@@ -43,6 +43,11 @@
       "sha256": "def4c9066ca56f2ddb2449a82e0bceea626c89cd70e926781f76526a9d2102af"
     },
     {
+      "path": "apps/platform-api/src/admin-sync-worker.ts",
+      "bytes": 7476,
+      "sha256": "d865386136b8ab2a1bf9b0f54f209dc5210ac3586f69adc23c2f3d761280349a"
+    },
+    {
       "path": "apps/platform-api/src/app.ts",
       "bytes": 2119,
       "sha256": "7a8688ecfe6a0145d3f175b3ecfc93a762c59293a2b4902f21d8218a6715154c"
@@ -1054,8 +1059,8 @@
     },
     {
       "path": "deploy/cloudflare/README.md",
-      "bytes": 4289,
-      "sha256": "57ab11799afa9b91b70da3ee57add84af0a5a759d20fc9a19ff61627d2b79f39"
+      "bytes": 9166,
+      "sha256": "1997f381e267ad0f572d7d37f56538802033eafedb3ed6ee55ac0691d33ae7dd"
     },
     {
       "path": "deploy/cloudflare/environments.json",
@@ -1109,13 +1114,13 @@
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
-      "bytes": 10446,
-      "sha256": "082b2b263fe2fd3f165a7c2f6f6c5832f03ded54e0c2e545c635c6a25bd73824"
+      "bytes": 10730,
+      "sha256": "071f16d79b497643d68d8f65929fff2362996d20770b27497a5ef9b34bcd3d86"
     },
     {
       "path": "deploy/cloudflare/preflight.mjs",
-      "bytes": 8260,
-      "sha256": "ab2edd23d5a26fff984a89a106b53e7aefe09f1205d54fe2494056a2e985e145"
+      "bytes": 8494,
+      "sha256": "af2880c33092c1465b1a1bdace598b3c7951926906be74527a077282b129bed3"
     },
     {
       "path": "deploy/cloudflare/sql/10-create-roles.psql",
@@ -1374,8 +1379,8 @@
     },
     {
       "path": "docs/development/member-toolkit.md",
-      "bytes": 3911,
-      "sha256": "aab448a2f812af7c89cff35e5c58405521cd1a779385c2a6fa2ce773738b12fa"
+      "bytes": 4227,
+      "sha256": "cc1ac36792dd7058b875420b586ae8ddbf4ab8383cfead1a548a13f056f4ce34"
     },
     {
       "path": "docs/development/module-expansion-design.md",
@@ -1399,8 +1404,8 @@
     },
     {
       "path": "docs/development/platform-admin-api.md",
-      "bytes": 11536,
-      "sha256": "b36889265a4fde5e54de03bf27fb7f6f735ea186c63da51c25fa751679b93e85"
+      "bytes": 11660,
+      "sha256": "d355ec8513dd4e67c78dfbaa567d0bb759d8a07ad54a0eac5e90d7c608325532"
     },
     {
       "path": "docs/development/public-operations.md",
@@ -3059,8 +3064,8 @@
     },
     {
       "path": "package.json",
-      "bytes": 2453,
-      "sha256": "23b7ac9706df088d1c6648abada3da0a10f4900200d922d57949dcf633ff5f66"
+      "bytes": 2857,
+      "sha256": "afc97240c00ab8f3706caeda08b6075b1623d9d0ecca6e338c7f95500261f050"
     },
     {
       "path": "packages/client-connections/cli.mjs",
@@ -3548,6 +3553,11 @@
       "sha256": "c5c1d5cb2bbe69dc3b485bdb94c5a5d0f9f65152b98206d43478231844dc6686"
     },
     {
+      "path": "tests/runtime/admin-sync-worker.test.ts",
+      "bytes": 15965,
+      "sha256": "793cb969352c2e20b190ac84761d756f986601e882d4c6a65157f7fcddc58f55"
+    },
+    {
       "path": "tests/runtime/avatar.test.ts",
       "bytes": 20431,
       "sha256": "0b5ce365a0638b881d0d5138eb906fc4cdbc666584ee75d7cf474b715c508ef9"
@@ -3793,9 +3803,14 @@
       "sha256": "3281258efa37b3515aec8334e79d7e775669d202fa7aeaed911287d30e20993c"
     },
     {
+      "path": "wrangler.admin-sync.jsonc",
+      "bytes": 6097,
+      "sha256": "510998349817a4d8c8ea18bbe3566049acaa178517fbc8fc4c250a0d3c9dd661"
+    },
+    {
       "path": "wrangler.jsonc",
-      "bytes": 4464,
-      "sha256": "4022c62d1a4a3dafc47f28c8e26d0ba57d8ff399e877b83792ecc94cf6778f9f"
+      "bytes": 4587,
+      "sha256": "4db0fd80af53d313698e6e1985d02054f6386e2acee714a3160c5fec61a82c23"
     }
   ]
 }
