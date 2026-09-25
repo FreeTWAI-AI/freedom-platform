@@ -29,8 +29,8 @@
     },
     {
       "path": "CONTRIBUTING.md",
-      "bytes": 3460,
-      "sha256": "0d7e5fbaa43b46804e6a50b782b249169eb88fefac0ec1fa78ed49f349197dc7"
+      "bytes": 3546,
+      "sha256": "e0bb7540ef9f1361b07a2c80fb5441eefa2432f202646d4dfd19779255997c39"
     },
     {
       "path": "DESIGN.md",
@@ -39,8 +39,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 12105,
-      "sha256": "88831b3b20d674426e3dba8a31bf474f2e4bdb73f35fdf493edfa189014b7e7b"
+      "bytes": 12094,
+      "sha256": "def4c9066ca56f2ddb2449a82e0bceea626c89cd70e926781f76526a9d2102af"
     },
     {
       "path": "apps/platform-api/src/app.ts",
@@ -1044,18 +1044,18 @@
     },
     {
       "path": "deploy/cloudflare/README.md",
-      "bytes": 3984,
-      "sha256": "efce368efdac8ced525539eb3d5b3f01c1cb2d70166cc9b1e1a49621bcb5b780"
+      "bytes": 4289,
+      "sha256": "57ab11799afa9b91b70da3ee57add84af0a5a759d20fc9a19ff61627d2b79f39"
     },
     {
       "path": "deploy/cloudflare/environments.json",
-      "bytes": 27098,
-      "sha256": "87385b85cd7df995fe390deacf95e348d97c8de2ad00727b05ac915774c5d6d4"
+      "bytes": 30575,
+      "sha256": "08776735c84d8c9172eec61912f6cf9a5adbe2ce0daae9e208737d424b7a17ed"
     },
     {
       "path": "deploy/cloudflare/lib/cloudflare.mjs",
-      "bytes": 23446,
-      "sha256": "e7591d258015d12329bb3d4dae0a39ed31be4ab59141508c2c9a3208b9d4c113"
+      "bytes": 26647,
+      "sha256": "8f6d7893fadad75e23cf79c4756ca9fa682264e5b71358537bf5d9f89e4e6485"
     },
     {
       "path": "deploy/cloudflare/lib/cost.mjs",
@@ -1069,8 +1069,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/manifest.mjs",
-      "bytes": 11311,
-      "sha256": "c1826d05d33332a1bcdc21e0efe385edfda3dc6973b2229ad54777b85d237d7f"
+      "bytes": 15713,
+      "sha256": "d1300ffb039958feb94fbee6a1fa497dc33ed127a8618df82b480427af464e1a"
     },
     {
       "path": "deploy/cloudflare/lib/migrations.mjs",
@@ -1089,8 +1089,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/provision-plan.mjs",
-      "bytes": 13232,
-      "sha256": "7fc92d029c04d55659f6e68f7a8eacb8c9d92d6f0350211a71a3ffcf7af2f46b"
+      "bytes": 7822,
+      "sha256": "ee2376549bc254abbbdacd56c86667b9e6b1de003ca137daae68af5f656ee8aa"
     },
     {
       "path": "deploy/cloudflare/lib/redact.mjs",
@@ -1099,13 +1099,13 @@
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
-      "bytes": 9349,
-      "sha256": "2add5901d4be1d9a3e87d1792870e681472a4ca71e0e552629f6068ea569f587"
+      "bytes": 10446,
+      "sha256": "082b2b263fe2fd3f165a7c2f6f6c5832f03ded54e0c2e545c635c6a25bd73824"
     },
     {
       "path": "deploy/cloudflare/preflight.mjs",
-      "bytes": 8216,
-      "sha256": "1c2620f95390c2680d8c13bb40564150f665d66a7d1362ef0b380c10a0e02b71"
+      "bytes": 8260,
+      "sha256": "ab2edd23d5a26fff984a89a106b53e7aefe09f1205d54fe2494056a2e985e145"
     },
     {
       "path": "deploy/cloudflare/sql/10-create-roles.psql",
@@ -1124,8 +1124,8 @@
     },
     {
       "path": "deploy/cloudflare/test/preflight.test.mjs",
-      "bytes": 68465,
-      "sha256": "7f468475cf2427b879eed62a0d5070edff1ecf07092ac454eebec8e2db22c338"
+      "bytes": 74391,
+      "sha256": "c6149dec951dd5eeb1cc0ed7279f4da59b71ef13a6569763fafa96e104a4d2ca"
     },
     {
       "path": "deploy/public/freedom-public-backup.service",
@@ -1269,13 +1269,13 @@
     },
     {
       "path": "docs/development/cloudflare-migration-status-2026-09-24.md",
-      "bytes": 22513,
-      "sha256": "0c8ea035209e7ddfe65debfde0121d3623d48e523dbb9b95dc3e7bbe96a9b6bd"
+      "bytes": 22525,
+      "sha256": "376fc358b0641fb9a7bfd0ee088d7f20d9832d72c5599200a1a23d8e30adbf36"
     },
     {
       "path": "docs/development/cloudflare-migration.md",
-      "bytes": 26398,
-      "sha256": "025b38998052526036f966436e153fd3fd8ee45eaf833ae365b07a8a61b64d19"
+      "bytes": 29057,
+      "sha256": "646ca1d85b29e48870c403fa0ededc7676512f1d4e635614b8dfaf8617c0ad35"
     },
     {
       "path": "docs/development/co-creation-custom-guild.md",
@@ -1394,8 +1394,8 @@
     },
     {
       "path": "docs/development/public-operations.md",
-      "bytes": 5239,
-      "sha256": "654f23be8a2ca3c37ac072d19be3f88902223dbd76e15f026c4d50d8c024ed2c"
+      "bytes": 5441,
+      "sha256": "3e2e03a39c069a25dcade3b854635bcf1e42ee8c70b5f530c9e8c3b15a66be59"
     },
     {
       "path": "docs/development/repository-guidance-index.json",
@@ -1439,13 +1439,13 @@
     },
     {
       "path": "docs/development/staging-access-deploy.md",
-      "bytes": 3421,
-      "sha256": "eafb5f56735c16de6ad44434f94c5a2a384ffdc9cde800fab9cbe33710ee9eb9"
+      "bytes": 3611,
+      "sha256": "70c061a9ed218df13068dc885446191173098ca5992706d8f1cc7581bb9721ea"
     },
     {
       "path": "docs/development/staging-operations.md",
-      "bytes": 5806,
-      "sha256": "75a4494c37b84328b18a14e5d0ed2e57cd982781fd9a46138849325de7911c01"
+      "bytes": 5996,
+      "sha256": "91d031a1a15035c3a089031c8a40a43bc099b49809bb82e9c6bfa5c83b7fcf5e"
     },
     {
       "path": "docs/development/workspace-ia-review.md",
@@ -2863,16 +2863,6 @@
       "sha256": "a99045fec95b7406cd1fd5912b166ad8bc2ebb2664c1cabe220ef69bbbc29770"
     },
     {
-      "path": "modules/development-access/guild-eligibility.ts",
-      "bytes": 1602,
-      "sha256": "9e9b6619a4e0e29beeb7ada9c1e11ba80fd60127bae443ef63c89a8f3e5f7c15"
-    },
-    {
-      "path": "modules/development-access/service.ts",
-      "bytes": 16648,
-      "sha256": "2bc4cac7903e0f03cd2ec869fa56ff9e0c99d588d218a95cc3468008c99c6518"
-    },
-    {
       "path": "modules/development/pages.ts",
       "bytes": 16124,
       "sha256": "d9b1db03ec168cef83e6781b58431bf456386a07fd907b1273b34d0d4ee5c781"
@@ -2881,6 +2871,16 @@
       "path": "modules/development/service.ts",
       "bytes": 41233,
       "sha256": "9436a9ced36601b6ee816ba00dcfc74abb239917146b8aca5035f5cc5c7dd4a1"
+    },
+    {
+      "path": "modules/development-access/guild-eligibility.ts",
+      "bytes": 1602,
+      "sha256": "9e9b6619a4e0e29beeb7ada9c1e11ba80fd60127bae443ef63c89a8f3e5f7c15"
+    },
+    {
+      "path": "modules/development-access/service.ts",
+      "bytes": 16648,
+      "sha256": "2bc4cac7903e0f03cd2ec869fa56ff9e0c99d588d218a95cc3468008c99c6518"
     },
     {
       "path": "modules/github-social/provider.ts",
@@ -3259,23 +3259,23 @@
     },
     {
       "path": "scripts/verify-cloud-candidate-lib.ts",
-      "bytes": 69375,
-      "sha256": "3af0320ca4f5ba5c5d9c0dc71fc7eca0723cdd0a86bbd5ed26b6ed765fa8677d"
+      "bytes": 69262,
+      "sha256": "ab2907727aa27987691d6b2048b658e72b7859ad4afcc0989b04a8af0b3f0282"
     },
     {
       "path": "scripts/verify-cloud-candidate-members.ts",
-      "bytes": 44727,
-      "sha256": "ddfb103318eb9d87ec3d83e8f6d3ba8663a5bf59897c4c0adf52b086d2d8b1fd"
+      "bytes": 44732,
+      "sha256": "27593618dc9e276856a4001798f9249992feb0cba24386ac22fdc4356e42cb5e"
     },
     {
       "path": "scripts/verify-cloud-candidate.md",
-      "bytes": 33568,
-      "sha256": "0370c215b2ddc6cf05725a4b6f94cfb861963bf2de20794baf448f0a70b4a3c3"
+      "bytes": 33757,
+      "sha256": "e5c5a658ab4e60f94a7b7ac941da7147b3aac2dba24821e448cb6720ad0d04ab"
     },
     {
       "path": "scripts/verify-cloud-candidate.ts",
-      "bytes": 12365,
-      "sha256": "8ae4406340664ad8d0568f65dcf73f2cd3bfad8d27202dbff827f4539cfb93f4"
+      "bytes": 12291,
+      "sha256": "106b4f1a8b732f811cedabde01ec25ed2ef506ddbabc5dd9d118f1058c3550c8"
     },
     {
       "path": "scripts/verify-member-settings.mjs",
@@ -3344,8 +3344,8 @@
     },
     {
       "path": "tests/e2e/cloud-candidate-acceptance.spec.ts",
-      "bytes": 72910,
-      "sha256": "425e039955c92f6fad87d3c811d8665851d52a7b0e28a1386f637f19143ffdba"
+      "bytes": 74000,
+      "sha256": "988519e241c334fa9552756dd515ba8851403b4de15cf2d7b8e873d8f25dd705"
     },
     {
       "path": "tests/e2e/co-creation.spec.ts",
@@ -3779,8 +3779,8 @@
     },
     {
       "path": "wrangler.jsonc",
-      "bytes": 4258,
-      "sha256": "f143e1e598b0b7559f52cac18001fba944fd2c9a18b7d357400696b74ca65e28"
+      "bytes": 4464,
+      "sha256": "4022c62d1a4a3dafc47f28c8e26d0ba57d8ff399e877b83792ecc94cf6778f9f"
     }
   ]
 }
