@@ -28,9 +28,11 @@ export class GitHubSocialProvider {
       if(this.waiting.length>=32)throw new GitHubProviderError('github_busy',503);
       await new Promise<void>(resolve=>this.waiting.push(resolve));
     }else this.active++;
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+    // Call the fetcher unbound: workerd throws "Illegal invocation" when the global
+    // fetch runs with this provider as `this` (Node does not care).
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000),fetcher=this.fetcher;
     try{
-      const response=await this.fetcher(url,{...init,redirect:'manual',signal:controller.signal,headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':VERSION,'User-Agent':'Freedom-Workshop-GitHub-Social',...init.headers}});
+      const response=await fetcher(url,{...init,redirect:'manual',signal:controller.signal,headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':VERSION,'User-Agent':'Freedom-Workshop-GitHub-Social',...init.headers}});
       if(response.type==='opaqueredirect'||(response.status>=300&&response.status<400)){await response.body?.cancel();throw new GitHubProviderError();}
       if(!allowed.includes(response.status)){
         await response.body?.cancel();
@@ -44,7 +46,7 @@ export class GitHubSocialProvider {
       if(reader)while(true){const chunk=await reader.read();if(chunk.done)break;size+=chunk.value.byteLength;if(size>maxBody){await reader.cancel();throw new GitHubProviderError('github_invalid_response');}chunks.push(chunk.value);}
       let body:unknown;try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw new GitHubProviderError('github_invalid_response');}
       return {status:response.status,body};
-    }catch(error){if(error instanceof GitHubProviderError)throw error;throw new GitHubProviderError();}
+    }catch(error){if(error instanceof GitHubProviderError)throw error;console.error('github_provider_failed',error instanceof Error?error.name:'unknown');throw new GitHubProviderError();}
     finally{clearTimeout(timer);const next=this.waiting.shift();if(next)next();else this.active--;}
   }
   async metrics(repository:string,token?:string):Promise<RepositorySnapshot>{
