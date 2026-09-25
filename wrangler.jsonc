@@ -1,10 +1,15 @@
-// Cloudflare Workers candidate runtime for freedom-platform. The existing Node
-// servers (deploy/public, deploy/staging) stay unchanged and keep their own databases.
+// Cloudflare Workers runtime for freedom-platform.
 //
-// This file holds no provider IDs or credentials. Routes/custom domains, the
-// Hyperdrive configurations, Images enablement and every secret are created by the
-// infrastructure owner; the zero IDs below are placeholders that make an unprepared
-// deploy fail.
+// env `next` is production since the 2026-09-25 cutover: Worker
+// freedom-platform-next, zone route freetwai.com/* only, APP_ORIGIN
+// https://freetwai.com. next.freetwai.com was removed. env `staging-next` is the
+// separate Cloudflare staging Worker and is unchanged (its custom domain is
+// attached outside this file). Castle still serves staging.freetwai.com and local
+// dev; it no longer serves freetwai.com.
+//
+// This file holds no provider IDs or credentials. The zero Hyperdrive IDs below
+// are template placeholders; real IDs live only in the operator's private overlay.
+// A zero id makes an unprepared deploy fail. It does not mean the resource is absent.
 //
 // HYPERDRIVE (the only database binding; carries all platform data):
 // - Each environment's configuration MUST be created with caching disabled
@@ -67,11 +72,13 @@
       "name": "freedom-platform-next",
       "workers_dev": false,
       "preview_urls": false,
+      // Production zone route only. Not a custom domain. next.freetwai.com was removed.
+      "routes": [{ "pattern": "freetwai.com/*", "zone_name": "freetwai.com" }],
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
       "images": { "binding": "IMAGES" },
       "vars": {
         "FREEDOM_ENV": "public",
-        "APP_ORIGIN": "https://next.freetwai.com",
+        "APP_ORIGIN": "https://freetwai.com",
         "FREEDOM_TRUST_CF_CONNECTING_IP": "true"
       }
     }

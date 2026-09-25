@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Freedom Platform Cloudflare Workers + Cloudflare-billed PlanetScale Postgres migration preflight.
 // Read-only by construction: offline checks, GET-only Cloudflare probes, allowlisted OCI/pscale reads.
-// There is no execute mode in this phase; mutating steps are only rendered as a reviewable plan.
+// Phase is cutover_complete (2026-09-25). There is still no execute mode. `plan --env next`
+// describes production; `plan --env staging-next` describes Cloudflare staging. Historical
+// pre-cutover checks stay in comments where the live topology made them contradictory.
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -33,7 +35,7 @@ Commands (all read-only):
   cloudflare --env-file P  GET-only permission and protected-resource probe
   oci [--oci-profile oracle1|oracle2] [--compare]  allowlisted OCI reads (alternative survey only)
   planetscale [--pscale-org O]  allowlisted pscale reads (never logs in or creates)
-  plan --env staging-next|next  render the dry-run provisioning plan (Cloudflare-billed PlanetScale)
+  plan --env staging-next|next  dry-run text: next is production (2026-09-25); staging-next is Cloudflare staging
   all [--env-file P] [--oci]  offline checks + plans; network probes only when requested
 
 The --env-file is a chmod 600 file with CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN
@@ -42,7 +44,7 @@ The --env-file is a chmod 600 file with CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API
 Options:
   --report                 also write the redacted JSON report to ${DEFAULT_REPORT_DIR} (0700/0600)
   --manifest P             alternate manifest (tests)
-  --execute                refused: no provider mutation exists in the preflight phase`;
+  --execute                refused: this tool has no execute capability`;
 
 export function parseArgs(argv) {
   const opts = { command: argv[0], flags: {} };
@@ -70,7 +72,7 @@ function writePrivateReport(report, dir = DEFAULT_REPORT_DIR) {
 export async function run(argv, deps = {}) {
   const { command, flags } = parseArgs(argv);
   if (!command || flags.help) return { code: command ? 0 : 2, output: USAGE };
-  if (flags.execute) return { code: 3, output: 'Refused: this phase has no execute capability. Provisioning is a separate reviewed phase.' };
+  if (flags.execute) return { code: 3, output: 'Refused: this tool has no execute capability. Production releases are the operator private helper, outside this versioned preflight.' };
   if (!COMMANDS.includes(command)) return { code: 2, output: USAGE };
   if (flags['oci-profile']) assertProfile(flags['oci-profile']);
   const manifest = loadManifest(flags.manifest ?? DEFAULT_MANIFEST);

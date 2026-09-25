@@ -21,7 +21,11 @@ export function ownedResources(env) {
     database: [env.database.name],
     db_role: Object.values(env.database.roles),
     r2_bucket: env.r2_buckets.map((b) => b.name),
-    access_application: [env.access.application_name, env.access.admin_application_name],
+    // Production has no site-wide Access application. Only an environment that
+    // still requires Access owns application names.
+    access_application: env.access?.required === true
+      ? [env.access.application_name, env.access.admin_application_name]
+      : [],
   };
 }
 
@@ -29,13 +33,21 @@ export function validateManifest(m) {
   const errors = [];
   const err = (msg) => errors.push(msg);
   if (m.schema !== 'freedom.cloudflare-migration-plan/v3') err('unexpected schema');
+  if (m.phase !== 'cutover_complete') err('phase must be cutover_complete');
   if (m.zone !== 'freetwai.com') err('zone must be freetwai.com');
-  const protectedHosts = new Set(m.protected?.hostnames ?? []);
-  for (const h of ['freetwai.com', 'staging.freetwai.com']) if (!protectedHosts.has(h)) err(`protected hostnames must include ${h}`);
+  // After 2026-09-25 only Castle staging is a protected tunnel hostname.
+  // freetwai.com is the production Worker route. Listing it here would make
+  // the production route a static error. The pre-cutover pair is historical.
+  const protectedList = m.protected?.hostnames ?? [];
+  const protectedHosts = new Set(protectedList);
+  if (!protectedHosts.has('staging.freetwai.com')) err('protected hostnames must include staging.freetwai.com');
+  if (protectedHosts.has('freetwai.com')) err('freetwai.com is the production Worker route and must not be a protected hostname');
+  if (protectedList.length !== 1) err('protected hostnames must be exactly staging.freetwai.com after 2026-09-25');
   for (const db of ['freedom_local', 'freedom_staging', 'freedom_public']) if (!m.protected?.local?.databases?.includes(db)) err(`protected local databases must include ${db}`);
   const d = m.database_defaults ?? {};
   if (d.engine !== 'postgresql' || d.major_version !== 18) err('database must be PostgreSQL 18 to match the current PG18 source');
   if (!Array.isArray(d.extensions_required)) err('extensions_required must be an explicit list');
+  if (!Array.isArray(d.extensions_allowlist) || d.extensions_allowlist.length !== 2 || d.extensions_allowlist[0] !== 'plpgsql' || d.extensions_allowlist[1] !== 'hypopg') err('extensions_allowlist must be exactly ["plpgsql", "hypopg"] (PlanetScale installs hypopg; allowlist it, do not CREATE EXTENSION)');
   if (m.providers?.selected !== 'planetscale_cloudflare_billed') err('selected provider must be planetscale_cloudflare_billed');
   const ps = m.providers?.planetscale ?? {};
   if (ps.billing !== 'cloudflare') err('PlanetScale must be billed through Cloudflare');
@@ -57,21 +69,40 @@ export function validateManifest(m) {
   const seen = new Map();
   for (const [key, env] of envs) {
     const prefix = ENV_PREFIX[key];
-    if (env.hostname !== `${key}.freetwai.com`) err(`${key}: hostname must be ${key}.freetwai.com`);
+    // next.freetwai.com was removed on 2026-09-25. Production hostname is the apex.
+    // staging-next keeps its own hostname and is not the production route.
+    if (key === 'next') {
+      if (env.role !== 'production') err('next: role must be production');
+      if (env.hostname !== 'freetwai.com') err('next: hostname must be freetwai.com (production apex since 2026-09-25; next.freetwai.com was removed)');
+      if (!env.route || env.route.pattern !== 'freetwai.com/*' || env.route.zone_name !== 'freetwai.com' || env.route.custom_domain) err('next: route must be the zone route freetwai.com/*');
+      const retired = env.retired_hostnames ?? [];
+      if (retired.length !== 1 || retired[0] !== 'next.freetwai.com') err('next: retired_hostnames must be exactly ["next.freetwai.com"]');
+    } else {
+      if (env.role !== 'cloudflare_staging') err(`${key}: role must be cloudflare_staging`);
+      if (env.hostname !== `${key}.freetwai.com`) err(`${key}: hostname must be ${key}.freetwai.com`);
+      if (env.route) err(`${key}: must not declare a production zone route`);
+    }
     if (protectedHosts.has(env.hostname)) err(`${key}: hostname ${env.hostname} is protected`);
     if (env.worker?.workers_dev !== false) err(`${key}: workers_dev must be false`);
     if (env.worker?.preview_urls !== false) err(`${key}: preview_urls must be false (no public preview URL bypassing Access)`);
-    if (env.access?.required !== true) err(`${key}: Access protection is required`);
+    const declaredAccess = [env.access?.application_name, env.access?.admin_application_name].filter((name) => name != null && name !== '');
+    for (const name of declaredAccess) {
+      if ((m.protected.access_applications ?? []).includes(name)) err(`${key}: Access application ${name} is protected`);
+    }
+    if (key === 'next') {
+      if (env.access?.required !== false) err('next: site-wide Access must not be required after cutover');
+      if (declaredAccess.length) err('next: production must not declare an Access application; the candidate apps were removed on 2026-09-25');
+    } else if (env.access?.required !== true) err(`${key}: Access protection is required`);
     const hd = env.hyperdrive;
     if (!hd || Array.isArray(hd)) err(`${key}: exactly one Hyperdrive config (object, not a list)`);
     else {
       if (hd.binding !== 'HYPERDRIVE') err(`${key}: Hyperdrive binding must be HYPERDRIVE`);
       if (hd.caching_disabled !== true) err(`${key}: Hyperdrive must have caching disabled for all platform queries`);
     }
-    if (key === 'next' && env.data_source === 'synthetic') err('next: candidate rehearsal data must come from a public backup restore');
+    if (key === 'next' && env.data_source !== 'production') err('next: data_source must be production after cutover');
     if (key === 'staging-next' && env.data_source !== 'synthetic') err('staging-next: must use synthetic data only (no live data, no local demo accounts)');
     if (key === 'staging-next' && env.database?.topology !== 'single_node') err('staging-next: starts as a single_node PS-5');
-    if (key === 'next' && env.database?.topology !== 'ha') err('next: production candidate must be HA before cutover');
+    if (key === 'next' && env.database?.topology !== 'ha') err('next: production database must be HA');
     const price = ps.catalog?.monthly_usd?.[`${env.database?.size} ${env.database?.topology}`];
     if (price === undefined) err(`${key}: size ${env.database?.size} ${env.database?.topology} is not a catalog SKU`);
     else if (price !== null && !(typeof price === 'number' && price >= 0)) err(`${key}: catalog price must be null (unknown) or a recorded number`);

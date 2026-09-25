@@ -22,6 +22,15 @@ function routeHost(route) {
   return String(pattern ?? '').replace(/^https?:\/\//, '').split('/')[0];
 }
 
+// Production declares exactly these two keys. A custom_domain flag, even false,
+// is not the zone route that has been live since 2026-09-25.
+function isExactProductionRoute(route, expected) {
+  if (!route || typeof route !== 'object' || Array.isArray(route)) return false;
+  const keys = Object.keys(route).sort();
+  return keys.length === 2 && keys[0] === 'pattern' && keys[1] === 'zone_name'
+    && route.pattern === expected?.pattern && route.zone_name === expected?.zone_name;
+}
+
 const PLACEHOLDER_ID = /^0{32}$/;
 const HYPERDRIVE_ID = /^[0-9a-f]{32}$/;
 
@@ -71,8 +80,18 @@ export function checkWranglerConfig(path, manifest, { hyperdriveConfigs } = {}) 
     if ((block.workers_dev ?? cfg.workers_dev) !== false) errors.push(`${label}: workers_dev must be explicitly false`);
     if ((block.preview_urls ?? cfg.preview_urls) !== false) errors.push(`${label}: preview_urls must be explicitly false (omitting it leaves the existing setting unchanged)`);
     const routes = [...(block.routes ?? []), ...(block.route ? [block.route] : [])];
-    for (const r of routes) if (routeHost(r) !== env.hostname) errors.push(`${label}: route ${routeHost(r)} is not ${env.hostname}`);
-    if (!routes.length) blockers.push(`${label}: custom domain ${env.hostname} is attached by the infrastructure owner (not in config)`);
+    // Before 2026-09-25 every environment attached a custom domain outside this
+    // file, and a route on freetwai.com was rejected as a protected hostname.
+    // After cutover, env next must contain the production zone route exactly.
+    // staging-next still omits its route: the operator attaches that custom domain.
+    if (env.role === 'production') {
+      if (routes.length !== 1 || !isExactProductionRoute(routes[0], env.route)) {
+        errors.push(`${label}: production route must be exactly {"pattern":"${env.route?.pattern}","zone_name":"${env.route?.zone_name}"}`);
+      }
+    } else {
+      for (const r of routes) if (routeHost(r) !== env.hostname) errors.push(`${label}: route ${routeHost(r)} is not ${env.hostname}`);
+      if (!routes.length) blockers.push(`${label}: custom domain ${env.hostname} is attached by the infrastructure owner (not in config)`);
+    }
 
     // assets is inheritable; images and hyperdrive are not.
     const assets = block.assets ?? cfg.assets;

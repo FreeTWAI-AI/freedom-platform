@@ -1044,18 +1044,18 @@
     },
     {
       "path": "deploy/cloudflare/README.md",
-      "bytes": 3141,
-      "sha256": "11bb4c44f4d6d8ff14c29c3be2ea16571741c4bfaa55ca002442f8e3c9b131d0"
+      "bytes": 3984,
+      "sha256": "efce368efdac8ced525539eb3d5b3f01c1cb2d70166cc9b1e1a49621bcb5b780"
     },
     {
       "path": "deploy/cloudflare/environments.json",
-      "bytes": 23394,
-      "sha256": "b41f589e6af8f4a5334bb697c46d9658942bf58faef5d349c92181bbda1d98ff"
+      "bytes": 27098,
+      "sha256": "87385b85cd7df995fe390deacf95e348d97c8de2ad00727b05ac915774c5d6d4"
     },
     {
       "path": "deploy/cloudflare/lib/cloudflare.mjs",
-      "bytes": 18576,
-      "sha256": "18abe5ec24b502d7d900739b7fc4627cc77395fc88d12bcb09f68e99290926bb"
+      "bytes": 23446,
+      "sha256": "e7591d258015d12329bb3d4dae0a39ed31be4ab59141508c2c9a3208b9d4c113"
     },
     {
       "path": "deploy/cloudflare/lib/cost.mjs",
@@ -1069,8 +1069,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/manifest.mjs",
-      "bytes": 8702,
-      "sha256": "8190a361248fe068af7411374846f0773523b4a2f2407c2b538f27c4915ca304"
+      "bytes": 11311,
+      "sha256": "c1826d05d33332a1bcdc21e0efe385edfda3dc6973b2229ad54777b85d237d7f"
     },
     {
       "path": "deploy/cloudflare/lib/migrations.mjs",
@@ -1089,8 +1089,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/provision-plan.mjs",
-      "bytes": 9693,
-      "sha256": "7db65c58ecb114cef7fede091678ce9a21a6458953b5c420ce6497f94f9aae79"
+      "bytes": 13232,
+      "sha256": "7fc92d029c04d55659f6e68f7a8eacb8c9d92d6f0350211a71a3ffcf7af2f46b"
     },
     {
       "path": "deploy/cloudflare/lib/redact.mjs",
@@ -1099,13 +1099,13 @@
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
-      "bytes": 8248,
-      "sha256": "256d358de74589263764c4372033bbbbf7d7630183f3289f9ee4509a876e0ec2"
+      "bytes": 9349,
+      "sha256": "2add5901d4be1d9a3e87d1792870e681472a4ca71e0e552629f6068ea569f587"
     },
     {
       "path": "deploy/cloudflare/preflight.mjs",
-      "bytes": 8000,
-      "sha256": "b4f2ddb9a1a441fe929197c644717d556eee6eb7ad3988b6e0dd0d2654303ac4"
+      "bytes": 8216,
+      "sha256": "1c2620f95390c2680d8c13bb40564150f665d66a7d1362ef0b380c10a0e02b71"
     },
     {
       "path": "deploy/cloudflare/sql/10-create-roles.psql",
@@ -1119,13 +1119,13 @@
     },
     {
       "path": "deploy/cloudflare/sql/30-verify-readonly.psql",
-      "bytes": 1481,
-      "sha256": "58792fe987dcd1a0baabe6e58e1733732cfe3e5ded1a211a99f73335f68e4fb3"
+      "bytes": 2047,
+      "sha256": "382da1fc6527fb9c8e9193bbc6ce99ef2192ce76013acaea047b1be661dc0349"
     },
     {
       "path": "deploy/cloudflare/test/preflight.test.mjs",
-      "bytes": 58938,
-      "sha256": "de865fa351cc4afb8c1bb8b39ca147dddb0d2ce76c2daa4ca9421d56507188af"
+      "bytes": 68465,
+      "sha256": "7f468475cf2427b879eed62a0d5070edff1ecf07092ac454eebec8e2db22c338"
     },
     {
       "path": "deploy/public/freedom-public-backup.service",
@@ -1269,13 +1269,13 @@
     },
     {
       "path": "docs/development/cloudflare-migration-status-2026-09-24.md",
-      "bytes": 22326,
-      "sha256": "65b92a492b73d574ccb9cb791f53fd4b20f2fb92bab22769c87efdd914d7cae4"
+      "bytes": 22513,
+      "sha256": "0c8ea035209e7ddfe65debfde0121d3623d48e523dbb9b95dc3e7bbe96a9b6bd"
     },
     {
       "path": "docs/development/cloudflare-migration.md",
-      "bytes": 23623,
-      "sha256": "0216cc9a67c901b6106470a39f8c9a0b473aa4260ce35e88fd5b8915ba893391"
+      "bytes": 26398,
+      "sha256": "025b38998052526036f966436e153fd3fd8ee45eaf833ae365b07a8a61b64d19"
     },
     {
       "path": "docs/development/co-creation-custom-guild.md",
@@ -2863,16 +2863,6 @@
       "sha256": "a99045fec95b7406cd1fd5912b166ad8bc2ebb2664c1cabe220ef69bbbc29770"
     },
     {
-      "path": "modules/development/pages.ts",
-      "bytes": 16124,
-      "sha256": "d9b1db03ec168cef83e6781b58431bf456386a07fd907b1273b34d0d4ee5c781"
-    },
-    {
-      "path": "modules/development/service.ts",
-      "bytes": 41233,
-      "sha256": "9436a9ced36601b6ee816ba00dcfc74abb239917146b8aca5035f5cc5c7dd4a1"
-    },
-    {
       "path": "modules/development-access/guild-eligibility.ts",
       "bytes": 1602,
       "sha256": "9e9b6619a4e0e29beeb7ada9c1e11ba80fd60127bae443ef63c89a8f3e5f7c15"
@@ -2881,6 +2871,16 @@
       "path": "modules/development-access/service.ts",
       "bytes": 16648,
       "sha256": "2bc4cac7903e0f03cd2ec869fa56ff9e0c99d588d218a95cc3468008c99c6518"
+    },
+    {
+      "path": "modules/development/pages.ts",
+      "bytes": 16124,
+      "sha256": "d9b1db03ec168cef83e6781b58431bf456386a07fd907b1273b34d0d4ee5c781"
+    },
+    {
+      "path": "modules/development/service.ts",
+      "bytes": 41233,
+      "sha256": "9436a9ced36601b6ee816ba00dcfc74abb239917146b8aca5035f5cc5c7dd4a1"
     },
     {
       "path": "modules/github-social/provider.ts",
@@ -3269,8 +3269,8 @@
     },
     {
       "path": "scripts/verify-cloud-candidate.md",
-      "bytes": 33430,
-      "sha256": "8fee027c15d59b5c4c6481c3bb065614a54959331056b5cc2846ddf12b5682ee"
+      "bytes": 33568,
+      "sha256": "0370c215b2ddc6cf05725a4b6f94cfb861963bf2de20794baf448f0a70b4a3c3"
     },
     {
       "path": "scripts/verify-cloud-candidate.ts",
@@ -3779,8 +3779,8 @@
     },
     {
       "path": "wrangler.jsonc",
-      "bytes": 3800,
-      "sha256": "6ae4573ce8877e275259f77cc843829facdbb79b3eaf964262b0a00fda474f25"
+      "bytes": 4258,
+      "sha256": "f143e1e598b0b7559f52cac18001fba944fd2c9a18b7d357400696b74ca65e28"
     }
   ]
 }
