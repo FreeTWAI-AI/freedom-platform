@@ -1,12 +1,12 @@
 # Cloudflare Workers＋PlanetScale Postgres 遷移：preflight、演練、切換與回退
 
-> 狀態（2026-09-25 切換完成）：正式環境是 Worker `freedom-platform-next`（env `next`），只由 zone route `freetwai.com/*` 提供，`APP_ORIGIN` 為 `https://freetwai.com`。`next.freetwai.com` 已移除。Castle `staging.freetwai.com` 與 Cloudflare `staging-next.freetwai.com` 都還在，哪一個是 staging 尚未決定。本目錄工具仍是唯讀 preflight，沒有 execute。現行拓撲見 §14。§2–13 是切換前的計畫與演練紀錄。2026-09-24 的數字見 [現況交接](cloudflare-migration-status-2026-09-24.md)。
+> 狀態（2026-09-25 切換完成）：正式環境是 Worker `freedom-platform-next`（env `next`），zone route `freetwai.com/*`，`APP_ORIGIN` 為 `https://freetwai.com`。Staging 是 Worker `freedom-platform-staging-next`（env `staging-next`），zone route `staging.freetwai.com/*`，`APP_ORIGIN` 為 `https://staging.freetwai.com`，`FREEDOM_ENV` 為 `staging`。Castle 只做本機開發。`next.freetwai.com` 與 `staging-next.freetwai.com` 都已移除。受保護 hostname 清單是空的。本目錄工具仍是唯讀 preflight，沒有 execute。現行拓撲見 §14。§2–13 是切換前的計畫與演練紀錄。2026-09-24 的數字見 [現況交接](cloudflare-migration-status-2026-09-24.md)。
 
 Canonical 方向見 [08 Bootstrap／Hosting](../platform-plan/08-bootstrap-hosting-project-lifecycle.md) §3.3、§5.1：Workers → Hyperdrive → managed PostgreSQL。依使用者最新指示，預設 provider 是 **由 Cloudflare 計費的 PlanetScale Postgres 18**（[Cloudflare 官方頁](https://developers.cloudflare.com/hyperdrive/planetscale/)）。OCI 是已調查的替代方案，不 provision；D1 是未來選項但不是 drop-in。工具與測試在 [deploy/cloudflare](../../deploy/cloudflare/README.md)。
 
 ## 1. 不動範圍（protected）
 
-2026-09-25 之後，受保護 hostname 只剩 `staging.freetwai.com`；`freetwai.com` 是正式 Worker route，不再是受保護的 tunnel hostname（見 §14）。
+2026-09-25 正式與 staging 都切到 Worker 之後，受保護 hostname 清單是空的：zone 裡不再有 Castle tunnel hostname。允許的 hostname 只有 `freetwai.com` 與 `staging.freetwai.com`，其餘一律拒絕（見 §14）。
 
 切換前 `freetwai.com`（Castle `127.0.0.1:4312`）和 `staging.freetwai.com`（`127.0.0.1:4310`）都經 Tunnel 服務，DB 是 Docker PG18 `127.0.0.1:54339` 內各自的資料庫，見 [公開運行手冊](public-operations.md)、[staging 運行手冊](staging-operations.md)。下表是當時的 default-deny 清單：
 
@@ -228,9 +228,9 @@ node --test deploy/cloudflare/test/*.test.mjs
 - Secrets `FREEDOM_ADMIN_CSRF_SECRET` 與 `GITHUB_SOCIAL_TOKEN_KEY` 已設在 Worker，write-only。發布不重傳。
 - Repo 內 Hyperdrive id 仍是全零 template。
 
-已移除：custom domain `next.freetwai.com` 與其兩個 Access application；tunnel `freedom-staging` 上 `freetwai.com` 的 ingress rule；Castle 上舊的 `freedom-public*` user units 與舊 release checkouts。
+已移除：custom domain `next.freetwai.com` 與其兩個 Access application；Castle 上舊的 `freedom-public*` user units 與舊 release checkouts。同日的 staging 切換刪除了 tunnel `freedom-staging`，見下方。
 
-仍在 Castle：開發用本機 Compose Postgres 與 `npm run demo`；`staging.freetwai.com` 不變（tunnel → `127.0.0.1:4310`，DB `freedom_staging`），這是唯一仍受保護的 hostname；`freedom-admin-access-sync` timer 繼續把管理員任命同步到 Cloudflare Access，public scope 經 0600 override env 讀 PlanetScale；`freedom_next` 的每日 off-provider `pg_dump`（落到 Castle）安裝中。
+Castle 不再提供 `freetwai.com` 或 `staging.freetwai.com`。留下的是開發用 Compose Postgres、`freedom_local`、admin-access sync timer，以及兩個雲端資料庫的每日 dump。細節見下方 staging 段。
 
 發布：私有 helper `release-deploy.mjs`（plan → deploy → health／route 驗證；不重傳 secrets），接著 `npx tsx scripts/verify-cloud-candidate.ts execute --target public ...`。`--target next` 自 2026-09-25 起不再解析。
 
@@ -238,4 +238,18 @@ node --test deploy/cloudflare/test/*.test.mjs
 
 `hypopg`：PlanetScale 自動安裝（schema `pscale_extensions`，owner `pscale_admin`）。「沒有 extension」的驗證必須把它與 `plpgsql` 一起列入 allowlist。見 [30-verify-readonly.psql](../../deploy/cloudflare/sql/30-verify-readonly.psql)。
 
-Staging 尚未決定以哪一個為準。Castle `staging.freetwai.com` 與 Cloudflare `staging-next.freetwai.com`（Worker `freedom-platform-staging-next`，Hyperdrive `freedom-staging-next-hd`，DB `freedom_staging_next`；Hyperdrive limit 已從 60 降到 15）兩者都在，角色都沒改。本節不選邊。
+Staging（2026-09-25，同日切換完成）：Castle staging 已退役。Castle 只做開發。Staging 在雲上。
+
+- Worker `freedom-platform-staging-next`（wrangler env `staging-next`，`FREEDOM_ENV=staging`），release 與正式環境相同：`aba91745ae519a74c646975ba12ea3c71da490ef`。`workers_dev` 與 `preview_urls` 為 false。
+- 唯一路由是 zone route `staging.freetwai.com/*`（zone `freetwai.com`）。`APP_ORIGIN` 是 `https://staging.freetwai.com`。
+- DNS 是 proxied `AAAA 100::` placeholder，不再 CNAME 到 Castle tunnel。
+- Hyperdrive `freedom-staging-next-hd`（caching disabled，`origin_connection_limit` 15）→ PlanetScale `freedom_staging_next`（PG18，Tokyo，PS-5 單節點）。
+- 資料：最終 Castle `freedom_staging` dump（81 tables；staging 示範帳號與示範社群，從來不是線上會員資料）已還原進 `freedom_staging_next`，取代先前的合成演練資料。註冊社群變數指向該示範社群。
+- Secrets：`FREEDOM_ADMIN_CSRF_SECRET`（新值）與 `GITHUB_SOCIAL_TOKEN_KEY`（沿用原本 Castle staging 的 key，既有 GitHub token 仍可解密）。兩者 write-only，發布不重傳。
+- Access 不變：既有 application `Freedom staging`（整個 `staging.freetwai.com`，具名人員）與 `Freedom staging administrators`（`staging.freetwai.com/admin`，指定的 super administrators）。Castle 的 admin-access sync timer 繼續同步；staging scope 經 0600 override env 讀 PlanetScale。這兩個 application 是既有受保護對象，計畫只引用、不建立、不修改、不刪除。
+- 已移除：hostname `staging-next.freetwai.com`、它的 Worker custom domain，以及 Access application `Freedom staging-next` 與 `Freedom staging-next administrators`。
+- Castle：`freedom-staging.service`、`freedom-staging-tunnel.service`、`freedom-staging-backup.service`／`.timer` 已退役；tunnel `freedom-staging` 已刪除；本機資料庫 `freedom_staging` 在驗證過最終 dump 之後已 drop。port 4310／4312 空出來給 `npm run demo`。Castle 保留：共用 Compose Postgres 與 `freedom_local`（開發）、admin-access sync timer（兩個 scope 都讀 PlanetScale）、`freedom_next` 與 `freedom_staging_next` 的每日 off-provider `pg_dump`（落到 Castle），以及 operator 私有的 release／cutover helper。
+- 發布：同一個私有 helper，接著 `npx tsx scripts/verify-cloud-candidate.ts execute --target staging`。`--target staging-next` 與 `--target next` 都不再解析。
+- 回退與正式環境同一條 R3：dump `freedom_staging_next`，還原進新的本機資料庫。不要指回已凍結的舊資料庫（本機 `freedom_staging` 也不存在了）。
+
+受保護 hostname 清單是空的。允許的 hostname 只有這兩個環境；其餘拒絕。`next.freetwai.com` 與 `staging-next.freetwai.com` 必須維持不存在（DNS、custom domain、Access application）。

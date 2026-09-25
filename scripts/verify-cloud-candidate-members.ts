@@ -53,9 +53,9 @@ export type MemberPhaseDeps = {
   cookieChecks(cookie: any, target: { origin: string }): CookieChecks;
 };
 
-/** `next` and `public` hold real community history. Guild channel reads and writes stay off those targets. */
+/** `public` holds live member history. Staging is Castle demo data, never live members. Guild channel reads and writes stay off `public`. */
 export function guildChannelsRealHistoryGuarded(target: { name: string }) {
-  return target.name === 'next' || target.name === 'public';
+  return target.name === 'public';
 }
 
 type Identity = { label: string; email: string; password: string; nickname: string };

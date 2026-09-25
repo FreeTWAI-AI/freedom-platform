@@ -15,7 +15,7 @@ import {HELP,main,parseArgs,readPrivateJson,validateAccess,validateAccount} from
 
 // Guard tests use in-memory transports. The final case is a local harness run
 // against this worktree's isolated E2E server; it tests the tool, not any cloud.
-const staging=candidateTarget('staging-next');
+const staging=candidateTarget('staging');
 const account={email:'synthetic-candidate@example.invalid',password:'Synthetic-Password-For-Tests-0001',label:'synthetic-test'};
 const access={clientId:'access-client-id-0001',clientSecret:'access-client-secret-000000001'};
 type Reply={status:number;json?:unknown;text?:string;headers?:Record<string,string>;cookies?:string[];bytes?:number};
@@ -39,17 +39,17 @@ test('import, parse and plan make no network request and report every remote pha
   const original=globalThis.fetch;let used=0;
   globalThis.fetch=(async()=>{used++;throw Error('network');}) as typeof fetch;
   try {
-    const cli=parseArgs(['plan','--target','next','--phases','guild-cache,load']);
+    const cli=parseArgs(['plan','--target','public','--phases','guild-cache,load']);
     const report=await runCandidate({target:cli.target!,run:'plan',phases:cli.phases,expectedVersion:'1.2.3',contract:metadata});
     expect(used).toBe(0);
-    expect(report).toMatchObject({run:'plan',harness:'cloud_candidate',cloud_proof:false,overall:'not_run',access_credential:'not_read',target:{origin:'https://next.freetwai.com',expected_mode:'public'}});
+    expect(report).toMatchObject({run:'plan',harness:'cloud_candidate',cloud_proof:false,overall:'not_run',access_credential:'not_read',target:{origin:'https://freetwai.com',expected_mode:'public'}});
     expect(report.phases.map(phase=>phase.status)).toEqual(PHASES.map(()=> 'not_run'));
     expect(report.statement).toMatch(/no network request/);
     expect(cli.phases).toEqual(['preflight','health','session','guild-cache','load','logout']);
     // Plan may omit the release SHA; health is then marked as needing it for execute.
     expect(report.expected_release_sha).toBeNull();
     expect(report.phases.find(p=>p.id==='health')).toMatchObject({status:'not_run',reason:'plan_only_execute_requires_expected_release_sha'});
-    const withSha=parseArgs(['plan','--target','next','--expected-release-sha',sha.toUpperCase()]);
+    const withSha=parseArgs(['plan','--target','public','--expected-release-sha',sha.toUpperCase()]);
     expect(withSha.expectedReleaseSha).toBe(sha);
     const planned=await runCandidate({target:withSha.target!,run:'plan',phases:withSha.phases,expectedVersion:'1.2.3',expectedReleaseSha:withSha.expectedReleaseSha,contract:metadata});
     expect(planned).toMatchObject({expected_release_sha:sha,cloud_proof:false,overall:'not_run'});
@@ -62,12 +62,12 @@ test('execute requires an exact expected release SHA before any request',async()
   // Every network selection adds health; preflight alone stays networkless.
   for(const phases of [['load'],['protocol'],['assets','anonymous'],['session']])expect(selectPhases(phases),phases.join()).toContain('health');
   expect(selectPhases(['preflight'])).toEqual(['preflight']);
-  for(const argv of [['execute','--target','next'],['execute','--target','next','--phases','load']])expect(()=>parseArgs(argv)).toThrow(/--expected-release-sha/);
-  for(const value of [sha.slice(1),sha+'0','g'.repeat(40),sha.slice(0,7),'']) expect(()=>parseArgs(['execute','--target','next','--expected-release-sha',value]),value).toThrow();
-  expect(parseArgs(['execute','--target','next','--expected-release-sha',sha]).expectedReleaseSha).toBe(sha);
+  for(const argv of [['execute','--target','public'],['execute','--target','public','--phases','load']])expect(()=>parseArgs(argv)).toThrow(/--expected-release-sha/);
+  for(const value of [sha.slice(1),sha+'0','g'.repeat(40),sha.slice(0,7),'']) expect(()=>parseArgs(['execute','--target','public','--expected-release-sha',value]),value).toThrow();
+  expect(parseArgs(['execute','--target','public','--expected-release-sha',sha]).expectedReleaseSha).toBe(sha);
   const original=globalThis.fetch;let used=0;
   globalThis.fetch=(async()=>{used++;throw Error('network');}) as typeof fetch;
-  try{await expect(main(['execute','--target','next'],{})).rejects.toThrow(/--expected-release-sha/);}finally{globalThis.fetch=original;}
+  try{await expect(main(['execute','--target','public'],{})).rejects.toThrow(/--expected-release-sha/);}finally{globalThis.fetch=original;}
   expect(used).toBe(0);
   // Library callers get the same guard in preflight: health is blocked, nothing is sent.
   for(const expectedReleaseSha of [null,'abc',sha.toUpperCase()]){
@@ -83,7 +83,7 @@ test('execute requires an exact expected release SHA before any request',async()
 test('a preflight-only execute stays valid but is never cloud proof',async()=>{
   for(const phases of [['preflight'],[]] as PhaseId[][]){
     let requests=0;
-    const report=await runCandidate({target:candidateTarget('next'),run:'execute',phases:selectPhases(phases),expectedVersion:'1.2.3',contract:metadata,transport:async()=>{requests++;throw Error('unexpected');}});
+    const report=await runCandidate({target:candidateTarget('public'),run:'execute',phases:selectPhases(phases),expectedVersion:'1.2.3',contract:metadata,transport:async()=>{requests++;throw Error('unexpected');}});
     expect(requests).toBe(0);
     expect(report.phases.find(p=>p.id==='preflight')?.status).toBe('pass');
     expect(report).toMatchObject({run:'execute',harness:'cloud_candidate',overall:'pass',cloud_proof:false});
@@ -101,28 +101,37 @@ test('a preflight-only execute stays valid but is never cloud proof',async()=>{
 });
 
 test('only the allowlisted origins are addressable',()=>{
-  for(const value of ['staging-next','https://staging-next.freetwai.com','https://staging-next.freetwai.com/'])expect(candidateTarget(value).mode).toBe('staging');
-  for(const value of ['next','https://next.freetwai.com','https://next.freetwai.com/'])expect(candidateTarget(value)).toMatchObject({name:'next',origin:'https://next.freetwai.com',mode:'public',harness:'cloud_candidate'});
+  for(const value of ['staging','https://staging.freetwai.com','https://staging.freetwai.com/'])expect(candidateTarget(value)).toMatchObject({name:'staging',origin:'https://staging.freetwai.com',mode:'staging',harness:'cloud_candidate'});
   for(const value of ['public','https://freetwai.com','https://freetwai.com/'])expect(candidateTarget(value)).toMatchObject({name:'public',origin:'https://freetwai.com',mode:'public',harness:'cloud_candidate'});
   expect(parseArgs(['plan','--target','public']).target).toMatchObject({name:'public',origin:'https://freetwai.com'});
+  expect(parseArgs(['plan','--target','staging']).target).toMatchObject({name:'staging',origin:'https://staging.freetwai.com'});
   expect(parseArgs(['plan','--target','https://freetwai.com']).target).toMatchObject({name:'public',origin:'https://freetwai.com'});
-  expect(HELP).toContain('--target staging-next|next|public');
+  expect(parseArgs(['plan','--target','https://staging.freetwai.com/']).target).toMatchObject({name:'staging',origin:'https://staging.freetwai.com'});
+  expect(HELP).toContain('--target staging|public');
+  expect(HELP).toContain('https://staging.freetwai.com');
   expect(HELP).toContain('https://freetwai.com');
-  for(const value of ['https://staging.freetwai.com','https://www.freetwai.com','freetwai','staging','http://freetwai.com','http://next.freetwai.com',
+  expect(HELP).toContain('staging-next and next no longer resolve');
+  for(const value of ['staging-next','next','https://staging-next.freetwai.com','https://staging-next.freetwai.com/','https://next.freetwai.com','https://next.freetwai.com/',
+    'https://www.freetwai.com','freetwai','http://freetwai.com','http://staging.freetwai.com','http://next.freetwai.com',
     'https://FREETWAI.com','https://freetwai.com.','https://freetwai.com:443','https://freetwai.com/api','https://freetwai.com?x=1','https://freetwai.com#x',
-    'https://u:p@freetwai.com','https://freetwai.com.evil.example','https://freetwai.com//','public ','PUBLIC',
+    'https://u:p@freetwai.com','https://freetwai.com.evil.example','https://freetwai.com//','public ','PUBLIC','staging ','STAGING',
+    'https://STAGING.freetwai.com','https://staging.freetwai.com.','https://staging.freetwai.com:443','https://staging.freetwai.com:8443','https://staging.freetwai.com/api',
+    'https://staging.freetwai.com?x=1','https://staging.freetwai.com#x','https://u:p@staging.freetwai.com','https://staging.freetwai.com.evil.example','https://staging.freetwai.com//',
     'https://NEXT.freetwai.com','https://next.freetwai.com.','https://next.freetwai.com:443','https://next.freetwai.com:8443','https://next.freetwai.com/api',
     'https://next.freetwai.com?x=1','https://next.freetwai.com#x','https://u:p@next.freetwai.com','https://next.freetwai.com.evil.example',
     'https://evil.example/next.freetwai.com','https://nеxt.freetwai.com','https://xn--nxt-8cd.freetwai.com',' next','next ','javascript:next','constructor','__proto__'])
     expect(()=>candidateTarget(value),value).toThrow(/target must be/);
-  expect(()=>{candidateTarget('https://staging.freetwai.com');}).toThrow(/public/);
+  expect(()=>{candidateTarget('staging-next');}).toThrow(/staging/);
+  expect(()=>{candidateTarget('next');}).toThrow(/public/);
   expect(()=>{candidateTarget('https://www.freetwai.com');}).toThrow(/https:\/\/freetwai\.com/);
-  for(const argv of [['execute','--target','next','--password','x'],['--target','next','--token=abc'],['--target','next','--target','staging-next'],['--target','next','--phases','health,drop'],
-    ['--target','next','--load-requests','601'],['--target','next','--load-concurrency','0'],['--target','next','--expected-version','$(id)'],['--target','next','--dev-guild','guild_platform_engineering']])
+  expect(()=>{candidateTarget('https://staging-next.freetwai.com');}).toThrow(/https:\/\/staging\.freetwai\.com/);
+  for(const argv of [['execute','--target','public','--password','x'],['--target','public','--token=abc'],['--target','public','--target','staging'],['--target','public','--phases','health,drop'],
+    ['--target','public','--load-requests','601'],['--target','public','--load-concurrency','0'],['--target','public','--expected-version','$(id)'],['--target','public','--dev-guild','guild_platform_engineering'],
+    ['--target','staging-next'],['--target','next']])
     expect(()=>parseArgs(argv),argv.join(' ')).toThrow();
   const pasted='argv-secret-value-000000001';
   expect(()=>selectPhases(['health',pasted])).toThrow(/^unknown phase$/);
-  try{parseArgs(['--target','next','--phases',pasted]);}catch(error){expect(String(error)).not.toContain(pasted);}
+  try{parseArgs(['--target','public','--phases',pasted]);}catch(error){expect(String(error)).not.toContain(pasted);}
   for(const origin of ['https://127.0.0.1:4322','http://localhost:4322','http://127.0.0.1','http://127.0.0.1:4322/x','https://next.freetwai.com'])expect(()=>localHarnessTarget(origin)).toThrow();
 });
 
@@ -150,13 +159,12 @@ test('public is allowlisted and cloud health still requires release_sha',async()
   expect(requests).toBe(0);
 });
 
-test('foreign-origin selection stays meaningful for public, next and staging-next',async()=>{
-  expect(foreignLoginOrigins(candidateTarget('public'))).toEqual([['missing_origin','none'],['foreign_origin','https://attacker.invalid'],['candidate_origin','https://next.freetwai.com']]);
-  expect(foreignLoginOrigins(candidateTarget('next'))).toEqual([['missing_origin','none'],['foreign_origin','https://attacker.invalid'],['old_live_origin','https://freetwai.com']]);
-  expect(foreignLoginOrigins(candidateTarget('staging-next'))).toEqual(foreignLoginOrigins(candidateTarget('next')));
+test('foreign-origin selection stays meaningful for public and staging',async()=>{
+  expect(foreignLoginOrigins(candidateTarget('public'))).toEqual([['missing_origin','none'],['foreign_origin','https://attacker.invalid'],['staging_origin','https://staging.freetwai.com']]);
+  expect(foreignLoginOrigins(candidateTarget('staging'))).toEqual([['missing_origin','none'],['foreign_origin','https://attacker.invalid'],['production_origin','https://freetwai.com']]);
   const challenge={status:302,bytes:0,headers:{location:'https://team.cloudflareaccess.com/cdn-cgi/access/login'}};
   const reached={status:200,bytes:32,headers:{'content-type':'text/html'}};
-  async function anonymous(targetName:'staging-next'|'next'|'public',withAccess:boolean,root:Reply){
+  async function anonymous(targetName:'staging'|'public',withAccess:boolean,root:Reply){
     const origins:(string|null)[]=[];
     const {transport,calls}=mock(request=>{
       const path=new URL(request.url).pathname;
@@ -169,29 +177,28 @@ test('foreign-origin selection stays meaningful for public, next and staging-nex
     const report=await runCandidate({...base(['anonymous']),target:candidateTarget(targetName),transport,...(withAccess?{access}:{})});
     return {report,calls,origins};
   }
-  const stagingGate=await anonymous('staging-next',true,challenge);
+  const stagingGate=await anonymous('staging',true,challenge);
   expect(stagingGate.report.phases.find(p=>p.id==='anonymous')).toMatchObject({status:'pass'});
   expect(stagingGate.report.phases.find(p=>p.id==='anonymous')!.checks).toContainEqual({id:'access_gate_challenges_unauthenticated',status:'pass'});
+  expect(stagingGate.report.phases.find(p=>p.id==='anonymous')!.checks).toContainEqual({id:'login_production_origin_rejected',status:'pass'});
   expect(stagingGate.origins).toEqual([null,'https://attacker.invalid','https://freetwai.com']);
+  expect(stagingGate.origins).not.toContain('https://staging.freetwai.com');
   const stagingRoot=stagingGate.calls.filter(call=>new URL(call.url).pathname==='/');
   expect(stagingRoot).toHaveLength(1);
   expect(stagingRoot[0].headers['CF-Access-Client-Id']).toBeUndefined();
   expect(stagingGate.calls.find(call=>new URL(call.url).pathname==='/api/v1/session')?.headers['CF-Access-Client-Id']).toBe(access.clientId);
-  const nextGate=await anonymous('next',true,challenge);
-  expect(nextGate.report.phases.find(p=>p.id==='anonymous')).toMatchObject({status:'pass'});
-  expect(nextGate.report.phases.find(p=>p.id==='anonymous')!.checks).toContainEqual({id:'access_gate_challenges_unauthenticated',status:'pass'});
-  expect(nextGate.origins).toEqual([null,'https://attacker.invalid','https://freetwai.com']);
-  expect(nextGate.origins).not.toContain('https://next.freetwai.com');
+  expect(stagingGate.calls.every(call=>new URL(call.url).origin==='https://staging.freetwai.com')).toBe(true);
   for(const withAccess of [false,true]){
     const live=await anonymous('public',withAccess,reached);
     const phase=live.report.phases.find(p=>p.id==='anonymous')!;
     expect(phase,String(withAccess)).toMatchObject({status:'pass',metrics:{access_gate:'not_applicable'}});
     expect(phase.checks).toContainEqual({id:'anonymous_reaches_app',status:'pass'});
     expect(phase.checks.map(check=>check.id)).not.toContain('access_gate_challenges_unauthenticated');
-    for(const id of ['/api/v1/session:401','/api/v1/session:login_required','/api/v1/session:no_store','/api/v1/session:no_cookie_set','login_candidate_origin_rejected'])
+    for(const id of ['/api/v1/session:401','/api/v1/session:login_required','/api/v1/session:no_store','/api/v1/session:no_cookie_set','login_staging_origin_rejected'])
       expect(phase.checks,id).toContainEqual({id,status:'pass'});
-    expect(phase.checks.map(check=>check.id)).not.toContain('login_old_live_origin_rejected');
-    expect(live.origins).toEqual([null,'https://attacker.invalid','https://next.freetwai.com']);
+    expect(phase.checks.map(check=>check.id)).not.toContain('login_production_origin_rejected');
+    expect(live.origins).toEqual([null,'https://attacker.invalid','https://staging.freetwai.com']);
+    expect(live.origins).not.toContain('https://freetwai.com');
     const root=live.calls.filter(call=>new URL(call.url).pathname==='/');
     expect(root).toHaveLength(1);
     expect(root[0].headers['CF-Access-Client-Id']).toBeUndefined();
@@ -200,7 +207,7 @@ test('foreign-origin selection stays meaningful for public, next and staging-nex
   const challenged=await anonymous('public',true,challenge);
   expect(challenged.report.phases.find(p=>p.id==='anonymous')).toMatchObject({status:'fail',reason:'anonymous_reaches_app'});
   expect(challenged.report.phases.find(p=>p.id==='anonymous')!.checks.at(-1)).toEqual({id:'anonymous_reaches_app',status:'fail',note:'access_challenge'});
-  const openStaging=await anonymous('staging-next',true,reached);
+  const openStaging=await anonymous('staging',true,reached);
   expect(openStaging.report.phases.find(p=>p.id==='anonymous')).toMatchObject({status:'fail',reason:'access_gate_challenges_unauthenticated'});
   expect(openStaging.calls.filter(call=>new URL(call.url).pathname==='/')).toHaveLength(1);
   expect(openStaging.calls.some(call=>new URL(call.url).pathname==='/api/v1/auth/login')).toBe(false);
@@ -209,7 +216,7 @@ test('foreign-origin selection stays meaningful for public, next and staging-nex
 test('client refuses other origins before sending and never follows redirects or forwards Access headers elsewhere',async()=>{
   const {transport,calls}=mock(()=>({status:302,headers:{location:'https://team.cloudflareaccess.com/cdn-cgi/access/login'}}));
   const client=new CandidateClient(staging,transport,access,new Secrets());
-  for(const path of ['//evil.example/x','https://evil.example/','/\\evil.example','http://staging-next.freetwai.com/','/a b','/x#y','relative'])
+  for(const path of ['//evil.example/x','https://evil.example/','/\\evil.example','http://staging.freetwai.com/','http://staging-next.freetwai.com/','https://next.freetwai.com/','/a b','/x#y','relative'])
     await expect(client.request('GET',path),path).rejects.toBeInstanceOf(OriginGuardError);
   expect(calls).toHaveLength(0);
   const report=await runCandidate({...base(['health']),transport,access});
@@ -464,7 +471,8 @@ test('credential files must be private, synthetic and bound to the candidate ori
   expect(()=>validateAccount({...raw(),synthetic:false},staging)).toThrow(/synthetic/);
   expect(()=>validateAccount({...raw(),role:'admin'},staging)).toThrow(/exactly/);
   expect(validateAccount(raw(),staging).label).toBe('synthetic-test');
-  expect(()=>validateAccess({candidate_origin:'https://staging.freetwai.com',client_id:access.clientId,client_secret:access.clientSecret},staging)).toThrow(/different origin/);
+  expect(()=>validateAccess({candidate_origin:'https://staging-next.freetwai.com',client_id:access.clientId,client_secret:access.clientSecret},staging)).toThrow(/different origin/);
+  expect(validateAccess({candidate_origin:staging.origin,client_id:access.clientId,client_secret:access.clientSecret},staging).clientId).toBe(access.clientId);
   const directory=await mkdtemp(join(tmpdir(),'cloud-candidate-'));
   try {
     const file=join(directory,'account.json');await writeFile(file,JSON.stringify(raw()),{mode:0o644});await chmod(file,0o644);
@@ -831,10 +839,10 @@ test('registration, messages and messages-mobile pass on the local harness and t
   expect((await e2eAuthPool.query('SELECT count(*)::int AS n FROM sessions WHERE user_id=ANY($1::uuid[]) AND revoked_at IS NULL',[ids])).rows[0].n).toBe(0);
 });
 
-test('target next does not read or write a guild channel',async({browser})=>{
+test('target public does not read or write a guild channel',async({browser})=>{
   test.setTimeout(240000);
   const loop=localHarnessTarget(e2eOrigin());
-  const target={...loop,name:'next' as const};
+  const target={...loop,name:'public' as const};
   const urls:string[]=[];
   const transport:Transport=async request=>{urls.push(request.url);return fetchTransport(request);};
   const observed:BrowserLike={newContext:async options=>{
@@ -844,7 +852,7 @@ test('target next does not read or write a guild channel',async({browser})=>{
   }};
   const report=await runCandidate({target,run:'execute',phases:selectPhases(['registration','messages','messages-mobile']),expectedVersion:packageMetadata.version,contract:metadata,browser:observed,transport});
   expect(phaseFailures(report.phases)).toEqual([]);
-  expect(report).toMatchObject({harness:'local_harness',cloud_proof:false,overall:'pass',target:{name:'next',origin:loop.origin,expected_mode:'local'}});
+  expect(report).toMatchObject({harness:'local_harness',cloud_proof:false,overall:'pass',target:{name:'public',origin:loop.origin,expected_mode:'local'}});
   expect(report.phases.find(phase=>phase.id==='messages')?.metrics).toMatchObject({guild_channel:'not_run',guild_channel_reason:'real_history_guarded',rate_limit:'not_covered'});
   expect(report.phases.find(phase=>phase.id==='messages-mobile')?.status).toBe('pass');
   const paths=urls.map(requestPath);
@@ -894,15 +902,16 @@ test('registration phases do not require an account file',async()=>{
   expect(accountFileRequired(selectPhases(['session']))).toBe(true);
   expect(selectPhases(['registration','messages','messages-mobile'])).toEqual(['preflight','health','registration','messages','messages-mobile']);
   expect(selectPhases(['messages'])).toEqual(['preflight','health','messages']);
-  expect(guildChannelsRealHistoryGuarded(candidateTarget('next'))).toBe(true);
+  expect(()=>candidateTarget('next')).toThrow(/target must be/);
+  expect(()=>candidateTarget('staging-next')).toThrow(/target must be/);
   expect(guildChannelsRealHistoryGuarded(candidateTarget('public'))).toBe(true);
-  expect(guildChannelsRealHistoryGuarded(candidateTarget('staging-next'))).toBe(false);
+  expect(guildChannelsRealHistoryGuarded(candidateTarget('staging'))).toBe(false);
   expect(guildChannelsRealHistoryGuarded(localHarnessTarget('http://127.0.0.1:4400'))).toBe(false);
-  expect(parseArgs(['plan','--target','next','--phases','registration,messages,messages-mobile']).phases).toEqual(['preflight','health','registration','messages','messages-mobile']);
-  const plan=await runCandidate({target:candidateTarget('next'),run:'plan',phases:selectPhases(['registration','messages','messages-mobile']),expectedVersion:'1.2.3',expectedReleaseSha:sha,contract:metadata});
+  expect(parseArgs(['plan','--target','public','--phases','registration,messages,messages-mobile']).phases).toEqual(['preflight','health','registration','messages','messages-mobile']);
+  const plan=await runCandidate({target:candidateTarget('public'),run:'plan',phases:selectPhases(['registration','messages','messages-mobile']),expectedVersion:'1.2.3',expectedReleaseSha:sha,contract:metadata});
   expect(plan.overall).toBe('not_run');
   expect(plan.phases.find(phase=>phase.id==='registration')?.writes).toMatch(/cand-reg/);
-  expect(plan.phases.find(phase=>phase.id==='messages')?.writes).toMatch(/not next/);
+  expect(plan.phases.find(phase=>phase.id==='messages')?.writes).toMatch(/not public/);
   expect(plan.phases.find(phase=>phase.id==='messages-mobile')?.writes).toMatch(/mobile/);
   expect(plan.phases.find(phase=>phase.id==='logout')).toMatchObject({status:'not_run',reason:'not_selected'});
   let requests=0;

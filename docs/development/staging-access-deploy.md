@@ -1,5 +1,7 @@
 # Staging：內部預覽與雲端遷移
 
+> 歷史 Castle 運行手冊，2026-09-25 退役。現行 staging 在 Cloudflare Worker，見 [遷移手冊 §14](cloudflare-migration.md#14-切換後現況2026-09-25)。下文不改寫。
+
 ## 目前可用的入口
 
 <https://staging.freetwai.com>。Cloudflare Access 的真人名單只有 `ted@ted-h.com`。通過 email／OTP 後，可用頁面的三個示範帳號操作會員首頁、定位／公會、供貨、開店、開源、行銷，以及既有工作與合作紀錄；密碼是頁面列出的 `freedom-local-demo`。

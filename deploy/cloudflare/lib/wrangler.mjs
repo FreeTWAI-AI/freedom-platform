@@ -22,9 +22,11 @@ function routeHost(route) {
   return String(pattern ?? '').replace(/^https?:\/\//, '').split('/')[0];
 }
 
-// Production declares exactly these two keys. A custom_domain flag, even false,
-// is not the zone route that has been live since 2026-09-25.
-function isExactProductionRoute(route, expected) {
+// A live zone route declares exactly these two keys. A custom_domain flag, even
+// false, is not that route. Both environments have used this shape since the
+// 2026-09-25 staging cutover. Historical: only env next had a zone route, and
+// staging-next attached a custom domain outside this file.
+function isExactZoneRoute(route, expected) {
   if (!route || typeof route !== 'object' || Array.isArray(route)) return false;
   const keys = Object.keys(route).sort();
   return keys.length === 2 && keys[0] === 'pattern' && keys[1] === 'zone_name'
@@ -55,6 +57,7 @@ export function checkWranglerConfig(path, manifest, { hyperdriveConfigs } = {}) 
   const blockers = [];
   const injections = [];
   const protectedHosts = new Set(manifest.protected.hostnames);
+  const allowedHosts = new Set(Object.values(manifest.environments).map((env) => env.hostname));
   const candidates = Object.fromEntries(Object.entries(manifest.environments).map(([k, e]) => [e.worker.name, k]));
   const idOwners = new Map();
 
@@ -66,7 +69,12 @@ export function checkWranglerConfig(path, manifest, { hyperdriveConfigs } = {}) 
     const routes = [...(block.routes ?? []), ...(block.route ? [block.route] : [])];
     for (const r of routes) {
       const host = routeHost(r);
-      if (protectedHosts.has(host) || host.startsWith('*')) errors.push(`${label}: route ${host} touches a protected or wildcard hostname`);
+      // Protected hostname list is empty after the staging cutover. The check
+      // remains so a restored tunnel hostname is still refused. Every other
+      // hostname outside the two environment hostnames is denied.
+      if (host.startsWith('*')) errors.push(`${label}: route ${host} is a wildcard`);
+      else if (protectedHosts.has(host)) errors.push(`${label}: route ${host} touches a protected hostname`);
+      else if (!allowedHosts.has(host)) errors.push(`${label}: route ${host} is not an allowlisted environment hostname`);
     }
     if (label !== '(top-level)' && !manifest.environments[label]) errors.push(`${label}: environment is not in the manifest`);
     if (!candidates[name] && routes.length) errors.push(`${label}: Worker ${name} is not a manifest candidate but declares routes`);
@@ -82,13 +90,20 @@ export function checkWranglerConfig(path, manifest, { hyperdriveConfigs } = {}) 
     const routes = [...(block.routes ?? []), ...(block.route ? [block.route] : [])];
     // Before 2026-09-25 every environment attached a custom domain outside this
     // file, and a route on freetwai.com was rejected as a protected hostname.
-    // After cutover, env next must contain the production zone route exactly.
-    // staging-next still omits its route: the operator attaches that custom domain.
-    if (env.role === 'production') {
-      if (routes.length !== 1 || !isExactProductionRoute(routes[0], env.route)) {
-        errors.push(`${label}: production route must be exactly {"pattern":"${env.route?.pattern}","zone_name":"${env.route?.zone_name}"}`);
+    // After the production cutover, env next had to contain its zone route and
+    // staging-next still omitted its route. After the staging cutover both
+    // environments must contain their zone route exactly.
+    if (env.route) {
+      const which = env.role === 'production' ? 'production' : 'staging';
+      if (routes.length !== 1 || !isExactZoneRoute(routes[0], env.route)) {
+        errors.push(`${label}: ${which} route must be exactly {"pattern":"${env.route?.pattern}","zone_name":"${env.route?.zone_name}"}`);
+      }
+      for (const host of env.retired_hostnames ?? []) {
+        if (routes.some((r) => routeHost(r) === host)) errors.push(`${label}: retired hostname ${host} must not be a route`);
       }
     } else {
+      // Historical shape: an environment with no route in the manifest attached
+      // its custom domain outside this file. No current environment uses it.
       for (const r of routes) if (routeHost(r) !== env.hostname) errors.push(`${label}: route ${routeHost(r)} is not ${env.hostname}`);
       if (!routes.length) blockers.push(`${label}: custom domain ${env.hostname} is attached by the infrastructure owner (not in config)`);
     }
