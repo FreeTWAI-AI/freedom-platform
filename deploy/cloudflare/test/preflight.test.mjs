@@ -35,10 +35,13 @@ function privateEnvFile(body, mode = 0o600) {
   return file;
 }
 
+// Post-cutover zone: production placeholder, Castle staging tunnel, deployed Cloudflare staging.
+// Record contents are fixtures only and must not appear in probe output.
 const PROTECTED_DNS = [
-  { name: 'freetwai.com', type: 'CNAME', content: 'uuid.cfargotunnel.com', proxied: true },
+  { name: 'freetwai.com', type: 'AAAA', content: '100::', proxied: true },
   { name: 'staging.freetwai.com', type: 'CNAME', content: 'uuid.cfargotunnel.com', proxied: true },
 ];
+const DEPLOYED_STAGING_NEXT_DNS = { name: 'staging-next.freetwai.com', type: 'CNAME', content: 'not-a-tunnel.invalid', proxied: true };
 
 function dnsPage(records, info = {}) {
   const page = info.page ?? 1;
@@ -74,7 +77,7 @@ function mockCloudflare(overrides = {}) {
     [`/accounts/${ACCOUNT}/cfd_tunnel?is_deleted=false&per_page=100`]: ok([{ name: 'freedom-staging', status: 'healthy' }]),
     [`/accounts/${ACCOUNT}/subscriptions`]: denied,
     [`/zones/${ZONE}`]: ok({ id: ZONE }),
-    [`/zones/${ZONE}/dns_records?per_page=500`]: dnsPage(PROTECTED_DNS),
+    [`/zones/${ZONE}/dns_records?per_page=500`]: dnsPage([...PROTECTED_DNS, DEPLOYED_STAGING_NEXT_DNS]),
     [`/zones/${ZONE}/workers/routes`]: denied,
     [`/zones/${ZONE}/rulesets/phases/http_request_cache_settings/entrypoint`]: denied,
     ...overrides,
@@ -105,6 +108,18 @@ test('manifest selects Cloudflare-billed PlanetScale PG18, PS-5 sizes, one HYPER
   assert.equal(m.providers.d1.drop_in, false);
   assert.equal(m.providers.planetscale.catalog.org_quote.region, 'ap-northeast');
   assert.equal(m.providers.planetscale.pscale_auth_observed.status, 'authenticated');
+  assert.equal(m.phase, 'cutover_complete');
+  assert.deepEqual(m.protected.hostnames, ['staging.freetwai.com']);
+  assert.equal(m.environments.next.role, 'production');
+  assert.equal(m.environments.next.hostname, 'freetwai.com');
+  assert.equal(m.environments.next.data_source, 'production');
+  assert.equal(m.environments.next.access.required, false);
+  assert.deepEqual(m.environments.next.route, { pattern: 'freetwai.com/*', zone_name: 'freetwai.com' });
+  assert.deepEqual(m.environments.next.retired_hostnames, ['next.freetwai.com']);
+  assert.equal(m.environments['staging-next'].role, 'cloudflare_staging');
+  assert.equal(m.environments['staging-next'].hostname, 'staging-next.freetwai.com');
+  assert.equal(m.environments['staging-next'].access.required, true);
+  assert.deepEqual(m.database_defaults.extensions_allowlist, ['plpgsql', 'hypopg']);
   const text = JSON.stringify(m);
   assert.doesNotMatch(text, /DB_FRESH|DB_CACHED|max_age_seconds|paid_creation_rule/);
   assert.doesNotMatch(text, /"authorized_cap_usd_month":\s*60/);
@@ -180,7 +195,13 @@ test('manifest rejects unsafe configurations', () => {
   const cases = [
     [(m) => { m.environments.next.worker.preview_urls = true; }, /preview_urls/],
     [(m) => { m.environments.next.worker.workers_dev = true; }, /workers_dev/],
-    [(m) => { m.environments.next.hostname = 'freetwai.com'; }, /hostname/],
+    [(m) => { m.environments.next.hostname = 'next.freetwai.com'; }, /hostname/],
+    [(m) => { m.environments.next.hostname = 'staging.freetwai.com'; }, /protected/],
+    [(m) => { m.protected.hostnames = ['staging.freetwai.com', 'freetwai.com']; }, /must not be a protected hostname/],
+    [(m) => { m.phase = 'preflight'; }, /cutover_complete/],
+    [(m) => { m.database_defaults.extensions_allowlist = ['plpgsql']; }, /hypopg/],
+    [(m) => { m.environments.next.role = 'candidate'; }, /production/],
+    [(m) => { m.environments.next.access.required = true; }, /site-wide Access/],
     [(m) => { m.environments.next.hyperdrive.caching_disabled = false; }, /caching disabled/],
     [(m) => { m.environments.next.hyperdrive.binding = 'DB_FRESH'; }, /HYPERDRIVE/],
     [(m) => { m.environments.next.hyperdrive = [m.environments.next.hyperdrive, { name: 'freedom-next-cached', binding: 'DB_CACHED' }]; }, /exactly one/],
@@ -218,7 +239,9 @@ test('mutation guard is default-deny, protects the old site and refuses every OC
   assert.ok(assertMutationTarget(m, 'next', 'worker', 'freedom-platform-next'));
   assert.ok(assertMutationTarget(m, 'staging-next', 'hyperdrive', 'freedom-staging-next-hd'));
   assert.ok(assertMutationTarget(m, 'next', 'database', 'freedom-next-pg'));
-  assert.throws(() => assertMutationTarget(m, 'next', 'hostname', 'freetwai.com'), /protected/);
+  assert.ok(assertMutationTarget(m, 'next', 'hostname', 'freetwai.com'));
+  assert.throws(() => assertMutationTarget(m, 'next', 'hostname', 'next.freetwai.com'), /not owned/);
+  assert.throws(() => assertMutationTarget(m, 'staging-next', 'hostname', 'freetwai.com'), /not owned/);
   assert.throws(() => assertMutationTarget(m, 'next', 'hostname', 'staging.freetwai.com'), /protected/);
   assert.throws(() => assertMutationTarget(m, 'next', 'access_application', 'Freedom staging'), /protected/);
   assert.throws(() => assertMutationTarget(m, 'next', 'database', 'freedom_public'), /protected/);
@@ -241,47 +264,72 @@ test('provision plan is dry-run, guarded, secret-free and never produces a billi
     assert.doesNotMatch(text, /postgres(ql)?:\/\/|--connection-string|PGPASSWORD|password=/i);
     assert.doesNotMatch(text, /DB_FRESH|DB_CACHED|max_age|\boci (psql|iam|network|container)|oracle1|oracle2|ssh /i);
     assert.doesNotMatch(text, /pscale auth login/);
-    assert.equal(plan.hostname, `${env}.freetwai.com`);
-    const idx = (id) => plan.steps.findIndex((s) => s.id === id);
-    assert.ok(idx('access-app') < idx('deploy'), 'Access before deploy');
-    assert.ok(idx('hyperdrive') < idx('hyperdrive-verify') && idx('hyperdrive-verify') < idx('deploy'), 'caching read-back gates deploy');
-    assert.match(plan.steps[idx('hyperdrive')].command, /caching\.disabled=true/);
-    const roles = manifest().environments[env].database.roles;
-    assert.ok(plan.steps[idx('hyperdrive')].command.includes(`user=${roles.runtime}.<branch-id> `), 'TLS username carries branch suffix');
-    assert.deepEqual(plan.steps[idx('roles')].target, ['db_role', roles.migrator]);
-    assert.deepEqual(plan.steps[idx('grants')].target, ['db_role', roles.runtime]);
-    assert.doesNotMatch(roles.migrator + roles.runtime, /\./, 'SQL role names stay unsuffixed');
-    assert.doesNotMatch(plan.steps[idx('roles')].command + plan.steps[idx('grants')].command, /<branch-id>/);
-    assert.equal(plan.steps.filter((s) => s.target?.[0] === 'hyperdrive').length, 1, 'exactly one Hyperdrive config');
-    const db = plan.steps[idx('ps-database')];
-    assert.match(db.alternatives.cli, /^wrangler hyperdrive planetscale signature \| DBUS_SESSION_BUS_ADDRESS=unix:path=\/dev\/null pscale database create freedom-(staging-)?next-pg --org ted-ted-h --engine postgresql --region ap-northeast --cloudflare-billing @- --format json$/);
-    assert.match(db.action, /no execute capability/);
-    assert.match(db.alternatives.dashboard, /Cloudflare dashboard/);
-    assert.match(db.action, /token alone cannot create/);
-    assert.match(plan.steps[0].action, /0\.313\.0/);
-    assert.match(plan.steps[0].action, /current: authenticated \(oauth\), org ted-ted-h/);
-    assert.match(plan.steps[0].action, /org_quote_recorded 2026-09-24/);
-    assert.match(plan.steps[0].action, /process-scoped DBUS_SESSION_BUS_ADDRESS=unix:path=\/dev\/null/);
-    assert.match(plan.steps[1].action, /US\$25\/month \(base rates only, not total usage/);
-    assert.match(plan.steps[idx('deploy')].command, /--var FREEDOM_RELEASE_SHA:<git rev-parse HEAD>/);
-    assert.doesNotMatch(plan.steps[0].action, /TOKEN_SAVE_FAILED|not_run|unauthenticated/);
     assert.doesNotMatch(text, /single pending device login/);
-    const deployGate = plan.steps[idx('deploy')].action;
-    assert.match(deployGate, /structural valid AND static_checks_pass true/);
-    assert.match(deployGate, /separate explicit evidence for every required injection/);
-    assert.match(deployGate, /wrangler secret list --env /);
-    assert.doesNotMatch(deployGate, /AND deployment_ready|deployment_ready true/, 'deploy must not wait on a boolean the checker cannot prove');
     assert.doesNotMatch(text, /\bcap\b|approval|gate-cost/i);
-    assert.ok(idx('rollback') > idx('verify'));
+    assert.equal(plan.hostname, env === 'next' ? 'freetwai.com' : `${env}.freetwai.com`);
   }
-  const staging = JSON.stringify(buildProvisionPlan(manifest(), 'staging-next'));
+  const stagingPlan = buildProvisionPlan(manifest(), 'staging-next');
+  const idx = (id) => stagingPlan.steps.findIndex((s) => s.id === id);
+  assert.ok(idx('access-app') < idx('deploy'), 'Access before deploy');
+  assert.ok(idx('hyperdrive') < idx('hyperdrive-verify') && idx('hyperdrive-verify') < idx('deploy'), 'caching read-back gates deploy');
+  assert.match(stagingPlan.steps[idx('hyperdrive')].command, /caching\.disabled=true/);
+  const roles = manifest().environments['staging-next'].database.roles;
+  assert.ok(stagingPlan.steps[idx('hyperdrive')].command.includes(`user=${roles.runtime}.<branch-id> `), 'TLS username carries branch suffix');
+  assert.deepEqual(stagingPlan.steps[idx('roles')].target, ['db_role', roles.migrator]);
+  assert.deepEqual(stagingPlan.steps[idx('grants')].target, ['db_role', roles.runtime]);
+  assert.doesNotMatch(roles.migrator + roles.runtime, /\./, 'SQL role names stay unsuffixed');
+  assert.doesNotMatch(stagingPlan.steps[idx('roles')].command + stagingPlan.steps[idx('grants')].command, /<branch-id>/);
+  assert.equal(stagingPlan.steps.filter((s) => s.target?.[0] === 'hyperdrive').length, 1, 'exactly one Hyperdrive config');
+  const db = stagingPlan.steps[idx('ps-database')];
+  assert.match(db.alternatives.cli, /^wrangler hyperdrive planetscale signature \| DBUS_SESSION_BUS_ADDRESS=unix:path=\/dev\/null pscale database create freedom-staging-next-pg --org ted-ted-h --engine postgresql --region ap-northeast --cloudflare-billing @- --format json$/);
+  assert.match(db.action, /no execute capability/);
+  assert.match(db.alternatives.dashboard, /Cloudflare dashboard/);
+  assert.match(db.action, /token alone cannot create/);
+  assert.match(stagingPlan.steps[0].action, /0\.313\.0/);
+  assert.match(stagingPlan.steps[0].action, /current: authenticated \(oauth\), org ted-ted-h/);
+  assert.match(stagingPlan.steps[0].action, /org_quote_recorded 2026-09-24/);
+  assert.match(stagingPlan.steps[0].action, /process-scoped DBUS_SESSION_BUS_ADDRESS=unix:path=\/dev\/null/);
+  assert.match(stagingPlan.steps[1].action, /US\$25\/month \(base rates only, not total usage/);
+  assert.match(stagingPlan.steps[idx('deploy')].command, /--var FREEDOM_RELEASE_SHA:<git rev-parse HEAD>/);
+  assert.doesNotMatch(stagingPlan.steps[0].action, /TOKEN_SAVE_FAILED|not_run|unauthenticated/);
+  const deployGate = stagingPlan.steps[idx('deploy')].action;
+  assert.match(deployGate, /structural valid AND static_checks_pass true/);
+  assert.match(deployGate, /separate explicit evidence for every required injection/);
+  assert.match(deployGate, /wrangler secret list --env /);
+  assert.doesNotMatch(deployGate, /AND deployment_ready|deployment_ready true/, 'deploy must not wait on a boolean the checker cannot prove');
+  assert.ok(idx('rollback') > idx('verify'));
+  const staging = JSON.stringify(stagingPlan);
   assert.match(staging, /PS-5 single_node/);
   assert.match(staging, /Never seedLocal/);
   assert.doesNotMatch(staging, /pg_restore/);
-  const next = JSON.stringify(buildProvisionPlan(manifest(), 'next'));
+  assert.match(staging, /production freetwai.com/);
+  assert.match(staging, /open decision/);
+  assert.doesNotMatch(staging, /Old freetwai.com/);
+  assert.doesNotMatch(staging, /NEW GITHUB_SOCIAL_TOKEN_KEY/);
+
+  const nextPlan = buildProvisionPlan(manifest(), 'next');
+  assert.equal(nextPlan.role, 'production');
+  assert.ok(nextPlan.steps.every((s) => s.mutation === false), 'production plan proposes no provider mutation');
+  assert.ok(nextPlan.steps.every((s) => !s.command), 'production plan has no create/deploy command');
+  const next = JSON.stringify(nextPlan);
   assert.match(next, /PS-5 ha/);
-  assert.match(next, /NEW GITHUB_SOCIAL_TOKEN_KEY/);
-  assert.match(next, /checksum-verify a fresh full freedom_public backup/);
+  assert.match(next, /freetwai\.com\/\*/);
+  assert.match(next, /100::/);
+  assert.match(next, /origin_connection_limit 15/);
+  assert.match(next, /max_connections 25/);
+  assert.match(next, /write-only/);
+  assert.match(next, /never re-upload/);
+  assert.match(next, /hypopg/);
+  assert.match(next, /--target public/);
+  assert.match(next, /--target next no longer resolves/);
+  assert.match(next, /R3 only/);
+  assert.match(next, /NEW local database/);
+  assert.match(next, /next\.freetwai\.com and its two Access applications were removed/);
+  assert.match(next, /open decision/);
+  assert.doesNotMatch(next, /NEW GITHUB_SOCIAL_TOKEN_KEY/);
+  assert.doesNotMatch(next, /checksum-verify a fresh full freedom_public backup/);
+  assert.doesNotMatch(next, /custom domain/);
+  assert.doesNotMatch(next, /pg_restore|pscale database create|wrangler deploy/);
 });
 
 test('credentials: CLOUDFLARE_* current keys, CF_* legacy aliases, conflicts refused, values never shown', () => {
@@ -338,17 +386,41 @@ test('Cloudflare probe reports real gaps, escalation risk and protected baseline
   assert.ok(!missingWrite.includes('DNS Edit') && !missingWrite.includes('Access: Apps and Policies Edit'));
   assert.ok(!report.missing_for_preflight.some((g) => g.capability === 'queues'), 'queues is optional');
   assert.ok(report.findings.some((f) => f.id === 'token_can_escalate'));
-  assert.ok(report.findings.some((f) => f.id === 'protected_hosts_share_origin'));
-  assert.equal(report.protected_baseline['candidate:next.freetwai.com'], 'absent');
-  assert.equal(report.protected_baseline['access:next.freetwai.com'], 'not_yet_covered');
-  assert.equal(report.protected_baseline['freetwai.com'][0].tunnel_target, true);
+  assert.ok(!report.findings.some((f) => f.id === 'protected_hosts_share_origin'));
+  assert.equal(report.protected_baseline['retired:next.freetwai.com'], 'absent');
+  assert.equal(report.protected_baseline['deployed:staging-next.freetwai.com'], 'present');
+  assert.equal(report.protected_baseline['access:freetwai.com'], 'public');
+  assert.equal(report.protected_baseline['access:staging-next.freetwai.com'], 'not_yet_covered');
+  assert.equal(report.protected_baseline['staging.freetwai.com'][0].tunnel_target, true);
+  assert.equal(report.protected_baseline['production:freetwai.com'][0].tunnel_target, false);
+  assert.equal(report.protected_baseline['production:freetwai.com'][0].type, 'AAAA');
+  assert.equal(report.protected_baseline['production:freetwai.com'][0].proxied, true);
+  assert.ok(!report.findings.some((f) => /production_|retired_hostname_present|deployed_hostname_missing|candidate_hostname_taken/.test(f.id)));
   const text = JSON.stringify(report);
   assert.doesNotMatch(text, new RegExp(FAKE_TOKEN));
-  assert.doesNotMatch(text, /cfargotunnel/);
+  assert.doesNotMatch(text, /cfargotunnel|100::|not-a-tunnel/);
   assert.doesNotMatch(text, new RegExp(ACCOUNT));
 });
 
-test('Cloudflare probe flags an occupied candidate hostname', async () => {
+test('Cloudflare probe still flags protected hostnames that share one tunnel fingerprint', async () => {
+  // Historical pre-cutover baseline: apex and Castle staging shared a tunnel.
+  // The check remains if more than one protected hostname shares a fingerprint.
+  const m = clone(manifest());
+  m.protected.hostnames = ['staging.freetwai.com', 'other.freetwai.com'];
+  const { fetchImpl } = mockCloudflare({
+    [`/zones/${ZONE}/dns_records?per_page=500`]: dnsPage([
+      ...PROTECTED_DNS,
+      DEPLOYED_STAGING_NEXT_DNS,
+      { name: 'other.freetwai.com', type: 'CNAME', content: 'uuid.cfargotunnel.com', proxied: true },
+    ]),
+  });
+  const client = createReadOnlyClient({ credentials: { authorizationHeader: () => 'Bearer x' }, fetchImpl });
+  const report = await probeCloudflare({ client, accountId: ACCOUNT, manifest: m });
+  assert.ok(report.findings.some((f) => f.id === 'protected_hosts_share_origin'));
+  assert.doesNotMatch(JSON.stringify(report), /cfargotunnel|100::|not-a-tunnel/);
+});
+
+test('Cloudflare probe flags a retired hostname, a missing Cloudflare staging name and a production record that is not the placeholder', async () => {
   const { fetchImpl } = mockCloudflare({ [`/zones/${ZONE}/dns_records?per_page=500`]: dnsPage([
     { name: 'freetwai.com', type: 'CNAME', content: 'x', proxied: true },
     { name: 'staging.freetwai.com', type: 'CNAME', content: 'y', proxied: true },
@@ -356,14 +428,47 @@ test('Cloudflare probe flags an occupied candidate hostname', async () => {
   ]) });
   const client = createReadOnlyClient({ credentials: { authorizationHeader: () => 'Bearer x' }, fetchImpl });
   const report = await probeCloudflare({ client, accountId: ACCOUNT, manifest: manifest() });
-  assert.equal(report.protected_baseline['candidate:next.freetwai.com'], 'taken');
-  assert.equal(report.protected_baseline['candidate:staging-next.freetwai.com'], 'absent');
-  assert.ok(report.findings.some((f) => f.id === 'candidate_hostname_taken'));
+  assert.equal(report.protected_baseline['retired:next.freetwai.com'], 'present');
+  assert.equal(report.protected_baseline['deployed:staging-next.freetwai.com'], 'absent');
+  assert.ok(report.findings.some((f) => f.id === 'retired_hostname_present' && /next\.freetwai\.com/.test(f.detail)));
+  assert.ok(report.findings.some((f) => f.id === 'deployed_hostname_missing' && /staging-next\.freetwai\.com/.test(f.detail)));
+  assert.ok(report.findings.some((f) => f.id === 'production_dns_unexpected'));
+  assert.ok(!report.findings.some((f) => f.id === 'production_still_on_tunnel'));
   assert.ok(!report.findings.some((f) => f.id === 'protected_hosts_share_origin'));
   assert.ok(!report.findings.some((f) => f.id === 'dns_listing_incomplete'));
+  assert.ok(!report.findings.some((f) => f.id === 'candidate_hostname_taken'));
+  assert.doesNotMatch(JSON.stringify(report), /192\.0\.2\.1|\bcontent\b/);
 });
 
-test('Cloudflare probe pages DNS and marks a candidate that appears only on page 2 as taken', async () => {
+test('Cloudflare probe flags production still pointed at a tunnel and site-wide Access on the apex', async () => {
+  const { fetchImpl } = mockCloudflare({
+    [`/zones/${ZONE}/dns_records?per_page=500`]: dnsPage([
+      { name: 'freetwai.com', type: 'CNAME', content: 'uuid.cfargotunnel.com', proxied: true },
+      { name: 'staging.freetwai.com', type: 'CNAME', content: 'other.cfargotunnel.com', proxied: true },
+      DEPLOYED_STAGING_NEXT_DNS,
+    ]),
+    [`/accounts/${ACCOUNT}/access/apps`]: { status: 200, body: { success: true, errors: [], result: [
+      { name: 'Freedom staging', domain: 'staging.freetwai.com' },
+      { name: 'Freedom public administrators', domain: 'freetwai.com/admin' },
+      { name: 'leftover-apex', domain: 'freetwai.com' },
+      { name: 'retired-next', domain: 'next.freetwai.com/admin' },
+      { name: 'Freedom staging-next', domain: 'staging-next.freetwai.com' },
+    ] } },
+  });
+  const client = createReadOnlyClient({ credentials: { authorizationHeader: () => 'Bearer x' }, fetchImpl });
+  const report = await probeCloudflare({ client, accountId: ACCOUNT, manifest: manifest() });
+  assert.ok(report.findings.some((f) => f.id === 'production_still_on_tunnel'));
+  assert.ok(report.findings.some((f) => f.id === 'production_dns_unexpected'));
+  assert.equal(report.protected_baseline['access:freetwai.com'], 'sitewide_unexpected');
+  assert.equal(report.protected_baseline['access:staging-next.freetwai.com'], 'covered');
+  assert.ok(report.findings.some((f) => f.id === 'production_sitewide_access'));
+  assert.ok(report.findings.some((f) => f.id === 'retired_access_application' && /next\.freetwai\.com/.test(f.detail)));
+  assert.equal(report.protected_baseline['retired:next.freetwai.com'], 'absent');
+  assert.ok(!report.findings.some((f) => f.id === 'protected_hosts_share_origin'));
+  assert.doesNotMatch(JSON.stringify(report), /cfargotunnel|not-a-tunnel|100::/);
+});
+
+test('Cloudflare probe pages DNS and marks a retired hostname that appears only on page 2 as present', async () => {
   const page1 = [...PROTECTED_DNS, ...Array.from({ length: 498 }, (_, i) => ({ name: `h${i}.example.net`, type: 'A', content: '192.0.2.8', proxied: false }))];
   const page2 = [{ name: 'next.freetwai.com', type: 'A', content: '192.0.2.20', proxied: true }];
   const totals = { perPage: 500, totalCount: 501, totalPages: 2 };
@@ -375,14 +480,17 @@ test('Cloudflare probe pages DNS and marks a candidate that appears only on page
   const report = await probeCloudflare({ client, accountId: ACCOUNT, manifest: manifest() });
   assert.ok(calls.every((c) => c.method === 'GET'));
   assert.equal(calls.filter((c) => c.url.endsWith('/dns_records?per_page=500&page=2')).length, 1);
-  assert.equal(report.protected_baseline['candidate:next.freetwai.com'], 'taken');
-  assert.equal(report.protected_baseline['candidate:staging-next.freetwai.com'], 'absent');
-  const taken = report.findings.filter((f) => f.id === 'candidate_hostname_taken');
-  assert.equal(taken.length, 1);
-  assert.match(taken[0].detail, /next\.freetwai\.com/);
+  assert.equal(report.protected_baseline['retired:next.freetwai.com'], 'present');
+  assert.equal(report.protected_baseline['deployed:staging-next.freetwai.com'], 'absent');
+  const retired = report.findings.filter((f) => f.id === 'retired_hostname_present');
+  assert.equal(retired.length, 1);
+  assert.match(retired[0].detail, /next\.freetwai\.com/);
+  assert.ok(report.findings.some((f) => f.id === 'deployed_hostname_missing'));
   assert.ok(!report.findings.some((f) => f.id === 'dns_listing_incomplete'));
-  assert.equal(report.protected_baseline['freetwai.com'][0].tunnel_target, true);
-  assert.doesNotMatch(JSON.stringify(report), /example\.net|192\.0\.2\.|cfargotunnel/);
+  assert.ok(!report.findings.some((f) => f.id === 'production_dns_unexpected'));
+  assert.equal(report.protected_baseline['production:freetwai.com'][0].tunnel_target, false);
+  assert.equal(report.protected_baseline['staging.freetwai.com'][0].tunnel_target, true);
+  assert.doesNotMatch(JSON.stringify(report), /example\.net|192\.0\.2\.|cfargotunnel|100::/);
 });
 
 test('Cloudflare probe reports incomplete_listing and never absent when the DNS listing is not proven complete', async () => {
@@ -399,14 +507,17 @@ test('Cloudflare probe reports incomplete_listing and never absent when the DNS 
     const { fetchImpl, calls } = mockCloudflare(overrides);
     const client = createReadOnlyClient({ credentials: { authorizationHeader: () => 'Bearer x' }, fetchImpl });
     const report = await probeCloudflare({ client, accountId: ACCOUNT, manifest: manifest() });
-    assert.equal(report.protected_baseline['candidate:next.freetwai.com'], 'incomplete_listing', label);
-    assert.equal(report.protected_baseline['candidate:staging-next.freetwai.com'], 'incomplete_listing', label);
+    assert.equal(report.protected_baseline['retired:next.freetwai.com'], 'incomplete_listing', label);
+    assert.equal(report.protected_baseline['deployed:staging-next.freetwai.com'], 'incomplete_listing', label);
     for (const [key, value] of Object.entries(report.protected_baseline)) {
-      if (String(key).startsWith('candidate:')) assert.notEqual(value, 'absent', `${label} ${key}`);
+      if (String(key).startsWith('retired:') || String(key).startsWith('deployed:')) assert.notEqual(value, 'absent', `${label} ${key}`);
     }
     assert.equal(report.findings.find((f) => f.id === 'dns_listing_incomplete')?.severity, 'high', label);
-    assert.ok(!report.findings.some((f) => f.id === 'candidate_hostname_taken'), label);
+    assert.ok(!report.findings.some((f) => f.id === 'retired_hostname_present'), label);
+    assert.ok(!report.findings.some((f) => f.id === 'deployed_hostname_missing'), label);
+    assert.ok(!report.findings.some((f) => f.id === 'production_hostname_missing'), label);
     assert.ok(!report.findings.some((f) => f.id === 'protected_host_missing'), label);
+    assert.equal(report.protected_baseline['production:freetwai.com'][0].type, 'AAAA', label);
     assert.ok(calls.every((c) => c.method === 'GET'), label);
     if (label === 'later page failed') assert.ok(calls.some((c) => c.url.includes('dns_records?per_page=500&page=2')), label);
   }
@@ -650,7 +761,8 @@ test('migration scanner flags privileged statements and unexpected gaps', () => 
   assert.ok(!result.privileged.some((p) => /role management/.test(p.statement)));
 });
 
-// Mirrors the runtime wrangler.jsonc (runtime worktree commit f089a84): placeholder ids, no routes, no release SHA.
+// Mirrors wrangler.jsonc after the 2026-09-25 cutover: placeholder Hyperdrive ids,
+// production zone route on next, no route on staging-next, no release SHA.
 const RUNTIME_CONFIG = {
   name: 'freedom-platform-local', main: 'apps/platform-api/src/worker.ts', compatibility_date: '2026-09-21', compatibility_flags: ['nodejs_compat'],
   workers_dev: false, preview_urls: false,
@@ -660,7 +772,7 @@ const RUNTIME_CONFIG = {
   vars: { FREEDOM_ENV: 'local', APP_ORIGIN: 'http://127.0.0.1:8787' },
   env: {
     'staging-next': { name: 'freedom-platform-staging-next', workers_dev: false, preview_urls: false, hyperdrive: [{ binding: 'HYPERDRIVE', id: '0'.repeat(32) }], images: { binding: 'IMAGES' }, vars: { FREEDOM_ENV: 'staging', APP_ORIGIN: 'https://staging-next.freetwai.com', FREEDOM_TRUST_CF_CONNECTING_IP: 'true' } },
-    next: { name: 'freedom-platform-next', workers_dev: false, preview_urls: false, hyperdrive: [{ binding: 'HYPERDRIVE', id: '0'.repeat(32) }], images: { binding: 'IMAGES' }, vars: { FREEDOM_ENV: 'public', APP_ORIGIN: 'https://next.freetwai.com', FREEDOM_TRUST_CF_CONNECTING_IP: 'true' } },
+    next: { name: 'freedom-platform-next', workers_dev: false, preview_urls: false, routes: [{ pattern: 'freetwai.com/*', zone_name: 'freetwai.com' }], hyperdrive: [{ binding: 'HYPERDRIVE', id: '0'.repeat(32) }], images: { binding: 'IMAGES' }, vars: { FREEDOM_ENV: 'public', APP_ORIGIN: 'https://freetwai.com', FREEDOM_TRUST_CF_CONNECTING_IP: 'true' } },
   },
 };
 const ID_S = '1'.repeat(32);
@@ -676,10 +788,29 @@ function provisioned() {
   c.env['staging-next'].hyperdrive[0].id = ID_S;
   c.env.next.hyperdrive[0].id = ID_N;
   c.env['staging-next'].routes = [{ pattern: 'staging-next.freetwai.com', custom_domain: true }];
-  c.env.next.routes = [{ pattern: 'next.freetwai.com', custom_domain: true }];
   return c;
 }
 const cachingOff = { [ID_S]: { caching: { disabled: true } }, [ID_N]: { caching: { disabled: true } } };
+
+test('wrangler: repository config is the post-cutover production route with placeholder Hyperdrive ids', () => {
+  const r = checkWranglerConfig(join(ROOT, 'wrangler.jsonc'), manifest());
+  assert.equal(r.status, 'pass');
+  assert.equal(r.structural, 'valid');
+  assert.equal(r.deployment_ready, false);
+  assert.deepEqual(r.errors, []);
+  const cfg = parseJsonc(readFileSync(join(ROOT, 'wrangler.jsonc'), 'utf8'));
+  assert.deepEqual(cfg.env.next.routes, [{ pattern: 'freetwai.com/*', zone_name: 'freetwai.com' }]);
+  assert.equal(cfg.env.next.vars.APP_ORIGIN, 'https://freetwai.com');
+  assert.equal(cfg.env.next.vars.FREEDOM_ENV, 'public');
+  assert.equal(cfg.env.next.workers_dev, false);
+  assert.equal(cfg.env.next.preview_urls, false);
+  assert.equal(cfg.env.next.hyperdrive[0].id, '0'.repeat(32));
+  assert.equal(cfg.env.next.hyperdrive[0].binding, 'HYPERDRIVE');
+  assert.equal(cfg.env['staging-next'].vars.APP_ORIGIN, 'https://staging-next.freetwai.com');
+  assert.equal(cfg.env['staging-next'].routes, undefined);
+  assert.equal(cfg.workers_dev, false);
+  assert.equal(cfg.preview_urls, false);
+});
 
 test('wrangler: runtime config with placeholder ids is structurally valid but not deployment-ready', () => {
   const r = checkWranglerConfig(writeWrangler(RUNTIME_CONFIG), manifest());
@@ -725,7 +856,7 @@ test('wrangler: exact two-env mocks catch every binding, cache, id, origin, Imag
     ['cached true', null, /caching is not disabled/],
     ['shared ids', (c) => { c.env.next.hyperdrive[0].id = ID_S; }, /shared with staging-next/],
     ['bad id', (c) => { c.env.next.hyperdrive[0].id = 'xyz'; }, /32-hex/],
-    ['wrong origin', (c) => { c.env.next.vars.APP_ORIGIN = 'https://freetwai.com'; }, /APP_ORIGIN must be https:\/\/next\.freetwai\.com/],
+    ['wrong origin', (c) => { c.env.next.vars.APP_ORIGIN = 'https://next.freetwai.com'; }, /APP_ORIGIN must be https:\/\/freetwai\.com/],
     ['wrong FREEDOM_ENV', (c) => { c.env['staging-next'].vars.FREEDOM_ENV = 'public'; }, /FREEDOM_ENV must be staging/],
     ['missing Images', (c) => { delete c.env.next.images; }, /images binding IMAGES is required/],
     ['wrong assets binding', (c) => { c.assets.binding = 'STATIC'; }, /assets binding must be ASSETS/],
@@ -735,7 +866,10 @@ test('wrangler: exact two-env mocks catch every binding, cache, id, origin, Imag
     ['compat date', (c) => { c.compatibility_date = '2026-01-01'; }, /compatibility_date/],
     ['nodejs_compat', (c) => { c.compatibility_flags = []; }, /nodejs_compat/],
     ['preview urls', (c) => { delete c.env.next.preview_urls; delete c.preview_urls; }, /preview_urls/],
-    ['protected route', (c) => { c.env.next.routes.push({ pattern: 'freetwai.com/*', zone_name: 'freetwai.com' }); }, /protected/],
+    ['protected route', (c) => { c.env.next.routes = [{ pattern: 'staging.freetwai.com/*', zone_name: 'freetwai.com' }]; }, /protected/],
+    ['retired custom domain', (c) => { c.env.next.routes = [{ pattern: 'next.freetwai.com', custom_domain: true }]; }, /production route must be exactly/],
+    ['custom domain flag on apex', (c) => { c.env.next.routes = [{ pattern: 'freetwai.com/*', zone_name: 'freetwai.com', custom_domain: true }]; }, /production route must be exactly/],
+    ['missing production route', (c) => { delete c.env.next.routes; }, /production route must be exactly/],
     ['secret var', (c) => { c.env.next.vars.GITHUB_SOCIAL_TOKEN_KEY = 'x'; }, /must be a secret/],
     ['missing env', (c) => { delete c.env['staging-next']; }, /staging-next: no env block/],
     ['extra env', (c) => { c.env.prod = { name: 'freedom-platform-prod', routes: ['prod.freetwai.com/*'] }; }, /not in the manifest/],

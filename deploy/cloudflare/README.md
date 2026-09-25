@@ -4,9 +4,11 @@
 
 工具能力：唯讀 preflight，沒有 execute 能力。本目錄沒有任何會改動 provider、資料庫或既有主機的程式，不產生 billing signature、不登入 pscale；Cloudflare client 只發 GET。
 
-觀察到的 provider 進度（2026-09-24，與工具能力分開記錄；佈建由 operator 私有 helper 在本目錄外執行）：Workers Paid 與 PlanetScale partnership 已啟用；Tokyo（`ap-northeast`）兩個 PG18 DB 已 ready（PS-5 single node US$5、PS-5 HA US$15，加 Workers Paid 月基本費 US$25，不含 storage／用量／稅）；4 個候選 Access application 已驗證；next 演練還原（18:51 備份）已驗證。`staging-next` 與 `next` 都已部署 `aed75a2`，所選 10 個驗收階段／132 項檢查與有上限的匿名負載皆通過，臨時驗收資源已清理。**沒有切換**，舊站持續接受寫入。manifest 的 `status`／`observed` 記錄這些進度，細節見 [現況交接](../../docs/development/cloudflare-migration-status-2026-09-24.md)。
+階段是 `cutover_complete`（2026-09-25）。`next` 是正式環境：Worker `freedom-platform-next`，唯一路由是 zone route `freetwai.com/*`，`APP_ORIGIN` 為 `https://freetwai.com`。`next.freetwai.com` 與其兩個 Access application 已刪除。受保護 hostname 只剩 `staging.freetwai.com`。`staging-next` 維持 Cloudflare staging，沒有改角色。Castle `staging.freetwai.com` 也還在；哪一個算 staging 尚未決定，`plan` 不選邊。`plan --env next` 描述正式拓撲、發布與 R3 回退，不重提切換前的演練步驟。`plan --env staging-next` 仍是該環境的佈建形狀，且寫明不動正式 route。
 
-Repo 的 `wrangler.jsonc` Hyperdrive id 刻意維持全零 template，真實 id 只在私有 overlay；全零代表只靠 repo 不能部署，不代表資源不存在。受保護的對象見 [environments.json](environments.json) 的 `protected`，包括 `freetwai.com`、`staging.freetwai.com`、既有 Tunnel／Access／R2、OCI 上既有的 VM，以及 Castle 上的 systemd units 與資料庫。
+2026-09-24 的候選站觀察（Workers Paid、Tokyo 報價、演練還原、132 項檢查）留在 manifest 的 historical 欄位，不是現行拓撲。細節見 [現況交接](../../docs/development/cloudflare-migration-status-2026-09-24.md) 與 [遷移手冊 §14](../../docs/development/cloudflare-migration.md#14-切換後現況2026-09-25)。切換前「候選 hostname 應該還沒有 DNS」「zone route 必須是 0」「兩個受保護 hostname 共用 tunnel」這類檢查已改成現行預期；舊判準寫在程式註解裡，沒有把 evidence 刪掉。
+
+Repo 的 `wrangler.jsonc` Hyperdrive id 刻意維持全零 template，真實 id 只在私有 overlay；全零代表只靠 repo 不能部署，不代表資源不存在。受保護的對象見 [environments.json](environments.json) 的 `protected`：hostname 只有 `staging.freetwai.com`（`freetwai.com` 是正式 Worker route，不再是受保護的 tunnel hostname）、既有 Tunnel／Access／R2、OCI 上既有的 VM，以及 Castle 上仍在跑的 staging units 與資料庫。`freedom_public` 仍在受保護資料庫名單，因為回退不能指回那份凍結的舊 DB。PlanetScale 會自動安裝 `hypopg`（schema `pscale_extensions`，owner `pscale_admin`）；[30-verify-readonly.psql](sql/30-verify-readonly.psql) 列出 `plpgsql` 以外的 extension，讀結果時必須把 `hypopg` 列入 allowlist。
 
 | 檔案 | 內容 |
 | --- | --- |

@@ -1,6 +1,14 @@
 -- Read-only verification; safe to run as the migrator after every restore/migrate.
 -- Prints counts and booleans only, never row contents.
 --   psql "service=freedom_next_migrator" -v ON_ERROR_STOP=1 -v env_prefix=freedom_next -f 30-verify-readonly.psql
+--
+-- Extensions: the SELECT below lists every extension except plpgsql. It does not
+-- CREATE or DROP anything, and an extra row is not by itself a failure.
+-- Allowlist when reading that result (2026-09-25 production on PlanetScale):
+--   plpgsql  — omitted by the filter; required for trigger functions
+--   hypopg   — auto-installed by PlanetScale (schema pscale_extensions, owner pscale_admin)
+-- Any "no extensions" check must allowlist hypopg. Do not treat it as schema drift.
+-- The application does not install it. Other names are not on the allowlist.
 \set migrator :env_prefix '_migrator'
 \set runtime :env_prefix '_app'
 SELECT current_setting('server_version_num')::int / 10000 AS pg_major;

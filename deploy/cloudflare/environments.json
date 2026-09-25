@@ -1,14 +1,14 @@
 {
   "schema": "freedom.cloudflare-migration-plan/v3",
-  "phase": "preflight",
-  "status": "candidate_deployments_verified",
-  "status_meaning": "Observed provider progress on 2026-09-24 from root evidence; each entry carries its own UTC observation time (last 20:15:39). Both candidates are deployed and passed the selected acceptance gates; there is no cutover. Independent of this tool's capability (see execution). Details: docs/development/cloudflare-migration-status-2026-09-24.md.",
-  "execution": "none: this tool has no execute capability; provisioning runs through the operator's private helper outside this versioned tool",
+  "phase": "cutover_complete",
+  "status": "production_on_workers",
+  "status_meaning": "Cut over 2026-09-25. env next is production at https://freetwai.com (zone route freetwai.com/* only). env staging-next is unchanged Cloudflare staging. Castle staging.freetwai.com is unchanged. Which staging remains canonical is an open decision. This tool still has no execute capability (see execution). 2026-09-24 candidate observations below are historical. Details: docs/development/cloudflare-migration.md section 14.",
+  "execution": "none: this tool has no execute capability; releases run through the operator's private helper outside this versioned tool and never re-upload secrets",
   "zone": "freetwai.com",
-  "notes": "Names only; provider IDs, Access AUDs, branch IDs and credentials live only in private evidence and overlays. Observed: Workers Paid and the PlanetScale partnership are active; both PlanetScale databases are ready; staging-next (synthetic) and next (rehearsal restore of the 2026-09-24 18:51 UTC public backup) are deployed at aed75a2636a0680b2fb9cf1ecd31ed14cbcb6293 and passed the 10 selected acceptance phases (132 checks each) plus a separate bounded load run; temporary acceptance accounts and Access tokens are cleaned up. No cutover: the old sites keep accepting writes, so next is a stale rehearsal, not a synchronized copy. Runtime DB connections come only from the single HYPERDRIVE binding; migrator credentials stay in the operator private directory.",
+  "notes": "Names only; provider IDs, Access AUDs, branch IDs and credentials live only in private evidence and overlays. Production is Worker freedom-platform-next on zone route freetwai.com/*; apex DNS is a proxied AAAA 100:: placeholder; Hyperdrive freedom-next-hd caches nothing and has origin_connection_limit 15; PlanetScale freedom-next-pg database freedom_next is PG18 in Tokyo. next.freetwai.com no longer exists. Runtime DB connections come only from the single HYPERDRIVE binding; migrator credentials stay in the operator private directory. Historical 2026-09-24 rehearsal evidence stays in cloudflare and environments.*.observed.",
   "protected": {
-    "hostnames": ["freetwai.com", "staging.freetwai.com"],
-    "hostname_policy": "Every hostname in the zone except the candidate hostnames below is protected; tools deny by default.",
+    "hostnames": ["staging.freetwai.com"],
+    "hostname_policy": "After 2026-09-25 the only protected hostname is staging.freetwai.com (Castle tunnel). freetwai.com is the production Worker route, not a protected tunnel hostname. next.freetwai.com no longer exists. Tools deny every other hostname by default. Before cutover the protected list also included freetwai.com; that entry is historical and must not be restored.",
     "tunnels": "all-existing",
     "access_applications": ["Freedom public administrators", "Freedom staging", "Freedom staging administrators"],
     "r2_buckets": "all-existing",
@@ -17,11 +17,8 @@
       "policy": "The three existing OCI VMs (oracle1/oracle2) are never SSHed into, reused or changed. No OCI resource is provisioned by this plan."
     },
     "local": {
-      "ports": [4310, 4312, 54339],
+      "ports": [4310, 54339],
       "systemd_user_units": [
-        "freedom-public.service",
-        "freedom-public-backup.service",
-        "freedom-public-backup.timer",
         "freedom-staging.service",
         "freedom-staging-backup.service",
         "freedom-staging-backup.timer",
@@ -29,13 +26,24 @@
       ],
       "databases": ["freedom_local", "freedom_staging", "freedom_public"],
       "paths": [
-        "~/.local/share/freedom-public",
         "~/.local/share/freedom-staging",
-        "~/.config/freedom-public",
         "~/.config/freedom-staging",
-        "~/.local/state/freedom-public",
         "~/.local/state/freedom-staging"
-      ]
+      ],
+      "historical_retired_2026_09_25": {
+        "note": "Retired at cutover: the public Node units, port 4312 and the old public release checkouts. Do not start them. freedom_public stays in databases because rollback must never point back at that frozen database.",
+        "ports": [4312],
+        "systemd_user_units": [
+          "freedom-public.service",
+          "freedom-public-backup.service",
+          "freedom-public-backup.timer"
+        ],
+        "paths": [
+          "~/.local/share/freedom-public",
+          "~/.config/freedom-public",
+          "~/.local/state/freedom-public"
+        ]
+      }
     }
   },
   "budget": {
@@ -47,6 +55,8 @@
     "engine": "postgresql",
     "major_version": 18,
     "extensions_required": [],
+    "extensions_allowlist": ["plpgsql", "hypopg"],
+    "extensions_allowlist_note": "The application does not CREATE EXTENSION. PlanetScale auto-installs hypopg (schema pscale_extensions, owner pscale_admin). A no-extensions reading of deploy/cloudflare/sql/30-verify-readonly.psql must allowlist hypopg alongside omitted plpgsql.",
     "migrations": {"first": 1, "last": 37, "known_gaps": [22], "ledger_table": "schema_migrations"}
   },
   "providers": {
@@ -163,6 +173,22 @@
     }
   },
   "cloudflare": {
+    "observation_scope": "historical_pre_cutover_2026-09-24",
+    "observation_note": "Fields in this object through not_started_historical_as_of_2026_09_24 record the 2026-09-24 candidate phase. They are not the live topology. Live names are current_topology.",
+    "current_topology": {
+      "as_of": "2026-09-25",
+      "production_worker": "freedom-platform-next",
+      "production_env": "next",
+      "production_route": "freetwai.com/*",
+      "production_origin": "https://freetwai.com",
+      "production_dns": "proxied AAAA 100:: placeholder",
+      "retired_hostnames": ["next.freetwai.com"],
+      "retired_access_applications": ["next.freetwai.com", "next.freetwai.com/admin"],
+      "protected_hostnames": ["staging.freetwai.com"],
+      "cloudflare_staging_hostname": "staging-next.freetwai.com",
+      "castle_staging_hostname": "staging.freetwai.com",
+      "staging_decision": "open: both stagings still exist; this plan does not choose"
+    },
     "workers_paid_usd_month": 5,
     "workers_paid": "verified active 2026-09-24 17:39:58 UTC by root (account subscriptions read: rate plan workers_paid, Workers Paid, account scope, US$5 monthly, state Paid). This tool made no provider call.",
     "workers_namespace": "freetwai initialized by the root identity",
@@ -173,19 +199,22 @@
       "cost": "Official Cloudflare documentation states price parity with buying from PlanetScale directly; the actual monthly invoice has not been observed yet."
     },
     "access_applications": {
-      "status": "verified",
+      "status": "historical_pre_cutover",
       "source": "root created and GET-verified 2026-09-24 17:35 UTC (not re-queried here); the 19 existing applications unchanged, account total 23; named operators reuse the existing staging list",
       "acceptance_tokens": "each candidate used its own temporary Access policy and service token; both cleaned (next confirmed 20:14:13 UTC), private credential files absent, original single-email operator and admin policies restored",
-      "applications": ["staging-next.freetwai.com", "staging-next.freetwai.com/admin", "next.freetwai.com", "next.freetwai.com/admin"]
+      "applications": ["staging-next.freetwai.com", "staging-next.freetwai.com/admin", "next.freetwai.com", "next.freetwai.com/admin"],
+      "removed_2026_09_25": "The next.freetwai.com and next.freetwai.com/admin applications in this list were deleted at finalize. staging-next applications remain. Production /admin stays the protected application Freedom public administrators."
     },
     "acceptance_scope": "10 selected phases: preflight, health, protocol, assets, anonymous, session, browser, guild-cache, avatar, logout (verifier 9bec626). github-handoff not selected; load run separately.",
     "not_verified": ["new member registration", "whole-app end-to-end behaviour", "full GitHub OAuth/App consent/install and star/fork/follow", "member message UI", "Taiwan latency", "provider-native backup/PITR restore drill", "database load and 10k concurrency", "actual monthly invoice"],
     "cache_rules_check": "Final provider addenda at 2026-09-24 19:19:48 UTC (staging-next) and 19:44:51 UTC (next): no_applicable_cache_rule each time (applicable rules 0, zone cache phase rulesets 0, page rules 0, account level not applicable), cache_clear true. A specific entrypoint lookup with the child token returned 403 (kept); absence rests on the complete zone Rulesets list (200) read with the parent token. Valid only for those observation times.",
     "dns_snapshot": "2026-09-24 20:14:49 UTC: both candidate hostnames resolve through the normal operator resolver and match fresh DoH; anonymous /, /admin and /api/v1/health return 302 with valid TLS; the 2 protected old DNS records (freetwai.com 1, staging.freetwai.com 1) match the 3 recorded baselines; zone Worker routes 0 (no historical route fingerprint exists). No global DNS or hosts change.",
-    "not_started": ["cutover (write freeze, fresh final backup and restore, verification, reviewed live-key transfer, real GitHub validation, rollback handling of new writes)"]
+    "not_started": ["which staging remains canonical (Castle staging.freetwai.com and Cloudflare staging-next.freetwai.com both still exist; this plan does not choose)"],
+    "not_started_historical_as_of_2026_09_24": ["cutover (write freeze, fresh final backup and restore, verification, reviewed live-key transfer, real GitHub validation, rollback handling of new writes) — completed 2026-09-25; this string is the pre-cutover gap record"]
   },
   "runtime": {
-    "config_source": "freedom-platform runtime worktree wrangler.jsonc at f089a84 (read-only here)",
+    "config_source": "wrangler.jsonc in this repository; env next is the production zone route as of 2026-09-25",
+    "config_source_historical": "freedom-platform runtime worktree wrangler.jsonc at f089a84 (pre-cutover alignment record)",
     "compatibility_date": "2026-09-21",
     "compatibility_flags": ["nodejs_compat"],
     "assets_binding": "ASSETS",
@@ -199,7 +228,8 @@
   },
   "environments": {
     "staging-next": {
-      "purpose": "Independent synthetic-data staging for the Workers runtime. Never receives live member data.",
+      "role": "cloudflare_staging",
+      "purpose": "Independent synthetic-data Cloudflare staging for the Workers runtime. Never receives live member data. Unchanged at the 2026-09-25 production cutover. Not chosen over Castle staging.freetwai.com; that decision is open.",
       "hostname": "staging-next.freetwai.com",
       "freedom_env": "staging",
       "data_source": "synthetic",
@@ -227,12 +257,15 @@
       }
     },
     "next": {
-      "purpose": "Production candidate. Protected by Access during rehearsal; becomes production only after the reviewed cutover.",
-      "hostname": "next.freetwai.com",
+      "role": "production",
+      "purpose": "Production since 2026-09-25. Served only by the zone route freetwai.com/* on Worker freedom-platform-next. Not behind site-wide Access.",
+      "hostname": "freetwai.com",
+      "route": {"pattern": "freetwai.com/*", "zone_name": "freetwai.com"},
+      "retired_hostnames": ["next.freetwai.com"],
       "freedom_env": "public",
-      "data_source": "rehearsal-restore-of-public-backup",
+      "data_source": "production",
       "worker": {"name": "freedom-platform-next", "workers_dev": false, "preview_urls": false},
-      "access": {"application_name": "Freedom next candidate", "admin_application_name": "Freedom next administrators", "required": true},
+      "access": {"required": false, "sitewide": false, "admin_via": "Freedom public administrators", "retired_application_names": ["Freedom next candidate", "Freedom next administrators"]},
       "hyperdrive": {"name": "freedom-next-hd", "binding": "HYPERDRIVE", "caching_disabled": true},
       "database": {
         "name": "freedom-next-pg",
@@ -244,7 +277,20 @@
       "r2_buckets": [{"name": "freedom-next-private", "public": false, "optional": true}],
       "secret_names": ["GITHUB_SOCIAL_TOKEN_KEY", "FREEDOM_ADMIN_CSRF_SECRET"],
       "var_names": ["APP_ORIGIN", "FREEDOM_ENV", "FREEDOM_RELEASE_SHA", "FREEDOM_TRUST_CF_CONNECTING_IP", "FREEDOM_DATABASE_NAME", "FREEDOM_REGISTRATION_COMMUNITY_ID", "FREEDOM_ADMIN_ACCESS_ISSUER", "FREEDOM_ADMIN_ACCESS_AUD"],
+      "current": {
+        "as_of": "2026-09-25",
+        "release_sha": "aba91745ae519a74c646975ba12ea3c71da490ef",
+        "app_origin": "https://freetwai.com",
+        "route": "freetwai.com/*",
+        "dns": "proxied AAAA 100:: placeholder",
+        "hyperdrive": "freedom-next-hd caching disabled, origin_connection_limit 15",
+        "database": "freedom-next-pg / freedom_next, PG18, Tokyo, PS-5 HA, max_connections 25",
+        "smart_placement": "off",
+        "secrets": "FREEDOM_ADMIN_CSRF_SECRET and GITHUB_SOCIAL_TOKEN_KEY set write-only; releases never re-upload them",
+        "rollback": "R3 only: dump freedom_next and restore into a new local database; never point back at frozen freedom_public"
+      },
       "observed": {
+        "scope": "historical_pre_cutover_rehearsal_2026-09-24",
         "database": "ready (PS_5_AWS_ARM, replicas 2: 1 primary + 2 replicas)",
         "source_backup": "fresh freedom_public backup 2026-09-24 18:51:51 UTC via the existing freedom-public-backup.service oneshot (read-only pg_dump, new file only); sha256 e8c584d5b16512d5ced178c8bfc908b7565529e5894aefc48a3a13c1fb3bf73a, checked before and after the private copy",
         "restore": "pg_restore --no-owner --no-privileges --exit-on-error --single-transaction succeeded 19:04:47 UTC into the empty migrator-owned freedom_next; ledger 36 names/checksums match, repository migrate no-op 36->36; restored sessions all revoked",

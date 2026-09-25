@@ -42,18 +42,18 @@ export function createReadOnlyClient({ credentials, fetchImpl = globalThis.fetch
 // Each capability: the read probe that proves visibility, and the permission groups the later
 // provisioning phase needs. Permission names follow developers.cloudflare.com/fundamentals/api/reference/permissions/.
 export const CAPABILITIES = [
-  { id: 'workers_scripts', scope: 'account', path: (a) => `/accounts/${a}/workers/scripts`, read: 'Workers Scripts Read', write: 'Workers Scripts Edit', needed_for: 'upload Worker versions, secrets and custom domains for staging-next / next' },
+  { id: 'workers_scripts', scope: 'account', path: (a) => `/accounts/${a}/workers/scripts`, read: 'Workers Scripts Read', write: 'Workers Scripts Edit', needed_for: 'read Worker scripts for freedom-platform-next and freedom-platform-staging-next. Historical pre-cutover use also uploaded custom domains. Production releases do not re-upload secrets.' },
   { id: 'workers_subdomain', scope: 'account', path: (a) => `/accounts/${a}/workers/subdomain`, read: 'Workers Scripts Read', write: null, needed_for: 'confirm workers.dev stays disabled for Freedom Workers' },
-  { id: 'workers_custom_domains', scope: 'account', path: (a) => `/accounts/${a}/workers/domains`, read: 'Workers Scripts Read', write: 'Workers Scripts Edit', needed_for: 'attach staging-next / next custom domains' },
+  { id: 'workers_custom_domains', scope: 'account', path: (a) => `/accounts/${a}/workers/domains`, read: 'Workers Scripts Read', write: 'Workers Scripts Edit', needed_for: 'staging-next custom domain only. Production uses zone route freetwai.com/*, not a custom domain. The next.freetwai.com custom domain was removed 2026-09-25.' },
   { id: 'hyperdrive', scope: 'account', path: (a) => `/accounts/${a}/hyperdrive/configs`, read: 'Hyperdrive Read', write: 'Hyperdrive Edit', needed_for: 'one cache-disabled Hyperdrive config (binding HYPERDRIVE) per environment; caching.disabled must be read back before deploy' },
   { id: 'r2', scope: 'account', path: (a) => `/accounts/${a}/r2/buckets`, read: 'Workers R2 Storage Read', write: 'Workers R2 Storage Edit', needed_for: 'private per-environment buckets (optional until the Worker binds R2)' },
   { id: 'queues', scope: 'account', optional: true, path: (a) => `/accounts/${a}/queues`, read: 'Queues Read', write: null, needed_for: 'not needed for this migration; recorded for completeness' },
-  { id: 'access_apps', scope: 'account', path: (a) => `/accounts/${a}/access/apps`, read: 'Access: Apps and Policies Read', write: 'Access: Apps and Policies Edit', needed_for: 'protect staging-next / next and their /admin paths before any Worker route is live' },
-  { id: 'tunnels', scope: 'account', path: (a) => `/accounts/${a}/cfd_tunnel?is_deleted=false&per_page=100`, read: 'Cloudflare Tunnel Read', write: null, needed_for: 'baseline of existing tunnels (read-only protection check)' },
+  { id: 'access_apps', scope: 'account', path: (a) => `/accounts/${a}/access/apps`, read: 'Access: Apps and Policies Read', write: 'Access: Apps and Policies Edit', needed_for: 'staging-next and its /admin stay behind Access. Production freetwai.com is public; /admin stays on the protected application Freedom public administrators. next.freetwai.com Access applications were deleted 2026-09-25.' },
+  { id: 'tunnels', scope: 'account', path: (a) => `/accounts/${a}/cfd_tunnel?is_deleted=false&per_page=100`, read: 'Cloudflare Tunnel Read', write: null, needed_for: 'baseline of existing tunnels (read-only protection check). The freetwai.com ingress rule was removed at cutover; the Castle staging tunnel stays.' },
   { id: 'subscriptions', scope: 'account', path: (a) => `/accounts/${a}/subscriptions`, read: 'Billing Read', write: null, needed_for: 'confirm whether Workers Paid is active (CPU limits for password hashing)' },
   { id: 'zone', scope: 'zone', path: (_a, z) => `/zones/${z}`, read: 'Zone Read', write: null, needed_for: 'zone identity and plan' },
-  { id: 'dns', scope: 'zone', path: (_a, z) => `/zones/${z}/dns_records?per_page=500`, read: 'DNS Read', write: 'DNS Edit', needed_for: 'protected-host baseline; a candidate hostname is absent only when result_info proves the DNS listing is complete' },
-  { id: 'workers_routes', scope: 'zone', path: (_a, z) => `/zones/${z}/workers/routes`, read: 'Workers Routes Read', write: 'Workers Routes Edit', needed_for: 'prove no Worker route overlaps freetwai.com or staging.freetwai.com' },
+  { id: 'dns', scope: 'zone', path: (_a, z) => `/zones/${z}/dns_records?per_page=500`, read: 'DNS Read', write: 'DNS Edit', needed_for: 'protected hostname staging.freetwai.com must remain; production freetwai.com must be the proxied AAAA placeholder; retired next.freetwai.com must be absent; deployed staging-next.freetwai.com must be present. Absent is claimed only when result_info proves the listing is complete. Historical pre-cutover check treated every candidate hostname as not-yet-created.' },
+  { id: 'workers_routes', scope: 'zone', path: (_a, z) => `/zones/${z}/workers/routes`, read: 'Workers Routes Read', write: 'Workers Routes Edit', needed_for: 'production is the zone route freetwai.com/* on freedom-platform-next. No route may overlap protected staging.freetwai.com. Historical pre-cutover check expected zero zone routes.' },
   { id: 'cache_rules', scope: 'zone', path: (_a, z) => `/zones/${z}/rulesets/phases/http_request_cache_settings/entrypoint`, read: 'Cache Rules Read', write: null, needed_for: 'prove no cache rule caches /api/* or session responses' },
 ];
 
@@ -147,7 +147,7 @@ export function consoleActionForMissing(groups) {
     'Name it for one purpose, e.g. "freedom-cf-readonly-preflight"; do NOT add API Tokens, Billing Edit or Account Settings Edit.',
     account.length ? `Permissions → Account → ${[...new Set(account)].join(', ')}; Account Resources → Include → the Freedom account only.` : null,
     zone.length ? `Permissions → Zone → ${[...new Set(zone)].join(', ')}; Zone Resources → Include → Specific zone → freetwai.com.` : null,
-    'Client IP Address Filtering → operator host egress IP; TTL → end of the rehearsal window.',
+    'Client IP Address Filtering → operator host egress IP; TTL → a short operator-chosen window.',
     'Save the token only into a new chmod 600 file (e.g. ~/.config/freedom-cloudflare/readonly.env with CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN; legacy CF_* names also accepted); never paste it into chat, repo or command arguments.',
   ].filter(Boolean);
 }
@@ -200,17 +200,31 @@ export async function probeCloudflare({ client, accountId, manifest }) {
   report.missing_for_preflight = missingRead;
   report.console_actions = consoleActionForMissing(missingRead);
 
-  // Protected-host baseline: names and content fingerprints only, never record contents.
-  // `absent` is a readiness claim. It is used only when result_info proves the listing is complete.
+  // Hostname baseline after the 2026-09-25 cutover. Names and content fingerprints
+  // only; record contents are never copied into the report.
+  //
+  // Historical pre-cutover check: every environment hostname was a candidate that
+  // should be absent (ready to create) or "taken" (do not overwrite). That reading
+  // contradicts production. Current classes:
+  // - protected (staging.freetwai.com): must exist. Sharing one fingerprint across
+  //   two or more protected hosts is still reported (that was the pre-cutover
+  //   apex+staging tunnel); one protected host cannot share with itself.
+  // - production (freetwai.com): must be exactly one proxied AAAA 100:: placeholder,
+  //   not a tunnel CNAME.
+  // - retired (next.freetwai.com): must be absent. Presence is a finding.
+  // - deployed Cloudflare staging (staging-next.freetwai.com): must be present.
+  // `absent` is used only when result_info proves the listing is complete.
+  // A name that was not seen on an incomplete listing stays `incomplete_listing`.
   if (results.dns?.status === 'granted') {
     const listed = await collectDnsRecords(client, zone?.id, results.dns.res);
     const records = listed.records;
     const dnsCapability = report.capabilities.find((c) => c.id === 'dns');
     if (dnsCapability) dnsCapability.count = listed.complete ? records.length : null;
-    const candidates = Object.values(manifest.environments).map((e) => e.hostname);
     const summarize = (matched) => matched.map((r) => ({ type: r.type, proxied: r.proxied, tunnel_target: /\.cfargotunnel\.com$/.test(r.content ?? ''), fingerprint: fingerprintRecord(r) }));
+    const seen = (host) => records.filter((r) => r.name === host);
+    const tunnelTarget = (r) => /\.cfargotunnel\.com$/.test(r.content ?? '');
     for (const host of manifest.protected.hostnames) {
-      const matched = records.filter((r) => r.name === host);
+      const matched = seen(host);
       if (matched.length) report.protected_baseline[host] = summarize(matched);
       else if (listed.complete) {
         report.protected_baseline[host] = [];
@@ -218,25 +232,60 @@ export async function probeCloudflare({ client, accountId, manifest }) {
       } else report.protected_baseline[host] = 'incomplete_listing';
     }
     if (listed.complete) {
-      const prints = manifest.protected.hostnames.flatMap((h) => (report.protected_baseline[h] ?? []).map((r) => r.fingerprint));
-      if (new Set(prints).size < prints.length) report.findings.push({ severity: 'info', id: 'protected_hosts_share_origin', detail: 'Protected hostnames resolve to the same tunnel target; that tunnel carries live traffic and must not be edited during staging work.' });
+      const prints = manifest.protected.hostnames.flatMap((h) => (Array.isArray(report.protected_baseline[h]) ? report.protected_baseline[h] : []).map((r) => r.fingerprint));
+      if (prints.length > 1 && new Set(prints).size < prints.length) report.findings.push({ severity: 'info', id: 'protected_hosts_share_origin', detail: 'Protected hostnames resolve to the same tunnel target; that tunnel carries Castle staging traffic and must not be edited.' });
     }
-    for (const host of candidates) {
-      const taken = records.filter((r) => r.name === host);
-      if (taken.length) {
-        report.protected_baseline[`candidate:${host}`] = 'taken';
-        report.findings.push({ severity: 'high', id: 'candidate_hostname_taken', detail: `${host} already has DNS records; provisioning must not overwrite them.` });
-      } else if (listed.complete) report.protected_baseline[`candidate:${host}`] = 'absent';
-      else report.protected_baseline[`candidate:${host}`] = 'incomplete_listing';
+    for (const env of Object.values(manifest.environments)) {
+      if (env.role === 'production') {
+        const matched = seen(env.hostname);
+        if (!matched.length) {
+          report.protected_baseline[`production:${env.hostname}`] = listed.complete ? [] : 'incomplete_listing';
+          if (listed.complete) report.findings.push({ severity: 'high', id: 'production_hostname_missing', detail: `${env.hostname} has no DNS record; production must keep the proxied AAAA placeholder.` });
+        } else {
+          report.protected_baseline[`production:${env.hostname}`] = summarize(matched);
+          const placeholder = matched.length === 1 && matched[0].type === 'AAAA' && matched[0].proxied === true && matched[0].content === '100::';
+          if (matched.some(tunnelTarget)) report.findings.push({ severity: 'high', id: 'production_still_on_tunnel', detail: `${env.hostname} still has a tunnel CNAME; production DNS is the proxied AAAA placeholder.` });
+          if (!placeholder) report.findings.push({ severity: 'high', id: 'production_dns_unexpected', detail: `${env.hostname} is not exactly one proxied AAAA placeholder.` });
+        }
+      } else if (env.role === 'cloudflare_staging') {
+        const matched = seen(env.hostname);
+        if (matched.length) report.protected_baseline[`deployed:${env.hostname}`] = 'present';
+        else if (listed.complete) {
+          report.protected_baseline[`deployed:${env.hostname}`] = 'absent';
+          report.findings.push({ severity: 'high', id: 'deployed_hostname_missing', detail: `${env.hostname} has no DNS record; Cloudflare staging is still deployed and must not be dropped by this plan.` });
+        } else report.protected_baseline[`deployed:${env.hostname}`] = 'incomplete_listing';
+      }
+      for (const host of env.retired_hostnames ?? []) {
+        const matched = seen(host);
+        if (matched.length) {
+          report.protected_baseline[`retired:${host}`] = 'present';
+          report.findings.push({ severity: 'high', id: 'retired_hostname_present', detail: `${host} was removed on 2026-09-25 and must stay absent.` });
+        } else if (listed.complete) report.protected_baseline[`retired:${host}`] = 'absent';
+        else report.protected_baseline[`retired:${host}`] = 'incomplete_listing';
+      }
     }
-    if (!listed.complete) report.findings.push({ severity: 'high', id: 'dns_listing_incomplete', detail: 'DNS listing was not proven complete. Candidate hostnames that were not seen are incomplete_listing, not absent; this is a readiness blocker and provisioning must not proceed.' });
+    if (!listed.complete) report.findings.push({ severity: 'high', id: 'dns_listing_incomplete', detail: 'DNS listing was not proven complete. Hostnames that were not seen are incomplete_listing, not absent. Do not treat a partial list as proof that a retired name is gone or that a deployed name is missing.' });
   }
   if (results.access_apps?.status === 'granted') {
-    const names = (results.access_apps.res.result ?? []).map((a) => a.name);
+    const apps = results.access_apps.res.result ?? [];
+    const names = apps.map((a) => a.name);
     report.protected_baseline.access_applications = manifest.protected.access_applications.map((n) => ({ name: n, present: names.includes(n) }));
+    const domainsOf = (app) => [app.domain, ...(app.self_hosted_domains ?? [])];
+    const coversHost = (host) => apps.some((a) => domainsOf(a).some((d) => d === host || d === `${host}/*`));
     for (const env of Object.values(manifest.environments)) {
-      const covered = (results.access_apps.res.result ?? []).some((a) => [a.domain, ...(a.self_hosted_domains ?? [])].some((d) => d === env.hostname || d === `${env.hostname}/*`));
-      report.protected_baseline[`access:${env.hostname}`] = covered ? 'covered' : 'not_yet_covered';
+      const sitewide = coversHost(env.hostname);
+      if (env.access?.required === true) {
+        report.protected_baseline[`access:${env.hostname}`] = sitewide ? 'covered' : 'not_yet_covered';
+      } else {
+        // freetwai.com/admin is the protected admin app and is not site-wide coverage.
+        report.protected_baseline[`access:${env.hostname}`] = sitewide ? 'sitewide_unexpected' : 'public';
+        if (sitewide) report.findings.push({ severity: 'high', id: 'production_sitewide_access', detail: `${env.hostname} is behind a whole-host Access application. Production is public; only /admin stays on Freedom public administrators.` });
+      }
+      for (const host of env.retired_hostnames ?? []) {
+        if (apps.some((a) => domainsOf(a).some((d) => d === host || d === `${host}/*` || (typeof d === 'string' && d.startsWith(`${host}/`))))) {
+          report.findings.push({ severity: 'high', id: 'retired_access_application', detail: `${host} still has an Access application. Those applications were deleted on 2026-09-25.` });
+        }
+      }
     }
   }
   if (results.tunnels?.status === 'granted') {
@@ -245,7 +294,12 @@ export async function probeCloudflare({ client, accountId, manifest }) {
   if (results.workers_scripts?.status === 'granted') {
     const names = (results.workers_scripts.res.result ?? []).map((s) => s.id);
     for (const env of Object.values(manifest.environments)) {
-      if (names.includes(env.worker.name)) report.findings.push({ severity: 'medium', id: 'worker_name_taken', detail: `${env.worker.name} already exists; confirm it is ours before reuse.` });
+      if (!names.includes(env.worker.name)) continue;
+      report.protected_baseline[`worker:${env.worker.name}`] = 'present';
+      // Historical pre-cutover id was worker_name_taken (medium): a script that
+      // already existed was a reuse risk before the first deploy. Both Workers
+      // are expected to exist after 2026-09-25; keep the ownership check as info.
+      report.findings.push({ severity: 'info', id: 'worker_name_present', detail: `${env.worker.name} is present; confirm it is this environment before reuse.` });
     }
   }
   if (results.r2?.status === 'granted') {
