@@ -2,6 +2,7 @@ import { Navigation, TAB_TITLES } from './Navigation'
 import { SkillsPanel } from './modules/SkillsPanel'
 import { ModuleBanner } from './modules/ModuleBanner'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { MEMBER_ACCESS_EXPIRED_MESSAGE } from './access-fetch'
 import { ApiError, PortalClient, requireDashboard, requireItems } from './api'
 import { MemberHome } from './modules/MemberHome'
 import { Onboarding, type OnboardingView } from './modules/Onboarding'
@@ -63,6 +64,7 @@ type ActionError = {
   message: string
   network: boolean
   conflict: boolean
+  accessExpired?: boolean
   retry?: () => void
 }
 
@@ -94,6 +96,7 @@ function describeError(err: unknown): ActionError {
       message: err.message,
       network: err.network,
       conflict: err.conflict,
+      accessExpired: err.accessExpired,
     }
   }
   if (err instanceof Error) {
@@ -151,6 +154,12 @@ function MemberApp() {
       const next = await client.getSession()
       applySession(next)
     } catch (err) {
+      if (err instanceof ApiError && err.accessExpired) {
+        setLoginNotice(null)
+        setBootError(describeError(err))
+        setPhase('login')
+        return
+      }
       if (err instanceof ApiError && err.unauthorized) {
         toLogin()
         return
@@ -161,7 +170,19 @@ function MemberApp() {
   }, [applySession, toLogin])
 
   useEffect(() => {
-    client.onUnauthorized = () => toLogin('登入已過期，請重新登入。')
+    client.onUnauthorized = () => {
+      if (client.accessExpired) {
+        sessionGeneration.current += 1
+        client.csrfToken = null
+        setOnboarding(null)
+        setSession(null)
+        setLoginNotice(null)
+        setBootError({ message: MEMBER_ACCESS_EXPIRED_MESSAGE, network: false, conflict: false, accessExpired: true })
+        setPhase('login')
+        return
+      }
+      toLogin('登入已過期，請重新登入。')
+    }
     void bootstrap()
     return () => {
       client.onUnauthorized = null
@@ -259,14 +280,15 @@ function LoginView({
     }
   }
 
+  const accessExpired = Boolean(bootError?.accessExpired || error?.accessExpired)
   return (
     <main className="login-layout">
       <section className="login-story"><BrandPoster/><div className="login-story-copy"><h1>完成定位、加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。</h1></div></section>
       <div className="login-form-area">
       <section className="card login-card" aria-labelledby="login-heading">
-        <div className="auth-switch" role="group" aria-label="登入或建立帳號"><button type="button" className={mode==='login'?'selected':''} aria-pressed={mode==='login'} onClick={()=>{setMode('login');setError(null)}}>會員登入</button>{site?.registration_enabled&&<button type="button" className={mode==='register'?'selected':''} aria-pressed={mode==='register'} onClick={()=>{setMode('register');setError(null)}}>建立帳號</button>}</div>
-        <h2 id="login-heading">{mode==='register'?'加入自由工坊':'登入'}</h2>
-        {notice && (
+        {!accessExpired && <div className="auth-switch" role="group" aria-label="登入或建立帳號"><button type="button" className={mode==='login'?'selected':''} aria-pressed={mode==='login'} onClick={()=>{setMode('login');setError(null)}}>會員登入</button>{site?.registration_enabled&&<button type="button" className={mode==='register'?'selected':''} aria-pressed={mode==='register'} onClick={()=>{setMode('register');setError(null)}}>建立帳號</button>}</div>}
+        <h2 id="login-heading">{accessExpired ? '網站登入已過期' : mode==='register'?'加入自由工坊':'登入'}</h2>
+        {notice && !accessExpired && (
           <p className="banner banner-info" role="status">
             {notice}
           </p>
@@ -275,7 +297,7 @@ function LoginView({
           <ErrorPanel error={bootError} onReload={onRetrySession} reloadLabel="重新確認登入狀態" />
         )}
         {error && <ErrorPanel error={error} />}
-        <form className="stack" onSubmit={(event) => void onSubmit(event)}>
+        {!accessExpired && <form className="stack" onSubmit={(event) => void onSubmit(event)}>
           {mode==='register'&&<label className="field"><span className="field-label" id="register-nickname-label">社群顯示名稱</span><input name="nickname" required minLength={1} maxLength={60} autoComplete="nickname" aria-labelledby="register-nickname-label" aria-describedby="register-nickname-hint" value={nickname} onChange={event=>setNickname(event.target.value)} disabled={pending}/><span className="field-hint" id="register-nickname-hint">建議使用大家熟悉的社群名字</span></label>}
           <label className="field">
             <span className="field-label">電子郵件</span>
@@ -307,8 +329,8 @@ function LoginView({
           <button className="btn btn-primary" type="submit" disabled={pending} aria-busy={pending}>
             {pending ? (mode==='register'?'建立帳號中…':'登入中…') : (mode==='register'?'註冊並開始定位':'登入')}
           </button>
-        </form>
-        {site?.demo_accounts_enabled&&mode==='login'&&<aside className="help-box" aria-label="示範帳號">
+        </form>}
+        {!accessExpired && site?.demo_accounts_enabled&&mode==='login'&&<aside className="help-box" aria-label="示範帳號">
           <p>
             示範帳號（虛構身分，不是真實人士）。密碼皆為 <code>{DEMO_PASSWORD}</code>。
           </p>
@@ -404,6 +426,10 @@ function Workspace({
         return true
       } catch (err) {
         const described = describeError(err)
+        if (err instanceof ApiError && err.accessExpired) {
+          setError(described)
+          return false
+        }
         if (err instanceof ApiError && err.unauthorized) {
           onSessionExpired()
           return false
@@ -1724,12 +1750,17 @@ function ErrorPanel({
       {error.conflict && <p>資料可能已被其他人更新。請重新載入後再操作，不要重複送出同一筆動作。</p>}
       {error.network && <p>連線中斷時不會自動重送。若要重試同一筆動作，請使用「再試一次」。</p>}
       <div className="actions">
+        {error.accessExpired && (
+          <button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>
+            重新載入頁面
+          </button>
+        )}
         {error.network && error.retry && (
           <button type="button" className="btn btn-primary" onClick={error.retry}>
             再試一次
           </button>
         )}
-        {(error.conflict || onReload) && onReload && (
+        {(error.conflict || onReload) && onReload && !error.accessExpired && (
           <button type="button" className="btn btn-ghost" onClick={onReload}>
             {reloadLabel}
           </button>
