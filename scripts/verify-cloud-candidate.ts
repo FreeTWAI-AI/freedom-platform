@@ -1,7 +1,7 @@
 // Cloud candidate acceptance CLI. Default is a plan with no network access.
 //   npx tsx scripts/verify-cloud-candidate.ts plan --target staging-next
 //   npx tsx scripts/verify-cloud-candidate.ts execute --target next --expected-release-sha <40-hex> --phases health,protocol
-// Only https://staging-next.freetwai.com and https://next.freetwai.com are addressable.
+// Only https://staging-next.freetwai.com, https://next.freetwai.com and https://freetwai.com are addressable.
 // Credentials come from private files named by environment variables, never argv.
 // The JSON report goes to stdout; progress lines (no values) go to stderr.
 import { lstat, readFile } from 'node:fs/promises';
@@ -16,12 +16,13 @@ export const ACCOUNT_ENV = 'FREEDOM_CANDIDATE_ACCOUNT_FILE';
 export const ACCESS_ENV = 'FREEDOM_CANDIDATE_ACCESS_FILE';
 const DEMO_PASSWORDS = new Set(['freedom-local-demo']);
 
-export const HELP = `Usage: npx tsx scripts/verify-cloud-candidate.ts [plan|execute] --target staging-next|next [options]
+export const HELP = `Usage: npx tsx scripts/verify-cloud-candidate.ts [plan|execute] --target staging-next|next|public [options]
 
   plan (default)          Print the acceptance plan as JSON. No network, no credential files read.
-  execute                 Run the selected phases against the exact candidate origin.
+  execute                 Run the selected phases against the exact allowlisted origin.
   --target                staging-next (https://staging-next.freetwai.com, mode staging)
                           next         (https://next.freetwai.com, mode public)
+                          public       (https://freetwai.com, mode public)
   --phases a,b            ${PHASES.filter(id => id !== 'preflight').join(', ')}
                           default: ${READ_ONLY_PHASES.filter(id => id !== 'preflight').join(', ')} (read-only)
                           health is always added to any network run
@@ -39,7 +40,7 @@ export const HELP = `Usage: npx tsx scripts/verify-cloud-candidate.ts [plan|exec
 
 Environment (paths to private 0600 files owned by you; read only by execute):
   ${ACCOUNT_ENV}  {"candidate_origin","label","email","password","synthetic":true}
-  ${ACCESS_ENV}   {"candidate_origin","client_id","client_secret"}   (optional, staging Access)
+  ${ACCESS_ENV}   {"candidate_origin","client_id","client_secret"}   (optional; omit for public, which has no whole-host Access)
 
 See scripts/verify-cloud-candidate.md for prerequisites, cleanup and acceptance gates.`;
 

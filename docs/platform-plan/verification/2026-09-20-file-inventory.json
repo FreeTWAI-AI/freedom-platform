@@ -579,8 +579,8 @@
     },
     {
       "path": "apps/portal-web/public/downloads/freedom-skill-client.tgz",
-      "bytes": 11177,
-      "sha256": "8ea0f8826156a0f8b0c702659686c663372c59414203192019df38fc1fec8137"
+      "bytes": 11172,
+      "sha256": "72db4b54cdbd7c087b6a92e1705fe0bcf041be556632582081e4db2bf3b63a37"
     },
     {
       "path": "apps/portal-web/src/App.tsx",
@@ -3259,23 +3259,23 @@
     },
     {
       "path": "scripts/verify-cloud-candidate-lib.ts",
-      "bytes": 67774,
-      "sha256": "d5fc11fb3bce689eaea7c237228a777b036ce5c3f442a0679d71af7f69e41ee2"
+      "bytes": 69375,
+      "sha256": "3af0320ca4f5ba5c5d9c0dc71fc7eca0723cdd0a86bbd5ed26b6ed765fa8677d"
     },
     {
       "path": "scripts/verify-cloud-candidate-members.ts",
-      "bytes": 44677,
-      "sha256": "f1e603c565ce7803623b630ea14f31e32264497557b7b4ce6f302da769685ea6"
+      "bytes": 44727,
+      "sha256": "ddfb103318eb9d87ec3d83e8f6d3ba8663a5bf59897c4c0adf52b086d2d8b1fd"
     },
     {
       "path": "scripts/verify-cloud-candidate.md",
-      "bytes": 30427,
-      "sha256": "21e9fe82635f74d668018e20bdeffe555b2860a183ac0cc3f610ea5b98404e54"
+      "bytes": 33430,
+      "sha256": "8fee027c15d59b5c4c6481c3bb065614a54959331056b5cc2846ddf12b5682ee"
     },
     {
       "path": "scripts/verify-cloud-candidate.ts",
-      "bytes": 12226,
-      "sha256": "b37788e5b84066acc73ca3ba868b42a2719fcfbfe695b206ffd9963c0fa92144"
+      "bytes": 12365,
+      "sha256": "8ae4406340664ad8d0568f65dcf73f2cd3bfad8d27202dbff827f4539cfb93f4"
     },
     {
       "path": "scripts/verify-member-settings.mjs",
@@ -3344,8 +3344,8 @@
     },
     {
       "path": "tests/e2e/cloud-candidate-acceptance.spec.ts",
-      "bytes": 64945,
-      "sha256": "283ba3680e5c72655deed3aeec51116451bf24df77b98854490b10258da124b2"
+      "bytes": 72910,
+      "sha256": "425e039955c92f6fad87d3c811d8665851d52a7b0e28a1386f637f19143ffdba"
     },
     {
       "path": "tests/e2e/co-creation.spec.ts",

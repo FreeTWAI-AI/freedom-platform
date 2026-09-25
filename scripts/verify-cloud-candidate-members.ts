@@ -53,9 +53,9 @@ export type MemberPhaseDeps = {
   cookieChecks(cookie: any, target: { origin: string }): CookieChecks;
 };
 
-/** `next` restores real community history. Guild channel reads and writes stay off that target. */
+/** `next` and `public` hold real community history. Guild channel reads and writes stay off those targets. */
 export function guildChannelsRealHistoryGuarded(target: { name: string }) {
-  return target.name === 'next';
+  return target.name === 'next' || target.name === 'public';
 }
 
 type Identity = { label: string; email: string; password: string; nickname: string };
@@ -599,7 +599,7 @@ export async function runMessagesMobile(page: any, context: any, ctx: MemberCtx,
   try { await direct.filter({ hasText: '沒有未讀' }).waitFor({ timeout: 20000 }); tabClear = true; } catch { tabClear = false; }
   const rowAfter = String(await row.innerText());
   const dot = await page.locator('.settings-dot').count();
-  // On next the shell's guild summary can count real messages. That badge is not cleared: history stays closed.
+  // On next and public the shell's guild summary can count real messages. That badge is not cleared: history stays closed.
   if (guildSummaryUnreadAllowed) ctx.metric('guild_summary_unread', 'not_cleared');
   ctx.check('unread_consistent', !rowUnread && tabClear && !rowAfter.includes('則未讀') && (guildSummaryUnreadAllowed || dot === 0));
   ctx.check('no_horizontal_overflow', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth) === true);

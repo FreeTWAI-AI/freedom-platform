@@ -12,20 +12,39 @@ export const TOOL_VERSION = 'cloud-candidate-acceptance/1';
 export type Mode = 'staging' | 'public' | 'local';
 export type Target = Readonly<{ name: string; origin: string; mode: Mode; harness: 'cloud_candidate' | 'local_harness' }>;
 
-/** The only origins the CLI can ever address. Old live hosts are deliberately absent. */
+/** Origins the CLI can address. `public` is production after the Workers cutover. `staging.freetwai.com` is absent. */
 export const CANDIDATES: Readonly<Record<string, Target>> = Object.freeze({
   'staging-next': Object.freeze({ name: 'staging-next', origin: 'https://staging-next.freetwai.com', mode: 'staging', harness: 'cloud_candidate' }),
   next: Object.freeze({ name: 'next', origin: 'https://next.freetwai.com', mode: 'public', harness: 'cloud_candidate' }),
+  public: Object.freeze({ name: 'public', origin: 'https://freetwai.com', mode: 'public', harness: 'cloud_candidate' }),
 });
 
-/** Accepts a candidate name or its exact origin (optionally with one trailing slash); nothing else. */
+const TARGET_USAGE = `target must be ${Object.keys(CANDIDATES).join(', ')}, ${Object.values(CANDIDATES).map(target => target.origin).join(', ')}`;
+
+/** Accepts an allowlisted name or its exact origin (optionally with one trailing slash); nothing else. */
 export function candidateTarget(value: string): Target {
-  if (typeof value !== 'string') throw new UsageError('target must be staging-next or next');
+  if (typeof value !== 'string') throw new UsageError(TARGET_USAGE);
   const named = Object.hasOwn(CANDIDATES, value) ? CANDIDATES[value] : undefined;
   if (named) return named;
   const found = Object.values(CANDIDATES).find(target => value === target.origin || value === target.origin + '/');
-  if (!found) throw new UsageError('target must be staging-next, next, https://staging-next.freetwai.com or https://next.freetwai.com');
+  if (!found) throw new UsageError(TARGET_USAGE);
   return found;
+}
+
+/**
+ * Login Origin cases. Candidates still reject the old live origin.
+ * On `public` that origin is the target, so the same check uses the candidate origin.
+ */
+export function foreignLoginOrigins(target: { name: string }): readonly (readonly [string, string])[] {
+  const third: readonly [string, string] = target.name === 'public'
+    ? ['candidate_origin', 'https://next.freetwai.com']
+    : ['old_live_origin', 'https://freetwai.com'];
+  return [['missing_origin', 'none'], ['foreign_origin', 'https://attacker.invalid'], third];
+}
+
+/** `staging-next` and `next` may sit behind whole-host Access. Production does not. */
+export function wholeHostAccessGated(target: { name: string }) {
+  return target.name !== 'public';
 }
 
 /**
@@ -65,7 +84,7 @@ export const WRITE_DESCRIPTIONS: Partial<Record<PhaseId, string>> = {
   'github-handoff': 'creates one unconsumed OAuth state row (expires in 10 minutes); the provider URL is never requested',
   avatar: 'uploads then removes a generated avatar of the dedicated synthetic account',
   registration: 'registers one synthetic cand-reg member, completes positioning and one primary guild, then revokes that member\'s sessions',
-  messages: 'registers a second synthetic member, creates one squad containing only those two members, and writes direct and squad messages; guild-channel writes run only when the target is not next',
+  messages: 'registers a second synthetic member, creates one squad containing only those two members, and writes direct and squad messages; guild-channel writes run only when the target is not next or public',
   'messages-mobile': 'opens one mobile browser session of the synthetic member registered in this run and sends one direct message',
   logout: 'revokes the tool session',
 };
@@ -481,7 +500,14 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
       }
     },
     async anonymous(ctx) {
-      if (access) {
+      // Production has no whole-host Access application, so a 200 is success there.
+      // Candidates keep the optional service-token challenge. `/admin` stays behind
+      // Access on every host and is not requested. App-level 401 checks always run.
+      if (!wholeHostAccessGated(target)) {
+        const gate = await client.request('GET', '/', { session: false, access: false });
+        ctx.check('anonymous_reaches_app', gate.status === 200 && !accessChallenge(gate), accessChallenge(gate) ? 'access_challenge' : `status ${gate.status}`);
+        ctx.metric('access_gate', 'not_applicable');
+      } else if (access) {
         const gate = await client.request('GET', '/', { session: false, access: false });
         ctx.check('access_gate_challenges_unauthenticated', accessChallenge(gate) || gate.status === 401 || gate.status === 403, `status ${gate.status}`);
       } else ctx.metric('access_gate', target.mode === 'staging' ? 'not_checked_without_access_credential' : 'not_applicable');
@@ -493,8 +519,9 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
         ctx.check(`${path}:no_cookie_set`, !reply.setCookies().some(cookie => cookie.name === SESSION_COOKIE && cookie.value));
       }
       // Origin enforcement is checked on login before any credential is sent.
-      for (const [label, origin] of [['missing_origin', 'none'], ['foreign_origin', 'https://attacker.invalid'], ['old_live_origin', 'https://freetwai.com']] as const) {
-        if (origin === target.origin) continue;
+      // A listed origin that is the target would make the check meaningless, so it fails closed.
+      for (const [label, origin] of foreignLoginOrigins(target)) {
+        if (origin !== 'none' && origin === target.origin) throw new CheckFailed('foreign_origin_matches_target');
         const reply = await client.request('POST', '/api/v1/auth/login', { json: {}, origin, session: false, csrf: null });
         ctx.check(`login_${label}_rejected`, reply.status === 403 && reply.json()?.code === 'origin_rejected', `status ${reply.status} ${safeCode(reply.json()?.code)}`);
       }
