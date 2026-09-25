@@ -45,7 +45,7 @@ export class GitHubSocial {
   private key?:Buffer;
   private provider:GitHubSocialProvider;
   private inflight:Map<string,Promise<MetricsRow>>;
-  constructor(private pool:Pool,private config?:GitHubSocialConfig,fetcher:typeof fetch=fetch){
+  constructor(private pool:Pool,private config?:GitHubSocialConfig,fetcher:typeof fetch=fetch,private metricsToken?:string){
     if(config){
       this.key=Buffer.from(config.tokenKey,'base64');
       const redirect=new URL(config.redirectUri);
@@ -220,6 +220,18 @@ export class GitHubSocial {
     return (await q.query<MetricsRow>(`INSERT INTO github_repository_metrics(repository_key,retry_after,last_error) VALUES($1,now()+interval '1 hour',$2)
       ON CONFLICT(repository_key) DO UPDATE SET retry_after=now()+interval '1 hour',last_error=$2 RETURNING *`,[key,code])).rows[0];
   }
+  // Anonymous GitHub quota is per IP and Worker egress IPs are shared, so public
+  // counts use the operator's read-only token when one is set. A rejected token
+  // falls back to one anonymous attempt instead of blanking the counts.
+  private async publicMetrics(repository:string):Promise<RepositorySnapshot>{
+    if(!this.metricsToken)return this.provider.metrics(repository);
+    try{return await this.provider.metrics(repository,this.metricsToken);}
+    catch(error){
+      if(!(error instanceof GitHubProviderError)||error.code!=='github_reconnect_required')throw error;
+      console.error('github_metrics_token_rejected');
+      return this.provider.metrics(repository);
+    }
+  }
   private async loadMetrics(key:string,repository:string):Promise<MetricsRow>{
     return transaction(this.pool,async q=>{
       const cached=()=>q.query<MetricsRow>('SELECT snapshot,checked_at,retry_after,last_error FROM github_repository_metrics WHERE repository_key=$1',[key]);
@@ -228,7 +240,7 @@ export class GitHubSocial {
       if(!locked)return row??{snapshot:null,checked_at:null,retry_after:new Date(),last_error:'github_refresh_in_progress'};
       row=(await cached()).rows[0];if(row&&row.retry_after.getTime()>Date.now())return row;
       try{
-        const snapshot=await this.provider.metrics(repository);
+        const snapshot=await this.publicMetrics(repository);
         return this.saveMetrics(q,key,snapshot);
       }catch(error){
         if(!(error instanceof GitHubProviderError))throw error;

@@ -24,6 +24,7 @@ export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:{adminVe
   return {
     registrationCommunityId:()=>process.env.FREEDOM_REGISTRATION_COMMUNITY_ID,
     githubTokenKey:()=>options.githubSocial?.tokenKey??process.env.GITHUB_SOCIAL_TOKEN_KEY,
+    githubMetricsToken:()=>options.githubSocial?.metricsToken??(process.env.GITHUB_METRICS_TOKEN||undefined),
     adminVerifier:options.adminVerifier??verifyAdminAccess,
     sourceNetwork:authNetwork,
     allowedHosts:allowedRequestHosts(freedomEnv,origin),

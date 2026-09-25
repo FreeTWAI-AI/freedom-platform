@@ -14,6 +14,8 @@ export type PlatformRuntime = {
   registrationCommunityId: () => string | undefined;
   /** Base64 AES key protecting stored GitHub credentials; never logged or returned. */
   githubTokenKey: () => string | undefined;
+  /** Read-only GitHub token for public repository counts; never logged or returned. */
+  githubMetricsToken: () => string | undefined;
   adminVerifier: AdminAccessVerifier;
   /** Deterministic auth rate-limit key: a trusted client IP or SHARED_NETWORK_KEY. */
   sourceNetwork: (c: Context) => string;

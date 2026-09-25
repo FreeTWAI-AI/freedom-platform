@@ -5,8 +5,8 @@ import type {Actor} from '../../../../modules/identity-membership/service.js';
 import {GitHubSocial} from '../../../../modules/github-social/service.js';
 import {readSocialConfig} from '../../../../modules/github-social/setup.js';
 
-export type GitHubSocialOptions={config?:{clientId:string;clientSecret:string;tokenKey:string;redirectUri:string;appId?:string;appSlug?:string};tokenKey?:string;fetcher?:typeof fetch};
-export function socialLoader(pool:Pool,origin:string,options:GitHubSocialOptions={},readTokenKey:()=>string|undefined=()=>process.env.GITHUB_SOCIAL_TOKEN_KEY){
+export type GitHubSocialOptions={config?:{clientId:string;clientSecret:string;tokenKey:string;redirectUri:string;appId?:string;appSlug?:string};tokenKey?:string;metricsToken?:string;fetcher?:typeof fetch};
+export function socialLoader(pool:Pool,origin:string,options:GitHubSocialOptions={},readTokenKey:()=>string|undefined=()=>process.env.GITHUB_SOCIAL_TOKEN_KEY,readMetricsToken:()=>string|undefined=()=>options.metricsToken??(process.env.GITHUB_METRICS_TOKEN||undefined)){
   return async()=>{
     const key=options.tokenKey??readTokenKey();
     let config=options.config;
@@ -14,7 +14,7 @@ export function socialLoader(pool:Pool,origin:string,options:GitHubSocialOptions
       const stored=await readSocialConfig(pool,key);
       if(stored)config={...stored,redirectUri:origin+'/github/callback'};
     }
-    return new GitHubSocial(pool,config,options.fetcher??fetch);
+    return new GitHubSocial(pool,config,options.fetcher??fetch,readMetricsToken());
   };
 }
 const bookId=(value:string)=>z.string().regex(/^[a-z0-9-]{1,100}$/).parse(value);
