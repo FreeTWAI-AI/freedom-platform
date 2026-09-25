@@ -28,6 +28,8 @@
 
 公開會員入口：<https://freetwai.com>；內部入口：<https://staging.freetwai.com>（Cloudflare Access 限定名單，獨立 DB）。本輪行為與邊界見 [會員入口設計](./docs/development/member-onboarding-release.md)，運行方式見 [公開站手冊](./docs/development/public-operations.md)。
 
+Cloudflare Workers＋PlanetScale 候選站演練已完成，但**尚未切換**，上述兩站照舊運行並接受寫入；現況與未驗證項目見 [2026-09-24 遷移交接](./docs/development/cloudflare-migration-status-2026-09-24.md)。
+
 工坊夥伴名冊支援公開資料搜尋、公會篩選、加入日期／暱稱排序與緊湊列表；詳細技能和聯絡方式可展開。舊會員依開站日 2026/9/23 記錄，新會員保存實際加入時間。
 
 名片可新增多個社群帳號或頻道，同平台也可重複加入；每筆獨立編輯、刪除及設定可見範圍，預設只有本人可見。詳見 [會員社群連結](./docs/development/member-social-links.md)。

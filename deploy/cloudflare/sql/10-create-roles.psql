@@ -1,0 +1,28 @@
+-- Run as the PlanetScale Postgres default role (NOSUPERUSER, CREATEROLE) of ONE environment's database.
+-- Not executed in the preflight phase. Passwords are read from the environment of a subshell
+-- that sourced a chmod 600 file; they never appear in argv, this file, or shell history.
+--   psql "service=freedom_next_admin" -v ON_ERROR_STOP=1 -v env_prefix=freedom_next -f 10-create-roles.psql
+-- Role names here are plain SQL names; do NOT append .<branch-id>. Only PlanetScale TLS connection
+-- usernames (psql service entries, Hyperdrive user) use <role>.<branch-id> for branch routing.
+\getenv migrator_password FREEDOM_MIGRATOR_PASSWORD
+\getenv runtime_password FREEDOM_RUNTIME_PASSWORD
+\if :{?migrator_password}
+\else
+  \echo 'FREEDOM_MIGRATOR_PASSWORD missing' \quit
+\endif
+\if :{?runtime_password}
+\else
+  \echo 'FREEDOM_RUNTIME_PASSWORD missing' \quit
+\endif
+\set migrator :env_prefix '_migrator'
+\set runtime :env_prefix '_app'
+
+BEGIN;
+-- Migrator owns the schema objects; it cannot create roles, databases or bypass RLS.
+CREATE ROLE :"migrator" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD :'migrator_password';
+-- Runtime role used only through Hyperdrive: DML on application tables, no DDL, no ownership.
+CREATE ROLE :"runtime" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT CONNECTION LIMIT 40 PASSWORD :'runtime_password';
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+GRANT USAGE, CREATE ON SCHEMA public TO :"migrator";
+GRANT USAGE ON SCHEMA public TO :"runtime";
+COMMIT;

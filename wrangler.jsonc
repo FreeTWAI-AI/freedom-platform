@@ -1,0 +1,79 @@
+// Cloudflare Workers candidate runtime for freedom-platform. The existing Node
+// servers (deploy/public, deploy/staging) stay unchanged and keep their own databases.
+//
+// This file holds no provider IDs or credentials. Routes/custom domains, the
+// Hyperdrive configurations, Images enablement and every secret are created by the
+// infrastructure owner; the zero IDs below are placeholders that make an unprepared
+// deploy fail.
+//
+// HYPERDRIVE (the only database binding; carries all platform data):
+// - Each environment's configuration MUST be created with caching disabled
+//   (`wrangler hyperdrive create ... --caching-disabled`) and preflighted. Sessions,
+//   CSRF tokens, auth rate limits and grants must read their own writes; a comment or
+//   variable here cannot disable Hyperdrive's query cache.
+// - Local development never reads a committed credential: export
+//   CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgres://... for a
+//   local, isolated database. Local Hyperdrive does not simulate caching.
+//
+// Per-environment settings supplied outside this file:
+//   FREEDOM_RELEASE_SHA (deploy: --var FREEDOM_RELEASE_SHA:$(git rev-parse HEAD)),
+//   FREEDOM_DATABASE_NAME, FREEDOM_REGISTRATION_COMMUNITY_ID,
+//   FREEDOM_ADMIN_ACCESS_ISSUER, FREEDOM_ADMIN_ACCESS_AUD,
+//   secrets FREEDOM_ADMIN_CSRF_SECRET and GITHUB_SOCIAL_TOKEN_KEY.
+// Missing required settings answer 503 for every path, including static files.
+//
+// Only `--dry-run --outdir` is used from this repository (npm run worker:dry-run).
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "freedom-platform-local",
+  "main": "apps/platform-api/src/worker.ts",
+  // Newest date the pinned workerd (1.20260921.1, via wrangler 4.138.0) supports;
+  // tests/worker/workerd.test.ts runs the bundle at exactly this date.
+  "compatibility_date": "2026-09-21",
+  "compatibility_flags": ["nodejs_compat"],
+  // Native libvips cannot load in Workers. Any `sharp` import resolves to a stub that
+  // throws 503 image_processing_unavailable; image uploads never store raw bytes.
+  "alias": { "sharp": "./packages/shared/sharp-unavailable.ts" },
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "apps/portal-web/dist",
+    "binding": "ASSETS",
+    // Host, readiness and security headers apply before any file is served.
+    "run_worker_first": true,
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none"
+  },
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
+  // Decodes and re-encodes avatar/cover uploads (packages/shared/image-cloudflare.ts).
+  // Not inherited: repeated per environment. Without it only image uploads answer 503.
+  // Local development uses Wrangler's low-fidelity sharp mock, not Cloudflare's service.
+  "images": { "binding": "IMAGES" },
+  "vars": { "FREEDOM_ENV": "local", "APP_ORIGIN": "http://127.0.0.1:8787" },
+  "env": {
+    "staging-next": {
+      "name": "freedom-platform-staging-next",
+      "workers_dev": false,
+      "preview_urls": false,
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
+      "images": { "binding": "IMAGES" },
+      "vars": {
+        "FREEDOM_ENV": "staging",
+        "APP_ORIGIN": "https://staging-next.freetwai.com",
+        "FREEDOM_TRUST_CF_CONNECTING_IP": "true"
+      }
+    },
+    "next": {
+      "name": "freedom-platform-next",
+      "workers_dev": false,
+      "preview_urls": false,
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
+      "images": { "binding": "IMAGES" },
+      "vars": {
+        "FREEDOM_ENV": "public",
+        "APP_ORIGIN": "https://next.freetwai.com",
+        "FREEDOM_TRUST_CF_CONNECTING_IP": "true"
+      }
+    }
+  }
+}

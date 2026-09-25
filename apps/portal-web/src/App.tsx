@@ -482,7 +482,7 @@ function Workspace({
               />
             )}
             {tab === 'account' && <AccountPanel client={client} session={session} onNavigate={selectTab} />}
-            {tab === 'todos' && <MemberTasks onNavigate={selectTab} />}
+            {tab === 'todos' && <MemberTasks client={client} onNavigate={selectTab} />}
             {tab === 'messages' && <MemberMessages client={client} session={session} onNavigate={selectTab} />}
             {tab === 'members' && <MembersPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'cocreation' && <CoCreationPanel client={client} session={session} onNavigate={selectTab} />}

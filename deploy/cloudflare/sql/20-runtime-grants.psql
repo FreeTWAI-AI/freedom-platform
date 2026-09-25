@@ -1,0 +1,13 @@
+-- Run as the environment MIGRATOR role after migrations or a restore, never as the runtime role.
+--   psql "service=freedom_next_migrator" -v ON_ERROR_STOP=1 -v env_prefix=freedom_next -f 20-runtime-grants.psql
+-- Role names here are plain SQL names; do NOT append .<branch-id>. Only PlanetScale TLS connection
+-- usernames (psql service entries, Hyperdrive user) use <role>.<branch-id> for branch routing.
+\set runtime :env_prefix '_app'
+BEGIN;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO :"runtime";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO :"runtime";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"runtime";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO :"runtime";
+-- The migration ledger is read-only for the application.
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON schema_migrations FROM :"runtime";
+COMMIT;

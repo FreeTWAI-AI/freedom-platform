@@ -7,6 +7,16 @@ export const LOCAL_DATABASE_URL = 'postgresql://freedom_local:local-development-
 export function createPool(connectionString = process.env.DATABASE_URL ?? LOCAL_DATABASE_URL) {
   return new Pool({ connectionString, max: 12, connectionTimeoutMillis: 5000 });
 }
+/**
+ * One pool per Worker request, built from the explicit Hyperdrive connection
+ * string. Hyperdrive already pools origin connections, so each request keeps a
+ * small client budget and the caller must end the pool when the request settles.
+ * Never share it across requests: Workers sockets belong to one request.
+ */
+export function createRequestPool(connectionString: string) {
+  if (!connectionString) throw new Error('A request database connection is required.');
+  return new Pool({ connectionString, max: 5, connectionTimeoutMillis: 5000 });
+}
 export function digest(value: unknown): string {
   function stable(v: any): any {
     if (Array.isArray(v)) return v.map(stable);
