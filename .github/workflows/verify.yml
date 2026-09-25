@@ -39,6 +39,13 @@ jobs:
       - run: git diff --exit-code -- contracts/preview/v1 packages/sdk
       - run: npm run typecheck
       - run: npm run build
+      - run: npm run worker:dry-run
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+      - run: npm run worker:dry-run:admin-sync
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+      - run: npm run test:worker
       - run: npm test
       - run: npm run test:skill-client
       - run: node scripts/checkout-repositories.mjs

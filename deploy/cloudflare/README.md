@@ -32,7 +32,7 @@ Worker entry、`wrangler.jsonc`、`apps/platform-api`、`packages/db` 與套件�
 
 Castle 上每 15 秒跑 `scripts/sync-admin-access.ts` 的 timer，是管理員 Access 允許名單仍依賴家用機器的最後一段。這個 Worker 把同一次 `syncAdminAccess()` 放進 cron。它只匯出 `scheduled`，沒有 `fetch`，沒有 route、custom domain、workers.dev 或 preview URL，所以不在公開網路上回答任何要求。入口是 [apps/platform-api/src/admin-sync-worker.ts](../../apps/platform-api/src/admin-sync-worker.ts)。Wrangler 不能讓同一個設定檔的環境使用不同 `main`，所以設定是 repo 根目錄的 [wrangler.admin-sync.jsonc](../../wrangler.admin-sync.jsonc)，與平台 Worker 的 `wrangler.jsonc` 分開。
 
-`npm run worker:dry-run` 只檢查平台 Worker。`npm run worker:dry-run:admin-sync` 才打包這個檔的 top-level、`staging-next` 與 `next`。`deploy/cloudflare` 的 manifest 與 `preflight.mjs wrangler` 也不檢查它。
+`npm run worker:dry-run` 只檢查平台 Worker。`npm run worker:dry-run:admin-sync` 才打包這個檔的 top-level、`staging-next` 與 `next`。GitHub Actions 的 verify job 在 `npm run build` 之後依這個順序跑這兩個指令，再跑 `npm run test:worker`。dry-run 不需要 Cloudflare 憑證，步驟設 `WRANGLER_SEND_METRICS=false`。`deploy/cloudflare` 的 manifest 與 `preflight.mjs wrangler` 也不檢查它。
 
 兩個環境各用自己的資料庫，綁定名稱都是 `HYPERDRIVE`，沿用該環境平台 Worker 已經在用、而且 caching disabled 的那一份 Hyperdrive。不要把兩個 Worker 綁到同一份 Hyperdrive。
 

@@ -66,6 +66,9 @@ npm run demo
 python3 -m pip install -r docs/platform-plan/contracts/tests/requirements-static.txt
 npm run typecheck
 npm run build
+npm run worker:dry-run
+npm run worker:dry-run:admin-sync
+npm run test:worker
 npm test
 npx playwright install chromium
 npm run test:e2e
@@ -73,7 +76,7 @@ npm run test:contracts
 npm run verify:inventory
 ```
 
-API 整合測試與瀏覽器測試各自建立暫存 PostgreSQL schema，結束後只移除該次 schema，不重設示範資料。CI 用獨立 PostgreSQL service。可用 `TEST_DATABASE_URL` 指向專用測試 DB；勿指向 production。
+`npm run build` 之後，CI 跑 `worker:dry-run`、`worker:dry-run:admin-sync` 與 `test:worker`。dry-run 只打包，不登入 Cloudflare，步驟設 `WRANGLER_SEND_METRICS=false`。`test:worker` 用 job 已設定的 `TEST_DATABASE_URL`，在 workerd 執行 dry-run 產物。API 整合測試與瀏覽器測試各自建立暫存 PostgreSQL schema，結束後只移除該次 schema，不重設示範資料。CI 用獨立 PostgreSQL service。可用 `TEST_DATABASE_URL` 指向專用測試 DB；勿指向 production。
 
 - `npm run db:down` 停止此專案 DB 並保留 volume；`npm run demo` 可恢復。
 - 若認領回 `412`／條款改版回 `409`，重新整理並確認最新版本；不以新識別碼盲目重送。
