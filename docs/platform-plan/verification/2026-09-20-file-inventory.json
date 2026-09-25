@@ -579,8 +579,8 @@
     },
     {
       "path": "apps/portal-web/public/downloads/freedom-skill-client.tgz",
-      "bytes": 11172,
-      "sha256": "72db4b54cdbd7c087b6a92e1705fe0bcf041be556632582081e4db2bf3b63a37"
+      "bytes": 11177,
+      "sha256": "8ea0f8826156a0f8b0c702659686c663372c59414203192019df38fc1fec8137"
     },
     {
       "path": "apps/portal-web/src/App.tsx",
