@@ -33,7 +33,7 @@ function mockGitHub(t:TestContext,options:{sha?:string;repositoryId?:number;lice
   const state={sha:'a'.repeat(40),repositoryId:501,license:'MIT' as string|null,isFork:false,isPrivate:false,archived:false,...options};
   const seen:string[]=[];
   t.mock.method(globalThis,'fetch',async(url:string,init:RequestInit)=>{
-    seen.push(url);assert.equal(new URL(url).hostname,'api.github.com');assert.equal(init.redirect,'error');
+    seen.push(url);assert.equal(new URL(url).hostname,'api.github.com');assert.equal(init.redirect,'manual');assert.notEqual(init.redirect,'error');
     assert.equal(new Headers(init.headers).get('Authorization'),null);
     if(url==='https://api.github.com/repos/example/project')return Response.json({id:state.repositoryId,full_name:'example/project',private:state.isPrivate,visibility:state.isPrivate?'private':'public',default_branch:'main',fork:state.isFork,archived:state.archived});
     if(url==='https://api.github.com/repos/example/project/commits/main')return Response.json({sha:state.sha});
@@ -81,6 +81,18 @@ test('missing license and fork are visible factual labels; they do not fabricate
   mockGitHub(t,{license:null,isFork:true});const project=await importOne(await login());
   assert.equal(project.current_version.license_spdx,'NOASSERTION');assert.equal(project.current_version.license_evidence_url,null);
   assert.equal(project.current_version.is_fork,true);assert.equal(project.official,false);
+});
+test('a GitHub 3xx is rejected and its Location is never requested',async()=>{
+  const seen:string[]=[];
+  const fetcher:typeof fetch=async(url,init)=>{
+    seen.push(String(url));assert.equal(init?.redirect,'manual');assert.notEqual(init?.redirect,'error');
+    return new Response(null,{status:302,headers:{Location:'https://evil.example/redirected'}});
+  };
+  await assert.rejects(()=>inspectGitHubRepository('https://github.com/example/project',fetcher),(error:any)=>{assert.equal(error.code,'github_unavailable');assert.match(error.message,/暫時無法讀取 GitHub/);return true;});
+  assert.deepEqual(seen,['https://api.github.com/repos/example/project']);
+  const opaque:typeof fetch=async(url,init)=>{seen.push(String(url));assert.equal(init?.redirect,'manual');return {type:'opaqueredirect',status:0,ok:true,headers:new Headers()} as unknown as Response;};
+  await assert.rejects(()=>inspectGitHubRepository('https://github.com/example/project',opaque),(error:any)=>error.code==='github_unavailable');
+  assert.deepEqual(seen,['https://api.github.com/repos/example/project','https://api.github.com/repos/example/project']);
 });
 test('upstream unavailable, redirects and oversized JSON return actionable failures without writes',async t=>{
   const owner=await login();

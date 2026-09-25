@@ -37,7 +37,7 @@ function upstream(t?:TestContext){
  const state={id:72001,fullName:'example/shared-project',private:false,archived:false,issues:[openIssue()] as any[],pulls:[mergedPull()] as any[],status:200,oversize:'',delay:undefined as undefined|Promise<void>};
  const seen:{url:string;method:string}[]=[];
  const fetcher:typeof fetch=async(input,init={})=>{
-  const url=String(input);seen.push({url,method:init.method??'GET'});assert.equal(new URL(url).origin,'https://api.github.com');assert.equal(init.redirect,'error');
+  const url=String(input);seen.push({url,method:init.method??'GET'});assert.equal(new URL(url).origin,'https://api.github.com');assert.equal(init.redirect,'manual');assert.notEqual(init.redirect,'error');
   const headers=new Headers(init.headers);assert.equal(headers.get('Authorization'),null);assert.equal(headers.get('Cookie'),null);assert.equal(init.body,undefined);
   if(state.delay)await state.delay;
   if(state.status!==200)return new Response('',{status:state.status,headers:state.status===302?{Location:'https://evil.example/redirect'}:{}});
@@ -173,7 +173,7 @@ test('private, archived and replaced GitHub repositories fail before task or con
 });
 
 test('redirect, oversized, rate-limited and malformed GitHub responses never become verified activity',async()=>{
- for(const [status,code] of [[302,'github_unavailable'],[429,'github_rate_limited'],[403,'github_rate_limited']] as const){const {state,fetcher}=upstream();state.status=status;await assert.rejects(()=>new CollaborationGitHub(fetcher).read(readerRepo),errorCode(code));}
+ for(const [status,code] of [[302,'github_unavailable'],[429,'github_rate_limited'],[403,'github_rate_limited']] as const){const {state,fetcher,seen}=upstream();state.status=status;await assert.rejects(()=>new CollaborationGitHub(fetcher).read(readerRepo),errorCode(code));if(status===302)assert.deepEqual(seen.map(call=>call.url),['https://api.github.com/repos/example/shared-project']);}
  const oversized=upstream();oversized.state.oversize='/issues?';await assert.rejects(()=>new CollaborationGitHub(oversized.fetcher).read(readerRepo),errorCode('github_response_too_large'));
  const invalid=upstream();invalid.state.pulls=[{...mergedPull(),merge_commit_sha:'javascript:forged'}];await assert.rejects(()=>new CollaborationGitHub(invalid.fetcher).read(readerRepo),errorCode('github_invalid_response'));
  await assert.rejects(()=>new CollaborationGitHub(async()=>{throw Error('network timeout');}).read(readerRepo),errorCode('github_unavailable'));

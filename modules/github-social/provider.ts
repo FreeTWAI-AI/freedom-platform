@@ -30,7 +30,8 @@ export class GitHubSocialProvider {
     }else this.active++;
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
     try{
-      const response=await this.fetcher(url,{...init,redirect:'error',signal:controller.signal,headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':VERSION,'User-Agent':'Freedom-Workshop-GitHub-Social',...init.headers}});
+      const response=await this.fetcher(url,{...init,redirect:'manual',signal:controller.signal,headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':VERSION,'User-Agent':'Freedom-Workshop-GitHub-Social',...init.headers}});
+      if(response.type==='opaqueredirect'||(response.status>=300&&response.status<400)){await response.body?.cancel();throw new GitHubProviderError();}
       if(!allowed.includes(response.status)){
         await response.body?.cancel();
         if(response.status===401)throw new GitHubProviderError('github_reconnect_required',409);

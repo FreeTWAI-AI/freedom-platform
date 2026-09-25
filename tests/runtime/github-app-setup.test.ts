@@ -42,7 +42,7 @@ function provider(reply: () => Promise<Response> = async () => Response.json(app
   const fetcher: typeof fetch = async (input, init) => {
     calls++;
     assert.equal(String(input), `https://api.github.com/app-manifests/${code}/conversions`);
-    assert.equal(init?.method, 'POST'); assert.equal(init?.redirect, 'error'); assert.ok(init?.signal instanceof AbortSignal);
+    assert.equal(init?.method, 'POST'); assert.equal(init?.redirect, 'manual'); assert.notEqual(init?.redirect, 'error'); assert.ok(init?.signal instanceof AbortSignal);
     assert.equal(new Headers(init?.headers).get('Authorization'), null);
     assert.equal(new Headers(init?.headers).get('Accept'), 'application/vnd.github+json');
     assert.equal(init?.body, undefined);
@@ -181,6 +181,7 @@ test('invalid encryption keys and non-origin callback addresses cannot start set
 const providerFailures: { name: string; response: () => Promise<Response> }[] = [
   { name: 'provider failure', response: async () => Response.json({ private_error: secret }, { status: 422 }) },
   { name: 'redirect response', response: async () => new Response(null, { status: 302, headers: { location: 'https://unexpected.example.invalid' } }) },
+  { name: 'opaque redirect', response: async () => ({ type: 'opaqueredirect', status: 0, ok: true, headers: new Headers({ location: 'https://unexpected.example.invalid' }), body: null }) as unknown as Response },
   { name: 'network exception', response: async () => { throw Error(`Synthetic network error ${secret}`); } },
   { name: 'malformed JSON', response: async () => new Response(`not-json-${secret}`, { status: 201 }) },
   { name: 'declared oversized response', response: async () => Response.json(app, { status: 201, headers: { 'content-length': '1000000' } }) },

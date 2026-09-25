@@ -54,7 +54,7 @@ async function secretsAbsent(...secrets:string[]){
 function mockGitHub(t:TestContext){
  const seen:string[]=[],sha='b'.repeat(40);
  t.mock.method(globalThis,'fetch',async(url:string,init:RequestInit)=>{
-  seen.push(url);assert.equal(new URL(url).hostname,'api.github.com');assert.equal(init.redirect,'error');
+  seen.push(url);assert.equal(new URL(url).hostname,'api.github.com');assert.equal(init.redirect,'manual');assert.notEqual(init.redirect,'error');
   if(url==='https://api.github.com/repos/example/project')return Response.json({id:777,full_name:'example/project',private:false,visibility:'public',default_branch:'main',fork:false,archived:false});
   if(url==='https://api.github.com/repos/example/project/commits/main')return Response.json({sha});
   if(url===`https://api.github.com/repos/example/project/license?ref=${sha}`)return Response.json({path:'LICENSE',license:{spdx_id:'Apache-2.0'}});

@@ -17,7 +17,7 @@ let actor:Actor,social:GitHubSocial,service:DevelopmentAccess,calls:string[],sta
 const target='video-autopilot',working='https://github.com/contributor/video-autopilot-kit';
 const proposal={title:'改善字幕測試',summary:'合成測試；未執行真實影音渲染。',pr_url:null};
 const fetcher:typeof fetch=async(input,init={})=>{
- const url=String(input);calls.push(url);assert.equal(init.redirect,'error');
+ const url=String(input);calls.push(url);assert.equal(init.redirect,'manual');assert.notEqual(init.redirect,'error');
  if(state.status!==200)return Response.json({private:'must-not-leak'},{status:state.status});
  if(url==='https://github.com/login/oauth/access_token')return Response.json({access_token:'ghu_synthetic',token_type:'bearer',scope:''});
  if(url==='https://api.github.com/user')return Response.json({id:42,login:'contributor'});

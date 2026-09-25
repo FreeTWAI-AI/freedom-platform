@@ -120,11 +120,11 @@ async function boundedJson(response: Response): Promise<unknown> {
 async function convertManifest(code: string, origin: string, fetcher: typeof fetch) {
   try {
     const response = await fetcher(`https://api.github.com/app-manifests/${encodeURIComponent(code)}/conversions`, {
-      method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000), headers: {
+      method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(10000), headers: {
         Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2026-03-10', 'User-Agent': 'Freedom-Workshop-GitHub-Setup',
       },
     });
-    if (response.status !== 201) { await response.body?.cancel().catch(() => {}); throw Error(); }
+    if (response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400) || response.status !== 201) { await response.body?.cancel().catch(() => {}); throw Error(); }
     // Zod strips PEM, webhook_secret, tokens and every other unneeded field.
     const app = appResponse.parse(await boundedJson(response));
     const expectedUrl = `https://github.com/apps/${app.slug}`;

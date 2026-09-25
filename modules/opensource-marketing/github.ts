@@ -26,7 +26,8 @@ const licenseSchema=z.object({license:z.object({spdx_id:z.string().min(1).max(10
 export async function publicJson(path:string,signal:AbortSignal,fetcher:typeof fetch,missingLicense=false,maxBytes=196608):Promise<unknown> {
   let response:Response;
   try {
-    response=await fetcher(`https://api.github.com${path}`,{headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'Freedom-Platform-public-registry'},redirect:'error',signal});
+    response=await fetcher(`https://api.github.com${path}`,{headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'Freedom-Platform-public-registry'},redirect:'manual',signal});
+    if(response.type==='opaqueredirect'||(response.status>=300&&response.status<400))throw Error('redirect');
   } catch { throw new Problem(503,'github_unavailable','暫時無法讀取 GitHub，已保留原本資料。請稍後重新嘗試。'); }
   if(response.status===404 && missingLicense)return null;
   if(response.status===404)throw new Problem(422,'github_repository_unavailable','找不到公開儲存庫或可讀取的版本；請檢查網址與公開設定。');

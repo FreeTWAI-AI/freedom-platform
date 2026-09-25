@@ -18,7 +18,7 @@ class GitHubMock {
   calls:Call[]=[];starred=false;expires=28800;metricsStatus=200;stats={...snapshot};tokenFailure=false;userId=12345;revokeFailure=false;starStatus=204;
   fetch:typeof fetch=async(input,init={})=>{
     const url=String(input),method=init.method??'GET',headers=new Headers(init.headers),body=String(init.body??'');this.calls.push({url,method,headers,body});
-    assert.equal(init.redirect,'error');assert.ok(init.signal);assert.equal(headers.get('x-github-api-version'),'2026-03-10');
+    assert.equal(init.redirect,'manual');assert.notEqual(init.redirect,'error');assert.ok(init.signal);assert.equal(headers.get('x-github-api-version'),'2026-03-10');
     if(url.startsWith('https://api.github.com/repos/'))return Response.json(this.metricsStatus===200?this.stats:{message:'synthetic provider failure'},{status:this.metricsStatus});
     if(url==='https://github.com/login/oauth/access_token'){
       if(this.tokenFailure)return Response.json({error:'bad_verification_code',error_description:'synthetic-secret-must-not-leak'});
@@ -93,6 +93,19 @@ test('cached metrics for public documents never make a provider request',async()
   const missing=await social.cachedMetrics(book);assert.equal(missing.stargazers_count,null);assert.equal(missing.stale,true);assert.equal(mock.calls.length,0);
   const live=await social.metrics(book),count=mock.calls.length;assert.deepEqual(await new GitHubSocial(pool).cachedMetrics(book),live);assert.equal(mock.calls.length,count);
   await pool.query("UPDATE github_repository_metrics SET checked_at=now()-interval '2 hours'");assert.equal((await social.cachedMetrics(book)).stale,true);assert.equal(mock.calls.length,count);
+});
+
+test('a GitHub redirect is rejected once and the Location target is never requested',async()=>{
+  let calls=0;
+  const fetcher:typeof fetch=async(input,init)=>{
+    calls++;assert.equal(init?.redirect,'manual');assert.notEqual(init?.redirect,'error');
+    assert.equal(String(input),`https://api.github.com/repos/${repository}`);
+    return new Response(null,{status:302,headers:{Location:'https://elsewhere.example.invalid/followed'}});
+  };
+  await assert.rejects(()=>new GitHubSocialProvider(fetcher).metrics(repository),errorCode('github_unavailable'));
+  assert.equal(calls,1);
+  const opaque:typeof fetch=async()=>({type:'opaqueredirect',status:0,ok:true,headers:new Headers(),body:null} as unknown as Response);
+  await assert.rejects(()=>new GitHubSocialProvider(opaque).metrics(repository),errorCode('github_unavailable'));
 });
 
 test('provider bounds response size, rejects redirects and malformed/private snapshots, and never leaks provider errors',async()=>{

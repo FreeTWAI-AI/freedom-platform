@@ -22,7 +22,7 @@ const target='video-autopilot',working='https://github.com/contributor/video-aut
 const proposal={title:'競態測試提案',summary:'合成測試；所有 GitHub 呼叫都是本機假資料。',pr_url:null};
 // Synthetic GitHub only: the reconnect returns the SAME GitHub user ID 42.
 const fetcher:typeof fetch=async(input,init={})=>{
- const url=String(input);assert.equal(init.redirect,'error');
+ const url=String(input);assert.equal(init.redirect,'manual');assert.notEqual(init.redirect,'error');
  if(url==='https://github.com/login/oauth/access_token')return Response.json({access_token:'ghu_synthetic',token_type:'bearer',scope:''});
  if(url==='https://api.github.com/user')return Response.json({id:42,login:'contributor'});
  if(url.startsWith('https://api.github.com/user/installations?'))return Response.json({installations:[{id:77,app_id:9,account:{id:42},suspended_at:null,permissions:{metadata:'read'}}]});
