@@ -20,6 +20,8 @@ Local tests of the tool: `tests/e2e/cloud-candidate-acceptance.spec.ts`.
 | `next` | `https://next.freetwai.com` | `public` |
 | `public` | `https://freetwai.com` | `public` |
 
+Since 2026-09-25 `--target next` no longer resolves (`next.freetwai.com` was removed) and production is verified with `--target public`.
+
 Only these exact strings are accepted, either as the name or as the exact origin with at most one trailing `/`. Everything else is rejected before any request: other hosts, lookalikes, punycode, uppercase, ports, paths, queries, fragments, userinfo and `http:`. There is no bypass flag. The loopback harness target is only reachable from library code in tests. Report filenames use the target name (`public-account.json`, `public-messages.json`). The report field `target.name` is that same allowlisted name.
 
 Every request is built from the fixed origin plus a path that starts with `/`. Redirects are never followed (`redirect: 'manual'`, `maxRedirects: 0` in the browser phase). Access headers are only sent to that origin. In the browser phase, requests to any other origin are aborted and counted.
