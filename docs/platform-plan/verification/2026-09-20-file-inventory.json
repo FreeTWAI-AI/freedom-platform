@@ -49,8 +49,8 @@
     },
     {
       "path": "apps/platform-api/src/app.ts",
-      "bytes": 2119,
-      "sha256": "7a8688ecfe6a0145d3f175b3ecfc93a762c59293a2b4902f21d8218a6715154c"
+      "bytes": 2229,
+      "sha256": "f7dc9acbbb5068228599688dfaf07f1db28e638b24e7a313aee7d38f4e379a17"
     },
     {
       "path": "apps/platform-api/src/env.ts",
@@ -74,8 +74,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 15694,
-      "sha256": "8e3d8c32df265189eb2473eaf65065c29948bb44e87bf9800a20e5eef131709f"
+      "bytes": 15750,
+      "sha256": "4816356d005f797b4f8d9cf4e86d633cda5854bcaf616c2514801829e7d6008f"
     },
     {
       "path": "apps/platform-api/src/readiness.ts",
@@ -124,8 +124,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/github-social.ts",
-      "bytes": 2608,
-      "sha256": "4db9ce88ba11f28057ed786b35d9e9894c83ddbe0b6e3c237c14c1770c8e012f"
+      "bytes": 2758,
+      "sha256": "be47ce3e0079323bd4ae700ebfe2edf273cd3c9bccdca3baa2472d448aac79b6"
     },
     {
       "path": "apps/platform-api/src/routes/guild-workspace.ts",
@@ -169,8 +169,8 @@
     },
     {
       "path": "apps/platform-api/src/runtime.ts",
-      "bytes": 1280,
-      "sha256": "4c46bede67fe1595954b7652edf48e2e52bdd299b3edd4ad502a81ea81047f79"
+      "bytes": 1416,
+      "sha256": "55bb874088246784dad7676c0e6134613a90978ebee15cd2566ddd89f3326ec0"
     },
     {
       "path": "apps/platform-api/src/server.ts",
@@ -179,8 +179,8 @@
     },
     {
       "path": "apps/platform-api/src/worker.ts",
-      "bytes": 12621,
-      "sha256": "2e1a1e1f233a6a5baddd1e1f741db2984b4c34b0fa35fd758c947ae253c4461b"
+      "bytes": 12863,
+      "sha256": "6e26ce4f22d01f0fded930c0a6f6f9cec783e59dfc75d85a8b70403aefb527d7"
     },
     {
       "path": "apps/portal-web/index.html",
@@ -1324,8 +1324,8 @@
     },
     {
       "path": "docs/development/github-social.md",
-      "bytes": 7784,
-      "sha256": "8e8f0fa2044503fc99f7e9256ec4198b2729ab9d6b4ccd4e8f73d15b90e6a423"
+      "bytes": 8339,
+      "sha256": "41d08f83623685aea3b0ddbbceabc1195dab87bac9bd78ea0c00d693d3c89db7"
     },
     {
       "path": "docs/development/guild-collaboration.md",
@@ -2904,8 +2904,8 @@
     },
     {
       "path": "modules/github-social/service.ts",
-      "bytes": 20958,
-      "sha256": "4e46a81206c20acddaafd02f0d0053a4d54c2cd7f464bf345e7beebc6676e0d8"
+      "bytes": 21675,
+      "sha256": "91604af9691077d4a3c85d9716175ae610fd2854ee7da6bb15dd8952470e0c16"
     },
     {
       "path": "modules/github-social/setup.ts",
@@ -3634,8 +3634,8 @@
     },
     {
       "path": "tests/runtime/github-social.test.ts",
-      "bytes": 23574,
-      "sha256": "8856e1d16b13e21ee1b10b8f86601994fdaabedd347c94cc954fcfe4e9024036"
+      "bytes": 24960,
+      "sha256": "6544b29356acc86aa334901348eb9c3945e23349b752463e584a9ab23ff752fe"
     },
     {
       "path": "tests/runtime/guild-experts.test.ts",
@@ -3789,8 +3789,8 @@
     },
     {
       "path": "tests/runtime/worker-adapter.test.ts",
-      "bytes": 33058,
-      "sha256": "21befa6edbfebddbce399f8a36668d9890a84e103b5470f649ad141d7402d031"
+      "bytes": 33310,
+      "sha256": "3e59768596032063773fa0eb26c684cf99f6feb10475b1daa78461d433a216cd"
     },
     {
       "path": "tests/worker/fetch-redirect.test.ts",
@@ -3799,8 +3799,8 @@
     },
     {
       "path": "tests/worker/workerd.test.ts",
-      "bytes": 14567,
-      "sha256": "6e97735c15a2219e52c04513559cc3dc2596db7dff4963474b981f6f178fb19b"
+      "bytes": 14720,
+      "sha256": "2d3aa10b7e82d9027ebfd08be0bc98a0e4bc4c5d02fbefe0be18a63f4edf144f"
     },
     {
       "path": "tsconfig.json",
@@ -3814,8 +3814,8 @@
     },
     {
       "path": "wrangler.jsonc",
-      "bytes": 4587,
-      "sha256": "4db0fd80af53d313698e6e1985d02054f6386e2acee714a3160c5fec61a82c23"
+      "bytes": 4663,
+      "sha256": "e75e8c10a12c5d7b9c84e59b1d79c5cebe83312207a496a5d85b3e47f8a9c053"
     }
   ]
 }

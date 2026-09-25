@@ -150,7 +150,7 @@ test('client address headers are trusted only for an opted-in Cloudflare edge re
 
 test('concurrent requests with different bindings never share origin, community, release, keys or pools', async () => {
   const h = harness();
-  const a = stagingEnv({ GITHUB_SOCIAL_TOKEN_KEY: Buffer.alloc(32, 1).toString('base64') });
+  const a = stagingEnv({ GITHUB_SOCIAL_TOKEN_KEY: Buffer.alloc(32, 1).toString('base64'), GITHUB_METRICS_TOKEN: 'github_pat_synthetic_staging_metrics' });
   const b = publicEnv({ GITHUB_SOCIAL_TOKEN_KEY: Buffer.alloc(32, 2).toString('base64') });
   const calls = Array.from({ length: 40 }, (_, i) => i % 2 === 0
     ? h.fetch('https://staging-next.freetwai.com/api/v1/' + (i % 4 ? 'site' : 'health'), a).then(r => ({ which: 'a', path: i % 4 ? 'site' : 'health', r }))
@@ -172,9 +172,10 @@ test('concurrent requests with different bindings never share origin, community,
   assert.equal(h.pools.length, 40);
   assert.ok(h.pools.every(p => p.state.ended === 1));
   // Per-request runtimes keep their own settings; nothing leaks through process.env.
-  assert.equal(process.env.GITHUB_SOCIAL_TOKEN_KEY, undefined);
+  assert.equal(process.env.GITHUB_SOCIAL_TOKEN_KEY, undefined); assert.equal(process.env.GITHUB_METRICS_TOKEN, undefined);
   const ra = workerRuntime(a, readWorkerConfig(a)), rb = workerRuntime(b, readWorkerConfig(b));
   assert.equal(ra.githubTokenKey(), a.GITHUB_SOCIAL_TOKEN_KEY); assert.equal(rb.githubTokenKey(), b.GITHUB_SOCIAL_TOKEN_KEY);
+  assert.equal(ra.githubMetricsToken(), 'github_pat_synthetic_staging_metrics'); assert.equal(rb.githubMetricsToken(), undefined);
   assert.equal(ra.registrationCommunityId(), undefined); assert.equal(rb.registrationCommunityId(), COMMUNITY);
   assert.deepEqual([...ra.allowedHosts], ['staging-next.freetwai.com']); assert.deepEqual([...rb.allowedHosts], ['next.freetwai.com']);
   assert.equal(ra.publicOrigin, 'https://staging-next.freetwai.com'); assert.equal(rb.publicOrigin, 'https://next.freetwai.com');

@@ -41,6 +41,8 @@ export interface WorkerEnv {
   FREEDOM_ADMIN_ACCESS_AUD?: string;
   FREEDOM_ADMIN_CSRF_SECRET?: string;
   GITHUB_SOCIAL_TOKEN_KEY?: string;
+  /** Optional read-only GitHub token: Workers share egress IPs, so anonymous GitHub quota is gone. */
+  GITHUB_METRICS_TOKEN?: string;
 }
 export type WorkerContext = { waitUntil(promise: Promise<unknown>): void; passThroughOnException?(): void };
 // Compile-time proof that the official binding types satisfy these structural ones.
@@ -97,9 +99,11 @@ export function workerAdminVerifier(env: WorkerEnv): AdminAccessVerifier {
 
 export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRuntime {
   const community = env.FREEDOM_REGISTRATION_COMMUNITY_ID || undefined, tokenKey = env.GITHUB_SOCIAL_TOKEN_KEY || undefined;
+  const metricsToken = env.GITHUB_METRICS_TOKEN || undefined;
   return {
     registrationCommunityId: () => community,
     githubTokenKey: () => tokenKey,
+    githubMetricsToken: () => metricsToken,
     adminVerifier: workerAdminVerifier(env),
     sourceNetwork: cloudflareSourceNetwork(config.trustConnectingIp),
     allowedHosts: new Set([new URL(config.origin).hostname]),

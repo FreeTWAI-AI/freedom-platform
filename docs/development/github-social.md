@@ -2,7 +2,7 @@
 
 技能書讀取原作者 Repo 的 Stars、Forks、追蹤人數、未結 Issues／PR 合計及最近程式推送時間。原作和工坊副本的 Fork 入口分開；點 Fork 仍由 GitHub 選擇擁有者與建立副本。`open_issues_count` 包含 PR，不能標成單純 Issue 數；`subscribers_count` 才是追蹤數，不使用與 Star 重複的 `watchers_count`。
 
-GitHub 數據每小時快取，附核對時間；讀取失敗保留舊快照並標示，從未取得的數值是 null。公開 HTML 技能書只讀已存快照，不呼叫外部服務、不讀會員授權，資料庫暫時不可用時仍提供完整介紹。React 卡片只在可見時讀取，重複卡片與介紹共用讀取結果。
+GitHub 數據每小時快取，附核對時間；讀取失敗保留舊快照並標示，從未取得的數值是 null。Cloudflare Workers 的出口 IP 由多個服務共用，GitHub 未驗證請求的每 IP 額度（每小時 60 次）實際上已被用完，所以雲端環境另設 Worker secret `GITHUB_METRICS_TOKEN`：只讀公開 Repo、不給任何權限的 fine-grained token，只用於讀這些公開數據，不代替會員操作 Star。GitHub 拒絕這個 token 時，本次改用未驗證請求並記錄 `github_metrics_token_rejected`；沒有設定時一律用未驗證請求。GitHub App 的 client ID／secret 不能提高這個額度（GitHub 回 401）。公開 HTML 技能書只讀已存快照，不呼叫外部服務、不讀會員授權，資料庫暫時不可用時仍提供完整介紹。React 卡片只在可見時讀取，重複卡片與介紹共用讀取結果。
 
 星星圖示與數量是同一個操作入口。尚未連結的會員點星星，到 GitHub 同意後回到工坊；連結本身不會加星。連結後按空心星星加星、實心星星取消，才使用該會員的 user access token 修改原作。Fork 圖示與數量連到原作的 Fork 入口，來源與其他數據可展開查看。收到 GitHub 204 後才顯示成功，數量由 GitHub 重新讀取，不自行加減。自填 GitHub slug 不當作身分證明，連結不修改平台登入、會員權限或聯絡方式公開範圍。
 

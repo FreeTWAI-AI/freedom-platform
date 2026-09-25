@@ -59,8 +59,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
   const allowedHosts=runtime.allowedHosts,authNetwork=runtime.sourceNetwork;
   const secureCookies=freedomEnv!=='local';
-  const loadSocial=socialLoader(pool,origin,options.githubSocial,runtime.githubTokenKey);
-  const publicSocial=new GitHubSocial(pool,undefined,options.githubSocial?.fetcher??fetch);
+  const loadSocial=socialLoader(pool,origin,options.githubSocial,runtime.githubTokenKey,runtime.githubMetricsToken);
+  const publicSocial=new GitHubSocial(pool,undefined,options.githubSocial?.fetcher??fetch,runtime.githubMetricsToken());
   const app=new Hono<{Variables:{actor:Actor}}>();
   app.onError((err,c)=>{
     if(err instanceof z.ZodError) return c.json({type:'about:blank',title:'Validation failed',status:422,code:'validation_failed',detail:err.issues.map(i=>`${i.path.join('.')}: ${i.message}`).join('; ')},422);

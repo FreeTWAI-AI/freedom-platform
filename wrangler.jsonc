@@ -25,7 +25,8 @@
 //   FREEDOM_RELEASE_SHA (deploy: --var FREEDOM_RELEASE_SHA:$(git rev-parse HEAD)),
 //   FREEDOM_DATABASE_NAME, FREEDOM_REGISTRATION_COMMUNITY_ID,
 //   FREEDOM_ADMIN_ACCESS_ISSUER, FREEDOM_ADMIN_ACCESS_AUD,
-//   secrets FREEDOM_ADMIN_CSRF_SECRET and GITHUB_SOCIAL_TOKEN_KEY.
+//   secrets FREEDOM_ADMIN_CSRF_SECRET and GITHUB_SOCIAL_TOKEN_KEY,
+//   optional secret GITHUB_METRICS_TOKEN (read-only public GitHub counts).
 // Missing required settings answer 503 for every path, including static files.
 //
 // Only `--dry-run --outdir` is used from this repository (npm run worker:dry-run).

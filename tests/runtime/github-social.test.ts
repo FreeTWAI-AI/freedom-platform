@@ -82,6 +82,20 @@ test('public metrics use original allowlisted repository and persist real counts
   await assert.rejects(()=>unconfigured.start(actor),errorCode('github_not_configured'));
 });
 
+test('public metrics send the operator read-only token and fall back to one anonymous attempt when GitHub rejects it',async()=>{
+  const token='github_pat_synthetic_metrics_token';
+  const live=await new GitHubSocial(pool,undefined,mock.fetch,token).metrics(book);
+  assert.equal(live.error,null);assert.equal(live.stargazers_count,42);
+  assert.equal(mock.calls.length,1);assert.equal(mock.calls[0].headers.get('authorization'),`Bearer ${token}`);
+  await pool.query("UPDATE github_repository_metrics SET retry_after=now()-interval '1 minute'");mock.stats={...snapshot,stargazers_count:43};
+  let rejected=0;const rejecting:typeof fetch=async(input,init={})=>{if(new Headers(init.headers).has('authorization')){rejected++;return Response.json({message:'Bad credentials'},{status:401});}return mock.fetch(input,init);};
+  const logged:unknown[][]=[],original=console.error;console.error=(...args:unknown[])=>{logged.push(args);};
+  let fallback;try{fallback=await new GitHubSocial(pool,undefined,rejecting,token).metrics(book);}finally{console.error=original;}
+  assert.equal(fallback.error,null);assert.equal(fallback.stargazers_count,43);assert.equal(rejected,1);
+  assert.equal(mock.calls.length,2);assert.equal(mock.calls[1].headers.has('authorization'),false);
+  assert.deepEqual(logged,[['github_metrics_token_rejected']]);assert.ok(!JSON.stringify(logged).includes(token));
+});
+
 test('failed refresh retains dated real counters and a first failure returns null, never invented zero',async()=>{
   const first=await social.metrics(book);await pool.query("UPDATE github_repository_metrics SET retry_after=now()-interval '1 minute',checked_at=now()-interval '2 hours'");mock.metricsStatus=503;
   const stale=await social.metrics(book);assert.equal(stale.stargazers_count,first.stargazers_count);assert.equal(stale.stale,true);assert.equal(stale.error,'github_unavailable');assert.notEqual(stale.checked_at,first.checked_at);
