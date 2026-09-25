@@ -2,8 +2,9 @@
 // Freedom Platform Cloudflare Workers + Cloudflare-billed PlanetScale Postgres migration preflight.
 // Read-only by construction: offline checks, GET-only Cloudflare probes, allowlisted OCI/pscale reads.
 // Phase is cutover_complete (2026-09-25). There is still no execute mode. `plan --env next`
-// describes production; `plan --env staging-next` describes Cloudflare staging. Historical
-// pre-cutover checks stay in comments where the live topology made them contradictory.
+// describes production; `plan --env staging-next` describes live staging on
+// staging.freetwai.com. Protected hostnames are empty. Historical pre-cutover checks
+// stay in comments where the live topology made them contradictory.
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -35,7 +36,7 @@ Commands (all read-only):
   cloudflare --env-file P  GET-only permission and protected-resource probe
   oci [--oci-profile oracle1|oracle2] [--compare]  allowlisted OCI reads (alternative survey only)
   planetscale [--pscale-org O]  allowlisted pscale reads (never logs in or creates)
-  plan --env staging-next|next  dry-run text: next is production (2026-09-25); staging-next is Cloudflare staging
+  plan --env staging-next|next  dry-run text: next is production and staging-next is staging (2026-09-25)
   all [--env-file P] [--oci]  offline checks + plans; network probes only when requested
 
 The --env-file is a chmod 600 file with CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN

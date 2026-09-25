@@ -35,13 +35,14 @@ function privateEnvFile(body, mode = 0o600) {
   return file;
 }
 
-// Post-cutover zone: production placeholder, Castle staging tunnel, deployed Cloudflare staging.
+// Both live hostnames are proxied AAAA placeholders. Retired names are absent.
 // Record contents are fixtures only and must not appear in probe output.
-const PROTECTED_DNS = [
+// Historical fixture before the staging cutover: staging.freetwai.com was a tunnel
+// CNAME and staging-next.freetwai.com was a deployed CNAME that had to be present.
+const ZONE_DNS = [
   { name: 'freetwai.com', type: 'AAAA', content: '100::', proxied: true },
-  { name: 'staging.freetwai.com', type: 'CNAME', content: 'uuid.cfargotunnel.com', proxied: true },
+  { name: 'staging.freetwai.com', type: 'AAAA', content: '100::', proxied: true },
 ];
-const DEPLOYED_STAGING_NEXT_DNS = { name: 'staging-next.freetwai.com', type: 'CNAME', content: 'not-a-tunnel.invalid', proxied: true };
 
 function dnsPage(records, info = {}) {
   const page = info.page ?? 1;
@@ -74,10 +75,10 @@ function mockCloudflare(overrides = {}) {
     [`/accounts/${ACCOUNT}/r2/buckets`]: ok({ buckets: [{ name: 'unrelated' }] }),
     [`/accounts/${ACCOUNT}/queues`]: denied,
     [`/accounts/${ACCOUNT}/access/apps`]: ok([{ name: 'Freedom staging', domain: 'staging.freetwai.com' }, { name: 'Freedom staging administrators', domain: 'staging.freetwai.com/admin' }, { name: 'Freedom public administrators', domain: 'freetwai.com/admin' }]),
-    [`/accounts/${ACCOUNT}/cfd_tunnel?is_deleted=false&per_page=100`]: ok([{ name: 'freedom-staging', status: 'healthy' }]),
+    [`/accounts/${ACCOUNT}/cfd_tunnel?is_deleted=false&per_page=100`]: ok([{ name: 'unrelated-tunnel', status: 'healthy' }]),
     [`/accounts/${ACCOUNT}/subscriptions`]: denied,
     [`/zones/${ZONE}`]: ok({ id: ZONE }),
-    [`/zones/${ZONE}/dns_records?per_page=500`]: dnsPage([...PROTECTED_DNS, DEPLOYED_STAGING_NEXT_DNS]),
+    [`/zones/${ZONE}/dns_records?per_page=500`]: dnsPage(ZONE_DNS),
     [`/zones/${ZONE}/workers/routes`]: denied,
     [`/zones/${ZONE}/rulesets/phases/http_request_cache_settings/entrypoint`]: denied,
     ...overrides,
@@ -109,16 +110,25 @@ test('manifest selects Cloudflare-billed PlanetScale PG18, PS-5 sizes, one HYPER
   assert.equal(m.providers.planetscale.catalog.org_quote.region, 'ap-northeast');
   assert.equal(m.providers.planetscale.pscale_auth_observed.status, 'authenticated');
   assert.equal(m.phase, 'cutover_complete');
-  assert.deepEqual(m.protected.hostnames, ['staging.freetwai.com']);
+  assert.deepEqual(m.protected.hostnames, []);
   assert.equal(m.environments.next.role, 'production');
   assert.equal(m.environments.next.hostname, 'freetwai.com');
   assert.equal(m.environments.next.data_source, 'production');
   assert.equal(m.environments.next.access.required, false);
   assert.deepEqual(m.environments.next.route, { pattern: 'freetwai.com/*', zone_name: 'freetwai.com' });
   assert.deepEqual(m.environments.next.retired_hostnames, ['next.freetwai.com']);
-  assert.equal(m.environments['staging-next'].role, 'cloudflare_staging');
-  assert.equal(m.environments['staging-next'].hostname, 'staging-next.freetwai.com');
+  assert.equal(m.environments['staging-next'].role, 'staging');
+  assert.equal(m.environments['staging-next'].hostname, 'staging.freetwai.com');
+  assert.equal(m.environments['staging-next'].freedom_env, 'staging');
+  assert.equal(m.environments['staging-next'].data_source, 'castle-staging-restore');
   assert.equal(m.environments['staging-next'].access.required, true);
+  assert.equal(m.environments['staging-next'].access.referenced_preexisting, true);
+  assert.equal(m.environments['staging-next'].access.application_name, 'Freedom staging');
+  assert.equal(m.environments['staging-next'].access.admin_application_name, 'Freedom staging administrators');
+  assert.deepEqual(m.environments['staging-next'].route, { pattern: 'staging.freetwai.com/*', zone_name: 'freetwai.com' });
+  assert.deepEqual(m.environments['staging-next'].retired_hostnames, ['staging-next.freetwai.com']);
+  assert.deepEqual(m.protected.local.databases, ['freedom_local']);
+  assert.deepEqual(m.protected.access_applications, ['Freedom public administrators', 'Freedom staging', 'Freedom staging administrators']);
   assert.deepEqual(m.database_defaults.extensions_allowlist, ['plpgsql', 'hypopg']);
   const text = JSON.stringify(m);
   assert.doesNotMatch(text, /DB_FRESH|DB_CACHED|max_age_seconds|paid_creation_rule/);
@@ -196,8 +206,11 @@ test('manifest rejects unsafe configurations', () => {
     [(m) => { m.environments.next.worker.preview_urls = true; }, /preview_urls/],
     [(m) => { m.environments.next.worker.workers_dev = true; }, /workers_dev/],
     [(m) => { m.environments.next.hostname = 'next.freetwai.com'; }, /hostname/],
-    [(m) => { m.environments.next.hostname = 'staging.freetwai.com'; }, /protected/],
-    [(m) => { m.protected.hostnames = ['staging.freetwai.com', 'freetwai.com']; }, /must not be a protected hostname/],
+    [(m) => { m.environments.next.hostname = 'staging.freetwai.com'; }, /hostname must be freetwai\.com/],
+    [(m) => { m.environments['staging-next'].hostname = 'staging-next.freetwai.com'; }, /hostname must be staging\.freetwai\.com/],
+    [(m) => { m.environments['staging-next'].role = 'cloudflare_staging'; }, /role must be staging/],
+    [(m) => { m.protected.hostnames = ['staging.freetwai.com', 'freetwai.com']; }, /must be empty/],
+    [(m) => { m.protected.hostnames = ['staging.freetwai.com']; }, /must be empty/],
     [(m) => { m.phase = 'preflight'; }, /cutover_complete/],
     [(m) => { m.database_defaults.extensions_allowlist = ['plpgsql']; }, /hypopg/],
     [(m) => { m.environments.next.role = 'candidate'; }, /production/],
@@ -206,7 +219,14 @@ test('manifest rejects unsafe configurations', () => {
     [(m) => { m.environments.next.hyperdrive.binding = 'DB_FRESH'; }, /HYPERDRIVE/],
     [(m) => { m.environments.next.hyperdrive = [m.environments.next.hyperdrive, { name: 'freedom-next-cached', binding: 'DB_CACHED' }]; }, /exactly one/],
     [(m) => { m.environments.next.hyperdrive.name = 'freedom-staging-next-hd'; }, /prefix|shared/],
-    [(m) => { m.environments['staging-next'].data_source = 'rehearsal-restore-of-public-backup'; }, /synthetic/],
+    [(m) => { m.environments['staging-next'].data_source = 'rehearsal-restore-of-public-backup'; }, /never receives live member data/],
+    [(m) => { m.environments['staging-next'].data_source = 'production'; }, /never receives live member data/],
+    [(m) => { m.environments['staging-next'].data_source = 'synthetic'; }, /castle-staging-restore/],
+    [(m) => { m.environments['staging-next'].access.application_name = 'Freedom staging-next'; }, /Freedom staging and Freedom staging administrators/],
+    [(m) => { m.environments['staging-next'].access.referenced_preexisting = false; }, /reference pre-existing/],
+    [(m) => { delete m.environments['staging-next'].route; }, /zone route staging\.freetwai\.com/],
+    [(m) => { m.protected.local.databases = ['freedom_local', 'freedom_staging']; }, /exactly \["freedom_local"\]/],
+    [(m) => { m.protected.local.databases = ['freedom_public']; }, /exactly \["freedom_local"\]/],
     [(m) => { m.environments.next.database.topology = 'single_node'; }, /HA/],
     [(m) => { m.environments['staging-next'].database.size = 'PS-7'; }, /not a catalog SKU/],
     [(m) => { m.providers.planetscale.catalog.monthly_usd['PS-5 ha'] = 'NaN'; }, /null \(unknown\) or a recorded number/],
@@ -218,7 +238,7 @@ test('manifest rejects unsafe configurations', () => {
     [(m) => { m.environments.next.var_names = m.environments.next.var_names.filter((v) => v !== 'FREEDOM_RELEASE_SHA'); }, /FREEDOM_RELEASE_SHA/],
     [(m) => { m.environments.next.secret_names.push('DATABASE_URL'); }, /Hyperdrive binding/],
     [(m) => { m.environments.next.access.application_name = 'Freedom staging'; }, /protected/],
-    [(m) => { m.protected.hostnames = ['freetwai.com']; }, /staging\.freetwai\.com/],
+    [(m) => { m.protected.hostnames = ['freetwai.com']; }, /must be empty/],
     [(m) => { m.providers.selected = 'oci'; }, /planetscale_cloudflare_billed/],
     [(m) => { m.providers.planetscale.billing = 'direct'; }, /Cloudflare/],
     [(m) => { m.providers.oci.provisioning = true; }, /surveyed alternative/],
@@ -240,11 +260,19 @@ test('mutation guard is default-deny, protects the old site and refuses every OC
   assert.ok(assertMutationTarget(m, 'staging-next', 'hyperdrive', 'freedom-staging-next-hd'));
   assert.ok(assertMutationTarget(m, 'next', 'database', 'freedom-next-pg'));
   assert.ok(assertMutationTarget(m, 'next', 'hostname', 'freetwai.com'));
-  assert.throws(() => assertMutationTarget(m, 'next', 'hostname', 'next.freetwai.com'), /not owned/);
+  assert.ok(assertMutationTarget(m, 'staging-next', 'hostname', 'staging.freetwai.com'));
+  assert.throws(() => assertMutationTarget(m, 'next', 'hostname', 'next.freetwai.com'), /retired/);
+  assert.throws(() => assertMutationTarget(m, 'staging-next', 'hostname', 'staging-next.freetwai.com'), /retired/);
   assert.throws(() => assertMutationTarget(m, 'staging-next', 'hostname', 'freetwai.com'), /not owned/);
-  assert.throws(() => assertMutationTarget(m, 'next', 'hostname', 'staging.freetwai.com'), /protected/);
+  assert.throws(() => assertMutationTarget(m, 'next', 'hostname', 'staging.freetwai.com'), /not owned/);
+  assert.throws(() => assertMutationTarget(m, 'next', 'hostname', 'evil.example'), /not owned/);
   assert.throws(() => assertMutationTarget(m, 'next', 'access_application', 'Freedom staging'), /protected/);
-  assert.throws(() => assertMutationTarget(m, 'next', 'database', 'freedom_public'), /protected/);
+  assert.throws(() => assertMutationTarget(m, 'staging-next', 'access_application', 'Freedom staging'), /protected/);
+  assert.throws(() => assertMutationTarget(m, 'staging-next', 'access_application', 'Freedom staging administrators'), /protected/);
+  assert.throws(() => assertMutationTarget(m, 'next', 'access_application', 'Freedom public administrators'), /protected/);
+  assert.throws(() => assertMutationTarget(m, 'next', 'database', 'freedom_local'), /protected/);
+  assert.throws(() => assertMutationTarget(m, 'next', 'database', 'freedom_public'), /not owned/);
+  assert.throws(() => assertMutationTarget(m, 'next', 'database', 'freedom_staging'), /not owned/);
   assert.throws(() => assertMutationTarget(m, 'next', 'tunnel', 'freedom-staging'), /Unknown resource kind/);
   assert.throws(() => assertMutationTarget(m, 'next', 'oci_instance', 'oracle1-vm'), /never used or changed/);
   assert.throws(() => assertMutationTarget(m, 'next', 'oci_compartment', 'freedom-next'), /surveyed alternative/);
@@ -266,46 +294,48 @@ test('provision plan is dry-run, guarded, secret-free and never produces a billi
     assert.doesNotMatch(text, /pscale auth login/);
     assert.doesNotMatch(text, /single pending device login/);
     assert.doesNotMatch(text, /\bcap\b|approval|gate-cost/i);
-    assert.equal(plan.hostname, env === 'next' ? 'freetwai.com' : `${env}.freetwai.com`);
+    assert.equal(plan.hostname, manifest().environments[env].hostname);
   }
+  // Historical pre-cutover staging plan asserted Access-before-deploy, a branch-suffixed
+  // TLS username, the exact pscale create pipeline, and an open "which staging" decision.
+  // Those steps described creating staging-next. The live plan describes the zone route.
   const stagingPlan = buildProvisionPlan(manifest(), 'staging-next');
-  const idx = (id) => stagingPlan.steps.findIndex((s) => s.id === id);
-  assert.ok(idx('access-app') < idx('deploy'), 'Access before deploy');
-  assert.ok(idx('hyperdrive') < idx('hyperdrive-verify') && idx('hyperdrive-verify') < idx('deploy'), 'caching read-back gates deploy');
-  assert.match(stagingPlan.steps[idx('hyperdrive')].command, /caching\.disabled=true/);
+  assert.equal(stagingPlan.role, 'staging');
+  assert.ok(stagingPlan.steps.every((s) => s.mutation === false), 'staging plan proposes no provider mutation');
+  assert.ok(stagingPlan.steps.every((s) => !s.command), 'staging plan has no create/deploy command');
   const roles = manifest().environments['staging-next'].database.roles;
-  assert.ok(stagingPlan.steps[idx('hyperdrive')].command.includes(`user=${roles.runtime}.<branch-id> `), 'TLS username carries branch suffix');
-  assert.deepEqual(stagingPlan.steps[idx('roles')].target, ['db_role', roles.migrator]);
-  assert.deepEqual(stagingPlan.steps[idx('grants')].target, ['db_role', roles.runtime]);
   assert.doesNotMatch(roles.migrator + roles.runtime, /\./, 'SQL role names stay unsuffixed');
-  assert.doesNotMatch(stagingPlan.steps[idx('roles')].command + stagingPlan.steps[idx('grants')].command, /<branch-id>/);
-  assert.equal(stagingPlan.steps.filter((s) => s.target?.[0] === 'hyperdrive').length, 1, 'exactly one Hyperdrive config');
-  const db = stagingPlan.steps[idx('ps-database')];
-  assert.match(db.alternatives.cli, /^wrangler hyperdrive planetscale signature \| DBUS_SESSION_BUS_ADDRESS=unix:path=\/dev\/null pscale database create freedom-staging-next-pg --org ted-ted-h --engine postgresql --region ap-northeast --cloudflare-billing @- --format json$/);
-  assert.match(db.action, /no execute capability/);
-  assert.match(db.alternatives.dashboard, /Cloudflare dashboard/);
-  assert.match(db.action, /token alone cannot create/);
-  assert.match(stagingPlan.steps[0].action, /0\.313\.0/);
-  assert.match(stagingPlan.steps[0].action, /current: authenticated \(oauth\), org ted-ted-h/);
-  assert.match(stagingPlan.steps[0].action, /org_quote_recorded 2026-09-24/);
-  assert.match(stagingPlan.steps[0].action, /process-scoped DBUS_SESSION_BUS_ADDRESS=unix:path=\/dev\/null/);
-  assert.match(stagingPlan.steps[1].action, /US\$25\/month \(base rates only, not total usage/);
-  assert.match(stagingPlan.steps[idx('deploy')].command, /--var FREEDOM_RELEASE_SHA:<git rev-parse HEAD>/);
-  assert.doesNotMatch(stagingPlan.steps[0].action, /TOKEN_SAVE_FAILED|not_run|unauthenticated/);
-  const deployGate = stagingPlan.steps[idx('deploy')].action;
-  assert.match(deployGate, /structural valid AND static_checks_pass true/);
-  assert.match(deployGate, /separate explicit evidence for every required injection/);
-  assert.match(deployGate, /wrangler secret list --env /);
-  assert.doesNotMatch(deployGate, /AND deployment_ready|deployment_ready true/, 'deploy must not wait on a boolean the checker cannot prove');
-  assert.ok(idx('rollback') > idx('verify'));
   const staging = JSON.stringify(stagingPlan);
   assert.match(staging, /PS-5 single_node/);
-  assert.match(staging, /Never seedLocal/);
-  assert.doesNotMatch(staging, /pg_restore/);
+  assert.match(staging, /staging\.freetwai\.com\/\*/);
+  assert.match(staging, /100::/);
+  assert.match(staging, /origin_connection_limit 15/);
+  assert.match(staging, /freedom-staging-next-hd/);
+  assert.match(staging, /caching disabled/);
+  assert.match(staging, /castle-staging-restore/);
+  assert.match(staging, /81 tables/);
+  assert.match(staging, /never live member data/);
+  assert.match(staging, /demo community/);
+  assert.match(staging, /former Castle staging key/);
+  assert.match(staging, /FREEDOM_ADMIN_CSRF_SECRET is fresh/);
+  assert.match(staging, /write-only/);
+  assert.match(staging, /never re-upload/);
+  assert.match(staging, /Freedom staging administrators/);
+  assert.match(staging, /not created, edited or deleted/);
+  assert.match(staging, /--target staging/);
+  assert.match(staging, /--target staging-next and --target next no longer resolve/);
+  assert.match(staging, /R3 only/);
+  assert.match(staging, /NEW local database/);
   assert.match(staging, /production freetwai.com/);
-  assert.match(staging, /open decision/);
+  assert.match(staging, /Castle is dev only/);
+  assert.match(staging, /freedom_local/);
+  assert.match(staging, /4310 and 4312 are free/);
+  assert.match(staging, /US\$25\/month \(base rates only, not total usage/);
+  assert.doesNotMatch(staging, /pg_restore|pscale database create|wrangler deploy/);
+  assert.doesNotMatch(staging, /open decision|does not choose/);
   assert.doesNotMatch(staging, /Old freetwai.com/);
   assert.doesNotMatch(staging, /NEW GITHUB_SOCIAL_TOKEN_KEY/);
+  assert.doesNotMatch(staging, /Never seedLocal/);
 
   const nextPlan = buildProvisionPlan(manifest(), 'next');
   assert.equal(nextPlan.role, 'production');
@@ -325,7 +355,9 @@ test('provision plan is dry-run, guarded, secret-free and never produces a billi
   assert.match(next, /R3 only/);
   assert.match(next, /NEW local database/);
   assert.match(next, /next\.freetwai\.com and its two Access applications were removed/);
-  assert.match(next, /open decision/);
+  assert.match(next, /Castle staging is retired/);
+  assert.match(next, /staging\.freetwai\.com\/\*/);
+  assert.doesNotMatch(next, /open decision|does not choose/);
   assert.doesNotMatch(next, /NEW GITHUB_SOCIAL_TOKEN_KEY/);
   assert.doesNotMatch(next, /checksum-verify a fresh full freedom_public backup/);
   assert.doesNotMatch(next, /custom domain/);
@@ -388,14 +420,18 @@ test('Cloudflare probe reports real gaps, escalation risk and protected baseline
   assert.ok(report.findings.some((f) => f.id === 'token_can_escalate'));
   assert.ok(!report.findings.some((f) => f.id === 'protected_hosts_share_origin'));
   assert.equal(report.protected_baseline['retired:next.freetwai.com'], 'absent');
-  assert.equal(report.protected_baseline['deployed:staging-next.freetwai.com'], 'present');
+  assert.equal(report.protected_baseline['retired:staging-next.freetwai.com'], 'absent');
   assert.equal(report.protected_baseline['access:freetwai.com'], 'public');
-  assert.equal(report.protected_baseline['access:staging-next.freetwai.com'], 'not_yet_covered');
-  assert.equal(report.protected_baseline['staging.freetwai.com'][0].tunnel_target, true);
+  assert.equal(report.protected_baseline['access:staging.freetwai.com'], 'covered');
+  assert.equal(report.protected_baseline['staging:staging.freetwai.com'][0].tunnel_target, false);
+  assert.equal(report.protected_baseline['staging:staging.freetwai.com'][0].type, 'AAAA');
+  assert.equal(report.protected_baseline['staging:staging.freetwai.com'][0].proxied, true);
   assert.equal(report.protected_baseline['production:freetwai.com'][0].tunnel_target, false);
   assert.equal(report.protected_baseline['production:freetwai.com'][0].type, 'AAAA');
   assert.equal(report.protected_baseline['production:freetwai.com'][0].proxied, true);
-  assert.ok(!report.findings.some((f) => /production_|retired_hostname_present|deployed_hostname_missing|candidate_hostname_taken/.test(f.id)));
+  assert.ok(report.protected_baseline.access_applications.every((row) => row.present));
+  assert.ok(!report.findings.some((f) => f.id === 'retired_tunnel_present'));
+  assert.ok(!report.findings.some((f) => /production_|staging_hostname_missing|staging_dns_unexpected|staging_still_on_tunnel|retired_hostname_present|deployed_hostname_missing|candidate_hostname_taken|protected_access_application_missing|staging_access_missing/.test(f.id)));
   const text = JSON.stringify(report);
   assert.doesNotMatch(text, new RegExp(FAKE_TOKEN));
   assert.doesNotMatch(text, /cfargotunnel|100::|not-a-tunnel/);
@@ -409,8 +445,8 @@ test('Cloudflare probe still flags protected hostnames that share one tunnel fin
   m.protected.hostnames = ['staging.freetwai.com', 'other.freetwai.com'];
   const { fetchImpl } = mockCloudflare({
     [`/zones/${ZONE}/dns_records?per_page=500`]: dnsPage([
-      ...PROTECTED_DNS,
-      DEPLOYED_STAGING_NEXT_DNS,
+      { name: 'freetwai.com', type: 'AAAA', content: '100::', proxied: true },
+      { name: 'staging.freetwai.com', type: 'CNAME', content: 'uuid.cfargotunnel.com', proxied: true },
       { name: 'other.freetwai.com', type: 'CNAME', content: 'uuid.cfargotunnel.com', proxied: true },
     ]),
   });
@@ -420,24 +456,28 @@ test('Cloudflare probe still flags protected hostnames that share one tunnel fin
   assert.doesNotMatch(JSON.stringify(report), /cfargotunnel|100::|not-a-tunnel/);
 });
 
-test('Cloudflare probe flags a retired hostname, a missing Cloudflare staging name and a production record that is not the placeholder', async () => {
+test('Cloudflare probe flags retired hostnames and zone-route records that are not the placeholder', async () => {
   const { fetchImpl } = mockCloudflare({ [`/zones/${ZONE}/dns_records?per_page=500`]: dnsPage([
     { name: 'freetwai.com', type: 'CNAME', content: 'x', proxied: true },
     { name: 'staging.freetwai.com', type: 'CNAME', content: 'y', proxied: true },
     { name: 'next.freetwai.com', type: 'A', content: '192.0.2.1', proxied: true },
+    { name: 'staging-next.freetwai.com', type: 'CNAME', content: 'not-a-tunnel.invalid', proxied: true },
   ]) });
   const client = createReadOnlyClient({ credentials: { authorizationHeader: () => 'Bearer x' }, fetchImpl });
   const report = await probeCloudflare({ client, accountId: ACCOUNT, manifest: manifest() });
   assert.equal(report.protected_baseline['retired:next.freetwai.com'], 'present');
-  assert.equal(report.protected_baseline['deployed:staging-next.freetwai.com'], 'absent');
+  assert.equal(report.protected_baseline['retired:staging-next.freetwai.com'], 'present');
   assert.ok(report.findings.some((f) => f.id === 'retired_hostname_present' && /next\.freetwai\.com/.test(f.detail)));
-  assert.ok(report.findings.some((f) => f.id === 'deployed_hostname_missing' && /staging-next\.freetwai\.com/.test(f.detail)));
+  assert.ok(report.findings.some((f) => f.id === 'retired_hostname_present' && /staging-next\.freetwai\.com/.test(f.detail)));
   assert.ok(report.findings.some((f) => f.id === 'production_dns_unexpected'));
+  assert.ok(report.findings.some((f) => f.id === 'staging_dns_unexpected'));
   assert.ok(!report.findings.some((f) => f.id === 'production_still_on_tunnel'));
+  assert.ok(!report.findings.some((f) => f.id === 'staging_still_on_tunnel'));
   assert.ok(!report.findings.some((f) => f.id === 'protected_hosts_share_origin'));
   assert.ok(!report.findings.some((f) => f.id === 'dns_listing_incomplete'));
   assert.ok(!report.findings.some((f) => f.id === 'candidate_hostname_taken'));
-  assert.doesNotMatch(JSON.stringify(report), /192\.0\.2\.1|\bcontent\b/);
+  assert.ok(!report.findings.some((f) => f.id === 'deployed_hostname_missing'));
+  assert.doesNotMatch(JSON.stringify(report), /192\.0\.2\.1|not-a-tunnel|\bcontent\b/);
 });
 
 test('Cloudflare probe flags production still pointed at a tunnel and site-wide Access on the apex', async () => {
@@ -445,31 +485,42 @@ test('Cloudflare probe flags production still pointed at a tunnel and site-wide 
     [`/zones/${ZONE}/dns_records?per_page=500`]: dnsPage([
       { name: 'freetwai.com', type: 'CNAME', content: 'uuid.cfargotunnel.com', proxied: true },
       { name: 'staging.freetwai.com', type: 'CNAME', content: 'other.cfargotunnel.com', proxied: true },
-      DEPLOYED_STAGING_NEXT_DNS,
     ]),
     [`/accounts/${ACCOUNT}/access/apps`]: { status: 200, body: { success: true, errors: [], result: [
       { name: 'Freedom staging', domain: 'staging.freetwai.com' },
+      { name: 'Freedom staging administrators', domain: 'staging.freetwai.com/admin' },
       { name: 'Freedom public administrators', domain: 'freetwai.com/admin' },
       { name: 'leftover-apex', domain: 'freetwai.com' },
       { name: 'retired-next', domain: 'next.freetwai.com/admin' },
       { name: 'Freedom staging-next', domain: 'staging-next.freetwai.com' },
     ] } },
+    [`/accounts/${ACCOUNT}/cfd_tunnel?is_deleted=false&per_page=100`]: { status: 200, body: { success: true, errors: [], result: [{ name: 'freedom-staging', status: 'healthy' }] } },
+    [`/accounts/${ACCOUNT}/workers/domains`]: { status: 200, body: { success: true, errors: [], result: [{ hostname: 'staging-next.freetwai.com' }, { hostname: 'staging.freetwai.com' }] } },
   });
   const client = createReadOnlyClient({ credentials: { authorizationHeader: () => 'Bearer x' }, fetchImpl });
   const report = await probeCloudflare({ client, accountId: ACCOUNT, manifest: manifest() });
   assert.ok(report.findings.some((f) => f.id === 'production_still_on_tunnel'));
   assert.ok(report.findings.some((f) => f.id === 'production_dns_unexpected'));
+  assert.ok(report.findings.some((f) => f.id === 'staging_still_on_tunnel'));
+  assert.ok(report.findings.some((f) => f.id === 'staging_dns_unexpected'));
   assert.equal(report.protected_baseline['access:freetwai.com'], 'sitewide_unexpected');
-  assert.equal(report.protected_baseline['access:staging-next.freetwai.com'], 'covered');
+  assert.equal(report.protected_baseline['access:staging.freetwai.com'], 'covered');
   assert.ok(report.findings.some((f) => f.id === 'production_sitewide_access'));
   assert.ok(report.findings.some((f) => f.id === 'retired_access_application' && /next\.freetwai\.com/.test(f.detail)));
+  assert.ok(report.findings.some((f) => f.id === 'retired_access_application' && /staging-next\.freetwai\.com/.test(f.detail)));
+  assert.ok(report.findings.some((f) => f.id === 'retired_access_application' && /Freedom staging-next/.test(f.detail)));
+  assert.ok(report.findings.some((f) => f.id === 'retired_tunnel_present'));
+  assert.ok(report.findings.some((f) => f.id === 'retired_custom_domain' && /staging-next\.freetwai\.com/.test(f.detail)));
+  assert.ok(report.findings.some((f) => f.id === 'unexpected_custom_domain' && /staging\.freetwai\.com/.test(f.detail)));
   assert.equal(report.protected_baseline['retired:next.freetwai.com'], 'absent');
+  assert.equal(report.protected_baseline['retired:staging-next.freetwai.com'], 'absent');
   assert.ok(!report.findings.some((f) => f.id === 'protected_hosts_share_origin'));
-  assert.doesNotMatch(JSON.stringify(report), /cfargotunnel|not-a-tunnel|100::/);
+  assert.ok(!report.findings.some((f) => f.id === 'protected_access_application_missing'));
+  assert.doesNotMatch(JSON.stringify(report), /cfargotunnel|100::/);
 });
 
 test('Cloudflare probe pages DNS and marks a retired hostname that appears only on page 2 as present', async () => {
-  const page1 = [...PROTECTED_DNS, ...Array.from({ length: 498 }, (_, i) => ({ name: `h${i}.example.net`, type: 'A', content: '192.0.2.8', proxied: false }))];
+  const page1 = [...ZONE_DNS, ...Array.from({ length: 498 }, (_, i) => ({ name: `h${i}.example.net`, type: 'A', content: '192.0.2.8', proxied: false }))];
   const page2 = [{ name: 'next.freetwai.com', type: 'A', content: '192.0.2.20', proxied: true }];
   const totals = { perPage: 500, totalCount: 501, totalPages: 2 };
   const { fetchImpl, calls } = mockCloudflare({
@@ -481,26 +532,27 @@ test('Cloudflare probe pages DNS and marks a retired hostname that appears only 
   assert.ok(calls.every((c) => c.method === 'GET'));
   assert.equal(calls.filter((c) => c.url.endsWith('/dns_records?per_page=500&page=2')).length, 1);
   assert.equal(report.protected_baseline['retired:next.freetwai.com'], 'present');
-  assert.equal(report.protected_baseline['deployed:staging-next.freetwai.com'], 'absent');
+  assert.equal(report.protected_baseline['retired:staging-next.freetwai.com'], 'absent');
   const retired = report.findings.filter((f) => f.id === 'retired_hostname_present');
   assert.equal(retired.length, 1);
   assert.match(retired[0].detail, /next\.freetwai\.com/);
-  assert.ok(report.findings.some((f) => f.id === 'deployed_hostname_missing'));
+  assert.ok(!report.findings.some((f) => f.id === 'deployed_hostname_missing'));
   assert.ok(!report.findings.some((f) => f.id === 'dns_listing_incomplete'));
   assert.ok(!report.findings.some((f) => f.id === 'production_dns_unexpected'));
+  assert.ok(!report.findings.some((f) => f.id === 'staging_dns_unexpected'));
   assert.equal(report.protected_baseline['production:freetwai.com'][0].tunnel_target, false);
-  assert.equal(report.protected_baseline['staging.freetwai.com'][0].tunnel_target, true);
+  assert.equal(report.protected_baseline['staging:staging.freetwai.com'][0].tunnel_target, false);
   assert.doesNotMatch(JSON.stringify(report), /example\.net|192\.0\.2\.|cfargotunnel|100::/);
 });
 
 test('Cloudflare probe reports incomplete_listing and never absent when the DNS listing is not proven complete', async () => {
-  const fullPage = [...PROTECTED_DNS, ...Array.from({ length: 498 }, (_, i) => ({ name: `h${i}.example.net`, type: 'A', content: '192.0.2.8', proxied: false }))];
+  const fullPage = [...ZONE_DNS, ...Array.from({ length: 498 }, (_, i) => ({ name: `h${i}.example.net`, type: 'A', content: '192.0.2.8', proxied: false }))];
   const cases = {
     'later page failed': {
       [`/zones/${ZONE}/dns_records?per_page=500`]: dnsPage(fullPage, { page: 1, perPage: 500, totalCount: 501, totalPages: 2 }),
     },
     'result_info omitted': {
-      [`/zones/${ZONE}/dns_records?per_page=500`]: { status: 200, body: { success: true, errors: [], result: PROTECTED_DNS } },
+      [`/zones/${ZONE}/dns_records?per_page=500`]: { status: 200, body: { success: true, errors: [], result: ZONE_DNS } },
     },
   };
   for (const [label, overrides] of Object.entries(cases)) {
@@ -508,7 +560,7 @@ test('Cloudflare probe reports incomplete_listing and never absent when the DNS 
     const client = createReadOnlyClient({ credentials: { authorizationHeader: () => 'Bearer x' }, fetchImpl });
     const report = await probeCloudflare({ client, accountId: ACCOUNT, manifest: manifest() });
     assert.equal(report.protected_baseline['retired:next.freetwai.com'], 'incomplete_listing', label);
-    assert.equal(report.protected_baseline['deployed:staging-next.freetwai.com'], 'incomplete_listing', label);
+    assert.equal(report.protected_baseline['retired:staging-next.freetwai.com'], 'incomplete_listing', label);
     for (const [key, value] of Object.entries(report.protected_baseline)) {
       if (String(key).startsWith('retired:') || String(key).startsWith('deployed:')) assert.notEqual(value, 'absent', `${label} ${key}`);
     }
@@ -516,8 +568,10 @@ test('Cloudflare probe reports incomplete_listing and never absent when the DNS 
     assert.ok(!report.findings.some((f) => f.id === 'retired_hostname_present'), label);
     assert.ok(!report.findings.some((f) => f.id === 'deployed_hostname_missing'), label);
     assert.ok(!report.findings.some((f) => f.id === 'production_hostname_missing'), label);
+    assert.ok(!report.findings.some((f) => f.id === 'staging_hostname_missing'), label);
     assert.ok(!report.findings.some((f) => f.id === 'protected_host_missing'), label);
     assert.equal(report.protected_baseline['production:freetwai.com'][0].type, 'AAAA', label);
+    assert.equal(report.protected_baseline['staging:staging.freetwai.com'][0].type, 'AAAA', label);
     assert.ok(calls.every((c) => c.method === 'GET'), label);
     if (label === 'later page failed') assert.ok(calls.some((c) => c.url.includes('dns_records?per_page=500&page=2')), label);
   }
@@ -761,8 +815,8 @@ test('migration scanner flags privileged statements and unexpected gaps', () => 
   assert.ok(!result.privileged.some((p) => /role management/.test(p.statement)));
 });
 
-// Mirrors wrangler.jsonc after the 2026-09-25 cutover: placeholder Hyperdrive ids,
-// production zone route on next, no route on staging-next, no release SHA.
+// Mirrors wrangler.jsonc after the 2026-09-25 staging cutover: placeholder Hyperdrive ids,
+// zone routes on both environments, no release SHA.
 const RUNTIME_CONFIG = {
   name: 'freedom-platform-local', main: 'apps/platform-api/src/worker.ts', compatibility_date: '2026-09-21', compatibility_flags: ['nodejs_compat'],
   workers_dev: false, preview_urls: false,
@@ -771,7 +825,7 @@ const RUNTIME_CONFIG = {
   images: { binding: 'IMAGES' },
   vars: { FREEDOM_ENV: 'local', APP_ORIGIN: 'http://127.0.0.1:8787' },
   env: {
-    'staging-next': { name: 'freedom-platform-staging-next', workers_dev: false, preview_urls: false, hyperdrive: [{ binding: 'HYPERDRIVE', id: '0'.repeat(32) }], images: { binding: 'IMAGES' }, vars: { FREEDOM_ENV: 'staging', APP_ORIGIN: 'https://staging-next.freetwai.com', FREEDOM_TRUST_CF_CONNECTING_IP: 'true' } },
+    'staging-next': { name: 'freedom-platform-staging-next', workers_dev: false, preview_urls: false, routes: [{ pattern: 'staging.freetwai.com/*', zone_name: 'freetwai.com' }], hyperdrive: [{ binding: 'HYPERDRIVE', id: '0'.repeat(32) }], images: { binding: 'IMAGES' }, vars: { FREEDOM_ENV: 'staging', APP_ORIGIN: 'https://staging.freetwai.com', FREEDOM_TRUST_CF_CONNECTING_IP: 'true' } },
     next: { name: 'freedom-platform-next', workers_dev: false, preview_urls: false, routes: [{ pattern: 'freetwai.com/*', zone_name: 'freetwai.com' }], hyperdrive: [{ binding: 'HYPERDRIVE', id: '0'.repeat(32) }], images: { binding: 'IMAGES' }, vars: { FREEDOM_ENV: 'public', APP_ORIGIN: 'https://freetwai.com', FREEDOM_TRUST_CF_CONNECTING_IP: 'true' } },
   },
 };
@@ -787,7 +841,6 @@ function provisioned() {
   const c = clone(RUNTIME_CONFIG);
   c.env['staging-next'].hyperdrive[0].id = ID_S;
   c.env.next.hyperdrive[0].id = ID_N;
-  c.env['staging-next'].routes = [{ pattern: 'staging-next.freetwai.com', custom_domain: true }];
   return c;
 }
 const cachingOff = { [ID_S]: { caching: { disabled: true } }, [ID_N]: { caching: { disabled: true } } };
@@ -806,8 +859,13 @@ test('wrangler: repository config is the post-cutover production route with plac
   assert.equal(cfg.env.next.preview_urls, false);
   assert.equal(cfg.env.next.hyperdrive[0].id, '0'.repeat(32));
   assert.equal(cfg.env.next.hyperdrive[0].binding, 'HYPERDRIVE');
-  assert.equal(cfg.env['staging-next'].vars.APP_ORIGIN, 'https://staging-next.freetwai.com');
-  assert.equal(cfg.env['staging-next'].routes, undefined);
+  assert.equal(cfg.env['staging-next'].vars.APP_ORIGIN, 'https://staging.freetwai.com');
+  assert.equal(cfg.env['staging-next'].vars.FREEDOM_ENV, 'staging');
+  assert.deepEqual(cfg.env['staging-next'].routes, [{ pattern: 'staging.freetwai.com/*', zone_name: 'freetwai.com' }]);
+  assert.equal(cfg.env['staging-next'].workers_dev, false);
+  assert.equal(cfg.env['staging-next'].preview_urls, false);
+  assert.equal(cfg.env['staging-next'].name, 'freedom-platform-staging-next');
+  assert.equal(cfg.env['staging-next'].hyperdrive[0].id, '0'.repeat(32));
   assert.equal(cfg.workers_dev, false);
   assert.equal(cfg.preview_urls, false);
 });
@@ -866,10 +924,16 @@ test('wrangler: exact two-env mocks catch every binding, cache, id, origin, Imag
     ['compat date', (c) => { c.compatibility_date = '2026-01-01'; }, /compatibility_date/],
     ['nodejs_compat', (c) => { c.compatibility_flags = []; }, /nodejs_compat/],
     ['preview urls', (c) => { delete c.env.next.preview_urls; delete c.preview_urls; }, /preview_urls/],
-    ['protected route', (c) => { c.env.next.routes = [{ pattern: 'staging.freetwai.com/*', zone_name: 'freetwai.com' }]; }, /protected/],
+    ['other environment route', (c) => { c.env.next.routes = [{ pattern: 'staging.freetwai.com/*', zone_name: 'freetwai.com' }]; }, /production route must be exactly/],
     ['retired custom domain', (c) => { c.env.next.routes = [{ pattern: 'next.freetwai.com', custom_domain: true }]; }, /production route must be exactly/],
     ['custom domain flag on apex', (c) => { c.env.next.routes = [{ pattern: 'freetwai.com/*', zone_name: 'freetwai.com', custom_domain: true }]; }, /production route must be exactly/],
     ['missing production route', (c) => { delete c.env.next.routes; }, /production route must be exactly/],
+    ['staging custom domain', (c) => { c.env['staging-next'].routes = [{ pattern: 'staging.freetwai.com', custom_domain: true }]; }, /staging route must be exactly/],
+    ['retired staging hostname route', (c) => { c.env['staging-next'].routes = [{ pattern: 'staging-next.freetwai.com/*', zone_name: 'freetwai.com' }]; }, /allowlist|staging route must be exactly/],
+    ['missing staging route', (c) => { delete c.env['staging-next'].routes; }, /staging route must be exactly/],
+    ['wildcard route', (c) => { c.env.next.routes = [{ pattern: '*.freetwai.com/*', zone_name: 'freetwai.com' }]; }, /wildcard/],
+    ['foreign route', (c) => { c.env.next.routes = [{ pattern: 'evil.example/*', zone_name: 'freetwai.com' }]; }, /allowlist/],
+    ['wrong staging origin', (c) => { c.env['staging-next'].vars.APP_ORIGIN = 'https://staging-next.freetwai.com'; }, /APP_ORIGIN must be https:\/\/staging\.freetwai\.com/],
     ['secret var', (c) => { c.env.next.vars.GITHUB_SOCIAL_TOKEN_KEY = 'x'; }, /must be a secret/],
     ['missing env', (c) => { delete c.env['staging-next']; }, /staging-next: no env block/],
     ['extra env', (c) => { c.env.prod = { name: 'freedom-platform-prod', routes: ['prod.freetwai.com/*'] }; }, /not in the manifest/],

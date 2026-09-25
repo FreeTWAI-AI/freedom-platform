@@ -21,9 +21,9 @@ export function ownedResources(env) {
     database: [env.database.name],
     db_role: Object.values(env.database.roles),
     r2_bucket: env.r2_buckets.map((b) => b.name),
-    // Production has no site-wide Access application. Only an environment that
-    // still requires Access owns application names.
-    access_application: env.access?.required === true
+    // Production has no site-wide Access application. A referenced pre-existing
+    // application is protected and is not owned or created by this plan.
+    access_application: env.access?.required === true && env.access?.referenced_preexisting !== true
       ? [env.access.application_name, env.access.admin_application_name]
       : [],
   };
@@ -35,15 +35,40 @@ export function validateManifest(m) {
   if (m.schema !== 'freedom.cloudflare-migration-plan/v3') err('unexpected schema');
   if (m.phase !== 'cutover_complete') err('phase must be cutover_complete');
   if (m.zone !== 'freetwai.com') err('zone must be freetwai.com');
-  // After 2026-09-25 only Castle staging is a protected tunnel hostname.
-  // freetwai.com is the production Worker route. Listing it here would make
-  // the production route a static error. The pre-cutover pair is historical.
+  // After the 2026-09-25 staging cutover the protected hostname list is empty.
+  // No Castle tunnel hostname remains. The allowlist is the two environment
+  // hostnames. Historical lists were [freetwai.com, staging.freetwai.com]
+  // before the production cutover and [staging.freetwai.com] until staging cut over.
   const protectedList = m.protected?.hostnames ?? [];
   const protectedHosts = new Set(protectedList);
-  if (!protectedHosts.has('staging.freetwai.com')) err('protected hostnames must include staging.freetwai.com');
-  if (protectedHosts.has('freetwai.com')) err('freetwai.com is the production Worker route and must not be a protected hostname');
-  if (protectedList.length !== 1) err('protected hostnames must be exactly staging.freetwai.com after 2026-09-25');
-  for (const db of ['freedom_local', 'freedom_staging', 'freedom_public']) if (!m.protected?.local?.databases?.includes(db)) err(`protected local databases must include ${db}`);
+  if (!Array.isArray(protectedList) || protectedList.length !== 0) err('protected hostnames must be empty after the 2026-09-25 staging cutover');
+  if (protectedHosts.has('freetwai.com') || protectedHosts.has('staging.freetwai.com')) err('environment hostnames must not be listed as protected tunnel hostnames');
+  const liveDbs = m.protected?.local?.databases ?? [];
+  if (liveDbs.length !== 1 || liveDbs[0] !== 'freedom_local') err('protected local databases must be exactly ["freedom_local"]');
+  // Historical: freedom_staging and freedom_public were live protected databases.
+  // Both were dropped on 2026-09-25 and must stay in the retired record only.
+  const retiredLocal = m.protected?.local?.historical_retired_2026_09_25 ?? {};
+  for (const db of ['freedom_staging', 'freedom_public']) {
+    if (liveDbs.includes(db)) err(`dropped database ${db} must not be a live protected database`);
+    if (!(retiredLocal.databases ?? []).includes(db)) err(`historical_retired_2026_09_25.databases must include ${db}`);
+  }
+  const liveUnits = m.protected?.local?.systemd_user_units ?? [];
+  if (liveUnits.length) err('live systemd units must be empty; Castle staging and public units are retired');
+  for (const unit of ['freedom-public.service', 'freedom-public-backup.service', 'freedom-public-backup.timer', 'freedom-staging.service', 'freedom-staging-backup.service', 'freedom-staging-backup.timer', 'freedom-staging-tunnel.service']) {
+    if (liveUnits.includes(unit)) err(`${unit} is retired and must not be a live unit`);
+    if (!(retiredLocal.systemd_user_units ?? []).includes(unit)) err(`historical record must keep ${unit}`);
+  }
+  const livePorts = m.protected?.local?.ports ?? [];
+  if (!livePorts.includes(54339)) err('shared Compose Postgres port 54339 stays protected');
+  for (const port of [4310, 4312]) {
+    if (livePorts.includes(port)) err(`port ${port} is free for npm run demo and must not be a live protected port`);
+    if (!(retiredLocal.ports ?? []).includes(port)) err(`historical record must keep port ${port}`);
+  }
+  const livePaths = m.protected?.local?.paths ?? [];
+  if (livePaths.length) err('live protected paths must be empty; Castle staging paths are retired');
+  for (const path of ['~/.local/share/freedom-staging', '~/.config/freedom-staging', '~/.local/state/freedom-staging', '~/.local/share/freedom-public', '~/.config/freedom-public', '~/.local/state/freedom-public']) {
+    if (!(retiredLocal.paths ?? []).includes(path)) err(`historical paths must include ${path}`);
+  }
   const d = m.database_defaults ?? {};
   if (d.engine !== 'postgresql' || d.major_version !== 18) err('database must be PostgreSQL 18 to match the current PG18 source');
   if (!Array.isArray(d.extensions_required)) err('extensions_required must be an explicit list');
@@ -69,25 +94,39 @@ export function validateManifest(m) {
   const seen = new Map();
   for (const [key, env] of envs) {
     const prefix = ENV_PREFIX[key];
-    // next.freetwai.com was removed on 2026-09-25. Production hostname is the apex.
-    // staging-next keeps its own hostname and is not the production route.
+    // Both environments are live zone routes as of the 2026-09-25 staging cutover.
+    // Historical: staging-next had no route in this file; its custom domain was
+    // attached outside the config, and its hostname was staging-next.freetwai.com.
     if (key === 'next') {
       if (env.role !== 'production') err('next: role must be production');
       if (env.hostname !== 'freetwai.com') err('next: hostname must be freetwai.com (production apex since 2026-09-25; next.freetwai.com was removed)');
       if (!env.route || env.route.pattern !== 'freetwai.com/*' || env.route.zone_name !== 'freetwai.com' || env.route.custom_domain) err('next: route must be the zone route freetwai.com/*');
       const retired = env.retired_hostnames ?? [];
       if (retired.length !== 1 || retired[0] !== 'next.freetwai.com') err('next: retired_hostnames must be exactly ["next.freetwai.com"]');
-    } else {
-      if (env.role !== 'cloudflare_staging') err(`${key}: role must be cloudflare_staging`);
-      if (env.hostname !== `${key}.freetwai.com`) err(`${key}: hostname must be ${key}.freetwai.com`);
-      if (env.route) err(`${key}: must not declare a production zone route`);
+    } else if (key === 'staging-next') {
+      if (env.role !== 'staging') err('staging-next: role must be staging');
+      if (env.hostname !== 'staging.freetwai.com') err('staging-next: hostname must be staging.freetwai.com');
+      if (!env.route || env.route.pattern !== 'staging.freetwai.com/*' || env.route.zone_name !== 'freetwai.com' || env.route.custom_domain) err('staging-next: route must be the zone route staging.freetwai.com/*');
+      const retired = env.retired_hostnames ?? [];
+      if (retired.length !== 1 || retired[0] !== 'staging-next.freetwai.com') err('staging-next: retired_hostnames must be exactly ["staging-next.freetwai.com"]');
+      if (env.access?.required !== true || env.access?.referenced_preexisting !== true) err('staging-next: Access is required and must reference pre-existing protected applications');
+      if (env.access?.application_name !== 'Freedom staging' || env.access?.admin_application_name !== 'Freedom staging administrators') err('staging-next: must reference Freedom staging and Freedom staging administrators');
+      const retiredApps = env.access?.retired_application_names ?? [];
+      if (retiredApps.length !== 2 || retiredApps[0] !== 'Freedom staging-next' || retiredApps[1] !== 'Freedom staging-next administrators') err('staging-next: retired Access application names must be Freedom staging-next and Freedom staging-next administrators');
     }
     if (protectedHosts.has(env.hostname)) err(`${key}: hostname ${env.hostname} is protected`);
+    for (const host of env.retired_hostnames ?? []) if (host === env.hostname) err(`${key}: retired hostname must not be the live hostname`);
     if (env.worker?.workers_dev !== false) err(`${key}: workers_dev must be false`);
     if (env.worker?.preview_urls !== false) err(`${key}: preview_urls must be false (no public preview URL bypassing Access)`);
     const declaredAccess = [env.access?.application_name, env.access?.admin_application_name].filter((name) => name != null && name !== '');
-    for (const name of declaredAccess) {
-      if ((m.protected.access_applications ?? []).includes(name)) err(`${key}: Access application ${name} is protected`);
+    if (env.access?.referenced_preexisting === true) {
+      for (const name of declaredAccess) {
+        if (!(m.protected.access_applications ?? []).includes(name)) err(`${key}: referenced Access application ${name} must stay on the protected list`);
+      }
+    } else {
+      for (const name of declaredAccess) {
+        if ((m.protected.access_applications ?? []).includes(name)) err(`${key}: Access application ${name} is protected`);
+      }
     }
     if (key === 'next') {
       if (env.access?.required !== false) err('next: site-wide Access must not be required after cutover');
@@ -100,8 +139,11 @@ export function validateManifest(m) {
       if (hd.caching_disabled !== true) err(`${key}: Hyperdrive must have caching disabled for all platform queries`);
     }
     if (key === 'next' && env.data_source !== 'production') err('next: data_source must be production after cutover');
-    if (key === 'staging-next' && env.data_source !== 'synthetic') err('staging-next: must use synthetic data only (no live data, no local demo accounts)');
-    if (key === 'staging-next' && env.database?.topology !== 'single_node') err('staging-next: starts as a single_node PS-5');
+    // Staging never receives live member data. castle-staging-restore is the
+    // Castle freedom_staging demo dump. Historical value was "synthetic".
+    if (key === 'staging-next' && (env.data_source === 'production' || env.data_source === 'live' || env.data_source === 'rehearsal-restore-of-public-backup')) err('staging-next: never receives live member data');
+    if (key === 'staging-next' && env.data_source !== 'castle-staging-restore') err('staging-next: data_source must be castle-staging-restore (Castle staging demo data, never live member data)');
+    if (key === 'staging-next' && env.database?.topology !== 'single_node') err('staging-next: database stays a single_node PS-5');
     if (key === 'next' && env.database?.topology !== 'ha') err('next: production database must be HA');
     const price = ps.catalog?.monthly_usd?.[`${env.database?.size} ${env.database?.topology}`];
     if (price === undefined) err(`${key}: size ${env.database?.size} ${env.database?.topology} is not a catalog SKU`);
@@ -138,6 +180,8 @@ export function assertMutationTarget(m, envKey, kind, name) {
   if (!env) throw new Error(`Unknown environment: ${envKey}`);
   const p = m.protected;
   if (kind === 'hostname' && p.hostnames.includes(name)) throw new Error(`Refusing protected hostname ${name}`);
+  const retiredHosts = new Set(Object.values(m.environments).flatMap((env) => env.retired_hostnames ?? []));
+  if (kind === 'hostname' && retiredHosts.has(name)) throw new Error(`Refusing retired hostname ${name}`);
   if (kind === 'access_application' && p.access_applications.includes(name)) throw new Error(`Refusing protected Access application ${name}`);
   if (kind === 'database' && p.local.databases.includes(name)) throw new Error(`Refusing protected local database ${name}`);
   if (kind === 'oci_instance') throw new Error('Existing OCI compute instances are never used or changed');
