@@ -15,8 +15,8 @@
 // as freedom-platform-next, protected domain freetwai.com/admin.
 // env `staging-next` is staging: Worker freedom-admin-sync-staging-next, the
 // same database as freedom-platform-staging-next, protected domain
-// staging.freetwai.com/admin. One environment per database. Do not bind both
-// Workers to one Hyperdrive configuration.
+// staging.freetwai.com/admin. One environment per database. Do not bind the
+// staging and production sync Workers to one Hyperdrive configuration.
 //
 // This file holds no provider IDs or credentials. The zero Hyperdrive IDs below
 // are template placeholders; real IDs live only in the operator's private overlay.
