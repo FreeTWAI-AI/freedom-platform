@@ -2899,8 +2899,8 @@
     },
     {
       "path": "modules/github-social/provider.ts",
-      "bytes": 11034,
-      "sha256": "49d9626336d547ed1bcaa4a7f145453bdf4d5b4c46444d3a12d1c5cd79f5c064"
+      "bytes": 11288,
+      "sha256": "86ca3b0dc752866e5cfff0c9860891c20dec444f0b43098ab65e5cc475ae80ae"
     },
     {
       "path": "modules/github-social/service.ts",
@@ -3799,8 +3799,8 @@
     },
     {
       "path": "tests/worker/workerd.test.ts",
-      "bytes": 12322,
-      "sha256": "b84d5d3babe059494c795540087d75966b44cbe31e663389c06db79025c2d005"
+      "bytes": 14567,
+      "sha256": "6e97735c15a2219e52c04513559cc3dc2596db7dff4963474b981f6f178fb19b"
     },
     {
       "path": "tsconfig.json",

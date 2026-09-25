@@ -157,3 +157,32 @@ test('workerd: with a local IMAGES binding the default scope stores a re-encoded
     assert.ok(!stored.equals(png));
   } finally { await withImages.dispose(); }
 });
+
+test('workerd: skill-book metrics refresh reaches GitHub through the global fetch', async () => {
+  // The provider used to call fetch as this.fetcher(...), which workerd rejects with
+  // "Illegal invocation"; the catch-all turned that into github_unavailable.
+  const calls: string[] = [];
+  const withGitHub = new Miniflare(convertV4MiniflareOptions({ workers: [{
+    name: 'freedom-platform-workerd-github', modules: true, scriptPath: resolve(bundleDir, 'worker.js'),
+    compatibilityDate, compatibilityFlags: ['nodejs_compat'],
+    bindings: { FREEDOM_ENV: 'local', APP_ORIGIN: origin },
+    hyperdrives: { HYPERDRIVE: databaseUrl },
+    assets: { directory: assetsDir, binding: 'ASSETS', routerConfig: { has_user_worker: true, invoke_user_worker_ahead_of_assets: true }, assetConfig: { html_handling: 'auto-trailing-slash', not_found_handling: 'none' } },
+    outboundService: async (request: Request) => {
+      const url = new URL(request.url);
+      calls.push(`${request.method} ${url.host}${url.pathname} ${request.headers.get('x-github-api-version')}`);
+      if (url.host !== 'api.github.com' || url.pathname !== '/repos/Hao0321/video-autopilot-kit') return new Response(null, { status: 404 });
+      return Response.json({ stargazers_count: 42, forks_count: 7, open_issues_count: 3, subscribers_count: 5, pushed_at: '2026-09-20T12:00:00Z', language: 'TypeScript', archived: false, private: false });
+    },
+  }] } as any));
+  try {
+    const response = await withGitHub.dispatchFetch(origin + '/api/v1/github/books/video-autopilot/metrics') as unknown as Response;
+    assert.equal(response.status, 200);
+    const data: any = await response.json();
+    assert.equal(data.error, null); assert.equal(data.stale, false); assert.ok(data.checked_at);
+    assert.equal(data.stargazers_count, 42); assert.equal(data.forks_count, 7);
+    assert.deepEqual(calls, ['GET api.github.com/repos/Hao0321/video-autopilot-kit 2026-03-10']);
+    const row = (await db.query(`SELECT last_error, snapshot->>'stargazers_count' AS stars FROM github_repository_metrics WHERE repository_key='hao0321/video-autopilot-kit'`)).rows[0];
+    assert.equal(row.last_error, null); assert.equal(row.stars, '42');
+  } finally { await withGitHub.dispose(); }
+});
