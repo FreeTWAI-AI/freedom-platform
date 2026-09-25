@@ -262,7 +262,7 @@ test('candidate origin: canonical, og, share, guidance and upload examples point
     assert.ok(skillPage.includes(`<link rel="canonical" href="${origin}/development/skills/video-autopilot">`), origin);
     assert.ok(skillPage.includes(`<meta property="og:url" content="${origin}/development/skills/video-autopilot?intro=1">`));
     assert.ok(skillPage.includes(`data-share-base="${origin}/development/skills/video-autopilot"`));
-    assert.match(skillPage, new RegExp(`<meta property="og:image" content="${origin.replaceAll('.', '\\.')}/brand/skill-illustrations/`));
+    assert.ok(skillPage.includes(`<meta property="og:image" content="${origin}/brand/skill-illustrations/`));
     const pageHtml = await get('/development/registration');
     assert.ok(pageHtml.includes(`<link rel="canonical" href="${origin}/development/registration">`));
     const pageSkill = await get('/development/registration/SKILL.md');
