@@ -1,3 +1,4 @@
+import { accessAwareFetch, expiredAccessStatus, isExpiredAccessResponse, MEMBER_ACCESS_EXPIRED_MESSAGE } from './access-fetch'
 import type { ProblemDetails, SessionPayload } from './types'
 
 const API_BASE = '/api/v1'
@@ -12,6 +13,7 @@ export class ApiError extends Error {
   readonly unauthorized: boolean
   readonly conflict: boolean
   readonly timedOut: boolean
+  readonly accessExpired: boolean
   readonly cfRay?: string
   readonly requestId?: string
 
@@ -24,6 +26,7 @@ export class ApiError extends Error {
     code?: string
     network?: boolean
     timedOut?: boolean
+    accessExpired?: boolean
     cfRay?: string
     requestId?: string
   }) {
@@ -36,6 +39,7 @@ export class ApiError extends Error {
     this.code = init.code
     this.network = init.network ?? false
     this.timedOut = init.timedOut ?? false
+    this.accessExpired = init.accessExpired ?? false
     this.cfRay = init.cfRay
     this.requestId = init.requestId
     this.unauthorized = this.status === 401
@@ -86,6 +90,8 @@ function requestId(response?: Response): string | undefined {
 export class PortalClient {
   csrfToken: string | null = null
   onUnauthorized: (() => void) | null = null
+  /** Set for the current response before onUnauthorized, so the app can offer a page reload instead of the member login form. */
+  accessExpired = false
 
   constructor(private readonly options: {timeoutMs?: number} = {}) {}
 
@@ -150,10 +156,25 @@ export class PortalClient {
       }, this.options.timeoutMs ?? 20_000)
     })
     const operation = async () => {
-      response = await fetch(`${API_BASE}${path}`, {
+      response = await accessAwareFetch(`${API_BASE}${path}`, {
         method, headers, credentials: 'same-origin', signal: controller.signal,
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
       })
+      if (await isExpiredAccessResponse(response)) {
+        const status = expiredAccessStatus(response)
+        this.accessExpired = true
+        // 401/403 drop the local member token. An opaque redirect has no status.
+        // Either way the shell is told, because only a navigation can sign in again.
+        if (!options.skipAuthHandler) {
+          if (status === 401 || status === 403) this.csrfToken = null
+          this.onUnauthorized?.()
+        }
+        throw new ApiError({
+          message: MEMBER_ACCESS_EXPIRED_MESSAGE, status, accessExpired: true,
+          cfRay: cloudflareRay(response), requestId: requestId(response),
+        })
+      }
+      this.accessExpired = false
       // A malformed or stalled error body must not suppress an actual 401.
       if (response.status === 401 && !options.skipAuthHandler) {
         this.csrfToken = null

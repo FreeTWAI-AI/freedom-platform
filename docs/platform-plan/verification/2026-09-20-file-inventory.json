@@ -584,8 +584,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 68343,
-      "sha256": "b625b14a677838e5b2ec9e01a8cd1d1bf09580f09173b9252908f2ccb691269d"
+      "bytes": 69563,
+      "sha256": "2ec266d9c355f31d445a59238df7a659a09566a0389291839ed2db93474fbe6e"
     },
     {
       "path": "apps/portal-web/src/LayoutDesign.css",
@@ -603,9 +603,14 @@
       "sha256": "0d5dcbb45e2f29bb35d81f706636341c36acd5f54ec12841842f7a1c5ca3fbd1"
     },
     {
+      "path": "apps/portal-web/src/access-fetch.ts",
+      "bytes": 1317,
+      "sha256": "3e889900d1cc7d0c77d278bcf8159dc0c84bf60553438a84adf276ff97360fb3"
+    },
+    {
       "path": "apps/portal-web/src/api.ts",
-      "bytes": 9218,
-      "sha256": "666b799bbf320c5e8de4f984c75dbe13ed659f15848ee07e5a41a59594f099f4"
+      "bytes": 10321,
+      "sha256": "99e647f4d86a3c1a72630f4a5997f49b20d54f8230a7944aa5dbeb48b81cd67d"
     },
     {
       "path": "apps/portal-web/src/format.ts",
@@ -639,8 +644,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AdminPanel.tsx",
-      "bytes": 24803,
-      "sha256": "85dc4d7abb1cd03953e39ea970a587243fd9e454e818f1af5314ea8325fabe72"
+      "bytes": 24307,
+      "sha256": "6650b5835fb1c89b82ff3e6c9619df237272b47a6c1a11e14c22674c3b166e40"
     },
     {
       "path": "apps/portal-web/src/modules/AdminPermissions.css",
@@ -923,9 +928,14 @@
       "sha256": "58cf36a1749591b452aca8a543939d3fc8805ca746e8b67182e2039205e9b4ce"
     },
     {
+      "path": "apps/portal-web/src/modules/admin-client.ts",
+      "bytes": 2860,
+      "sha256": "6059129bdcd6ae66dbdb590a2ffcd338a1466720ae64a3710c394155270d6383"
+    },
+    {
       "path": "apps/portal-web/src/modules/avatar-client.ts",
-      "bytes": 1701,
-      "sha256": "59e7a90b8068446a67fa64f18e397b64d435a3d1b123ab4dc6cdabf5a44d2260"
+      "bytes": 2204,
+      "sha256": "100f3f5884025bc03a26b4f2dfed869dd89e66a7b01cf8b9cba0f0b04ced6a10"
     },
     {
       "path": "apps/portal-web/src/modules/github-social-client.ts",
@@ -3511,6 +3521,11 @@
       "path": "tests/integration/repositories.test.ts",
       "bytes": 17512,
       "sha256": "a297d362888a96dd4a4d16331069ce7183f409be1570091e7e9fcb20750032a6"
+    },
+    {
+      "path": "tests/runtime/admin-access-session.test.ts",
+      "bytes": 13250,
+      "sha256": "1993cf9896a7dd04ecb793182283c95b0af29d54200e3a029823518d3ea094e2"
     },
     {
       "path": "tests/runtime/admin-access-sync.test.ts",
