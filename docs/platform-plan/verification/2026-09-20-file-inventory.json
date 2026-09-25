@@ -3764,8 +3764,8 @@
     },
     {
       "path": "tests/runtime/worker-adapter.test.ts",
-      "bytes": 33087,
-      "sha256": "809c6bd8cec62ed1a0011012efc65bcccf05c7f4e3fd4e2208d7ff0eb3ab67ed"
+      "bytes": 33058,
+      "sha256": "21befa6edbfebddbce399f8a36668d9890a84e103b5470f649ad141d7402d031"
     },
     {
       "path": "tests/worker/workerd.test.ts",
