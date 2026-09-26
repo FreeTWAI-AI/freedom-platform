@@ -4,6 +4,7 @@ import { App } from './App'
 import './styles.css'
 import './rpg-theme.css'
 import './LayoutDesign.css'
+import './GameConsole.css'
 
 const root = document.getElementById('root')
 if (!root) {

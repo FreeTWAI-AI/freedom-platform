@@ -20,6 +20,8 @@ import {MemberGuildWorkspace} from './modules/GuildWorkspace'
 import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
 import { DevelopmentContext } from './modules/DevelopmentContext'
 import { BenefitObservations } from './modules/BenefitObservations'
+import { GameConsoleProvider } from './GameConsole'
+import { logConsoleEvent } from './game-console-core'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PositioningPanel, GuildsPanel } from './modules/PositioningPanels'
 import { SupplierPanel, RetailPanel } from './modules/CommercePanels'
@@ -106,6 +108,7 @@ function describeError(err: unknown): ActionError {
 }
 
 export function App() {
+  if(new URLSearchParams(window.location.search).get('game-console')==='popout')return <GameConsoleProvider variant="popout"/>
   if(window.location.pathname==='/github/callback')return <GitHubCallback/>
   return window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? <><AdminPanel/><DevelopmentContext moduleId="admin"/></> : <MemberApp/>
 }
@@ -221,6 +224,7 @@ function MemberApp() {
   if (onboarding.required && !onboarding.completed) return <Onboarding client={client} initial={onboarding} onCompleted={() => { window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
 
   return (
+    <GameConsoleProvider>
     <GitHubSocialProvider client={client} session={session}><DevelopmentAccessProvider client={client} session={session}>
     <Workspace
       site={site}
@@ -229,6 +233,7 @@ function MemberApp() {
       onSessionExpired={() => toLogin('登入已過期，請重新登入。')}
     />
     </DevelopmentAccessProvider></GitHubSocialProvider>
+    </GameConsoleProvider>
   )
 }
 
@@ -392,6 +397,7 @@ function Workspace({
   useEffect(() => {
     if (previousTab.current === tab) return
     previousTab.current = tab
+    logConsoleEvent({channel:'system',kind:'guide',source:'NAV',message:`已進入「${tabTitle(tab)}」。`})
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
     mainContent.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
