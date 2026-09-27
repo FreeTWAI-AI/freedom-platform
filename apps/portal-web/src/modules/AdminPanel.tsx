@@ -15,18 +15,20 @@ type GuildApplication = {application_id:string;name:string;profession:string;rea
 type Guild = ManagedGuild & {first_step:string;module_key:string};
 type AdminNomination = {aggregate_version?:number;access_state?:AccessState;user_id?:string|null;admin_id?:string;email?:string|null;display_name?:string;role?:string;state?:string;status?:string;enabled?:boolean;active?:boolean;identity_binding?:'no_member_account'|'unverified_email_match'|'verified_email_match';member_account_present?:boolean;member_account_active?:boolean;member_email_verified?:boolean};
 type Audit = {audit_id?:string;admin_name?:string;actor_email?:string;actor_name?:string;actor_display_name?:string;action:string;reason:string;target_ref?:string;target_id?:string;target_type?:string;created_at?:string;at?:string};
-type AdminTab = 'members'|'guild-applications'|'guilds'|'admins'|'guild-workspace'|'github'|'audit';
+type ClientError = {error_id:string;user_id:string;display_name:string;action:string;error_code:string;http_status:number|null;created_at:string};
+type AdminTab = 'members'|'guild-applications'|'guilds'|'admins'|'guild-workspace'|'github'|'audit'|'errors';
 const accessLabel=(state?:AccessState)=>state==='ready'?'可登入管理頁':state==='pending'?'登入權限同步中':state==='pending_removal'?'停用同步中':state==='revoked'?'登入權限已停用':'登入權限待確認';
 const adminGroups:{label:string;items:[AdminTab,string][] }[]=[
   {label:'人員與權限',items:[['members','會員管理'],['admins','管理員名單']]},
   {label:'公會',items:[['guilds','公會管理'],['guild-applications','公會申請'],['guild-workspace','會長與維護者']]},
-  {label:'系統',items:[['github','GitHub 連結'],['audit','操作紀錄']]},
+  {label:'系統',items:[['github','GitHub 連結'],['audit','操作紀錄'],['errors','系統錯誤日誌']]},
 ];
 const moduleOptions=[['guilds','公會交流'],['engagement','社群參與'],['positioning','定位與陪跑'],['supplier','供貨'],['retail','商店與銷售'],['opensource','開源作品'],['marketing','行銷'],['workbench','互助協作']];
 export function AdminPanel(){
   const client=useRef(new AdminClient()).current;
   const [bootstrap,setBootstrap]=useState<Bootstrap|null>(null),[bootError,setBootError]=useState(''),[booting,setBooting]=useState(true),[tab,setTab]=useState<AdminTab>(window.location.pathname==='/admin/github/callback'?'github':'members');
   const [members,setMembers]=useState<Member[]>([]),[query,setQuery]=useState(''),[nextOffset,setNextOffset]=useState<number|null>(null),[applications,setApplications]=useState<GuildApplication[]>([]),[applicationOffset,setApplicationOffset]=useState<number|null>(null),[guilds,setGuilds]=useState<Guild[]>([]),[admins,setAdmins]=useState<AdminNomination[]>([]),[audit,setAudit]=useState<Audit[]>([]);
+  const [clientErrors,setClientErrors]=useState<ClientError[]>([]);
   const [loading,setLoading]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[accessExpired,setAccessExpired]=useState(false);
   const [accessRefresh,setAccessRefresh]=useState(0);
   const lock=useRef(false),keys=useRef(new Map<string,string>()),loadSequence=useRef(0),appliedQuery=useRef(''),startSequence=useRef(0);
@@ -37,6 +39,7 @@ export function AdminPanel(){
     if(tab==='guilds'){const value=await client.request<{items:Guild[]}>('/guilds');if(sequence===loadSequence.current)setGuilds(value.items);}
     if(tab==='admins'){const value=await client.request<{items:AdminNomination[]}>('/admins');if(sequence===loadSequence.current)setAdmins(value.items);}
     if(tab==='audit'){const value=await client.request<{items:Audit[]}>('/audit');if(sequence===loadSequence.current)setAudit(value.items);}
+    if(tab==='errors'){const value=await client.request<{items:ClientError[]}>('/client-errors');if(sequence===loadSequence.current)setClientErrors(value.items);}
   }catch(cause){if(sequence===loadSequence.current)setError(cause instanceof Error?cause.message:'無法載入管理資料。');}finally{if(sequence===loadSequence.current)setLoading(false);}},[client,tab]);
   useEffect(()=>{client.onAccessExpired=()=>setAccessExpired(true);client.onAccessRecovered=()=>setAccessExpired(false);return()=>{client.onAccessExpired=null;client.onAccessRecovered=null;};},[client]);
   useEffect(()=>{void start();},[start]);
@@ -85,6 +88,7 @@ export function AdminPanel(){
       {tab==='github'&&<AdminGitHubSetup client={client}/>}
       {tab==='guild-workspace'&&<AdminGuildWorkspace client={client}/>}
       {tab==='audit'&&<section className="stack"><h2>操作紀錄</h2><p className="muted">最近的管理操作與填寫理由，方便回查。</p>{audit.map((entry,index)=><article className="card stack" key={entry.audit_id??index}><div className="card-head"><strong>{{member_status:'調整會員狀態',guild_application_review:'審核公會申請',appoint_guild_master:'任命公會長',appoint_guild_expert:'任命公會專家',remove_guild_expert:'移除公會專家',appoint_platform_admin:'任命平台管理員',platform_admin_status:'調整管理權限',link_verified_member:'確認會員身分',accept_nominated_guild_master:'確認公會長任命'}[entry.action]??entry.action}</strong>{(entry.created_at??entry.at)?<time dateTime={entry.created_at??entry.at}>{new Date(entry.created_at??entry.at??'').toLocaleString('zh-TW')}</time>:<span className="field-hint">時間未記錄</span>}</div><p>操作人：{entry.admin_name??entry.actor_display_name??entry.actor_name??entry.actor_email??'管理員'}</p><p>{entry.reason}</p>{(entry.target_ref??entry.target_id)&&<p className="field-hint">對象：{entry.target_type??''} {entry.target_ref??entry.target_id}</p>}</article>)}{!loading&&!audit.length&&!error&&<p className="muted">目前沒有管理操作紀錄。</p>}</section>}
+      {tab==='errors'&&<section className="stack"><div className="card-head"><h2>系統錯誤日誌</h2><button type="button" className="btn btn-ghost" onClick={()=>void load()} disabled={loading}>重新整理</button></div><p className="muted">最近 100 筆會員端錯誤。僅保存操作與錯誤代碼，不保存訊息內容或憑證。</p>{clientErrors.map(entry=><article className="card stack" key={entry.error_id}><div className="card-head"><strong>{entry.display_name}</strong><time dateTime={entry.created_at}>{new Date(entry.created_at).toLocaleString('zh-TW')}</time></div><p>執行：{entry.action}</p><p>錯誤：{entry.error_code}{entry.http_status!==null?`（HTTP ${entry.http_status}）`:''}</p><p className="field-hint">會員 ID：{entry.user_id}</p></article>)}{!loading&&!clientErrors.length&&!error&&<p className="muted">目前沒有系統錯誤紀錄。</p>}</section>}
     </>}
   </main>;
 }

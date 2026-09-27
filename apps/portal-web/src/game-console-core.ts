@@ -2,19 +2,30 @@ export const GAME_CONSOLE_CHANNEL_NAME = 'freedom-game-console/v1'
 export const GAME_CONSOLE_EVENT_LIMIT = 200
 
 export const GAME_CONSOLE_CHANNELS = [
-  { id: 'system', label: 'System / Guide', shortLabel: 'SYSTEM' },
-  { id: 'ai', label: 'AI Trace', shortLabel: 'AI' },
-  { id: 'social', label: 'Social Chat', shortLabel: 'SOCIAL' },
-  { id: 'world', label: 'World Broadcast', shortLabel: 'WORLD' },
+  { id: 'all', label: '總頻道', shortLabel: '全部' },
+  { id: 'guild', label: '公會聊天', shortLabel: '公會' },
+  { id: 'squad', label: '小隊聊天', shortLabel: '小隊' },
+  { id: 'direct', label: '私人聊天', shortLabel: '私訊' },
+  { id: 'world_chat', label: '世界聊天', shortLabel: '世界' },
+  { id: 'ai', label: 'AI 指令', shortLabel: 'AI' },
+  { id: 'guide', label: '世界導覽', shortLabel: '導覽' },
+  { id: 'system', label: '系統指令', shortLabel: '系統' },
 ] as const
 
 export type GameConsoleChannel = typeof GAME_CONSOLE_CHANNELS[number]['id']
+export type GameConsoleSourceChannel = Exclude<GameConsoleChannel, 'all'>
+export type ConsoleVisibility = Record<GameConsoleSourceChannel, boolean>
+export const defaultConsoleVisibility = (): ConsoleVisibility => ({guild:true,squad:true,direct:true,world_chat:true,ai:true,guide:true,system:true})
+export function isConsoleVisibility(value:unknown):value is ConsoleVisibility {
+  if(!value||typeof value!=='object')return false
+  return GAME_CONSOLE_CHANNELS.slice(1).every(channel=>typeof (value as Record<string,unknown>)[channel.id]==='boolean')
+}
 export type GameConsoleLevel = 'info' | 'success' | 'warning' | 'error'
 export type GameConsoleKind = 'guide' | 'prompt' | 'status' | 'summary' | 'chat' | 'broadcast'
 
 export type GameConsoleEvent = {
   id: string
-  channel: GameConsoleChannel
+  channel: GameConsoleSourceChannel
   level: GameConsoleLevel
   kind: GameConsoleKind
   message: string
@@ -24,7 +35,7 @@ export type GameConsoleEvent = {
 }
 
 export type GameConsoleEventInput = {
-  channel?: GameConsoleChannel
+  channel?: GameConsoleSourceChannel
   level?: GameConsoleLevel
   kind?: GameConsoleKind
   message: string
@@ -37,10 +48,11 @@ export type GameConsoleEventInput = {
 export type GameConsoleWireMessage =
   | { type: 'event'; sender: string; event: GameConsoleEvent }
   | { type: 'sync-request'; sender: string }
-  | { type: 'snapshot'; sender: string; target: string; events: GameConsoleEvent[] }
+  | { type: 'snapshot'; sender: string; target: string; events: GameConsoleEvent[]; visibility: ConsoleVisibility }
+  | { type: 'visibility'; sender: string; visibility: ConsoleVisibility }
   | { type: 'session-end'; sender: string }
 
-const CHANNEL_IDS = new Set<string>(GAME_CONSOLE_CHANNELS.map(channel => channel.id))
+const CHANNEL_IDS = new Set<string>(GAME_CONSOLE_CHANNELS.slice(1).map(channel => channel.id))
 const LEVELS = new Set<string>(['info', 'success', 'warning', 'error'])
 const KINDS = new Set<string>(['guide', 'prompt', 'status', 'summary', 'chat', 'broadcast'])
 const listeners = new Set<(event: GameConsoleEvent) => void>()
@@ -98,10 +110,12 @@ export function isGameConsoleWireMessage(value: unknown): value is GameConsoleWi
   const message = value as Partial<GameConsoleWireMessage> & { sender?: unknown; target?: unknown; events?: unknown; event?: unknown }
   if (typeof message.sender !== 'string' || !message.sender || message.sender.length > 160) return false
   if (message.type === 'event') return isGameConsoleEvent(message.event)
+  if (message.type === 'visibility') return isConsoleVisibility((message as {visibility?:unknown}).visibility)
   if (message.type === 'sync-request') return true
   if (message.type === 'session-end') return true
   return message.type === 'snapshot' && typeof message.target === 'string' && message.target.length > 0 && message.target.length <= 160
     && Array.isArray(message.events) && message.events.length <= GAME_CONSOLE_EVENT_LIMIT && message.events.every(isGameConsoleEvent)
+    && isConsoleVisibility((message as {visibility?:unknown}).visibility)
 }
 
 export function mergeConsoleEvents(current: GameConsoleEvent[], incoming: GameConsoleEvent[], limit = GAME_CONSOLE_EVENT_LIMIT): GameConsoleEvent[] {

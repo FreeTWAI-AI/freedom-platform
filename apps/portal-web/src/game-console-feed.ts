@@ -11,6 +11,11 @@ type PublishedSkill = {submission_id:string;title:string;published_at:string}
 type Project = {project_id:string;title:string;created_at?:string;source_kind:'member_project'|'community_pilot'}
 type Page<T> = {items:T[]}
 
+export async function readWorldChatFeed(client:PortalClient):Promise<GameConsoleEvent[]> {
+  const page=await client.get<Page<RoomMessage>>('/me/channels/world/world/messages?limit=20&offset=0')
+  return page.items.map(item=>createConsoleEvent({id:`room:${item.message_id}`,channel:'world_chat',kind:'chat',source:item.sender_name,message:item.body,createdAt:item.created_at}))
+}
+
 /** Read only: the existing message pages remain the authority for membership and read receipts. */
 export async function readConsoleFeed(client:PortalClient, userId:string, includeWorld=true):Promise<GameConsoleEvent[]> {
   const load=async<T,>(path:string):Promise<Page<T>>=>{
@@ -26,19 +31,19 @@ export async function readConsoleFeed(client:PortalClient, userId:string, includ
     includeWorld?load<Project>('/co-creation/projects'):Promise.resolve({items:[] as Project[]}),
   ])
   const events = notices.items.filter(item=>item.read_at===null).map(item=>createConsoleEvent({
-    id:`notice:${item.notification_id}`,channel:'system',kind:'status',source:'通知',
+    id:`notice:${item.notification_id}`,channel:'guide',kind:'status',source:'通知',
     message:item.title,detail:item.body,createdAt:item.created_at,
   }))
   for(const item of announcements.items)events.push(createConsoleEvent({
-    id:`guild:${item.announcement_id}:${item.updated_at}`,channel:'world',kind:'broadcast',source:`公會公告 · ${item.guild_name}`,
+    id:`guild:${item.announcement_id}:${item.updated_at}`,channel:'guild',kind:'broadcast',source:`公會公告 · ${item.guild_name}`,
     message:item.title,detail:item.body,createdAt:item.updated_at,
   }))
   for(const item of skills.items.slice(0,10))events.push(createConsoleEvent({
-    id:`skill:${item.submission_id}`,channel:'world',kind:'broadcast',source:'技能書發布',
+    id:`skill:${item.submission_id}`,channel:'guide',kind:'broadcast',source:'技能書發布',
     message:`技能書「${item.title}」已建立公開介紹頁。`,createdAt:item.published_at,
   }))
   for(const item of projects.items.filter(item=>item.source_kind==='member_project'&&item.created_at).slice(0,10))events.push(createConsoleEvent({
-    id:`project:${item.project_id}`,channel:'world',kind:'broadcast',source:'共創任務',
+    id:`project:${item.project_id}`,channel:'guide',kind:'broadcast',source:'共創任務',
     message:`共創任務「${item.title}」已發布。`,createdAt:item.created_at!,
   }))
   // Only unread peers are opened. A conversation's last message might be our own,
@@ -53,7 +58,7 @@ export async function readConsoleFeed(client:PortalClient, userId:string, includ
     if(result.status!=='fulfilled')return
     const peer=peers[index]
     for(const item of result.value.items.filter(message=>message.sender_ref!==userId&&message.read_at===null))events.push(createConsoleEvent({
-      id:`direct:${item.message_id}`,channel:'social',kind:'chat',source:`私訊 · ${peer.participant.display_name}`,
+      id:`direct:${item.message_id}`,channel:'direct',kind:'chat',source:`私訊 · ${peer.participant.display_name}`,
       message:item.body,createdAt:item.created_at,
     }))
   })
@@ -61,9 +66,12 @@ export async function readConsoleFeed(client:PortalClient, userId:string, includ
     if(result.status!=='fulfilled')return
     const room=rooms[index]
     for(const item of result.value.items.filter(message=>message.sender_ref!==userId).slice(0,room.unread_count))events.push(createConsoleEvent({
-      id:`room:${item.message_id}`,channel:'social',kind:'chat',source:`${room.kind==='guild'?'公會':'小隊'} · ${room.name} · ${item.sender_name}`,
+      id:`room:${item.message_id}`,channel:room.kind,kind:'chat',source:`${room.kind==='guild'?'公會':'小隊'} · ${room.name} · ${item.sender_name}`,
       message:item.body,createdAt:item.created_at,
     }))
   })
+  if(includeWorld){
+    try{events.push(...await readWorldChatFeed(client))}catch{/* Other feeds remain available. */}
+  }
   return events.sort((a,b)=>a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id))
 }

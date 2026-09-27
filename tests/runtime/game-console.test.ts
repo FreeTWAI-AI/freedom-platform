@@ -30,7 +30,7 @@ test('Game Console event bus can be used outside React and stops after unsubscri
 });
 
 test('BroadcastChannel envelopes reject unknown or oversized cross-window payloads',()=>{
-  const event=createConsoleEvent({id:'valid',createdAt:'2026-09-26T12:00:00Z',channel:'world',kind:'broadcast',message:'published'});
+  const event=createConsoleEvent({id:'valid',createdAt:'2026-09-26T12:00:00Z',channel:'guide',kind:'broadcast',message:'published'});
   assert.equal(isGameConsoleWireMessage({type:'event',sender:'one',event}),true);
   assert.equal(isGameConsoleWireMessage({type:'session-end',sender:'one'}),true);
   assert.equal(isGameConsoleWireMessage({type:'event',sender:'one',event:{...event,channel:'private'}}),false);

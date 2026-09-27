@@ -11,7 +11,7 @@ export const TAB_TITLES: Record<TabId, string> = {
   todos: '待辦清單', messages: '我的訊息',
 };
 
-const primary: TabId[] = ['home', 'positioning', 'guilds', 'skills', 'members'];
+const primary: TabId[] = ['home', 'positioning', 'guilds', 'skills', 'members', 'messages'];
 const groups: { label: string; pages: TabId[] }[] = [
   { label: '一起協作', pages: ['cocreation', 'squads', 'opensource', 'workbench', 'showcase', 'engagement'] },
   { label: '供貨與銷售', pages: ['supplier', 'retail', 'marketing'] },

@@ -41,6 +41,18 @@ const disabled={active:false,reason:'會員要求暫停帳號。'};
 const guild='guild_marketing';
 async function join(user=DEMO_USERS[0].user_id,key=guild){await pool.query("INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,$4,'active')",[randomUUID(),DEMO_COMMUNITY,user,key]);}
 
+test('member errors persist as bounded metadata and appear only in the community admin log',async()=>{
+ const session=await login();
+ const reported=await member('/me/client-errors',session.cookie,{action:'POST /me/channels/world/world/messages',error_code:'internal_error',http_status:500},session.csrf);
+ assert.equal(reported.status,201,JSON.stringify(reported.data));
+ const bad=await member('/me/client-errors',session.cookie,{action:'POST /auth/login?password=secret',error_code:'internal_error'},session.csrf);
+ assert.equal(bad.status,422);
+ const foreign=await outsider();await pool.query('INSERT INTO member_client_errors(community_id,user_id,action,error_code) VALUES($1,$2,$3,$4)',[foreign.community,foreign.user,'GET /secret','other_error']);
+ const log=await request('/client-errors');assert.equal(log.status,200);assert.equal(log.data.items.length,1);
+ assert.deepEqual([log.data.items[0].user_id,log.data.items[0].action,log.data.items[0].error_code,log.data.items[0].http_status],[DEMO_USERS[0].user_id,'POST /me/channels/world/world/messages','internal_error',500]);
+ assert.ok(!JSON.stringify(log.data).includes('secret'));
+});
+
 test('signed Access identity and separately provisioned admin are required; member cookies and email headers grant nothing',async()=>{
  const normal=await login();
  for(const path of ['/bootstrap','/members','/guilds','/guild-applications','/admins','/audit','/unknown']){

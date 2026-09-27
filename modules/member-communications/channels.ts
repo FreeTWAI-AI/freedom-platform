@@ -44,7 +44,7 @@ type Room={kind:ChannelKind;key:string};
 function room(rawKind:string,rawKey:string):Room{
   const kind=z.enum(CHANNEL_KINDS).parse(rawKind);
   const key=z.string().min(1).max(CHANNEL_KEY_MAX)
-    .refine(value=>kind==='guild'?GUILD_CHANNEL_KEY_PATTERN.test(value):SQUAD_KEY_INPUT.test(value),'頻道代碼格式不正確。').parse(rawKey);
+    .refine(value=>kind==='guild'?GUILD_CHANNEL_KEY_PATTERN.test(value):kind==='world'?value==='world':SQUAD_KEY_INPUT.test(value),'頻道代碼格式不正確。').parse(rawKey);
   return {kind,key:kind==='squad'?key.toLowerCase():key};
 }
 
@@ -90,6 +90,7 @@ const advisory=(q:PoolClient,name:string)=>q.query('SELECT pg_advisory_xact_lock
 
 /** Locks and returns the viewer's active membership of one room, else 404. */
 async function lockRoom(q:PoolClient,actor:Actor,{kind,key}:Room):Promise<Channel>{
+  if(kind==='world')return {kind,channel_key:'world',name:'世界聊天'};
   let row:{name:string}|undefined;
   if(kind==='guild'){
     await lockMemberGuilds(q,actor);
@@ -106,6 +107,7 @@ async function lockRoom(q:PoolClient,actor:Actor,{kind,key}:Room):Promise<Channe
 
 /** Every active room of one kind, membership rows locked FOR SHARE. */
 async function lockRooms(q:PoolClient,actor:Actor,kind:ChannelKind):Promise<Channel[]>{
+  if(kind==='world')return [{kind,channel_key:'world',name:'世界聊天'}];
   if(kind==='guild'){
     await lockMemberGuilds(q,actor);
     return (await q.query(`SELECT g.guild_key AS channel_key,g.name FROM positioning_profession_memberships m JOIN positioning_guild_catalog g ON g.guild_key=m.guild_key

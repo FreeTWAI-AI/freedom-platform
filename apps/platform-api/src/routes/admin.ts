@@ -56,6 +56,13 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
   app.get('/admins',async c=>c.json({items:await adminNominees(pool,c.get('admin'))}));
   app.post('/admins/:id/status',async c=>result(c,await changePlatformAdminStatus(pool,await command(c),c.req.param('id'))));
   app.get('/audit',async c=>c.json({items:await adminAudit(pool,c.get('admin'))}));
+  app.get('/client-errors',async c=>{
+    const admin=c.get('admin');
+    const rows=await pool.query(`SELECT e.error_id,e.user_id,u.display_name,e.action,e.error_code,e.http_status,e.created_at
+      FROM member_client_errors e JOIN users u ON u.user_id=e.user_id
+      WHERE e.community_id=$1 ORDER BY e.created_at DESC LIMIT 100`,[admin.community_id]);
+    return c.json({items:rows.rows});
+  });
   app.all('*',c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'找不到這個管理 API。'},404));
   return app;
 }

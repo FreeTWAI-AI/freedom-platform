@@ -3,7 +3,7 @@
 // created by hand and grant no role. Pages are newest first.
 // Sequences are bigint in PostgreSQL and serialized as decimal strings.
 
-export const CHANNEL_KINDS=['guild','squad'] as const;
+export const CHANNEL_KINDS=['guild','squad','world'] as const;
 export type ChannelKind=typeof CHANNEL_KINDS[number];
 
 /** guild: catalog guild_key; squad: lowercase squad UUID. */

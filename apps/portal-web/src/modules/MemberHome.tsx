@@ -22,8 +22,8 @@ const entries: { id: TabId; title: string; description: string; cover: string }[
 ];
 
 export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
-  const { events, setExpanded, setActiveChannel } = useGameConsole();
-  const recent = events.slice(-10).reverse();
+  const { events, visibility, setExpanded, setActiveChannel } = useGameConsole();
+  const recent = events.filter(event=>visibility[event.channel as Exclude<GameConsoleChannel,'all'>]).slice(-10).reverse();
   const openChannel = (channel: GameConsoleChannel) => { setActiveChannel(channel); setExpanded(true); };
   const [member, setMember] = useState<MemberCardData | null>(null);
   const [labels, setLabels] = useState<Record<string, string> | null>(null);
@@ -65,7 +65,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
 
   useEffect(() => {
     if (!member) return;
-    logConsoleEvent({id: member.primary_guild ? 'guide:home:skills' : 'guide:home:guild', channel:'system', kind:'guide', source:'下一步',
+    logConsoleEvent({id: member.primary_guild ? 'guide:home:skills' : 'guide:home:guild', channel:'guide', kind:'guide', source:'下一步',
       message: member.primary_guild ? '到技能書架閱讀已解鎖的技能書，選一項開始練習。' : '到職業公會加入公會並設定主要公會，接著領取技能書。'});
   }, [member]);
 
@@ -92,11 +92,11 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
 
     <section className="home-live-feed" aria-labelledby="home-live-feed-title">
       <header className="home-live-heading">
-        <div><p className="home-live-kicker">FREEDOM NETWORK // LIVE</p><h2 id="home-live-feed-title">最新動態</h2></div>
-        <button type="button" className="btn btn-ghost" onClick={() => { setActiveChannel('system'); setExpanded(true); }}>開啟完整控制台 ↗</button>
+        <div><p className="home-live-kicker">自由工坊 · 即時訊息</p><h2 id="home-live-feed-title">最新動態</h2></div>
+        <button type="button" className="btn btn-ghost" onClick={() => { setActiveChannel('all'); setExpanded(true); }}>開啟完整控制台 ↗</button>
       </header>
       <div className="home-live-channels" aria-label="控制台頻道">
-        {GAME_CONSOLE_CHANNELS.map(channel => <button type="button" key={channel.id} onClick={() => openChannel(channel.id)}>{channel.label}<span aria-hidden="true">↗</span></button>)}
+        {GAME_CONSOLE_CHANNELS.filter(channel=>channel.id==='all'||visibility[channel.id]).map(channel => <button type="button" key={channel.id} onClick={() => openChannel(channel.id)}>{channel.label}<span aria-hidden="true">↗</span></button>)}
       </div>
       <div className="home-live-stream" aria-label="最近的控制台訊息">
         {recent.map(event => <button type="button" className={`home-live-line is-${event.level}`} key={event.id} onClick={() => openChannel(event.channel)} aria-label={`${GAME_CONSOLE_CHANNELS.find(channel => channel.id === event.channel)?.label}：${event.message}`}>

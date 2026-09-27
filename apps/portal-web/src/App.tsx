@@ -400,7 +400,7 @@ function Workspace({
   useEffect(() => {
     if (previousTab.current === tab) return
     previousTab.current = tab
-    logConsoleEvent({channel:'system',kind:'guide',source:'NAV',message:`已進入「${tabTitle(tab)}」。`})
+    logConsoleEvent({channel:'guide',kind:'guide',source:'導覽',message:`已進入「${tabTitle(tab)}」。`})
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
     mainContent.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
@@ -506,7 +506,7 @@ function Workspace({
               <div>
                 <h1>{tabTitle(tab)}</h1>
               </div>
-              <div className="topbar-actions"><SettingsMenu client={client} current={tab} onSelect={selectTab} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>}/><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
+              <div className="topbar-actions"><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>}/><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
                 登出
               </button></div>
             </header>

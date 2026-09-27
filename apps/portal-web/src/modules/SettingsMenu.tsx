@@ -1,18 +1,14 @@
 import {useEffect,useId,useRef,useState,type KeyboardEvent,type ReactNode} from 'react';
-import type {PortalClient} from '../api';
 import type {TabId} from '../types';
-import {useInboxUnread} from './member-inbox';
 import './MemberSettings.css';
 
-export const SETTINGS_PAGES=[['account','我的名片'],['todos','待辦清單'],['messages','我的訊息']] as const satisfies readonly (readonly [TabId,string])[];
+export const SETTINGS_PAGES=[['account','我的名片'],['todos','待辦清單']] as const satisfies readonly (readonly [TabId,string])[];
 
-/** Personal pages live behind one menu button; the unread hint comes only from confirmed server totals. */
-export function SettingsMenu({client,current,avatar,onSelect}:{client:PortalClient;current:TabId;avatar:ReactNode;onSelect:(id:TabId)=>void}){
+/** The profile menu contains personal pages; messages have a visible navigation entry. */
+export function SettingsMenu({current,avatar,name,onSelect}:{current:TabId;avatar:ReactNode;name:string;onSelect:(id:TabId)=>void}){
   const [open,setOpen]=useState(false),[focusIndex,setFocusIndex]=useState(0);
   const root=useRef<HTMLDivElement>(null),button=useRef<HTMLButtonElement>(null),items=useRef<(HTMLButtonElement|null)[]>([]);
-  const menuId=useId(),unreadId=useId();
-  const {total,refresh}=useInboxUnread(client);
-  const unreadText=total===null?'未讀數未確認':total?`${total} 則未讀`:'';
+  const menuId=useId();
   useEffect(()=>{if(open)items.current[focusIndex]?.focus();},[open,focusIndex]);
   // A route change (including browser Back) closes the menu; App already moves focus to main.
   useEffect(()=>setOpen(false),[current]);
@@ -27,7 +23,7 @@ export function SettingsMenu({client,current,avatar,onSelect}:{client:PortalClie
     document.addEventListener('pointerdown',outside);
     return()=>document.removeEventListener('pointerdown',outside);
   },[open]);
-  function show(index:number){setFocusIndex(index);setOpen(true);void refresh();}
+  function show(index:number){setFocusIndex(index);setOpen(true);}
   function close(returnFocus:boolean){setOpen(false);if(returnFocus)button.current?.focus();}
   function buttonKey(event:KeyboardEvent){
     if(event.key==='ArrowDown'){event.preventDefault();show(0);}
@@ -42,18 +38,15 @@ export function SettingsMenu({client,current,avatar,onSelect}:{client:PortalClie
     else if(event.key==='Tab')setTimeout(()=>setOpen(false));
   }
   return <div className="settings-menu" ref={root}>
-    <button ref={button} type="button" className="btn btn-ghost topbar-profile settings-menu-button" aria-label="設定" aria-haspopup="menu" aria-expanded={open} aria-controls={open?menuId:undefined}
-      aria-describedby={total?unreadId:undefined} onClick={()=>open?close(false):show(0)} onKeyDown={buttonKey}>
-      <span aria-hidden="true">{avatar}</span>設定{Boolean(total)&&<span className="settings-dot" aria-hidden="true"/>}</button>
-    {/* Descriptions stay outside the button and items so every accessible name remains exact. */}
-    <span id={unreadId} hidden>我的訊息{unreadText}</span>
-    {open&&<div id={menuId} className="settings-menu-list" role="menu" aria-label="設定" onKeyDown={menuKey}>
+    <button ref={button} type="button" className="btn btn-ghost topbar-profile settings-menu-button" aria-label={`個人檔案：${name}`} aria-haspopup="menu" aria-expanded={open} aria-controls={open?menuId:undefined}
+      onClick={()=>open?close(false):show(0)} onKeyDown={buttonKey}>
+      <span aria-hidden="true">{avatar}</span><span className="settings-menu-name">{name}</span></button>
+    {open&&<div id={menuId} className="settings-menu-list" role="menu" aria-label="個人檔案" onKeyDown={menuKey}>
       {SETTINGS_PAGES.map(([id,label],index)=>{
-        const badge=id==='messages'?unreadText:'';
         return <button key={id} ref={node=>{items.current[index]=node;}} type="button" role="menuitem" tabIndex={index===focusIndex?0:-1}
-          className={`settings-menu-item${current===id?' is-current':''}`} aria-current={current===id?'page':undefined} aria-describedby={badge?unreadId:undefined}
+          className={`settings-menu-item${current===id?' is-current':''}`} aria-current={current===id?'page':undefined}
           onFocus={()=>setFocusIndex(index)} onClick={()=>{setOpen(false);onSelect(id);}}>
-          {label}{badge&&<span className={`settings-menu-badge${total===null?' is-unknown':''}`} aria-hidden="true">{badge}</span>}</button>;
+          {label}</button>;
       })}
     </div>}
   </div>;

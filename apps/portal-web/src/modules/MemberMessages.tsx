@@ -272,7 +272,7 @@ function DirectMessages({client,session,onUnread,openPeer}:{client:PortalClient;
       const message=await client.post<Message>(`/me/conversations/${encodeURIComponent(id)}/messages`,{body},{idempotencyKey:attempt.key});
       announceInboxChange();
       const recipient=conversations.find(item=>item.participant.user_id===id)?.participant.display_name??(thread?.participant.user_id===id?thread.participant.display_name:'工坊夥伴');
-      logConsoleEvent({channel:'social',level:'success',kind:'chat',source:'DIRECT',message:`已傳送私人訊息給 ${recipient}。`});
+      logConsoleEvent({channel:'direct',level:'success',kind:'chat',source:'私訊',message:`已傳送私人訊息給 ${recipient}。`});
       setPending(({[id]:_,...rest})=>rest);
       setDrafts(value=>{if((value[id]??'').trim()!==body)return value;const {[id]:_,...rest}=value;return rest;});
       if(currentPeer.current===id)setThread(value=>value&&value.participant.user_id===id?{...value,items:merge([message],value.items,item=>item.message_id)}:value);
