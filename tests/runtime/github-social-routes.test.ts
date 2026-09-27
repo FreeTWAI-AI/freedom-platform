@@ -11,7 +11,7 @@ const origin='http://127.0.0.1:4310',url=process.env.TEST_DATABASE_URL??LOCAL_DA
 const schema=`fp_social_routes_${process.pid}_${Date.now()}`,database=createPool(url),pool=new Pool({connectionString:url,options:`-c search_path=${schema}`});
 const tokenKey=Buffer.alloc(32,9).toString('base64'),adminId=randomUUID();
 const config={clientId:'Iv1.route-tests',clientSecret:'test-secret-only-not-a-credential',tokenKey,redirectUri:origin+'/github/callback'};
-let calls:{path:string;method:string;authorization:string|null}[]=[],starred=false,issueWrites=0,issueStatus=201,issueBody='';
+let calls:{path:string;method:string;authorization:string|null}[]=[],starred=false,issueWrites=0,issueStatus=201,issueBody='',commentWrites=0,commentStatus=201,commentBody='';
 const fetcher:typeof fetch=async(input,init)=>{
  const u=new URL(String(input));calls.push({path:u.pathname,method:init?.method??'GET',authorization:new Headers(init?.headers).get('Authorization')});
  if(u.origin==='https://github.com'&&u.pathname==='/login/oauth/access_token')return Response.json({access_token:'ghu_synthetic_route_test',token_type:'bearer',scope:'',expires_in:28800,refresh_token:'ghr_synthetic_route_test',refresh_token_expires_in:15897600});
@@ -24,6 +24,11 @@ const fetcher:typeof fetch=async(input,init)=>{
  if(u.pathname==='/repos/FreeTWAI-AI/freedom-platform/issues'&&init?.method==='POST'){
   issueWrites++;issueBody=String(init.body);
   return issueStatus===201?Response.json({number:42,user:{id:901}},{status:201}):new Response(null,{status:issueStatus});
+ }
+ if(u.pathname==='/repos/FreeTWAI-AI/freedom-platform/issues/42'&&(init?.method??'GET')==='GET')return Response.json({number:42,title:'讓首頁引導更清楚',state:'open',body:'首頁提案\n<!-- freedom-page:home -->',labels:[{name:'page:home'}]});
+ if(u.pathname==='/repos/FreeTWAI-AI/freedom-platform/issues/42/comments'&&init?.method==='POST'){
+  commentWrites++;commentBody=String(init.body);
+  return commentStatus===201?Response.json({id:91,user:{id:901},html_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/42#issuecomment-91'},{status:201}):new Response(null,{status:commentStatus});
  }
  if(u.pathname.startsWith('/repos/'))return Response.json({private:false,stargazers_count:starred?8:7,forks_count:3,open_issues_count:2,subscribers_count:1,pushed_at:'2026-09-20T12:00:00Z',language:'TypeScript',archived:false});
  if(u.pathname.startsWith('/applications/'))return new Response(null,{status:204});
@@ -51,7 +56,7 @@ before(async()=>{await database.query(`CREATE SCHEMA ${schema}`);await migrate(p
 after(async()=>{await pool.end();await database.query(`DROP SCHEMA ${schema} CASCADE`);await database.end();});
 beforeEach(async()=>{
  await pool.query('TRUNCATE communities,login_attempts,auth_rate_limits,github_repository_metrics CASCADE');await seedLocal(pool);
- calls=[];starred=false;issueWrites=0;issueStatus=201;issueBody='';app=createApp(pool,origin,'local',{githubSocial:{config,fetcher}});member=await login();
+ calls=[];starred=false;issueWrites=0;issueStatus=201;issueBody='';commentWrites=0;commentStatus=201;commentBody='';app=createApp(pool,origin,'local',{githubSocial:{config,fetcher}});member=await login();
 });
 
 test('member issue submission uses that member’s GitHub token and keeps the page marker without duplicate writes',async()=>{
@@ -62,8 +67,9 @@ test('member issue submission uses that member’s GitHub token and keeps the pa
  assert.equal(first.status,201,await first.clone().text());
  assert.deepEqual(await first.json(),{confirmed:true,issue_number:42,issue_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/42'});
  assert.equal(issueWrites,1);assert.match(issueBody,/<!-- freedom-page:home -->/);assert.deepEqual(JSON.parse(issueBody).labels,['page:home']);
+ await pool.query("UPDATE github_page_issue_submissions SET issue_title=NULL WHERE operation_key='page-issue-test-001'");
  const own=await request('/me/github/pages/home/issues');assert.equal(own.status,200);
- assert.deepEqual((await own.json() as any).items.map((item:any)=>({key:item.operation_key,state:item.state,number:item.issue_number,url:item.issue_url})),[{key:'page-issue-test-001',state:'confirmed',number:42,url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/42'}]);
+ assert.deepEqual((await own.json() as any).items.map((item:any)=>({key:item.operation_key,state:item.state,number:item.issue_number,title:item.title,url:item.issue_url})),[{key:'page-issue-test-001',state:'confirmed',number:42,title:body.title,url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/42'}]);
  assert.deepEqual((await (await request('/me/github/pages/positioning/issues')).json() as any).items,[]);
  assert.equal((await request('/me/github/pages/unknown/issues')).status,404);
  assert.equal((await app.request(origin+'/api/v1/me/github/pages/home/issues')).status,401);
@@ -74,6 +80,35 @@ test('member issue submission uses that member’s GitHub token and keeps the pa
  const denied=await request('/me/github/pages/positioning/issues',{...body,title:'定位說明可以改善'},member,{'Idempotency-Key':'page-issue-test-002'});
  assert.equal(denied.status,403);assert.equal(issueWrites,2);
  assert.equal((await pool.query("SELECT state FROM github_page_issue_submissions WHERE operation_key='page-issue-test-002'")).rows[0].state,'denied');
+});
+
+test('design claim posts as the connected member once, preserves the marker, and rejects unrelated issues',async()=>{
+ await connect();
+ const path='/me/github/pages/home/issues/42/design-claim',body={message:'我願意接手這個 Issue 的設計，請維護者確認範圍。',confirmed:true};
+ const headers={'Idempotency-Key':'design-claim-test-001'};
+ assert.equal((await request(path,{...body,message:'太短'},member,headers)).status,422);
+ assert.equal((await request('/me/github/pages/positioning/issues/42/design-claim',body,member,headers)).status,422);
+ const first=await request(path,body,member,headers);
+ assert.equal(first.status,201,await first.clone().text());
+ assert.deepEqual(await first.json(),{confirmed:true,issue_number:42,comment_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/42#issuecomment-91'});
+ assert.equal(commentWrites,1);assert.match(JSON.parse(commentBody).body,/<!-- freedom-design-claim -->/);
+ assert.ok(calls.some(call=>call.path==='/repos/FreeTWAI-AI/freedom-platform/issues/42/comments'&&call.authorization==='Bearer ghu_synthetic_route_test'));
+ assert.equal((await request(path,body,member,headers)).status,201);assert.equal(commentWrites,1);
+ assert.equal((await request(path,{...body,message:'改成另一段認領內容。'},member,headers)).status,409);
+ const own=await request('/me/github/pages/home/design-claims');
+ assert.deepEqual((await own.json() as any).items.map((item:any)=>({state:item.state,number:item.issue_number,url:item.comment_url})),[{state:'confirmed',number:42,url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/42#issuecomment-91'}]);
+ assert.equal((await request('/me/github/pages/positioning/design-claims')).status,200);
+ assert.equal((await request(path,body,member,{'X-CSRF-Token':'wrong',...headers})).status,403);
+});
+
+test('ambiguous design claim response remains pending and cannot be reposted',async()=>{
+ await connect();commentStatus=503;
+ const path='/me/github/pages/home/issues/42/design-claim',body={message:'我願意協助完成首頁這個 Issue 的設計。',confirmed:true};
+ const first=await request(path,body,member,{'Idempotency-Key':'design-claim-test-002'});
+ assert.equal(first.status,502);assert.equal(commentWrites,1);
+ assert.equal((await request(path,body,member,{'Idempotency-Key':'design-claim-test-002'})).status,409);
+ assert.equal(commentWrites,1);
+ assert.equal((await (await request('/me/github/pages/home/design-claims')).json() as any).items[0].state,'pending');
 });
 
 test('public metrics use original catalog repository, are cached and appear in no-JavaScript skill pages',async()=>{

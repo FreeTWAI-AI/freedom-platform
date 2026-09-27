@@ -7,7 +7,7 @@ import type {Actor} from '../identity-membership/service.js';
 import {communityCatalog} from '../community/catalog.js';
 import {recordConfirmedStar,reconcileConfirmedStar} from '../community/discovery.js';
 import {GitHubProviderError,GitHubSocialProvider,type GitHubSocialConfig,type GitHubTokens,type RepositorySnapshot} from './provider.js';
-import {issuePageMarker,PLATFORM_REPOSITORY} from '../development/page-github.js';
+import {DESIGN_CLAIM_MARKER,issuePageMarker,PLATFORM_REPOSITORY} from '../development/page-github.js';
 export type {GitHubSocialConfig} from './provider.js';
 
 const HOUR=60*60*1000;
@@ -206,7 +206,7 @@ export class GitHubSocial {
       await this.rate(q,actor,'page-issue-write',5,600);
       const connection=await this.connection(q,actor);
       requireCondition(connection,409,'github_connect_required','請先連結自己的 GitHub 帳號。');
-      await q.query('INSERT INTO github_page_issue_submissions(user_id,operation_key,request_hash,page_id,state) VALUES($1,$2,$3,$4,\'pending\')',[actor.user_id,operationKey,requestHash,pageId]);
+      await q.query('INSERT INTO github_page_issue_submissions(user_id,operation_key,request_hash,page_id,issue_title,state) VALUES($1,$2,$3,$4,$5,\'pending\')',[actor.user_id,operationKey,requestHash,pageId,cleanTitle]);
       try{
         const result=await this.withToken(q,actor,connection,async token=>{
           const identity=await this.provider.identity(token);
@@ -225,8 +225,70 @@ export class GitHubSocial {
   async pageIssueSubmissions(actor:Actor,pageId:string){
     issuePageMarker(pageId);
     return this.member(actor,async q=>{
-      const rows=(await q.query('SELECT operation_key,state,issue_number,created_at FROM github_page_issue_submissions WHERE user_id=$1 AND page_id=$2 ORDER BY created_at DESC LIMIT 20',[actor.user_id,pageId])).rows;
-      return {items:rows.map(row=>({operation_key:row.operation_key,state:row.state,issue_number:row.issue_number,issue_url:row.state==='confirmed'?`${PLATFORM_REPOSITORY}/issues/${row.issue_number}`:null,created_at:row.created_at}))};
+      const rows=(await q.query('SELECT operation_key,state,issue_number,issue_title,created_at FROM github_page_issue_submissions WHERE user_id=$1 AND page_id=$2 ORDER BY created_at DESC LIMIT 20',[actor.user_id,pageId])).rows;
+      // Older confirmed submissions predate the title column. Resolve a few per
+      // read from GitHub so they regain their real titles without a data guess.
+      const missing=rows.filter(row=>row.state==='confirmed'&&row.issue_number&&!row.issue_title).slice(0,5);
+      if(missing.length&&this.config){
+        const connection=await this.connection(q,actor);
+        if(connection){
+          try{
+            const token=await this.access(q,actor,connection);
+            for(const row of missing){
+              try{
+                const issue=await this.provider.platformIssue(token,row.issue_number);
+                if(issue.isPull)continue;
+                row.issue_title=issue.title;
+                await q.query('UPDATE github_page_issue_submissions SET issue_title=$3 WHERE user_id=$1 AND operation_key=$2',[actor.user_id,row.operation_key,issue.title]);
+              }catch{/* GitHub sync is optional; retain the issue link and number. */}
+            }
+          }catch{/* A missing or expired GitHub connection cannot hide prior submissions. */}
+        }
+      }
+      return {items:rows.map(row=>({operation_key:row.operation_key,state:row.state,issue_number:row.issue_number,title:row.issue_title,issue_url:row.state==='confirmed'?`${PLATFORM_REPOSITORY}/issues/${row.issue_number}`:null,created_at:row.created_at}))};
+    });
+  }
+  async createDesignClaim(actor:Actor,pageId:string,issueNumber:number,message:string,operationKey:string){
+    const marker=issuePageMarker(pageId),cleanMessage=message.trim();
+    requireCondition(Number.isSafeInteger(issueNumber)&&issueNumber>0,422,'github_issue_invalid','Issue 編號無效。');
+    requireCondition(cleanMessage.length>=10&&cleanMessage.length<=700&&!cleanMessage.includes(DESIGN_CLAIM_MARKER),422,'github_claim_invalid','請填寫 10–700 字的認領內容。');
+    requireCondition(/^[A-Za-z0-9_-]{8,128}$/.test(operationKey),400,'idempotency_key_invalid','請重新載入頁面再試。');
+    this.configured();
+    const requestHash=hash(JSON.stringify([pageId,issueNumber,cleanMessage]));
+    return this.member(actor,async q=>{
+      const prior=(await q.query(`SELECT * FROM github_design_claim_submissions WHERE user_id=$1 AND (operation_key=$2 OR (issue_number=$3 AND state<>'denied')) ORDER BY (operation_key=$2) DESC,created_at DESC LIMIT 1`,[actor.user_id,operationKey,issueNumber])).rows[0];
+      if(prior){
+        requireCondition(prior.operation_key!==operationKey||prior.request_hash===requestHash,409,'github_claim_key_reused','這次操作已用於不同內容，請重新填寫。');
+        requireCondition(prior.state==='confirmed',409,'github_claim_unconfirmed','GitHub 留言結果尚未確認。請先到 Issue 核對，避免重複留言。');
+        return {confirmed:true,issue_number:issueNumber,comment_url:`${PLATFORM_REPOSITORY}/issues/${issueNumber}#issuecomment-${prior.comment_id}`};
+      }
+      await this.rate(q,actor,'design-claim-write',5,600);
+      const connection=await this.connection(q,actor);
+      requireCondition(connection,409,'github_connect_required','請先連結自己的 GitHub 帳號。');
+      const token=await this.withToken(q,actor,connection,async token=>{
+        const identity=await this.provider.identity(token);
+        requireCondition(identity.id===connection.github_user_id,409,'github_reconnect_required','GitHub 身分已變更，請重新連結。');
+        const issue=await this.provider.platformIssue(token,issueNumber);
+        requireCondition(issue.open&&!issue.isPull&&(issue.labels.includes(`page:${pageId}`)||issue.body.includes(marker)),422,'github_claim_issue_invalid','這則 Issue 已關閉或不屬於這個頁面，請重新同步。');
+        return token;
+      });
+      await q.query('INSERT INTO github_design_claim_submissions(user_id,operation_key,request_hash,page_id,issue_number,state) VALUES($1,$2,$3,$4,$5,\'pending\')',[actor.user_id,operationKey,requestHash,pageId,issueNumber]);
+      try{
+        const result=await this.provider.createPlatformIssueComment(token,issueNumber,`${cleanMessage}\n\n${DESIGN_CLAIM_MARKER}`);
+        requireCondition(result.authorId===connection.github_user_id,502,'github_claim_unconfirmed','GitHub 留言結果尚未確認，請到 Issue 核對。');
+        await q.query('UPDATE github_design_claim_submissions SET state=\'confirmed\',comment_id=$3,updated_at=now() WHERE user_id=$1 AND operation_key=$2',[actor.user_id,operationKey,result.id]);
+        return {confirmed:true,issue_number:issueNumber,comment_url:result.url};
+      }catch(error){
+        if(error instanceof Problem&&['github_permission_required','github_installation_required','github_repository_unavailable','github_reconnect_required'].includes(error.code))await q.query('UPDATE github_design_claim_submissions SET state=\'denied\',updated_at=now() WHERE user_id=$1 AND operation_key=$2',[actor.user_id,operationKey]);
+        throw error;
+      }
+    });
+  }
+  async designClaimSubmissions(actor:Actor,pageId:string){
+    issuePageMarker(pageId);
+    return this.member(actor,async q=>{
+      const rows=(await q.query(`SELECT operation_key,state,issue_number,comment_id,created_at FROM github_design_claim_submissions WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50`,[actor.user_id])).rows;
+      return {items:rows.map(row=>({operation_key:row.operation_key,state:row.state,issue_number:row.issue_number,comment_url:row.state==='confirmed'?`${PLATFORM_REPOSITORY}/issues/${row.issue_number}#issuecomment-${row.comment_id}`:null,created_at:row.created_at}))};
     });
   }
   async disconnect(actor:Actor){

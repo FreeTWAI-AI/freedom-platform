@@ -794,9 +794,9 @@ test('migrations are PostgreSQL-18 managed-service compatible, ledger digest mat
   const expected = manifest().database_defaults.migrations;
   const result = checkMigrations(join(ROOT, 'migrations'), expected);
   assert.equal(result.ok, true, JSON.stringify(result.problems.concat(result.privileged)));
-  assert.equal(result.count, 38);
+  assert.equal(result.count, 39);
   assert.deepEqual(result.known_gaps, [22]);
-  assert.equal(result.last, '039_page_issues.sql');
+  assert.equal(result.last, '040_page_issue_titles_and_claims.sql');
   const sql = readFileSync(join(ROOT, 'migrations', '001_local_core.sql'), 'utf8');
   assert.equal(result.ledger[0].sha256, migrationDigest(sql));
   // packages/db digest(sql) hashes JSON.stringify(sql); keep the two in lockstep.

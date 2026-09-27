@@ -14,8 +14,10 @@ test('every workspace page exposes contextual tools, filtered issues and agent g
   await expect(idea).toBeVisible();
   await expect(idea.getByRole('link',{name:/#12/})).toBeVisible();
   await expect(idea.getByRole('link',{name:/#13/})).toHaveCount(0);
-  await idea.getByRole('button',{name:'複製設計認領留言'}).click();
-  await expect(idea.getByRole('button',{name:'已複製認領留言'})).toBeVisible();
+  await idea.getByRole('button',{name:'回覆這則 Issue'}).click();
+  await expect(idea.getByRole('textbox',{name:'設計認領留言'})).toBeVisible();
+  await idea.getByRole('button',{name:'交給 Agent 送出'}).click();
+  await expect(idea.getByRole('button',{name:'已複製 Agent 指令'})).toBeVisible();
   expect(await page.evaluate(()=>(window as typeof window&{copiedClaim?:string}).copiedClaim)).toContain('<!-- freedom-design-claim -->');
   await idea.getByRole('textbox',{name:'標題'}).fill('首頁想法');
   await idea.getByRole('textbox',{name:'想法與期待'}).fill('太短');

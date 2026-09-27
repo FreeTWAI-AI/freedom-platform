@@ -90,6 +90,18 @@ export class GitHubSocialProvider {
     if(!parsed.success)throw new GitHubProviderError('github_invalid_response');
     return {number:parsed.data.number,authorId:String(parsed.data.user.id)};
   }
+  async platformIssue(token:string,number:number):Promise<{title:string;open:boolean;isPull:boolean;body:string;labels:string[]}>{
+    const result=await this.request(`${API}/repos/FreeTWAI-AI/freedom-platform/issues/${number}`,{headers:{Authorization:`Bearer ${token}`}});
+    const parsed=z.object({number:z.number().int().positive(),title:z.string().min(1).max(1000),state:z.enum(['open','closed']),body:z.string().nullable(),pull_request:z.unknown().optional(),labels:z.array(z.union([z.string(),z.object({name:z.string()})])).max(100)}).safeParse(result.body);
+    if(!parsed.success||parsed.data.number!==number)throw new GitHubProviderError('github_invalid_response');
+    return {title:parsed.data.title,open:parsed.data.state==='open',isPull:parsed.data.pull_request!==undefined,body:parsed.data.body??'',labels:parsed.data.labels.map(label=>typeof label==='string'?label:label.name)};
+  }
+  async createPlatformIssueComment(token:string,number:number,body:string):Promise<{id:number;authorId:string;url:string}>{
+    const result=await this.request(`${API}/repos/FreeTWAI-AI/freedom-platform/issues/${number}/comments`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({body})},[201]);
+    const parsed=z.object({id:z.number().int().positive().safe(),html_url:z.string().url(),user:z.object({id:z.number().int().positive().safe()})}).safeParse(result.body);
+    if(!parsed.success||parsed.data.html_url!==`https://github.com/FreeTWAI-AI/freedom-platform/issues/${number}#issuecomment-${parsed.data.id}`)throw new GitHubProviderError('github_invalid_response');
+    return {id:parsed.data.id,authorId:String(parsed.data.user.id),url:parsed.data.html_url};
+  }
   private async hasAppInstallation(token:string,appId:string):Promise<boolean>{
     const auth={headers:{Authorization:`Bearer ${token}`}};
     for(let page=1;page<=3;page++){
