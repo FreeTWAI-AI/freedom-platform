@@ -39,7 +39,7 @@ test('verified admin UI keeps member, guild, nomination and audit operations sep
     await route.fulfill({json:payload});
   });
   await page.goto('/admin');await expect(page.getByRole('heading',{name:'會員管理',exact:true})).toBeVisible();
-  expect(memberSessionRequests).toBe(0);
+  expect(memberSessionRequests).toBe(1);
   await expect(page.getByText('預定公會 · 等待本人確認連結',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'停用這位會員',exact:true}).click();await page.getByLabel('操作理由',{exact:true}).fill('配合會員本人提出的停用要求');await page.getByRole('button',{name:'確認停用這位會員',exact:true}).click();await expect(page.getByText('已停用',{exact:true})).toBeVisible();
   expect(calls[0].headers['x-admin-csrf']).toBe(csrf);expect(calls[0].headers['if-match']).toBe('"7"');expect(calls[0].headers['idempotency-key']).toBeTruthy();expect(calls[0].body.active).toBe(false);

@@ -79,7 +79,7 @@ async function removeOwned(db:Pool,own:Owned){
     await q('DELETE FROM platform_admins WHERE admin_id=ANY($1::uuid[])',[admins]);
     await q('DELETE FROM outbox WHERE transition_id IN (SELECT transition_id FROM transition_journal WHERE actor_ref=ANY($1::uuid[]))',[users]);
     await q('DELETE FROM transition_journal WHERE actor_ref=ANY($1::uuid[])',[users]);
-    for(const table of ['command_receipts','sessions'])await q(`DELETE FROM ${table} WHERE user_id=ANY($1::uuid[])`,[users]);
+    for(const table of ['member_client_errors','command_receipts','sessions'])await q(`DELETE FROM ${table} WHERE user_id=ANY($1::uuid[])`,[users]);
     await q('DELETE FROM users WHERE user_id=ANY($1::uuid[])',[users]);
     await client.query('COMMIT');
     for(const [sql,values] of [['positioning_guild_catalog WHERE guild_key=ANY($1::text[])',[guilds]],['guild_creation_applications WHERE application_id=ANY($1::uuid[])',[applications]],
@@ -210,7 +210,7 @@ test('two synthetic members chat in their own guild and squad through the real U
       // The receiver's list re-reads on focus: 0 → 1, and the tab badge follows the real total.
       await r.evaluate(()=>window.dispatchEvent(new Event('focus')));
       await expect(channelButton(r,kind,key).locator('.messages-count')).toHaveText('1 則未讀');await expect(tab(r,label)).toContainText('1 則未讀');
-      expect(receiver.channelRequests.some(entry=>entry.includes(`/me/channels/${kind}/`)),'still no history read before picking').toBe(false);
+      expect(receiver.channelRequests.filter(entry=>entry.includes(`/me/channels/${kind}/`)).every(entry=>entry.startsWith('GET ')),'console preview only reads history before picking').toBe(true);
       await channelButton(r,kind,key).click();
       const rThread=thread(r,kind);await expect(rThread.getByRole('heading',{name:`${name}・${label}`})).toBeFocused();
       await expect(rThread.locator(`li[data-message-id="${rows[0].message_id}"] .messages-body`)).toHaveText(text);

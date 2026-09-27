@@ -8,7 +8,7 @@ export const SETTINGS_PAGES=[['account','我的名片'],['todos','待辦清單']
 
 /** Personal pages and messages stay reachable from the header as well as navigation. */
 export function SettingsMenu({client,current,avatar,name,onSelect}:{client:PortalClient;current:TabId;avatar:ReactNode;name:string;onSelect:(id:TabId)=>void}){
-  const {total}=useInboxUnread(client);
+  const {total,refresh}=useInboxUnread(client);
   const unread=total===null?'未讀數未確認':total===undefined?'':total>0?`${total} 則未讀`:'';
   const [open,setOpen]=useState(false),[focusIndex,setFocusIndex]=useState(0);
   const root=useRef<HTMLDivElement>(null),button=useRef<HTMLButtonElement>(null),items=useRef<(HTMLButtonElement|null)[]>([]);
@@ -27,7 +27,7 @@ export function SettingsMenu({client,current,avatar,name,onSelect}:{client:Porta
     document.addEventListener('pointerdown',outside);
     return()=>document.removeEventListener('pointerdown',outside);
   },[open]);
-  function show(index:number){setFocusIndex(index);setOpen(true);}
+  function show(index:number){setFocusIndex(index);setOpen(true);void refresh();}
   function close(returnFocus:boolean){setOpen(false);if(returnFocus)button.current?.focus();}
   function buttonKey(event:KeyboardEvent){
     if(event.key==='ArrowDown'){event.preventDefault();show(0);}

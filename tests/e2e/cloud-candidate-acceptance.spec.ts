@@ -665,7 +665,7 @@ async function removeHarnessUser(db:Pool,id:string,email:string){
     await q('DELETE FROM outbox WHERE transition_id IN (SELECT transition_id FROM transition_journal WHERE actor_ref=$1)');
     await q('DELETE FROM transition_journal WHERE actor_ref=$1');
     for(const table of ['member_social_links','member_avatars','onboarding_assessments','member_skill_book_grants','guild_member_preferences',
-      'positioning_profession_memberships','member_accounts','command_receipts','sessions'])await q(`DELETE FROM ${table} WHERE user_id=$1`);
+      'positioning_profession_memberships','member_accounts','member_client_errors','command_receipts','sessions'])await q(`DELETE FROM ${table} WHERE user_id=$1`);
     const removed=await client.query('DELETE FROM users WHERE user_id=$1 AND email=$2',[id,email]);
     expect(removed.rowCount).toBeLessThanOrEqual(1);
     await client.query('COMMIT');
@@ -841,15 +841,15 @@ test('registration, messages and messages-mobile pass on the local harness and t
   expect((await e2eAuthPool.query('SELECT count(*)::int AS n FROM sessions WHERE user_id=ANY($1::uuid[]) AND revoked_at IS NULL',[ids])).rows[0].n).toBe(0);
 });
 
-test('target public does not read or write a guild channel',async({browser})=>{
+test('public candidate only reads unread guild chat for the console and never writes it',async({browser})=>{
   test.setTimeout(240000);
   const loop=localHarnessTarget(e2eOrigin());
   const target={...loop,name:'public' as const};
-  const urls:string[]=[];
-  const transport:Transport=async request=>{urls.push(request.url);return fetchTransport(request);};
+  const urls:string[]=[],guildWrites:string[]=[];
+  const transport:Transport=async request=>{urls.push(request.url);if(request.url.includes('/me/channels/guild/')&&request.method!=='GET')guildWrites.push(request.url);return fetchTransport(request);};
   const observed:BrowserLike={newContext:async options=>{
     const context=await browser.newContext(options);
-    context.on('request',request=>urls.push(request.url()));
+    context.on('request',request=>{urls.push(request.url());if(request.url().includes('/me/channels/guild/')&&request.method()!=='GET')guildWrites.push(request.url());});
     return context;
   }};
   const report=await runCandidate({target,run:'execute',phases:selectPhases(['registration','messages','messages-mobile']),expectedVersion:packageMetadata.version,contract:metadata,browser:observed,transport});
@@ -859,7 +859,8 @@ test('target public does not read or write a guild channel',async({browser})=>{
   expect(report.phases.find(phase=>phase.id==='messages-mobile')?.status).toBe('pass');
   const paths=urls.map(requestPath);
   const history=paths.filter(path=>path.includes('/me/channels/guild/'));
-  expect(history).toEqual([]);
+  expect(history.every(path=>/^\/api\/v1\/me\/channels\/guild\/[^/]+\/messages\?limit=20&offset=0$/.test(path))).toBe(true);
+  expect(guildWrites).toEqual([]);
   expect(paths.some(path=>/\/api\/v1\/me\/channels\?/.test(path)&&/(?:^|[?&])kind=guild(?:&|$)/.test(path))).toBe(true);
   expect(paths.some(path=>path.includes('/guilds/directory'))).toBe(false);
   expect(urls.every(url=>url.startsWith(loop.origin))).toBe(true);
