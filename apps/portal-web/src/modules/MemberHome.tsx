@@ -4,6 +4,8 @@ import type { TabId } from '../types';
 import { WorkshopIcon } from '../WorkshopIcon';
 import { loadLabels, type MemberCardData } from './Membership';
 import { MemberAvatar } from './MemberAvatar';
+import { useGameConsole } from '../GameConsole';
+import { GAME_CONSOLE_CHANNELS, logConsoleEvent, type GameConsoleChannel } from '../game-console-core';
 import './HomeDesign.css';
 
 const shortcuts: { id: TabId; title: string }[] = [
@@ -20,6 +22,9 @@ const entries: { id: TabId; title: string; description: string; cover: string }[
 ];
 
 export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
+  const { events, setExpanded, setActiveChannel } = useGameConsole();
+  const recent = events.slice(-10).reverse();
+  const openChannel = (channel: GameConsoleChannel) => { setActiveChannel(channel); setExpanded(true); };
   const [member, setMember] = useState<MemberCardData | null>(null);
   const [labels, setLabels] = useState<Record<string, string> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -58,6 +63,12 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
   const featured = (member?.featured_capabilities ?? member?.capabilities.slice(0, 3) ?? []).slice(0, 3);
   const skillLabel = (id: string) => id.startsWith('custom:') ? id.slice(7) : labels?.[id] ?? id;
 
+  useEffect(() => {
+    if (!member) return;
+    logConsoleEvent({id: member.primary_guild ? 'guide:home:skills' : 'guide:home:guild', channel:'system', kind:'guide', source:'下一步',
+      message: member.primary_guild ? '到技能書架閱讀已解鎖的技能書，選一項開始練習。' : '到職業公會加入公會並設定主要公會，接著領取技能書。'});
+  }, [member]);
+
   return <div className="member-home freedom-home">
     <section ref={summary} tabIndex={-1} className="member-card home-member-summary guild-base-hero" aria-label="我的會員摘要" aria-busy={loading}>
       <img className="guild-base-art" src="/art/rpg/workshop-hub.webp" alt="" width="1536" height="1024" fetchPriority="high"/>
@@ -78,6 +89,22 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       <p>{loadError}下方常用入口仍可使用。</p>
       <button type="button" className="btn btn-ghost" aria-disabled={loading} onClick={retry}>{loading ? '正在重新載入名片…' : '重新載入名片'}</button>
     </div>}
+
+    <section className="home-live-feed" aria-labelledby="home-live-feed-title">
+      <header className="home-live-heading">
+        <div><p className="home-live-kicker">FREEDOM NETWORK // LIVE</p><h2 id="home-live-feed-title">最新動態</h2></div>
+        <button type="button" className="btn btn-ghost" onClick={() => { setActiveChannel('system'); setExpanded(true); }}>開啟完整控制台 ↗</button>
+      </header>
+      <div className="home-live-channels" aria-label="控制台頻道">
+        {GAME_CONSOLE_CHANNELS.map(channel => <button type="button" key={channel.id} onClick={() => openChannel(channel.id)}>{channel.label}<span aria-hidden="true">↗</span></button>)}
+      </div>
+      <div className="home-live-stream" aria-label="最近的控制台訊息">
+        {recent.map(event => <button type="button" className={`home-live-line is-${event.level}`} key={event.id} onClick={() => openChannel(event.channel)} aria-label={`${GAME_CONSOLE_CHANNELS.find(channel => channel.id === event.channel)?.label}：${event.message}`}>
+          <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleTimeString('zh-TW', {hour:'2-digit',minute:'2-digit',hour12:false})}</time>
+          <strong>{event.source}</strong><span>{event.message}</span>
+        </button>)}
+      </div>
+    </section>
 
     <nav className="home-shortcuts" aria-label="常用入口">
       {shortcuts.map(entry => <button key={entry.id} type="button" className="home-shortcut" onClick={() => onNavigate?.(entry.id)}>

@@ -255,6 +255,8 @@ test('publish imports real pinned GitHub source once, needs consent and current 
  const markup=await html.text();assert.equal(markup.includes(maliciousTitle),false);assert.match(markup,/&lt;script&gt;/);
  const markdown=await platform.request(origin+`/development/submissions/${id}/SKILL.md`);assert.equal(markdown.status,200);assert.match(await markdown.text(),/example\/project/);
  const listing=(await api('/skill-submissions/published')).data.items;assert.equal(listing[0].submission_id,id);assert.equal('share_introductions' in listing[0],false);
+ assert.equal((await api('/skill-submissions/published?limit=1')).data.items.length,1);
+ assert.equal((await api('/skill-submissions/published?limit=101')).status,422);
  for(const field of ['owner_ref','grant_hash','grant_expires_at','payload','image_bytes'])assert.equal(field in listing[0],false);
  const illustration=await platform.request(origin+`/api/v1/skill-submissions/${id}/illustration`);assert.equal(illustration.status,200);assert.equal(illustration.headers.get('Content-Type'),'image/webp');
  // Deactivating the owner removes the publication from every public read.

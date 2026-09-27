@@ -58,8 +58,14 @@ test('announcements expose published text only to active same-guild members; onl
  await lead();await join(actors[1]);await lead(actors[2],otherGuild);
  const draft=await service.createGuildAnnouncement(pool,cmd(actors[0],{title:'草稿',body:'<script>alert(1)</script>',state:'draft'}),guild);
  assert.equal(draft.body,'<script>alert(1)</script>');assert.equal((await service.guildAnnouncements(pool,actors[0],guild)).items.length,1);assert.equal((await service.guildAnnouncements(pool,actors[1],guild)).items.length,0);
+ assert.deepEqual((await service.memberGuildAnnouncementFeed(pool,actors[1])).items,[]);
  await assert.rejects(service.guildAnnouncements(pool,actors[2],guild),denied(403));await assert.rejects(service.createGuildAnnouncement(pool,cmd(actors[1],{title:'越權',body:'不應發布',state:'published'}),guild),denied(403));
  await service.editGuildAnnouncement(pool,cmd(actors[0],{title:'已發布',body:'讀書會公告',state:'published'},1),draft.announcement_id);assert.equal((await service.guildAnnouncements(pool,actors[1],guild)).items[0].title,'已發布');
+ const feed=(await service.memberGuildAnnouncementFeed(pool,actors[1])).items;
+ assert.equal(feed.length,1);assert.equal(feed[0].title,'已發布');assert.equal(feed[0].guild_name,'活動與空間公會');
+ assert.deepEqual((await service.memberGuildAnnouncementFeed(pool,actors[2])).items,[]);
+ await pool.query("UPDATE positioning_profession_memberships SET state='left' WHERE user_id=$1 AND guild_key=$2",[actors[1].user_id,guild]);
+ assert.deepEqual((await service.memberGuildAnnouncementFeed(pool,actors[1])).items,[]);
  await assert.rejects(service.editGuildAnnouncement(pool,cmd(actors[2],{title:'越權',body:'不應改別公會',state:'published'},2),draft.announcement_id),denied(403));
 });
 
@@ -130,9 +136,12 @@ test('HTTP workspace uses existing member Origin, CSRF and onboarding guards; ad
  await lead();const origin='http://127.0.0.1:4310',access=async(request:Request)=>{assert.equal(request.headers.get('cf-access-jwt-assertion'),'verified-fixture');return {email:admin.email,subject:admin.subject,csrfToken:'fixture-admin-csrf'};};const app=createApp(pool,origin,'local',{adminVerifier:access});
  const auth=await login(pool,DEMO_USERS[0].email,DEMO_PASSWORD),headers={Origin:origin,Cookie:`freedom_local_session=${auth.token}`,'X-CSRF-Token':auth.actor.csrf_token,'Content-Type':'application/json','Idempotency-Key':randomUUID()};
  const get=await app.request(origin+'/api/v1/guild-workspace',{headers});assert.equal(get.status,200,await get.text());
+ const feedPath=origin+'/api/v1/me/guild-announcements';
+ assert.equal((await app.request(feedPath,{headers:{Origin:origin}})).status,401);
+ assert.equal((await app.request(feedPath,{headers})).status,200);
  const body=JSON.stringify({title:'公告',body:'討論活動場地',state:'published'}),path=origin+'/api/v1/guilds/'+guild+'/announcements';
  assert.equal((await app.request(path,{method:'POST',headers:{...headers,'X-CSRF-Token':''},body})).status,403);assert.equal((await app.request(path,{method:'POST',headers:{...headers,Origin:'https://other.invalid'},body})).status,403);
- assert.equal((await app.request(path,{method:'POST',headers,body})).status,201);await pool.query('UPDATE users SET onboarding_required=true WHERE user_id=$1',[auth.actor.user_id]);assert.equal((await app.request(path,{headers})).status,403);
+ assert.equal((await app.request(path,{method:'POST',headers,body})).status,201);assert.equal((await (await app.request(feedPath,{headers})).json()).items.length,1);await pool.query('UPDATE users SET onboarding_required=true WHERE user_id=$1',[auth.actor.user_id]);assert.equal((await app.request(path,{headers})).status,403);assert.equal((await app.request(feedPath,{headers})).status,403);
  const adminHeaders={Origin:origin,'Cf-Access-Jwt-Assertion':'verified-fixture','X-Admin-CSRF':'fixture-admin-csrf','Content-Type':'application/json','Idempotency-Key':randomUUID()},assignment=JSON.stringify({user_id:actors[1].user_id,active:true,reason:'指定技能書維護者'}),adminPath=origin+'/admin/api/skill-maintainers/'+book;
  assert.equal((await app.request(adminPath,{method:'POST',headers:{...adminHeaders,'X-Admin-CSRF':''},body:assignment})).status,403);const created=await app.request(adminPath,{method:'POST',headers:adminHeaders,body:assignment});assert.equal(created.status,200,await created.text());
 });

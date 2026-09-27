@@ -20,7 +20,7 @@ import {MemberGuildWorkspace} from './modules/GuildWorkspace'
 import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
 import { DevelopmentContext } from './modules/DevelopmentContext'
 import { BenefitObservations } from './modules/BenefitObservations'
-import { GameConsoleProvider } from './GameConsole'
+import { GameConsoleProvider, GameConsolePopout } from './GameConsole'
 import { logConsoleEvent } from './game-console-core'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PositioningPanel, GuildsPanel } from './modules/PositioningPanels'
@@ -108,7 +108,7 @@ function describeError(err: unknown): ActionError {
 }
 
 export function App() {
-  if(new URLSearchParams(window.location.search).get('game-console')==='popout')return <GameConsoleProvider variant="popout"/>
+  if(new URLSearchParams(window.location.search).get('game-console')==='popout')return <GameConsolePopout client={client}/>
   if(window.location.pathname==='/github/callback')return <GitHubCallback/>
   return window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? <><AdminPanel/><DevelopmentContext moduleId="admin"/></> : <MemberApp/>
 }
@@ -142,6 +142,7 @@ function MemberApp() {
   }, [])
 
   const toLogin = useCallback((notice?: string) => {
+    window.dispatchEvent(new Event('freedom-game-console-session-end'))
     sessionGeneration.current += 1
     client.csrfToken = null
     setOnboarding(null)
@@ -175,6 +176,7 @@ function MemberApp() {
   useEffect(() => {
     client.onUnauthorized = () => {
       if (client.accessExpired) {
+        window.dispatchEvent(new Event('freedom-game-console-session-end'))
         sessionGeneration.current += 1
         client.csrfToken = null
         setOnboarding(null)
@@ -220,11 +222,11 @@ function MemberApp() {
     )
   }
 
-  if (!onboarding) return <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
-  if (onboarding.required && !onboarding.completed) return <Onboarding client={client} initial={onboarding} onCompleted={() => { window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
-
   return (
-    <GameConsoleProvider>
+    <GameConsoleProvider key={session.user.user_id} client={client} userId={session.user.user_id} feedEnabled={Boolean(onboarding&&(!onboarding.required||onboarding.completed))} standalone={!onboarding||onboarding.required&&!onboarding.completed}>
+    {!onboarding ? <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
+    : onboarding.required && !onboarding.completed ? <Onboarding client={client} initial={onboarding} onCompleted={() => { window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
+    : <>
     <GitHubSocialProvider client={client} session={session}><DevelopmentAccessProvider client={client} session={session}>
     <Workspace
       site={site}
@@ -233,6 +235,7 @@ function MemberApp() {
       onSessionExpired={() => toLogin('登入已過期，請重新登入。')}
     />
     </DevelopmentAccessProvider></GitHubSocialProvider>
+    </>}
     </GameConsoleProvider>
   )
 }

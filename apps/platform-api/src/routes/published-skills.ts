@@ -1,4 +1,5 @@
 import {Hono} from 'hono';
+import {z} from 'zod';
 import type {Pool} from 'pg';
 import {developmentHtml,LIVE_SITE_ORIGIN,publicSkillShareMarkup,shareIntroNumber} from '../../../../modules/development/service.js';
 import {listPublishedSkillSubmissions,readPublishedSkillSubmission,readPublishedSkillIllustration} from '../../../../modules/skill-submissions/public.js';
@@ -59,7 +60,8 @@ export function createPublishedSkillRoutes(pool:Pool,publicOrigin=LIVE_PUBLIC_OR
   const app=new Hono();
   const skillMarkdown=authoredUploadText(skillUploadSkillMarkdown,publicOrigin),protocolMarkdown=authoredUploadText(skillUploadProtocolMarkdown,publicOrigin);
   app.get('/api/v1/skill-submissions/published',async c=>{
-    const items=await listPublishedSkillSubmissions(pool);
+    const limit=z.coerce.number().int().min(1).max(100).optional().parse(c.req.query('limit'));
+    const items=await listPublishedSkillSubmissions(pool,limit);
     // The directory remains small; full100 introductions are read on demand.
     return c.json({items:items.map(({share_introductions,...item})=>item)});
   });

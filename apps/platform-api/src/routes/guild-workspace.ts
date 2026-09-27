@@ -7,6 +7,7 @@ import * as service from '../../../../modules/guild-workspace/service.js';
 export function createGuildWorkspaceRoutes(pool:Pool){
  const app=new Hono<PlatformEnv>();
  app.get('/guild-workspace',async c=>c.json(await service.guildWorkspace(pool,c.get('actor'))));
+ app.get('/me/guild-announcements',async c=>c.json(await service.memberGuildAnnouncementFeed(pool,c.get('actor'))));
  app.get('/guilds/:key/announcements',async c=>c.json(await service.guildAnnouncements(pool,c.get('actor'),c.req.param('key'))));
  app.post('/guilds/:key/announcements',async c=>c.json(await service.createGuildAnnouncement(pool,await moduleCommand(c),c.req.param('key')),201));
  app.post('/guild-announcements/:id/edit',async c=>c.json(await service.editGuildAnnouncement(pool,await moduleCommand(c),c.req.param('id'))));

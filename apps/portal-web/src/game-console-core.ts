@@ -38,6 +38,7 @@ export type GameConsoleWireMessage =
   | { type: 'event'; sender: string; event: GameConsoleEvent }
   | { type: 'sync-request'; sender: string }
   | { type: 'snapshot'; sender: string; target: string; events: GameConsoleEvent[] }
+  | { type: 'session-end'; sender: string }
 
 const CHANNEL_IDS = new Set<string>(GAME_CONSOLE_CHANNELS.map(channel => channel.id))
 const LEVELS = new Set<string>(['info', 'success', 'warning', 'error'])
@@ -73,7 +74,7 @@ export function createConsoleEvent(input: GameConsoleEventInput): GameConsoleEve
     level: input.level ?? 'info',
     kind: input.kind ?? 'status',
     message,
-    ...(input.detail ? { detail: sanitizeConsoleText(input.detail, 1200) } : {}),
+    ...(input.detail ? { detail: sanitizeConsoleText(input.detail, 8000) } : {}),
     source: sanitizeConsoleText(input.source ?? 'Workshop', 80) || 'Workshop',
     createdAt: new Date(createdAt).toISOString(),
   }
@@ -87,7 +88,7 @@ export function isGameConsoleEvent(value: unknown): value is GameConsoleEvent {
     && typeof event.level === 'string' && LEVELS.has(event.level)
     && typeof event.kind === 'string' && KINDS.has(event.kind)
     && typeof event.message === 'string' && event.message.length > 0 && event.message.length <= 800
-    && (event.detail === undefined || typeof event.detail === 'string' && event.detail.length <= 1200)
+    && (event.detail === undefined || typeof event.detail === 'string' && event.detail.length <= 8000)
     && typeof event.source === 'string' && event.source.length > 0 && event.source.length <= 80
     && typeof event.createdAt === 'string' && Number.isFinite(Date.parse(event.createdAt))
 }
@@ -98,6 +99,7 @@ export function isGameConsoleWireMessage(value: unknown): value is GameConsoleWi
   if (typeof message.sender !== 'string' || !message.sender || message.sender.length > 160) return false
   if (message.type === 'event') return isGameConsoleEvent(message.event)
   if (message.type === 'sync-request') return true
+  if (message.type === 'session-end') return true
   return message.type === 'snapshot' && typeof message.target === 'string' && message.target.length > 0 && message.target.length <= 160
     && Array.isArray(message.events) && message.events.length <= GAME_CONSOLE_EVENT_LIMIT && message.events.every(isGameConsoleEvent)
 }

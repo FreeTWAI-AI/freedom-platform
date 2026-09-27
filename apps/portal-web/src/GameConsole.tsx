@@ -1,4 +1,6 @@
-import React, {createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode} from 'react'
+import React, {createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode} from 'react'
+import type {PortalClient} from './api'
+import {readConsoleFeed} from './game-console-feed'
 import {
   GAME_CONSOLE_CHANNEL_NAME,
   GAME_CONSOLE_CHANNELS,
@@ -51,9 +53,11 @@ function keyTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
 }
 
-export function GameConsoleProvider({children, variant = 'dock'}: {children?: ReactNode; variant?: 'dock' | 'popout'}) {
+export function GameConsoleProvider({children, variant = 'dock', client, userId, feedEnabled = true, standalone = false}: {children?: ReactNode; variant?: 'dock' | 'popout'; client?: PortalClient; userId?: string; feedEnabled?: boolean; standalone?: boolean}) {
   const [events, setEvents] = useState<GameConsoleEvent[]>(variant === 'dock' ? seedEvents : [])
   const eventsRef = useRef(events); eventsRef.current = events
+  const seen = useRef(new Set(events.map(event=>event.id)))
+  const [ended,setEnded] = useState(false)
   const [expanded, setExpanded] = useState(variant === 'popout')
   const [activeChannel, setActiveChannel] = useState<GameConsoleChannel>('system')
   const [unread, setUnread] = useState<Record<GameConsoleChannel, number>>(emptyUnread)
@@ -66,6 +70,8 @@ export function GameConsoleProvider({children, variant = 'dock'}: {children?: Re
   const broadcast = useRef<BroadcastChannel | null>(null)
 
   const append = useCallback((event: GameConsoleEvent, announce = false) => {
+    if(seen.current.has(event.id))return
+    seen.current.add(event.id)
     setEvents(current => mergeConsoleEvents(current, [event]))
     if (!expandedRef.current || activeRef.current !== event.channel) setUnread(current => ({...current, [event.channel]: current[event.channel] + 1}))
     if (announce) broadcast.current?.postMessage({type: 'event', sender: id.current, event} satisfies GameConsoleWireMessage)
@@ -73,18 +79,50 @@ export function GameConsoleProvider({children, variant = 'dock'}: {children?: Re
 
   useEffect(() => subscribeGameConsole(event => append(event, true)), [append])
   useEffect(() => {
-    if (typeof BroadcastChannel === 'undefined') return
+    if (typeof BroadcastChannel === 'undefined' || ended) return
     const channel = new BroadcastChannel(`${GAME_CONSOLE_CHANNEL_NAME}/${syncScope.current}`)
     broadcast.current = channel
     channel.onmessage = message => {
       if (!isGameConsoleWireMessage(message.data) || message.data.sender === id.current) return
+      if (message.data.type === 'session-end' && variant === 'popout') { setEvents([]); setEnded(true); return }
       if (message.data.type === 'event') append(message.data.event)
       if (message.data.type === 'sync-request') channel.postMessage({type: 'snapshot', sender: id.current, target: message.data.sender, events: eventsRef.current} satisfies GameConsoleWireMessage)
-      if (message.data.type === 'snapshot' && message.data.target === id.current) setEvents(mergeConsoleEvents([], message.data.events))
+      if (message.data.type === 'snapshot' && message.data.target === id.current) {
+        for(const event of message.data.events)seen.current.add(event.id)
+        setEvents(current=>mergeConsoleEvents(current, message.data.events))
+      }
     }
     if (variant === 'popout') channel.postMessage({type: 'sync-request', sender: id.current} satisfies GameConsoleWireMessage)
     return () => { channel.close(); broadcast.current = null }
-  }, [append, variant])
+  }, [append, variant, ended])
+
+  useEffect(()=>{
+    if(variant!=='dock')return
+    const finish=()=>broadcast.current?.postMessage({type:'session-end',sender:id.current} satisfies GameConsoleWireMessage)
+    window.addEventListener('freedom-game-console-session-end',finish)
+    return()=>window.removeEventListener('freedom-game-console-session-end',finish)
+  },[variant])
+
+  useEffect(()=>{
+    if(variant!=='dock'||!client||!userId||!feedEnabled)return
+    let active=true,loading=false,cycle=0
+    const refresh=async(forceWorld=false)=>{
+      if(!active||loading||document.visibilityState==='hidden')return
+      loading=true
+      const includeWorld=forceWorld||cycle%4===0;cycle++
+      try { for(const event of await readConsoleFeed(client,userId,includeWorld)) if(active)append(event,true) }
+      catch { /* PortalClient sends the actionable API error to the system channel. */ }
+      finally {loading=false}
+    }
+    void refresh()
+    const timer=window.setInterval(()=>void refresh(),30000)
+    const focus=()=>void refresh(true)
+    const update=()=>void refresh()
+    window.addEventListener('focus',focus)
+    window.addEventListener('freedom-inbox-updated',update)
+    window.addEventListener('freedom-profile-updated',focus)
+    return()=>{active=false;window.clearInterval(timer);window.removeEventListener('focus',focus);window.removeEventListener('freedom-inbox-updated',update);window.removeEventListener('freedom-profile-updated',focus)}
+  },[variant,client,userId,feedEnabled,append])
 
   useEffect(() => {
     const onError = (event: ErrorEvent) => logConsoleEvent({channel: 'system', level: 'error', kind: 'status', source: 'PAGE ERROR', message: event.message || '頁面發生未預期錯誤。'})
@@ -110,39 +148,51 @@ export function GameConsoleProvider({children, variant = 'dock'}: {children?: Re
   const selectChannel = useCallback((channel: GameConsoleChannel) => {
     setActiveChannel(channel); setUnread(current => ({...current, [channel]: 0}))
   }, [])
+  useEffect(()=>{if(expanded)setUnread(current=>current[activeChannel]===0?current:{...current,[activeChannel]:0})},[expanded,activeChannel])
   const value = useMemo<ConsoleContextValue>(() => ({events, expanded, activeChannel, log: logConsoleEvent, setExpanded, setActiveChannel: selectChannel}), [events, expanded, activeChannel, selectChannel])
+  if(ended)return <div className="game-console-ended" role="status">登入已結束，請關閉此視窗或重新登入。</div>
   return <ConsoleContext.Provider value={value}>
-    {variant === 'dock' ? <div className="game-console-page">{children}</div> : children}
+    {variant === 'dock' ? <div className={`game-console-page${standalone?' is-standalone':''}`}>{children}</div> : children}
     <GameConsole variant={variant} unread={unread} syncScope={syncScope.current}/>
   </ConsoleContext.Provider>
 }
 
+export function GameConsolePopout({client}:{client:PortalClient}) {
+  const [authorized,setAuthorized]=useState<boolean|null>(null)
+  const account=useRef<string|null>(null)
+  useEffect(()=>{
+    let active=true
+    const check=async()=>{
+      try {
+        const session=await client.getSession()
+        if(!active)return
+        if(account.current && account.current!==session.user.user_id){setAuthorized(false);return}
+        account.current=session.user.user_id
+        setAuthorized(true)
+      } catch {if(active)setAuthorized(false)}
+    }
+    void check()
+    window.addEventListener('focus',check)
+    return()=>{active=false;window.removeEventListener('focus',check)}
+  },[client])
+  if(authorized===null)return <div className="game-console-ended" role="status">正在確認登入狀態…</div>
+  if(!authorized)return <div className="game-console-ended" role="status">登入已結束。<a href="/">返回自由工坊</a></div>
+  return <GameConsoleProvider variant="popout" userId={account.current??undefined}/>
+}
+
 function GameConsole({variant, unread, syncScope}: {variant: 'dock' | 'popout'; unread: Record<GameConsoleChannel, number>; syncScope: string}) {
   const {events, expanded, activeChannel, log, setExpanded, setActiveChannel} = useGameConsole()
-  const [draft, setDraft] = useState('')
   const history = useRef<HTMLDivElement>(null)
-  const input = useRef<HTMLInputElement>(null)
-  const collapseButton = useRef<HTMLButtonElement>(null)
   const filtered = events.filter(event => event.channel === activeChannel)
   const latest = events.slice(-2)
 
   useEffect(() => { if (expanded) history.current?.scrollTo({top: history.current.scrollHeight, behavior: 'smooth'}) }, [expanded, activeChannel, filtered.length])
+  useEffect(() => {
+    if (variant !== 'dock' || !expanded) return
+    const frame = window.requestAnimationFrame(() => document.getElementById(`game-console-tab-${activeChannel}`)?.focus())
+    return () => window.cancelAnimationFrame(frame)
+  }, [expanded, variant, activeChannel])
   useEffect(() => { if (variant === 'popout') document.title = 'Game Console · 自由工坊' }, [variant])
-
-  function submit(event: FormEvent) {
-    event.preventDefault()
-    const message = draft.trim()
-    if (!message) return
-    const meta = GAME_CONSOLE_CHANNELS.find(channel => channel.id === activeChannel)!
-    log({
-      channel: activeChannel,
-      level: 'info',
-      kind: activeChannel === 'ai' ? 'prompt' : activeChannel === 'social' ? 'chat' : activeChannel === 'world' ? 'broadcast' : 'guide',
-      source: activeChannel === 'world' ? 'LOCAL PREVIEW' : activeChannel === 'social' ? 'LOCAL NOTE' : activeChannel === 'ai' ? 'USER PROMPT' : meta.shortLabel,
-      message,
-    })
-    setDraft('')
-  }
 
   function tabKeys(event: KeyboardEvent<HTMLDivElement>) {
     const index = GAME_CONSOLE_CHANNELS.findIndex(channel => channel.id === activeChannel)
@@ -163,6 +213,11 @@ function GameConsole({variant, unread, syncScope}: {variant: 'dock' | 'popout'; 
     else log({channel: 'system', level: 'warning', kind: 'guide', source: 'GUIDE', message: '瀏覽器阻擋了彈出視窗；請允許此網站開啟視窗後重試。'})
   }
 
+  function collapse() {
+    setExpanded(false)
+    window.requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.game-console-ticker-open')?.focus())
+  }
+
   if (variant === 'dock' && !expanded) return <aside className="game-console game-console-ticker" aria-label="Game Console 快訊">
     <button type="button" className="game-console-ticker-open" aria-label="展開 Game Console" onClick={() => setExpanded(true)}>
       <span className="game-console-signal" aria-hidden="true"/><strong>CONSOLE</strong>
@@ -173,12 +228,12 @@ function GameConsole({variant, unread, syncScope}: {variant: 'dock' | 'popout'; 
     </button>
   </aside>
 
-  return <aside className={`game-console game-console-expanded${variant === 'popout' ? ' is-popout' : ''}`} aria-label="Game Console">
+  return <aside className={`game-console game-console-expanded${variant === 'popout' ? ' is-popout' : ''}`} aria-label="Game Console" onKeyDown={event=>{if(variant==='dock'&&event.key==='Escape'){event.stopPropagation();collapse()}}}>
     <header className="game-console-header">
       <div><p className="game-console-eyebrow">FREEDOM NETWORK // LIVE</p>{variant === 'popout' ? <h1>Game Console</h1> : <h2>Game Console</h2>}</div>
       <div className="game-console-header-actions">
         {variant === 'dock' && <button type="button" className="game-console-icon-button" onClick={popOut} aria-label="在獨立視窗開啟 Game Console" title="獨立視窗">↗</button>}
-        {variant === 'dock' && <button ref={collapseButton} type="button" className="game-console-icon-button" onClick={() => setExpanded(false)} aria-label="收合 Game Console" title="收合（~）">⌄</button>}
+        {variant === 'dock' && <button type="button" className="game-console-icon-button" onClick={collapse} aria-label="收合 Game Console" title="收合（~）">⌄</button>}
         {variant === 'popout' && <button type="button" className="game-console-icon-button" onClick={() => window.close()} aria-label="關閉 Game Console 視窗">×</button>}
       </div>
     </header>
@@ -190,17 +245,14 @@ function GameConsole({variant, unread, syncScope}: {variant: 'dock' | 'popout'; 
     <div ref={history} id="game-console-history" className="game-console-history" role="log" aria-live="polite" aria-label={`${GAME_CONSOLE_CHANNELS.find(channel => channel.id === activeChannel)?.label} 歷史紀錄`}>
       {filtered.length ? filtered.map(event => <article key={event.id} className={`game-console-entry is-${event.level}`}>
         <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false})}</time>
-        <strong>{event.source}</strong><p>{event.message}</p>{event.detail && <small>{event.detail}</small>}
+        <strong>{event.source}</strong><p>{event.message}</p>{event.detail && <details className="game-console-detail"><summary>查看內容</summary><pre>{event.detail}</pre></details>}
       </article>) : <p className="game-console-empty">此頻道尚無訊息。</p>}
     </div>
-    <form className="game-console-input" onSubmit={submit}>
+    <div className="game-console-action">
       <span aria-hidden="true">›</span>
-      <label className="sr-only" htmlFor="game-console-command">輸入 Console 訊息</label>
-      <input ref={input} id="game-console-command" value={draft} maxLength={800} autoComplete="off"
-        placeholder={activeChannel === 'ai' ? '記錄送給 AI 的 Prompt…' : activeChannel === 'social' ? '加入本機聊天註記（正式訊息請到「我的訊息」）…' : activeChannel === 'world' ? '建立本機公告預覽…' : '輸入操作提示或備忘…'}
-        onChange={event => setDraft(event.target.value)}/>
-      <button type="submit" disabled={!draft.trim()}>送入控制台</button>
-    </form>
+      <p>{activeChannel==='social'?'聊天訊息從會員頻道讀取，發送與已讀請到「我的訊息」。':activeChannel==='ai'?'各功能準備的 AI 工作說明會顯示在這裡。':activeChannel==='world'?'技能書、任務與公會公告的發布動態會顯示在這裡。':'頁面錯誤、系統狀態與下一步提示會顯示在這裡。'}</p>
+      {activeChannel==='social'&&<a href={variant==='popout'?'/#messages':'#messages'} target={variant==='popout'?'_blank':undefined} rel={variant==='popout'?'noopener noreferrer':undefined}>前往我的訊息 ↗</a>}
+    </div>
     <footer className="game-console-footer"><span>SESSION BUFFER {events.length}/{GAME_CONSOLE_EVENT_LIMIT}</span><span>{typeof BroadcastChannel === 'undefined' ? 'LOCAL ONLY' : 'WINDOW SYNC ON'}</span></footer>
   </aside>
 }

@@ -14,6 +14,7 @@ type Project = {
   help_wanted: string[]; contribution_notes: string; repository_id: string;
   repository_url: string; repository_full_name: string; coordinator_ref: string | null;
   coordinator_name: string; aggregate_version: number;
+  created_at?: string;
   source_kind: 'member_project' | 'community_pilot'; upstream_url: string | null;
 };
 type Issue = { number: number; title: string; body: string; url: string; labels: string[]; assignees: string[] };
@@ -132,7 +133,7 @@ export function CoCreationPanel({ client, session, onNavigate }: ModulePanelProp
       help_wanted: selectedRoles, guild_keys: selectedGuilds, contribution_notes: data.get('contribution_notes'),
     });
     if (result) {
-      logConsoleEvent({channel:'world',level:'success',kind:'broadcast',source:'QUEST BOARD',message:`共創任務「${result.title}」已發布。`});
+      logConsoleEvent({id:`project:${result.project_id}`,createdAt:result.created_at,channel:'world',level:'success',kind:'broadcast',source:'共創任務',message:`共創任務「${result.title}」已發布。`});
       form.reset(); setSelectedRoles([]); setSelectedGuilds([]); setShowCreate(false); setGuildFilter('');
       setNotice('共創邀請已發布。到專案的 GitHub 建立具體任務，就能邀請夥伴一起參與。');
       await loadProjects(); setSelectedId(result.project_id);
@@ -146,7 +147,7 @@ export function CoCreationPanel({ client, session, onNavigate }: ModulePanelProp
       const path = `/co-creation/projects/${encodeURIComponent(projectId)}` + (issue ? `/issues/${issue.number}/brief` : '/brief');
       const value = await client.get<{ text: string }>(path);
       if (sequence !== requestSequence.current) return;
-      logConsoleEvent({channel:'ai',level:'success',kind:'summary',source:'AI TASK',message:issue?`已準備 Issue #${issue.number} 的 AI 工作說明。`:`已準備「${selected.title}」的專案開發 Prompt。`});
+      logConsoleEvent({channel:'ai',level:'success',kind:'prompt',source:'AI TASK',message:issue?`已準備 Issue #${issue.number} 的 AI 工作說明。`:`已準備「${selected.title}」的專案開發 Prompt。`,detail:value.text});
       setBrief({ project_id: projectId, number: issue?.number ?? null, title: issue?.title ?? selected.title, text: value.text });
       try { await navigator.clipboard.writeText(value.text); if (sequence === requestSequence.current) setNotice(issue ? '工作說明已複製，可以交給你的協作夥伴或 AI 助手。' : '專案開發指令已複製，貼給你的 Agent 就能開始了解任務。'); }
       catch { if (sequence === requestSequence.current) setNotice('指令已準備好。瀏覽器未允許複製，請從下方自行選取複製。'); }
