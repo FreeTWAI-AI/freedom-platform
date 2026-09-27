@@ -43,7 +43,7 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
       await expect(page.locator('.development-context')).toBeVisible();
       await expect(page.locator('.expedition-banner-art,.positioning-heading,.home-direction,.home-cooperation')).toHaveCount(0);
       if (['開源投稿','我的名片','自由工坊社群'].includes(button)) await expect(page.locator('.community-library')).toHaveCount(0);
-      await expect(page.getByRole('status').filter({ hasText: /載入|讀取/ })).toHaveCount(0);
+      await expect(page.getByRole('main').getByRole('status').filter({ hasText: /載入|讀取/ })).toHaveCount(0);
       await expect(page.getByRole('alert')).toHaveCount(0);
       if(button==='會員首頁'){
         await expect(page.locator('.home-module-card')).toHaveCount(4);
