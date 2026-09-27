@@ -49,3 +49,14 @@ test('world announcements use only verified GitHub actions and never a page open
   assert.equal((await reader.read()).items[3].actor,'member');assert.equal(calls,1);
   clock=90001;await reader.read();assert.equal(calls,2);
 });
+
+test('public GitHub reads retry anonymously when a configured read token is rejected',async()=>{
+  const authorizations:(string|null)[]=[];
+  const fetcher:typeof fetch=async(_url,init)=>{
+    const authorization=new Headers(init?.headers).get('Authorization');authorizations.push(authorization);
+    return authorization?Response.json({message:'Bad credentials'},{status:401}):Response.json([]);
+  };
+  assert.deepEqual((await new PageGitHubReader(fetcher,undefined,()=> 'stale-token').read()).items,[]);
+  assert.deepEqual((await new PageGitHubEventReader(fetcher,undefined,()=> 'stale-token').read()).items,[]);
+  assert.deepEqual(authorizations,['Bearer stale-token',null,'Bearer stale-token',null]);
+});

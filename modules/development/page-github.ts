@@ -10,6 +10,15 @@ export type PageGitHubActivity={items:PageGitHubItem[];checked_at:string;truncat
 export type PageGitHubEvent={id:string;kind:'issue_opened'|'pr_opened'|'pr_approved'|'design_claimed';number:number;title:string;url:string;actor:string;created_at:string};
 export type PageGitHubEvents={items:PageGitHubEvent[];checked_at:string;truncated:boolean};
 const pageIds=new Set(developmentPages.map(page=>page.id));
+const headers={Accept:'application/vnd.github+json','User-Agent':'Freedom-Platform-page-tools','X-GitHub-Api-Version':'2022-11-28'};
+async function readPublicGitHub(fetcher:typeof fetch,url:string,token?:string){
+  const request=(authorization?:string)=>fetcher(url,{headers:{...headers,...(authorization?{Authorization:`Bearer ${authorization}`}:{})},signal:AbortSignal.timeout(10000)});
+  let response=await request(token);
+  // A stale read token must not hide public GitHub data. Never retry writes here.
+  if(token&&(response.status===401||response.status===403)){await response.body?.cancel();response=await request();}
+  if(!response.ok)throw new Problem(503,'github_unavailable','暫時無法同步 GitHub，請稍後再試。');
+  return response;
+}
 
 /** The marker survives even when the repo has not created GitHub labels yet. */
 export function issuePageMarker(pageId:string){if(!pageIds.has(pageId))throw new Problem(404,'page_not_found','找不到這個頁面。');return `<!-- freedom-page:${pageId} -->`;}
@@ -39,8 +48,7 @@ export class PageGitHubReader {
     // Workerd's native fetch must be called without this reader as its receiver.
     const fetcher=this.fetcher;
     const token=this.readToken();
-    const response=await fetcher('https://api.github.com/repos/FreeTWAI-AI/freedom-platform/issues?state=all&sort=created&direction=desc&per_page=100',{headers:{Accept:'application/vnd.github+json','User-Agent':'Freedom-Platform-page-tools','X-GitHub-Api-Version':'2022-11-28',...(token?{Authorization:`Bearer ${token}`}:{})},signal:AbortSignal.timeout(10000)});
-    if(!response.ok)throw new Problem(503,'github_unavailable','暫時無法同步 GitHub，請稍後再試。');
+    const response=await readPublicGitHub(fetcher,'https://api.github.com/repos/FreeTWAI-AI/freedom-platform/issues?state=all&sort=created&direction=desc&per_page=100',token);
     const parsed=z.array(itemSchema).max(100).safeParse(await response.json());
     if(!parsed.success)throw new Problem(503,'github_invalid_response','GitHub 資料暫時無法解析，請稍後再試。');
     return {checked_at:new Date(this.now()).toISOString(),truncated:parsed.data.length===100,items:parsed.data.map(item=>({number:item.number,title:item.title,url:`${PLATFORM_REPOSITORY}/${item.pull_request?'pull':'issues'}/${item.number}`,author:item.user?.login??'GitHub 使用者',created_at:item.created_at,state:item.state,kind:item.pull_request?'pr' as const:'issue' as const,pages:pageIdsForIssue(item.body,item.labels.map(label=>typeof label==='string'?label:label.name))}))};
@@ -92,8 +100,7 @@ export class PageGitHubEventReader {
   private async refresh():Promise<PageGitHubEvents>{
     const fetcher=this.fetcher;
     const token=this.readToken();
-    const response=await fetcher('https://api.github.com/repos/FreeTWAI-AI/freedom-platform/events?per_page=100',{headers:{Accept:'application/vnd.github+json','User-Agent':'Freedom-Platform-page-tools','X-GitHub-Api-Version':'2022-11-28',...(token?{Authorization:`Bearer ${token}`}:{})},signal:AbortSignal.timeout(10000)});
-    if(!response.ok)throw new Problem(503,'github_unavailable','暫時無法同步 GitHub，請稍後再試。');
+    const response=await readPublicGitHub(fetcher,'https://api.github.com/repos/FreeTWAI-AI/freedom-platform/events?per_page=100',token);
     const raw=await response.json();
     if(!Array.isArray(raw)||raw.length>100)throw new Problem(503,'github_invalid_response','GitHub 資料暫時無法解析，請稍後再試。');
     return {checked_at:new Date(this.now()).toISOString(),truncated:raw.length===100,items:raw.map(publicEvent).filter((event):event is PageGitHubEvent=>event!==null)};
