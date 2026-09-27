@@ -8,10 +8,10 @@ import { logConsoleEvent } from '../game-console-core';
 import './HomeDesign.css';
 
 const shortcuts: { id: TabId; title: string }[] = [
+  { id: 'events', title: '社群活動' },
+  { id: 'tasks', title: '社群任務榜' },
   { id: 'guilds', title: '我的公會' },
   { id: 'skills', title: '技能書架' },
-  { id: 'cocreation', title: '一起開發' },
-  { id: 'workbench', title: '我的工作' },
 ];
 const entries: { id: TabId; title: string; description: string; cover: string }[] = [
   { id: 'supplier', title: '供貨中心', description: '刊登商品與供貨條件', cover: 'market-network' },

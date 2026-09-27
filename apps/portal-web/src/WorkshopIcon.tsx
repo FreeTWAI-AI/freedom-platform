@@ -21,6 +21,8 @@ const paths: Record<TabId, string> = {
   todos:'M9 6h11M9 12h11M9 18h11M3 6l1 1 2-2M3 12l1 1 2-2M3 18l1 1 2-2',
   messages:'M4 5h16v11H9l-5 4Zm4 5h8',
   members:'M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-6 9v-3c0-4 12-4 12 0v3m5-13v8m-4-4h8',
+  events:'M4 5h16v16H4Zm0 5h16M8 3v4m8-4v4m-8 7h3m3 0h2',
+  tasks:'M5 4h14v16H5Zm3 5 1 1 2-2m2 1h4m-9 6 1 1 2-2m2 1h4',
 };
 export function WorkshopIcon({ name }: { name: TabId }) {
   return <svg className="workshop-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d={paths[name]}/></svg>;

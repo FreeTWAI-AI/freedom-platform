@@ -15,7 +15,7 @@ test('member reads GitHub-backed co-creation tasks, copies a bounded brief, and 
   await page.getByRole('button',{name:'複製專案開發指令',exact:true}).click();
   const projectBrief=page.getByLabel('給 Agent 的專案開發指令',{exact:true});
   await expect(projectBrief).toHaveValue(/原作 Repo：https:\/\/github.com\/Hao0321\/video-autopilot-kit/);
-  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(await projectBrief.inputValue());
+  expect((await page.evaluate(()=>navigator.clipboard.readText())).replace(/\r\n/g,'\n')).toBe((await projectBrief.inputValue()).replace(/\r\n/g,'\n'));
   await page.getByRole('button',{name:'收起指令',exact:true}).click();
   const issue=page.getByRole('article').filter({has:page.getByRole('heading',{name:'建立可重現的剪輯測試素材',exact:true})});
   await expect(issue).toBeVisible();
@@ -26,7 +26,7 @@ test('member reads GitHub-backed co-creation tasks, copies a bounded brief, and 
   await expect(brief).toBeVisible();
   await expect(brief).toHaveValue(/建立可重現的剪輯測試素材/);
   const text=await brief.inputValue();
-  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(text);
+  expect((await page.evaluate(()=>navigator.clipboard.readText())).replace(/\r\n/g,'\n')).toBe(text.replace(/\r\n/g,'\n'));
   await page.getByRole('button',{name:'收起指令',exact:true}).click();
   const contribution=page.getByRole('article').filter({has:page.getByRole('heading',{name:'補上剪輯測試說明',exact:true})});
   await expect(contribution).toContainText('GitHub 作者：contributor-demo');
