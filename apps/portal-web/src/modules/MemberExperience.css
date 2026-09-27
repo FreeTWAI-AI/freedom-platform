@@ -1,0 +1,55 @@
+.experience-panel { max-width: 1280px; width: 100%; gap: 1.3rem; }
+.experience-intro { display: flex; align-items: end; justify-content: space-between; gap: 1rem; padding: 1.2rem 1.4rem; border: 1px solid var(--line); border-radius: 18px; background: var(--bg-elev); }
+.experience-intro > div { max-width: 68ch; }
+.experience-intro h2 { font-size: clamp(1.25rem, 2vw, 1.7rem); margin: .25rem 0 .45rem; }
+.experience-intro p:last-child { color: var(--muted); }
+.experience-intro > .btn { flex: none; }
+.experience-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 1rem; }
+.experience-card { display: grid; align-content: start; gap: .85rem; min-width: 0; }
+.experience-card-head { display: flex; align-items: start; justify-content: space-between; gap: .7rem; }
+.experience-card h3 { font-size: 1.14rem; margin: .2rem 0 0; }
+.experience-card p { line-height: 1.65; overflow-wrap: anywhere; }
+.experience-kicker { color: var(--muted); font-size: .79rem; font-weight: 700; }
+.experience-count { white-space: nowrap; color: var(--muted); font-size: .8rem; }
+.experience-meta { display: grid; gap: .35rem; margin: 0; font-size: .85rem; }
+.experience-meta div { display: grid; grid-template-columns: 3.5rem minmax(0, 1fr); gap: .5rem; }
+.experience-meta dt { color: var(--muted); }
+.experience-meta dd { margin: 0; overflow-wrap: anywhere; }
+.experience-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: auto; }
+.experience-actions .btn { text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.experience-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--line); padding-bottom: .55rem; }
+.experience-heading h2 { font-size: 1.15rem; }
+.experience-heading span { color: var(--muted); font-size: .85rem; }
+.experience-editor { display: grid; gap: 1rem; padding: 1rem; border: 1px solid var(--line); border-radius: 14px; background: var(--bg-elev); }
+.experience-fields { display: grid; gap: .85rem; }
+.experience-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem; }
+.experience-filters { display: flex; align-items: end; gap: .7rem; flex-wrap: wrap; }
+.experience-filters .field { flex: 1 1 200px; }
+.experience-points { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, .9fr); gap: 1rem; align-items: center; }
+.experience-points strong { display: block; font-size: 2.4rem; line-height: 1.2; }
+.experience-points p { color: var(--muted); font-size: .88rem; }
+.experience-points details { min-width: 0; }
+.experience-points summary, .experience-history summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+.experience-points ol { max-height: 180px; overflow: auto; padding-left: 1.3rem; }
+.experience-points li { margin: .55rem 0; font-size: .86rem; }
+.experience-points li strong { display: inline; font-size: inherit; }
+.experience-points li small { display: block; color: var(--muted); overflow-wrap: anywhere; }
+.experience-history { border-top: 1px solid var(--line); }
+.experience-history .experience-grid { margin-top: .8rem; }
+.experience-project-picker { max-width: 600px; }
+.experience-source { min-height: 44px; display: inline-flex; align-items: center; }
+.welcome-preview { width: min(1200px, 100%); margin: 0 auto; padding: clamp(1rem, 3vw, 2.5rem); display: grid; gap: 1.2rem; }
+.welcome-preview-top { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
+.welcome-preview-top .brand-poster { width: min(400px, 70vw); }
+.welcome-hero { display: grid; gap: .8rem; padding: clamp(1.3rem, 3vw, 2.5rem); background: var(--bg-elev); border: 1px solid var(--line); border-radius: 20px; }
+.welcome-hero h1 { font-size: clamp(1.6rem, 3vw, 2.25rem); }
+.welcome-hero p:not(.eyebrow) { max-width: 70ch; color: var(--muted); }
+.welcome-hero .btn { justify-self: start; }
+.welcome-preview-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.welcome-preview-grid .card { display: grid; align-content: start; gap: .6rem; }
+.welcome-preview-grid article { border-top: 1px solid var(--line); padding-top: .7rem; }
+.welcome-preview-grid article p { color: var(--muted); font-size: .85rem; margin-top: .2rem; }
+.welcome-preview-note { color: var(--muted); font-size: .9rem; }
+.preview-theme-toggle { position: fixed; top: .7rem; right: .7rem; z-index: 50; display: flex; gap: .4rem; }
+.login-theme { display: flex; justify-content: flex-end; margin-bottom: .5rem; }
+@media(max-width: 700px) { .experience-intro { align-items: start; flex-direction: column; } .experience-row,.experience-points,.welcome-preview-grid { grid-template-columns: 1fr; } .preview-theme-toggle { position: static; justify-content: flex-end; padding: .5rem 1rem 0; } }

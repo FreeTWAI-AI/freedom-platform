@@ -8,6 +8,7 @@ import { seedLocal,DEMO_WORK,DEMO_USERS,DEMO_PASSWORD } from '../../packages/tes
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { hashPassword } from '../../modules/identity-membership/service.js';
 import { execFileSync } from 'node:child_process';
+const pythonCommand=process.platform==='win32'?'python':'python3';
 
 const origin='http://127.0.0.1:4310';
 const databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
@@ -56,6 +57,10 @@ test('login → claim → submit → request changes → resubmit → independen
   const freshApp=createApp(pool,origin); // Recreated application reads PostgreSQL facts, no process-local projections.
   const result=await freshApp.request(origin+'/api/v1/dashboard',{headers:{Cookie:maker.cookie}});
   const dashboard:any=await result.json();assert.equal(dashboard.gained.length,1);assert.equal(dashboard.gained[0].official,false);
+  const points=(await request('/me/contribution-points',maker)).data;
+  assert.equal(points.total,10);assert.equal(points.accepted_count,1);
+  assert.equal(points.entries[0].work_item_id,DEMO_WORK);
+  assert.ok(points.entries[0].decision_id);
   assert.equal(dashboard.gained[0].artifact_ref,'artifact:example-v2');assert.equal(dashboard.now.length,0);
   assert.equal((await pool.query('SELECT count(*) FROM contributions')).rows[0].count,'1');
   assert.equal((await pool.query('SELECT count(*) FROM work_decisions')).rows[0].count,'2');
@@ -189,7 +194,8 @@ test('showcase → opportunity → bilateral cooperation → delivery → receip
   for(const [s,action,body] of [[client,'agree',{terms_sha256:e.terms_sha256}],[maker,'deliver',{artifact_ref:'artifact:delivery-v1'}],[client,'accept',{terms_sha256:e.terms_sha256}]] as const) {
     const r=await request(`/engagements/${e.engagement_id}:${action}`,s,body,e.aggregate_version);assert.equal(r.status,200,JSON.stringify(r.data));e=r.data;
   }
-  const receipt={amount_minor:120000,currency:'TWD',evidence_ref:'receipt:bank-demo-001',received_at:new Date().toISOString()};
+  // Use the database clock so Docker/host clock drift cannot make a valid observation appear older than agreement.
+  const receipt={amount_minor:120000,currency:'TWD',evidence_ref:'receipt:bank-demo-001',received_at:(await pool.query('SELECT now()')).rows[0].now.toISOString()};
   assert.equal((await request(`/engagements/${e.engagement_id}/receipts`,maker,{...receipt,amount_minor:1200},e.aggregate_version)).status,422);
   assert.equal((await request(`/engagements/${e.engagement_id}/receipts`,maker,{...receipt,received_at:new Date(Date.now()+86400000).toISOString()},e.aggregate_version)).data.code,'invalid_receipt_time');
   assert.equal((await request(`/engagements/${e.engagement_id}/receipts`,maker,{...receipt,received_at:'2020-01-01T00:00:00.000Z'},e.aggregate_version)).data.code,'invalid_receipt_time');
@@ -216,12 +222,12 @@ test('implemented claim request and response validate against existing canonical
   const response=await request(`/work-items/${DEMO_WORK}:claim`,maker,body,w.aggregate_version);
   assert.equal(response.status,201);assert.equal(typeof response.data.aggregate_version,'number');
   const script=`import json,sys,yaml\nfrom jsonschema import Draft202012Validator\napi=yaml.safe_load(open('docs/platform-plan/contracts/openapi-outline.yaml'))\ndata=json.load(sys.stdin)\nfor name,obj in [('ClaimWorkItemRequest',data['request']),('WorkClaim',data['response'])]:\n validator=Draft202012Validator(api)\n validator.evolve(schema={'$ref':'#/components/schemas/'+name}).validate(obj)\nprint('canonical claim request/response valid')\n`;
-  assert.match(execFileSync('python3',['-c',script],{input:JSON.stringify({request:body,response:response.data}),encoding:'utf8'}),/valid/);
+  assert.match(execFileSync(pythonCommand,['-c',script],{input:JSON.stringify({request:body,response:response.data}),encoding:'utf8'}),/valid/);
 });
 test('generated participation terms conform to the existing schema, including maximum text lengths',async()=>{
   const owner=await signIn(DEMO_USERS[1].email),w=await newWork(owner,{objective:'a'.repeat(1000),acceptance_criteria:'b'.repeat(1000)});
   const script=`import json,sys\nfrom jsonschema import Draft202012Validator,FormatChecker\nschema=json.load(open('docs/platform-plan/contracts/work-participation.schema.json'))\nDraft202012Validator(schema,format_checker=FormatChecker()).validate(json.load(sys.stdin))\nprint('valid')\n`;
-  assert.match(execFileSync('python3',['-c',script],{input:JSON.stringify(w.participation_terms),encoding:'utf8'}),/valid/);
+  assert.match(execFileSync(pythonCommand,['-c',script],{input:JSON.stringify(w.participation_terms),encoding:'utf8'}),/valid/);
   const r=await request('/work-items',owner,{title:'長度邊界',objective:'a'.repeat(1001),acceptance_criteria:'有效條件',gain:'公共成果',estimated_minutes:10,maximum_minutes:20,claim_by:new Date(Date.now()+86400000).toISOString(),finish_by:new Date(Date.now()+2*86400000).toISOString(),will_review:false});
   assert.equal(r.status,422);
 });

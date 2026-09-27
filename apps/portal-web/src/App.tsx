@@ -16,6 +16,9 @@ import { GitHubSocialProvider } from './modules/GitHubSocial'
 import { SettingsMenu } from './modules/SettingsMenu'
 import { MemberTasks } from './modules/MemberTasks'
 import { MemberMessages } from './modules/MemberMessages'
+import { EventsPanel } from './modules/EventsPanel'
+import { TaskBoardPanel } from './modules/TaskBoardPanel'
+import { WelcomePreview } from './modules/WelcomePreview'
 import {MemberGuildWorkspace} from './modules/GuildWorkspace'
 import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
 import { DevelopmentContext } from './modules/DevelopmentContext'
@@ -59,6 +62,8 @@ const DEMO_ACCOUNTS = [
   { email: 'client@local.test', label: '委託示範帳號' },
 ] as const
 const DEMO_PASSWORD = 'freedom-local-demo'
+const onboardingStarted=(userId:string)=>{try{return sessionStorage.getItem(`freedom-onboarding-started:${userId}`)==='yes'}catch{return false}}
+const rememberOnboarding=(userId:string,started:boolean)=>{try{if(started)sessionStorage.setItem(`freedom-onboarding-started:${userId}`,'yes');else sessionStorage.removeItem(`freedom-onboarding-started:${userId}`)}catch{/* Keep the in-memory choice. */}}
 
 type ActionError = {
   message: string
@@ -110,6 +115,14 @@ export function App() {
   return window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? <><AdminPanel/><DevelopmentContext moduleId="admin"/></> : <MemberApp/>
 }
 
+function ThemeToggle() {
+  const [theme,setTheme]=useState<'light'|'dark'>(()=>document.documentElement.dataset.theme==='dark'?'dark':'light')
+  return <button type="button" className="btn btn-ghost theme-toggle" aria-label={theme==='light'?'切換至深色介面':'切換至明亮介面'} onClick={()=>{
+    const next=theme==='light'?'dark':'light';document.documentElement.dataset.theme=next;setTheme(next);
+    try{localStorage.setItem('freedom-theme',next)}catch{/* Appearance still works for this visit. */}
+  }}>{theme==='light'?'☾ 深色':'☀ 明亮'}</button>
+}
+
 function MemberApp() {
   const [phase, setPhase] = useState<'boot' | 'login' | 'ready'>('boot')
   const [session, setSession] = useState<SessionPayload | null>(null)
@@ -118,6 +131,7 @@ function MemberApp() {
   const [site, setSite] = useState<SiteConfig | null>(null)
   const [onboarding, setOnboarding] = useState<OnboardingView | null>(null)
   const [gateError, setGateError] = useState('')
+  const [exploring,setExploring]=useState(true)
   const sessionGeneration = useRef(0)
   const loadOnboarding = useCallback(async () => {
     const generation = sessionGeneration.current
@@ -132,6 +146,7 @@ function MemberApp() {
     sessionGeneration.current += 1
     client.csrfToken = next.csrf_token
     setOnboarding(null)
+    setExploring(!onboardingStarted(next.user.user_id))
     setSession(next)
     setPhase('ready')
     setBootError(null)
@@ -142,6 +157,7 @@ function MemberApp() {
     sessionGeneration.current += 1
     client.csrfToken = null
     setOnboarding(null)
+    setExploring(true)
     setSession(null)
     setPhase('login')
     if (notice) setLoginNotice(notice)
@@ -218,7 +234,9 @@ function MemberApp() {
   }
 
   if (!onboarding) return <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
-  if (onboarding.required && !onboarding.completed) return <Onboarding client={client} initial={onboarding} onCompleted={() => { window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
+  if (onboarding.required && !onboarding.completed) return exploring&&!onboardingStarted(session.user.user_id)
+    ? <><div className="preview-theme-toggle"><ThemeToggle/></div><WelcomePreview client={client} name={session.user.display_name} onStart={()=>{rememberOnboarding(session.user.user_id,true);setExploring(false)}} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/></>
+    : <><div className="preview-theme-toggle"><ThemeToggle/><button type="button" className="btn btn-ghost" onClick={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}}>先逛逛社群</button></div><Onboarding client={client} initial={onboarding} onCompleted={() => { rememberOnboarding(session.user.user_id,false);window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/></>
 
   return (
     <GitHubSocialProvider client={client} session={session}><DevelopmentAccessProvider client={client} session={session}>
@@ -286,6 +304,7 @@ function LoginView({
       <section className="login-story"><BrandPoster/><div className="login-story-copy"><h1>完成定位、加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。</h1></div></section>
       <div className="login-form-area">
       <section className="card login-card" aria-labelledby="login-heading">
+        <div className="login-theme"><ThemeToggle/></div>
         {!accessExpired && <div className="auth-switch" role="group" aria-label="登入或建立帳號"><button type="button" className={mode==='login'?'selected':''} aria-pressed={mode==='login'} onClick={()=>{setMode('login');setError(null)}}>會員登入</button>{site?.registration_enabled&&<button type="button" className={mode==='register'?'selected':''} aria-pressed={mode==='register'} onClick={()=>{setMode('register');setError(null)}}>建立帳號</button>}</div>}
         <h2 id="login-heading">{accessExpired ? '網站登入已過期' : mode==='register'?'加入自由工坊':'登入'}</h2>
         {notice && !accessExpired && (
@@ -325,9 +344,9 @@ function LoginView({
               disabled={pending}
             />
           </label>
-          {mode==='register'&&<><p className="field-hint">密碼至少 12 個字元。請妥善保存，目前無法用 E-mail 找回密碼。</p><p className="field-hint">Email 同時用於登入與聯絡，預設不公開。之後可在「我的名片」調整。</p></>}
+          {mode==='register'&&<><p className="field-hint">只要名稱、Email 和密碼就能建立帳號。建立後可以先逛活動、任務與免費資源，再分段完成定位。</p><p className="field-hint">密碼至少 12 個字元。請妥善保存，目前無法用 E-mail 找回密碼。Email 預設不公開。</p></>}
           <button className="btn btn-primary" type="submit" disabled={pending} aria-busy={pending}>
-            {pending ? (mode==='register'?'建立帳號中…':'登入中…') : (mode==='register'?'註冊並開始定位':'登入')}
+            {pending ? (mode==='register'?'建立帳號中…':'登入中…') : (mode==='register'?'建立帳號，先逛工坊':'登入')}
           </button>
         </form>}
         {!accessExpired && site?.demo_accounts_enabled&&mode==='login'&&<aside className="help-box" aria-label="示範帳號">
@@ -497,7 +516,7 @@ function Workspace({
               <div>
                 <h1>{tabTitle(tab)}</h1>
               </div>
-              <div className="topbar-actions"><SettingsMenu client={client} current={tab} onSelect={selectTab} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>}/><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
+              <div className="topbar-actions"><ThemeToggle/><SettingsMenu client={client} current={tab} onSelect={selectTab} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>}/><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
                 登出
               </button></div>
             </header>
@@ -513,6 +532,8 @@ function Workspace({
             {tab === 'members' && <MembersPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'cocreation' && <CoCreationPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'community' && <CommunityPanel client={client} onNavigate={selectTab} />}
+            {tab === 'events' && <EventsPanel client={client} session={session} />}
+            {tab === 'tasks' && <TaskBoardPanel client={client} onNavigate={selectTab} />}
             {tab === 'skills' && <SkillsPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'squads' && <SquadsPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'workbench' && <WorkbenchPanel />}

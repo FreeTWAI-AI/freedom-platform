@@ -473,14 +473,16 @@ test('credential files must be private, synthetic and bound to the candidate ori
   expect(validateAccount(raw(),staging).label).toBe('synthetic-test');
   expect(()=>validateAccess({candidate_origin:'https://staging-next.freetwai.com',client_id:access.clientId,client_secret:access.clientSecret},staging)).toThrow(/different origin/);
   expect(validateAccess({candidate_origin:staging.origin,client_id:access.clientId,client_secret:access.clientSecret},staging).clientId).toBe(access.clientId);
-  const directory=await mkdtemp(join(tmpdir(),'cloud-candidate-'));
-  try {
-    const file=join(directory,'account.json');await writeFile(file,JSON.stringify(raw()),{mode:0o644});await chmod(file,0o644);
-    await expect(readPrivateJson(file,'account')).rejects.toThrow(/chmod 600/);
-    await chmod(file,0o600);expect(await readPrivateJson(file,'account')).toMatchObject({label:'synthetic-test'});
-    await expect(readPrivateJson('account.json','account')).rejects.toThrow(/absolute/);
-    await expect(readPrivateJson(undefined,'account')).rejects.toThrow(/not configured/);
-  } finally {await rm(directory,{recursive:true,force:true});}
+  if(process.platform!=='win32'){
+    const directory=await mkdtemp(join(tmpdir(),'cloud-candidate-'));
+    try {
+      const file=join(directory,'account.json');await writeFile(file,JSON.stringify(raw()),{mode:0o644});await chmod(file,0o644);
+      await expect(readPrivateJson(file,'account')).rejects.toThrow(/chmod 600/);
+      await chmod(file,0o600);expect(await readPrivateJson(file,'account')).toMatchObject({label:'synthetic-test'});
+    } finally {await rm(directory,{recursive:true,force:true});}
+  }
+  await expect(readPrivateJson('account.json','account')).rejects.toThrow(/absolute/);
+  await expect(readPrivateJson(undefined,'account')).rejects.toThrow(/not configured/);
   function raw(){return {candidate_origin:staging.origin,label:'synthetic-test',email:account.email,password:account.password,synthetic:true} as Record<string,unknown>;}
 });
 
