@@ -2,16 +2,16 @@ import type {SkillBook} from './catalog.js';
 import type {SkillBookGuide} from './skill-book-guides.js';
 
 // Community names supplied by the platform owner; no member identity is inferred.
-// Pinned upstream documentation reviewed 2026-09-24; upstream apps were not run.
+// Pinned upstream documentation reviewed 2026-09-24 or at each guide's reviewed_at; upstream apps were not run.
 export const communityAuthorSources = {
   'bidding-radar-concept':{author:'綠豆',repo:'greenQQQ/bidding-radar-concept',sha:'a02db6cb6ef754bff3622e88eb10167cf772ca72',title:'領標雷達：標案與補助設計',reading:'README.md',evidence:['README.md','實作指南.md','LICENSE'],guilds:['guild_opportunity_partnership','guild_ai_field']},
-  'aiwff-runtime':{author:'隊長',repo:'zaxardery8011-design/aiwff-runtime',sha:'8d3eabf0cb614f74b6c1d3a0b9316e5c9f2fcc19',title:'小主腦：本機 AI 任務系統',reading:'README.zh-TW.md',evidence:['README.zh-TW.md','AGENTS.md','LICENSE'],guilds:['guild_ai_vibe','guild_ai_field']},
+  'aiwff-runtime':{author:'隊長',repo:'zaxardery8011-design/aiwff-runtime',sha:'95c5234aca4e12f33812b60b2bf26e9095185909',title:'小主腦：本機 AI 任務系統',reading:'README.zh-TW.md',evidence:['README.zh-TW.md','AGENTS.md','LICENSE'],guilds:['guild_ai_vibe','guild_ai_field']},
   'n8n-marketing-flows':{author:'Yuri',repo:'YuriCrystal/n8n-marketing-flows',sha:'46c8e2535430ebe1e9bb4d8b6b335465c4702ffb',title:'n8n 行銷自動化模板',reading:'README.md',evidence:['README.md','LICENSE'],guilds:['guild_marketing','guild_ai_field']},
   'anti-gambling-trader-tw':{author:'阿軒哥哥（阿軒割割）',repo:'mars-tw/anti-gambling-trader-tw',sha:'9d938b64c80ee29363aed496ba4e61d9110a7222',title:'反詐投資王：交易統計與驗證',reading:'README.md',evidence:['README.md','docs/user-guide.md','LICENSE'],guilds:['guild_ai_field']},
   'web-card-game-skill':{author:'阿軒哥哥（阿軒割割）',repo:'mars-tw/web-card-game-skill',sha:'d690b88ea23333d53d9126c51127ded6b24b4927',title:'裂潮卡牌：網頁卡牌遊戲 Skill',reading:'README.md',evidence:['README.md','SKILL.md','LICENSE'],guilds:['guild_ai_vibe']},
   'ai-avatar-bot':{author:'Yuri',repo:'YuriCrystal/ai-avatar-bot',sha:'d9276a227ea342eebfb9967f9245256406de7d23',title:'會說話的網站虛擬人',reading:'README.md',evidence:['README.md','LICENSE'],guilds:['guild_ai_vibe','guild_member_operations']},
   'ai-manga-translator':{author:'綠豆',repo:'greenQQQ/ai-manga-translator',sha:'964734a9366b872b4c7ac2069be72124eb3d332e',title:'AI 漫畫圖片翻譯',reading:'README.md',evidence:['README.md','LICENSE'],guilds:['guild_ai_field','guild_media_automation']},
-  'line-persona':{author:'隊長',repo:'zaxardery8011-design/line-persona',sha:'8b44f432a8b8e847c7164290f656bcca9164aaec',title:'LINE 影分身',reading:'README.md',evidence:['README.md','AGENTS.md','LICENSE'],guilds:['guild_member_operations','guild_ai_field']},
+  'line-persona':{author:'隊長',repo:'zaxardery8011-design/line-persona',sha:'ed445cfd62a7e38b3d05233a40c1c773d4aadcbb',title:'LINE 影分身',reading:'README.md',evidence:['README.md','AGENTS.md','LICENSE'],guilds:['guild_member_operations','guild_ai_field']},
 };
 type Id=keyof typeof communityAuthorSources;
 type Details=Omit<SkillBookGuide,'author_name'|'reading_url'|'source_commit'|'reviewed_at'|'source_evidence'|'contribution_url'>;
@@ -30,9 +30,9 @@ const details:Record<Id,Details>={
   'aiwff-runtime':{
     format:'本機 Agent 任務執行系統',summary:'交辦任務、查看背景進度，將成果檔案留在自己的電腦。',
     audience:['想入門 Agent 的開發者','需要整理檔案或資料處理流程的人'],
-    status:'MIT 開源；預設 mock 模擬模式免費、不需 API key。真正執行 AI 任務需自己的 Claude CLI 帳號與費用；接 Claude 或 Telegram 時會有資料傳往相應服務。',
-    features:['WebUI 建立任務並追蹤背景 worker','以本機檔案保存任務、進度與成果','先用模擬模式驗流程，再接自己的工具與 Claude CLI'],
-    prerequisites:['Node.js 18 以上及自己的測試資料夾','閱讀繁中安裝文件與 AGENTS.md，限定可操作範圍','真實 Claude 與 Telegram 為另行設定的服務'],
+    status:'MIT 開源；預設 mock 模擬模式免費、不需 API key。真實任務可選自己的 Claude CLI，或實驗性的 OpenAI 相容端點；後者沒有檔案工具，適合短分類與摘要。接外部模型或 Telegram 時，資料會傳往相應服務。',
+    features:['WebUI 建立任務並追蹤背景 worker','以本機檔案保存任務、進度與成果','先用模擬模式驗流程，再自行選擇 Claude CLI 或無工具的相容端點'],
+    prerequisites:['Node.js 18 以上及自己的測試資料夾','閱讀繁中安裝文件與 AGENTS.md，限定可操作範圍','真實 Claude、相容模型端點與 Telegram 需自行設定'],
     first_steps:['依原作安裝文件啟動預設 mock 模式，先不接付費服務。','建立一個示範任務，從 WebUI 找到進度與 data/artifacts 成果檔。','核對成功與失敗結果後，再自行決定是否接真實 Claude worker。'],
     first_result:'一筆可由 WebUI 追蹤、能找到本機成果檔的模擬任務。',
     contribution:'改善原作任務失敗提示、成果檔檢查或新手文件；提交可重現紀錄，區分模擬與真實 Claude 結果。',
@@ -107,7 +107,7 @@ const details:Record<Id,Details>={
 };
 export const communityAuthorGuides:Record<string,SkillBookGuide>=Object.fromEntries(Object.entries(communityAuthorSources).map(([id,source])=>[id,{
   ...details[id as Id],author_name:source.author,reading_url:`https://github.com/${source.repo}/blob/${source.sha}/${source.reading}`,
-  source_commit:source.sha,reviewed_at:'2026-09-24',contribution_url:`https://github.com/${source.repo}/issues`,
+  source_commit:source.sha,reviewed_at:['aiwff-runtime','line-persona'].includes(id)?'2026-09-27':'2026-09-24',contribution_url:`https://github.com/${source.repo}/issues`,
   source_evidence:source.evidence.map(path=>({path,url:`https://github.com/${source.repo}/blob/${source.sha}/${path}`})),
 }]));
 export const communityAuthorBooks:SkillBook[]=Object.entries(communityAuthorSources).map(([id,source])=>({
