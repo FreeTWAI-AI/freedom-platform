@@ -1,5 +1,9 @@
 # Agent 工作說明
 
+## UI／視覺修改前
+
+Before any UI/visual change, use the design skills `ui-design-system` and `huashu-design` (in-app mode) if your agent has them; match the existing design tokens in [DESIGN.md](DESIGN.md) and the CSS custom properties in `apps/portal-web/src/rpg-theme.css` / `styles.css`; avoid oversized buttons for inline actions (use the small/secondary variant; full-width only for a single primary action on mobile).
+
 <!-- freedom-repository-guide:start -->
 UI 與視覺工作必讀 [DESIGN.md](DESIGN.md)：自由工坊原始 Logo 是所有主題（包括 RPG）的最高視覺錨點。
 
