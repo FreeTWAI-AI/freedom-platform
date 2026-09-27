@@ -16,7 +16,7 @@ async function readPublicGitHub(fetcher:typeof fetch,url:string,token?:string){
   let response=await request(token);
   // A stale read token must not hide public GitHub data. Never retry writes here.
   if(token&&(response.status===401||response.status===403)){await response.body?.cancel();response=await request();}
-  if(!response.ok)throw new Problem(503,'github_unavailable','暫時無法同步 GitHub，請稍後再試。');
+  if(!response.ok){console.warn('github_public_read_failed',new URL(url).pathname,response.status,response.headers.get('x-ratelimit-remaining'));throw new Problem(503,'github_unavailable','暫時無法同步 GitHub，請稍後再試。');}
   return response;
 }
 
