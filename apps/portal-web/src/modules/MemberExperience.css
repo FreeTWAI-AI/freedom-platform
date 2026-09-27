@@ -53,4 +53,4 @@
 .welcome-preview-note { color: var(--muted); font-size: .9rem; }
 .preview-theme-toggle { position: fixed; top: .7rem; right: .7rem; z-index: 50; display: flex; gap: .4rem; }
 .login-theme { display: flex; justify-content: flex-end; margin-bottom: .5rem; }
-@media(max-width: 700px) { .experience-intro { align-items: start; flex-direction: column; } .experience-row,.experience-points,.welcome-preview-grid { grid-template-columns: 1fr; } .preview-theme-toggle { position: static; justify-content: flex-end; padding: .5rem 1rem 0; } }
+@media(max-width: 700px) { .experience-intro { align-items: start; flex-direction: column; } .experience-row,.experience-points,.welcome-preview-grid { grid-template-columns: 1fr; } .welcome-preview-top { flex-wrap: wrap; } .welcome-preview-top .experience-actions { margin-left: auto; } .preview-theme-toggle { position: static; justify-content: flex-end; padding: .5rem 1rem 0; } }

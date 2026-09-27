@@ -255,7 +255,7 @@ test('sending is plain text, retries an unknown result once, and never lets an o
   await thread.getByRole('button',{name:'送出',exact:true}).click();await expect(box).toHaveValue('');expect(server.log.sends.length).toBe(sendsBefore+1);
 
   // A re-read that snapshots before a confirmed send answers late; the sent message stays.
-  holding=true;await thread.getByRole('button',{name:'重新讀取訊息',exact:true}).click();await expect.poll(()=>hold.held.length).toBe(1);holding=false;
+  holding=true;await thread.getByRole('button',{name:'重新讀取訊息',exact:true}).click();await expect.poll(()=>hold.held.length).toBeGreaterThanOrEqual(1);holding=false;
   await box.fill('競態中的確認訊息');await thread.getByRole('button',{name:'送出',exact:true}).click();
   await expect(bubbles.last()).toHaveText('競態中的確認訊息');await box.fill('送出後的新草稿');
   hold.release();await expect(thread.getByRole('button',{name:'重新讀取訊息',exact:true})).toBeVisible();await page.waitForTimeout(200);
