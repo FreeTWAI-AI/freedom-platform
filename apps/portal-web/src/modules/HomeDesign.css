@@ -54,6 +54,19 @@
 .freedom-home .home-live-line.is-error { border-left-color: #ffb4b8; color: #ffb4b8; }
 .freedom-home .home-live-line.is-warning { border-left-color: #ffd18a; }
 .freedom-home .home-live-line.is-success { border-left-color: #c4ff20; }
+.freedom-home .home-live-channels [data-channel="guild"],.freedom-home .home-live-line[data-channel="guild"]{--message-color:#ffca75}
+.freedom-home .home-live-channels [data-channel="squad"],.freedom-home .home-live-line[data-channel="squad"]{--message-color:#79dec8}
+.freedom-home .home-live-channels [data-channel="direct"],.freedom-home .home-live-line[data-channel="direct"]{--message-color:#d1a9ff}
+.freedom-home .home-live-channels [data-channel="world_chat"],.freedom-home .home-live-line[data-channel="world_chat"]{--message-color:#76dfff}
+.freedom-home .home-live-channels [data-channel="ai"],.freedom-home .home-live-line[data-channel="ai"]{--message-color:#ff9ad0}
+.freedom-home .home-live-channels [data-channel="guide"],.freedom-home .home-live-line[data-channel="guide"]{--message-color:#b9e986}
+.freedom-home .home-live-channels [data-channel="system"],.freedom-home .home-live-line[data-channel="system"]{--message-color:#c6d2e4}
+.freedom-home .home-live-channels [data-channel]{color:var(--message-color,#d9e5db)}
+.freedom-home .home-live-line[data-channel]{border-left-color:var(--message-color);color:var(--message-color)}
+.freedom-home .home-live-line[data-channel] strong{color:var(--message-color)}
+.freedom-home .home-live-line.is-error{--message-color:#ff888f}.freedom-home .home-live-line.is-warning{--message-color:#ffd18a}
+.freedom-home .home-live-line[data-kind="broadcast"]{background:#ffca7509;font-weight:700}
+.freedom-home .home-live-line[data-kind="prompt"]{background:#ff9ad009;font-style:italic}
 .freedom-home .home-shortcuts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .65rem; }
 .freedom-home .home-shortcut { display: flex; align-items: center; gap: .65rem; min-width: 0; min-height: 64px; padding: .85rem; border: 1px solid #3b4350; border-radius: 12px; background: #1b1f27; color: #f4f6ef; font-size: 1rem; font-weight: 650; text-align: left; cursor: pointer; }
 .freedom-home .home-shortcut .workshop-icon { flex: 0 0 20px; color: #c4ff20; }

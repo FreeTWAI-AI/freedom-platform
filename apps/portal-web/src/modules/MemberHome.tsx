@@ -96,10 +96,10 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
         <button type="button" className="btn btn-ghost" onClick={() => { setActiveChannel('all'); setExpanded(true); }}>開啟完整控制台 ↗</button>
       </header>
       <div className="home-live-channels" aria-label="控制台頻道">
-        {GAME_CONSOLE_CHANNELS.filter(channel=>channel.id==='all'||visibility[channel.id]).map(channel => <button type="button" key={channel.id} onClick={() => openChannel(channel.id)}>{channel.label}<span aria-hidden="true">↗</span></button>)}
+        {GAME_CONSOLE_CHANNELS.filter(channel=>channel.id==='all'||visibility[channel.id]).map(channel => <button type="button" key={channel.id} data-channel={channel.id} onClick={() => openChannel(channel.id)}>{channel.label}<span aria-hidden="true">↗</span></button>)}
       </div>
       <div className="home-live-stream" aria-label="最近的控制台訊息">
-        {recent.map(event => <button type="button" className={`home-live-line is-${event.level}`} key={event.id} onClick={() => openChannel(event.channel)} aria-label={`${GAME_CONSOLE_CHANNELS.find(channel => channel.id === event.channel)?.label}：${event.message}`}>
+        {recent.map(event => <button type="button" className={`home-live-line is-${event.level}`} key={event.id} data-channel={event.channel} data-kind={event.kind} onClick={() => openChannel(event.channel)} aria-label={`${GAME_CONSOLE_CHANNELS.find(channel => channel.id === event.channel)?.label}：${event.message}`}>
           <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleTimeString('zh-TW', {hour:'2-digit',minute:'2-digit',hour12:false})}</time>
           <strong>{event.source}</strong><span>{event.message}</span>
         </button>)}

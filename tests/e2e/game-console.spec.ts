@@ -13,7 +13,7 @@ test('訊息控制台 stays visible during required positioning without reading 
   await page.getByRole('button',{name:'註冊並開始定位',exact:true}).click();
   await expect(page.getByRole('heading',{name:'你喜歡怎麼做事？'})).toBeVisible();
   await expect(page.getByRole('button',{name:'展開訊息控制台'})).toBeVisible();
-  expect((await page.locator('.game-console').boundingBox())?.x).toBeLessThan(20);
+  expect((await page.locator('.game-console-ticker').boundingBox())?.x).toBeLessThan(20);
   await page.getByRole('button',{name:'展開訊息控制台'}).click();
   await expect(page.getByRole('heading',{name:'訊息控制台',level:2})).toBeVisible();
   expect(feedReads).toHaveLength(0);
@@ -52,13 +52,25 @@ test('global 訊息控制台 persists across modules and synchronizes with its p
   await consolePanel.getByRole('tab',{name:/系統指令/}).click();
   await expect(consolePanel.getByRole('log')).toContainText('訊息控制台已連線');
   await consolePanel.getByRole('tab',{name:/私人聊天/}).click();
-  await expect(consolePanel.getByRole('link',{name:'前往我的訊息'})).toBeVisible();
+  await expect(consolePanel.getByLabel('私訊對象')).toBeVisible();
+  await consolePanel.getByLabel('搜尋會員').fill('示範需求者');
+  await expect(consolePanel.getByLabel('私訊對象').locator('option')).toContainText(['請選擇會員','示範需求者 · 20000000']);
+  await consolePanel.getByLabel('私訊對象').selectOption('20000000-0000-4000-8000-000000000002');
+  const directMessage=`控制台私訊 ${randomUUID()}`;
+  await consolePanel.getByLabel('私人訊息').fill(directMessage);
+  await consolePanel.getByRole('button',{name:'傳送'}).click();
+  await expect(consolePanel.getByRole('log')).toContainText(directMessage);
+  await expect(consolePanel.locator('.game-console-entry[data-channel="direct"]')).toHaveCSS('border-left-color','rgb(209, 169, 255)');
+  await consolePanel.getByRole('tab',{name:'公會聊天'}).click();
+  await expect(consolePanel.getByLabel('公會頻道')).toBeVisible();
+  await consolePanel.getByRole('tab',{name:'小隊聊天'}).click();
+  await expect(consolePanel.getByLabel('小隊頻道')).toBeVisible();
   await consolePanel.locator('.game-console-visibility summary').click();
   await consolePanel.getByLabel('AI 指令',{exact:true}).uncheck();
   await expect(consolePanel.getByRole('tab',{name:'AI 指令'})).toHaveCount(0);
   await consolePanel.locator('.game-console-visibility summary').click();
   await consolePanel.getByRole('tab',{name:'世界聊天'}).click();
-  await consolePanel.locator('#game-console-world-input').fill('世界聊天室測試');
+  await consolePanel.getByRole('textbox',{name:'世界聊天'}).fill('世界聊天室測試');
   await consolePanel.getByRole('button',{name:'傳送'}).click();
   await expect(consolePanel.getByRole('log')).toContainText('世界聊天室測試');
   await expect(consolePanel.getByLabel('輸入 Console 訊息')).toHaveCount(0);
@@ -77,7 +89,7 @@ test('global 訊息控制台 persists across modules and synchronizes with its p
   const popup=await popupPromise;
   await expect(popup.getByRole('heading',{name:'訊息控制台',level:1})).toBeVisible();
   await popup.getByRole('tab',{name:'世界聊天'}).click();
-  await popup.locator('#game-console-world-input').fill('彈出視窗世界訊息');
+  await popup.getByRole('textbox',{name:'世界聊天'}).fill('彈出視窗世界訊息');
   await popup.getByRole('button',{name:'傳送'}).click();
   await expect(popup.getByRole('log')).toContainText('彈出視窗世界訊息');
   await consolePanel.getByRole('tab',{name:'世界聊天'}).click();
@@ -91,7 +103,7 @@ test('global 訊息控制台 persists across modules and synchronizes with its p
   await navigate(page,'職業公會');
   await expect(popup.getByRole('log')).toContainText('已進入「職業公會」');
   await popup.getByRole('tab',{name:/私人聊天/}).click();
-  await expect(popup.getByRole('link',{name:'前往我的訊息'})).toHaveAttribute('target','_blank');
+  await expect(popup.getByLabel('私訊對象')).toBeVisible();
 
   await consolePanel.getByRole('button',{name:'收合訊息控制台'}).click();
   await page.setViewportSize({width:390,height:844});
@@ -100,5 +112,33 @@ test('global 訊息控制台 persists across modules and synchronizes with its p
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.getByRole('button',{name:'登出',exact:true}).click();
   await expect(popup.getByText('登入已結束')).toBeVisible();
+  await popup.close();
+});
+
+test('pop-out keeps receiving room messages after its original page closes',async({page})=>{
+  await page.goto('/');
+  await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
+  await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
+  await page.getByRole('button',{name:'登入',exact:true}).click();
+  await page.getByRole('button',{name:'展開訊息控制台'}).click();
+  const popupPromise=page.waitForEvent('popup');
+  await page.getByRole('button',{name:'在獨立視窗開啟訊息控制台'}).click();
+  const popup=await popupPromise;
+  await expect(popup.getByRole('heading',{name:'訊息控制台'})).toBeVisible();
+  await page.close();
+
+  const sender=await popup.context().newPage();
+  await sender.goto('/');
+  await sender.getByRole('button',{name:'展開訊息控制台'}).click();
+  await sender.getByRole('tab',{name:'世界聊天'}).click();
+  const message=`獨立視窗繼續接收 ${randomUUID()}`;
+  await sender.getByRole('textbox',{name:'世界聊天'}).fill(message);
+  await sender.getByRole('button',{name:'傳送'}).click();
+  await expect(sender.getByRole('log')).toContainText(message);
+  await popup.bringToFront();
+  await expect.poll(()=>popup.evaluate(()=>document.visibilityState)).toBe('visible');
+  await popup.getByRole('tab',{name:'世界聊天'}).click();
+  await expect(popup.getByRole('log')).toContainText(message,{timeout:15000});
+  await sender.close();
   await popup.close();
 });
