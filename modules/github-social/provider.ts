@@ -74,11 +74,31 @@ export class GitHubSocialProvider {
   async star(repository:string,token:string,desired:boolean):Promise<void>{
     await this.request(`${API}/user/starred/${repository}`,{method:desired?'PUT':'DELETE',headers:{Authorization:`Bearer ${token}`,'Content-Length':'0'}},[204]);
   }
-  async createPlatformIssue(token:string,title:string,body:string):Promise<{number:number;authorId:string}>{
-    const result=await this.request(`${API}/repos/FreeTWAI-AI/freedom-platform/issues`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({title,body})},[201]);
+  async createPlatformIssue(token:string,title:string,body:string,pageLabel:string,appId?:string):Promise<{number:number;authorId:string}>{
+    let result:{status:number;body:unknown};
+    try{result=await this.request(`${API}/repos/FreeTWAI-AI/freedom-platform/issues`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({title,body,labels:[pageLabel]})},[201]);}
+    catch(error){
+      if(error instanceof GitHubProviderError&&error.code==='github_permission_required'&&appId){
+        // A registered App is not necessarily installed on this organization.
+        // Diagnose only after a denied write; never replay the write with another token.
+        try{if(!await this.hasAppInstallation(token,appId))throw new GitHubProviderError('github_installation_required',403)}
+        catch(checkError){if(checkError instanceof GitHubProviderError&&checkError.code==='github_installation_required')throw checkError;}
+      }
+      throw error;
+    }
     const parsed=z.object({number:z.number().int().positive(),user:z.object({id:z.number().int().positive().safe()})}).safeParse(result.body);
     if(!parsed.success)throw new GitHubProviderError('github_invalid_response');
     return {number:parsed.data.number,authorId:String(parsed.data.user.id)};
+  }
+  private async hasAppInstallation(token:string,appId:string):Promise<boolean>{
+    const auth={headers:{Authorization:`Bearer ${token}`}};
+    for(let page=1;page<=3;page++){
+      const parsed=z.object({installations:z.array(z.object({app_id:z.number().int().positive().safe()})).max(100)}).safeParse((await this.request(`${API}/user/installations?per_page=100&page=${page}`,auth,[200],1048576)).body);
+      if(!parsed.success)throw new GitHubProviderError('github_invalid_response');
+      if(parsed.data.installations.some(value=>String(value.app_id)===appId))return true;
+      if(parsed.data.installations.length<100)break;
+    }
+    return false;
   }
   async revoke(config:GitHubSocialConfig,token:string):Promise<void>{
     await this.request(`${API}/applications/${encodeURIComponent(config.clientId)}/token`,{method:'DELETE',headers:{Authorization:`Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')}`,'Content-Type':'application/json'},body:JSON.stringify({access_token:token})},[204,404]);

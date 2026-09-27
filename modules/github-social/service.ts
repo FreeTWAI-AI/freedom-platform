@@ -211,13 +211,13 @@ export class GitHubSocial {
         const result=await this.withToken(q,actor,connection,async token=>{
           const identity=await this.provider.identity(token);
           requireCondition(identity.id===connection.github_user_id,409,'github_reconnect_required','GitHub 身分已變更，請重新連結。');
-          return this.provider.createPlatformIssue(token,cleanTitle,issueBody);
+          return this.provider.createPlatformIssue(token,cleanTitle,issueBody,`page:${pageId}`,this.config?.appId);
         });
         requireCondition(result.authorId===connection.github_user_id,502,'github_issue_unconfirmed','GitHub 發布結果尚未確認，請到 GitHub 核對。');
         await q.query('UPDATE github_page_issue_submissions SET state=\'confirmed\',issue_number=$3,updated_at=now() WHERE user_id=$1 AND operation_key=$2',[actor.user_id,operationKey,result.number]);
         return {confirmed:true,issue_number:result.number,issue_url:`${PLATFORM_REPOSITORY}/issues/${result.number}`};
       }catch(error){
-        if(error instanceof Problem&&['github_permission_required','github_repository_unavailable','github_reconnect_required'].includes(error.code))await q.query('UPDATE github_page_issue_submissions SET state=\'denied\',updated_at=now() WHERE user_id=$1 AND operation_key=$2',[actor.user_id,operationKey]);
+        if(error instanceof Problem&&['github_permission_required','github_installation_required','github_repository_unavailable','github_reconnect_required'].includes(error.code))await q.query('UPDATE github_page_issue_submissions SET state=\'denied\',updated_at=now() WHERE user_id=$1 AND operation_key=$2',[actor.user_id,operationKey]);
         throw error;
       }
     });

@@ -8,6 +8,7 @@ test('every workspace page exposes contextual tools, filtered issues and agent g
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
   await page.getByRole('button',{name:'登入',exact:true}).click();
   await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
+  await page.route('**/api/v1/me/github',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({configured:true,connected:true,github_user:{id:'123',login:'maker'}})}));
   await page.getByRole('button',{name:'提出想法'}).click();
   const idea=page.getByRole('dialog',{name:'會員首頁：提出想法'});
   await expect(idea).toBeVisible();
@@ -17,7 +18,13 @@ test('every workspace page exposes contextual tools, filtered issues and agent g
   await expect(idea.getByRole('button',{name:'已複製認領留言'})).toBeVisible();
   expect(await page.evaluate(()=>(window as typeof window&{copiedClaim?:string}).copiedClaim)).toContain('<!-- freedom-design-claim -->');
   await idea.getByRole('textbox',{name:'標題'}).fill('首頁想法');
-  await idea.getByRole('textbox',{name:'想法與期待'}).fill('讓入口更清楚。');
+  await idea.getByRole('textbox',{name:'想法與期待'}).fill('太短');
+  const direct=idea.getByRole('button',{name:'用我的 GitHub 發布'});
+  await expect(direct).toBeEnabled();
+  await direct.click();
+  await expect(idea.getByRole('alert')).toContainText('至少 3 字的標題與 10 字');
+  await expect(direct).toBeEnabled();
+  await idea.getByRole('textbox',{name:'想法與期待'}).fill('讓會員首頁的入口更清楚容易理解。');
   await expect(idea.locator('pre')).toContainText('<!-- freedom-page:home -->');
   await page.evaluate(()=>{(window as typeof window&{issuedGitHubUrl?:string}).open=(url)=>{(window as typeof window&{issuedGitHubUrl?:string}).issuedGitHubUrl=String(url);return null}});
   await idea.getByRole('button',{name:'到 GitHub 檢查並送出'}).click();
@@ -29,7 +36,8 @@ test('every workspace page exposes contextual tools, filtered issues and agent g
   await navigate(page,'我的定位');
   await page.getByRole('button',{name:'頁面說明'}).click();
   const help=page.getByRole('dialog',{name:'我的定位：頁面說明'});
-  await expect(help).toContainText('檢視與調整方向');
+  await expect(help.getByText('「我的定位」顯示你最後確認的方向與合作偏好')).toBeVisible();
+  await expect(help.getByText('重新填寫草稿不會立刻覆蓋原本確認的定位。')).toBeVisible();
   await expect(help.locator('pre')).toContainText('常見問題');
   await help.getByRole('button',{name:'關閉'}).click();
   await page.getByRole('button',{name:'參與編修'}).click();
