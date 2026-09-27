@@ -15,7 +15,7 @@ const actor: AdminActor = { admin_id: randomUUID(), community_id: randomUUID(), 
 const another: AdminActor = { ...actor, admin_id: randomUUID(), email: 'another-admin@example.invalid' };
 const code = 'a'.repeat(40), secret = 'synthetic-client-secret-1234567890';
 const app = { id: 1234567, slug: 'freedom-workshop-fixture', html_url: 'https://github.com/apps/freedom-workshop-fixture', external_url: origin,
-  owner: { login: 'FreeTWAI-AI', type: 'Organization' }, permissions: { starring: 'write', metadata: 'read' }, events: [],
+  owner: { login: 'FreeTWAI-AI', type: 'Organization' }, permissions: { starring: 'write', metadata: 'read', issues: 'write' }, events: [],
   client_id: 'Iv23.synthetic-client-id', client_secret: secret, pem: 'DO-NOT-STORE-THIS-PRIVATE-KEY', webhook_secret: 'DO-NOT-STORE-WEBHOOK-SECRET', token: 'DO-NOT-STORE-TOKEN' };
 const publicResult = { configured: true, app_id: String(app.id), app_slug: app.slug, html_url: app.html_url };
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -56,16 +56,16 @@ async function complete(state: string, remote = provider(), admin = actor) {
   return completeGitHubAppSetup(pool, admin, { code, state }, tokenKey, { fetcher: remote.fetcher });
 }
 
-test('manifest requests starring write and metadata read, fixed callbacks and a disabled webhook; database stores a hashed ten-minute state', async () => {
+test('manifest requests starring and issues write with metadata read, fixed callbacks and a disabled webhook; database stores a hashed ten-minute state', async () => {
   assert.deepEqual(await githubAppSetupStatus(pool, actor), { configured: false });
   assert.equal(await readSocialConfig(pool, tokenKey), null);
   const before = Date.now(), result = await start(), manifest = JSON.parse(result.manifest), target = new URL(result.target);
   assert.equal(target.origin + target.pathname, 'https://github.com/organizations/FreeTWAI-AI/settings/apps/new');
   assert.match(result.state, /^[A-Za-z0-9_-]{43}$/); assert.match(manifest.name, /^freedom-workshop-[a-f0-9]{12}$/);
-  assert.match(manifest.description, /自由工坊技能書/);
+  assert.match(manifest.description, /自由工坊/);
   assert.deepEqual({ ...manifest, name: undefined, description: undefined }, { name: undefined, description: undefined, url: origin,
     redirect_url: `${origin}/admin/github/callback`, callback_urls: [`${origin}/github/callback`], public: true,
-    default_permissions: { starring: 'write', metadata: 'read' }, hook_attributes: { url: `${origin}/github/events`, active: false } });
+    default_permissions: { starring: 'write', metadata: 'read', issues: 'write' }, hook_attributes: { url: `${origin}/github/events`, active: false } });
   const [saved] = await setupRows();
   assert.equal(saved.state_hash, hash(result.state)); assert.equal(saved.admin_id, actor.admin_id); assert.equal(saved.community_id, actor.community_id);
   assert.equal(saved.origin, origin); assert.equal(saved.consumed_at, null); assert.equal(saved.code_hash, null);
@@ -193,9 +193,10 @@ const providerFailures: { name: string; response: () => Promise<Response> }[] = 
     'unsafe app URL': { html_url: 'https://github.com.evil.invalid/apps/freedom-workshop-fixture' },
     'wrong app slug URL': { html_url: 'https://github.com/apps/unrelated-app' },
     'insufficient starring permission': { permissions: { starring: 'read' } },
-    'missing metadata permission': { permissions: { starring: 'write' } },
-    'additional write permission': { permissions: { starring: 'write', contents: 'write' } },
-    'metadata write permission': { permissions: { starring: 'write', metadata: 'write' } },
+    'missing metadata permission': { permissions: { starring: 'write', issues: 'write' } },
+    'missing issues write permission': { permissions: { starring: 'write', metadata: 'read', issues: 'read' } },
+    'additional write permission': { permissions: { starring: 'write', metadata: 'read', issues: 'write', contents: 'write' } },
+    'metadata write permission': { permissions: { starring: 'write', metadata: 'write', issues: 'write' } },
     'subscribed events': { events: ['push'] },
     'missing client secret': { client_secret: undefined },
     'unsafe app identifier': { id: Number.MAX_SAFE_INTEGER + 1 },

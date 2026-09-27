@@ -151,6 +151,7 @@ test('global 訊息控制台 persists across modules and synchronizes with its p
   await expect(consolePanel.getByRole('textbox',{name:'世界聊天訊息'})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await consolePanel.screenshot({path:'test-results/game-console-mobile-expanded.png'});
+  await consolePanel.getByRole('button',{name:'收合訊息控制台'}).click();
   await page.getByRole('button',{name:'登出',exact:true}).click();
   await expect(popup.getByText('登入已結束')).toBeVisible();
   await popup.close();

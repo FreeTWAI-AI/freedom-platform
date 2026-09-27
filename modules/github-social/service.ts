@@ -7,6 +7,7 @@ import type {Actor} from '../identity-membership/service.js';
 import {communityCatalog} from '../community/catalog.js';
 import {recordConfirmedStar,reconcileConfirmedStar} from '../community/discovery.js';
 import {GitHubProviderError,GitHubSocialProvider,type GitHubSocialConfig,type GitHubTokens,type RepositorySnapshot} from './provider.js';
+import {issuePageMarker,PLATFORM_REPOSITORY} from '../development/page-github.js';
 export type {GitHubSocialConfig} from './provider.js';
 
 const HOUR=60*60*1000;
@@ -186,6 +187,39 @@ export class GitHubSocial {
       try{await this.saveMetrics(q,key,await this.provider.metrics(book.repository,token));}
       catch(error){if(!(error instanceof GitHubProviderError))throw error;await this.failMetrics(q,key,error.code);}
       return {book_id:bookId,connected:true,starred:desired,confirmed:true};
+    });
+  }
+  async createPageIssue(actor:Actor,pageId:string,title:string,description:string,operationKey:string){
+    const marker=issuePageMarker(pageId),cleanTitle=title.trim(),cleanDescription=description.trim();
+    requireCondition(cleanTitle.length>=3&&cleanTitle.length<=120&&cleanDescription.length>=10&&cleanDescription.length<=2000,422,'github_issue_invalid','請填寫 3–120 字標題及 10–2000 字的想法。');
+    requireCondition(/^[A-Za-z0-9_-]{8,128}$/.test(operationKey),400,'idempotency_key_invalid','請重新載入頁面再試。');
+    this.configured();
+    const requestHash=hash(JSON.stringify([pageId,cleanTitle,cleanDescription]));
+    const issueBody=`${cleanDescription}\n\n頁面標記：page:${pageId}\n\n${marker}`;
+    return this.member(actor,async q=>{
+      const prior=(await q.query('SELECT * FROM github_page_issue_submissions WHERE user_id=$1 AND (operation_key=$2 OR (request_hash=$3 AND created_at>now()-interval \'24 hours\' AND state<>\'denied\')) ORDER BY created_at DESC LIMIT 1',[actor.user_id,operationKey,requestHash])).rows[0];
+      if(prior){
+        requireCondition(prior.request_hash===requestHash,409,'github_issue_key_reused','這次操作已用於不同內容，請重新填寫。');
+        requireCondition(prior.state==='confirmed',409,'github_issue_unconfirmed','GitHub 發布結果尚未確認。請先到 GitHub 查詢，避免重複提出。');
+        return {confirmed:true,issue_number:prior.issue_number,issue_url:`${PLATFORM_REPOSITORY}/issues/${prior.issue_number}`};
+      }
+      await this.rate(q,actor,'page-issue-write',5,600);
+      const connection=await this.connection(q,actor);
+      requireCondition(connection,409,'github_connect_required','請先連結自己的 GitHub 帳號。');
+      await q.query('INSERT INTO github_page_issue_submissions(user_id,operation_key,request_hash,page_id,state) VALUES($1,$2,$3,$4,\'pending\')',[actor.user_id,operationKey,requestHash,pageId]);
+      try{
+        const result=await this.withToken(q,actor,connection,async token=>{
+          const identity=await this.provider.identity(token);
+          requireCondition(identity.id===connection.github_user_id,409,'github_reconnect_required','GitHub 身分已變更，請重新連結。');
+          return this.provider.createPlatformIssue(token,cleanTitle,issueBody);
+        });
+        requireCondition(result.authorId===connection.github_user_id,502,'github_issue_unconfirmed','GitHub 發布結果尚未確認，請到 GitHub 核對。');
+        await q.query('UPDATE github_page_issue_submissions SET state=\'confirmed\',issue_number=$3,updated_at=now() WHERE user_id=$1 AND operation_key=$2',[actor.user_id,operationKey,result.number]);
+        return {confirmed:true,issue_number:result.number,issue_url:`${PLATFORM_REPOSITORY}/issues/${result.number}`};
+      }catch(error){
+        if(error instanceof Problem&&['github_permission_required','github_repository_unavailable','github_reconnect_required'].includes(error.code))await q.query('UPDATE github_page_issue_submissions SET state=\'denied\',updated_at=now() WHERE user_id=$1 AND operation_key=$2',[actor.user_id,operationKey]);
+        throw error;
+      }
     });
   }
   async disconnect(actor:Actor){

@@ -21,6 +21,7 @@ import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
 import { DevelopmentContext } from './modules/DevelopmentContext'
 import { BenefitObservations } from './modules/BenefitObservations'
 import { GameConsoleProvider, GameConsolePopout } from './GameConsole'
+import {PageTools} from './PageTools'
 import { logConsoleEvent } from './game-console-core'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PositioningPanel, GuildsPanel } from './modules/PositioningPanels'
@@ -132,7 +133,15 @@ function describeError(err: unknown): ActionError {
 export function App() {
   if(new URLSearchParams(window.location.search).get('game-console')==='popout')return <GameConsolePopout client={client}/>
   if(window.location.pathname==='/github/callback')return <GitHubCallback/>
-  return window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? <><AdminPanel/><DevelopmentContext moduleId="admin"/></> : <MemberApp/>
+  return window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? <AdminConsoleShell/> : <MemberApp/>
+}
+
+function AdminConsoleShell(){
+  const [memberId,setMemberId]=useState<string|null>(null)
+  useEffect(()=>{let live=true;void client.getSession().then(session=>{if(live){client.csrfToken=session.csrf_token;setMemberId(session.user.user_id)}}).catch(()=>{if(live)setMemberId(null)});return()=>{live=false}},[])
+  return <GameConsoleProvider client={memberId?client:undefined} userId={memberId??undefined} feedEnabled={Boolean(memberId)} standalone>
+    <AdminPanel memberClient={memberId?client:undefined}/><DevelopmentContext moduleId="admin"/>
+  </GameConsoleProvider>
 }
 
 function MemberApp() {
@@ -316,6 +325,7 @@ function LoginView({
       <section className="login-story"><BrandPoster/><div className="login-story-copy"><h1>完成定位、加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。</h1></div></section>
       <div className="login-form-area">
       <section className="card login-card" aria-labelledby="login-heading">
+        <div className="login-page-tools"><PageTools pageId="registration"/></div>
         {!accessExpired && <div className="auth-switch" role="group" aria-label="登入或建立帳號"><button type="button" className={mode==='login'?'selected':''} aria-pressed={mode==='login'} onClick={()=>{setMode('login');setError(null)}}>會員登入</button>{site?.registration_enabled&&<button type="button" className={mode==='register'?'selected':''} aria-pressed={mode==='register'} onClick={()=>{setMode('register');setError(null)}}>建立帳號</button>}</div>}
         <h2 id="login-heading">{accessExpired ? '網站登入已過期' : mode==='register'?'加入自由工坊':'登入'}</h2>
         {notice && !accessExpired && (
@@ -528,6 +538,7 @@ function Workspace({
               <div>
                 <h1>{tabTitle(tab)}</h1>
               </div>
+              <PageTools pageId={tab} client={client}/>
               <div className="topbar-actions"><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>}/><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
                 登出
               </button></div>

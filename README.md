@@ -38,6 +38,8 @@ Cloudflare Workers＋PlanetScale 已於 2026-09-25 切換。2026-09-24 候選站
 
 登入後的全站 Game Console 以底欄、展開面板與獨立視窗呈現系統提示、AI 工作說明、會員聊天與發布動態；資料來源和更新間隔見 [會員 Game Console](./docs/development/game-console.md)。
 
+各頁右上角提供想法、說明與編修入口；想法按頁面標記整理 GitHub Issue，站內發布使用會員自己的 GitHub 授權，手機世界聊天使用站內抽屜。權限與資料邊界見 [頁面工具與世界聊天](./docs/development/page-tools.md)。
+
 會員入口已按用途整理：技能書架獨立提供「已解鎖／未解鎖」書目，開源投稿只處理專案登錄；公會與平台管理集中在管理分組，手機使用可展開選單。詳見 [全站導覽審查](./docs/development/workspace-ia-review.md)。
 
 公會頁依「主要與次要」「其他已加入」「未加入」分區。最上方最多三張：一個主要、兩個可自行設定的次要公會；新入會不會擠掉已選次要。卡片只列第一本入門技能，其餘收進公會技能書庫。已領取技能書在退出後保留，未解鎖書目仍可免費預覽。詳見 [公會分組與解鎖書架](./docs/development/guild-library-layout.md)。

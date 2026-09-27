@@ -74,6 +74,12 @@ export class GitHubSocialProvider {
   async star(repository:string,token:string,desired:boolean):Promise<void>{
     await this.request(`${API}/user/starred/${repository}`,{method:desired?'PUT':'DELETE',headers:{Authorization:`Bearer ${token}`,'Content-Length':'0'}},[204]);
   }
+  async createPlatformIssue(token:string,title:string,body:string):Promise<{number:number;authorId:string}>{
+    const result=await this.request(`${API}/repos/FreeTWAI-AI/freedom-platform/issues`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({title,body})},[201]);
+    const parsed=z.object({number:z.number().int().positive(),user:z.object({id:z.number().int().positive().safe()})}).safeParse(result.body);
+    if(!parsed.success)throw new GitHubProviderError('github_invalid_response');
+    return {number:parsed.data.number,authorId:String(parsed.data.user.id)};
+  }
   async revoke(config:GitHubSocialConfig,token:string):Promise<void>{
     await this.request(`${API}/applications/${encodeURIComponent(config.clientId)}/token`,{method:'DELETE',headers:{Authorization:`Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')}`,'Content-Type':'application/json'},body:JSON.stringify({access_token:token})},[204,404]);
   }

@@ -11,7 +11,7 @@ const origin='http://127.0.0.1:4310',url=process.env.TEST_DATABASE_URL??LOCAL_DA
 const schema=`fp_social_routes_${process.pid}_${Date.now()}`,database=createPool(url),pool=new Pool({connectionString:url,options:`-c search_path=${schema}`});
 const tokenKey=Buffer.alloc(32,9).toString('base64'),adminId=randomUUID();
 const config={clientId:'Iv1.route-tests',clientSecret:'test-secret-only-not-a-credential',tokenKey,redirectUri:origin+'/github/callback'};
-let calls:{path:string;method:string;authorization:string|null}[]=[],starred=false;
+let calls:{path:string;method:string;authorization:string|null}[]=[],starred=false,issueWrites=0,issueStatus=201,issueBody='';
 const fetcher:typeof fetch=async(input,init)=>{
  const u=new URL(String(input));calls.push({path:u.pathname,method:init?.method??'GET',authorization:new Headers(init?.headers).get('Authorization')});
  if(u.origin==='https://github.com'&&u.pathname==='/login/oauth/access_token')return Response.json({access_token:'ghu_synthetic_route_test',token_type:'bearer',scope:'',expires_in:28800,refresh_token:'ghr_synthetic_route_test',refresh_token_expires_in:15897600});
@@ -20,6 +20,10 @@ const fetcher:typeof fetch=async(input,init)=>{
  if(u.pathname.startsWith('/user/starred/')){
   if(init?.method==='PUT')starred=true;else if(init?.method==='DELETE')starred=false;
   return new Response(null,{status:init?.method==='PUT'||init?.method==='DELETE'||starred?204:404});
+ }
+ if(u.pathname==='/repos/FreeTWAI-AI/freedom-platform/issues'&&init?.method==='POST'){
+  issueWrites++;issueBody=String(init.body);
+  return issueStatus===201?Response.json({number:42,user:{id:901}},{status:201}):new Response(null,{status:issueStatus});
  }
  if(u.pathname.startsWith('/repos/'))return Response.json({private:false,stargazers_count:starred?8:7,forks_count:3,open_issues_count:2,subscribers_count:1,pushed_at:'2026-09-20T12:00:00Z',language:'TypeScript',archived:false});
  if(u.pathname.startsWith('/applications/'))return new Response(null,{status:204});
@@ -47,7 +51,24 @@ before(async()=>{await database.query(`CREATE SCHEMA ${schema}`);await migrate(p
 after(async()=>{await pool.end();await database.query(`DROP SCHEMA ${schema} CASCADE`);await database.end();});
 beforeEach(async()=>{
  await pool.query('TRUNCATE communities,login_attempts,auth_rate_limits,github_repository_metrics CASCADE');await seedLocal(pool);
- calls=[];starred=false;app=createApp(pool,origin,'local',{githubSocial:{config,fetcher}});member=await login();
+ calls=[];starred=false;issueWrites=0;issueStatus=201;issueBody='';app=createApp(pool,origin,'local',{githubSocial:{config,fetcher}});member=await login();
+});
+
+test('member issue submission uses that member’s GitHub token and keeps the page marker without duplicate writes',async()=>{
+ await connect();
+ const body={title:'讓首頁引導更清楚',description:'目前入口不夠清楚，希望說明下一步。',confirmed:true};
+ const headers={'Idempotency-Key':'page-issue-test-001'};
+ const first=await request('/me/github/pages/home/issues',body,member,headers);
+ assert.equal(first.status,201,await first.clone().text());
+ assert.deepEqual(await first.json(),{confirmed:true,issue_number:42,issue_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/42'});
+ assert.equal(issueWrites,1);assert.match(issueBody,/<!-- freedom-page:home -->/);
+ assert.ok(calls.some(call=>call.path==='/repos/FreeTWAI-AI/freedom-platform/issues'&&call.authorization==='Bearer ghu_synthetic_route_test'));
+ assert.equal((await request('/me/github/pages/home/issues',body,member,headers)).status,201);
+ assert.equal(issueWrites,1);
+ issueStatus=403;
+ const denied=await request('/me/github/pages/positioning/issues',{...body,title:'定位說明可以改善'},member,{'Idempotency-Key':'page-issue-test-002'});
+ assert.equal(denied.status,403);assert.equal(issueWrites,2);
+ assert.equal((await pool.query("SELECT state FROM github_page_issue_submissions WHERE operation_key='page-issue-test-002'")).rows[0].state,'denied');
 });
 
 test('public metrics use original catalog repository, are cached and appear in no-JavaScript skill pages',async()=>{
@@ -102,7 +123,7 @@ test('admin setup is separately authorized and limits the external form destinat
  const adminRequest=(path:string,body?:unknown,csrf='admin-csrf')=>app.request(origin+'/admin/api'+path,{method:body===undefined?'GET':'POST',headers:{Origin:origin,'Content-Type':'application/json','X-Synthetic-Admin':'valid','X-Admin-CSRF':csrf},...(body!==undefined?{body:JSON.stringify(body)}:{})});
  assert.equal((await adminRequest('/github-app/start',{},'wrong')).status,403);
  const start=await adminRequest('/github-app/start',{});assert.equal(start.status,200);const setup=await start.json() as any,manifest=JSON.parse(setup.manifest);
- assert.equal(new URL(setup.target).pathname,'/organizations/FreeTWAI-AI/settings/apps/new');assert.deepEqual(manifest.default_permissions,{starring:'write',metadata:'read'});assert.deepEqual(manifest.callback_urls,[origin+'/github/callback']);
+ assert.equal(new URL(setup.target).pathname,'/organizations/FreeTWAI-AI/settings/apps/new');assert.deepEqual(manifest.default_permissions,{starring:'write',metadata:'read',issues:'write'});assert.deepEqual(manifest.callback_urls,[origin+'/github/callback']);
  assert.equal(manifest.hook_attributes.active,false);assert.ok(!JSON.stringify(setup).includes('client_secret'));
  assert.deepEqual(await (await adminRequest('/github-app')).json(),{configured:false,setup_available:true});
  for(const path of ['/admin','/admin/github/callback'])assert.match((await app.request(origin+path)).headers.get('content-security-policy')!,/form-action 'self' https:\/\/github\.com\/organizations\/FreeTWAI-AI\/settings\/apps\/new/);

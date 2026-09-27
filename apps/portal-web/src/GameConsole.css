@@ -58,3 +58,28 @@
 @media(max-width:700px){.game-console-compose[data-channel="direct"]{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}.game-console-compose[data-channel="direct"] .game-console-message{grid-column:1/3}.game-console-compose[data-channel="direct"] button{grid-column:3;grid-row:2}}
 @media(max-width:520px){.game-console{right:0;bottom:0;left:0;border-right:0;border-bottom:0;border-left:0;border-radius:10px 10px 0 0}.game-console-ticker{height:44px}.game-console-ticker-open{grid-template-columns:auto auto minmax(0,1fr) auto;padding-inline:10px}.game-console-ticker-open>span[aria-hidden="true"]{display:none}.game-console-expanded{height:62dvh;min-height:350px}.game-console-entry,.game-console-entry.has-source{grid-template-columns:auto minmax(0,1fr) auto;gap:4px;padding-inline:4px;font-size:.76rem}.game-console-entry.has-source strong{grid-column:1;grid-row:2}.game-console-entry.has-source .game-console-content{grid-column:2;grid-row:1/3}.game-console-entry.has-source time{grid-column:3;grid-row:1}.game-console-entry time,.game-console-channel-tag,.game-console-entry strong{font-size:.65rem}.game-console-action{padding:8px}.game-console-compose[data-channel="direct"]{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}.game-console-compose[data-channel="guild"],.game-console-compose[data-channel="squad"]{grid-template-columns:minmax(0,1fr) auto}.game-console-compose[data-channel="guild"] .game-console-target,.game-console-compose[data-channel="squad"] .game-console-target{grid-column:1/-1}.game-console-compose[data-channel="guild"] .game-console-message,.game-console-compose[data-channel="squad"] .game-console-message{grid-column:1}.game-console-compose[data-channel="guild"] button,.game-console-compose[data-channel="squad"] button{grid-column:2}.game-console-compose[data-channel="world_chat"]{grid-template-columns:auto minmax(0,1fr) auto;gap:5px}.game-console-compose-scope{padding-inline:7px;font-size:.69rem}.game-console-compose-scope small{display:none}.game-console-compose[data-channel="world_chat"] button{padding-inline:10px}.game-console-footer{display:none}}
 @media(prefers-reduced-motion:reduce){.game-console-ticker-lines{animation:none}.game-console-history{scroll-behavior:auto}}
+/* Keep author names readable and give the message more room than metadata. */
+.game-console{font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif}
+.game-console-entry,.game-console-entry.has-source{font-size:.875rem;line-height:1.55;gap:6px 10px}
+.game-console-entry.has-source{grid-template-columns:auto minmax(min-content,max-content) minmax(0,1fr) auto}
+.game-console-entry strong{max-width:22ch;overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere;font-size:.875rem}
+.game-console-entry time{font-size:.75rem;color:#9aaca1}
+.game-console-channel-tag{font-size:.75rem}
+.game-console-tabs button{font-size:.875rem}
+.game-console-compose input,.game-console-compose select{min-height:44px;font-size:.875rem}
+.game-console-compose button{min-height:44px;font-size:.875rem}
+.game-console-compose-scope{min-height:44px;font-size:.8rem}
+@media(max-width:860px){.game-console-popout{display:none}}
+@media(max-width:520px){
+  .game-console-expanded{height:calc(100dvh - 64px);min-height:0;max-height:760px}
+  .game-console-entry,.game-console-entry.has-source{grid-template-columns:auto minmax(0,1fr) auto;gap:3px 8px;padding:8px 5px;font-size:.875rem}
+  .game-console-entry.has-source strong{grid-column:2/4;grid-row:1;max-width:none;font-size:.875rem}
+  .game-console-entry .game-console-content,.game-console-entry.has-source .game-console-content{grid-column:1/3;grid-row:2}
+  .game-console-entry time,.game-console-entry.has-source time{grid-column:3;grid-row:2;align-self:end;font-size:.72rem}
+  .game-console-channel-tag{font-size:.74rem}
+  .game-console-compose input,.game-console-compose select{font-size:16px}
+  .game-console-compose[data-channel="world_chat"]{grid-template-columns:minmax(0,1fr) auto}
+  .game-console-compose[data-channel="world_chat"] .game-console-compose-scope{grid-column:1/-1;min-height:0;padding:0;border:0;background:none}
+  .game-console-compose[data-channel="world_chat"] .game-console-message{grid-column:1}
+  .game-console-compose[data-channel="world_chat"] button{grid-column:2;min-width:54px}
+}

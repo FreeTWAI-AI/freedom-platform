@@ -5,6 +5,8 @@ import {ADMIN_ACCESS_EXPIRED_MESSAGE,AdminClient,AdminRequestError} from './admi
 import {AdminGitHubSetup} from './AdminGitHubSetup';
 import {AdminGuildWorkspace} from './GuildWorkspace';
 import {AdminGuildManagement,type ManagedGuild} from './AdminGuildManagement';
+import {PageTools} from '../PageTools';
+import type {PortalClient} from '../api';
 
 type Admin = {admin_id:string;email:string;display_name:string;role:string;community_id:string};
 type Bootstrap = {admin:Admin;csrf_token:string;available_skill_books:{id:string;title:string}[];pending_guild_appointments?:{guild_key:string;name:string;state:'pending'|'bound';bound_user_id:string|null}[];summary:{members:number;active_members:number;pending_guild_applications:number;guilds:number;admins:number}};
@@ -24,7 +26,7 @@ const adminGroups:{label:string;items:[AdminTab,string][] }[]=[
   {label:'系統',items:[['github','GitHub 連結'],['audit','操作紀錄'],['errors','系統錯誤日誌']]},
 ];
 const moduleOptions=[['guilds','公會交流'],['engagement','社群參與'],['positioning','定位與陪跑'],['supplier','供貨'],['retail','商店與銷售'],['opensource','開源作品'],['marketing','行銷'],['workbench','互助協作']];
-export function AdminPanel(){
+export function AdminPanel({memberClient}:{memberClient?:PortalClient}={}){
   const client=useRef(new AdminClient()).current;
   const [bootstrap,setBootstrap]=useState<Bootstrap|null>(null),[bootError,setBootError]=useState(''),[booting,setBooting]=useState(true),[tab,setTab]=useState<AdminTab>(window.location.pathname==='/admin/github/callback'?'github':'members');
   const [members,setMembers]=useState<Member[]>([]),[query,setQuery]=useState(''),[nextOffset,setNextOffset]=useState<number|null>(null),[applications,setApplications]=useState<GuildApplication[]>([]),[applicationOffset,setApplicationOffset]=useState<number|null>(null),[guilds,setGuilds]=useState<Guild[]>([]),[admins,setAdmins]=useState<AdminNomination[]>([]),[audit,setAudit]=useState<Audit[]>([]);
@@ -64,7 +66,7 @@ export function AdminPanel(){
   async function memberSearch(event:FormEvent){event.preventDefault();appliedQuery.current=query.trim();await load();}
 
   const refreshSummary=()=>void start();
-  return <main className="admin-layout admin-workspace"><header className="admin-header"><div className="brand"><span className="mark" aria-hidden="true"/><div><p className="eyebrow">FREEDOM WORKSHOP</p><h1>平台管理</h1></div></div><a className="btn btn-ghost" href="/">返回自由工坊</a></header>
+  return <main className="admin-layout admin-workspace"><header className="admin-header"><div className="brand"><span className="mark" aria-hidden="true"/><div><p className="eyebrow">FREEDOM WORKSHOP</p><h1>平台管理</h1></div></div><div className="admin-page-actions"><PageTools pageId="admin" client={memberClient}/><a className="btn btn-ghost" href="/">返回自由工坊</a></div></header>
     {booting&&<p role="status">正在確認管理員身分…</p>}
     {!booting&&!bootstrap&&<section className="card stack"><h2>需要管理員驗證</h2><p>這是獨立的管理入口，僅限已核准的管理員。請使用管理員的 Access 身分登入。</p>{bootError&&<p className="banner banner-error" role="alert">{bootError}</p>}{accessExpired?<button type="button" className="btn btn-primary" onClick={()=>window.location.reload()}>重新載入頁面</button>:<button className="btn btn-primary" onClick={()=>void start()}>重新確認管理身分</button>}</section>}
     {bootstrap&&<>
