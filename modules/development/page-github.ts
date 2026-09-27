@@ -56,32 +56,36 @@ export class PageGitHubReader {
 }
 
 const eventSchema=z.object({id:z.string(),type:z.string(),actor:z.object({login:z.string()}).nullable(),created_at:z.iso.datetime(),payload:z.unknown()});
-const subjectSchema=z.object({number:z.number().int().positive(),title:z.string().max(1000),html_url:z.string().url()});
+const subjectSchema=z.object({number:z.number().int().positive(),title:z.string().max(1000).optional(),html_url:z.string().url().optional(),url:z.string().url().optional()});
 const claimSchema=z.object({action:z.literal('created'),issue:subjectSchema.extend({pull_request:z.unknown().optional()}),comment:z.object({body:z.string().nullable(),html_url:z.string().url()})});
 const reviewSchema=z.object({action:z.literal('created'),pull_request:subjectSchema,review:z.object({state:z.literal('approved').or(z.literal('APPROVED')),html_url:z.string().url()})});
 const openedSchema=z.object({action:z.literal('opened'),issue:subjectSchema.optional(),pull_request:subjectSchema.optional()});
-const repoIssueUrl=/^https:\/\/github\.com\/FreeTWAI-AI\/freedom-platform\/issues\/([1-9][0-9]*)$/;
-const repoPullUrl=/^https:\/\/github\.com\/FreeTWAI-AI\/freedom-platform\/pull\/([1-9][0-9]*)$/;
+function subjectUrl(kind:'issues'|'pull',subject:z.infer<typeof subjectSchema>){
+  const html=`${PLATFORM_REPOSITORY}/${kind}/${subject.number}`;
+  const api=`https://api.github.com/repos/FreeTWAI-AI/freedom-platform/${kind==='pull'?'pulls':'issues'}/${subject.number}`;
+  return (subject.html_url||subject.url)&&(!subject.html_url||subject.html_url===html)&&(!subject.url||subject.url===api)?html:null;
+}
 function publicEvent(raw:unknown):PageGitHubEvent|null{
   const parsed=eventSchema.safeParse(raw);if(!parsed.success||!parsed.data.actor)return null;
   const {id,type,actor,created_at,payload}=parsed.data;
   if(type==='IssueCommentEvent'){
-    const value=claimSchema.safeParse(payload);if(!value.success||value.data.issue.pull_request||!value.data.comment.body?.includes(DESIGN_CLAIM_MARKER)||!repoIssueUrl.test(value.data.issue.html_url))return null;
+    const value=claimSchema.safeParse(payload);if(!value.success||value.data.issue.pull_request||!value.data.comment.body?.includes(DESIGN_CLAIM_MARKER)||!subjectUrl('issues',value.data.issue))return null;
     const {issue,comment}=value.data;
-    if(!comment.html_url.startsWith(`${issue.html_url}#issuecomment-`))return null;
-    return {id,kind:'design_claimed',number:issue.number,title:issue.title,url:comment.html_url,actor:actor.login,created_at};
+    if(!comment.html_url.startsWith(`${PLATFORM_REPOSITORY}/issues/${issue.number}#issuecomment-`))return null;
+    return {id,kind:'design_claimed',number:issue.number,title:issue.title??`Issue #${issue.number}`,url:comment.html_url,actor:actor.login,created_at};
   }
   if(type==='PullRequestReviewEvent'){
-    const value=reviewSchema.safeParse(payload);if(!value.success||!repoPullUrl.test(value.data.pull_request.html_url))return null;
+    const value=reviewSchema.safeParse(payload);if(!value.success||!subjectUrl('pull',value.data.pull_request))return null;
     const {pull_request,review}=value.data;
-    if(!review.html_url.startsWith(`${pull_request.html_url}#pullrequestreview-`))return null;
-    return {id,kind:'pr_approved',number:pull_request.number,title:pull_request.title,url:review.html_url,actor:actor.login,created_at};
+    if(!review.html_url.startsWith(`${PLATFORM_REPOSITORY}/pull/${pull_request.number}#pullrequestreview-`))return null;
+    return {id,kind:'pr_approved',number:pull_request.number,title:pull_request.title??`PR #${pull_request.number}`,url:review.html_url,actor:actor.login,created_at};
   }
   if(type==='IssuesEvent'||type==='PullRequestEvent'){
     const value=openedSchema.safeParse(payload);if(!value.success)return null;
     const subject=type==='IssuesEvent'?value.data.issue:value.data.pull_request;
-    if(!subject||!(type==='IssuesEvent'?repoIssueUrl:repoPullUrl).test(subject.html_url))return null;
-    return {id,kind:type==='IssuesEvent'?'issue_opened':'pr_opened',number:subject.number,title:subject.title,url:subject.html_url,actor:actor.login,created_at};
+    const kind=type==='IssuesEvent'?'issues':'pull';
+    if(!subject||!subjectUrl(kind,subject))return null;
+    return {id,kind:type==='IssuesEvent'?'issue_opened':'pr_opened',number:subject.number,title:subject.title??`${kind==='issues'?'Issue':'PR'} #${subject.number}`,url:`${PLATFORM_REPOSITORY}/${kind}/${subject.number}`,actor:actor.login,created_at};
   }
   return null;
 }

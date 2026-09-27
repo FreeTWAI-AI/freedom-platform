@@ -48,11 +48,15 @@ export async function readConsoleFeed(client:PortalClient, userId:string, includ
     id:`project:${item.project_id}`,channel:'guide',kind:'broadcast',source:'共創任務',
     message:`共創任務「${item.title}」已發布。`,createdAt:item.created_at!,
   }))
-  for(const item of github.items.slice(0,20))events.push(createConsoleEvent({
-    id:`github:${item.id}`,channel:'world_chat',kind:'broadcast',source:'GitHub · 自由工坊',
-    message:`${item.actor} ${{issue_opened:'提出 Issue',pr_opened:'提交 PR',pr_approved:'核准 PR',design_claimed:'表示願意接手 Issue 設計'}[item.kind]}：${item.title}（#${item.number}）`,
-    detail:item.url,createdAt:item.created_at,
-  }))
+  for(const item of github.items.slice(0,20)){
+    const action={issue_opened:'提出 Issue',pr_opened:'提交 PR',pr_approved:'核准 PR',design_claimed:'表示願意接手 Issue 設計'}[item.kind]
+    const generic=item.title===`Issue #${item.number}`||item.title===`PR #${item.number}`
+    events.push(createConsoleEvent({
+      id:`github:${item.id}`,channel:'world_chat',kind:'broadcast',source:'GitHub · 自由工坊',
+      message:`${item.actor} ${action}${generic?'':`：${item.title}`}（#${item.number}）`,
+      detail:item.url,createdAt:item.created_at,
+    }))
+  }
   // Only unread peers are opened. A conversation's last message might be our own,
   // so its summary alone cannot stand in for an incoming message.
   const peers=conversations.items.filter(item=>item.unread_count>0).slice(0,8)

@@ -43,10 +43,14 @@ test('world announcements use only verified GitHub actions and never a page open
     event('6','IssueCommentEvent',{action:'created',issue:{...subject('issues',1),pull_request:{}},comment:{body:DESIGN_CLAIM_MARKER,html_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/1#issuecomment-6'}}),
     event('7','PullRequestReviewEvent',{action:'dismissed',pull_request:subject('pull',2),review:{state:'approved',html_url:'https://github.com/FreeTWAI-AI/freedom-platform/pull/2#pullrequestreview-7'}}),
     event('8','PageOpenedEvent',{}),
+    event('9','PullRequestEvent',{action:'opened',number:9,pull_request:{number:9,url:'https://api.github.com/repos/FreeTWAI-AI/freedom-platform/pulls/9'}}),
+    event('10','PullRequestReviewEvent',{action:'created',pull_request:{number:9,url:'https://api.github.com/repos/FreeTWAI-AI/freedom-platform/pulls/9'},review:{state:'approved',html_url:'https://github.com/FreeTWAI-AI/freedom-platform/pull/9#pullrequestreview-10'}}),
+    event('11','PullRequestEvent',{action:'opened',pull_request:{number:10,url:'https://api.github.com/repos/other/repo/pulls/10'}}),
   ]))};
   const reader=new PageGitHubEventReader(fetcher,()=>clock);
-  assert.deepEqual((await reader.read()).items.map(item=>item.kind),['issue_opened','pr_opened','pr_approved','design_claimed']);
+  assert.deepEqual((await reader.read()).items.map(item=>item.kind),['issue_opened','pr_opened','pr_approved','design_claimed','pr_opened','pr_approved']);
   assert.equal((await reader.read()).items[3].actor,'member');assert.equal(calls,1);
+  assert.equal((await reader.read()).items[4].title,'PR #9');
   clock=90001;await reader.read();assert.equal(calls,2);
 });
 
