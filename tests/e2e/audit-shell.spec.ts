@@ -85,7 +85,7 @@ for (const viewport of VIEWPORTS) {
     await expect(switcher.getByRole('button', { name: '會員登入', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(switcher.getByRole('button', { name: '建立帳號', exact: true })).toHaveAttribute('aria-pressed', 'false');
 
-    // Page tools may precede the theme picker; all account controls remain keyboard reachable.
+    // Page tools precede account controls; the theme menu lives in the signed-in profile.
     const seen:string[]=[];
     for (let index=0;index<16;index++) {
       await page.keyboard.press('Tab');
@@ -98,7 +98,7 @@ for (const viewport of VIEWPORTS) {
       await expect(page.locator(':focus')).toBeInViewport();
       if(label==='登入')break;
     }
-    let position=-1;for(const stop of ['選擇自由工坊主題','會員登入','建立帳號','email','password','登入']){const next=seen.indexOf(stop,position+1);expect(next,`${viewport.name}: ${stop} in ${seen.join(' → ')}`).toBeGreaterThan(position);position=next;}
+    let position=-1;for(const stop of ['會員登入','建立帳號','email','password','登入']){const next=seen.indexOf(stop,position+1);expect(next,`${viewport.name}: ${stop} in ${seen.join(' → ')}`).toBeGreaterThan(position);position=next;}
     await page.screenshot({ path: `test-results/audit-shell-login-${viewport.name}.png`, fullPage: true });
   });
 }

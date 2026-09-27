@@ -2,6 +2,7 @@ import {useEffect,useId,useRef,useState,type KeyboardEvent,type ReactNode} from 
 import type {TabId} from '../types';
 import type {PortalClient} from '../api';
 import {useInboxUnread} from './member-inbox';
+import {WORKSHOP_THEMES,useWorkshopTheme} from '../workshop-theme';
 import './MemberSettings.css';
 
 export const SETTINGS_PAGES=[['account','我的名片'],['todos','待辦清單'],['messages','我的訊息']] as const satisfies readonly (readonly [TabId,string])[];
@@ -9,6 +10,7 @@ export const SETTINGS_PAGES=[['account','我的名片'],['todos','待辦清單']
 /** Personal pages and messages stay reachable from the header as well as navigation. */
 export function SettingsMenu({client,current,avatar,name,onSelect}:{client:PortalClient;current:TabId;avatar:ReactNode;name:string;onSelect:(id:TabId)=>void}){
   const {total,refresh}=useInboxUnread(client);
+  const {theme,selectTheme}=useWorkshopTheme();
   const unread=total===null?'未讀數未確認':total===undefined?'':total>0?`${total} 則未讀`:'';
   const [open,setOpen]=useState(false),[focusIndex,setFocusIndex]=useState(0);
   const root=useRef<HTMLDivElement>(null),button=useRef<HTMLButtonElement>(null),items=useRef<(HTMLButtonElement|null)[]>([]);
@@ -31,10 +33,10 @@ export function SettingsMenu({client,current,avatar,name,onSelect}:{client:Porta
   function close(returnFocus:boolean){setOpen(false);if(returnFocus)button.current?.focus();}
   function buttonKey(event:KeyboardEvent){
     if(event.key==='ArrowDown'){event.preventDefault();show(0);}
-    else if(event.key==='ArrowUp'){event.preventDefault();show(SETTINGS_PAGES.length-1);}
+    else if(event.key==='ArrowUp'){event.preventDefault();show(SETTINGS_PAGES.length+WORKSHOP_THEMES.length-1);}
   }
   function menuKey(event:KeyboardEvent){
-    const last=SETTINGS_PAGES.length-1;
+    const last=SETTINGS_PAGES.length+WORKSHOP_THEMES.length-1;
     const next={ArrowDown:focusIndex===last?0:focusIndex+1,ArrowUp:focusIndex===0?last:focusIndex-1,Home:0,End:last}[event.key];
     if(next!==undefined){event.preventDefault();setFocusIndex(next);items.current[next]?.focus();}
     else if(event.key==='Escape'){event.preventDefault();close(true);}
@@ -52,6 +54,8 @@ export function SettingsMenu({client,current,avatar,name,onSelect}:{client:Porta
           onFocus={()=>setFocusIndex(index)} onClick={()=>{setOpen(false);onSelect(id);}}>
           {label}{id==='messages'&&unread&&<span className={`settings-menu-badge${total===null?' is-unknown':''}`} aria-hidden="true">{unread}</span>}</button>;
       })}
+      <span className="settings-menu-heading" role="presentation">外觀主題</span>
+      {WORKSHOP_THEMES.map(([id,label],offset)=>{const index=SETTINGS_PAGES.length+offset;return <button key={id} ref={node=>{items.current[index]=node;}} type="button" role="menuitemradio" aria-checked={theme===id} tabIndex={index===focusIndex?0:-1} className="settings-menu-item settings-theme-option" onFocus={()=>setFocusIndex(index)} onClick={()=>selectTheme(id)}><span className="settings-theme-indicator" aria-hidden="true"/>{label}</button>})}
     </div>}
   </div>;
 }

@@ -22,7 +22,6 @@ import { TaskBoardPanel } from './modules/TaskBoardPanel'
 import { WelcomePreview } from './modules/WelcomePreview'
 import {MemberGuildWorkspace} from './modules/GuildWorkspace'
 import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
-import { DevelopmentContext } from './modules/DevelopmentContext'
 import { BenefitObservations } from './modules/BenefitObservations'
 import { GameConsoleProvider, GameConsolePopout } from './GameConsole'
 import {PageTools} from './PageTools'
@@ -148,20 +147,8 @@ function AdminConsoleShell(){
   const [memberId,setMemberId]=useState<string|null>(null)
   useEffect(()=>{let live=true;void client.getSession().then(session=>{if(live){client.csrfToken=session.csrf_token;setMemberId(session.user.user_id)}}).catch(()=>{if(live)setMemberId(null)});return()=>{live=false}},[])
   return <GameConsoleProvider client={memberId?client:undefined} userId={memberId??undefined} feedEnabled={Boolean(memberId)} standalone>
-    <AdminPanel memberClient={memberId?client:undefined}/><DevelopmentContext moduleId="admin"/>
+    <AdminPanel memberClient={memberId?client:undefined}/>
   </GameConsoleProvider>
-}
-
-type WorkshopTheme='light'|'dark'|'versefolk'
-function ThemeSelector() {
-  const [theme,setTheme]=useState<WorkshopTheme>(()=>{
-    const selected=document.documentElement.dataset.theme;
-    return selected==='dark'||selected==='versefolk'?selected:'light';
-  });
-  return <label className="theme-picker"><span>主題</span><select aria-label="選擇自由工坊主題" value={theme} onChange={event=>{
-    const next=event.target.value as WorkshopTheme;document.documentElement.dataset.theme=next;setTheme(next);
-    try{localStorage.setItem('freedom-theme',next)}catch{/* Keep this visit's selection. */}
-  }}><option value="light">自由工坊－明亮</option><option value="dark">自由工坊－夜航（深色）</option><option value="versefolk">自由工坊－敘生</option></select></label>
 }
 
 function MemberApp() {
@@ -280,8 +267,8 @@ function MemberApp() {
     <GameConsoleProvider key={session.user.user_id} client={client} userId={session.user.user_id} feedEnabled={Boolean(onboarding&&(!onboarding.required||onboarding.completed))} standalone={!onboarding||onboarding.required&&!onboarding.completed}>
     {!onboarding ? <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
     : onboarding.required && !onboarding.completed ? exploring&&!onboardingStarted(session.user.user_id)
-      ? <><div className="preview-theme-toggle"><ThemeSelector/></div><WelcomePreview client={client} name={session.user.display_name} onStart={()=>{rememberOnboarding(session.user.user_id,true);setExploring(false)}} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/></>
-      : <><div className="preview-theme-toggle"><ThemeSelector/><button type="button" className="btn btn-ghost" onClick={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}}>先逛逛社群</button></div><Onboarding client={client} initial={onboarding} onCompleted={() => { rememberOnboarding(session.user.user_id,false);window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/></>
+      ? <WelcomePreview client={client} name={session.user.display_name} onStart={()=>{rememberOnboarding(session.user.user_id,true);setExploring(false)}} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
+      : <Onboarding client={client} initial={onboarding} profileName={session.user.display_name} onExplore={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}} onCompleted={() => { rememberOnboarding(session.user.user_id,false);window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
     : <>
     <GitHubSocialProvider client={client} session={session}><DevelopmentAccessProvider client={client} session={session}>
     <Workspace
@@ -351,7 +338,6 @@ function LoginView({
       <div className="login-form-area">
       <section className="card login-card" aria-labelledby="login-heading">
         <div className="login-page-tools"><PageTools pageId="registration"/></div>
-        <div className="login-theme"><ThemeSelector/></div>
         {!accessExpired && <div className="auth-switch" role="group" aria-label="登入或建立帳號"><button type="button" className={mode==='login'?'selected':''} aria-pressed={mode==='login'} onClick={()=>{setMode('login');setError(null)}}>會員登入</button>{site?.registration_enabled&&<button type="button" className={mode==='register'?'selected':''} aria-pressed={mode==='register'} onClick={()=>{setMode('register');setError(null)}}>建立帳號</button>}</div>}
         <h2 id="login-heading">{accessExpired ? '網站登入已過期' : mode==='register'?'加入自由工坊':'登入'}</h2>
         {notice && !accessExpired && (
@@ -419,7 +405,6 @@ function LoginView({
           </div>
         </aside>}
       </section></div>
-      <DevelopmentContext moduleId="registration"/>
       <CommunityLinks/>
     </main>
   )
@@ -565,7 +550,7 @@ function Workspace({
                 <h1>{tabTitle(tab)}</h1>
               </div>
               <PageTools pageId={tab} client={client}/>
-              <div className="topbar-actions"><ThemeSelector/><NotificationBell client={client} onOpen={()=>selectTab('messages')}/><SettingsMenu client={client} current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>}/><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
+              <div className="topbar-actions"><NotificationBell client={client} onOpen={()=>selectTab('messages')}/><SettingsMenu client={client} current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>}/><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
                 登出
               </button></div>
             </header>
@@ -596,7 +581,6 @@ function Workspace({
             {tab === 'retail' && <RetailPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'opensource' && <OpenSourcePanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'marketing' && <MarketingPanel client={client} session={session} onNavigate={selectTab} />}
-            <DevelopmentContext moduleId={tab}/>
           </main>
         </div>
       </div>

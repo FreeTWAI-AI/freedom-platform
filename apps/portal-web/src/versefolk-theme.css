@@ -29,7 +29,6 @@ html[data-theme="versefolk"] .nav-item.is-active,
 html[data-theme="versefolk"] .messages-tabs [aria-selected=true] {background:var(--green-soft);color:#384c25;border-color:#9bb378}
 html[data-theme="versefolk"] .btn-primary {background:var(--green);border-color:#87a357;color:#26351b}
 html[data-theme="versefolk"] .btn-ghost,
-html[data-theme="versefolk"] .theme-picker select {background:var(--bg-elev);color:var(--ink);border-color:var(--line)}
 html[data-theme="versefolk"] .settings-menu-list,
 html[data-theme="versefolk"] .messages-peer,
 html[data-theme="versefolk"] .messages-list>li,

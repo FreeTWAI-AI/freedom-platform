@@ -65,7 +65,7 @@ test('a legacy exemption is not completion, and an unfinished required member st
   await expect(task(page,'github').getByRole('button',{name:'連結 GitHub',exact:true})).toBeVisible();
   facts.required=true;
   await page.reload();
-  await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();
+  await expect(page.locator('.preview-profile-menu > summary')).toBeVisible();
   await expect(page.getByRole('button',{name:'設定',exact:true})).toHaveCount(0);await expect(page.locator('[data-task]')).toHaveCount(0);
 });
 

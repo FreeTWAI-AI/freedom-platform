@@ -4,6 +4,7 @@ import { BrandPoster, CommunityLinks } from './Community';
 import { formatIsoLocal } from '../format';
 import {EventFields,blankEvent,eventPayload,type EventDraft} from './EventsPanel';
 import {NotificationBell} from './NotificationBell';
+import {PreviewProfileMenu} from './PreviewProfileMenu';
 import {announceInboxChange} from './member-inbox';
 import './MemberExperience.css';
 
@@ -22,7 +23,7 @@ export function WelcomePreview({client,name,onStart,onLogout}:{client:PortalClie
   });return()=>{active=false;};},[client]);
   useEffect(()=>{void client.get<{items:{guild_key:string;name:string}[]}>('/guilds/directory').then(value=>setGuilds(value.items)).catch(()=>setError('公會清單暫時無法載入；你仍可由平台管理員審核活動。'));},[client]);
   async function submit(event:FormEvent){event.preventDefault();setSaving(true);setError('');try{await client.post('/events',eventPayload(draft),{idempotencyKey:crypto.randomUUID()});setNotice('活動已送出審核；核准後才會開放報名。');setDraft(blankEvent());setShowForm(false);announceInboxChange();const page=await client.get<{items:PreviewEvent[]}>('/events');setEvents(page.items.slice(0,3));}catch(cause){setError(cause instanceof Error?cause.message:'活動未能送出，請重試。');}finally{setSaving(false);}}
-  return <main className="welcome-preview"><div className="welcome-preview-top"><BrandPoster compact/><div className="experience-actions"><NotificationBell client={client} onOpen={()=>setNotice('完成定位後即可使用完整通知與訊息頁。')}/><button type="button" className="btn btn-ghost" onClick={onLogout}>登出</button></div></div>
+  return <main className="welcome-preview"><div className="welcome-preview-top"><BrandPoster compact/><div className="experience-actions"><NotificationBell client={client} onOpen={()=>setNotice('完成定位後即可使用完整通知與訊息頁。')}/><PreviewProfileMenu name={name} onLogout={onLogout}/></div></div>
     <section className="welcome-hero"><p className="eyebrow">WELCOME TO FREEDOM WORKSHOP</p><h1>{name}，歡迎來到自由工坊。</h1><p>帳號已建立。先看看社群正在做什麼；現在也可以提交公開活動。想認領工作或認識公會夥伴時，再完成定位與選擇公會。進度可以分段保存。</p><div className="experience-actions"><button type="button" className="btn btn-primary" onClick={onStart}>開始／繼續定位 →</button><button type="button" className="btn btn-ghost" onClick={()=>setShowForm(value=>!value)}>提交公開活動</button></div></section>
     {showForm&&<form className="card experience-editor" onSubmit={e=>void submit(e)}><h2>提交公開活動</h2><p>提交後由平台管理員或主辦公會長審核，並在系統公告欄記錄。</p><EventFields value={draft} onChange={setDraft} guilds={guilds}/><div className="experience-actions"><button className="btn btn-primary" disabled={saving}>送出審核</button><button type="button" className="btn btn-ghost" onClick={()=>setShowForm(false)}>返回</button></div></form>}
     {notice&&<p className="banner banner-info" role="status">{notice}</p>}

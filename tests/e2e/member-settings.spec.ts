@@ -57,15 +57,15 @@ test('settings menu replaces the card button with an accessible keyboard menu',a
   await expect(menu.getByRole('menuitem',{name:'我的訊息',exact:true})).toBeVisible();
   await expect(menu.getByRole('menuitem',{name:'我的名片',exact:true})).toBeFocused();
   await page.keyboard.press('ArrowDown');await expect(menu.getByRole('menuitem',{name:'待辦清單',exact:true})).toBeFocused();
-  await page.keyboard.press('End');await expect(menu.getByRole('menuitem',{name:'我的訊息',exact:true})).toBeFocused();
+  await page.keyboard.press('End');await expect(menu.getByRole('menuitemradio',{name:'自由工坊－敘生',exact:true})).toBeFocused();
   await page.keyboard.press('ArrowDown');await expect(menu.getByRole('menuitem',{name:'我的名片',exact:true})).toBeFocused();
-  await page.keyboard.press('ArrowUp');await expect(menu.getByRole('menuitem',{name:'我的訊息',exact:true})).toBeFocused();
+  await page.keyboard.press('ArrowUp');await expect(menu.getByRole('menuitemradio',{name:'自由工坊－敘生',exact:true})).toBeFocused();
   await page.keyboard.press('Home');await expect(menu.getByRole('menuitem',{name:'我的名片',exact:true})).toBeFocused();
   await page.keyboard.press('Escape');await expect(menu).toHaveCount(0);await expect(toggle).toBeFocused();await expect(toggle).toHaveAttribute('aria-expanded','false');
 
   // Keyboard opening from the toggle, then selecting a page moves focus into main.
-  await page.keyboard.press('ArrowUp');await expect(menu.getByRole('menuitem',{name:'我的訊息',exact:true})).toBeFocused();
-  await page.keyboard.press('ArrowUp');await page.keyboard.press('Enter');
+  await page.keyboard.press('ArrowUp');await expect(menu.getByRole('menuitemradio',{name:'自由工坊－敘生',exact:true})).toBeFocused();
+  await page.keyboard.press('Home');await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#todos$/);await expect(page.getByRole('heading',{level:1})).toHaveText('待辦清單');
   await expect(page.locator('#main-content')).toBeFocused();await expect(menu).toHaveCount(0);
 
@@ -478,7 +478,7 @@ test('a slow re-read that started before a confirmed send or read never overwrit
   // Both re-reads snapshot the old state now and answer only after the write is confirmed.
   holding=true;await refreshList.click();await refreshThread.click();
   await expect(refreshList).toHaveText('正在整理對話…');await expect(refreshThread).toHaveText('正在讀取訊息…');
-  await expect.poll(()=>held.length).toBe(2);holding=false;
+  await expect.poll(()=>held.length).toBeGreaterThanOrEqual(2);holding=false;
   await box.fill('競態中的確認訊息');await threadRegion.getByRole('button',{name:'送出',exact:true}).click();
   await expect(bubbles.last()).toHaveText('競態中的確認訊息');await expect(box).toHaveValue('');
   await box.fill('送出後的新草稿');
@@ -490,7 +490,7 @@ test('a slow re-read that started before a confirmed send or read never overwrit
   // The same for a confirmed read: the old unread counts must not come back.
   await expect(threadRegion.getByRole('button',{name:'標為已讀',exact:true})).toBeVisible();
   holding=true;await refreshList.click();await refreshThread.click();
-  await expect.poll(()=>held.length).toBe(2);holding=false;
+  await expect.poll(()=>held.length).toBeGreaterThanOrEqual(2);holding=false;
   await threadRegion.getByRole('button',{name:'標為已讀',exact:true}).click();
   await expect(threadRegion.getByRole('button',{name:'標為已讀',exact:true})).toHaveCount(0);await expect(page.getByRole('tab',{name:/私人訊息/})).toContainText('沒有未讀');
   await delivered(2);

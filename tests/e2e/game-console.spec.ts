@@ -47,6 +47,7 @@ test('訊息控制台 stays visible during required positioning without reading 
   await page.getByRole('button',{name:'展開訊息控制台'}).click();
   await expect(page.getByRole('heading',{name:'訊息控制台',level:2})).toBeVisible();
   expect(feedReads).toHaveLength(0);
+  await page.locator('.preview-profile-menu > summary').click();
   await page.getByRole('button',{name:'登出',exact:true}).click();
   await expect(page.getByRole('button',{name:'展開訊息控制台'})).toHaveCount(0);
 });
@@ -85,7 +86,7 @@ test('global 訊息控制台 persists across modules and synchronizes with its p
   await consolePanel.getByRole('textbox',{name:'世界聊天訊息'}).fill(allMessage);
   await consolePanel.getByRole('button',{name:'傳送'}).click();
   await expect(consolePanel.getByRole('log')).toContainText(allMessage);
-  await expect(consolePanel.locator('.game-console-entry[data-channel="world_chat"]').last()).toHaveCSS('border-left-color','rgb(118, 223, 255)');
+  await expect(consolePanel.locator('.game-console-entry[data-channel="world_chat"]').last()).toHaveCSS('border-left-color','rgb(23, 97, 133)');
   await consolePanel.getByRole('tab',{name:/系統指令/}).click();
   await expect(consolePanel.getByRole('log')).toContainText('訊息控制台已連線');
   await consolePanel.getByRole('tab',{name:/私人聊天/}).click();
@@ -97,7 +98,7 @@ test('global 訊息控制台 persists across modules and synchronizes with its p
   await consolePanel.getByLabel('私人訊息').fill(directMessage);
   await consolePanel.getByRole('button',{name:'傳送'}).click();
   await expect(consolePanel.getByRole('log')).toContainText(directMessage);
-  await expect(consolePanel.locator('.game-console-entry[data-channel="direct"]')).toHaveCSS('border-left-color','rgb(209, 169, 255)');
+  await expect(consolePanel.locator('.game-console-entry[data-channel="direct"]')).toHaveCSS('border-left-color','rgb(104, 75, 151)');
   await consolePanel.getByRole('tab',{name:'公會聊天'}).click();
   await expect(consolePanel.getByLabel('公會頻道')).toBeVisible();
   await consolePanel.getByRole('tab',{name:'小隊聊天'}).click();

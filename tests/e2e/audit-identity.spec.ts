@@ -22,7 +22,7 @@ async function oneTitle(page: Page, label: string) {
   await expect(h1, label).toHaveCount(1);
   const title = (await h1.innerText()).trim();
   await expect(page.getByRole('heading', { level: 2, name: title, exact: true }), `${label} repeats its h1`).toHaveCount(0);
-  expect(await page.locator('.development-context').count(), `${label} development guides`).toBeLessThanOrEqual(1);
+  await expect(page.locator('.development-context'), `${label} duplicate development footer`).toHaveCount(0);
   await pageFits(page, label);
 }
 
@@ -110,7 +110,7 @@ for (const [label, viewport] of viewports) {
     await page.getByRole('button', { name: '重新探索定位', exact: true }).click();
     await expect(page.getByRole('heading', { name: '你喜歡怎麼做事？' })).toBeVisible();
     const main = page.locator('#main-content');
-    await expect(main.locator('.development-context')).toHaveCount(1);
+    await expect(main.locator('.development-context')).toHaveCount(0);
     await expect(main.locator('.community-footer')).toHaveCount(0);
     await expect(main.locator('.onboarding-brand')).toHaveCount(0);
     await oneTitle(page, `${label} retake`);

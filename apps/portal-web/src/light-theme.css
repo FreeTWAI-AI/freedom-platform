@@ -21,7 +21,7 @@ html:is([data-theme="light"],[data-theme="versefolk"]) .nav-section-items { bord
 html:is([data-theme="light"],[data-theme="versefolk"]) .nav-section > summary { color:#566376; }
 html:is([data-theme="light"],[data-theme="versefolk"]) .sidebar .brand .eyebrow,html:is([data-theme="light"],[data-theme="versefolk"]) .eyebrow,html:is([data-theme="light"],[data-theme="versefolk"]) .workspace-eyebrow { color:#5d7190; }
 html:is([data-theme="light"],[data-theme="versefolk"]) .card,html:is([data-theme="light"],[data-theme="versefolk"]) .empty,html:is([data-theme="light"],[data-theme="versefolk"]) .login-card { background:#fff; border-color:var(--line); box-shadow:0 8px 30px #2737500a; }
-html:is([data-theme="light"],[data-theme="versefolk"]) .summary-strip,html:is([data-theme="light"],[data-theme="versefolk"]) .help-box,html:is([data-theme="light"],[data-theme="versefolk"]) .development-context { background:#f1f5fa!important; border-color:#dce5ef!important; color:var(--ink); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .summary-strip,html:is([data-theme="light"],[data-theme="versefolk"]) .help-box { background:#f1f5fa!important; border-color:#dce5ef!important; color:var(--ink); }
 html:is([data-theme="light"],[data-theme="versefolk"]) .banner-info { background:#edf3ff; color:#294c87; border-color:#c7d8f3; }
 html:is([data-theme="light"],[data-theme="versefolk"]) .banner-error { background:#fff0f2; color:#8f2639; border-color:#e8b2bc; }
 html:is([data-theme="light"],[data-theme="versefolk"]) .summary-strip strong { color:#4c7400; }
@@ -32,7 +32,7 @@ html:is([data-theme="light"],[data-theme="versefolk"]) input::placeholder,html:i
 html:is([data-theme="light"],[data-theme="versefolk"]) .btn-primary { background:var(--green); color:#203000; }
 html:is([data-theme="light"],[data-theme="versefolk"]) .btn-ghost { background:#fff; color:#293d55; border-color:#c6d0dd; }
 html:is([data-theme="light"],[data-theme="versefolk"]) .btn-ghost:hover:not(:disabled) { background:#f1f5f9; border-color:#7d91aa; }
-html:is([data-theme="light"],[data-theme="versefolk"]) .topbar-actions .btn:first-child,html:is([data-theme="light"],[data-theme="versefolk"]) .topbar-actions .settings-menu-button { background:#fff; color:#293d55; border-color:#c6d0dd; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .topbar-actions .notification-bell-trigger,html:is([data-theme="light"],[data-theme="versefolk"]) .topbar-actions .settings-menu-button { background:var(--bg-elev); color:var(--ink); border-color:var(--line); }
 html:is([data-theme="light"],[data-theme="versefolk"]) .settings-menu-list { background:#fff; box-shadow:0 12px 30px #26364f20; }
 html:is([data-theme="light"],[data-theme="versefolk"]) .settings-menu-item { color:var(--ink); }
 html:is([data-theme="light"],[data-theme="versefolk"]) .settings-menu-item:hover,html:is([data-theme="light"],[data-theme="versefolk"]) .settings-menu-item:focus-visible { background:#f1f5f9; }
