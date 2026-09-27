@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { test,expect } from './fixtures.js';
 import { navigate } from './navigation.js';
 
-test('new member explores before positioning and can switch the bright theme',async({page})=>{
+test('new member explores, submits an event and selects each theme',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto('/');
   await expect(page.locator('html')).toHaveAttribute('data-theme','light');
@@ -19,11 +19,21 @@ test('new member explores before positioning and can switch the bright theme',as
   await expect(page.getByRole('heading',{name:'你喜歡怎麼做事？'})).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/member-preview-light.png',fullPage:true});
-  await page.getByRole('button',{name:'切換至深色介面'}).click();
+  await page.getByRole('button',{name:'提交公開活動'}).click();
+  await page.getByLabel('活動名稱').fill('新會員一起畫工坊');
+  await page.getByLabel('活動說明').fill('一起畫出下一次活動的原創小插圖。');
+  await page.getByLabel('地點或參與連結').fill('https://example.org/art');
+  await page.getByRole('button',{name:'送出審核'}).click();
+  await expect(page.getByText('活動已送出審核；核准後才會開放報名。')).toBeVisible();
+  await expect(page.getByText('新會員一起畫工坊')).toBeVisible();
+  await page.getByLabel('選擇自由工坊主題').selectOption('versefolk');
+  await expect(page.locator('html')).toHaveAttribute('data-theme','versefolk');
+  await page.screenshot({path:'test-results/member-preview-versefolk.png',fullPage:true});
+  await page.getByLabel('選擇自由工坊主題').selectOption('dark');
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
-  await page.getByRole('button',{name:'切換至明亮介面'}).click();
+  await page.getByLabel('選擇自由工坊主題').selectOption('light');
   await page.getByRole('button',{name:'開始／繼續定位 →',exact:true}).click();
   await expect(page.getByRole('heading',{name:'你喜歡怎麼做事？'})).toBeVisible();
   await page.reload();
@@ -32,16 +42,18 @@ test('new member explores before positioning and can switch the bright theme',as
   await expect(page.getByRole('heading',{name:'共創新夥伴，歡迎來到自由工坊。'})).toBeVisible();
 });
 
-test('completed member publishes an event and sees the task board with real points policy',async({page})=>{
+test('completed member submits an event and sees accepted-work facts without provisional points',async({page})=>{
   await page.goto('/');
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
   await page.getByRole('button',{name:'登入',exact:true}).click();
   await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
+  for(const name of ['提出想法','頁面說明','參與編修','通知'])await expect(page.locator('.topbar').getByRole('button',{name:new RegExp(name)})).toBeVisible();
+  await expect(page.locator('.game-console-ticker')).toBeVisible();
   await page.screenshot({path:'test-results/member-home-light.png',fullPage:true});
   await navigate(page,'社群活動');
   await expect(page.getByRole('heading',{name:'社群活動',level:1})).toBeVisible();
-  await page.getByRole('button',{name:'＋ 發佈活動'}).click();
+  await page.getByRole('button',{name:'＋ 提交活動'}).click();
   const title=`共創活動 ${randomUUID().slice(0,8)}`;
   await page.getByLabel('活動名稱').fill(title);
   await page.getByLabel('活動說明').fill('一起分享一個可以完成的小作品。');
@@ -50,15 +62,29 @@ test('completed member publishes an event and sees the task board with real poin
   await page.getByLabel('開始時間').fill(local(start));
   await page.getByLabel('結束時間').fill(local(end));
   await page.getByLabel('地點或參與連結').fill('https://example.org/meeting');
-  await page.getByRole('button',{name:'確認發佈'}).click();
+  await page.getByRole('button',{name:'送出審核'}).click();
   await expect(page.getByRole('heading',{name:title})).toBeVisible();
-  await expect(page.getByRole('link',{name:'開啟參與連結'})).toHaveAttribute('href','https://example.org/meeting');
+  await expect(page.getByRole('heading',{name:'待審核活動'})).toBeVisible();
   await page.screenshot({path:'test-results/member-events-light.png',fullPage:true});
   await navigate(page,'社群任務榜');
   await expect(page.getByRole('heading',{name:'社群任務榜',level:1})).toBeVisible();
-  await expect(page.getByText('每件經獨立驗收的工坊工作 +10。')).toBeVisible();
+  await expect(page.getByText('分數規則另訂；這裡不顯示暫定分數。',{exact:false})).toBeVisible();
   await page.getByLabel('選擇共創專案').selectOption({index:1});
   await expect(page.getByRole('heading',{name:'GitHub 共創 Issue'})).toBeVisible();
   await page.screenshot({path:'test-results/member-tasks-light.png',fullPage:true});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('story theme keeps the workshop controls and cute artwork usable on a narrow phone',async({page})=>{
+  await page.setViewportSize({width:320,height:720});await page.goto('/');
+  await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
+  await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
+  await page.getByRole('button',{name:'登入',exact:true}).click();
+  await page.getByLabel('選擇自由工坊主題').selectOption('versefolk');
+  await expect(page.locator('html')).toHaveAttribute('data-theme','versefolk');
+  await expect(page.locator('.home-module-supplier .home-module-cover')).toHaveCSS('background-image',/versefolk-market\.webp/);
+  for(const name of ['提出想法','頁面說明','參與編修','通知'])await expect(page.locator('.topbar').getByRole('button',{name:new RegExp(name)})).toBeVisible();
+  await expect(page.locator('.game-console-ticker')).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/member-home-versefolk-320.png',fullPage:true});
 });

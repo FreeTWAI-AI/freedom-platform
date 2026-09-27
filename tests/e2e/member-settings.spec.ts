@@ -23,7 +23,7 @@ async function openPage(page:Page,name:string){
   await settings(page).click();await page.getByRole('menuitem',{name,exact:true}).click();
 }
 async function inbox(page:Page,notices:number|'fail',direct:number){
-  await page.route(/\/api\/v1\/me\/notifications\?limit=1&offset=0$/,route=>notices==='fail'?route.fulfill({status:503,json:{}}):route.fulfill({json:{items:[],unread_count:notices,next_offset:null}}));
+  await page.route(/\/api\/v1\/me\/notifications\?limit=(1|6)&offset=0$/,route=>notices==='fail'?route.fulfill({status:503,json:{}}):route.fulfill({json:{items:[],unread_count:notices,next_offset:null}}));
   await page.route(/\/api\/v1\/me\/conversations\?limit=1&offset=0$/,route=>route.fulfill({json:{items:[],unread_count:direct,next_offset:null}}));
 }
 async function expectExactItems(page:Page){
@@ -47,14 +47,14 @@ test('settings menu replaces the card button with an accessible keyboard menu',a
   await expect(page.getByRole('button',{name:'我的名片',exact:true})).toHaveCount(0);
   // Personal pages are not side-navigation entries.
   const nav=page.getByRole('navigation',{name:'主要工作區',includeHidden:true});
-  for(const name of ['待辦清單','我的訊息','我的名片'])await expect(nav.getByRole('button',{name,exact:true,includeHidden:true})).toHaveCount(0);
-  // The real unread total is a hidden-from-name dot; the toggle name stays exactly 設定.
-  await expect(toggle).toHaveText('設定');await expect(toggle.locator('.settings-dot')).toBeVisible();
+  for(const name of ['待辦清單','我的名片'])await expect(nav.getByRole('button',{name,exact:true,includeHidden:true})).toHaveCount(0);
+  await expect(nav.getByRole('button',{name:'我的訊息',exact:true,includeHidden:true})).toHaveCount(1);
+  await expect(page.getByRole('button',{name:'通知，2 則未讀'})).toBeVisible();
 
   await toggle.click();
-  const menu=page.getByRole('menu',{name:'設定'});
+  const menu=page.getByRole('menu',{name:'個人檔案'});
   await expectExactItems(page);
-  await expect(menu.getByRole('menuitem',{name:'我的訊息',exact:true})).toContainText('3 則未讀');
+  await expect(menu.getByRole('menuitem',{name:'我的訊息',exact:true})).toBeVisible();
   await expect(menu.getByRole('menuitem',{name:'我的名片',exact:true})).toBeFocused();
   await page.keyboard.press('ArrowDown');await expect(menu.getByRole('menuitem',{name:'待辦清單',exact:true})).toBeFocused();
   await page.keyboard.press('End');await expect(menu.getByRole('menuitem',{name:'我的訊息',exact:true})).toBeFocused();
@@ -99,9 +99,9 @@ test('settings menu replaces the card button with an accessible keyboard menu',a
 test('an unread total that cannot be read is shown as unconfirmed, not zero',async({page})=>{
   await inbox(page,'fail',4);
   await login(page);
-  const toggle=settings(page);await expect(toggle.locator('.settings-dot')).toHaveCount(0);
-  await toggle.click();await expectExactItems(page);
-  await expect(page.getByRole('menuitem',{name:'我的訊息',exact:true})).toContainText('未讀數未確認');
+  const toggle=settings(page);await toggle.click();await expectExactItems(page);
+  const bell=page.getByRole('button',{name:'通知，未讀數未確認'});await expect(bell).toBeVisible();await bell.click();
+  await expect(page.getByRole('region',{name:'最近通知'}).getByRole('alert')).toContainText('通知暫時無法載入。');
 });
 
 for(const width of [320,390])test(`settings menu and personal pages fit a ${width}px phone with 44px targets`,async({page})=>{
@@ -178,7 +178,7 @@ test('notifications show errors, page without dropping items, and confirm reads 
   await page.route(/\/api\/v1\/me\/notifications(\?.*)?$/,route=>{
     listReads++;
     const url=new URL(route.request().url()),offset=Number(url.searchParams.get('offset')),limit=Number(url.searchParams.get('limit'));
-    if(offset===0&&limit>1&&listFailures-->0)return route.fulfill({status:500,json:{title:'boom'}});
+    if(offset===0&&limit===20&&listFailures-->0)return route.fulfill({status:500,json:{title:'boom'}});
     if(offset===2&&pageTwoFailures-->0)return route.abort();
     const slice=offset===0?items.slice(0,Math.min(2,limit)):items.slice(2);
     return route.fulfill({json:{items:slice,unread_count:items.filter(item=>!item.read_at).length,next_offset:offset===0&&limit>1?2:null}});
@@ -217,8 +217,8 @@ test('notifications show errors, page without dropping items, and confirm reads 
   await expect(second2.locator('.messages-meta')).toContainText('已讀');await expect(second2.getByRole('button',{name:'標為已讀',exact:true})).toHaveCount(0);
   expect(readKeys.length).toBe(2);expect(readKeys[0]).toBe(readKeys[1]);
   await expect(page.getByRole('tab',{name:/通知/})).toContainText('1 則未讀');
-  // The settings menu re-reads the confirmed total after the read.
-  await settings(page).click();await expect(page.getByRole('menuitem',{name:'我的訊息',exact:true})).toContainText('1 則未讀');await page.keyboard.press('Escape');
+  // The header notification bell re-reads the confirmed total after the read.
+  await expect(page.getByRole('button',{name:'通知，1 則未讀'})).toBeVisible();
   // An action button reads first, then goes to the fixed in-app page.
   const readsBefore=listReads;
   await panel.locator('li',{hasText:'合成通知 1'}).getByRole('button',{name:'前往職業公會',exact:true}).click();

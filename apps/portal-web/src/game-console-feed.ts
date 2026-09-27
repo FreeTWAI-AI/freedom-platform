@@ -11,6 +11,8 @@ type PublishedSkill = {submission_id:string;title:string;published_at:string}
 type Project = {project_id:string;title:string;created_at?:string;source_kind:'member_project'|'community_pilot'}
 type Page<T> = {items:T[]}
 type GitHubEvents={items:{id:string;number:number;title:string;url:string;actor:string;created_at:string;kind:'issue_opened'|'pr_opened'|'pr_approved'|'design_claimed'}[]}
+type EventBulletin={bulletin_id:string;message:string;created_at:string}
+type AcceptedWork={contribution_id:string;title:string;member_name:string;accepted_at:string}
 
 export async function readWorldChatFeed(client:PortalClient):Promise<GameConsoleEvent[]> {
   const page=await client.get<Page<RoomMessage>>('/me/channels/world/world/messages?limit=20&offset=0',{background:true})
@@ -22,7 +24,7 @@ export async function readConsoleFeed(client:PortalClient, userId:string, includ
   const load=async<T,>(path:string):Promise<Page<T>>=>{
     try{return await client.get<Page<T>>(path,{background:true})}catch{return {items:[]}}
   }
-  const [notices,conversations,guilds,squads,announcements,skills,projects,github] = await Promise.all([
+  const [notices,conversations,guilds,squads,announcements,skills,projects,github,eventBulletins,acceptedWork] = await Promise.all([
     load<Notice>('/me/notifications?limit=20&offset=0'),
     load<Conversation>('/me/conversations?limit=20&offset=0'),
     load<Room>('/me/channels?kind=guild&limit=50&offset=0'),
@@ -31,6 +33,8 @@ export async function readConsoleFeed(client:PortalClient, userId:string, includ
     includeWorld?load<PublishedSkill>('/skill-submissions/published?limit=10'):Promise.resolve({items:[] as PublishedSkill[]}),
     includeWorld?load<Project>('/co-creation/projects'):Promise.resolve({items:[] as Project[]}),
     includeWorld?load<GitHubEvents['items'][number]>('/pages/github-events'):Promise.resolve({items:[] as GitHubEvents['items']}),
+    includeWorld?load<EventBulletin>('/events/bulletins'):Promise.resolve({items:[] as EventBulletin[]}),
+    includeWorld?load<AcceptedWork>('/community/accepted-work'):Promise.resolve({items:[] as AcceptedWork[]}),
   ])
   const events = notices.items.filter(item=>item.read_at===null).map(item=>createConsoleEvent({
     id:`notice:${item.notification_id}`,channel:'guide',kind:'status',source:'通知',
@@ -57,6 +61,14 @@ export async function readConsoleFeed(client:PortalClient, userId:string, includ
       detail:item.url,createdAt:item.created_at,
     }))
   }
+  for(const item of eventBulletins.items)events.push(createConsoleEvent({
+    id:`event-bulletin:${item.bulletin_id}`,channel:'world_chat',kind:'broadcast',source:'系統公告',
+    message:item.message,createdAt:item.created_at,
+  }))
+  for(const item of acceptedWork.items)events.push(createConsoleEvent({
+    id:`accepted-work:${item.contribution_id}`,channel:'world_chat',kind:'broadcast',source:'工作驗收',
+    message:`${item.member_name} 完成的「${item.title}」已通過驗收。`,createdAt:item.accepted_at,
+  }))
   // Only unread peers are opened. A conversation's last message might be our own,
   // so its summary alone cannot stand in for an incoming message.
   const peers=conversations.items.filter(item=>item.unread_count>0).slice(0,8)

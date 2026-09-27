@@ -16,6 +16,8 @@ test('console reads only unread member messages without changing read receipts',
     '/me/guild-announcements':{items:[{announcement_id:'a1',title:'讀書會',body:'星期三集合',guild_name:'AI 公會',updated_at:'2026-09-26T12:03:00Z'}]},
     '/skill-submissions/published?limit=10':{items:[{submission_id:'s1',title:'攝影技能',published_at:'2026-09-26T12:04:00Z'}]},
     '/co-creation/projects':{items:[{project_id:'pilot',title:'內建專案',source_kind:'community_pilot'},{project_id:'p1',title:'共作',source_kind:'member_project',created_at:'2026-09-26T12:05:00Z'}]},
+    '/events/bulletins':{items:[{bulletin_id:'b1',message:'阿明提交了公開活動「共作」。',created_at:'2026-09-26T12:07:00Z'}]},
+    '/community/accepted-work':{items:[{contribution_id:'c1',title:'整理說明',member_name:'小惠',accepted_at:'2026-09-26T12:08:00Z'}]},
     '/me/channels/world/world/messages?limit=20&offset=0':{items:[{message_id:'w1',sender_ref:'peer',sender_name:'阿明',body:'大家好',created_at:'2026-09-26T12:06:00Z'}]},
     '/me/conversations/peer/messages?limit=20&offset=0':{items:[
       {message_id:'d1',sender_ref:'peer',body:'可以聊聊嗎？',created_at:'2026-09-26T12:01:00Z',read_at:null},
@@ -28,11 +30,11 @@ test('console reads only unread member messages without changing read receipts',
   }
   const client={get:async(path:string)=>{paths.push(path);assert.ok(Object.hasOwn(pages,path),path);return pages[path]}} as PortalClient
   const events=await readConsoleFeed(client,'me')
-  assert.deepEqual(events.map(event=>event.id),['notice:n1','direct:d1','room:g1','guild:a1:2026-09-26T12:03:00Z','skill:s1','project:p1','room:w1'])
-  assert.deepEqual(events.map(event=>event.channel),['guide','direct','guild','guild','guide','guide','world_chat'])
+  assert.deepEqual(events.map(event=>event.id),['notice:n1','direct:d1','room:g1','guild:a1:2026-09-26T12:03:00Z','skill:s1','project:p1','room:w1','event-bulletin:b1','accepted-work:c1'])
+  assert.deepEqual(events.map(event=>event.channel),['guide','direct','guild','guild','guide','guide','world_chat','world_chat','world_chat'])
   assert.ok(paths.every(path=>!path.endsWith('/read')))
   assert.ok(paths.includes('/pages/github-events'))
-  assert.equal(paths.length,11)
+  assert.equal(paths.length,13)
 })
 
 test('GitHub announcements describe approved reviews and design claim comments as distinct events',async()=>{

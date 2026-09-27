@@ -41,6 +41,19 @@ const disabled={active:false,reason:'會員要求暫停帳號。'};
 const guild='guild_marketing';
 async function join(user=DEMO_USERS[0].user_id,key=guild){await pool.query("INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,$4,'active')",[randomUUID(),DEMO_COMMUNITY,user,key]);}
 
+test('platform admin reviews public events with transactional announcement and notification',async()=>{
+ const session=await login();const body={title:'公開活動審核測試',description:'會員提交由平台審核。',starts_at:new Date(Date.now()+86400000).toISOString(),ends_at:new Date(Date.now()+90000000).toISOString(),mode:'online',location:'https://example.org/event',capacity:20,guild_key:null};
+ const submitted=await member('/events',session.cookie,body,session.csrf);assert.equal(submitted.status,201,JSON.stringify(submitted.data));assert.equal(submitted.data.state,'pending');
+ const queue=await request('/events');assert.equal(queue.status,200);assert.equal(queue.data.items[0].event_id,submitted.data.event_id);
+ const approved=await request(`/events/${submitted.data.event_id}/review`,{decision:'approve',reason:'活動資訊完整，可以公開。'},1);assert.equal(approved.status,200,JSON.stringify(approved.data));assert.equal(approved.data.state,'published');
+ assert.equal((await request(`/events/${submitted.data.event_id}/review`,{decision:'reject',reason:'重複審核。'},1)).status,412);
+ const bulletin=await member('/events/bulletins',session.cookie);assert.deepEqual(bulletin.data.items.map((item:any)=>item.kind).sort(),['approved','submitted']);
+ const notices=await member('/me/notifications',session.cookie);assert.ok(notices.data.items.some((item:any)=>item.kind==='event_approved'));
+ const next=await member('/events',session.cookie,{...body,title:'需退回的活動'},session.csrf);assert.equal(next.status,201);
+ const rejected=await request(`/events/${next.data.event_id}/review`,{decision:'reject',reason:'請補上更清楚的活動說明。'},1);assert.equal(rejected.status,200);assert.equal(rejected.data.state,'rejected');
+ assert.equal((await member('/events',session.cookie)).data.items.find((item:any)=>item.event_id===next.data.event_id).state,'rejected');
+});
+
 test('member errors persist as bounded metadata and appear only in the community admin log',async()=>{
  const session=await login();
  const reported=await member('/me/client-errors',session.cookie,{action:'POST /me/channels/world/world/messages',error_code:'internal_error',http_status:500},session.csrf);

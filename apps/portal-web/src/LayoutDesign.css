@@ -33,6 +33,10 @@
 .skip:focus { top: 12px; transform: none; }
 /* DESIGN: touch targets are at least 44px; older rules left these at 42px. */
 .topbar-actions .btn, .auth-switch button { min-height: 44px; }
+.theme-picker{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:var(--muted);font-size:.75rem;white-space:nowrap}
+.theme-picker select{max-width:180px;min-height:44px;padding:6px 28px 6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg-elev);color:var(--ink);font:inherit;font-size:.78rem;cursor:pointer}
+.theme-picker select:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+@media(max-width:420px){.theme-picker>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.theme-picker select{max-width:140px;font-size:.72rem}}
 .login-card .help-box { padding: 12px; border-radius: 12px; }
 .login-card .help-box p { margin: 0; }
 /* Sign-in keeps the whole logo and one concrete sentence; the form carries the rest. */

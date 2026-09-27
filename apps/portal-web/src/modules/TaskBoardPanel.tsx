@@ -4,22 +4,22 @@ import type { TabId, WorkItem } from '../types';
 import { formatIsoLocal } from '../format';
 import './MemberExperience.css';
 
-type Points = {policy:string;points_per_accepted_work:number;total:number;accepted_count:number;entries:{contribution_id:string;work_item_id:string;decision_id:string;title:string;accepted_at:string;points:number}[]};
+type Records = {policy:string;accepted_count:number;entries:{contribution_id:string;work_item_id:string;decision_id:string;title:string;accepted_at:string;acting_profession_membership_ref:string}[]};
 type Project = {project_id:string;title:string;goal:string;repository_url:string;repository_full_name:string};
 type Issue = {number:number;title:string;url:string;labels:string[];assignees:string[]};
 type Activity = {issues:Issue[];checked_at:string;truncated:boolean};
 const safeGitHub=(url:string)=>{try{const parsed=new URL(url);return parsed.protocol==='https:'&&parsed.hostname==='github.com'&&!parsed.username&&!parsed.password?url:null;}catch{return null;}};
 
 export function TaskBoardPanel({client,onNavigate}:{client:PortalClient;onNavigate:(tab:TabId)=>void}) {
-  const [works,setWorks]=useState<WorkItem[]>([]),[projects,setProjects]=useState<Project[]>([]),[points,setPoints]=useState<Points|null>(null);
+  const [works,setWorks]=useState<WorkItem[]>([]),[projects,setProjects]=useState<Project[]>([]),[records,setRecords]=useState<Records|null>(null);
   const [loading,setLoading]=useState(true),[error,setError]=useState(''),[query,setQuery]=useState(''),[scope,setScope]=useState<'open'|'all'>('open');
   const [selected,setSelected]=useState(''),[activity,setActivity]=useState<Activity|null>(null),[activityLoading,setActivityLoading]=useState(false),[activityError,setActivityError]=useState('');
   const load=useCallback(async()=>{
     setLoading(true);setError('');
-    const results=await Promise.allSettled([client.get<{items:WorkItem[]}>('/work-items'),client.get<{items:Project[]}>('/co-creation/projects'),client.get<Points>('/me/contribution-points')]);
+    const results=await Promise.allSettled([client.get<{items:WorkItem[]}>('/work-items'),client.get<{items:Project[]}>('/co-creation/projects'),client.get<Records>('/me/contribution-records')]);
     if(results[0].status==='fulfilled')setWorks(results[0].value.items);else setError('社群工作暫時無法載入。');
     if(results[1].status==='fulfilled')setProjects(results[1].value.items);else setError(value=>value+' GitHub 共創專案暫時無法載入。');
-    if(results[2].status==='fulfilled')setPoints(results[2].value);else setError(value=>value+' 貢獻紀錄暫時無法載入。');
+    if(results[2].status==='fulfilled')setRecords(results[2].value);else setError(value=>value+' 驗收紀錄暫時無法載入。');
     setLoading(false);
   },[client]);
   useEffect(()=>{void load();},[load]);
@@ -34,7 +34,7 @@ export function TaskBoardPanel({client,onNavigate}:{client:PortalClient;onNaviga
   const visibleIssues=(activity?.issues??[]).filter(issue=>!term||[issue.title,...issue.labels].join(' ').toLocaleLowerCase().includes(term));
   return <section className="experience-panel stack" aria-label="社群任務榜">
     <div className="experience-intro"><div><p className="eyebrow">COMMUNITY TASKS</p><h2>從一件做得到的事開始共創。</h2><p>社群工作在工坊認領與驗收；GitHub Issue 依專案原始紀錄協作。兩種來源各自保留實際狀態。</p></div></div>
-    <div className="experience-points card"><div><span className="experience-kicker">我的社群貢獻值</span><strong>{points?.total??'—'}</strong><p>每件經獨立驗收的工坊工作 +10。報名活動、認領、GitHub Star 與未合併投稿不計分；這不是職業 XP、報酬或官方資格。</p></div><details><summary>查看計分依據（{points?.accepted_count??0} 件）</summary>{points?.entries.length?<ol>{points.entries.map(entry=><li key={entry.contribution_id}><strong>{entry.title}</strong> · +{entry.points} · {formatIsoLocal(entry.accepted_at)}<small>來源工作：{entry.work_item_id}</small></li>)}</ol>:<p>完成並通過一件社群工作驗收後，紀錄會出現在這裡。</p>}</details></div>
+    <div className="experience-points card"><div><span className="experience-kicker">我的驗收工作</span><strong>{records?.accepted_count??'—'} 件</strong><p>每件通過驗收的工作保留工作、決定與當時職業身分的來源。分數規則另訂；這裡不顯示暫定分數。</p></div><details><summary>查看驗收紀錄（{records?.accepted_count??0} 件）</summary>{records?.entries.length?<ol>{records.entries.map(entry=><li key={entry.contribution_id}><strong>{entry.title}</strong> · {formatIsoLocal(entry.accepted_at)}<small>來源工作：{entry.work_item_id} · 驗收決定：{entry.decision_id}</small></li>)}</ol>:<p>完成並通過一件社群工作驗收後，紀錄會出現在這裡。</p>}</details></div>
     <div className="experience-filters"><label className="field">搜尋任務<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="例如：設計、文件、開發"/></label><label className="field">工坊工作狀態<select value={scope} onChange={e=>setScope(e.target.value as 'open'|'all')}><option value="open">可認領</option><option value="all">全部</option></select></label><button type="button" className="btn btn-ghost" onClick={()=>void load()}>重新整理</button></div>
     {error&&<p role="alert" className="banner banner-error">{error}</p>}{loading&&<p role="status">正在載入任務…</p>}
     <div className="experience-heading"><h2>工坊工作</h2><span>{visibleWorks.length} 件</span></div>

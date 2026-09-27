@@ -6,10 +6,11 @@ export const NOTIFICATION_KINDS=[
   'guild_application_approved','guild_application_rejected',
   'guild_expert_appointed','guild_expert_revoked',
   'guild_master_appointed','guild_master_revoked',
+  'event_submitted','event_review_needed','event_approved','event_rejected',
 ] as const;
 export type NotificationKind=typeof NOTIFICATION_KINDS[number];
 
-export const NOTIFICATION_ACTION_TABS=['members','squads','guilds','guild-workspace','messages'] as const;
+export const NOTIFICATION_ACTION_TABS=['members','squads','guilds','guild-workspace','messages','events'] as const;
 export type NotificationActionTab=typeof NOTIFICATION_ACTION_TABS[number];
 
 // members/messages/squads carry a member or squad UUID; guilds/guild-workspace
@@ -19,7 +20,8 @@ export type NotificationAction=
   |{tab:'messages';resource_id:string|null}
   |{tab:'squads';resource_id:string|null}
   |{tab:'guilds';resource_id:string|null}
-  |{tab:'guild-workspace';resource_id:string|null};
+  |{tab:'guild-workspace';resource_id:string|null}
+  |{tab:'events';resource_id:null};
 
 export type Notification={
   notification_id:string;kind:NotificationKind;title:string;body:string;

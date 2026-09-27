@@ -1,80 +1,80 @@
 /* Bright, quiet alternative. Original brand and RPG artwork stay unchanged. */
-html[data-theme="light"] {
+html:is([data-theme="light"],[data-theme="versefolk"]) {
   --bg:#f6f8fb; --bg-elev:#ffffff; --ink:#1c2636; --muted:#566376;
   --line:#dce3eb; --green:#9ed400; --green-2:#89bd00; --green-soft:#f2f8dc;
   --navy:#eef2f7; --navy-2:#ffffff; --blue:#3044ff; --blue-ink:#344cbd;
   --danger:#a3253d; --danger-bg:#fff0f2; --info-bg:#eef4ff; --focus:#4262d3;
   color-scheme:light; background:var(--bg); color:var(--ink);
 }
-html[data-theme="light"] body { background:var(--bg); color:var(--ink); }
-html[data-theme="light"] .app-frame { background:var(--bg); }
-html[data-theme="light"] .sidebar { background:#fff; border:1px solid var(--line); box-shadow:0 8px 28px #2236520a; }
-html[data-theme="light"] .sidebar .brand strong { color:var(--ink); }
-html[data-theme="light"] .main { background:#f8fafc; border:1px solid var(--line); }
-html[data-theme="light"] .topbar { border-bottom-color:var(--line); }
-html[data-theme="light"] .nav-item { color:#405166; }
-html[data-theme="light"] .nav-item:hover { background:#f1f5f9; color:#1b293b; }
-html[data-theme="light"] .nav-item.is-active { background:#eef6db; color:#294809; box-shadow:inset 3px 0 0 #81b407; }
-html[data-theme="light"] .nav-item.is-active .workshop-icon { color:#4d7600; }
-html[data-theme="light"] .nav-section,html[data-theme="light"] .nav-footer { border-color:var(--line); }
-html[data-theme="light"] .nav-section-items { border-color:var(--line); }
-html[data-theme="light"] .nav-section > summary { color:#566376; }
-html[data-theme="light"] .sidebar .brand .eyebrow,html[data-theme="light"] .eyebrow,html[data-theme="light"] .workspace-eyebrow { color:#5d7190; }
-html[data-theme="light"] .card,html[data-theme="light"] .empty,html[data-theme="light"] .login-card { background:#fff; border-color:var(--line); box-shadow:0 8px 30px #2737500a; }
-html[data-theme="light"] .summary-strip,html[data-theme="light"] .help-box,html[data-theme="light"] .development-context { background:#f1f5fa!important; border-color:#dce5ef!important; color:var(--ink); }
-html[data-theme="light"] .banner-info { background:#edf3ff; color:#294c87; border-color:#c7d8f3; }
-html[data-theme="light"] .banner-error { background:#fff0f2; color:#8f2639; border-color:#e8b2bc; }
-html[data-theme="light"] .summary-strip strong { color:#4c7400; }
-html[data-theme="light"] .pill,html[data-theme="light"] .chip,html[data-theme="light"] code { background:#edf2f7; color:#263951; }
-html[data-theme="light"] .badge,html[data-theme="light"] .pill-green { background:#eef6db; color:#315500; }
-html[data-theme="light"] input,html[data-theme="light"] select,html[data-theme="light"] textarea { background:#fff; color:var(--ink); border-color:#becbd8; }
-html[data-theme="light"] input::placeholder,html[data-theme="light"] textarea::placeholder { color:#708096; }
-html[data-theme="light"] .btn-primary { background:var(--green); color:#203000; }
-html[data-theme="light"] .btn-ghost { background:#fff; color:#293d55; border-color:#c6d0dd; }
-html[data-theme="light"] .btn-ghost:hover:not(:disabled) { background:#f1f5f9; border-color:#7d91aa; }
-html[data-theme="light"] .topbar-actions .btn:first-child,html[data-theme="light"] .topbar-actions .settings-menu-button { background:#fff; color:#293d55; border-color:#c6d0dd; }
-html[data-theme="light"] .settings-menu-list { background:#fff; box-shadow:0 12px 30px #26364f20; }
-html[data-theme="light"] .settings-menu-item { color:var(--ink); }
-html[data-theme="light"] .settings-menu-item:hover,html[data-theme="light"] .settings-menu-item:focus-visible { background:#f1f5f9; }
-html[data-theme="light"] .settings-menu-item.is-current { color:#3c6500; box-shadow:inset 3px 0 0 #85b600; }
-html[data-theme="light"] .settings-menu-badge { background:#eef6d8; color:#3c6500; }
-html[data-theme="light"] a:not(.btn) { color:#3555a5; }
-html[data-theme="light"] .btn-module { background:#edf2f8; color:var(--ink); border-color:var(--line); }
-html[data-theme="light"] .login-layout { background:var(--bg); }
-html[data-theme="light"] .auth-switch { background:#edf2f7; }
-html[data-theme="light"] .auth-switch button { color:#54657b; }
-html[data-theme="light"] .auth-switch .selected { background:#fff; color:#203149; box-shadow:0 2px 10px #20314918; }
-html[data-theme="light"] .login-story .brand-poster,html[data-theme="light"] .brand-poster.brand-poster-original { background:#000; border-color:#20252b; }
-html[data-theme="light"] .checkbox-card,html[data-theme="light"] .selection-chip,html[data-theme="light"] .quiz-option { background:#fff; border-color:#d5dfe9; color:var(--ink); }
-html[data-theme="light"] .checkbox-card:has(input:checked),html[data-theme="light"] .selection-chip.selected,html[data-theme="light"] .quiz-option.selected { background:#f0f8dc; border-color:#83ad23; }
-html[data-theme="light"] .scope-tabs [aria-pressed="true"] { background:#ecf6d8; border-color:#8db727; color:#315600; }
-html[data-theme="light"] .freedom-home .home-member-summary { background:#fff; border-color:var(--line); }
-html[data-theme="light"] .freedom-home .guild-base-art { opacity:.13; }
-html[data-theme="light"] .freedom-home .guild-base-hero::after { background:linear-gradient(90deg,#fffffff5,#ffffffe8 62%,#ffffff8a); }
-html[data-theme="light"] .freedom-home .home-member-name { color:var(--ink); }
-html[data-theme="light"] .freedom-home .home-member-name > span { color:#4b7400; }
-html[data-theme="light"] .freedom-home .home-member-guild { color:var(--muted); }
-html[data-theme="light"] .freedom-home .home-member-skills > span { background:#f0f4fa; border-color:var(--line); color:var(--ink); }
-html[data-theme="light"] .freedom-home .home-member-actions .btn { background:#fff; }
-html[data-theme="light"] .freedom-home .home-shortcut { background:#fff; border-color:var(--line); color:var(--ink); }
-html[data-theme="light"] .freedom-home .home-shortcut .workshop-icon { color:#618d00; }
-html[data-theme="light"] .freedom-home .home-shortcut-arrow { color:var(--muted); }
-html[data-theme="light"] .freedom-home .home-shortcut:hover { background:#f3f8e8; border-color:#90b841; }
-html[data-theme="light"] .freedom-home .home-section-heading h2 { color:var(--ink); }
-html[data-theme="light"] .freedom-home .home-module-card { background:#fff; border-color:var(--line); box-shadow:0 8px 25px #2737500a; }
-html[data-theme="light"] .freedom-home .home-module-body .home-module-name { color:var(--ink); }
-html[data-theme="light"] .freedom-home .home-module-description { color:var(--muted); }
-html[data-theme="light"] .freedom-home .home-module-button { background:#f4f7fa; color:#29415e; border-color:#d2dce7; }
-html[data-theme="light"] .freedom-home .home-module-button > span { color:#5e8b00; }
-html[data-theme="light"] .freedom-home .home-module-button:hover,html[data-theme="light"] .freedom-home .home-module-button:focus-visible { background:#eef6db; border-color:#8dbb32; color:#244100; }
-html[data-theme="light"] .member-task,html[data-theme="light"] .messages-list>li,html[data-theme="light"] .messages-peer { background:#fff; border-color:var(--line); }
-html[data-theme="light"] .task-state-done,html[data-theme="light"] .messages-tabs [aria-selected=true] { background:#eef6d8; color:#3c6500; border-color:#9abf4e; }
-html[data-theme="light"] .task-state-error { color:#a3253d; border-color:#e2a9b2; }
-html[data-theme="light"] .task-state-todo { color:#835300; border-color:#d6bd8d; }
-html[data-theme="light"] .onboarding-layout,html[data-theme="light"] .onboarding-intro,html[data-theme="light"] .onboarding-card,html[data-theme="light"] .onboarding-confirmation { background:var(--bg-elev); color:var(--ink); border-color:var(--line); }
-html[data-theme="light"] .onboarding-route,html[data-theme="light"] .recommendation-card,html[data-theme="light"] .other-guild-choices { background:#fff; color:var(--ink); border-color:var(--line); }
-html[data-theme="light"] .admin-header,html[data-theme="light"] .admin-tabs { background:#fff; color:var(--ink); border-color:var(--line); }
-html[data-theme="light"] .admin-summary .card { background:#fff; border-color:var(--line); }
-html[data-theme="light"] .admin-header .eyebrow { color:#5c7809; }
-html[data-theme="light"] .theme-toggle { white-space:nowrap; }
-@media(max-width:860px){html[data-theme="light"] .sidebar { border-radius:0; border-width:0 0 1px; } html[data-theme="light"] .main { border:0; } html[data-theme="light"] .workspace-navigation .nav-item.is-active { box-shadow:inset 3px 0 0 #81b407; }}
+html:is([data-theme="light"],[data-theme="versefolk"]) body { background:var(--bg); color:var(--ink); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .app-frame { background:var(--bg); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .sidebar { background:#fff; border:1px solid var(--line); box-shadow:0 8px 28px #2236520a; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .sidebar .brand strong { color:var(--ink); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .main { background:#f8fafc; border:1px solid var(--line); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .topbar { border-bottom-color:var(--line); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .nav-item { color:#405166; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .nav-item:hover { background:#f1f5f9; color:#1b293b; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .nav-item.is-active { background:#eef6db; color:#294809; box-shadow:inset 3px 0 0 #81b407; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .nav-item.is-active .workshop-icon { color:#4d7600; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .nav-section,html:is([data-theme="light"],[data-theme="versefolk"]) .nav-footer { border-color:var(--line); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .nav-section-items { border-color:var(--line); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .nav-section > summary { color:#566376; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .sidebar .brand .eyebrow,html:is([data-theme="light"],[data-theme="versefolk"]) .eyebrow,html:is([data-theme="light"],[data-theme="versefolk"]) .workspace-eyebrow { color:#5d7190; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .card,html:is([data-theme="light"],[data-theme="versefolk"]) .empty,html:is([data-theme="light"],[data-theme="versefolk"]) .login-card { background:#fff; border-color:var(--line); box-shadow:0 8px 30px #2737500a; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .summary-strip,html:is([data-theme="light"],[data-theme="versefolk"]) .help-box,html:is([data-theme="light"],[data-theme="versefolk"]) .development-context { background:#f1f5fa!important; border-color:#dce5ef!important; color:var(--ink); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .banner-info { background:#edf3ff; color:#294c87; border-color:#c7d8f3; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .banner-error { background:#fff0f2; color:#8f2639; border-color:#e8b2bc; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .summary-strip strong { color:#4c7400; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .pill,html:is([data-theme="light"],[data-theme="versefolk"]) .chip,html:is([data-theme="light"],[data-theme="versefolk"]) code { background:#edf2f7; color:#263951; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .badge,html:is([data-theme="light"],[data-theme="versefolk"]) .pill-green { background:#eef6db; color:#315500; }
+html:is([data-theme="light"],[data-theme="versefolk"]) input,html:is([data-theme="light"],[data-theme="versefolk"]) select,html:is([data-theme="light"],[data-theme="versefolk"]) textarea { background:#fff; color:var(--ink); border-color:#becbd8; }
+html:is([data-theme="light"],[data-theme="versefolk"]) input::placeholder,html:is([data-theme="light"],[data-theme="versefolk"]) textarea::placeholder { color:#708096; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .btn-primary { background:var(--green); color:#203000; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .btn-ghost { background:#fff; color:#293d55; border-color:#c6d0dd; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .btn-ghost:hover:not(:disabled) { background:#f1f5f9; border-color:#7d91aa; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .topbar-actions .btn:first-child,html:is([data-theme="light"],[data-theme="versefolk"]) .topbar-actions .settings-menu-button { background:#fff; color:#293d55; border-color:#c6d0dd; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .settings-menu-list { background:#fff; box-shadow:0 12px 30px #26364f20; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .settings-menu-item { color:var(--ink); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .settings-menu-item:hover,html:is([data-theme="light"],[data-theme="versefolk"]) .settings-menu-item:focus-visible { background:#f1f5f9; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .settings-menu-item.is-current { color:#3c6500; box-shadow:inset 3px 0 0 #85b600; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .settings-menu-badge { background:#eef6d8; color:#3c6500; }
+html:is([data-theme="light"],[data-theme="versefolk"]) a:not(.btn) { color:#3555a5; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .btn-module { background:#edf2f8; color:var(--ink); border-color:var(--line); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .login-layout { background:var(--bg); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .auth-switch { background:#edf2f7; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .auth-switch button { color:#54657b; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .auth-switch .selected { background:#fff; color:#203149; box-shadow:0 2px 10px #20314918; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .login-story .brand-poster,html:is([data-theme="light"],[data-theme="versefolk"]) .brand-poster.brand-poster-original { background:#000; border-color:#20252b; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .checkbox-card,html:is([data-theme="light"],[data-theme="versefolk"]) .selection-chip,html:is([data-theme="light"],[data-theme="versefolk"]) .quiz-option { background:#fff; border-color:#d5dfe9; color:var(--ink); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .checkbox-card:has(input:checked),html:is([data-theme="light"],[data-theme="versefolk"]) .selection-chip.selected,html:is([data-theme="light"],[data-theme="versefolk"]) .quiz-option.selected { background:#f0f8dc; border-color:#83ad23; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .scope-tabs [aria-pressed="true"] { background:#ecf6d8; border-color:#8db727; color:#315600; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-member-summary { background:#fff; border-color:var(--line); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .guild-base-art { opacity:.13; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .guild-base-hero::after { background:linear-gradient(90deg,#fffffff5,#ffffffe8 62%,#ffffff8a); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-member-name { color:var(--ink); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-member-name > span { color:#4b7400; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-member-guild { color:var(--muted); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-member-skills > span { background:#f0f4fa; border-color:var(--line); color:var(--ink); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-member-actions .btn { background:#fff; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-shortcut { background:#fff; border-color:var(--line); color:var(--ink); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-shortcut .workshop-icon { color:#618d00; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-shortcut-arrow { color:var(--muted); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-shortcut:hover { background:#f3f8e8; border-color:#90b841; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-section-heading h2 { color:var(--ink); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-module-card { background:#fff; border-color:var(--line); box-shadow:0 8px 25px #2737500a; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-module-body .home-module-name { color:var(--ink); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-module-description { color:var(--muted); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-module-button { background:#f4f7fa; color:#29415e; border-color:#d2dce7; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-module-button > span { color:#5e8b00; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-module-button:hover,html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-module-button:focus-visible { background:#eef6db; border-color:#8dbb32; color:#244100; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .member-task,html:is([data-theme="light"],[data-theme="versefolk"]) .messages-list>li,html:is([data-theme="light"],[data-theme="versefolk"]) .messages-peer { background:#fff; border-color:var(--line); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .task-state-done,html:is([data-theme="light"],[data-theme="versefolk"]) .messages-tabs [aria-selected=true] { background:#eef6d8; color:#3c6500; border-color:#9abf4e; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .task-state-error { color:#a3253d; border-color:#e2a9b2; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .task-state-todo { color:#835300; border-color:#d6bd8d; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .onboarding-layout,html:is([data-theme="light"],[data-theme="versefolk"]) .onboarding-intro,html:is([data-theme="light"],[data-theme="versefolk"]) .onboarding-card,html:is([data-theme="light"],[data-theme="versefolk"]) .onboarding-confirmation { background:var(--bg-elev); color:var(--ink); border-color:var(--line); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .onboarding-route,html:is([data-theme="light"],[data-theme="versefolk"]) .recommendation-card,html:is([data-theme="light"],[data-theme="versefolk"]) .other-guild-choices { background:#fff; color:var(--ink); border-color:var(--line); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .admin-header,html:is([data-theme="light"],[data-theme="versefolk"]) .admin-tabs { background:#fff; color:var(--ink); border-color:var(--line); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .admin-summary .card { background:#fff; border-color:var(--line); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .admin-header .eyebrow { color:#5c7809; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .theme-toggle { white-space:nowrap; }
+@media(max-width:860px){html:is([data-theme="light"],[data-theme="versefolk"]) .sidebar { border-radius:0; border-width:0 0 1px; } html:is([data-theme="light"],[data-theme="versefolk"]) .main { border:0; } html:is([data-theme="light"],[data-theme="versefolk"]) .workspace-navigation .nav-item.is-active { box-shadow:inset 3px 0 0 #81b407; }}

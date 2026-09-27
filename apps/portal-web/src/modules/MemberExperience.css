@@ -36,6 +36,7 @@
 .experience-points li small { display: block; color: var(--muted); overflow-wrap: anywhere; }
 .experience-history { border-top: 1px solid var(--line); }
 .experience-history .experience-grid { margin-top: .8rem; }
+.experience-bulletins{list-style:none;margin:0;padding:0;display:grid;gap:.5rem}.experience-bulletins li{display:flex;justify-content:space-between;gap:1rem;padding:.7rem .9rem;border:1px solid var(--line);border-radius:10px;background:var(--bg-elev)}.experience-bulletins time{flex:none;color:var(--muted);font-size:.8rem}@media(max-width:700px){.experience-bulletins li{display:grid}}
 .experience-project-picker { max-width: 600px; }
 .experience-source { min-height: 44px; display: inline-flex; align-items: center; }
 .welcome-preview { width: min(1200px, 100%); margin: 0 auto; padding: clamp(1rem, 3vw, 2.5rem); display: grid; gap: 1.2rem; }

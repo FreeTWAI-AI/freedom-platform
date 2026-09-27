@@ -39,7 +39,8 @@ test('訊息控制台 stays visible during required positioning without reading 
   await page.getByLabel('社群顯示名稱',{exact:true}).fill('控制台定位測試');
   await page.getByLabel('電子郵件',{exact:true}).fill(`console-${randomUUID()}@example.test`);
   await page.getByLabel('密碼',{exact:true}).fill('freedom-console-test-2026');
-  await page.getByRole('button',{name:'註冊並開始定位',exact:true}).click();
+  await page.getByRole('button',{name:'建立帳號，先逛工坊',exact:true}).click();
+  await page.getByRole('button',{name:'開始／繼續定位 →',exact:true}).click();
   await expect(page.getByRole('heading',{name:'你喜歡怎麼做事？'})).toBeVisible();
   await expect(page.getByRole('button',{name:'展開訊息控制台'})).toBeVisible();
   expect((await page.locator('.game-console-ticker').boundingBox())?.x).toBeLessThan(20);
@@ -60,10 +61,10 @@ test('global 訊息控制台 persists across modules and synchronizes with its p
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
   await page.getByRole('button',{name:'登入',exact:true}).click();
   await expect(page.getByRole('heading',{name:'會員首頁',level:1,exact:true})).toBeVisible();
-  await expect(page.getByRole('button',{name:/個人檔案：/})).toBeVisible();
-  await page.getByRole('button',{name:/個人檔案：/}).click();
-  await expect(page.getByRole('menu',{name:'個人檔案'}).getByRole('menuitem',{name:'我的訊息'})).toHaveCount(0);
-  await page.getByRole('button',{name:/個人檔案：/}).click();
+  await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'設定',exact:true}).click();
+  await expect(page.getByRole('menu',{name:'個人檔案'}).getByRole('menuitem',{name:'我的訊息'})).toBeVisible();
+  await page.getByRole('button',{name:'設定',exact:true}).click();
   await expect(page.getByRole('navigation',{name:'主要工作區'}).getByRole('button',{name:'我的訊息'})).toBeVisible();
   await expect(page.getByRole('heading',{name:'最新動態',level:2})).toHaveCount(0);
   await page.screenshot({path:'test-results/game-console-home-desktop.png'});

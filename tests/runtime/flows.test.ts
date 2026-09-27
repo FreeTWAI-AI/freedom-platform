@@ -57,10 +57,13 @@ test('login → claim → submit → request changes → resubmit → independen
   const freshApp=createApp(pool,origin); // Recreated application reads PostgreSQL facts, no process-local projections.
   const result=await freshApp.request(origin+'/api/v1/dashboard',{headers:{Cookie:maker.cookie}});
   const dashboard:any=await result.json();assert.equal(dashboard.gained.length,1);assert.equal(dashboard.gained[0].official,false);
-  const points=(await request('/me/contribution-points',maker)).data;
-  assert.equal(points.total,10);assert.equal(points.accepted_count,1);
-  assert.equal(points.entries[0].work_item_id,DEMO_WORK);
-  assert.ok(points.entries[0].decision_id);
+  const records=(await request('/me/contribution-records',maker)).data;
+  assert.equal(records.accepted_count,1);assert.equal(records.total,undefined);
+  assert.equal(records.entries[0].work_item_id,DEMO_WORK);
+  assert.ok(records.entries[0].decision_id);
+  assert.equal(records.entries[0].acting_profession_membership_ref,maker.user.profession_membership_ref);
+  const world=(await request('/community/accepted-work',maker)).data.items;
+  assert.ok(world.some((item:any)=>item.contribution_id===records.entries[0].contribution_id&&item.member_name===maker.user.display_name));
   assert.equal(dashboard.gained[0].artifact_ref,'artifact:example-v2');assert.equal(dashboard.now.length,0);
   assert.equal((await pool.query('SELECT count(*) FROM contributions')).rows[0].count,'1');
   assert.equal((await pool.query('SELECT count(*) FROM work_decisions')).rows[0].count,'2');

@@ -6,8 +6,9 @@ import './rpg-theme.css'
 import './LayoutDesign.css'
 import './GameConsole.css'
 import './light-theme.css'
+import './versefolk-theme.css'
 
-try { document.documentElement.dataset.theme = localStorage.getItem('freedom-theme') === 'dark' ? 'dark' : 'light' }
+try { const saved=localStorage.getItem('freedom-theme');document.documentElement.dataset.theme = saved === 'dark'||saved==='versefolk' ? saved : 'light' }
 catch { document.documentElement.dataset.theme = 'light' }
 
 const root = document.getElementById('root')

@@ -130,25 +130,25 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
 
   useEffect(()=>{
     if(!client||!userId||!feedEnabled)return
-    let active=true,loading=false,cycle=0
-    const refresh=async(forceWorld=false)=>{
+    let active=true,loading=false
+    const refresh=async()=>{
       if(!active||loading||document.visibilityState==='hidden')return
       loading=true
-      const includeWorld=forceWorld||cycle%4===0;cycle++
-      try { for(const event of await readConsoleFeed(client,userId,includeWorld)) if(active)append(event,true) }
+      try { for(const event of await readConsoleFeed(client,userId,true)) if(active)append(event,true) }
       catch { /* PortalClient sends the actionable API error to the system channel. */ }
       finally {loading=false}
     }
     void refresh()
     const timer=window.setInterval(()=>void refresh(),30000)
     const worldTimer=window.setInterval(()=>{if(active&&visibilityRef.current.world_chat&&document.visibilityState==='visible')void readWorldChatFeed(client).then(items=>{for(const event of items)if(active)append(event,true)}).catch(()=>{})},10000)
-    const focus=()=>void refresh(true)
+    const focus=()=>void refresh()
     const update=()=>void refresh()
     window.addEventListener('focus',focus)
     window.addEventListener('visibilitychange',focus)
     window.addEventListener('freedom-inbox-updated',update)
+    window.addEventListener('freedom-world-facts-updated',update)
     window.addEventListener('freedom-profile-updated',focus)
-    return()=>{active=false;window.clearInterval(timer);window.clearInterval(worldTimer);window.removeEventListener('focus',focus);window.removeEventListener('visibilitychange',focus);window.removeEventListener('freedom-inbox-updated',update);window.removeEventListener('freedom-profile-updated',focus)}
+    return()=>{active=false;window.clearInterval(timer);window.clearInterval(worldTimer);window.removeEventListener('focus',focus);window.removeEventListener('visibilitychange',focus);window.removeEventListener('freedom-inbox-updated',update);window.removeEventListener('freedom-world-facts-updated',update);window.removeEventListener('freedom-profile-updated',focus)}
   },[client,userId,feedEnabled,append])
 
   useEffect(() => {

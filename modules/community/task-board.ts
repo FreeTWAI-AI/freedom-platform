@@ -8,11 +8,19 @@ export async function previewTasks(pool:Pool,actor:Actor) {
     ORDER BY created_at DESC,work_item_id LIMIT 12`,[actor.community_id])).rows;
 }
 
-// This is a transparent, versioned community contribution indicator, not profession XP,
-// compensation, or an official credential. Only independent accepted work is counted.
-export async function contributionPoints(pool:Pool,actor:Actor) {
-  const entries=(await pool.query(`SELECT contribution_id,work_item_id,decision_id,title,accepted_at
-    FROM contributions WHERE community_id=$1 AND user_id=$2 ORDER BY accepted_at DESC,contribution_id`,[actor.community_id,actor.user_id])).rows;
-  return {policy:'accepted_work_v1',points_per_accepted_work:10,total:entries.length*10,accepted_count:entries.length,
-    entries:entries.map(entry=>({...entry,points:10}))};
+// Durable accepted-work facts. Scoring remains a separate, future policy;
+// claim, decision and acting profession references make recalculation possible.
+export async function contributionRecords(pool:Pool,actor:Actor) {
+  const entries=(await pool.query(`SELECT c.contribution_id,c.claim_id,c.work_item_id,c.decision_id,c.title,c.accepted_at,
+      wc.acting_profession_membership_ref,d.reviewer_ref
+    FROM contributions c JOIN work_claims wc ON wc.claim_id=c.claim_id
+    JOIN work_decisions d ON d.decision_id=c.decision_id
+    WHERE c.community_id=$1 AND c.user_id=$2 ORDER BY c.accepted_at DESC,c.contribution_id`,[actor.community_id,actor.user_id])).rows;
+  return {policy:'accepted_work_facts_v1',accepted_count:entries.length,entries};
+}
+
+export async function acceptedWorkFeed(pool:Pool,actor:Actor) {
+  return (await pool.query(`SELECT c.contribution_id,c.title,c.accepted_at,u.display_name AS member_name
+    FROM contributions c JOIN users u ON u.user_id=c.user_id
+    WHERE c.community_id=$1 ORDER BY c.accepted_at DESC,c.contribution_id DESC LIMIT 30`,[actor.community_id])).rows;
 }

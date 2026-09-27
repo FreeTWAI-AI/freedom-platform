@@ -11,6 +11,7 @@ import {requireCondition} from '../../../../packages/shared/problem.js';
 import {verifyAdminAccess,type AdminAccessVerifier} from '../../../../modules/platform-admin/access.js';
 import {authenticateAdmin,adminBootstrap,adminMembers,changeMemberStatus,adminApplications,reviewGuildApplication,adminGuilds,adminGuildMasterCandidates,appointGuildMaster,adminNominees,adminAudit,appointPlatformAdmin,changePlatformAdminStatus,type AdminActor,type AdminCommand} from '../../../../modules/platform-admin/service.js';
 import {startGitHubAppSetup,completeGitHubAppSetup,githubAppSetupStatus} from '../../../../modules/github-social/setup.js';
+import {listAdminEventQueue,reviewEventAsAdmin} from '../../../../modules/community/events.js';
 type AdminEnv={Variables:{admin:AdminActor;adminCsrf:string}};
 export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=verifyAdminAccess,github:{origin:string;tokenKey?:string;fetcher?:typeof fetch}={origin:'http://127.0.0.1:4310'}){
   const app=new Hono<AdminEnv>();
@@ -48,6 +49,8 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
   app.post('/members/:id/admin',async c=>result(c,await appointPlatformAdmin(pool,await command(c),c.req.param('id'))));
   app.post('/members/:id/status',async c=>result(c,await changeMemberStatus(pool,await command(c),c.req.param('id'))));
   app.get('/guild-applications',async c=>{const {limit,offset}=paging(c),state=z.enum(['pending','approved','declined','all']).parse(c.req.query('state')??'pending');return c.json(await adminApplications(pool,c.get('admin'),limit,offset,state));});
+  app.get('/events',async c=>c.json({items:await listAdminEventQueue(pool,c.get('admin'))}));
+  app.post('/events/:id/review',async c=>result(c,await reviewEventAsAdmin(pool,await command(c),z.uuid().parse(c.req.param('id')))));
   app.post('/guild-applications/:id/review',async c=>result(c,await reviewGuildApplication(pool,await command(c),c.req.param('id'))));
   app.get('/guilds',async c=>c.json({items:await adminGuilds(pool,c.get('admin'))}));
   app.get('/guilds/:key/master-candidates',async c=>c.json(await adminGuildMasterCandidates(pool,c.get('admin'),c.req.param('key'),c.req.query())));

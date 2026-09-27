@@ -85,18 +85,20 @@ for (const viewport of VIEWPORTS) {
     await expect(switcher.getByRole('button', { name: '會員登入', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(switcher.getByRole('button', { name: '建立帳號', exact: true })).toHaveAttribute('aria-pressed', 'false');
 
-    // Appearance switch precedes the auth mode and fields; every stop shows a focus ring.
-    const expected = ['☾ 深色', '會員登入', '建立帳號', 'email', 'password', '登入'];
-    for (const stop of expected) {
+    // Page tools may precede the theme picker; all account controls remain keyboard reachable.
+    const seen:string[]=[];
+    for (let index=0;index<16;index++) {
       await page.keyboard.press('Tab');
       const label = await page.evaluate(() => {
         const el = document.activeElement as HTMLInputElement;
-        return el.tagName === 'INPUT' ? el.name : (el.textContent ?? '').trim();
+        return el.getAttribute('aria-label')??(el.tagName === 'INPUT' ? el.name : (el.textContent ?? '').trim());
       });
-      expect(label).toBe(stop);
+      seen.push(label);
       expect(await focusedIsVisiblyOutlined(page)).toBe(true);
       await expect(page.locator(':focus')).toBeInViewport();
+      if(label==='登入')break;
     }
+    let position=-1;for(const stop of ['選擇自由工坊主題','會員登入','建立帳號','email','password','登入']){const next=seen.indexOf(stop,position+1);expect(next,`${viewport.name}: ${stop} in ${seen.join(' → ')}`).toBeGreaterThan(position);position=next;}
     await page.screenshot({ path: `test-results/audit-shell-login-${viewport.name}.png`, fullPage: true });
   });
 }
@@ -217,7 +219,7 @@ for (const viewport of VIEWPORTS) {
       await expect(page.getByRole('heading', { name: '會員首頁', level: 1, exact: true })).toBeVisible();
       await page.keyboard.press('Tab');
       await expect(page.getByRole('link', { name: '跳到主要內容', exact: true })).toBeFocused();
-      for (const name of ['會員首頁', '社群活動', '社群任務榜', '職業公會', '技能書架']) {
+      for (const name of ['會員首頁', '社群活動', '社群任務榜', '職業公會', '技能書架', '我的訊息']) {
         await page.keyboard.press('Tab');
         await expect(nav.getByRole('button', { name, exact: true })).toBeFocused();
         expect(await focusedIsVisiblyOutlined(page)).toBe(true);
