@@ -1,11 +1,12 @@
 import {useEffect,useRef,useState,type FormEvent,type ReactNode} from 'react';
 import {developmentPages} from '../../../modules/development/pages';
-import type {PageGitHubActivity} from '../../../modules/development/page-github';
+import type {PageGitHubActivity,PageGitHubItem} from '../../../modules/development/page-github';
 import {ApiError,type PortalClient} from './api';
 import {pageHelp} from './page-help';
 import './PageTools.css';
 
 type Tool='idea'|'help'|'edit';
+type OwnIssue={operation_key:string;state:'pending'|'confirmed'|'denied';issue_number:number|null;issue_url:string|null;created_at:string};
 const PLATFORM_REPOSITORY='https://github.com/FreeTWAI-AI/freedom-platform';
 const names:Record<Tool,string>={idea:'提出想法',help:'頁面說明',edit:'參與編修'};
 const icons:Record<Tool,ReactNode>={
@@ -26,12 +27,13 @@ function promptFor(tool:Tool,page:typeof developmentPages[number],draft:{title:s
 export function PageTools({pageId,client}:{pageId:string;client?:PortalClient}){
   const page=developmentPages.find(value=>value.id===pageId);
   const [tool,setTool]=useState<Tool|null>(null),[activity,setActivity]=useState<PageGitHubActivity|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState(''),[copied,setCopied]=useState(false),[claimCopied,setClaimCopied]=useState<number|null>(null),[title,setTitle]=useState(''),[body,setBody]=useState(''),[refreshTick,setRefreshTick]=useState(0);
-  const [githubConnected,setGithubConnected]=useState(false),[githubConfigured,setGithubConfigured]=useState(false),[posting,setPosting]=useState(false),[postError,setPostError]=useState(''),[postedUrl,setPostedUrl]=useState('');
+  const [githubConnected,setGithubConnected]=useState(false),[githubConfigured,setGithubConfigured]=useState(false),[posting,setPosting]=useState(false),[postError,setPostError]=useState(''),[postedUrl,setPostedUrl]=useState(''),[ownIssues,setOwnIssues]=useState<OwnIssue[]>([]);
   const dialog=useRef<HTMLDialogElement>(null);
   const issueKey=useRef<{draft:string;key:string}|null>(null);
   useEffect(()=>{if(tool)dialog.current?.showModal();else dialog.current?.close()},[tool]);
-  useEffect(()=>{setTitle('');setBody('');setPostError('');setPostedUrl('');issueKey.current=null},[pageId]);
+  useEffect(()=>{setTitle('');setBody('');setPostError('');setPostedUrl('');setActivity(null);setOwnIssues([]);issueKey.current=null},[pageId]);
   useEffect(()=>{if(tool!=='idea'||!client)return;let live=true;void client.get<{configured:boolean;connected:boolean}>('/me/github',{skipAuthHandler:true}).then(value=>{if(live){setGithubConnected(value.connected);setGithubConfigured(value.configured)}}).catch(()=>{if(live){setGithubConnected(false);setGithubConfigured(false)}});return()=>{live=false}},[tool,client]);
+  useEffect(()=>{if(tool!=='idea'||!client||!page)return;let live=true;void client.get<{items:OwnIssue[]}>(`/me/github/pages/${page.id}/issues`,{background:true}).then(value=>{if(live)setOwnIssues(value.items)}).catch(()=>{});return()=>{live=false}},[tool,client,page?.id,refreshTick]);
   useEffect(()=>{if(tool!=='idea')return;const focused=()=>setRefreshTick(value=>value+1);window.addEventListener('focus',focused);return()=>window.removeEventListener('focus',focused)},[tool]);
   useEffect(()=>{if(tool!=='idea'||!page)return;let live=true;setLoading(true);setError('');fetch(`/api/v1/pages/github-activity?page=${encodeURIComponent(page.id)}${refreshTick?'&refresh=1':''}`,{credentials:'same-origin'}).then(async response=>{if(!response.ok)throw Error('目前無法同步 GitHub Issue，請稍後重試。');return response.json() as Promise<PageGitHubActivity>}).then(value=>{if(live)setActivity(value)}).catch(cause=>{if(live)setError(cause instanceof Error?cause.message:'同步失敗')}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[tool,page?.id,refreshTick]);
   if(!page)return null;
@@ -40,6 +42,10 @@ export function PageTools({pageId,client}:{pageId:string;client?:PortalClient}){
   const bodyWithTag=[draft.body,`頁面標記：${pageTag(page.id)}`,marker(page.id)].filter(Boolean).join('\n\n');
   const githubIssueUrl=`${PLATFORM_REPOSITORY}/issues/new?${new URLSearchParams({title:draft.title,body:bodyWithTag})}`;
   const githubLabelUrl=`${PLATFORM_REPOSITORY}/issues?${new URLSearchParams({q:`is:issue is:open label:"${pageTag(page.id)}"`})}`;
+  const issueMap=new Map<number,PageGitHubItem>();
+  for(const item of activity?.items??[])issueMap.set(item.number,item);
+  for(const item of ownIssues)if(item.state==='confirmed'&&item.issue_number&&item.issue_url&&!issueMap.has(item.issue_number))issueMap.set(item.issue_number,{number:item.issue_number,title:'已由你發布的提案',url:item.issue_url,author:'你 · 狀態請到 GitHub 確認',created_at:item.created_at,state:'open',kind:'issue',pages:[page.id]});
+  const issueItems=[...issueMap.values()].sort((a,b)=>b.created_at.localeCompare(a.created_at)||b.number-a.number);
   const copy=async()=>{if(!tool)return;try{await navigator.clipboard.writeText(promptFor(tool,page,draft));setCopied(true)}catch{setCopied(false)}};
   const copyClaim=async(number:number)=>{try{await navigator.clipboard.writeText(designClaim);setClaimCopied(number)}catch{setClaimCopied(null);setError('無法複製留言，請在 GitHub Issue 中寫下願意接手設計，並加入 <!-- freedom-design-claim -->。')}};
   const issueSubmit=(event:FormEvent)=>{event.preventDefault();window.open(githubIssueUrl,'_blank','noopener,noreferrer')};
@@ -48,9 +54,19 @@ export function PageTools({pageId,client}:{pageId:string;client?:PortalClient}){
     if(draft.title.length<3||draft.body.length<10){setPostError('請填寫至少 3 字的標題與 10 字的想法後再發布。');return;}
     const fingerprint=JSON.stringify([page.id,draft.title,draft.body]);
     if(issueKey.current?.draft!==fingerprint)issueKey.current={draft:fingerprint,key:crypto.randomUUID()};
+    const operationKey=issueKey.current.key;
     setPosting(true);setPostError('');setPostedUrl('');
-    try{const result=await client.post<{confirmed:boolean;issue_url:string}>(`/me/github/pages/${page.id}/issues`,{title:draft.title,description:draft.body,confirmed:true},{idempotencyKey:issueKey.current.key});if(result.confirmed){setPostedUrl(result.issue_url);setRefreshTick(value=>value+1)}}
-    catch(cause){setPostError(cause instanceof Error?cause.message:'站內發布未完成，請到 GitHub 核對。');if(cause instanceof ApiError&&['github_permission_required','github_installation_required','github_repository_unavailable','github_reconnect_required','github_connect_required'].includes(cause.code??''))issueKey.current=null}
+    try{const result=await client.post<{confirmed:boolean;issue_number:number;issue_url:string}>(`/me/github/pages/${page.id}/issues`,{title:draft.title,description:draft.body,confirmed:true},{idempotencyKey:operationKey,suppressConsole:true});if(result.confirmed){setPostedUrl(result.issue_url);setOwnIssues(items=>[{operation_key:operationKey,state:'confirmed',issue_number:result.issue_number,issue_url:result.issue_url,created_at:new Date().toISOString()},...items.filter(item=>item.issue_number!==result.issue_number)]);setRefreshTick(value=>value+1)}else setPostError('發布結果尚未確認。請先查看 GitHub 後再試。')}
+    catch(cause){
+      let confirmed:OwnIssue|undefined;
+      if(cause instanceof ApiError&&(cause.network||cause.status>=500||cause.code==='github_issue_unconfirmed')){
+        try{const status=await client.get<{items:OwnIssue[]}>(`/me/github/pages/${page.id}/issues`,{background:true});setOwnIssues(status.items);confirmed=status.items.find(item=>item.operation_key===operationKey&&item.state==='confirmed');}catch{/* Keep the uncertain result explicit. */}
+      }
+      if(confirmed?.issue_url){setPostedUrl(confirmed.issue_url);setRefreshTick(value=>value+1)}
+      else if(cause instanceof ApiError&&(cause.network||cause.status>=500||cause.code==='github_issue_unconfirmed'))setPostError('發布結果尚未確認。請先查看下方清單或 GitHub，確認沒有重複 Issue 後再試。');
+      else setPostError(cause instanceof Error?cause.message:'站內發布未完成，請到 GitHub 核對。');
+      if(cause instanceof ApiError&&['github_permission_required','github_installation_required','github_repository_unavailable','github_reconnect_required','github_connect_required'].includes(cause.code??''))issueKey.current=null;
+    }
     finally{setPosting(false)};
   };
   const connectGitHub=async()=>{if(!client)return;try{const result=await client.post<{authorization_url:string}>('/me/github/connect',{return_to:window.location.hash||'#home'});const url=new URL(result.authorization_url);if(url.protocol!=='https:'||url.hostname!=='github.com'||url.pathname!=='/login/oauth/authorize'||url.username||url.password||url.port)throw Error('GitHub 連結網址無法確認。');window.location.assign(url.href)}catch(cause){setPostError(cause instanceof Error?cause.message:'無法連結 GitHub。')}};
@@ -60,9 +76,9 @@ export function PageTools({pageId,client}:{pageId:string;client?:PortalClient}){
       <header><div><span className="page-tools-kicker">自由工坊 · 頁面工具</span><h2>{names[tool]} <small>{page.title}</small></h2></div><button type="button" className="page-tools-close" aria-label="關閉" onClick={()=>setTool(null)}>×</button></header>
       <div className="page-tools-body">
         {tool==='idea'&&<>
-          <div className="page-tools-issue-heading"><p>先看看這頁仍開放的提案；有相同想法可直接到 GitHub 參與討論。</p><button type="button" onClick={()=>setRefreshTick(value=>value+1)} disabled={loading}>重新同步</button></div>
+          <div className="page-tools-issue-heading"><p>這頁的 GitHub 提案列在下方；有相同想法可直接參與討論。你已確認發布的紀錄也會保留在清單中。</p><button type="button" onClick={()=>setRefreshTick(value=>value+1)} disabled={loading}>重新同步</button></div>
           <a className="page-tools-label-link" href={githubLabelUrl} target="_blank" rel="noopener noreferrer">在 GitHub 查看 {pageTag(page.id)} 標籤 ↗</a>
-          {loading?<p role="status">正在同步 GitHub Issue…</p>:error?<p role="alert">{error}</p>:<><ul className="page-tools-issues">{activity?.items.map(item=><li key={item.number}><a href={item.url} target="_blank" rel="noopener noreferrer">#{item.number} {item.title} ↗</a><span>由 {item.author} 提出</span><button type="button" onClick={()=>void copyClaim(item.number)}>{claimCopied===item.number?'已複製認領留言':'複製設計認領留言'}</button></li>)}</ul>{!activity?.items.length&&<p className="page-tools-empty">目前沒有標記這頁且仍開啟的 Issue。</p>}{activity?.partial&&<p role="status" className="page-tools-note">部分 GitHub 資料暫時無法同步，清單可能不完整；請稍後重新同步。</p>}{activity?.stale&&<p role="status" className="page-tools-note">目前顯示上次同步的資料，請稍後重新同步。</p>}{activity?.truncated&&<p className="page-tools-note">GitHub 清單已達 100 筆上限；<a href={`${PLATFORM_REPOSITORY}/issues`} target="_blank" rel="noopener noreferrer">到 GitHub 查看完整清單 ↗</a></p>}</>}
+          {loading&&<p role="status">正在同步 GitHub Issue…</p>}{error&&<p role="alert">{error}</p>}<ul className="page-tools-issues">{issueItems.map(item=><li key={item.number}><a href={item.url} target="_blank" rel="noopener noreferrer">#{item.number} {item.title} ↗</a><span>由 {item.author} 提出</span><button type="button" onClick={()=>void copyClaim(item.number)}>{claimCopied===item.number?'已複製認領留言':'複製設計認領留言'}</button></li>)}</ul>{!loading&&!error&&!issueItems.length&&<p className="page-tools-empty">目前沒有標記這頁且仍開啟的 Issue。</p>}{activity?.partial&&<p role="status" className="page-tools-note">部分 GitHub 資料暫時無法同步，清單可能不完整；請稍後重新同步。</p>}{activity?.stale&&<p role="status" className="page-tools-note">目前顯示上次同步的資料，請稍後重新同步。</p>}{activity?.truncated&&<p className="page-tools-note">GitHub 清單已達 100 筆上限；<a href={`${PLATFORM_REPOSITORY}/issues`} target="_blank" rel="noopener noreferrer">到 GitHub 查看完整清單 ↗</a></p>}
           <p className="page-tools-note">想接手設計？複製認領留言，到對應 Issue 用自己的 GitHub 帳號貼上送出。世界頻道會在 GitHub 確認後公告「表示願意接手」，實際分工仍由維護者確認。</p>
           <form className="page-tools-form" onSubmit={issueSubmit}><h3>提出你的想法</h3><p>站內發布會使用你的 GitHub 帳號，並帶上這頁的標記。送出後請到 GitHub 確認 Issue 和右側的頁面標籤；也可以先到 GitHub 檢查內容再親自送出。</p><label>標題<input required minLength={3} maxLength={120} value={title} onChange={event=>{setTitle(event.target.value);setPostedUrl('');setPostError('')}} placeholder="你想改善什麼？"/></label><label>想法與期待<textarea required minLength={10} maxLength={700} rows={4} value={body} onChange={event=>{setBody(event.target.value);setPostedUrl('');setPostError('')}} placeholder="目前遇到的情況、希望如何改進…"/></label><div className="page-tools-submit-row">{client&&githubConnected?<button type="button" className="page-tools-primary" disabled={posting} onClick={()=>void postDirect()}>{posting?'正在發布…':'用我的 GitHub 發布'}</button>:client&&githubConfigured?<button type="button" onClick={()=>void connectGitHub()}>連結 GitHub 帳號</button>:null}<button type="submit">到 GitHub 檢查並送出 ↗</button></div>{postError&&<p role="alert" className="page-tools-error">{postError}</p>}{postedUrl&&<p role="status" className="page-tools-success">已由你的 GitHub 帳號發布：<a href={postedUrl} target="_blank" rel="noopener noreferrer">查看 Issue ↗</a></p>}</form>
         </>}

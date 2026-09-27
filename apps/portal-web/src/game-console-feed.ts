@@ -13,14 +13,14 @@ type Page<T> = {items:T[]}
 type GitHubEvents={items:{id:string;number:number;title:string;url:string;actor:string;created_at:string;kind:'issue_opened'|'pr_opened'|'pr_approved'|'design_claimed'}[]}
 
 export async function readWorldChatFeed(client:PortalClient):Promise<GameConsoleEvent[]> {
-  const page=await client.get<Page<RoomMessage>>('/me/channels/world/world/messages?limit=20&offset=0')
+  const page=await client.get<Page<RoomMessage>>('/me/channels/world/world/messages?limit=20&offset=0',{background:true})
   return page.items.map(item=>createConsoleEvent({id:`room:${item.message_id}`,channel:'world_chat',kind:'chat',source:item.sender_name,message:item.body,createdAt:item.created_at}))
 }
 
 /** Read only: the existing message pages remain the authority for membership and read receipts. */
 export async function readConsoleFeed(client:PortalClient, userId:string, includeWorld=true):Promise<GameConsoleEvent[]> {
   const load=async<T,>(path:string):Promise<Page<T>>=>{
-    try{return await client.get<Page<T>>(path)}catch{return {items:[]}}
+    try{return await client.get<Page<T>>(path,{background:true})}catch{return {items:[]}}
   }
   const [notices,conversations,guilds,squads,announcements,skills,projects,github] = await Promise.all([
     load<Notice>('/me/notifications?limit=20&offset=0'),
@@ -62,8 +62,8 @@ export async function readConsoleFeed(client:PortalClient, userId:string, includ
   const peers=conversations.items.filter(item=>item.unread_count>0).slice(0,8)
   const rooms=[...guilds.items,...squads.items].filter(item=>item.unread_count>0).slice(0,8)
   const [directPages,roomPages]=await Promise.all([
-    Promise.allSettled(peers.map(item=>client.get<Page<DirectMessage>>(`/me/conversations/${encodeURIComponent(item.participant.user_id)}/messages?limit=20&offset=0`))),
-    Promise.allSettled(rooms.map(item=>client.get<Page<RoomMessage>>(`/me/channels/${item.kind}/${encodeURIComponent(item.channel_key)}/messages?limit=20&offset=0`))),
+    Promise.allSettled(peers.map(item=>client.get<Page<DirectMessage>>(`/me/conversations/${encodeURIComponent(item.participant.user_id)}/messages?limit=20&offset=0`,{background:true}))),
+    Promise.allSettled(rooms.map(item=>client.get<Page<RoomMessage>>(`/me/channels/${item.kind}/${encodeURIComponent(item.channel_key)}/messages?limit=20&offset=0`,{background:true}))),
   ])
   directPages.forEach((result,index)=>{
     if(result.status!=='fulfilled')return

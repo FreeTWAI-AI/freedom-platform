@@ -222,6 +222,13 @@ export class GitHubSocial {
       }
     });
   }
+  async pageIssueSubmissions(actor:Actor,pageId:string){
+    issuePageMarker(pageId);
+    return this.member(actor,async q=>{
+      const rows=(await q.query('SELECT operation_key,state,issue_number,created_at FROM github_page_issue_submissions WHERE user_id=$1 AND page_id=$2 ORDER BY created_at DESC LIMIT 20',[actor.user_id,pageId])).rows;
+      return {items:rows.map(row=>({operation_key:row.operation_key,state:row.state,issue_number:row.issue_number,issue_url:row.state==='confirmed'?`${PLATFORM_REPOSITORY}/issues/${row.issue_number}`:null,created_at:row.created_at}))};
+    });
+  }
   async disconnect(actor:Actor){
     return this.member(actor,async q=>{
       await this.rate(q,actor,'disconnect',10);

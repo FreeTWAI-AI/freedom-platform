@@ -53,6 +53,8 @@ export type RequestOptions = {
   idempotencyKey?: string
   ifMatch?: number
   skipAuthHandler?: boolean
+  background?: boolean
+  suppressConsole?: boolean
 }
 
 function quoteEtag(version: number): string {
@@ -105,7 +107,7 @@ export class PortalClient {
     void fetch(`${API_BASE}/me/client-errors`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':this.csrfToken,'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({action:safeAction,error_code:code,...(httpStatus!==undefined?{http_status:httpStatus}:{})})}).catch(()=>{})
   }
 
-  async get<T>(path: string, options: { skipAuthHandler?: boolean } = {}): Promise<T> {
+  async get<T>(path: string, options: { skipAuthHandler?: boolean; background?: boolean } = {}): Promise<T> {
     return this.request<T>('GET', path, options)
   }
 
@@ -214,11 +216,11 @@ export class PortalClient {
     try { return await Promise.race([operation(), timeout]) }
     catch (cause) {
       const failure = cause instanceof ApiError ? cause : new ApiError({message:'無法連線到伺服器，尚未確認結果。請確認網路後重試。', status: response?.status, cfRay:cloudflareRay(response), requestId:requestId(response), network:true})
-      logConsoleEvent({
+      if(!options.background&&!options.suppressConsole)logConsoleEvent({
         channel:'system', level:failure.status>=500||failure.network?'error':'warning', kind:'status', source:'介面錯誤', message:failure.message,
         detail:`${method} ${path.split('?')[0]}${failure.code?` · ${failure.code}`:''}`,
       })
-      if(path!=='/me/client-errors'&&!failure.accessExpired&&failure.status!==401)this.reportError(`${method} ${path}`,failure.code??(failure.network?'network_error':`http_${failure.status}`),failure.status)
+      if(!options.background&&path!=='/me/client-errors'&&!failure.accessExpired&&failure.status!==401)this.reportError(`${method} ${path}`,failure.code??(failure.network?'network_error':`http_${failure.status}`),failure.status)
       throw failure
     } finally { clearTimeout(timer) }
   }

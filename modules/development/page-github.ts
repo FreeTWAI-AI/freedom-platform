@@ -8,7 +8,7 @@ const itemSchema=z.object({number:z.number().int().positive(),title:z.string().m
 export type PageGitHubItem={number:number;title:string;url:string;author:string;created_at:string;state:'open'|'closed';kind:'issue'|'pr';pages:string[]};
 export type PageGitHubActivity={items:PageGitHubItem[];checked_at:string;truncated:boolean;partial?:boolean;stale?:boolean};
 export type PageGitHubEvent={id:string;kind:'issue_opened'|'pr_opened'|'pr_approved'|'design_claimed';number:number;title:string;url:string;actor:string;created_at:string};
-export type PageGitHubEvents={items:PageGitHubEvent[];checked_at:string;truncated:boolean};
+export type PageGitHubEvents={items:PageGitHubEvent[];checked_at:string;truncated:boolean;stale?:boolean};
 const pageIds=new Set(developmentPages.map(page=>page.id));
 const headers={Accept:'application/vnd.github+json','User-Agent':'Freedom-Platform-page-tools','X-GitHub-Api-Version':'2022-11-28'};
 async function readPublicGitHub(fetcher:typeof fetch,url:string,token?:string){
@@ -43,7 +43,7 @@ export class PageGitHubReader {
   }
   private async page(pageId:string,refresh:boolean):Promise<PageGitHubActivity>{
     const cached=this.pages.get(pageId);
-    if(cached&&(cached.expires>this.now()&&!refresh||refresh&&this.now()-Date.parse(cached.value.checked_at)<30000))return cached.value;
+    if(cached&&(cached.expires>this.now()&&!refresh||refresh&&this.now()-Date.parse(cached.value.checked_at)<3000))return cached.value;
     const pending=this.pendingPages.get(pageId);if(pending)return pending;
     const work=this.readPage(pageId,refresh).then(value=>{this.pages.set(pageId,{value,expires:this.now()+90000});return value}).catch(error=>{if(cached)return {...cached.value,stale:true};throw error}).finally(()=>{this.pendingPages.delete(pageId)});
     this.pendingPages.set(pageId,work);return work;
@@ -64,7 +64,7 @@ export class PageGitHubReader {
     return {checked_at:new Date(this.now()).toISOString(),truncated:rows.length===100,items:rows.filter(row=>row.state==='open'&&!row.pull_request).map(issueItem)};
   }
   private async all(refresh=false):Promise<PageGitHubActivity>{
-    if(this.cached&&(this.cached.expires>this.now()&&!refresh||refresh&&this.now()-Date.parse(this.cached.value.checked_at)<30000))return this.cached.value;
+    if(this.cached&&(this.cached.expires>this.now()&&!refresh||refresh&&this.now()-Date.parse(this.cached.value.checked_at)<3000))return this.cached.value;
     if(this.pending)return this.pending;
     this.pending=this.refresh().then(value=>{this.cached={value,expires:this.now()+90000};return value}).finally(()=>{this.pending=null});
     return this.pending;
@@ -118,11 +118,19 @@ function publicEvent(raw:unknown):PageGitHubEvent|null{
 export class PageGitHubEventReader {
   private cached:{expires:number;value:PageGitHubEvents}|null=null;
   private pending:Promise<PageGitHubEvents>|null=null;
+  private retryAfter=0;
   constructor(private fetcher:typeof fetch=fetch,private now=()=>Date.now(),private readToken:()=>string|undefined=()=>undefined){}
   async read():Promise<PageGitHubEvents>{
     if(this.cached&&this.cached.expires>this.now())return this.cached.value;
+    if(this.retryAfter>this.now())return this.cached?{...this.cached.value,stale:true}:{items:[],checked_at:new Date(this.now()).toISOString(),truncated:false,stale:true};
     if(this.pending)return this.pending;
-    this.pending=this.refresh().then(value=>{this.cached={value,expires:this.now()+90000};return value}).finally(()=>{this.pending=null});
+    this.pending=this.refresh().then(value=>{this.retryAfter=0;this.cached={value,expires:this.now()+90000};return value}).catch(error=>{
+      // Public GitHub events are optional background news. An outage must not
+      // turn every member's console poll into a 503 or hammer GitHub.
+      console.warn('github_public_events_unavailable',error instanceof Problem?error.code:error instanceof Error?error.name:'unknown');
+      this.retryAfter=this.now()+300000;
+      return this.cached?{...this.cached.value,stale:true}:{items:[],checked_at:new Date(this.now()).toISOString(),truncated:false,stale:true};
+    }).finally(()=>{this.pending=null});
     return this.pending;
   }
   private async refresh():Promise<PageGitHubEvents>{

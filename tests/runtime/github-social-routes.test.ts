@@ -62,6 +62,11 @@ test('member issue submission uses that member’s GitHub token and keeps the pa
  assert.equal(first.status,201,await first.clone().text());
  assert.deepEqual(await first.json(),{confirmed:true,issue_number:42,issue_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/42'});
  assert.equal(issueWrites,1);assert.match(issueBody,/<!-- freedom-page:home -->/);assert.deepEqual(JSON.parse(issueBody).labels,['page:home']);
+ const own=await request('/me/github/pages/home/issues');assert.equal(own.status,200);
+ assert.deepEqual((await own.json() as any).items.map((item:any)=>({key:item.operation_key,state:item.state,number:item.issue_number,url:item.issue_url})),[{key:'page-issue-test-001',state:'confirmed',number:42,url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/42'}]);
+ assert.deepEqual((await (await request('/me/github/pages/positioning/issues')).json() as any).items,[]);
+ assert.equal((await request('/me/github/pages/unknown/issues')).status,404);
+ assert.equal((await app.request(origin+'/api/v1/me/github/pages/home/issues')).status,401);
  assert.ok(calls.some(call=>call.path==='/repos/FreeTWAI-AI/freedom-platform/issues'&&call.authorization==='Bearer ghu_synthetic_route_test'));
  assert.equal((await request('/me/github/pages/home/issues',body,member,headers)).status,201);
  assert.equal(issueWrites,1);

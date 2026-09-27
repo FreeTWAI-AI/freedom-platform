@@ -70,3 +70,20 @@ test('a partial GitHub response keeps available page issues visible',async()=>{
   const result=await new PageGitHubReader(fetcher).read('home');
   assert.deepEqual(result.items.map(item=>item.number),[3]);assert.equal(result.partial,true);
 });
+
+test('explicit page refresh finds a newly opened Issue despite a recent cache',async()=>{
+  let clock=0,number=14;
+  const fetcher:typeof fetch=async url=>Response.json(String(url).includes('labels=')?[{number,title:`Issue ${number}`,body:issuePageMarker('home'),state:'open',created_at:'2026-09-27T08:13:16Z',user:{login:'ted'},labels:[{name:'page:home'}]}]:[]);
+  const reader=new PageGitHubReader(fetcher,()=>clock);
+  assert.deepEqual((await reader.read('home')).items.map(item=>item.number),[14]);
+  clock=4000;number=15;
+  assert.deepEqual((await reader.read('home',true)).items.map(item=>item.number),[15]);
+});
+
+test('optional GitHub event feed backs off during provider outages',async()=>{
+  let clock=0,calls=0;
+  const reader=new PageGitHubEventReader(async()=>{calls++;return Response.json({message:'unavailable'},{status:503})},()=>clock);
+  const first=await reader.read();assert.deepEqual(first.items,[]);assert.equal(first.stale,true);assert.equal(calls,1);
+  clock=120000;assert.equal((await reader.read()).stale,true);assert.equal(calls,1);
+  clock=301000;assert.equal((await reader.read()).stale,true);assert.equal(calls,2);
+});

@@ -47,5 +47,6 @@ export function createGitHubSocialRoutes(load:ReturnType<typeof socialLoader>){
     const body=z.object({title:z.string().min(3).max(120),description:z.string().min(10).max(2000),confirmed:z.literal(true)}).strict().parse(await c.req.json());
     return c.json(await (await load()).createPageIssue(c.get('actor'),c.req.param('id'),body.title,body.description,c.req.header('Idempotency-Key')??''),201);
   });
+  app.get('/me/github/pages/:id/issues',async c=>c.json(await (await load()).pageIssueSubmissions(c.get('actor'),c.req.param('id'))));
   return app;
 }
