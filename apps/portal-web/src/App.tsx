@@ -62,6 +62,28 @@ const DEMO_ACCOUNTS = [
 ] as const
 const DEMO_PASSWORD = 'freedom-local-demo'
 
+const TAB_GUIDANCE: Record<TabId, string> = {
+  home: '查看會員摘要與常用入口，從這裡繼續公會和技能書旅程。',
+  positioning: '透過情境題整理你的能力與想走的方向；結果由你確認，也可以日後重新探索。',
+  guilds: '加入感興趣的職業公會，設定主要公會，查看公會技能書。',
+  skills: '預覽技能書，領取已解鎖的內容，選一本開始練習。',
+  members: '認識工坊夥伴，查看他們願意公開的名片資訊。',
+  account: '編輯名片資料、頭像與公開範圍。',
+  cocreation: '查看一起開發的作品和參與入口。',
+  squads: '查看小隊與共同進行的協作。',
+  opensource: '登錄你的開源專案，整理可供夥伴參與的資訊。',
+  workbench: '查看自己的工作、認領紀錄與進度。',
+  showcase: '瀏覽作品和需求，尋找合作機會。',
+  engagement: '查看合作紀錄與目前狀態。',
+  supplier: '整理商品資料與供貨條件。',
+  retail: '選品、建立商店草稿並安排銷售合作。',
+  marketing: '撰寫介紹草稿並記錄分享成果。',
+  'guild-workspace': '管理你有權負責的公會資訊與技能書。',
+  community: '查看自由工坊的社群入口和公開資訊。',
+  todos: '查看會員待辦事項與可直接前往的操作。',
+  messages: '查看收到的訊息與對話。',
+}
+
 type ActionError = {
   message: string
   network: boolean
@@ -400,7 +422,7 @@ function Workspace({
   useEffect(() => {
     if (previousTab.current === tab) return
     previousTab.current = tab
-    logConsoleEvent({channel:'guide',kind:'guide',source:'導覽',message:`已進入「${tabTitle(tab)}」。`})
+    logConsoleEvent({channel:'guide',kind:'guide',source:'導覽',message:`已進入「${tabTitle(tab)}」。${TAB_GUIDANCE[tab]}`})
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
     mainContent.current?.scrollIntoView({ block: 'start', behavior: 'instant' })

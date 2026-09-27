@@ -33,6 +33,10 @@ type ConsoleContextValue = {
 
 const ConsoleContext = createContext<ConsoleContextValue | null>(null)
 const emptyUnread = (): Record<GameConsoleChannel, number> => Object.fromEntries(GAME_CONSOLE_CHANNELS.map(channel=>[channel.id,0])) as Record<GameConsoleChannel, number>
+const eventLabel = (event: GameConsoleEvent) => event.channel === 'guide'
+  ? '網頁導覽'
+  : GAME_CONSOLE_CHANNELS.find(channel => channel.id === event.channel)?.shortLabel
+const showEventSource = (event: GameConsoleEvent) => event.channel !== 'guide' || event.source !== '導覽'
 const seedEvents = (): GameConsoleEvent[] => [
   createConsoleEvent({channel: 'system', kind: 'status', level: 'success', source: '系統', message: '訊息控制台已連線；跨頁訊息會在本次登入期間保留。'}),
   createConsoleEvent({channel: 'guide', kind: 'guide', source: '導覽', message: '按下 ~ 可展開或收合控制台。'}),
@@ -253,7 +257,7 @@ function GameConsole({variant, unread, syncScope,client,userId,enabled}: {varian
     <button type="button" className="game-console-ticker-open" aria-label="展開訊息控制台" onClick={() => setExpanded(true)}>
       <span className="game-console-signal" aria-hidden="true"/><strong>訊息</strong>
       <span className="game-console-ticker-lines" key={latest.at(-1)?.id} aria-live="polite">
-        {latest.map(event => <span key={event.id} data-channel={event.channel} data-level={event.level} data-kind={event.kind}><b>{GAME_CONSOLE_CHANNELS.find(channel => channel.id === event.channel)?.shortLabel}</b> {event.message}</span>)}
+        {latest.map(event => <span key={event.id} data-channel={event.channel} data-level={event.level} data-kind={event.kind} data-next-step={event.action ? 'true' : undefined}><b>{eventLabel(event)}</b> {event.channel === 'guide' && event.source === '下一步' && <b>下一步</b>} {event.message}</span>)}
       </span>
       <kbd>~</kbd><span aria-hidden="true">⌃</span>
     </button>
@@ -275,9 +279,12 @@ function GameConsole({variant, unread, syncScope,client,userId,enabled}: {varian
         onClick={() => setActiveChannel(channel.id)}>{channel.label}{unread[channel.id] > 0 && <span className="game-console-unread" aria-label={`${unread[channel.id]} 則新訊息`}>{unread[channel.id]}</span>}</button>)}
     </div>
     <div ref={history} id="game-console-history" className="game-console-history" role="log" aria-live="polite" aria-label={`${GAME_CONSOLE_CHANNELS.find(channel => channel.id === activeChannel)?.label} 歷史紀錄`}>
-      {filtered.length ? filtered.map(event => <article key={event.id} className={`game-console-entry is-${event.level}`} data-channel={event.channel} data-kind={event.kind}>
+      {filtered.length ? filtered.map(event => <article key={event.id} className={`game-console-entry is-${event.level}${showEventSource(event) ? ' has-source' : ''}`} data-channel={event.channel} data-kind={event.kind} data-next-step={event.action ? 'true' : undefined}>
+        <span className="game-console-channel-tag">{eventLabel(event)}</span>
+        {showEventSource(event) && <strong title={event.source}>{event.source}</strong>}
+        <div className="game-console-content"><p>{event.message}</p>{event.action && <a className="game-console-next-link" href={`/#${event.action}`} target={variant === 'popout' ? '_blank' : undefined} rel={variant === 'popout' ? 'noopener' : undefined}>帶我到下一步 <span aria-hidden="true">→</span></a>}</div>
         <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false})}</time>
-        <span className="game-console-channel-tag">{GAME_CONSOLE_CHANNELS.find(channel=>channel.id===event.channel)?.shortLabel}</span><strong title={event.source}>{event.source}</strong><p>{event.message}</p>{event.detail && <details className="game-console-detail"><summary>查看內容</summary><pre>{event.detail}</pre></details>}
+        {event.detail && <details className="game-console-detail"><summary>查看內容</summary><pre>{event.detail}</pre></details>}
       </article>) : <p className="game-console-empty">此頻道尚無訊息。</p>}
     </div>
     <GameConsoleComposer client={client} userId={userId} enabled={enabled} channel={activeChannel} visibility={visibility}/>

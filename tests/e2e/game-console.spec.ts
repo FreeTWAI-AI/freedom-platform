@@ -2,6 +2,32 @@ import {test,expect} from './fixtures.js';
 import {navigate} from './navigation.js';
 import {randomUUID} from 'node:crypto';
 
+test('導覽訊息給出用途、下一步連結，並把時間放在內容後方',async({page})=>{
+  await page.goto('/');
+  await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
+  await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
+  await page.getByRole('button',{name:'登入',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
+  await page.getByRole('button',{name:'展開訊息控制台'}).click();
+  const next=page.locator('.game-console-entry[data-next-step="true"]').last();
+  await expect(next).toBeVisible();
+  await expect(next.locator('.game-console-channel-tag')).toHaveText('網頁導覽');
+  await expect(next.locator('strong')).toHaveText('下一步');
+  const link=next.getByRole('link',{name:'帶我到下一步'});
+  const href=await link.getAttribute('href');
+  expect(['/#guilds','/#skills']).toContain(href);
+  expect(await next.locator(':scope > :last-child').evaluate(element=>element.tagName)).toBe('TIME');
+  await link.click();
+  await expect(page.getByRole('heading',{name:href==='/#guilds'?'職業公會':'技能書架',level:1,exact:true})).toBeVisible();
+  await navigate(page,'我的定位');
+  const positioning=page.locator('.game-console-entry[data-channel="guide"]').filter({hasText:'已進入「我的定位」'}).last();
+  await expect(positioning).toContainText('透過情境題整理你的能力與想走的方向');
+  await expect(positioning.locator('.game-console-channel-tag')).toHaveText('網頁導覽');
+  await expect(positioning.locator('strong')).toHaveCount(0);
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
 test('訊息控制台 stays visible during required positioning without reading gated messages',async({page})=>{
   const feedReads:string[]=[];
   page.on('request',request=>{if(request.url().includes('/api/v1/me/guild-announcements'))feedReads.push(request.url());});

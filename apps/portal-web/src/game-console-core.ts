@@ -31,6 +31,7 @@ export type GameConsoleEvent = {
   message: string
   detail?: string
   source: string
+  action?: 'guilds' | 'skills'
   createdAt: string
 }
 
@@ -41,6 +42,7 @@ export type GameConsoleEventInput = {
   message: string
   detail?: string
   source?: string
+  action?: 'guilds' | 'skills'
   id?: string
   createdAt?: string
 }
@@ -88,6 +90,7 @@ export function createConsoleEvent(input: GameConsoleEventInput): GameConsoleEve
     message,
     ...(input.detail ? { detail: sanitizeConsoleText(input.detail, 8000) } : {}),
     source: sanitizeConsoleText(input.source ?? 'Workshop', 80) || 'Workshop',
+    ...(input.action ? { action: input.action } : {}),
     createdAt: new Date(createdAt).toISOString(),
   }
 }
@@ -102,6 +105,7 @@ export function isGameConsoleEvent(value: unknown): value is GameConsoleEvent {
     && typeof event.message === 'string' && event.message.length > 0 && event.message.length <= 800
     && (event.detail === undefined || typeof event.detail === 'string' && event.detail.length <= 8000)
     && typeof event.source === 'string' && event.source.length > 0 && event.source.length <= 80
+    && (event.action === undefined || event.action === 'guilds' || event.action === 'skills')
     && typeof event.createdAt === 'string' && Number.isFinite(Date.parse(event.createdAt))
 }
 
