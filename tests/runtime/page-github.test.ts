@@ -24,3 +24,8 @@ test('recent GitHub issues and PRs are verified, cached and separated by page',a
   assert.equal(calls,1);
   clock=90001;await reader.read();assert.equal(calls,2);
 });
+
+test('GitHub fetch is invoked without a reader receiver for Workers',async()=>{
+  const fetcher:typeof fetch=function(this:void){assert.equal(this,undefined);return Promise.resolve(Response.json([]))};
+  assert.deepEqual((await new PageGitHubReader(fetcher).read('home')).items,[]);
+});

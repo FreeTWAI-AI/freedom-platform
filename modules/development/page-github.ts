@@ -33,7 +33,9 @@ export class PageGitHubReader {
     return this.pending;
   }
   private async refresh():Promise<PageGitHubActivity>{
-    const response=await this.fetcher('https://api.github.com/repos/FreeTWAI-AI/freedom-platform/issues?state=all&sort=created&direction=desc&per_page=100',{headers:{Accept:'application/vnd.github+json','User-Agent':'Freedom-Platform-page-tools','X-GitHub-Api-Version':'2022-11-28'},signal:AbortSignal.timeout(10000)});
+    // Workerd's native fetch must be called without this reader as its receiver.
+    const fetcher=this.fetcher;
+    const response=await fetcher('https://api.github.com/repos/FreeTWAI-AI/freedom-platform/issues?state=all&sort=created&direction=desc&per_page=100',{headers:{Accept:'application/vnd.github+json','User-Agent':'Freedom-Platform-page-tools','X-GitHub-Api-Version':'2022-11-28'},signal:AbortSignal.timeout(10000)});
     if(!response.ok)throw new Problem(503,'github_unavailable','暫時無法同步 GitHub，請稍後再試。');
     const parsed=z.array(itemSchema).max(100).safeParse(await response.json());
     if(!parsed.success)throw new Problem(503,'github_invalid_response','GitHub 資料暫時無法解析，請稍後再試。');
