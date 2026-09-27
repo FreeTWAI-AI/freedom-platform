@@ -4,8 +4,7 @@ import type { TabId } from '../types';
 import { WorkshopIcon } from '../WorkshopIcon';
 import { loadLabels, type MemberCardData } from './Membership';
 import { MemberAvatar } from './MemberAvatar';
-import { useGameConsole } from '../GameConsole';
-import { GAME_CONSOLE_CHANNELS, logConsoleEvent, type GameConsoleChannel } from '../game-console-core';
+import { logConsoleEvent } from '../game-console-core';
 import './HomeDesign.css';
 
 const shortcuts: { id: TabId; title: string }[] = [
@@ -22,9 +21,6 @@ const entries: { id: TabId; title: string; description: string; cover: string }[
 ];
 
 export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
-  const { events, visibility, setExpanded, setActiveChannel } = useGameConsole();
-  const recent = events.filter(event=>visibility[event.channel as Exclude<GameConsoleChannel,'all'>]).slice(-10).reverse();
-  const openChannel = (channel: GameConsoleChannel) => { setActiveChannel(channel); setExpanded(true); };
   const [member, setMember] = useState<MemberCardData | null>(null);
   const [labels, setLabels] = useState<Record<string, string> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -89,22 +85,6 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       <p>{loadError}下方常用入口仍可使用。</p>
       <button type="button" className="btn btn-ghost" aria-disabled={loading} onClick={retry}>{loading ? '正在重新載入名片…' : '重新載入名片'}</button>
     </div>}
-
-    <section className="home-live-feed" aria-labelledby="home-live-feed-title">
-      <header className="home-live-heading">
-        <div><p className="home-live-kicker">自由工坊 · 即時訊息</p><h2 id="home-live-feed-title">最新動態</h2></div>
-        <button type="button" className="btn btn-ghost" onClick={() => { setActiveChannel('all'); setExpanded(true); }}>開啟完整控制台 ↗</button>
-      </header>
-      <div className="home-live-channels" aria-label="控制台頻道">
-        {GAME_CONSOLE_CHANNELS.filter(channel=>channel.id==='all'||visibility[channel.id]).map(channel => <button type="button" key={channel.id} data-channel={channel.id} onClick={() => openChannel(channel.id)}>{channel.label}<span aria-hidden="true">↗</span></button>)}
-      </div>
-      <div className="home-live-stream" aria-label="最近的控制台訊息">
-        {recent.map(event => <button type="button" className={`home-live-line is-${event.level}`} key={event.id} data-channel={event.channel} data-kind={event.kind} onClick={() => openChannel(event.channel)} aria-label={`${GAME_CONSOLE_CHANNELS.find(channel => channel.id === event.channel)?.label}：${event.message}`}>
-          <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleTimeString('zh-TW', {hour:'2-digit',minute:'2-digit',hour12:false})}</time>
-          <strong>{event.source}</strong><span>{event.message}</span>
-        </button>)}
-      </div>
-    </section>
 
     <nav className="home-shortcuts" aria-label="常用入口">
       {shortcuts.map(entry => <button key={entry.id} type="button" className="home-shortcut" onClick={() => onNavigate?.(entry.id)}>

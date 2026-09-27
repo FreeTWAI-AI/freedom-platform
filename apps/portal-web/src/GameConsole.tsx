@@ -261,7 +261,7 @@ function GameConsole({variant, unread, syncScope,client,userId,enabled}: {varian
 
   <aside hidden={variant==='dock'&&!expanded} className={`game-console game-console-expanded${variant === 'popout' ? ' is-popout' : ''}`} aria-label="訊息控制台" onKeyDown={event=>{if(variant==='dock'&&event.key==='Escape'){event.stopPropagation();collapse()}}}>
     <header className="game-console-header">
-      <div><p className="game-console-eyebrow">自由工坊 · 即時訊息</p>{variant === 'popout' ? <h1>訊息控制台</h1> : <h2>訊息控制台</h2>}</div>
+      <div className="game-console-title"><span className="game-console-title-mark" aria-hidden="true">▣</span><div><p className="game-console-eyebrow">自由工坊 · 即時訊息</p>{variant === 'popout' ? <h1>訊息控制台</h1> : <h2>訊息控制台</h2>}</div></div>
       <div className="game-console-header-actions">
         <details className="game-console-visibility"><summary>頻道顯示</summary><div>{GAME_CONSOLE_CHANNELS.filter(channel=>channel.id!=='all').map(channel=><label key={channel.id}><input type="checkbox" checked={visibility[channel.id as Exclude<GameConsoleChannel,'all'>]} onChange={()=>toggleVisibility(channel.id as Exclude<GameConsoleChannel,'all'>)}/>{channel.label}</label>)}</div></details>
         {variant === 'dock' && <button type="button" className="game-console-icon-button" onClick={popOut} aria-label="在獨立視窗開啟訊息控制台" title="獨立視窗">↗</button>}
@@ -277,10 +277,10 @@ function GameConsole({variant, unread, syncScope,client,userId,enabled}: {varian
     <div ref={history} id="game-console-history" className="game-console-history" role="log" aria-live="polite" aria-label={`${GAME_CONSOLE_CHANNELS.find(channel => channel.id === activeChannel)?.label} 歷史紀錄`}>
       {filtered.length ? filtered.map(event => <article key={event.id} className={`game-console-entry is-${event.level}`} data-channel={event.channel} data-kind={event.kind}>
         <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false})}</time>
-        <strong><span className="game-console-channel-tag">{GAME_CONSOLE_CHANNELS.find(channel=>channel.id===event.channel)?.shortLabel}</span>{event.source}</strong><p>{event.message}</p>{event.detail && <details className="game-console-detail"><summary>查看內容</summary><pre>{event.detail}</pre></details>}
+        <span className="game-console-channel-tag">{GAME_CONSOLE_CHANNELS.find(channel=>channel.id===event.channel)?.shortLabel}</span><strong title={event.source}>{event.source}</strong><p>{event.message}</p>{event.detail && <details className="game-console-detail"><summary>查看內容</summary><pre>{event.detail}</pre></details>}
       </article>) : <p className="game-console-empty">此頻道尚無訊息。</p>}
     </div>
-    <GameConsoleComposer client={client} userId={userId} enabled={enabled} channel={activeChannel} visibility={visibility} onChannel={setActiveChannel}/>
+    <GameConsoleComposer client={client} userId={userId} enabled={enabled} channel={activeChannel} visibility={visibility}/>
     <footer className="game-console-footer"><span>本次登入訊息 {events.length}/{GAME_CONSOLE_EVENT_LIMIT}</span><span>{typeof BroadcastChannel === 'undefined' ? '僅此視窗' : '視窗同步中'}</span></footer>
   </aside></>
 }

@@ -36,10 +36,10 @@ test('global 訊息控制台 persists across modules and synchronizes with its p
   await expect(page.getByRole('menu',{name:'個人檔案'}).getByRole('menuitem',{name:'我的訊息'})).toHaveCount(0);
   await page.getByRole('button',{name:/個人檔案：/}).click();
   await expect(page.getByRole('navigation',{name:'主要工作區'}).getByRole('button',{name:'我的訊息'})).toBeVisible();
-  await expect(page.getByRole('heading',{name:'最新動態',level:2})).toBeVisible();
-  await expect(page.getByRole('region',{name:'最新動態'}).getByRole('button',{name:/訊息控制台已連線/})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'最新動態',level:2})).toHaveCount(0);
   await page.screenshot({path:'test-results/game-console-home-desktop.png'});
-  await page.getByRole('region',{name:'最新動態'}).getByRole('button',{name:/私人聊天/}).click();
+  await page.getByRole('button',{name:'展開訊息控制台'}).click();
+  await page.getByRole('tab',{name:/私人聊天/}).click();
   await expect(page.getByRole('tab',{name:/私人聊天/})).toBeFocused();
   await page.getByRole('button',{name:'收合訊息控制台'}).click();
 
@@ -49,6 +49,13 @@ test('global 訊息控制台 persists across modules and synchronizes with its p
   await expect(consolePanel).toBeVisible();
   await expect(consolePanel.getByRole('heading',{name:'訊息控制台',level:2})).toBeVisible();
   await expect(consolePanel.getByRole('tab',{name:/私人聊天/})).toHaveAttribute('aria-selected','true');
+  await consolePanel.getByRole('tab',{name:'總頻道'}).click();
+  await expect(consolePanel.getByText('選擇聊天頻道：')).toHaveCount(0);
+  const allMessage=`總頻道發送世界訊息 ${randomUUID()}`;
+  await consolePanel.getByRole('textbox',{name:'世界聊天訊息'}).fill(allMessage);
+  await consolePanel.getByRole('button',{name:'傳送'}).click();
+  await expect(consolePanel.getByRole('log')).toContainText(allMessage);
+  await expect(consolePanel.locator('.game-console-entry[data-channel="world_chat"]').last()).toHaveCSS('border-left-color','rgb(118, 223, 255)');
   await consolePanel.getByRole('tab',{name:/系統指令/}).click();
   await expect(consolePanel.getByRole('log')).toContainText('訊息控制台已連線');
   await consolePanel.getByRole('tab',{name:/私人聊天/}).click();
@@ -70,7 +77,7 @@ test('global 訊息控制台 persists across modules and synchronizes with its p
   await expect(consolePanel.getByRole('tab',{name:'AI 指令'})).toHaveCount(0);
   await consolePanel.locator('.game-console-visibility summary').click();
   await consolePanel.getByRole('tab',{name:'世界聊天'}).click();
-  await consolePanel.getByRole('textbox',{name:'世界聊天'}).fill('世界聊天室測試');
+  await consolePanel.getByRole('textbox',{name:'世界聊天訊息'}).fill('世界聊天室測試');
   await consolePanel.getByRole('button',{name:'傳送'}).click();
   await expect(consolePanel.getByRole('log')).toContainText('世界聊天室測試');
   await expect(consolePanel.getByLabel('輸入 Console 訊息')).toHaveCount(0);
@@ -89,7 +96,7 @@ test('global 訊息控制台 persists across modules and synchronizes with its p
   const popup=await popupPromise;
   await expect(popup.getByRole('heading',{name:'訊息控制台',level:1})).toBeVisible();
   await popup.getByRole('tab',{name:'世界聊天'}).click();
-  await popup.getByRole('textbox',{name:'世界聊天'}).fill('彈出視窗世界訊息');
+  await popup.getByRole('textbox',{name:'世界聊天訊息'}).fill('彈出視窗世界訊息');
   await popup.getByRole('button',{name:'傳送'}).click();
   await expect(popup.getByRole('log')).toContainText('彈出視窗世界訊息');
   await consolePanel.getByRole('tab',{name:'世界聊天'}).click();
@@ -110,6 +117,11 @@ test('global 訊息控制台 persists across modules and synchronizes with its p
   await expect(page.getByRole('button',{name:'展開訊息控制台'})).toBeVisible();
   await page.screenshot({path:'test-results/game-console-ticker-mobile.png'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.getByRole('button',{name:'展開訊息控制台'}).click();
+  await consolePanel.getByRole('tab',{name:'總頻道'}).click();
+  await expect(consolePanel.getByRole('textbox',{name:'世界聊天訊息'})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await consolePanel.screenshot({path:'test-results/game-console-mobile-expanded.png'});
   await page.getByRole('button',{name:'登出',exact:true}).click();
   await expect(popup.getByText('登入已結束')).toBeVisible();
   await popup.close();
@@ -132,7 +144,7 @@ test('pop-out keeps receiving room messages after its original page closes',asyn
   await sender.getByRole('button',{name:'展開訊息控制台'}).click();
   await sender.getByRole('tab',{name:'世界聊天'}).click();
   const message=`獨立視窗繼續接收 ${randomUUID()}`;
-  await sender.getByRole('textbox',{name:'世界聊天'}).fill(message);
+  await sender.getByRole('textbox',{name:'世界聊天訊息'}).fill(message);
   await sender.getByRole('button',{name:'傳送'}).click();
   await expect(sender.getByRole('log')).toContainText(message);
   await popup.bringToFront();
