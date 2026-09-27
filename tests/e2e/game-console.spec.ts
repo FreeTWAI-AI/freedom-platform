@@ -14,6 +14,9 @@ test('導覽訊息給出用途、下一步連結，並把時間放在內容後�
   await expect(next.locator('.game-console-channel-tag')).toHaveText('網頁導覽');
   await expect(next.locator('strong')).toHaveText('下一步');
   const link=next.getByRole('link',{name:'帶我到下一步'});
+  expect(await link.evaluate(element=>getComputedStyle(element).fontSize)).toBe(await next.locator('.game-console-content p').evaluate(element=>getComputedStyle(element).fontSize));
+  await expect(link).toHaveCSS('display','inline');
+  await expect(link).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
   const href=await link.getAttribute('href');
   expect(['/#guilds','/#skills']).toContain(href);
   expect(await next.locator(':scope > :last-child').evaluate(element=>element.tagName)).toBe('TIME');

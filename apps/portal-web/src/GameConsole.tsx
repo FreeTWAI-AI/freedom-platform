@@ -282,7 +282,7 @@ function GameConsole({variant, unread, syncScope,client,userId,enabled}: {varian
       {filtered.length ? filtered.map(event => <article key={event.id} className={`game-console-entry is-${event.level}${showEventSource(event) ? ' has-source' : ''}`} data-channel={event.channel} data-kind={event.kind} data-next-step={event.action ? 'true' : undefined}>
         <span className="game-console-channel-tag">{eventLabel(event)}</span>
         {showEventSource(event) && <strong title={event.source}>{event.source}</strong>}
-        <div className="game-console-content"><p>{event.message}</p>{event.action && <a className="game-console-next-link" href={`/#${event.action}`} target={variant === 'popout' ? '_blank' : undefined} rel={variant === 'popout' ? 'noopener' : undefined}>帶我到下一步 <span aria-hidden="true">→</span></a>}</div>
+        <div className="game-console-content"><p>{event.message}{event.action && <> <a className="game-console-next-link" href={`/#${event.action}`} target={variant === 'popout' ? '_blank' : undefined} rel={variant === 'popout' ? 'noopener' : undefined}>帶我到下一步</a></>}</p></div>
         <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false})}</time>
         {event.detail && <details className="game-console-detail"><summary>查看內容</summary><pre>{event.detail}</pre></details>}
       </article>) : <p className="game-console-empty">此頻道尚無訊息。</p>}
