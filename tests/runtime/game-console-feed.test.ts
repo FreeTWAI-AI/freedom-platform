@@ -31,7 +31,19 @@ test('console reads only unread member messages without changing read receipts',
   assert.deepEqual(events.map(event=>event.id),['notice:n1','direct:d1','room:g1','guild:a1:2026-09-26T12:03:00Z','skill:s1','project:p1','room:w1'])
   assert.deepEqual(events.map(event=>event.channel),['guide','direct','guild','guild','guide','guide','world_chat'])
   assert.ok(paths.every(path=>!path.endsWith('/read')))
-  assert.equal(paths.length,10)
+  assert.ok(paths.includes('/pages/github-events'))
+  assert.equal(paths.length,11)
+})
+
+test('GitHub announcements describe approved reviews and design claim comments as distinct events',async()=>{
+  const client={get:async(path:string)=>path==='/pages/github-events'?{items:[
+    {id:'101',number:7,title:'首頁導覽',url:'https://github.com/FreeTWAI-AI/freedom-platform/pull/7#pullrequestreview-101',actor:'reviewer',created_at:'2026-09-27T12:00:00Z',kind:'pr_approved'},
+    {id:'102',number:8,title:'定位設計',url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/8#issuecomment-102',actor:'designer',created_at:'2026-09-27T12:01:00Z',kind:'design_claimed'},
+  ]}: {items:[]}} as PortalClient
+  const events=await readConsoleFeed(client,'me')
+  assert.deepEqual(events.map(event=>event.id),['github:101','github:102'])
+  assert.match(events[0].message,/reviewer 核准 PR/)
+  assert.match(events[1].message,/designer 表示願意接手 Issue 設計/)
 })
 
 test('one unavailable feed source does not hide the other channels',async()=>{

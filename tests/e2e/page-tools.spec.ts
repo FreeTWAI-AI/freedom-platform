@@ -2,6 +2,7 @@ import {test,expect} from './fixtures.js';
 import {navigate} from './navigation.js';
 
 test('every workspace page exposes contextual tools, filtered issues and agent guidance',async({page})=>{
+  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async(text:string)=>{(window as typeof window&{copiedClaim?:string}).copiedClaim=text}}}));
   await page.goto('/');
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
@@ -12,6 +13,9 @@ test('every workspace page exposes contextual tools, filtered issues and agent g
   await expect(idea).toBeVisible();
   await expect(idea.getByRole('link',{name:/#12/})).toBeVisible();
   await expect(idea.getByRole('link',{name:/#13/})).toHaveCount(0);
+  await idea.getByRole('button',{name:'複製設計認領留言'}).click();
+  await expect(idea.getByRole('button',{name:'已複製認領留言'})).toBeVisible();
+  expect(await page.evaluate(()=>(window as typeof window&{copiedClaim?:string}).copiedClaim)).toContain('<!-- freedom-design-claim -->');
   await idea.getByRole('textbox',{name:'標題'}).fill('首頁想法');
   await idea.getByRole('textbox',{name:'想法與期待'}).fill('讓入口更清楚。');
   await expect(idea.locator('pre')).toContainText('<!-- freedom-page:home -->');
@@ -35,8 +39,10 @@ test('every workspace page exposes contextual tools, filtered issues and agent g
   await edit.getByRole('button',{name:'關閉'}).click();
   await page.getByRole('button',{name:'展開訊息控制台'}).click();
   await page.getByRole('tab',{name:'世界聊天'}).click();
-  await expect(page.getByRole('log')).toContainText('member-demo 提出想法');
+  await expect(page.getByRole('log')).toContainText('member-demo 提出 Issue');
   await expect(page.getByRole('log')).toContainText('contributor-demo 提交 PR');
+  await expect(page.getByRole('log')).toContainText('maintainer-demo 核准 PR');
+  await expect(page.getByRole('log')).toContainText('designer-demo 表示願意接手 Issue 設計');
   await page.screenshot({path:'test-results/page-tools-desktop.png'});
 });
 

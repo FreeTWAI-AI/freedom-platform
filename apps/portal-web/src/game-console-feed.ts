@@ -10,7 +10,7 @@ type Announcement = {announcement_id:string;title:string;body:string;guild_name:
 type PublishedSkill = {submission_id:string;title:string;published_at:string}
 type Project = {project_id:string;title:string;created_at?:string;source_kind:'member_project'|'community_pilot'}
 type Page<T> = {items:T[]}
-type GitHubActivity={items:{number:number;title:string;url:string;author:string;created_at:string;kind:'issue'|'pr';pages:string[]}[]}
+type GitHubEvents={items:{id:string;number:number;title:string;url:string;actor:string;created_at:string;kind:'issue_opened'|'pr_opened'|'pr_approved'|'design_claimed'}[]}
 
 export async function readWorldChatFeed(client:PortalClient):Promise<GameConsoleEvent[]> {
   const page=await client.get<Page<RoomMessage>>('/me/channels/world/world/messages?limit=20&offset=0')
@@ -30,7 +30,7 @@ export async function readConsoleFeed(client:PortalClient, userId:string, includ
     includeWorld?load<Announcement>('/me/guild-announcements'):Promise.resolve({items:[] as Announcement[]}),
     includeWorld?load<PublishedSkill>('/skill-submissions/published?limit=10'):Promise.resolve({items:[] as PublishedSkill[]}),
     includeWorld?load<Project>('/co-creation/projects'):Promise.resolve({items:[] as Project[]}),
-    includeWorld?load<GitHubActivity['items'][number]>('/pages/github-activity'):Promise.resolve({items:[] as GitHubActivity['items']}),
+    includeWorld?load<GitHubEvents['items'][number]>('/pages/github-events'):Promise.resolve({items:[] as GitHubEvents['items']}),
   ])
   const events = notices.items.filter(item=>item.read_at===null).map(item=>createConsoleEvent({
     id:`notice:${item.notification_id}`,channel:'guide',kind:'status',source:'通知',
@@ -49,8 +49,8 @@ export async function readConsoleFeed(client:PortalClient, userId:string, includ
     message:`共創任務「${item.title}」已發布。`,createdAt:item.created_at!,
   }))
   for(const item of github.items.slice(0,20))events.push(createConsoleEvent({
-    id:`github:${item.kind}:${item.number}`,channel:'world_chat',kind:'broadcast',source:'GitHub · 自由工坊',
-    message:`${item.author} ${item.kind==='issue'?'提出想法':'提交 PR'}：${item.title}（#${item.number}${item.pages.length?` · ${item.pages.join('、')}`:''}）`,
+    id:`github:${item.id}`,channel:'world_chat',kind:'broadcast',source:'GitHub · 自由工坊',
+    message:`${item.actor} ${{issue_opened:'提出 Issue',pr_opened:'提交 PR',pr_approved:'核准 PR',design_claimed:'表示願意接手 Issue 設計'}[item.kind]}：${item.title}（#${item.number}）`,
     detail:item.url,createdAt:item.created_at,
   }))
   // Only unread peers are opened. A conversation's last message might be our own,
