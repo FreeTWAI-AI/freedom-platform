@@ -10,8 +10,9 @@ import './MemberExperience.css';
 
 type PreviewTask = {work_item_id:string;title:string;objective:string;gain:string;claim_window_expires_at:string};
 type PreviewEvent = {event_id:string;title:string;starts_at:string;mode:'online'|'in_person'|'hybrid';state:string};
-type Catalog = {skill_books:{id:string;title:string;description:string;repository_url:string}[]};
+type Catalog = {skill_books:{id:string;title:string;description:string;repository_url:string;upstream_url?:string;introduction_url?:string|null}[]};
 const publicRepo=(url:string)=>{try{const parsed=new URL(url);return parsed.protocol==='https:'&&parsed.hostname==='github.com'&&!parsed.username&&!parsed.password?url:null}catch{return null}};
+const publicWebsite=(url?:string|null)=>{try{const parsed=new URL(url??'');return parsed.protocol==='https:'&&!parsed.username&&!parsed.password?parsed.href:null}catch{return null}};
 export function WelcomePreview({client,name,onStart,onLogout}:{client:PortalClient;name:string;onStart:()=>void;onLogout:()=>void}) {
   const [events,setEvents]=useState<PreviewEvent[]>([]),[tasks,setTasks]=useState<PreviewTask[]>([]),[books,setBooks]=useState<Catalog['skill_books']>([]),[error,setError]=useState('');
   const [guilds,setGuilds]=useState<{guild_key:string;name:string}[]>([]),[draft,setDraft]=useState<EventDraft>(blankEvent),[showForm,setShowForm]=useState(false),[saving,setSaving]=useState(false),[notice,setNotice]=useState('');
@@ -30,7 +31,7 @@ export function WelcomePreview({client,name,onStart,onLogout}:{client:PortalClie
     {error&&<p role="status" className="banner banner-info">{error}</p>}
     <div className="welcome-preview-grid"><section className="card"><h2>近期活動</h2>{events.length?events.map(item=><article key={item.event_id}><strong>{item.title}</strong><p>{formatIsoLocal(item.starts_at)} · {item.state==='pending'?'我提交的活動，待審核':item.mode==='online'?'線上':'實體／混合'}</p></article>):<p>目前沒有即將舉辦的活動。</p>}</section>
     <section className="card"><h2>可參與的工作</h2>{tasks.length?tasks.map(item=><article key={item.work_item_id}><strong>{item.title}</strong><p>{item.objective}</p></article>):<p>目前沒有開放認領的工作。</p>}</section>
-    <section className="card"><h2>免費技能書</h2>{books.length?books.map(book=><article key={book.id}><strong>{book.title}</strong><p>{book.description}</p>{publicRepo(book.repository_url)&&<a href={book.repository_url} target="_blank" rel="noopener noreferrer">閱讀技能書 ↗</a>}</article>):<p>正在整理技能書。</p>}</section></div>
+    <section className="card"><h2>免費技能書</h2>{books.length?books.map(book=>{const website=publicWebsite(book.introduction_url),original=publicRepo(book.upstream_url??book.repository_url);return <article key={book.id}><strong>{book.title}</strong><p>{book.description}</p>{website?<a href={website} target="_blank" rel="noopener noreferrer">前往作者網站 ↗</a>:original&&<a href={original} target="_blank" rel="noopener noreferrer">開啟原作 ↗</a>}</article>;}):<p>正在整理技能書。</p>}</section></div>
     <p className="welcome-preview-note">這裡顯示公開探索資訊與你提交的活動；完成定位後可進入完整會員工作區。活動報名與任務認領不計分。</p><CommunityLinks/>
   </main>;
 }

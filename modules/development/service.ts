@@ -103,8 +103,7 @@ export function pageHtml(title:string,markdown:string,markdownUrl:string,metrics
  const markdownLink='<p><a href="'+escape(markdownUrl)+'">讀取 Markdown 原文</a> · <a href="'+escape(agentUrl)+'">下載 Agent SKILL.md</a></p>';
  if(book?.guide){
   const cover=book.cover_url?'<figure class="public-skill-cover"><img src="'+escape(book.cover_url)+'" alt="" width="768" height="512"></figure>':'';
-  const upstreamFork=book.upstream_url+'/fork';
-  const actions=[[book.guide.reading_url,'閱讀技能書 ↗'],[book.upstream_url,'開啟原作 ↗'],[upstreamFork,'Fork 原作 ↗'],...(book.repository_url!==book.upstream_url?[[book.repository_url,'查看工坊整合版本 ↗']]:[])].filter(([url])=>!!url).map(([url,label])=>'<a href="'+escape(url!)+'" target="_blank" rel="noopener noreferrer">'+label+'</a>').join('')+'<a href="/#skills">登入工坊 Star</a>';
+  const actions=[[book.introduction_url,'前往作者網站 ↗'],[book.upstream_url,'開啟原作 ↗'],[book.guide.reading_url,'閱讀技能書 ↗']].filter(([url])=>!!url).map(([url,label])=>'<a href="'+escape(url!)+'" target="_blank" rel="noopener noreferrer">'+label+'</a>').join('')+'<a href="/#skills">登入工坊 Star</a>';
   const count=(value:number|null|undefined)=>typeof value==='number'&&Number.isSafeInteger(value)&&value>=0?String(value):'—';
   const date=(value:string|null|undefined)=>value&&!Number.isNaN(Date.parse(value))?escape(new Date(value).toISOString().slice(0,10)):'—';
   const original=escape(book.upstream_url),author=escape(new URL(book.upstream_url).origin+'/'+new URL(book.upstream_url).pathname.split('/')[1]);
