@@ -66,6 +66,8 @@ function quoteEtag(version: number): string {
 function messageFromProblem(status: number, problem: ProblemDetails | null, mutation = false): string {
   // Upstream outages may return an HTML page or a JSON wrapper with raw proxy text.
   // Neither belongs in a member's form; keep the HTTP code on ApiError for recovery.
+  if (status === 503 && problem?.code === 'github_rate_limited') return 'GitHub 暫時限制查詢，請稍後重試，或直接前往儲存庫查看 Issue。'
+  if (status === 503 && problem?.code === 'github_read_budget') return 'GitHub 查詢目前忙碌，請稍後重試，或直接前往儲存庫查看 Issue。'
   if (status >= 500) return `服務暫時無法回應（${status}）。${mutation?'尚未確認結果，請稍後重試。':'請稍後重試。'}`
   const rawTitle = typeof problem?.title === 'string' ? problem.title.trim() : ''
   const code = typeof problem?.code === 'string' ? problem.code.trim() : ''

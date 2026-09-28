@@ -179,13 +179,31 @@ test('redirect, oversized, rate-limited and malformed GitHub responses never bec
  await assert.rejects(()=>new CollaborationGitHub(async()=>{throw Error('network timeout');}).read(readerRepo),errorCode('github_unavailable'));
 });
 
-test('concurrent activity reads coalesce, cache expires, and failed refresh cannot return stale successful evidence',async()=>{
+test('concurrent activity reads coalesce, cache expires, and rate limits return marked last-good data',async()=>{
  const fixture=upstream();let now=Date.parse('2026-09-24T02:00:00Z'),release!:()=>void;
  fixture.state.delay=new Promise<void>(resolve=>{release=resolve;});const reader=new CollaborationGitHub(fixture.fetcher,()=>now);
  const reads=[reader.read(readerRepo),reader.read(readerRepo),reader.read(readerRepo)];release();const results=await Promise.all(reads);
  assert.equal(fixture.seen.length,3);assert.deepEqual(results[0],results[1]);assert.deepEqual(await reader.read(readerRepo),results[0]);assert.equal(fixture.seen.length,3);
- now+=600001;fixture.state.status=429;await assert.rejects(()=>reader.read(readerRepo),errorCode('github_rate_limited'));
- fixture.state.status=200;fixture.state.pulls=[];const fresh=await reader.read(readerRepo);assert.deepEqual(fresh.contributions,[]);assert.notEqual(fresh.checked_at,results[0].checked_at);
+ now+=600001;fixture.state.status=429;const stale=await reader.read(readerRepo);
+ assert.equal(stale.stale_reason,'github_rate_limited');assert.equal(stale.checked_at,results[0].checked_at);assert.equal(fixture.seen.length,4);
+ assert.deepEqual(await reader.read(readerRepo),stale);assert.equal(fixture.seen.length,4,'rate-limit retry backs off across selections');
+ assert.match((await reader.brief(readerRepo,7)).text,/上次讀取的內容/);assert.equal(fixture.seen.length,4);
+ now+=60001;fixture.state.status=200;fixture.state.pulls=[];const fresh=await reader.read(readerRepo);assert.deepEqual(fresh.contributions,[]);assert.notEqual(fresh.checked_at,results[0].checked_at);assert.equal(fresh.stale_reason,undefined);
+});
+
+test('activity sends an optional read token on all three GitHub GET requests',async()=>{
+ const fixture=upstream(),headers:Headers[]=[];
+ const fetcher:typeof fetch=async(input,init)=>{
+   headers.push(new Headers(init?.headers));
+   const withoutToken={...init,headers:new Headers(init?.headers)};
+   withoutToken.headers.delete('Authorization');
+   return fixture.fetcher(input,withoutToken);
+ };
+ await new CollaborationGitHub(fetcher).read(readerRepo,'read-only-fixture');
+ assert.equal(headers.length,3);assert.ok(headers.every(header=>header.get('Authorization')==='Bearer read-only-fixture'));
+ const anonymous=upstream(),anonymousHeaders:Headers[]=[];
+ await new CollaborationGitHub(async(input,init)=>{anonymousHeaders.push(new Headers(init?.headers));return anonymous.fetcher(input,init);}).read(readerRepo);
+ assert.equal(anonymousHeaders.length,3);assert.ok(anonymousHeaders.every(header=>!header.has('Authorization')));
 });
 
 test('brief contains only public task/project text, not platform contacts, sessions or fabricated membership credit',async t=>{
