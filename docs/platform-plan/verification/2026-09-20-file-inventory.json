@@ -165,7 +165,7 @@
     {
       "path": "apps/platform-api/src/routes/published-skills.ts",
       "bytes": 8004,
-      "sha256": "15f1b3236478cc9de44d0229343be9e10a992daf2bb6d22a2f3d8760a44776a8"
+      "sha256": "f0021779cc03db8468230eb471143fcdf22f72f86ea43a8d261c27e639cd22ae"
     },
     {
       "path": "apps/platform-api/src/routes/skill-discovery.ts",
@@ -984,8 +984,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SkillBookIntro.tsx",
-      "bytes": 11346,
-      "sha256": "eba40c5cad93b983f4c1d8b3192d924842d5ba8872ed92e9b87ffe0429534ebd"
+      "bytes": 11407,
+      "sha256": "bc1f0418cd75d8bd3d1e1c3bf6ac3140da42a27417377a5f9e9493f88cf79732"
     },
     {
       "path": "apps/portal-web/src/modules/SkillDiscovery.css",
@@ -1034,8 +1034,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/WelcomePreview.tsx",
-      "bytes": 5850,
-      "sha256": "1874b74d0cc4cd11f57b2b6efcfc9a7d4ac4755f06f0c765d8ee37dadb793b80"
+      "bytes": 6263,
+      "sha256": "0f578d160147c84c6c3b0c6d24515c3fd35aa684f89b4aa4cbab19a53ba72acb"
     },
     {
       "path": "apps/portal-web/src/modules/admin-client.ts",
@@ -1394,8 +1394,8 @@
     },
     {
       "path": "docs/development/author-owned-collaboration.md",
-      "bytes": 6682,
-      "sha256": "3a14e452d41ae3e4f6bee791c78c17e279230a72c51a1f0d6e9fafd742d15c23"
+      "bytes": 8073,
+      "sha256": "180325057fead726ed059655f41369f5019affaea5f84408108d8229bb0dc788"
     },
     {
       "path": "docs/development/benefit-observations.md",
@@ -3114,8 +3114,8 @@
     },
     {
       "path": "modules/development/service.ts",
-      "bytes": 41233,
-      "sha256": "9436a9ced36601b6ee816ba00dcfc74abb239917146b8aca5035f5cc5c7dd4a1"
+      "bytes": 41098,
+      "sha256": "fafcc3b5f23e40da1cbbbfc1cb78048ecfd9d0ec734656d888e0e31632906aae"
     },
     {
       "path": "modules/development-access/guild-eligibility.ts",
@@ -3619,8 +3619,8 @@
     },
     {
       "path": "tests/e2e/development-guide.spec.ts",
-      "bytes": 6628,
-      "sha256": "5fea9c8559f831350f0a7e3c65291acd8eaeaa62a95bc1fe27e7c31d6b6e04cd"
+      "bytes": 6704,
+      "sha256": "8bca6fb48a5943623f287093927b927bb353119df22d5d799879b3164fa41ffb"
     },
     {
       "path": "tests/e2e/fixtures.ts",
@@ -3679,8 +3679,8 @@
     },
     {
       "path": "tests/e2e/member-experience.spec.ts",
-      "bytes": 11254,
-      "sha256": "1277bcbbdfe96dd3db597c2315cba83ffe5b1e3f9ad9cc300f414f6fa375bbad"
+      "bytes": 11433,
+      "sha256": "e885f9fe1beb35ff8c1560efb8d90d6d495a8bcf87e75c351344164c6abd0223"
     },
     {
       "path": "tests/e2e/member-settings-real.spec.ts",
@@ -3759,8 +3759,8 @@
     },
     {
       "path": "tests/e2e/skill-book-library.spec.ts",
-      "bytes": 21397,
-      "sha256": "c7d3f9bd9f868f3287619d174f22b33508819d797cce10f3ff431037adf4f9ed"
+      "bytes": 23465,
+      "sha256": "6ab7a96676dc87e7ce4c7ab348b011d8763f0f2c7f0a710f794958bfae200d77"
     },
     {
       "path": "tests/e2e/skill-editor-guild-access.spec.ts",
@@ -3869,8 +3869,8 @@
     },
     {
       "path": "tests/runtime/development-map.test.ts",
-      "bytes": 6082,
-      "sha256": "d8af9a2b84dfb3f77d4c3d93812a0787d8b3ced7c97714556dec86fd2c75d04b"
+      "bytes": 6096,
+      "sha256": "77dca0ed9e9ac53be75e3b6f983635eb1cbc26a6344ee4cc864ddd630872f5ce"
     },
     {
       "path": "tests/runtime/e2e-auth-isolation.test.ts",
@@ -4044,8 +4044,8 @@
     },
     {
       "path": "tests/runtime/published-skills.test.ts",
-      "bytes": 3112,
-      "sha256": "e27c9d3ac76804f156986cdea5590390109738722c766fb99086ece8ae27eb4a"
+      "bytes": 3436,
+      "sha256": "b250915a2b8cab896d2d688a9fde2e4e166441d6640236e807847d0db98137ee"
     },
     {
       "path": "tests/runtime/skill-book-guides.test.ts",
