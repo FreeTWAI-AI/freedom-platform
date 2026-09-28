@@ -8,6 +8,7 @@
 .experience-card { display: grid; align-content: start; gap: .85rem; min-width: 0; }
 .experience-card-head { display: flex; align-items: start; justify-content: space-between; gap: .7rem; }
 .experience-card h3 { font-size: 1.14rem; margin: .2rem 0 0; }
+.experience-banner-image { display: block; width: 100%; height: clamp(170px, 22vw, 300px); object-fit: cover; border-radius: 10px; background: var(--bg-elev); }
 .experience-card p { line-height: 1.65; overflow-wrap: anywhere; }
 .experience-kicker { color: var(--muted); font-size: .79rem; font-weight: 700; }
 .experience-count { white-space: nowrap; color: var(--muted); font-size: .8rem; }
@@ -16,7 +17,7 @@
 .experience-meta dt { color: var(--muted); }
 .experience-meta dd { margin: 0; overflow-wrap: anywhere; }
 .experience-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: auto; }
-.experience-actions .btn { text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.experience-actions .btn { text-decoration: none; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; }
 .experience-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--line); padding-bottom: .55rem; }
 .experience-heading h2 { font-size: 1.15rem; }
 .experience-heading span { color: var(--muted); font-size: .85rem; }
