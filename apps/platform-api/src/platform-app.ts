@@ -36,7 +36,7 @@ import {createSkillSubmissionRoutes,createAgentSkillSubmissionRoutes,isAgentSkil
 import {createPublishedSkillRoutes} from './routes/published-skills.js';
 import {createMemberCommunicationRoutes} from './routes/member-communications.js';
 import {PageGitHubReader,PageGitHubEventReader} from '../../../modules/development/page-github.js';
-import {createCommunityEventRoutes} from './routes/community-events.js';
+import {createCommunityEventRoutes,checkEventBannerUploadHeaders,isEventBannerUpload} from './routes/community-events.js';
 import {CollaborationGitHub} from '../../../modules/co-creation/github.js';
 import {acceptedWorkFeed,contributionRecords,previewTasks} from '../../../modules/community/task-board.js';
 
@@ -44,6 +44,7 @@ const COOKIE='freedom_local_session';
 function onboardingAllowed(path:string,method:string) {
   if(path==='/api/v1/me/client-errors'&&method==='POST')return true;
   if(path==='/api/v1/events'&&method==='POST')return true;
+  if(method==='POST'&&/^\/api\/v1\/events\/[0-9a-f-]{36}\/banner$/.test(path))return true;
   if(path==='/api/v1/me/notifications'&&method==='GET')return true;
   if(method==='POST'&&/^\/api\/v1\/me\/notifications\/[0-9a-f-]+\/read$/.test(path))return true;
   if(path==='/api/v1/session'||path==='/api/v1/auth/logout'||path==='/api/v1/me/account')return true;
@@ -97,6 +98,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
         // Only this route accepts binary input. Its bounded stream reader runs
         // after session, CSRF and completed-member checks, before decoding.
         checkAvatarUploadHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
+      } else if(isEventBannerUpload(c.req.method,c.req.path)) {
+        checkEventBannerUploadHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
       } else {
         requireCondition(c.req.header('Content-Type')?.split(';')[0]==='application/json',415,'json_required','操作需要 JSON。');
         requireCondition(Number(c.req.header('Content-Length')??0)<=32768,413,'body_too_large','內容過長。');

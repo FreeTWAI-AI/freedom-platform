@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import sharp from 'sharp';
 import { test,expect } from './fixtures.js';
 import { navigate } from './navigation.js';
 
@@ -26,7 +27,7 @@ test('new member explores, submits an event and selects each theme',async({page}
   await page.getByRole('button',{name:'提交公開活動'}).click();
   await page.getByLabel('活動名稱').fill('新會員一起畫工坊');
   await page.getByLabel('活動說明').fill('一起畫出下一次活動的原創小插圖。');
-  await page.getByLabel('地點或參與連結').fill('https://example.org/art');
+  await page.getByLabel('線上場地').fill('Discord 讀書會場地');
   await page.getByRole('button',{name:'送出審核'}).click();
   await expect(page.getByText('活動已送出審核；核准後才會開放報名。')).toBeVisible();
   await expect(page.getByText('新會員一起畫工坊')).toBeVisible();
@@ -72,11 +73,21 @@ test('completed member submits an event and sees accepted-work facts without pro
   const local=(date:Date)=>new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);
   await page.getByLabel('開始時間').fill(local(start));
   await page.getByLabel('結束時間').fill(local(end));
-  await page.getByLabel('地點或參與連結').fill('https://example.org/meeting');
+  await page.getByLabel('活動類型').selectOption('reading_group');
+  await page.getByLabel('讀書會主題').fill('共同創作入門');
+  await page.getByLabel('線上場地').fill('Discord 讀書會場地');
+  await page.getByLabel('線上參與連結').fill('https://example.org/meeting');
+  const banner=await sharp({create:{width:120,height:63,channels:3,background:'#366177'}}).png().toBuffer();
+  await page.getByLabel('活動 Banner（選填）').setInputFiles({name:'event-banner.png',mimeType:'image/png',buffer:banner});
   await page.getByRole('button',{name:'送出審核'}).click();
   await expect(page.getByRole('heading',{name:title})).toBeVisible();
   await expect(page.getByRole('heading',{name:'待審核活動'})).toBeVisible();
+  await expect(page.locator('.experience-card').filter({has:page.getByRole('heading',{name:title})}).locator('.experience-banner-image')).toBeVisible();
   await page.screenshot({path:'test-results/member-events-light.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/member-events-light-phone.png',fullPage:true});
+  await page.setViewportSize({width:1280,height:720});
   await navigate(page,'社群任務榜');
   await expect(page.getByRole('heading',{name:'社群任務榜',level:1})).toBeVisible();
   await expect(page.getByText('分數規則另訂；這裡不顯示暫定分數。',{exact:false})).toBeVisible();
