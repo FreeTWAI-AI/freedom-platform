@@ -129,6 +129,15 @@ test('guild browsing uses the real membership filter and exposes only permitted 
     await expect(row).toContainText('browser-visible-discord'); await expect(row).not.toContainText('browser-private-github'); await expect(row).not.toContainText(ids[1] + '@example.invalid');
     const response = await page.request.get(`/api/v1/members?guild_key=${guild}&search=Browser&sort=nickname&limit=10&offset=0`), data = await response.json();
     expect(response.status()).toBe(200); expect(data.total).toBe(2); expect(data.items.map((item: any) => item.user_id).sort()).toEqual(ids.slice(0, 2).sort());
+    const positioned=await (await page.request.get(`/api/v1/members?primary_guild_key=${guild}&search=Browser&limit=10`)).json();
+    expect(positioned.items.map((item:any)=>item.user_id).sort()).toEqual(ids.slice(0,2).sort());
+    const otherPosition=await (await page.request.get('/api/v1/members?primary_guild_key=guild_security&search=Browser&limit=10')).json();
+    expect(otherPosition.items.map((item:any)=>item.user_id)).toEqual([ids[2]]);
+    for(const sort of ['positioning','guild']){
+      const sorted=await page.request.get(`/api/v1/members?search=Browser&sort=${sort}&limit=10`);
+      expect(sorted.status()).toBe(200);
+      expect((await sorted.json()).items.map((item:any)=>item.user_id)).toEqual(expect.arrayContaining(ids));
+    }
     expect(data.items.find((item: any) => item.user_id === ids[1]).contacts).toEqual({ discord: 'browser-visible-discord' });
     await pool.query('UPDATE member_avatars SET image_bytes=NULL,aggregate_version=aggregate_version+1 WHERE user_id=$1',[ids[0]]);await page.reload();await expect(card.locator('.guild-master .member-avatar > span')).toHaveText('B');await expect(card.locator('.guild-master img')).toHaveCount(0);
   } finally {

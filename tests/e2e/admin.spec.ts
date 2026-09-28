@@ -41,6 +41,7 @@ test('verified admin UI keeps member, guild, nomination and audit operations sep
   await page.goto('/admin');await expect(page.getByRole('heading',{name:'會員管理',exact:true})).toBeVisible();
   expect(memberSessionRequests).toBe(1);
   await expect(page.getByText('預定公會 · 等待本人確認連結',{exact:true})).toBeVisible();
+  await page.locator('.admin-member-row').getByText('管理操作',{exact:true}).click();
   await page.getByRole('button',{name:'停用這位會員',exact:true}).click();await page.getByLabel('操作理由',{exact:true}).fill('配合會員本人提出的停用要求');await page.getByRole('button',{name:'確認停用這位會員',exact:true}).click();await expect(page.getByText('已停用',{exact:true})).toBeVisible();
   expect(calls[0].headers['x-admin-csrf']).toBe(csrf);expect(calls[0].headers['if-match']).toBe('"7"');expect(calls[0].headers['idempotency-key']).toBeTruthy();expect(calls[0].body.active).toBe(false);
   await page.getByRole('button',{name:'重新啟用會員',exact:true}).click();await page.getByLabel('操作理由',{exact:true}).fill('會員本人確認重新啟用');await page.getByRole('button',{name:'確認重新啟用會員',exact:true}).click();await expect(page.getByText('啟用中',{exact:true})).toBeVisible();
@@ -94,7 +95,8 @@ test('admin appointment, access sync, revocation and reactivation use real isola
     await targetPage.goto(origin+'/admin');
     await expect(targetPage.getByRole('heading',{name:'需要管理員驗證',exact:true})).toBeVisible();
     await page.goto(origin+'/admin');
-    const member=page.locator('article.card').filter({has:page.getByRole('heading',{name:'測試新管理員',exact:true})});
+    const member=page.locator('.admin-member-row').filter({has:page.getByRole('heading',{name:'測試新管理員',exact:true})});
+    await member.getByText('管理操作',{exact:true}).click();
     await member.getByRole('button',{name:'任命管理員',exact:true}).click();
     const review=member.getByRole('form',{name:'任命管理員',exact:true});
     await expect(review).toContainText(targetEmail);await expect(review).toContainText('平台全部管理權限');

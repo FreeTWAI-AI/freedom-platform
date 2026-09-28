@@ -57,10 +57,10 @@ export function MemberCard({member,children,labels={},client}:{member:MemberCard
   </article>;
 
 }
-type DirectoryFilters={search:string;guild_key:string;sort:'newest'|'oldest'|'nickname'};
+type DirectoryFilters={search:string;guild_key:string;primary_guild_key:string;sort:'newest'|'oldest'|'nickname'|'positioning'|'guild'};
 type DirectoryResponse={items:MemberCardData[];next_offset:number|null;total:number};
 type DirectoryFriend={user_id:string;nickname:string;state:string;requester_ref:string;aggregate_version:number};
-const defaultDirectoryFilters:DirectoryFilters={search:'',guild_key:'',sort:'newest'};
+const defaultDirectoryFilters:DirectoryFilters={search:'',guild_key:'',primary_guild_key:'',sort:'newest'};
 
 export function DirectoryMemberRow({member,labels,children,client}:{member:MemberCardData;labels:Record<string,string>;children?:React.ReactNode;client:PortalClient}){
   const [detailsOpen,setDetailsOpen]=useState(false);
@@ -78,28 +78,30 @@ export function DirectoryMemberRow({member,labels,children,client}:{member:Membe
   </article>;
 }
 
-export function MembersPanel({client,session,focusRequest}:ModulePanelProps&{focusRequest?:{id:string;sequence:number}}){
+export function MembersPanel({client,session,focusRequest,onMessage}:ModulePanelProps&{focusRequest?:{id:string;sequence:number};onMessage:(id:string)=>void}){
   const [members,setMembers]=useState<MemberCardData[]>([]),[nextOffset,setNextOffset]=useState<number|null>(null),[total,setTotal]=useState<number|null>(null),[loadError,setLoadError]=useState(''),[loading,setLoading]=useState(true),[notice,setNotice]=useState(''),[labels,setLabels]=useState<Record<string,string>>({});
   const [friends,setFriends]=useState<DirectoryFriend[]>([]),[friendError,setFriendError]=useState('');
   const [guilds,setGuilds]=useState<GuildRef[]>([]),[guildError,setGuildError]=useState(''),[search,setSearch]=useState(''),[filters,setFilters]=useState<DirectoryFilters>(defaultDirectoryFilters);
+  const [pageSize,setPageSize]=useState(20),[pageOffset,setPageOffset]=useState(0);
   const filterRef=useRef(filters),generation=useRef(0),friendsGeneration=useRef(0),guildGeneration=useRef(0),loadedOffset=useRef(0);
   filterRef.current=filters;
   const {mutate,busy,error}=useModuleMutation(client);
   const load=useCallback(async(offset=0)=>{
     const sequence=++generation.current,current=filterRef.current;
-    const query=new URLSearchParams({limit:'20',offset:String(offset),sort:current.sort});
+    const query=new URLSearchParams({limit:String(pageSize),offset:String(offset),sort:current.sort});
     if(current.search)query.set('search',current.search);
     if(current.guild_key)query.set('guild_key',current.guild_key);
+    if(current.primary_guild_key)query.set('primary_guild_key',current.primary_guild_key);
     setLoadError('');setLoading(true);loadedOffset.current=offset;
-    if(offset===0){setMembers([]);setNextOffset(null);setTotal(null);}
+    setMembers([]);setNextOffset(null);setTotal(null);
     try{
       const data=await client.get<DirectoryResponse>(`/members?${query}`);
       if(sequence!==generation.current)return;
-      setMembers(existing=>offset?[...new Map([...existing,...data.items].map(member=>[member.user_id,member])).values()]:data.items);
+      setMembers(data.items);
       setNextOffset(data.next_offset);setTotal(data.total);
     }catch(cause){if(sequence===generation.current)setLoadError(fail(cause));}
     finally{if(sequence===generation.current)setLoading(false);}
-  },[client]);
+  },[client,pageSize]);
   const loadFriends=useCallback(async()=>{
     const sequence=++friendsGeneration.current;setFriendError('');
     try{const data=await client.get<{items:DirectoryFriend[]}>('/friends');if(sequence===friendsGeneration.current)setFriends(data.items);}
@@ -110,31 +112,31 @@ export function MembersPanel({client,session,focusRequest}:ModulePanelProps&{foc
     try{const data=await client.get<{items:GuildRef[]}>('/guilds/directory');if(sequence===guildGeneration.current)setGuilds(data.items);}
     catch(cause){if(sequence===guildGeneration.current)setGuildError(fail(cause));}
   },[client]);
-  useEffect(()=>{void load();return()=>{generation.current++;};},[load,filters]);
+  useEffect(()=>{void load(pageOffset);return()=>{generation.current++;};},[load,filters,pageOffset]);
   useEffect(()=>{let active=true;void loadFriends();void loadGuilds();void loadLabels(client).then(data=>{if(active)setLabels(data);}).catch(()=>{});return()=>{active=false;friendsGeneration.current++;guildGeneration.current++;};},[client,loadFriends,loadGuilds]);
-  useEffect(()=>{const timer=setTimeout(()=>{const term=search.trim();setFilters(current=>{if(current.search===term)return current;generation.current++;return {...current,search:term};});},250);return()=>clearTimeout(timer);},[search]);
-  function filter(change:Partial<DirectoryFilters>){generation.current++;setFilters(current=>({...current,...change}));}
+  useEffect(()=>{const timer=setTimeout(()=>{const term=search.trim();setFilters(current=>{if(current.search===term)return current;generation.current++;setPageOffset(0);return {...current,search:term};});},250);return()=>clearTimeout(timer);},[search]);
+  function filter(change:Partial<DirectoryFilters>){generation.current++;setPageOffset(0);setFilters(current=>({...current,...change}));}
   function searchNow(event:FormEvent){event.preventDefault();filter({search:search.trim()});}
   function reset(){setSearch('');filter(defaultDirectoryFilters);}
-  async function act(userId:string,action:string,version?:number){setNotice('');const result=await mutate(`/friends/${userId}/${action}`,{},version);if(result){setNotice(action==='accept'?'已成為平台好友。':action==='remove'?'好友關係已移除。':'好友邀請已送出，等待對方接受。');await Promise.all([load(),loadFriends()]);}}
+  async function act(userId:string,action:string,version?:number){setNotice('');const result=await mutate(`/friends/${userId}/${action}`,{},version);if(result){setNotice(action==='accept'?'已成為平台好友。':action==='remove'?'好友關係已移除。':'好友邀請已送出，等待對方接受。');await Promise.all([load(pageOffset),loadFriends()]);}}
   const invitations=friends.filter(friend=>friend.state==='pending'&&friend.requester_ref!==session.user.user_id);
   useEffect(()=>{if(!focusRequest||!invitations.some(friend=>friend.user_id===focusRequest.id))return;
     const frame=requestAnimationFrame(()=>{const row=document.getElementById(`friend-request-${focusRequest.id}`);row?.scrollIntoView({block:'center',behavior:'smooth'});row?.querySelector('button')?.focus({preventScroll:true});});
     return()=>cancelAnimationFrame(frame);
   },[focusRequest?.id,focusRequest?.sequence,friends]);
-  const filtered=Boolean(filters.search||filters.guild_key),changed=filtered||filters.sort!=='newest'||Boolean(search);
+  const filtered=Boolean(filters.search||filters.guild_key||filters.primary_guild_key),changed=filtered||filters.sort!=='newest'||Boolean(search);
   return <section className="module-panel members-panel"><ModuleBanner eyebrow="FIND YOUR PEOPLE" title="依專長與公會找夥伴" description="" art="/art/rpg/cooperation-forge.webp"/>
     <Status error={error} notice={notice}/>
     {friendError&&<div className="banner banner-error" role="alert"><p>好友邀請暫時無法載入：{friendError}</p><button className="btn btn-ghost" onClick={()=>void loadFriends()}>重讀好友邀請</button></div>}
     {invitations.length>0&&<section className="card stack directory-invitations"><h3>收到的好友邀請</h3>{invitations.map(friend=><div className="member-request" id={`friend-request-${friend.user_id}`} key={friend.user_id}><strong>{friend.nickname}</strong><button className="btn btn-primary" disabled={busy} onClick={()=>void act(friend.user_id,'accept',friend.aggregate_version)}>接受邀請</button><button className="btn btn-ghost" disabled={busy} onClick={()=>void act(friend.user_id,'remove',friend.aggregate_version)}>婉拒</button></div>)}</section>}
-    <form className="directory-filters" onSubmit={searchNow}><label className="field directory-search">搜尋夥伴<div><input type="search" aria-label="搜尋夥伴" maxLength={100} value={search} onChange={event=>setSearch(event.target.value)} placeholder="暱稱、定位稱號或專長" autoComplete="off"/>{search&&<button type="button" className="btn btn-ghost" aria-label="清除搜尋" onClick={()=>{setSearch('');filter({search:''});}}>清除</button>}</div></label><label className="field">依公會篩選<select value={filters.guild_key} onChange={event=>filter({guild_key:event.target.value})}><option value="">全部公會</option>{guilds.map(guild=><option value={guild.guild_key} key={guild.guild_key}>{guild.name}</option>)}</select></label><label className="field">排序方式<select value={filters.sort} onChange={event=>filter({sort:event.target.value as DirectoryFilters['sort']})}><option value="newest">最新加入</option><option value="oldest">最早加入</option><option value="nickname">暱稱排序</option></select></label><div className="directory-filter-actions"><button className="btn btn-primary" type="submit">搜尋</button>{changed&&<button className="btn btn-ghost" type="button" onClick={reset}>重設篩選</button>}</div></form>
+    <form className="directory-filters" onSubmit={searchNow}><label className="field directory-search">搜尋夥伴<div><input type="search" aria-label="搜尋夥伴" maxLength={100} value={search} onChange={event=>setSearch(event.target.value)} placeholder="暱稱、定位稱號或專長" autoComplete="off"/>{search&&<button type="button" className="btn btn-ghost" aria-label="清除搜尋" onClick={()=>{setSearch('');filter({search:''});}}>清除</button>}</div></label><label className="field">依公會篩選<select value={filters.guild_key} onChange={event=>filter({guild_key:event.target.value})}><option value="">全部公會</option>{guilds.map(guild=><option value={guild.guild_key} key={guild.guild_key}>{guild.name}</option>)}</select></label><label className="field">依主要定位篩選<select value={filters.primary_guild_key} onChange={event=>filter({primary_guild_key:event.target.value})}><option value="">全部定位</option>{guilds.map(guild=><option value={guild.guild_key} key={guild.guild_key}>{guild.name}</option>)}</select></label><label className="field">排序方式<select value={filters.sort} onChange={event=>filter({sort:event.target.value as DirectoryFilters['sort']})}><option value="newest">最新加入</option><option value="oldest">最早加入</option><option value="nickname">暱稱排序</option><option value="positioning">定位稱號</option><option value="guild">主要公會</option></select></label><label className="field">每頁顯示<select value={pageSize} onChange={event=>{setPageOffset(0);setPageSize(Number(event.target.value));}}><option value={10}>10 位</option><option value={20}>20 位</option><option value={50}>50 位</option></select></label><div className="directory-filter-actions"><button className="btn btn-primary" type="submit">搜尋</button>{changed&&<button className="btn btn-ghost" type="button" onClick={reset}>重設篩選</button>}</div></form>
     {guildError&&<div className="directory-options-error" role="alert"><span>公會選項暫時無法載入。</span><button className="btn btn-ghost" onClick={()=>void loadGuilds()}>重讀公會選項</button></div>}
-    <div className="directory-results-heading"><p className="directory-result-count" aria-live="polite">{loading&&members.length===0?'正在尋找夥伴…':total===null?'':`顯示 ${members.length} / ${total} 位夥伴`}</p><p className="field-hint">聯絡方式依本人設定顯示。</p></div>
+    <div className="directory-results-heading"><p className="directory-result-count" aria-live="polite">{loading&&members.length===0?'正在尋找夥伴…':total===null?'':`顯示 ${members.length?pageOffset+1:0}–${pageOffset+members.length} / ${total} 位夥伴`}</p><p className="field-hint">聯絡方式依本人設定顯示。</p></div>
     {loadError&&<div role="alert" className="banner banner-error"><p>{loadError}</p><button className="btn btn-ghost" onClick={()=>void load(loadedOffset.current)}>重新載入夥伴</button></div>}
-    <div className="member-directory directory-rows" aria-busy={loading}>{members.map(member=><DirectoryMemberRow key={member.user_id} member={member} labels={labels} client={client}>{!member.is_self&&<div className="directory-friend-actions">{member.friendship.state==='accepted'?<><span className="badge">平台好友</span><button className="btn btn-ghost" disabled={busy} onClick={()=>void act(member.user_id,'remove',member.friendship.aggregate_version)}>移除好友</button></>:member.friendship.state==='pending'?<span className="muted">{member.friendship.requester_ref===session.user.user_id?'好友邀請已送出':'對方已邀請你'}</span>:<button className="btn btn-ghost" disabled={busy} onClick={()=>void act(member.user_id,'request',member.friendship.aggregate_version)}>邀請成為好友</button>}</div>}</DirectoryMemberRow>)}</div>
-    {loading&&members.length>0&&<p role="status">正在載入更多夥伴…</p>}
+    <div className="member-directory directory-rows" aria-busy={loading}>{members.map(member=><DirectoryMemberRow key={member.user_id} member={member} labels={labels} client={client}>{!member.is_self&&<div className="directory-friend-actions"><button className="btn btn-ghost" type="button" onClick={()=>onMessage(member.user_id)}>私訊使用者</button>{member.friendship.state==='accepted'?<><span className="badge">平台好友</span><button className="btn btn-ghost" disabled={busy} onClick={()=>void act(member.user_id,'remove',member.friendship.aggregate_version)}>移除好友</button></>:member.friendship.state==='pending'?<span className="muted">{member.friendship.requester_ref===session.user.user_id?'好友邀請已送出':'對方已邀請你'}</span>:<button className="btn btn-ghost" disabled={busy} onClick={()=>void act(member.user_id,'request',member.friendship.aggregate_version)}>邀請成為好友</button>}</div>}</DirectoryMemberRow>)}</div>
+    {loading&&<p role="status">正在載入夥伴…</p>}
     {!loading&&!members.length&&!loadError&&<div className="directory-empty"><p>{filtered?'沒有符合的夥伴。換個關鍵字或公會試試。':'還沒有完成定位的會員。'}</p>{filtered&&<button className="btn btn-ghost" onClick={reset}>查看全部夥伴</button>}</div>}
-    {nextOffset!==null&&!loadError&&<button className="btn btn-ghost directory-load-more" disabled={loading} onClick={()=>void load(nextOffset)}>查看更多夥伴</button>}
+    {total!==null&&!loadError&&total>pageSize&&<nav className="directory-pagination" aria-label="夥伴頁數"><button className="btn btn-ghost" type="button" disabled={loading||pageOffset===0} onClick={()=>setPageOffset(Math.max(0,pageOffset-pageSize))}>上一頁</button><span aria-live="polite">第 {Math.floor(pageOffset/pageSize)+1} / {Math.ceil(total/pageSize)} 頁</span><button className="btn btn-ghost" type="button" disabled={loading||nextOffset===null} onClick={()=>setPageOffset(nextOffset!)}>下一頁</button></nav>}
   </section>;
 }
 export async function loadLabels(client:PortalClient){const definition=await client.get<{capability_categories:{options:{id:string;label:string}[]}[];equipment_categories:{options:{id:string;label:string}[]}[]}>('/assessment-definition');return Object.fromEntries([...definition.capability_categories,...definition.equipment_categories].flatMap(c=>c.options).map(o=>[o.id,o.label]));}

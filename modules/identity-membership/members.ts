@@ -130,18 +130,19 @@ export const MemberDirectoryQuery=z.object({
  limit:z.coerce.number().int().min(1).max(50).default(20),offset:z.coerce.number().int().min(0).max(10000).default(0),
  search:z.string().trim().max(100).refine(value=>!/[\x00-\x1f\x7f]/.test(value),'請使用單行搜尋文字。').default(''),
  guild_key:z.union([z.literal(''),z.string().max(100).regex(/^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/)]).default(''),
- sort:z.enum(['newest','oldest','nickname']).default('nickname'),
+ primary_guild_key:z.union([z.literal(''),z.string().max(100).regex(/^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/)]).default(''),
+ sort:z.enum(['newest','oldest','nickname','positioning','guild']).default('nickname'),
 }).strict();
-type MemberDirectoryFilters=Partial<Pick<z.infer<typeof MemberDirectoryQuery>,'search'|'guild_key'|'sort'>>;
+type MemberDirectoryFilters=Partial<Pick<z.infer<typeof MemberDirectoryQuery>,'search'|'guild_key'|'primary_guild_key'|'sort'>>;
 const capabilityLabels=Object.fromEntries(capabilityCategories.flatMap(category=>category.items.map(option=>[option.id,option.label])));
-const memberSort={newest:'created_at DESC NULLS LAST,user_id',oldest:'created_at ASC NULLS LAST,user_id',nickname:'lower(display_name),display_name,user_id'} as const;
+const memberSort={newest:'created_at DESC NULLS LAST,user_id',oldest:'created_at ASC NULLS LAST,user_id',nickname:'lower(display_name),display_name,user_id',positioning:'lower(positioning_title) NULLS LAST,lower(display_name),user_id',guild:'lower(primary_guild_name) NULLS LAST,lower(display_name),user_id'} as const;
 export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:number,filters:MemberDirectoryFilters={}) {
   const input=MemberDirectoryQuery.parse({...filters,limit,offset});
   // Search only the public, last-confirmed profile. Raw assessment answers,
   // occupation, drafts and contact handles/email are never search predicates.
   // Count and page selection share one snapshot; filtering happens before LIMIT.
   const result=(await pool.query(`WITH visible AS (
-    SELECT u.user_id,u.display_name,u.created_at,a.published_profile,
+    SELECT u.user_id,u.display_name,u.created_at,a.published_profile,p.primary_guild_key,
       CASE WHEN EXISTS(SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=u.community_id
         AND m.user_id=u.user_id AND m.guild_key=p.primary_guild_key AND m.state='active')
         THEN COALESCE($6::jsonb->>p.primary_guild_key,'專業探索者') ELSE NULL END AS positioning_title
@@ -150,8 +151,11 @@ export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:numb
     WHERE u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
       AND ($5='' OR EXISTS(SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=u.community_id
         AND m.user_id=u.user_id AND m.guild_key=$5 AND m.state='active'))
+      AND ($8='' OR p.primary_guild_key=$8 AND EXISTS(SELECT 1 FROM positioning_profession_memberships pm WHERE pm.community_id=u.community_id
+        AND pm.user_id=u.user_id AND pm.guild_key=$8 AND pm.state='active'))
   ), matched AS (
-    SELECT user_id,display_name,created_at FROM visible
+    SELECT user_id,display_name,created_at,positioning_title,
+      CASE WHEN positioning_title IS NOT NULL THEN NULLIF($6::jsonb->>primary_guild_key,'') END AS primary_guild_name FROM visible
     WHERE $4='' OR strpos(lower(display_name),lower($4))>0 OR strpos(lower(positioning_title),lower($4))>0
       OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(COALESCE(published_profile->'capabilities','[]'::jsonb)) AS capability(id)
         WHERE strpos(lower(COALESCE($7::jsonb->>capability.id,capability.id)),lower($4))>0
@@ -160,7 +164,7 @@ export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:numb
         WHERE strpos(lower(custom.label),lower($4))>0)
   ) SELECT (SELECT count(*)::int FROM matched) AS total,
     ARRAY(SELECT user_id FROM matched ORDER BY ${memberSort[input.sort]} LIMIT $2 OFFSET $3) AS user_ids`,
-    [actor.community_id,input.limit,input.offset,input.search,input.guild_key,JSON.stringify(guildTitles),JSON.stringify(capabilityLabels)])).rows[0];
+    [actor.community_id,input.limit,input.offset,input.search,input.guild_key,JSON.stringify(guildTitles),JSON.stringify(capabilityLabels),input.primary_guild_key])).rows[0];
   const items=await Promise.all((result.user_ids as string[]).map(id=>memberCard(pool,actor,id)));
   return {items,total:result.total,next_offset:input.offset+input.limit<result.total?input.offset+input.limit:null};
 }
