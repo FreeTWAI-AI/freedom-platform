@@ -189,3 +189,30 @@ test('pop-out keeps receiving room messages after its original page closes',asyn
   await sender.close();
   await popup.close();
 });
+
+test('sent private messages return to the console after signing in again',async({page})=>{
+  const message=`重登入仍在的私訊 ${randomUUID()}`;
+  await page.goto('/');
+  await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
+  await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
+  await page.getByRole('button',{name:'登入',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
+  await page.getByRole('button',{name:'展開訊息控制台'}).click();
+  await page.getByRole('tab',{name:/私人聊天/}).click();
+  await page.getByLabel('搜尋會員').fill('示範需求者');
+  await expect(page.getByLabel('私訊對象').locator('option')).toContainText(['請選擇會員','示範需求者 · 20000000']);
+  await page.getByLabel('私訊對象').selectOption('20000000-0000-4000-8000-000000000002');
+  await page.getByLabel('私人訊息').fill(message);
+  await page.getByRole('button',{name:'傳送'}).click();
+  await expect(page.getByRole('log')).toContainText(message);
+  await page.getByRole('button',{name:'登出',exact:true}).click();
+  await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
+  await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
+  await page.getByRole('button',{name:'登入',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
+  await page.getByRole('button',{name:'展開訊息控制台'}).click();
+  await page.getByRole('tab',{name:'總頻道'}).click();
+  await expect(page.getByRole('log')).toContainText(message);
+  await page.getByRole('tab',{name:/私人聊天/}).click();
+  await expect(page.getByRole('log')).toContainText(message);
+});

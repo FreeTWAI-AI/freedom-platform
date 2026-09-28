@@ -689,8 +689,8 @@
     },
     {
       "path": "apps/portal-web/src/game-console-feed.ts",
-      "bytes": 7312,
-      "sha256": "c43a7ffddcaf734c349272b939b0fcaa88cd470689bb16b101235278df5d3a27"
+      "bytes": 7316,
+      "sha256": "5db93d7f49f2605c3d5a3a6533e97e113ff504fdd33d6f1919d6db2d4a840f99"
     },
     {
       "path": "apps/portal-web/src/light-theme.css",
@@ -1606,6 +1606,11 @@
       "path": "docs/development/workspace-ia-review.md",
       "bytes": 3591,
       "sha256": "3158a2308118019b8221715b558e4786c0e2288abe5f93716797fa0be0ac2b62"
+    },
+    {
+      "path": "docs/plans/issue-pipeline-2026-09-28.md",
+      "bytes": 2406,
+      "sha256": "752c3918a8d2c3cf28ead9504e7ae4499cb9bd4484b879ae8e74995fb94497bd"
     },
     {
       "path": "docs/plans/member-experience-redesign.md",
@@ -3599,8 +3604,8 @@
     },
     {
       "path": "tests/e2e/game-console.spec.ts",
-      "bytes": 13102,
-      "sha256": "674327cc83263a5a904481a638d92e176f2117a8050e4b3e1043976e5ddca0cc"
+      "bytes": 14887,
+      "sha256": "1dcfc175eb031c4b2241aa1f81738bd39fa6a09d1bcb8c04cfdfb0ee7c1d03a5"
     },
     {
       "path": "tests/e2e/github-setup.spec.ts",
@@ -3844,8 +3849,8 @@
     },
     {
       "path": "tests/runtime/game-console-feed.test.ts",
-      "bytes": 4680,
-      "sha256": "f68489604a4116300b3d3334322277c6883dfa50ab29c32f01638368795b0d02"
+      "bytes": 4898,
+      "sha256": "a4690fe529492244c063f0aecc952c63d5ee9ba8ac1402ce1673d46766a459c4"
     },
     {
       "path": "tests/runtime/game-console.test.ts",
