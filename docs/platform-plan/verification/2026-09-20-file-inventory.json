@@ -2564,8 +2564,8 @@
     },
     {
       "path": "docs/platform-plan/verification/verify_revision.py",
-      "bytes": 2668,
-      "sha256": "13c56bbb958c9dd72f43de1af3c44f354ce2196b7133fc182ba94367c271cebf"
+      "bytes": 2803,
+      "sha256": "922297b2db3f930791be93d6b1cdd2ab4639f9203ca013794ea3098c11983200"
     },
     {
       "path": "docs/releases/2026-09-20-local-core.md",
