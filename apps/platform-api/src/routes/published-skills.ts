@@ -47,8 +47,8 @@ export function submittedSkillHtml(skill:Published,intro?:string,publicOrigin=LI
   const selected=shareIntroNumber(intro,skill.share_introductions.length);
   const image=skill.illustration_url;
   const illustration=image?`<figure class="public-skill-illustration"><img src="${escape(image)}" alt="${escape(skill.title)}功能示意圖" width="1200" height="630"></figure>`:'';
-  const body=`<p class="public-skill-badges"><span>社群投稿</span></p><p class="public-skill-purpose">${escape(skill.description)}</p>`+
-    `<div class="public-skill-actions">${skill.demo_url?external(skill.demo_url,'開啟展示'):''}${external(skill.repository_url,'開啟專案')}<a href="${skill.public_path}/SKILL.md">交給 Agent</a></div>`+
+  const body=`<p class="public-skill-badges"><span>社群投稿・公開</span></p><p class="public-skill-purpose">${escape(skill.description)}</p>`+
+    `<div class="public-skill-actions">${external(skill.repository_url,'開啟專案')}${skill.demo_url?external(skill.demo_url,'開啟展示'):''}<a href="${skill.public_path}/SKILL.md">交給 Agent</a></div>`+
     illustration+publicSkillShareMarkup({title:skill.title,path:skill.public_path,introductions:skill.share_introductions,selected,origin:publicOrigin})+
     `<section><h2>開始使用</h2><pre>${escape(skill.use_notes)}</pre></section>`+
     `<section><h2>一起開發</h2><p>查看專案任務，認領一項修改並提交 PR。</p><div class="public-skill-actions">${external(skill.repository_url+'/issues','查看任務')}${external(skill.repository_url+'/pulls','查看 PR')}${external(skill.repository_url+'/fork','Fork 專案')}<a href="${skill.public_path}/SKILL.md">讀取協作指令</a></div></section>`+

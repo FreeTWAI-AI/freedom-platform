@@ -33,7 +33,8 @@ test('a visitor without JavaScript can follow real repo links and read a complet
   await expect(page.getByRole('heading',{name:'要 Fork 哪一個 Repo？'})).toBeVisible();
   await expect(page.getByRole('link',{name:'https://github.com/FreeTWAI-AI/freedom-supplier-client',exact:false}).first()).toBeVisible();
   await page.goto('/development/skills/security-scanner');
-  await expect(page.locator('.public-skill-entry .public-skill-actions a').first()).toHaveAttribute('href','https://teddashh.github.io/ai-security-scanner/');
+  await expect(page.locator('.public-skill-entry .public-skill-actions a').first()).toHaveAttribute('href','https://github.com/teddashh/ai-security-scanner');
+  await expect(page.getByRole('link',{name:'前往作者網站 ↗',exact:true})).toHaveAttribute('href','https://teddashh.github.io/ai-security-scanner/');
   await expect(page.getByRole('link',{name:'閱讀技能書 ↗',exact:true})).toBeVisible();
   await expect(page.getByRole('heading',{name:'一起開發',exact:true})).toBeVisible();
   await expect(page.getByRole('link',{name:'從原作開始共創 ↗',exact:true})).toHaveAttribute('href','https://github.com/teddashh/ai-security-scanner/fork');

@@ -28,11 +28,11 @@ test('skill development offers either AI guild and nested Escape returns to the 
  await login(page);await navigate(page,'技能書架');await page.getByRole('button',{name:'未解鎖',exact:true}).click();
  const library=page.locator('.community-library');await library.getByLabel('搜尋技能書',{exact:true}).fill('剪輯');
  const card=library.locator('article[data-book-id="video-autopilot"]');await card.getByRole('button',{name:'預覽技能書',exact:true}).click();
- const book=page.getByRole('dialog').filter({has:page.getByRole('button',{name:'開發這本技能書',exact:true})});
- await book.getByRole('button',{name:'開發這本技能書',exact:true}).click();const modal=page.getByRole('dialog',{name:'開發啟用任務',exact:true});
+ const book=page.getByRole('dialog').filter({has:page.getByRole('button',{name:'加入共同開發',exact:true})});
+ await book.getByRole('button',{name:'加入共同開發',exact:true}).click();const modal=page.getByRole('dialog',{name:'開發啟用任務',exact:true});
  await expect(modal.getByText('加入 AI 開發公會或 AI 導入與驗證公會其中一個，即可接續設定。保留你目前的主力公會。',{exact:true})).toBeVisible();
  await expect(modal.getByRole('button',{name:/^加入AI/})).toHaveCount(2);
- await page.keyboard.press('Escape');await expect(modal).not.toBeVisible();await expect(book).toBeVisible();await expect(book.getByRole('button',{name:'開發這本技能書',exact:true})).toBeFocused();
+ await page.keyboard.press('Escape');await expect(modal).not.toBeVisible();await expect(book).toBeVisible();await expect(book.getByRole('button',{name:'加入共同開發',exact:true})).toBeFocused();
 });
 
 const keyId='d0000000-0000-4000-8000-000000000001',secret='fpd_'+'a'.repeat(43);

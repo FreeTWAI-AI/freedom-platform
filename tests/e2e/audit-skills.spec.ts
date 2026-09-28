@@ -246,7 +246,7 @@ for (const width of [1280, 390]) {
       await card.getByRole('button', { name: '預覽技能書', exact: true }).click();
       const intro = page.locator('dialog.skill-intro-dialog[data-book-id="multi-ai-chat"]');
       await expect(intro).toBeVisible();
-      await intro.getByRole('button', { name: '開發這本技能書', exact: true }).click();
+      await intro.getByRole('button', { name: '加入共同開發', exact: true }).click();
       const access = page.getByRole('dialog', { name: '開發啟用任務', exact: true });
       await access.getByRole('button', { name: '加入AI 開發公會', exact: true }).click();
       await expect(access.getByText(/已有開發資格/)).toBeVisible();
@@ -258,7 +258,7 @@ for (const width of [1280, 390]) {
       await page.keyboard.press('Escape');
       await expect(access).toHaveCount(0);
       await expect(intro).toBeVisible();
-      await expect(intro.getByRole('button', { name: '開發這本技能書', exact: true })).toBeFocused();
+      await expect(intro.getByRole('button', { name: '加入共同開發', exact: true })).toBeFocused();
       await expect(page.getByRole('button', { name: '已解鎖 · 0', exact: true, includeHidden: true })).toHaveCount(1);
       await page.keyboard.press('Escape');
       await expect(intro).toBeHidden();

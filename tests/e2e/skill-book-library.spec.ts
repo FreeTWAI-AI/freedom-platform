@@ -199,7 +199,7 @@ test('all public book pages and Markdown preserve beginner summaries, covers, or
   await details.locator('summary').click();await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:'test-results/public-skill-compact-viewport.png'});
 });
 
-test('author websites lead both member introductions and public skill pages',async({page})=>{
+test('the original repository leads member introductions and public skill pages',async({page})=>{
   const library=await openLibrary(page);
   const card=library.locator('article[data-book-id="security-scanner"]');
   await library.getByLabel('搜尋技能書',{exact:true}).fill('AI Security Scanner');
@@ -207,8 +207,9 @@ test('author websites lead both member introductions and public skill pages',asy
   const dialog=page.getByRole('dialog',{name:'AI Security Scanner',exact:true});
   const website='https://teddashh.github.io/ai-security-scanner/';
   const original='https://github.com/teddashh/ai-security-scanner';
-  await expect(dialog.locator('.skill-intro-primary-actions > a').first()).toHaveAttribute('href',website);
+  await expect(dialog.locator('.skill-intro-primary-actions > a').first()).toHaveAttribute('href',original);
   await expect(dialog.locator('.skill-intro-primary-actions > a').first()).toHaveClass(/btn-primary/);
+  await expect(dialog.getByRole('link',{name:'前往作者網站 ↗',exact:true})).toHaveAttribute('href',website);
   await expect(dialog.getByRole('link',{name:'開啟原作 ↗',exact:true})).toHaveAttribute('href',original);
   await expect(dialog.getByRole('link',{name:'查看工坊整合版本 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI-AI/ai-security-scanner');
   for(const width of [1440,768,390]){
@@ -219,7 +220,8 @@ test('author websites lead both member introductions and public skill pages',asy
   }
   await page.keyboard.press('Escape');
   await page.goto('/development/skills/security-scanner');
-  await expect(page.locator('.public-skill-entry .public-skill-actions a').first()).toHaveAttribute('href',website);
+  await expect(page.locator('.public-skill-entry .public-skill-actions a').first()).toHaveAttribute('href',original);
+  await expect(page.getByRole('link',{name:'前往作者網站 ↗',exact:true})).toHaveAttribute('href',website);
   await expect(page.getByRole('link',{name:'開啟原作 ↗',exact:true})).toHaveAttribute('href',original);
 });
 

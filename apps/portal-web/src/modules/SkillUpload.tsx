@@ -241,7 +241,7 @@ export function SkillUpload({ client, onPublished }: { client: PortalClient; onP
         </section>
 
         <section className="stack" aria-labelledby={`${titleId}-drafts`}>
-          <div className="skill-upload-row"><h3 id={`${titleId}-drafts`}>我的技能草稿</h3><button type="button" className="btn btn-ghost" disabled={loading} onClick={() => void refresh()}>重新整理草稿</button></div>
+          <div className="skill-upload-row"><h3 id={`${titleId}-drafts`}>我的私人技能草稿</h3><button type="button" className="btn btn-ghost" disabled={loading} onClick={() => void refresh()}>重新整理草稿</button></div>
           {loadError && <p role="alert" className="banner banner-error">{loadError}</p>}
           {loading && <p role="status">正在載入草稿…</p>}
           {!loading && !loadError && items.length === 0 && <p className="field-hint">還沒有草稿。</p>}
