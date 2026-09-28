@@ -131,9 +131,10 @@ export const MemberDirectoryQuery=z.object({
  search:z.string().trim().max(100).refine(value=>!/[\x00-\x1f\x7f]/.test(value),'請使用單行搜尋文字。').default(''),
  guild_key:z.union([z.literal(''),z.string().max(100).regex(/^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/)]).default(''),
  primary_guild_key:z.union([z.literal(''),z.string().max(100).regex(/^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/)]).default(''),
+ capability:z.string().refine(value=>value===''||capabilityCategories.some(category=>category.items.some(option=>option.id===value)),'請選擇有效的專長。').default(''),
  sort:z.enum(['newest','oldest','nickname','positioning','guild']).default('nickname'),
 }).strict();
-type MemberDirectoryFilters=Partial<Pick<z.infer<typeof MemberDirectoryQuery>,'search'|'guild_key'|'primary_guild_key'|'sort'>>;
+type MemberDirectoryFilters=Partial<Pick<z.infer<typeof MemberDirectoryQuery>,'search'|'guild_key'|'primary_guild_key'|'capability'|'sort'>>;
 const capabilityLabels=Object.fromEntries(capabilityCategories.flatMap(category=>category.items.map(option=>[option.id,option.label])));
 const memberSort={newest:'created_at DESC NULLS LAST,user_id',oldest:'created_at ASC NULLS LAST,user_id',nickname:'lower(display_name),display_name,user_id',positioning:'lower(positioning_title) NULLS LAST,lower(display_name),user_id',guild:'lower(primary_guild_name) NULLS LAST,lower(display_name),user_id'} as const;
 export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:number,filters:MemberDirectoryFilters={}) {
@@ -156,15 +157,16 @@ export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:numb
   ), matched AS (
     SELECT user_id,display_name,created_at,positioning_title,
       CASE WHEN positioning_title IS NOT NULL THEN NULLIF($6::jsonb->>primary_guild_key,'') END AS primary_guild_name FROM visible
-    WHERE $4='' OR strpos(lower(display_name),lower($4))>0 OR strpos(lower(positioning_title),lower($4))>0
+    WHERE ($4='' OR strpos(lower(display_name),lower($4))>0 OR strpos(lower(positioning_title),lower($4))>0
       OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(COALESCE(published_profile->'capabilities','[]'::jsonb)) AS capability(id)
         WHERE strpos(lower(COALESCE($7::jsonb->>capability.id,capability.id)),lower($4))>0
           OR strpos(lower(capability.id),lower($4))>0)
       OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(COALESCE(published_profile->'custom_capabilities','[]'::jsonb)) AS custom(label)
-        WHERE strpos(lower(custom.label),lower($4))>0)
+        WHERE strpos(lower(custom.label),lower($4))>0))
+      AND ($9='' OR COALESCE(published_profile->'capabilities','[]'::jsonb) ? $9)
   ) SELECT (SELECT count(*)::int FROM matched) AS total,
     ARRAY(SELECT user_id FROM matched ORDER BY ${memberSort[input.sort]} LIMIT $2 OFFSET $3) AS user_ids`,
-    [actor.community_id,input.limit,input.offset,input.search,input.guild_key,JSON.stringify(guildTitles),JSON.stringify(capabilityLabels),input.primary_guild_key])).rows[0];
+    [actor.community_id,input.limit,input.offset,input.search,input.guild_key,JSON.stringify(guildTitles),JSON.stringify(capabilityLabels),input.primary_guild_key,input.capability])).rows[0];
   const items=await Promise.all((result.user_ids as string[]).map(id=>memberCard(pool,actor,id)));
   return {items,total:result.total,next_offset:input.offset+input.limit<result.total?input.offset+input.limit:null};
 }
