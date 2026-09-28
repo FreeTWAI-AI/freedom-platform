@@ -19,7 +19,7 @@ type Conversation={participant:Participant;can_send:boolean;last_message:Message
 type ConversationPage={items:Conversation[];unread_count:number;next_offset:number|null};
 type Thread={participant:Participant;can_send:boolean;items:Message[];next_offset:number|null;unread_count:number};
 type MemberPage={items:MemberCardData[];total:number;next_offset:number|null};
-type Props={client:PortalClient;session:SessionPayload;onNavigate:(id:TabId)=>void};
+type Props={client:PortalClient;session:SessionPayload;onNavigate:(id:TabId)=>void;onNotificationPeer?:{id:string;sequence:number}};
 
 const PAGE=20,MAX_BODY=2000;
 // Actions map to fixed in-app pages only; a notification can never supply a link.
@@ -35,11 +35,12 @@ const unreadText=(count:InboxUnread)=>count===undefined?'':count===null?'未讀�
 type View='notifications'|'guild'|'squad'|'direct';
 const VIEWS:readonly (readonly [View,string])[]=[['notifications','通知'],['guild','公會閒聊'],['squad','小隊閒聊'],['direct','私人訊息']];
 
-export function MemberMessages({client,session,onNavigate}:Props){
+export function MemberMessages({client,session,onNavigate,onNotificationPeer}:Props){
   const [view,setView]=useState<View>('notifications');
   const [noticeUnread,setNoticeUnread]=useState<InboxUnread>(),[guildUnread,setGuildUnread]=useState<InboxUnread>(),[squadUnread,setSquadUnread]=useState<InboxUnread>(),[directUnread,setDirectUnread]=useState<InboxUnread>();
   const unread:Record<View,InboxUnread>={notifications:noticeUnread,guild:guildUnread,squad:squadUnread,direct:directUnread};
   const [openPeer,setOpenPeer]=useState<{id:string;request:number}|null>(null);
+  useEffect(()=>{if(onNotificationPeer&&uuid.test(onNotificationPeer.id)){setView('direct');setOpenPeer({id:onNotificationPeer.id,request:onNotificationPeer.sequence});}},[onNotificationPeer?.sequence]);
   const tabs=useRef<Record<string,HTMLButtonElement|null>>({});
   function tabKey(event:KeyboardEvent){
     const index=VIEWS.findIndex(([id])=>id===view),last=VIEWS.length-1;
