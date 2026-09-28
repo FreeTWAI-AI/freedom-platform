@@ -619,8 +619,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 77131,
-      "sha256": "7bd5754034942e8dd6c680b6e95c3a5234eb885c36894421a8ee34346fd7e6e9"
+      "bytes": 77271,
+      "sha256": "99ed794bc4f3bb024adc03b9cc1dec07c27f2563934c3d598388cb62530abf8c"
     },
     {
       "path": "apps/portal-web/src/GameConsole.css",

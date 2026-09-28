@@ -407,7 +407,7 @@ function LoginView({
             />
           </label>}
           {activeMode==='confirm-reset'&&<label className="field">再次輸入新密碼<input type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)} disabled={pending}/></label>}
-          {activeMode==='register'&&<><p className="field-hint">只要名稱、Email 和密碼就能建立帳號。建立後可以先逛活動、任務與免費資源，再分段完成定位。</p><p className="field-hint">密碼至少 12 個字元。Email 預設不公開。</p></>}
+          {activeMode==='register'&&<><p className="field-hint">只要名稱、Email 和密碼就能建立帳號。建立後可以先逛活動、任務與免費資源，再分段完成定位。</p><p className="field-hint">密碼至少 12 個字元。{site?.password_recovery_enabled?'忘記密碼時可從登入頁申請重設。':'請妥善保存，目前無法用 E-mail 找回密碼。'}Email 預設不公開。</p></>}
           {activeMode==='request-reset'&&<p className="field-hint">輸入註冊信箱；若帳號存在，重設連結會寄到信箱，30 分鐘內有效。</p>}
           <button className="btn btn-primary" type="submit" disabled={pending} aria-busy={pending}>
             {pending ? '處理中…' : activeMode==='register'?'建立帳號，先逛工坊':activeMode==='request-reset'?'寄送重設連結':activeMode==='confirm-reset'?'儲存新密碼':'登入'}
