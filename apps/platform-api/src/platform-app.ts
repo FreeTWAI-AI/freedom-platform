@@ -37,6 +37,7 @@ import {createPublishedSkillRoutes} from './routes/published-skills.js';
 import {createMemberCommunicationRoutes} from './routes/member-communications.js';
 import {PageGitHubReader,PageGitHubEventReader} from '../../../modules/development/page-github.js';
 import {createCommunityEventRoutes,checkEventBannerUploadHeaders,isEventBannerUpload} from './routes/community-events.js';
+import {CollaborationGitHub} from '../../../modules/co-creation/github.js';
 import {acceptedWorkFeed,contributionRecords,previewTasks} from '../../../modules/community/task-board.js';
 
 const COOKIE='freedom_local_session';
@@ -63,7 +64,7 @@ function wireVersions(value:any):any {
   return value;
 }
 /** Runtime-neutral platform app. Host adapters: app.ts (Node) and worker.ts (Cloudflare). */
-export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions}={}) {
+export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions;coCreationGitHub?:CollaborationGitHub}={}) {
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
   const allowedHosts=runtime.allowedHosts,authNetwork=runtime.sourceNetwork;
   const secureCookies=freedomEnv!=='local';
@@ -207,7 +208,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createPositioningRoutes(pool));
   app.route('/api/v1',createCommerceRoutes(pool));
   app.route('/api/v1',createOpenSourceRoutes(pool));
-  app.route('/api/v1',createCoCreationRoutes(pool));
+  app.route('/api/v1',createCoCreationRoutes(pool,runtime.githubMetricsToken,options.coCreationGitHub));
   app.route('/api/v1',createBenefitRoutes(pool));
   // Unknown machine paths answer JSON 404 before any host serves the browser shell.
   for(const prefix of ['/api/*','/client-api/*','/agent-api/*','/development-agent/*'])app.all(prefix,c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'此版本尚未提供這個 API。'},404));
