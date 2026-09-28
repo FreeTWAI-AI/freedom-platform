@@ -764,8 +764,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/CoCreationPanel.tsx",
-      "bytes": 23849,
-      "sha256": "dcfa814ea1c010a5f0e71924424f0ac993a7c8515bed06e254ac932423eb722c"
+      "bytes": 24231,
+      "sha256": "4f6d494996b5a525913dba1022caa81c5ec9e491277ac76f7aecfdf67f7f6d44"
     },
     {
       "path": "apps/portal-web/src/modules/CommercePanels.tsx",
@@ -1029,8 +1029,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/TaskBoardPanel.tsx",
-      "bytes": 7856,
-      "sha256": "23e8a6af56d491531a142760eed60e260f6903c4410f03db4f025ee4d24cdcda"
+      "bytes": 8126,
+      "sha256": "c0e060cc9e4474f0120664a28b7703154c6751ead19b3ac7aa00453abf3290b5"
     },
     {
       "path": "apps/portal-web/src/modules/WelcomePreview.tsx",
@@ -2854,8 +2854,8 @@
     },
     {
       "path": "modules/co-creation/github.ts",
-      "bytes": 9190,
-      "sha256": "4db3426563d925be16a5128009bc4cd1cbc03f4174b258995fb98588bbb4d4c7"
+      "bytes": 10072,
+      "sha256": "aa1f25458d4f9452be46123d02759d149557af638ec855fe1b272fc0d3e26c83"
     },
     {
       "path": "modules/co-creation/service.ts",
@@ -3664,8 +3664,8 @@
     },
     {
       "path": "tests/e2e/member-experience.spec.ts",
-      "bytes": 11150,
-      "sha256": "3ab3bdbd3432db8b8d0912535bf3209b7a5f626dc52ee54ea94bed25e6fea1e4"
+      "bytes": 11254,
+      "sha256": "1277bcbbdfe96dd3db597c2315cba83ffe5b1e3f9ad9cc300f414f6fa375bbad"
     },
     {
       "path": "tests/e2e/member-settings-real.spec.ts",
@@ -3829,8 +3829,8 @@
     },
     {
       "path": "tests/runtime/co-creation.test.ts",
-      "bytes": 25841,
-      "sha256": "5a4b8f71f2d3666ac66de2a728c27a2919a21b74d74177c33a3ebed2f0e0f868"
+      "bytes": 27731,
+      "sha256": "3299405ff7d1f0edf00f167b85854c2a56e64b4f4031725243154cfc7b30434d"
     },
     {
       "path": "tests/runtime/commerce.test.ts",

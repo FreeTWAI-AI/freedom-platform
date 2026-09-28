@@ -12,7 +12,7 @@ const repoSchema=z.object({id:z.number().int().positive().max(Number.MAX_SAFE_IN
   private:z.literal(false),visibility:z.literal('public'),archived:z.literal(false)});
 export type Repo={repository_id:string;repository_url:string;repository_full_name:string;title:string;goal:string;contribution_notes:string;upstream_url?:string|null};
 type Activity={repository_url:string;issues:{number:number;title:string;body:string;url:string;labels:string[];assignees:string[]}[];
-  contributions:{number:number;title:string;url:string;author:string;merged_at:string;merge_commit_sha:string}[];checked_at:string;truncated:boolean;stale_reason?:'github_rate_limited'};
+  contributions:{number:number;title:string;url:string;author:string;merged_at:string;merge_commit_sha:string}[];checked_at:string;truncated:boolean;stale_reason?:'github_rate_limited';unavailable_reason?:'github_rate_limited'};
 
 // A starting prompt does not depend on the GitHub activity cache being available.
 export function projectBrief(repo:Repo){
@@ -55,9 +55,14 @@ export class CollaborationGitHub {
       if(this.cache.size>=128)this.cache.delete(this.cache.keys().next().value!);
       this.cache.set(key,{value,expires:this.now()+600000});return value;
     }).catch(error=>{
-      if(saved&&error instanceof Problem&&error.code==='github_rate_limited'){
+      if(saved&&!saved.value.unavailable_reason&&error instanceof Problem&&error.code==='github_rate_limited'){
         saved.retryAfter=this.now()+60000;
         return {...saved.value,stale_reason:'github_rate_limited' as const};
+      }
+      if(error instanceof Problem&&(error.code==='github_rate_limited'||error.code==='github_read_budget')){
+        const unavailable:Activity={repository_url:`https://github.com/${coordinate}`,issues:[],contributions:[],checked_at:new Date(this.now()).toISOString(),truncated:false,unavailable_reason:'github_rate_limited'};
+        this.cache.set(key,{value:unavailable,expires:this.now()+60000});
+        return unavailable;
       }
       throw error;
     }).finally(()=>this.pending.delete(key));
@@ -69,11 +74,20 @@ export class CollaborationGitHub {
     const count=this.budgets.get(minute)??0;
     requireCondition(count<10,503,'github_read_budget','GitHub 查詢忙碌，請稍後重試，或直接前往 repo。');this.budgets.set(minute,count+1);
     const signal=AbortSignal.timeout(10000);
-    const actual=repoSchema.safeParse(await publicJson(`/repos/${coordinate}`,signal,this.fetcher,false,196608,token));
+    const get=async(path:string,maxBytes:number)=>{
+      try{return await publicJson(path,signal,this.fetcher,false,maxBytes,token);}
+      catch(error){
+        // A token may have exhausted its own quota while anonymous public reads
+        // still work. Only a rate-limit response gets one anonymous retry.
+        if(token&&error instanceof Problem&&error.code==='github_rate_limited')return publicJson(path,signal,this.fetcher,false,maxBytes);
+        throw error;
+      }
+    };
+    const actual=repoSchema.safeParse(await get(`/repos/${coordinate}`,196608));
     requireCondition(actual.success&&String(actual.data.id)===repo.repository_id&&actual.data.full_name.toLowerCase()===coordinate.toLowerCase(),409,'repository_identity_changed','無法確認公開且可協作的原始 repo，請先檢查來源。');
     const [issueRaw,pullRaw]=await Promise.all([
-      publicJson(`/repos/${coordinate}/issues?state=open&sort=created&direction=asc&per_page=30`,signal,this.fetcher,false,1048576,token),
-      publicJson(`/repos/${coordinate}/pulls?state=closed&sort=updated&direction=desc&per_page=30`,signal,this.fetcher,false,1048576,token),
+      get(`/repos/${coordinate}/issues?state=open&sort=created&direction=asc&per_page=30`,1048576),
+      get(`/repos/${coordinate}/pulls?state=closed&sort=updated&direction=desc&per_page=30`,1048576),
     ]);
     const parsedIssues=z.array(issueSchema).max(30).safeParse(issueRaw),parsedPulls=z.array(pullSchema).max(30).safeParse(pullRaw);
     requireCondition(parsedIssues.success&&parsedPulls.success,503,'github_invalid_response','GitHub 任務或貢獻資料不完整，請稍後重試。');
