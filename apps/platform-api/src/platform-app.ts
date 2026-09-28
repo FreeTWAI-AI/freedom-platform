@@ -15,6 +15,7 @@ import { createCommerceRoutes } from './routes/commerce.js';
 import { createMemberRoutes } from './routes/members.js';
 import { checkAvatarUploadHeaders, createAvatarRoutes, isAvatarUpload } from './routes/avatars.js';
 import { authRateLimit,registerMember } from '../../../modules/identity-membership/members.js';
+import { requestPasswordReset,confirmPasswordReset } from '../../../modules/identity-membership/password-recovery.js';
 import { communityCatalog } from '../../../modules/community/catalog.js';
 import { createOpenSourceRoutes } from './routes/opensource.js';
 import { createAdminRoutes } from './routes/admin.js';
@@ -118,7 +119,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
-  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog}));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog}));
   app.get('/api/v1/community',c=>c.json(communityCatalog));
   app.get('/api/v1/pages/github-activity',async c=>c.json(await pageGitHub.read(c.req.query('page'),c.req.query('refresh')==='1')));
   app.get('/api/v1/pages/github-events',async c=>c.json(await pageGitHubEvents.read()));
@@ -148,6 +149,25 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     if(old) { const {tokenHash}=await import('../../../modules/identity-membership/service.js');await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[tokenHash(old)]); }
     setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:8*60*60});
     return c.json(sessionView(result.actor));
+  });
+  app.post('/api/v1/auth/reset/request',async c=>{
+    requireCondition(runtime.passwordEmailSender,503,'password_recovery_unavailable','忘記密碼服務尚未設定完成。');
+    const body=z.object({email:z.email().max(200)}).strict().parse(await c.req.json());
+    const email=body.email.trim().toLowerCase();
+    await authRateLimit(pool,'password-reset-network',authNetwork(c),12,3600);
+    await authRateLimit(pool,'password-reset-global','global',500,3600);
+    await authRateLimit(pool,'password-reset-email',email,3,3600);
+    await requestPasswordReset(pool,email,origin,runtime.passwordEmailSender);
+    return c.json({requested:true,message:'若此信箱有可用帳號，且寄送服務正常，重設連結會寄到信箱。'});
+  });
+  app.post('/api/v1/auth/reset/confirm',async c=>{
+    requireCondition(runtime.passwordEmailSender,503,'password_recovery_unavailable','忘記密碼服務尚未設定完成。');
+    await authRateLimit(pool,'password-reset-confirm-network',authNetwork(c),30,3600);
+    await authRateLimit(pool,'password-reset-confirm-global','global',500,3600);
+    const body=z.object({token:z.string().max(100),password:z.string().max(128)}).strict().parse(await c.req.json());
+    const result=await confirmPasswordReset(pool,body.token,body.password);
+    deleteCookie(c,COOKIE,{path:'/'});
+    return c.json(result);
   });
   app.use('/api/v1/*',async(c,next)=>{
     const actor=await authenticate(pool,getCookie(c,COOKIE));c.set('actor',actor);

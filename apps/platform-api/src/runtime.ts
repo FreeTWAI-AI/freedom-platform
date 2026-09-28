@@ -1,5 +1,6 @@
 import type { Context } from 'hono';
 import type { AdminAccessVerifier } from '../../../modules/platform-admin/access.js';
+import type { PasswordEmailSender } from '../../../modules/identity-membership/password-recovery.js';
 
 /** Stable rate-limit key used whenever no trusted network address is available. */
 export const SHARED_NETWORK_KEY = 'shared-server';
@@ -23,6 +24,8 @@ export type PlatformRuntime = {
   allowedHosts: ReadonlySet<string>;
   /** Origin for canonical/share URLs, development guidance, published-skill links and upload examples. */
   publicOrigin: string;
+  /** Configured transactional email sender. Undefined keeps password recovery closed. */
+  passwordEmailSender?: PasswordEmailSender;
   /** Extra non-secret fields merged into /api/v1/health. */
   health?: Readonly<Record<string, string | null>>;
 };

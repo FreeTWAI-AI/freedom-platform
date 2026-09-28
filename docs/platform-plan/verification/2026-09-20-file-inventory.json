@@ -54,8 +54,8 @@
     },
     {
       "path": "apps/platform-api/src/app.ts",
-      "bytes": 2229,
-      "sha256": "f7dc9acbbb5068228599688dfaf07f1db28e638b24e7a313aee7d38f4e379a17"
+      "bytes": 2466,
+      "sha256": "5a475f3253665367589999e7e6d5713777a45c912b51c4511223bd2e787892ea"
     },
     {
       "path": "apps/platform-api/src/env.ts",
@@ -79,8 +79,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 18583,
-      "sha256": "11e01e91d2a386b68bf3364ee41423c877f1dbbbba1548b29bde0af8b3b41c9a"
+      "bytes": 20132,
+      "sha256": "eb7bf862c52656be6728a850b06ab537d89bc06b4c8a4c465573f152820e2bcb"
     },
     {
       "path": "apps/platform-api/src/readiness.ts",
@@ -179,8 +179,8 @@
     },
     {
       "path": "apps/platform-api/src/runtime.ts",
-      "bytes": 1416,
-      "sha256": "55bb874088246784dad7676c0e6134613a90978ebee15cd2566ddd89f3326ec0"
+      "bytes": 1653,
+      "sha256": "7f401e29b42dff4ecabac73781dddc84f28c86f2281ced1c949783d5d61d27f4"
     },
     {
       "path": "apps/platform-api/src/server.ts",
@@ -189,8 +189,8 @@
     },
     {
       "path": "apps/platform-api/src/worker.ts",
-      "bytes": 13015,
-      "sha256": "d7a3908660403ce37a21f4787d2cf6f16736abe8268b31fde9a9b8fff78c27c7"
+      "bytes": 13968,
+      "sha256": "dd23d8446960144cc1c290a571642a192448413ca0808e218bb8a6d7d09093ce"
     },
     {
       "path": "apps/portal-web/index.html",
@@ -619,8 +619,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 74633,
-      "sha256": "220b1f359c9396b27607d9adf0278aed5cb35bd2b26aad8547940252319b07f9"
+      "bytes": 77854,
+      "sha256": "d0f3c119d4b301b949586ce80bb099486d1a16abf55e07cb63b16f46028caf58"
     },
     {
       "path": "apps/portal-web/src/GameConsole.css",
@@ -674,8 +674,8 @@
     },
     {
       "path": "apps/portal-web/src/api.ts",
-      "bytes": 12294,
-      "sha256": "a2788b60b8f10cf87a872becce0650ffd24ed981e0a7adf07e7ae7b10e54a08a"
+      "bytes": 12338,
+      "sha256": "08ef4b31dff3b05fac36ea71ec1b5e7f03765ffb35d8b05482b804b640c6901f"
     },
     {
       "path": "apps/portal-web/src/format.ts",
@@ -774,8 +774,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Community.tsx",
-      "bytes": 9085,
-      "sha256": "de81e33ba01f61ce00cd85c7f8736af1cac2a2fdd83d49f31318175c73fb5859"
+      "bytes": 9122,
+      "sha256": "fde130b7f25afde52eb2b911e7f1836192161770455bb5a2fbc3fe04c7fdc390"
     },
     {
       "path": "apps/portal-web/src/modules/CommunitySubmissions.tsx",
@@ -1541,6 +1541,11 @@
       "path": "docs/development/page-tools.md",
       "bytes": 3392,
       "sha256": "84d2a478b463a1ba6fbb5216b2a42bd6ac3cab19f87cf9f3b1953784d2d71ce4"
+    },
+    {
+      "path": "docs/development/password-recovery.md",
+      "bytes": 2112,
+      "sha256": "5982ff78c27d5ee011a71759064245d7c67a6d31656282dbc9b38e1c89eb112c"
     },
     {
       "path": "docs/development/plan-drift-2026-09-23.md",
@@ -2838,6 +2843,11 @@
       "sha256": "2a84aefad694678d26e3d4e7ad6a4f3452538ff4da4a368212425a089327cb46"
     },
     {
+      "path": "migrations/046_password_reset_tokens.sql",
+      "bytes": 404,
+      "sha256": "ada3e110ce173fdc3a0ceb8c5b84f642888f66c379a044ee2a958a170447560d"
+    },
+    {
       "path": "migrations/047_squad_coaching_channel.sql",
       "bytes": 330,
       "sha256": "365a0ce59029930e67b4c46315efbf2c7a68e69adf3365c1aa5bff2fe5a6564c"
@@ -3093,6 +3103,16 @@
       "sha256": "c0f5d241a53302394b37c8894a5985bb2852a365df7d394548ccd6433bd0441e"
     },
     {
+      "path": "modules/development-access/guild-eligibility.ts",
+      "bytes": 1602,
+      "sha256": "9e9b6619a4e0e29beeb7ada9c1e11ba80fd60127bae443ef63c89a8f3e5f7c15"
+    },
+    {
+      "path": "modules/development-access/service.ts",
+      "bytes": 16648,
+      "sha256": "2bc4cac7903e0f03cd2ec869fa56ff9e0c99d588d218a95cc3468008c99c6518"
+    },
+    {
       "path": "modules/development/page-github.ts",
       "bytes": 12636,
       "sha256": "2536de6b96344f03800b705b28989aa8e265b9447c35663e745f6146df6ef087"
@@ -3106,16 +3126,6 @@
       "path": "modules/development/service.ts",
       "bytes": 41233,
       "sha256": "9436a9ced36601b6ee816ba00dcfc74abb239917146b8aca5035f5cc5c7dd4a1"
-    },
-    {
-      "path": "modules/development-access/guild-eligibility.ts",
-      "bytes": 1602,
-      "sha256": "9e9b6619a4e0e29beeb7ada9c1e11ba80fd60127bae443ef63c89a8f3e5f7c15"
-    },
-    {
-      "path": "modules/development-access/service.ts",
-      "bytes": 16648,
-      "sha256": "2bc4cac7903e0f03cd2ec869fa56ff9e0c99d588d218a95cc3468008c99c6518"
     },
     {
       "path": "modules/github-social/provider.ts",
@@ -3146,6 +3156,11 @@
       "path": "modules/identity-membership/members.ts",
       "bytes": 24312,
       "sha256": "133543c283ad4576ac567b235dbb1bcc066854d7450e7a281a373f29d0feea5f"
+    },
+    {
+      "path": "modules/identity-membership/password-recovery.ts",
+      "bytes": 2860,
+      "sha256": "33c71b1f5c461ffe7ed63adc4ab6da1fbd74db1336103a5fb68c435fe0c2bef5"
     },
     {
       "path": "modules/identity-membership/service.ts",
@@ -3733,6 +3748,11 @@
       "sha256": "8f691426125c3e7e7ecef799b105401d355a76b69b7f7784ccd33a5dde15865c"
     },
     {
+      "path": "tests/e2e/password-recovery.spec.ts",
+      "bytes": 2177,
+      "sha256": "82ac8d1d39ac463724dd57e30fdb1049de58ef3631273a5160cababf85ddcbe7"
+    },
+    {
       "path": "tests/e2e/positioning-modules.spec.ts",
       "bytes": 3480,
       "sha256": "964772281be9868f20b551239d30df2974d7a621715dcffecc4dabe0ce536e5c"
@@ -3998,6 +4018,11 @@
       "sha256": "08450bcee7da53880c22134201982c76954751a994dc05b7f9ed27f8c6ef8a66"
     },
     {
+      "path": "tests/runtime/password-recovery.test.ts",
+      "bytes": 3435,
+      "sha256": "d1f58d95bd2646c06120cebef93dbc73ad904993a550d73ce3e94a89538e7266"
+    },
+    {
       "path": "tests/runtime/platform-admin.test.ts",
       "bytes": 38811,
       "sha256": "a735a6a78ca6fa36a411260caab0497c693177ea269b84f240724821e096515b"
@@ -4094,8 +4119,8 @@
     },
     {
       "path": "wrangler.jsonc",
-      "bytes": 4663,
-      "sha256": "e75e8c10a12c5d7b9c84e59b1d79c5cebe83312207a496a5d85b3e47f8a9c053"
+      "bytes": 4983,
+      "sha256": "56d36db227edd2ed9e01b55220cd180642b8d9dcf5247f70156246c69e1d118a"
     }
   ]
 }

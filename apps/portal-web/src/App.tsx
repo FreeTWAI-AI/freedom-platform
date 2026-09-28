@@ -143,6 +143,9 @@ export function App() {
   return window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? <AdminConsoleShell/> : <MemberApp/>
 }
 
+const resetTokenFromHash=()=>/^#reset-password\/([A-Za-z0-9_-]{43})$/.exec(window.location.hash)?.[1]??null
+const clearResetHash=()=>window.history.replaceState(null,'',window.location.pathname+window.location.search)
+
 function AdminConsoleShell(){
   const [memberId,setMemberId]=useState<string|null>(null)
   useEffect(()=>{let live=true;void client.getSession().then(session=>{if(live){client.csrfToken=session.csrf_token;setMemberId(session.user.user_id)}}).catch(()=>{if(live)setMemberId(null)});return()=>{live=false}},[])
@@ -160,6 +163,8 @@ function MemberApp() {
   const [onboarding, setOnboarding] = useState<OnboardingView | null>(null)
   const [gateError, setGateError] = useState('')
   const [exploring,setExploring]=useState(true)
+  const [resetToken,setResetToken]=useState(resetTokenFromHash)
+  useEffect(()=>{const changed=()=>setResetToken(resetTokenFromHash());window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed)},[])
   const sessionGeneration = useRef(0)
   const loadOnboarding = useCallback(async () => {
     const generation = sessionGeneration.current
@@ -248,7 +253,7 @@ function MemberApp() {
     )
   }
 
-  if (phase !== 'ready' || !session) {
+  if (resetToken || phase !== 'ready' || !session) {
     return (
       <div className="app-frame">
         {site?.demo_accounts_enabled && <DemoBanner />}
@@ -258,6 +263,9 @@ function MemberApp() {
           bootError={bootError}
           onRetrySession={() => void bootstrap()}
           onLoggedIn={applySession}
+          resetToken={resetToken}
+          onCancelReset={()=>{clearResetHash();setResetToken(null)}}
+          onPasswordReset={()=>{clearResetHash();setResetToken(null);toLogin('密碼已重設，請用新密碼登入。')}}
         />
       </div>
     )
@@ -297,17 +305,26 @@ function LoginView({
   bootError,
   onRetrySession,
   onLoggedIn,
+  resetToken,
+  onCancelReset,
+  onPasswordReset,
 }: {
   site: SiteConfig | null
   notice: string | null
   bootError: ActionError | null
   onRetrySession: () => void
   onLoggedIn: (session: SessionPayload) => void
+  resetToken:string|null
+  onCancelReset:()=>void
+  onPasswordReset:()=>void
 }) {
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [mode, setMode] = useState<'login' | 'register' | 'request-reset'>('login')
+  const activeMode=resetToken?'confirm-reset':mode
   const [nickname, setNickname] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword,setConfirmPassword]=useState('')
+  const [resetNotice,setResetNotice]=useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<ActionError | null>(null)
 
@@ -317,7 +334,18 @@ function LoginView({
     setPending(true)
     setError(null)
     try {
-      const session = mode === 'register'
+      if(activeMode==='request-reset'){
+        await client.post('/auth/reset/request',{email:email.trim()},{skipAuthHandler:true})
+        setResetNotice('若此信箱有可用帳號，且寄送服務正常，請在 30 分鐘內查看重設連結。')
+        return
+      }
+      if(activeMode==='confirm-reset'){
+        if(password!==confirmPassword)throw new Error('兩次輸入的新密碼不一致。')
+        await client.post('/auth/reset/confirm',{token:resetToken,password},{skipAuthHandler:true})
+        onPasswordReset()
+        return
+      }
+      const session = activeMode === 'register'
         ? await client.register({email:email.trim(),password,nickname:nickname.trim()})
         : await client.login(email.trim(), password)
       if (!session?.user || !session.csrf_token) {
@@ -338,8 +366,8 @@ function LoginView({
       <div className="login-form-area">
       <section className="card login-card" aria-labelledby="login-heading">
         <div className="login-page-tools"><PageTools pageId="registration"/></div>
-        {!accessExpired && <div className="auth-switch" role="group" aria-label="登入或建立帳號"><button type="button" className={mode==='login'?'selected':''} aria-pressed={mode==='login'} onClick={()=>{setMode('login');setError(null)}}>會員登入</button>{site?.registration_enabled&&<button type="button" className={mode==='register'?'selected':''} aria-pressed={mode==='register'} onClick={()=>{setMode('register');setError(null)}}>建立帳號</button>}</div>}
-        <h2 id="login-heading">{accessExpired ? '網站登入已過期' : mode==='register'?'加入自由工坊':'登入'}</h2>
+        {!accessExpired && activeMode!=='confirm-reset'&&<div className="auth-switch" role="group" aria-label="登入或建立帳號"><button type="button" className={activeMode==='login'?'selected':''} aria-pressed={activeMode==='login'} onClick={()=>{setMode('login');setError(null);setResetNotice('')}}>會員登入</button>{site?.registration_enabled&&<button type="button" className={activeMode==='register'?'selected':''} aria-pressed={activeMode==='register'} onClick={()=>{setMode('register');setError(null);setResetNotice('')}}>建立帳號</button>}</div>}
+        <h2 id="login-heading">{accessExpired ? '網站登入已過期' : activeMode==='register'?'加入自由工坊':activeMode==='request-reset'?'忘記密碼':activeMode==='confirm-reset'?'設定新密碼':'登入'}</h2>
         {notice && !accessExpired && (
           <p className="banner banner-info" role="status">
             {notice}
@@ -349,9 +377,10 @@ function LoginView({
           <ErrorPanel error={bootError} onReload={onRetrySession} reloadLabel="重新確認登入狀態" />
         )}
         {error && <ErrorPanel error={error} />}
+        {resetNotice&&<p className="banner banner-info" role="status">{resetNotice}</p>}
         {!accessExpired && <form className="stack" onSubmit={(event) => void onSubmit(event)}>
-          {mode==='register'&&<label className="field"><span className="field-label" id="register-nickname-label">社群顯示名稱</span><input name="nickname" required minLength={1} maxLength={60} autoComplete="nickname" aria-labelledby="register-nickname-label" aria-describedby="register-nickname-hint" value={nickname} onChange={event=>setNickname(event.target.value)} disabled={pending}/><span className="field-hint" id="register-nickname-hint">建議使用大家熟悉的社群名字</span></label>}
-          <label className="field">
+          {activeMode==='register'&&<label className="field"><span className="field-label" id="register-nickname-label">社群顯示名稱</span><input name="nickname" required minLength={1} maxLength={60} autoComplete="nickname" aria-labelledby="register-nickname-label" aria-describedby="register-nickname-hint" value={nickname} onChange={event=>setNickname(event.target.value)} disabled={pending}/><span className="field-hint" id="register-nickname-hint">建議使用大家熟悉的社群名字</span></label>}
+          {activeMode!=='confirm-reset'&&<label className="field">
             <span className="field-label">電子郵件</span>
             <input
               name="email"
@@ -362,27 +391,32 @@ function LoginView({
               onChange={(event) => setEmail(event.target.value)}
               disabled={pending}
             />
-          </label>
-          <label className="field">
-            <span className="field-label">密碼</span>
+          </label>}
+          {activeMode!=='request-reset'&&<label className="field">
+            <span className="field-label">{activeMode==='confirm-reset'?'新密碼':'密碼'}</span>
             <input
               name="password"
               type="password"
-              autoComplete={mode==='register'?'new-password':'current-password'}
-              minLength={mode==='register'?12:undefined}
+              autoComplete={activeMode==='register'||activeMode==='confirm-reset'?'new-password':'current-password'}
+              minLength={activeMode==='register'||activeMode==='confirm-reset'?12:undefined}
               maxLength={128}
               required
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               disabled={pending}
             />
-          </label>
-          {mode==='register'&&<><p className="field-hint">只要名稱、Email 和密碼就能建立帳號。建立後可以先逛活動、任務與免費資源，再分段完成定位。</p><p className="field-hint">密碼至少 12 個字元。請妥善保存，目前無法用 E-mail 找回密碼。Email 預設不公開。</p></>}
+          </label>}
+          {activeMode==='confirm-reset'&&<label className="field">再次輸入新密碼<input type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)} disabled={pending}/></label>}
+          {activeMode==='register'&&<><p className="field-hint">只要名稱、Email 和密碼就能建立帳號。建立後可以先逛活動、任務與免費資源，再分段完成定位。</p><p className="field-hint">密碼至少 12 個字元。{site?.password_recovery_enabled?'忘記密碼時可從登入頁申請重設。':'請妥善保存，目前無法用 E-mail 找回密碼。'}Email 預設不公開。</p></>}
+          {activeMode==='request-reset'&&<p className="field-hint">輸入註冊信箱；若帳號存在，重設連結會寄到信箱，30 分鐘內有效。</p>}
           <button className="btn btn-primary" type="submit" disabled={pending} aria-busy={pending}>
-            {pending ? (mode==='register'?'建立帳號中…':'登入中…') : (mode==='register'?'建立帳號，先逛工坊':'登入')}
+            {pending ? '處理中…' : activeMode==='register'?'建立帳號，先逛工坊':activeMode==='request-reset'?'寄送重設連結':activeMode==='confirm-reset'?'儲存新密碼':'登入'}
           </button>
         </form>}
-        {!accessExpired && site?.demo_accounts_enabled&&mode==='login'&&<aside className="help-box" aria-label="示範帳號">
+        {!accessExpired&&site?.password_recovery_enabled&&activeMode==='login'&&<button type="button" className="btn btn-ghost" onClick={()=>{setMode('request-reset');setError(null);setResetNotice('')}}>忘記密碼？</button>}
+        {!accessExpired&&activeMode==='request-reset'&&<button type="button" className="btn btn-ghost" onClick={()=>{setMode('login');setError(null);setResetNotice('')}}>返回登入</button>}
+        {!accessExpired&&activeMode==='confirm-reset'&&<button type="button" className="btn btn-ghost" onClick={onCancelReset}>返回登入</button>}
+        {!accessExpired && site?.demo_accounts_enabled&&activeMode==='login'&&<aside className="help-box" aria-label="示範帳號">
           <p>
             示範帳號（虛構身分，不是真實人士）。密碼皆為 <code>{DEMO_PASSWORD}</code>。
           </p>
