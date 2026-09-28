@@ -54,8 +54,8 @@
     },
     {
       "path": "apps/platform-api/src/app.ts",
-      "bytes": 2229,
-      "sha256": "f7dc9acbbb5068228599688dfaf07f1db28e638b24e7a313aee7d38f4e379a17"
+      "bytes": 2466,
+      "sha256": "5a475f3253665367589999e7e6d5713777a45c912b51c4511223bd2e787892ea"
     },
     {
       "path": "apps/platform-api/src/env.ts",
@@ -79,8 +79,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 18112,
-      "sha256": "22c165755667cedb416649b00c465f067b541bf3b98519ab7431d7f25cde12fc"
+      "bytes": 19661,
+      "sha256": "d1c51e82dc4eb37d1279ca8a4436cd68c08204c9fc22ea832b5d3391d9232c02"
     },
     {
       "path": "apps/platform-api/src/readiness.ts",
@@ -179,8 +179,8 @@
     },
     {
       "path": "apps/platform-api/src/runtime.ts",
-      "bytes": 1416,
-      "sha256": "55bb874088246784dad7676c0e6134613a90978ebee15cd2566ddd89f3326ec0"
+      "bytes": 1653,
+      "sha256": "7f401e29b42dff4ecabac73781dddc84f28c86f2281ced1c949783d5d61d27f4"
     },
     {
       "path": "apps/platform-api/src/server.ts",
@@ -189,8 +189,8 @@
     },
     {
       "path": "apps/platform-api/src/worker.ts",
-      "bytes": 12863,
-      "sha256": "6e26ce4f22d01f0fded930c0a6f6f9cec783e59dfc75d85a8b70403aefb527d7"
+      "bytes": 13816,
+      "sha256": "6b3dee5a6c921a9702a421417013e478bc2e29e5a87191ee38b57b39dfaf3f21"
     },
     {
       "path": "apps/portal-web/index.html",
@@ -618,14 +618,9 @@
       "sha256": "624aea08970552be5d9c5b5b7650f59b7ac0b69928a57cd4d3ce6e6920db2608"
     },
     {
-      "path": "apps/portal-web/public/downloads/freedom-skill-client.tgz",
-      "bytes": 11177,
-      "sha256": "8ea0f8826156a0f8b0c702659686c663372c59414203192019df38fc1fec8137"
-    },
-    {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 74050,
-      "sha256": "73e2a10c35fe6ebb322629559050c9c5d8798c0ee14d5976cbb38ae8bd2214f3"
+      "bytes": 77131,
+      "sha256": "7bd5754034942e8dd6c680b6e95c3a5234eb885c36894421a8ee34346fd7e6e9"
     },
     {
       "path": "apps/portal-web/src/GameConsole.css",
@@ -679,8 +674,8 @@
     },
     {
       "path": "apps/portal-web/src/api.ts",
-      "bytes": 11903,
-      "sha256": "e72cd120798ebc08fe1cfb3925baf36f0a245437a4329185f58f6de3a93fa1b8"
+      "bytes": 11947,
+      "sha256": "302a74ff9a053fb5f9df1e1963dcdee47fb35ffd82e4124e6a6da229514d0d47"
     },
     {
       "path": "apps/portal-web/src/format.ts",
@@ -779,8 +774,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Community.tsx",
-      "bytes": 9085,
-      "sha256": "de81e33ba01f61ce00cd85c7f8736af1cac2a2fdd83d49f31318175c73fb5859"
+      "bytes": 9122,
+      "sha256": "fde130b7f25afde52eb2b911e7f1836192161770455bb5a2fbc3fe04c7fdc390"
     },
     {
       "path": "apps/portal-web/src/modules/CommunitySubmissions.tsx",
@@ -1536,6 +1531,11 @@
       "path": "docs/development/page-tools.md",
       "bytes": 3392,
       "sha256": "84d2a478b463a1ba6fbb5216b2a42bd6ac3cab19f87cf9f3b1953784d2d71ce4"
+    },
+    {
+      "path": "docs/development/password-recovery.md",
+      "bytes": 2112,
+      "sha256": "5982ff78c27d5ee011a71759064245d7c67a6d31656282dbc9b38e1c89eb112c"
     },
     {
       "path": "docs/development/plan-drift-2026-09-23.md",
@@ -2808,6 +2808,11 @@
       "sha256": "00c1035ffc88b69cc04a96354aa2425338dcef97fc0bc7d1a37026b63f7e63be"
     },
     {
+      "path": "migrations/046_password_reset_tokens.sql",
+      "bytes": 404,
+      "sha256": "ada3e110ce173fdc3a0ceb8c5b84f642888f66c379a044ee2a958a170447560d"
+    },
+    {
       "path": "modules/catalog-commerce/service.ts",
       "bytes": 14038,
       "sha256": "754c512bdd5514e1460b4a8397a25ce7d45821d6fb89118c62d03bc3951ff95a"
@@ -3111,6 +3116,11 @@
       "path": "modules/identity-membership/members.ts",
       "bytes": 22937,
       "sha256": "71c182220e45005c1213959050e5363d3a88fb406a9f1812dc7df7e3859bc458"
+    },
+    {
+      "path": "modules/identity-membership/password-recovery.ts",
+      "bytes": 2860,
+      "sha256": "33c71b1f5c461ffe7ed63adc4ab6da1fbd74db1336103a5fb68c435fe0c2bef5"
     },
     {
       "path": "modules/identity-membership/service.ts",
@@ -3693,6 +3703,11 @@
       "sha256": "53d6fbb81a3401fc1958e96f0d70d0a6f682b5a174cf683e1ef1c6da5cc5c3a4"
     },
     {
+      "path": "tests/e2e/password-recovery.spec.ts",
+      "bytes": 2177,
+      "sha256": "82ac8d1d39ac463724dd57e30fdb1049de58ef3631273a5160cababf85ddcbe7"
+    },
+    {
       "path": "tests/e2e/positioning-modules.spec.ts",
       "bytes": 3480,
       "sha256": "964772281be9868f20b551239d30df2974d7a621715dcffecc4dabe0ce536e5c"
@@ -3953,6 +3968,11 @@
       "sha256": "08450bcee7da53880c22134201982c76954751a994dc05b7f9ed27f8c6ef8a66"
     },
     {
+      "path": "tests/runtime/password-recovery.test.ts",
+      "bytes": 3435,
+      "sha256": "d1f58d95bd2646c06120cebef93dbc73ad904993a550d73ce3e94a89538e7266"
+    },
+    {
       "path": "tests/runtime/platform-admin.test.ts",
       "bytes": 38811,
       "sha256": "a735a6a78ca6fa36a411260caab0497c693177ea269b84f240724821e096515b"
@@ -4049,8 +4069,8 @@
     },
     {
       "path": "wrangler.jsonc",
-      "bytes": 4663,
-      "sha256": "e75e8c10a12c5d7b9c84e59b1d79c5cebe83312207a496a5d85b3e47f8a9c053"
+      "bytes": 4983,
+      "sha256": "56d36db227edd2ed9e01b55220cd180642b8d9dcf5247f70156246c69e1d118a"
     }
   ]
 }

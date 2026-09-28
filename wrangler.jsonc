@@ -68,9 +68,11 @@
       "routes": [{ "pattern": "staging.freetwai.com/*", "zone_name": "freetwai.com" }],
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
       "images": { "binding": "IMAGES" },
+      "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["no-reply@mail.freetwai.com"] }],
       "vars": {
         "FREEDOM_ENV": "staging",
         "APP_ORIGIN": "https://staging.freetwai.com",
+        "FREEDOM_PASSWORD_RESET_EMAIL_ENABLED": "false",
         "FREEDOM_TRUST_CF_CONNECTING_IP": "true"
       }
     },
@@ -82,9 +84,11 @@
       "routes": [{ "pattern": "freetwai.com/*", "zone_name": "freetwai.com" }],
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
       "images": { "binding": "IMAGES" },
+      "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["no-reply@mail.freetwai.com"] }],
       "vars": {
         "FREEDOM_ENV": "public",
         "APP_ORIGIN": "https://freetwai.com",
+        "FREEDOM_PASSWORD_RESET_EMAIL_ENABLED": "false",
         "FREEDOM_TRUST_CF_CONNECTING_IP": "true"
       }
     }
