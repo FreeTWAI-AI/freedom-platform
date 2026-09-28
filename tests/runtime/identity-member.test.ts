@@ -101,6 +101,24 @@ test('squad contact audience needs own request plus owner acceptance and immedia
   assert.equal((await request('/squads',owner,{name:'假種類',kind:'guild_admin',purpose:'不允許'})).status,422);
 });
 
+test('coaching squads expose a named channel to members while only the owner can update it',async()=>{
+  const owner=await signIn(),viewer=await signIn(DEMO_USERS[1].email);
+  const made=await request('/squads',owner,{name:'陪跑練習',kind:'coaching',purpose:'一起持續練習',communication_channel_name:'LINE 陪跑交流'});
+  assert.equal(made.status,201);assert.equal(made.data.communication_channel_name,'LINE 陪跑交流');
+  const id=made.data.squad_id;
+  const directory=await request('/squads',viewer);
+  assert.equal(directory.data.items.find((item:any)=>item.squad_id===id).communication_channel_name,'LINE 陪跑交流');
+  assert.equal(directory.data.kinds.find((item:any)=>item.key==='coaching').name,'陪跑小隊');
+  assert.equal((await request(`/squads/${id}`,viewer)).data.communication_channel_name,'LINE 陪跑交流');
+  assert.equal((await request(`/squads/${id}/channel`,viewer,{communication_channel_name:'冒名頻道'},made.data.aggregate_version)).status,403);
+  assert.equal((await request(`/squads/${id}/channel`,owner,{communication_channel_name:'新版頻道'})).status,428);
+  const updated=await request(`/squads/${id}/channel`,owner,{communication_channel_name:'新版頻道'},made.data.aggregate_version);
+  assert.equal(updated.status,200);assert.equal(updated.data.communication_channel_name,'新版頻道');
+  assert.equal((await request(`/squads/${id}/channel`,owner,{communication_channel_name:'舊版本'},made.data.aggregate_version)).status,412);
+  assert.equal((await request(`/squads/${id}/channel`,owner,{communication_channel_name:'A\nB'},updated.data.aggregate_version)).status,422);
+  assert.equal((await request(`/squads/${id}`,viewer)).data.communication_channel_name,'新版頻道');
+});
+
 test('inactive and other-community accounts never appear or accept friends/squad actions',async()=>{
   const owner=await signIn(),community=randomUUID(),outsiderId=randomUUID();
   await pool.query('INSERT INTO communities VALUES($1,$2)',[community,'Other']);
