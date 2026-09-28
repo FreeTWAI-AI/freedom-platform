@@ -29,7 +29,11 @@ uses persisted rate limits instead. IDs are UUIDs.
   the current value, null clears it. Default null; self-selected, never inferred.
   It is visible with the authenticated same-community card, and does not grant authority.
   Nickname is the editable community display name; use the name familiar to your community.
-- `GET /members?limit=20&offset=0`: `{items,next_offset}`. Limit 1–50. Each card:
+- `GET /members?limit=20&offset=0`: `{items,total,next_offset}`. Limit 1–50.
+  Optional `search`, `guild_key`, `primary_guild_key`, `capability`, and `sort`
+  filters combine before pagination. `capability` accepts a catalog capability ID
+  and matches an exact ability in the member's published profile; custom ability
+  labels remain available through `search`. Each card:
   `{user_id,nickname,identity_label,positioning_title,primary_guild,secondary_guilds,joined_guilds,capabilities,
   equipment,contacts,is_self,friendship}`. Only visible nonempty contact values
   are present in `contacts` (a string map), not concealed values or settings.

@@ -879,8 +879,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberDirectory.css",
-      "bytes": 6901,
-      "sha256": "3eba14df7f9c37723b5746af682be73bd13328f1dfbd4d5f9cdf8210a27e6670"
+      "bytes": 6985,
+      "sha256": "1ee2287353d46a407a39159e11a10debd62cf536d074e57fbcf8970a8dbfa51d"
     },
     {
       "path": "apps/portal-web/src/modules/MemberExperience.css",
@@ -919,8 +919,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Membership.tsx",
-      "bytes": 25799,
-      "sha256": "5c96059816f8ead32bd1692084c3888768f659ce72642306d206014ff23db419"
+      "bytes": 26616,
+      "sha256": "2c7ef5fb64f4681b7df3762dfa51d5be93503aa600c5637380f27f4570c882db"
     },
     {
       "path": "apps/portal-web/src/modules/ModuleBanner.tsx",
@@ -1489,8 +1489,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 10365,
-      "sha256": "5300efea9448cec217e84e53e06048ca7a318c761e60a36ca2a06084895d30a3"
+      "bytes": 10658,
+      "sha256": "0ec5038d1a2206ba32868fd09cad91820c22ea779bf3a803c917f27d79c86492"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -3154,8 +3154,8 @@
     },
     {
       "path": "modules/identity-membership/members.ts",
-      "bytes": 25042,
-      "sha256": "438d99f460ba0a2c9d14de7e1d7efabfb317e2cd1b5037fa9b055944c601e3ef"
+      "bytes": 25333,
+      "sha256": "9253336750df445d8c0fa78e02d839457683ca38fdc246cefbf565101e1c53fd"
     },
     {
       "path": "modules/identity-membership/password-recovery.ts",
@@ -3674,8 +3674,8 @@
     },
     {
       "path": "tests/e2e/member-directory.spec.ts",
-      "bytes": 13176,
-      "sha256": "df9fdaf0e2657eb4434c58e3739cc917f9c81b8d11fd99bf9c7bc4a5837a88cd"
+      "bytes": 14033,
+      "sha256": "46315d486099df8244ab471a2697da930901aab30eaec75aad0146f1aceccd77"
     },
     {
       "path": "tests/e2e/member-experience.spec.ts",
@@ -3969,8 +3969,8 @@
     },
     {
       "path": "tests/runtime/member-directory.test.ts",
-      "bytes": 12800,
-      "sha256": "417ddcab0cecb3c8b66b40824c708c96425d5451534e13779d82179c7b6f60b1"
+      "bytes": 13833,
+      "sha256": "4beca75269d09b29042f6edefb7aaa27a8180d6422d93b9f5aa776885ae08a9d"
     },
     {
       "path": "tests/runtime/member-experience.test.ts",

@@ -32,6 +32,16 @@ test('directory searches confirmed nickname, positioning title and skill labels 
  const card=(await get('members/'+id)).data;assert.deepEqual(card.contacts,{line:'publicContactNeedle'});assert.equal(card.primary_guild.joined_at,'2026-09-21T13:14:15.000Z');
 });
 
+test('skill filter matches exact published capabilities before pagination and combines with search',async()=>{
+ const first=await user('專長夥伴甲'),second=await user('專長夥伴乙'),draftOnly=await user('專長夥伴丙');
+ await profile(first,{capabilities:['python','react']});await profile(second,{capabilities:['python']});await profile(draftOnly,{capabilities:[]});
+ const selected=await directory({capability:'python',search:'專長夥伴',sort:'nickname',limit:1});
+ assert.equal(selected.status,200);assert.equal(selected.data.total,2);assert.equal(selected.data.items.length,1);assert.equal(selected.data.next_offset,1);
+ const next=await directory({capability:'python',search:'專長夥伴',sort:'nickname',limit:1,offset:1});assert.deepEqual([selected.data.items[0].user_id,next.data.items[0].user_id].sort(),[first,second].sort());
+ assert.equal((await directory({capability:'react',search:'專長夥伴乙'})).data.total,0);
+ assert.equal((await directory({capability:'private_draft_skill'})).status,422);
+});
+
 test('guild filter matches current primary or secondary memberships and never counts left or other-community memberships',async()=>{
  const primary=await user('公會候選甲'),secondary=await user('公會候選乙'),left=await user('公會候選丙');await guild(primary,'guild_security',true);await guild(secondary,'guild_event_space',true);await guild(secondary,'guild_security');await guild(left,'guild_security',false,'left');
  const foreign=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[foreign,'別的社群']);const outsider=await user('公會候選外',undefined,{community:foreign});await guild(outsider,'guild_security',true,'active',foreign);
