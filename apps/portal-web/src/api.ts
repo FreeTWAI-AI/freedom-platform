@@ -63,9 +63,13 @@ function quoteEtag(version: number): string {
   return `"${trimmed}"`
 }
 
-function messageFromProblem(status: number, problem: ProblemDetails | null, mutation = false): string {
+function messageFromProblem(status: number, problem: ProblemDetails | null, mutation = false, path = ''): string {
   // Upstream outages may return an HTML page or a JSON wrapper with raw proxy text.
   // Neither belongs in a member's form; keep the HTTP code on ApiError for recovery.
+  if (status === 503 && /^\/co-creation\/projects\/[^/]+\/activity$/.test(path)) {
+    if (problem?.code === 'github_rate_limited') return 'GitHub 暫時限制查詢，請稍後重試，或直接前往儲存庫查看 Issue。'
+    if (problem?.code === 'github_read_budget') return 'GitHub 查詢目前忙碌，請稍後重試，或直接前往儲存庫查看 Issue。'
+  }
   if (status >= 500) return `服務暫時無法回應（${status}）。${mutation?'尚未確認結果，請稍後重試。':'請稍後重試。'}`
   const rawTitle = typeof problem?.title === 'string' ? problem.title.trim() : ''
   const code = typeof problem?.code === 'string' ? problem.code.trim() : ''
@@ -204,7 +208,7 @@ export class PortalClient {
         const problem = isProblem(payload) ? payload : null
         const serverFailure = response.status >= 500
         throw new ApiError({
-          message: messageFromProblem(response.status, problem, method !== 'GET'), status: response.status, cfRay:cloudflareRay(response), requestId:requestId(response),
+          message: messageFromProblem(response.status, problem, method !== 'GET', path), status: response.status, cfRay:cloudflareRay(response), requestId:requestId(response),
           type: serverFailure ? undefined : problem?.type,
           title: serverFailure ? undefined : problem?.title,
           detail: serverFailure ? undefined : problem?.detail,
