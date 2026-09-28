@@ -69,10 +69,11 @@ export async function readConsoleFeed(client:PortalClient, userId:string, includ
     id:`accepted-work:${item.contribution_id}`,channel:'world_chat',kind:'broadcast',source:'工作驗收',
     message:`${item.member_name} 完成的「${item.title}」已通過驗收。`,createdAt:item.accepted_at,
   }))
-  // Only unread peers are opened. A conversation's last message might be our own,
-  // so its summary alone cannot stand in for an incoming message.
-  const peers=conversations.items.filter(item=>item.unread_count>0).slice(0,8)
-  const rooms=[...guilds.items,...squads.items].filter(item=>item.unread_count>0).slice(0,8)
+  // The console is a recent history, not just an unread inbox. Fetch both sides
+  // of recent conversations so sent messages survive a new browser session.
+  const peers=conversations.items.slice(0,8)
+  const rooms=[...guilds.items,...squads.items].filter(item=>item.last_message_at)
+    .sort((a,b)=>b.last_message_at!.localeCompare(a.last_message_at!)).slice(0,8)
   const [directPages,roomPages]=await Promise.all([
     Promise.allSettled(peers.map(item=>client.get<Page<DirectMessage>>(`/me/conversations/${encodeURIComponent(item.participant.user_id)}/messages?limit=20&offset=0`,{background:true}))),
     Promise.allSettled(rooms.map(item=>client.get<Page<RoomMessage>>(`/me/channels/${item.kind}/${encodeURIComponent(item.channel_key)}/messages?limit=20&offset=0`,{background:true}))),
@@ -80,16 +81,16 @@ export async function readConsoleFeed(client:PortalClient, userId:string, includ
   directPages.forEach((result,index)=>{
     if(result.status!=='fulfilled')return
     const peer=peers[index]
-    for(const item of result.value.items.filter(message=>message.sender_ref!==userId&&message.read_at===null))events.push(createConsoleEvent({
-      id:`direct:${item.message_id}`,channel:'direct',kind:'chat',source:`私訊 · ${peer.participant.display_name}`,
+    for(const item of result.value.items)events.push(createConsoleEvent({
+      id:`direct:${item.message_id}`,channel:'direct',kind:'chat',source:item.sender_ref===userId?`你 → ${peer.participant.display_name}`:`私訊 · ${peer.participant.display_name}`,
       message:item.body,createdAt:item.created_at,
     }))
   })
   roomPages.forEach((result,index)=>{
     if(result.status!=='fulfilled')return
     const room=rooms[index]
-    for(const item of result.value.items.filter(message=>message.sender_ref!==userId).slice(0,room.unread_count))events.push(createConsoleEvent({
-      id:`room:${item.message_id}`,channel:room.kind,kind:'chat',source:`${room.kind==='guild'?'公會':'小隊'} · ${room.name} · ${item.sender_name}`,
+    for(const item of result.value.items)events.push(createConsoleEvent({
+      id:`room:${item.message_id}`,channel:room.kind,kind:'chat',source:`${room.kind==='guild'?'公會':'小隊'} · ${room.name} · ${item.sender_ref===userId?'你':item.sender_name}`,
       message:item.body,createdAt:item.created_at,
     }))
   })

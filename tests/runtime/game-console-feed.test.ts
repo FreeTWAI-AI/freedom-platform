@@ -3,15 +3,15 @@ import assert from 'node:assert/strict'
 import {readConsoleFeed} from '../../apps/portal-web/src/game-console-feed.js'
 import type {PortalClient} from '../../apps/portal-web/src/api.js'
 
-test('console reads only unread member messages without changing read receipts',async()=>{
+test('console restores sent and received chat history without changing read receipts',async()=>{
   const paths:string[]=[]
   const pages:Record<string,unknown>={
     '/me/notifications?limit=20&offset=0':{items:[
       {notification_id:'n1',title:'邀請',body:'加入小隊',created_at:'2026-09-26T12:00:00Z',read_at:null},
       {notification_id:'n2',title:'舊通知',body:'已讀',created_at:'2026-09-26T11:00:00Z',read_at:'2026-09-26T11:05:00Z'},
     ]},
-    '/me/conversations?limit=20&offset=0':{items:[{participant:{user_id:'peer',display_name:'阿明'},unread_count:1,last_message:{sender_ref:'me'}}]},
-    '/me/channels?kind=guild&limit=50&offset=0':{items:[{kind:'guild',channel_key:'guild_ai',name:'AI 公會',unread_count:1,last_message_at:'2026-09-26T12:02:00Z'}]},
+    '/me/conversations?limit=20&offset=0':{items:[{participant:{user_id:'peer',display_name:'阿明'},unread_count:0,last_message:{sender_ref:'me'}}]},
+    '/me/channels?kind=guild&limit=50&offset=0':{items:[{kind:'guild',channel_key:'guild_ai',name:'AI 公會',unread_count:0,last_message_at:'2026-09-26T12:02:00Z'}]},
     '/me/channels?kind=squad&limit=50&offset=0':{items:[]},
     '/me/guild-announcements':{items:[{announcement_id:'a1',title:'讀書會',body:'星期三集合',guild_name:'AI 公會',updated_at:'2026-09-26T12:03:00Z'}]},
     '/skill-submissions/published?limit=10':{items:[{submission_id:'s1',title:'攝影技能',published_at:'2026-09-26T12:04:00Z'}]},
@@ -25,13 +25,15 @@ test('console reads only unread member messages without changing read receipts',
     ]},
     '/me/channels/guild/guild_ai/messages?limit=20&offset=0':{items:[
       {message_id:'g1',sender_ref:'peer',sender_name:'阿明',body:'開會囉',created_at:'2026-09-26T12:02:00Z'},
-      {message_id:'g0',sender_ref:'peer',sender_name:'阿明',body:'較舊訊息',created_at:'2026-09-26T11:55:00Z'},
+      {message_id:'g0',sender_ref:'me',sender_name:'我',body:'較舊訊息',created_at:'2026-09-26T11:55:00Z'},
     ]},
   }
   const client={get:async(path:string)=>{paths.push(path);assert.ok(Object.hasOwn(pages,path),path);return pages[path]}} as PortalClient
   const events=await readConsoleFeed(client,'me')
-  assert.deepEqual(events.map(event=>event.id),['notice:n1','direct:d1','room:g1','guild:a1:2026-09-26T12:03:00Z','skill:s1','project:p1','room:w1','event-bulletin:b1','accepted-work:c1'])
-  assert.deepEqual(events.map(event=>event.channel),['guide','direct','guild','guild','guide','guide','world_chat','world_chat','world_chat'])
+  assert.deepEqual(events.map(event=>event.id),['room:g0','notice:n1','direct:d2','direct:d1','room:g1','guild:a1:2026-09-26T12:03:00Z','skill:s1','project:p1','room:w1','event-bulletin:b1','accepted-work:c1'])
+  assert.deepEqual(events.map(event=>event.channel),['guild','guide','direct','direct','guild','guild','guide','guide','world_chat','world_chat','world_chat'])
+  assert.equal(events.find(event=>event.id==='direct:d2')?.source,'你 → 阿明')
+  assert.equal(events.find(event=>event.id==='room:g0')?.source,'公會 · AI 公會 · 你')
   assert.ok(paths.every(path=>!path.endsWith('/read')))
   assert.ok(paths.includes('/pages/github-events'))
   assert.equal(paths.length,13)
