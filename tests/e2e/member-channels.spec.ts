@@ -407,18 +407,15 @@ test('re-reading the open channel also re-reads its tab and list unread totals w
   const button=squad.getByRole('button',{name:'合成小隊甲',exact:true});
   await button.click();await expect(thread.getByText('這個頻道還沒有訊息。')).toBeVisible();
   await expect(tab(page,'小隊閒聊')).toContainText('沒有未讀');await expect(button).not.toContainText('則未讀');
-  // The settings menu stays closed throughout, so opening it cannot be what refreshes its total.
-  const toggle=page.getByRole('button',{name:'設定',exact:true});await expect(toggle).toHaveAccessibleDescription('我的訊息2 則未讀');
-  const menuReads=server.log.lists.filter(info=>info.limit===1).length;
+  // The profile stays free of duplicate inbox indicators while channel badges update.
+  const toggle=page.getByRole('button',{name:'設定',exact:true});await expect(toggle).not.toHaveAttribute('aria-description',/我的訊息/);
   const box=thread.getByLabel('在 合成小隊甲 發言');await box.fill('回覆前的草稿');
   // Another member replies while this one has the room open; no window focus follows.
   const channel=server.get('squad',squadA);channel.messages.unshift(server.message(channel,'夥伴剛回覆的合成訊息'));
   await thread.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
   await expect(bubbles).toHaveText(['夥伴剛回覆的合成訊息']);await expect(thread.getByText('1 則未讀',{exact:true})).toBeVisible();
   await expect(tab(page,'小隊閒聊')).toContainText('1 則未讀');await expect(button).toContainText('1 則未讀');
-  // The settings total is re-read from all four sources, not summed from channel counts.
-  await expect(toggle).toHaveAccessibleDescription('我的訊息3 則未讀');await expect(toggle).toHaveAttribute('aria-expanded','false');
-  expect(server.log.lists.filter(info=>info.limit===1).length-menuReads).toBe(2);
+  await expect(toggle).toHaveAttribute('aria-expanded','false');
   await expect(squad.getByRole('button',{name:'合成小隊乙',exact:true})).not.toContainText('則未讀');
   await expect(box).toHaveValue('回覆前的草稿');expect(server.log.reads).toEqual([]);
   // The other kind and the private tab keep their own totals.
@@ -450,24 +447,4 @@ test('a list refresh refused with 403 or 404 closes the open channel without rev
     expect(server.log.lists.slice(lists).filter(info=>info.kind===(unit==='公會'?'guild':'squad')&&info.limit===20)).toHaveLength(1);
     refuse=undefined;
   }
-});
-
-test('the settings menu adds all four unread sources and shows one failed source as unconfirmed',async({page})=>{
-  const server=await channelServer(page,{guild:[['builders','合成公會甲',3]],squad:[[squadA,'合成小隊甲',4]]});
-  let squadFails=false;
-  server.control.fail=(what,info)=>what==='list'&&info.kind==='squad'&&info.limit===1&&squadFails?'500':undefined;
-  await page.route(/\/api\/v1\/me\/notifications\?limit=1&offset=0$/,route=>route.fulfill({json:{items:[],unread_count:1,next_offset:null}}));
-  await page.route(/\/api\/v1\/me\/conversations\?limit=1&offset=0$/,route=>route.fulfill({json:{items:[],unread_count:2,next_offset:null}}));
-  await open(page,server);
-  const toggle=page.getByRole('button',{name:'設定',exact:true}),item=page.getByRole('menuitem',{name:'我的訊息',exact:true});
-  await toggle.click();await expect(item).toContainText('10 則未讀');await page.keyboard.press('Escape');
-  // The menu's unread total uses one-item list reads. The console can read room history separately.
-  expect(server.log.lists.filter(info=>info.limit===1).map(info=>info.kind).sort()).toEqual(expect.arrayContaining(['guild','squad']));
-  // A confirmed read in a channel re-reads the menu total from the server.
-  await tab(page,'公會閒聊').click();await panel(page,'公會閒聊').getByRole('button',{name:'合成公會甲',exact:true}).click();
-  await panel(page,'公會閒聊').getByRole('button',{name:'標為已讀',exact:true}).click();await expect(tab(page,'公會閒聊')).toContainText('沒有未讀');
-  await toggle.click();await expect(item).toContainText('7 則未讀');await page.keyboard.press('Escape');
-  squadFails=true;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
-  await toggle.click();await expect(item).toContainText('未讀數未確認');await expect(item).not.toContainText('則未讀');
-  await expect(toggle.locator('.settings-dot')).toHaveCount(0);
 });

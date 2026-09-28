@@ -3,7 +3,7 @@ import {test,expect,type Page,type Route} from './fixtures.js';
 // Synthetic data only. Messages/notifications follow the root-confirmed DTO in
 // the coordinator contract; they are route fixtures until the backend API lands.
 const me='20000000-0000-4000-8000-000000000001',peerA='20000000-0000-4000-8000-000000000002',peerB='20000000-0000-4000-8000-000000000003';
-const settingsItems=['我的名片','待辦清單','我的訊息'];
+const settingsItems=['我的名片','待辦清單'];
 
 test.beforeEach(async({page})=>{
   // Nothing in these cases may leave the isolated local server.
@@ -20,6 +20,11 @@ async function login(page:Page,hash=''){
 }
 const settings=(page:Page)=>page.getByRole('button',{name:'設定',exact:true});
 async function openPage(page:Page,name:string){
+  if(name==='我的訊息'){
+    await page.getByRole('button',{name:/^通知/}).click();
+    await page.getByRole('button',{name:'查看所有通知與訊息'}).click();
+    return;
+  }
   await settings(page).click();await page.getByRole('menuitem',{name,exact:true}).click();
 }
 async function inbox(page:Page,notices:number|'fail',direct:number){
@@ -27,7 +32,7 @@ async function inbox(page:Page,notices:number|'fail',direct:number){
   await page.route(/\/api\/v1\/me\/conversations\?limit=1&offset=0$/,route=>route.fulfill({json:{items:[],unread_count:direct,next_offset:null}}));
 }
 async function expectExactItems(page:Page){
-  await expect(page.getByRole('menuitem')).toHaveCount(3);
+  await expect(page.getByRole('menuitem')).toHaveCount(2);
   for(const name of settingsItems)await expect(page.getByRole('menuitem',{name,exact:true})).toHaveCount(1);
 }
 async function github(page:Page,value:{configured:boolean;connected:boolean;login?:string}|'fail'){
@@ -48,13 +53,13 @@ test('settings menu replaces the card button with an accessible keyboard menu',a
   // Personal pages are not side-navigation entries.
   const nav=page.getByRole('navigation',{name:'主要工作區',includeHidden:true});
   for(const name of ['待辦清單','我的名片'])await expect(nav.getByRole('button',{name,exact:true,includeHidden:true})).toHaveCount(0);
-  await expect(nav.getByRole('button',{name:'我的訊息',exact:true,includeHidden:true})).toHaveCount(1);
+  await expect(nav.getByRole('button',{name:'我的訊息',exact:true,includeHidden:true})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'通知，2 則未讀'})).toBeVisible();
 
   await toggle.click();
   const menu=page.getByRole('menu',{name:'個人檔案'});
   await expectExactItems(page);
-  await expect(menu.getByRole('menuitem',{name:'我的訊息',exact:true})).toBeVisible();
+  await expect(menu.getByRole('menuitem',{name:'我的訊息',exact:true})).toHaveCount(0);
   await expect(menu.getByRole('menuitem',{name:'我的名片',exact:true})).toBeFocused();
   await page.keyboard.press('ArrowDown');await expect(menu.getByRole('menuitem',{name:'待辦清單',exact:true})).toBeFocused();
   await page.keyboard.press('End');await expect(menu.getByRole('menuitemradio',{name:'自由工坊－敘生',exact:true})).toBeFocused();
@@ -87,8 +92,7 @@ test('settings menu replaces the card button with an accessible keyboard menu',a
   // Choosing the page that is already open by keyboard still closes the menu and lands in main.
   await expect(menu.getByRole('menuitem',{name:'我的名片',exact:true})).toBeFocused();await page.keyboard.press('Enter');
   await expect(menu).toHaveCount(0);await expect(page).toHaveURL(/#account$/);await expect(page.locator('#main-content')).toBeFocused();
-  await toggle.click();
-  await menu.getByRole('menuitem',{name:'我的訊息',exact:true}).click();
+  await openPage(page,'我的訊息');
   await expect(page).toHaveURL(/#messages$/);await expect(page.getByRole('heading',{level:1})).toHaveText('我的訊息');await expect(page.locator('#main-content')).toBeFocused();
   // Browser Back while the menu is open closes it.
   await toggle.click();await expect(menu).toBeVisible();await page.goBack();await expect(page).toHaveURL(/#account$/);await expect(menu).toHaveCount(0);

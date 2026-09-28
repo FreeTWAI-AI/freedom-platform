@@ -1,0 +1,171 @@
+/* Member modules share the same surfaces and text colors in both bright themes.
+   Keep cover artwork and the original Freedom Workshop mark as artwork. */
+html:is([data-theme="light"],[data-theme="versefolk"]) {
+  --navy-ink:var(--ink);
+  --module-subtle:#eef3f8;
+  --module-tint:#f7f9fc;
+  --module-green-ink:#426600;
+  --module-blue-tint:#edf1fc;
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(.guilds-panel,.positioning-panel,.guild-onboarding) {
+  --guild-muted:var(--muted);
+  --guild-line:var(--line);
+}
+html[data-theme="versefolk"] {
+  --module-subtle:#f3ece0;
+  --module-tint:#fbf5ec;
+  --module-green-ink:#40592a;
+  --module-blue-tint:#edf0e9;
+}
+
+/* Shared filters, empty states, cards and fieldsets. */
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(
+  .discovery-toolbar,.discovery-empty,.squad-panel .squad-invitations,
+  .members-panel .directory-filters,.members-panel .directory-member,
+  .github-connection-summary,.squad-panel .squad-guide,
+  .squad-panel .expedition-empty,.cocreation-panel .expedition-empty,
+  .cocreation-panel .expedition-project,.cocreation-panel .expedition-project-detail,
+  .cocreation-panel .expedition-brief,.account-panel .account-settings,
+  .card.member-card.expedition-dossier,.social-links-editor .social-link-form,
+  .guild-thread-select,.skill-book.skill-book-volume,
+  .guilds-panel .guild-card,.guilds-panel .guild-application,
+  .positioning-panel .positioning-journey,.positioning-panel .positioning-preferences,
+  .positioning-next .card-grid > .card,.positioning-panel .positioning-result,
+  .guild-onboarding .onboarding-intro,.guild-onboarding .onboarding-card,
+  .guild-onboarding .recommendation-card,.guild-onboarding .other-guild-choices,
+  .guild-onboarding .other-guild-choices .stack > div,
+  .skill-intro-collaboration,.skill-intro-dialog,.skill-share-dialog,
+  .skill-upload-dialog,.skill-upload-preview
+) { background:var(--bg-elev);color:var(--ink);border-color:var(--line); }
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(
+  .discovery-toolbar,.squad-panel .squad-invitations,
+  .account-panel .contact-row .fieldset,.skill-intro-dialog .skill-intro-cover,
+  .skill-intro-command,.skill-upload-secret,.guild-onboarding .category-group,
+  .guild-secondary-choices .checkbox-row,.cocreation-panel .expedition-flow li,
+  .expedition-issue details .cocreation-copy,.guilds-panel .guild-book-list .skill-intro-trigger,
+  .expedition-dossier .positioning-title,.expedition-dossier .member-full-profile .pill,
+  .guild-onboarding .quiz-option,.guild-onboarding .selection-chip,
+  .positioning-panel .checkbox-card,.skill-badge-rank,.member-social-link
+) { background:var(--module-subtle);color:var(--ink);border-color:var(--line); }
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(
+  .guilds-panel .guild-card.primary-guild,
+  .cocreation-panel .expedition-project.primary-guild,
+  .positioning-panel .positioning-result,
+  .guild-onboarding .recommendation-card.selected
+) { background:linear-gradient(135deg,var(--green-soft),transparent 70%),var(--bg-elev);border-color:var(--line); }
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(
+  .guilds-panel .guild-book-list .skill-intro-trigger:hover,
+  .guilds-panel .guild-book-list .skill-intro-trigger:focus-visible,
+  .guild-onboarding .tree-toggle:hover,.guild-onboarding .tree-toggle:focus-visible
+) { background:var(--green-soft); }
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(
+  .guild-onboarding .quiz-option.selected,.guild-onboarding .selection-chip.selected,
+  .positioning-panel .checkbox-card:has(input:checked),
+  .guild-scope .btn[aria-pressed="true"],.skill-discovery-tabs .is-selected,
+  .guild-workspace-tabs [aria-pressed="true"]
+) { background:var(--green-soft);color:var(--module-green-ink);border-color:var(--green); }
+
+/* Book covers remain book covers, with readable ink in the bright themes. */
+html:is([data-theme="light"],[data-theme="versefolk"]) .skill-book-cover {
+  background:linear-gradient(125deg,var(--module-blue-tint),var(--module-subtle) 70%,var(--green-soft));
+  border-color:var(--line);box-shadow:inset 3px 0 0 var(--line);
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .skill-book-volume:nth-child(3n + 2) .skill-book-cover {
+  background:linear-gradient(125deg,var(--green-soft),var(--module-tint));
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .skill-book-volume:nth-child(3n + 3) .skill-book-cover {
+  background:linear-gradient(125deg,var(--module-subtle),var(--module-blue-tint));
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .skill-book.skill-book-volume .skill-book-cover :is(h4,.eyebrow) {color:var(--ink);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .skill-book.skill-book-volume > p {color:var(--muted);}
+
+/* Section headings, descriptions, labels and metadata formerly fixed to pale ink. */
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(
+  .guilds-panel .guild-overview strong,.guilds-panel .guild-purpose,
+  .guilds-panel .guild-book-list > strong,.guilds-panel .guild-card h3,
+  .guild-onboarding .onboarding-progress .is-current,
+  .positioning-panel .fieldset legend,.positioning-panel .positioning-result-role,
+  .positioning-result-guilds dd,.positioning-preferences > summary,
+  .expedition-dossier .member-full-profile summary,.expedition-dossier .positioning-title,
+  .members-panel .directory-result-count,.members-panel .directory-member-expanded p,
+  .members-panel .directory-member-expanded dl,.guild-workspace legend,
+  .guild-thread-select,.guild-announcements summary,
+  .social-links-editor .social-link-own-row strong,.member-social-link,
+  .skill-badge,.skill-badge-rank,.skill-share-text,.skill-share-dialog,
+  .skill-intro-dialog,.skill-upload-dialog,.skill-library-book .skill-library-copy > .skill-library-title,
+  .github-book-metrics dd
+) {color:var(--ink);}
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(
+  .flow li,.github-connection-summary p,.summary-strip p,
+  .freedom-community .community-metric > p:first-child,
+  .skill-intro-dialog .skill-intro-purpose,.skill-intro-features
+) {color:var(--ink);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .flow li {background:var(--module-subtle);}
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(
+  .guild-card-kicker,.guilds-panel .guild-first-step,.guild-onboarding .onboarding-progress li,
+  .onboarding-step-label,.positioning-result-heading h2,.positioning-result-guilds dt,
+  .positioning-featured h3,.positioning-result-skills > summary,.positioning-result-next p,
+  .expedition-banner-description,.expedition-dossier .member-card-body h4,
+  .squad-panel .squad-invitations-toggle,.squad-guide .squad-mode p,
+  .squad-panel .expedition-empty,.cocreation-panel .expedition-empty,
+  .cocreation-panel .expedition-flow li,.expedition-issue details summary,
+  .members-panel .directory-member-guild,.members-panel .directory-member-meta,
+  .members-panel .directory-member-details > summary,.members-panel .directory-member-expanded h4,
+  .members-panel .directory-member-expanded dt,.members-panel .directory-guild-dates span,
+  .members-panel .directory-empty,.guild-thread-select span,.guild-announcements time,
+  .social-links-editor .social-link-platform,.social-links-editor .social-link-visibility,
+  .member-social-display h4,.member-social-link > span:first-child,
+  .skill-discovery .field-hint,.skill-share-status,.skill-share-url,
+  .skill-intro-collaboration p,.skill-discovery .field-hint,
+  .community-library .skill-library-count,.community-library .community-book > p,
+  .community-library .community-library-heading > div > p:last-child,
+  .freedom-community .home-eyebrow,.community-library .home-eyebrow,
+  .freedom-community .community-entry-copy > p:not(.home-eyebrow),
+  .freedom-community .community-metric > strong > span,
+  .freedom-community .community-metric > p:last-child,
+  .freedom-community .community-metric-source,
+  .avatar-editor .avatar-editor-preview > span,
+  .avatar-editor .avatar-editor-content > p,
+  .guilds-panel .guild-overview
+) {color:var(--muted);}
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(
+  .guilds-panel .guild-master,.positioning-panel .checkbox-card small,
+  .positioning-panel .positioning-featured .pill,.squad-guide .squad-guide-label,
+  .expedition-squad .eyebrow,.expedition-project-detail > .eyebrow,
+  .expedition-issue > .eyebrow,.skill-share-count,.guild-onboarding .positioning-title,
+  .skill-badge-new,.skill-intro-dialog .badge,
+  .skill-book.skill-book-volume.skill-library-book .skill-library-copy > .eyebrow,
+  .community-library .community-book-spine,
+  .community-library .community-library-heading .home-eyebrow,
+  .skill-intro-header .eyebrow,.skill-upload-header .eyebrow
+) {color:var(--blue-ink);}
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(
+  .guilds-panel .guild-card .badge,.guild-onboarding .onboarding-intro .eyebrow,
+  .guild-onboarding .onboarding-progress .is-done,.onboarding-step-label > span:last-child,
+  .positioning-result-heading .badge,.positioning-result-adjust > .btn,
+  .expedition-dossier .member-card-heading p:last-child,
+  .expedition-dossier .member-featured .pill,.expedition-contribution > .eyebrow,
+  .skill-badge-official,.skill-unlock-state.unlocked,
+  .members-panel .directory-member-title,.members-panel .directory-member-details[open] > summary
+) {color:var(--module-green-ink);}
+
+/* Dialogs and profile details. */
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(.skill-intro-header,.skill-share-dialog,.guild-detail-dialog) {background:var(--bg-elev);color:var(--ink);border-color:var(--line);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .skill-intro-command {color:var(--ink);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-detail-dialog .guild-library-entry {border-color:var(--line);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .social-links-editor .social-link-form {background:var(--module-tint);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .social-links-editor .social-link-own-row a {color:var(--blue-ink);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .skill-upload-secret {background:var(--green-soft);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .skill-share-error p {color:var(--danger);}
+
+/* Community panels use a light canvas; the original logo poster stays untouched. */
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(
+  .freedom-community .community-entry-hero,.freedom-community > .community-footer,
+  .community-library .community-library-heading,.community-library .community-book,
+  .freedom-community .community-project
+) {background:var(--bg-elev);color:var(--ink);border-color:var(--line);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .community-library .community-library-heading::after {background:linear-gradient(90deg,var(--bg-elev) 50%,transparent);}
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(
+  .freedom-community .community-entry-copy h2,.freedom-community .community-metric > strong,
+  .community-library .community-library-heading h3
+) {color:var(--ink);}

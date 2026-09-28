@@ -64,9 +64,12 @@ test('global 訊息控制台 persists across modules and synchronizes with its p
   await expect(page.getByRole('heading',{name:'會員首頁',level:1,exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'設定',exact:true}).click();
-  await expect(page.getByRole('menu',{name:'個人檔案'}).getByRole('menuitem',{name:'我的訊息'})).toBeVisible();
+  await expect(page.getByRole('menu',{name:'個人檔案'}).getByRole('menuitem',{name:'我的訊息'})).toHaveCount(0);
   await page.getByRole('button',{name:'設定',exact:true}).click();
-  await expect(page.getByRole('navigation',{name:'主要工作區'}).getByRole('button',{name:'我的訊息'})).toBeVisible();
+  await expect(page.getByRole('navigation',{name:'主要工作區'}).getByRole('button',{name:'我的訊息'})).toHaveCount(0);
+  await page.getByRole('button',{name:/^通知/}).click();
+  await expect(page.getByRole('button',{name:'查看所有通知與訊息'})).toBeVisible();
+  await page.getByRole('button',{name:/^通知/}).click();
   await expect(page.getByRole('heading',{name:'最新動態',level:2})).toHaveCount(0);
   await page.screenshot({path:'test-results/game-console-home-desktop.png'});
   await page.getByRole('button',{name:'展開訊息控制台'}).click();

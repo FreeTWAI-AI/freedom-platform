@@ -550,7 +550,7 @@ function Workspace({
                 <h1>{tabTitle(tab)}</h1>
               </div>
               <PageTools pageId={tab} client={client}/>
-              <div className="topbar-actions"><NotificationBell client={client} onOpen={()=>selectTab('messages')}/><SettingsMenu client={client} current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>}/><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
+              <div className="topbar-actions"><NotificationBell client={client} onOpen={()=>selectTab('messages')}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>}/><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
                 登出
               </button></div>
             </header>

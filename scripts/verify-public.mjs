@@ -79,7 +79,12 @@ function verifyGuildDirectory(guilds,bookIds){
 }
 async function navigate(page, name) {
   await expect(page.locator('.shell')).toBeVisible();
-  if (['我的名片', '待辦清單', '我的訊息'].includes(name)) {
+  if (name === '我的訊息') {
+    await page.getByRole('button',{name:/^通知/}).click();
+    await page.getByRole('button',{name:'查看所有通知與訊息'}).click();
+    return;
+  }
+  if (['我的名片', '待辦清單'].includes(name)) {
     const settings=page.getByRole('button',{name:'設定',exact:true});
     if(await settings.getAttribute('aria-expanded')!=='true')await settings.click();
     await page.getByRole('menuitem',{name,exact:true}).click();

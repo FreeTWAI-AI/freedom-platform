@@ -7,6 +7,7 @@ import './LayoutDesign.css'
 import './GameConsole.css'
 import './light-theme.css'
 import './versefolk-theme.css'
+import './module-light-theme.css'
 import './GameConsoleThemes.css'
 
 try { const saved=localStorage.getItem('freedom-theme');document.documentElement.dataset.theme = saved === 'dark'||saved==='versefolk' ? saved : 'light' }
