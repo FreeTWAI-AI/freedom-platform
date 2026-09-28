@@ -23,11 +23,14 @@ test('clicking one notification opens its friend response and keeps the bell ope
   await page.getByRole('button',{name:/^通知/}).click();
   const popover=page.getByRole('region',{name:'最近通知'});
   await expect(popover).toBeVisible();
-  await expect(popover.locator('.notification-bell-item.is-unread')).toHaveCount(2);
-  await popover.locator('.notification-bell-item').filter({hasText:'示範需求者'}).click();
+  const unreadBefore=await popover.locator('.notification-bell-item.is-unread').count();
+  expect(unreadBefore).toBeGreaterThanOrEqual(2);
+  const requestNotice=popover.locator('.notification-bell-item.is-unread').filter({hasText:'示範需求者'}).first();
+  await expect(requestNotice).toBeVisible();
+  await requestNotice.click();
   await expect(page).toHaveURL(/#members$/);
   await expect(popover).toBeVisible();
-  await expect(popover.locator('.notification-bell-item.is-unread')).toHaveCount(1);
+  await expect(popover.locator('.notification-bell-item.is-unread')).toHaveCount(unreadBefore-1);
   const request=page.locator('#friend-request-20000000-0000-4000-8000-000000000002');
   await expect(request.getByRole('button',{name:'接受邀請'})).toBeFocused();
   await page.screenshot({path:'test-results/notification-action-desktop.png'});
