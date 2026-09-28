@@ -654,13 +654,13 @@
     },
     {
       "path": "apps/portal-web/src/PageTools.css",
-      "bytes": 10389,
-      "sha256": "8b80e7ac72e9ed72dfdf0becdd88ce2b719b9b0a1f222188b058908ce3798415"
+      "bytes": 10395,
+      "sha256": "d8d611a2defa7cab5d156a732161dcbe68379ea27d6a297163b3fea8719fab35"
     },
     {
       "path": "apps/portal-web/src/PageTools.tsx",
-      "bytes": 26442,
-      "sha256": "88603f1a137667c05c7345e8de9ee922f30b6c2d0d2215bc7c044220f3974f8f"
+      "bytes": 26907,
+      "sha256": "a85c0d6bdc417071a65092b735407e38990685065b1cbcbfce908b937fd40ce2"
     },
     {
       "path": "apps/portal-web/src/WorkshopIcon.tsx",
@@ -3694,8 +3694,8 @@
     },
     {
       "path": "tests/e2e/page-tools.spec.ts",
-      "bytes": 8394,
-      "sha256": "560c9de174323162ec2a30ffddbe1544d401ee98d82e07d3fd35d6595a9cc2fb"
+      "bytes": 8404,
+      "sha256": "8f691426125c3e7e7ecef799b105401d355a76b69b7f7784ccd33a5dde15865c"
     },
     {
       "path": "tests/e2e/positioning-modules.spec.ts",

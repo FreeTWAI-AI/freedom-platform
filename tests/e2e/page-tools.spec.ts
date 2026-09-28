@@ -93,8 +93,8 @@ test('unlinked member gets GitHub guidance and screenshot handoff',async({page})
   expect(await page.evaluate(()=>(window as typeof window&{copiedInstruction?:string}).copiedInstruction)).toContain('GitHub');
   await idea.getByRole('textbox',{name:'標題'}).fill('首頁截圖建議');
   await idea.getByRole('textbox',{name:'想法與期待'}).fill('希望首頁的入口更容易閱讀，截圖標示了目前的問題。');
-  await idea.getByLabel('截圖（選填）').setInputFiles({name:'example.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLttAAAAABJRU5ErkJggg==','base64')});
-  await expect(idea.getByAltText('待附上的 Issue 截圖預覽')).toBeVisible();
+  await idea.getByLabel('截圖（選填）').setInputFiles({name:'example.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==','base64')});
+  await expect(idea.getByRole('img',{name:'待附上的 Issue 截圖預覽'})).toBeVisible();
   await expect(idea.getByRole('button',{name:'用我的 GitHub 發布'})).toHaveCount(0);
   await page.evaluate(()=>{(window as typeof window&{issuedGitHubUrl?:string}).open=(url)=>{(window as typeof window&{issuedGitHubUrl?:string}).issuedGitHubUrl=String(url);return null}});
   await idea.getByRole('button',{name:'到 GitHub 貼上截圖並送出'}).click();
