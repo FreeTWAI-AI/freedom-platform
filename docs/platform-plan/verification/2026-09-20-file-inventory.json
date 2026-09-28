@@ -3699,8 +3699,8 @@
     },
     {
       "path": "tests/e2e/notification-bell-actions.spec.ts",
-      "bytes": 2366,
-      "sha256": "ebfeec82d36dead967c2f4093826d6c7bd12fd21bac7a36c04b98c1d5eb14055"
+      "bytes": 2533,
+      "sha256": "9f701e3eb6b1efdb24867f0b825759d87bb1d0460af119a33908fd0aed8964d2"
     },
     {
       "path": "tests/e2e/onboarding-members.spec.ts",
