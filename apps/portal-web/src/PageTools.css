@@ -49,3 +49,10 @@ html .page-tools-body li code,html .page-tools-agent pre{border-color:var(--line
 html .page-tools-agent{border-top-color:var(--line)}
 html .page-tools-error{color:var(--danger)!important}html .page-tools-success{color:var(--ink)!important}
 .page-tools-guide-links{display:flex;flex-wrap:wrap;gap:8px 18px;padding-top:4px}
+.page-tools-connect-guide{display:grid;gap:7px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--bg-elev);color:var(--ink)}
+.page-tools-connect-guide p{margin:0}.page-tools-connect-guide .page-tools-submit-row{margin-top:2px}
+.page-tools-screenshot{display:flex;align-items:flex-start;gap:12px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg-elev);color:var(--ink)}
+.page-tools-screenshot img{width:100px;height:72px;flex:none;object-fit:contain;border-radius:5px;background:var(--bg)}
+.page-tools-screenshot>div{min-width:0}.page-tools-screenshot strong{display:block;overflow-wrap:anywhere}.page-tools-screenshot p{margin:3px 0 7px}
+.page-tools-screenshot button{min-height:36px;padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;cursor:pointer}
+@media(max-width:600px){.page-tools-screenshot{display:grid}.page-tools-screenshot img{width:100%;height:130px}}

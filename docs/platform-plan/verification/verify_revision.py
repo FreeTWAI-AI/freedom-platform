@@ -10,6 +10,7 @@ from urllib.parse import unquote
 ROOT = Path(__file__).resolve().parents[3]
 MANIFEST = ROOT / "docs/platform-plan/verification/2026-09-20-file-inventory.json"
 IGNORE = {".git", ".gitdata", ".venv", "venv", "__pycache__", ".pytest_cache", ".DS_Store", "__MACOSX", "node_modules", "dist", ".wrangler", "test-results", "playwright-report"}
+GENERATED_FILES = {"apps/portal-web/public/downloads/freedom-skill-client.tgz"}
 
 def source_files():
     """Shared archive inventory boundary; never traverse installed/build artifacts."""
@@ -21,7 +22,7 @@ def source_files():
             if (name == ".env" or name.startswith(".env.")) and name != ".env.example":
                 continue
             path = Path(directory) / name
-            if path != MANIFEST:
+            if path != MANIFEST and str(path.relative_to(ROOT)) not in GENERATED_FILES:
                 yield path
 
 def main():

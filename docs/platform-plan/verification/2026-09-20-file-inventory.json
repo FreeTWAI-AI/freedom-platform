@@ -618,14 +618,9 @@
       "sha256": "624aea08970552be5d9c5b5b7650f59b7ac0b69928a57cd4d3ce6e6920db2608"
     },
     {
-      "path": "apps/portal-web/public/downloads/freedom-skill-client.tgz",
-      "bytes": 11177,
-      "sha256": "8ea0f8826156a0f8b0c702659686c663372c59414203192019df38fc1fec8137"
-    },
-    {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 74050,
-      "sha256": "73e2a10c35fe6ebb322629559050c9c5d8798c0ee14d5976cbb38ae8bd2214f3"
+      "bytes": 74633,
+      "sha256": "220b1f359c9396b27607d9adf0278aed5cb35bd2b26aad8547940252319b07f9"
     },
     {
       "path": "apps/portal-web/src/GameConsole.css",
@@ -659,13 +654,13 @@
     },
     {
       "path": "apps/portal-web/src/PageTools.css",
-      "bytes": 9405,
-      "sha256": "f28852b9466503dc48a82106fe8e289df23a1985fee775c71f2dd58631b3d928"
+      "bytes": 10389,
+      "sha256": "8b80e7ac72e9ed72dfdf0becdd88ce2b719b9b0a1f222188b058908ce3798415"
     },
     {
       "path": "apps/portal-web/src/PageTools.tsx",
-      "bytes": 22581,
-      "sha256": "e009322d7adfd0cc89efa40d52042ba2aaa60b06ad63d3c6954cc401da339f65"
+      "bytes": 26442,
+      "sha256": "88603f1a137667c05c7345e8de9ee922f30b6c2d0d2215bc7c044220f3974f8f"
     },
     {
       "path": "apps/portal-web/src/WorkshopIcon.tsx",
@@ -899,8 +894,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 33004,
-      "sha256": "a0217f3ac06aca0fb7fdfe66d7697eca9cf742863ca333f833aa9a68577e92f2"
+      "bytes": 33275,
+      "sha256": "9ea9b232f3c769c7a81df89175f6222a2d3535cf31be836fd7e0d9b8d6eb109f"
     },
     {
       "path": "apps/portal-web/src/modules/MemberSettings.css",
@@ -919,13 +914,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberTasks.tsx",
-      "bytes": 12713,
-      "sha256": "84a32cb0099574a279046dbe8b910ce38eebcc0315d1d731d8acf2802cfa95f8"
+      "bytes": 13371,
+      "sha256": "a2682267d27a5524f4fb444c40659ed30ee50e02553e9c3c3f68b0f2d4ffbf7a"
     },
     {
       "path": "apps/portal-web/src/modules/Membership.tsx",
-      "bytes": 23849,
-      "sha256": "d271dca97103304e4b188b6f890b0bfd0c838019742cc66e0319456b5a945e8c"
+      "bytes": 24380,
+      "sha256": "323b7c5042e4ec5309c77a16564c37e29448bb5d1b6a8902358fd41f82133efe"
     },
     {
       "path": "apps/portal-web/src/modules/ModuleBanner.tsx",
@@ -939,13 +934,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/NotificationBell.css",
-      "bytes": 1208,
-      "sha256": "7b89161c4ea2c3c6cdc13b30b264030eb094324be552340c4ed58dfd84331dfb"
+      "bytes": 1418,
+      "sha256": "530f43af813aafac92d20fc2e97f0989608308d9b7b8de676131d658a99c7633"
     },
     {
       "path": "apps/portal-web/src/modules/NotificationBell.tsx",
-      "bytes": 2889,
-      "sha256": "b6078248d0419007bb98bec11fddee409f9d2edf65f20eb361a010ce564fb149"
+      "bytes": 4338,
+      "sha256": "ddbca1a53404572865fc978e9cd96350695e680d72b5fc89ffa817ba066c4aa0"
     },
     {
       "path": "apps/portal-web/src/modules/Onboarding.tsx",
@@ -1051,6 +1046,11 @@
       "path": "apps/portal-web/src/modules/avatar-client.ts",
       "bytes": 2204,
       "sha256": "100f3f5884025bc03a26b4f2dfed869dd89e66a7b01cf8b9cba0f0b04ced6a10"
+    },
+    {
+      "path": "apps/portal-web/src/modules/github-connect-help.ts",
+      "bytes": 696,
+      "sha256": "6f22417fc87bbe82b64d0882df8e44ef3a8f1049c99b62f671a405d0ab14881b"
     },
     {
       "path": "apps/portal-web/src/modules/github-social-client.ts",
@@ -2564,8 +2564,8 @@
     },
     {
       "path": "docs/platform-plan/verification/verify_revision.py",
-      "bytes": 2668,
-      "sha256": "13c56bbb958c9dd72f43de1af3c44f354ce2196b7133fc182ba94367c271cebf"
+      "bytes": 2803,
+      "sha256": "922297b2db3f930791be93d6b1cdd2ab4639f9203ca013794ea3098c11983200"
     },
     {
       "path": "docs/releases/2026-09-20-local-core.md",
@@ -3668,6 +3668,11 @@
       "sha256": "710d3587273c5ccb5cb3d4868b45a54ebc9f71994878257827da927581b33cc8"
     },
     {
+      "path": "tests/e2e/notification-bell-actions.spec.ts",
+      "bytes": 2366,
+      "sha256": "ebfeec82d36dead967c2f4093826d6c7bd12fd21bac7a36c04b98c1d5eb14055"
+    },
+    {
       "path": "tests/e2e/onboarding-members.spec.ts",
       "bytes": 39646,
       "sha256": "5c745e1661fc83a4b47dbf644e49962013392c3ae88cb3083c8d21e4ae403d7d"
@@ -3689,8 +3694,8 @@
     },
     {
       "path": "tests/e2e/page-tools.spec.ts",
-      "bytes": 5782,
-      "sha256": "53d6fbb81a3401fc1958e96f0d70d0a6f682b5a174cf683e1ef1c6da5cc5c3a4"
+      "bytes": 8394,
+      "sha256": "560c9de174323162ec2a30ffddbe1544d401ee98d82e07d3fd35d6595a9cc2fb"
     },
     {
       "path": "tests/e2e/positioning-modules.spec.ts",

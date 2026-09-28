@@ -76,3 +76,31 @@ test('phone keeps world chat in an in-page drawer and admin keeps a dock',async(
   await expect(page.getByRole('button',{name:'展開訊息控制台'})).toBeVisible();
   await expect(page.getByRole('button',{name:'提出想法'})).toBeVisible();
 });
+
+test('unlinked member gets GitHub guidance and screenshot handoff',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async(text:string)=>{(window as typeof window&{copiedInstruction?:string}).copiedInstruction=text}}}));
+  await page.route('**/api/v1/me/github',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({configured:true,connected:false})}));
+  await page.goto('/');
+  await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
+  await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
+  await page.getByRole('button',{name:'登入',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
+  await page.getByRole('button',{name:'提出想法'}).click();
+  const idea=page.getByRole('dialog',{name:'會員首頁：提出想法'});
+  await expect(idea.getByText('站內發布前，先連結 GitHub')).toBeVisible();
+  await idea.getByRole('button',{name:'複製給 AI 的連結指引'}).click();
+  expect(await page.evaluate(()=>(window as typeof window&{copiedInstruction?:string}).copiedInstruction)).toContain('GitHub');
+  await idea.getByRole('textbox',{name:'標題'}).fill('首頁截圖建議');
+  await idea.getByRole('textbox',{name:'想法與期待'}).fill('希望首頁的入口更容易閱讀，截圖標示了目前的問題。');
+  await idea.getByLabel('截圖（選填）').setInputFiles({name:'example.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLttAAAAABJRU5ErkJggg==','base64')});
+  await expect(idea.getByAltText('待附上的 Issue 截圖預覽')).toBeVisible();
+  await expect(idea.getByRole('button',{name:'用我的 GitHub 發布'})).toHaveCount(0);
+  await page.evaluate(()=>{(window as typeof window&{issuedGitHubUrl?:string}).open=(url)=>{(window as typeof window&{issuedGitHubUrl?:string}).issuedGitHubUrl=String(url);return null}});
+  await idea.getByRole('button',{name:'到 GitHub 貼上截圖並送出'}).click();
+  expect(await page.evaluate(()=>(window as typeof window&{issuedGitHubUrl?:string}).issuedGitHubUrl)).toContain('/issues/new?');
+  await expect(idea.getByRole('status')).toContainText('再次貼上截圖');
+  await page.screenshot({path:'test-results/page-tools-screenshot-mobile.png'});
+  await idea.getByRole('button',{name:'移除截圖'}).click();
+  await expect(idea.getByRole('button',{name:'到 GitHub 檢查並送出'})).toBeVisible();
+});
