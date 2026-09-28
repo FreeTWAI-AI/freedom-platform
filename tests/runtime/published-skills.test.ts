@@ -11,6 +11,8 @@ test('published candidate introduction has own illustration metadata, persistent
   assert.ok(html.includes('第17個測試情境'));assert.ok(html.includes('?intro=17'));
   assert.ok(html.includes(`rel="canonical" href="https://freetwai.com${skill.public_path}"`));
   assert.ok(html.includes('/issues'));assert.ok(html.includes('/pulls'));assert.ok(html.includes('/SKILL.md'));
+  assert.match(html,/<div class="public-skill-actions"><a href="https:\/\/example\.com\/demo"/);
+  assert.ok(html.indexOf('Fork 專案')>html.indexOf('<h2>一起開發</h2>'));
   assert.ok(html.includes('社群投稿'));assert.ok(html.includes('自行聲明'));assert.ok(html.includes('a'.repeat(40)));
   assert.ok(!html.includes('<script>alert'));assert.ok(html.includes('&lt;script&gt;'));
   assert.ok(!html.includes('Authorization'));assert.ok(!html.includes('token'));
@@ -20,6 +22,7 @@ test('optional illustration and invalid share query do not manufacture metadata 
   const html=submittedSkillHtml({...skill,illustration_url:null},'101');
   assert.ok(!html.includes('property="og:image"'));assert.ok(!html.includes('?intro=101'));
   assert.ok(html.includes('整理素材 &amp; 檢查時間軸'));
+  assert.match(submittedSkillHtml({...skill,demo_url:null}),/<div class="public-skill-actions"><a href="https:\/\/github\.com\/example\/editor"/);
 });
 
 test('submitted skill agent guide keeps user text as quoted untrusted data and routes to actual source repository',()=>{

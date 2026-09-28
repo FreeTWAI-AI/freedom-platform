@@ -48,10 +48,10 @@ export function submittedSkillHtml(skill:Published,intro?:string,publicOrigin=LI
   const image=skill.illustration_url;
   const illustration=image?`<figure class="public-skill-illustration"><img src="${escape(image)}" alt="${escape(skill.title)}功能示意圖" width="1200" height="630"></figure>`:'';
   const body=`<p class="public-skill-badges"><span>社群投稿</span></p><p class="public-skill-purpose">${escape(skill.description)}</p>`+
-    `<div class="public-skill-actions">${external(skill.repository_url,'開啟專案')}${external(skill.repository_url+'/fork','Fork 專案')}${skill.demo_url?external(skill.demo_url,'開啟展示'):''}<a href="${skill.public_path}/SKILL.md">交給 Agent</a></div>`+
+    `<div class="public-skill-actions">${skill.demo_url?external(skill.demo_url,'開啟展示'):''}${external(skill.repository_url,'開啟專案')}<a href="${skill.public_path}/SKILL.md">交給 Agent</a></div>`+
     illustration+publicSkillShareMarkup({title:skill.title,path:skill.public_path,introductions:skill.share_introductions,selected,origin:publicOrigin})+
     `<section><h2>開始使用</h2><pre>${escape(skill.use_notes)}</pre></section>`+
-    `<section><h2>一起開發</h2><p>查看專案任務，認領一項修改並提交 PR。</p><div class="public-skill-actions">${external(skill.repository_url+'/issues','查看任務')}${external(skill.repository_url+'/pulls','查看 PR')}<a href="${skill.public_path}/SKILL.md">讀取協作指令</a></div></section>`+
+    `<section><h2>一起開發</h2><p>查看專案任務，認領一項修改並提交 PR。</p><div class="public-skill-actions">${external(skill.repository_url+'/issues','查看任務')}${external(skill.repository_url+'/pulls','查看 PR')}${external(skill.repository_url+'/fork','Fork 專案')}<a href="${skill.public_path}/SKILL.md">讀取協作指令</a></div></section>`+
     `<details class="public-skill-details"><summary>作者、授權與版本</summary><p>來源：${escape(skill.source.repository_full_name)}</p><p>投稿者與來源的關係為自行聲明，尚未核實作者身分；收錄不代表官方採用。</p><p>授權：${escape(skill.source.license_spdx)}</p><p>收錄版本：<code>${escape(skill.source.commit_sha)}</code></p>${skill.source.license_evidence_url?external(skill.source.license_evidence_url,'閱讀授權'):''}</details>`;
   return developmentHtml(skill.title,body,{path:skill.public_path,description:selected?skill.share_introductions[selected-1]:skill.description,share:true,shareQuery:selected?`intro=${selected}`:undefined,image:image?{url:image,width:1200,height:630,alt:`${skill.title}功能示意圖`}:undefined,origin:publicOrigin});
 }
