@@ -79,6 +79,39 @@ html:is([data-theme="light"],[data-theme="versefolk"]) .skill-book-volume:nth-ch
 html:is([data-theme="light"],[data-theme="versefolk"]) .skill-book.skill-book-volume .skill-book-cover :is(h4,.eyebrow) {color:var(--ink);}
 html:is([data-theme="light"],[data-theme="versefolk"]) .skill-book.skill-book-volume > p {color:var(--muted);}
 
+/* Guild people, book links, and member titles need ink on bright cards. */
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-leadership .guild-leadership-row {
+  background:var(--module-tint);border-color:var(--line);border-left-color:var(--green);
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-leadership .guild-expert {
+  background:var(--module-blue-tint);border-left-color:var(--blue-ink);
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-leadership .guild-leadership-name,
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-leadership .guild-master.is-unlinked .guild-leadership-name {color:var(--ink);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-leadership .guild-leadership-role {
+  background:var(--green-soft);border-color:var(--line);color:var(--module-green-ink);
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-leadership .guild-expert .guild-leadership-role {
+  background:var(--module-blue-tint);color:var(--blue-ink);
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-leadership .guild-leadership-avatar {
+  background:var(--green-soft);border-color:var(--line);color:var(--module-green-ink);
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-leadership .guild-expert .guild-leadership-avatar {
+  background:var(--module-blue-tint);color:var(--blue-ink);
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .guilds-panel .guild-book-list .skill-intro-trigger {color:var(--ink);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .positioning-title,
+html:is([data-theme="light"],[data-theme="versefolk"]) .member-stage {
+  background:var(--green-soft);border-color:var(--line);color:var(--module-green-ink);
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .guilds-panel .guild-card .badge {
+  background:var(--green-soft);border-color:var(--line);color:var(--module-green-ink);
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .guilds-panel .joined-guild .badge {
+  background:var(--module-blue-tint);color:var(--blue-ink);
+}
+
 /* Section headings, descriptions, labels and metadata formerly fixed to pale ink. */
 html:is([data-theme="light"],[data-theme="versefolk"]) :is(
   .guilds-panel .guild-overview strong,.guilds-panel .guild-purpose,

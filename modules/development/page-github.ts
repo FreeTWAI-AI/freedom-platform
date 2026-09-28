@@ -45,7 +45,10 @@ export class PageGitHubReader {
     const cached=this.pages.get(pageId);
     if(cached&&(cached.expires>this.now()&&!refresh||refresh&&this.now()-Date.parse(cached.value.checked_at)<3000))return cached.value;
     const pending=this.pendingPages.get(pageId);if(pending)return pending;
-    const work=this.readPage(pageId,refresh).then(value=>{this.pages.set(pageId,{value,expires:this.now()+90000});return value}).catch(error=>{if(cached)return {...cached.value,stale:true};throw error}).finally(()=>{this.pendingPages.delete(pageId)});
+    const work=this.readPage(pageId,refresh).catch(error=>{
+      console.warn('github_page_activity_unavailable',error instanceof Problem?error.code:error instanceof Error?error.name:'unknown');
+      return cached?{...cached.value,partial:true,stale:true}:{items:[],checked_at:new Date(this.now()).toISOString(),truncated:false,partial:true,stale:true};
+    }).then(value=>{this.pages.set(pageId,{value,expires:this.now()+90000});return value}).finally(()=>{this.pendingPages.delete(pageId)});
     this.pendingPages.set(pageId,work);return work;
   }
   private async readPage(pageId:string,refresh:boolean):Promise<PageGitHubActivity>{

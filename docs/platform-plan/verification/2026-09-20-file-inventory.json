@@ -664,8 +664,8 @@
     },
     {
       "path": "apps/portal-web/src/PageTools.tsx",
-      "bytes": 22430,
-      "sha256": "5049a6d2a759ab2e5c401950e39c06879411c59b5de06d44f17bb0635a65eb42"
+      "bytes": 22581,
+      "sha256": "e009322d7adfd0cc89efa40d52042ba2aaa60b06ad63d3c6954cc401da339f65"
     },
     {
       "path": "apps/portal-web/src/WorkshopIcon.tsx",
@@ -709,8 +709,8 @@
     },
     {
       "path": "apps/portal-web/src/module-light-theme.css",
-      "bytes": 11173,
-      "sha256": "de80c4258d0212eae6581517976c4f78594592b648ea9e448ce7a7aa68785cf3"
+      "bytes": 13261,
+      "sha256": "68c3b13b42d44d794ca61c198d91ef95605b07822fd2fedcc7fa8897e74c9aa4"
     },
     {
       "path": "apps/portal-web/src/modules/AdminGitHubSetup.tsx",
@@ -3059,8 +3059,8 @@
     },
     {
       "path": "modules/development/page-github.ts",
-      "bytes": 12392,
-      "sha256": "2fad1f0628b55f45d3966f6db6b22190befea0958dc7202468693f2e4f4087f2"
+      "bytes": 12636,
+      "sha256": "2536de6b96344f03800b705b28989aa8e265b9447c35663e745f6146df6ef087"
     },
     {
       "path": "modules/development/pages.ts",
@@ -3939,8 +3939,8 @@
     },
     {
       "path": "tests/runtime/page-github.test.ts",
-      "bytes": 7444,
-      "sha256": "11c49b2ebe95dcc5ad4e0d942d0764ff175df8d5b46e9ae655adead6c0bd5f0b"
+      "bytes": 8123,
+      "sha256": "7d5eb7e51f6fd524dc791aa2bebe3adffdf7ef50a16673fa21ce06a8abba2a6e"
     },
     {
       "path": "tests/runtime/page-issue-label.test.ts",

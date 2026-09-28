@@ -71,6 +71,15 @@ test('a partial GitHub response keeps available page issues visible',async()=>{
   assert.deepEqual(result.items.map(item=>item.number),[3]);assert.equal(result.partial,true);
 });
 
+test('GitHub rate limits leave the issue composer available without claiming an empty list',async()=>{
+  let clock=0,calls=0;
+  const reader=new PageGitHubReader(async()=>{calls++;return Response.json({message:'rate limited'},{status:403,headers:{'x-ratelimit-remaining':'0'}})},()=>clock);
+  const first=await reader.read('home');
+  assert.deepEqual(first.items,[]);assert.equal(first.partial,true);assert.equal(first.stale,true);
+  assert.equal((await reader.read('home')).partial,true);assert.equal(calls,2,'reuse the short lived fallback');
+  clock=4000;assert.equal((await reader.read('home',true)).partial,true);assert.equal(calls,4,'explicit refresh still retries');
+});
+
 test('explicit page refresh finds a newly opened Issue despite a recent cache',async()=>{
   let clock=0,number=14;
   const fetcher:typeof fetch=async url=>Response.json(String(url).includes('labels=')?[{number,title:`Issue ${number}`,body:issuePageMarker('home'),state:'open',created_at:'2026-09-27T08:13:16Z',user:{login:'ted'},labels:[{name:'page:home'}]}]:[]);
