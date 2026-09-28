@@ -3869,8 +3869,8 @@
     },
     {
       "path": "tests/runtime/development-map.test.ts",
-      "bytes": 6096,
-      "sha256": "77dca0ed9e9ac53be75e3b6f983635eb1cbc26a6344ee4cc864ddd630872f5ce"
+      "bytes": 6151,
+      "sha256": "43475c7091f849192e146dd24325b8209a8528ec61bed35389e4cbb2170199a6"
     },
     {
       "path": "tests/runtime/e2e-auth-isolation.test.ts",
