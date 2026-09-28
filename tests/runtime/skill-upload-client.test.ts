@@ -4,7 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {mkdtemp,writeFile,rm,stat} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 import {spawn} from 'node:child_process';
 import {serve} from '@hono/node-server';
 import sharp from 'sharp';
@@ -48,14 +48,16 @@ test('real CLI uploads a private draft over HTTP, preserves owner review and los
     const preload=join(temporary,'preload.mjs');
     await writeFile(preload,"import os from 'node:os';import {syncBuiltinESMExports} from 'node:module';os.homedir=()=>process.env.FP_UPLOAD_TEST_HOME;syncBuiltinESMExports();\n",{mode:0o600});
     const cli=(args:string[],stdin='')=>new Promise<{code:number;stdout:string;stderr:string}>((resolve,reject)=>{
-      const child=spawn(process.execPath,['--import',preload,bin,...args],{
+      const child=spawn(process.execPath,['--import',pathToFileURL(preload).href,bin,...args],{
         env:{...process.env,FP_UPLOAD_TEST_HOME:temporary,FREEDOM_SKILL_UPLOAD_KEY:'',FREEDOM_SKILL_UPLOAD_GRANT:''},stdio:['pipe','pipe','pipe']});
       let stdout='',stderr='';child.stdout.on('data',chunk=>stdout+=chunk);child.stderr.on('data',chunk=>stderr+=chunk);
       child.on('error',reject);child.on('close',code=>resolve({code:code??1,stdout,stderr}));child.stdin.end(stdin);
     });
     const init=await cli(['init','--origin',origin,'--key-stdin'],secret+'\n');
-    assert.equal(init.code,0);assert.equal((init.stdout+init.stderr).includes(secret),false);
-    const config=await stat(join(temporary,'.config','freedom-skill-upload','config.json'));assert.equal(config.mode&0o777,0o600);
+    assert.equal(init.code,0,init.stderr.replaceAll(secret,'[redacted]'));assert.equal((init.stdout+init.stderr).includes(secret),false);
+    const config=await stat(join(temporary,'.config','freedom-skill-upload','config.json'));
+    // NTFS permissions are ACL based; Node reports a synthetic POSIX mode on Windows.
+    if(process.platform!=='win32')assert.equal(config.mode&0o777,0o600);
     const payloadPath=join(temporary,'skill.json'),coverPath=join(temporary,'cover.png');
     await writeFile(payloadPath,JSON.stringify({repository_url:'https://github.com/example/project',title:'CLI HTTP 隔離技能',
       description:'驗證真實 CLI 經本機 HTTP 上傳私人草稿。',use_notes:'先閱讀專案 README，再整理筆記。',demo_url:null,relationship:'curator',

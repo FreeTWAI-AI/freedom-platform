@@ -1,22 +1,26 @@
 import { navigate } from './navigation.js';
 import {test,expect} from './fixtures.js';
 
-test('development hints stay collapsed and follow the current page on desktop and phone',async({page})=>{
+test('development tools follow the current page on desktop and phone without a duplicate footer',async({page})=>{
  await page.goto('/');
- const entry=page.getByRole('complementary',{name:'這一頁的開發入口'});
- await expect(entry).toHaveAttribute('data-development-guide','/development/registration');
- await expect(entry.locator('details')).not.toHaveAttribute('open');
+ await expect(page.locator('.development-context')).toHaveCount(0);
+ await page.locator('.login-page-tools').getByRole('button',{name:'參與編修'}).click();
+ let guide=page.getByRole('dialog',{name:/參與編修/});
+ await expect(guide.getByRole('link',{name:'給 Agent 的文字版 ↗'})).toHaveAttribute('href','/development/registration.md');
+ await guide.getByRole('button',{name:'關閉'}).click();
  await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
  await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
  await page.getByRole('button',{name:'登入',exact:true}).click();
- await expect(entry).toHaveAttribute('data-development-guide','/development/home');
- await entry.locator('summary').click();
- await expect(entry.getByRole('link',{name:'給 Agent 的文字版 ↗'})).toHaveAttribute('href','/development/home.md');
+ await page.locator('.topbar').getByRole('button',{name:'參與編修'}).click();
+ guide=page.getByRole('dialog',{name:/參與編修/});
+ await expect(guide.getByRole('link',{name:'給 Agent 的文字版 ↗'})).toHaveAttribute('href','/development/home.md');
+ await guide.getByRole('button',{name:'關閉'}).click();
  await navigate(page, '職業公會');
- await expect(entry).toHaveAttribute('data-development-guide','/development/guilds');
- await expect(entry.locator('details')).not.toHaveAttribute('open');
- await page.setViewportSize({width:390,height:844});await entry.locator('summary').click();
- await expect(entry.getByRole('link',{name:'查看這一頁的開發指引 ↗'})).toHaveAttribute('href','/development/guilds');
+ await page.setViewportSize({width:390,height:844});
+ await page.locator('.topbar').getByRole('button',{name:'參與編修'}).click();
+ guide=page.getByRole('dialog',{name:/參與編修/});
+ await expect(guide.getByRole('link',{name:'查看這一頁的開發指引 ↗'})).toHaveAttribute('href','/development/guilds');
+ await expect(page.locator('.development-context')).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 

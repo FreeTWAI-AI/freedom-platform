@@ -17,7 +17,7 @@ test('navigation separates collaboration, commerce and management without granti
   await page.route('**/api/v1/guild-workspace', route => route.fulfill({ json: { managed_guilds: [], managed_books: [], can_discuss: false } }));
   await login(page);
   const nav = page.getByRole('navigation', { name: '主要工作區' });
-  const collaboration = nav.locator('details').filter({ has: page.locator('summary').filter({ hasText: /^一起協作/ }) });
+  const collaboration = nav.locator('details').filter({ has: page.locator('summary').filter({ hasText: /^創作與合作/ }) });
   const commerce = nav.locator('details').filter({ has: page.locator('summary').filter({ hasText: /^供貨與銷售/ }) });
   const management = nav.locator('details').filter({ has: page.locator('summary').filter({ hasText: /^管理/ }) });
   await expect(collaboration).toHaveCount(1); await expect(commerce).toHaveCount(1); await expect(management).toHaveCount(1);

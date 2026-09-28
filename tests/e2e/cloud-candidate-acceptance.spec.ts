@@ -473,14 +473,16 @@ test('credential files must be private, synthetic and bound to the candidate ori
   expect(validateAccount(raw(),staging).label).toBe('synthetic-test');
   expect(()=>validateAccess({candidate_origin:'https://staging-next.freetwai.com',client_id:access.clientId,client_secret:access.clientSecret},staging)).toThrow(/different origin/);
   expect(validateAccess({candidate_origin:staging.origin,client_id:access.clientId,client_secret:access.clientSecret},staging).clientId).toBe(access.clientId);
-  const directory=await mkdtemp(join(tmpdir(),'cloud-candidate-'));
-  try {
-    const file=join(directory,'account.json');await writeFile(file,JSON.stringify(raw()),{mode:0o644});await chmod(file,0o644);
-    await expect(readPrivateJson(file,'account')).rejects.toThrow(/chmod 600/);
-    await chmod(file,0o600);expect(await readPrivateJson(file,'account')).toMatchObject({label:'synthetic-test'});
-    await expect(readPrivateJson('account.json','account')).rejects.toThrow(/absolute/);
-    await expect(readPrivateJson(undefined,'account')).rejects.toThrow(/not configured/);
-  } finally {await rm(directory,{recursive:true,force:true});}
+  if(process.platform!=='win32'){
+    const directory=await mkdtemp(join(tmpdir(),'cloud-candidate-'));
+    try {
+      const file=join(directory,'account.json');await writeFile(file,JSON.stringify(raw()),{mode:0o644});await chmod(file,0o644);
+      await expect(readPrivateJson(file,'account')).rejects.toThrow(/chmod 600/);
+      await chmod(file,0o600);expect(await readPrivateJson(file,'account')).toMatchObject({label:'synthetic-test'});
+    } finally {await rm(directory,{recursive:true,force:true});}
+  }
+  await expect(readPrivateJson('account.json','account')).rejects.toThrow(/absolute/);
+  await expect(readPrivateJson(undefined,'account')).rejects.toThrow(/not configured/);
   function raw(){return {candidate_origin:staging.origin,label:'synthetic-test',email:account.email,password:account.password,synthetic:true} as Record<string,unknown>;}
 });
 
@@ -663,7 +665,7 @@ async function removeHarnessUser(db:Pool,id:string,email:string){
     await q('DELETE FROM outbox WHERE transition_id IN (SELECT transition_id FROM transition_journal WHERE actor_ref=$1)');
     await q('DELETE FROM transition_journal WHERE actor_ref=$1');
     for(const table of ['member_social_links','member_avatars','onboarding_assessments','member_skill_book_grants','guild_member_preferences',
-      'positioning_profession_memberships','member_accounts','command_receipts','sessions'])await q(`DELETE FROM ${table} WHERE user_id=$1`);
+      'positioning_profession_memberships','member_accounts','member_client_errors','command_receipts','sessions'])await q(`DELETE FROM ${table} WHERE user_id=$1`);
     const removed=await client.query('DELETE FROM users WHERE user_id=$1 AND email=$2',[id,email]);
     expect(removed.rowCount).toBeLessThanOrEqual(1);
     await client.query('COMMIT');
@@ -839,15 +841,15 @@ test('registration, messages and messages-mobile pass on the local harness and t
   expect((await e2eAuthPool.query('SELECT count(*)::int AS n FROM sessions WHERE user_id=ANY($1::uuid[]) AND revoked_at IS NULL',[ids])).rows[0].n).toBe(0);
 });
 
-test('target public does not read or write a guild channel',async({browser})=>{
+test('public candidate only reads unread guild chat for the console and never writes it',async({browser})=>{
   test.setTimeout(240000);
   const loop=localHarnessTarget(e2eOrigin());
   const target={...loop,name:'public' as const};
-  const urls:string[]=[];
-  const transport:Transport=async request=>{urls.push(request.url);return fetchTransport(request);};
+  const urls:string[]=[],guildWrites:string[]=[];
+  const transport:Transport=async request=>{urls.push(request.url);if(request.url.includes('/me/channels/guild/')&&request.method!=='GET')guildWrites.push(request.url);return fetchTransport(request);};
   const observed:BrowserLike={newContext:async options=>{
     const context=await browser.newContext(options);
-    context.on('request',request=>urls.push(request.url()));
+    context.on('request',request=>{urls.push(request.url());if(request.url().includes('/me/channels/guild/')&&request.method()!=='GET')guildWrites.push(request.url());});
     return context;
   }};
   const report=await runCandidate({target,run:'execute',phases:selectPhases(['registration','messages','messages-mobile']),expectedVersion:packageMetadata.version,contract:metadata,browser:observed,transport});
@@ -857,7 +859,8 @@ test('target public does not read or write a guild channel',async({browser})=>{
   expect(report.phases.find(phase=>phase.id==='messages-mobile')?.status).toBe('pass');
   const paths=urls.map(requestPath);
   const history=paths.filter(path=>path.includes('/me/channels/guild/'));
-  expect(history).toEqual([]);
+  expect(history.every(path=>/^\/api\/v1\/me\/channels\/guild\/[^/]+\/messages\?limit=20&offset=0$/.test(path))).toBe(true);
+  expect(guildWrites).toEqual([]);
   expect(paths.some(path=>/\/api\/v1\/me\/channels\?/.test(path)&&/(?:^|[?&])kind=guild(?:&|$)/.test(path))).toBe(true);
   expect(paths.some(path=>path.includes('/guilds/directory'))).toBe(false);
   expect(urls.every(url=>url.startsWith(loop.origin))).toBe(true);

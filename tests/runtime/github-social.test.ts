@@ -158,6 +158,18 @@ test('GitHub permission denial directs administrators to permissions, while rate
   await assert.rejects(()=>new GitHubSocialProvider(limited).star(repository,'ghu_synthetic',true),errorCode('github_rate_limited'));
 });
 
+test('issue permission denial identifies an App that is registered but not installed',async()=>{
+  const calls:string[]=[];
+  const fetcher:typeof fetch=async input=>{
+    const url=String(input);calls.push(url);
+    if(url.endsWith('/freedom-platform/issues'))return Response.json({message:'Resource not accessible by integration'},{status:403,headers:{'x-ratelimit-remaining':'100'}});
+    if(url.includes('/user/installations?'))return Response.json({installations:[]});
+    throw Error('Unexpected GitHub endpoint');
+  };
+  await assert.rejects(()=>new GitHubSocialProvider(fetcher).createPlatformIssue('ghu_synthetic','Title','Body','page:account','123'),errorCode('github_installation_required'));
+  assert.equal(calls.length,2);
+});
+
 test('OAuth uses PKCE, verifies GitHub identity, stores encrypted tokens and never stars during connection',async()=>{
   const {start,state,complete}=await connect(),url=new URL(start.authorization_url),tokenCall=mock.calls.find(call=>call.url.includes('/access_token'))!,body=new URLSearchParams(tokenCall.body);
   assert.equal(url.origin,'https://github.com');assert.equal(url.pathname,'/login/oauth/authorize');assert.equal(url.searchParams.get('redirect_uri'),config.redirectUri);assert.equal(url.searchParams.has('scope'),false);assert.equal(url.searchParams.get('code_challenge_method'),'S256');assert.equal(url.searchParams.get('code_challenge'),createHash('sha256').update(body.get('code_verifier')!).digest('base64url'));

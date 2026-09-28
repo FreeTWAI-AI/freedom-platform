@@ -43,5 +43,15 @@ export function createGitHubSocialRoutes(load:ReturnType<typeof socialLoader>){
     const body=z.object({starred:z.boolean(),confirmed:z.literal(true)}).strict().parse(await c.req.json());
     return c.json(await (await load()).star(c.get('actor'),bookId(c.req.param('id')),body.starred));
   });
+  app.post('/me/github/pages/:id/issues',async c=>{
+    const body=z.object({title:z.string().min(3).max(120),description:z.string().min(10).max(2000),confirmed:z.literal(true)}).strict().parse(await c.req.json());
+    return c.json(await (await load()).createPageIssue(c.get('actor'),c.req.param('id'),body.title,body.description,c.req.header('Idempotency-Key')??''),201);
+  });
+  app.get('/me/github/pages/:id/issues',async c=>c.json(await (await load()).pageIssueSubmissions(c.get('actor'),c.req.param('id'))));
+  app.post('/me/github/pages/:id/issues/:number/design-claim',async c=>{
+    const body=z.object({message:z.string().min(10).max(700),confirmed:z.literal(true)}).strict().parse(await c.req.json());
+    return c.json(await (await load()).createDesignClaim(c.get('actor'),c.req.param('id'),Number(c.req.param('number')),body.message,c.req.header('Idempotency-Key')??''),201);
+  });
+  app.get('/me/github/pages/:id/design-claims',async c=>c.json(await (await load()).designClaimSubmissions(c.get('actor'),c.req.param('id'))));
   return app;
 }

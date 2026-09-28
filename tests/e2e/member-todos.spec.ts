@@ -65,7 +65,7 @@ test('a legacy exemption is not completion, and an unfinished required member st
   await expect(task(page,'github').getByRole('button',{name:'連結 GitHub',exact:true})).toBeVisible();
   facts.required=true;
   await page.reload();
-  await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();
+  await expect(page.locator('.preview-profile-menu > summary')).toBeVisible();
   await expect(page.getByRole('button',{name:'設定',exact:true})).toHaveCount(0);await expect(page.locator('[data-task]')).toHaveCount(0);
 });
 
@@ -144,7 +144,7 @@ test('a slower earlier read never overwrites a newer one, even across a remount'
     if(hold){hold=false;await late.held;await route.fulfill({json});lateDelivered.open();return;}
     return route.fulfill({json});});
   await refocus(page);
-  await page.getByRole('button',{name:'設定',exact:true}).click();await page.getByRole('menuitem',{name:'我的訊息',exact:true}).click();
+  await page.getByRole('button',{name:/^通知/}).click();await page.getByRole('button',{name:'查看所有通知與訊息'}).click();
   await expect(page).toHaveURL(/#messages$/);
   facts.completed=false;
   await page.getByRole('button',{name:'設定',exact:true}).click();await page.getByRole('menuitem',{name:'待辦清單',exact:true}).click();

@@ -85,18 +85,20 @@ for (const viewport of VIEWPORTS) {
     await expect(switcher.getByRole('button', { name: '會員登入', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(switcher.getByRole('button', { name: '建立帳號', exact: true })).toHaveAttribute('aria-pressed', 'false');
 
-    // Keyboard order from the top of the page: mode switch, email, password, submit; every stop shows a focus ring.
-    const expected = ['會員登入', '建立帳號', 'email', 'password', '登入'];
-    for (const stop of expected) {
+    // Page tools precede account controls; the theme menu lives in the signed-in profile.
+    const seen:string[]=[];
+    for (let index=0;index<16;index++) {
       await page.keyboard.press('Tab');
       const label = await page.evaluate(() => {
         const el = document.activeElement as HTMLInputElement;
-        return el.tagName === 'INPUT' ? el.name : (el.textContent ?? '').trim();
+        return el.getAttribute('aria-label')??(el.tagName === 'INPUT' ? el.name : (el.textContent ?? '').trim());
       });
-      expect(label).toBe(stop);
+      seen.push(label);
       expect(await focusedIsVisiblyOutlined(page)).toBe(true);
       await expect(page.locator(':focus')).toBeInViewport();
+      if(label==='登入')break;
     }
+    let position=-1;for(const stop of ['會員登入','建立帳號','email','password','登入']){const next=seen.indexOf(stop,position+1);expect(next,`${viewport.name}: ${stop} in ${seen.join(' → ')}`).toBeGreaterThan(position);position=next;}
     await page.screenshot({ path: `test-results/audit-shell-login-${viewport.name}.png`, fullPage: true });
   });
 }
@@ -128,7 +130,7 @@ test('registration mode switches by keyboard, keeps one email field and states t
     await expect(page.getByLabel('電子郵件', { exact: true })).toHaveCount(1);
     await expect(page.getByLabel('密碼', { exact: true })).toHaveAttribute('minlength', '12');
     await expect(page.getByText('目前無法用 E-mail 找回密碼', { exact: false })).toBeVisible();
-    await expect(page.getByRole('button', { name: '註冊並開始定位', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '建立帳號，先逛工坊', exact: true })).toBeVisible();
     await noHorizontalOverflow(page, `${viewport.name} registration`);
     // Demo shortcuts belong to sign-in only.
     await expect(page.getByRole('complementary', { name: '示範帳號' })).toHaveCount(0);
@@ -217,7 +219,7 @@ for (const viewport of VIEWPORTS) {
       await expect(page.getByRole('heading', { name: '會員首頁', level: 1, exact: true })).toBeVisible();
       await page.keyboard.press('Tab');
       await expect(page.getByRole('link', { name: '跳到主要內容', exact: true })).toBeFocused();
-      for (const name of ['會員首頁', '我的定位', '職業公會', '技能書架', '工坊夥伴']) {
+      for (const name of ['會員首頁', '社群活動', '社群任務榜', '職業公會', '技能書架']) {
         await page.keyboard.press('Tab');
         await expect(nav.getByRole('button', { name, exact: true })).toBeFocused();
         expect(await focusedIsVisiblyOutlined(page)).toBe(true);
@@ -225,11 +227,11 @@ for (const viewport of VIEWPORTS) {
       // A collapsed group opens from the keyboard and its first page is the next stop.
       await page.keyboard.press('Tab');
       const summary = page.locator(':focus');
-      await expect(summary).toHaveText(/一起協作/);
+      await expect(summary).toHaveText(/認識夥伴/);
       await page.keyboard.press('Enter');
-      await expect(nav.locator('details').filter({ has: page.locator('summary', { hasText: '一起協作' }) })).toHaveAttribute('open', '');
+      await expect(nav.locator('details').filter({ has: page.locator('summary', { hasText: '認識夥伴' }) })).toHaveAttribute('open', '');
       await page.keyboard.press('Tab');
-      await expect(nav.getByRole('button', { name: '一起開發', exact: true })).toBeFocused();
+      await expect(nav.getByRole('button', { name: '工坊夥伴', exact: true })).toBeFocused();
       // With every group open the sidebar scrolls on its own and stays pinned while the page scrolls.
       for (const s of await nav.locator('.nav-section > summary').all()) {
         if (!await s.evaluate(node => (node.parentElement as HTMLDetailsElement).open)) await s.click();

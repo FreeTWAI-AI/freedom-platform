@@ -3,6 +3,7 @@ import {ApiError,type PortalClient} from '../api';
 import {formatIsoLocal} from '../format';
 import type {SessionPayload,TabId} from '../types';
 import {announceInboxChange,type InboxUnread} from './member-inbox';
+import {logConsoleEvent} from '../game-console-core';
 import './MemberSettings.css';
 
 export type ChannelKind='guild'|'squad';
@@ -201,6 +202,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate}:Props){
     try{
       const message=await client.post<ChannelMessage>(path(key,'messages'),{body},{idempotencyKey:attempt.key});
       announceInboxChange();
+      logConsoleEvent({channel:kind,level:'success',kind:'chat',source:kind==='guild'?'公會':'小隊',message:`已傳送訊息至「${selected?.name??text.unit+'頻道'}」。`});
       if(!alive.current)return;
       setPending(({[key]:_,...rest})=>rest);
       setDrafts(value=>{if((value[key]??'').trim()!==body)return value;const {[key]:_,...rest}=value;return rest;});

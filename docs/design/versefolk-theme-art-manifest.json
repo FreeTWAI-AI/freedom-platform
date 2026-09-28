@@ -1,0 +1,48 @@
+{
+  "generated_at": "2026-09-27",
+  "mode": "builtin-imagegen",
+  "style_reference": "VERSEFOLK by Ted and Mini; original Freedom Workshop brand art remains unchanged",
+  "postprocessing": "Sharp WebP quality 82; visual content unchanged",
+  "assets": [
+    {
+      "path": "apps/portal-web/public/art/versefolk-workshop.webp",
+      "prompt": "Create an original wide 3:2 PNG illustration for a Taiwanese community collaboration website theme called 自由工坊－敘生, inspired by the warm storybook mood of VERSEFOLK but redraw everything as distinct, original cute artwork. A tiny welcoming craft village and shared workshop, three diverse friendly human makers at a long table drawing, building and gardening, one small cat, paper lanterns, potted plants, gently rolling hills. Soft watercolor and gouache texture, rounded simple shapes, delicate hand-drawn outlines, warm parchment cream, dusty rose, moss green, muted honey. Airy composition with ample clear space on the left for live HTML heading and accessible text. No logos, no letters, no typography, no existing characters, no copied composition. Export as clean high quality bitmap suitable for a responsive hero.",
+      "width": 1280,
+      "height": 853,
+      "bytes": 171908,
+      "sha256": "7094bb797f5dc890e470f47e1f905f42b45f09ce471ce3e01d1654b1f7bd69fc"
+    },
+    {
+      "path": "apps/portal-web/public/art/versefolk-market.webp",
+      "prompt": "Original 3:2 cute storybook illustration for Freedom Workshop's VERSEFOLK-inspired 敘生 theme: a small friendly village supply market, rounded stalls with handmade goods, baskets, potted herbs, neighbors exchanging supplies and smiling. Warm healing watercolor/gouache with soft paper texture, moss green, dusty rose, honey yellow, cream. Distinct original art; no text, no logos, no existing characters, no copied composition. Balanced simple shapes readable as a 64px thumbnail.",
+      "width": 640,
+      "height": 427,
+      "bytes": 79698,
+      "sha256": "d575ecc5725c9e8a6aa84a0aeb5ac5590a806ce3385f96f80afcfa7f30c2d015"
+    },
+    {
+      "path": "apps/portal-web/public/art/versefolk-cooperation.webp",
+      "prompt": "Original 3:2 cute storybook illustration for Freedom Workshop's VERSEFOLK-inspired 敘生 theme: three village makers collaborating at a cozy shared outdoor workbench, assembling a small wooden community project with tools and sketches, one gentle cat nearby. Warm healing watercolor/gouache with soft paper texture, moss green, dusty rose, honey yellow, cream. Distinct original art; no text, no logos, no existing characters, no copied composition. Balanced simple shapes readable as a 64px thumbnail.",
+      "width": 640,
+      "height": 427,
+      "bytes": 79796,
+      "sha256": "8f345114c1f3073876f75c7a1d27cfa1cebcd26c3ff7494489fc43d1336408c6"
+    },
+    {
+      "path": "apps/portal-web/public/art/versefolk-library.webp",
+      "prompt": "Original 3:2 cute storybook illustration for Freedom Workshop's VERSEFOLK-inspired 敘生 theme: a small village library of handmade learning notebooks and little colored book covers, a smiling person sharing knowledge with a friend, warm window and hanging plants. Warm healing watercolor/gouache with soft paper texture, moss green, dusty rose, honey yellow, cream. Distinct original art; no text or letters, no logos, no existing characters, no copied composition. Balanced simple shapes readable as a compact cover.",
+      "width": 640,
+      "height": 427,
+      "bytes": 76244,
+      "sha256": "49450a880c6074bfd180228de09e10c9dc74b4cd013816a9ee14bdfbab97ebb1"
+    },
+    {
+      "path": "apps/portal-web/public/art/versefolk-marketing.webp",
+      "prompt": "Original 3:2 cute storybook illustration for Freedom Workshop's VERSEFOLK-inspired 敘生 theme: a cozy village storytelling and communications desk, two friendly makers preparing illustrated flyers and sharing community news under paper lanterns, small handmade drawings, leaves and a cat. Warm healing watercolor/gouache with soft paper texture, moss green, dusty rose, honey yellow, cream. Distinct original art; no text, letters, logos, existing characters, or copied composition. Balanced simple shapes readable as a 64px thumbnail.",
+      "width": 640,
+      "height": 427,
+      "bytes": 80130,
+      "sha256": "82fb69780b9f578da7458679c3369f61ab4845af02ed2307f5d0d0cb9dfa3f2a"
+    }
+  ]
+}

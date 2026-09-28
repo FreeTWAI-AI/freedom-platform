@@ -42,14 +42,11 @@ async function member(browser:Browser,baseURL:string,user:Account,viewport:{widt
   return {context,page,id:session.user.user_id,post,unread};
 }
 const settings=(page:Page)=>page.getByRole('button',{name:'設定',exact:true});
-const inboxItem=(page:Page)=>page.getByRole('menuitem',{name:'我的訊息',exact:true});
-async function menuUnread(page:Page){
-  await settings(page).click();const text=(await inboxItem(page).textContent())??'';
-  await page.keyboard.press('Escape');return text;
-}
+const bell=(page:Page)=>page.getByRole('button',{name:/^通知/});
+async function openMessages(page:Page){await bell(page).click();await page.getByRole('button',{name:'查看所有通知與訊息'}).click();await expect(page).toHaveURL(/#messages$/);}
 async function expectZero(page:Page){
   await expect(settings(page).locator('.settings-dot')).toHaveCount(0);
-  await expect.poll(()=>menuUnread(page)).toBe('我的訊息');
+  await expect(bell(page)).toHaveAccessibleName('通知');
 }
 async function noOverflow(page:Page){expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
 // Full-page shots start at the top so the sticky header is drawn in place.
@@ -75,7 +72,7 @@ test('two synthetic members exchange a private message and a friend notification
     await noOverflow(r);await shot(r,'tasks-320');
 
     // The sender finds the receiver through the real member search and writes plain text.
-    await settings(s).click();await inboxItem(s).click();await expect(s).toHaveURL(/#messages$/);
+    await openMessages(s);
     await s.getByRole('tab',{name:/私人訊息/}).click();
     const sPanel=s.getByRole('tabpanel',{name:/私人訊息/}),sThread=sPanel.locator('.messages-thread');
     await sPanel.getByLabel('搜尋會員').fill(receiver.display_name);await sPanel.getByRole('button',{name:'搜尋會員',exact:true}).click();
@@ -100,11 +97,11 @@ test('two synthetic members exchange a private message and a friend notification
 
     // 0 → 1: the receiver's open page re-reads the real totals on window focus.
     await r.evaluate(()=>window.dispatchEvent(new Event('focus')));
-    await expect(settings(r).locator('.settings-dot')).toBeVisible();await expect(settings(r)).toHaveAccessibleName('設定');
+    await expect(settings(r).locator('.settings-dot')).toHaveCount(0);await expect(settings(r)).toHaveAccessibleName('設定');
     await settings(r).click();
-    await expect(r.getByRole('menuitem')).toHaveText(['我的名片','待辦清單','我的訊息1 則未讀']);
+    await expect(r.getByRole('menuitem')).toHaveText(['我的名片','待辦清單']);
     await noOverflow(r);await shot(r,'settings-320');
-    await inboxItem(r).click();await expect(r).toHaveURL(/#messages$/);await expect(r.locator('#main-content')).toBeFocused();
+    await settings(r).click();await openMessages(r);await expect(r.locator('#main-content')).toBeFocused();
     await expect(r.getByRole('tab',{name:/私人訊息/})).toContainText('1 則未讀');await expect(r.getByRole('tab',{name:/通知/})).toContainText('沒有未讀');
     await r.getByRole('tab',{name:/私人訊息/}).click();
     const rPanel=r.getByRole('tabpanel',{name:/私人訊息/}),rThread=rPanel.locator('.messages-thread'),rList=rPanel.getByRole('list',{name:'對話列表'});
@@ -177,7 +174,7 @@ test('two synthetic members exchange a private message and a friend notification
     await expect(refreshNotices).toBeFocused();
     await expect(r.getByRole('tab',{name:/通知/})).toContainText('1 則未讀');
     await r.evaluate(()=>window.dispatchEvent(new Event('focus')));
-    await expect(settings(r).locator('.settings-dot')).toBeVisible();await expect.poll(()=>menuUnread(r)).toBe('我的訊息1 則未讀');
+    await expect(bell(r)).toHaveAccessibleName('通知，1 則未讀');
     await noOverflow(r);await shot(r,'notifications-320');
     // 1 → 0: the action reads first, then opens the fixed members page with focus in main.
     await notice.getByRole('button',{name:'前往工坊夥伴',exact:true}).click();

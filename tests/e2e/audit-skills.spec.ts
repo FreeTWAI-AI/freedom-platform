@@ -35,14 +35,18 @@ async function readableText(scope: Locator, selector: string) {
   return sizes.length;
 }
 async function developmentFooter(page: Page) {
-  const summary = page.locator('.development-context summary');
-  await expect(summary).toBeVisible();
-  expect((await summary.boundingBox())!.height, '共用開發入口觸控高度').toBeGreaterThanOrEqual(44);
-  await summary.focus();
-  await expect(summary).toBeFocused();
+  const trigger = page.locator('.topbar').getByRole('button',{name:'參與編修'});
+  await expect(trigger).toBeVisible();
+  expect((await trigger.boundingBox())!.height, '共用開發入口觸控高度').toBeGreaterThanOrEqual(44);
+  await trigger.focus();
+  await expect(trigger).toBeFocused();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Shift+Tab');
+  await expect(trigger).toBeFocused();
+  expect(await trigger.evaluate(node => getComputedStyle(node).outlineStyle)).not.toBe('none');
   await page.keyboard.press('Enter');
-  await expect(page.locator('.development-context details')).toHaveAttribute('open', '');
-  expect(await summary.evaluate(node => getComputedStyle(node).outlineStyle)).not.toBe('none');
+  await expect(page.getByRole('dialog',{name:/參與編修/})).toBeVisible();
+  await page.keyboard.press('Escape');
 }
 
 for (const width of [1280, 390]) {

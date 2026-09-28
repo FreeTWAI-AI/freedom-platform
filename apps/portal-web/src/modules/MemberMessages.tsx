@@ -5,10 +5,11 @@ import type {SessionPayload,TabId} from '../types';
 import {MemberAvatar} from './MemberAvatar';
 import {MemberChannels} from './MemberChannels';
 import {announceInboxChange,type InboxUnread} from './member-inbox';
+import {logConsoleEvent} from '../game-console-core';
 import type {MemberCardData} from './Membership';
 import './MemberSettings.css';
 
-type ActionTab='members'|'squads'|'guilds'|'guild-workspace'|'messages';
+type ActionTab='members'|'squads'|'guilds'|'guild-workspace'|'messages'|'events';
 type NotificationAction={tab:ActionTab;resource_id:string|null};
 type Notice={notification_id:string;kind:string;title:string;body:string;created_at:string;read_at:string|null;action:NotificationAction|null};
 type NoticePage={items:Notice[];unread_count:number;next_offset:number|null};
@@ -22,7 +23,7 @@ type Props={client:PortalClient;session:SessionPayload;onNavigate:(id:TabId)=>vo
 
 const PAGE=20,MAX_BODY=2000;
 // Actions map to fixed in-app pages only; a notification can never supply a link.
-const actionLabels:Record<ActionTab,string>={members:'前往工坊夥伴',squads:'前往小隊集合',guilds:'前往職業公會','guild-workspace':'前往公會管理',messages:'開啟私訊'};
+const actionLabels:Record<ActionTab,string>={members:'前往工坊夥伴',squads:'前往小隊集合',guilds:'前往職業公會','guild-workspace':'前往公會管理',messages:'開啟私訊',events:'前往活動'};
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const fail=(cause:unknown,fallback='暫時無法讀取，請稍後重試。')=>cause instanceof Error&&cause.message?cause.message:fallback;
 /** No response, timeout or 5xx: the server may already have applied the write. */
@@ -270,6 +271,8 @@ function DirectMessages({client,session,onUnread,openPeer}:{client:PortalClient;
     try{
       const message=await client.post<Message>(`/me/conversations/${encodeURIComponent(id)}/messages`,{body},{idempotencyKey:attempt.key});
       announceInboxChange();
+      const recipient=conversations.find(item=>item.participant.user_id===id)?.participant.display_name??(thread?.participant.user_id===id?thread.participant.display_name:'工坊夥伴');
+      logConsoleEvent({channel:'direct',level:'success',kind:'chat',source:'私訊',message:`已傳送私人訊息給 ${recipient}。`});
       setPending(({[id]:_,...rest})=>rest);
       setDrafts(value=>{if((value[id]??'').trim()!==body)return value;const {[id]:_,...rest}=value;return rest;});
       if(currentPeer.current===id)setThread(value=>value&&value.participant.user_id===id?{...value,items:merge([message],value.items,item=>item.message_id)}:value);

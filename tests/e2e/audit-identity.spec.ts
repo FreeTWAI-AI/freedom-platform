@@ -22,7 +22,7 @@ async function oneTitle(page: Page, label: string) {
   await expect(h1, label).toHaveCount(1);
   const title = (await h1.innerText()).trim();
   await expect(page.getByRole('heading', { level: 2, name: title, exact: true }), `${label} repeats its h1`).toHaveCount(0);
-  expect(await page.locator('.development-context').count(), `${label} development guides`).toBeLessThanOrEqual(1);
+  await expect(page.locator('.development-context'), `${label} duplicate development footer`).toHaveCount(0);
   await pageFits(page, label);
 }
 
@@ -38,7 +38,8 @@ async function register(page: Page, nickname: string, shotPrefix?: string) {
   await page.getByLabel('社群顯示名稱', { exact: true }).fill(nickname);
   await page.getByLabel('電子郵件', { exact: true }).fill(email);
   await page.getByLabel('密碼', { exact: true }).fill(password);
-  await page.getByRole('button', { name: '註冊並開始定位', exact: true }).click();
+  await page.getByRole('button', { name: '建立帳號，先逛工坊', exact: true }).click();
+  await page.getByRole('button', { name: '開始／繼續定位 →', exact: true }).click();
   await expect(page.getByRole('heading', { name: '你喜歡怎麼做事？' })).toBeVisible();
   return email;
 }
@@ -109,7 +110,7 @@ for (const [label, viewport] of viewports) {
     await page.getByRole('button', { name: '重新探索定位', exact: true }).click();
     await expect(page.getByRole('heading', { name: '你喜歡怎麼做事？' })).toBeVisible();
     const main = page.locator('#main-content');
-    await expect(main.locator('.development-context')).toHaveCount(1);
+    await expect(main.locator('.development-context')).toHaveCount(0);
     await expect(main.locator('.community-footer')).toHaveCount(0);
     await expect(main.locator('.onboarding-brand')).toHaveCount(0);
     await oneTitle(page, `${label} retake`);

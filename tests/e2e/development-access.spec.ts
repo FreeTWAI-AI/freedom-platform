@@ -2,7 +2,7 @@ import {test,expect,type Page} from './fixtures.js';
 import {randomUUID} from 'node:crypto';
 import {navigate} from './navigation.js';
 async function login(page:Page,email='maker@local.test'){await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();}
-async function platform(page:Page){await navigate(page,'一起開發');const entry=page.getByRole('complementary',{name:'這一頁的開發入口'});await entry.getByText('參與這一頁的開發',{exact:true}).click();await entry.getByRole('button',{name:'啟用這一頁的開發',exact:true}).click();return page.getByRole('dialog',{name:'開發啟用任務',exact:true});}
+async function platform(page:Page){await navigate(page,'一起開發');await page.locator('.topbar').getByRole('button',{name:'參與編修'}).click();await page.getByRole('dialog',{name:/一起開發：參與編修/}).getByRole('button',{name:'啟用這一頁的開發',exact:true}).click();return page.getByRole('dialog',{name:'開發啟用任務',exact:true});}
 
 test('platform onboarding joins the actual required guild, preserves primary guild, stores versioned consent and leaves GitHub verification pending',async({page,e2eAuthPool})=>{
   const id=randomUUID(),email=`development-${id}@local.test`;

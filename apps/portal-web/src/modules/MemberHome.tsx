@@ -4,13 +4,14 @@ import type { TabId } from '../types';
 import { WorkshopIcon } from '../WorkshopIcon';
 import { loadLabels, type MemberCardData } from './Membership';
 import { MemberAvatar } from './MemberAvatar';
+import { logConsoleEvent } from '../game-console-core';
 import './HomeDesign.css';
 
 const shortcuts: { id: TabId; title: string }[] = [
+  { id: 'events', title: '社群活動' },
+  { id: 'tasks', title: '社群任務榜' },
   { id: 'guilds', title: '我的公會' },
   { id: 'skills', title: '技能書架' },
-  { id: 'cocreation', title: '一起開發' },
-  { id: 'workbench', title: '我的工作' },
 ];
 const entries: { id: TabId; title: string; description: string; cover: string }[] = [
   { id: 'supplier', title: '供貨中心', description: '刊登商品與供貨條件', cover: 'market-network' },
@@ -57,6 +58,12 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
   const nickname = member?.nickname ?? session.user.display_name;
   const featured = (member?.featured_capabilities ?? member?.capabilities.slice(0, 3) ?? []).slice(0, 3);
   const skillLabel = (id: string) => id.startsWith('custom:') ? id.slice(7) : labels?.[id] ?? id;
+
+  useEffect(() => {
+    if (!member) return;
+    logConsoleEvent({id: member.primary_guild ? 'guide:home:skills' : 'guide:home:guild', channel:'guide', kind:'guide', source:'下一步', action: member.primary_guild ? 'skills' : 'guilds',
+      message: member.primary_guild ? '到技能書架閱讀已解鎖的技能書，選一項開始練習。' : '到職業公會加入公會並設定主要公會，接著領取技能書。'});
+  }, [member]);
 
   return <div className="member-home freedom-home">
     <section ref={summary} tabIndex={-1} className="member-card home-member-summary guild-base-hero" aria-label="我的會員摘要" aria-busy={loading}>

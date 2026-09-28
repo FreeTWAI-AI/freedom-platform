@@ -23,7 +23,7 @@ async function adminFixtures(page:Page,options:{status?:()=>unknown;start?:(rout
   });
   return calls;
 }
-async function openSetup(page:Page){await page.goto('/admin');await page.getByRole('button',{name:'GitHub 連結',exact:true}).click();await expect(page.getByRole('heading',{name:'啟用站內 Star',exact:true})).toBeVisible();}
+async function openSetup(page:Page){await page.goto('/admin');await page.getByRole('button',{name:'GitHub 連結',exact:true}).click();await expect(page.getByRole('heading',{name:'啟用站內 GitHub 操作',exact:true})).toBeVisible();}
 function expectAdminCommand(call:Call){expect(call.method).toBe('POST');expect(call.headers['x-admin-csrf']).toBe(csrf);expect(call.headers['idempotency-key']).toBeTruthy();}
 
 test('admin setup submits the manifest through native GitHub POST with starring write and metadata read',async({page})=>{
@@ -47,14 +47,14 @@ test('admin callback clears sensitive query parameters and completes once across
     expect(new URL(page.url()).pathname).toBe('/admin');expect(new URL(page.url()).search).toBe('');configured=true;await route.fulfill({json:app});
   }});
   await page.goto(`/admin/github/callback?code=${code}&state=${state}`);
-  await expect(page).toHaveURL(/\/admin$/);await expect(page.getByRole('heading',{name:'GitHub App 已連結',exact:true})).toBeVisible();
+  await expect(page).toHaveURL(/\/admin$/);await expect(page.getByRole('heading',{name:'GitHub App 已建立',exact:true})).toBeVisible();
   await expect(page.getByRole('link',{name:'synthetic-freedom-star ↗',exact:true})).toHaveAttribute('href',app.html_url);
   await expect(page.getByRole('link',{name:'檢查 GitHub App 權限 ↗',exact:true})).toHaveAttribute('href','https://github.com/organizations/FreeTWAI-AI/settings/apps/synthetic-freedom-star/permissions');
-  await expect(page.getByRole('link',{name:'安裝到技能書 Repo ↗',exact:true})).toHaveAttribute('href','https://github.com/apps/synthetic-freedom-star/installations/new');
+  await expect(page.getByRole('link',{name:'安裝到平台 Repo ↗',exact:true})).toHaveAttribute('href','https://github.com/apps/synthetic-freedom-star/installations/new');
   await expect(page.getByRole('button',{name:'建立 GitHub App',exact:true})).toHaveCount(0);
   await page.locator('.admin-account > summary').click();
-  await page.getByRole('button',{name:'重新確認管理身分',exact:true}).click();await expect(page.getByRole('heading',{name:'GitHub App 已連結',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'會員管理',exact:true}).click();await expect(page.getByRole('heading',{name:'會員管理',exact:true})).toBeVisible();await page.getByRole('button',{name:'GitHub 連結',exact:true}).click();await expect(page.getByRole('heading',{name:'GitHub App 已連結',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'重新確認管理身分',exact:true}).click();await expect(page.getByRole('heading',{name:'GitHub App 已建立',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'會員管理',exact:true}).click();await expect(page.getByRole('heading',{name:'會員管理',exact:true})).toBeVisible();await page.getByRole('button',{name:'GitHub 連結',exact:true}).click();await expect(page.getByRole('heading',{name:'GitHub App 已建立',exact:true})).toBeVisible();
   const complete=calls.filter(call=>call.path==='/github-app/complete');expect(complete).toHaveLength(1);expectAdminCommand(complete[0]);expect(complete[0].body).toEqual({code,state});
   expect(calls.filter(call=>call.path==='/github-app/start')).toHaveLength(0);
   await expect(page.locator('body')).not.toContainText(code);await expect(page.locator('body')).not.toContainText(state);

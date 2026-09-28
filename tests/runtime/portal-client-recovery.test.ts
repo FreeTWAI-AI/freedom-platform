@@ -1,6 +1,19 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {ApiError,PortalClient} from '../../apps/portal-web/src/api.js';
+import {subscribeGameConsole} from '../../apps/portal-web/src/game-console-core.js';
+
+test('background feed failures stay out of the visible console while direct failures remain visible',async t=>{
+  t.mock.method(globalThis,'fetch',async()=>Response.json({code:'github_unavailable'},{status:503}));
+  const messages:string[]=[];const unsubscribe=subscribeGameConsole(event=>messages.push(event.message));
+  try{
+    const client=new PortalClient();
+    await assert.rejects(client.get('/pages/github-events',{background:true}),ApiError);
+    assert.deepEqual(messages,[]);
+    await assert.rejects(client.get('/pages/github-events'),ApiError);
+    assert.equal(messages.length,1);
+  }finally{unsubscribe()}
+});
 
 for(const status of [502,503,504,520,521,522,523,524]){
   test(`portal client reports HTTP ${status} in Chinese for both HTML and JSON upstream errors`,async t=>{

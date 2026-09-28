@@ -69,6 +69,20 @@ const post=(session:Session,kind:string,key:string,body:string,options:{key?:str
 const read=(session:Session,kind:string,key:string,through:string,options:{key?:string}={})=>request(`/me/channels/${kind}/${key}/read`,session,{through_message_id:through},options);
 const messages=(session:Session,kind:string,key:string,query='')=>request(`/me/channels/${kind}/${key}/messages${query}`,session);
 
+test('world chat is community scoped and keeps sender identity and read receipts',async()=>{
+  const [a,b]=await signInAll();
+  const other=await extraMember('other-community',randomUUID());
+  const foreign=await signIn(other.email);
+  assert.deepEqual((await request('/me/channels?kind=world',a)).data.items.map((room:any)=>room.channel_key),['world']);
+  const sent=await post(a,'world','world','大家好');assert.equal(sent.status,201,JSON.stringify(sent.data));
+  const page=await messages(b,'world','world');assert.equal(page.status,200);assert.equal(page.data.items[0].body,'大家好');
+  assert.equal(page.data.items[0].sender_ref,a.user_id);assert.equal(page.data.unread_count,1);
+  assert.equal((await messages(foreign,'world','world')).data.items.length,0);
+  assert.equal((await read(b,'world','world',sent.data.message_id)).status,200);
+  assert.equal((await messages(b,'world','world')).data.unread_count,0);
+  assert.equal((await messages(a,'world','wrong')).status,422);
+});
+
 test('the list shows every joined room, including empty ones, sorted and paged with total unread and no bodies, and GET writes nothing',async()=>{
   const [a,b]=await signInAll();
   for(const key of ['guild_marketing','guild_ai_vibe','guild_platform_engineering'])await joinGuild(A,key);

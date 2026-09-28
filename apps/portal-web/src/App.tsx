@@ -14,12 +14,18 @@ import { AdminPanel } from './modules/AdminPanel'
 import { GitHubCallback } from './modules/GitHubCallback'
 import { GitHubSocialProvider } from './modules/GitHubSocial'
 import { SettingsMenu } from './modules/SettingsMenu'
+import {NotificationBell} from './modules/NotificationBell'
 import { MemberTasks } from './modules/MemberTasks'
 import { MemberMessages } from './modules/MemberMessages'
+import { EventsPanel } from './modules/EventsPanel'
+import { TaskBoardPanel } from './modules/TaskBoardPanel'
+import { WelcomePreview } from './modules/WelcomePreview'
 import {MemberGuildWorkspace} from './modules/GuildWorkspace'
 import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
-import { DevelopmentContext } from './modules/DevelopmentContext'
 import { BenefitObservations } from './modules/BenefitObservations'
+import { GameConsoleProvider, GameConsolePopout } from './GameConsole'
+import {PageTools} from './PageTools'
+import { logConsoleEvent } from './game-console-core'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PositioningPanel, GuildsPanel } from './modules/PositioningPanels'
 import { SupplierPanel, RetailPanel } from './modules/CommercePanels'
@@ -59,6 +65,32 @@ const DEMO_ACCOUNTS = [
   { email: 'client@local.test', label: '委託示範帳號' },
 ] as const
 const DEMO_PASSWORD = 'freedom-local-demo'
+const onboardingStarted=(userId:string)=>{try{return sessionStorage.getItem(`freedom-onboarding-started:${userId}`)==='yes'}catch{return false}}
+const rememberOnboarding=(userId:string,started:boolean)=>{try{if(started)sessionStorage.setItem(`freedom-onboarding-started:${userId}`,'yes');else sessionStorage.removeItem(`freedom-onboarding-started:${userId}`)}catch{/* Keep the in-memory choice. */}}
+
+const TAB_GUIDANCE: Record<TabId, string> = {
+  home: '查看會員摘要與常用入口，從這裡繼續公會和技能書旅程。',
+  positioning: '透過情境題整理你的能力與想走的方向；結果由你確認，也可以日後重新探索。',
+  guilds: '加入感興趣的職業公會，設定主要公會，查看公會技能書。',
+  skills: '預覽技能書，領取已解鎖的內容，選一本開始練習。',
+  members: '認識工坊夥伴，查看他們願意公開的名片資訊。',
+  account: '編輯名片資料、頭像與公開範圍。',
+  cocreation: '查看一起開發的作品和參與入口。',
+  squads: '查看小隊與共同進行的協作。',
+  opensource: '登錄你的開源專案，整理可供夥伴參與的資訊。',
+  workbench: '查看自己的工作、認領紀錄與進度。',
+  showcase: '瀏覽作品和需求，尋找合作機會。',
+  engagement: '查看合作紀錄與目前狀態。',
+  supplier: '整理商品資料與供貨條件。',
+  retail: '選品、建立商店草稿並安排銷售合作。',
+  marketing: '撰寫介紹草稿並記錄分享成果。',
+  'guild-workspace': '管理你有權負責的公會資訊與技能書。',
+  community: '查看自由工坊的社群入口和公開資訊。',
+  todos: '查看會員待辦事項與可直接前往的操作。',
+  messages: '查看收到的訊息與對話。',
+  events: '查看社群活動、審核結果與報名狀態。',
+  tasks: '探索工坊工作與 GitHub Issue，查看有來源的驗收紀錄。',
+}
 
 type ActionError = {
   message: string
@@ -106,8 +138,17 @@ function describeError(err: unknown): ActionError {
 }
 
 export function App() {
+  if(new URLSearchParams(window.location.search).get('game-console')==='popout')return <GameConsolePopout client={client}/>
   if(window.location.pathname==='/github/callback')return <GitHubCallback/>
-  return window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? <><AdminPanel/><DevelopmentContext moduleId="admin"/></> : <MemberApp/>
+  return window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? <AdminConsoleShell/> : <MemberApp/>
+}
+
+function AdminConsoleShell(){
+  const [memberId,setMemberId]=useState<string|null>(null)
+  useEffect(()=>{let live=true;void client.getSession().then(session=>{if(live){client.csrfToken=session.csrf_token;setMemberId(session.user.user_id)}}).catch(()=>{if(live)setMemberId(null)});return()=>{live=false}},[])
+  return <GameConsoleProvider client={memberId?client:undefined} userId={memberId??undefined} feedEnabled={Boolean(memberId)} standalone>
+    <AdminPanel memberClient={memberId?client:undefined}/>
+  </GameConsoleProvider>
 }
 
 function MemberApp() {
@@ -118,6 +159,7 @@ function MemberApp() {
   const [site, setSite] = useState<SiteConfig | null>(null)
   const [onboarding, setOnboarding] = useState<OnboardingView | null>(null)
   const [gateError, setGateError] = useState('')
+  const [exploring,setExploring]=useState(true)
   const sessionGeneration = useRef(0)
   const loadOnboarding = useCallback(async () => {
     const generation = sessionGeneration.current
@@ -132,6 +174,7 @@ function MemberApp() {
     sessionGeneration.current += 1
     client.csrfToken = next.csrf_token
     setOnboarding(null)
+    setExploring(!onboardingStarted(next.user.user_id))
     setSession(next)
     setPhase('ready')
     setBootError(null)
@@ -139,9 +182,11 @@ function MemberApp() {
   }, [])
 
   const toLogin = useCallback((notice?: string) => {
+    window.dispatchEvent(new Event('freedom-game-console-session-end'))
     sessionGeneration.current += 1
     client.csrfToken = null
     setOnboarding(null)
+    setExploring(true)
     setSession(null)
     setPhase('login')
     if (notice) setLoginNotice(notice)
@@ -172,6 +217,7 @@ function MemberApp() {
   useEffect(() => {
     client.onUnauthorized = () => {
       if (client.accessExpired) {
+        window.dispatchEvent(new Event('freedom-game-console-session-end'))
         sessionGeneration.current += 1
         client.csrfToken = null
         setOnboarding(null)
@@ -217,10 +263,13 @@ function MemberApp() {
     )
   }
 
-  if (!onboarding) return <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
-  if (onboarding.required && !onboarding.completed) return <Onboarding client={client} initial={onboarding} onCompleted={() => { window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
-
   return (
+    <GameConsoleProvider key={session.user.user_id} client={client} userId={session.user.user_id} feedEnabled={Boolean(onboarding&&(!onboarding.required||onboarding.completed))} standalone={!onboarding||onboarding.required&&!onboarding.completed}>
+    {!onboarding ? <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
+    : onboarding.required && !onboarding.completed ? exploring&&!onboardingStarted(session.user.user_id)
+      ? <WelcomePreview client={client} name={session.user.display_name} onStart={()=>{rememberOnboarding(session.user.user_id,true);setExploring(false)}} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
+      : <Onboarding client={client} initial={onboarding} profileName={session.user.display_name} onExplore={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}} onCompleted={() => { rememberOnboarding(session.user.user_id,false);window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
+    : <>
     <GitHubSocialProvider client={client} session={session}><DevelopmentAccessProvider client={client} session={session}>
     <Workspace
       site={site}
@@ -229,6 +278,8 @@ function MemberApp() {
       onSessionExpired={() => toLogin('登入已過期，請重新登入。')}
     />
     </DevelopmentAccessProvider></GitHubSocialProvider>
+    </>}
+    </GameConsoleProvider>
   )
 }
 
@@ -286,6 +337,7 @@ function LoginView({
       <section className="login-story"><BrandPoster/><div className="login-story-copy"><h1>完成定位、加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。</h1></div></section>
       <div className="login-form-area">
       <section className="card login-card" aria-labelledby="login-heading">
+        <div className="login-page-tools"><PageTools pageId="registration"/></div>
         {!accessExpired && <div className="auth-switch" role="group" aria-label="登入或建立帳號"><button type="button" className={mode==='login'?'selected':''} aria-pressed={mode==='login'} onClick={()=>{setMode('login');setError(null)}}>會員登入</button>{site?.registration_enabled&&<button type="button" className={mode==='register'?'selected':''} aria-pressed={mode==='register'} onClick={()=>{setMode('register');setError(null)}}>建立帳號</button>}</div>}
         <h2 id="login-heading">{accessExpired ? '網站登入已過期' : mode==='register'?'加入自由工坊':'登入'}</h2>
         {notice && !accessExpired && (
@@ -325,9 +377,9 @@ function LoginView({
               disabled={pending}
             />
           </label>
-          {mode==='register'&&<><p className="field-hint">密碼至少 12 個字元。請妥善保存，目前無法用 E-mail 找回密碼。</p><p className="field-hint">Email 同時用於登入與聯絡，預設不公開。之後可在「我的名片」調整。</p></>}
+          {mode==='register'&&<><p className="field-hint">只要名稱、Email 和密碼就能建立帳號。建立後可以先逛活動、任務與免費資源，再分段完成定位。</p><p className="field-hint">密碼至少 12 個字元。請妥善保存，目前無法用 E-mail 找回密碼。Email 預設不公開。</p></>}
           <button className="btn btn-primary" type="submit" disabled={pending} aria-busy={pending}>
-            {pending ? (mode==='register'?'建立帳號中…':'登入中…') : (mode==='register'?'註冊並開始定位':'登入')}
+            {pending ? (mode==='register'?'建立帳號中…':'登入中…') : (mode==='register'?'建立帳號，先逛工坊':'登入')}
           </button>
         </form>}
         {!accessExpired && site?.demo_accounts_enabled&&mode==='login'&&<aside className="help-box" aria-label="示範帳號">
@@ -353,7 +405,6 @@ function LoginView({
           </div>
         </aside>}
       </section></div>
-      <DevelopmentContext moduleId="registration"/>
       <CommunityLinks/>
     </main>
   )
@@ -392,6 +443,7 @@ function Workspace({
   useEffect(() => {
     if (previousTab.current === tab) return
     previousTab.current = tab
+    logConsoleEvent({channel:'guide',kind:'guide',source:'導覽',message:`已進入「${tabTitle(tab)}」。${TAB_GUIDANCE[tab]}`})
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
     mainContent.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
@@ -497,7 +549,8 @@ function Workspace({
               <div>
                 <h1>{tabTitle(tab)}</h1>
               </div>
-              <div className="topbar-actions"><SettingsMenu client={client} current={tab} onSelect={selectTab} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>}/><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
+              <PageTools pageId={tab} client={client}/>
+              <div className="topbar-actions"><NotificationBell client={client} onOpen={()=>selectTab('messages')}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>}/><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
                 登出
               </button></div>
             </header>
@@ -513,6 +566,8 @@ function Workspace({
             {tab === 'members' && <MembersPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'cocreation' && <CoCreationPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'community' && <CommunityPanel client={client} onNavigate={selectTab} />}
+            {tab === 'events' && <EventsPanel client={client} session={session} />}
+            {tab === 'tasks' && <TaskBoardPanel client={client} onNavigate={selectTab} />}
             {tab === 'skills' && <SkillsPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'squads' && <SquadsPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'workbench' && <WorkbenchPanel />}
@@ -526,7 +581,6 @@ function Workspace({
             {tab === 'retail' && <RetailPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'opensource' && <OpenSourcePanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'marketing' && <MarketingPanel client={client} session={session} onNavigate={selectTab} />}
-            <DevelopmentContext moduleId={tab}/>
           </main>
         </div>
       </div>

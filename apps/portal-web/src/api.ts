@@ -1,4 +1,5 @@
 import { accessAwareFetch, expiredAccessStatus, isExpiredAccessResponse, MEMBER_ACCESS_EXPIRED_MESSAGE } from './access-fetch'
+import { logConsoleEvent } from './game-console-core'
 import type { ProblemDetails, SessionPayload } from './types'
 
 const API_BASE = '/api/v1'
@@ -52,6 +53,8 @@ export type RequestOptions = {
   idempotencyKey?: string
   ifMatch?: number
   skipAuthHandler?: boolean
+  background?: boolean
+  suppressConsole?: boolean
 }
 
 function quoteEtag(version: number): string {
@@ -95,7 +98,16 @@ export class PortalClient {
 
   constructor(private readonly options: {timeoutMs?: number} = {}) {}
 
-  async get<T>(path: string, options: { skipAuthHandler?: boolean } = {}): Promise<T> {
+  /** Best-effort diagnostic metadata only; this path never logs its own failure. */
+  reportError(action:string,errorCode:string,httpStatus?:number):void {
+    if(typeof window==='undefined'||!this.csrfToken)return
+    const safeAction=action.split('?')[0].replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi,':id').replace(/\/\d+(?=\/|$)/g,'/:number').replace(/%[0-9a-f]{2}/gi,'_').slice(0,120)
+    const code=/^[a-zA-Z0-9_:-]{1,80}$/.test(errorCode)?errorCode:'client_error'
+    if(!/^(GET|POST|PUT|PATCH|DELETE|UI) \/[a-zA-Z0-9_/:.#-]*$/.test(safeAction))return
+    void fetch(`${API_BASE}/me/client-errors`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':this.csrfToken,'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({action:safeAction,error_code:code,...(httpStatus!==undefined?{http_status:httpStatus}:{})})}).catch(()=>{})
+  }
+
+  async get<T>(path: string, options: { skipAuthHandler?: boolean; background?: boolean } = {}): Promise<T> {
     return this.request<T>('GET', path, options)
   }
 
@@ -203,8 +215,13 @@ export class PortalClient {
     }
     try { return await Promise.race([operation(), timeout]) }
     catch (cause) {
-      if (cause instanceof ApiError) throw cause
-      throw new ApiError({message:'無法連線到伺服器，尚未確認結果。請確認網路後重試。', status: response?.status, cfRay:cloudflareRay(response), requestId:requestId(response), network:true})
+      const failure = cause instanceof ApiError ? cause : new ApiError({message:'無法連線到伺服器，尚未確認結果。請確認網路後重試。', status: response?.status, cfRay:cloudflareRay(response), requestId:requestId(response), network:true})
+      if(!options.background&&!options.suppressConsole)logConsoleEvent({
+        channel:'system', level:failure.status>=500||failure.network?'error':'warning', kind:'status', source:'介面錯誤', message:failure.message,
+        detail:`${method} ${path.split('?')[0]}${failure.code?` · ${failure.code}`:''}`,
+      })
+      if(!options.background&&path!=='/me/client-errors'&&!failure.accessExpired&&failure.status!==401)this.reportError(`${method} ${path}`,failure.code??(failure.network?'network_error':`http_${failure.status}`),failure.status)
+      throw failure
     } finally { clearTimeout(timer) }
   }
 

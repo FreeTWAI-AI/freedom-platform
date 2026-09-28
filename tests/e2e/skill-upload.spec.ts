@@ -111,7 +111,7 @@ test('skill shelf issues a private scoped Agent instruction only on request and 
   await dialog.getByRole('button', { name: '複製', exact: true }).click();
   await expect(dialog.getByText('已複製，只貼給你選擇的 Agent。', { exact: true })).toBeVisible();
   const clipboard = await page.evaluate(() => navigator.clipboard.readText());
-  expect(clipboard).toBe(text);
+  expect(clipboard.replace(/\r\n/g, '\n')).toBe(text.replace(/\r\n/g, '\n'));
   for (const cookie of await context.cookies()) expect(clipboard).not.toContain(cookie.value);
   expect(clipboard).not.toMatch(/^cookie:/im);
   await expectNoStoredSecret(page, GRANT);

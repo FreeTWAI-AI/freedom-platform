@@ -241,7 +241,7 @@ test('admin nav group labels keep one line above their wrapped buttons on a phon
     await page.setViewportSize(size);
     await page.goto('/admin');
     await expect(page.getByRole('heading', { name: '會員管理', exact: true })).toBeVisible();
-    for (const name of ['人員與權限', '公會', '系統']) {
+    for (const name of ['人員與權限', '公會與活動', '系統']) {
       const group = page.getByRole('group', { name, exact: true });
       const label = group.locator('.admin-nav-label'), buttons = group.getByRole('button');
       const box = (await label.boundingBox())!, fontSize = await label.evaluate(el => parseFloat(getComputedStyle(el).fontSize)), lineHeight = await label.evaluate(el => parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize) * 1.6);

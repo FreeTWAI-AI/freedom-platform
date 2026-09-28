@@ -79,7 +79,7 @@ async function removeOwned(db:Pool,own:Owned){
     await q('DELETE FROM platform_admins WHERE admin_id=ANY($1::uuid[])',[admins]);
     await q('DELETE FROM outbox WHERE transition_id IN (SELECT transition_id FROM transition_journal WHERE actor_ref=ANY($1::uuid[]))',[users]);
     await q('DELETE FROM transition_journal WHERE actor_ref=ANY($1::uuid[])',[users]);
-    for(const table of ['command_receipts','sessions'])await q(`DELETE FROM ${table} WHERE user_id=ANY($1::uuid[])`,[users]);
+    for(const table of ['member_client_errors','command_receipts','sessions'])await q(`DELETE FROM ${table} WHERE user_id=ANY($1::uuid[])`,[users]);
     await q('DELETE FROM users WHERE user_id=ANY($1::uuid[])',[users]);
     await client.query('COMMIT');
     for(const [sql,values] of [['positioning_guild_catalog WHERE guild_key=ANY($1::text[])',[guilds]],['guild_creation_applications WHERE application_id=ANY($1::uuid[])',[applications]],
@@ -133,12 +133,8 @@ const cursor=async(db:Pool,m:Member,kind:Kind,key:string)=>(await db.query('SELE
 const count=async(db:Pool,sql:string,values:unknown[]=[])=>(await db.query(`SELECT count(*)::int AS n FROM ${sql}`,values)).rows[0].n as number;
 
 const settings=(page:Page)=>page.getByRole('button',{name:'設定',exact:true});
-async function menuUnread(page:Page){
-  await settings(page).click();const text=(await page.getByRole('menuitem',{name:'我的訊息',exact:true}).textContent())??'';
-  await page.keyboard.press('Escape');return text;
-}
 async function openMessages(page:Page){
-  await settings(page).click();await page.getByRole('menuitem',{name:'我的訊息',exact:true}).click();await expect(page).toHaveURL(/#messages$/);
+  await page.getByRole('button',{name:/^通知/}).click();await page.getByRole('button',{name:'查看所有通知與訊息'}).click();await expect(page).toHaveURL(/#messages$/);
 }
 const tab=(page:Page,name:string)=>page.getByRole('tab',{name:new RegExp(`^${name}`)});
 const panel=(page:Page,name:string)=>page.getByRole('tabpanel',{name:new RegExp(`^${name}`)});
@@ -180,7 +176,6 @@ test('two synthetic members chat in their own guild and squad through the real U
 
     // Four tabs in order; opening a chat tab lists channels only - no history GET, no read.
     for(const m of [sender,receiver,third])await openMessages(m.page);
-    // Opening the menu re-read the sender's real total: 0, so no dot before the first send.
     await expect(settings(sender.page)).toHaveAttribute('aria-expanded','false');await expect(settings(sender.page).locator('.settings-dot')).toHaveCount(0);
     await expect(receiver.page.getByRole('tab')).toHaveText([/^通知/,/^公會閒聊/,/^小隊閒聊/,/^私人訊息/]);
     for(const kind of ['guild','squad'] as const){
@@ -210,7 +205,7 @@ test('two synthetic members chat in their own guild and squad through the real U
       // The receiver's list re-reads on focus: 0 → 1, and the tab badge follows the real total.
       await r.evaluate(()=>window.dispatchEvent(new Event('focus')));
       await expect(channelButton(r,kind,key).locator('.messages-count')).toHaveText('1 則未讀');await expect(tab(r,label)).toContainText('1 則未讀');
-      expect(receiver.channelRequests.some(entry=>entry.includes(`/me/channels/${kind}/`)),'still no history read before picking').toBe(false);
+      expect(receiver.channelRequests.filter(entry=>entry.includes(`/me/channels/${kind}/`)).every(entry=>entry.startsWith('GET ')),'console preview only reads history before picking').toBe(true);
       await channelButton(r,kind,key).click();
       const rThread=thread(r,kind);await expect(rThread.getByRole('heading',{name:`${name}・${label}`})).toBeFocused();
       await expect(rThread.locator(`li[data-message-id="${rows[0].message_id}"] .messages-body`)).toHaveText(text);
@@ -230,7 +225,8 @@ test('two synthetic members chat in their own guild and squad through the real U
       expect(await receiver.unread(`/me/channels?kind=${kind}&limit=1&offset=0`)).toBe(0);
       expect(await receiver.unread('/me/conversations?limit=1&offset=0')).toBe(1);expect(await receiver.unread('/me/notifications?limit=1&offset=0')).toBe(1);
       await expect(tab(r,'私人訊息')).toContainText('1 則未讀');await expect(tab(r,'通知')).toContainText('1 則未讀');
-      await expect.poll(()=>menuUnread(r)).toBe('我的訊息2 則未讀');
+      await expect(tab(r,'私人訊息')).toContainText('1 則未讀');
+      await expect(tab(r,'通知')).toContainText('1 則未讀');
 
       // The receiver answers from 320px; the sender sees it after a manual re-read.
       const reply=`${kind} 回覆 <i>純文字</i> ${run}`;
@@ -246,8 +242,8 @@ test('two synthetic members chat in their own guild and squad through the real U
       expect(await sender.unread(`/me/channels?kind=${kind}&limit=1&offset=0`)).toBe(1);
       // The manual re-read alone moves the room tab and this exact channel's list badge to 1 ...
       await expect(tab(s,label).locator('.messages-count')).toHaveText('1 則未讀');await expect(channelButton(s,kind,key).locator('.messages-count')).toHaveText('1 則未讀');
-      // ... and the global settings dot, with the menu never opened and no focus event on the sender page.
-      if(kind==='guild'){await expect(settings(s)).toHaveAttribute('aria-expanded','false');await expect(settings(s).locator('.settings-dot')).toBeVisible();}
+      // The profile menu stays closed; the channel badge is the relevant unread indicator.
+      if(kind==='guild')await expect(settings(s)).toHaveAttribute('aria-expanded','false');
       expect(await count(db,'member_channel_messages WHERE kind=$1 AND channel_key=$2',[kind,key])).toBe(2);
       await noOverflow(r);
       await shot(r,`${kind}-320`);await shot(s,`${kind}-desktop`);

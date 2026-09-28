@@ -7,7 +7,12 @@ import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const temporary=await mkdtemp(resolve(tmpdir(),'freedom-skill-package-'));
 try{
-  const result=JSON.parse(execFileSync('npm',['pack','--json','--ignore-scripts','--pack-destination',temporary],{cwd:resolve(root,'packages/skill-upload-client'),encoding:'utf8'}));
+  // npm run supplies npm_execpath; launch its JS entry through the current Node
+  // runtime so Windows does not need to spawn npm.cmd through a shell.
+  const npmCli=process.env.npm_execpath;
+  const result=JSON.parse(execFileSync(npmCli?process.execPath:'npm',[
+    ...(npmCli?[npmCli]:[]),'pack','--json','--ignore-scripts','--pack-destination',temporary,
+  ],{cwd:resolve(root,'packages/skill-upload-client'),encoding:'utf8'}));
   if(result.length!==1||!/^[a-zA-Z0-9._-]+\.tgz$/.test(result[0].filename))throw new Error('Unexpected skill client package');
   const target=resolve(root,'apps/portal-web/public/downloads');await mkdir(target,{recursive:true});
   await copyFile(resolve(temporary,result[0].filename),resolve(target,'freedom-skill-client.tgz'));

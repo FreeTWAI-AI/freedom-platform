@@ -79,7 +79,6 @@
   .login-story .brand-poster { order: 0; }
   .login-form-area { order: 1; }
   .login-story-copy { order: 2; }
-  .login-layout > .development-context { order: 3; }
   .login-layout > .community-footer { order: 4; }
   .login-story-copy h1 { font-size: 1.1rem; }
 }

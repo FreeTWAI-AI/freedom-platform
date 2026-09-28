@@ -42,6 +42,17 @@ export async function guildWorkspace(pool:Pool,actor:Actor){return transaction(p
  return {managed_guilds:guilds,managed_books:eligible?appointed:[],can_discuss:guilds.length>0,
   skill_editor_access:{appointed_books:appointed.length,eligible,requires_development_guild:appointed.length>0&&!eligible,active_guilds:development,required_guilds:required}};});}
 export async function guildAnnouncements(pool:Pool,actor:Actor,key:string){return transaction(pool,async q=>{await activeMember(q,actor);await guildMembership(q,actor,key);const isLeader=(await managedGuilds(q,actor)).some(g=>g.guild_key===key);return {items:(await q.query("SELECT * FROM guild_announcements WHERE community_id=$1 AND guild_key=$2 AND ($3 OR state='published') ORDER BY created_at DESC,announcement_id LIMIT 100",[actor.community_id,key,isLeader])).rows.map(announcement),can_publish:isLeader};});}
+/** One bounded stream for the member's current guilds; drafts and former memberships stay private. */
+export async function memberGuildAnnouncementFeed(pool:Pool,actor:Actor){return transaction(pool,async q=>{
+ await activeMember(q,actor);
+ const rows=(await q.query(`SELECT a.announcement_id,a.title,a.body,a.updated_at,g.name AS guild_name
+   FROM guild_announcements a
+   JOIN positioning_profession_memberships m ON m.community_id=a.community_id AND m.guild_key=a.guild_key AND m.user_id=$2 AND m.state='active'
+   JOIN positioning_guild_catalog g ON g.guild_key=a.guild_key
+   WHERE a.community_id=$1 AND a.state='published'
+   ORDER BY a.updated_at DESC,a.announcement_id DESC LIMIT 50 FOR SHARE OF m`,[actor.community_id,actor.user_id])).rows;
+ return {items:rows.map(row=>({announcement_id:row.announcement_id,title:row.title,body:row.body,guild_name:row.guild_name,updated_at:new Date(row.updated_at).toISOString()}))};
+});}
 export async function createGuildAnnouncement(pool:Pool,input:Command,key:string){const body=announcementInput.parse(input.body);requireCondition(body.state!=='archived',422,'announcement_state_invalid','新公告請選草稿或發布。');return command(pool,input,q=>leader(q,input.actor,key),async q=>{const row=(await q.query('INSERT INTO guild_announcements(announcement_id,community_id,guild_key,author_user_id,title,body,state) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',[randomUUID(),input.actor.community_id,key,input.actor.user_id,body.title,body.body,body.state])).rows[0];return announcement(row);});}
 export async function editGuildAnnouncement(pool:Pool,input:Command,announcementId:string){z.uuid().parse(announcementId);const body=announcementInput.parse(input.body);const scoped=async(q:PoolClient,lock=false)=>{const row=(await q.query(`SELECT * FROM guild_announcements WHERE community_id=$1 AND announcement_id=$2${lock?' FOR UPDATE':''}`,[input.actor.community_id,announcementId])).rows[0];requireCondition(row,404,'announcement_not_found','找不到這則公告。');return row;};return command(pool,input,async q=>{const row=await scoped(q);await leader(q,input.actor,row.guild_key);},async q=>{const prior=await scoped(q,true);checkVersion(prior.aggregate_version,input.expected);return announcement((await q.query('UPDATE guild_announcements SET title=$2,body=$3,state=$4,aggregate_version=aggregate_version+1,updated_at=now() WHERE announcement_id=$1 RETURNING *',[announcementId,body.title,body.body,body.state])).rows[0]);});}
 

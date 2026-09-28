@@ -1,0 +1,58 @@
+/* Original storybook artwork and colors, drawn for the Freedom Workshop theme. */
+html[data-theme="versefolk"] {
+  --bg:#f8f2e8;
+  --bg-elev:#fffaf1;
+  --ink:#392f2c;
+  --muted:#6d6058;
+  --line:#dac9b9;
+  --green:#b9cf85;
+  --green-2:#9dbb68;
+  --green-soft:#edf3db;
+  --navy:#eee6dc;
+  --navy-2:#fffaf1;
+  --blue:#6d7897;
+  --blue-ink:#485e76;
+  --danger:#a3434d;
+  --danger-bg:#fff0ed;
+  --info-bg:#eef0e9;
+  --focus:#654c8c;
+  color-scheme:light;
+}
+html[data-theme="versefolk"] body,
+html[data-theme="versefolk"] .app-frame {background:var(--bg);color:var(--ink)}
+html[data-theme="versefolk"] .main {background:var(--bg);border-color:var(--line)}
+html[data-theme="versefolk"] .sidebar,
+html[data-theme="versefolk"] .card,
+html[data-theme="versefolk"] .login-card,
+html[data-theme="versefolk"] .empty {background:var(--bg-elev);border-color:var(--line);box-shadow:0 5px 18px #68564212}
+html[data-theme="versefolk"] .nav-item.is-active,
+html[data-theme="versefolk"] .messages-tabs [aria-selected=true] {background:var(--green-soft);color:#384c25;border-color:#9bb378}
+html[data-theme="versefolk"] .btn-primary {background:var(--green);border-color:#87a357;color:#26351b}
+html[data-theme="versefolk"] .btn-ghost,
+html[data-theme="versefolk"] .settings-menu-list,
+html[data-theme="versefolk"] .messages-peer,
+html[data-theme="versefolk"] .messages-list>li,
+html[data-theme="versefolk"] .messages-thread {background:var(--bg-elev);color:var(--ink);border-color:var(--line)}
+html[data-theme="versefolk"] .messages-bubbles>li {background:#f1e9dc;color:var(--ink)}
+html[data-theme="versefolk"] .messages-bubbles>li.is-mine {background:var(--green-soft)}
+html[data-theme="versefolk"] .welcome-hero,
+html[data-theme="versefolk"] .experience-intro {background:var(--bg-elev);border-color:var(--line);border-radius:20px}
+html[data-theme="versefolk"] .welcome-hero{position:relative;isolation:isolate;overflow:hidden;min-height:260px;justify-content:center}
+html[data-theme="versefolk"] .welcome-hero::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#fffaf1 0%,#fffaf1f5 37%,#fffaf1cf 55%,#fffaf100 88%),url('/art/versefolk-workshop.webp') right center/cover no-repeat}
+html[data-theme="versefolk"] .welcome-hero h1,html[data-theme="versefolk"] .welcome-hero p{max-width:52ch}
+html[data-theme="versefolk"] .experience-intro{background:linear-gradient(95deg,#fffaf1 0%,#fffaf1f2 68%,#fffaf1b0 100%),url('/art/versefolk-workshop.webp') right 60%/cover no-repeat}
+@media(max-width:700px){html[data-theme="versefolk"] .welcome-hero::before{background:linear-gradient(90deg,#fffaf1f7 0%,#fffaf1e8 100%),url('/art/versefolk-workshop.webp') center/cover no-repeat}}
+/* The Freedom Workshop logo remains original; contextual RPG illustrations get cute storybook counterparts. */
+html[data-theme="versefolk"] .freedom-home .guild-base-hero{background:#fffaf1 url('/art/versefolk-workshop.webp') right 57%/cover no-repeat;border-color:var(--line)}
+html[data-theme="versefolk"] .freedom-home .guild-base-art{opacity:0}
+html[data-theme="versefolk"] .freedom-home .guild-base-hero::after{background:linear-gradient(90deg,#fffaf1 0%,#fffaf1f0 42%,#fffaf100 100%)}
+html[data-theme="versefolk"] .freedom-home .home-module-cover{background-position:center;background-size:cover}
+html[data-theme="versefolk"] .freedom-home .home-module-cover img{opacity:0}
+html[data-theme="versefolk"] .freedom-home .home-module-supplier .home-module-cover,
+html[data-theme="versefolk"] .freedom-home .home-module-retail .home-module-cover{background-image:url('/art/versefolk-market.webp')}
+html[data-theme="versefolk"] .freedom-home .home-module-opensource .home-module-cover{background-image:url('/art/versefolk-cooperation.webp')}
+html[data-theme="versefolk"] .freedom-home .home-module-marketing .home-module-cover{background-image:url('/art/versefolk-marketing.webp')}
+html[data-theme="versefolk"] .community-library-heading img{content:url('/art/versefolk-library.webp')}
+html[data-theme="versefolk"] .welcome-preview-grid .card,
+html[data-theme="versefolk"] .experience-card {border-radius:18px}
+html[data-theme="versefolk"] :is(button,a,input,select,textarea,summary):focus-visible {outline:2px solid var(--focus);outline-offset:2px}
