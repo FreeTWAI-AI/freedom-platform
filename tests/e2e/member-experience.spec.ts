@@ -97,6 +97,34 @@ test('completed member submits an event and sees accepted-work facts without pro
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
+test('task board explains unavailable and stale GitHub reads without claiming there are no issues',async({page})=>{
+  let stale=false;
+  await page.route('**/api/v1/co-creation/projects/workshop-video-autopilot/activity',route=>route.fulfill(stale
+    ?{status:200,contentType:'application/json',body:JSON.stringify({repository_url:'https://github.com/FreeTWAI-AI/video-autopilot-kit',checked_at:'2026-09-27T12:00:00Z',issues:[],contributions:[],truncated:false,stale_reason:'github_rate_limited'})}
+    :{status:200,contentType:'application/json',body:JSON.stringify({repository_url:'https://github.com/FreeTWAI-AI/video-autopilot-kit',checked_at:'2026-09-28T00:00:00Z',issues:[],contributions:[],truncated:false,unavailable_reason:'github_rate_limited'})}));
+  await page.goto('/');
+  await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
+  await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
+  await page.getByRole('button',{name:'登入',exact:true}).click();
+  await navigate(page,'社群任務榜');
+  const picker=page.getByLabel('選擇共創專案');
+  await picker.selectOption('workshop-video-autopilot');
+  await expect(page.getByRole('status').filter({hasText:'GitHub 暫時限制查詢'})).toContainText('無法確認任務清單');
+  await expect(page.getByText('這個專案目前沒有符合搜尋的開放 Issue。')).toHaveCount(0);
+  await expect(page.locator('.game-console-ticker')).not.toContainText('服務暫時無法回應');
+  const repo=page.getByRole('link',{name:'查看完整 GitHub 專案 ↗'});
+  await expect(repo).toHaveAttribute('href','https://github.com/FreeTWAI-AI/video-autopilot-kit');
+  await page.screenshot({path:'test-results/task-board-github-rate-limit-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/task-board-github-rate-limit-mobile.png',fullPage:true});
+  stale=true;
+  await picker.selectOption('');
+  await picker.selectOption('workshop-video-autopilot');
+  await expect(page.getByRole('status').filter({hasText:'GitHub 暫時限制查詢'})).toContainText('以下是');
+  await expect(repo).toHaveAttribute('href','https://github.com/FreeTWAI-AI/video-autopilot-kit');
+});
+
 test('story theme keeps the workshop controls and cute artwork usable on a narrow phone',async({page})=>{
   await page.setViewportSize({width:320,height:720});await page.goto('/');
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');

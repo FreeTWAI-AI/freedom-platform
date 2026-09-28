@@ -185,7 +185,8 @@ export async function changeFriendship(pool:Pool,input:Command,id:string,action:
   });
 }
 
-const SquadInput=z.object({name:z.string().trim().min(1).max(80),kind:z.enum(['project','mutual_help']),purpose:z.string().trim().min(1).max(800)}).strict();
+const channelName=z.string().trim().max(100).refine(value=>!/[\x00-\x1f\x7f]/.test(value),'請輸入頻道名稱，不要加入換行或控制字元。');
+const SquadInput=z.object({name:z.string().trim().min(1).max(80),kind:z.enum(['project','mutual_help','coaching']),purpose:z.string().trim().min(1).max(800),communication_channel_name:channelName.default('')}).strict();
 async function squadExists(q:Pool|PoolClient,actor:Actor,id:string) {
   z.uuid().parse(id);const row=(await q.query('SELECT * FROM member_squads WHERE squad_id=$1 AND community_id=$2',[id,actor.community_id])).rows[0];
   requireCondition(row,404,'squad_not_found','找不到這個小隊。');return row;
@@ -196,7 +197,7 @@ export async function listSquads(pool:Pool,actor:Actor,limit:number,offset:numbe
     CASE WHEN m.user_id IS NULL THEN NULL ELSE jsonb_build_object('state',m.state,'aggregate_version',m.aggregate_version) END AS membership
     FROM member_squads s JOIN users u ON u.user_id=s.owner_ref LEFT JOIN member_squad_memberships m ON m.squad_id=s.squad_id AND m.user_id=$2
     WHERE s.community_id=$1 AND u.active ORDER BY s.created_at,s.squad_id LIMIT $3 OFFSET $4`,[actor.community_id,actor.user_id,limit+1,offset])).rows;
-  return {items:rows.slice(0,limit),next_offset:rows.length>limit?offset+limit:null,kinds:[{key:'project',name:'專案小隊（跨職能協作）'},{key:'mutual_help',name:'共同目標互助小隊'}]};
+  return {items:rows.slice(0,limit),next_offset:rows.length>limit?offset+limit:null,kinds:[{key:'project',name:'專案小隊（跨職能協作）'},{key:'mutual_help',name:'共同目標互助小隊'},{key:'coaching',name:'陪跑小隊'}]};
 }
 export async function squadView(pool:Pool,actor:Actor,id:string) {
   const squad=await squadExists(pool,actor,id);
@@ -211,9 +212,23 @@ export async function createSquad(pool:Pool,input:Command) {
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`squad-create/${input.actor.user_id}`]);
     const count=(await q.query('SELECT count(*)::int AS n FROM member_squads WHERE owner_ref=$1 AND community_id=$2',[input.actor.user_id,input.actor.community_id])).rows[0].n;
     requireCondition(count<10,409,'squad_limit','每人最多先建立 10 個小隊。');
-    const squad=(await q.query(`INSERT INTO member_squads(squad_id,community_id,name,kind,purpose,owner_ref) VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,[randomUUID(),input.actor.community_id,body.name,body.kind,body.purpose,input.actor.user_id])).rows[0];
+    const squad=(await q.query(`INSERT INTO member_squads(squad_id,community_id,name,kind,purpose,owner_ref,communication_channel_name) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,[randomUUID(),input.actor.community_id,body.name,body.kind,body.purpose,input.actor.user_id,body.communication_channel_name])).rows[0];
     await q.query(`INSERT INTO member_squad_memberships(squad_id,user_id,state) VALUES($1,$2,'active')`,[squad.squad_id,input.actor.user_id]);
     await journal(q,input.actor,'member_squad',squad.squad_id,1,'create_squad',{kind:body.kind});return squad;
+  });
+}
+export async function updateSquadChannel(pool:Pool,input:Command,id:string) {
+  id=z.uuid().parse(id).toLowerCase();
+  const body=z.object({communication_channel_name:channelName}).strict().parse(input.body);
+  return command(pool,input,async q=>{
+    const squad=await squadExists(q,input.actor,id);
+    requireCondition(squad.owner_ref===input.actor.user_id,403,'squad_owner_required','只有隊主可以設定小隊溝通頻道。');
+  },async q=>{
+    const squad=(await q.query('SELECT * FROM member_squads WHERE squad_id=$1 AND community_id=$2 FOR UPDATE',[id,input.actor.community_id])).rows[0];
+    checkVersion(String(squad.aggregate_version),input.expected);
+    const updated=(await q.query(`UPDATE member_squads SET communication_channel_name=$2,aggregate_version=aggregate_version+1 WHERE squad_id=$1 RETURNING squad_id,communication_channel_name,aggregate_version`,[id,body.communication_channel_name])).rows[0];
+    await journal(q,input.actor,'member_squad',id,updated.aggregate_version,'update_squad_channel',{});
+    return updated;
   });
 }
 export async function changeSquadMembership(pool:Pool,input:Command,id:string,action:'request'|'accept'|'leave',targetId=input.actor.user_id) {

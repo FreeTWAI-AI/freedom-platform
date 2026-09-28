@@ -23,10 +23,10 @@ const repoSchema=z.object({id:z.number().int().positive().max(Number.MAX_SAFE_IN
 const commitSchema=z.object({sha:z.string().regex(/^[a-f0-9]{40}$/)});
 const licenseSchema=z.object({license:z.object({spdx_id:z.string().min(1).max(100)}).nullable(),path:z.string().min(1).max(500)});
 
-export async function publicJson(path:string,signal:AbortSignal,fetcher:typeof fetch,missingLicense=false,maxBytes=196608):Promise<unknown> {
+export async function publicJson(path:string,signal:AbortSignal,fetcher:typeof fetch,missingLicense=false,maxBytes=196608,token?:string):Promise<unknown> {
   let response:Response;
   try {
-    response=await fetcher(`https://api.github.com${path}`,{headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'Freedom-Platform-public-registry'},redirect:'manual',signal});
+    response=await fetcher(`https://api.github.com${path}`,{headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'Freedom-Platform-public-registry',...(token?{Authorization:`Bearer ${token}`}:{})},redirect:'manual',signal});
     if(response.type==='opaqueredirect'||(response.status>=300&&response.status<400))throw Error('redirect');
   } catch { throw new Problem(503,'github_unavailable','暫時無法讀取 GitHub，已保留原本資料。請稍後重新嘗試。'); }
   if(response.status===404 && missingLicense)return null;

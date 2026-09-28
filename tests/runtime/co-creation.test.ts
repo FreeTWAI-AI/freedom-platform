@@ -172,20 +172,72 @@ test('private, archived and replaced GitHub repositories fail before task or con
  await assert.rejects(()=>new CollaborationGitHub(fetcher).read({...readerRepo,repository_full_name:'example/different'}),errorCode('repository_identity_changed'));assert.equal(seen.length,0);
 });
 
-test('redirect, oversized, rate-limited and malformed GitHub responses never become verified activity',async()=>{
- for(const [status,code] of [[302,'github_unavailable'],[429,'github_rate_limited'],[403,'github_rate_limited']] as const){const {state,fetcher,seen}=upstream();state.status=status;await assert.rejects(()=>new CollaborationGitHub(fetcher).read(readerRepo),errorCode(code));if(status===302)assert.deepEqual(seen.map(call=>call.url),['https://api.github.com/repos/example/shared-project']);}
+test('redirect, oversized and malformed GitHub responses never become verified activity',async()=>{
+ const {state,fetcher,seen}=upstream();state.status=302;await assert.rejects(()=>new CollaborationGitHub(fetcher).read(readerRepo),errorCode('github_unavailable'));assert.deepEqual(seen.map(call=>call.url),['https://api.github.com/repos/example/shared-project']);
  const oversized=upstream();oversized.state.oversize='/issues?';await assert.rejects(()=>new CollaborationGitHub(oversized.fetcher).read(readerRepo),errorCode('github_response_too_large'));
  const invalid=upstream();invalid.state.pulls=[{...mergedPull(),merge_commit_sha:'javascript:forged'}];await assert.rejects(()=>new CollaborationGitHub(invalid.fetcher).read(readerRepo),errorCode('github_invalid_response'));
  await assert.rejects(()=>new CollaborationGitHub(async()=>{throw Error('network timeout');}).read(readerRepo),errorCode('github_unavailable'));
 });
 
-test('concurrent activity reads coalesce, cache expires, and failed refresh cannot return stale successful evidence',async()=>{
+test('a cold rate limit returns an explicitly unavailable list and retries after its short backoff',async()=>{
+ for(const status of [403,429]){
+  const {state,fetcher,seen}=upstream();let now=Date.parse('2026-09-28T00:00:00Z');state.status=status;
+  const reader=new CollaborationGitHub(fetcher,()=>now),unavailable=await reader.read(readerRepo);
+  assert.equal(unavailable.unavailable_reason,'github_rate_limited');assert.deepEqual(unavailable.issues,[]);assert.equal(unavailable.stale_reason,undefined);
+  assert.equal(seen.length,1);assert.deepEqual(await reader.read(readerRepo),unavailable);assert.equal(seen.length,1);
+  now+=60001;state.status=200;const fresh=await reader.read(readerRepo);
+  assert.equal(fresh.unavailable_reason,undefined);assert.equal(fresh.issues.length,1);assert.equal(seen.length,4);
+ }
+});
+
+test('a signed-in member gets an honest 200 fallback when GitHub is rate limited before any snapshot exists',async t=>{
+ const fixture=upstream(t);fixture.state.status=403;
+ const member=await login();
+ const response=await request('/co-creation/projects/workshop-video-autopilot/activity',member);
+ assert.equal(response.status,200);
+ assert.equal(response.data.unavailable_reason,'github_rate_limited');
+ assert.deepEqual(response.data.issues,[]);
+ assert.equal(fixture.seen.length,1);
+});
+
+test('concurrent activity reads coalesce, cache expires, and rate limits return marked last-good data',async()=>{
  const fixture=upstream();let now=Date.parse('2026-09-24T02:00:00Z'),release!:()=>void;
  fixture.state.delay=new Promise<void>(resolve=>{release=resolve;});const reader=new CollaborationGitHub(fixture.fetcher,()=>now);
  const reads=[reader.read(readerRepo),reader.read(readerRepo),reader.read(readerRepo)];release();const results=await Promise.all(reads);
  assert.equal(fixture.seen.length,3);assert.deepEqual(results[0],results[1]);assert.deepEqual(await reader.read(readerRepo),results[0]);assert.equal(fixture.seen.length,3);
- now+=600001;fixture.state.status=429;await assert.rejects(()=>reader.read(readerRepo),errorCode('github_rate_limited'));
- fixture.state.status=200;fixture.state.pulls=[];const fresh=await reader.read(readerRepo);assert.deepEqual(fresh.contributions,[]);assert.notEqual(fresh.checked_at,results[0].checked_at);
+ now+=600001;fixture.state.status=429;const stale=await reader.read(readerRepo);
+ assert.equal(stale.stale_reason,'github_rate_limited');assert.equal(stale.checked_at,results[0].checked_at);assert.equal(fixture.seen.length,4);
+ assert.deepEqual(await reader.read(readerRepo),stale);assert.equal(fixture.seen.length,4,'rate-limit retry backs off across selections');
+ assert.match((await reader.brief(readerRepo,7)).text,/上次讀取的內容/);assert.equal(fixture.seen.length,4);
+ now+=60001;fixture.state.status=200;fixture.state.pulls=[];const fresh=await reader.read(readerRepo);assert.deepEqual(fresh.contributions,[]);assert.notEqual(fresh.checked_at,results[0].checked_at);assert.equal(fresh.stale_reason,undefined);
+});
+
+test('activity sends an optional read token on all three GitHub GET requests',async()=>{
+ const fixture=upstream(),headers:Headers[]=[];
+ const fetcher:typeof fetch=async(input,init)=>{
+   headers.push(new Headers(init?.headers));
+   const withoutToken={...init,headers:new Headers(init?.headers)};
+   withoutToken.headers.delete('Authorization');
+   return fixture.fetcher(input,withoutToken);
+ };
+ await new CollaborationGitHub(fetcher).read(readerRepo,'read-only-fixture');
+ assert.equal(headers.length,3);assert.ok(headers.every(header=>header.get('Authorization')==='Bearer read-only-fixture'));
+ const anonymous=upstream(),anonymousHeaders:Headers[]=[];
+ await new CollaborationGitHub(async(input,init)=>{anonymousHeaders.push(new Headers(init?.headers));return anonymous.fetcher(input,init);}).read(readerRepo);
+ assert.equal(anonymousHeaders.length,3);assert.ok(anonymousHeaders.every(header=>!header.has('Authorization')));
+});
+
+test('a rate-limited read token gets one anonymous public retry before showing unavailable',async()=>{
+ const fixture=upstream(),headers:Headers[]=[];
+ const fetcher:typeof fetch=async(input,init)=>{
+  const header=new Headers(init?.headers);headers.push(header);
+  if(header.has('Authorization'))return new Response('{}',{status:403});
+  return fixture.fetcher(input,init);
+ };
+ const activity=await new CollaborationGitHub(fetcher).read(readerRepo,'restricted-token');
+ assert.equal(activity.issues.length,1);assert.equal(activity.unavailable_reason,undefined);
+ assert.equal(headers.length,6);assert.equal(headers.filter(header=>header.has('Authorization')).length,3);
+ assert.equal(fixture.seen.length,3);
 });
 
 test('brief contains only public task/project text, not platform contacts, sessions or fabricated membership credit',async t=>{

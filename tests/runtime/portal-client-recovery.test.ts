@@ -15,6 +15,17 @@ test('background feed failures stay out of the visible console while direct fail
   }finally{unsubscribe()}
 });
 
+test('only co-creation activity reads turn known GitHub limits into task-specific copy',async t=>{
+  t.mock.method(globalThis,'fetch',async()=>Response.json({code:'github_rate_limited',detail:'untrusted upstream detail'},{status:503}));
+  const client=new PortalClient();
+  await assert.rejects(client.get('/co-creation/projects/workshop-video-autopilot/activity'),(cause:unknown)=>{
+    assert.ok(cause instanceof ApiError);assert.match(cause.message,/GitHub 暫時限制查詢/);assert.match(cause.message,/查看 Issue/);assert.doesNotMatch(cause.message,/untrusted/);return true;
+  });
+  await assert.rejects(client.get('/pages/github-events'),(cause:unknown)=>{
+    assert.ok(cause instanceof ApiError);assert.match(cause.message,/服務暫時無法回應/);assert.doesNotMatch(cause.message,/Issue|untrusted/);return true;
+  });
+});
+
 for(const status of [502,503,504,520,521,522,523,524]){
   test(`portal client reports HTTP ${status} in Chinese for both HTML and JSON upstream errors`,async t=>{
     for(const json of [false,true]){
