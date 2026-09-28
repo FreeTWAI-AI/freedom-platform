@@ -3,7 +3,7 @@ import type { Pool } from 'pg';
 import type { Command } from '../../../../packages/db/index.js';
 import { z } from 'zod';
 import { moduleCommand,type PlatformEnv } from '../module-context.js';
-import { accountView,saveAccount,listMembers,MemberDirectoryQuery,memberCard,listFriends,changeFriendship,listSquads,squadView,createSquad,changeSquadMembership } from '../../../../modules/identity-membership/members.js';
+import { accountView,saveAccount,listMembers,MemberDirectoryQuery,memberCard,listFriends,changeFriendship,listSquads,squadView,createSquad,updateSquadChannel,changeSquadMembership } from '../../../../modules/identity-membership/members.js';
 import {inviteToSquad,resolveSquadInvitation,squadInvitations,receivedSquadInvitations} from '../../../../modules/identity-membership/squad-invitations.js';
 import {ownSocialLinks,visibleSocialLinks,createSocialLink,editSocialLink,deleteSocialLink} from '../../../../modules/identity-membership/social-links.js';
 // One receipt per invitation/squad regardless of the id's letter case.
@@ -25,6 +25,7 @@ export function createMemberRoutes(pool:Pool) {
   app.get('/squads',async c=>{const {limit,offset}=pagination.parse(c.req.query());return c.json(await listSquads(pool,c.get('actor'),limit,offset));});
   app.get('/squads/:id',async c=>c.json(await squadView(pool,c.get('actor'),c.req.param('id'))));
   app.post('/squads',async c=>c.json(await createSquad(pool,await moduleCommand(c)),201));
+  app.post('/squads/:id/channel',async c=>{const result=await updateSquadChannel(pool,lowercaseIds(await moduleCommand(c)),c.req.param('id'));c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);});
   for(const action of ['request','leave'] as const)app.post(`/squads/:id/${action}`,async c=>c.json(await changeSquadMembership(pool,await moduleCommand(c),c.req.param('id'),action)));
   app.get('/me/squad-invitations',async c=>c.json(await receivedSquadInvitations(pool,c.get('actor'),c.req.query())));
   app.get('/squads/:id/invitations',async c=>c.json(await squadInvitations(pool,c.get('actor'),c.req.param('id'),c.req.query())));

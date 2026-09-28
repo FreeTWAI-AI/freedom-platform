@@ -1,0 +1,1 @@
+export const GITHUB_CONNECT_AGENT_INSTRUCTION=`請陪我把自己的 GitHub 帳號連到自由工坊，好讓我在站內提出 Issue。先帶我到自由工坊「待辦清單」的「連結 GitHub」，確認狀態與按鈕。若我沒有 GitHub 帳號，給我 https://github.com/signup 並等我自己註冊。OAuth 授權必須由我在 github.com 親自完成；不要索取或保存我的密碼、驗證碼、授權碼或 token。連結後回到待辦確認顯示已連結，再回原頁用「提出想法」發布。若站內連結暫時無法使用，帶我到 https://github.com/FreeTWAI-AI/freedom-platform/issues/new 在 GitHub 網頁自行提交；先檢查有沒有重複 Issue。`;

@@ -2,6 +2,7 @@ import {useCallback,useEffect,useLayoutEffect,useRef,useState,type ReactNode} fr
 import type {PortalClient} from '../api';
 import type {TabId} from '../types';
 import {useGitHubSocialStore} from './GitHubSocial';
+import {GITHUB_CONNECT_AGENT_INSTRUCTION} from './github-connect-help';
 import type {GuildSummary,OnboardingView} from './Onboarding';
 import './MemberSettings.css';
 
@@ -52,6 +53,7 @@ const rank=(state:TaskState)=>state==='done'?1:0;
 export function MemberTasks({client,onNavigate}:{client:PortalClient;onNavigate:(id:TabId)=>void}){
   const store=useGitHubSocialStore();
   const [busy,setBusy]=useState(false),[connectError,setConnectError]=useState('');
+  const [guideCopied,setGuideCopied]=useState(false);
   const [sources,setSources]=useState<{[K in SourceId]:Source<Sources[K]>}>(()=>({onboarding:{loading:true,error:''},directory:{loading:true,error:''},avatar:{loading:true,error:''},social:{loading:true,error:''}}));
   const generations=useRef<Record<SourceId,number>>({onboarding:0,directory:0,avatar:0,social:0});
   const mounted=useRef(true);
@@ -131,8 +133,8 @@ export function MemberTasks({client,onNavigate}:{client:PortalClient;onNavigate:
   cards.push({key:'github',required:true,title:'連結 GitHub',state:githubState,
     ...(githubState==='loading'?{body:<p>正在確認 GitHub 連結…</p>}
       :githubState==='error'?{body:null,error:github.error,retry:githubRetry}
-      :githubState==='unavailable'?{body:<p>GitHub 連結目前尚未啟用，這項待辦暫時無法完成；啟用後即可連結。</p>,retry:githubRetry}
-      :githubState==='todo'?{body:<p>連結你的 GitHub，管理技能書按星與開發授權。</p>,action:<button className="btn btn-primary" type="button" disabled={busy||github.loading} onClick={()=>void connect()}>{busy?'前往 GitHub…':'連結 GitHub'}</button>}
+      :githubState==='unavailable'?{body:<p>站內 GitHub 連結尚未啟用；仍可到 GitHub 網頁提出 Issue。啟用後再回來完成連結。</p>,retry:githubRetry}
+      :githubState==='todo'?{body:<p>站內提出 Issue 需要先連結自己的 GitHub 帳號。按「連結 GitHub」後，在 github.com 親自確認授權，回來再發布想法。沒有帳號可先<a href="https://github.com/signup" target="_blank" rel="noopener noreferrer">申請 GitHub ↗</a>。</p>,action:<><button className="btn btn-primary" type="button" disabled={busy||github.loading} onClick={()=>void connect()}>{busy?'前往 GitHub…':'連結 GitHub'}</button><button className="btn btn-ghost" type="button" onClick={()=>void navigator.clipboard.writeText(GITHUB_CONNECT_AGENT_INSTRUCTION).then(()=>setGuideCopied(true)).catch(()=>setConnectError('無法複製 AI 指引，請稍後重試。'))}>{guideCopied?'已複製 AI 指引':'複製 AI 連結指引'}</button></>}
       :{body:<p>已連結 <strong>@{github.value?.github_user?.login??'GitHub'}</strong>。</p>,action:go('account','到我的名片管理 GitHub 連結',false)})});
 
   cards.push({key:'avatar',required:false,title:'上傳頭像',
