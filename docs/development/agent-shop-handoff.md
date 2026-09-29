@@ -6,6 +6,8 @@
 
 PR：[FreeTWAI-AI/freedom-platform #46](https://github.com/FreeTWAI-AI/freedom-platform/pull/46)。Fork：`arumwu/freedom-platform`；工作分支：`feat/supplier-retail-pricing-preview`；上游預設分支在本次核對時是 `main`。分支名稱是沿用名稱，不代表本次只做價格試算。
 
+與平台計畫機制的差距與直接矛盾見第 11 節。該節對齊用詞，不改兩店、會員自己的 AI、平台不保管資金這三項產品決定，也不把現有程式改成結算引擎。
+
 ## 1. 為什麼要做這個設計
 
 原始討論的問題是：有商品的人希望有人幫忙賣，但推廣者如果只拿很少的分潤，很容易花了製作網站與行銷的時間卻沒有足夠收益。使用者希望讓願意推廣的人真正經營自己的商店、自行定價；有商品的人專心整理商品、收取約定成本並出貨。
@@ -69,6 +71,8 @@ sequenceDiagram
 
 500 元例子：零售款 500 元歸公開店；商品 300 元加每件運費 60 元，由公開店主親自支付內部店 360 元。140 元是未扣其他費用的差額，不叫淨利或已賺到的錢。
 
+這 140 元不是第 11 節的賣家 margin 投影，360 元也不是 `SupplierPayable`。
+
 付款狀態由各店後台驗證業者資料後上報，證據標記固定是 `merchant_backend_report`。點付款連結、付款頁跳轉、會員自己按「完成」都不會成為中央付款成功證明。
 
 ## 5. 已實作的不變條件
@@ -97,6 +101,7 @@ sequenceDiagram
 | 要改的內容 | 先讀的權威來源 |
 | --- | --- |
 | 範圍、協作、設計 | [AGENTS](../../AGENTS.md)、[CONTRIBUTING](../../CONTRIBUTING.md)、[DESIGN](../../DESIGN.md) |
+| 平台已定的交易機制（本功能尚未實作） | [領域與狀態](../platform-plan/03-domain-events-state-machines.md) §3.6–3.9、[模組規格](../platform-plan/04-module-specifications.md) §3、[架構](../platform-plan/02-architecture-repositories.md)、[決策](../platform-plan/07-decisions-risks-traceability.md) ADR-026／028／030／031／063；對照見本文第 11 節 |
 | 產品操作與部署程序 | [AI 雙商店規格](supplier-retail-pricing.md) |
 | 前置審查、併發修正證據 | [審查紀錄](agent-shop-review.md) 與 PR 最新補充 |
 | 兩頁實際畫面 | [CommercePanels.tsx](../../apps/portal-web/src/modules/CommercePanels.tsx)、[AgentShops.css](../../apps/portal-web/src/modules/AgentShops.css) |
@@ -157,6 +162,7 @@ Jev 已前置審查並促成併發修正，但其 gate／review 曾回 `escalate
 
 這些是需再確認優先序的規劃，不能以本文件為由自動擴張成金流平台、物流平台或通用網站託管服務。
 
+
 ## 10. 最小驗收與重跑入口
 
 修改中央交易時，至少確認：跨店／跨社群拒絕、暫停與並行建單、超賣、事件重送、到期、兩筆付款及退款分離、未付款不能登記出貨。改 UI 時確認四種寬度、正常內距、單件商品填滿列表、按鈕不換行及功能仍可操作。
@@ -178,3 +184,40 @@ git diff --check
 依 repo CI 與修改範圍補跑完整 runtime、contracts、consumer repo 測試；以上不是取代 CI 的全部清單。使用隔離 PostgreSQL，不以正式資料做測試。瀏覽器必須在新 build 後跑；缺瀏覽器或 Python 套件時用核准的本機環境及 repo 指定版本，不偽造通過。
 
 每次交接附：程式 SHA、PR／CI 連結、實跑結果、Jev 結果及處置、實際畫面、未驗證事項、下一個明確動作。不要只有「已完成」三個字。
+
+## 11. 平台計畫裡有、這份設計沒寫到或寫反的機制
+
+對照上游 `main` `3750af83` 的 `docs/platform-plan/`（03、04、02、07）。PR head 當時是 `c2237d7`。下面是已定規則，不是新做的付款平台。兩店、MD 交給會員自己的 AI、平台不代收不保管，和「平台不是收款人、沒有錢包」一致，保留。和規則衝突的地方寫明衝突；程式行為與第 2、4、5 節的產品句子不在這次改掉。
+
+### 11.1 這份設計沒有點名、但也還沒做的物件
+
+計畫的路徑是 `SupplierPayable` 加上 `SettlementMandate`，預設 `record_only`，`money_movement_enabled=false`。平台不是收款人，也不做 merchant of record。
+
+- `SellingArrangement` 只有 `reseller` 或 `sales_agent`（ADR-026）。六個責任必須各自快照，不能用頁面名稱推測：`seller_of_record`、`payment_collector`、`invoice_issuer`、`refund_owner`、`price_owner`、`fulfillment_party`。它們住在版本化的 `DistributionAgreement`，雙方對 exact 版本簽名。公開店向買家收零售款、再自己把成本付給內部店，讀起來是 launch default 的 `reseller`，不是 `sales_agent`。價差不是 `CommissionObligation`；沒有已簽 referral rule 就不產生推廣佣金。同一人開兩店可以，但計畫仍要 arrangement、`SellerListingRevision` 與 `DistributionAcceptance`，角色重疊不免除獨立 QC（03 §3.6）。048 沒有這些欄位。
+- 三種接點不能互相推定：買家款進 Seller 自己的 `seller_collection`；只有日後 `authorized_mandate` 才用付款人自己的 `payer_disbursement` 付 `SupplierPayable`；供應方另綁 `beneficiary_payout_destination`。現在各店用自己的金流，符合「平台不經手」。沒有這三種 connection，也不在這次補上。
+- 一張結帳只有一個 `SellerParty`。付款後才依已簽來源建多張 `SupplyOrder`。現在的 `commerce_orders`／`commerce_transfers` 只是分單形狀，建單時就寫入，不是這兩個 aggregate。
+- `SupplyReservation` 在短 TTL 內鎖住的是該 line 的 `DistributionAcceptance`、有效單價與數量。現在只保留 `commerce_items.reserved` 三十分鐘，沒有綁 acceptance。
+- `SupplierPayable` 只在 verified paid 且該 line 已簽 `DistributionAcceptance` 之後建立，記供應方 net／批發額，不可原地覆寫。退款是追加 reversal，不刪舊事件，也不進平台錢包。`sales_agent` 或已簽 referral 才有 `CommissionObligation`。服務款是另一種 `ServicePayable`，不借用這張零售單。
+- `SettlementMandate` 是付款人對 exact digest 的成員 A4，加上 Ted 對同一 digest 的付款類 A4，才可能變成 `authorized_mandate`。還要平台 flag、有效 mandate、cap、idempotency、reconciliation。缺任一項就維持 `record_only`。範圍內的轉帳不逐筆重簽；超出範圍要新的 A4。本分支沒有 mandate，也不啟用資金移動。
+- A4 是有權自然人對 exact artifact／digest 的簽名。聊天、按鈕、匯入確認、`acknowledge_internal_preview` 都不是 A4。Agent 不能代簽。
+- 賣家 margin 只是投影：`buyer-facing paid − SupplierPayable − 明示的其他義務／稅／成本`。要等 verified payment 與已簽 acceptance 之後才算，不能顯示成已收到的現金，也不是佣金。介面上 `record_only` 只寫「已記錄」，禁止寫「平台已付」或「平台已結算」。`payable`、`initiated`、`recorded`、`reconciled_received` 是四件不同的事；只有對帳足夠的收款事實才算實收。
+- 運費與稅獨立列項，不混進商品單價假裝折扣或加價（03 §3.6、04 §3）。`msrp`／`recommended_floor` 只是建議，禁止低於建議價就自動斷貨。
+- 履約授權只在 `SupplierPayable` 的轉帳 confirmed 之後。佣金或服務結算不觸發履約。
+
+### 11.2 和已定規則直接衝突的地方
+
+這些衝突保持可見。沒有偷偷改她的產品句子，也沒有改執行路徑。
+
+1. **內部店看不到實際售價。** 第 5 節寫內部店不看公開店零售收入；`orders.ts` 對內部店刪掉 snapshot 的 `retail_price_minor` 與 `sale_terms`。ADR-028／03 §3.6：Supplier 必須看得到實際售價與供貨條件，並以 A4 接受那一版 `SellerListingRevision` 之後，checkout 才能成立；改價要重新接受。沒有 active `DistributionAcceptance` 就不能結帳。平台用詞以此為準。現行程式與第 5 節仍是相反行為。
+2. **舊目錄的「接受」不是 A4。** `modules/catalog-commerce` 的 `confirmation_kind` 固定 `internal_preview`，決定時要 `acknowledge_internal_preview: true`，journal 為 `internal_preview_*`，`official=false`、`checkout_enabled=false`、`money_movement_enabled=false`。這不是 `DistributionAcceptance`。新商店的「本人確認歸檔」同樣不是 A4，只是匯入確認。
+3. **360 元不是 `SupplierPayable`，140 元不是 margin。** 例子仍是：零售 500，公開店主親自付內部店 300 加運費 60。140 仍只是她定義的未扣其他費用差額，不叫淨利。計畫的 margin 還要先有 verified payment、已簽 acceptance，再減供應方應付與明示稅費成本，而且不能看成現金。她把運費併進付給內部店的那一筆；計畫把運費、稅與 supplier net 分開。產品上「店主親自付成本加運費」保留，只是不得把 360 或 140 記成應付或已賺到的錢。
+4. **兩筆 `reported_paid` 不能當成結算或履約確認。** 付款證據只有 `merchant_backend_report`。狀態是商店回報，不是 `reconciled_received`，也不是平台核實銀行。出貨登記目前要求買家款與成本款都是 `reported_paid`。計畫則是：`SupplierPayable` 轉帳 confirmed 才授權履約；`record_only` 只表示已記錄。`commerce_transfers.total_minor` 在建單時就寫入，早於付款與接受，而且會被狀態欄覆蓋；這不是不可覆寫的 `SupplierPayable`。
+
+### 11.3 已經同向、不要再做成另一套金流的部分
+
+- 平台不代收、不保管、不自動扣款：對應 `record_only` 與 `money_movement_enabled=false`。不要在這個分支加 `authorized_mandate`、錢包或代付。
+- 訂單金額由中央快照重算，不信瀏覽器售價：與「client 價格一律忽略」同向。
+- 全額退款分開回報、不自動退錢：方向上接近「追加 reversal、不經平台錢包」，但現在沒有 obligation reversal。
+- 沒有低價自動斷貨：與建議售價只供提示同向。不要補一條地板價封鎖。
+
+下一位若要接計畫，先補文件已點名的快照與「這不是 A4／這不是實收」的界線，仍不要新建付款平台。第 1 至 10 節的產品流程、500 元例子與出貨條件維持原樣，直到另有決定改產品。

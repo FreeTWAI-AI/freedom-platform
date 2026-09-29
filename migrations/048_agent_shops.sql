@@ -1,4 +1,5 @@
 -- AI-authored shops. The platform records merchant reports; it never holds funds.
+-- Payment rows are record_only merchant reports, not SupplierPayable, SettlementMandate, or a reconciled receipt.
 CREATE TABLE commerce_shops (
  shop_id uuid PRIMARY KEY, community_id uuid NOT NULL REFERENCES communities,
  owner_id uuid NOT NULL REFERENCES users, kind text NOT NULL CHECK(kind IN ('internal','public')),

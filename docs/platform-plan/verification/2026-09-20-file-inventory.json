@@ -1364,8 +1364,8 @@
     },
     {
       "path": "docs/development/agent-shop-handoff.md",
-      "bytes": 15011,
-      "sha256": "6fe12bae5549a2a3de6f0d8da33f17415e37521991170299b63bc4841b2ad5b9"
+      "bytes": 22554,
+      "sha256": "047206bb3f8d296e2af433b8b7f56fd0c040644dd337430164cae35bad5200e4"
     },
     {
       "path": "docs/development/agent-shop-review.md",
@@ -1639,8 +1639,8 @@
     },
     {
       "path": "docs/development/supplier-retail-pricing.md",
-      "bytes": 10860,
-      "sha256": "d694675e1bee0baccc61e6c3411a223065fc379ab3eb493b7594eac959cb6f1b"
+      "bytes": 11108,
+      "sha256": "9e0854c79e8ad9f62368c162b0435c6d765d2fdb3bcc8978288950013969bd27"
     },
     {
       "path": "docs/development/workspace-ia-review.md",
@@ -2884,8 +2884,8 @@
     },
     {
       "path": "migrations/048_agent_shops.sql",
-      "bytes": 4104,
-      "sha256": "cda7f5862edcdc9c347ceec08bfc615db9e5548ef6dd23ae3a3524034e71983a"
+      "bytes": 4219,
+      "sha256": "e56fe7c5799fee723079e0454effe09b78fd8a7e36d342ebdffbc0e9a654a243"
     },
     {
       "path": "modules/agent-commerce/imports.ts",
@@ -2899,18 +2899,18 @@
     },
     {
       "path": "modules/agent-commerce/orders.ts",
-      "bytes": 16876,
-      "sha256": "b9ed297fa643f37f65a98e2ac80f12d279c943d119b2e80165d257b624352939"
+      "bytes": 17594,
+      "sha256": "ff6d5a5d3dfc9bb19de33ce3a3124c6f446213b192d35a5c83d88f0fea7c0d91"
     },
     {
       "path": "modules/agent-commerce/schema.ts",
-      "bytes": 3428,
-      "sha256": "f95b130bf04f6c9e2a220d780b8dbbd4c61295cf04a8a59fe44c2d55518195b8"
+      "bytes": 3562,
+      "sha256": "acad91de54d44f0dfa4a34f628d6d267ec72fd18f81922a9a0e150876ec96716"
     },
     {
       "path": "modules/catalog-commerce/service.ts",
-      "bytes": 14038,
-      "sha256": "754c512bdd5514e1460b4a8397a25ce7d45821d6fb89118c62d03bc3951ff95a"
+      "bytes": 14209,
+      "sha256": "aad6f88cc7e8b3e5cde81ab307e4143d001fd0a706550e84c0cc9f2b576649bf"
     },
     {
       "path": "modules/client-connections/service.ts",

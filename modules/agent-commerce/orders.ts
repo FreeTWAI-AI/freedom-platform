@@ -67,6 +67,7 @@ export async function createOrder(q:PoolClient,shop:any,raw:unknown){
   requireCondition(selected,404,'selection_not_found','商品不可選購。');
   requireCondition(selected.stock-selected.reserved>=line.quantity,409,'out_of_stock','商品可供數量不足，請勿向買家收款。');
   const snapshot=selected.snapshot;
+  // Item shipping is included in this transfer total by product choice. It is not a SupplierPayable; shipping and tax stay itemized in the plan. See handoff section 11.
   const cost=(snapshot.cost_minor+snapshot.shipping_minor)*line.quantity,retail=Number(selected.retail_price_minor)*line.quantity;
   requireCondition(Number.isSafeInteger(cost)&&Number.isSafeInteger(retail),422,'amount_overflow','訂單金額過大。');
   total+=retail;lines.push({...line,...selected,cost,retail});
@@ -95,6 +96,7 @@ export async function orderView(q:PoolClient,shop:any,id:string){
  const transfers=(await q.query(`SELECT t.*,s.website_url AS internal_website_url,s.name AS internal_shop_name FROM commerce_transfers t
  JOIN commerce_shops s ON s.shop_id=t.internal_shop_id WHERE t.order_id=$1${shop.kind==='internal'?' AND t.internal_shop_id=$2':''}`,shop.kind==='internal'?[id,shop.shop_id]:[id])).rows;
  for(const t of transfers){t.lines=(await q.query('SELECT selection_id,item_id,quantity,snapshot FROM commerce_order_lines WHERE transfer_id=$1',[t.transfer_id])).rows;
+  // Hiding the actual retail price contradicts DistributionAcceptance, which requires the supplier to see and accept that price before checkout. Behavior is unchanged; see handoff section 11.
   if(shop.kind==='internal')for(const l of t.lines){delete l.snapshot.retail_price_minor;delete l.snapshot.sale_terms;}
  }
  // The internal merchant sees only its own fulfillment, not other merchants or the seller's revenue.
@@ -134,6 +136,7 @@ export async function payment(q:PoolClient,shop:any,id:string,transferId:string|
   requireCondition(paid?.transaction_ref===body.transaction_ref&&paid?.provider===body.provider,422,'refund_reference_mismatch','退款必須對應原收款交易。');
  }
  await q.query(`INSERT INTO commerce_payment_events(event_id,shop_id,external_event_id,request_sha256,order_id,transfer_id,event_type,provider,transaction_ref,amount_minor) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[randomUUID(),shop.shop_id,body.event_id,hash,id,transferId??null,body.type,body.provider,body.transaction_ref,body.amount_minor]);
+ // reported_paid is a merchant_backend_report only: not reconciled_received, not cash held by the platform, and not a SupplierPayable or SettlementMandate transfer. record_only remains the default.
  const next=body.type==='paid'?'reported_paid':'reported_refunded';
  if(transfer)await q.query('UPDATE commerce_transfers SET payment_state=$2 WHERE transfer_id=$1',[transferId,next]);
  else await q.query('UPDATE commerce_orders SET buyer_payment=$2 WHERE order_id=$1',[id,next]);
@@ -156,6 +159,7 @@ export async function recordShipment(pool:Pool,input:Command,id:string){
   const t=(await q.query(`SELECT t.*,o.buyer_payment FROM commerce_transfers t JOIN commerce_shops s ON s.shop_id=t.internal_shop_id JOIN commerce_orders o USING(order_id)
    WHERE t.transfer_id=$1 AND s.owner_id=$2 AND s.community_id=$3`,[id,input.actor.user_id,input.actor.community_id])).rows[0];
   requireCondition(t,404,'transfer_not_found','只有出貨方可以登記。');
+  // This gate is two merchant reports. The plan authorizes fulfillment only after a confirmed SupplierPayable transfer; this row is not that confirmation.
   requireCondition(t.payment_state==='reported_paid'&&t.buyer_payment==='reported_paid',409,'payment_required','兩筆付款都收到後才能登記出貨；退款訂單請另行處理。');
   requireCondition(new Date(shipment.shipped_at).getTime()<=Date.now(),422,'future_shipment','出貨日期不能是未來。');
   const version=(await q.query('UPDATE commerce_transfers SET shipment=$2,aggregate_version=aggregate_version+1 WHERE transfer_id=$1 RETURNING aggregate_version',[id,{...shipment,source:'shipper_entered',registered_at:new Date().toISOString()}])).rows[0].aggregate_version;
