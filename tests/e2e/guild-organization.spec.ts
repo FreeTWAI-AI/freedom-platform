@@ -160,3 +160,31 @@ test('guild cards stay equal across all groups and keep every leader and expert 
     await page.screenshot({ path: `test-results/guild-partitions-${width}.png`, fullPage: true });
   }
 });
+
+test('a joined guild card sets or clears a secondary guild with the existing preference command', async ({ page }) => {
+  const fixture = await setupGuilds(page); await login(page);
+  const full = page.getByRole('article', { name: names[3], exact: true });
+  await expect(full.getByRole('button', { name: '設為次要公會', exact: true })).toBeDisabled();
+  await expect(full).toContainText('次要公會已滿 2 個。先取消其中一個。');
+  const primary = page.getByRole('article', { name: names[0], exact: true });
+  await expect(primary.getByRole('button', { name: '設為次要公會', exact: true })).toHaveCount(0);
+  await expect(primary.getByRole('button', { name: '取消次要公會', exact: true })).toHaveCount(0);
+  const unjoined = page.getByRole('article', { name: names[5], exact: true });
+  await expect(unjoined.getByRole('button', { name: '設為次要公會', exact: true })).toHaveCount(0);
+  const current = page.getByRole('article', { name: names[2], exact: true });
+  await current.getByRole('button', { name: '取消次要公會', exact: true }).click();
+  await expect(page.getByRole('region', { name: '公會目錄', exact: true }).getByRole('status').filter({ hasText: `已取消${names[2]}的次要公會。` })).toBeVisible();
+  expect(fixture.writes).toHaveLength(1);
+  expect(fixture.writes[0].body).toEqual({ secondary_guild_keys: [keys[1]] });
+  expect(fixture.writes[0].headers['if-match']).toBe('"7"');
+  expect(fixture.writes[0].headers['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
+  expect(fixture.writes[0].headers['x-csrf-token']).toBeTruthy();
+  await full.getByRole('button', { name: '設為次要公會', exact: true }).click();
+  await expect(page.getByRole('region', { name: '公會目錄', exact: true }).getByRole('status').filter({ hasText: `已將${names[3]}設為次要公會。` })).toBeVisible();
+  expect(fixture.writes[1].body).toEqual({ secondary_guild_keys: [keys[1], keys[3]] });
+  expect(fixture.writes[1].headers['if-match']).toBe('"8"');
+  expect(fixture.writes[1].headers['idempotency-key']).not.toBe(fixture.writes[0].headers['idempotency-key']);
+  await expect(group(page, '主要與次要公會').locator('.guild-card')).toHaveCount(3);
+  expect(await guildIds(page, '主要與次要公會')).toEqual([keys[0], keys[1], keys[3]]);
+  expect(await guildIds(page, '其他已加入公會')).toEqual([keys[2], keys[4]]);
+});
