@@ -769,8 +769,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/CommercePanels.tsx",
-      "bytes": 21610,
-      "sha256": "51f9274dc7959b60501fd366f26511cf79ca658c1d2197a9384bad189567745f"
+      "bytes": 23641,
+      "sha256": "549aec21f4cf7831fbc06cb2d40f85a86cdcebc997a8f36b073965ef2f19fa78"
     },
     {
       "path": "apps/portal-web/src/modules/Community.tsx",
@@ -1611,6 +1611,11 @@
       "path": "docs/development/staging-operations.md",
       "bytes": 5996,
       "sha256": "91d031a1a15035c3a089031c8a40a43bc099b49809bb82e9c6bfa5c83b7fcf5e"
+    },
+    {
+      "path": "docs/development/supplier-retail-pricing.md",
+      "bytes": 3500,
+      "sha256": "5d89abc4d9ff6c2deeef66a1f3668e4214748984a23541c06cce83efbbe78a87"
     },
     {
       "path": "docs/development/workspace-ia-review.md",
@@ -3609,8 +3614,8 @@
     },
     {
       "path": "tests/e2e/commerce-modules.spec.ts",
-      "bytes": 5294,
-      "sha256": "aaed050701b911de77a54266cfd778ab29f4075ce1f8b7d58bc0a92c2c2ccbe7"
+      "bytes": 7187,
+      "sha256": "587e6259d8aba796ce053e6ea7c3018216cd76c25770b6cc9cf3d84e0d686b74"
     },
     {
       "path": "tests/e2e/development-access.spec.ts",
