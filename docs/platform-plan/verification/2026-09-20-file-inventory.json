@@ -769,8 +769,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/CommercePanels.tsx",
-      "bytes": 23641,
-      "sha256": "549aec21f4cf7831fbc06cb2d40f85a86cdcebc997a8f36b073965ef2f19fa78"
+      "bytes": 23605,
+      "sha256": "2cb08299e2b78cf230d1090769d727686938bba3c41bf8328704f25dfe7783b7"
     },
     {
       "path": "apps/portal-web/src/modules/Community.tsx",
