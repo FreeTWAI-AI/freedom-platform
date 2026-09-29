@@ -27,11 +27,18 @@ async function login(index=0):Promise<Session>{const r=await req('/api/v1/auth/l
 const internal=()=>({schema:'freedom-shop/v1',kind:'internal',access:'authenticated',name:'合成內部商店',description:'僅用於測試',website_url:'https://private.example.com',contact:'synthetic contact',currency:'TWD',products:[{sku:'TEA',title:'合成茶葉',description:'150g',photo_url:null,price_minor:30000,shipping_minor:6000,stock:5,shipping_terms:'每件運費 60 元',return_terms:'測試退貨條件'}]});
 async function importOne(s:Session,manifest:any){const r=await req('/api/v1/commerce/import',{manifest,confirmed:true},s);assert.equal(r.status,201,JSON.stringify(r.data));return r.data.shop_id;}
 async function keyFor(s:Session,id:string){const r=await req(`/api/v1/commerce/shops/${id}/key`,{},s);assert.equal(r.status,200,JSON.stringify(r.data));return r.data.token;}
+async function acceptAll(s:Session){
+ const list=await req('/api/v1/commerce/distribution-acceptances',undefined,s);assert.equal(list.status,200,JSON.stringify(list.data));
+ for(const row of list.data.items.filter((i:any)=>i.acceptance_state==='awaiting_supply_acceptance')){
+  const decided=await req(`/api/v1/commerce/selections/${row.selection_id}/distribution-acceptance`,{decision:'accepted',listing_sha256:row.listing_sha256,note:'接受這一版售價'},s,undefined,randomUUID(),{'If-Match':`"${row.aggregate_version}"`});
+  assert.equal(decided.status,200,JSON.stringify(decided.data));assert.equal(decided.data.acceptance_kind,'distribution_acceptance');assert.equal(decided.data.money_movement_enabled,false);
+ }
+}
 async function setup(){
  const supplier=await login(),seller=await login(2),other=await login(1),internalId=await importOne(supplier,internal()),internalKey=await keyFor(supplier,internalId);
  const items=(await req('/api/v1/commerce/catalog',undefined,seller)).data.items;
  const manifest={schema:'freedom-shop/v1',kind:'public',name:'合成公開店',description:'測試',website_url:'https://public.example.com',contact:'合成客服',currency:'TWD',selections:items.map((i:any)=>({item_id:i.item_id,retail_price_minor:50000,sale_terms:'含運費售價'}))};
- const publicId=await importOne(seller,manifest),publicKey=await keyFor(seller,publicId),connection=await req('/shop-api/v1/connection',undefined,undefined,publicKey);assert.equal(connection.status,200,JSON.stringify(connection.data));const selection=connection.data.selections[0];
+ const publicId=await importOne(seller,manifest);await acceptAll(supplier);const publicKey=await keyFor(seller,publicId),connection=await req('/shop-api/v1/connection',undefined,undefined,publicKey);assert.equal(connection.status,200,JSON.stringify(connection.data));const selection=connection.data.selections[0];
  return {supplier,seller,other,internalId,internalKey,publicId,publicKey,selection,items,manifest};
 }
 const paid=(amount=50000,overrides:any={})=>({event_id:randomUUID(),type:'paid',provider:'synthetic',transaction_ref:randomUUID(),amount_minor:amount,currency:'TWD',mode:'test',verification:'provider_verified_by_merchant',...overrides});
@@ -68,7 +75,7 @@ test('two merchant payments relay once, scoped payment link and human shipment s
  assert.equal((await req('/shop-api/v1/orders',body,undefined,f.publicKey)).data.order_id,id);
  assert.equal((await req(`/shop-api/v1/orders/${id}/payment`,receipt,undefined,f.publicKey)).status,200);
  assert.equal((await req(`/shop-api/v1/orders/${id}/payment`,{...receipt,amount_minor:49999},undefined,f.publicKey)).status,422);
- const inbox=(await req('/shop-api/v1/orders',undefined,undefined,f.internalKey)).data.items;assert.equal(inbox.length,1);assert.equal(inbox[0].total_minor,undefined);assert.equal(inbox[0].public_shop_id,f.publicId);assert.equal(inbox[0].public_website_url,'https://public.example.com');assert.equal(inbox[0].transfers[0].lines[0].snapshot.sku,'TEA');assert.equal(inbox[0].transfers[0].lines[0].snapshot.retail_price_minor,undefined);
+ const inbox=(await req('/shop-api/v1/orders',undefined,undefined,f.internalKey)).data.items;assert.equal(inbox.length,1);assert.equal(inbox[0].total_minor,undefined);assert.equal(inbox[0].public_shop_id,f.publicId);assert.equal(inbox[0].public_website_url,'https://public.example.com');assert.equal(inbox[0].transfers[0].lines[0].snapshot.sku,'TEA');assert.equal(inbox[0].transfers[0].lines[0].snapshot.retail_price_minor,50000);assert.equal(inbox[0].margin_projection,undefined);
  assert.equal((await req(`/shop-api/v1/transfers/${t.transfer_id}/payment-link`,{url:'https://evil.example.com/pay'},undefined,f.internalKey)).status,422);
  assert.equal((await req(`/shop-api/v1/transfers/${t.transfer_id}/payment-link`,{url:'https://private.example.com/pay/order1'},undefined,f.internalKey)).status,200);
  const shipment={method:'carrier',carrier:'合成物流',tracking_number:'SYNTHETIC-1',shipped_at:new Date(Date.now()-60000).toISOString()};
@@ -118,7 +125,7 @@ test('refund records are distinct, cannot revive payment or falsely enable shipm
 test('two internal shops get only their own transfer; source customer data is an opaque reference',async()=>{
  const f=await setup(),m={...internal(),name:'第二家',website_url:'https://second.example.com'},second=await importOne(f.other,m),secondKey=await keyFor(f.other,second);
  const items=(await req('/api/v1/commerce/catalog',undefined,f.seller)).data.items;
- const sid=await importOne(f.seller,{...f.manifest,name:'多店商城',selections:items.map((i:any)=>({item_id:i.item_id,retail_price_minor:50000,sale_terms:'合成'}))}),key=await keyFor(f.seller,sid);
+ const sid=await importOne(f.seller,{...f.manifest,name:'多店商城',selections:items.map((i:any)=>({item_id:i.item_id,retail_price_minor:50000,sale_terms:'合成'}))});await acceptAll(f.supplier);await acceptAll(f.other);const key=await keyFor(f.seller,sid);
  const selections=(await req('/shop-api/v1/connection',undefined,undefined,key)).data.selections;
  const order=(await req('/shop-api/v1/orders',{external_id:'multi-order',items:selections.map((s:any)=>({selection_id:s.selection_id,quantity:1,delivery_ref:'recipient_reference_'+s.item_id.replaceAll('-','')}))},undefined,key)).data;
  assert.equal(order.transfers.length,2);await req(`/shop-api/v1/orders/${order.order_id}/payment`,paid(100000),undefined,key);
@@ -185,4 +192,36 @@ test('an order queued behind a pause observes the committed accepting-orders sta
   assert.equal((await pending).status,409);
   assert.equal((await pool.query('SELECT count(*) FROM commerce_orders')).rows[0].count,'0');
  }finally{await blocker.query('ROLLBACK');blocker.release();await pending;}
+});
+
+test('checkout waits for distribution acceptance; margin is a projection and settlement does not move money',async()=>{
+ const supplier=await login(),seller=await login(2),internalId=await importOne(supplier,internal()),sellerKey=await keyFor(seller,await importOne(seller,{schema:'freedom-shop/v1',kind:'public',name:'未接受店',description:'測試',website_url:'https://public.example.com',contact:'合成客服',currency:'TWD',selections:[(await req('/api/v1/commerce/catalog',undefined,seller)).data.items[0]].map((i:any)=>({item_id:i.item_id,retail_price_minor:50000,sale_terms:'含運費售價'}))}));
+ const pending=(await req('/api/v1/commerce/distribution-acceptances',undefined,supplier)).data.items[0];
+ assert.equal(pending.arrangement.mode,'reseller');assert.equal(pending.arrangement.seller_of_record,pending.arrangement.payment_collector);assert.equal(pending.arrangement.payment_collector,pending.arrangement.invoice_issuer);assert.equal(pending.arrangement.invoice_issuer,pending.arrangement.refund_owner);assert.equal(pending.arrangement.refund_owner,pending.arrangement.price_owner);assert.notEqual(pending.arrangement.fulfillment_party,pending.arrangement.seller_of_record);
+ assert.equal((await req('/shop-api/v1/connection',undefined,undefined,sellerKey)).data.selections.length,0);
+ const blocked=await req('/shop-api/v1/orders',{external_id:randomUUID(),items:[{selection_id:pending.selection_id,quantity:1,delivery_ref:'synthetic_delivery_ref'}]},undefined,sellerKey);
+ assert.equal(blocked.status,409);assert.equal(blocked.data.code,'acceptance_required');
+ assert.equal((await pool.query('SELECT count(*) FROM commerce_orders')).rows[0].count,'0');
+ assert.equal((await req(`/api/v1/commerce/selections/${pending.selection_id}/distribution-acceptance`,{decision:'accepted',listing_sha256:'ab'.repeat(32),note:'錯的版本'},supplier,undefined,randomUUID(),{'If-Match':`"${pending.aggregate_version}"`})).data.code,'snapshot_changed');
+ assert.equal((await req(`/api/v1/commerce/selections/${pending.selection_id}/distribution-acceptance`,{decision:'accepted',listing_sha256:pending.listing_sha256,note:'賣家不能代簽'},seller,undefined,randomUUID(),{'If-Match':`"${pending.aggregate_version}"`})).status,404);
+ const accepted=await req(`/api/v1/commerce/selections/${pending.selection_id}/distribution-acceptance`,{decision:'accepted',listing_sha256:pending.listing_sha256,note:'接受這一版售價'},supplier,undefined,randomUUID(),{'If-Match':`"${pending.aggregate_version}"`});
+ assert.equal(accepted.status,200);
+ const quoted=await req('/shop-api/v1/orders',{external_id:randomUUID(),items:[{selection_id:pending.selection_id,quantity:1,delivery_ref:'synthetic_delivery_ref'}]},undefined,sellerKey);
+ assert.equal(quoted.status,201,JSON.stringify(quoted.data));
+ assert.equal(quoted.data.margin_projection,null);assert.equal(quoted.data.price_estimate.label,'試算');assert.equal(quoted.data.price_estimate.difference_minor,14000);assert.equal(quoted.data.price_estimate.cash_received,false);
+ assert.equal((await pool.query('SELECT count(*) FROM commerce_supplier_payables')).rows[0].count,'0');
+ const paidOrder=await req(`/shop-api/v1/orders/${quoted.data.order_id}/payment`,paid(),undefined,sellerKey);
+ assert.equal(paidOrder.status,200,JSON.stringify(paidOrder.data));
+ assert.equal(paidOrder.data.margin_projection.amount_minor,14000);assert.equal(paidOrder.data.margin_projection.supplier_payable_minor,30000);assert.equal(paidOrder.data.margin_projection.explicit_cost_minor,6000);assert.equal(paidOrder.data.margin_projection.explicit_tax_minor,0);assert.equal(paidOrder.data.margin_projection.cash_received,false);assert.equal(paidOrder.data.margin_projection.label,'預估差額');
+ assert.equal(paidOrder.data.transfers[0].supplier_payables[0].supplier_net_minor,30000);assert.equal(paidOrder.data.transfers[0].supplier_payables[0].settlement.display_label,'已記錄');assert.equal(paidOrder.data.transfers[0].supplier_payables[0].settlement.auto_debit,false);assert.equal(paidOrder.data.transfers[0].supplier_payables[0].settlement.platform_collects,false);assert.equal(paidOrder.data.money_movement_enabled,false);
+ assert.equal((await pool.query('SELECT count(*) FROM commerce_settlement_records')).rows[0].count,'1');
+ await assert.rejects(pool.query('UPDATE commerce_supplier_payables SET supplier_net_minor=1'),/append-only/);
+ const internalKey=await keyFor(supplier,internalId);
+ const seen=(await req(`/shop-api/v1/orders/${quoted.data.order_id}`,undefined,undefined,internalKey)).data;
+ assert.equal(seen.margin_projection,undefined);assert.equal(seen.transfers[0].lines[0].snapshot.retail_price_minor,50000);assert.equal(seen.transfers[0].supplier_payables[0].supplier_net_minor,30000);
+ const refunded=await req(`/shop-api/v1/orders/${quoted.data.order_id}/payment`,{...paid(),event_id:randomUUID(),type:'refunded',transaction_ref:(await pool.query("SELECT transaction_ref FROM commerce_payment_events WHERE event_type='paid' AND transfer_id IS NULL")).rows[0].transaction_ref},undefined,sellerKey);
+ assert.equal(refunded.status,200,JSON.stringify(refunded.data));assert.equal(refunded.data.margin_projection,null);assert.equal((await pool.query('SELECT count(*) FROM commerce_supplier_payables')).rows[0].count,'1');assert.equal((await pool.query('SELECT count(*) FROM commerce_obligation_reversals')).rows[0].count,'1');
+ const version=(await req('/api/v1/commerce/distribution-acceptances',undefined,supplier)).data.items.find((i:any)=>i.selection_id===pending.selection_id).aggregate_version;
+ assert.equal((await req(`/api/v1/commerce/selections/${pending.selection_id}/distribution-acceptance`,{decision:'revoked',listing_sha256:pending.listing_sha256,note:'停止新單'},supplier,undefined,randomUUID(),{'If-Match':`"${version}"`})).status,200);
+ assert.equal((await req('/shop-api/v1/orders',{external_id:randomUUID(),items:[{selection_id:pending.selection_id,quantity:1,delivery_ref:'synthetic_delivery_ref'}]},undefined,sellerKey)).status,409);
 });

@@ -8,6 +8,7 @@ import {catalog,ownShops,previewImport,importShop,fetchManifest} from '../../../
 import {parseManifestFile} from '../../../../modules/agent-commerce/schema.js';
 import {agentKit} from '../../../../modules/agent-commerce/kit.js';
 import {issueKey,revokeKey,machine,createOrder,orderView,shopOrders,payment,setPaymentUrl,recordShipment,memberOrders,cancelOrder,setAcceptingOrders} from '../../../../modules/agent-commerce/orders.js';
+import {decideAcceptance,listAcceptances} from '../../../../modules/agent-commerce/distribution.js';
 
 export function createAgentCommerceRoutes(pool:Pool,origin:string){
  const app=new Hono<PlatformEnv>();
@@ -33,6 +34,8 @@ export function createAgentCommerceRoutes(pool:Pool,origin:string){
  app.post('/commerce/shops/:id/key',async c=>{const input=await moduleCommand(c);z.object({}).strict().parse(input.body);return c.json(await issueKey(pool,input,z.uuid().parse(c.req.param('id'))));});
  app.post('/commerce/shops/:id/revoke-key',async c=>{const input=await moduleCommand(c);z.object({}).strict().parse(input.body);return c.json(await revokeKey(pool,input,z.uuid().parse(c.req.param('id'))));});
  app.get('/commerce/shops/:id/orders',async c=>c.json({items:await memberOrders(pool,c.get('actor'),z.uuid().parse(c.req.param('id')))}));
+ app.get('/commerce/distribution-acceptances',async c=>c.json({items:await listAcceptances(pool,c.get('actor'))}));
+ app.post('/commerce/selections/:id/distribution-acceptance',async c=>c.json(await decideAcceptance(pool,await moduleCommand(c),z.uuid().parse(c.req.param('id')))));
  app.post('/commerce/transfers/:id/shipment',async c=>c.json(await recordShipment(pool,await moduleCommand(c),z.uuid().parse(c.req.param('id')))));
  return app;
 }
@@ -41,7 +44,7 @@ export function createShopMachineRoutes(pool:Pool){
  const app=new Hono();
  app.use('*',async(c,next)=>{c.header('Cache-Control','no-store');await next();});
  app.get('/connection',async c=>c.json(await machine(pool,c.req.header('Authorization'),async(q,shop)=>({shop_id:shop.shop_id,kind:shop.kind,currency:shop.currency,mode:shop.mode,accepting_orders:shop.accepting_orders,
-  selections:shop.kind==='public'?(await q.query('SELECT selection_id,item_id,snapshot FROM commerce_selections WHERE shop_id=$1',[shop.shop_id])).rows:[]}))));
+  selections:shop.kind==='public'?(await q.query("SELECT selection_id,item_id,snapshot FROM commerce_selections WHERE shop_id=$1 AND acceptance_state='sellable'",[shop.shop_id])).rows:[]}))));
  app.get('/orders',async c=>{const offset=z.coerce.number().int().min(0).max(100000).parse(c.req.query('offset')??0);return c.json({items:await machine(pool,c.req.header('Authorization'),(q,s)=>shopOrders(q,s,offset)),offset,limit:100});});
  app.post('/orders',async c=>{const body=await c.req.json();return c.json(await machine(pool,c.req.header('Authorization'),(q,s)=>createOrder(q,s,body)),201);});
  app.get('/orders/:id',async c=>c.json(await machine(pool,c.req.header('Authorization'),(q,s)=>orderView(q,s,z.uuid().parse(c.req.param('id'))))));

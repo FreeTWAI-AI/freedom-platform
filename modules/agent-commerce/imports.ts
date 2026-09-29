@@ -4,6 +4,7 @@ import {command,digest,journal,type Command} from '../../packages/db/index.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {importInput,manifestInput,parseManifestFile,type ShopManifest} from './schema.js';
+import {listingDigest,resellerArrangement} from './distribution.js';
 
 export async function catalog(pool:Pool,actor:Actor){
  return (await pool.query(`SELECT i.*,s.name AS shop_name,s.currency,s.mode,s.shop_id FROM commerce_items i JOIN commerce_shops s USING(shop_id)
@@ -47,8 +48,10 @@ export async function importShop(pool:Pool,input:Command){
   await q.query('INSERT INTO commerce_shops(shop_id,community_id,owner_id,kind,name,description,website_url,contact,currency,manifest_sha256,mode) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',[id,input.actor.community_id,input.actor.user_id,m.kind,m.name,m.description,m.website_url,m.contact,m.currency,hash,m.mode]);
   if(m.kind==='internal')for(const p of m.products)await q.query(`INSERT INTO commerce_items(item_id,shop_id,sku,title,description,photo_url,price_minor,shipping_minor,stock,shipping_terms,return_terms) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,[randomUUID(),id,p.sku,p.title,p.description,p.photo_url,p.price_minor,p.shipping_minor,p.stock,p.shipping_terms,p.return_terms]);
   for(const {selection:s,item} of selections){
-   const snapshot={item_id:item.item_id,sku:item.sku,internal_shop_id:item.shop_id,title:item.title,description:item.description,photo_url:item.photo_url,cost_minor:Number(item.price_minor),shipping_minor:Number(item.shipping_minor),currency:m.currency,shipping_terms:item.shipping_terms,return_terms:item.return_terms,retail_price_minor:s.retail_price_minor,sale_terms:s.sale_terms};
-   await q.query('INSERT INTO commerce_selections(selection_id,shop_id,item_id,retail_price_minor,sale_terms,snapshot) VALUES($1,$2,$3,$4,$5,$6)',[randomUUID(),id,item.item_id,s.retail_price_minor,s.sale_terms,snapshot]);
+   const selectionId=randomUUID();
+   const snapshot={selection_id:selectionId,item_id:item.item_id,sku:item.sku,public_shop_id:id,internal_shop_id:item.shop_id,title:item.title,description:item.description,photo_url:item.photo_url,cost_minor:Number(item.price_minor),shipping_minor:Number(item.shipping_minor),tax_minor:0,currency:m.currency,shipping_terms:item.shipping_terms,return_terms:item.return_terms,retail_price_minor:s.retail_price_minor,sale_terms:s.sale_terms,arrangement:resellerArrangement(input.actor.user_id,item.owner_id)};
+   const listingSha=listingDigest(snapshot);
+   await q.query('INSERT INTO commerce_selections(selection_id,shop_id,item_id,retail_price_minor,sale_terms,snapshot,listing_sha256) VALUES($1,$2,$3,$4,$5,$6,$7)',[selectionId,id,item.item_id,s.retail_price_minor,s.sale_terms,{...snapshot,listing_sha256:listingSha},listingSha]);
   }
   await journal(q,input.actor,'commerce_shop',id,1,'import_agent_shop',{kind:m.kind,manifest_sha256:hash});
   return {shop_id:id,reused:false};

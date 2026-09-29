@@ -64,8 +64,8 @@
     },
     {
       "path": "apps/platform-api/src/generated/runtime-text.ts",
-      "bytes": 29045,
-      "sha256": "d575d75aa530ea39c1f7bd5a0d332870dd20e609b4d1630a208f60592705dc77"
+      "bytes": 29887,
+      "sha256": "f4d5da480bd4e2ec79f24f538809a5926fe3dd4481dc0e773b31ae61cd854c06"
     },
     {
       "path": "apps/platform-api/src/module-context.ts",
@@ -94,8 +94,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/agent-commerce.ts",
-      "bytes": 6314,
-      "sha256": "2cdb6ed77d1c73731b982e9ea714763db2d8a98f7ded86f64ab3f130d4f666a6"
+      "bytes": 6729,
+      "sha256": "ef3c671eee394fec02336f9789c131a4835eaacb1928fc57a3e84da3286f9102"
     },
     {
       "path": "apps/platform-api/src/routes/avatars.ts",
@@ -779,8 +779,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/CommercePanels.tsx",
-      "bytes": 20085,
-      "sha256": "832194140c6165d0b4df8c7a5c15d66a77ea33caa741754c01dd721e7301ad05"
+      "bytes": 24343,
+      "sha256": "9da045c3f7179696dc39c409c1bfbe36b4ef6e3be5313cf7501bceac73b189f6"
     },
     {
       "path": "apps/portal-web/src/modules/Community.tsx",
@@ -1094,8 +1094,8 @@
     },
     {
       "path": "apps/portal-web/src/page-help.ts",
-      "bytes": 11840,
-      "sha256": "9d56b8c3ea7299516187c553812b93d039c1f87f1e537fed7299c1a2efca5e1e"
+      "bytes": 12042,
+      "sha256": "0d717c006a4d1d67fc15c6740cf7d388589226e1d10c8a9e776111850fbe5b05"
     },
     {
       "path": "apps/portal-web/src/rpg-theme.css",
@@ -1364,8 +1364,8 @@
     },
     {
       "path": "docs/development/agent-shop-handoff.md",
-      "bytes": 22554,
-      "sha256": "047206bb3f8d296e2af433b8b7f56fd0c040644dd337430164cae35bad5200e4"
+      "bytes": 18590,
+      "sha256": "5bb020329f484eff7d95398738e53c207091bd3c59150cd8b91deba82a757c07"
     },
     {
       "path": "docs/development/agent-shop-review.md",
@@ -1639,8 +1639,8 @@
     },
     {
       "path": "docs/development/supplier-retail-pricing.md",
-      "bytes": 11108,
-      "sha256": "9e0854c79e8ad9f62368c162b0435c6d765d2fdb3bcc8978288950013969bd27"
+      "bytes": 11286,
+      "sha256": "fca6b14975410ec86420df6128e84d3fae67f2e8f2b380e679f3126182b06736"
     },
     {
       "path": "docs/development/workspace-ia-review.md",
@@ -2888,9 +2888,19 @@
       "sha256": "e56fe7c5799fee723079e0454effe09b78fd8a7e36d342ebdffbc0e9a654a243"
     },
     {
+      "path": "migrations/049_commerce_distribution.sql",
+      "bytes": 5033,
+      "sha256": "755158c0b723fda40b80e98ef28adc52f549cdc5a70052a132f4f50fcd0523b9"
+    },
+    {
+      "path": "modules/agent-commerce/distribution.ts",
+      "bytes": 10454,
+      "sha256": "f3982bcc44ff4ba34cb3f1d3d6e9c252febe77de1cec2c197ff34b4467805b8d"
+    },
+    {
       "path": "modules/agent-commerce/imports.ts",
-      "bytes": 6159,
-      "sha256": "de30a8d75db83d18f26d49e379122c958af706a97f68768e2cac6186f42f9f2e"
+      "bytes": 6489,
+      "sha256": "802898c2f0a0ef2385cc4ab2e3bf63f2f1d80b6e8783f01ad91ae57f3923aafc"
     },
     {
       "path": "modules/agent-commerce/kit.ts",
@@ -2899,18 +2909,18 @@
     },
     {
       "path": "modules/agent-commerce/orders.ts",
-      "bytes": 17594,
-      "sha256": "ff6d5a5d3dfc9bb19de33ce3a3124c6f446213b192d35a5c83d88f0fea7c0d91"
+      "bytes": 18519,
+      "sha256": "5065d797803592f7108d524e787cc6efdbed1b532871cd106151fb2d110dc1b9"
     },
     {
       "path": "modules/agent-commerce/schema.ts",
-      "bytes": 3562,
-      "sha256": "acad91de54d44f0dfa4a34f628d6d267ec72fd18f81922a9a0e150876ec96716"
+      "bytes": 3779,
+      "sha256": "a51e4be8490db0dca2faf455899019c55b558ffab05588974692bb308f223c4c"
     },
     {
       "path": "modules/catalog-commerce/service.ts",
-      "bytes": 14209,
-      "sha256": "aad6f88cc7e8b3e5cde81ab307e4143d001fd0a706550e84c0cc9f2b576649bf"
+      "bytes": 14164,
+      "sha256": "a34946b2925daef8ff16501236d1546e9529ec25e871b3705615c0865121c1b9"
     },
     {
       "path": "modules/client-connections/service.ts",
@@ -3158,6 +3168,16 @@
       "sha256": "c0f5d241a53302394b37c8894a5985bb2852a365df7d394548ccd6433bd0441e"
     },
     {
+      "path": "modules/development-access/guild-eligibility.ts",
+      "bytes": 1602,
+      "sha256": "9e9b6619a4e0e29beeb7ada9c1e11ba80fd60127bae443ef63c89a8f3e5f7c15"
+    },
+    {
+      "path": "modules/development-access/service.ts",
+      "bytes": 16648,
+      "sha256": "2bc4cac7903e0f03cd2ec869fa56ff9e0c99d588d218a95cc3468008c99c6518"
+    },
+    {
       "path": "modules/development/page-github.ts",
       "bytes": 12636,
       "sha256": "2536de6b96344f03800b705b28989aa8e265b9447c35663e745f6146df6ef087"
@@ -3171,16 +3191,6 @@
       "path": "modules/development/service.ts",
       "bytes": 41333,
       "sha256": "b6134ef3791b7da2d970713fc1f917014d84cb907995dfb27143ad3e6ba20563"
-    },
-    {
-      "path": "modules/development-access/guild-eligibility.ts",
-      "bytes": 1602,
-      "sha256": "9e9b6619a4e0e29beeb7ada9c1e11ba80fd60127bae443ef63c89a8f3e5f7c15"
-    },
-    {
-      "path": "modules/development-access/service.ts",
-      "bytes": 16648,
-      "sha256": "2bc4cac7903e0f03cd2ec869fa56ff9e0c99d588d218a95cc3468008c99c6518"
     },
     {
       "path": "modules/github-social/provider.ts",
@@ -3439,18 +3449,18 @@
     },
     {
       "path": "packages/shop-agent/common.md",
-      "bytes": 10425,
-      "sha256": "b4092e417381b38ff5ce7ed2406ee80a4c19b489ed2846453789c19de210d5f6"
+      "bytes": 10958,
+      "sha256": "2846fbf09f84e197927a01ae3c786d22797e9293959b81ad3f3b135952f3140a"
     },
     {
       "path": "packages/shop-agent/internal.md",
-      "bytes": 1505,
-      "sha256": "ae60c7e841516a355783694bae968a85a10416fd270db62dd05bb8b511ff02b7"
+      "bytes": 1628,
+      "sha256": "798d47140077c85cda720e24b5053eef43248a5d4b5576a7c48c67c238a31425"
     },
     {
       "path": "packages/shop-agent/public.md",
-      "bytes": 1685,
-      "sha256": "b32b86c646781614f653f5721ac6d25009003926d35ff39bc52cf48cb7723b75"
+      "bytes": 1869,
+      "sha256": "83a6baf7e8d7bcc8729d5f71b7c2b15d0088cbc6831184c537ed1773623063d9"
     },
     {
       "path": "packages/skill-upload-client/README.md",
@@ -3629,8 +3639,8 @@
     },
     {
       "path": "tests/e2e/agent-shops.spec.ts",
-      "bytes": 12972,
-      "sha256": "7e9c6bfdb047861c2938b46c743c4fec55be6969f1c97a6fefd0040f6487a4c6"
+      "bytes": 13850,
+      "sha256": "e98ceba47e43812f39eb473157919ca6afefcf041d8b88037cbe5d5104a36fc7"
     },
     {
       "path": "tests/e2e/audit-identity-final.spec.ts",
@@ -3909,8 +3919,8 @@
     },
     {
       "path": "tests/runtime/agent-commerce.test.ts",
-      "bytes": 19123,
-      "sha256": "9e8e546ab97fae7e7211fa855eb4d3bc5970d2b20227ef01c26cbaa20d8deb7f"
+      "bytes": 26018,
+      "sha256": "5b7320bad2dc8f9fc8c128167759cc4b79e7c3d1fdbadaf14498dbc7bbfbd5fd"
     },
     {
       "path": "tests/runtime/avatar.test.ts",
