@@ -1,0 +1,27 @@
+.agent-shops { gap: 1.5rem; }
+.shop-intro { max-width: 58rem; }
+.shop-intro h2 { font-size: clamp(1.35rem, 3vw, 2rem); margin: .35rem 0 .75rem; }
+.shop-intro p { line-height: 1.75; }
+.shop-steps { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1rem; }
+.shop-steps li { border: 1px solid var(--line); border-radius: 16px; padding: 1rem; }
+.shop-steps span { display: block; font-size: .8rem; opacity: .7; margin-bottom: .5rem; }
+.shop-steps p { font-size: .9rem; margin-bottom: 0; }
+.shop-download { display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; }
+.shop-download > div { min-width: 0; }
+.shop-download > button { flex-shrink: 0; }
+.shop-catalog { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; }
+.shop-product { min-width: 0; }
+.shop-product.is-selected { outline: 2px solid var(--green); }
+.shop-product img { width: 100%; height: 150px; object-fit: contain; border-radius: 10px; }
+.shop-import-preview, .shop-order { border-top: 1px solid var(--line); padding-top: 1rem; }
+.shop-url, .shop-order, .shop-import-preview { overflow-wrap: anywhere; }
+.agent-shops input[type=file] { max-width: 100%; width: 100%; }
+.agent-shops details > summary { cursor: pointer; padding-block: .6rem; }
+.agent-shops details[open] > form, .agent-shops details[open] > div { margin-top: .8rem; }
+@media(max-width: 700px) {
+ .shop-steps, .shop-catalog { grid-template-columns: 1fr; }
+ .shop-steps li { padding: .85rem 1rem; }
+ .shop-steps span { display: inline; margin-right: .65rem; }
+ .shop-download { align-items: stretch; flex-direction: column; }
+ .shop-download > button { width: 100%; }
+}

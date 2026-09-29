@@ -6,7 +6,7 @@ export const TAB_TITLES: Record<TabId, string> = {
   home: '會員首頁', positioning: '我的定位', guilds: '職業公會', skills: '技能書架',
   members: '工坊夥伴', account: '我的名片', cocreation: '一起開發', squads: '小隊集合',
   opensource: '開源投稿', workbench: '我的工作', showcase: '作品與需求', engagement: '合作紀錄',
-  supplier: '供貨中心', retail: '開店與銷售', marketing: '行銷工作室',
+  supplier: '我有東西要賣', retail: '我可以賣東西', marketing: '行銷工作室',
   'guild-workspace': '公會管理', community: '自由工坊社群',
   todos: '待辦清單', messages: '我的訊息', events: '社群活動', tasks: '社群任務榜',
 };

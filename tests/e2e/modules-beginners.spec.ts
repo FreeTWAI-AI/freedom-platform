@@ -85,7 +85,7 @@ test('product discovery distinguishes self-reported stock and leads to a real se
   await page.getByRole('button', { name: '登出', exact: true }).click();
   await login(page, 'client@local.test');
   const store = await command(page, '/retail/stores', { name: `${prefix} 選物店`, description: '合成選品測試', support_contact: '請聯絡測試店主' });
-  await navigate(page, '開店與銷售');
+  await navigate(page, '我可以賣東西');await page.getByText('查看舊版商品與合作資料',{exact:true}).click();
   const catalog = page.getByRole('region', { name: '挑選供貨商品', exact: true });
   await catalog.getByLabel('搜尋商品', { exact: true }).fill(prefix);
   await expect(catalog.locator('.product-card')).toHaveCount(3);

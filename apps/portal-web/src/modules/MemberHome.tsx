@@ -14,8 +14,8 @@ const shortcuts: { id: TabId; title: string }[] = [
   { id: 'skills', title: '技能書架' },
 ];
 const entries: { id: TabId; title: string; description: string; cover: string }[] = [
-  { id: 'supplier', title: '供貨中心', description: '刊登商品與供貨條件', cover: 'market-network' },
-  { id: 'retail', title: '開店與銷售', description: '選品、建立商店與合作', cover: 'workshop-hub' },
+  { id: 'supplier', title: '我有東西要賣', description: '讓 AI 整理商品、建立內部商店', cover: 'market-network' },
+  { id: 'retail', title: '我可以賣東西', description: '挑商品、讓 AI 製作公開商店', cover: 'workshop-hub' },
   { id: 'opensource', title: '開源投稿', description: '登錄你的 GitHub 專案', cover: 'cooperation-forge' },
   { id: 'marketing', title: '行銷工作室', description: '撰寫介紹與記錄分享', cover: 'cooperation-forge' },
 ];

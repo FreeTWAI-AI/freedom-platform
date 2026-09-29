@@ -1,3 +1,4 @@
+import {createAgentCommerceRoutes,createShopMachineRoutes,createPublicShopRoutes} from './routes/agent-commerce.js';
 import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { z } from 'zod';
@@ -92,7 +93,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
       const agentUpload=isAgentSkillUploadPath(c.req.method,c.req.path)||isAgentDevelopmentPath(c.req.method,c.req.path);
       // Only the narrow Bearer-authenticated Agent endpoints accept a CLI
       // without Origin. Browser requests keep the normal same-origin checks.
-      if(!agentUpload||c.req.header('Origin')!==undefined)requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected',freedomEnv==='local'?'操作來源不正確，請從本機工作台操作。':'操作來源不正確，請從自由工坊網站操作。');
+      const shopMachine=c.req.path.startsWith('/shop-api/v1/');
+      if((!agentUpload&&!shopMachine)||c.req.header('Origin')!==undefined)requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected',freedomEnv==='local'?'操作來源不正確，請從本機工作台操作。':'操作來源不正確，請從自由工坊網站操作。');
       if(agentUpload) {
         // The Agent route authenticates and consumes a bounded stream itself.
       } else if(isAvatarUpload(c.req.method,c.req.path)) {
@@ -127,6 +129,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createSkillDiscoveryRoutes(pool));
   app.route('/api/v1',createPublicClientConnectionRoutes(pool,origin,authNetwork));
   app.route('/client-api/v1',createClientApiRoutes(pool));
+  app.route('/shop-api/v1',createShopMachineRoutes(pool));
+  app.route('/',createPublicShopRoutes(pool));
   app.route('/agent-api/v1',createAgentSkillSubmissionRoutes(pool,origin,authNetwork));
   app.route('/development-agent/v1',createDevelopmentAgentRoutes(pool,loadSocial,authNetwork));
   app.post('/api/v1/auth/register',async c=>{
@@ -227,10 +231,11 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createSkillSubmissionRoutes(pool,origin));
   app.route('/api/v1',createPositioningRoutes(pool));
   app.route('/api/v1',createCommerceRoutes(pool));
+  app.route('/api/v1',createAgentCommerceRoutes(pool,origin));
   app.route('/api/v1',createOpenSourceRoutes(pool));
   app.route('/api/v1',createCoCreationRoutes(pool,runtime.githubMetricsToken,options.coCreationGitHub));
   app.route('/api/v1',createBenefitRoutes(pool));
   // Unknown machine paths answer JSON 404 before any host serves the browser shell.
-  for(const prefix of ['/api/*','/client-api/*','/agent-api/*','/development-agent/*'])app.all(prefix,c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'此版本尚未提供這個 API。'},404));
+  for(const prefix of ['/api/*','/client-api/*','/agent-api/*','/development-agent/*','/shop-api/*'])app.all(prefix,c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'此版本尚未提供這個 API。'},404));
   return app;
 }
