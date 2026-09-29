@@ -20,6 +20,7 @@ test('unknown dates and empty rankings stay empty; official guild selection is n
   assert.deepEqual(result.weekly,[]);assert.deepEqual(result.monthly,[]);
   assert.ok(result.books.every(book=>book.published_at===null&&!book.is_new_today&&book.week_rank===null&&book.month_rank===null));
   assert.ok(result.books.find(book=>book.book_id==='social-post')?.official_guild_keys.includes('guild_marketing'));
+  assert.ok(result.books.find(book=>book.book_id==='social-post')?.official_guilds.some(guild=>guild.guild_key==='guild_marketing'&&guild.name==='成長與行銷公會'));
 });
 test('new skills use a stored actual publication date with Taipei day boundaries',async()=>{
   await pool.query("INSERT INTO skill_publications VALUES('social-post',$1),('video-autopilot',$2),('security-scanner',$3)",['2026-09-23T16:00:00Z','2026-09-23T15:59:59Z','2026-09-24T16:00:00Z']);

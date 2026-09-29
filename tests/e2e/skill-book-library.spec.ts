@@ -134,6 +134,7 @@ test('book cards credit the original GitHub author and offer direct reading acti
   await expect(modal.getByRole('link',{name:'原作者 GitHub ↗',exact:true})).toHaveAttribute('href',book.upstream_url);
   await expect(modal.getByRole('button',{name:'GitHub 連結尚未啟用',exact:true})).toBeDisabled();
   await expect(modal.getByRole('link',{name:'開啟原作 ↗',exact:true})).toHaveAttribute('href',book.upstream_url);
+  await expect(modal.locator('.skill-intro-primary-actions > a').first()).toHaveAttribute('href',book.upstream_url);
   await expect(modal.getByRole('link',{name:'閱讀技能書 ↗',exact:true})).toHaveAttribute('href',book.guide!.reading_url);
   await expect(modal.getByRole('link',{name:'Fork 原作 ↗',exact:true})).toHaveAttribute('href',`${book.upstream_url}/fork`);
   await expect(modal.getByRole('link',{name:'查看工坊整合版本 ↗',exact:true})).toHaveAttribute('href',book.repository_url);
@@ -179,8 +180,10 @@ test('all public book pages and Markdown preserve beginner summaries, covers, or
   await expect(details).not.toHaveAttribute('open');
   await expect(page.getByRole('link',{name:'閱讀技能書 ↗',exact:true})).toHaveAttribute('href',example.guide!.reading_url);
   await expect(page.getByRole('link',{name:'開啟原作 ↗',exact:true})).toHaveAttribute('href',example.upstream_url);
-  await expect(page.getByRole('link',{name:'Fork 原作 ↗',exact:true})).toHaveAttribute('href',`${example.upstream_url}/fork`);
-  await expect(page.getByRole('link',{name:'查看工坊整合版本 ↗',exact:true})).toHaveAttribute('href',example.repository_url);
+  await expect(page.getByRole('link',{name:'從原作開始共創 ↗',exact:true})).toHaveAttribute('href',`${example.upstream_url}/fork`);
+  await page.locator('.public-collaboration details > summary').click();
+  await expect(page.getByRole('link',{name:'查看工坊整合版本',exact:true})).toHaveAttribute('href',example.repository_url);
+  await expect(page.locator('.public-skill-entry .public-skill-actions a').first()).toHaveAttribute('href',example.upstream_url);
   await expect(page.locator('.public-skill-cover img')).toHaveAttribute('src',example.cover_url!);
   await expect.poll(()=>page.locator('.public-skill-cover img').evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   const star=page.getByRole('link',{name:'登入工坊 Star',exact:true});
@@ -194,6 +197,32 @@ test('all public book pages and Markdown preserve beginner summaries, covers, or
   }
   await page.screenshot({path:'test-results/public-skill-compact-phone.png',fullPage:true});
   await details.locator('summary').click();await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:'test-results/public-skill-compact-viewport.png'});
+});
+
+test('the original repository leads member introductions and public skill pages',async({page})=>{
+  const library=await openLibrary(page);
+  const card=library.locator('article[data-book-id="security-scanner"]');
+  await library.getByLabel('搜尋技能書',{exact:true}).fill('AI Security Scanner');
+  await card.getByRole('button',{name:'預覽技能書',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'AI Security Scanner',exact:true});
+  const website='https://teddashh.github.io/ai-security-scanner/';
+  const original='https://github.com/teddashh/ai-security-scanner';
+  await expect(dialog.locator('.skill-intro-primary-actions > a').first()).toHaveAttribute('href',original);
+  await expect(dialog.locator('.skill-intro-primary-actions > a').first()).toHaveClass(/btn-primary/);
+  await expect(dialog.getByRole('link',{name:'前往作者網站 ↗',exact:true})).toHaveAttribute('href',website);
+  await expect(dialog.getByRole('link',{name:'開啟原作 ↗',exact:true})).toHaveAttribute('href',original);
+  await expect(dialog.getByRole('link',{name:'查看工坊整合版本 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI-AI/ai-security-scanner');
+  for(const width of [1440,768,390]){
+    await page.setViewportSize({width,height:900});
+    expect(await dialog.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+    await dialog.evaluate(element=>element.scrollTop=0);
+    await page.screenshot({path:`test-results/author-first-skill-${width}.png`});
+  }
+  await page.keyboard.press('Escape');
+  await page.goto('/development/skills/security-scanner');
+  await expect(page.locator('.public-skill-entry .public-skill-actions a').first()).toHaveAttribute('href',original);
+  await expect(page.getByRole('link',{name:'前往作者網站 ↗',exact:true})).toHaveAttribute('href',website);
+  await expect(page.getByRole('link',{name:'開啟原作 ↗',exact:true})).toHaveAttribute('href',original);
 });
 
 test('every bookshelf uses compact illustrated rows with full copy, live counts and expandable secondary metrics',async({page})=>{

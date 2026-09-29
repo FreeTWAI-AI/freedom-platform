@@ -103,10 +103,10 @@ test('published maintainer edits appear consistently in HTML, Markdown, Agent Sk
 
 test('public HTML escapes authored editorial text and omits unknown or unavailable rank badges',async()=>{
  const evil={...editorial,summary:'<img src=x onerror="boom()">',collaboration_intro:'<script>boom()</script>',tasks:[{...editorial.tasks[0],title:'<iframe src=x>',description:'" onfocus="boom()'}]};
- const app=createDevelopmentRoutes(undefined,async()=>evil,async()=>({book_id:'video-autopilot',published_at:'2026-09-23T00:00:00Z',official_guild_keys:['guild_media_automation'],is_new_today:true,week_rank:2,month_rank:3,week_stars:2,month_stars:3}));
+ const app=createDevelopmentRoutes(undefined,async()=>evil,async()=>({book_id:'video-autopilot',published_at:'2026-09-23T00:00:00Z',official_guild_keys:['guild_media_automation'],official_guilds:[{guild_key:'guild_media_automation',name:'媒體自動化公會'}],is_new_today:true,week_rank:2,month_rank:3,week_stars:2,month_stars:3}));
  const html=await(await app.request(origin+'/development/skills/video-autopilot')).text();
  assert.ok(html.includes('&lt;script&gt;boom()&lt;/script&gt;'));assert.ok(html.includes('&lt;iframe'));assert.ok(!html.includes('<img src=x'));assert.ok(!html.includes('<iframe'));
- assert.ok(html.includes('每日新技能'));assert.ok(html.includes('工坊週榜 #2'));assert.ok(html.includes('工坊月榜 #3'));
+ assert.ok(html.includes('媒體自動化公會指定技能'));assert.ok(html.includes('每日新技能'));assert.ok(html.includes('工坊週榜 #2'));assert.ok(html.includes('工坊月榜 #3'));
 });
 
 // Share preview, dice, clipboard and native cancellation behavior are covered in skill-sharing.test.ts.

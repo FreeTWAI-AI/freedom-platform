@@ -17,6 +17,7 @@ test('new member explores, submits an event and selects each theme',async({page}
   await expect(page.getByRole('heading',{name:'近期活動'})).toBeVisible();
   await expect(page.getByRole('heading',{name:'可參與的工作'})).toBeVisible();
   await expect(page.getByRole('heading',{name:'免費技能書'})).toBeVisible();
+  await expect(page.locator('.welcome-preview-grid').getByRole('link',{name:'開啟原作 ↗'}).first()).toHaveAttribute('href','https://github.com/arumwu/local-workspace-mcp');
   await expect(page.getByRole('heading',{name:'你喜歡怎麼做事？'})).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/member-preview-light.png',fullPage:true});

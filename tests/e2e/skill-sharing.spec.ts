@@ -2,7 +2,7 @@ import { navigate } from './navigation.js';
 import {test,expect,type Page} from './fixtures.js';
 
 const metadata=(book_id:string,extra:Record<string,unknown>={})=>({book_id,published_at:null,official_guild_keys:[],is_new_today:false,week_rank:null,month_rank:null,week_stars:0,month_stars:0,...extra});
-const discovery={as_of:'2026-09-23T14:00:00Z',timezone:'Asia/Taipei',ranking_basis:'distinct_verified_workshop_stars',books:[metadata('social-post',{official_guild_keys:['marketing'],week_rank:2,month_rank:1,week_stars:2,month_stars:7}),metadata('video-autopilot',{week_rank:1,month_rank:2,week_stars:5,month_stars:6}),metadata('event-space',{is_new_today:true,published_at:'2026-09-23T08:00:00Z'})],weekly:[{book_id:'video-autopilot',rank:1,stars:5},{book_id:'social-post',rank:2,stars:2}],monthly:[{book_id:'social-post',rank:1,stars:7},{book_id:'video-autopilot',rank:2,stars:6}]};
+const discovery={as_of:'2026-09-23T14:00:00Z',timezone:'Asia/Taipei',ranking_basis:'distinct_verified_workshop_stars',books:[metadata('social-post',{official_guild_keys:['guild_marketing'],official_guilds:[{guild_key:'guild_marketing',name:'成長與行銷公會'}],week_rank:2,month_rank:1,week_stars:2,month_stars:7}),metadata('video-autopilot',{week_rank:1,month_rank:2,week_stars:5,month_stars:6}),metadata('event-space',{is_new_today:true,published_at:'2026-09-23T08:00:00Z'})],weekly:[{book_id:'video-autopilot',rank:1,stars:5},{book_id:'social-post',rank:2,stars:2}],monthly:[{book_id:'social-post',rank:1,stars:7},{book_id:'video-autopilot',rank:2,stars:6}]};
 const title='Hao 社群貼文技能書';
 // Share URLs use the page origin; follow whichever baseURL this run serves.
 let origin='';
@@ -21,9 +21,9 @@ async function library(page:Page){
 test('one discovery request supplies card and dialog badges; week and month use actual ranked order',async({page})=>{
   let reads=0;await page.route('**/api/v1/skills/discovery',route=>{reads++;return route.fulfill({json:discovery});});
   const lib=await library(page),social=lib.locator('article[data-book-id="social-post"]');
-  await expect(social.getByText('官方公會技能',{exact:true})).toBeVisible();await expect(social.getByText('工坊週榜 #2',{exact:true})).toBeVisible();
+  await expect(social.getByText('成長與行銷公會指定技能',{exact:true})).toBeVisible();await expect(social.getByText('工坊週榜 #2',{exact:true})).toBeVisible();
   await social.getByRole('button',{name:'預覽技能書',exact:true}).click();
-  const dialog=page.getByRole('dialog',{name:'Hao 社群貼文技能書',exact:true});await expect(dialog.getByText('官方公會技能',{exact:true})).toBeVisible();await expect(dialog.getByRole('link',{name:'交給 Agent ↗',exact:true})).toHaveAttribute('href','/development/skills/social-post/SKILL.md');await expect(dialog.getByRole('link',{name:'查看里程碑與任務 ↗',exact:true})).toHaveAttribute('href','/development/skills/social-post');
+  const dialog=page.getByRole('dialog',{name:'Hao 社群貼文技能書',exact:true});await expect(dialog.getByText('成長與行銷公會指定技能',{exact:true})).toBeVisible();await expect(dialog.getByRole('button',{name:'加入共同開發',exact:true})).toBeVisible();await expect(dialog.getByRole('link',{name:'交給 Agent ↗',exact:true})).toHaveAttribute('href','/development/skills/social-post/SKILL.md');await expect(dialog.getByRole('link',{name:'查看里程碑與任務 ↗',exact:true})).toHaveAttribute('href','/development/skills/social-post');
   await page.keyboard.press('Escape');expect(reads).toBe(1);
   await lib.getByRole('button',{name:'工坊週榜',exact:true}).click();await expect(lib.locator('article.skill-library-book')).toHaveCount(2);await expect(lib.locator('article.skill-library-book').first()).toHaveAttribute('data-book-id','video-autopilot');await expect(lib).toContainText('不是 GitHub 總星數');
   await lib.getByRole('button',{name:'工坊月榜',exact:true}).click();await expect(lib.locator('article.skill-library-book').first()).toHaveAttribute('data-book-id','social-post');

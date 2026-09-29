@@ -7,7 +7,7 @@ const DAY=86_400_000;
 const taipei=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'});
 export const rankingBasis='近 7／30 天首次在工坊加星、且最近核對仍保留星星的 GitHub 帳號數。同一帳號與專案只算一次；取消後重加不刷新日期。不含 GitHub 全站新增星星，也不代表能力或收益。';
 export type SkillRank={book_id:string;rank:number;stars:number};
-export type SkillDiscoveryBook={book_id:string;summary_override?:string;published_at:string|null;official_guild_keys:string[];is_new_today:boolean;week_rank:number|null;month_rank:number|null;week_stars:number;month_stars:number};
+export type SkillDiscoveryBook={book_id:string;summary_override?:string;published_at:string|null;official_guild_keys:string[];official_guilds:{guild_key:string;name:string}[];is_new_today:boolean;week_rank:number|null;month_rank:number|null;week_stars:number;month_stars:number};
 export type SkillDiscovery={as_of:string;timezone:'Asia/Taipei';ranking_basis:string;books:SkillDiscoveryBook[];weekly:SkillRank[];monthly:SkillRank[]};
 
 // Called only AFTER the provider confirms the authenticated member's requested
@@ -21,18 +21,21 @@ export async function reconcileConfirmedStar(q:PoolClient,githubId:string,reposi
   await q.query('UPDATE skill_star_support SET active=$3,last_confirmed_at=now() WHERE github_user_id=$1 AND repository_key=$2',[githubId,repository.toLowerCase(),starred]);
 }
 export async function skillDiscovery(pool:Pool,now=new Date()):Promise<SkillDiscovery>{
-  const [support,publications,summaries]=await Promise.all([
+  const [support,publications,summaries,guildNames]=await Promise.all([
     pool.query(`SELECT repository_key,count(*) FILTER(WHERE first_confirmed_at>$1 AND first_confirmed_at<=$3)::int AS week_stars,
       count(*) FILTER(WHERE first_confirmed_at>$2 AND first_confirmed_at<=$3)::int AS month_stars
       FROM skill_star_support WHERE active AND first_confirmed_at>$2 AND first_confirmed_at<=$3 GROUP BY repository_key`,[new Date(now.getTime()-7*DAY),new Date(now.getTime()-30*DAY),now]),
     pool.query('SELECT book_id,published_at FROM skill_publications WHERE published_at<=$1',[now]),
     readSkillEditorialSummaries(pool),
+    pool.query('SELECT guild_key,name FROM positioning_guild_catalog'),
   ]);
   const counts=new Map(support.rows.map(row=>[row.repository_key,row])),dates=new Map(publications.rows.map(row=>[row.book_id,new Date(row.published_at)]));
+  const names=new Map<string,string>(guildNames.rows.map(row=>[row.guild_key,row.name]));
   const books:SkillDiscoveryBook[]=communityCatalog.skill_books.map(book=>{
     const row=counts.get(new URL(book.upstream_url).pathname.slice(1).toLowerCase()),date=dates.get(book.id);
+    const officialGuildKeys=Object.keys(guildTitles).filter(key=>skillBooksForGuild(key).some(b=>b.id===book.id));
     return {book_id:book.id,...(summaries[book.id]?{summary_override:summaries[book.id]}:{}),published_at:date?.toISOString()??null,
-      official_guild_keys:Object.keys(guildTitles).filter(key=>skillBooksForGuild(key).some(b=>b.id===book.id)),
+      official_guild_keys:officialGuildKeys,official_guilds:officialGuildKeys.flatMap(guild_key=>names.has(guild_key)?[{guild_key,name:names.get(guild_key)!}]:[]),
       is_new_today:!!date&&taipei.format(date)===taipei.format(now),week_rank:null,month_rank:null,
       week_stars:Number(row?.week_stars??0),month_stars:Number(row?.month_stars??0)};
   });

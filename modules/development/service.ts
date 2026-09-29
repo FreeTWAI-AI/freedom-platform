@@ -103,8 +103,7 @@ export function pageHtml(title:string,markdown:string,markdownUrl:string,metrics
  const markdownLink='<p><a href="'+escape(markdownUrl)+'">讀取 Markdown 原文</a> · <a href="'+escape(agentUrl)+'">下載 Agent SKILL.md</a></p>';
  if(book?.guide){
   const cover=book.cover_url?'<figure class="public-skill-cover"><img src="'+escape(book.cover_url)+'" alt="" width="768" height="512"></figure>':'';
-  const upstreamFork=book.upstream_url+'/fork';
-  const actions=[[book.guide.reading_url,'閱讀技能書 ↗'],[book.upstream_url,'開啟原作 ↗'],[upstreamFork,'Fork 原作 ↗'],...(book.repository_url!==book.upstream_url?[[book.repository_url,'查看工坊整合版本 ↗']]:[])].filter(([url])=>!!url).map(([url,label])=>'<a href="'+escape(url!)+'" target="_blank" rel="noopener noreferrer">'+label+'</a>').join('')+'<a href="/#skills">登入工坊 Star</a>';
+  const actions=[[book.upstream_url,'開啟原作 ↗'],[book.introduction_url,'前往作者網站 ↗'],[book.guide.reading_url,'閱讀技能書 ↗']].filter(([url])=>!!url).map(([url,label])=>'<a href="'+escape(url!)+'" target="_blank" rel="noopener noreferrer">'+label+'</a>').join('')+'<a href="/#skills">登入工坊 Star</a>';
   const count=(value:number|null|undefined)=>typeof value==='number'&&Number.isSafeInteger(value)&&value>=0?String(value):'—';
   const date=(value:string|null|undefined)=>value&&!Number.isNaN(Date.parse(value))?escape(new Date(value).toISOString().slice(0,10)):'—';
   const original=escape(book.upstream_url),author=escape(new URL(book.upstream_url).origin+'/'+new URL(book.upstream_url).pathname.split('/')[1]);
@@ -114,7 +113,8 @@ export function pageHtml(title:string,markdown:string,markdownUrl:string,metrics
     +'<a href="'+original+'" target="_blank" rel="noopener noreferrer" aria-label="追蹤專案（Watch）↗">Watch '+count(metrics?.subscribers_count)+'</a>'
     +'<a href="'+author+'" target="_blank" rel="noopener noreferrer">Follow 原作者 ↗</a></div><p>未結 Issues／PR '+count(metrics?.open_issues_count)+' · 程式更新 '+date(metrics?.pushed_at)+'</p><p>'+(metrics?.checked_at?(metrics.stale?'上次取得的數據':'數據更新')+' · '+date(metrics.checked_at):'尚未取得 GitHub 數據')+'</p></section>';
   const guilds=Object.keys(guildTitles).filter(key=>skillBooksForGuild(key).some(value=>value.id===book.id));
-  const badges='<div class="public-skill-badges" aria-label="技能書徽章">'+(guilds.length?'<span title="自由工坊公會指定技能；不代表原作者背書">✦ 官方公會技能</span>':'')+(discovery?.is_new_today?'<span>每日新技能</span>':'')+(discovery?.week_rank?'<span>工坊週榜 #'+discovery.week_rank+'</span>':'')+(discovery?.month_rank?'<span>工坊月榜 #'+discovery.month_rank+'</span>':'')+'</div>';
+  const guildBadges=guilds.length?(discovery?.official_guilds?.length?discovery.official_guilds.map(guild=>'<span title="自由工坊公會指定技能；不代表原作者背書">✦ '+escape(guild.name)+'指定技能</span>').join(''):'<span title="自由工坊公會指定技能；不代表原作者背書">✦ 官方公會技能</span>'):'';
+  const badges='<div class="public-skill-badges" aria-label="技能書徽章">'+guildBadges+(discovery?.is_new_today?'<span>每日新技能</span>':'')+(discovery?.week_rank?'<span>工坊週榜 #'+discovery.week_rank+'</span>':'')+(discovery?.month_rank?'<span>工坊月榜 #'+discovery.month_rank+'</span>':'')+'</div>';
   const entry='<section class="public-skill-entry">'+cover+'<div><p class="public-skill-purpose">'+escape(editorial?.summary||book.guide.beginner.purpose)+'</p>'+(book.guide.author_name?'<p>作者：'+escape(book.guide.author_name)+'</p>':'')+badges+stats+'<div class="public-skill-actions">'+actions+'</div><p class="public-skill-example">'+escape(book.guide.first_result)+'</p></div></section>';
   const cooperation=getSkillCollaboration(book.id,editorial);
   const content=shareContentFor(book.id),selected=shareIntroNumber(intro,content.introductions.length),selectedText=selected?content.introductions[selected-1]:null;

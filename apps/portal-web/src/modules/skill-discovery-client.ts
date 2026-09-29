@@ -1,6 +1,6 @@
 import {useEffect,useSyncExternalStore} from 'react';
 
-export type SkillDiscoveryBook={book_id:string;summary_override?:string;published_at:string|null;official_guild_keys:string[];is_new_today:boolean;week_rank:number|null;month_rank:number|null;week_stars:number;month_stars:number};
+export type SkillDiscoveryBook={book_id:string;summary_override?:string;published_at:string|null;official_guild_keys:string[];official_guilds?:{guild_key:string;name:string}[];is_new_today:boolean;week_rank:number|null;month_rank:number|null;week_stars:number;month_stars:number};
 export type SkillRanking={book_id:string;rank:number;stars:number};
 export type SkillDiscovery={as_of:string;timezone:'Asia/Taipei';ranking_basis:string;books:SkillDiscoveryBook[];weekly:SkillRanking[];monthly:SkillRanking[]};
 type Snapshot={data:SkillDiscovery|null;loading:boolean;error:string};
@@ -13,7 +13,7 @@ const validCount=(value:unknown)=>typeof value==='number'&&Number.isSafeInteger(
 function validRanking(value:unknown):value is SkillRanking[]{return Array.isArray(value)&&value.every(item=>item&&typeof item.book_id==='string'&&validCount(item.rank)&&item.rank>0&&validCount(item.stars));}
 function parseDiscovery(value:unknown):SkillDiscovery{
   const data=value as SkillDiscovery;
-  if(!data||typeof data.as_of!=='string'||!Number.isFinite(Date.parse(data.as_of))||data.timezone!=='Asia/Taipei'||typeof data.ranking_basis!=='string'||!validRanking(data.weekly)||!validRanking(data.monthly)||!Array.isArray(data.books)||!data.books.every(book=>book&&typeof book.book_id==='string'&&(book.published_at===null||typeof book.published_at==='string')&&Array.isArray(book.official_guild_keys)&&book.official_guild_keys.every(key=>typeof key==='string')&&typeof book.is_new_today==='boolean'&&(book.week_rank===null||validCount(book.week_rank)&&book.week_rank>0)&&(book.month_rank===null||validCount(book.month_rank)&&book.month_rank>0)&&validCount(book.week_stars)&&validCount(book.month_stars)))throw new Error('invalid_discovery');
+  if(!data||typeof data.as_of!=='string'||!Number.isFinite(Date.parse(data.as_of))||data.timezone!=='Asia/Taipei'||typeof data.ranking_basis!=='string'||!validRanking(data.weekly)||!validRanking(data.monthly)||!Array.isArray(data.books)||!data.books.every(book=>book&&typeof book.book_id==='string'&&(book.published_at===null||typeof book.published_at==='string')&&Array.isArray(book.official_guild_keys)&&book.official_guild_keys.every(key=>typeof key==='string')&&(!book.official_guilds||Array.isArray(book.official_guilds)&&book.official_guilds.every(guild=>guild&&typeof guild.guild_key==='string'&&typeof guild.name==='string'))&&typeof book.is_new_today==='boolean'&&(book.week_rank===null||validCount(book.week_rank)&&book.week_rank>0)&&(book.month_rank===null||validCount(book.month_rank)&&book.month_rank>0)&&validCount(book.week_stars)&&validCount(book.month_stars)))throw new Error('invalid_discovery');
   return data;
 }
 export function refreshSkillDiscovery(force=false):Promise<void>{

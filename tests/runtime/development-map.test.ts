@@ -9,7 +9,7 @@ import {developmentMap,markdownBody} from '../../modules/development/service.js'
 const origin='http://127.0.0.1:4310';
 // Guidance may enrich a skill page from the public repository cache only.
 const publicEditorial='SELECT summary,collaboration_intro,milestones,tasks,updated_at,aggregate_version FROM skill_book_editorial WHERE book_id=$1';
-const publicDiscovery=new Set(['SELECT book_id,published_at FROM skill_publications WHERE published_at<=$1','SELECT book_id,summary FROM skill_book_editorial',`SELECT repository_key,count(*) FILTER(WHERE first_confirmed_at>$1 AND first_confirmed_at<=$3)::int AS week_stars, count(*) FILTER(WHERE first_confirmed_at>$2 AND first_confirmed_at<=$3)::int AS month_stars FROM skill_star_support WHERE active AND first_confirmed_at>$2 AND first_confirmed_at<=$3 GROUP BY repository_key`]);
+const publicDiscovery=new Set(['SELECT book_id,published_at FROM skill_publications WHERE published_at<=$1','SELECT book_id,summary FROM skill_book_editorial','SELECT guild_key,name FROM positioning_guild_catalog',`SELECT repository_key,count(*) FILTER(WHERE first_confirmed_at>$1 AND first_confirmed_at<=$3)::int AS week_stars, count(*) FILTER(WHERE first_confirmed_at>$2 AND first_confirmed_at<=$3)::int AS month_stars FROM skill_star_support WHERE active AND first_confirmed_at>$2 AND first_confirmed_at<=$3 GROUP BY repository_key`]);
 const publiclyReadable=(sql:string)=>sql===publicEditorial||publicDiscovery.has(sql.replace(/\s+/g,' ').trim());
 let privateQueries=0;
 const pool={query:(sql:string)=>{
@@ -65,7 +65,7 @@ test('unauthenticated crawlers get useful HTML, Markdown and JSON without JavaSc
 test('public skill guidance survives a repository cache outage without substituting zero counts',async()=>{
  const offline=createApp({query:(sql:string)=>publiclyReadable(sql)?Promise.resolve({rows:[]}):Promise.reject(Error('cache unavailable'))} as unknown as Pool,origin);
  const response=await offline.request(origin+'/development/skills/security-scanner');assert.equal(response.status,200);
- const html=await response.text();assert.ok(html.includes('Stars —'));assert.ok(html.includes('尚未取得 GitHub 數據'));assert.ok(html.includes('Fork 原作'));
+ const html=await response.text();assert.ok(html.includes('Stars —'));assert.ok(html.includes('尚未取得 GitHub 數據'));assert.ok(html.includes('從原作開始共創 ↗'));
 });
 
 test('unknown guide paths do not become an SPA fallback and authored text cannot inject executable HTML',async()=>{
