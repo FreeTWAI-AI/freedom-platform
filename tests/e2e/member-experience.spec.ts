@@ -66,6 +66,7 @@ test('completed member submits an event and sees accepted-work facts without pro
   await page.screenshot({path:'test-results/member-home-light.png',fullPage:true});
   await navigate(page,'社群活動');
   await expect(page.getByRole('heading',{name:'社群活動',level:1})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'活動行事曆'})).toBeVisible();
   await page.getByRole('button',{name:'＋ 提交活動'}).click();
   const title=`共創活動 ${randomUUID().slice(0,8)}`;
   await page.getByLabel('活動名稱').fill(title);
@@ -79,7 +80,7 @@ test('completed member submits an event and sees accepted-work facts without pro
   await page.getByLabel('線上場地').fill('Discord 讀書會場地');
   await page.getByLabel('線上參與連結').fill('https://example.org/meeting');
   const banner=await sharp({create:{width:120,height:63,channels:3,background:'#366177'}}).png().toBuffer();
-  await page.getByLabel('活動 Banner（選填）').setInputFiles({name:'event-banner.png',mimeType:'image/png',buffer:banner});
+  await page.getByLabel('活動海報（選填）').setInputFiles({name:'event-banner.png',mimeType:'image/png',buffer:banner});
   await page.getByRole('button',{name:'送出審核'}).click();
   await expect(page.getByRole('heading',{name:title})).toBeVisible();
   await expect(page.getByRole('heading',{name:'待審核活動'})).toBeVisible();
@@ -88,6 +89,12 @@ test('completed member submits an event and sees accepted-work facts without pro
   await page.setViewportSize({width:390,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/member-events-light-phone.png',fullPage:true});
+  await page.setViewportSize({width:768,height:900});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/member-events-light-tablet.png',fullPage:true});
+  await page.setViewportSize({width:1440,height:900});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/member-events-light-desktop.png',fullPage:true});
   await page.setViewportSize({width:1280,height:720});
   await navigate(page,'社群任務榜');
   await expect(page.getByRole('heading',{name:'社群任務榜',level:1})).toBeVisible();

@@ -59,6 +59,9 @@ export async function authenticate(pool: Pool, raw: string | undefined): Promise
     s.token_hash AS session_hash,s.csrf_token FROM sessions s JOIN users u USING(user_id)
     WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>now() AND u.active`,[tokenHash(raw)]);
   requireCondition(result.rowCount===1,401,'session_expired','登入已到期，請重新登入。');
+  // Presence is recent activity, not the full eight-hour cookie lifetime.
+  await pool.query(`UPDATE sessions SET last_seen_at=now() WHERE token_hash=$1
+    AND (last_seen_at IS NULL OR last_seen_at<now()-interval '1 minute')`,[tokenHash(raw)]);
   return result.rows[0];
 }
 export function sessionView(actor: Actor) {

@@ -36,6 +36,8 @@ Cloudflare Workers＋PlanetScale 已於 2026-09-25 切換。2026-09-24 候選站
 
 右上角「設定」集中我的名片、GitHub 必做待辦與我的訊息。訊息分為通知、公會閒聊、小隊閒聊與私人訊息，依當下成員資格開放；通知包含好友、小隊邀請、公會審核與任命結果。小隊邀請由受邀本人接受。詳見 [會員設定與訊息](./docs/development/member-settings-messages.md)。
 
+本分支的社群活動支援每場專頁與會員專屬分享連結、分享報名統計、未來活動行事曆，以及公會限定／工坊會員／推薦連結公開／完全公開四種參與範圍。推薦連結公開活動在報名後才提供線上連結，並寄送參與資料到填寫的 Email；公開訪客報名需要可用的 `EMAIL` binding（Node 本機可注入 `eventEmailSender`）。活動海報支援直式與橫式 PNG／JPEG／WebP（512 KiB 以下），影片支援 MP4／WebM（20 MiB 以下）。會員名冊與私訊依最近兩分鐘的有效 session 活動顯示在線狀態，並列出可確認的上次登入時間；舊 session 的登入時間不推測。這些是本分支實作，並非已部署聲明。
+
 登入後的全站 Game Console 以底欄、展開面板與獨立視窗呈現系統提示、AI 工作說明、會員聊天與發布動態；資料來源和更新間隔見 [會員 Game Console](./docs/development/game-console.md)。
 
 各頁右上角提供想法、說明與編修入口；想法按頁面標記整理 GitHub Issue，站內發布使用會員自己的 GitHub 授權，手機世界聊天使用站內抽屜。權限與資料邊界見 [頁面工具與世界聊天](./docs/development/page-tools.md)。

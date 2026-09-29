@@ -110,6 +110,9 @@ export async function memberCard(pool:Pool,actor:Actor,id:string) {
   // Split reads can combine an old friendship with a newly changed private value.
   const [projection,positioning]=await Promise.all([
     pool.query(`SELECT u.user_id,u.display_name,u.created_at,u.created_at_source,u.email,account.contacts,account.identity_label,avatar.aggregate_version AS avatar_version,avatar.image_bytes IS NOT NULL AS avatar_present,
+      (SELECT max(s.created_at) FROM sessions s WHERE s.user_id=u.user_id) AS last_login_at,
+      EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.user_id AND s.revoked_at IS NULL AND s.expires_at>now()
+        AND s.last_seen_at>now()-interval '2 minutes') AS is_online,
       (SELECT jsonb_build_object('state',f.state,'requester_ref',f.requester_ref,'aggregate_version',f.aggregate_version) FROM member_friendships f WHERE f.community_id=$1 AND f.low_ref=$2 AND f.high_ref=$3) AS friendship,
       EXISTS(SELECT 1 FROM positioning_profession_memberships a JOIN positioning_profession_memberships b USING(community_id,guild_key) WHERE a.community_id=$1 AND a.user_id=$4 AND b.user_id=$5 AND a.state='active' AND b.state='active') AS guild,
       EXISTS(SELECT 1 FROM member_squad_memberships a JOIN member_squad_memberships b USING(squad_id) JOIN member_squads s USING(squad_id) WHERE s.community_id=$1 AND a.user_id=$4 AND b.user_id=$5 AND a.state='active' AND b.state='active') AS squad
@@ -124,7 +127,7 @@ export async function memberCard(pool:Pool,actor:Actor,id:string) {
     const audience=field.audiences;
     if(field.value&&(isSelf||audience.includes('public')||audience.includes('friends')&&relation.friendship?.state==='accepted'||audience.includes('guild')&&relation.guild||audience.includes('squad')&&relation.squad))contacts[key]=field.value;
   }
-  return {user_id:id,nickname:relation.display_name,identity_label:relation.identity_label??null,joined_at:relation.created_at?new Date(relation.created_at).toISOString():null,joined_at_source:relation.created_at_source,...positioning,avatar_url:avatarUrl(id,relation.avatar_version,relation.avatar_present),contacts,is_self:isSelf,friendship:relation.friendship??{state:'none'}};
+  return {user_id:id,nickname:relation.display_name,identity_label:relation.identity_label??null,joined_at:relation.created_at?new Date(relation.created_at).toISOString():null,joined_at_source:relation.created_at_source,last_login_at:relation.last_login_at?new Date(relation.last_login_at).toISOString():null,is_online:relation.is_online,...positioning,avatar_url:avatarUrl(id,relation.avatar_version,relation.avatar_present),contacts,is_self:isSelf,friendship:relation.friendship??{state:'none'}};
 }
 export const MemberDirectoryQuery=z.object({
  limit:z.coerce.number().int().min(1).max(50).default(20),offset:z.coerce.number().int().min(0).max(10000).default(0),
@@ -169,6 +172,17 @@ export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:numb
     [actor.community_id,input.limit,input.offset,input.search,input.guild_key,JSON.stringify(guildTitles),JSON.stringify(capabilityLabels),input.primary_guild_key,input.capability])).rows[0];
   const items=await Promise.all((result.user_ids as string[]).map(id=>memberCard(pool,actor,id)));
   return {items,total:result.total,next_offset:input.offset+input.limit<result.total?input.offset+input.limit:null};
+}
+export async function memberPresence(pool:Pool,actor:Actor,raw:string){
+  const ids=z.array(z.uuid()).max(50).parse(raw.split(',').filter(Boolean));
+  if(ids.length===0)return {items:[]};
+  const rows=(await pool.query(`SELECT u.user_id,
+    (SELECT max(s.created_at) FROM sessions s WHERE s.user_id=u.user_id) AS last_login_at,
+    EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.user_id AND s.revoked_at IS NULL AND s.expires_at>now()
+      AND s.last_seen_at>now()-interval '2 minutes') AS is_online
+    FROM users u WHERE u.community_id=$1 AND u.user_id=ANY($2::uuid[]) AND u.active
+      AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)`,[actor.community_id,ids])).rows;
+  return {items:rows.map(row=>({user_id:row.user_id,last_login_at:row.last_login_at?new Date(row.last_login_at).toISOString():null,is_online:row.is_online}))};
 }
 export async function listFriends(pool:Pool,actor:Actor) {
   return (await pool.query(`SELECT u.user_id,u.display_name AS nickname,f.state,f.requester_ref,f.aggregate_version FROM member_friendships f JOIN users u ON u.user_id=CASE WHEN f.low_ref=$2 THEN f.high_ref ELSE f.low_ref END WHERE f.community_id=$1 AND (f.low_ref=$2 OR f.high_ref=$2) AND f.state<>'removed' AND u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) ORDER BY f.updated_at DESC LIMIT 100`,[actor.community_id,actor.user_id])).rows;

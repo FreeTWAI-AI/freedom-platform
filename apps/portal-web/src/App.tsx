@@ -18,6 +18,7 @@ import {NotificationBell,type BellAction} from './modules/NotificationBell'
 import { MemberTasks } from './modules/MemberTasks'
 import { MemberMessages } from './modules/MemberMessages'
 import { EventsPanel } from './modules/EventsPanel'
+import {PublicEventPage} from './modules/PublicEventPage'
 import { TaskBoardPanel } from './modules/TaskBoardPanel'
 import { WelcomePreview } from './modules/WelcomePreview'
 import {MemberGuildWorkspace} from './modules/GuildWorkspace'
@@ -144,6 +145,12 @@ export function App() {
 }
 
 const resetTokenFromHash=()=>/^#reset-password\/([A-Za-z0-9_-]{43})$/.exec(window.location.hash)?.[1]??null
+const eventIdFromLocation=()=>{
+  const inHash=/^#events\/([0-9a-f-]{36})(?:\?.*)?$/.exec(window.location.hash)?.[1];
+  if(inHash)return inHash;
+  if(window.location.hash)return null;
+  return /^\/events\/([0-9a-f-]{36})\/?$/.exec(window.location.pathname)?.[1]??null;
+}
 const clearResetHash=()=>window.history.replaceState(null,'',window.location.pathname+window.location.search)
 
 function AdminConsoleShell(){
@@ -164,7 +171,10 @@ function MemberApp() {
   const [gateError, setGateError] = useState('')
   const [exploring,setExploring]=useState(true)
   const [resetToken,setResetToken]=useState(resetTokenFromHash)
+  const [publicEventId,setPublicEventId]=useState(eventIdFromLocation)
+  const [eventLoginRequested,setEventLoginRequested]=useState(false)
   useEffect(()=>{const changed=()=>setResetToken(resetTokenFromHash());window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed)},[])
+  useEffect(()=>{const changed=()=>{setPublicEventId(eventIdFromLocation());setEventLoginRequested(false)};window.addEventListener('hashchange',changed);window.addEventListener('popstate',changed);return()=>{window.removeEventListener('hashchange',changed);window.removeEventListener('popstate',changed)}},[])
   const sessionGeneration = useRef(0)
   const loadOnboarding = useCallback(async () => {
     const generation = sessionGeneration.current
@@ -181,6 +191,7 @@ function MemberApp() {
     setOnboarding(null)
     setExploring(!onboardingStarted(next.user.user_id))
     setSession(next)
+    setEventLoginRequested(false)
     setPhase('ready')
     setBootError(null)
     setLoginNotice(null)
@@ -254,6 +265,7 @@ function MemberApp() {
   }
 
   if (resetToken || phase !== 'ready' || !session) {
+    if(!resetToken&&publicEventId&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} onLogin={()=>setEventLoginRequested(true)}/>;
     return (
       <div className="app-frame">
         {site?.demo_accounts_enabled && <DemoBanner />}
@@ -469,6 +481,12 @@ function Workspace({
     return()=>{active=false;generation++;window.removeEventListener('focus',refresh);window.removeEventListener('freedom-profile-updated',refresh)};
   },[session.user.user_id])
   useEffect(()=>{let active=true,generation=0;const refresh=()=>{const current=++generation;void client.get<MemberCardData>(`/members/${session.user.user_id}`).then(value=>{if(active&&current===generation)setHeaderMember(value)}).catch(()=>{})};refresh();window.addEventListener('freedom-profile-updated',refresh);return()=>{active=false;generation++;window.removeEventListener('freedom-profile-updated',refresh)}},[session.user.user_id])
+  useEffect(()=>{
+    const heartbeat=()=>{if(document.visibilityState==='visible')void client.get('/session',{background:true}).catch(()=>{});};
+    const timer=window.setInterval(heartbeat,60_000);
+    document.addEventListener('visibilitychange',heartbeat);
+    return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',heartbeat)};
+  },[session.user.user_id]);
   const [tab, setTab] = useState<TabId>(() => tabFromHash())
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notificationTarget,setNotificationTarget]=useState<(BellAction&{sequence:number})|null>(null)
@@ -487,7 +505,11 @@ function Workspace({
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
     setTab(next)
-    window.location.hash = next
+    if(/^\/events\/[0-9a-f-]{36}\/?$/.test(window.location.pathname)){
+      window.history.replaceState(null,'',`/#${next}`)
+      window.dispatchEvent(new HashChangeEvent('hashchange'))
+    }
+    else window.location.hash = next
   }, [])
   useEffect(() => {
     const changed = () => setTab(tabFromHash())
@@ -629,6 +651,8 @@ function tabTitle(tab: TabId): string {
 
 function tabFromHash(): TabId {
   const value = window.location.hash.slice(1)
+  if(value.startsWith('events/'))return 'events'
+  if(!value&&eventIdFromLocation())return 'events'
   return Object.hasOwn(TAB_TITLES, value) ? value as TabId : 'home'
 }
 

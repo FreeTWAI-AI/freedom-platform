@@ -1,0 +1,4 @@
+.member-presence{display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px 10px;color:var(--muted);font-size:.75rem;line-height:1.5}
+.member-presence-state{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.member-presence-dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.member-presence-dot[data-online="true"]{background:var(--green)}

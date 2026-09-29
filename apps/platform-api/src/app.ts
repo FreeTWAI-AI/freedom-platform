@@ -9,6 +9,7 @@ import { LIVE_PUBLIC_ORIGIN } from './routes/published-skills.js';
 import type { GitHubSocialOptions } from './routes/github-social.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 import type { PasswordEmailSender } from '../../../modules/identity-membership/password-recovery.js';
+import type { EventEmailSender } from '../../../modules/community/events.js';
 
 // Node host adapter. The Worker bundle never imports this module, so the
 // socket-based address below is only ever read from a real Node server.
@@ -21,7 +22,7 @@ function authNetwork(c:Context) {
 }
 
 /** Node runtime: settings are read from process configuration when used, as before. */
-export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:{adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender}={}):PlatformRuntime {
+export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:{adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;eventEmailSender?:EventEmailSender}={}):PlatformRuntime {
   return {
     registrationCommunityId:()=>process.env.FREEDOM_REGISTRATION_COMMUNITY_ID,
     githubTokenKey:()=>options.githubSocial?.tokenKey??process.env.GITHUB_SOCIAL_TOKEN_KEY,
@@ -31,9 +32,10 @@ export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:{adminVe
     allowedHosts:allowedRequestHosts(freedomEnv,origin),
     publicOrigin:LIVE_PUBLIC_ORIGIN,
     passwordEmailSender:options.passwordEmailSender,
+    eventEmailSender:options.eventEmailSender,
   };
 }
 
-export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:FreedomEnv='local',options:{adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender}={}) {
+export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:FreedomEnv='local',options:{adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;eventEmailSender?:EventEmailSender}={}) {
   return createPlatformApp(pool,origin,freedomEnv,nodeRuntime(freedomEnv,origin,options),{githubSocial:options.githubSocial});
 }

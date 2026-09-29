@@ -33,7 +33,7 @@ export type Message={
   message_id:string;sender_ref:string;recipient_ref:string;body:string;
   created_at:string;read_at:string|null;
 };
-export type Participant={user_id:string;display_name:string;avatar_url:string|null};
+export type Participant={user_id:string;display_name:string;avatar_url:string|null;last_login_at:string|null;is_online:boolean};
 export type Conversation={participant:Participant;can_send:boolean;last_message:Message;unread_count:number};
 /** unread_count: total unread direct messages for the viewer. */
 export type ConversationPage={items:Conversation[];unread_count:number;next_offset:number|null};

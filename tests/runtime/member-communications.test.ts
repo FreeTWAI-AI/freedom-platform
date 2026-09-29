@@ -113,7 +113,12 @@ test('notifyMember rejects arbitrary actions, extra fields and cross-community r
 test('direct messages: compose with a ready member, trimmed plain text, idempotent 201 and strict validation',async()=>{
   const [a,b]=await signInAll(),path=`/me/conversations/${B}/messages`;
   const empty=await request(path,a);assert.equal(empty.status,200,JSON.stringify(empty.data));
-  assert.deepEqual(empty.data,{participant:{user_id:B,display_name:DEMO_USERS[1].display_name,avatar_url:null},can_send:true,items:[],next_offset:null,unread_count:0});
+  assert.deepEqual({can_send:empty.data.can_send,items:empty.data.items,next_offset:empty.data.next_offset,unread_count:empty.data.unread_count},{can_send:true,items:[],next_offset:null,unread_count:0});
+  assert.equal(empty.data.participant.user_id,B);
+  assert.equal(empty.data.participant.display_name,DEMO_USERS[1].display_name);
+  assert.equal(empty.data.participant.avatar_url,null);
+  assert.equal(empty.data.participant.is_online,true);
+  assert.ok(Number.isFinite(Date.parse(empty.data.participant.last_login_at)));
   const key=randomUUID(),text='  <b>你好</b> [連結](https://example.invalid)\r\n第二行  ';
   const sent=await request(path,a,{body:text},{key});assert.equal(sent.status,201,JSON.stringify(sent.data));
   assert.deepEqual(Object.keys(sent.data).sort(),['body','created_at','message_id','read_at','recipient_ref','sender_ref']);

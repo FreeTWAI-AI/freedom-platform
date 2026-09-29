@@ -141,7 +141,7 @@ export class PortalClient {
 
   private async request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
     const headers: Record<string, string> = { Accept: 'application/json' }
-    const publicAuth = method === 'POST' && ['/auth/login','/auth/register','/auth/reset/request','/auth/reset/confirm'].includes(path)
+    const publicAuth = method === 'POST' && (['/auth/login','/auth/register','/auth/reset/request','/auth/reset/confirm'].includes(path)||/^\/public\/events\/[0-9a-f-]{36}\/register$/.test(path))
     const needsCsrf = method !== 'GET' && !publicAuth
 
     if (options.body !== undefined) {

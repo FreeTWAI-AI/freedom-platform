@@ -118,6 +118,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     passwordEmailSender:env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED==='true'&&env.EMAIL
       ?async(to,url)=>{await env.EMAIL!.send({to,from:'no-reply@mail.freetwai.com',subject:'自由工坊：重設密碼',text:`有人申請重設自由工坊帳號的密碼。\n\n請在 30 分鐘內開啟以下連結：\n${url}\n\n若不是你提出申請，請忽略此信。`});}
       :undefined,
+    eventEmailSender:env.EMAIL?async(to,subject,text)=>{await env.EMAIL!.send({to,from:'no-reply@mail.freetwai.com',subject,text});}:undefined,
     health: { runtime: 'cloudflare-workers', release_sha: config.release },
   };
 }
