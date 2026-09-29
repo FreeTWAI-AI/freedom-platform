@@ -6,7 +6,7 @@ import {GuildMembers} from './GuildMembers';
 import {GuildAnnouncements} from './GuildWorkspace';
 import {SkillBookIntro} from './SkillBookIntro';
 
-export function GuildCard({guild:g,client,busy,onPrimary,onMembership}:{guild:GuildSummary;client:PortalClient;busy:boolean;onPrimary:()=>void;onMembership:()=>void}) {
+export function GuildCard({guild:g,client,busy,onPrimary,onMembership,onSecondary,secondaryFull=false}:{guild:GuildSummary;client:PortalClient;busy:boolean;onPrimary:()=>void;onMembership:()=>void;onSecondary?:()=>void;secondaryFull?:boolean}) {
   const [panel,setPanel]=useState<'books'|'members'|'announcements'|null>(null);
   const dialog=useRef<HTMLDialogElement>(null),trigger=useRef<HTMLButtonElement|null>(null),titleId=useId();
   const active=g.membership?.state==='active',firstBook=g.skill_books[0];
@@ -24,8 +24,9 @@ export function GuildCard({guild:g,client,busy,onPrimary,onMembership}:{guild:Gu
     <div className="guild-card-controls">
       <button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={event=>open('books',event.currentTarget)}>公會技能書庫 · {g.skill_books.length}</button>
       <div className="guild-card-links"><button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={event=>open('members',event.currentTarget)}>查看成員</button>{active&&<button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={event=>open('announcements',event.currentTarget)}>公會公告</button>}</div>
-      <div className="actions">{active&&!g.is_primary&&<button className="btn btn-primary" disabled={busy} onClick={onPrimary}>設為主要公會</button>}<button type="button" className="btn btn-ghost" disabled={busy||g.is_primary} onClick={onMembership}>{active?'退出':'加入'}{g.name}</button></div>
+      <div className="actions">{active&&!g.is_primary&&<button className="btn btn-primary" disabled={busy} onClick={onPrimary}>設為主要公會</button>}{active&&!g.is_primary&&onSecondary&&<button type="button" className="btn btn-ghost" disabled={busy||(!g.is_secondary&&secondaryFull)} onClick={onSecondary}>{g.is_secondary?'取消次要公會':'設為次要公會'}</button>}<button type="button" className="btn btn-ghost" disabled={busy||g.is_primary} onClick={onMembership}>{active?'退出':'加入'}{g.name}</button></div>
       {g.is_primary&&<p className="field-hint">退出前，請先更換主要公會。</p>}
+      {active&&!g.is_primary&&!g.is_secondary&&secondaryFull&&<p className="field-hint">次要公會已滿 2 個。先取消其中一個。</p>}
     </div>
     <dialog ref={dialog} className="guild-detail-dialog" aria-labelledby={titleId} onCancel={event=>{if(event.target===event.currentTarget){event.preventDefault();close();}}} onClose={event=>{if(event.target===event.currentTarget)setPanel(null);}}>
       <header className="guild-detail-heading"><h2 id={titleId}>{title}</h2><button type="button" className="btn btn-ghost" aria-label="關閉公會視窗" autoFocus onClick={close}>關閉</button></header>
