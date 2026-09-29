@@ -1,5 +1,5 @@
 .agent-shops { gap: 1.5rem; }
-.shop-intro { padding-inline: 1rem; }
+.shop-intro { max-width: 58rem; }
 .shop-intro h2 { font-size: clamp(1.35rem, 3vw, 2rem); margin: .35rem 0 .75rem; }
 .shop-intro p { line-height: 1.75; }
 .shop-steps { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1rem; }
@@ -26,13 +26,6 @@
  .shop-download > button { width: 100%; }
 }
 
-/* Commerce pages fill the workspace beside navigation, without a nested outer frame. */
-.shell.shop-shell { width: 100%; max-width: none; padding: 0; gap: 0; }
-.shell.shop-shell > .main { width: 100%; max-width: none; padding-inline: 0; border: 0; border-radius: 0; }
-.shell.shop-shell > .main > .topbar { padding-inline: 1rem; }
-.agent-shops { width: 100%; min-width: 0; }
-.agent-shops > section > h3, .agent-shops > section > .card-head, .agent-shops > section > .field, .agent-shops > details { padding-inline: 1rem; }
-
 .agent-shops .btn { white-space: nowrap; }
 .agent-shops .shop-card-actions { width: 100%; max-width: 32rem; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .5rem; }
-.agent-shops .shop-card-actions > .btn { min-width: 0; min-height: 44px; padding-inline: .5rem; font-size: .875rem; text-align: center; justify-content: center; }
+.agent-shops .shop-card-actions > .btn { min-width: 0; min-height: 44px; padding-inline: .375rem; font-size: .875rem; text-align: center; justify-content: center; }

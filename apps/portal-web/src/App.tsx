@@ -567,7 +567,7 @@ function Workspace({
         <a className="skip" href="#main-content" onClick={event => { event.preventDefault(); mainContent.current?.focus(); }}>
           跳到主要內容
         </a>
-        <div className={`shell${tab==='supplier'||tab==='retail'?' shop-shell':''}`}>
+        <div className="shell">
           <aside className="sidebar" onKeyDown={event => { if (event.key === 'Escape' && mobileOpen) { setMobileOpen(false); menuToggle.current?.focus(); } }}>
             <div className="sidebar-heading"><div className="brand">
               <img className="sidebar-brand-art" src="/brand/freedom-workshop.webp" alt="" width="1280" height="720"/>

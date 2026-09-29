@@ -624,8 +624,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 78069,
-      "sha256": "851dde1805a474eba5aa9c4b17a7fbe9f7a56256cafaf06adc0df5eb3fbe3a02"
+      "bytes": 78015,
+      "sha256": "9d98309256803b2899af1c617d5b801efee333811e2d4d9a6cc56a6bcdd7832c"
     },
     {
       "path": "apps/portal-web/src/GameConsole.css",
@@ -744,8 +744,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AgentShops.css",
-      "bytes": 2600,
-      "sha256": "c57193e9afd218993453b90b28e3d262e230ffbff3bcda073bb58bb2fe158c59"
+      "bytes": 2074,
+      "sha256": "261c5b68cdd9f34c3bb8d99e3dc946060130fe3bedfd2d9a2557526ab5b11a1c"
     },
     {
       "path": "apps/portal-web/src/modules/AvatarEditor.tsx",
@@ -3624,8 +3624,8 @@
     },
     {
       "path": "tests/e2e/agent-shops.spec.ts",
-      "bytes": 12486,
-      "sha256": "733f34c124069569da73d361bb6beb9dcddf54fe1d7f55ba2ee2934e80ea7de9"
+      "bytes": 12972,
+      "sha256": "7e9c6bfdb047861c2938b46c743c4fec55be6969f1c97a6fefd0040f6487a4c6"
     },
     {
       "path": "tests/e2e/audit-identity-final.spec.ts",
