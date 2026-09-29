@@ -71,6 +71,10 @@
 .game-console-compose-scope{min-height:44px;font-size:.8rem}
 @media(max-width:860px){.game-console-popout{display:none}}
 @media(max-width:520px){
+  .game-console-header{gap:6px;padding-inline:8px}
+  .game-console-title-mark{display:none}
+  .game-console-header h1,.game-console-header h2{font-size:.8rem;letter-spacing:0;white-space:nowrap}
+  .game-console-visibility>summary{padding-inline:7px}
   .game-console-expanded{height:calc(100dvh - 64px);min-height:0;max-height:760px}
   .game-console-entry,.game-console-entry.has-source{grid-template-columns:auto minmax(0,1fr) auto;gap:3px 8px;padding:8px 5px;font-size:.875rem}
   .game-console-entry.has-source strong{grid-column:2/4;grid-row:1;max-width:none;font-size:.875rem}

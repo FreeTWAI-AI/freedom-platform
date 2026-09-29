@@ -133,7 +133,7 @@ export function CoCreationPanel({ client, session, onNavigate }: ModulePanelProp
       help_wanted: selectedRoles, guild_keys: selectedGuilds, contribution_notes: data.get('contribution_notes'),
     });
     if (result) {
-      logConsoleEvent({id:`project:${result.project_id}`,createdAt:result.created_at,channel:'guide',level:'success',kind:'broadcast',source:'共創任務',message:`共創任務「${result.title}」已發布。`});
+      logConsoleEvent({id:`project:${result.project_id}`,createdAt:result.created_at,channel:'system',level:'success',kind:'broadcast',source:'共創任務',message:`共創任務「${result.title}」已發布。`});
       form.reset(); setSelectedRoles([]); setSelectedGuilds([]); setShowCreate(false); setGuildFilter('');
       setNotice('共創邀請已發布。到專案的 GitHub 建立具體任務，就能邀請夥伴一起參與。');
       await loadProjects(); setSelectedId(result.project_id);

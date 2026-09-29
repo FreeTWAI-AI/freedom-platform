@@ -37,7 +37,7 @@ export async function readConsoleFeed(client:PortalClient, userId:string, includ
     includeWorld?load<AcceptedWork>('/community/accepted-work'):Promise.resolve({items:[] as AcceptedWork[]}),
   ])
   const events = notices.items.filter(item=>item.read_at===null).map(item=>createConsoleEvent({
-    id:`notice:${item.notification_id}`,channel:'guide',kind:'status',source:'通知',
+    id:`notice:${item.notification_id}`,channel:'system',kind:'status',source:'通知',
     message:item.title,detail:item.body,createdAt:item.created_at,
   }))
   for(const item of announcements.items)events.push(createConsoleEvent({
@@ -45,28 +45,28 @@ export async function readConsoleFeed(client:PortalClient, userId:string, includ
     message:item.title,detail:item.body,createdAt:item.updated_at,
   }))
   for(const item of skills.items.slice(0,10))events.push(createConsoleEvent({
-    id:`skill:${item.submission_id}`,channel:'guide',kind:'broadcast',source:'技能書發布',
+    id:`skill:${item.submission_id}`,channel:'system',kind:'broadcast',source:'技能書發布',
     message:`技能書「${item.title}」已建立公開介紹頁。`,createdAt:item.published_at,
   }))
   for(const item of projects.items.filter(item=>item.source_kind==='member_project'&&item.created_at).slice(0,10))events.push(createConsoleEvent({
-    id:`project:${item.project_id}`,channel:'guide',kind:'broadcast',source:'共創任務',
+    id:`project:${item.project_id}`,channel:'system',kind:'broadcast',source:'共創任務',
     message:`共創任務「${item.title}」已發布。`,createdAt:item.created_at!,
   }))
   for(const item of github.items.slice(0,20)){
     const action={issue_opened:'提出 Issue',pr_opened:'提交 PR',pr_approved:'核准 PR',design_claimed:'表示願意接手 Issue 設計'}[item.kind]
     const generic=item.title===`Issue #${item.number}`||item.title===`PR #${item.number}`
     events.push(createConsoleEvent({
-      id:`github:${item.id}`,channel:'world_chat',kind:'broadcast',source:'GitHub · 自由工坊',
+      id:`github:${item.id}`,channel:'system',kind:'broadcast',source:'GitHub · 自由工坊',
       message:`${item.actor} ${action}${generic?'':`：${item.title}`}（#${item.number}）`,
       detail:item.url,createdAt:item.created_at,
     }))
   }
   for(const item of eventBulletins.items)events.push(createConsoleEvent({
-    id:`event-bulletin:${item.bulletin_id}`,channel:'world_chat',kind:'broadcast',source:'系統公告',
+    id:`event-bulletin:${item.bulletin_id}`,channel:'system',kind:'broadcast',source:'系統公告',
     message:item.message,createdAt:item.created_at,
   }))
   for(const item of acceptedWork.items)events.push(createConsoleEvent({
-    id:`accepted-work:${item.contribution_id}`,channel:'world_chat',kind:'broadcast',source:'工作驗收',
+    id:`accepted-work:${item.contribution_id}`,channel:'system',kind:'broadcast',source:'工作驗收',
     message:`${item.member_name} 完成的「${item.title}」已通過驗收。`,createdAt:item.accepted_at,
   }))
   // The console is a recent history, not just an unread inbox. Fetch both sides

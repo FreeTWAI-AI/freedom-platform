@@ -96,13 +96,30 @@ test('completed member submits an event and sees accepted-work facts without pro
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/member-events-light-desktop.png',fullPage:true});
   await page.setViewportSize({width:1280,height:720});
-  await navigate(page,'社群任務榜');
-  await expect(page.getByRole('heading',{name:'社群任務榜',level:1})).toBeVisible();
-  await expect(page.getByText('分數規則另訂；這裡不顯示暫定分數。',{exact:false})).toBeVisible();
+  await navigate(page,'社群任務');
+  await expect(page.getByRole('heading',{name:'社群任務',level:1})).toBeVisible();
+  await expect(page.getByText('GitHub 排行分數不計入這裡的驗收件數。',{exact:false})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'使用者排行榜與歷史紀錄'})).toBeVisible();
+  await page.getByRole('button',{name:'歷史想法'}).click();
+  await expect(page.getByRole('link',{name:'讓會員首頁的文字更清楚'})).toBeVisible();
+  await expect(page.locator('.community-history-state').filter({hasText:'已解決'})).toBeVisible();
+  await page.getByRole('button',{name:'歷史更新'}).click();
+  await expect(page.getByRole('link',{name:'改善手機導覽'})).toBeVisible();
+  await expect(page.locator('.community-history-state').filter({hasText:'已更新'})).toBeVisible();
+  await page.getByRole('button',{name:'使用者排行榜'}).click();
+  await expect(page.getByRole('heading',{name:'貢獻排行榜'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'想法排行榜'})).toBeVisible();
   await page.getByLabel('選擇共創專案').selectOption({index:1});
   await expect(page.getByRole('heading',{name:'GitHub 共創 Issue'})).toBeVisible();
   await page.screenshot({path:'test-results/member-tasks-light.png',fullPage:true});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.setViewportSize({width:768,height:900});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.setViewportSize({width:1440,height:900});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/member-tasks-light-phone.png',fullPage:true});
 });
 
 test('task board explains unavailable and stale GitHub reads without claiming there are no issues',async({page})=>{
@@ -114,7 +131,7 @@ test('task board explains unavailable and stale GitHub reads without claiming th
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
   await page.getByRole('button',{name:'登入',exact:true}).click();
-  await navigate(page,'社群任務榜');
+  await navigate(page,'社群任務');
   const picker=page.getByLabel('選擇共創專案');
   await picker.selectOption('workshop-video-autopilot');
   await expect(page.getByRole('status').filter({hasText:'GitHub 暫時限制查詢'})).toContainText('無法確認任務清單');

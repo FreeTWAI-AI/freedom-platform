@@ -41,7 +41,7 @@ const seedEvents = (): GameConsoleEvent[] => [
   createConsoleEvent({channel: 'system', kind: 'status', level: 'success', source: '系統', message: '訊息控制台已連線；跨頁訊息會在本次登入期間保留。'}),
   createConsoleEvent({channel: 'guide', kind: 'guide', source: '導覽', message: '按下 ~ 可展開或收合控制台。'}),
   createConsoleEvent({channel: 'ai', kind: 'guide', source: 'AI 指令', message: '此處顯示 AI 工作指令、執行狀態與摘要，不顯示隱藏推理。'}),
-  createConsoleEvent({channel: 'guide', kind: 'broadcast', source: '自由工坊', message: '歡迎回到自由工坊。選擇頻道，開始今天的任務。'}),
+  createConsoleEvent({channel: 'system', kind: 'broadcast', source: '自由工坊', message: '歡迎回到自由工坊。選擇頻道，開始今天的任務。'}),
 ]
 function loadVisibility(userId?:string):ConsoleVisibility {
   if(!userId)return defaultConsoleVisibility()
@@ -248,7 +248,7 @@ function GameConsole({variant, unread, syncScope,client,userId,enabled}: {varian
     url.searchParams.set('scope', syncScope)
     const opened = window.open(url, `freedom-game-console-${syncScope}`, 'popup=yes,width=880,height=620,resizable=yes,scrollbars=yes')
     if (opened) opened.opener = null
-    else log({channel: 'system', level: 'warning', kind: 'guide', source: '導覽', message: '瀏覽器阻擋了彈出視窗；請允許此網站開啟視窗後重試。'})
+    else log({channel: 'guide', level: 'warning', kind: 'guide', source: '導覽', message: '瀏覽器阻擋了彈出視窗；請允許此網站開啟視窗後重試。'})
   }
 
   function collapse() {
@@ -268,7 +268,7 @@ function GameConsole({variant, unread, syncScope,client,userId,enabled}: {varian
 
   <aside hidden={variant==='dock'&&!expanded} className={`game-console game-console-expanded${variant === 'popout' ? ' is-popout' : ''}`} aria-label="訊息控制台" onKeyDown={event=>{if(variant==='dock'&&event.key==='Escape'){event.stopPropagation();collapse()}}}>
     <header className="game-console-header">
-      <div className="game-console-title"><span className="game-console-title-mark" aria-hidden="true">▣</span><div><p className="game-console-eyebrow">自由工坊 · 即時訊息</p>{variant === 'popout' ? <h1>訊息控制台</h1> : <h2>訊息控制台</h2>}</div></div>
+      <div className="game-console-title"><span className="game-console-title-mark" aria-hidden="true">▣</span>{variant === 'popout' ? <h1>自由工坊 - 即時訊息控制台</h1> : <h2>自由工坊 - 即時訊息控制台</h2>}</div>
       <div className="game-console-header-actions">
         <details className="game-console-visibility"><summary>頻道顯示</summary><div>{GAME_CONSOLE_CHANNELS.filter(channel=>channel.id!=='all').map(channel=><label key={channel.id}><input type="checkbox" checked={visibility[channel.id as Exclude<GameConsoleChannel,'all'>]} onChange={()=>toggleVisibility(channel.id as Exclude<GameConsoleChannel,'all'>)}/>{channel.label}</label>)}</div></details>
         {variant === 'dock' && <button type="button" className="game-console-icon-button game-console-popout" onClick={popOut} aria-label="在獨立視窗開啟訊息控制台" title="獨立視窗">↗</button>}

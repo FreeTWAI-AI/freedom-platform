@@ -3,13 +3,13 @@ export const GAME_CONSOLE_EVENT_LIMIT = 200
 
 export const GAME_CONSOLE_CHANNELS = [
   { id: 'all', label: '總頻道', shortLabel: '全部' },
+  { id: 'world_chat', label: '世界聊天', shortLabel: '世界' },
   { id: 'guild', label: '公會聊天', shortLabel: '公會' },
   { id: 'squad', label: '小隊聊天', shortLabel: '小隊' },
   { id: 'direct', label: '私人聊天', shortLabel: '私訊' },
-  { id: 'world_chat', label: '世界聊天', shortLabel: '世界' },
+  { id: 'guide', label: '系統導覽', shortLabel: '導覽' },
+  { id: 'system', label: '系統公告', shortLabel: '公告' },
   { id: 'ai', label: 'AI 指令', shortLabel: 'AI' },
-  { id: 'guide', label: '世界導覽', shortLabel: '導覽' },
-  { id: 'system', label: '系統指令', shortLabel: '系統' },
 ] as const
 
 export type GameConsoleChannel = typeof GAME_CONSOLE_CHANNELS[number]['id']

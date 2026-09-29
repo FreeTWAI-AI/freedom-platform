@@ -9,7 +9,7 @@ import './HomeDesign.css';
 
 const shortcuts: { id: TabId; title: string }[] = [
   { id: 'events', title: '社群活動' },
-  { id: 'tasks', title: '社群任務榜' },
+  { id: 'tasks', title: '社群任務' },
   { id: 'guilds', title: '我的公會' },
   { id: 'skills', title: '技能書架' },
 ];

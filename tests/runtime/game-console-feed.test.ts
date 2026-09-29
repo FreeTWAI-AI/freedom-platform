@@ -31,7 +31,7 @@ test('console restores sent and received chat history without changing read rece
   const client={get:async(path:string)=>{paths.push(path);assert.ok(Object.hasOwn(pages,path),path);return pages[path]}} as PortalClient
   const events=await readConsoleFeed(client,'me')
   assert.deepEqual(events.map(event=>event.id),['room:g0','notice:n1','direct:d2','direct:d1','room:g1','guild:a1:2026-09-26T12:03:00Z','skill:s1','project:p1','room:w1','event-bulletin:b1','accepted-work:c1'])
-  assert.deepEqual(events.map(event=>event.channel),['guild','guide','direct','direct','guild','guild','guide','guide','world_chat','world_chat','world_chat'])
+  assert.deepEqual(events.map(event=>event.channel),['guild','system','direct','direct','guild','guild','system','system','world_chat','system','system'])
   assert.equal(events.find(event=>event.id==='direct:d2')?.source,'你 → 阿明')
   assert.equal(events.find(event=>event.id==='room:g0')?.source,'公會 · AI 公會 · 你')
   assert.ok(paths.every(path=>!path.endsWith('/read')))
