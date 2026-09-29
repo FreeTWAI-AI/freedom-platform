@@ -32,3 +32,7 @@
 .shell.shop-shell > .main > .topbar { padding-inline: 1rem; }
 .agent-shops { width: 100%; min-width: 0; }
 .agent-shops > section > h3, .agent-shops > section > .card-head, .agent-shops > section > .field, .agent-shops > details { padding-inline: 1rem; }
+
+.agent-shops .btn { white-space: nowrap; }
+.agent-shops .shop-card-actions { width: 100%; max-width: 32rem; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .5rem; }
+.agent-shops .shop-card-actions > .btn { min-width: 0; min-height: 44px; padding-inline: .5rem; font-size: .875rem; text-align: center; justify-content: center; }
