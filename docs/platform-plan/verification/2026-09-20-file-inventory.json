@@ -44,8 +44,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 13105,
-      "sha256": "8f3741e07e77761e9155e2a14135f8c6408235856ad25e3e097b244e103a73d6"
+      "bytes": 13194,
+      "sha256": "940b73d59f62e6b2fe9ed0608d788ff190ceb9344b9eb8ed2626df1cc42d1b13"
     },
     {
       "path": "apps/platform-api/src/admin-sync-worker.ts",
@@ -1363,6 +1363,11 @@
       "sha256": "92c0fda8485b181073834e6c68b119625e579579213fcb2d8a80d0e90f967a76"
     },
     {
+      "path": "docs/development/agent-shop-handoff.md",
+      "bytes": 15011,
+      "sha256": "6fe12bae5549a2a3de6f0d8da33f17415e37521991170299b63bc4841b2ad5b9"
+    },
+    {
       "path": "docs/development/agent-shop-review.md",
       "bytes": 4069,
       "sha256": "40336714f21ee3bc398be895b2f0135df4003cc7019e56d25d59a846ea3ba529"
@@ -1634,8 +1639,8 @@
     },
     {
       "path": "docs/development/supplier-retail-pricing.md",
-      "bytes": 10787,
-      "sha256": "c62b9b9fe9c137b8f570cdddeb0ff97d04516591beddafde1f31a81c41149cef"
+      "bytes": 10860,
+      "sha256": "d694675e1bee0baccc61e6c3411a223065fc379ab3eb493b7594eac959cb6f1b"
     },
     {
       "path": "docs/development/workspace-ia-review.md",

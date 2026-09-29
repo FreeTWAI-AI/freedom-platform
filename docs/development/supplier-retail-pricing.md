@@ -1,5 +1,7 @@
 # AI 雙商店：MD 開店、成果歸檔與交易轉單
 
+接手入口：[設計規劃與 Agent 交接](agent-shop-handoff.md)。
+
 頁面標記：`page:supplier`、`page:retail`。本次完整改版取代原先僅增加售價差額試算的方案。
 
 ## 已確認的產品模式
