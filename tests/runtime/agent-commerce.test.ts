@@ -165,3 +165,24 @@ test('raw key is shown once, rotated keys and disabled owners are rejected',asyn
  await pool.query('UPDATE users SET active=false WHERE user_id=(SELECT owner_id FROM commerce_shops WHERE shop_id=$1)',[f.publicId]);
  assert.equal((await req('/shop-api/v1/connection',undefined,undefined,issued.data.token)).status,401);
 });
+
+test('an order queued behind a pause observes the committed accepting-orders state',async()=>{
+ const f=await setup(),blocker=await pool.connect();
+ const community=(await pool.query('SELECT community_id FROM commerce_shops WHERE shop_id=$1',[f.publicId])).rows[0].community_id;
+ let pending:ReturnType<typeof req>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  await blocker.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`commerce-orders/${community}`]);
+  pending=req('/shop-api/v1/orders',{external_id:randomUUID(),items:[{selection_id:f.selection.selection_id,quantity:1,delivery_ref:'synthetic_delivery_ref'}]},undefined,f.publicKey);
+  let waiting=false;
+  for(let n=0;n<100;n++){
+   const r=await blocker.query("SELECT 1 FROM pg_locks w JOIN pg_locks h ON w.locktype=h.locktype AND w.database IS NOT DISTINCT FROM h.database AND w.classid=h.classid AND w.objid=h.objid AND w.objsubid=h.objsubid WHERE h.pid=pg_backend_pid() AND h.granted AND NOT w.granted AND w.locktype='advisory'");
+   if(r.rowCount){waiting=true;break;}await new Promise(resolve=>setTimeout(resolve,10));
+  }
+  assert.equal(waiting,true,'order must have authenticated and be queued behind this community lock');
+  await blocker.query('UPDATE commerce_shops SET accepting_orders=false WHERE shop_id=$1',[f.publicId]);
+  await blocker.query('COMMIT');
+  assert.equal((await pending).status,409);
+  assert.equal((await pool.query('SELECT count(*) FROM commerce_orders')).rows[0].count,'0');
+ }finally{await blocker.query('ROLLBACK');blocker.release();await pending;}
+});

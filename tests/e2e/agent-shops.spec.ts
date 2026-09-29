@@ -54,3 +54,16 @@ test('bad or wrong-role manifests never create a shop; form stays simple',async(
  await upload(page,{...productManifest,api_key:'must-not-import'});await expect(page.getByRole('alert')).toBeVisible();await expect(page.getByRole('button',{name:'確認並歸檔'})).toHaveCount(0);
  await page.getByText('我有成果檔網址',{exact:true}).click();await page.getByLabel('成果檔網址',{exact:true}).fill('https://127.0.0.1/secrets.json');await page.getByRole('button',{name:'讀取成果',exact:true}).click();await expect(page.getByRole('alert')).toContainText('原始 JSON');
 });
+
+test('both page guides teach the AI handoff, private setup and payment steps on phone',async({page})=>{
+ await login(page);await page.setViewportSize({width:320,height:900});
+ for(const title of ['我有東西要賣','我可以賣東西']){
+  await navigate(page,title);await page.getByRole('button',{name:'頁面說明',exact:true}).click();
+  const guide=page.getByRole('dialog',{name:`${title}：頁面說明`,exact:true});
+  await expect(guide).toBeVisible();await expect(guide.locator('.page-tools-help-steps li')).toHaveCount(6);
+  await expect(guide).toContainText('freedom-shop.json');await expect(guide).toContainText('金鑰');await expect(guide).toContainText('AI');
+  expect(await guide.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+  await page.screenshot({path:`test-results/agent-guide-${title}.png`,fullPage:true});
+  await page.keyboard.press('Escape');await expect(guide).toHaveCount(0);
+ }
+});

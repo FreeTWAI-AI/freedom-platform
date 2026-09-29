@@ -38,7 +38,10 @@ async function authenticateShop(q:PoolClient,authorization:string|undefined){
 }
 async function lockCommunity(q:PoolClient,community:string){await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`commerce-orders/${community}`]);}
 export async function machine<T>(pool:Pool,authorization:string|undefined,run:(q:PoolClient,shop:any)=>Promise<T>){
- return transaction(pool,async q=>{const shop=await authenticateShop(q,authorization);await lockCommunity(q,shop.community_id);return run(q,shop);});
+ return transaction(pool,async q=>{const shop=await authenticateShop(q,authorization);await lockCommunity(q,shop.community_id);
+  // Authentication may wait behind a pause. Re-read mutable state after acquiring the shared ordering lock.
+  const current=(await q.query('SELECT * FROM commerce_shops WHERE shop_id=$1',[shop.shop_id])).rows[0];
+  return run(q,current);});
 }
 async function release(q:PoolClient,orderId:string){
  await q.query(`UPDATE commerce_items i SET reserved=reserved-x.quantity FROM

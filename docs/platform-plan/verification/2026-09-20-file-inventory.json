@@ -64,8 +64,8 @@
     },
     {
       "path": "apps/platform-api/src/generated/runtime-text.ts",
-      "bytes": 28559,
-      "sha256": "73ea7d50d7861e32bf71c437462351f55a104b1b108a5c37de8a5de76e9435c5"
+      "bytes": 29045,
+      "sha256": "d575d75aa530ea39c1f7bd5a0d332870dd20e609b4d1630a208f60592705dc77"
     },
     {
       "path": "apps/platform-api/src/module-context.ts",
@@ -1094,8 +1094,8 @@
     },
     {
       "path": "apps/portal-web/src/page-help.ts",
-      "bytes": 10473,
-      "sha256": "570b34b5315a9836d080c1c33a4b0e9fc4a12ee479456a6ff2b89545c9c89931"
+      "bytes": 11840,
+      "sha256": "9d56b8c3ea7299516187c553812b93d039c1f87f1e537fed7299c1a2efca5e1e"
     },
     {
       "path": "apps/portal-web/src/rpg-theme.css",
@@ -1361,6 +1361,11 @@
       "path": "docs/development/agent-development-guide.md",
       "bytes": 3553,
       "sha256": "92c0fda8485b181073834e6c68b119625e579579213fcb2d8a80d0e90f967a76"
+    },
+    {
+      "path": "docs/development/agent-shop-review.md",
+      "bytes": 4069,
+      "sha256": "40336714f21ee3bc398be895b2f0135df4003cc7019e56d25d59a846ea3ba529"
     },
     {
       "path": "docs/development/agent-skill-upload.md",
@@ -1629,8 +1634,8 @@
     },
     {
       "path": "docs/development/supplier-retail-pricing.md",
-      "bytes": 7377,
-      "sha256": "fb85ec26ee676702947c92cb4d4e135cfd26a2fd82ea0c81d2fcb5d312bc1b08"
+      "bytes": 10787,
+      "sha256": "c62b9b9fe9c137b8f570cdddeb0ff97d04516591beddafde1f31a81c41149cef"
     },
     {
       "path": "docs/development/workspace-ia-review.md",
@@ -2889,8 +2894,8 @@
     },
     {
       "path": "modules/agent-commerce/orders.ts",
-      "bytes": 16656,
-      "sha256": "01666d8637424da57797e0802a341d043bb56159a0f520c58565ae0a9f9e0f7b"
+      "bytes": 16876,
+      "sha256": "b9ed297fa643f37f65a98e2ac80f12d279c943d119b2e80165d257b624352939"
     },
     {
       "path": "modules/agent-commerce/schema.ts",
@@ -3154,8 +3159,8 @@
     },
     {
       "path": "modules/development/pages.ts",
-      "bytes": 17826,
-      "sha256": "a76122b2782b1447336948533843f9cf097ed1bd74158bb132375bebf0f6d422"
+      "bytes": 17918,
+      "sha256": "3204e9da3cc0523f324264379cb20227ba9a5715d8b6fa215c9fd558e5d1dd01"
     },
     {
       "path": "modules/development/service.ts",
@@ -3429,8 +3434,8 @@
     },
     {
       "path": "packages/shop-agent/common.md",
-      "bytes": 9943,
-      "sha256": "c01cea6c2381aa7ea4635aaf9f3379e2da1b3511e49203bd927684f1c2c90fb6"
+      "bytes": 10425,
+      "sha256": "b4092e417381b38ff5ce7ed2406ee80a4c19b489ed2846453789c19de210d5f6"
     },
     {
       "path": "packages/shop-agent/internal.md",
@@ -3619,8 +3624,8 @@
     },
     {
       "path": "tests/e2e/agent-shops.spec.ts",
-      "bytes": 9748,
-      "sha256": "1af32fce9b345d03994761a5b17244f835ee31215bc94d59da55c57603fc8a4f"
+      "bytes": 10676,
+      "sha256": "4ef98c9cac15016d35921bffc28275e1b123fac291a55f792482015f47581769"
     },
     {
       "path": "tests/e2e/audit-identity-final.spec.ts",
@@ -3899,8 +3904,8 @@
     },
     {
       "path": "tests/runtime/agent-commerce.test.ts",
-      "bytes": 17557,
-      "sha256": "a1fb668cf1c5f40d238369fc3a467103f17872f9b36031847cff14d6b2f39c0f"
+      "bytes": 19123,
+      "sha256": "9e8e546ab97fae7e7211fa855eb4d3bc5970d2b20227ef01c26cbaa20d8deb7f"
     },
     {
       "path": "tests/runtime/avatar.test.ts",
