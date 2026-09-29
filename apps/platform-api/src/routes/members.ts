@@ -3,7 +3,7 @@ import type { Pool } from 'pg';
 import type { Command } from '../../../../packages/db/index.js';
 import { z } from 'zod';
 import { moduleCommand,type PlatformEnv } from '../module-context.js';
-import { accountView,saveAccount,listMembers,MemberDirectoryQuery,memberCard,listFriends,changeFriendship,listSquads,squadView,createSquad,updateSquadChannel,changeSquadMembership } from '../../../../modules/identity-membership/members.js';
+import { accountView,saveAccount,listMembers,memberPresence,MemberDirectoryQuery,memberCard,listFriends,changeFriendship,listSquads,squadView,createSquad,updateSquadChannel,changeSquadMembership } from '../../../../modules/identity-membership/members.js';
 import {inviteToSquad,resolveSquadInvitation,squadInvitations,receivedSquadInvitations} from '../../../../modules/identity-membership/squad-invitations.js';
 import {ownSocialLinks,visibleSocialLinks,createSocialLink,editSocialLink,deleteSocialLink} from '../../../../modules/identity-membership/social-links.js';
 // One receipt per invitation/squad regardless of the id's letter case.
@@ -19,6 +19,7 @@ export function createMemberRoutes(pool:Pool) {
   app.post('/me/social-links/:id/delete',async c=>{const result=await deleteSocialLink(pool,await moduleCommand(c),c.req.param('id'));c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);});
   app.get('/members/:id/social-links',async c=>c.json(await visibleSocialLinks(pool,c.get('actor'),c.req.param('id'),c.req.query())));
   app.get('/members',async c=>{const {limit,offset,...filters}=MemberDirectoryQuery.parse(c.req.query());return c.json(await listMembers(pool,c.get('actor'),limit,offset,filters));});
+  app.get('/members/presence',async c=>c.json(await memberPresence(pool,c.get('actor'),c.req.query('ids')??'')));
   app.get('/members/:id',async c=>c.json(await memberCard(pool,c.get('actor'),c.req.param('id'))));
   app.get('/friends',async c=>c.json({items:await listFriends(pool,c.get('actor'))}));
   for(const action of ['request','accept','remove'] as const)app.post(`/friends/:id/${action}`,async c=>c.json(await changeFriendship(pool,await moduleCommand(c),c.req.param('id'),action)));

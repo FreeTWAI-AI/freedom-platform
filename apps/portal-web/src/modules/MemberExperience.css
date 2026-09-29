@@ -8,7 +8,11 @@
 .experience-card { display: grid; align-content: start; gap: .85rem; min-width: 0; }
 .experience-card-head { display: flex; align-items: start; justify-content: space-between; gap: .7rem; }
 .experience-card h3 { font-size: 1.14rem; margin: .2rem 0 0; }
-.experience-banner-image { display: block; width: 100%; height: clamp(170px, 22vw, 300px); object-fit: cover; border-radius: 10px; background: var(--bg-elev); }
+.experience-banner-image { display: block; width: 100%; max-height: 460px; height: auto; object-fit: contain; border-radius: 10px; background: var(--bg-elev); }
+.experience-video{display:block;width:100%;max-height:460px;background:var(--bg-elev);border-radius:10px}
+.event-share-link input{width:100%;font-size:.85rem}
+.event-referral-report h4{margin:0 0 .3rem;font-size:.9rem}
+.event-referral-report ul{margin:0;padding-left:1.3rem}
 .experience-card p { line-height: 1.65; overflow-wrap: anywhere; }
 .experience-kicker { color: var(--muted); font-size: .79rem; font-weight: 700; }
 .experience-count { white-space: nowrap; color: var(--muted); font-size: .8rem; }

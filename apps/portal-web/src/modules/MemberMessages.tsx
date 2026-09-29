@@ -7,13 +7,14 @@ import {MemberChannels} from './MemberChannels';
 import {announceInboxChange,type InboxUnread} from './member-inbox';
 import {logConsoleEvent} from '../game-console-core';
 import type {MemberCardData} from './Membership';
+import {MemberPresence} from './MemberPresence';
 import './MemberSettings.css';
 
 type ActionTab='members'|'squads'|'guilds'|'guild-workspace'|'messages'|'events';
 type NotificationAction={tab:ActionTab;resource_id:string|null};
 type Notice={notification_id:string;kind:string;title:string;body:string;created_at:string;read_at:string|null;action:NotificationAction|null};
 type NoticePage={items:Notice[];unread_count:number;next_offset:number|null};
-type Participant={user_id:string;display_name:string;avatar_url:string|null};
+type Participant={user_id:string;display_name:string;avatar_url:string|null;last_login_at:string|null;is_online:boolean};
 type Message={message_id:string;sender_ref:string;recipient_ref:string;body:string;created_at:string;read_at:string|null};
 type Conversation={participant:Participant;can_send:boolean;last_message:Message;unread_count:number};
 type ConversationPage={items:Conversation[];unread_count:number;next_offset:number|null};
@@ -218,6 +219,11 @@ function DirectMessages({client,session,onUnread,openPeer}:{client:PortalClient;
       if(quiet)setThreadRefresh({loading:false,error:fail(cause)});else{setThreadError(fail(cause));setThreadStatus('error');}
     }
   },[client]);
+  useEffect(()=>{
+    const refresh=()=>{if(document.visibilityState!=='visible')return;void loadConversations(true);if(currentPeer.current)void loadThread(currentPeer.current,true);};
+    const timer=window.setInterval(refresh,60_000);document.addEventListener('visibilitychange',refresh);
+    return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',refresh)};
+  },[loadConversations,loadThread]);
   const select=useCallback((id:string,moveFocus:boolean)=>{
     if(id===me)return;
     currentPeer.current=id;focusThread.current=moveFocus;setPeer(id);void loadThread(id);
@@ -309,7 +315,7 @@ function DirectMessages({client,session,onUnread,openPeer}:{client:PortalClient;
           {conversations.map(item=><li key={item.participant.user_id} className={item.unread_count?'is-unread':undefined}>
             <button type="button" className="messages-peer" aria-current={peer===item.participant.user_id?'true':undefined} onClick={()=>select(item.participant.user_id,true)}>
               <MemberAvatar nickname={item.participant.display_name} avatarUrl={item.participant.avatar_url}/>
-              <span><strong>{item.participant.display_name}</strong><br/><span className="messages-meta">{item.last_message.sender_ref===me?'你：':''}{item.last_message.body.slice(0,40)}</span></span>
+              <span><strong>{item.participant.display_name}</strong><br/><MemberPresence online={item.participant.is_online} lastLogin={item.participant.last_login_at}/><br/><span className="messages-meta">{item.last_message.sender_ref===me?'你：':''}{item.last_message.body.slice(0,40)}</span></span>
               {item.unread_count>0&&<span className="messages-count">{item.unread_count} 則未讀</span>}
             </button>
           </li>)}
@@ -322,6 +328,7 @@ function DirectMessages({client,session,onUnread,openPeer}:{client:PortalClient;
       {!peer&&<><h2 id="messages-thread-title">私人訊息</h2><p className="muted">從對話列表或會員搜尋選擇對象。</p></>}
       {peer&&<>
         <h2 id="messages-thread-title" ref={heading} tabIndex={-1}>{participant?`與 ${participant.display_name} 的對話`:'讀取對話中'}</h2>
+        {participant&&<MemberPresence online={participant.is_online} lastLogin={participant.last_login_at}/>}
         {threadStatus==='loading'&&<p role="status">正在讀取訊息…</p>}
         {threadStatus==='error'&&<div className="banner banner-error" role="alert">訊息讀取失敗：{threadError}<div className="messages-actions"><button className="btn btn-ghost" type="button" onClick={()=>void loadThread(peer)}>重新讀取訊息</button></div></div>}
         {threadStatus==='ready'&&thread&&<>

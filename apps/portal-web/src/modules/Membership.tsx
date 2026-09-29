@@ -8,6 +8,7 @@ import { MemberAvatar, type AvatarMetadata } from './MemberAvatar';
 import { GitHubConnectionPanel } from './GitHubSocial';
 import './MemberDirectory.css';
 import {MemberSocialLinks,SocialLinksList} from './MemberSocialLinks';
+import {MemberPresence} from './MemberPresence';
 
 type Audience='public'|'friends'|'squad'|'guild';
 type IdentityLabel='male'|'female'|'alien'|'ai';
@@ -16,7 +17,7 @@ function IdentityBadge({value}:{value?:IdentityLabel|null}){return value&&identi
 type Contact={value:string;audiences:Audience[];verified?:boolean};
 type Account={user_id:string;avatar:AvatarMetadata;nickname:string;identity_label:IdentityLabel|null;login_email:string;email_verified:boolean;contacts:Record<'email'|'discord'|'github'|'line',Contact>;aggregate_version:number};
 type GuildRef={guild_key:string;name:string;joined_at?:string|null};
-export type MemberCardData={user_id:string;joined_at?:string|null;joined_at_source?:'launch_day'|'registered';avatar_url?:string|null;nickname:string;identity_label?:IdentityLabel|null;positioning_title:string|null;primary_guild:GuildRef|null;secondary_guilds:GuildRef[];joined_guilds?:GuildRef[];capabilities:string[];equipment:string[];custom_capabilities?:string[];custom_equipment?:string[];featured_capabilities?:string[];contacts:Partial<Record<'email'|'discord'|'github'|'line',string>>;is_self:boolean;friendship:{state:string;requester_ref?:string;aggregate_version?:number}};
+export type MemberCardData={user_id:string;joined_at?:string|null;joined_at_source?:'launch_day'|'registered';last_login_at:string|null;is_online:boolean;avatar_url?:string|null;nickname:string;identity_label?:IdentityLabel|null;positioning_title:string|null;primary_guild:GuildRef|null;secondary_guilds:GuildRef[];joined_guilds?:GuildRef[];capabilities:string[];equipment:string[];custom_capabilities?:string[];custom_equipment?:string[];featured_capabilities?:string[];contacts:Partial<Record<'email'|'discord'|'github'|'line',string>>;is_self:boolean;friendship:{state:string;requester_ref?:string;aggregate_version?:number}};
 const audienceOptions: [Audience,string][]=[['public','平台公開'],['friends','平台好友'],['squad','小隊夥伴'],['guild','公會夥伴']];
 const contactLabels={email:'聯絡 E-mail',discord:'Discord 帳號',github:'GitHub 帳號',line:'LINE ID'} as const;
 const fail=(e:unknown)=>e instanceof Error?e.message:'暫時無法讀取，請稍後再試。';
@@ -73,7 +74,7 @@ export function DirectoryMemberRow({member,labels,children,client}:{member:Membe
   return <article className="directory-member" data-member-id={member.user_id} aria-label={member.nickname}>
     <div className="directory-member-identity"><MemberAvatar nickname={member.nickname} avatarUrl={member.avatar_url}/><div><div className="directory-member-name"><h3>{member.nickname}</h3><IdentityBadge value={member.identity_label}/>{member.is_self&&<span className="badge">你</span>}</div><p className="directory-member-title">{member.positioning_title??'探索自己的方向'}</p><p className="directory-member-guild">{member.primary_guild?.name??'尚未設定主要公會'}</p></div></div>
     <div className="directory-member-skills" aria-label="擅長的能力">{featured.length?featured.map(id=><span className="pill" key={id}>{skillLabel(id)}</span>):<span className="muted">尚未填寫專長</span>}</div>
-    <div className="directory-member-meta">{joined?<span><time dateTime={joined} title={member.joined_at_source==='launch_day'?'開站日 · 台北時間':'台北時間'}>{new Date(joined).toLocaleDateString('zh-TW',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'})}</time> 加入</span>:<span>加入日期未記錄</span>}{children}</div>
+    <div className="directory-member-meta"><MemberPresence online={member.is_online} lastLogin={member.last_login_at}/>{joined?<span><time dateTime={joined} title={member.joined_at_source==='launch_day'?'開站日 · 台北時間':'台北時間'}>{new Date(joined).toLocaleDateString('zh-TW',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'})}</time> 加入</span>:<span>加入日期未記錄</span>}{children}</div>
     <details className="directory-member-details" onToggle={event=>setDetailsOpen(event.currentTarget.open)}><summary>更多資料</summary><div className="directory-member-expanded"><section><h4>公會加入紀錄</h4><ul className="directory-guild-dates">{[...(member.primary_guild?[member.primary_guild]:[]),...member.secondary_guilds,...(member.joined_guilds??[])].map(guild=><li key={guild.guild_key}><strong>{guild.name}</strong><span>{guild.guild_key===member.primary_guild?.guild_key?'主要公會':member.secondary_guilds.some(g=>g.guild_key===guild.guild_key)?'次要公會':'已加入公會'}{guild.joined_at&&Number.isFinite(Date.parse(guild.joined_at))?<> · <time dateTime={guild.joined_at}>{new Date(guild.joined_at).toLocaleDateString('zh-TW',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'})}</time> 加入</>:null}</span></li>)}</ul>{!member.primary_guild&&!member.secondary_guilds.length&&!member.joined_guilds?.length&&<p>尚未加入公會</p>}</section><section><h4>完整能力</h4><div className="tag-list">{abilities.length?abilities.map(id=><span key={id} className="pill">{skillLabel(id)}</span>):<p>尚未填寫</p>}</div></section><section><h4>裝備</h4><div className="tag-list">{equipment.length?equipment.map(id=><span key={id} className="pill">{skillLabel(id)}</span>):<p>尚未填寫</p>}</div></section><section><h4>聯絡方式</h4>{contacts.length?<dl>{contacts.map(key=><div key={key}><dt>{contactLabels[key]}</dt><dd>{member.contacts[key]}</dd></div>)}</dl>:<p>沒有對你公開的聯絡方式。</p>}</section>{detailsOpen&&<SocialLinksList client={client} memberId={member.user_id}/>}</div></details>
   </article>;
 }
@@ -115,6 +116,15 @@ export function MembersPanel({client,session,focusRequest,onMessage}:ModulePanel
   },[client]);
   useEffect(()=>{void load(pageOffset);return()=>{generation.current++;};},[load,filters,pageOffset]);
   useEffect(()=>{let active=true;void loadFriends();void loadGuilds();void loadDirectoryDefinition(client).then(data=>{if(active){setLabels(data.labels);setSkillGroups(data.skills);}}).catch(()=>{});return()=>{active=false;friendsGeneration.current++;guildGeneration.current++;};},[client,loadFriends,loadGuilds]);
+  const visibleIds=members.map(member=>member.user_id).join(',');
+  useEffect(()=>{
+    if(!visibleIds)return;
+    let active=true;
+    const refresh=()=>{if(document.visibilityState!=='visible')return;void client.get<{items:{user_id:string;last_login_at:string|null;is_online:boolean}[]}>(`/members/presence?ids=${encodeURIComponent(visibleIds)}`,{background:true})
+      .then(result=>{if(!active)return;const states=new Map(result.items.map(item=>[item.user_id,item]));setMembers(current=>current.map(member=>{const next=states.get(member.user_id);return next?{...member,last_login_at:next.last_login_at,is_online:next.is_online}:member}));}).catch(()=>{});};
+    const timer=window.setInterval(refresh,60_000);document.addEventListener('visibilitychange',refresh);
+    return()=>{active=false;window.clearInterval(timer);document.removeEventListener('visibilitychange',refresh)};
+  },[client,visibleIds]);
   useEffect(()=>{const timer=setTimeout(()=>{const term=search.trim();setFilters(current=>{if(current.search===term)return current;generation.current++;setPageOffset(0);return {...current,search:term};});},250);return()=>clearTimeout(timer);},[search]);
   function filter(change:Partial<DirectoryFilters>){generation.current++;setPageOffset(0);setFilters(current=>({...current,...change}));}
   function searchNow(event:FormEvent){event.preventDefault();filter({search:search.trim()});}

@@ -205,7 +205,7 @@ test('privacy projection never combines a revoked audience with a newly changed 
     reading=request('/members/'+owner.user.user_id,viewer);
     let waiting=false;
     for(let i=0;i<100;i++) {
-      const waits=await pool.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE pid<>pg_backend_pid() AND wait_event_type='Lock' AND query LIKE '%member_accounts%' AND application_name=$1",['']);
+      const waits=await pool.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE pid<>pg_backend_pid() AND wait_event_type='Lock' AND query LIKE 'SELECT u.user_id,u.display_name,u.created_at,u.created_at_source%' AND application_name=$1",['']);
       if(waits.rows[0].n>0){waiting=true;break;}
       await new Promise(resolve=>setTimeout(resolve,10));
     }

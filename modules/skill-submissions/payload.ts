@@ -118,6 +118,20 @@ export async function normalizeCoverImage(mime: string, data: string): Promise<{
   }
 }
 
+export async function normalizeEventPoster(mime:string,bytes:Buffer,orientation:'landscape'|'portrait'):Promise<Buffer>{
+  requireCondition(bytes.length>0&&bytes.length<=COVER_MAX_BYTES,413,'event_poster_too_large','活動海報需為 512 KiB 以下。');
+  const format=rasterFormat(bytes);
+  if(!format||mime!==`image/${format}`)throw invalidCover();
+  rejectAnimation(bytes,format);
+  const output=orientation==='portrait'?{width:900,height:1200}:{width:1200,height:675};
+  try{
+    const webp=await normalizeImage(bytes,{purpose:'event_poster',format,maxDimension:COVER_MAX_DIMENSION,maxPixels:COVER_MAX_PIXELS,maxOutputBytes:COVER_MAX_BYTES,
+      output:{...output,fit:'contain',background:'#14161b',quality:80,effort:4}});
+    requireCondition(webp.length<=COVER_MAX_BYTES,422,'event_poster_too_large','這張海報壓縮後仍過大，請換一張較簡單的圖片。');
+    return webp;
+  }catch(error){if(error instanceof Problem)throw error;throw invalidCover();}
+}
+
 export async function normalizeSubmission(raw: unknown): Promise<NormalizedSubmission> {
   const parsed = skillSubmissionPayload.parse(raw);
   const { cover_image, ...payload } = parsed;
