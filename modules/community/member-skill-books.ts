@@ -5,7 +5,7 @@ import type {SkillBookGuide} from './skill-book-guides.js';
 // Repositories and source commits checked through GitHub on 2026-09-24.
 const sources = {
   'local-workspace-mcp': {author:'Mini',repo:'arumwu/local-workspace-mcp',sha:'71dfd5d6c4884c218b0c2365eb68fb8dde5d7cc1',license:'MIT',title:'Local Workspace MCP 本機工作助手',reading:'README.md',evidence:['README.md','LICENSE']},
-  'editkin': {author:'Hao',repo:'Hao0321/Editkin',sha:'5b74f9a31e64d76d49169bc6847c9c6fbdeb8f3f',license:'GPL-3.0-or-later',title:'Editkin 本機影片剪輯器',reading:'README.zh-TW.md',evidence:['README.zh-TW.md','package.json','LICENSE']},
+  'editkin': {author:'Hao',repo:'Hao0321/Editkin',sha:'41163ea553f79fd58abe5d7bedea91af6a2d1c38',license:'GPL-3.0-or-later',title:'Editkin 本機影片剪輯器',reading:'README.zh-TW.md',evidence:['README.zh-TW.md','package.json','LICENSE']},
   'positioning-companion': {author:'Jason',repo:'jason201385-commits/positioning-companion',sha:'d06da737b7ad10955b2f0d974bf4acf841492572',license:'MIT',title:'定位小書僮',reading:'README.md',evidence:['README.md','SKILL.md','LICENSE']},
   'freedom-party-guild-lounge': {author:'David',repo:'davidni0729/freedom-party-guild-lounge',sha:'3e86cfcbf4bbd7975be77878cf1aec960f29b169',license:'NOASSERTION',title:'巫師公會交誼廳',reading:'README.md',evidence:['README.md']},
 };
@@ -26,10 +26,10 @@ const details:Record<Id,Details> = {
   'editkin': {
     format:'影片剪輯器原始碼',summary:'以可編輯時間軸整理影片，透過結構化指令與 AI 協作剪輯。',
     audience:['影音製作者','想開發剪輯工具與 AI 工作流程的人'],
-    status:'社群原始碼版；Web 介面與完整桌面版的依賴不同，尚無通過正式發行審查的官方安裝包。',
+    status:'社群原始碼版；瀏覽器版可匯入、預覽並編輯時間軸，但無法輸出影片，也不會自動存檔。完整桌面版另需 Rust 與平台媒體依賴。尚無通過正式發行審查的官方安裝包。',
     features:['可修改的影片時間軸','共用 EditGraph 與結構化 AI 指令','合成示範素材及可重現的開發流程'],
     prerequisites:['Node.js 22.13 以上；桌面建置另需 Rust 與平台媒體依賴','使用自製、合成或已取得使用權的影片素材','閱讀 GPL-3.0-or-later、第三方聲明與 DCO 貢獻規則'],
-    first_steps:['閱讀繁中說明與 BUILDING.md，確認要驗證 Web 還是桌面流程。','依原作步驟建置，用合成素材調整一個時間軸片段。','記錄預覽、存檔與輸出各自實際驗證的結果，再向 Hao 的原作提 PR。'],
+    first_steps:['閱讀繁中說明與 BUILDING.md，確認要驗證瀏覽器版還是桌面版。','依原作步驟建置，用合成素材調整一個時間軸片段；瀏覽器版的「匯出專案」只下載 EditGraph JSON。','記錄預覽、存檔與輸出各自實際驗證的結果，再向 Hao 的原作提 PR。'],
     first_result:'一份包含時間軸修改、合成素材與實測範圍的剪輯試作紀錄。',
     contribution:'依原作 CONTRIBUTING.md 改善剪輯、無障礙或測試，以 DCO 簽署提交小型 PR，保留 Hao 與實際協作者署名。',
     beginner:{category:'內容與行銷',purpose:'用可修改的時間軸，把影片素材整理成一段剪輯試作。',for_whom:'影音製作者與想研究 AI 剪輯工具的開發者。',make:'一段合成素材的時間軸試作，以及可重現的驗證紀錄。',workshop_use:'在影音自動化公會交換剪輯案例，與既有影片工具包搭配研究。',next_step:'從原作繁中說明開始，先用合成素材修改一個片段。'},
@@ -59,7 +59,7 @@ const details:Record<Id,Details> = {
 };
 export const memberSkillBookGuides:Record<string,SkillBookGuide>=Object.fromEntries(Object.entries(sources).map(([id,source])=>[id,{
   ...details[id as Id],author_name:source.author,reading_url:`https://github.com/${source.repo}/blob/${source.sha}/${source.reading}`,
-  source_commit:source.sha,reviewed_at:'2026-09-24',contribution_url:`https://github.com/${source.repo}/issues`,
+  source_commit:source.sha,reviewed_at:id==='editkin'?'2026-09-30':'2026-09-24',contribution_url:`https://github.com/${source.repo}/issues`,
   source_evidence:source.evidence.map(path=>({path,url:`https://github.com/${source.repo}/blob/${source.sha}/${path}`})),
 }]));
 export const memberSkillBooks:SkillBook[]=Object.entries(sources).map(([id,source])=>({
