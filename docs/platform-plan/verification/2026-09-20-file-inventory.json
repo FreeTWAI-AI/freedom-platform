@@ -4074,8 +4074,8 @@
     },
     {
       "path": "tests/runtime/github-history.test.ts",
-      "bytes": 18174,
-      "sha256": "2d578eb1959e46ff96381b50dad7748699bb1bcaf27b45ac48edf4752cab1763"
+      "bytes": 18320,
+      "sha256": "31c21c1264885cb92e89fd1d07e8b35d4a18102a2837a3eb34b12ff1b2d2e119"
     },
     {
       "path": "tests/runtime/github-identity.test.ts",
