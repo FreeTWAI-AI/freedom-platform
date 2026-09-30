@@ -14,7 +14,7 @@ import {startGitHubAppSetup,completeGitHubAppSetup,githubAppSetupStatus} from '.
 import {listAdminEventQueue,reviewEventAsAdmin} from '../../../../modules/community/events.js';
 import {acknowledgeAuthorClaimIdentity,adminAuthorClaims,refreshAuthorClaimObservation,reviewAuthorClaim} from '../../../../modules/community/repo-author-claims.js';
 type AdminEnv={Variables:{admin:AdminActor;adminCsrf:string}};
-export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=verifyAdminAccess,github:{origin:string;tokenKey?:string;fetcher?:typeof fetch}={origin:'http://127.0.0.1:4310'}){
+export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=verifyAdminAccess,github:{origin:string;tokenKey?:string;fetcher?:typeof fetch;readToken?:()=>string|undefined}={origin:'http://127.0.0.1:4310'}){
   const app=new Hono<AdminEnv>();
   app.use('*',async(c,next)=>{
     const identity=await verifyAccess(c.req.raw),admin=await authenticateAdmin(pool,identity);
@@ -66,7 +66,7 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
     c.header('ETag',`"${value.version}"`);return c.json(value);
   });
   const skillBookId=(c:Context<AdminEnv>)=>z.string().regex(/^[a-z0-9-]{1,100}$/).parse(c.req.param('id'));
-  app.post('/skill-books/:id/author-claim-observation',async c=>c.json(await refreshAuthorClaimObservation(pool,await command(c),skillBookId(c),github.fetcher??globalThis.fetch)));
+  app.post('/skill-books/:id/author-claim-observation',async c=>c.json(await refreshAuthorClaimObservation(pool,await command(c),skillBookId(c),github.fetcher??globalThis.fetch,github.readToken?.())));
   app.post('/skill-books/:id/author-claim-observation/acknowledge',async c=>c.json(await acknowledgeAuthorClaimIdentity(pool,await command(c),skillBookId(c))));
   app.get('/client-errors',async c=>{
     const admin=c.get('admin');

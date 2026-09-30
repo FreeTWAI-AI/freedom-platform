@@ -5,7 +5,7 @@ import { checkVersion, command, digest, journal, transaction, type Command } fro
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { tokenHash, type Actor } from '../identity-membership/service.js';
 import { authRateLimit } from '../identity-membership/members.js';
-import { importProjectWithinTransaction } from '../opensource-marketing/service.js';
+import { importProjectWithinTransaction, type GitHubRead } from '../opensource-marketing/service.js';
 import type { NormalizedSubmission } from './payload.js';
 
 export const GRANT_PREFIX = 'fpg_';
@@ -161,7 +161,14 @@ export async function revokeSubmission(pool: Pool, input: Command, id: string) {
   });
 }
 
-export async function publishSubmission(pool: Pool, input: Command, id: string) {
+const PUBLISH_GITHUB_CODES = new Set(['github_rate_limited', 'github_unavailable', 'github_invalid_response', 'github_response_too_large', 'github_read_budget']);
+function publishGitHubFailure(error: Problem): Problem {
+  const wait = typeof error.retryAfterSeconds === 'number' && error.retryAfterSeconds > 0
+    ? `約 ${Math.ceil(error.retryAfterSeconds)} 秒後可再按「發佈」。`
+    : '請再按「發佈」。';
+  return new Problem(error.status, error.code, `草稿已保留，尚未公開。${error.message}${wait}`, error.retryAfterSeconds);
+}
+export async function publishSubmission(pool: Pool, input: Command, id: string, read: GitHubRead = {}) {
   publishInput.parse(input.body);
   id = uuidOrNotFound(id);
   await authRateLimit(pool, 'skill-submission-publish', input.actor.user_id, 20, 3600);
@@ -175,10 +182,16 @@ export async function publishSubmission(pool: Pool, input: Command, id: string) 
     // Source facts and publication share this transaction and its user lock.
     // A failed publication rolls the import back as well; command replay reads
     // the single committed receipt without fetching GitHub again.
-    const project: any = await importProjectWithinTransaction(q, input, {
+    let project: any;
+    try {
+      project = await importProjectWithinTransaction(q, input, {
         repository_url: payload.repository_url, title: payload.title, description: payload.description, use_notes: payload.use_notes,
         demo_url: payload.demo_url ?? null, relationship: payload.relationship, consent_to_share: true,
-    }, { reuseOwned: true });
+      }, { reuseOwned: true, fetcher: read.fetcher, token: read.token });
+    } catch (error) {
+      if (error instanceof Problem && PUBLISH_GITHUB_CODES.has(error.code)) throw publishGitHubFailure(error);
+      throw error;
+    }
     requireCondition(project?.project_id && project?.current_version?.version_id && project.official === false && project.relationship_verification === 'self_declared',
       502, 'import_unverified', '作品匯入結果無法確認，這次沒有公開；請稍後重試。');
     const row = (await q.query(`UPDATE skill_submissions SET status='published',consent_to_share=true,project_id=$2,project_version_id=$3,
@@ -238,7 +251,7 @@ function bearerHash(header: string | undefined, prefix: string, code: string, me
   return tokenHash(match[1]);
 }
 const keyInvalid = () => new Problem(401, 'upload_key_invalid', '上傳金鑰無效、已過期或已撤銷；請到自由工坊網站重新建立。');
-const grantInvalid = () => new Problem(401, 'upload_grant_invalid', '上傳授權無效、已過期、已撤銷或不屬於這份草稿；請建立新的草稿或到網站重新發授權。');
+const grantInvalid = () => new Problem(401, 'upload_grant_invalid', '上傳授權無效、已過期、已撤銷或不屬於這份草稿。請會員按「重新產生指令」重新產生授權，不要重送同一個授權，改用新指令裡的 Authorization: Bearer fpg_…。');
 
 export async function findUploadKey(pool: Pool, authorization: string | undefined): Promise<Owner & { key_hash: string }> {
   const hash = bearerHash(authorization, KEY_PREFIX, 'upload_key_invalid', '需要有效的技能上傳金鑰（Bearer fpk_…）。');
@@ -247,7 +260,7 @@ export async function findUploadKey(pool: Pool, authorization: string | undefine
   return { ...row, key_hash: hash };
 }
 export async function findUploadGrant(pool: Pool, authorization: string | undefined, id: string): Promise<Owner & { grant_hash: string; submission_id: string }> {
-  const hash = bearerHash(authorization, GRANT_PREFIX, 'upload_grant_invalid', '上傳需要這份草稿的一次性上傳授權（Bearer fpg_…）；長期金鑰不能直接上傳。');
+  const hash = bearerHash(authorization, GRANT_PREFIX, 'upload_grant_invalid', '請在 Authorization 標頭放入這份草稿的一次性授權：Authorization: Bearer fpg_…。不要用 cookie、長期金鑰 fpk_… 或其他前綴。');
   if (!z.uuid().safeParse(id).success) throw grantInvalid();
   const row = (await pool.query(`SELECT owner_ref AS user_id,community_id FROM skill_submissions WHERE grant_hash=$1 AND submission_id=$2
     AND grant_revoked_at IS NULL AND grant_expires_at>now() AND status<>'revoked'`, [hash, id.toLowerCase()])).rows[0];

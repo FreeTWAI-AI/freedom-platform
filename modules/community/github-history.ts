@@ -3,7 +3,7 @@ import type {Pool, PoolClient} from 'pg';
 import type {Actor} from '../identity-membership/service.js';
 import {communityCatalog, skillBooksForGuild} from './catalog.js';
 import {guildTitles} from '../positioning/assessment.js';
-import {githubCoordinate, publicJson} from '../opensource-marketing/github.js';
+import {githubCoordinate, publicJson, retryAnonymousGitHubRead} from '../opensource-marketing/github.js';
 import {Problem, requireCondition} from '../../packages/shared/problem.js';
 import {transaction} from '../../packages/db/index.js';
 import repositorySet from '../../repositories.lock.json' with {type:'json'};
@@ -143,11 +143,12 @@ export class GitHubHistory {
   }
   private async fetchRaw(repository: string, kind: HistoryKind, page: number, token?: string) {
     const path = `/repos/${repository}/${kind === 'issue' ? 'issues' : 'pulls'}?state=all&sort=created&direction=desc&per_page=100&page=${page}`;
-    const once = (authorization?: string) => publicJson(path, AbortSignal.timeout(10000), this.fetcher, false, 4194304, authorization);
+    const signal = AbortSignal.timeout(10000);
+    const once = (authorization?: string) => publicJson(path, signal, this.fetcher, false, 4194304, authorization);
     if (!token) return once();
     try { return await once(token); }
     catch (error) {
-      if (!(error instanceof Problem) || error.code !== 'github_rate_limited') throw error;
+      if (!retryAnonymousGitHubRead(error)) throw error;
       try { return await once(); }
       catch (second) {
         if (second instanceof Problem && error.retryAfterSeconds !== undefined && second.retryAfterSeconds === undefined) second.retryAfterSeconds = error.retryAfterSeconds;

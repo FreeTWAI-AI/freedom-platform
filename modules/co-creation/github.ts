@@ -1,5 +1,5 @@
 import {z} from 'zod';
-import {publicJson,githubCoordinate} from '../opensource-marketing/github.js';
+import {publicJson,githubCoordinate,retryAnonymousGitHubRead} from '../opensource-marketing/github.js';
 import {Problem,requireCondition} from '../../packages/shared/problem.js';
 
 const login=z.string().regex(/^[a-zA-Z0-9-]{1,60}(?:\[bot\])?$/);
@@ -77,9 +77,8 @@ export class CollaborationGitHub {
     const get=async(path:string,maxBytes:number)=>{
       try{return await publicJson(path,signal,this.fetcher,false,maxBytes,token);}
       catch(error){
-        // A token may have exhausted its own quota while anonymous public reads
-        // still work. Only a rate-limit response gets one anonymous retry.
-        if(token&&error instanceof Problem&&error.code==='github_rate_limited')return publicJson(path,signal,this.fetcher,false,maxBytes);
+        // A rejected or rate-limited token gets one anonymous retry on this same signal.
+        if(token&&retryAnonymousGitHubRead(error))return publicJson(path,signal,this.fetcher,false,maxBytes);
         throw error;
       }
     };

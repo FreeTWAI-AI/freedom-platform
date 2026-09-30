@@ -64,13 +64,48 @@ function quoteEtag(version: number): string {
   return `"${trimmed}"`
 }
 
-function messageFromProblem(status: number, problem: ProblemDetails | null, mutation = false, path = ''): string {
+const GITHUB_MEMBER_CODES = new Set(['github_rate_limited', 'github_unavailable', 'github_invalid_response', 'github_response_too_large', 'github_read_budget'])
+
+function safePlatformDetail(detail: string): boolean {
+  return detail.length > 0 && detail.length <= 400 && !/[<>]/.test(detail) && !/bearer|fpg_|fpk_|token|authorization/i.test(detail) && /[\u4e00-\u9fff]/.test(detail)
+}
+
+function retryHeaderSeconds(header: string | null): number | undefined {
+  if (!header || !/^\d+$/.test(header.trim())) return undefined
+  const value = Number(header.trim())
+  return value > 86400 ? undefined : value
+}
+
+function githubMemberMessage(code: string, problem: ProblemDetails | null, path: string, retryHeader: string | null): string {
+  const detail = typeof problem?.detail === 'string' ? problem.detail.trim() : ''
+  const fallback: Record<string, string> = {
+    github_rate_limited: 'GitHub 暫時限制查詢，請稍後重試。',
+    github_unavailable: 'GitHub 暫時無法回覆，請稍後重新嘗試。',
+    github_invalid_response: 'GitHub 回應不完整，請稍後重試。',
+    github_response_too_large: 'GitHub 回應過大，這次未完成。',
+    github_read_budget: 'GitHub 查詢忙碌，請稍後重試。',
+  }
+  let message = safePlatformDetail(detail) ? detail : (fallback[code] ?? 'GitHub 暫時無法完成，請稍後重試。')
+  const publish = /\/skill-submissions\/[^/]+\/publish$/.test(path)
+  if (publish && !message.includes('草稿')) message = `草稿已保留，尚未公開。${message}`
+  if (publish && !message.includes('發佈')) message += '請再按「發佈」。'
+  const retry = retryHeaderSeconds(retryHeader)
+  if (publish && retry !== undefined && !message.includes(String(retry))) {
+    message = message.replace(/請再按「發佈」。$/, '')
+    message += `約 ${retry} 秒後可再按「發佈」。`
+  }
+  return message
+}
+
+function messageFromProblem(status: number, problem: ProblemDetails | null, mutation = false, path = '', retryHeader: string | null = null): string {
   // Upstream outages may return an HTML page or a JSON wrapper with raw proxy text.
   // Neither belongs in a member's form; keep the HTTP code on ApiError for recovery.
   if (status === 503 && /^\/co-creation\/projects\/[^/]+\/activity$/.test(path)) {
     if (problem?.code === 'github_rate_limited') return 'GitHub 暫時限制查詢，請稍後重試，或直接前往儲存庫查看 Issue。'
     if (problem?.code === 'github_read_budget') return 'GitHub 查詢目前忙碌，請稍後重試，或直接前往儲存庫查看 Issue。'
   }
+  const githubCode = typeof problem?.code === 'string' ? problem.code.trim() : ''
+  if (status >= 500 && GITHUB_MEMBER_CODES.has(githubCode)) return githubMemberMessage(githubCode, problem, path, retryHeader)
   if (status >= 500) return `服務暫時無法回應（${status}）。${mutation?'尚未確認結果，請稍後重試。':'請稍後重試。'}`
   const rawTitle = typeof problem?.title === 'string' ? problem.title.trim() : ''
   const code = typeof problem?.code === 'string' ? problem.code.trim() : ''
@@ -201,19 +236,21 @@ export class PortalClient {
       try { payload = await readJson(response) }
       catch {
         if (!response.ok) {
-          throw new ApiError({message: messageFromProblem(response.status, null, method !== 'GET'), status: response.status, cfRay:cloudflareRay(response), requestId:requestId(response), network: response.status >= 500 && method !== 'GET'})
+          throw new ApiError({message: messageFromProblem(response.status, null, method !== 'GET', path, response.headers.get('retry-after')), status: response.status, cfRay:cloudflareRay(response), requestId:requestId(response), network: response.status >= 500 && method !== 'GET'})
         }
         throw new ApiError({message:'回應未完整收到，尚未確認結果。請稍後重試。', status: response.status, cfRay:cloudflareRay(response), requestId:requestId(response), network:true})
       }
       if (!response.ok) {
         const problem = isProblem(payload) ? payload : null
         const serverFailure = response.status >= 500
+        const knownGitHub = serverFailure && typeof problem?.code === 'string' && GITHUB_MEMBER_CODES.has(problem.code)
+        const safeDetail = typeof problem?.detail === 'string' && safePlatformDetail(problem.detail.trim()) ? problem.detail : undefined
         throw new ApiError({
-          message: messageFromProblem(response.status, problem, method !== 'GET', path), status: response.status, cfRay:cloudflareRay(response), requestId:requestId(response),
-          type: serverFailure ? undefined : problem?.type,
-          title: serverFailure ? undefined : problem?.title,
-          detail: serverFailure ? undefined : problem?.detail,
-          code: serverFailure ? undefined : problem?.code, network: serverFailure && method !== 'GET',
+          message: messageFromProblem(response.status, problem, method !== 'GET', path, response.headers.get('retry-after')), status: response.status, cfRay:cloudflareRay(response), requestId:requestId(response),
+          type: serverFailure && !knownGitHub ? undefined : problem?.type,
+          title: serverFailure && !knownGitHub ? undefined : problem?.title,
+          detail: serverFailure ? (knownGitHub ? safeDetail : undefined) : problem?.detail,
+          code: serverFailure && !knownGitHub ? undefined : problem?.code, network: serverFailure && method !== 'GET' && !knownGitHub,
         })
       }
       return payload as T

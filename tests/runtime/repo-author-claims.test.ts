@@ -400,6 +400,43 @@ test('claims follow the provider repo id across rename and do not move when the 
   assert.equal((await admin('/author-claims?queue=verified')).data.identity_changes.length, 0);
 });
 
+test('author-claim reads send the platform token and retry a non-rate-limit 403 once', async () => {
+  const token = 'github_pat_synthetic_fixture';
+  const seen: Array<string | null> = [];
+  const signals: Array<AbortSignal | null | undefined> = [];
+  const recording: typeof fetch = async (input, init) => {
+    const authorization = new Headers(init?.headers).get('authorization');
+    seen.push(authorization);
+    signals.push(init?.signal);
+    if (authorization) {
+      assert.equal(authorization, `Bearer ${token}`);
+      return new Response(JSON.stringify({message: 'Resource protected by organization SAML enforcement'}), {status: 403, headers: {'x-ratelimit-remaining': '100'}});
+    }
+    return fetcher(input, init);
+  };
+  const tokenApp = createApp(pool, origin, 'local', {adminVerifier: verifier, githubSocial: {fetcher: recording, metricsToken: token}});
+  arm('video-autopilot', {id: 88001122});
+  const logged = await tokenApp.request(origin + '/api/v1/auth/login', {method: 'POST', headers: {Origin: origin, 'Content-Type': 'application/json'}, body: JSON.stringify({email: DEMO_USERS[0].email, password: DEMO_PASSWORD})});
+  const session = await logged.json() as {csrf_token: string};
+  await link(DEMO_USERS[0], '101', 'aaa-author');
+  const submitted = await tokenApp.request(origin + '/api/v1/me/skill-books/video-autopilot/author-claims', {
+    method: 'POST', headers: {Origin: origin, Cookie: logged.headers.get('set-cookie')!.split(';')[0], 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrf_token, 'Idempotency-Key': randomUUID()},
+    body: JSON.stringify(claimBody()),
+  });
+  const body = await submitted.json() as {code?: string};
+  assert.equal(submitted.status, 201, JSON.stringify(body));
+  assert.deepEqual(seen.slice(0, 2), [`Bearer ${token}`, null]);
+  assert.equal(signals[0], signals[1]);
+  assert.equal(JSON.stringify(body).includes(token), false);
+  const observed = await tokenApp.request(origin + '/admin/api/skill-books/video-autopilot/author-claim-observation', {
+    method: 'POST', headers: {Origin: origin, 'Cf-Access-Jwt-Assertion': jwt, 'X-Admin-CSRF': csrf, 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID()}, body: '{}',
+  });
+  assert.equal(observed.status, 200, await observed.clone().text());
+  assert.deepEqual(seen.slice(2, 4), [`Bearer ${token}`, null]);
+  assert.equal(signals[2], signals[3]);
+  assert.equal((await observed.text()).includes(token), false);
+});
+
 test('GitHub failures and private repositories do not invent an id or a claim', async () => {
   const maker = await login();
   await link(DEMO_USERS[0], '101', 'aaa-author');
@@ -419,7 +456,8 @@ test('GitHub failures and private repositories do not invent an id or a claim', 
   arm('pos-pro', {id: 88001124, private: true, visibility: 'private'});
   const hidden = await submit(maker, 'pos-pro');
   assert.equal(hidden.status, 422);
-  assert.equal(hidden.data.detail, '只能認領可公開讀取的 GitHub 原作 Repo。');
+  assert.equal(hidden.data.detail, '這本技能書的原作不是可認領的公開 GitHub Repo。');
+  assert.equal(hidden.data.code, missing.data.code);
   assert.equal((await pool.query('SELECT count(*) FROM repo_credit_claims')).rows[0].count, '0');
   assert.equal((await pool.query('SELECT count(*) FROM canonical_repositories')).rows[0].count, '0');
 });

@@ -23,11 +23,11 @@ export function createPublicAuthorClaimRoutes(pool: Pool) {
   app.get('/skills/:id/author-claim', async c => c.json(await publicAuthorClaimForBook(pool, bookId.parse(c.req.param('id')))));
   return app;
 }
-export function createMemberAuthorClaimRoutes(pool: Pool, fetcher: typeof fetch = globalThis.fetch) {
+export function createMemberAuthorClaimRoutes(pool: Pool, fetcher: typeof fetch = globalThis.fetch, readToken: () => string | undefined = () => undefined) {
   const app = new Hono<{Variables: {actor: Actor}}>();
   app.get('/me/skill-books/:id/author-claim', async c => c.json(await memberAuthorClaim(pool, c.get('actor'), bookId.parse(c.req.param('id')))));
   app.post('/me/skill-books/:id/author-claims', async c => {
-    const value = await submitAuthorClaim(pool, commandInput(c, await c.req.json()), bookId.parse(c.req.param('id')), fetcher);
+    const value = await submitAuthorClaim(pool, commandInput(c, await c.req.json()), bookId.parse(c.req.param('id')), fetcher, readToken());
     return c.json(etag(c, value), 201);
   });
   app.post('/me/author-claims/:id/withdraw', async c => c.json(etag(c, await withdrawAuthorClaim(pool, commandInput(c, await c.req.json()), z.uuid().parse(c.req.param('id'))))));
