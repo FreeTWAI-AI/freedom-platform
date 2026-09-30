@@ -8,6 +8,11 @@
       "sha256": "b8047ef27d9d2642d87c8512acb8f5cb17da5bfd7eb44abec536a49e13439a07"
     },
     {
+      "path": ".github/workflows/skill-book-upstreams.yml",
+      "bytes": 545,
+      "sha256": "c2ca5c511bafa00e5d2054786ad46bc97f38f7f1ad6a76598a0bdbe10bbc0fa4"
+    },
+    {
       "path": ".github/workflows/verify.yml",
       "bytes": 2133,
       "sha256": "b019565be99d4c620dd9b5106ccc08a4d03021cc7087903d57168d24b949e9f2"
@@ -1539,8 +1544,8 @@
     },
     {
       "path": "docs/development/member-skill-registration.md",
-      "bytes": 2637,
-      "sha256": "2af4093bd2a8d72dcbab35d9c2ea1b52c07d8f7128d95561ccf337d5bb0e19e4"
+      "bytes": 2821,
+      "sha256": "e008e42deafa01effe07972a537c9a2575ff47febda21f89bdd2e122e985290b"
     },
     {
       "path": "docs/development/member-social-links.md",
@@ -2648,6 +2653,16 @@
       "sha256": "627c2e4b255b6eee54bab84ff62532c939b276d5add196c9cda05dc7f39955cb"
     },
     {
+      "path": "docs/skill-book-upstream-sync-2026-09-27.md",
+      "bytes": 7396,
+      "sha256": "4af37a49812c73bf8b5a8d67812bccefdc431a0fa1b967f19cfc1676203a0ca9"
+    },
+    {
+      "path": "docs/skill-book-upstream-sync-2026-09-30.md",
+      "bytes": 5713,
+      "sha256": "2cbe3c904b9489585fd4d0e35c1309d898fe2a7dbe4aff320650f8f7315f4561"
+    },
+    {
       "path": "freedom.project.yaml",
       "bytes": 5948,
       "sha256": "0cba297f5db8c901a92af3296233e229af4362d49c9185aa459a1c81cdefd481"
@@ -2920,12 +2935,12 @@
     {
       "path": "modules/community/catalog.ts",
       "bytes": 74806,
-      "sha256": "084ac4d829811fcc52749ce6615dc9562924628cfc9e471cb90e5a961ae1dd6f"
+      "sha256": "c706f32f5f1480941eae26b6c7319addba1588821a000c0fdf5c37376501ee77"
     },
     {
       "path": "modules/community/community-author-skills.ts",
-      "bytes": 17697,
-      "sha256": "935239e4655cafcd3ca1c2b80185b35c9f1f3495341961c82c0e79b809bc047c"
+      "bytes": 18086,
+      "sha256": "1210b98073356886f7adc6483c45da7b5a63f7f0bc996c32fefd1a1b89bd9d17"
     },
     {
       "path": "modules/community/discovery.ts",
@@ -2939,8 +2954,8 @@
     },
     {
       "path": "modules/community/member-skill-books.ts",
-      "bytes": 9252,
-      "sha256": "41471271e95be86182b615bc27bdb603759e34c6f044ca4922cf57e7cb521b2a"
+      "bytes": 9448,
+      "sha256": "79e6847b71b513620259a66a468557ecf969da49f6580ca41d5e69d9e2b39fa8"
     },
     {
       "path": "modules/community/share-introductions/agent-kit.json",
@@ -2994,8 +3009,8 @@
     },
     {
       "path": "modules/community/share-introductions/editkin.json",
-      "bytes": 16003,
-      "sha256": "2c67ca104085aaca3b4d5f4046f116c2162ce1dd239d4b0a6e354daac465f8ff"
+      "bytes": 16283,
+      "sha256": "987e819324513874fa0bac70164e9219f552a2530c4148ec255ac467e2513e7a"
     },
     {
       "path": "modules/community/share-introductions/event-space.json",
@@ -3034,8 +3049,8 @@
     },
     {
       "path": "modules/community/share-introductions/multi-ai-chat.json",
-      "bytes": 10392,
-      "sha256": "b3a734b89a72d6fcbb23603aca2040e5c5677c3ebd75fb74ffe94883f2f3a99a"
+      "bytes": 10427,
+      "sha256": "5fd696901a39bc6ceb2689f8cabd99c079c62ae496b2c69ba8dc3f91a33a56da"
     },
     {
       "path": "modules/community/share-introductions/multi-ai-desktop.json",
@@ -3129,18 +3144,18 @@
     },
     {
       "path": "modules/community/skill-book-guides.ts",
-      "bytes": 66655,
-      "sha256": "70c9b0ebcf9f3a1b3b456f82c1e81444ce22ac5675bb31acd4ab0325c61a6696"
+      "bytes": 66666,
+      "sha256": "562d1cce442f31f0eaeab85803504441fdeb43c5ad0675d2364a3dc9bdbf6739"
     },
     {
       "path": "modules/community/skill-collaboration.ts",
-      "bytes": 15900,
-      "sha256": "2e8dac53f13f7127e9bf5c7b077e19e28b7bbbefeb087e5264eb7b7590f3cf43"
+      "bytes": 15888,
+      "sha256": "4bfe296d537c8acdf255cd0610224f6ea13f30537449665a6fe50102a2fa4b7e"
     },
     {
       "path": "modules/community/skill-share-content.ts",
       "bytes": 9501,
-      "sha256": "a99045fec95b7406cd1fd5912b166ad8bc2ebb2664c1cabe220ef69bbbc29770"
+      "sha256": "802678d7538f503be3bac9a2f8759ddb2c5e2ddfad7fa247f275ec4bc79a179d"
     },
     {
       "path": "modules/community/task-board.ts",
@@ -3344,8 +3359,8 @@
     },
     {
       "path": "package.json",
-      "bytes": 2857,
-      "sha256": "afc97240c00ab8f3706caeda08b6075b1623d9d0ecca6e338c7f95500261f050"
+      "bytes": 2936,
+      "sha256": "93ac97e1036517ad49ef2c301511d89a17fe4f1ee80407ec37cd1617ae690a7e"
     },
     {
       "path": "packages/client-connections/cli.mjs",
@@ -3501,6 +3516,11 @@
       "path": "scripts/build-skill-upload-client.mjs",
       "bytes": 1177,
       "sha256": "5c10768af4e63f9a5a9c975354a16c1494a4a5d41fb7828092b0dd081495184b"
+    },
+    {
+      "path": "scripts/check-skill-book-upstreams.ts",
+      "bytes": 4353,
+      "sha256": "beaa25513f3d9f8999a22f11eb072c292d4aabb8de37728de7fe43ab84d3e3f5"
     },
     {
       "path": "scripts/checkout-repositories.mjs",
@@ -4029,8 +4049,8 @@
     },
     {
       "path": "tests/runtime/member-skill-registration.test.ts",
-      "bytes": 8448,
-      "sha256": "23d40f59abec2774a7d6c96eea6e43f3b7a82623bb1f802aa40e1ee4e934f8da"
+      "bytes": 8583,
+      "sha256": "3f5b6f19e6a3c55b1358a479c96dba9ef343c8d4e0c5deb5e0534f76bd82a0e1"
     },
     {
       "path": "tests/runtime/notification-events.test.ts",
@@ -4103,9 +4123,14 @@
       "sha256": "d88fecb414ccf7f8ef6cf1e634c23f30d31352b3e68778f47edb8c4447733e62"
     },
     {
+      "path": "tests/runtime/skill-book-upstreams.test.ts",
+      "bytes": 2959,
+      "sha256": "8adde515b7f29f66574a388ca51f13c63b22fd350c077fbe9a6ee40b5b2e2fd1"
+    },
+    {
       "path": "tests/runtime/skill-collaboration.test.ts",
-      "bytes": 10181,
-      "sha256": "fc4f872478d230ae687c1b6bd072db919fe660fbda2ab6b9cc1a766c55c69309"
+      "bytes": 10397,
+      "sha256": "da385e0ea3c9ad541f20f38bc604df9b7a8de744f8bf9cfcafa7d34f2ab514db"
     },
     {
       "path": "tests/runtime/skill-discovery.test.ts",
