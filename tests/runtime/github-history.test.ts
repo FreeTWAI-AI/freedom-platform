@@ -1,9 +1,10 @@
 import {test,before,after} from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {Pool} from 'pg';
 import {createPool,LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
-import {GitHubHistory,historyRepositories} from '../../modules/community/github-history.js';
+import {GitHubHistory,GITHUB_HISTORY_PAGE_CAP,historyRepositories} from '../../modules/community/github-history.js';
 import type {Actor} from '../../modules/identity-membership/service.js';
 import {contributionPoints,isGitHubBot,issueResolved,pullClosedUnmerged,pullUpdated} from '../../packages/shared/github-leaderboard.js';
 
@@ -219,6 +220,48 @@ test('one isolate coalesces the same page and a second instance does not poison 
   assert.equal(cached.items.length,1);assert.equal(cached.stale,false);assert.equal(calls,1);
   const row=(await pool.query(`SELECT last_error FROM github_history_cache WHERE cache_key=$1`,['owner/parallel-lock/issue/1'])).rows[0];
   assert.equal(row.last_error,null);
+});
+
+function declaredNumber(source:string,name:string){
+  const match=source.match(new RegExp(`(?:export\\s+)?const\\s+${name}\\s*=\\s*(\\d+)\\s*;`));
+  assert.ok(match,name);
+  return Number(match[1]);
+}
+
+test('page 101 is rejected before a cache row exists and page 100 is served from the fake fetcher',async()=>{
+  assert.equal(GITHUB_HISTORY_PAGE_CAP,100);
+  let calls=0;
+  const fetcher:typeof fetch=async input=>{
+    calls++;
+    const url=String(input);
+    assert.equal(new URL(url).origin,'https://api.github.com');
+    assert.match(url,/[?&]page=100(?:&|$)/);
+    return Response.json([issue(100)]);
+  };
+  const reader=new GitHubHistory(pool,fetcher);
+  await assert.rejects(reader.page('owner/page-cap','issue',101),{status:422,code:'invalid_page'});
+  assert.equal(calls,0);
+  const rejected=(await pool.query('SELECT cache_key FROM github_history_cache WHERE cache_key=$1',['owner/page-cap/issue/101'])).rowCount;
+  assert.equal(rejected,0);
+  const page=await reader.page('owner/page-cap','issue',100);
+  assert.equal(calls,1);
+  assert.equal(page.stale,false);
+  assert.equal(page.unavailable,undefined);
+  assert.equal(page.items.length,1);
+  assert.equal(page.items[0].number,100);
+  const stored=(await pool.query('SELECT last_error FROM github_history_cache WHERE cache_key=$1',['owner/page-cap/issue/100'])).rows[0];
+  assert.equal(stored.last_error,null);
+});
+
+test('the portal page cap stays equal to the exported history page cap',()=>{
+  const server=readFileSync('modules/community/github-history.ts','utf8');
+  const portal=readFileSync('apps/portal-web/src/modules/CommunityHistory.tsx','utf8');
+  const route=readFileSync('apps/platform-api/src/routes/co-creation.ts','utf8');
+  assert.match(portal,/GITHUB_HISTORY_PAGE_CAP in modules\/community\/github-history\.ts/);
+  assert.equal(declaredNumber(server,'GITHUB_HISTORY_PAGE_CAP'),GITHUB_HISTORY_PAGE_CAP);
+  assert.equal(declaredNumber(portal,'PAGE_CAP'),GITHUB_HISTORY_PAGE_CAP);
+  assert.match(server,/page <= GITHUB_HISTORY_PAGE_CAP/);
+  assert.match(route,/\.max\(GITHUB_HISTORY_PAGE_CAP\)/);
 });
 
 test('repository categories prioritize platform architecture and guild assigned skill books',async()=>{

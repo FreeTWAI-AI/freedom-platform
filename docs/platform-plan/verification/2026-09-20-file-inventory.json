@@ -114,8 +114,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/co-creation.ts",
-      "bytes": 2282,
-      "sha256": "f78cd48cb41f67199c2d8904f54e2e6b815c0ac9dfe036f9c828da34ab78c118"
+      "bytes": 2324,
+      "sha256": "768f8ee24df77ee1acff900007ea7b4119b053774464084e50acbee55931c477"
     },
     {
       "path": "apps/platform-api/src/routes/commerce.ts",
@@ -814,8 +814,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/CommunityHistory.tsx",
-      "bytes": 12984,
-      "sha256": "e47e6ee81b29a1c53bcd8cdf49153042dd4c2a5427ff65dbe576668d6c331f89"
+      "bytes": 13050,
+      "sha256": "061f52636ae72973173c1b2c744ace7531fe3fea76ab54e0ff3a2d78b71513e9"
     },
     {
       "path": "apps/portal-web/src/modules/CommunitySubmissions.tsx",
@@ -3004,8 +3004,8 @@
     },
     {
       "path": "modules/community/github-history.ts",
-      "bytes": 12421,
-      "sha256": "3c9d4fd1abd6118a957d6d7dd19901fb158a7815b23c1a2798829a7a41b1d366"
+      "bytes": 12483,
+      "sha256": "3b5c21b6aa4829538c9ffd8b46d39948d96539c68bd6dbfb5397ddc4e4604836"
     },
     {
       "path": "modules/community/member-skill-books.ts",
@@ -4064,8 +4064,8 @@
     },
     {
       "path": "tests/runtime/github-history.test.ts",
-      "bytes": 13269,
-      "sha256": "a356c7ec609c2f67a9b4eca825e7bea54a21b5b559891b3468492b1e0b385875"
+      "bytes": 15412,
+      "sha256": "18be2f45eab4b945f1250d12adc45a6eb1887a4b0e39350d6a013f4a15665a7a"
     },
     {
       "path": "tests/runtime/github-identity.test.ts",
