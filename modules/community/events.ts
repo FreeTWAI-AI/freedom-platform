@@ -410,6 +410,7 @@ export async function setRsvp(pool:Pool,input:Command,id:string) {
       requireCondition(row.visibility!=='referral'||referrer,422,'share_code_required','請從會員分享的活動連結報名。');
       const mine=(await q.query('SELECT state FROM community_event_rsvps WHERE event_id=$1 AND user_id=$2',[id,input.actor.user_id])).rows[0]?.state;
       if(mine!=='going'){
+        await q.query("DELETE FROM community_event_guest_rsvps WHERE event_id=$1 AND email_sent_at IS NULL AND created_at<now()-interval '10 minutes'",[id]);
         const count=(await q.query(`SELECT (SELECT count(*) FROM community_event_rsvps WHERE event_id=$1 AND state='going')+
           (SELECT count(*) FROM community_event_guest_rsvps WHERE event_id=$1) AS total`,[id])).rows[0].total;
         requireCondition(row.capacity===null||Number(count)<row.capacity,409,'event_full','活動名額已滿。');

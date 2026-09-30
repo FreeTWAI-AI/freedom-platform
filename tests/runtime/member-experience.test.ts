@@ -207,6 +207,21 @@ test('failed guest email holds a seat briefly and an expired pending registratio
   assert.equal((await request(`/events/${id}`,owner)).data.attending_count,1);
 });
 
+test('member RSVP releases an expired guest email reservation before checking capacity',async()=>{
+  const owner=await signIn(),reviewer=await signIn(DEMO_USERS[1].email),member=await signIn(DEMO_USERS[2].email);
+  await guildMaster(reviewer.user.user_id,'guild_member_operations');
+  const created=await request('/events',owner,{...draft(),capacity:1,visibility:'open'}),id=created.data.event_id;
+  assert.equal((await request(`/events/${id}/review`,reviewer,{decision:'approve',reason:'資料完整'},1)).status,200);
+  const failing=createApp(pool,origin,'local',{eventEmailSender:async()=>{throw new Error('mail unavailable')}});
+  const response=await failing.request(`${origin}/api/v1/public/events/${id}/register`,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({name:'訪客',email:'pending@example.org',referral_code:null})});
+  assert.equal(response.status,503);
+  assert.equal((await request(`/events/${id}/rsvp`,member,{going:true})).status,409,'a current reservation holds the last seat');
+  await pool.query("UPDATE community_event_guest_rsvps SET created_at=now()-interval '11 minutes' WHERE event_id=$1",[id]);
+  assert.equal((await request(`/events/${id}/rsvp`,member,{going:true})).status,200);
+  assert.equal((await request(`/events/${id}`,owner)).data.attending_count,1);
+  assert.equal((await pool.query('SELECT count(*) FROM community_event_guest_rsvps WHERE event_id=$1',[id])).rows[0].count,'0');
+});
+
 test('portrait poster stays portrait and a bounded event video supports range reads',async()=>{
   const owner=await signIn();
   const created=await request('/events',owner,draft());assert.equal(created.status,201);
