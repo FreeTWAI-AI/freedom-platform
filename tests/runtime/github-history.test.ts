@@ -22,6 +22,15 @@ const actor = {community_id: DEMO_COMMUNITY, user_id: DEMO_USERS[0].user_id} as 
 const calls: string[] = [];
 let app = createApp(pool, origin);
 
+function isGitHubHost(url: string) {
+  try {
+    const host = new URL(url).hostname;
+    return host === 'github.com' || host.endsWith('.github.com');
+  } catch {
+    return false;
+  }
+}
+
 type Session = {cookie: string; csrf: string};
 before(async () => {
   globalThis.fetch = (async (input: RequestInfo | URL) => {
@@ -231,8 +240,8 @@ test('leaderboard counts match the shared helpers and follow repository visibili
   assert.equal(missing.data.code, 'invalid_repository');
   assert.equal(tooFar.status, 422);
   assert.equal(anon.status, 401);
-  assert.equal(calls.slice(started).some(url => url.includes('github.com')), false);
-  assert.equal(calls.slice(beforeCalls).some(url => url.includes('github.com')), false);
+  assert.equal(calls.slice(started).some(isGitHubHost), false);
+  assert.equal(calls.slice(beforeCalls).some(isGitHubHost), false);
 });
 
 function declaredNumber(source: string, name: string) {
