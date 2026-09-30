@@ -27,6 +27,7 @@ import { BenefitObservations } from './modules/BenefitObservations'
 import { GameConsoleProvider, GameConsolePopout } from './GameConsole'
 import {PageTools} from './PageTools'
 import { logConsoleEvent } from './game-console-core'
+import { consoleChannel } from './game-console-routing'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PositioningPanel, GuildsPanel } from './modules/PositioningPanels'
 import { SupplierPanel, RetailPanel } from './modules/CommercePanels'
@@ -90,7 +91,7 @@ const TAB_GUIDANCE: Record<TabId, string> = {
   todos: '查看會員待辦事項與可直接前往的操作。',
   messages: '查看收到的訊息與對話。',
   events: '查看社群活動、審核結果與報名狀態。',
-  tasks: '探索工坊工作與 GitHub Issue，查看有來源的驗收紀錄。',
+  tasks: '探索工坊工作、GitHub Issue／PR 歷史與作者排行榜，查看有來源的驗收紀錄。',
 }
 
 type ActionError = {
@@ -496,7 +497,7 @@ function Workspace({
   useEffect(() => {
     if (previousTab.current === tab) return
     previousTab.current = tab
-    logConsoleEvent({channel:'guide',kind:'guide',source:'導覽',message:`已進入「${tabTitle(tab)}」。${TAB_GUIDANCE[tab]}`})
+    logConsoleEvent({channel:consoleChannel('guide_navigation'),kind:'guide',source:'導覽',message:`已進入「${tabTitle(tab)}」。${TAB_GUIDANCE[tab]}`})
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
     mainContent.current?.scrollIntoView({ block: 'start', behavior: 'instant' })

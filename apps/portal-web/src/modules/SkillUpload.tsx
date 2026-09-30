@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import { requireItems, type PortalClient } from '../api';
 import { formatIsoLocal } from '../format';
 import { logConsoleEvent } from '../game-console-core';
+import { consoleChannel } from '../game-console-routing';
 import { useModuleMutation } from './shared';
 import './SkillUpload.css';
 
@@ -203,7 +204,7 @@ export function SkillUpload({ client, onPublished }: { client: PortalClient; onP
   async function publish(item: Submission) {
     const saved = await drafts.mutate<Submission>(`/me/skill-submissions/${encodeURIComponent(item.submission_id)}/publish`, { consent_to_share: true }, Number(item.aggregate_version));
     if (!saved) return;
-    logConsoleEvent({id:`skill:${saved.submission_id}`,createdAt:saved.updated_at,channel:'guide',level:'success',kind:'broadcast',source:'技能書發布',message:`技能書「${saved.payload?.title??'未命名技能'}」已建立公開介紹頁。`});
+    logConsoleEvent({id:`skill:${saved.submission_id}`,createdAt:saved.updated_at,channel:consoleChannel('skill_published'),level:'success',kind:'broadcast',source:'技能書發布',message:`技能書「${saved.payload?.title??'未命名技能'}」已建立公開介紹頁。`});
     setPreview(saved); setNotice('技能已送出，公開介紹頁已建立。'); await refresh(); await onPublished?.();
   }
   async function issueKey(event: FormEvent) {

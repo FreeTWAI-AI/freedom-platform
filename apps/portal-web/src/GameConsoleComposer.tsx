@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState,type FormEvent} from 'react'
 import {ApiError,type PortalClient} from './api'
 import {logConsoleEvent,type ConsoleVisibility,type GameConsoleChannel} from './game-console-core'
+import {consoleChannel} from './game-console-routing'
 import {announceInboxChange} from './modules/member-inbox'
 
 type ChatChannel='guild'|'squad'|'direct'|'world_chat'
@@ -107,7 +108,7 @@ export function GameConsoleComposer({client,userId,enabled,channel,visibility}: 
       const message=await client.post<SentMessage>(path,{body},{idempotencyKey:attempt.idempotencyKey})
       pending.current.delete(key)
       setDrafts(current=>current[key]?.trim()===body?{...current,[key]:''}:current)
-      logConsoleEvent({id:`${chatChannel==='direct'?'direct':'room'}:${message.message_id}`,channel:chatChannel,kind:'chat',level:'success',
+      logConsoleEvent({id:`${chatChannel==='direct'?'direct':'room'}:${message.message_id}`,channel:consoleChannel(chatChannel==='world_chat'?'chat_sent_world':chatChannel==='guild'?'chat_sent_guild':chatChannel==='squad'?'chat_sent_squad':'chat_sent_direct'),kind:'chat',level:'success',
         source:chatChannel==='direct'?`你 → ${selected!.name}`:chatChannel==='world_chat'?(message.sender_name??'你'):`${selected!.name} · ${message.sender_name??'你'}`,
         message:message.body,createdAt:message.created_at})
       announceInboxChange()

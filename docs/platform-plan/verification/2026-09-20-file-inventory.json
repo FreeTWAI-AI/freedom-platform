@@ -44,8 +44,8 @@
     },
     {
       "path": "DESIGN.md",
-      "bytes": 6571,
-      "sha256": "4a10c97d9c46febc12f83fc3e34fca79611022c22d9479b58dc3bdb00ea620a2"
+      "bytes": 6568,
+      "sha256": "5f4bbebb6181fcd338bf8af8f2c7b12bac8048622552111b5a5275b28a964cda"
     },
     {
       "path": "README.md",
@@ -114,8 +114,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/co-creation.ts",
-      "bytes": 1437,
-      "sha256": "8baab1335fc3105554249733dc32c8c9a47c5638b4f4fbe53c310693894d1363"
+      "bytes": 2282,
+      "sha256": "f78cd48cb41f67199c2d8904f54e2e6b815c0ac9dfe036f9c828da34ab78c118"
     },
     {
       "path": "apps/platform-api/src/routes/commerce.ts",
@@ -624,23 +624,23 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 79662,
-      "sha256": "17da5fb1ba5b01e675f08554cbc03428f02b6015078750a39e1ba28b8d3aefb9"
+      "bytes": 79774,
+      "sha256": "ae38a7dd90c2380461af71a666b397ed815414635f207847ccc0e2fe169248cc"
     },
     {
       "path": "apps/portal-web/src/GameConsole.css",
-      "bytes": 16750,
-      "sha256": "cdf0e18ede33415e3b712a4845211e16d40b6efcf3b8d3b0620407c5f963bebe"
+      "bytes": 17087,
+      "sha256": "1743ac19bf2fe75e063b89279e7554a02676e8aa837edc3c316bdb5ee05c3364"
     },
     {
       "path": "apps/portal-web/src/GameConsole.tsx",
-      "bytes": 21518,
-      "sha256": "e97be7640098e174e10834925b898d14c0e960c404aeba771c4d140c4b3fcb58"
+      "bytes": 21762,
+      "sha256": "7d978b1cb8993d3c00f23275ffc22701345660ef0369b36253b660a1caa73f04"
     },
     {
       "path": "apps/portal-web/src/GameConsoleComposer.tsx",
-      "bytes": 9824,
-      "sha256": "cff1ec350f99674011eb0fd5705de322b98aa484600dabb94b63734ef7cf2622"
+      "bytes": 10026,
+      "sha256": "25262ba3d3fbdbcca8b3c628652fed88f4c63d245fb46329fbc77a199099c529"
     },
     {
       "path": "apps/portal-web/src/GameConsoleThemes.css",
@@ -654,8 +654,8 @@
     },
     {
       "path": "apps/portal-web/src/Navigation.tsx",
-      "bytes": 2865,
-      "sha256": "5b65d684ea260c1c4696b313c67cdc6e672906cb75f5b2a0b4d4bb42e487e531"
+      "bytes": 2862,
+      "sha256": "c5427a488eecb215e6e72bee2c7cc97d3edc953e2c1abba6a0f2083e5e9252dc"
     },
     {
       "path": "apps/portal-web/src/PageTools.css",
@@ -679,8 +679,8 @@
     },
     {
       "path": "apps/portal-web/src/api.ts",
-      "bytes": 12398,
-      "sha256": "165decf03e72ebc1e3891fafdd5f8c5dfef67e29fefb26361f8f3fe384029201"
+      "bytes": 12480,
+      "sha256": "da86ee831cc01006355d457d30c582df39b4a0721a636fd6ec09066779a3ca4d"
     },
     {
       "path": "apps/portal-web/src/format.ts",
@@ -690,12 +690,17 @@
     {
       "path": "apps/portal-web/src/game-console-core.ts",
       "bytes": 7291,
-      "sha256": "4fdd2b491a7966f44c8fe2398ba79b88397920ef9084bf986b171bde4ee16055"
+      "sha256": "0ac7735ec6111380f3bc33e9ac15af88e772a5ac809fd876bec2056c6ec923d8"
     },
     {
       "path": "apps/portal-web/src/game-console-feed.ts",
-      "bytes": 7316,
-      "sha256": "5db93d7f49f2605c3d5a3a6533e97e113ff504fdd33d6f1919d6db2d4a840f99"
+      "bytes": 7389,
+      "sha256": "07c55729f56e23ccd782fceedc873b5ec3972bd338bee16e749a997a014e255f"
+    },
+    {
+      "path": "apps/portal-web/src/game-console-routing.ts",
+      "bytes": 5024,
+      "sha256": "6ae964579b00c5a30c5c2339ed8d466aac3112a825b8f94c7887c74e83372f9b"
     },
     {
       "path": "apps/portal-web/src/light-theme.css",
@@ -769,8 +774,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/CoCreationPanel.tsx",
-      "bytes": 24231,
-      "sha256": "4f6d494996b5a525913dba1022caa81c5ec9e491277ac76f7aecfdf67f7f6d44"
+      "bytes": 24340,
+      "sha256": "f40d231449f68feef4b2ffee7a4cb3fab175887074a0d9540deac23bbfe611e1"
     },
     {
       "path": "apps/portal-web/src/modules/CommercePanels.tsx",
@@ -781,6 +786,16 @@
       "path": "apps/portal-web/src/modules/Community.tsx",
       "bytes": 9122,
       "sha256": "fde130b7f25afde52eb2b911e7f1836192161770455bb5a2fbc3fe04c7fdc390"
+    },
+    {
+      "path": "apps/portal-web/src/modules/CommunityHistory.css",
+      "bytes": 2284,
+      "sha256": "fbcae4ab1a7ef6d31737c6b95a614621eddd639568843b28afba600e75f70824"
+    },
+    {
+      "path": "apps/portal-web/src/modules/CommunityHistory.tsx",
+      "bytes": 12984,
+      "sha256": "e47e6ee81b29a1c53bcd8cdf49153042dd4c2a5427ff65dbe576668d6c331f89"
     },
     {
       "path": "apps/portal-web/src/modules/CommunitySubmissions.tsx",
@@ -869,8 +884,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildWorkspace.tsx",
-      "bytes": 31979,
-      "sha256": "7d7b4f6022864ce47bf042c34f422211a5fa0e0110e5a80fe23514cf34d72c00"
+      "bytes": 32064,
+      "sha256": "1cdb02ce7693bb277a333018eabcdacf99bd3eb2f0a3aab0e501e03307897dc5"
     },
     {
       "path": "apps/portal-web/src/modules/HomeDesign.css",
@@ -889,8 +904,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberChannels.tsx",
-      "bytes": 24249,
-      "sha256": "493970206763c0fbbe91134cfd442c7e4e9fc282fc6a9e24f558c04ce2e0e261"
+      "bytes": 24367,
+      "sha256": "98e498818c78a5ebdcad5da4225d90f0cfce164766495b52dc1a5129a802148a"
     },
     {
       "path": "apps/portal-web/src/modules/MemberDirectory.css",
@@ -904,13 +919,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberHome.tsx",
-      "bytes": 6656,
-      "sha256": "a4076bf7f380c73bb9bd255473462b31d42db230361d82e71d5033c1aac5e15b"
+      "bytes": 6737,
+      "sha256": "73e2036e001f6e804889941cad5612c9e9e76e0a6af6f623cfc4b7312a6c8aaa"
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 34009,
-      "sha256": "f53890e58d73c8dc9d6cfdb3923975443baf15ca661bd4e83c07efc2db4a6f52"
+      "bytes": 34091,
+      "sha256": "ec6afb1df445016bb51d6768d8b4c83546772c8a7eabf15b07826030408d0dc9"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -1044,8 +1059,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SkillUpload.tsx",
-      "bytes": 22676,
-      "sha256": "d80408fbbe9d54f1b6e454ffe1ce324c9f3bf4b16cab72763103d200db4db333"
+      "bytes": 22760,
+      "sha256": "0924c7bf4b8189a0f0140b1f4a15afcc3aa929049db75169c773fe58424a03cc"
     },
     {
       "path": "apps/portal-web/src/modules/SkillsPanel.tsx",
@@ -1064,8 +1079,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/TaskBoardPanel.tsx",
-      "bytes": 8126,
-      "sha256": "c0e060cc9e4474f0120664a28b7703154c6751ead19b3ac7aa00453abf3290b5"
+      "bytes": 8219,
+      "sha256": "ab5473de6f65a6ac5f73475c488a06c3fc801eb0420f0e6faf9b47515bdc019a"
     },
     {
       "path": "apps/portal-web/src/modules/WelcomePreview.tsx",
@@ -1114,8 +1129,8 @@
     },
     {
       "path": "apps/portal-web/src/page-help.ts",
-      "bytes": 10351,
-      "sha256": "a365e4cf15953eea0e1185e9955a3bc6dd085e5cb86d559bddd2a1865278264b"
+      "bytes": 10362,
+      "sha256": "61340f23e6e88328c41465eb209ff824af6290f88875254633c1ec402b2ec699"
     },
     {
       "path": "apps/portal-web/src/rpg-theme.css",
@@ -1484,8 +1499,8 @@
     },
     {
       "path": "docs/development/game-console.md",
-      "bytes": 2287,
-      "sha256": "a3d6dd4a2c33dee4e43864d7171b5c15a835fc5b9fe9ce6a74ac461c4d04b0ce"
+      "bytes": 2523,
+      "sha256": "5a00453de4a5e357608f49147c4bc05987d81981574edc3eef466bfee90987ec"
     },
     {
       "path": "docs/development/github-grant-reconnect-race.md",
@@ -2918,6 +2933,11 @@
       "sha256": "17d3a5f9992d9e8241fb0aecbf62076a5ade3afc61eb1be1df1ace730119ae22"
     },
     {
+      "path": "migrations/052_github_history_cache.sql",
+      "bytes": 356,
+      "sha256": "031678f80251fe81411e06d7df0082e89eaca7bae10cc0b3abff5ef617c4ae1c"
+    },
+    {
       "path": "modules/catalog-commerce/service.ts",
       "bytes": 14138,
       "sha256": "b5a3b5ad2d8c61f840befcd69f08045051c18b2163b61d16a2ded28667cbaee2"
@@ -2956,6 +2976,11 @@
       "path": "modules/community/events.ts",
       "bytes": 37118,
       "sha256": "075f13a0e9add66784b42e822b133a094f1c3945cd5f3e37453ade95aa50a140"
+    },
+    {
+      "path": "modules/community/github-history.ts",
+      "bytes": 12421,
+      "sha256": "3c9d4fd1abd6118a957d6d7dd19901fb158a7815b23c1a2798829a7a41b1d366"
     },
     {
       "path": "modules/community/member-skill-books.ts",
@@ -3179,13 +3204,13 @@
     },
     {
       "path": "modules/development/page-github.ts",
-      "bytes": 12636,
-      "sha256": "2536de6b96344f03800b705b28989aa8e265b9447c35663e745f6146df6ef087"
+      "bytes": 14189,
+      "sha256": "58e686d6c3342501f16f01bfa649e325ee72d61222d081b0ccabad60b25c8366"
     },
     {
       "path": "modules/development/pages.ts",
-      "bytes": 17407,
-      "sha256": "40691b074fe4f8b9ffae2413d38bedf2b9691921b697f4b9104c7f9482f4d504"
+      "bytes": 17351,
+      "sha256": "5097534555190d4d951724a9ee1f36ebf90383566064a6f6f16295933a505334"
     },
     {
       "path": "modules/development/service.ts",
@@ -3279,8 +3304,8 @@
     },
     {
       "path": "modules/opensource-marketing/github.ts",
-      "bytes": 5758,
-      "sha256": "4124f82d0d8e69b6a7fa2c147d0d159dd270418bcdada9afd90022b220629aab"
+      "bytes": 6309,
+      "sha256": "7446ba1514f336366c6072156a611de406c12e6c815720d7b237a2fbec2f0534"
     },
     {
       "path": "modules/opensource-marketing/service.ts",
@@ -3408,6 +3433,11 @@
       "sha256": "337c263e292b5f62484b73fb0a522f7a88df94bf3f3b3e18d26f2299a0b49eeb"
     },
     {
+      "path": "packages/shared/github-leaderboard.ts",
+      "bytes": 1127,
+      "sha256": "702e2d258228797a990cd21b90d62e8403946c4f4d135a8c7655a9aec7f5fb08"
+    },
+    {
       "path": "packages/shared/image-cloudflare.ts",
       "bytes": 7259,
       "sha256": "6c6468a80a83d597ae103c4186d1f083ee93377c8de51226cfad2c17aafa7a53"
@@ -3434,8 +3464,8 @@
     },
     {
       "path": "packages/shared/problem.ts",
-      "bytes": 315,
-      "sha256": "b59135e1896c332182a0b6c0273656b61e60fd77bfaa898469ebeb37fc789dec"
+      "bytes": 466,
+      "sha256": "8f3fc962187b3a011d709372048f36284f0029fcf01df0fe68368dd20129a623"
     },
     {
       "path": "packages/shared/sharp-unavailable.ts",
@@ -3494,8 +3524,8 @@
     },
     {
       "path": "packages/testing/github-collaboration.ts",
-      "bytes": 3278,
-      "sha256": "e0d7feacf0188cf927e0b9eaaa18441186c4cb1a65470a570527b79b74680f23"
+      "bytes": 4960,
+      "sha256": "03a9be5b78af422a368fbb73c00fbc9b7a321e8e28d8bc4f59a23bef4a773a7d"
     },
     {
       "path": "packages/testing/seed.ts",
@@ -3649,8 +3679,8 @@
     },
     {
       "path": "tests/e2e/audit-shell.spec.ts",
-      "bytes": 16191,
-      "sha256": "795caa645116fd16ced099a75bf6293e27cebddf448935005baec688ef00ce0c"
+      "bytes": 16188,
+      "sha256": "6ba20ce810d5a640fd5dbc690da6335b12a33bd1b8647025cd6acfd734fdcb40"
     },
     {
       "path": "tests/e2e/audit-skills.spec.ts",
@@ -3709,8 +3739,8 @@
     },
     {
       "path": "tests/e2e/game-console.spec.ts",
-      "bytes": 14887,
-      "sha256": "1dcfc175eb031c4b2241aa1f81738bd39fa6a09d1bcb8c04cfdfb0ee7c1d03a5"
+      "bytes": 16444,
+      "sha256": "91df39006a602d919dd859f80ddafa411eac70afbce412dd1ffd3a1db32b3488"
     },
     {
       "path": "tests/e2e/github-setup.spec.ts",
@@ -3749,8 +3779,8 @@
     },
     {
       "path": "tests/e2e/member-channels.spec.ts",
-      "bytes": 40038,
-      "sha256": "1ffc1b7603044e6618eab46204bcb30c927d0a95cd544642baa2ec9f18bcf542"
+      "bytes": 41217,
+      "sha256": "02564f685566e72cf9e31a674507e3183eccaff14222c80ddacce271a484bdb4"
     },
     {
       "path": "tests/e2e/member-directory.spec.ts",
@@ -3759,8 +3789,8 @@
     },
     {
       "path": "tests/e2e/member-experience.spec.ts",
-      "bytes": 12002,
-      "sha256": "2d4f4a31c70621cd289d3bf339677a12bb9358210e78ccc5d4ec0c996d37549e"
+      "bytes": 18011,
+      "sha256": "9db28b81d55436a8954c4195a7fd07e7de24f45c3f15f7e0cb9d8bbf99a4fb17"
     },
     {
       "path": "tests/e2e/member-settings-real.spec.ts",
@@ -3824,8 +3854,8 @@
     },
     {
       "path": "tests/e2e/page-tools.spec.ts",
-      "bytes": 8404,
-      "sha256": "8f691426125c3e7e7ecef799b105401d355a76b69b7f7784ccd33a5dde15865c"
+      "bytes": 8434,
+      "sha256": "32f2cf67fc44bcc82c2f67a2f282279808da3b2a8d73a9a27e6a17da47cc05ea"
     },
     {
       "path": "tests/e2e/password-recovery.spec.ts",
@@ -3969,8 +3999,13 @@
     },
     {
       "path": "tests/runtime/game-console-feed.test.ts",
-      "bytes": 4898,
-      "sha256": "a4690fe529492244c063f0aecc952c63d5ee9ba8ac1402ce1673d46766a459c4"
+      "bytes": 6289,
+      "sha256": "b5c0c13a8c6ea291af8f71e651a641ed6cfbb4058ac9147669468d8ae4c46a5d"
+    },
+    {
+      "path": "tests/runtime/game-console-routing.test.ts",
+      "bytes": 4020,
+      "sha256": "af8ccc88684b69e88c651f4d0a4532860b47ab2e3ff6f62b1a70d9042077b26c"
     },
     {
       "path": "tests/runtime/game-console.test.ts",
@@ -3981,6 +4016,11 @@
       "path": "tests/runtime/github-app-setup.test.ts",
       "bytes": 19874,
       "sha256": "ec27c38cd9fc0d9d3bd044fe27d681773fcb9b7d7c22aa82ba16b71b3385b992"
+    },
+    {
+      "path": "tests/runtime/github-history.test.ts",
+      "bytes": 13269,
+      "sha256": "a356c7ec609c2f67a9b4eca825e7bea54a21b5b559891b3468492b1e0b385875"
     },
     {
       "path": "tests/runtime/github-identity.test.ts",
@@ -4084,8 +4124,8 @@
     },
     {
       "path": "tests/runtime/page-github.test.ts",
-      "bytes": 8123,
-      "sha256": "7d5eb7e51f6fd524dc791aa2bebe3adffdf7ef50a16673fa21ce06a8abba2a6e"
+      "bytes": 9869,
+      "sha256": "8ee73cded07d54b410f11602632475791e59c10ae8c38b0fe5463c7aa8ea41cd"
     },
     {
       "path": "tests/runtime/page-issue-label.test.ts",

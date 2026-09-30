@@ -89,6 +89,25 @@ test('explicit page refresh finds a newly opened Issue despite a recent cache',a
   assert.deepEqual((await reader.read('home',true)).items.map(item=>item.number),[15]);
 });
 
+test('closed issues, merged and unmerged pull requests, and releases become distinct announcements',async()=>{
+  const subject=(kind:'issues'|'pull',number:number,extra:Record<string,unknown>={})=>({number,title:`Task ${number}`,html_url:`https://github.com/FreeTWAI-AI/freedom-platform/${kind}/${number}`,...extra});
+  const event=(id:string,type:string,payload:unknown)=>({id,type,actor:{login:'member'},created_at:'2026-09-27T12:00:00Z',payload});
+  const fetcher:typeof fetch=async()=>Response.json([
+    event('c1','IssuesEvent',{action:'closed',issue:subject('issues',4)}),
+    event('c2','IssuesEvent',{action:'closed',issue:{...subject('issues',5),pull_request:{}}}),
+    event('c3','IssuesEvent',{action:'reopened',issue:subject('issues',4)}),
+    event('c4','PullRequestEvent',{action:'closed',pull_request:subject('pull',6,{merged:true})}),
+    event('c5','PullRequestEvent',{action:'closed',pull_request:subject('pull',7,{merged:false})}),
+    event('c6','PullRequestEvent',{action:'reopened',pull_request:subject('pull',7)}),
+    event('c7','ReleaseEvent',{action:'published',release:{tag_name:'v1.2.0',name:'九月更新',html_url:'https://github.com/FreeTWAI-AI/freedom-platform/releases/tag/v1.2.0'}}),
+    event('c8','ReleaseEvent',{action:'published',release:{tag_name:'v9',name:'別的倉庫',html_url:'https://github.com/other/repo/releases/tag/v9'}}),
+  ]);
+  const items=(await new PageGitHubEventReader(fetcher).read()).items;
+  assert.deepEqual(items.map(item=>item.kind),['issue_closed','pr_merged','pr_closed','release_published']);
+  assert.equal(items[3].number,null);assert.equal(items[3].title,'九月更新');
+  assert.equal(items[3].url,'https://github.com/FreeTWAI-AI/freedom-platform/releases/tag/v1.2.0');
+});
+
 test('optional GitHub event feed backs off during provider outages',async()=>{
   let clock=0,calls=0;
   const reader=new PageGitHubEventReader(async()=>{calls++;return Response.json({message:'unavailable'},{status:503})},()=>clock);

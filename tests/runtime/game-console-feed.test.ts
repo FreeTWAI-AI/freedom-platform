@@ -31,7 +31,7 @@ test('console restores sent and received chat history without changing read rece
   const client={get:async(path:string)=>{paths.push(path);assert.ok(Object.hasOwn(pages,path),path);return pages[path]}} as PortalClient
   const events=await readConsoleFeed(client,'me')
   assert.deepEqual(events.map(event=>event.id),['room:g0','notice:n1','direct:d2','direct:d1','room:g1','guild:a1:2026-09-26T12:03:00Z','skill:s1','project:p1','room:w1','event-bulletin:b1','accepted-work:c1'])
-  assert.deepEqual(events.map(event=>event.channel),['guild','guide','direct','direct','guild','guild','guide','guide','world_chat','world_chat','world_chat'])
+  assert.deepEqual(events.map(event=>event.channel),['guild','system','direct','direct','guild','guild','system','system','world_chat','system','system'])
   assert.equal(events.find(event=>event.id==='direct:d2')?.source,'你 → 阿明')
   assert.equal(events.find(event=>event.id==='room:g0')?.source,'公會 · AI 公會 · 你')
   assert.ok(paths.every(path=>!path.endsWith('/read')))
@@ -48,6 +48,22 @@ test('GitHub announcements describe approved reviews and design claim comments a
   assert.deepEqual(events.map(event=>event.id),['github:101','github:102'])
   assert.match(events[0].message,/reviewer 核准 PR/)
   assert.match(events[1].message,/designer 表示願意接手 Issue 設計/)
+})
+
+test('GitHub closed, merged and release events stay on the announcement channel',async()=>{
+  const client={get:async(path:string)=>path==='/pages/github-events'?{items:[
+    {id:'201',number:4,title:'首頁導覽',url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/4',actor:'member',created_at:'2026-09-27T12:02:00Z',kind:'issue_closed'},
+    {id:'202',number:13,title:'改善手機導覽',url:'https://github.com/FreeTWAI-AI/freedom-platform/pull/13',actor:'contributor-demo',created_at:'2026-09-27T12:03:00Z',kind:'pr_merged'},
+    {id:'203',number:17,title:'關閉說明',url:'https://github.com/FreeTWAI-AI/freedom-platform/pull/17',actor:'contributor-demo',created_at:'2026-09-27T12:04:00Z',kind:'pr_closed'},
+    {id:'204',number:null,title:'v1.2.0',url:'https://github.com/FreeTWAI-AI/freedom-platform/releases/tag/v1.2.0',actor:'member',created_at:'2026-09-27T12:05:00Z',kind:'release_published'},
+  ]}:{items:[]}} as PortalClient
+  const events=await readConsoleFeed(client,'me')
+  assert.deepEqual(events.map(event=>event.channel),['system','system','system','system'])
+  assert.match(events[0].message,/member 關閉 Issue：首頁導覽（#4）/)
+  assert.match(events[1].message,/contributor-demo 合併 PR/)
+  assert.match(events[2].message,/關閉 PR/)
+  assert.equal(events[3].message,'member 發布版本：v1.2.0')
+  assert.doesNotMatch(events[3].message,/#null/)
 })
 
 test('one unavailable feed source does not hide the other channels',async()=>{

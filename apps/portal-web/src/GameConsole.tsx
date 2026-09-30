@@ -19,6 +19,7 @@ import {
   type GameConsoleEventInput,
   type GameConsoleWireMessage,
 } from './game-console-core'
+import {consoleChannel} from './game-console-routing'
 
 type ConsoleContextValue = {
   events: GameConsoleEvent[]
@@ -38,10 +39,10 @@ const eventLabel = (event: GameConsoleEvent) => event.channel === 'guide'
   : GAME_CONSOLE_CHANNELS.find(channel => channel.id === event.channel)?.shortLabel
 const showEventSource = (event: GameConsoleEvent) => event.channel !== 'guide' || event.source !== '導覽'
 const seedEvents = (): GameConsoleEvent[] => [
-  createConsoleEvent({channel: 'system', kind: 'status', level: 'success', source: '系統', message: '訊息控制台已連線；跨頁訊息會在本次登入期間保留。'}),
-  createConsoleEvent({channel: 'guide', kind: 'guide', source: '導覽', message: '按下 ~ 可展開或收合控制台。'}),
-  createConsoleEvent({channel: 'ai', kind: 'guide', source: 'AI 指令', message: '此處顯示 AI 工作指令、執行狀態與摘要，不顯示隱藏推理。'}),
-  createConsoleEvent({channel: 'guide', kind: 'broadcast', source: '自由工坊', message: '歡迎回到自由工坊。選擇頻道，開始今天的任務。'}),
+  createConsoleEvent({channel: consoleChannel('system_connected'), kind: 'status', level: 'success', source: '系統', message: '訊息控制台已連線；跨頁訊息會在本次登入期間保留。'}),
+  createConsoleEvent({channel: consoleChannel('guide_keyboard'), kind: 'guide', source: '導覽', message: '按下 ~ 可展開或收合控制台。'}),
+  createConsoleEvent({channel: consoleChannel('guide_ai_intro'), kind: 'guide', source: '導覽', message: '此處顯示 AI 工作指令、執行狀態與摘要，不顯示隱藏推理。'}),
+  createConsoleEvent({channel: consoleChannel('guide_welcome'), kind: 'guide', source: '導覽', message: '歡迎回到自由工坊。選擇頻道，開始今天的任務。'}),
 ]
 function loadVisibility(userId?:string):ConsoleVisibility {
   if(!userId)return defaultConsoleVisibility()
@@ -155,10 +156,10 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
   },[client,userId,feedEnabled,append])
 
   useEffect(() => {
-    const onError = (event: ErrorEvent) => {logConsoleEvent({channel: 'system', level: 'error', kind: 'status', source: '頁面錯誤', message: event.message || '頁面發生未預期錯誤。'});client?.reportError(`UI /${window.location.hash.replace(/[^a-zA-Z0-9#_-]/g,'').slice(0,60)}`,'page_error')}
-    const onRejection = (event: PromiseRejectionEvent) => {logConsoleEvent({channel: 'system', level: 'error', kind: 'status', source: '背景錯誤', message: event.reason instanceof Error ? event.reason.message : '背景操作未完成。'});client?.reportError(`UI /${window.location.hash.replace(/[^a-zA-Z0-9#_-]/g,'').slice(0,60)}`,'unhandled_rejection')}
-    const online = () => logConsoleEvent({channel: 'system', level: 'success', kind: 'status', source: '網路', message: '網路連線已恢復。'})
-    const offline = () => logConsoleEvent({channel: 'system', level: 'warning', kind: 'status', source: '網路', message: '目前離線；尚未送出的操作請保留並稍後重試。'})
+    const onError = (event: ErrorEvent) => {logConsoleEvent({channel: consoleChannel('system_page_error'), level: 'error', kind: 'status', source: '頁面錯誤', message: event.message || '頁面發生未預期錯誤。'});client?.reportError(`UI /${window.location.hash.replace(/[^a-zA-Z0-9#_-]/g,'').slice(0,60)}`,'page_error')}
+    const onRejection = (event: PromiseRejectionEvent) => {logConsoleEvent({channel: consoleChannel('system_background_error'), level: 'error', kind: 'status', source: '背景錯誤', message: event.reason instanceof Error ? event.reason.message : '背景操作未完成。'});client?.reportError(`UI /${window.location.hash.replace(/[^a-zA-Z0-9#_-]/g,'').slice(0,60)}`,'unhandled_rejection')}
+    const online = () => logConsoleEvent({channel: consoleChannel('system_network'), level: 'success', kind: 'status', source: '網路', message: '網路連線已恢復。'})
+    const offline = () => logConsoleEvent({channel: consoleChannel('system_network'), level: 'warning', kind: 'status', source: '網路', message: '目前離線；尚未送出的操作請保留並稍後重試。'})
     window.addEventListener('error', onError); window.addEventListener('unhandledrejection', onRejection)
     window.addEventListener('online', online); window.addEventListener('offline', offline)
     return () => { window.removeEventListener('error', onError); window.removeEventListener('unhandledrejection', onRejection); window.removeEventListener('online', online); window.removeEventListener('offline', offline) }
@@ -248,7 +249,7 @@ function GameConsole({variant, unread, syncScope,client,userId,enabled}: {varian
     url.searchParams.set('scope', syncScope)
     const opened = window.open(url, `freedom-game-console-${syncScope}`, 'popup=yes,width=880,height=620,resizable=yes,scrollbars=yes')
     if (opened) opened.opener = null
-    else log({channel: 'system', level: 'warning', kind: 'guide', source: '導覽', message: '瀏覽器阻擋了彈出視窗；請允許此網站開啟視窗後重試。'})
+    else log({channel: consoleChannel('guide_popup_blocked'), level: 'warning', kind: 'guide', source: '導覽', message: '瀏覽器阻擋了彈出視窗；請允許此網站開啟視窗後重試。'})
   }
 
   function collapse() {
@@ -268,7 +269,7 @@ function GameConsole({variant, unread, syncScope,client,userId,enabled}: {varian
 
   <aside hidden={variant==='dock'&&!expanded} className={`game-console game-console-expanded${variant === 'popout' ? ' is-popout' : ''}`} aria-label="訊息控制台" onKeyDown={event=>{if(variant==='dock'&&event.key==='Escape'){event.stopPropagation();collapse()}}}>
     <header className="game-console-header">
-      <div className="game-console-title"><span className="game-console-title-mark" aria-hidden="true">▣</span><div><p className="game-console-eyebrow">自由工坊 · 即時訊息</p>{variant === 'popout' ? <h1>訊息控制台</h1> : <h2>訊息控制台</h2>}</div></div>
+      <div className="game-console-title"><span className="game-console-title-mark" aria-hidden="true">▣</span>{variant === 'popout' ? <h1>自由工坊 - 即時訊息控制台</h1> : <h2>自由工坊 - 即時訊息控制台</h2>}</div>
       <div className="game-console-header-actions">
         <details className="game-console-visibility"><summary>頻道顯示</summary><div>{GAME_CONSOLE_CHANNELS.filter(channel=>channel.id!=='all').map(channel=><label key={channel.id}><input type="checkbox" checked={visibility[channel.id as Exclude<GameConsoleChannel,'all'>]} onChange={()=>toggleVisibility(channel.id as Exclude<GameConsoleChannel,'all'>)}/>{channel.label}</label>)}</div></details>
         {variant === 'dock' && <button type="button" className="game-console-icon-button game-console-popout" onClick={popOut} aria-label="在獨立視窗開啟訊息控制台" title="獨立視窗">↗</button>}

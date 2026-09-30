@@ -1,6 +1,10 @@
 export class Problem extends Error {
-  constructor(public status: number, public code: string, message: string) { super(message); }
+  retryAfterSeconds?: number;
+  constructor(public status: number, public code: string, message: string, retryAfterSeconds?: number) {
+    super(message);
+    if (retryAfterSeconds !== undefined) this.retryAfterSeconds = retryAfterSeconds;
+  }
 }
 export function requireCondition(condition: unknown, status: number, code: string, message: string): asserts condition {
-  if (!condition) throw new Problem(status,code,message);
+  if (!condition) throw new Problem(status, code, message);
 }

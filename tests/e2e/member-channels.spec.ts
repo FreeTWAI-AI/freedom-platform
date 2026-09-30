@@ -104,6 +104,8 @@ function holder(){
   const held:(()=>void)[]=[];
   return {held,wait:()=>new Promise<void>(resolve=>held.push(resolve)),release:()=>held.splice(0).forEach(done=>done())};
 }
+/** Full history pages of one room. The console feed uses the same limit, so a hold can include that one extra copy. */
+const openPages=(log:{history:Info[]},kind:Kind,key:string)=>log.history.filter(item=>item.kind===kind&&item.key===key&&item.limit>1&&item.offset===0).length;
 
 test('four tabs keep their exact order and keyboard behaviour while the console reads its feed',async({page})=>{
   await page.setViewportSize({width:320,height:780});
@@ -309,14 +311,18 @@ test('switching channels ignores slow answers and never mixes guild, squad or pr
 test('leaving a channel clears its history and composer at once, and a late answer cannot bring it back',async({page})=>{
   const server=await channelServer(page,{guild:[['builders','合成公會甲',3],['Makers','合成公會乙',1]],squad:[[squadA,'合成小隊甲',2]]});
   const hold=holder();let holding=false;
-  server.control.gate=(what,info)=>holding&&what==='history'&&info.limit>1?hold.wait():undefined;
+  // Hold only this room's re-read. The console feed reads every recent room with the same limit.
+  server.control.gate=(what,info)=>holding&&what==='history'&&info.kind==='guild'&&info.key==='builders'&&info.limit>1&&info.offset===0?hold.wait():undefined;
   await page.setViewportSize({width:320,height:780});
   await open(page,server);await tab(page,'公會閒聊').click();
   const guild=panel(page,'公會閒聊'),thread=guild.locator('.messages-thread'),bubbles=thread.locator('.messages-bubbles .messages-body');
   await guild.getByRole('button',{name:'合成公會甲',exact:true}).click();await expect(bubbles).toHaveCount(3);
   const box=thread.getByLabel('在 合成公會甲 發言');await box.fill('離會前的草稿');
   // A re-read snapshots the old history, then the member leaves before it answers.
-  holding=true;await thread.getByRole('button',{name:'重新讀取訊息',exact:true}).click();await expect.poll(()=>hold.held.length).toBe(1);holding=false;
+  const before=openPages(server.log,'guild','builders');
+  holding=true;await thread.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
+  await expect.poll(()=>{const added=openPages(server.log,'guild','builders')-before;return hold.held.length===added&&added>=1&&added<=2;}).toBe(true);
+  holding=false;
   server.get('guild','builders').member=false;
   await thread.getByRole('button',{name:'送出',exact:true}).click();
   await expect(thread.getByRole('alert')).toContainText('目前無法使用此頻道。');
@@ -341,7 +347,8 @@ test('a list re-read that no longer has the open channel closes it, and a paged 
   const guilds=Array.from({length:22},(_,i):[string,string,number]=>[`guild-${String(i+1).padStart(2,'0')}`,`合成公會 ${String(i+1).padStart(2,'0')}`,2]);
   const server=await channelServer(page,{guild:guilds});
   const hold=holder();let holding=false;
-  server.control.gate=(what,info)=>holding&&what==='list'&&info.limit>1?hold.wait():undefined;
+  // The panel refreshes with limit 20. The console feed lists rooms with limit 50 and must not be held.
+  server.control.gate=(what,info)=>holding&&what==='list'&&info.kind==='guild'&&info.limit===20?hold.wait():undefined;
   await open(page,server);await tab(page,'公會閒聊').click();
   const guild=panel(page,'公會閒聊'),thread=guild.locator('.messages-thread'),bubbles=thread.locator('.messages-bubbles .messages-body');
   await guild.getByRole('button',{name:'載入更多公會頻道',exact:true}).click();
@@ -427,16 +434,21 @@ test('re-reading the open channel also re-reads its tab and list unread totals w
 test('a list refresh refused with 403 or 404 closes the open channel without reviving it or looping',async({page})=>{
   const server=await channelServer(page,{guild:[['builders','合成公會甲',3]],squad:[[squadA,'合成小隊甲',2]]});
   const hold=holder();let holding=false,refuse:'403'|'404'|undefined;
+  const target:{kind:Kind;key:string}={kind:'guild',key:'builders'};
   server.control.fail=(what,info)=>what==='list'&&info.limit>1?refuse:undefined;
-  server.control.gate=(what,info)=>holding&&what==='history'&&info.limit>1?hold.wait():undefined;
+  server.control.gate=(what,info)=>holding&&what==='history'&&info.kind===target.kind&&info.key===target.key&&info.limit>1&&info.offset===0?hold.wait():undefined;
   await open(page,server);
   for(const [name,unit,channelName,status] of [['公會閒聊','公會','合成公會甲','403'],['小隊閒聊','小隊','合成小隊甲','404']] as const){
     await tab(page,name).click();
     const scope=panel(page,name),thread=scope.locator('.messages-thread'),bubbles=thread.locator('.messages-bubbles .messages-body');
     await scope.getByRole('button',{name:channelName,exact:true}).click();await expect(bubbles).not.toHaveCount(0);
     await thread.locator('textarea').fill('被拒前的草稿');
-    // A re-read already out must not bring the history back after the refusal.
-    holding=true;await thread.getByRole('button',{name:'重新讀取訊息',exact:true}).click();await expect.poll(()=>hold.held.length).toBe(1);holding=false;
+    // A re-read already out must not bring the history back after the refusal. The console may read this same room once.
+    target.kind=unit==='公會'?'guild':'squad';target.key=unit==='公會'?'builders':squadA;
+    const before=openPages(server.log,target.kind,target.key);
+    holding=true;await thread.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
+    await expect.poll(()=>{const added=openPages(server.log,target.kind,target.key)-before;return hold.held.length===added&&added>=1&&added<=2;}).toBe(true);
+    holding=false;
     refuse=status;const lists=server.log.lists.length;
     await scope.getByRole('button',{name:`重新整理${unit}頻道`,exact:true}).click();
     await expect(thread.getByRole('alert')).toContainText('目前無法使用此頻道。');
