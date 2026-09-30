@@ -26,3 +26,32 @@ export function pullUpdated(mergedAt: string | null | undefined): boolean {
 export function pullClosedUnmerged(state: 'open' | 'closed', mergedAt: string | null | undefined): boolean {
   return state === 'closed' && !mergedAt;
 }
+
+export type GitHubLeaderboardItem = {author: string | null; kind: 'issue' | 'pr'};
+export type GitHubAuthorTotals = {login: string; ideas: number; edits: number};
+
+/** Same counts the history page used to compute in the browser: every state, bots skipped, logins grouped case-insensitively. */
+export function leaderboardFromItems(items: readonly GitHubLeaderboardItem[]): GitHubAuthorTotals[] {
+  const totals = new Map<string, GitHubAuthorTotals>();
+  for (const item of items) {
+    const login = item.author?.trim();
+    if (!login || isGitHubBot(login)) continue;
+    const id = login.toLowerCase();
+    const row = totals.get(id) ?? {login, ideas: 0, edits: 0};
+    if (item.kind === 'issue') row.ideas += 1;
+    else row.edits += 1;
+    totals.set(id, row);
+  }
+  return [...totals.values()];
+}
+
+export function rankedLeaderboards(rows: readonly GitHubAuthorTotals[]) {
+  const ranked = (value: (row: GitHubAuthorTotals) => number) => rows
+    .filter(row => value(row) > 0)
+    .sort((a, b) => value(b) - value(a) || a.login.localeCompare(b.login));
+  return {
+    ideas: ranked(row => row.ideas).map(row => ({login: row.login, count: row.ideas})),
+    edits: ranked(row => row.edits).map(row => ({login: row.login, count: row.edits})),
+    contributions: ranked(row => contributionPoints(row.ideas, row.edits)).map(row => ({login: row.login, count: contributionPoints(row.ideas, row.edits)})),
+  };
+}

@@ -32,6 +32,56 @@ function retryAfterSeconds(header:string|null):number|undefined {
   const delta=Math.ceil((parsed-Date.now())/1000);
   return delta<0||delta>86400?undefined:delta;
 }
+export type GitHubRead = {
+  status: number;
+  etag: string | null;
+  retryAfter: string | null;
+  rateRemaining: string | null;
+  rateReset: string | null;
+  /** Parsed JSON on 200. Raw text on other statuses so the caller can classify the body. Null when there is no body. */
+  body: unknown;
+};
+
+const githubHeaders = {'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'Freedom-Platform-public-registry'};
+
+/** Header-aware GitHub GET. Does not follow redirects. HTTP error statuses are returned, not thrown. */
+export async function readGitHub(path:string,signal:AbortSignal,fetcher:typeof fetch,maxBytes=4194304,token?:string,ifNoneMatch?:string):Promise<GitHubRead> {
+  let response:Response;
+  try {
+    response=await fetcher(`https://api.github.com${path}`,{headers:{...githubHeaders,...(token?{Authorization:`Bearer ${token}`}:{}),...(ifNoneMatch?{'If-None-Match':ifNoneMatch}:{})},redirect:'manual',signal});
+  } catch { throw new Problem(503,'github_unavailable','暫時無法讀取 GitHub，已保留原本資料。請稍後重新嘗試。'); }
+  const meta = {
+    etag: response.headers.get('etag'),
+    retryAfter: response.headers.get('retry-after'),
+    rateRemaining: response.headers.get('x-ratelimit-remaining'),
+    rateReset: response.headers.get('x-ratelimit-reset'),
+  };
+  if (response.type==='opaqueredirect'||(response.status>=300&&response.status<400&&response.status!==304)) {
+    try { await response.body?.cancel(); } catch { /* The status is already final. */ }
+    throw new Problem(503,'github_unavailable','暫時無法讀取 GitHub，已保留原本資料。請稍後重新嘗試。');
+  }
+  if (response.status===304) {
+    try { await response.body?.cancel(); } catch { /* A 304 has no payload. */ }
+    return {status:304,...meta,body:null};
+  }
+  const reader=response.body?.getReader();
+  if (!reader) return {status:response.status,...meta,body:null};
+  const chunks:Uint8Array[]=[];let size=0;
+  try {
+    while (true) {
+      const {done,value}=await reader.read();
+      if (done) break;
+      size+=value.byteLength;
+      if (size>maxBytes) { await reader.cancel(); throw new Problem(503,'github_response_too_large','GitHub 回應過大，這次未匯入。'); }
+      chunks.push(value);
+    }
+  } catch (error) { if (error instanceof Problem) throw error; throw new Problem(503,'github_invalid_response','GitHub 回應不完整，請稍後重試。'); }
+  const text=Buffer.concat(chunks).toString('utf8');
+  if (response.status!==200) return {status:response.status,...meta,body:text};
+  try { return {status:200,...meta,body:text?JSON.parse(text):null}; }
+  catch { throw new Problem(503,'github_invalid_response','GitHub 回應不完整，請稍後重試。'); }
+}
+
 export async function publicJson(path:string,signal:AbortSignal,fetcher:typeof fetch,missingLicense=false,maxBytes=196608,token?:string):Promise<unknown> {
   let response:Response;
   try {
