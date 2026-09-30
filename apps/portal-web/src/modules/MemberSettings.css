@@ -1,6 +1,6 @@
 /* Settings menu and the personal todo/message pages it opens. */
-.settings-menu{position:relative;display:inline-flex}
-.settings-menu-button{min-height:44px}
+.settings-menu{position:relative;display:inline-flex;align-items:center;height:44px}
+.settings-menu-button{min-height:44px;height:44px;box-sizing:border-box}
 .settings-menu-name{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .settings-menu-button>span[aria-hidden]{display:inline-flex}
 .settings-menu-list{position:absolute;top:calc(100% + 6px);right:0;z-index:40;display:grid;min-width:min(15rem,calc(100vw - 24px));padding:6px;border:1px solid var(--line);border-radius:14px;background:var(--bg-elev);box-shadow:0 12px 35px #0003}

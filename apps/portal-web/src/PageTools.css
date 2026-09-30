@@ -2,8 +2,12 @@
 .topbar>.page-tools{margin-left:auto}.topbar>.page-tools+.topbar-actions{margin-left:0}
 .admin-page-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
 .login-page-tools{display:flex;justify-content:flex-end;margin:-4px -4px 8px}.onboarding-header>.page-tools{margin-left:auto}
-.page-tool-button{display:grid;place-items:center;width:44px;height:44px;border:1px solid #455169;border-radius:10px;background:#222b3b;color:#d8e4f6;cursor:pointer}
+.page-tool-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:44px;height:44px;min-height:44px;border:1px solid #455169;border-radius:10px;background:#222b3b;color:#d8e4f6;cursor:pointer;box-sizing:border-box}
 .page-tool-button:hover,.page-tool-button:focus-visible{border-color:#c4ff20;color:#c4ff20;background:#2b3741}
+.page-tool-button--idea{width:auto;padding:0 12px;border-color:#657e2d;background:#212e1b;color:#e1ff80;font-weight:600;font-size:.85rem}
+.page-tool-button--idea svg{color:#c4ff20;filter:drop-shadow(0 0 3px rgba(196,255,32,0.45))}
+.page-tool-button--idea:hover,.page-tool-button--idea:focus-visible{border-color:#d5ff73;background:#2c4024;color:#fff}
+.page-tool-label{white-space:nowrap}
 .page-tools-dialog{width:min(690px,calc(100vw - 24px));max-height:min(780px,calc(100dvh - 24px));margin:auto;padding:0;border:1px solid #506179;border-radius:16px;background:#12171f;color:#f4f6ef;box-shadow:0 28px 85px #000b;overflow:auto}
 .page-tools-dialog::backdrop{background:#05080cd9;backdrop-filter:blur(5px)}
 .page-tools-dialog>header{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:2;padding:16px 20px;border-bottom:1px solid #3c4555;background:#1a2230}
@@ -32,6 +36,9 @@
 /* The page tools are part of the current theme, including their modal content. */
 html .page-tool-button,html .page-tools-close{border-color:var(--line);background:var(--bg-elev);color:var(--ink)}
 html .page-tool-button:hover,html .page-tool-button:focus-visible,html .page-tools-close:hover{border-color:var(--focus);background:var(--green-soft);color:var(--ink)}
+html .page-tool-button--idea{border-color:var(--green);background:var(--bg-elev);color:var(--ink);box-shadow:0 0 10px rgba(196,255,32,0.18)}
+html .page-tool-button--idea svg{color:var(--green);filter:drop-shadow(0 0 4px var(--green))}
+html .page-tool-button--idea:hover,html .page-tool-button--idea:focus-visible{border-color:var(--focus);background:var(--green-soft)}
 html .page-tools-dialog{border-color:var(--line);background:var(--bg-elev);color:var(--ink);box-shadow:0 24px 65px #0004}
 html .page-tools-dialog::backdrop{background:#11182799}
 html .page-tools-dialog>header{border-color:var(--line);background:var(--bg-elev)}
