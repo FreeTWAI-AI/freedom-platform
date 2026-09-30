@@ -126,7 +126,6 @@ test('completed member submits an event and sees accepted-work facts without pro
   await page.getByRole('button',{name:/私人技能/}).click();
   await expect(page.getByText('此分類目前沒有符合條件的紀錄。')).toBeVisible();
   await page.getByRole('button',{name:'使用者排行榜'}).click();
-  // Ranking waits until every repository page has been read. That is 80+ datasets.
   await expect(page.getByRole('heading',{name:'貢獻排行榜'})).toBeVisible({timeout:30000});
   await expect(page.getByRole('heading',{name:'想法排行榜'})).toBeVisible();
   const ideas=page.locator('section.community-leaderboard').filter({has:page.getByRole('heading',{name:'想法排行榜'})});
@@ -160,27 +159,51 @@ test('completed member submits an event and sees accepted-work facts without pro
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
-test('community history hides rankings when GitHub pages are incomplete',async({page})=>{
+test('community history keeps rankings while repositories are still syncing or unreadable',async({page})=>{
   test.setTimeout(90_000);
-  await page.route('**/api/v1/community/github-history/items**',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));
+  const synced='2026-09-28T00:00:00.000Z';
+  await page.route('**/api/v1/community/github-history/leaderboards',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+    ideas:[{login:'member-demo',count:2}],edits:[{login:'contributor-demo',count:2}],
+    contributions:[{login:'contributor-demo',count:40},{login:'member-demo',count:30}],
+    complete:false,oldest_synced_at:synced,syncing:['FreeTWAI-AI/freedom-agent-kit'],unreadable:['FreeTWAI-AI/freedom-storefront'],
+  })}));
   await page.setViewportSize({width:390,height:844});
   await page.goto('/');
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
   await page.getByRole('button',{name:'登入',exact:true}).click();
   await navigate(page,'社群任務');
-  const alert=page.getByRole('alert').filter({hasText:'資料不完整'});
-  await expect(alert).toBeVisible();
-  await expect(alert).toContainText('先不顯示排行');
-  await expect(page.getByRole('heading',{name:'想法排行榜'})).toHaveCount(0);
-  await expect(page.getByRole('heading',{name:'編修排行榜'})).toHaveCount(0);
-  await expect(page.getByRole('heading',{name:'貢獻排行榜'})).toHaveCount(0);
+  await expect(page.getByText('部分儲存庫仍在同步中，排行榜會自動補齊。')).toBeVisible();
+  await expect(page.getByText('沒有權限讀取這個儲存庫（可能已設為私有或已刪除）')).toBeVisible();
+  await expect(page.getByText('FreeTWAI-AI/freedom-storefront')).toBeVisible();
+  await expect(page.getByText('FreeTWAI-AI/freedom-agent-kit')).toBeVisible();
+  await expect(page.getByText(/資料更新於/)).toBeVisible();
+  await expect(page.getByRole('heading',{name:'想法排行榜'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'編修排行榜'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'貢獻排行榜'})).toBeVisible();
   await page.setViewportSize({width:320,height:720});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  await page.unroute('**/api/v1/community/github-history/items**');
-  await alert.getByRole('button',{name:'重新讀取'}).click();
-  await expect(page.getByRole('heading',{name:'想法排行榜'})).toBeVisible({timeout:20000});
-  await expect(page.getByRole('alert').filter({hasText:'資料不完整'})).toHaveCount(0);
+  await page.route('**/api/v1/community/github-history/repositories**',async route=>{
+    const response=await route.fetch();
+    const body=await response.json();
+    for(const item of body.items??[]){
+      if(item.name==='FreeTWAI-AI/freedom-agent-kit')item.sync={status:'syncing',last_synced_at:null};
+      if(item.name==='FreeTWAI-AI/freedom-storefront')item.sync={status:'unreadable',last_synced_at:synced};
+    }
+    await route.fulfill({response,json:body});
+  });
+  await page.getByRole('button',{name:'重新讀取'}).click();
+  await page.getByRole('button',{name:'歷史想法'}).click();
+  await expect(page.getByRole('link',{name:'讓會員首頁的文字更清楚'})).toBeVisible();
+  await expect(page.getByText('部分儲存庫仍在同步中，排行榜會自動補齊。')).toBeVisible();
+  await expect(page.getByText('沒有權限讀取這個儲存庫（可能已設為私有或已刪除）')).toBeVisible();
+  await page.unroute('**/api/v1/community/github-history/leaderboards');
+  await page.unroute('**/api/v1/community/github-history/repositories**');
+  await page.getByRole('button',{name:'重新讀取'}).click();
+  await expect(page.getByText('部分儲存庫仍在同步中，排行榜會自動補齊。')).toHaveCount(0);
+  await page.getByRole('button',{name:'使用者排行榜'}).click();
+  await expect(page.getByRole('heading',{name:'想法排行榜'})).toBeVisible();
+  await expect(page.getByText('部分儲存庫仍在同步中，排行榜會自動補齊。')).toHaveCount(0);
   await page.setViewportSize({width:820,height:1100});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
