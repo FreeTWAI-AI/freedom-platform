@@ -81,7 +81,7 @@ test('new member completes required positioning, chooses primary guild and gets 
   await expect(page.locator('.member-card .positioning-title')).not.toHaveText('探索自己的方向');
   // Once onboarding is complete, ordinary deep links still open their requested module.
   await page.goto('/#retail');
-  await expect(page.getByRole('heading',{name:'開店與銷售',exact:true}).first()).toBeVisible();
+  await expect(page.getByRole('heading',{name:'我可以賣東西',exact:true}).first()).toBeVisible();
   await expect(page).toHaveURL(/#retail$/);
   await navigate(page, '我的名片');
   await expect(page.getByRole('heading',{name:'我的名片',level:1,exact:true})).toBeVisible();
