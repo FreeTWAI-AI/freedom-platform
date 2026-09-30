@@ -4,13 +4,13 @@ import type {Pool} from 'pg';
 import {moduleCommand,type PlatformEnv} from '../module-context.js';
 import {createCoCreation,getCoCreation,listCoCreation,listCoCreationGuilds} from '../../../../modules/co-creation/service.js';
 import {CollaborationGitHub,projectBrief} from '../../../../modules/co-creation/github.js';
-import {GitHubHistory,historyRepositories} from '../../../../modules/community/github-history.js';
+import {GitHubHistory,GITHUB_HISTORY_PAGE_CAP,historyRepositories} from '../../../../modules/community/github-history.js';
 export function createCoCreationRoutes(pool:Pool,readToken:()=>string|undefined=()=>undefined,github=new CollaborationGitHub()){
   const app=new Hono<PlatformEnv>();
   const history=new GitHubHistory(pool);
   app.get('/community/github-history/repositories',async c=>c.json({items:await historyRepositories(pool,c.get('actor'))}));
   app.get('/community/github-history/items',async c=>{
-    const query=z.object({repository:z.string(),kind:z.enum(['issue','pr']),page:z.coerce.number().int().min(1).max(10000).default(1)}).parse(c.req.query());
+    const query=z.object({repository:z.string(),kind:z.enum(['issue','pr']),page:z.coerce.number().int().min(1).max(GITHUB_HISTORY_PAGE_CAP).default(1)}).parse(c.req.query());
     const repositories=await historyRepositories(pool,c.get('actor'));
     const found=repositories.find(item=>item.name.toLowerCase()===query.repository.toLowerCase());
     if(!found)return c.json({code:'invalid_repository',message:'請選擇清單中的儲存庫。'},422);

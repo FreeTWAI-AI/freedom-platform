@@ -17,6 +17,7 @@ export type HistoryItem = {
 };
 export type HistoryUnavailable = 'github_rate_limited' | 'github_unavailable' | 'github_invalid_response' | 'github_refresh_in_progress';
 export type HistoryPage = {items: HistoryItem[]; has_more: boolean; checked_at: string | null; stale: boolean; unavailable?: HistoryUnavailable};
+export const GITHUB_HISTORY_PAGE_CAP = 100;
 
 const FRESH_MS = 20 * 60 * 1000;
 const FAILURE_MS = 15 * 60 * 1000;
@@ -110,7 +111,7 @@ export class GitHubHistory {
   constructor(private pool: Pool, private fetcher: typeof fetch = (...args) => globalThis.fetch(...args), private now = () => Date.now()) {}
   async page(repository: string, kind: HistoryKind, page: number, token?: string): Promise<HistoryPage> {
     requireCondition(coordinate.test(repository), 422, 'invalid_repository', '請選擇清單中的儲存庫。');
-    requireCondition(Number.isInteger(page) && page >= 1 && page <= 10000, 422, 'invalid_page', '歷史頁碼無效。');
+    requireCondition(Number.isInteger(page) && page >= 1 && page <= GITHUB_HISTORY_PAGE_CAP, 422, 'invalid_page', '歷史頁碼無效。');
     const key = `${repository.toLowerCase()}/${kind}/${page}`;
     const existing = this.pending.get(key);
     if (existing) return existing;

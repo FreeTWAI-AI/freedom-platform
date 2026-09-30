@@ -12,6 +12,7 @@ type Page={items:Item[];has_more:boolean;checked_at:string|null;stale?:boolean;u
 type View='ranking'|'issue'|'pr';
 type Cached={items:Item[];stale:boolean;checked_at:string|null};
 const categories:{id:Category;label:string}[]=[{id:'platform',label:'平台結構'},{id:'official',label:'官方技能'},{id:'personal',label:'私人技能'}];
+// GITHUB_HISTORY_PAGE_CAP in modules/community/github-history.ts
 const PAGE_CAP=100;
 const PAGE_SIZE=40;
 const keyOf=(repo:string,kind:Kind)=>`${repo.toLowerCase()}/${kind}`;
