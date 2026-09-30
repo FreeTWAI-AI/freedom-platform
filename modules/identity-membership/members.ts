@@ -101,7 +101,7 @@ export async function saveAccount(pool:Pool,input:Command) {
 const pair=(a:string,b:string)=>[a,b].sort();
 async function visibleMember(q:Pool|PoolClient,actor:Actor,id:string) {
   z.uuid().parse(id);
-  const row=(await q.query(`SELECT user_id,display_name FROM users WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)`,[id,actor.community_id])).rows[0];
+  const row=(await q.query(`SELECT user_id,display_name FROM users WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL) AND ($1=$3 OR NOT is_verification_test_account(user_id))`,[id,actor.community_id,actor.user_id])).rows[0];
   requireCondition(row,404,'member_not_found','找不到這位會員。');return row;
 }
 export async function memberCard(pool:Pool,actor:Actor,id:string) {
@@ -118,7 +118,7 @@ export async function memberCard(pool:Pool,actor:Actor,id:string) {
       EXISTS(SELECT 1 FROM member_squad_memberships a JOIN member_squad_memberships b USING(squad_id) JOIN member_squads s USING(squad_id) WHERE s.community_id=$1 AND a.user_id=$4 AND b.user_id=$5 AND a.state='active' AND b.state='active') AS squad
       FROM users u LEFT JOIN member_accounts account ON account.user_id=u.user_id AND account.community_id=u.community_id
       LEFT JOIN member_avatars avatar ON avatar.user_id=u.user_id AND avatar.community_id=u.community_id
-      WHERE u.user_id=$5 AND u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)`,[actor.community_id,low,high,actor.user_id,id]),
+      WHERE u.user_id=$5 AND u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) AND ($5=$4 OR NOT is_verification_test_account(u.user_id))`,[actor.community_id,low,high,actor.user_id,id]),
     memberPositioningSummary(pool,actor.community_id,id),
   ]);
   const relation=projection.rows[0];requireCondition(relation,404,'member_not_found','找不到這位會員。');
@@ -150,9 +150,10 @@ export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:numb
       CASE WHEN EXISTS(SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=u.community_id
         AND m.user_id=u.user_id AND m.guild_key=p.primary_guild_key AND m.state='active')
         THEN COALESCE($6::jsonb->>p.primary_guild_key,'專業探索者') ELSE NULL END AS positioning_title
-    FROM users u LEFT JOIN onboarding_assessments a ON a.user_id=u.user_id AND a.community_id=u.community_id
+    FROM users u JOIN member_account_classification t USING(user_id,community_id)
+      LEFT JOIN onboarding_assessments a ON a.user_id=u.user_id AND a.community_id=u.community_id
       LEFT JOIN guild_member_preferences p ON p.user_id=u.user_id AND p.community_id=u.community_id
-    WHERE u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
+    WHERE u.community_id=$1 AND u.active AND (NOT t.is_test_account OR u.user_id=$10) AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
       AND ($5='' OR EXISTS(SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=u.community_id
         AND m.user_id=u.user_id AND m.guild_key=$5 AND m.state='active'))
       AND ($8='' OR p.primary_guild_key=$8 AND EXISTS(SELECT 1 FROM positioning_profession_memberships pm WHERE pm.community_id=u.community_id
@@ -169,7 +170,7 @@ export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:numb
       AND ($9='' OR COALESCE(published_profile->'capabilities','[]'::jsonb) ? $9)
   ) SELECT (SELECT count(*)::int FROM matched) AS total,
     ARRAY(SELECT user_id FROM matched ORDER BY ${memberSort[input.sort]} LIMIT $2 OFFSET $3) AS user_ids`,
-    [actor.community_id,input.limit,input.offset,input.search,input.guild_key,JSON.stringify(guildTitles),JSON.stringify(capabilityLabels),input.primary_guild_key,input.capability])).rows[0];
+    [actor.community_id,input.limit,input.offset,input.search,input.guild_key,JSON.stringify(guildTitles),JSON.stringify(capabilityLabels),input.primary_guild_key,input.capability,actor.user_id])).rows[0];
   const items=await Promise.all((result.user_ids as string[]).map(id=>memberCard(pool,actor,id)));
   return {items,total:result.total,next_offset:input.offset+input.limit<result.total?input.offset+input.limit:null};
 }
@@ -181,11 +182,12 @@ export async function memberPresence(pool:Pool,actor:Actor,raw:string){
     EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.user_id AND s.revoked_at IS NULL AND s.expires_at>now()
       AND s.last_seen_at>now()-interval '2 minutes') AS is_online
     FROM users u WHERE u.community_id=$1 AND u.user_id=ANY($2::uuid[]) AND u.active
-      AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)`,[actor.community_id,ids])).rows;
+      AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
+      AND (u.user_id=$3 OR NOT is_verification_test_account(u.user_id))`,[actor.community_id,ids,actor.user_id])).rows;
   return {items:rows.map(row=>({user_id:row.user_id,last_login_at:row.last_login_at?new Date(row.last_login_at).toISOString():null,is_online:row.is_online}))};
 }
 export async function listFriends(pool:Pool,actor:Actor) {
-  return (await pool.query(`SELECT u.user_id,u.display_name AS nickname,f.state,f.requester_ref,f.aggregate_version FROM member_friendships f JOIN users u ON u.user_id=CASE WHEN f.low_ref=$2 THEN f.high_ref ELSE f.low_ref END WHERE f.community_id=$1 AND (f.low_ref=$2 OR f.high_ref=$2) AND f.state<>'removed' AND u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) ORDER BY f.updated_at DESC LIMIT 100`,[actor.community_id,actor.user_id])).rows;
+  return (await pool.query(`SELECT u.user_id,u.display_name AS nickname,f.state,f.requester_ref,f.aggregate_version FROM member_friendships f JOIN users u ON u.user_id=CASE WHEN f.low_ref=$2 THEN f.high_ref ELSE f.low_ref END WHERE f.community_id=$1 AND (f.low_ref=$2 OR f.high_ref=$2) AND f.state<>'removed' AND u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) AND NOT is_verification_test_account(u.user_id) ORDER BY f.updated_at DESC LIMIT 100`,[actor.community_id,actor.user_id])).rows;
 }
 export async function changeFriendship(pool:Pool,input:Command,id:string,action:'request'|'accept'|'remove') {
   z.object({}).strict().parse(input.body);id=z.uuid().parse(id).toLowerCase();requireCondition(id!==input.actor.user_id,422,'self_friendship','不能將自己加為好友。');
@@ -208,22 +210,27 @@ export async function changeFriendship(pool:Pool,input:Command,id:string,action:
 const channelName=z.string().trim().max(100).refine(value=>!/[\x00-\x1f\x7f]/.test(value),'請輸入頻道名稱，不要加入換行或控制字元。');
 const SquadInput=z.object({name:z.string().trim().min(1).max(80),kind:z.enum(['project','mutual_help','coaching']),purpose:z.string().trim().min(1).max(800),communication_channel_name:channelName.default('')}).strict();
 async function squadExists(q:Pool|PoolClient,actor:Actor,id:string) {
-  z.uuid().parse(id);const row=(await q.query('SELECT * FROM member_squads WHERE squad_id=$1 AND community_id=$2',[id,actor.community_id])).rows[0];
+  z.uuid().parse(id);
+  const row=(await q.query(`SELECT s.* FROM member_squads s JOIN member_squad_classification t USING(squad_id,community_id)
+    WHERE s.squad_id=$1 AND s.community_id=$2 AND (NOT t.is_test_data OR s.owner_ref=$3 OR EXISTS(
+      SELECT 1 FROM member_squad_memberships m WHERE m.squad_id=s.squad_id AND m.user_id=$3 AND m.state IN ('active','pending')))`,[id,actor.community_id,actor.user_id])).rows[0];
   requireCondition(row,404,'squad_not_found','找不到這個小隊。');return row;
 }
 export async function listSquads(pool:Pool,actor:Actor,limit:number,offset:number) {
   const rows=(await pool.query(`SELECT s.*,u.display_name AS owner_name,
-    (SELECT count(*)::int FROM member_squad_memberships a JOIN users mu ON mu.user_id=a.user_id WHERE a.squad_id=s.squad_id AND a.state='active' AND mu.active AND mu.community_id=s.community_id) AS member_count,
+    (SELECT count(*)::int FROM member_squad_memberships a JOIN users mu ON mu.user_id=a.user_id JOIN member_account_classification mt ON mt.user_id=mu.user_id AND mt.community_id=mu.community_id WHERE a.squad_id=s.squad_id AND a.state='active' AND mu.active AND mu.community_id=s.community_id AND NOT mt.is_test_account) AS member_count,
     CASE WHEN m.user_id IS NULL THEN NULL ELSE jsonb_build_object('state',m.state,'aggregate_version',m.aggregate_version) END AS membership
-    FROM member_squads s JOIN users u ON u.user_id=s.owner_ref LEFT JOIN member_squad_memberships m ON m.squad_id=s.squad_id AND m.user_id=$2
-    WHERE s.community_id=$1 AND u.active ORDER BY s.created_at,s.squad_id LIMIT $3 OFFSET $4`,[actor.community_id,actor.user_id,limit+1,offset])).rows;
+    FROM member_squads s JOIN member_squad_classification t USING(squad_id,community_id)
+    JOIN users u ON u.user_id=s.owner_ref LEFT JOIN member_squad_memberships m ON m.squad_id=s.squad_id AND m.user_id=$2
+    WHERE s.community_id=$1 AND u.active AND (NOT t.is_test_data OR s.owner_ref=$2) ORDER BY s.created_at,s.squad_id LIMIT $3 OFFSET $4`,[actor.community_id,actor.user_id,limit+1,offset])).rows;
   return {items:rows.slice(0,limit),next_offset:rows.length>limit?offset+limit:null,kinds:[{key:'project',name:'專案小隊（跨職能協作）'},{key:'mutual_help',name:'共同目標互助小隊'},{key:'coaching',name:'陪跑小隊'}]};
 }
 export async function squadView(pool:Pool,actor:Actor,id:string) {
   const squad=await squadExists(pool,actor,id);
   const members=(await pool.query(`SELECT m.user_id,u.display_name AS nickname,m.state,m.aggregate_version FROM member_squad_memberships m JOIN users u USING(user_id)
     WHERE m.squad_id=$1 AND u.community_id=$2 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
-    AND (m.state='active' OR (m.state='pending' AND ($3::uuid=$4::uuid OR m.user_id=$3::uuid))) ORDER BY m.updated_at,m.user_id`,[id,actor.community_id,actor.user_id,squad.owner_ref])).rows;
+    AND (m.state='active' OR (m.state='pending' AND ($3::uuid=$4::uuid OR m.user_id=$3::uuid)))
+    AND (m.user_id=$3 OR $3::uuid=$4::uuid OR NOT is_verification_test_account(m.user_id)) ORDER BY m.updated_at,m.user_id`,[id,actor.community_id,actor.user_id,squad.owner_ref])).rows;
   return {...squad,members};
 }
 export async function createSquad(pool:Pool,input:Command) {

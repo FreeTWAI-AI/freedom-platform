@@ -45,7 +45,7 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
     return c.json(await completeGitHubAppSetup(pool,c.get('admin'),body,github.tokenKey,{fetcher:github.fetcher}));
   });
   app.post('/link-member',async c=>{const input=await command(c),member=await authenticate(pool,getCookie(c,'freedom_local_session'));return result(c,await linkNominatedMember(pool,input,member));});
-  app.get('/members',async c=>{const {limit,offset}=paging(c),q=z.string().trim().max(100).parse(c.req.query('q')??'');return c.json(await adminMembers(pool,c.get('admin'),limit,offset,q));});
+  app.get('/members',async c=>{const {limit,offset}=paging(c),q=z.string().trim().max(100).parse(c.req.query('q')??''),includeTest=z.enum(['true','false']).default('false').parse(c.req.query('include_test'))==='true';return c.json(await adminMembers(pool,c.get('admin'),limit,offset,q,includeTest));});
   app.post('/members/:id/admin',async c=>result(c,await appointPlatformAdmin(pool,await command(c),c.req.param('id'))));
   app.post('/members/:id/status',async c=>result(c,await changeMemberStatus(pool,await command(c),c.req.param('id'))));
   app.get('/guild-applications',async c=>{const {limit,offset}=paging(c),state=z.enum(['pending','approved','declined','all']).parse(c.req.query('state')??'pending');return c.json(await adminApplications(pool,c.get('admin'),limit,offset,state));});

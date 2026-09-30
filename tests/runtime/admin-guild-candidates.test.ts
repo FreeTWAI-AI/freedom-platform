@@ -10,7 +10,7 @@ import {createApp} from '../../apps/platform-api/src/app.js';
 import {createAdminAccessVerifier} from '../../modules/platform-admin/access.js';
 const origin='http://127.0.0.1:4310',databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
 const schema=`fp_admin_candidates_${process.pid}_${Date.now()}`,database=createPool(databaseUrl),pool=new Pool({connectionString:databaseUrl,options:`-c search_path=${schema}`,max:12});
-const issuer='https://candidate-test.cloudflareaccess.com',audience='guild-candidate-tests',email='candidate-admin@example.invalid',adminId=randomUUID(),pair=await generateKeyPair('RS256');
+const issuer='https://candidate-test.cloudflareaccess.com',audience='guild-candidate-tests',email='candidate-admin@example.test',adminId=randomUUID(),pair=await generateKeyPair('RS256');
 const jwk=await exportJWK(pair.publicKey),verifier=createAdminAccessVerifier({issuer,audience,csrfSecret:'candidate-test-csrf-secret-123456789',keySet:createLocalJWKSet({keys:[{...jwk,kid:'candidate-test',alg:'RS256'}]})});
 const app=createApp(pool,origin,'local',{adminVerifier:verifier}),guild='guild_event_space';let jwt='',csrf='';
 before(async()=>{await database.query(`CREATE SCHEMA ${schema}`);await migrate(pool);});
@@ -20,7 +20,7 @@ async function sign(value:string){const now=Math.floor(Date.now()/1000);return n
 async function request(path:string,body?:unknown,options:{version?:number;headers?:Record<string,string>}={}){const headers:Record<string,string>={Origin:origin,'Cf-Access-Jwt-Assertion':jwt,'X-Admin-CSRF':csrf,...options.headers};if(body!==undefined){headers['Content-Type']='application/json';headers['Idempotency-Key']=randomUUID();if(options.version!==undefined)headers['If-Match']=`"${options.version}"`;}
  const response=await app.request(origin+'/admin/api'+path,{method:body===undefined?'GET':'POST',headers,body:body===undefined?undefined:JSON.stringify(body)});return {status:response.status,data:await response.json() as any};}
 async function candidates(query:Record<string,string|number>={},key=guild){return request('/guilds/'+key+'/master-candidates?'+new URLSearchParams(Object.entries(query).map(([k,v])=>[k,String(v)])));}
-async function user(name:string,options:{email?:string;community?:string;active?:boolean}={}){const id=randomUUID();await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,active) SELECT $1,$2,$3,$4,password_hash,$5,$6 FROM users WHERE user_id=$7`,[id,options.community??DEMO_COMMUNITY,options.email??id+'@example.invalid',name,randomUUID(),options.active??true,DEMO_USERS[0].user_id]);return id;}
+async function user(name:string,options:{email?:string;community?:string;active?:boolean}={}){const id=randomUUID();await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,active) SELECT $1,$2,$3,$4,password_hash,$5,$6 FROM users WHERE user_id=$7`,[id,options.community??DEMO_COMMUNITY,options.email??id+'@example.test',name,randomUUID(),options.active??true,DEMO_USERS[0].user_id]);return id;}
 async function join(id:string,state='active',community=DEMO_COMMUNITY,key=guild){await pool.query('INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,$4,$5)',[randomUUID(),community,id,key,state]);}
 
 test('eligible candidates include active nonmembers before pagination and search can reach someone beyond the first 25 rows',async()=>{
@@ -41,23 +41,23 @@ test('candidate eligibility is independent of joining and leaving removes the cu
 });
 
 test('matching remains community scoped even if the foreign account has matching membership or appointment',async()=>{
- const community=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[community,'Other community']);const outsider=await user('僅外部名稱',{community,email:'hidden-candidate@example.invalid'});await join(outsider,'active',community);await pool.query('INSERT INTO positioning_guild_officers(community_id,guild_key,user_id) VALUES($1,$2,$3)',[community,guild,outsider]);
- for(const scope of ['eligible','all']){assert.equal((await candidates({scope,q:'僅外部名稱'})).data.total,0);const result=await candidates({scope,q:'hidden-candidate@example.invalid'});assert.deepEqual(result.data.items,[]);assert.equal(result.data.next_offset,null);}
+ const community=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[community,'Other community']);const outsider=await user('僅外部名稱',{community,email:'hidden-candidate@example.test'});await join(outsider,'active',community);await pool.query('INSERT INTO positioning_guild_officers(community_id,guild_key,user_id) VALUES($1,$2,$3)',[community,guild,outsider]);
+ for(const scope of ['eligible','all']){assert.equal((await candidates({scope,q:'僅外部名稱'})).data.total,0);const result=await candidates({scope,q:'hidden-candidate@example.test'});assert.deepEqual(result.data.items,[]);assert.equal(result.data.next_offset,null);}
 });
 
 test('search matches literal nickname or email case insensitively and preserves stable pagination for duplicate names',async()=>{
- const ids:string[]=[];for(let i=0;i<5;i++){const id=await user('同名候選',{email:`Person${i}@example.invalid`});await join(id);ids.push(id);}ids.sort();const exact=await user('特殊 %_ 候選',{email:'Percent_Tag@example.invalid'});await join(exact);
+ const ids:string[]=[];for(let i=0;i<5;i++){const id=await user('同名候選',{email:`Person${i}@example.test`});await join(id);ids.push(id);}ids.sort();const exact=await user('特殊 %_ 候選',{email:'Percent_Tag@example.test'});await join(exact);
  const first=await candidates({q:'同名',limit:2});assert.equal(first.data.total,5);assert.deepEqual(first.data.items.map((m:any)=>m.user_id),ids.slice(0,2));assert.equal(first.data.next_offset,2);
  const next=await candidates({q:'同名',limit:2,offset:2});assert.deepEqual(next.data.items.map((m:any)=>m.user_id),ids.slice(2,4));assert.equal(next.data.next_offset,4);const last=await candidates({q:'同名',limit:2,offset:4});assert.deepEqual(last.data.items.map((m:any)=>m.user_id),ids.slice(4));assert.equal(last.data.next_offset,null);
  const beyond=await candidates({q:'同名',offset:20});assert.deepEqual(beyond.data.items,[]);assert.equal(beyond.data.total,5);assert.equal(beyond.data.next_offset,null);
- assert.equal((await candidates({q:'pErSoN3@EXAMPLE.INVALID'})).data.total,1);assert.deepEqual((await candidates({q:'%_'})).data.items.map((m:any)=>m.user_id),[exact]);assert.equal((await candidates({q:"' OR true--"})).data.total,0);
+ assert.equal((await candidates({q:'pErSoN3@EXAMPLE.TEST'})).data.total,1);assert.deepEqual((await candidates({q:'%_'})).data.items.map((m:any)=>m.user_id),[exact]);assert.equal((await candidates({q:"' OR true--"})).data.total,0);
  // The general admin member picker now uses the same literal semantics.
  assert.deepEqual((await request('/members?q='+encodeURIComponent('%_'))).data.items.map((m:any)=>m.user_id),[exact]);
 });
 
 test('the route requires verified active administration, validates query bounds and reports unknown guilds',async()=>{
  assert.equal((await request('/guilds/'+guild+'/master-candidates',undefined,{headers:{'Cf-Access-Jwt-Assertion':'','Cf-Access-Authenticated-User-Email':email}})).status,401);
- assert.equal((await request('/guilds/'+guild+'/master-candidates',undefined,{headers:{'Cf-Access-Jwt-Assertion':await sign('not-admin@example.invalid')}})).status,403);
+ assert.equal((await request('/guilds/'+guild+'/master-candidates',undefined,{headers:{'Cf-Access-Jwt-Assertion':await sign('not-admin@example.test')}})).status,403);
  for(const query of [{scope:'friends'},{limit:0},{limit:101},{offset:-1},{offset:100001},{q:'a'.repeat(101)},{q:'bad\u0000value'},{unexpected:'field'}] as Record<string,string|number>[])assert.equal((await candidates(query)).status,422);
  assert.equal((await candidates({},'guild_missing_catalog_entry')).status,404);assert.equal((await candidates({},'x'.repeat(101))).status,422);
  await pool.query('UPDATE platform_admins SET active=false WHERE admin_id=$1',[adminId]);assert.equal((await candidates()).status,403);

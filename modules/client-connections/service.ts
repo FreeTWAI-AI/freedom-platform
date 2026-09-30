@@ -109,12 +109,12 @@ export async function readClientResource(pool:Pool,authorization:string|undefine
    let rows:any[];
    if(resource==='catalog'||resource==='products')rows=(await q.query(`SELECT p.*,u.display_name AS supplier_name,to_jsonb(o) AS current_offer FROM catalog_products p
      JOIN users u ON u.user_id=p.supplier_ref JOIN LATERAL(SELECT * FROM supplier_offer_versions o WHERE o.product_id=p.product_id ORDER BY revision DESC LIMIT 1)o ON true
-     WHERE p.community_id=$1${resource==='products'?' AND p.supplier_ref=$2':''} ORDER BY p.created_at DESC,p.product_id LIMIT 200`,resource==='products'?[client.community_id,client.user_id]:[client.community_id])).rows;
+     WHERE p.community_id=$1 AND (p.supplier_ref=$2 OR NOT is_verification_test_account(p.supplier_ref))${resource==='products'?' AND p.supplier_ref=$2':''} ORDER BY p.created_at DESC,p.product_id LIMIT 200`,[client.community_id,client.user_id])).rows;
    else if(resource==='stores')rows=(await q.query('SELECT * FROM retail_stores WHERE store_id=$1 AND community_id=$2 AND seller_ref=$3',[client.store_id,client.community_id,client.user_id])).rows;
    else if(resource==='listings')rows=(await q.query(`SELECT l.*,a.acceptance_id,a.state AS acceptance_state,a.decision_note FROM retail_listing_revisions l LEFT JOIN distribution_acceptances a USING(listing_id)
      WHERE l.community_id=$1 AND l.store_id=$2 AND l.seller_ref=$3 ORDER BY l.created_at DESC,l.listing_id LIMIT 200`,[client.community_id,client.store_id,client.user_id])).rows;
    else rows=(await q.query(`SELECT a.*,l.snapshot,u.display_name AS seller_name FROM distribution_acceptances a JOIN retail_listing_revisions l USING(listing_id) JOIN users u ON u.user_id=a.seller_ref
-     WHERE a.community_id=$1 AND a.supplier_ref=$2 ORDER BY a.created_at DESC,a.acceptance_id LIMIT 200`,[client.community_id,client.user_id])).rows;
+     WHERE a.community_id=$1 AND a.supplier_ref=$2 AND NOT is_verification_test_account(a.seller_ref) ORDER BY a.created_at DESC,a.acceptance_id LIMIT 200`,[client.community_id,client.user_id])).rows;
    return {items:rows.map(row=>({...row,...limited})),read_only:true,limit:200};
  });
 }

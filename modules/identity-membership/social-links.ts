@@ -107,7 +107,8 @@ export async function visibleSocialLinks(pool:Pool,actor:Actor,memberId:string,r
  // statement snapshot. Hidden entries cannot influence total or pagination.
  const row=(await pool.query(`WITH viewer AS (${activeViewer} AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)),
  target AS (SELECT u.user_id FROM users u WHERE u.user_id=$4 AND u.community_id=$2 AND u.active
-   AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)),
+   AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
+   AND ($1::uuid=$4::uuid OR NOT is_verification_test_account(u.user_id))),
  relationships AS (SELECT $1::uuid=$4::uuid AS self,
    EXISTS(SELECT 1 FROM member_friendships f WHERE f.community_id=$2 AND f.low_ref=LEAST($1::uuid,$4::uuid) AND f.high_ref=GREATEST($1::uuid,$4::uuid) AND f.state='accepted') AS friend,
    EXISTS(SELECT 1 FROM positioning_profession_memberships a JOIN positioning_profession_memberships b USING(community_id,guild_key)

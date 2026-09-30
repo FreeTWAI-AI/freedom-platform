@@ -61,7 +61,7 @@ export async function createOfferVersion(pool:Pool,input:Command,id:string){
 export async function listProducts(pool:Pool,actor:Actor,owned=false){
   return (await pool.query(`SELECT p.*,u.display_name AS supplier_name,to_jsonb(o) AS current_offer FROM catalog_products p
     JOIN users u ON u.user_id=p.supplier_ref JOIN LATERAL (SELECT * FROM supplier_offer_versions o WHERE o.product_id=p.product_id ORDER BY revision DESC LIMIT 1) o ON true
-    WHERE p.community_id=$1${owned?' AND p.supplier_ref=$2':''} ORDER BY p.created_at DESC,p.product_id`,owned?[actor.community_id,actor.user_id]:[actor.community_id])).rows.map(limited);
+    WHERE p.community_id=$1 AND (p.supplier_ref=$2 OR NOT is_verification_test_account(p.supplier_ref))${owned?' AND p.supplier_ref=$2':''} ORDER BY p.created_at DESC,p.product_id`,[actor.community_id,actor.user_id])).rows.map(limited);
 }
 // Read-only application port. Marketing stores this exact snapshot; it never
 // updates catalog tables or treats a supplier's declaration as verified QC.
@@ -128,7 +128,7 @@ export async function requestSupply(pool:Pool,input:Command,id:string){
 export async function listSupplyRequests(pool:Pool,actor:Actor){
   return (await pool.query(`SELECT a.*,l.snapshot,u.display_name AS seller_name FROM distribution_acceptances a
     JOIN retail_listing_revisions l USING(listing_id) JOIN users u ON u.user_id=a.seller_ref
-    WHERE a.community_id=$1 AND a.supplier_ref=$2 ORDER BY a.created_at DESC`,[actor.community_id,actor.user_id])).rows.map(limited);
+    WHERE a.community_id=$1 AND a.supplier_ref=$2 AND NOT is_verification_test_account(a.seller_ref) ORDER BY a.created_at DESC`,[actor.community_id,actor.user_id])).rows.map(limited);
 }
 async function ownRequest(q:PoolClient,actor:Actor,id:string,lock=false){
   const row=(await q.query(`SELECT * FROM distribution_acceptances WHERE acceptance_id=$1 AND community_id=$2 AND supplier_ref=$3${lock?' FOR UPDATE':''}`,[id,actor.community_id,actor.user_id])).rows[0];

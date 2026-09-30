@@ -24,7 +24,7 @@ async function projectView(q:Pool|PoolClient,actor:Actor,id:string) {
   const row=(await q.query(`SELECT p.*,u.display_name AS owner_name,to_jsonb(v) AS current_version
     FROM oss_projects p JOIN users u ON u.user_id=p.owner_ref
     JOIN oss_project_versions v ON v.version_id=p.current_version_id AND v.project_id=p.project_id
-    WHERE p.project_id=$1 AND p.community_id=$2`,[id,actor.community_id])).rows[0];
+    WHERE p.project_id=$1 AND p.community_id=$2 AND (p.owner_ref=$3 OR NOT is_verification_test_account(p.owner_ref))`,[id,actor.community_id,actor.user_id])).rows[0];
   requireCondition(row,404,'not_found','找不到這件開源作品。');return row;
 }
 async function ownedProject(q:PoolClient,actor:Actor,id:string,lock=false) {
@@ -44,7 +44,7 @@ async function insertVersion(q:PoolClient,projectId:string,source:ProjectSource)
 export async function listProjects(pool:Pool,actor:Actor) {
   return (await pool.query(`SELECT p.*,u.display_name AS owner_name,to_jsonb(v) AS current_version
     FROM oss_projects p JOIN users u ON u.user_id=p.owner_ref JOIN oss_project_versions v ON v.version_id=p.current_version_id AND v.project_id=p.project_id
-    WHERE p.community_id=$1 ORDER BY p.created_at DESC,p.project_id LIMIT 100`,[actor.community_id])).rows;
+    WHERE p.community_id=$1 AND (p.owner_ref=$2 OR NOT is_verification_test_account(p.owner_ref)) ORDER BY p.created_at DESC,p.project_id LIMIT 100`,[actor.community_id,actor.user_id])).rows;
 }
 export async function importProject(pool:Pool,input:Command) {
   const body=projectInput.parse(input.body);

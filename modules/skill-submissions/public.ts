@@ -11,7 +11,8 @@ const PUBLISHED = `FROM skill_submissions s
   JOIN oss_projects p ON p.project_id=s.project_id AND p.owner_ref=s.owner_ref AND p.community_id=s.community_id
   JOIN oss_project_versions v ON v.version_id=s.project_version_id AND v.project_id=s.project_id
   WHERE s.status='published' AND s.consent_to_share AND NOT p.official
-    AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)`;
+    AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
+    AND NOT is_verification_test_account(u.user_id)`;
 const COLUMNS = `s.submission_id,s.payload,s.project_id,s.published_at,s.image_bytes IS NOT NULL AS has_image,
   v.repository_full_name,v.repository_url,v.commit_sha,v.license_spdx,v.license_evidence_url,v.is_fork,v.archived`;
 

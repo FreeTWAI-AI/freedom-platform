@@ -22,5 +22,5 @@ export async function contributionRecords(pool:Pool,actor:Actor) {
 export async function acceptedWorkFeed(pool:Pool,actor:Actor) {
   return (await pool.query(`SELECT c.contribution_id,c.title,c.accepted_at,u.display_name AS member_name
     FROM contributions c JOIN users u ON u.user_id=c.user_id
-    WHERE c.community_id=$1 ORDER BY c.accepted_at DESC,c.contribution_id DESC LIMIT 30`,[actor.community_id])).rows;
+    WHERE c.community_id=$1 AND (c.user_id=$2 OR NOT is_verification_test_account(c.user_id)) ORDER BY c.accepted_at DESC,c.contribution_id DESC LIMIT 30`,[actor.community_id,actor.user_id])).rows;
 }

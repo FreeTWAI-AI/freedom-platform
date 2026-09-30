@@ -135,7 +135,7 @@ export async function dashboard(pool:Pool,actor:Actor) {
   const reviewClaims=(await pool.query(`SELECT c.*,u.display_name AS claimant_name FROM work_claims c JOIN work_items w USING(work_item_id)
     JOIN work_review_routes r USING(work_item_id) JOIN users u ON u.user_id=c.claimant_ref
     WHERE w.community_id=$1 AND r.reviewer_ref=$2 AND r.revoked_at IS NULL AND r.valid_until>now()
-    AND c.claimant_ref<>$2 AND c.state IN ('submitted','in_review') ORDER BY c.created_at`,[actor.community_id,actor.user_id])).rows;
+    AND c.claimant_ref<>$2 AND NOT is_verification_test_account(c.claimant_ref) AND c.state IN ('submitted','in_review') ORDER BY c.created_at`,[actor.community_id,actor.user_id])).rows;
   return {now:works.filter(w=>w.my_claim && w.my_claim.state!=='accepted'),next:works.filter(w=>w.state==='open'),gained,
     review_queue:await Promise.all(reviewClaims.map(async c=>({claim:await claimView(pool,c),work_item:works.find(w=>w.work_item_id===c.work_item_id),claimant_name:c.claimant_name}))),summary:{accepted_count:gained.length}};
 }

@@ -14,7 +14,7 @@ const termsInput=z.object({terms_sha256:z.string().regex(/^[a-f0-9]{64}$/)}).str
 
 export async function listShowcases(pool:Pool,actor:Actor) {
   return (await pool.query(`SELECT s.*,u.display_name AS owner_name FROM showcases s JOIN users u ON u.user_id=s.owner_ref
-    WHERE s.community_id=$1 ORDER BY s.created_at DESC,s.showcase_id`,[actor.community_id])).rows;
+    WHERE s.community_id=$1 AND (s.owner_ref=$2 OR NOT is_verification_test_account(s.owner_ref)) ORDER BY s.created_at DESC,s.showcase_id`,[actor.community_id,actor.user_id])).rows;
 }
 export async function createShowcase(pool:Pool,input:Command) {
   const body=showcaseInput.parse(input.body);
@@ -26,7 +26,7 @@ export async function createShowcase(pool:Pool,input:Command) {
   });
 }
 async function visibleShowcase(q:PoolClient,actor:Actor,id:string) {
-  const row=(await q.query('SELECT * FROM showcases WHERE showcase_id=$1 AND community_id=$2',[id,actor.community_id])).rows[0];
+  const row=(await q.query('SELECT * FROM showcases WHERE showcase_id=$1 AND community_id=$2 AND (owner_ref=$3 OR NOT is_verification_test_account(owner_ref))',[id,actor.community_id,actor.user_id])).rows[0];
   requireCondition(row,404,'not_found','找不到這件作品。');return row;
 }
 export async function createOpportunity(pool:Pool,input:Command) {
