@@ -1728,6 +1728,11 @@
       "sha256": "5b2bc2e5d49b2d5f8fd4bbc3667befe87a0ae6a2f386801dc430375987712f52"
     },
     {
+      "path": "docs/plans/repo-maintainer-review-center.md",
+      "bytes": 40047,
+      "sha256": "396f5f7f8ee676efb8547a93b88a0034c034cb17288624887babd98adc1e1d43"
+    },
+    {
       "path": "docs/platform-plan/00-current-requirements-baseline.md",
       "bytes": 24121,
       "sha256": "f6dc2ae2d092b2ffcd27aad1e6fc27d44c2facfc08f1e32c6b31c0b4212e0bd7"
@@ -3298,16 +3303,6 @@
       "sha256": "335c3d5c3b47e1bcf3c6bcbebcae5f779cbf9c9d3abf78dabe8936760cee9bf7"
     },
     {
-      "path": "modules/development-access/guild-eligibility.ts",
-      "bytes": 1602,
-      "sha256": "9e9b6619a4e0e29beeb7ada9c1e11ba80fd60127bae443ef63c89a8f3e5f7c15"
-    },
-    {
-      "path": "modules/development-access/service.ts",
-      "bytes": 16648,
-      "sha256": "2bc4cac7903e0f03cd2ec869fa56ff9e0c99d588d218a95cc3468008c99c6518"
-    },
-    {
       "path": "modules/development/page-github.ts",
       "bytes": 14189,
       "sha256": "58e686d6c3342501f16f01bfa649e325ee72d61222d081b0ccabad60b25c8366"
@@ -3321,6 +3316,16 @@
       "path": "modules/development/service.ts",
       "bytes": 41939,
       "sha256": "d23fd269d147997401f4c0685399fb3fdb7e08231e467d6ac5254bea51bf54f6"
+    },
+    {
+      "path": "modules/development-access/guild-eligibility.ts",
+      "bytes": 1602,
+      "sha256": "9e9b6619a4e0e29beeb7ada9c1e11ba80fd60127bae443ef63c89a8f3e5f7c15"
+    },
+    {
+      "path": "modules/development-access/service.ts",
+      "bytes": 16648,
+      "sha256": "2bc4cac7903e0f03cd2ec869fa56ff9e0c99d588d218a95cc3468008c99c6518"
     },
     {
       "path": "modules/github-social/provider.ts",
