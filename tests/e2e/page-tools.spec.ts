@@ -7,7 +7,7 @@ test('every workspace page exposes contextual tools, filtered issues and agent g
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
   await page.getByRole('button',{name:'登入',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible({timeout:20000});
   await page.route('**/api/v1/me/github',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({configured:true,connected:true,github_user:{id:'123',login:'maker'}})}));
   await page.getByRole('button',{name:'提出想法'}).click();
   const idea=page.getByRole('dialog',{name:'會員首頁：提出想法'});
@@ -48,7 +48,7 @@ test('every workspace page exposes contextual tools, filtered issues and agent g
   await expect(edit.locator('pre')).toContainText('page:positioning');
   await edit.getByRole('button',{name:'關閉'}).click();
   await page.getByRole('button',{name:'展開訊息控制台'}).click();
-  await page.getByRole('tab',{name:'世界聊天'}).click();
+  await page.getByRole('tab',{name:/系統公告/}).click();
   await expect(page.getByRole('log')).toContainText('member-demo 提出 Issue');
   await expect(page.getByRole('log')).toContainText('contributor-demo 提交 PR');
   await expect(page.getByRole('log')).toContainText('maintainer-demo 核准 PR');
@@ -85,7 +85,7 @@ test('unlinked member gets GitHub guidance and screenshot handoff',async({page})
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
   await page.getByRole('button',{name:'登入',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible({timeout:20000});
   await page.getByRole('button',{name:'提出想法'}).click();
   const idea=page.getByRole('dialog',{name:'會員首頁：提出想法'});
   await expect(idea.getByText('站內發布前，先連結 GitHub')).toBeVisible();

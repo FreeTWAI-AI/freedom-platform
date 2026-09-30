@@ -23,6 +23,15 @@ const repoSchema=z.object({id:z.number().int().positive().max(Number.MAX_SAFE_IN
 const commitSchema=z.object({sha:z.string().regex(/^[a-f0-9]{40}$/)});
 const licenseSchema=z.object({license:z.object({spdx_id:z.string().min(1).max(100)}).nullable(),path:z.string().min(1).max(500)});
 
+function retryAfterSeconds(header:string|null):number|undefined {
+  if(!header)return undefined;
+  const trimmed=header.trim();
+  if(/^\d+$/.test(trimmed)){const value=Number(trimmed);return value>86400?undefined:value;}
+  const parsed=Date.parse(trimmed);
+  if(!Number.isFinite(parsed))return undefined;
+  const delta=Math.ceil((parsed-Date.now())/1000);
+  return delta<0||delta>86400?undefined:delta;
+}
 export async function publicJson(path:string,signal:AbortSignal,fetcher:typeof fetch,missingLicense=false,maxBytes=196608,token?:string):Promise<unknown> {
   let response:Response;
   try {
@@ -31,7 +40,10 @@ export async function publicJson(path:string,signal:AbortSignal,fetcher:typeof f
   } catch { throw new Problem(503,'github_unavailable','暫時無法讀取 GitHub，已保留原本資料。請稍後重新嘗試。'); }
   if(response.status===404 && missingLicense)return null;
   if(response.status===404)throw new Problem(422,'github_repository_unavailable','找不到公開儲存庫或可讀取的版本；請檢查網址與公開設定。');
-  if(response.status===403 || response.status===429)throw new Problem(503,'github_rate_limited','GitHub 暫時限制查詢，請稍後重試。');
+  if(response.status===403 || response.status===429){
+    try{await response.body?.cancel();}catch{/* The status is already final. */}
+    throw new Problem(503,'github_rate_limited','GitHub 暫時限制查詢，請稍後重試。',retryAfterSeconds(response.headers.get('retry-after')));
+  }
   requireCondition(response.ok,503,'github_unavailable','GitHub 暫時無法回覆，請稍後重新嘗試。');
   const reader=response.body?.getReader();
   requireCondition(reader,503,'github_invalid_response','GitHub 回應不完整，請稍後重試。');

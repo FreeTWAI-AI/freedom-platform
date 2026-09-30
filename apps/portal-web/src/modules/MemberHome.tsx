@@ -5,6 +5,7 @@ import { WorkshopIcon } from '../WorkshopIcon';
 import { loadLabels, type MemberCardData } from './Membership';
 import { MemberAvatar } from './MemberAvatar';
 import { logConsoleEvent } from '../game-console-core';
+import { consoleChannel } from '../game-console-routing';
 import './HomeDesign.css';
 
 const shortcuts: { id: TabId; title: string }[] = [
@@ -61,7 +62,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
 
   useEffect(() => {
     if (!member) return;
-    logConsoleEvent({id: member.primary_guild ? 'guide:home:skills' : 'guide:home:guild', channel:'guide', kind:'guide', source:'下一步', action: member.primary_guild ? 'skills' : 'guilds',
+    logConsoleEvent({id: member.primary_guild ? 'guide:home:skills' : 'guide:home:guild', channel:consoleChannel('guide_next_step'), kind:'guide', source:'下一步', action: member.primary_guild ? 'skills' : 'guilds',
       message: member.primary_guild ? '到技能書架閱讀已解鎖的技能書，選一項開始練習。' : '到職業公會加入公會並設定主要公會，接著領取技能書。'});
   }, [member]);
 

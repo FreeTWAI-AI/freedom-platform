@@ -1,5 +1,6 @@
 import { accessAwareFetch, expiredAccessStatus, isExpiredAccessResponse, MEMBER_ACCESS_EXPIRED_MESSAGE } from './access-fetch'
 import { logConsoleEvent } from './game-console-core'
+import { consoleChannel } from './game-console-routing'
 import type { ProblemDetails, SessionPayload } from './types'
 
 const API_BASE = '/api/v1'
@@ -221,7 +222,7 @@ export class PortalClient {
     catch (cause) {
       const failure = cause instanceof ApiError ? cause : new ApiError({message:'無法連線到伺服器，尚未確認結果。請確認網路後重試。', status: response?.status, cfRay:cloudflareRay(response), requestId:requestId(response), network:true})
       if(!options.background&&!options.suppressConsole)logConsoleEvent({
-        channel:'system', level:failure.status>=500||failure.network?'error':'warning', kind:'status', source:'介面錯誤', message:failure.message,
+        channel:consoleChannel('system_api_error'), level:failure.status>=500||failure.network?'error':'warning', kind:'status', source:'介面錯誤', message:failure.message,
         detail:`${method} ${path.split('?')[0]}${failure.code?` · ${failure.code}`:''}`,
       })
       if(!options.background&&path!=='/me/client-errors'&&!failure.accessExpired&&failure.status!==401)this.reportError(`${method} ${path}`,failure.code??(failure.network?'network_error':`http_${failure.status}`),failure.status)

@@ -27,6 +27,7 @@ import { BenefitObservations } from './modules/BenefitObservations'
 import { GameConsoleProvider, GameConsolePopout } from './GameConsole'
 import {PageTools} from './PageTools'
 import { logConsoleEvent } from './game-console-core'
+import { consoleChannel } from './game-console-routing'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PositioningPanel, GuildsPanel } from './modules/PositioningPanels'
 import { SupplierPanel, RetailPanel } from './modules/CommercePanels'
@@ -496,7 +497,7 @@ function Workspace({
   useEffect(() => {
     if (previousTab.current === tab) return
     previousTab.current = tab
-    logConsoleEvent({channel:'guide',kind:'guide',source:'導覽',message:`已進入「${tabTitle(tab)}」。${TAB_GUIDANCE[tab]}`})
+    logConsoleEvent({channel:consoleChannel('guide_navigation'),kind:'guide',source:'導覽',message:`已進入「${tabTitle(tab)}」。${TAB_GUIDANCE[tab]}`})
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
     mainContent.current?.scrollIntoView({ block: 'start', behavior: 'instant' })

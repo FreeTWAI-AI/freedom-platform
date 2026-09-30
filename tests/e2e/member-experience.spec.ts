@@ -54,6 +54,7 @@ test('new member explores, submits an event and selects each theme',async({page}
 });
 
 test('completed member submits an event and sees accepted-work facts without provisional points',async({page})=>{
+  test.setTimeout(90_000);
   await page.goto('/');
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
@@ -101,14 +102,47 @@ test('completed member submits an event and sees accepted-work facts without pro
   await expect(page.getByText('GitHub 排行分數不計入這裡的驗收件數。',{exact:false})).toBeVisible();
   await expect(page.getByRole('heading',{name:'使用者排行榜與歷史紀錄'})).toBeVisible();
   await page.getByRole('button',{name:'歷史想法'}).click();
+  await expect(page.getByRole('button',{name:/平台結構/})).toHaveAttribute('aria-pressed','true');
   await expect(page.getByRole('link',{name:'讓會員首頁的文字更清楚'})).toBeVisible();
-  await expect(page.locator('.community-history-state').filter({hasText:'已解決'})).toBeVisible();
+  await expect(page.locator('.community-history-list li').filter({hasText:'自動檢查未採納'}).locator('.community-history-state')).toHaveText('已解決');
+  await expect(page.locator('.community-history-list img')).toHaveCount(0);
+  await expect(page.getByText('<img src=x onerror=alert(1)>')).toBeVisible();
+  await page.locator('.community-history').getByRole('combobox',{name:'狀態',exact:true}).selectOption('done');
+  await expect(page.getByRole('link',{name:'補上社群導覽'})).toHaveCount(0);
+  await expect(page.getByRole('link',{name:'自動檢查未採納'})).toBeVisible();
   await page.getByRole('button',{name:'歷史更新'}).click();
   await expect(page.getByRole('link',{name:'改善手機導覽'})).toBeVisible();
-  await expect(page.locator('.community-history-state').filter({hasText:'已更新'})).toBeVisible();
+  const merged=page.locator('.community-history-list li').filter({hasText:'改善手機導覽'});
+  await expect(merged.locator('.community-history-state')).toHaveText('已更新');
+  await expect(merged).toContainText('建立');
+  await expect(merged).toContainText('更新');
+  const unmerged=page.locator('.community-history-list li').filter({hasText:'關閉未合併的說明'});
+  await expect(unmerged.locator('.community-history-state')).toHaveText('未更新');
+  await expect(unmerged).toContainText('未合併關閉');
+  await page.locator('.community-history').getByRole('combobox',{name:'狀態',exact:true}).selectOption('pending');
+  await expect(page.getByRole('link',{name:'改善手機導覽'})).toHaveCount(0);
+  await expect(page.getByRole('link',{name:'關閉未合併的說明'})).toBeVisible();
+  await expect(page.getByRole('link',{name:'更新技能書說明'})).toBeVisible();
+  await page.getByRole('button',{name:/私人技能/}).click();
+  await expect(page.getByText('此分類目前沒有符合條件的紀錄。')).toBeVisible();
   await page.getByRole('button',{name:'使用者排行榜'}).click();
-  await expect(page.getByRole('heading',{name:'貢獻排行榜'})).toBeVisible();
+  // Ranking waits until every repository page has been read. That is 80+ datasets.
+  await expect(page.getByRole('heading',{name:'貢獻排行榜'})).toBeVisible({timeout:30000});
   await expect(page.getByRole('heading',{name:'想法排行榜'})).toBeVisible();
+  const ideas=page.locator('section.community-leaderboard').filter({has:page.getByRole('heading',{name:'想法排行榜'})});
+  await expect(ideas).toContainText('member-demo');
+  await expect(ideas).toContainText('2 Issue');
+  await expect(ideas).not.toContainText('dependabot');
+  await expect(ideas).not.toContainText('github-actions');
+  const edits=page.locator('section.community-leaderboard').filter({has:page.getByRole('heading',{name:'編修排行榜'})});
+  await expect(edits).toContainText('contributor-demo');
+  await expect(edits).toContainText('2 PR');
+  await expect(edits).toContainText('1 PR');
+  const points=page.locator('section.community-leaderboard').filter({has:page.getByRole('heading',{name:'貢獻排行榜'})});
+  await expect(points).toContainText('每個 Issue 5 分，每個 PR 20 分（Issue × 5 + PR × 20）');
+  await expect(points).toContainText('40 分');
+  await expect(points).toContainText('30 分');
+  await expect(points).not.toContainText('dependabot');
   await page.getByLabel('選擇共創專案').selectOption({index:1});
   await expect(page.getByRole('heading',{name:'GitHub 共創 Issue'})).toBeVisible();
   await page.screenshot({path:'test-results/member-tasks-light.png',fullPage:true});
@@ -120,6 +154,35 @@ test('completed member submits an event and sees accepted-work facts without pro
   await page.setViewportSize({width:390,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/member-tasks-light-phone.png',fullPage:true});
+  await page.setViewportSize({width:320,height:720});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.setViewportSize({width:820,height:1100});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('community history hides rankings when GitHub pages are incomplete',async({page})=>{
+  test.setTimeout(90_000);
+  await page.route('**/api/v1/community/github-history/items**',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/');
+  await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
+  await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
+  await page.getByRole('button',{name:'登入',exact:true}).click();
+  await navigate(page,'社群任務');
+  const alert=page.getByRole('alert').filter({hasText:'資料不完整'});
+  await expect(alert).toBeVisible();
+  await expect(alert).toContainText('先不顯示排行');
+  await expect(page.getByRole('heading',{name:'想法排行榜'})).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'編修排行榜'})).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'貢獻排行榜'})).toHaveCount(0);
+  await page.setViewportSize({width:320,height:720});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.unroute('**/api/v1/community/github-history/items**');
+  await alert.getByRole('button',{name:'重新讀取'}).click();
+  await expect(page.getByRole('heading',{name:'想法排行榜'})).toBeVisible({timeout:20000});
+  await expect(page.getByRole('alert').filter({hasText:'資料不完整'})).toHaveCount(0);
+  await page.setViewportSize({width:820,height:1100});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
 test('task board explains unavailable and stale GitHub reads without claiming there are no issues',async({page})=>{

@@ -82,6 +82,8 @@ test('global 訊息控制台 persists across modules and synchronizes with its p
   const consolePanel=page.locator('.game-console-expanded');
   await expect(consolePanel).toBeVisible();
   await expect(consolePanel.getByRole('heading',{name:'自由工坊 - 即時訊息控制台',level:2})).toBeVisible();
+  await expect(consolePanel.locator('.game-console-eyebrow')).toHaveCount(0);
+  expect(await consolePanel.getByRole('tab').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-channel')))).toEqual(['all','world_chat','guild','squad','direct','guide','system','ai']);
   await expect(consolePanel.getByRole('tab',{name:/私人聊天/})).toHaveAttribute('aria-selected','true');
   await consolePanel.getByRole('tab',{name:'總頻道'}).click();
   await expect(consolePanel.getByText('選擇聊天頻道：')).toHaveCount(0);
@@ -92,6 +94,15 @@ test('global 訊息控制台 persists across modules and synchronizes with its p
   await expect(consolePanel.locator('.game-console-entry[data-channel="world_chat"]').last()).toHaveCSS('border-left-color','rgb(23, 97, 133)');
   await consolePanel.getByRole('tab',{name:/系統公告/}).click();
   await expect(consolePanel.getByRole('log')).toContainText('訊息控制台已連線');
+  await expect(consolePanel.getByRole('log')).toContainText('提交 PR');
+  await expect(consolePanel.getByRole('log')).not.toContainText('按下 ~');
+  await expect(consolePanel.getByRole('log')).not.toContainText('歡迎回到自由工坊');
+  await consolePanel.getByRole('tab',{name:'系統導覽'}).click();
+  await expect(consolePanel.getByRole('log')).toContainText('按下 ~');
+  await expect(consolePanel.getByRole('log')).toContainText('歡迎回到自由工坊');
+  await expect(consolePanel.getByRole('log')).toContainText('此處顯示 AI 工作指令');
+  await consolePanel.getByRole('tab',{name:'AI 指令'}).click();
+  await expect(consolePanel.getByRole('log')).not.toContainText('此處顯示 AI 工作指令');
   await consolePanel.getByRole('tab',{name:/私人聊天/}).click();
   await expect(consolePanel.getByLabel('私訊對象')).toBeVisible();
   await consolePanel.getByLabel('搜尋會員').fill('示範需求者');

@@ -7,7 +7,9 @@ export const DESIGN_CLAIM_MARKER='<!-- freedom-design-claim -->';
 const itemSchema=z.object({number:z.number().int().positive(),title:z.string().max(1000),body:z.string().nullable(),state:z.enum(['open','closed']),created_at:z.iso.datetime(),user:z.object({login:z.string().max(100)}).nullable(),labels:z.array(z.union([z.string(),z.object({name:z.string()})])).max(100),pull_request:z.unknown().optional()});
 export type PageGitHubItem={number:number;title:string;url:string;author:string;created_at:string;state:'open'|'closed';kind:'issue'|'pr';pages:string[]};
 export type PageGitHubActivity={items:PageGitHubItem[];checked_at:string;truncated:boolean;partial?:boolean;stale?:boolean};
-export type PageGitHubEvent={id:string;kind:'issue_opened'|'pr_opened'|'pr_approved'|'design_claimed';number:number;title:string;url:string;actor:string;created_at:string};
+export const PAGE_GITHUB_EVENT_KINDS=['issue_opened','issue_closed','pr_opened','pr_merged','pr_closed','pr_approved','design_claimed','release_published'] as const;
+export type PageGitHubEventKind=typeof PAGE_GITHUB_EVENT_KINDS[number];
+export type PageGitHubEvent={id:string;kind:PageGitHubEventKind;number:number|null;title:string;url:string;actor:string;created_at:string};
 export type PageGitHubEvents={items:PageGitHubEvent[];checked_at:string;truncated:boolean;stale?:boolean};
 const pageIds=new Set(developmentPages.map(page=>page.id));
 const headers={Accept:'application/vnd.github+json','User-Agent':'Freedom-Platform-page-tools','X-GitHub-Api-Version':'2022-11-28'};
@@ -86,7 +88,9 @@ const eventSchema=z.object({id:z.string(),type:z.string(),actor:z.object({login:
 const subjectSchema=z.object({number:z.number().int().positive(),title:z.string().max(1000).optional(),html_url:z.string().url().optional(),url:z.string().url().optional()});
 const claimSchema=z.object({action:z.literal('created'),issue:subjectSchema.extend({pull_request:z.unknown().optional()}),comment:z.object({body:z.string().nullable(),html_url:z.string().url()})});
 const reviewSchema=z.object({action:z.literal('created'),pull_request:subjectSchema,review:z.object({state:z.literal('approved').or(z.literal('APPROVED')),html_url:z.string().url()})});
-const openedSchema=z.object({action:z.literal('opened'),issue:subjectSchema.optional(),pull_request:subjectSchema.optional()});
+const activitySchema=z.object({action:z.enum(['opened','closed','reopened']),issue:subjectSchema.extend({pull_request:z.unknown().optional()}).optional(),pull_request:subjectSchema.extend({merged:z.boolean().optional()}).optional()});
+const releaseSchema=z.object({action:z.literal('published'),release:z.object({tag_name:z.string().regex(/^[\w.+-]{1,100}$/),name:z.string().max(1000).nullable().optional(),html_url:z.string().url()})});
+function eventTitle(value:string|undefined,fallback:string){const text=(value??'').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g,'').trim().slice(0,300);return text||fallback;}
 function subjectUrl(kind:'issues'|'pull',subject:z.infer<typeof subjectSchema>){
   const html=`${PLATFORM_REPOSITORY}/${kind}/${subject.number}`;
   const api=`https://api.github.com/repos/FreeTWAI-AI/freedom-platform/${kind==='pull'?'pulls':'issues'}/${subject.number}`;
@@ -99,20 +103,32 @@ function publicEvent(raw:unknown):PageGitHubEvent|null{
     const value=claimSchema.safeParse(payload);if(!value.success||value.data.issue.pull_request||!value.data.comment.body?.includes(DESIGN_CLAIM_MARKER)||!subjectUrl('issues',value.data.issue))return null;
     const {issue,comment}=value.data;
     if(!comment.html_url.startsWith(`${PLATFORM_REPOSITORY}/issues/${issue.number}#issuecomment-`))return null;
-    return {id,kind:'design_claimed',number:issue.number,title:issue.title??`Issue #${issue.number}`,url:comment.html_url,actor:actor.login,created_at};
+    return {id,kind:'design_claimed',number:issue.number,title:eventTitle(issue.title,`Issue #${issue.number}`),url:comment.html_url,actor:actor.login,created_at};
   }
   if(type==='PullRequestReviewEvent'){
     const value=reviewSchema.safeParse(payload);if(!value.success||!subjectUrl('pull',value.data.pull_request))return null;
     const {pull_request,review}=value.data;
     if(!review.html_url.startsWith(`${PLATFORM_REPOSITORY}/pull/${pull_request.number}#pullrequestreview-`))return null;
-    return {id,kind:'pr_approved',number:pull_request.number,title:pull_request.title??`PR #${pull_request.number}`,url:review.html_url,actor:actor.login,created_at};
+    return {id,kind:'pr_approved',number:pull_request.number,title:eventTitle(pull_request.title,`PR #${pull_request.number}`),url:review.html_url,actor:actor.login,created_at};
   }
   if(type==='IssuesEvent'||type==='PullRequestEvent'){
-    const value=openedSchema.safeParse(payload);if(!value.success)return null;
-    const subject=type==='IssuesEvent'?value.data.issue:value.data.pull_request;
-    const kind=type==='IssuesEvent'?'issues':'pull';
-    if(!subject||!subjectUrl(kind,subject))return null;
-    return {id,kind:type==='IssuesEvent'?'issue_opened':'pr_opened',number:subject.number,title:subject.title??`${kind==='issues'?'Issue':'PR'} #${subject.number}`,url:`${PLATFORM_REPOSITORY}/${kind}/${subject.number}`,actor:actor.login,created_at};
+    const value=activitySchema.safeParse(payload);if(!value.success||value.data.action==='reopened')return null;
+    if(type==='IssuesEvent'){
+      const issue=value.data.issue;
+      if(!issue||issue.pull_request||!subjectUrl('issues',issue))return null;
+      const kind=value.data.action==='closed'?'issue_closed':'issue_opened';
+      return {id,kind,number:issue.number,title:eventTitle(issue.title,`Issue #${issue.number}`),url:`${PLATFORM_REPOSITORY}/issues/${issue.number}`,actor:actor.login,created_at};
+    }
+    const pull=value.data.pull_request;
+    if(!pull||!subjectUrl('pull',pull)||(value.data.action!=='opened'&&value.data.action!=='closed'))return null;
+    const kind=value.data.action==='opened'?'pr_opened':pull.merged===true?'pr_merged':'pr_closed';
+    return {id,kind,number:pull.number,title:eventTitle(pull.title,`PR #${pull.number}`),url:`${PLATFORM_REPOSITORY}/pull/${pull.number}`,actor:actor.login,created_at};
+  }
+  if(type==='ReleaseEvent'){
+    const value=releaseSchema.safeParse(payload);if(!value.success)return null;
+    const tag=value.data.release.tag_name,url=`${PLATFORM_REPOSITORY}/releases/tag/${tag}`;
+    if(value.data.release.html_url!==url)return null;
+    return {id,kind:'release_published',number:null,title:eventTitle(value.data.release.name??undefined,tag),url,actor:actor.login,created_at};
   }
   return null;
 }

@@ -7,7 +7,7 @@ import {CollaborationGitHub,projectBrief} from '../../../../modules/co-creation/
 import {GitHubHistory,historyRepositories} from '../../../../modules/community/github-history.js';
 export function createCoCreationRoutes(pool:Pool,readToken:()=>string|undefined=()=>undefined,github=new CollaborationGitHub()){
   const app=new Hono<PlatformEnv>();
-  const history=new GitHubHistory();
+  const history=new GitHubHistory(pool);
   app.get('/community/github-history/repositories',async c=>c.json({items:await historyRepositories(pool,c.get('actor'))}));
   app.get('/community/github-history/items',async c=>{
     const query=z.object({repository:z.string(),kind:z.enum(['issue','pr']),page:z.coerce.number().int().min(1).max(10000).default(1)}).parse(c.req.query());
