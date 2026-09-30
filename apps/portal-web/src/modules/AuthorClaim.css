@@ -1,0 +1,15 @@
+.author-claim { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.author-claim .field input,
+.author-claim .field textarea,
+.author-claim .field select { width: 100%; min-width: 0; font-size: 16px; }
+.author-claim textarea { min-height: 96px; resize: vertical; }
+.author-claim-declare { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; min-width: 0; line-height: 1.5; }
+.author-claim-declare input { flex: none; margin-top: .35rem; }
+.author-claim-declare span { min-width: 0; }
+.author-claim-disputed { border-color: var(--danger); color: var(--danger); }
+.author-claim-people { margin: 0; padding-left: 1.2rem; }
+.author-claim-people li { overflow-wrap: anywhere; }
+.author-claim-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+@media (max-width: 600px) {
+  .author-claim .author-claim-submit { width: 100%; }
+}

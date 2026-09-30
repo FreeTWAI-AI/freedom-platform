@@ -8,6 +8,7 @@ import { seedLocal } from '../packages/testing/seed.js';
 import { collaborationGitHubFixture } from '../packages/testing/github-collaboration.js';
 import { e2eSchema } from '../packages/testing/e2e-auth-isolation.js';
 import { e2eOrigin, e2ePort } from '../packages/testing/e2e-origin.js';
+import { e2eAuthorClaimAdminVerifier } from '../packages/testing/e2e-admin.js';
 
 if(process.env.NODE_ENV==='production'||(process.env.FREEDOM_ENV&&process.env.FREEDOM_ENV!=='local'))throw Error('Browser test server is local-only.');
 if(process.env.FREEDOM_E2E_GITHUB_FIXTURES==='1')globalThis.fetch=async input=>collaborationGitHubFixture(input);
@@ -33,7 +34,7 @@ async function stop(code=0){
 }
 process.on('SIGTERM',()=>void stop());process.on('SIGINT',()=>void stop());
 try{await migrate(pool);await seedLocal(pool);}catch(error){console.error(error);await stop(1);}
-const app=createApp(pool,origin);
+const app=createApp(pool,origin,'local',{adminVerifier:e2eAuthorClaimAdminVerifier});
 app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));
 app.get('*',serveStatic({path:'./apps/portal-web/dist/index.html'}));
 server=serve({fetch:app.fetch,hostname:'127.0.0.1',port});

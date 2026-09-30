@@ -13,6 +13,7 @@ import { CoCreationPanel } from './modules/CoCreationPanel'
 import { AdminPanel } from './modules/AdminPanel'
 import { GitHubCallback } from './modules/GitHubCallback'
 import { GitHubSocialProvider } from './modules/GitHubSocial'
+import { AuthorClaimProvider } from './modules/AuthorClaim'
 import { SettingsMenu } from './modules/SettingsMenu'
 import {NotificationBell,type BellAction} from './modules/NotificationBell'
 import { MemberTasks } from './modules/MemberTasks'
@@ -291,14 +292,14 @@ function MemberApp() {
       ? <WelcomePreview client={client} name={session.user.display_name} onStart={()=>{rememberOnboarding(session.user.user_id,true);setExploring(false)}} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
       : <Onboarding client={client} initial={onboarding} profileName={session.user.display_name} onExplore={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}} onCompleted={() => { rememberOnboarding(session.user.user_id,false);window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
     : <>
-    <GitHubSocialProvider client={client} session={session}><DevelopmentAccessProvider client={client} session={session}>
+    <GitHubSocialProvider client={client} session={session}><AuthorClaimProvider client={client}><DevelopmentAccessProvider client={client} session={session}>
     <Workspace
       site={site}
       session={session}
       onLoggedOut={() => toLogin()}
       onSessionExpired={() => toLogin('登入已過期，請重新登入。')}
     />
-    </DevelopmentAccessProvider></GitHubSocialProvider>
+    </DevelopmentAccessProvider></AuthorClaimProvider></GitHubSocialProvider>
     </>}
     </GameConsoleProvider>
   )

@@ -6,6 +6,7 @@ import type {SkillDiscoveryBook} from '../community/discovery.js';
 import type {GitHubMetrics} from '../github-social/service.js';
 import {getSkillCollaboration,type SkillCollaboration,type SkillEditorial} from '../community/skill-collaboration.js';
 import {getSkillShareContent} from '../community/skill-share-content.js';
+import type {PublicAuthorClaim} from '../community/repo-author-claims.js';
 export const platformRepository='FreeTWAI-AI/freedom-platform';
 /** Existing Node deployments link to the live site; candidate runtimes pass their own origin. */
 export const LIVE_SITE_ORIGIN='https://freetwai.com';
@@ -96,7 +97,12 @@ export function markdownBody(markdown:string){
  }
  closeList();if(code)html+='</code></pre>';return html;
 }
-export function pageHtml(title:string,markdown:string,markdownUrl:string,metrics?:GitHubMetrics,editorial?:SkillEditorial|null,discovery?:SkillDiscoveryBook,intro?:string,origin=LIVE_SITE_ORIGIN){
+function authorClaimMarkup(claim?:PublicAuthorClaim){
+ if(!claim)return '';
+ const people=claim.verified.map(person=>'<li>'+escape(person.role_label)+' · @'+escape(person.github_login)+' · '+escape(person.display_name)+'</li>').join('');
+ return '<p class="public-author-claim" data-author-claim-status="'+escape(claim.status)+'" style="margin:8px 0">'+escape(claim.label)+'</p>'+(people?'<ul class="public-author-claim-people">'+people+'</ul>':'');
+}
+export function pageHtml(title:string,markdown:string,markdownUrl:string,metrics?:GitHubMetrics,editorial?:SkillEditorial|null,discovery?:SkillDiscoveryBook,intro?:string,origin=LIVE_SITE_ORIGIN,authorClaim?:PublicAuthorClaim){
  const skillId=/^\/development\/skills\/([a-z0-9-]+)\.md$/.exec(markdownUrl)?.[1];
  const book=skillId?communityCatalog.skill_books.find(value=>value.id===skillId):undefined;
  const agentUrl=markdownUrl.replace(/\.md$/,'/SKILL.md');
@@ -115,7 +121,7 @@ export function pageHtml(title:string,markdown:string,markdownUrl:string,metrics
   const guilds=Object.keys(guildTitles).filter(key=>skillBooksForGuild(key).some(value=>value.id===book.id));
   const guildBadges=guilds.length?(discovery?.official_guilds?.length?discovery.official_guilds.map(guild=>'<span title="自由工坊公會指定技能；不代表原作者背書">✦ '+escape(guild.name)+'指定技能</span>').join(''):'<span title="自由工坊公會指定技能；不代表原作者背書">✦ 官方公會技能</span>'):'';
   const badges='<div class="public-skill-badges" aria-label="技能書徽章">'+guildBadges+(discovery?.is_new_today?'<span>每日新技能</span>':'')+(discovery?.week_rank?'<span>工坊週榜 #'+discovery.week_rank+'</span>':'')+(discovery?.month_rank?'<span>工坊月榜 #'+discovery.month_rank+'</span>':'')+'</div>';
-  const entry='<section class="public-skill-entry">'+cover+'<div><p class="public-skill-purpose">'+escape(editorial?.summary||book.guide.beginner.purpose)+'</p>'+(book.guide.author_name?'<p>作者：'+escape(book.guide.author_name)+'</p>':'')+badges+stats+'<div class="public-skill-actions">'+actions+'</div><p class="public-skill-example">'+escape(book.guide.first_result)+'</p></div></section>';
+  const entry='<section class="public-skill-entry">'+cover+'<div><p class="public-skill-purpose">'+escape(editorial?.summary||book.guide.beginner.purpose)+'</p>'+(book.guide.author_name?'<p>來源標示的作者：'+escape(book.guide.author_name)+'</p>':'')+authorClaimMarkup(authorClaim)+badges+stats+'<div class="public-skill-actions">'+actions+'</div><p class="public-skill-example">'+escape(book.guide.first_result)+'</p></div></section>';
   const cooperation=getSkillCollaboration(book.id,editorial);
   const content=shareContentFor(book.id),selected=shareIntroNumber(intro,content.introductions.length),selectedText=selected?content.introductions[selected-1]:null;
   const illustration=content.illustration?'<figure class="public-skill-illustration"><img src="'+escape(content.illustration.url)+'" alt="'+escape(content.illustration.alt)+'" width="1200" height="630" loading="lazy" decoding="async"></figure>':'';
