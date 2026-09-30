@@ -29,7 +29,7 @@ test('registered member books retain named original credit, original PR targets 
     assert.ok(pageHtml(book.title,md,`/development/skills/${id}.md`).includes('作者：'+name));
     assert.ok(skillAgentMarkdown(id)?.includes('預設 PR 目標：'+repo+':main'));
   }
-  assert.match(communityCatalog.skill_books.find(value=>value.id==='editkin')!.guide!.status,/尚無.*官方安裝包/);
+  assert.match(communityCatalog.skill_books.find(value=>value.id==='editkin')!.guide!.status,/無法輸出影片[\s\S]*尚無.*官方安裝包/);
   assert.equal(communityCatalog.skill_books.find(value=>value.id==='freedom-party-guild-lounge')!.license_status,'NOASSERTION');
 });
 
@@ -48,7 +48,9 @@ test('eight community works credit original authors and use the actual upstream 
   const status=(id:string)=>communityCatalog.skill_books.find(book=>book.id===id)!.guide!.status;
   assert.match(status('bidding-radar-concept'),/沒有可安裝程式/);
   assert.match(status('ai-avatar-bot'),/Haru.*專有授權/);
-  assert.match(status('aiwff-runtime'),/mock.*免費.*Claude.*費用/);
+  assert.match(status('aiwff-runtime'),/mock.*不需 API key/);
+  assert.match(status('aiwff-runtime'),/沒有檔案工具/);
+  assert.match(status('aiwff-runtime'),/登入連結/);
   assert.match(status('line-persona'),/LINE 訊息仍經 LINE 服務/);
   assert.match(status('anti-gambling-trader-tw'),/不保證獲利.*PaperBroker/);
 });

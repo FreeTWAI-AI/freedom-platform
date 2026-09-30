@@ -689,21 +689,21 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     "first_result": "一份可重跑的 Shorts 判定結果與你修改門檻的說明。",
     "contribution": "參與自由工坊的影片共創任務，補可重現素材、測試或剪輯說明。",
     "contribution_url": "https://github.com/FreeTWAI-AI/video-autopilot-kit/issues",
-    "reading_url": "https://github.com/Hao0321/video-autopilot-kit/blob/eebd50eb878c29163d6848fcd0d15e8f2124a9d8/README.md",
-    "source_commit": "eebd50eb878c29163d6848fcd0d15e8f2124a9d8",
-    "reviewed_at": "2026-09-27",
+    "reading_url": "https://github.com/Hao0321/video-autopilot-kit/blob/b449e7a57076cbc66db77ccbf2d3978f492af7dc/README.md",
+    "source_commit": "b449e7a57076cbc66db77ccbf2d3978f492af7dc",
+    "reviewed_at": "2026-09-30",
     "source_evidence": [
       {
         "path": "README.md",
-        "url": "https://github.com/Hao0321/video-autopilot-kit/blob/eebd50eb878c29163d6848fcd0d15e8f2124a9d8/README.md"
+        "url": "https://github.com/Hao0321/video-autopilot-kit/blob/b449e7a57076cbc66db77ccbf2d3978f492af7dc/README.md"
       },
       {
         "path": "examples/README.md",
-        "url": "https://github.com/Hao0321/video-autopilot-kit/blob/eebd50eb878c29163d6848fcd0d15e8f2124a9d8/examples/README.md"
+        "url": "https://github.com/Hao0321/video-autopilot-kit/blob/b449e7a57076cbc66db77ccbf2d3978f492af7dc/examples/README.md"
       },
       {
         "path": "examples/04_shorts_gate.py",
-        "url": "https://github.com/Hao0321/video-autopilot-kit/blob/eebd50eb878c29163d6848fcd0d15e8f2124a9d8/examples/04_shorts_gate.py"
+        "url": "https://github.com/Hao0321/video-autopilot-kit/blob/b449e7a57076cbc66db77ccbf2d3978f492af7dc/examples/04_shorts_gate.py"
       }
     ],
     "quickstart": {
@@ -946,17 +946,17 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     "first_result": "一份可重開的 HTML 安全報告；有待修問題時，再附一項修正前後比較。",
     "contribution": "提交去識別的重現步驟、輸出解析或報告體驗問題；敏感發現依來源安全政策處理。",
     "contribution_url": "https://github.com/FreeTWAI-AI/ai-security-scanner/issues",
-    "reading_url": "https://github.com/teddashh/ai-security-scanner/blob/b993a6b421e4280a1d4ddbb160943a558394b366/README.zh-TW.md",
-    "source_commit": "b993a6b421e4280a1d4ddbb160943a558394b366",
-    "reviewed_at": "2026-09-27",
+    "reading_url": "https://github.com/teddashh/ai-security-scanner/blob/e0e69ba01ec16367982bb28fac08c53749618250/README.zh-TW.md",
+    "source_commit": "e0e69ba01ec16367982bb28fac08c53749618250",
+    "reviewed_at": "2026-09-30",
     "source_evidence": [
       {
         "path": "README.zh-TW.md",
-        "url": "https://github.com/teddashh/ai-security-scanner/blob/b993a6b421e4280a1d4ddbb160943a558394b366/README.zh-TW.md"
+        "url": "https://github.com/teddashh/ai-security-scanner/blob/e0e69ba01ec16367982bb28fac08c53749618250/README.zh-TW.md"
       },
       {
         "path": "package.json",
-        "url": "https://github.com/teddashh/ai-security-scanner/blob/b993a6b421e4280a1d4ddbb160943a558394b366/package.json"
+        "url": "https://github.com/teddashh/ai-security-scanner/blob/e0e69ba01ec16367982bb28fac08c53749618250/package.json"
       }
     ],
     "beginner": {
@@ -1095,17 +1095,17 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     "first_result": "一份跨 AI 的回答比較與人工選擇理由。",
     "contribution": "提供瀏覽器與 provider 版本、去識別重現步驟，改善連線與回覆可靠性。",
     "contribution_url": "https://github.com/FreeTWAI-AI/multi-ai-chat/issues",
-    "reading_url": "https://github.com/teddashh/multi-ai-chat/blob/c7162a69e80094671541d894d068e4ac39b6cc5a/README.zh-TW.md",
-    "source_commit": "c7162a69e80094671541d894d068e4ac39b6cc5a",
-    "reviewed_at": "2026-09-27",
+    "reading_url": "https://github.com/teddashh/multi-ai-chat/blob/3ebca72b35986a0f5c8772b12a74f826d4ddafe9/README.zh-TW.md",
+    "source_commit": "3ebca72b35986a0f5c8772b12a74f826d4ddafe9",
+    "reviewed_at": "2026-09-30",
     "source_evidence": [
       {
         "path": "README.zh-TW.md",
-        "url": "https://github.com/teddashh/multi-ai-chat/blob/c7162a69e80094671541d894d068e4ac39b6cc5a/README.zh-TW.md"
+        "url": "https://github.com/teddashh/multi-ai-chat/blob/3ebca72b35986a0f5c8772b12a74f826d4ddafe9/README.zh-TW.md"
       },
       {
         "path": "package.json",
-        "url": "https://github.com/teddashh/multi-ai-chat/blob/c7162a69e80094671541d894d068e4ac39b6cc5a/package.json"
+        "url": "https://github.com/teddashh/multi-ai-chat/blob/3ebca72b35986a0f5c8772b12a74f826d4ddafe9/package.json"
       }
     ],
     "quickstart": {

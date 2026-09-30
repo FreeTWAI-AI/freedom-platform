@@ -33,6 +33,8 @@ test('all books default contributions to their original source and keep workshop
  assert.equal(getSkillCollaboration('career-guide')?.contribution.name,'FreeTWAI-AI/freedom-skill-career-guide');
  assert.equal(getSkillCollaboration('unknown'),null);assert.equal(skillAgentMarkdown('unknown'),null);
  const video=getSkillCollaboration('video-autopilot')!;
+ const videoBook=communityCatalog.skill_books.find(value=>value.id==='video-autopilot')!;
+ assert.ok(video.read_first.some(source=>source.url===videoBook.upstream_url+'/blob/'+videoBook.source_commit+'/README.md'));
  assert.equal(video.tasks.length,5);assert.ok(video.tasks.every(task=>task.status==='github_issue'&&task.source_url?.startsWith(video.repository.url+'/issues/')));
  assert.ok(video.boundaries.some(value=>value.includes('Editkin v4')));
  assert.ok(video.milestones.every(milestone=>milestone.status==='proposed'));

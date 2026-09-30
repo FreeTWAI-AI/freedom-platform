@@ -2557,7 +2557,7 @@ const communityCatalogBase = {
       "fork_url": "https://github.com/FreeTWAI-AI/video-autopilot-kit/fork",
       "license_status": "MIT",
       "upstream_url": "https://github.com/Hao0321/video-autopilot-kit",
-      "source_commit": "eebd50eb878c29163d6848fcd0d15e8f2124a9d8",
+      "source_commit": "b449e7a57076cbc66db77ccbf2d3978f492af7dc",
       "introduction_url": null
     },
     {
@@ -2581,7 +2581,7 @@ const communityCatalogBase = {
       "fork_url": "https://github.com/FreeTWAI-AI/ai-security-scanner/fork",
       "license_status": "Apache-2.0",
       "upstream_url": "https://github.com/teddashh/ai-security-scanner",
-      "source_commit": "b993a6b421e4280a1d4ddbb160943a558394b366",
+      "source_commit": "e0e69ba01ec16367982bb28fac08c53749618250",
       "introduction_url": "https://teddashh.github.io/ai-security-scanner/"
     },
     {
@@ -2617,7 +2617,7 @@ const communityCatalogBase = {
       "fork_url": "https://github.com/FreeTWAI-AI/multi-ai-chat/fork",
       "license_status": "MIT",
       "upstream_url": "https://github.com/teddashh/multi-ai-chat",
-      "source_commit": "c7162a69e80094671541d894d068e4ac39b6cc5a",
+      "source_commit": "3ebca72b35986a0f5c8772b12a74f826d4ddafe9",
       "introduction_url": "https://teddashh.github.io/multi-ai-chat/"
     }
   ],
@@ -2772,7 +2772,7 @@ const communityCatalogBase = {
       "fork_url": "https://github.com/FreeTWAI-AI/video-autopilot-kit/fork",
       "license_status": "MIT",
       "upstream_url": "https://github.com/Hao0321/video-autopilot-kit",
-      "source_commit": "eebd50eb878c29163d6848fcd0d15e8f2124a9d8",
+      "source_commit": "b449e7a57076cbc66db77ccbf2d3978f492af7dc",
       "introduction_url": null
     },
     {
@@ -2832,7 +2832,7 @@ const communityCatalogBase = {
       "fork_url": "https://github.com/FreeTWAI-AI/ai-security-scanner/fork",
       "license_status": "Apache-2.0",
       "upstream_url": "https://github.com/teddashh/ai-security-scanner",
-      "source_commit": "b993a6b421e4280a1d4ddbb160943a558394b366",
+      "source_commit": "e0e69ba01ec16367982bb28fac08c53749618250",
       "introduction_url": "https://teddashh.github.io/ai-security-scanner/"
     },
     {
@@ -2868,7 +2868,7 @@ const communityCatalogBase = {
       "fork_url": "https://github.com/FreeTWAI-AI/multi-ai-chat/fork",
       "license_status": "MIT",
       "upstream_url": "https://github.com/teddashh/multi-ai-chat",
-      "source_commit": "c7162a69e80094671541d894d068e4ac39b6cc5a",
+      "source_commit": "3ebca72b35986a0f5c8772b12a74f826d4ddafe9",
       "introduction_url": "https://teddashh.github.io/multi-ai-chat/"
     },
     {

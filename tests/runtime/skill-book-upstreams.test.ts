@@ -18,7 +18,30 @@ test('drift check follows original upstream rather than a newer FreeTWAI-AI fork
   });
   assert.deepEqual(requested,['https://api.github.com/repos/Hao0321/claude-skill-social-post/commits?per_page=1']);
   assert.equal(checks[0].latest,latest);
-  assert.match(formatSkillBookUpstreamReport(checks),new RegExp(`/compare/${book.source_commit}\\.\\.\\.${latest}`));
+  const report=formatSkillBookUpstreamReport(checks);
+  assert.match(report,/1 checked; 1 changed; 0 errors/);
+  assert.match(report,new RegExp(`/compare/${book.source_commit}\\.\\.\\.${latest}`));
+});
+
+test('an unchanged pin is reported as in sync and does not list a compare link',async()=>{
+  const book=communityCatalog.skill_books.find(book=>book.id==='career-guide')!;
+  const checks=await checkSkillBookUpstreams([book],async()=>Response.json([{sha:book.source_commit}]));
+  assert.equal(checks[0].latest,book.source_commit);
+  assert.equal(checks[0].error,undefined);
+  const report=formatSkillBookUpstreamReport(checks);
+  assert.match(report,/1 checked; 0 changed; 0 errors/);
+  assert.match(report,/All catalog pins match their upstream default branches/);
+  assert.doesNotMatch(report,/review diff/);
+});
+
+test('upstream http failures and rate limits stay in the error section',async()=>{
+  const book=communityCatalog.skill_books.find(book=>book.id==='career-guide')!;
+  for(const status of [500,403,429]){
+    const checks=await checkSkillBookUpstreams([book],async()=>new Response('limited',{status}));
+    assert.equal(checks[0].latest,undefined);
+    assert.match(checks[0].error??'',new RegExp(`HTTP ${status}`));
+    assert.match(formatSkillBookUpstreamReport(checks),new RegExp(`1 checked; 0 changed; 1 errors[\\s\\S]*HTTP ${status}`));
+  }
 });
 
 test('a mismatched guide pin is reported before any upstream request',async()=>{

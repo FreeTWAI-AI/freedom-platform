@@ -1,5 +1,7 @@
 # Skill-book upstream sync — 2026-09-27
 
+The next review is [2026-09-30](./skill-book-upstream-sync-2026-09-30.md). This page records the 2026-09-27 pins only.
+
 ## Source of the catalog
 
 The production-facing official catalog is `communityCatalog.skill_books` in `modules/community/catalog.ts`. Its effective `source_commit` is either declared there or inherited from `modules/community/skill-book-guides.ts`. Two community-authored entries are pinned in `modules/community/community-author-skills.ts`. `repositories.lock.json` pins cross-repository test consumers, not the 37 skill books. The `freedom-skill-registry` package declaration list is empty and does not hold these pins.
