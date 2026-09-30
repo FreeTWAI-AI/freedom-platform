@@ -58,12 +58,19 @@
   // Not inherited: repeated per environment. Without it only image uploads answer 503.
   // Local development uses Wrangler's low-fidelity sharp mock, not Cloudflare's service.
   "images": { "binding": "IMAGES" },
+  // GitHub history is stored by the scheduled handler every 10 minutes, at most
+  // 40 GitHub requests per run. triggers is inherited; it is restated on each
+  // environment so an overlay that replaces the env block cannot drop the only
+  // schedule. Apply migration 054 before this cron runs.
+  "triggers": { "crons": ["*/10 * * * *"] },
   "vars": { "FREEDOM_ENV": "local", "APP_ORIGIN": "http://127.0.0.1:8787" },
   "env": {
     "staging-next": {
       "name": "freedom-platform-staging-next",
       "workers_dev": false,
       "preview_urls": false,
+      // triggers is inherited; restated so an overlay that replaces this env block cannot drop the only schedule.
+      "triggers": { "crons": ["*/10 * * * *"] },
       // Staging zone route only. Not a custom domain. staging-next.freetwai.com was removed.
       "routes": [{ "pattern": "staging.freetwai.com/*", "zone_name": "freetwai.com" }],
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
@@ -80,6 +87,8 @@
       "name": "freedom-platform-next",
       "workers_dev": false,
       "preview_urls": false,
+      // triggers is inherited; restated so an overlay that replaces this env block cannot drop the only schedule.
+      "triggers": { "crons": ["*/10 * * * *"] },
       // Production zone route only. Not a custom domain. next.freetwai.com was removed.
       "routes": [{ "pattern": "freetwai.com/*", "zone_name": "freetwai.com" }],
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],

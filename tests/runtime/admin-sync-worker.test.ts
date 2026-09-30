@@ -247,7 +247,8 @@ test('the admin-sync wrangler file is cron-only, placeholder-only, and separate 
   const platform = readFileSync('wrangler.jsonc', 'utf8');
   assert.match(text, /"main": "apps\/platform-api\/src\/admin-sync-worker.ts"/);
   assert.match(platform, /"main": "apps\/platform-api\/src\/worker.ts"/);
-  assert.equal(platform.includes('"crons"'), false);
+  assert.equal((platform.match(/"crons": \["\*\/10 \* \* \* \*"\]/g) ?? []).length, 3);
+  assert.equal(platform.includes('"crons": ["* * * * *"]'), false);
   assert.equal(text.includes('"routes"'), false);
   assert.equal(text.includes('"assets"'), false);
   assert.equal(text.includes('"images"'), false);
