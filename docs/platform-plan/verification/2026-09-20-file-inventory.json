@@ -3904,8 +3904,8 @@
     },
     {
       "path": "tests/e2e/repo-author-claims.spec.ts",
-      "bytes": 6886,
-      "sha256": "2a347bdddb658d435befb2d6074e1c02180f0518951a22c64b4c5f6215517d86"
+      "bytes": 7133,
+      "sha256": "f46088067ec8f9752f4e4b212ef21f4ffb7874e4eda73eed0bda5433ac1ff332"
     },
     {
       "path": "tests/e2e/skill-book-library.spec.ts",
