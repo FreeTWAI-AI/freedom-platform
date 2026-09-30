@@ -44,7 +44,7 @@ export type GitHubRead = {
 
 const githubHeaders = {'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'Freedom-Platform-public-registry'};
 
-/** Header-aware GitHub GET. Does not follow redirects. HTTP error statuses are returned, not thrown. */
+/** Header-aware GitHub GET. Does not follow redirects. HTTP statuses, including 3xx other than 304, are returned. An opaque redirect is rejected. */
 export async function readGitHub(path:string,signal:AbortSignal,fetcher:typeof fetch,maxBytes=4194304,token?:string,ifNoneMatch?:string):Promise<GitHubRead> {
   let response:Response;
   try {
@@ -56,7 +56,11 @@ export async function readGitHub(path:string,signal:AbortSignal,fetcher:typeof f
     rateRemaining: response.headers.get('x-ratelimit-remaining'),
     rateReset: response.headers.get('x-ratelimit-reset'),
   };
-  if (response.type==='opaqueredirect'||(response.status>=300&&response.status<400&&response.status!==304)) {
+  if (response.status>=300&&response.status<400&&response.status!==304) {
+    try { await response.body?.cancel(); } catch { /* The status is already final. */ }
+    return {status:response.status,...meta,body:null};
+  }
+  if (response.type==='opaqueredirect') {
     try { await response.body?.cancel(); } catch { /* The status is already final. */ }
     throw new Problem(503,'github_unavailable','暫時無法讀取 GitHub，已保留原本資料。請稍後重新嘗試。');
   }

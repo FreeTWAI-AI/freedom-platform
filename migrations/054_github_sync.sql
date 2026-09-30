@@ -33,8 +33,8 @@ CREATE TABLE github_items (
 CREATE INDEX github_items_repository_created ON github_items (repository_key, kind, created_at DESC, number DESC);
 CREATE INDEX github_items_leaderboard ON github_items (repository_key, kind, author_login);
 
--- One row. A rate-limited run stops every repository until until_at.
+-- One row per credential. Anonymous and token calls have separate GitHub limits.
 CREATE TABLE github_sync_backoff (
-  backoff_key text PRIMARY KEY CHECK (backoff_key = 'github'),
+  backoff_key text PRIMARY KEY CHECK (backoff_key IN ('anonymous', 'token')),
   until_at timestamptz NOT NULL
 );

@@ -49,6 +49,21 @@ async function repoRow(key: string) {
 function near(actual: Date | string, expected: number) {
   assert.ok(Math.abs(new Date(actual).getTime() - expected) < 2000, `${new Date(actual).toISOString()} vs ${new Date(expected).toISOString()}`);
 }
+function requestedRepository(input: RequestInfo | URL) {
+  const parts = new URL(String(input)).pathname.split('/');
+  return `${decodeURIComponent(parts[2] ?? '').toLowerCase()}/${decodeURIComponent(parts[3] ?? '').toLowerCase()}`;
+}
+async function dueAt(entries: [string, number][]) {
+  await pool.query('UPDATE github_sync_repositories SET next_sync_at=$1', [FAR]);
+  for (const [key, at] of entries) await pool.query('UPDATE github_sync_repositories SET next_sync_at=$1 WHERE repository_key=$2', [new Date(at), key]);
+}
+function distinctOwners() {
+  const orgs = keys.filter(key => key.startsWith('freetwai-ai/'));
+  const personal = keys.find(key => !key.startsWith('freetwai-ai/'));
+  assert.ok(orgs.length >= 3);
+  assert.ok(personal);
+  return {org: orgs[0], otherOrg: orgs[1], laterOrg: orgs[2], personal};
+}
 
 let keys: string[] = [];
 
@@ -198,7 +213,7 @@ test('404 marks the repository unreadable without deleting items, and a later sy
   assert.equal(recovered.last_error, null);
 });
 
-test('a rate limit stores one global backoff and stops the run', async () => {
+test('a rate limit stores an anonymous backoff and stops the run when no token is set', async () => {
   await pool.query('DELETE FROM github_sync_backoff');
   const first = keys[0];
   const second = keys[1];
@@ -216,7 +231,7 @@ test('a rate limit stores one global backoff and stops the run', async () => {
   assert.equal(stopped.stop_reason, 'rate_limited');
   assert.equal(stopped.requests, 1);
   assert.equal(urls.length, 1);
-  const until = (await pool.query('SELECT until_at FROM github_sync_backoff WHERE backoff_key=$1', ['github'])).rows[0].until_at;
+  const until = (await pool.query('SELECT until_at FROM github_sync_backoff WHERE backoff_key=$1', ['anonymous'])).rows[0].until_at;
   near(until, clock.ms + 30 * 60 * 1000);
   const blocked = await syncGitHubRepositories(pool, {fetcher, now: () => clock.ms + 1000});
   assert.equal(blocked.requests, 0);
@@ -229,7 +244,7 @@ test('a rate limit stores one global backoff and stops the run', async () => {
   assert.equal(resumed.stop_reason, 'completed');
 });
 
-test('rate-limit delay uses retry headers, caps at one hour, and treats a drained 403 as global', async () => {
+test('rate-limit delay uses retry headers, caps at one hour, and a drained 403 backs off that credential', async () => {
   await pool.query('DELETE FROM github_sync_backoff');
   const clock = {ms: T0};
   await only([PLATFORM], clock.ms);
@@ -252,7 +267,9 @@ test('rate-limit delay uses retry headers, caps at one hour, and treats a draine
   });
   assert.equal(stopped.stop_reason, 'rate_limited');
   assert.equal(urls.length, 1);
-  near((await pool.query('SELECT until_at FROM github_sync_backoff')).rows[0].until_at, clock.ms + 120 * 1000);
+  const drained = (await pool.query('SELECT backoff_key, until_at FROM github_sync_backoff')).rows;
+  assert.deepEqual(drained.map(row => row.backoff_key), ['anonymous']);
+  near(drained[0].until_at, clock.ms + 120 * 1000);
 });
 
 test('a rejected token is retried once without the token and then left unused', async () => {
@@ -429,4 +446,290 @@ test('overlapping runs do not process the same repository twice', async () => {
   const done = await pending;
   assert.equal(done[0].requests + done[1].requests, 2);
   assert.equal(done[0].repositories + done[1].repositories, 2);
+});
+
+test('a lease skips a concurrent claim and a crashed claim waits fifteen minutes', async () => {
+  await pool.query('DELETE FROM github_sync_backoff');
+  await resetRepo(PLATFORM);
+  await only([PLATFORM], T0);
+  let release = () => {};
+  let first: Promise<unknown> = Promise.resolve();
+  try {
+    let started!: () => void;
+    const startedOnce = new Promise<void>(resolve => { started = resolve; });
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    first = syncGitHubRepositories(pool, {
+      now: () => T0,
+      fetcher: async () => {
+        started();
+        await gate;
+        return json([item(1, '2026-09-08T00:00:00.000Z')]);
+      },
+    });
+    await Promise.race([startedOnce, new Promise((_, reject) => setTimeout(() => reject(new Error('lease did not start')), 8000))]);
+    assert.equal(new Date((await repoRow(PLATFORM)).next_sync_at).getTime(), T0 + 15 * 60 * 1000);
+    const concurrent = await syncGitHubRepositories(pool, {
+      now: () => T0 + 1000,
+      fetcher: async () => { throw new Error('concurrent claim must skip'); },
+    });
+    assert.equal(concurrent.requests, 0);
+    assert.equal(concurrent.repositories, 0);
+    const tooEarly = await syncGitHubRepositories(pool, {
+      now: () => T0 + 15 * 60 * 1000 - 1000,
+      fetcher: async () => { throw new Error('lease must not expire early'); },
+    });
+    assert.equal(tooEarly.requests, 0);
+    const expired = await syncGitHubRepositories(pool, {
+      now: () => T0 + 15 * 60 * 1000,
+      fetcher: async () => json([]),
+    });
+    assert.equal(expired.requests, 1);
+    assert.equal(expired.repositories, 1);
+    assert.equal(expired.stop_reason, 'completed');
+  } finally {
+    release();
+    await first;
+  }
+});
+
+test('a rejected organization token is not sent to that owner while another owner still uses it', async () => {
+  await pool.query('DELETE FROM github_sync_backoff');
+  const {org, otherOrg, personal} = distinctOwners();
+  await resetRepo(org);
+  await resetRepo(otherOrg);
+  await resetRepo(personal);
+  await dueAt([[org, T0 - 3000], [otherOrg, T0 - 2000], [personal, T0 - 1000]]);
+  const warnings: string[] = [];
+  const original = console.warn;
+  console.warn = (...args: unknown[]) => { warnings.push(args.map(String).join(' ')); };
+  const seen: {key: string; auth: string | null}[] = [];
+  try {
+    const summary = await syncGitHubRepositories(pool, {
+      token: SECRET,
+      now: () => T0,
+      fetcher: async (input, init) => {
+        const key = requestedRepository(input);
+        const auth = header(init, 'authorization');
+        seen.push({key, auth});
+        if (key === org && auth) return json({message: 'blocked by organization policy'}, 403);
+        if (key === org || key === otherOrg) {
+          assert.equal(auth, null);
+          return json([]);
+        }
+        assert.equal(key, personal);
+        assert.equal(auth, `Bearer ${SECRET}`);
+        return json([item(1, '2026-09-10T00:00:00.000Z')]);
+      },
+    });
+    assert.equal(summary.requests, 4);
+    assert.equal(summary.stop_reason, 'completed');
+    assert.deepEqual(seen.map(call => call.key), [org, org, otherOrg, personal]);
+    assert.equal(seen[0].auth, `Bearer ${SECRET}`);
+    assert.equal(seen[2].auth, null);
+    assert.equal(seen[3].auth, `Bearer ${SECRET}`);
+    assert.equal(warnings.length, 1);
+    assert.equal(warnings.join(' ').includes(SECRET), false);
+    assert.match(warnings[0], /github_sync_token_rejected/);
+    assert.match(warnings[0], /freetwai-ai/);
+    assert.equal((await repoRow(org)).access_status, 'ok');
+    assert.equal((await repoRow(personal)).access_status, 'ok');
+  } finally {
+    console.warn = original;
+  }
+});
+
+test('a 401 disables the token for every owner in the run', async () => {
+  await pool.query('DELETE FROM github_sync_backoff');
+  const {org, otherOrg, personal} = distinctOwners();
+  await dueAt([[org, T0 - 3000], [personal, T0 - 2000], [otherOrg, T0 - 1000]]);
+  const warnings: string[] = [];
+  const original = console.warn;
+  console.warn = (...args: unknown[]) => { warnings.push(args.map(String).join(' ')); };
+  const seen: {key: string; auth: string | null}[] = [];
+  try {
+    const summary = await syncGitHubRepositories(pool, {
+      token: SECRET,
+      now: () => T0,
+      fetcher: async (input, init) => {
+        const auth = header(init, 'authorization');
+        seen.push({key: requestedRepository(input), auth});
+        if (auth) return json({message: 'Bad credentials'}, 401);
+        return json([]);
+      },
+    });
+    assert.equal(summary.requests, 4);
+    assert.deepEqual(seen.map(call => [call.key, call.auth]), [
+      [org, `Bearer ${SECRET}`],
+      [org, null],
+      [personal, null],
+      [otherOrg, null],
+    ]);
+    assert.equal(warnings.length, 1);
+    assert.equal(warnings.join(' ').includes(SECRET), false);
+    assert.match(warnings[0], /github_sync_token_rejected/);
+  } finally {
+    console.warn = original;
+  }
+});
+
+test('an anonymous rate limit skips anonymous repositories while token repositories continue', async () => {
+  await pool.query('DELETE FROM github_sync_backoff');
+  const {org, otherOrg, laterOrg, personal} = distinctOwners();
+  await resetRepo(org);
+  await resetRepo(personal);
+  await dueAt([[org, T0 - 4000], [otherOrg, T0 - 3000], [personal, T0 - 2000], [laterOrg, T0 - 1000]]);
+  const warnings: string[] = [];
+  const original = console.warn;
+  console.warn = (...args: unknown[]) => { warnings.push(args.map(String).join(' ')); };
+  const seen: {key: string; auth: string | null}[] = [];
+  try {
+    const summary = await syncGitHubRepositories(pool, {
+      token: SECRET,
+      now: () => T0,
+      fetcher: async (input, init) => {
+        const key = requestedRepository(input);
+        const auth = header(init, 'authorization');
+        seen.push({key, auth});
+        if (key === org && auth) return json({message: 'blocked by organization policy'}, 403);
+        if (key === org) return json({message: 'rate limit exceeded'}, 429);
+        assert.equal(key, personal);
+        assert.equal(auth, `Bearer ${SECRET}`);
+        return json([]);
+      },
+    });
+    assert.equal(summary.stop_reason, 'rate_limited');
+    assert.equal(summary.requests, 3);
+    assert.deepEqual(seen.map(call => call.key), [org, org, personal]);
+    assert.equal(seen[2].auth, `Bearer ${SECRET}`);
+    assert.equal(warnings.join(' ').includes(SECRET), false);
+    const backoff = (await pool.query('SELECT backoff_key, until_at FROM github_sync_backoff ORDER BY backoff_key')).rows;
+    assert.deepEqual(backoff.map(row => row.backoff_key), ['anonymous']);
+    near(backoff[0].until_at, T0 + 15 * 60 * 1000);
+    assert.equal(new Date((await repoRow(org)).next_sync_at).getTime(), T0);
+    assert.equal((await repoRow(org)).access_status, 'pending');
+    assert.equal(new Date((await repoRow(otherOrg)).next_sync_at).getTime(), T0);
+    assert.equal(seen.some(call => call.key === otherOrg), false);
+    near((await repoRow(personal)).next_sync_at, T0 + 10 * 60 * 1000);
+    assert.equal(new Date((await repoRow(laterOrg)).next_sync_at).getTime(), T0 - 1000);
+  } finally {
+    console.warn = original;
+  }
+  await pool.query('DELETE FROM github_sync_backoff');
+  const first = keys[0];
+  const second = keys[1];
+  await only([first, second], T0);
+  const urls: string[] = [];
+  const stopped = await syncGitHubRepositories(pool, {
+    now: () => T0,
+    fetcher: async input => {
+      urls.push(String(input));
+      return json({message: 'slow'}, 429);
+    },
+  });
+  assert.equal(stopped.stop_reason, 'rate_limited');
+  assert.equal(stopped.requests, 1);
+  assert.equal(urls.length, 1);
+  assert.ok(new Date((await repoRow(first)).next_sync_at).getTime() <= T0);
+  const blocked = await syncGitHubRepositories(pool, {
+    now: () => T0 + 1000,
+    fetcher: async () => { urls.push('again'); return json([]); },
+  });
+  assert.equal(blocked.requests, 0);
+  assert.equal(blocked.stop_reason, 'rate_limited');
+  assert.equal(urls.length, 1);
+});
+
+test('a repository removed from the tracked set keeps its items and is not requested', async () => {
+  await pool.query('DELETE FROM github_sync_backoff');
+  const ghost = 'ghost-owner/ghost-repo';
+  await pool.query('DELETE FROM github_items WHERE repository_key=$1', [ghost]);
+  await pool.query('DELETE FROM github_sync_repositories WHERE repository_key=$1', [ghost]);
+  await pool.query(`INSERT INTO github_sync_repositories(repository_key, repository, next_sync_at) VALUES ($1, $1, $2)`, [ghost, new Date(T0 - 5000)]);
+  await pool.query(`INSERT INTO github_items(repository_key, number, kind, title, author_login, state, created_at, updated_at)
+    VALUES ($1, 1, 'issue', 'kept', 'maker', 'open', '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')`, [ghost]);
+  await only([PLATFORM], T0);
+  await pool.query('UPDATE github_sync_repositories SET next_sync_at=$1 WHERE repository_key=$2', [new Date(T0 - 5000), ghost]);
+  const urls: string[] = [];
+  const summary = await syncGitHubRepositories(pool, {
+    now: () => T0,
+    fetcher: async input => {
+      urls.push(String(input));
+      return json([]);
+    },
+  });
+  assert.equal(summary.requests, 1);
+  assert.equal(urls.some(url => url.toLowerCase().includes('ghost-repo')), false);
+  assert.equal(requestedRepository(urls[0]), PLATFORM);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM github_items WHERE repository_key=$1', [ghost])).rows[0].n, 1);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM github_sync_repositories WHERE repository_key=$1', [ghost])).rows[0].n, 1);
+  await pool.query('DELETE FROM github_items WHERE repository_key=$1', [ghost]);
+  await pool.query('DELETE FROM github_sync_repositories WHERE repository_key=$1', [ghost]);
+});
+
+test('a 301 records github_moved and retries after six hours without changing stored items', async () => {
+  await pool.query('DELETE FROM github_sync_backoff');
+  await resetRepo(PLATFORM);
+  await only([PLATFORM], T0);
+  await syncGitHubRepositories(pool, {
+    now: () => T0,
+    fetcher: async () => json([item(9, '2026-09-09T00:00:00.000Z')], 200, {etag: 'W/"stay"'}),
+  });
+  const before = await repoRow(PLATFORM);
+  const movedAt = T0 + 11 * 60 * 1000;
+  await only([PLATFORM], movedAt);
+  let calls = 0;
+  const summary = await syncGitHubRepositories(pool, {
+    now: () => movedAt,
+    fetcher: async () => {
+      calls += 1;
+      return new Response(null, {status: 301, headers: {location: 'https://api.github.com/repositories/1'}});
+    },
+  });
+  assert.equal(calls, 1);
+  assert.equal(summary.requests, 1);
+  assert.equal(summary.stop_reason, 'completed');
+  const after = await repoRow(PLATFORM);
+  assert.equal(after.last_error, 'github_moved');
+  assert.equal(after.access_status, 'ok');
+  assert.equal(after.backfilled, true);
+  assert.equal(new Date(after.since).toISOString(), new Date(before.since).toISOString());
+  assert.equal(after.etag, 'W/"stay"');
+  near(after.next_sync_at, movedAt + 6 * 60 * 60 * 1000);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM github_items WHERE repository_key=$1', [PLATFORM])).rows[0].n, 1);
+  const skipped = await syncGitHubRepositories(pool, {
+    now: () => movedAt + 60 * 60 * 1000,
+    fetcher: async () => { throw new Error('moved repository must wait'); },
+  });
+  assert.equal(skipped.requests, 0);
+});
+
+test('a 403 whose body mentions a rate limit backs off without rate-limit headers', async () => {
+  await pool.query('DELETE FROM github_sync_backoff');
+  await resetRepo(PLATFORM);
+  await only([PLATFORM], T0);
+  const warnings: string[] = [];
+  const original = console.warn;
+  console.warn = (...args: unknown[]) => { warnings.push(args.map(String).join(' ')); };
+  try {
+    const summary = await syncGitHubRepositories(pool, {
+      token: SECRET,
+      now: () => T0,
+      fetcher: async (_input, init) => {
+        assert.equal(header(init, 'authorization'), `Bearer ${SECRET}`);
+        return new Response('You have exceeded a secondary Rate Limit. Please wait.', {status: 403});
+      },
+    });
+    assert.equal(summary.requests, 1);
+    assert.equal(summary.stop_reason, 'rate_limited');
+    assert.equal(warnings.length, 0);
+    const rows = (await pool.query('SELECT backoff_key, until_at FROM github_sync_backoff ORDER BY backoff_key')).rows;
+    assert.deepEqual(rows.map(row => row.backoff_key), ['token']);
+    near(rows[0].until_at, T0 + 15 * 60 * 1000);
+    const repo = await repoRow(PLATFORM);
+    assert.equal(repo.access_status, 'pending');
+    assert.equal(repo.last_error, null);
+    assert.ok(new Date(repo.next_sync_at).getTime() <= T0);
+  } finally {
+    console.warn = original;
+  }
 });
