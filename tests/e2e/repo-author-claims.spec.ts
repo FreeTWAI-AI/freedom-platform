@@ -8,14 +8,15 @@ import {E2E_AUTHOR_CLAIM_ADMIN_EMAIL, E2E_AUTHOR_CLAIM_ADMIN_TOKEN} from '../../
 const STATEMENT = '我是這份影片工具包的原創作者，請核對 GitHub 歷史。';
 const EVIDENCE = 'https://github.com/Hao0321/video-autopilot-kit';
 
-/** A fresh schema has no unlocked books, so the search box only appears on the locked shelf. */
+/** A fresh schema has no unlocked books, so the search box appears only after the locked shelf. A member who already has unlocked books sees the search box and the 未解鎖 toggle together. */
 async function videoCard(page: Page) {
   await navigate(page, '技能書架');
   const library = page.locator('.community-library');
   const search = page.getByLabel('搜尋技能書', {exact: true});
   const locked = page.getByRole('button', {name: '未解鎖', exact: true});
   const preview = page.getByRole('button', {name: '免費預覽技能書', exact: true});
-  await expect(search.or(locked).or(preview)).toBeVisible();
+  // One of these three is the shelf entry. More than one can be visible at once, so match a single visible element.
+  await expect(search.or(locked).or(preview).filter({visible: true}).first()).toBeVisible();
   if (!(await search.isVisible())) {
     if (await preview.isVisible()) await preview.click();
     else await locked.click();
