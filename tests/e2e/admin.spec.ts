@@ -19,6 +19,43 @@ test('admin entry never grants access through a member login or onboarding',asyn
   await expect(page.getByRole('button',{name:'會員管理',exact:true})).toHaveCount(0);
 });
 
+test('admin member toggle reveals classified test accounts without changing summary totals',async({page})=>{
+ const queries:string[]=[];
+ await page.route('**/admin/api/**',route=>{
+  const url=new URL(route.request().url());
+  if(url.pathname.endsWith('/bootstrap'))return route.fulfill({json:{admin:{admin_id:'fixture-admin',community_id:'fixture-community',email:'admin@example.test',display_name:'管理員',role:'super_admin'},csrf_token:'fixture-csrf',summary:{members:1,active_members:1,pending_guild_applications:0,guilds:1,admins:1},available_skill_books:[],pending_guild_appointments:[]}});
+  if(url.pathname.endsWith('/members')){
+   queries.push(url.searchParams.get('include_test')??'');
+   return route.fulfill({json:{items:url.searchParams.get('include_test')==='true'?[{user_id:'fixture-test',email:'verifier@example.invalid',display_name:'Synthetic verifier',active:false,is_test_account:true,onboarding_required:false,onboarding_completed_at:null,aggregate_version:1,guilds:[]}]:[],next_offset:null}});
+  }
+  return route.fulfill({json:{items:[]}});
+ });
+ await page.goto('/admin');
+ await expect(page.getByRole('heading',{name:'會員管理',exact:true})).toBeVisible();
+ await page.getByText('平台概況',{exact:true}).click();
+ const memberTotal=page.locator('.admin-summary > div').filter({has:page.getByText('會員',{exact:true})}).locator('dd');
+ await expect(memberTotal).toHaveText('1');
+ await expect(page.getByText('Synthetic verifier')).toHaveCount(0);
+ await page.getByRole('checkbox',{name:'顯示測試資料'}).check();
+ await expect(page.getByText('Synthetic verifier')).toBeVisible();
+ await expect(page.getByText('測試帳號')).toBeVisible();
+ await expect(memberTotal).toHaveText('1');
+ await page.setViewportSize({width:390,height:844});
+ await expect(page.getByRole('checkbox',{name:'顯示測試資料'})).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:'test-results/admin-test-data-mobile.png'});
+ await page.setViewportSize({width:820,height:900});
+ await expect(page.getByRole('checkbox',{name:'顯示測試資料'})).toBeVisible();
+ await expect(page.getByText('測試帳號')).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.setViewportSize({width:1440,height:900});
+ await page.screenshot({path:'test-results/admin-test-data-desktop.png'});
+ expect(queries).toEqual(['false','true']);
+ await page.getByRole('checkbox',{name:'顯示測試資料'}).uncheck();
+ await expect(page.getByText('Synthetic verifier')).toHaveCount(0);
+ expect(queries.at(-1)).toBe('false');
+});
+
 test('verified admin UI keeps member, guild, nomination and audit operations separate from member onboarding',async({page})=>{
   // Browser-only API response fixtures exercise UI wiring. Runtime tests verify signed Access JWTs and real DB commands.
   const csrf='browser-only-csrf-fixture',user='00000000-0000-4000-8000-000000000099';

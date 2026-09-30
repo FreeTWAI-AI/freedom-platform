@@ -215,13 +215,13 @@ export async function guildDirectory(pool:Pool,actor:Actor){
        FROM positioning_guild_experts e JOIN users eu ON eu.user_id=e.user_id AND eu.community_id=e.community_id AND eu.active
        JOIN positioning_profession_memberships em ON em.community_id=e.community_id AND em.guild_key=e.guild_key AND em.user_id=e.user_id AND em.state='active'
        LEFT JOIN visible_avatars ea ON ea.user_id=eu.user_id
-       WHERE e.community_id=$1 AND e.guild_key=g.guild_key AND e.active),'[]'::jsonb) AS guild_experts,
+       WHERE e.community_id=$1 AND e.guild_key=g.guild_key AND e.active AND (eu.user_id=$2 OR NOT is_verification_test_account(eu.user_id))),'[]'::jsonb) AS guild_experts,
      CASE WHEN u.user_id IS NULL AND a.admin_id IS NOT NULL THEN jsonb_build_object('display_name',a.display_name,'state','pending') ELSE NULL END AS guild_master_nominee
    FROM positioning_guild_catalog g
    LEFT JOIN positioning_profession_memberships m ON m.guild_key=g.guild_key AND m.community_id=$1 AND m.user_id=$2
    LEFT JOIN guild_member_preferences p ON p.community_id=$1 AND p.user_id=$2
    LEFT JOIN positioning_guild_officers o ON o.community_id=$1 AND o.guild_key=g.guild_key
-   LEFT JOIN users u ON u.user_id=o.user_id AND u.community_id=$1 AND u.active
+   LEFT JOIN users u ON u.user_id=o.user_id AND u.community_id=$1 AND u.active AND (u.user_id=$2 OR NOT is_verification_test_account(u.user_id))
    LEFT JOIN visible_avatars ma ON ma.user_id=u.user_id
    LEFT JOIN guild_leadership_nominations n ON n.community_id=$1 AND n.guild_key=g.guild_key AND n.state='pending'
    LEFT JOIN platform_admins a ON a.admin_id=n.admin_id AND a.community_id=$1 AND a.active

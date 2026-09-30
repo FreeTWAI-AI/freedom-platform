@@ -32,6 +32,10 @@ const physicalReviewGuild='guild_event_space';
 function reviewGuildFor(body:z.infer<typeof details>){
   return body.event_kind==='guild_skill_exchange'?body.guild_key:body.mode==='online'?onlineReviewGuild:physicalReviewGuild;
 }
+async function testHostHidden(q:Pick<PoolClient,'query'>,organizerId:string,viewerId:string){
+  if(organizerId===viewerId)return false;
+  return Boolean((await q.query('SELECT is_verification_test_account($1) AS hidden',[organizerId])).rows[0].hidden);
+}
 
 async function scopedEvent(q:Pick<PoolClient,'query'>,actor:Actor,id:string,lock=false) {
   const row=(await q.query(`SELECT * FROM community_events WHERE event_id=$1 AND community_id=$2${lock?' FOR UPDATE':''}`,[id,actor.community_id])).rows[0];
@@ -47,7 +51,7 @@ async function canAccessGuildEvent(q:Pick<PoolClient,'query'>,actor:Actor,row:an
 
 async function eventView(q:Pick<PoolClient,'query'>,actor:Actor,row:any) {
   const count=(await q.query(`SELECT
-    (SELECT count(*) FROM community_event_rsvps WHERE event_id=$1 AND state='going')+
+    (SELECT count(*) FROM community_event_rsvps WHERE event_id=$1 AND state='going' AND NOT is_verification_test_account(user_id))+
     (SELECT count(*) FROM community_event_guest_rsvps WHERE event_id=$1 AND email_sent_at IS NOT NULL) AS total`,[row.event_id])).rows[0].total as string;
   const mine=(await q.query('SELECT state FROM community_event_rsvps WHERE event_id=$1 AND user_id=$2',[row.event_id,actor.user_id])).rows[0]?.state??null;
   const canReview=row.state==='pending'&&row.review_guild_key&&(await q.query(`SELECT 1 FROM positioning_guild_officers o
@@ -78,6 +82,7 @@ export async function listEventBulletins(pool:Pool,actor:Actor){
       (e.visibility<>'guild' OR e.organizer_ref=$2 OR EXISTS(
         SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=e.community_id
           AND m.user_id=$2 AND m.guild_key=e.guild_key AND m.state='active'))
+      AND (e.organizer_ref=$2 OR NOT is_verification_test_account(e.organizer_ref))
     ORDER BY b.created_at DESC,b.bulletin_id DESC LIMIT 30`,[actor.community_id,actor.user_id])).rows;
 }
 
@@ -85,6 +90,7 @@ export async function listEvents(pool:Pool,actor:Actor) {
   if(actor.onboarding_required&&!actor.onboarding_completed_at) {
     return (await pool.query(`SELECT event_id,title,starts_at,ends_at,mode,state
       FROM community_events WHERE community_id=$1 AND ((state='published' AND visibility<>'guild' AND starts_at>now()) OR organizer_ref=$2)
+        AND (organizer_ref=$2 OR NOT is_verification_test_account(organizer_ref))
       ORDER BY starts_at,event_id LIMIT 30`,[actor.community_id,actor.user_id])).rows;
   }
   const rows=(await pool.query(`SELECT e.*,u.display_name AS organizer_name,
@@ -94,7 +100,7 @@ export async function listEvents(pool:Pool,actor:Actor) {
     (CASE WHEN EXISTS(SELECT 1 FROM community_event_videos v WHERE v.event_id=e.event_id)
       THEN '/api/v1/events/'||e.event_id||'/video?v='||e.aggregate_version ELSE NULL END) AS video_url,
     (SELECT mime_type FROM community_event_videos v WHERE v.event_id=e.event_id) AS video_mime,
-    ((SELECT count(*)::int FROM community_event_rsvps r WHERE r.event_id=e.event_id AND r.state='going')+
+    ((SELECT count(*)::int FROM community_event_rsvps r WHERE r.event_id=e.event_id AND r.state='going' AND NOT is_verification_test_account(r.user_id))+
       (SELECT count(*)::int FROM community_event_guest_rsvps g WHERE g.event_id=e.event_id AND g.email_sent_at IS NOT NULL)) AS attending_count,
     (SELECT state FROM community_event_rsvps r WHERE r.event_id=e.event_id AND r.user_id=$2) AS my_rsvp,
     (e.state='pending' AND e.review_guild_key IS NOT NULL AND EXISTS(
@@ -110,6 +116,7 @@ export async function listEvents(pool:Pool,actor:Actor) {
         SELECT 1 FROM positioning_guild_officers o JOIN positioning_profession_memberships m
           ON m.community_id=o.community_id AND m.guild_key=o.guild_key AND m.user_id=o.user_id AND m.state='active'
         WHERE o.community_id=e.community_id AND o.guild_key=e.review_guild_key AND o.user_id=$2)))
+      AND (e.organizer_ref=$2 OR NOT is_verification_test_account(e.organizer_ref))
     ORDER BY e.starts_at,e.event_id LIMIT 100`,[actor.community_id,actor.user_id])).rows;
   return rows.map(row=>row.visibility==='referral'&&row.my_rsvp!=='going'&&row.organizer_ref!==actor.user_id&&!row.can_review
     ?{...row,location:row.mode==='online'||/https?:\/\//i.test(row.location)?'線上參與資料將寄至報名信箱':row.location,online_url:null}:row);
@@ -127,7 +134,7 @@ async function referralOwner(q:Pick<PoolClient,'query'>,eventId:string,raw:strin
 
 export async function getEventShareCode(pool:Pool,actor:Actor,id:string){
   const row=await scopedEvent(pool,actor,id);
-  requireCondition(row.state==='published'&&await canAccessGuildEvent(pool,actor,row),404,'not_found','找不到可分享的活動。');
+  requireCondition(row.state==='published'&&await canAccessGuildEvent(pool,actor,row)&&!await testHostHidden(pool,row.organizer_ref,actor.user_id),404,'not_found','找不到可分享的活動。');
   const code=randomBytes(18).toString('base64url');
   return (await pool.query(`INSERT INTO community_event_share_codes(event_id,user_id,code) VALUES($1,$2,$3)
     ON CONFLICT(event_id,user_id) DO UPDATE SET code=community_event_share_codes.code RETURNING code`,[id,actor.user_id,code])).rows[0] as {code:string};
@@ -137,9 +144,9 @@ export async function eventReferralReport(pool:Pool,actor:Actor,id:string){
   const row=await scopedEvent(pool,actor,id);
   requireCondition(row.organizer_ref===actor.user_id,403,'organizer_required','只有主辦者能查看活動分享統計。');
   return (await pool.query(`SELECT c.user_id,u.display_name AS member_name,
-    (SELECT count(*)::int FROM community_event_rsvps r WHERE r.event_id=c.event_id AND r.referred_by_user_id=c.user_id AND r.state='going')+
+    (SELECT count(*)::int FROM community_event_rsvps r WHERE r.event_id=c.event_id AND r.referred_by_user_id=c.user_id AND r.state='going' AND NOT is_verification_test_account(r.user_id))+
     (SELECT count(*)::int FROM community_event_guest_rsvps g WHERE g.event_id=c.event_id AND g.referred_by_user_id=c.user_id AND g.email_sent_at IS NOT NULL) AS registrations
-    FROM community_event_share_codes c JOIN users u ON u.user_id=c.user_id WHERE c.event_id=$1 ORDER BY registrations DESC,u.display_name`,[id])).rows;
+    FROM community_event_share_codes c JOIN users u ON u.user_id=c.user_id WHERE c.event_id=$1 AND (c.user_id=$2 OR NOT is_verification_test_account(c.user_id)) ORDER BY registrations DESC,u.display_name`,[id,actor.user_id])).rows;
 }
 
 export async function publicEvent(pool:Pool,id:string){
@@ -147,9 +154,9 @@ export async function publicEvent(pool:Pool,id:string){
     e.visibility,e.capacity,e.aggregate_version,u.display_name AS organizer_name,
     (SELECT orientation FROM community_event_banners b WHERE b.event_id=e.event_id) AS banner_orientation,
     (SELECT mime_type FROM community_event_videos v WHERE v.event_id=e.event_id) AS video_mime,
-    ((SELECT count(*)::int FROM community_event_rsvps r WHERE r.event_id=e.event_id AND r.state='going')+
+    ((SELECT count(*)::int FROM community_event_rsvps r WHERE r.event_id=e.event_id AND r.state='going' AND NOT is_verification_test_account(r.user_id))+
       (SELECT count(*)::int FROM community_event_guest_rsvps g WHERE g.event_id=e.event_id AND g.email_sent_at IS NOT NULL)) AS attending_count
-    FROM community_events e JOIN users u ON u.user_id=e.organizer_ref WHERE e.event_id=$1 AND e.state='published' AND e.visibility IN ('referral','open')`,[id])).rows[0];
+    FROM community_events e JOIN users u ON u.user_id=e.organizer_ref WHERE e.event_id=$1 AND e.state='published' AND e.visibility IN ('referral','open') AND NOT is_verification_test_account(e.organizer_ref)`,[id])).rows[0];
   requireCondition(row,404,'not_found','找不到這場公開活動。');
   const referral=row.visibility==='referral';
   return {event_id:row.event_id,title:row.title,description:row.description,starts_at:row.starts_at,ends_at:row.ends_at,
@@ -163,7 +170,7 @@ export async function publicEvent(pool:Pool,id:string){
 
 export async function publicEventBanner(pool:Pool,id:string){
   const row=(await pool.query(`SELECT b.image_bytes FROM community_event_banners b JOIN community_events e ON e.event_id=b.event_id
-    WHERE e.event_id=$1 AND e.state='published' AND e.visibility IN ('referral','open')`,[id])).rows[0];
+    WHERE e.event_id=$1 AND e.state='published' AND e.visibility IN ('referral','open') AND NOT is_verification_test_account(e.organizer_ref)`,[id])).rows[0];
   requireCondition(row,404,'not_found','找不到活動海報。');return row.image_bytes as Buffer;
 }
 
@@ -173,14 +180,14 @@ export async function registerPublicEvent(pool:Pool,id:string,raw:unknown,send:E
   const email=body.email.trim().toLowerCase();
   const registration=await transaction(pool,async q=>{
     const row=(await q.query(`SELECT * FROM community_events WHERE event_id=$1 FOR UPDATE`,[id])).rows[0];
-    requireCondition(row&&row.state==='published'&&['referral','open'].includes(row.visibility),404,'not_found','找不到這場公開活動。');
+    requireCondition(row&&row.state==='published'&&['referral','open'].includes(row.visibility)&&!(await q.query('SELECT is_verification_test_account($1) AS hidden',[row.organizer_ref])).rows[0].hidden,404,'not_found','找不到這場公開活動。');
     requireCondition(Date.parse(row.starts_at)>Date.now(),409,'event_closed','活動已開始或取消，無法報名。');
     requireCondition(row.visibility!=='referral'||body.referral_code,422,'share_code_required','請從會員分享的活動連結報名。');
     const referrer=await referralOwner(q,id,body.referral_code);
     await q.query("DELETE FROM community_event_guest_rsvps WHERE event_id=$1 AND email_sent_at IS NULL AND created_at<now()-interval '10 minutes'",[id]);
     const existing=(await q.query('SELECT email_sent_at FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[id,email])).rows[0];
     if(!existing){
-      const count=(await q.query(`SELECT (SELECT count(*) FROM community_event_rsvps WHERE event_id=$1 AND state='going')+
+      const count=(await q.query(`SELECT (SELECT count(*) FROM community_event_rsvps WHERE event_id=$1 AND state='going' AND NOT is_verification_test_account(user_id))+
         (SELECT count(*) FROM community_event_guest_rsvps WHERE event_id=$1) AS total`,[id])).rows[0].total;
       requireCondition(row.capacity===null||Number(count)<row.capacity,409,'event_full','活動名額已滿。');
       await q.query(`INSERT INTO community_event_guest_rsvps(event_id,email,name,referred_by_user_id) VALUES($1,$2,$3,$4)`,[id,email,body.name,referrer]);
@@ -205,7 +212,7 @@ export async function readEvent(pool:Pool,actor:Actor,id:string){
   const reviewer=row.state==='pending'&&row.review_guild_key&&(await pool.query(`SELECT 1 FROM positioning_guild_officers o
     JOIN positioning_profession_memberships m ON m.community_id=o.community_id AND m.guild_key=o.guild_key AND m.user_id=o.user_id AND m.state='active'
     WHERE o.community_id=$1 AND o.guild_key=$2 AND o.user_id=$3`,[actor.community_id,row.review_guild_key,actor.user_id])).rowCount===1;
-  requireCondition(row.organizer_ref===actor.user_id||Boolean(reviewer)||row.state==='published'&&member,404,'not_found','找不到這場活動。');
+  requireCondition(!await testHostHidden(pool,row.organizer_ref,actor.user_id)&&(row.organizer_ref===actor.user_id||Boolean(reviewer)||row.state==='published'&&member),404,'not_found','找不到這場活動。');
   return eventView(pool,actor,row);
 }
 
@@ -376,7 +383,7 @@ export async function listAdminEventQueue(pool:Pool,admin:AdminActor){
   return (await pool.query(`SELECT e.*,u.display_name AS organizer_name,g.name AS guild_name
     FROM community_events e JOIN users u ON u.user_id=e.organizer_ref
     LEFT JOIN positioning_guild_catalog g ON g.guild_key=e.guild_key
-    WHERE e.community_id=$1 AND e.state='pending' ORDER BY e.created_at,e.event_id LIMIT 100`,[admin.community_id])).rows;
+    WHERE e.community_id=$1 AND e.state='pending' AND NOT is_verification_test_account(e.organizer_ref) ORDER BY e.created_at,e.event_id LIMIT 100`,[admin.community_id])).rows;
 }
 
 export async function reviewEventAsAdmin(pool:Pool,input:AdminCommand,id:string){
@@ -399,7 +406,7 @@ export async function setRsvp(pool:Pool,input:Command,id:string) {
   return command(pool,input,q=>scopedEvent(q,input.actor,id),async q=>{
     // Lock the event so simultaneous last-seat requests see the same RSVP count.
     const row=await scopedEvent(q,input.actor,id,true);
-    requireCondition(await canAccessGuildEvent(q,input.actor,row),404,'not_found','找不到這場活動。');
+    requireCondition(!await testHostHidden(q,row.organizer_ref,input.actor.user_id)&&await canAccessGuildEvent(q,input.actor,row),404,'not_found','找不到這場活動。');
     const referrer=body.going?await referralOwner(q,id,body.referral_code??null):null;
     if(body.going){
       requireCondition(row.state==='published'&&Date.parse(row.starts_at)>Date.now(),409,'event_closed','活動已開始或取消，無法報名。');
@@ -410,7 +417,7 @@ export async function setRsvp(pool:Pool,input:Command,id:string) {
       requireCondition(row.visibility!=='referral'||referrer,422,'share_code_required','請從會員分享的活動連結報名。');
       const mine=(await q.query('SELECT state FROM community_event_rsvps WHERE event_id=$1 AND user_id=$2',[id,input.actor.user_id])).rows[0]?.state;
       if(mine!=='going'){
-        const count=(await q.query(`SELECT (SELECT count(*) FROM community_event_rsvps WHERE event_id=$1 AND state='going')+
+        const count=(await q.query(`SELECT (SELECT count(*) FROM community_event_rsvps WHERE event_id=$1 AND state='going' AND NOT is_verification_test_account(user_id))+
           (SELECT count(*) FROM community_event_guest_rsvps WHERE event_id=$1) AS total`,[id])).rows[0].total;
         requireCondition(row.capacity===null||Number(count)<row.capacity,409,'event_full','活動名額已滿。');
       }

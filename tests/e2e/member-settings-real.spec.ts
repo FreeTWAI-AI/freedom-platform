@@ -16,7 +16,8 @@ async function syntheticAccounts(db:Pool):Promise<[Account,Account]>{
   const run=randomUUID().slice(0,8);
   const guild=(await db.query('SELECT guild_key FROM positioning_guild_catalog ORDER BY guild_key LIMIT 1')).rows[0].guild_key as string;
   const accounts=(['sender','receiver'] as const).map(role=>{const user_id=randomUUID();
-    return {user_id,email:`inbox-${role}-${user_id}@example.invalid`,display_name:`合成${role==='sender'?'寄件':'收件'}人 ${run}`};});
+    // Ordinary members who must find each other. @example.invalid is reserved for verification accounts and is hidden from this search.
+    return {user_id,email:`inbox-${role}-${user_id}@example.test`,display_name:`合成${role==='sender'?'寄件':'收件'}人 ${run}`};});
   for(const account of accounts){
     // Test fixture only: a finished member (onboarding_required=false) with the documented local demo password.
     await db.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)

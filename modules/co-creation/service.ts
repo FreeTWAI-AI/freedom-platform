@@ -31,7 +31,7 @@ async function view(q:Pool|PoolClient,actor:Actor,id?:string){
     ARRAY(SELECT cg.guild_key FROM co_creation_project_guilds cg WHERE cg.project_id=c.project_id ORDER BY cg.guild_key) AS guild_keys
     FROM co_creation_projects c JOIN users u ON u.user_id=c.coordinator_ref AND u.active
     JOIN oss_projects p ON p.project_id=c.source_project_id AND p.community_id=c.community_id
-    WHERE c.community_id=$1 ${id?'AND c.project_id=$2':''} ORDER BY c.created_at DESC,c.project_id LIMIT 100`,id?[actor.community_id,id]:[actor.community_id])).rows;
+    WHERE c.community_id=$1 AND (c.coordinator_ref=$2 OR NOT is_verification_test_account(c.coordinator_ref)) ${id?'AND c.project_id=$3':''} ORDER BY c.created_at DESC,c.project_id LIMIT 100`,id?[actor.community_id,actor.user_id,id]:[actor.community_id,actor.user_id])).rows;
 }
 export async function listCoCreation(pool:Pool,actor:Actor){return [pilotProject,...await view(pool,actor)];}
 export async function listCoCreationGuilds(pool:Pool){return (await pool.query('SELECT guild_key,name FROM positioning_guild_catalog ORDER BY name,guild_key')).rows;}

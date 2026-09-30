@@ -34,7 +34,8 @@ beforeEach(async()=>{await pool.query('TRUNCATE communities,login_attempts,auth_
 type Member={id:string;email:string;actor:Actor;http:{cookie:string;csrf:string}};
 /** Synthetic member reusing the seeded demo password hash; completed onboarding unless `legacy` (onboarding_required=false, never completed). */
 async function member(label:string,{community=DEMO_COMMUNITY,legacy=false}:{community?:string;legacy?:boolean}={}):Promise<Member>{
-  const id=randomUUID(),email=`channel-${label}-${id.slice(0,8)}@example.invalid`;
+  // Ordinary members. @example.invalid is reserved for verification accounts and would hide this squad.
+  const id=randomUUID(),email=`channel-${label}-${id.slice(0,8)}@example.test`;
   if(community!==DEMO_COMMUNITY)await pool.query('INSERT INTO communities VALUES($1,$2) ON CONFLICT DO NOTHING',[community,'合成的其他社群']);
   await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required,onboarding_completed_at)
     SELECT $1,$2,$3,$4,password_hash,$5,$6,$7 FROM users WHERE user_id=$8`,[id,community,email,`頻道成員${label}`,randomUUID(),!legacy,legacy?null:new Date(),DEMO_USERS[0].user_id]);

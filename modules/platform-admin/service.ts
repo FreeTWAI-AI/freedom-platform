@@ -43,18 +43,21 @@ export async function audit(q:PoolClient,admin:AdminActor,action:string,type:str
   await q.query('INSERT INTO platform_admin_audit(audit_id,community_id,admin_id,verified_access_subject,action,target_type,target_ref,reason,before_state,after_state) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[randomUUID(),admin.community_id,admin.admin_id,admin.subject,action,type,ref,why,JSON.stringify(before),JSON.stringify(after)]);
 }
 export async function adminBootstrap(pool:Pool,admin:AdminActor){
-  const summary=(await pool.query(`SELECT (SELECT count(*)::int FROM users WHERE community_id=$1) AS members,
-    (SELECT count(*)::int FROM users WHERE community_id=$1 AND active) AS active_members,
-    (SELECT count(*)::int FROM guild_creation_applications WHERE community_id=$1 AND state='pending') AS pending_guild_applications,
+  const summary=(await pool.query(`SELECT (SELECT count(*)::int FROM users u JOIN member_account_classification t USING(user_id,community_id) WHERE u.community_id=$1 AND NOT t.is_test_account) AS members,
+    (SELECT count(*)::int FROM users u JOIN member_account_classification t USING(user_id,community_id) WHERE u.community_id=$1 AND u.active AND NOT t.is_test_account) AS active_members,
+    (SELECT count(*)::int FROM guild_creation_applications a WHERE a.community_id=$1 AND a.state='pending' AND NOT is_verification_test_account(a.user_id)) AS pending_guild_applications,
     (SELECT count(*)::int FROM positioning_guild_catalog) AS guilds,
     (SELECT count(*)::int FROM platform_admins WHERE community_id=$1 AND active) AS admins`,[admin.community_id])).rows[0];
   return {admin:publicAdmin(admin),summary,available_skill_books:communityCatalog.skill_books};
 }
-export async function adminMembers(pool:Pool,admin:AdminActor,limit:number,offset:number,search=''){
-  const rows=(await pool.query(`SELECT u.${administrativeMember.replaceAll(',',',u.')},
+export async function adminMembers(pool:Pool,admin:AdminActor,limit:number,offset:number,search='',includeTest=false){
+  const rows=(await pool.query(`SELECT u.${administrativeMember.replaceAll(',',',u.')},t.is_test_account,
     COALESCE((SELECT jsonb_agg(jsonb_build_object('guild_key',m.guild_key,'name',g.name)) FROM positioning_profession_memberships m JOIN positioning_guild_catalog g USING(guild_key) WHERE m.user_id=u.user_id AND m.community_id=u.community_id AND m.state='active'),'[]'::jsonb) AS guilds,
     CASE WHEN a.admin_id IS NULL THEN NULL ELSE jsonb_build_object('admin_id',a.admin_id,'active',a.active,'aggregate_version',a.aggregate_version,'access_state',${adminAccessStateSql('a')}) END AS platform_admin
-    FROM users u LEFT JOIN platform_admins a ON a.community_id=u.community_id AND a.email=lower(u.email) WHERE u.community_id=$1 AND ($4='' OR strpos(lower(u.display_name),lower($4))>0 OR strpos(lower(u.email),lower($4))>0) ORDER BY u.display_name,u.user_id LIMIT $2 OFFSET $3`,[admin.community_id,limit+1,offset,search])).rows;
+    FROM users u JOIN member_account_classification t USING(user_id,community_id)
+    LEFT JOIN platform_admins a ON a.community_id=u.community_id AND a.email=lower(u.email)
+    WHERE u.community_id=$1 AND ($5 OR NOT t.is_test_account) AND ($4='' OR strpos(lower(u.display_name),lower($4))>0 OR strpos(lower(u.email),lower($4))>0)
+    ORDER BY u.display_name,u.user_id LIMIT $2 OFFSET $3`,[admin.community_id,limit+1,offset,search,includeTest])).rows;
   return {items:rows.slice(0,limit),next_offset:rows.length>limit?offset+limit:null};
 }
 async function scopedUser(q:PoolClient,admin:AdminActor,id:string,lock=false){
@@ -74,7 +77,7 @@ export async function changeMemberStatus(pool:Pool,input:AdminCommand,id:string)
 }
 export async function adminApplications(pool:Pool,admin:AdminActor,limit:number,offset:number,state:string){
   const rows=(await pool.query(`SELECT a.*,u.display_name AS applicant_name,u.email AS applicant_email FROM guild_creation_applications a JOIN users u ON u.user_id=a.user_id AND u.community_id=a.community_id
-    WHERE a.community_id=$1 AND ($4='all' OR a.state=$4) ORDER BY a.created_at,a.application_id LIMIT $2 OFFSET $3`,[admin.community_id,limit+1,offset,state])).rows;
+    WHERE a.community_id=$1 AND ($4='all' OR a.state=$4) AND NOT is_verification_test_account(a.user_id) ORDER BY a.created_at,a.application_id LIMIT $2 OFFSET $3`,[admin.community_id,limit+1,offset,state])).rows;
   return {items:rows.slice(0,limit),next_offset:rows.length>limit?offset+limit:null};
 }
 const GuildInput=z.object({name:z.string().trim().min(2).max(100),purpose:z.string().trim().min(5).max(1000),first_step:z.string().trim().min(5).max(1000),module_key:z.enum(['positioning','supplier','retail','marketing','workbench','guilds','engagement','opensource']),skill_book_ids:z.array(z.string().min(1).max(100)).min(1).max(20).refine(ids=>new Set(ids).size===ids.length,'技能書不可重複。')}).strict();
@@ -104,9 +107,9 @@ export async function adminGuilds(pool:Pool,admin:AdminActor){
     CASE WHEN u.user_id IS NULL THEN NULL ELSE jsonb_build_object('user_id',u.user_id,'display_name',u.display_name) END AS guild_master,
     COALESCE((SELECT jsonb_agg(jsonb_build_object('user_id',eu.user_id,'display_name',eu.display_name,'active',e.active,'member_active',eu.active,'aggregate_version',e.aggregate_version) ORDER BY eu.display_name,eu.user_id)
       FROM positioning_guild_experts e JOIN users eu ON eu.user_id=e.user_id AND eu.community_id=e.community_id
-      WHERE e.community_id=$1 AND e.guild_key=g.guild_key AND e.active),'[]'::jsonb) AS guild_experts,
-    (SELECT count(*)::int FROM positioning_profession_memberships m JOIN users mu ON mu.user_id=m.user_id AND mu.active WHERE m.community_id=$1 AND m.guild_key=g.guild_key AND m.state='active') AS member_count
-    FROM positioning_guild_catalog g LEFT JOIN positioning_guild_officers o ON o.guild_key=g.guild_key AND o.community_id=$1 LEFT JOIN users u ON u.user_id=o.user_id AND u.community_id=$1 AND u.active ORDER BY g.name,g.guild_key`,[admin.community_id])).rows.map(row=>({...row,officer_version:row.officer_version?Number(row.officer_version):null}));
+      WHERE e.community_id=$1 AND e.guild_key=g.guild_key AND e.active AND NOT is_verification_test_account(eu.user_id)),'[]'::jsonb) AS guild_experts,
+    (SELECT count(*)::int FROM positioning_profession_memberships m JOIN users mu ON mu.user_id=m.user_id AND mu.community_id=m.community_id AND mu.active JOIN member_account_classification mt ON mt.user_id=mu.user_id AND mt.community_id=mu.community_id AND NOT mt.is_test_account WHERE m.community_id=$1 AND m.guild_key=g.guild_key AND m.state='active') AS member_count
+    FROM positioning_guild_catalog g LEFT JOIN positioning_guild_officers o ON o.guild_key=g.guild_key AND o.community_id=$1 LEFT JOIN users u ON u.user_id=o.user_id AND u.community_id=$1 AND u.active AND NOT is_verification_test_account(u.user_id) ORDER BY g.name,g.guild_key`,[admin.community_id])).rows.map(row=>({...row,officer_version:row.officer_version?Number(row.officer_version):null}));
 }
 export const AdminGuildCandidateQuery=z.object({
  q:z.string().trim().max(100).refine(value=>!/[\x00-\x1f\x7f]/.test(value),'請使用單行搜尋文字。').default(''),
@@ -126,7 +129,7 @@ export async function adminGuildMasterCandidates(pool:Pool,admin:AdminActor,key:
       AND o.guild_key=$2 AND o.user_id=u.user_id) AS is_current,
     COALESCE((SELECT e.active FROM positioning_guild_experts e WHERE e.community_id=u.community_id AND e.guild_key=$2 AND e.user_id=u.user_id),false) AS is_expert,
     (SELECT e.aggregate_version FROM positioning_guild_experts e WHERE e.community_id=u.community_id AND e.guild_key=$2 AND e.user_id=u.user_id) AS expert_version
-   FROM users u WHERE u.community_id=$1 AND ($3='' OR strpos(lower(u.display_name),lower($3))>0 OR strpos(lower(u.email),lower($3))>0)
+   FROM users u JOIN member_account_classification t USING(user_id,community_id) WHERE u.community_id=$1 AND NOT t.is_test_account AND ($3='' OR strpos(lower(u.display_name),lower($3))>0 OR strpos(lower(u.email),lower($3))>0)
  ), matched AS (
    SELECT user_id,display_name,email,active,joined,active AS eligible,
     CASE WHEN NOT active THEN 'inactive' ELSE NULL END AS eligibility_reason,is_current,is_expert,expert_version

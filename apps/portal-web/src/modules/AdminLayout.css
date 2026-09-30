@@ -64,6 +64,8 @@
 .admin-workspace .admin-pending-appointments ul { margin: 0; font-size: .875rem; }
 .admin-workspace .admin-pending-appointments ul { padding-left: 20px; }
 .admin-workspace > .stack > h2 { font-size: 1.2rem; }
+.admin-workspace .admin-test-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; font-size: .875rem; }
+.admin-workspace .admin-test-toggle input:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 @media (max-width: 900px) {
   .admin-workspace .admin-tabs { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .admin-workspace .admin-nav-group { grid-template-columns: 6rem minmax(0, 1fr); align-items: center; }
@@ -98,7 +100,8 @@
 .admin-workspace .admin-member-row + .admin-member-row { border-top: 1px solid var(--line); }
 .admin-workspace .admin-member-row-main { min-width: 0; padding: 10px 16px; }
 .admin-workspace .admin-member-identity { min-width: 0; display: grid; gap: 2px; }
-.admin-workspace .admin-member-identity h3 { font-size: 1rem; line-height: 1.4; }
+.admin-workspace .admin-member-identity h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 1rem; line-height: 1.4; }
+.admin-workspace .admin-member-identity h3 span.badge { color: var(--green-2); background: var(--green-soft); font-size: .75rem; width: max-content; overflow-wrap: normal; }
 .admin-workspace .admin-member-identity span { color: var(--muted); font-size: .875rem; overflow-wrap: anywhere; }
 .admin-workspace .admin-member-positioning { color: var(--muted); font-size: .875rem; }
 .admin-workspace .admin-member-state { justify-self: start; }

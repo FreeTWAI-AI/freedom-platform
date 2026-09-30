@@ -105,6 +105,28 @@ test('admin listings and mutations cannot cross community boundaries',async()=>{
  const own=await application();assert.equal((await request(`/guild-applications/${own}/review`,approval,1)).data.code,'guild_catalog_scope_required');
 });
 
+test('verification accounts are retained, omitted from admin counts and lists, and available with the explicit toggle',async()=>{
+ const id=randomUUID(),activeId=randomUUID();
+ await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,active)
+   SELECT $1,community_id,'verification-case@EXAMPLE.INVALID','Synthetic verifier',password_hash,$2,false FROM users WHERE user_id=$3`,[id,randomUUID(),DEMO_USERS[0].user_id]);
+ await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,active)
+   SELECT $1,community_id,'future-verifier@example.invalid','Future verifier',password_hash,$2,true FROM users WHERE user_id=$3`,[activeId,randomUUID(),DEMO_USERS[0].user_id]);
+ await join(activeId);
+ const classification=await pool.query('SELECT is_test_account FROM member_account_classification WHERE user_id=$1',[id]);
+ assert.equal(classification.rows[0].is_test_account,true);
+ assert.equal((await request('/bootstrap')).data.summary.members,3);
+ assert.equal((await request('/bootstrap')).data.summary.active_members,3);
+ assert.equal((await request('/members?q=Synthetic')).data.items.length,0);
+ assert.equal((await request('/members?q=Future')).data.items.length,0);
+ const shown=await request('/members?q=Synthetic&include_test=true');
+ assert.equal(shown.data.items.length,1);assert.equal(shown.data.items[0].is_test_account,true);
+ assert.equal(shown.data.items[0].active,false);
+ assert.equal((await request('/guilds')).data.items.find((g:any)=>g.guild_key===guild).member_count,0);
+ assert.equal((await request(`/guilds/${guild}/master-candidates?q=Future`)).data.total,0);
+ assert.equal((await request('/members?include_test=1')).status,422);
+ assert.equal((await pool.query('SELECT count(*)::int AS n FROM users WHERE user_id=$1',[id])).rows[0].n,1);
+});
+
 test('deactivation revokes all sessions and client credentials; reactivation never revives them, and retry audits once',async()=>{
  const user=DEMO_USERS[0],first=await login(),second=await login(),token=randomBytes(32).toString('base64url');
  await pool.query("INSERT INTO member_client_connections(connection_id,community_id,user_id,client_name,kind,scope,token_hash) VALUES($1,$2,$3,'Fixture client','supplier','supplier:read',$4)",[randomUUID(),DEMO_COMMUNITY,user.user_id,tokenHash(token)]);

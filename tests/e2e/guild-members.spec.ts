@@ -106,10 +106,10 @@ test('guild browsing uses the real membership filter and exposes only permitted 
   const adminId=randomUUID();
   const previous = (await pool.query('SELECT * FROM positioning_guild_officers WHERE community_id=$1 AND guild_key=$2', [DEMO_COMMUNITY, guild])).rows[0];
   try {
-    await pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)',[adminId,DEMO_COMMUNITY,`${adminId}@example.invalid`,'Synthetic avatar test admin']);
+    await pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)',[adminId,DEMO_COMMUNITY,`${adminId}@example.test`,'Synthetic avatar test admin']);
     const photo=await sharp({create:{width:256,height:256,channels:3,background:'#3044ff'}}).webp().toBuffer();
     for (let i = 0; i < ids.length; i++) {
-      await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref) SELECT $1,$2,$3,$4,password_hash,$5 FROM users WHERE user_id=$6`, [ids[i], DEMO_COMMUNITY, ids[i] + '@example.invalid', names[i], randomUUID(), DEMO_USERS[0].user_id]);
+      await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref) SELECT $1,$2,$3,$4,password_hash,$5 FROM users WHERE user_id=$6`, [ids[i], DEMO_COMMUNITY, ids[i] + '@example.test', names[i], randomUUID(), DEMO_USERS[0].user_id]);
       const key = i < 2 ? guild : 'guild_security';
       await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,$4,'active')`, [randomUUID(), DEMO_COMMUNITY, ids[i], key]);
       await pool.query('INSERT INTO guild_member_preferences(community_id,user_id,primary_guild_key) VALUES($1,$2,$3)', [DEMO_COMMUNITY, ids[i], key]);
@@ -126,7 +126,7 @@ test('guild browsing uses the real membership filter and exposes only permitted 
     await expect(panel.locator('.directory-member')).toHaveCount(2); await expect(panel).not.toContainText(names[2]);
     await expect(panel.locator(`[data-member-id="${ids[0]}"] .guild-member-leader`)).toHaveText('公會長');
     const row = panel.locator(`[data-member-id="${ids[1]}"]`); await row.locator('.directory-member-details > summary').click();
-    await expect(row).toContainText('browser-visible-discord'); await expect(row).not.toContainText('browser-private-github'); await expect(row).not.toContainText(ids[1] + '@example.invalid');
+    await expect(row).toContainText('browser-visible-discord'); await expect(row).not.toContainText('browser-private-github'); await expect(row).not.toContainText(ids[1] + '@example.test');
     const response = await page.request.get(`/api/v1/members?guild_key=${guild}&search=Browser&sort=nickname&limit=10&offset=0`), data = await response.json();
     expect(response.status()).toBe(200); expect(data.total).toBe(2); expect(data.items.map((item: any) => item.user_id).sort()).toEqual(ids.slice(0, 2).sort());
     const positioned=await (await page.request.get(`/api/v1/members?primary_guild_key=${guild}&search=Browser&limit=10`)).json();

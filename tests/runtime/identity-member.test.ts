@@ -75,6 +75,25 @@ test('directory omits login email and private contacts; accepted friendships gra
   assert.equal((await request('/members?limit=1',owner)).data.items.length,1);assert.equal((await request('/members?limit=51',owner)).status,422);
 });
 
+test('verification email classifies accounts and their squads without changing stored rows',async()=>{
+ const viewer=await signIn(),testId=randomUUID(),testSquad=randomUUID(),realSquad=randomUUID();
+ await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref)
+   SELECT $1,community_id,$2,'Synthetic verifier',password_hash,$3 FROM users WHERE user_id=$4`,[testId,`future-verifier-${testId}@example.invalid`,randomUUID(),DEMO_USERS[0].user_id]);
+ await pool.query(`INSERT INTO member_squads(squad_id,community_id,name,kind,purpose,owner_ref) VALUES
+   ($1,$3,'合成驗收小隊','project','verification',$4),($2,$3,'Real squad','project','member work',$5)`,[testSquad,realSquad,DEMO_COMMUNITY,testId,viewer.user.user_id]);
+ await pool.query("INSERT INTO member_squad_memberships(squad_id,user_id,state) VALUES($1,$3,'active'),($2,$3,'active'),($2,$4,'active')",[testSquad,realSquad,viewer.user.user_id,testId]);
+ assert.deepEqual((await pool.query('SELECT is_test_data FROM member_squad_classification WHERE squad_id=$1',[testSquad])).rows,[{is_test_data:true}]);
+ const members=await request('/members',viewer),squads=await request('/squads',viewer);
+ assert.equal(members.data.total,3);assert.ok(!members.data.items.some((item:any)=>item.user_id===testId));
+ assert.deepEqual(squads.data.items.map((item:any)=>item.squad_id),[realSquad]);
+ assert.equal(squads.data.items[0].member_count,1);
+ assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_squads WHERE squad_id=$1',[testSquad])).rows[0].n,1);
+ await pool.query('UPDATE users SET email=$2 WHERE user_id=$1',[testId,`real-${testId}@local.test`]);
+ assert.equal((await pool.query('SELECT is_test_data FROM member_squad_classification WHERE squad_id=$1',[testSquad])).rows[0].is_test_data,false);
+ assert.equal((await request('/members',viewer)).data.total,4);
+ assert.equal((await request('/squads',viewer)).data.items.length,2);
+});
+
 test('guild contact audience follows both active memberships and revokes after leaving',async()=>{
   const owner=await signIn(),viewer=await signIn(DEMO_USERS[1].email);
   await account(owner,{...emptyContacts(),line:{value:'guild-only',audiences:['guild']}});

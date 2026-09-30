@@ -130,6 +130,7 @@ async function lockRooms(q:PoolClient,actor:Actor,kind:ChannelKind):Promise<Chan
 
 // Unread: others' messages above the viewer's cursor (absent cursor = 0).
 const unreadSql=`(SELECT count(*)::int FROM member_channel_messages x WHERE x.community_id=$1 AND x.kind=$2 AND x.channel_key=r.channel_key AND x.sender_ref<>$3
+  AND ($2<>'world' OR NOT is_verification_test_account(x.sender_ref))
   AND x.sequence>COALESCE((SELECT d.last_read_sequence FROM member_channel_reads d WHERE d.community_id=$1 AND d.kind=$2 AND d.channel_key=r.channel_key AND d.user_id=$3),0))`;
 const messageColumns=`m.message_id,m.kind,m.channel_key,m.sequence::text AS sequence,m.sender_ref,u.display_name AS sender_name,m.body,m.created_at`;
 function message(row:any):ChannelMessage{
@@ -142,8 +143,10 @@ export async function listChannels(pool:Pool,actor:Actor,raw:unknown):Promise<Ch
     const rooms=await lockRooms(q,actor,kind);
     // Counts and last activity only; no message body is read for the list.
     const stats=new Map((await q.query(`SELECT r.channel_key,${unreadSql} AS unread_count,
-        (SELECT x.created_at FROM member_channel_messages x JOIN member_chat_channels c USING (community_id,kind,channel_key)
-          WHERE x.community_id=$1 AND x.kind=$2 AND x.channel_key=r.channel_key AND x.sequence=c.last_sequence) AS last_message_at
+        (SELECT x.created_at FROM member_channel_messages x
+          WHERE x.community_id=$1 AND x.kind=$2 AND x.channel_key=r.channel_key
+            AND ($2<>'world' OR x.sender_ref=$3 OR NOT is_verification_test_account(x.sender_ref))
+          ORDER BY x.sequence DESC LIMIT 1) AS last_message_at
       FROM unnest($4::text[]) AS r(channel_key)`,[actor.community_id,kind,actor.user_id,rooms.map(r=>r.channel_key)])).rows.map(row=>[row.channel_key as string,row]));
     const items:ChannelSummary[]=rooms.map(r=>{const s=stats.get(r.channel_key);
       return {...r,unread_count:s?.unread_count??0,last_message_at:s?.last_message_at?iso(s.last_message_at):null};});
@@ -161,8 +164,10 @@ export async function channelMessages(pool:Pool,actor:Actor,rawKind:string,rawKe
     const channel=await lockRoom(q,actor,target);
     const unread=(await q.query(`SELECT ${unreadSql} AS n FROM (SELECT $4::text AS channel_key) r`,[actor.community_id,target.kind,actor.user_id,target.key])).rows[0].n;
     const rows=(await q.query(`SELECT ${messageColumns} FROM member_channel_messages m JOIN users u ON u.user_id=m.sender_ref
-      WHERE m.community_id=$1 AND m.kind=$2 AND m.channel_key=$3 ORDER BY m.sequence DESC LIMIT $4 OFFSET $5`,
-      [actor.community_id,target.kind,target.key,limit+1,offset])).rows;
+      WHERE m.community_id=$1 AND m.kind=$2 AND m.channel_key=$3
+        AND ($2<>'world' OR m.sender_ref=$6 OR NOT is_verification_test_account(m.sender_ref))
+      ORDER BY m.sequence DESC LIMIT $4 OFFSET $5`,
+      [actor.community_id,target.kind,target.key,limit+1,offset,actor.user_id])).rows;
     return {channel,items:rows.slice(0,limit).map(message),unread_count:unread,next_offset:rows.length>limit?offset+limit:null};
   });
 }

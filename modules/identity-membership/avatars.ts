@@ -86,6 +86,7 @@ export async function readAvatar(pool: Pool, actor: Actor, id: string, version?:
     JOIN sessions s ON s.user_id=viewer.user_id AND s.token_hash=$4
     WHERE a.user_id=$1 AND a.community_id=$2 AND a.image_bytes IS NOT NULL
       AND owner.active AND (NOT owner.onboarding_required OR owner.onboarding_completed_at IS NOT NULL)
+      AND (a.user_id=$3 OR NOT is_verification_test_account(owner.user_id))
       AND viewer.active AND (NOT viewer.onboarding_required OR viewer.onboarding_completed_at IS NOT NULL)
       AND s.revoked_at IS NULL AND s.expires_at>now()`, [id, actor.community_id, actor.user_id, actor.session_hash])).rows[0];
   requireCondition(row && (version === undefined || row.aggregate_version === version), 404, 'avatar_not_found', '找不到這個頭像。');

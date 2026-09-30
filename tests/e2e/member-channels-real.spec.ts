@@ -28,7 +28,7 @@ async function accounts(db:Pool,own:Owned,run:string,roles:[slug:string,label:st
   const result:Account[]=[];
   for(const [slug,label] of roles){
     // ASCII local part: the login field is type=email.
-    const user_id=randomUUID(),account={user_id,email:`channel-${slug}-${user_id}@example.invalid`,display_name:`頻道${label} ${run}`};own.users.push(user_id);
+    const user_id=randomUUID(),account={user_id,email:`channel-${slug}-${user_id}@example.test`,display_name:`頻道${label} ${run}`};own.users.push(user_id);
     await db.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
       VALUES($1,$2,$3,$4,$5,$6,false)`,[user_id,DEMO_COMMUNITY,account.email,account.display_name,hashPassword(DEMO_PASSWORD),randomUUID()]);
     result.push(account);
@@ -37,7 +37,7 @@ async function accounts(db:Pool,own:Owned,run:string,roles:[slug:string,label:st
 }
 /** A custom guild of this run: a real application of this community approved through the admin service (catalog + approval). */
 async function approvedGuild(db:Pool,own:Owned,founder:Account,name:string){
-  const admin={admin_id:randomUUID(),community_id:DEMO_COMMUNITY,email:`channel-admin-${randomUUID()}@example.invalid`,display_name:'頻道測試管理者',role:'super_admin' as const,subject:'verified-test'};own.admins.push(admin.admin_id);
+  const admin={admin_id:randomUUID(),community_id:DEMO_COMMUNITY,email:`channel-admin-${randomUUID()}@example.test`,display_name:'頻道測試管理者',role:'super_admin' as const,subject:'verified-test'};own.admins.push(admin.admin_id);
   await db.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)',[admin.admin_id,DEMO_COMMUNITY,admin.email,admin.display_name]);
   const application=randomUUID();own.applications.push(application);
   await db.query('INSERT INTO guild_creation_applications(application_id,community_id,user_id,name,profession,reason) VALUES($1,$2,$3,$4,$5,$6)',[application,DEMO_COMMUNITY,founder.user_id,name,'研究','合成的頻道測試公會。']);
