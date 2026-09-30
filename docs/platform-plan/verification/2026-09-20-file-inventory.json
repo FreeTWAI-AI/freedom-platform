@@ -84,8 +84,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 21833,
-      "sha256": "758ade37933609e3cbb605aa5fbe985167b51189f7bf95a2a87b6416c2c95d6f"
+      "bytes": 22239,
+      "sha256": "f40da09e17f15120b3d0e335b7e8baf48d0f79b34e023aa56618fecf9dacc8e7"
     },
     {
       "path": "apps/platform-api/src/readiness.ts",
@@ -94,8 +94,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/admin.ts",
-      "bytes": 6686,
-      "sha256": "6ebea62eae4cfcab2c2c3c931a985b1b3f7cf8524d8142e6231dbc4f56aca266"
+      "bytes": 7679,
+      "sha256": "95080249d2a0bec9efdb11fc17404c2ce37d3c43c1d857432494bdc471b88d97"
     },
     {
       "path": "apps/platform-api/src/routes/avatars.ts",
@@ -134,8 +134,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/development.ts",
-      "bytes": 3862,
-      "sha256": "2eca55f04b08ba065a795efba702707f823473b96b09d996670b7a293e9184e6"
+      "bytes": 4113,
+      "sha256": "ba8b89291f8ce3a3833eb8cf4c1d49ea0349ea842586b7cfe2e72113ab6d2808"
     },
     {
       "path": "apps/platform-api/src/routes/github-social.ts",
@@ -171,6 +171,11 @@
       "path": "apps/platform-api/src/routes/published-skills.ts",
       "bytes": 8013,
       "sha256": "7b6c303565311bebce2533dd16f677ee29cca49ab9edc15a6baaf4bcfd5bba15"
+    },
+    {
+      "path": "apps/platform-api/src/routes/repo-author-claims.ts",
+      "bytes": 2454,
+      "sha256": "a02b059d9d5497781053b9c4e89d3ab69a1fe7c51390291d43dccb26c9629268"
     },
     {
       "path": "apps/platform-api/src/routes/skill-discovery.ts",
@@ -624,8 +629,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 79774,
-      "sha256": "ae38a7dd90c2380461af71a666b397ed815414635f207847ccc0e2fe169248cc"
+      "bytes": 79893,
+      "sha256": "66f056de73957cd1bf9e6a5210b90a6b77a4e8f9cb3584bc83c2c904a7bfc6d5"
     },
     {
       "path": "apps/portal-web/src/GameConsole.css",
@@ -718,6 +723,11 @@
       "sha256": "68c3b13b42d44d794ca61c198d91ef95605b07822fd2fedcc7fa8897e74c9aa4"
     },
     {
+      "path": "apps/portal-web/src/modules/AdminAuthorClaims.tsx",
+      "bytes": 6865,
+      "sha256": "6dfc8fd814f9cc6637b4d3e8c9cc2274802cf69c34834da8c9940a2ea9c76b3f"
+    },
+    {
       "path": "apps/portal-web/src/modules/AdminGitHubSetup.tsx",
       "bytes": 3923,
       "sha256": "d8b00b91993a706733fa8015f5414a8c5d6c6727d8c991f568e2d640f379d9f9"
@@ -739,13 +749,23 @@
     },
     {
       "path": "apps/portal-web/src/modules/AdminPanel.tsx",
-      "bytes": 29576,
-      "sha256": "73a090822bfa61e946b49261624031a56072182d57f5e3eac247e9d0292560d9"
+      "bytes": 29784,
+      "sha256": "9f4af5935c48807fc6a1990414afd6b50d3114da04d7ffa1f53ae62eea0cae55"
     },
     {
       "path": "apps/portal-web/src/modules/AdminPermissions.css",
       "bytes": 1525,
       "sha256": "c1d98e2cd9a8d0dc2a1edcbd0e102c800d0511fc256b14b0651b83fa707f304f"
+    },
+    {
+      "path": "apps/portal-web/src/modules/AuthorClaim.css",
+      "bytes": 871,
+      "sha256": "b0bf330070d235e3ca0fcdd27bb6f51977ae57e778b9763c4c27ad3e3ccb844a"
+    },
+    {
+      "path": "apps/portal-web/src/modules/AuthorClaim.tsx",
+      "bytes": 11218,
+      "sha256": "dcad5dd27a00edfdda8115c416bf02531195fcb706ecf6e2b4297040682234b6"
     },
     {
       "path": "apps/portal-web/src/modules/AvatarEditor.tsx",
@@ -1019,8 +1039,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SkillBookBadges.tsx",
-      "bytes": 1261,
-      "sha256": "8cf438f7936fde6dc06e4d95369a4dccd5d057b277f68266837ede9072b79574"
+      "bytes": 1397,
+      "sha256": "416248ee6397e5f987aad6ae2c321eae745ce69699007f274a6cab7915558804"
     },
     {
       "path": "apps/portal-web/src/modules/SkillBookCover.tsx",
@@ -1034,8 +1054,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SkillBookIntro.tsx",
-      "bytes": 11375,
-      "sha256": "d66683f7f2eb5a888a9d04eed1c86ca3d0ea3f5ebab3ab09986d7767e0ff3a3c"
+      "bytes": 11513,
+      "sha256": "49c669218b4a1fc113f6adeb81b62342558a8c23fad6f72bf815b8886842c4f8"
     },
     {
       "path": "apps/portal-web/src/modules/SkillDiscovery.css",
@@ -1444,8 +1464,8 @@
     },
     {
       "path": "docs/development/author-owned-collaboration.md",
-      "bytes": 13582,
-      "sha256": "580af2cf209c4a0055ab62c9160dddbec33a397e2fb9cc7e86e9c20677cfc3ca"
+      "bytes": 14948,
+      "sha256": "5c56a2f08a8fd5c752435c8c0d2f0bbb0ae8e291c5bbabf995cab4486a282fac"
     },
     {
       "path": "docs/development/benefit-observations.md",
@@ -2938,6 +2958,11 @@
       "sha256": "031678f80251fe81411e06d7df0082e89eaca7bae10cc0b3abff5ef617c4ae1c"
     },
     {
+      "path": "migrations/053_repo_author_claims.sql",
+      "bytes": 6270,
+      "sha256": "9232f091bd408ea12d37a44c9e27dd58bbe1e417ac784416dcf2658f24e60bce"
+    },
+    {
       "path": "modules/catalog-commerce/service.ts",
       "bytes": 14138,
       "sha256": "b5a3b5ad2d8c61f840befcd69f08045051c18b2163b61d16a2ded28667cbaee2"
@@ -2986,6 +3011,11 @@
       "path": "modules/community/member-skill-books.ts",
       "bytes": 9448,
       "sha256": "79e6847b71b513620259a66a468557ecf969da49f6580ca41d5e69d9e2b39fa8"
+    },
+    {
+      "path": "modules/community/repo-author-claims.ts",
+      "bytes": 30682,
+      "sha256": "4a30d7a54b43f3a063ba630917b8716ce02fe5cad6625b1f10376d55d169b498"
     },
     {
       "path": "modules/community/share-introductions/agent-kit.json",
@@ -3214,8 +3244,8 @@
     },
     {
       "path": "modules/development/service.ts",
-      "bytes": 41333,
-      "sha256": "b6134ef3791b7da2d970713fc1f917014d84cb907995dfb27143ad3e6ba20563"
+      "bytes": 41939,
+      "sha256": "d23fd269d147997401f4c0685399fb3fdb7e08231e467d6ac5254bea51bf54f6"
     },
     {
       "path": "modules/github-social/provider.ts",
@@ -3513,6 +3543,11 @@
       "sha256": "b311fea9e74708bc2d40ffdb90ef22a524d33d7b48c6985b1917ca118a103dfa"
     },
     {
+      "path": "packages/testing/e2e-admin.ts",
+      "bytes": 924,
+      "sha256": "8a18b551d4b5ff6d481f8cf9d52cdb1ff13199a2c9a66cfe56666eb83000259f"
+    },
+    {
       "path": "packages/testing/e2e-auth-isolation.ts",
       "bytes": 1344,
       "sha256": "143338872618b711462ac1135a87c60a99c68de49799d5c8cb84e715440416cb"
@@ -3524,8 +3559,8 @@
     },
     {
       "path": "packages/testing/github-collaboration.ts",
-      "bytes": 4960,
-      "sha256": "03a9be5b78af422a368fbb73c00fbc9b7a321e8e28d8bc4f59a23bef4a773a7d"
+      "bytes": 5197,
+      "sha256": "83236324aa19c131e1ba4b05882676e6be1356632fb546c4f07935168c165e99"
     },
     {
       "path": "packages/testing/seed.ts",
@@ -3574,8 +3609,8 @@
     },
     {
       "path": "scripts/e2e-server.ts",
-      "bytes": 2742,
-      "sha256": "28650b5f0b41abbbd0c3d46a8d7aa90b3f86b78e017eac817188601f0c6fa6b7"
+      "bytes": 2874,
+      "sha256": "d5a985ae9fcc8f9335633bfffa7dfa99b7269c1ff8d8fa238f37f98d46210c7a"
     },
     {
       "path": "scripts/export-contract-bundle.mjs",
@@ -3868,6 +3903,11 @@
       "sha256": "964772281be9868f20b551239d30df2974d7a621715dcffecc4dabe0ce536e5c"
     },
     {
+      "path": "tests/e2e/repo-author-claims.spec.ts",
+      "bytes": 6886,
+      "sha256": "2a347bdddb658d435befb2d6074e1c02180f0518951a22c64b4c5f6215517d86"
+    },
+    {
       "path": "tests/e2e/skill-book-library.spec.ts",
       "bytes": 23703,
       "sha256": "d7d6404ba6a8b4c69919d324ef4ead9cb425fc65ec05de16d2783d95a73108e8"
@@ -3979,8 +4019,8 @@
     },
     {
       "path": "tests/runtime/development-map.test.ts",
-      "bytes": 6151,
-      "sha256": "43475c7091f849192e146dd24325b8209a8528ec61bed35389e4cbb2170199a6"
+      "bytes": 6289,
+      "sha256": "32761ebacadc78ccda5bed3cd23f2917c92dfa6102ea39e8e2f37e6edfdc71db"
     },
     {
       "path": "tests/runtime/e2e-auth-isolation.test.ts",
@@ -4166,6 +4206,11 @@
       "path": "tests/runtime/published-skills.test.ts",
       "bytes": 3494,
       "sha256": "40f82ca4d3637c4f562ba681b46db616b71a16a1a2c7bdea4c7f9a7386b7a491"
+    },
+    {
+      "path": "tests/runtime/repo-author-claims.test.ts",
+      "bytes": 35299,
+      "sha256": "5013cb4ba543cbe127051a6637b39d7dbb987d911c4ad95122b496506d46657a"
     },
     {
       "path": "tests/runtime/skill-book-guides.test.ts",
