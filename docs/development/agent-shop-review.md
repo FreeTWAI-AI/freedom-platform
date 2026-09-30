@@ -21,7 +21,7 @@ SQL：新增 commerce 表，不挪用原商品／合作資料；金額及保留�
 
 文件：補上兩頁各六步操作教學、可交給 AI 的文字、金流本人驗證、秘密存放與 500／300／60 元算例。MD 明定先產生測試成果、歸檔拿金鑰，再取得選品代號完成連線，避免「尚未歸檔卻要求先有 selection_id」的循環。
 
-部署：[本功能操作與維護者程序](supplier-retail-pricing.md) 說明審查、CI、合併、048 migration、staging、正式驗收與保留資料的回退；沿用 [Cloudflare 文件](../../deploy/cloudflare/README.md)，不改私有環境設定。
+部署：[本功能操作與維護者程序](supplier-retail-pricing.md) 說明審查、CI、合併、055／056 migration、staging、正式驗收與保留資料的回退；沿用 [Cloudflare 文件](../../deploy/cloudflare/README.md)，不改私有環境設定。
 
 ## 本輪實跑
 

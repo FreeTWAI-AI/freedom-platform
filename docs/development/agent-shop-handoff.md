@@ -110,7 +110,7 @@ sequenceDiagram
 | 商品選品、預覽、匯入、抓取 | [imports.ts](../../modules/agent-commerce/imports.ts) |
 | 訂單、付款、暫停、金鑰、出貨 | [orders.ts](../../modules/agent-commerce/orders.ts) |
 | URL、驗證與路由權限 | [agent-commerce.ts](../../apps/platform-api/src/routes/agent-commerce.ts)、[platform-app.ts](../../apps/platform-api/src/platform-app.ts) |
-| 資料表與約束 | [048_agent_shops.sql](../../migrations/048_agent_shops.sql) |
+| 資料表與約束 | [055_agent_shops.sql](../../migrations/055_agent_shops.sql)、[056_commerce_distribution.sql](../../migrations/056_commerce_distribution.sql) |
 | 行為驗收 | [runtime](../../tests/runtime/agent-commerce.test.ts)、[E2E](../../tests/e2e/agent-shops.spec.ts) |
 | Node／Worker 實際部署規矩 | [Cloudflare README](../../deploy/cloudflare/README.md) |
 
@@ -143,7 +143,7 @@ Jev 已前置審查並促成併發修正，但其 gate／review 曾回 `escalate
 
 讀本文件及 repo 規則 → 讀取最新分支、diff、PR／CI → 保留未提交變更 → Jev 先看相符來源與測試，人工覆核 SQL／MD 及發現 → 完成所需驗證 → 更新同一 PR。
 
-有權維護者完成審查與最新 CI 後才能合併；保存 merged SHA。有部署授權及正確私有 overlay 的操作者再按既有程序先 staging、後正式，先備份、核對 048 migration 與 runtime grants，最後讀回 release SHA 及頁面。沒有權限就提供確切阻礙，不能冒稱已發布。
+有權維護者完成審查與最新 CI 後才能合併；保存 merged SHA。有部署授權及正確私有 overlay 的操作者再按既有程序先 staging、後正式，先備份、核對 055／056 migration 與 runtime grants，最後讀回 release SHA 及頁面。沒有權限就提供確切阻礙，不能冒稱已發布。
 
 ### 第二優先：驗證一組真正能合作的外部商店
 
@@ -203,4 +203,4 @@ git diff --check
 - 沒有 `SettlementMandate`，沒有付款人 A4 加 Ted 對同一 digest 的付款類 A4，因此不能變成 `authorized_mandate`。範圍內自動撥款未啟用。
 - 沒有賣家收款、付款人撥款、受益人收款三種 connection，沒有綠界或其他 provider 的真實扣款。
 - 沒有獨立 QC、`official` 或法律用的電子簽章供應商。這裡的接受是會員在平台對 exact digest 的決定，不是 DocuSign。
-- 沒有物流追蹤、部分退款、或跨店收件資料的信任通道。048／049 尚未套用到正式資料庫；本變更不部署。
+- 沒有物流追蹤、部分退款、或跨店收件資料的信任通道。055／056 尚未套用到正式資料庫；本變更不部署。

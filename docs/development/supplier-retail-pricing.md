@@ -19,7 +19,7 @@
 - [內部 MD](../../packages/shop-agent/internal.md)、[公開 MD](../../packages/shop-agent/public.md)、[共用金流與接口章節](../../packages/shop-agent/common.md) 是可維護的原始檔。
 - `modules/agent-commerce/kit.ts` 把對應 MD、共用章節、成果格式範例及實際選品資料合成一份下載檔。由 `generate-runtime-text` 內嵌，Node 與 Worker 都可提供，不在執行時讀檔。
 - `CommercePanels.tsx` 提供下載、搜尋選品、成果上傳／網址讀取、預覽確認、商店卡、金鑰設定、暫停接單、訂單／付款與人工出貨登記。
-- `modules/agent-commerce/`、`routes/agent-commerce.ts`、migration `048_agent_shops.sql` 保存獨立的商店、商品、選品快照、轉單及付款事件；不挪用舊版 client 的唯讀憑證。
+- `modules/agent-commerce/`、`routes/agent-commerce.ts`、migration `055_agent_shops.sql` 與 `056_commerce_distribution.sql` 保存獨立的商店、商品、選品快照、轉單、供貨接受及付款事件；不挪用舊版 client 的唯讀憑證。
 - 頁面導覽、說明與開發指引仍保留 `supplier`／`retail` 標記，使用新的入口名稱。
 
 ## MD 的責任
@@ -87,7 +87,7 @@ runtime 測試涵蓋原子匯入、雜湊去重、私有店／跨店／跨社群
 2. 逐項覆核 Jev 發現；另檢查 SQL、MD、權限、付款重送及庫存競爭。若指出測試不足，先补重現測試，保留修正前失敗與修正後通過的證據。Jev 不代替實跑測試或操作者權限。
 3. 型別／建置、交易與舊版回歸、先 build 後的瀏覽器流程、Worker、契約及 inventory 通過後推送。GitHub CI 必須對應最新 head；`action_required` 不是通過，不能跳過受保護分支或使用 admin bypass。由有合併權的人依 repo 規則合併，保存 merged SHA。
 4. 有正式發布授權與部署權限的維護者，使用私有環境 overlay 與既有發布 helper。repo 的全零 Hyperdrive template 不可直接部署；不要索取或提交秘密。先 staging、後正式；逐一核對環境／資料庫、備份與回復方式。
-5. 在相應環境套用 `048_agent_shops.sql` 並核對執行結果及 runtime 權限，再發布對應程式。這是新增資料表，不應為回退刪除已產生的商店／交易資料；回退策略須保留新資料，先停接新單，再由維護者確認相容版本及未完成訂單處置。
+5. 在相應環境依序套用 `055_agent_shops.sql`、`056_commerce_distribution.sql` 並核對執行結果及 runtime 權限，再發布對應程式。觸發函式沿用 PostgreSQL 預設的 PUBLIC EXECUTE，不在 migration 裡改 OWNER 或另做 GRANT。這是新增資料表，不應為回退刪除已產生的商店／交易資料；回退策略須保留新資料，先停接新單，再由維護者確認相容版本及未完成訂單處置。
 6. staging 驗證下載 MD、預覽不寫入、確認歸檔、私有店 404、跨店拒絕、兩筆付款分開及出貨登記；核對健康端點與 release SHA。通過後才按同樣程序發布正式，讀回網址與實際頁面。正式交易另需每店金流及個資交付驗收，不能拿合成付款當銀行證明。
 
 交付記錄要分列：本機測試、Jev 判斷及人工處置、CI、合併、migration、staging、正式站、真人金流。任何未完成項目寫明原因，不把 Git 上有程式說成網站已上線。
