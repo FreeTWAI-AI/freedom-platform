@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import type {Pool,PoolClient} from 'pg';
 import {command,digest,journal,type Command} from '../../packages/db/index.js';
-import {requireCondition} from '../../packages/shared/problem.js';
+import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {importInput,manifestInput,parseManifestFile,type ShopManifest} from './schema.js';
 import {listingDigest,resellerArrangement} from './distribution.js';
@@ -57,12 +57,18 @@ export async function importShop(pool:Pool,input:Command){
   return {shop_id:id,reused:false};
  });
 }
+const manifestUrlMessage='網址請用 GitHub 原始 JSON／MD 檔；其他平台請下載成果檔後直接上傳。';
+const manifestFetchMessage='無法讀取成果檔，請改用上傳。';
 // Only fixed raw GitHub content is fetched. No redirects, cookies, auth, private URLs or executable HTML.
+function allowedManifestUrl(u:URL){
+ return u.protocol==='https:'&&u.hostname==='raw.githubusercontent.com'&&!u.port&&!u.username&&!u.password&&!u.search&&!u.hash&&/^\/[^/]+\/[^/]+\/[^/]+\/.+\.(json|md)$/.test(u.pathname);
+}
 export async function fetchManifest(url:string,fetcher:typeof fetch=fetch){
- let u:URL;try{u=new URL(url);}catch{throw Error('成果網址格式不正確。');}
- requireCondition(u.protocol==='https:'&&u.hostname==='raw.githubusercontent.com'&&!u.port&&!u.username&&!u.password&&!u.search&&!u.hash&&/^\/[^/]+\/[^/]+\/[^/]+\/.+\.(json|md)$/.test(u.pathname),422,'manifest_url_unsupported','網址請用 GitHub 原始 JSON／MD 檔；其他平台請下載成果檔後直接上傳。');
- const response=await fetcher(u.href,{redirect:'manual',signal:AbortSignal.timeout(8000),headers:{Accept:'text/plain, application/json'}});
- requireCondition(response.ok&&response.body,422,'manifest_fetch_failed','無法讀取成果檔，請改用上傳。');
+ let u:URL;try{u=new URL(url);}catch{throw new Problem(422,'manifest_url_unsupported',manifestUrlMessage);}
+ requireCondition(allowedManifestUrl(u),422,'manifest_url_unsupported',manifestUrlMessage);
+ const response=await fetcher(u.href,{redirect:'manual',credentials:'omit',referrer:'no-referrer',signal:AbortSignal.timeout(8000),headers:{Accept:'text/plain, application/json'}});
+ requireCondition(response.status===200&&!response.redirected&&response.body,422,'manifest_fetch_failed',manifestFetchMessage);
+ if(response.url){let final:URL;try{final=new URL(response.url);}catch{throw new Problem(422,'manifest_fetch_failed',manifestFetchMessage);}requireCondition(allowedManifestUrl(final),422,'manifest_url_unsupported',manifestUrlMessage);}
  const reader=response.body.getReader();let bytes=0;const chunks:Uint8Array[]=[];
  try{for(;;){const {done,value}=await reader.read();if(done)break;bytes+=value.byteLength;requireCondition(bytes<=24000,413,'manifest_too_large','成果檔上限 24 KB。');chunks.push(value);}}finally{await reader.cancel().catch(()=>{});}
  return parseManifestFile(Buffer.concat(chunks).toString('utf8'));

@@ -6,6 +6,7 @@ import {createPool,LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
 import {seedLocal,DEMO_USERS,DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
+import {Problem} from '../../packages/shared/problem.js';
 import {fetchManifest} from '../../modules/agent-commerce/imports.js';
 import {parseManifestFile} from '../../modules/agent-commerce/schema.js';
 
@@ -135,12 +136,19 @@ test('two internal shops get only their own transfer; source customer data is an
 });
 
 test('manifest URL reader rejects unsafe hosts and oversize data without following redirects',async()=>{
- let calls=0;const mock:typeof fetch=async(_u,init)=>{calls++;assert.equal(init?.redirect,'manual');return new Response(JSON.stringify(internal()));};
- for(const url of ['http://raw.githubusercontent.com/a/b/main/shop.json','https://127.0.0.1/shop.json','https://raw.githubusercontent.com.evil.example/a/b/main/shop.json','https://raw.githubusercontent.com/a/b/main/shop.json?token=secret'])await assert.rejects(fetchManifest(url,mock));
+ const unsupported=(e:unknown)=>e instanceof Problem&&e.status===422&&e.code==='manifest_url_unsupported';
+ const failed=(e:unknown)=>e instanceof Problem&&e.status===422&&e.code==='manifest_fetch_failed';
+ let calls=0;const mock:typeof fetch=async(_u,init)=>{calls++;assert.equal(init?.redirect,'manual');assert.equal(init?.credentials,'omit');assert.equal(init?.referrer,'no-referrer');return new Response(JSON.stringify(internal()));};
+ for(const url of ['http://raw.githubusercontent.com/a/b/main/shop.json','https://127.0.0.1/shop.json','https://raw.githubusercontent.com.evil.example/a/b/main/shop.json','https://raw.githubusercontent.com/a/b/main/shop.json?token=secret','not a url'])await assert.rejects(()=>fetchManifest(url,mock),unsupported);
  assert.equal(calls,0);
  assert.equal((await fetchManifest('https://raw.githubusercontent.com/a/b/main/shop.json',mock)).kind,'internal');
- await assert.rejects(fetchManifest('https://raw.githubusercontent.com/a/b/main/shop.json',async()=>new Response('x'.repeat(24001))));
- await assert.rejects(fetchManifest('https://raw.githubusercontent.com/a/b/main/shop.json',async()=>new Response(null,{status:302,headers:{Location:'http://127.0.0.1/private'}})));
+ await assert.rejects(()=>fetchManifest('https://raw.githubusercontent.com/a/b/main/shop.json',async()=>new Response('x'.repeat(24001))),(e:unknown)=>e instanceof Problem&&e.status===413);
+ await assert.rejects(()=>fetchManifest('https://raw.githubusercontent.com/a/b/main/shop.json',async()=>new Response(null,{status:302,headers:{Location:'http://127.0.0.1/private'}})),failed);
+ await assert.rejects(()=>fetchManifest('https://raw.githubusercontent.com/a/b/main/shop.json',async()=>new Response(JSON.stringify(internal()),{status:201})),failed);
+ const hopped=new Response(JSON.stringify(internal()),{status:200});Object.defineProperty(hopped,'url',{value:'http://127.0.0.1/private'});
+ await assert.rejects(()=>fetchManifest('https://raw.githubusercontent.com/a/b/main/shop.json',async()=>hopped),unsupported);
+ const followed=new Response(JSON.stringify(internal()),{status:200});Object.defineProperty(followed,'redirected',{value:true});
+ await assert.rejects(()=>fetchManifest('https://raw.githubusercontent.com/a/b/main/shop.json',async()=>followed),failed);
  assert.equal(parseManifestFile('目錄\n```json\n'+JSON.stringify(internal())+'\n```').kind,'internal');
  assert.throws(()=>parseManifestFile('```json\n{}\n```\n```json\n{}\n```'));
 });
@@ -159,7 +167,13 @@ test('new import cannot reference a foreign community or partially insert invali
  const f=await setup();const baseline=(await pool.query('SELECT count(*) FROM commerce_shops')).rows[0].count;
  assert.equal((await req('/api/v1/commerce/import',{manifest:{...f.manifest,name:'bad',selections:[...f.manifest.selections,{item_id:randomUUID(),retail_price_minor:20000,sale_terms:'invalid'}]},confirmed:true},f.seller)).status,422);
  assert.equal((await pool.query('SELECT count(*) FROM commerce_shops')).rows[0].count,baseline);
- const foreign=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[foreign,'合成他社群']);await pool.query('UPDATE commerce_shops SET community_id=$2 WHERE shop_id=$1',[f.internalId,foreign]);
+ const listed=(await req('/api/v1/commerce/distribution-acceptances',undefined,f.supplier)).data.items.find((i:any)=>i.acceptance_state==='sellable');
+ assert.ok(listed);
+ const foreign=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[foreign,'合成他社群']);
+ await pool.query('UPDATE commerce_shops SET community_id=$2 WHERE shop_id=$1',[f.publicId,foreign]);
+ const cross=await req(`/api/v1/commerce/selections/${listed.selection_id}/distribution-acceptance`,{decision:'revoked',listing_sha256:listed.listing_sha256,note:'跨社群不能簽'},f.supplier,undefined,randomUUID(),{'If-Match':`"${listed.aggregate_version}"`});
+ assert.equal(cross.status,404);assert.equal(cross.data.code,'acceptance_not_found');
+ await pool.query('UPDATE commerce_shops SET community_id=$2 WHERE shop_id=$1',[f.internalId,foreign]);
  assert.equal((await req('/api/v1/commerce/preview',{content:JSON.stringify({...f.manifest,name:'cross'})},f.seller)).status,422);
 });
 

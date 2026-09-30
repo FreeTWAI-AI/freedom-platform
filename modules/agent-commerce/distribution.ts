@@ -37,7 +37,7 @@ export async function decideAcceptance(pool:Pool,input:Command,selectionId:strin
   const row=(await q.query(`SELECT l.*,internal.owner_id AS supplier_user_id,s.owner_id AS seller_user_id FROM commerce_selections l
    JOIN commerce_items i ON i.item_id=l.item_id JOIN commerce_shops internal ON internal.shop_id=i.shop_id
    JOIN commerce_shops s ON s.shop_id=l.shop_id
-   WHERE l.selection_id=$1 AND internal.owner_id=$2 AND internal.community_id=$3 FOR UPDATE OF l`,[selectionId,input.actor.user_id,input.actor.community_id])).rows[0];
+   WHERE l.selection_id=$1 AND internal.owner_id=$2 AND internal.community_id=$3 AND s.community_id=$3 FOR UPDATE OF l`,[selectionId,input.actor.user_id,input.actor.community_id])).rows[0];
   requireCondition(row,404,'acceptance_not_found','只有供貨的會員可以接受或拒絕這一版售價。');
   checkVersion(String(row.aggregate_version),input.expected);
   requireCondition(row.listing_sha256===body.listing_sha256,409,'snapshot_changed','售價或供貨條件已變更，請重新確認這一版。');
