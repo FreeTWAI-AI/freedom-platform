@@ -6,6 +6,7 @@ import { createApp } from '../apps/platform-api/src/app.js';
 import { migrate } from './database.js';
 import { seedLocal } from '../packages/testing/seed.js';
 import { collaborationGitHubFixture } from '../packages/testing/github-collaboration.js';
+import { syncGitHubRepositories } from '../modules/community/github-sync.js';
 import { e2eSchema } from '../packages/testing/e2e-auth-isolation.js';
 import { e2eOrigin, e2ePort } from '../packages/testing/e2e-origin.js';
 import { e2eAuthorClaimAdminVerifier } from '../packages/testing/e2e-admin.js';
@@ -33,7 +34,12 @@ async function stop(code=0){
   finally{await admin.end().catch(()=>{});process.exit(code);}
 }
 process.on('SIGTERM',()=>void stop());process.on('SIGINT',()=>void stop());
-try{await migrate(pool);await seedLocal(pool);}catch(error){console.error(error);await stop(1);}
+try{
+  await migrate(pool);
+  await seedLocal(pool);
+  // One fixture sync fills github_items before the browser opens. No timer.
+  if(process.env.FREEDOM_E2E_GITHUB_FIXTURES==='1') await syncGitHubRepositories(pool,{fetcher:input=>Promise.resolve(collaborationGitHubFixture(input)),budget:80,token:undefined});
+}catch(error){console.error(error);await stop(1);}
 const app=createApp(pool,origin,'local',{adminVerifier:e2eAuthorClaimAdminVerifier});
 app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));
 app.get('*',serveStatic({path:'./apps/portal-web/dist/index.html'}));

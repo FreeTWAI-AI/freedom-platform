@@ -12,6 +12,7 @@ import { createPlatformApp } from './platform-app.js';
 import { assertDatabaseReady, ReadinessError } from './readiness.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 import { CollaborationGitHub } from '../../../modules/co-creation/github.js';
+import { GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories } from '../../../modules/community/github-sync.js';
 
 /**
  * Cloudflare Worker adapter. Bindings contract (see wrangler.jsonc):
@@ -152,6 +153,9 @@ export type WorkerDependencies = {
   createPool?: (env: WorkerEnv) => Pool;
   /** Request-scoped wrapper for host services (the image processor attaches here). */
   scope?: (env: WorkerEnv, run: () => Promise<Response>) => Promise<Response>;
+  /** Test seam. Production uses syncGitHubRepositories. */
+  syncGitHub?: typeof syncGitHubRepositories;
+  githubFetcher?: typeof fetch;
 };
 
 /**
@@ -167,6 +171,7 @@ export function workerScope(env: WorkerEnv, run: () => Promise<Response>): Promi
 export function createWorkerHandler(deps: WorkerDependencies = {}) {
   const createPool = deps.createPool ?? (env => createRequestPool(env.HYPERDRIVE.connectionString));
   const scope = deps.scope ?? workerScope;
+  const syncGitHub = deps.syncGitHub ?? syncGitHubRepositories;
   // Only a boolean per bindings object: pending I/O is never shared between requests.
   const verified = new WeakSet<object>();
   const coCreationGitHub = new CollaborationGitHub();
@@ -208,6 +213,23 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
         // Sockets are request-bound in Workers; always release them, even after errors.
         ctx.waitUntil(pool.end().catch(() => console.error('pool_end_failed')));
       }
+    },
+    async scheduled(_controller: {readonly cron?: string; readonly scheduledTime?: number}, env: WorkerEnv, ctx: WorkerContext): Promise<void> {
+      const token = env.GITHUB_METRICS_TOKEN || undefined;
+      let pool: Pool | undefined;
+      const work = (async () => {
+        try {
+          pool = createPool(env);
+          await syncGitHub(pool, {fetcher: deps.githubFetcher, token, budget: GITHUB_SYNC_REQUEST_BUDGET});
+        } catch (error) {
+          const name = error instanceof Error && /^[A-Za-z][A-Za-z0-9_]*$/.test(error.name) ? error.name : 'unknown';
+          console.error('github_sync_failed', name);
+        } finally {
+          if (pool) await pool.end().catch(() => console.error('pool_end_failed'));
+        }
+      })();
+      ctx.waitUntil(work);
+      await work;
     },
   };
 }
