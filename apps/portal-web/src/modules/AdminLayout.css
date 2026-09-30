@@ -72,7 +72,7 @@
 }
 @media (max-width: 600px) {
   .admin-layout.admin-workspace { padding: 14px 12px; gap: 12px; }
-  .admin-workspace .admin-header { align-items: center; flex-wrap: nowrap; }
+  .admin-workspace .admin-header { align-items: center; flex-wrap: wrap; min-width: 0; }
   .admin-workspace .admin-header .brand { gap: 8px; min-width: 0; }
   .admin-workspace .admin-header h1 { font-size: 1.2rem; }
   .admin-workspace .admin-header > .btn { flex-shrink: 0; padding-inline: 10px; font-size: .875rem; }
