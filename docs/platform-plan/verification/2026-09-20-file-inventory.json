@@ -2999,8 +2999,8 @@
     },
     {
       "path": "modules/community/events.ts",
-      "bytes": 37118,
-      "sha256": "075f13a0e9add66784b42e822b133a094f1c3945cd5f3e37453ade95aa50a140"
+      "bytes": 37276,
+      "sha256": "1b63db18f702bfa07ec7070a109fddb241d4e588c50df01e7759c6214a5f353b"
     },
     {
       "path": "modules/community/github-history.ts",
@@ -4139,8 +4139,8 @@
     },
     {
       "path": "tests/runtime/member-experience.test.ts",
-      "bytes": 21741,
-      "sha256": "b8919e3c5b90774677ada58ebef0ed9fe4bd595cdd0cf5deb6d8b99b1ffa3bc2"
+      "bytes": 23212,
+      "sha256": "25c35caf390655da9d7c000b4735e0f585320a1a9bd51bdb30c9d7f2b80bae75"
     },
     {
       "path": "tests/runtime/member-skill-registration.test.ts",
