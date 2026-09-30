@@ -1,4 +1,5 @@
 import { test,expect,type Page } from './fixtures.js';
+import { signOut } from './navigation.js';
 
 async function login(page:Page,email:string){
   await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill(email);
@@ -14,7 +15,7 @@ async function inviteMaker(page:Page){
     });return response.status;
   });expect(status).toBe(200);
 }
-async function logout(page:Page){await page.getByRole('button',{name:'登出',exact:true}).click();await expect(page.getByRole('heading',{name:'登入',exact:true})).toBeVisible();}
+async function logout(page:Page){await signOut(page);await expect(page.getByRole('heading',{name:'登入',exact:true})).toBeVisible();}
 
 test('clicking one notification opens its friend response and keeps the bell open',async({page})=>{
   await login(page,'reviewer@local.test');await inviteMaker(page);await logout(page);

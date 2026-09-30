@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { e2eOrigin } from '../../packages/testing/e2e-origin.js';
-import { navigate } from './navigation.js';
+import { navigate, signOut } from './navigation.js';
 import { test, expect, type Page } from './fixtures.js';
 
 type Member = { id: string; email: string; nickname: string };
@@ -18,10 +18,10 @@ async function login(page: Page, email: string) {
   await page.getByLabel('電子郵件', { exact: true }).fill(email);
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
   await page.getByRole('button', { name: '登入', exact: true }).click();
-  await expect(page.getByRole('button', { name: '登出', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '設定', exact: true })).toBeVisible();
 }
 async function logout(page: Page) {
-  await page.getByRole('button', { name: '登出', exact: true }).click();
+  await signOut(page);
   await expect(page.getByLabel('電子郵件', { exact: true })).toBeVisible();
 }
 async function command(page: Page, path: string, data: unknown, ifMatch?: number) {

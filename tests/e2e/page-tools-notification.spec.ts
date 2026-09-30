@@ -2,6 +2,7 @@ import {test,expect,type Page} from './fixtures.js';
 
 const widths=[320,390,820,1280] as const;
 const themes=[['light','自由工坊－明亮'],['dark','自由工坊－夜航']] as const;
+const toolNames=[['idea','提出想法'],['help','頁面說明'],['edit','參與編修']] as const;
 
 async function signIn(page:Page){
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
@@ -19,12 +20,15 @@ async function selectTheme(page:Page,id:(typeof themes)[number][0],label:(typeof
   await expect(page.getByRole('menu',{name:'個人檔案'})).toBeHidden();
 }
 
-test('the idea control shows its label and the notification button matches neighbouring top-bar buttons',async({page})=>{
+test('all three page tools show their labels and the account buttons match them in height',async({page})=>{
   await page.setViewportSize({width:320,height:720});
   await page.goto('/');
+  for(const [kind,name] of toolNames){
+    const tool=page.locator(`.login-page-tools .page-tool-button--${kind}`);
+    await expect(tool.locator('.page-tool-label')).toHaveText(name);
+    await expect(tool).toHaveAccessibleName(name);
+  }
   const signedOut=page.locator('.login-page-tools .page-tool-button--idea');
-  await expect(signedOut.locator('.page-tool-label')).toHaveText('提出想法');
-  await expect(signedOut).toHaveAccessibleName('提出想法');
   const signedOutBox=await signedOut.boundingBox();
   expect(signedOutBox!.width).toBeGreaterThanOrEqual(40);
   expect(signedOutBox!.height).toBeGreaterThanOrEqual(40);
@@ -33,15 +37,21 @@ test('the idea control shows its label and the notification button matches neigh
   await signIn(page);
   await page.evaluate(()=>{location.hash='members';});
   await expect(page.getByRole('heading',{name:'工坊夥伴',level:1})).toBeVisible();
+  // The account group is the bell plus the profile menu; 登出 is inside that menu.
+  await expect(page.locator('.topbar').getByRole('button',{name:'登出',exact:true})).toHaveCount(0);
 
   for(const width of widths){
     await page.setViewportSize({width,height:width<500?720:900});
     for(const [id,label] of themes){
       await selectTheme(page,id,label);
       const where=`${id} ${width}`;
+      for(const [kind,name] of toolNames){
+        const tool=page.locator(`.topbar .page-tool-button--${kind}`);
+        await expect(tool.locator('.page-tool-label'),where).toHaveText(name);
+        await expect(tool,where).toHaveAccessibleName(name);
+        await expect(tool,where).toBeInViewport();
+      }
       const idea=page.locator('.topbar .page-tool-button--idea');
-      await expect(idea.locator('.page-tool-label'),where).toHaveText('提出想法');
-      await expect(idea,where).toHaveAccessibleName('提出想法');
       const box=await idea.boundingBox();
       expect(box!.width,where).toBeGreaterThanOrEqual(40);
       expect(box!.height,where).toBeGreaterThanOrEqual(40);
@@ -50,7 +60,7 @@ test('the idea control shows its label and the notification button matches neigh
           const node=document.querySelector(selector);
           if(!node)return null;
           const box=node.getBoundingClientRect();
-          return {width:box.width,height:box.height,top:box.top};
+          return {width:box.width,height:box.height,top:box.top,radius:getComputedStyle(node).borderTopLeftRadius};
         };
         const title=document.querySelector('.topbar h1')!.getBoundingClientRect();
         const ideaBox=document.querySelector('.page-tool-button--idea')!.getBoundingClientRect();
@@ -85,6 +95,7 @@ test('the idea control shows its label and the notification button matches neigh
         expect(tool,where).toBeTruthy();
         expect(Math.abs(tool!.height-bell!.height),where).toBeLessThanOrEqual(1);
         expect(Math.abs(tool!.top-metrics.tools[0]!.top),where).toBeLessThanOrEqual(1);
+        expect(tool!.radius,where).toBe(metrics.tools[0]!.radius);
       }
       for(const icon of [metrics.icons.help,metrics.icons.edit,metrics.icons.bell]){
         expect(Math.abs(icon!.width-metrics.icons.idea!.width),where).toBeLessThanOrEqual(1);

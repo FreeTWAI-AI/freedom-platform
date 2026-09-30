@@ -1,5 +1,5 @@
 import {test,expect} from './fixtures.js';
-import {navigate} from './navigation.js';
+import {navigate,signOut} from './navigation.js';
 import {randomUUID} from 'node:crypto';
 
 test('導覽訊息給出用途、下一步連結，並把時間放在內容後方',async({page})=>{
@@ -174,7 +174,7 @@ test('global 訊息控制台 persists across modules and synchronizes with its p
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await consolePanel.screenshot({path:'test-results/game-console-mobile-expanded.png'});
   await consolePanel.getByRole('button',{name:'收合訊息控制台'}).click();
-  await page.getByRole('button',{name:'登出',exact:true}).click();
+  await signOut(page);
   await expect(popup.getByText('登入已結束')).toBeVisible();
   await popup.close();
 });
@@ -222,7 +222,7 @@ test('sent private messages return to the console after signing in again',async(
   await page.getByLabel('私人訊息').fill(message);
   await page.getByRole('button',{name:'傳送'}).click();
   await expect(page.getByRole('log')).toContainText(message);
-  await page.getByRole('button',{name:'登出',exact:true}).click();
+  await signOut(page);
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
   await page.getByRole('button',{name:'登入',exact:true}).click();

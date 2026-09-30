@@ -34,7 +34,7 @@ async function member(browser:Browser,baseURL:string,user:Account,viewport:{widt
   const page=await context.newPage();
   await page.goto('/');
   await page.getByLabel('電子郵件',{exact:true}).fill(user.email);await page.getByLabel('密碼',{exact:true}).fill(DEMO_PASSWORD);
-  await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
   // The real session identifies the account; the CSRF token stays in memory only.
   const session=await (await page.request.get('/api/v1/session')).json() as {user:{user_id:string};csrf_token:string};
   expect(session.user.user_id).toBe(user.user_id);
@@ -100,7 +100,7 @@ test('two synthetic members exchange a private message and a friend notification
     await r.evaluate(()=>window.dispatchEvent(new Event('focus')));
     await expect(settings(r).locator('.settings-dot')).toHaveCount(0);await expect(settings(r)).toHaveAccessibleName('設定');
     await settings(r).click();
-    await expect(r.getByRole('menuitem')).toHaveText(['我的名片','待辦清單']);
+    await expect(r.getByRole('menuitem')).toHaveText(['我的名片','待辦清單','登出']);
     await noOverflow(r);await shot(r,'settings-320');
     await settings(r).click();await openMessages(r);await expect(r.locator('#main-content')).toBeFocused();
     await expect(r.getByRole('tab',{name:/私人訊息/})).toContainText('1 則未讀');await expect(r.getByRole('tab',{name:/通知/})).toContainText('沒有未讀');
