@@ -29,6 +29,8 @@ import {createGitHubMetricsRoutes,createGitHubSocialRoutes,socialLoader,type Git
 import {GitHubSocial} from '../../../modules/github-social/service.js';
 import {createDevelopmentAccessRoutes,createDevelopmentAgentRoutes,isAgentDevelopmentPath} from './routes/development-access.js';
 import {createSkillDiscoveryRoutes} from './routes/skill-discovery.js';
+import {createMemberAuthorClaimRoutes, createPublicAuthorClaimRoutes} from './routes/repo-author-claims.js';
+import {publicAuthorClaimForBook} from '../../../modules/community/repo-author-claims.js';
 import {skillDiscovery} from '../../../modules/community/discovery.js';
 import {readSkillEditorial} from '../../../modules/guild-workspace/service.js';
 import {createGuildWorkspaceRoutes} from './routes/guild-workspace.js';
@@ -120,7 +122,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   });
   app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher}));
   app.route('/',createPublishedSkillRoutes(pool,runtime.publicOrigin));
-  app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin));
+  app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id)));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
   app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog}));
@@ -144,6 +146,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.get('/api/v1/pages/github-activity',async c=>c.json(await pageGitHub.read(c.req.query('page'),c.req.query('refresh')==='1')));
   app.get('/api/v1/pages/github-events',async c=>c.json(await pageGitHubEvents.read()));
   app.route('/api/v1',createGitHubMetricsRoutes(async()=>publicSocial));
+  app.route('/api/v1',createPublicAuthorClaimRoutes(pool));
   app.route('/api/v1',createSkillDiscoveryRoutes(pool));
   app.route('/api/v1',createPublicClientConnectionRoutes(pool,origin,authNetwork));
   app.route('/client-api/v1',createClientApiRoutes(pool));
@@ -240,6 +243,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createMemberCommunicationRoutes(pool));
   app.route('/api/v1',createCommunityEventRoutes(pool,runtime.eventEmailSender,origin));
   app.route('/api/v1',createGitHubSocialRoutes(loadSocial));
+  app.route('/api/v1',createMemberAuthorClaimRoutes(pool,options.githubSocial?.fetcher??globalThis.fetch));
   app.route('/api/v1',createDevelopmentAccessRoutes(pool,loadSocial));
   app.route('/api/v1',createGuildWorkspaceRoutes(pool));
   app.route('/api/v1',createAvatarRoutes(pool));

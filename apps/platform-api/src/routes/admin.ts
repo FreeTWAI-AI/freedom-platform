@@ -12,6 +12,7 @@ import {verifyAdminAccess,type AdminAccessVerifier} from '../../../../modules/pl
 import {authenticateAdmin,adminBootstrap,adminMembers,changeMemberStatus,adminApplications,reviewGuildApplication,adminGuilds,adminGuildMasterCandidates,appointGuildMaster,adminNominees,adminAudit,appointPlatformAdmin,changePlatformAdminStatus,type AdminActor,type AdminCommand} from '../../../../modules/platform-admin/service.js';
 import {startGitHubAppSetup,completeGitHubAppSetup,githubAppSetupStatus} from '../../../../modules/github-social/setup.js';
 import {listAdminEventQueue,reviewEventAsAdmin} from '../../../../modules/community/events.js';
+import {acknowledgeAuthorClaimIdentity,adminAuthorClaims,refreshAuthorClaimObservation,reviewAuthorClaim} from '../../../../modules/community/repo-author-claims.js';
 type AdminEnv={Variables:{admin:AdminActor;adminCsrf:string}};
 export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=verifyAdminAccess,github:{origin:string;tokenKey?:string;fetcher?:typeof fetch}={origin:'http://127.0.0.1:4310'}){
   const app=new Hono<AdminEnv>();
@@ -59,6 +60,14 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
   app.get('/admins',async c=>c.json({items:await adminNominees(pool,c.get('admin'))}));
   app.post('/admins/:id/status',async c=>result(c,await changePlatformAdminStatus(pool,await command(c),c.req.param('id'))));
   app.get('/audit',async c=>c.json({items:await adminAudit(pool,c.get('admin'))}));
+  app.get('/author-claims',async c=>c.json(await adminAuthorClaims(pool,c.get('admin'),z.enum(['review','verified']).parse(c.req.query('queue')??'review'))));
+  app.post('/author-claims/:id/review',async c=>{
+    const value=await reviewAuthorClaim(pool,await command(c),z.uuid().parse(c.req.param('id')));
+    c.header('ETag',`"${value.version}"`);return c.json(value);
+  });
+  const skillBookId=(c:Context<AdminEnv>)=>z.string().regex(/^[a-z0-9-]{1,100}$/).parse(c.req.param('id'));
+  app.post('/skill-books/:id/author-claim-observation',async c=>c.json(await refreshAuthorClaimObservation(pool,await command(c),skillBookId(c),github.fetcher??globalThis.fetch)));
+  app.post('/skill-books/:id/author-claim-observation/acknowledge',async c=>c.json(await acknowledgeAuthorClaimIdentity(pool,await command(c),skillBookId(c))));
   app.get('/client-errors',async c=>{
     const admin=c.get('admin');
     const rows=await pool.query(`SELECT e.error_id,e.user_id,u.display_name,e.action,e.error_code,e.http_status,e.created_at

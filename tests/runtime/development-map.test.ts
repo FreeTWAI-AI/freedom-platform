@@ -5,11 +5,12 @@ import type {Pool} from 'pg';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {developmentPages} from '../../modules/development/pages.js';
 import {developmentMap,markdownBody} from '../../modules/development/service.js';
+import {PUBLIC_AUTHOR_CLAIM_SQL} from '../../modules/community/repo-author-claims.js';
 
 const origin='http://127.0.0.1:4310';
 // Guidance may enrich a skill page from the public repository cache only.
 const publicEditorial='SELECT summary,collaboration_intro,milestones,tasks,updated_at,aggregate_version FROM skill_book_editorial WHERE book_id=$1';
-const publicDiscovery=new Set(['SELECT book_id,published_at FROM skill_publications WHERE published_at<=$1','SELECT book_id,summary FROM skill_book_editorial','SELECT guild_key,name FROM positioning_guild_catalog',`SELECT repository_key,count(*) FILTER(WHERE first_confirmed_at>$1 AND first_confirmed_at<=$3)::int AS week_stars, count(*) FILTER(WHERE first_confirmed_at>$2 AND first_confirmed_at<=$3)::int AS month_stars FROM skill_star_support WHERE active AND first_confirmed_at>$2 AND first_confirmed_at<=$3 GROUP BY repository_key`]);
+const publicDiscovery=new Set(['SELECT book_id,published_at FROM skill_publications WHERE published_at<=$1','SELECT book_id,summary FROM skill_book_editorial','SELECT guild_key,name FROM positioning_guild_catalog',`SELECT repository_key,count(*) FILTER(WHERE first_confirmed_at>$1 AND first_confirmed_at<=$3)::int AS week_stars, count(*) FILTER(WHERE first_confirmed_at>$2 AND first_confirmed_at<=$3)::int AS month_stars FROM skill_star_support WHERE active AND first_confirmed_at>$2 AND first_confirmed_at<=$3 GROUP BY repository_key`,PUBLIC_AUTHOR_CLAIM_SQL.replace(/\s+/g,' ').trim()]);
 const publiclyReadable=(sql:string)=>sql===publicEditorial||publicDiscovery.has(sql.replace(/\s+/g,' ').trim());
 let privateQueries=0;
 const pool={query:(sql:string)=>{
