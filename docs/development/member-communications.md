@@ -23,7 +23,7 @@ POST 走既有的 Origin、CSRF 與 `Idempotency-Key` 規則，不需要 `If-Mat
 
 路由仍掛在共用的 session、Origin、CSRF 與加入資格 middleware 之後，但服務函式不信任傳進來的 `Actor`：直接呼叫、或驗證後才被撤銷的請求，也會在服務層重新以資料庫目前狀態判斷。
 
-- **讀取**（`listNotifications`、`listConversations`、`conversationMessages`）：在 `BEGIN ISOLATION LEVEL REPEATABLE READ` 交易的第一步先 `FOR SHARE` 鎖會員列（`user_id`＋`community_id`＋`active`），再 `FOR SHARE` 鎖 session 列（未撤銷、未過期），順序與 `command()` 相同（先 users 再 sessions，不反向）。停用、跨社群、撤銷或過期回 `401 session_expired`；加入資格改由剛鎖住的會員列判斷，未完成加入（選定主要公會）回 `403 onboarding_required`。計數與分頁仍在同一快照內，GET 不寫任何領域資料。因為 `FOR SHARE` 不能在 `READ ONLY` 交易執行，所以拿掉了 `READ ONLY`，快照不變。
+- **讀取**（`listNotifications`、`listConversations`、`conversationMessages`、`conversationActivity`）：在 `BEGIN ISOLATION LEVEL REPEATABLE READ` 交易的第一步先 `FOR SHARE` 鎖會員列（`user_id`＋`community_id`＋`active`），再 `FOR SHARE` 鎖 session 列（未撤銷、未過期），順序與 `command()` 相同（先 users 再 sessions，不反向）。停用、跨社群、撤銷或過期回 `401 session_expired`；加入資格改由剛鎖住的會員列判斷，未完成加入（選定主要公會）回 `403 onboarding_required`。計數與分頁仍在同一快照內，GET 不寫任何領域資料。因為 `FOR SHARE` 不能在 `READ ONLY` 交易執行，所以拿掉了 `READ ONLY`，快照不變。
 - **與撤銷同時發生**：讀取若先拿到鎖，會排在撤銷之前完成（撤銷等它提交）。若撤銷已提交或先拿到鎖，讀取等待後，快照看到的是舊列而 PostgreSQL 回 `40001`；整個讀取以新交易重跑（最多 3 次，只限這三個讀取），重跑時看到撤銷而拒絕。不會回傳內容，也不會把原始 `40001` 丟出；3 次都衝突時回 `503 communications_busy`。
 - **指令**（`markNotificationRead`、`markConversationRead`、`sendDirectMessage`）：`command()` 已先鎖會員列、再鎖 session 列；授權 callback 只在同一交易內用已鎖住的會員列重新確認加入資格（`currentMember(q, actor, false)`，不再鎖 session），之後才查 receipt。所以加入資格被重設後，重送舊 key 也回 `403 onboarding_required`，不會回放舊結果。私訊重送另外會以 `FOR SHARE` 重新確認收件者可收訊（`409 recipient_unavailable`）。
 - 對方停用或未完成加入（選定主要公會）時，自己仍能讀取既有對話與標已讀（只檢查「自己」的資格，不改變上面的私訊規則）。

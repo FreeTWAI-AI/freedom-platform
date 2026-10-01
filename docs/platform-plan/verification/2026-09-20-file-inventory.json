@@ -44,13 +44,13 @@
     },
     {
       "path": "DESIGN.md",
-      "bytes": 7920,
-      "sha256": "8aec4d42f930912f8b192e2b34b4782511112519e33abc6526a3787210390189"
+      "bytes": 7986,
+      "sha256": "4bf37ecfbb129070acbb9c127e384989944efd6ed19a419e1c2446da048c3d21"
     },
     {
       "path": "README.md",
-      "bytes": 15002,
-      "sha256": "206c3cedf4a18b037047974e8a33724b10a2265a36ce5f50f48bf17608cae823"
+      "bytes": 14957,
+      "sha256": "ffba0fcd72d1c54ef899b7ed1da17ab8ecbabaf2881aec8c0d9614b71a7e9787"
     },
     {
       "path": "apps/platform-api/src/admin-sync-worker.ts",
@@ -1634,8 +1634,8 @@
     },
     {
       "path": "docs/development/calm-member-experience.md",
-      "bytes": 8043,
-      "sha256": "d58095fd67abc052283d4f0c625af4efe9d189e6efd2ca8d5a1894a81fe383c0"
+      "bytes": 4945,
+      "sha256": "c027e209dd01440a17e33a3269d6cc00d95168a9fa64f1d2d77d8d3f6158dbab"
     },
     {
       "path": "docs/development/cases/CASE-OPEN-next.md",
@@ -1684,8 +1684,8 @@
     },
     {
       "path": "docs/development/game-console.md",
-      "bytes": 3696,
-      "sha256": "6e5af7e1b1651d2fde245decdb5e82973f53520c109b65a5475beb0c371f2bd4"
+      "bytes": 3666,
+      "sha256": "4b5e7e3b029c8bf456451c63e10293a3005f67e7bddfcc6cf600a773142e10ae"
     },
     {
       "path": "docs/development/github-grant-reconnect-race.md",
@@ -1724,18 +1724,18 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 11020,
-      "sha256": "a31cd0b8a38e395581c45cd4aabc8098aed43b27935cb419e220aad1d7312d03"
+      "bytes": 11136,
+      "sha256": "7e50c98c5ad7f54e6e60543a46a592c52b31f6a912df103d41d615d4a8a9351b"
     },
     {
       "path": "docs/development/member-communications.md",
-      "bytes": 10628,
-      "sha256": "8e9c190611f422e3193e24ad5b46718f9b0b5c7c0f5f58c0f284973e9f157a50"
+      "bytes": 10653,
+      "sha256": "e66517a4c7c0f07d79d1d29f4ff938a766b4fd3cc1009fbcf09a97e8a03d05c7"
     },
     {
       "path": "docs/development/member-connections.md",
-      "bytes": 10228,
-      "sha256": "5677e3df59b52a427b9e24c884105956cd099dd3a77da5c94b2596ac18a3115b"
+      "bytes": 10358,
+      "sha256": "d17b807ac9ee15c8a3ef2fd28996e8cc9f96812d0025e8a72bd53831f786bf34"
     },
     {
       "path": "docs/development/member-onboarding-release.md",
@@ -1744,8 +1744,8 @@
     },
     {
       "path": "docs/development/member-settings-messages.md",
-      "bytes": 7166,
-      "sha256": "05b0404a644a11d3acf4642fbbfc5cb585992c533919fea721551ce8f78c8ef2"
+      "bytes": 7452,
+      "sha256": "e9b6550964285e36e2a1c124e643e0bb889ec7a0e688f37c9684d49671a667b5"
     },
     {
       "path": "docs/development/member-skill-registration.md",

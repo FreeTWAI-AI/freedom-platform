@@ -52,7 +52,9 @@ GitHub 連結固定列為必做待辦，以 `/me/github` 的真實狀態顯示�
 | `POST /squad-invitations/:id/decline` | 受邀本人婉拒 |
 | `POST /squad-invitations/:id/withdraw` | 發起人撤回 |
 
-頻道列表可加 `search`（最多 100 字），在分頁前篩選名稱；回傳總未讀數仍涵蓋本人全部可用頻道。`GET /me/channels/:kind/:key/messages` 可加 `after_sequence` 非負 bigint 字串（上限 `9223372036854775807`），從該序號後依序讀取新訊息；不能與非零 `offset` 合用。有後續增量時回傳 `next_after_sequence`。未帶游標時仍沿用原本的最近訊息與 offset 分頁。世界頻道使用 `kind=world&key=world` 的同一讀寫、已讀介面。
+頻道列表可加 `search`（最多 100 字），在分頁前篩選名稱；回傳總未讀數仍涵蓋本人全部可用頻道。`GET /me/channels/:kind/:key/messages` 可加 `after_sequence` 非負 bigint 字串（上限 `9223372036854775807`），從該序號後依序讀取新訊息；不能與非零 `offset` 合用。有後續增量時回傳 `next_after_sequence`。未帶游標時仍沿用原本的最近訊息與 offset 分頁。
+
+`GET /me/channels/:kind/:key/activity` 回 `{latest_sequence, unread_count}`，`GET /me/conversations/:userId/activity` 回 `{last_message_id, unread_count, can_send}`。兩者不帶查詢參數、不含訊息正文、不標已讀，資格檢查與讀取同一對話的訊息相同。世界頻道使用 `kind=world&key=world` 的同一讀寫、已讀介面。
 
 小隊邀請回覆帶 `If-Match` 邀請版本；邀請本身不建立小隊成員資格，也不開放小隊聯絡資料。接受時沿用既有小隊成員鎖，與申請、核准及退出協調；退出後重播舊的接受收據不會重新加入。
 
