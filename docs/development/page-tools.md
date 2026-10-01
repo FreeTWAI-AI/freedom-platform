@@ -16,4 +16,6 @@
 
 說明使用 `modules/development/pages.ts` 的用途、第一個可做的事與既有 `/development/<id>` 指引。Agent 指令要求先讀 Repo、核對目前頁面程式、列出新手常見問題；編修指令要求核對現有 Issue／PR、Fork、建立分支、執行測試、以本人 GitHub 權限送 PR。指令本身不授予帳號權限。
 
+「參與編修」的 Agent 指令與手動步驟都要求 PR 說明同時寫下 `page:<id>`，並保留 `<!-- freedom-page:<id> -->`。從 Fork 送出的 PR 不能自加 GitHub label；頁面歸屬只讀 label 與這個 HTML 標記。
+
 驗證：`npm run typecheck`、`npm run build`、`npx tsx --test tests/runtime/page-github.test.ts tests/runtime/github-social-routes.test.ts tests/runtime/github-app-setup.test.ts`、`npx playwright test tests/e2e/page-tools.spec.ts tests/e2e/game-console.spec.ts`。

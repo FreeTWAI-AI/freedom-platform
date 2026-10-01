@@ -193,6 +193,7 @@ async function sendGitHub(path: string, method: 'POST' | 'DELETE', body: unknown
     rateRemaining: response.headers.get('x-ratelimit-remaining'),
     rateReset: response.headers.get('x-ratelimit-reset'),
     pollInterval: response.headers.get('x-poll-interval'),
+    tokenExpiration: response.headers.get('github-authentication-token-expiration'),
   };
   if (response.status >= 300 && response.status < 400) {
     try { await response.body?.cancel(); } catch { /* status is final */ }
