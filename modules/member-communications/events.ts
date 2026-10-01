@@ -42,16 +42,25 @@ export async function notifyFriendshipChange(q:PoolClient,communityId:string,act
     ...copy,action:{tab:'members',resource_id:actorId}});
 }
 
-export async function notifyGuildApplicationReview(q:PoolClient,application:{application_id:string;community_id:string;user_id:string;name:string;state:string;aggregate_version:string|number;review_reason:string|null;approved_guild_key:string|null}){
+export async function notifyGuildApplicationReview(q:PoolClient,application:{application_id:string;community_id:string;user_id:string;name:string;state:string;aggregate_version:string|number;review_reason:string|null;approved_guild_key:string|null},options?:{alias_set?:string}){
   const approved=application.state==='approved',name=clip(application.name,100);
   // The applicant already reads review_reason from their own application list.
   const reason=application.review_reason?`審查說明：${clip(application.review_reason,1000)}`:'';
+  const created='guild_custom_'+application.application_id.replaceAll('-','');
+  const merged=approved&&!!application.approved_guild_key&&application.approved_guild_key.toLowerCase()!==created.toLowerCase();
+  let title=approved?'公會申請已核准':'公會申請未通過';
+  let body=[approved?`你申請的「${name}」已核准成立。`:`你申請的「${name}」這次未通過審查。`,reason].filter(Boolean).join('\n');
+  if(merged&&application.approved_guild_key){
+    const target=(await q.query('SELECT name,alias FROM positioning_guild_catalog WHERE guild_key=$1',[application.approved_guild_key])).rows[0];
+    const lines=[`你申請的「${name}」已併入「${clip(target?.name??'公會',100)}」。`];
+    if(options?.alias_set)lines.push(`「${clip(options.alias_set,100)}」成為這個公會的別名。`);
+    if(reason)lines.push(reason);
+    title='公會申請已併入既有公會';body=lines.join('\n');
+  }
   return notifyMember(q,{community_id:application.community_id,recipient_ref:application.user_id,
     kind:approved?'guild_application_approved':'guild_application_rejected',
     source_key:`guild-application/${application.application_id}/${application.aggregate_version}`,
-    title:approved?'公會申請已核准':'公會申請未通過',
-    body:[approved?`你申請的「${name}」已核准成立。`:`你申請的「${name}」這次未通過審查。`,reason].filter(Boolean).join('\n'),
-    action:{tab:'guilds',resource_id:approved?application.approved_guild_key:null}});
+    title,body,action:{tab:'guilds',resource_id:approved?application.approved_guild_key:null}});
 }
 
 /** Call only for a real inactive↔active change; a no-op rewrite still bumps the version. */

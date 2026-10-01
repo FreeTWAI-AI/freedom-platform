@@ -24,7 +24,7 @@ export const schemas={
  SavePositioning:object({real_world_occupations:textArray(8),background:str(1200,0),strengths:textArray(12),goals:str(1000),weekly_minutes:integer(0,10080),desired_roles:array({enum:['supplier','seller','creator','promoter','helper']},5),selected_tracks:textArray(3),confirmed:{const:true}}),
  Profile:object({profile_id:uuid,user_id:uuid,aggregate_version:version,source:{const:'self_declared'},goals:str(1000)},undefined,true),
  Positioning:object({profile:nullable(ref('Profile')),tracks:array({type:'object'}),recommendations:array({type:'object'})}),
- Guild:object({guild_key:str(100),name:str(200),membership:nullable({type:'object'})},undefined,true),
+ Guild:object({guild_key:str(100),name:str(200),alias:str(100,0),profession_title:str(40,0),membership:nullable({type:'object'})},['guild_key','name','membership'],true),
  Membership:object({membership_id:uuid,state:{enum:['active','left']},rank:{const:'runner'},aggregate_version:version},undefined,true),
  ProductInput:object(product,Object.keys(product).filter(k=>k!=='photo_url')),
  OfferInput:object(supply),

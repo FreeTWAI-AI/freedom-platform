@@ -19,7 +19,7 @@ const BUILTIN_GUILD_KEYS=Object.freeze(['guild_talent_direction','guild_product_
 // Approved applications become guild_custom_<application id without dashes>; the id passed z.uuid() (Zod 4.6.5: version 1-8, variant 8/9/a/b, either case, plus lowercase nil/max).
 const CUSTOM_GUILD_KEY=/^guild_custom_([0-9a-fA-F]{12}[1-8][0-9a-fA-F]{3}[89abAB][0-9a-fA-F]{15}|0{32}|f{32})$/;
 const GUILD_MODULE_KEYS=Object.freeze(['positioning','supplier','retail','marketing','workbench','guilds','engagement','opensource']);
-const GUILD_DIRECTORY_FIELDS=Object.freeze(['catalog_version','first_step','guild_experts','guild_key','guild_master','guild_master_nominee','is_primary','is_secondary','membership','module_key','name','profession_key','purpose','secondary_position','skill_books']);
+const GUILD_DIRECTORY_FIELDS=Object.freeze(['alias','catalog_version','first_step','guild_experts','guild_key','guild_master','guild_master_nominee','is_primary','is_secondary','membership','module_key','name','profession_key','profession_title','purpose','secondary_position','skill_books']);
 // Checks the public directory projection only; an approved-format custom row does not prove its review record.
 // bookIds is the canonical skill book id Set (development-map skill_books mirrors communityCatalog used by approval).
 function verifyGuildDirectory(guilds,bookIds){
@@ -48,10 +48,15 @@ function verifyGuildDirectory(guilds,bookIds){
     if(!GUILD_MODULE_KEYS.includes(guild.module_key))fail(`${label} module_key`);
     if(!Number.isInteger(guild.catalog_version)||guild.catalog_version<1)fail(`${label} catalog_version`);
     if(!isText(guild.name,1,100)||!isText(guild.purpose,1,1000)||!isText(guild.first_step,1,1000))fail(`${label} text fields`);
+    if(!isText(guild.alias,0,100))fail(`${label} alias`);
+    if(guild.alias&&guild.alias.toLowerCase()===guild.name.toLowerCase())fail(`${label} alias matches its name`);
+    if(!isText(guild.profession_title,0,40))fail(`${label} profession_title`);
+    if(builtin&&guild.profession_title!=='')fail(`${label} profession_title`);
     if(match){
-      // Approval stores trimmed name 2-100, purpose/first_step 5-1000, default catalog_version, and at least one bound book.
+      // Approval stores trimmed name 2-100, purpose/first_step 5-1000, catalog_version >= 1, and at least one bound book.
+      // Profile edits and a merge that writes an alias increment catalog_version above the insert default.
       if(guild.profession_key!=='custom_'+match[1])fail(`${label} profession_key`);
-      if(guild.catalog_version!==1)fail(`${label} catalog_version`);
+      if(!Number.isInteger(guild.catalog_version)||guild.catalog_version<1)fail(`${label} catalog_version`);
       if(!isText(guild.name,2,100)||!isText(guild.purpose,5,1000)||!isText(guild.first_step,5,1000))fail(`${label} custom text limits`);
       if(!Array.isArray(guild.skill_books)||guild.skill_books.length<1||guild.skill_books.length>20)fail(`${label} skill_books`);
       const unknown=guild.skill_books.filter(book=>!bookIds.has(book?.id)).map(book=>book?.id);

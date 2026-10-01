@@ -674,6 +674,16 @@ export const protocol={
           "minLength": 1,
           "maxLength": 200
         },
+        "alias": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 100
+        },
+        "profession_title": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 40
+        },
         "membership": {
           "anyOf": [
             {
@@ -1630,4 +1640,4 @@ export const protocol={
   "public_checkout": false
 }
 ;
-export const protocolSha256="fe2ee45447f4a5e92c10e22307dee3b380d028acca04bac5278d3aeca0da7b3e";
+export const protocolSha256="ca21e7677d524618f510f5b013c113b39ea680eaa73a61db49a80b7cc41c80b0";

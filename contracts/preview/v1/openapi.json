@@ -2264,6 +2264,16 @@
             "minLength": 1,
             "maxLength": 200
           },
+          "alias": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 100
+          },
+          "profession_title": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 40
+          },
           "membership": {
             "anyOf": [
               {
