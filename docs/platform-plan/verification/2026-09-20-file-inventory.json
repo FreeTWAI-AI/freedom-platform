@@ -934,8 +934,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/HomeDesign.css",
-      "bytes": 14658,
-      "sha256": "eef689f9d0910911b0bd852c703e17c2b4e0d97850fa7bf3bc91c7eb237aa058"
+      "bytes": 15151,
+      "sha256": "f91e749ab5cbb347072d8fc24ed302278ca76119ef2a3e1dea53a9250e3eb893"
     },
     {
       "path": "apps/portal-web/src/modules/LegacyCommercePanels.tsx",
@@ -969,8 +969,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberHome.tsx",
-      "bytes": 6766,
-      "sha256": "15f6e3bed4c5e5c52f6ec51470fafb6fd3e9d17a6df8f8662f795a5faa566772"
+      "bytes": 7701,
+      "sha256": "bde9bd6588139dada5b15fe909987aeabb69a3a5724895fd05b8d17f8a1da4da"
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
@@ -3951,6 +3951,11 @@
       "path": "tests/e2e/member-experience.spec.ts",
       "bytes": 22336,
       "sha256": "a0cf632764766c6a05b20b2ff79711658e72b6b7bb9b56e5264c86c2438aafa8"
+    },
+    {
+      "path": "tests/e2e/member-home-next-step.spec.ts",
+      "bytes": 10284,
+      "sha256": "5bd8006453294919265cb2da0a87c388a3f08e58eb09bca260703776030b9642"
     },
     {
       "path": "tests/e2e/member-settings-real.spec.ts",
