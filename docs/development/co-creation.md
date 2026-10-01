@@ -59,6 +59,10 @@
 
 貢獻卡上的 `author` 是 GitHub PR 的作者帳號，來源是該 PR，未映射為已驗證的平台會員。摘要尚未解析 commit coauthors、設計／測試／文件的全部參與者；請回到 Issue、PR 與成果紀錄確認實際分工，不把單一 PR 作者當成唯一貢獻者。
 
+## 社群任務的歷史排行
+
+`GET /api/v1/community/github-history/leaderboards` 的想法、編修與貢獻榜只計入兩類項目：作者的 GitHub 登入名稱（忽略大小寫與首尾空白）對得上本社群 `github_social_connections.github_login`，且該列會員 `users.active` 仍為真；或該項目在 `FreeTWAI-AI/freedom-platform` 且 `page_ids` 不為空（頁面「提出想法」「參與編修」留下的 `page:<id>` 標籤或 `<!-- freedom-page:<id> -->`）。只有透過 GitHub OAuth 寫入的連結算數，會員名片上未驗證的 GitHub 聯絡方式不算。機器人帳號即使帶有頁面標記也不計入。同一登入只累計符合條件的項目。其餘作者仍出現在歷史清單，不進入排行。分數只供這一頁比較，不寫入經驗或驗收。
+
 `freedom-project-template` 已提供 `AGENTS.md`、`CONTRIBUTING.md`、只連向 GitHub Issues 的 `TASKS.md`、結構化任務表單及 PR 模板。新 fork 可沿用協作入口；新的獨立專案仍須替換為自己觀察到的 repo 身分。署名應保留來源與授權，記錄實際協作並取得本人同意。自願開源共創不等於付費承諾；收費工作由當事人另行約定。
 
 協作角色可選開發、測試、設計、文件、行銷、銷售、營運、資安、作曲配樂與影片製作；角色是需要的協助，不授予 repo 權限。

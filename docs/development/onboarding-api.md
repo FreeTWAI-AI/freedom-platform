@@ -18,6 +18,8 @@ POST responses from the application include a generated `X-Freedom-Request-ID`. 
 - `POST /me/onboarding/evaluate`: `{}`. Requires every question answered; capability and equipment selections may be empty for a beginner. Writes deterministic recommendations and returns the onboarding view. Server requires current version.
 - `POST /me/onboarding/complete`: `{guild_keys:string[],primary_guild_key:string,confirmed:true}`. Requires evaluated draft/current version, 1–15 distinct valid chosen guilds, selected primary present among chosen guilds. Recommendations are suggestions: other valid guilds can be chosen. Atomically joins selected guilds, sets exactly one primary, grants repository pointers, marks completion and unlocks new accounts. Does not silently leave existing guilds. Returns updated onboarding view.
 - `GET /guilds`: legacy response shape retained. `GET /guilds/directory`: `{items:[...legacyGuildFields,guild_master:null|{user_id,display_name,avatar_url},guild_experts:[{user_id,display_name,avatar_url}],is_primary:boolean,skill_books:[]]}`. Unassigned master renders `待任命` with a `公會長` badge. `avatar_url` is a versioned, authenticated local image URL or null; it is not an external image source.
+
+公會物件另含 `alias`（0–100 字，空字串表示沒有別名）與 `profession_title`（0–40 字）。有別名時，介面把公會名稱與別名並排；沒有別名就不顯示分隔或別名。內建公會的職業稱號仍來自定位題目，`profession_title` 保持空字串。管理員核准的自訂公會若有非空 `profession_title`，以該公會為主要公會的成員使用這個稱號；留空時仍顯示「專業探索者」。會員摘要裡的 `primary_guild`、`secondary_guilds`、`joined_guilds` 各帶 `alias`。
 - Existing `POST /guilds/:key/join` / `leave`: `{}`; membership ETag applies. Joining grants books atomically. A primary guild cannot be left until a different active membership is made primary.
 - `POST /guilds/:key/primary`: `{}`; `If-Match` of preference version. Response `{primary_guild_key,aggregate_version}`. `GET /me/guild-preferences` exposes this version. First selection omits version. Active membership required.
 - `GET /me/skill-books`: `{items:[{book_id,title,repository_url,fork_url,description,guild_keys,granted_at}]}`. Grants are access pointers to public repository resources, not software installation, GitHub account linking or a completed fork.
@@ -72,5 +74,7 @@ The catalog currently has 20 capability categories / 170 unique options and 8 eq
 ## Skill books for administrator-approved guilds
 
 A new guild approval requires 1–20 distinct `guild.skill_book_ids` from the canonical skill-book catalog. Migration 013 stores the reviewed associations in `guild_skill_book_bindings`, scoped by community and guild. Approval creates the guild and bindings in the same transaction; it does not silently join the applicant or grant a book before membership. The rich guild directory merges static starter books with these reviewed bindings, and joining grants those book IDs atomically.
+
+核准正文可以附帶 `alias` 與 `profession_title`，寫入新的目錄列。審查也可以改為併入既有公會：申請標成已核准並指向該公會，不建立新目錄列、不新增技能書綁定。併入時若帶了非空別名，該別名成為目標公會的別名。自訂公會的職業稱號只存在目錄的 `profession_title`；內建稱號不從這個欄位讀取。
 
 A book ID always resolves through `communityCatalog.skill_books`; applications cannot supply arbitrary download URLs, tokens or executable content. Existing grants also resolve against that full catalog, so books received from a custom guild remain visible. Unknown or removed catalog IDs are skipped. Static defaults and additional bindings are deduplicated; another community's bindings are not included.

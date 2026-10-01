@@ -68,6 +68,8 @@ export type GitHubRead = {
   pollInterval: string | null;
   /** Parsed JSON on 200. Raw text on other statuses so the caller can classify the body. Null when there is no body. */
   body: unknown;
+  /** Raw `github-authentication-token-expiration` header. Null when GitHub omitted it. */
+  tokenExpiration: string | null;
 };
 
 const githubHeaders = {'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'Freedom-Platform-public-registry'};
@@ -84,6 +86,7 @@ export async function readGitHub(path:string,signal:AbortSignal,fetcher:typeof f
     rateRemaining: response.headers.get('x-ratelimit-remaining'),
     rateReset: response.headers.get('x-ratelimit-reset'),
     pollInterval: response.headers.get('x-poll-interval'),
+    tokenExpiration: response.headers.get('github-authentication-token-expiration'),
   };
   if (response.status>=300&&response.status<400&&response.status!==304) {
     try { await response.body?.cancel(); } catch { /* The status is already final. */ }

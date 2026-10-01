@@ -40,6 +40,7 @@ const HYPERDRIVE_ID = /^[0-9a-f]{32}$/;
  * Validate the platform Worker wrangler.json/jsonc against the manifest. Read-only.
  * This checker does not validate wrangler.admin-sync.jsonc. That cron Worker has no
  * routes, assets or images binding; npm run worker:dry-run:admin-sync bundles it.
+ * It also does not validate wrangler.maintainer.jsonc (npm run worker:dry-run:maintainer).
  * Pointing this checker at that file reports missing platform routes and bindings,
  * which is not a verdict on the cron Worker.
  * Three separate answers: `structural` (the config is shaped correctly), `static_checks_pass`

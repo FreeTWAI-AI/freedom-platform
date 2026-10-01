@@ -37,6 +37,7 @@ import {readSkillEditorial} from '../../../modules/guild-workspace/service.js';
 import {createGuildWorkspaceRoutes} from './routes/guild-workspace.js';
 import {onboardingDiagnostics} from './onboarding-diagnostics.js';
 import {createSkillSubmissionRoutes,createAgentSkillSubmissionRoutes,isAgentSkillUploadPath} from './routes/skill-submissions.js';
+import {createMaintainerWebhookRoutes,createRepoMaintainerMemberRoutes,isMaintainerWebhookPath} from './routes/repo-maintainer.js';
 import {createPublishedSkillRoutes} from './routes/published-skills.js';
 import {createMemberCommunicationRoutes} from './routes/member-communications.js';
 import {PageGitHubReader,PageGitHubEventReader} from '../../../modules/development/page-github.js';
@@ -104,9 +105,13 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
       // Only the narrow Bearer-authenticated Agent endpoints accept a CLI
       // without Origin. Browser requests keep the normal same-origin checks.
       const shopMachine=c.req.path.startsWith('/shop-api/v1/');
-      if((!agentUpload&&!shopMachine)||c.req.header('Origin')!==undefined)requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected',freedomEnv==='local'?'操作來源不正確，請從本機工作台操作。':'操作來源不正確，請從自由工坊網站操作。');
+      const maintainerWebhook=isMaintainerWebhookPath(c.req.method,c.req.path);
+      // GitHub sends no Origin. A browser Origin that is present must still match.
+      if((!agentUpload&&!shopMachine&&!maintainerWebhook)||c.req.header('Origin')!==undefined)requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected',freedomEnv==='local'?'操作來源不正確，請從本機工作台操作。':'操作來源不正確，請從自由工坊網站操作。');
       if(agentUpload) {
         // The Agent route authenticates and consumes a bounded stream itself.
+      } else if(maintainerWebhook) {
+        // The route checks content type, the 2 MiB cap and the signature, then reads the raw body.
       } else if(isAvatarUpload(c.req.method,c.req.path)) {
         // Only this route accepts binary input. Its bounded stream reader runs
         // after session, CSRF and completed-member checks, before decoding.
@@ -208,6 +213,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     deleteCookie(c,COOKIE,{path:'/'});
     return c.json(result);
   });
+  app.route('/',createMaintainerWebhookRoutes(pool,runtime.maintainerWebhookSecret));
   app.use('/api/v1/*',async(c,next)=>{
     const actor=await authenticate(pool,getCookie(c,COOKIE));c.set('actor',actor);
     if(!['GET','HEAD'].includes(c.req.method)) {
@@ -264,6 +270,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createMemberAuthorClaimRoutes(pool,options.githubSocial?.fetcher??globalThis.fetch,runtime.githubMetricsToken));
   app.route('/api/v1',createDevelopmentAccessRoutes(pool,loadSocial));
   app.route('/api/v1',createGuildWorkspaceRoutes(pool));
+  app.route('/api/v1',createRepoMaintainerMemberRoutes(pool));
   app.route('/api/v1',createAvatarRoutes(pool));
   app.route('/api/v1',createClientConnectionRoutes(pool));
   app.route('/api/v1',createSkillSubmissionRoutes(pool,origin,runtime.githubMetricsToken));

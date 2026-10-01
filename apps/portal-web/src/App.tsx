@@ -95,7 +95,7 @@ const TAB_GUIDANCE: Record<TabId, string> = {
   todos: '查看會員待辦事項與可直接前往的操作。',
   messages: '查看收到的訊息與對話。',
   events: '查看社群活動、審核結果與報名狀態。',
-  tasks: '探索工坊工作、GitHub Issue／PR 歷史與作者排行榜，查看有來源的驗收紀錄。',
+  tasks: '探索工坊工作、GitHub Issue／PR 歷史與已連結 GitHub 的會員排行，查看有來源的驗收紀錄。',
   social: '分享社群貼文連結。每次有人點開只顯示在社群推廣排行榜。',
   services: '列出社員的本業服務。用你的連結分享出去，點擊計入業務推廣排行榜。服務頁是公開的。',
   promotion: '查看六種分享的點擊排行。分數只供比較，不計入經驗或驗收。',

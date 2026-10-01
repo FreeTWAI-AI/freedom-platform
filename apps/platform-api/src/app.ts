@@ -22,11 +22,13 @@ function authNetwork(c:Context) {
 }
 
 /** Node runtime: settings are read from process configuration when used, as before. */
-export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:{adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;eventEmailSender?:EventEmailSender;now?:()=>Date;linkPreviewFetch?:PlatformRuntime['linkPreviewFetch']}={}):PlatformRuntime {
+export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:{adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;eventEmailSender?:EventEmailSender;maintainerWebhookSecret?:string;now?:()=>Date;linkPreviewFetch?:PlatformRuntime['linkPreviewFetch']}={}):PlatformRuntime {
   return {
     registrationCommunityId:()=>process.env.FREEDOM_REGISTRATION_COMMUNITY_ID,
     githubTokenKey:()=>options.githubSocial?.tokenKey??process.env.GITHUB_SOCIAL_TOKEN_KEY,
     githubMetricsToken:()=>options.githubSocial?.metricsToken??(process.env.GITHUB_METRICS_TOKEN||undefined),
+    // An explicit option wins even when it is empty, so a test can force 503 while a developer env var is set.
+    maintainerWebhookSecret:()=>Object.prototype.hasOwnProperty.call(options,'maintainerWebhookSecret')?(options.maintainerWebhookSecret||undefined):(process.env.GITHUB_MAINTAINER_WEBHOOK_SECRET||undefined),
     adminVerifier:options.adminVerifier??verifyAdminAccess,
     sourceNetwork:authNetwork,
     allowedHosts:allowedRequestHosts(freedomEnv,origin),
@@ -38,6 +40,6 @@ export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:{adminVe
   };
 }
 
-export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:FreedomEnv='local',options:{adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;eventEmailSender?:EventEmailSender;now?:()=>Date;linkPreviewFetch?:PlatformRuntime['linkPreviewFetch']}={}) {
+export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:FreedomEnv='local',options:{adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;eventEmailSender?:EventEmailSender;maintainerWebhookSecret?:string;now?:()=>Date;linkPreviewFetch?:PlatformRuntime['linkPreviewFetch']}={}) {
   return createPlatformApp(pool,origin,freedomEnv,nodeRuntime(freedomEnv,origin,options),{githubSocial:options.githubSocial});
 }

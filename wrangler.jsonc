@@ -26,12 +26,17 @@
 //   FREEDOM_DATABASE_NAME, FREEDOM_REGISTRATION_COMMUNITY_ID,
 //   FREEDOM_ADMIN_ACCESS_ISSUER, FREEDOM_ADMIN_ACCESS_AUD,
 //   secrets FREEDOM_ADMIN_CSRF_SECRET and GITHUB_SOCIAL_TOKEN_KEY,
-//   optional secret GITHUB_METRICS_TOKEN (read-only public GitHub counts).
+//   optional secret GITHUB_METRICS_TOKEN (read-only public GitHub counts),
+//   optional secret GITHUB_MAINTAINER_WEBHOOK_SECRET (GitHub App webhook HMAC;
+//   at least 32 characters). Without that secret only
+//   POST /api/v1/maintainer/github/webhook answers 503. The App private key
+//   is not a binding of this Worker; it belongs to wrangler.maintainer.jsonc.
 // Missing required settings answer 503 for every path, including static files.
 //
 // Only `--dry-run --outdir` is used from this repository (npm run worker:dry-run).
 // That command checks this file only and does not check wrangler.admin-sync.jsonc
-// (npm run worker:dry-run:admin-sync).
+// (npm run worker:dry-run:admin-sync) or wrangler.maintainer.jsonc
+// (npm run worker:dry-run:maintainer).
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "freedom-platform-local",

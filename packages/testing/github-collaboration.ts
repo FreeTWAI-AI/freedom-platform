@@ -10,6 +10,7 @@ export function collaborationGitHubFixture(input:string|URL|Request):Response {
       {number:14,title:'補上社群導覽',body:'頁面標記：page:home\n\n<!-- freedom-page:home -->',state:'open',state_reason:null,user:{login:'member-demo'},labels:[{name:'page:home'}],assignees:[],created_at:'2026-09-27T12:00:00Z',updated_at:'2026-09-27T12:00:00Z'},
       {number:16,title:'自動檢查未採納',state:'closed',state_reason:'not_planned',user:{login:'github-actions[bot]'},created_at:'2026-09-24T12:00:00Z',updated_at:'2026-09-24T13:00:00Z'},
       {number:18,title:'<img src=x onerror=alert(1)>',state:'open',state_reason:null,user:{login:'dependabot[bot]'},created_at:'2026-09-23T12:00:00Z',updated_at:'2026-09-23T12:00:00Z'},
+      {number:19,title:'外部協作者的紀錄',state:'open',state_reason:null,user:{login:'outsider-demo'},created_at:'2026-09-21T12:00:00Z',updated_at:'2026-09-21T12:00:00Z'},
       {number:13,title:'改善手機導覽',state:'closed',user:{login:'contributor-demo'},created_at:'2026-09-26T12:00:00Z',updated_at:'2026-09-27T12:00:00Z',pull_request:{merged_at:'2026-09-27T12:00:00Z'}},
       {number:15,title:'更新技能書說明',state:'open',user:{login:'member-demo'},created_at:'2026-09-28T12:00:00Z',updated_at:'2026-09-28T12:00:00Z',pull_request:{merged_at:null}},
       {number:17,title:'關閉未合併的說明',state:'closed',user:{login:'contributor-demo'},created_at:'2026-09-22T12:00:00Z',updated_at:'2026-09-22T18:00:00Z',pull_request:{merged_at:null}},
