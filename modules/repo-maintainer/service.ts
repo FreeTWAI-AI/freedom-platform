@@ -161,14 +161,14 @@ async function scopedPull(q: Queryable, admin: AdminActor, id: string, lock = fa
 }
 
 const CLAIM_COLUMNS = `c.claim_id, c.reviewer_id, v.github_login AS reviewer_login, c.assignment, a.display_name AS claimed_by,
-  c.created_at, c.expires_at, c.head_sha, c.github_request_state, c.aggregate_version, c.state, c.end_reason, c.ended_at`;
+  c.created_at, c.expires_at, c.head_sha, c.github_request_state, c.github_request_error, c.aggregate_version, c.state, c.end_reason, c.ended_at`;
 
 function presentActiveClaim(row: Record<string, any> | undefined) {
   if (!row?.claim_id) return null;
   return {
     claim_id: row.claim_id, reviewer_id: row.reviewer_id, reviewer_login: row.reviewer_login, assignment: row.assignment,
     claimed_by: row.claimed_by, created_at: iso(row.created_at), expires_at: iso(row.expires_at), head_sha: row.head_sha,
-    github_request_state: row.github_request_state, aggregate_version: row.aggregate_version,
+    github_request_state: row.github_request_state, github_request_error: row.github_request_error, aggregate_version: row.aggregate_version,
   };
 }
 

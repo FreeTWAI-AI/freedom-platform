@@ -5,7 +5,8 @@ import './AdminReviewCenter.css';
 type Reason = { code: string; message: string; paths?: string[] };
 type Claim = {
   claim_id: string; reviewer_id: string; reviewer_login: string; assignment: string; claimed_by: string;
-  created_at: string; expires_at: string; head_sha: string; github_request_state: string; aggregate_version: string | number;
+  created_at: string; expires_at: string; head_sha: string; github_request_state: string;
+  github_request_error: string | null; aggregate_version: string | number;
 };
 type HistoryClaim = Claim & { state: string; end_reason: string | null; ended_at: string | null };
 type CheckRow = { name: string; status: string; conclusion: string | null; head_sha: string; source?: string };
@@ -21,6 +22,7 @@ type ReviewRow = {
   is_current_head: boolean; counts_as_valid: boolean;
 };
 type PullDetail = PullRow & {
+  state: string; is_draft: boolean; mode: string;
   files: FileRow[]; checks: CheckRow[]; reviews: ReviewRow[]; queue_reasons: Reason[]; claims: HistoryClaim[];
   risk_reasons: Reason[];
 };
@@ -44,6 +46,23 @@ const QUEUE_LABEL: Record<string, string> = {
 };
 const RISK_LABEL: Record<string, string> = { low: '低風險', medium: '中風險', high: '高風險' };
 const CLAIM_STATE: Record<string, string> = { active: '認領中', released: '已釋放', expired: '已到期', completed: '已完成' };
+const END_REASON: Record<string, string> = {
+  admin_released: '已手動釋放', pull_closed: '拉取請求已關閉', reviewer_inactive: '審查者已停用',
+  reviewer_rank_too_low: '風險上限不足', review_submitted: '已送出審查',
+};
+const REVIEW_STATE: Record<string, string> = {
+  APPROVED: '核准', CHANGES_REQUESTED: '要求修改', COMMENTED: '留言', DISMISSED: '已撤銷', PENDING: '未送出',
+};
+const GITHUB_REQUEST: Record<string, string> = {
+  pending: '等待寫入 GitHub', requested: '已在 GitHub 請求審查', skipped: '沒有寫入 GitHub',
+  removing: '正在移除 GitHub 請求', removed: '已移除 GitHub 請求', failed: 'GitHub 寫入失敗',
+};
+const GITHUB_ERROR: Record<string, string> = {
+  github_permission_missing: 'GitHub App 還沒有寫入權限',
+  writes_disabled: '寫入已關閉，GitHub 上可能還留著這個審查請求',
+  github_http_422: 'GitHub 拒絕了，這個帳號可能不是協作者',
+};
+const CLAIM_UNAVAILABLE = '這個拉取請求目前未開啟、仍是草稿或已暫停（包括儲存庫已關閉），不能認領。';
 const MODE_LABEL: Record<string, string> = { off: '關閉', observe: '觀察' };
 
 function versionOf(value: string | number): number {
@@ -80,6 +99,33 @@ function checkText(check: CheckRow | null): string {
 }
 function modeText(mode: string): string {
   return MODE_LABEL[mode] ?? mode;
+}
+function riskBadgeClass(risk: string): string {
+  if (risk === 'low') return 'badge badge-ok';
+  if (risk === 'high') return 'badge badge-alert';
+  return 'badge';
+}
+function queueBadgeClass(state: string): string {
+  return state === 'ready' ? 'badge badge-ok' : 'badge';
+}
+function reviewStateLabel(state: string): string {
+  return REVIEW_STATE[state] ?? state;
+}
+function claimSummary(claim: HistoryClaim): string {
+  const how = claim.assignment === 'assigned' ? `由 ${claim.claimed_by} 指派` : '自己認領';
+  const parts = [claim.reviewer_login, how, CLAIM_STATE[claim.state] ?? claim.state];
+  if (claim.state !== 'active' && claim.end_reason && END_REASON[claim.end_reason]) parts.push(END_REASON[claim.end_reason]);
+  if (claim.github_request_state !== 'not_requested') {
+    const github = GITHUB_REQUEST[claim.github_request_state];
+    if (github) {
+      const reason = claim.github_request_state === 'failed' ? GITHUB_ERROR[claim.github_request_error ?? ''] : '';
+      parts.push(reason ? `${github}，${reason}` : github);
+    }
+  }
+  return parts.join(' ');
+}
+function pullClaimable(detail: { state: string; is_draft: boolean; paused: boolean; mode: string }): boolean {
+  return detail.state === 'open' && !detail.is_draft && !detail.paused && detail.mode !== 'off';
 }
 function authorBadges(row: { author_association: string | null; author_type: string | null; is_fork: boolean }) {
   const badges: string[] = [];
@@ -191,10 +237,10 @@ export function AdminReviewCenter({ client, busy, onMutate }: {
         <div className="review-row-main">
           <div className="review-title">
             <a href={row.html_url} target="_blank" rel="noopener noreferrer">{row.full_name}#{row.number} {row.title}</a>
-            <span className="badge">{QUEUE_LABEL[row.queue_state] ?? row.queue_state}</span>
+            <span className={queueBadgeClass(row.queue_state)}>{QUEUE_LABEL[row.queue_state] ?? row.queue_state}</span>
           </div>
           <p>{row.author_login}{authorBadges(row).map(badge => <span className="badge" key={badge}>{badge}</span>)}</p>
-          <p><span className="badge">{RISK_LABEL[row.risk_class] ?? row.risk_class}</span> {row.first_risk_reason?.message ?? '沒有風險說明'}{(row.first_risk_reason?.paths ?? []).slice(0, 3).map(path => <span className="review-path" key={path}>{path}</span>)}</p>
+          <p><span className={riskBadgeClass(row.risk_class)}>{RISK_LABEL[row.risk_class] ?? row.risk_class}</span> {row.first_risk_reason?.message ?? '沒有風險說明'}{(row.first_risk_reason?.paths ?? []).slice(0, 3).map(path => <span className="review-path" key={path}>{path}</span>)}</p>
           <p>必要檢查 {row.required_check?.name ?? 'verify'} {shortSha(row.head_sha)} {checkText(row.required_check)}</p>
           <p>{row.claim ? `${row.claim.reviewer_login} ${claimLeft(row.claim.expires_at)}` : '無人認領'}</p>
           <p>期限 {slaText(row.sla_due_at)}</p>
@@ -229,6 +275,7 @@ function ReviewDetail({ detail, viewer, reviewers, busy, onError, onMutate, onDo
   const [showPause, setShowPause] = useState(false);
   const version = versionOf(detail.aggregate_version);
   const claimBlock = detail.claim ? '這個拉取請求已有人認領。' : '';
+  const unavailable = !pullClaimable(detail);
   const selfBlock = viewer?.reason ?? '';
   const groups = new Map<string, { message: string; files: FileRow[] }>();
   const other: FileRow[] = [];
@@ -274,7 +321,7 @@ function ReviewDetail({ detail, viewer, reviewers, busy, onError, onMutate, onDo
     </div>
     <div>
       <h3>審查紀錄</h3>
-      {detail.reviews.length ? <ul>{detail.reviews.map(review => <li key={review.github_review_id}>{review.reviewer_login} {review.state} {review.commit_id ? shortSha(review.commit_id) : '沒有提交'}{!review.is_current_head && <span className="badge">舊提交</span>} <span className="badge">{review.counts_as_valid ? '算有效核准' : '不算有效核准'}</span></li>)}</ul> : <p className="muted">還沒有審查。</p>}
+      {detail.reviews.length ? <ul>{detail.reviews.map(review => <li key={review.github_review_id}>{review.reviewer_login} {reviewStateLabel(review.state)} {review.commit_id ? shortSha(review.commit_id) : '沒有提交'}{!review.is_current_head && <span className="badge">舊提交</span>} <span className={review.counts_as_valid ? 'badge badge-ok' : 'badge'}>{review.counts_as_valid ? '算有效核准' : '不算有效核准'}</span></li>)}</ul> : <p className="muted">還沒有審查。</p>}
     </div>
     <div>
       <h3>佇列原因</h3>
@@ -282,16 +329,17 @@ function ReviewDetail({ detail, viewer, reviewers, busy, onError, onMutate, onDo
     </div>
     <div>
       <h3>最近認領</h3>
-      {detail.claims.length ? <ul>{detail.claims.map(claim => <li key={claim.claim_id}>{claim.reviewer_login} {claim.assignment === 'assigned' ? '被指派' : '自己認領'} {CLAIM_STATE[claim.state] ?? claim.state} {claim.claimed_by}</li>)}</ul> : <p className="muted">還沒有認領。</p>}
+      {detail.claims.length ? <ul>{detail.claims.map(claim => <li key={claim.claim_id}>{claimSummary(claim)}</li>)}</ul> : <p className="muted">還沒有認領。</p>}
     </div>
     <div className="actions review-actions">
-      <button type="button" className="btn btn-ghost" disabled={busy || !!selfBlock || !!claimBlock} onClick={() => void claim()}>我來審</button>
-      <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setShowAssign(value => !value)}>指派給…</button>
+      <button type="button" className="btn btn-ghost" disabled={busy || unavailable || !!selfBlock || !!claimBlock} onClick={() => void claim()}>我來審</button>
+      <button type="button" className="btn btn-ghost" disabled={busy || unavailable || !!claimBlock} onClick={() => setShowAssign(value => !value)}>指派給…</button>
       {detail.claim && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setShowRelease(value => !value)}>放棄認領</button>}
       <a className="btn btn-ghost" href={`${detail.html_url}/files`} target="_blank" rel="noopener noreferrer">在 GitHub 審核</a>
       <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setShowPause(value => !value)}>{detail.paused ? '恢復' : '暫停自動處理'}</button>
       <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void onMutate(`/review-center/pulls/${detail.pull_id}/resync`, {}).then(ok => { if (ok) onDone(); })}>重新同步</button>
     </div>
+    {unavailable && <p className="field-hint">{CLAIM_UNAVAILABLE}</p>}
     {!!selfBlock && <p className="field-hint">{selfBlock}</p>}
     {!!claimBlock && <p className="field-hint">{claimBlock}</p>}
     {showAssign && <form className="stack" onSubmit={event => void assign(event)}>
