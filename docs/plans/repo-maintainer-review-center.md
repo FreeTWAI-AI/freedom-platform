@@ -1,6 +1,6 @@
 # PR／Issue 審核中心（Freedom Maintainer）設計
 
-> 設計稿，2026-09-30，對照 main `4d8eee1`。尚未實作、未部署；Maintainer GitHub App、`main` ruleset、高風險路徑的必要審核規則都還沒建立。本文的「採用」只代表設計決定，不代表功能已上線；所有測試在實跑前都是 `not_run`。
+> 設計稿，2026-09-30，對照 main `4d8eee1`。階段 1a–1b 已在分支 `feat/repo-maintainer-review-center-20260930` 實作，尚未合併、未部署；Maintainer GitHub App、`main` ruleset、高風險路徑的必要審核規則都還沒建立。本文的「採用」只代表設計決定，不代表功能已上線；所有測試在實跑前都是 `not_run`。
 
 **一句話：人先審；時間到了還沒人審，才交給 AI；能不能合併，由寫在程式裡、有版本號的規則決定；所有審核與合併事實都留在 GitHub。**
 
@@ -105,18 +105,18 @@ freedom-maintainer Worker（新，沒有路由）
 
 **Maintainer App 權限依階段開放：**
 
-| 權限 | 階段 1–3 | 階段 4（真合併） |
-| --- | --- | --- |
-| Metadata | Read | Read |
-| Pull requests | Read & write（發 AI 審核、加 requested reviewer） | Read & write |
-| Issues | Read & write（標籤；v1 不自動留言） | Read & write |
-| Checks、Commit statuses | Read | Read |
-| Actions | 階段 3 起 Read（確認 `verify` 來自 `.github/workflows/verify.yml`） | Read |
-| Contents | Read（讀 base branch 的 migration 清單、AGENTS.md、檔案內容） | **Read & write**（合併需要） |
+| 權限 | 階段 1a–1b（預設，不寫 GitHub） | 打開 requested reviewer；階段 2–3 | 階段 4（真合併） |
+| --- | --- | --- | --- |
+| Metadata | Read | Read | Read |
+| Pull requests | Read | Read & write（加 requested reviewer、發 AI 審核） | Read & write |
+| Issues | 不需要 | 階段 2 起 Read & write（標籤；v1 不自動留言） | Read & write |
+| Checks、Commit statuses | Read | Read | Read |
+| Actions | 不需要 | 階段 3 起 Read（確認 `verify` 來自 `.github/workflows/verify.yml`） | Read |
+| Contents | Read（讀 base branch 的 migration 清單） | Read（另讀 AGENTS.md、檔案內容） | **Read & write**（合併需要） |
 
-事件：Pull request、Pull request review、Check suite、Check run、Status、Issues、Issue comment（installation 事件自動送出）。安裝時選「Only select repositories」。之後替 App 增加權限，GitHub 會要求 org owner 重新同意，這一步就是 Ted 的人工停點。
+事件：階段 1a–1b 只要 Pull request、Pull request review、Check suite、Check run、Status；階段 2 起加 Issues、Issue comment（installation 事件自動送出）。安裝時選「Only select repositories」。之後替 App 增加權限，GitHub 會要求 org owner 重新同意，這一步就是 Ted 的人工停點。
 
-**Installation token 降權：** 每個工作呼叫 `POST /app/installations/{id}/access_tokens` 時，都帶 `repositories` 與 `permissions`，只取這一步需要的權限。例如同步只拿 read，發 AI 審核只加 `pull_requests: write`，只有合併那一步才拿 `contents: write`。
+**Installation token 降權：** 每個工作呼叫 `POST /app/installations/{id}/access_tokens` 時，都帶 `repository_ids` 與 `permissions`，只取這一步需要的權限。例如同步只拿 read，加 requested reviewer 或發 AI 審核才加 `pull_requests: write`，只有合併那一步才拿 `contents: write`。唯一不帶 repository 的是安裝同步：`GET /installation/repositories` 要用 installation token，而這時還不知道 repository id，所以那張 token 只拿 `metadata: read`。
 
 ## 6. 資料模型
 
@@ -129,14 +129,14 @@ freedom-maintainer Worker（新，沒有路由）
 | `maintainer_repositories` | installation 裡的 repo 與每個 repo 的模式 | `github_repository_id`（改名也不變）、`installation_id`、`full_name`（顯示用，會更新）、`default_branch`、`installation_state`、`mode`（`off`／`observe`／`ai_review`／`merge_dry_run`／`merge`，新 repo 預設 `observe`）、`settings` jsonb（SLA、CI 等待時間；之後加 AI 備援、合併方式、每日上限）、`next_sweep_at`（補查排程兼 row lease）、`rate_limited_until` |
 | `maintainer_webhook_deliveries` | 去重與稽核 | `delivery_id` PK、`event`、`action`、`installation_id`、`github_repository_id`、`target_number` 或 `head_sha`、`outcome`（`queued`／`ignored`）、`payload_sha256`；驗簽失敗的不寫入；不存完整 payload，30 天後清除 |
 | `maintainer_worker_state` | 全域排程（單列） | `next_installation_sync_at`（installation 同步的排程兼 row lease）、`last_installation_sync_at`、`last_error` |
-| `maintainer_jobs` | 工作佇列 | `kind`（階段 1a 只有 `reconcile_pull`；installation 同步用上一列的排程；之後加 `request_reviewer`、`ai_review`、`evaluate_policy`、`merge`）、`dedupe_key`（排隊中唯一）、`state`、`attempts`、`run_after`、`lease_until`、`last_error`（只存錯誤代碼） |
-| `maintainer_pull_requests` | PR 鏡像與衍生狀態 | `head_sha`、`head_observed_at`、`is_draft`、`is_fork`、`author_github_id`、`author_login`、`author_association`、`mergeable`、`mergeable_state`、`labels`、`risk_class`、`risk_reasons`、`queue_state`、`queue_reasons`、`sla_due_at`、`recheck_at`、`paused`、`synced_at` |
+| `maintainer_jobs` | 工作佇列 | `kind`（階段 1a 只有 `reconcile_pull`；installation 同步用上一列的排程；1b 加 `request_reviewer`、`remove_reviewer_request`；之後加 `ai_review`、`evaluate_policy`、`merge`）、`dedupe_key`（排隊中唯一）、`state`、`attempts`、`run_after`、`lease_until`、`last_error`（只存錯誤代碼） |
+| `maintainer_pull_requests` | PR 鏡像與衍生狀態 | `head_sha`、`head_observed_at`、`is_draft`、`is_fork`、`author_github_id`、`author_login`、`author_association`、`mergeable`、`mergeable_state`、`labels`、`risk_class`、`risk_reasons`、`queue_state`、`queue_reasons`、`migration_reasons`（佇列提早停下時仍保留遷移問題，重新推導不必再打 GitHub）、`sla_due_at`、`recheck_at`、`paused`、`synced_at` |
 | `maintainer_pull_files` | 最新 head 的檔案清單 | `path`、`previous_path`、`status`、`additions`、`deletions` |
 | `maintainer_checks` | head SHA 的檢查結果 | `source`（check run 或 commit status）、`name`、`app_key`（check run 的 app 數字 ID；commit status 為空字串）、`app_slug`、`status`、`conclusion`、`check_suite_id`、`completed_at` |
 | `maintainer_reviews` | GitHub review 鏡像 | `github_review_id`、`reviewer_github_id`、`reviewer_login`、`reviewer_type`、`reviewer_association`、`state`、`commit_id`、`submitted_at` |
 | `maintainer_reviewers` | 管理員指派的審核員 | `github_user_id`、`github_login`、`user_id`（來源會員）、`max_risk`（`low`／`medium`／`high`）、`active`、`appointed_by`（管理員） |
 
-**階段 1b（058）：** `maintainer_review_claims`（`reviewer_id`、`claimed_by_admin`、`head_sha`、`expires_at`、`state`、`release_reason`、`github_request_state`；每張 PR 同時只有一個有效認領）。
+**階段 1b（058）：** `maintainer_review_claims`（`reviewer_id`、`claimed_by_admin`、`assignment`（`self`／`assigned`；指派時要寫理由）、`head_sha`、`expires_at`、`state`（`active`／`released`／`expired`／`completed`）、`end_reason`、`github_request_state`（預設 `not_requested`；三個開關都開才會有 `pending`／`requested`／`removing`／`removed`／`failed`）；每張 PR 同時只有一個有效認領）。`maintainer_pull_requests` 加 `requested_reviewers`（GitHub 上目前的 requested reviewer，只供顯示）。
 
 **階段 2：** `maintainer_ai_reviews`（`head_sha`、`provider`、`role`、`model`、`trigger`、`state`、`verdict`、`findings`、`input_tokens`、`output_tokens`、`cost_usd_micros`、`github_review_id`、`prompt_version`）、每月預算帳、`maintainer_issue_triage`（以既有 `github_items` 為清單來源；`state` 為 `new`／`triaged`／`needs_info`／`duplicate`／`declined`）。
 
@@ -144,7 +144,7 @@ freedom-maintainer Worker（新，沒有路由）
 
 後台操作（認領、釋放、指派審核員、改設定、重新同步）沿用管理 API 的 `adminCommand()`：檢查 idempotency key、在交易內重新確認管理員仍有效、用 `platform_admin_receipts` 重播；同一個交易內用 `audit()` 寫 `platform_admin_audit`（含理由與前後狀態）。要改的列以 `If-Match` 帶 `aggregate_version`。交易裡不等 GitHub 或模型回應：先記下意圖，由維護 Worker 呼叫，再用另一個交易記結果（比照 039／040 的 pending 列）。
 
-**認領不另造一份權威狀態。** [agent-development-guide](../development/agent-development-guide.md) 規定「平台不另造一份認領狀態」。因此「我來審」會同時把審核員加成 GitHub requested reviewer；平台只多記一個到期時間，用來自動釋放。認領只是避免重工的軟鎖，不算貢獻或審核證據。
+**認領與 GitHub 的關係。** [agent-development-guide](../development/agent-development-guide.md) 規定「平台不另造一份認領狀態」。設計上「我來審」會同時把審核員加成 GitHub requested reviewer，平台只多記一個到期時間，用來自動釋放。不過寫 GitHub 要三個開關都開：App 的 Pull requests write、maintainer Worker 的 `GITHUB_MAINTAINER_WRITES=requested_reviewers`、儲存庫設定 `request_reviewers`；預設都關。關著的時候，認領只存在後台，是管理員之間避免重工的軟鎖，這和上面那句規定有出入，要 Ted 決定（§15）。不論開不開，認領都不算貢獻或審核證據，審核仍以 GitHub 上的 review 為準。
 
 ## 7. 審核流程與狀態
 
@@ -240,7 +240,7 @@ Owner 自己的 PR 沒有其他人會審，也不能自己核准自己，所以�
 
 **建議的解法（需要 Ted 決定）：**
 
-- 階段 1–3 符合現行所有文件：AI 只發 COMMENT、佇列狀態只是 GitHub 事實的衍生檢視、認領同步成 GitHub requested reviewer、合併只乾跑。需要改文件的只有階段 4（policy 合併、AI 雙審代替人審）；那一步的 PR 同時修改上表所有文件。
+- 階段 1–3 符合現行所有文件：AI 只發 COMMENT、佇列狀態只是 GitHub 事實的衍生檢視、認領同步成 GitHub requested reviewer（打開寫入之後；之前的情況見 §6 與 §15 第 8 項）、合併只乾跑。需要改文件的只有階段 4（policy 合併、AI 雙審代替人審）；那一步的 PR 同時修改上表所有文件。
 - 合併到 `main` 不是正式 release。Production 部署仍是 Ted 的發布類 A4，不因本案改變。
 - `AGENTS.md` 的禁令繼續適用於「寫程式的 agent」：寫程式的 agent 永遠不合併自己的工作。只有 Maintainer policy gate 能自動合併；它是另一個身分，規則有版本號，由 owner 授權。階段 4 的 PR 把這段補進 `AGENTS.md`。
 - `freedom.project.yaml` 的 `minimum_human_reviews` 改為依風險等級：高風險 1（Ted），中、低風險依本文 §8。
@@ -367,11 +367,11 @@ Cloudflare 方面，多一個每分鐘執行的 cron Worker，每月約 4.3 萬�
 
 畫面照 `AdminAuthorClaims.tsx` 的寫法：元件自己讀資料，用序號丟掉過期的回應；操作走 `AdminPanel` 的 `mutate()`，帶 `If-Match` 與 idempotency key；錯誤直接顯示伺服器回的 `detail`。`AdminClient` 只會送 GET 與 POST，所以所有操作都是 POST 動作路由。
 
-- **頂部摘要：** 待審、等 CI、待作者、需要 Ted、可合併的數量；本月 AI 預算剩餘；目前模式（觀察／乾跑／合併）。
-- **分頁：** 待審（依 SLA 到期排序）、我認領的、等 CI、待作者、需要 Ted、可合併、已完成。
+- **頂部摘要：** 待審、審核中、等 CI、待作者、需要擁有者、已核准的數量；各 repo 目前模式（關閉／觀察；之後加乾跑／合併）；階段 2 起加本月 AI 預算剩餘。
+- **分頁：** 待審（依 SLA 到期排序）、審核中、我認領的、等 CI、待作者、需要擁有者、已核准、已暫停、已完成。「已核准」在階段 4 之前只表示有符合風險等級的有效核准，不代表會自動合併。
 - **每一列：** repo＋編號＋標題；作者（外部、首次貢獻標記）；風險標籤與主要理由（例如「高：migrations/、scripts/」）；CI（短 SHA＋狀態）；審核（真人 ✓／✗、AI 對抗、AI 驗證）；認領人與剩餘時間；SLA 倒數；一句「下一步」（例如「migration 048 與 main 撞號，請作者改成 057 以後」）。
 - **詳情：** 依風險分組的檔案清單；檢查結果；審核時間軸（每筆標 SHA，舊 SHA 灰掉）；AI findings；policy 逐項 ✓／✗。
-- **操作（小型次要按鈕，依 [DESIGN.md](../../DESIGN.md)）：** 我來審、放棄認領、在 GitHub 審核、交給 AI 審、暫停自動處理、重新同步。
+- **操作（小型次要按鈕，依 [DESIGN.md](../../DESIGN.md)；都放在詳情裡）：** 我來審、指派給…、放棄認領、在 GitHub 審核、暫停自動處理／恢復、重新同步；階段 2 加交給 AI 審。
 - **設定（每次修改都要寫理由，並留下稽核紀錄）：** repo 清單與模式、SLA、審核員名單；階段 2 起加 AI 供應商／模型／每月上限；全域停用。
 - **手機：** 列表改成卡片，操作收進詳情。
 
@@ -379,7 +379,7 @@ Cloudflare 方面，多一個每分鐘執行的 cron Worker，每月約 4.3 萬�
 
 ## 12. GitHub 端設定（階段 0，Ted 手動）
 
-1. **建立兩個 GitHub App**（staging、production），權限與事件照 §5，設為私有（Only on this account）。Webhook URL 分別是 `https://staging.freetwai.com/api/v1/maintainer/github/webhook`、`https://freetwai.com/api/v1/maintainer/github/webhook`；secret 隨機產生、至少 32 字元。Production 先只裝在 `freedom-platform`；staging 裝在一個專用測試 repo（建議 `FreeTWAI-AI/maintainer-sandbox`）。
+1. **建立兩個 GitHub App**（staging、production），權限與事件照 §5 的「階段 1a–1b」欄（全部唯讀），設為私有（Only on this account）。Webhook URL 分別是 `https://staging.freetwai.com/api/v1/maintainer/github/webhook`、`https://freetwai.com/api/v1/maintainer/github/webhook`；secret 隨機產生、至少 32 字元。Production 先只裝在 `freedom-platform`；staging 裝在一個專用測試 repo（建議 `FreeTWAI-AI/maintainer-sandbox`）。
 2. **放憑證：** GitHub 下載的私鑰是 PKCS#1（`BEGIN RSA PRIVATE KEY`），Workers 的 Web Crypto 只能匯入 PKCS#8，先轉換：`openssl pkcs8 -topk8 -nocrypt -in app.pem -out app-pkcs8.pem`；程式遇到 PKCS#1 會直接拒絕並說明。私鑰用 `wrangler secret put GITHUB_MAINTAINER_PRIVATE_KEY --config <private overlay> --env <env>` 只給 maintainer Worker；webhook secret 給 platform Worker。都不進 repo、不當 `--var`；轉換後的檔案用完就刪。
 3. **`main` ruleset：** 禁止刪除與 force push；必須走 PR；required status check `verify`，來源鎖 GitHub Actions；有新 push 時舊核准失效；必要核准數 0；bypass 只給 org admin，不給 Maintainer App。
 4. **高風險路徑要 Ted 核准：** 建議用 ruleset 的 path-scoped required reviewer 規則（2026-02-17 起 GA；需要指定 team，例如只含 Ted 的 `FreeTWAI-AI/core-maintainers`）。規則放在 GitHub 設定裡，PR 改不到。也可以改用 CODEOWNERS，把 §8 的高風險路徑（含 `CODEOWNERS` 本身）指定給 `@teddashh`。
@@ -416,6 +416,9 @@ Cloudflare 方面，多一個每分鐘執行的 cron Worker，每月約 4.3 萬�
 5. Owner 自己的中風險 PR，AI 雙審通過＋CI 綠，能不能由 policy 合併？
 6. 是否建立 staging 測試 repo `FreeTWAI-AI/maintainer-sandbox`？
 7. 什麼時候從乾跑切到真合併（建議：乾跑兩週，判斷都一致之後）。
+8. GitHub 寫入關著時，認領只存在後台。要先打開 requested reviewer 寫入再開始用認領，還是在 agent-development-guide 註明「審核認領是管理員之間的協調，不是任務認領」？
+9. 什麼時候打開 requested reviewer 寫入：App 加 Pull requests write（org owner 要重新同意）、maintainer Worker 設 `GITHUB_MAINTAINER_WRITES=requested_reviewers`、各儲存庫打開 `request_reviewers`。
+10. 認領時效 `claim_hours` 預設 24 小時可以嗎？
 
 ## 16. 尚未驗證
 
