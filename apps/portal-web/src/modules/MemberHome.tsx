@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ModulePanelProps } from './shared';
 import type { TabId } from '../types';
 import { WorkshopIcon } from '../WorkshopIcon';
@@ -67,12 +67,24 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
   const nickname = member?.nickname ?? session.user.display_name;
   const featured = (member?.featured_capabilities ?? member?.capabilities.slice(0, 3) ?? []).slice(0, 3);
   const skillLabel = (id: string) => id.startsWith('custom:') ? id.slice(7) : labels?.[id] ?? id;
+  const nextStep = useMemo<{ message: string; label: string; action: 'guilds' | 'skills' } | null>(() => {
+    if (!member) return null;
+    if (member.primary_guild) return { action: 'skills', label: '前往技能書架',
+      message: '到技能書架選一本技能書閱讀，開始練習。' };
+    // The member card separates secondary guilds from other joined guilds.
+    if (member.secondary_guilds.length > 0 || (member.joined_guilds?.length ?? 0) > 0)
+      return { action: 'guilds', label: '設定主要公會',
+        message: '從已加入的公會選擇主要公會。' };
+    return { action: 'guilds', label: '探索職業公會',
+      message: '加入感興趣的公會，再選擇主要公會。' };
+  }, [member]);
 
   useEffect(() => {
-    if (!member) return;
-    logConsoleEvent({id: member.primary_guild ? 'guide:home:skills' : 'guide:home:guild', channel:consoleChannel('guide_next_step'), kind:'guide', source:'下一步', action: member.primary_guild ? 'skills' : 'guilds',
-      message: member.primary_guild ? '到技能書架閱讀已解鎖的技能書，選一項開始練習。' : '到職業公會加入公會並設定主要公會，接著領取技能書。'});
-  }, [member]);
+    if (!nextStep) return;
+    // Each confirmed load gets a fresh event, including a return to an earlier guild state.
+    logConsoleEvent({channel:consoleChannel('guide_next_step'), kind:'guide', source:'下一步',
+      action: nextStep.action, message: nextStep.message});
+  }, [nextStep]);
 
   return <div className="member-home freedom-home">
     <section ref={summary} tabIndex={-1} className="member-card home-member-summary guild-base-hero" aria-label="我的會員摘要" aria-busy={loading}>
@@ -98,6 +110,10 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       <p>{loadError}下方常用入口仍可使用。</p>
       <button type="button" className="btn btn-ghost" aria-disabled={loading} onClick={retry}>{loading ? '正在重新載入名片…' : '重新載入名片'}</button>
     </div>}
+    {nextStep && <section className="home-next-step" aria-label="公會與技能書建議">
+      <p id="home-next-step-description">{nextStep.message}</p>
+      <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.(nextStep.action)}>{nextStep.label}</button>
+    </section>}
 
     <nav className="home-shortcuts" aria-label="常用入口">
       {shortcuts.map(entry => <button key={entry.id} type="button" className="home-shortcut" onClick={() => onNavigate?.(entry.id)}>

@@ -46,6 +46,12 @@ test('every workspace page exposes contextual tools, filtered issues and agent g
   const edit=page.getByRole('dialog',{name:'我的定位：參與編修'});
   await expect(edit).toContainText('Fork 平台 Repo');
   await expect(edit.locator('pre')).toContainText('page:positioning');
+  await expect(edit.locator('pre')).toContainText('<!-- freedom-page:positioning -->');
+  await expect(edit.locator('ol')).toContainText('<!-- freedom-page:positioning -->');
+  for(const [width,height] of [[390,844],[820,1100],[1280,720]] as const){
+    await page.setViewportSize({width,height});
+    expect(await edit.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
+  }
   await edit.getByRole('button',{name:'關閉'}).click();
   await page.getByRole('button',{name:'展開訊息控制台'}).click();
   await page.getByRole('tab',{name:/系統公告/}).click();
