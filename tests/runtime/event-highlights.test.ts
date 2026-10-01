@@ -20,9 +20,11 @@ const pool = new Pool({connectionString: databaseUrl, options: `-c search_path=$
 const app = createApp(pool, origin);
 const MAKER = DEMO_USERS[0].user_id, REVIEWER = DEMO_USERS[1].user_id, CLIENT = DEMO_USERS[2].user_id;
 const LOCATION = '地點密語hl-location-9f3a';
-const MEETING = 'https://secret-meet.example/room-9f3a';
+const MEETING_TOKEN = 'room-9f3a';
+const MEETING = `https://secret-meet.example/${MEETING_TOKEN}`;
 const GUEST = 'hidden-guest-9f3a@mail.test';
 const SHARE = 'hlsharecode9f3axx';
+const RECAP_TOKEN = 'test-only-recap';
 const LIVE = 'https://freetwai.com';
 type Session = {cookie: string; csrf: string; user: any};
 let jpeg: Buffer, png: Buffer, webp: Buffer, animated: Buffer;
@@ -101,7 +103,7 @@ function keysOf(value: unknown, found = new Set<string>()): Set<string> {
 function assertPrivate(payload: unknown, text = JSON.stringify(payload)) {
   for (const key of ['location', 'online_url', 'email', 'share_code', 'bytes', 'image_bytes', 'rsvps']) assert.equal(keysOf(payload).has(key), false, key);
   assert.equal(text.includes(LOCATION), false);
-  assert.equal(text.includes(MEETING), false);
+  assert.equal(text.includes(MEETING_TOKEN), false);
   assert.equal(text.includes(GUEST), false);
   assert.equal(text.includes(SHARE), false);
   assert.equal(text.includes('RIFF'), false);
@@ -458,7 +460,7 @@ test('verification-test uploads stay off public pages and other members lists', 
   const host = await addUser(`uploader-${randomUUID()}@example.invalid`, '驗收上傳');
   const email = (await pool.query('SELECT email FROM users WHERE user_id=$1', [host])).rows[0].email as string;
   const tester = await login(email);
-  const secret = await post(`/api/v1/event-highlights/${eventId}/links`, tester, {url: 'https://example.com/test-only-recap', title: '驗收帳號的影片'});
+  const secret = await post(`/api/v1/event-highlights/${eventId}/links`, tester, {url: `https://example.com/${RECAP_TOKEN}`, title: '驗收帳號的影片'});
   assert.equal(secret.status, 201, secret.text);
   const mine = await call('/api/v1/event-highlights/' + eventId, tester);
   assert.ok(mine.data.items.some((item: any) => item.title === '驗收帳號的影片'));
@@ -466,7 +468,7 @@ test('verification-test uploads stay off public pages and other members lists', 
   assert.equal(others.data.items.some((item: any) => item.title === '驗收帳號的影片'), false);
   const page = await call('/highlights/' + eventId);
   assert.equal(page.text.includes('驗收帳號的影片'), false);
-  assert.equal(page.text.includes('example.com/test-only-recap'), false);
+  assert.equal(page.text.includes(RECAP_TOKEN), false);
 });
 
 test('public html escapes member text, pages with a cursor, and chooses the og image', async () => {
