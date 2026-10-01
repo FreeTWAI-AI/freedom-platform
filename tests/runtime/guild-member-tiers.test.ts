@@ -173,13 +173,13 @@ test('only the current master appoints experts, the cap includes admin seats, an
  assert.equal(revoked.active,false);assert.equal(revoked.aggregate_version,'2');
 });
 
-test('a membership created before migration 066 stays full and a membership created after defaults to intern',async()=>{
+test('a membership created before migration 069 stays full and a membership created after defaults to intern',async()=>{
  const backfill=`fp_guild_tier_backfill_${process.pid}_${Date.now()}`;
  const adminPool=createPool(databaseUrl),back=new Pool({connectionString:databaseUrl,options:`-c search_path=${backfill}`,max:2});
  try{
   await adminPool.query(`CREATE SCHEMA ${backfill}`);
   await back.query('CREATE TABLE schema_migrations (name text PRIMARY KEY,sha256 text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now())');
-  for(const name of (await readdir(resolve(root,'migrations'))).filter(file=>file.endsWith('.sql')&&file!=='066_guild_member_tiers.sql').sort()){
+  for(const name of (await readdir(resolve(root,'migrations'))).filter(file=>file.endsWith('.sql')&&file!=='069_guild_member_tiers.sql').sort()){
    const sql=await readFile(resolve(root,'migrations',name),'utf8');
    await back.query(sql);await back.query('INSERT INTO schema_migrations(name,sha256) VALUES($1,$2)',[name,digest(sql)]);
   }

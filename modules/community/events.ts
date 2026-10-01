@@ -44,7 +44,7 @@ async function scopedEvent(q:Pick<PoolClient,'query'>,actor:Actor,id:string,lock
   requireCondition(row,404,'not_found','找不到這場活動。');return row;
 }
 
-async function canAccessGuildEvent(q:Pick<PoolClient,'query'>,actor:Actor,row:any){
+export async function canAccessGuildEvent(q:Pick<PoolClient,'query'>,actor:Actor,row:any){
   if(row.visibility!=='guild'||row.organizer_ref===actor.user_id)return true;
   const member=await q.query(`SELECT 1 FROM positioning_profession_memberships
     WHERE community_id=$1 AND guild_key=$2 AND user_id=$3 AND state='active'`,[row.community_id,row.guild_key,actor.user_id]);
@@ -164,7 +164,8 @@ export async function eventReferralReport(pool:Pool,actor:Actor,id:string){
   requireCondition(row.organizer_ref===actor.user_id,403,'organizer_required','只有主辦者能查看活動分享統計。');
   return (await pool.query(`SELECT c.user_id,u.display_name AS member_name,
     (SELECT count(*)::int FROM community_event_rsvps r WHERE r.event_id=c.event_id AND r.referred_by_user_id=c.user_id AND r.state='going' AND NOT is_verification_test_account(r.user_id))+
-    (SELECT count(*)::int FROM community_event_guest_rsvps g WHERE g.event_id=c.event_id AND g.referred_by_user_id=c.user_id AND g.email_sent_at IS NOT NULL) AS registrations
+    (SELECT count(*)::int FROM community_event_guest_rsvps g WHERE g.event_id=c.event_id AND g.referred_by_user_id=c.user_id AND g.email_sent_at IS NOT NULL) AS registrations,
+    (SELECT count(*)::int FROM promotion_clicks pc JOIN promotion_links pl ON pl.link_id=pc.link_id WHERE pl.kind='event' AND pl.target_key=c.event_id::text AND pl.user_id=c.user_id) AS clicks
     FROM community_event_share_codes c JOIN users u ON u.user_id=c.user_id WHERE c.event_id=$1 AND (c.user_id=$2 OR NOT is_verification_test_account(c.user_id)) ORDER BY registrations DESC,u.display_name`,[id,actor.user_id])).rows;
 }
 

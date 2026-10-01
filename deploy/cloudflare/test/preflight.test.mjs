@@ -796,7 +796,7 @@ test('migrations are PostgreSQL-18 managed-service compatible, ledger digest mat
   assert.equal(result.ok, true, JSON.stringify(result.problems.concat(result.privileged)));
   // The manifest pin is the one number a migration PR bumps; count and file name follow from it.
   assert.equal(result.count, expected.last - expected.first + 1 - expected.known_gaps.length);
-  assert.deepEqual(result.known_gaps, [22, 65]);
+  assert.deepEqual(result.known_gaps, [22, 68]);
   assert.equal(result.last.slice(0, 4), `${String(expected.last).padStart(3, '0')}_`);
   const sql = readFileSync(join(ROOT, 'migrations', '001_local_core.sql'), 'utf8');
   assert.equal(result.ledger[0].sha256, migrationDigest(sql));
