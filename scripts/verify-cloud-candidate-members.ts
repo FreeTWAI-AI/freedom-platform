@@ -573,7 +573,7 @@ export async function runMessagesMobile(page: any, context: any, ctx: MemberCtx,
   await page.getByLabel('電子郵件', { exact: true }).fill(primary.email);
   await page.getByLabel('密碼', { exact: true }).fill(primary.password);
   await page.getByRole('button', { name: '登入', exact: true }).click();
-  await page.getByRole('button', { name: '登出', exact: true }).waitFor({ state: 'visible', timeout: 20000 });
+  await page.getByRole('button', { name: '設定', exact: true }).waitFor({ state: 'visible', timeout: 20000 });
   ctx.check('mobile_login', true);
   await page.getByRole('button', { name: /^通知/ }).click();
   await page.getByRole('button', { name: '查看所有通知與訊息' }).click();
@@ -603,7 +603,8 @@ export async function runMessagesMobile(page: any, context: any, ctx: MemberCtx,
   if (guildSummaryUnreadAllowed) ctx.metric('guild_summary_unread', 'not_cleared');
   ctx.check('unread_consistent', !rowUnread && tabClear && !rowAfter.includes('則未讀') && (guildSummaryUnreadAllowed || dot === 0));
   ctx.check('no_horizontal_overflow', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth) === true);
-  await page.getByRole('button', { name: '登出', exact: true }).click();
+  await page.getByRole('button', { name: '設定', exact: true }).click();
+  await page.getByRole('menuitem', { name: '登出', exact: true }).click();
   await page.getByRole('button', { name: '登入', exact: true }).waitFor({ state: 'visible', timeout: 20000 });
   const cookies = await context.cookies(origin);
   ctx.check('ui_logout_clears_cookie', !cookies.some((cookie: { name?: string; value?: string }) => cookie.name === 'freedom_local_session' && cookie.value));

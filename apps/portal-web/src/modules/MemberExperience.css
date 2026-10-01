@@ -56,4 +56,6 @@
 .welcome-preview-grid article { border-top: 1px solid var(--line); padding-top: .7rem; }
 .welcome-preview-grid article p { color: var(--muted); font-size: .85rem; margin-top: .2rem; }
 .welcome-preview-note { color: var(--muted); font-size: .9rem; }
-@media(max-width: 700px) { .experience-intro { align-items: start; flex-direction: column; } .experience-row,.experience-points,.welcome-preview-grid { grid-template-columns: 1fr; } .welcome-preview-top { flex-wrap: wrap; } .welcome-preview-top .experience-actions { margin-left: auto; } }
+@media(max-width: 700px) { .experience-intro { align-items: start; flex-direction: column; } .experience-row,.experience-points,.welcome-preview-grid { grid-template-columns: 1fr; } .welcome-preview-top { flex-wrap: wrap; } .welcome-preview-top .experience-actions { margin-left: auto; }
+  /* The bell sits left of the profile menu, so its popover hangs from the group's right edge to stay on screen. */
+  .welcome-preview-top .experience-actions { position: relative; } .welcome-preview-top .notification-bell { position: static; } .welcome-preview-top .notification-bell-popover { width: min(380px, calc(100vw - 2rem)); } }

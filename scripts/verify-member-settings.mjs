@@ -31,8 +31,8 @@ export async function verifyMemberSettings(page,{navigate,get,emptyInbox=false})
     const settings=page.getByRole('button',{name:'設定',exact:true});
     if(await settings.getAttribute('aria-expanded')!=='true')await settings.click();
     const menu=page.getByRole('menu',{name:'個人檔案',exact:true});
-    await expect(menu.getByRole('menuitem')).toHaveCount(2);
-    for(const [index,name] of ['我的名片','待辦清單'].entries())await expect(menu.getByRole('menuitem').nth(index)).toHaveAccessibleName(name);
+    await expect(menu.getByRole('menuitem')).toHaveCount(3);
+    for(const [index,name] of ['我的名片','待辦清單','登出'].entries())await expect(menu.getByRole('menuitem').nth(index)).toHaveAccessibleName(name);
     const box=await menu.boundingBox();
     expect(box&&box.x>=0&&box.x+box.width<=width,'Settings menu fits the viewport').toBe(true);
     await page.keyboard.press('Escape');await expect(settings).toBeFocused();

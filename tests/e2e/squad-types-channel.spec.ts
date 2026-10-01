@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import type {Pool} from 'pg';
-import {navigate} from './navigation.js';
+import {navigate,signOut} from './navigation.js';
 import {test,expect,type Page} from './fixtures.js';
 
 async function member(pool:Pool,label:string){
@@ -13,7 +13,7 @@ async function login(page:Page,email:string){
   await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill(email);
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
   await page.getByRole('button',{name:'登入',exact:true}).click();
-  await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
 }
 
 test('a coaching squad shows its public channel and owner can rename it on desktop and phone',async({page,e2eAuthPool})=>{
@@ -32,7 +32,7 @@ test('a coaching squad shows its public channel and owner can rename it on deskt
   await detail.getByLabel('小隊溝通頻道名稱',{exact:true}).fill('LINE 新頻道');
   await detail.getByRole('button',{name:'儲存頻道名稱'}).click();
   await expect(detail.getByText('溝通頻道：LINE 新頻道')).toBeVisible();
-  await page.getByRole('button',{name:'登出',exact:true}).click();
+  await signOut(page);
   await login(page,viewer);await navigate(page,'小隊集合');
   await page.getByLabel('搜尋小隊',{exact:true}).fill(name);
   await page.getByLabel('篩選小隊類型').selectOption('coaching');

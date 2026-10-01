@@ -24,3 +24,18 @@ export async function navigate(page: Page, name: string) {
   if (await group.count() && !await group.evaluate(element => (element as HTMLDetailsElement).open)) await group.locator(':scope > summary').click();
   await target.click();
 }
+
+/** Sign out from the profile menu: 設定 in the workspace, or the profile menu shown before onboarding is done. */
+export async function signOut(page: Page) {
+  const settings = page.getByRole('button', { name: '設定', exact: true });
+  const preview = page.locator('.preview-profile-menu');
+  await expect(settings.or(preview)).toBeVisible();
+  if (await preview.isVisible()) {
+    if (!await preview.evaluate(element => (element as HTMLDetailsElement).open)) await preview.locator(':scope > summary').click();
+    await preview.getByRole('button', { name: '登出', exact: true }).click();
+  } else {
+    if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
+    await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
+  }
+  await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
+}

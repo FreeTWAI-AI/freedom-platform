@@ -1,4 +1,4 @@
-import { navigate } from './navigation.js';
+import { navigate, signOut } from './navigation.js';
 import {test,expect,type Page} from './fixtures.js';
 
 test.beforeEach(async({page})=>{
@@ -8,7 +8,7 @@ test.beforeEach(async({page})=>{
 const original='https://github.com/Hao0321/claude-skill-social-post';
 const metrics={book_id:'social-post',repository_url:original,stargazers_count:127,forks_count:18,open_issues_count:4,subscribers_count:6,pushed_at:'2026-09-20T10:00:00Z',language:'TypeScript',archived:false,checked_at:'2026-09-23T10:00:00Z',stale:false,error:null};
 async function login(page:Page,email='maker@local.test'){
-  await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();
+  await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
 }
 async function book(page:Page){
   await navigate(page, '技能書架');
@@ -106,12 +106,12 @@ test('failed GitHub reads and writes preserve platform login and private state d
     if(brokenRead)return route.fulfill({status:401,json:{detail:'GitHub 連結需要重新確認。'}});
     return route.fulfill({json:{book_id:'social-post',starred,connected:true}});
   });
-  await login(page);const card=await book(page);await expect(card.getByRole('alert')).toContainText('GitHub 連結需要重新確認');await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();
+  await login(page);const card=await book(page);await expect(card.getByRole('alert')).toContainText('GitHub 連結需要重新確認');await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
   await expect(card.getByText(/上次取得的數據/)).toBeVisible();
   brokenRead=false;await card.getByRole('button',{name:'重讀 Star 狀態',exact:true}).click();await expect(card.getByRole('button',{name:'Star',exact:true})).toBeEnabled();
   await card.getByRole('button',{name:'Star',exact:true}).click();await expect(card.getByRole('alert')).toContainText('Star 操作未確認');await expect(card.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');await expect(card.locator('.github-star-count')).toHaveText('127');
   starred=true;await card.getByRole('button',{name:'重讀 Star 狀態',exact:true}).click();await expect(card.getByRole('button',{name:'取消 Star',exact:true})).toBeEnabled();
-  await page.getByRole('button',{name:'登出',exact:true}).click();member='second';starred=false;await login(page,'client@local.test');const second=await book(page);await expect(second.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');await expect(second.getByRole('button',{name:'取消 Star',exact:true})).toHaveCount(0);
+  await signOut(page);member='second';starred=false;await login(page,'client@local.test');const second=await book(page);await expect(second.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');await expect(second.getByRole('button',{name:'取消 Star',exact:true})).toHaveCount(0);
 });
 
 test('account disconnect clears shared Star state and distinguishes local removal from GitHub grant revocation',async({page})=>{
@@ -144,7 +144,7 @@ test('a denied Star shows the permission problem without claiming an outage, ret
   await expect(card.getByRole('alert')).toHaveText('目前無法透過平台替這個 Repo 按星，請前往原作 GitHub 操作。');
   await expect(card.getByRole('alert')).not.toContainText(/暫時|稍後|github_permission_required/);
   await expect(card.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');await expect(card.locator('.github-star-count')).toHaveText('127');
-  expect(writes).toBe(1);await expect(card.getByRole('link',{name:'前往 GitHub Star ↗',exact:true})).toHaveAttribute('href',original);await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();
+  expect(writes).toBe(1);await expect(card.getByRole('link',{name:'前往 GitHub Star ↗',exact:true})).toHaveAttribute('href',original);await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
 });
 
 

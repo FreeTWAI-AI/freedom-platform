@@ -8,7 +8,7 @@ async function login(page: Page) {
   await page.getByLabel('電子郵件', { exact: true }).fill('maker@local.test');
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
   await page.getByRole('button', { name: '登入', exact: true }).click();
-  await expect(page.getByRole('button', { name: '登出', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '設定', exact: true })).toBeVisible();
   await navigate(page, '我的名片');
 }
 
