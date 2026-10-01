@@ -62,12 +62,12 @@ for (const width of [1280, 390]) {
       await expect(page.getByText('沒有符合的技能書。試試另一個關鍵字或用途。')).toHaveCount(0);
       await expect(page.getByRole('button', { name: '選擇公會', exact: true })).toBeVisible();
       const catalog = await (await page.request.get('/api/v1/community')).json() as { skill_books: unknown[] };
-      expect(catalog.skill_books).toHaveLength(40);
+      expect(catalog.skill_books).toHaveLength(41);
       await page.getByRole('button', { name: '免費預覽技能書', exact: true }).click();
       await expect(page.getByRole('button', { name: '未解鎖', exact: true })).toHaveAttribute('aria-pressed', 'true');
-      // The catalog's 12 社群技能書 sit on their own shelf; the guild shelf previews the other 28.
-      await expect(page.getByText('顯示 28 / 28 本技能書', { exact: true })).toBeVisible();
-      await expect(page.locator('.community-library article[data-access="locked"]')).toHaveCount(28);
+      // The catalog's 12 社群技能書 sit on their own shelf; the guild shelf previews the other 29.
+      await expect(page.getByText('顯示 29 / 29 本技能書', { exact: true })).toBeVisible();
+      await expect(page.locator('.community-library article[data-access="locked"]')).toHaveCount(29);
       expect(await readableText(page.locator('.community-library'), '.skill-library-description .field-hint')).toBeGreaterThan(0);
       await summariesReachable(page.locator('main'));
       await developmentFooter(page);

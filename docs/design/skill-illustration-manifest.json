@@ -2,7 +2,7 @@
   "generated_at": "2026-09-23",
   "mode": "builtin-imagegen",
   "style_anchor": "apps/portal-web/public/brand/freedom-workshop.webp",
-  "description": "40 distinct functional workflow illustrations for skill introduction pages and social thumbnails; mechanical WebP encoding with contain fit, original logo unchanged.",
+  "description": "41 distinct functional workflow illustrations for skill introduction pages and social thumbnails; mechanical WebP encoding with contain fit, original logo unchanged.",
   "assets": [
     {
       "id": "agent-kit",
@@ -368,6 +368,18 @@
       "generated_at": "2026-09-24",
       "mode": "builtin-imagegen",
       "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-bc14614e-d759-4d5a-970a-0b61b9ba9725.png"
+    },
+    {
+      "id": "open-seo-advisor",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 functional workflow illustration for Freedom Workshop skill introduction and social share. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital lines and four-point star accents. Futuristic 3D isometric editorial art, clear input/action/output, generous clean margins. No books, words, letters, numbers, logos, readable UI, statistics, watermark. Depict: a website's page tiles pass through a chrome inspection scanner that checks page structure, a sitemap tree and loading speed, then emerge as repaired, well-organized page tiles joined by clean internal links, no upward ranking arrow, trophy or money",
+      "path": "apps/portal-web/public/brand/skill-illustrations/open-seo-advisor.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 63346,
+      "sha256": "172aaa83a36992a0670640ffa623d54fa3219b7dbcf30d44917f35c180c9845a",
+      "generated_at": "2026-10-01",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0f6fe-6f45-7b20-bacb-c5c343eb24f6/call_DP7oi0FZIeGl97qkhbKW2RUw.png"
     },
     {
       "id": "video-to-podcast-toolkit",

@@ -1,12 +1,12 @@
 import type {SkillBook} from './catalog.js';
 import type {SkillBookGuide} from './skill-book-guides.js';
 
-// The first eight community names were supplied by the platform owner; no member identity is inferred.
-// The three 2026-10-01 entries are works members registered through 手動登錄作品, credited with the member's own community display name and self-declared author relationship (not verified against the GitHub account), converted at the platform owner's request.
+// Community names were supplied by the platform owner, except for the three 手動登錄作品 works; no member identity is inferred.
+// video-to-podcast-toolkit, autovtuber and coding-audit-harness are works members registered through 手動登錄作品, credited with the member's own community display name and self-declared author relationship (not verified against the GitHub account), converted at the platform owner's request.
 // Empty `guilds` keeps a work as a 社群技能書 instead of a guild designation.
 // Pinned upstream documentation reviewed on each source's `reviewed` date; upstream apps were not run.
 type AuthorSource={author:string;repo:string;sha:string;title:string;reading:string;evidence:string[];guilds:string[];license:string;reviewed:string};
-export const communityAuthorSources = {
+const communityAuthorSourceList = {
   'bidding-radar-concept':{author:'綠豆',repo:'greenQQQ/bidding-radar-concept',sha:'a02db6cb6ef754bff3622e88eb10167cf772ca72',title:'領標雷達：標案與補助設計',reading:'README.md',evidence:['README.md','實作指南.md','LICENSE'],guilds:['guild_opportunity_partnership'],license:'MIT',reviewed:'2026-09-24'},
   'aiwff-runtime':{author:'隊長',repo:'zaxardery8011-design/aiwff-runtime',sha:'94b94abf6d0656de0a5998da4c4141d2e9971a7c',title:'小主腦：本機 AI 任務系統',reading:'README.zh-TW.md',evidence:['README.zh-TW.md','AGENTS.md','LICENSE'],guilds:['guild_ai_vibe','guild_ai_field'],license:'MIT',reviewed:'2026-09-30'},
   'n8n-marketing-flows':{author:'Yuri',repo:'YuriCrystal/n8n-marketing-flows',sha:'46c8e2535430ebe1e9bb4d8b6b335465c4702ffb',title:'n8n 行銷自動化模板',reading:'README.md',evidence:['README.md','LICENSE'],guilds:['guild_marketing'],license:'MIT',reviewed:'2026-09-24'},
@@ -15,11 +15,13 @@ export const communityAuthorSources = {
   'ai-avatar-bot':{author:'Yuri',repo:'YuriCrystal/ai-avatar-bot',sha:'d9276a227ea342eebfb9967f9245256406de7d23',title:'會說話的網站虛擬人',reading:'README.md',evidence:['README.md','LICENSE'],guilds:[],license:'MIT',reviewed:'2026-09-24'},
   'ai-manga-translator':{author:'綠豆',repo:'greenQQQ/ai-manga-translator',sha:'964734a9366b872b4c7ac2069be72124eb3d332e',title:'AI 漫畫圖片翻譯',reading:'README.md',evidence:['README.md','LICENSE'],guilds:[],license:'MIT',reviewed:'2026-09-24'},
   'line-persona':{author:'隊長',repo:'zaxardery8011-design/line-persona',sha:'d07131c9cb45f9037d272a176d7ce788542884f7',title:'LINE 影分身',reading:'README.md',evidence:['README.md','AGENTS.md','LICENSE'],guilds:[],license:'MIT',reviewed:'2026-09-30'},
+  'open-seo-advisor':{author:'阿軒哥哥（阿軒割割）',repo:'mars-tw/open-seo-advisor-skill',sha:'f6178d797b45705b5b77f83507366a72eac34bde',title:'Open SEO Advisor：SEO 健檢與建站顧問',reading:'README.md',evidence:['README.md','SKILL.md','QUICKSTART.md','LICENSE'],guilds:['guild_marketing'],license:'Apache-2.0',reviewed:'2026-10-01'},
   'video-to-podcast-toolkit':{author:'jasonlee(J太郎)',repo:'Lee-unhn/video-to-podcast-toolkit',sha:'2ea2f0e6f11533ec08cff4d9db3a46859ec7ed4f',title:'自動 Podcast 剪輯：訪談影片轉上架素材',reading:'README.md',evidence:['README.md','快速上手.md','NOTICE.md','LICENSE'],guilds:[],license:'MIT',reviewed:'2026-10-01'},
   'autovtuber':{author:'jasonlee(J太郎)',repo:'Lee-unhn/AutoVtuber',sha:'1c4d045d5bf602561953adfe914e033364131600',title:'AutoVtuber：表單生成 VTuber 模型',reading:'README.md',evidence:['README.md','AUTOVTUBER.md','docs/RELEASE_READINESS.md','docs/LICENSES.md','docs/AUTHORIZED_BASE_IMPORT.md'],guilds:[],license:'NOASSERTION',reviewed:'2026-10-01'},
   'coding-audit-harness':{author:'小艾老師',repo:'weiwei-alvin/Coding-Audit-Harness',sha:'c4526624f65530c009c57b9add233b1060fa01df',title:'Coding Audit Harness：AI 寫的程式，驗過才算數',reading:'README.md',evidence:['README.md','LICENSE','skills/matt-upstream/UPSTREAM.md'],guilds:[],license:'MIT',reviewed:'2026-10-01'},
 } satisfies Record<string,AuthorSource>;
-type Id=keyof typeof communityAuthorSources;
+type Id=keyof typeof communityAuthorSourceList;
+export const communityAuthorSources:Record<Id,AuthorSource>=communityAuthorSourceList;
 type Details=Omit<SkillBookGuide,'author_name'|'reading_url'|'source_commit'|'reviewed_at'|'source_evidence'|'contribution_url'>;
 const details:Record<Id,Details>={
   'bidding-radar-concept':{
@@ -109,6 +111,18 @@ const details:Record<Id,Details>={
     first_result:'一個能以測試人格回答合成 FAQ 的 LINE 分身。',
     contribution:'回饋知識整理、回覆邊界或 webhook 錯誤處理；只附合成對話，保留隊長原作署名與憑證的私人設定。',
     beginner:{category:'定位與社群',purpose:'把個人介紹與常見問題交給住在 LINE 裡的分身回答。',for_whom:'希望用自己的資料做 LINE 接待工具的人。',make:'一個已測試問答與停止方式的 LINE bot。',workshop_use:'在社群經營及 AI 導入與驗證公會交流接待情境與回覆品質。',next_step:'先讀 AGENTS.md，用合成 FAQ 確認流程後再放入本人願意分享的資料。'},
+  },
+  'open-seo-advisor':{
+    format:'SEO 健檢 CLI 與建站技能',summary:'離線檢查網站技術項目，並產生可預覽的網站骨架；完整頁面仍由 agent 依品牌實作。',
+    audience:['想做網站健檢與搜尋友善內容的人','用 coding agent 練習建站的行銷夥伴'],
+    status:'Apache-2.0。CLI 提供離線網站骨架與技術檢查；完整網站仍需 agent 依品牌實作頁面、內容、功能與圖像。GPT 產圖與託管（Cloudflare、Firebase Hosting、GCP Cloud Run）使用會員自己的帳號，可能產生費用，免費額度須由會員自行查核。兩個線上示範是 noindex 的故事網站，不是搜尋成效。不保證排名、收錄、流量、AI 搜尋引用、銷售或詢問。',
+    features:['以 seo-advisor audit consultant 檢查網站技術項目並產出報告','以 seo-advisor fix 依計畫、套用與備份處理 sitemap、robots、canonical 或 hreflang','以 seo-advisor website init --out ./my-site 產生可預覽的離線骨架；CLI 不產圖、不部署'],
+    prerequisites:['Python 3.10 以上。Mac／Linux 在專案資料夾執行 ./install.sh，Windows 執行 .\\install.ps1。','先讀 QUICKSTART.md。沒有自己的網站時，可先用 seo-advisor auto-demo 看範例報告。','預設只做分析，不呼叫付費 API，也不改動網站；付費或寫入會先列明細。'],
+    first_steps:['先讀 QUICKSTART.md。Mac／Linux 執行 ./install.sh，Windows 執行 .\\install.ps1，看到「安裝完成！」再繼續。','對自己的網站原始碼執行 seo-advisor audit consultant --source ./my-site，或沒有網站時執行 seo-advisor auto-demo，再讀報告。','依文件先產出修復計畫 seo-advisor fix engineer --source ./site --finding-id SEO-SITEMAP_MISSING-001 --site-url https://example.com，確認後才套用，並保留備份以便 seo-advisor fix rollback。'],
+    first_result:'一份健檢報告，以及經計畫、套用與備份流程核對過的一項技術修復。',
+    contribution:'把回饋、修復、connector、產業設定檔或語言在地化送回阿軒割割的原作，保留作者署名與 Apache-2.0。',
+    quickstart:{commands:'./install.sh\n.\\install.ps1\nseo-advisor audit consultant --source ./my-site\nseo-advisor auto-demo\nseo-advisor fix engineer --source ./site --finding-id SEO-SITEMAP_MISSING-001 --site-url https://example.com',context:'在自己的專案資料夾執行；指令已對照收錄版本的 QUICKSTART.md、README.md 與 docs/modes.md，這次介紹核對沒有代為安裝或執行。'},
+    beginner:{category:'內容與行銷',purpose:'用離線檢查與修復流程，練習搜尋友善的網站技術。',for_whom:'想做網站健檢、修正技術項目或整理搜尋友善內容的人。',make:'一份健檢報告，加上一項經備份流程核對的修復。',workshop_use:'在成長與行銷公會練習網站健檢、技術修復與搜尋友善內容。',next_step:'先讀 QUICKSTART，對自己的原始碼或範例資料夾跑一次離線檢查。'},
   },
   'video-to-podcast-toolkit':{
     format:'本機 Podcast 素材產生工具',summary:'把一支訪談影片在本機轉成 Podcast 音檔、三種海報、直式短影音、文案與字幕。',

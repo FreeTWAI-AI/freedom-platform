@@ -1266,6 +1266,36 @@
       "contribution_default_branch": "master"
     },
     {
+      "purpose": "阿軒哥哥（阿軒割割）的離線檢查網站技術項目，並產生可預覽的網站骨架；完整頁面仍由 agent 依品牌實作。",
+      "current_scope": "Apache-2.0。CLI 提供離線網站骨架與技術檢查；完整網站仍需 agent 依品牌實作頁面、內容、功能與圖像。GPT 產圖與託管（Cloudflare、Firebase Hosting、GCP Cloud Run）使用會員自己的帳號，可能產生費用，免費額度須由會員自行查核。兩個線上示範是 noindex 的故事網站，不是搜尋成效。不保證排名、收錄、流量、AI 搜尋引用、銷售或詢問。",
+      "future_scope": "收錄不代表工坊已安裝、代為部署或驗證所有上游功能；原作者保有 repo 與審查決定。",
+      "upstream": null,
+      "key_paths": [
+        "README.md",
+        "SKILL.md",
+        "QUICKSTART.md",
+        "LICENSE",
+        "docs/glossary-for-beginners.md",
+        "docs/modes.md",
+        "docs/install-troubleshooting.md",
+        "agents/openai.yaml"
+      ],
+      "validation_commands": [
+        "git diff --check"
+      ],
+      "validation_note": "依 2026-10-01 的固定 commit 文件核對；本輪登錄未執行上游專案，細節以原作文件為準。",
+      "guide_files": [
+        "README.md",
+        "SKILL.md",
+        "QUICKSTART.md"
+      ],
+      "contribution_target": "https://github.com/mars-tw/open-seo-advisor-skill",
+      "repository": "mars-tw/open-seo-advisor-skill",
+      "default_branch": "main",
+      "kind": "author_source",
+      "contribution_default_branch": "main"
+    },
+    {
       "purpose": "jasonlee(J太郎) 的訪談影片轉 Podcast 音檔、海報、短影音與字幕工具。",
       "current_scope": "MIT 授權只涵蓋原始碼；品牌素材、字型、來賓照片與第三方工具依 NOTICE.md 各自授權，repo 不附。轉錄在本機以 Whisper 執行，標題、金句、文案與字幕校對會把文字送到 Google Gemini API，免費額度有限，付費等級另計。首次需下載約 3 GB 模型；原作估計 30 分鐘訪談完整跑完約需 50 分鐘，九成時間花在 CPU 上的 Whisper 轉錄。音檔預設不足 30 分鐘會自動補長，可調整 min_duration_sec。Windows .exe 打包仍待在 Windows 上完成。",
       "future_scope": "收錄不代表工坊已安裝、代為部署或驗證所有上游功能；原作者保有 repo 與審查決定。",

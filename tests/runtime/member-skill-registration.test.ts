@@ -35,7 +35,7 @@ test('registered member books retain named original credit, original PR targets 
   assert.equal(communityCatalog.skill_books.find(value=>value.id==='freedom-party-guild-lounge')!.license_status,'NOASSERTION');
 });
 
-test('community author works credit their stated authors and use the actual upstream branch and source limitations',()=>{
+test('community works credit their stated authors and use the actual upstream branch and source limitations',()=>{
   for(const [id,source] of Object.entries(communityAuthorSources)){
     const book=communityCatalog.skill_books.find(value=>value.id===id)!;
     assert.equal(book.guide?.author_name,source.author);
@@ -68,6 +68,24 @@ test('community author works credit their stated authors and use the actual upst
   assert.match(status('video-to-podcast-toolkit'),/Gemini/);
   assert.match(status('video-to-podcast-toolkit'),/min_duration_sec/);
   assert.match(status('coding-audit-harness'),/不是沙箱/);
+  const seo=communityCatalog.skill_books.find(book=>book.id==='open-seo-advisor')!;
+  assert.equal(seo.guide?.author_name,'阿軒哥哥（阿軒割割）');
+  assert.equal(seo.source_commit,'f6178d797b45705b5b77f83507366a72eac34bde');
+  assert.equal(seo.repository_url,'https://github.com/mars-tw/open-seo-advisor-skill');
+  assert.equal(seo.license_status,'Apache-2.0');
+  assert.deepEqual(seo.official_guild_keys,['guild_marketing']);
+  assert.ok(skillBooksForGuild('guild_marketing').some(book=>book.id==='open-seo-advisor'));
+  assert.equal(seo.guide?.reviewed_at,'2026-10-01');
+  assert.match(seo.guide!.status,/Apache-2\.0/);
+  assert.match(seo.guide!.status,/離線網站骨架與技術檢查/);
+  assert.match(seo.guide!.status,/agent 依品牌實作頁面、內容、功能與圖像/);
+  assert.match(seo.guide!.status,/Cloudflare、Firebase Hosting、GCP Cloud Run/);
+  assert.match(seo.guide!.status,/免費額度須由會員自行查核/);
+  assert.match(seo.guide!.status,/noindex/);
+  const steps=seo.guide!.first_steps.join('\n');
+  assert.match(steps,/seo-advisor audit consultant --source \.\/my-site/);
+  assert.match(steps,/seo-advisor auto-demo/);
+  assert.match(steps,/\.\/install\.sh/);
 });
 
 // The author-book designations in effect when migration 033 shipped. Later curation moved several of these
@@ -76,9 +94,12 @@ const migration033=[['guild_opportunity_partnership','bidding-radar-concept'],['
   ['guild_marketing','n8n-marketing-flows'],['guild_ai_field','n8n-marketing-flows'],['guild_ai_field','anti-gambling-trader-tw'],['guild_ai_vibe','web-card-game-skill'],['guild_ai_vibe','ai-avatar-bot'],
   ['guild_member_operations','ai-avatar-bot'],['guild_ai_field','ai-manga-translator'],['guild_media_automation','ai-manga-translator'],['guild_member_operations','line-persona'],['guild_ai_field','line-persona']] as const;
 
+const migration063=[['guild_marketing','open-seo-advisor']] as const;
+
 test('migration 033 grants its author-book designations to active members, covers every current one and replays without changing prior grants',async()=>{
-  // Every current author designation was granted by 033, so no member of a designating guild lacks the book.
-  for(const [id,source] of Object.entries(communityAuthorSources))for(const guild of source.guilds)assert.ok(migration033.some(([key,book])=>key===guild&&book===id),`${guild} → ${id} needs a grant migration`);
+  // Current author designations are the 033 grants plus later listing migrations. 033 itself stays as shipped.
+  const granted=[...migration033,...migration063];
+  for(const [id,source] of Object.entries(communityAuthorSources))for(const guild of source.guilds)assert.ok(granted.some(([key,book])=>key===guild&&book===id),`${guild} → ${id} needs a grant migration`);
   const community=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[community,'Synthetic eight-book publication']);
   const guilds=[...new Set(migration033.map(([guild])=>guild))];
   const expected:{user_id:string;guild_key:string;book_id:string}[]=[];
@@ -112,6 +133,28 @@ test('migration 063 publishes the three manually registered works and replays wi
   assert.deepEqual((await pool.query('SELECT * FROM skill_publications ORDER BY book_id')).rows,snapshot);
   assert.equal((await pool.query('SELECT count(*) FROM member_skill_book_grants WHERE book_id=ANY($1::text[])',[ids])).rows[0].count,grantsBefore);
   assert.equal((await pool.query('SELECT count(*) FROM development_grants')).rows[0].count,'0');
+});
+
+test('migration 063 grants Open SEO Advisor to an active guild_marketing member and skips inactive members and left memberships',async()=>{
+  const community=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[community,'Synthetic SEO publication']);
+  const cases=[[true,'active','guild_marketing'],[true,'left','guild_marketing'],[false,'active','guild_marketing'],[true,'active','guild_ai_vibe']] as const;
+  const ids:string[]=[];
+  for(const [active,state,guild] of cases){
+    const id=randomUUID();ids.push(id);
+    await pool.query('INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,active) VALUES($1,$2,$3,$4,$5,$6,$7)',[id,community,id+'@example.invalid','Synthetic','unused',randomUUID(),active]);
+    await pool.query('INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,$4,$5)',[randomUUID(),community,id,guild,state]);
+  }
+  const sql=await readFile(new URL('../../migrations/060_open_seo_advisor_skill.sql',import.meta.url),'utf8');
+  const publishedBefore=(await pool.query("SELECT published_at FROM skill_publications WHERE book_id='open-seo-advisor'")).rows[0];
+  assert.ok(publishedBefore);
+  await pool.query(sql);
+  const first=(await pool.query('SELECT user_id,guild_key,book_id FROM member_skill_book_grants WHERE community_id=$1 ORDER BY user_id,book_id',[community])).rows;
+  assert.deepEqual(first,[{user_id:ids[0],guild_key:'guild_marketing',book_id:'open-seo-advisor'}]);
+  const publications=(await pool.query('SELECT * FROM skill_publications ORDER BY book_id')).rows;
+  await pool.query(sql);
+  assert.deepEqual((await pool.query('SELECT * FROM member_skill_book_grants WHERE community_id=$1 ORDER BY user_id,book_id',[community])).rows.map(row=>({user_id:row.user_id,guild_key:row.guild_key,book_id:row.book_id})),first);
+  assert.deepEqual((await pool.query('SELECT * FROM skill_publications ORDER BY book_id')).rows,publications);
+  assert.equal((await pool.query("SELECT published_at FROM skill_publications WHERE book_id='open-seo-advisor'")).rows[0].published_at.getTime(),publishedBefore.published_at.getTime());
 });
 
 test('publication backfill grants only matching active memberships, is repeatable and preserves prior grants and primary choices',async()=>{

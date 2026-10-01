@@ -6,9 +6,10 @@ import communityAuthor4 from './share-introductions/web-card-game-skill.json' wi
 import communityAuthor5 from './share-introductions/ai-avatar-bot.json' with {type:'json'};
 import communityAuthor6 from './share-introductions/ai-manga-translator.json' with {type:'json'};
 import communityAuthor7 from './share-introductions/line-persona.json' with {type:'json'};
-import communityAuthor8 from './share-introductions/video-to-podcast-toolkit.json' with {type:'json'};
-import communityAuthor9 from './share-introductions/autovtuber.json' with {type:'json'};
-import communityAuthor10 from './share-introductions/coding-audit-harness.json' with {type:'json'};
+import communityAuthor8 from './share-introductions/open-seo-advisor.json' with {type:'json'};
+import communityAuthor9 from './share-introductions/video-to-podcast-toolkit.json' with {type:'json'};
+import communityAuthor10 from './share-introductions/autovtuber.json' with {type:'json'};
+import communityAuthor11 from './share-introductions/coding-audit-harness.json' with {type:'json'};
 import localWorkspaceMcp from './share-introductions/local-workspace-mcp.json' with {type:'json'};
 import editkin from './share-introductions/editkin.json' with {type:'json'};
 import positioningCompanion from './share-introductions/positioning-companion.json' with {type:'json'};
@@ -52,9 +53,10 @@ const content:Record<string,{introductions:string[];illustration_alt:string}> = 
   'ai-avatar-bot':{introductions:communityAuthor5,illustration_alt:"網站問題連到知識資料與虛擬角色，再以語音波形呈現角色回答。"},
   'ai-manga-translator':{introductions:communityAuthor6,illustration_alt:"原圖的對話框經圖片翻譯後覆蓋譯文，旁邊的作品詞彙表連接跨頁人名。"},
   'line-persona':{introductions:communityAuthor7,illustration_alt:"人格與知識文件連到自選模型，再把常見問答送到手機的 LINE 對話。"},
-  'video-to-podcast-toolkit':{introductions:communityAuthor8,illustration_alt:"訪談影片經本機處理分出聲音與字幕，再輸出音檔、三種海報、直式短影音與文案卡。"},
-  'autovtuber':{introductions:communityAuthor9,illustration_alt:"角色表單的髮色與眼色選項經本機 GPU 產生概念圖與 3D 臉型，完成的角色出現在直播畫面。"},
-  'coding-audit-harness':{introductions:communityAuthor10,illustration_alt:"工單交給機械手臂實作，驗收機印出帶指紋的收據，最後由人按下核准鍵。"},
+  'open-seo-advisor':{introductions:communityAuthor8,illustration_alt:'頁面經過檢查器核對結構、網站地圖與載入，再以內部連結整理成一組頁面。'},
+  'video-to-podcast-toolkit':{introductions:communityAuthor9,illustration_alt:"訪談影片經本機處理分出聲音與字幕，再輸出音檔、三種海報、直式短影音與文案卡。"},
+  'autovtuber':{introductions:communityAuthor10,illustration_alt:"角色表單的髮色與眼色選項經本機 GPU 產生概念圖與 3D 臉型，完成的角色出現在直播畫面。"},
+  'coding-audit-harness':{introductions:communityAuthor11,illustration_alt:"工單交給機械手臂實作，驗收機印出帶指紋的收據，最後由人按下核准鍵。"},
   'local-workspace-mcp':{introductions:localWorkspaceMcp,illustration_alt:"私人對話通道連到本機檔案，將合成資料整理成報表與圖表。"},
   'editkin':{introductions:editkin,illustration_alt:"合成影片片段進入可編輯時間軸，調整後在畫面中預覽剪輯結果。"},
   'positioning-companion':{introductions:positioningCompanion,illustration_alt:"人物比較方向與證據卡，選擇一條由本人確認的小實驗路徑。"},

@@ -74,7 +74,7 @@ export function GuildsPanel({client,onNavigate}:ModulePanelProps) {
   const secondaryKeys=(preferences?.secondary_guild_keys??guilds.filter(g=>g.is_secondary).sort((a,b)=>(a.secondary_position??0)-(b.secondary_position??0)).map(g=>g.guild_key)).filter((key,index,keys)=>key!==primaryKey&&keys.indexOf(key)===index&&guilds.some(g=>g.guild_key===key&&g.membership?.state==='active')).slice(0,2);
   const classified=guilds.map(g=>({...g,is_primary:g.guild_key===primaryKey&&g.membership?.state==='active',is_secondary:secondaryKeys.includes(g.guild_key)}));
   const search=query.trim().toLocaleLowerCase();
-  const visible=classified.filter(g=>(scope==='all'||g.membership?.state==='active')&&(!search||[g.name,g.purpose,guildMasterLabel(g),...(g.guild_experts??[]).map(expert=>expert.display_name),...g.skill_books.map(book=>book.title)].join(' ').toLocaleLowerCase().includes(search)));
+  const visible=classified.filter(g=>(scope==='all'||g.membership?.state==='active')&&(!search||[g.name,g.alias,g.purpose,guildMasterLabel(g),...(g.guild_experts??[]).map(expert=>expert.display_name),...g.skill_books.map(book=>book.title)].join(' ').toLocaleLowerCase().includes(search)));
   const groups=[
     {key:'featured',title:'主要與次要公會',items:visible.filter(g=>g.is_primary||g.is_secondary).sort((a,b)=>(a.is_primary?-1:secondaryKeys.indexOf(a.guild_key))-(b.is_primary?-1:secondaryKeys.indexOf(b.guild_key)))},
     {key:'joined',title:'其他已加入公會',items:visible.filter(g=>g.membership?.state==='active'&&!g.is_primary&&!g.is_secondary)},

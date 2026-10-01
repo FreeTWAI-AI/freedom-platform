@@ -41,3 +41,15 @@ Migration 032 在 `member_accounts` 加入 nullable `identity_label`。`GET /me/
 使用內建 imagegen，16 次獨立生成；僅以 sharp 調整尺寸並編碼 WebP。8 張書封位於 `apps/portal-web/public/art/skills/`，8 張功能示意圖位於 `apps/portal-web/public/brand/skill-illustrations/`。完整提示詞、來源、尺寸與雜湊見[書封 manifest](../design/skill-book-art-manifest.json)與[功能示意 manifest](../design/skill-illustration-manifest.json)。圖像是工坊導讀插畫，不是原作產品截圖或人物頭像。
 
 相關檢查入口：`tests/runtime/member-skill-registration.test.ts`、`identity-member.test.ts`、技能書及協作測試；`tests/e2e/onboarding-members.spec.ts`、名片、夥伴名冊及書架測試。部署時 `scripts/verify-public.mjs` 使用獨立合成會員驗證新書、名稱及自選標籤，完畢停用合成帳號並撤銷 session。
+
+## 2026-10-01 · Open SEO Advisor
+
+上架阿軒哥哥（阿軒割割）的 [Open SEO Advisor：SEO 健檢與建站顧問](https://github.com/mars-tw/open-seo-advisor-skill)。原作 `mars-tw/open-seo-advisor-skill`，預設分支 `main`，不是 fork，授權 Apache-2.0。收錄版本 [`f6178d797b45`](https://github.com/mars-tw/open-seo-advisor-skill/tree/f6178d797b45705b5b77f83507366a72eac34bde)（上游 v0.5.0，2026-09-23）。平台核對日是 2026-10-01。本輪只讀該 commit 的 README、SKILL、QUICKSTART、LICENSE 與模式文件，沒有執行上游 CLI、產圖或部署。
+
+成長與行銷公會（`guild_marketing`）指定這本書。指定理由：書的用途與第一步都在練習這個公會自己的工作，也就是離線網站健檢、依計畫套用並保留備份的技術修復，以及搜尋友善的內容整理。第一步是閱讀 QUICKSTART，再對自己的網站原始碼或範例資料夾跑一次離線檢查。這一步不是 AI 公會的驗證練習，所以只由成長與行銷公會指定。加入該公會會領到這本書。Migration `060_open_seo_advisor_skill.sql` 寫入上架時間，並為目前有效會員、且 `guild_marketing` 會籍仍是 active 的人補領。停用會員與已離開的會籍不補領。重跑不改既有領取時間，也不新增同意、職稱或開發授權。
+
+使用邊界照原作文件。CLI 提供離線網站骨架與技術檢查；完整網站仍要由 agent 依品牌實作頁面、內容、功能與圖像。CLI 不呼叫 GPT、不產圖、不建立支付後端、不部署。`website check` 的 `baseline_ready` 只是離線技術基線。GPT 產圖與託管（Cloudflare、Firebase Hosting、GCP Cloud Run）使用會員自己的帳號，可能產生費用，免費額度由會員自行查核。兩個線上示範維持 `noindex`，是故事網站，不是搜尋成效。不保證排名、收錄、流量、AI 搜尋引用、銷售或詢問。
+
+書封 `apps/portal-web/public/art/skills/open-seo-advisor.webp`（768×512），功能示意 `apps/portal-web/public/brand/skill-illustrations/open-seo-advisor.webp`（1200×630）。兩者由內建 imagegen 產生後，只用 sharp 以 contain 編成不透明 WebP。提示詞、來源路徑、尺寸與雜湊見[書封 manifest](../design/skill-book-art-manifest.json)與[功能示意 manifest](../design/skill-illustration-manifest.json)。圖像是工坊導讀插畫，不是原作產品截圖。
+
+目錄現為 41 本技能書、47 個 repo 指引，含 2026-10-01 整理的三件[手動登錄作品](./manual-work-skill-books.md)。上文 2026-09-24 記載的 37 本與 43 個指引是當天的結果。

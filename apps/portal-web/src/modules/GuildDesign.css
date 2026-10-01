@@ -27,6 +27,8 @@
 .guilds-panel .guild-card.primary-guild { border-color: #829e33; background: radial-gradient(ellipse at 100% 0, #c4ff2011, transparent 50%), #14161b; }
 .guilds-panel .primary-guild::before { background: linear-gradient(90deg, #c4ff20, #c4ff2055, transparent); }
 .guild-card-topline { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; min-height: 28px; margin-bottom: 0; }
+.guild-card-topline > h3 { flex: 1 1 0; min-width: 0; }
+.guild-card-topline > .badge { flex: 0 0 auto; }
 .guild-card-topline .guild-orbit { width: 38px; height: 28px; transform: scale(.7); transform-origin: left center; }
 .guild-card-kicker { color: #858e9e; font-size: .65rem; letter-spacing: .1em; }
 .guilds-panel .guild-card h3 { font-size: 1.3rem; letter-spacing: -.02em; margin: 0; }
