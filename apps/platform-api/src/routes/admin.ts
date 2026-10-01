@@ -14,6 +14,7 @@ import {startGitHubAppSetup,completeGitHubAppSetup,githubAppSetupStatus} from '.
 import {listAdminEventQueue,reviewEventAsAdmin} from '../../../../modules/community/events.js';
 import {acknowledgeAuthorClaimIdentity,adminAuthorClaims,refreshAuthorClaimObservation,reviewAuthorClaim} from '../../../../modules/community/repo-author-claims.js';
 import {guildDiscoveryReport,refreshGuildDiscoveryReports,type GuildReviewer} from '../../../../modules/community/guild-discovery.js';
+import {listCredentials,requestCloudflareRenewal} from '../../../../modules/platform-admin/credentials.js';
 type AdminEnv={Variables:{admin:AdminActor;adminCsrf:string}};
 export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=verifyAdminAccess,github:{origin:string;tokenKey?:string;fetcher?:typeof fetch;readToken?:()=>string|undefined;guildReviewer?:GuildReviewer}={origin:'http://127.0.0.1:4310'}){
   const app=new Hono<AdminEnv>();
@@ -75,6 +76,12 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
   const skillBookId=(c:Context<AdminEnv>)=>z.string().regex(/^[a-z0-9-]{1,100}$/).parse(c.req.param('id'));
   app.post('/skill-books/:id/author-claim-observation',async c=>c.json(await refreshAuthorClaimObservation(pool,await command(c),skillBookId(c),github.fetcher??globalThis.fetch,github.readToken?.())));
   app.post('/skill-books/:id/author-claim-observation/acknowledge',async c=>c.json(await acknowledgeAuthorClaimIdentity(pool,await command(c),skillBookId(c))));
+  app.get('/credentials',async c=>c.json(await listCredentials(pool)));
+  app.post('/credentials/:key/renewals',async c=>{
+    if(c.req.param('key')!=='cloudflare_deploy_token')return c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'找不到這個憑證。'},404);
+    const value=await requestCloudflareRenewal(pool,await command(c));
+    return c.json(value.request,value.created?201:200);
+  });
   app.get('/client-errors',async c=>{
     const admin=c.get('admin');
     const rows=await pool.query(`SELECT e.error_id,e.user_id,u.display_name,e.action,e.error_code,e.http_status,e.created_at
