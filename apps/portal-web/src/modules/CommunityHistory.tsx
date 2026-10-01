@@ -102,7 +102,7 @@ export function CommunityHistory({client}:{client:PortalClient}){
   ]:[];
   return <section className="community-history stack" aria-label="GitHub 共創紀錄">
     <div className="experience-heading"><h2>使用者排行榜與歷史紀錄</h2><span>以 GitHub 原始紀錄為準</span></div>
-    <p className="muted">涵蓋平台結構、公會指定的官方技能，以及其他已收錄的公開技能 Repo。排行以 GitHub 作者帳號計算：想法是 Issue 件數，編修是 PR 件數，貢獻是每個 Issue 5 分、每個 PR 20 分。這些分數只顯示在本頁，不計入會員經驗、獎勵或驗收。</p>
+    <p className="muted">涵蓋平台結構、公會指定的官方技能，以及其他已收錄的公開技能 Repo。排行只計算已在平台連結 GitHub 的會員，以及從頁面「提出想法」或「參與編修」送出、且帶有頁面標記的 Issue／PR。其他 GitHub 帳號的紀錄仍會出現在歷史清單，但不列入排行。會員完成「待辦清單」的「連結 GitHub」後，才會出現在排行榜。想法是 Issue 件數，編修是 PR 件數，貢獻是每個 Issue 5 分、每個 PR 20 分。這些分數只顯示在本頁，不計入會員經驗、獎勵或驗收。</p>
     <div className="community-history-nav" role="group" aria-label="共創紀錄類型">
       {([['ranking','使用者排行榜'],['issue','歷史想法'],['pr','歷史更新']] as const).map(([id,label])=><button key={id} type="button" className={`btn ${view===id?'btn-primary':'btn-ghost'}`} aria-pressed={view===id} onClick={()=>{setView(id);setQuery('');setStatus('all');}}>{label}</button>)}
     </div>
