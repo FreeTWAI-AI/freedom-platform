@@ -20,15 +20,10 @@
 .game-console-ticker-lines{animation:none}.game-console-ticker-lines>span:first-child:not(:last-child){display:none}
 html:is([data-theme="light"],[data-theme="versefolk"]) .messages-thread{background:var(--bg-elev);color:var(--ink)}
 html:is([data-theme="light"],[data-theme="versefolk"]) .messages-list>li,html:is([data-theme="light"],[data-theme="versefolk"]) .messages-peer{background:var(--bg-elev);color:var(--ink)}
-html:is([data-theme="light"],[data-theme="versefolk"]) .messages-peer[aria-current="true"]{border-color:var(--blue-ink)}
 html:is([data-theme="light"],[data-theme="versefolk"]) .messages-bubbles>li{background:var(--bg);color:var(--ink)}
 html:is([data-theme="light"],[data-theme="versefolk"]) .messages-bubbles>li.is-mine{background:var(--green-soft);color:var(--ink)}
-html:is([data-theme="light"],[data-theme="versefolk"]) .messages-count{background:var(--info-bg);color:var(--blue-ink)}
-html:is([data-theme="light"],[data-theme="versefolk"]) .messages-tabs [aria-selected="true"]{background:var(--info-bg);color:var(--blue-ink);box-shadow:inset 0 0 0 1px var(--blue-ink)}
-html:is([data-theme="light"],[data-theme="versefolk"]) .member-channel-list .messages-peer[aria-current="true"]{border-color:var(--blue-ink);box-shadow:inset 3px 0 0 var(--blue-ink)}
 html[data-theme="light"] .main,html[data-theme="light"] .sidebar,html[data-theme="light"] .login-layout{background:var(--bg-elev)}
 html[data-theme="light"] .card,html[data-theme="light"] .guild-card,html[data-theme="light"] .login-card,html[data-theme="light"] .home-module-card{box-shadow:none;border:1px solid var(--line);background:var(--bg-elev)}
-html[data-theme="light"] .workspace-navigation .nav-item.is-active{background:var(--info-bg);color:var(--blue-ink);box-shadow:inset 3px 0 0 var(--blue-ink)}
 html[data-theme="light"] .pill,html[data-theme="light"] .chip{background:var(--bg);color:var(--muted)}
 html[data-theme="light"] .game-console{box-shadow:0 -4px 20px #23344c10}.game-console-signal{box-shadow:none}
 html[data-theme="light"] .freedom-home .guild-base-hero{background:var(--bg-elev);border:1px solid var(--line);padding-right:190px;isolation:isolate}
