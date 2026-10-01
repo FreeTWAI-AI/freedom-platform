@@ -8,7 +8,7 @@ import type {Actor} from './service.js';
 import {memberCard} from './members.js';
 
 const Token=z.string().regex(/^[A-Za-z0-9_-]{43}$/);
-const designs=['calm','workshop','night','classic'] as const;
+const designs=['editorial','calm','workshop','night','classic'] as const;
 export type MemberCardDesign=typeof designs[number];
 export type MemberCardLink={label:string;url:string};
 const control=/[\u0000-\u001f\u007f]/;
@@ -20,7 +20,7 @@ const Settings=z.object({
 const labels=Object.fromEntries(capabilityCategories.flatMap(group=>group.items.map(item=>[item.id,item.label])));
 
 function cardDesign(value:unknown):MemberCardDesign{
-  requireCondition(typeof value==='string'&&(designs as readonly string[]).includes(value),422,'member_card_design_invalid','名片樣式請選擇清新、工坊、夜空或經典名片。');
+  requireCondition(typeof value==='string'&&(designs as readonly string[]).includes(value),422,'member_card_design_invalid','名片樣式請選擇工坊誌、清新、工坊、夜空或經典名片。');
   return value as MemberCardDesign;
 }
 function cardHeadline(value:unknown){
@@ -82,7 +82,7 @@ function cardSummary(headline:string|null,guild:string|null,capabilities:string[
 const settings=(row:any)=>({
   enabled:row?.enabled??false,include_avatar:row?.include_avatar??false,aggregate_version:row?.aggregate_version??null,
   share_path:row?.enabled?`/member-cards/${row.share_token}`:null,
-  design:(row?.design??'calm') as MemberCardDesign,headline:row?.headline??null,links:row?storedLinks(row.links):[],
+  design:(row?.design??'editorial') as MemberCardDesign,headline:row?.headline??null,links:row?storedLinks(row.links):[],
 });
 export async function memberShareSettings(pool:Pool,actor:Actor){
   return settings((await pool.query('SELECT enabled,include_avatar,aggregate_version,share_token,design,headline,links FROM member_card_shares WHERE user_id=$1 AND community_id=$2',[actor.user_id,actor.community_id])).rows[0]);
@@ -101,7 +101,7 @@ export async function saveMemberShare(pool:Pool,input:Command){
     if(current)checkVersion(current.aggregate_version,input.expected);
     else requireCondition(!input.expected,412,'version_conflict','分享設定已變更，請重新載入。');
     const token=!current||body.rotate||body.enabled&&!current.enabled?randomBytes(32).toString('base64url'):current.share_token;
-    const nextDesign=design??current?.design??'calm';
+    const nextDesign=design??current?.design??'editorial';
     const nextHeadline=headline===undefined?(current?.headline??null):headline;
     const nextLinks=links===undefined?storedLinks(current?.links):links;
     const row=(await q.query(`INSERT INTO member_card_shares(user_id,community_id,share_token,enabled,include_avatar,design,headline,links) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
