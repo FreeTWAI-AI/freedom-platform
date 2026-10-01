@@ -202,7 +202,31 @@ test('a sync records the first token expiry once and does not add a GitHub reque
   assert.equal(JSON.stringify(row).includes(SECRET), false);
 });
 
-test('a token response without the expiry header records null and ignores a later header', async () => {
+test('a 304 then a 200 with the expiry header records that date', async () => {
+  await parkAll();
+  await dueFeed();
+  await dueRepo();
+  const calls: string[] = [];
+  const summary = await syncGitHubRepositories(pool, {
+    token: SECRET, now: () => T0,
+    fetcher: async (input, init) => {
+      const url = String(input);
+      calls.push(url);
+      assert.equal(new Headers(init?.headers).has('authorization'), true);
+      if (url.includes('/events')) return json(null, 304);
+      if (url.includes('/issues')) return json([item(2)], 200, {[HEADER]: ISSUES_EXPIRY});
+      throw new Error(`unexpected ${url}`);
+    },
+  });
+  assert.equal(summary.requests, 2);
+  assert.equal(calls.length, summary.requests);
+  assert.equal(summary.not_modified, 1);
+  const row = await githubRow();
+  assert.equal(row.status, 'ok');
+  assert.equal(new Date(row.expires_at!).toISOString(), '2028-01-15T00:00:00.000Z');
+});
+
+test('a 200 without the expiry header records null and ignores a later header', async () => {
   await parkAll();
   await dueFeed();
   await dueRepo();
@@ -222,6 +246,88 @@ test('a token response without the expiry header records null and ignores a late
   const row = await githubRow();
   assert.equal(row.status, 'ok');
   assert.equal(row.expires_at, null);
+});
+
+test('a 5xx or 403 without the expiry header does not hide a later header', async () => {
+  for (const status of [503, 403, 404]) {
+    await parkAll();
+    await dueFeed();
+    await dueRepo();
+    const calls: string[] = [];
+    const summary = await syncGitHubRepositories(pool, {
+      token: SECRET, now: () => T0,
+      fetcher: async (input, init) => {
+        const url = String(input);
+        calls.push(url);
+        assert.equal(new Headers(init?.headers).has('authorization'), true);
+        if (url.includes('/events')) return json({message: 'unavailable'}, status);
+        if (url.includes('/issues')) return json([item(status)], 200, {[HEADER]: ISSUES_EXPIRY});
+        throw new Error(`unexpected ${url}`);
+      },
+    });
+    assert.equal(summary.requests, 2, String(status));
+    assert.equal(calls.length, summary.requests, String(status));
+    const row = await githubRow();
+    assert.equal(row.status, 'ok', String(status));
+    assert.equal(new Date(row.expires_at!).toISOString(), '2028-01-15T00:00:00.000Z', String(status));
+  }
+});
+
+test('only 304 token responses write nothing and leave an existing row unchanged', async () => {
+  await parkAll();
+  await dueFeed();
+  await dueRepo();
+  const none = await syncGitHubRepositories(pool, {
+    token: SECRET, now: () => T0,
+    fetcher: async () => json(null, 304),
+  });
+  assert.equal(none.requests, 2);
+  assert.equal(none.not_modified, 2);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM platform_credential_status')).rows[0].n, 0);
+  await dueFeed();
+  await dueRepo();
+  const checked = new Date('2026-09-01T03:00:00.000Z');
+  const expires = new Date('2027-06-01T00:00:00.000Z');
+  await pool.query(`INSERT INTO platform_credential_status(credential_key, status, expires_at, checked_at, source, note)
+    VALUES('github_metrics_token', 'ok', $1, $2, 'github_response', 'keep')`, [expires, checked]);
+  const again = await syncGitHubRepositories(pool, {
+    token: SECRET, now: () => T0,
+    fetcher: async () => json(null, 304),
+  });
+  assert.equal(again.requests, 2);
+  assert.equal(again.not_modified, 2);
+  const row = await pool.query<{status: string; expires_at: Date; checked_at: Date; source: string; note: string | null}>(
+    'SELECT status, expires_at, checked_at, source, note FROM platform_credential_status WHERE credential_key=$1', ['github_metrics_token']);
+  assert.equal(row.rowCount, 1);
+  assert.equal(row.rows[0].status, 'ok');
+  assert.equal(new Date(row.rows[0].expires_at).toISOString(), expires.toISOString());
+  assert.equal(new Date(row.rows[0].checked_at).toISOString(), checked.toISOString());
+  assert.equal(row.rows[0].source, 'github_response');
+  assert.equal(row.rows[0].note, 'keep');
+});
+
+test('a metrics 304 is not an observation', async () => {
+  await parkAll();
+  const targets = catalogMetricTargets();
+  assert.ok(targets.length >= 2);
+  await pool.query(`UPDATE github_repository_metrics SET retry_after=$2, snapshot=NULL, last_error=NULL WHERE repository_key=ANY($1::text[])`,
+    [targets.slice(0, 2).map(target => target.key), new Date(T0 - 1000)]);
+  const calls: string[] = [];
+  const summary = await syncGitHubRepositories(pool, {
+    token: SECRET, now: () => T0,
+    fetcher: async (input, init) => {
+      calls.push(String(input));
+      assert.equal(new Headers(init?.headers).get('authorization'), `Bearer ${SECRET}`);
+      if (calls.length === 1) return json(null, 304);
+      return json(metricBody(), 200, {[HEADER]: EVENTS_EXPIRY});
+    },
+  });
+  assert.equal(summary.requests, 2);
+  assert.equal(calls.length, 2);
+  assert.equal(calls.some(url => url.includes('/events') || url.includes('/issues')), false);
+  const row = await githubRow();
+  assert.equal(row.status, 'ok');
+  assert.equal(new Date(row.expires_at!).toISOString(), '2027-09-30T04:00:00.000Z');
 });
 
 test('401 records rejected and a later anonymous success does not replace it', async () => {

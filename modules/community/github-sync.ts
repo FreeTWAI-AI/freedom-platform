@@ -163,11 +163,13 @@ async function rememberGitHubCredential(run: Run, status: 'ok' | 'rejected' | 'u
   try { await recordGitHubMetricsCredential(run.pool, status, expiresAt); }
   catch (error) { console.warn('github_credential_status_failed', credentialErrorCode(error)); }
 }
+/** GitHub omits `github-authentication-token-expiration` on 304. That response is not an observation and must not use the run's single ok note. */
 async function observeTokenResponse(run: Run, status: number, expiration: string | null) {
   try {
+    if (status === 304) return;
     const expiresAt = parseGitHubTokenExpiration(expiration);
     if (status === 401) await rememberGitHubCredential(run, 'rejected', expiresAt);
-    else await rememberGitHubCredential(run, 'ok', expiresAt);
+    else if (expiration !== null || (status >= 200 && status < 300)) await rememberGitHubCredential(run, 'ok', expiresAt);
   } catch (error) { console.warn('github_credential_status_failed', credentialErrorCode(error)); }
 }
 function labelList(value: unknown) {
