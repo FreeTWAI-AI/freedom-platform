@@ -159,6 +159,41 @@ test('sharing the workshop from home and the leaderboard uses one personal link'
   await expect(board(page, '平台推廣排行榜')).toContainText(`我的名次：第 1 名・${weekBefore + 1} 分`);
 });
 
+test('the home share button stays as compact as the profile button', async ({ page }) => {
+  await login(page);
+  await themeOf(page, 'light');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  const edit = page.getByRole('button', { name: '編輯我的名片', exact: true });
+  const share = page.getByRole('button', { name: '分享自由工坊', exact: true });
+  const row = page.locator('.home-member-actions');
+  await expect(edit).toBeVisible();
+  await expect(share).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const phoneShare = (await share.boundingBox())!;
+  const phoneEdit = (await edit.boundingBox())!;
+  const phoneRow = (await row.boundingBox())!;
+  expect(phoneShare.height).toBeGreaterThanOrEqual(44);
+  expect(phoneShare.width).toBeLessThan(phoneRow.width * 0.6);
+  expect(phoneShare.width).toBeLessThanOrEqual(phoneEdit.width + 16);
+  await noOverflow(page);
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const deskShare = (await share.boundingBox())!;
+  const deskEdit = (await edit.boundingBox())!;
+  expect(Math.abs(deskShare.y - deskEdit.y)).toBeLessThanOrEqual(4);
+
+  await shot(page, 'home-light-1280');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await shot(page, 'home-light-390');
+  await themeOf(page, 'dark');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await shot(page, 'home-dark-390');
+  await noOverflow(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await shot(page, 'home-dark-1280');
+});
+
 async function sharePost(page: Page, url: string, title?: string) {
   const details = page.locator('details.social-composer');
   if (!await details.evaluate(element => (element as HTMLDetailsElement).open)) await details.locator('summary').click();
@@ -303,7 +338,7 @@ async function shot(page: Page, name: string) {
   await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
 }
 
-async function themeOf(page: Page, theme: 'light' | 'versefolk') {
+async function themeOf(page: Page, theme: 'light' | 'dark' | 'versefolk') {
   await page.evaluate(value => { localStorage.setItem('freedom-theme', value); document.documentElement.dataset.theme = value; }, theme);
 }
 
