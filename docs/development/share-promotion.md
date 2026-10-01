@@ -85,9 +85,9 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 
 ## 資料與部署
 
-資料表在 `migrations/063_share_promotion.sql`：`promotion_links`、`promotion_clicks`、`promotion_click_salts`、`community_social_posts`、`community_social_post_thumbnails`。有效連結以部分唯一索引保證一人一種目標一條；有效貼文的網址同樣唯一。`promotion_links_target` 索引 `(kind, target_key)`，給貼文列表的點擊合計、活動推薦報表，以及之後的服務列表用。
+資料表在 `migrations/067_share_promotion.sql`：`promotion_links`、`promotion_clicks`、`promotion_click_salts`、`community_social_posts`、`community_social_post_thumbnails`。有效連結以部分唯一索引保證一人一種目標一條；有效貼文的網址同樣唯一。`promotion_links_target` 索引 `(kind, target_key)`，給貼文列表的點擊合計、活動推薦報表，以及之後的服務列表用。
 
-部署時先套用 migration 063，再套用 065，然後換 Worker。064 不是這次變更。Worker 的預覽 fetch 必須是未綁定的 `globalThis.fetch`。
+部署時先套用 migration 067，再套用 068，然後換 Worker。Worker 的預覽 fetch 必須是未綁定的 `globalThis.fetch`。
 
 程式入口：`modules/community/promotion.ts`、`modules/community/social-posts.ts`、`modules/community/member-services.ts`、`modules/community/link-preview.ts`、`packages/shared/share-url.ts`、`packages/shared/promotion-bots.ts`、`packages/shared/member-service.ts`、`apps/platform-api/src/routes/promotion.ts`、`apps/platform-api/src/routes/member-services.ts`。介面是「社群分享」、「社員服務」與「推廣排行榜」，技能書架、活動與會員首頁接同一套分享對話框。
 
@@ -132,6 +132,6 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 
 ### 資料
 
-`migrations/065_member_services.sql`：`member_services`、`member_service_covers`。公開列表索引是 `(community_id, updated_at DESC, service_id DESC) WHERE state='active'`，主人索引含有效與暫停。封面 `ON DELETE CASCADE`，但軟刪除要另外刪封面列。點擊分仍只在 `promotion_clicks`。列表的 `total_points` 用既有的 `promotion_links_target` 索引，合計該服務全部 `member_service` 連結的點擊。
+`migrations/068_member_services.sql`：`member_services`、`member_service_covers`。公開列表索引是 `(community_id, updated_at DESC, service_id DESC) WHERE state='active'`，主人索引含有效與暫停。封面 `ON DELETE CASCADE`，但軟刪除要另外刪封面列。點擊分仍只在 `promotion_clicks`。列表的 `total_points` 用既有的 `promotion_links_target` 索引，合計該服務全部 `member_service` 連結的點擊。
 
 本文件描述功能與維護方式；實跑結果另記於交接，不以文件存在代表已發布。
