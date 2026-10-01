@@ -764,8 +764,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AdminLayout.css",
-      "bytes": 7296,
-      "sha256": "c67ac800c65a853939d90b39424d46f292735f3b7a632dcb6ea73a5766be1aad"
+      "bytes": 7466,
+      "sha256": "bf4107dddfee445c2c86971d4be9a98db5e46352e7447722fe2565e55eed475f"
     },
     {
       "path": "apps/portal-web/src/modules/AdminPanel.tsx",
@@ -3328,16 +3328,6 @@
       "sha256": "335c3d5c3b47e1bcf3c6bcbebcae5f779cbf9c9d3abf78dabe8936760cee9bf7"
     },
     {
-      "path": "modules/development-access/guild-eligibility.ts",
-      "bytes": 1602,
-      "sha256": "9e9b6619a4e0e29beeb7ada9c1e11ba80fd60127bae443ef63c89a8f3e5f7c15"
-    },
-    {
-      "path": "modules/development-access/service.ts",
-      "bytes": 16648,
-      "sha256": "2bc4cac7903e0f03cd2ec869fa56ff9e0c99d588d218a95cc3468008c99c6518"
-    },
-    {
       "path": "modules/development/page-github.ts",
       "bytes": 9796,
       "sha256": "50328508a0f4a12ab5001a9a485bed3c4125fb3da0c4c0b593650736bd056530"
@@ -3351,6 +3341,16 @@
       "path": "modules/development/service.ts",
       "bytes": 42395,
       "sha256": "b05ed7fe56c14165bf878b31de60ef3f6bfe273aff111c91939c5ef78477f070"
+    },
+    {
+      "path": "modules/development-access/guild-eligibility.ts",
+      "bytes": 1602,
+      "sha256": "9e9b6619a4e0e29beeb7ada9c1e11ba80fd60127bae443ef63c89a8f3e5f7c15"
+    },
+    {
+      "path": "modules/development-access/service.ts",
+      "bytes": 16648,
+      "sha256": "2bc4cac7903e0f03cd2ec869fa56ff9e0c99d588d218a95cc3468008c99c6518"
     },
     {
       "path": "modules/github-social/provider.ts",
@@ -3814,8 +3814,8 @@
     },
     {
       "path": "tests/e2e/admin.spec.ts",
-      "bytes": 24166,
-      "sha256": "c6c171fdfef4433eea15e26373ab12c4328d34146a439a0b19b6162c17990a55"
+      "bytes": 26203,
+      "sha256": "54037cc22be1c30148a7fbc0ca22a025e6fce036b8877dc1f6c67fa7bbae0b0d"
     },
     {
       "path": "tests/e2e/agent-shops.spec.ts",
