@@ -78,7 +78,7 @@ const QUEUE_MESSAGES: Record<string, string> = {
   awaiting_review: '檢查已過，還在等符合風險等級的真人核准。',
   sla_overdue: '已超過這個風險等級的審查時限，請盡快有人看。',
   owner_authored: '作者本人是審查者，不能核准自己的拉取請求，需要另一位審查者。',
-  review_claimed: '已有審查者認領這次審查。認領結束時間由畫面格式化。',
+  review_claimed: '已有審查者認領這次審查。',
 };
 
 const RANK: Record<Risk, number> = { low: 0, medium: 1, high: 2 };
@@ -433,7 +433,7 @@ function withClaim(derived: QueueDerivation, claim: QueueClaim | null | undefine
   if (!recheck || Date.parse(recheck) > expires) recheck = expiresIso;
   return {
     state: 'in_review',
-    reasons: [...derived.reasons, queueReason('review_claimed', `${claim.reviewer_login} 已認領這次審查，認領到 ${expiresIso} 結束。`)],
+    reasons: [...derived.reasons, queueReason('review_claimed', `${claim.reviewer_login} 已認領這次審查，到期後會自動釋放。`)],
     sla_due_at: derived.sla_due_at,
     recheck_at: recheck,
   };

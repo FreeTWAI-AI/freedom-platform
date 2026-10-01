@@ -291,8 +291,8 @@ test('an active claim turns awaiting review and a high-risk owner queue into in_
     assert.equal(derived.reasons.some(reason => reason.code === 'review_claimed'), claimed, label);
   }
   const claimed = derive({ claim });
-  assert.match(claimed.reasons.at(-1)?.message ?? '', /ada/);
-  assert.match(claimed.reasons.at(-1)?.message ?? '', new RegExp(expires.replace(/[.]/g, '\\.')));
+  assert.equal(claimed.reasons.at(-1)?.message, 'ada 已認領這次審查，到期後會自動釋放。');
+  assert.equal(/\d{4}-\d{2}-\d{2}T/.test(claimed.reasons.at(-1)?.message ?? ''), false);
   assert.equal(claimed.recheck_at, expires);
   const high = derive({ risk: 'high', claim });
   assert.ok(high.reasons.some(reason => reason.code === 'high_risk_requires_owner'));
