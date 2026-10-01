@@ -64,6 +64,7 @@ export const ADMIN_LINK_STATUS: Record<string, string> = {
 };
 export const CLAIM_UNAVAILABLE = '這個拉取請求目前未開啟、仍是草稿或已暫停（包括儲存庫已關閉），不能認領。';
 export const CLAIM_HELD = '這個拉取請求已有人認領。';
+export const GITHUB_REVIEW_LINK = '到 GitHub 審查 ↗';
 export const GITHUB_REVIEW_HINT = '請在 GitHub 送出審查（Approve 或 Request changes），送出後這裡會自動標示完成。';
 
 export function versionOf(value: string | number): number {

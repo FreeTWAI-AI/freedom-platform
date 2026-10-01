@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import type { PortalClient } from '../api';
 import { useMemberClient } from './GuildWorkspace';
 import {
-  CLAIM_HELD, CLAIM_UNAVAILABLE, GITHUB_REVIEW_HINT, PullFacts, ReviewQueueRow, adoptionHint, pullClaimable, versionOf,
+  CLAIM_HELD, CLAIM_UNAVAILABLE, GITHUB_REVIEW_HINT, GITHUB_REVIEW_LINK, PullFacts, ReviewQueueRow, adoptionHint, pullClaimable, versionOf,
   type PullDetail, type PullRow,
 } from './review-center-shared';
 import './AdminReviewCenter.css';
@@ -160,7 +160,7 @@ function GuildDetailPanel({ detail, linked, busy, onError, onClaim, onRelease, o
       </form>}
       <div className="actions review-actions">
         {detail.can_release && detail.claim && <button type="button" className="btn btn-ghost" disabled={locked} onClick={() => void release()}>放棄認領</button>}
-        <a className="btn btn-ghost" href={`${detail.html_url}/files`} target="_blank" rel="noopener noreferrer">到 GitHub 審查 ↗</a>
+        <a className="btn btn-ghost" href={`${detail.html_url}/files`} target="_blank" rel="noopener noreferrer">{GITHUB_REVIEW_LINK}</a>
       </div>
     </div>
   </>;

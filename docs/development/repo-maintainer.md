@@ -185,7 +185,7 @@ Tick 在重新推導之前結束認領。每一步先依 `pull_id` 順序鎖住�
 
 ### 在畫面上暫停一筆
 
-後台「PR 審核」打開該筆，填理由後按「暫停自動處理」。這把該筆的 `paused` 設成 true，並把 `aggregate_version` 加一，不改儲存庫模式，也不放開認領。已經暫停再暫停回 409 `maintainer_pull_already_paused`；沒有暫停卻恢復回 409 `maintainer_pull_not_paused`。即使佇列狀態不變（例如已合併或已關閉），版本也會增加，舊的 If-Match 得到 412。恢復時再填理由。儲存庫整個關掉仍用模式 `off`。模式 `off` 的拉取請求不能認領或指派，跟單筆暫停一樣回 409 `maintainer_claim_unavailable`。
+後台「PR 審核」打開該筆，填理由後按「暫停」。這把該筆的 `paused` 設成 true，並把 `aggregate_version` 加一，不改儲存庫模式，也不放開認領。已經暫停再暫停回 409 `maintainer_pull_already_paused`；沒有暫停卻恢復回 409 `maintainer_pull_not_paused`。即使佇列狀態不變（例如已合併或已關閉），版本也會增加，舊的 If-Match 得到 412。恢復時再填理由。儲存庫整個關掉仍用模式 `off`。模式 `off` 的拉取請求不能認領或指派，跟單筆暫停一樣回 409 `maintainer_claim_unavailable`。
 
 ## 暫停
 

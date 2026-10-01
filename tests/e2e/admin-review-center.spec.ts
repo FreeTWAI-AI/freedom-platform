@@ -193,7 +193,7 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
     });
     expect(Math.abs(toggleBox!.x - contentLeft)).toBeLessThan(1);
     await detailToggle.click();
-    await expect(low.getByRole('link', { name: '在 GitHub 審核', exact: true })).toHaveAttribute('href', 'https://github.com/FreeTWAI-AI/freedom-platform/pull/11/files');
+    await expect(low.getByRole('link', { name: '到 GitHub 審查 ↗', exact: true })).toHaveAttribute('href', 'https://github.com/FreeTWAI-AI/freedom-platform/pull/11/files');
     const reviewLine = low.getByRole('listitem').filter({ hasText: 'old-commenter' });
     await expect(reviewLine).toContainText('old-commenter');
     await expect(reviewLine).toContainText('核准');
@@ -216,7 +216,7 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
     await expect(mine).toContainText('自己認領');
     await expect(mine).toContainText('認領中');
     await expect(mine.getByRole('button', { name: '指派給…', exact: true })).toBeDisabled();
-    await mine.getByRole('button', { name: '暫停自動處理', exact: true }).click();
+    await mine.getByRole('button', { name: '暫停', exact: true }).click();
     await mine.getByLabel('暫停理由').fill('先暫停這筆認領。');
     await mine.getByRole('button', { name: '確認暫停', exact: true }).click();
     await expect(page.getByText('管理操作已保存，並留下操作紀錄。')).toBeVisible();
@@ -229,7 +229,7 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
     await mine.getByRole('button', { name: '確認恢復', exact: true }).click();
     await expect(page.getByText('管理操作已保存，並留下操作紀錄。')).toBeVisible();
     await expect(mine.getByLabel('恢復理由')).toHaveCount(0);
-    await expect(mine.getByRole('button', { name: '暫停自動處理', exact: true })).toBeVisible();
+    await expect(mine.getByRole('button', { name: '暫停', exact: true })).toBeVisible();
     await mine.getByRole('button', { name: '放棄認領', exact: true }).click();
     await mine.getByLabel('放棄理由').fill('這次先交還佇列。');
     await mine.getByRole('button', { name: '確認放棄認領', exact: true }).click();
@@ -279,7 +279,7 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
     await expect(ci).toContainText('首次貢獻');
     await expect(ci).toContainText('進行中');
     await ci.getByRole('button', { name: '詳情', exact: true }).click();
-    await ci.getByRole('button', { name: '暫停自動處理', exact: true }).click();
+    await ci.getByRole('button', { name: '暫停', exact: true }).click();
     await ci.getByLabel('暫停理由').fill('先暫停這次自動處理。');
     await ci.getByRole('button', { name: '確認暫停', exact: true }).click();
     await expect(page.getByText('管理操作已保存，並留下操作紀錄。')).toBeVisible();
@@ -336,7 +336,7 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
     expect(phoneToggleBox!.x).toBeGreaterThanOrEqual(phoneBox!.x - 0.5);
     expect(phoneToggleBox!.x + phoneToggleBox!.width).toBeLessThanOrEqual(phoneBox!.x + phoneBox!.width + 0.5);
     await phoneToggle.click();
-    for (const name of ['我來審', '指派給…', '暫停自動處理']) {
+    for (const name of ['我來審', '指派給…', '暫停']) {
       const action = phone.getByRole('button', { name, exact: true });
       await action.scrollIntoViewIfNeeded();
       await expect(action).toBeVisible();
