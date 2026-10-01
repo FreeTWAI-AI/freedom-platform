@@ -69,8 +69,8 @@
     },
     {
       "path": "apps/platform-api/src/generated/runtime-text.ts",
-      "bytes": 30114,
-      "sha256": "b2843a3df251e9507981c1be50189dc5409727963fe13457f822a9cb68e91505"
+      "bytes": 30120,
+      "sha256": "b9263d3a7a17e5ff3c68638f4c4b18ca0b33bb51b391eccba96eacfe49d3518b"
     },
     {
       "path": "apps/platform-api/src/guild-review.ts",
@@ -1709,8 +1709,8 @@
     },
     {
       "path": "docs/development/github-social.md",
-      "bytes": 8936,
-      "sha256": "13aef0323d0068c174013c64ec0972c25c14bb047b65e52c76dddbb1bce5f4df"
+      "bytes": 8960,
+      "sha256": "9f4bac4cdc42ef5272239b36f5f56a9be7cb9d44e8d890d872578ae31b9686b0"
     },
     {
       "path": "docs/development/guild-collaboration.md",
@@ -3829,8 +3829,8 @@
     },
     {
       "path": "packages/skill-upload-client/protocol.md",
-      "bytes": 4518,
-      "sha256": "91835525c794fd1479298ca2080332bc7ac74e421d62424015038769fbbb89ca"
+      "bytes": 4524,
+      "sha256": "08e4309fc550e6182b60b2604ece6fd5fef2cc3d70d6deb082b5801e9f46c7b1"
     },
     {
       "path": "packages/skill-upload-client/test/cli.test.mjs",
