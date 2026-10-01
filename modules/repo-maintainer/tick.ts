@@ -2,9 +2,9 @@ import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { transaction } from '../../packages/db/index.js';
 import { claimIdFromPayload, failClaimGithub, runReviewerJob, settleMaintainerClaims, type MaintainerWrites } from './claims.js';
-import { loadActiveClaim, loadActiveReviewers, loadPullChildren, rederivePull } from './derive.js';
+import { claimInput, loadActiveClaim, loadEligibleReviewerIds, loadPullChildren, rederivePull } from './derive.js';
 import { createMaintainerGitHub, GitHubSignal, type MaintainerGitHub, type MaintainerPull, type MaintainerPullCheck, type MaintainerPullFile, type MaintainerPullReview } from './github.js';
-import { classifyRisk, deriveQueueState, migrationCheck, resolveSettings, MAINTAINER_POLICY_VERSION, type MaintainerSettings, type PolicyFile, type Reason, type RepositoryMode } from './policy.js';
+import { classifyAttention, deriveQueueState, migrationCheck, resolveSettings, MAINTAINER_POLICY_VERSION, type MaintainerSettings, type PolicyFile, type Reason, type RepositoryMode } from './policy.js';
 import { enqueueReconcilePull } from './queue.js';
 
 export const MAINTAINER_REQUEST_BUDGET = 60;
@@ -25,7 +25,7 @@ export type MaintainerSummary = {
   suspended_installations: number;
   repositories_upserted: number; repositories_removed: number; sweeps: number; jobs_done: number;
   jobs_failed: number; jobs_released: number; github_requests: number; stopped: string | null;
-  claims_expired: number; claims_released: number; claims_completed: number; writes: MaintainerWrites;
+  claims_expired: number; claims_released: number; claims_completed: number; repositories_adopted: number; writes: MaintainerWrites;
 };
 
 type RepoRow = {
@@ -267,6 +267,9 @@ async function sweepOne(pool: Pool, github: MaintainerGitHub, repo: RepoRow, now
       for (const row of stored) if (row.state === 'open' && !seen.has(row.number)) await enqueueReconcilePull(pool, repo.repository_id, row.number, now);
       await releaseSweep(pool, repo, now, new Date(now.getTime() + SWEEP_OK_MS), null);
       await pool.query('UPDATE maintainer_repositories SET last_swept_at=$2 WHERE repository_id=$1 AND next_sweep_at=$3', [repo.repository_id, now, new Date(now.getTime() + SWEEP_OK_MS)]);
+      // Officers, memberships and GitHub links change outside this module. A null recheck
+      // would otherwise keep a stale queue until the next head change. The following tick rederives.
+      await pool.query(`UPDATE maintainer_pull_requests SET recheck_at=$2 WHERE repository_id=$1 AND state='open' AND recheck_at IS NULL`, [repo.repository_id, now]);
       return null;
     }
     await releaseSweep(pool, repo, now, new Date(now.getTime() + SWEEP_RETRY_MS), 'github_page_cap');
@@ -300,9 +303,8 @@ async function replaceChildren(q: PoolClient, pullId: string, headSha: string, f
 
 async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, pull: MaintainerPull, files: MaintainerPullFile[], checks: MaintainerPullCheck[], reviews: MaintainerPullReview[], settings: MaintainerSettings, migrationReasons: Reason[], filesTruncated: boolean, now: Date) {
   const isFork = pullIsFork(pull);
-  const risk = classifyRisk({
-    files: policyFiles(files), profile: settings.rules_profile, author_association: pull.author_association,
-    author_type: pull.user.type, is_fork: isFork, changed_files: pull.changed_files, files_truncated: filesTruncated,
+  const attention = classifyAttention({
+    files: policyFiles(files), profile: settings.rules_profile, changed_files: pull.changed_files, files_truncated: filesTruncated,
   });
   await transaction(pool, async q => {
     const owned = await q.query('SELECT job_id FROM maintainer_jobs WHERE job_id=$1 AND lease_until=$2 FOR UPDATE', [job.job_id, job.lease_until]);
@@ -322,14 +324,13 @@ async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, p
         mergeable: pull.mergeable, mergeable_state: pull.mergeable_state, labels: pull.labels.map(label => label.name).slice(0, 100),
         head_sha: pull.head.sha, head_observed_at: observed, author_github_id: String(pull.user.id), paused: existing?.paused ?? false,
       },
-      risk: risk.risk,
+      eligible_reviewer_ids: await loadEligibleReviewerIds(q, repo.repository_id),
       checks: checks.map(check => ({ ...check, head_sha: pull.head.sha })),
       reviews,
-      reviewers: await loadActiveReviewers(q, repo.community_id),
       mode: repo.mode as RepositoryMode,
       settings,
       migration_reasons: migrationReasons,
-      claim: activeClaim ? { reviewer_github_id: activeClaim.reviewer_github_id, reviewer_login: activeClaim.reviewer_login, expires_at: iso(activeClaim.expires_at) ?? '' } : null,
+      claim: claimInput(activeClaim),
     }, now);
     if (!pull.html_url.startsWith('https://github.com/')) throw new UnitResult('github_invalid_response', false);
     const values = {
@@ -340,8 +341,8 @@ async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, p
       base_ref: pull.base.ref, base_sha: pull.base.sha, mergeable: pull.mergeable, mergeable_state: pull.mergeable_state,
       labels: pull.labels.map(label => label.name).filter(Boolean).slice(0, 100), additions: pull.additions, deletions: pull.deletions,
       changed_files: pull.changed_files, github_created_at: pull.created_at, github_updated_at: pull.updated_at,
-      first_ready_at: firstReady, head_observed_at: observed, risk_class: risk.risk, risk_reasons: risk.reasons,
-      queue_state: derived.state, queue_reasons: derived.reasons, migration_reasons: migrationReasons, sla_due_at: derived.sla_due_at, recheck_at: derived.recheck_at,
+      first_ready_at: firstReady, head_observed_at: observed, attention_reasons: attention,
+      queue_state: derived.state, queue_reasons: derived.reasons, migration_reasons: migrationReasons, recheck_at: derived.recheck_at,
       paused: existing?.paused ?? false, policy_version: MAINTAINER_POLICY_VERSION,
       requested_reviewers: pull.requested_reviewers.map(user => ({ github_user_id: String(user.id), login: user.login })),
     };
@@ -357,9 +358,9 @@ async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, p
       additions: existing.additions, deletions: existing.deletions, changed_files: existing.changed_files,
       github_created_at: iso(existing.github_created_at), github_updated_at: iso(existing.github_updated_at),
       first_ready_at: iso(existing.first_ready_at), head_observed_at: iso(existing.head_observed_at),
-      risk_class: existing.risk_class, risk_reasons: existing.risk_reasons, queue_state: existing.queue_state,
+      attention_reasons: existing.attention_reasons, queue_state: existing.queue_state,
       queue_reasons: existing.queue_reasons, migration_reasons: existing.migration_reasons,
-      sla_due_at: iso(existing.sla_due_at), recheck_at: iso(existing.recheck_at),
+      recheck_at: iso(existing.recheck_at),
       paused: existing.paused, policy_version: existing.policy_version,
       requested_reviewers: existing.requested_reviewers ?? [],
     }, previousChildren.files, previousChildren.checks, previousChildren.reviews) : '';
@@ -370,15 +371,15 @@ async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, p
         pull_id, repository_id, number, github_pull_id, title, html_url, state, merged_at, closed_at, is_draft,
         author_github_id, author_login, author_type, author_association, is_fork, head_sha, head_repository_id,
         base_ref, base_sha, mergeable, mergeable_state, labels, additions, deletions, changed_files,
-        github_created_at, github_updated_at, first_ready_at, head_observed_at, risk_class, risk_reasons,
-        queue_state, queue_reasons, migration_reasons, sla_due_at, recheck_at, paused, policy_version, synced_at, requested_reviewers)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb,$32,$33::jsonb,$34::jsonb,$35,$36,$37,$38,$39,$40::jsonb)`, [
+        github_created_at, github_updated_at, first_ready_at, head_observed_at, attention_reasons,
+        queue_state, queue_reasons, migration_reasons, recheck_at, paused, policy_version, synced_at, requested_reviewers)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30::jsonb,$31,$32::jsonb,$33::jsonb,$34,$35,$36,$37,$38::jsonb)`, [
         pullId, repo.repository_id, pull.number, values.github_pull_id, values.title, values.html_url, values.state,
         values.merged_at, values.closed_at, values.is_draft, values.author_github_id, values.author_login, values.author_type,
         values.author_association, values.is_fork, values.head_sha, values.head_repository_id, values.base_ref, values.base_sha,
         values.mergeable, values.mergeable_state, values.labels, values.additions, values.deletions, values.changed_files,
-        values.github_created_at, values.github_updated_at, values.first_ready_at, values.head_observed_at, values.risk_class,
-        JSON.stringify(values.risk_reasons), values.queue_state, JSON.stringify(values.queue_reasons), JSON.stringify(values.migration_reasons), values.sla_due_at,
+        values.github_created_at, values.github_updated_at, values.first_ready_at, values.head_observed_at,
+        JSON.stringify(values.attention_reasons), values.queue_state, JSON.stringify(values.queue_reasons), JSON.stringify(values.migration_reasons),
         values.recheck_at, values.paused, values.policy_version, now, JSON.stringify(values.requested_reviewers),
       ]);
       await replaceChildren(q, pullId, pull.head.sha, files, checks, reviews);
@@ -387,14 +388,14 @@ async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, p
         is_draft=$8, author_github_id=$9, author_login=$10, author_type=$11, author_association=$12, is_fork=$13, head_sha=$14,
         head_repository_id=$15, base_ref=$16, base_sha=$17, mergeable=$18, mergeable_state=$19, labels=$20, additions=$21,
         deletions=$22, changed_files=$23, github_created_at=$24, github_updated_at=$25, first_ready_at=$26, head_observed_at=$27,
-        risk_class=$28, risk_reasons=$29::jsonb, queue_state=$30, queue_reasons=$31::jsonb, migration_reasons=$32::jsonb, sla_due_at=$33, recheck_at=$34,
-        policy_version=$35, synced_at=$36, requested_reviewers=$37::jsonb, aggregate_version=aggregate_version+1 WHERE pull_id=$1`, [
+        attention_reasons=$28::jsonb, queue_state=$29, queue_reasons=$30::jsonb, migration_reasons=$31::jsonb, recheck_at=$32,
+        policy_version=$33, synced_at=$34, requested_reviewers=$35::jsonb, aggregate_version=aggregate_version+1 WHERE pull_id=$1`, [
         existing.pull_id, values.github_pull_id, values.title, values.html_url, values.state, values.merged_at, values.closed_at,
         values.is_draft, values.author_github_id, values.author_login, values.author_type, values.author_association, values.is_fork,
         values.head_sha, values.head_repository_id, values.base_ref, values.base_sha, values.mergeable, values.mergeable_state,
         values.labels, values.additions, values.deletions, values.changed_files, values.github_created_at, values.github_updated_at,
-        values.first_ready_at, values.head_observed_at, values.risk_class, JSON.stringify(values.risk_reasons), values.queue_state,
-        JSON.stringify(values.queue_reasons), JSON.stringify(values.migration_reasons), values.sla_due_at, values.recheck_at, values.policy_version, now,
+        values.first_ready_at, values.head_observed_at, JSON.stringify(values.attention_reasons), values.queue_state,
+        JSON.stringify(values.queue_reasons), JSON.stringify(values.migration_reasons), values.recheck_at, values.policy_version, now,
         JSON.stringify(values.requested_reviewers),
       ]);
       await replaceChildren(q, existing.pull_id, pull.head.sha, files, checks, reviews);
@@ -499,7 +500,7 @@ export async function runMaintainerTick(pool: Pool, config: MaintainerTickConfig
   const summary: MaintainerSummary = {
     deliveries_deleted: 0, jobs_deleted: 0, rederived: 0, ignored_accounts: 0, suspended_installations: 0, repositories_upserted: 0,
     repositories_removed: 0, sweeps: 0, jobs_done: 0, jobs_failed: 0, jobs_released: 0, github_requests: 0, stopped: null,
-    claims_expired: 0, claims_released: 0, claims_completed: 0, writes: config.writes,
+    claims_expired: 0, claims_released: 0, claims_completed: 0, repositories_adopted: 0, writes: config.writes,
   };
   const community = await communityId(pool);
   const deliveries = await pool.query(`DELETE FROM maintainer_webhook_deliveries WHERE delivery_id IN (
@@ -512,6 +513,7 @@ export async function runMaintainerTick(pool: Pool, config: MaintainerTickConfig
   summary.claims_expired = settled.expired;
   summary.claims_released = settled.released;
   summary.claims_completed = settled.completed;
+  summary.repositories_adopted = settled.adopted;
   summary.rederived = await rederive(pool, now);
   const github = createMaintainerGitHub({
     fetcher: deps.fetcher, appId: config.appId, privateKey: config.privateKey,

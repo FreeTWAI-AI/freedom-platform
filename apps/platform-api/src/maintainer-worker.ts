@@ -112,6 +112,7 @@ function logSummary(summary: MaintainerSummary): void {
     repositories_removed: count(summary.repositories_removed), sweeps: count(summary.sweeps), jobs_done: count(summary.jobs_done),
     jobs_failed: count(summary.jobs_failed), jobs_released: count(summary.jobs_released), github_requests: count(summary.github_requests),
     claims_expired: count(summary.claims_expired), claims_released: count(summary.claims_released), claims_completed: count(summary.claims_completed),
+    repositories_adopted: count(summary.repositories_adopted),
     writes, stopped,
   }));
 }

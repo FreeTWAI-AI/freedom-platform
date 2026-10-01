@@ -6,9 +6,9 @@ import type { AdminActor, AdminCommand } from '../../../../modules/platform-admi
 import { QUEUE_FILTERS } from '../../../../modules/repo-maintainer/policy.js';
 import { receiveMaintainerWebhook } from '../../../../modules/repo-maintainer/webhook.js';
 import {
-  appointReviewer, assignReviewer, changeRepositorySettings, changeReviewer, claimForSelf, listReviewCenterPulls,
+  assignReviewer, changeRepositoryOwnership, changeRepositorySettings, claimForSelf, listReviewCenterPulls,
   listReviewCenterRepositories, listReviewers, pausePull, releaseClaim, resyncReviewCenterPull, resumePull,
-  reviewCenterPull, reviewCenterSummary, reviewerCandidates,
+  reviewCenterPull, reviewCenterSummary,
 } from '../../../../modules/repo-maintainer/service.js';
 
 export const MAINTAINER_WEBHOOK_PATH = '/api/v1/maintainer/github/webhook';
@@ -47,8 +47,10 @@ export function createRepoMaintainerAdminRoutes(pool: Pool) {
     const filter = z.enum(QUEUE_FILTERS).parse(c.req.query('queue') ?? 'open');
     const repository = c.req.query('repository_id');
     const repositoryId = repository ? z.uuid().parse(repository) : null;
+    const guild = c.req.query('guild_key');
+    const guildKey = guild ? z.union([z.literal('none'), z.string().trim().regex(/^[A-Za-z0-9_-]{1,64}$/)]).parse(guild) : null;
     const { limit, offset } = paging(c);
-    return c.json(await listReviewCenterPulls(pool, c.get('admin'), filter, repositoryId, limit, offset));
+    return c.json(await listReviewCenterPulls(pool, c.get('admin'), filter, repositoryId, guildKey, limit, offset));
   });
   app.get('/review-center/pulls/:id', async c => {
     const value = await reviewCenterPull(pool, c.get('admin'), c.req.param('id'));
@@ -63,9 +65,7 @@ export function createRepoMaintainerAdminRoutes(pool: Pool) {
   app.post('/review-center/pulls/:id/resume', async c => result(c, await resumePull(pool, await command(c), c.req.param('id'))));
   app.get('/review-center/repositories', async c => c.json(await listReviewCenterRepositories(pool, c.get('admin'))));
   app.post('/review-center/repositories/:id/settings', async c => result(c, await changeRepositorySettings(pool, await command(c), c.req.param('id'))));
+  app.post('/review-center/repositories/:id/ownership', async c => result(c, await changeRepositoryOwnership(pool, await command(c), c.req.param('id'))));
   app.get('/review-center/reviewers', async c => c.json(await listReviewers(pool, c.get('admin'))));
-  app.get('/review-center/reviewer-candidates', async c => c.json(await reviewerCandidates(pool, c.get('admin'), z.string().trim().max(100).parse(c.req.query('q') ?? ''))));
-  app.post('/review-center/reviewers', async c => result(c, await appointReviewer(pool, await command(c))));
-  app.post('/review-center/reviewers/:id', async c => result(c, await changeReviewer(pool, await command(c), c.req.param('id'))));
   return app;
 }

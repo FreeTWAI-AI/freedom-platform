@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { transaction } from '../../packages/db/index.js';
 import { rederivePull } from './derive.js';
@@ -6,7 +7,7 @@ import { resolveSettings } from './policy.js';
 import { enqueueMaintainerJob } from './queue.js';
 
 export type MaintainerWrites = 'off' | 'requested_reviewers' | 'invalid';
-export type ClaimSettlement = { expired: number; released: number; completed: number };
+export type ClaimSettlement = { expired: number; released: number; completed: number; adopted: number };
 export type ReviewerJobResult = { state: 'done' | 'failed'; error: string | null };
 
 type ClaimJob = { kind: string; payload: unknown; repository_id: string };
@@ -27,24 +28,20 @@ export function claimIdFromPayload(payload: unknown): string | null {
   return typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id : null;
 }
 
-type ClaimStep = { set: string; using: string; where: string };
+type ClaimStep = { set: string; where: string };
 
 /** Lock candidate pulls in pull_id order, then update only the claims on those pulls. */
 async function transition(pool: Pool, now: Date, step: ClaimStep): Promise<number> {
-  const reviewers = step.using.includes('maintainer_reviewers')
-    ? 'JOIN maintainer_reviewers v ON v.reviewer_id=c.reviewer_id'
-    : '';
   const lock = `SELECT p.pull_id FROM maintainer_pull_requests p
     WHERE p.pull_id IN (
       SELECT c.pull_id FROM maintainer_review_claims c
       JOIN maintainer_pull_requests p ON p.pull_id=c.pull_id
-      ${reviewers}
       WHERE ${step.where}
     )
     ORDER BY p.pull_id FOR UPDATE OF p`;
   const update = `UPDATE maintainer_review_claims AS c
     SET ${step.set}
-    FROM maintainer_pull_requests p${step.using}
+    FROM maintainer_pull_requests p
     WHERE c.pull_id=p.pull_id AND ${step.where} AND c.pull_id = ANY($2::uuid[])
     RETURNING c.claim_id, c.pull_id, p.repository_id, c.github_request_state`;
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -70,45 +67,109 @@ async function transition(pool: Pool, now: Date, step: ClaimStep): Promise<numbe
   return 0;
 }
 
+const NOT_ELIGIBLE = `NOT EXISTS (
+  SELECT 1 FROM maintainer_eligible_reviewers e
+  WHERE e.repository_id = p.repository_id
+    AND e.user_id = c.reviewer_user_id
+    AND e.github_user_id = c.reviewer_github_id
+    AND e.acting_as = c.acting_as
+    AND e.guild_key IS NOT DISTINCT FROM c.guild_key)`;
+
+/**
+ * Complete claims that already have a decisive review, then adopt an open repository
+ * when the claim was a guild leader's. Pull rows are locked before claim rows; the
+ * repository row is locked after that, then the repository's other open pulls.
+ * Two leaders finishing in one pass are applied in pull_id order, so only the first
+ * conditional update adopts.
+ */
+async function completeClaims(pool: Pool, now: Date): Promise<{ completed: number; adopted: number }> {
+  const where = `c.state='active' AND EXISTS (
+    SELECT 1 FROM maintainer_reviews r
+    WHERE r.pull_id=c.pull_id AND r.reviewer_github_id=c.reviewer_github_id
+      AND r.state IN ('APPROVED','CHANGES_REQUESTED') AND r.submitted_at>=c.created_at)`;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await transaction(pool, async q => {
+        const locked = await q.query(`SELECT p.pull_id FROM maintainer_pull_requests p
+          WHERE p.pull_id IN (
+            SELECT c.pull_id FROM maintainer_review_claims c
+            JOIN maintainer_pull_requests p ON p.pull_id=c.pull_id
+            WHERE ${where}
+          )
+          ORDER BY p.pull_id FOR UPDATE OF p`);
+        const pullIds = locked.rows.map(row => row.pull_id as string);
+        if (!pullIds.length) return { completed: 0, adopted: 0 };
+        const updated = await q.query(`WITH done AS (
+            UPDATE maintainer_review_claims AS c
+            SET state='completed', ended_at=$1, end_reason='review_submitted', aggregate_version=c.aggregate_version+1
+            FROM maintainer_pull_requests p
+            WHERE c.pull_id=p.pull_id AND ${where} AND c.pull_id = ANY($2::uuid[])
+            RETURNING c.claim_id, c.pull_id, c.acting_as, c.guild_key, c.reviewer_user_id, p.repository_id, p.number
+          )
+          SELECT * FROM done ORDER BY pull_id`, [now, pullIds]);
+        let adopted = 0;
+        for (const row of updated.rows) {
+          if (row.acting_as !== 'guild_leader' || !row.guild_key) continue;
+          const repo = (await q.query(
+            `UPDATE maintainer_repositories
+             SET guild_key=$2, open_to_guilds=false, aggregate_version=aggregate_version+1, updated_at=$3
+             WHERE repository_id=$1 AND guild_key IS NULL AND open_to_guilds
+             RETURNING repository_id, scope_kind, full_name`,
+            [row.repository_id, row.guild_key, now],
+          )).rows[0] as { repository_id: string; scope_kind: string | null; full_name: string } | undefined;
+          if (!repo) continue;
+          adopted += 1;
+          await q.query(
+            `INSERT INTO maintainer_ownership_changes (
+               change_id, repository_id, guild_key, scope_kind, open_to_guilds, source, changed_by_user, pull_id, reason, created_at)
+             VALUES ($1,$2,$3,$4,false,'adopted',$5,$6,$7,$8)`,
+            [randomUUID(), row.repository_id, row.guild_key, repo.scope_kind, row.reviewer_user_id, row.pull_id,
+              `審完 ${repo.full_name}#${row.number} 後歸到這個公會。`, now],
+          );
+          await q.query(
+            `SELECT pull_id FROM maintainer_pull_requests WHERE repository_id=$1 AND state='open' ORDER BY pull_id FOR UPDATE`,
+            [row.repository_id],
+          );
+          await q.query(
+            `UPDATE maintainer_pull_requests SET recheck_at=$2 WHERE repository_id=$1 AND state='open'`,
+            [row.repository_id, now],
+          );
+        }
+        for (const row of updated.rows) await rederivePull(q, row.pull_id, now);
+        return { completed: updated.rowCount ?? 0, adopted };
+      });
+    } catch (error) {
+      if (pgCode(error) === '40P01' && attempt === 0) continue;
+      throw error;
+    }
+  }
+  return { completed: 0, adopted: 0 };
+}
+
 /**
  * End claims the database can decide without GitHub. Earlier steps win because each
  * UPDATE still requires state = 'active'. Pull rows are locked before claim rows.
  * A requested reviewer is removed afterwards, except when that person has already
  * submitted a review: GitHub drops the request then. Closing the pull leaves the
- * request in place, and this maintainer leaves it there too.
+ * request in place. A leader who submitted and then lost eligibility is released
+ * here and does not adopt, because this step runs before completion.
  */
 export async function settleMaintainerClaims(pool: Pool, now: Date): Promise<ClaimSettlement> {
   const version = 'aggregate_version=c.aggregate_version+1';
   const expired = await transition(pool, now, {
     set: `state='expired', ended_at=$1, github_request_state=${REMOVING}, ${version}`,
-    using: '',
-    where: `c.state='active' AND c.expires_at<=$1`,
+    where: `c.state='active' AND c.expires_at IS NOT NULL AND c.expires_at<=$1`,
   });
   const closed = await transition(pool, now, {
     set: `state='released', ended_at=$1, end_reason='pull_closed', ${version}`,
-    using: '',
     where: `c.state='active' AND (p.state<>'open' OR p.merged_at IS NOT NULL)`,
   });
-  const inactive = await transition(pool, now, {
-    set: `state='released', ended_at=$1, end_reason='reviewer_inactive', github_request_state=${REMOVING}, ${version}`,
-    using: ', maintainer_reviewers v',
-    where: `c.state='active' AND v.reviewer_id=c.reviewer_id AND NOT v.active`,
+  const ineligible = await transition(pool, now, {
+    set: `state='released', ended_at=$1, end_reason='reviewer_not_eligible', github_request_state=${REMOVING}, ${version}`,
+    where: `c.state='active' AND ${NOT_ELIGIBLE}`,
   });
-  const rank = await transition(pool, now, {
-    set: `state='released', ended_at=$1, end_reason='reviewer_rank_too_low', github_request_state=${REMOVING}, ${version}`,
-    using: ', maintainer_reviewers v',
-    where: `c.state='active' AND v.reviewer_id=c.reviewer_id AND (
-      (p.risk_class='medium' AND v.max_risk='low') OR (p.risk_class='high' AND v.max_risk IN ('low','medium')))`,
-  });
-  const completed = await transition(pool, now, {
-    set: `state='completed', ended_at=$1, end_reason='review_submitted', ${version}`,
-    using: ', maintainer_reviewers v',
-    where: `c.state='active' AND v.reviewer_id=c.reviewer_id AND EXISTS (
-      SELECT 1 FROM maintainer_reviews r
-      WHERE r.pull_id=c.pull_id AND r.reviewer_github_id=v.github_user_id
-        AND r.state IN ('APPROVED','CHANGES_REQUESTED') AND r.submitted_at>=c.created_at)`,
-  });
-  return { expired, released: closed + inactive + rank, completed };
+  const done = await completeClaims(pool, now);
+  return { expired, released: closed + ineligible, completed: done.completed, adopted: done.adopted };
 }
 
 async function markGithub(pool: Pool, claimId: string, state: string, error: string | null, expected: string) {
@@ -132,9 +193,8 @@ type LoadedClaim = {
 
 async function loadClaim(pool: Pool, claimId: string, repositoryId: string): Promise<LoadedClaim | null> {
   const row = (await pool.query(
-    `SELECT c.claim_id, c.state, c.end_reason, c.github_request_state, v.github_login, p.number, p.repository_id
+    `SELECT c.claim_id, c.state, c.end_reason, c.github_request_state, c.reviewer_login AS github_login, p.number, p.repository_id
      FROM maintainer_review_claims c
-     JOIN maintainer_reviewers v ON v.reviewer_id=c.reviewer_id
      JOIN maintainer_pull_requests p ON p.pull_id=c.pull_id
      WHERE c.claim_id=$1 AND p.repository_id=$2`,
     [claimId, repositoryId],
@@ -148,7 +208,7 @@ function writesAllowed(writes: MaintainerWrites, settings: unknown, fullName: st
 
 /**
  * Request or remove only the claimed reviewer's login. The row is not locked across the GitHub call.
- * A 422 often means that login is not a collaborator, or the person renamed it since the mirror.
+ * A 422 often means that login is not a collaborator, or the person renamed it since the snapshot.
  */
 export async function runReviewerJob(pool: Pool, github: MaintainerGitHub, job: ClaimJob, repo: ClaimRepo, now: Date, writes: MaintainerWrites): Promise<ReviewerJobResult> {
   const claimId = claimIdFromPayload(job.payload);
@@ -161,7 +221,6 @@ export async function runReviewerJob(pool: Pool, github: MaintainerGitHub, job: 
 }
 
 async function requestReviewer(pool: Pool, github: MaintainerGitHub, repo: ClaimRepo, claim: LoadedClaim, now: Date, allowed: boolean): Promise<ReviewerJobResult> {
-  // A re-run after the 201 was stored must not rewrite requested, removing, removed or failed.
   if (claim.github_request_state !== 'pending') return { state: 'done', error: 'claim_state_changed' };
   if (claim.state !== 'active') {
     await markGithub(pool, claim.claim_id, 'skipped', 'claim_inactive', 'pending');
@@ -186,7 +245,6 @@ async function requestReviewer(pool: Pool, github: MaintainerGitHub, repo: Claim
       [claim.claim_id],
     )).rows[0] as { state: string; end_reason: string | null; repository_id: string } | undefined;
     if (!locked) return;
-    // pull_closed keeps the GitHub request. Submitting a review is what makes GitHub drop it.
     if (locked.state === 'active' || locked.end_reason === 'pull_closed') {
       await q.query(`UPDATE maintainer_review_claims SET github_request_state='requested', github_request_error=NULL, aggregate_version=aggregate_version+1 WHERE claim_id=$1`, [claim.claim_id]);
       return;
@@ -198,10 +256,8 @@ async function requestReviewer(pool: Pool, github: MaintainerGitHub, repo: Claim
 }
 
 async function removeReviewer(pool: Pool, github: MaintainerGitHub, repo: ClaimRepo, claim: LoadedClaim, _now: Date, allowed: boolean): Promise<ReviewerJobResult> {
-  // A re-run after removed (or any other settled state) must not mark the row skipped.
   if (claim.github_request_state !== 'removing') return { state: 'done', error: 'claim_state_changed' };
   if (!allowed) {
-    // The request may still be on GitHub, so this is a failure, not a skip.
     await markGithub(pool, claim.claim_id, 'failed', 'writes_disabled', 'removing');
     return { state: 'failed', error: 'writes_disabled' };
   }

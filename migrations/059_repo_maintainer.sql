@@ -106,15 +106,13 @@ CREATE TABLE maintainer_pull_requests (
   github_updated_at timestamptz NOT NULL,
   first_ready_at timestamptz,
   head_observed_at timestamptz NOT NULL,
-  risk_class text NOT NULL CHECK (risk_class IN ('low', 'medium', 'high')),
-  risk_reasons jsonb NOT NULL CHECK (jsonb_typeof(risk_reasons) = 'array'),
+  attention_reasons jsonb NOT NULL CHECK (jsonb_typeof(attention_reasons) = 'array'),
   queue_state text NOT NULL CHECK (queue_state IN (
     'draft', 'waiting_ci', 'ci_not_run', 'needs_author', 'awaiting_review', 'in_review',
-    'needs_owner', 'ready', 'paused', 'merged', 'closed')),
+    'needs_decision', 'ready', 'paused', 'merged', 'closed')),
   queue_reasons jsonb NOT NULL CHECK (jsonb_typeof(queue_reasons) = 'array'),
   -- Kept when the queue short-circuits, so rederive still sees a migration block after mode off → observe.
   migration_reasons jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(migration_reasons) = 'array'),
-  sla_due_at timestamptz,
   recheck_at timestamptz,
   paused boolean NOT NULL DEFAULT false,
   policy_version text NOT NULL CHECK (char_length(policy_version) BETWEEN 1 AND 40),
@@ -123,8 +121,6 @@ CREATE TABLE maintainer_pull_requests (
   UNIQUE (repository_id, number)
 );
 CREATE INDEX maintainer_pulls_queue ON maintainer_pull_requests (queue_state, github_updated_at DESC);
-CREATE INDEX maintainer_pulls_sla ON maintainer_pull_requests (sla_due_at, github_updated_at DESC)
-  WHERE queue_state = 'awaiting_review';
 CREATE INDEX maintainer_pulls_recheck ON maintainer_pull_requests (recheck_at)
   WHERE state = 'open' AND recheck_at IS NOT NULL;
 CREATE INDEX maintainer_pulls_head ON maintainer_pull_requests (repository_id, head_sha);
@@ -167,20 +163,3 @@ CREATE TABLE maintainer_reviews (
   submitted_at timestamptz NOT NULL,
   PRIMARY KEY (pull_id, github_review_id)
 );
-
-CREATE TABLE maintainer_reviewers (
-  reviewer_id uuid PRIMARY KEY,
-  community_id uuid NOT NULL REFERENCES communities,
-  github_user_id text NOT NULL CHECK (github_user_id ~ '^[0-9]+$'),
-  github_login text NOT NULL CHECK (github_login ~ '^[A-Za-z0-9-]{1,39}(\[bot\])?$'),
-  -- Member whose verified GitHub connection was copied. Login is display only.
-  user_id uuid NOT NULL REFERENCES users,
-  max_risk text NOT NULL CHECK (max_risk IN ('low', 'medium', 'high')),
-  active boolean NOT NULL DEFAULT true,
-  appointed_by uuid NOT NULL REFERENCES platform_admins,
-  appointed_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  aggregate_version bigint NOT NULL DEFAULT 1 CHECK (aggregate_version > 0),
-  UNIQUE (community_id, github_user_id)
-);
-CREATE INDEX maintainer_reviewers_community ON maintainer_reviewers (community_id, active, github_login);

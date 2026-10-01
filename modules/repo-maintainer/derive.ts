@@ -1,8 +1,8 @@
 import type { Pool, PoolClient } from 'pg';
 import type { MaintainerPullFile, MaintainerPullReview } from './github.js';
 import {
-  classifyRisk, deriveQueueState, MAINTAINER_POLICY_VERSION, resolveSettings,
-  type PolicyCheck, type QueueClaim, type Reason, type RepositoryMode, type Risk,
+  classifyAttention, deriveQueueState, MAINTAINER_POLICY_VERSION, resolveSettings,
+  type PolicyCheck, type QueueClaim, type Reason, type RepositoryMode,
 } from './policy.js';
 
 type Queryable = Pool | PoolClient;
@@ -10,9 +10,11 @@ type PullRow = Record<string, any>;
 
 export type ActiveClaim = {
   claim_id: string;
-  reviewer_github_id: string;
   reviewer_login: string;
-  expires_at: Date;
+  acting_as: 'admin' | 'guild_leader';
+  guild_name: string | null;
+  adopts_repository: boolean;
+  expires_at: Date | null;
 };
 
 function iso(value: Date | string | null | undefined): string | null {
@@ -29,46 +31,58 @@ export async function loadPullChildren(q: Queryable, pullId: string) {
   return { files, checks, reviews };
 }
 
-export async function loadActiveReviewers(q: Queryable, communityId: string) {
-  const rows = await q.query(`SELECT github_user_id, max_risk FROM maintainer_reviewers WHERE community_id=$1 AND active`, [communityId]);
-  return rows.rows.map(row => ({ github_user_id: row.github_user_id as string, max_risk: row.max_risk as Risk }));
+/** GitHub numeric ids of everyone who may approve pulls on this repository now. */
+export async function loadEligibleReviewerIds(q: Queryable, repositoryId: string): Promise<string[]> {
+  const rows = await q.query(
+    'SELECT DISTINCT github_user_id FROM maintainer_eligible_reviewers WHERE repository_id=$1',
+    [repositoryId],
+  );
+  return rows.rows.map(row => row.github_user_id as string);
 }
 
-/** The one active claim, if any. An expired timestamp still counts as absent inside deriveQueueState. */
+/** The one active claim, if any. A past expires_at still counts as absent inside deriveQueueState. */
 export async function loadActiveClaim(q: Queryable, pullId: string): Promise<ActiveClaim | null> {
   const row = (await q.query(
-    `SELECT c.claim_id, v.github_user_id AS reviewer_github_id, v.github_login AS reviewer_login, c.expires_at
+    `SELECT c.claim_id, c.reviewer_login, c.acting_as, g.name AS guild_name, c.expires_at,
+       (c.acting_as = 'guild_leader' AND r.guild_key IS NULL AND r.open_to_guilds) AS adopts_repository
      FROM maintainer_review_claims c
-     JOIN maintainer_reviewers v ON v.reviewer_id = c.reviewer_id
+     JOIN maintainer_pull_requests p ON p.pull_id = c.pull_id
+     JOIN maintainer_repositories r ON r.repository_id = p.repository_id
+     LEFT JOIN positioning_guild_catalog g ON g.guild_key = c.guild_key
      WHERE c.pull_id=$1 AND c.state='active'`,
     [pullId],
   )).rows[0] as ActiveClaim | undefined;
   return row ?? null;
 }
 
-function claimInput(claim: ActiveClaim | null): QueueClaim | null {
+export function claimInput(claim: ActiveClaim | null): QueueClaim | null {
   if (!claim) return null;
-  const expires = iso(claim.expires_at);
-  if (!expires) return null;
-  return { reviewer_github_id: claim.reviewer_github_id, reviewer_login: claim.reviewer_login, expires_at: expires };
+  return {
+    reviewer_login: claim.reviewer_login,
+    acting_as: claim.acting_as,
+    guild_name: claim.guild_name,
+    adopts_repository: Boolean(claim.adopts_repository),
+    expires_at: iso(claim.expires_at),
+  };
 }
 
 /**
- * Recompute one pull from the stored mirror, its children, active reviewers, the stored
- * migration_reasons column, and the active claim. Writes derived fields only when they changed.
- * Callers run this inside the transaction that changed the claim or the pause flag.
- * Migration reasons are not derived again here.
+ * Recompute one pull from the stored mirror, its children, the eligibility view,
+ * the stored migration_reasons column, and the active claim. Writes derived fields
+ * only when they changed. Migration reasons are not derived again here.
  */
 export async function rederivePull(q: Queryable, pullId: string, now: Date): Promise<boolean> {
   const pull = (await q.query('SELECT * FROM maintainer_pull_requests WHERE pull_id=$1 FOR UPDATE', [pullId])).rows[0] as PullRow | undefined;
   if (!pull) return false;
-  const repo = (await q.query('SELECT full_name, default_branch, mode, settings, community_id FROM maintainer_repositories WHERE repository_id=$1', [pull.repository_id])).rows[0];
+  const repo = (await q.query(
+    'SELECT full_name, default_branch, mode, settings, community_id FROM maintainer_repositories WHERE repository_id=$1',
+    [pull.repository_id],
+  )).rows[0];
   if (!repo) return false;
   const settings = resolveSettings(repo.full_name, repo.settings);
   const children = await loadPullChildren(q, pull.pull_id);
-  const risk = classifyRisk({
-    files: children.files, profile: settings.rules_profile, author_association: pull.author_association,
-    author_type: pull.author_type, is_fork: pull.is_fork, changed_files: pull.changed_files,
+  const attention = classifyAttention({
+    files: children.files, profile: settings.rules_profile, changed_files: pull.changed_files,
   });
   const migrationReasons = (Array.isArray(pull.migration_reasons) ? pull.migration_reasons : []) as Reason[];
   const observed = iso(pull.head_observed_at) ?? now.toISOString();
@@ -79,25 +93,22 @@ export async function rederivePull(q: Queryable, pullId: string, now: Date): Pro
       labels: pull.labels ?? [], head_sha: pull.head_sha, head_observed_at: observed,
       author_github_id: pull.author_github_id, paused: pull.paused,
     },
-    risk: risk.risk,
+    eligible_reviewer_ids: await loadEligibleReviewerIds(q, pull.repository_id),
     checks: children.checks,
     reviews: children.reviews.map(review => ({ ...review, submitted_at: iso(review.submitted_at) ?? '', commit_id: review.commit_id })),
-    reviewers: await loadActiveReviewers(q, repo.community_id),
     mode: repo.mode as RepositoryMode,
     settings,
     migration_reasons: migrationReasons,
     claim: claimInput(await loadActiveClaim(q, pull.pull_id)),
   }, now);
-  const same = pull.risk_class === risk.risk
-    && JSON.stringify(pull.risk_reasons) === JSON.stringify(risk.reasons)
+  const same = JSON.stringify(pull.attention_reasons) === JSON.stringify(attention)
     && pull.queue_state === derived.state
     && JSON.stringify(pull.queue_reasons) === JSON.stringify(derived.reasons)
-    && iso(pull.sla_due_at) === derived.sla_due_at
     && iso(pull.recheck_at) === derived.recheck_at
     && pull.policy_version === MAINTAINER_POLICY_VERSION;
   if (same) return false;
-  await q.query(`UPDATE maintainer_pull_requests SET risk_class=$2, risk_reasons=$3::jsonb, queue_state=$4, queue_reasons=$5::jsonb,
-    sla_due_at=$6, recheck_at=$7, policy_version=$8, aggregate_version=aggregate_version+1
-    WHERE pull_id=$1`, [pull.pull_id, risk.risk, JSON.stringify(risk.reasons), derived.state, JSON.stringify(derived.reasons), derived.sla_due_at, derived.recheck_at, MAINTAINER_POLICY_VERSION]);
+  await q.query(`UPDATE maintainer_pull_requests SET attention_reasons=$2::jsonb, queue_state=$3, queue_reasons=$4::jsonb,
+    recheck_at=$5, policy_version=$6, aggregate_version=aggregate_version+1
+    WHERE pull_id=$1`, [pull.pull_id, JSON.stringify(attention), derived.state, JSON.stringify(derived.reasons), derived.recheck_at, MAINTAINER_POLICY_VERSION]);
   return true;
 }
