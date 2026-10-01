@@ -5,7 +5,7 @@ import {memberSkillBooks} from './member-skill-books.js';
 export type CatalogOption = {id:string;label:string};
 export type CatalogSubcategory = {id:string;label:string;items:CatalogOption[]};
 export type CatalogCategory = {id:string;label:string;items:CatalogOption[];subcategories?:CatalogSubcategory[]};
-export type SkillBook = {id:string;title:string;repository_url:string;description:string;kind:string;fork_url:string;license_status:string;upstream_url:string;source_commit:string|null;introduction_url:string|null;guide?:SkillBookGuide;cover_url?:string;star_url?:string};
+export type SkillBook = {id:string;title:string;repository_url:string;description:string;kind:string;fork_url:string;license_status:string;upstream_url:string;source_commit:string|null;introduction_url:string|null;guide?:SkillBookGuide;cover_url?:string;star_url?:string;official_guild_keys?:string[]};
 export const capabilityCategories:CatalogCategory[] = [
   {
     "id": "start",
@@ -2939,16 +2939,9 @@ const communityCatalogBase = {
     "note": "較新的規模由主辦方於2026-09-23提供，保留不同來源與日期。"
   }
 };
-function withSkillBookGuide(book:SkillBook):SkillBook {
-  const guide=skillBookGuides[book.id];
-  const visuals={cover_url:`/art/skills/${book.id}.webp`,star_url:book.upstream_url};
-  return guide?{...book,...visuals,description:guide.summary,source_commit:book.source_commit??guide.source_commit,introduction_url:book.introduction_url??guide.website_url??null,guide}:{...book,...visuals};
-}
-export const communityCatalog = {...communityCatalogBase,
-  skill_books:communityCatalogBase.skill_books.map(withSkillBookGuide),
-  featured_projects:communityCatalogBase.featured_projects.map(withSkillBookGuide),
-};
-
+// A guild designates a book only when the book trains that guild's own practice (its purpose
+// and first step). Works that merely use AI, or sit beside the guild's craft, stay 社群技能書:
+// open to every member and not granted by joining a guild.
 const guildBooks:Record<string,string[]> = {
   "guild_event_space": ["event-space", "freedom-party-guild-lounge"],
   "guild_projection_mapping": ["projection-mapping"],
@@ -2970,7 +2963,6 @@ const guildBooks:Record<string,string[]> = {
   "guild_media_automation": [
     "video-autopilot",
     "short-drama",
-    "hao-studio",
     "media-generator", "editkin"
   ],
   "guild_member_operations": [
@@ -2988,13 +2980,9 @@ const guildBooks:Record<string,string[]> = {
     "pos-pro"
   ],
   "guild_ai_vibe": [
-    "project-template",
-    "multi-ai-desktop",
-    "multi-ai-chat",
-    "ai-sister", "local-workspace-mcp"
+    "project-template", "local-workspace-mcp"
   ],
   "guild_ai_field": [
-    "security-scanner",
     "agent-kit", "local-workspace-mcp"
   ],
   "guild_ai_project": [
@@ -3013,6 +3001,21 @@ const guildBooks:Record<string,string[]> = {
 for(const [id,source] of Object.entries(communityAuthorSources)){
   for(const guild of source.guilds)guildBooks[guild].push(id);
 }
+/** Guilds that designate a book in the platform catalog; empty for a 社群技能書. */
+export function officialGuildKeys(bookId:string):string[]{
+  return Object.keys(guildBooks).filter(key=>guildBooks[key].includes(bookId));
+}
+
+function withSkillBookGuide(book:SkillBook):SkillBook {
+  const guide=skillBookGuides[book.id];
+  const visuals={cover_url:`/art/skills/${book.id}.webp`,star_url:book.upstream_url,official_guild_keys:officialGuildKeys(book.id)};
+  return guide?{...book,...visuals,description:guide.summary,source_commit:book.source_commit??guide.source_commit,introduction_url:book.introduction_url??guide.website_url??null,guide}:{...book,...visuals};
+}
+export const communityCatalog = {...communityCatalogBase,
+  skill_books:communityCatalogBase.skill_books.map(withSkillBookGuide),
+  featured_projects:communityCatalogBase.featured_projects.map(withSkillBookGuide),
+};
+
 export function skillBooksForGuild(guildKey:string):SkillBook[]{
   const books:SkillBook[]=[];
   for(const id of guildBooks[guildKey]??[]){
