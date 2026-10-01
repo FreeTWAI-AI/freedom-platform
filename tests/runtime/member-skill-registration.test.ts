@@ -117,7 +117,7 @@ test('migration 063 grants Open SEO Advisor to an active guild_marketing member 
     await pool.query('INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,active) VALUES($1,$2,$3,$4,$5,$6,$7)',[id,community,id+'@example.invalid','Synthetic','unused',randomUUID(),active]);
     await pool.query('INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,$4,$5)',[randomUUID(),community,id,guild,state]);
   }
-  const sql=await readFile(new URL('../../migrations/063_open_seo_advisor_skill.sql',import.meta.url),'utf8');
+  const sql=await readFile(new URL('../../migrations/060_open_seo_advisor_skill.sql',import.meta.url),'utf8');
   const publishedBefore=(await pool.query("SELECT published_at FROM skill_publications WHERE book_id='open-seo-advisor'")).rows[0];
   assert.ok(publishedBefore);
   await pool.query(sql);

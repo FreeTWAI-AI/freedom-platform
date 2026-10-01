@@ -46,7 +46,7 @@ Migration 032 在 `member_accounts` 加入 nullable `identity_label`。`GET /me/
 
 上架阿軒哥哥（阿軒割割）的 [Open SEO Advisor：SEO 健檢與建站顧問](https://github.com/mars-tw/open-seo-advisor-skill)。原作 `mars-tw/open-seo-advisor-skill`，預設分支 `main`，不是 fork，授權 Apache-2.0。收錄版本 [`f6178d797b45`](https://github.com/mars-tw/open-seo-advisor-skill/tree/f6178d797b45705b5b77f83507366a72eac34bde)（上游 v0.5.0，2026-09-23）。平台核對日是 2026-10-01。本輪只讀該 commit 的 README、SKILL、QUICKSTART、LICENSE 與模式文件，沒有執行上游 CLI、產圖或部署。
 
-成長與行銷公會（`guild_marketing`）指定這本書。指定理由：書的用途與第一步都在練習這個公會自己的工作，也就是離線網站健檢、依計畫套用並保留備份的技術修復，以及搜尋友善的內容整理。第一步是閱讀 QUICKSTART，再對自己的網站原始碼或範例資料夾跑一次離線檢查。這一步不是 AI 公會的驗證練習，所以只由成長與行銷公會指定。加入該公會會領到這本書。Migration `063_open_seo_advisor_skill.sql` 寫入上架時間，並為目前有效會員、且 `guild_marketing` 會籍仍是 active 的人補領。停用會員與已離開的會籍不補領。重跑不改既有領取時間，也不新增同意、職稱或開發授權。
+成長與行銷公會（`guild_marketing`）指定這本書。指定理由：書的用途與第一步都在練習這個公會自己的工作，也就是離線網站健檢、依計畫套用並保留備份的技術修復，以及搜尋友善的內容整理。第一步是閱讀 QUICKSTART，再對自己的網站原始碼或範例資料夾跑一次離線檢查。這一步不是 AI 公會的驗證練習，所以只由成長與行銷公會指定。加入該公會會領到這本書。Migration `060_open_seo_advisor_skill.sql` 寫入上架時間，並為目前有效會員、且 `guild_marketing` 會籍仍是 active 的人補領。停用會員與已離開的會籍不補領。重跑不改既有領取時間，也不新增同意、職稱或開發授權。
 
 使用邊界照原作文件。CLI 提供離線網站骨架與技術檢查；完整網站仍要由 agent 依品牌實作頁面、內容、功能與圖像。CLI 不呼叫 GPT、不產圖、不建立支付後端、不部署。`website check` 的 `baseline_ready` 只是離線技術基線。GPT 產圖與託管（Cloudflare、Firebase Hosting、GCP Cloud Run）使用會員自己的帳號，可能產生費用，免費額度由會員自行查核。兩個線上示範維持 `noindex`，是故事網站，不是搜尋成效。不保證排名、收錄、流量、AI 搜尋引用、銷售或詢問。
 
