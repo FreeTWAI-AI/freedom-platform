@@ -10,9 +10,10 @@
 | `POST /link-member` | `{}`；需要 Access 管理員驗證，加上同社群、同 email 的有效會員 cookie，且會員已完成定位。本人確認後才綁定信箱與預先指定的公會長任命。 |
 | `GET /members?limit=25&offset=0&q=` | `{items,next_offset}`；limit 1–100、offset 0–100000、q 最多100字。管理專用欄位包含 email、active、onboarding_required、onboarding_completed_at、email_verified_at、aggregate_version、目前公會。 |
 | `POST /members/:id/status` | `{active:boolean,reason:string}`；理由3–1000字。停用會撤銷既有會員 session 與客戶端讀取憑證；恢復不會復活舊憑證。 |
-| `GET /guild-applications?state=pending&limit=25&offset=0` | state 為 pending、approved、declined、all。回傳申請、申請者姓名與 email，以及審查者、理由、時間、核准的 guild key。 |
-| `POST /guild-applications/:id/review` | `{decision:'approve'|'reject',reason,guild?}`。核准必須提供完整 guild，拒絕不得帶 guild。每件僅能處理一次；重試相同操作回原結果。 |
-| `GET /guilds` | `{items}`；包含公會目錄、有效會員數、`guild_master:{user_id,display_name}\|null`、`officer_version:number\|null`、`guild_experts`。專家項目包含 `user_id,display_name,active,member_active,aggregate_version`；管理員可看見停用帳號尚待移除的專家紀錄。 |
+| `GET /guild-applications?state=pending&limit=25&offset=0` | state 為 pending、approved、declined、all。回傳申請、申請者姓名與 email，以及審查者、理由、時間、核准的 guild key。核准後另附 `approved_guild_name`、`approved_guild_alias`（尚未對到目錄時為 null；別名沒有設定時是空字串）。 |
+| `POST /guild-applications/:id/review` | `{decision:'approve'|'merge'|'reject',reason,guild?,merge?}`。核准必須提供完整 guild 且不得帶 merge；併入必須提供 merge 且不得帶 guild；拒絕兩者都不帶。形狀不符回 422 `review_details_required`。每件僅能處理一次；重試相同操作回原結果。 |
+| `GET /guilds` | `{items}`；包含公會目錄（含 `alias`、`profession_title`、`catalog_version`）、有效會員數、`guild_master:{user_id,display_name}\|null`、`officer_version:number\|null`、`guild_experts`。專家項目包含 `user_id,display_name,active,member_active,aggregate_version`；管理員可看見停用帳號尚待移除的專家紀錄。 |
+| `POST /guilds/:key/profile` | 調整公會名稱、別名與職業稱號。需要 `If-Match: "<catalog_version>"`。見下方「公會名稱、別名與職業稱號」。 |
 | `GET /guilds/:key/master-candidates?q=&scope=eligible&limit=20&offset=0` | 在整份本站會員資料篩選後分頁，回傳 `{items,total,next_offset}`。`q` 搜尋暱稱／Email 的字面片段；`scope=eligible` 列同社群的啟用中平台會員，尚未加入公會也可任命；`scope=all` 加上停用帳號。人選包含 `user_id,display_name,email,active,joined,eligible,eligibility_reason,is_current,is_expert,expert_version`；原因僅為 `inactive` 或 null。`joined` 獨立表示目前公會成員關係，`expert_version` 包含曾移除的專家版本。管理專用結果不可放進公開會員名冊。 |
 | `POST /guilds/:key/master` | `{user_id,reason}`；目標必須是同社群啟用中的平台會員。首次任命不傳 If-Match，後續任命使用 officer_version。若尚未加入，任命同時建立／恢復公會成員關係並領取技能書；回傳含 `membership_joined`，表示本次是否加入。 |
 | `POST /guilds/:key/experts` | `{user_id,active,reason}`；`active:true` 任命公會專家，同時加入公會／領書（若需要）；`active:false` 移除專家身分。回傳 `{guild_key,user_id,active,aggregate_version,membership_joined}`。首次建立不傳 If-Match；既有紀錄即使已移除，仍須最新版本。 |
@@ -31,11 +32,39 @@
   "purpose": "公會的目標與協作範圍",
   "first_step": "加入後可以開始的第一步",
   "module_key": "guilds",
-  "skill_book_ids": ["從 available_skill_books 選擇既有 id"]
+  "skill_book_ids": ["從 available_skill_books 選擇既有 id"],
+  "alias": "可省略；有趣的名字，留空或不傳表示沒有別名",
+  "profession_title": "可省略；成員職業稱號，最多 40 字，留空時成員看到「專業探索者」"
 }
 ```
 
-名稱2–100字，purpose 與 first_step 各5–1000字。module_key 只能是 positioning、supplier、retail、marketing、workbench、guilds、engagement、opensource。skill_book_ids 需1–20個不重複且存在於平台目錄的技能書 ID，不接受任意 repo URL。新公會與技能書綁定同交易寫入；核准不會自動替申請人入會、領書或任命公會長。會員自行加入，或管理員另行明確任命並完成自動入會時，才獲得綁定技能書。
+名稱、別名、職業稱號都是單行文字（不可含控制字元）。名稱 2–100 字，別名 0–100 字，職業稱號 0–40 字，purpose 與 first_step 各 5–1000 字。module_key 只能是 positioning、supplier、retail、marketing、workbench、guilds、engagement、opensource。skill_book_ids 需 1–20 個不重複且存在於平台目錄的技能書 ID，不接受任意 repo URL。新公會與技能書綁定同交易寫入，並保存 `alias` 與 `profession_title`（省略時為空字串）。核准不會自動替申請人入會、領書或任命公會長。會員自行加入，或管理員另行明確任命並完成自動入會時，才獲得綁定技能書。
+
+非空別名不可與這間新公會自己的名稱或其他公會的名稱相同（不分大小寫），否則 409 `guild_alias_conflict`（「別名不可與公會名稱相同。」）。別名可以和其他公會的別名相同。名稱與既有公會名稱衝突仍是 409 `guild_name_exists`。
+
+併入既有公會的正文：
+
+```json
+{
+  "decision": "merge",
+  "reason": "審查說明",
+  "merge": { "guild_key": "guild_ai_field", "alias": "可省略；非空時成為目標公會的別名" }
+}
+```
+
+`guild_key` 必須是目錄裡的公會，否則 404 `guild_not_found`。申請改為 `approved`，`approved_guild_key` 指向目標，不新增目錄列、不綁技能書、不自動入會。`alias` 省略或空字串時，目標的別名與 `catalog_version` 都不變。非空別名會覆寫目標原本的別名（即使內容相同也覆寫），套用同一條別名規則，並把目標的 `catalog_version` 加 1。稽核 `guild_application_review` 的後狀態包含 `decision`、`guild_key`；併入另含 `alias_before`、`alias_after`。通知仍使用既有種類 `guild_application_approved`：標題「公會申請已併入既有公會」，內文說明申請名稱已併入目標公會名稱；這次有寫入別名時再加一行別名說明，其後是審查說明。動作指向目標公會。
+
+## 公會名稱、別名與職業稱號
+
+`POST /guilds/:key/profile` 的正文為 `{alias, reason, name?, profession_title?}`，`.strict()`。`alias` 必填，修剪後 0–100 字，空字串表示清除別名。`name` 省略則保留原名；有送時為 2–100 字。`profession_title` 省略則保留原值；有送時為 0–40 字。三者皆為單行。`reason` 為 3–1000 字。鍵必須符合其他公會路由的格式，否則 422；格式正確但目錄沒有這筆，回 404 `guild_not_found`（「找不到這個公會。」）。
+
+需要 `Idempotency-Key` 與 `If-Match: "<catalog_version>"`。缺版本 428，版本過期 412。交易內先取得 `admin-guild-catalog` 建議鎖，再 `SELECT … FOR UPDATE`。
+
+內建公會（不符合 `guild_custom_` 加 32 個十六進位字元）只能改別名。若送出的 `name` 或 `profession_title` 與目前的值不同，回 422 `guild_builtin_locked`（「內建公會只能調整別名。」）。送出與目前相同的值則可，省略的欄位保留原值。自訂公會三項都可改。內建職業稱號仍由定位題目維護，不寫進這個欄位。
+
+三項都沒有變化時回 422 `guild_profile_unchanged`（「沒有需要更新的內容。」），這項檢查在名稱唯一性之前。名稱在全目錄不分大小寫必須唯一（不含自己），否則 409 `guild_name_exists`（「已存在相同名稱的公會。」）。非空別名不可與更新後的自己名稱或其他公會名稱相同，否則 409 `guild_alias_conflict`。寫入時 `catalog_version` 加 1。稽核動作 `guild_profile_update`、對象 `guild`，前後狀態為 `{name, alias, profession_title, catalog_version}`。不發送會員通知。回傳更新後的目錄列，並以新的 `catalog_version` 作為 `aggregate_version` 與 ETag。
+
+會員看到的職業稱號：內建公會仍用定位題目的稱號。自訂公會有非空 `profession_title` 時，主要公會成員使用該稱號；留空則仍是「專業探索者」。`GET /api/v1/guilds` 與 `GET /api/v1/guilds/directory` 的公會物件帶 `alias` 與 `profession_title`。沒有別名時不另外顯示。
 
 目前基礎公會目錄為全域資料；資料庫只有一個社群時可核准建立新公會。若有多個社群，核准回 `409 guild_catalog_scope_required`，待目錄隔離完成後再開放；會員、申請、管理名單、操作紀錄及任命一律依管理員的 community_id 限定。
 
