@@ -23,7 +23,7 @@
 | `GET /review-center/summary` | `{policy_version, counts, repositories}`。counts 是未關閉拉取請求依 queue_state 的數量。repositories 含 repository_id、full_name、default_branch、mode、installation_state、settings、last_swept_at、last_error、rate_limited_until、aggregate_version。不含 installation id 或 GitHub 原文。 |
 | `GET /review-center/pulls?queue=open&repository_id=&limit=25&offset=0` | `{items,next_offset}`。queue 可為 draft、waiting_ci、ci_not_run、needs_author、awaiting_review、in_review、needs_owner、ready、paused、open（全部未關閉）或 done（merged／closed）。awaiting_review 依 sla_due_at 由早到晚、空值在後，再依 github_updated_at；其餘依 github_updated_at 新到舊。 |
 | `GET /review-center/pulls/:id` | 拉取請求、檔案（各附屬於該路徑的風險理由）、檢查、審查。每筆審查有 is_current_head 與 counts_as_valid。回應含 queue_reasons、risk_reasons 與 ETag。 |
-| `POST /review-center/pulls/:id/resync` | `{}`。把 reconcile_pull 排進佇列。不需要 If-Match。稽核 `maintainer_pull_resync`。 |
+| `POST /review-center/pulls/:id/resync` | `{}`。把 reconcile_pull 排進佇列。同一筆若已在佇列且 `run_after` 更晚，會提前到現在，嘗試次數不變；沒有更晚可提前時 `enqueued` 為 false。不需要 If-Match。稽核 `maintainer_pull_resync`。 |
 | `GET /review-center/repositories` | `{items}`；欄位與 summary 的 repositories 相同。 |
 | `POST /review-center/repositories/:id/settings` | `{mode, settings, reason}`，需要 If-Match。這一階段 mode 只接受 off 與 observe；ai_review、merge_dry_run、merge 回 422 `maintainer_mode_unavailable`。settings 用政策 schema 驗證後存成補齊預設值的結果，並把該儲存庫未關閉的拉取請求 recheck_at 設成現在。稽核 `maintainer_repository_settings`，含前後狀態。 |
 | `GET /review-center/reviewers` | `{items}`；reviewer_id、user_id、display_name、github_user_id、github_login、max_risk、active、appointed_at、updated_at、aggregate_version。不含 email。 |
