@@ -32,7 +32,7 @@ async function removeOwned(db:Pool,own:Owned){
     users=[...new Set([...own.users,...(await q('SELECT user_id FROM users WHERE email=ANY($1::text[])',[own.emails])).rows.map(row=>row.user_id as string)])];
     await q('DELETE FROM outbox WHERE transition_id IN (SELECT transition_id FROM transition_journal WHERE actor_ref=ANY($1::uuid[]))',[users]);
     await q('DELETE FROM transition_journal WHERE actor_ref=ANY($1::uuid[])',[users]);
-    for(const table of ['member_social_links','member_avatars','onboarding_assessments','member_skill_book_grants','guild_member_preferences',
+    for(const table of ['member_guild_answers','member_social_links','member_avatars','onboarding_assessments','member_skill_book_grants','guild_member_preferences',
       'positioning_profession_memberships','member_accounts','command_receipts','sessions'])await q(`DELETE FROM ${table} WHERE user_id=ANY($1::uuid[])`,[users]);
     await q('DELETE FROM users WHERE user_id=ANY($1::uuid[])',[users]);
     await client.query('COMMIT');
@@ -100,7 +100,7 @@ test('a legacy member completes profile and positioning todos through the real U
     await db.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
       VALUES($1,$2,$3,$4,$5,$6,false)`,[user_id,DEMO_COMMUNITY,email,`待辦舊會員 ${run}`,hashPassword(DEMO_PASSWORD),randomUUID()]);
     expect((await db.query('SELECT onboarding_required,onboarding_completed_at FROM users WHERE user_id=$1',[user_id])).rows).toEqual([{onboarding_required:false,onboarding_completed_at:null}]);
-    for(const table of ['positioning_profession_memberships','member_skill_book_grants','guild_member_preferences','member_avatars','member_social_links','onboarding_assessments'])
+    for(const table of ['positioning_profession_memberships','member_skill_book_grants','guild_member_preferences','member_guild_answers','member_avatars','member_social_links','onboarding_assessments'])
       expect(await count(db,`${table} WHERE user_id=$1`,[user_id]),table).toBe(0);
 
     const page=await open({width:1280,height:900});

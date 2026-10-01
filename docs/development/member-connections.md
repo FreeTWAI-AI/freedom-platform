@@ -10,14 +10,14 @@
 
 歡迎畫面有兩條路：
 
-- **快速加入**是主要入口。從完整公會清單選一個主要公會，清單可搜尋，也可依主題篩選。
-- **定位測驗**提供公會建議。做完後仍由本人確認要加入的公會。
+- **快速加入**是主要入口。從完整公會清單選一個主要公會，清單可搜尋，也可依主題篩選。選好後回答這個公會的 3 到 4 個小問題，再完成加入。
+- **定位測驗**提供公會建議。做完後仍由本人確認要加入的公會。這條路不在加入當下強迫回答公會小問題，可以稍後在「我的定位」補。
 
-流程是：Email／密碼／暱稱 → 選主要公會（快速加入或定位測驗）→ 領技能書 → 開放平台。快速加入、尚未做完測驗的會員，會員首頁顯示「補做定位測驗」，直到測驗完成。
+流程是：Email／密碼／暱稱 → 選主要公會（快速加入或定位測驗）→ 回答所選公會的 3–4 個小問題 → 領技能書 → 開放平台。快速加入、尚未做完測驗的會員，會員首頁顯示「補做定位測驗」，直到測驗完成。
 
 還沒選定主要公會時，登入後的會員 API 只放行加入所需的白名單（含 `POST /api/v1/me/onboarding/quick-start`）。其他會員 API 回 403 `onboarding_required`，說明是「請先選擇主要公會，完成加入後即可使用會員功能。」
 
-`POST /api/v1/me/onboarding/quick-start` 的內容是 `{guild_keys, primary_guild_key, confirmed:true}`。它在加入門還沒過時可以使用：同一交易加入所選公會、設主要公會、領技能書，並記下 `onboarding_completed_at` 與 `entry_mode=quick`。未完成的定位草稿留著，不捏造答案、分數或「已完成定位」。已經完成加入回 409 `onboarding_already_completed`。主要公會不在這次選擇裡，或公會鍵不在目錄，回 422。`GET /api/v1/me/onboarding` 另有 `entry_mode`（`assessment` 或 `quick`）與 `assessment_completed`。欄位與錯誤見 [定位、公會與技能書 API](onboarding-api.md)。
+`POST /api/v1/me/onboarding/quick-start` 的內容是 `{guild_keys, primary_guild_key, confirmed:true, guild_answers}`。`guild_answers` 要答完主要公會的每一題，選項必須是該題提供的。少答、多答或選項不對回 422 `guild_answers_invalid`，這次不會加入。它在加入門還沒過時可以使用：同一交易加入所選公會、存下小問題答案、設主要公會、領技能書，並記下 `onboarding_completed_at` 與 `entry_mode=quick`。未完成的定位草稿留著，不捏造定位答案、分數或「已完成定位」。已經完成加入回 409 `onboarding_already_completed`。主要公會不在這次選擇裡，或公會鍵不在目錄，回 422。日記與 outbox 只記公會鍵和題組版本，不放答案。`GET /api/v1/guilds/directory` 的每個公會帶 `entry_questions`（題庫，不是某人的答案）。加入之後，`GET/POST /api/v1/me/guild-answers` 讓本人查看或修改；職業公會頁加入成功時，也可以順手前往「我的定位」的「公會小問答」。答案只給本人。`GET /api/v1/me/onboarding` 另有 `entry_mode`（`assessment` 或 `quick`）與 `assessment_completed`。欄位與錯誤見 [定位、公會與技能書 API](onboarding-api.md)。
 
 管理員在會員名單看到 `onboarding_entry_mode`，並把加入方式顯示成「已完成定位」、「已加入（未做定位）」、「尚未完成加入」或「既有會員」。見 [管理介面 API](platform-admin-api.md)。
 

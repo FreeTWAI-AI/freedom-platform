@@ -64,6 +64,13 @@ html:is([data-theme="light"],[data-theme="versefolk"]) :is(
   .guild-scope .btn[aria-pressed="true"],.skill-discovery-tabs .is-selected,
   .guild-workspace-tabs [aria-pressed="true"]
 ) { background:var(--green-soft);color:var(--module-green-ink);border-color:var(--green); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-question-option{background:var(--bg-elev);color:var(--ink);border-color:var(--line);font-weight:450}
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-question-option.is-selected,
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-question-option:has(input:checked){background:var(--green-soft);color:var(--module-green-ink);border-color:var(--green);font-weight:650}
+html[data-theme="dark"] .guild-question-option{background:var(--bg-elev);color:var(--ink);border-color:var(--line);font-weight:450}
+html[data-theme="dark"] .guild-question-option.is-selected,
+html[data-theme="dark"] .guild-question-option:has(input:checked){background:var(--green-soft);color:var(--ink);border-color:var(--green);font-weight:650}
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-join-notice .btn-ghost{background:var(--bg-elev);color:var(--ink);border-color:var(--line)}
 
 /* Book covers remain book covers, with readable ink in the bright themes. */
 html:is([data-theme="light"],[data-theme="versefolk"]) .skill-book-cover {
