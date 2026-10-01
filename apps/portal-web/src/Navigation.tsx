@@ -9,11 +9,13 @@ export const TAB_TITLES: Record<TabId, string> = {
   supplier: '我有東西要賣', retail: '我可以賣東西', marketing: '行銷工作室',
   'guild-workspace': '公會管理', community: '自由工坊社群',
   todos: '待辦清單', messages: '我的訊息', events: '社群活動', tasks: '社群任務',
+  social: '社群分享', promotion: '推廣排行榜',
 };
 
 const primary: TabId[] = ['home', 'events', 'tasks', 'guilds', 'skills'];
 const groups: { label: string; pages: TabId[] }[] = [
   { label: '認識夥伴', pages: ['members', 'positioning', 'squads', 'cocreation'] },
+  { label: '分享推廣', pages: ['social', 'promotion'] },
   { label: '創作與合作', pages: ['workbench', 'opensource', 'showcase', 'engagement'] },
   { label: '供貨與銷售', pages: ['supplier', 'retail', 'marketing'] },
   { label: '管理', pages: ['guild-workspace'] },

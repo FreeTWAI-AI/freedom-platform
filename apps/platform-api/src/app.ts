@@ -22,7 +22,7 @@ function authNetwork(c:Context) {
 }
 
 /** Node runtime: settings are read from process configuration when used, as before. */
-export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:{adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;eventEmailSender?:EventEmailSender}={}):PlatformRuntime {
+export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:{adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;eventEmailSender?:EventEmailSender;now?:()=>Date;linkPreviewFetch?:PlatformRuntime['linkPreviewFetch']}={}):PlatformRuntime {
   return {
     registrationCommunityId:()=>process.env.FREEDOM_REGISTRATION_COMMUNITY_ID,
     githubTokenKey:()=>options.githubSocial?.tokenKey??process.env.GITHUB_SOCIAL_TOKEN_KEY,
@@ -33,9 +33,11 @@ export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:{adminVe
     publicOrigin:LIVE_PUBLIC_ORIGIN,
     passwordEmailSender:options.passwordEmailSender,
     eventEmailSender:options.eventEmailSender,
+    now:options.now,
+    linkPreviewFetch:options.linkPreviewFetch??((input,init)=>globalThis.fetch(input,init)),
   };
 }
 
-export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:FreedomEnv='local',options:{adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;eventEmailSender?:EventEmailSender}={}) {
+export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:FreedomEnv='local',options:{adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;eventEmailSender?:EventEmailSender;now?:()=>Date;linkPreviewFetch?:PlatformRuntime['linkPreviewFetch']}={}) {
   return createPlatformApp(pool,origin,freedomEnv,nodeRuntime(freedomEnv,origin,options),{githubSocial:options.githubSocial});
 }
