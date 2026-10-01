@@ -7,8 +7,8 @@ mkdirSync(evidence, { recursive: true });
 const viewports = [['desktop', { width: 1280, height: 900 }], ['mobile', { width: 390, height: 844 }]] as const;
 const fits = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 
-async function login(page: Page) {
-  await page.goto('/');
+async function login(page: Page, destination='/') {
+  await page.goto(destination);
   await page.getByLabel('電子郵件', { exact: true }).fill('maker@local.test');
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
   await page.getByRole('button', { name: '登入', exact: true }).click();
@@ -33,8 +33,7 @@ test.describe('skill shelf refresh without a shown baseline', () => {
       }
       return route.fulfill({ json: { items: calls.length === 2 ? [{ book_id: 'agent-kit' }, { book_id: 'ai-sister' }] : [{ book_id: 'agent-kit' }, { book_id: 'ai-sister' }, { book_id: 'ai-avatar-bot' }] } });
     });
-    await login(page);
-    await page.goto('/#skills');
+    await login(page,'/#skills');
     await expect.poll(() => calls.length).toBe(1);
     return { calls, release };
   }
@@ -178,7 +177,8 @@ test.describe('onboarding skill shelf heading levels', () => {
     await page.getByLabel('電子郵件', { exact: true }).fill(`shelf-${Date.now()}-${Math.random().toString(16).slice(2)}@example.test`);
     await page.getByLabel('密碼', { exact: true }).fill(password);
     await page.getByRole('button', { name: '建立帳號，先逛工坊', exact: true }).click();
-    await page.getByRole('button', { name: '開始／繼續定位 →', exact: true }).click();
+    await page.locator('.welcome-optional > summary').click();
+  await page.getByRole('button', { name: '開始／繼續定位 →', exact: true }).click();
     await answerQuestions(page);
     await checkShelf(page, 'first', 1);
     await page.getByRole('button', { name: '進入自由工坊 →', exact: true }).click();

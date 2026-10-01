@@ -4,7 +4,7 @@
 
 本文完整產品／營運驗收尚未完成；文中的流程、標籤與驗收項目是目標契約，不因描述存在就代表正式服務已存在。2026-09-20 的本機工作／合作流程與實跑測試，另見[版本紀錄](../releases/2026-09-20-local-core.md)；真人與正式環境驗收仍待取得證據。
 
-2026-09-24 適用範圍：公開站與 staging 的會員 beta（`8338a42`）只實作本文子集，包括新人必填定位、18 公會／37 技能書、公會範圍開發提案 grant 與本人 Star；逐項對照見[身分與計畫對齊稽核](../development/audit-2026-09-24-identity-plan.md)。
+2026-09-24 適用範圍：公開站與 staging 的會員 beta（`8338a42`）只實作本文子集，包括當時的新人必填定位、18 公會／37 技能書、公會範圍開發提案 grant 與本人 Star；逐項對照見[身分與計畫對齊稽核](../development/audit-2026-09-24-identity-plan.md)。2026-10-01 更新：新註冊改為先選主要公會，定位測驗可稍後補做。
 
 本文件對外用語與 canonical entity 的固定對照如下；介面暱稱不得改變授權語意：
 
@@ -208,7 +208,7 @@ Repo / SkillPackage Candidate
 
 ## 6. 定位、Guild 教學與陪跑
 
-定位是導航，不是人格判決或入會審查。自 2026-09-23 起，新註冊會員須先完成一次封閉定位並選一個主要公會（同時領該公會技能書），才使用其他會員功能；舊會員不追溯。這一步沒有人工核准，也不以貢獻、收入或 QC 為門檻。完成後會員可以：
+定位是導航，不是人格判決或入會審查。自 2026-09-23 起，新註冊會員須先完成一次封閉定位並選一個主要公會（同時領該公會技能書），才使用其他會員功能；舊會員不追溯。2026-10-01 更新：定位測驗不再是新註冊的必經步驟。新會員仍須先選定主要公會並領取技能書；可從快速加入直接選公會，或先做定位測驗取得建議，測驗可稍後補做。這一步沒有人工核准，也不以貢獻、收入或 QC 為門檻。完成加入後會員可以：
 
 1. 直接加入其他 profession／Guild，或調整主要與次要公會。
 2. 從「重新探索定位」以 deterministic 評估取得新的 archetype 建議。
@@ -349,7 +349,7 @@ Freedom Platform 自己是第一個 Project：本規格拆 WorkItem／GitHub Iss
 
 ```mermaid
 flowchart LR
-  A[必填定位＋主要 Guild，之後自選其他 Guild] --> B[SkillPackage / Discord 讀書會]
+  A[選主要公會，定位可稍後；之後自選其他 Guild] --> B[SkillPackage / Discord 讀書會]
   B --> C[WorkItem + agent 協作]
   C --> D[artifact / PR / field evidence]
   D --> E[review + accepted Result]
@@ -446,7 +446,7 @@ Entitlement 只回答「API 現在准許做什麼」，不代表人的價值。L
 
 上表與 `contracts/entitlement-catalog.example.yaml` 描述未來正式契約的 acquisition conditions，尚未實作為 runtime catalog。2026-09-24 會員 beta 另有兩層現行規則：
 
-- **帳號狀態前提**：`onboarding_required=true` 且尚未完成定位與主要公會的新會員，登入後 `/api/v1/*` 會員 API 只放行 session、登出、帳號、定位、入會／離會／主要公會，以及定位所需的少數唯讀目錄；其他會員 API 不論讀寫都回 403 `onboarding_required`。未登入可讀的公開路徑（站台資訊、公開技能書與探索）不受影響；Agent 投稿與開發用 Bearer 路徑各自檢查同一狀態。此前提在評估任何 entitlement 之前成立，不是上表的 acquisition condition；正式 catalog 日後以新版本明確收錄，不隱式改寫本表。
+- **帳號狀態前提**：`onboarding_required=true` 且尚未完成加入（選定主要公會，`onboarding_completed_at` 尚未記錄）的新會員，登入後 `/api/v1/*` 會員 API 只放行 session、登出、帳號、定位、快速加入、入會／離會／主要公會，以及定位所需的少數唯讀目錄；其他會員 API 不論讀寫都回 403 `onboarding_required`，說明是「請先選擇主要公會，完成加入後即可使用會員功能。」2026-10-01 更新：這道門看的是完成加入，不是必須做完定位測驗；快速加入同樣滿足。未登入可讀的公開路徑（站台資訊、公開技能書與探索）不受影響；Agent 投稿與開發用 Bearer 路徑各自檢查同一狀態。此前提在評估任何 entitlement 之前成立，不是上表的 acquisition condition；正式 catalog 日後以新版本明確收錄，不隱式改寫本表。
 - **投稿與開發提案分開**：`skill.submit` 對應一般候選草稿與投稿 key（`skill:submit`），不需特定公會。公會範圍的私人開發提案 key（`development:propose`）另依 §3.1 的公會與 GitHub 資格發放；兩者不可互用，也不是原作寫入權。
 - **站內技能書編修**：修改既有技能書的 metadata／內容（不是 `skill.submit` 投稿）須同時具備該書現行的具名維護任命，以及 AI 開發公會（`guild_ai_vibe`）或 AI 導入與驗證公會（`guild_ai_field`）至少一個有效會籍。公會會籍不授予整個公會編修權，`development:propose` 也不能轉成編修 token。離開最後一個符合的公會即拒絕編修；仍在另一個符合公會則保留資格。任命仍有效時重新入會可恢復會籍條件，但先前已撤銷的 API token 維持撤銷。公開書目、原作閱讀與一般 `skill.submit` 不變。實作狀態見[身分稽核](../development/audit-2026-09-24-identity-plan.md)。
 

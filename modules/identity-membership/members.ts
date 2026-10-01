@@ -21,7 +21,7 @@ const SocialContacts=z.object({
   line:contact(contactValue),
 }).strict();
 export const ContactInput=SocialContacts.extend({email:z.object({audiences:Audiences}).strict()}).strict();
-export const RegistrationInput=z.object({email:z.email().max(200),password:z.string().min(12).max(128),nickname:z.string().trim().min(1).max(60),contacts:SocialContacts.partial().optional()}).strict();
+export const RegistrationInput=z.object({email:z.email().max(200),password:z.string().min(12).max(128),nickname:z.string().trim().max(60).optional(),contacts:SocialContacts.partial().optional()}).strict();
 const AccountInput=z.object({nickname:z.string().trim().min(1).max(60),identity_label:z.enum(['male','female','alien','ai']).nullable().optional(),contacts:ContactInput}).strict();
 export const emptyContacts=()=>({discord:{value:'',audiences:[] as string[]},github:{value:'',audiences:[] as string[]},line:{value:'',audiences:[] as string[]},email:{audiences:[] as string[]}});
 
@@ -55,6 +55,8 @@ export async function authRateLimit(pool:Pool,scope:string,network:string,limit:
 }
 export async function registerMember(pool:Pool,raw:unknown,options:{communityId?:string;allowSingleCommunity:boolean;publicMode?:boolean}) {
   const body=RegistrationInput.parse(raw),email=body.email.trim().toLowerCase();
+  // Never derive a public display name from the private login email.
+  const nickname=body.nickname||`新夥伴 ${randomBytes(4).toString('hex')}`;
   requireCondition(!options.publicMode||!email.endsWith('@local.test'),422,'reserved_email_domain','請使用你自己的電子郵件地址；示範網域不能在公開網站註冊。');
   await authRateLimit(pool,'registration-email',email,3);
   const passwordHash=await hashPasswordAsync(body.password);
@@ -68,7 +70,7 @@ export async function registerMember(pool:Pool,raw:unknown,options:{communityId?
     }
     requireCondition((await q.query('SELECT 1 FROM communities WHERE community_id=$1',[communityId])).rowCount===1,503,'registration_unavailable','註冊尚未開放。');
     const user=(await q.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
-      VALUES($1,$2,$3,$4,$5,$6,true) ON CONFLICT(email) DO NOTHING RETURNING user_id,community_id,email,display_name,profession_membership_ref,onboarding_required,onboarding_completed_at`,[randomUUID(),communityId,email,body.nickname,passwordHash,randomUUID()])).rows[0];
+      VALUES($1,$2,$3,$4,$5,$6,true) ON CONFLICT(email) DO NOTHING RETURNING user_id,community_id,email,display_name,profession_membership_ref,onboarding_required,onboarding_completed_at`,[randomUUID(),communityId,email,nickname,passwordHash,randomUUID()])).rows[0];
     requireCondition(user,409,'account_unavailable','無法使用這個註冊資料；已有帳號請登入。');
     const contacts={...emptyContacts(),...body.contacts};
     await q.query('INSERT INTO member_accounts(user_id,community_id,contacts) VALUES($1,$2,$3)',[user.user_id,communityId,JSON.stringify(contacts)]);

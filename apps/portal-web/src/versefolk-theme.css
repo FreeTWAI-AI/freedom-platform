@@ -27,6 +27,10 @@ html[data-theme="versefolk"] .login-card,
 html[data-theme="versefolk"] .empty {background:var(--bg-elev);border-color:var(--line);box-shadow:0 5px 18px #68564212}
 html[data-theme="versefolk"] .nav-item.is-active,
 html[data-theme="versefolk"] .messages-tabs [aria-selected=true] {background:var(--green-soft);color:#384c25;border-color:#9bb378}
+html[data-theme="versefolk"] .messages-tabs [aria-selected=true] {box-shadow:inset 0 0 0 1px #384c25}
+html[data-theme="versefolk"] .messages-peer[aria-current="true"] {border-color:#384c25}
+html[data-theme="versefolk"] .member-channel-list .messages-peer[aria-current="true"] {border-color:#384c25;box-shadow:inset 4px 0 0 #384c25}
+html[data-theme="versefolk"] .messages-count {background:var(--green-soft);color:#384c25}
 html[data-theme="versefolk"] .btn-primary {background:var(--green);border-color:#87a357;color:#26351b}
 html[data-theme="versefolk"] .btn-ghost,
 html[data-theme="versefolk"] .settings-menu-list,

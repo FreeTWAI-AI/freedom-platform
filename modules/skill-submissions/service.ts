@@ -66,7 +66,7 @@ function keyView(row: any) {
 
 async function requireReadyMember(q: Queryable, owner: Owner) {
   const allowed = await q.query(`SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND ${MEMBER_READY}`, [owner.user_id, owner.community_id]);
-  requireCondition(allowed.rowCount === 1, 403, 'onboarding_required', '請先完成定位並選擇主要公會。');
+  requireCondition(allowed.rowCount === 1, 403, 'onboarding_required', '請先選擇主要公會，完成加入後即可使用會員功能。');
 }
 async function ownedSubmission(q: Queryable, actor: Owner, id: string, lock = false) {
   const row = (await q.query(`SELECT ${SUBMISSION_COLUMNS} FROM skill_submissions WHERE submission_id=$1 AND community_id=$2 AND owner_ref=$3${lock ? ' FOR UPDATE' : ''}`,
@@ -272,7 +272,7 @@ export async function findUploadGrant(pool: Pool, authorization: string | undefi
 async function lockAgentOwner(q: PoolClient, owner: Owner, invalid: () => Problem) {
   const member = (await q.query(`SELECT ${MEMBER_READY} AS ready,active FROM users WHERE user_id=$1 AND community_id=$2 FOR SHARE`, [owner.user_id, owner.community_id])).rows[0];
   if (!member?.active) throw invalid();
-  requireCondition(member.ready, 403, 'onboarding_required', '帳號尚未完成定位與主要公會選擇，暫時不能上傳技能。');
+  requireCondition(member.ready, 403, 'onboarding_required', '帳號尚未選擇主要公會，完成加入後才能上傳技能。');
 }
 
 export async function agentCreateSubmission(pool: Pool, key: Owner & { key_hash: string }, idempotencyKey: string | undefined, origin: string) {

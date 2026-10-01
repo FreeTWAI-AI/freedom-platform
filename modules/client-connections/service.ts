@@ -62,7 +62,7 @@ export async function approveClientPairing(pool:Pool,input:Command,code:string){
  const body=ApprovalInput.parse(input.body);
  await authRateLimit(pool,'client-pairing-approve',input.actor.user_id,30,300);
  return command(pool,input,async q=>{
-   requireCondition((await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active AND onboarding_completed_at IS NOT NULL',[input.actor.user_id,input.actor.community_id])).rowCount===1,403,'onboarding_required','請先完成定位與主力公會選擇，再批准客戶端連線。');
+   requireCondition((await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active AND onboarding_completed_at IS NOT NULL',[input.actor.user_id,input.actor.community_id])).rowCount===1,403,'onboarding_required','請先選擇主要公會，完成加入後再批准客戶端連線。');
  },async q=>{
    const pairing=await pairingByCode(q,code,true);
    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`client-connections/${input.actor.user_id}`]);

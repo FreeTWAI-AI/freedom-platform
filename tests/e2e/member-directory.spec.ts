@@ -33,6 +33,7 @@ test('member row opens a private conversation with the selected person',async({p
   const peer='20000000-0000-4000-8000-000000000002',reads:string[]=[];
   await page.route('**/api/v1/members?*',route=>route.fulfill({json:{items:[member(1,{user_id:peer,nickname:'私訊目標'})],next_offset:null,total:1}}));
   await page.route('**/api/v1/me/conversations?*',route=>route.fulfill({json:{items:[],unread_count:0,next_offset:null}}));
+  await page.route(`**/api/v1/me/conversations/${peer}/activity`,route=>route.fulfill({json:{last_message_id:null,unread_count:0,can_send:true}}));
   await page.route(/\/api\/v1\/me\/conversations\/[^/]+\/messages\?/,route=>{reads.push(route.request().url());return route.fulfill({json:{participant:{user_id:peer,display_name:'私訊目標',avatar_url:null},can_send:true,items:[],next_offset:null,unread_count:0}});});
   const panel=await openDirectory(page);
   await panel.getByRole('button',{name:'私訊使用者',exact:true}).click();

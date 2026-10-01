@@ -39,6 +39,7 @@ async function register(page: Page, nickname: string, shotPrefix?: string) {
   await page.getByLabel('電子郵件', { exact: true }).fill(email);
   await page.getByLabel('密碼', { exact: true }).fill(password);
   await page.getByRole('button', { name: '建立帳號，先逛工坊', exact: true }).click();
+  await page.locator('.welcome-optional > summary').click();
   await page.getByRole('button', { name: '開始／繼續定位 →', exact: true }).click();
   await expect(page.getByRole('heading', { name: '你喜歡怎麼做事？' })).toBeVisible();
   return email;
@@ -196,7 +197,8 @@ test('a failed member card load keeps quick links, claims nothing and recovers i
   await page.setViewportSize({ width: 390, height: 844 });
   await register(page, '名片重試'); await onboard(page);
   await expect(page.getByRole('heading', { level: 1, name: '會員首頁', exact: true })).toBeVisible();
-  const card = (url: URL) => /^\/api\/v1\/members\/[^/]+$/.test(url.pathname);
+  // Fail UUID card reads only; the independent recommendation endpoint stays live.
+  const card = (url: URL) => /^\/api\/v1\/members\/[0-9a-f-]{36}$/.test(url.pathname);
   let mode: 'fail' | 'hold' | 'pass' = 'fail', release!: () => void, requests = 0;
   const held = new Promise<void>(resolve => { release = resolve; });
   await page.route(card, async route => {

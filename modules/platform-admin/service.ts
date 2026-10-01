@@ -11,7 +11,7 @@ export type VerifiedAdminIdentity={email:string;subject:string;csrfToken:string}
 export type AdminActor={admin_id:string;community_id:string;email:string;display_name:string;role:'super_admin';subject:string};
 export type AdminCommand={admin:AdminActor;operation:string;key:string;body:unknown;expected?:string};
 const reason=z.string().trim().min(3).max(1000);
-const administrativeMember=`user_id,email,display_name,active,onboarding_required,onboarding_completed_at,email_verified_at,admin_status_version AS aggregate_version`;
+const administrativeMember=`user_id,email,display_name,active,onboarding_required,onboarding_completed_at,onboarding_entry_mode,email_verified_at,admin_status_version AS aggregate_version`;
 const adminAccessStateSql=(alias:string)=>`CASE WHEN ${alias}.active THEN CASE WHEN ${alias}.access_synced_version=${alias}.aggregate_version THEN 'ready' ELSE 'pending' END ELSE CASE WHEN ${alias}.access_synced_version=${alias}.aggregate_version THEN 'revoked' ELSE 'pending_removal' END END`;
 function withAdminAccessState(row:any){
   const aggregate_version=Number(row.aggregate_version),access_synced_version=row.access_synced_version===null?null:Number(row.access_synced_version);

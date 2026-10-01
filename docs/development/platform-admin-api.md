@@ -7,8 +7,8 @@
 | 方法與路徑（前綴 `/admin/api`） | 用途與回傳 |
 | --- | --- |
 | `GET /bootstrap` | `{admin, csrf_token, summary, available_skill_books, pending_guild_appointments}`；admin 包含 `admin_id, community_id, email, display_name, role`。summary 包含會員數、有效會員數、待審公會數、公會數、有效管理員數。 |
-| `POST /link-member` | `{}`；需要 Access 管理員驗證，加上同社群、同 email 的有效會員 cookie，且會員已完成定位。本人確認後才綁定信箱與預先指定的公會長任命。 |
-| `GET /members?limit=25&offset=0&q=` | `{items,next_offset}`；limit 1–100、offset 0–100000、q 最多100字。管理專用欄位包含 email、active、onboarding_required、onboarding_completed_at、email_verified_at、aggregate_version、目前公會。 |
+| `POST /link-member` | `{}`；需要 Access 管理員驗證，加上同社群、同 email 的有效會員 cookie，且會員已完成加入（選定主要公會）。本人確認後才綁定信箱與預先指定的公會長任命。 |
+| `GET /members?limit=25&offset=0&q=` | `{items,next_offset}`；limit 1–100、offset 0–100000、q 最多100字。管理專用欄位包含 email、active、onboarding_required、onboarding_completed_at、onboarding_entry_mode、email_verified_at、aggregate_version、目前公會。`onboarding_entry_mode` 為 `assessment` 或 `quick`（既有會員預設 `assessment`，不因此被重新封鎖）。名單把加入方式顯示成「已完成定位」、「已加入（未做定位）」、「尚未完成加入」或「既有會員」：還沒選定主要公會是「尚未完成加入」；已用快速加入、定位測驗還沒做完是「已加入（未做定位）」；定位測驗已做完是「已完成定位」；`onboarding_required=false` 的舊帳號是「既有會員」。 |
 | `POST /members/:id/status` | `{active:boolean,reason:string}`；理由3–1000字。停用會撤銷既有會員 session 與客戶端讀取憑證；恢復不會復活舊憑證。 |
 | `GET /guild-applications?state=pending&limit=25&offset=0` | state 為 pending、approved、declined、all。回傳申請、申請者姓名與 email，以及審查者、理由、時間、核准的 guild key。核准後另附 `approved_guild_name`、`approved_guild_alias`（尚未對到目錄時為 null；別名沒有設定時是空字串）。 |
 | `POST /guild-applications/:id/review` | `{decision:'approve'|'merge'|'reject',reason,guild?,merge?}`。核准必須提供完整 guild 且不得帶 merge；併入必須提供 merge 且不得帶 guild；拒絕兩者都不帶。形狀不符回 422 `review_details_required`。每件僅能處理一次；重試相同操作回原結果。 |
@@ -87,7 +87,7 @@
 
 後台「公會管理」先找公會，再按「設定公會長」或「新增公會專家」。人選從同社群的全部平台會員搜尋，按暱稱或 Email 找人、載入更多、點選並確認任命。未入會者顯示「任命時加入公會」且可選；停用帳號不可任命。更改查詢會清除舊人選，較慢的舊回應不能覆蓋新結果；只是搜尋或看見人選不會替任何人加入公會。
 
-確認任命後，伺服器在同一交易中核對管理身分、目標帳號與版本，再建立／恢復會員關係、領取綁定技能書並保存職務。缺版本、版本過期、領書或職務保存失敗時，入會也一併回復。既有主力公會、定位題目、完成狀態和信箱驗證均保持不變；沒有主力公會者也不會由任命代選。尚未完成定位的會員仍須本人完成原流程。
+確認任命後，伺服器在同一交易中核對管理身分、目標帳號與版本，再建立／恢復會員關係、領取綁定技能書並保存職務。缺版本、版本過期、領書或職務保存失敗時，入會也一併回復。既有主力公會、定位題目、完成狀態和信箱驗證均保持不變；沒有主力公會者也不會由任命代選。尚未完成加入（選定主要公會）的會員仍須本人完成加入；定位測驗可稍後補做。
 
 自動入會以 `admin_join_guild` 記入管理稽核，操作人是已驗證管理員，不冒稱會員自行加入。會長任命另記 `appoint_guild_master`；專家任命／移除分別記 `appoint_guild_expert`／`remove_guild_expert`。相同操作重播只回原紀錄，不在後來離會時重新入會或補發新綁定技能書；需重新任命時，先重讀最新狀態、使用新的操作識別碼及必要版本。
 
@@ -101,7 +101,7 @@
 
 `/admins` 的 `identity_binding` 為 `no_member_account`、`unverified_email_match` 或 `verified_email_match`。API 同時提供 `member_account_present`、`member_account_active`、`member_email_verified`；未驗證相同地址不得標示為已確認的管理員會員身分。本模組不提供公開授權管理員、email 密碼重設或自動 email 身分綁定功能。
 
-公會長提名由平台負責人私下建立，bootstrap 只回傳目前管理員自己的提名。`/link-member` 會在同一交易驗證會員 session、確認信箱、加入被指定的公會、領取技能書並完成任命；既有主力公會保持不變。若任一公會已有其他公會長，整批回 `409 appointment_changed` 並回復所有修改。未註冊、未完成定位或登入不同信箱時不建立替身帳號、不自動綁定。
+公會長提名由平台負責人私下建立，bootstrap 只回傳目前管理員自己的提名。`/link-member` 會在同一交易驗證會員 session、確認信箱、加入被指定的公會、領取技能書並完成任命；既有主力公會保持不變。若任一公會已有其他公會長，整批回 `409 appointment_changed` 並回復所有修改。未註冊、未完成加入（選定主要公會）或登入不同信箱時不建立替身帳號、不自動綁定。
 
 修改會把已驗證的 Access subject 與管理員 ID、理由、前後狀態寫入獨立 audit；JWT 本身不落盤。所有權限與版本會在交易中重查，相同 idempotency 重試不重複記錄。
 

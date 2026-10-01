@@ -27,6 +27,11 @@ async function stubCard(page: Page, card: MemberCardData) {
     ? route.fulfill({ json: card }) : route.fallback());
 }
 
+async function stubJson(page: Page, pathname: string, json: unknown) {
+  await page.route(url => url.pathname === pathname, route => route.request().method() === 'GET'
+    ? route.fulfill({ json }) : route.fallback());
+}
+
 async function login(page: Page) {
   await page.goto('/');
   await page.getByLabel('電子郵件', { exact: true }).fill('maker@local.test');
@@ -64,11 +69,14 @@ const scenarios = [
 for (const scenario of scenarios) {
   test(`home next action follows card facts for ${scenario.name}`, async ({ page }) => {
     await stubCard(page, scenario.card);
+    if (scenario.card.primary_guild) await stubJson(page, '/api/v1/me/skill-books', { items: [] });
     await login(page);
     const prompt = suggestion(page);
     await expect(prompt).toHaveCount(1);
+    await expect(page.locator('.guild-next-steps')).toHaveCount(0);
     await expect(prompt.getByText(scenario.message, { exact: true })).toBeVisible();
     await expect(prompt).not.toContainText('已解鎖');
+    if (!scenario.card.primary_guild) await expect(prompt.getByRole('button')).toHaveCount(1);
     if (scenario.card.primary_guild) {
       const summary = page.getByRole('region', { name: '我的會員摘要', exact: true });
       await expect(summary).toContainText('主要公會 · 測試資安公會');
@@ -142,28 +150,83 @@ test('home does not guess a next action while the member read waits or fails and
   await checkConsole(page, choosePrimaryMessage, 'guilds');
 });
 
+test('a granted primary-guild book opens from the same next-step region', async ({ page }) => {
+  const skipped = { id: 'book-locked', book_id: 'book-locked', title: '尚未授權的技能書', description: '主要公會有這本，但還沒授權。', repository_url: 'https://github.com/example/locked' };
+  const granted = { id: 'book-home-first', book_id: 'book-home-first', title: '首頁第一本技能書', description: '從主要公會開始的練習。', repository_url: 'https://github.com/example/first-book' };
+  await stubCard(page, memberCard({ primary_guild: guild }));
+  await page.route(url => url.pathname === '/api/v1/guilds/directory', async route => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const response = await route.fetch();
+    const data = await response.json() as { items?: { guild_key: string; skill_books?: unknown[] }[] };
+    const items = Array.isArray(data.items) ? data.items : [];
+    const match = items.find(item => item.guild_key === guild.guild_key);
+    if (match) match.skill_books = [skipped, granted];
+    else items.push({ guild_key: guild.guild_key, skill_books: [skipped, granted] });
+    await route.fulfill({ json: { ...data, items } });
+  });
+  await stubJson(page, '/api/v1/me/skill-books', { items: [{ book_id: 'book-other', id: 'book-other' }, { book_id: granted.book_id }] });
+  await stubJson(page, '/api/v1/task-board/preview', { items: [] });
+  await login(page);
+  const prompt = suggestion(page);
+  await expect(prompt.getByText(skillsMessage, { exact: true })).toBeVisible();
+  await expect(prompt.getByRole('button', { name: '前往技能書架', exact: true })).toHaveCount(0);
+  await expect(prompt.getByRole('button', { name: '進入測試資安公會聊天室', exact: true })).toBeVisible();
+  await expect(prompt.getByRole('button', { name: '分享作品與需求', exact: true })).toBeVisible();
+  await expect(prompt).not.toContainText('尚未授權的技能書');
+  const open = prompt.getByRole('button', { name: '閱讀第一本技能書', exact: true });
+  await expect(open).toHaveAttribute('aria-describedby', 'home-next-step-description');
+  await open.click();
+  const dialog = page.locator('dialog.skill-intro-dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute('data-book-id', granted.book_id);
+  await expect(dialog.getByRole('heading', { name: granted.title, exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: '關閉技能書介紹', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await prompt.getByRole('button', { name: '分享作品與需求', exact: true }).click();
+  await expect(page).toHaveURL(/#showcase$/);
+  await expect(page.getByRole('heading', { name: '作品與需求', level: 1, exact: true })).toBeVisible();
+  await navigate(page, '會員首頁');
+  await page.evaluate(() => {
+    const seen: { kind: string; key: string }[] = [];
+    window.addEventListener('freedom-open-channel', event => seen.push((event as CustomEvent<{ kind: string; key: string }>).detail));
+    (window as unknown as { __openedChat?: typeof seen }).__openedChat = seen;
+  });
+  await suggestion(page).getByRole('button', { name: '進入測試資安公會聊天室', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __openedChat?: { kind: string; key: string }[] }).__openedChat)).toEqual([{ kind: 'guild', key: guild.guild_key }]);
+});
+
 test('the home action stays compact, readable and reachable in all themes on desktop and phones', async ({ page }) => {
   test.setTimeout(90000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 1440, height: 900 });
   await stubCard(page, memberCard({ primary_guild: guild, positioning_title: '測試探索者' }));
+  await stubJson(page, '/api/v1/me/skill-books', { items: [] });
+  await stubJson(page, '/api/v1/task-board/preview', { items: [{ work_item_id: 'preview-1', title: '不應顯示的任務標題' }] });
   await login(page);
   const prompt = suggestion(page);
-  const button = prompt.getByRole('button', { name: '前往技能書架', exact: true });
-  await expect(button).toBeVisible();
+  const names = ['前往技能書架', '進入測試資安公會聊天室', '查看社群任務'] as const;
+  for (const name of names) await expect(prompt.getByRole('button', { name, exact: true })).toBeVisible();
+  await expect(prompt).not.toContainText('不應顯示的任務標題');
   for (const [theme, label] of [['light', '自由工坊－明亮'], ['dark', '自由工坊－夜航'], ['versefolk', '自由工坊－敘生']] as const) {
     await page.getByRole('button', { name: '設定', exact: true }).click();
     await page.getByRole('menuitemradio', { name: label, exact: true }).click();
     await page.getByRole('button', { name: '設定', exact: true }).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
-    for (const width of [1440, 390, 320]) {
+    for (const width of [1440, 820, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await expect(prompt.getByText(skillsMessage, { exact: true })).toBeVisible();
-      await button.focus();
-      await expect(button).toBeFocused();
-      const box = await button.boundingBox();
-      expect(box!.height, `${theme} ${width}px action height`).toBeGreaterThanOrEqual(44);
-      expect(box!.width, `${theme} ${width}px action width`).toBeGreaterThanOrEqual(44);
+      const region = await prompt.boundingBox();
+      for (const name of names) {
+        const button = prompt.getByRole('button', { name, exact: true });
+        await expect(button).toHaveAttribute('aria-describedby', 'home-next-step-description');
+        await button.focus();
+        await expect(button).toBeFocused();
+        const box = await button.boundingBox();
+        expect(box!.height, `${theme} ${width}px ${name} height`).toBeGreaterThanOrEqual(44);
+        expect(box!.width, `${theme} ${width}px ${name} width`).toBeGreaterThanOrEqual(44);
+        if (width >= 820) expect(box!.width, `${theme} ${width}px ${name} is not full width`).toBeLessThan(region!.width - 8);
+        expect(await button.evaluate(element => parseFloat(getComputedStyle(element).fontSize)), `${theme} ${width}px ${name} font`).toBeGreaterThanOrEqual(14);
+      }
       expect(await prompt.getByText(skillsMessage, { exact: true }).evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(14);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${theme} ${width}px horizontal overflow`).toBe(true);
       await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);

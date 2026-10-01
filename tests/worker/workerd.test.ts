@@ -86,6 +86,7 @@ test('workerd: strict host, JSON 404 for machine paths, assets with security hea
   for (const path of ['/', '/guilds']) {
     const shell = await call(path);
     assert.equal(shell.status, 200, path); assert.equal(await shell.text(), SHELL);
+    assert.equal(shell.headers.get('x-robots-tag'), null, path);
   }
   const highlights = await call('/highlights');
   assert.equal(highlights.status, 200);
@@ -103,6 +104,19 @@ test('workerd: strict host, JSON 404 for machine paths, assets with security hea
   assert.equal(css.status, 200);
   assert.match(css.headers.get('content-type') ?? '', /text\/css/);
   assert.match(await css.text(), /\.hl-grid/);
+  assert.equal(asset.headers.get('x-robots-tag'), null);
+});
+
+test('workerd marks only the member-card page noindex', async () => {
+  const token = 'a'.repeat(43);
+  for (const path of [`/member-cards/${token}`, `/member-cards/${token}/`]) {
+    const page = await call(path);
+    assert.equal(page.status, 200, path);
+    assert.equal(await page.text(), SHELL, path);
+    assert.equal(page.headers.get('x-robots-tag'), 'noindex, nofollow', path);
+  }
+  assert.equal((await call('/member-cards/short')).headers.get('x-robots-tag'), null);
+  assert.equal((await call(`/member-cards/${token}/extra`)).headers.get('x-robots-tag'), null);
 });
 
 test('workerd: embedded Markdown and CSS match their canonical sources', async () => {
