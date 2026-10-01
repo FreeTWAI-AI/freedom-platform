@@ -682,3 +682,20 @@ test('pause and resume bump the version and reject a no-op', async () => {
   assert.equal(Number((await pool.query('SELECT aggregate_version FROM maintainer_pull_requests WHERE pull_id=$1', [open])).rows[0].aggregate_version), 1);
 });
 
+test('repository mode off rejects claim and assign without a row or a job', async () => {
+  const repository = await insertRepo({}, 'off');
+  const pullId = await insertPull(repository, 51);
+  await asSelf('high');
+  const other = await member('mode-off@example.invalid', '模式關閉');
+  await link(other, '77061', 'mode-off');
+  const reviewerId = await reviewer(other, '77061', 'mode-off', 'high');
+  const claim = await request(`/review-center/pulls/${pullId}/claim`, {}, 1);
+  assert.equal(claim.status, 409);
+  assert.equal(claim.data.code, 'maintainer_claim_unavailable');
+  assert.match(claim.data.detail, /儲存庫已關閉/);
+  const assign = await request(`/review-center/pulls/${pullId}/assign`, { reviewer_id: reviewerId, reason: '模式關閉仍不該指派。' }, 1);
+  assert.equal(assign.status, 409);
+  assert.equal(assign.data.code, 'maintainer_claim_unavailable');
+  assert.equal((await pool.query('SELECT count(*) FROM maintainer_review_claims WHERE pull_id=$1', [pullId])).rows[0].count, '0');
+  assert.equal((await pool.query('SELECT count(*) FROM maintainer_jobs WHERE repository_id=$1', [repository])).rows[0].count, '0');
+});

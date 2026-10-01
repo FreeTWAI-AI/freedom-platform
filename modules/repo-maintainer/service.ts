@@ -36,7 +36,7 @@ const NOT_REVIEWER_SELF = '你不是啟用中的審查者，不能認領給自�
 const NOT_REVIEWER_ASSIGN = '這位審查者目前不是啟用中的審查者，不能指派。';
 const RANK_TOO_LOW = '這位審查者的風險上限低於這次變更，不能認領。';
 const CLAIM_AUTHOR = '審查者不能認領自己開的拉取請求。';
-const CLAIM_UNAVAILABLE = '這個拉取請求目前未開啟、仍是草稿或已暫停，不能認領。';
+const CLAIM_UNAVAILABLE = '這個拉取請求目前未開啟、仍是草稿或已暫停（包括儲存庫已關閉），不能認領。';
 const CLAIM_MISSING = '找不到這個認領。';
 const CLAIM_INACTIVE = '這個認領已經結束。';
 const PULL_ALREADY_PAUSED = '這個拉取請求已經暫停。';
@@ -251,8 +251,8 @@ function requireSelfReviewer(viewer: ReviewCenterViewer & { reviewer: ViewerRevi
   if (!viewer.github_login) throw new Problem(409, 'maintainer_claim_identity_required', IDENTITY_REQUIRED);
   throw new Problem(409, 'maintainer_claim_not_reviewer', NOT_REVIEWER_SELF);
 }
-function assertPullClaimable(pull: { state: string; is_draft: boolean; paused: boolean }) {
-  requireCondition(pull.state === 'open' && !pull.is_draft && !pull.paused, 409, 'maintainer_claim_unavailable', CLAIM_UNAVAILABLE);
+function assertPullClaimable(pull: { state: string; is_draft: boolean; paused: boolean; mode: string }) {
+  requireCondition(pull.state === 'open' && !pull.is_draft && !pull.paused && pull.mode !== 'off', 409, 'maintainer_claim_unavailable', CLAIM_UNAVAILABLE);
 }
 async function claimWrite<T>(pool: Pool, input: AdminCommand, authorize: (q: PoolClient) => Promise<unknown>, run: (q: PoolClient) => Promise<T>): Promise<T> {
   try {
