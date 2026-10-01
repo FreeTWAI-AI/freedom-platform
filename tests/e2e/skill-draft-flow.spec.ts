@@ -532,6 +532,98 @@ test('the upload dialog keeps the same type on the skill shelf and the open-sour
   }
 });
 
+test('member card headings keep their margin outside the upload dialog', async ({ page }) => {
+  await login(page);
+  await navigate(page, '我的名片');
+  const heading = page.locator('.account-panel .member-card-body h4').first();
+  await expect(heading).toBeVisible();
+  await expect(heading).toHaveCSS('margin-top', '0px');
+  await navigate(page, '我可以賣東西');
+  await expect(page.getByRole('heading', { name: '挑選這次想賣的商品', exact: true })).toBeVisible();
+  const photo = page.locator('.shop-product img');
+  if (await photo.count()) await expect(photo.first()).toHaveCSS('object-fit', 'contain');
+});
+
+test('a loading draft refresh stays dim inside the dialog', async ({ page }) => {
+  let gate: Promise<void> | null = null;
+  let release = () => {};
+  await page.route('**/api/v1/me/skill-submissions**', async route => {
+    const path = new URL(route.request().url()).pathname.replace('/api/v1', '');
+    if (route.request().method() === 'GET' && path === '/me/skill-submissions') {
+      if (gate) await gate;
+      return route.fulfill({ json: { items: [] } });
+    }
+    return route.fallback();
+  });
+  await login(page);
+  for (const tab of ['開源投稿', '技能書架'] as const) {
+    await navigate(page, tab);
+    await page.getByRole('button', { name: '上傳技能', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
+    const refresh = dialog.getByRole('button', { name: '重新整理草稿', exact: true });
+    await expect(refresh).toBeEnabled();
+    gate = new Promise(resolve => { release = resolve; });
+    await refresh.click();
+    await expect(refresh).toBeDisabled();
+    await expect(refresh).toHaveCSS('opacity', '0.55');
+    release();
+    gate = null;
+    await expect(refresh).toBeEnabled();
+    await dialog.getByRole('button', { name: '關閉上傳技能', exact: true }).click();
+    await expect(dialog).toBeHidden();
+  }
+});
+
+test('a phone shows a publish conflict in the drafts section', async ({ page }) => {
+  const ready = submission('sub-ready', 'ready_for_review');
+  const problem = { title: '草稿已變更', detail: '這份草稿已在別處更新，請重新整理後再送出。' };
+  await page.route('**/api/v1/me/skill-submissions**', async route => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname.replace('/api/v1', '');
+    if (path.endsWith('/illustration')) return route.fulfill({ status: 200, contentType: 'image/png', body: PNG });
+    if (request.method() === 'POST' && path.endsWith('/publish')) return route.fulfill({ status: 409, contentType: 'application/problem+json', json: problem });
+    if (request.method() === 'GET' && path === '/me/skill-submissions') return route.fulfill({ json: { items: [ready] } });
+    return route.fulfill({ json: ready });
+  });
+  await login(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await navigate(page, '技能書架');
+  await page.locator('.skill-draft-callout').getByRole('button', { name: '預覽並送出', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
+  await settleIllustration(dialog);
+  await dialog.getByRole('button', { name: '送出技能', exact: true }).click();
+  const drafts = dialog.getByRole('region', { name: '我的私人技能草稿', exact: true });
+  const alert = drafts.getByRole('alert');
+  await expect(alert).toHaveText(`${problem.title}：${problem.detail}`);
+  await expect(alert).toHaveClass('banner banner-error');
+  await expectInsideDialog(alert);
+  await expect(drafts.getByText('技能已送出，公開介紹頁已建立。')).toHaveCount(0);
+  await expect(dialog.getByRole('region', { name: '交給 Agent 讀取專案', exact: true }).getByRole('alert')).toHaveCount(0);
+});
+
+test('handing a seeded draft to an agent brings the instruction into view', async ({ page }) => {
+  const seeded = submission('sub-seed', 'awaiting_upload', { seed, source_project_id: 'project-seed' });
+  await page.route('**/api/v1/me/skill-submissions**', async route => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname.replace('/api/v1', '');
+    if (request.method() === 'GET' && path === '/me/skill-submissions') return route.fulfill({ json: { items: [seeded] } });
+    if (request.method() === 'GET') return route.fulfill({ json: seeded });
+    if (path.endsWith('/grant')) return route.fulfill({ json: { submission: { ...seeded, aggregate_version: 2 }, upload_grant: { token: GRANT, expires_at: '2099-01-01T00:00:00Z', submit_url: '/agent-api/v1/skill-submissions/sub-seed' } } });
+    return route.fulfill({ json: seeded });
+  });
+  await login(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await navigate(page, '技能書架');
+  await page.getByRole('button', { name: '上傳技能', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
+  await dialog.getByRole('button', { name: '交給 Agent：種子技能', exact: true }).click();
+  const instruction = dialog.getByLabel('私人上傳指令', { exact: true });
+  const copy = dialog.getByRole('button', { name: '複製', exact: true });
+  await expect(copy).toBeFocused();
+  await expectInsideDialog(instruction);
+  await expectInsideDialog(copy);
+});
+
 for (const theme of ['light', 'dark', 'versefolk'] as const) {
   test(`draft callout and submit footer stay opaque in ${theme}`, async ({ page }) => {
     await page.addInitScript(value => localStorage.setItem('freedom-theme', value), theme);

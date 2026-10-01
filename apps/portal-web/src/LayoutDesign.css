@@ -23,8 +23,8 @@
 /* Two shelves: guild-designated books, then 社群技能書; headings follow the guild page groups. */
 .skill-shelves { display: grid; gap: 28px; min-width: 0; }
 .skill-shelf { display: grid; gap: 12px; min-width: 0; }
-.skill-shelf-heading h2:not(.skill-upload-dialog *) { margin: 0; font-size: 1.125rem; }
-.skill-shelf-heading p:not(.skill-upload-dialog *) { margin: 4px 0 0; font-size: .875rem; }
+.skill-shelf-heading h2:where(:not(.skill-upload-dialog *)) { margin: 0; font-size: 1.125rem; }
+.skill-shelf-heading p:where(:not(.skill-upload-dialog *)) { margin: 4px 0 0; font-size: .875rem; }
 .skills-panel :is(.community-library,.community-skill-library) { gap: 12px; }
 .skills-panel .skill-library-filters { margin: 0; }
 .skills-panel .community-book-grid { margin-top: 0; align-items: start; }

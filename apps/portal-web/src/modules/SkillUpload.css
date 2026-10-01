@@ -20,6 +20,7 @@
 .skill-upload-header h2 { margin: 4px 0 0; font-size: 1.35rem; }
 .skill-upload-header .eyebrow { color: #9ba7ff; font-size: .7rem; }
 .skill-upload-dialog .btn, .skill-upload-trigger { min-height: 44px; }
+.skill-upload-dialog button:disabled { cursor: not-allowed; opacity: .55; }
 .skill-upload-dialog .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .skill-upload-dialog .actions > a:not(.btn) { display: inline-flex; align-items: center; min-height: 44px; }
 .skill-upload-dialog input, .skill-upload-dialog textarea { font-size: 16px; min-height: 44px; max-width: 100%; }
