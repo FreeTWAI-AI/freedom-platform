@@ -21,6 +21,8 @@
 | `POST /members/:id/admin` | `{reason,confirmed:true}`，使用會員 aggregate_version；任命同社群的啟用中會員。已有管理紀錄回409，改用狀態操作。 |
 | `POST /admins/:id/status` | `{active,reason,confirmed:true}`，使用管理員 aggregate_version；不可停用自己，重新啟用須有啟用中的同信箱會員。 |
 | `GET /audit` | `{items}`；最近100筆本站管理操作，包含操作人顯示名、理由、對象、前後狀態與時間。 |
+| `GET /credentials` | `{items}`；固定兩筆，`github_metrics_token`（GitHub 讀取權杖）與 `cloudflare_deploy_token`（Cloudflare 部署權杖）。沒有資料列時 `status` 與 `level` 為 `unknown`。每筆含 `expires_at`、`days_left`、`checked_at`、`source`、`renewable`、`renew_hint`、`open_request`、`last_request`。`days_left` 是到期前的完整 24 小時數；已過期為負數。`level` 為 `expired`（已過期）、`danger`（剩餘 7 天以內，或狀態 `rejected`）、`warning`（剩餘 30 天以內）、`ok`、`unknown`。`open_request` 是尚未結束的續期（`pending` 或 `processing`）；`last_request` 是最近一筆 `done` 或 `failed`。 |
+| `POST /credentials/cloudflare_deploy_token/renewals` | `{}`。寫入一筆 `pending` 續期請求並記 `credential_renewal_request`。已有未結束的請求時回 200 與該筆，不重複建立、不重複記 audit；新建回 201。其他 credential key 回 404。`requested_by` 是同社群、同信箱且啟用中的會員；找不到唯一帳號回 422 `member_account_required`。Worker 不持有 Cloudflare 權杖，這個按鈕只留下請求。 |
 
 核准的 `guild` 格式：
 

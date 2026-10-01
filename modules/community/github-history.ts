@@ -5,6 +5,7 @@ import {guildTitles} from '../positioning/assessment.js';
 import {githubCoordinate} from '../opensource-marketing/github.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import {rankedLeaderboards} from '../../packages/shared/github-leaderboard.js';
+import {platformRepository} from '../development/service.js';
 import repositorySet from '../../repositories.lock.json' with {type:'json'};
 
 export type HistoryCategory = 'platform' | 'official' | 'personal';
@@ -83,7 +84,7 @@ export async function historyRepositories(pool: Pool, actor: Actor): Promise<His
     const priority = {personal: 0, official: 1, platform: 2};
     if (!prior || priority[category] > priority[prior.category]) byName.set(name, {name: value, title, category, url: `https://github.com/${value}`});
   };
-  add('FreeTWAI-AI/freedom-platform', '自由工坊平台', 'platform');
+  add(platformRepository, '自由工坊平台', 'platform');
   for (const entry of repositorySet.repositories) add(entry.repository, entry.repository.split('/')[1], 'platform');
   for (const book of communityCatalog.skill_books) {
     const value = book.upstream_url || book.repository_url;
@@ -136,7 +137,7 @@ export async function githubHistoryPage(pool: Pool, repository: string, kind: Hi
   return {items, has_more: hasMore, checked_at: checkedAt, stale, ...(unavailable ? {unavailable} : {})};
 }
 
-/** Three display-only boards over the repositories this actor can already see. */
+/** Display-only boards. A row counts when its author is an active OAuth-linked member of this community, or it is a page-marked item in the platform repository. */
 export async function githubHistoryLeaderboards(pool: Pool, actor: Actor): Promise<HistoryLeaderboards> {
   const repos = await historyRepositories(pool, actor);
   const keys = repos.map(repo => repo.name.toLowerCase());
@@ -156,17 +157,29 @@ export async function githubHistoryLeaderboards(pool: Pool, actor: Actor): Promi
     }
   }
   const counts = keys.length ? await pool.query<{login: string; ideas: number; edits: number}>(
-    `SELECT min(author_login) AS login,
-            count(*) FILTER (WHERE kind = 'issue')::int AS ideas,
-            count(*) FILTER (WHERE kind = 'pr')::int AS edits
-     FROM github_items
-     WHERE repository_key = ANY($1::text[])
-       AND author_login IS NOT NULL
-       AND btrim(author_login) <> ''
-       AND lower(btrim(author_login)) NOT LIKE '%[bot]'
-       AND lower(btrim(author_login)) NOT IN ('dependabot', 'github-actions')
-     GROUP BY lower(btrim(author_login))`,
-    [keys],
+    `WITH bound AS (
+       SELECT lower(btrim(connection.github_login)) AS login
+       FROM github_social_connections AS connection
+       JOIN users AS member ON member.user_id = connection.user_id
+       WHERE connection.community_id = $2
+         AND member.active
+         AND btrim(connection.github_login) <> ''
+     )
+     SELECT min(item.author_login) AS login,
+            count(*) FILTER (WHERE item.kind = 'issue')::int AS ideas,
+            count(*) FILTER (WHERE item.kind = 'pr')::int AS edits
+     FROM github_items AS item
+     WHERE item.repository_key = ANY($1::text[])
+       AND item.author_login IS NOT NULL
+       AND btrim(item.author_login) <> ''
+       AND lower(btrim(item.author_login)) NOT LIKE '%[bot]'
+       AND lower(btrim(item.author_login)) NOT IN ('dependabot', 'github-actions')
+       AND (
+         lower(btrim(item.author_login)) IN (SELECT bound.login FROM bound)
+         OR (item.repository_key = lower($3) AND cardinality(item.page_ids) > 0)
+       )
+     GROUP BY lower(btrim(item.author_login))`,
+    [keys, actor.community_id, platformRepository],
   ) : {rows: []};
   const boards = rankedLeaderboards(counts.rows.map(row => ({login: row.login, ideas: Number(row.ideas), edits: Number(row.edits)})));
   return {...boards, complete, oldest_synced_at: oldest === null ? null : new Date(oldest).toISOString(), syncing, unreadable};
