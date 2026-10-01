@@ -2000,7 +2000,7 @@
     {
       "path": "docs/development/repo-maintainer.md",
       "bytes": 37975,
-      "sha256": "2a44037239390a32c886cc4ad2e896efa5156e1b4b8f7608788da52c8d222ccc"
+      "sha256": "2cd8b038b7b4505d9f5dafcdcb1528709159a5ee929e1c77049e659599e49306"
     },
     {
       "path": "docs/development/repository-guidance-index.json",
@@ -2080,7 +2080,7 @@
     {
       "path": "docs/plans/repo-maintainer-review-center.md",
       "bytes": 57747,
-      "sha256": "fe071c3eced21ab17b23f7f03a55b5571cc6462713a2ef6f1e8bf73f986a4ab0"
+      "sha256": "3334772e7ac7921cabf54749c1fd8247f62fc003629ab7f19429b06d984e29df"
     },
     {
       "path": "docs/platform-plan/00-current-requirements-baseline.md",
