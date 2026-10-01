@@ -1294,13 +1294,13 @@
     },
     {
       "path": "deploy/cloudflare/README.md",
-      "bytes": 9369,
-      "sha256": "fa76e791a49f727c2a1fe4783be61291d153bc7d4604a4fdef654e4c0ca57aa5"
+      "bytes": 9751,
+      "sha256": "40ad469a6d76b30f0e39b906f955c666efc55a09d989c0b6eac3cd8bdb984cf2"
     },
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30575,
-      "sha256": "28f34a39102d7b1cfd0f3992387edf1158ebecf6e4d7997b9035e5ff07c27c75"
+      "sha256": "453d8170c553fcd8f66580d5cb51031f5ffffb0fdb650584e58c7f3ba6b0f41d"
     },
     {
       "path": "deploy/cloudflare/lib/cloudflare.mjs",
@@ -1374,8 +1374,8 @@
     },
     {
       "path": "deploy/cloudflare/test/preflight.test.mjs",
-      "bytes": 74404,
-      "sha256": "3d7e579dc9c6d1b1cf49b1f1d0b26041caa2124f8e51094a427d9e4fe6c12ca7"
+      "bytes": 74581,
+      "sha256": "8ec21b43f433f154cfeab834bef28fbfe269fd6391f13426b5846d33f4d510bf"
     },
     {
       "path": "deploy/public/freedom-public-backup.service",
