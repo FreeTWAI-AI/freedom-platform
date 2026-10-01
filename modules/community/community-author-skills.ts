@@ -16,7 +16,7 @@ export const communityAuthorSources = {
   'ai-manga-translator':{author:'綠豆',repo:'greenQQQ/ai-manga-translator',sha:'964734a9366b872b4c7ac2069be72124eb3d332e',title:'AI 漫畫圖片翻譯',reading:'README.md',evidence:['README.md','LICENSE'],guilds:[],license:'MIT',reviewed:'2026-09-24'},
   'line-persona':{author:'隊長',repo:'zaxardery8011-design/line-persona',sha:'d07131c9cb45f9037d272a176d7ce788542884f7',title:'LINE 影分身',reading:'README.md',evidence:['README.md','AGENTS.md','LICENSE'],guilds:[],license:'MIT',reviewed:'2026-09-30'},
   'video-to-podcast-toolkit':{author:'jasonlee(J太郎)',repo:'Lee-unhn/video-to-podcast-toolkit',sha:'2ea2f0e6f11533ec08cff4d9db3a46859ec7ed4f',title:'自動 Podcast 剪輯：訪談影片轉上架素材',reading:'README.md',evidence:['README.md','快速上手.md','NOTICE.md','LICENSE'],guilds:[],license:'MIT',reviewed:'2026-10-01'},
-  'autovtuber':{author:'jasonlee(J太郎)',repo:'Lee-unhn/AutoVtuber',sha:'1c4d045d5bf602561953adfe914e033364131600',title:'AutoVtuber：表單生成 VTuber 模型',reading:'README.md',evidence:['README.md','docs/RELEASE_READINESS.md','docs/LICENSES.md','docs/AUTHORIZED_BASE_IMPORT.md'],guilds:[],license:'NOASSERTION',reviewed:'2026-10-01'},
+  'autovtuber':{author:'jasonlee(J太郎)',repo:'Lee-unhn/AutoVtuber',sha:'1c4d045d5bf602561953adfe914e033364131600',title:'AutoVtuber：表單生成 VTuber 模型',reading:'README.md',evidence:['README.md','AUTOVTUBER.md','docs/RELEASE_READINESS.md','docs/LICENSES.md','docs/AUTHORIZED_BASE_IMPORT.md'],guilds:[],license:'NOASSERTION',reviewed:'2026-10-01'},
   'coding-audit-harness':{author:'小艾老師',repo:'weiwei-alvin/Coding-Audit-Harness',sha:'c4526624f65530c009c57b9add233b1060fa01df',title:'Coding Audit Harness：AI 寫的程式，驗過才算數',reading:'README.md',evidence:['README.md','LICENSE','skills/matt-upstream/UPSTREAM.md'],guilds:[],license:'MIT',reviewed:'2026-10-01'},
 } satisfies Record<string,AuthorSource>;
 type Id=keyof typeof communityAuthorSources;
@@ -113,7 +113,7 @@ const details:Record<Id,Details>={
   'video-to-podcast-toolkit':{
     format:'本機 Podcast 素材產生工具',summary:'把一支訪談影片在本機轉成 Podcast 音檔、三種海報、直式短影音、文案與字幕。',
     audience:['經營訪談節目或 Podcast 的內容工作者','想研究影音自動化流程的開發者'],
-    status:'MIT 授權只涵蓋原始碼；品牌素材、字型、來賓照片與第三方工具依 NOTICE.md 各自授權，repo 不附。轉錄在本機以 Whisper 執行，標題、金句、文案與字幕校對會把文字送到 Google Gemini API，免費額度有限，付費等級另計。首次需下載約 3 GB 模型；原作記錄 30 分鐘影片以 CPU 處理約需 50 分鐘。音檔預設不足 30 分鐘會自動補長，可調整 min_duration_sec。Windows .exe 打包仍待在 Windows 上完成。',
+    status:'MIT 授權只涵蓋原始碼；品牌素材、字型、來賓照片與第三方工具依 NOTICE.md 各自授權，repo 不附。轉錄在本機以 Whisper 執行，標題、金句、文案與字幕校對會把文字送到 Google Gemini API，免費額度有限，付費等級另計。首次需下載約 3 GB 模型；原作估計 30 分鐘訪談完整跑完約需 50 分鐘，九成時間花在 CPU 上的 Whisper 轉錄。音檔預設不足 30 分鐘會自動補長，可調整 min_duration_sec。Windows .exe 打包仍待在 Windows 上完成。',
     features:['Whisper 本機轉錄，加上可在設定頁維護的中文錯字字典與繁體 SRT 字幕','產出套用響度正規化的 m4a、橫式／直式／方形三種海報，以及燒入字幕的直式短影音','設定頁調整節目品牌字、降噪、短影音規格與錯字字典，不必改程式'],
     prerequisites:['Python 3.11 以上，以及含 libass 的 ffmpeg 8 以上','自己申請的 Gemini API key，只在本機設定頁私下填寫，不放進 repo 或對話','已取得來賓同意的訪談影片，以及自備、有權使用的品牌字型與素材'],
     first_steps:['依 README 以 scripts/setup_env.sh 與 scripts/serve.sh（Windows 用 啟動.bat）啟動本機 Web UI，首次會下載約 3 GB 的 Whisper 模型。','在設定頁私下填自己的 Gemini key 與節目品牌字；音檔預設補長到 30 分鐘，測試前依需要調整 min_duration_sec。','上傳一支約 5 分鐘、已取得來賓同意的影片，逐一核對音檔、字幕錯字、海報文字與短影音段落，把需修正的詞加進錯字字典。'],
@@ -124,9 +124,9 @@ const details:Record<Id,Details>={
   'autovtuber':{
     format:'本機 VTuber 模型生成工作站',summary:'填寫角色表單，在本機依序產生概念圖、3D 臉型與可載入 VSeeFace 的 VRM 模型。',
     audience:['想做自己 VTuber 角色的創作者','研究本機生成式 3D 流程的開發者'],
-    status:'Beta 階段。Repo 沒有 LICENSE 檔；README 標示 MIT，但原作發佈文件記載程式授權仍待作者決定，因此收錄為 NOASSERTION，重用或散布前先向作者確認。Repo 不附可用於產品的 VRM 底模：VRoid AvatarSample 條款禁止用於角色建立服務，預設會阻擋生成，需自備或另行取得授權的 VRM 0.x 底模。需 NVIDIA GPU（原作測試機為 RTX 3060 12GB）與多個本機模型，各模型授權另計；Windows 打包與 VSeeFace／Warudo 實機驗收尚未完成。',
-    features:['PySide6 表單輸入髮色、眼色、個性、風格與暱稱，依序串接 Ollama、SDXL、TripoSR 與 VRM 組裝','輸出含 ARKit 52 表情的 VRM 0.x 模型，以及概念圖、角色人設、對話設定與聲音預覽','HardwareGuard 監控 VRAM、溫度與記憶體，一次只載入一個模型，超過門檻即中止'],
-    prerequisites:['建議 Windows 電腦與 NVIDIA GPU（原作以 RTX 3060 12GB、16GB RAM 測試），Python 3.12','自己擁有或另行取得授權的 VRM 0.x 底模，依 docs/AUTHORIZED_BASE_IMPORT.md 在本機註冊','閱讀 docs/LICENSES.md，確認 SDXL、AnimagineXL 等模型權重的授權與標示要求'],
+    status:'Beta 階段。Repo 沒有 LICENSE 檔；README 標示 MIT，但原作發佈文件記載程式授權仍待作者決定，因此收錄為 NOASSERTION，重用或散布前先向作者確認。Repo 不附可用於產品的 VRM 底模；原作發佈文件判定 VRoid AvatarSample 不可作角色建立服務的產品底模，預設會阻擋生成，需自備或另行取得授權的 VRM 0.x 底模。需 NVIDIA GPU（原作測試機為 RTX 3060 12GB）與多個本機模型，各模型授權另計；Windows 打包與 VSeeFace／Warudo 實機驗收尚未完成。原作者 2026-07-12 記錄將轉向使用者自捏 VRoid 底模、AI 只產生貼圖的路線，本書介紹的是固定版本現有的表單流程。',
+    features:['PySide6 表單輸入髮色、眼色、個性、風格與暱稱，依序串接 Ollama、SDXL、TripoSR 與 VRM 組裝','輸出含 ARKit 52 表情的 VRM 0.x 模型，以及概念圖、角色人設、對話設定與聲音預覽','HardwareGuard 每秒檢查 VRAM、GPU 溫度、記憶體與磁碟，超標就中止或先降溫；ModelLoader 讓 GPU 上一次只有一個重模型'],
+    prerequisites:['Windows 電腦與 VRAM 10 GB 以上的 NVIDIA GPU（驅動 550 以上，啟動時會檢查；原作以 RTX 3060 12GB、16GB RAM 測試），Python 3.12','自己擁有或另行取得授權的 VRM 0.x 底模，依 docs/AUTHORIZED_BASE_IMPORT.md 在本機註冊','閱讀 docs/LICENSES.md，確認 SDXL、AnimagineXL 等模型權重的授權與標示要求'],
     first_steps:['先讀 docs/RELEASE_READINESS.md 與 docs/LICENSES.md，確認目前限制與各模型授權。','依 README 安裝依賴，複製 config.example.toml 並填入模型路徑，核對 GPU 與磁碟空間。','備妥可用的 VRM 0.x 底模並在本機註冊後，填一份測試角色表單，把輸出的 .vrm 載入 VSeeFace 檢查。'],
     first_result:'一份記錄硬體、模型路徑、底模授權與試跑輸出的環境檢查紀錄。',
     contribution:'向 jasonlee(J太郎) 的原作回饋 Windows 實機驗收、底模準備說明或安裝問題；附硬體與設定紀錄，不散布未授權的底模、模型權重或其衍生輸出。',
