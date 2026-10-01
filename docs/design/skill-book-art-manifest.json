@@ -2,7 +2,7 @@
   "generated_at": "2026-09-23",
   "mode": "builtin-imagegen",
   "style_anchor": "apps/portal-web/public/brand/freedom-workshop.webp",
-  "description": "37 separately generated original skill-book covers. No original logo edits; only mechanical WebP encoding for delivery.",
+  "description": "38 separately generated original skill-book covers. No original logo edits; only mechanical WebP encoding for delivery.",
   "assets": [
     {
       "id": "career-guide",
@@ -393,7 +393,19 @@
       "generated_at": "2026-09-24",
       "mode": "builtin-imagegen",
       "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-d34dd687-0ecb-49ab-bb0e-c4d11032076c.png"
+    },
+    {
+      "id": "open-seo-advisor",
+      "prompt": "Use case: stylized-concept. Asset: one original skill-book cover for Freedom Workshop. Square composition. Futuristic polished chrome hardcover book floating at a three-quarter angle with electric blue cover, acid lime page edges and sculpted emblem. Black charcoal backdrop, acid lime #c4ff20, electric cobalt #3044ff, restrained orbital line and four-point star accents, generous dark margins, premium 3D render, clear silhouette at thumbnail size. No words, letters, numbers, logos, watermark, collage, medieval objects. Subject emblem: a chrome magnifying glass examining a simple website page wireframe beside a small sitemap node tree and a check-mark shield, no upward ranking arrow or trophy",
+      "path": "apps/portal-web/public/art/skills/open-seo-advisor.webp",
+      "width": 768,
+      "height": 512,
+      "bytes": 36260,
+      "sha256": "ba356c725d454c9a90e3ce0a7738131d5899dcad15f2010b7f3f597cc7a94bcf",
+      "generated_at": "2026-10-01",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0f6fe-6efc-7c71-8062-d4d470adbc0a/call_NxICI40zHBCoKok0cTjOGGCq.png"
     }
   ],
-  "updated_at": "2026-09-24"
+  "updated_at": "2026-10-01"
 }
