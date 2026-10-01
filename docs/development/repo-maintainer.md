@@ -22,7 +22,7 @@
 | 推導 | `modules/repo-maintainer/derive.ts` | `rederivePull`：用已存的鏡像、子表、啟用中的審查者、`migration_reasons` 與進行中的認領重算一筆。不重新推導遷移原因 |
 | Webhook | `POST /api/v1/maintainer/github/webhook` | 驗簽、正規化、寫一筆投遞、必要時排入 `reconcile_pull`。不呼叫 GitHub。只有這個精確的 POST 在會員驗證之前；同一路徑的 GET 回 401 `login_required` |
 | 維護 Worker | `apps/platform-api/src/maintainer-worker.ts` | 每分鐘跑一次 tick：安裝同步、認領生命週期、掃 open PR、執行工作 |
-| 管理 API 與頁面 | `/admin/api/review-center/*`、後台「PR 審核」 | 讀鏡像、認領、指派、暫停、改儲存庫模式與設定、指派審查者。見 [platform-admin-api.md](platform-admin-api.md) |
+| 管理 API 與頁面 | `/admin/api/review-center/*`、後台「PR 審核」 | 讀鏡像、認領、指派、暫停、改儲存庫模式與設定、任命審查者。見 [platform-admin-api.md](platform-admin-api.md) |
 
 Webhook 只是提示。漏掉的投遞不會由 GitHub 重送。Worker 每 30 分鐘掃一次到期的儲存庫，把新的、`updated_at` 或 head SHA 變了的、以及清單裡已經不見的 open PR 排進去重算。清單裡沒變、但鏡像已舊的 open PR 也會重算：`synced_at` 超過 10 分鐘，而且佇列是 `waiting_ci` 或 `mergeable` 仍是空的；或者 `synced_at` 超過 6 小時。這種重新整理每次掃描最多 20 筆，`synced_at` 舊的先排。新的、有變的、以及清單裡不見的不受這 20 筆限制。
 
@@ -111,11 +111,11 @@ npx wrangler tail --config <maintainer-overlay.jsonc> --env staging-next --forma
 
 ## 階段 1b：認領
 
-一筆認領綁一位審查者與一個拉取請求，到期時間是現在加上該儲存庫的 `claim_hours`（1–168，預設 24）。同一筆拉取請求同時只能有一筆 `state=active` 的認領。自己認領或被指派都一樣。認領當下的 head SHA 記在認領上，只供對照，不拿來判斷審查算不算數。
+一筆認領綁一位審查者與一個拉取請求，到期時間是現在加上該儲存庫的 `claim_hours`（1–168，預設 24）。同一筆拉取請求同時只能有一筆 `state=active` 的認領。自己認領或被指派都一樣。認領當下的 head SHA 記在認領上，只供對照，不拿來判斷審查算不算數。儲存庫模式是 `off`、拉取請求不是 open、仍是草稿，或該筆已暫停，都不能認領或指派。
 
-進行中、而且 `expires_at` 還在未來的認領，只會把原本的 `awaiting_review`，或原因含 `high_risk_requires_owner` 的 `needs_owner`，改成 `in_review`，並加上 `review_claimed`。merged、closed、paused、draft、非預設分支、needs_author、waiting_ci、ci_not_run、ready 都不會被認領蓋掉。過期的認領不算。
+進行中、而且 `expires_at` 還在未來的認領，只會把原本的 `awaiting_review`，或原因含 `high_risk_requires_owner` 的 `needs_owner`，改成 `in_review`，並加上 `review_claimed`。原因寫成「某帳號已認領這次審查，到期後會自動釋放。」沒有帶這筆認領時的預設句是「已有審查者認領這次審查。」剩餘時間由畫面顯示，原因裡不放時間。merged、closed、paused、draft、非預設分支、needs_author、waiting_ci、ci_not_run、ready 都不會被認領蓋掉。過期的認領不算。
 
-Tick 在重新推導之前，用資料庫結束認領，每一步都是一筆 `UPDATE … RETURNING`，而且仍要求 `state=active`，所以較早的條件先算：
+Tick 在重新推導之前結束認領。每一步先依 `pull_id` 順序鎖住候選的拉取請求，再更新那些拉取請求上仍是 `active` 的認領，所以較早的條件先算：
 
 1. `expires_at` 已到 → `expired`。`end_reason` 維持空。
 2. 拉取請求已關閉或已合併 → `released`，`end_reason=pull_closed`。
@@ -135,23 +135,23 @@ Tick 在重新推導之前，用資料庫結束認領，每一步都是一筆 `U
 2. 維護 Worker 的 `GITHUB_MAINTAINER_WRITES` 正好是 `requested_reviewers`。Committed 的值是 `off`。沒給、或任何其他字（含大小寫不同）都當成 `invalid`，不會寫。
 3. 該儲存庫設定 `request_reviewers` 是 true。
 
-認領或指派時，設定是 true 就把 `github_request_state` 設成 `pending` 並排入 `request_reviewer`；否則是 `not_requested`，不排工作。工作執行當下會再讀這三個開關。不允許就標 `skipped`（`writes_disabled`），不呼叫 GitHub。認領已經不是 active 就標 `skipped`（`claim_inactive`）。
+認領或指派時，設定是 true 就把 `github_request_state` 設成 `pending` 並排入 `request_reviewer`；否則是 `not_requested`，不排工作。工作執行當下會再讀這三個開關。請求工作在狀態仍是 `pending` 時，不允許就標 `skipped`（`writes_disabled`），不呼叫 GitHub。認領已經不是 active、但狀態仍是 `pending`，就標 `skipped`（`claim_inactive`）。狀態已經不是這次工作預期的 `pending`（請求）或 `removing`（移除）時，不更新那一列，工作以 `claim_state_changed` 結束。這樣重跑不會把已經 `requested` 或 `removed` 的列改成 `skipped`。
 
 允許時，只為那一個儲存庫鑄 `{ metadata: read, pull_requests: write }` 的 token，然後 `POST` 或 `DELETE /repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers`，body 是 `{ "reviewers": ["<這位審查者的 login>"] }`。不碰其他人，也不碰 team reviewer。POST 201 是 `requested`，DELETE 200 是 `removed`。成功只看狀態碼；回應正文可能是整份拉取請求，超過 64 KiB 也不當成錯誤，因為 GitHub 已經套用，重試會再寫一次。
 
 422、沒有速率限制標頭的 403，或 token 沒有 pull_requests write，標 `failed` 且不重試。鑄 token 時的 403（無速率限制標頭）或 422 同樣標 `github_permission_missing`，不重試。速率限制、預算與時間沿用既有規則：放回工作、不計入這一次嘗試。Login 只是顯示用，改名之後可能過期；422 可以是這個人不是 collaborator，或 login 已經改了。
 
-認領若在 POST 回來之前被放開，工作不握著列鎖。201 之後再鎖一次認領：仍是 active，或結束原因是 `pull_closed`，就標 `requested`（GitHub 在審查送出或拉取請求關閉時會自己清掉請求）。其他結束原因改成 `removing` 並排入 `remove_reviewer_request`，避免放開之後 GitHub 上還留著請求。
+認領若在 POST 回來之前被放開，工作不握著列鎖。201 之後再鎖一次認領：仍是 active，或結束原因是 `pull_closed`，就標 `requested`。GitHub 會在這個人送出審查之後清掉請求；拉取請求關閉時，請求留在原處，維護者也留著，不另外移除。其他結束原因改成 `removing` 並排入 `remove_reviewer_request`，避免放開之後 GitHub 上還留著請求。
 
 ### 在畫面上暫停一筆
 
-後台「PR 審核」打開該筆，填理由後按「暫停自動處理」。這只把該筆的 `paused` 設成 true，不改儲存庫模式，也不放開認領。恢復時再填理由。儲存庫整個關掉仍用模式 `off`。
+後台「PR 審核」打開該筆，填理由後按「暫停自動處理」。這把該筆的 `paused` 設成 true，並把 `aggregate_version` 加一，不改儲存庫模式，也不放開認領。已經暫停再暫停回 409 `maintainer_pull_already_paused`；沒有暫停卻恢復回 409 `maintainer_pull_not_paused`。即使佇列狀態不變（例如已合併或已關閉），版本也會增加，舊的 If-Match 得到 412。恢復時再填理由。儲存庫整個關掉仍用模式 `off`。模式 `off` 的拉取請求不能認領或指派，跟單筆暫停一樣回 409 `maintainer_claim_unavailable`。
 
 ## 暫停
 
 任選一種，效果由快到慢：
 
-1. 在管理 API 把儲存庫 `mode` 設成 `off`。Webhook 改記 ignored，tick 不再掃這個儲存庫，也不跑它的 `reconcile_pull`。已經排進去的 `request_reviewer` 與 `remove_reviewer_request` 仍會跑，因為那是人認領之後的寫入，跟觀察模式無關；沒開上面三個開關時，這些工作會標 `skipped`，不會呼叫 GitHub。單筆暫停用上一節，不需要把整個儲存庫關掉。
+1. 在管理 API 把儲存庫 `mode` 設成 `off`。Webhook 改記 ignored，tick 不再掃這個儲存庫，也不跑它的 `reconcile_pull`。已經排進去的 `request_reviewer` 與 `remove_reviewer_request` 仍會跑，因為那是人認領之後的寫入，跟觀察模式無關。請求工作在三個開關沒開時標 `skipped`，不會呼叫 GitHub。移除工作在開關關掉時標 `failed`（`writes_disabled`），因為 GitHub 上可能還留著請求。單筆暫停用上一節，不需要把整個儲存庫關掉。
 2. 刪掉平台 Worker 的 `GITHUB_MAINTAINER_WEBHOOK_SECRET`。Webhook 回 503，已經在佇列裡的工作仍會跑。
 3. 在 Cloudflare 停掉這支 Worker 的 cron。
 4. 刪掉維護 Worker。刪的是 `freedom-maintainer-staging-next` 或 `freedom-maintainer-next`，不是平台 Worker。
@@ -184,6 +184,6 @@ npx wrangler delete --config <maintainer-overlay.jsonc> --env next
 - 資料庫必須恰好有一個社群，否則 tick 失敗。Hyperdrive 必須 caching disabled，而且一個資料庫一份設定。列租約用單次 `UPDATE ... FOR UPDATE SKIP LOCKED`，不使用 session advisory lock，避免 transaction 模式的連線池把鎖留在別的連線上。
 - 安裝清單或儲存庫清單若被頁數上限截斷，不會把沒出現的儲存庫標成 removed。Open PR 清單被截斷時，仍排新的、有變的，以及最多 20 筆已列出的舊鏡像，但不把沒出現的視為已關閉。
 - 認領當下用的是已經存著的 `risk_class`，不是當場重算。若鏡像還是舊的低風險，低上限的審查者可能先認領成功；下一次 tick 把風險升上去之後，會以 `reviewer_rank_too_low` 放開。
-- Tick 先鎖認領再鎖拉取請求。認領 API 先鎖拉取請求再新增認領。兩條路交錯時可能死鎖一次；tick 碰到 `40P01` 會重試那一步一次。API 不重試。
-- 移除請求時若 Worker 變數或儲存庫設定已經關掉，工作標 `skipped`（`writes_disabled`），GitHub 上可能還留著這位 requested reviewer。要清掉就得把三個開關打開再跑，或到 GitHub 上手動移除。
+- 寫入順序一律先鎖拉取請求列，再鎖認領列。釋放認領先讀認領取得 `pull_id`（不鎖），再鎖拉取請求，然後才鎖認領並重查 `active` 與版本。Tick 結束認領時先依 `pull_id` 鎖住候選拉取請求，再更新認領。Tick 碰到 `40P01` 仍把那一步重試一次。API 不重試，把 `40P01` 回成 409 `maintainer_write_conflict`；交易已回復，用同一個 Idempotency-Key 再送是安全的。
+- 移除請求時若 Worker 變數或儲存庫設定已經關掉，認領標 `failed`（`writes_disabled`），工作失敗。GitHub 上可能還留著這位 requested reviewer。要清掉就得把三個開關打開再跑，或到 GitHub 上手動移除。
 - `requested_reviewers` 欄位只鏡像使用者（`id` 與 `login`），給畫面與生命週期用。`requested_teams` 不存。這欄不是審查證據。
