@@ -69,8 +69,8 @@
     },
     {
       "path": "apps/platform-api/src/generated/runtime-text.ts",
-      "bytes": 29887,
-      "sha256": "f4d5da480bd4e2ec79f24f538809a5926fe3dd4481dc0e773b31ae61cd854c06"
+      "bytes": 30114,
+      "sha256": "b2843a3df251e9507981c1be50189dc5409727963fe13457f822a9cb68e91505"
     },
     {
       "path": "apps/platform-api/src/module-context.ts",
@@ -84,8 +84,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 22619,
-      "sha256": "739653bc8dc500ee3ca6b2d41005e72268e06350a566ff93eeff877635e777a1"
+      "bytes": 22923,
+      "sha256": "3cb1f3b398c423ebe9cc51070dcc0591fdad13b4d8a25a1ba5e1069e1ddef717"
     },
     {
       "path": "apps/platform-api/src/readiness.ts",
@@ -94,8 +94,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/admin.ts",
-      "bytes": 7679,
-      "sha256": "95080249d2a0bec9efdb11fc17404c2ce37d3c43c1d857432494bdc471b88d97"
+      "bytes": 7732,
+      "sha256": "be1757b6d89a0874259b3d44f3b1875de39cb724a4dec21122949ccaa5f524af"
     },
     {
       "path": "apps/platform-api/src/routes/agent-commerce.ts",
@@ -164,8 +164,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/opensource.ts",
-      "bytes": 1899,
-      "sha256": "388cfe85065e5cbbdc2fb974fdacc62b243ca76086d0b2f0d2ee9f9f77c216a1"
+      "bytes": 1985,
+      "sha256": "0264f1235cc69998c5831b06b663f9cd6af5a340f73f724357c7185e9dbc2872"
     },
     {
       "path": "apps/platform-api/src/routes/positioning.ts",
@@ -179,8 +179,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/repo-author-claims.ts",
-      "bytes": 2454,
-      "sha256": "a02b059d9d5497781053b9c4e89d3ab69a1fe7c51390291d43dccb26c9629268"
+      "bytes": 2522,
+      "sha256": "46ee2ff02f2ea2f026c3294701b7aa05f84d9f1ae22013f5a36335b85a9bad94"
     },
     {
       "path": "apps/platform-api/src/routes/skill-discovery.ts",
@@ -189,8 +189,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/skill-submissions.ts",
-      "bytes": 7784,
-      "sha256": "6aa6aa661608413ffae543879433ad915f0854a74a576578b994e5d673942437"
+      "bytes": 9048,
+      "sha256": "41a7194e72fc3213be63a1b5872fc9cf33f386e7a422fd6082e9e841f3d21c87"
     },
     {
       "path": "apps/platform-api/src/runtime.ts",
@@ -689,8 +689,8 @@
     },
     {
       "path": "apps/portal-web/src/api.ts",
-      "bytes": 12480,
-      "sha256": "da86ee831cc01006355d457d30c582df39b4a0721a636fd6ec09066779a3ca4d"
+      "bytes": 15042,
+      "sha256": "dcc4c24a1431bac1a98401e6e589b14087da53abfc951853d2c99b2111b32feb"
     },
     {
       "path": "apps/portal-web/src/format.ts",
@@ -1024,8 +1024,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/OpenSourcePanels.tsx",
-      "bytes": 21066,
-      "sha256": "243e21703bdc7201f87cd5c1618468f2f56214d96f3308dca57a8d371841d975"
+      "bytes": 21112,
+      "sha256": "1f4e2126aa92003baf07474636f5d165305e80a2f63232e8f3fb94983dbc74f6"
     },
     {
       "path": "apps/portal-web/src/modules/PositioningPanels.tsx",
@@ -1089,13 +1089,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/SkillUpload.css",
-      "bytes": 4034,
-      "sha256": "10aa0530322034d1ecaba02ec690633e9924b01f8939dfe1250c89614d2ee70e"
+      "bytes": 4432,
+      "sha256": "3139540d361a3033ce36d08629dd95dfec94ac1f54cae6b909d7e63254df13ca"
     },
     {
       "path": "apps/portal-web/src/modules/SkillUpload.tsx",
-      "bytes": 22760,
-      "sha256": "0924c7bf4b8189a0f0140b1f4a15afcc3aa929049db75169c773fe58424a03cc"
+      "bytes": 30689,
+      "sha256": "7827ffcf9a2ca5cf48a643574e4da472854d9980ca068ea2056ec5f4beb3e582"
     },
     {
       "path": "apps/portal-web/src/modules/SkillsPanel.tsx",
@@ -1161,6 +1161,11 @@
       "path": "apps/portal-web/src/modules/skill-discovery-client.ts",
       "bytes": 3228,
       "sha256": "d84d73b5e606074d4fd65fb504a6af854d7057b07a01de91b13a33e19b664bf0"
+    },
+    {
+      "path": "apps/portal-web/src/modules/skill-upload-chat.ts",
+      "bytes": 2272,
+      "sha256": "afa57514a1950504c0e463f54dc39a6bdee0885a81580bff2c5a42253f4e5be1"
     },
     {
       "path": "apps/portal-web/src/page-help.ts",
@@ -3044,8 +3049,8 @@
     },
     {
       "path": "modules/co-creation/github.ts",
-      "bytes": 10072,
-      "sha256": "aa1f25458d4f9452be46123d02759d149557af638ec855fe1b272fc0d3e26c83"
+      "bytes": 10001,
+      "sha256": "988120fe8972e2c5c35d53690774d85cfab8bb8451f442d0a7fb607a818af7c8"
     },
     {
       "path": "modules/co-creation/service.ts",
@@ -3089,8 +3094,8 @@
     },
     {
       "path": "modules/community/repo-author-claims.ts",
-      "bytes": 30682,
-      "sha256": "4a30d7a54b43f3a063ba630917b8716ce02fe5cad6625b1f10376d55d169b498"
+      "bytes": 31125,
+      "sha256": "9e7a0c434f268e8ac2626460730ccd4aa784ff086a7dc4e6849b6684e4706b1b"
     },
     {
       "path": "modules/community/share-introductions/agent-kit.json",
@@ -3409,13 +3414,13 @@
     },
     {
       "path": "modules/opensource-marketing/github.ts",
-      "bytes": 9264,
-      "sha256": "ce18775fceba43def3e03f85f2672bc35e206aa2b3ec7e755285ee61d83cb512"
+      "bytes": 12216,
+      "sha256": "847257ba5682eb0bc8bd5105eaa7c68717a584c10fde00f46f011f868dc25c14"
     },
     {
       "path": "modules/opensource-marketing/service.ts",
-      "bytes": 14749,
-      "sha256": "079386885edfc051ad66280527dbe9ecf6d2830587fa540e668c5fb428de343d"
+      "bytes": 15015,
+      "sha256": "16dcb4701f34076dd97d12e33e7889e512fb0ba3f1cc9d4190364eceb6ad83e9"
     },
     {
       "path": "modules/opportunity-project-work/business.ts",
@@ -3489,8 +3494,8 @@
     },
     {
       "path": "modules/skill-submissions/service.ts",
-      "bytes": 23945,
-      "sha256": "e46b824f276a5f9004279fb069fe8e17a1dac48775d765b36bfa56cf9c4e2607"
+      "bytes": 24912,
+      "sha256": "ed29b0550a755b30aa81c2d55f5f9f7904597ed816a34e47c43b46f1a52e65f0"
     },
     {
       "path": "package-lock.json",
@@ -3624,8 +3629,8 @@
     },
     {
       "path": "packages/skill-upload-client/protocol.md",
-      "bytes": 4293,
-      "sha256": "a67029c52297451604723231e9de9b50d5f1ed5747e3e110b0d5daa27d5b516c"
+      "bytes": 4518,
+      "sha256": "91835525c794fd1479298ca2080332bc7ac74e421d62424015038769fbbb89ca"
     },
     {
       "path": "packages/skill-upload-client/test/cli.test.mjs",
@@ -4024,8 +4029,8 @@
     },
     {
       "path": "tests/e2e/skill-upload.spec.ts",
-      "bytes": 22758,
-      "sha256": "ef4dd85dc01b7e1af77c346042473d0dea19cd85848c8f16db6c6da2019b957a"
+      "bytes": 29084,
+      "sha256": "d1d01b9780daca3e2c206084655c473f99c390a6b745ddb815bb5d8d4d70a348"
     },
     {
       "path": "tests/e2e/social-links.spec.ts",
@@ -4173,6 +4178,11 @@
       "sha256": "664a5305aa5536a645d547d9dc417c6f5565bad47a543ef02dd962f971fb54aa"
     },
     {
+      "path": "tests/runtime/github-repository-read.test.ts",
+      "bytes": 6831,
+      "sha256": "461a3055180d99f66ffcc990ed4c514eb1685e0962286029d3b589dca9650bcf"
+    },
+    {
       "path": "tests/runtime/github-social-routes.test.ts",
       "bytes": 16167,
       "sha256": "ee6660a9e2edd2801ffa814366476612bd9c6b92ee7a5f17bb26d6b40257e3ef"
@@ -4304,8 +4314,8 @@
     },
     {
       "path": "tests/runtime/portal-client-recovery.test.ts",
-      "bytes": 9699,
-      "sha256": "e0eab934b588bcc44505701d39e904b52341431066484c5723c5c7ad31f2c8e7"
+      "bytes": 11491,
+      "sha256": "db25b5c20da240196c7fe0d42812dd6e54a93e630b29eb8c3626d71f166be20b"
     },
     {
       "path": "tests/runtime/positioning.test.ts",
@@ -4324,8 +4334,8 @@
     },
     {
       "path": "tests/runtime/repo-author-claims.test.ts",
-      "bytes": 35299,
-      "sha256": "5013cb4ba543cbe127051a6637b39d7dbb987d911c4ad95122b496506d46657a"
+      "bytes": 37822,
+      "sha256": "84ee81644aec615b1d76662b5b0932616dbc26be5a1e12c1d1e6c48964b91020"
     },
     {
       "path": "tests/runtime/skill-book-guides.test.ts",
@@ -4359,8 +4369,13 @@
     },
     {
       "path": "tests/runtime/skill-submissions.test.ts",
-      "bytes": 33967,
-      "sha256": "592c03a5b2ecf21b409eb93dd4620ba8fc6fa5fccc5d5bd836e596c8cddf13a5"
+      "bytes": 40141,
+      "sha256": "818a2415efc475832f1a2994a66d0186a6c8df5e4d98d58e2b1fa06034f407f5"
+    },
+    {
+      "path": "tests/runtime/skill-upload-chat.test.ts",
+      "bytes": 1481,
+      "sha256": "5e443a5d27fcaf083aba974d02bbbd110fe9404b1ba050b37d67abbe4ef87c46"
     },
     {
       "path": "tests/runtime/skill-upload-client.test.ts",
