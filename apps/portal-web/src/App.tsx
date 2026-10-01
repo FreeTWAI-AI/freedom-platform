@@ -20,6 +20,7 @@ import { MemberTasks } from './modules/MemberTasks'
 import { MemberMessages } from './modules/MemberMessages'
 import { EventsPanel } from './modules/EventsPanel'
 import { SocialZone } from './modules/SocialZone'
+import { MemberServices } from './modules/MemberServices'
 import { PromotionBoards } from './modules/PromotionBoards'
 import {PublicEventPage} from './modules/PublicEventPage'
 import { TaskBoardPanel } from './modules/TaskBoardPanel'
@@ -96,6 +97,7 @@ const TAB_GUIDANCE: Record<TabId, string> = {
   events: '查看社群活動、審核結果與報名狀態。',
   tasks: '探索工坊工作、GitHub Issue／PR 歷史與作者排行榜，查看有來源的驗收紀錄。',
   social: '分享社群貼文連結。每次有人點開只顯示在社群推廣排行榜。',
+  services: '列出社員的本業服務。用你的連結分享出去，點擊計入業務推廣排行榜。服務頁是公開的。',
   promotion: '查看六種分享的點擊排行。分數只供比較，不計入經驗或驗收。',
 }
 
@@ -630,6 +632,7 @@ function Workspace({
             {tab === 'events' && <EventsPanel client={client} session={session} />}
             {tab === 'tasks' && <TaskBoardPanel client={client} onNavigate={selectTab} />}
             {tab === 'social' && <SocialZone client={client} />}
+            {tab === 'services' && <MemberServices client={client} />}
             {tab === 'promotion' && <PromotionBoards client={client} />}
             {tab === 'skills' && <SkillsPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'squads' && <SquadsPanel client={client} session={session} onNavigate={selectTab} />}

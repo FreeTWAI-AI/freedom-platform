@@ -17,7 +17,7 @@ const COPY: Record<Kind, {title: string; how: string; label: string}> = {
   platform: {title: '平台推廣排行榜', label: '平台', how: '分享自由工坊連結，每次點擊 +1。'},
   skill_book: {title: '技能推廣排行榜', label: '技能', how: '從技能書架分享技能書，每次點擊 +1。'},
   social_post: {title: '社群推廣排行榜', label: '社群', how: '在社群分享專區分享貼文，每次點擊 +1。'},
-  member_service: {title: '業務推廣排行榜', label: '業務', how: '社員服務分享區開放後，每次點擊 +1。'},
+  member_service: {title: '業務推廣排行榜', label: '業務', how: '在社員服務分享區分享社員的服務，每次點擊 +1。'},
   event: {title: '活動推廣排行榜', label: '活動', how: '分享社群活動，每次點擊 +1。'},
 };
 const WORKSHOP_TEXT = '自由工坊：加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。';

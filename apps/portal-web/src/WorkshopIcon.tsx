@@ -24,6 +24,7 @@ const paths: Record<TabId, string> = {
   events:'M4 5h16v16H4Zm0 5h16M8 3v4m8-4v4m-8 7h3m3 0h2',
   tasks:'M5 4h14v16H5Zm3 5 1 1 2-2m2 1h4m-9 6 1 1 2-2m2 1h4',
   social:'M15 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm9 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6M8.6 10.6 12.4 8M8.6 13.4l3.8 2.2',
+  services:'M4 7h16v13H4Zm0 4h16M8 7V5a4 4 0 0 1 8 0v2',
   promotion:'M4 20V10m8 10V4m8 16v-7',
 };
 export function WorkshopIcon({ name }: { name: TabId }) {
