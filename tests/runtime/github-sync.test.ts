@@ -1059,3 +1059,55 @@ test('migration 057 clears issue cursors and the next run reads without since', 
     await quietSides();
   }
 });
+
+test('a workerd-style fetch still syncs issues, pull requests, events and book metrics', async () => {
+  await quietSides();
+  try {
+    const targets = catalogMetricTargets();
+    assert.ok(targets.length >= 1);
+    await dueFeed(null);
+    await only([PLATFORM], T0);
+    await resetRepo(PLATFORM);
+    await only([PLATFORM], T0);
+    await dueMetrics([targets[0]]);
+    const urls: string[] = [];
+    // Not an arrow: a method call sets `this` to the receiver. workerd's fetch rejects that.
+    const fetcher: typeof fetch = async function (this: unknown, input) {
+      const url = String(input);
+      urls.push(url);
+      if (this !== undefined && this !== globalThis) throw new TypeError('Illegal invocation');
+      if (url.includes('/events')) return json([openedIssue('unbound-event-1')]);
+      if (url.includes('/issues')) return json([
+        item(8101, '2026-09-11T00:00:00.000Z'),
+        item(8102, '2026-09-11T00:00:00.000Z', {pull_request: {merged_at: '2026-09-11T01:00:00.000Z'}}),
+      ]);
+      return json(metricBody(17));
+    };
+    const summary = await syncGitHubRepositories(pool, {fetcher, now: () => T0});
+    assert.equal(summary.requests, 3);
+    assert.equal(summary.repositories, 1);
+    assert.equal(summary.items_upserted, 2);
+    assert.equal(summary.stop_reason, 'completed');
+    assert.equal(urls.length, 3);
+    assert.match(urls[0], /\/events\?/);
+    assert.match(urls[1], /\/issues\?/);
+    assert.equal(urls[2], `https://api.github.com/repos/${targets[0].repository}`);
+    const feed = (await pool.query('SELECT checked_at, last_error FROM github_feed_state WHERE feed_name=$1', ['freedom_platform_events'])).rows[0];
+    assert.ok(feed.checked_at);
+    assert.equal(feed.last_error, null);
+    assert.equal((await pool.query("SELECT count(*)::int AS n FROM github_repository_events WHERE event_id='unbound-event-1'")).rows[0].n, 1);
+    const stored = (await pool.query<{number: number; kind: string}>('SELECT number, kind FROM github_items WHERE repository_key=$1 AND number IN (8101, 8102) ORDER BY number', [PLATFORM])).rows;
+    assert.deepEqual(stored, [{number: 8101, kind: 'issue'}, {number: 8102, kind: 'pr'}]);
+    const repo = await repoRow(PLATFORM);
+    assert.equal(repo.access_status, 'ok');
+    assert.equal(repo.last_error, null);
+    const metric = (await pool.query<{checked_at: Date | null; last_error: string | null; stars: string | null}>('SELECT checked_at, last_error, snapshot->>\'stargazers_count\' AS stars FROM github_repository_metrics WHERE repository_key=$1', [targets[0].key])).rows[0];
+    assert.ok(metric.checked_at);
+    assert.equal(metric.last_error, null);
+    assert.equal(metric.stars, '17');
+  } finally {
+    await pool.query("DELETE FROM github_repository_events WHERE event_id='unbound-event-1'");
+    await pool.query('DELETE FROM github_items WHERE repository_key=$1 AND number IN (8101, 8102)', [PLATFORM]);
+    await quietSides();
+  }
+});

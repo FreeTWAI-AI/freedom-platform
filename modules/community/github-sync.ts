@@ -450,7 +450,9 @@ function metricsFetcher(run: Run): typeof fetch {
   return (input, init) => {
     if (run.requests >= run.budget) throw new Error('github_sync_budget');
     run.requests += 1;
-    return run.fetcher(input, init);
+    // Unbound: workerd throws "Illegal invocation" when global fetch's receiver is not the global scope.
+    const fetcher = run.fetcher;
+    return fetcher(input, init);
   };
 }
 async function syncDueMetrics(pool: Pool, run: Run) {
