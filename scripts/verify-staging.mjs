@@ -97,7 +97,9 @@ try {
   const cookie = (await context.cookies()).find(c => c.name === 'freedom_local_session');
   expect(cookie?.secure).toBe(true);
   expect(cookie?.httpOnly).toBe(true);
-  const reloadReads = readResponses(['/assessment-definition']);
+  // Arm after the reload commits. The old page can still be finishing its own reads,
+  // and their bodies are gone once it unloads.
+  const reloadReads = page.waitForEvent('framenavigated', frame => frame === page.mainFrame()).then(() => readResponses(['/assessment-definition']));
   await page.reload();
   await reloadReads;
   await expect(page.getByRole('heading', { name: '會員首頁', exact: true })).toBeVisible();

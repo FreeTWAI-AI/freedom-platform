@@ -188,10 +188,8 @@ function HighlightDetail({ client, eventId }: { client: PortalClient; eventId: s
       <h2>{detail.title}</h2>
       <p>{when(detail.starts_at, detail.ends_at)} · <span className={`hl-mode hl-mode-${detail.mode}`}>{modeLabel[detail.mode]}</span> · {kindLabel[detail.event_kind] ?? '其他活動'}</p>
       <p>主辦 {detail.organizer_name} · {detail.attending_count} 人參加</p>
-      {detail.description == null ? <p>這是一場會員活動，活動說明只提供給會員。</p> : <>
-        <div className={expanded ? undefined : 'hl-clamp'}>{detail.description.split(/\n+/).filter(line => line.trim()).map(line => <p key={line}>{line}</p>)}</div>
-        <button type="button" className="hl-btn" onClick={() => setExpanded(value => !value)}>{expanded ? '收合' : '展開'}</button>
-      </>}
+      <div className={expanded ? undefined : 'hl-clamp'}>{(detail.description ?? '').split(/\n+/).filter(line => line.trim()).map(line => <p key={line}>{line}</p>)}</div>
+      <button type="button" className="hl-btn" onClick={() => setExpanded(value => !value)}>{expanded ? '收合' : '展開'}</button>
     </section>
     <section>
       <h2>海報</h2>

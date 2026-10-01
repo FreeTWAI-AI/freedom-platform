@@ -5,7 +5,8 @@ import sharp from 'sharp';
 import { previewImageUrl, previewLink, previewTitle, type PreviewFetch } from '../../modules/community/link-preview.js';
 import { normalizeRemoteThumbnail } from '../../modules/skill-submissions/payload.js';
 import { runWithImageProcessor, type ImageProcessor } from '../../packages/shared/image-runtime.js';
-import { classifyShareHost, isOwnWorkshopHost, normalizeShareUrl, youtubeVideoId } from '../../packages/shared/share-url.js';
+import { classifyShareHost, isOwnWorkshopHost, normalizeShareUrl } from '../../packages/shared/share-url.js';
+import { youtubeVideoId } from '../../packages/shared/youtube-video-id.js';
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 

@@ -12,6 +12,7 @@ import {lockGitHubSocialMember,type GitHubSocial} from '../github-social/service
 
 export const DEVELOPMENT_POLICY='development-proposal-v1';
 import {developmentGuilds,type Capability} from './guild-eligibility.js';
+import {requireFullGuildMember} from '../positioning/member-tier.js';
 export {developmentGuilds,type Capability};
 const kind=z.enum(['skill','platform']);
 const empty=z.object({}).strict();
@@ -41,10 +42,14 @@ export class DevelopmentAccess {
     if('error' in result)throw result.error;return result.value;
   }
   private async sources(q:PoolClient,actor:Actor,capability:Capability){
-    return (await q.query(`SELECT guild_key FROM positioning_profession_memberships WHERE user_id=$1 AND community_id=$2 AND state='active' AND guild_key=ANY($3::text[]) ORDER BY guild_key`,[actor.user_id,actor.community_id,developmentGuilds[capability]])).rows.map(row=>row.guild_key as string);
+    return (await q.query(`SELECT guild_key FROM positioning_profession_memberships WHERE user_id=$1 AND community_id=$2 AND state='active' AND member_tier='full' AND guild_key=ANY($3::text[]) ORDER BY guild_key`,[actor.user_id,actor.community_id,developmentGuilds[capability]])).rows.map(row=>row.guild_key as string);
   }
   private async prerequisites(q:PoolClient,actor:Actor,capability:Capability){
     const sources=await this.sources(q,actor,capability);
+    if(!sources.length){
+      const intern=(await q.query(`SELECT 1 FROM positioning_profession_memberships WHERE user_id=$1 AND community_id=$2 AND state='active' AND member_tier='intern' AND guild_key=ANY($3::text[])`,[actor.user_id,actor.community_id,developmentGuilds[capability]])).rowCount;
+      if(intern)requireFullGuildMember('intern');
+    }
     requireCondition(sources.length,403,'development_guild_required','請先加入適用的開發公會。');
     requireCondition((await q.query('SELECT 1 FROM development_consents WHERE user_id=$1 AND community_id=$2 AND capability=$3 AND policy_version=$4 AND withdrawn_at IS NULL',[actor.user_id,actor.community_id,capability,DEVELOPMENT_POLICY])).rowCount,403,'development_consent_required','請確認本次開發協作規則。');
     return sources;
@@ -64,14 +69,16 @@ export class DevelopmentAccess {
   async status(actor:Actor,rawKind:string,targetKey:string){
     const capability=kind.parse(rawKind),target=targetFor(capability,targetKey);
     return this.member(actor,async q=>{
-      const guilds=(await q.query(`SELECT g.guild_key,g.name,m.state,m.aggregate_version FROM positioning_guild_catalog g LEFT JOIN positioning_profession_memberships m ON m.guild_key=g.guild_key AND m.user_id=$1 AND m.community_id=$2 WHERE g.guild_key=ANY($3::text[]) ORDER BY g.guild_key`,[actor.user_id,actor.community_id,developmentGuilds[capability]])).rows;
+      const guildRows=(await q.query(`SELECT g.guild_key,g.name,m.state,m.aggregate_version,m.member_tier FROM positioning_guild_catalog g LEFT JOIN positioning_profession_memberships m ON m.guild_key=g.guild_key AND m.user_id=$1 AND m.community_id=$2 WHERE g.guild_key=ANY($3::text[]) ORDER BY g.guild_key`,[actor.user_id,actor.community_id,developmentGuilds[capability]])).rows;
+      const guilds=guildRows.map(({member_tier:_tier,...guild})=>guild);
       const connection=(await q.query('SELECT github_user_id,github_login FROM github_social_connections WHERE user_id=$1 AND community_id=$2',[actor.user_id,actor.community_id])).rows[0];
       const consent=(await q.query('SELECT 1 FROM development_consents WHERE user_id=$1 AND community_id=$2 AND capability=$3 AND policy_version=$4 AND withdrawn_at IS NULL',[actor.user_id,actor.community_id,capability,DEVELOPMENT_POLICY])).rowCount===1;
       const grant=(await q.query(`SELECT ${grantColumns} FROM development_grants WHERE user_id=$1 AND community_id=$2 AND capability=$3 AND target_key=$4 ORDER BY created_at DESC LIMIT 1`,[actor.user_id,actor.community_id,capability,targetKey])).rows[0]??null;
-      const eligible=guilds.some(guild=>guild.state==='active');
+      const eligible=guildRows.some(guild=>guild.state==='active'&&guild.member_tier==='full');
+      const internBlocked=!eligible&&guildRows.some(guild=>guild.state==='active'&&guild.member_tier==='intern');
       const keys=(await q.query(`SELECT k.key_id,k.source_grant_id,k.scope,k.expires_at,k.revoked_at FROM development_keys k JOIN development_grants g ON g.grant_id=k.source_grant_id WHERE g.user_id=$1 AND g.community_id=$2 AND g.capability=$3 AND g.target_key=$4 ORDER BY k.created_at DESC LIMIT 20`,[actor.user_id,actor.community_id,capability,targetKey])).rows;
       const proposals=(await q.query('SELECT proposal_id,title,summary,pr_url,created_at FROM development_proposals WHERE user_id=$1 AND community_id=$2 AND capability=$3 AND target_key=$4 ORDER BY created_at DESC LIMIT 20',[actor.user_id,actor.community_id,capability,targetKey])).rows;
-      return {capability,target,guilds,eligible,github:connection?{id:connection.github_user_id,login:connection.github_login}:null,app:this.social.developmentApp(),policy_version:DEVELOPMENT_POLICY,consent,grant,
+      return {capability,target,guilds,eligible,intern_blocked:internBlocked,github:connection?{id:connection.github_user_id,login:connection.github_login}:null,app:this.social.developmentApp(),policy_version:DEVELOPMENT_POLICY,consent,grant,
         enabled:Boolean(this.social.developmentApp().configured&&eligible&&consent&&connection&&grant&&grant.policy_version===DEVELOPMENT_POLICY&&!grant.revoked_at&&new Date(grant.expires_at)>new Date()),keys,proposals};
     });
   }

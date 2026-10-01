@@ -1,17 +1,21 @@
-# 儲存庫維護者（階段 1a 觀察，階段 1b 認領，階段 1c 公會歸屬）
+# 儲存庫維護者（階段 1a 觀察、1b 認領、1c 公會歸屬、1d 審核範圍、2a 本機 AI 交接）
 
 階段 1a 只觀察。GitHub 仍是事實來源。平台把審查需要的事實鏡像下來：拉取請求、變更檔案、審查、檢查。它依路徑與變更大小寫出注意事項，再推出佇列狀態與原因。沒有風險等級，也沒有 SLA。線上的項目維持穩定，一筆拉取請求就停在佇列裡，直到有人處理。
 
 階段 1b 加上人工認領和管理頁「PR 審核」。認領是軟鎖，讓兩個人不要同時審同一筆拉取請求。預設不設到期；管理員仍可把 `claim_hours` 設成 1–168。認領不是審查證據。審查仍以 GitHub 上的 review 為準。
 
-階段 1c 把「誰可以審」從審查者名單改成儲存庫歸屬。一個儲存庫屬於一個公會，類型是模組、技能書或未分類。沒有公會的儲存庫預設只限管理員。管理員可以把它標成開放公會長認領；之後任何現任公會長都能審，第一筆完成的公會長審查會把儲存庫歸到那位公會長的公會。背景只做兩件事：鏡像 GitHub 事實，以及既有的、預設關閉的請求審查者鏡像。沒有自動處理，也沒有 AI。
+階段 1c 把「誰可以審」從審查者名單改成儲存庫歸屬。一個儲存庫屬於一個公會，類型是模組、技能書或未分類。新鏡像的儲存庫沒有公會，並開放公會長認領；目錄裡的 `official_guild_keys` 不會自動變成歸屬。管理員仍可把單一儲存庫改成只限管理員。開放時，任何現任公會長都能審，第一筆完成的公會長審查會把儲存庫歸到那位公會長的公會。背景只做兩件事：鏡像 GitHub 事實，以及既有的請求審查者鏡像。沒有自動處理，也沒有 AI。
+
+階段 1d 加上技能書維護者。安裝同步把對得上技能書目錄的新儲存庫標成那本書，管理員也可以在「歸屬」改。這本書在任、而且連結了 GitHub 的維護者能審這個儲存庫，不論它歸哪個公會、開不開放公會長認領；他們審完不會把儲存庫歸到公會。沒有公會、也不開放的技能書儲存庫，畫面標成「管理員與技能書維護者」。會員端的「PR 審核」給現任公會長與在任的技能書維護者。
+
+階段 2a 是本機 AI 交接。AI 只在有資格的審查者按下按鈕時才會跑。平台交回一份任務檔，由這個人在自己的終端機、用自己的訂閱和自己的 `gh` 登入執行。平台仍然不呼叫 AI，也不為交接寫入 GitHub。見「本機 AI 交接」。
 
 這一階段不做這些事：
 
 - 不在 GitHub 上送審查、留言、標籤或合併。
-- 不呼叫 AI。
+- 平台不呼叫 AI；本機 AI 交接只產生任務檔。
 - 儲存庫 mode 只有 `off` 與 `observe`。其他值回 422。
-- 把認領鏡像成 GitHub requested reviewer 已經接上，預設關閉。三個開關都打開才會寫，見「要求審查者」。
+- 把認領鏡像成 GitHub requested reviewer 已經接上。沒有另外設定時，認領會請求審查者。本機 Worker 變數仍是 `off`；staging 與 production 是 `requested_reviewers`。三個條件都成立才會寫，見「要求審查者」。
 
 會員用的 GitHub App（`modules/github-social`）不變：不留私鑰、不擴權、webhook 關閉。維護者 App 是另一個私有 App。
 
@@ -19,13 +23,13 @@
 
 | 元件 | 位置 | 做什麼 |
 | --- | --- | --- |
-| 資料表 | `migrations/061_repo_maintainer.sql`、`migrations/062_maintainer_review_claims.sql` | 儲存庫、歸屬變更、單列排程、webhook 投遞紀錄、工作、拉取請求鏡像、檔案、檢查、審查、認領、`maintainer_eligible_reviewers` |
-| 政策 | `modules/repo-maintainer/policy.ts` | 注意事項、遷移編號、佇列狀態、認領覆寫。沒有 I/O。版本 `2026-10-01.1` |
+| 資料表 | `migrations/061_repo_maintainer.sql`、`migrations/062_maintainer_review_claims.sql`、`migrations/071_maintainer_review_scope.sql`、`migrations/072_maintainer_handoffs.sql` | 儲存庫、歸屬變更、單列排程、webhook 投遞紀錄、工作、拉取請求鏡像、檔案、檢查、審查、認領、`maintainer_eligible_reviewers`、本機 AI 交接。071 把新儲存庫預設改成開放認領，並加上技能書審查範圍。072 只追加 `maintainer_handoffs`，不更新、不刪除 |
+| 政策 | `modules/repo-maintainer/policy.ts` | 注意事項、遷移編號、佇列狀態、認領覆寫。沒有 I/O。版本 `2026-10-01.2` |
 | 推導 | `modules/repo-maintainer/derive.ts` | `rederivePull`：用已存的鏡像、子表、資格視圖裡的 GitHub id、`migration_reasons` 與進行中的認領重算一筆。不重新推導遷移原因 |
 | Webhook | `POST /api/v1/maintainer/github/webhook` | 驗簽、正規化、寫一筆投遞、必要時排入 `reconcile_pull`。不呼叫 GitHub。只有這個精確的 POST 在會員驗證之前；同一路徑的 GET 回 401 `login_required` |
 | 維護 Worker | `apps/platform-api/src/maintainer-worker.ts` | 每分鐘跑一次 tick：安裝同步、認領生命週期、掃 open PR、執行工作 |
-| 管理 API 與頁面 | `/admin/api/review-center/*`、後台「PR 審核」 | 讀鏡像、認領、指派、暫停、改模式與設定、改歸屬、看誰可以審。見 [platform-admin-api.md](platform-admin-api.md) |
-| 公會長 API 與頁面 | `/api/v1/guild-reviews`、公會管理「PR 審核」 | 現任公會長看自己公會與開放認領的拉取請求，認領或放棄自己的認領。見下方「公會長」 |
+| 管理 API 與頁面 | `/admin/api/review-center/*`、後台「PR 審核」 | 讀鏡像、認領、指派、暫停、改模式與設定、改歸屬、看誰可以審、產生本機 AI 交接。見 [platform-admin-api.md](platform-admin-api.md) |
+| 公會審查 API 與頁面 | `/api/v1/guild-reviews`、公會管理「PR 審核」 | 現任公會長看自己公會，以及沒有公會且已開放認領的拉取請求。只靠技能書任命的人只看自己那本書的工坊。同時是兩者的人看到聯集。都可以認領或放棄自己的認領。見下方「公會長與技能書維護者」 |
 
 Webhook 只是提示。漏掉的投遞不會由 GitHub 重送。Worker 每 30 分鐘掃一次到期的儲存庫，把新的、`updated_at` 或 head SHA 變了的、以及清單裡已經不見的 open PR 排進去重算。清單裡沒變、但鏡像已舊的 open PR 也會重算：`synced_at` 超過 10 分鐘，而且佇列是 `waiting_ci` 或 `mergeable` 仍是空的；或者 `synced_at` 超過 6 小時。這種重新整理每次掃描最多 20 筆，`synced_at` 舊的先排。新的、有變的、以及清單裡不見的不受這 20 筆限制。
 
@@ -54,17 +58,17 @@ Webhook 只是提示。漏掉的投遞不會由 GitHub 重送。Worker 每 30 �
 
 另建一個私有 App，只裝在 FreeTWAI-AI，安裝時選「Only select repositories」。不要改會員 App。
 
-階段 1a 實際用到的權限都是讀：
+App 建立時就包含下面的權限。Pull requests 從一開始就是 Read & write，所以之後打開請求審查者時，不必再請組織重新同意。
 
-| 權限 | 階段 1a |
+| 權限 | 存取 |
 | --- | --- |
 | Metadata | Read |
-| Pull requests | Read |
+| Pull requests | Read & write |
 | Checks | Read |
 | Commit statuses | Read |
 | Contents | Read。只在拉取請求碰到遷移目錄時，讀 base 分支的檔名清單 |
 
-階段 1b 只有在下面三個開關都打開時，才會用 Pull requests 的 write，而且只對被認領的那一位審查者呼叫 requested reviewers。Issues、Actions 與 Contents 寫入仍不使用。App 增加權限時，GitHub 會要求組織重新核准；在核准之前，鑄 token 會失敗，工作記成 `github_permission_missing`，不重試。
+寫入只對被認領的那一位審查者呼叫 requested reviewers。Issues、Actions 與 Contents 寫入仍不使用。沒有 Pull requests write 時，鑄 token 失敗為 `github_permission_missing`，工作失敗且不重試，認領不受影響。
 
 事件：`pull_request`、`pull_request_review`、`check_suite`、`check_run`、`status`。`installation` 與 `installation_repositories` 會自動送出，用來提前做安裝同步。`ping` 只記錄、不排工作。Issues 與 issue comment 這一階段會被記成 ignored。
 
@@ -114,34 +118,37 @@ npx wrangler tail --config <maintainer-overlay.jsonc> --env staging-next --forma
 
 ## 歸屬與誰可以審查
 
-每個鏡像下來的儲存庫有 `guild_key`（沒有就是沒有公會）、`scope_kind`（`module` 模組、`skill_book` 技能書，或空的未分類）和 `open_to_guilds`。已指定公會時不能同時開放所有公會長認領。
+每個鏡像下來的儲存庫有 `guild_key`（沒有就是沒有公會）、`scope_kind`（`module` 模組、`skill_book` 技能書，或空的未分類）和 `open_to_guilds`。新列的預設是沒有公會、`open_to_guilds` true。安裝同步不寫這兩欄，也不從技能書目錄的 `official_guild_keys` 指派公會。已指定公會時不能同時開放所有公會長認領。遷移會把既有、沒有公會、尚未開放、而且沒有任何歸屬變更的列改成開放，並把 `aggregate_version` 加一。已經有歸屬變更，或已經屬於公會的列，維持原狀。
+
+安裝同步會把 `full_name` 和技能書目錄的 `repository_url` 比對（不分大小寫，去掉結尾斜線與 `.git`，主機是 github.com）。對上的新列把 `scope_kind` 設成 `skill_book`，並寫入那個 `skill_book_id`。既有列只有在 `scope_kind` 與 `skill_book_id` 都是空的、而且沒有歸屬變更時才補上。管理員已經選過的類型不會被蓋掉。這是分類，不是把儲存庫歸給公會，也不讀 `official_guild_keys`。同一社群裡一本書只對到一個儲存庫；那本書已經被另一列用掉時，這次同步跳過分類。
 
 `maintainer_eligible_reviewers` 是唯一的資格來源，TypeScript 不再寫第二套規則：
 
-- `acting_as=admin`：這個社群裡每位啟用中的平台管理員，對上同社群、email 相同（不分大小寫）、帳號啟用且 email 已驗證的會員，而且該會員有 GitHub OAuth 連結。未驗證的會員帳號不能借管理員的 email。每個儲存庫都算。
-- `acting_as=guild_leader`：現任公會職位，加上同一公會的有效成員關係、啟用中的會員，以及 GitHub 連結。公會要等於儲存庫的公會；或者儲存庫沒有公會且已開放公會長認領。
+- `acting_as=admin`：這個社群裡每位啟用中的平台管理員，對上同社群、email 相同（不分大小寫）、帳號啟用且 email 已驗證的會員，而且該會員有 GitHub OAuth 連結。未驗證的會員帳號不能借管理員的 email。每個儲存庫都算。`skill_book_id` 是空的。
+- `acting_as=guild_leader`：現任公會職位，加上同一公會的有效成員關係、啟用中的會員，以及 GitHub 連結。公會要等於儲存庫的公會；或者儲存庫沒有公會且已開放公會長認領。`skill_book_id` 是空的。
+- `acting_as=skill_book_maintainer`：`skill_book_maintainers` 對這個儲存庫的 `skill_book_id`、同一社群、任命仍有效、會員啟用，而且有 GitHub OAuth 連結。任命是資格的依據：具名、只限那本書、可撤回、由管理員任命。技能書編輯用的開發公會門檻不是審查資格。這一列的 `guild_key` 是空的。儲存庫屬於哪個公會、有沒有開放認領，都不影響這一列。
 
-同一人可以出現多次（管理員，或幾個公會的公會長）。認領時選定一列 `(user_id, acting_as, guild_key)`。
+同一人可以出現多次（管理員，幾個公會的公會長，或那本書的維護者）。認領時選定一列 `(user_id, acting_as, guild_key, skill_book_id)`。
 
 有效核准：這位審查者最新的決定性審查是 `APPROVED`、落在目前的 head SHA、GitHub id 在資格視圖裡，而且不是作者。`CHANGES_REQUESTED` 會擋住，若它來自資格內的人，或關聯是 OWNER、MEMBER、COLLABORATOR。資格外的人在目前 head 上核准，佇列仍是待審，並附上 `approval_not_eligible`。作者本人也在資格裡時，不能核准自己的 PR（`author_is_reviewer`）。`needs_decision`（畫面「待決定」）只來自非預設分支。
 
-管理員改歸屬走 `POST /review-center/repositories/:id/ownership`，If-Match 是儲存庫的 `aggregate_version`。理由 3–1000 字。沒有變更回 409 `maintainer_ownership_unchanged`。公會不在目錄回 422 `maintainer_guild_not_found`。又指定公會又開放認領回 422 `maintainer_ownership_invalid`。寫入一筆 `maintainer_ownership_changes`（`source=admin`），並把該儲存庫未關閉的拉取請求 `recheck_at` 設成現在。不再符合資格的認領留到下一次 tick 放開，不在這支 API 裡處理。
+管理員改歸屬走 `POST /review-center/repositories/:id/ownership`，If-Match 是儲存庫的 `aggregate_version`。理由 3–1000 字。主體含 `skill_book_id`，可以是 null。類型是技能書時，可以選目錄裡的技能書，也可以不指定。沒有變更回 409 `maintainer_ownership_unchanged`。公會不在目錄回 422 `maintainer_guild_not_found`。又指定公會又開放認領回 422 `maintainer_ownership_invalid`。技能書不在目錄，或類型不是技能書卻帶了技能書，回 422 `maintainer_skill_book_invalid`。這本書已經對到另一個儲存庫回 409 `maintainer_skill_book_taken`。寫入一筆 `maintainer_ownership_changes`（`source=admin`，含 `skill_book_id`），並把該儲存庫未關閉的拉取請求 `recheck_at` 設成現在。不再符合資格的認領留到下一次 tick 放開，不在這支 API 裡處理。
 
-公會長的認領完成時才會歸屬。`acting_as=guild_leader`，而且儲存庫當時沒有公會、又是開放認領，才把 `guild_key` 設成這筆認領的公會、`open_to_guilds` 設成 false，並寫 `source=adopted`。理由是「審完 {full_name}#{number} 後歸到這個公會。」同一輪裡兩個不同公會都完成時，依 `pull_id` 順序只有第一筆更新得到列。管理員的認領不會歸屬。已經有公會的儲存庫也不會被這一步改掉。
+公會長的認領完成時才會歸屬。`acting_as=guild_leader`，而且儲存庫當時沒有公會、又是開放認領，才把 `guild_key` 設成這筆認領的公會、`open_to_guilds` 設成 false，並寫 `source=adopted`。歸屬變更會帶上當時的 `skill_book_id`，不會把它清掉。理由是「審完 {full_name}#{number} 後歸到這個公會。」同一輪裡兩個不同公會都完成時，依 `pull_id` 順序只有第一筆更新得到列。管理員的認領不會歸屬。技能書維護者的認領也不會歸屬。已經有公會的儲存庫也不會被這一步改掉。
 
 設定 schema 仍然嚴格。`sla_hours` 已移除；客戶端還送這個欄位會得到 422。`claim_hours` 省略表示不自動釋放，送 `null` 也是 422。待審依 `head_observed_at` 由早到晚，再依 `pull_id`。其他清單依 `github_updated_at` 新到舊。
 
 ## 階段 1b–1c：認領
 
-一筆認領記下審查者的會員 id、GitHub 數字 id、login、`acting_as`（`admin` 或 `guild_leader`）和公會。login 是當時的快照，給畫面和請求審查者鏡像用。同一筆拉取請求同時只能有一筆 `state=active` 的認領。自己認領或被指派都一樣。認領當下的 head SHA 記在認領上，只供對照，不拿來判斷審查算不算數。儲存庫模式是 `off`、拉取請求不是 open、仍是草稿，或該筆已暫停，都不能認領或指派。
+一筆認領記下審查者的會員 id、GitHub 數字 id、login、`acting_as`（`admin`、`guild_leader` 或 `skill_book_maintainer`）、公會和技能書。`skill_book_maintainer` 的公會是空的、技能書不是空的。管理員和公會長的技能書是空的。login 是當時的快照，給畫面和請求審查者鏡像用。同一筆拉取請求同時只能有一筆 `state=active` 的認領。自己認領或被指派都一樣。認領當下的 head SHA 記在認領上，只供對照，不拿來判斷審查算不算數。儲存庫模式是 `off`、拉取請求不是 open、仍是草稿，或該筆已暫停，都不能認領或指派。
 
-`expires_at` 空著表示這筆認領不會到期。有設 `claim_hours` 時，到期時間是現在加上那個小時數。進行中的認領（空的到期，或到期還在未來）只會把 `awaiting_review` 改成 `in_review`，並加上 `review_claimed`。管理員的句子是「{login}（管理員）正在審查。」公會長是「{login}（{公會}・公會長）正在審查。」開放認領再加「審完後這個儲存庫會歸到{公會}。」有設到期再加「認領到期後會自動釋放。」沒有帶這筆認領時的預設句是「已有人正在審查。」merged、closed、paused、draft、非預設分支、needs_author、waiting_ci、ci_not_run、ready、needs_decision 都不會被認領蓋掉。
+`expires_at` 空著表示這筆認領不會到期。有設 `claim_hours` 時，到期時間是現在加上那個小時數。進行中的認領（空的到期，或到期還在未來）只會把 `awaiting_review` 改成 `in_review`，並加上 `review_claimed`。管理員的句子是「{login}（管理員）正在審查。」公會長是「{login}（{公會}・公會長）正在審查。」技能書維護者是「{login}（{書名}・技能書維護者）正在審查。」只有公會長、而且這筆認領會歸屬時，才再加「審完後這個儲存庫會歸到{公會}。」有設到期再加「認領到期後會自動釋放。」沒有帶這筆認領時的預設句是「已有人正在審查。」merged、closed、paused、draft、非預設分支、needs_author、waiting_ci、ci_not_run、ready、needs_decision 都不會被認領蓋掉。
 
 Tick 在重新推導之前結束認領。每一步先依 `pull_id` 順序鎖住候選的拉取請求，再更新那些拉取請求上仍是 `active` 的認領，所以較早的條件先算：
 
 1. `expires_at` 不是空且已到 → `expired`。`end_reason` 維持空。空的到期不會被這一步選到。
 2. 拉取請求已關閉或已合併 → `released`，`end_reason=pull_closed`。
-3. 資格視圖沒有對上 `(repository, reviewer_user_id, reviewer_github_id, acting_as, guild_key)` 的列 → `released`，`reviewer_not_eligible`。職位卸下、退出公會、帳號或管理員停用、GitHub 連結換了、儲存庫改到別的公會，都走這裡。若 GitHub 請求狀態是 `requested`，改成 `removing`。
+3. 資格視圖沒有對上 `(repository, reviewer_user_id, reviewer_github_id, acting_as, guild_key, skill_book_id)` 的列 → `released`，`reviewer_not_eligible`。職位卸下、退出公會、技能書任命被撤回、帳號或管理員停用、GitHub 連結換了、儲存庫改到別的公會或別的技能書，都走這裡。若 GitHub 請求狀態是 `requested`，改成 `removing`。
 4. 這位審查者在認領的 `created_at` 之後送出 `APPROVED` 或 `CHANGES_REQUESTED`（任何提交都算）→ `completed`，`review_submitted`。同一筆交易裡，符合條件的公會長認領會嘗試歸屬（見上一節）。`COMMENTED` 不結束認領。這也不等於拉取請求已核准。
 
 `end_reason` 還有畫面用的 `self_released`（本人放棄認領）和 `admin_released`（管理員已釋放）。不再使用 `reviewer_inactive` 與 `reviewer_rank_too_low`。
@@ -152,28 +159,32 @@ Tick 在重新推導之前結束認領。每一步先依 `pull_id` 順序鎖住�
 
 公會職位、成員關係、管理員與 GitHub 連結的變更發生在這個模組外面，不會來改維護者的表。一次成功且清單沒被截斷的儲存庫掃描結束時，會把該儲存庫未關閉、`recheck_at` 仍是空的拉取請求設成現在，讓接下來的 tick 用視圖重算（只讀資料庫，不打 GitHub，每次最多 100 筆）。這樣職位變更之後，過期的「已核准」最多隔一次掃描間隔。認領不靠這個：每分鐘的第 3 步都會看視圖。
 
-### 公會長
+### 公會長與技能書維護者
 
 會員路由掛在 `/api/v1`，和公會工作區一樣，走 session、Origin 與 CSRF。寫入用 `command()`：要 `Idempotency-Key`，改既有列要 `If-Match`。`40P01` 回 409 `maintainer_write_conflict`。
 
-不是現任公會長（職位加上有效成員）回 403 `guild_leader_required`。看得到的拉取請求是自己負責的公會，或沒有公會且已開放認領。其他的回 404 `maintainer_pull_not_found`，不透露別的公會有沒有這筆。看清單不需要 GitHub 連結；認領需要。
+不是現任公會長（職位加上有效成員），也沒有任何有效的技能書任命，回 403 `review_access_required`。現任公會長看得到自己負責的公會，以及沒有公會且已開放認領的拉取請求。只靠技能書任命的人，只看得到 `skill_book_id` 是自己被任命的書的拉取請求，不管那個儲存庫屬於哪個公會、有沒有開放。同時是公會長和技能書維護者的人，看到兩邊的聯集。看清單不需要 GitHub 連結，和公會長一樣；認領需要，因為認領選項來自資格視圖。其他的回 404 `maintainer_pull_not_found`，不透露別的公會有沒有這筆。技能書維護者不能改歸屬、指派、暫停或設定。審完不會把儲存庫歸到公會。
+
+公會工作區用 `can_review_pulls` 決定要不要顯示「PR 審核」。現任公會長，或至少有一筆有效的技能書任命，就是 true。這不看 `managed_books`，也不看技能書編輯的開發公會門檻。
 
 | 方法與路徑 | 主體與結果 |
 | --- | --- |
-| `GET /guild-reviews?queue=&limit=&offset=` | queue 為 `awaiting_review`、`in_review`、`mine`、`ready`、`open`。回 `{guilds, viewer, items, next_offset}`。沒有 GitHub 連結時 `viewer.reason` 是「請先在會員資料連結 GitHub，才能認領審查。」 |
-| `GET /guild-reviews/:pullId` | 與管理端細節相同，但不含 `eligible_reviewers`。另有 `claim_options`（這位公會長自己在這個儲存庫的視圖列）和 `can_release`。 |
-| `POST /guild-reviews/:pullId/claim` | `{guild_key?}`，If-Match 是拉取請求版本。201 回細節。沒有 GitHub 回 409 `maintainer_claim_identity_required`。看得到但沒有公會長列，或 `guild_key` 對不上，回 403 `maintainer_guild_scope`。多個公會卻沒選回 422 `maintainer_guild_required`。作者本人回 409 `maintainer_claim_author`。已有認領回 409 `maintainer_claim_exists`。 |
-| `POST /guild-reviews/claims/:claimId/release` | `{}`，If-Match 是認領版本。只能放棄自己的有效認領，否則 403 `maintainer_claim_not_yours`。`end_reason=self_released`。這筆拉取請求不在可見範圍時回 404 `maintainer_claim_not_found`。 |
+| `GET /guild-reviews?queue=&limit=&offset=` | queue 為 `awaiting_review`、`in_review`、`mine`、`ready`、`open`。回 `{guilds, skill_books, viewer, items, next_offset, repositories}`。`repositories` 來自資格視圖：這位會員至少有一列 `maintainer_eligible_reviewers`，而且儲存庫在這個社群、看得到、安裝是 `active`、模式不是 `off`。每項是 `{id, full_name}`。沒有 GitHub 連結時清單是空的，頁面顯示 `viewer.reason`：「請先在會員資料連結 GitHub，才能認領審查。」 |
+| `GET /guild-reviews/:pullId` | 與管理端細節相同，但不含 `eligible_reviewers`。另有 `claim_options`（這位會員自己在這個儲存庫的公會長或技能書維護者視圖列，含書名）、`can_release`，以及 `handoff`（見「本機 AI 交接」）。 |
+| `POST /guild-reviews/:pullId/claim` | `{acting_as?, guild_key?, skill_book_id?}`，If-Match 是拉取請求版本。201 回細節。只有一個公會時，`{guild_key}` 或空主體都可以。技能書維護者送 `{acting_as: skill_book_maintainer, skill_book_id}`。沒有 GitHub 回 409 `maintainer_claim_identity_required`。看得到但沒有可認領的列，或選不到那一列，回 403 `maintainer_guild_scope`。多個公會卻沒選公會，回 422 `maintainer_guild_required`，句子仍是「你是多個公會的公會長，請選擇審完後要歸到哪個公會。」身分裡含技能書、又超過一個選項卻沒選，同一個碼，句子是「你有多個可以審的身分，請選擇要以哪個公會或哪本技能書認領。」作者本人回 409 `maintainer_claim_author`。已有認領回 409 `maintainer_claim_exists`。 |
+| `POST /guild-reviews/claims/:claimId/release` | `{}`，If-Match 是認領版本。只能放棄自己的有效認領，否則 403 `maintainer_claim_not_yours`。`end_reason=self_released`。這筆拉取請求不在可見範圍時回 404 `maintainer_claim_not_found`。技能書維護者即使不是公會長，也可以放棄自己的認領。 |
 
-公會長頁面沒有暫停、恢復、重新同步、指派或改歸屬。審查在 GitHub 送出。這項畫面不授予 GitHub 寫入權。
+這個頁面沒有暫停、恢復、重新同步、指派或改歸屬。審查在 GitHub 送出。這項畫面不授予 GitHub 寫入權。
 
 ### 要求審查者
 
-預設不寫 GitHub。三個開關都要開：
+沒有另外設定時會請求審查者。三個條件都要成立才寫入 GitHub：
 
-1. 維護者 App 的 Pull requests 權限是 write。組織必須在 GitHub 重新核准，否則鑄 token 會得到 403 或 422。
-2. 維護 Worker 的 `GITHUB_MAINTAINER_WRITES` 正好是 `requested_reviewers`。Committed 的值是 `off`。沒給、或任何其他字（含大小寫不同）都當成 `invalid`，不會寫。
-3. 該儲存庫設定 `request_reviewers` 是 true。
+1. 維護者 App 的 Pull requests 權限是 Read & write。App 建立時就包含這項，不必事後重新同意。沒有這個權限時，鑄 token 失敗為 `github_permission_missing`，工作失敗且不重試，認領不受影響。
+2. 維護 Worker 的 `GITHUB_MAINTAINER_WRITES` 正好是 `requested_reviewers`。本機 dry-run 的值是 `off`。`staging-next` 與 `next` 是 `requested_reviewers`。沒給、或任何其他字（含大小寫不同）都當成 `invalid`，不會寫。
+3. 該儲存庫設定 `request_reviewers`。沒有這個欄位時當成 true。管理員明確設成 false 就維持 false。
+
+GitHub 拒絕（例如 422，因為這個人不是 collaborator）記在認領上，不會擋下認領。
 
 認領或指派時，設定是 true 就把 `github_request_state` 設成 `pending` 並排入 `request_reviewer`；否則是 `not_requested`，不排工作。工作執行當下會再讀這三個開關。請求工作在狀態仍是 `pending` 時，不允許就標 `skipped`（`writes_disabled`），不呼叫 GitHub。認領已經不是 active、但狀態仍是 `pending`，就標 `skipped`（`claim_inactive`）。狀態已經不是這次工作預期的 `pending`（請求）或 `removing`（移除）時，不更新那一列，工作以 `claim_state_changed` 結束。這樣重跑不會把已經 `requested` 或 `removed` 的列改成 `skipped`。
 
@@ -186,6 +197,34 @@ Tick 在重新推導之前結束認領。每一步先依 `pull_id` 順序鎖住�
 ### 在畫面上暫停一筆
 
 後台「PR 審核」打開該筆，填理由後按「暫停」。這把該筆的 `paused` 設成 true，並把 `aggregate_version` 加一，不改儲存庫模式，也不放開認領。已經暫停再暫停回 409 `maintainer_pull_already_paused`；沒有暫停卻恢復回 409 `maintainer_pull_not_paused`。即使佇列狀態不變（例如已合併或已關閉），版本也會增加，舊的 If-Match 得到 412。恢復時再填理由。儲存庫整個關掉仍用模式 `off`。模式 `off` 的拉取請求不能認領或指派，跟單筆暫停一樣回 409 `maintainer_claim_unavailable`。
+
+## 本機 AI 交接
+
+AI 不會自己開工。可以審這個儲存庫的人按按鈕，平台只記下是誰、要做哪一種、以及當時的 head SHA 或 Issue 編號，並交回一份任務檔。平台不跑 agent、不代持那個人的 AI 訂閱或 token，也不為這次交接寫入 GitHub。那個人在這個儲存庫的本機資料夾、用自己的 `gh` 登入執行。三個 CLI 都是把任務檔當位置參數，開一個互動工作階段，每一步由這個人看過再同意。推不推得上、合不合併得成，由 GitHub 上這個人自己的權限決定。
+
+三個按鈕：
+
+- 「讓 AI 修這個 PR」：衝突、沒過的 CI、遷移編號撞號、審查意見。拉取請求要是開著的、不是草稿、沒有暫停，而且儲存庫不是 `off`。
+- 「讓 AI 合併這個 PR」：只有平台佇列是 `ready` 才按得下去。任務檔要 agent 在合併前重新對 GitHub 查 CI、核准、暫停標籤與遷移編號，有一項不符就停，不合併。
+- 「把 Issue 做成 PR」：選一個儲存庫和 Issue 編號。任務檔要 agent 開一筆連結該 Issue 的拉取請求，不合併。
+
+誰按得了：公會長按自己公會的儲存庫，以及沒有公會且開放認領的儲存庫。技能書維護者按自己那本書的儲存庫。管理員按每一個儲存庫。其他人只能在 GitHub 送審查，沒有這三個按鈕，也不能合併。
+
+在儲存庫的本機資料夾執行（檔名是 `freedom-handoff-` 加上交接編號的前 8 個十六進位字）：
+
+```sh
+claude "$(cat freedom-handoff-1a2b3c4d.md)"
+codex "$(cat freedom-handoff-1a2b3c4d.md)"
+grok "$(cat freedom-handoff-1a2b3c4d.md)"
+```
+
+畫面記最後一次選的工具（`freedom-handoff-cli`）。產生之後可以下載任務檔、複製指令、複製任務內容，或按「再產生一個」回到同一種工作、同一個工具和同一個儲存庫；Issue 編號會重新空白，下一筆用新的 Idempotency-Key。下載用的物件網址在按下之後一秒才釋放。
+
+`maintainer_handoffs` 只追加。一列有交接編號、儲存庫、拉取請求（Issue 交接是空的）、Issue 編號、種類（`fix`、`merge`、`issue`）、工具（`claude`、`codex`、`grok`）、head SHA、按的人（`user_id`、`github_user_id`、`github_login`、`acting_as`、`guild_key`、`skill_book_id`）、從後台按下時的 `requested_by_admin`，以及任務本文。程式不更新、也不刪這些列。從後台按下另外寫一筆 `platform_admin_audit`，動作 `maintainer_handoff_create`，理由固定是「產生本機 AI 交接任務。」會員按下不寫這筆稽核。
+
+資格只看 `maintainer_eligible_reviewers`。會員有多列時，先取公會長，再依公會名或書名。沒有列、但這個人看得到且還沒連結 GitHub，回 409 `maintainer_claim_identity_required`，句子是「請先在會員資料連結 GitHub，才能交給 AI。」管理員沒有列時回同一個碼，句子依 viewer 狀態：沒有會員帳號、email 還沒驗證，或還沒連結 GitHub。認領與指派仍用原本的認領句子。看不到的拉取請求或儲存庫仍是 404。拉取請求未開啟、仍是草稿、已暫停或儲存庫已關閉，回 409 `maintainer_handoff_unavailable`。head SHA 和畫面上的不一樣，回 409 `maintainer_head_moved`（這條不用 If-Match，因為無關的同步也會把 `aggregate_version` 加一）。不是 `ready` 卻要合併，回 409 `maintainer_handoff_merge_unavailable`。Issue 交接要求安裝仍是 `active` 且模式不是 `off`，否則同一個 `maintainer_handoff_unavailable`，句子改成儲存庫。主體不合格式回 400 `validation_failed`。
+
+路徑：管理端 `POST /review-center/pulls/:id/handoffs`、`POST /review-center/repositories/:id/issue-handoffs`，以及會員端 `POST /guild-reviews/:pullId/handoffs`、`POST /guild-reviews/repositories/:repositoryId/issue-handoffs`，都回 201，主體是 `{handoff_id, kind, cli, file_name, command, markdown, created_at}`。同一把 Idempotency-Key 重送回同一筆交接，不另插一列。任務檔的資料區依四層上限縮短（檔案、審查、檢查、每條注意事項的路徑、標籤、佇列原因、注意事項），省略的筆數寫在 `*_omitted`（含每個注意事項的 `paths_omitted`）；縮到最後一層仍達到 24000 字才拒絕。細節的 `handoff` 是 `{allowed, reason, merge_allowed, merge_reason, recent}`，按下之前就說明這個人為什麼不能交。`recent` 是這筆拉取請求最近五筆（種類、工具、login、head SHA、時間）。管理端的 Issue 表單用摘要裡安裝仍有效且模式不是 `off` 的儲存庫；viewer 不是 ready 時，表單改顯示同一句原因。
 
 ## 暫停
 

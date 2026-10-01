@@ -13,7 +13,7 @@ type Mine = {period: Period; items: {kind: Kind; target: string; code: string; p
 
 const PERIODS: {id: Period; label: string}[] = [{id: 'week', label: '本週'}, {id: 'month', label: '本月'}, {id: 'all', label: '累計'}];
 const COPY: Record<Kind, {title: string; how: string; label: string}> = {
-  member_card: {title: '名片點擊排行榜', label: '名片', how: '名片分享開放後，每次有人點開你的名片連結 +1。'},
+  member_card: {title: '名片點擊排行榜', label: '名片', how: '在我的名片分享名片連結，每次點擊 +1。'},
   platform: {title: '平台推廣排行榜', label: '平台', how: '分享自由工坊連結，每次點擊 +1。'},
   skill_book: {title: '技能推廣排行榜', label: '技能', how: '從技能書架分享技能書，每次點擊 +1。'},
   social_post: {title: '社群推廣排行榜', label: '社群', how: '在社群分享專區分享貼文，每次點擊 +1。'},

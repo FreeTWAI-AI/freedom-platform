@@ -7,7 +7,8 @@ import type {Actor} from '../identity-membership/service.js';
 import {adminCommand,audit,type AdminActor,type AdminCommand} from '../platform-admin/service.js';
 import {communityCatalog} from '../community/catalog.js';
 import {getSkillCollaboration,type SkillEditorial} from '../community/skill-collaboration.js';
-import {developmentGuilds,activeDevelopmentGuilds,requireSkillEditorGuild} from '../development-access/guild-eligibility.js';
+import {developmentGuilds,activeDevelopmentGuilds,internDevelopmentGuilds,requireSkillEditorGuild} from '../development-access/guild-eligibility.js';
+import {requireFullGuildMember} from '../positioning/member-tier.js';
 
 const text=(max:number,min=1)=>z.string().trim().min(min).max(max).refine(s=>!/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(s),'請移除控制字元。');
 const id=text(64).regex(/^[A-Za-z0-9_-]+$/);
@@ -31,16 +32,17 @@ async function managedGuilds(q:PoolClient,actor:Actor){return (await q.query(`SE
 async function leader(q:PoolClient,actor:Actor,key?:string){const rows=await managedGuilds(q,actor);requireCondition(key?rows.some(g=>g.guild_key===key):rows.length>0,403,'guild_leader_required','此操作限目前在任的公會長。');}
 // Editing needs BOTH the named appointment and a current AI guild membership;
 // the guild lock is taken first so a concurrent leave commits before or after this check.
-async function maintainer(q:PoolClient,actor:Actor,bookId:string){book(bookId);const guilds=await activeDevelopmentGuilds(q,actor,'skill');requireCondition((await q.query('SELECT 1 FROM skill_book_maintainers WHERE community_id=$1 AND user_id=$2 AND book_id=$3 AND active FOR SHARE',[actor.community_id,actor.user_id,bookId])).rowCount===1,403,'skill_maintainer_required','此操作限這本技能書的維護者。');requireSkillEditorGuild(guilds);}
+async function maintainer(q:PoolClient,actor:Actor,bookId:string){book(bookId);const guilds=await activeDevelopmentGuilds(q,actor,'skill');requireCondition((await q.query('SELECT 1 FROM skill_book_maintainers WHERE community_id=$1 AND user_id=$2 AND book_id=$3 AND active FOR SHARE',[actor.community_id,actor.user_id,bookId])).rowCount===1,403,'skill_maintainer_required','此操作限這本技能書的維護者。');if(!guilds.length&&(await internDevelopmentGuilds(q,actor,'skill')).length)requireFullGuildMember('intern');requireSkillEditorGuild(guilds);}
 
 // Lock order matches guild join/leave: users/sessions, then the member-guild advisory, then membership rows.
 // Taking managedGuilds' FOR SHARE OF m,o before the advisory would deadlock against a leave holding it.
 export async function guildWorkspace(pool:Pool,actor:Actor){return transaction(pool,async q=>{await activeMember(q,actor);const development=await activeDevelopmentGuilds(q,actor,'skill');const guilds=await managedGuilds(q,actor);const rows=(await q.query('SELECT book_id FROM skill_book_maintainers WHERE community_id=$1 AND user_id=$2 AND active',[actor.community_id,actor.user_id])).rows;
  const appointed=rows.flatMap(row=>{const found=communityCatalog.skill_books.find(b=>b.id===row.book_id);return found?[{book_id:found.id,title:found.title}]:[]}),eligible=development.length>0;
+ const internBlocked=appointed.length>0&&!eligible&&(await internDevelopmentGuilds(q,actor,'skill')).length>0;
  const required=(await q.query('SELECT guild_key,name FROM positioning_guild_catalog WHERE guild_key=ANY($1::text[]) ORDER BY guild_key',[developmentGuilds.skill])).rows;
- // Appointed books stay hidden until the member rejoins an AI guild; the counts let the UI show the join path.
- return {managed_guilds:guilds,managed_books:eligible?appointed:[],can_discuss:guilds.length>0,
-  skill_editor_access:{appointed_books:appointed.length,eligible,requires_development_guild:appointed.length>0&&!eligible,active_guilds:development,required_guilds:required}};});}
+ // Appointed books stay hidden until the member has a full AI-guild membership; the counts let the UI show why.
+ return {managed_guilds:guilds,managed_books:eligible?appointed:[],can_discuss:guilds.length>0,can_review_pulls:guilds.length>0||rows.length>0,
+  skill_editor_access:{appointed_books:appointed.length,eligible,requires_development_guild:appointed.length>0&&!eligible,intern_blocked:internBlocked,active_guilds:development,required_guilds:required}};});}
 export async function guildAnnouncements(pool:Pool,actor:Actor,key:string){return transaction(pool,async q=>{await activeMember(q,actor);await guildMembership(q,actor,key);const isLeader=(await managedGuilds(q,actor)).some(g=>g.guild_key===key);return {items:(await q.query("SELECT * FROM guild_announcements WHERE community_id=$1 AND guild_key=$2 AND ($3 OR state='published') ORDER BY created_at DESC,announcement_id LIMIT 100",[actor.community_id,key,isLeader])).rows.map(announcement),can_publish:isLeader};});}
 /** One bounded stream for the member's current guilds; drafts and former memberships stay private. */
 export async function memberGuildAnnouncementFeed(pool:Pool,actor:Actor){return transaction(pool,async q=>{

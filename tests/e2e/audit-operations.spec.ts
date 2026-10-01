@@ -29,7 +29,7 @@ async function layoutProblems(page: Page) {
     return { overflow: document.documentElement.scrollWidth > width, offenders, unlabeled, h1: document.querySelectorAll('h1').length };
   });
 }
-const guildCaps = { managed_guilds: [{ guild_key: 'synthetic-guild', name: '測試公會' }], managed_books: [{ book_id: 'video-autopilot', title: '測試剪輯技能' }], can_discuss: true };
+const guildCaps = { managed_guilds: [{ guild_key: 'synthetic-guild', name: '測試公會' }], managed_books: [{ book_id: 'video-autopilot', title: '測試剪輯技能' }], can_discuss: true, can_review_pulls: true };
 const viewports = [['desktop', { width: 1280, height: 900 }], ['mobile', { width: 390, height: 844 }]] as const;
 const memberPages: [string, string][] = [['supplier', '我有東西要賣'], ['retail', '我可以賣東西'], ['marketing', '行銷工作室'], ['workbench', '我的工作'], ['showcase', '作品與需求'], ['engagement', '合作紀錄'], ['guild-workspace', '公會管理']];
 

@@ -18,3 +18,16 @@
   .guild-members .directory-member-skills { padding-left: 0; }
 }
 .guild-members .directory-member-meta .guild-member-expert { color: #bdc7ff; border-color: #535f9b; background: #3044ff16; }
+.guild-members .guild-expert-count { margin: 0; color: #aeb5c2; font-size: .85rem; }
+.guild-members .guild-member-roster { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; max-width: 100%; }
+.guild-members .guild-member-actions,.guild-members .guild-member-confirm { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; }
+.guild-members .guild-member-actions { flex-basis: 100%; }
+.guild-members .guild-member-actions .btn,.guild-members .guild-member-confirm .btn { min-height: 44px; }
+.guild-members .guild-member-reason,.guild-members .guild-member-confirm { flex-basis: 100%; color: #aeb5c2; font-size: .8rem; line-height: 1.45; text-align: right; }
+.guild-members .directory-member-meta .guild-member-tier-full { color: #d6e9b1; border-color: #4d5c38; background: #c4ff2010; }
+.guild-members .directory-member-meta .guild-member-tier-intern { color: #aeb5c2; border-color: #333943; background: transparent; }
+.guild-intern-notice { margin: 8px 0 0; }
+@media(max-width:600px){
+  .guild-members .guild-member-roster,.guild-members .guild-member-actions,.guild-members .guild-member-confirm { justify-content: flex-start; }
+  .guild-members .guild-member-reason,.guild-members .guild-member-confirm { text-align: left; }
+}

@@ -6,10 +6,8 @@ import {Problem, requireCondition} from '../../packages/shared/problem.js';
 import {normalizeImage} from '../../packages/shared/image-runtime.js';
 import {youtubeThumbnailUrl, youtubeVideoId} from '../../packages/shared/youtube-video-id.js';
 import {avatarUrl} from '../identity-membership/avatars.js';
-import type {Actor} from '../identity-membership/service.js';
 import {privateHost} from '../identity-membership/social-links.js';
 import {rasterFormat, rejectAnimation} from '../skill-submissions/payload.js';
-import {canAccessGuildEvent} from './events.js';
 
 const PAGE_SIZE = 12;
 const IMAGE_MAX = 10 * 1024 * 1024;
@@ -251,12 +249,6 @@ async function loadListed(q: Pick<Pool, 'query'>, eventId: string, communityId: 
   requireCondition(row, 404, 'not_found', '找不到這場活動集錦。');
   return row;
 }
-async function visibleDescription(q: Pick<Pool, 'query'>, row: {visibility: string; description: string; organizer_ref: string; community_id: string; guild_key: string | null}, viewerId: string | null) {
-  if (viewerId == null) return row.visibility === 'open' || row.visibility === 'referral' ? row.description : null;
-  if (row.visibility === 'open' || row.visibility === 'referral' || row.visibility === 'workshop') return row.description;
-  if (row.visibility === 'guild' && await canAccessGuildEvent(q, {user_id: viewerId} as Actor, row)) return row.description;
-  return null;
-}
 async function quota(q: Pick<Pool, 'query'>, eventId: string, viewerId: string) {
   const counts = (await q.query(`SELECT
     count(*) FILTER (WHERE kind='link')::int AS event_links, count(*) FILTER (WHERE kind='link' AND uploader_user_id=$2)::int AS my_links,
@@ -282,7 +274,7 @@ export async function readHighlightEvent(pool: Pool, scope: {communityId: string
     WHERE h.event_id=$1 AND h.state='active' AND ${itemVisible}
     ORDER BY h.created_at DESC, h.media_id DESC`, [scope.eventId, scope.viewerId])).rows as ItemRow[];
   const admin = scope.viewerId ? await isPlatformAdmin(pool, scope.viewerId, row.community_id) : false;
-  const detail = {event_id: row.event_id, title: row.title, description: await visibleDescription(pool, row, scope.viewerId), starts_at: iso(row.starts_at), ends_at: iso(row.ends_at),
+  const detail = {event_id: row.event_id, title: row.title, description: row.description, starts_at: iso(row.starts_at), ends_at: iso(row.ends_at),
     mode: row.mode, event_kind: row.event_kind, organizer_name: row.organizer_name, attending_count: Number(row.attending_count),
     banner_url: row.banner_orientation ? bannerPath(row.event_id) : null, banner_orientation: row.banner_orientation,
     public_path: `/highlights/${row.event_id}`, items: items.map(item => presentItem(item, row.organizer_ref, scope.viewerId, admin))};

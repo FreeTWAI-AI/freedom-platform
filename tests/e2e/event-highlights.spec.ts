@@ -16,7 +16,6 @@ const YOUTUBE = 'https://www.youtube.com/watch?v=abcdefghijk&utm_source=share';
 const SHOTS = process.env.AUDIT_EVIDENCE_DIR ?? 'test-results/event-highlights';
 const GUILD_COPY = '公會夥伴在現場交流，結束後公開回顧。';
 const MEMBER_COPY = '這是一場會員活動，活動說明只提供給會員。';
-const GENERIC_META = '自由工坊社群活動回顧：海報、照片與錄影連結。';
 const EVENT_IDS = [ONLINE, GUILD, HIDDEN, UPCOMING];
 
 test.describe.configure({mode: 'serial'});
@@ -61,6 +60,30 @@ async function setTheme(page: Page, theme: 'light' | 'dark' | 'versefolk') {
     localStorage.setItem('freedom-theme', value);
     document.documentElement.dataset.theme = value;
   }, theme);
+}
+
+/** Poll until a colour transition (0.16s) has finished and the computed colour stays put. */
+async function settledColors(page: Page, selector: string) {
+  const read = () => page.locator(selector).first().evaluate(element => {
+    const style = getComputedStyle(element);
+    return {backgroundColor: style.backgroundColor, color: style.color};
+  });
+  let previous = '';
+  let stable = 0;
+  let latest = {backgroundColor: '', color: ''};
+  for (let attempt = 0; attempt < 15; attempt += 1) {
+    latest = await read();
+    const key = `${latest.backgroundColor}|${latest.color}`;
+    if (key === previous) {
+      stable += 1;
+      if (stable >= 2) return latest;
+    } else {
+      stable = 0;
+      previous = key;
+    }
+    await page.waitForTimeout(200);
+  }
+  return latest;
 }
 
 async function paints(page: Page, selector: string) {
@@ -286,9 +309,9 @@ test('another member cannot remove someone else\'s item, and the organizer can',
   await expect(page.getByRole('heading', {name: '錄影與影片', level: 2})).toBeVisible();
   await expect(page.getByRole('heading', {name: '活動照片', level: 2})).toBeVisible();
   await expect(page.getByText('還沒有人補上內容。參加過的夥伴可以上傳照片、海報或貼上影片連結。')).toBeVisible();
-  await expect(page.getByText(MEMBER_COPY)).toBeVisible();
-  await expect(page.getByText(GUILD_COPY)).toHaveCount(0);
-  await expect(page.getByRole('button', {name: '展開', exact: true})).toHaveCount(0);
+  await expect(page.getByText(GUILD_COPY)).toBeVisible();
+  await expect(page.getByText(MEMBER_COPY)).toHaveCount(0);
+  await expect(page.getByRole('button', {name: '展開', exact: true})).toBeVisible();
   await page.goto(`/#highlights/${ONLINE}`);
   await expect(page.getByRole('heading', {name: '線上分享回顧', level: 2})).toBeVisible();
   await expect(page.getByRole('button', {name: /^移除/})).toHaveCount(0);
@@ -336,11 +359,11 @@ test('signed-out visitors see the same public pages without private fields', asy
   await expect(page.getByRole('heading', {name: '錄影與影片'})).toHaveCount(0);
   await expect(page.getByRole('heading', {name: '活動照片'})).toHaveCount(0);
   await expect(page.getByText('還沒有人補上內容。參加過的夥伴可以上傳照片、海報或貼上影片連結。')).toBeVisible();
-  await expect(page.getByText(MEMBER_COPY)).toBeVisible();
-  await expect(page.getByText(GUILD_COPY)).toHaveCount(0);
-  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', GENERIC_META);
-  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', GENERIC_META);
-  await expect(page.locator('meta[name="twitter:description"]')).toHaveAttribute('content', GENERIC_META);
+  await expect(page.getByText(GUILD_COPY)).toBeVisible();
+  await expect(page.getByText(MEMBER_COPY)).toHaveCount(0);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', GUILD_COPY);
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', GUILD_COPY);
+  await expect(page.locator('meta[name="twitter:description"]')).toHaveAttribute('content', GUILD_COPY);
   await page.screenshot({path: `${SHOTS}/public-guild-light-1280.png`, fullPage: true});
   await page.setViewportSize({width: 390, height: 844});
   await noOverflow(page, 'public guild detail 390');
@@ -386,6 +409,14 @@ test('badges, chips and placeholders stay readable in light, dark and versefolk'
     await setTheme(page, theme);
     await page.goto('/#highlights');
     await expect(page.locator('.hl-mode-in_person')).toBeVisible();
+    const highlightChip = await settledColors(page, '.hl-chip[aria-pressed="true"]');
+    await navigate(page, '社群分享');
+    await expect(page.locator('.social-filter[aria-pressed="true"]')).toBeVisible();
+    const socialChip = await settledColors(page, '.social-filter[aria-pressed="true"]');
+    expect(highlightChip.backgroundColor, `${theme} chip background`).toBe(socialChip.backgroundColor);
+    expect(highlightChip.color, `${theme} chip text`).toBe(socialChip.color);
+    await page.goto('/#highlights');
+    await expect(page.locator('.hl-mode-in_person')).toBeVisible();
     const online = await paints(page, '.hl-mode-online');
     const room = await paints(page, '.hl-mode-in_person');
     const pressed = await paints(page, '.hl-chip[aria-pressed="true"]');
@@ -426,4 +457,15 @@ test('badges, chips and placeholders stay readable in light, dark and versefolk'
   expect(contrast(blank.color, blank.background), 'public dark placeholder').toBeGreaterThanOrEqual(4.5);
   expect(current.background !== plain.background || current.color !== plain.color).toBe(true);
   await guest.close();
+  for (const theme of ['light', 'dark'] as const) {
+    await setTheme(page, theme);
+    for (const width of [1280, 390] as const) {
+      await page.setViewportSize({width, height: width === 390 ? 844 : 900});
+      await page.goto('/#highlights');
+      const chips = page.locator('.hl-chips');
+      await expect(chips).toBeVisible();
+      await settledColors(page, '.hl-chip[aria-pressed="true"]');
+      await chips.screenshot({path: `${SHOTS}/highlights-chips-${theme}-${width}.png`});
+    }
+  }
 });

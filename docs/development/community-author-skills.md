@@ -52,4 +52,4 @@ Migration 032 在 `member_accounts` 加入 nullable `identity_label`。`GET /me/
 
 書封 `apps/portal-web/public/art/skills/open-seo-advisor.webp`（768×512），功能示意 `apps/portal-web/public/brand/skill-illustrations/open-seo-advisor.webp`（1200×630）。兩者由內建 imagegen 產生後，只用 sharp 以 contain 編成不透明 WebP。提示詞、來源路徑、尺寸與雜湊見[書封 manifest](../design/skill-book-art-manifest.json)與[功能示意 manifest](../design/skill-illustration-manifest.json)。圖像是工坊導讀插畫，不是原作產品截圖。
 
-目錄現為 38 本技能書、44 個 repo 指引。上文 2026-09-24 記載的 37 本與 43 個指引是當天的結果。
+目錄現為 41 本技能書、47 個 repo 指引，含 2026-10-01 整理的三件[手動登錄作品](./manual-work-skill-books.md)。上文 2026-09-24 記載的 37 本與 43 個指引是當天的結果。

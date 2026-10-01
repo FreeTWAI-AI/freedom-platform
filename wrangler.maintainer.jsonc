@@ -1,7 +1,8 @@
 // Cron Worker that mirrors pull requests for the repository maintainer.
-// Requested-reviewer writes stay off unless GITHUB_MAINTAINER_WRITES is
-// requested_reviewers. The committed value is off. This Worker does not
-// post a review, comment, label or merge.
+// GITHUB_MAINTAINER_WRITES is off in the local dry-run shape. staging-next
+// and next are requested_reviewers. The App is created with Pull requests
+// Read & write, so nobody re-consents when that write starts. This Worker
+// does not post a review, comment, label or merge.
 //
 // Wrangler cannot give an environment its own `main`, so this is a separate
 // config from wrangler.jsonc. The platform Worker stays the only routed
@@ -43,9 +44,9 @@
 //   GITHUB_MAINTAINER_APP_ID   numeric, not 0
 //   GITHUB_MAINTAINER_ORG      FreeTWAI-AI in this file; installations for any
 //                              other account are ignored
-//   GITHUB_MAINTAINER_WRITES   off, or requested_reviewers to allow the claim
-//                              mirror. Missing or any other value is treated
-//                              as off and reported as invalid.
+//   GITHUB_MAINTAINER_WRITES   off locally. staging-next and next are
+//                              requested_reviewers. Missing or any other value
+//                              is invalid and is not written.
 // Secret, uploaded out of band, never in this file:
 //   GITHUB_MAINTAINER_PRIVATE_KEY via
 //   `wrangler secret put GITHUB_MAINTAINER_PRIVATE_KEY --config <private overlay> --env <env>`.
@@ -94,7 +95,7 @@
       "vars": {
         "GITHUB_MAINTAINER_APP_ID": "0",
         "GITHUB_MAINTAINER_ORG": "FreeTWAI-AI",
-        "GITHUB_MAINTAINER_WRITES": "off"
+        "GITHUB_MAINTAINER_WRITES": "requested_reviewers"
       }
     },
     "next": {
@@ -107,7 +108,7 @@
       "vars": {
         "GITHUB_MAINTAINER_APP_ID": "0",
         "GITHUB_MAINTAINER_ORG": "FreeTWAI-AI",
-        "GITHUB_MAINTAINER_WRITES": "off"
+        "GITHUB_MAINTAINER_WRITES": "requested_reviewers"
       }
     }
   }
