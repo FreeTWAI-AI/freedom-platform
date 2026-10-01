@@ -23,8 +23,8 @@
 /* Two shelves: guild-designated books, then 社群技能書; headings follow the guild page groups. */
 .skill-shelves { display: grid; gap: 28px; min-width: 0; }
 .skill-shelf { display: grid; gap: 12px; min-width: 0; }
-.skill-shelf-heading h2 { margin: 0; font-size: 1.125rem; }
-.skill-shelf-heading p { margin: 4px 0 0; font-size: .875rem; }
+.skill-shelf-heading h2:where(:not(.skill-upload-dialog *)) { margin: 0; font-size: 1.125rem; }
+.skill-shelf-heading p:where(:not(.skill-upload-dialog *)) { margin: 4px 0 0; font-size: .875rem; }
 .skills-panel :is(.community-library,.community-skill-library) { gap: 12px; }
 .skills-panel .skill-library-filters { margin: 0; }
 .skills-panel .community-book-grid { margin-top: 0; align-items: start; }
@@ -67,6 +67,7 @@
   .nav-section-items { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-left: 0; margin-left: 0; border-left: 0; }
   .nav-section-items .nav-item { align-items: start; }
   .main { min-height: calc(100vh - 64px); gap: 12px; padding-top: 12px; scroll-margin-top: 64px; }
+  .skill-draft-callout { scroll-margin-top: 76px; }
   .topbar { flex-direction: row; flex-wrap: wrap; align-items: center; min-height: 44px; gap: 6px; }
   .topbar h1 { font-size: 1.2rem; }
   .topbar-actions { width: auto; margin-left: auto; gap: 4px; }
