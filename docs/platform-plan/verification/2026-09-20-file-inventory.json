@@ -3124,8 +3124,8 @@
     },
     {
       "path": "modules/community/github-sync.ts",
-      "bytes": 33941,
-      "sha256": "66a864714720e619a78b60fdcc93aa811ca4046ecb0204484da73f58dae16b01"
+      "bytes": 34181,
+      "sha256": "95e386eb4eaeb592dedffc3ad172a5999f2cc1124ce8708b33f106cd9ef6a46a"
     },
     {
       "path": "modules/community/member-skill-books.ts",
@@ -4379,8 +4379,8 @@
     },
     {
       "path": "tests/runtime/platform-credentials.test.ts",
-      "bytes": 28860,
-      "sha256": "f64721ce0983651c66a4ae6e8ce36a096a8b0ef9924e7f69b4d97b3204bdfe03"
+      "bytes": 33594,
+      "sha256": "63f1539e93322f065b24e2109ae184de772d0a4b0c7144eb6cb9a004dc8254d9"
     },
     {
       "path": "tests/runtime/portal-client-recovery.test.ts",
