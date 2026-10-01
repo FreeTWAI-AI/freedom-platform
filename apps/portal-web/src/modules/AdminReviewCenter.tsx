@@ -273,6 +273,14 @@ function ReviewDetail({ detail, viewer, reviewers, busy, onError, onMutate, onDo
   const [showAssign, setShowAssign] = useState(false);
   const [showRelease, setShowRelease] = useState(false);
   const [showPause, setShowPause] = useState(false);
+  function closeForms() {
+    setShowAssign(false);
+    setShowRelease(false);
+    setShowPause(false);
+    setAssignReason('');
+    setReleaseReason('');
+    setPauseReason('');
+  }
   const version = versionOf(detail.aggregate_version);
   const claimBlock = detail.claim ? '這個拉取請求已有人認領。' : '';
   const unavailable = !pullClaimable(detail);
@@ -287,26 +295,31 @@ function ReviewDetail({ detail, viewer, reviewers, busy, onError, onMutate, onDo
       groups.set(reason.code, group);
     }
   }
+  function saved(ok: boolean) {
+    if (!ok) return;
+    closeForms();
+    onDone();
+  }
   async function claim() {
-    if (await onMutate(`/review-center/pulls/${detail.pull_id}/claim`, {}, version)) onDone();
+    saved(await onMutate(`/review-center/pulls/${detail.pull_id}/claim`, {}, version));
   }
   async function assign(event: FormEvent) {
     event.preventDefault();
     if (assignReason.trim().length < 3) { onError('請填寫至少 3 個字的指派理由。'); return; }
     if (!assignId) { onError('請先選擇審查者。'); return; }
-    if (await onMutate(`/review-center/pulls/${detail.pull_id}/assign`, { reviewer_id: assignId, reason: assignReason.trim() }, version)) onDone();
+    saved(await onMutate(`/review-center/pulls/${detail.pull_id}/assign`, { reviewer_id: assignId, reason: assignReason.trim() }, version));
   }
   async function release(event: FormEvent) {
     event.preventDefault();
     if (!detail.claim) return;
     if (releaseReason.trim().length < 3) { onError('請填寫至少 3 個字的放棄理由。'); return; }
-    if (await onMutate(`/review-center/claims/${detail.claim.claim_id}/release`, { reason: releaseReason.trim() }, versionOf(detail.claim.aggregate_version))) onDone();
+    saved(await onMutate(`/review-center/claims/${detail.claim.claim_id}/release`, { reason: releaseReason.trim() }, versionOf(detail.claim.aggregate_version)));
   }
   async function pause(event: FormEvent) {
     event.preventDefault();
     if (pauseReason.trim().length < 3) { onError('請填寫至少 3 個字的理由。'); return; }
     const path = detail.paused ? 'resume' : 'pause';
-    if (await onMutate(`/review-center/pulls/${detail.pull_id}/${path}`, { reason: pauseReason.trim() }, version)) onDone();
+    saved(await onMutate(`/review-center/pulls/${detail.pull_id}/${path}`, { reason: pauseReason.trim() }, version));
   }
   return <div className="review-detail stack">
     <div>
@@ -337,7 +350,7 @@ function ReviewDetail({ detail, viewer, reviewers, busy, onError, onMutate, onDo
       {detail.claim && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setShowRelease(value => !value)}>放棄認領</button>}
       <a className="btn btn-ghost" href={`${detail.html_url}/files`} target="_blank" rel="noopener noreferrer">在 GitHub 審核</a>
       <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setShowPause(value => !value)}>{detail.paused ? '恢復' : '暫停自動處理'}</button>
-      <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void onMutate(`/review-center/pulls/${detail.pull_id}/resync`, {}).then(ok => { if (ok) onDone(); })}>重新同步</button>
+      <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void onMutate(`/review-center/pulls/${detail.pull_id}/resync`, {}).then(saved)}>重新同步</button>
     </div>
     {unavailable && <p className="field-hint">{CLAIM_UNAVAILABLE}</p>}
     {!!selfBlock && <p className="field-hint">{selfBlock}</p>}
