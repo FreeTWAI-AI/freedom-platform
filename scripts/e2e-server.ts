@@ -13,6 +13,15 @@ import { e2eAuthorClaimAdminVerifier } from '../packages/testing/e2e-admin.js';
 
 if(process.env.NODE_ENV==='production'||(process.env.FREEDOM_ENV&&process.env.FREEDOM_ENV!=='local'))throw Error('Browser test server is local-only.');
 if(process.env.FREEDOM_E2E_GITHUB_FIXTURES==='1')globalThis.fetch=async input=>collaborationGitHubFixture(input);
+// Link previews never use the network. A few fixture URLs return deterministic HTML and a 1×1 PNG.
+const previewPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64');
+const linkPreviewFetch=(input:string)=>{
+  const url=String(input);
+  if(url.startsWith('https://www.youtube.com/oembed'))return Promise.resolve(new Response(JSON.stringify({title:'E2E 示範影片'}),{status:200,headers:{'content-type':'application/json'}}));
+  if(url==='https://i.ytimg.com/vi/e2eDemo0001/hqdefault.jpg'||url==='https://www.instagram.com/e2e-thumb.png')return Promise.resolve(new Response(previewPng,{status:200,headers:{'content-type':'image/png'}}));
+  if(url.startsWith('https://www.instagram.com/p/E2E0001'))return Promise.resolve(new Response('<!doctype html><title>ignored</title><meta property="og:title" content="E2E 限時動態"><meta property="og:image" content="https://www.instagram.com/e2e-thumb.png">',{status:200,headers:{'content-type':'text/html; charset=utf-8'}}));
+  return Promise.resolve(new Response('missing',{status:404,headers:{'content-type':'text/plain'}}));
+};
 
 // Dedicated schema; browser tests never reset the user's local demo records.
 const schema=e2eSchema(process.env.FREEDOM_E2E_SCHEMA);
@@ -41,7 +50,7 @@ try{
   // Events run before repositories. 200 leaves every tracked repository inside one fixture pass.
   if(process.env.FREEDOM_E2E_GITHUB_FIXTURES==='1') await syncGitHubRepositories(pool,{fetcher:input=>Promise.resolve(collaborationGitHubFixture(input)),budget:200,token:undefined});
 }catch(error){console.error(error);await stop(1);}
-const app=createApp(pool,origin,'local',{adminVerifier:e2eAuthorClaimAdminVerifier});
+const app=createApp(pool,origin,'local',{adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch});
 app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));
 app.get('*',serveStatic({path:'./apps/portal-web/dist/index.html'}));
 server=serve({fetch:app.fetch,hostname:'127.0.0.1',port});

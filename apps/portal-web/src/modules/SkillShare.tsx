@@ -37,28 +37,44 @@ export function randomIntroductionIndex(length:number,avoid?:number){
   const index=value%choices;return skip&&index>=avoid!?index+1:index;
 }
 
+type Tracked={path:string;week:number;all:number};
 export function SkillShare({bookId,submissionId,title}:{bookId?:string;submissionId?:string;title:string}){
   const key=submissionId?`submission:${submissionId}`:bookId;
   const [loading,setLoading]=useState(false),[loaded,setLoaded]=useState<Loaded|null>(null),[index,setIndex]=useState(0);
   const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[status,setStatus]=useState(''),[manual,setManual]=useState(false);
+  const [tracked,setTracked]=useState<Tracked|'plain'|null>(null);
   const id=useId(),dialog=useRef<HTMLDialogElement>(null),trigger=useRef<HTMLButtonElement>(null),manualField=useRef<HTMLTextAreaElement>(null);
   // Every reroll, close, book change or unmount bumps the generation so late async results are ignored.
-  const generation=useRef(0),request=useRef<AbortController|null>(null);
+  const generation=useRef(0),request=useRef<AbortController|null>(null),trackRequest=useRef<AbortController|null>(null);
   useEffect(()=>{
-    generation.current++;request.current?.abort();request.current=null;
-    setLoaded(null);setLoading(false);setOpen(false);setBusy(false);setStatus('');setManual(false);
-    return()=>{generation.current++;request.current?.abort();request.current=null;};
+    generation.current++;request.current?.abort();request.current=null;trackRequest.current?.abort();trackRequest.current=null;
+    setLoaded(null);setLoading(false);setOpen(false);setBusy(false);setStatus('');setManual(false);setTracked(null);
+    return()=>{generation.current++;request.current?.abort();request.current=null;trackRequest.current?.abort();trackRequest.current=null;};
   },[key]);
   useEffect(()=>{if(open&&!dialog.current?.open)dialog.current?.showModal();else if(!open&&dialog.current?.open)dialog.current.close();},[open]);
   useEffect(()=>{if(manual&&open){manualField.current?.focus();manualField.current?.select();}},[manual,open]);
   if(!key)return null;
   const current=loaded?.key===key?loaded:null,introductions=current?.content?.introductions??[];
-  const introduction=introductions[index]??'',url=shareUrl(submissionId?submissionSharePath(submissionId):skillSharePath(bookId!),introduction?index+1:undefined);
+  const introduction=introductions[index]??'',plain=shareUrl(submissionId?submissionSharePath(submissionId):skillSharePath(bookId!),introduction?index+1:undefined);
+  const trackedUrl=tracked&&tracked!=='plain'?shareUrl(tracked.path,introduction?index+1:undefined):null;
+  const url=trackedUrl??(tracked==='plain'?plain:'正在準備分享連結…');
   const payload:Payload=introduction?{title:`${title} · 自由工坊`,text:introduction,url,copy:`${introduction}\n${url}`}:{title:`${title} · 自由工坊`,url,copy:url};
+  async function track(){
+    const controller=new AbortController();trackRequest.current?.abort();trackRequest.current=controller;setTracked(null);
+    const target=submissionId?`submission:${submissionId}`:`book:${bookId}`;
+    try{
+      const session=await fetch('/api/v1/session',{credentials:'same-origin',signal:controller.signal,headers:{Accept:'application/json'}});
+      const csrf=session.ok?(await session.json() as {csrf_token?:string}).csrf_token:'';
+      if(!csrf){if(!controller.signal.aborted)setTracked('plain');return;}
+      const response=await fetch('/api/v1/promotion/links',{method:'POST',credentials:'same-origin',signal:controller.signal,headers:{'Content-Type':'application/json',Accept:'application/json','X-CSRF-Token':csrf},body:JSON.stringify({kind:'skill_book',target})});
+      const link=response.ok?await response.json() as {path?:string;points?:{week?:number;all?:number}}:null;
+      if(!controller.signal.aborted)setTracked(link?.path?{path:link.path,week:link.points?.week??0,all:link.points?.all??0}:'plain');
+    }catch{if(!controller.signal.aborted)setTracked('plain');}
+  }
   function resetStatus(){generation.current++;setStatus('');setManual(false);setBusy(false);}
   async function load(show:boolean){
     const target=key!,controller=new AbortController(),run=++generation.current;
-    request.current?.abort();request.current=controller;setLoading(true);setStatus('');setManual(false);
+    request.current?.abort();request.current=controller;setLoading(true);setStatus('');setManual(false);void track();
     let next:Loaded;
     try{const content=await (submissionId?fetchSubmissionShareContent(submissionId,controller.signal):fetchSkillShareContent(bookId!,controller.signal));next={key:target,content,error:''};}
     catch(error){
@@ -69,7 +85,7 @@ export function SkillShare({bookId,submissionId,title}:{bookId?:string;submissio
     request.current=null;setLoaded(next);setIndex(next.content?randomIntroductionIndex(next.content.introductions.length):0);setLoading(false);
     if(show)setOpen(true);
   }
-  function close(){resetStatus();request.current?.abort();request.current=null;setLoading(false);dialog.current?.close();setOpen(false);trigger.current?.focus();}
+  function close(){resetStatus();request.current?.abort();request.current=null;trackRequest.current?.abort();trackRequest.current=null;setLoading(false);dialog.current?.close();setOpen(false);trigger.current?.focus();}
   function reroll(){resetStatus();setIndex(value=>randomIntroductionIndex(introductions.length,value));}
   function fallback(message:string){setManual(true);setStatus(message);}
   async function copy(value:Payload,run:number){
@@ -100,10 +116,12 @@ export function SkillShare({bookId,submissionId,title}:{bookId?:string;submissio
           <blockquote className="skill-share-text" id={`${id}-text`} aria-live="polite">{introduction}</blockquote>
         </>:<div className="skill-share-error" id={`${id}-text`} role="alert"><p>{current.error}</p><button type="button" className="btn btn-ghost" disabled={loading} onClick={()=>void load(false)}>{loading?'重新載入中…':'重試'}</button></div>}
         <p className="skill-share-url">{url}</p>
+        {tracked==='plain'&&<p className="promotion-share-points">登入後分享可累積推廣分數</p>}
+        {tracked&&tracked!=='plain'&&<p className="promotion-share-points">這個連結：本週 {tracked.week} 分・累計 {tracked.all} 分</p>}
         <div className="skill-share-actions">
           {introductions.length>1&&<button type="button" className="btn btn-ghost" disabled={busy} onClick={reroll}><span aria-hidden="true">🎲 </span>換一句</button>}
-          <button type="button" className="btn btn-primary" disabled={busy||loading} onClick={()=>void send()}>{current.content?'分享':'分享連結'}</button>
-          <button type="button" className="btn btn-ghost" disabled={busy||loading} onClick={()=>void copyOnly()}>{current.content?'複製介紹與連結':'複製連結'}</button>
+          <button type="button" className="btn btn-primary" disabled={busy||loading||tracked===null} onClick={()=>void send()}>{current.content?'分享':'分享連結'}</button>
+          <button type="button" className="btn btn-ghost" disabled={busy||loading||tracked===null} onClick={()=>void copyOnly()}>{current.content?'複製介紹與連結':'複製連結'}</button>
         </div>
         {status&&<p className="skill-share-status" role="status">{status}</p>}
         {manual&&<div className="field"><label htmlFor={`${id}-manual`}>手動複製分享內容</label><textarea ref={manualField} id={`${id}-manual`} value={payload.copy} readOnly rows={4} onFocus={event=>event.currentTarget.select()}/></div>}
