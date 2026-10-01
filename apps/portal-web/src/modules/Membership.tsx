@@ -10,6 +10,7 @@ import './MemberDirectory.css';
 import {MemberSocialLinks,SocialLinksList} from './MemberSocialLinks';
 import {MemberPresence} from './MemberPresence';
 import {MemberShare} from './MemberShare';
+import {MemberECard} from './MemberECard';
 import {MemberRecommendations} from './MemberRecommendations';
 import {guildLabel} from './GuildName';
 
@@ -45,13 +46,10 @@ export function MemberCard({member,children,labels={},client}:{member:MemberCard
   const featured=(member.featured_capabilities??member.capabilities.slice(0,3)).slice(0,3);
   const label=(id:string)=>id.startsWith('custom:')?id.slice(7):labels[id]??id;
   const abilities=[...member.capabilities,...(member.custom_capabilities??[]).map(value=>`custom:${value}`)],equipment=[...member.equipment,...(member.custom_equipment??[]).map(value=>`custom:${value}`)];
-  return <article className="card member-card expedition-dossier">
-    <div className="member-card-heading">
-      <MemberAvatar nickname={member.nickname} avatarUrl={member.avatar_url}/>
-      <div><p className="eyebrow">FREEDOM WORKSHOP MEMBER</p><h3>{member.nickname} <span className="positioning-title">{member.positioning_title??'探索自己的方向'}</span></h3><IdentityBadge value={member.identity_label}/><p>{member.primary_guild?`主要公會 · ${member.primary_guild.name}`:'尚未設定主要公會'}</p></div>
-    </div>
+  return <article className="card member-card member-profile-card">
+    <MemberECard design="editorial" nickname={member.nickname} headline={member.positioning_title} guildName={member.primary_guild?.name??null} capabilities={featured.map(label)} avatarUrl={member.avatar_url??null} links={[]} heading="h3"/>
     <div className="member-card-body">
-      <div className="member-featured"><h4>擅長的能力</h4><div className="tag-list">{featured.length?featured.map(id=><span key={id} className="pill">{label(id)}</span>):<span className="muted">還在探索自己的專長</span>}</div></div>
+      <IdentityBadge value={member.identity_label}/>
       <div className="member-secondary-guilds"><h4>次要公會</h4><p className="muted">{member.secondary_guilds.map(g=>g.name).join('、')||'先專注在主要公會'}</p></div>
       {Boolean(member.joined_guilds?.length)&&<details className="member-other-guilds"><summary>其他已加入公會 · {member.joined_guilds!.length}</summary><p className="muted">{member.joined_guilds!.map(g=>g.name).join('、')}</p></details>}<details className="member-full-profile"><summary>完整能力與裝備 · {abilities.length} 項能力／{equipment.length} 項裝備</summary><div className="stack"><div><h4>基本能力</h4><div className="tag-list">{abilities.length?abilities.map(id=><span key={id} className="pill">{label(id)}</span>):<span className="muted">尚未填寫</span>}</div></div><div><h4>裝備</h4><div className="tag-list">{equipment.length?equipment.map(id=><span key={id} className="pill">{label(id)}</span>):<span className="muted">尚未填寫</span>}</div></div></div></details>
       {Object.keys(member.contacts).length>0&&<dl className="detail-list">{Object.entries(member.contacts).map(([key,value])=><div key={key}><dt>{contactLabels[key as keyof typeof contactLabels]}</dt><dd>{value}</dd></div>)}</dl>}

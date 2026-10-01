@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import type {PortalClient} from '../api';
 import {MemberCardShareActions} from './MemberCardShareActions';
+import {MemberCardDownload} from './MemberCardDownload';
 import {MemberECard,cardDesigns,parseCardLink,type CardDesign,type CardLink} from './MemberECard';
 import {useModuleMutation} from './shared';
 import './MemberConnections.css';
@@ -23,11 +24,12 @@ export function MemberShare({client}:{client:PortalClient}){
   const generation=useRef(0),profileGeneration=useRef(0),{mutate,busy,error}=useModuleMutation(client);
   function apply(data:ShareSettings){setSettings(data);setIncludeAvatar(data.include_avatar);setDesign(data.design??'calm');setHeadline(data.headline??'');setLinks((data.links??[]).map(link=>({...link,id:crypto.randomUUID()})));setEditing(null);}
   async function load(){const current=++generation.current;setLoadError('');try{const data=await client.get<ShareSettings>('/me/member-card-share');if(current===generation.current)apply(data);}catch(cause){if(current===generation.current)setLoadError(cause instanceof Error?cause.message:'分享設定暫時無法載入。');}}
-  useEffect(()=>{void load();const profile=++profileGeneration.current;void (async()=>{try{
+  async function loadPreview(){const profile=++profileGeneration.current;try{
     const account=await client.get<{user_id:string;nickname:string;avatar:{avatar_url:string|null}}>('/me/account');
     const [member,labels]=await Promise.all([client.get<PreviewMember>(`/members/${account.user_id}`),client.get<{capability_categories:{options:{id:string;label:string}[]}[]}>('/assessment-definition').then(definition=>Object.fromEntries(definition.capability_categories.flatMap(group=>group.options.map(option=>[option.id,option.label])))).catch(()=>({} as Record<string,string>))]);
     if(profile!==profileGeneration.current)return;setPreview({userId:account.user_id,nickname:member.nickname||account.nickname,guild:member.primary_guild?.name??null,capabilities:featuredNames(member,labels),avatarUrl:member.avatar_url??account.avatar.avatar_url});
-  }catch{if(profile===profileGeneration.current)setPreview(null);}})();return()=>{generation.current++;profileGeneration.current++;};},[client]);
+  }catch{if(profile===profileGeneration.current)setPreview(null);}}
+  useEffect(()=>{void load();void loadPreview();const refresh=()=>void loadPreview();window.addEventListener('freedom-profile-updated',refresh);return()=>{generation.current++;profileGeneration.current++;window.removeEventListener('freedom-profile-updated',refresh);};},[client]);
   async function save(enabled:boolean,rotate=false){
     if(!settings)return;setNotice('');const issue=headlineIssue(headline);if(issue){setNotice(issue);return;}
     const wasEnabled=settings.enabled,result=await mutate<ShareSettings>('/me/member-card-share',{enabled,include_avatar:includeAvatar,rotate,design,headline:headline.trim()||null,links:links.map(({label,url})=>({label,url}))},settings.aggregate_version??undefined);
@@ -44,6 +46,10 @@ export function MemberShare({client}:{client:PortalClient}){
     const link=commit(item.label,item.url);if(!link)return;setLinks(current=>[...current,{...link,id:crypto.randomUUID()}]);
   }
   const url=settings?.share_path?new URL(settings.share_path,window.location.origin).href:'';
+  const unsaved=!settings||settings.design!==design||settings.include_avatar!==includeAvatar||(settings.headline??'')!==headline.trim()||JSON.stringify(settings.links)!==JSON.stringify(links.map(({label,url})=>({label,url})));
+  // The owner's versioned avatar refreshes immediately after edits. Only a saved
+  // opt-in preview can be exported; PNG contains pixels, never the avatar URL.
+  const previewAvatar=includeAvatar?preview?.avatarUrl??null:null;
   return <section className="card stack member-share-settings" aria-label="分享我的工坊名片"><h2>分享我的工坊名片</h2><p>朋友開啟連結即可看到你選的名片樣式、一句話介紹、連結、名稱、主要公會和三項精選專長，並從名片加入自由工坊。聯絡方式與未加入名片的社群連結仍只依原本的設定提供給已登入會員。</p>
     {loadError&&<div className="banner banner-error" role="alert"><p>{loadError}</p><button type="button" className="btn btn-ghost" onClick={()=>void load()}>重讀分享設定</button></div>}
     {error&&<div className="banner banner-error" role="alert"><p>{error}</p><button type="button" className="btn btn-ghost" disabled={busy} onClick={()=>void load()}>重讀分享設定</button></div>}
@@ -58,7 +64,7 @@ export function MemberShare({client}:{client:PortalClient}){
         <button type="button" className="ecard-text-btn" disabled={busy} aria-expanded={importOpen} onClick={()=>void toggleImport()}>從我的社群連結加入</button>
         {importOpen&&<div className="ecard-import"><p className="field-hint">這些連結目前只有符合你設定的會員看得到，要點「加入名片」才會出現在分享頁。</p>{socialError&&<p role="alert">{socialError}</p>}{socialLoading&&<p role="status">正在讀取社群連結…</p>}{social&&social.length===0&&<p className="field-hint">尚未新增社群連結。</p>}<ul className="ecard-import-list">{social?.map(item=><li className="ecard-import-row" key={item.link_id}><div className="ecard-link-meta"><strong>{item.label}</strong><span>{item.url}</span></div><button type="button" className="ecard-import-add" disabled={busy} aria-label={`把「${item.label}」加入名片`} onClick={()=>importLink(item)}>加入名片</button></li>)}</ul></div>}
       </div>
-      <aside className="ecard-preview" aria-label="名片預覽"><h3>名片預覽</h3><p className="field-hint">預覽用的是你自己的名片資料，保存後才會更新分享頁。</p><MemberECard design={design} nickname={preview?.nickname||'會員'} headline={headline} guildName={preview?.guild??null} capabilities={preview?.capabilities??[]} avatarUrl={includeAvatar?preview?.avatarUrl??null:null} links={links} heading="p"/></aside>
+      <aside className="ecard-preview" aria-label="名片預覽"><h3>名片預覽</h3><p className="field-hint">自動帶入你的名稱、公會與精選專長；頭像依上方設定顯示。保存後更新分享頁，開啟分享才會產生 QR Code。</p>{preview?<MemberCardDownload shareUrl={url} disabled={unsaved||busy}><MemberECard design={design} nickname={preview.nickname} headline={headline} guildName={preview.guild} capabilities={preview.capabilities} avatarUrl={previewAvatar} links={links} heading="p" shareUrl={url}/></MemberCardDownload>:<p role="status">{loadError?'':'名片資料尚未載入。'}<button type="button" className="btn btn-ghost" onClick={()=>void loadPreview()}>重讀名片資料</button></p>}</aside>
       {settings.enabled&&url?<><MemberCardShareActions kind="member_card" target={preview?.userId} title={preview?.nickname||'自由工坊名片'} label="分享" url={url} onNotice={setNotice}/><div className="actions"><button type="button" className="btn btn-ghost" disabled={busy} onClick={()=>void save(true)}>保存分享設定</button><button type="button" className="btn btn-ghost" disabled={busy} onClick={()=>void save(true,true)}>更新連結</button><button type="button" className="btn btn-ghost" disabled={busy} onClick={()=>void save(false)}>停用分享</button></div></>:<button type="button" className="btn btn-primary" disabled={busy} onClick={()=>void save(true)}>建立分享連結</button>}
     </>}{notice&&<p role="status" className="field-hint">{notice}</p>}
   </section>;
