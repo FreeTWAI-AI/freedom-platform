@@ -1239,8 +1239,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/OpenSourcePanels.tsx",
-      "bytes": 17914,
-      "sha256": "d1d29278b31ec9167a0a03194960b6bf2341cb5364e1089ea05b158b4aa2134d"
+      "bytes": 18002,
+      "sha256": "f75b97cccaf6b8003dc077ccb1d7ad5dec89a842bf9365e921ff3ec8f2b9d9af"
     },
     {
       "path": "apps/portal-web/src/modules/PositioningPanels.tsx",
@@ -1469,8 +1469,8 @@
     },
     {
       "path": "apps/portal-web/src/styles.css",
-      "bytes": 30606,
-      "sha256": "fbb3db467efe90e79bfcac5bd0f4d45a4624509aa92accf3983b50125e01f6c5"
+      "bytes": 30632,
+      "sha256": "79cfb40983c47cd76b2542bd1bfbd530b28428a8645e84e7210e29085c0ffee2"
     },
     {
       "path": "apps/portal-web/src/types.ts",
@@ -4498,6 +4498,11 @@
       "sha256": "9685a970e9f2210b1f2255729f73f20f57fe7fce52d4e3fdee25d142d4e0276e"
     },
     {
+      "path": "tests/e2e/campaign-draft-newlines.spec.ts",
+      "bytes": 4935,
+      "sha256": "c16671c706fc0e330e3b6af2d51b0cb0c75d507f657ff62e9741b521820be05a"
+    },
+    {
       "path": "tests/e2e/client-connections-recovery.spec.ts",
       "bytes": 5655,
       "sha256": "e61fa8e4b2c7147a3e7a46d5225308833ade643bb552b11f15425ae6d6e358c1"
@@ -4599,8 +4604,8 @@
     },
     {
       "path": "tests/e2e/help-box-padding.spec.ts",
-      "bytes": 9234,
-      "sha256": "21de77ed6348a18708689d4c701afb9f48695101e7b985302f990e57016a5ba5"
+      "bytes": 9611,
+      "sha256": "2be8b3ad993e6a92288a37afe7fe8a345eb0919f064becd32f312d00addf6a89"
     },
     {
       "path": "tests/e2e/journeys.spec.ts",
