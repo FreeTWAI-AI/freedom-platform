@@ -146,7 +146,8 @@ test('help boxes pad their text in light and dark, and the login demo box stays 
 
       await page.getByRole('button', { name: '上傳技能', exact: true }).click();
       const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
-      await dialog.getByRole('button', { name: '預覽：流程整理技能', exact: true }).click();
+      // A ready draft's button reads 預覽 or 預覽並送出 depending on the dialog version.
+      await dialog.getByRole('button', { name: /^預覽(並送出)?：流程整理技能$/ }).click();
       const preview = dialog.getByRole('region', { name: '預覽：流程整理技能', exact: true });
       await expect(preview.getByText('如何開始', { exact: true })).toBeVisible();
       await expectPaddedBox(preview.locator('.help-box'), `${theme} upload`);
