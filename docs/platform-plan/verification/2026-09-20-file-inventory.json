@@ -74,8 +74,8 @@
     },
     {
       "path": "apps/platform-api/src/maintainer-worker.ts",
-      "bytes": 6264,
-      "sha256": "2d6fce0916b0703d47605022e47dd9367af823d1a5db1e9b9b6461ec016ab500"
+      "bytes": 7284,
+      "sha256": "8c350594163463a351403fb3e6c83eb9c422a168b7a0ba83f7209f1a50afa21c"
     },
     {
       "path": "apps/platform-api/src/module-context.ts",
@@ -189,8 +189,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/repo-maintainer.ts",
-      "bytes": 4094,
-      "sha256": "c92e6249dbef62bbe22402005de77d055cbfd8da8de0f2be121ee009c4f74dd1"
+      "bytes": 4820,
+      "sha256": "62c437ee55dec2e87ffba380f4631b92c1c1bfff5ea8ce12cc0e09c7c8723bf9"
     },
     {
       "path": "apps/platform-api/src/routes/skill-discovery.ts",
@@ -764,13 +764,23 @@
     },
     {
       "path": "apps/portal-web/src/modules/AdminPanel.tsx",
-      "bytes": 29784,
-      "sha256": "9f4af5935c48807fc6a1990414afd6b50d3114da04d7ffa1f53ae62eea0cae55"
+      "bytes": 30428,
+      "sha256": "eaba9990b4cd65ca42a78fd8fa5a0645e3816af62abe5980f2f5f77e004e76d3"
     },
     {
       "path": "apps/portal-web/src/modules/AdminPermissions.css",
       "bytes": 1525,
       "sha256": "c1d98e2cd9a8d0dc2a1edcbd0e102c800d0511fc256b14b0651b83fa707f304f"
+    },
+    {
+      "path": "apps/portal-web/src/modules/AdminReviewCenter.css",
+      "bytes": 2285,
+      "sha256": "c6f6bb7a610c669fe2f88fef8293bab5e4f9a5e09014a355186015ba447b0c0b"
+    },
+    {
+      "path": "apps/portal-web/src/modules/AdminReviewCenter.tsx",
+      "bytes": 29001,
+      "sha256": "770699d10a255dea9ec518054f43c88865173ddbe169160bdb0ce6a5dac86548"
     },
     {
       "path": "apps/portal-web/src/modules/AgentShops.css",
@@ -1284,8 +1294,8 @@
     },
     {
       "path": "deploy/cloudflare/README.md",
-      "bytes": 11044,
-      "sha256": "de847992e41d8f4cf94d1a42b88e6c4802ea983b26467b226fad08811e71404a"
+      "bytes": 11638,
+      "sha256": "bed912d348dfd8f691528882e45fbe218ee211026e8506c9bf9bcd8a3888e79c"
     },
     {
       "path": "deploy/cloudflare/environments.json",
@@ -1659,8 +1669,8 @@
     },
     {
       "path": "docs/development/platform-admin-api.md",
-      "bytes": 14463,
-      "sha256": "a13745c77bfbe4de1c7c930ab1ea327c29701edccd66ebbc0949caeaf6177da8"
+      "bytes": 17021,
+      "sha256": "823eb6c92b9398ea94a242878cfb9bcbf56359c14fa3a0c79b73116e43f9919a"
     },
     {
       "path": "docs/development/public-operations.md",
@@ -1669,8 +1679,8 @@
     },
     {
       "path": "docs/development/repo-maintainer.md",
-      "bytes": 11983,
-      "sha256": "dcf02bc379b048294078bf6aee4a7488b2f045f33eba06e59bc177d3af6c7eb9"
+      "bytes": 18378,
+      "sha256": "e93acaa41905b6d39186022aa8151e6b464856d68cb1b8913b69dae78e9ea33f"
     },
     {
       "path": "docs/development/repository-guidance-index.json",
@@ -3033,6 +3043,11 @@
       "sha256": "25df4fe2d020b38ebfa54d6250b485777135a012d7fc5b1d4cbd1cda3ad14412"
     },
     {
+      "path": "migrations/058_maintainer_review_claims.sql",
+      "bytes": 2629,
+      "sha256": "0ebce73ce8630ff3b5b062a33cfdf86f9815d66b3add6e046d5aebd9eeb1657b"
+    },
+    {
       "path": "modules/agent-commerce/distribution.ts",
       "bytes": 10476,
       "sha256": "2d60f26788a408905286751505ea0d4d2e38a4399e1ff11e3df4622b5c2601f3"
@@ -3498,29 +3513,39 @@
       "sha256": "bad57e99b09ae04a1b4e43acf9c8187245ca5d1b8f9954fd7ba318d231eaa6fb"
     },
     {
+      "path": "modules/repo-maintainer/claims.ts",
+      "bytes": 10829,
+      "sha256": "7823d83efd501c5553dccb6b175f3a178f59add202901aaa6ce196cc12bb467c"
+    },
+    {
+      "path": "modules/repo-maintainer/derive.ts",
+      "bytes": 5686,
+      "sha256": "24d7b55909228a6043680716e829b30ae2bc725420899a76e7ada11b8653e16f"
+    },
+    {
       "path": "modules/repo-maintainer/github.ts",
-      "bytes": 21850,
-      "sha256": "b65366582fcba75de3095d832b7e1e1651a7fad717d8c5f2598bb2cf69880990"
+      "bytes": 26334,
+      "sha256": "13a8ac08f582bbbc1cfd5210c2550112adb5a03da1ac64e86ad2ad9ceb0c3391"
     },
     {
       "path": "modules/repo-maintainer/policy.ts",
-      "bytes": 29338,
-      "sha256": "d61f99bc66d04a65c67b34461dfdf018fe5c3cc5a0dace04eb8f86a015e807cb"
+      "bytes": 31111,
+      "sha256": "277d442b5a0050c4533a4ab9ad5865eace479def0d63644d8809047cc63d05ac"
     },
     {
       "path": "modules/repo-maintainer/queue.ts",
-      "bytes": 1088,
-      "sha256": "8fbb0f9876ea779b43e8b51e5b8e47aee9b6e541c2f8b1ec2e4f12b3b2197470"
+      "bytes": 2127,
+      "sha256": "352d68677378dc19cc788309d2b13f65eec0f59fba6ceee02e2928b8f3bf5a33"
     },
     {
       "path": "modules/repo-maintainer/service.ts",
-      "bytes": 17549,
-      "sha256": "86a6c3f3d61fb7b5d428fa88a3cc73df03591ebf6a0513a81ed0c7c8a720a81c"
+      "bytes": 35983,
+      "sha256": "b0cd28c17dfc9bfd8f887477edba4d914af570d37ce36c9715c16eeeb5bbe1b3"
     },
     {
       "path": "modules/repo-maintainer/tick.ts",
-      "bytes": 37536,
-      "sha256": "da629f10848feac18d9cccafcc86660ec151369aad7c9ddab1096aed73cfe481"
+      "bytes": 36941,
+      "sha256": "36ea8a6e7c9c92805cca778e07fa8861ef8559a42f528cde3db023a64230d8b9"
     },
     {
       "path": "modules/repo-maintainer/webhook.ts",
@@ -3836,6 +3861,11 @@
       "path": "tests/e2e/admin-guilds.spec.ts",
       "bytes": 22193,
       "sha256": "a7583ad9b62cc95f138675fa46328d2ea523f93f63467f1b895df97432d7ac15"
+    },
+    {
+      "path": "tests/e2e/admin-review-center.spec.ts",
+      "bytes": 16897,
+      "sha256": "cfa7fe5c1f334156ee7970ef1fe743377779e516abf451f749c44a5731043724"
     },
     {
       "path": "tests/e2e/admin.spec.ts",
@@ -4284,8 +4314,8 @@
     },
     {
       "path": "tests/runtime/maintainer-worker.test.ts",
-      "bytes": 10360,
-      "sha256": "704112e12a438fbb1bdc85b6a7ebdc2eaff6e0f189454766ced843b8668a0ed2"
+      "bytes": 11840,
+      "sha256": "92af12987df8a10e3d9563d885ded2157e2c78c79b2c5a1316f75deadaa931bb"
     },
     {
       "path": "tests/runtime/member-channel-access.test.ts",
@@ -4395,17 +4425,22 @@
     {
       "path": "tests/runtime/repo-maintainer-admin.test.ts",
       "bytes": 14902,
-      "sha256": "39d5a6513c4963639a899a537b7b97978b406f286d5fc54afca9059d9ea0a26f"
+      "sha256": "053eaf61907f0a26b30667262a80b3d49b770c83fd2de186481554013c3ec3e7"
+    },
+    {
+      "path": "tests/runtime/repo-maintainer-claims.test.ts",
+      "bytes": 33172,
+      "sha256": "6c435213a51795b7a443554de513735f66ea550ba394a92a64dba5dd0383d218"
     },
     {
       "path": "tests/runtime/repo-maintainer-policy.test.ts",
-      "bytes": 19837,
-      "sha256": "bb93e3469bca358bb55d4a2f34adcd74467876b264d0e442d3dc23d0482710df"
+      "bytes": 23330,
+      "sha256": "b90a4c288c041f5e1201f328252366049d9e806f7aee802af9ba15e91aacd9f1"
     },
     {
       "path": "tests/runtime/repo-maintainer-sync.test.ts",
-      "bytes": 38030,
-      "sha256": "05198b7d36f81005ed51e584e92faa452b0eba174575e176f19212c91271fe6d"
+      "bytes": 38045,
+      "sha256": "269a8a3b11c76f6361c7ccf88e2f9e168e34c9cf2f89ba004d84ddd7d3f98498"
     },
     {
       "path": "tests/runtime/repo-maintainer-webhook.test.ts",
@@ -4509,8 +4544,8 @@
     },
     {
       "path": "wrangler.maintainer.jsonc",
-      "bytes": 5428,
-      "sha256": "5ed2a1601e1ab55207006167296d80a46eccf68ce4d3f3128f9994e76da94e62"
+      "bytes": 5850,
+      "sha256": "8e9da7a289f822c45af321e3fd868f06b14d8a2332f1be667a8983fa597626d6"
     }
   ]
 }
