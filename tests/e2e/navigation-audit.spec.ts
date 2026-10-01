@@ -29,9 +29,10 @@ test('navigation separates collaboration, commerce and management without granti
   await navigate(page, '開源投稿');
   await expect(page.getByRole('heading', { name: '開源投稿', level: 1, exact: true })).toBeVisible();
   await expect(page.locator('.community-library')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: '投稿你的開源工具', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '上傳技能', exact: true })).toBeHidden();
+  await page.getByText('使用 Agent 或聊天 AI 協助整理（進階）', { exact: true }).click();
   await expect(page.getByRole('button', { name: '上傳技能', exact: true })).toBeVisible();
-  await page.getByText('手動登錄作品', { exact: true }).click();
-  await expect(page.getByRole('heading', { name: '登錄開源作品', exact: true })).toBeVisible();
   await navigate(page, '我有東西要賣');
   await expect(page.getByRole('heading', { name: '我有東西要賣', level: 1, exact: true })).toBeVisible();
   await expect(commerce.getByRole('button', { name: '我有東西要賣', exact: true })).toHaveAttribute('aria-current', 'page');

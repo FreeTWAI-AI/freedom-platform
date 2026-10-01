@@ -7,7 +7,7 @@ import { authRateLimit } from '../../../../modules/identity-membership/members.j
 import { normalizeSubmission } from '../../../../modules/skill-submissions/payload.js';
 import {
   agentCreateSubmission, agentUploadSubmission, createKey, findUploadGrant, findUploadKey, issueSubmission, listKeys, listSubmissions,
-  publishSubmission, readOwnIllustration, readSubmission, revokeKey, revokeSubmission, rotateGrant,
+  createManualSubmission, reviseManualSubmission, publishSubmission, readOwnIllustration, readSubmission, revokeKey, revokeSubmission, rotateGrant,
 } from '../../../../modules/skill-submissions/service.js';
 
 export const AGENT_CREATE_MAX_BYTES = 8192;
@@ -72,6 +72,11 @@ const withEtag = (c: Context, value: { aggregate_version?: string } | undefined)
 export function createSkillSubmissionRoutes(pool: Pool, origin: string, readToken: () => string | undefined = () => undefined) {
   const app = new Hono<PlatformEnv>();
   app.get('/me/skill-submissions', async c => c.json({ items: await listSubmissions(pool, c.get('actor')) }));
+  app.post('/me/skill-submissions/manual', async c => {
+    const result = await createManualSubmission(pool, await moduleCommand(c));
+    withEtag(c, result);
+    return c.json(result, 201);
+  });
   app.post('/me/skill-submissions', async c => {
     const result = await issueSubmission(pool, await moduleCommand(c), origin);
     withEtag(c, result.submission);
@@ -79,6 +84,11 @@ export function createSkillSubmissionRoutes(pool: Pool, origin: string, readToke
   });
   app.get('/me/skill-submissions/:id', async c => {
     const result = await readSubmission(pool, c.get('actor'), c.req.param('id'));
+    withEtag(c, result);
+    return c.json(result);
+  });
+  app.post('/me/skill-submissions/:id/manual', async c => {
+    const result = await reviseManualSubmission(pool, await moduleCommand(c), c.req.param('id'));
     withEtag(c, result);
     return c.json(result);
   });

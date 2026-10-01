@@ -41,15 +41,15 @@ test('member writes a private campaign, revises it and records a manual share th
 
 test('open-source entry clearly collects GitHub/use/license context and rejects arbitrary fetch targets',async({page})=>{
   await login(page);await navigate(page, '開源投稿');
-  await page.getByText('手動登錄作品',{exact:true}).click();
-  await expect(page.getByRole('heading',{name:'登錄開源作品',exact:true})).toBeVisible();
-  await page.getByLabel('GitHub 儲存庫網址',{exact:true}).fill('https://untrusted.example/owner/repository');
+  await expect(page.getByRole('heading',{name:'投稿你的開源工具',exact:true})).toBeVisible();
+  await page.getByLabel('GitHub 專案網址',{exact:true}).fill('https://untrusted.example/owner/repository');
   await page.getByLabel('作品名稱',{exact:true}).fill('不應送出網路的測試');
-  await page.getByLabel('這個作品可以做什麼',{exact:true}).fill('驗證只接受 GitHub 儲存庫。');
-  await page.getByLabel('如何開始使用',{exact:true}).fill('先閱讀使用文件。');
-  await page.getByLabel('我同意讓社群會員看見作品介紹與來源關係',{exact:true}).check();
-  await page.getByRole('button',{name:'從 GitHub 登錄',exact:true}).click();
+  await page.getByLabel('一句話介紹',{exact:true}).fill('驗證只接受 GitHub 儲存庫。');
+  await page.getByRole('button',{name:'預覽投稿',exact:true}).click();
+  await page.getByLabel('我同意公開這份作品介紹與來源關係',{exact:true}).check();
+  await page.getByRole('button',{name:'確認並公開',exact:true}).click();
   await expect(page.getByRole('alert')).toContainText('請使用 https://github.com/');
+  await page.getByRole('button',{name:'修改內容',exact:true}).click();
   await expect(page.getByLabel('作品名稱',{exact:true})).toHaveValue('不應送出網路的測試');
   await page.setViewportSize({width:390,height:844});
   const width=await page.evaluate(()=>({viewport:window.innerWidth,document:document.documentElement.scrollWidth}));expect(width.document).toBeLessThanOrEqual(width.viewport);
