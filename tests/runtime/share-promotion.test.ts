@@ -707,3 +707,48 @@ test('a duplicate social post is not fetched, own-site urls are refused, and the
   assert.equal(blocked.data.code, 'auth_rate_limited');
   assert.equal(previewFetches, beforeLast);
 });
+
+// The first shareable() read still sees the target. The pause runs before openTarget reads it again.
+async function vanishBetweenReads(match: (sql: string) => boolean, pause: string, id: string, code: string) {
+  const live = await app.request(`${origin}/go/${code}`);
+  assert.equal(live.status, 200, await live.clone().text());
+  await live.text();
+  const original = pool.query.bind(pool) as (text: unknown, values?: unknown) => Promise<unknown>;
+  let seen = false;
+  pool.query = (async (text: unknown, values?: unknown) => {
+    const sql = typeof text === 'string' ? text : String((text as { text?: string } | undefined)?.text ?? '');
+    const result = await original(text, values);
+    if (!seen && match(sql)) {
+      seen = true;
+      await original(pause, [id]);
+    }
+    return result;
+  }) as typeof pool.query;
+  try {
+    const gone = await app.request(`${origin}/go/${code}`);
+    const body = await gone.text();
+    assert.equal(gone.status, 302, body.slice(0, 240));
+    assert.ok((gone.headers.get('location') ?? '').endsWith('/'));
+    assert.equal(body.includes('internal_error'), false);
+    assert.equal(seen, true);
+  } finally {
+    pool.query = original as typeof pool.query;
+  }
+}
+
+test('/go falls back home when a service or event disappears between the two reads', async () => {
+  const maker = await signIn();
+  const serviceId = randomUUID();
+  await pool.query(`INSERT INTO member_services(service_id,community_id,owner_user_id,title,category,summary,service_mode,contacts,state)
+    VALUES($1,$2,$3,'會中途暫停的服務','language','簡介','online','[{"label":"網站","url":"https://example.com/vanish"}]'::jsonb,'active')`,
+  [serviceId, DEMO_COMMUNITY, maker.user.user_id]);
+  const serviceLink = await ownLink(maker.user.user_id, 'member_service', serviceId);
+  await vanishBetweenReads(sql => sql.includes('AS has_cover') && sql.includes('member_services'), `UPDATE member_services SET state='paused' WHERE service_id=$1`, serviceId, serviceLink.code);
+  assert.equal((await pool.query(`SELECT state FROM member_services WHERE service_id=$1`, [serviceId])).rows[0].state, 'paused');
+
+  const eventId = randomUUID();
+  await eventRow(eventId, maker.user.user_id, 'open', '會中途取消的活動', '說明');
+  const eventLink = await ownLink(maker.user.user_id, 'event', eventId);
+  await vanishBetweenReads(sql => sql.includes('AS has_banner') && sql.includes('community_events'), `UPDATE community_events SET state='cancelled' WHERE event_id=$1`, eventId, eventLink.code);
+  assert.equal((await pool.query(`SELECT state FROM community_events WHERE event_id=$1`, [eventId])).rows[0].state, 'cancelled');
+});

@@ -53,6 +53,17 @@ async function noOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 }
 
+async function publicLogoFits(page: Page) {
+  const logo = page.locator('header.service-top a[href="/"] img.service-logo');
+  await expect(logo).toBeVisible();
+  await expect(logo).toHaveAttribute('alt', '自由工坊');
+  const box = (await logo.boundingBox())!;
+  expect(box.height).toBeGreaterThanOrEqual(52);
+  expect(box.height).toBeLessThanOrEqual(68);
+  expect(box.width).toBeGreaterThan(0);
+  await noOverflow(page);
+}
+
 function channel(value: number) {
   const scaled = value / 255;
   return scaled <= 0.03928 ? scaled / 12.92 : ((scaled + 0.055) / 1.055) ** 2.4;
@@ -105,6 +116,16 @@ test('a member lists a service with a cover and one with a placeholder', async (
   await shot(page, 'form-light-1280');
   await page.setViewportSize({ width: 390, height: 844 });
   await shot(page, 'form-light-390');
+  const formBox = (await form.boundingBox())!;
+  const urlBox = (await form.getByLabel('https 連結', { exact: true }).boundingBox())!;
+  for (const name of ['移除', '再加一個聯絡方式']) {
+    const box = (await form.getByRole('button', { name, exact: true }).boundingBox())!;
+    expect(box.width).toBeLessThan(formBox.width * 0.6);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(Math.abs(box.x - urlBox.x)).toBeLessThanOrEqual(2);
+  }
+  const removeBox = (await form.getByRole('button', { name: '移除', exact: true }).boundingBox())!;
+  expect(removeBox.y).toBeGreaterThan(urlBox.y + urlBox.height - 1);
   await themeOf(page, 'versefolk');
   await page.setViewportSize({ width: 1280, height: 900 });
   await shot(page, 'form-versefolk-1280');
@@ -170,7 +191,8 @@ test('another member shares it and a signed-out visitor lands on the public page
     for (const width of [1280, 390]) {
       await guest.setViewportSize({ width, height: width === 390 ? 844 : 900 });
       await guest.screenshot({ path: `${SHOTS}/public-list-${scheme}-${width}.png`, fullPage: true });
-      await noOverflow(guest);
+      if (width === 390) await publicLogoFits(guest);
+      else await noOverflow(guest);
     }
   }
   await guest.goto(`${origin}${servicePath}`);
@@ -179,7 +201,8 @@ test('another member shares it and a signed-out visitor lands on the public page
     for (const width of [1280, 390]) {
       await guest.setViewportSize({ width, height: width === 390 ? 844 : 900 });
       await guest.screenshot({ path: `${SHOTS}/public-detail-${scheme}-${width}.png`, fullPage: true });
-      await noOverflow(guest);
+      if (width === 390) await publicLogoFits(guest);
+      else await noOverflow(guest);
     }
   }
   await context.close();
@@ -314,6 +337,8 @@ test('the owner can pause, resume and delete a service', async ({ page, browser 
   const missing = await guest.goto(`${origin}${servicePath}`);
   expect(missing?.status()).toBe(404);
   await expect(guest.getByRole('heading', { name: '找不到這項服務' })).toBeVisible();
+  await guest.setViewportSize({ width: 390, height: 844 });
+  await publicLogoFits(guest);
   await guest.goto(goUrl);
   await expect.poll(() => new URL(guest.url()).pathname).toBe('/');
   await context.close();

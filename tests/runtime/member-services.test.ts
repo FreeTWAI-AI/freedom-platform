@@ -82,6 +82,9 @@ async function counts() {
 function board(data: { boards: { kind: string; items: { user_id: string; display_name: string; points: number }[] }[] }, kind = 'member_service') {
   return data.boards.find(item => item.kind === kind)!;
 }
+function assertLogo(html: string) {
+  assert.match(html, /<header class="service-top"><a href="\/"><img class="service-logo" src="\/brand\/freedom-workshop\.webp" alt="自由工坊" width="1280" height="720"><\/a><a href="\/services">社員服務<\/a><\/header>/);
+}
 
 test('owners edit with one version, outsiders are refused, and the five-service cap holds', async () => {
   const maker = await signIn(), reviewer = await signIn(DEMO_USERS[1].email);
@@ -304,6 +307,7 @@ test('paused, hidden, deleted and ineligible owners leave the public pages', asy
   assert.equal((await html('/services.css')).html.includes('找不到這項服務'), false);
   const open = await html(`/services/${id}`);
   assert.equal(open.status, 200);
+  assertLogo(open.html);
   assert.match(open.type ?? '', /text\/html/);
   assert.equal(open.cache, 'public, max-age=60');
   assert.match(open.html, /公開假髮/);
@@ -338,6 +342,7 @@ test('paused, hidden, deleted and ineligible owners leave the public pages', asy
   assert.equal((await request('/member-services/mine', maker)).data.items.length, 0);
   const missing = await html(`/services/${id}`);
   assert.equal(missing.status, 404);
+  assertLogo(missing.html);
   assert.match(missing.html, /找不到這項服務/);
   assert.match(missing.html, /noindex/);
   assert.equal(missing.html.includes('rel="canonical"'), false);
@@ -391,7 +396,8 @@ test('public pages escape member text, page, and filter without echoing a bad qu
   assert.match(page.html, new RegExp(`property="og:title" content="假髮&lt;script&gt;&quot;&#39;｜主人&lt;script&gt;&quot;&#39; 的服務｜自由工坊"`));
   assert.match(page.html, /property="og:description" content="簡介&lt;b&gt;&quot;&#39;"/);
   assert.match(page.html, /class="service-placeholder"/);
-  assert.equal(page.html.includes('<img'), false);
+  assert.equal(page.html.includes('service-cover'), false);
+  assertLogo(page.html);
   assert.match(page.html, /property="og:image" content="https:\/\/freetwai\.com\/brand\/freedom-workshop\.webp"/);
   assert.match(page.html, /property="og:image:width" content="1280"/);
   assert.match(page.html, /rel="canonical" href="https:\/\/freetwai\.com\/services\//);
@@ -421,6 +427,7 @@ test('public pages escape member text, page, and filter without echoing a bad qu
   }
   const first = await html('/services');
   assert.equal(first.status, 200);
+  assertLogo(first.html);
   assert.match(first.html, /S13/);
   assert.match(first.html, /S02/);
   assert.equal(first.html.includes('S01'), false);
@@ -440,6 +447,7 @@ test('public pages escape member text, page, and filter without echoing a bad qu
   assert.equal(junk.html.includes('<script'), false);
   const unknown = await html(`/services/${randomUUID()}`);
   assert.equal(unknown.status, 404);
+  assertLogo(unknown.html);
   assert.match(unknown.html, /這項服務目前沒有公開。/);
 });
 

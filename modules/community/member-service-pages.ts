@@ -38,10 +38,13 @@ function media(service: { service_id: string; has_cover: boolean }, origin: stri
 function placeholder(category: ServiceCategory) {
   return `<div class="service-placeholder">${escapeHtml(SERVICE_CATEGORY_LABELS[category])}</div>`;
 }
+function serviceTop() {
+  return `<header class="service-top"><a href="/"><img class="service-logo" src="${BRAND}" alt="自由工坊" width="1280" height="720"></a><a href="/services">社員服務</a></header>`;
+}
 
 export function serviceMissingHtml(origin: string) {
   const head = `<meta name="robots" content="noindex"><meta name="description" content="這項服務目前沒有公開。">`;
-  const body = `<main class="service-missing"><h1>找不到這項服務</h1><p>這項服務目前沒有公開。</p></main>`;
+  const body = `<main class="service-missing">${serviceTop()}<h1>找不到這項服務</h1><p>這項服務目前沒有公開。</p></main>`;
   return shell(origin, '找不到這項服務｜自由工坊', head, body);
 }
 
@@ -57,7 +60,7 @@ export function serviceListHtml(origin: string, category: string, cards: PublicS
     return `<article class="service-card"><a class="service-card-link" href="/services/${card.service_id}">${card.has_cover ? media(card, origin) : placeholder(card.category)}<h2>${escapeHtml(card.title)}</h2></a><p class="service-category">${escapeHtml(SERVICE_CATEGORY_LABELS[card.category])}</p><p class="service-owner">${escapeHtml(card.owner_name)}</p><p class="service-summary">${escapeHtml(card.summary)}</p>${facts ? `<p class="service-facts">${facts}</p>` : ''}</article>`;
   }).join('');
   const next = nextCursor ? `<p class="service-more"><a href="${escapeHtml(listPath(category, nextCursor))}">下一頁</a></p>` : '';
-  const body = `<main><header class="service-banner"><p class="service-mark">自由工坊</p><h1>社員服務</h1><p>${escapeHtml(description)}</p></header><nav class="service-chips" aria-label="分類">${chips}</nav>${cards.length ? `<div class="service-grid">${items}</div>` : '<p class="service-empty">目前沒有公開的社員服務。</p>'}${next}</main>`;
+  const body = `<main>${serviceTop()}<header class="service-banner"><h1>社員服務</h1><p>${escapeHtml(description)}</p></header><nav class="service-chips" aria-label="分類">${chips}</nav>${cards.length ? `<div class="service-grid">${items}</div>` : '<p class="service-empty">目前沒有公開的社員服務。</p>'}${next}</main>`;
   return shell(origin, title, meta(origin, listPath(category), title, description, { url: abs(origin, BRAND), width: 1280, height: 720 }), body);
 }
 
@@ -72,6 +75,6 @@ export function serviceDetailHtml(origin: string, service: PublicServicePage) {
     `<div><dt>方式</dt><dd>${escapeHtml(SERVICE_MODE_LABELS[service.service_mode])}</dd></div>`,
   ].join('');
   const contacts = service.contacts.map(contact => `<a class="service-contact" href="${escapeHtml(contact.url)}" target="_blank" rel="noopener noreferrer nofollow">${escapeHtml(contact.label)}</a>`).join('');
-  const body = `<main class="service-detail"><p class="service-mark">自由工坊</p>${service.has_cover ? media(service, origin) : placeholder(service.category)}<p class="service-category">${escapeHtml(SERVICE_CATEGORY_LABELS[service.category])}</p><h1>${escapeHtml(service.title)}</h1><p class="service-owner">${escapeHtml(service.owner_name)}</p><p class="service-summary">${escapeHtml(service.summary)}</p>${service.description ? `<div class="service-copy">${paragraphs(service.description)}</div>` : ''}<dl class="service-facts">${facts}</dl><div class="service-contacts">${contacts}</div></main>`;
+  const body = `<main class="service-detail">${serviceTop()}${service.has_cover ? media(service, origin) : placeholder(service.category)}<p class="service-category">${escapeHtml(SERVICE_CATEGORY_LABELS[service.category])}</p><h1>${escapeHtml(service.title)}</h1><p class="service-owner">${escapeHtml(service.owner_name)}</p><p class="service-summary">${escapeHtml(service.summary)}</p>${service.description ? `<div class="service-copy">${paragraphs(service.description)}</div>` : ''}<dl class="service-facts">${facts}</dl><div class="service-contacts">${contacts}</div></main>`;
   return shell(origin, title, meta(origin, `/services/${service.service_id}`, title, service.summary, image), body);
 }

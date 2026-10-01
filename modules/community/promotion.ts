@@ -308,13 +308,15 @@ async function openTarget(pool: Pool, link: LinkRow, introRaw: string | undefine
       const image = content ? { url: origin + content.illustration_url, width: 1200, height: 630 } : undefined;
       return { href: `/development/skills/${encodeURIComponent(id)}${query}`, title: book.title, description: chosen || book.description, image };
     }
-    const submission = (await readPublishedSkillSubmission(pool, link.target_key.slice(11)))!;
+    const submission = await readPublishedSkillSubmission(pool, link.target_key.slice(11));
+    if (!submission) return null;
     const chosen = intro && intro <= submission.share_introductions.length ? submission.share_introductions[intro - 1] : null;
     const image = submission.illustration_url ? { url: origin + submission.illustration_url, width: 1200, height: 630 } : undefined;
     return { href: `/development/submissions/${submission.submission_id}${query}`, title: submission.title, description: chosen || submission.description, image };
   }
   if (link.kind === 'event') {
-    const event = (await eventStillShared(pool, link.target_key))!;
+    const event = await eventStillShared(pool, link.target_key);
+    if (!event) return null;
     const code = (await pool.query('SELECT code FROM community_event_share_codes WHERE event_id=$1 AND user_id=$2', [link.target_key, link.user_id])).rows[0]?.code as string | undefined;
     const href = `/events/${link.target_key}${code ? `?ref=${encodeURIComponent(code)}` : ''}`;
     const open = event.visibility === 'referral' || event.visibility === 'open';
@@ -323,7 +325,8 @@ async function openTarget(pool: Pool, link: LinkRow, introRaw: string | undefine
     return { href, title: event.title, description: event.description.slice(0, 160), image };
   }
   if (link.kind === 'member_service') {
-    const service = (await readMemberServiceShare(pool, link.community_id, link.target_key))!;
+    const service = await readMemberServiceShare(pool, link.community_id, link.target_key);
+    if (!service) return null;
     const image = service.hasCover
       ? { url: `${origin}/api/v1/public/member-services/${link.target_key}/cover`, width: 1200, height: 675 }
       : { url: origin + platformOg.image, width: platformOg.width, height: platformOg.height };
