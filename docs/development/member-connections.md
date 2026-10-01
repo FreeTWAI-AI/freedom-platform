@@ -42,7 +42,7 @@ LINE：`line.me` / `lin.ee`（含子網域）上、沒有帳號密碼、最多 3
 
 項目要同時滿足 `show_profile_links` 為真，而且 `profile_link_prefs[source]` 沒有寫時，除了 `contact:email` 以外都算顯示。手動連結的網址如果和某個項目完全相同，公開頁留手動連結、拿掉那個項目。設定頁仍列出它，方便再打開。
 
-migration `074_member_card_profile_links.sql` 加上 `show_profile_links` 和 `profile_link_prefs`。既有列在加上欄位時預設關閉，因為那些名片是在聯絡方式會出現之前就打開的；新列預設打開。沒有另外的欄位授權，沿用資料表的預設權限。
+migration `075_member_card_profile_links.sql` 加上 `show_profile_links` 和 `profile_link_prefs`。既有列在加上欄位時預設關閉，因為那些名片是在聯絡方式會出現之前就打開的；新列預設打開。沒有另外的欄位授權，沿用資料表的預設權限。
 
 絕不呈現：會員 ID、未標成平台公開的聯絡方式、已隱藏的項目、已刪除或只給好友／小隊／公會的社群連結、裝備、定位答案、職業。驗證帳與測試帳不能分享。未完成加入、已停用，或分享已關閉時，舊連結回 404。從聯絡方式拿掉「平台公開」，或刪掉一筆社群連結，下一筆讀取就不會再出現，不必重存名片。
 

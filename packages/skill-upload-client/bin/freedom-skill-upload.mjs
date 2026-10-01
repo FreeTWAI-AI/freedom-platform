@@ -16,7 +16,7 @@ const PAYLOAD_MAX_BYTES = 800 * 1024;
 const COVER_MAX_BYTES = 512 * 1024;
 const RESPONSE_MAX_BYTES = 64 * 1024;
 const REQUEST_TIMEOUT_MS = 60_000;
-const ERROR_CODES = new Set(['validation_failed','invalid_github_url','invalid_external_url','invalid_cover_image','cover_image_too_large',
+const ERROR_CODES = new Set(['validation_failed','repository_mismatch','invalid_github_url','invalid_external_url','invalid_cover_image','cover_image_too_large',
   'auth_rate_limited','json_required','body_too_large','invalid_json','upload_key_invalid','upload_grant_invalid','idempotency_required',
   'idempotency_conflict','draft_limit','onboarding_required','upload_grant_consumed','submission_not_awaiting_upload','origin_rejected',
   'host_rejected','agent_query_unsupported','internal_error','agent_route_not_found','agent_method_not_allowed']);
@@ -204,7 +204,8 @@ async function postJson(origin, path, credential, body, idempotencyKey) {
     const code = ERROR_CODES.has(data?.code) ? ` ${data.code}` : '';
     // Server-controlled detail may reflect the Authorization header. Report
     // only bounded protocol codes and locally authored guidance.
-    const hint = data?.code === 'validation_failed' ? '：請核對技能欄位與剛好 100 則不同的分享介紹。' : '';
+    const hint = data?.code === 'validation_failed' ? '：請核對技能欄位與剛好 100 則不同的分享介紹。'
+      : data?.code === 'repository_mismatch' ? '：請改傳這份草稿指定的同一個儲存庫；授權尚未消耗。' : '';
     throw new CliError(`網站拒絕這次操作（HTTP ${response.status}${code}）${hint}`);
   }
   if (!data || typeof data !== 'object') throw new CliError('網站回應格式不正確。');

@@ -8,6 +8,7 @@ import { normalizeSubmission } from '../../../../modules/skill-submissions/paylo
 import {
   agentCreateSubmission, agentUploadSubmission, createKey, findUploadGrant, findUploadKey, issueSubmission, listKeys, listSubmissions,
   createManualSubmission, reviseManualSubmission, publishSubmission, readOwnIllustration, readSubmission, revokeKey, revokeSubmission, rotateGrant,
+  upgradeSubmission,
 } from '../../../../modules/skill-submissions/service.js';
 
 export const AGENT_CREATE_MAX_BYTES = 8192;
@@ -115,6 +116,11 @@ export function createSkillSubmissionRoutes(pool: Pool, origin: string, readToke
     const result = await publishSubmission(pool, await moduleCommand(c), c.req.param('id'), { token: readToken() });
     withEtag(c, result);
     return c.json(result);
+  });
+  app.post('/me/skill-submissions/:id/upgrade', async c => {
+    const result = await upgradeSubmission(pool, await moduleCommand(c), c.req.param('id'));
+    withEtag(c, result.submission);
+    return c.json(result.submission, result.created ? 201 : 200);
   });
   app.get('/me/skill-upload-keys', async c => c.json({ items: await listKeys(pool, c.get('actor')) }));
   app.post('/me/skill-upload-keys', async c => c.json(await createKey(pool, await moduleCommand(c)), 201));

@@ -75,7 +75,9 @@ Content-Type: application/json
 
 ## 錯誤
 
-錯誤回應為 `{"status", "code", "detail"}`。常見代碼：`upload_key_invalid`、`upload_grant_invalid`（401）、`onboarding_required`（403）、`upload_grant_consumed`、`draft_limit`（409）、`body_too_large`（413）、`json_required`（415）、`validation_failed`、`invalid_cover_image`（422）、`auth_rate_limited`（429）。
+錯誤回應為 `{"status", "code", "detail"}`。常見代碼：`upload_key_invalid`、`upload_grant_invalid`（401）、`onboarding_required`（403）、`upload_grant_consumed`、`draft_limit`（409）、`body_too_large`（413）、`json_required`（415）、`validation_failed`、`invalid_cover_image`、`repository_mismatch`（422）、`auth_rate_limited`（429）。
+
+`repository_mismatch`：這份草稿是為特定儲存庫建立的，上傳的 `repository_url` 必須是同一個儲存庫；請改傳該儲存庫的內容，或請會員撤銷草稿後重新建立。授權不會被消耗。
 
 401 `upload_grant_invalid`：請會員在網站按「重新產生指令」重新產生授權，再用新的 `Authorization: Bearer fpg_…` 上傳；不要重送舊授權。內容超過上限時縮小 JSON，不要分段。
 
