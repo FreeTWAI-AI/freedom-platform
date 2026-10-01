@@ -10,7 +10,7 @@
 
 - 不在 GitHub 上送審查、留言、標籤或合併。
 - 不呼叫 AI。
-- 設定裡的 `ai_review`、`merge_dry_run`、`merge` 會回 422。資料表已經允許這些值，避免之後還要改欄位，但 API 現在只收 `off` 與 `observe`。
+- 儲存庫 mode 只有 `off` 與 `observe`。其他值回 422。
 - 把認領鏡像成 GitHub requested reviewer 已經接上，預設關閉。三個開關都打開才會寫，見「要求審查者」。
 
 會員用的 GitHub App（`modules/github-social`）不變：不留私鑰、不擴權、webhook 關閉。維護者 App 是另一個私有 App。
