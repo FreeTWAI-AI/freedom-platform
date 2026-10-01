@@ -19,6 +19,8 @@ const admin = createPool(databaseUrl);
 const pool = new Pool({connectionString: databaseUrl, options: `-c search_path=${schema}`, max: 6});
 const originalFetch = globalThis.fetch;
 const actor = {community_id: DEMO_COMMUNITY, user_id: DEMO_USERS[0].user_id} as Actor;
+const otherCommunity = '30000000-0000-4000-8000-000000000099';
+const otherUser = '30000000-0000-4000-8000-000000000098';
 const calls: string[] = [];
 let app = createApp(pool, origin);
 
@@ -40,8 +42,6 @@ before(async () => {
   await admin.query(`CREATE SCHEMA ${schema}`);
   await migrate(pool);
   await seedLocal(pool);
-  const otherCommunity = '30000000-0000-4000-8000-000000000099';
-  const otherUser = '30000000-0000-4000-8000-000000000098';
   await pool.query('INSERT INTO communities VALUES($1,$2)', [otherCommunity, '其他社群']);
   await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref)
     VALUES($1,$2,'other-history@local.test','其他','hash',$3)`, [otherUser, otherCommunity, randomUUID()]);
@@ -80,9 +80,15 @@ async function putRepo(name: string, fields: {status?: string; backfilled?: bool
     ON CONFLICT (repository_key) DO UPDATE SET access_status=EXCLUDED.access_status, backfilled=EXCLUDED.backfilled, last_synced_at=EXCLUDED.last_synced_at`,
   [name.toLowerCase(), name, fields.status ?? 'ok', fields.backfilled ?? true, fields.synced === undefined ? when : fields.synced]);
 }
-async function putItem(name: string, row: {number: number; kind: 'issue' | 'pr'; author: string | null; state?: 'open' | 'closed'; stateReason?: string | null; mergedAt?: string | null; created: string}) {
-  await pool.query(`INSERT INTO github_items(repository_key,number,kind,title,author_login,state,state_reason,merged_at,created_at,updated_at)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9)`, [name.toLowerCase(), row.number, row.kind, `標題 ${row.number}`, row.author, row.state ?? 'open', row.stateReason ?? null, row.mergedAt ?? null, row.created]);
+async function putItem(name: string, row: {number: number; kind: 'issue' | 'pr'; author: string | null; state?: 'open' | 'closed'; stateReason?: string | null; mergedAt?: string | null; created: string; pageIds?: string[]}) {
+  await pool.query(`INSERT INTO github_items(repository_key,number,kind,title,author_login,state,state_reason,merged_at,created_at,updated_at,page_ids)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10)`, [name.toLowerCase(), row.number, row.kind, `標題 ${row.number}`, row.author, row.state ?? 'open', row.stateReason ?? null, row.mergedAt ?? null, row.created, row.pageIds ?? []]);
+}
+async function bindGitHub(userId: string, communityId: string, githubUserId: string, login: string) {
+  await pool.query(`INSERT INTO github_social_connections(user_id,community_id,github_user_id,github_login,encrypted_tokens)
+    VALUES ($1,$2,$3,$4,'not-a-real-token')
+    ON CONFLICT (user_id) DO UPDATE SET community_id=EXCLUDED.community_id, github_user_id=EXCLUDED.github_user_id, github_login=EXCLUDED.github_login, encrypted_tokens=EXCLUDED.encrypted_tokens`,
+  [userId, communityId, githubUserId, login]);
 }
 
 test('leaderboard scores stay display-only and skip automation accounts', () => {
@@ -189,6 +195,9 @@ test('leaderboard counts match the shared helpers and follow repository visibili
   await putItem('Example-Org/visible-tool', {number: 1, kind: 'issue', author: 'visible-maker', created: '2026-09-20T00:00:00.000Z'});
   await putItem('Example-Org/hidden-repo', {number: 1, kind: 'issue', author: 'hidden-author', created: '2026-09-20T00:00:00.000Z'});
   await putItem('Example-Org/hidden-repo', {number: 2, kind: 'pr', author: 'member-demo', created: '2026-09-20T00:00:00.000Z', state: 'closed', mergedAt: when});
+  await bindGitHub(DEMO_USERS[0].user_id, DEMO_COMMUNITY, '810000000001', 'member-demo');
+  await bindGitHub(DEMO_USERS[1].user_id, DEMO_COMMUNITY, '810000000002', 'contributor-demo');
+  await bindGitHub(DEMO_USERS[2].user_id, DEMO_COMMUNITY, '810000000003', 'visible-maker');
   const helperItems = [
     ...visible.map(row => ({author: row.author, kind: row.kind})),
     {author: 'visible-maker', kind: 'issue' as const},
@@ -240,6 +249,68 @@ test('leaderboard counts match the shared helpers and follow repository visibili
   assert.equal(missing.data.code, 'invalid_repository');
   assert.equal(tooFar.status, 422);
   assert.equal(anon.status, 401);
+  assert.equal(calls.slice(started).some(isGitHubHost), false);
+  assert.equal(calls.slice(beforeCalls).some(isGitHubHost), false);
+});
+
+test('leaderboards count bound members and page-marked platform submissions only', async () => {
+  const beforeCalls = calls.length;
+  const caseUser = '51000000-0000-4000-8000-000000000011';
+  const inactiveUser = '51000000-0000-4000-8000-000000000012';
+  const profileUser = '51000000-0000-4000-8000-000000000013';
+  await pool.query(`DELETE FROM github_social_connections WHERE lower(btrim(github_login)) = ANY($1::text[])`, [[
+    'member-demo', 'outsider-oss', 'page-guest', 'other-community-dev', 'inactive-member', 'profile-only-dev',
+  ]]);
+  await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,active)
+    VALUES ($1,$2,'leaderboard-case@local.test','大小寫','not-used','51000000-0000-4000-8000-000000000021',true),
+           ($3,$2,'leaderboard-inactive@local.test','停用','not-used','51000000-0000-4000-8000-000000000022',false),
+           ($4,$2,'leaderboard-profile@local.test','名片','not-used','51000000-0000-4000-8000-000000000023',true)
+    ON CONFLICT (user_id) DO UPDATE SET active=EXCLUDED.active, community_id=EXCLUDED.community_id`,
+  [caseUser, DEMO_COMMUNITY, inactiveUser, profileUser]);
+  await bindGitHub(caseUser, DEMO_COMMUNITY, '910000000011', 'Member-Demo');
+  await bindGitHub(otherUser, otherCommunity, '910000000012', 'other-community-dev');
+  await bindGitHub(inactiveUser, DEMO_COMMUNITY, '910000000013', 'inactive-member');
+  await pool.query(`INSERT INTO member_accounts(user_id,community_id,contacts) VALUES ($1,$2,$3::jsonb)
+    ON CONFLICT (user_id) DO UPDATE SET contacts=EXCLUDED.contacts`, [profileUser, DEMO_COMMUNITY, JSON.stringify({
+    discord: {value: '', audiences: []}, github: {value: 'profile-only-dev', audiences: ['public']}, line: {value: '', audiences: []}, email: {audiences: []},
+  })]);
+  await putRepo('FreeTWAI-AI/freedom-platform');
+  await putRepo('Example-Org/visible-tool');
+  await putItem('Example-Org/visible-tool', {number: 1, kind: 'issue', author: 'outsider-oss', created: '2026-09-20T00:00:00.000Z'});
+  await putItem('FreeTWAI-AI/freedom-platform', {number: 40, kind: 'issue', author: 'member-demo', created: '2026-09-20T00:00:00.000Z'});
+  await putItem('Example-Org/visible-tool', {number: 42, kind: 'issue', author: 'member-demo', created: '2026-09-21T00:00:00.000Z'});
+  await putItem('Example-Org/visible-tool', {number: 43, kind: 'pr', author: 'member-demo', created: '2026-09-22T00:00:00.000Z'});
+  await putItem('FreeTWAI-AI/freedom-platform', {number: 50, kind: 'issue', author: 'other-community-dev', created: '2026-09-20T00:00:00.000Z'});
+  await putItem('FreeTWAI-AI/freedom-platform', {number: 51, kind: 'issue', author: 'inactive-member', created: '2026-09-20T00:00:00.000Z'});
+  await putItem('FreeTWAI-AI/freedom-platform', {number: 52, kind: 'issue', author: 'profile-only-dev', created: '2026-09-20T00:00:00.000Z'});
+  await putItem('FreeTWAI-AI/freedom-platform', {number: 21, kind: 'issue', author: 'page-guest', created: '2026-09-23T00:00:00.000Z', pageIds: ['home']});
+  await putItem('FreeTWAI-AI/freedom-platform', {number: 22, kind: 'issue', author: 'page-guest', created: '2026-09-24T00:00:00.000Z'});
+  await putItem('Example-Org/visible-tool', {number: 30, kind: 'issue', author: 'page-guest', created: '2026-09-25T00:00:00.000Z', pageIds: ['home']});
+  await putItem('FreeTWAI-AI/freedom-platform', {number: 60, kind: 'issue', author: 'dependabot[bot]', created: '2026-09-26T00:00:00.000Z', pageIds: ['home']});
+  const stored = await pool.query<{github_login: string}>(`SELECT github_login FROM github_social_connections WHERE lower(btrim(github_login))='member-demo'`);
+  assert.deepEqual(stored.rows.map(row => row.github_login), ['Member-Demo']);
+  const boards = await githubHistoryLeaderboards(pool, actor);
+  const ranked = new Set([...boards.ideas, ...boards.edits, ...boards.contributions].map(row => row.login.toLowerCase()));
+  assert.equal(ranked.has('outsider-oss'), false);
+  assert.equal(ranked.has('other-community-dev'), false);
+  assert.equal(ranked.has('inactive-member'), false);
+  assert.equal(ranked.has('profile-only-dev'), false);
+  assert.equal(ranked.has('dependabot[bot]'), false);
+  assert.equal(boards.ideas.find(row => row.login === 'member-demo')?.count, 2);
+  assert.equal(boards.edits.find(row => row.login === 'member-demo')?.count, 1);
+  assert.equal(boards.ideas.find(row => row.login === 'page-guest')?.count, 1);
+  assert.equal(boards.edits.some(row => row.login === 'page-guest'), false);
+  assert.equal(boards.contributions.find(row => row.login === 'page-guest')?.count, contributionPoints(1, 0));
+  const outsiderHistory = await githubHistoryPage(pool, 'Example-Org/visible-tool', 'issue', 1);
+  assert.equal(outsiderHistory.items.some(item => item.author === 'outsider-oss' && item.number === 1), true);
+  const platformHistory = await githubHistoryPage(pool, 'FreeTWAI-AI/freedom-platform', 'issue', 1);
+  assert.equal(platformHistory.items.some(item => item.author === 'page-guest' && item.number === 22), true);
+  assert.equal(platformHistory.items.some(item => item.author === 'dependabot[bot]'), true);
+  const session = await signIn();
+  const started = calls.length;
+  const routeBoards = await request('/community/github-history/leaderboards', session);
+  assert.equal(routeBoards.status, 200);
+  assert.deepEqual(routeBoards.data, boards);
   assert.equal(calls.slice(started).some(isGitHubHost), false);
   assert.equal(calls.slice(beforeCalls).some(isGitHubHost), false);
 });
