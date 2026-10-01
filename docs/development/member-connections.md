@@ -25,21 +25,23 @@
 
 ## 分享工坊名片
 
-分享預設關閉。會員在我的名片建立連結；停用後連結失效。重新開啟或按「更新連結」會發出新的 token。Token 是 32 byte 的 base64url，43 個字元，無法由會員 ID 猜出。
+分享預設關閉。會員在我的名片建立連結；停用後連結失效。重新開啟或按「更新連結」會發出新的 token。Token 是 32 byte 的 base64url，43 個字元，無法由會員 ID 猜出。樣式、一句話介紹和連結存在同一列，migration `067_member_card_designs.sql` 加上 `design`、`headline`、`links`。舊列維持清新、沒有介紹、沒有連結。
 
-公開頁 `/member-cards/<token>` 只呈現暱稱、目前主要公會、最多三項最後確認的精選能力，以及**本人勾選後**的頭像。尚未儲存過分享設定的會員，頭像勾選是關的。已確認名片若有精選清單就用那份，否則用已確認能力的前三項；還沒完成定位、沒有已確認名片時，這一份是空的。進行中的草稿不會出現。
+公開頁 `/member-cards/<token>` 只呈現本人放上名片的內容：暱稱、一句話介紹、最多 8 個 https 連結、目前主要公會、最多三項最後確認的精選能力，以及**本人勾選後**的頭像。樣式是清新、工坊、夜空或經典名片。尚未儲存過分享設定的會員，頭像勾選是關的。已確認名片若有精選清單就用那份，否則用已確認能力的前三項；還沒完成定位、沒有已確認名片時，這一份是空的。進行中的草稿不會出現。社群連結預設只有會員看得到，要在名片編輯裡逐筆點「加入名片」才會出現，不會自動帶入。
 
-絕不呈現：會員 ID、Email、聯絡方式、社群連結、裝備、定位答案、職業。驗證帳與測試帳不能分享。未完成加入、已停用，或分享已關閉時，舊連結回 404。
+絕不呈現：會員 ID、Email、聯絡方式、未加入名片的社群連結、裝備、定位答案、職業。驗證帳與測試帳不能分享。未完成加入、已停用，或分享已關閉時，舊連結回 404。
 
-公開 JSON（`GET /api/v1/public/member-cards/:token`）、頭像，以及 `/member-cards/<token>` 頁面都是 `Cache-Control: no-store`，並送 `X-Robots-Tag: noindex, nofollow`。noindex 不是存取控制。打得開這張名片的，是這個 token，加上本人的開關。
+公開 JSON（`GET /api/v1/public/member-cards/:token`）另外有 `design`、`headline`（沒有就是 null）和 `links`（`{label, url}`，順序即本人排的順序）。頭像，以及 `/member-cards/<token>` 頁面都是 `Cache-Control: no-store`，並送 `X-Robots-Tag: noindex, nofollow`。noindex 不是存取控制。打得開這張名片的，是這個 token，加上本人的開關。
 
 已登入的同社群會員另外看到對方平常的名片（`GET /api/v1/member-cards/:token/member`），聯絡方式仍依原本的好友、公會與小隊範圍。分享不會建立好友。
 
-寫入是 `GET/POST /api/v1/me/member-card-share`，內容 `{enabled, include_avatar, rotate?}`。沿用 Idempotency-Key；已有設定時要帶目前的 If-Match。
+寫入是 `GET/POST /api/v1/me/member-card-share`。內容是 `{enabled, include_avatar, rotate?}`，也可以帶 `design`、`headline`、`links`。這三欄省略就保留目前的值；`headline: null` 或空白會清掉介紹；有送 `links` 就整份取代，不是逐筆修補。連結名稱 1–30 字、單行；網址必須是沒有帳號密碼的 https，最多 300 字。不接受 http、javascript、data。樣式、介紹或連結不合法回 422，說明是中文。沿用 Idempotency-Key；已有設定時要帶目前的 If-Match，版本不對回 412。回應同樣帶 `design`、`headline`、`links` 和啟用時的 `share_path`。日記只記開關、是否換連結、樣式、介紹字數和連結數量，不記 token、介紹本文或網址。
+
+推廣讀取用 `readPublicCards(pool, communityId, userIds)`。它只讀、一批一查，回傳目前公開看得到的名片：`path`、`title`（「暱稱 的自由工坊名片」）、`summary`（有介紹用介紹，否則是主要公會和最多三項專長，以「・」連接，最多 120 字）、`image: null`、`generation`（分享 token 的 sha256 前 16 個十六進位字；更新連結或重新開啟才會變）。查不到的 id 不在結果裡。token 只出現在 `path`。
 
 和計畫的兩處差異：
 
-- [04 模組規格](../platform-plan/04-module-specifications.md) 約在分享卡那一列寫短效 token，並由會員自選欄位。這裡的連結會一直有效，直到本人關閉或更新，因為邀請連結需要持續打得開。除了頭像勾選，欄位是固定的。
+- [04 模組規格](../platform-plan/04-module-specifications.md) 約在分享卡那一列寫短效 token，並由會員自選欄位。這裡的連結會一直有效，直到本人關閉或更新，因為邀請連結需要持續打得開。本人可選的是頭像、樣式、一句話介紹和最多 8 個連結；名稱、主要公會和精選專長仍是固定帶出的。
 - 匿名查看是「平台公開＝已登入同社群會員、沒有匿名人員名錄」的一項新的、須本人開啟的例外。一位會員一條連結、一張名片，沒有名單，也不能搜尋。
 
 ## 我的好友
