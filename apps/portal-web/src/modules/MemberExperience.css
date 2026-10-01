@@ -15,6 +15,7 @@
 .event-referral-report ul{margin:0;padding-left:1.3rem}
 .experience-card p { line-height: 1.65; overflow-wrap: anywhere; }
 .experience-kicker { color: var(--muted); font-size: .79rem; font-weight: 700; }
+.event-ended-badge { display: inline-flex; align-items: center; width: fit-content; margin-left: .45rem; padding: .12rem .55rem; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: transparent; font-size: .75rem; font-weight: 700; line-height: 1.4; letter-spacing: 0; vertical-align: middle; }
 .experience-count { white-space: nowrap; color: var(--muted); font-size: .8rem; }
 .experience-meta { display: grid; gap: .35rem; margin: 0; font-size: .85rem; }
 .experience-meta div { display: grid; grid-template-columns: 3.5rem minmax(0, 1fr); gap: .5rem; }
