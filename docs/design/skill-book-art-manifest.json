@@ -2,7 +2,7 @@
   "generated_at": "2026-09-23",
   "mode": "builtin-imagegen",
   "style_anchor": "apps/portal-web/public/brand/freedom-workshop.webp",
-  "description": "37 separately generated original skill-book covers. No original logo edits; only mechanical WebP encoding for delivery.",
+  "description": "40 separately generated original skill-book covers. No original logo edits; only mechanical WebP encoding for delivery.",
   "assets": [
     {
       "id": "career-guide",
@@ -393,7 +393,43 @@
       "generated_at": "2026-09-24",
       "mode": "builtin-imagegen",
       "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-d34dd687-0ecb-49ab-bb0e-c4d11032076c.png"
+    },
+    {
+      "id": "video-to-podcast-toolkit",
+      "prompt": "Use case: stylized-concept. Asset: one original skill-book cover for Freedom Workshop. Square composition. Futuristic polished chrome hardcover book floating at a three-quarter angle with electric blue cover, acid lime page edges and sculpted emblem. Black charcoal backdrop, acid lime #c4ff20, electric cobalt #3044ff, restrained orbital line and four-point star accents, generous dark margins, premium 3D render, clear silhouette at thumbnail size. No words, letters, numbers, logos, watermark, collage, medieval objects. Subject emblem: a chrome video play tile turning into a studio podcast microphone, encircled by a lime audio waveform ring; one interview video becoming a podcast episode",
+      "path": "apps/portal-web/public/art/skills/video-to-podcast-toolkit.webp",
+      "width": 768,
+      "height": 512,
+      "bytes": 29676,
+      "sha256": "e6dd9e1135727b02b97240ce301f43faf2a268b38c3cf4c1e9d010a8bc0b1620",
+      "generated_at": "2026-10-01",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0f708-efcc-7210-a1af-d0e8359fd134/call_7pXAPu0wpHCeMkARrVgPBTXL.png"
+    },
+    {
+      "id": "autovtuber",
+      "prompt": "Use case: stylized-concept. Asset: one original skill-book cover for Freedom Workshop. Square composition. Futuristic polished chrome hardcover book floating at a three-quarter angle with electric blue cover, acid lime page edges and sculpted emblem. Black charcoal backdrop, acid lime #c4ff20, electric cobalt #3044ff, restrained orbital line and four-point star accents, generous dark margins, premium 3D render, clear silhouette at thumbnail size. No words, letters, numbers, logos, watermark, collage, medieval objects. Subject emblem: a stylized chrome virtual avatar head bust, one half finished in polished chrome and the other half a glowing lime wireframe mesh, with two small color swatch dots; a filled-in form becoming a 3D streaming avatar",
+      "path": "apps/portal-web/public/art/skills/autovtuber.webp",
+      "width": 768,
+      "height": 512,
+      "bytes": 28960,
+      "sha256": "0e2a4461377c7a175bf828539be100e71eed9cb87f09c4fae5feb0cc104c30cf",
+      "generated_at": "2026-10-01",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0f708-ee20-7ad1-9af4-55f97de540c4/call_bmIAcArhyZbZHMsFXgPeAc8y.png"
+    },
+    {
+      "id": "coding-audit-harness",
+      "prompt": "Use case: stylized-concept. Asset: one original skill-book cover for Freedom Workshop. Square composition. Futuristic polished chrome hardcover book floating at a three-quarter angle with electric blue cover, acid lime page edges and sculpted emblem. Black charcoal backdrop, acid lime #c4ff20, electric cobalt #3044ff, restrained orbital line and four-point star accents, generous dark margins, premium 3D render, clear silhouette at thumbnail size. No words, letters, numbers, logos, watermark, collage, medieval objects. Subject emblem: a chrome receipt slip curled around a sculpted lime check mark and a small fingerprint seal, framed by a narrow gate arch; code that counts as done only with verified evidence",
+      "path": "apps/portal-web/public/art/skills/coding-audit-harness.webp",
+      "width": 768,
+      "height": 512,
+      "bytes": 29858,
+      "sha256": "4148cb1b76b66ee3e195092270f7d79677468774edeecd93c4301f78478417af",
+      "generated_at": "2026-10-01",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0f708-ed78-78e2-98c3-b171b562105a/call_uGDPZGn37Grsu7hgA4xGFAoA.png"
     }
   ],
-  "updated_at": "2026-09-24"
+  "updated_at": "2026-10-01"
 }

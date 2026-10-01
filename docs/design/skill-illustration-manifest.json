@@ -2,7 +2,7 @@
   "generated_at": "2026-09-23",
   "mode": "builtin-imagegen",
   "style_anchor": "apps/portal-web/public/brand/freedom-workshop.webp",
-  "description": "37 distinct functional workflow illustrations for skill introduction pages and social thumbnails; mechanical WebP encoding with contain fit, original logo unchanged.",
+  "description": "40 distinct functional workflow illustrations for skill introduction pages and social thumbnails; mechanical WebP encoding with contain fit, original logo unchanged.",
   "assets": [
     {
       "id": "agent-kit",
@@ -368,7 +368,43 @@
       "generated_at": "2026-09-24",
       "mode": "builtin-imagegen",
       "source_path": "/home/ted-h/.codex/generated_images/01a0d12a-478f-7611-8aae-9ef900733067/exec-bc14614e-d759-4d5a-970a-0b61b9ba9725.png"
+    },
+    {
+      "id": "video-to-podcast-toolkit",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 functional workflow illustration for Freedom Workshop skill introduction and social share. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital lines and four-point star accents. Futuristic 3D isometric editorial art, clear input/action/output, generous clean margins. No books, words, letters, numbers, logos, readable UI, statistics, watermark. Depict: on the left, a chrome video screen showing an interview with two abstract seated figures; a stream flows into a central local computer processing cube that separates blue sound waves from blank lime subtitle strips; on the right, a fan of finished assets on low pedestals, all derived from that same interview: a podcast audio disc with a waveform, three poster frames in wide, portrait and square proportions each showing the same two abstract seated figures with a blank lime title bar, a tall vertical short-video phone frame showing a close-up of one abstract figure speaking above a blank lime subtitle strip, and a text card with blank lime lines. No landscapes, no nature photos, no unrelated people",
+      "path": "apps/portal-web/public/brand/skill-illustrations/video-to-podcast-toolkit.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 88768,
+      "sha256": "4e679d292ee78e19246ad2dc930ebdf64575301fdc232dff90659b0b6040d219",
+      "generated_at": "2026-10-01",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0f70d-03c2-78f3-9798-4bbb259d181a/call_E8SmHKJQekHxSIkWj0DON6Ea.png"
+    },
+    {
+      "id": "autovtuber",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 functional workflow illustration for Freedom Workshop skill introduction and social share. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital lines and four-point star accents. Futuristic 3D isometric editorial art, clear input/action/output, generous clean margins. No books, words, letters, numbers, logos, readable UI, statistics, watermark. Depict: on the left, a character request form panel with hair and eye color swatch dots and sliders; in the center, a local GPU workstation tower with a small glowing thermometer icon, where an abstract anime-style concept portrait frame feeds a 3D wireframe head rotating on a turntable; on the right, a finished stylized 3D avatar of an adult character in a modest outfit (long-sleeve jacket over a high-collar top, full-length trousers, flat boots), friendly wave, standing on a pedestal beside a desktop streaming monitor and webcam that show the same avatar",
+      "path": "apps/portal-web/public/brand/skill-illustrations/autovtuber.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 95710,
+      "sha256": "999f32478eca7034de49e246ac13ea011abed30ba90e27563b3f70c755cf97c7",
+      "generated_at": "2026-10-01",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0f70d-03c5-71b0-9509-3aff52c16f83/call_0PVMQF7pTExIRDeF1g70mAOs.png"
+    },
+    {
+      "id": "coding-audit-harness",
+      "prompt": "Use case: stylized-concept. Asset: one original landscape 1200x630 functional workflow illustration for Freedom Workshop skill introduction and social share. Black charcoal, acid lime #c4ff20, electric cobalt #3044ff, polished chrome, restrained orbital lines and four-point star accents. Futuristic 3D isometric editorial art, clear input/action/output, generous clean margins. No books, words, letters, numbers, logos, readable UI, statistics, watermark. Depict: from left to right, a ticket card linked to a small dependency graph; a chrome robotic coding-agent arm assembling abstract code blocks; a chrome runner machine re-running checks and printing a receipt slip stamped with a fingerprint seal; a human hand pressing a large lime approval button at a gate; a final lime check mark glowing on a pedestal",
+      "path": "apps/portal-web/public/brand/skill-illustrations/coding-audit-harness.webp",
+      "width": 1200,
+      "height": 630,
+      "bytes": 68290,
+      "sha256": "ffa4fbc20e013f7b612bc15862c7f5bc9b05c87ca7f23d5e8f9879dbcea53381",
+      "generated_at": "2026-10-01",
+      "mode": "builtin-imagegen",
+      "source_path": "/home/ted-h/.codex/generated_images/01a0f709-e0a6-7ac0-874d-ab6bd6244c6b/call_ZmlewBpINUUWAZKJo9hcu6SR.png"
     }
   ],
-  "updated_at": "2026-09-24"
+  "updated_at": "2026-10-01"
 }
