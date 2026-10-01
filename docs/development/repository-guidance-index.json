@@ -1294,6 +1294,82 @@
       "default_branch": "main",
       "kind": "author_source",
       "contribution_default_branch": "main"
+    },
+    {
+      "purpose": "jasonlee(J太郎) 的訪談影片轉 Podcast 音檔、海報、短影音與字幕工具。",
+      "current_scope": "MIT 授權只涵蓋原始碼；品牌素材、字型、來賓照片與第三方工具依 NOTICE.md 各自授權，repo 不附。轉錄在本機以 Whisper 執行，標題、金句、文案與字幕校對會把文字送到 Google Gemini API，免費額度有限，付費等級另計。首次需下載約 3 GB 模型；原作估計 30 分鐘訪談完整跑完約需 50 分鐘，九成時間花在 CPU 上的 Whisper 轉錄。音檔預設不足 30 分鐘會自動補長，可調整 min_duration_sec。Windows .exe 打包仍待在 Windows 上完成。",
+      "future_scope": "收錄不代表工坊已安裝、代為部署或驗證所有上游功能；原作者保有 repo 與審查決定。",
+      "upstream": null,
+      "key_paths": [
+        "src/core/",
+        "src/web/",
+        "scripts/",
+        "v2p_launcher.py"
+      ],
+      "validation_commands": [
+        "git diff --check"
+      ],
+      "validation_note": "依 2026-10-01 的固定 commit 文件與設定核對檢查入口；本輪登錄未執行上游專案，細節以原作文件為準。",
+      "guide_files": [
+        "README.md",
+        "快速上手.md",
+        "NOTICE.md"
+      ],
+      "contribution_target": "https://github.com/Lee-unhn/video-to-podcast-toolkit",
+      "repository": "Lee-unhn/video-to-podcast-toolkit",
+      "default_branch": "main",
+      "kind": "author_source",
+      "contribution_default_branch": "main"
+    },
+    {
+      "purpose": "jasonlee(J太郎) 的表單生成 VTuber 模型本機工作站。",
+      "current_scope": "Beta 階段。Repo 沒有 LICENSE 檔；README 標示 MIT，但原作發佈文件記載程式授權仍待作者決定，因此收錄為 NOASSERTION，重用或散布前先向作者確認。Repo 不附可用於產品的 VRM 底模；原作發佈文件判定 VRoid AvatarSample 不可作角色建立服務的產品底模，預設會阻擋生成，需自備或另行取得授權的 VRM 0.x 底模。需 NVIDIA GPU（原作測試機為 RTX 3060 12GB）與多個本機模型，各模型授權另計；Windows 打包與 VSeeFace／Warudo 實機驗收尚未完成。原作者 2026-07-12 記錄將轉向使用者自捏 VRoid 底模、AI 只產生貼圖的路線，本書介紹的是固定版本現有的表單流程。",
+      "future_scope": "收錄不代表工坊已安裝、代為部署或驗證所有上游功能；原作者保有 repo 與審查決定。",
+      "upstream": null,
+      "key_paths": [
+        "src/autovtuber/pipeline/",
+        "src/autovtuber/safety/",
+        "scripts/",
+        "docs/"
+      ],
+      "validation_commands": [
+        "git diff --check"
+      ],
+      "validation_note": "依 2026-10-01 的固定 commit 文件與設定核對檢查入口；本輪登錄未執行上游專案，細節以原作文件為準。",
+      "guide_files": [
+        "README.md",
+        "docs/RELEASE_READINESS.md",
+        "docs/LICENSES.md"
+      ],
+      "contribution_target": "https://github.com/Lee-unhn/AutoVtuber",
+      "repository": "Lee-unhn/AutoVtuber",
+      "default_branch": "master",
+      "kind": "author_source",
+      "contribution_default_branch": "master"
+    },
+    {
+      "purpose": "小艾老師的 AI 開發驗收框架、稽核技能與證據收據 Runner。",
+      "current_scope": "MIT 開源；skills/matt-upstream 原樣收錄 Matt Pocock 的 MIT 技能。不是沙箱：同一個使用者仍能修改 state、測試與收據，雜湊只檢查新鮮度，不是簽章；不呼叫 LLM、沒有 Web UI 或排程器，也不判斷程式品質。Runner 從 TICKETS 階段開始強制，DISCOVERY 與 SPEC 只靠 agent 自律。--trust-commands 會以目前使用者權限執行專案指令，不可信的 repo 先放進隔離環境；範例指令以 PowerShell 撰寫。",
+      "future_scope": "收錄不代表工坊已安裝、代為部署或驗證所有上游功能；原作者保有 repo 與審查決定。",
+      "upstream": null,
+      "key_paths": [
+        "harness/runner/",
+        "skills/",
+        "docs/"
+      ],
+      "validation_commands": [
+        "git diff --check"
+      ],
+      "validation_note": "依 2026-10-01 的固定 commit 文件與設定核對檢查入口；本輪登錄未執行上游專案，細節以原作文件為準。",
+      "guide_files": [
+        "README.md",
+        "skills/matt-upstream/UPSTREAM.md"
+      ],
+      "contribution_target": "https://github.com/weiwei-alvin/Coding-Audit-Harness",
+      "repository": "weiwei-alvin/Coding-Audit-Harness",
+      "default_branch": "main",
+      "kind": "author_source",
+      "contribution_default_branch": "main"
     }
   ]
 }

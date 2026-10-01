@@ -1,6 +1,6 @@
 # PR／Issue 審核中心（Freedom Maintainer）設計
 
-> 設計稿，2026-10-01 第二輪改版，對照 main `276ca27`。階段 1a–1c 已合併並發布（PR #73，`2c7134d`）；階段 1d 與 2a 在分支 `feat/repo-maintainer-phase2-20261001` 實作，驗證結果記在該 PR。Maintainer GitHub App 與 `main` ruleset 還沒建立，所以鏡像 Worker 還沒部署；在那之前，後台與「公會管理」的「PR 審核」清單都是空的。本文的「採用」只代表設計決定，不代表功能已上線。
+> 設計稿，2026-10-01 第二輪改版，對照 main `639a619`。階段 1a–1c 已合併並發布（PR #73，`2c7134d`）；階段 1d 與 2a 在分支 `feat/repo-maintainer-phase2-20261001` 實作，驗證結果記在該 PR。Maintainer GitHub App 與 `main` ruleset 還沒建立，所以鏡像 Worker 還沒部署；在那之前，後台與「公會管理」的「PR 審核」清單都是空的。本文的「採用」只代表設計決定，不代表功能已上線。
 >
 > 2026-10-01 Ted 決定：公會長審自己公會的模組與技能書；管理員什麼都能審，審完可以指定歸屬；不設風險分級和 SLA；沒有人按按鈕，就不自動處理；AI 一開始用各人自己的訂閱。舊版的風險分級、SLA、逾時交 AI 與 policy 自動合併已移除。同一天的第二輪決定見 §15：新 repo 預設開放公會長認領、技能書維護者算審核人、認領時預設設定 requested reviewer、AI 按鈕先做本機交接。
 
@@ -133,7 +133,7 @@ freedom-maintainer Worker（新，沒有路由）
 
 ## 6. 資料模型
 
-階段 1 用 **061、062**（PR #73，已套用在 staging 與正式站）。階段 1d 與 2a 各加一支：**070（審核範圍）、071（AI 交接）**，編號是暫定的，分支接在 main 的最後一號後面（065–069 已由其他 PR 使用）。好幾個 PR 同時帶 migration 時，先合併的用最小的空號；其他的在合併前才依當時的 main 改號、更新 pin、跑 preflight，再通知其他工作階段（2026-10-01 協調）。新增 migration 的 PR 要一併把 `deploy/cloudflare/environments.json` 的 `database_defaults.migrations.last` 改成新的最後編號（#70）；preflight 不接受清單外的空號，CI 的 `deploy-preflight` job 會顯示結果（不擋合併）。規則照舊：不改已套用的 migration、不使用 preflight 禁用的語法，背景工作用單一 UPDATE row lease，不用 session advisory lock。GitHub 的 repo、使用者、review 一律存數字 ID（文字欄位、`^[0-9]+$`，比照 053），名稱只供顯示。
+階段 1 用 **061、062**（PR #73，已套用在 staging 與正式站）。階段 1d 與 2a 各加一支：**071（審核範圍）、072（AI 交接）**，編號是暫定的，分支接在 main 的最後一號後面（065–070 已由其他 PR 使用）。好幾個 PR 同時帶 migration 時，先合併的用最小的空號；其他的在合併前才依當時的 main 改號、更新 pin、跑 preflight，再通知其他工作階段（2026-10-01 協調）。新增 migration 的 PR 要一併把 `deploy/cloudflare/environments.json` 的 `database_defaults.migrations.last` 改成新的最後編號（#70）；preflight 不接受清單外的空號，CI 的 `deploy-preflight` job 會顯示結果（不擋合併）。規則照舊：不改已套用的 migration、不使用 preflight 禁用的語法，背景工作用單一 UPDATE row lease，不用 session advisory lock。GitHub 的 repo、使用者、review 一律存數字 ID（文字欄位、`^[0-9]+$`，比照 053），名稱只供顯示。
 
 **061（觀察）：**
 
@@ -158,7 +158,7 @@ freedom-maintainer Worker（新，沒有路由）
 | `maintainer_review_claims` | 認領（軟鎖） | `reviewer_user_id`、`reviewer_github_id`、`reviewer_login`（快照，顯示與 requested reviewer 用）、`acting_as`、`guild_key`（公會長代表哪個公會）、`claimed_by_admin` 或 `claimed_by_user`、`assignment`（`self`／`assigned`；指派時要寫理由）、`head_sha`、`expires_at`（空值＝不會到期）、`state`（`active`／`released`／`expired`／`completed`）、`end_reason`（`self_released`／`admin_released`／`pull_closed`／`reviewer_not_eligible`／`review_submitted`）、`github_request_state`。每張 PR 同時只有一個有效認領 |
 | `maintainer_pull_requests.requested_reviewers` | GitHub 上目前的 requested reviewer | 只供顯示 |
 
-**070（審核範圍，暫定編號）：**
+**071（審核範圍，暫定編號）：**
 
 | 物件 | 改了什麼 |
 | --- | --- |
@@ -167,7 +167,7 @@ freedom-maintainer Worker（新，沒有路由）
 | `maintainer_review_claims` | `acting_as` 多一種 `skill_book_maintainer`，這種認領記 `skill_book_id`、不記公會 |
 | `maintainer_eligible_reviewers` | 多一段：有效的 `skill_book_maintainers` 任命、帳號有效、連結了 GitHub，就能審 `skill_book_id` 相同的 repo。檢視表最後多一欄 `skill_book_id` |
 
-**071（AI 交接，暫定編號）：** `maintainer_handoffs`，只新增、不修改。每按一次「交給本機 AI」或「把 Issue 做成 PR」就記一列：repo、PR（或 Issue 編號）、種類（`fix`／`merge`／`issue`）、選的 CLI、產生時的 head SHA、按的人（會員、GitHub 帳號、以什麼身分、從後台按時的管理員）、產生的任務內容與時間。平台只記錄與產生任務檔，不代為執行。
+**072（AI 交接，暫定編號）：** `maintainer_handoffs`，只新增、不修改。每按一次「交給本機 AI」或「把 Issue 做成 PR」就記一列：repo、PR（或 Issue 編號）、種類（`fix`／`merge`／`issue`）、選的 CLI、產生時的 head SHA、按的人（會員、GitHub 帳號、以什麼身分、從後台按時的管理員）、產生的任務內容與時間。平台只記錄與產生任務檔，不代為執行。
 
 後台操作（認領、指派、釋放、指定歸屬、改設定、暫停、重新同步、AI 交接）沿用管理 API 的 `adminCommand()`：檢查 idempotency key、在交易內重新確認管理員仍有效、用 `platform_admin_receipts` 重播；同一個交易內用 `audit()` 寫 `platform_admin_audit`（含理由與前後狀態）。會員端的認領、放棄與 AI 交接沿用 `command()`（idempotency key 存在 `command_receipts`），認領列與交接列本身記下是誰按的。要改的列以 `If-Match` 帶 `aggregate_version`；AI 交接只新增紀錄，改用 head SHA 確認畫面上看到的是最新的提交。交易裡不等 GitHub 回應：先記下意圖，由維護 Worker 呼叫，再用另一個交易記結果（比照 039／040 的 pending 列）。
 
@@ -373,8 +373,8 @@ GitHub 也能讓 Copilot 的使用者把 Claude 或 Codex 當成 GitHub 上的 a
 | 1a | 觀察：migration 061、webhook、維護 Worker（installation 同步、補查、reconcile、row lease、請求預算）、狀態推導、管理 API | grok-4.7 | 已完成（PR #73） |
 | 1b | 認領、指派、釋放（062；可選的 requested reviewer，預設不寫 GitHub）、後台「PR 審核」分頁 | grok-4.7 | 已完成（PR #73） |
 | 1c | 依公會分工：歸屬、資格檢視表、公會長的審核頁、審完歸入；拿掉風險分級、SLA 與預設到期 | grok-4.7 | 已完成（PR #73）；出口要等階段 0：Staging 上公會長與管理員各自看得到正確的範圍與狀態 |
-| 1d | 新 repo 預設開放公會長認領；技能書維護者算審核人（070）；認領時預設設定 requested reviewer；deploy preflight 進 CI（不擋合併） | grok-4.7 | 本輪 PR |
-| 2a | 本機 AI 交接：讓 AI 修、讓 AI 合併、把 Issue 做成 PR（071） | grok-4.7 | 本輪 PR；出口要等階段 0：在測試 repo 用三種 CLI 各跑一次 |
+| 1d | 新 repo 預設開放公會長認領；技能書維護者算審核人（071）；認領時預設設定 requested reviewer；deploy preflight 進 CI（不擋合併） | grok-4.7 | 本輪 PR |
+| 2a | 本機 AI 交接：讓 AI 修、讓 AI 合併、把 Issue 做成 PR（072） | grok-4.7 | 本輪 PR；出口要等階段 0：在測試 repo 用三種 CLI 各跑一次 |
 | 2b | 雲端 agent（§10.2） | 待定 | 先整理接法，Ted 決定要接哪些 |
 | 之後 | 路徑層級的模組歸屬、Issue 列進審核中心、通知 | 另案 | — |
 
