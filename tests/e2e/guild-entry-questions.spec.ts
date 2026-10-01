@@ -3,7 +3,7 @@ import {test,expect,type Page} from './fixtures.js';
 import {navigate} from './navigation.js';
 import {quickJoin} from './quick-join.js';
 
-const shots='/home/ted-h/tmp-scratch/fp_work/grok-f66719a6/guild-questions-scratch';
+const shots='test-results/guild-questions';
 async function register(page:Page,name:string){
   await page.goto('/');
   await page.getByRole('button',{name:'建立帳號',exact:true}).click();
