@@ -1564,8 +1564,8 @@
     },
     {
       "path": "docs/development/github-social.md",
-      "bytes": 8463,
-      "sha256": "898d7043980842f6d2fef2a395d44f00cbea28228317a6fb12da83b01d2de0a1"
+      "bytes": 8858,
+      "sha256": "07ce35443f82eb2a38abb8a41800ce8eaa1cdba59f805899cc23d109a48e731e"
     },
     {
       "path": "docs/development/guild-collaboration.md",
@@ -3089,8 +3089,8 @@
     },
     {
       "path": "modules/community/github-sync.ts",
-      "bytes": 30772,
-      "sha256": "ce59c2d21b569029e172088ba0b150b1dbee61c0de310be3da494dc1bb5eb8c5"
+      "bytes": 31329,
+      "sha256": "e518c7ffcefc098d34cf6d47e17cad8ad74cba58b375b00216343fc15b7000df"
     },
     {
       "path": "modules/community/member-skill-books.ts",
@@ -4204,8 +4204,8 @@
     },
     {
       "path": "tests/runtime/github-sync.test.ts",
-      "bytes": 60502,
-      "sha256": "d7a327fed85708a1a38b29f8371a4f2f321bebbe3a8d8a7407c9f24c880e468a"
+      "bytes": 68583,
+      "sha256": "78c740ce559245d09f04482b62746c8c1a8968b31d0a7330001710fd7903871c"
     },
     {
       "path": "tests/runtime/guild-experts.test.ts",
