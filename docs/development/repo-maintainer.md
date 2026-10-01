@@ -1,4 +1,4 @@
-# 儲存庫維護者（階段 1a 觀察，階段 1b 認領，階段 1c 公會歸屬）
+# 儲存庫維護者（階段 1a 觀察、1b 認領、1c 公會歸屬、1d 審核範圍、2a 本機 AI 交接）
 
 階段 1a 只觀察。GitHub 仍是事實來源。平台把審查需要的事實鏡像下來：拉取請求、變更檔案、審查、檢查。它依路徑與變更大小寫出注意事項，再推出佇列狀態與原因。沒有風險等級，也沒有 SLA。線上的項目維持穩定，一筆拉取請求就停在佇列裡，直到有人處理。
 
@@ -6,10 +6,12 @@
 
 階段 1c 把「誰可以審」從審查者名單改成儲存庫歸屬。一個儲存庫屬於一個公會，類型是模組、技能書或未分類。新鏡像的儲存庫沒有公會，並開放公會長認領；目錄裡的 `official_guild_keys` 不會自動變成歸屬。管理員仍可把單一儲存庫改成只限管理員。開放時，任何現任公會長都能審，第一筆完成的公會長審查會把儲存庫歸到那位公會長的公會。背景只做兩件事：鏡像 GitHub 事實，以及既有的請求審查者鏡像。沒有自動處理，也沒有 AI。
 
+階段 2a 是本機 AI 交接。AI 只在有資格的審查者按下按鈕時才會跑。平台交回一份任務檔，由這個人在自己的終端機、用自己的訂閱和自己的 `gh` 登入執行。平台仍然不呼叫 AI，也不為交接寫入 GitHub。見「本機 AI 交接」。
+
 這一階段不做這些事：
 
 - 不在 GitHub 上送審查、留言、標籤或合併。
-- 不呼叫 AI。
+- 平台不呼叫 AI；本機 AI 交接只產生任務檔。
 - 儲存庫 mode 只有 `off` 與 `observe`。其他值回 422。
 - 把認領鏡像成 GitHub requested reviewer 已經接上。沒有另外設定時，認領會請求審查者。本機 Worker 變數仍是 `off`；staging 與 production 是 `requested_reviewers`。三個條件都成立才會寫，見「要求審查者」。
 
@@ -165,7 +167,7 @@ Tick 在重新推導之前結束認領。每一步先依 `pull_id` 順序鎖住�
 
 | 方法與路徑 | 主體與結果 |
 | --- | --- |
-| `GET /guild-reviews?queue=&limit=&offset=` | queue 為 `awaiting_review`、`in_review`、`mine`、`ready`、`open`。回 `{guilds, skill_books, viewer, items, next_offset, repositories}`。`repositories` 是這位會員可以把 Issue 交給本機 AI 的儲存庫（安裝仍有效、模式不是 off、而且看得到），每項是 `{id, full_name}`。沒有 GitHub 連結時 `viewer.reason` 是「請先在會員資料連結 GitHub，才能認領審查。」 |
+| `GET /guild-reviews?queue=&limit=&offset=` | queue 為 `awaiting_review`、`in_review`、`mine`、`ready`、`open`。回 `{guilds, skill_books, viewer, items, next_offset, repositories}`。`repositories` 來自資格視圖：這位會員至少有一列 `maintainer_eligible_reviewers`，而且儲存庫在這個社群、看得到、安裝是 `active`、模式不是 `off`。每項是 `{id, full_name}`。沒有 GitHub 連結時清單是空的，頁面顯示 `viewer.reason`：「請先在會員資料連結 GitHub，才能認領審查。」 |
 | `GET /guild-reviews/:pullId` | 與管理端細節相同，但不含 `eligible_reviewers`。另有 `claim_options`（這位會員自己在這個儲存庫的公會長或技能書維護者視圖列，含書名）、`can_release`，以及 `handoff`（見「本機 AI 交接」）。 |
 | `POST /guild-reviews/:pullId/claim` | `{acting_as?, guild_key?, skill_book_id?}`，If-Match 是拉取請求版本。201 回細節。只有一個公會時，`{guild_key}` 或空主體都可以。技能書維護者送 `{acting_as: skill_book_maintainer, skill_book_id}`。沒有 GitHub 回 409 `maintainer_claim_identity_required`。看得到但沒有可認領的列，或選不到那一列，回 403 `maintainer_guild_scope`。多個公會卻沒選公會，回 422 `maintainer_guild_required`，句子仍是「你是多個公會的公會長，請選擇審完後要歸到哪個公會。」身分裡含技能書、又超過一個選項卻沒選，同一個碼，句子是「你有多個可以審的身分，請選擇要以哪個公會或哪本技能書認領。」作者本人回 409 `maintainer_claim_author`。已有認領回 409 `maintainer_claim_exists`。 |
 | `POST /guild-reviews/claims/:claimId/release` | `{}`，If-Match 是認領版本。只能放棄自己的有效認領，否則 403 `maintainer_claim_not_yours`。`end_reason=self_released`。這筆拉取請求不在可見範圍時回 404 `maintainer_claim_not_found`。技能書維護者即使不是公會長，也可以放棄自己的認領。 |
@@ -214,13 +216,13 @@ codex "$(cat freedom-handoff-1a2b3c4d.md)"
 grok "$(cat freedom-handoff-1a2b3c4d.md)"
 ```
 
-畫面記最後一次選的工具（`freedom-handoff-cli`）。產生之後可以下載任務檔、複製指令或複製任務內容。
+畫面記最後一次選的工具（`freedom-handoff-cli`）。產生之後可以下載任務檔、複製指令、複製任務內容，或按「再產生一個」回到同一種工作、同一個工具和同一個儲存庫；Issue 編號會重新空白，下一筆用新的 Idempotency-Key。下載用的物件網址在按下之後一秒才釋放。
 
 `maintainer_handoffs` 只追加。一列有交接編號、儲存庫、拉取請求（Issue 交接是空的）、Issue 編號、種類（`fix`、`merge`、`issue`）、工具（`claude`、`codex`、`grok`）、head SHA、按的人（`user_id`、`github_user_id`、`github_login`、`acting_as`、`guild_key`、`skill_book_id`）、從後台按下時的 `requested_by_admin`，以及任務本文。程式不更新、也不刪這些列。從後台按下另外寫一筆 `platform_admin_audit`，動作 `maintainer_handoff_create`，理由固定是「產生本機 AI 交接任務。」會員按下不寫這筆稽核。
 
-資格只看 `maintainer_eligible_reviewers`。會員有多列時，先取公會長，再依顯示名稱。沒有列、但這個人看得到且還沒連結 GitHub，回 409 `maintainer_claim_identity_required`。管理員沒有列時回他自己的 viewer 原因，同一個碼。看不到的拉取請求或儲存庫仍是 404。拉取請求未開啟、仍是草稿、已暫停或儲存庫已關閉，回 409 `maintainer_handoff_unavailable`。head SHA 和畫面上的不一樣，回 409 `maintainer_head_moved`（這條不用 If-Match，因為無關的同步也會把 `aggregate_version` 加一）。不是 `ready` 卻要合併，回 409 `maintainer_handoff_merge_unavailable`。Issue 交接要求安裝仍是 `active` 且模式不是 `off`，否則同一個 `maintainer_handoff_unavailable`，句子改成儲存庫。主體不合格式回 400 `validation_failed`。
+資格只看 `maintainer_eligible_reviewers`。會員有多列時，先取公會長，再依顯示名稱。沒有列、但這個人看得到且還沒連結 GitHub，回 409 `maintainer_claim_identity_required`，句子是「請先在會員資料連結 GitHub，才能交給 AI。」管理員沒有列時回同一個碼，句子依 viewer 狀態：沒有會員帳號、email 還沒驗證，或還沒連結 GitHub。認領與指派仍用原本的認領句子。看不到的拉取請求或儲存庫仍是 404。拉取請求未開啟、仍是草稿、已暫停或儲存庫已關閉，回 409 `maintainer_handoff_unavailable`。head SHA 和畫面上的不一樣，回 409 `maintainer_head_moved`（這條不用 If-Match，因為無關的同步也會把 `aggregate_version` 加一）。不是 `ready` 卻要合併，回 409 `maintainer_handoff_merge_unavailable`。Issue 交接要求安裝仍是 `active` 且模式不是 `off`，否則同一個 `maintainer_handoff_unavailable`，句子改成儲存庫。主體不合格式回 400 `validation_failed`。
 
-路徑：管理端 `POST /review-center/pulls/:id/handoffs`、`POST /review-center/repositories/:id/issue-handoffs`（200）。會員端 `POST /guild-reviews/:pullId/handoffs`、`POST /guild-reviews/repositories/:repositoryId/issue-handoffs`（201）。兩邊都回 `{handoff_id, kind, cli, file_name, command, markdown, created_at}`。同一把 Idempotency-Key 重送回同一筆交接，不另插一列。細節的 `handoff` 是 `{allowed, reason, merge_allowed, merge_reason, recent}`，`recent` 是這筆拉取請求最近五筆（種類、工具、login、head SHA、時間）。管理端的 Issue 表單用摘要裡安裝仍有效且模式不是 `off` 的儲存庫。
+路徑：管理端 `POST /review-center/pulls/:id/handoffs`、`POST /review-center/repositories/:id/issue-handoffs`，以及會員端 `POST /guild-reviews/:pullId/handoffs`、`POST /guild-reviews/repositories/:repositoryId/issue-handoffs`，都回 201，主體是 `{handoff_id, kind, cli, file_name, command, markdown, created_at}`。同一把 Idempotency-Key 重送回同一筆交接，不另插一列。任務檔的資料區依四層上限縮短（檔案、審查、檢查、每條注意事項的路徑、標籤、佇列原因、注意事項），省略的筆數寫在 `*_omitted`（含每個注意事項的 `paths_omitted`）；縮到最後一層仍達到 24000 字才拒絕。細節的 `handoff` 是 `{allowed, reason, merge_allowed, merge_reason, recent}`，按下之前就說明這個人為什麼不能交。`recent` 是這筆拉取請求最近五筆（種類、工具、login、head SHA、時間）。管理端的 Issue 表單用摘要裡安裝仍有效且模式不是 `off` 的儲存庫；viewer 不是 ready 時，表單改顯示同一句原因。
 
 ## 暫停
 
