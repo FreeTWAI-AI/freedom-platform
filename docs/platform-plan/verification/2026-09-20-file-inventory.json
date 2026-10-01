@@ -1679,8 +1679,8 @@
     },
     {
       "path": "docs/development/repo-maintainer.md",
-      "bytes": 19868,
-      "sha256": "86599b1df2ddb28eb5faf973c8d4ffe6d59e9aa4c7ec34c93eceba8862f32845"
+      "bytes": 19994,
+      "sha256": "837392423653e0a82888a3f4e3a54c77f1dd478c517292a1bd385acec0d9c536"
     },
     {
       "path": "docs/development/repository-guidance-index.json",
@@ -3529,8 +3529,8 @@
     },
     {
       "path": "modules/repo-maintainer/policy.ts",
-      "bytes": 31066,
-      "sha256": "d39d2daee682c953ca870826b196fedcc572a1da6e24954b217d59fd36f8e9b4"
+      "bytes": 31396,
+      "sha256": "2f2e9ceb9fa23584e2072159dd1ff6e43138c99ac8b0e7e3ba1777a539387c47"
     },
     {
       "path": "modules/repo-maintainer/queue.ts",
@@ -3864,8 +3864,8 @@
     },
     {
       "path": "tests/e2e/admin-review-center.spec.ts",
-      "bytes": 21717,
-      "sha256": "ae7932bfc70618699114d9947c926f2f45f0746183c1655e9ab6506408026834"
+      "bytes": 22003,
+      "sha256": "115084457ecb222eb787a3dad1a5df9b190d51aa1b955a8468311b0c8a397e4e"
     },
     {
       "path": "tests/e2e/admin.spec.ts",
@@ -4434,8 +4434,8 @@
     },
     {
       "path": "tests/runtime/repo-maintainer-policy.test.ts",
-      "bytes": 23366,
-      "sha256": "7ad4706422e3114f85f3befa4ccf5f940d9a68904fbe029a56f51990a1291e93"
+      "bytes": 26342,
+      "sha256": "ae2df452dccb979a50013ab14957ce7e013da75409476f9823402e4d910c15ac"
     },
     {
       "path": "tests/runtime/repo-maintainer-sync.test.ts",
