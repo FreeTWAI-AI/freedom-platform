@@ -74,8 +74,8 @@
     },
     {
       "path": "apps/platform-api/src/maintainer-worker.ts",
-      "bytes": 6195,
-      "sha256": "a5965eb68ba41b4233a46ef55fb69e53d8feb77af25a80e833b1bc480ac26e56"
+      "bytes": 6264,
+      "sha256": "2d6fce0916b0703d47605022e47dd9367af823d1a5db1e9b9b6461ec016ab500"
     },
     {
       "path": "apps/platform-api/src/module-context.ts",
@@ -89,8 +89,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 23336,
-      "sha256": "9f9e8bd379491ed8b45bdfba76e0c39cb45e88a93bbcf27af95147a5b4c4c9be"
+      "bytes": 23125,
+      "sha256": "8113229af32ce65387b2db56b4f50144e8f8c5fbfe4bf9ae11038942503df74d"
     },
     {
       "path": "apps/platform-api/src/readiness.ts",
@@ -1659,8 +1659,8 @@
     },
     {
       "path": "docs/development/platform-admin-api.md",
-      "bytes": 14324,
-      "sha256": "9294d29d59ac6385f50a938e5edbd5525a1a4e0612b497ec85adfd7df1d7c200"
+      "bytes": 14463,
+      "sha256": "a13745c77bfbe4de1c7c930ab1ea327c29701edccd66ebbc0949caeaf6177da8"
     },
     {
       "path": "docs/development/public-operations.md",
@@ -1669,8 +1669,8 @@
     },
     {
       "path": "docs/development/repo-maintainer.md",
-      "bytes": 9124,
-      "sha256": "614cd277737abe8cfba37a7a0b88b74c5f85106cd98c1fa4a87c1a12031871c6"
+      "bytes": 11983,
+      "sha256": "dcf02bc379b048294078bf6aee4a7488b2f045f33eba06e59bc177d3af6c7eb9"
     },
     {
       "path": "docs/development/repository-guidance-index.json",
@@ -1744,8 +1744,8 @@
     },
     {
       "path": "docs/plans/repo-maintainer-review-center.md",
-      "bytes": 40047,
-      "sha256": "396f5f7f8ee676efb8547a93b88a0034c034cb17288624887babd98adc1e1d43"
+      "bytes": 41961,
+      "sha256": "57d89b0a6de4a4a853f728381e83b48cab4346658d701f0cf9d93f6b152909e3"
     },
     {
       "path": "docs/platform-plan/00-current-requirements-baseline.md",
@@ -3029,8 +3029,8 @@
     },
     {
       "path": "migrations/057_repo_maintainer.sql",
-      "bytes": 11002,
-      "sha256": "933f6e8548ebbc67bcca08a90871ed7d1f7f22931194af8c6506d437ff8325bf"
+      "bytes": 11218,
+      "sha256": "25df4fe2d020b38ebfa54d6250b485777135a012d7fc5b1d4cbd1cda3ad14412"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
@@ -3499,18 +3499,18 @@
     },
     {
       "path": "modules/repo-maintainer/github.ts",
-      "bytes": 20227,
-      "sha256": "29408695548752e153359968c58d4f1664c11b2895d15b452f916f1e2d68f109"
+      "bytes": 21850,
+      "sha256": "b65366582fcba75de3095d832b7e1e1651a7fad717d8c5f2598bb2cf69880990"
     },
     {
       "path": "modules/repo-maintainer/policy.ts",
-      "bytes": 28532,
-      "sha256": "8c09ac08895fc928c1af9e553b931ade51b0bb42d7a5116183bae1368ca33b9a"
+      "bytes": 29338,
+      "sha256": "d61f99bc66d04a65c67b34461dfdf018fe5c3cc5a0dace04eb8f86a015e807cb"
     },
     {
       "path": "modules/repo-maintainer/queue.ts",
-      "bytes": 914,
-      "sha256": "1fd0b4fdf2756da6e8e8b721b490a7da46404995ceaf9e828b99a60dca7c2b3a"
+      "bytes": 1088,
+      "sha256": "8fbb0f9876ea779b43e8b51e5b8e47aee9b6e541c2f8b1ec2e4f12b3b2197470"
     },
     {
       "path": "modules/repo-maintainer/service.ts",
@@ -3519,8 +3519,8 @@
     },
     {
       "path": "modules/repo-maintainer/tick.ts",
-      "bytes": 36340,
-      "sha256": "c115b3f5fb3ee8e1fc180b8fe845957fe232b2216d6d9056075f9d69a05fed32"
+      "bytes": 37536,
+      "sha256": "da629f10848feac18d9cccafcc86660ec151369aad7c9ddab1096aed73cfe481"
     },
     {
       "path": "modules/repo-maintainer/webhook.ts",
@@ -4284,8 +4284,8 @@
     },
     {
       "path": "tests/runtime/maintainer-worker.test.ts",
-      "bytes": 10332,
-      "sha256": "3a687d3110fe520ee9f84b1097a41ce0c9f21a9ca4648c7d5cbbb5a166addccf"
+      "bytes": 10360,
+      "sha256": "704112e12a438fbb1bdc85b6a7ebdc2eaff6e0f189454766ced843b8668a0ed2"
     },
     {
       "path": "tests/runtime/member-channel-access.test.ts",
@@ -4399,18 +4399,18 @@
     },
     {
       "path": "tests/runtime/repo-maintainer-policy.test.ts",
-      "bytes": 17113,
-      "sha256": "04b8928e7d6ed1c9aaf211c9ea42bf540258e5bd2a6291e861ec73db9be7746f"
+      "bytes": 19837,
+      "sha256": "bb93e3469bca358bb55d4a2f34adcd74467876b264d0e442d3dc23d0482710df"
     },
     {
       "path": "tests/runtime/repo-maintainer-sync.test.ts",
-      "bytes": 20830,
-      "sha256": "45afc6cfb6aa49c5966c0c7ad13ed33d556c656c6b97b253ecf090ad5a94b66a"
+      "bytes": 38030,
+      "sha256": "05198b7d36f81005ed51e584e92faa452b0eba174575e176f19212c91271fe6d"
     },
     {
       "path": "tests/runtime/repo-maintainer-webhook.test.ts",
-      "bytes": 12582,
-      "sha256": "d0387ce1fc4408394171f8b3f511758e022e16bf2f65f9927a2aea28aebc2fb2"
+      "bytes": 12678,
+      "sha256": "39d001d67896d8a2c5a383bb0a4a337b60e41ce50334beac13aecdad52e08596"
     },
     {
       "path": "tests/runtime/skill-book-guides.test.ts",
@@ -4484,8 +4484,8 @@
     },
     {
       "path": "tests/worker/maintainer-scheduled.test.ts",
-      "bytes": 5549,
-      "sha256": "bd58d6474bb40f03a9ed770ef936d63467687c8c1e5fca518fa591d261fe6fd5"
+      "bytes": 6884,
+      "sha256": "5ae288f8d77a75e2fcc4ba7b71544d2304ef8094c19b1d8bf92b53e4ea61ee83"
     },
     {
       "path": "tests/worker/workerd.test.ts",
