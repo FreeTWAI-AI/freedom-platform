@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { AdminClient } from './admin-client';
 import './AdminReviewCenter.css';
 
@@ -239,7 +239,7 @@ export function AdminReviewCenter({ client, busy, onMutate }: {
             <a href={row.html_url} target="_blank" rel="noopener noreferrer">{row.full_name}#{row.number} {row.title}</a>
             <span className={queueBadgeClass(row.queue_state)}>{QUEUE_LABEL[row.queue_state] ?? row.queue_state}</span>
           </div>
-          <p>{row.author_login}{authorBadges(row).map(badge => <span className="badge" key={badge}>{badge}</span>)}</p>
+          <p>{row.author_login}{authorBadges(row).map(badge => <Fragment key={badge}>{' '}<span className="badge">{badge}</span></Fragment>)}</p>
           <p><span className={riskBadgeClass(row.risk_class)}>{RISK_LABEL[row.risk_class] ?? row.risk_class}</span> {row.first_risk_reason?.message ?? '沒有風險說明'}{(row.first_risk_reason?.paths ?? []).slice(0, 3).map(path => <span className="review-path" key={path}>{path}</span>)}</p>
           <p>必要檢查 {row.required_check?.name ?? 'verify'} {shortSha(row.head_sha)} {checkText(row.required_check)}</p>
           <p>{row.claim ? `${row.claim.reviewer_login} ${claimLeft(row.claim.expires_at)}` : '無人認領'}</p>
@@ -321,7 +321,7 @@ function ReviewDetail({ detail, viewer, reviewers, busy, onError, onMutate, onDo
     </div>
     <div>
       <h3>審查紀錄</h3>
-      {detail.reviews.length ? <ul>{detail.reviews.map(review => <li key={review.github_review_id}>{review.reviewer_login} {reviewStateLabel(review.state)} {review.commit_id ? shortSha(review.commit_id) : '沒有提交'}{!review.is_current_head && <span className="badge">舊提交</span>} <span className={review.counts_as_valid ? 'badge badge-ok' : 'badge'}>{review.counts_as_valid ? '算有效核准' : '不算有效核准'}</span></li>)}</ul> : <p className="muted">還沒有審查。</p>}
+      {detail.reviews.length ? <ul>{detail.reviews.map(review => <li key={review.github_review_id}>{review.reviewer_login} {reviewStateLabel(review.state)} {review.commit_id ? shortSha(review.commit_id) : '沒有提交'}{!review.is_current_head && <>{' '}<span className="badge">舊提交</span></>} <span className={review.counts_as_valid ? 'badge badge-ok' : 'badge'}>{review.counts_as_valid ? '算有效核准' : '不算有效核准'}</span></li>)}</ul> : <p className="muted">還沒有審查。</p>}
     </div>
     <div>
       <h3>佇列原因</h3>
