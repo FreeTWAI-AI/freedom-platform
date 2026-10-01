@@ -1,9 +1,12 @@
+import {useState} from 'react';
 import {MemberAvatar} from './MemberAvatar';
+import {BrandIcon,brandForUrl,brandPlatform} from './BrandIcon';
 import './MemberECard.css';
 
 export const cardDesigns=[['calm','清新'],['workshop','工坊'],['night','夜空'],['classic','經典名片']] as const;
 export type CardDesign=(typeof cardDesigns)[number][0];
 export type CardLink={label:string;url:string};
+export type CardProfileLink={platform:string;label:string;handle:string|null;url:string|null};
 const control=/[\u0000-\u001f\u007f]/;
 const chars=(value:string)=>Array.from(value).length;
 
@@ -22,8 +25,43 @@ export function parseCardLink(label:string,url:string):{ok:true;link:CardLink}|{
 }
 export function linkDomain(url:string){try{return new URL(url).hostname.replace(/^www\./,'');}catch{return '';}}
 
-export function MemberECard({design,nickname,headline,guildName,capabilities,avatarUrl,links,heading='h1'}:{design:CardDesign;nickname:string;headline:string|null;guildName:string|null;capabilities:string[];avatarUrl:string|null;links:CardLink[];heading?:'h1'|'p'}){
+function copyName(platform:string){return platform==='discord'?'複製 Discord 帳號':platform==='line'?'複製 LINE ID':`複製${platform}`;}
+function fallbackName(platform:string){return platform==='discord'?'Discord 帳號':platform==='line'?'LINE ID':'帳號';}
+
+function LinkBody({platform,label,handle}:{platform:string;label:string;handle:string|null}){
+  return <><BrandIcon platform={platform}/><span className="ecard-link-text"><span>{label}</span>{handle?<small>{handle}</small>:null}</span></>;
+}
+function CopyLink({platform,label,handle}:{platform:string;label:string;handle:string}){
+  const [copied,setCopied]=useState(''),[manual,setManual]=useState(false);
+  async function copy(){
+    try{
+      if(!navigator.clipboard?.writeText)throw new Error('missing');
+      await navigator.clipboard.writeText(handle);
+      setCopied('已複製');setManual(false);
+    }catch{setCopied('');setManual(true);}
+  }
+  return <><button type="button" className="ecard-link" aria-label={copyName(platform)} onClick={()=>void copy()}><LinkBody platform={platform} label={label} handle={handle}/></button>
+    {manual&&<input className="ecard-copy-fallback" readOnly value={handle} aria-label={fallbackName(platform)}/>}
+    <span className="ecard-copy-status" role="status" aria-live="polite">{copied}</span></>;
+}
+function cardLinkHref(url:string|null):string|null{
+  if(!url)return null;
+  let parsed:URL|undefined;try{parsed=new URL(url);}catch{return null;}
+  if(parsed.username||parsed.password)return null;
+  if(parsed.protocol!=='https:'&&parsed.protocol!=='mailto:')return null;
+  return parsed.href;
+}
+function CardAnchor({url,platform,label,handle}:{url:string;platform:string;label:string;handle:string|null}){
+  const mail=url.startsWith('mailto:');
+  return <a className="ecard-link" href={url} {...(mail?{}:{target:'_blank',rel:'noopener noreferrer nofollow ugc'})}><LinkBody platform={platform} label={label} handle={handle}/></a>;
+}
+
+export function MemberECard({design,nickname,headline,guildName,capabilities,avatarUrl,links,profileLinks=[],heading='h1'}:{design:CardDesign;nickname:string;headline:string|null;guildName:string|null;capabilities:string[];avatarUrl:string|null;links:CardLink[];profileLinks?:CardProfileLink[];heading?:'h1'|'p'}){
   const Title=heading,line=headline?.trim()||null;
+  const rows=[
+    ...profileLinks.map((item,index)=>({key:`profile-${index}-${item.platform}-${item.label}`,platform:brandPlatform(item.platform),label:item.label,handle:item.handle,url:item.url})),
+    ...links.map((item,index)=>({key:`manual-${index}-${item.url}`,platform:brandForUrl(item.url),label:item.label,handle:linkDomain(item.url)||null,url:item.url})),
+  ];
   return <article className="ecard" data-design={design}>
     <div className="ecard-identity">
       <MemberAvatar nickname={nickname} avatarUrl={avatarUrl}/>
@@ -35,6 +73,6 @@ export function MemberECard({design,nickname,headline,guildName,capabilities,ava
       </div>
     </div>
     {capabilities.length>0&&<ul className="ecard-capabilities">{capabilities.map((label,index)=><li key={`${index}-${label}`}>{label}</li>)}</ul>}
-    {links.length>0&&<ul className="ecard-links">{links.map(link=><li key={`${link.label}\u0000${link.url}`}><a className="ecard-link" href={link.url} target="_blank" rel="noopener noreferrer nofollow ugc"><span>{link.label}</span><small>{linkDomain(link.url)}</small></a></li>)}</ul>}
+    {rows.length>0&&<ul className="ecard-links">{rows.map(item=>{const href=cardLinkHref(item.url);return <li key={item.key}>{href?<CardAnchor url={href} platform={item.platform} label={item.label} handle={item.handle}/>:!item.url&&item.handle?<CopyLink platform={item.platform} label={item.label} handle={item.handle}/>:<span className="ecard-link"><LinkBody platform={item.platform} label={item.label} handle={item.handle}/></span>}</li>;})}</ul>}
   </article>;
 }

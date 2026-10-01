@@ -193,6 +193,7 @@ function MemberApp() {
   const [sharedCardToken,setSharedCardToken]=useState(memberCardFromLocation)
   const [memberLoginRequested,setMemberLoginRequested]=useState(false)
   const returnToWorkshop=()=>{window.history.replaceState(null,'','/#home');setSharedCardToken(null);setMemberLoginRequested(false);window.dispatchEvent(new HashChangeEvent('hashchange'));}
+  const editOwnCard=()=>{window.history.replaceState(null,'','/#account');setSharedCardToken(null);setMemberLoginRequested(false);window.dispatchEvent(new HashChangeEvent('hashchange'));}
   useEffect(()=>{const changed=()=>{setSharedCardToken(memberCardFromLocation());setMemberLoginRequested(false)};window.addEventListener('popstate',changed);return()=>window.removeEventListener('popstate',changed)},[])
   useEffect(()=>{const changed=()=>setResetToken(resetTokenFromHash());window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed)},[])
   useEffect(()=>{const changed=()=>{setPublicEventId(eventIdFromLocation());setEventLoginRequested(false)};window.addEventListener('hashchange',changed);window.addEventListener('popstate',changed);return()=>{window.removeEventListener('hashchange',changed);window.removeEventListener('popstate',changed)}},[])
@@ -312,7 +313,7 @@ function MemberApp() {
     : onboarding.required && !onboarding.completed ? exploring&&!onboardingStarted(session.user.user_id)
       ? <WelcomePreview client={client} name={session.user.display_name} onCompleted={()=>{rememberOnboarding(session.user.user_id,false);void loadOnboarding()}} onStart={()=>{rememberOnboarding(session.user.user_id,true);setExploring(false)}} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
       : <Onboarding client={client} initial={onboarding} profileName={session.user.display_name} onExplore={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}} onCompleted={() => { rememberOnboarding(session.user.user_id,false);window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
-    : sharedCardToken ? <PublicMemberPage client={client} token={sharedCardToken} session={session} onLogin={()=>{}} onReturn={returnToWorkshop}/> : <>
+    : sharedCardToken ? <PublicMemberPage client={client} token={sharedCardToken} session={session} onLogin={()=>{}} onReturn={returnToWorkshop} onEdit={editOwnCard}/> : <>
     <GitHubSocialProvider client={client} session={session}><AuthorClaimProvider client={client}><DevelopmentAccessProvider client={client} session={session}>
     <Workspace
       site={site}
