@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { AdminClient } from './admin-client';
 import { IssueHandoff, PullHandoffButton, PullHandoffForm, type HandoffResult } from './review-handoff';
 import {
-  ADMIN_LINK_STATUS, CLAIM_HELD, CLAIM_UNAVAILABLE, GITHUB_REVIEW_LINK, PullFacts, ReviewQueueRow, SKILL_MAINTAINER_STATUS, modeText, pullClaimable,
+  ADMIN_LINK_STATUS, CLAIM_HELD, CLAIM_UNAVAILABLE, GITHUB_REVIEW_LINK, PullFacts, ReviewQueueRow, SKILL_MAINTAINER_STATUS, modeText, ownershipPlace, pullClaimable,
   reviewerOptionLabel, reviewerOptionValue, scopeText, versionOf,
   type EligibleReviewer, type PullDetail, type PullRow,
 } from './review-center-shared';
@@ -24,12 +24,12 @@ const HANDOFF_BLOCKED: Record<Exclude<Viewer['status'], 'ready'>, string> = {
   no_github: '你的會員帳號還沒有連結 GitHub，所以不能交給 AI。',
 };
 type AdminPerson = { admin_id: string; display_name: string; github_login: string | null; status: string };
+type RepoRef = { repository_id: string; full_name: string; scope_kind: string | null; skill_book_id?: string | null };
 type GuildDirectory = {
   guild_key: string; name: string;
   leader: { user_id: string; display_name: string; github_login: string | null } | null;
-  repositories: { repository_id: string; full_name: string; scope_kind: string | null }[];
+  repositories: RepoRef[];
 };
-type RepoRef = { repository_id: string; full_name: string; scope_kind: string | null; skill_book_id?: string | null };
 type SkillBookChoice = { skill_book_id: string; title: string };
 type Directory = {
   admins: AdminPerson[]; guilds: GuildDirectory[]; open_repositories: RepoRef[];
@@ -291,7 +291,7 @@ function SettingsBlock({ repositories, directory, guilds, books, busy, onMutate,
       <p className="field-hint">新鏡像的儲存庫沒有公會，預設開放公會長認領；要改成只限管理員，請改「歸屬」。</p>
       {repositories.map(repo => <article className="card stack" key={`${repo.repository_id}-${repo.aggregate_version}`}>
         <h3>{repo.full_name}</h3>
-        <p className="muted">目前模式 {modeText(repo.mode)} · 歸屬 {repo.guild_key ? (guilds.find(guild => guild.guild_key === repo.guild_key)?.name ?? repo.guild_key) : repo.open_to_guilds ? '開放認領' : '只限管理員'} · {scopeText(repo.scope_kind)}</p>
+        <p className="muted">目前模式 {modeText(repo.mode)} · 歸屬 {ownershipPlace({ guild_key: repo.guild_key, guild_name: guilds.find(guild => guild.guild_key === repo.guild_key)?.name ?? null, scope_kind: repo.scope_kind, open_to_guilds: repo.open_to_guilds, skill_book_id: repo.skill_book_id })} · {scopeText(repo.scope_kind)}</p>
         <RepoForm repo={repo} busy={busy} onMutate={onMutate} onSaved={onSaved} />
         <OwnershipForm repo={repo} guilds={guilds} books={books} busy={busy} onMutate={onMutate} onSaved={onSaved} />
       </article>)}
@@ -392,17 +392,23 @@ function OwnershipForm({ repo, guilds, books, busy, hint, onMutate, onSaved }: {
     <label className="field">歸屬<select aria-label="歸屬" value={choice} onChange={event => setChoice(event.target.value)}><option value="admin">只限管理員</option><option value="open">開放公會長認領</option>{guilds.map(guild => <option key={guild.guild_key} value={guild.guild_key}>{guild.name}</option>)}</select></label>
     <label className="field">類型<select aria-label="類型" value={scope} onChange={event => setScope(event.target.value)}><option value="">未分類</option><option value="module">模組</option><option value="skill_book">技能書</option></select></label>
     {scope === 'skill_book' && <label className="field">技能書<select aria-label="技能書" value={bookId} onChange={event => setBookId(event.target.value)}><option value="">不指定</option>{books.map(book => <option key={book.skill_book_id} value={book.skill_book_id}>{book.title}</option>)}</select></label>}
+    {scope === 'skill_book' && bookId !== '' && <p className="field-hint">這本書的維護者也能審這個儲存庫，不論上面選哪個歸屬。</p>}
     <label className="field">歸屬理由<input value={reason} onChange={event => setReason(event.target.value)} minLength={3} maxLength={1000} required /></label>
     <div className="actions"><button className="btn btn-primary" disabled={busy}>儲存歸屬</button></div>
   </form>;
 }
 
-function repoLine(repo: RepoRef): string {
+function repoLine(repo: RepoRef, books: SkillBookChoice[]): string {
+  if (repo.skill_book_id) {
+    const title = books.find(book => book.skill_book_id === repo.skill_book_id)?.title ?? repo.skill_book_id;
+    return `${repo.full_name}（技能書：${title}）`;
+  }
   return `${repo.full_name}（${scopeText(repo.scope_kind)}）`;
 }
 
 function ReviewerDirectory({ directory }: { directory: Directory | null }) {
   if (!directory) return <p className="muted">正在載入審核人…</p>;
+  const books = directory.skill_book_choices ?? [];
   return <section className="stack" aria-label="審核人">
     <h3>審核人</h3>
     <h4>管理員</h4>
@@ -411,12 +417,12 @@ function ReviewerDirectory({ directory }: { directory: Directory | null }) {
     {directory.guilds.length ? directory.guilds.map(guild => <article key={guild.guild_key}>
       <p><strong>{guild.name}</strong></p>
       <p>{guild.leader ? `${guild.leader.display_name}${guild.leader.github_login ? ` @${guild.leader.github_login}` : ' · 尚未連結 GitHub'}` : '尚未任命公會長'}</p>
-      {guild.repositories.length ? <ul>{guild.repositories.map(repo => <li key={repo.repository_id}>{repoLine(repo)}</li>)}</ul> : <p className="muted">還沒有歸到這個公會的儲存庫。</p>}
+      {guild.repositories.length ? <ul>{guild.repositories.map(repo => <li key={repo.repository_id}>{repoLine(repo, books)}</li>)}</ul> : <p className="muted">還沒有歸到這個公會的儲存庫。</p>}
     </article>) : <p className="muted">還沒有已任命公會長或已歸屬的公會。</p>}
     <h4>開放公會長認領</h4>
-    {directory.open_repositories.length ? <ul>{directory.open_repositories.map(repo => <li key={repo.repository_id}>{repoLine(repo)}</li>)}</ul> : <p className="muted">沒有開放認領的儲存庫。</p>}
+    {directory.open_repositories.length ? <ul>{directory.open_repositories.map(repo => <li key={repo.repository_id}>{repoLine(repo, books)}</li>)}</ul> : <p className="muted">沒有開放認領的儲存庫。</p>}
     <h4>只限管理員</h4>
-    {directory.admin_only_repositories.length ? <ul>{directory.admin_only_repositories.map(repo => <li key={repo.repository_id}>{repoLine(repo)}</li>)}</ul> : <p className="muted">沒有只限管理員的儲存庫。</p>}
+    {directory.admin_only_repositories.length ? <ul>{directory.admin_only_repositories.map(repo => <li key={repo.repository_id}>{repoLine(repo, books)}</li>)}</ul> : <p className="muted">沒有只限管理員的儲存庫。</p>}
     <h4>技能書維護者</h4>
     {directory.skill_books?.length ? directory.skill_books.map(book => <article key={book.skill_book_id}>
       <p><strong>{book.title}</strong></p>

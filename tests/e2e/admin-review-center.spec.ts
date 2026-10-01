@@ -302,6 +302,12 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
     await expect(settings.getByLabel('認領時效（小時）')).toHaveValue('24');
     await expect(settings.getByLabel('認領時效（小時）')).toHaveAttribute('placeholder', '不自動釋放');
     await settings.getByLabel('歸屬', { exact: true }).selectOption({ label: 'AI 開發公會' });
+    await settings.getByLabel('類型').selectOption({ label: '技能書' });
+    const bookSelect = settings.getByLabel('技能書');
+    const bookCount = await bookSelect.locator('option').evaluateAll(nodes => nodes.filter(node => (node as HTMLOptionElement).value !== '').length);
+    expect(bookCount).toBeGreaterThan(0);
+    await bookSelect.selectOption({ index: 1 });
+    await expect(settings.getByText('這本書的維護者也能審這個儲存庫，不論上面選哪個歸屬。', { exact: true })).toBeVisible();
     await settings.getByLabel('類型').selectOption({ label: '模組' });
     await settings.getByLabel('歸屬理由').fill('這份儲存庫交給 AI 開發公會。');
     await settings.getByRole('button', { name: '儲存歸屬', exact: true }).click();

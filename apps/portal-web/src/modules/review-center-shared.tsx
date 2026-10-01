@@ -111,7 +111,7 @@ export function queueBadgeClass(state: string): string {
 export function ownershipBadge(ownership: Ownership): { label: string; className: string } {
   if (ownership.guild_key) return { label: ownership.guild_name ?? ownership.guild_key, className: 'badge badge-own' };
   if (ownership.open_to_guilds) return { label: '開放認領', className: 'badge badge-open' };
-  return { label: '只限管理員', className: 'badge' };
+  return { label: ownership.skill_book_id ? '管理員與技能書維護者' : '只限管理員', className: 'badge' };
 }
 export function reviewStateLabel(state: string): string {
   return REVIEW_STATE[state] ?? state;
@@ -159,7 +159,8 @@ export function reviewerOptionValue(person: EligibleReviewer): string {
 }
 export function ownershipPlace(ownership: Ownership): string {
   if (ownership.guild_key) return ownership.guild_name ?? ownership.guild_key;
-  return ownership.open_to_guilds ? '開放認領' : '只限管理員';
+  if (ownership.open_to_guilds) return '開放認領';
+  return ownership.skill_book_id ? '管理員與技能書維護者' : '只限管理員';
 }
 export function adoptionHint(guildName: string): string {
   return `這個儲存庫還沒有歸屬，你審完後會歸到${guildName}。`;

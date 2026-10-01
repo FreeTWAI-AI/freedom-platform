@@ -329,9 +329,14 @@ test('a skill-book maintainer who is not a guild leader claims the book pull', a
     await expect(page.locator('.review-center')).toContainText('技能書維護者可以審自己那本書的工坊拉取請求');
     const pull = page.locator(`[data-pull-id="${BOOK_PULL}"]`);
     await expect(pull).toContainText('方向探索的工坊修正');
+    const bookBadge = pull.locator('span.badge', { hasText: '管理員與技能書維護者' });
+    await expect(bookBadge).toHaveAttribute('class', 'badge');
+    await expect(pull).not.toContainText('只限管理員');
     await expect(page.locator('.review-center')).toContainText('方向探索與陪跑入門');
     await pull.getByRole('button', { name: '詳情', exact: true }).click();
     await expect(pull).toContainText('以方向探索與陪跑入門・維護者的身分認領。審完不會把儲存庫歸到公會。');
+    await expect(pull).toContainText('歸屬 管理員與技能書維護者 · 技能書');
+    await expect(pull).not.toContainText('只限管理員');
 
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByRole('button', { name: 'PR 審核', exact: true })).toBeVisible();
