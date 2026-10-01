@@ -60,7 +60,8 @@ test('share cards are opt-in, bounded, revocable and never expose IDs, contacts,
   assert.equal((await request('/me/member-card-share',undefined,{enabled:true,include_avatar:true})).status,401);
   const enabled=await request('/me/member-card-share',owner,{enabled:true,include_avatar:true});assert.equal(enabled.status,200,JSON.stringify(enabled.data));
   const token=enabled.data.share_path.split('/').at(-1),shared=await request('/public/member-cards/'+token);assert.equal(shared.status,200);assert.equal(shared.response.headers.get('cache-control'),'no-store');
-  assert.deepEqual(Object.keys(shared.data).sort(),['avatar_url','capabilities','nickname','primary_guild']);assert.deepEqual(shared.data.capabilities,['Python']);
+  assert.deepEqual(Object.keys(shared.data).sort(),['avatar_url','capabilities','design','headline','links','nickname','primary_guild']);assert.deepEqual(shared.data.capabilities,['Python']);
+  assert.equal(shared.data.design,'calm');assert.equal(shared.data.headline,null);assert.deepEqual(shared.data.links,[]);
   for(const forbidden of [owner.id,'@','私人LINE','不公開職業','私密答案','private_tool'])assert.equal(JSON.stringify(shared.data).includes(forbidden),false);
   assert.equal((await request('/me/member-card-share',owner,{enabled:false,include_avatar:false},1)).status,200);
   assert.equal((await request('/public/member-cards/'+token)).status,404);
@@ -92,8 +93,9 @@ test('an existing share row keeps its avatar choice and the card page is noindex
 });
 test('verification accounts and unfinished members cannot publish public cards',async()=>{
   const testAccount=await member('合成驗證帳',true,`${randomUUID()}@example.invalid`),unfinished=await member('尚未選公會',false);
-  assert.equal((await request('/me/member-card-share',testAccount,{enabled:true,include_avatar:true})).status,403);
-  assert.equal((await request('/me/member-card-share',unfinished,{enabled:true,include_avatar:true})).status,403);
+  const blockedTest=await request('/me/member-card-share',testAccount,{enabled:true,include_avatar:true}),blockedJoin=await request('/me/member-card-share',unfinished,{enabled:true,include_avatar:true});
+  assert.equal(blockedTest.status,403);assert.equal(blockedTest.data.code,'member_share_unavailable');assert.equal(blockedTest.data.detail,'完成加入流程的會員才能分享名片。');
+  assert.equal(blockedJoin.status,403);assert.equal(blockedJoin.data.code,'onboarding_required');assert.equal(blockedJoin.data.detail,'請先選擇主要公會，完成加入後即可使用會員功能。');
 });
 test('friends directory handles both invitation directions and current accepted contact visibility',async()=>{
   const a=await member('好友甲'),b=await member('好友乙');
