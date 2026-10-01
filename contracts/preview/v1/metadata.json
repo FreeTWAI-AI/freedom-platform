@@ -1,7 +1,7 @@
 {
   "protocol": "freedom.preview/v1",
   "revision": "0.3.0",
-  "protocol_sha256": "ca21e7677d524618f510f5b013c113b39ea680eaa73a61db49a80b7cc41c80b0",
+  "protocol_sha256": "fe2ee45447f4a5e92c10e22307dee3b380d028acca04bac5278d3aeca0da7b3e",
   "operations": [
     "getProtocol",
     "getHealth",
