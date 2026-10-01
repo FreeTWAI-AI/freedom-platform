@@ -35,7 +35,7 @@ html:is([data-theme="light"],[data-theme="versefolk"]) :is(
   .guild-onboarding .recommendation-card,.guild-onboarding .other-guild-choices,
   .guild-onboarding .other-guild-choices .stack > div,
   .skill-intro-collaboration,.skill-intro-dialog,.skill-share-dialog,.promotion-share-dialog,
-  .skill-upload-dialog,.skill-upload-preview
+  .skill-upload-dialog,.skill-upload-preview,.skill-upload-submit
 ) { background:var(--bg-elev);color:var(--ink);border-color:var(--line); }
 html:is([data-theme="light"],[data-theme="versefolk"]) :is(
   .discovery-toolbar,.squad-panel .squad-invitations,
@@ -239,6 +239,7 @@ html:is([data-theme="light"],[data-theme="versefolk"]) .guild-detail-dialog .gui
 html:is([data-theme="light"],[data-theme="versefolk"]) .social-links-editor .social-link-form {background:var(--module-tint);}
 html:is([data-theme="light"],[data-theme="versefolk"]) .social-links-editor .social-link-own-row a {color:var(--blue-ink);}
 html:is([data-theme="light"],[data-theme="versefolk"]) .skill-upload-secret {background:var(--green-soft);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .skill-upload-submit {background:var(--bg-elev);color:var(--ink);border-top-color:var(--line);}
 html:is([data-theme="light"],[data-theme="versefolk"]) .skill-share-error p {color:var(--danger);}
 
 /* Community panels use a light canvas; the original logo poster stays untouched. */
