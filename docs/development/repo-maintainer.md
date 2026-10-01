@@ -19,12 +19,12 @@
 
 | 元件 | 位置 | 做什麼 |
 | --- | --- | --- |
-| 資料表 | `migrations/061_repo_maintainer.sql`、`migrations/062_maintainer_review_claims.sql`、`migrations/068_maintainer_review_scope.sql` | 儲存庫、歸屬變更、單列排程、webhook 投遞紀錄、工作、拉取請求鏡像、檔案、檢查、審查、認領、`maintainer_eligible_reviewers`。068 把新儲存庫預設改成開放認領，並加上技能書審查範圍 |
+| 資料表 | `migrations/061_repo_maintainer.sql`、`migrations/062_maintainer_review_claims.sql`、`migrations/068_maintainer_review_scope.sql`、`migrations/069_maintainer_handoffs.sql` | 儲存庫、歸屬變更、單列排程、webhook 投遞紀錄、工作、拉取請求鏡像、檔案、檢查、審查、認領、`maintainer_eligible_reviewers`、本機 AI 交接。068 把新儲存庫預設改成開放認領，並加上技能書審查範圍。069 只追加 `maintainer_handoffs`，不更新、不刪除 |
 | 政策 | `modules/repo-maintainer/policy.ts` | 注意事項、遷移編號、佇列狀態、認領覆寫。沒有 I/O。版本 `2026-10-01.2` |
 | 推導 | `modules/repo-maintainer/derive.ts` | `rederivePull`：用已存的鏡像、子表、資格視圖裡的 GitHub id、`migration_reasons` 與進行中的認領重算一筆。不重新推導遷移原因 |
 | Webhook | `POST /api/v1/maintainer/github/webhook` | 驗簽、正規化、寫一筆投遞、必要時排入 `reconcile_pull`。不呼叫 GitHub。只有這個精確的 POST 在會員驗證之前；同一路徑的 GET 回 401 `login_required` |
 | 維護 Worker | `apps/platform-api/src/maintainer-worker.ts` | 每分鐘跑一次 tick：安裝同步、認領生命週期、掃 open PR、執行工作 |
-| 管理 API 與頁面 | `/admin/api/review-center/*`、後台「PR 審核」 | 讀鏡像、認領、指派、暫停、改模式與設定、改歸屬、看誰可以審。見 [platform-admin-api.md](platform-admin-api.md) |
+| 管理 API 與頁面 | `/admin/api/review-center/*`、後台「PR 審核」 | 讀鏡像、認領、指派、暫停、改模式與設定、改歸屬、看誰可以審、產生本機 AI 交接。見 [platform-admin-api.md](platform-admin-api.md) |
 | 公會審查 API 與頁面 | `/api/v1/guild-reviews`、公會管理「PR 審核」 | 現任公會長看自己公會，以及沒有公會且已開放認領的拉取請求。只靠技能書任命的人只看自己那本書的工坊。同時是兩者的人看到聯集。都可以認領或放棄自己的認領。見下方「公會長與技能書維護者」 |
 
 Webhook 只是提示。漏掉的投遞不會由 GitHub 重送。Worker 每 30 分鐘掃一次到期的儲存庫，把新的、`updated_at` 或 head SHA 變了的、以及清單裡已經不見的 open PR 排進去重算。清單裡沒變、但鏡像已舊的 open PR 也會重算：`synced_at` 超過 10 分鐘，而且佇列是 `waiting_ci` 或 `mergeable` 仍是空的；或者 `synced_at` 超過 6 小時。這種重新整理每次掃描最多 20 筆，`synced_at` 舊的先排。新的、有變的、以及清單裡不見的不受這 20 筆限制。
@@ -165,8 +165,8 @@ Tick 在重新推導之前結束認領。每一步先依 `pull_id` 順序鎖住�
 
 | 方法與路徑 | 主體與結果 |
 | --- | --- |
-| `GET /guild-reviews?queue=&limit=&offset=` | queue 為 `awaiting_review`、`in_review`、`mine`、`ready`、`open`。回 `{guilds, skill_books, viewer, items, next_offset}`。沒有 GitHub 連結時 `viewer.reason` 是「請先在會員資料連結 GitHub，才能認領審查。」 |
-| `GET /guild-reviews/:pullId` | 與管理端細節相同，但不含 `eligible_reviewers`。另有 `claim_options`（這位會員自己在這個儲存庫的公會長或技能書維護者視圖列，含書名）和 `can_release`。 |
+| `GET /guild-reviews?queue=&limit=&offset=` | queue 為 `awaiting_review`、`in_review`、`mine`、`ready`、`open`。回 `{guilds, skill_books, viewer, items, next_offset, repositories}`。`repositories` 是這位會員可以把 Issue 交給本機 AI 的儲存庫（安裝仍有效、模式不是 off、而且看得到），每項是 `{id, full_name}`。沒有 GitHub 連結時 `viewer.reason` 是「請先在會員資料連結 GitHub，才能認領審查。」 |
+| `GET /guild-reviews/:pullId` | 與管理端細節相同，但不含 `eligible_reviewers`。另有 `claim_options`（這位會員自己在這個儲存庫的公會長或技能書維護者視圖列，含書名）、`can_release`，以及 `handoff`（見「本機 AI 交接」）。 |
 | `POST /guild-reviews/:pullId/claim` | `{acting_as?, guild_key?, skill_book_id?}`，If-Match 是拉取請求版本。201 回細節。只有一個公會時，`{guild_key}` 或空主體都可以。技能書維護者送 `{acting_as: skill_book_maintainer, skill_book_id}`。沒有 GitHub 回 409 `maintainer_claim_identity_required`。看得到但沒有可認領的列，或選不到那一列，回 403 `maintainer_guild_scope`。多個公會卻沒選公會，回 422 `maintainer_guild_required`，句子仍是「你是多個公會的公會長，請選擇審完後要歸到哪個公會。」身分裡含技能書、又超過一個選項卻沒選，同一個碼，句子是「你有多個可以審的身分，請選擇要以哪個公會或哪本技能書認領。」作者本人回 409 `maintainer_claim_author`。已有認領回 409 `maintainer_claim_exists`。 |
 | `POST /guild-reviews/claims/:claimId/release` | `{}`，If-Match 是認領版本。只能放棄自己的有效認領，否則 403 `maintainer_claim_not_yours`。`end_reason=self_released`。這筆拉取請求不在可見範圍時回 404 `maintainer_claim_not_found`。技能書維護者即使不是公會長，也可以放棄自己的認領。 |
 
@@ -193,6 +193,34 @@ GitHub 拒絕（例如 422，因為這個人不是 collaborator）記在認領�
 ### 在畫面上暫停一筆
 
 後台「PR 審核」打開該筆，填理由後按「暫停」。這把該筆的 `paused` 設成 true，並把 `aggregate_version` 加一，不改儲存庫模式，也不放開認領。已經暫停再暫停回 409 `maintainer_pull_already_paused`；沒有暫停卻恢復回 409 `maintainer_pull_not_paused`。即使佇列狀態不變（例如已合併或已關閉），版本也會增加，舊的 If-Match 得到 412。恢復時再填理由。儲存庫整個關掉仍用模式 `off`。模式 `off` 的拉取請求不能認領或指派，跟單筆暫停一樣回 409 `maintainer_claim_unavailable`。
+
+## 本機 AI 交接
+
+AI 不會自己開工。可以審這個儲存庫的人按按鈕，平台只記下是誰、要做哪一種、以及當時的 head SHA 或 Issue 編號，並交回一份任務檔。平台不跑 agent、不代持那個人的 AI 訂閱或 token，也不為這次交接寫入 GitHub。那個人在這個儲存庫的本機資料夾、用自己的 `gh` 登入執行。三個 CLI 都是把任務檔當位置參數，開一個互動工作階段，每一步由這個人看過再同意。推不推得上、合不合併得成，由 GitHub 上這個人自己的權限決定。
+
+三個按鈕：
+
+- 「讓 AI 修這個 PR」：衝突、沒過的 CI、遷移編號撞號、審查意見。拉取請求要是開著的、不是草稿、沒有暫停，而且儲存庫不是 `off`。
+- 「讓 AI 合併這個 PR」：只有平台佇列是 `ready` 才按得下去。任務檔要 agent 在合併前重新對 GitHub 查 CI、核准、暫停標籤與遷移編號，有一項不符就停，不合併。
+- 「把 Issue 做成 PR」：選一個儲存庫和 Issue 編號。任務檔要 agent 開一筆連結該 Issue 的拉取請求，不合併。
+
+誰按得了：公會長按自己公會的儲存庫，以及沒有公會且開放認領的儲存庫。技能書維護者按自己那本書的儲存庫。管理員按每一個儲存庫。其他人只能在 GitHub 送審查，沒有這三個按鈕，也不能合併。
+
+在儲存庫的本機資料夾執行（檔名是 `freedom-handoff-` 加上交接編號的前 8 個十六進位字）：
+
+```sh
+claude "$(cat freedom-handoff-1a2b3c4d.md)"
+codex "$(cat freedom-handoff-1a2b3c4d.md)"
+grok "$(cat freedom-handoff-1a2b3c4d.md)"
+```
+
+畫面記最後一次選的工具（`freedom-handoff-cli`）。產生之後可以下載任務檔、複製指令或複製任務內容。
+
+`maintainer_handoffs` 只追加。一列有交接編號、儲存庫、拉取請求（Issue 交接是空的）、Issue 編號、種類（`fix`、`merge`、`issue`）、工具（`claude`、`codex`、`grok`）、head SHA、按的人（`user_id`、`github_user_id`、`github_login`、`acting_as`、`guild_key`、`skill_book_id`）、從後台按下時的 `requested_by_admin`，以及任務本文。程式不更新、也不刪這些列。從後台按下另外寫一筆 `platform_admin_audit`，動作 `maintainer_handoff_create`，理由固定是「產生本機 AI 交接任務。」會員按下不寫這筆稽核。
+
+資格只看 `maintainer_eligible_reviewers`。會員有多列時，先取公會長，再依顯示名稱。沒有列、但這個人看得到且還沒連結 GitHub，回 409 `maintainer_claim_identity_required`。管理員沒有列時回他自己的 viewer 原因，同一個碼。看不到的拉取請求或儲存庫仍是 404。拉取請求未開啟、仍是草稿、已暫停或儲存庫已關閉，回 409 `maintainer_handoff_unavailable`。head SHA 和畫面上的不一樣，回 409 `maintainer_head_moved`（這條不用 If-Match，因為無關的同步也會把 `aggregate_version` 加一）。不是 `ready` 卻要合併，回 409 `maintainer_handoff_merge_unavailable`。Issue 交接要求安裝仍是 `active` 且模式不是 `off`，否則同一個 `maintainer_handoff_unavailable`，句子改成儲存庫。主體不合格式回 400 `validation_failed`。
+
+路徑：管理端 `POST /review-center/pulls/:id/handoffs`、`POST /review-center/repositories/:id/issue-handoffs`（200）。會員端 `POST /guild-reviews/:pullId/handoffs`、`POST /guild-reviews/repositories/:repositoryId/issue-handoffs`（201）。兩邊都回 `{handoff_id, kind, cli, file_name, command, markdown, created_at}`。同一把 Idempotency-Key 重送回同一筆交接，不另插一列。細節的 `handoff` 是 `{allowed, reason, merge_allowed, merge_reason, recent}`，`recent` 是這筆拉取請求最近五筆（種類、工具、login、head SHA、時間）。管理端的 Issue 表單用摘要裡安裝仍有效且模式不是 `off` 的儲存庫。
 
 ## 暫停
 
