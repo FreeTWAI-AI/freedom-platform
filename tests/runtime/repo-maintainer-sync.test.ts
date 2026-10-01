@@ -608,7 +608,7 @@ test('a new repository is open with no guild, and only an untouched unowned row 
   await database.query(`CREATE SCHEMA ${priorSchema}`);
   try {
     const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-    const names = (await readdir(resolve(root, 'migrations'))).filter(name => name.endsWith('.sql') && name < '065_').sort();
+    const names = (await readdir(resolve(root, 'migrations'))).filter(name => name.endsWith('.sql') && name < '068_').sort();
     await transaction(prior, async q => {
       for (const name of names) await q.query(await readFile(resolve(root, 'migrations', name), 'utf8'));
     });
@@ -632,7 +632,7 @@ test('a new repository is open with no guild, and only an untouched unowned row 
     await prior.query(`INSERT INTO maintainer_ownership_changes
       (change_id, repository_id, guild_key, scope_kind, open_to_guilds, source, changed_by_admin, reason)
       VALUES ($1,$2,NULL,NULL,false,'admin',$3,'管理員曾把這個儲存庫留在只限管理員。')`, [randomUUID(), history, adminId]);
-    await prior.query(await readFile(resolve(root, 'migrations', '065_maintainer_review_scope.sql'), 'utf8'));
+    await prior.query(await readFile(resolve(root, 'migrations', '068_maintainer_review_scope.sql'), 'utf8'));
     const row = async (id: string) => (await prior.query('SELECT guild_key, open_to_guilds, aggregate_version FROM maintainer_repositories WHERE repository_id=$1', [id])).rows[0];
     const openedRow = await row(untouched);
     assert.equal(openedRow.guild_key, null);

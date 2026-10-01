@@ -60,7 +60,7 @@ test('phone navigation opens, escapes and closes after selection while keeping e
   await expect(nav).toBeHidden(); await expect(menu).toBeFocused();
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
-    for (const label of ['技能書架', '一起開發', '我有東西要賣', '工坊夥伴', '自由工坊社群', '會員首頁']) {
+    for (const label of ['技能書架', '一起開發', '我有東西要賣', '工坊夥伴', '活動集錦', '自由工坊社群', '會員首頁']) {
       await navigate(page, label);
       await expect(page.getByRole('heading', { name: label, level: 1, exact: true })).toBeVisible();
       await expect(nav).toBeHidden(); await expect(menu).toHaveAttribute('aria-expanded', 'false');
