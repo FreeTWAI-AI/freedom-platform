@@ -21,11 +21,11 @@ export function GuildCard({guild:g,client,busy,onPrimary,onMembership,onSecondar
     <div className="guild-card-content">
       <div className="card-head guild-card-topline"><h3><GuildName name={g.name} alias={g.alias}/></h3><span className="badge">{g.is_primary?'主要公會':g.is_secondary?'次要公會':active?'已加入':'未加入'}</span></div>
       <GuildLeadership masterName={guildMasterLabel(g)} masterId={g.guild_master?.user_id} masterAvatarUrl={g.guild_master?.avatar_url} experts={g.guild_experts}/>
-      <p className="guild-purpose">{g.purpose}</p>{active&&g.membership?.member_tier==='intern'&&<p className="field-hint guild-intern-notice" role="status">你是這個公會的實習成員：可以閱讀公會內容、在公會聊天室聊天。想發布或編輯，可以在聊天室跟會長打聲招呼，會長能把你設為正式成員。</p>}<GuildTags tags={g.tags}/>
+      <p className="guild-purpose multiline-text">{g.purpose}</p>{active&&g.membership?.member_tier==='intern'&&<p className="field-hint guild-intern-notice" role="status">你是這個公會的實習成員：可以閱讀公會內容、在公會聊天室聊天。想發布或編輯，可以在聊天室跟會長打聲招呼，會長能把你設為正式成員。</p>}<GuildTags tags={g.tags}/>
       <div className="guild-book-list"><strong>入門技能</strong>{firstBook?<SkillBookIntro book={firstBook} guildName={g.name} label={firstBook.title}/>:<p className="muted">技能書整理中</p>}</div>
     </div>
     <div className="guild-card-controls">
-      {active&&<div className="guild-first-step"><p>{g.first_step}</p><button type="button" className="btn btn-ghost" onClick={()=>openMemberChat('guild',g.guild_key)}>進入公會聊天室</button></div>}
+      {active&&<div className="guild-first-step"><p className="multiline-text">{g.first_step}</p><button type="button" className="btn btn-ghost" onClick={()=>openMemberChat('guild',g.guild_key)}>進入公會聊天室</button></div>}
       <button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={event=>open('books',event.currentTarget)}>公會技能書庫 · {g.skill_books.length}</button>
       <div className="guild-card-links"><button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={event=>open('members',event.currentTarget)}>查看成員</button>{active&&<button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={event=>open('announcements',event.currentTarget)}>公會公告</button>}</div>
       <div className="actions">{active&&!g.is_primary&&<button className="btn btn-primary" disabled={busy} onClick={onPrimary}>設為主要公會</button>}{active&&!g.is_primary&&onSecondary&&<button type="button" className="btn btn-ghost" disabled={busy||(!g.is_secondary&&secondaryFull)} onClick={onSecondary}>{g.is_secondary?'取消次要公會':'設為次要公會'}</button>}<button type="button" className="btn btn-ghost" disabled={busy||g.is_primary} onClick={onMembership}>{active?'退出':'加入'}{g.name}</button></div>

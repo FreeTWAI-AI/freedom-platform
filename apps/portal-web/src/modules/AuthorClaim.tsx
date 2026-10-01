@@ -147,7 +147,7 @@ export function AuthorClaimPanel({bookId}: {bookId: string}) {
     </form>}
     {!!view?.claims.length && <ul className="author-claim-list">{view.claims.map(claim => <li key={claim.claim_id} className="stack">
       <p><span className={badgeClass(claim.state === 'disputed' ? 'disputed' : claim.state === 'pending' ? 'pending' : claim.state === 'verified' ? 'verified_original_author' : 'unclaimed')}>{claim.state_label}</span> {claim.role_label} · @{claim.github_login}</p>
-      <p>{claim.statement}</p>
+      <p className="multiline-text">{claim.statement}</p>
       {claim.reason && <p className="field-hint">審核說明：{claim.reason}</p>}
       {claim.can_withdraw && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void withdraw(claim)}>撤回</button>}
       {claim.can_appeal && <form className="stack" onSubmit={event => { event.preventDefault(); void sendAppeal(claim); }}>

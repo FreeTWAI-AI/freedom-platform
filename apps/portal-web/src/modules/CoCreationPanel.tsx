@@ -170,7 +170,7 @@ export function CoCreationPanel({ client, session, onNavigate }: ModulePanelProp
     {!loading && !loadError && projects.length > 0 && !visibleProjects.length && <div className="discovery-empty"><h3>這個公會還沒有共創邀請</h3><button className="btn btn-ghost" onClick={() => chooseGuild('')}>查看全部公會專案</button></div>}
     {selected && <section className="stack" aria-labelledby="cocreation-project-title"><div className="card stack expedition-project-detail">
       <div className="tag-list">{selected.guild_keys.length ? selected.guild_keys.map(key => <span className="pill" key={key}>{guildName(key)}</span>) : <span className="pill">尚未分類</span>}</div>
-      <h3 id="cocreation-project-title">{selected.title}</h3><p>{selected.goal}</p>
+      <h3 id="cocreation-project-title">{selected.title}</h3><p className="multiline-text">{selected.goal}</p>
       <p className="field-hint">把開發指令貼給你的 Agent，先讀專案、挑任務，再依完成條件修改與測試。</p>
       <div className="actions"><button className="btn btn-primary" disabled={briefLoading !== null} onClick={() => void copyBrief()}>{briefLoading === 'project' ? '準備開發指令…' : '複製專案開發指令'}</button><GitHubLink href={selected.upstream_url || selected.repository_url}>{selected.upstream_url ? '開啟原作' : '查看專案'}</GitHubLink><button className="btn btn-ghost" disabled={activityLoading} onClick={() => void loadActivity(selected.project_id)}>更新任務與成果</button></div>
       <p className="field-hint">{selected.upstream_url ? `原作：${selected.upstream_url.replace('https://github.com/', '')} · ` : ''}邀請發起：{selected.coordinator_name}</p>

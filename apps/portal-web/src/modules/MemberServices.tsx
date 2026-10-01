@@ -210,7 +210,7 @@ export function MemberServices({client}: {client: PortalClient}) {
           <span className="service-badge" data-category={service.category}>{service.category_label}</span>
           <h3>{service.title}</h3>
           <p className="service-byline"><MemberAvatar nickname={service.owner.display_name} avatarUrl={service.owner.avatar_url} className="service-avatar"/><span>{service.owner.display_name}</span></p>
-          <p className="service-summary">{service.summary}</p>
+          <p className="service-summary multiline-text">{service.summary}</p>
           {(service.price_text || service.area_text) && <p className="service-facts">{[service.price_text, service.area_text].filter(Boolean).join(' · ')}</p>}
           <p className="service-points">推廣點擊 {service.total_points}</p>
           {actions(service)}

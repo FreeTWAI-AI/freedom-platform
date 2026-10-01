@@ -154,7 +154,7 @@ export function SocialZone({client, canReview = false}: {client: PortalClient; c
         <div className="social-card-body">
           <span className="social-platform-badge" data-platform={tone(post.platform)}>{post.platform_label || PLATFORM_LABELS[post.platform]}</span>
           <h3>{post.title}</h3>
-          {post.note && <p className="social-note">{post.note}</p>}
+          {post.note && <p className="social-note multiline-text">{post.note}</p>}
           <p className="social-byline"><MemberAvatar nickname={post.author.display_name} avatarUrl={post.author.avatar_url} className="social-avatar"/> <span>{post.author.display_name}</span> <time dateTime={post.created_at}>{formatIsoLocal(post.created_at)}</time></p>
           <p className="social-points">推廣點擊 {post.total_points}</p>
           <div className="social-actions">

@@ -778,7 +778,7 @@ function WorkbenchPanel() {
             {dashboard.gained.map((gain) => (
               <article key={gain.contribution_id} className="card">
                 <h3>{gain.title}</h3>
-                <p>{gain.summary}</p>
+                <p className="multiline-text">{gain.summary}</p>
                 <dl className="meta">
                   <div>
                     <dt>成果引用</dt>
@@ -904,15 +904,15 @@ function WorkItemCard({
           {item.review_capacity === 'waiting_reviewer_capacity' && <span className="pill">尚無回饋容量</span>}
         </div>
       </div>
-      <p>{item.objective}</p>
+      <p className="multiline-text">{item.objective}</p>
       <dl className="meta">
         <div>
           <dt>完成條件</dt>
-          <dd>{item.acceptance_criteria}</dd>
+          <dd className="multiline-text">{item.acceptance_criteria}</dd>
         </div>
         <div>
           <dt>幫助者當次收益</dt>
-          <dd>{item.gain}</dd>
+          <dd className="multiline-text">{item.gain}</dd>
         </div>
         <div>
           <dt>認領期限</dt>
@@ -936,12 +936,12 @@ function WorkItemCard({
       {claim?.feedback && (
         <p className="feedback">
           <strong>回饋：</strong>
-          {claim.feedback}
+          <span className="multiline-text">{claim.feedback}</span>
         </p>
       )}
       {claim?.latest_submission && (
         <p className="hint">
-          最近提交：{claim.latest_submission.summary}（<code>{claim.latest_submission.artifact_ref}</code>）
+          最近提交：<span className="multiline-text">{claim.latest_submission.summary}</span>（<code>{claim.latest_submission.artifact_ref}</code>）
         </p>
       )}
       {!claim && item.state === 'open' && item.owner_ref !== session.user.user_id && (
@@ -1065,7 +1065,7 @@ function ReviewCard({
       <p>提交者：{entry.claimant_name}</p>
       {entry.claim.latest_submission ? (
         <p>
-          提交摘要：{entry.claim.latest_submission.summary}（<code>{entry.claim.latest_submission.artifact_ref}</code>）
+          提交摘要：<span className="multiline-text">{entry.claim.latest_submission.summary}</span>（<code>{entry.claim.latest_submission.artifact_ref}</code>）
         </p>
       ) : (
         <p className="hint">尚無提交成果，無法作成決定。</p>
@@ -1451,7 +1451,7 @@ function ShowcaseCard({
         <h3>{showcase.title}</h3>
         <span className="pill">社群可見</span>
       </div>
-      <p>{showcase.description}</p>
+      <p className="multiline-text">{showcase.description}</p>
       <dl className="meta">
         <div>
           <dt>作者</dt>
@@ -1542,7 +1542,7 @@ function OpportunityCard({
         <h3>{opportunity.showcase_title}</h3>
         <span className="pill">{opportunityStateLabel(opportunity.state)}</span>
       </div>
-      <p>{opportunity.need}</p>
+      <p className="multiline-text">{opportunity.need}</p>
       <dl className="meta">
         <div>
           <dt>提出者</dt>
@@ -1720,10 +1720,10 @@ function EngagementCard({
   return (
     <article className="card">
       <div className="card-head">
-        <h3>{engagement.scope}</h3>
+        <h3 className="multiline-text">{engagement.scope}</h3>
         <span className="pill pill-green">{engagementStateLabel(engagement.state)}</span>
       </div>
-      <p>{engagement.acceptance_criteria}</p>
+      <p className="multiline-text">{engagement.acceptance_criteria}</p>
       <dl className="meta">
         <div>
           <dt>提供者</dt>
