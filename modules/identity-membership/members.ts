@@ -27,7 +27,7 @@ export const emptyContacts=()=>({discord:{value:'',audiences:[] as string[]},git
 
 // Compatible reads for older stored scalar rows, never for new API writes.
 // A former separate contact email cannot authorize exposing the login address.
-function normalizedContacts(raw:unknown,email:string) {
+export function normalizedContacts(raw:unknown,email:string) {
   const source=raw&&typeof raw==='object'?raw as Record<string,any>:{};
   return Object.fromEntries(['discord','github','line','email'].map(key=>{
     const field=source[key]&&typeof source[key]==='object'?source[key]:{};

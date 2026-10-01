@@ -7,7 +7,7 @@ import {migrate} from '../../scripts/database.js';
 import {seedLocal,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {sampleGuildAnswers} from '../../modules/positioning/guild-questions.js';
-import {readPublicCards} from '../../modules/identity-membership/member-sharing.js';
+import {mapMemberCardProfileLinks,presentProfileLinks,readPublicCards} from '../../modules/identity-membership/member-sharing.js';
 const database=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL,schema=`fp_ecard_${process.pid}_${Date.now()}`,admin=createPool(database),pool=new Pool({connectionString:database,options:`-c search_path=${schema}`,max:8});
 const origin='http://127.0.0.1:4310',app=createApp(pool,origin);
 type Session={cookie:string;csrf:string;id:string};
@@ -112,4 +112,114 @@ test('readPublicCards returns only current public cards from one read and rotate
   assert.equal((await request('/me/member-card-share',named,{enabled:false,include_avatar:false},rotated.data.aggregate_version)).status,200);
   const reopened=await request('/me/member-card-share',named,{enabled:true,include_avatar:false},rotated.data.aggregate_version+1);
   const renewed=(await readPublicCards(pool,DEMO_COMMUNITY,[named.id])).get(named.id)!;assert.notEqual(renewed.generation,next.generation);
+});
+
+test('profile link mapping follows the LINE rules and never invents a URL on the client',()=>{
+  const line=(value:string)=>mapMemberCardProfileLinks({contacts:{line:{value,audiences:['public']}}})[0];
+  assert.equal(line('lineuser').url,'https://line.me/ti/p/~lineuser');assert.equal(line('lineuser').handle,'lineuser');assert.equal(line('lineuser').platform,'line');
+  assert.equal(line('@official').url,'https://line.me/R/ti/p/'+encodeURIComponent('@official'));assert.equal(line('@official').handle,'@official');
+  assert.equal(line('https://line.me/R/ti/p/@abc').url,'https://line.me/R/ti/p/@abc');assert.equal(line('https://line.me/R/ti/p/@abc').handle,null);
+  assert.equal(line('https://liff.line.me/123').url,'https://liff.line.me/123');
+  assert.equal(line('https://lin.ee/abc').url,'https://lin.ee/abc');
+  assert.equal(line('https://page.lin.ee/abc').handle,null);
+  assert.equal(line('+886912345678').url,null);assert.equal(line('+886912345678').handle,'+886912345678');
+  assert.equal(line('javascript:alert(1)').url,null);
+  assert.equal(line('http://line.me/R/ti/p/abc').url,null);
+  assert.equal(line('https://line.me/'+'a'.repeat(290)).url,null);
+  assert.equal(line('a'.repeat(21)).url,null);
+  const github=mapMemberCardProfileLinks({contacts:{github:{value:'octocat',audiences:['public']}}})[0];
+  assert.equal(github.url,'https://github.com/octocat');assert.equal(github.handle,'octocat');assert.equal(github.label,'GitHub');
+  const discord=mapMemberCardProfileLinks({contacts:{discord:{value:'discorduser',audiences:['public']}}})[0];
+  assert.equal(discord.url,null);assert.equal(discord.handle,'discorduser');
+  const email=mapMemberCardProfileLinks({contacts:{email:{value:'person@example.test',audiences:['public']}}})[0];
+  assert.equal(email.url,'mailto:person@example.test');assert.equal(email.shown,false);
+  const social=mapMemberCardProfileLinks({socialLinks:[{link_id:'ABCDEF00-0000-4000-8000-000000000001',platform:'instagram',label:'IG',url:'https://www.instagram.com/workshop.ig',audiences:['public'],created_at:'2026-01-01T00:00:00Z'}]})[0];
+  assert.equal(social.source,'social:abcdef00-0000-4000-8000-000000000001');assert.equal(social.handle,'instagram.com');assert.equal(social.url,'https://www.instagram.com/workshop.ig');
+  assert.equal(mapMemberCardProfileLinks({contacts:{line:{value:'',audiences:['public']},github:{value:'hidden',audiences:['friends']}}}).length,0);
+  const items=mapMemberCardProfileLinks({contacts:{github:{value:'octocat',audiences:['public']}},prefs:{'contact:github':false}});
+  assert.equal(presentProfileLinks(items,true,[]).length,0);
+  const shown=mapMemberCardProfileLinks({contacts:{github:{value:'octocat',audiences:['public']}}});
+  assert.deepEqual(presentProfileLinks(shown,true,[{url:'https://github.com/octocat'}]),[]);
+  assert.equal(presentProfileLinks(shown,false,[]).length,0);assert.equal(presentProfileLinks(shown,true,[]).length,1);
+});
+
+test('public cards show platform-public profile links, hide the rest, and content saves keep the token',async()=>{
+  const owner=await member('名片連結樹');
+  const email=`profile-secret-${randomUUID()}@example.test`;
+  const registered=await request('/auth/register',undefined,{email,nickname:'名片連結樹二',password:'freedom-connections-password'});
+  assert.equal(registered.status,201);
+  const second={cookie:registered.response.headers.get('set-cookie')!.split(';')[0],csrf:registered.data.csrf_token,id:registered.data.user.user_id};
+  assert.equal((await request('/me/onboarding/quick-start',second,{guild_keys:['guild_ai_vibe'],primary_guild_key:'guild_ai_vibe',confirmed:true,guild_answers:sampleGuildAnswers('guild_ai_vibe')})).status,200);
+  const account=await request('/me/account',owner);
+  const savedAccount=await request('/me/account',owner,{nickname:account.data.nickname,contacts:{line:{value:'lineuser',audiences:['public']},github:{value:'octocat',audiences:['public']},discord:{value:'discorduser',audiences:['public']},email:{audiences:[]}}},account.data.aggregate_version);
+  assert.equal(savedAccount.status,200,savedAccount.data.detail);
+  const instagram=await request('/me/social-links',owner,{platform:'instagram',label:'IG',url:'https://www.instagram.com/workshop.ig',audiences:['public']});
+  assert.equal(instagram.status,201,instagram.data.detail);
+  assert.equal((await request('/me/social-links',owner,{platform:'facebook',label:'好友專頁',url:'https://facebook.com/friends-only',audiences:['friends']})).status,201);
+  assert.equal((await request('/me/social-links',owner,{platform:'threads',label:'小隊',url:'https://www.threads.net/@squad',audiences:['squad']})).status,201);
+  assert.equal((await request('/me/social-links',owner,{platform:'youtube',label:'公會影片',url:'https://youtu.be/guildclip',audiences:['guild']})).status,201);
+  const doomed=await request('/me/social-links',owner,{platform:'x',label:'已刪',url:'https://x.com/gone',audiences:['public']});
+  assert.equal(doomed.status,201,doomed.data.detail);
+  assert.equal((await request(`/me/social-links/${doomed.data.link_id}/delete`,owner,{},doomed.data.aggregate_version)).status,200);
+  const opened=await request('/me/member-card-share',owner,{enabled:true,include_avatar:false,design:'night',headline:'夜空介紹',links:[link('作品','https://example.com/a')]});
+  assert.equal(opened.status,200,opened.data.detail);assert.equal(opened.data.show_profile_links,true);
+  assert.equal(opened.data.profile_links.map((item:{source:string})=>item.source).join(','),'contact:line,contact:github,contact:discord,social:'+String(instagram.data.link_id).toLowerCase());
+  assert.equal(opened.data.profile_links.find((item:{source:string})=>item.source==='contact:github').shown,true);
+  const token=opened.data.share_path.split('/').at(-1);
+  const shared=await request('/public/member-cards/'+token);
+  assert.deepEqual(shared.data.profile_links.map((item:{label:string})=>item.label),['LINE','GitHub','Discord','IG']);
+  for(const item of shared.data.profile_links)assert.deepEqual(Object.keys(item).sort(),['handle','label','platform','url']);
+  const payload=JSON.stringify(shared.data.profile_links);
+  assert.equal(payload.includes('source'),false);assert.equal(payload.toLowerCase().includes(String(instagram.data.link_id).toLowerCase()),false);assert.equal(payload.includes('facebook.com'),false);assert.equal(payload.includes('x.com/gone'),false);
+  assert.equal(shared.data.profile_links[0].url,'https://line.me/ti/p/~lineuser');assert.equal(shared.data.profile_links[2].url,null);assert.equal(shared.data.profile_links[3].handle,'instagram.com');
+  const hidden=await request('/me/member-card-share',owner,{enabled:true,include_avatar:false,rotate:false,profile_link_prefs:{'contact:github':false}},opened.data.aggregate_version);
+  assert.equal(hidden.status,200,hidden.data.detail);assert.equal(hidden.data.share_path,opened.data.share_path);
+  assert.equal(hidden.data.profile_links.find((item:{source:string})=>item.source==='contact:github').shown,false);
+  assert.equal((await request('/public/member-cards/'+token)).data.profile_links.some((item:{label:string})=>item.label==='GitHub'),false);
+  const emailOn=await request('/me/account',owner,{nickname:account.data.nickname,contacts:{line:{value:'lineuser',audiences:['friends']},github:{value:'octocat',audiences:['public']},discord:{value:'discorduser',audiences:['public']},email:{audiences:['public']}}},savedAccount.data.aggregate_version);
+  assert.equal(emailOn.status,200,emailOn.data.detail);
+  const afterAudience=await request('/public/member-cards/'+token);
+  assert.equal(afterAudience.data.profile_links.some((item:{label:string})=>item.label==='LINE'),false);
+  assert.equal(afterAudience.data.profile_links.some((item:{label:string})=>item.label==='Email'),false);
+  const manual=await request('/me/member-card-share',owner,{enabled:true,include_avatar:false,rotate:false,links:[link('作品','https://example.com/a'),link('GitHub','https://github.com/octocat')]},hidden.data.aggregate_version);
+  assert.equal(manual.status,200);assert.equal(manual.data.share_path,opened.data.share_path);
+  const won=await request('/public/member-cards/'+token);
+  assert.equal(won.data.profile_links.some((item:{url:string|null})=>item.url==='https://github.com/octocat'),false);
+  assert.equal(won.data.links.some((item:{url:string})=>item.url==='https://github.com/octocat'),true);
+  const off=await request('/me/member-card-share',owner,{enabled:true,include_avatar:false,rotate:false,show_profile_links:false},manual.data.aggregate_version);
+  assert.equal(off.status,200);assert.deepEqual((await request('/public/member-cards/'+token)).data.profile_links,[]);
+  const kept=await request('/me/member-card-share',owner,{enabled:true,include_avatar:false,rotate:false,headline:'只改介紹'},off.data.aggregate_version);
+  assert.equal(kept.status,200);assert.equal(kept.data.show_profile_links,false);assert.equal(kept.data.profile_link_prefs['contact:github'],false);assert.equal(kept.data.share_path,opened.data.share_path);
+  const headlineOnly=await request('/me/member-card-share',owner,{enabled:true,include_avatar:false,rotate:false,headline:'介紹而已'},kept.data.aggregate_version);
+  const linksOnly=await request('/me/member-card-share',owner,{enabled:true,include_avatar:false,rotate:false,links:[link('另一個','https://example.com/b')]},headlineOnly.data.aggregate_version);
+  const designOnly=await request('/me/member-card-share',owner,{enabled:true,include_avatar:false,rotate:false,design:'calm'},linksOnly.data.aggregate_version);
+  assert.equal(designOnly.data.share_path,opened.data.share_path);
+  assert.equal((await readPublicCards(pool,DEMO_COMMUNITY,[owner.id])).get(owner.id)!.generation,generationOf(opened.data.share_path));
+  const rejected=[
+    [{enabled:true,include_avatar:false,profile_link_prefs:{'contact:phone':true}},/無法辨識/],
+    [{enabled:true,include_avatar:false,profile_link_prefs:{'contact:line':'yes'}},/只能設為顯示或隱藏/],
+    [{enabled:true,include_avatar:false,profile_link_prefs:['contact:line']},/格式不正確/],
+    [{enabled:true,include_avatar:false,show_profile_links:'yes'},/請選擇要不要自動放上/],
+    [{enabled:true,include_avatar:false,profile_link_prefs:Object.fromEntries(Array.from({length:65},(_,index)=>[`social:${index.toString(16).padStart(8,'0')}-0000-4000-8000-000000000000`,true]))},/最多設定 64 項/],
+  ] as const;
+  for(const [body,detail] of rejected){const result=await request('/me/member-card-share',owner,body,designOnly.data.aggregate_version);assert.equal(result.status,422);assert.equal(result.data.code,'member_card_profile_links_invalid');assert.match(result.data.detail,detail);}
+  const journal=await pool.query("SELECT data::text AS data FROM transition_journal WHERE aggregate_type='member_card_share' AND aggregate_id=$1",[owner.id]);
+  const journalText=journal.rows.map(row=>row.data).join('\n');
+  for(const secret of [token,email,'lineuser','octocat','discorduser','instagram.com','mailto:','https://'])assert.equal(journalText.includes(secret),false,secret);
+  assert.match(journalText,/hidden_profile_link_count/);
+  const fresh=await request('/me/member-card-share',second,{enabled:false,include_avatar:false});
+  assert.equal(fresh.status,200);assert.equal(fresh.data.show_profile_links,true);
+  const client=await pool.connect();
+  try{
+    await client.query('CREATE TEMP TABLE profile_link_default_probe (id int)');
+    await client.query('ALTER TABLE profile_link_default_probe ADD COLUMN show_profile_links boolean NOT NULL DEFAULT false');
+    await client.query('INSERT INTO profile_link_default_probe(id) VALUES (1)');
+    await client.query('ALTER TABLE profile_link_default_probe ALTER COLUMN show_profile_links SET DEFAULT true');
+    await client.query('INSERT INTO profile_link_default_probe(id) VALUES (2)');
+    const probe=await client.query('SELECT id,show_profile_links FROM profile_link_default_probe ORDER BY id');
+    assert.equal(probe.rows[0].show_profile_links,false);assert.equal(probe.rows[1].show_profile_links,true);
+    await client.query('DROP TABLE profile_link_default_probe');
+  }finally{client.release();}
+  const catalog=await pool.query("SELECT column_default FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='member_card_shares' AND column_name='show_profile_links'");
+  assert.match(String(catalog.rows[0].column_default),/true/);
 });

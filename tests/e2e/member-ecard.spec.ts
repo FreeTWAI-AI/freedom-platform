@@ -1,10 +1,12 @@
 import {randomUUID} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
-import {test,expect,type Page} from './fixtures.js';
+import {test,expect,type Locator,type Page} from './fixtures.js';
 import {navigate} from './navigation.js';
 import {quickJoin} from './quick-join.js';
 const SHOTS=process.env.AUDIT_EVIDENCE_DIR??'test-results/member-ecard';
+const LINK_SHOTS=process.env.AUDIT_EVIDENCE_DIR??'test-results/member-ecard-linktree';
 mkdirSync(SHOTS,{recursive:true});
+mkdirSync(LINK_SHOTS,{recursive:true});
 const designs=[['清新','calm','rgb(255, 255, 255)','column'],['工坊','workshop','rgb(255, 253, 248)','column'],['夜空','night','rgb(20, 22, 27)','column'],['經典名片','classic','rgb(246, 248, 251)','row']] as const;
 const widths=[{width:390,height:844},{width:820,height:900},{width:1280,height:900}] as const;
 
@@ -76,7 +78,7 @@ test('member builds an e-card and visitors see each design',async({page,browser}
   await expect(settings.locator('.ecard-link-list')).toContainText('我的網站');
   await settings.getByRole('button',{name:'建立分享連結',exact:true}).click();
   const openCard=settings.getByRole('link',{name:'開啟名片',exact:true});
-  await expect(openCard).toBeVisible();
+  await expect(openCard).toBeVisible({timeout:20000});
   const shareUrl=await openCard.getAttribute('href');
   expect(shareUrl).toMatch(/\/member-cards\/[A-Za-z0-9_-]{43}$/);
   const share=settings.getByRole('button',{name:'分享名片',exact:true});
@@ -96,11 +98,14 @@ test('member builds an e-card and visitors see each design',async({page,browser}
   const guestContext=await browser.newContext(),guest=await guestContext.newPage();
   try{
     for(const [name,design,,direction] of designs){
-      await settings.getByRole('button',{name,exact:true}).click();
-      const saved=page.waitForResponse(response=>response.url().includes('/api/v1/me/member-card-share')&&response.request().method()==='POST');
-      await settings.getByRole('button',{name:'保存分享設定',exact:true}).click();
-      const body=await (await saved).json();
-      expect(body.design).toBe(design);
+      const choice=settings.getByRole('button',{name,exact:true});
+      if(await choice.getAttribute('aria-pressed')!=='true'){
+        const saved=page.waitForResponse(response=>response.url().includes('/api/v1/me/member-card-share')&&response.request().method()==='POST');
+        await choice.click();
+        const body=await (await saved).json();
+        expect(body.design).toBe(design);
+        await expect(settings.locator('.ecard-save-status')).toContainText('已自動儲存，分享頁就是這個樣子。');
+      }
       await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl!);
       for(const viewport of widths){
         await guest.setViewportSize(viewport);
@@ -211,4 +216,300 @@ test('sharing a member card from 我的名片 scores one guest click',async({pag
   await expect(board).toContainText('在我的名片分享名片連結，每次點擊 +1。');
   await expect(board).toContainText('名片推廣作者');
   await expect(board).toContainText('我的名次：第 1 名・1 分');
+});
+
+const SAVED='已自動儲存，分享頁就是這個樣子。';
+function shareRegion(page:Page){return page.getByRole('region',{name:'分享我的工坊名片'});}
+async function waitSaved(settings:Locator){await expect(settings.locator('.ecard-save-status')).toContainText(SAVED,{timeout:20000});}
+async function openHref(settings:Locator){
+  const open=settings.locator('a[href*="/member-cards/"]');
+  await expect(open).toHaveAttribute('href',/\/member-cards\/[A-Za-z0-9_-]{43}$/);
+  return (await open.getAttribute('href'))!;
+}
+async function enableShare(settings:Locator){
+  await settings.getByRole('button',{name:'建立分享連結',exact:true}).click();
+  await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toBeVisible({timeout:20000});
+  return openHref(settings);
+}
+async function addManual(settings:Locator,label:string,url:string){
+  const draft=settings.locator('.ecard-link-draft');
+  await draft.getByLabel('連結名稱').fill(label);
+  await draft.getByLabel('連結網址').fill(url);
+  await draft.getByRole('button',{name:'加入連結',exact:true}).click();
+  await expect(settings.locator('.ecard-link-list')).toContainText(label);
+  await waitSaved(settings);
+}
+async function addSocial(page:Page,platform:string,label:string,url:string,audience:'平台公開'|'平台好友'){
+  const social=page.locator('.social-links-editor');
+  await social.getByRole('button',{name:'＋ 新增連結',exact:true}).click();
+  const form=social.getByRole('form',{name:'新增社群連結'});
+  await form.getByRole('combobox',{name:'平台',exact:true}).selectOption(platform);
+  await form.getByLabel('連結名稱',{exact:true}).fill(label);
+  await form.getByLabel('連結網址',{exact:true}).fill(url);
+  await form.getByRole('checkbox',{name:audience,exact:true}).check();
+  await form.getByRole('button',{name:'保存連結',exact:true}).click();
+  await expect(social.getByText('社群連結已新增。')).toBeVisible();
+}
+function cardText(value:string){return value.replace(/\s+/g,' ').trim();}
+
+test('autosave makes the preview the shared card without a save button',async({page,browser})=>{
+  test.setTimeout(240000);
+  await page.setViewportSize({width:1280,height:900});
+  await signup(page,'連結樹作者');
+  await navigate(page,'我的名片');
+  const settings=shareRegion(page);
+  await expect(settings.getByText('朋友打開連結就能看到你選的樣式、一句話介紹、連結，以及你設為「平台公開」的聯絡方式和社群連結（可逐項隱藏），並從名片加入自由工坊。所有變更都會自動儲存。')).toBeVisible();
+  await expect(page.getByRole('button',{name:'保存分享設定'})).toHaveCount(0);
+  await expect(settings.getByText('預覽用的是你自己的名片資料，保存後才會更新分享頁。')).toHaveCount(0);
+  const shareUrl=await enableShare(settings);
+  await settings.getByRole('button',{name:'夜空',exact:true}).click();
+  await waitSaved(settings);
+  await expect(settings.locator('.ecard-preview .ecard')).toHaveAttribute('data-design','night');
+  await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl);
+  const guestContext=await browser.newContext(),guest=await guestContext.newPage();
+  try{
+    await guest.setViewportSize({width:390,height:844});
+    await guest.goto(shareUrl);
+    await expect(guest.locator('.public-member-page')).toHaveAttribute('data-design','night');
+    await expect(guest.locator('.ecard')).toHaveAttribute('data-design','night');
+    const headline=settings.getByLabel('一句話介紹');
+    await headline.fill('做開源的人');
+    await waitSaved(settings);
+    await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl);
+    await guest.reload();
+    await expect(guest.getByText('做開源的人')).toBeVisible();
+    await addManual(settings,'作品甲','https://example.com/a');
+    await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl);
+    await guest.reload();
+    await expect(guest.getByRole('link',{name:/作品甲/})).toBeVisible();
+    await expect(settings.locator('.ecard-preview .ecard-name')).toHaveText('連結樹作者的工坊名片');
+    await expect(settings.locator('.ecard-preview .ecard-guild')).toHaveText('AI 開發公會');
+    await guest.locator('.ecard').waitFor();
+    expect(cardText(await settings.locator('.ecard-preview .ecard').innerText())).toBe(cardText(await guest.locator('.ecard').innerText()));
+    await page.reload();
+    await navigate(page,'我的名片');
+    const reloaded=shareRegion(page);
+    await expect(reloaded.getByRole('button',{name:'夜空',exact:true})).toHaveAttribute('aria-pressed','true');
+    await expect(reloaded.getByLabel('一句話介紹')).toHaveValue('做開源的人');
+    await expect(reloaded.locator('.ecard-link-list')).toContainText('作品甲');
+    await expect(reloaded.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl);
+    const tooLong=reloaded.getByLabel('一句話介紹');
+    let posts=0;
+    const count=(request:{method:()=>string;url:()=>string})=>{if(request.method()==='POST'&&request.url().includes('/api/v1/me/member-card-share'))posts++;};
+    page.on('request',count);
+    await tooLong.fill('字'.repeat(61));
+    await expect(reloaded.getByRole('alert')).toContainText('一句話介紹最多 60 個字。');
+    await expect(reloaded.locator('.ecard-save-status')).toContainText('有變更尚未儲存');
+    await page.waitForTimeout(1200);
+    expect(posts).toBe(0);
+    page.off('request',count);
+    const open=reloaded.locator('a[href*="/member-cards/"]');
+    await expect(open).toHaveAttribute('aria-disabled','true');
+    await expect(open).toHaveText('開啟名片');
+    let popped=false;
+    page.on('popup',()=>{popped=true;});
+    await open.click({force:true});
+    expect(popped).toBe(false);
+    await expect(page).not.toHaveURL(/\/member-cards\//);
+  }finally{await guestContext.close();}
+});
+
+test('a slow save keeps later headline keystrokes and leaves the field editable',async({page,browser})=>{
+  test.setTimeout(240000);
+  await page.setViewportSize({width:1280,height:900});
+  await signup(page,'慢存作者');
+  await navigate(page,'我的名片');
+  const settings=shareRegion(page);
+  const shareUrl=await enableShare(settings);
+  let release=()=>{},held=false;
+  const gate=new Promise<void>(resolve=>{release=()=>resolve();});
+  await page.route('**/api/v1/me/member-card-share',async route=>{
+    if(route.request().method()==='POST'&&!held){held=true;await gate;}
+    await route.continue();
+  });
+  try{
+    const headline=settings.getByLabel('一句話介紹');
+    await headline.fill('你好');
+    await headline.blur();
+    const anchor=settings.locator('a[href*="/member-cards/"]');
+    await expect(settings.locator('.ecard-save-status')).toContainText('儲存中…');
+    await expect(anchor).toHaveText('儲存中…');
+    await expect(anchor).toHaveAttribute('aria-disabled','true');
+    await expect(anchor).toHaveAttribute('href',shareUrl);
+    await headline.focus();
+    await headline.evaluate(element=>{const input=element as HTMLInputElement;input.setSelectionRange(input.value.length,input.value.length);});
+    await headline.pressSequentially('世界',{delay:40});
+    await expect(headline).toBeEnabled();
+    await expect(headline).toHaveValue('你好世界');
+    await expect(anchor).toHaveAttribute('href',shareUrl);
+    release();
+    await waitSaved(settings);
+    await expect(headline).toBeEnabled();
+    await expect(headline).toHaveValue('你好世界');
+    await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl);
+    const guestContext=await browser.newContext(),guest=await guestContext.newPage();
+    try{await guest.goto(shareUrl);await expect(guest.getByText('你好世界')).toBeVisible();}
+    finally{await guestContext.close();}
+  }finally{release();await page.unrouteAll({behavior:'ignoreErrors'}).catch(()=>{});}
+});
+
+test('a version conflict reloads the card saved on another page',async({page})=>{
+  test.setTimeout(240000);
+  await page.setViewportSize({width:1280,height:900});
+  await signup(page,'衝突作者');
+  await navigate(page,'我的名片');
+  const settings=shareRegion(page);
+  const shareUrl=await enableShare(settings);
+  const page2=await page.context().newPage();
+  await page2.setViewportSize({width:1280,height:900});
+  await page2.goto('/');
+  await navigate(page2,'我的名片');
+  const other=shareRegion(page2);
+  await expect(other.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl);
+  await expect(other.getByRole('button',{name:'夜空',exact:true})).toHaveAttribute('aria-pressed','false');
+  let release=()=>{},held=false;
+  const gate=new Promise<void>(resolve=>{release=()=>resolve();});
+  await page.route('**/api/v1/me/member-card-share',async route=>{
+    if(route.request().method()==='POST'&&!held){held=true;await gate;}
+    await route.continue();
+  });
+  try{
+    const headline=settings.getByLabel('一句話介紹');
+    await headline.fill('先寫這句');
+    await headline.blur();
+    await expect.poll(()=>held).toBe(true);
+    await other.getByRole('button',{name:'夜空',exact:true}).click();
+    await waitSaved(other);
+    release();
+    await expect(settings.locator('.ecard-save-status')).toContainText('名片設定在其他地方更新了，已重新載入最新版本。',{timeout:20000});
+    await expect(settings.getByRole('button',{name:'夜空',exact:true})).toHaveAttribute('aria-pressed','true');
+    await expect(settings.getByLabel('一句話介紹')).toHaveValue('');
+    await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl);
+  }finally{release();await page2.close();await page.unrouteAll({behavior:'ignoreErrors'}).catch(()=>{});}
+});
+
+test('platform-public profile links render with brand icons and match the public card',async({page,browser})=>{
+  test.setTimeout(240000);
+  await page.setViewportSize({width:1280,height:900});
+  await signup(page,'圖示名片作者');
+  await navigate(page,'我的名片');
+  const settings=shareRegion(page);
+  const profile=settings.getByRole('region',{name:'社群與聯絡方式'});
+  await expect(profile.getByRole('checkbox',{name:'自動放上我設為「平台公開」的聯絡方式和社群連結'})).toBeChecked();
+  await expect(profile).toContainText('你還沒有設為「平台公開」的聯絡方式或社群連結。在這頁上方的聯絡方式或社群連結設定公開對象後，就會出現在這裡。');
+  await expect(profile).toContainText('拿到名片連結的任何人（不必登入）都看得到這些項目。');
+  const account=page.locator('form.account-settings');
+  await account.getByLabel('LINE ID',{exact:true}).fill('lineuser');
+  await account.getByRole('group',{name:'LINE ID可見範圍',exact:true}).getByRole('checkbox',{name:'平台公開',exact:true}).check();
+  await account.getByLabel('GitHub 帳號',{exact:true}).fill('octocat');
+  await account.getByRole('group',{name:'GitHub 帳號可見範圍',exact:true}).getByRole('checkbox',{name:'平台公開',exact:true}).check();
+  await account.getByLabel('Discord 帳號',{exact:true}).fill('discorduser');
+  await account.getByRole('group',{name:'Discord 帳號可見範圍',exact:true}).getByRole('checkbox',{name:'平台公開',exact:true}).check();
+  await account.getByRole('button',{name:'保存個人資料與公開範圍',exact:true}).click();
+  await expect(page.getByText('個人資料與每一項聯絡方式的可見範圍已保存。')).toBeVisible();
+  await expect(profile.getByRole('checkbox',{name:'顯示 LINE 在名片上'})).toBeChecked({timeout:20000});
+  await expect(profile.getByRole('checkbox',{name:'顯示 GitHub 在名片上'})).toBeChecked();
+  await expect(profile.getByRole('checkbox',{name:'顯示 Discord 在名片上'})).toBeChecked();
+  await addSocial(page,'instagram','我的 IG','https://www.instagram.com/workshopcard','平台公開');
+  await addSocial(page,'facebook','好友粉專','https://www.facebook.com/friends-only-page','平台好友');
+  await expect(profile.getByRole('checkbox',{name:'顯示 我的 IG 在名片上'})).toBeChecked({timeout:20000});
+  await expect(profile).not.toContainText('好友粉專');
+  const shareUrl=await enableShare(settings);
+  const guestContext=await browser.newContext({permissions:['clipboard-read','clipboard-write']});
+  const guest=await guestContext.newPage();
+  try{
+    await guest.setViewportSize({width:390,height:844});
+    await guest.goto(shareUrl);
+    await expect(guest.locator('.ecard')).toHaveAttribute('data-design','calm');
+    await expect(guest.getByRole('link',{name:/LINE/})).toHaveAttribute('href','https://line.me/ti/p/~lineuser');
+    await expect(guest.getByRole('link',{name:/GitHub/})).toHaveAttribute('href','https://github.com/octocat');
+    await expect(guest.getByRole('button',{name:'複製 Discord 帳號',exact:true})).toBeVisible();
+    await expect(guest.getByRole('link',{name:/我的 IG/})).toHaveAttribute('href','https://www.instagram.com/workshopcard');
+    await expect(guest.locator('a[href*="facebook.com"]')).toHaveCount(0);
+    await expect(guest.locator('a[href^="mailto:"]')).toHaveCount(0);
+    await expect(guest.getByText('這是你的名片')).toHaveCount(0);
+    await expect(guest.getByRole('button',{name:'加入自由工坊／登入'})).toBeVisible();
+    for(const badge of ['line','github','discord','instagram'])await expect(guest.locator(`.ecard .brand-badge[data-platform="${badge}"]`)).toBeVisible();
+    await account.getByRole('group',{name:'聯絡 E-mail可見範圍',exact:true}).getByRole('checkbox',{name:'平台公開',exact:true}).check();
+    await account.getByRole('button',{name:'保存個人資料與公開範圍',exact:true}).click();
+    await expect(profile.getByText('Email 是你的登入帳號，預設不放上名片。')).toBeVisible({timeout:20000});
+    await expect(profile.getByRole('checkbox',{name:'顯示 Email 在名片上'})).not.toBeChecked();
+    await profile.getByRole('checkbox',{name:'顯示 Email 在名片上'}).check();
+    await waitSaved(settings);
+    await addSocial(page,'other','其他連結','https://example.org/custom','平台公開');
+    await expect(profile.getByRole('checkbox',{name:'顯示 其他連結 在名片上'})).toBeChecked({timeout:20000});
+    for(const [label,url] of [['Facebook','https://www.facebook.com/workshop'],['LinkedIn','https://www.linkedin.com/in/workshop'],['YouTube','https://youtu.be/workshopclip'],['Threads','https://www.threads.net/@workshop'],['TikTok','https://www.tiktok.com/@workshop'],['X','https://x.com/workshop'],['個人網站','https://example.net/site']] as const)await addManual(settings,label,url);
+    await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl);
+    await expect(settings.locator('.ecard-preview .ecard-name')).toHaveText('圖示名片作者的工坊名片');
+    await expect(settings.locator('.ecard-preview .ecard-guild')).toHaveText('AI 開發公會');
+    await guest.goto(shareUrl);
+    await expect(guest.locator('a[href^="mailto:"]')).toBeVisible();
+    await expect(guest.locator('.ecard .brand-badge[data-platform="email"]')).toBeVisible();
+    expect(cardText(await settings.locator('.ecard-preview .ecard').innerText())).toBe(cardText(await guest.locator('.ecard').innerText()));
+    const platforms=await guest.locator('.ecard-links .brand-badge').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-platform')));
+    expect(platforms).toEqual(['line','github','discord','email','instagram','other','facebook','linkedin','youtube','threads','tiktok','x','website']);
+    await guest.setViewportSize({width:320,height:700});
+    expect(await guest.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    expect(await guest.locator('.ecard-link').evaluateAll(nodes=>nodes.some(node=>node.scrollWidth>node.clientWidth+1))).toBe(false);
+    for(const [name,design] of designs){
+      const choice=settings.getByRole('button',{name,exact:true});
+      if(await choice.getAttribute('aria-pressed')!=='true'){await choice.click();await waitSaved(settings);}
+      await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl);
+      for(const viewport of widths){
+        await guest.setViewportSize(viewport);
+        await guest.goto(shareUrl);
+        await expect(guest.locator('.public-member-page')).toHaveAttribute('data-design',design);
+        await expect(guest.locator('.ecard')).toHaveAttribute('data-design',design);
+        expect(await guest.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+        if(viewport.width===390)for(const selector of ['.ecard-name','.ecard-guild','.ecard-link span','.ecard-link small','.ecard-kicker'])expect(await contrast(guest,selector),`${design} ${selector}`).toBeGreaterThanOrEqual(4.5);
+        await guest.screenshot({path:`${LINK_SHOTS}/public-${design}-${viewport.width}.png`,fullPage:true});
+      }
+    }
+    await guest.setViewportSize({width:1280,height:900});
+    await guest.goto(shareUrl);
+    await guest.locator('.ecard-links').screenshot({path:`${LINK_SHOTS}/icons-closeup.png`});
+    await guest.getByRole('button',{name:'複製 Discord 帳號',exact:true}).click();
+    const copyStatus=guest.locator('.ecard-copy-status'),copyFallback=guest.locator('.ecard-copy-fallback');
+    await expect.poll(async()=>((await copyStatus.textContent())??'').includes('已複製')||await copyFallback.count()>0).toBe(true);
+    if(((await copyStatus.textContent())??'').includes('已複製'))expect(await guest.evaluate(()=>navigator.clipboard.readText())).toBe('discorduser');
+    else await expect(copyFallback).toHaveValue('discorduser');
+    const owner=await page.context().newPage();
+    try{
+      await owner.setViewportSize({width:1280,height:900});
+      await owner.goto(shareUrl);
+      await expect(owner.getByText('這是你的名片，訪客看到的就是這個樣子。')).toBeVisible();
+      await expect(owner.locator('.member-card')).toHaveCount(0);
+      await expect(owner.locator('.ecard')).toHaveAttribute('data-design','classic');
+      await owner.getByRole('button',{name:'編輯名片',exact:true}).click();
+      await expect(owner.getByRole('region',{name:'分享我的工坊名片'})).toBeVisible();
+      await expect(owner).toHaveURL(/#account/);
+    }finally{await owner.close();}
+    await page.setViewportSize({width:1280,height:900});
+    const fields=await settings.locator('.member-share-fields').boundingBox();
+    const preview=await settings.locator('.member-share-preview').boundingBox();
+    expect(preview!.x).toBeGreaterThan(fields!.x+200);
+    await settings.screenshot({path:`${LINK_SHOTS}/settings-1280.png`});
+    await page.screenshot({path:`${LINK_SHOTS}/settings-page-1280.png`,fullPage:true});
+    await page.setViewportSize({width:390,height:844});
+    const fieldsPhone=await settings.locator('.member-share-fields').boundingBox();
+    const previewPhone=await settings.locator('.member-share-preview').boundingBox();
+    expect(previewPhone!.y).toBeGreaterThan(fieldsPhone!.y+40);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await settings.screenshot({path:`${LINK_SHOTS}/settings-390.png`});
+    await page.screenshot({path:`${LINK_SHOTS}/settings-page-390.png`,fullPage:true});
+    await profile.getByRole('checkbox',{name:'顯示 GitHub 在名片上'}).uncheck();
+    await waitSaved(settings);
+    await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl);
+    await guest.goto(shareUrl);
+    await expect(guest.locator('a[href="https://github.com/octocat"]')).toHaveCount(0);
+    await expect(guest.getByRole('link',{name:/LINE/})).toBeVisible();
+    await settings.getByRole('checkbox',{name:'自動放上我設為「平台公開」的聯絡方式和社群連結'}).uncheck();
+    await waitSaved(settings);
+    await guest.reload();
+    await expect(guest.getByRole('link',{name:/LINE/})).toHaveCount(0);
+    await expect(guest.getByRole('button',{name:'複製 Discord 帳號'})).toHaveCount(0);
+    await expect(guest.getByRole('link',{name:/我的 IG/})).toHaveCount(0);
+    await expect(guest.getByRole('link',{name:/Facebook/})).toBeVisible();
+    await expect(guest.locator('a[href*="facebook.com/friends-only"]')).toHaveCount(0);
+  }finally{await guestContext.close();}
 });
