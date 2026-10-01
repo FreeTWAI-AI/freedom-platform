@@ -229,7 +229,7 @@ test('publish imports real pinned GitHub source once, needs consent and current 
  const maliciousTitle='<script>alert("draft")</script>';
  const draft=await uploaded(owner,{title:maliciousTitle,cover_image:{mime_type:'image/png',data_base64:cover}}),id=draft.submission_id;
  assert.deepEqual(await listPublishedSkillSubmissions(pool),[]);assert.equal(await readPublishedSkillSubmission(pool,id),null);assert.equal(await readPublishedSkillIllustration(pool,id),null);
- for(const path of [`/development/submissions/${id}`,`/development/submissions/${id}/SKILL.md`,`/api/v1/skill-submissions/${id}/illustration`])assert.equal((await platform.request(origin+path)).status,404);
+ for(const path of [`/development/submissions/${id}`,`/development/submissions/${id}/SKILL.md`,`/api/v1/skill-submissions/${id}/illustration`,`/api/v1/skill-submissions/${id}`,`/api/v1/skill-submissions/${id}/share-content`])assert.equal((await platform.request(origin+path)).status,404);
  assert.deepEqual((await api('/skill-submissions/published')).data.items,[]);
  assert.equal((await api(`/me/skill-submissions/${id}/publish`,owner,{},draft.aggregate_version)).status,422);
  assert.equal((await api(`/me/skill-submissions/${id}/publish`,owner,{consent_to_share:true,official:true},draft.aggregate_version)).status,422);
@@ -248,6 +248,8 @@ test('publish imports real pinned GitHub source once, needs consent and current 
  assert.equal(item.submission_id,id);assert.equal(item.official,false);assert.equal(item.relationship_verification,'self_declared');
  assert.deepEqual(item.source,{repository_full_name:'example/project',repository_url:'https://github.com/example/project',commit_sha:sha,license_spdx:'Apache-2.0',license_evidence_url:`https://github.com/example/project/blob/${sha}/LICENSE`,is_fork:false,archived:false});
  assert.equal(item.share_introductions.length,100);assert.equal(item.illustration_url,`/api/v1/skill-submissions/${id}/illustration`);
+ // Every 社群技能書 is packaged with a book cover; works without drawn art use the shared community cover.
+ assert.equal(item.cover_url,'/art/community-skills/default.webp');
  const text=JSON.stringify(item);for(const secret of [owner.user.user_id,owner.user.email,'grant','hash'])assert.equal(text.includes(secret),false,secret);
  const detail=await readPublishedSkillSubmission(pool,id);assert.equal(detail?.use_notes,payload().use_notes);assert.equal(detail?.demo_url,null);
  assert.equal((await readPublishedSkillIllustration(pool,id))?.mime_type,'image/webp');
@@ -258,10 +260,18 @@ test('publish imports real pinned GitHub source once, needs consent and current 
  assert.equal((await api('/skill-submissions/published?limit=1')).data.items.length,1);
  assert.equal((await api('/skill-submissions/published?limit=101')).status,422);
  for(const field of ['owner_ref','grant_hash','grant_expires_at','payload','image_bytes'])assert.equal(field in listing[0],false);
+ // The in-app reader and share dialog read the same published-only projection as the public page.
+ const read=await api(`/skill-submissions/${id}`);assert.equal(read.status,200);
+ assert.equal(read.data.use_notes,payload().use_notes);assert.equal(read.data.cover_url,item.cover_url);assert.equal('share_introductions' in read.data,false);
+ for(const field of ['owner_ref','grant_hash','grant_expires_at','payload','image_bytes'])assert.equal(field in read.data,false);
+ const share=await api(`/skill-submissions/${id}/share-content`);assert.equal(share.status,200);
+ assert.deepEqual(share.data.introductions,item.share_introductions);assert.equal(share.data.illustration_url,item.illustration_url);assert.match(share.data.illustration_alt,/功能示意圖$/);
+ assert.equal((await api('/skill-submissions/not-a-uuid')).status,404);
  const illustration=await platform.request(origin+`/api/v1/skill-submissions/${id}/illustration`);assert.equal(illustration.status,200);assert.equal(illustration.headers.get('Content-Type'),'image/webp');
  // Deactivating the owner removes the publication from every public read.
  await pool.query('UPDATE users SET active=false WHERE user_id=$1',[owner.user.user_id]);
  assert.deepEqual(await listPublishedSkillSubmissions(pool),[]);assert.equal(await readPublishedSkillSubmission(pool,id),null);assert.equal(await readPublishedSkillIllustration(pool,id),null);
+ for(const path of [`/skill-submissions/${id}`,`/skill-submissions/${id}/share-content`])assert.equal((await api(path)).status,404);
 });
 
 test('publication and source import roll back together, and the same request safely retries',async t=>{

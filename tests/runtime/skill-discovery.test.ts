@@ -1,10 +1,12 @@
 import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
 import {Pool} from 'pg';
 import {createPool,LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
 import {skillDiscovery,recordConfirmedStar,reconcileConfirmedStar} from '../../modules/community/discovery.js';
 import {communityCatalog} from '../../modules/community/catalog.js';
+import {guildTitles} from '../../modules/positioning/assessment.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 
 const url=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL,schema=`fp_discovery_${process.pid}_${Date.now()}`;
@@ -21,6 +23,18 @@ test('unknown dates and empty rankings stay empty; official guild selection is n
   assert.ok(result.books.every(book=>book.published_at===null&&!book.is_new_today&&book.week_rank===null&&book.month_rank===null));
   assert.ok(result.books.find(book=>book.book_id==='social-post')?.official_guild_keys.includes('guild_marketing'));
   assert.ok(result.books.find(book=>book.book_id==='social-post')?.official_guilds.some(guild=>guild.guild_key==='guild_marketing'&&guild.name==='成長與行銷公會'));
+});
+test('社群技能書 carry no guild designation until an administrator binds one; static designations are never removed',async()=>{
+  const official=async(id:string)=>(await skillDiscovery(pool,now)).books.find(book=>book.book_id===id)!;
+  assert.deepEqual((await official('multi-ai-chat')).official_guild_keys,[]);assert.deepEqual((await official('hao-studio')).official_guilds,[]);
+  const community=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[community,'Synthetic binding']);
+  await pool.query('INSERT INTO guild_skill_book_bindings(community_id,guild_key,book_id) VALUES($1,$2,$3),($1,$4,$5)',[community,'guild_ai_vibe','multi-ai-chat','guild_ai_vibe','social-post']);
+  try{
+    assert.deepEqual((await official('multi-ai-chat')).official_guilds,[{guild_key:'guild_ai_vibe',name:'AI 開發公會'}]);
+    // A binding adds to the static designation, in the standard guild order.
+    assert.deepEqual((await official('social-post')).official_guild_keys,Object.keys(guildTitles).filter(key=>key==='guild_marketing'||key==='guild_ai_vibe'));
+    assert.deepEqual((await official('hao-studio')).official_guild_keys,[]);
+  }finally{await pool.query('DELETE FROM guild_skill_book_bindings WHERE community_id=$1',[community]);}
 });
 test('new skills use a stored actual publication date with Taipei day boundaries',async()=>{
   await pool.query("INSERT INTO skill_publications VALUES('social-post',$1),('video-autopilot',$2),('security-scanner',$3)",['2026-09-23T16:00:00Z','2026-09-23T15:59:59Z','2026-09-24T16:00:00Z']);

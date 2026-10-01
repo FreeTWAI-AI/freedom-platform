@@ -53,6 +53,16 @@ export function GitHubConnectionSummary({returnTo,onManage}:{returnTo:string;onM
       :<p>GitHub 連結尚未啟用；仍可到 GitHub 上 Star、Fork 原作。</p>}
   </section>;
 }
+export function GitHubForkIcon(){return <svg className="github-fork-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><circle cx="6" cy="5" r="2.3"/><circle cx="18" cy="5" r="2.3"/><circle cx="12" cy="19" r="2.3"/><path d="M6 7.5v2.8c0 2.8 6 1.2 6 5.3v1.1M18 7.5v2.8c0 2.8-6 1.2-6 5.3"/></svg>;}
+/** The compact Star／Fork row for a work without workshop metrics: plain links to GitHub, no counts. */
+export function GitHubSourceLinks({repositoryUrl}:{repositoryUrl:string}){
+  return <div className="github-book-social github-book-social-compact" aria-label="原作者 GitHub 操作">
+    <div className="github-social-overview"><div className="github-social-actions">
+      <a className="btn btn-ghost github-star-control" href={repositoryUrl} target="_blank" rel="noopener noreferrer" aria-label="到 GitHub Star ↗" title="前往原作 GitHub 加星"><span className="github-star-icon" aria-hidden="true">☆</span><span className="github-star-count">Star</span></a>
+      <a className="github-fork-link github-count-control" href={`${repositoryUrl}/fork`} target="_blank" rel="noopener noreferrer" aria-label="Fork 專案 ↗" title="Fork 專案"><GitHubForkIcon/><span className="github-fork-count">Fork</span></a>
+    </div></div>
+  </div>;
+}
 function count(value:number|null|undefined){return typeof value==='number'&&Number.isFinite(value)?value.toLocaleString('zh-TW'):'—';}
 function date(value:string|null|undefined){return value&&!Number.isNaN(Date.parse(value))?new Date(value).toLocaleDateString('zh-TW'):'—';}
 
@@ -86,7 +96,7 @@ export function GitHubBookSocial({bookId,repositoryUrl,compact=false,returnTo}:{
   const disabled=account.error?false:Boolean(accountLoading||!account.value?.configured||connecting||connected&&(star.loading||star.saving||!known));
   const starIcon=connected&&known&&star.value?.starred?'★':'☆';
   const starContents=<><span className="github-star-icon" aria-hidden="true">{starIcon}</span><span className="github-star-count" id={starCountId}>{count(value?.stargazers_count)}</span></>;
-  const forkContents=<><svg className="github-fork-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><circle cx="6" cy="5" r="2.3"/><circle cx="18" cy="5" r="2.3"/><circle cx="12" cy="19" r="2.3"/><path d="M6 7.5v2.8c0 2.8 6 1.2 6 5.3v1.1M18 7.5v2.8c0 2.8-6 1.2-6 5.3"/></svg><span className="github-fork-count">{count(value?.forks_count)}</span></>;
+  const forkContents=<><GitHubForkIcon/><span className="github-fork-count">{count(value?.forks_count)}</span></>;
   function starAction(){if(account.error)void store.loadAccount(true);else if(!connected)void connect();else if(known&&!star.loading&&!star.saving)void store.toggleStar(bookId);}
   const actionStatus=accountLoading||connecting||connected&&(!known||star.saving)?actionLabel:store.member&&!account.error&&!account.value?.configured?'GitHub Star 尚未啟用':null;
   return <div className={`github-book-social${compact?' github-book-social-compact':''}`} ref={ref} data-github-book={bookId} aria-label="原作者 GitHub 數據與操作">

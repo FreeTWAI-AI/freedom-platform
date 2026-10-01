@@ -99,7 +99,9 @@ test('unlocked and locked shelves partition the authoritative catalog and free p
   await login(page);
   const catalog = await (await page.request.get('/api/v1/community')).json();
   const chosen = ['social-post', 'video-autopilot'];
-  const allIds = catalog.skill_books.map((book: { id: string }) => book.id).sort();
+  // The scope tabs partition the guild-designated books; 社群技能書 have their own shelf and are never locked.
+  const allIds = catalog.skill_books.filter((book: { official_guild_keys: string[] }) => book.official_guild_keys.length > 0).map((book: { id: string }) => book.id).sort();
+  const communityIds = catalog.skill_books.filter((book: { official_guild_keys: string[] }) => book.official_guild_keys.length === 0).map((book: { id: string }) => book.id).sort();
   const actualGrants = await (await page.request.get('/api/v1/me/skill-books')).json();
   await page.route('**/api/v1/me/skill-books', route => route.fulfill({ json: { items: chosen.map(book_id => ({ book_id })) } }));
   await navigate(page, '技能書架');
@@ -116,6 +118,10 @@ test('unlocked and locked shelves partition the authoritative catalog and free p
   const lockedIds = await ids();
   expect(lockedIds.filter(id => chosen.includes(id))).toEqual([]);
   expect([...chosen, ...lockedIds].sort()).toEqual(allIds);
+  const shared = page.locator('.community-skill-library article[data-book-id]');
+  await expect(shared).toHaveCount(communityIds.length);
+  expect(await shared.evaluateAll(nodes => nodes.map(node => node.getAttribute('data-book-id')!).sort())).toEqual(communityIds);
+  await expect(shared.getByRole('button', { name: '預覽技能書', exact: true })).toHaveCount(0);
   await expect(cards.getByRole('button', { name: '預覽技能書', exact: true })).toHaveCount(lockedIds.length);
   await expect(cards.getByRole('button', { name: '閱讀技能書', exact: true })).toHaveCount(0);
   // A category absent from the unlocked subset must not leave that subset empty.
@@ -148,7 +154,7 @@ test('an unavailable grant list never classifies all books as locked and retry p
   await expect(page.locator('.community-library article[data-book-id]')).toHaveCount(0);
   failing = false;
   await page.getByRole('button', { name: '重新載入解鎖紀錄', exact: true }).click();
-  await expect(page.locator('.community-library article[data-book-id]')).toHaveCount(catalog.skill_books.length - 1);
+  await expect(page.locator('.community-library article[data-book-id]')).toHaveCount(catalog.skill_books.filter((book: { official_guild_keys: string[] }) => book.official_guild_keys.length > 0).length - 1);
   await expect(page.locator('.community-library article[data-book-id="social-post"]')).toHaveCount(0);
   await expect(tabs.getByRole('button', { name: '未解鎖', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('alert')).toHaveCount(0);

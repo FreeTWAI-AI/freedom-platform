@@ -25,12 +25,12 @@ export function submittedSkillAgentMarkdown(skill:Published,publicOrigin=LIVE_PU
   return [
     '---',`name: freedom-submitted-${skill.submission_id}`,
     'description: "Read a community skill submission and collaborate through its source repository."','---',
-    '# 自由工坊社群投稿',
+    '# 自由工坊社群技能書',
     `介紹：${publicOrigin}${skill.public_path}`,
     `來源 Repo：${skill.source.repository_url}`,
     `收錄版本：${skill.source.commit_sha}`,
     `收錄授權：${skill.source.license_spdx}`,
-    '投稿者與來源的關係為自行聲明。這是社群投稿，不是官方公會技能；不授予 Repo、會員或付款權限。',
+    '投稿者與來源的關係為自行聲明。這是會員投稿的社群技能書，不是公會指定技能；不授予 Repo、會員或付款權限。',
     '## 開始協作',
     '1. 讀取來源 Repo 的 README、LICENSE、AGENTS.md、CONTRIBUTING.md；先核對預設分支與版本。',
     `2. 查看 ${skill.source.repository_url}/issues 與 ${skill.source.repository_url}/pulls，確認現有任務與重疊工作。`,
@@ -47,8 +47,11 @@ export function submittedSkillHtml(skill:Published,intro?:string,publicOrigin=LI
   const selected=shareIntroNumber(intro,skill.share_introductions.length);
   const image=skill.illustration_url;
   const illustration=image?`<figure class="public-skill-illustration"><img src="${escape(image)}" alt="${escape(skill.title)}功能示意圖" width="1200" height="630"></figure>`:'';
-  const body=`<p class="public-skill-badges"><span>社群投稿・公開</span></p><p class="public-skill-purpose">${escape(skill.description)}</p>`+
-    `<div class="public-skill-actions">${external(skill.repository_url,'開啟專案')}${skill.demo_url?external(skill.demo_url,'開啟展示'):''}<a href="${skill.public_path}/SKILL.md">交給 Agent</a></div>`+
+  // The same entry packaging as a platform skill book: cover, purpose, source, badge, then source-first actions.
+  const body=`<section class="public-skill-entry"><figure class="public-skill-cover"><img src="${escape(skill.cover_url)}" alt="" width="768" height="512"></figure><div>`+
+    `<p class="public-skill-purpose">${escape(skill.description)}</p><p>原作：${escape(skill.source.repository_full_name)}</p>`+
+    `<div class="public-skill-badges" aria-label="技能書徽章"><span title="社群成員分享的技能書；不隨加入公會解鎖，所有人都能閱讀">社群技能書</span></div>`+
+    `<div class="public-skill-actions">${external(skill.repository_url,'開啟專案')}${skill.demo_url?external(skill.demo_url,'開啟展示'):''}<a href="${skill.public_path}/SKILL.md">交給 Agent</a></div></div></section>`+
     illustration+publicSkillShareMarkup({title:skill.title,path:skill.public_path,introductions:skill.share_introductions,selected,origin:publicOrigin})+
     `<section><h2>開始使用</h2><pre>${escape(skill.use_notes)}</pre></section>`+
     `<section><h2>一起開發</h2><p>查看專案任務，認領一項修改並提交 PR。</p><div class="public-skill-actions">${external(skill.repository_url+'/issues','查看任務')}${external(skill.repository_url+'/pulls','查看 PR')}${external(skill.repository_url+'/fork','Fork 專案')}<a href="${skill.public_path}/SKILL.md">讀取協作指令</a></div></section>`+
@@ -64,6 +67,18 @@ export function createPublishedSkillRoutes(pool:Pool,publicOrigin=LIVE_PUBLIC_OR
     const items=await listPublishedSkillSubmissions(pool,limit);
     // The directory remains small; full100 introductions are read on demand.
     return c.json({items:items.map(({share_introductions,...item})=>item)});
+  });
+  // In-app reading and sharing use the same published-only projection as the public page.
+  app.get('/api/v1/skill-submissions/:id',async c=>{
+    const skill=await readPublishedSkillSubmission(pool,c.req.param('id'));
+    if(!skill)return c.json({error:'submission_not_found'},404);
+    const {share_introductions,...item}=skill;
+    return c.json(item);
+  });
+  app.get('/api/v1/skill-submissions/:id/share-content',async c=>{
+    const skill=await readPublishedSkillSubmission(pool,c.req.param('id'));
+    if(!skill)return c.json({error:'submission_not_found'},404);
+    return c.json({introductions:skill.share_introductions,illustration_url:skill.illustration_url??'',illustration_alt:skill.illustration_url?`${skill.title}功能示意圖`:''});
   });
   app.get('/api/v1/skill-submissions/:id/illustration',async c=>{
     const image=await readPublishedSkillIllustration(pool,c.req.param('id'));
