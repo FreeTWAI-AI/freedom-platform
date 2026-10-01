@@ -27,12 +27,33 @@ export function claimIdFromPayload(payload: unknown): string | null {
   return typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id : null;
 }
 
-/** One UPDATE for every claim that matches, then enqueue a removal and rederive in the same transaction. */
-async function transition(pool: Pool, now: Date, sql: string): Promise<number> {
+type ClaimStep = { set: string; using: string; where: string };
+
+/** Lock candidate pulls in pull_id order, then update only the claims on those pulls. */
+async function transition(pool: Pool, now: Date, step: ClaimStep): Promise<number> {
+  const reviewers = step.using.includes('maintainer_reviewers')
+    ? 'JOIN maintainer_reviewers v ON v.reviewer_id=c.reviewer_id'
+    : '';
+  const lock = `SELECT p.pull_id FROM maintainer_pull_requests p
+    WHERE p.pull_id IN (
+      SELECT c.pull_id FROM maintainer_review_claims c
+      JOIN maintainer_pull_requests p ON p.pull_id=c.pull_id
+      ${reviewers}
+      WHERE ${step.where}
+    )
+    ORDER BY p.pull_id FOR UPDATE OF p`;
+  const update = `UPDATE maintainer_review_claims AS c
+    SET ${step.set}
+    FROM maintainer_pull_requests p${step.using}
+    WHERE c.pull_id=p.pull_id AND ${step.where} AND c.pull_id = ANY($2::uuid[])
+    RETURNING c.claim_id, c.pull_id, p.repository_id, c.github_request_state`;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       return await transaction(pool, async q => {
-        const updated = await q.query(sql, [now]);
+        const locked = await q.query(lock, step.where.includes('$1') ? [now] : []);
+        const pullIds = locked.rows.map(row => row.pull_id as string);
+        if (!pullIds.length) return 0;
+        const updated = await q.query(update, [now, pullIds]);
         for (const row of updated.rows) {
           if (row.github_request_state === 'removing') {
             await enqueueMaintainerJob(q, row.repository_id, 'remove_reviewer_request', row.claim_id, now);
@@ -50,42 +71,43 @@ async function transition(pool: Pool, now: Date, sql: string): Promise<number> {
 }
 
 /**
- * End claims that the database can decide without GitHub. Earlier steps win because each
- * UPDATE still requires state = 'active'. A requested reviewer is removed afterwards,
- * except when that person has already submitted a review: GitHub drops the request then.
- * Closing the pull leaves the request in place, and this maintainer leaves it there too.
+ * End claims the database can decide without GitHub. Earlier steps win because each
+ * UPDATE still requires state = 'active'. Pull rows are locked before claim rows.
+ * A requested reviewer is removed afterwards, except when that person has already
+ * submitted a review: GitHub drops the request then. Closing the pull leaves the
+ * request in place, and this maintainer leaves it there too.
  */
 export async function settleMaintainerClaims(pool: Pool, now: Date): Promise<ClaimSettlement> {
-  const returning = `RETURNING c.claim_id, c.pull_id, p.repository_id, c.github_request_state`;
-  const expired = await transition(pool, now, `UPDATE maintainer_review_claims AS c
-    SET state='expired', ended_at=$1, github_request_state=${REMOVING}, aggregate_version=c.aggregate_version+1
-    FROM maintainer_pull_requests p
-    WHERE c.pull_id=p.pull_id AND c.state='active' AND c.expires_at<=$1
-    ${returning}`);
-  const closed = await transition(pool, now, `UPDATE maintainer_review_claims AS c
-    SET state='released', ended_at=$1, end_reason='pull_closed', aggregate_version=c.aggregate_version+1
-    FROM maintainer_pull_requests p
-    WHERE c.pull_id=p.pull_id AND c.state='active' AND (p.state<>'open' OR p.merged_at IS NOT NULL)
-    ${returning}`);
-  const inactive = await transition(pool, now, `UPDATE maintainer_review_claims AS c
-    SET state='released', ended_at=$1, end_reason='reviewer_inactive', github_request_state=${REMOVING}, aggregate_version=c.aggregate_version+1
-    FROM maintainer_pull_requests p, maintainer_reviewers v
-    WHERE c.pull_id=p.pull_id AND v.reviewer_id=c.reviewer_id AND c.state='active' AND NOT v.active
-    ${returning}`);
-  const rank = await transition(pool, now, `UPDATE maintainer_review_claims AS c
-    SET state='released', ended_at=$1, end_reason='reviewer_rank_too_low', github_request_state=${REMOVING}, aggregate_version=c.aggregate_version+1
-    FROM maintainer_pull_requests p, maintainer_reviewers v
-    WHERE c.pull_id=p.pull_id AND v.reviewer_id=c.reviewer_id AND c.state='active' AND (
-      (p.risk_class='medium' AND v.max_risk='low') OR (p.risk_class='high' AND v.max_risk IN ('low','medium')))
-    ${returning}`);
-  const completed = await transition(pool, now, `UPDATE maintainer_review_claims AS c
-    SET state='completed', ended_at=$1, end_reason='review_submitted', aggregate_version=c.aggregate_version+1
-    FROM maintainer_pull_requests p, maintainer_reviewers v
-    WHERE c.pull_id=p.pull_id AND v.reviewer_id=c.reviewer_id AND c.state='active' AND EXISTS (
+  const version = 'aggregate_version=c.aggregate_version+1';
+  const expired = await transition(pool, now, {
+    set: `state='expired', ended_at=$1, github_request_state=${REMOVING}, ${version}`,
+    using: '',
+    where: `c.state='active' AND c.expires_at<=$1`,
+  });
+  const closed = await transition(pool, now, {
+    set: `state='released', ended_at=$1, end_reason='pull_closed', ${version}`,
+    using: '',
+    where: `c.state='active' AND (p.state<>'open' OR p.merged_at IS NOT NULL)`,
+  });
+  const inactive = await transition(pool, now, {
+    set: `state='released', ended_at=$1, end_reason='reviewer_inactive', github_request_state=${REMOVING}, ${version}`,
+    using: ', maintainer_reviewers v',
+    where: `c.state='active' AND v.reviewer_id=c.reviewer_id AND NOT v.active`,
+  });
+  const rank = await transition(pool, now, {
+    set: `state='released', ended_at=$1, end_reason='reviewer_rank_too_low', github_request_state=${REMOVING}, ${version}`,
+    using: ', maintainer_reviewers v',
+    where: `c.state='active' AND v.reviewer_id=c.reviewer_id AND (
+      (p.risk_class='medium' AND v.max_risk='low') OR (p.risk_class='high' AND v.max_risk IN ('low','medium')))`,
+  });
+  const completed = await transition(pool, now, {
+    set: `state='completed', ended_at=$1, end_reason='review_submitted', ${version}`,
+    using: ', maintainer_reviewers v',
+    where: `c.state='active' AND v.reviewer_id=c.reviewer_id AND EXISTS (
       SELECT 1 FROM maintainer_reviews r
       WHERE r.pull_id=c.pull_id AND r.reviewer_github_id=v.github_user_id
-        AND r.state IN ('APPROVED','CHANGES_REQUESTED') AND r.submitted_at>=c.created_at)
-    ${returning}`);
+        AND r.state IN ('APPROVED','CHANGES_REQUESTED') AND r.submitted_at>=c.created_at)`,
+  });
   return { expired, released: closed + inactive + rank, completed };
 }
 

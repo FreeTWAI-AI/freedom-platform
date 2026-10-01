@@ -39,6 +39,7 @@ const CLAIM_AUTHOR = '審查者不能認領自己開的拉取請求。';
 const CLAIM_UNAVAILABLE = '這個拉取請求目前未開啟、仍是草稿或已暫停，不能認領。';
 const CLAIM_MISSING = '找不到這個認領。';
 const CLAIM_INACTIVE = '這個認領已經結束。';
+const WRITE_CONFLICT = '另一個操作同時在處理這個拉取請求，請重新整理後再試一次。';
 const SELF_CLAIM_REASON = '自己認領這次審查。';
 
 type ViewerReviewer = { reviewer_id: string; github_user_id: string; github_login: string; max_risk: Risk };
@@ -251,6 +252,15 @@ function requireSelfReviewer(viewer: ReviewCenterViewer & { reviewer: ViewerRevi
 function assertPullClaimable(pull: { state: string; is_draft: boolean; paused: boolean }) {
   requireCondition(pull.state === 'open' && !pull.is_draft && !pull.paused, 409, 'maintainer_claim_unavailable', CLAIM_UNAVAILABLE);
 }
+async function claimWrite<T>(pool: Pool, input: AdminCommand, authorize: (q: PoolClient) => Promise<unknown>, run: (q: PoolClient) => Promise<T>): Promise<T> {
+  try {
+    return await adminCommand(pool, input, authorize, run);
+  } catch (error) {
+    // The transaction has rolled back, so the same Idempotency-Key can be retried.
+    if (pgCode(error) === '40P01') throw new Problem(409, 'maintainer_write_conflict', WRITE_CONFLICT);
+    throw error;
+  }
+}
 function assertReviewerCanClaim(reviewer: { github_user_id: string; max_risk: Risk }, pull: { author_github_id: string; risk_class: Risk }) {
   requireCondition(reviewer.github_user_id !== pull.author_github_id, 409, 'maintainer_claim_author', CLAIM_AUTHOR);
   requireCondition(reviewerCovers(reviewer.max_risk, pull.risk_class), 409, 'maintainer_claim_rank_too_low', RANK_TOO_LOW);
@@ -309,7 +319,7 @@ async function finishClaimWrite(q: PoolClient, admin: AdminActor, pullId: string
 export async function claimForSelf(pool: Pool, input: AdminCommand, id: string) {
   z.uuid().parse(id);
   z.object({}).strict().parse(input.body);
-  return adminCommand(pool, input, async q => { await scopedPull(q, input.admin, id); }, async q => {
+  return claimWrite(pool, input, async q => { await scopedPull(q, input.admin, id); }, async q => {
     const pull = await scopedPull(q, input.admin, id, true);
     checkVersion(String(pull.aggregate_version), input.expected);
     const reviewer = requireSelfReviewer(await resolveViewer(q, input.admin));
@@ -340,7 +350,7 @@ async function assignableReviewer(q: Queryable, admin: AdminActor, reviewerId: s
 export async function assignReviewer(pool: Pool, input: AdminCommand, id: string) {
   z.uuid().parse(id);
   const body = z.object({ reviewer_id: z.uuid(), reason }).strict().parse(input.body);
-  return adminCommand(pool, input, async q => { await scopedPull(q, input.admin, id); }, async q => {
+  return claimWrite(pool, input, async q => { await scopedPull(q, input.admin, id); }, async q => {
     const pull = await scopedPull(q, input.admin, id, true);
     checkVersion(String(pull.aggregate_version), input.expected);
     const reviewer = await assignableReviewer(q, input.admin, body.reviewer_id);
@@ -373,7 +383,9 @@ async function scopedClaim(q: Queryable, admin: AdminActor, id: string, lock = f
 export async function releaseClaim(pool: Pool, input: AdminCommand, id: string) {
   z.uuid().parse(id);
   const body = z.object({ reason }).strict().parse(input.body);
-  return adminCommand(pool, input, async q => { await scopedClaim(q, input.admin, id); }, async q => {
+  return claimWrite(pool, input, async q => { await scopedClaim(q, input.admin, id); }, async q => {
+    const preview = await scopedClaim(q, input.admin, id);
+    await scopedPull(q, input.admin, preview.pull_id, true);
     const claim = await scopedClaim(q, input.admin, id, true);
     requireCondition(claim.state === 'active', 409, 'maintainer_claim_inactive', CLAIM_INACTIVE);
     checkVersion(String(claim.aggregate_version), input.expected);
@@ -402,7 +414,7 @@ async function setPullPaused(pool: Pool, input: AdminCommand, id: string, paused
   z.uuid().parse(id);
   const body = z.object({ reason }).strict().parse(input.body);
   const action = paused ? 'maintainer_pull_pause' : 'maintainer_pull_resume';
-  return adminCommand(pool, input, async q => { await scopedPull(q, input.admin, id); }, async q => {
+  return claimWrite(pool, input, async q => { await scopedPull(q, input.admin, id); }, async q => {
     const pull = await scopedPull(q, input.admin, id, true);
     checkVersion(String(pull.aggregate_version), input.expected);
     const current = await activeClaimOnPull(q, id);

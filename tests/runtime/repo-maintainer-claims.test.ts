@@ -9,6 +9,7 @@ import { seedLocal, DEMO_USERS, DEMO_COMMUNITY } from '../../packages/testing/se
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { createAdminAccessVerifier } from '../../modules/platform-admin/access.js';
 import { runMaintainerTick, type MaintainerTickConfig } from '../../modules/repo-maintainer/tick.js';
+import { settleMaintainerClaims } from '../../modules/repo-maintainer/claims.js';
 import { enqueueMaintainerJob } from '../../modules/repo-maintainer/queue.js';
 
 const origin = 'http://127.0.0.1:4310';
@@ -489,6 +490,15 @@ function countingFetcher() {
   };
   return { calls, fetcher };
 }
+async function waitUntilBlocked(pid: number) {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    const count = (await pool.query('SELECT count(*) FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))', [pid])).rows[0].count;
+    if (Number(count) > 0) return;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  assert.fail('expected a backend to block on the held pull row');
+}
 
 test('a request_reviewer re-run leaves an already requested claim requested', async () => {
   const repository = await insertRepo({ request_reviewers: true });
@@ -571,3 +581,83 @@ test('a removal that cannot write fails the claim instead of skipping it', async
   assert.equal(settingJob.state, 'failed');
   assert.equal(settingJob.last_error, 'writes_disabled');
 });
+
+test('settling an expired claim locks the pull before the claim', { timeout: 15_000 }, async () => {
+  const repository = await insertRepo();
+  const pullId = await insertPull(repository, 31);
+  const userId = await member('lock-settle@example.invalid', '鎖結算');
+  await link(userId, '77051', 'lock-settle');
+  const reviewerId = await reviewer(userId, '77051', 'lock-settle', 'high');
+  const claimId = await insertClaim(pullId, reviewerId, { expires: '2026-09-30T11:00:00Z' });
+  const holder = await pool.connect();
+  let pending: Promise<{ value?: { expired: number }; error?: unknown }> | undefined;
+  try {
+    await holder.query('BEGIN');
+    const pid = (await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid as number;
+    await holder.query('SELECT pull_id FROM maintainer_pull_requests WHERE pull_id=$1 FOR UPDATE', [pullId]);
+    pending = settleMaintainerClaims(pool, CLOCK).then(value => ({ value }), error => ({ error }));
+    await waitUntilBlocked(pid);
+    const nowait = await holder.query('SELECT 1 FROM maintainer_review_claims WHERE claim_id=$1 FOR UPDATE NOWAIT', [claimId]);
+    assert.equal(nowait.rowCount, 1);
+    await holder.query('COMMIT');
+    const settled = await pending;
+    assert.equal(settled.error, undefined);
+    assert.equal(settled.value?.expired, 1);
+    assert.equal((await claimRow(claimId)).state, 'expired');
+  } finally {
+    await holder.query('ROLLBACK').catch(() => undefined);
+    holder.release();
+    if (pending) await pending;
+  }
+});
+
+test('releasing a claim locks the pull before the claim', { timeout: 15_000 }, async () => {
+  const repository = await insertRepo();
+  const pullId = await insertPull(repository, 32);
+  const userId = await member('lock-release@example.invalid', '鎖釋放');
+  await link(userId, '77052', 'lock-release');
+  const reviewerId = await reviewer(userId, '77052', 'lock-release', 'high');
+  const claimId = await insertClaim(pullId, reviewerId);
+  const holder = await pool.connect();
+  let pending: Promise<{ status: number; data: any }> | undefined;
+  try {
+    await holder.query('BEGIN');
+    const pid = (await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid as number;
+    await holder.query('SELECT pull_id FROM maintainer_pull_requests WHERE pull_id=$1 FOR UPDATE', [pullId]);
+    pending = request(`/review-center/claims/${claimId}/release`, { reason: '等拉取請求的鎖放開。' }, 1);
+    await waitUntilBlocked(pid);
+    const nowait = await holder.query('SELECT 1 FROM maintainer_review_claims WHERE claim_id=$1 FOR UPDATE NOWAIT', [claimId]);
+    assert.equal(nowait.rowCount, 1);
+    await holder.query('COMMIT');
+    const released = await pending;
+    assert.equal(released.status, 200, JSON.stringify(released.data));
+    assert.equal((await claimRow(claimId)).state, 'released');
+  } finally {
+    await holder.query('ROLLBACK').catch(() => undefined);
+    holder.release();
+    if (pending) await pending.catch(() => undefined);
+  }
+});
+
+test('a deadlock inside a claim command is a retryable 409', async () => {
+  const repository = await insertRepo();
+  const pullId = await insertPull(repository, 33);
+  await asSelf();
+  const key = randomUUID();
+  await pool.query(`CREATE FUNCTION maintainer_claim_deadlock_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'deadlock detected' USING ERRCODE = '40P01'; END $$`);
+  await pool.query('CREATE TRIGGER maintainer_claim_deadlock_test BEFORE INSERT ON maintainer_review_claims FOR EACH ROW EXECUTE FUNCTION maintainer_claim_deadlock_test()');
+  try {
+    const denied = await request(`/review-center/pulls/${pullId}/claim`, {}, 1, key);
+    assert.equal(denied.status, 409, JSON.stringify(denied.data));
+    assert.equal(denied.data.code, 'maintainer_write_conflict');
+    assert.match(denied.data.detail, /請重新整理後再試一次/);
+    assert.equal((await pool.query('SELECT count(*) FROM maintainer_review_claims WHERE pull_id=$1', [pullId])).rows[0].count, '0');
+    assert.equal((await pool.query('SELECT count(*) FROM platform_admin_receipts WHERE idempotency_key=$1', [key])).rows[0].count, '0');
+  } finally {
+    await pool.query('DROP TRIGGER IF EXISTS maintainer_claim_deadlock_test ON maintainer_review_claims');
+    await pool.query('DROP FUNCTION IF EXISTS maintainer_claim_deadlock_test()');
+  }
+  const retried = await request(`/review-center/pulls/${pullId}/claim`, {}, 1, key);
+  assert.equal(retried.status, 200, JSON.stringify(retried.data));
+});
+
