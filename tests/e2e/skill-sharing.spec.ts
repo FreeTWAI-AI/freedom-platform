@@ -34,7 +34,8 @@ async function socialCard(page:Page){const lib=await library(page);await lib.get
 async function openPreview(page:Page){const card=await socialCard(page);await card.getByRole('button',{name:'分享技能',exact:true}).click();const dialog=page.getByRole('dialog',{name:`分享「${title}」`,exact:true});await expect(dialog).toBeVisible();return {card,dialog};}
 async function preview(dialog:ReturnType<Page['getByRole']>){
   const text=(await dialog.locator('.skill-share-text').innerText()).trim(),match=/^social-post 介紹 (\d+)：/.exec(text);expect(match).not.toBeNull();
-  const url=`${origin}/development/skills/social-post?intro=${match![1]}`;await expect(dialog.locator('.skill-share-url')).toHaveText(url);return {text,url,number:Number(match![1])};
+  await expect(dialog.locator('.skill-share-url')).toHaveText(new RegExp(`/go/[A-Za-z0-9_-]{10}\\?intro=${match![1]}$`));
+  const url=(await dialog.locator('.skill-share-url').innerText()).trim();return {text,url,number:Number(match![1])};
 }
 function stubShare(page:Page,mode:'share'|'cancel'|'error'|'none',clipboard:'ok'|'denied'|'none'='ok'){
   return page.addInitScript(({mode,clipboard})=>{
@@ -79,8 +80,10 @@ for(const [label,mode,clipboard] of [['native share failure','error','ok'],['den
 test('unavailable or missing share content explains the problem, can retry and still shares the plain link',async({page})=>{
   await stubShare(page,'none');let state:'down'|'missing'|'ok'='down';await page.unroute('**/api/v1/skills/*/share-content');
   await page.route('**/api/v1/skills/*/share-content',route=>state==='down'?route.fulfill({status:503,json:{detail:'unavailable'}}):state==='missing'?route.fulfill({status:404,json:{detail:'not_found'}}):route.fulfill({json:shareContent('social-post')}));
-  const {card,dialog}=await openPreview(page);await expect(dialog.getByRole('alert')).toContainText('分享介紹暫時無法載入');await expect(dialog.locator('.skill-share-url')).toHaveText(`${origin}/development/skills/social-post`);
-  await expect(dialog.getByRole('button',{name:'換一句',exact:true})).toHaveCount(0);await dialog.getByRole('button',{name:'複製連結',exact:true}).click();expect(await copied(page)).toBe(`${origin}/development/skills/social-post`);await expect(dialog.getByRole('status')).toHaveText('已複製技能連結');
+  const {card,dialog}=await openPreview(page);await expect(dialog.getByRole('alert')).toContainText('分享介紹暫時無法載入');
+  await expect(dialog.locator('.skill-share-url')).toHaveText(/\/go\/[A-Za-z0-9_-]{10}$/);
+  const plain=(await dialog.locator('.skill-share-url').innerText()).trim();
+  await expect(dialog.getByRole('button',{name:'換一句',exact:true})).toHaveCount(0);await dialog.getByRole('button',{name:'複製連結',exact:true}).click();expect(await copied(page)).toBe(plain);await expect(dialog.getByRole('status')).toHaveText('已複製技能連結');
   state='missing';await dialog.getByRole('button',{name:'重試',exact:true}).click();await expect(dialog.getByRole('alert')).toContainText('還沒有分享介紹');
   state='ok';await dialog.getByRole('button',{name:'重試',exact:true}).click();await expect(dialog.getByRole('alert')).toHaveCount(0);await preview(dialog);
   await page.keyboard.press('Escape');await expect(card.getByRole('button',{name:'分享技能',exact:true})).toBeFocused();
@@ -89,7 +92,7 @@ test('the skill book dialog shows the full landscape illustration below the comp
   await page.route('**/brand/skill-illustrations/*.webp',route=>route.fulfill({path:'apps/portal-web/public/art/skills/social-post.webp',contentType:'image/webp'}));
   const card=await socialCard(page);await card.getByRole('button',{name:'預覽技能書',exact:true}).click();const dialog=page.getByRole('dialog',{name:title,exact:true});
   const art=dialog.getByRole('img',{name:'social-post 技能書的橫幅插畫',exact:true});await expect(art).toBeVisible();await expect(art).toHaveAttribute('src','/brand/skill-illustrations/social-post.webp');
-  expect(await art.evaluate(element=>(element as HTMLImageElement).naturalWidth>0)).toBe(true);await expect(dialog.locator('.skill-intro-cover .skill-intro-art')).toBeVisible();
+  await expect.poll(()=>art.evaluate(element=>(element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);await expect(dialog.locator('.skill-intro-cover .skill-intro-art')).toBeVisible();
   const cover=await dialog.locator('.skill-intro-cover').boundingBox(),box=await art.boundingBox();expect(box!.y).toBeGreaterThan(cover!.y+cover!.height-1);expect(box!.width).toBeGreaterThan(cover!.width*.9);
   await page.keyboard.press('Escape');await expect(card.locator('.skill-library-heading .skill-book-illustration')).toBeVisible();
 });
@@ -109,8 +112,9 @@ test('sharing a second book uses only that book’s introductions and public URL
   const first=page.getByRole('dialog',{name:`分享「${title}」`,exact:true});await preview(first);await page.keyboard.press('Escape');
   await search.fill('影片自動化');const card=lib.locator('article[data-book-id="video-autopilot"]');await card.getByRole('button',{name:'分享技能',exact:true}).click();
   const next=page.locator('.skill-share-dialog[open]');await expect(next).toHaveAttribute('data-book-id','video-autopilot');
-  const text=await next.locator('.skill-share-text').innerText(),url=await next.locator('.skill-share-url').innerText();
-  expect(text).toMatch(/^video-autopilot 介紹 \d+：/);expect(url).toMatch(/\/development\/skills\/video-autopilot\?intro=\d+$/);
+  await expect(next.locator('.skill-share-url')).toHaveText(/\/go\/[A-Za-z0-9_-]{10}\?intro=\d+$/);
+  const text=await next.locator('.skill-share-text').innerText(),url=(await next.locator('.skill-share-url').innerText()).trim();
+  expect(text).toMatch(/^video-autopilot 介紹 \d+：/);
   await next.getByRole('button',{name:'複製介紹與連結',exact:true}).click();await expect(next.getByRole('status')).toHaveText('已複製介紹與連結');
   expect(await copied(page)).toBe(text+'\n'+url);expect(await copied(page)).not.toContain('social-post');
 });
