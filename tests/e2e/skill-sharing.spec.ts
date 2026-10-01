@@ -92,7 +92,7 @@ test('the skill book dialog shows the full landscape illustration below the comp
   await page.route('**/brand/skill-illustrations/*.webp',route=>route.fulfill({path:'apps/portal-web/public/art/skills/social-post.webp',contentType:'image/webp'}));
   const card=await socialCard(page);await card.getByRole('button',{name:'預覽技能書',exact:true}).click();const dialog=page.getByRole('dialog',{name:title,exact:true});
   const art=dialog.getByRole('img',{name:'social-post 技能書的橫幅插畫',exact:true});await expect(art).toBeVisible();await expect(art).toHaveAttribute('src','/brand/skill-illustrations/social-post.webp');
-  expect(await art.evaluate(element=>(element as HTMLImageElement).naturalWidth>0)).toBe(true);await expect(dialog.locator('.skill-intro-cover .skill-intro-art')).toBeVisible();
+  await expect.poll(()=>art.evaluate(element=>(element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);await expect(dialog.locator('.skill-intro-cover .skill-intro-art')).toBeVisible();
   const cover=await dialog.locator('.skill-intro-cover').boundingBox(),box=await art.boundingBox();expect(box!.y).toBeGreaterThan(cover!.y+cover!.height-1);expect(box!.width).toBeGreaterThan(cover!.width*.9);
   await page.keyboard.press('Escape');await expect(card.locator('.skill-library-heading .skill-book-illustration')).toBeVisible();
 });
@@ -112,8 +112,9 @@ test('sharing a second book uses only that book’s introductions and public URL
   const first=page.getByRole('dialog',{name:`分享「${title}」`,exact:true});await preview(first);await page.keyboard.press('Escape');
   await search.fill('影片自動化');const card=lib.locator('article[data-book-id="video-autopilot"]');await card.getByRole('button',{name:'分享技能',exact:true}).click();
   const next=page.locator('.skill-share-dialog[open]');await expect(next).toHaveAttribute('data-book-id','video-autopilot');
-  const text=await next.locator('.skill-share-text').innerText(),url=await next.locator('.skill-share-url').innerText();
-  expect(text).toMatch(/^video-autopilot 介紹 \d+：/);expect(url).toMatch(/\/go\/[A-Za-z0-9_-]{10}\?intro=\d+$/);
+  await expect(next.locator('.skill-share-url')).toHaveText(/\/go\/[A-Za-z0-9_-]{10}\?intro=\d+$/);
+  const text=await next.locator('.skill-share-text').innerText(),url=(await next.locator('.skill-share-url').innerText()).trim();
+  expect(text).toMatch(/^video-autopilot 介紹 \d+：/);
   await next.getByRole('button',{name:'複製介紹與連結',exact:true}).click();await expect(next.getByRole('status')).toHaveText('已複製介紹與連結');
   expect(await copied(page)).toBe(text+'\n'+url);expect(await copied(page)).not.toContain('social-post');
 });

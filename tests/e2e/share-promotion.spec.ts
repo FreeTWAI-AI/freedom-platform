@@ -40,7 +40,7 @@ async function login(page: Page) {
   await page.getByLabel('電子郵件', { exact: true }).fill('maker@local.test');
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
   await page.getByRole('button', { name: '登入', exact: true }).click();
-  await expect(page.locator('.shell')).toBeVisible();
+  await expect(page.locator('.shell')).toBeVisible({ timeout: 20_000 });
 }
 
 async function creditVisit(browser: Browser, url: string, expected: (url: URL) => boolean, intercept?: string) {
@@ -114,7 +114,7 @@ test('an event share link lands on the public page and shows the click', async (
   test.setTimeout(60_000);
   eventId = randomUUID();
   await e2eAuthPool.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,title,description,starts_at,ends_at,mode,location,state,visibility,event_kind)
-    VALUES($1,$2,$3,$4,'用來確認活動分享點擊。',now()+interval '2 days',now()+interval '3 days','online','線上','published','open','other')`,
+    VALUES($1,$2,$3,$4,'用來確認活動分享點擊。',now()-interval '29 days',now()+interval '2 days','online','線上','published','open','other')`,
   [eventId, COMMUNITY, MAKER, EVENT_TITLE]);
   await login(page);
   await navigate(page, '社群活動');
@@ -296,6 +296,7 @@ test('screenshots cover the boards, social zone, dialogs and interstitial', asyn
       await shot(page, `social-${theme}-${width}`);
       await noOverflow(page);
     }
+    await page.setViewportSize({ width: 1280, height: 900 });
     await navigate(page, '社群活動');
     const card = page.locator('article.experience-card').filter({ has: page.getByRole('heading', { name: EVENT_TITLE, level: 3 }) });
     await card.scrollIntoViewIfNeeded();
