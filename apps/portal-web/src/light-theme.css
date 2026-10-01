@@ -70,6 +70,11 @@ html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-modul
 html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-module-button:hover,html:is([data-theme="light"],[data-theme="versefolk"]) .freedom-home .home-module-button:focus-visible { background:#eef6db; border-color:#8dbb32; color:#244100; }
 html:is([data-theme="light"],[data-theme="versefolk"]) .member-task,html:is([data-theme="light"],[data-theme="versefolk"]) .messages-list>li,html:is([data-theme="light"],[data-theme="versefolk"]) .messages-peer { background:#fff; border-color:var(--line); }
 html:is([data-theme="light"],[data-theme="versefolk"]) .task-state-done,html:is([data-theme="light"],[data-theme="versefolk"]) .messages-tabs [aria-selected=true] { background:#eef6d8; color:#3c6500; border-color:#9abf4e; }
+/* The bright tab border is below 3:1 on this fill; the same selected text green draws the ring. */
+html:is([data-theme="light"],[data-theme="versefolk"]) .messages-tabs [aria-selected=true] { box-shadow:inset 0 0 0 1px #3c6500; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .messages-peer[aria-current="true"] { border-color:#3c6500; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .member-channel-list .messages-peer[aria-current="true"] { border-color:#3c6500; box-shadow:inset 4px 0 0 #3c6500; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .messages-count { background:#eef6d8; color:#3c6500; }
 html:is([data-theme="light"],[data-theme="versefolk"]) .task-state-error { color:#a3253d; border-color:#e2a9b2; }
 html:is([data-theme="light"],[data-theme="versefolk"]) .task-state-todo { color:#835300; border-color:#d6bd8d; }
 html:is([data-theme="light"],[data-theme="versefolk"]) .onboarding-layout,html:is([data-theme="light"],[data-theme="versefolk"]) .onboarding-intro,html:is([data-theme="light"],[data-theme="versefolk"]) .onboarding-card,html:is([data-theme="light"],[data-theme="versefolk"]) .onboarding-confirmation { background:var(--bg-elev); color:var(--ink); border-color:var(--line); }

@@ -62,7 +62,7 @@ export async function saveAvatar(pool: Pool, input: Command, upload: { bytes: Bu
   // Binary content never enters command receipts, journals or diagnostic logs.
   return command(pool, { ...input, body }, async q => {
     const allowed = await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)', [input.actor.user_id, input.actor.community_id]);
-    requireCondition(allowed.rowCount === 1, 403, 'onboarding_required', '請先完成定位並選擇主要公會。');
+    requireCondition(allowed.rowCount === 1, 403, 'onboarding_required', '請先選擇主要公會，完成加入後即可使用會員功能。');
   }, async q => {
     await q.query('INSERT INTO member_avatars(user_id,community_id) VALUES($1,$2) ON CONFLICT DO NOTHING', [input.actor.user_id, input.actor.community_id]);
     const row = (await q.query('SELECT aggregate_version,image_bytes IS NOT NULL AS present FROM member_avatars WHERE user_id=$1 AND community_id=$2 FOR UPDATE', [input.actor.user_id, input.actor.community_id])).rows[0];

@@ -78,6 +78,8 @@
 ## 2. 模組一：定位模組
 
 > 2026-09-23 Ted 明示新註冊會員必須完成原創定位並自行確認公會；以下 B「不想做測驗」、§2.7「跳過測驗仍可進入」及 legacy parity 敘述不再適用新會員入口。既有會員存取與重新定位相容規則以 [會員入口修訂](../development/member-onboarding-release.md) 為準，不新增能力及格或職業資格判定。
+>
+> 2026-10-01 更新：新註冊不再強制先做定位測驗。會員仍須選定主要公會並領技能書才開放平台；快速加入或定位測驗都可以，測驗可稍後補做。上一句「必須完成原創定位」只描述 2026-09-23 的入口。
 
 ### 2.1 目的與非目標
 
@@ -886,6 +888,8 @@ XP 是獨立的 People read model：`GET /me/xp` 只按 `profession × training|
 #### 8.5.1 第一天 bundle、starter track 與歡迎 automation
 
 > 2026-09-23 起新註冊會員須先完成封閉定位並自行確認公會才開放平台（Ted 明示 override，見 §2 註）；下文「可跳過定位」不再適用新註冊會員，「任何step都不鎖…」只適用定位以外的 step。
+>
+> 2026-10-01 更新：新註冊的必經步驟改為選定主要公會（快速加入或定位測驗）。定位可稍後補做，但不能略過主要公會。下文「任何step都不鎖…」仍不鎖加入以外的導覽步驟；會員功能門只看是否已完成加入。
 
 Portal在建檔後顯示可重建的`MemberOnboardingJourney`：建檔 → 可跳過定位 → 接受建議或self-declare profession → 自助成Runner → 選coaching或starter package → equip → member-scoped install/verify → 歡迎儀式 → 第一張30–90分鐘WorkItem。每個step與overall readiness都是含`enforcement=navigation`的object，不顯示完成率／總分；任何step都不鎖registration、discussion、learning、browse、join、equip、submission或low-risk claim。
 

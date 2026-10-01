@@ -68,6 +68,10 @@
   // environment so an overlay that replaces the env block cannot drop the only
   // schedule. Apply migration 054 before this cron runs.
   "triggers": { "crons": ["*/10 * * * *"] },
+  // The same cron refreshes migration 058's guild discovery report once per day
+  // for FREEDOM_REGISTRATION_COMMUNITY_ID. Rules work without a model. To opt in
+  // to provider inference in the private deployment overlay, add ai.binding=AI,
+  // FREEDOM_GUILD_REVIEW_ENABLED="true" and FREEDOM_GUILD_REVIEW_MODEL (JSON-capable).
   "vars": { "FREEDOM_ENV": "local", "APP_ORIGIN": "http://127.0.0.1:8787" },
   "env": {
     "staging-next": {

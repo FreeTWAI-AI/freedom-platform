@@ -8,6 +8,8 @@ import {migrate} from '../../scripts/database.js';
 import {seedLocal,DEMO_WORK,DEMO_USERS,DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 
+const pythonCommand=process.platform==='win32'?'python':'python3';
+
 const origin='http://127.0.0.1:4310',databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
 const schema=`fp_benefits_test_${process.pid}_${Date.now()}`,admin=createPool(databaseUrl);
 const pool=new Pool({connectionString:databaseUrl,options:`-c search_path=${schema}`,max:12});
@@ -39,7 +41,7 @@ test('optional self-reports persist across application restart, conform to canon
  const input=report('contributor',claim.claim_id),created=await request(path,maker,input,before.aggregate_version);assert.equal(created.status,201,JSON.stringify(created.data));assert.equal(created.data.observation_revision,1);assert.deepEqual(created.data.report.effort_minutes,null);
  const fresh=createApp(pool,origin),persisted=await fresh.request(origin+'/api/v1'+path,{headers:{Cookie:maker.cookie}}),view:any=await persisted.json();assert.equal(view.own_observation.observation_id,created.data.observation_id);assert.equal(view.summary.outcomes.gained,1);assert.equal(view.summary.outcomes.not_reported,1);
  const script=`import json,sys\nfrom jsonschema import Draft202012Validator,FormatChecker\ns=json.load(open('docs/platform-plan/contracts/work-participation.schema.json'))\nv=Draft202012Validator(s,format_checker=FormatChecker())\nd=json.load(sys.stdin)\nfor key,name in [('request','BenefitObservationRequest'),('response','BenefitObservationReceipt')]: v.evolve(schema={'$ref':'#/$defs/'+name}).validate(d[key])\nprint('valid')\n`;
- assert.match(execFileSync('python3',['-c',script],{input:JSON.stringify({request:input,response:created.data}),encoding:'utf8'}),/valid/);
+ assert.match(execFileSync(pythonCommand,['-X','utf8','-c',script],{input:JSON.stringify({request:input,response:created.data}),encoding:'utf8'}),/valid/);
  assert.equal((await work(maker)).aggregate_version,before.aggregate_version);assert.equal((await pool.query('SELECT count(*) FROM contributions')).rows[0].count,'1');assert.equal((await request('/dashboard',maker)).data.summary.accepted_count,1);
  assert.equal((await pool.query('SELECT count(*) FROM receipt_observations')).rows[0].count,'0');assert.equal((await request('/health')).data.money_movement_enabled,false);
 });

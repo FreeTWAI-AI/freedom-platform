@@ -12,7 +12,7 @@ import {createSquad,changeSquadMembership} from '../../modules/identity-membersh
 import {changeGuildMembership} from '../../modules/positioning/service.js';
 import {reviewGuildApplication,type AdminActor} from '../../modules/platform-admin/service.js';
 import {sendDirectMessage} from '../../modules/member-communications/service.js';
-import {listChannels,channelMessages,sendChannelMessage,markChannelRead} from '../../modules/member-communications/channels.js';
+import {listChannels,channelMessages,channelActivity,sendChannelMessage,markChannelRead} from '../../modules/member-communications/channels.js';
 import {CHANNEL_NOT_AVAILABLE,type ChannelKind} from '../../modules/member-communications/channel-types.js';
 
 // Group channels (037): every ordinary active guild/squad member, isolated per
@@ -67,6 +67,7 @@ async function leaveSquad(squad:string,m:Member,on=pool){return changeSquadMembe
 const send=(m:Member,kind:ChannelKind,key:string,body:string,opKey=randomUUID(),on=pool)=>sendChannelMessage(on,cmd(m.actor,{body},`channel-send/${kind}/${key}`,opKey),kind,key);
 const markRead=(m:Member,kind:ChannelKind,key:string,through:string,opKey=randomUUID(),on=pool)=>markChannelRead(on,cmd(m.actor,{through_message_id:through},`channel-read/${kind}/${key}`,opKey),kind,key);
 const page=(m:Member,kind:ChannelKind,key:string,query:Record<string,unknown>={},on=pool)=>channelMessages(on,m.actor,kind,key,query);
+const activity=(m:Member,kind:ChannelKind,key:string)=>channelActivity(pool,m.actor,kind,key);
 const list=(m:Member,kind:ChannelKind,query:Record<string,unknown>={})=>listChannels(pool,m.actor,{kind,...query});
 async function request(path:string,m?:Member,body?:unknown,options:{key?:string;csrf?:string}={}){
   const headers:Record<string,string>={Origin:origin,...(m?{Cookie:m.http.cookie,'X-CSRF-Token':options.csrf??m.http.csrf}:{})};
@@ -120,7 +121,7 @@ test('ordinary guild and squad members (no officer row) read and write their own
   noPrivate([guilds,squads,guildPage,squadPage,await list(owner,'guild'),await list(owner,'squad')]);
   // Not a member, a pending squad requester, a different guild, and a squad key under the guild kind: all indistinguishable 404 with no text.
   for(const [who,kind,key,label] of [[other,'guild',guild,'other guild member'],[outsider,'squad',squad,'non member'],[pending,'squad',squad,'pending requester'],[outsider,'guild',guild,'no guild']] as const){
-    await gone(()=>page(who,kind,key),`${label} GET`);await gone(()=>send(who,kind,key,'越權'),`${label} send`);
+    await gone(()=>page(who,kind,key),`${label} GET`);await gone(()=>activity(who,kind,key),`${label} activity`);await gone(()=>send(who,kind,key,'越權'),`${label} send`);
     await gone(()=>markRead(who,kind,key,kind==='guild'?inGuild.message_id:inSquad.message_id),`${label} read`);
     const listed=await list(who,kind);assert.ok(!listed.items.some(item=>item.channel_key===key),label);assert.equal(listed.unread_count,0,`${label} unread`);
   }
@@ -342,6 +343,7 @@ test('direct service calls recheck live account, session, community and onboardi
     for(const kind of ['guild','squad'] as const){const key=kind==='guild'?guild:squad;
       await rejectsWith(()=>list(stale,kind),scenario.status,scenario.code,`${label} list ${kind}`);
       await rejectsWith(()=>page(stale,kind,key),scenario.status,scenario.code,`${label} GET ${kind}`);
+      await rejectsWith(()=>activity(stale,kind,key),scenario.status,scenario.code,`${label} activity ${kind}`);
       await rejectsWith(()=>send(stale,kind,key,'stale'),scenario.status,scenario.code,`${label} send ${kind}`);
       await rejectsWith(()=>markRead(stale,kind,key,kind==='guild'?m1.message_id:s1.message_id),scenario.status,scenario.code,`${label} read ${kind}`);
     }

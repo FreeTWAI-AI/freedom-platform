@@ -164,7 +164,7 @@ test('current eligibility is rechecked on every read, write and receipt replay, 
   const withdrawn=await resolve(owner,withdrawable,'withdraw','1');assert.equal(withdrawn.status,200);assert.equal(withdrawn.data.recipient_name,UNAVAILABLE_MEMBER);
   // Service calls outside HTTP middleware apply the same onboarding gate.
   const actor=actorOf(recipient);
-  await assert.rejects(receivedSquadInvitations(pool,actor,{}),{status:403,code:'onboarding_required'});
+  await assert.rejects(receivedSquadInvitations(pool,actor,{}),{status:403,code:'onboarding_required',message:'請先選擇主要公會，完成加入後即可使用會員功能。'});
   await assert.rejects(resolveSquadInvitation(pool,{actor,operation:'direct accept',key:randomUUID(),body:{},expected:'1'},pending,'accept'),{status:403,code:'onboarding_required'});
   await assert.rejects(inviteToSquad(pool,{actor,operation:'direct invite',key:randomUUID(),body:{recipient_ref:owner.user.user_id}},second),{status:403});
   await assert.rejects(squadInvitations(pool,actor,second,{}),{status:403,code:'onboarding_required'});

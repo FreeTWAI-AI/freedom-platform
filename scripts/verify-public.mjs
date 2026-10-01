@@ -8,6 +8,7 @@ import { mkdir, chmod, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {verifyMemberSettings} from './verify-member-settings.mjs';
+import {GUILD_TOPIC_LABELS} from '../packages/shared/guild-topics.ts';
 
 const target = new URL(process.env.FREEDOM_PUBLIC_ORIGIN ?? 'https://freetwai.com');
 if (target.protocol !== 'https:' || target.username || target.password || target.pathname !== '/' || target.search || target.hash) {
@@ -19,7 +20,8 @@ const BUILTIN_GUILD_KEYS=Object.freeze(['guild_talent_direction','guild_product_
 // Approved applications become guild_custom_<application id without dashes>; the id passed z.uuid() (Zod 4.6.5: version 1-8, variant 8/9/a/b, either case, plus lowercase nil/max).
 const CUSTOM_GUILD_KEY=/^guild_custom_([0-9a-fA-F]{12}[1-8][0-9a-fA-F]{3}[89abAB][0-9a-fA-F]{15}|0{32}|f{32})$/;
 const GUILD_MODULE_KEYS=Object.freeze(['positioning','supplier','retail','marketing','workbench','guilds','engagement','opensource']);
-const GUILD_DIRECTORY_FIELDS=Object.freeze(['alias','catalog_version','first_step','guild_experts','guild_key','guild_master','guild_master_nominee','is_primary','is_secondary','membership','module_key','name','profession_key','profession_title','purpose','secondary_position','skill_books']);
+const GUILD_TOPIC_KEYS=Object.freeze(Object.keys(GUILD_TOPIC_LABELS));
+const GUILD_DIRECTORY_FIELDS=Object.freeze(['alias','catalog_version','entry_questions','first_step','guild_experts','guild_key','guild_master','guild_master_nominee','is_primary','is_secondary','membership','module_key','name','profession_key','profession_title','purpose','secondary_position','skill_books','tags']);
 // Checks the public directory projection only; an approved-format custom row does not prove its review record.
 // bookIds is the canonical skill book id Set (development-map skill_books mirrors communityCatalog used by approval).
 function verifyGuildDirectory(guilds,bookIds){
@@ -64,6 +66,19 @@ function verifyGuildDirectory(guilds,bookIds){
       custom.push(guild.guild_key);
     }
     if(!Array.isArray(guild.skill_books)||guild.skill_books.some(book=>!book||typeof book.id!=='string'||!book.id)||new Set(guild.skill_books.map(book=>book.id)).size!==guild.skill_books.length)fail(`${label} skill_books`);
+    if(!Array.isArray(guild.tags)||new Set(guild.tags).size!==guild.tags.length||guild.tags.some(tag=>!GUILD_TOPIC_KEYS.includes(tag)))fail(`${label} tags`);
+    const entry=guild.entry_questions;
+    if(!entry||typeof entry!=='object'||Array.isArray(entry)||typeof entry.version!=='string'||entry.version.length<1||typeof entry.sha256!=='string'||!/^[a-f0-9]{64}$/.test(entry.sha256))fail(`${label} entry_questions`);
+    if(!Array.isArray(entry.questions)||entry.questions.length<3||entry.questions.length>4)fail(`${label} entry_questions.questions`);
+    const questionIds=entry.questions.map(question=>question?.id);
+    if(questionIds.some(id=>typeof id!=='string'||id.length<1)||new Set(questionIds).size!==questionIds.length)fail(`${label} question ids`);
+    for(const question of entry.questions){
+      if(typeof question.prompt!=='string'||question.prompt.length<1)fail(`${label} question prompt`);
+      if(!Array.isArray(question.options)||question.options.length<3||question.options.length>5)fail(`${label} question options`);
+      const optionIds=question.options.map(option=>option?.id);
+      if(optionIds.some(id=>typeof id!=='string'||id.length<1)||new Set(optionIds).size!==optionIds.length)fail(`${label} option ids`);
+      if(question.options.some(option=>typeof option?.label!=='string'||option.label.length<1))fail(`${label} option labels`);
+    }
     if(guild.membership!==null){
       const membership=guild.membership;
       if(!membership||typeof membership!=='object'||JSON.stringify(Object.keys(membership).sort())!==JSON.stringify(['aggregate_version','membership_id','rank','state']))fail(`${label} membership fields`);

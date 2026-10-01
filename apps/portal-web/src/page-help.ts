@@ -1,6 +1,7 @@
 /** Human-facing help for the current screen. Development instructions live in the Agent section. */
 export type PageHelp={summary:string;steps:string[];note?:string};
 export const pageHelp:Record<string,PageHelp>={
+  friends:{summary:'集中查看好友、收到與送出的邀請。',steps:['切換好友名單範圍，或搜尋名字。','接受或婉拒邀請；送出的邀請可以取消。','從好友名片進入私訊，聯絡資料仍依對方設定顯示。']},
   home:{summary:'會員首頁把你目前的定位、主要公會與常用入口放在一起，方便回到工坊後接續自己的進度。',steps:['先看目前的定位與主力公會是否正確。','用頁面上的入口前往公會、技能書或其他想參與的工作。','底部世界聊天可以詢問其他會員；頁面內容不會因開啟聊天而消失。']},
   events:{summary:'社群活動由會員提交，經平台管理員或主辦公會長審核後公開，讓大家報名參加。',steps:['填寫時間、形式、地點及主辦公會後送出審核。','在待審核區查看自己的活動；審核結果會出現在通知與系統公告欄。','活動核准後，其他會員才可報名；主辦者可取消活動。','已結束的活動可在行事曆與「過去的活動」查看。'],note:'提交、報名與實際出席是不同紀錄，均不直接產生工作分數。'},
   tasks:{summary:'社群任務收錄可認領工作、GitHub Issue 與 PR 歷史。排行只計算已在平台連結 GitHub 的會員，以及經頁面「提出想法」或「參與編修」送出且帶有頁面標記的 Issue／PR。',steps:['搜尋工坊工作，從可認領項目進入我的工作。','選擇共創專案查看其開放 Issue。','切換使用者排行榜、歷史想法與歷史更新，依 Repo 分類查找原始紀錄。其他 GitHub 帳號仍會列出，但不列入排行。'],note:'會員完成「待辦清單」的「連結 GitHub」後才出現在排行榜。排行榜的 Issue 5 分、PR 20 分只供本頁比較，不會寫入會員 XP 或驗收紀錄。'},
