@@ -6,6 +6,7 @@ import {GuildMembers} from './GuildMembers';
 import {GuildAnnouncements} from './GuildWorkspace';
 import {SkillBookIntro} from './SkillBookIntro';
 import {GuildTags} from './GuildFilters';
+import {openMemberChat} from './chat-entry';
 
 export function GuildCard({guild:g,client,busy,onPrimary,onMembership,onSecondary,secondaryFull=false}:{guild:GuildSummary;client:PortalClient;busy:boolean;onPrimary:()=>void;onMembership:()=>void;onSecondary?:()=>void;secondaryFull?:boolean}) {
   const [panel,setPanel]=useState<'books'|'members'|'announcements'|null>(null);
@@ -23,6 +24,7 @@ export function GuildCard({guild:g,client,busy,onPrimary,onMembership,onSecondar
       <div className="guild-book-list"><strong>入門技能</strong>{firstBook?<SkillBookIntro book={firstBook} guildName={g.name} label={firstBook.title}/>:<p className="muted">技能書整理中</p>}</div>
     </div>
     <div className="guild-card-controls">
+      {active&&<div className="guild-first-step"><p>{g.first_step}</p><button type="button" className="btn btn-ghost" onClick={()=>openMemberChat('guild',g.guild_key)}>進入公會聊天室</button></div>}
       <button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={event=>open('books',event.currentTarget)}>公會技能書庫 · {g.skill_books.length}</button>
       <div className="guild-card-links"><button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={event=>open('members',event.currentTarget)}>查看成員</button>{active&&<button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={event=>open('announcements',event.currentTarget)}>公會公告</button>}</div>
       <div className="actions">{active&&!g.is_primary&&<button className="btn btn-primary" disabled={busy} onClick={onPrimary}>設為主要公會</button>}{active&&!g.is_primary&&onSecondary&&<button type="button" className="btn btn-ghost" disabled={busy||(!g.is_secondary&&secondaryFull)} onClick={onSecondary}>{g.is_secondary?'取消次要公會':'設為次要公會'}</button>}<button type="button" className="btn btn-ghost" disabled={busy||g.is_primary} onClick={onMembership}>{active?'退出':'加入'}{g.name}</button></div>

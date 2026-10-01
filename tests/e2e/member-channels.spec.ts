@@ -56,10 +56,15 @@ async function channelServer(page:Page,setup:{guild?:[string,string,number][];sq
     }
     const kind=parts[1] as Kind,key=decodeURIComponent(parts[2]),channel=store.get(`${kind}:${key}`),info={kind,key,limit,offset};
     const denied=()=>route.fulfill({status:channel?.denied??404,json:{title:'頻道無法使用',code:'channel_not_available'}});
+    if(parts[3]==='activity'&&request.method()==='GET'){
+      if(!channel?.member)return denied();
+      return route.fulfill({json:{latest_sequence:channel.messages[0]?.sequence??'0',unread_count:unread(channel)}});
+    }
     if(parts[3]==='messages'&&request.method()==='GET'){
       log.history.push(info);
       if(!channel?.member)return denied();
-      return answer('history',info,{channel:{kind,channel_key:key,name:channel.name},items:channel.messages.slice(offset,offset+limit).map(item=>({...item})),unread_count:unread(channel),next_offset:offset+limit<channel.messages.length?offset+limit:null});
+      const after=url.searchParams.get('after_sequence'),items=after===null?channel.messages:channel.messages.filter(item=>BigInt(item.sequence)>BigInt(after)).reverse();
+      return answer('history',info,{channel:{kind,channel_key:key,name:channel.name},items:items.slice(offset,offset+limit).map(item=>({...item})),unread_count:unread(channel),next_offset:after===null&&offset+limit<items.length?offset+limit:null,...(after!==null?{next_after_sequence:items.length>limit?items[limit-1].sequence:null}:{})});
     }
     const headers=request.headers();
     if(parts[3]==='messages'&&request.method()==='POST'){
@@ -107,13 +112,13 @@ function holder(){
 /** Full history pages of one room. The console feed uses the same limit, so a hold can include that one extra copy. */
 const openPages=(log:{history:Info[]},kind:Kind,key:string)=>log.history.filter(item=>item.kind===kind&&item.key===key&&item.limit>1&&item.offset===0).length;
 
-test('four tabs keep their exact order and keyboard behaviour while the console reads its feed',async({page})=>{
+test('five tabs keep their order and keyboard behaviour without mixing room histories',async({page})=>{
   await page.setViewportSize({width:320,height:780});
   const server=await channelServer(page,{guild:[['builders','合成公會甲',3],['Makers','合成公會乙',0]],squad:[[squadA,'合成小隊甲',2]]});
   await open(page,server);
   const tabs=page.getByRole('tab');
-  await expect(tabs).toHaveCount(4);
-  const labels=['通知','公會閒聊','小隊閒聊','私人訊息'];
+  await expect(tabs).toHaveCount(5);
+  const labels=['通知','公會閒聊','小隊閒聊','私人訊息','世界聊天'];
   for(const [index,label] of labels.entries())await expect(tabs.nth(index)).toHaveText(new RegExp(`^${label}`));
   await expect(tab(page,'公會閒聊')).toContainText('3 則未讀');await expect(tab(page,'小隊閒聊')).toContainText('2 則未讀');
   await expect(tab(page,'私人訊息')).toContainText('沒有未讀');await expect(tab(page,'通知')).toContainText('沒有未讀');
@@ -125,11 +130,11 @@ test('four tabs keep their exact order and keyboard behaviour while the console 
     await expect(page.locator('#'+await current.getAttribute('aria-controls'))).toBeVisible();
     for(const name of labels.filter(item=>item!==label)){await expect(tab(page,name)).toHaveAttribute('aria-selected','false');await expect(tab(page,name)).toHaveAttribute('tabindex','-1');}
   };
-  for(const label of ['公會閒聊','小隊閒聊','私人訊息','通知']){await page.keyboard.press('ArrowRight');await expectSelected(label);}
+  for(const label of ['公會閒聊','小隊閒聊','私人訊息','世界聊天','通知']){await page.keyboard.press('ArrowRight');await expectSelected(label);}
+  await page.keyboard.press('ArrowLeft');await expectSelected('世界聊天');
   await page.keyboard.press('ArrowLeft');await expectSelected('私人訊息');
-  await page.keyboard.press('ArrowLeft');await expectSelected('小隊閒聊');
   await page.keyboard.press('Home');await expectSelected('通知');
-  await page.keyboard.press('End');await expectSelected('私人訊息');
+  await page.keyboard.press('End');await expectSelected('世界聊天');
   // The top bar still owns the only h1.
   await expect(page.getByRole('heading',{level:1})).toHaveCount(1);await expect(page.getByRole('heading',{level:1})).toHaveText('我的訊息');
   for(const label of labels){
@@ -377,8 +382,9 @@ test('a list re-read that no longer has the open channel closes it, and a paged 
   await guild.getByRole('button',{name:'合成公會 02',exact:true}).click();await expect(bubbles).toHaveCount(2);
   holding=true;await guild.getByRole('button',{name:'重新整理公會頻道',exact:true}).click();await expect.poll(()=>hold.held.length).toBe(1);holding=false;
   server.get('guild','guild-02').member=false;
-  await thread.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
-  await expect(thread.getByRole('alert')).toContainText('目前無法使用此頻道。');
+  // The fast activity check may revoke before a manual-refresh button can be clicked.
+  // Keep the stale list held until live access has actually been refused.
+  await expect(thread.getByRole('alert')).toContainText('目前無法使用此頻道。',{timeout:3000});
   hold.release();await expect.poll(()=>hold.held.length).toBe(0);await page.waitForTimeout(300);
   await expect(guild.locator('[data-channel-key]')).toHaveCount(0);await expect(bubbles).toHaveCount(0);
   await expect(guild.getByText('你還沒有加入任何公會，加入後會出現該公會的閒聊頻道。')).toBeVisible();

@@ -7,7 +7,7 @@ import {lockMemberGuilds} from '../positioning/onboarding.js';
 import {
   CHANNEL_KINDS,CHANNEL_KEY_MAX,CHANNEL_MESSAGE_BODY_MAX,CHANNEL_NOT_AVAILABLE,CHANNEL_PAGE_DEFAULT_LIMIT,CHANNEL_PAGE_MAX_LIMIT,CHANNEL_PAGE_MAX_OFFSET,
   GUILD_CHANNEL_KEY_PATTERN,
-  type Channel,type ChannelKind,type ChannelList,type ChannelMessage,type ChannelMessagePage,type ChannelReadResult,type ChannelSummary,
+  type Channel,type ChannelActivity,type ChannelKind,type ChannelList,type ChannelMessage,type ChannelMessagePage,type ChannelReadResult,type ChannelSummary,
 } from './channel-types.js';
 
 // Guild/squad group channels (migration 037). A room exists for every current
@@ -19,8 +19,9 @@ const page={
   limit:z.coerce.number().int().min(1).max(CHANNEL_PAGE_MAX_LIMIT).default(CHANNEL_PAGE_DEFAULT_LIMIT),
   offset:z.coerce.number().int().min(0).max(CHANNEL_PAGE_MAX_OFFSET).default(0),
 };
-export const ChannelListQuery=z.object({kind:z.enum(CHANNEL_KINDS),...page}).strict();
-export const ChannelPageQuery=z.object(page).strict();
+export const ChannelListQuery=z.object({kind:z.enum(CHANNEL_KINDS),...page,search:z.string().trim().max(100).default('')}).strict();
+export const ChannelPageQuery=z.object({...page,after_sequence:z.string().regex(/^\d{1,19}$/).pipe(z.string().refine(value=>BigInt(value)<=9223372036854775807n,'新訊息游標超出範圍。')).optional()}).strict()
+  .refine(value=>value.after_sequence===undefined||value.offset===0,'新訊息游標不可與位移頁碼一起使用。');
 // Plain text only, same rules as direct messages: stored and returned verbatim
 // after trimming; length counts code points like PostgreSQL.
 const ChannelMessageInput=z.object({
@@ -138,7 +139,7 @@ function message(row:any):ChannelMessage{
 }
 
 export async function listChannels(pool:Pool,actor:Actor,raw:unknown):Promise<ChannelList>{
-  const {kind,limit,offset}=ChannelListQuery.parse(raw);
+  const {kind,limit,offset,search}=ChannelListQuery.parse(raw);
   return snapshot(pool,actor,async q=>{
     const rooms=await lockRooms(q,actor,kind);
     // Counts and last activity only; no message body is read for the list.
@@ -153,22 +154,40 @@ export async function listChannels(pool:Pool,actor:Actor,raw:unknown):Promise<Ch
     items.sort((a,b)=>a.last_message_at!==b.last_message_at
       ?(a.last_message_at===null?1:b.last_message_at===null?-1:a.last_message_at<b.last_message_at?1:-1)
       :a.channel_key<b.channel_key?-1:a.channel_key>b.channel_key?1:0);
-    return {items:items.slice(offset,offset+limit),unread_count:items.reduce((n,item)=>n+item.unread_count,0),
-      next_offset:items.length>offset+limit?offset+limit:null};
+    const matches=items.filter(item=>item.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+    return {items:matches.slice(offset,offset+limit),unread_count:items.reduce((n,item)=>n+item.unread_count,0),
+      next_offset:matches.length>offset+limit?offset+limit:null};
   });
 }
 
 export async function channelMessages(pool:Pool,actor:Actor,rawKind:string,rawKey:string,raw:unknown):Promise<ChannelMessagePage>{
-  const target=room(rawKind,rawKey),{limit,offset}=ChannelPageQuery.parse(raw);
+  const target=room(rawKind,rawKey),{limit,offset,after_sequence}=ChannelPageQuery.parse(raw);
   return snapshot(pool,actor,async q=>{
     const channel=await lockRoom(q,actor,target);
     const unread=(await q.query(`SELECT ${unreadSql} AS n FROM (SELECT $4::text AS channel_key) r`,[actor.community_id,target.kind,actor.user_id,target.key])).rows[0].n;
     const rows=(await q.query(`SELECT ${messageColumns} FROM member_channel_messages m JOIN users u ON u.user_id=m.sender_ref
       WHERE m.community_id=$1 AND m.kind=$2 AND m.channel_key=$3
         AND ($2<>'world' OR m.sender_ref=$6 OR NOT is_verification_test_account(m.sender_ref))
-      ORDER BY m.sequence DESC LIMIT $4 OFFSET $5`,
-      [actor.community_id,target.kind,target.key,limit+1,offset,actor.user_id])).rows;
-    return {channel,items:rows.slice(0,limit).map(message),unread_count:unread,next_offset:rows.length>limit?offset+limit:null};
+        AND ($7::bigint IS NULL OR m.sequence>$7::bigint)
+      ORDER BY CASE WHEN $7::bigint IS NOT NULL THEN m.sequence END ASC, m.sequence DESC LIMIT $4 OFFSET $5`,
+      [actor.community_id,target.kind,target.key,limit+1,offset,actor.user_id,after_sequence??null])).rows;
+    return {channel,items:rows.slice(0,limit).map(message),unread_count:unread,next_offset:after_sequence===undefined&&rows.length>limit?offset+limit:null,
+      ...(after_sequence!==undefined?{next_after_sequence:rows.length>limit?String(rows[limit-1].sequence):null}:{})};
+  });
+}
+
+/** Check only an opened room; preserve the same live user/session/membership locks as history reads. */
+export async function channelActivity(pool:Pool,actor:Actor,rawKind:string,rawKey:string,raw:unknown={}):Promise<ChannelActivity>{
+  z.object({}).strict().parse(raw);const target=room(rawKind,rawKey);
+  return snapshot(pool,actor,async q=>{
+    await lockRoom(q,actor,target);
+    const row=(await q.query(`SELECT ${unreadSql} AS unread_count,
+      COALESCE((SELECT x.sequence FROM member_channel_messages x
+        WHERE x.community_id=$1 AND x.kind=$2 AND x.channel_key=r.channel_key
+          AND ($2<>'world' OR x.sender_ref=$3 OR NOT is_verification_test_account(x.sender_ref))
+        ORDER BY x.sequence DESC LIMIT 1),0)::text AS latest_sequence
+      FROM (SELECT $4::text AS channel_key) r`,[actor.community_id,target.kind,actor.user_id,target.key])).rows[0];
+    return {latest_sequence:row.latest_sequence,unread_count:row.unread_count};
   });
 }
 

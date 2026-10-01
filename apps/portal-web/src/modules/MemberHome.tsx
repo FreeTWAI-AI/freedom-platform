@@ -8,6 +8,7 @@ import { logConsoleEvent } from '../game-console-core';
 import { consoleChannel } from '../game-console-routing';
 import './HomeDesign.css';
 import {MemberRecommendations} from './MemberRecommendations';
+import {GuildNextSteps} from './GuildNextSteps';
 
 const shortcuts: { id: TabId; title: string }[] = [
   { id: 'events', title: '社群活動' },
@@ -114,6 +115,8 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       <p id="home-next-step-description">{nextStep.message}</p>
       <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.(nextStep.action)}>{nextStep.label}</button>
     </section>}
+
+    <GuildNextSteps client={client} onNavigate={onNavigate}/>
 
     <nav className="home-shortcuts" aria-label="常用入口">
       {shortcuts.map(entry => <button key={entry.id} type="button" className="home-shortcut" onClick={() => onNavigate?.(entry.id)}>
