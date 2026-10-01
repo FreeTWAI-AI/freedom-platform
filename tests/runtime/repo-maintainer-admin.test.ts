@@ -135,10 +135,10 @@ test('settings writes enforce csrf, idempotency, version and the phase-1a mode l
   assert.equal((await request(path, body)).status, 428);
   assert.equal((await request(path, body, undefined, randomUUID(), { 'If-Match': '1' })).data.code, 'invalid_version');
   assert.equal((await request(path, body, 9)).status, 412);
-  const rejectedMode = await request(path, { mode: 'ai' + '_review', settings: {}, reason: '想開自動審查' }, 1);
+  const rejectedMode = await request(path, { mode: 'ai_review', settings: {}, reason: '想開自動審查' }, 1);
   assert.equal(rejectedMode.status, 422);
   assert.equal(rejectedMode.data.code, 'validation_failed');
-  const blockedMode = 'mer' + 'ge';
+  const blockedMode = 'merge';
   await assert.rejects(() => pool.query(`UPDATE maintainer_repositories SET mode=$2 WHERE repository_id=$1`, [repository, blockedMode]), (error: { code?: string }) => error.code === '23514');
   await assert.rejects(() => pool.query(`INSERT INTO maintainer_repositories
     (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode)
