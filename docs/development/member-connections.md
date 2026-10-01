@@ -38,7 +38,7 @@
 - `member_accounts.contacts` 裡、值不是空的、公開對象含 `public` 的聯絡方式。Email 的值就是登入信箱。順序是 LINE、GitHub、Discord、Email。
 - 未刪除、`audiences` 含 `public` 的 `member_social_links`，依 `created_at, link_id`。
 
-LINE：`line.me` / `lin.ee`（含子網域）上、沒有帳號密碼、最多 300 字的 https 網址照原樣使用；`@` 開頭的官方帳號組成 `https://line.me/R/ti/p/`；4 到 20 字的 ID 組成 `https://line.me/ti/p/~`；電話、其他文字、`javascript:` 這類沒有網址，只能複製。GitHub 帳號符合 `^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$` 才組成 `https://github.com/<login>`；否則保留帳號、網址是 null，名片上只能複製。Discord 沒有網址，名片上是複製按鈕。Email 是 `mailto:`。社群連結只留下能解析成 https、而且沒有帳號密碼、也不是本機位址的網址（和寫入 `social-links.ts` 同一條規則）；舊的 http 或其他網址整筆不出現。小字是拿掉 `www.` 的主機名。讀取時 SQL 已加 `deleted_at IS NULL`，才能用部分索引 `member_social_links_owner`；程式仍會再濾掉已刪除的列。
+LINE：`line.me` / `lin.ee`（含子網域）上、沒有帳號密碼、最多 300 字的 https 網址照原樣使用；`@` 開頭的官方帳號組成 `https://line.me/R/ti/p/`；4 到 20 字的 ID 組成 `https://line.me/ti/p/~`；電話、其他文字、`javascript:` 這類沒有網址，只能複製。GitHub 帳號要是 1 到 39 個字、只含英數與連字號，而且開頭和結尾都是英數，才組成 `https://github.com/<login>`；否則保留帳號、網址是 null，名片上只能複製。Discord 沒有網址，名片上是複製按鈕。Email 是 `mailto:`。社群連結只留下能解析成 https、而且沒有帳號密碼、也不是本機位址的網址（和寫入 `social-links.ts` 同一條規則）；舊的 http 或其他網址整筆不出現。小字是拿掉 `www.` 的主機名。讀取時 SQL 已加 `deleted_at IS NULL`，才能用部分索引 `member_social_links_owner`；程式仍會再濾掉已刪除的列。
 
 項目要同時滿足 `show_profile_links` 為真，而且 `profile_link_prefs[source]` 沒有寫時，除了 `contact:email` 以外都算顯示。手動連結的網址如果和某個項目完全相同，公開頁留手動連結、拿掉那個項目。設定頁仍列出它，方便再打開。
 
