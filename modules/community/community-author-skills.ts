@@ -1,19 +1,23 @@
 import type {SkillBook} from './catalog.js';
 import type {SkillBookGuide} from './skill-book-guides.js';
 
-// Community names supplied by the platform owner; no member identity is inferred.
+// The first eight community names were supplied by the platform owner; no member identity is inferred.
+// The three 2026-10-01 entries are works members registered through 手動登錄作品, credited with the member's own community display name and self-declared author relationship (not verified against the GitHub account), converted at the platform owner's request.
 // Empty `guilds` keeps a work as a 社群技能書 instead of a guild designation.
-// Pinned upstream documentation reviewed 2026-09-24 or at each guide's reviewed_at; upstream apps were not run.
-type AuthorSource={author:string;repo:string;sha:string;title:string;reading:string;evidence:string[];guilds:string[]};
+// Pinned upstream documentation reviewed on each source's `reviewed` date; upstream apps were not run.
+type AuthorSource={author:string;repo:string;sha:string;title:string;reading:string;evidence:string[];guilds:string[];license:string;reviewed:string};
 export const communityAuthorSources = {
-  'bidding-radar-concept':{author:'綠豆',repo:'greenQQQ/bidding-radar-concept',sha:'a02db6cb6ef754bff3622e88eb10167cf772ca72',title:'領標雷達：標案與補助設計',reading:'README.md',evidence:['README.md','實作指南.md','LICENSE'],guilds:['guild_opportunity_partnership']},
-  'aiwff-runtime':{author:'隊長',repo:'zaxardery8011-design/aiwff-runtime',sha:'94b94abf6d0656de0a5998da4c4141d2e9971a7c',title:'小主腦：本機 AI 任務系統',reading:'README.zh-TW.md',evidence:['README.zh-TW.md','AGENTS.md','LICENSE'],guilds:['guild_ai_vibe','guild_ai_field']},
-  'n8n-marketing-flows':{author:'Yuri',repo:'YuriCrystal/n8n-marketing-flows',sha:'46c8e2535430ebe1e9bb4d8b6b335465c4702ffb',title:'n8n 行銷自動化模板',reading:'README.md',evidence:['README.md','LICENSE'],guilds:['guild_marketing']},
-  'anti-gambling-trader-tw':{author:'阿軒哥哥（阿軒割割）',repo:'mars-tw/anti-gambling-trader-tw',sha:'9d938b64c80ee29363aed496ba4e61d9110a7222',title:'反詐投資王：交易統計與驗證',reading:'README.md',evidence:['README.md','docs/user-guide.md','LICENSE'],guilds:[]},
-  'web-card-game-skill':{author:'阿軒哥哥（阿軒割割）',repo:'mars-tw/web-card-game-skill',sha:'d690b88ea23333d53d9126c51127ded6b24b4927',title:'裂潮卡牌：網頁卡牌遊戲 Skill',reading:'README.md',evidence:['README.md','SKILL.md','LICENSE'],guilds:[]},
-  'ai-avatar-bot':{author:'Yuri',repo:'YuriCrystal/ai-avatar-bot',sha:'d9276a227ea342eebfb9967f9245256406de7d23',title:'會說話的網站虛擬人',reading:'README.md',evidence:['README.md','LICENSE'],guilds:[]},
-  'ai-manga-translator':{author:'綠豆',repo:'greenQQQ/ai-manga-translator',sha:'964734a9366b872b4c7ac2069be72124eb3d332e',title:'AI 漫畫圖片翻譯',reading:'README.md',evidence:['README.md','LICENSE'],guilds:[]},
-  'line-persona':{author:'隊長',repo:'zaxardery8011-design/line-persona',sha:'d07131c9cb45f9037d272a176d7ce788542884f7',title:'LINE 影分身',reading:'README.md',evidence:['README.md','AGENTS.md','LICENSE'],guilds:[]},
+  'bidding-radar-concept':{author:'綠豆',repo:'greenQQQ/bidding-radar-concept',sha:'a02db6cb6ef754bff3622e88eb10167cf772ca72',title:'領標雷達：標案與補助設計',reading:'README.md',evidence:['README.md','實作指南.md','LICENSE'],guilds:['guild_opportunity_partnership'],license:'MIT',reviewed:'2026-09-24'},
+  'aiwff-runtime':{author:'隊長',repo:'zaxardery8011-design/aiwff-runtime',sha:'94b94abf6d0656de0a5998da4c4141d2e9971a7c',title:'小主腦：本機 AI 任務系統',reading:'README.zh-TW.md',evidence:['README.zh-TW.md','AGENTS.md','LICENSE'],guilds:['guild_ai_vibe','guild_ai_field'],license:'MIT',reviewed:'2026-09-30'},
+  'n8n-marketing-flows':{author:'Yuri',repo:'YuriCrystal/n8n-marketing-flows',sha:'46c8e2535430ebe1e9bb4d8b6b335465c4702ffb',title:'n8n 行銷自動化模板',reading:'README.md',evidence:['README.md','LICENSE'],guilds:['guild_marketing'],license:'MIT',reviewed:'2026-09-24'},
+  'anti-gambling-trader-tw':{author:'阿軒哥哥（阿軒割割）',repo:'mars-tw/anti-gambling-trader-tw',sha:'9d938b64c80ee29363aed496ba4e61d9110a7222',title:'反詐投資王：交易統計與驗證',reading:'README.md',evidence:['README.md','docs/user-guide.md','LICENSE'],guilds:[],license:'MIT',reviewed:'2026-09-24'},
+  'web-card-game-skill':{author:'阿軒哥哥（阿軒割割）',repo:'mars-tw/web-card-game-skill',sha:'d690b88ea23333d53d9126c51127ded6b24b4927',title:'裂潮卡牌：網頁卡牌遊戲 Skill',reading:'README.md',evidence:['README.md','SKILL.md','LICENSE'],guilds:[],license:'MIT',reviewed:'2026-09-24'},
+  'ai-avatar-bot':{author:'Yuri',repo:'YuriCrystal/ai-avatar-bot',sha:'d9276a227ea342eebfb9967f9245256406de7d23',title:'會說話的網站虛擬人',reading:'README.md',evidence:['README.md','LICENSE'],guilds:[],license:'MIT',reviewed:'2026-09-24'},
+  'ai-manga-translator':{author:'綠豆',repo:'greenQQQ/ai-manga-translator',sha:'964734a9366b872b4c7ac2069be72124eb3d332e',title:'AI 漫畫圖片翻譯',reading:'README.md',evidence:['README.md','LICENSE'],guilds:[],license:'MIT',reviewed:'2026-09-24'},
+  'line-persona':{author:'隊長',repo:'zaxardery8011-design/line-persona',sha:'d07131c9cb45f9037d272a176d7ce788542884f7',title:'LINE 影分身',reading:'README.md',evidence:['README.md','AGENTS.md','LICENSE'],guilds:[],license:'MIT',reviewed:'2026-09-30'},
+  'video-to-podcast-toolkit':{author:'jasonlee(J太郎)',repo:'Lee-unhn/video-to-podcast-toolkit',sha:'2ea2f0e6f11533ec08cff4d9db3a46859ec7ed4f',title:'自動 Podcast 剪輯：訪談影片轉上架素材',reading:'README.md',evidence:['README.md','快速上手.md','NOTICE.md','LICENSE'],guilds:[],license:'MIT',reviewed:'2026-10-01'},
+  'autovtuber':{author:'jasonlee(J太郎)',repo:'Lee-unhn/AutoVtuber',sha:'1c4d045d5bf602561953adfe914e033364131600',title:'AutoVtuber：表單生成 VTuber 模型',reading:'README.md',evidence:['README.md','docs/RELEASE_READINESS.md','docs/LICENSES.md','docs/AUTHORIZED_BASE_IMPORT.md'],guilds:[],license:'NOASSERTION',reviewed:'2026-10-01'},
+  'coding-audit-harness':{author:'小艾老師',repo:'weiwei-alvin/Coding-Audit-Harness',sha:'c4526624f65530c009c57b9add233b1060fa01df',title:'Coding Audit Harness：AI 寫的程式，驗過才算數',reading:'README.md',evidence:['README.md','LICENSE','skills/matt-upstream/UPSTREAM.md'],guilds:[],license:'MIT',reviewed:'2026-10-01'},
 } satisfies Record<string,AuthorSource>;
 type Id=keyof typeof communityAuthorSources;
 type Details=Omit<SkillBookGuide,'author_name'|'reading_url'|'source_commit'|'reviewed_at'|'source_evidence'|'contribution_url'>;
@@ -106,13 +110,46 @@ const details:Record<Id,Details>={
     contribution:'回饋知識整理、回覆邊界或 webhook 錯誤處理；只附合成對話，保留隊長原作署名與憑證的私人設定。',
     beginner:{category:'定位與社群',purpose:'把個人介紹與常見問題交給住在 LINE 裡的分身回答。',for_whom:'希望用自己的資料做 LINE 接待工具的人。',make:'一個已測試問答與停止方式的 LINE bot。',workshop_use:'在社群經營及 AI 導入與驗證公會交流接待情境與回覆品質。',next_step:'先讀 AGENTS.md，用合成 FAQ 確認流程後再放入本人願意分享的資料。'},
   },
+  'video-to-podcast-toolkit':{
+    format:'本機 Podcast 素材產生工具',summary:'把一支訪談影片在本機轉成 Podcast 音檔、三種海報、直式短影音、文案與字幕。',
+    audience:['經營訪談節目或 Podcast 的內容工作者','想研究影音自動化流程的開發者'],
+    status:'MIT 授權只涵蓋原始碼；品牌素材、字型、來賓照片與第三方工具依 NOTICE.md 各自授權，repo 不附。轉錄在本機以 Whisper 執行，標題、金句、文案與字幕校對會把文字送到 Google Gemini API，免費額度有限，付費等級另計。首次需下載約 3 GB 模型；原作記錄 30 分鐘影片以 CPU 處理約需 50 分鐘。音檔預設不足 30 分鐘會自動補長，可調整 min_duration_sec。Windows .exe 打包仍待在 Windows 上完成。',
+    features:['Whisper 本機轉錄，加上可在設定頁維護的中文錯字字典與繁體 SRT 字幕','產出套用響度正規化的 m4a、橫式／直式／方形三種海報，以及燒入字幕的直式短影音','設定頁調整節目品牌字、降噪、短影音規格與錯字字典，不必改程式'],
+    prerequisites:['Python 3.11 以上，以及含 libass 的 ffmpeg 8 以上','自己申請的 Gemini API key，只在本機設定頁私下填寫，不放進 repo 或對話','已取得來賓同意的訪談影片，以及自備、有權使用的品牌字型與素材'],
+    first_steps:['依 README 以 scripts/setup_env.sh 與 scripts/serve.sh（Windows 用 啟動.bat）啟動本機 Web UI，首次會下載約 3 GB 的 Whisper 模型。','在設定頁私下填自己的 Gemini key 與節目品牌字；音檔預設補長到 30 分鐘，測試前依需要調整 min_duration_sec。','上傳一支約 5 分鐘、已取得來賓同意的影片，逐一核對音檔、字幕錯字、海報文字與短影音段落，把需修正的詞加進錯字字典。'],
+    first_result:'一集由 5 分鐘測試影片產生、經人工核對的音檔、海報、短影音與字幕素材包。',
+    contribution:'向 jasonlee(J太郎) 的原作回饋錯字字典範例、故障排除或跨平台啟動問題；附去識別的重現步驟，不上傳來賓影像、品牌素材或 API key。',
+    beginner:{category:'內容與行銷',purpose:'把一支訪談影片整理成 Podcast 上架需要的音檔、圖片、短影音與文字。',for_whom:'想讓訪談節目一次產出多平台素材的內容工作者。',make:'一集經人工核對的 Podcast 素材包。',workshop_use:'在影音自動化公會交流轉錄、剪輯與素材品質，在行銷公會討論發布文案。',next_step:'先用 5 分鐘、已取得同意的測試影片跑完整流程，再處理正式節目。'},
+  },
+  'autovtuber':{
+    format:'本機 VTuber 模型生成工作站',summary:'填寫角色表單，在本機依序產生概念圖、3D 臉型與可載入 VSeeFace 的 VRM 模型。',
+    audience:['想做自己 VTuber 角色的創作者','研究本機生成式 3D 流程的開發者'],
+    status:'Beta 階段。Repo 沒有 LICENSE 檔；README 標示 MIT，但原作發佈文件記載程式授權仍待作者決定，因此收錄為 NOASSERTION，重用或散布前先向作者確認。Repo 不附可用於產品的 VRM 底模：VRoid AvatarSample 條款禁止用於角色建立服務，預設會阻擋生成，需自備或另行取得授權的 VRM 0.x 底模。需 NVIDIA GPU（原作測試機為 RTX 3060 12GB）與多個本機模型，各模型授權另計；Windows 打包與 VSeeFace／Warudo 實機驗收尚未完成。',
+    features:['PySide6 表單輸入髮色、眼色、個性、風格與暱稱，依序串接 Ollama、SDXL、TripoSR 與 VRM 組裝','輸出含 ARKit 52 表情的 VRM 0.x 模型，以及概念圖、角色人設、對話設定與聲音預覽','HardwareGuard 監控 VRAM、溫度與記憶體，一次只載入一個模型，超過門檻即中止'],
+    prerequisites:['建議 Windows 電腦與 NVIDIA GPU（原作以 RTX 3060 12GB、16GB RAM 測試），Python 3.12','自己擁有或另行取得授權的 VRM 0.x 底模，依 docs/AUTHORIZED_BASE_IMPORT.md 在本機註冊','閱讀 docs/LICENSES.md，確認 SDXL、AnimagineXL 等模型權重的授權與標示要求'],
+    first_steps:['先讀 docs/RELEASE_READINESS.md 與 docs/LICENSES.md，確認目前限制與各模型授權。','依 README 安裝依賴，複製 config.example.toml 並填入模型路徑，核對 GPU 與磁碟空間。','備妥可用的 VRM 0.x 底模並在本機註冊後，填一份測試角色表單，把輸出的 .vrm 載入 VSeeFace 檢查。'],
+    first_result:'一份記錄硬體、模型路徑、底模授權與試跑輸出的環境檢查紀錄。',
+    contribution:'向 jasonlee(J太郎) 的原作回饋 Windows 實機驗收、底模準備說明或安裝問題；附硬體與設定紀錄，不散布未授權的底模、模型權重或其衍生輸出。',
+    beginner:{category:'作品與開源',purpose:'用一張角色表單，在自己的電腦產生可直播使用的 VTuber 模型。',for_whom:'想做自己的 VTuber 角色，或研究本機 3D 生成流程的人。',make:'一份環境與授權檢查紀錄，備妥底模後再產出第一個 VRM。',workshop_use:'在 AI 開發公會交流本機模型流程，在影音自動化公會討論直播素材與驗收。',next_step:'先確認授權與硬體，備妥合法底模再開始生成。'},
+  },
+  'coding-audit-harness':{
+    format:'AI 開發驗收框架與稽核技能',summary:'讓 AI 寫完的程式附上可重跑的驗收收據，經人工關卡核准才算完成。',
+    audience:['用 coding agent 開發的人','想把 AI 開發流程導入團隊驗收的工程師'],
+    status:'MIT 開源；skills/matt-upstream 原樣收錄 Matt Pocock 的 MIT 技能。不是沙箱：同一個使用者仍能修改 state、測試與收據，雜湊只檢查新鮮度，不是簽章；不呼叫 LLM、沒有 Web UI 或排程器，也不判斷程式品質。Runner 從 TICKETS 階段開始強制，DISCOVERY 與 SPEC 只靠 agent 自律。--trust-commands 會以目前使用者權限執行專案指令，不可信的 repo 先放進隔離環境；範例指令以 PowerShell 撰寫。',
+    features:['5 個稽核技能接在 Matt Pocock 的需求訪談、規格、工單、實作與審查技能之後','Runner 親自重跑 Golden Path 驗收指令，收據綁定程式碼指紋、驗證編號與審查輪次','TICKETS 關卡與暫停決策只由人下指令；最後一張工單完成前，Runner 重跑全部驗收'],
+    prerequisites:['Python 3.12 與 requirements.txt 的 jsonschema','一個練習用的目標專案，把 harness/ 複製進去；已有 .harness/ 時先備份','願意親自寫驗收指令並下 Gate 的操作者；驗收指令失敗時必須回傳非 0'],
+    first_steps:['照 README 快速上手，在練習專案寫 SPEC.md 的 US-001、工單 T-001、golden_path.json 與 check_calc.py。','執行 init 與 set-ready-for-gate，親自看過工單與驗收後再下 gate-verdict PASS。','實作後跑 verify-ticket --trust-commands 與 mark-ticket-ready-for-review，把收據的綁定欄位抄進 handoff 與 review，再以 review-verdict 完成工單並用 status.py 查看。'],
+    first_result:'一個練習專案中，附驗收收據並由本人核准完成的工單紀錄。',
+    contribution:'向小艾老師的原作回饋 POSIX shell 範例、文件或測試案例；skills/matt-upstream 為原樣收錄，修改上游技能應回 mattpocock/skills 提案。',
+    beginner:{category:'作品與開源',purpose:'讓 AI 寫的程式必須附上可重跑的驗收證據，並由人核准才算完成。',for_whom:'用 coding agent 寫程式，想確認「測試通過」真的有憑據的人。',make:'一張附驗收收據、經本人核准完成的練習工單。',workshop_use:'在 AI 開發及 AI 導入與驗證公會交流驗收規則與審查流程。',next_step:'先在練習專案照快速上手跑完 add(2, 3) 範例。'},
+  },
 };
 export const communityAuthorGuides:Record<string,SkillBookGuide>=Object.fromEntries(Object.entries(communityAuthorSources).map(([id,source])=>[id,{
   ...details[id as Id],author_name:source.author,reading_url:`https://github.com/${source.repo}/blob/${source.sha}/${source.reading}`,
-  source_commit:source.sha,reviewed_at:['aiwff-runtime','line-persona'].includes(id)?'2026-09-30':'2026-09-24',contribution_url:`https://github.com/${source.repo}/issues`,
+  source_commit:source.sha,reviewed_at:source.reviewed,contribution_url:`https://github.com/${source.repo}/issues`,
   source_evidence:source.evidence.map(path=>({path,url:`https://github.com/${source.repo}/blob/${source.sha}/${path}`})),
 }]));
 export const communityAuthorBooks:SkillBook[]=Object.entries(communityAuthorSources).map(([id,source])=>({
-  id,title:source.title,description:details[id as Id].summary,kind:'reference',license_status:'MIT',
+  id,title:source.title,description:details[id as Id].summary,kind:'reference',license_status:source.license,
   repository_url:`https://github.com/${source.repo}`,upstream_url:`https://github.com/${source.repo}`,fork_url:`https://github.com/${source.repo}/fork`,source_commit:source.sha,introduction_url:null,
 }));

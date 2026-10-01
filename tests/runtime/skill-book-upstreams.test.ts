@@ -4,7 +4,7 @@ import {communityCatalog} from '../../modules/community/catalog.js';
 import {checkSkillBookUpstreams,formatSkillBookUpstreamReport,validateSkillBookPin} from '../../scripts/check-skill-book-upstreams.js';
 
 test('all official books have internally consistent commit-pinned reading and evidence links',()=>{
-  assert.equal(communityCatalog.skill_books.length,37);
+  assert.equal(communityCatalog.skill_books.length,40);
   for(const book of communityCatalog.skill_books)validateSkillBookPin(book);
 });
 
