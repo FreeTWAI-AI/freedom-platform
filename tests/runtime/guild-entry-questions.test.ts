@@ -1,12 +1,15 @@
 import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {readFileSync} from 'node:fs';
 import {Pool} from 'pg';
 import {createPool,LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
 import {seedLocal} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {adminMembers,type AdminActor} from '../../modules/platform-admin/service.js';
+import {authenticate} from '../../modules/identity-membership/service.js';
+import {guildDirectory} from '../../modules/positioning/onboarding.js';
 import {BUILTIN_GUILD_QUESTION_KEYS,GUILD_ANSWERS_INVALID,GUILD_ENTRY_QUESTIONS_VERSION,entryQuestionsForGuild,sampleGuildAnswers} from '../../modules/positioning/guild-questions.js';
 
 const database=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL,schema=`fp_guildq_${process.pid}_${Date.now()}`,adminPool=createPool(database),pool=new Pool({connectionString:database,options:`-c search_path=${schema}`,max:8});
@@ -36,6 +39,12 @@ async function joinedCount(userId:string){
   return {memberships,answers,completed};
 }
 function lengthOf(value:string){return [...value].length;}
+function verifierDirectoryFields(){
+  const source=readFileSync(new URL('../../scripts/verify-public.mjs',import.meta.url),'utf8');
+  const listed=source.match(/const GUILD_DIRECTORY_FIELDS=Object\.freeze\(\[([^\]]*)\]\)/);
+  assert.ok(listed,'GUILD_DIRECTORY_FIELDS freeze list');
+  return [...listed[1].matchAll(/'([a-z0-9_]+)'/g)].map(item=>item[1]);
+}
 
 test('every catalog guild has a bounded question set and custom guilds share the fallback',async()=>{
   const catalog=(await pool.query(`SELECT guild_key FROM positioning_guild_catalog WHERE guild_key NOT LIKE 'guild_custom_%' ORDER BY guild_key`)).rows.map(row=>row.guild_key as string);
@@ -63,7 +72,36 @@ test('every catalog guild has a bounded question set and custom guilds share the
   const customA=`guild_custom_${'a'.repeat(32)}`,customB=`guild_custom_${'b'.repeat(32)}`,named='guild_custom_test_music';
   for(const key of [customA,customB,named])assert.equal(entryQuestionsForGuild(key).questions.length,3);
   assert.notEqual(entryQuestionsForGuild(customA).sha256,entryQuestionsForGuild(customB).sha256);
-  assert.throws(()=>entryQuestionsForGuild('guild_not_in_catalog'),/guild questions missing/);
+  const unknown=entryQuestionsForGuild('guild_not_in_catalog');
+  assert.equal(unknown.questions.length,3);
+  assert.equal(unknown.version,GUILD_ENTRY_QUESTIONS_VERSION);
+  assert.match(unknown.sha256,/^[a-f0-9]{64}$/);
+  assert.deepEqual(unknown.questions.map(question=>question.id),entryQuestionsForGuild(customA).questions.map(question=>question.id));
+  assert.notEqual(unknown.sha256,entryQuestionsForGuild(customA).sha256);
+});
+
+test('an unexpected catalog guild still appears in the directory with the fallback questions',async()=>{
+  const session=await register('意外公會');
+  await pool.query(`INSERT INTO positioning_guild_catalog(guild_key,profession_key,name,purpose,first_step,module_key) VALUES($1,$2,$3,$4,$5,$6)`,['guild_surprise','surprise_probe','意外出現的公會','一個不在題庫裡的主題','先讀說明','opensource']);
+  try{
+    const actor=await authenticate(pool,session.cookie.split('=')[1]);
+    const items=await guildDirectory(pool,actor);
+    const surprise=items.find(item=>item.guild_key==='guild_surprise');
+    assert.ok(surprise);
+    assert.equal(surprise.entry_questions.questions.length,3);
+    assert.deepEqual(surprise.entry_questions.questions.map((question:{id:string})=>question.id),['familiarity','intent','weekly_time']);
+    assert.equal(surprise.entry_questions.sha256,entryQuestionsForGuild('guild_surprise').sha256);
+    const expected=verifierDirectoryFields();
+    assert.deepEqual(expected,[...expected].sort());
+    assert.ok(expected.includes('entry_questions')&&expected.includes('tags'));
+    for(const item of items)assert.deepEqual(Object.keys(item).sort(),expected,item.guild_key);
+    const http=await request('/guilds/directory',session);
+    assert.equal(http.status,200,JSON.stringify(http.data));
+    assert.ok(http.data.items.some((item:any)=>item.guild_key==='guild_surprise'));
+    for(const item of http.data.items)assert.deepEqual(Object.keys(item).sort(),expected,item.guild_key);
+  }finally{
+    await pool.query(`DELETE FROM positioning_guild_catalog WHERE guild_key='guild_surprise'`);
+  }
 });
 
 test('quick start rejects missing, extra and invalid answers before anything is joined',async()=>{

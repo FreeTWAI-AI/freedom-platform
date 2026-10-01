@@ -49,8 +49,8 @@ const fallback:GuildQuestion[]=[
 export const BUILTIN_GUILD_QUESTION_KEYS=Object.keys(builtIn);
 
 export function entryQuestionsForGuild(guildKey:string):GuildQuestionSet{
-  const questions=builtIn[guildKey]??(guildKey.startsWith('guild_custom_')?fallback:undefined);
-  if(!questions)throw new Error(`guild questions missing: ${guildKey}`);
+  // An unexpected catalog row must not take down the whole directory.
+  const questions=builtIn[guildKey]??fallback;
   return {version:GUILD_ENTRY_QUESTIONS_VERSION,sha256:digest({version:GUILD_ENTRY_QUESTIONS_VERSION,guild_key:guildKey,questions}),questions};
 }
 export function sampleGuildAnswers(guildKey:string):Record<string,string>{

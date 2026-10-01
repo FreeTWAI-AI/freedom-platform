@@ -95,6 +95,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
           <p className="home-member-name">{nickname}{member?.positioning_title && <span className="positioning-title">{member.positioning_title}</span>}</p>
           {member ? <p className="home-member-guild">{member.primary_guild ? `主要公會 · ${member.primary_guild.name}` : '尚未設定主要公會'}</p>
             : loading && <p className="home-member-guild" role="status">正在載入名片…</p>}
+          {showAssessment && <p className="home-assessment-hint">完成定位後，名片會顯示擅長能力，也更容易遇到合適的夥伴。</p>}
         </div>
       </div>
       {featured.length > 0 && <div className="member-featured home-member-skills" aria-label="擅長的能力">
@@ -103,7 +104,6 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       <div className="home-member-actions">
         <button type="button" className="btn btn-ghost" onClick={() => onNavigate?.('account')}>編輯我的名片</button>
         {showAssessment && <button type="button" className="btn btn-ghost" onClick={() => onNavigate?.('positioning')}>補做定位測驗</button>}
-        {showAssessment && <p className="field-hint home-assessment-hint">完成定位後，名片會顯示擅長能力，也更容易遇到合適的夥伴。</p>}
       </div>
     </section>
     {loadError && <div ref={alertRef} role="alert" className="banner banner-error">

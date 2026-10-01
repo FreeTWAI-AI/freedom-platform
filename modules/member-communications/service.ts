@@ -42,7 +42,7 @@ async function currentMember(q:PoolClient,actor:Actor,session:boolean){
   requireCondition(user,401,'session_expired','請重新登入。');
   if(session)requireCondition((await q.query('SELECT 1 FROM sessions WHERE token_hash=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at>now() FOR SHARE',
     [actor.session_hash,actor.user_id])).rowCount===1,401,'session_expired','請重新登入。');
-  requireCondition(user.ready,403,'onboarding_required','請先完成定位並選擇主要公會。');
+  requireCondition(user.ready,403,'onboarding_required','請先選擇主要公會，完成加入後即可使用會員功能。');
 }
 const SNAPSHOT_ATTEMPTS=3;
 /**

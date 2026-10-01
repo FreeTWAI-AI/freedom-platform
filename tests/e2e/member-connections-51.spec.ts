@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
 import {test,expect,type Page} from './fixtures.js';
 import {navigate} from './navigation.js';
+import {quickJoin} from './quick-join.js';
 import {DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 mkdirSync('test-results',{recursive:true});
 const themes=[['自由工坊－明亮','light'],['自由工坊－夜航','dark'],['自由工坊－敘生','versefolk']] as const;
@@ -19,9 +20,43 @@ async function account(page:Page,name:string){
   return email;
 }
 async function joinGuild(page:Page){
-  await page.locator('.quick-start input[value="guild_ai_vibe"]').check();
-  await page.getByRole('button',{name:'加入公會，開始參與',exact:true}).click();
+  await quickJoin(page);
   await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
+}
+async function hintContrast(page:Page){
+  return page.locator('.home-assessment-hint').evaluate(element=>{
+    const style=getComputedStyle(element);
+    const channel=(value:number)=>value<=0.03928?value/12.92:((value+0.055)/1.055)**2.4;
+    const parts=(color:string)=>color.match(/[\d.]+/g)!.map(Number);
+    const lum=(color:string)=>{const [r,g,b]=parts(color).slice(0,3).map(part=>channel(part/255));return 0.2126*r+0.7152*g+0.0722*b;};
+    const background=style.backgroundColor,backgroundParts=parts(background);
+    const foreground=lum(style.color),surface=lum(background);
+    const guild=document.querySelector('.home-member-guild');
+    return {
+      ratio:(Math.max(foreground,surface)+0.05)/(Math.min(foreground,surface)+0.05),
+      alpha:backgroundParts.length>3?backgroundParts[3]:1,
+      fontSize:parseFloat(style.fontSize),
+      inIdentity:Boolean(element.closest('.home-member-identity')),
+      inActions:Boolean(element.closest('.home-member-actions')),
+      inNext:Boolean(element.closest('.home-next-step')),
+      belowGuild:guild?element.getBoundingClientRect().top>guild.getBoundingClientRect().top:false,
+    };
+  });
+}
+async function shareControlWidths(page:Page,full:boolean){
+  const settings=page.getByRole('region',{name:'分享我的工坊名片'});
+  const metrics=await settings.evaluate(section=>{
+    const style=getComputedStyle(section);
+    const content=section.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);
+    return [...section.querySelectorAll<HTMLElement>(':scope > .btn, :scope .actions :is(.btn, a.btn)')].map(element=>({
+      name:(element.textContent??'').trim(),width:element.getBoundingClientRect().width,content,
+    }));
+  });
+  expect(metrics.length).toBeGreaterThan(0);
+  for(const item of metrics){
+    if(full)expect(item.width,item.name).toBeGreaterThan(item.content-2);
+    else expect(item.width,`${item.name} ${item.width} of ${item.content}`).toBeLessThan(item.content-24);
+  }
 }
 async function noOverflow(page:Page,label:string){
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),label).toBe(true);
@@ -65,6 +100,10 @@ test('guild applications show review progress, focus the result and stay readabl
     await expect(banner).toHaveText(`謝謝你的申請！「${requested}」已送出，正在審核中。審核結果會通知你，也可以在下方「我的公會申請」查看進度。`);
     await expect(page.locator('#guild-application')).toHaveCount(0);
     await expect(page.getByRole('button',{name:'申請創建公會',exact:true})).toHaveAttribute('aria-expanded','false');
+    await page.getByRole('button',{name:'申請創建公會',exact:true}).click();
+    await expect(page.getByRole('status').filter({hasText:'謝謝你的申請'})).toHaveCount(0);
+    await expect(page.locator('#guild-application')).toBeVisible();
+    await page.getByRole('button',{name:'收起創建申請',exact:true}).click();
     const pending=page.locator('.guild-application-item',{hasText:requested});
     await expect(pending.locator('.guild-application-status')).toHaveText('待審核');
     await expect(pending).toContainText('管理員審核後會通知你。');
@@ -136,6 +175,25 @@ test('guild applications show review progress, focus the result and stay readabl
     await expect(page.getByLabel('希望成立的公會名稱')).toHaveValue('');
     await expect(page.getByLabel('專業／職業領域')).toHaveValue('');
     await expect(page.getByLabel('為什麼想成立？希望一起做什麼？')).toHaveValue('');
+    await page.getByLabel('希望成立的公會名稱').fill('第二件田野公會');
+    await page.getByLabel('專業／職業領域').fill('田野調查');
+    await page.getByLabel('為什麼想成立？希望一起做什麼？').fill('希望一起整理可以重用的田野觀察方法。');
+    await page.getByRole('button',{name:'送出創建公會申請',exact:true}).click();
+    await expect(page.getByRole('status').filter({hasText:'謝謝你的申請'})).toBeVisible();
+    await declined.getByRole('button',{name:'修改後重新申請',exact:true}).click();
+    await expect(page.getByRole('status').filter({hasText:'謝謝你的申請'})).toHaveCount(0);
+    await expect(page.getByLabel('希望成立的公會名稱')).toHaveValue('需要調整的公會');
+    await page.getByRole('button',{name:'收起創建申請',exact:true}).click();
+    await page.getByRole('button',{name:'申請創建公會',exact:true}).click();
+    await page.getByLabel('希望成立的公會名稱').fill('第三件田野公會');
+    await page.getByLabel('專業／職業領域').fill('田野調查');
+    await page.getByLabel('為什麼想成立？希望一起做什麼？').fill('希望一起整理可以重用的田野觀察方法。');
+    await page.getByRole('button',{name:'送出創建公會申請',exact:true}).click();
+    await expect(page.getByRole('status').filter({hasText:'謝謝你的申請'})).toBeVisible();
+    await search.fill('');
+    await page.getByRole('button',{name:'加入音樂創作與MV公會',exact:true}).click();
+    await expect(page.getByRole('status').filter({hasText:'已加入音樂創作與MV公會'})).toBeVisible();
+    await expect(page.getByRole('status').filter({hasText:'謝謝你的申請'})).toHaveCount(0);
   }finally{
     await e2eAuthPool.query('DELETE FROM guild_creation_applications WHERE user_id=$1',[userId]);
   }
@@ -146,7 +204,7 @@ test('welcome keeps one primary action and selected filters stay distinct in eve
   await account(page,name);
   await page.setViewportSize({width:1280,height:900});
   await expect(page.locator('.welcome-preview .btn-primary')).toHaveCount(1);
-  await expect(page.locator('.welcome-preview .btn-primary')).toHaveText('加入公會，開始參與');
+  await expect(page.locator('.welcome-preview .btn-primary')).toHaveText('下一步：回答小問題');
   const hero=page.getByRole('button',{name:'開始／繼續定位 →',exact:true});
   await expect(hero).toHaveClass(/btn-ghost/);await expect(hero).not.toHaveClass(/btn-primary/);
   await page.screenshot({path:'test-results/mc51-welcome-1280.png',fullPage:true});
@@ -159,12 +217,33 @@ test('welcome keeps one primary action and selected filters stay distinct in eve
   await page.screenshot({path:'test-results/mc51-welcome-390.png',fullPage:true});
   await page.setViewportSize({width:1280,height:900});
   await joinGuild(page);
-  await expect(page.getByRole('button',{name:'補做定位測驗',exact:true})).toBeVisible();
+  await shellTheme(page,'自由工坊－明亮','light');
+  await expect(page.getByRole('button',{name:'補做定位測驗',exact:true})).toHaveClass(/btn-ghost/);
+  await expect(page.getByRole('button',{name:'編輯我的名片',exact:true})).toBeVisible();
   await expect(page.getByText('完成定位後，名片會顯示擅長能力，也更容易遇到合適的夥伴。',{exact:true})).toBeVisible();
   await page.screenshot({path:'test-results/mc51-home-cta-1280.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
   await noOverflow(page,'390 home cta');
   await page.screenshot({path:'test-results/mc51-home-cta-390.png',fullPage:true});
+  for(const [label,theme] of themes){
+    await shellTheme(page,label,theme);
+    for(const width of widths){
+      await page.setViewportSize({width,height:width===390?844:900});
+      await noOverflow(page,`${theme} ${width} home hint`);
+      const paint=await hintContrast(page);
+      expect(paint.ratio,`${theme} ${width}`).toBeGreaterThanOrEqual(4.5);
+      expect(paint.alpha,`${theme} ${width}`).toBe(1);
+      expect(paint.fontSize,`${theme} ${width}`).toBeGreaterThanOrEqual(14);
+      expect(paint.inIdentity,`${theme} ${width}`).toBe(true);
+      expect(paint.inActions,`${theme} ${width}`).toBe(false);
+      expect(paint.inNext,`${theme} ${width}`).toBe(false);
+      expect(paint.belowGuild,`${theme} ${width}`).toBe(true);
+      const next=page.locator('.home-next-step');
+      await expect(next).toHaveCount(1);
+      await expect(next).toContainText('到技能書架選一本技能書閱讀，開始練習。');
+      await expect(next).not.toContainText('補做定位測驗');
+    }
+  }
   await page.setViewportSize({width:1280,height:900});
   await navigate(page,'我的好友');
   await page.screenshot({path:'test-results/mc51-friends-1280.png',fullPage:true});
@@ -181,7 +260,20 @@ test('welcome keeps one primary action and selected filters stay distinct in eve
   const settings=page.getByRole('region',{name:'分享我的工坊名片'});
   await expect(settings.getByRole('checkbox',{name:'在分享頁顯示我的頭像'})).not.toBeChecked();
   await page.screenshot({path:'test-results/mc51-share-settings-1280.png',fullPage:true});
+  await shareControlWidths(page,false);
+  await page.setViewportSize({width:820,height:900});
+  await shareControlWidths(page,false);
+  await page.setViewportSize({width:390,height:844});
+  await shareControlWidths(page,true);
+  await page.setViewportSize({width:1280,height:900});
   await settings.getByRole('button',{name:'建立分享連結',exact:true}).click();
+  await expect(settings.getByRole('button',{name:'分享名片',exact:true})).toBeVisible();
+  await shareControlWidths(page,false);
+  await page.setViewportSize({width:820,height:900});
+  await shareControlWidths(page,false);
+  await page.setViewportSize({width:390,height:844});
+  await shareControlWidths(page,true);
+  await page.setViewportSize({width:1280,height:900});
   const shareUrl=await settings.getByLabel('名片邀請連結').inputValue();
   const guestContext=await browser.newContext({viewport:{width:1280,height:900}}),guest=await guestContext.newPage();
   try{

@@ -76,22 +76,23 @@ export function GuildsPanel({client,onNavigate}:ModulePanelProps) {
     if(!card)return;
     card.focus();card.scrollIntoView({block:'nearest'});setFocusGuild(null);
   },[focusGuild,loading,guilds,query,scope,topic]);
-  function announce(message:string,guildName=''){setNotice(message);setAnswerGuild(guildName);}
+  function announce(message:string,guildName=''){setApplicationSuccess('');setNotice(message);setAnswerGuild(guildName);}
   async function change(g:GuildSummary){
+    setApplicationSuccess('');
     const joining=g.membership?.state!=='active';setNotice('');setAnswerGuild('');
     const result=await mutate(`/guilds/${g.guild_key}/${joining?'join':'leave'}`,{},g.membership?.aggregate_version);
     if(result){setEditing(false);announce(joining?`已加入${g.name}，技能書已解鎖。`:`已退出${g.name}，已解鎖的技能書保留。`,joining?g.name:'');await load();window.dispatchEvent(new Event('freedom-profile-updated'));}
   }
-  async function primary(g:GuildSummary){const result=await mutate(`/guilds/${g.guild_key}/primary`,{},preferences?.aggregate_version);if(result){setEditing(false);announce(`主要公會已設為${g.name}。`);await load();window.dispatchEvent(new Event('freedom-profile-updated'));}}
-  async function saveSecondary(event:FormEvent){event.preventDefault();const result=await mutate('/me/guild-preferences/secondary',{secondary_guild_keys:secondaryDraft},preferences?.aggregate_version);if(result){setEditing(false);announce('次要公會已儲存。');await load();window.dispatchEvent(new Event('freedom-profile-updated'));}}
+  async function primary(g:GuildSummary){setApplicationSuccess('');const result=await mutate(`/guilds/${g.guild_key}/primary`,{},preferences?.aggregate_version);if(result){setEditing(false);announce(`主要公會已設為${g.name}。`);await load();window.dispatchEvent(new Event('freedom-profile-updated'));}}
+  async function saveSecondary(event:FormEvent){event.preventDefault();setApplicationSuccess('');const result=await mutate('/me/guild-preferences/secondary',{secondary_guild_keys:secondaryDraft},preferences?.aggregate_version);if(result){setEditing(false);announce('次要公會已儲存。');await load();window.dispatchEvent(new Event('freedom-profile-updated'));}}
   async function apply(event:FormEvent<HTMLFormElement>){
-    event.preventDefault();
+    event.preventDefault();setApplicationSuccess('');
     const submitted={name:draft.name.trim(),profession:draft.profession.trim(),reason:draft.reason.trim()};
     const result=await mutate('/guild-applications',submitted);
     if(result){setDraft({name:'',profession:'',reason:''});setShowApply(false);setApplicationSuccess(`謝謝你的申請！「${submitted.name}」已送出，正在審核中。審核結果會通知你，也可以在下方「我的公會申請」查看進度。`);await load();}
   }
-  function openApply(){if(showApply){setShowApply(false);return;}setDraft({name:'',profession:'',reason:''});setShowApply(true);}
-  function revise(application:GuildApplication){setDraft({name:application.name,profession:application.profession,reason:application.reason});setShowApply(true);setFocusDraft(true);}
+  function openApply(){if(showApply){setShowApply(false);return;}setApplicationSuccess('');setDraft({name:'',profession:'',reason:''});setShowApply(true);}
+  function revise(application:GuildApplication){setApplicationSuccess('');setDraft({name:application.name,profession:application.profession,reason:application.reason});setShowApply(true);setFocusDraft(true);}
   function viewGuild(guild:GuildSummary){setScope('all');setTopic('');setQuery(guild.name);setFocusGuild(guild.guild_key);}
   // Preferences are authoritative. Directory flags are only a compatibility
   // fallback; active membership is still required for either featured role.
@@ -112,6 +113,7 @@ export function GuildsPanel({client,onNavigate}:ModulePanelProps) {
   async function toggleSecondary(g:GuildSummary){
     const removing=secondaryKeys.includes(g.guild_key);
     if(!removing&&secondaryKeys.length>=2)return;
+    setApplicationSuccess('');
     const next=removing?secondaryKeys.filter(key=>key!==g.guild_key):[...secondaryKeys,g.guild_key];
     const result=await mutate('/me/guild-preferences/secondary',{secondary_guild_keys:next},preferences?.aggregate_version);
     if(result){setEditing(false);announce(removing?`已取消${g.name}的次要公會。`:`已將${g.name}設為次要公會。`);await load();window.dispatchEvent(new Event('freedom-profile-updated'));}

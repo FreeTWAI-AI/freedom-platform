@@ -4,6 +4,7 @@ import {Pool} from 'pg';
 import sharp from 'sharp';
 import {test,expect,type Browser,type Page} from './fixtures.js';
 import {navigate} from './navigation.js';
+import {quickJoin} from './quick-join.js';
 import {LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {e2eSchema} from '../../packages/testing/e2e-auth-isolation.js';
 import {DEMO_COMMUNITY,DEMO_PASSWORD} from '../../packages/testing/seed.js';
@@ -269,5 +270,43 @@ test('a newly registered member at 320px stays behind the mandatory positioning 
       const response=await page.request.get(`/api/v1${path}`);expect(response.status(),path).toBe(403);expect((await response.json()).code,path).toBe('onboarding_required');
     }
     await noOverflow(page);await shot(page,'gated-320');
+  });
+});
+
+test('a quick-entry member sees an optional positioning to-do',async({browser,baseURL})=>{
+  test.setTimeout(120000);mkdirSync(SHOTS,{recursive:true});
+  await owning(browser,baseURL!,async(db,own,open)=>{
+    const email=`todos-quick-${randomUUID()}@example.test`,nickname=`待辦快速加入 ${randomUUID().slice(0,8)}`;own.emails.push(email);
+    const page=await open({width:1280,height:900});
+    await page.goto('/');
+    await page.getByRole('button',{name:'建立帳號',exact:true}).click();
+    await page.getByLabel('社群顯示名稱',{exact:true}).fill(nickname);
+    await page.getByLabel('電子郵件',{exact:true}).fill(email);
+    await page.getByLabel('密碼',{exact:true}).fill('freedom-workshop-member-2026');
+    await page.getByRole('button',{name:'建立帳號，先逛工坊',exact:true}).click();
+    await expect(page.getByRole('heading',{name:`${nickname}，歡迎來到自由工坊。`})).toBeVisible();
+    await quickJoin(page);
+    await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
+    const row=(await db.query('SELECT user_id FROM users WHERE email=$1',[email])).rows;
+    expect(row).toHaveLength(1);own.users.push(row[0].user_id);
+    const onboarding=await getJson(page,'/me/onboarding');
+    expect(onboarding).toMatchObject({completed:true,entry_mode:'quick',assessment_completed:false});
+    await openTodos(page);
+    await expectStates(page,{onboarding:'todo','primary-guild':'done','skill-book':'done'});
+    const card=task(page,'onboarding');
+    await expect(card.getByRole('heading',{level:3})).toHaveText('補做定位測驗');
+    await expect(card).toContainText('完成定位後，名片會顯示擅長能力，也更容易遇到合適的夥伴。');
+    await expect(cta(page,'onboarding','前往我的定位')).toBeVisible();
+    const groups=page.locator('.member-tasks-group');
+    await expect(groups.nth(1).locator('[data-task="onboarding"]')).toHaveCount(1);
+    await expect(groups.nth(0).locator('[data-task="onboarding"]')).toHaveCount(0);
+    for(const [width,height] of [[1280,900],[820,900],[390,844]] as const){
+      await page.setViewportSize({width,height});
+      await card.scrollIntoViewIfNeeded();
+      await expect(card).toBeVisible();
+      await noOverflow(page);
+    }
+    await page.setViewportSize({width:1280,height:900});
+    await shot(page,'todos-quick-entry');
   });
 });

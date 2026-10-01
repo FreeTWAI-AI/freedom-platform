@@ -82,7 +82,7 @@ export function GameConsoleComposer({client,userId,enabled,channel,visibility}: 
     <p>{channel==='ai'?'AI 工作指令與執行摘要會顯示在這裡。':channel==='guide'?'公告、任務與下一步指引會顯示在這裡。':'頁面錯誤與系統狀態會顯示在這裡。'}</p>
   </div>
 
-  if(!enabled||!client||!userId)return <div className="game-console-action"><p>完成定位並登入後即可發送聊天訊息。</p></div>
+  if(!enabled||!client||!userId)return <div className="game-console-action"><p>登入並選擇主要公會後，即可發送聊天訊息。</p></div>
   if(channel==='all'&&!visibility.world_chat)return <div className="game-console-action game-console-hint"><p>世界聊天已關閉。請在「頻道顯示」中開啟，即可從總頻道發言。</p></div>
 
   const selected=chatChannel==='world_chat'?null:chosen[chatChannel]
