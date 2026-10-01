@@ -5,7 +5,7 @@ import { checkVersion, command, digest, journal, transaction, type Command } fro
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { tokenHash, type Actor } from '../identity-membership/service.js';
 import { authRateLimit } from '../identity-membership/members.js';
-import { importProjectWithinTransaction, type GitHubRead } from '../opensource-marketing/service.js';
+import { importProjectWithinTransaction, projectInput, type GitHubRead } from '../opensource-marketing/service.js';
 import type { NormalizedSubmission } from './payload.js';
 
 export const GRANT_PREFIX = 'fpg_';
@@ -15,7 +15,7 @@ export const MAX_ACTIVE_KEYS = 10;
 export const MAX_ACTIVE_DRAFTS = 30;
 const IDEMPOTENCY = /^[A-Za-z0-9_-]{8,128}$/;
 const MEMBER_READY = 'active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)';
-const SUBMISSION_COLUMNS = `submission_id,status,aggregate_version,payload,project_id,image_bytes IS NOT NULL AS has_image,
+const SUBMISSION_COLUMNS = `submission_id,status,aggregate_version,payload,project_id,image_bytes IS NOT NULL AS has_image,grant_hash IS NULL AS manual,
   LEAST(grant_expires_at,(SELECT k.expires_at FROM skill_upload_keys k WHERE k.key_id=skill_submissions.grant_key_id)) AS grant_expires_at,
   COALESCE(grant_revoked_at,(SELECT k.revoked_at FROM skill_upload_keys k WHERE k.key_id=skill_submissions.grant_key_id)) AS grant_revoked_at,
   grant_consumed_at,created_at,updated_at`;
@@ -27,6 +27,15 @@ const keyInput = z.object({
   expires_in_days: z.number().int().min(1).max(90).default(30),
 }).strict();
 const publishInput = z.object({ consent_to_share: z.literal(true, { message: '公開前需勾選同意分享。' }) }).strict();
+// Browser forms keep the agent protocol (including its 100 introductions) intact.
+// Manual submissions use one share introduction derived only from the author's text.
+const manualInput = projectInput.omit({ consent_to_share: true }).extend({
+  use_notes: projectInput.shape.use_notes.default('請先閱讀原作 README，依其中的安裝步驟開始使用；使用條件與授權以原作文件為準。'),
+});
+function manualPayload(body: z.output<typeof manualInput>) {
+  const introduction = [...`我分享了「${body.title}」：${body.description}`.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, ' ')].slice(0, 200).join('');
+  return { ...body, share_introductions: [introduction] };
+}
 
 type Queryable = Pool | PoolClient;
 type Owner = { user_id: string; community_id: string };
@@ -50,6 +59,7 @@ function submissionView(row: any) {
   return {
     submission_id: row.submission_id, status: row.status, aggregate_version: String(row.aggregate_version),
     payload: row.payload ?? null, project_id: row.project_id ?? null,
+    can_edit: row.status === 'ready_for_review' && Boolean(row.manual),
     public_path: row.status === 'published' ? publicPath(row.submission_id) : null,
     illustration_url: row.has_image ? ownerIllustrationUrl(row.submission_id) : null,
     grant_expires_at: iso(row.grant_expires_at), grant_consumed_at: iso(row.grant_consumed_at), grant_revoked_at: iso(row.grant_revoked_at),
@@ -94,9 +104,40 @@ const grantFor = (origin: string, submission: SkillSubmissionView, token: string
 
 // ---------- Browser (owner session) ----------
 
+export async function createManualSubmission(pool: Pool, input: Command) {
+  const body = manualInput.parse(input.body);
+  await authRateLimit(pool, 'skill-submission-issue', input.actor.user_id, 30, 3600);
+  return command(pool, input, q => requireReadyMember(q, input.actor), async q => {
+    await requireDraftCapacity(q, input.actor);
+    const id = randomUUID();
+    const payload = manualPayload(body);
+    // This browser upload creates no bearer token or upload grant.
+    const row = (await q.query(`INSERT INTO skill_submissions(submission_id,community_id,owner_ref,status,payload,payload_sha256,grant_consumed_at)
+      VALUES($1,$2,$3,'ready_for_review',$4,$5,now()) RETURNING ${SUBMISSION_COLUMNS}`,
+      [id, input.actor.community_id, input.actor.user_id, JSON.stringify(payload), digest(payload)])).rows[0];
+    await journal(q, input.actor, 'skill_submission', id, 1, 'save_manual_draft', { source: 'browser_form', payload_sha256: digest(payload) });
+    return submissionView(row);
+  });
+}
+
 export async function listSubmissions(pool: Pool, actor: Actor) {
   return (await pool.query(`SELECT ${SUBMISSION_COLUMNS} FROM skill_submissions WHERE community_id=$1 AND owner_ref=$2
     ORDER BY created_at DESC,submission_id LIMIT 100`, [actor.community_id, actor.user_id])).rows.map(submissionView);
+}
+export async function reviseManualSubmission(pool: Pool, input: Command, id: string) {
+  const body = manualInput.parse(input.body);
+  id = uuidOrNotFound(id);
+  await authRateLimit(pool, 'skill-submission-edit', input.actor.user_id, 30, 3600);
+  return command(pool, input, async q => { await requireReadyMember(q, input.actor); await ownedSubmission(q, input.actor, id); }, async q => {
+    const current = await ownedSubmission(q, input.actor, id, true);
+    checkVersion(current.aggregate_version, input.expected);
+    requireCondition(current.status === 'ready_for_review' && current.manual, 409, 'draft_not_editable', '只能修改尚未公開的手動投稿；Agent 草稿請用原有上傳工具管理。');
+    const payload = manualPayload(body);
+    const row = (await q.query(`UPDATE skill_submissions SET payload=$2,payload_sha256=$3,aggregate_version=aggregate_version+1,updated_at=now()
+      WHERE submission_id=$1 RETURNING ${SUBMISSION_COLUMNS}`, [id, JSON.stringify(payload), digest(payload)])).rows[0];
+    await journal(q, input.actor, 'skill_submission', id, row.aggregate_version, 'revise_manual_draft', { payload_sha256: digest(payload) });
+    return submissionView(row);
+  });
 }
 export async function readSubmission(pool: Pool, actor: Actor, id: string) {
   return submissionView(await ownedSubmission(pool, actor, uuidOrNotFound(id)));

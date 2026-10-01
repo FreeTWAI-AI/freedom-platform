@@ -67,6 +67,46 @@ async function uploaded(session:Session,extra:Record<string,unknown>={}){
  const r=await agent(`/skill-submissions/${draft.submission.submission_id}`,draft.upload_grant.token,payload(extra));assert.equal(r.status,200,JSON.stringify(r.data));
  return (await api(`/me/skill-submissions/${draft.submission.submission_id}`,session)).data;
 }
+test('manual form saves a private draft without credentials, then owner publishes the pinned source and one introduction',async t=>{
+ const {seen,sha}=mockGitHub(t),owner=await login(),other=await login(DEMO_USERS[1].email),key=randomUUID();
+ const body={repository_url:'https://github.com/example/project',title:'共同筆記',description:'把會議紀錄整理成筆記。',relationship:'curator'};
+ const saved=await api('/me/skill-submissions/manual',owner,body,undefined,key);
+ assert.equal(saved.status,201,JSON.stringify(saved.data));assert.equal(saved.data.status,'ready_for_review');
+ assert.equal(saved.data.grant_expires_at,null);assert.equal(saved.data.payload.share_introductions.length,1);
+ assert.match(saved.data.payload.use_notes,/README/);assert.equal(saved.data.public_path,null);assert.equal(seen.length,0);
+ assert.deepEqual((await api('/me/skill-submissions/manual',owner,body,undefined,key)).data,saved.data);
+ assert.equal((await api('/me/skill-submissions',owner)).data.items.length,1);
+ assert.deepEqual((await api('/skill-submissions/published')).data.items,[]);
+ const id=saved.data.submission_id;
+ assert.equal(saved.data.can_edit,true);
+ assert.equal((await api(`/me/skill-submissions/${id}/manual`,other,{...body,title:'他人不能修改'},saved.data.aggregate_version)).status,404);
+ const revised=await api(`/me/skill-submissions/${id}/manual`,owner,{...body,title:'修正版共同筆記'},saved.data.aggregate_version);
+ assert.equal(revised.status,200,JSON.stringify(revised.data));assert.equal(revised.data.payload.title,'修正版共同筆記');
+ assert.equal((await api(`/me/skill-submissions/${id}/manual`,owner,body,saved.data.aggregate_version)).status,412);
+ assert.equal((await api(`/me/skill-submissions/${id}`,other)).status,404);
+ assert.equal((await api(`/me/skill-submissions/${id}/publish`,other,{consent_to_share:true},saved.data.aggregate_version)).status,404);
+ assert.equal((await api(`/me/skill-submissions/${id}/publish`,owner,{consent_to_share:false},saved.data.aggregate_version)).status,422);
+ const published=await api(`/me/skill-submissions/${id}/publish`,owner,{consent_to_share:true},revised.data.aggregate_version);
+ assert.equal(published.status,200,JSON.stringify(published.data));assert.equal(seen.length,3);
+ const publicItem=(await api('/skill-submissions/published')).data.items[0];
+ assert.equal(publicItem.source.commit_sha,sha);assert.equal(publicItem.source.license_spdx,'Apache-2.0');
+ assert.equal(publicItem.official,false);assert.equal(publicItem.relationship_verification,'self_declared');
+ assert.equal(publicItem.title,'修正版共同筆記');assert.equal(published.data.can_edit,false);
+ assert.equal((await api(`/me/skill-submissions/${id}/manual`,owner,body,published.data.aggregate_version)).status,409);
+ assert.equal((await api(`/skill-submissions/${id}/share-content`)).data.introductions.length,1);assert.equal(publicItem.owner_ref,undefined);
+ assert.equal((await pool.query('SELECT count(*) FROM skill_upload_keys')).rows[0].count,'0');
+ assert.equal((await pool.query('SELECT grant_hash FROM skill_submissions WHERE submission_id=$1',[id])).rows[0].grant_hash,null);
+});
+
+test('manual form rejects foreign fetch targets, identity/official overrides and unauthenticated writes',async()=>{
+ const owner=await login(),body={repository_url:'https://github.com/example/project',title:'作品',description:'用途',relationship:'author'};
+ assert.equal((await api('/me/skill-submissions/manual',undefined,body)).status,401);
+ for(const extra of [{repository_url:'https://attacker.example/project'},{official:true},{owner_ref:DEMO_USERS[1].user_id},{consent_to_share:true},{share_introductions:intros()}]){
+  assert.equal((await api('/me/skill-submissions/manual',owner,{...body,...extra})).status,422,JSON.stringify(extra));
+ }
+ assert.equal((await api('/me/skill-submissions',owner)).data.items.length,0);
+});
+
 const png=(w=64,h=48)=>sharp({create:{width:w,height:h,channels:3,background:{r:200,g:120,b:40}}}).png().toBuffer();
 
 function deferred(){let resolve!:()=>void;const promise=new Promise<void>(done=>{resolve=done;});return {promise,resolve};}

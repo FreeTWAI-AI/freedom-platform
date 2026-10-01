@@ -46,11 +46,11 @@ function derive(over: Partial<QueueDerivationInput> = {}, now = NOW): QueueDeriv
   return deriveQueueState(input, now);
 }
 function claim(over: Partial<QueueClaim> = {}): QueueClaim {
-  return { reviewer_login: 'ada', acting_as: 'admin', guild_name: null, adopts_repository: false, expires_at: null, ...over };
+  return { reviewer_login: 'ada', acting_as: 'admin', guild_name: null, skill_book_title: null, adopts_repository: false, expires_at: null, ...over };
 }
 
 test('repository settings fill defaults and reject a retired sla_hours field', () => {
-  assert.equal(MAINTAINER_POLICY_VERSION, '2026-10-01.1');
+  assert.equal(MAINTAINER_POLICY_VERSION, '2026-10-01.2');
   assert.equal(settings.rules_profile, 'freedom-platform');
   assert.equal(settings.required_check, 'verify');
   assert.equal(settings.required_check_app_slug, 'github-actions');
@@ -61,7 +61,8 @@ test('repository settings fill defaults and reject a retired sla_hours field', (
   assert.equal(resolveSettings('Other/repo', {}).rules_profile, 'default');
   assert.equal(resolveSettings('FreeTWAI-AI/freedom-platform', { rules_profile: 'default' }).rules_profile, 'default');
   assert.equal(resolveSettings('Other/repo', { claim_hours: 12, request_reviewers: true }).claim_hours, 12);
-  assert.equal(settings.request_reviewers, false);
+  assert.equal(settings.request_reviewers, true);
+  assert.equal(resolveSettings('Other/repo', { request_reviewers: false }).request_reviewers, false);
   assert.equal(resolveSettings('Other/repo', { claim_hours: null }).claim_hours, null);
   assert.throws(() => resolveSettings('Other/repo', { claim_hours: 0 }));
   assert.throws(() => resolveSettings('Other/repo', { claim_hours: 169 }));
@@ -273,22 +274,22 @@ test('deriveQueueState uses eligible reviewers and has no sla fields', () => {
   const ready = derive({ reviews: [review()], eligible_reviewer_ids: ['200'] });
   assert.equal(ready.state, 'ready');
   assert.equal(ready.reasons.at(-1)?.code, 'ready_human_approved');
-  assert.equal(ready.reasons.at(-1)?.message, '公會長或管理員已核准目前的提交。');
+  assert.equal(ready.reasons.at(-1)?.message, '公會長、技能書維護者或管理員已核准目前的提交。');
   const stale = derive({ reviews: [review({ commit_id: OLD })], eligible_reviewer_ids: ['200'] });
   assert.equal(stale.state, 'awaiting_review');
   assert.ok(stale.reasons.some(reason => reason.code === 'approval_stale'));
   const outsider = derive({ reviews: [review()] });
   assert.equal(outsider.state, 'awaiting_review');
   assert.ok(outsider.reasons.some(reason => reason.code === 'approval_not_eligible'));
-  assert.equal(outsider.reasons.find(reason => reason.code === 'approval_not_eligible')?.message, '有人核准了目前的提交，但不是這個項目的公會長或管理員，不算有效核准。');
+  assert.equal(outsider.reasons.find(reason => reason.code === 'approval_not_eligible')?.message, '有人核准了目前的提交，但不是這個項目的公會長、技能書維護者或管理員，不算有效核准。');
   const self = derive({ reviews: [review({ reviewer_github_id: '100' })], eligible_reviewer_ids: ['100'] });
   assert.equal(self.state, 'awaiting_review');
   assert.ok(self.reasons.some(reason => reason.code === 'author_is_reviewer'));
-  assert.equal(self.reasons.find(reason => reason.code === 'author_is_reviewer')?.message, '作者本人也是這個項目的審核人，不能核准自己的 PR，需要另一位公會長或管理員核准。');
+  assert.equal(self.reasons.find(reason => reason.code === 'author_is_reviewer')?.message, '作者本人也是這個項目的審核人，不能核准自己的 PR，需要另一位公會長、技能書維護者或管理員核准。');
   assert.equal(self.reasons.some(reason => reason.code === 'ready_human_approved'), false);
   const waiting = derive();
   assert.equal(waiting.state, 'awaiting_review');
-  assert.equal(waiting.reasons.at(-1)?.message, '檢查已過，等公會長或管理員核准。');
+  assert.equal(waiting.reasons.at(-1)?.message, '檢查已過，等公會長、技能書維護者或管理員核准。');
   assert.equal(waiting.recheck_at, null);
   assert.equal('sla_due_at' in waiting, false);
   const seen = [
@@ -338,6 +339,9 @@ test('an active claim turns only awaiting review into in_review', () => {
   const adopting = derive({ claim: claim({ acting_as: 'guild_leader', guild_name: '平台工程公會', adopts_repository: true, expires_at: expires }) });
   assert.equal(adopting.reasons.at(-1)?.message, 'ada（平台工程公會・公會長）正在審查。審完後這個儲存庫會歸到平台工程公會。認領到期後會自動釋放。');
   assert.equal(FORBIDDEN.test(adopting.reasons.at(-1)?.message ?? ''), false);
+  const book = derive({ claim: claim({ acting_as: 'skill_book_maintainer', skill_book_title: '方向探索與陪跑入門', adopts_repository: true }) });
+  assert.equal(book.reasons.at(-1)?.message, 'ada（方向探索與陪跑入門・技能書維護者）正在審查。');
+  assert.equal(book.reasons.at(-1)?.message?.includes('歸到'), false);
 });
 
 test('pull 46 needs the author because of the conflict and migration numbers', () => {

@@ -110,7 +110,7 @@ function SubmissionPreview({ submission, busy, onPublish }: { submission: Submis
   </section>;
 }
 
-export function SkillUpload({ client, onPublished }: { client: PortalClient; onPublished?: () => void | Promise<void> }) {
+export function SkillUpload({ client, onPublished, secondary = false }: { client: PortalClient; onPublished?: () => void | Promise<void>; secondary?: boolean }) {
   const [open, setOpen] = useState(false), dialog = useRef<HTMLDialogElement>(null), trigger = useRef<HTMLButtonElement>(null), titleId = useId();
   const dialogSession = useRef(0), dialogActive = useRef(false);
   const [items, setItems] = useState<Submission[]>([]), [loading, setLoading] = useState(false), [loadError, setLoadError] = useState<string | null>(null);
@@ -317,7 +317,7 @@ export function SkillUpload({ client, onPublished }: { client: PortalClient; onP
 
   const instruction = secret ? agentInstruction(window.location.origin, secret) : '';
   return <>
-    <button ref={trigger} type="button" className="btn btn-primary skill-upload-trigger" aria-haspopup="dialog" onClick={show}>上傳技能</button>
+    <button ref={trigger} type="button" className={`btn ${secondary ? 'btn-ghost' : 'btn-primary'} skill-upload-trigger`} aria-haspopup="dialog" onClick={show}>上傳技能</button>
     <dialog ref={dialog} className="skill-upload-dialog" aria-labelledby={titleId} onCancel={event => { if (event.target === event.currentTarget) { event.preventDefault(); close(); } }} onClose={event => {
       // Explicit closes already cleared state; a queued old event must not close a reopened dialog.
       if (event.target === event.currentTarget && !event.currentTarget.open && dialogActive.current) close();

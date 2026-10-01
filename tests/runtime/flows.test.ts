@@ -185,6 +185,24 @@ test('cross-community users cannot enumerate or mutate another community work',a
   assert.deepEqual((await request('/work-items',other)).data.items,[]);
   assert.equal((await request(`/work-items/${DEMO_WORK}:claim`,other,claimBody(other,w),w.aggregate_version)).status,404);
 });
+test('simple showcase generates its record, keeps legacy refs and validates optional public links',async()=>{
+  const maker=await signIn(),key=randomUUID();
+  const body={title:'我的作品',description:'一個可用的範例',public_url:'https://example.com/work',consent_to_share:true};
+  const shared=await request('/showcases',maker,body,undefined,key);
+  assert.equal(shared.status,201,JSON.stringify(shared.data));
+  assert.match(shared.data.artifact_ref,/^artifact:[0-9a-f-]{36}$/);
+  assert.equal(shared.data.public_url,body.public_url);
+  assert.deepEqual((await request('/showcases',maker,body,undefined,key)).data,shared.data);
+  assert.equal((await request('/showcases',maker)).data.items.length,1);
+  for(const public_url of ['javascript:alert(1)','http://example.com','https://user:secret@example.com','https://127.0.0.1/x','https://192.168.1.10/x']){
+    assert.equal((await request('/showcases',maker,{...body,public_url})).status,422,public_url);
+  }
+  assert.equal((await request('/showcases',maker,{...body,consent_to_share:false})).status,422);
+  assert.equal((await request('/showcases',undefined,body)).status,401);
+  const legacy=await request('/showcases',maker,{title:'舊作品',description:'保留既有紀錄',artifact_ref:'artifact:legacy-v1',consent_to_share:true});
+  assert.equal(legacy.data.artifact_ref,'artifact:legacy-v1');assert.equal(legacy.data.public_url,null);
+});
+
 test('showcase → opportunity → bilateral cooperation → delivery → receipt observation is private and never moves money',async()=>{
   const maker=await signIn(),client=await signIn(DEMO_USERS[2].email),outsider=await signIn(DEMO_USERS[1].email);
   const shared=await request('/showcases',maker,{title:'可重用報表模板',description:'從合成資料產生週報',artifact_ref:'artifact:report-v1',consent_to_share:true});assert.equal(shared.status,201);

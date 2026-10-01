@@ -73,7 +73,8 @@ const NOT_ELIGIBLE = `NOT EXISTS (
     AND e.user_id = c.reviewer_user_id
     AND e.github_user_id = c.reviewer_github_id
     AND e.acting_as = c.acting_as
-    AND e.guild_key IS NOT DISTINCT FROM c.guild_key)`;
+    AND e.guild_key IS NOT DISTINCT FROM c.guild_key
+    AND e.skill_book_id IS NOT DISTINCT FROM c.skill_book_id)`;
 
 /**
  * Complete claims that already have a decisive review, then adopt an open repository
@@ -114,16 +115,16 @@ async function completeClaims(pool: Pool, now: Date): Promise<{ completed: numbe
             `UPDATE maintainer_repositories
              SET guild_key=$2, open_to_guilds=false, aggregate_version=aggregate_version+1, updated_at=$3
              WHERE repository_id=$1 AND guild_key IS NULL AND open_to_guilds
-             RETURNING repository_id, scope_kind, full_name`,
+             RETURNING repository_id, scope_kind, skill_book_id, full_name`,
             [row.repository_id, row.guild_key, now],
-          )).rows[0] as { repository_id: string; scope_kind: string | null; full_name: string } | undefined;
+          )).rows[0] as { repository_id: string; scope_kind: string | null; skill_book_id: string | null; full_name: string } | undefined;
           if (!repo) continue;
           adopted += 1;
           await q.query(
             `INSERT INTO maintainer_ownership_changes (
-               change_id, repository_id, guild_key, scope_kind, open_to_guilds, source, changed_by_user, pull_id, reason, created_at)
-             VALUES ($1,$2,$3,$4,false,'adopted',$5,$6,$7,$8)`,
-            [randomUUID(), row.repository_id, row.guild_key, repo.scope_kind, row.reviewer_user_id, row.pull_id,
+               change_id, repository_id, guild_key, scope_kind, open_to_guilds, skill_book_id, source, changed_by_user, pull_id, reason, created_at)
+             VALUES ($1,$2,$3,$4,false,$5,'adopted',$6,$7,$8,$9)`,
+            [randomUUID(), row.repository_id, row.guild_key, repo.scope_kind, repo.skill_book_id, row.reviewer_user_id, row.pull_id,
               `審完 ${repo.full_name}#${row.number} 後歸到這個公會。`, now],
           );
           await q.query(

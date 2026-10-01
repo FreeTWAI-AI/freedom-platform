@@ -55,15 +55,16 @@ test('member completes work, reviewer accepts it, result survives reload and log
 test('showcase and opportunity become a bilateral cooperation and attributed receipt report',async({page})=>{
   await login(page,'maker@local.test');await navigate(page, '作品與需求');
   await page.getByLabel('作品標題',{exact:true}).fill('瀏覽器驗證的週報模板');
-  await page.getByLabel('說明',{exact:true}).fill('用合成資料產生可重用週報。');
+  await page.getByLabel('一句話介紹',{exact:true}).fill('用合成資料產生可重用週報。');
+  await page.getByText('連接既有成果紀錄（進階選填）',{exact:true}).click();
   await page.getByLabel(artifactLabel).fill('artifact:browser-showcase-v1');
   await page.getByLabel('我同意以社群可見方式分享這件作品').check();
   await page.getByRole('button',{name:'發布作品',exact:true}).click();
   await expect(page.getByRole('heading',{name:'瀏覽器驗證的週報模板',exact:true})).toBeVisible();
   await switchAccount(page,'client@local.test');await navigate(page, '作品與需求');
-  await page.getByRole('button',{name:'提出商機',exact:true}).click();
+  await page.getByRole('button',{name:'我想找你合作',exact:true}).click();
   await page.getByLabel('你的需求',{exact:true}).fill('希望調整三個週報欄位。');
-  await page.getByRole('button',{name:'送出商機',exact:true}).click();
+  await page.getByRole('button',{name:'送出合作需求',exact:true}).click();
   await expect(page.getByText('希望調整三個週報欄位。',{exact:true})).toBeVisible();
   await switchAccount(page,'maker@local.test');await navigate(page, '作品與需求');
   await page.getByRole('button',{name:'提出合作',exact:true}).click();

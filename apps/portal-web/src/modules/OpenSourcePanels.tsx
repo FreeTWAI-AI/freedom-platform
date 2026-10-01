@@ -1,16 +1,16 @@
-import { ModuleBanner } from './ModuleBanner';
 import { RepositoryLibrary } from './Community';
 import { useCallback,useEffect,useState,type FormEvent } from 'react';
 import { requireItems } from '../api';
 import { useModuleMutation,type ModulePanelProps } from './shared';
 import { SkillUpload } from './SkillUpload';
+import { SimpleSkillSubmission } from './SimpleSkillSubmission';
+import { WorkSharingEntry } from './WorkSharingEntry';
 
 type SourceVersion={version_id:string;commit_sha:string;license_spdx:string;license_evidence_url:string|null;is_fork:boolean;archived:boolean;readme_url:string;inspected_at:string};
 type Project={project_id:string;owner_ref:string;owner_name:string;title:string;description:string;use_notes:string;demo_url:string|null;repository_url:string;repository_full_name:string;repository_id:string;relationship:string;aggregate_version:number;current_version:SourceVersion};
 type Campaign={campaign_id:string;title:string;audience:string;goal:string;draft_text:string;aggregate_version:number;source_snapshot:{kind:string;title?:string;brief?:string;commit_sha?:string;license_spdx?:string;repository_url?:string;source_version?:string;currency?:string;net_price_minor?:string};shares:{share_id:string;channel:string;share_url:string;note:string;verification_status:string}[]};
 type SupplierProduct={product_id:string;title:string;current_offer:{revision:number}};
 const relationshipLabels:Record<string,string>={author:'原作者',maintainer:'維護者',contributor:'貢獻者',curator:'推薦／整理者'};
-const blankProject={repository_url:'',title:'',description:'',use_notes:'',demo_url:'',relationship:'curator',consent_to_share:false};
 
 function SafeLink({href,children}:{href:string;children:React.ReactNode}) {
   return <a href={href} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">{children} ↗</a>;
@@ -21,8 +21,6 @@ function LoadError({error,retry}:{error:string|null;retry:()=>void}) {
 
 export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
   const [projects,setProjects]=useState<Project[]>([]),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState<string|null>(null);
-  const [draft,setDraft]=useState({...blankProject}),[notice,setNotice]=useState<string|null>(null);
-  const {mutate,busy,error}=useModuleMutation(client);
   const refresh=useCallback(async()=>{
     setLoading(true);setLoadError(null);
     try{setProjects(requireItems<Project>(await client.get('/opensource/projects'),'開源作品'));}
@@ -30,41 +28,16 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
     finally{setLoading(false);}
   },[client]);
   useEffect(()=>{void refresh();},[refresh]);
-  async function submit(event:FormEvent){
-    event.preventDefault();setNotice(null);
-    const saved=await mutate<Project>('/opensource/projects',{...draft,demo_url:draft.demo_url.trim()||null});
-    if(saved){setDraft({...blankProject});setNotice('作品已登錄。你填寫的來源關係會清楚標示為自行聲明。');await refresh();}
-  }
   return <div className="stack">
-    <ModuleBanner eyebrow="OPEN SOURCE" title="分享你的 GitHub 專案" description="" art="/art/rpg/skill-codex.webp"><div className="actions"><button className="btn btn-ghost" type="button" onClick={()=>onNavigate?.('skills')}>閱讀技能書</button><button className="btn btn-ghost" type="button" onClick={()=>onNavigate?.('cocreation')}>一起開發</button></div></ModuleBanner>
-
-    {notice&&<p role="status" className="banner banner-info">{notice}</p>}
-    {error&&<p role="alert" className="banner banner-error">{error}</p>}
+    <WorkSharingEntry current="opensource"/>
+    <SimpleSkillSubmission client={client} onPublished={refresh}/>
+    <details className="card work-sharing-advanced"><summary>使用 Agent 或聊天 AI 協助整理（進階）</summary><div className="stack"><p className="hint">已有 Agent 草稿，或想讓 AI 整理介紹與分享短文，可使用原有上傳工具。</p><div className="actions"><SkillUpload client={client} onPublished={refresh}/></div></div></details>
     <LoadError error={loadError} retry={()=>void refresh()}/>
-    <div className="card-grid">
-      <div className="stack">
-      <section className="card stack"><div className="actions"><SkillUpload client={client} onPublished={refresh}/></div><p className="hint">由你選擇的 Agent 讀取專案並建立草稿，或把聊天 AI 回覆的 JSON 貼回視窗；你預覽後再送出。</p></section>
-      <details className="card manual-upload"><summary>手動登錄作品</summary>
-      <section><div className="section-head"><h2>登錄開源作品</h2><p>貼上公開專案網址，再補上用途與使用說明。</p></div>
-        <form className="stack" onSubmit={submit}>
-          <label className="field">GitHub 儲存庫網址<input required type="url" maxLength={300} placeholder="https://github.com/owner/repository" value={draft.repository_url} onChange={e=>setDraft({...draft,repository_url:e.target.value})}/></label>
-          <label className="field">作品名稱<input required maxLength={120} value={draft.title} onChange={e=>setDraft({...draft,title:e.target.value})}/></label>
-          <label className="field">這個作品可以做什麼<textarea required maxLength={2000} value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})}/></label>
-          <label className="field">如何開始使用<textarea required maxLength={3000} placeholder="適合誰、需要什麼，以及第一個使用步驟。" value={draft.use_notes} onChange={e=>setDraft({...draft,use_notes:e.target.value})}/></label>
-          <label className="field">展示網址（選填）<input type="url" maxLength={2000} placeholder="https://…" value={draft.demo_url} onChange={e=>setDraft({...draft,demo_url:e.target.value})}/></label>
-          <label className="field">我與作品的關係<select value={draft.relationship} onChange={e=>setDraft({...draft,relationship:e.target.value})}>{Object.entries(relationshipLabels).map(([key,label])=><option value={key} key={key}>{label}</option>)}</select><span className="field-hint">由你自行聲明；平台不以這次登錄驗證你與作品的來源、作者或擁有權關係。</span></label>
-          <label className="choice"><input type="checkbox" required checked={draft.consent_to_share} onChange={e=>setDraft({...draft,consent_to_share:e.target.checked})}/>我同意讓社群會員看見作品介紹與來源關係</label>
-          <button className="btn btn-primary" disabled={busy}>{busy?'正在讀取公開版本…':'從 GitHub 登錄'}</button>
-        </form>
-      </section>
-      </details>
-      </div>
       <section className="stack" aria-label="社群開源作品"><div className="section-head"><h2>社群開源作品</h2><p>已登錄 {projects.length} 件 · 自由探索，不必先談商務合作</p></div>
         {loading&&<p role="status">正在載入作品…</p>}
         {!loading&&!loadError&&projects.length===0&&<div className="card empty"><h3>第一件作品，從你開始</h3><p>登錄後會顯示使用說明、授權與固定版本，方便其他會員試用和參與。</p></div>}
         {projects.map(project=><ProjectCard key={project.project_id} project={project} own={project.owner_ref===session.user.user_id} client={client} session={session} reload={refresh} onNavigate={onNavigate}/>)}
       </section>
-    </div>
     <details className="card"><summary>作品怎麼成為技能書？</summary><div className="stack"><p>Fork 是把專案複製到自己的 GitHub，方便練習或改造。請保留原作者、來源與授權；原始作品仍由作者維護。</p><p>準備一頁介紹：用途、畫面、如何開始，以及原始碼連結。可使用下方模板。</p><a href="https://github.com/FreeTWAI-AI/freedom-project-page" target="_blank" rel="noopener noreferrer">使用專案介紹頁模板 ↗</a></div></details>
   </div>;
 }
@@ -76,7 +49,7 @@ function ProjectCard({project,own,client,reload,onNavigate}:ModulePanelProps & {
   async function revise(event:FormEvent){event.preventDefault();const result=await mutate(`/opensource/projects/${project.project_id}:revise`,{...draft,demo_url:draft.demo_url.trim()||null},project.aggregate_version);if(result){setEditing(false);setNotice('使用說明已更新。');await reload();}}
   return <article className="card stack" aria-label={`開源作品：${project.title}`}>
     <div className="card-head"><div><p className="module-kicker">{project.repository_full_name}</p><h3>{project.title}</h3></div><span className="pill">社群候選作品</span></div>
-    <p>{project.description}</p><div className="help-box"><strong>如何開始</strong><p>{project.use_notes}</p></div>
+    <p className="project-copy">{project.description}</p><div className="help-box"><strong>如何開始</strong><p className="project-copy">{project.use_notes}</p></div>
     <dl className="meta"><div><dt>登錄者</dt><dd>{project.owner_name} · {relationshipLabels[project.relationship]}（自行聲明）</dd></div><div><dt>授權</dt><dd>{project.current_version.license_spdx==='NOASSERTION'?'尚未確認，請先閱讀原始授權':project.current_version.license_spdx}</dd></div><div><dt>固定版本</dt><dd><code>{project.current_version.commit_sha.slice(0,12)}</code> · {project.current_version.is_fork?'衍生儲存庫':'原始儲存庫'}{project.current_version.archived?' · 已封存':''}</dd></div></dl>
     <div className="actions"><SafeLink href={project.current_version.readme_url}>閱讀文件／開始使用</SafeLink><SafeLink href={`${project.repository_url}/issues`}>參與討論</SafeLink>{project.demo_url&&<SafeLink href={project.demo_url}>開啟展示</SafeLink>}{project.current_version.license_evidence_url&&<SafeLink href={project.current_version.license_evidence_url}>查看授權</SafeLink>}</div>
     <p className="hint">來源與版本已讀取；尚未進行作品品質審核。</p>
@@ -120,7 +93,7 @@ function CampaignCard({campaign,client,reload}:{campaign:Campaign;client:ModuleP
   async function revise(event:FormEvent){event.preventDefault();const result=await mutate(`/marketing/campaigns/${campaign.campaign_id}:revise`,draft,campaign.aggregate_version);if(result){setEditing(false);setNotice('草稿已更新；既有分享紀錄保留當時的文案。');await reload();}}
   async function saveShare(event:FormEvent){event.preventDefault();const result=await mutate(`/marketing/campaigns/${campaign.campaign_id}/shares`,share,campaign.aggregate_version);if(result){setSharing(false);setShare({channel:'',share_url:'',note:''});setNotice('分享連結已記錄，標示為你的人工回報。');await reload();}}
   return <article className="card stack" aria-label={`行銷活動：${campaign.title}`}><div className="card-head"><h3>{campaign.title}</h3><span className="pill">私人草稿</span></div>
-    <dl className="meta"><div><dt>分享對象</dt><dd>{campaign.audience}</dd></div><div><dt>下一步</dt><dd>{campaign.goal}</dd></div><div><dt>來源</dt><dd>{campaign.source_snapshot.kind==='oss_project'?`${campaign.source_snapshot.title} · ${campaign.source_snapshot.commit_sha?.slice(0,12)} · ${campaign.source_snapshot.license_spdx}`:campaign.source_snapshot.kind==='supplier_product'?`${campaign.source_snapshot.title} · 供貨版本 ${campaign.source_snapshot.source_version} · 供貨價 ${campaign.source_snapshot.currency} ${(Number(campaign.source_snapshot.net_price_minor)/100).toFixed(2)}（非零售價）`:campaign.source_snapshot.brief}</dd></div></dl>
+    <dl className="meta"><div><dt>分享對象</dt><dd>{campaign.audience}</dd></div><div><dt>下一步</dt><dd>{campaign.goal}</dd></div><div><dt>來源</dt><dd>{campaign.source_snapshot.kind==='oss_project'?`${campaign.source_snapshot.title} · ${campaign.source_snapshot.commit_sha?.slice(0,12)} · ${campaign.source_snapshot.license_spdx}`:campaign.source_snapshot.kind==='supplier_product'?`${campaign.source_snapshot.title} · 供貨版本 ${campaign.source_snapshot.source_version} · 供貨價 ${campaign.source_snapshot.currency} ${(Number(campaign.source_snapshot.net_price_minor)/100).toFixed(2)}（非零售價）`:<span className="draft-copy">{campaign.source_snapshot.brief}</span>}</dd></div></dl>
     <div className="help-box"><p className="draft-copy">{campaign.draft_text}</p></div>
     <div className="actions"><button className="btn btn-ghost" disabled={busy} onClick={()=>{setDraft({title:campaign.title,audience:campaign.audience,goal:campaign.goal,draft_text:campaign.draft_text});setEditing(!editing);}}>編輯草稿</button><button className="btn btn-ghost" disabled={busy} onClick={()=>setSharing(!sharing)}>記錄分享連結</button></div>
     {notice&&<p role="status" className="status-note">{notice}</p>}{error&&<p role="alert" className="banner banner-error">{error}</p>}
