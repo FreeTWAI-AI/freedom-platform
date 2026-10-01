@@ -3999,8 +3999,8 @@
     },
     {
       "path": "tests/e2e/audit-operations.spec.ts",
-      "bytes": 19477,
-      "sha256": "5d89d2fc0f8f0f87a9097cefaf59730acbe071795b7fb401b9aeaa627b0c7747"
+      "bytes": 19545,
+      "sha256": "c4e26bae1ca35e174c66429d540cc10bf8c2a506b21c948ae84ccbb96b359ff4"
     },
     {
       "path": "tests/e2e/audit-shell.spec.ts",
