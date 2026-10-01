@@ -5,6 +5,7 @@ import { Onboarding, guildMasterLabel, type GuildSummary, type OnboardingView } 
 import { loadLabels, type MemberCardData } from './Membership';
 import './GuildDesign.css';
 import {GuildCard,useUniformGuildCards} from './GuildCard';
+import {GuildAnswersSection} from './GuildQuestions';
 import {GuildTopicFilter} from './GuildFilters';
 import {formatIsoLocal} from '../format';
 import type {GuildTopic} from '../../../../packages/shared/guild-topics';
@@ -42,6 +43,7 @@ export function PositioningPanel({client,session,onNavigate}:ModulePanelProps) {
       <div className="positioning-result-adjust"><button type="button" className="btn btn-ghost" onClick={()=>setRetaking(true)}>{assessment.entry_mode==='quick'?'補充／繼續探索定位':assessment.completed?'重新探索定位':'開始探索我的定位'}</button>{assessment.completed&&assessment.entry_mode!=='quick'&&assessment.state!=='completed'&&<p className="field-hint">調整中的草稿尚未取代這份已確認的定位。</p>}</div>
       <details className="positioning-result-skills"><summary>我的能力與裝備 · {abilityLabels.length} 項能力／{equipmentLabels.length} 項裝備</summary><div><section><h3>我的能力</h3><div className="tag-list">{abilityLabels.length?abilityLabels.map((label,index)=><span className="pill" key={`${index}-${label}`}>{label}</span>):<p className="muted">可以隨時補充，也可以先開始閱讀技能書。</p>}</div></section><section><h3>我的裝備</h3><div className="tag-list">{equipmentLabels.length?equipmentLabels.map((label,index)=><span className="pill" key={`${index}-${label}`}>{label}</span>):<p className="muted">尚未填寫裝備，不影響參與公會。</p>}</div></section></div></details>
     </section>}
+    <GuildAnswersSection client={client}/>
   </section>;
 }
 
@@ -51,7 +53,7 @@ const applicationStatus:Record<string,string>={pending:'待審核',approved:'已
 
 export function GuildsPanel({client,onNavigate}:ModulePanelProps) {
   const [query,setQuery]=useState(''),[scope,setScope]=useState<'all'|'joined'>('all'),[topic,setTopic]=useState<GuildTopic|''>('');
-  const [guilds,setGuilds]=useState<GuildSummary[]>([]),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState<string|null>(null),[notice,setNotice]=useState('');
+  const [guilds,setGuilds]=useState<GuildSummary[]>([]),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState<string|null>(null),[notice,setNotice]=useState(''),[answerGuild,setAnswerGuild]=useState('');
   const [preferences,setPreferences]=useState<GuildPreferences|null>(null),[editing,setEditing]=useState(false),[secondaryDraft,setSecondaryDraft]=useState<string[]>([]);
   const [applications,setApplications]=useState<GuildApplication[]>([]),[showApply,setShowApply]=useState(false),[showAllApplications,setShowAllApplications]=useState(false);
   const [draft,setDraft]=useState({name:'',profession:'',reason:''}),[applicationSuccess,setApplicationSuccess]=useState(''),[focusDraft,setFocusDraft]=useState(false),[focusGuild,setFocusGuild]=useState<string|null>(null);
@@ -74,13 +76,14 @@ export function GuildsPanel({client,onNavigate}:ModulePanelProps) {
     if(!card)return;
     card.focus();card.scrollIntoView({block:'nearest'});setFocusGuild(null);
   },[focusGuild,loading,guilds,query,scope,topic]);
+  function announce(message:string,guildName=''){setNotice(message);setAnswerGuild(guildName);}
   async function change(g:GuildSummary){
-    const joining=g.membership?.state!=='active';setNotice('');
+    const joining=g.membership?.state!=='active';setNotice('');setAnswerGuild('');
     const result=await mutate(`/guilds/${g.guild_key}/${joining?'join':'leave'}`,{},g.membership?.aggregate_version);
-    if(result){setEditing(false);setNotice(joining?`已加入${g.name}，技能書已解鎖。`:`已退出${g.name}，已解鎖的技能書保留。`);await load();window.dispatchEvent(new Event('freedom-profile-updated'));}
+    if(result){setEditing(false);announce(joining?`已加入${g.name}，技能書已解鎖。`:`已退出${g.name}，已解鎖的技能書保留。`,joining?g.name:'');await load();window.dispatchEvent(new Event('freedom-profile-updated'));}
   }
-  async function primary(g:GuildSummary){const result=await mutate(`/guilds/${g.guild_key}/primary`,{},preferences?.aggregate_version);if(result){setEditing(false);setNotice(`主要公會已設為${g.name}。`);await load();window.dispatchEvent(new Event('freedom-profile-updated'));}}
-  async function saveSecondary(event:FormEvent){event.preventDefault();const result=await mutate('/me/guild-preferences/secondary',{secondary_guild_keys:secondaryDraft},preferences?.aggregate_version);if(result){setEditing(false);setNotice('次要公會已儲存。');await load();window.dispatchEvent(new Event('freedom-profile-updated'));}}
+  async function primary(g:GuildSummary){const result=await mutate(`/guilds/${g.guild_key}/primary`,{},preferences?.aggregate_version);if(result){setEditing(false);announce(`主要公會已設為${g.name}。`);await load();window.dispatchEvent(new Event('freedom-profile-updated'));}}
+  async function saveSecondary(event:FormEvent){event.preventDefault();const result=await mutate('/me/guild-preferences/secondary',{secondary_guild_keys:secondaryDraft},preferences?.aggregate_version);if(result){setEditing(false);announce('次要公會已儲存。');await load();window.dispatchEvent(new Event('freedom-profile-updated'));}}
   async function apply(event:FormEvent<HTMLFormElement>){
     event.preventDefault();
     const submitted={name:draft.name.trim(),profession:draft.profession.trim(),reason:draft.reason.trim()};
@@ -111,7 +114,7 @@ export function GuildsPanel({client,onNavigate}:ModulePanelProps) {
     if(!removing&&secondaryKeys.length>=2)return;
     const next=removing?secondaryKeys.filter(key=>key!==g.guild_key):[...secondaryKeys,g.guild_key];
     const result=await mutate('/me/guild-preferences/secondary',{secondary_guild_keys:next},preferences?.aggregate_version);
-    if(result){setEditing(false);setNotice(removing?`已取消${g.name}的次要公會。`:`已將${g.name}設為次要公會。`);await load();window.dispatchEvent(new Event('freedom-profile-updated'));}
+    if(result){setEditing(false);announce(removing?`已取消${g.name}的次要公會。`:`已將${g.name}設為次要公會。`);await load();window.dispatchEvent(new Event('freedom-profile-updated'));}
   }
   return <section className="module-panel guilds-panel" aria-label="公會目錄">
     <header className="guild-hub-heading">
@@ -119,7 +122,7 @@ export function GuildsPanel({client,onNavigate}:ModulePanelProps) {
       <div className="actions"><button type="button" className="btn btn-ghost" onClick={()=>onNavigate?.('skills')}>前往技能書架</button><button type="button" className="btn btn-ghost" aria-expanded={showApply} aria-controls="guild-application" onClick={openApply}>{showApply?'收起創建申請':'申請創建公會'}</button></div>
     </header>
     {applicationSuccess&&<p ref={successRef} role="status" tabIndex={-1} className="banner status-note">{applicationSuccess}</p>}
-    {notice&&<p role="status" className="banner status-note">{notice}</p>}
+    {notice&&<div role="status" className="banner status-note guild-join-notice"><span>{notice}</span>{answerGuild&&<button type="button" className="btn btn-ghost" onClick={()=>onNavigate?.('positioning')}>回答{answerGuild}的小問題</button>}</div>}
     {loadError&&<div className="banner banner-error" role="alert"><p>{loadError}</p><button type="button" className="btn btn-ghost" onClick={()=>void load()}>重新載入公會</button></div>}
     {error&&<div className="banner banner-error" role="alert"><p>{error}</p><button className="btn btn-ghost" disabled={busy} onClick={()=>{setEditing(false);void load();}}>重新載入公會</button></div>}
     {showApply&&<form id="guild-application" className="card stack guild-application" onSubmit={apply}><h2>申請創建公會</h2><label className="field">希望成立的公會名稱<input ref={nameRef} name="name" required minLength={2} maxLength={100} value={draft.name} onChange={event=>setDraft({...draft,name:event.target.value})}/></label><label className="field">專業／職業領域<input name="profession" required maxLength={160} value={draft.profession} onChange={event=>setDraft({...draft,profession:event.target.value})}/></label><label className="field">為什麼想成立？希望一起做什麼？<textarea name="reason" required minLength={10} maxLength={2000} value={draft.reason} onChange={event=>setDraft({...draft,reason:event.target.value})}/></label><p className="muted">由管理員確認成立與公會長人選。</p><button className="btn btn-primary" disabled={busy}>送出創建公會申請</button></form>}

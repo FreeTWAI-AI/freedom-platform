@@ -80,7 +80,7 @@ stored rows, but new writes accept only the new strict audience-array shape.
 New accounts have a server-enforced onboarding gate. Only session/logout,
 account settings, assessment definition/answers/evaluation/completion, quick-start,
 current guild catalog/join/leave/primary and own skill-books are available until
-完成加入（選定主要公會） (`onboarding_completed_at` is recorded). The positioning
+完成加入（選定主要公會） (`onboarding_completed_at` is recorded). Quick start also requires `guild_answers` for every question of the primary guild; see [onboarding-api.md](onboarding-api.md). Those answers stay on the member's own positioning record. The positioning
 test can be finished later and is not required to pass this gate.
 Legacy demo accounts preserve prior behavior. Public deployments must use a new
 DB with no demo seed and explicitly set `FREEDOM_REGISTRATION_COMMUNITY_ID`.

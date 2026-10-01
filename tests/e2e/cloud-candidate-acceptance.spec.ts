@@ -664,7 +664,7 @@ async function removeHarnessUser(db:Pool,id:string,email:string){
     const q=(sql:string)=>client.query(sql,[id]);
     await q('DELETE FROM outbox WHERE transition_id IN (SELECT transition_id FROM transition_journal WHERE actor_ref=$1)');
     await q('DELETE FROM transition_journal WHERE actor_ref=$1');
-    for(const table of ['member_social_links','member_avatars','onboarding_assessments','member_skill_book_grants','guild_member_preferences',
+    for(const table of ['member_guild_answers','member_social_links','member_avatars','onboarding_assessments','member_skill_book_grants','guild_member_preferences',
       'positioning_profession_memberships','member_accounts','member_client_errors','command_receipts','sessions'])await q(`DELETE FROM ${table} WHERE user_id=$1`);
     const removed=await client.query('DELETE FROM users WHERE user_id=$1 AND email=$2',[id,email]);
     expect(removed.rowCount).toBeLessThanOrEqual(1);

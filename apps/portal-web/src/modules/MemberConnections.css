@@ -9,7 +9,27 @@
 .quick-guild-option.is-selected{border-color:var(--green);box-shadow:0 0 0 1px var(--green)}
 .quick-guild-option:focus-within{outline:2px solid var(--focus);outline-offset:3px}
 .quick-guild-purpose{font-size:.875rem;color:var(--muted)}
-.quick-join-actions{position:sticky;top:.5rem;z-index:2;background:var(--bg-elev);border:1px solid var(--line);border-radius:var(--radius);padding:.65rem;box-shadow:var(--shadow)}
+.quick-join-actions,.quick-join-finish{position:sticky;z-index:2;background:var(--bg-elev);border:1px solid var(--line);border-radius:var(--radius);padding:.65rem;box-shadow:var(--shadow)}
+.quick-join-actions{top:.5rem}
+.quick-join-finish{bottom:.5rem}
+.quick-start{min-width:0}
+.quick-start h2:focus{outline:2px solid var(--focus);outline-offset:3px}
+.guild-question{border:0;margin:0;padding:0;min-width:0;max-width:100%}
+.guild-question legend{font-weight:650;margin-bottom:.35rem}
+.guild-question-options{display:flex;flex-wrap:wrap;gap:.5rem}
+.guild-question-option{display:flex;align-items:center;gap:.55rem;flex:1 1 12rem;min-width:0;max-width:100%;min-height:44px;padding:.55rem .75rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-elev);color:var(--ink);cursor:pointer;overflow-wrap:anywhere;font-weight:450}
+.guild-question-option input{flex:none;width:1.15rem;height:1.15rem;margin:0}
+.guild-question-option.is-selected,.guild-question-option:has(input:checked){background:var(--green-soft);border-color:var(--green);font-weight:650}
+.guild-question-option:focus-within{outline:2px solid var(--focus);outline-offset:3px}
+.guild-join-notice{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem}
+.guild-answers{display:grid;gap:.85rem;min-width:0}
+.guild-answer-card{border-top:1px solid var(--line);padding-top:.75rem;min-width:0}
+.guild-answer-card header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.45rem .75rem}
+.guild-answer-card h3{margin:0;font-size:1rem}
+.guild-answer-pairs{display:grid;gap:.35rem;margin:.45rem 0 0}
+.guild-answer-pairs div{display:flex;flex-wrap:wrap;gap:.15rem .75rem;min-width:0}
+.guild-answer-pairs dt{color:var(--muted)}
+.guild-answer-pairs dd{margin:0;font-weight:650;overflow-wrap:anywhere}
 .guild-topic-tags .pill{font-size:.75rem;padding:.12rem .4rem}
 .member-share-settings input[readonly]{width:100%;min-width:0;font-size:.875rem}
 .member-share-settings,.member-recommendation{margin-block:1rem}
@@ -26,4 +46,4 @@
 .guild-review-pair h3{font-size:1rem;margin:0}
 .guild-review-pair p{font-size:.875rem;margin:.35rem 0}
 @media(max-width:900px){.quick-guild-options{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:520px){.quick-guild-options{grid-template-columns:1fr}.quick-start{padding:1rem}.public-member-page{padding:.75rem}.member-share-settings .actions{gap:.5rem}.member-share-settings input[readonly]{font-size:16px}}
+@media(max-width:520px){.quick-guild-options{grid-template-columns:1fr}.guild-question-option{flex-basis:100%}.quick-start{padding:1rem}.public-member-page{padding:.75rem}.member-share-settings .actions{gap:.5rem}.member-share-settings input[readonly]{font-size:16px}}

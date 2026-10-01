@@ -1,6 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {test,expect,type Page} from './fixtures.js';
 import {navigate} from './navigation.js';
+import {answerGuildQuestions,quickJoin} from './quick-join.js';
 async function signup(page:Page,name:string,start=true,guild='guild_ai_vibe'){
   if(start)await page.goto('/');
   await page.getByRole('button',{name:'建立帳號',exact:true}).click();
@@ -9,8 +10,7 @@ async function signup(page:Page,name:string,start=true,guild='guild_ai_vibe'){
   await page.getByLabel('密碼',{exact:true}).fill('freedom-connections-password');
   await page.getByRole('button',{name:'建立帳號，先逛工坊',exact:true}).click();
   await expect(page.getByRole('heading',{name:`${name}，歡迎來到自由工坊。`})).toBeVisible();
-  await page.locator(`.quick-start input[value="${guild}"]`).check();
-  await page.getByRole('button',{name:'加入公會，開始參與',exact:true}).click();
+  await quickJoin(page,guild);
 }
 test('mobile newcomer sees all guilds, can filter and enters after one choice without an assessment',async({page})=>{
   await page.setViewportSize({width:320,height:720});await page.goto('/');
@@ -25,7 +25,10 @@ test('mobile newcomer sees all guilds, can filter and enters after one choice wi
   await quick.getByRole('button',{name:'全部主題',exact:true}).click();await expect(quick.getByRole('radio')).toHaveCount(18);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/issue-42-quick-entry-320.png',fullPage:true});
-  await quick.locator('input[value="guild_ai_vibe"]').check();await quick.getByRole('button',{name:'加入公會，開始參與'}).click();
+  await quick.locator('input[value="guild_ai_vibe"]').check();
+  await quick.getByRole('button',{name:/下一步：回答 \d+ 個小問題/}).click();
+  await answerGuildQuestions(quick);
+  await quick.getByRole('button',{name:'加入公會，開始參與'}).click();
   await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
   await navigate(page,'我的定位');await expect(page.getByText('已選擇公會',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'補充／繼續探索定位'})).toBeVisible();
   await navigate(page,'技能書架');await expect(page.getByRole('region',{name:'已解鎖技能書',exact:true})).toBeVisible();

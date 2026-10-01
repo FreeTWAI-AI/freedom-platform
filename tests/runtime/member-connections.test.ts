@@ -7,6 +7,7 @@ import {migrate} from '../../scripts/database.js';
 import {seedLocal,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {ASSESSMENT_VERSION,ASSESSMENT_SHA256} from '../../modules/positioning/assessment.js';
+import {sampleGuildAnswers} from '../../modules/positioning/guild-questions.js';
 import {refreshGuildDiscoveryReports,guildDiscoveryReport,validateAiGuildReport,ruleGuildReport,type GuildEvidence} from '../../modules/community/guild-discovery.js';
 import {guildReviewerFromBindings} from '../../apps/platform-api/src/guild-review.js';
 import {createWorkerHandler} from '../../apps/platform-api/src/worker.js';
@@ -25,14 +26,14 @@ async function request(path:string,session?:Session,body?:unknown,version?:numbe
 async function member(name='共創夥伴',ready=true,email=`${randomUUID()}@example.test`):Promise<Session>{
   const result=await request('/auth/register',undefined,{email,nickname:name,password:'freedom-connections-password'});assert.equal(result.status,201,JSON.stringify(result.data));
   const session={cookie:result.response.headers.get('set-cookie')!.split(';')[0],csrf:result.data.csrf_token,id:result.data.user.user_id};
-  if(ready)assert.equal((await request('/me/onboarding/quick-start',session,{guild_keys:['guild_ai_vibe'],primary_guild_key:'guild_ai_vibe',confirmed:true})).status,200);
+  if(ready)assert.equal((await request('/me/onboarding/quick-start',session,{guild_keys:['guild_ai_vibe'],primary_guild_key:'guild_ai_vibe',confirmed:true,guild_answers:sampleGuildAnswers('guild_ai_vibe')})).status,200);
   return session;
 }
 test('quick entry explicitly joins a real guild, preserves private draft and grants books atomically without fabricating an assessment',async()=>{
   const session=await member('快速加入',false);
   assert.equal((await request('/members',session)).status,403);
   const draft=await request('/me/onboarding/answers',session,{assessment_version:ASSESSMENT_VERSION,assessment_sha256:ASSESSMENT_SHA256,answers:{},occupation:'私人工作',founding_interest:false,capabilities:['python'],equipment:[]});assert.equal(draft.status,200);
-  const body={guild_keys:['guild_ai_vibe'],primary_guild_key:'guild_ai_vibe',confirmed:true},key=randomUUID();
+  const body={guild_keys:['guild_ai_vibe'],primary_guild_key:'guild_ai_vibe',confirmed:true,guild_answers:sampleGuildAnswers('guild_ai_vibe')},key=randomUUID();
   assert.equal((await request('/me/onboarding/quick-start',session,{...body,guild_keys:['guild_fake'],primary_guild_key:'guild_fake'})).status,422);
   const result=await request('/me/onboarding/quick-start',session,body,undefined,key);assert.equal(result.status,200,JSON.stringify(result.data));
   assert.equal(result.data.completed,true);assert.equal(result.data.entry_mode,'quick');assert.equal(result.data.assessment_completed,false);assert.equal(result.data.state,'draft');assert.equal(result.data.draft.occupation,'私人工作');assert.equal(result.data.result,null);
@@ -45,7 +46,7 @@ test('quick entry explicitly joins a real guild, preserves private draft and gra
 });
 test('quick entry races cannot create conflicting primary guilds or double grants',async()=>{
   const session=await member('同時加入',false);
-  const results=await Promise.all(['guild_ai_vibe','guild_music_mv'].map(key=>request('/me/onboarding/quick-start',session,{guild_keys:[key],primary_guild_key:key,confirmed:true})));
+  const results=await Promise.all(['guild_ai_vibe','guild_music_mv'].map(key=>request('/me/onboarding/quick-start',session,{guild_keys:[key],primary_guild_key:key,confirmed:true,guild_answers:sampleGuildAnswers(key)})));
   assert.deepEqual(results.map(result=>result.status).sort(),[200,409]);
   assert.equal((await pool.query('SELECT count(*) FROM guild_member_preferences WHERE user_id=$1',[session.id])).rows[0].count,'1');
   assert.equal((await pool.query('SELECT count(*) FROM positioning_profession_memberships WHERE user_id=$1',[session.id])).rows[0].count,'1');

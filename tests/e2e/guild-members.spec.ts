@@ -146,6 +146,7 @@ test('guild browsing uses the real membership filter and exposes only permitted 
     await pool.query('DELETE FROM positioning_guild_experts WHERE user_id=ANY($1::uuid[])',[ids]);
     await pool.query('DELETE FROM platform_admins WHERE admin_id=$1',[adminId]);
     await pool.query('DELETE FROM member_accounts WHERE user_id=ANY($1::uuid[])', [ids]);
+    await pool.query('DELETE FROM member_guild_answers WHERE user_id=ANY($1::uuid[])', [ids]);
     await pool.query('DELETE FROM guild_member_preferences WHERE user_id=ANY($1::uuid[])', [ids]);
     await pool.query('DELETE FROM positioning_profession_memberships WHERE user_id=ANY($1::uuid[])', [ids]);
     await pool.query('DELETE FROM users WHERE user_id=ANY($1::uuid[])', [ids]);
