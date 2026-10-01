@@ -172,6 +172,7 @@ npx wrangler delete --config <maintainer-overlay.jsonc> --env next
 - 變更檔案最多讀 10 頁，也就是 1000 個檔。清單被截斷，或 GitHub 回報的 `changed_files` 多於實際列到的檔案時，風險升為高（`changed_files_truncated`），鏡像仍會寫入。審查與 check run 碰到頁數上限則會重試，不會把不完整的清單當成完整結果。
 - `is_fork` 只看 head 是不是這份 base：`head.repo` 為 null，或 `head.repo.id` 不等於 `base.repo.id`。`head.repo.fork` 只表示那個儲存庫本身另有上游，不用來判斷這次拉取請求。
 - freedom-platform 的高風險驗證路徑另外包含 `repositories.lock.json`、`.npmrc`、`.gitattributes` 與 `.gitmodules`。測試檔在 `tests/` 裡改名，或檔名仍是 `*.test.*` / `*.spec.*`，不算 `test_removed`。離開測試路徑，或拿掉測試檔名，才算。刪除測試檔仍是高風險。
+- 風險原因由最高的風險往下排，第一個就是決定風險等級的那一個，列表上的那一列顯示它。
 - 遷移編號撞到 base 上已有的檔案是 `migration_number_collision`。編號小於 base 目前最新、但那個編號並不存在（中間有空號）是 `migration_number_behind`。兩種都會停在 needs_author。訊息裡的分支名是這次拉取請求的 base ref，預設儲存庫不一定是 `main`。這些原因另外寫在 `migration_reasons`。模式改成關閉再改回觀察時，佇列會先暫停，再依這欄回到 needs_author，不必再打 GitHub。
 - 同一個拉取請求已經有排隊中的 `reconcile_pull` 時，新的 webhook 或管理員重新同步不會再插一筆。若那筆的 `run_after` 比這次更晚，會把 `run_after` 提前，嘗試次數不變；沒有更晚可提前時，這次不算新排入。
 - 只有精確的 `POST /api/v1/maintainer/github/webhook` 在會員驗證之前執行，不需要 session。同一個路徑的 GET 走一般會員驗證，沒有 cookie 時回 401 `login_required`。

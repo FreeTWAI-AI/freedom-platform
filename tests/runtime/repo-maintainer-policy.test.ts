@@ -21,6 +21,19 @@ function riskOf(files: PolicyFile[], extra: { author_association?: string; autho
 function codes(result: { reasons: Array<{ code: string; message: string; paths?: string[] }> }, code: string) {
   return result.reasons.filter(reason => reason.code === code);
 }
+const REASON_LEVEL: Record<string, Risk> = {
+  generated_only: 'low', low_docs: 'low',
+  author_first_time_contributor: 'medium', author_first_timer: 'medium', author_none: 'medium',
+  fork_head: 'medium', bot_author: 'medium', size_medium: 'medium',
+  size_high: 'high', changed_files_truncated: 'high',
+  high_sensitive: 'high', high_verification: 'high', high_data_deploy: 'high', high_authority: 'high',
+  high_contract: 'high', high_maintainer: 'high', test_removed: 'high',
+  medium_package_markdown: 'medium', medium_brand: 'medium', medium_svg: 'medium',
+  medium_docs_code: 'medium', medium_code: 'medium', medium_uncovered: 'medium',
+};
+function assertLead(result: { risk: Risk; reasons: Array<{ code: string }> }, label: string) {
+  assert.equal(REASON_LEVEL[result.reasons[0]?.code ?? ''], result.risk, label);
+}
 
 test('repository settings fill defaults and an explicit profile wins', () => {
   assert.equal(MAINTAINER_POLICY_VERSION, '2026-09-30.2');
@@ -71,45 +84,89 @@ test('freedom-platform risk classes follow the path rules and escalations', () =
     const result = riskOf(files, extra);
     assert.equal(result.risk, expected, label);
     assert.ok(codes(result, code).length >= 1, `${label} ${JSON.stringify(result.reasons)}`);
+    assertLead(result, label);
   }
   const many = Array.from({ length: 21 }, (_, index) => file(`docs/note-${index}.md`));
-  assert.equal(riskOf(many).risk, 'medium');
-  assert.ok(codes(riskOf(many), 'size_medium').length === 1);
+  const manyRisk = riskOf(many);
+  assert.equal(manyRisk.risk, 'medium');
+  assert.ok(codes(manyRisk, 'size_medium').length === 1);
+  assertLead(manyRisk, 'size medium');
   const huge = Array.from({ length: 61 }, (_, index) => file(`docs/note-${index}.md`));
-  assert.equal(riskOf(huge).risk, 'high');
-  assert.equal(riskOf([file('docs/guide.md', 'modified', 3001, 0)]).risk, 'high');
-  assert.equal(riskOf([file('docs/guide.md')], { changed_files: 2 }).risk, 'high');
-  assert.ok(codes(riskOf([file('docs/guide.md')], { changed_files: 2 }), 'changed_files_truncated').length === 1);
+  const hugeRisk = riskOf(huge);
+  assert.equal(hugeRisk.risk, 'high');
+  assertLead(hugeRisk, 'size high');
+  const longDiff = riskOf([file('docs/guide.md', 'modified', 3001, 0)]);
+  assert.equal(longDiff.risk, 'high');
+  assertLead(longDiff, 'long diff');
+  const shortList = riskOf([file('docs/guide.md')], { changed_files: 2 });
+  assert.equal(shortList.risk, 'high');
+  assert.ok(codes(shortList, 'changed_files_truncated').length === 1);
+  assertLead(shortList, 'changed_files');
   const truncatedList = classifyRisk({ files: [file('docs/guide.md')], profile: 'freedom-platform', changed_files: 1, files_truncated: true });
   assert.equal(truncatedList.risk, 'high');
   assert.equal(codes(truncatedList, 'changed_files_truncated').length, 1);
+  assertLead(truncatedList, 'files_truncated');
   const renamedWithin = riskOf([file('tests/b.test.ts', 'renamed', 1, 0, 'tests/a.test.ts')]);
   assert.equal(codes(renamedWithin, 'test_removed').length, 0);
+  assertLead(renamedWithin, 'renamed within tests');
   const renamedToSource = riskOf([file('tests/a.ts', 'renamed', 1, 0, 'tests/a.test.ts')]);
   assert.equal(renamedToSource.risk, 'high');
   assert.equal(codes(renamedToSource, 'test_removed').length, 1);
+  assertLead(renamedToSource, 'renamed to source');
   const renamedOutOfTests = riskOf([file('src/x.ts', 'renamed', 1, 0, 'tests/x.ts')]);
   assert.equal(renamedOutOfTests.risk, 'high');
   assert.equal(codes(renamedOutOfTests, 'test_removed').length, 1);
+  assertLead(renamedOutOfTests, 'renamed out of tests');
   const first = riskOf([file('docs/guide.md')], { author_association: 'FIRST_TIME_CONTRIBUTOR', is_fork: true });
   assert.equal(first.risk, 'medium');
   assert.ok(codes(first, 'author_first_time_contributor').length === 1);
   assert.ok(codes(first, 'fork_head').length === 1);
+  assertLead(first, 'first timer fork');
   const bot = riskOf([file('docs/guide.md')], { author_type: 'Bot' });
   assert.equal(bot.risk, 'medium');
   assert.match(codes(bot, 'bot_author')[0].message, /自動化審查不能代替真人/);
+  assertLead(bot, 'bot');
   const generated = riskOf([
     file('apps/platform-api/src/generated/runtime-text.ts', 'modified', 5000, 0),
     file('docs/platform-plan/verification/2026-09-20-file-inventory.json', 'modified', 5000, 0),
   ]);
   assert.equal(generated.risk, 'low');
   assert.equal(codes(generated, 'size_high').length, 0);
-  assert.equal(riskOf([file('apps/portal-web/src/App.tsx')], { profile: 'default' }).risk, 'medium');
-  assert.equal(riskOf([file('.github/workflows/verify.yml')], { profile: 'default' }).risk, 'high');
-  assert.equal(riskOf([file('docs/guide.md'), file('README.md')], { profile: 'default' }).risk, 'low');
-  assert.equal(riskOf([file('SECURITY.md')], { profile: 'default' }).risk, 'high');
+  assertLead(generated, 'generated');
+  const defaultCode = riskOf([file('apps/portal-web/src/App.tsx')], { profile: 'default' });
+  assert.equal(defaultCode.risk, 'medium');
+  assertLead(defaultCode, 'default code');
+  const defaultWorkflow = riskOf([file('.github/workflows/verify.yml')], { profile: 'default' });
+  assert.equal(defaultWorkflow.risk, 'high');
+  assertLead(defaultWorkflow, 'default workflow');
+  const defaultDocs = riskOf([file('docs/guide.md'), file('README.md')], { profile: 'default' });
+  assert.equal(defaultDocs.risk, 'low');
+  assertLead(defaultDocs, 'default docs');
+  const defaultSecurity = riskOf([file('SECURITY.md')], { profile: 'default' });
+  assert.equal(defaultSecurity.risk, 'high');
+  assertLead(defaultSecurity, 'default security');
   const rename = riskOf([file('scripts/run.mjs', 'renamed', 1, 0, 'docs/guide.md')]);
   assert.ok(codes(rename, 'high_verification')[0].paths?.includes('scripts/run.mjs'));
+  assertLead(rename, 'rename into scripts');
+});
+
+test('the leading risk reason is the one that sets the level', () => {
+  const firstTime = riskOf([file('docs/guide.md')], { author_association: 'FIRST_TIME_CONTRIBUTOR' });
+  assert.equal(firstTime.risk, 'medium');
+  assert.equal(firstTime.reasons[0].code, 'author_first_time_contributor');
+  assert.equal(codes(firstTime, 'low_docs').length, 1);
+  const huge = riskOf(Array.from({ length: 61 }, (_, index) => file(`docs/note-${index}.md`)));
+  assert.equal(huge.risk, 'high');
+  assert.equal(huge.reasons[0].code, 'size_high');
+  const truncated = classifyRisk({ files: [file('docs/guide.md')], profile: 'freedom-platform', changed_files: 1, files_truncated: true });
+  assert.equal(truncated.reasons[0].code, 'changed_files_truncated');
+  const mixed = riskOf([file('docs/a.md'), file('modules/x.ts')]);
+  assert.equal(mixed.reasons[0].code, 'medium_code');
+  assert.equal(mixed.reasons[1].code, 'low_docs');
+  const forkHigh = riskOf([file('docs/a.md'), file('.github/workflows/verify.yml')], { is_fork: true });
+  assert.equal(forkHigh.reasons[0].code, 'high_sensitive');
+  assert.equal(forkHigh.reasons[1].code, 'fork_head');
+  assert.equal(forkHigh.reasons[2].code, 'low_docs');
 });
 
 test('migrationCheck names colliding, duplicate, modified and badly named files', () => {

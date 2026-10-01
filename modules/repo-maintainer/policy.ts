@@ -238,7 +238,9 @@ function merge(into: Reason[], code: string, path?: string, message?: string) {
 }
 
 export function classifyRisk(input: RiskInput): { risk: Risk; reasons: Reason[] } {
-  const reasons: Reason[] = [];
+  // Highest level first. Ties keep discovery order, so reasons[0] is what sets risk.
+  const byLevel: Record<Risk, Reason[]> = { high: [], medium: [], low: [] };
+  const note = (code: string, level: Risk, path?: string) => { merge(byLevel[level], code, path); };
   let risk: Risk = 'low';
   let sawFile = false, sawCounted = false;
   for (const file of input.files) {
@@ -257,22 +259,22 @@ export function classifyRisk(input: RiskInput): { risk: Risk; reasons: Reason[] 
     if (!hits.length) continue;
     const best = hits.reduce<Risk>((current, hit) => atLeast(current, hit.risk), 'low');
     risk = atLeast(risk, best);
-    for (const hit of hits) if (hit.risk === best) merge(reasons, hit.code, hit.path);
+    for (const hit of hits) if (hit.risk === best) note(hit.code, hit.risk, hit.path);
   }
-  if (sawFile && !sawCounted) merge(reasons, 'generated_only');
+  if (sawFile && !sawCounted) note('generated_only', 'low');
   const association = input.author_association ?? '';
-  if (association === 'FIRST_TIME_CONTRIBUTOR') { merge(reasons, 'author_first_time_contributor'); risk = atLeast(risk, 'medium'); }
-  if (association === 'FIRST_TIMER') { merge(reasons, 'author_first_timer'); risk = atLeast(risk, 'medium'); }
-  if (association === 'NONE') { merge(reasons, 'author_none'); risk = atLeast(risk, 'medium'); }
-  if (input.is_fork) { merge(reasons, 'fork_head'); risk = atLeast(risk, 'medium'); }
-  if (input.author_type === 'Bot') { merge(reasons, 'bot_author'); risk = atLeast(risk, 'medium'); }
+  if (association === 'FIRST_TIME_CONTRIBUTOR') { note('author_first_time_contributor', 'medium'); risk = atLeast(risk, 'medium'); }
+  if (association === 'FIRST_TIMER') { note('author_first_timer', 'medium'); risk = atLeast(risk, 'medium'); }
+  if (association === 'NONE') { note('author_none', 'medium'); risk = atLeast(risk, 'medium'); }
+  if (input.is_fork) { note('fork_head', 'medium'); risk = atLeast(risk, 'medium'); }
+  if (input.author_type === 'Bot') { note('bot_author', 'medium'); risk = atLeast(risk, 'medium'); }
   const counted = input.files.filter(file => !GENERATED.has(file.path));
   const lines = counted.reduce((sum, file) => sum + file.additions + file.deletions, 0);
-  if (counted.length > 60 || lines > 3000) { merge(reasons, 'size_high'); risk = 'high'; }
-  else if (counted.length > 20 || lines > 800) { merge(reasons, 'size_medium'); risk = atLeast(risk, 'medium'); }
-  if (input.files_truncated || (input.changed_files != null && input.changed_files > input.files.length)) { merge(reasons, 'changed_files_truncated'); risk = 'high'; }
-  if (!reasons.length) merge(reasons, 'low_docs');
-  return { risk, reasons };
+  if (counted.length > 60 || lines > 3000) { note('size_high', 'high'); risk = 'high'; }
+  else if (counted.length > 20 || lines > 800) { note('size_medium', 'medium'); risk = atLeast(risk, 'medium'); }
+  if (input.files_truncated || (input.changed_files != null && input.changed_files > input.files.length)) { note('changed_files_truncated', 'high'); risk = 'high'; }
+  if (!byLevel.high.length && !byLevel.medium.length && !byLevel.low.length) note('low_docs', 'low');
+  return { risk, reasons: [...byLevel.high, ...byLevel.medium, ...byLevel.low] };
 }
 
 const MIGRATION_NAME = /^(\d{3})_([a-z0-9_]+)\.sql$/;
