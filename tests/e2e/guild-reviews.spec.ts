@@ -198,13 +198,28 @@ test('a guild leader claims an open repository pull and releases it', async ({ p
       const opened = open.locator('span.badge-open', { hasText: '開放認領' });
       const owned = own.locator('span.badge-own', { hasText: 'AI 開發公會' });
       await expect(waiting).toBeVisible();
-      const readPaint = (badge: typeof waiting) => badge.evaluate(element => {
-        const style = getComputedStyle(element);
-        return { background: style.backgroundColor, color: style.color };
-      });
-      const waitingPaint = await readPaint(waiting);
-      const openedPaint = await readPaint(opened);
-      const ownedPaint = await readPaint(owned);
+      let paints: { waiting: { background: string; color: string }; opened: { background: string; color: string }; owned: { background: string; color: string } } | null = null;
+      await expect.poll(async () => {
+        paints = await page.locator('.review-list').evaluate((list, ids) => {
+          const read = (pullId: string, selector: string, text: string) => {
+            const row = list.querySelector(`[data-pull-id="${pullId}"]`);
+            const badge = row ? [...row.querySelectorAll(selector)].find(element => element.textContent?.includes(text)) : undefined;
+            if (!badge) return null;
+            const style = getComputedStyle(badge);
+            if (!style.backgroundColor || !style.color) return null;
+            return { background: style.backgroundColor, color: style.color };
+          };
+          const waitingPaint = read(ids.open, 'span.badge', '待審');
+          const openedPaint = read(ids.open, 'span.badge-open', '開放認領');
+          const ownedPaint = read(ids.own, 'span.badge-own', 'AI 開發公會');
+          if (!waitingPaint || !openedPaint || !ownedPaint) return null;
+          return { waiting: waitingPaint, opened: openedPaint, owned: ownedPaint };
+        }, { open: PULLS.open, own: PULLS.own });
+        return paints;
+      }).not.toBeNull();
+      const waitingPaint = paints!.waiting;
+      const openedPaint = paints!.opened;
+      const ownedPaint = paints!.owned;
       expect(waitingPaint.background, JSON.stringify({ waitingPaint, openedPaint, ownedPaint, theme })).not.toBe(openedPaint.background);
       expect(waitingPaint.background).not.toBe(ownedPaint.background);
       expect(openedPaint.background).not.toBe(ownedPaint.background);
