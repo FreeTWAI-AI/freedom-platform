@@ -13,8 +13,11 @@
 .social-card-body{display:grid;gap:.45rem;padding:.85rem}
 .social-card h3{margin:0;font-size:1rem;line-height:1.45;overflow-wrap:anywhere}
 .social-note{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:0;color:var(--muted);font-size:.875rem}
-.social-byline,.social-points{display:flex;align-items:center;gap:.4rem;margin:0;color:var(--muted);font-size:.85rem;min-width:0}
-.social-byline span,.social-byline time{overflow-wrap:anywhere}
+.social-byline,.social-points{margin:0;color:var(--muted);font-size:.85rem;min-width:0}
+.social-points{display:flex;align-items:center;gap:.4rem}
+.social-byline{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:.45rem;row-gap:.1rem;align-items:center}
+.social-byline span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.social-byline time{grid-column:2;overflow-wrap:break-word;word-break:keep-all}
 .social-avatar{width:1.75rem;height:1.75rem;flex:none}
 .social-actions{display:flex;flex-wrap:wrap;gap:.4rem}
 .social-file{position:relative;overflow:hidden}
