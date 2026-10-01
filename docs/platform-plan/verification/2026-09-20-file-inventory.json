@@ -1579,8 +1579,8 @@
     },
     {
       "path": "docs/development/agent-skill-upload.md",
-      "bytes": 7632,
-      "sha256": "8f35aa5c2e88ab30b23e709249f7b40f9a5fad0bb458767dc11136d967c947bc"
+      "bytes": 7602,
+      "sha256": "dbf8e839e59eaed90ef05d4e47b5e2f961db6e813263b5a8e76ee9a6b7526188"
     },
     {
       "path": "docs/development/audit-2026-09-24-error-copy.md",
@@ -1729,8 +1729,8 @@
     },
     {
       "path": "docs/development/member-communications.md",
-      "bytes": 10653,
-      "sha256": "e66517a4c7c0f07d79d1d29f4ff938a766b4fd3cc1009fbcf09a97e8a03d05c7"
+      "bytes": 10641,
+      "sha256": "39bd8e4abe36813079815db0700d5957d4ecef1a50733903a6d0172fae5858a2"
     },
     {
       "path": "docs/development/member-connections.md",
