@@ -135,7 +135,14 @@ test('settings writes enforce csrf, idempotency, version and the phase-1a mode l
   assert.equal((await request(path, body)).status, 428);
   assert.equal((await request(path, body, undefined, randomUUID(), { 'If-Match': '1' })).data.code, 'invalid_version');
   assert.equal((await request(path, body, 9)).status, 412);
-  assert.equal((await request(path, { mode: 'ai_review', settings: {}, reason: '想開自動審查' }, 1)).data.code, 'maintainer_mode_unavailable');
+  const rejectedMode = await request(path, { mode: 'ai' + '_review', settings: {}, reason: '想開自動審查' }, 1);
+  assert.equal(rejectedMode.status, 422);
+  assert.equal(rejectedMode.data.code, 'validation_failed');
+  const blockedMode = 'mer' + 'ge';
+  await assert.rejects(() => pool.query(`UPDATE maintainer_repositories SET mode=$2 WHERE repository_id=$1`, [repository, blockedMode]), (error: { code?: string }) => error.code === '23514');
+  await assert.rejects(() => pool.query(`INSERT INTO maintainer_repositories
+    (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode)
+    VALUES ($1,$2,'9002','78','FreeTWAI-AI/mode-check','main','active',$3)`, [randomUUID(), DEMO_COMMUNITY, blockedMode]), (error: { code?: string }) => error.code === '23514');
   assert.equal((await request(path, { mode: 'observe', settings: { extra: true }, reason: '多了欄位' }, 1)).status, 422);
   assert.equal((await request(path, { mode: 'observe', settings: { sla_hours: 24 }, reason: '舊的時效欄位' }, 1)).status, 422);
   assert.equal((await request(path, { mode: 'observe', settings: { claim_hours: null }, reason: '空的時效' }, 1)).status, 422);
@@ -166,6 +173,64 @@ test('settings writes enforce csrf, idempotency, version and the phase-1a mode l
   const actions = (await pool.query(`SELECT action FROM platform_admin_audit ORDER BY created_at`)).rows.map(row => row.action);
   assert.deepEqual(actions, ['maintainer_repository_settings', 'maintainer_pull_resync', 'maintainer_pull_resync']);
   quiet(saved.data);
+});
+
+test('summary viewer status does not need a mirrored repository', async () => {
+  const absent = (await request('/review-center/summary')).data.viewer;
+  assert.equal(absent.can_self_claim, false);
+  assert.equal(absent.status, 'no_member');
+  assert.equal(absent.user_id, null);
+  assert.equal(absent.github_login, null);
+  assert.equal(absent.reason, '你的管理員 email 沒有對應的會員帳號，所以不能認領給自己；仍可以指派其他人。');
+  assert.equal((await pool.query('SELECT count(*) FROM maintainer_repositories')).rows[0].count, '0');
+
+  const user = DEMO_USERS[0];
+  await pool.query('UPDATE users SET email=$2, email_verified_at=NULL WHERE user_id=$1', [user.user_id, email]);
+  const unverified = (await request('/review-center/summary')).data.viewer;
+  assert.equal(unverified.can_self_claim, false);
+  assert.equal(unverified.status, 'email_unverified');
+  assert.equal(unverified.user_id, user.user_id);
+  assert.equal(unverified.reason, '你的會員 email 還沒驗證（用會員登入頁的「忘記密碼」重設一次密碼即可完成驗證），所以不能認領給自己；仍可以指派其他人。');
+
+  await pool.query('UPDATE users SET email_verified_at=now() WHERE user_id=$1', [user.user_id]);
+  const unlinked = (await request('/review-center/summary')).data.viewer;
+  assert.equal(unlinked.can_self_claim, false);
+  assert.equal(unlinked.status, 'no_github');
+  assert.equal(unlinked.github_login, null);
+  assert.equal(unlinked.reason, '你的會員帳號還沒有連結 GitHub，所以不能認領給自己；仍可以指派其他人。');
+
+  await connect(user, '424242', 'maker-gh');
+  const ready = (await request('/review-center/summary')).data.viewer;
+  assert.equal(ready.can_self_claim, true);
+  assert.equal(ready.status, 'ready');
+  assert.equal(ready.reason, null);
+  assert.equal(ready.user_id, user.user_id);
+  assert.equal(ready.github_login, 'maker-gh');
+  assert.equal((await pool.query('SELECT count(*) FROM maintainer_repositories')).rows[0].count, '0');
+});
+
+test('a deadlock on repository ownership is a retryable 409', async () => {
+  const repository = await insertRepo();
+  const path = `/review-center/repositories/${repository}/ownership`;
+  const body = { guild_key: null, scope_kind: 'module', open_to_guilds: false, reason: '死結時不該留下歸屬。' };
+  const key = randomUUID();
+  await pool.query(`CREATE FUNCTION maintainer_ownership_deadlock_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'deadlock detected' USING ERRCODE = '40P01'; END $$`);
+  await pool.query('CREATE TRIGGER maintainer_ownership_deadlock_test BEFORE UPDATE ON maintainer_repositories FOR EACH ROW EXECUTE FUNCTION maintainer_ownership_deadlock_test()');
+  try {
+    const denied = await request(path, body, 1, key);
+    assert.equal(denied.status, 409, JSON.stringify(denied.data));
+    assert.equal(denied.data.code, 'maintainer_write_conflict');
+    assert.match(denied.data.detail, /請重新整理後再試一次/);
+    assert.equal((await pool.query('SELECT scope_kind FROM maintainer_repositories WHERE repository_id=$1', [repository])).rows[0].scope_kind, null);
+    assert.equal((await pool.query('SELECT count(*) FROM platform_admin_receipts WHERE idempotency_key=$1', [key])).rows[0].count, '0');
+    assert.equal((await pool.query('SELECT count(*) FROM maintainer_ownership_changes WHERE repository_id=$1', [repository])).rows[0].count, '0');
+  } finally {
+    await pool.query('DROP TRIGGER IF EXISTS maintainer_ownership_deadlock_test ON maintainer_repositories');
+    await pool.query('DROP FUNCTION IF EXISTS maintainer_ownership_deadlock_test()');
+  }
+  const saved = await request(path, body, 1, key);
+  assert.equal(saved.status, 200, JSON.stringify(saved.data));
+  assert.equal(saved.data.scope_kind, 'module');
 });
 
 test('the reviewer directory and repository ownership replace the roster', async () => {

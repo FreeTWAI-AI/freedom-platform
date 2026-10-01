@@ -163,18 +163,23 @@ test('claim, assign, release, pause and resume enforce identity, version and the
   const unnamed = await request(path, {}, 1);
   assert.equal(unnamed.status, 409);
   assert.equal(unnamed.data.code, 'maintainer_claim_identity_required');
-  assert.match(unnamed.data.detail, /仍可以指派其他人/);
   const viewer = (await request('/review-center/summary')).data.viewer;
+  assert.equal(viewer.status, 'no_member');
   assert.equal(viewer.github_login, null);
   assert.equal(viewer.user_id, null);
   assert.equal(viewer.can_self_claim, false);
-  assert.match(viewer.reason, /不能認領給自己/);
+  assert.equal(viewer.reason, '你的管理員 email 沒有對應的會員帳號，所以不能認領給自己；仍可以指派其他人。');
+  assert.equal(unnamed.data.detail, viewer.reason);
 
   const linkedOnly = await member('linked-only@example.invalid', '只有連結');
   await link(linkedOnly, '77009', 'linked-only');
   await pool.query('UPDATE users SET email=$2, email_verified_at=NULL WHERE user_id=$1', [linkedOnly, email]);
   const unverified = await request(path, {}, 1);
   assert.equal(unverified.data.code, 'maintainer_claim_identity_required');
+  const unverifiedViewer = (await request('/review-center/summary')).data.viewer;
+  assert.equal(unverifiedViewer.status, 'email_unverified');
+  assert.equal(unverified.data.detail, unverifiedViewer.reason);
+  assert.equal(unverified.data.detail, '你的會員 email 還沒驗證（用會員登入頁的「忘記密碼」重設一次密碼即可完成驗證），所以不能認領給自己；仍可以指派其他人。');
   await pool.query('DELETE FROM github_social_connections WHERE user_id=$1', [linkedOnly]);
   await pool.query('DELETE FROM users WHERE user_id=$1', [linkedOnly]);
 
@@ -216,6 +221,7 @@ test('claim, assign, release, pause and resume enforce identity, version and the
   assert.equal(summary.data.viewer.github_login, 'self-reviewer');
   assert.equal(summary.data.viewer.user_id, self.userId);
   assert.equal(summary.data.viewer.can_self_claim, true);
+  assert.equal(summary.data.viewer.status, 'ready');
   assert.equal(summary.data.viewer.reason, null);
 
   const otherUser = await member('other-reviewer@example.invalid', '另一位');
