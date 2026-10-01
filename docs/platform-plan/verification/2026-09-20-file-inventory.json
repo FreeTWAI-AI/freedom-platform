@@ -1535,7 +1535,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30575,
-      "sha256": "1909839d0bbaf74c776982f67604ceba7b03a730e877b2fe927c165aaeb6f653"
+      "sha256": "68a0e35aaf0c602b78f766bfd48150d101ebd6eb41de4c25feb7187407aed8f3"
     },
     {
       "path": "deploy/cloudflare/lib/cloudflare.mjs",
@@ -1894,8 +1894,8 @@
     },
     {
       "path": "docs/development/manual-work-skill-books.md",
-      "bytes": 5191,
-      "sha256": "391ef743d494ec2cef2d21142bdcf89278e4f3e8612cca67b9e5391a31586ab3"
+      "bytes": 5273,
+      "sha256": "d4ea90c82a2595dcb4db1cd86c7165fdd3ea0617e6fcc593e49c55130966271e"
     },
     {
       "path": "docs/development/member-api.md",
@@ -3388,11 +3388,6 @@
       "sha256": "8a0499738fe215017c74663bb62f144dcd195bd965396486d04e64511d323cbf"
     },
     {
-      "path": "migrations/065_manual_work_skill_books.sql",
-      "bytes": 246,
-      "sha256": "15b6783999723a39b3524ec5f20398be8555bdae8400161d7abd479a41aae777"
-    },
-    {
       "path": "migrations/066_share_promotion.sql",
       "bytes": 3674,
       "sha256": "61fa7adef3150cb72768daa2c16e67fa0175eea2a7c8b80ddb422d7ce2440a0a"
@@ -3401,6 +3396,11 @@
       "path": "migrations/067_member_services.sql",
       "bytes": 2093,
       "sha256": "f6162dae8a786f707a9ef6b9866ab032e3dc7ab959adc7dde50198e0c70170b5"
+    },
+    {
+      "path": "migrations/068_manual_work_skill_books.sql",
+      "bytes": 246,
+      "sha256": "15b6783999723a39b3524ec5f20398be8555bdae8400161d7abd479a41aae777"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
@@ -4925,7 +4925,7 @@
     {
       "path": "tests/runtime/member-skill-registration.test.ts",
       "bytes": 16948,
-      "sha256": "26d3091110e5239ad57a42ba31def5af0f478ff039c1ccd5ec2a1bea3f5d6c93"
+      "sha256": "a99e7e5b3bcde1d0c5ff3016359f3c220b842962244239066ea9e1fe32edfa75"
     },
     {
       "path": "tests/runtime/notification-events.test.ts",

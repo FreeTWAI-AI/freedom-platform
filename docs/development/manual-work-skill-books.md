@@ -40,7 +40,7 @@
 
 ## 上架
 
-`migrations/065_manual_work_skill_books.sql` 的編號是暫時的，合併時由維護者重編，所以沒有改 `deploy/cloudflare/environments.json`。檔案只新增三筆 `skill_publications`，衝突時不覆寫既有上架時間。沒有 `member_skill_book_grants`，也沒有開發授權。
+`migrations/068_manual_work_skill_books.sql` 接在 main 的 065–067 之後，`deploy/cloudflare/environments.json` 的 `migrations.last` 也改成 68；如果合併前 main 又先加了 migration，要再重編這個檔案和數字。檔案只新增三筆 `skill_publications`，衝突時不覆寫既有上架時間。沒有 `member_skill_book_grants`，也沒有開發授權。
 
 ## 驗證入口
 
