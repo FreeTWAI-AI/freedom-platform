@@ -152,7 +152,7 @@ freedom-maintainer Worker（新，沒有路由）
 
 | 物件 | 用途 | 重點欄位 |
 | --- | --- | --- |
-| `maintainer_repositories` 新增欄位 | repo 的歸屬 | `guild_key`（負責的公會；空值＝沒有歸屬）、`scope_kind`（`module` 模組／`skill_book` 技能書；空值＝未分類）、`open_to_guilds`（沒有歸屬時，是否開放任何公會長認領；069 起預設是）。有公會時不能同時開放 |
+| `maintainer_repositories` 新增欄位 | repo 的歸屬 | `guild_key`（負責的公會；空值＝沒有歸屬）、`scope_kind`（`module` 模組／`skill_book` 技能書；空值＝未分類）、`open_to_guilds`（沒有歸屬時，是否開放任何公會長認領；071 起預設是）。有公會時不能同時開放 |
 | `maintainer_ownership_changes` | 歸屬的異動紀錄（只新增） | `guild_key`、`scope_kind`、`open_to_guilds`、`source`（`admin` 管理員指定／`adopted` 公會長審完後歸入）、`changed_by_admin` 或 `changed_by_user`、`pull_id`（歸入時是哪一張 PR）、`reason` |
 | `maintainer_eligible_reviewers`（檢視表） | 誰能審哪個 repo | `repository_id`、`user_id`、`github_user_id`、`github_login`、`acting_as`（`admin`／`guild_leader`）、`guild_key`。由管理員、公會長任命、公會成員資格與 GitHub 連結即時推導，不存資料 |
 | `maintainer_review_claims` | 認領（軟鎖） | `reviewer_user_id`、`reviewer_github_id`、`reviewer_login`（快照，顯示與 requested reviewer 用）、`acting_as`、`guild_key`（公會長代表哪個公會）、`claimed_by_admin` 或 `claimed_by_user`、`assignment`（`self`／`assigned`；指派時要寫理由）、`head_sha`、`expires_at`（空值＝不會到期）、`state`（`active`／`released`／`expired`／`completed`）、`end_reason`（`self_released`／`admin_released`／`pull_closed`／`reviewer_not_eligible`／`review_submitted`）、`github_request_state`。每張 PR 同時只有一個有效認領 |

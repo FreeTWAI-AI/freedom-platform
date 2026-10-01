@@ -23,7 +23,7 @@
 
 | 元件 | 位置 | 做什麼 |
 | --- | --- | --- |
-| 資料表 | `migrations/061_repo_maintainer.sql`、`migrations/062_maintainer_review_claims.sql`、`migrations/071_maintainer_review_scope.sql`、`migrations/072_maintainer_handoffs.sql` | 儲存庫、歸屬變更、單列排程、webhook 投遞紀錄、工作、拉取請求鏡像、檔案、檢查、審查、認領、`maintainer_eligible_reviewers`、本機 AI 交接。069 把新儲存庫預設改成開放認領，並加上技能書審查範圍。070 只追加 `maintainer_handoffs`，不更新、不刪除 |
+| 資料表 | `migrations/061_repo_maintainer.sql`、`migrations/062_maintainer_review_claims.sql`、`migrations/071_maintainer_review_scope.sql`、`migrations/072_maintainer_handoffs.sql` | 儲存庫、歸屬變更、單列排程、webhook 投遞紀錄、工作、拉取請求鏡像、檔案、檢查、審查、認領、`maintainer_eligible_reviewers`、本機 AI 交接。071 把新儲存庫預設改成開放認領，並加上技能書審查範圍。072 只追加 `maintainer_handoffs`，不更新、不刪除 |
 | 政策 | `modules/repo-maintainer/policy.ts` | 注意事項、遷移編號、佇列狀態、認領覆寫。沒有 I/O。版本 `2026-10-01.2` |
 | 推導 | `modules/repo-maintainer/derive.ts` | `rederivePull`：用已存的鏡像、子表、資格視圖裡的 GitHub id、`migration_reasons` 與進行中的認領重算一筆。不重新推導遷移原因 |
 | Webhook | `POST /api/v1/maintainer/github/webhook` | 驗簽、正規化、寫一筆投遞、必要時排入 `reconcile_pull`。不呼叫 GitHub。只有這個精確的 POST 在會員驗證之前；同一路徑的 GET 回 401 `login_required` |
