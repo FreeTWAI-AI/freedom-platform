@@ -8,11 +8,14 @@ type Page={items:MemberCardData[];total:number;next_offset:number|null};
 export function FriendsPanel({client,onNavigate,onMessage}:ModulePanelProps&{onMessage:(id:string)=>void}){
   const [scope,setScope]=useState<Scope>('accepted'),[search,setSearch]=useState(''),[page,setPage]=useState<Page|null>(null),[offset,setOffset]=useState(0),[labels,setLabels]=useState<Record<string,string>>({}),[loadError,setLoadError]=useState(''),[loading,setLoading]=useState(true),[notice,setNotice]=useState('');
   const generation=useRef(0),{mutate,busy,error}=useModuleMutation(client);
+  const alive=useRef(true);
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;generation.current++;};},[]);
   const load=useCallback(async()=>{const current=++generation.current;setLoading(true);setLoadError('');setPage(null);try{const query=new URLSearchParams({scope,search,offset:String(offset),limit:'20'});const data=await client.get<Page>(`/friends/directory?${query}`);if(current===generation.current)setPage(data);}catch(cause){if(current===generation.current)setLoadError(cause instanceof Error?cause.message:'好友名單暫時無法載入。');}finally{if(current===generation.current)setLoading(false);}},[client,scope,search,offset]);
+  const latestLoad=useRef(load);latestLoad.current=load;
   useEffect(()=>{const timer=setTimeout(()=>void load(),search?250:0);return()=>{clearTimeout(timer);generation.current++;};},[load]);
   useEffect(()=>{let active=true;void loadLabels(client).then(data=>{if(active)setLabels(data);}).catch(()=>{});return()=>{active=false;};},[client]);
-  async function act(member:MemberCardData,action:'accept'|'remove'){setNotice('');const result=await mutate(`/friends/${member.user_id}/${action}`,{},member.friendship.aggregate_version);if(result){setNotice(action==='accept'?`已和${member.nickname}成為好友。`:'好友關係或邀請已移除。');announceInboxChange();await load();}}
-  function changeScope(next:Scope){generation.current++;setPage(null);setScope(next);setOffset(0);}
+  async function act(member:MemberCardData,action:'accept'|'remove'){setNotice('');const result=await mutate(`/friends/${member.user_id}/${action}`,{},member.friendship.aggregate_version);if(result){announceInboxChange();if(!alive.current)return;setNotice(action==='accept'?`已和${member.nickname}成為好友。`:'好友關係或邀請已移除。');await latestLoad.current();}}
+  function changeScope(next:Scope){if(next===scope&&offset===0){void latestLoad.current();return;}generation.current++;setPage(null);setScope(next);setOffset(0);}
   return <section className="module-panel members-panel friends-panel"><div className="actions"><button type="button" className="btn btn-ghost" onClick={()=>onNavigate?.('members')}>認識更多工坊夥伴</button></div>
     <div className="friend-scopes" role="group" aria-label="好友名單範圍">{([['accepted','我的好友'],['incoming','收到的邀請'],['outgoing','送出的邀請']] as [Scope,string][]).map(([key,label])=><button type="button" className="btn btn-ghost" key={key} aria-pressed={scope===key} onClick={()=>changeScope(key)}>{label}</button>)}</div>
     <label className="field">搜尋好友名稱<input type="search" maxLength={100} value={search} onChange={event=>{generation.current++;setPage(null);setSearch(event.target.value);setOffset(0);}}/></label>

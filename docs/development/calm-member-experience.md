@@ -15,6 +15,8 @@
 
 原有圖片、品牌中文字標與三種主題保留。明亮版採白色表面、中性邊界、深綠主按鈕，縮小裝飾圖並取消快訊跑馬動畫。活動發佈、社群任務、貢獻事實、商品與合作功能沿用既有真實資料；本輪不以示範紀錄宣稱有營收或多人分潤。
 
+好友接受／移除完成後依目前正在看的名單重新讀取，避免快速切換後被舊的邀請列表覆蓋。再次點選同一個「我的好友」範圍也能正常整理資料。
+
 ## 聊天互動與 API 相容
 
 控制台與「我的訊息」使用同一組頻道／私訊元件。草稿只保存在目前開頁記憶體，按對話分開；Enter 送出、Shift+Enter 換行，中文輸入法組字期間不送出。傳送結果不確定時沿用同一冪等鍵，避免重複訊息。較早訊息、手動已讀、失敗重試、離開公會後撤銷資格與晚到回應的防護保留。
@@ -31,13 +33,17 @@
 
 `tests/e2e/calm-experience.spec.ts` 使用隔離 PostgreSQL 與合成帳號，以每字 100ms 輸入 Email、密碼，選一個公會，到首頁出現第一本技能書為止，要求少於 30 秒。測試輸出附時間與輸入長度；這是本機合成操作預算，不包含真人閱讀、思考、網路環境或 staging Access 登入。真人達成率仍需在測試站觀察。
 
+最新合成操作為 **5,384ms**。聊天室接收測量先讓接收視窗可見，再由第二個帳號透過真實 API 傳送；沒有傳送後切回焦點的捷徑。公會接收 **919ms**、私訊接收 **1,132ms**、按送出至「傳送中」回饋 **44ms**。各自閒置檢查三次時，沒有額外歷史正文讀取。這些數字是本機隔離環境的一次量測，正式站仍需部署後測量。
+
 ## 本輪驗證
 
-Node 24、隔離 PostgreSQL 與合成帳號。整合上游 `c1dbe4d`（社群技能書、管理介面）後，完整 runtime 為 **689/689**；最新 activity feed 補跑 **4/4**，新增入口／私訊分頁與控制台 focused 瀏覽器 **10/10**。最初非法游標曾回報 500，改為格式驗證通過後才轉 bigint，再完整重跑通過。
+Node 24、隔離 PostgreSQL 與合成帳號。已整合上游 `e3c3977`（社群技能書、管理介面、部署設定及排行榜）。聊天加速、資格與 activity feed 先行回歸 **44/44**；完整 runtime 跑 **692** 項，初次 **689 passed、3 failed**，失敗為 Windows Python 啟動／中文 stdin 編碼。已使用 Windows 對應的 Python 命令並明確加 `-X utf8`，兩份相關 suite 補跑 **23/23**；也補上 Docker／Node 測試時鐘不同步的等待條件，沒有更改正式收款規則。最初非法游標轉 bigint 曾回報 500，格式驗證順序已修正。
+
+完整 Playwright 跑 **300** 個案例，初次 **299 passed、1 failed**，定位到接受好友後快速切換名單的舊回應覆蓋問題並修正。後續五份相關 suite 為 **39 passed、1 failed**，失敗是自動撤銷頻道早於測試點擊已消失的手動按鈕；改成直接驗證自動撤權限及舊回應不能復活內容，單項補跑 **1/1**。相關 **40** 個案例均已有通過紀錄，完整 suite 尚未在這個最後修正版再次全跑；新的 GitHub CI 會跑全套。
 
 TypeScript、前端 build、平台 local／staging-next／next 三環境 dry-run、真實 Worker／workerd **14/14** 均通過。固定契約重建為 32 operations、9 artifacts，與 Git 中的 bytes 一致；Windows 原 checkout 的 CRLF 已還原 canonical bytes。靜態契約／執行工具為 **659 passed、4 skipped**（既有 schema 路徑條件）。build 保留現有主程式 chunk 超過 500kB 的提示，尚未把本機入口時間當成慢網路效能驗收。
 
-最新完整瀏覽器回歸與最終 source inventory 結果於提交前補入；先前版本的驗證歷史保留在 [會員交流規格](member-connections.md)。跨倉 integration 由既有 GitHub CI gate 執行，沒有宣稱本機已重跑。
+Linux Node 24 部署 preflight 為 **37/37**，外部 provider 全用合成 fixtures；部署 manifest 已同步到 migration 058。乾淨 Git 匯出 inventory 為 **922 file hashes、470 local links、0 failures**。先前版本的驗證歷史保留在 [會員交流規格](member-connections.md)。跨倉 integration 由既有 GitHub CI gate 執行，沒有宣稱本機已重跑。
 
 ## 實際畫面
 

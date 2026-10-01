@@ -382,8 +382,9 @@ test('a list re-read that no longer has the open channel closes it, and a paged 
   await guild.getByRole('button',{name:'合成公會 02',exact:true}).click();await expect(bubbles).toHaveCount(2);
   holding=true;await guild.getByRole('button',{name:'重新整理公會頻道',exact:true}).click();await expect.poll(()=>hold.held.length).toBe(1);holding=false;
   server.get('guild','guild-02').member=false;
-  await thread.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
-  await expect(thread.getByRole('alert')).toContainText('目前無法使用此頻道。');
+  // The fast activity check may revoke before a manual-refresh button can be clicked.
+  // Keep the stale list held until live access has actually been refused.
+  await expect(thread.getByRole('alert')).toContainText('目前無法使用此頻道。',{timeout:3000});
   hold.release();await expect.poll(()=>hold.held.length).toBe(0);await page.waitForTimeout(300);
   await expect(guild.locator('[data-channel-key]')).toHaveCount(0);await expect(bubbles).toHaveCount(0);
   await expect(guild.getByText('你還沒有加入任何公會，加入後會出現該公會的閒聊頻道。')).toBeVisible();
