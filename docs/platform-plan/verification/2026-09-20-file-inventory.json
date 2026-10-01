@@ -1670,7 +1670,7 @@
     {
       "path": "docs/development/manual-work-skill-books.md",
       "bytes": 5191,
-      "sha256": "3010496192c6b8e4a86dd30d7f4abecc33193f3f6df6d52352de765424e6036c"
+      "sha256": "391ef743d494ec2cef2d21142bdcf89278e4f3e8612cca67b9e5391a31586ab3"
     },
     {
       "path": "docs/development/member-api.md",
@@ -3118,7 +3118,7 @@
       "sha256": "1dc29a3205a62f2afd54491d07585af8962ac85d22754eea5b5a67951ca93ff5"
     },
     {
-      "path": "migrations/063_manual_work_skill_books.sql",
+      "path": "migrations/065_manual_work_skill_books.sql",
       "bytes": 246,
       "sha256": "15b6783999723a39b3524ec5f20398be8555bdae8400161d7abd479a41aae777"
     },
@@ -4425,7 +4425,7 @@
     {
       "path": "tests/runtime/member-skill-registration.test.ts",
       "bytes": 16948,
-      "sha256": "a484b0434b2fe56a7e489c4c7891a85e652dc9a3bb7a19f5dc70880b1a73a359"
+      "sha256": "6021f9eaa3242a6a5fb1efbb46926aba6abf288eb246cbad7f5771c2708a09fd"
     },
     {
       "path": "tests/runtime/notification-events.test.ts",
