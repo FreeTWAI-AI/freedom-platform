@@ -8,7 +8,7 @@ import {GuildReviews} from './GuildReviews';
 
 type ReaderWriter={get<T>(path:string):Promise<T>;post<T>(path:string,body:unknown,version?:number):Promise<T>};
 type AdminClient={request<T>(path:string,body?:unknown,options?:{key?:string;version?:number|null}):Promise<T>};
-type EditorAccess={appointed_books:number;eligible:boolean;requires_development_guild:boolean;active_guilds:string[];required_guilds:{guild_key:string;name:string}[]};
+type EditorAccess={appointed_books:number;eligible:boolean;requires_development_guild:boolean;intern_blocked?:boolean;active_guilds:string[];required_guilds:{guild_key:string;name:string}[]};
 type Workspace={managed_guilds:{guild_key:string;name:string}[];managed_books:{book_id:string;title:string}[];can_discuss:boolean;can_review_pulls?:boolean;skill_editor_access?:EditorAccess};
 type WorkspaceTab='announcements'|'skills'|'council'|'reviews';
 type Announcement={announcement_id:string;guild_key:string;title:string;body:string;state:'draft'|'published'|'archived';aggregate_version:number;created_at:string;updated_at:string};
@@ -17,8 +17,8 @@ type Editorial={book_id:string;summary:string;collaboration_intro:string;milesto
 type CouncilReply={reply_id:string;body:string;author_name:string;created_at:string};
 type CouncilThread={thread_id:string;title:string;body:string;author_name:string;created_at:string;reply_count?:number;replies:CouncilReply[]};
 const failure=(error:unknown)=>error instanceof Error?error.message:'暫時無法完成，請重試。';
-// Only this problem code means "appointed, but not in an AI guild"; other 403s keep their own message.
-const guildRequired=(error:unknown)=>error instanceof ApiError&&error.status===403&&error.code==='skill_editor_guild_required';
+// These 403s pause the editor: the maintainer is outside a development guild, or only an intern there.
+const guildRequired=(error:unknown)=>error instanceof ApiError&&error.status===403&&(error.code==='skill_editor_guild_required'||error.code==='guild_full_member_required');
 const date=(value:string)=>new Date(value).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
 export function retrySafeWriter(send:<T>(path:string,body:unknown,version:number|undefined,key:string)=>Promise<T>):ReaderWriter['post']{
   const keys=new Map<string,string>();
@@ -42,8 +42,8 @@ const tabLabels:Record<WorkspaceTab,string>={announcements:'公會公告',skills
 export function MemberGuildWorkspace({client}:{client:PortalClient}){
   const api=useMemberClient(client),[workspace,setWorkspace]=useState<Workspace|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState(''),[checking,setChecking]=useState(false),[locked,setLocked]=useState(false),[books,setBooks]=useState<Workspace['managed_books']>([]),[tab,setTab]=useState<WorkspaceTab|null>(null),generation=useRef(0);
   // Only a successful read changes the lock; a failed re-check never restores write access. An open editor keeps its books while locked so the draft survives.
-  const refresh=useCallback(async():Promise<'editable'|'locked'|'failed'|'stale'>=>{const sequence=++generation.current;setChecking(true);try{const data=await api.get<Workspace>('/guild-workspace');if(sequence!==generation.current)return 'stale';const requires=data.skill_editor_access?.requires_development_guild===true;setWorkspace(data);setError('');setLocked(requires);setBooks(previous=>data.managed_books.length?data.managed_books:requires?previous:[]);return requires?'locked':'editable';}catch(cause){if(sequence!==generation.current)return 'stale';setError(failure(cause));return 'failed';}finally{if(sequence===generation.current)setChecking(false);}},[api]);
-  const recheck=useCallback(async()=>{setNotice('');if(await refresh()==='locked')setNotice('已重新核對：目前仍未加入必要的 AI 公會。');},[refresh]);
+  const refresh=useCallback(async():Promise<'editable'|'locked'|'intern'|'failed'|'stale'>=>{const sequence=++generation.current;setChecking(true);try{const data=await api.get<Workspace>('/guild-workspace');if(sequence!==generation.current)return 'stale';const intern=data.skill_editor_access?.intern_blocked===true;const requires=data.skill_editor_access?.requires_development_guild===true;setWorkspace(data);setError('');setLocked(requires);setBooks(previous=>data.managed_books.length?data.managed_books:requires?previous:[]);return intern?'intern':requires?'locked':'editable';}catch(cause){if(sequence!==generation.current)return 'stale';setError(failure(cause));return 'failed';}finally{if(sequence===generation.current)setChecking(false);}},[api]);
+  const recheck=useCallback(async()=>{setNotice('');const state=await refresh();if(state==='intern')setNotice('已重新核對：仍是實習成員，發布與編輯需要會長設為正式成員。');else if(state==='locked')setNotice('已重新核對：目前仍未加入必要的 AI 公會。');},[refresh]);
   const lose=useCallback(()=>{setLocked(true);setNotice('');void refresh();},[refresh]);
   useEffect(()=>{void refresh();const update=()=>void refresh();window.addEventListener('freedom-profile-updated',update);return()=>{generation.current++;window.removeEventListener('freedom-profile-updated',update);};},[refresh]);
   useEffect(()=>{if(!locked)return;const update=()=>void refresh();window.addEventListener('focus',update);return()=>window.removeEventListener('focus',update);},[locked,refresh]);
@@ -54,6 +54,7 @@ export function MemberGuildWorkspace({client}:{client:PortalClient}){
 }
 
 function EditorGuildRecovery({access,draft,newTab,checking,error,notice,onRecheck}:{access?:EditorAccess;draft:boolean;newTab:boolean;checking:boolean;error:string;notice:string;onRecheck:()=>void}){
+  if(access?.intern_blocked)return <section className="card stack" aria-label="技能書編輯資格"><p><strong>實習成員可以閱讀公會內容、在公會聊天室聊天；請會長把你設為正式成員後再發布或編輯。</strong></p>{draft&&<p className="field-hint">編輯已暫停，下方尚未保存的內容仍保留。請會長設為正式成員後，按「重新核對管理權限」再保存。</p>}{error&&<p role="alert" className="banner banner-error">{error}</p>}{notice&&<p role="status" className="banner status-note">{notice}</p>}<div className="actions"><button type="button" className="btn btn-ghost" disabled={checking} onClick={onRecheck}>{checking?'正在核對管理權限…':'重新核對管理權限'}</button></div></section>;
   const names=(access?.required_guilds.length?access.required_guilds.map(item=>item.name):['AI 導入與驗證公會','AI 開發公會']).map(name=>`「${name}」`).join('或'),count=access?.appointed_books??0;
   // Joining stays a member action on the guild page; a draft is kept by opening that page in a new tab.
   return <section className="card stack" aria-label="技能書編輯資格"><p><strong>{count>0?`已被任命維護 ${count} 本技能書，加入${names}即可編輯。`:`技能書維護任命仍在，加入${names}即可編輯。`}</strong></p>{draft&&<p className="field-hint">編輯已暫停，下方尚未保存的內容仍保留。在新分頁加入公會後，回到這裡按「重新核對管理權限」再保存。</p>}{!draft&&newTab&&<p className="field-hint">公會頁會在新分頁開啟，這裡尚未保存的公告或討論內容仍保留。</p>}{error&&<p role="alert" className="banner banner-error">{error}</p>}{notice&&<p role="status" className="banner status-note">{notice}</p>}<div className="actions"><a className="btn btn-primary" href="#guilds" target={newTab?'_blank':undefined} rel={newTab?'noopener noreferrer':undefined}>{newTab?'在新分頁前往職業公會 ↗':'前往職業公會'}</a><button type="button" className="btn btn-ghost" disabled={checking} onClick={onRecheck}>{checking?'正在核對管理權限…':'重新核對管理權限'}</button></div></section>;

@@ -95,7 +95,7 @@ test('simultaneous requests for the last event seat admit only one member',async
 
 test('reading group, hybrid link, and guild exchange details survive review input validation',async()=>{
   const owner=await signIn(),onlineMaster=await signIn(DEMO_USERS[1].email),physicalMaster=await signIn(DEMO_USERS[2].email);
-  await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,'guild_security','active')`,[randomUUID(),DEMO_COMMUNITY,owner.user.user_id]);
+  await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier) VALUES($1,$2,$3,'guild_security','active','full')`,[randomUUID(),DEMO_COMMUNITY,owner.user.user_id]);
   await guildMaster(onlineMaster.user.user_id,'guild_member_operations');
   await guildMaster(physicalMaster.user.user_id,'guild_event_space');
   const base={...draft(),location:'Discord 讀書會場地',event_kind:'reading_group',topic:'AI 與協作',online_url:'https://example.org/reading'};
