@@ -26,6 +26,8 @@ node deploy/cloudflare/preflight.mjs all
 node deploy/cloudflare/preflight.mjs wrangler --config <runtime wrangler.jsonc>
 ```
 
+[environments.json](environments.json) 的 `database_defaults.migrations.last` 是目前最後一個 migration 的編號。新增 migration 的 PR 要一併把它改成新的編號；測試裡的檔案數和最後一個檔名都由它推算，不必另外改。GitHub Actions 的 verify 不跑這組測試，漏改不會擋住 PR，只會讓 `migrations` 與 `all` 回報失敗。
+
 Worker entry、`wrangler.jsonc`、`apps/platform-api`、`packages/db` 與套件依賴由其他工作流負責；本目錄只讀取並驗證它們。`preflight.mjs wrangler` 不驗證 [wrangler.admin-sync.jsonc](../../wrangler.admin-sync.jsonc)：那個 checker 要求平台 route、assets 與 images。cron Worker 由 `npm run worker:dry-run:admin-sync` 打包。見下方「管理員 Access 同步 Worker」。
 
 ## 管理員 Access 同步 Worker
