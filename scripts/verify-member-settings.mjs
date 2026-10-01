@@ -42,8 +42,8 @@ export async function verifyMemberSettings(page,{navigate,get,emptyInbox=false})
     await navigate(page,'我的訊息');
     await expect(page.getByRole('heading',{name:'我的訊息',level:1,exact:true})).toBeVisible();
     const tabs=page.getByRole('tablist',{name:'訊息類型'}).getByRole('tab');
-    await expect(tabs).toHaveCount(4);
-    for(const [index,name] of ['通知','公會閒聊','小隊閒聊','私人訊息'].entries())await expect(tabs.nth(index)).toHaveAccessibleName(new RegExp('^'+name));
+    await expect(tabs).toHaveCount(5);
+    for(const [index,name] of ['通知','公會閒聊','小隊閒聊','私人訊息','世界聊天'].entries())await expect(tabs.nth(index)).toHaveAccessibleName(new RegExp('^'+name));
     const notificationTab=page.getByRole('tab',{name:/^通知/});
     await expect(notificationTab).toContainText(notifications.unread_count?`${notifications.unread_count} 則未讀`:'沒有未讀');
     if(emptyInbox)await expect(page.getByText('目前沒有通知。',{exact:true})).toBeVisible();

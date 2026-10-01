@@ -74,7 +74,7 @@ test('console reads exactly the selected guild, keeps room drafts and receives n
     const arrivalStart=Date.now();await send('guild_ai_vibe','在選定頻道自動出現的新訊息');await expect(dock.getByRole('log')).toContainText('在選定頻道自動出現的新訊息',{timeout:2000});
     const arrivalMs=Date.now()-arrivalStart;expect(arrivalMs).toBeLessThan(2000);await test.info().attach('guild-arrival-latency',{body:JSON.stringify({milliseconds:arrivalMs,scope:'local isolated API; receiver visible before peer POST; no focus refresh',idle_history_reads:reads.length-idleReads-1}),contentType:'application/json'});
     await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await expect(draft).toBeInViewport();await expect(dock.getByRole('button',{name:'送出',exact:true})).toBeInViewport();await dock.screenshot({path:'test-results/calm-chat-390.png'});
-    await dock.getByRole('tab',{name:'總頻道',exact:true}).click();await expect(dock.getByRole('log')).not.toContainText('只屬於');await expect(dock.getByRole('log')).not.toContainText('AI 公會草稿');
+    await dock.getByRole('tab',{name:/^總頻道/}).click();await expect(dock.getByRole('log')).not.toContainText('只屬於');await expect(dock.getByRole('log')).not.toContainText('AI 公會草稿');
   }finally{await peerContext.close()}
 });
 
