@@ -734,8 +734,8 @@
     },
     {
       "path": "apps/portal-web/src/module-light-theme.css",
-      "bytes": 13261,
-      "sha256": "68c3b13b42d44d794ca61c198d91ef95605b07822fd2fedcc7fa8897e74c9aa4"
+      "bytes": 13642,
+      "sha256": "145740ee25a9b3f41f273763c12bfe66b9bd7336909adc4065e48a14eeafcd4a"
     },
     {
       "path": "apps/portal-web/src/modules/AdminAuthorClaims.tsx",
@@ -774,13 +774,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/AdminReviewCenter.css",
-      "bytes": 2426,
-      "sha256": "5313385fc879db498699d42665f79f68276d13b54bf6933d303a8a7deae831d8"
+      "bytes": 2569,
+      "sha256": "911d1a37b7b1f486ebe9abaf3a37b714ea199390f624106110f1c487dc9e5897"
     },
     {
       "path": "apps/portal-web/src/modules/AdminReviewCenter.tsx",
-      "bytes": 31637,
-      "sha256": "8be5088d3d2321d399a5c42665702d6aa6201fc06def236dfa6d4d7e406bafb5"
+      "bytes": 31879,
+      "sha256": "edc03e0fce520094c1a717ec294ef22b034112c3862c0e3209d3eedd8acd8d4c"
     },
     {
       "path": "apps/portal-web/src/modules/AgentShops.css",
@@ -3864,8 +3864,8 @@
     },
     {
       "path": "tests/e2e/admin-review-center.spec.ts",
-      "bytes": 17569,
-      "sha256": "3f11bc0567a1332ecade58358b453531d7af6fd74a89a5cec581a31c8cdda1e1"
+      "bytes": 21717,
+      "sha256": "ae7932bfc70618699114d9947c926f2f45f0746183c1655e9ab6506408026834"
     },
     {
       "path": "tests/e2e/admin.spec.ts",
