@@ -6,7 +6,7 @@ import { command, journal, checkVersion, type Command } from '../../packages/db/
 import { requireCondition } from '../../packages/shared/problem.js';
 import type { Actor } from '../identity-membership/service.js';
 import { avatarUrl } from '../identity-membership/avatars.js';
-import { skillBooksForGuild, communityCatalog, capabilityCategories, equipmentCategories, type SkillBook } from '../community/catalog.js';
+import { skillBooksForGuild, officialGuildKeys, communityCatalog, capabilityCategories, equipmentCategories, type SkillBook } from '../community/catalog.js';
 import { ASSESSMENT_VERSION, ASSESSMENT_SHA256, assessmentQuestions, publicAssessmentDefinition, evaluateAssessment, guildTitles } from './assessment.js';
 
 type Queryable=Pick<Pool,'query'>;
@@ -45,9 +45,14 @@ export async function assertCanLeaveGuild(q:PoolClient,actor:Actor,guildKey:stri
  requireCondition(pref?.primary_guild_key!==guildKey,409,'primary_guild_required','請先把另一個已加入的公會設為主力，再離開這個公會。');
 }
 export async function listSkillBooks(q:Queryable,actor:Pick<Actor,'community_id'|'user_id'>){
- const grants=(await q.query('SELECT book_id,guild_key,granted_at FROM member_skill_book_grants WHERE community_id=$1 AND user_id=$2 ORDER BY granted_at,book_id',[actor.community_id,actor.user_id])).rows;
+ // Grants are kept as history. A book stays unlocked only while the granting guild still designates
+ // it, so a book moved to 社群技能書 leaves the guild shelf without deleting anyone's grant.
+ const grants=(await q.query(`SELECT g.book_id,g.guild_key,g.granted_at,b.book_id IS NOT NULL AS bound FROM member_skill_book_grants g
+   LEFT JOIN guild_skill_book_bindings b ON b.community_id=g.community_id AND b.guild_key=g.guild_key AND b.book_id=g.book_id
+   WHERE g.community_id=$1 AND g.user_id=$2 ORDER BY g.granted_at,g.book_id`,[actor.community_id,actor.user_id])).rows;
  const books=new Map<string,any>();
  for(const grant of grants){const definition=communityCatalog.skill_books.find(book=>book.id===grant.book_id);if(!definition)continue;
+   if(!grant.bound&&!officialGuildKeys(grant.book_id).includes(grant.guild_key))continue;
    if(books.has(grant.book_id))books.get(grant.book_id).guild_keys.push(grant.guild_key);
    else books.set(grant.book_id,{...definition,book_id:grant.book_id,guild_keys:[grant.guild_key],granted_at:grant.granted_at});
  }

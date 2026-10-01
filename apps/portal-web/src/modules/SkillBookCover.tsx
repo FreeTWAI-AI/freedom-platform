@@ -4,7 +4,8 @@ type BookIdentity = { id?: string; book_id?: string; cover_url?: string };
 type BookSource = BookIdentity & { upstream_url?: string; star_url?: string; repository_url: string };
 
 export function skillBookCoverUrl(book: BookIdentity) {
-  if (book.cover_url && /^\/art\/skills\/[a-z0-9-]+\.webp$/.test(book.cover_url)) return book.cover_url;
+  // Platform books and 社群技能書 share one cover format; see docs/design/*-art-manifest.json.
+  if (book.cover_url && /^\/art\/(?:skills|community-skills)\/[a-z0-9-]+\.webp$/.test(book.cover_url)) return book.cover_url;
   const id = book.id ?? book.book_id;
   return id && /^[a-z0-9-]+$/.test(id) ? `/art/skills/${id}.webp` : null;
 }

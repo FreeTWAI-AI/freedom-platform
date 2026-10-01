@@ -9,11 +9,11 @@ import './GitHubSocial.css';
 import {DevelopmentEntry} from './DevelopmentAccess';
 import {AuthorClaimPanel} from './AuthorClaim';
 
-export type IntroBook={id?:string;book_id?:string;title:string;description:string;summary_override?:string;repository_url:string;fork_url?:string|null;introduction_url?:string|null;upstream_url?:string;source_commit?:string|null;license_status?:string;guide?:SkillBookGuide;cover_url?:string;star_url?:string};
-function httpsLink(value?:string|null){
+export type IntroBook={id?:string;book_id?:string;title:string;description:string;summary_override?:string;repository_url:string;fork_url?:string|null;introduction_url?:string|null;upstream_url?:string;source_commit?:string|null;license_status?:string;guide?:SkillBookGuide;cover_url?:string;star_url?:string;official_guild_keys?:string[]};
+export function httpsLink(value?:string|null){
   try {const url=new URL(value??'');return url.protocol==='https:'&&!url.username&&!url.password?url.href:null;}catch{return null;}
 }
-export function SkillBookIntro({book,guildName,label='閱讀技能書'}:{book:IntroBook;guildName?:string;label?:string}){
+export function SkillBookIntro({book,guildName,label='閱讀技能書',community=false}:{book:IntroBook;guildName?:string;label?:string;community?:boolean}){
   const [open,setOpen]=useState(false),dialog=useRef<HTMLDialogElement>(null),trigger=useRef<HTMLButtonElement>(null),id=useId();
   const [cooperation,setCooperation]=useState<{purpose:string;summary:string}|null>(null),[cooperationError,setCooperationError]=useState('');
   const [illustration,setIllustration]=useState<{bookId:string;url:string;alt:string}|null>(null);
@@ -38,9 +38,9 @@ export function SkillBookIntro({book,guildName,label='閱讀技能書'}:{book:In
   function close(){dialog.current?.close();setOpen(false);trigger.current?.focus();}
   return <><span className="skill-intro-entry"><button ref={trigger} type="button" className="btn btn-ghost skill-intro-trigger" aria-haspopup="dialog" onClick={()=>setOpen(true)}>{label}</button>{guildName&&<SkillBookBadges bookId={bookId}/>}</span>
     <dialog ref={dialog} className="skill-intro-dialog" aria-labelledby={id} aria-describedby={`${id}-purpose`} data-book-id={book.id??book.book_id} onCancel={event=>{if(event.target!==event.currentTarget)return;event.preventDefault();close();}} onClose={event=>{if(event.target===event.currentTarget)setOpen(false);}}>
-      <div className="stack"><header className="skill-intro-header"><div><p className="eyebrow">自由工坊 · 公會技能庫</p><h2 id={id}>{book.title}</h2></div><button className="btn btn-ghost" type="button" onClick={close} autoFocus aria-label="關閉技能書介紹">關閉</button></header>
+      <div className="stack"><header className="skill-intro-header"><div><p className="eyebrow">{community?'自由工坊 · 社群技能書':'自由工坊 · 公會技能庫'}</p><h2 id={id}>{book.title}</h2></div><button className="btn btn-ghost" type="button" onClick={close} autoFocus aria-label="關閉技能書介紹">關閉</button></header>
         <div className="skill-intro-cover"><div className="skill-intro-cover-copy"><div className="tag-list">{beginner&&<span className="badge">{beginner.category}</span>}{guide&&<span className="badge">{guide.format}</span>}{guildName&&<span className="badge">{guildName}</span>}</div>
-        {open&&<SkillBookBadges bookId={bookId}/>}<p className="skill-intro-purpose" id={`${id}-purpose`}>{cooperation?.purpose??summaryOverride??beginner?.purpose??guide?.summary??book.description}</p></div>{open&&<SkillBookCover book={book} className="skill-intro-art"/>}</div>
+        {open&&<SkillBookBadges bookId={bookId} community={community}/>}<p className="skill-intro-purpose" id={`${id}-purpose`}>{cooperation?.purpose??summaryOverride??beginner?.purpose??guide?.summary??book.description}</p></div>{open&&<SkillBookCover book={book} className="skill-intro-art"/>}</div>
         {open&&illustration&&illustration.bookId===bookId&&<figure className="skill-intro-illustration"><img src={illustration.url} alt={illustration.alt} width="1200" height="630" decoding="async" onError={()=>setIllustration(null)}/></figure>}
         {upstream&&<p className="field-hint">{guide?.author_name&&<>來源標示的作者：{guide.author_name} · </>}原作：{source?.hostname==='github.com'?source.pathname.slice(1):upstream}</p>}
         {open&&bookId&&<AuthorClaimPanel bookId={bookId}/>}
@@ -58,14 +58,15 @@ export function SkillBookIntro({book,guildName,label='閱讀技能書'}:{book:In
   </>;
 }
 
-export function SkillBookCard({book,className='',access,headingLevel=4}:{book:IntroBook;className?:string;access?:'unlocked'|'locked';headingLevel?:2|3|4}) {
+// Guild books and 社群技能書 share this card; `community` only changes the type label and badge.
+export function SkillBookCard({book,className='',access,headingLevel=4,community=false}:{book:IntroBook;className?:string;access?:'unlocked'|'locked';headingLevel?:2|3|4;community?:boolean}) {
   // The title follows the surrounding outline; .skill-library-title keeps one visual size at every level.
   const Title=`h${headingLevel}` as const;
   const beginner=book.guide?.beginner,discovery=useSkillDiscovery(),summaryOverride=discovery.data?.books.find(item=>item.book_id===(book.id??book.book_id))?.summary_override??book.summary_override;
   return <article className={`card skill-book skill-book-volume skill-library-book ${className}`} data-book-id={book.id??book.book_id} data-access={access}>
-    <div className="skill-library-heading"><SkillBookCover book={book}/><div className="skill-library-copy"><p className="eyebrow skill-library-meta"><span>{beginner?.category??'公會技能書'}</span>{access&&<span className={`skill-unlock-state ${access}`}>{access==='unlocked'?'✓ 已解鎖':'未解鎖'}</span>}</p><Title className="skill-library-title">{book.title}</Title></div></div>
-    <div className="skill-library-description"><p className="skill-library-purpose">{summaryOverride??beginner?.purpose??book.description}</p>{book.guide?.author_name&&<p className="field-hint">來源標示的作者：{book.guide.author_name}</p>}<SkillBookBadges bookId={book.id??book.book_id}/>{book.license_status==='NOASSERTION'&&<p className="field-hint">授權待確認</p>}</div>
-    <div className="skill-library-actions"><SkillBookIntro book={book} label={access==='locked'?'預覽技能書':'閱讀技能書'}/><SkillShare bookId={book.id??book.book_id} title={book.title}/></div>
+    <div className="skill-library-heading"><SkillBookCover book={book}/><div className="skill-library-copy"><p className="eyebrow skill-library-meta"><span>{beginner?.category??(community?'社群技能書':'公會技能書')}</span>{access&&<span className={`skill-unlock-state ${access}`}>{access==='unlocked'?'✓ 已解鎖':'未解鎖'}</span>}</p><Title className="skill-library-title">{book.title}</Title></div></div>
+    <div className="skill-library-description"><p className="skill-library-purpose">{summaryOverride??beginner?.purpose??book.description}</p>{book.guide?.author_name&&<p className="field-hint">來源標示的作者：{book.guide.author_name}</p>}<SkillBookBadges bookId={book.id??book.book_id} community={community}/>{book.license_status==='NOASSERTION'&&<p className="field-hint">授權待確認</p>}</div>
+    <div className="skill-library-actions"><SkillBookIntro book={book} label={access==='locked'?'預覽技能書':'閱讀技能書'} community={community}/><SkillShare bookId={book.id??book.book_id} title={book.title}/></div>
     <SkillBookStar book={book} compact/>
   </article>;
 }
