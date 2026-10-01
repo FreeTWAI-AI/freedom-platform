@@ -10,11 +10,11 @@ test('platform onboarding joins the actual required guild, preserves primary gui
   await login(page,email);const before=await (await page.request.get('/api/v1/me/guild-preferences')).json();
   const modal=await platform(page);
   await modal.getByRole('button',{name:'加入平台工程公會',exact:true}).click();
-  await expect(modal.getByText('已有開發資格。離開最後一個適用公會時，相關授權與憑證會撤銷。',{exact:true})).toBeVisible();
+  await expect(modal.getByText('實習成員可以閱讀公會內容、在公會聊天室聊天；請會長把你設為正式成員後再發布或編輯。',{exact:true})).toBeVisible();
   await modal.getByRole('checkbox').check();await modal.getByRole('button',{name:'同意並保存',exact:true}).click();
   await expect(modal.getByRole('button',{name:'撤回開發同意',exact:true})).toBeVisible();
   await expect(modal.getByRole('button',{name:'驗證 Repo 並啟用開發',exact:true})).toBeDisabled();
-  const current=await (await page.request.get('/api/v1/me/development/platform/cocreation')).json();expect(current.eligible).toBe(true);expect(current.consent).toBe(true);expect(current.enabled).toBe(false);
+  const current=await (await page.request.get('/api/v1/me/development/platform/cocreation')).json();expect(current.eligible).toBe(false);expect(current.intern_blocked).toBe(true);expect(current.consent).toBe(true);expect(current.enabled).toBe(false);
   const preferences=await (await page.request.get('/api/v1/me/guild-preferences')).json();
   expect(preferences.primary_guild_key).toBe(before.primary_guild_key);expect(preferences.aggregate_version).toBe(before.aggregate_version);
   await page.setViewportSize({width:320,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

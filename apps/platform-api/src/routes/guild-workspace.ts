@@ -4,12 +4,15 @@ import {requireCondition} from '../../../../packages/shared/problem.js';
 import {moduleCommand,type PlatformEnv} from '../module-context.js';
 import type {AdminActor,AdminCommand} from '../../../../modules/platform-admin/service.js';
 import * as service from '../../../../modules/guild-workspace/service.js';
+import {setGuildExpertByMaster,setMemberTier} from '../../../../modules/positioning/member-tier.js';
 export function createGuildWorkspaceRoutes(pool:Pool){
  const app=new Hono<PlatformEnv>();
  app.get('/guild-workspace',async c=>c.json(await service.guildWorkspace(pool,c.get('actor'))));
  app.get('/me/guild-announcements',async c=>c.json(await service.memberGuildAnnouncementFeed(pool,c.get('actor'))));
  app.get('/guilds/:key/announcements',async c=>c.json(await service.guildAnnouncements(pool,c.get('actor'),c.req.param('key'))));
  app.post('/guilds/:key/announcements',async c=>c.json(await service.createGuildAnnouncement(pool,await moduleCommand(c),c.req.param('key')),201));
+ app.post('/guilds/:key/members/:userId/tier',async c=>c.json(await setMemberTier(pool,await moduleCommand(c),c.req.param('key'),c.req.param('userId'))));
+ app.post('/guilds/:key/experts',async c=>c.json(await setGuildExpertByMaster(pool,await moduleCommand(c),c.req.param('key'))));
  app.post('/guild-announcements/:id/edit',async c=>c.json(await service.editGuildAnnouncement(pool,await moduleCommand(c),c.req.param('id'))));
  app.get('/skill-books/:id/editor',async c=>c.json(await service.skillEditor(pool,c.get('actor'),c.req.param('id'))));
  app.post('/skill-books/:id/editor',async c=>c.json(await service.saveSkillEditorial(pool,await moduleCommand(c),c.req.param('id'))));

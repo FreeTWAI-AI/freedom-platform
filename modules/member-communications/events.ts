@@ -63,6 +63,17 @@ export async function notifyGuildApplicationReview(q:PoolClient,application:{app
     title,body,action:{tab:'guilds',resource_id:approved?application.approved_guild_key:null}});
 }
 
+/** Call only when member_tier actually changes. Same-tier writes do not notify. */
+export async function notifyGuildMemberTierChange(q:PoolClient,communityId:string,row:{guild_key:string;user_id:string;member_tier:'intern'|'full';aggregate_version:string|number}){
+  const guild=await guildName(q,row.guild_key),promoted=row.member_tier==='full';
+  return notifyMember(q,{community_id:communityId,recipient_ref:row.user_id,
+    kind:promoted?'guild_member_promoted':'guild_member_demoted',
+    source_key:`guild-member-tier/${row.guild_key}/${row.user_id}/${row.aggregate_version}`,
+    title:promoted?'你已成為正式成員':'你已改為實習成員',
+    body:promoted?`你已成為「${guild}」的正式成員，可以發布與編輯公會內容。`:`你在「${guild}」改為實習成員。`,
+    action:{tab:'guilds',resource_id:row.guild_key}});
+}
+
 /** Call only for a real inactive↔active change; a no-op rewrite still bumps the version. */
 export async function notifyGuildExpertChange(q:PoolClient,communityId:string,row:{guild_key:string;user_id:string;active:boolean;aggregate_version:string|number}){
   const guild=await guildName(q,row.guild_key);

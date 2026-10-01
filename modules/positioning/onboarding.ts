@@ -173,8 +173,8 @@ const QuickStartInput=CompleteInput.extend({guild_answers:z.unknown().optional()
 async function joinInTransaction(q:PoolClient,actor:Actor,guildKey:string){
  let member=(await q.query('SELECT * FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 FOR UPDATE',[actor.community_id,actor.user_id,guildKey])).rows[0];
  if(!member||member.state!=='active'){
-   if(member)member=(await q.query("UPDATE positioning_profession_memberships SET state='active',aggregate_version=aggregate_version+1,joined_at=now(),left_at=NULL WHERE membership_id=$1 RETURNING *",[member.membership_id])).rows[0];
-   else member=(await q.query("INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,$4,'active') RETURNING *",[randomUUID(),actor.community_id,actor.user_id,guildKey])).rows[0];
+   if(member)member=(await q.query("UPDATE positioning_profession_memberships SET state='active',member_tier='intern',aggregate_version=aggregate_version+1,joined_at=now(),left_at=NULL WHERE membership_id=$1 RETURNING *",[member.membership_id])).rows[0];
+   else member=(await q.query("INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier) VALUES($1,$2,$3,$4,'active','intern') RETURNING *",[randomUUID(),actor.community_id,actor.user_id,guildKey])).rows[0];
    await journal(q,actor,'profession_membership',member.membership_id,member.aggregate_version,'join_guild',{guild_key:guildKey,state:'active',rank:'runner'},'freedom.organization.profession_membership.updated.v1');
  }
  await grantGuildBooks(q,actor,guildKey);
@@ -262,7 +262,7 @@ export async function guildDirectory(pool:Pool,actor:Actor){
      AND owner.active AND (NOT owner.onboarding_required OR owner.onboarding_completed_at IS NOT NULL)
      AND viewer.active AND (NOT viewer.onboarding_required OR viewer.onboarding_completed_at IS NOT NULL)
      AND viewer_session.revoked_at IS NULL AND viewer_session.expires_at>now()
- ) SELECT g.*,CASE WHEN m.membership_id IS NULL THEN NULL ELSE jsonb_build_object('membership_id',m.membership_id,'state',m.state,'rank',m.rank,'aggregate_version',m.aggregate_version) END AS membership,
+ ) SELECT g.*,CASE WHEN m.membership_id IS NULL THEN NULL ELSE jsonb_build_object('membership_id',m.membership_id,'state',m.state,'rank',m.rank,'member_tier',m.member_tier,'aggregate_version',m.aggregate_version) END AS membership,
      COALESCE(p.primary_guild_key=g.guild_key,false) AS is_primary,p.secondary_guild_keys AS stored_secondary_guild_keys,
      CASE WHEN u.user_id IS NULL THEN NULL ELSE jsonb_build_object('user_id',u.user_id,'display_name',u.display_name,'avatar_version',ma.aggregate_version) END AS guild_master,
      COALESCE((SELECT jsonb_agg(jsonb_build_object('user_id',eu.user_id,'display_name',eu.display_name,'avatar_version',ea.aggregate_version) ORDER BY eu.display_name,eu.user_id)
