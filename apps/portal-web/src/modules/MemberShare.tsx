@@ -25,6 +25,9 @@ function signature(state:Local){
   const prefs=Object.keys(state.prefs).sort().map(key=>[key,state.prefs[key]]);
   return JSON.stringify({include_avatar:state.includeAvatar,design:state.design,headline:state.headline.trim(),links:state.links.map(link=>[link.label,link.url]),show:state.showProfileLinks,prefs});
 }
+function storedSignature(snapshot:Local,result:ShareSettings){
+  return signature({...snapshot,showProfileLinks:result.show_profile_links,prefs:result.profile_link_prefs??{}});
+}
 function visibleProfile(state:Local):CardProfileLink[]{
   if(!state.showProfileLinks)return [];
   const urls=new Set(state.links.map(link=>link.url));
@@ -75,15 +78,19 @@ export function MemberShare({client}:{client:PortalClient}){
         const base={...localRef.current,enabled:result.enabled,sharePath:result.share_path};
         const next=editGen.current===gen&&refreshSerial.current===sentRefresh?{...base,profileLinks:result.profile_links,showProfileLinks:result.show_profile_links,prefs:result.profile_link_prefs??{}}:base;
         localRef.current=next;setLocal(next);
-        if(editGen.current===gen){lastSavedSig.current=signature(next);setStatus({kind:'saved',message:savedCopy(next.enabled)});setNotice(job?.rotate?'連結已更新，舊連結已失效。':job&&!job.enabled?'分享名片已關閉。':'');}
-        else setStatus({kind:'dirty',message:'有變更尚未儲存'});
+        // This response stored the snapshot we sent, even when the member edited again before it returned.
+        lastSavedSig.current=storedSignature(snapshot,result);
+        if(signature(localRef.current)===lastSavedSig.current){
+          setStatus({kind:'saved',message:savedCopy(next.enabled)});
+          if(editGen.current===gen)setNotice(job?.rotate?'連結已更新，舊連結已失效。':job&&!job.enabled?'分享名片已關閉。':'');
+        }else setStatus({kind:'dirty',message:'有變更尚未儲存'});
       }catch(cause){
         const failed=cause instanceof ApiError?cause.status:0;
         if(failed===412||failed===428){try{await reloadConflict();}catch(reloadError){setStatus({kind:'error',message:reloadError instanceof Error?reloadError.message:'名片設定暫時無法載入。'});}break;}
         setStatus({kind:'error',message:cause instanceof Error?cause.message:'名片設定暫時無法儲存。'});break;
       }
       if(job)setActionBusy(explicitRef.current!==null);
-      if(explicitRef.current||editGen.current!==gen||pumpAgain.current)continue;
+      if(explicitRef.current||signature(localRef.current)!==lastSavedSig.current||pumpAgain.current)continue;
       break;
     }
   };
@@ -97,7 +104,8 @@ export function MemberShare({client}:{client:PortalClient}){
     localRef.current=next;setLocal(next);setHeadlineError(headlineIssue(next.headline));
     if(signature(next)===signature(previous))return;
     editGen.current+=1;
-    if(signature(next)===lastSavedSig.current&&!running.current&&!explicitRef.current){window.clearTimeout(debounce.current);setStatus({kind:'saved',message:savedCopy(next.enabled)});return;}
+    // A match with the previous response is not saved while that request, or a queued one, may store a different card.
+    if(signature(next)===lastSavedSig.current&&!running.current&&!pumpAgain.current&&!explicitRef.current){window.clearTimeout(debounce.current);setStatus({kind:'saved',message:savedCopy(next.enabled)});return;}
     setStatus({kind:'dirty',message:'有變更尚未儲存'});
     if(headlineIssue(next.headline)||when==='none'){window.clearTimeout(debounce.current);return;}
     if(when==='debounce'){window.clearTimeout(debounce.current);debounce.current=window.setTimeout(()=>{if(!headlineIssue(localRef.current.headline))kick();},800);return;}
@@ -116,7 +124,8 @@ export function MemberShare({client}:{client:PortalClient}){
       if(serial!==fetchGen.current)return;
       const got=versionNum(data.aggregate_version),current=serverRef.current.version;
       if(current!==null&&(got===null||got<current))return;
-      const clean=signature(localRef.current)===lastSavedSig.current&&!headlineIssue(localRef.current.headline);
+      // lastSavedSig still names the previous response while a save is in flight, so a matching edit is not clean.
+      const clean=!running.current&&signature(localRef.current)===lastSavedSig.current&&!headlineIssue(localRef.current.headline);
       if(!ready){apply(data);setStatus({kind:'idle',message:''});return;}
       if(got!==current){if(clean){apply(data);setStatus({kind:'idle',message:''});}return;}
       refreshSerial.current+=1;
@@ -159,7 +168,7 @@ export function MemberShare({client}:{client:PortalClient}){
     {ready&&<div className="member-share-layout"><div className="member-share-fields">
       <label className="checkbox-row"><input type="checkbox" checked={local.includeAvatar} onChange={event=>assign({includeAvatar:event.target.checked},'now')}/>在分享頁顯示我的頭像</label>
       <div className="ecard-design-picker" role="group" aria-label="名片樣式">{cardDesigns.map(([key,name])=><button type="button" className="ecard-design-option" key={key} aria-pressed={local.design===key} onClick={()=>assign({design:key},'now')}><span className={`ecard-swatch ecard-swatch-${key}`} aria-hidden="true"/>{name}</button>)}</div>
-      <label className="field">一句話介紹<input value={local.headline} onChange={event=>assign({headline:event.target.value},'debounce')} onBlur={()=>{window.clearTimeout(debounce.current);if(!headlineIssue(localRef.current.headline)&&signature(localRef.current)!==lastSavedSig.current)kick();}} placeholder="例如：做開源的人"/></label>
+      <label className="field">一句話介紹<input value={local.headline} onChange={event=>assign({headline:event.target.value},'debounce')} onBlur={()=>{window.clearTimeout(debounce.current);if(!headlineIssue(localRef.current.headline)&&(running.current||signature(localRef.current)!==lastSavedSig.current))kick();}} placeholder="例如：做開源的人"/></label>
       <p className="field-hint">最多 60 個字。留白就只顯示公會和專長。</p>
       {headlineError&&<p role="alert">{headlineError}</p>}
       <div className="ecard-link-editor"><h3>名片連結</h3><p className="field-hint">最多 8 個。按鈕會顯示名稱，下面附上網址的網域。</p>

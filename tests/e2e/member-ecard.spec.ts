@@ -252,6 +252,27 @@ async function addSocial(page:Page,platform:string,label:string,url:string,audie
   await expect(social.getByText('社群連結已新增。')).toBeVisible();
 }
 function cardText(value:string){return value.replace(/\s+/g,' ').trim();}
+type ShareBody={design?:string;links?:{label:string;url:string}[]};
+async function holdFirstSharePost(page:Page){
+  let releaseGate=()=>{};
+  const gate=new Promise<void>(resolve=>{releaseGate=resolve;});
+  let markHeld=()=>{};
+  const held=new Promise<void>(resolve=>{markHeld=resolve;});
+  const bodies:ShareBody[]=[];
+  let first=true;
+  await page.route('**/api/v1/me/member-card-share',async route=>{
+    if(route.request().method()!=='POST')return route.continue();
+    bodies.push(route.request().postDataJSON() as ShareBody);
+    if(first){first=false;markHeld();await gate;}
+    await route.continue();
+  });
+  return {held,bodies,release:releaseGate,async stop(){releaseGate();await page.unrouteAll({behavior:'ignoreErrors'}).catch(()=>{});}};
+}
+function sharePostDesign(design:string){
+  return (response:{request:()=>{method:()=>string;url:()=>string;postDataJSON:()=>ShareBody}})=>(
+    response.request().method()==='POST'&&response.request().url().includes('/api/v1/me/member-card-share')&&response.request().postDataJSON()?.design===design
+  );
+}
 
 test('autosave makes the preview the shared card without a save button',async({page,browser})=>{
   test.setTimeout(240000);
@@ -700,4 +721,131 @@ test('the card renders only https and mailto addresses as links',async({page})=>
     }
     await expect(card.locator('a[href^="javascript:"],a[href^="http:"],a[href*="user:pass"]')).toHaveCount(0);
   }finally{await page.unrouteAll({behavior:'ignoreErrors'}).catch(()=>{});}
+});
+
+test('reverting a design while its save is in flight keeps the original card',async({page,browser})=>{
+  test.setTimeout(180000);
+  await page.setViewportSize({width:1280,height:900});
+  await signup(page,'還原名片作者');
+  await navigate(page,'我的名片');
+  const settings=shareRegion(page);
+  const shareUrl=await enableShare(settings);
+  await waitSaved(settings);
+  await expect(settings.getByRole('button',{name:'清新',exact:true})).toHaveAttribute('aria-pressed','true');
+  const trap=await holdFirstSharePost(page);
+  const guestContext=await browser.newContext();
+  try{
+    await settings.getByRole('button',{name:'夜空',exact:true}).click();
+    await trap.held;
+    expect(trap.bodies).toHaveLength(1);
+    expect(trap.bodies[0]?.design).toBe('night');
+    await expect(settings.locator('.ecard-preview .ecard')).toHaveAttribute('data-design','night');
+    await settings.getByRole('button',{name:'清新',exact:true}).click();
+    await expect(settings.locator('.ecard-preview .ecard')).toHaveAttribute('data-design','calm');
+    await expect(settings.locator('.ecard-save-status')).toContainText('有變更尚未儲存');
+    expect(trap.bodies).toHaveLength(1);
+    const corrected=page.waitForResponse(sharePostDesign('calm'),{timeout:15000});
+    trap.release();
+    expect((await corrected).ok()).toBe(true);
+    await waitSaved(settings);
+    await expect(settings.locator('.ecard-preview .ecard')).toHaveAttribute('data-design','calm');
+    expect(trap.bodies.at(-1)?.design).toBe('calm');
+    await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl);
+    const guest=await guestContext.newPage();
+    await guest.setViewportSize({width:1280,height:900});
+    await guest.goto(shareUrl);
+    await expect(guest.locator('.public-member-page')).toHaveAttribute('data-design','calm');
+    await expect(guest.locator('.ecard')).toHaveAttribute('data-design','calm');
+    await page.reload();
+    await navigate(page,'我的名片');
+    const reloaded=shareRegion(page);
+    await expect(reloaded.getByRole('button',{name:'清新',exact:true})).toHaveAttribute('aria-pressed','true');
+    await expect(reloaded.locator('.ecard-preview .ecard')).toHaveAttribute('data-design','calm');
+    await expect(reloaded.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl);
+  }finally{await guestContext.close();await trap.stop();}
+});
+
+test('fast design clicks while the first save is held keep the last design',async({page,browser})=>{
+  test.setTimeout(180000);
+  await page.setViewportSize({width:820,height:900});
+  await signup(page,'連點名片作者');
+  await navigate(page,'我的名片');
+  const settings=shareRegion(page);
+  const shareUrl=await enableShare(settings);
+  await waitSaved(settings);
+  const trap=await holdFirstSharePost(page);
+  const guestContext=await browser.newContext();
+  try{
+    await settings.getByRole('button',{name:'夜空',exact:true}).click();
+    await trap.held;
+    expect(trap.bodies[0]?.design).toBe('night');
+    await settings.getByRole('button',{name:'經典名片',exact:true}).click();
+    await settings.getByRole('button',{name:'工坊',exact:true}).click();
+    await expect(settings.locator('.ecard-preview .ecard')).toHaveAttribute('data-design','workshop');
+    await expect(settings.locator('.ecard-save-status')).toContainText('有變更尚未儲存');
+    expect(trap.bodies).toHaveLength(1);
+    const corrected=page.waitForResponse(sharePostDesign('workshop'),{timeout:15000});
+    trap.release();
+    expect((await corrected).ok()).toBe(true);
+    await waitSaved(settings);
+    expect(trap.bodies.at(-1)?.design).toBe('workshop');
+    expect(trap.bodies.length).toBeLessThan(4);
+    await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl);
+    const guest=await guestContext.newPage();
+    await guest.setViewportSize({width:820,height:900});
+    await guest.goto(shareUrl);
+    await expect(guest.locator('.public-member-page')).toHaveAttribute('data-design','workshop');
+    await expect(guest.locator('.ecard')).toHaveAttribute('data-design','workshop');
+    await page.reload();
+    await navigate(page,'我的名片');
+    const reloaded=shareRegion(page);
+    await expect(reloaded.getByRole('button',{name:'工坊',exact:true})).toHaveAttribute('aria-pressed','true');
+    await expect(reloaded.locator('.ecard-preview .ecard')).toHaveAttribute('data-design','workshop');
+    await expect(reloaded.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl);
+  }finally{await guestContext.close();await trap.stop();}
+});
+
+test('removing a link while its save is in flight leaves the shared card without it',async({page,browser})=>{
+  test.setTimeout(180000);
+  await page.setViewportSize({width:390,height:844});
+  await signup(page,'連結撤回作者');
+  await navigate(page,'我的名片');
+  const settings=shareRegion(page);
+  const shareUrl=await enableShare(settings);
+  await waitSaved(settings);
+  const trap=await holdFirstSharePost(page);
+  const guestContext=await browser.newContext();
+  try{
+    const draft=settings.locator('.ecard-link-draft');
+    await draft.getByLabel('連結名稱').fill('短暫連結');
+    await draft.getByLabel('連結網址').fill('https://example.com/brief');
+    await draft.getByRole('button',{name:'加入連結',exact:true}).click();
+    await trap.held;
+    expect(trap.bodies).toHaveLength(1);
+    expect(trap.bodies[0]?.links).toEqual([{label:'短暫連結',url:'https://example.com/brief'}]);
+    await expect(settings.locator('.ecard-link-list')).toContainText('短暫連結');
+    await settings.getByRole('button',{name:'移除第 1 個連結 短暫連結',exact:true}).click();
+    await expect(settings.locator('.ecard-link-list')).not.toContainText('短暫連結');
+    await expect(settings.locator('.ecard-save-status')).toContainText('有變更尚未儲存');
+    expect(trap.bodies).toHaveLength(1);
+    const corrected=page.waitForResponse(response=>response.request().method()==='POST'&&response.url().includes('/api/v1/me/member-card-share')&&Array.isArray(response.request().postDataJSON()?.links)&&response.request().postDataJSON().links.length===0,{timeout:15000});
+    trap.release();
+    expect((await corrected).ok()).toBe(true);
+    await waitSaved(settings);
+    expect(trap.bodies.at(-1)?.links).toEqual([]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    const guest=await guestContext.newPage();
+    await guest.setViewportSize({width:390,height:844});
+    await guest.goto(shareUrl);
+    await expect(guest.locator('.public-member-page')).toBeVisible();
+    await expect(guest.getByRole('link',{name:/短暫連結/})).toHaveCount(0);
+    await expect(guest.getByText('短暫連結')).toHaveCount(0);
+    expect(await guest.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.reload();
+    await navigate(page,'我的名片');
+    const reloaded=shareRegion(page);
+    await expect(reloaded.locator('.ecard-link-list')).not.toContainText('短暫連結');
+    await expect(reloaded.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  }finally{await guestContext.close();await trap.stop();}
 });
