@@ -1,10 +1,13 @@
 import {test, before, after} from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {Pool} from 'pg';
 import {createPool, LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
-import {syncGitHubRepositories} from '../../modules/community/github-sync.js';
-import {cleanTitle, authorOf} from '../../modules/community/github-history.js';
+import {GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories} from '../../modules/community/github-sync.js';
+import {cleanTitle, authorOf, postgresText} from '../../modules/community/github-history.js';
+import {publicEvent} from '../../modules/development/page-github.js';
+import {catalogMetricTargets} from '../../modules/github-social/service.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL;
 const schema = `fp_github_sync_${process.pid}_${Date.now()}`;
@@ -64,6 +67,44 @@ function distinctOwners() {
   assert.ok(personal);
   return {org: orgs[0], otherOrg: orgs[1], laterOrg: orgs[2], personal};
 }
+function metricBody(stars = 9) {
+  return {stargazers_count: stars, forks_count: 1, open_issues_count: 2, subscribers_count: 3, pushed_at: '2026-09-23T00:00:00Z', language: 'TypeScript', archived: false, private: false};
+}
+function metricBooks() {
+  const targets = catalogMetricTargets();
+  const org = targets.find(target => target.key.startsWith('freetwai-ai/'));
+  const other = targets.find(target => !target.key.startsWith('freetwai-ai/'));
+  assert.ok(org);
+  assert.ok(other);
+  return {org, other};
+}
+async function parkSideFeeds() {
+  await pool.query(`INSERT INTO github_feed_state(feed_name, next_sync_at, checked_at, last_error)
+    VALUES ('freedom_platform_events', $1, $1, NULL)
+    ON CONFLICT (feed_name) DO UPDATE SET next_sync_at = EXCLUDED.next_sync_at, last_error = NULL`, [FAR]);
+  const targets = catalogMetricTargets();
+  if (!targets.length) return;
+  await pool.query(`INSERT INTO github_repository_metrics(repository_key, retry_after)
+    SELECT key, $2 FROM unnest($1::text[]) AS t(key)
+    ON CONFLICT (repository_key) DO UPDATE SET retry_after = EXCLUDED.retry_after`, [targets.map(target => target.key), FAR]);
+}
+async function dueFeed(etag: string | null, at = T0) {
+  await pool.query(`INSERT INTO github_feed_state(feed_name, etag, next_sync_at, last_error)
+    VALUES ('freedom_platform_events', $2, $1, NULL)
+    ON CONFLICT (feed_name) DO UPDATE SET etag = EXCLUDED.etag, next_sync_at = EXCLUDED.next_sync_at, last_error = NULL`, [new Date(at - 1000), etag]);
+}
+async function dueMetrics(targets: {key: string}[], at = T0) {
+  await pool.query(`UPDATE github_repository_metrics SET snapshot = NULL, checked_at = NULL, last_error = NULL, retry_after = $2
+    WHERE repository_key = ANY($1::text[])`, [targets.map(target => target.key), new Date(at - 1000)]);
+}
+async function quietSides() {
+  await pool.query('DELETE FROM github_sync_backoff');
+  await parkSideFeeds();
+  await only([], T0);
+}
+function openedIssue(id: string, number = 1) {
+  return {id, type: 'IssuesEvent', actor: {login: 'member-demo'}, created_at: '2026-09-27T12:00:00Z', payload: {action: 'opened', issue: {number, title: `任務 ${number}`, html_url: `https://github.com/FreeTWAI-AI/freedom-platform/issues/${number}`}}};
+}
 
 let keys: string[] = [];
 
@@ -72,8 +113,11 @@ before(async () => {
   await admin.query(`CREATE SCHEMA ${schema}`);
   await migrate(pool);
   await prime();
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM github_feed_state')).rows[0].n, 0);
+  await parkSideFeeds();
   keys = (await pool.query<{repository_key: string}>('SELECT repository_key FROM github_sync_repositories ORDER BY repository_key')).rows.map(row => row.repository_key);
   assert.ok(keys.includes(PLATFORM));
+  assert.ok(keys.includes('freetwai-ai/video-autopilot-kit'));
   assert.ok(keys.length >= 2);
 });
 after(async () => {
@@ -86,8 +130,32 @@ after(async () => {
 test('titles and logins are sanitised before storage', () => {
   assert.equal(cleanTitle('想\u0000法  <img>', 'Issue #3'), '想法 <img>');
   assert.equal(cleanTitle('   ', 'Issue #4'), 'Issue #4');
+  assert.equal(cleanTitle(`${'題'.repeat(299)}😀尾巴`, 'Issue #1'), `${'題'.repeat(299)}😀`);
+  assert.equal(cleanTitle('\uD83D', 'Issue #9'), 'Issue #9');
   assert.equal(authorOf('not a login'), null);
   assert.equal(authorOf('dependabot[bot]'), 'dependabot[bot]');
+});
+
+test('postgresText drops NUL and lone surrogates and cuts on code points', () => {
+  assert.equal(postgresText('', 12000), '');
+  assert.equal(postgresText('a\u0000b\u0000', 10), 'ab');
+  assert.equal(postgresText('\uDC00', 10), '');
+  assert.equal(postgresText('a\uDC00b', 10), 'ab');
+  assert.equal(postgresText('ab\uD800', 10), 'ab');
+  assert.equal(postgresText(`${'a'.repeat(4)}😀z`, 5), `${'a'.repeat(4)}😀`);
+  assert.equal(postgresText(`${'a'.repeat(5)}😀`, 5), 'a'.repeat(5));
+  assert.equal(postgresText('a\nb\tc', 10), 'a\nb\tc');
+  const event = publicEvent({
+    id: 'emoji-title', type: 'IssuesEvent', actor: {login: 'member-demo'}, created_at: '2026-09-27T12:00:00Z',
+    payload: {action: 'opened', issue: {number: 44, title: `${'事'.repeat(299)}😀後記`, html_url: 'https://github.com/FreeTWAI-AI/freedom-platform/issues/44'}},
+  });
+  assert.equal(event?.title, `${'事'.repeat(299)}😀`);
+  assert.equal(event?.actor, 'member-demo');
+  assert.equal(event?.url, 'https://github.com/FreeTWAI-AI/freedom-platform/issues/44');
+  assert.equal(publicEvent({
+    id: 'forged', type: 'IssuesEvent', actor: {login: 'member-demo'}, created_at: '2026-09-27T12:00:00Z',
+    payload: {action: 'opened', issue: {number: 44, title: '別的倉庫', html_url: 'https://github.com/other/repo/issues/44'}},
+  }), null);
 });
 
 test('the first backfill walks full pages and stores issues and pull requests', async () => {
@@ -731,5 +799,640 @@ test('a 403 whose body mentions a rate limit backs off without rate-limit header
     assert.ok(new Date(repo.next_sync_at).getTime() <= T0);
   } finally {
     console.warn = original;
+  }
+});
+
+test('issue sync stores labels, assignees, page ids and excerpts only for open issues', async () => {
+  await quietSides();
+  try {
+    await resetRepo(PLATFORM);
+    await only([PLATFORM], T0);
+    const longBody = `${'甲'.repeat(12000)}乙乙乙乙乙`;
+    const labels = [{name: '  page:home  '}, {name: '   '}, ...Array.from({length: 101}, (_, index) => ({name: `label-${index}-${'x'.repeat(120)}`}))];
+    await syncGitHubRepositories(pool, {
+      now: () => T0,
+      fetcher: async () => json([
+        item(7, '2026-09-07T00:00:00.000Z', {body: `<!-- freedom-page:guilds -->\n${longBody}`, labels, assignees: [{login: 'maker'}, {login: 'not a login'}, {login: 'maker'}, {login: 'editor'}]}),
+        item(8, '2026-09-07T00:00:01.000Z', {state: 'closed', body: 'closed body', labels: [{name: 'page:home'}]}),
+        item(9, '2026-09-07T00:00:02.000Z', {pull_request: {merged_at: null}, state: 'open', body: 'pr body', labels: [{name: 'page:home'}]}),
+        item(11, '2026-09-07T00:00:03.000Z', {body: ''}),
+      ]),
+    });
+    const rows = (await pool.query<{number: number; kind: string; state: string; labels: string[]; assignees: string[]; page_ids: string[]; body_excerpt: string | null}>('SELECT number, kind, state, labels, assignees, page_ids, body_excerpt FROM github_items WHERE repository_key=$1 ORDER BY number', [PLATFORM])).rows;
+    const open = rows.find(row => row.number === 7);
+    assert.ok(open);
+    assert.equal(open.labels.length, 100);
+    assert.equal(open.labels[0], 'page:home');
+    assert.equal(open.labels[1], `label-0-${'x'.repeat(120)}`.slice(0, 100));
+    assert.equal(open.labels.some(label => label.startsWith('label-99-')), false);
+    assert.deepEqual(open.assignees, ['maker', 'editor']);
+    assert.deepEqual(open.page_ids, ['home', 'guilds']);
+    assert.equal(open.body_excerpt?.length, 12000);
+    assert.equal(open.body_excerpt?.startsWith('<!-- freedom-page:guilds -->'), true);
+    assert.equal(open.body_excerpt?.includes('乙'), false);
+    const closed = rows.find(row => row.number === 8);
+    assert.equal(closed?.body_excerpt, null);
+    assert.deepEqual(closed?.page_ids, ['home']);
+    assert.equal(rows.find(row => row.number === 9)?.kind, 'pr');
+    assert.equal(rows.find(row => row.number === 9)?.body_excerpt, null);
+    assert.equal(rows.find(row => row.number === 11)?.body_excerpt, null);
+    const later = T0 + 11 * 60 * 1000;
+    await only([PLATFORM], later);
+    await syncGitHubRepositories(pool, {
+      now: () => later,
+      fetcher: async () => json([item(7, '2026-09-08T00:00:00.000Z', {state: 'closed', body: longBody, labels: [{name: 'page:home'}]})]),
+    });
+    const after = (await pool.query<{state: string; body_excerpt: string | null}>('SELECT state, body_excerpt FROM github_items WHERE repository_key=$1 AND number=7', [PLATFORM])).rows[0];
+    assert.equal(after.state, 'closed');
+    assert.equal(after.body_excerpt, null);
+    await assert.rejects(() => pool.query(`UPDATE github_items SET body_excerpt='nope' WHERE repository_key=$1 AND number=9`, [PLATFORM]));
+    assert.equal((await pool.query('SELECT body_excerpt FROM github_items WHERE repository_key=$1 AND number=9', [PLATFORM])).rows[0].body_excerpt, null);
+  } finally {
+    await quietSides();
+  }
+});
+
+test('public events are stored, pruned to 300, and a 304 only refreshes the feed clock', async () => {
+  await quietSides();
+  try {
+    await pool.query('DELETE FROM github_repository_events');
+    await pool.query(`INSERT INTO github_repository_events(event_id, kind, number, title, url, actor, created_at)
+      SELECT 'old-' || i, 'issue_opened', 1, '舊公告', 'https://github.com/FreeTWAI-AI/freedom-platform/issues/1', 'member',
+        timestamptz '2020-01-01T00:00:00Z' + (i || ' seconds')::interval
+      FROM generate_series(0, 299) AS g(i)`);
+    await dueFeed(null);
+    const urls: string[] = [];
+    const stored = await syncGitHubRepositories(pool, {
+      now: () => T0,
+      fetcher: async (input, init) => {
+        const url = String(input);
+        urls.push(url);
+        assert.equal(header(init, 'if-none-match'), null);
+        assert.equal(header(init, 'authorization'), null);
+        return json([
+          {id: 'skip-me', type: 'IssuesEvent', actor: null, created_at: '2026-09-27T12:00:00Z', payload: {}},
+          {id: 'forged', type: 'PullRequestEvent', actor: {login: 'member'}, created_at: '2026-09-27T12:00:00Z', payload: {action: 'opened', pull_request: {number: 10, title: '別的倉庫', html_url: 'https://github.com/other/repo/pull/10'}}},
+          openedIssue('fresh-1'),
+        ], 200, {etag: 'W/"events"', 'x-poll-interval': '90'});
+      },
+    });
+    assert.equal(stored.requests, 1);
+    assert.equal(stored.items_upserted, 0);
+    assert.equal(urls.length, 1);
+    assert.match(urls[0], /\/repos\/FreeTWAI-AI\/freedom-platform\/events\?per_page=100$/);
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM github_repository_events')).rows[0].n, 300);
+    assert.equal((await pool.query("SELECT count(*)::int AS n FROM github_repository_events WHERE event_id IN ('old-0','skip-me','forged')")).rows[0].n, 0);
+    assert.equal((await pool.query("SELECT count(*)::int AS n FROM github_repository_events WHERE event_id='fresh-1'")).rows[0].n, 1);
+    const feed = (await pool.query('SELECT etag, last_error, checked_at, next_sync_at FROM github_feed_state WHERE feed_name=$1', ['freedom_platform_events'])).rows[0];
+    assert.equal(feed.etag, 'W/"events"');
+    assert.equal(feed.last_error, null);
+    near(feed.checked_at, T0);
+    near(feed.next_sync_at, T0 + 90_000);
+    await dueFeed('W/"keep"');
+    await pool.query(`UPDATE github_feed_state SET last_error='github_unavailable', checked_at=$1 WHERE feed_name='freedom_platform_events'`, [new Date(T0 - 86_400_000)]);
+    await pool.query(`INSERT INTO github_repository_events(event_id, kind, number, title, url, actor, created_at)
+      VALUES ('kept-1','issue_opened',1,'保留','https://github.com/FreeTWAI-AI/freedom-platform/issues/1','member','2026-09-01T00:00:00Z')
+      ON CONFLICT (event_id) DO NOTHING`);
+    const before = (await pool.query('SELECT count(*)::int AS n FROM github_repository_events')).rows[0].n;
+    const unchanged = await syncGitHubRepositories(pool, {
+      now: () => T0,
+      fetcher: async (_input, init) => {
+        assert.equal(header(init, 'if-none-match'), 'W/"keep"');
+        return json(null, 304, {etag: 'W/"replacement"', 'x-poll-interval': '90'});
+      },
+    });
+    assert.equal(unchanged.requests, 1);
+    assert.equal(unchanged.not_modified, 1);
+    const after = (await pool.query<{etag: string; last_error: string | null; checked_at: Date; next_sync_at: Date}>('SELECT etag, last_error, checked_at, next_sync_at FROM github_feed_state WHERE feed_name=$1', ['freedom_platform_events'])).rows[0];
+    assert.equal(after.etag, 'W/"keep"');
+    assert.equal(after.last_error, null);
+    near(after.checked_at, T0);
+    near(after.next_sync_at, T0 + 90_000);
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM github_repository_events')).rows[0].n, before);
+    assert.equal((await pool.query("SELECT count(*)::int AS n FROM github_repository_events WHERE event_id='kept-1'")).rows[0].n, 1);
+  } finally {
+    await quietSides();
+  }
+});
+
+test('a rejected events token retries once anonymously and a 429 skips repository reads', async () => {
+  await quietSides();
+  const warnings: unknown[][] = [];
+  const original = console.warn;
+  console.warn = (...args: unknown[]) => { warnings.push(args); };
+  try {
+    await dueFeed(null);
+    const authorizations: Array<string | null> = [];
+    const rejected = await syncGitHubRepositories(pool, {
+      token: SECRET,
+      now: () => T0,
+      fetcher: async (input, init) => {
+        assert.match(String(input), /\/events\?/);
+        const authorization = header(init, 'authorization');
+        authorizations.push(authorization);
+        return authorization ? json({message: 'Bad credentials'}, 401) : json([openedIssue('anon-1')]);
+      },
+    });
+    assert.deepEqual(authorizations, [`Bearer ${SECRET}`, null]);
+    assert.equal(rejected.requests, 2);
+    assert.equal(rejected.stop_reason, 'completed');
+    assert.equal((await pool.query("SELECT count(*)::int AS n FROM github_repository_events WHERE event_id='anon-1'")).rows[0].n, 1);
+    assert.ok(warnings.some(args => args[0] === 'github_sync_token_rejected' && args[1] === 'freetwai-ai'));
+    assert.equal(JSON.stringify(warnings).includes(SECRET), false);
+    await quietSides();
+    await dueFeed(null);
+    await only([PLATFORM], T0);
+    const limited = await syncGitHubRepositories(pool, {
+      now: () => T0,
+      fetcher: async input => {
+        assert.match(String(input), /\/events\?/);
+        return json({message: 'rate limit'}, 429);
+      },
+    });
+    assert.equal(limited.requests, 1);
+    assert.equal(limited.repositories, 0);
+    assert.equal(limited.stop_reason, 'rate_limited');
+    const backoff = (await pool.query("SELECT until_at FROM github_sync_backoff WHERE backoff_key='anonymous'")).rows[0];
+    near(backoff.until_at, T0 + 15 * 60 * 1000);
+    assert.equal((await pool.query("SELECT last_error FROM github_feed_state WHERE feed_name='freedom_platform_events'")).rows[0].last_error, 'github_rate_limited');
+  } finally {
+    console.warn = original;
+    await quietSides();
+  }
+});
+
+test('an events failure and a repository failure still let the other sync parts finish', async () => {
+  await quietSides();
+  try {
+    const targets = catalogMetricTargets();
+    assert.ok(targets.length >= 6);
+    await dueFeed(null);
+    await only([PLATFORM], T0);
+    await resetRepo(PLATFORM);
+    await only([PLATFORM], T0);
+    await dueMetrics([targets[0]]);
+    const urls: string[] = [];
+    const summary = await syncGitHubRepositories(pool, {
+      now: () => T0,
+      fetcher: async input => {
+        const url = String(input);
+        urls.push(url);
+        if (url.includes('/events')) throw new Error('events down');
+        if (url.includes('/issues')) return new Response('unavailable', {status: 500});
+        return json(metricBody());
+      },
+    });
+    assert.equal(summary.requests, 3);
+    assert.equal(summary.stop_reason, 'completed');
+    assert.match(urls[0], /\/events\?/);
+    assert.match(urls[1], /\/issues\?/);
+    assert.equal(urls[2], `https://api.github.com/repos/${targets[0].repository}`);
+    assert.equal((await pool.query("SELECT last_error FROM github_feed_state WHERE feed_name='freedom_platform_events'")).rows[0].last_error, 'github_unavailable');
+    assert.equal((await repoRow(PLATFORM)).last_error, 'github_unavailable');
+    assert.equal((await pool.query('SELECT snapshot->>\'stargazers_count\' AS stars FROM github_repository_metrics WHERE repository_key=$1', [targets[0].key])).rows[0].stars, '9');
+  } finally {
+    await quietSides();
+  }
+});
+
+test('book metrics refresh at most five due repositories and share the request budget', async () => {
+  await quietSides();
+  const errors: unknown[][] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args); };
+  try {
+    const targets = catalogMetricTargets();
+    assert.ok(targets.length >= 6);
+    const six = targets.slice(0, 6);
+    await dueMetrics(six);
+    const capped = await syncGitHubRepositories(pool, {
+      now: () => T0,
+      fetcher: async () => json(metricBody()),
+    });
+    assert.equal(capped.requests, 5);
+    assert.equal(capped.stop_reason, 'completed');
+    const refreshed = new Set((await pool.query<{repository_key: string}>('SELECT repository_key FROM github_repository_metrics WHERE repository_key = ANY($1::text[]) AND snapshot IS NOT NULL', [six.map(target => target.key)])).rows.map(row => row.repository_key));
+    assert.deepEqual([...refreshed].sort(), six.slice(0, 5).map(target => target.key).sort());
+    await quietSides();
+    await dueFeed(null);
+    await only([PLATFORM], T0);
+    await resetRepo(PLATFORM);
+    await only([PLATFORM], T0);
+    await dueMetrics(six);
+    const shared = await syncGitHubRepositories(pool, {
+      now: () => T0,
+      budget: 4,
+      fetcher: async input => String(input).includes('/events') || String(input).includes('/issues') ? json([]) : json(metricBody(4)),
+    });
+    assert.equal(shared.requests, 4);
+    assert.equal(shared.stop_reason, 'completed');
+    const budgeted = new Set((await pool.query<{repository_key: string}>('SELECT repository_key FROM github_repository_metrics WHERE repository_key = ANY($1::text[]) AND snapshot IS NOT NULL', [six.map(target => target.key)])).rows.map(row => row.repository_key));
+    assert.deepEqual([...budgeted].sort(), six.slice(0, 2).map(target => target.key).sort());
+    await quietSides();
+    await dueMetrics(six.slice(0, 2));
+    const limited = await syncGitHubRepositories(pool, {
+      now: () => T0,
+      fetcher: async () => json({message: 'rate limit'}, 429),
+    });
+    assert.equal(limited.requests, 1);
+    assert.equal(limited.stop_reason, 'completed');
+    assert.equal((await pool.query('SELECT last_error FROM github_repository_metrics WHERE repository_key=$1', [six[0].key])).rows[0].last_error, 'github_rate_limited');
+    assert.equal((await pool.query('SELECT snapshot FROM github_repository_metrics WHERE repository_key=$1', [six[1].key])).rows[0].snapshot, null);
+    near((await pool.query("SELECT until_at FROM github_sync_backoff WHERE backoff_key='anonymous'")).rows[0].until_at, T0 + 15 * 60 * 1000);
+    await quietSides();
+    await dueMetrics([targets[0]]);
+    const fallback = await syncGitHubRepositories(pool, {
+      token: SECRET,
+      now: () => T0,
+      fetcher: async (_input, init) => header(init, 'authorization') ? json({message: 'Bad credentials'}, 401) : json(metricBody(43)),
+    });
+    assert.equal(fallback.requests, 2);
+    assert.equal(fallback.stop_reason, 'completed');
+    assert.equal((await pool.query('SELECT snapshot->>\'stargazers_count\' AS stars, last_error FROM github_repository_metrics WHERE repository_key=$1', [targets[0].key])).rows[0].stars, '43');
+    assert.deepEqual(errors, [['github_metrics_token_rejected']]);
+    assert.equal(JSON.stringify(errors).includes(SECRET), false);
+  } finally {
+    console.error = original;
+    await quietSides();
+  }
+});
+
+test('a 403 metrics token falls back anonymously for that owner and stays in use for another', async () => {
+  await quietSides();
+  const errors: unknown[][] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args); };
+  const {org, other} = metricBooks();
+  try {
+    await dueMetrics([org], T0 - 60_000);
+    await dueMetrics([other], T0);
+    const calls: {url: string; auth: string | null}[] = [];
+    const summary = await syncGitHubRepositories(pool, {
+      token: SECRET,
+      now: () => T0,
+      fetcher: async (input, init) => {
+        const url = String(input);
+        const auth = header(init, 'authorization');
+        calls.push({url, auth});
+        if (url === `https://api.github.com/repos/${org.repository}`) {
+          if (auth) return json({message: 'Resource not accessible by integration'}, 403);
+          return json(metricBody(11));
+        }
+        assert.equal(url, `https://api.github.com/repos/${other.repository}`);
+        assert.equal(auth, `Bearer ${SECRET}`);
+        return json(metricBody(22));
+      },
+    });
+    assert.equal(summary.requests, 3);
+    assert.equal(summary.stop_reason, 'completed');
+    assert.deepEqual(calls, [
+      {url: `https://api.github.com/repos/${org.repository}`, auth: `Bearer ${SECRET}`},
+      {url: `https://api.github.com/repos/${org.repository}`, auth: null},
+      {url: `https://api.github.com/repos/${other.repository}`, auth: `Bearer ${SECRET}`},
+    ]);
+    const orgRow = (await pool.query<{stars: string | null; last_error: string | null}>('SELECT snapshot->>\'stargazers_count\' AS stars, last_error FROM github_repository_metrics WHERE repository_key=$1', [org.key])).rows[0];
+    assert.equal(orgRow.stars, '11');
+    assert.equal(orgRow.last_error, null);
+    const otherRow = (await pool.query<{stars: string | null; last_error: string | null}>('SELECT snapshot->>\'stargazers_count\' AS stars, last_error FROM github_repository_metrics WHERE repository_key=$1', [other.key])).rows[0];
+    assert.equal(otherRow.stars, '22');
+    assert.equal(otherRow.last_error, null);
+    assert.deepEqual(errors, [['github_metrics_token_rejected', 'freetwai-ai']]);
+    assert.equal(JSON.stringify(errors).includes(SECRET), false);
+  } finally {
+    console.error = original;
+    await quietSides();
+  }
+});
+
+test('an owner rejected earlier in the run is read anonymously on the first metrics try', async () => {
+  await quietSides();
+  const warnings: unknown[][] = [];
+  const errors: unknown[][] = [];
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  console.warn = (...args: unknown[]) => { warnings.push(args); };
+  console.error = (...args: unknown[]) => { errors.push(args); };
+  const {org} = metricBooks();
+  try {
+    await dueFeed(null);
+    await dueMetrics([org]);
+    const eventAuth: Array<string | null> = [];
+    const metricAuth: Array<string | null> = [];
+    const summary = await syncGitHubRepositories(pool, {
+      token: SECRET,
+      now: () => T0,
+      fetcher: async (input, init) => {
+        const url = String(input);
+        const auth = header(init, 'authorization');
+        if (url.includes('/events')) {
+          eventAuth.push(auth);
+          return auth ? new Response('blocked by organization policy', {status: 403}) : json([]);
+        }
+        assert.equal(url, `https://api.github.com/repos/${org.repository}`);
+        metricAuth.push(auth);
+        return json(metricBody(8));
+      },
+    });
+    assert.equal(summary.requests, 3);
+    assert.equal(summary.stop_reason, 'completed');
+    assert.deepEqual(eventAuth, [`Bearer ${SECRET}`, null]);
+    assert.deepEqual(metricAuth, [null]);
+    const row = (await pool.query<{stars: string | null; last_error: string | null}>('SELECT snapshot->>\'stargazers_count\' AS stars, last_error FROM github_repository_metrics WHERE repository_key=$1', [org.key])).rows[0];
+    assert.equal(row.stars, '8');
+    assert.equal(row.last_error, null);
+    assert.ok(warnings.some(args => args[0] === 'github_sync_token_rejected' && args[1] === 'freetwai-ai'));
+    assert.equal(errors.some(args => args[0] === 'github_metrics_token_rejected'), false);
+    assert.equal(JSON.stringify(warnings).includes(SECRET), false);
+    assert.equal(JSON.stringify(errors).includes(SECRET), false);
+  } finally {
+    console.warn = originalWarn;
+    console.error = originalError;
+    await quietSides();
+  }
+});
+
+test('an anonymous metrics 403 stores github_permission_required and does not retry', async () => {
+  await quietSides();
+  const errors: unknown[][] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args); };
+  const {org} = metricBooks();
+  try {
+    await dueMetrics([org]);
+    let calls = 0;
+    const summary = await syncGitHubRepositories(pool, {
+      token: SECRET,
+      now: () => T0,
+      fetcher: async (_input, init) => {
+        calls += 1;
+        assert.ok(calls <= 2, 'anonymous 403 must not be retried');
+        assert.equal(header(init, 'authorization'), calls === 1 ? `Bearer ${SECRET}` : null);
+        return json({message: 'Resource not accessible by integration'}, 403);
+      },
+    });
+    assert.equal(calls, 2);
+    assert.equal(summary.requests, 2);
+    assert.equal(summary.stop_reason, 'completed');
+    const row = (await pool.query<{snapshot: unknown; last_error: string | null; retry_after: Date}>('SELECT snapshot, last_error, retry_after FROM github_repository_metrics WHERE repository_key=$1', [org.key])).rows[0];
+    assert.equal(row.snapshot, null);
+    assert.equal(row.last_error, 'github_permission_required');
+    assert.ok(new Date(row.retry_after).getTime() > T0);
+    assert.deepEqual(errors, [['github_metrics_token_rejected', 'freetwai-ai']]);
+    assert.equal(JSON.stringify(errors).includes(SECRET), false);
+  } finally {
+    console.error = original;
+    await quietSides();
+  }
+});
+
+test('the anonymous metrics retry counts toward the request budget', async () => {
+  await quietSides();
+  assert.equal(GITHUB_SYNC_REQUEST_BUDGET, 40);
+  const errors: unknown[][] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args); };
+  const {org, other} = metricBooks();
+  try {
+    await dueMetrics([org], T0 - 60_000);
+    await dueMetrics([other], T0);
+    const urls: string[] = [];
+    const summary = await syncGitHubRepositories(pool, {
+      token: SECRET,
+      budget: 2,
+      now: () => T0,
+      fetcher: async (input, init) => {
+        const url = String(input);
+        urls.push(url);
+        if (url !== `https://api.github.com/repos/${org.repository}`) throw new Error(`budget should stop before ${url}`);
+        return header(init, 'authorization') ? json({message: 'Resource not accessible by integration'}, 403) : json(metricBody(5));
+      },
+    });
+    assert.equal(summary.requests, 2);
+    assert.equal(summary.stop_reason, 'completed');
+    assert.deepEqual(urls, [
+      `https://api.github.com/repos/${org.repository}`,
+      `https://api.github.com/repos/${org.repository}`,
+    ]);
+    const saved = (await pool.query<{stars: string | null; last_error: string | null}>('SELECT snapshot->>\'stargazers_count\' AS stars, last_error FROM github_repository_metrics WHERE repository_key=$1', [org.key])).rows[0];
+    assert.equal(saved.stars, '5');
+    assert.equal(saved.last_error, null);
+    assert.equal((await pool.query('SELECT snapshot FROM github_repository_metrics WHERE repository_key=$1', [other.key])).rows[0].snapshot, null);
+    assert.deepEqual(errors, [['github_metrics_token_rejected', 'freetwai-ai']]);
+    assert.equal(JSON.stringify(errors).includes(SECRET), false);
+  } finally {
+    console.error = original;
+    await quietSides();
+  }
+});
+
+test('books skipped for an active backoff do not take metrics slots', async () => {
+  await quietSides();
+  const errors: unknown[][] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args); };
+  const targets = catalogMetricTargets();
+  const orgs = targets.filter(target => target.key.startsWith('freetwai-ai/')).slice(0, 6);
+  const other = targets.find(target => !target.key.startsWith('freetwai-ai/'));
+  assert.equal(orgs.length, 6);
+  assert.ok(other);
+  try {
+    await pool.query(`INSERT INTO github_sync_backoff(backoff_key, until_at) VALUES ('anonymous', $1)`, [new Date(T0 + 60 * 60 * 1000)]);
+    for (const [index, org] of orgs.entries()) await dueMetrics([org], T0 - (6 - index) * 60_000);
+    await dueMetrics([other], T0);
+    const seeded = (await pool.query<{repository_key: string; retry_after: Date; last_error: string | null; snapshot: unknown}>(
+      `SELECT repository_key, retry_after, last_error, snapshot FROM github_repository_metrics WHERE repository_key = ANY($1::text[]) ORDER BY repository_key`,
+      [orgs.map(org => org.key)],
+    )).rows;
+    assert.equal(seeded.length, 6);
+    const calls: {url: string; auth: string | null}[] = [];
+    const summary = await syncGitHubRepositories(pool, {
+      token: SECRET,
+      now: () => T0,
+      fetcher: async (input, init) => {
+        const url = String(input);
+        const auth = header(init, 'authorization');
+        calls.push({url, auth});
+        if (url === `https://api.github.com/repos/${orgs[0].repository}`) {
+          assert.equal(auth, `Bearer ${SECRET}`);
+          return json({message: 'Resource not accessible by integration'}, 403);
+        }
+        assert.equal(url, `https://api.github.com/repos/${other.repository}`);
+        assert.equal(auth, `Bearer ${SECRET}`);
+        return json(metricBody());
+      },
+    });
+    assert.equal(summary.requests, 2);
+    assert.equal(summary.stop_reason, 'completed');
+    assert.deepEqual(calls, [
+      {url: `https://api.github.com/repos/${orgs[0].repository}`, auth: `Bearer ${SECRET}`},
+      {url: `https://api.github.com/repos/${other.repository}`, auth: `Bearer ${SECRET}`},
+    ]);
+    const saved = (await pool.query<{stars: string | null; last_error: string | null}>(
+      `SELECT snapshot->>'stargazers_count' AS stars, last_error FROM github_repository_metrics WHERE repository_key=$1`,
+      [other.key],
+    )).rows[0];
+    assert.equal(saved.stars, '9');
+    assert.equal(saved.last_error, null);
+    const after = (await pool.query<{repository_key: string; retry_after: Date; last_error: string | null; snapshot: unknown}>(
+      `SELECT repository_key, retry_after, last_error, snapshot FROM github_repository_metrics WHERE repository_key = ANY($1::text[]) ORDER BY repository_key`,
+      [orgs.map(org => org.key)],
+    )).rows;
+    assert.deepEqual(after, seeded);
+    assert.deepEqual(errors, [['github_metrics_token_rejected', 'freetwai-ai']]);
+    assert.equal(JSON.stringify(errors).includes(SECRET), false);
+  } finally {
+    console.error = original;
+    await quietSides();
+  }
+});
+
+test('migration 057 clears issue cursors and the next run reads without since', async () => {
+  await quietSides();
+  try {
+    const sql = readFileSync(new URL('../../migrations/057_github_sync_feeds.sql', import.meta.url), 'utf8');
+    assert.match(sql, /UPDATE github_sync_repositories\s+SET since = NULL, etag = NULL, etag_query = NULL, backfilled = false, next_sync_at = now\(\)/);
+    const synced = new Date('2026-09-20T00:00:00.000Z');
+    await pool.query(`UPDATE github_sync_repositories
+      SET since=$2, etag='W/"old"', etag_query='/old', access_status='ok', backfilled=true, last_synced_at=$3, last_error='github_unavailable', next_sync_at=$4
+      WHERE repository_key=$1`, [PLATFORM, new Date('2026-09-01T00:00:00.000Z'), synced, FAR]);
+    await pool.query('UPDATE github_sync_repositories SET since = NULL, etag = NULL, etag_query = NULL, backfilled = false, next_sync_at = now()');
+    const reset = await repoRow(PLATFORM);
+    assert.equal(reset.since, null);
+    assert.equal(reset.etag, null);
+    assert.equal(reset.etag_query, null);
+    assert.equal(reset.backfilled, false);
+    assert.equal(reset.access_status, 'ok');
+    assert.equal(reset.last_error, 'github_unavailable');
+    assert.equal(new Date(reset.last_synced_at).toISOString(), synced.toISOString());
+    await only([PLATFORM], T0);
+    let since: string | null = 'missing';
+    const summary = await syncGitHubRepositories(pool, {
+      now: () => T0,
+      fetcher: async input => {
+        const url = new URL(String(input));
+        assert.match(url.pathname, /\/issues$/);
+        since = url.searchParams.get('since');
+        return json([]);
+      },
+    });
+    assert.equal(summary.requests, 1);
+    assert.equal(since, null);
+  } finally {
+    await quietSides();
+  }
+});
+
+test('NUL and an emoji on the excerpt boundary still commit, and the next repository syncs', async () => {
+  const second = 'freetwai-ai/video-autopilot-kit';
+  const excerpt = `${'a'.repeat(11999)}😀`;
+  const issueTitle = `${'題'.repeat(299)}😀`;
+  const eventTitle = `${'事'.repeat(299)}😀`;
+  const label = `${'a'.repeat(99)}😀`;
+  await quietSides();
+  try {
+    await resetRepo(PLATFORM);
+    await resetRepo(second);
+    await pool.query('DELETE FROM github_repository_events');
+    await dueAt([[PLATFORM, T0 - 2000], [second, T0 - 1000]]);
+    await dueFeed(null);
+    const summary = await syncGitHubRepositories(pool, {
+      now: () => T0,
+      fetcher: async input => {
+        const url = String(input);
+        if (url.includes('/events?')) {
+          return json([{
+            id: 'emoji-title', type: 'IssuesEvent', actor: {login: 'member-demo'}, created_at: '2026-09-27T12:00:00Z',
+            payload: {action: 'opened', issue: {number: 44, title: `${eventTitle}後記`, html_url: 'https://github.com/FreeTWAI-AI/freedom-platform/issues/44'}},
+          }]);
+        }
+        const key = requestedRepository(input);
+        if (key === PLATFORM) {
+          return json([
+            item(21, '2026-09-21T00:00:00.000Z', {title: `${issueTitle}尾巴`, body: `${excerpt}tail`, labels: [{name: label}]}),
+            item(22, '2026-09-21T00:00:01.000Z', {body: 'pre\u0000\uDC00\n\tpost'}),
+          ]);
+        }
+        if (key === second) return json([item(3, '2026-09-21T00:00:02.000Z', {title: '第二個儲存庫'})]);
+        throw new Error(`unexpected ${url}`);
+      },
+    });
+    assert.equal(summary.requests, 3);
+    assert.equal(summary.repositories, 2);
+    assert.equal(summary.items_upserted, 3);
+    assert.equal(summary.stop_reason, 'completed');
+    const open = (await pool.query<{body_excerpt: string; chars: number; title: string; title_chars: number; labels: string[]; label_chars: number}>(
+      `SELECT body_excerpt, char_length(body_excerpt)::int AS chars, title, char_length(title)::int AS title_chars, labels, char_length(labels[1])::int AS label_chars
+       FROM github_items WHERE repository_key=$1 AND number=21`, [PLATFORM])).rows[0];
+    assert.equal(open.body_excerpt, excerpt);
+    assert.equal(open.chars, 12000);
+    assert.equal(open.body_excerpt.includes('\u0000'), false);
+    assert.equal(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(open.body_excerpt), false);
+    assert.equal(open.title, issueTitle);
+    assert.equal(open.title_chars, 300);
+    assert.deepEqual(open.labels, [label]);
+    assert.equal(open.label_chars, 100);
+    const nul = (await pool.query<{body_excerpt: string}>('SELECT body_excerpt FROM github_items WHERE repository_key=$1 AND number=22', [PLATFORM])).rows[0];
+    assert.equal(nul.body_excerpt, 'pre\n\tpost');
+    assert.equal(nul.body_excerpt.includes('\u0000'), false);
+    const storedEvent = (await pool.query<{title: string; chars: number}>('SELECT title, char_length(title)::int AS chars FROM github_repository_events WHERE event_id=$1', ['emoji-title'])).rows[0];
+    assert.equal(storedEvent.title, eventTitle);
+    assert.equal(storedEvent.chars, 300);
+    assert.equal((await pool.query('SELECT title FROM github_items WHERE repository_key=$1 AND number=3', [second])).rows[0].title, '第二個儲存庫');
+    assert.equal((await repoRow(PLATFORM)).last_error, null);
+    assert.equal((await repoRow(second)).access_status, 'ok');
+  } finally {
+    await quietSides();
+  }
+});
+
+test('a workerd-style fetch still syncs issues, pull requests, events and book metrics', async () => {
+  await quietSides();
+  try {
+    const targets = catalogMetricTargets();
+    assert.ok(targets.length >= 1);
+    await dueFeed(null);
+    await only([PLATFORM], T0);
+    await resetRepo(PLATFORM);
+    await only([PLATFORM], T0);
+    await dueMetrics([targets[0]]);
+    const urls: string[] = [];
+    // Not an arrow: a method call sets `this` to the receiver. workerd's fetch rejects that.
+    const fetcher: typeof fetch = async function (this: unknown, input) {
+      const url = String(input);
+      urls.push(url);
+      if (this !== undefined && this !== globalThis) throw new TypeError('Illegal invocation');
+      if (url.includes('/events')) return json([openedIssue('unbound-event-1')]);
+      if (url.includes('/issues')) return json([
+        item(8101, '2026-09-11T00:00:00.000Z'),
+        item(8102, '2026-09-11T00:00:00.000Z', {pull_request: {merged_at: '2026-09-11T01:00:00.000Z'}}),
+      ]);
+      return json(metricBody(17));
+    };
+    const summary = await syncGitHubRepositories(pool, {fetcher, now: () => T0});
+    assert.equal(summary.requests, 3);
+    assert.equal(summary.repositories, 1);
+    assert.equal(summary.items_upserted, 2);
+    assert.equal(summary.stop_reason, 'completed');
+    assert.equal(urls.length, 3);
+    assert.match(urls[0], /\/events\?/);
+    assert.match(urls[1], /\/issues\?/);
+    assert.equal(urls[2], `https://api.github.com/repos/${targets[0].repository}`);
+    const feed = (await pool.query('SELECT checked_at, last_error FROM github_feed_state WHERE feed_name=$1', ['freedom_platform_events'])).rows[0];
+    assert.ok(feed.checked_at);
+    assert.equal(feed.last_error, null);
+    assert.equal((await pool.query("SELECT count(*)::int AS n FROM github_repository_events WHERE event_id='unbound-event-1'")).rows[0].n, 1);
+    const stored = (await pool.query<{number: number; kind: string}>('SELECT number, kind FROM github_items WHERE repository_key=$1 AND number IN (8101, 8102) ORDER BY number', [PLATFORM])).rows;
+    assert.deepEqual(stored, [{number: 8101, kind: 'issue'}, {number: 8102, kind: 'pr'}]);
+    const repo = await repoRow(PLATFORM);
+    assert.equal(repo.access_status, 'ok');
+    assert.equal(repo.last_error, null);
+    const metric = (await pool.query<{checked_at: Date | null; last_error: string | null; stars: string | null}>('SELECT checked_at, last_error, snapshot->>\'stargazers_count\' AS stars FROM github_repository_metrics WHERE repository_key=$1', [targets[0].key])).rows[0];
+    assert.ok(metric.checked_at);
+    assert.equal(metric.last_error, null);
+    assert.equal(metric.stars, '17');
+  } finally {
+    await pool.query("DELETE FROM github_repository_events WHERE event_id='unbound-event-1'");
+    await pool.query('DELETE FROM github_items WHERE repository_key=$1 AND number IN (8101, 8102)', [PLATFORM]);
+    await quietSides();
   }
 });

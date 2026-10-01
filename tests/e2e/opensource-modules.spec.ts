@@ -1,4 +1,4 @@
-import { navigate } from './navigation.js';
+import { navigate, signOut } from './navigation.js';
 import { test,expect,type Page } from './fixtures.js';
 
 async function login(page:Page,email='maker@local.test'){
@@ -32,7 +32,7 @@ test('member writes a private campaign, revises it and records a manual share th
   await page.reload();await navigate(page, '行銷工作室');
   card=page.getByRole('article',{name:`行銷活動：${title}`,exact:true});await expect(card.getByRole('link',{name:'社群討論 ↗',exact:true})).toBeVisible();
   await page.screenshot({path:'test-results/marketing-workspace.png',fullPage:true});
-  await page.getByRole('button',{name:'登出',exact:true}).click();
+  await signOut(page);
   await expect(page.getByRole('heading',{name:'登入',exact:true})).toBeVisible();
   await login(page,'client@local.test');
   await navigate(page, '行銷工作室');await expect(page.getByRole('heading',{name:'我的行銷草稿',exact:true})).toBeVisible();

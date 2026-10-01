@@ -1,4 +1,4 @@
-import { navigate } from './navigation.js';
+import { navigate, signOut } from './navigation.js';
 import { test,expect,type Page } from './fixtures.js';
 
 async function login(page:Page,email:string) {
@@ -9,7 +9,7 @@ async function login(page:Page,email:string) {
   await navigate(page, '我的工作');
   await expect(page.getByRole('heading',{name:'我的工作',exact:true})).toBeVisible();
 }
-async function switchAccount(page:Page,email:string) {await page.getByRole('button',{name:'登出',exact:true}).click();await expect(page.getByRole('heading',{name:'登入',exact:true})).toBeVisible();await login(page,email);}
+async function switchAccount(page:Page,email:string) {await signOut(page);await expect(page.getByRole('heading',{name:'登入',exact:true})).toBeVisible();await login(page,email);}
 const artifactLabel='成果引用（例如 artifact:template-v1）';
 
 test('localhost alias permits browser login and logout',async({page,baseURL})=>{
@@ -20,7 +20,7 @@ test('localhost alias permits browser login and logout',async({page,baseURL})=>{
   await expect(page.getByRole('heading',{name:'會員首頁',exact:true})).toBeVisible();
   await navigate(page, '我的工作');
   await expect(page.getByRole('heading',{name:'我的工作',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'登出',exact:true}).click();
+  await signOut(page);
   await expect(page.getByRole('heading',{name:'登入',exact:true})).toBeVisible();
 });
 
@@ -104,6 +104,6 @@ test('phone viewport, wrong password, logout, and unavailable API remain honest'
   await page.screenshot({path:'test-results/workspace-mobile.png',fullPage:true});
   await page.route('**/api/v1/engagements',r=>r.abort());await navigate(page, '合作紀錄');
   await expect(page.getByRole('alert')).toContainText('無法連線');
-  await page.getByRole('button',{name:'登出',exact:true}).click();await expect(page.getByRole('heading',{name:'登入',exact:true})).toBeVisible();
+  await signOut(page);await expect(page.getByRole('heading',{name:'登入',exact:true})).toBeVisible();
   const response=await page.request.get('/api/v1/session');expect(response.status()).toBe(401);
 });

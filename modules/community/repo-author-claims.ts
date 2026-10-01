@@ -3,7 +3,7 @@ import {z} from 'zod';
 import type {Pool, PoolClient} from 'pg';
 import {command, journal, type Command} from '../../packages/db/index.js';
 import {Problem, requireCondition} from '../../packages/shared/problem.js';
-import {externalHttpsUrl, githubCoordinate, publicJson} from '../opensource-marketing/github.js';
+import {concealedRepository, externalHttpsUrl, githubCoordinate, publicRepositoryJson} from '../opensource-marketing/github.js';
 import {adminCommand, audit, type AdminCommand} from '../platform-admin/service.js';
 import {authRateLimit} from '../identity-membership/members.js';
 import {communityCatalog, type SkillBook} from './catalog.js';
@@ -98,12 +98,16 @@ function duplicateClaim(error: unknown) {
   return pg.code === '23505' && pg.constraint === 'repo_credit_claims_one_active_role';
 }
 
-async function resolvePublicRepo(coordinate: string, fetcher: typeof fetch): Promise<ResolvedRepo> {
+async function resolvePublicRepo(coordinate: string, fetcher: typeof fetch, token?: string): Promise<ResolvedRepo> {
   let raw: unknown;
-  try { raw = await publicJson(`/repos/${coordinate}`, AbortSignal.timeout(8000), fetcher); }
+  try {
+    raw = await publicRepositoryJson(`/repos/${coordinate}`, AbortSignal.timeout(8000), fetcher, false, 196608, token);
+    // A private body the token can see must take the same path as HTTP 404.
+    if (concealedRepository(raw)) throw new Problem(422, 'github_repository_unavailable', '找不到公開儲存庫或可讀取的版本；請檢查網址與公開設定。');
+  }
   catch (error) {
     if (error instanceof Problem && (error.status === 503 || error.code === 'github_rate_limited')) {
-      throw new Problem(503, error.code, '暫時無法向 GitHub 確認原作 Repo，申請尚未送出。請稍後再試。');
+      throw new Problem(503, error.code, '暫時無法向 GitHub 確認原作 Repo，申請尚未送出。請稍後再試。', error.retryAfterSeconds);
     }
     if (error instanceof Problem) throw new Problem(422, 'claim_repository_unavailable', '這本技能書的原作不是可認領的公開 GitHub Repo。');
     throw error;
@@ -111,7 +115,7 @@ async function resolvePublicRepo(coordinate: string, fetcher: typeof fetch): Pro
   const parsed = RepoBody.safeParse(raw);
   requireCondition(parsed.success, 422, 'claim_repository_unavailable', '這本技能書的原作不是可認領的公開 GitHub Repo。');
   const visibility = parsed.data.visibility ?? (parsed.data.private ? 'private' : 'public');
-  requireCondition(!parsed.data.private && visibility === 'public', 422, 'claim_repository_unavailable', '只能認領可公開讀取的 GitHub 原作 Repo。');
+  requireCondition(!parsed.data.private && visibility === 'public', 422, 'claim_repository_unavailable', '這本技能書的原作不是可認領的公開 GitHub Repo。');
   const source = parsed.data.fork ? (parsed.data.source?.id ? parsed.data.source : parsed.data.parent) : undefined;
   return {
     id: String(parsed.data.id), full_name: parsed.data.full_name, url: `https://github.com/${parsed.data.full_name}`,
@@ -128,7 +132,7 @@ async function upsertCanonical(q: PoolClient, repo: ResolvedRepo) {
 }
 
 /** Resolve and cache the catalog upstream by provider id. Claims are never moved when the id changes. */
-export async function observeCatalogRepo(q: PoolClient, book: SkillBook, fetcher: typeof fetch, options: {force: boolean; actorUserId?: string; actorAdminId?: string}) {
+export async function observeCatalogRepo(q: PoolClient, book: SkillBook, fetcher: typeof fetch, options: {force: boolean; actorUserId?: string; actorAdminId?: string}, token?: string) {
   const coordinate = upstreamCoordinate(book);
   await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`catalog-repo/${book.id}`]);
   const existing = (await q.query('SELECT * FROM catalog_repo_observations WHERE book_id=$1 FOR UPDATE', [book.id])).rows[0];
@@ -138,7 +142,7 @@ export async function observeCatalogRepo(q: PoolClient, book: SkillBook, fetcher
     requireCondition(canonical, 503, 'github_unavailable', '暫時無法向 GitHub 確認原作 Repo，申請尚未送出。請稍後再試。');
     return {observation: existing, canonical, fetched: false as const};
   }
-  const resolved = await resolvePublicRepo(coordinate, fetcher);
+  const resolved = await resolvePublicRepo(coordinate, fetcher, token);
   const canonical = await upsertCanonical(q, resolved);
   const observation = (await q.query(`INSERT INTO catalog_repo_observations
     (book_id, provider, provider_repo_id, requested_full_name, full_name, current_url, source_repo_id, previous_provider_repo_id, needs_recheck, observed_at)
@@ -214,7 +218,7 @@ function requireClaimVersion(actual: number, expected?: string) {
   requireCondition(String(actual) === expected, 409, 'claim_version_conflict', '這筆認領已更新，請重新整理後再操作。');
 }
 
-export async function submitAuthorClaim(pool: Pool, input: Command, bookId: string, fetcher: typeof fetch) {
+export async function submitAuthorClaim(pool: Pool, input: Command, bookId: string, fetcher: typeof fetch, token?: string) {
   const book = bookOrThrow(bookId);
   upstreamCoordinate(book);
   const body = SubmitBody.parse(input.body);
@@ -224,7 +228,7 @@ export async function submitAuthorClaim(pool: Pool, input: Command, bookId: stri
   return command(pool, input, async () => undefined, async q => {
     const github = (await q.query('SELECT github_user_id, github_login FROM github_social_connections WHERE user_id=$1 AND community_id=$2 FOR SHARE', [input.actor.user_id, input.actor.community_id])).rows[0];
     requireCondition(github, 409, 'github_link_required', '請先連結 GitHub 帳號，再認領原作。');
-    const observed = await observeCatalogRepo(q, book, fetcher, {force: false, actorUserId: input.actor.user_id});
+    const observed = await observeCatalogRepo(q, book, fetcher, {force: false, actorUserId: input.actor.user_id}, token);
     const repoId = observed.canonical.repo_id as string;
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`repo-claim/${repoId}/${input.actor.user_id}/${body.role}`]);
     const active = await q.query(`SELECT 1 FROM repo_credit_claims WHERE repo_id=$1 AND user_id=$2 AND role=$3 AND state IN ('pending','verified','disputed')`, [repoId, input.actor.user_id, body.role]);
@@ -360,11 +364,11 @@ export async function reviewAuthorClaim(pool: Pool, input: AdminCommand, claimId
     return adminClaim({...updated, display_name: current.display_name, provider_repo_id: current.provider_repo_id, full_name: current.full_name, current_url: current.current_url, source_repo_id: current.source_repo_id});
   });
 }
-export async function refreshAuthorClaimObservation(pool: Pool, input: AdminCommand, bookId: string, fetcher: typeof fetch) {
+export async function refreshAuthorClaimObservation(pool: Pool, input: AdminCommand, bookId: string, fetcher: typeof fetch, token?: string) {
   const book = bookOrThrow(bookId);
   z.object({}).strict().parse(input.body);
   return adminCommand(pool, input, async () => undefined, async q => {
-    const observed = await observeCatalogRepo(q, book, fetcher, {force: true, actorAdminId: input.admin.admin_id});
+    const observed = await observeCatalogRepo(q, book, fetcher, {force: true, actorAdminId: input.admin.admin_id}, token);
     await audit(q, input.admin, 'author_claim_observation', 'catalog_repo_observation', book.id, '重新讀取原作 Repo 身分。',
       {}, {provider_repo_id: observed.observation.provider_repo_id, needs_recheck: observed.observation.needs_recheck, full_name: observed.observation.full_name});
     return wireObservation(observed.observation);

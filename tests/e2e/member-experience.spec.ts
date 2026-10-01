@@ -212,7 +212,7 @@ test('task board explains unavailable and stale GitHub reads without claiming th
   let stale=false;
   await page.route('**/api/v1/co-creation/projects/workshop-video-autopilot/activity',route=>route.fulfill(stale
     ?{status:200,contentType:'application/json',body:JSON.stringify({repository_url:'https://github.com/FreeTWAI-AI/video-autopilot-kit',checked_at:'2026-09-27T12:00:00Z',issues:[],contributions:[],truncated:false,stale_reason:'github_rate_limited'})}
-    :{status:200,contentType:'application/json',body:JSON.stringify({repository_url:'https://github.com/FreeTWAI-AI/video-autopilot-kit',checked_at:'2026-09-28T00:00:00Z',issues:[],contributions:[],truncated:false,unavailable_reason:'github_rate_limited'})}));
+    :{status:200,contentType:'application/json',body:JSON.stringify({repository_url:'https://github.com/FreeTWAI-AI/video-autopilot-kit',checked_at:'2026-09-28T00:00:00Z',issues:[],contributions:[],truncated:false,unavailable_reason:'github_sync_pending'})}));
   await page.goto('/');
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
@@ -220,7 +220,7 @@ test('task board explains unavailable and stale GitHub reads without claiming th
   await navigate(page,'社群任務');
   const picker=page.getByLabel('選擇共創專案');
   await picker.selectOption('workshop-video-autopilot');
-  await expect(page.getByRole('status').filter({hasText:'GitHub 暫時限制查詢'})).toContainText('無法確認任務清單');
+  await expect(page.getByRole('status').filter({hasText:'GitHub 資料同步中'})).toContainText('還無法確認任務清單');
   await expect(page.getByText('這個專案目前沒有符合搜尋的開放 Issue。')).toHaveCount(0);
   await expect(page.locator('.game-console-ticker')).not.toContainText('服務暫時無法回應');
   const repo=page.getByRole('link',{name:'查看完整 GitHub 專案 ↗'});
@@ -245,7 +245,8 @@ test('story theme keeps the workshop controls and cute artwork usable on a narro
   await page.getByRole('menuitemradio',{name:'自由工坊－敘生'}).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme','versefolk');
   await expect(page.getByRole('menuitemradio',{name:'自由工坊－敘生'})).toHaveAttribute('aria-checked','true');
-  await expect.poll(()=>page.evaluate(()=>{const tool=document.querySelector('.page-tool-button--help')!,console=document.querySelector('.game-console-ticker')!;return getComputedStyle(tool).backgroundColor===getComputedStyle(console).backgroundColor})).toBe(true);
+  // 頁面說明 uses the theme's soft green, the same tint family as the filled 提出想法.
+  await expect.poll(()=>page.evaluate(()=>{const tool=document.querySelector('.page-tool-button--help')!,probe=document.createElement('span');probe.style.background=getComputedStyle(document.documentElement).getPropertyValue('--green-soft').trim();document.body.append(probe);const soft=getComputedStyle(probe).backgroundColor;probe.remove();return getComputedStyle(tool).backgroundColor===soft})).toBe(true);
   await expect(page.locator('.home-module-supplier .home-module-cover')).toHaveCSS('background-image',/versefolk-market\.webp/);
   for(const name of ['提出想法','頁面說明','參與編修','通知'])await expect(page.locator('.topbar').getByRole('button',{name:new RegExp(name)})).toBeVisible();
   await expect(page.locator('.game-console-ticker')).toBeVisible();

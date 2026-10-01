@@ -3,25 +3,32 @@
 .settings-menu-button{min-height:44px;height:44px;box-sizing:border-box}
 .settings-menu-name{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .settings-menu-button>span[aria-hidden]{display:inline-flex}
+.settings-menu-chevron{flex:none;color:var(--muted);transition:transform .16s}
+.settings-menu-button[aria-expanded="true"] .settings-menu-chevron,.preview-profile-menu[open] .settings-menu-chevron{transform:rotate(180deg)}
+.settings-menu-button[aria-expanded="true"]{border-color:var(--focus)}
+.settings-menu-identity{display:none;padding:8px 12px 6px;color:var(--ink);font-size:.875rem;font-weight:700;overflow-wrap:anywhere}
+.settings-menu-separator{display:block;height:1px;margin:6px 8px;background:var(--line)}
+@media(max-width:1199px){.settings-menu-identity{display:block}}
 .settings-menu-list{position:absolute;top:calc(100% + 6px);right:0;z-index:40;display:grid;min-width:min(15rem,calc(100vw - 24px));padding:6px;border:1px solid var(--line);border-radius:14px;background:var(--bg-elev);box-shadow:0 12px 35px #0003}
 .settings-menu-item{min-height:44px;padding:.55rem .9rem;border:0;border-radius:10px;background:transparent;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
 .settings-menu-item:hover,.settings-menu-item:focus-visible{background:var(--green-soft)}
 .settings-menu-item:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .settings-menu-item{display:flex;align-items:center;gap:.5rem}
+.settings-menu-item[aria-disabled="true"]{opacity:.55;cursor:not-allowed}
 .settings-menu-badge{margin-left:auto;padding:.05rem .5rem;border-radius:100px;background:#273515;color:#d2ff67;font-size:.875rem;white-space:nowrap}
 .settings-menu-badge.is-unknown{background:transparent;color:#ffd18a;box-shadow:inset 0 0 0 1px #6a5530}
 .settings-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 2px var(--bg-elev)}
 .settings-menu-item.is-current{color:var(--ink);box-shadow:inset 3px 0 0 var(--green)}
-@media(max-width:860px){.topbar-actions .settings-menu{flex:1.4}.settings-menu .settings-menu-button{width:100%;white-space:nowrap}}
 .settings-menu-heading{margin:6px 8px 2px;padding:9px 5px 2px;border-top:1px solid var(--line);color:var(--muted);font-size:.75rem;letter-spacing:.04em}
 .settings-theme-option[aria-checked="true"]{background:var(--green-soft);font-weight:700}
 .settings-theme-indicator{width:15px;height:15px;border:1px solid var(--muted);border-radius:50%}
 .settings-theme-option[aria-checked="true"] .settings-theme-indicator{border:4px solid var(--blue-ink)}
-.preview-profile-menu>summary{display:inline-flex;align-items:center;gap:8px;list-style:none;cursor:pointer}
+/* Two classes so the onboarding page's generic `details summary` rule (list-item, indented) cannot win. */
+.preview-profile-menu>summary.settings-menu-button{display:inline-flex;align-items:center;gap:8px;margin:0;list-style:none;cursor:pointer}
 .preview-profile-menu>summary::-webkit-details-marker{display:none}
 .preview-profile-menu[open]>summary{border-color:var(--focus)}
 .preview-profile-menu .settings-menu-list{width:max-content;max-width:calc(100vw - 24px)}
-.preview-profile-avatar{display:grid;place-items:center;flex:none;width:28px;height:28px;border-radius:50%;background:var(--green-soft);color:var(--ink);font-size:.85rem}
+.preview-profile-avatar{display:grid;place-items:center;justify-content:center;flex:none;width:28px;height:28px;border-radius:50%;background:var(--green-soft);color:var(--ink);font-size:.85rem}
 .settings-theme-group{display:grid;gap:0;min-width:0;margin:0;padding:0;border:0}
 .settings-theme-group legend{width:100%;padding:8px 12px 4px;color:var(--muted);font-size:.75rem}
 .settings-theme-group .settings-menu-item{cursor:pointer}

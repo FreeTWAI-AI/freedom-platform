@@ -886,8 +886,9 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
       await page.getByLabel('電子郵件', { exact: true }).fill(account!.email);
       await page.getByLabel('密碼', { exact: true }).fill(account!.password);
       await page.getByRole('button', { name: '登入', exact: true }).click();
-      const logoutButton = page.getByRole('button', { name: '登出', exact: true });
-      await logoutButton.waitFor({ state: 'visible', timeout: 20000 });
+      // The profile menu (設定) is only present when the member workspace is signed in; 登出 is inside it.
+      const profileMenu = page.getByRole('button', { name: '設定', exact: true });
+      await profileMenu.waitFor({ state: 'visible', timeout: 20000 });
       const cookie = (await context.cookies(target.origin)).find((value: any) => value.name === SESSION_COOKIE);
       secrets.add(cookie?.value);
       const https = target.origin.startsWith('https:');
@@ -896,9 +897,10 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
       ctx.check('browser_cookie_same_site_strict', cookie?.sameSite === 'Strict');
       ctx.check('browser_cookie_script_invisible', !(await page.evaluate(() => document.cookie)).includes(SESSION_COOKIE));
       await page.reload({ waitUntil: 'domcontentloaded' });
-      await logoutButton.waitFor({ state: 'visible', timeout: 20000 });
+      await profileMenu.waitFor({ state: 'visible', timeout: 20000 });
       ctx.check('reload_keeps_session', true);
-      await logoutButton.click();
+      await profileMenu.click();
+      await page.getByRole('menuitem', { name: '登出', exact: true }).click();
       await page.getByRole('button', { name: '登入', exact: true }).waitFor({ state: 'visible', timeout: 20000 });
       ctx.check('logout_returns_to_login', true);
       const cleared = !(await context.cookies(target.origin)).some((value: any) => value.name === SESSION_COOKIE && value.value);

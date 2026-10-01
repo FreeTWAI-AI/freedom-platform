@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs';
-import { navigate } from './navigation.js';
+import { navigate, signOut } from './navigation.js';
 import { test, expect, type Page } from './fixtures.js';
 
 // Screenshots are audit evidence only; they never replace the assertions below.
@@ -11,10 +11,10 @@ async function login(page: Page, email = 'maker@local.test') {
   await page.getByLabel('電子郵件', { exact: true }).fill(email);
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
   await page.getByRole('button', { name: '登入', exact: true }).click();
-  await expect(page.getByRole('button', { name: '登出', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '設定', exact: true })).toBeVisible();
 }
 async function switchTo(page: Page, email: string) {
-  await page.getByRole('button', { name: '登出', exact: true }).click();
+  await signOut(page);
   await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
   await login(page, email);
 }
@@ -200,7 +200,7 @@ test('every operations page fits desktop and phone with one h1 and labelled fiel
       expect(await layoutProblems(page), `${id} ${viewport}`).toEqual({ overflow: false, offenders: [], unlabeled: [], h1: 1 });
       await page.screenshot({ path: `${evidence}/after-${id}-${viewport}.png`, fullPage: true });
     }
-    await page.getByRole('button', { name: '登出', exact: true }).click();
+    await signOut(page);
     await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
   }
   expect(errors).toEqual([]);

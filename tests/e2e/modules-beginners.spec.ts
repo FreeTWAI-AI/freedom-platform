@@ -1,5 +1,5 @@
 import { e2eOrigin } from '../../packages/testing/e2e-origin.js';
-import { navigate } from './navigation.js';
+import { navigate, signOut } from './navigation.js';
 import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from './fixtures.js';
 
@@ -8,7 +8,7 @@ async function login(page: Page, email = 'maker@local.test') {
   await page.getByLabel('電子郵件', { exact: true }).fill(email);
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
   await page.getByRole('button', { name: '登入', exact: true }).click();
-  await expect(page.getByRole('button', { name: '登出', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '設定', exact: true })).toBeVisible();
 }
 
 async function command(page: Page, path: string, data: unknown) {
@@ -82,7 +82,7 @@ test('product discovery distinguishes self-reported stock and leads to a real se
     net_price_minor: 20000, currency: 'TWD', availability: item.availability, stock: item.stock,
     shipping_terms: '演練出貨方式', return_terms: '演練退換貨方式',
   });
-  await page.getByRole('button', { name: '登出', exact: true }).click();
+  await signOut(page);
   await login(page, 'client@local.test');
   const store = await command(page, '/retail/stores', { name: `${prefix} 選物店`, description: '合成選品測試', support_contact: '請聯絡測試店主' });
   await navigate(page, '我可以賣東西');await page.getByText('查看舊版商品與合作資料',{exact:true}).click();
@@ -129,7 +129,7 @@ test('squad search recovers after failure and preserves pending membership until
   await login(page);
   const project = await command(page, '/squads', { name: `${prefix} 工具共創`, kind: 'project', purpose: '一起整理新手文件。' });
   await command(page, '/squads', { name: `${prefix} 每週練習`, kind: 'mutual_help', purpose: '每週交流一次練習心得。' });
-  await page.getByRole('button', { name: '登出', exact: true }).click();
+  await signOut(page);
   await login(page, 'reviewer@local.test');
   let failList = true;
   await page.route('**/api/v1/squads?*', route => failList ? route.abort() : route.continue());

@@ -46,16 +46,17 @@ export async function listProjects(pool:Pool,actor:Actor) {
     FROM oss_projects p JOIN users u ON u.user_id=p.owner_ref JOIN oss_project_versions v ON v.version_id=p.current_version_id AND v.project_id=p.project_id
     WHERE p.community_id=$1 AND (p.owner_ref=$2 OR NOT is_verification_test_account(p.owner_ref)) ORDER BY p.created_at DESC,p.project_id LIMIT 100`,[actor.community_id,actor.user_id])).rows;
 }
-export async function importProject(pool:Pool,input:Command) {
+export type GitHubRead={fetcher?:typeof fetch;token?:string};
+export async function importProject(pool:Pool,input:Command,read:GitHubRead={}) {
   const body=projectInput.parse(input.body);
-  return command(pool,input,async()=>{},q=>importProjectWithinTransaction(q,input,body));
+  return command(pool,input,async()=>{},q=>importProjectWithinTransaction(q,input,body,{fetcher:read.fetcher,token:read.token}));
 }
 // The caller already holds the authenticated user's mutation locks. Keeping
 // repository import on that same client lets publication commit source facts
 // and the public submission atomically without a second pool checkout.
-export async function importProjectWithinTransaction(q:PoolClient,input:Pick<Command,'actor'>,raw:unknown,options:{reuseOwned?:boolean}={}) {
+export async function importProjectWithinTransaction(q:PoolClient,input:Pick<Command,'actor'>,raw:unknown,options:{reuseOwned?:boolean;fetcher?:typeof fetch;token?:string}={}) {
     const body=projectInput.parse(raw);
-    const source=await inspectGitHubRepository(body.repository_url);
+    const source=await inspectGitHubRepository(body.repository_url,options.fetcher??globalThis.fetch,options.token);
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`oss/${input.actor.community_id}/${input.actor.user_id}/${source.repository_id}`]);
     const prior=(await q.query('SELECT project_id,current_version_id,aggregate_version FROM oss_projects WHERE community_id=$1 AND owner_ref=$2 AND repository_id=$3 FOR UPDATE',[input.actor.community_id,input.actor.user_id,source.repository_id])).rows[0];
     if(prior) {
@@ -76,11 +77,11 @@ export async function importProjectWithinTransaction(q:PoolClient,input:Pick<Com
     await journal(q,input.actor,'oss_project',id,1,'import_public_repository',{repository_id:source.repository_id,commit_sha:source.commit_sha,relationship:body.relationship,relationship_verification:'self_declared'},'freedom.skills.candidate.registered.v1');
     return projectView(q,input.actor,id);
 }
-export async function refreshProject(pool:Pool,input:Command,id:string) {
+export async function refreshProject(pool:Pool,input:Command,id:string,read:GitHubRead={}) {
   z.object({}).strict().parse(input.body);
   return command(pool,input,q=>ownedProject(q,input.actor,id),async q=>{
     const current=await ownedProject(q,input.actor,id,true);checkVersion(current.aggregate_version,input.expected);
-    const source=await inspectGitHubRepository(current.repository_url);
+    const source=await inspectGitHubRepository(current.repository_url,read.fetcher??globalThis.fetch,read.token);
     requireCondition(source.repository_id===current.repository_id,409,'repository_identity_changed','這個 GitHub 網址已指向不同儲存庫；保留原本紀錄，請先確認來源。');
     const versionId=await insertVersion(q,id,source);
     const row=(await q.query(`UPDATE oss_projects SET current_version_id=$2,repository_full_name=$3,repository_url=$4,

@@ -90,7 +90,7 @@ test('skill shelf issues a private scoped Agent instruction only on request and 
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText('流程整理技能', { exact: true })).toBeVisible();
   expect(requests.filter(request => request.method === 'POST')).toEqual([]);
-  await expect(dialog.locator('textarea')).toHaveCount(0);
+  await expect(dialog.locator('textarea[data-private]')).toHaveCount(0);
   await page.screenshot({ path: 'test-results/skill-upload-dialog.png' });
 
   await dialog.getByRole('button', { name: '產生私人上傳指令', exact: true }).click();
@@ -130,7 +130,7 @@ test('skill shelf issues a private scoped Agent instruction only on request and 
   await expect(trigger).toBeFocused();
   expect(await page.content()).not.toContain(GRANT);
   await trigger.click();
-  await expect(dialog.locator('textarea')).toHaveCount(0);
+  await expect(dialog.locator('textarea[data-private]')).toHaveCount(0);
   await dialog.getByRole('button', { name: '關閉上傳技能', exact: true }).click();
   await expect(trigger).toBeFocused();
   await expectNoStoredSecret(page, GRANT);
@@ -192,7 +192,7 @@ test('replayed, expired and off-origin grants never display a token and offer a 
   expect(regrant.headers['x-csrf-token']).toBeTruthy();
   await dialog.getByRole('button', { name: /^重新產生指令：/ }).first().click();
   await expect(dialog.getByRole('alert')).toContainText('不是本站位址');
-  await expect(dialog.locator('textarea')).toHaveCount(0);
+  await expect(dialog.locator('textarea[data-private]')).toHaveCount(0);
   expect(await page.content()).not.toContain(GRANT);
   const revoked = dialog.locator('.skill-upload-item[data-status="revoked"]');
   await expect(revoked).toContainText('已撤銷');
@@ -299,7 +299,7 @@ for (const mode of ['draft', 'key'] as const) {
     release(); await response;
     if (mode === 'key') await dialog.getByText('安裝上傳工具與長期金鑰', { exact: true }).click();
     await expect(dialog.getByRole('button', { name: mode === 'key' ? '建立金鑰' : '產生私人上傳指令', exact: true })).toBeEnabled();
-    await expect(dialog.locator('textarea')).toHaveCount(0);
+    await expect(dialog.locator('textarea[data-private]')).toHaveCount(0);
     expect(await page.content()).not.toContain(mode === 'draft' ? GRANT : KEY);
     await expectNoStoredSecret(page, mode === 'draft' ? GRANT : KEY);
   });
@@ -335,3 +335,90 @@ test('open-source panel keeps manual GitHub form folded and the upload dialog fi
   expect(layout.small).toEqual([]);
   expect(Math.min(...layout.fonts)).toBeGreaterThanOrEqual(16);
 });
+
+for (const viewport of [
+  { width: 390, height: 844, name: 'phone' },
+  { width: 820, height: 900, name: 'tablet' },
+  { width: 1280, height: 800, name: 'desktop' },
+]) {
+  test(`chat JSON upload explains invalid text, rotates a grant once, and publish says the draft is saved (${viewport.name})`, async ({ page, context }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    let uploaded = false, agentCalls = 0;
+    const agentBodies: unknown[] = [];
+    const requests = await mockUploads(page, {
+      grant: path => {
+        const id = path.split('/')[3] ?? 'sub-new';
+        return { token: GRANT, expires_at: new Date(Date.now() + 60 * 60_000).toISOString(), submit_url: `/agent-api/v1/skill-submissions/${id}` };
+      },
+    });
+    await page.route('**/agent-api/v1/skill-submissions/**', async route => {
+      agentCalls += 1;
+      agentBodies.push(route.request().postDataJSON());
+      if (agentCalls === 1) return route.fulfill({ status: 422, contentType: 'application/json', body: JSON.stringify({ code: 'validation_failed', detail: 'title: 太短; share_introductions: 需要剛好 100 則' }) });
+      if (agentCalls === 2) return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ code: 'upload_grant_invalid', detail: '上傳授權已過期。請按「重新產生指令」重新產生授權。' }) });
+      uploaded = true;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ submission_id: 'sub-waiting', status: 'ready_for_review' }) });
+    });
+    await page.route('**/api/v1/me/skill-submissions/sub-waiting', async route => {
+      if (route.request().method() !== 'GET' || !uploaded) return route.fallback();
+      return route.fulfill({ json: submission('sub-waiting', 'ready_for_review', 9, true) });
+    });
+    await page.route('**/api/v1/me/skill-submissions/sub-ready/publish', route => route.fulfill({
+      status: 503, headers: { 'content-type': 'application/json', 'retry-after': '45' },
+      body: JSON.stringify({ code: 'github_rate_limited', detail: '草稿已保留，尚未公開。GitHub 暫時限制查詢，請稍後重試。約 45 秒後可再按「發佈」。' }),
+    }));
+    await login(page); await navigate(page, '技能書架');
+    await page.getByRole('button', { name: '上傳技能', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
+    await expect(dialog.getByText('尚未上傳內容').first()).toBeVisible();
+    await dialog.getByLabel('公開儲存庫網址', { exact: true }).fill('https://github.com/example/skill-demo');
+    await dialog.getByRole('button', { name: '複製給聊天 AI', exact: true }).click();
+    const clip = await page.evaluate(() => navigator.clipboard.readText());
+    expect(clip).toContain('https://github.com/example/skill-demo');
+    expect(clip).toContain('README');
+    expect(clip).not.toContain(GRANT);
+    expect(clip).not.toMatch(/fpg_|fpk_|agent-api|Bearer/);
+    await expect(dialog.getByLabel('給聊天 AI 的說明', { exact: true })).toHaveValue(/https:\/\/github.com\/example\/skill-demo/);
+
+    await dialog.getByLabel('選擇 JSON 檔', { exact: true }).setInputFiles({ name: 'notes.json', mimeType: 'application/json', buffer: Buffer.from('這不是 JSON') });
+    await expect(dialog.getByRole('alert').filter({ hasText: '這段不是 JSON' })).toBeVisible();
+    expect(agentCalls).toBe(0);
+
+    // The paste field sits below the dialog's visible area; scroll the dialog, not the page.
+    const paste = dialog.getByRole('textbox', { name: '貼上 JSON', exact: true });
+    await paste.evaluate(element => element.scrollIntoView({ block: 'center', inline: 'nearest' }));
+    await paste.fill('```json\n{"repository_url":"https://github.com/example/skill-demo","title":"流程"}\n```');
+    await dialog.getByRole('button', { name: '用這份 JSON 建立草稿', exact: true }).click();
+    await expect(dialog.getByRole('alert').filter({ hasText: 'share_introductions' })).toBeVisible();
+    expect(agentBodies[0]).toEqual({ repository_url: 'https://github.com/example/skill-demo', title: '流程' });
+    expect(requests.filter(request => request.path.endsWith('/grant'))).toHaveLength(1);
+
+    await dialog.getByRole('button', { name: '用這份 JSON 建立草稿', exact: true }).click();
+    await expect(dialog.getByRole('region', { name: '預覽：流程整理技能', exact: true })).toBeVisible();
+    expect(agentCalls).toBe(3);
+    const grants = requests.filter(request => request.path.endsWith('/grant'));
+    expect(grants).toHaveLength(2);
+    expect(grants[0].headers['if-match']).toBe('"2"');
+    expect(grants[1].headers['if-match']).toBe('"3"');
+    expect(grants[0].headers['authorization']).toBeUndefined();
+
+    const reported = page.waitForRequest(request => request.url().includes('/me/client-errors') && request.method() === 'POST');
+    await dialog.getByRole('button', { name: '預覽：流程整理技能', exact: true }).click();
+    await dialog.getByRole('button', { name: '送出技能', exact: true }).click();
+    const failure = dialog.getByRole('alert').filter({ hasText: '草稿已保留' });
+    await expect(failure).toContainText('發佈');
+    await expect(failure).toContainText('45');
+    await expect(failure).not.toContainText('服務暫時無法回應');
+    expect((await reported).postDataJSON()).toMatchObject({ error_code: 'github_rate_limited' });
+
+    const layout = await dialog.evaluate(element => ({
+      fits: element.scrollWidth <= element.clientWidth + 1 && element.getBoundingClientRect().right <= window.innerWidth + 1,
+      small: [...element.querySelectorAll<HTMLElement>('button, a.btn, summary')].filter(control => control.offsetParent && control.getBoundingClientRect().height < 44).map(control => (control.textContent ?? '').trim()),
+      fonts: [...element.querySelectorAll<HTMLElement>('input, textarea')].map(field => parseFloat(getComputedStyle(field).fontSize)),
+    }));
+    expect(layout.fits).toBe(true);
+    expect(layout.small).toEqual([]);
+    expect(Math.min(...layout.fonts)).toBeGreaterThanOrEqual(16);
+  });
+}

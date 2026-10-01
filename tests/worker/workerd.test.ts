@@ -14,6 +14,9 @@ import { migrate } from '../../scripts/database.js';
 import sharp from 'sharp';
 import { seedLocal, DEMO_USERS, DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { tokenHash } from '../../modules/identity-membership/service.js';
+import { trackedGitHubRepositories } from '../../modules/community/github-sync.js';
+import { catalogMetricTargets } from '../../modules/github-social/service.js';
+import { FREEDOM_PLATFORM_EVENTS_FEED } from '../../modules/development/page-github.js';
 
 const bundleDir = resolve(process.env.FREEDOM_WORKERD_BUNDLE_DIR ?? '.wrangler/dry-run/local');
 const assetsDir = resolve(`.wrangler/test-assets-${process.pid}`);
@@ -158,9 +161,13 @@ test('workerd: with a local IMAGES binding the default scope stores a re-encoded
   } finally { await withImages.dispose(); }
 });
 
-test('workerd: skill-book metrics refresh reaches GitHub through the global fetch with the metrics token', async () => {
-  // The provider used to call fetch as this.fetcher(...), which workerd rejects with
-  // "Illegal invocation"; the catch-all turned that into github_unavailable.
+test('workerd: skill-book metrics are read from PostgreSQL and do not call GitHub', async () => {
+  // Page views no longer fetch. The cron owns refresh; provider unit tests still
+  // cover an unbound fetch so workerd does not hit "Illegal invocation".
+  await db.query(`INSERT INTO github_repository_metrics(repository_key, snapshot, checked_at, retry_after, last_error)
+    VALUES ('hao0321/video-autopilot-kit', $1::jsonb, now(), now() + interval '1 hour', NULL)
+    ON CONFLICT (repository_key) DO UPDATE SET snapshot = EXCLUDED.snapshot, checked_at = now(), retry_after = now() + interval '1 hour', last_error = NULL`,
+  [JSON.stringify({ stargazers_count: 42, forks_count: 7, open_issues_count: 3, subscribers_count: 5, pushed_at: '2026-09-20T12:00:00Z', language: 'TypeScript', archived: false })]);
   const calls: string[] = [];
   const withGitHub = new Miniflare(convertV4MiniflareOptions({ workers: [{
     name: 'freedom-platform-workerd-github', modules: true, scriptPath: resolve(bundleDir, 'worker.js'),
@@ -170,9 +177,8 @@ test('workerd: skill-book metrics refresh reaches GitHub through the global fetc
     assets: { directory: assetsDir, binding: 'ASSETS', routerConfig: { has_user_worker: true, invoke_user_worker_ahead_of_assets: true }, assetConfig: { html_handling: 'auto-trailing-slash', not_found_handling: 'none' } },
     outboundService: async (request: Request) => {
       const url = new URL(request.url);
-      calls.push(`${request.method} ${url.host}${url.pathname} ${request.headers.get('x-github-api-version')} ${request.headers.get('authorization')}`);
-      if (url.host !== 'api.github.com' || url.pathname !== '/repos/Hao0321/video-autopilot-kit') return new Response(null, { status: 404 });
-      return Response.json({ stargazers_count: 42, forks_count: 7, open_issues_count: 3, subscribers_count: 5, pushed_at: '2026-09-20T12:00:00Z', language: 'TypeScript', archived: false, private: false });
+      calls.push(`${request.method} ${url.host}${url.pathname}`);
+      return new Response(null, { status: 404 });
     },
   }] } as any));
   try {
@@ -181,10 +187,62 @@ test('workerd: skill-book metrics refresh reaches GitHub through the global fetc
     const data: any = await response.json();
     assert.equal(data.error, null); assert.equal(data.stale, false); assert.ok(data.checked_at);
     assert.equal(data.stargazers_count, 42); assert.equal(data.forks_count, 7);
-    assert.deepEqual(calls, ['GET api.github.com/repos/Hao0321/video-autopilot-kit 2026-03-10 Bearer github_pat_workerd_synthetic']);
+    assert.deepEqual(calls, []);
     const row = (await db.query(`SELECT last_error, snapshot->>'stargazers_count' AS stars FROM github_repository_metrics WHERE repository_key='hao0321/video-autopilot-kit'`)).rows[0];
     assert.equal(row.last_error, null); assert.equal(row.stars, '42');
   } finally { await withGitHub.dispose(); }
+});
+
+test('workerd scheduled sync refreshes book metrics through native fetch', async () => {
+  // github-sync-scheduled.test.ts replaces syncGitHub, so it never calls fetch.
+  // This harness already runs the dry-run bundle in workerd and can stub outbound fetch.
+  const targets = catalogMetricTargets();
+  assert.ok(targets.length >= 5);
+  const due = targets.slice(0, 5);
+  const tracked = await trackedGitHubRepositories(db);
+  const far = new Date('2099-01-01T00:00:00Z');
+  await db.query(`INSERT INTO github_feed_state(feed_name, next_sync_at, last_error) VALUES ($1, $2, NULL)
+    ON CONFLICT (feed_name) DO UPDATE SET next_sync_at = EXCLUDED.next_sync_at, last_error = NULL`, [FREEDOM_PLATFORM_EVENTS_FEED, far]);
+  await db.query(`INSERT INTO github_sync_repositories(repository_key, repository, next_sync_at)
+    SELECT key, name, $1 FROM unnest($2::text[], $3::text[]) AS t(key, name)
+    ON CONFLICT (repository_key) DO UPDATE SET next_sync_at = EXCLUDED.next_sync_at`,
+  [far, tracked.map(item => item.key), tracked.map(item => item.name)]);
+  await db.query('DELETE FROM github_sync_backoff');
+  await db.query('DELETE FROM github_repository_metrics');
+  const calls: {method: string; url: string; authorization: string | null; agent: string | null}[] = [];
+  const body = {stargazers_count: 17, forks_count: 1, open_issues_count: 2, subscribers_count: 3, pushed_at: '2026-09-23T00:00:00Z', language: 'TypeScript', archived: false, private: false};
+  const withSync = new Miniflare(convertV4MiniflareOptions({ workers: [{
+    name: 'freedom-platform-workerd-sync-metrics', modules: true, scriptPath: resolve(bundleDir, 'worker.js'),
+    compatibilityDate, compatibilityFlags: ['nodejs_compat'],
+    bindings: { FREEDOM_ENV: 'local', APP_ORIGIN: origin, GITHUB_METRICS_TOKEN: 'synthetic-metrics-token' },
+    hyperdrives: { HYPERDRIVE: databaseUrl },
+    assets: { directory: assetsDir, binding: 'ASSETS', routerConfig: { has_user_worker: true, invoke_user_worker_ahead_of_assets: true }, assetConfig: { html_handling: 'auto-trailing-slash', not_found_handling: 'none' } },
+    outboundService: async (request: Request) => {
+      const url = new URL(request.url);
+      calls.push({method: request.method, url: `${url.host}${url.pathname}`, authorization: request.headers.get('authorization'), agent: request.headers.get('user-agent')});
+      if (request.method === 'GET' && url.host === 'api.github.com' && /^\/repos\/[^/]+\/[^/]+$/.test(url.pathname)) return Response.json(body);
+      return new Response(null, {status: 500});
+    },
+  }] } as any));
+  try {
+    const worker = await withSync.getWorker() as { scheduled(options?: {scheduledTime?: Date; cron?: string}): Promise<{outcome: string}> };
+    assert.equal((await worker.scheduled({cron: '*/10 * * * *', scheduledTime: new Date('2026-10-01T00:00:00Z')})).outcome, 'ok');
+    assert.deepEqual(calls.map(call => call.url.replace(/^api\.github\.com\/repos\//, '').toLowerCase()).sort(), due.map(target => target.key).sort());
+    for (const call of calls) {
+      assert.equal(call.method, 'GET');
+      assert.equal(call.authorization, 'Bearer synthetic-metrics-token');
+      assert.equal(call.agent, 'Freedom-Workshop-GitHub-Social');
+    }
+    const rows = (await db.query<{repository_key: string; checked_at: Date | null; last_error: string | null; stars: string | null}>(
+      `SELECT repository_key, checked_at, last_error, snapshot->>'stargazers_count' AS stars
+       FROM github_repository_metrics WHERE repository_key = ANY($1::text[])`, [due.map(target => target.key)])).rows;
+    assert.equal(rows.length, due.length);
+    for (const row of rows) {
+      assert.ok(row.checked_at, row.repository_key);
+      assert.equal(row.last_error, null, row.repository_key);
+      assert.equal(row.stars, '17', row.repository_key);
+    }
+  } finally { await withSync.dispose(); }
 });
 
 test('workerd: the maintainer webhook is 503 without a secret and 401 for a bad signature', async () => {

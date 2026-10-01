@@ -3,7 +3,7 @@ import {test,expect,type Page,type Route} from './fixtures.js';
 // Synthetic data only. Messages/notifications follow the root-confirmed DTO in
 // the coordinator contract; they are route fixtures until the backend API lands.
 const me='20000000-0000-4000-8000-000000000001',peerA='20000000-0000-4000-8000-000000000002',peerB='20000000-0000-4000-8000-000000000003';
-const settingsItems=['我的名片','待辦清單'];
+const settingsItems=['我的名片','待辦清單','登出'];
 
 test.beforeEach(async({page})=>{
   // Nothing in these cases may leave the isolated local server.
@@ -16,7 +16,7 @@ test.beforeEach(async({page})=>{
 async function login(page:Page,hash=''){
   await page.goto('/'+hash);
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
-  await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
 }
 const settings=(page:Page)=>page.getByRole('button',{name:'設定',exact:true});
 async function openPage(page:Page,name:string){
@@ -32,7 +32,7 @@ async function inbox(page:Page,notices:number|'fail',direct:number){
   await page.route(/\/api\/v1\/me\/conversations\?limit=1&offset=0$/,route=>route.fulfill({json:{items:[],unread_count:direct,next_offset:null}}));
 }
 async function expectExactItems(page:Page){
-  await expect(page.getByRole('menuitem')).toHaveCount(2);
+  await expect(page.getByRole('menuitem')).toHaveCount(3);
   for(const name of settingsItems)await expect(page.getByRole('menuitem',{name,exact:true})).toHaveCount(1);
 }
 async function github(page:Page,value:{configured:boolean;connected:boolean;login?:string}|'fail'){
@@ -62,28 +62,31 @@ test('settings menu replaces the card button with an accessible keyboard menu',a
   await expect(menu.getByRole('menuitem',{name:'我的訊息',exact:true})).toHaveCount(0);
   await expect(menu.getByRole('menuitem',{name:'我的名片',exact:true})).toBeFocused();
   await page.keyboard.press('ArrowDown');await expect(menu.getByRole('menuitem',{name:'待辦清單',exact:true})).toBeFocused();
-  await page.keyboard.press('End');await expect(menu.getByRole('menuitemradio',{name:'自由工坊－敘生',exact:true})).toBeFocused();
-  await page.keyboard.press('ArrowDown');await expect(menu.getByRole('menuitem',{name:'我的名片',exact:true})).toBeFocused();
+  // 登出 is the last item, after the theme choices.
+  await page.keyboard.press('End');await expect(menu.getByRole('menuitem',{name:'登出',exact:true})).toBeFocused();
   await page.keyboard.press('ArrowUp');await expect(menu.getByRole('menuitemradio',{name:'自由工坊－敘生',exact:true})).toBeFocused();
+  await page.keyboard.press('ArrowDown');await page.keyboard.press('ArrowDown');await expect(menu.getByRole('menuitem',{name:'我的名片',exact:true})).toBeFocused();
+  await page.keyboard.press('ArrowUp');await expect(menu.getByRole('menuitem',{name:'登出',exact:true})).toBeFocused();
   await page.keyboard.press('Home');await expect(menu.getByRole('menuitem',{name:'我的名片',exact:true})).toBeFocused();
   await page.keyboard.press('Escape');await expect(menu).toHaveCount(0);await expect(toggle).toBeFocused();await expect(toggle).toHaveAttribute('aria-expanded','false');
 
   // Keyboard opening from the toggle, then selecting a page moves focus into main.
-  await page.keyboard.press('ArrowUp');await expect(menu.getByRole('menuitemradio',{name:'自由工坊－敘生',exact:true})).toBeFocused();
+  await page.keyboard.press('ArrowUp');await expect(menu.getByRole('menuitem',{name:'登出',exact:true})).toBeFocused();
   await page.keyboard.press('Home');await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#todos$/);await expect(page.getByRole('heading',{level:1})).toHaveText('待辦清單');
   await expect(page.locator('#main-content')).toBeFocused();await expect(menu).toHaveCount(0);
 
   // Tab leaves the menu normally and closes it.
   await toggle.click();await expect(menu).toBeVisible();await page.keyboard.press('Tab');
-  await expect(page.getByRole('button',{name:'登出',exact:true})).toBeFocused();await expect(menu).toHaveCount(0);
+  await expect(menu).toHaveCount(0);
+  expect(await page.evaluate(()=>{const active=document.activeElement;return Boolean(active&&active!==document.body&&!active.closest('.settings-menu'));})).toBe(true);
 
   // Outside click on blank space closes and returns focus instead of stranding it on <body>.
   await toggle.click();await page.mouse.click(5,page.viewportSize()!.height-5);
   await expect(menu).toHaveCount(0);await expect(toggle).toBeFocused();
   // Outside click on another control keeps that control's focus.
-  await toggle.click();const logout=page.getByRole('button',{name:'登出',exact:true});
-  await logout.dispatchEvent('pointerdown');await logout.focus();await expect(menu).toHaveCount(0);await expect(logout).toBeFocused();
+  await toggle.click();const bell=page.getByRole('button',{name:/^通知/});
+  await bell.dispatchEvent('pointerdown');await bell.focus();await expect(menu).toHaveCount(0);await expect(bell).toBeFocused();
 
   // On the card page the item names stay exact and the current page is marked.
   await openPage(page,'我的名片');await expect(page).toHaveURL(/#account$/);await expect(page.locator('#main-content')).toBeFocused();
@@ -117,6 +120,8 @@ for(const width of [320,390])test(`settings menu and personal pages fit a ${widt
   const toggle=settings(page);
   expect((await toggle.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await toggle.click();
+  // The trigger shows only the avatar on phones, so the menu names the account.
+  await expect(page.locator('.settings-menu-identity')).toBeVisible();
   for(const item of await page.getByRole('menuitem').all()){
     const box=(await item.boundingBox())!;expect(box.height).toBeGreaterThanOrEqual(44);expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width);
   }

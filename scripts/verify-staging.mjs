@@ -31,6 +31,13 @@ async function navigate(page, name) {
   await target.click();
 }
 
+// 登出 is the last item of the profile menu behind 設定.
+async function signOut(page) {
+  const settings=page.getByRole('button',{name:'設定',exact:true});
+  if(await settings.getAttribute('aria-expanded')!=='true')await settings.click();
+  await page.getByRole('menuitem',{name:'登出',exact:true}).click();
+}
+
 const credentialFile = process.env.FREEDOM_ACCESS_TOKEN_FILE;
 if (!credentialFile) throw new Error('Set FREEDOM_ACCESS_TOKEN_FILE to a private service-token JSON file.');
 const token = JSON.parse(await readFile(credentialFile, 'utf8'));
@@ -182,7 +189,7 @@ try {
   await verifyMemberSettings(page,{navigate,get:path=>context.request.get(origin+'/api/v1'+path,{headers,maxRedirects:0})});
   await page.screenshot({path:join(evidence,'staging-member-messages-mobile.png'),fullPage:true});
   console.log('HTTPS settings, GitHub task, private inbox and membership channel lists work on desktop and phone: PASS');
-  await page.getByRole('button', { name: '登出', exact: true }).click();
+  await signOut(page);
   await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
   expect(errors).toEqual([]);
   console.log('HTTPS workspace, mobile layout and logout: PASS');
