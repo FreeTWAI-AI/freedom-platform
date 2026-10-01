@@ -194,8 +194,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/promotion.ts",
-      "bytes": 8362,
-      "sha256": "b9ac033acd202d8a9470cb9276cea8311b5db0bacad75ace0ed123e23ba57460"
+      "bytes": 8378,
+      "sha256": "666026802fb0d4f4d84e1d0dc3885ca4ae85c15cfcbd7e9d2fe5d260a5e2ae5a"
     },
     {
       "path": "apps/platform-api/src/routes/published-skills.ts",
@@ -829,8 +829,8 @@
     },
     {
       "path": "apps/portal-web/src/module-light-theme.css",
-      "bytes": 19701,
-      "sha256": "387e4b76d4cecda69783dec2433967934596718d4f0dd367d680e007ea6b1f6b"
+      "bytes": 19761,
+      "sha256": "e0422fb0734041d94868c68ab963933d23dbc8dc0933a87887cd556aa28e793e"
     },
     {
       "path": "apps/portal-web/src/modules/AdminAuthorClaims.tsx",
@@ -984,13 +984,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/EventHighlights.css",
-      "bytes": 4934,
-      "sha256": "28eb62dc6d7704d1167b7e5892e9d067bc274c1c407c2c688e24de69ec1363f0"
+      "bytes": 4997,
+      "sha256": "d6a92518f4a8c5cb2a1c4fe53e4be86dc1285d132d141dba0055782b08dc2488"
     },
     {
       "path": "apps/portal-web/src/modules/EventHighlights.tsx",
-      "bytes": 18385,
-      "sha256": "d08e89ae42fec754c6a90f9136da13e96baafbdd4fab939f3b8c2c0d04e0e2f5"
+      "bytes": 18269,
+      "sha256": "1869467165cb5026facd0122ff18ce5c1ec8746e5f3603ca574a1e7355711480"
     },
     {
       "path": "apps/portal-web/src/modules/EventsPanel.tsx",
@@ -1254,8 +1254,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/PromotionBoards.css",
-      "bytes": 2008,
-      "sha256": "bde19f26168301dd406eff72e8022b142e88f8c89d051ce44b15ae4a5ab32c39"
+      "bytes": 2247,
+      "sha256": "d3462192c7a76501c39ca428dfdcaf912b457b4b2c693840c9f4018361e207c3"
     },
     {
       "path": "apps/portal-web/src/modules/PromotionBoards.tsx",
@@ -1859,8 +1859,8 @@
     },
     {
       "path": "docs/development/event-highlights.md",
-      "bytes": 8744,
-      "sha256": "3778d94a76f24d8effb59185baa8f3746877f8b8011ea156a18420f1ac4c34de"
+      "bytes": 8400,
+      "sha256": "31667d2a7f03c6a6be923c4e0b7e49c4dabd39f3ce87e03a8403a40559c869c8"
     },
     {
       "path": "docs/development/first-real-case-pack.md",
@@ -2034,8 +2034,8 @@
     },
     {
       "path": "docs/development/share-promotion.md",
-      "bytes": 16602,
-      "sha256": "72634443c7f3192b9b057d589590ce92af90af80e174d5fe62acf30de8977206"
+      "bytes": 17547,
+      "sha256": "6e839bcd6e424b6583e2253cac77f50ae7ffb12690b09d5990ed134604b4ce5d"
     },
     {
       "path": "docs/development/skill-editor-guild-access.md",
@@ -3489,13 +3489,13 @@
     },
     {
       "path": "modules/community/event-highlights-page.ts",
-      "bytes": 14157,
-      "sha256": "820e8119301536a33a821f2be8e2643ca47258a7d798c8b93954e63d9e922f23"
+      "bytes": 14056,
+      "sha256": "2298be672b8d09cd8cafd719e7677b61b43b626701b1ffaa9c1641bfdab94827"
     },
     {
       "path": "modules/community/event-highlights.ts",
-      "bytes": 29853,
-      "sha256": "792368fb6098fdbda41085a6c088c0c29e7df7ae883a292c74cf88ad4d745afd"
+      "bytes": 29121,
+      "sha256": "b6f405cb123e167392dc129f904941241d2744dbeb6700c79ce2c124d70657d4"
     },
     {
       "path": "modules/community/events.ts",
@@ -3519,8 +3519,8 @@
     },
     {
       "path": "modules/community/link-preview.ts",
-      "bytes": 6684,
-      "sha256": "dd225377f6a145a9a106d02196008df410ca425128464dd59d7d45ee3b6df7a9"
+      "bytes": 6744,
+      "sha256": "aae057d98bdd8fbefac9b0b5c05ebb2ff93e73fd3a8126712d367451bef5d012"
     },
     {
       "path": "modules/community/member-service-pages.ts",
@@ -3544,8 +3544,8 @@
     },
     {
       "path": "modules/community/promotion.ts",
-      "bytes": 28639,
-      "sha256": "0935628953ec89f83debc4d5315f0d58d08e2a1023da140ac3e783d685589c0c"
+      "bytes": 29804,
+      "sha256": "704c3db8b8c5bc33237c350fef607221d34079498dc992178b8b2c42c6cf0559"
     },
     {
       "path": "modules/community/repo-author-claims.ts",
@@ -4149,8 +4149,8 @@
     },
     {
       "path": "packages/shared/share-url.ts",
-      "bytes": 4108,
-      "sha256": "739b8e2e98199063b02e7fe3977bf349d2bb88470fb9e1fc718c6d3f7846cc42"
+      "bytes": 3282,
+      "sha256": "611781b3e0dde3c88ff89cae8dbb9cbbd2d5d0ae8c1d78549b8da0984ff0c157"
     },
     {
       "path": "packages/shared/sharp-unavailable.ts",
@@ -4459,8 +4459,8 @@
     },
     {
       "path": "tests/e2e/event-highlights.spec.ts",
-      "bytes": 26613,
-      "sha256": "31d864c1333481c7d765ff27424bd8d1134eb915c825a552ae37a471027dd89b"
+      "bytes": 28394,
+      "sha256": "7ee9d1d54b0c355bd30dc163bc8a4c075a60835517f8508f3fc79c9579547871"
     },
     {
       "path": "tests/e2e/event-public.spec.ts",
@@ -4669,8 +4669,8 @@
     },
     {
       "path": "tests/e2e/share-promotion.spec.ts",
-      "bytes": 24085,
-      "sha256": "316fb5d24a3e564a1670f5473b648adc26f7060c4e12b9356c6065c18596b094"
+      "bytes": 25691,
+      "sha256": "662f1f05fee4b60e8cac912dcd1a769d4358e68583a1ae4d6a80dcd5f8bab5ef"
     },
     {
       "path": "tests/e2e/skill-book-library.spec.ts",
@@ -4799,8 +4799,8 @@
     },
     {
       "path": "tests/runtime/event-highlights.test.ts",
-      "bytes": 46696,
-      "sha256": "73c720f86aabd53b88969349350bb70bc69abef502d06fa51cf872b5a7f74c62"
+      "bytes": 46812,
+      "sha256": "a21ab0049b15066f1c1473a37b756cb9c052a8154da3da7edb7c47da196ba3c6"
     },
     {
       "path": "tests/runtime/events-past.test.ts",
@@ -4924,8 +4924,8 @@
     },
     {
       "path": "tests/runtime/link-preview.test.ts",
-      "bytes": 12411,
-      "sha256": "d98d7493736982aaa46eddba8d023400271fbdd439a0a2c81a93cc022ad0144a"
+      "bytes": 12471,
+      "sha256": "aadd7882e2a588a8ddde532d09c6ef255a8041b7d129ab3ee4ad1720983265fd"
     },
     {
       "path": "tests/runtime/maintainer-worker.test.ts",
@@ -5089,8 +5089,8 @@
     },
     {
       "path": "tests/runtime/share-promotion.test.ts",
-      "bytes": 65659,
-      "sha256": "dee1b3172d803d3f5bbc5bb9758f2636725dca6a5dbf4abcfa51675b4e5e1871"
+      "bytes": 70726,
+      "sha256": "fc175b952f4667a2296db3dc00f1d83f905601c6037a81d09b5c21c35b1fe2a1"
     },
     {
       "path": "tests/runtime/skill-book-guides.test.ts",

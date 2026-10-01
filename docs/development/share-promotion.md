@@ -23,7 +23,11 @@
 
 未知、已撤銷，或目標已不能分享（貼文刪除或隱藏、活動取消／退回／未公開、技能書不存在、名片未公開或 generation 已換）時，這個網址 302 回首頁。除了技能書的 `intro`（1–999），其他 query 都忽略，避免開放式重導。
 
-中繼頁含 `noindex,nofollow`、`Cache-Control: no-store`、`Referrer-Policy: no-referrer`，以及網站既有的 CSP。不放 inline script 或 style。OG 圖網址使用 runtime 的公開來源。`og:type` 是 `website`。`og:url` 是這條個人連結本身（公開來源 + `/go/<code>`）；技能書只有在 `intro` 有效（1–999）時才附上 `?intro=N`。它不是目標網址，否則 Facebook 會把分享收成目標頁、跳過個人連結。僅限會員的活動不放標題、內文或海報，只顯示「自由工坊會員活動」。
+中繼頁含 `noindex,nofollow`、`Cache-Control: no-store`、`Referrer-Policy: no-referrer`，以及網站既有的 CSP。不放 inline script 或 style。OG 圖網址使用 runtime 的公開來源。`og:type` 是 `website`。`og:url` 是這條個人連結本身（公開來源 + `/go/<code>`）；技能書只有在 `intro` 有效（1–999）時才附上 `?intro=N`。它不是目標網址，否則 Facebook 會把分享收成目標頁、跳過個人連結。
+
+活動預覽一律放真正的標題，說明取前 160 字，公開、介紹、工坊、公會都一樣。`og:image` 只有 `open` 與 `referral`、有海報、而且主辦者不是驗收測試帳號時，才用 `/api/v1/public/events/:id/banner`。工坊與公會改用 `/brand/freedom-workshop.webp`（1280×720），因為那支公開海報只開放給公開與介紹。測試帳號主辦的活動不放海報。
+
+活動已結束（已發布且 `ends_at` 不大於現在），而且公開活動集錦存在時，`/go/<code>` 改前往 `/highlights/<eventId>`。是否存在與 `/highlights/:id` 相同，用公開範圍的 `readHighlightEvent`；驗收測試帳號主辦的活動沒有公開集錦，仍前往原本的活動頁。改去集錦時，`og:image` 用 `highlightShareImage` 的絕對網址，寬高與集錦頁相同，組這張圖不讀圖片位元組。其餘情況維持原本的目標。點擊仍然計入活動推廣。
 
 ## 計分
 
@@ -81,7 +85,7 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 
 `period=week` 從週一 00:00（台北）起算，`month` 從當月 1 日 00:00 起算，`all` 的 `since` 是 null。榜上同分數並列（1、2、2、4），再以顯示名稱與 user id 排序。只計本人所屬社群的有效、已完成加入（選定主要公會）的會員；驗收測試帳號不出現在別人的榜上。每人最多看前 10 名，`me` 是自己的名次，0 分則為 null。頭像規則與會員列表相同。
 
-活動分享沿用原本的活動分享碼。點進 `/go/` 後會到 `/events/<id>?ref=<分享者的活動碼>`，報名統計多了「點擊 N・報名 M 人」。舊的 `?ref=` 連結仍可報名，只是沒有點擊分。
+活動分享沿用原本的活動分享碼。尚未結束的活動，點進 `/go/` 後會到 `/events/<id>?ref=<分享者的活動碼>`。已經結束、而且有公開活動集錦的，改到 `/highlights/<id>`。報名統計多了「點擊 N・報名 M 人」。舊的 `?ref=` 連結仍可報名，只是沒有點擊分。
 
 ## 資料與部署
 

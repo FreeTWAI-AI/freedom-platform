@@ -285,6 +285,38 @@ test('all six boards render, and a board with no clicks says so', async ({ page 
   await expect(page.getByText('計分規則', { exact: true })).toBeVisible();
 });
 
+test('計分規則 shows a disclosure marker and opens from a click or Enter', async ({ page }) => {
+  await login(page);
+  await navigate(page, '推廣排行榜');
+  const rules = page.locator('details.promotion-rules');
+  const summary = rules.locator('summary');
+  const copy = '同一位訪客每天點同一個連結只算 1 分';
+  await expect(summary).toBeVisible();
+  expect((await summary.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  const marker = () => summary.evaluate(element => getComputedStyle(element, '::before').content.replaceAll('"', ''));
+  expect(await marker()).toBe('▸');
+  await expect(rules.getByText(copy)).toBeHidden();
+  await summary.click();
+  await expect(rules).toHaveJSProperty('open', true);
+  await expect(rules.getByText(copy)).toBeVisible();
+  expect(await marker()).toBe('▾');
+  await summary.click();
+  await expect(rules).toHaveJSProperty('open', false);
+  await summary.focus();
+  await page.keyboard.press('Enter');
+  await expect(rules).toHaveJSProperty('open', true);
+  await expect(rules.getByText(copy)).toBeVisible();
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate(value => { localStorage.setItem('freedom-theme', value); document.documentElement.dataset.theme = value; }, theme);
+    for (const width of [1280, 390] as const) {
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      await rules.scrollIntoViewIfNeeded();
+      await expect(rules.getByText(copy)).toBeVisible();
+      await rules.screenshot({ path: `${SHOTS}/promotion-rules-${theme}-${width}.png` });
+    }
+  }
+});
+
 test('share pages stay inside the viewport and stay readable in every theme', async ({ page }) => {
   test.setTimeout(60_000);
   await login(page);
