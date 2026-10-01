@@ -764,8 +764,8 @@
     },
     {
       "path": "apps/portal-web/src/LayoutDesign.css",
-      "bytes": 8063,
-      "sha256": "69c1b97e2d14911467780fc1fae181e62ed53b0c7c5a8bf446abad913c7caeaa"
+      "bytes": 8001,
+      "sha256": "27fb9ee49a5ceec5c27b307c4ceb0be6da96d9b89c0663fee51e90839d312068"
     },
     {
       "path": "apps/portal-web/src/Navigation.tsx",
@@ -1454,8 +1454,8 @@
     },
     {
       "path": "apps/portal-web/src/styles.css",
-      "bytes": 30418,
-      "sha256": "ea730273618806adfb65a7d6634b8a5c80b62288466651767e142b0c40a9a2e6"
+      "bytes": 30606,
+      "sha256": "fbb3db467efe90e79bfcac5bd0f4d45a4624509aa92accf3983b50125e01f6c5"
     },
     {
       "path": "apps/portal-web/src/types.ts",
@@ -4556,6 +4556,11 @@
       "path": "tests/e2e/guild-workspace.spec.ts",
       "bytes": 12849,
       "sha256": "06ec491c8bbb0c4af4cf75a9978150cdfd7986d0f6ceee2dee965020c94d5bc0"
+    },
+    {
+      "path": "tests/e2e/help-box-padding.spec.ts",
+      "bytes": 9234,
+      "sha256": "21de77ed6348a18708689d4c701afb9f48695101e7b985302f990e57016a5ba5"
     },
     {
       "path": "tests/e2e/journeys.spec.ts",
