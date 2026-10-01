@@ -41,7 +41,7 @@ function GuildProfileEditor({guild,busy,error,onSave,onCancel,onRefresh}:{guild:
   return <form className="admin-guild-profile admin-guild-appointment stack" aria-label={`編輯${guild.name}的名稱與別名`} onSubmit={async event=>{event.preventDefault();if(lock.current||pending||!ready)return;lock.current=true;setSaving(true);try{await onSave(custom?{name:name.trim(),alias:alias.trim(),profession_title:title.trim(),reason:reason.trim()}:{alias:alias.trim(),reason:reason.trim()});}finally{lock.current=false;setSaving(false);}}}>
     {custom?<label className="field">公會名稱<input value={name} required minLength={2} maxLength={100} disabled={pending} onChange={event=>setName(event.target.value)}/></label>:<><p>公會名稱：{guild.name}</p><p className="field-hint">內建公會的名稱與職業稱號由平台維護。</p></>}
     <label className="field">別名<input value={alias} maxLength={100} disabled={pending} onChange={event=>setAlias(event.target.value)}/></label>
-    <p className="field-hint">{custom?'有趣的名字放這裡，會並排顯示在公會名稱旁；留空就不顯示。':'有趣的名字放這裡，會並排顯示在公會名稱旁；留空就不顯示。'}</p>
+    <p className="field-hint">有趣的名字放這裡，會並排顯示在公會名稱旁；留空就不顯示。</p>
     {custom&&<><label className="field">職業稱號<input value={title} maxLength={40} disabled={pending} onChange={event=>setTitle(event.target.value)}/></label><p className="field-hint">成員的職業稱號；留空時顯示「專業探索者」。</p></>}
     <label className="field">調整理由<textarea required minLength={3} maxLength={1000} rows={3} value={reason} disabled={pending} onChange={event=>setReason(event.target.value)}/></label>
     {error&&<div role="alert" className="banner banner-error"><p>{error}</p><button type="button" className="btn btn-ghost" disabled={pending} onClick={()=>void onRefresh()}>重讀公會</button></div>}

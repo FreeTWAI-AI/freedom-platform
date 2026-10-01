@@ -1,5 +1,5 @@
 .guild-name { position: relative; overflow-wrap: anywhere; }
-h3:has(.guild-name) { min-width: 0; flex: 1 1 auto; text-wrap: wrap; overflow-wrap: anywhere; }
+h3:has(.guild-name) { min-width: 0; text-wrap: wrap; overflow-wrap: anywhere; }
 .guild-name-main,.guild-name-alias { overflow-wrap: anywhere; }
 .guild-name-alias { color: var(--muted); font-weight: 500; font-size: .8em; letter-spacing: 0; }
 .guild-name-sep { color: var(--muted); font-weight: 500; margin-inline: .4em; }

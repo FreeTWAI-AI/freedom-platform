@@ -1,12 +1,11 @@
 import {randomUUID} from 'node:crypto';
-import {mkdirSync} from 'node:fs';
-import type {Page} from '@playwright/test';
+import type {Locator, Page} from '@playwright/test';
 import {navigate} from './navigation.js';
 import {test, expect} from './fixtures.js';
 import {DEMO_COMMUNITY, DEMO_PASSWORD, DEMO_USERS} from '../../packages/testing/seed.js';
 import {E2E_AUTHOR_CLAIM_ADMIN_EMAIL, E2E_AUTHOR_CLAIM_ADMIN_TOKEN} from '../../packages/testing/e2e-admin.js';
 
-const SHOTS='/home/ted-h/tmp-scratch/fp_work/grok-f68f7414/guild-alias-scratch';
+const shot=(file:string)=>`test-results/guild-alias-${file}`;
 const LONG_ALIAS='敢於體驗表達感受實驗小小兵';
 const FIELD='guild_ai_field', MARKETING='guild_marketing', SECURITY='guild_security';
 const BUILTIN_KEYS=[FIELD, MARKETING, SECURITY];
@@ -45,10 +44,20 @@ async function aliasInside(page:Page,key:string){
     return box.width>0&&box.left>=host.left-1&&box.right<=host.right+1;
   })).toBe(true);
 }
+async function badgeBesideHeading(card:Locator){
+  const boxes=await card.evaluate(article=>{
+    const heading=article.querySelector('h3'),badge=article.querySelector('.guild-card-topline .badge');
+    if(!heading||!badge) return null;
+    const h=heading.getBoundingClientRect(),b=badge.getBoundingClientRect();
+    return {headingTop:h.top,headingRight:h.right,badgeTop:b.top,badgeLeft:b.left};
+  });
+  expect(boxes).not.toBeNull();
+  expect(Math.abs(boxes!.badgeTop-boxes!.headingTop)).toBeLessThanOrEqual(8);
+  expect(boxes!.badgeLeft).toBeGreaterThan(boxes!.headingRight);
+}
 
 test('guild aliases sit beside the name, and an admin can edit profiles, approve and merge',async({page,browser,e2eAuthPool})=>{
   test.setTimeout(120_000);
-  mkdirSync(SHOTS,{recursive:true});
   const stamp=randomUUID().slice(0,8);
   const approveName=`別名核准${stamp}`,mergeName=`併入申請${stamp}`;
   const approveId=randomUUID(),mergeId=randomUUID();
@@ -77,11 +86,15 @@ test('guild aliases sit beside the name, and an admin can edit profiles, approve
     await page.getByLabel('搜尋公會',{exact:true}).fill(LONG_ALIAS);
     await expect(field).toBeVisible();
     await expect(plain).toHaveCount(0);
+    await page.getByLabel('搜尋公會',{exact:true}).fill('');
+    await expect(plain).toBeVisible();
     for(const width of [390,820,1280]){
       await page.setViewportSize({width,height:width===390?844:1000});
       await field.scrollIntoViewIfNeeded();
       await fits(page);
       await aliasInside(page,FIELD);
+      await badgeBesideHeading(field);
+      await badgeBesideHeading(plain);
     }
     for(const theme of ['light','dark','versefolk']){
       const color=await colors(page,theme,FIELD);
@@ -93,13 +106,17 @@ test('guild aliases sit beside the name, and an admin can edit profiles, approve
     for(const [width,file] of [[390,'guild-page-light-390.png'],[1280,'guild-page-light-1280.png']] as const){
       await page.setViewportSize({width,height:width===390?844:900});
       await field.scrollIntoViewIfNeeded();
-      await page.screenshot({path:`${SHOTS}/${file}`});
+      await page.screenshot({path:shot(file)});
+      await field.screenshot({path:shot(`field-${file}`)});
+      await plain.screenshot({path:shot(`plain-${file}`)});
     }
     await page.evaluate(()=>{localStorage.setItem('freedom-theme','dark');document.documentElement.dataset.theme='dark';});
     for(const [width,file] of [[390,'guild-page-dark-390.png'],[1280,'guild-page-dark-1280.png']] as const){
       await page.setViewportSize({width,height:width===390?844:900});
       await field.scrollIntoViewIfNeeded();
-      await page.screenshot({path:`${SHOTS}/${file}`});
+      await page.screenshot({path:shot(file)});
+      await field.screenshot({path:shot(`field-${file}`)});
+      await plain.screenshot({path:shot(`plain-${file}`)});
     }
 
     adminContext=await browser.newContext({viewport:{width:1280,height:900}});
@@ -121,7 +138,7 @@ test('guild aliases sit beside the name, and an admin can edit profiles, approve
       await admin.setViewportSize({width,height:width===390?900:900});
       await marketing.scrollIntoViewIfNeeded();
       await fits(admin);
-      await admin.screenshot({path:`${SHOTS}/${file}`});
+      await admin.screenshot({path:shot(file)});
     }
     await marketing.getByRole('button',{name:'儲存名稱與別名',exact:true}).click();
     await expect(marketing.getByText('已更新公會名稱與別名。')).toBeVisible();
@@ -152,7 +169,7 @@ test('guild aliases sit beside the name, and an admin can edit profiles, approve
       await admin.setViewportSize({width,height:900});
       await custom.scrollIntoViewIfNeeded();
       await fits(admin);
-      await admin.screenshot({path:`${SHOTS}/${file}`});
+      await admin.screenshot({path:shot(file)});
     }
     await custom.getByRole('button',{name:'儲存名稱與別名',exact:true}).click();
     await expect(management.getByRole('article',{name:renamed,exact:true}).locator('.guild-name-alias')).toContainText('改過的別名');
@@ -172,7 +189,16 @@ test('guild aliases sit beside the name, and an admin can edit profiles, approve
       await admin.setViewportSize({width,height:900});
       await mergeCard.scrollIntoViewIfNeeded();
       await fits(admin);
-      await mergeCard.screenshot({path:`${SHOTS}/${file}`});
+      if(width===1280){
+        const size=await mergeCard.evaluate(card=>{
+          const button=card.querySelector('button.btn-primary');
+          if(!button) return null;
+          return {button:button.getBoundingClientRect().width,card:card.getBoundingClientRect().width};
+        });
+        expect(size).not.toBeNull();
+        expect(size!.button).toBeLessThan(size!.card/2);
+      }
+      await mergeCard.screenshot({path:shot(file)});
     }
     await mergeCard.getByRole('button',{name:'併入這個公會',exact:true}).click();
     await expect(mergeCard.locator('.badge.guild-merged')).toHaveText('已併入');
