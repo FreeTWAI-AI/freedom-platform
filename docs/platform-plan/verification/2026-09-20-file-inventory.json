@@ -734,8 +734,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 85358,
-      "sha256": "ffc928d143d3493de27103dc573659eadc8a4a65cfb126245335f0d02651c071"
+      "bytes": 85694,
+      "sha256": "58ef9a1e84ec5e48d38ff884d08341cb0e97d09f8e1aff7a89fefed72bcc30ca"
     },
     {
       "path": "apps/portal-web/src/CalmExperience.css",
@@ -834,8 +834,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AdminAuthorClaims.tsx",
-      "bytes": 6865,
-      "sha256": "6dfc8fd814f9cc6637b4d3e8c9cc2274802cf69c34834da8c9940a2ea9c76b3f"
+      "bytes": 6932,
+      "sha256": "8e33fed2ba30996d344adf007483037f2cb70339153e158f7f8e97d32bc63b29"
     },
     {
       "path": "apps/portal-web/src/modules/AdminCredentials.css",
@@ -859,8 +859,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AdminGuildManagement.tsx",
-      "bytes": 18962,
-      "sha256": "a2ddb41c3d6c212114aaab5425278a8944927a42c0c0888a34fcaa939eea201a"
+      "bytes": 18989,
+      "sha256": "7cb10df6eb6de12fb80260fd621c937784706cd38b56251a76c86093f424e3d7"
     },
     {
       "path": "apps/portal-web/src/modules/AdminLayout.css",
@@ -869,8 +869,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AdminPanel.tsx",
-      "bytes": 33476,
-      "sha256": "61ebd1740c5d1f3692da3f7ce738a01df8f9a84e906e6000aafd311a4139fdaa"
+      "bytes": 33597,
+      "sha256": "f10e403fc0fba7fdc3ea6105abe9a307edd685fdd0470043e466ebc840e19f5b"
     },
     {
       "path": "apps/portal-web/src/modules/AdminPermissions.css",
@@ -899,8 +899,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AuthorClaim.tsx",
-      "bytes": 11218,
-      "sha256": "dcad5dd27a00edfdda8115c416bf02531195fcb706ecf6e2b4297040682234b6"
+      "bytes": 11245,
+      "sha256": "75d8b15c73f069ee2f0add8dfab0c1dda3369b3b839c3db3d930bf391c353ca9"
     },
     {
       "path": "apps/portal-web/src/modules/AvatarEditor.tsx",
@@ -929,8 +929,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/CoCreationPanel.tsx",
-      "bytes": 24502,
-      "sha256": "9a722bbb135eb2d0d558ef7939468ac4f809016bcd25f06e5265a3fcc07df5a6"
+      "bytes": 24529,
+      "sha256": "9f0f78597242a8f983e8ec8da12419761add3110be8ade26c21f08aeab0ead62"
     },
     {
       "path": "apps/portal-web/src/modules/CommercePanels.tsx",
@@ -954,8 +954,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/CommunitySkillBooks.tsx",
-      "bytes": 11597,
-      "sha256": "0361764a17d2a759b14b8c3c74cc918559acec5764285554036a5d614cfb8bb8"
+      "bytes": 11627,
+      "sha256": "087ad41c2207d08699bf6f3eed39c4573b21e2b5004c4c5adcb31603a16a98fb"
     },
     {
       "path": "apps/portal-web/src/modules/DevelopmentAccess.css",
@@ -994,8 +994,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/EventsPanel.tsx",
-      "bytes": 30068,
-      "sha256": "2f7e49e4bddedd269bb83bf53e28c954f3b01f6ba340758b6ec8adc96e924229"
+      "bytes": 30135,
+      "sha256": "98030c2bdb5da5afebcf8a230d5e4aad2d758e9bf94d196599ce227978f909eb"
     },
     {
       "path": "apps/portal-web/src/modules/ExpeditionDesign.css",
@@ -1024,8 +1024,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildCard.tsx",
-      "bytes": 7061,
-      "sha256": "1976a7d328fbbb5bb99cf3c7371f666a75cdeea1646be11961dda48a5f51b241"
+      "bytes": 7103,
+      "sha256": "3d615919df845b99a3b57dfee2024c609d92f02f83f897261d4e73ff86764535"
     },
     {
       "path": "apps/portal-web/src/modules/GuildDesign.css",
@@ -1099,8 +1099,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/LegacyCommercePanels.tsx",
-      "bytes": 23662,
-      "sha256": "0f2d2c8061370a4b71fd972dceec6e8062a258ff906fb44db2b7da4b490d5650"
+      "bytes": 23971,
+      "sha256": "5479839f233efc15d907f6d981e88b530cf1578598860883355aa03cc60198cf"
     },
     {
       "path": "apps/portal-web/src/modules/MemberAvatar.css",
@@ -1179,8 +1179,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberServices.tsx",
-      "bytes": 18280,
-      "sha256": "4c2f4cc0b0d4feff5aacce6dd9fb26d967114c637fdccf8462a990c8617adb92"
+      "bytes": 18295,
+      "sha256": "45c03c055099c2820cf5f4bff45835332d96779e5edd13eec6a844a7f21c2406"
     },
     {
       "path": "apps/portal-web/src/modules/MemberSettings.css",
@@ -1239,13 +1239,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/OpenSourcePanels.tsx",
-      "bytes": 18002,
-      "sha256": "f75b97cccaf6b8003dc077ccb1d7ad5dec89a842bf9365e921ff3ec8f2b9d9af"
+      "bytes": 18044,
+      "sha256": "fc099791b299d07f0c902f3e73e00f8350122ffe6ebb522b66f649d1a5b4d7e6"
     },
     {
       "path": "apps/portal-web/src/modules/PositioningPanels.tsx",
-      "bytes": 21579,
-      "sha256": "6f6fc7eec46f02ab5e7e22b2c07d8205002a9e628b50715e33baf8602a7615eb"
+      "bytes": 21619,
+      "sha256": "6f42e159b85dc523f25d1ed9cdca1be7baf3ea292658426f0303b55d295902a1"
     },
     {
       "path": "apps/portal-web/src/modules/PreviewProfileMenu.tsx",
@@ -1284,8 +1284,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/QuickStart.tsx",
-      "bytes": 6236,
-      "sha256": "cda620b25eb4f4ee415ab565db1d2187d016bb2d40d334b4e994a3728e68ca84"
+      "bytes": 6266,
+      "sha256": "3864a7b202d3bfb43beb79bac287f306ae643fa1ea754010597b36828620468e"
     },
     {
       "path": "apps/portal-web/src/modules/SettingsMenu.tsx",
@@ -1314,8 +1314,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SkillBookIntro.tsx",
-      "bytes": 11930,
-      "sha256": "494c06400319d9ecc827e3aac56c11755c7aa3b7e08315e07217f202da82c1a4"
+      "bytes": 11987,
+      "sha256": "1e16b8907a9c0c14b9bade92bb7763aedf3f89dfc3db35544bd402c1761d290a"
     },
     {
       "path": "apps/portal-web/src/modules/SkillDiscovery.css",
@@ -1339,8 +1339,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SkillUpload.tsx",
-      "bytes": 30769,
-      "sha256": "d788d58c11db4e8daa5ccdc96a0b6dcdffacccd760b983244ea47e7423670c85"
+      "bytes": 30796,
+      "sha256": "a44b75e333cd7356cd187429c360f8cd6f9996644a820a9e56c5d4fd3a95985d"
     },
     {
       "path": "apps/portal-web/src/modules/SkillsPanel.tsx",
@@ -1354,8 +1354,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SocialZone.tsx",
-      "bytes": 11872,
-      "sha256": "8c5063aea683f4a655aa0b2a3d811185706f6b9213ce37659ba94ee338000852"
+      "bytes": 11887,
+      "sha256": "92f288615d96aa1595d053d54432d0eef1b793b1842793bed5c8cae50e056037"
     },
     {
       "path": "apps/portal-web/src/modules/SquadInvitations.css",
@@ -1364,18 +1364,18 @@
     },
     {
       "path": "apps/portal-web/src/modules/Squads.tsx",
-      "bytes": 20439,
-      "sha256": "3c06b6ea7620da3da854f970bdbc9e901cdbf21402947a16ba5ce1a9b131a6cd"
+      "bytes": 20466,
+      "sha256": "6df4ef9472229a3817ff9749d1a3f1bd4160155f1703099174b6b3aac560174c"
     },
     {
       "path": "apps/portal-web/src/modules/TaskBoardPanel.tsx",
-      "bytes": 8366,
-      "sha256": "cbe6b44802dc4b5c82b19811ce181fb7516d52ff4cd08b62aedc4c6d99a71f87"
+      "bytes": 8448,
+      "sha256": "89a83d489719ed5c965830bc3cb85ca3e7c2122322b476f63fcee21f966686e6"
     },
     {
       "path": "apps/portal-web/src/modules/WelcomePreview.tsx",
-      "bytes": 6536,
-      "sha256": "a8962ba249f9592fdabaebbe99a1efb4d0633f5fb0516186b69bcfe0c3673bcd"
+      "bytes": 6563,
+      "sha256": "489f298729a9afa26cd4d94ab5d4df94e4339e3d512d97700305cc66b1fbae98"
     },
     {
       "path": "apps/portal-web/src/modules/WorkSharing.css",
@@ -1469,8 +1469,8 @@
     },
     {
       "path": "apps/portal-web/src/styles.css",
-      "bytes": 30632,
-      "sha256": "79cfb40983c47cd76b2542bd1bfbd530b28428a8645e84e7210e29085c0ffee2"
+      "bytes": 30648,
+      "sha256": "eb1fb957427cd30c36f4bd465c72bf1b5bbc5c06954679fcb0d766d0aa66ce49"
     },
     {
       "path": "apps/portal-web/src/types.ts",
@@ -4604,8 +4604,8 @@
     },
     {
       "path": "tests/e2e/help-box-padding.spec.ts",
-      "bytes": 9234,
-      "sha256": "21de77ed6348a18708689d4c701afb9f48695101e7b985302f990e57016a5ba5"
+      "bytes": 9611,
+      "sha256": "2be8b3ad993e6a92288a37afe7fe8a345eb0919f064becd32f312d00addf6a89"
     },
     {
       "path": "tests/e2e/journeys.spec.ts",
@@ -4791,6 +4791,11 @@
       "path": "tests/e2e/squad-types-channel.spec.ts",
       "bytes": 3179,
       "sha256": "a06a56764fcf42f5e6cb321821de9a873c7c5f172691bd573e0d15f5168aed52"
+    },
+    {
+      "path": "tests/e2e/typed-line-breaks.spec.ts",
+      "bytes": 12469,
+      "sha256": "f549a84d3a15526e0aca52653454be376c89647ab184313f1d6de889954c26ed"
     },
     {
       "path": "tests/e2e/workshop-design.spec.ts",
