@@ -88,6 +88,22 @@ test('workerd: strict host, JSON 404 for machine paths, assets with security hea
     assert.equal(shell.status, 200, path); assert.equal(await shell.text(), SHELL);
     assert.equal(shell.headers.get('x-robots-tag'), null, path);
   }
+  const highlights = await call('/highlights');
+  assert.equal(highlights.status, 200);
+  const highlightsHtml = await highlights.text();
+  assert.equal(highlightsHtml.includes(SHELL), false);
+  assert.match(highlightsHtml, /活動集錦/);
+  assert.match(highlights.headers.get('content-type') ?? '', /text\/html/);
+  const missing = await call('/highlights/not-a-uuid');
+  assert.equal(missing.status, 404);
+  assert.equal((await missing.text()).includes(SHELL), false);
+  const unknown = await call('/highlights/00000000-0000-4000-8000-000000000099');
+  assert.equal(unknown.status, 404);
+  assert.match(await unknown.text(), /找不到這場活動/);
+  const css = await call('/highlights.css');
+  assert.equal(css.status, 200);
+  assert.match(css.headers.get('content-type') ?? '', /text\/css/);
+  assert.match(await css.text(), /\.hl-grid/);
   assert.equal(asset.headers.get('x-robots-tag'), null);
 });
 

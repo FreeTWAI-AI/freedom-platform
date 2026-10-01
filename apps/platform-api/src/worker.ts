@@ -127,6 +127,8 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
       :undefined,
     eventEmailSender:env.EMAIL?async(to,subject,text)=>{await env.EMAIL!.send({to,from:'no-reply@mail.freetwai.com',subject,text});}:undefined,
     health: { runtime: 'cloudflare-workers', release_sha: config.release },
+    // workerd rejects a bound global fetch, so the preview caller stays unbound.
+    linkPreviewFetch:(input,init)=>globalThis.fetch(input,init),
   };
 }
 
