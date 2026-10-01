@@ -458,21 +458,24 @@ function metricsFetcher(run: Run): typeof fetch {
 async function syncDueMetrics(pool: Pool, run: Run) {
   const targets = catalogMetricTargets();
   if (!targets.length || run.requests >= run.budget) return;
+  // Every due book, oldest first. The five-slot cap is applied after backoff skips, not in this query.
   const due = await pool.query<{repository_key: string}>(`SELECT listed.key AS repository_key
     FROM unnest($1::text[]) WITH ORDINALITY AS listed(key, ord)
     LEFT JOIN github_repository_metrics metrics ON metrics.repository_key=listed.key
     WHERE metrics.retry_after IS NULL OR metrics.retry_after<=$2
-    ORDER BY metrics.retry_after NULLS FIRST, listed.ord
-    LIMIT $3`, [targets.map(target => target.key), new Date(run.now()), METRICS_PER_RUN]);
+    ORDER BY metrics.retry_after NULLS FIRST, listed.ord`,
+  [targets.map(target => target.key), new Date(run.now())]);
   if (!due.rows.length) return;
   const names = new Map(targets.map(target => [target.key, target.repository]));
   const provider = new GitHubSocialProvider(metricsFetcher(run));
   const loggedOwners = new Set<string>();
+  // A request spends one slot. A backoff skip does not, and leaves the row due so it is first after the backoff ends.
+  let reads = 0;
   for (const row of due.rows) {
-    if (run.requests >= run.budget) return;
-    await refreshBackoff(pool, run);
+    if (reads >= METRICS_PER_RUN || run.requests >= run.budget) return;
     const repository = names.get(row.repository_key);
-    if (!repository) continue;
+    if (!repository || backedOff(run, repository)) continue;
+    await refreshBackoff(pool, run);
     if (backedOff(run, repository)) continue;
     // An owner already rejected by events, repositories or an earlier book skips the token.
     const sendToken = credentialFor(run, repository) === 'token';
@@ -497,9 +500,12 @@ async function syncDueMetrics(pool: Pool, run: Run) {
             console.error('github_metrics_token_rejected', owner);
           }
         }
+        // The token request used a slot. The anonymous retry is not sent and the row is left unchanged.
         if (run.requests >= run.budget) return;
-        await refreshBackoff(pool, run);
-        if (run.backoffUntil.anonymous > run.now()) continue;
+        if (run.backoffUntil.anonymous > run.now()) {
+          reads += 1;
+          continue;
+        }
         usedToken = false;
         snapshot = await provider.metrics(repository);
       }
@@ -517,6 +523,7 @@ async function syncDueMetrics(pool: Pool, run: Run) {
         return;
       }
     }
+    reads += 1;
   }
 }
 
