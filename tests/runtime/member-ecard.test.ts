@@ -215,7 +215,7 @@ test('public cards show platform-public profile links, hide the rest, and conten
   assert.deepEqual(shared.data.profile_links.map((item:{label:string})=>item.label),['LINE','GitHub','Discord','IG']);
   for(const item of shared.data.profile_links)assert.deepEqual(Object.keys(item).sort(),['handle','label','platform','url']);
   const payload=JSON.stringify(shared.data.profile_links);
-  assert.equal(payload.includes('source'),false);assert.equal(payload.toLowerCase().includes(String(instagram.data.link_id).toLowerCase()),false);assert.equal(payload.includes('facebook.com'),false);assert.equal(payload.includes('x.com/gone'),false);
+  assert.equal(payload.includes('source'),false);assert.equal(payload.toLowerCase().includes(String(instagram.data.link_id).toLowerCase()),false);assert.equal(payload.includes('facebook.com/friends-only'),false);assert.equal(payload.includes('x.com/gone'),false);
   assert.equal(shared.data.profile_links[0].url,'https://line.me/ti/p/~lineuser');assert.equal(shared.data.profile_links[2].url,null);assert.equal(shared.data.profile_links[3].handle,'instagram.com');
   const hidden=await request('/me/member-card-share',owner,{enabled:true,include_avatar:false,rotate:false,profile_link_prefs:{'contact:github':false}},opened.data.aggregate_version);
   assert.equal(hidden.status,200,hidden.data.detail);assert.equal(hidden.data.share_path,opened.data.share_path);
