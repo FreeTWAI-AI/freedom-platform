@@ -357,7 +357,7 @@ test('a 成長與行銷公會 member sees Open SEO Advisor unlocked on the guild
       await page.setViewportSize({width,height:width===390?844:900});
       await card.scrollIntoViewIfNeeded();
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-      await page.screenshot({path:`/home/ted-h/tmp-scratch/fp_work/grok-f68f7414/seo-skill-scratch/open-seo-advisor-shelf-${width}.png`,fullPage:true});
+      await page.screenshot({path:`test-results/open-seo-advisor-shelf-${width}.png`,fullPage:true});
     }
   } finally {
     await e2eAuthPool.query('DELETE FROM outbox WHERE transition_id IN (SELECT transition_id FROM transition_journal WHERE actor_ref=$1)',[id]);
