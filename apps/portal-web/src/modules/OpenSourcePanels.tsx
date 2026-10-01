@@ -1,9 +1,10 @@
 import { ModuleBanner } from './ModuleBanner';
-import { RepositoryLibrary } from './Community';
-import { useCallback,useEffect,useState,type FormEvent } from 'react';
+import { RepositoryLibrary,loadCommunityCatalog } from './Community';
+import { useCallback,useEffect,useRef,useState,type FormEvent } from 'react';
 import { requireItems } from '../api';
 import { useModuleMutation,type ModulePanelProps } from './shared';
-import { SkillUpload } from './SkillUpload';
+import { SkillUpload,type SkillOpenRequest } from './SkillUpload';
+import { repositoryKey } from './skill-upload-chat';
 
 type SourceVersion={version_id:string;commit_sha:string;license_spdx:string;license_evidence_url:string|null;is_fork:boolean;archived:boolean;readme_url:string;inspected_at:string};
 type Project={project_id:string;owner_ref:string;owner_name:string;title:string;description:string;use_notes:string;demo_url:string|null;repository_url:string;repository_full_name:string;repository_id:string;relationship:string;aggregate_version:number;current_version:SourceVersion};
@@ -11,6 +12,33 @@ type Campaign={campaign_id:string;title:string;audience:string;goal:string;draft
 type SupplierProduct={product_id:string;title:string;current_offer:{revision:number}};
 const relationshipLabels:Record<string,string>={author:'原作者',maintainer:'維護者',contributor:'貢獻者',curator:'推薦／整理者'};
 const blankProject={repository_url:'',title:'',description:'',use_notes:'',demo_url:'',relationship:'curator',consent_to_share:false};
+type MemberDraft={submission_id:string;status:string;source_project_id?:string|null;payload?:{repository_url?:string}|null;seed?:{repository_url?:string}|null};
+type RegistrationNotice={text:string;action?:'complete'|'preview'|'skills';submissionId?:string;label?:string};
+const plainRegistration:RegistrationNotice={text:'作品已登錄。你填寫的來源關係會清楚標示為自行聲明。'};
+
+async function registrationNotice(client:ModulePanelProps['client'],project:Project):Promise<RegistrationNotice>{
+  let items:MemberDraft[];
+  try{
+    const body=await client.get<{items?:MemberDraft[]}>('/me/skill-submissions');
+    if(!Array.isArray(body.items))return plainRegistration;
+    items=body.items;
+  }catch{return plainRegistration;}
+  const owned=items.find(item=>item.source_project_id===project.project_id);
+  if(owned)return{text:'作品已登錄，也建立了技能書草稿。補上 100 則分享介紹、預覽後送出，就會成為社群技能書。',action:'complete',submissionId:owned.submission_id,label:'補上分享介紹'};
+  const key=repositoryKey(project.repository_url);
+  const same=(item:MemberDraft)=>key!==null&&(repositoryKey(item.payload?.repository_url)===key||repositoryKey(item.seed?.repository_url)===key);
+  const ready=items.find(item=>item.status==='ready_for_review'&&same(item));
+  if(ready)return{text:'作品已登錄。你已有這件作品的技能書草稿，預覽後就能送出。',action:'preview',submissionId:ready.submission_id,label:'預覽並送出'};
+  const waiting=items.find(item=>item.status==='awaiting_upload'&&same(item));
+  if(waiting)return{text:'作品已登錄。你已有這件作品的技能書草稿，補上內容後就能送出。',action:'complete',submissionId:waiting.submission_id,label:'繼續完成草稿'};
+  if(items.some(item=>item.status==='published'&&same(item)))return{text:'作品已登錄。這件作品已是社群技能書。'};
+  try{
+    const catalog=await loadCommunityCatalog(client);
+    const book=catalog.skill_books.find(entry=>key!==null&&(repositoryKey(entry.repository_url)===key||repositoryKey(entry.upstream_url)===key));
+    if(book)return{text:`作品已登錄。這件作品已收錄為技能書「${book.title}」。`,action:'skills',label:'閱讀技能書'};
+  }catch{return plainRegistration;}
+  return plainRegistration;
+}
 
 function SafeLink({href,children}:{href:string;children:React.ReactNode}) {
   return <a href={href} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">{children} ↗</a>;
@@ -21,8 +49,11 @@ function LoadError({error,retry}:{error:string|null;retry:()=>void}) {
 
 export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
   const [projects,setProjects]=useState<Project[]>([]),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState<string|null>(null);
-  const [draft,setDraft]=useState({...blankProject}),[notice,setNotice]=useState<string|null>(null);
+  const [draft,setDraft]=useState({...blankProject}),[notice,setNotice]=useState<RegistrationNotice|null>(null);
+  const [openRequest,setOpenRequest]=useState<SkillOpenRequest|null>(null);
+  const openNonce=useRef(0);
   const {mutate,busy,error}=useModuleMutation(client);
+  function openDraft(submissionId:string,mode:SkillOpenRequest['mode']){openNonce.current+=1;setOpenRequest({submissionId,mode,nonce:openNonce.current});}
   const refresh=useCallback(async()=>{
     setLoading(true);setLoadError(null);
     try{setProjects(requireItems<Project>(await client.get('/opensource/projects'),'開源作品'));}
@@ -33,17 +64,17 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
   async function submit(event:FormEvent){
     event.preventDefault();setNotice(null);
     const saved=await mutate<Project>('/opensource/projects',{...draft,demo_url:draft.demo_url.trim()||null});
-    if(saved){setDraft({...blankProject});setNotice('作品已登錄。你填寫的來源關係會清楚標示為自行聲明。');await refresh();}
+    if(saved){setDraft({...blankProject});setNotice(await registrationNotice(client,saved));await refresh();}
   }
   return <div className="stack">
     <ModuleBanner eyebrow="OPEN SOURCE" title="分享你的 GitHub 專案" description="" art="/art/rpg/skill-codex.webp"><div className="actions"><button className="btn btn-ghost" type="button" onClick={()=>onNavigate?.('skills')}>閱讀技能書</button><button className="btn btn-ghost" type="button" onClick={()=>onNavigate?.('cocreation')}>一起開發</button></div></ModuleBanner>
 
-    {notice&&<p role="status" className="banner banner-info">{notice}</p>}
+    {notice&&<div role="status" className="banner banner-info skill-draft-callout"><p>{notice.text}</p>{notice.action==='complete'&&notice.submissionId&&<button type="button" className="btn btn-primary" onClick={()=>openDraft(notice.submissionId??'','complete')}>{notice.label}</button>}{notice.action==='preview'&&notice.submissionId&&<button type="button" className="btn btn-primary" onClick={()=>openDraft(notice.submissionId??'','preview')}>{notice.label}</button>}{notice.action==='skills'&&<button type="button" className="btn btn-primary" onClick={()=>onNavigate?.('skills')}>{notice.label}</button>}</div>}
     {error&&<p role="alert" className="banner banner-error">{error}</p>}
     <LoadError error={loadError} retry={()=>void refresh()}/>
     <div className="card-grid">
       <div className="stack">
-      <section className="card stack"><div className="actions"><SkillUpload client={client} onPublished={refresh}/></div><p className="hint">由你選擇的 Agent 讀取專案並建立草稿，或把聊天 AI 回覆的 JSON 貼回視窗；你預覽後再送出。</p></section>
+      <section className="card stack"><div className="actions"><SkillUpload client={client} openRequest={openRequest} onPublished={refresh}/></div><p className="hint">由你選擇的 Agent 讀取專案並建立草稿，或把聊天 AI 回覆的 JSON 貼回視窗；你預覽後再送出。</p></section>
       <details className="card manual-upload"><summary>手動登錄作品</summary>
       <section><div className="section-head"><h2>登錄開源作品</h2><p>貼上公開專案網址，再補上用途與使用說明。</p></div>
         <form className="stack" onSubmit={submit}>
@@ -55,6 +86,7 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
           <label className="field">我與作品的關係<select value={draft.relationship} onChange={e=>setDraft({...draft,relationship:e.target.value})}>{Object.entries(relationshipLabels).map(([key,label])=><option value={key} key={key}>{label}</option>)}</select><span className="field-hint">由你自行聲明；平台不以這次登錄驗證你與作品的來源、作者或擁有權關係。</span></label>
           <label className="choice"><input type="checkbox" required checked={draft.consent_to_share} onChange={e=>setDraft({...draft,consent_to_share:e.target.checked})}/>我同意讓社群會員看見作品介紹與來源關係</label>
           <button className="btn btn-primary" disabled={busy}>{busy?'正在讀取公開版本…':'從 GitHub 登錄'}</button>
+          <p className="field-hint">登錄後會自動建立私人技能書草稿；補上分享介紹、由你送出後才會公開。</p>
         </form>
       </section>
       </details>

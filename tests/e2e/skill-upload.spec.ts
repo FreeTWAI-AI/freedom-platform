@@ -206,7 +206,7 @@ test('owner previews all 100 share introductions and explicitly sends with CSRF,
   await page.route('**/api/v1/opensource/projects', route => { if (route.request().method() === 'GET') published++; return route.fallback(); });
   await page.getByRole('button', { name: '上傳技能', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
-  await dialog.getByRole('button', { name: '預覽：流程整理技能', exact: true }).click();
+  await dialog.getByRole('button', { name: '預覽並送出：流程整理技能', exact: true }).click();
   const preview = dialog.getByRole('region', { name: '預覽：流程整理技能', exact: true });
   await expect(preview).toContainText('讀取 README 後整理出的真實介紹。');
   await expect(preview).toContainText('安裝 Node.js 後執行第一個範例。');
@@ -404,7 +404,7 @@ for (const viewport of [
     expect(grants[0].headers['authorization']).toBeUndefined();
 
     const reported = page.waitForRequest(request => request.url().includes('/me/client-errors') && request.method() === 'POST');
-    await dialog.getByRole('button', { name: '預覽：流程整理技能', exact: true }).click();
+    await dialog.getByRole('button', { name: '預覽並送出：流程整理技能', exact: true }).click();
     await dialog.getByRole('button', { name: '送出技能', exact: true }).click();
     const failure = dialog.getByRole('alert').filter({ hasText: '草稿已保留' });
     await expect(failure).toContainText('發佈');
