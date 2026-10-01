@@ -186,3 +186,25 @@ test('workerd: skill-book metrics refresh reaches GitHub through the global fetc
     assert.equal(row.last_error, null); assert.equal(row.stars, '42');
   } finally { await withGitHub.dispose(); }
 });
+
+test('workerd: the maintainer webhook is 503 without a secret and 401 for a bad signature', async () => {
+  const delivery = randomUUID();
+  const headers = { 'Content-Type': 'application/json', 'X-GitHub-Event': 'ping', 'X-GitHub-Delivery': delivery, 'X-Hub-Signature-256': 'sha256=' + 'ab'.repeat(32) };
+  const missing = await call('/api/v1/maintainer/github/webhook', { method: 'POST', headers, body: '{}' });
+  assert.equal(missing.status, 503);
+  assert.equal(((await missing.json()) as any).code, 'maintainer_webhook_unavailable');
+  const secret = 'workerd-maintainer-webhook-secret-32';
+  const withSecret = new Miniflare(convertV4MiniflareOptions({ workers: [{
+    name: 'freedom-platform-workerd-maintainer-webhook', modules: true, scriptPath: resolve(bundleDir, 'worker.js'),
+    compatibilityDate, compatibilityFlags: ['nodejs_compat'],
+    bindings: { FREEDOM_ENV: 'local', APP_ORIGIN: origin, GITHUB_MAINTAINER_WEBHOOK_SECRET: secret },
+    hyperdrives: { HYPERDRIVE: databaseUrl },
+    assets: { directory: assetsDir, binding: 'ASSETS', routerConfig: { has_user_worker: true, invoke_user_worker_ahead_of_assets: true }, assetConfig: { html_handling: 'auto-trailing-slash', not_found_handling: 'none' } },
+  }] } as any));
+  try {
+    const rejected = await withSecret.dispatchFetch(origin + '/api/v1/maintainer/github/webhook', { method: 'POST', headers, body: '{}' }) as unknown as Response;
+    assert.equal(rejected.status, 401, await rejected.clone().text());
+    assert.equal(((await rejected.json()) as any).code, 'webhook_signature_invalid');
+    assert.equal((await db.query('SELECT count(*)::int AS n FROM maintainer_webhook_deliveries')).rows[0].n, 0);
+  } finally { await withSecret.dispose(); }
+});

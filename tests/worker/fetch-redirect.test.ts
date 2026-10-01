@@ -2,6 +2,7 @@
 // Build first:
 //   npm run worker:dry-run
 //   npm run worker:dry-run:admin-sync
+//   npm run worker:dry-run:maintainer
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -20,6 +21,9 @@ const bundles = [
   '.wrangler/dry-run/admin-sync-local/admin-sync-worker.js',
   '.wrangler/dry-run/admin-sync-staging-next/admin-sync-worker.js',
   '.wrangler/dry-run/admin-sync-next/admin-sync-worker.js',
+  '.wrangler/dry-run/maintainer-local/maintainer-worker.js',
+  '.wrangler/dry-run/maintainer-staging-next/maintainer-worker.js',
+  '.wrangler/dry-run/maintainer-next/maintainer-worker.js',
 ];
 const accountId = 'a'.repeat(32);
 const appId = '11111111-1111-4111-8111-111111111111';
