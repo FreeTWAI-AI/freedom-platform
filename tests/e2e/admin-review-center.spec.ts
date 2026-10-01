@@ -249,7 +249,11 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
     await paused.getByRole('button', {name: '確認恢復', exact: true}).click();
     await expect(page.getByText('管理操作已保存，並留下操作紀錄。')).toBeVisible();
     await page.getByRole('tab', {name: '等 CI', exact: true}).click();
-    await expect(page.locator(`[data-pull-id="${PULL_CI}"]`)).toBeVisible();
+    const rederived = page.locator(`[data-pull-id="${PULL_CI}"]`);
+    await expect(rederived).toBeVisible();
+    const riskLine = rederived.locator('p').filter({hasText: '中風險'});
+    await expect(riskLine).toContainText('作者是首次貢獻者，風險至少為中，請由真人審查。');
+    await expect(riskLine).not.toContainText('風險較低');
 
     await page.getByRole('button', {name: '操作紀錄', exact: true}).click();
     for (const label of ['認領審核', '釋放審核認領', '指派審核', '暫停拉取請求', '恢復拉取請求']) {
