@@ -307,7 +307,7 @@ test('an admin fix handoff records the row, the audit, and replays the same id',
   const body = { kind: 'fix', cli: 'claude', expected_head_sha: SHA };
   const key = randomUUID();
   const created = await adminRequest(`/review-center/pulls/${pull}/handoffs`, body, 999, key);
-  assert.equal(created.status, 200, JSON.stringify(created.data));
+  assert.equal(created.status, 201, JSON.stringify(created.data));
   assert.equal(created.data.kind, 'fix');
   assert.equal(created.data.cli, 'claude');
   assert.match(created.data.file_name, /^freedom-handoff-[0-9a-f]{8}\.md$/);
@@ -330,7 +330,7 @@ test('an admin fix handoff records the row, the audit, and replays the same id',
   assert.deepEqual(audit.before_state, { head_sha: SHA, queue_state: 'awaiting_review' });
   assert.deepEqual(audit.after_state, { handoff_id: created.data.handoff_id, kind: 'fix', cli: 'claude' });
   const replay = await adminRequest(`/review-center/pulls/${pull}/handoffs`, body, undefined, key);
-  assert.equal(replay.status, 200);
+  assert.equal(replay.status, 201);
   assert.equal(replay.data.handoff_id, created.data.handoff_id);
   assert.equal((await pool.query('SELECT count(*) FROM maintainer_handoffs')).rows[0].count, '1');
   const detail = await adminRequest(`/review-center/pulls/${pull}`);
@@ -385,12 +385,12 @@ test('admin handoffs reject a merge that is not ready, a moved head, a paused pu
   }
   await pool.query(`UPDATE maintainer_pull_requests SET queue_state='ready' WHERE pull_id=$1`, [pull]);
   const merged = await adminRequest(`/review-center/pulls/${pull}/handoffs`, { kind: 'merge', cli: 'codex', expected_head_sha: SHA });
-  assert.equal(merged.status, 200, JSON.stringify(merged.data));
+  assert.equal(merged.status, 201, JSON.stringify(merged.data));
   assert.match(merged.data.command, /^codex "\$\(cat freedom-handoff-[0-9a-f]{8}\.md\)"$/);
   assert.match(merged.data.markdown, new RegExp(`--match-head-commit ${SHA}`));
   assert.equal(merged.data.markdown.split('\n').some((line: string) => line.includes('--admin')), false);
   const opened = await adminRequest(`/review-center/repositories/${repository}/issue-handoffs`, { issue_number: 15, cli: 'grok' });
-  assert.equal(opened.status, 200, JSON.stringify(opened.data));
+  assert.equal(opened.status, 201, JSON.stringify(opened.data));
   assert.equal(opened.data.kind, 'issue');
   assert.match(opened.data.command, /^grok "\$\(cat freedom-handoff-[0-9a-f]{8}\.md\)"$/);
   const issueRow = (await pool.query(`SELECT pull_id, issue_number, head_sha, requested_by_admin FROM maintainer_handoffs WHERE kind='issue'`)).rows[0];

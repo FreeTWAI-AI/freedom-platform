@@ -68,8 +68,8 @@ export function createRepoMaintainerAdminRoutes(pool: Pool) {
   app.post('/review-center/claims/:id/release', async c => result(c, await releaseClaim(pool, await command(c), c.req.param('id'))));
   app.post('/review-center/pulls/:id/pause', async c => result(c, await pausePull(pool, await command(c), c.req.param('id'))));
   app.post('/review-center/pulls/:id/resume', async c => result(c, await resumePull(pool, await command(c), c.req.param('id'))));
-  app.post('/review-center/pulls/:id/handoffs', async c => c.json(await createAdminPullHandoff(pool, await handoffAdmin(c), c.req.param('id'))));
-  app.post('/review-center/repositories/:id/issue-handoffs', async c => c.json(await createAdminIssueHandoff(pool, await handoffAdmin(c), c.req.param('id'))));
+  app.post('/review-center/pulls/:id/handoffs', async c => c.json(await createAdminPullHandoff(pool, await handoffAdmin(c), c.req.param('id')), 201));
+  app.post('/review-center/repositories/:id/issue-handoffs', async c => c.json(await createAdminIssueHandoff(pool, await handoffAdmin(c), c.req.param('id')), 201));
   app.get('/review-center/repositories', async c => c.json(await listReviewCenterRepositories(pool, c.get('admin'))));
   app.post('/review-center/repositories/:id/settings', async c => result(c, await changeRepositorySettings(pool, await command(c), c.req.param('id'))));
   app.post('/review-center/repositories/:id/ownership', async c => result(c, await changeRepositoryOwnership(pool, await command(c), c.req.param('id'))));

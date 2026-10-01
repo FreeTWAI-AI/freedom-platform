@@ -30,7 +30,7 @@ function failure(error: unknown) {
   return error instanceof Error ? error.message : '無法產生任務。';
 }
 
-function HandoffResultView({ result }: { result: HandoffResult }) {
+function HandoffResultView({ result, onAgain }: { result: HandoffResult; onAgain: () => void }) {
   const [copyNote, setCopyNote] = useState('');
   async function copy(text: string, fallback: string) {
     try {
@@ -58,6 +58,7 @@ function HandoffResultView({ result }: { result: HandoffResult }) {
       <button type="button" className="btn btn-ghost" onClick={download}>下載任務檔</button>
       <button type="button" className="btn btn-ghost" onClick={() => void copy(result.command, '無法複製指令，請手動選取上方指令。')}>複製指令</button>
       <button type="button" className="btn btn-ghost" onClick={() => void copy(result.markdown, '無法複製任務內容，請從預覽裡手動選取。')}>複製任務內容</button>
+      <button type="button" className="btn btn-ghost" onClick={onAgain}>再產生一個</button>
     </div>
     {copyNote && <p className="field-hint" role="status">{copyNote}</p>}
     <p className="field-hint">{HINT}</p>
@@ -110,6 +111,11 @@ export function PullHandoffForm({ detail, submit, onRefresh }: {
       setPending(false);
     }
   }
+  function again() {
+    key.current = crypto.randomUUID();
+    setError('');
+    setResult(null);
+  }
   return <div className="handoff-panel stack">
     {!handoff.allowed && <p className="field-hint">{handoff.reason}</p>}
     {handoff.allowed && !result && <form className="stack" onSubmit={event => void generate(event)}>
@@ -124,7 +130,7 @@ export function PullHandoffForm({ detail, submit, onRefresh }: {
       <CliField cli={cli} onChange={setCli} />
       <div className="actions"><button className="btn btn-primary" disabled={pending}>產生任務</button></div>
     </form>}
-    {result && <HandoffResultView result={result} />}
+    {result && <HandoffResultView result={result} onAgain={again} />}
     {!!handoff.recent.length && <div className="stack">
       <h4>最近的交接</h4>
       <ul aria-label="最近的交接">{handoff.recent.map(item => {
@@ -137,9 +143,10 @@ export function PullHandoffForm({ detail, submit, onRefresh }: {
   </div>;
 }
 
-export function IssueHandoff({ repositories, submit }: {
+export function IssueHandoff({ repositories, submit, blockedReason }: {
   repositories: IssueRepo[];
   submit: (repositoryId: string, body: IssueBody, key: string) => Promise<HandoffResult>;
+  blockedReason?: string;
 }) {
   const [repositoryId, setRepositoryId] = useState(repositories[0]?.id ?? '');
   useEffect(() => {
@@ -169,10 +176,16 @@ export function IssueHandoff({ repositories, submit }: {
       setPending(false);
     }
   }
+  function again() {
+    key.current = crypto.randomUUID();
+    setError('');
+    setIssue('');
+    setResult(null);
+  }
   return <details className="review-settings handoff-panel">
     <summary>把 Issue 做成 PR</summary>
     <div className="stack">
-      {result ? <HandoffResultView result={result} /> : <form className="stack" onSubmit={event => void generate(event)}>
+      {blockedReason ? <p className="field-hint">{blockedReason}</p> : result ? <HandoffResultView result={result} onAgain={again} /> : <form className="stack" onSubmit={event => void generate(event)}>
         {error && <p className="banner banner-error" role="alert">{error}</p>}
         <label className="field">儲存庫
           <select aria-label="交接儲存庫" value={repositoryId} onChange={event => setRepositoryId(event.target.value)}>

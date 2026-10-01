@@ -445,7 +445,9 @@ test('an admin hands a pull and an issue to a local AI', async ({ page, e2eAuthP
     await expect(low).toContainText('只有已核准（有效核准落在目前的提交上）而且 CI 通過的 PR，才能交給 AI 合併。');
     const created = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes('/review-center/pulls/') && response.url().endsWith('/handoffs'));
     await low.getByRole('button', { name: '產生任務', exact: true }).click();
-    expect((await created).status()).toBe(200);
+    const createdResponse = await created;
+    expect(createdResponse.status()).toBe(201);
+    const firstKey = createdResponse.request().headers()['idempotency-key'];
     const fixId = await generatedCommand(low, 'claude');
     await saveTaskFile(page, low, fixId);
     await expect(low.getByRole('list', { name: '最近的交接' })).toContainText('讓 AI 修');
@@ -478,6 +480,15 @@ test('an admin hands a pull and an issue to a local AI', async ({ page, e2eAuthP
     await page.screenshot({ path: 'test-results/repo-maintainer-handoff-admin-dark-390.png', fullPage: true });
     await page.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
     await page.setViewportSize({ width: 1280, height: 900 });
+    await low.getByRole('button', { name: '再產生一個', exact: true }).click();
+    await expect(low.getByRole('button', { name: '產生任務', exact: true })).toBeVisible();
+    await expect(low.getByLabel('工作')).toHaveValue('fix');
+    await expect(low.getByLabel('工具')).toHaveValue('claude');
+    const again = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes('/review-center/pulls/') && response.url().endsWith('/handoffs'));
+    await low.getByRole('button', { name: '產生任務', exact: true }).click();
+    const againResponse = await again;
+    expect(againResponse.status()).toBe(201);
+    expect(againResponse.request().headers()['idempotency-key']).not.toBe(firstKey);
 
     await page.getByRole('tab', { name: '已核准', exact: true }).click();
     const ready = page.locator(`[data-pull-id="${PULL_READY}"]`);
@@ -487,7 +498,7 @@ test('an admin hands a pull and an issue to a local AI', async ({ page, e2eAuthP
     await ready.getByLabel('工作').selectOption({ label: '讓 AI 合併這個 PR' });
     const merged = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes(`/review-center/pulls/${PULL_READY}/handoffs`));
     await ready.getByRole('button', { name: '產生任務', exact: true }).click();
-    expect((await merged).status()).toBe(200);
+    expect((await merged).status()).toBe(201);
     await generatedCommand(ready, 'claude');
     await ready.getByText('預覽任務內容', { exact: true }).click();
     const preview = await ready.locator('pre').innerText();
@@ -501,11 +512,24 @@ test('an admin hands a pull and an issue to a local AI', async ({ page, e2eAuthP
     await issue.getByLabel('工具').selectOption({ label: 'Codex CLI' });
     const issued = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/issue-handoffs'));
     await issue.getByRole('button', { name: '產生任務', exact: true }).click();
-    expect((await issued).status()).toBe(200);
+    const issuedResponse = await issued;
+    expect(issuedResponse.status()).toBe(201);
+    const issueKey = issuedResponse.request().headers()['idempotency-key'];
     await generatedCommand(issue, 'codex');
     await issue.getByText('預覽任務內容', { exact: true }).click();
     await expect(issue.locator('pre')).toContainText('Closes #42');
     await expect(issue.locator('pre')).not.toContainText('平台觀察到的資料');
+    await issue.getByRole('button', { name: '再產生一個', exact: true }).click();
+    await expect(issue.getByRole('button', { name: '產生任務', exact: true })).toBeVisible();
+    await expect(issue.getByLabel('Issue 編號')).toHaveValue('');
+    await expect(issue.getByLabel('交接儲存庫')).toHaveValue(REPO);
+    await expect(issue.getByLabel('工具')).toHaveValue('codex');
+    await issue.getByLabel('Issue 編號').fill('43');
+    const issuedAgain = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/issue-handoffs'));
+    await issue.getByRole('button', { name: '產生任務', exact: true }).click();
+    const issuedAgainResponse = await issuedAgain;
+    expect(issuedAgainResponse.status()).toBe(201);
+    expect(issuedAgainResponse.request().headers()['idempotency-key']).not.toBe(issueKey);
   } finally {
     await wipe(e2eAuthPool);
   }

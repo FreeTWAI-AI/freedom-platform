@@ -34,7 +34,7 @@
   font-size: .8125rem; color: var(--ink); background: var(--bg-elev);
   border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px;
 }
-.review-center .handoff-panel pre { overflow: auto; margin: 0; }
+.review-center .handoff-panel pre { overflow: auto; margin: 0; max-height: 24rem; }
 .review-center .handoff-panel ul { margin: 0; padding-left: 1.2rem; }
 .review-center .handoff-panel h4 { font-size: .875rem; margin: 0; }
 .review-center .btn { min-height: 44px; font-size: .875rem; padding: 8px 12px; width: auto; flex: 0 1 auto; }
