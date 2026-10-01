@@ -31,7 +31,7 @@ export function QuickStart({client,onCompleted}:{client:PortalClient;onCompleted
     </>}
     {step===2&&selected&&<><p className="quick-guild-purpose">{selected.purpose}</p><div className="actions"><button type="button" className="btn btn-ghost" disabled={busy||recovering} onClick={()=>setStep(1)}>換一個公會</button></div>
       <GuildQuestionFields questions={questions} answers={answers} disabled={busy||recovering} onChange={(questionId,optionId)=>setAnswersByGuild(current=>({...current,[selected.guild_key]:{...(current[selected.guild_key]??{}),[questionId]:optionId}}))}/>
-      <p className="field-hint">答案會存在你的定位資料，可在「我的定位」修改。</p>
+      <p className="field-hint">答案會存在你的定位資料，可在「我的定位」修改。你會先以實習成員加入。</p>
       <div className="actions quick-join-finish"><button type="button" className="btn btn-primary" disabled={!ready||busy||recovering} onClick={()=>void join()}>{busy?'正在加入…':'加入公會，開始參與'}</button></div>
     </>}
     {step===2&&!selected&&<button type="button" className="btn btn-ghost" onClick={()=>setStep(1)}>換一個公會</button>}

@@ -250,7 +250,7 @@ for (const width of [1280, 390]) {
       await intro.getByRole('button', { name: '加入共同開發', exact: true }).click();
       const access = page.getByRole('dialog', { name: '開發啟用任務', exact: true });
       await access.getByRole('button', { name: '加入AI 開發公會', exact: true }).click();
-      await expect(access.getByText(/已有開發資格/)).toBeVisible();
+      await expect(access.getByText('實習成員可以閱讀公會內容、在公會聊天室聊天；請會長把你設為正式成員後再發布或編輯。',{exact:true})).toBeVisible();
       const granted = await (await page.request.get('/api/v1/me/skill-books')).json() as { items: { book_id: string }[] };
       const total = new Set(granted.items.map(item => item.book_id)).size;
       expect(total).toBeGreaterThan(0);

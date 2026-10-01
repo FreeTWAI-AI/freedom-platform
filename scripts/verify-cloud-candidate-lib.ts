@@ -670,7 +670,7 @@ async function guildPhase(ctx: PhaseContext, client: CandidateClient, options: R
     ctx.check('status_read_200', reply.status === 200, `status ${reply.status} ${safeCode(reply.json()?.code)}`);
     ctx.check('status_no_store', noStore(reply));
     const body = reply.json() ?? {};
-    return { eligible: body.eligible, enabled: body.enabled, consent: body.consent, states: Object.fromEntries((Array.isArray(body.guilds) ? body.guilds : []).map((g: any) => [String(g?.guild_key), g?.state ?? null])) as Record<string, string | null>, keys: Array.isArray(body.keys) ? body.keys.length : null, grant: body.grant ? (body.grant.revoked_at ? 'revoked' : 'present') : 'none', appConfigured: body.app?.configured === true };
+    return { eligible: body.eligible, intern_blocked: body.intern_blocked === true, enabled: body.enabled, consent: body.consent, states: Object.fromEntries((Array.isArray(body.guilds) ? body.guilds : []).map((g: any) => [String(g?.guild_key), g?.state ?? null])) as Record<string, string | null>, keys: Array.isArray(body.keys) ? body.keys.length : null, grant: body.grant ? (body.grant.revoked_at ? 'revoked' : 'present') : 'none', appConfigured: body.app?.configured === true };
   };
   type Membership = { state: string; aggregate_version: number } | null;
   const membership = async () => {
@@ -722,15 +722,16 @@ async function guildPhase(ctx: PhaseContext, client: CandidateClient, options: R
     const etagKind = versioned ? versionEtagKind(join.headers.get('etag'), version) : 'invalid';
     ctx.metric('join_etag', etagKind);
     ctx.check('join_active_versioned', join.json()?.state === 'active' && versioned && etagKind !== 'invalid', `etag ${etagKind}`);
-    // The first read after the commit must already be current; a later fresh read
-    // does not excuse a stale first one (no polling past a cache TTL).
+    // A member join is an intern. The first read after the commit must already
+    // show eligible false and intern_blocked true; a later fresh read does not
+    // excuse a stale first one (no polling past a cache TTL).
     const granted = await readStatus(client);
-    ctx.check('join_first_read_eligible', granted.eligible === true);
+    ctx.check('join_first_read_intern', granted.eligible === false && granted.intern_blocked === true);
     const again = await readStatus(client);
-    ctx.check('join_second_read_eligible', again.eligible === true);
-    // Guild membership alone is eligibility, never a GitHub App grant or key.
+    ctx.check('join_second_read_intern', again.eligible === false && again.intern_blocked === true);
+    // Intern membership is not eligibility, and never a GitHub App grant or key.
     ctx.check('eligible_is_not_enabled', granted.enabled === false && granted.grant !== 'present', 'enabled requires GitHub identity, consent, App installation and a verified grant');
-    ctx.metric('after_join', { eligible: granted.eligible, enabled: granted.enabled, consent: granted.consent, grant: granted.grant, key_count: granted.keys });
+    ctx.metric('after_join', { eligible: granted.eligible, intern_blocked: granted.intern_blocked, enabled: granted.enabled, consent: granted.consent, grant: granted.grant, key_count: granted.keys });
     const booksAfterJoin = await books();
     ctx.metric('skill_books_after_join', booksAfterJoin);
 
