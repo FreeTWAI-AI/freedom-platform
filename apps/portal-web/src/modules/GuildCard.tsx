@@ -9,7 +9,7 @@ import {SkillBookIntro} from './SkillBookIntro';
 import {GuildTags} from './GuildFilters';
 import {openMemberChat} from './chat-entry';
 
-export function GuildCard({guild:g,client,busy,onPrimary,onMembership,onSecondary,secondaryFull=false}:{guild:GuildSummary;client:PortalClient;busy:boolean;onPrimary:()=>void;onMembership:()=>void;onSecondary?:()=>void;secondaryFull?:boolean}) {
+export function GuildCard({guild:g,client,busy,onPrimary,onMembership,onSecondary,secondaryFull=false,viewerId,onChanged}:{guild:GuildSummary;client:PortalClient;busy:boolean;onPrimary:()=>void;onMembership:()=>void;onSecondary?:()=>void;secondaryFull?:boolean;viewerId?:string;onChanged?:()=>void}) {
   const [panel,setPanel]=useState<'books'|'members'|'announcements'|null>(null);
   const dialog=useRef<HTMLDialogElement>(null),trigger=useRef<HTMLButtonElement|null>(null),titleId=useId();
   const active=g.membership?.state==='active',firstBook=g.skill_books[0];
@@ -21,7 +21,7 @@ export function GuildCard({guild:g,client,busy,onPrimary,onMembership,onSecondar
     <div className="guild-card-content">
       <div className="card-head guild-card-topline"><h3><GuildName name={g.name} alias={g.alias}/></h3><span className="badge">{g.is_primary?'主要公會':g.is_secondary?'次要公會':active?'已加入':'未加入'}</span></div>
       <GuildLeadership masterName={guildMasterLabel(g)} masterId={g.guild_master?.user_id} masterAvatarUrl={g.guild_master?.avatar_url} experts={g.guild_experts}/>
-      <p className="guild-purpose">{g.purpose}</p><GuildTags tags={g.tags}/>
+      <p className="guild-purpose">{g.purpose}</p>{active&&g.membership?.member_tier==='intern'&&<p className="field-hint guild-intern-notice" role="status">你是這個公會的實習成員：可以閱讀公會內容、在公會聊天室聊天。想發布或編輯，可以在聊天室跟會長打聲招呼，會長能把你設為正式成員。</p>}<GuildTags tags={g.tags}/>
       <div className="guild-book-list"><strong>入門技能</strong>{firstBook?<SkillBookIntro book={firstBook} guildName={g.name} label={firstBook.title}/>:<p className="muted">技能書整理中</p>}</div>
     </div>
     <div className="guild-card-controls">
@@ -35,7 +35,7 @@ export function GuildCard({guild:g,client,busy,onPrimary,onMembership,onSecondar
     <dialog ref={dialog} className="guild-detail-dialog" aria-labelledby={titleId} onCancel={event=>{if(event.target===event.currentTarget){event.preventDefault();close();}}} onClose={event=>{if(event.target===event.currentTarget)setPanel(null);}}>
       <header className="guild-detail-heading"><h2 id={titleId}>{title}</h2><button type="button" className="btn btn-ghost" aria-label="關閉公會視窗" autoFocus onClick={close}>關閉</button></header>
       {panel==='books'&&<div className="guild-library-books">{g.skill_books.map((book,index)=><div className="guild-library-entry" key={book.id??book.book_id}><div><span className="field-hint">{index===0?'入門技能':`技能 ${index+1}`}</span><p>{book.guide?.beginner?.purpose??book.description}</p></div><SkillBookIntro book={book} guildName={g.name} label={book.title}/></div>)}{!g.skill_books.length&&<p>技能書整理中</p>}</div>}
-      {panel==='members'&&<GuildMembers key={`${g.guild_key}:${g.membership?.aggregate_version??'none'}`} client={client} guildKey={g.guild_key} guildName={g.name} masterId={g.guild_master?.user_id} expertIds={g.guild_experts?.map(expert=>expert.user_id)}/>}
+      {panel==='members'&&<GuildMembers key={`${g.guild_key}:${g.membership?.aggregate_version??'none'}`} client={client} guildKey={g.guild_key} guildName={g.name} masterId={g.guild_master?.user_id} expertIds={g.guild_experts?.map(expert=>expert.user_id)} viewerId={viewerId} expertCount={g.guild_experts?.length??0} onChanged={onChanged}/>}
       {panel==='announcements'&&active&&<GuildAnnouncements client={client} guildKey={g.guild_key} expanded/>}
     </dialog>
   </article>;

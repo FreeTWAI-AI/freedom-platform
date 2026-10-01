@@ -129,7 +129,10 @@ export async function memberCard(pool:Pool,actor:Actor,id:string) {
     const audience=field.audiences;
     if(field.value&&(isSelf||audience.includes('public')||audience.includes('friends')&&relation.friendship?.state==='accepted'||audience.includes('guild')&&relation.guild||audience.includes('squad')&&relation.squad))contacts[key]=field.value;
   }
-  return {user_id:id,nickname:relation.display_name,identity_label:relation.identity_label??null,joined_at:relation.created_at?new Date(relation.created_at).toISOString():null,joined_at_source:relation.created_at_source,last_login_at:relation.last_login_at?new Date(relation.last_login_at).toISOString():null,is_online:relation.is_online,...positioning,avatar_url:avatarUrl(id,relation.avatar_version,relation.avatar_present),contacts,is_self:isSelf,friendship:relation.friendship??{state:'none'}};
+  const card={user_id:id,nickname:relation.display_name,identity_label:relation.identity_label??null,joined_at:relation.created_at?new Date(relation.created_at).toISOString():null,joined_at_source:relation.created_at_source,last_login_at:relation.last_login_at?new Date(relation.last_login_at).toISOString():null,is_online:relation.is_online,...positioning,avatar_url:avatarUrl(id,relation.avatar_version,relation.avatar_present),contacts,is_self:isSelf,friendship:relation.friendship??{state:'none'}};
+  if(!isSelf)return card;
+  const tiers=(await pool.query("SELECT guild_key,member_tier FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND state='active' ORDER BY guild_key",[actor.community_id,id])).rows;
+  return {...card,member_tiers:tiers};
 }
 export const MemberDirectoryQuery=z.object({
  limit:z.coerce.number().int().min(1).max(50).default(20),offset:z.coerce.number().int().min(0).max(10000).default(0),
@@ -173,7 +176,14 @@ export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:numb
   ) SELECT (SELECT count(*)::int FROM matched) AS total,
     ARRAY(SELECT user_id FROM matched ORDER BY ${memberSort[input.sort]} LIMIT $2 OFFSET $3) AS user_ids`,
     [actor.community_id,input.limit,input.offset,input.search,input.guild_key,JSON.stringify(guildTitles),JSON.stringify(capabilityLabels),input.primary_guild_key,input.capability,actor.user_id])).rows[0];
-  const items=await Promise.all((result.user_ids as string[]).map(id=>memberCard(pool,actor,id)));
+  const items: Array<Awaited<ReturnType<typeof memberCard>> & {guild_roster?: {member_tier:'intern'|'full';aggregate_version:number;expert_aggregate_version:number|null;expert_active:boolean}}>=await Promise.all((result.user_ids as string[]).map(id=>memberCard(pool,actor,id)));
+  if(input.guild_key&&items.length&&(await pool.query("SELECT 1 FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 AND state='active'",[actor.community_id,actor.user_id,input.guild_key])).rowCount){
+    const rows=(await pool.query(`SELECT m.user_id,m.member_tier,m.aggregate_version,e.aggregate_version AS expert_aggregate_version,COALESCE(e.active,false) AS expert_active
+      FROM positioning_profession_memberships m LEFT JOIN positioning_guild_experts e ON e.community_id=m.community_id AND e.guild_key=m.guild_key AND e.user_id=m.user_id
+      WHERE m.community_id=$1 AND m.guild_key=$2 AND m.state='active' AND m.user_id=ANY($3::uuid[])`,[actor.community_id,input.guild_key,items.map(item=>item.user_id)])).rows;
+    const byId=new Map(rows.map(row=>[row.user_id,row]));
+    for(const item of items){const row=byId.get(item.user_id);if(row)item.guild_roster={member_tier:row.member_tier,aggregate_version:Number(row.aggregate_version),expert_aggregate_version:row.expert_aggregate_version==null?null:Number(row.expert_aggregate_version),expert_active:Boolean(row.expert_active)};}
+  }
   return {items,total:result.total,next_offset:input.offset+input.limit<result.total?input.offset+input.limit:null};
 }
 export async function memberPresence(pool:Pool,actor:Actor,raw:string){

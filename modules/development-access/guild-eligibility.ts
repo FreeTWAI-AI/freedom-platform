@@ -15,7 +15,11 @@ export type Capability=keyof typeof developmentGuilds;
  */
 export async function activeDevelopmentGuilds(q:PoolClient,actor:Pick<Actor,'community_id'|'user_id'>,capability:Capability){
  await lockMemberGuilds(q,actor);
- return (await q.query(`SELECT guild_key FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND state='active' AND guild_key=ANY($3::text[]) ORDER BY guild_key FOR SHARE`,[actor.community_id,actor.user_id,developmentGuilds[capability]])).rows.map(row=>row.guild_key as string);
+ return (await q.query(`SELECT guild_key FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND state='active' AND member_tier='full' AND guild_key=ANY($3::text[]) ORDER BY guild_key FOR SHARE`,[actor.community_id,actor.user_id,developmentGuilds[capability]])).rows.map(row=>row.guild_key as string);
+}
+/** Active intern memberships in the development guilds. Call after activeDevelopmentGuilds so the member-guild lock is already held. */
+export async function internDevelopmentGuilds(q:PoolClient,actor:Pick<Actor,'community_id'|'user_id'>,capability:Capability){
+ return (await q.query(`SELECT guild_key FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND state='active' AND member_tier='intern' AND guild_key=ANY($3::text[]) ORDER BY guild_key`,[actor.community_id,actor.user_id,developmentGuilds[capability]])).rows.map(row=>row.guild_key as string);
 }
 /** Skill editing needs the named book appointment AND a current AI guild membership (from `activeDevelopmentGuilds`). */
 export function requireSkillEditorGuild(guilds:string[]){

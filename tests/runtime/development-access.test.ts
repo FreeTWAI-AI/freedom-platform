@@ -38,7 +38,7 @@ async function member(community:string){
  await pool.query("INSERT INTO sessions VALUES($1,$2,$3,now()+interval '1 hour',NULL)",[tokenHash(raw),id,csrf]);
  return {actor:{...user,session_hash:tokenHash(raw),csrf_token:csrf} as Actor,raw};
 }
-async function join(guild='guild_ai_vibe'){const row=(await pool.query('SELECT aggregate_version FROM positioning_profession_memberships WHERE user_id=$1 AND guild_key=$2',[actor.user_id,guild])).rows[0];return changeGuildMembership(pool,{...command({},'join/'+guild),expected:row?.aggregate_version},guild,'join');}
+async function join(guild='guild_ai_vibe'){const row=(await pool.query('SELECT aggregate_version FROM positioning_profession_memberships WHERE user_id=$1 AND guild_key=$2',[actor.user_id,guild])).rows[0];const result=await changeGuildMembership(pool,{...command({},'join/'+guild),expected:row?.aggregate_version},guild,'join');await pool.query("UPDATE positioning_profession_memberships SET member_tier='full' WHERE user_id=$1 AND guild_key=$2",[actor.user_id,guild]);return result;}
 async function leave(guild:string){const row=(await pool.query('SELECT aggregate_version FROM positioning_profession_memberships WHERE user_id=$1 AND guild_key=$2',[actor.user_id,guild])).rows[0];return changeGuildMembership(pool,{...command({},'leave/'+guild),expected:row.aggregate_version},guild,'leave');}
 async function connect(){const pending=await social.start(actor,'#skills');await social.complete(actor,new URL(pending.authorization_url).searchParams.get('state')!,'synthetic-code');}
 async function enable(capability:'skill'|'platform'='skill',id=target){
@@ -55,9 +55,12 @@ beforeEach(async()=>{
 });
 
 test('task readiness needs one applicable guild, verified identity, consent and an accessible original or fork',async()=>{
- let view=await service.status(actor,'skill',target);assert.equal(view.eligible,false);assert.equal(view.guilds.length,2);assert.equal(view.enabled,false);
+ let view=await service.status(actor,'skill',target);assert.equal(view.eligible,false);assert.equal(view.intern_blocked,false);assert.equal(view.guilds.length,2);assert.equal(view.enabled,false);
  await assert.rejects(()=>service.activate(command({working_repository_url:working}),'skill',target),code('development_guild_required'));
- await join();await assert.rejects(()=>service.activate(command({working_repository_url:working}),'skill',target),code('development_consent_required'));
+ await changeGuildMembership(pool,command({},'join-intern/guild_ai_vibe'),'guild_ai_vibe','join');
+ view=await service.status(actor,'skill',target);assert.equal(view.eligible,false);assert.equal(view.intern_blocked,true);
+ await assert.rejects(()=>service.activate(command({working_repository_url:working},'activate-intern'),'skill',target),code('guild_full_member_required'));
+ await join();assert.equal((await service.status(actor,'skill',target)).intern_blocked,false);await assert.rejects(()=>service.activate(command({working_repository_url:working}),'skill',target),code('development_consent_required'));
  await service.consent(command({policy_version:DEVELOPMENT_POLICY,accepted:true}),'skill',target);
  await assert.rejects(()=>service.activate(command({working_repository_url:working}),'skill',target),code('github_connect_required'));
  await connect();await service.activate(command({working_repository_url:working}),'skill',target);
