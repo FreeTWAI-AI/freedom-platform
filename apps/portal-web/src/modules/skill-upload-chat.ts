@@ -1,13 +1,45 @@
 export const CHAT_JSON_MAX_BYTES = 800 * 1024;
 
-export function chatSkillInstruction(repositoryUrl: string): string {
+export type ChatSkillSeed = {
+  title: string;
+  description: string;
+  use_notes: string;
+  relationship: string;
+  demo_url: string | null;
+};
+
+/** Lower-case owner/repo of a GitHub repository root. Anything else is null. */
+export function repositoryKey(url: string | null | undefined): string | null {
+  if (typeof url !== 'string') return null;
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { return null; }
+  if (parsed.protocol !== 'https:' || parsed.hostname !== 'github.com' || parsed.port || parsed.username || parsed.password || parsed.search || parsed.hash) return null;
+  const name = parsed.pathname.replace(/^\/+/, '').replace(/\/+$/, '').replace(/\.git$/, '');
+  const parts = name.split('/');
+  if (parts.length !== 2 || parts.some(part => part === '' || part === '.' || part === '..')) return null;
+  return `${parts[0]}/${parts[1]}`.toLowerCase();
+}
+
+export function seedCopyBlock(seed: ChatSkillSeed): string {
+  return [
+    '我已在自由工坊登錄這件作品，下列欄位請照抄；只有和 repo 內容不符時才修正：',
+    `title：${JSON.stringify(seed.title)}`,
+    `description：${JSON.stringify(seed.description)}`,
+    `use_notes：${JSON.stringify(seed.use_notes)}`,
+    `relationship：${JSON.stringify(seed.relationship)}`,
+    `demo_url：${JSON.stringify(seed.demo_url)}`,
+  ].join('\n');
+}
+
+export function chatSkillInstruction(repositoryUrl: string, seed?: ChatSkillSeed | null): string {
   const repo = repositoryUrl.trim().replace(/\/$/, '');
   const link = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo) ? repo : '';
   const source = link
     ? `請讀取這個公開儲存庫：${link}\n如果打不開連結，請等我貼上 README、SKILL.md 與 LICENSE 再寫。`
     : '請等我貼上 README、SKILL.md 與 LICENSE，再依那些檔案撰寫。';
+  const copied = seed ? `\n${seedCopyBlock(seed)}` : '';
   return `請只回覆一個 JSON 物件，不要加說明，也不要用 Markdown 程式碼區塊。
-${source}
+${source}${copied}
 用繁體中文，只寫檔案裡確實有的內容：
 - repository_url：${link || 'https://github.com/擁有者/儲存庫'}
 - title：技能名稱

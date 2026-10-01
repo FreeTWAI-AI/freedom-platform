@@ -4,7 +4,7 @@
 
 程式位置：
 
-- 資料表：[`migrations/028_skill_submissions.sql`](../../migrations/028_skill_submissions.sql)
+- 資料表：[`migrations/028_skill_submissions.sql`](../../migrations/028_skill_submissions.sql)、[`migrations/074_simple_submission_upgrades.sql`](../../migrations/074_simple_submission_upgrades.sql)
 - 規則：[`modules/skill-submissions/`](../../modules/skill-submissions/)（`payload.ts` 驗證與圖片、`service.ts` 狀態與憑證、`public.ts` 公開讀取）
 - 路由：[`apps/platform-api/src/routes/skill-submissions.ts`](../../apps/platform-api/src/routes/skill-submissions.ts)
 - CLI：[`packages/skill-upload-client/`](../../packages/skill-upload-client/)（[協定](../../packages/skill-upload-client/protocol.md)、[Agent 指引](../../packages/skill-upload-client/SKILL.md)）
@@ -21,6 +21,7 @@
 | 重發授權 | 瀏覽器 | 只在 `awaiting_upload`；舊授權立即失效 |
 | 撤回 | 瀏覽器 | 未公開；授權同時失效 |
 | 公開 | 瀏覽器 | `ready_for_review`、`consent_to_share:true`、`If-Match` 為目前版本 |
+| 升級簡易投稿 | 瀏覽器 | 已公開的簡易投稿（沒有上傳授權，也不是升級草稿）。建立一筆沒有授權的 `awaiting_upload` 草稿，`upgrades_submission_id` 指向原投稿 |
 
 ## 瀏覽器 API（`/api/v1`，session＋CSRF＋已選定主要公會）
 
@@ -33,11 +34,16 @@
 - `POST /me/skill-submissions/:id/grant` `{}`＋`If-Match`＋`Idempotency-Key` → `{submission, upload_grant}`
 - `POST /me/skill-submissions/:id/revoke` `{}`＋`If-Match`＋`Idempotency-Key` → `submission`
 - `POST /me/skill-submissions/:id/publish` `{consent_to_share:true}`＋`If-Match`＋`Idempotency-Key` → `submission`
+- `POST /me/skill-submissions/:id/upgrade` `{}`＋`Idempotency-Key` → 201 新的升級草稿，或 200 既有的未公開升級草稿。限流與建立草稿相同（`skill-submission-issue`，每小時 30 次）。不是已公開的簡易投稿回 409 `not_upgradable`；儲存庫已是目錄技能書回 409 `catalog_book_exists`；已有公開的完整版回 409 `already_upgraded`；未公開草稿已達 30 份回 409 `draft_limit`。別人的投稿回 404。
 - `GET /me/skill-upload-keys` → `{items:[key]}`
 - `POST /me/skill-upload-keys` `{label:1–80字, expires_in_days:1–90（預設30）}`＋`Idempotency-Key` → 201 `{key, token}`；重送 `token:null`；有效金鑰最多 10 把
 - `POST /me/skill-upload-keys/:id/revoke` `{}`＋`Idempotency-Key` → `key`
 
-`submission`：`submission_id, status, aggregate_version, payload|null, project_id|null, public_path|null, illustration_url|null, grant_expires_at|null, grant_consumed_at|null, grant_revoked_at|null, created_at, updated_at`。`payload` 不含 `cover_image`，圖片另存並以 `illustration_url` 提供。`grant_expires_at` 同時考慮來源金鑰的到期時間；`grant_revoked_at` 也反映來源金鑰已撤銷。一般回應不會出現授權、雜湊或圖片位元組。
+`submission`：`submission_id, status, aggregate_version, payload|null, project_id|null, seed|null, upgrades_submission_id|null, upgrade|null, can_upgrade, catalog_book|null, can_edit, public_path|null, illustration_url|null, grant_expires_at|null, grant_consumed_at|null, grant_revoked_at|null, created_at, updated_at`。`payload` 不含 `cover_image`，圖片另存並以 `illustration_url` 提供。`grant_expires_at` 同時考慮來源金鑰的到期時間；`grant_revoked_at` 也反映來源金鑰已撤銷。一般回應不會出現授權、雜湊或圖片位元組。
+
+簡易投稿是 `grant_hash` 與 `seed` 都是空的投稿。`can_edit` 只在尚未公開的簡易投稿為真。升級草稿帶著 `seed`（`repository_url, title, description, use_notes, demo_url, relationship`）與 `upgrades_submission_id`，不會被當成簡易投稿。`upgrade` 是這件作品最新一筆升級草稿或完整版的 `{submission_id, status}`，沒有則為 `null`。`can_upgrade` 在作品已公開、是簡易投稿、儲存庫還不是目錄技能書、而且沒有未公開或已公開的升級時為真。`catalog_book` 在儲存庫已收錄為目錄技能書時為 `{book_id, title, public_path}`。
+
+上傳到升級草稿時，`repository_url` 必須是 `seed` 的同一個儲存庫，否則回 422 `repository_mismatch`，授權不會被消耗。會員用聊天 AI 補同一份草稿時，即使舊授權已過期，網站也會先重發授權再上傳。公開升級草稿仍走原來的公開路徑；若已有另一份已公開的升級，回 409 `already_upgraded`。
 
 `key`：`key_id, label, scope:'skill:submit', expires_at, revoked_at, created_at, last_used_at`。
 
@@ -69,7 +75,7 @@
 - `readPublishedSkillSubmission(pool, id)` → 上述欄位加上 `use_notes`、`demo_url`，找不到時回 `null`
 - `readPublishedSkillIllustration(pool, id)` → `{bytes, mime_type:'image/webp'}` 或 `null`
 
-只列出已公開、擁有者仍啟用且完成加入（選定主要公會）、固定版本仍存在的投稿。不輸出擁有者 ID、email、草稿或授權資料。公開圖片網址為 `/api/v1/skill-submissions/:id/illustration`，由根路由提供。
+只列出已公開、擁有者仍啟用且完成加入（選定主要公會）、固定版本仍存在的投稿。已被已公開升級取代的簡易投稿，以及儲存庫已是目錄技能書的投稿，不會出現在這份清單；兩個條件都在 SQL 裡，所以 `LIMIT` 仍會補滿。直接讀取簡易投稿本身仍然回傳它。若已有已公開的升級，`GET /development/submissions/:id` 與 `GET /development/submissions/:id/SKILL.md` 以 302 轉到升級後的同一路徑，並保留查詢字串（例如 `?intro=N`）。升級後來被撤回時，簡易投稿會重新出現，轉址也消失。`readPublishedSkillTitles` 仍回傳簡易投稿自己的標題。推廣連結若目標是 `submission:` 加上簡易投稿，公開頁的標題、選中的分享介紹、圖片與連結改走已公開的升級。不輸出擁有者 ID、email、草稿或授權資料。公開圖片網址為 `/api/v1/skill-submissions/:id/illustration`，由根路由提供。
 
 ## 根路由整合注意
 

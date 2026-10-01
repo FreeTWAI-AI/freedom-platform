@@ -8,7 +8,7 @@ import { PLATFORM_LABELS, type SocialPlatform } from '../../packages/shared/shar
 import { escapeHtml } from '../development/service.js';
 import { getSkillShareContent } from './skill-share-content.js';
 import { communityCatalog } from './catalog.js';
-import { readPublishedSkillSubmission, readPublishedSkillTitles } from '../skill-submissions/public.js';
+import { readPublishedSkillSubmission, readPublishedSkillTitles, readPublishedUpgrade } from '../skill-submissions/public.js';
 import { readMemberServiceShare, readMemberServiceTitles } from './member-services.js';
 import { getEventShareCode } from './events.js';
 import { highlightShareImage, readHighlightEvent } from './event-highlights.js';
@@ -368,7 +368,9 @@ async function openTarget(pool: Pool, link: LinkRow, introRaw: string | undefine
       const image = content ? { url: origin + content.illustration_url, width: 1200, height: 630 } : undefined;
       return { href: `/development/skills/${encodeURIComponent(id)}${query}`, title: book.title, description: chosen || book.description, image };
     }
-    const submission = await readPublishedSkillSubmission(pool, link.target_key.slice(11));
+    const requested = link.target_key.slice(11);
+    const upgraded = await readPublishedUpgrade(pool, requested);
+    const submission = await readPublishedSkillSubmission(pool, upgraded ?? requested);
     if (!submission) return null;
     const chosen = intro && intro <= submission.share_introductions.length ? submission.share_introductions[intro - 1] : null;
     const image = submission.illustration_url ? { url: origin + submission.illustration_url, width: 1200, height: 630 } : undefined;

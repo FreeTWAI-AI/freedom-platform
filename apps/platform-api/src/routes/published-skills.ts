@@ -1,8 +1,8 @@
-import {Hono} from 'hono';
+import {Hono,type Context} from 'hono';
 import {z} from 'zod';
 import type {Pool} from 'pg';
 import {developmentHtml,LIVE_SITE_ORIGIN,publicSkillShareMarkup,shareIntroNumber} from '../../../../modules/development/service.js';
-import {listPublishedSkillSubmissions,readPublishedSkillSubmission,readPublishedSkillIllustration} from '../../../../modules/skill-submissions/public.js';
+import {listPublishedSkillSubmissions,readPublishedSkillSubmission,readPublishedSkillIllustration,readPublishedUpgrade} from '../../../../modules/skill-submissions/public.js';
 import {skillUploadProtocolMarkdown,skillUploadSkillMarkdown} from '../generated/runtime-text.js';
 
 /** Existing Node deployments link published pages to the live site. */
@@ -101,11 +101,19 @@ export function createPublishedSkillRoutes(pool:Pool,publicOrigin=LIVE_PUBLIC_OR
     '<p>需要 Node.js 24。安裝後依工具說明綁定投稿專用金鑰；從網站可撤銷金鑰。金鑰最長 90 天，只能建立私人投稿。</p>'+
     '<p>一次性指令 60 分鐘有效，不需要安裝工具。圖片選填；投稿者確認後，介紹頁與分享內容才會公開。</p>',
     {path:'/development/skill-upload',description:'複製指令給 Agent，預覽並分享你的技能專案。',origin:publicOrigin})));
+  const upgradedLocation=async(c:Context,suffix:''|'/SKILL.md')=>{
+    const next=await readPublishedUpgrade(pool,c.req.param('id')??'');
+    return next?`/development/submissions/${next}${suffix}${new URL(c.req.url).search}`:null;
+  };
   app.get('/development/submissions/:id/SKILL.md',async c=>{
+    const location=await upgradedLocation(c,'/SKILL.md');
+    if(location)return c.redirect(location,302);
     const skill=await readPublishedSkillSubmission(pool,c.req.param('id'));if(!skill)return c.notFound();
     c.header('Content-Type','text/markdown; charset=utf-8');return c.body(submittedSkillAgentMarkdown(skill,publicOrigin));
   });
   app.get('/development/submissions/:id',async c=>{
+    const location=await upgradedLocation(c,'');
+    if(location)return c.redirect(location,302);
     const skill=await readPublishedSkillSubmission(pool,c.req.param('id'));if(!skill)return c.notFound();
     return c.html(submittedSkillHtml(skill,c.req.query('intro'),publicOrigin));
   });

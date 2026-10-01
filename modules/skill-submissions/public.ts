@@ -1,5 +1,6 @@
 import type { Pool } from 'pg';
 import { z } from 'zod';
+import { catalogRepositoryKeys } from './repository-match.js';
 import { publicPath } from './service.js';
 
 // Published-only, explicitly sanitised projections for public pages. A row is
@@ -55,7 +56,19 @@ export type PublishedSkillSubmission = ReturnType<typeof summary>;
 
 export async function listPublishedSkillSubmissions(pool: Pool, limit = 100): Promise<PublishedSkillSubmission[]> {
   const bounded = Math.max(1, Math.min(100, Number.isSafeInteger(limit) ? limit : 100));
-  return (await pool.query(`SELECT ${COLUMNS} ${PUBLISHED} ORDER BY s.published_at DESC,s.submission_id LIMIT $1`, [bounded])).rows.map(summary);
+  // A published upgrade replaces its simple submission. Catalog books already occupy the shelf for these repositories.
+  // Both filters stay in SQL so LIMIT still fills.
+  return (await pool.query(`SELECT ${COLUMNS} ${PUBLISHED}
+    AND NOT EXISTS (SELECT 1 FROM skill_submissions d WHERE d.upgrades_submission_id=s.submission_id AND d.status='published')
+    AND lower(v.repository_full_name) <> ALL($2::text[])
+    ORDER BY s.published_at DESC,s.submission_id LIMIT $1`, [bounded, catalogRepositoryKeys])).rows.map(summary);
+}
+
+/** The published full skill book that upgrades this submission, if one exists. */
+export async function readPublishedUpgrade(pool: Pool, id: string): Promise<string | null> {
+  if (!z.uuid().safeParse(id).success) return null;
+  const row = (await pool.query(`SELECT submission_id FROM skill_submissions WHERE upgrades_submission_id=$1 AND status='published'`, [id.toLowerCase()])).rows[0];
+  return row ? String(row.submission_id) : null;
 }
 
 /** Titles of submissions that still pass the published-shelf rule. Missing ids are omitted. */

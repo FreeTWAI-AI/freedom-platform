@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { RepositoryLibrary } from './Community';
 import type { ModulePanelProps } from './shared';
-import { SkillUpload } from './SkillUpload';
+import { SkillUpload, type SkillOpenRequest } from './SkillUpload';
 import { CommunitySkillBooks } from './CommunitySkillBooks';
 import { GitHubConnectionSummary } from './GitHubSocial';
 
@@ -12,6 +12,9 @@ export function SkillsPanel({ client, onNavigate }: ModulePanelProps) {
   const [notice, setNotice] = useState('');
   const [reload, setReload] = useState(0);
   const [submissionsRevision,setSubmissionsRevision]=useState(0);
+  const [draftTick,setDraftTick]=useState(0);
+  const [openRequest,setOpenRequest]=useState<SkillOpenRequest | null>(null);
+  const openNonce = useRef(0);
   const shown = useRef<string[] | null>(null), pending = useRef<string[] | null>(null), refocus = useRef(false), unlockedTab = useRef<HTMLButtonElement>(null);
   const guildHeading = useId(), communityHeading = useId();
   useEffect(() => {
@@ -71,10 +74,61 @@ export function SkillsPanel({ client, onNavigate }: ModulePanelProps) {
       <section className="skill-shelf" aria-labelledby={communityHeading}>
         <header className="page-toolbar skill-shelf-heading">
           <div><h2 id={communityHeading}>社群技能書</h2><p className="muted">社群成員分享的技能書，不需加入公會就能閱讀、分享與參與開發。</p></div>
-          <div className="actions"><button className="btn btn-primary" onClick={() => onNavigate?.('opensource')}>投稿開源工具</button><SkillUpload client={client} onPublished={()=>setSubmissionsRevision(value=>value+1)} secondary/></div>
+          <div className="actions"><button className="btn btn-primary" onClick={() => onNavigate?.('opensource')}>投稿開源工具</button><SkillUpload client={client} openRequest={openRequest} onChanged={()=>setDraftTick(value=>value+1)} onPublished={()=>setSubmissionsRevision(value=>value+1)} secondary/></div>
         </header>
+        <SkillDraftCallout client={client} revision={submissionsRevision+draftTick} onOpen={(submissionId, mode) => { openNonce.current += 1; setOpenRequest({ submissionId, mode, nonce: openNonce.current }); }}/>
         <CommunitySkillBooks client={client} revision={submissionsRevision} guildIds={ids ?? []}/>
       </section>
     </div>
   </section>;
+}
+
+type DraftItem = { submission_id: string; status: string; created_at?: string; can_upgrade?: boolean; payload: { title?: string } | null; seed: { title: string } | null };
+
+function newestDraft(items: DraftItem[]) {
+  return [...items].sort((a, b) => (Date.parse(b.created_at ?? '') || 0) - (Date.parse(a.created_at ?? '') || 0) || a.submission_id.localeCompare(b.submission_id))[0];
+}
+
+function SkillDraftCallout({ client, revision, onOpen }: { client: ModulePanelProps['client']; revision: number; onOpen: (submissionId: string, mode: 'preview' | 'complete') => void }) {
+  const [view, setView] = useState<{ text: string; label: string; submissionId: string; mode: 'preview' | 'complete'; upgrade?: boolean } | null>(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void client.get<{ items?: DraftItem[] }>('/me/skill-submissions').then(result => {
+      if (!active) return;
+      const items = Array.isArray(result?.items) ? result.items : [];
+      const ready = items.filter(item => item.status === 'ready_for_review');
+      const newestReady = newestDraft(ready);
+      if (newestReady) {
+        setView({ text: `${ready.length} 份技能草稿待你送出：${newestReady.payload?.title ?? ''}`, label: '預覽並送出', submissionId: newestReady.submission_id, mode: 'preview' });
+        return;
+      }
+      const seeded = newestDraft(items.filter(item => item.status === 'awaiting_upload' && Boolean(item.seed)));
+      if (seeded?.seed) {
+        setView({ text: `「${seeded.seed.title}」還差 100 則分享介紹，就能升級成完整技能書。`, label: '補上分享介紹', submissionId: seeded.submission_id, mode: 'complete' });
+        return;
+      }
+      const simple = newestDraft(items.filter(item => item.status === 'published' && item.can_upgrade));
+      if (simple) {
+        setView({ text: `「${simple.payload?.title ?? ''}」目前是簡易版。補上 100 則分享介紹和示意圖，就能升級成完整技能書。`, label: '升級成完整技能書', submissionId: simple.submission_id, mode: 'complete', upgrade: true });
+        return;
+      }
+      setView(null);
+    }).catch(() => { if (active) setView(null); });
+    return () => { active = false; };
+  }, [client, revision]);
+  if (!view) return null;
+  async function open() {
+    if (!view) return;
+    if (!view.upgrade) { onOpen(view.submissionId, view.mode); return; }
+    setError(''); setBusy(true);
+    try {
+      const draft = await client.post<{ submission_id: string }>(`/me/skill-submissions/${encodeURIComponent(view.submissionId)}/upgrade`, {});
+      onOpen(draft.submission_id, 'complete');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '升級沒有完成。');
+    } finally { setBusy(false); }
+  }
+  return <div className="banner banner-info skill-draft-callout" role="status"><p>{view.text}</p><button type="button" className="btn btn-primary" disabled={busy} onClick={() => void open()}>{view.label}</button>{error && <p role="alert" className="banner banner-error">{error}</p>}</div>;
 }
