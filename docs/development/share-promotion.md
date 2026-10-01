@@ -2,7 +2,7 @@
 
 社員可以建立個人分享連結。別人點開才會計分，分數只顯示在六塊排行榜上，用來比較誰幫忙把內容帶出去。分數不是經驗、獎勵、貢獻或驗收。
 
-六種分享各有一塊榜。名片與社員服務先留好資料與空榜，建立連結會回 422，介面尚未做。
+六種分享各有一塊榜。名片先留好資料與空榜，建立連結會回 422。社員服務已可建立連結。
 
 | kind | 分享對象 | 排行榜 | 現況 |
 | --- | --- | --- | --- |
@@ -10,10 +10,10 @@
 | `platform` | 自由工坊本身 | 平台推廣排行榜 | 已做 |
 | `skill_book` | 目錄技能書或已公開的社群技能書 | 技能推廣排行榜 | 已做 |
 | `social_post` | 社群媒體分享專區的一則貼文 | 社群推廣排行榜 | 已做 |
-| `member_service` | 社員服務 | 業務推廣排行榜 | 尚未開放 |
+| `member_service` | 一項公開的社員服務 | 業務推廣排行榜 | 已做 |
 | `event` | 已公開的社群活動 | 活動推廣排行榜 | 已做 |
 
-`target_key` 的格式：平台是 `workshop`；技能書是 `book:<技能 id>` 或 `submission:<uuid>`；活動、貼文、日後的服務與名片都是該筆 uuid。
+`target_key` 的格式：平台是 `workshop`；技能書是 `book:<技能 id>` 或 `submission:<uuid>`；活動、貼文與社員服務都是該筆 uuid。名片仍是日後的 uuid。
 
 ## 為什麼先經過中繼頁
 
@@ -42,7 +42,7 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 
 每位會員每天最多新建立 200 條連結；已存在的同一條再取一次不算新的。每人每天最多新貼 20 則社群貼文。點擊路由另有每網路每小時約 300 次的速率限制，超過回 429，同樣不計分。
 
-`GET /api/v1/promotion/links/mine` 只讀。週、月、累計與所選期間的分數在同一則查詢用 `count(...) FILTER` 算出，不會為了標題去建立活動分享碼，也不會一條連結再查一次分數。出現過的活動、貼文、已公開社群技能書各最多再讀一次（`= ANY`，限本人的社群）；目錄技能書不查資料庫。每一筆有 `available`：活動要已公開、貼文要是有效、目錄書要在架上、社群技能書要已發布。開不了的連結在「我的推廣連結」變淡、顯示「已無法開啟」、沒有複製鈕，分數仍留著。
+`GET /api/v1/promotion/links/mine` 只讀。週、月、累計與所選期間的分數在同一則查詢用 `count(...) FILTER` 算出，不會為了標題去建立活動分享碼，也不會一條連結再查一次分數。出現過的活動、貼文、已公開社群技能書、社員服務各最多再讀一次（`= ANY`，限本人的社群）；目錄技能書不查資料庫。已公開技能書的條件與 `PUBLISHED` 同一份。每一筆有 `available`：活動要已公開、貼文要是有效、目錄書要在架上、社群技能書要已發布、社員服務要仍公開且擁有者有效。開不了的連結在「我的推廣連結」變淡、顯示「已無法開啟」、沒有複製鈕，分數仍留著。
 
 ## 隱私
 
@@ -87,10 +87,51 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 
 資料表在 `migrations/063_share_promotion.sql`：`promotion_links`、`promotion_clicks`、`promotion_click_salts`、`community_social_posts`、`community_social_post_thumbnails`。有效連結以部分唯一索引保證一人一種目標一條；有效貼文的網址同樣唯一。`promotion_links_target` 索引 `(kind, target_key)`，給貼文列表的點擊合計、活動推薦報表，以及之後的服務列表用。
 
-部署時先套用 migration 063，再換 Worker。Worker 的預覽 fetch 必須是未綁定的 `globalThis.fetch`。
+部署時先套用 migration 063，再套用 065，然後換 Worker。064 不是這次變更。Worker 的預覽 fetch 必須是未綁定的 `globalThis.fetch`。
 
-程式入口：`modules/community/promotion.ts`、`modules/community/social-posts.ts`、`modules/community/link-preview.ts`、`packages/shared/share-url.ts`、`packages/shared/promotion-bots.ts`、`apps/platform-api/src/routes/promotion.ts`。介面是「社群分享」與「推廣排行榜」，技能書架、活動與會員首頁接同一套分享對話框。
+程式入口：`modules/community/promotion.ts`、`modules/community/social-posts.ts`、`modules/community/member-services.ts`、`modules/community/link-preview.ts`、`packages/shared/share-url.ts`、`packages/shared/promotion-bots.ts`、`packages/shared/member-service.ts`、`apps/platform-api/src/routes/promotion.ts`、`apps/platform-api/src/routes/member-services.ts`。介面是「社群分享」、「社員服務」與「推廣排行榜」，技能書架、活動與會員首頁接同一套分享對話框。
 
-測試入口：`tests/runtime/share-promotion.test.ts`、`tests/runtime/link-preview.test.ts`、`tests/worker/share-go.test.ts`、`tests/e2e/share-promotion.spec.ts`。瀏覽器測試前先 build。預覽不得打到 YouTube、Instagram、Facebook 或其他外站。
+測試入口：`tests/runtime/share-promotion.test.ts`、`tests/runtime/member-services.test.ts`、`tests/runtime/link-preview.test.ts`、`tests/worker/share-go.test.ts`、`tests/e2e/share-promotion.spec.ts`、`tests/e2e/member-services.spec.ts`。瀏覽器測試前先 build。預覽不得打到 YouTube、Instagram、Facebook 或其他外站。
+
+## 社員服務
+
+社員可以列出自己的本業服務。任何看得到該服務的社員都能用自己的 `/go/` 連結分享；點的人不是分享者本人，才算分享者的業務推廣分。服務主人分享自己的服務，分數也算主人的。
+
+每位社員最多 5 項 `active` 或 `paused` 服務。隱藏與刪除不計入，上限在交易裡用 advisory lock 檢查，沒有資料庫 CHECK。分類是 `hair_beauty` 美髮造型・假髮、`courses` 課程・教學、`language` 語言教學、`design` 設計、`photo_video` 攝影・影音、`tech` 技術・開發、`consulting` 顧問・諮詢、`handmade` 手作・商品、`other` 其他。服務方式是 `online`、`in_person` 或 `both`。
+
+標題 1–80 字、簡介 1–160 字、說明最多 2000 字、價格與地區各最多 60 字。聯絡方式 1–3 個，名稱 1–20 字。網址必須是 https，沒有帳密、非預設埠、本機或 IP 主機，並用 `normalizeShareUrl` 正規化後儲存。表單送出前跑同一份檢查。
+
+建立、修改、暫停、恢復與刪除只有主人能做。修改、暫停、恢復、刪除、封面與隱藏都要 `If-Match` 的 `aggregate_version`，並用 Idempotency-Key。刪除是軟刪除（`state=deleted`），同時刪掉封面。暫停只給主人在「我的服務」看見；公開頁與 `/go/` 都回到找不到。平台管理員可隱藏；公會長不行。隱藏後各處都看不到，`/go/` 回到首頁。擁有者停用或是驗收測試帳號時，其他人與公開頁都看不到，主人仍可在會員介面看見自己的有效服務。
+
+封面輸入是 JPEG、PNG 或 WebP，最多 4 MiB，簽名與動畫檢查與其他上傳相同。輸出是 `service_cover`，`cover` 成 1200×675 的 WebP，最多 512 KiB。上傳是帶 Idempotency-Key 與 If-Match 的二進位 PUT。會員看封面走 `GET /api/v1/member-services/:id/cover`（暫停的服務主人仍看得到）；公開封面是 `GET /api/v1/public/member-services/:id/cover`。
+
+公開頁 `GET /services` 每頁 12 筆，分類是連結，下一頁用 `?before=`。不正確的分類或分頁標記回到第一頁，不回應那串原文。`GET /services/:id` 只顯示封面、標題、分類、主人顯示名稱、簡介、說明、價格、地區、方式與聯絡按鈕，不顯示信箱、頭像或登入資料。頁面可被索引。找不到或未公開是同一風格的 404。OG 標題是「{標題}｜{主人} 的服務｜自由工坊」，描述是簡介，圖片是封面，否則是 `/brand/freedom-workshop.webp`。可見的圖片與頁內連結用根相對路徑；canonical 與 OG 用 `runtime.publicOrigin`。
+
+`member_service` 的目標是服務 uuid。服務仍公開、主人有效且不是測試帳號時才可分享，`/go/` 前往 `/services/<id>`。中繼頁的 OG 用服務標題、簡介與封面。業務榜的說明是「在社員服務分享區分享社員的服務，每次點擊 +1。」`member_card` 仍回 422 `promotion_kind_unavailable`。
+
+### API
+
+會員路由沿用 session、CSRF、Origin 與新人定位。公開封面與公開頁在 session middleware 之前。
+
+| 方法與路徑 | 誰 | 用途 |
+| --- | --- | --- |
+| `GET /services` | 公開 | 服務列表，每頁 12 |
+| `GET /services/:id` | 公開 | 服務頁，或同風格 404 |
+| `GET /api/v1/public/member-services/:id/cover` | 公開 | 公開封面；未公開為 404 |
+| `GET /api/v1/member-services` | 會員 | 有效服務，每頁 24，含 `total_points`、`my_points` |
+| `GET /api/v1/member-services/mine` | 會員 | 自己的有效與暫停服務 |
+| `POST /api/v1/member-services` | 會員 | 新增，需 Idempotency-Key |
+| `PUT /api/v1/member-services/:id` | 主人 | 修改，需 If-Match |
+| `POST /api/v1/member-services/:id/pause` | 主人 | 暫停 |
+| `POST /api/v1/member-services/:id/resume` | 主人 | 恢復 |
+| `DELETE /api/v1/member-services/:id` | 主人 | 軟刪除並移除封面 |
+| `POST /api/v1/member-services/:id/hide` | 平台管理員 | 隱藏 |
+| `GET /api/v1/member-services/:id/cover` | 看得到的會員 | 封面，含主人的暫停服務 |
+| `PUT /api/v1/member-services/:id/cover` | 主人 | 上傳封面 |
+| `POST /api/v1/member-services/:id/cover/remove` | 主人 | 移除封面 |
+
+### 資料
+
+`migrations/065_member_services.sql`：`member_services`、`member_service_covers`。公開列表索引是 `(community_id, updated_at DESC, service_id DESC) WHERE state='active'`，主人索引含有效與暫停。封面 `ON DELETE CASCADE`，但軟刪除要另外刪封面列。點擊分仍只在 `promotion_clicks`。列表的 `total_points` 用既有的 `promotion_links_target` 索引，合計該服務全部 `member_service` 連結的點擊。
 
 本文件描述功能與維護方式；實跑結果另記於交接，不以文件存在代表已發布。

@@ -9,6 +9,8 @@ import { avatarUrl } from '../identity-membership/avatars.js';
 import type { Actor } from '../identity-membership/service.js';
 import { taipeiDayStart } from './promotion.js';
 import type { LinkPreview } from './link-preview.js';
+import { canHideMemberContent as canHideSocialPosts } from './moderation.js';
+export { canHideSocialPosts };
 
 export class SocialPostExists extends Error {
   readonly post_id: string;
@@ -49,12 +51,6 @@ const LIST = `SELECT p.post_id,p.url,p.platform,p.title,p.note,p.created_at,p.au
   JOIN users u ON u.user_id=p.author_user_id
   LEFT JOIN member_avatars a ON a.user_id=u.user_id AND a.community_id=p.community_id
   LEFT JOIN community_social_post_thumbnails t ON t.post_id=p.post_id`;
-
-export async function canHideSocialPosts(pool: Pool, actor: Actor) {
-  const row = await pool.query(`SELECT 1 FROM users u WHERE u.user_id=$1 AND u.community_id=$2 AND u.active AND u.email_verified_at IS NOT NULL
-    AND EXISTS(SELECT 1 FROM platform_admins p WHERE p.community_id=u.community_id AND p.active AND p.email=lower(u.email))`, [actor.user_id, actor.community_id]);
-  return row.rowCount === 1;
-}
 
 function cursorOf(raw: string | undefined) {
   if (!raw) return null;

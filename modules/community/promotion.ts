@@ -9,6 +9,7 @@ import { escapeHtml } from '../development/service.js';
 import { getSkillShareContent } from './skill-share-content.js';
 import { communityCatalog } from './catalog.js';
 import { readPublishedSkillSubmission, readPublishedSkillTitles } from '../skill-submissions/public.js';
+import { readMemberServiceShare, readMemberServiceTitles } from './member-services.js';
 import { getEventShareCode } from './events.js';
 import { avatarUrl } from '../identity-membership/avatars.js';
 import type { Actor } from '../identity-membership/service.js';
@@ -18,7 +19,7 @@ import type { Actor } from '../identity-membership/service.js';
 export const PROMOTION_KINDS = ['member_card', 'platform', 'skill_book', 'social_post', 'member_service', 'event'] as const;
 export type PromotionKind = typeof PROMOTION_KINDS[number];
 export type PromotionPeriod = 'week' | 'month' | 'all';
-const UNAVAILABLE = new Set<PromotionKind>(['member_card', 'member_service']);
+const UNAVAILABLE = new Set<PromotionKind>(['member_card']);
 const VISITOR_CAP = 20;
 const NETWORK_CAP = 60;
 const LINK_CAP = 200;
@@ -112,6 +113,12 @@ async function assertTarget(pool: Pool, actor: Actor, kind: PromotionKind, targe
     requireCondition(row, 404, 'not_found', '找不到可分享的貼文。');
     return row.title as string;
   }
+  if (kind === 'member_service') {
+    requireCondition(z.uuid().safeParse(target).success, 422, 'validation_failed', '服務目標不正確。');
+    const service = await readMemberServiceShare(pool, actor.community_id, target);
+    requireCondition(service, 404, 'not_found', '找不到可分享的服務。');
+    return service.title;
+  }
   throw new Problem(422, 'promotion_kind_unavailable', '這個分享方式尚未開放。');
 }
 
@@ -173,9 +180,11 @@ async function mineTitles(pool: Pool, actor: Actor, rows: MineRow[]) {
   const events = rows.filter(row => row.kind === 'event' && z.uuid().safeParse(row.target_key).success).map(row => row.target_key);
   const posts = rows.filter(row => row.kind === 'social_post' && z.uuid().safeParse(row.target_key).success).map(row => row.target_key);
   const submissions = rows.filter(row => row.kind === 'skill_book' && /^submission:[0-9a-f-]{36}$/i.test(row.target_key)).map(row => row.target_key.slice(11).toLowerCase());
+  const services = rows.filter(row => row.kind === 'member_service' && z.uuid().safeParse(row.target_key).success).map(row => row.target_key);
   const eventRows = events.length ? (await pool.query(`SELECT event_id::text AS id,title,state='published' AS available FROM community_events WHERE community_id=$1 AND event_id=ANY($2::uuid[])`, [actor.community_id, events])).rows as { id: string; title: string; available: boolean }[] : [];
   const postRows = posts.length ? (await pool.query(`SELECT post_id::text AS id,title,state='active' AS available FROM community_social_posts WHERE community_id=$1 AND post_id=ANY($2::uuid[])`, [actor.community_id, posts])).rows as { id: string; title: string; available: boolean }[] : [];
   const submissionById = await readPublishedSkillTitles(pool, actor.community_id, submissions);
+  const serviceById = await readMemberServiceTitles(pool, actor.community_id, services);
   const eventById = new Map(eventRows.map(row => [row.id, row]));
   const postById = new Map(postRows.map(row => [row.id, row]));
   return (row: MineRow) => {
@@ -191,6 +200,10 @@ async function mineTitles(pool: Pool, actor: Actor, rows: MineRow[]) {
     }
     if (row.kind === 'social_post') {
       const found = postById.get(row.target_key.toLowerCase());
+      return found ? { title: found.title, available: found.available } : { title: '已無法開啟', available: false };
+    }
+    if (row.kind === 'member_service') {
+      const found = serviceById.get(row.target_key.toLowerCase());
       return found ? { title: found.title, available: found.available } : { title: '已無法開啟', available: false };
     }
     return { title: '已無法開啟', available: false };
@@ -269,6 +282,7 @@ async function shareable(pool: Pool, link: LinkRow) {
     const row = (await pool.query(`SELECT 1 FROM community_social_posts WHERE post_id=$1 AND community_id=$2 AND state='active'`, [link.target_key, link.community_id])).rows[0];
     return Boolean(row);
   }
+  if (link.kind === 'member_service') return Boolean(await readMemberServiceShare(pool, link.community_id, link.target_key));
   return false;
 }
 
@@ -307,6 +321,13 @@ async function openTarget(pool: Pool, link: LinkRow, introRaw: string | undefine
     if (!open) return { href, title: '自由工坊會員活動', description: '登入自由工坊查看活動內容。' };
     const image = event.has_banner && !event.test_host ? { url: `${origin}/api/v1/public/events/${link.target_key}/banner`, width: 1200, height: 675 } : undefined;
     return { href, title: event.title, description: event.description.slice(0, 160), image };
+  }
+  if (link.kind === 'member_service') {
+    const service = (await readMemberServiceShare(pool, link.community_id, link.target_key))!;
+    const image = service.hasCover
+      ? { url: `${origin}/api/v1/public/member-services/${link.target_key}/cover`, width: 1200, height: 675 }
+      : { url: origin + platformOg.image, width: platformOg.width, height: platformOg.height };
+    return { href: `/services/${link.target_key}`, title: service.title, description: service.summary, image };
   }
   const post = (await pool.query(`SELECT post_id,url,title,platform FROM community_social_posts WHERE post_id=$1 AND state='active'`, [link.target_key])).rows[0] as { post_id: string; url: string; title: string; platform: SocialPlatform } | undefined;
   if (!post) return null;

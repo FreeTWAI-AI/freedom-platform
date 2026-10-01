@@ -345,10 +345,12 @@ test('the interstitial escapes text, sets open-graph tags and ignores extra quer
   assert.deepEqual(after, before);
 });
 
-test('link creation validates each kind, stays idempotent and keeps the two unbuilt kinds closed', async () => {
+test('link creation validates each kind, stays idempotent and keeps member cards closed', async () => {
   const maker = await signIn();
   assert.equal((await request('/promotion/links', maker, { kind: 'member_card', target: maker.user.user_id })).data.code, 'promotion_kind_unavailable');
-  assert.equal((await request('/promotion/links', maker, { kind: 'member_service', target: randomUUID() })).status, 422);
+  const missingService = await request('/promotion/links', maker, { kind: 'member_service', target: randomUUID() });
+  assert.equal(missingService.status, 404);
+  assert.equal(missingService.data.code, 'not_found');
   assert.equal((await request('/promotion/links', maker, { kind: 'platform', target: 'home' })).status, 422);
   assert.equal((await request('/promotion/links', maker, { kind: 'skill_book', target: 'book:missing-book' })).status, 404);
   assert.equal((await request('/promotion/links', maker, { kind: 'skill_book', target: 'nope' })).status, 422);

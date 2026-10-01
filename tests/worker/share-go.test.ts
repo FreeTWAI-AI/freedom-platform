@@ -67,3 +67,20 @@ test('a live share code returns the interstitial before assets, and /go.js stays
   assert.equal(shell.status, 200);
   assert.equal(await shell.text(), SHELL);
 });
+
+test('/services is the app page, not the SPA shell', async () => {
+  const list = await app.request(origin + '/services');
+  const html = await list.text();
+  assert.equal(list.status, 200);
+  assert.match(list.headers.get('content-type') ?? '', /text\/html/);
+  assert.equal(list.headers.get('cache-control'), 'public, max-age=60');
+  assert.match(html, /社員服務/);
+  assert.equal(html.includes('spa shell'), false);
+  const missing = await app.request(origin + '/services/00000000-0000-4000-8000-000000000099');
+  const missingHtml = await missing.text();
+  assert.equal(missing.status, 404);
+  assert.match(missingHtml, /找不到這項服務/);
+  assert.equal(missingHtml.includes('spa shell'), false);
+  const css = await app.request(origin + '/services.css');
+  assert.equal(await css.text(), SHELL);
+});

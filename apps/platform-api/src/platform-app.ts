@@ -45,6 +45,7 @@ import {CollaborationGitHub} from '../../../modules/co-creation/github.js';
 import {acceptedWorkFeed,contributionRecords,previewTasks} from '../../../modules/community/task-board.js';
 import {publicEvent,publicEventBanner,publicEventVideo,registerPublicEvent} from '../../../modules/community/events.js';
 import {checkSocialThumbnailHeaders,isSocialThumbnailUpload,registerMemberPromotion,registerPublicPromotion} from './routes/promotion.js';
+import {checkServiceCoverHeaders,isServiceCoverUpload,registerMemberServices,registerPublicMemberServices} from './routes/member-services.js';
 
 const COOKIE='freedom_local_session';
 function onboardingAllowed(path:string,method:string) {
@@ -116,6 +117,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
         checkEventVideoUploadHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
       } else if(isSocialThumbnailUpload(c.req.method,c.req.path)) {
         checkSocialThumbnailHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
+      } else if(isServiceCoverUpload(c.req.method,c.req.path)) {
+        checkServiceCoverHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
       } else {
         requireCondition(c.req.header('Content-Type')?.split(';')[0]==='application/json',415,'json_required','操作需要 JSON。');
         requireCondition(Number(c.req.header('Content-Length')??0)<=32768,413,'body_too_large','內容過長。');
@@ -144,6 +147,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   });
   app.get('/api/v1/public/events/:id/video',async c=>eventVideoResponse(c,await publicEventVideo(pool,z.uuid().parse(c.req.param('id'))),true));
   registerPublicPromotion(app,pool,runtime);
+  registerPublicMemberServices(app,pool,runtime);
   app.post('/api/v1/public/events/:id/register',async c=>{
     requireCondition(runtime.eventEmailSender,503,'event_email_unavailable','活動郵件服務暫時無法使用。');
     const body=await c.req.json();
@@ -255,6 +259,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createMemberCommunicationRoutes(pool));
   app.route('/api/v1',createCommunityEventRoutes(pool,runtime.eventEmailSender,origin));
   registerMemberPromotion(app,pool,runtime);
+  registerMemberServices(app,pool,runtime);
   app.route('/api/v1',createGitHubSocialRoutes(loadSocial));
   app.route('/api/v1',createMemberAuthorClaimRoutes(pool,options.githubSocial?.fetcher??globalThis.fetch,runtime.githubMetricsToken));
   app.route('/api/v1',createDevelopmentAccessRoutes(pool,loadSocial));
