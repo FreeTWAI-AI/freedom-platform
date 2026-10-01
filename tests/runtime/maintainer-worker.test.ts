@@ -190,7 +190,8 @@ test('the maintainer wrangler file is cron-only and separate from the platform W
   assert.match(text, /"name": "freedom-maintainer-next"/);
   assert.equal((text.match(/"GITHUB_MAINTAINER_APP_ID": "0"/g) ?? []).length, 3);
   assert.equal((text.match(/"GITHUB_MAINTAINER_ORG": "FreeTWAI-AI"/g) ?? []).length, 3);
-  assert.equal((text.match(/"GITHUB_MAINTAINER_WRITES": "off"/g) ?? []).length, 3);
+  assert.equal((text.match(/"GITHUB_MAINTAINER_WRITES": "off"/g) ?? []).length, 1);
+  assert.equal((text.match(/"GITHUB_MAINTAINER_WRITES": "requested_reviewers"/g) ?? []).length, 2);
   assert.equal(text.includes('GITHUB_MAINTAINER_PRIVATE_KEY'), true);
   assert.equal(/"GITHUB_MAINTAINER_PRIVATE_KEY"\s*:/.test(text), false);
   assert.match(text, /openssl pkcs8 -topk8 -nocrypt/);

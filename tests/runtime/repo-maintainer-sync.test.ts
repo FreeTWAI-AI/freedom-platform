@@ -1,9 +1,12 @@
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readdir, readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
 import { exportPKCS8, exportSPKI, generateKeyPair, importSPKI, jwtVerify } from 'jose';
-import { createPool, LOCAL_DATABASE_URL } from '../../packages/db/index.js';
+import { createPool, LOCAL_DATABASE_URL, transaction } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { claimMaintainerJob, runMaintainerTick, type MaintainerTickConfig } from '../../modules/repo-maintainer/tick.js';
 import { enqueueReconcilePull } from '../../modules/repo-maintainer/queue.js';
@@ -248,7 +251,7 @@ test('reconcile stores the mirror and an out-of-order run does not overwrite it'
   assert.equal(row.title, 'Observe me');
   assert.equal(row.queue_state, 'awaiting_review');
   assert.deepEqual(row.attention_reasons, []);
-  assert.equal(row.policy_version, '2026-10-01.1');
+  assert.equal(row.policy_version, '2026-10-01.2');
   assert.equal((await pool.query(`SELECT app_slug, conclusion FROM maintainer_checks`)).rows[0].app_slug, 'github-actions');
   assert.equal(logged.join('\n').includes(TOKEN), false);
   assert.equal(logged.join('\n').includes(privateKey.slice(40, 80)), false);
@@ -588,4 +591,146 @@ test('enqueue pulls a backed-off job forward and a second call does not', async 
   job = (await pool.query('SELECT attempts, run_after FROM maintainer_jobs')).rows[0];
   assert.equal(job.attempts, 2);
   assert.equal(new Date(job.run_after).toISOString(), clock.toISOString());
+});
+
+test('a new repository is open with no guild, and only an untouched unowned row is opened', async () => {
+  const fresh = randomUUID();
+  await pool.query(`INSERT INTO maintainer_repositories
+    (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, next_sweep_at)
+    VALUES ($1,$2,'910065','77','FreeTWAI-AI/fresh-open','main','active','observe','2099-01-01T00:00:00Z')`, [fresh, community]);
+  const opened = (await pool.query('SELECT guild_key, open_to_guilds, aggregate_version FROM maintainer_repositories WHERE repository_id=$1', [fresh])).rows[0];
+  assert.equal(opened.guild_key, null);
+  assert.equal(opened.open_to_guilds, true);
+  assert.equal(opened.aggregate_version, '1');
+
+  const priorSchema = `fp_mopen_${process.pid}_${Date.now()}`;
+  const prior = new Pool({ connectionString: databaseUrl, options: `-c search_path=${priorSchema}`, max: 1 });
+  await database.query(`CREATE SCHEMA ${priorSchema}`);
+  try {
+    const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+    const scopeName = (await readdir(resolve(root, 'migrations'))).find(name => /^\d{3}_maintainer_review_scope\.sql$/.test(name));
+    assert.ok(scopeName);
+    const scopeNumber = scopeName.slice(0, 3);
+    const names = (await readdir(resolve(root, 'migrations'))).filter(name => name.endsWith('.sql') && name < `${scopeNumber}_`).sort();
+    await transaction(prior, async q => {
+      for (const name of names) await q.query(await readFile(resolve(root, 'migrations', name), 'utf8'));
+    });
+    const communityId = randomUUID();
+    const adminId = randomUUID();
+    await prior.query('INSERT INTO communities (community_id, name) VALUES ($1,$2)', [communityId, 'Open default']);
+    await prior.query('INSERT INTO platform_admins (admin_id, community_id, email, display_name) VALUES ($1,$2,$3,$4)', [adminId, communityId, 'open-default@example.invalid', 'Open default']);
+    const guild = (await prior.query(`SELECT guild_key FROM positioning_guild_catalog ORDER BY guild_key LIMIT 1`)).rows[0].guild_key as string;
+    async function insert(github: string, full: string, guildKey: string | null, open: boolean) {
+      const id = randomUUID();
+      await prior.query(`INSERT INTO maintainer_repositories
+        (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, guild_key, open_to_guilds, next_sweep_at)
+        VALUES ($1,$2,$3,'77',$4,'main','active','observe',$5,$6,'2099-01-01T00:00:00Z')`,
+      [id, communityId, github, full, guildKey, open]);
+      return id;
+    }
+    const untouched = await insert('1', 'FreeTWAI-AI/untouched', null, false);
+    const already = await insert('2', 'FreeTWAI-AI/already-open', null, true);
+    const history = await insert('3', 'FreeTWAI-AI/has-history', null, false);
+    const owned = await insert('4', 'FreeTWAI-AI/guild-owned', guild, false);
+    await prior.query(`INSERT INTO maintainer_ownership_changes
+      (change_id, repository_id, guild_key, scope_kind, open_to_guilds, source, changed_by_admin, reason)
+      VALUES ($1,$2,NULL,NULL,false,'admin',$3,'管理員曾把這個儲存庫留在只限管理員。')`, [randomUUID(), history, adminId]);
+    await prior.query(await readFile(resolve(root, 'migrations', scopeName), 'utf8'));
+    const row = async (id: string) => (await prior.query('SELECT guild_key, open_to_guilds, aggregate_version FROM maintainer_repositories WHERE repository_id=$1', [id])).rows[0];
+    const openedRow = await row(untouched);
+    assert.equal(openedRow.guild_key, null);
+    assert.equal(openedRow.open_to_guilds, true);
+    assert.equal(openedRow.aggregate_version, '2');
+    const alreadyRow = await row(already);
+    assert.equal(alreadyRow.open_to_guilds, true);
+    assert.equal(alreadyRow.aggregate_version, '1');
+    const historyRow = await row(history);
+    assert.equal(historyRow.open_to_guilds, false);
+    assert.equal(historyRow.aggregate_version, '1');
+    const ownedRow = await row(owned);
+    assert.equal(ownedRow.guild_key, guild);
+    assert.equal(ownedRow.open_to_guilds, false);
+    assert.equal(ownedRow.aggregate_version, '1');
+    await assert.rejects(prior.query(`UPDATE maintainer_repositories SET open_to_guilds=true WHERE repository_id=$1`, [owned]));
+    const after = randomUUID();
+    await prior.query(`INSERT INTO maintainer_repositories
+      (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, next_sweep_at)
+      VALUES ($1,$2,'5','77','FreeTWAI-AI/after-migration','main','active','observe','2099-01-01T00:00:00Z')`, [after, communityId]);
+    const afterRow = await row(after);
+    assert.equal(afterRow.guild_key, null);
+    assert.equal(afterRow.open_to_guilds, true);
+    assert.equal(afterRow.aggregate_version, '1');
+  } finally {
+    await prior.end();
+    await database.query(`DROP SCHEMA IF EXISTS ${priorSchema} CASCADE`);
+  }
+});
+
+test('installation sync classifies a catalog skill-book repository and leaves an admin scope alone', async () => {
+  const adminId = randomUUID();
+  await pool.query('INSERT INTO platform_admins (admin_id, community_id, email, display_name) VALUES ($1,$2,$3,$4)', [adminId, community, 'sync-scope@example.invalid', 'Sync scope']);
+  const preserved = await insertRepo(randomUUID(), '9203', '77', 'FreeTWAI-AI/freedom-supplier-client');
+  await pool.query(`UPDATE maintainer_repositories SET scope_kind='module' WHERE repository_id=$1`, [preserved]);
+  const fill = await insertRepo(randomUUID(), '9204', '77', 'FreeTWAI-AI/claude-skill-social-post');
+  const history = await insertRepo(randomUUID(), '9205', '77', 'FreeTWAI-AI/freedom-skill-event-space');
+  await pool.query(`INSERT INTO maintainer_ownership_changes
+    (change_id, repository_id, guild_key, scope_kind, open_to_guilds, source, changed_by_admin, reason)
+    VALUES ($1,$2,NULL,NULL,true,'admin',$3,'管理員曾看過這個儲存庫，分類先留空。')`, [randomUUID(), history, adminId]);
+  const before = async (id: string) => (await pool.query('SELECT aggregate_version FROM maintainer_repositories WHERE repository_id=$1', [id])).rows[0].aggregate_version as string;
+  const preservedVersion = await before(preserved);
+  const historyVersion = await before(history);
+  await pool.query(`UPDATE maintainer_worker_state SET next_installation_sync_at=$1 WHERE singleton`, [clock]);
+  respond = call => {
+    if (/\/app\/installations\/\d+\/repositories$/.test(call.path)) return new Response('missing', { status: 404 });
+    if (call.path === '/app/installations') return Response.json([{ id: 77, account: { login: 'FreeTWAI-AI', type: 'Organization' }, suspended_at: null }]);
+    if (call.method === 'POST' && call.path === '/app/installations/77/access_tokens') {
+      return Response.json({ token: TOKEN, permissions: (call.body as { permissions: Record<string, string> }).permissions }, { status: 201 });
+    }
+    if (call.path === '/installation/repositories') {
+      return Response.json({
+        total_count: 5, repository_selection: 'selected', repositories: [
+          { id: 9201, full_name: 'FreeTWAI-AI/Freedom-Skill-Career-Guide', default_branch: 'main' },
+          { id: 9202, full_name: 'FreeTWAI-AI/not-a-skill-book', default_branch: 'main' },
+          { id: 9203, full_name: 'FreeTWAI-AI/freedom-supplier-client', default_branch: 'main' },
+          { id: 9204, full_name: 'FreeTWAI-AI/claude-skill-social-post', default_branch: 'main' },
+          { id: 9205, full_name: 'FreeTWAI-AI/freedom-skill-event-space', default_branch: 'main' },
+        ],
+      });
+    }
+    if (call.path.endsWith('/pulls')) return Response.json([]);
+    if (call.path.endsWith('/files')) return Response.json([]);
+    if (call.path.endsWith('/reviews')) return Response.json([]);
+    if (call.path.endsWith('/check-runs')) return Response.json({ check_runs: [] });
+    if (call.path.endsWith('/status')) return Response.json({ statuses: [] });
+    return new Response('unexpected', { status: 500 });
+  };
+  await tick();
+  const row = async (githubId: string) => (await pool.query(
+    'SELECT guild_key, scope_kind, skill_book_id, open_to_guilds, aggregate_version FROM maintainer_repositories WHERE github_repository_id=$1',
+    [githubId],
+  )).rows[0];
+  const matched = await row('9201');
+  assert.equal(matched.guild_key, null);
+  assert.equal(matched.open_to_guilds, true);
+  assert.equal(matched.scope_kind, 'skill_book');
+  assert.equal(matched.skill_book_id, 'career-guide');
+  assert.equal(matched.aggregate_version, '1');
+  const unmatched = await row('9202');
+  assert.equal(unmatched.guild_key, null);
+  assert.equal(unmatched.open_to_guilds, true);
+  assert.equal(unmatched.scope_kind, null);
+  assert.equal(unmatched.skill_book_id, null);
+  const kept = await row('9203');
+  assert.equal(kept.scope_kind, 'module');
+  assert.equal(kept.skill_book_id, null);
+  assert.equal(kept.aggregate_version, preservedVersion);
+  const filled = await row('9204');
+  assert.equal(filled.scope_kind, 'skill_book');
+  assert.equal(filled.skill_book_id, 'social-post');
+  assert.equal(filled.aggregate_version, '2');
+  const untouched = await row('9205');
+  assert.equal(untouched.scope_kind, null);
+  assert.equal(untouched.skill_book_id, null);
+  assert.equal(untouched.aggregate_version, historyVersion);
+  assertHosts();
 });

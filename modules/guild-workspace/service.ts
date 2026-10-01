@@ -41,7 +41,7 @@ export async function guildWorkspace(pool:Pool,actor:Actor){return transaction(p
  const internBlocked=appointed.length>0&&!eligible&&(await internDevelopmentGuilds(q,actor,'skill')).length>0;
  const required=(await q.query('SELECT guild_key,name FROM positioning_guild_catalog WHERE guild_key=ANY($1::text[]) ORDER BY guild_key',[developmentGuilds.skill])).rows;
  // Appointed books stay hidden until the member has a full AI-guild membership; the counts let the UI show why.
- return {managed_guilds:guilds,managed_books:eligible?appointed:[],can_discuss:guilds.length>0,
+ return {managed_guilds:guilds,managed_books:eligible?appointed:[],can_discuss:guilds.length>0,can_review_pulls:guilds.length>0||rows.length>0,
   skill_editor_access:{appointed_books:appointed.length,eligible,requires_development_guild:appointed.length>0&&!eligible,intern_blocked:internBlocked,active_guilds:development,required_guilds:required}};});}
 export async function guildAnnouncements(pool:Pool,actor:Actor,key:string){return transaction(pool,async q=>{await activeMember(q,actor);await guildMembership(q,actor,key);const isLeader=(await managedGuilds(q,actor)).some(g=>g.guild_key===key);return {items:(await q.query("SELECT * FROM guild_announcements WHERE community_id=$1 AND guild_key=$2 AND ($3 OR state='published') ORDER BY created_at DESC,announcement_id LIMIT 100",[actor.community_id,key,isLeader])).rows.map(announcement),can_publish:isLeader};});}
 /** One bounded stream for the member's current guilds; drafts and former memberships stay private. */

@@ -4,6 +4,7 @@ import {
   classifyAttention, deriveQueueState, MAINTAINER_POLICY_VERSION, resolveSettings,
   type PolicyCheck, type QueueClaim, type Reason, type RepositoryMode,
 } from './policy.js';
+import { skillBookTitle } from './skill-books.js';
 
 type Queryable = Pool | PoolClient;
 type PullRow = Record<string, any>;
@@ -11,8 +12,9 @@ type PullRow = Record<string, any>;
 export type ActiveClaim = {
   claim_id: string;
   reviewer_login: string;
-  acting_as: 'admin' | 'guild_leader';
+  acting_as: 'admin' | 'guild_leader' | 'skill_book_maintainer';
   guild_name: string | null;
+  skill_book_id: string | null;
   adopts_repository: boolean;
   expires_at: Date | null;
 };
@@ -43,7 +45,7 @@ export async function loadEligibleReviewerIds(q: Queryable, repositoryId: string
 /** The one active claim, if any. A past expires_at still counts as absent inside deriveQueueState. */
 export async function loadActiveClaim(q: Queryable, pullId: string): Promise<ActiveClaim | null> {
   const row = (await q.query(
-    `SELECT c.claim_id, c.reviewer_login, c.acting_as, g.name AS guild_name, c.expires_at,
+    `SELECT c.claim_id, c.reviewer_login, c.acting_as, g.name AS guild_name, c.skill_book_id, c.expires_at,
        (c.acting_as = 'guild_leader' AND r.guild_key IS NULL AND r.open_to_guilds) AS adopts_repository
      FROM maintainer_review_claims c
      JOIN maintainer_pull_requests p ON p.pull_id = c.pull_id
@@ -61,6 +63,7 @@ export function claimInput(claim: ActiveClaim | null): QueueClaim | null {
     reviewer_login: claim.reviewer_login,
     acting_as: claim.acting_as,
     guild_name: claim.guild_name,
+    skill_book_title: skillBookTitle(claim.skill_book_id),
     adopts_repository: Boolean(claim.adopts_repository),
     expires_at: iso(claim.expires_at),
   };
