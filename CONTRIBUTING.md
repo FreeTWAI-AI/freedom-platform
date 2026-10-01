@@ -3,7 +3,7 @@
 <!-- freedom-repository-guide:start -->
 ## 自由工坊：從一個成果到一個 PR
 
-自由工坊的會員入口、中央資料庫與跨模組業務規則。 已提供 email 註冊、封閉定位、公會與技能書、會員隱私、小隊、供貨與商店草稿、作品共創、行銷紀錄、Access 管理與公會長本人確認。
+自由工坊的會員入口、中央資料庫與跨模組業務規則。 已提供 email 註冊、選主要公會（定位測驗可稍後補做）、公會與技能書、會員隱私、小隊、供貨與商店草稿、作品共創、行銷紀錄、Access 管理與公會長本人確認。
 
 先看[本倉 Issues](https://github.com/FreeTWAI-AI/freedom-platform/issues)與[現有 PR](https://github.com/FreeTWAI-AI/freedom-platform/pulls)。提出問題、這一輪範圍、完成條件與可投入時間，在 Issue 認領並協調重疊工作；維護者已直接派工時不必重複等待，將約定連回交接即可。使用自己的 fork／分支，PR 送到 **FreeTWAI-AI/freedom-platform:main**。
 

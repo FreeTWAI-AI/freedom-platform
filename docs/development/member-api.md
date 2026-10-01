@@ -38,7 +38,7 @@ uses persisted rate limits instead. IDs are UUIDs.
   equipment,contacts,is_self,friendship}`. Only visible nonempty contact values
   are present in `contacts` (a string map), not concealed values or settings.
 - `GET /members/:id`: same card; inactive, incomplete and other-community users
-  return 404. No authenticated access to people until onboarding is complete.
+  return 404. No authenticated access to people until 完成加入（選定主要公會）.
 - `GET /friends`: `{items:[{user_id,nickname,state,requester_ref,aggregate_version}]}`.
 - `POST /friends/:id/request|accept|remove`: `{}`. First request needs no version;
   accept/remove and renewed removed friendship need current version. Only the
@@ -78,8 +78,10 @@ aggregate version; open editors must refresh. Reads also normalize legacy
 stored rows, but new writes accept only the new strict audience-array shape.
 
 New accounts have a server-enforced onboarding gate. Only session/logout,
-account settings, assessment definition/answers/evaluation/completion, current
-guild catalog/join/leave/primary and own skill-books are available until completed.
+account settings, assessment definition/answers/evaluation/completion, quick-start,
+current guild catalog/join/leave/primary and own skill-books are available until
+完成加入（選定主要公會） (`onboarding_completed_at` is recorded). The positioning
+test can be finished later and is not required to pass this gate.
 Legacy demo accounts preserve prior behavior. Public deployments must use a new
 DB with no demo seed and explicitly set `FREEDOM_REGISTRATION_COMMUNITY_ID`.
 Public registration rejects the reserved `@local.test` demo domain so a public signup cannot trigger the startup demo-account guard. No password reset endpoint exists until a recovery mechanism is configured; a user-entered email or social slug is never sufficient proof for an administrator to reset credentials.
