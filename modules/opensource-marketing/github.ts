@@ -65,6 +65,7 @@ export type GitHubRead = {
   retryAfter: string | null;
   rateRemaining: string | null;
   rateReset: string | null;
+  pollInterval: string | null;
   /** Parsed JSON on 200. Raw text on other statuses so the caller can classify the body. Null when there is no body. */
   body: unknown;
 };
@@ -82,6 +83,7 @@ export async function readGitHub(path:string,signal:AbortSignal,fetcher:typeof f
     retryAfter: response.headers.get('retry-after'),
     rateRemaining: response.headers.get('x-ratelimit-remaining'),
     rateReset: response.headers.get('x-ratelimit-reset'),
+    pollInterval: response.headers.get('x-poll-interval'),
   };
   if (response.status>=300&&response.status<400&&response.status!==304) {
     try { await response.body?.cancel(); } catch { /* The status is already final. */ }

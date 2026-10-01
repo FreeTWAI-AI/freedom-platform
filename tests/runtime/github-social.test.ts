@@ -70,43 +70,49 @@ test('only successful member-directed GitHub writes enter workshop rankings; rea
   rows=(await pool.query('SELECT * FROM skill_star_support')).rows;assert.equal(rows[0].active,false);
 });
 
-test('public metrics use original allowlisted repository and persist real counts across service instances',async()=>{
+async function seedMetrics(stars=snapshot.stargazers_count,options:{checked?:string;error?:string|null}={}){
+  await pool.query(`INSERT INTO github_repository_metrics(repository_key,snapshot,checked_at,retry_after,last_error) VALUES($1,$2::jsonb,COALESCE($3::timestamptz,now()),now()+interval '1 hour',$4)
+    ON CONFLICT(repository_key) DO UPDATE SET snapshot=EXCLUDED.snapshot,checked_at=EXCLUDED.checked_at,retry_after=EXCLUDED.retry_after,last_error=EXCLUDED.last_error`,
+  [repository.toLowerCase(),JSON.stringify({...snapshot,stargazers_count:stars}),options.checked??null,options.error??null]);
+}
+
+test('public metrics read the stored catalog snapshot and never call GitHub',async()=>{
+  await seedMetrics();
   const unconfigured=new GitHubSocial(pool,undefined,mock.fetch),another=new GitHubSocial(pool,undefined,mock.fetch);
   const all=await Promise.all(Array.from({length:12},(_,index)=>(index%2?unconfigured:another).metrics(book)));
-  assert.equal(mock.calls.length,1);assert.equal(mock.calls[0].url,`https://api.github.com/repos/${repository}`);assert.equal(mock.calls[0].headers.has('authorization'),false);
+  assert.equal(mock.calls.length,0);
   assert.ok(all.every(result=>result.stargazers_count===42&&result.forks_count===7&&result.open_issues_count===11&&result.subscribers_count===4&&result.stale===false&&result.error===null));
   assert.equal(all[0].repository_url,`https://github.com/${repository}`);assert.ok(all[0].checked_at);
-  assert.deepEqual(await another.metrics(book),all[0]);assert.equal(mock.calls.length,1);
-  await assert.rejects(()=>unconfigured.metrics('https://internal.example.invalid'),errorCode('skill_book_not_found'));assert.equal(mock.calls.length,1);
+  assert.deepEqual(await another.metrics(book),all[0]);assert.equal(mock.calls.length,0);
+  await assert.rejects(()=>unconfigured.metrics('https://internal.example.invalid'),errorCode('skill_book_not_found'));assert.equal(mock.calls.length,0);
   assert.deepEqual(await unconfigured.session(actor),{configured:false,connected:false,github_user:null});
   await assert.rejects(()=>unconfigured.start(actor),errorCode('github_not_configured'));
 });
 
-test('public metrics send the operator read-only token and fall back to one anonymous attempt when GitHub rejects it',async()=>{
+test('page-view metrics ignore the operator token even when the stored row is due',async()=>{
+  await seedMetrics();
   const token='github_pat_synthetic_metrics_token';
   const live=await new GitHubSocial(pool,undefined,mock.fetch,token).metrics(book);
-  assert.equal(live.error,null);assert.equal(live.stargazers_count,42);
-  assert.equal(mock.calls.length,1);assert.equal(mock.calls[0].headers.get('authorization'),`Bearer ${token}`);
-  await pool.query("UPDATE github_repository_metrics SET retry_after=now()-interval '1 minute'");mock.stats={...snapshot,stargazers_count:43};
-  let rejected=0;const rejecting:typeof fetch=async(input,init={})=>{if(new Headers(init.headers).has('authorization')){rejected++;return Response.json({message:'Bad credentials'},{status:401});}return mock.fetch(input,init);};
-  const logged:unknown[][]=[],original=console.error;console.error=(...args:unknown[])=>{logged.push(args);};
-  let fallback;try{fallback=await new GitHubSocial(pool,undefined,rejecting,token).metrics(book);}finally{console.error=original;}
-  assert.equal(fallback.error,null);assert.equal(fallback.stargazers_count,43);assert.equal(rejected,1);
-  assert.equal(mock.calls.length,2);assert.equal(mock.calls[1].headers.has('authorization'),false);
-  assert.deepEqual(logged,[['github_metrics_token_rejected']]);assert.ok(!JSON.stringify(logged).includes(token));
+  assert.equal(live.error,null);assert.equal(live.stargazers_count,42);assert.equal(mock.calls.length,0);
+  await pool.query("UPDATE github_repository_metrics SET retry_after=now()-interval '1 minute'");
+  const again=await new GitHubSocial(pool,undefined,mock.fetch,token).metrics(book);
+  assert.equal(again.stargazers_count,42);assert.equal(mock.calls.length,0);
 });
 
-test('failed refresh retains dated real counters and a first failure returns null, never invented zero',async()=>{
-  const first=await social.metrics(book);await pool.query("UPDATE github_repository_metrics SET retry_after=now()-interval '1 minute',checked_at=now()-interval '2 hours'");mock.metricsStatus=503;
-  const stale=await social.metrics(book);assert.equal(stale.stargazers_count,first.stargazers_count);assert.equal(stale.stale,true);assert.equal(stale.error,'github_unavailable');assert.notEqual(stale.checked_at,first.checked_at);
+test('stored metrics keep real counters and a missing row stays null',async()=>{
+  const checked=new Date(Date.now()-2*60*60*1000).toISOString();
+  await seedMetrics(42,{checked,error:'github_unavailable'});
+  const stale=await social.metrics(book);assert.equal(stale.stargazers_count,42);assert.equal(stale.stale,true);assert.equal(stale.error,'github_unavailable');assert.equal(stale.checked_at,new Date(checked).toISOString());
+  assert.equal((await social.metrics(book)).checked_at,stale.checked_at);
   const missing=await social.metrics('security-scanner');assert.equal(missing.stargazers_count,null);assert.equal(missing.forks_count,null);assert.equal(missing.checked_at,null);assert.equal(missing.stale,true);
-  const attempts=mock.calls.length;await new GitHubSocial(pool,config,mock.fetch).metrics('security-scanner');assert.equal(mock.calls.length,attempts);
+  await new GitHubSocial(pool,config,mock.fetch).metrics('security-scanner');assert.equal(mock.calls.length,0);
 });
 
 test('cached metrics for public documents never make a provider request',async()=>{
   const missing=await social.cachedMetrics(book);assert.equal(missing.stargazers_count,null);assert.equal(missing.stale,true);assert.equal(mock.calls.length,0);
-  const live=await social.metrics(book),count=mock.calls.length;assert.deepEqual(await new GitHubSocial(pool).cachedMetrics(book),live);assert.equal(mock.calls.length,count);
-  await pool.query("UPDATE github_repository_metrics SET checked_at=now()-interval '2 hours'");assert.equal((await social.cachedMetrics(book)).stale,true);assert.equal(mock.calls.length,count);
+  await seedMetrics();
+  const live=await social.metrics(book);assert.deepEqual(await new GitHubSocial(pool).cachedMetrics(book),live);assert.equal(mock.calls.length,0);
+  await pool.query("UPDATE github_repository_metrics SET checked_at=now()-interval '2 hours'");assert.equal((await social.cachedMetrics(book)).stale,true);assert.equal(mock.calls.length,0);
 });
 
 test('a GitHub redirect is rejected once and the Location target is never requested',async()=>{
@@ -222,10 +228,10 @@ test('explicit star and unstar use only authenticated member token and GitHub-co
 });
 
 test('post-star counters come only from repository response and metrics failure cannot undo confirmed star',async()=>{
-  await connect();await social.metrics(book);mock.stats.stargazers_count=47;
+  await connect();const before=mock.calls.length;await social.metrics(book);assert.equal(mock.calls.length,before);mock.stats.stargazers_count=47;
   await social.star(actor,book,true);assert.equal((await social.cachedMetrics(book)).stargazers_count,47);
   await social.star(actor,book,true);assert.equal((await social.cachedMetrics(book)).stargazers_count,47); // Retried desired state is not +1.
-  const metricCalls=mock.calls.filter(call=>call.url===`https://api.github.com/repos/${repository}`);assert.equal(metricCalls.length,3);assert.equal(metricCalls[0].headers.has('authorization'),false);assert.ok(metricCalls.slice(1).every(call=>call.headers.get('authorization')==='Bearer ghu_synthetic'));
+  const metricCalls=mock.calls.filter(call=>call.url===`https://api.github.com/repos/${repository}`);assert.equal(metricCalls.length,2);assert.ok(metricCalls.every(call=>call.headers.get('authorization')==='Bearer ghu_synthetic'));
   mock.metricsStatus=503;assert.equal((await social.star(actor,book,false)).confirmed,true);assert.equal(mock.starred,false);
   const stale=await social.cachedMetrics(book);assert.equal(stale.stargazers_count,47);assert.equal(stale.stale,true);assert.equal(stale.error,'github_unavailable');
 });

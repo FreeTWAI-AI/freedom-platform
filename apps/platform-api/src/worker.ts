@@ -11,7 +11,6 @@ import { assertOriginAllowed, resolveFreedomEnv, type FreedomEnv } from './env.j
 import { createPlatformApp } from './platform-app.js';
 import { assertDatabaseReady, ReadinessError } from './readiness.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
-import { CollaborationGitHub } from '../../../modules/co-creation/github.js';
 import { GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories } from '../../../modules/community/github-sync.js';
 
 /**
@@ -174,7 +173,6 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
   const syncGitHub = deps.syncGitHub ?? syncGitHubRepositories;
   // Only a boolean per bindings object: pending I/O is never shared between requests.
   const verified = new WeakSet<object>();
-  const coCreationGitHub = new CollaborationGitHub();
   return {
     async fetch(request: Request, env: WorkerEnv, ctx: WorkerContext): Promise<Response> {
       let config: WorkerConfig;
@@ -203,7 +201,7 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
           }
           verified.add(env);
         }
-        const app = createPlatformApp(pool, config.origin, config.freedomEnv, workerRuntime(env, config), {coCreationGitHub});
+        const app = createPlatformApp(pool, config.origin, config.freedomEnv, workerRuntime(env, config));
         mountAssets(app, env.ASSETS);
         return await scope(env, async () => app.fetch(request, env, ctx as never));
       } catch (error) {

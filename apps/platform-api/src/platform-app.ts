@@ -76,8 +76,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   const secureCookies=freedomEnv!=='local';
   const loadSocial=socialLoader(pool,origin,options.githubSocial,runtime.githubTokenKey,runtime.githubMetricsToken);
   const publicSocial=new GitHubSocial(pool,undefined,options.githubSocial?.fetcher??fetch,runtime.githubMetricsToken());
-  const pageGitHub=new PageGitHubReader(options.githubSocial?.fetcher??fetch,undefined,runtime.githubMetricsToken);
-  const pageGitHubEvents=new PageGitHubEventReader(options.githubSocial?.fetcher??fetch,undefined,runtime.githubMetricsToken);
+  const pageGitHub=new PageGitHubReader(pool);
+  const pageGitHubEvents=new PageGitHubEventReader(pool);
   const app=new Hono<{Variables:{actor:Actor}}>();
   app.onError((err,c)=>{
     if(err instanceof z.ZodError) return c.json({type:'about:blank',title:'Validation failed',status:422,code:'validation_failed',detail:err.issues.map(i=>`${i.path.join('.')}: ${i.message}`).join('; ')},422);
@@ -261,7 +261,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createCommerceRoutes(pool));
   app.route('/api/v1',createAgentCommerceRoutes(pool,origin));
   app.route('/api/v1',createOpenSourceRoutes(pool,runtime.githubMetricsToken));
-  app.route('/api/v1',createCoCreationRoutes(pool,runtime.githubMetricsToken,options.coCreationGitHub));
+  app.route('/api/v1',createCoCreationRoutes(pool,options.coCreationGitHub));
   app.route('/api/v1',createBenefitRoutes(pool));
   // Unknown machine paths answer JSON 404 before any host serves the browser shell.
   for(const prefix of ['/api/*','/client-api/*','/agent-api/*','/development-agent/*','/shop-api/*'])app.all(prefix,c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'此版本尚未提供這個 API。'},404));
