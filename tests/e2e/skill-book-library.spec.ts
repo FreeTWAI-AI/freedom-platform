@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { navigate } from './navigation.js';
 import {test,expect,type Page,type Locator} from './fixtures.js';
 import type {SkillBook} from '../../modules/community/catalog';
+import { e2eOrigin } from '../../packages/testing/e2e-origin.js';
 
 test.beforeEach(async({page})=>{
   // Preview every catalog book without pretending the fixture member has guild grants.
@@ -22,7 +24,7 @@ async function openLibrary(page:Page){
   const library=page.locator('.community-library');
   await expect(page.getByRole('heading',{name:'技能書架',level:1,exact:true})).toBeVisible();
   await page.getByRole('button',{name:'未解鎖',exact:true}).click();
-  await expect(library.locator('.skill-library-book')).toHaveCount(28);
+  await expect(library.locator('.skill-library-book')).toHaveCount(29);
   return library;
 }
 
@@ -53,11 +55,11 @@ test('guild skill book introduces a real first deliverable before external readi
 });
 
 
-test('the guild shelf and 社群技能書 hold all 37 books once each; guild search intersects workshop categories without granting books',async({page})=>{
+test('the guild shelf and 社群技能書 hold all 38 books once each; guild search intersects workshop categories without granting books',async({page})=>{
   const library=await openLibrary(page),cards=library.locator('article.skill-library-book');
   const community=page.locator('.community-skill-library'),communityCards=community.locator('article.skill-library-book');
   const grantedBefore=await (await page.request.get('/api/v1/me/skill-books')).json();
-  await expect(library.getByRole('status')).toHaveText('顯示 28 / 28 本技能書');
+  await expect(library.getByRole('status')).toHaveText('顯示 29 / 29 本技能書');
   await expect(community.getByRole('status')).toHaveText('顯示 9 / 9 本社群技能書');
   const catalog=await (await page.request.get('/api/v1/community')).json() as {skill_books:SkillBook[]};
   const shelved=async(cards:Locator)=>(await cards.evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-book-id')!))).sort();
@@ -69,9 +71,9 @@ test('the guild shelf and 社群技能書 hold all 37 books once each; guild sea
   await expect(communityCards.locator('.skill-badge-community')).toHaveCount(9);
   await expect(communityCards.locator('.skill-badge-official')).toHaveCount(0);
   const illustrations=page.locator('.skill-shelves article.skill-library-book .skill-book-illustration');
-  await expect(illustrations).toHaveCount(37);
+  await expect(illustrations).toHaveCount(38);
   const urls=await illustrations.evaluateAll(images=>images.map(image=>image.getAttribute('src')));
-  expect(new Set(urls).size).toBe(37);
+  expect(new Set(urls).size).toBe(38);
   for(const url of urls){
     expect(url).toMatch(/^\/art\/skills\/[a-z0-9-]+\.webp$/);
     const response=await page.request.get(url!);
@@ -85,14 +87,14 @@ test('the guild shelf and 社群技能書 hold all 37 books once each; guild sea
   // Search must narrow the selected category, not replace it or search only featured books.
   await search.fill('社群貼文');
   await expect(cards).toHaveCount(0);
-  await expect(library.getByRole('status')).toHaveText('顯示 0 / 28 本技能書');
+  await expect(library.getByRole('status')).toHaveText('顯示 0 / 29 本技能書');
   await expect(library.getByText('沒有符合的技能書。試試另一個關鍵字或用途。',{exact:true})).toBeVisible();
   await category.selectOption({label:'內容與行銷'});
   await expect(cards).toHaveCount(1);
   await expect(cards.first().getByRole('heading')).toHaveText('Hao 社群貼文技能書');
-  await expect(library.getByRole('status')).toHaveText('顯示 1 / 28 本技能書');
+  await expect(library.getByRole('status')).toHaveText('顯示 1 / 29 本技能書');
   await search.fill('');await category.selectOption({label:'全部用途'});
-  await expect(cards).toHaveCount(28);
+  await expect(cards).toHaveCount(29);
   const grantedAfter=await (await page.request.get('/api/v1/me/skill-books')).json();
   expect(grantedAfter).toEqual(grantedBefore);
   await page.setViewportSize({width:390,height:844});
@@ -101,7 +103,7 @@ test('the guild shelf and 社群技能書 hold all 37 books once each; guild sea
 
 test('new member books are discoverable by author, retain original links and work on a narrow phone',async({page})=>{
   const library=await openLibrary(page);
-  for(const [id,author,repo] of [['local-workspace-mcp','Mini','arumwu/local-workspace-mcp'],['editkin','Hao','Hao0321/Editkin'],['positioning-companion','Jason','jason201385-commits/positioning-companion'],['freedom-party-guild-lounge','David','davidni0729/freedom-party-guild-lounge'],["bidding-radar-concept", "綠豆", "greenQQQ/bidding-radar-concept"],["aiwff-runtime", "隊長", "zaxardery8011-design/aiwff-runtime"],["n8n-marketing-flows", "Yuri", "YuriCrystal/n8n-marketing-flows"],["anti-gambling-trader-tw", "阿軒哥哥（阿軒割割）", "mars-tw/anti-gambling-trader-tw"],["web-card-game-skill", "阿軒哥哥（阿軒割割）", "mars-tw/web-card-game-skill"],["ai-avatar-bot", "Yuri", "YuriCrystal/ai-avatar-bot"],["ai-manga-translator", "綠豆", "greenQQQ/ai-manga-translator"],["line-persona", "隊長", "zaxardery8011-design/line-persona"]]){
+  for(const [id,author,repo] of [['local-workspace-mcp','Mini','arumwu/local-workspace-mcp'],['editkin','Hao','Hao0321/Editkin'],['positioning-companion','Jason','jason201385-commits/positioning-companion'],['freedom-party-guild-lounge','David','davidni0729/freedom-party-guild-lounge'],["bidding-radar-concept", "綠豆", "greenQQQ/bidding-radar-concept"],["aiwff-runtime", "隊長", "zaxardery8011-design/aiwff-runtime"],["n8n-marketing-flows", "Yuri", "YuriCrystal/n8n-marketing-flows"],["anti-gambling-trader-tw", "阿軒哥哥（阿軒割割）", "mars-tw/anti-gambling-trader-tw"],["web-card-game-skill", "阿軒哥哥（阿軒割割）", "mars-tw/web-card-game-skill"],["ai-avatar-bot", "Yuri", "YuriCrystal/ai-avatar-bot"],["ai-manga-translator", "綠豆", "greenQQQ/ai-manga-translator"],["line-persona", "隊長", "zaxardery8011-design/line-persona"],["open-seo-advisor", "阿軒哥哥（阿軒割割）", "mars-tw/open-seo-advisor-skill"]]){
     // Demoted author books moved to 社群技能書: readable by everyone, so there is nothing to preview or unlock.
     const shelf=communityBookIds.includes(id)?page.locator('.community-skill-library'):library;
     await shelf.getByLabel(communityBookIds.includes(id)?'搜尋社群技能書':'搜尋技能書',{exact:true}).fill(author);
@@ -172,7 +174,7 @@ test('book cards credit the original GitHub author and offer direct reading acti
 test('all public book pages and Markdown preserve beginner summaries, covers, original stars and source facts',async({page,request})=>{
   const response=await request.get('/api/v1/development-map');expect(response.status()).toBe(200);
   const map=await response.json() as {skill_books:(SkillBook&{guide_url:string;markdown_url:string})[]};
-  expect(map.skill_books).toHaveLength(37);
+  expect(map.skill_books).toHaveLength(38);
   for(const book of map.skill_books){
     const htmlResponse=await request.get(book.guide_url),markdownResponse=await request.get(book.markdown_url);
     expect(htmlResponse.status(),book.id).toBe(200);expect(markdownResponse.status(),book.id).toBe(200);
@@ -325,4 +327,42 @@ test('a published member work is packaged as a 社群技能書 like every catalo
   await expect(shelf.getByRole('status')).toHaveText('顯示 1 / 10 本社群技能書');
   await search.fill('沒有這本書');await expect(cards).toHaveCount(0);await expect(shelf.getByText('沒有符合的社群技能書。',{exact:true})).toBeVisible();
   await page.screenshot({path:'test-results/community-skill-books.png'});
+});
+
+test('a 成長與行銷公會 member sees Open SEO Advisor unlocked on the guild shelf',async({page,e2eAuthPool})=>{
+  await page.unroute('**/api/v1/me/skill-books');
+  const id=randomUUID(),email=`seo-advisor-${id}@local.test`;
+  await e2eAuthPool.query("INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,active) SELECT $1,community_id,$2,'SEO 健檢夥伴',password_hash,$3,true FROM users WHERE email='maker@local.test'",[id,email,randomUUID()]);
+  try {
+    await page.goto('/');
+    await page.getByLabel('電子郵件',{exact:true}).fill(email);
+    await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
+    await page.getByRole('button',{name:'登入',exact:true}).click();
+    await expect(page.locator('.shell')).toBeVisible();
+    const session=await (await page.request.get('/api/v1/session')).json() as {csrf_token:string};
+    const joined=await page.request.post('/api/v1/guilds/guild_marketing/join',{headers:{Origin:e2eOrigin(),'X-CSRF-Token':session.csrf_token,'Idempotency-Key':randomUUID()},data:{}});
+    expect(joined.ok(),await joined.text()).toBe(true);
+    await navigate(page,'技能書架');
+    const shelf=page.locator('section.skill-shelf').filter({has:page.getByRole('heading',{name:'公會指定技能書',exact:true})});
+    await expect(shelf.getByRole('heading',{name:'公會指定技能書',level:2,exact:true})).toBeVisible();
+    await shelf.getByLabel('搜尋技能書',{exact:true}).fill('SEO 健檢');
+    const card=shelf.locator('article[data-book-id="open-seo-advisor"]');
+    await expect(card).toHaveAttribute('data-access','unlocked');
+    await expect(card).toContainText('作者：阿軒哥哥（阿軒割割）');
+    const cover=card.locator('.skill-book-illustration');
+    await expect(cover).toHaveAttribute('src','/art/skills/open-seo-advisor.webp');
+    await expect.poll(()=>cover.evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    await expect(shelf.locator('article.skill-library-book')).toHaveCount(1);
+    for(const width of [390,820,1280]){
+      await page.setViewportSize({width,height:width===390?844:900});
+      await card.scrollIntoViewIfNeeded();
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      await page.screenshot({path:`test-results/open-seo-advisor-shelf-${width}.png`,fullPage:true});
+    }
+  } finally {
+    await e2eAuthPool.query('DELETE FROM outbox WHERE transition_id IN (SELECT transition_id FROM transition_journal WHERE actor_ref=$1)',[id]);
+    await e2eAuthPool.query('DELETE FROM transition_journal WHERE actor_ref=$1',[id]);
+    for(const table of ['member_skill_book_grants','positioning_profession_memberships','guild_member_preferences','command_receipts','sessions','member_accounts'])await e2eAuthPool.query(`DELETE FROM ${table} WHERE user_id=$1`,[id]);
+    await e2eAuthPool.query('DELETE FROM users WHERE user_id=$1',[id]);
+  }
 });
