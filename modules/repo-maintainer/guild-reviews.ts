@@ -39,7 +39,7 @@ type ClaimOptionRow = {
 };
 
 function visibleSql(keys: string, books: string) {
-  return `(r.guild_key = ANY(${keys}::text[]) OR (r.guild_key IS NULL AND r.open_to_guilds) OR (r.skill_book_id IS NOT NULL AND r.skill_book_id = ANY(${books}::text[])))`;
+  return `((cardinality(${keys}::text[]) > 0 AND (r.guild_key = ANY(${keys}::text[]) OR (r.guild_key IS NULL AND r.open_to_guilds))) OR (r.skill_book_id IS NOT NULL AND r.skill_book_id = ANY(${books}::text[])))`;
 }
 
 async function activeMember(q: PoolClient, actor: Actor) {

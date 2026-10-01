@@ -104,7 +104,7 @@ test('review center reads require the provisioned admin and hide secrets', async
   assert.equal(stranger.status, 403);
   const summary = await request('/review-center/summary');
   assert.equal(summary.status, 200, JSON.stringify(summary.data));
-  assert.equal(summary.data.policy_version, '2026-10-01.1');
+  assert.equal(summary.data.policy_version, '2026-10-01.2');
   assert.equal(summary.data.counts.awaiting_review, 2);
   assert.equal(summary.data.counts.in_review, 0);
   assert.equal(summary.data.counts.merged, undefined);

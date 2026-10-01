@@ -251,7 +251,7 @@ test('reconcile stores the mirror and an out-of-order run does not overwrite it'
   assert.equal(row.title, 'Observe me');
   assert.equal(row.queue_state, 'awaiting_review');
   assert.deepEqual(row.attention_reasons, []);
-  assert.equal(row.policy_version, '2026-10-01.1');
+  assert.equal(row.policy_version, '2026-10-01.2');
   assert.equal((await pool.query(`SELECT app_slug, conclusion FROM maintainer_checks`)).rows[0].app_slug, 'github-actions');
   assert.equal(logged.join('\n').includes(TOKEN), false);
   assert.equal(logged.join('\n').includes(privateKey.slice(40, 80)), false);
@@ -608,7 +608,10 @@ test('a new repository is open with no guild, and only an untouched unowned row 
   await database.query(`CREATE SCHEMA ${priorSchema}`);
   try {
     const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-    const names = (await readdir(resolve(root, 'migrations'))).filter(name => name.endsWith('.sql') && name < '068_').sort();
+    const scopeName = (await readdir(resolve(root, 'migrations'))).find(name => /^\d{3}_maintainer_review_scope\.sql$/.test(name));
+    assert.ok(scopeName);
+    const scopeNumber = scopeName.slice(0, 3);
+    const names = (await readdir(resolve(root, 'migrations'))).filter(name => name.endsWith('.sql') && name < `${scopeNumber}_`).sort();
     await transaction(prior, async q => {
       for (const name of names) await q.query(await readFile(resolve(root, 'migrations', name), 'utf8'));
     });
@@ -632,7 +635,7 @@ test('a new repository is open with no guild, and only an untouched unowned row 
     await prior.query(`INSERT INTO maintainer_ownership_changes
       (change_id, repository_id, guild_key, scope_kind, open_to_guilds, source, changed_by_admin, reason)
       VALUES ($1,$2,NULL,NULL,false,'admin',$3,'管理員曾把這個儲存庫留在只限管理員。')`, [randomUUID(), history, adminId]);
-    await prior.query(await readFile(resolve(root, 'migrations', '068_maintainer_review_scope.sql'), 'utf8'));
+    await prior.query(await readFile(resolve(root, 'migrations', scopeName), 'utf8'));
     const row = async (id: string) => (await prior.query('SELECT guild_key, open_to_guilds, aggregate_version FROM maintainer_repositories WHERE repository_id=$1', [id])).rows[0];
     const openedRow = await row(untouched);
     assert.equal(openedRow.guild_key, null);

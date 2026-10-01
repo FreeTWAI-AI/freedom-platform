@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** Stored on every derived pull. Bump when attention or queue rules change. */
-export const MAINTAINER_POLICY_VERSION = '2026-10-01.1';
+export const MAINTAINER_POLICY_VERSION = '2026-10-01.2';
 
 export const REPOSITORY_MODES = ['off', 'observe'] as const;
 export type RepositoryMode = (typeof REPOSITORY_MODES)[number];

@@ -20,12 +20,12 @@
 | 元件 | 位置 | 做什麼 |
 | --- | --- | --- |
 | 資料表 | `migrations/061_repo_maintainer.sql`、`migrations/062_maintainer_review_claims.sql`、`migrations/068_maintainer_review_scope.sql` | 儲存庫、歸屬變更、單列排程、webhook 投遞紀錄、工作、拉取請求鏡像、檔案、檢查、審查、認領、`maintainer_eligible_reviewers`。068 把新儲存庫預設改成開放認領，並加上技能書審查範圍 |
-| 政策 | `modules/repo-maintainer/policy.ts` | 注意事項、遷移編號、佇列狀態、認領覆寫。沒有 I/O。版本 `2026-10-01.1` |
+| 政策 | `modules/repo-maintainer/policy.ts` | 注意事項、遷移編號、佇列狀態、認領覆寫。沒有 I/O。版本 `2026-10-01.2` |
 | 推導 | `modules/repo-maintainer/derive.ts` | `rederivePull`：用已存的鏡像、子表、資格視圖裡的 GitHub id、`migration_reasons` 與進行中的認領重算一筆。不重新推導遷移原因 |
 | Webhook | `POST /api/v1/maintainer/github/webhook` | 驗簽、正規化、寫一筆投遞、必要時排入 `reconcile_pull`。不呼叫 GitHub。只有這個精確的 POST 在會員驗證之前；同一路徑的 GET 回 401 `login_required` |
 | 維護 Worker | `apps/platform-api/src/maintainer-worker.ts` | 每分鐘跑一次 tick：安裝同步、認領生命週期、掃 open PR、執行工作 |
 | 管理 API 與頁面 | `/admin/api/review-center/*`、後台「PR 審核」 | 讀鏡像、認領、指派、暫停、改模式與設定、改歸屬、看誰可以審。見 [platform-admin-api.md](platform-admin-api.md) |
-| 公會審查 API 與頁面 | `/api/v1/guild-reviews`、公會管理「PR 審核」 | 現任公會長看自己公會與開放認領的拉取請求。已任命的技能書維護者另外看自己那本書的工坊。兩者都可以認領或放棄自己的認領。見下方「公會長與技能書維護者」 |
+| 公會審查 API 與頁面 | `/api/v1/guild-reviews`、公會管理「PR 審核」 | 現任公會長看自己公會，以及沒有公會且已開放認領的拉取請求。只靠技能書任命的人只看自己那本書的工坊。同時是兩者的人看到聯集。都可以認領或放棄自己的認領。見下方「公會長與技能書維護者」 |
 
 Webhook 只是提示。漏掉的投遞不會由 GitHub 重送。Worker 每 30 分鐘掃一次到期的儲存庫，把新的、`updated_at` 或 head SHA 變了的、以及清單裡已經不見的 open PR 排進去重算。清單裡沒變、但鏡像已舊的 open PR 也會重算：`synced_at` 超過 10 分鐘，而且佇列是 `waiting_ci` 或 `mergeable` 仍是空的；或者 `synced_at` 超過 6 小時。這種重新整理每次掃描最多 20 筆，`synced_at` 舊的先排。新的、有變的、以及清單裡不見的不受這 20 筆限制。
 
@@ -159,7 +159,7 @@ Tick 在重新推導之前結束認領。每一步先依 `pull_id` 順序鎖住�
 
 會員路由掛在 `/api/v1`，和公會工作區一樣，走 session、Origin 與 CSRF。寫入用 `command()`：要 `Idempotency-Key`，改既有列要 `If-Match`。`40P01` 回 409 `maintainer_write_conflict`。
 
-不是現任公會長（職位加上有效成員），也沒有任何有效的技能書任命，回 403 `review_access_required`。看得到的拉取請求是自己負責的公會、沒有公會且已開放認領、或 `skill_book_id` 是自己被任命的書。看清單不需要 GitHub 連結，和公會長一樣；認領需要，因為認領選項來自資格視圖。其他的回 404 `maintainer_pull_not_found`，不透露別的公會有沒有這筆。技能書維護者不能改歸屬、指派、暫停或設定。審完不會把儲存庫歸到公會。
+不是現任公會長（職位加上有效成員），也沒有任何有效的技能書任命，回 403 `review_access_required`。現任公會長看得到自己負責的公會，以及沒有公會且已開放認領的拉取請求。只靠技能書任命的人，只看得到 `skill_book_id` 是自己被任命的書的拉取請求，不管那個儲存庫屬於哪個公會、有沒有開放。同時是公會長和技能書維護者的人，看到兩邊的聯集。看清單不需要 GitHub 連結，和公會長一樣；認領需要，因為認領選項來自資格視圖。其他的回 404 `maintainer_pull_not_found`，不透露別的公會有沒有這筆。技能書維護者不能改歸屬、指派、暫停或設定。審完不會把儲存庫歸到公會。
 
 公會工作區用 `can_review_pulls` 決定要不要顯示「PR 審核」。現任公會長，或至少有一筆有效的技能書任命，就是 true。這不看 `managed_books`，也不看技能書編輯的開發公會門檻。
 

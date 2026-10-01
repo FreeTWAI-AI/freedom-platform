@@ -50,7 +50,7 @@ function claim(over: Partial<QueueClaim> = {}): QueueClaim {
 }
 
 test('repository settings fill defaults and reject a retired sla_hours field', () => {
-  assert.equal(MAINTAINER_POLICY_VERSION, '2026-10-01.1');
+  assert.equal(MAINTAINER_POLICY_VERSION, '2026-10-01.2');
   assert.equal(settings.rules_profile, 'freedom-platform');
   assert.equal(settings.required_check, 'verify');
   assert.equal(settings.required_check_app_slug, 'github-actions');

@@ -270,7 +270,7 @@ function SettingsBlock({ repositories, directory, guilds, books, busy, onMutate,
   return <details className="review-settings">
     <summary>儲存庫設定</summary>
     <div className="stack">
-      <p className="field-hint">新鏡像的儲存庫沒有公會，並開放公會長認領。只限管理員是管理員之後才改的。</p>
+      <p className="field-hint">新鏡像的儲存庫沒有公會，預設開放公會長認領；要改成只限管理員，請改「歸屬」。</p>
       {repositories.map(repo => <article className="card stack" key={`${repo.repository_id}-${repo.aggregate_version}`}>
         <h3>{repo.full_name}</h3>
         <p className="muted">目前模式 {modeText(repo.mode)} · 歸屬 {repo.guild_key ? (guilds.find(guild => guild.guild_key === repo.guild_key)?.name ?? repo.guild_key) : repo.open_to_guilds ? '開放認領' : '只限管理員'} · {scopeText(repo.scope_kind)}</p>
@@ -330,7 +330,7 @@ function RepoForm({ repo, busy, onMutate, onSaved }: {
     <label className="field">模式<select value={mode} onChange={event => setMode(event.target.value)}><option value="off">關閉</option><option value="observe">觀察</option></select></label>
     <label className="field">認領時效（小時）<input inputMode="numeric" value={claimHours} placeholder="不自動釋放" onChange={event => setClaimHours(event.target.value)} /></label>
     <label className="checkbox-row"><input type="checkbox" checked={requestReviewers} onChange={event => setRequestReviewers(event.target.checked)} />把認領寫成 GitHub 請求審查</label>
-    <p className="field-hint">沒有另外設定時，認領會請求審查者。App 建立時就包含 Pull requests 的讀寫，不必事後重新同意。Worker 變數 GITHUB_MAINTAINER_WRITES 是 requested_reviewers，而且這格有勾，才會寫入 GitHub。沒有寫入權限時，鑄 token 失敗為 github_permission_missing，工作失敗且不重試，認領不受影響。</p>
+    <p className="field-hint">預設勾選：認領或指派時，在 GitHub 把審核人設成 requested reviewer。Worker 變數 GITHUB_MAINTAINER_WRITES 是 requested_reviewers 時才會寫入；GitHub 拒絕時只記下原因，不影響認領。</p>
     <label className="field">必要檢查<input value={requiredCheck} onChange={event => setRequiredCheck(event.target.value)} maxLength={100} /></label>
     <label className="field">檢查 App<input value={appSlug} onChange={event => setAppSlug(event.target.value)} maxLength={100} /></label>
     <label className="field">保留標籤（逗號分隔，空白表示不使用）<input value={holds} onChange={event => setHolds(event.target.value)} /></label>
@@ -369,7 +369,6 @@ function OwnershipForm({ repo, guilds, books, busy, hint, onMutate, onSaved }: {
   }
   return <form className="stack" onSubmit={event => void save(event)}>
     <h4>歸屬</h4>
-    <p className="field-hint">新鏡像的儲存庫沒有公會，並開放公會長認領。只限管理員仍可事後設定。</p>
     {hint && <p className="field-hint">{hint}</p>}
     {error && <p className="banner banner-error" role="alert">{error}</p>}
     <label className="field">歸屬<select aria-label="歸屬" value={choice} onChange={event => setChoice(event.target.value)}><option value="admin">只限管理員</option><option value="open">開放公會長認領</option>{guilds.map(guild => <option key={guild.guild_key} value={guild.guild_key}>{guild.name}</option>)}</select></label>

@@ -383,7 +383,7 @@ test('a skill-book maintainer who is not a guild leader lists, claims and releas
   assert.equal(listed.status, 200, JSON.stringify(listed.data));
   const ids = listed.data.items.map((item: { pull_id: string }) => item.pull_id);
   assert.ok(ids.includes(bookPull));
-  assert.ok(ids.includes(openPull));
+  assert.equal(ids.includes(openPull), false);
   assert.equal(ids.includes(foreignPull), false);
   assert.equal(ids.includes(hiddenPull), false);
   assert.equal(listed.data.viewer.github_login, null);
@@ -401,10 +401,12 @@ test('a skill-book maintainer who is not a guild leader lists, claims and releas
   assert.equal(detail.data.claim_options[0].skill_book_id, 'career-guide');
   assert.equal(detail.data.claim_options[0].skill_book_title, '方向探索與陪跑入門');
   assert.equal(detail.data.claim_options[0].guild_key, null);
+  const openDetail = await memberRequest(member, `/guild-reviews/${openPull}`);
+  assert.equal(openDetail.status, 404);
+  assert.equal(openDetail.data.code, 'maintainer_pull_not_found');
   const openClaim = await memberRequest(member, `/guild-reviews/${openPull}/claim`, {}, 1);
-  assert.equal(openClaim.status, 403);
-  assert.equal(openClaim.data.code, 'maintainer_guild_scope');
-  assert.match(openClaim.data.detail, /技能書/);
+  assert.equal(openClaim.status, 404);
+  assert.equal(openClaim.data.code, 'maintainer_pull_not_found');
   const claimed = await memberRequest(member, `/guild-reviews/${bookPull}/claim`, { acting_as: 'skill_book_maintainer', skill_book_id: 'career-guide' }, 1);
   assert.equal(claimed.status, 201, JSON.stringify(claimed.data));
   assert.equal(claimed.data.claim.acting_as, 'skill_book_maintainer');
@@ -416,6 +418,13 @@ test('a skill-book maintainer who is not a guild leader lists, claims and releas
   assert.equal(released.status, 200, JSON.stringify(released.data));
   assert.equal(released.data.claim, null);
   assert.equal(released.data.claims[0].end_reason, 'self_released');
+
+  await lead(user, 'guild_ai_vibe');
+  const both = await memberRequest(member, '/guild-reviews?queue=open');
+  const bothIds = both.data.items.map((item: { pull_id: string }) => item.pull_id);
+  assert.ok(bothIds.includes(bookPull));
+  assert.ok(bothIds.includes(openPull));
+  assert.equal(bothIds.includes(foreignPull), false);
 });
 
 test('a finished skill-book maintainer claim does not adopt the repository', async () => {
