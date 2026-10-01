@@ -804,8 +804,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AdminReviewCenter.tsx",
-      "bytes": 25517,
-      "sha256": "04e555f90e1d4d305b1656bfcf78bbf75764a615347dcf5bc9c8c5c44ec787e3"
+      "bytes": 25528,
+      "sha256": "1e8a5d3479201fee800d02168b4d60e2c0473429177c6ddc1de66051a7b865ab"
     },
     {
       "path": "apps/portal-web/src/modules/AgentShops.css",
@@ -954,8 +954,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildReviews.tsx",
-      "bytes": 8053,
-      "sha256": "8a4567fc13c980ef131e44dd637b24d1dee93ee18f29d976f8d5086b8a32185b"
+      "bytes": 8072,
+      "sha256": "acaa849c18f3f96f60127f34beddce9401d604f68070babd3a09fe71e5edc1a0"
     },
     {
       "path": "apps/portal-web/src/modules/GuildWorkspace.css",
@@ -1204,8 +1204,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/review-center-shared.tsx",
-      "bytes": 12415,
-      "sha256": "b3b7801ebd9e414ba5f4d01c2f2c96ea1b8258c20fb947ff8f6c26e67d04e0a1"
+      "bytes": 12474,
+      "sha256": "7627a52e652cd3c64258ad8bc1e39c71027925fcf505989b1a3a365ee6849189"
     },
     {
       "path": "apps/portal-web/src/modules/shared.tsx",
@@ -1724,8 +1724,8 @@
     },
     {
       "path": "docs/development/repo-maintainer.md",
-      "bytes": 27484,
-      "sha256": "67ba43b7d96ea7a26e1ce994574a13a34f1602f199eadf3f76b14bb4b6cf3bae"
+      "bytes": 27472,
+      "sha256": "2187f10d1350b3ad3467fe64094db95bfa180fea6856894f232bd610af45bdda"
     },
     {
       "path": "docs/development/repository-guidance-index.json",
@@ -3939,8 +3939,8 @@
     },
     {
       "path": "tests/e2e/admin-review-center.spec.ts",
-      "bytes": 26164,
-      "sha256": "0018fdfdbb36832d76a04d442f499a6094bdd6ef08c39942c1f4df7735002a9b"
+      "bytes": 26120,
+      "sha256": "dbdf9176827946869a6dfc5e3b46b1e71cd36fba5b3b5c4dc151594c2b566217"
     },
     {
       "path": "tests/e2e/admin.spec.ts",
@@ -4529,8 +4529,8 @@
     },
     {
       "path": "tests/runtime/repo-maintainer-admin.test.ts",
-      "bytes": 20371,
-      "sha256": "ce2a5e27f78916a041f94ef71b6a5a3c18b74b0b60d95336a98a193a621e9219"
+      "bytes": 20361,
+      "sha256": "e06f4d684566790037da8798f533ee22919af9334fd95410499d6b564a5feab8"
     },
     {
       "path": "tests/runtime/repo-maintainer-claims.test.ts",
