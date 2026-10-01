@@ -11,6 +11,7 @@ import {
   activeClaimOnPull, assemblePullDetail, assertPullClaimable, openReviewClaim, pgCode,
   presentListRow, PULL_LIST_COLUMNS, PULL_LIST_JOINS, type ClaimIdentity,
 } from './records.js';
+import { HANDOFF_AUDIT_REASON, parseIssueHandoff, parsePullHandoff, recordIssueHandoff, recordPullHandoff } from './handoffs.js';
 import { isCatalogSkillBook, skillBookChoices, skillBookTitle } from './skill-books.js';
 
 const reason = z.string().trim().min(3).max(1000);
@@ -484,4 +485,32 @@ export async function listReviewers(pool: Pool, admin: AdminActor) {
     skill_book_choices: skillBookChoices(),
     guild_choices: guildChoices,
   };
+}
+
+export async function createAdminPullHandoff(pool: Pool, input: AdminCommand, id: string) {
+  z.uuid().parse(id);
+  const body = parsePullHandoff(input.body);
+  return maintainerWrite(pool, { ...input, expected: undefined }, async q => { await scopedPull(q, input.admin, id); }, async q => {
+    const pull = await scopedPull(q, input.admin, id, true);
+    const reviewer = await adminIdentity(q, input.admin, pull.repository_id);
+    const result = await recordPullHandoff(q, pull, reviewer, { guild_name: null, skill_book_title: null }, body, input.admin.admin_id);
+    await audit(q, input.admin, 'maintainer_handoff_create', 'maintainer_pull', id, HANDOFF_AUDIT_REASON,
+      { head_sha: pull.head_sha, queue_state: pull.queue_state },
+      { handoff_id: result.handoff_id, kind: result.kind, cli: result.cli });
+    return result;
+  });
+}
+
+export async function createAdminIssueHandoff(pool: Pool, input: AdminCommand, id: string) {
+  z.uuid().parse(id);
+  const body = parseIssueHandoff(input.body);
+  return maintainerWrite(pool, { ...input, expected: undefined }, async q => { await scopedRepository(q, input.admin, id); }, async q => {
+    const repository = await scopedRepository(q, input.admin, id, true);
+    const reviewer = await adminIdentity(q, input.admin, repository.repository_id);
+    const result = await recordIssueHandoff(q, repository, reviewer, { guild_name: null, skill_book_title: null }, body, input.admin.admin_id);
+    await audit(q, input.admin, 'maintainer_handoff_create', 'maintainer_repository', id, HANDOFF_AUDIT_REASON,
+      { head_sha: null, queue_state: null },
+      { handoff_id: result.handoff_id, kind: result.kind, cli: result.cli });
+    return result;
+  });
 }

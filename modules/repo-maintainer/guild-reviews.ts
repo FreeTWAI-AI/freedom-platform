@@ -9,6 +9,7 @@ import {
   assemblePullDetail, assertPullClaimable, openReviewClaim, pgCode,
   presentListRow, PULL_LIST_COLUMNS, PULL_LIST_JOINS,
 } from './records.js';
+import { parseIssueHandoff, parsePullHandoff, pickHandoffIdentity, recordIssueHandoff, recordPullHandoff } from './handoffs.js';
 import { skillBookTitle } from './skill-books.js';
 
 const REVIEW_ACCESS_REQUIRED = '此頁限現任公會長，或已任命的技能書維護者。';
@@ -163,10 +164,18 @@ export async function listGuildReviews(pool: Pool, actor: Actor, filter: string,
        ORDER BY ${order} LIMIT $4 OFFSET $5`,
       [actor.community_id, access.guilds.map(guild => guild.guild_key), queue, limit + 1, offset, actor.user_id, access.books.map(book => book.skill_book_id)],
     );
+    const repositories = await q.query(
+      `SELECT r.repository_id AS id, r.full_name
+       FROM maintainer_repositories r
+       WHERE r.community_id=$1 AND r.installation_state='active' AND r.mode <> 'off' AND ${visibleSql('$2', '$3')}
+       ORDER BY r.full_name, r.repository_id`,
+      [actor.community_id, access.guilds.map(guild => guild.guild_key), access.books.map(book => book.skill_book_id)],
+    );
     return {
       guilds: access.guilds, skill_books: access.books, viewer: viewer(await githubLogin(q, actor)),
       items: rows.rows.slice(0, limit).map(presentListRow),
       next_offset: rows.rows.length > limit ? offset + limit : null,
+      repositories: repositories.rows,
     };
   });
 }
@@ -178,6 +187,26 @@ export async function guildReviewPull(pool: Pool, actor: Actor, id: string) {
     const access = await requireReviewAccess(q, actor);
     return memberDetail(q, actor, await visiblePull(q, actor, id, access));
   });
+}
+
+async function visibleRepository(q: Queryable, actor: Actor, id: string, access: Access, lock = false) {
+  const row = (await q.query(
+    `SELECT repository_id, full_name, default_branch, installation_state, mode
+     FROM maintainer_repositories r
+     WHERE r.repository_id=$1 AND r.community_id=$3 AND ${visibleSql('$2', '$4')}${lock ? ' FOR UPDATE' : ''}`,
+    [id, access.guilds.map(guild => guild.guild_key), actor.community_id, access.books.map(book => book.skill_book_id)],
+  )).rows[0];
+  requireCondition(row, 404, 'maintainer_repository_not_found', '找不到這個儲存庫。');
+  return row;
+}
+
+async function memberHandoffIdentity(q: Queryable, actor: Actor, repositoryId: string, access: Access) {
+  const chosen = pickHandoffIdentity(await claimOptionRows(q, actor, repositoryId));
+  if (!chosen) {
+    if (!await githubLogin(q, actor)) throw new Problem(409, 'maintainer_claim_identity_required', GITHUB_REQUIRED);
+    throw new Problem(403, 'maintainer_guild_scope', access.guilds.length ? GUILD_SCOPE : BOOK_SCOPE);
+  }
+  return chosen;
 }
 
 async function memberWrite<T>(pool: Pool, input: Command, authorize: (q: PoolClient) => Promise<unknown>, run: (q: PoolClient) => Promise<T>): Promise<T> {
@@ -261,5 +290,39 @@ export async function releaseGuildReview(pool: Pool, input: Command, claimId: st
     if (updated.github_request_state === 'removing') await enqueueMaintainerJob(q, claim.repository_id, 'remove_reviewer_request', claimId, now);
     await rederivePull(q, claim.pull_id, now);
     return memberDetail(q, input.actor, await visiblePull(q, input.actor, claim.pull_id, access));
+  });
+}
+
+export async function createGuildPullHandoff(pool: Pool, input: Command, id: string) {
+  z.uuid().parse(id);
+  const body = parsePullHandoff(input.body);
+  const commandInput = { ...input, expected: undefined };
+  return memberWrite(pool, commandInput, async q => {
+    const access = await requireReviewAccess(q, input.actor);
+    await visiblePull(q, input.actor, id, access);
+  }, async q => {
+    const access = await requireReviewAccess(q, input.actor);
+    const pull = await visiblePull(q, input.actor, id, access, true);
+    const chosen = await memberHandoffIdentity(q, input.actor, pull.repository_id, access);
+    return recordPullHandoff(q, pull, chosen, {
+      guild_name: chosen.guild_name, skill_book_title: skillBookTitle(chosen.skill_book_id),
+    }, body, null);
+  });
+}
+
+export async function createGuildIssueHandoff(pool: Pool, input: Command, id: string) {
+  z.uuid().parse(id);
+  const body = parseIssueHandoff(input.body);
+  const commandInput = { ...input, expected: undefined };
+  return memberWrite(pool, commandInput, async q => {
+    const access = await requireReviewAccess(q, input.actor);
+    await visibleRepository(q, input.actor, id, access);
+  }, async q => {
+    const access = await requireReviewAccess(q, input.actor);
+    const repository = await visibleRepository(q, input.actor, id, access, true);
+    const chosen = await memberHandoffIdentity(q, input.actor, repository.repository_id, access);
+    return recordIssueHandoff(q, repository, chosen, {
+      guild_name: chosen.guild_name, skill_book_title: skillBookTitle(chosen.skill_book_id),
+    }, body, null);
   });
 }

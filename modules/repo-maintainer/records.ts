@@ -182,6 +182,7 @@ export async function assemblePullDetail(q: Queryable, pull: Record<string, any>
     })),
     claim: presentClaim(active),
     claims: history.map(row => ({ ...presentClaim(row), state: row.state, end_reason: row.end_reason, ended_at: iso(row.ended_at) })),
+    handoff: { ...pullHandoffAvailability(pull), recent: await recentHandoffs(q, id) },
     ...(eligible ? { eligible_reviewers: eligible } : {}),
   };
 }
@@ -242,4 +243,32 @@ export async function openReviewClaim(
 
 export function assertPullClaimable(pull: { state: string; is_draft: boolean; paused: boolean; mode: string }) {
   requireCondition(pull.state === 'open' && !pull.is_draft && !pull.paused && pull.mode !== 'off', 409, 'maintainer_claim_unavailable', '這個拉取請求目前未開啟、仍是草稿或已暫停（包括儲存庫已關閉），不能認領。');
+}
+
+export const HANDOFF_PULL_UNAVAILABLE = '這個 PR 目前未開啟、仍是草稿或已暫停（包括儲存庫已關閉），不能交給 AI。';
+export const HANDOFF_MERGE_UNAVAILABLE = '只有已核准（有效核准落在目前的提交上）而且 CI 通過的 PR，才能交給 AI 合併。';
+export const HANDOFF_HEAD_MOVED = '這個 PR 已有新的提交，請重新整理後再試一次。';
+export const HANDOFF_REPO_UNAVAILABLE = '這個儲存庫目前未安裝或已關閉，不能把 Issue 交給 AI。';
+
+export function pullHandoffAvailability(pull: { state?: string; is_draft?: boolean; paused?: boolean; mode?: string; queue_state?: string }) {
+  const allowed = pull.state === 'open' && !pull.is_draft && !pull.paused && pull.mode !== 'off';
+  const mergeAllowed = allowed && pull.queue_state === 'ready';
+  return {
+    allowed,
+    reason: allowed ? null : HANDOFF_PULL_UNAVAILABLE,
+    merge_allowed: mergeAllowed,
+    merge_reason: allowed ? (mergeAllowed ? null : HANDOFF_MERGE_UNAVAILABLE) : HANDOFF_PULL_UNAVAILABLE,
+  };
+}
+
+async function recentHandoffs(q: Queryable, pullId: string) {
+  const rows = (await q.query(
+    `SELECT kind, cli, github_login, head_sha, created_at
+     FROM maintainer_handoffs WHERE pull_id=$1
+     ORDER BY created_at DESC, handoff_id DESC LIMIT 5`,
+    [pullId],
+  )).rows;
+  return rows.map(row => ({
+    kind: row.kind, cli: row.cli, github_login: row.github_login, head_sha: row.head_sha, created_at: iso(row.created_at),
+  }));
 }
