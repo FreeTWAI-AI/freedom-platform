@@ -37,6 +37,41 @@ function countOf(page: Page, label: string) {
   return page.locator('.review-counts > div').filter({has: page.getByText(label, {exact: true})}).locator('dd');
 }
 
+async function tokenBackground(page: Page, token: string) {
+  return page.evaluate(name => {
+    const host = document.querySelector('.review-center');
+    if (!host) throw new Error('找不到審核中心');
+    const probe = document.createElement('span');
+    probe.style.background = `var(${name})`;
+    host.appendChild(probe);
+    try {
+      return getComputedStyle(probe).backgroundColor;
+    } finally {
+      probe.remove();
+    }
+  }, token);
+}
+
+async function expectReviewBadgeColours(page: Page) {
+  const lowRisk = page.locator(`[data-pull-id="${PULL_LOW}"] span.badge`, {hasText: '低風險'});
+  const neutral = page.locator(`[data-pull-id="${PULL_LOW}"] span.badge`, {hasText: '待審'});
+  await expect(lowRisk).toBeVisible();
+  const green = await tokenBackground(page, '--green-soft');
+  const info = await tokenBackground(page, '--info-bg');
+  const danger = await tokenBackground(page, '--danger-bg');
+  expect(green).not.toBe(info);
+  expect(green).not.toBe(danger);
+  expect(info).not.toBe(danger);
+  expect(await lowRisk.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(green);
+  expect(await neutral.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(info);
+  await page.getByRole('tab', {name: '需要擁有者', exact: true}).click();
+  const highRisk = page.locator(`[data-pull-id="${PULL_HIGH}"] span.badge`, {hasText: '高風險'});
+  await expect(highRisk).toBeVisible();
+  expect(await highRisk.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(danger);
+  await page.getByRole('tab', {name: '待審', exact: true}).click();
+  await expect(page.locator(`[data-pull-id="${PULL_LOW}"]`)).toBeVisible();
+}
+
 test('an admin claims, assigns, pauses and reads the review center on desktop and phone', async ({page, e2eAuthPool}) => {
   test.setTimeout(120_000);
   await wipe(e2eAuthPool);
@@ -102,22 +137,38 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
     await expect(countOf(page, '已核准')).toHaveText('0');
     await expect(page.getByRole('list', {name: '儲存庫模式'})).toContainText('FreeTWAI-AI/freedom-platform');
     await expect(page.getByRole('list', {name: '儲存庫模式'})).toContainText('觀察');
+    await page.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
+    await expectReviewBadgeColours(page);
+    await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
+    await expectReviewBadgeColours(page);
+    await page.evaluate(() => { document.documentElement.dataset.theme = 'versefolk'; });
+    await expectReviewBadgeColours(page);
+    await page.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
 
     const low = page.locator(`[data-pull-id="${PULL_LOW}"]`);
     await expect(low).toContainText('低風險');
-    await expect(low.locator('span.badge', {hasText: '低風險'})).toHaveClass(/badge-ok/);
     await expect(low).toContainText('無人認領');
     await expect(low).toContainText('docs-author');
     const github = low.getByRole('link', {name: /#11/});
     await expect(github).toHaveAttribute('href', 'https://github.com/FreeTWAI-AI/freedom-platform/pull/11');
     await expect(github).toHaveAttribute('target', '_blank');
     await expect(github).toHaveAttribute('rel', 'noopener noreferrer');
-    await low.getByRole('button', {name: '詳情', exact: true}).click();
+    const detailToggle = low.getByRole('button', {name: '詳情', exact: true});
+    const toggleBox = await detailToggle.boundingBox();
+    const lowBox = await low.boundingBox();
+    expect(toggleBox).not.toBeNull();
+    expect(lowBox).not.toBeNull();
+    expect(toggleBox!.width).toBeLessThan(200);
+    expect(toggleBox!.height).toBeGreaterThanOrEqual(44);
+    const contentLeft = await low.evaluate(element => {
+      const style = getComputedStyle(element);
+      return element.getBoundingClientRect().left + Number.parseFloat(style.borderLeftWidth) + Number.parseFloat(style.paddingLeft);
+    });
+    expect(Math.abs(toggleBox!.x - contentLeft)).toBeLessThan(1);
+    await detailToggle.click();
     await expect(low.getByRole('link', {name: '在 GitHub 審核', exact: true})).toHaveAttribute('href', 'https://github.com/FreeTWAI-AI/freedom-platform/pull/11/files');
-    await expect(low).toContainText('舊提交');
-    await expect(low).toContainText('不算有效核准');
     const reviewLine = low.getByRole('listitem').filter({hasText: 'old-commenter'});
-    await expect(reviewLine).toContainText('核准');
+    await expect(reviewLine).toHaveText('old-commenter 核准 bbbbbbb 舊提交 不算有效核准');
     await expect(reviewLine).not.toContainText('APPROVED');
     await low.getByRole('button', {name: '我來審', exact: true}).click();
     await expect(page.getByText('管理操作已保存，並留下操作紀錄。')).toBeVisible();
@@ -134,6 +185,20 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
     await expect(mine).toContainText('自己認領');
     await expect(mine).toContainText('認領中');
     await expect(mine.getByRole('button', {name: '指派給…', exact: true})).toBeDisabled();
+    await mine.getByRole('button', {name: '暫停自動處理', exact: true}).click();
+    await mine.getByLabel('暫停理由').fill('先暫停這筆認領。');
+    await mine.getByRole('button', {name: '確認暫停', exact: true}).click();
+    await expect(page.getByText('管理操作已保存，並留下操作紀錄。')).toBeVisible();
+    await expect(mine).toBeVisible();
+    await expect(mine.getByLabel('暫停理由')).toHaveCount(0);
+    await expect(mine.getByLabel('恢復理由')).toHaveCount(0);
+    await expect(mine.getByRole('button', {name: '恢復', exact: true})).toBeVisible();
+    await mine.getByRole('button', {name: '恢復', exact: true}).click();
+    await mine.getByLabel('恢復理由').fill('恢復這筆認領。');
+    await mine.getByRole('button', {name: '確認恢復', exact: true}).click();
+    await expect(page.getByText('管理操作已保存，並留下操作紀錄。')).toBeVisible();
+    await expect(mine.getByLabel('恢復理由')).toHaveCount(0);
+    await expect(mine.getByRole('button', {name: '暫停自動處理', exact: true})).toBeVisible();
     await mine.getByRole('button', {name: '放棄認領', exact: true}).click();
     await mine.getByLabel('放棄理由').fill('這次先交還佇列。');
     await mine.getByRole('button', {name: '確認放棄認領', exact: true}).click();
@@ -144,16 +209,15 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
     const returned = page.locator(`[data-pull-id="${PULL_LOW}"]`);
     await expect(returned).toContainText('無人認領');
     await returned.getByRole('button', {name: '詳情', exact: true}).click();
-    await expect(returned).toContainText('已手動釋放');
+    const released = returned.getByRole('listitem').filter({hasText: 'e2e-reviewer'});
+    await expect(released).toContainText('e2e-reviewer 自己認領 已手動釋放');
+    await expect(released).not.toContainText('已釋放');
     await page.getByRole('tab', {name: '待作者', exact: true}).click();
     const author = page.locator(`[data-pull-id="${PULL_AUTHOR}"]`);
-    await expect(author).toContainText('dependabot[bot]');
-    await expect(author).toContainText('fork');
-    await expect(author).toContainText('Bot');
+    await expect(author).toContainText('dependabot[bot] fork Bot');
     await page.getByRole('tab', {name: '需要擁有者', exact: true}).click();
     const high = page.locator(`[data-pull-id="${PULL_HIGH}"]`);
     await expect(high).toContainText('高風險');
-    await expect(high.locator('span.badge', {hasText: '高風險'})).toHaveClass(/badge-alert/);
     await high.getByRole('button', {name: '詳情', exact: true}).click();
     await high.getByRole('button', {name: '指派給…', exact: true}).click();
     await high.getByLabel('審查者').selectOption({label: 'e2e-reviewer-two（高風險）'});
@@ -169,7 +233,7 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
 
     await page.getByRole('tab', {name: '等 CI', exact: true}).click();
     const ci = page.locator(`[data-pull-id="${PULL_CI}"]`);
-    await expect(ci).toContainText('首次貢獻');
+    await expect(ci).toContainText('ci-author 首次貢獻');
     await expect(ci).toContainText('進行中');
     await ci.getByRole('button', {name: '詳情', exact: true}).click();
     await ci.getByRole('button', {name: '暫停自動處理', exact: true}).click();
@@ -198,7 +262,14 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
     await page.getByRole('tab', {name: '待審', exact: true}).click();
     const phone = page.locator(`[data-pull-id="${PULL_LOW}"]`);
     await expect(phone).toBeVisible();
-    await phone.getByRole('button', {name: '詳情', exact: true}).click();
+    const phoneToggle = phone.getByRole('button', {name: '詳情', exact: true});
+    const phoneToggleBox = await phoneToggle.boundingBox();
+    const phoneBox = await phone.boundingBox();
+    expect(phoneToggleBox).not.toBeNull();
+    expect(phoneBox).not.toBeNull();
+    expect(phoneToggleBox!.x).toBeGreaterThanOrEqual(phoneBox!.x - 0.5);
+    expect(phoneToggleBox!.x + phoneToggleBox!.width).toBeLessThanOrEqual(phoneBox!.x + phoneBox!.width + 0.5);
+    await phoneToggle.click();
     for (const name of ['我來審', '指派給…', '暫停自動處理']) {
       const action = phone.getByRole('button', {name, exact: true});
       await action.scrollIntoViewIfNeeded();
