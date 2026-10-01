@@ -1194,8 +1194,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberShare.tsx",
-      "bytes": 23217,
-      "sha256": "6d3e8585ddfcb8d6caa0199a2e6c80f8a0eff7a22d95109dad2045ef676f9b2b"
+      "bytes": 23928,
+      "sha256": "ffbd441376b149ea3b121b0e59214d0b0996e686244913856b78b93856916e32"
     },
     {
       "path": "apps/portal-web/src/modules/MemberSocialLinks.css",
@@ -4569,8 +4569,8 @@
     },
     {
       "path": "tests/e2e/member-ecard.spec.ts",
-      "bytes": 47056,
-      "sha256": "2646c66c3a5c0ed30a8bd1f276e9afad6cbdbc053a58e2b9c3e44135b542a6d2"
+      "bytes": 55569,
+      "sha256": "4ca7c6d0d839042832dc11d0875d471d83671a9a46e5752301b5aa35016566fd"
     },
     {
       "path": "tests/e2e/member-experience.spec.ts",
