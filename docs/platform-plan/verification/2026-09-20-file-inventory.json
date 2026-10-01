@@ -774,8 +774,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AdminLayout.css",
-      "bytes": 7296,
-      "sha256": "c67ac800c65a853939d90b39424d46f292735f3b7a632dcb6ea73a5766be1aad"
+      "bytes": 7466,
+      "sha256": "bf4107dddfee445c2c86971d4be9a98db5e46352e7447722fe2565e55eed475f"
     },
     {
       "path": "apps/portal-web/src/modules/AdminPanel.tsx",
@@ -3899,8 +3899,8 @@
     },
     {
       "path": "tests/e2e/admin.spec.ts",
-      "bytes": 24166,
-      "sha256": "c6c171fdfef4433eea15e26373ab12c4328d34146a439a0b19b6162c17990a55"
+      "bytes": 26203,
+      "sha256": "54037cc22be1c30148a7fbc0ca22a025e6fce036b8877dc1f6c67fa7bbae0b0d"
     },
     {
       "path": "tests/e2e/agent-shops.spec.ts",
