@@ -7,6 +7,8 @@ import { text, isoTime } from '../../packages/shared/validation.js';
 import type { Actor } from '../identity-membership/service.js';
 import { normalizeEventPoster } from '../skill-submissions/payload.js';
 import {notifyMember} from '../member-communications/notifications.js';
+import {lockMemberGuilds} from '../positioning/onboarding.js';
+import {requireFullGuildMember} from '../positioning/member-tier.js';
 import {adminCommand,audit,type AdminActor,type AdminCommand} from '../platform-admin/service.js';
 
 const details = z.object({
@@ -239,6 +241,7 @@ export async function saveEventBanner(pool:Pool,input:Command,id:string,upload:{
   return command(pool,{...input,body},async q=>{
     const row=await scopedEvent(q,input.actor,id);
     requireCondition(row.organizer_ref===input.actor.user_id,403,'organizer_required','只能修改自己活動的 Banner。');
+    await refuseInternGuildExchange(q,input.actor,row);
   },async q=>{
     const row=await scopedEvent(q,input.actor,id,true);
     checkVersion(row.aggregate_version,input.expected);
@@ -278,6 +281,7 @@ export async function saveEventVideo(pool:Pool,input:Command,id:string,upload:{b
   return command(pool,{...input,body},async q=>{
     const row=await scopedEvent(q,input.actor,id);
     requireCondition(row.organizer_ref===input.actor.user_id,403,'organizer_required','只能修改自己活動的影片。');
+    await refuseInternGuildExchange(q,input.actor,row);
   },async q=>{
     const row=await scopedEvent(q,input.actor,id,true);checkVersion(row.aggregate_version,input.expected);
     requireCondition(row.state==='pending'&&Date.parse(row.starts_at)>Date.now(),409,'event_closed','只能修改待審核且尚未開始的活動。');
@@ -304,12 +308,24 @@ export async function publicEventVideo(pool:Pool,id:string){
   return {bytes:row.media_bytes as Buffer,mime:row.mime_type as 'video/mp4'|'video/webm'};
 }
 
+async function activeGuildTier(q:PoolClient,actor:Actor,guildKey:string|null){
+  if(!guildKey)return undefined;
+  await lockMemberGuilds(q,actor);
+  return (await q.query(`SELECT member_tier FROM positioning_profession_memberships WHERE community_id=$1 AND guild_key=$2 AND user_id=$3 AND state='active'`,[actor.community_id,guildKey,actor.user_id])).rows[0]?.member_tier as string|undefined;
+}
+/** Active interns cannot post or edit a guild skill exchange. Former members keep the organizer path. */
+async function refuseInternGuildExchange(q:PoolClient,actor:Actor,row:{event_kind?:string;guild_key?:string|null}){
+  if(row.event_kind!=='guild_skill_exchange')return;
+  const tier=await activeGuildTier(q,actor,row.guild_key??null);
+  if(tier)requireFullGuildMember(tier);
+}
+
 export async function createEvent(pool:Pool,input:Command) {
   const body=details.parse(input.body);
   return command(pool,input,async()=>{},async q=>{
     requireCondition(Date.parse(body.starts_at)>Date.now(),422,'event_in_past','活動開始時間須在未來。');
     if(body.guild_key)requireCondition((await q.query('SELECT 1 FROM positioning_guild_catalog WHERE guild_key=$1',[body.guild_key])).rowCount===1,422,'unknown_guild','請選擇現有公會。');
-    if(body.event_kind==='guild_skill_exchange')requireCondition((await q.query(`SELECT 1 FROM positioning_profession_memberships WHERE community_id=$1 AND guild_key=$2 AND user_id=$3 AND state='active'`,[input.actor.community_id,body.guild_key,input.actor.user_id])).rowCount===1,403,'event_guild_required','只有主辦公會成員能提交公會技能交流。');
+    if(body.event_kind==='guild_skill_exchange'){const tier=await activeGuildTier(q,input.actor,body.guild_key);requireCondition(tier,403,'event_guild_required','只有主辦公會成員能提交公會技能交流。');requireFullGuildMember(tier);}
     const id=randomUUID();
     const row=(await q.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,guild_key,title,description,starts_at,ends_at,mode,location,capacity,event_kind,topic,online_url,review_guild_key,visibility)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,[id,input.actor.community_id,input.actor.user_id,body.guild_key,body.title,body.description,body.starts_at,body.ends_at,body.mode,body.location,body.capacity,body.event_kind,body.topic,body.online_url,reviewGuildFor(body),body.visibility])).rows[0];
@@ -332,6 +348,7 @@ export async function updateEvent(pool:Pool,input:Command,id:string) {
   return command(pool,input,async q=>{
     const row=await scopedEvent(q,input.actor,id);
     requireCondition(row.organizer_ref===input.actor.user_id,403,'organizer_required','只能編輯自己發佈的活動。');
+    await refuseInternGuildExchange(q,input.actor,row);
   },async q=>{
     const row=await scopedEvent(q,input.actor,id,true);
     checkVersion(row.aggregate_version,input.expected);
@@ -350,6 +367,7 @@ export async function cancelEvent(pool:Pool,input:Command,id:string) {
   return command(pool,input,async q=>{
     const row=await scopedEvent(q,input.actor,id);
     requireCondition(row.organizer_ref===input.actor.user_id,403,'organizer_required','只能取消自己發佈的活動。');
+    await refuseInternGuildExchange(q,input.actor,row);
   },async q=>{
     const row=await scopedEvent(q,input.actor,id,true);
     checkVersion(row.aggregate_version,input.expected);
