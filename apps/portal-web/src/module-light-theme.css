@@ -257,3 +257,9 @@ html:is([data-theme="light"],[data-theme="versefolk"]) .social-platform-badge[da
 html:is([data-theme="light"],[data-theme="versefolk"]) .social-platform-badge[data-platform="other"] {background:var(--bg-elev);color:var(--muted);border-color:var(--line);}
 html:is([data-theme="light"],[data-theme="versefolk"]) .social-placeholder,
 html:is([data-theme="light"],[data-theme="versefolk"]) .service-placeholder {background:var(--navy);color:var(--ink);}
+/* 活動集錦 chips and mode marks. Bright green on a pale chip fails contrast. */
+html:is([data-theme="light"],[data-theme="versefolk"]) .hl-mode-in_person,
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(.hl-chip[aria-pressed="true"],.hl-segment button[aria-pressed="true"]) {color:var(--module-green-ink);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .hl-placeholder {color:var(--ink);background:var(--info-bg);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .hl-platform,
+html:is([data-theme="light"],[data-theme="versefolk"]) .hl-organizer {color:var(--ink);background:var(--bg-elev);}

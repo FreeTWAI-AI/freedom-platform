@@ -20,7 +20,7 @@ export function checkEventVideoUploadHeaders(contentType?:string,contentLength?:
   requireCondition(contentType==='video/mp4'||contentType==='video/webm',415,'video_format','請選擇 MP4 或 WebM 影片。');
   if(contentLength!==undefined)requireCondition(/^\d+$/.test(contentLength)&&Number(contentLength)<=VIDEO_MAX_BYTES,413,'video_too_large','影片需為 20 MiB 以下。');
 }
-async function boundedMedia(request:Request,max:number,message:string){
+export async function boundedMedia(request:Request,max:number,message:string){
   const reader=request.body?.getReader();requireCondition(reader,422,'invalid_banner','請先選擇 Banner 圖片。');
   const chunks:Uint8Array[]=[];let size=0;
   try{for(;;){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;requireCondition(size<=max,413,'media_too_large',message);chunks.push(value);}}
