@@ -32,7 +32,8 @@ Commands (all read-only):
   wrangler [--config P] [--env-file P]  validate the platform Worker config (default: wrangler.jsonc at repo root);
                            with --env-file also GET each real Hyperdrive id to prove caching.disabled.
                            Does not validate wrangler.admin-sync.jsonc: that checker requires platform routes, assets and images.
-                           The cron Worker is checked by npm run worker:dry-run:admin-sync.
+                           Does not validate wrangler.maintainer.jsonc either. The cron Workers are checked by
+                           npm run worker:dry-run:admin-sync and npm run worker:dry-run:maintainer.
   cost                     PlanetScale (selected) and OCI alternative monthly arithmetic
   oci-alternative          offline OCI alternative status from recorded root facts (no OCI call)
   cloudflare --env-file P  GET-only permission and protected-resource probe

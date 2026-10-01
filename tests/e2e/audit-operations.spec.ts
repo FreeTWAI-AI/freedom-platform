@@ -176,7 +176,7 @@ test('guild workspace explains missing authority and shows API errors as alerts'
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   const tabs = page.getByRole('navigation', { name: '公會管理功能' }).getByRole('button');
-  await expect(tabs).toHaveCount(3);
+  await expect(tabs).toHaveText(['公會公告', '技能書編輯', '公會長議事區', 'PR 審核']);
   const heights = await tabs.evaluateAll(els => els.map(el => Math.round(el.getBoundingClientRect().height)));
   expect(Math.max(...heights)).toBeLessThan(60);
   await tabs.nth(2).focus();
