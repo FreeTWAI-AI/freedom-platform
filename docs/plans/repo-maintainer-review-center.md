@@ -77,7 +77,7 @@ freedom-maintainer Worker（新，沒有路由）
 
 **為什麼 v1 不用 Queues／Workflows：** 目前沒有 open PR、只有 3 張 open Issue；cron＋row lease 已經在 #59 驗證過；平台計畫也寫「Server 上不必常駐一隻 LLM agent」（08）。Cloudflare 的排程 Worker 單次最長 15 分鐘 wall time（Paid 的 CPU 上限 30 秒，等模型回應不算 CPU），一次 AI 審核放得進去。之後若需要長時間等待外部事件，再把 `maintainer_jobs` 的工作搬到 Workflows；資料表已經照步驟拆好。
 
-**webhook 只是提示，GitHub API 才是事實。** Webhook 只觸發「重新同步某張 PR」。GitHub 不會自動重送失敗的 webhook，所以維護 Worker 每 30 分鐘另做一次全量補查（分頁讀完，沒有 100 筆上限），補回漏掉或延遲的事件。
+**webhook 只是提示，GitHub API 才是事實。** Webhook 只觸發「重新同步某張 PR」。GitHub 不會自動重送失敗的 webhook，所以維護 Worker 每 30 分鐘另做一次全量補查（分頁讀完，沒有 100 筆上限），補回漏掉或延遲的事件。補查會重新同步這幾種 PR：新的、head 或 `updated_at` 變了的、已經不在 open 清單上的；必要檢查還在跑、或 GitHub 還沒算出能不能合併，而且超過 10 分鐘沒同步的；以及超過 6 小時沒同步的所有 open PR。CI 跑完不會改 PR 的 `updated_at`，漏掉的 check webhook 要靠後面兩條補回。
 
 **Webhook 路由的邊界：**
 
@@ -128,10 +128,11 @@ freedom-maintainer Worker（新，沒有路由）
 | --- | --- | --- |
 | `maintainer_repositories` | installation 裡的 repo 與每個 repo 的模式 | `github_repository_id`（改名也不變）、`installation_id`、`full_name`（顯示用，會更新）、`default_branch`、`installation_state`、`mode`（`off`／`observe`／`ai_review`／`merge_dry_run`／`merge`，新 repo 預設 `observe`）、`settings` jsonb（SLA、CI 等待時間；之後加 AI 備援、合併方式、每日上限）、`next_sweep_at`（補查排程兼 row lease）、`rate_limited_until` |
 | `maintainer_webhook_deliveries` | 去重與稽核 | `delivery_id` PK、`event`、`action`、`installation_id`、`github_repository_id`、`target_number` 或 `head_sha`、`outcome`（`queued`／`ignored`）、`payload_sha256`；驗簽失敗的不寫入；不存完整 payload，30 天後清除 |
-| `maintainer_jobs` | 工作佇列 | `kind`（階段 1 有 `reconcile_pull`、`sync_installations`；之後加 `ai_review`、`evaluate_policy`、`merge`）、`dedupe_key`（排隊中唯一）、`state`、`attempts`、`run_after`、`lease_until`、`last_error`（只存錯誤代碼） |
+| `maintainer_worker_state` | 全域排程（單列） | `next_installation_sync_at`（installation 同步的排程兼 row lease）、`last_installation_sync_at`、`last_error` |
+| `maintainer_jobs` | 工作佇列 | `kind`（階段 1a 只有 `reconcile_pull`；installation 同步用上一列的排程；之後加 `request_reviewer`、`ai_review`、`evaluate_policy`、`merge`）、`dedupe_key`（排隊中唯一）、`state`、`attempts`、`run_after`、`lease_until`、`last_error`（只存錯誤代碼） |
 | `maintainer_pull_requests` | PR 鏡像與衍生狀態 | `head_sha`、`head_observed_at`、`is_draft`、`is_fork`、`author_github_id`、`author_login`、`author_association`、`mergeable`、`mergeable_state`、`labels`、`risk_class`、`risk_reasons`、`queue_state`、`queue_reasons`、`sla_due_at`、`recheck_at`、`paused`、`synced_at` |
 | `maintainer_pull_files` | 最新 head 的檔案清單 | `path`、`previous_path`、`status`、`additions`、`deletions` |
-| `maintainer_checks` | head SHA 的檢查結果 | `source`（check run 或 commit status）、`name`、`app_id`、`app_slug`、`status`、`conclusion`、`check_suite_id`、`completed_at` |
+| `maintainer_checks` | head SHA 的檢查結果 | `source`（check run 或 commit status）、`name`、`app_key`（check run 的 app 數字 ID；commit status 為空字串）、`app_slug`、`status`、`conclusion`、`check_suite_id`、`completed_at` |
 | `maintainer_reviews` | GitHub review 鏡像 | `github_review_id`、`reviewer_github_id`、`reviewer_login`、`reviewer_type`、`reviewer_association`、`state`、`commit_id`、`submitted_at` |
 | `maintainer_reviewers` | 管理員指派的審核員 | `github_user_id`、`github_login`、`user_id`（來源會員）、`max_risk`（`low`／`medium`／`high`）、`active`、`appointed_by`（管理員） |
 
@@ -194,21 +195,22 @@ Owner 自己的 PR 沒有其他人會審，也不能自己核准自己，所以�
 **高風險（一律需要 Ted 在 GitHub 核准；由 ruleset 的路徑審核規則強制，見 §12）：**
 
 - `freedom.project.yaml` 宣告的 `sensitive_paths`：`freedom.project.yaml`、`.github/**`、`SECURITY.md`、`LICENSE`、`site/assets/brand/**`。
-- 會改變驗證方式的檔案：`package.json`、`package-lock.json`、`.tool-versions`、`tsconfig.json`、`playwright.config.ts`、`scripts/**`、`docs/platform-plan/verification/verify_revision.py`。PR 的 CI 跑的是 PR 自己那一版的 workflow 與 scripts，改到這些檔案的 PR 可以讓 `verify` 假綠（R-SKL-08）。
+- 會改變驗證方式的檔案：`package.json`、`package-lock.json`、`.tool-versions`、`tsconfig.json`、`playwright.config.ts`、`scripts/**`、`docs/platform-plan/verification/verify_revision.py`、`docs/platform-plan/execution/tools/**`（`npm run test:contracts` 會跑）、`repositories.lock.json`（`npm run test:repos` 會 checkout 並執行裡面列的 commit），以及 `.npmrc`、`.gitattributes`、`.gitmodules`（目前不存在，新增時能改套件來源、檔案處理或拉進外部程式碼）。PR 的 CI 跑的是 PR 自己那一版的 workflow 與 scripts，改到這些檔案的 PR 可以讓 `verify` 假綠（R-SKL-08）。
 - 資料與部署：`migrations/**`、`deploy/**`、`wrangler*.jsonc`、`compose.yaml`、`packages/db/**`。
 - 登入、權限、金流與憑證：`apps/platform-api/src/{worker,env,readiness,admin-sync-worker}.ts`、`apps/platform-api/src/routes/admin.ts`、`modules/{platform-admin,identity-membership,github-social,development-access,catalog-commerce}/**`。
 - 協作規則與契約：`AGENTS.md`、`**/AGENTS.md`、`CONTRIBUTING.md`、`contracts/**`、`docs/platform-plan/contracts/**`。
 - 維護系統自己：`modules/repo-maintainer/**`、`apps/platform-api/src/maintainer-worker.ts`、`wrangler.maintainer.jsonc`。
-- 刪除任何測試檔。
+- 刪除任何測試檔，或把測試檔改名到測試位置以外（例如移出 `tests/**`，或 `*.test.*` 改成不是測試的檔名）。在測試位置之內改名不算。
 
-**中風險：** 其他在 `apps/**`、`modules/**`、`packages/**`、`tests/**` 的新增與修改。
+**中風險：** 其他在 `apps/**`、`modules/**`、`packages/**`、`tests/**` 的新增與修改，以及沒有被其他規則涵蓋的路徑。`packages/**` 裡的 Markdown 也算中風險：`scripts/generate-runtime-text.mjs` 會把 `packages/shop-agent/*.md`、`packages/skill-upload-client/{SKILL,protocol}.md` 編進執行期文字。SVG、`brand` 目錄裡的圖片（例如 `apps/portal-web/public/brand/**`）、`docs/**` 裡的程式檔也算中風險。
 
-**低風險：** 只改文件（`docs/**`，不含上面列出的契約與驗證檔）、`README.md`、非品牌圖片。產生檔（`apps/platform-api/src/generated/runtime-text.ts`、file inventory JSON）本身不提高等級，由 CI 驗證它們與來源一致。
+**低風險：** 只改文件（`docs/**`，不含上面列出的契約、驗證工具與程式檔）、任何層級的 `README.md`、根目錄其他說明文件（`DESIGN.md`、`CHANGES-*.md`）、`brand` 目錄以外的點陣圖片。產生檔（`apps/platform-api/src/generated/runtime-text.ts`、file inventory JSON）本身不提高等級，由 CI 驗證它們與來源一致。
 
 **升級規則：**
 
 - 首次貢獻或非 org 成員的 fork PR（`author_association` 為 `FIRST_TIME_CONTRIBUTOR`／`FIRST_TIMER`／`NONE`）至少中風險。
-- 超過 20 個檔或 800 行（不含產生檔）至少中風險；超過 60 個檔或 3000 行為高風險（太大，AI 不能代替人審）。
+- head 來自另一個 repo 的 PR（head repo 的 ID 和 base repo 不同，或 head repo 已刪除）至少中風險。repo 本身是上游的 fork、但 PR 來自同一個 repo 的分支，不算 fork PR。
+- 超過 20 個檔或 800 行（不含產生檔）至少中風險；超過 60 個檔或 3000 行為高風險（太大，AI 不能代替人審）。平台最多讀前 1000 個變更檔案（GitHub 最多列 3000 個），列不完的 PR 直接算高風險。
 - Bot 開的 PR：AI 結果不能取代人審。
 
 其他 repo 先用保守預設：`.github/**` 高風險、文件低風險，其餘中風險；之後再依 repo 自己的 AGENTS 補規則。
