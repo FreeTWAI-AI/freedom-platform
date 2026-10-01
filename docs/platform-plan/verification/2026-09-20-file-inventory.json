@@ -1239,8 +1239,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/OpenSourcePanels.tsx",
-      "bytes": 21099,
-      "sha256": "94ba2ff40a41360184ca906c3b61b40eb119ede0c1d6376d5eeef198a68803f1"
+      "bytes": 21187,
+      "sha256": "8613962709c0e2f1603294dbcf790d05e58ec6d840a207a6813c0ddad0968697"
     },
     {
       "path": "apps/portal-web/src/modules/PositioningPanels.tsx",
@@ -1454,8 +1454,8 @@
     },
     {
       "path": "apps/portal-web/src/styles.css",
-      "bytes": 30606,
-      "sha256": "fbb3db467efe90e79bfcac5bd0f4d45a4624509aa92accf3983b50125e01f6c5"
+      "bytes": 30632,
+      "sha256": "79cfb40983c47cd76b2542bd1bfbd530b28428a8645e84e7210e29085c0ffee2"
     },
     {
       "path": "apps/portal-web/src/types.ts",
@@ -3798,6 +3798,16 @@
       "sha256": "335c3d5c3b47e1bcf3c6bcbebcae5f779cbf9c9d3abf78dabe8936760cee9bf7"
     },
     {
+      "path": "modules/development-access/guild-eligibility.ts",
+      "bytes": 2209,
+      "sha256": "03b051b623b82304a502bfc51264bfa1bc1690eff55032e9390716c35d2fb17a"
+    },
+    {
+      "path": "modules/development-access/service.ts",
+      "bytes": 17359,
+      "sha256": "3cec323a21e04edfe9c069e966a5b7bc77c1303d165115d529af0b03ec398ee1"
+    },
+    {
       "path": "modules/development/page-github.ts",
       "bytes": 9796,
       "sha256": "50328508a0f4a12ab5001a9a485bed3c4125fb3da0c4c0b593650736bd056530"
@@ -3811,16 +3821,6 @@
       "path": "modules/development/service.ts",
       "bytes": 42446,
       "sha256": "88603ac4bf7849dce161218f0592c2be59fea6b7aa5245984c7db010d7d85c3a"
-    },
-    {
-      "path": "modules/development-access/guild-eligibility.ts",
-      "bytes": 2209,
-      "sha256": "03b051b623b82304a502bfc51264bfa1bc1690eff55032e9390716c35d2fb17a"
-    },
-    {
-      "path": "modules/development-access/service.ts",
-      "bytes": 17359,
-      "sha256": "3cec323a21e04edfe9c069e966a5b7bc77c1303d165115d529af0b03ec398ee1"
     },
     {
       "path": "modules/github-social/provider.ts",
@@ -4456,6 +4456,11 @@
       "path": "tests/e2e/calm-experience.spec.ts",
       "bytes": 15502,
       "sha256": "9685a970e9f2210b1f2255729f73f20f57fe7fce52d4e3fdee25d142d4e0276e"
+    },
+    {
+      "path": "tests/e2e/campaign-draft-newlines.spec.ts",
+      "bytes": 4935,
+      "sha256": "c16671c706fc0e330e3b6af2d51b0cb0c75d507f657ff62e9741b521820be05a"
     },
     {
       "path": "tests/e2e/client-connections-recovery.spec.ts",
