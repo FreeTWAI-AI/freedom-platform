@@ -17,6 +17,8 @@ const NOTIFICATION_CONSOLE_CHANNELS = {
   guild_expert_revoked: 'system',
   guild_master_appointed: 'system',
   guild_master_revoked: 'system',
+  guild_member_promoted: 'system',
+  guild_member_demoted: 'system',
   event_submitted: 'system',
   event_review_needed: 'system',
   event_approved: 'system',

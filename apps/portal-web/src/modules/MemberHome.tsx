@@ -72,6 +72,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
   const featured = (member?.featured_capabilities ?? member?.capabilities.slice(0, 3) ?? []).slice(0, 3);
   const skillLabel = (id: string) => id.startsWith('custom:') ? id.slice(7) : labels?.[id] ?? id;
   const primaryGuild = member?.primary_guild ?? null;
+  const internPrimary = Boolean(primaryGuild && member?.member_tiers?.some(tier => tier.guild_key === primaryGuild.guild_key && tier.member_tier === 'intern'));
   useEffect(() => {
     const key = primaryGuild?.guild_key;
     if (!key) { setGuideBook(null); setTaskAction(null); return; }
@@ -149,6 +150,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
     </div>}
     {nextStep && <section className="home-next-step" aria-label="公會與技能書建議">
       <p id="home-next-step-description">{nextStep.message}</p>
+      {internPrimary && <p className="field-hint guild-intern-notice" role="status">你是這個公會的實習成員：可以閱讀公會內容、在公會聊天室聊天。想發布或編輯，可以在聊天室跟會長打聲招呼，會長能把你設為正式成員。</p>}
       {primaryGuild ? <div className="home-next-actions">
         {guideBook
           ? <SkillBookIntro book={guideBook} label="閱讀第一本技能書" describedBy="home-next-step-description"/>

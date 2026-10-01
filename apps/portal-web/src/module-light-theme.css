@@ -116,6 +116,19 @@ html:is([data-theme="light"],[data-theme="versefolk"]) .positioning-title,
 html:is([data-theme="light"],[data-theme="versefolk"]) .member-stage {
   background:var(--green-soft);border-color:var(--line);color:var(--module-green-ink);
 }
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-members .directory-member-meta .guild-member-leader,
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-members .directory-member-meta .guild-member-tier-full {
+  color:var(--module-green-ink);border-color:var(--line);background:var(--green-soft);
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-members .directory-member-meta .guild-member-expert {
+  color:var(--blue-ink);border-color:var(--line);background:var(--module-blue-tint);
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-members .directory-member-meta .guild-member-tier-intern {
+  color:var(--muted);border-color:var(--line);background:var(--module-subtle);
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-members .guild-member-reason,
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-members .guild-member-confirm,
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-members .guild-expert-count { color:var(--muted); }
 html:is([data-theme="light"],[data-theme="versefolk"]) .guilds-panel .guild-card .badge {
   background:var(--green-soft);border-color:var(--line);color:var(--module-green-ink);
 }
