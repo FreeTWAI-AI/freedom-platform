@@ -4,7 +4,9 @@
 .admin-guild-management .admin-guild-card.is-editing { border-color: var(--green); }
 .admin-guild-management .admin-guild-heading { display: flex; justify-content: space-between; align-items: start; gap: 24px; }
 .admin-guild-management .admin-guild-heading > div { min-width: 0; }
-.admin-guild-management .admin-guild-heading h3 { margin: 0; font-size: 1.1rem; }
+.admin-guild-management .admin-guild-heading h3 { margin: 0; font-size: 1.1rem; overflow-wrap: anywhere; }
+.admin-guild-management .admin-guild-profile { border-top: 1px solid var(--line); padding-top: 20px; }
+.admin-guild-management .admin-guild-profile p { overflow-wrap: anywhere; }
 .admin-guild-management .admin-guild-heading p { margin: 8px 0 0; font-size: .85rem; line-height: 1.65; color: var(--muted); }
 .admin-guild-management .admin-guild-heading .admin-guild-current { color: var(--ink); }
 .admin-guild-management .admin-guild-heading > .btn { flex-shrink: 0; }
