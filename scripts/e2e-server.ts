@@ -38,7 +38,8 @@ try{
   await migrate(pool);
   await seedLocal(pool);
   // One fixture sync fills github_items before the browser opens. No timer.
-  if(process.env.FREEDOM_E2E_GITHUB_FIXTURES==='1') await syncGitHubRepositories(pool,{fetcher:input=>Promise.resolve(collaborationGitHubFixture(input)),budget:80,token:undefined});
+  // Events run before repositories. 200 leaves every tracked repository inside one fixture pass.
+  if(process.env.FREEDOM_E2E_GITHUB_FIXTURES==='1') await syncGitHubRepositories(pool,{fetcher:input=>Promise.resolve(collaborationGitHubFixture(input)),budget:200,token:undefined});
 }catch(error){console.error(error);await stop(1);}
 const app=createApp(pool,origin,'local',{adminVerifier:e2eAuthorClaimAdminVerifier});
 app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));

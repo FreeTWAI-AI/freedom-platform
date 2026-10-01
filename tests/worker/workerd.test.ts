@@ -158,9 +158,13 @@ test('workerd: with a local IMAGES binding the default scope stores a re-encoded
   } finally { await withImages.dispose(); }
 });
 
-test('workerd: skill-book metrics refresh reaches GitHub through the global fetch with the metrics token', async () => {
-  // The provider used to call fetch as this.fetcher(...), which workerd rejects with
-  // "Illegal invocation"; the catch-all turned that into github_unavailable.
+test('workerd: skill-book metrics are read from PostgreSQL and do not call GitHub', async () => {
+  // Page views no longer fetch. The cron owns refresh; provider unit tests still
+  // cover an unbound fetch so workerd does not hit "Illegal invocation".
+  await db.query(`INSERT INTO github_repository_metrics(repository_key, snapshot, checked_at, retry_after, last_error)
+    VALUES ('hao0321/video-autopilot-kit', $1::jsonb, now(), now() + interval '1 hour', NULL)
+    ON CONFLICT (repository_key) DO UPDATE SET snapshot = EXCLUDED.snapshot, checked_at = now(), retry_after = now() + interval '1 hour', last_error = NULL`,
+  [JSON.stringify({ stargazers_count: 42, forks_count: 7, open_issues_count: 3, subscribers_count: 5, pushed_at: '2026-09-20T12:00:00Z', language: 'TypeScript', archived: false })]);
   const calls: string[] = [];
   const withGitHub = new Miniflare(convertV4MiniflareOptions({ workers: [{
     name: 'freedom-platform-workerd-github', modules: true, scriptPath: resolve(bundleDir, 'worker.js'),
@@ -170,9 +174,8 @@ test('workerd: skill-book metrics refresh reaches GitHub through the global fetc
     assets: { directory: assetsDir, binding: 'ASSETS', routerConfig: { has_user_worker: true, invoke_user_worker_ahead_of_assets: true }, assetConfig: { html_handling: 'auto-trailing-slash', not_found_handling: 'none' } },
     outboundService: async (request: Request) => {
       const url = new URL(request.url);
-      calls.push(`${request.method} ${url.host}${url.pathname} ${request.headers.get('x-github-api-version')} ${request.headers.get('authorization')}`);
-      if (url.host !== 'api.github.com' || url.pathname !== '/repos/Hao0321/video-autopilot-kit') return new Response(null, { status: 404 });
-      return Response.json({ stargazers_count: 42, forks_count: 7, open_issues_count: 3, subscribers_count: 5, pushed_at: '2026-09-20T12:00:00Z', language: 'TypeScript', archived: false, private: false });
+      calls.push(`${request.method} ${url.host}${url.pathname}`);
+      return new Response(null, { status: 404 });
     },
   }] } as any));
   try {
@@ -181,7 +184,7 @@ test('workerd: skill-book metrics refresh reaches GitHub through the global fetc
     const data: any = await response.json();
     assert.equal(data.error, null); assert.equal(data.stale, false); assert.ok(data.checked_at);
     assert.equal(data.stargazers_count, 42); assert.equal(data.forks_count, 7);
-    assert.deepEqual(calls, ['GET api.github.com/repos/Hao0321/video-autopilot-kit 2026-03-10 Bearer github_pat_workerd_synthetic']);
+    assert.deepEqual(calls, []);
     const row = (await db.query(`SELECT last_error, snapshot->>'stargazers_count' AS stars FROM github_repository_metrics WHERE repository_key='hao0321/video-autopilot-kit'`)).rows[0];
     assert.equal(row.last_error, null); assert.equal(row.stars, '42');
   } finally { await withGitHub.dispose(); }

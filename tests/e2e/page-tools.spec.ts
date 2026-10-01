@@ -12,7 +12,7 @@ test('every workspace page exposes contextual tools, filtered issues and agent g
   await page.getByRole('button',{name:'提出想法'}).click();
   const idea=page.getByRole('dialog',{name:'會員首頁：提出想法'});
   await expect(idea).toBeVisible();
-  await expect(idea.getByRole('link',{name:/#12/})).toBeVisible();
+  await expect(idea.getByRole('link',{name:/#14/})).toBeVisible();
   await expect(idea.getByRole('link',{name:/#13/})).toHaveCount(0);
   await idea.getByRole('button',{name:'回覆這則 Issue'}).click();
   await expect(idea.getByRole('textbox',{name:'設計認領留言'})).toBeVisible();

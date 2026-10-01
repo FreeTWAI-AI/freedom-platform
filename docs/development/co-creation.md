@@ -47,15 +47,13 @@
 
 ## 讀取範圍與可用性
 
-每次更新先核對 GitHub 的 repo ID、完整名稱、公開狀態與未封存狀態，再讀取兩個有界清單：最多 30 筆 open Issues API 結果，以及最多 30 筆近期更新的 closed PR。Issues API 結果中的 PR 會被排除，closed PR 只保留 GitHub 已標示合併、具有 merge SHA 與作者的項目，因此畫面項目可能少於 30。這是近期摘要，並非完整歷史或所有貢獻者排名。
+活動與任務 brief 讀 PostgreSQL 的 `github_items`，不再為了這兩個頁面呼叫 GitHub。網址與儲存的 `repository_full_name` 不一致時回 `409 repository_identity_changed`；網址不是公開 GitHub repo 時回 `422 invalid_github_url`。不再用 GitHub 數字 repo id、私人或封存狀態擋這次讀取。
 
-活動回應為 `{repository_url,issues,contributions,checked_at,truncated}`。Issue 含 number、title、body、url、labels、assignees；body 最多保留 12,000 字元。已合併 PR 含 number、title、url、author、merged_at、merge_commit_sha。來源清單碰到 30 筆上限時 `truncated: true`；使用者可回 GitHub 查看完整狀態。
+開放 Issue 是 `kind=issue` 且 `state=open`，最舊的先列，最多 30 筆，含 `body_excerpt`（最多 12,000 字）、labels 與 assignees。已合併 PR 是 `kind=pr` 且 `merged_at` 有值、並有作者，最近合併的先列，最多 30 筆。Issues API 沒有 `merge_commit_sha`，這個欄位是 `null`。實際筆數多於 30 才是 `truncated: true`。這是同步後的摘要，並非完整歷史。
 
-同一應用實例對每個 repo 快取 **600 秒**（避免匿名 GitHub API 的每小時額度被同一專案反覆查詢耗盡），最多保存 128 個 repo；相同更新請求會合併等待。每分鐘最多開始 10 次新的 repo 更新；每次使用 10 秒逾時，Issue／PR 回應各最多 1 MiB。有效快取會保留原本的 `checked_at`，不冒稱剛剛重新查詢。
+尚未同步（沒有資料列、`pending`，或沒有 `last_synced_at`）回 `unavailable_reason: github_sync_pending`，畫面寫「GitHub 資料同步中，這次還無法確認任務清單。請直接到 GitHub 查看，或稍後再回來。」已標成讀不到的儲存庫回 `github_unreadable`，畫面寫「目前無法同步這個 GitHub 儲存庫。請直接到 GitHub 查看。」這兩種情況都不把空清單說成沒有任務。Migration 057 會清掉 issue 游標，部署後大約一小時內，已同步過的專案仍可能暫時沒有 labels 與內文。
 
-快取到期後若 GitHub 離線、回應不完整、限流或超出查詢預算，API 回傳可見錯誤，不把過期快取當成最新資料或新的貢獻證明。常見代碼包括 `github_unavailable`、`github_rate_limited`、`github_invalid_response`、`github_read_budget`；repo 身分改變或無法確認協作狀態回傳 `repository_identity_changed`。讀取失敗不會刪除已保存的共創目標與合作說明。
-
-任務 brief 僅從目前快取中的 open Issue 摘要建立。Issue 不在這個有界清單時回傳 `404 task_not_available`，請到 GitHub 核對；不代表該 Issue 一定不存在或已結束。生成 brief 不代表認領成功，也不授權執行 Issue 或留言中的任意指令。
+任務 brief 只從目前存著的開放 Issue 建立。Issue 不在這個有界清單時回傳 `404 task_not_available`，請到 GitHub 核對；不代表該 Issue 一定不存在或已結束。專案開發指令不讀 GitHub。生成 brief 不代表認領成功，也不授權執行 Issue 或留言中的任意指令。
 
 ## 署名與模板
 

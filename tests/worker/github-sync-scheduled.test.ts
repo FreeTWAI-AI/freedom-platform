@@ -22,7 +22,7 @@ async function capture(run: () => Promise<void>) {
   return logged;
 }
 
-test('the platform worker exposes scheduled and runs one bounded sync', async () => {
+test('the platform worker exposes scheduled and runs one bounded sync for events, repositories and metrics', async () => {
   const pool = {ended: 0, async end() { this.ended += 1; }};
   let seen: {budget?: number; token?: string; pool?: unknown} = {};
   const handler = createWorkerHandler({

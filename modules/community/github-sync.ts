@@ -4,6 +4,10 @@ import {Problem} from '../../packages/shared/problem.js';
 import {readGitHub, githubCoordinate, type GitHubRead} from '../opensource-marketing/github.js';
 import {communityCatalog} from './catalog.js';
 import {authorOf, cleanTitle, GITHUB_HISTORY_PAGE_CAP, GITHUB_REPOSITORY_NAME} from './github-history.js';
+import {pilotProject} from '../co-creation/service.js';
+import {pageIdsForIssue, publicEvent, FREEDOM_PLATFORM_EVENTS_FEED} from '../development/page-github.js';
+import {catalogMetricTargets, failRepositoryMetrics, saveRepositoryMetrics} from '../github-social/service.js';
+import {GitHubProviderError, GitHubSocialProvider} from '../github-social/provider.js';
 import repositorySet from '../../repositories.lock.json' with {type:'json'};
 
 export const GITHUB_SYNC_REQUEST_BUDGET = 40;
@@ -14,6 +18,9 @@ const UNREADABLE_MS = 6 * 60 * 60 * 1000;
 const DEFAULT_RATE_MS = 15 * 60 * 1000;
 const MAX_RATE_MS = 60 * 60 * 1000;
 const MIN_RATE_MS = 1000;
+const METRICS_PER_RUN = 5;
+const EVENTS_KEEP = 300;
+const EVENTS_PATH = '/repos/FreeTWAI-AI/freedom-platform/events?per_page=100';
 const MOVED_STATUSES = new Set([301, 302, 307, 308]);
 const date = z.iso.datetime({offset: true});
 const syncItemSchema = z.object({
@@ -26,11 +33,15 @@ const syncItemSchema = z.object({
   updated_at: date,
   closed_at: date.nullable().optional(),
   pull_request: z.object({merged_at: date.nullable().optional()}).nullable().optional(),
+  labels: z.unknown().optional(),
+  assignees: z.unknown().optional(),
+  body: z.unknown().optional(),
 });
 type SyncItem = z.infer<typeof syncItemSchema>;
 type StoredItem = {
   number: number; kind: 'issue' | 'pr'; title: string; author_login: string | null; state: 'open' | 'closed';
   state_reason: string | null; merged_at: string | null; created_at: string; updated_at: string; closed_at: string | null;
+  labels: string[]; assignees: string[]; page_ids: string[]; body_excerpt: string | null;
 };
 type RepoRow = {
   repository_key: string; repository: string; since: Date | null; etag: string | null; etag_query: string | null;
@@ -65,6 +76,7 @@ export async function trackedGitHubRepositories(pool: Pool): Promise<{key: strin
     try { add(githubCoordinate(book.upstream_url || book.repository_url)); } catch { /* A catalog entry without a GitHub source is not synced. */ }
   }
   for (const row of oss.rows) add(row.repository_full_name);
+  add(pilotProject.repository_full_name);
   return [...byKey.entries()].map(([key, name]) => ({key, name}));
 }
 
@@ -133,15 +145,48 @@ function noteRejection(run: Run, response: GitHubRead, repository: string) {
   if (response.status === 401) run.token = undefined;
   else run.rejectedOwners.add(owner);
 }
+function labelList(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  const names: string[] = [];
+  for (const entry of value) {
+    const raw = typeof entry === 'string' ? entry : entry && typeof entry === 'object' && typeof (entry as {name?: unknown}).name === 'string' ? (entry as {name: string}).name : '';
+    const name = raw.trim().slice(0, 100);
+    if (!name) continue;
+    names.push(name);
+    if (names.length === 100) break;
+  }
+  return names;
+}
+function assigneeList(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  const logins: string[] = [];
+  for (const entry of value) {
+    const raw = entry && typeof entry === 'object' && typeof (entry as {login?: unknown}).login === 'string' ? (entry as {login: string}).login : null;
+    const login = authorOf(raw);
+    if (!login || logins.includes(login)) continue;
+    logins.push(login);
+    if (logins.length === 100) break;
+  }
+  return logins;
+}
+function bodyExcerpt(kind: 'issue' | 'pr', state: 'open' | 'closed', body: unknown) {
+  if (kind !== 'issue' || state !== 'open' || typeof body !== 'string') return null;
+  const text = body.slice(0, 12000);
+  return text.length ? text : null;
+}
 function toStored(item: SyncItem): StoredItem {
   const pull = item.pull_request != null;
   const kind = pull ? 'pr' : 'issue';
+  const labels = labelList(item.labels);
+  const body = typeof item.body === 'string' ? item.body : null;
   return {
     number: item.number, kind, title: cleanTitle(item.title, `${kind === 'issue' ? 'Issue' : 'PR'} #${item.number}`),
     author_login: authorOf(item.user?.login ?? null), state: item.state,
     state_reason: !pull && item.state_reason ? item.state_reason : null,
     merged_at: pull ? item.pull_request?.merged_at ?? null : null,
     created_at: item.created_at, updated_at: item.updated_at, closed_at: item.closed_at ?? null,
+    labels, assignees: assigneeList(item.assignees), page_ids: pageIdsForIssue(body, labels).slice(0, 100),
+    body_excerpt: bodyExcerpt(kind, item.state, item.body),
   };
 }
 
@@ -192,13 +237,18 @@ async function storePage(client: PoolClient, key: string, items: StoredItem[], s
   return inTx(client, async () => {
     let count = 0;
     if (items.length) {
-      const written = await client.query(`INSERT INTO github_items(repository_key,number,kind,title,author_login,state,state_reason,merged_at,created_at,updated_at,closed_at,synced_at)
-        SELECT $1, r.number, r.kind, r.title, r.author_login, r.state, r.state_reason, r.merged_at, r.created_at, r.updated_at, r.closed_at, $2
-        FROM json_to_recordset($3::json) AS r(number int, kind text, title text, author_login text, state text, state_reason text, merged_at timestamptz, created_at timestamptz, updated_at timestamptz, closed_at timestamptz)
+      const written = await client.query(`INSERT INTO github_items(repository_key,number,kind,title,author_login,state,state_reason,merged_at,created_at,updated_at,closed_at,synced_at,labels,assignees,page_ids,body_excerpt)
+        SELECT $1, r.number, r.kind, r.title, r.author_login, r.state, r.state_reason, r.merged_at, r.created_at, r.updated_at, r.closed_at, $2,
+          ARRAY(SELECT value FROM jsonb_array_elements_text(COALESCE(r.labels, '[]'::jsonb)) AS value),
+          ARRAY(SELECT value FROM jsonb_array_elements_text(COALESCE(r.assignees, '[]'::jsonb)) AS value),
+          ARRAY(SELECT value FROM jsonb_array_elements_text(COALESCE(r.page_ids, '[]'::jsonb)) AS value),
+          r.body_excerpt
+        FROM json_to_recordset($3::json) AS r(number int, kind text, title text, author_login text, state text, state_reason text, merged_at timestamptz, created_at timestamptz, updated_at timestamptz, closed_at timestamptz, labels jsonb, assignees jsonb, page_ids jsonb, body_excerpt text)
         ON CONFLICT (repository_key, number) DO UPDATE SET
           kind=EXCLUDED.kind, title=EXCLUDED.title, author_login=EXCLUDED.author_login, state=EXCLUDED.state,
           state_reason=EXCLUDED.state_reason, merged_at=EXCLUDED.merged_at, created_at=EXCLUDED.created_at,
-          updated_at=EXCLUDED.updated_at, closed_at=EXCLUDED.closed_at, synced_at=EXCLUDED.synced_at`, [key, syncedAt, JSON.stringify(items)]);
+          updated_at=EXCLUDED.updated_at, closed_at=EXCLUDED.closed_at, synced_at=EXCLUDED.synced_at,
+          labels=EXCLUDED.labels, assignees=EXCLUDED.assignees, page_ids=EXCLUDED.page_ids, body_excerpt=EXCLUDED.body_excerpt`, [key, syncedAt, JSON.stringify(items)]);
       count = written.rowCount ?? items.length;
     }
     await client.query(`UPDATE github_sync_repositories SET
@@ -302,7 +352,162 @@ async function syncClaimed(client: PoolClient, repo: RepoRow, run: Run): Promise
   return 'continue';
 }
 
-/** Upsert tracked repositories, then refresh due rows until the budget is spent or every remaining row needs a backed-off credential. */
+function pollDelay(header: string | null, nowMs: number) {
+  if (header && /^\d+$/.test(header.trim())) {
+    const seconds = Number(header.trim());
+    if (seconds > 0 && seconds <= 86400) return seconds * 1000;
+  }
+  return SUCCESS_MS;
+}
+function eventRow(raw: unknown) {
+  const event = publicEvent(raw);
+  if (!event) return null;
+  if (event.id.length < 1 || event.id.length > 100) return null;
+  if (event.actor.length < 1 || event.actor.length > 100) return null;
+  if (event.title.length < 1 || event.title.length > 300) return null;
+  if (event.url.length < 1 || event.url.length > 1000) return null;
+  if (event.number != null && (!Number.isInteger(event.number) || event.number <= 0 || event.number > 1000000000)) return null;
+  return event;
+}
+async function markFeed(client: PoolClient, at: Date, next: Date, code: string | null) {
+  await inTx(client, () => client.query(`UPDATE github_feed_state SET checked_at=$2, next_sync_at=$3, last_error=$4 WHERE feed_name=$1`,
+    [FREEDOM_PLATFORM_EVENTS_FEED, at, next, code]));
+}
+async function syncPublicEvents(pool: Pool, run: Run) {
+  if (run.requests >= run.budget) return;
+  await pool.query(`INSERT INTO github_feed_state(feed_name, next_sync_at) VALUES ($1, $2) ON CONFLICT (feed_name) DO NOTHING`,
+    [FREEDOM_PLATFORM_EVENTS_FEED, new Date(run.now())]);
+  const client = await pool.connect();
+  try {
+    const claimed = await client.query<{etag: string | null}>(`UPDATE github_feed_state SET next_sync_at=$2
+      WHERE feed_name=$1 AND next_sync_at<=$3 RETURNING etag`,
+    [FREEDOM_PLATFORM_EVENTS_FEED, new Date(run.now() + LEASE_MS), new Date(run.now())]);
+    const feed = claimed.rows[0];
+    if (!feed) return;
+    const repository = 'FreeTWAI-AI/freedom-platform';
+    const release = (at: number) => inTx(client, () => client.query('UPDATE github_feed_state SET next_sync_at=$2 WHERE feed_name=$1', [FREEDOM_PLATFORM_EVENTS_FEED, new Date(at)]));
+    try {
+      await refreshBackoff(client, run);
+      if (backedOff(run, repository)) {
+        await release(run.backoffUntil[credentialFor(run, repository)]);
+        return;
+      }
+      if (run.requests >= run.budget) { await release(run.now()); return; }
+      const sendToken = credentialFor(run, repository) === 'token';
+      let usedToken = sendToken;
+      let response = await callGitHub(run, EVENTS_PATH, feed.etag ?? undefined, sendToken);
+      if (!response) { await release(run.now()); return; }
+      if (sendToken && isTokenRejection(response)) {
+        noteRejection(run, response, repository);
+        if (run.requests >= run.budget) { await release(run.now()); return; }
+        await refreshBackoff(client, run);
+        if (run.backoffUntil.anonymous > run.now()) { await release(run.backoffUntil.anonymous); return; }
+        const second = await callGitHub(run, EVENTS_PATH, feed.etag ?? undefined, false);
+        if (!second) { await release(run.now()); return; }
+        response = second;
+        usedToken = false;
+      }
+      const now = new Date(run.now());
+      const next = new Date(now.getTime() + pollDelay(response.pollInterval, now.getTime()));
+      if (response.status === 304) {
+        run.not_modified += 1;
+        await markFeed(client, now, next, null);
+        return;
+      }
+      if (isRateLimit(response)) {
+        const until = new Date(now.getTime() + rateLimitMs(now.getTime(), response.rateReset, response.retryAfter));
+        await storeBackoff(client, usedToken ? 'token' : 'anonymous', until, run);
+        await markFeed(client, now, until, 'github_rate_limited');
+        return;
+      }
+      if (response.status !== 200 || !Array.isArray(response.body) || response.body.length > 100) {
+        await markFeed(client, now, new Date(now.getTime() + REPO_ERROR_MS), response.status === 200 ? 'github_invalid_response' : 'github_unavailable');
+        return;
+      }
+      const events = response.body.map(eventRow).filter((event): event is NonNullable<ReturnType<typeof eventRow>> => event !== null);
+      await inTx(client, async () => {
+        if (events.length) {
+          await client.query(`INSERT INTO github_repository_events(event_id, kind, number, title, url, actor, created_at)
+            SELECT r.event_id, r.kind, r.number, r.title, r.url, r.actor, r.created_at
+            FROM json_to_recordset($1::json) AS r(event_id text, kind text, number int, title text, url text, actor text, created_at timestamptz)
+            ON CONFLICT (event_id) DO UPDATE SET kind=EXCLUDED.kind, number=EXCLUDED.number, title=EXCLUDED.title, url=EXCLUDED.url, actor=EXCLUDED.actor, created_at=EXCLUDED.created_at`,
+          [JSON.stringify(events.map(event => ({event_id: event.id, kind: event.kind, number: event.number, title: event.title, url: event.url, actor: event.actor, created_at: event.created_at})))]);
+        }
+        await client.query(`DELETE FROM github_repository_events WHERE event_id IN (
+          SELECT event_id FROM github_repository_events ORDER BY created_at DESC, event_id DESC OFFSET $1)`, [EVENTS_KEEP]);
+        const etag = response.etag && response.etag.length >= 1 && response.etag.length <= 200 ? response.etag : null;
+        await client.query(`UPDATE github_feed_state SET etag=$2, checked_at=$3, next_sync_at=$4, last_error=NULL WHERE feed_name=$1`,
+          [FREEDOM_PLATFORM_EVENTS_FEED, etag, now, next]);
+      });
+    } catch (error) {
+      await markFeed(client, new Date(run.now()), new Date(run.now() + REPO_ERROR_MS), errorCode(error));
+    }
+  } finally {
+    client.release();
+  }
+}
+function metricsFetcher(run: Run): typeof fetch {
+  return (input, init) => {
+    if (run.requests >= run.budget) throw new Error('github_sync_budget');
+    run.requests += 1;
+    return run.fetcher(input, init);
+  };
+}
+async function syncDueMetrics(pool: Pool, run: Run) {
+  const targets = catalogMetricTargets();
+  if (!targets.length || run.requests >= run.budget) return;
+  const due = await pool.query<{repository_key: string}>(`SELECT listed.key AS repository_key
+    FROM unnest($1::text[]) WITH ORDINALITY AS listed(key, ord)
+    LEFT JOIN github_repository_metrics metrics ON metrics.repository_key=listed.key
+    WHERE metrics.retry_after IS NULL OR metrics.retry_after<=$2
+    ORDER BY metrics.retry_after NULLS FIRST, listed.ord
+    LIMIT $3`, [targets.map(target => target.key), new Date(run.now()), METRICS_PER_RUN]);
+  if (!due.rows.length) return;
+  const names = new Map(targets.map(target => [target.key, target.repository]));
+  const provider = new GitHubSocialProvider(metricsFetcher(run));
+  let token = run.token;
+  let rejected = false;
+  for (const row of due.rows) {
+    if (run.requests >= run.budget) return;
+    await refreshBackoff(pool, run);
+    const credential: Credential = token && !rejected ? 'token' : 'anonymous';
+    if (run.backoffUntil[credential] > run.now()) return;
+    const repository = names.get(row.repository_key);
+    if (!repository) continue;
+    try {
+      let snapshot;
+      try {
+        snapshot = await provider.metrics(repository, token && !rejected ? token : undefined);
+      } catch (error) {
+        if (token && !rejected && error instanceof GitHubProviderError && error.code === 'github_reconnect_required') {
+          if (!rejected) console.error('github_metrics_token_rejected');
+          rejected = true;
+          token = undefined;
+          run.token = undefined;
+          if (run.requests >= run.budget) return;
+          await refreshBackoff(pool, run);
+          if (run.backoffUntil.anonymous > run.now()) return;
+          snapshot = await provider.metrics(repository);
+        } else throw error;
+      }
+      await saveRepositoryMetrics(pool, row.repository_key, snapshot);
+    } catch (error) {
+      const code = error instanceof GitHubProviderError ? error.code : 'github_unavailable';
+      try { await failRepositoryMetrics(pool, row.repository_key, code); } catch (saveError) {
+        console.warn('github_metrics_sync_failed', errorCode(saveError));
+      }
+      if (code === 'github_rate_limited') {
+        const client = await pool.connect();
+        try {
+          await storeBackoff(client, token && !rejected ? 'token' : 'anonymous', new Date(run.now() + DEFAULT_RATE_MS), run);
+        } finally { client.release(); }
+        return;
+      }
+    }
+  }
+}
+
+/** Upsert tracked repositories, then refresh the events feed, due repositories and due book metrics. */
 export async function syncGitHubRepositories(pool: Pool, options: GitHubSyncOptions = {}): Promise<GitHubSyncSummary> {
   const run: Run = {
     requests: 0, items_upserted: 0, not_modified: 0, budget: options.budget ?? GITHUB_SYNC_REQUEST_BUDGET,
@@ -321,6 +526,10 @@ export async function syncGitHubRepositories(pool: Pool, options: GitHubSyncOpti
   if (!run.token && run.backoffUntil.anonymous > run.now()) {
     summary.stop_reason = 'rate_limited';
     return summary;
+  }
+  if (run.budget > 0) {
+    try { await syncPublicEvents(pool, run); }
+    catch (error) { console.warn('github_events_sync_failed', errorCode(error)); }
   }
   const due = tracked.length
     ? await pool.query<RepoRow>(`SELECT repository_key, repository, since, etag, etag_query, backfilled, access_status, next_sync_at
@@ -354,6 +563,8 @@ export async function syncGitHubRepositories(pool: Pool, options: GitHubSyncOpti
       client.release();
     }
   }
+  try { await syncDueMetrics(pool, run); }
+  catch (error) { console.warn('github_metrics_sync_failed', errorCode(error)); }
   summary.requests = run.requests;
   summary.items_upserted = run.items_upserted;
   summary.not_modified = run.not_modified;

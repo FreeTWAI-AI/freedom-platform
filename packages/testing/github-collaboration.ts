@@ -7,12 +7,16 @@ export function collaborationGitHubFixture(input:string|URL|Request):Response {
   if(url.searchParams.get('state')==='all'&&url.searchParams.has('page')&&/^\/repos\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/(issues|pulls)$/.test(url.pathname)){
     if(url.pathname==='/repos/FreeTWAI-AI/freedom-platform/issues')return Response.json([
       {number:12,title:'讓會員首頁的文字更清楚',state:'closed',state_reason:'completed',user:{login:'member-demo'},created_at:'2026-09-25T12:00:00Z',updated_at:'2026-09-26T12:00:00Z'},
-      {number:14,title:'補上社群導覽',state:'open',state_reason:null,user:{login:'member-demo'},created_at:'2026-09-27T12:00:00Z',updated_at:'2026-09-27T12:00:00Z'},
+      {number:14,title:'補上社群導覽',body:'頁面標記：page:home\n\n<!-- freedom-page:home -->',state:'open',state_reason:null,user:{login:'member-demo'},labels:[{name:'page:home'}],assignees:[],created_at:'2026-09-27T12:00:00Z',updated_at:'2026-09-27T12:00:00Z'},
       {number:16,title:'自動檢查未採納',state:'closed',state_reason:'not_planned',user:{login:'github-actions[bot]'},created_at:'2026-09-24T12:00:00Z',updated_at:'2026-09-24T13:00:00Z'},
       {number:18,title:'<img src=x onerror=alert(1)>',state:'open',state_reason:null,user:{login:'dependabot[bot]'},created_at:'2026-09-23T12:00:00Z',updated_at:'2026-09-23T12:00:00Z'},
       {number:13,title:'改善手機導覽',state:'closed',user:{login:'contributor-demo'},created_at:'2026-09-26T12:00:00Z',updated_at:'2026-09-27T12:00:00Z',pull_request:{merged_at:'2026-09-27T12:00:00Z'}},
       {number:15,title:'更新技能書說明',state:'open',user:{login:'member-demo'},created_at:'2026-09-28T12:00:00Z',updated_at:'2026-09-28T12:00:00Z',pull_request:{merged_at:null}},
       {number:17,title:'關閉未合併的說明',state:'closed',user:{login:'contributor-demo'},created_at:'2026-09-22T12:00:00Z',updated_at:'2026-09-22T18:00:00Z',pull_request:{merged_at:null}},
+    ]);
+    if(url.pathname==='/repos/FreeTWAI-AI/video-autopilot-kit/issues')return Response.json([
+      {number:1,title:'建立可重現的剪輯測試素材',body:'## 完成條件\n提供授權清楚的合成素材、README 與可重跑的檢查。',state:'open',state_reason:null,user:{login:'member-demo'},labels:[{name:'good first issue'}],assignees:[],created_at:'2026-09-20T00:00:00Z',updated_at:'2026-09-20T00:00:00Z',closed_at:null},
+      {number:8,title:'補上剪輯測試說明',state:'closed',user:{login:'contributor-demo'},created_at:'2026-09-22T00:00:00Z',updated_at:'2026-09-23T08:00:00Z',closed_at:'2026-09-23T08:00:00Z',pull_request:{merged_at:'2026-09-23T08:00:00Z'}},
     ]);
     if(url.pathname==='/repos/FreeTWAI-AI/freedom-platform/pulls')return Response.json([
       {number:13,title:'改善手機導覽',state:'closed',user:{login:'contributor-demo'},created_at:'2026-09-26T12:00:00Z',updated_at:'2026-09-27T12:00:00Z',merged_at:'2026-09-27T12:00:00Z'},
