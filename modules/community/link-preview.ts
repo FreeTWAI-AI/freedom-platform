@@ -31,12 +31,16 @@ function meta(html: string, key: string) {
   return null;
 }
 
+function finishTitle(value: string) {
+  // Already decoded. Drop brackets before whitespace collapsing and the length cap.
+  return value.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120) || null;
+}
+
 export function previewTitle(html: string) {
   const og = meta(html, 'og:title');
-  if (og) return og.replace(/\s+/g, ' ').trim().slice(0, 120) || null;
+  if (og) return finishTitle(og);
   const titled = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '';
-  const text = decodeEntities(titled.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
-  return text.slice(0, 120) || null;
+  return finishTitle(decodeEntities(titled));
 }
 
 export function previewImageUrl(html: string, pageUrl: string) {

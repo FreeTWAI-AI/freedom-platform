@@ -65,6 +65,14 @@ test('preview title prefers og:title and resolves a relative og:image', () => {
   assert.equal(previewImageUrl('<meta name="twitter:image" content="https://127.0.0.1/x.png">', 'https://cdn.example/p'), null);
 });
 
+test('preview titles contain no markup after entity decoding', () => {
+  const script = previewTitle('<title>&lt;script&gt;alert(1)&lt;/script&gt; 好物分享</title>');
+  assert.ok(script && !script.includes('<') && !script.includes('>') && script.includes('好物分享'), script ?? 'null');
+  const image = previewTitle('<meta property="og:title" content="&lt;img src=x onerror=alert(1)&gt; 標題">');
+  assert.ok(image && !image.includes('<') && !image.includes('>') && image.includes('標題'), image ?? 'null');
+  assert.equal(previewTitle('<title>平常的標題</title>'), '平常的標題');
+});
+
 test('youtube and open-graph previews normalize a thumbnail', async () => {
   const seen: string[] = [];
   const fetcher: PreviewFetch = async input => {
