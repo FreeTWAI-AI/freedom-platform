@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { AdminClient } from './admin-client';
+import { IssueHandoff, PullHandoffButton, PullHandoffForm, type HandoffResult } from './review-handoff';
 import {
   ADMIN_LINK_STATUS, CLAIM_HELD, CLAIM_UNAVAILABLE, GITHUB_REVIEW_LINK, PullFacts, ReviewQueueRow, SKILL_MAINTAINER_STATUS, modeText, pullClaimable,
   reviewerOptionLabel, reviewerOptionValue, scopeText, versionOf,
@@ -12,7 +13,7 @@ type Viewer = {
   status: 'ready' | 'no_member' | 'email_unverified' | 'no_github'; reason: string | null;
 };
 type Repo = {
-  repository_id: string; full_name: string; mode: string; settings: Record<string, unknown>;
+  repository_id: string; full_name: string; mode: string; installation_state?: string; settings: Record<string, unknown>;
   aggregate_version: string | number; guild_key: string | null; scope_kind: string | null; open_to_guilds: boolean;
   skill_book_id: string | null;
 };
@@ -161,27 +162,36 @@ export function AdminReviewCenter({ client, busy, onMutate }: {
         {openId === row.pull_id && detail?.pull_id === row.pull_id && <ReviewDetail
           detail={detail} viewer={summary?.viewer ?? null} repo={(summary?.repositories ?? []).find(item => item.repository_id === detail.repository_id) ?? null}
           guilds={guildChoices} books={directory?.skill_book_choices ?? []} busy={busy} onError={setError} onMutate={onMutate} onDone={() => void afterWrite(row.pull_id)}
+          onHandoff={body => client.request<HandoffResult>(`/review-center/pulls/${row.pull_id}/handoffs`, body.body, { key: body.key })}
+          onHandoffRefresh={() => void reloadDetail(row.pull_id)}
         />}
         {openId === row.pull_id && detail?.pull_id !== row.pull_id && <p role="status">正在載入細節…</p>}
       </ReviewQueueRow>)}
     </ul>
     {!loading && !items.length && !error && <p className="muted">這個佇列目前沒有拉取請求。</p>}
     {nextOffset !== null && <button type="button" className="btn btn-ghost" disabled={loading || busy} onClick={() => void loadQueue(tab, nextOffset, repositoryId, guildFilter)}>載入更多</button>}
+    <IssueHandoff
+      repositories={(summary?.repositories ?? []).filter(repo => repo.installation_state === 'active' && repo.mode !== 'off').map(repo => ({ id: repo.repository_id, full_name: repo.full_name }))}
+      submit={(repositoryId, body, key) => client.request<HandoffResult>(`/review-center/repositories/${repositoryId}/issue-handoffs`, body, { key })}
+    />
     <SettingsBlock repositories={summary?.repositories ?? []} directory={directory} guilds={guildChoices} books={directory?.skill_book_choices ?? []} busy={busy} onMutate={onMutate} onSaved={() => void afterWrite(openId)} />
   </section>;
 }
 
-function ReviewDetail({ detail, viewer, repo, guilds, books, busy, onError, onMutate, onDone }: {
+function ReviewDetail({ detail, viewer, repo, guilds, books, busy, onError, onMutate, onDone, onHandoff, onHandoffRefresh }: {
   detail: AdminDetail; viewer: Viewer | null; repo: Repo | null; guilds: { guild_key: string; name: string }[]; books: SkillBookChoice[]; busy: boolean;
   onError: (message: string) => void;
   onMutate: (path: string, body: unknown, version?: number | null) => Promise<boolean>;
   onDone: () => void;
+  onHandoff: (body: { body: { kind: 'fix' | 'merge'; cli: 'claude' | 'codex' | 'grok'; expected_head_sha: string }; key: string }) => Promise<HandoffResult>;
+  onHandoffRefresh: () => void;
 }) {
   const people = detail.eligible_reviewers ?? [];
   const [assignValue, setAssignValue] = useState(people[0] ? reviewerOptionValue(people[0]) : '');
   const [assignReason, setAssignReason] = useState('');
   const [releaseReason, setReleaseReason] = useState('');
   const [pauseReason, setPauseReason] = useState('');
+  const [showHandoff, setShowHandoff] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [showRelease, setShowRelease] = useState(false);
   const [showPause, setShowPause] = useState(false);
@@ -240,7 +250,9 @@ function ReviewDetail({ detail, viewer, repo, guilds, books, busy, onError, onMu
         <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setShowPause(value => !value)}>{detail.paused ? '恢復' : '暫停'}</button>
         <button type="button" className="btn btn-ghost" disabled={busy || !repo} onClick={() => setShowOwnership(value => !value)}>變更歸屬…</button>
         <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void onMutate(`/review-center/pulls/${detail.pull_id}/resync`, {}).then(saved)}>重新同步</button>
+        <PullHandoffButton open={showHandoff} onToggle={() => setShowHandoff(value => !value)} />
       </div>
+      {showHandoff && <PullHandoffForm detail={detail} submit={(body, key) => onHandoff({ body, key })} onRefresh={onHandoffRefresh} />}
       {unavailable && <p className="field-hint">{CLAIM_UNAVAILABLE}</p>}
       {!!selfBlock && <p className="field-hint">{selfBlock}</p>}
       {!!claimBlock && <p className="field-hint">{claimBlock}</p>}

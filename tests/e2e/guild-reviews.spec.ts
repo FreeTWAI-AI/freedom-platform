@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures.js';
 import { navigate } from './navigation.js';
 import { DEMO_COMMUNITY, DEMO_USERS } from '../../packages/testing/seed.js';
@@ -103,6 +103,7 @@ async function wipe(pool: Pool) {
     SELECT pull_id FROM maintainer_pull_requests WHERE repository_id=ANY($1::uuid[]))`, [ids]);
   await pool.query('DELETE FROM maintainer_jobs WHERE repository_id=ANY($1::uuid[])', [ids]);
   await pool.query('DELETE FROM maintainer_ownership_changes WHERE repository_id=ANY($1::uuid[])', [ids]);
+  await pool.query('DELETE FROM maintainer_handoffs WHERE repository_id=ANY($1::uuid[])', [ids]);
   await pool.query('DELETE FROM maintainer_pull_requests WHERE repository_id=ANY($1::uuid[])', [ids]);
   await pool.query('DELETE FROM maintainer_repositories WHERE repository_id=ANY($1::uuid[])', [ids]);
 }
@@ -337,6 +338,7 @@ test('a skill-book maintainer who is not a guild leader claims the book pull', a
     await e2eAuthPool.query('DELETE FROM maintainer_review_claims WHERE pull_id=$1', [BOOK_PULL]);
     await e2eAuthPool.query('DELETE FROM maintainer_jobs WHERE repository_id=$1', [BOOK_REPO]);
     await e2eAuthPool.query('DELETE FROM maintainer_ownership_changes WHERE repository_id=$1', [BOOK_REPO]);
+    await e2eAuthPool.query('DELETE FROM maintainer_handoffs WHERE repository_id=$1', [BOOK_REPO]);
     await e2eAuthPool.query('DELETE FROM maintainer_pull_requests WHERE repository_id=$1', [BOOK_REPO]);
     await e2eAuthPool.query('DELETE FROM maintainer_repositories WHERE repository_id=$1', [BOOK_REPO]);
     await e2eAuthPool.query('DELETE FROM skill_book_maintainers WHERE book_id=$1 AND user_id=$2', ['career-guide', REVIEWER]);
@@ -357,5 +359,132 @@ test('a skill-book maintainer who is not a guild leader claims the book pull', a
         ON CONFLICT (community_id, guild_key) DO UPDATE SET user_id=EXCLUDED.user_id`,
       [DEMO_COMMUNITY, officer.guild_key, officer.user_id]);
     }
+  }
+});
+
+function commandPattern(cli: string) {
+  return new RegExp(`^${cli} "\\$\\(cat freedom-handoff-[0-9a-f]{8}\\.md\\)"$`);
+}
+
+async function generatedCommand(scope: Locator, cli: string) {
+  const code = scope.locator('code.handoff-command');
+  await expect(code).toHaveText(commandPattern(cli));
+  const text = (await code.innerText()).trim();
+  const id = text.match(/freedom-handoff-([0-9a-f]{8})\.md/)?.[1];
+  expect(id, text).toBeTruthy();
+  await expect(scope).toContainText(`任務已產生（交接編號 ${id}）。`);
+  return id!;
+}
+
+async function saveTaskFile(page: Page, scope: Locator, id: string) {
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    scope.getByRole('button', { name: '下載任務檔', exact: true }).click(),
+  ]);
+  expect(download.suggestedFilename()).toBe(`freedom-handoff-${id}.md`);
+}
+
+async function expectCommandTokens(page: Page) {
+  const paint = await page.locator('code.handoff-command').first().evaluate(element => {
+    const style = getComputedStyle(element);
+    return { color: style.color, background: style.backgroundColor };
+  });
+  const ink = await page.evaluate(() => {
+    const host = document.querySelector('.review-center');
+    if (!host) throw new Error('找不到審核中心');
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--ink)';
+    host.appendChild(probe);
+    try { return getComputedStyle(probe).color; } finally { probe.remove(); }
+  });
+  expect(paint.color).toBe(ink);
+  expect(paint.background).toBe(await tokenBackground(page, '--bg-elev'));
+}
+
+test('a guild leader hands a pull and an issue to a local AI', async ({ page, e2eAuthPool }) => {
+  test.setTimeout(180_000);
+  const prior = await snapshot(e2eAuthPool);
+  await wipe(e2eAuthPool);
+  await appoint(e2eAuthPool);
+  await seed(e2eAuthPool);
+  await e2eAuthPool.query(`UPDATE maintainer_pull_requests SET queue_state='ready', queue_reasons=$2::jsonb WHERE pull_id=$1`,
+    [PULLS.open, JSON.stringify([{ code: 'ready_human_approved', message: '已有有效核准，而且必要檢查通過。' }])]);
+  try {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await login(page);
+    await navigate(page, '公會管理');
+    await page.getByRole('button', { name: 'PR 審核', exact: true }).click();
+    const own = page.locator(`[data-pull-id="${PULLS.own}"]`);
+    await own.getByRole('button', { name: '詳情', exact: true }).click();
+    await own.getByRole('button', { name: '交給本機 AI…', exact: true }).click();
+    await expect(own.locator('option[value="merge"]')).toHaveAttribute('disabled', '');
+    await expect(own).toContainText('只有已核准（有效核准落在目前的提交上）而且 CI 通過的 PR，才能交給 AI 合併。');
+    const created = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes(`/guild-reviews/${PULLS.own}/handoffs`));
+    await own.getByRole('button', { name: '產生任務', exact: true }).click();
+    expect((await created).status()).toBe(201);
+    const fixId = await generatedCommand(own, 'claude');
+    await saveTaskFile(page, own, fixId);
+    await expect(own.getByRole('list', { name: '最近的交接' })).toContainText('@e2e-guild-leader');
+    await expectCommandTokens(page);
+    await page.screenshot({ path: 'test-results/repo-maintainer-handoff-guild-1280.png', fullPage: true });
+    await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
+    await expectCommandTokens(page);
+    await page.screenshot({ path: 'test-results/repo-maintainer-handoff-guild-dark-1280.png', fullPage: true });
+    await page.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const download = own.getByRole('button', { name: '下載任務檔', exact: true });
+    await download.scrollIntoViewIfNeeded();
+    const box = await download.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeLessThan(220);
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    expect(await own.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await page.screenshot({ path: 'test-results/repo-maintainer-handoff-guild-390.png', fullPage: true });
+    await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: 'test-results/repo-maintainer-handoff-guild-dark-390.png', fullPage: true });
+    await page.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
+    await page.setViewportSize({ width: 1280, height: 900 });
+
+    await page.getByRole('tab', { name: '已核准', exact: true }).click();
+    const ready = page.locator(`[data-pull-id="${PULLS.open}"]`);
+    await ready.getByRole('button', { name: '詳情', exact: true }).click();
+    await ready.getByRole('button', { name: '交給本機 AI…', exact: true }).click();
+    await expect(ready.locator('option[value="merge"]')).not.toHaveAttribute('disabled');
+    await ready.getByLabel('工作').selectOption({ label: '讓 AI 合併這個 PR' });
+    const merged = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes(`/guild-reviews/${PULLS.open}/handoffs`));
+    await ready.getByRole('button', { name: '產生任務', exact: true }).click();
+    expect((await merged).status()).toBe(201);
+    await generatedCommand(ready, 'claude');
+    await ready.getByText('預覽任務內容', { exact: true }).click();
+    const preview = await ready.locator('pre').innerText();
+    expect(preview).toContain(`--match-head-commit ${HEAD}`);
+    expect(preview).not.toContain('--admin');
+
+    const issue = page.locator('details.handoff-panel');
+    await expect(issue).toBeVisible();
+    await issue.locator('summary').click();
+    const repo = issue.getByLabel('交接儲存庫');
+    await expect(repo.locator('option')).toHaveCount(2);
+    await expect(repo).toContainText('FreeTWAI-AI/e2e-guild-own');
+    await expect(repo).toContainText('FreeTWAI-AI/e2e-guild-open');
+    await expect(repo).not.toContainText('e2e-guild-other');
+    await expect(repo).not.toContainText('e2e-guild-admin');
+    await repo.selectOption({ label: 'FreeTWAI-AI/e2e-guild-own' });
+    await issue.getByLabel('Issue 編號').fill('18');
+    await issue.getByLabel('工具').selectOption({ label: 'grok CLI' });
+    const issued = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes(`/guild-reviews/repositories/${REPOS.own}/issue-handoffs`));
+    await issue.getByRole('button', { name: '產生任務', exact: true }).click();
+    expect((await issued).status()).toBe(201);
+    await generatedCommand(issue, 'grok');
+    await issue.getByText('預覽任務內容', { exact: true }).click();
+    await expect(issue.locator('pre')).toContainText('Closes #18');
+    await expect(issue.locator('pre')).not.toContainText('平台觀察到的資料');
+  } finally {
+    await wipe(e2eAuthPool);
+    await restore(e2eAuthPool, prior);
   }
 });

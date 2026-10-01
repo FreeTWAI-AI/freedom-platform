@@ -23,10 +23,15 @@ export type ReviewRow = {
   github_review_id: string; reviewer_login: string; state: string; commit_id: string | null;
   is_current_head: boolean; counts_as_valid: boolean;
 };
+export type HandoffRecent = { kind: string; cli: string; github_login: string; head_sha: string | null; created_at: string | null };
+export type PullHandoff = {
+  allowed: boolean; reason: string | null; merge_allowed: boolean; merge_reason: string | null; recent: HandoffRecent[];
+};
 export type PullDetail = PullRow & {
   is_draft: boolean; mode: string; files: FileRow[]; checks: CheckRow[]; reviews: ReviewRow[];
   queue_reasons: Reason[]; claims: HistoryClaim[]; attention_reasons: Reason[];
   ownership: Ownership & { history: OwnershipChange[] };
+  handoff: PullHandoff;
 };
 export type EligibleReviewer = {
   user_id: string; display_name: string; github_login: string; acting_as: 'admin' | 'guild_leader' | 'skill_book_maintainer';

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import type { PortalClient } from '../api';
 import { useMemberClient } from './GuildWorkspace';
+import { IssueHandoff, PullHandoffButton, PullHandoffForm, type HandoffResult, type IssueRepo } from './review-handoff';
 import {
   CLAIM_HELD, CLAIM_UNAVAILABLE, GITHUB_REVIEW_HINT, GITHUB_REVIEW_LINK, PullFacts, ReviewQueueRow, adoptionHint, pullClaimable, versionOf,
   type PullDetail, type PullRow,
@@ -20,6 +21,7 @@ type Page = {
   viewer: { github_login: string | null; reason: string | null };
   items: PullRow[];
   next_offset: number | null;
+  repositories?: IssueRepo[];
 };
 
 function optionKey(option: ClaimOption): string {
@@ -111,26 +113,30 @@ export function GuildReviews({ client }: { client: PortalClient }) {
     {loading && <p role="status">正在載入審核佇列…</p>}
     <ul className="review-list" aria-label="拉取請求">
       {items.map(row => <ReviewQueueRow key={row.pull_id} row={row} open={openId === row.pull_id} onToggle={() => void choose(row.pull_id)}>
-        {openId === row.pull_id && detail?.pull_id === row.pull_id && <GuildDetailPanel detail={detail} linked={!!page?.viewer.github_login} busy={loading} onError={setError} onClaim={body => api.post(`/guild-reviews/${row.pull_id}/claim`, body, versionOf(detail.aggregate_version))} onRelease={() => api.post(`/guild-reviews/claims/${detail.claim!.claim_id}/release`, {}, versionOf(detail.claim!.aggregate_version))} onDone={() => void afterWrite(row.pull_id)} />}
+        {openId === row.pull_id && detail?.pull_id === row.pull_id && <GuildDetailPanel detail={detail} linked={!!page?.viewer.github_login} busy={loading} onError={setError} onClaim={body => api.post(`/guild-reviews/${row.pull_id}/claim`, body, versionOf(detail.aggregate_version))} onRelease={() => api.post(`/guild-reviews/claims/${detail.claim!.claim_id}/release`, {}, versionOf(detail.claim!.aggregate_version))} onDone={() => void afterWrite(row.pull_id)} onHandoff={body => api.post<HandoffResult>(`/guild-reviews/${row.pull_id}/handoffs`, body)} onHandoffRefresh={() => void reloadDetail(row.pull_id)} />}
         {openId === row.pull_id && detail?.pull_id !== row.pull_id && <p role="status">正在載入細節…</p>}
       </ReviewQueueRow>)}
     </ul>
     {!loading && !items.length && !error && <p className="muted">這個佇列目前沒有拉取請求。</p>}
     {page?.next_offset !== null && page?.next_offset !== undefined && <button type="button" className="btn btn-ghost" disabled={loading} onClick={() => void load(tab, page.next_offset!)}>載入更多</button>}
+    {!!page?.repositories?.length && <IssueHandoff repositories={page.repositories} submit={(repositoryId, body) => api.post<HandoffResult>(`/guild-reviews/repositories/${repositoryId}/issue-handoffs`, body)} />}
   </section>;
 }
 
-function GuildDetailPanel({ detail, linked, busy, onError, onClaim, onRelease, onDone }: {
+function GuildDetailPanel({ detail, linked, busy, onError, onClaim, onRelease, onDone, onHandoff, onHandoffRefresh }: {
   detail: GuildDetail; linked: boolean; busy: boolean;
   onError: (message: string) => void;
   onClaim: (body: { acting_as?: 'skill_book_maintainer'; skill_book_id?: string | null; guild_key?: string }) => Promise<unknown>;
   onRelease: () => Promise<unknown>;
   onDone: () => void;
+  onHandoff: (body: { kind: 'fix' | 'merge'; cli: 'claude' | 'codex' | 'grok'; expected_head_sha: string }) => Promise<HandoffResult>;
+  onHandoffRefresh: () => void;
 }) {
   const options = detail.claim_options ?? [];
   const onlyGuilds = options.length > 0 && options.every(option => option.acting_as === 'guild_leader');
   const [selected, setSelected] = useState(options[0] ? optionKey(options[0]) : '');
   const [pending, setPending] = useState(false);
+  const [showHandoff, setShowHandoff] = useState(false);
   const chosen = options.find(option => optionKey(option) === selected) ?? options[0];
   const unavailable = !pullClaimable(detail);
   const claimed = !!detail.claim;
@@ -180,7 +186,9 @@ function GuildDetailPanel({ detail, linked, busy, onError, onClaim, onRelease, o
       <div className="actions review-actions">
         {detail.can_release && detail.claim && <button type="button" className="btn btn-ghost" disabled={locked} onClick={() => void release()}>放棄認領</button>}
         <a className="btn btn-ghost" href={`${detail.html_url}/files`} target="_blank" rel="noopener noreferrer">{GITHUB_REVIEW_LINK}</a>
+        <PullHandoffButton open={showHandoff} onToggle={() => setShowHandoff(value => !value)} />
       </div>
+      {showHandoff && <PullHandoffForm detail={detail} submit={body => onHandoff(body)} onRefresh={onHandoffRefresh} />}
     </div>
   </>;
 }
