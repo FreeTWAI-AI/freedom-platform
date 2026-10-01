@@ -17,6 +17,8 @@
 .review-center .review-detail ul { margin: 0; padding-left: 1.2rem; }
 .review-center .review-actions { align-items: center; }
 .review-center .btn { min-height: 44px; font-size: .875rem; padding: 8px 12px; width: auto; flex: 0 1 auto; }
+.review-center .review-row-main > .btn,
+.review-center > .btn { justify-self: start; align-self: start; width: fit-content; max-width: 100%; }
 .review-center .review-settings { min-width: 0; }
 .review-center .review-settings > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: .875rem; }
 .review-center .review-settings > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
