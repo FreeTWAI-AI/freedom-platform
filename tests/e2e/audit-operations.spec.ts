@@ -110,9 +110,10 @@ test('cooperation cards say who acts next and link between showcase and records'
   const title = '稽核・合作提示範例';
   await login(page, 'client@local.test');
   await navigate(page, '作品與需求');
-  await expect(page.getByText('填成果代號即可，檔案另行分享；不要貼含登入權限的連結或私人資料。', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('作品連結（選填）', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('成果引用（例如 artifact:template-v1）', { exact: true })).toBeHidden();
   await page.getByLabel('作品標題', { exact: true }).fill(title);
-  await page.getByLabel('說明', { exact: true }).fill('合成資料的稽核作品。');
+  await page.getByLabel('一句話介紹', { exact: true }).fill('合成資料的稽核作品。');
   await page.getByLabel('我同意以社群可見方式分享這件作品').check();
   await page.getByRole('button', { name: '發布作品', exact: true }).click();
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
@@ -125,9 +126,9 @@ test('cooperation cards say who acts next and link between showcase and records'
     await expect(page.getByRole('heading', { name: '作品與需求', level: 1, exact: true })).toBeVisible();
   } else await navigate(page, '作品與需求');
   const showcase = page.getByRole('article').filter({ has: page.getByRole('heading', { name: title, exact: true }) }).first();
-  await showcase.getByRole('button', { name: '提出商機', exact: true }).click();
+  await showcase.getByRole('button', { name: '我想找你合作', exact: true }).click();
   await showcase.getByLabel('你的需求', { exact: true }).fill('稽核需求：調整一個欄位');
-  await showcase.getByRole('button', { name: '送出商機', exact: true }).click();
+  await showcase.getByRole('button', { name: '送出合作需求', exact: true }).click();
   const opportunity = page.getByRole('article').filter({ hasText: '稽核需求：調整一個欄位' });
   await expect(opportunity.getByText('已送出需求，等待作品作者提出合作範圍與價格。', { exact: true })).toBeVisible();
 

@@ -203,6 +203,7 @@ test('owner previews all 100 share introductions and explicitly sends with CSRF,
   const requests = await mockUploads(page);
   let published = 0;
   await login(page); await navigate(page, '開源投稿');
+  await page.getByText('使用 Agent 或聊天 AI 協助整理（進階）', { exact: true }).click();
   await page.route('**/api/v1/opensource/projects', route => { if (route.request().method() === 'GET') published++; return route.fallback(); });
   await page.getByRole('button', { name: '上傳技能', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
@@ -305,16 +306,14 @@ for (const mode of ['draft', 'key'] as const) {
   });
 }
 
-test('open-source panel keeps manual GitHub form folded and the upload dialog fits a 320px phone', async ({ page }) => {
+test('open-source panel shows a simple form, folds advanced upload and fits a 320px phone', async ({ page }) => {
   await mockUploads(page);
   await page.setViewportSize({ width: 320, height: 720 });
   await login(page); await navigate(page, '開源投稿');
-  const manual = page.locator('details.manual-upload');
-  await expect(manual).not.toHaveAttribute('open');
-  await expect(page.getByRole('heading', { name: '登錄開源作品', exact: true })).toBeHidden();
-  await manual.getByText('手動登錄作品', { exact: true }).click();
-  await expect(manual.getByRole('heading', { name: '登錄開源作品', exact: true })).toBeVisible();
-  await expect(manual.getByRole('button', { name: '從 GitHub 登錄', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '投稿你的開源工具', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '預覽投稿', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '上傳技能', exact: true })).toBeHidden();
+  await page.getByText('使用 Agent 或聊天 AI 協助整理（進階）', { exact: true }).click();
 
   const trigger = page.getByRole('button', { name: '上傳技能', exact: true });
   await expect(trigger).toHaveCount(1);
