@@ -13,7 +13,10 @@ const UPCOMING = '71000000-0000-4000-8000-000000000004';
 const LOCATION = '地點密語e2e-location';
 const MEETING = 'https://secret-meet.example/e2e-room';
 const YOUTUBE = 'https://www.youtube.com/watch?v=abcdefghijk&utm_source=share';
-const SHOTS = '/home/ted-h/tmp-scratch/fp_work/grok-share-promo/highlights-scratch';
+const SHOTS = process.env.AUDIT_EVIDENCE_DIR ?? 'test-results/event-highlights';
+const GUILD_COPY = '公會夥伴在現場交流，結束後公開回顧。';
+const MEMBER_COPY = '這是一場會員活動，活動說明只提供給會員。';
+const GENERIC_META = '自由工坊社群活動回顧：海報、照片與錄影連結。';
 const EVENT_IDS = [ONLINE, GUILD, HIDDEN, UPCOMING];
 
 test.describe.configure({mode: 'serial'});
@@ -95,7 +98,7 @@ function contrast(a: string, b: string) {
 test.beforeAll(async ({e2eAuthPool}) => {
   mkdirSync(SHOTS, {recursive: true});
   thumbJpeg = await sharp({create: {width: 16, height: 9, channels: 3, background: '#3044ff'}}).jpeg().toBuffer();
-  const banner = await sharp({create: {width: 320, height: 180, channels: 3, background: '#3044ff'}}).webp().toBuffer();
+  const banner = await sharp({create: {width: 900, height: 1200, channels: 3, background: '#3044ff'}}).webp().toBuffer();
   await e2eAuthPool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref)
     SELECT $1,$2,$3,$4,password_hash,$5 FROM users WHERE user_id=$6`,
   [HOST, COMMUNITY, 'highlight-host-e2e@example.invalid', '驗收帳號', '71000000-0000-4000-8000-0000000000ab', MAKER]);
@@ -110,7 +113,7 @@ test.beforeAll(async ({e2eAuthPool}) => {
       VALUES ($1,$2,$3,$4,$5,${row[4]},${row[5]},$6,$7,$8,'published',$9,$10,$11)`,
     [row[0], COMMUNITY, row[1], row[2], row[3], row[6], LOCATION, row[10], row[7], row[8], row[9]]);
   }
-  await e2eAuthPool.query(`INSERT INTO community_event_banners(event_id,image_bytes,orientation) VALUES ($1,$2,'landscape')`, [ONLINE, banner]);
+  await e2eAuthPool.query(`INSERT INTO community_event_banners(event_id,image_bytes,orientation) VALUES ($1,$2,'portrait')`, [ONLINE, banner]);
 });
 
 test.afterAll(async ({e2eAuthPool}) => {
@@ -134,6 +137,12 @@ test('the member list shows ended events newest first and filters by mode', asyn
   await expect(page.getByText('驗收帳號的活動')).toHaveCount(0);
   await expect(page.getByText('即將舉辦')).toHaveCount(0);
   await expect(cards.nth(0).locator('.hl-cover img')).toBeVisible();
+  const titleGap = await cards.first().evaluate(article => {
+    const cover = article.querySelector('.hl-cover')!.getBoundingClientRect();
+    const title = article.querySelector('h2')!.getBoundingClientRect();
+    return title.top - cover.bottom;
+  });
+  expect(titleGap).toBeGreaterThanOrEqual(8);
   await expect(cards.nth(1).locator('.hl-placeholder')).toContainText('實體');
   await expect(page.getByText(LOCATION)).toHaveCount(0);
   await expect(page.getByText(MEETING)).toHaveCount(0);
@@ -163,6 +172,26 @@ test('a member adds a video link, photos and a poster, then uses the lightbox', 
   await page.goto(`/#highlights/${ONLINE}`);
   await expect(page.getByRole('heading', {name: '線上分享回顧', level: 2})).toBeVisible();
   await expect(page.getByText('這一頁是公開的，任何拿到連結的人都看得到。')).toBeVisible();
+  const banner = page.locator('.hl-frame img').first();
+  await expect(banner).toBeVisible();
+  await expect.poll(() => banner.evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  const fitted = await banner.evaluate(img => {
+    const box = img.getBoundingClientRect();
+    const frame = img.parentElement!.getBoundingClientRect();
+    const style = getComputedStyle(img);
+    return {
+      height: box.height,
+      viewport: window.innerHeight,
+      fit: style.objectFit,
+      frame: getComputedStyle(img.parentElement!).backgroundColor,
+      center: Math.abs((box.left + box.right) / 2 - (frame.left + frame.right) / 2),
+    };
+  });
+  expect(fitted.fit).toBe('contain');
+  expect(fitted.frame).toBe('rgb(20, 22, 27)');
+  expect(fitted.height).toBeLessThanOrEqual(fitted.viewport * 0.7 + 1);
+  expect(fitted.height).toBeGreaterThan(120);
+  expect(fitted.center).toBeLessThan(2);
   await page.getByText('補上照片或影片連結').click();
   await expect(page.getByText('你還可以新增：連結 10・照片 30・海報 3')).toBeVisible();
   await page.screenshot({path: `${SHOTS}/member-add-light-1280.png`, fullPage: true});
@@ -192,14 +221,24 @@ test('a member adds a video link, photos and a poster, then uses the lightbox', 
   const progress = page.getByRole('status').filter({hasText: /正在上傳第/}).waitFor({timeout: 20000});
   await page.getByRole('button', {name: '送出', exact: true}).click();
   await progress;
-  await expect(page.locator('.hl-photos button')).toHaveCount(2);
+  await expect(page.locator('.hl-shot')).toHaveCount(2);
   await page.getByRole('group', {name: '要補上的內容'}).getByRole('button', {name: '海報', exact: true}).click();
   await page.getByLabel('海報', {exact: true}).setInputFiles({name: 'poster.webp', mimeType: 'image/webp', buffer: await sharp({create: {width: 90, height: 50, channels: 3, background: '#ff8800'}}).webp().toBuffer()});
   await page.getByLabel('標題（選填）').fill('主視覺海報');
   await page.getByRole('button', {name: '送出', exact: true}).click();
   await expect(page.getByRole('img', {name: '主視覺海報'})).toBeVisible();
+  const cells = page.locator('.hl-photo');
+  await expect(cells).toHaveCount(2);
+  for (const cell of await cells.all()) {
+    const imageBox = await cell.locator('img').boundingBox();
+    const buttonBox = await cell.getByRole('button', {name: /^移除/}).boundingBox();
+    expect(imageBox).toBeTruthy();
+    expect(buttonBox).toBeTruthy();
+    expect(buttonBox!.y).toBeGreaterThanOrEqual(imageBox!.y + imageBox!.height - 1);
+    expect(Math.abs((buttonBox!.x + buttonBox!.width / 2) - (imageBox!.x + imageBox!.width / 2))).toBeLessThan(imageBox!.width / 2);
+  }
   await page.screenshot({path: `${SHOTS}/member-detail-light-1280.png`, fullPage: true});
-  const thumbs = page.locator('.hl-photos button');
+  const thumbs = page.locator('.hl-shot');
   await thumbs.first().click();
   const dialog = page.getByRole('dialog', {name: '活動照片'});
   await expect(dialog).toBeVisible();
@@ -211,13 +250,18 @@ test('a member adds a video link, photos and a poster, then uses the lightbox', 
   await expect(thumbs.first()).toBeFocused();
   page.once('dialog', dialogBox => dialogBox.accept());
   await page.getByRole('button', {name: '移除 現場照片', exact: true}).first().click();
-  await expect(page.locator('.hl-photos button')).toHaveCount(1);
+  await expect(page.locator('.hl-shot')).toHaveCount(1);
   await page.getByRole('button', {name: '分享', exact: true}).click();
   await expect(page.getByText('已複製公開連結。').or(page.getByLabel('公開連結'))).toBeVisible();
 });
 
 test('another member cannot remove someone else\'s item, and the organizer can', async ({page}) => {
   await login(page, 'reviewer@local.test');
+  await page.goto(`/#highlights/${GUILD}`);
+  await expect(page.getByRole('heading', {name: '實體公會聚會', level: 2})).toBeVisible();
+  await expect(page.getByText(MEMBER_COPY)).toBeVisible();
+  await expect(page.getByText(GUILD_COPY)).toHaveCount(0);
+  await expect(page.getByRole('button', {name: '展開', exact: true})).toHaveCount(0);
   await page.goto(`/#highlights/${ONLINE}`);
   await expect(page.getByRole('heading', {name: '線上分享回顧', level: 2})).toBeVisible();
   await expect(page.getByRole('button', {name: /^移除/})).toHaveCount(0);
@@ -259,8 +303,21 @@ test('signed-out visitors see the same public pages without private fields', asy
   await page.setViewportSize({width: 820, height: 900});
   await noOverflow(page, 'public list 820');
   await page.setViewportSize({width: 1280, height: 900});
+  await page.goto(`/highlights/${GUILD}`);
+  await expect(page.getByRole('heading', {name: '實體公會聚會', level: 1})).toBeVisible();
+  await expect(page.getByText(MEMBER_COPY)).toBeVisible();
+  await expect(page.getByText(GUILD_COPY)).toHaveCount(0);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', GENERIC_META);
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', GENERIC_META);
+  await expect(page.locator('meta[name="twitter:description"]')).toHaveAttribute('content', GENERIC_META);
+  await page.screenshot({path: `${SHOTS}/public-guild-light-1280.png`, fullPage: true});
+  await page.setViewportSize({width: 390, height: 844});
+  await noOverflow(page, 'public guild detail 390');
+  await page.screenshot({path: `${SHOTS}/public-guild-light-390.png`, fullPage: true});
+  await page.setViewportSize({width: 1280, height: 900});
   await page.goto(`/highlights/${ONLINE}`);
   await expect(page.getByRole('heading', {name: '線上分享回顧', level: 1})).toBeVisible();
+  await expect(page.getByText('這是一場已經結束的線上分享，歡迎回顧照片與影片。')).toBeVisible();
   await expect(page.getByText('YouTube 影片')).toBeVisible();
   await expect(page.getByText('主視覺海報')).toBeVisible();
   await expect(page.getByRole('link', {name: '開啟影片 ↗'})).toHaveAttribute('href', 'https://www.youtube.com/watch?v=abcdefghijk');

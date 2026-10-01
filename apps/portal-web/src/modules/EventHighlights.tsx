@@ -196,8 +196,8 @@ function HighlightDetail({ client, eventId }: { client: PortalClient; eventId: s
     <section>
       <h2>海報</h2>
       <div className="hl-posters">
-        {detail.banner_url && <img src={detail.banner_url} alt={`${detail.title} 海報`} />}
-        {posters.map(item => <figure key={item.media_id}><img src={item.image_url} alt={item.title || '海報'} />{item.title && <figcaption>{item.title}</figcaption>}{item.can_remove && <button type="button" className="hl-btn" onClick={() => void remove(item)}>移除</button>}</figure>)}
+        {detail.banner_url && <div className="hl-frame"><img src={detail.banner_url} alt={`${detail.title} 海報`} /></div>}
+        {posters.map(item => <figure key={item.media_id}><div className="hl-frame"><img src={item.image_url} alt={item.title || '海報'} /></div>{item.title && <figcaption>{item.title}</figcaption>}{item.can_remove && <button type="button" className="hl-btn" onClick={() => void remove(item)}>移除</button>}</figure>)}
         {!detail.banner_url && posters.length === 0 && <p className="hl-meta">還沒有海報。</p>}
       </div>
     </section>
@@ -216,11 +216,13 @@ function HighlightDetail({ client, eventId }: { client: PortalClient; eventId: s
     <section>
       <h2>活動照片</h2>
       <div className="hl-photos">
-        {photos.map((item, index) => <button type="button" key={item.media_id} onClick={event => { openerRef.current = event.currentTarget; setPhotoIndex(index); }}>
-          <img src={item.thumb_url} alt={`${item.title || '活動照片'}，${item.uploader.display_name}`} />
-        </button>)}
+        {photos.map((item, index) => <div className="hl-photo" key={item.media_id}>
+          <button type="button" className="hl-shot" onClick={event => { openerRef.current = event.currentTarget; setPhotoIndex(index); }}>
+            <img src={item.thumb_url} alt={`${item.title || '活動照片'}，${item.uploader.display_name}`} />
+          </button>
+          {item.can_remove && <button type="button" className="hl-btn" onClick={() => void remove(item)}>移除{item.title ? ` ${item.title}` : '照片'}</button>}
+        </div>)}
       </div>
-      {photos.some(item => item.can_remove) && <div className="hl-actions">{photos.filter(item => item.can_remove).map(item => <button type="button" className="hl-btn" key={item.media_id} onClick={() => void remove(item)}>移除{item.title ? ` ${item.title}` : '照片'}</button>)}</div>}
     </section>
     {detail.items.length === 0 && <p>還沒有人補上內容。參加過的夥伴可以上傳照片、海報或貼上影片連結。</p>}
     <details className="hl-add">
