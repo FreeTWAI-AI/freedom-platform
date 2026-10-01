@@ -83,7 +83,7 @@ npx wrangler delete --config <private-overlay.jsonc> --env next
 
 ## 維護者鏡像 Worker
 
-階段 1a 把拉取請求、檔案、審查與檢查鏡像進資料庫，並算出風險與佇列。階段 1b 的認領寫在資料庫。只有三個開關都打開時，這支 Worker 才會對被認領的那一位審查者呼叫 GitHub requested reviewers：App 的 Pull requests 是 write（組織擁有者必須重新同意）、`GITHUB_MAINTAINER_WRITES` 正好是 `requested_reviewers`、該儲存庫的 `request_reviewers` 是 true。Committed 的變數值是 `off`。它不送審查、不留言、不改標籤、不合併，也不呼叫 AI。入口是 [apps/platform-api/src/maintainer-worker.ts](../../apps/platform-api/src/maintainer-worker.ts)，只匯出 `scheduled`，沒有 `fetch`、route、custom domain、workers.dev 或 preview URL。設定是 [wrangler.maintainer.jsonc](../../wrangler.maintainer.jsonc)。Webhook 收在平台 Worker，私鑰只放在這支 Worker。操作說明見 [repo-maintainer.md](../../docs/development/repo-maintainer.md)。
+階段 1a 把拉取請求、檔案、審查與檢查鏡像進資料庫，並算出注意事項與佇列狀態。認領與儲存庫歸屬（階段 1b、1c）寫在資料庫。只有三個開關都打開時，這支 Worker 才會對被認領的那一位審查者呼叫 GitHub requested reviewers：App 的 Pull requests 是 write（組織擁有者必須重新同意）、`GITHUB_MAINTAINER_WRITES` 正好是 `requested_reviewers`、該儲存庫的 `request_reviewers` 是 true。Committed 的變數值是 `off`。它不送審查、不留言、不改標籤、不合併，也不呼叫 AI。入口是 [apps/platform-api/src/maintainer-worker.ts](../../apps/platform-api/src/maintainer-worker.ts)，只匯出 `scheduled`，沒有 `fetch`、route、custom domain、workers.dev 或 preview URL。設定是 [wrangler.maintainer.jsonc](../../wrangler.maintainer.jsonc)。Webhook 收在平台 Worker，私鑰只放在這支 Worker。操作說明見 [repo-maintainer.md](../../docs/development/repo-maintainer.md)。
 
 `npm run worker:dry-run:maintainer` 打包 top-level、`staging-next` 與 `next`。`preflight.mjs wrangler` 不檢查這個檔。Repo 只做 dry-run，不部署。
 
