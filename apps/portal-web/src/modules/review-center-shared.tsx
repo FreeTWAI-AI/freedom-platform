@@ -1,11 +1,12 @@
 import { Fragment, type ReactNode } from 'react';
 
 export type Reason = { code: string; message: string; paths?: string[] };
-export type Ownership = { guild_key: string | null; guild_name: string | null; scope_kind: string | null; open_to_guilds: boolean };
+export type Ownership = { guild_key: string | null; guild_name: string | null; scope_kind: string | null; open_to_guilds: boolean; skill_book_id?: string | null };
 export type OwnershipChange = Ownership & { who: string | null; source: string; reason: string; created_at: string | null };
 export type Claim = {
   claim_id: string; reviewer_user_id: string; reviewer_login: string; acting_as: string;
-  guild_key: string | null; guild_name: string | null; assignment: string; claimed_by: string | null;
+  guild_key: string | null; guild_name: string | null; skill_book_id?: string | null; skill_book_title?: string | null;
+  assignment: string; claimed_by: string | null;
   created_at: string; expires_at: string | null; head_sha: string; github_request_state: string;
   github_request_error?: string | null; aggregate_version: string | number;
 };
@@ -22,14 +23,19 @@ export type ReviewRow = {
   github_review_id: string; reviewer_login: string; state: string; commit_id: string | null;
   is_current_head: boolean; counts_as_valid: boolean;
 };
+export type HandoffRecent = { kind: string; cli: string; github_login: string; head_sha: string | null; created_at: string | null };
+export type PullHandoff = {
+  allowed: boolean; reason: string | null; merge_allowed: boolean; merge_reason: string | null; recent: HandoffRecent[];
+};
 export type PullDetail = PullRow & {
   is_draft: boolean; mode: string; files: FileRow[]; checks: CheckRow[]; reviews: ReviewRow[];
   queue_reasons: Reason[]; claims: HistoryClaim[]; attention_reasons: Reason[];
   ownership: Ownership & { history: OwnershipChange[] };
+  handoff: PullHandoff;
 };
 export type EligibleReviewer = {
-  user_id: string; display_name: string; github_login: string; acting_as: 'admin' | 'guild_leader';
-  guild_key: string | null; guild_name: string | null;
+  user_id: string; display_name: string; github_login: string; acting_as: 'admin' | 'guild_leader' | 'skill_book_maintainer';
+  guild_key: string | null; guild_name: string | null; skill_book_id: string | null; skill_book_title: string | null;
 };
 
 export const QUEUE_LABEL: Record<string, string> = {
@@ -39,7 +45,7 @@ export const QUEUE_LABEL: Record<string, string> = {
 export const CLAIM_STATE: Record<string, string> = { active: '認領中', released: '已釋放', expired: '已到期', completed: '已完成' };
 export const END_REASON: Record<string, string> = {
   self_released: '本人放棄認領', admin_released: '管理員已釋放', pull_closed: '拉取請求已關閉',
-  reviewer_not_eligible: '已不是這個項目的公會長或管理員', review_submitted: '已送出審查',
+  reviewer_not_eligible: '已不是這個項目的公會長、技能書維護者或管理員', review_submitted: '已送出審查',
 };
 export const REVIEW_STATE: Record<string, string> = {
   APPROVED: '核准', CHANGES_REQUESTED: '要求修改', COMMENTED: '留言', DISMISSED: '已撤銷', PENDING: '未送出',
@@ -56,6 +62,9 @@ export const GITHUB_ERROR: Record<string, string> = {
 export const MODE_LABEL: Record<string, string> = { off: '關閉', observe: '觀察' };
 export const SCOPE_LABEL: Record<string, string> = { module: '模組', skill_book: '技能書' };
 export const SOURCE_LABEL: Record<string, string> = { admin: '管理員調整', adopted: '審完歸屬' };
+export const SKILL_MAINTAINER_STATUS: Record<string, string> = {
+  linked: '已連結 GitHub', no_github: '尚未連結 GitHub', inactive: '任命已停用',
+};
 export const ADMIN_LINK_STATUS: Record<string, string> = {
   ready: '已可審查',
   no_member: '沒有同 email 的會員帳號',
@@ -102,7 +111,7 @@ export function queueBadgeClass(state: string): string {
 export function ownershipBadge(ownership: Ownership): { label: string; className: string } {
   if (ownership.guild_key) return { label: ownership.guild_name ?? ownership.guild_key, className: 'badge badge-own' };
   if (ownership.open_to_guilds) return { label: '開放認領', className: 'badge badge-open' };
-  return { label: '只限管理員', className: 'badge' };
+  return { label: ownership.skill_book_id ? '管理員與技能書維護者' : '只限管理員', className: 'badge' };
 }
 export function reviewStateLabel(state: string): string {
   return REVIEW_STATE[state] ?? state;
@@ -116,7 +125,11 @@ export function authorBadges(row: { author_association: string | null; author_ty
 }
 export function claimLine(claim: Claim | null): string {
   if (!claim) return '無人認領';
-  const role = claim.acting_as === 'guild_leader' ? `${claim.guild_name ?? '公會'}・公會長` : '管理員';
+  const role = claim.acting_as === 'guild_leader'
+    ? `${claim.guild_name ?? '公會'}・公會長`
+    : claim.acting_as === 'skill_book_maintainer'
+      ? `${claim.skill_book_title ?? '技能書'}・維護者`
+      : '管理員';
   const expiry = claim.expires_at ? countdown(claim.expires_at) : '不自動釋放';
   return `${claim.reviewer_login}（${role}）${expiry}`;
 }
@@ -138,14 +151,16 @@ export function pullClaimable(detail: { state: string; is_draft: boolean; paused
 }
 export function reviewerOptionLabel(person: EligibleReviewer): string {
   if (person.acting_as === 'guild_leader') return `${person.display_name}（@${person.github_login}・${person.guild_name ?? '公會'}・公會長）`;
+  if (person.acting_as === 'skill_book_maintainer') return `${person.display_name}（@${person.github_login}・${person.skill_book_title ?? '技能書'}・維護者）`;
   return `${person.display_name}（@${person.github_login}・管理員）`;
 }
 export function reviewerOptionValue(person: EligibleReviewer): string {
-  return `${person.user_id}|${person.acting_as}|${person.guild_key ?? ''}`;
+  return `${person.user_id}|${person.acting_as}|${person.guild_key ?? ''}|${person.skill_book_id ?? ''}`;
 }
 export function ownershipPlace(ownership: Ownership): string {
   if (ownership.guild_key) return ownership.guild_name ?? ownership.guild_key;
-  return ownership.open_to_guilds ? '開放認領' : '只限管理員';
+  if (ownership.open_to_guilds) return '開放認領';
+  return ownership.skill_book_id ? '管理員與技能書維護者' : '只限管理員';
 }
 export function adoptionHint(guildName: string): string {
   return `這個儲存庫還沒有歸屬，你審完後會歸到${guildName}。`;

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** Stored on every derived pull. Bump when attention or queue rules change. */
-export const MAINTAINER_POLICY_VERSION = '2026-10-01.1';
+export const MAINTAINER_POLICY_VERSION = '2026-10-01.2';
 
 export const REPOSITORY_MODES = ['off', 'observe'] as const;
 export type RepositoryMode = (typeof REPOSITORY_MODES)[number];
@@ -58,11 +58,11 @@ const QUEUE_MESSAGES: Record<string, string> = {
   ci_pending: '必要檢查尚未回報，仍在等待時間內。',
   ci_missing: '必要檢查還沒有出現。fork 的拉取請求通常要等維護者核准工作流程才會開始跑。',
   other_check_failed: '另有檢查失敗，不擋佇列，請一併看一下。',
-  ready_human_approved: '公會長或管理員已核准目前的提交。',
+  ready_human_approved: '公會長、技能書維護者或管理員已核准目前的提交。',
   approval_stale: '有核准落在舊的提交上，那個核准不算目前這一版。',
-  approval_not_eligible: '有人核准了目前的提交，但不是這個項目的公會長或管理員，不算有效核准。',
-  awaiting_review: '檢查已過，等公會長或管理員核准。',
-  author_is_reviewer: '作者本人也是這個項目的審核人，不能核准自己的 PR，需要另一位公會長或管理員核准。',
+  approval_not_eligible: '有人核准了目前的提交，但不是這個項目的公會長、技能書維護者或管理員，不算有效核准。',
+  awaiting_review: '檢查已過，等公會長、技能書維護者或管理員核准。',
+  author_is_reviewer: '作者本人也是這個項目的審核人，不能核准自己的 PR，需要另一位公會長、技能書維護者或管理員核准。',
   review_claimed: '已有人正在審查。',
 };
 
@@ -116,7 +116,7 @@ export function resolveSettings(fullName: string, raw: unknown): MaintainerSetti
     hold_labels: parsed.hold_labels ?? ['hold', 'do-not-merge'],
     migrations_dir: parsed.migrations_dir ?? 'migrations',
     claim_hours: parsed.claim_hours ?? null,
-    request_reviewers: parsed.request_reviewers ?? false,
+    request_reviewers: parsed.request_reviewers ?? true,
   };
 }
 
@@ -317,8 +317,9 @@ export type QueuePull = {
 /** A live claim. Null expires_at stays live; a past timestamp does not. */
 export type QueueClaim = {
   reviewer_login: string;
-  acting_as: 'admin' | 'guild_leader';
+  acting_as: 'admin' | 'guild_leader' | 'skill_book_maintainer';
   guild_name: string | null;
+  skill_book_title: string | null;
   adopts_repository: boolean;
   expires_at: string | null;
 };
@@ -375,8 +376,10 @@ export function annotateReviews(reviews: PolicyReview[], pull: Pick<QueuePull, '
 function claimMessage(claim: QueueClaim): string {
   const who = claim.acting_as === 'admin'
     ? `${claim.reviewer_login}（管理員）正在審查。`
-    : `${claim.reviewer_login}（${claim.guild_name ?? ''}・公會長）正在審查。`;
-  const adopt = claim.adopts_repository ? `審完後這個儲存庫會歸到${claim.guild_name ?? ''}。` : '';
+    : claim.acting_as === 'skill_book_maintainer'
+      ? `${claim.reviewer_login}（${claim.skill_book_title ?? '技能書'}・技能書維護者）正在審查。`
+      : `${claim.reviewer_login}（${claim.guild_name ?? ''}・公會長）正在審查。`;
+  const adopt = claim.acting_as === 'guild_leader' && claim.adopts_repository ? `審完後這個儲存庫會歸到${claim.guild_name ?? ''}。` : '';
   const expiry = claim.expires_at ? '認領到期後會自動釋放。' : '';
   return `${who}${adopt}${expiry}`;
 }
