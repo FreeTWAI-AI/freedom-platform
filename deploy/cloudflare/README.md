@@ -83,7 +83,7 @@ npx wrangler delete --config <private-overlay.jsonc> --env next
 
 ## 維護者鏡像 Worker
 
-階段 1a 只讀 GitHub，把拉取請求、檔案、審查與檢查鏡像進資料庫，並算出風險與佇列。它不寫 GitHub、不呼叫 AI。入口是 [apps/platform-api/src/maintainer-worker.ts](../../apps/platform-api/src/maintainer-worker.ts)，只匯出 `scheduled`，沒有 `fetch`、route、custom domain、workers.dev 或 preview URL。設定是 [wrangler.maintainer.jsonc](../../wrangler.maintainer.jsonc)。Webhook 收在平台 Worker，私鑰只放在這支 Worker。操作說明見 [repo-maintainer.md](../../docs/development/repo-maintainer.md)。
+階段 1a 把拉取請求、檔案、審查與檢查鏡像進資料庫，並算出風險與佇列。階段 1b 的認領寫在資料庫。只有三個開關都打開時，這支 Worker 才會對被認領的那一位審查者呼叫 GitHub requested reviewers：App 的 Pull requests 是 write（組織擁有者必須重新同意）、`GITHUB_MAINTAINER_WRITES` 正好是 `requested_reviewers`、該儲存庫的 `request_reviewers` 是 true。Committed 的變數值是 `off`。它不送審查、不留言、不改標籤、不合併，也不呼叫 AI。入口是 [apps/platform-api/src/maintainer-worker.ts](../../apps/platform-api/src/maintainer-worker.ts)，只匯出 `scheduled`，沒有 `fetch`、route、custom domain、workers.dev 或 preview URL。設定是 [wrangler.maintainer.jsonc](../../wrangler.maintainer.jsonc)。Webhook 收在平台 Worker，私鑰只放在這支 Worker。操作說明見 [repo-maintainer.md](../../docs/development/repo-maintainer.md)。
 
 `npm run worker:dry-run:maintainer` 打包 top-level、`staging-next` 與 `next`。`preflight.mjs wrangler` 不檢查這個檔。Repo 只做 dry-run，不部署。
 
@@ -92,4 +92,4 @@ npx wrangler delete --config <private-overlay.jsonc> --env next
 | `staging-next` | `freedom-maintainer-staging-next` | 與 `freedom-platform-staging-next` 同一份、caching disabled 的 Hyperdrive |
 | `next` | `freedom-maintainer-next` | 與 `freedom-platform-next` 同一份、caching disabled 的 Hyperdrive |
 
-每個環境在私有 overlay 要替換的名稱：`HYPERDRIVE`、`GITHUB_MAINTAINER_APP_ID`（數字，不能是 0）、`GITHUB_MAINTAINER_ORG`。Secret 是 `GITHUB_MAINTAINER_PRIVATE_KEY`（PKCS#8），用 `wrangler secret put` 上傳，不要寫進 `--var`。平台 Worker 另有選填的 `GITHUB_MAINTAINER_WEBHOOK_SECRET`。排程是 `* * * * *`。失敗訊息固定，日誌只有計數。刪除的是 `freedom-maintainer-*`，不是平台 Worker。
+每個環境在私有 overlay 要替換的名稱：`HYPERDRIVE`、`GITHUB_MAINTAINER_APP_ID`（數字，不能是 0）、`GITHUB_MAINTAINER_ORG`。`GITHUB_MAINTAINER_WRITES` 已提交為 `off`；要讓認領去 GitHub 要求審查者時才改成 `requested_reviewers`。其他值在 tick 摘要裡記成 `writes=invalid`，不會寫 GitHub。Secret 是 `GITHUB_MAINTAINER_PRIVATE_KEY`（PKCS#8），用 `wrangler secret put` 上傳，不要寫進 `--var`。平台 Worker 另有選填的 `GITHUB_MAINTAINER_WEBHOOK_SECRET`。排程是 `* * * * *`。失敗訊息固定，日誌只有計數。刪除的是 `freedom-maintainer-*`，不是平台 Worker。
