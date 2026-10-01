@@ -40,7 +40,7 @@ Agent／聊天 AI／CLI 上傳保留在進階工具中；其既有 100 則短文
 - `POST /api/v1/me/skill-submissions/:id/manual`：只修改本人、尚未公開、沒有 Agent grant 的手動草稿；要求 If-Match。
 - `POST /api/v1/me/skill-submissions/:id/publish`：沿用現有公開機制、來源查驗、稽核與交易回滾。
 - 私人投稿 DTO 新增 `can_edit`，不回傳 grant hash。
-- 新 migration：`migrations/071_showcase_public_url.sql`。避開 #88 的 069 公會分級與 #87 的 070 工坊誌名片；不依賴兩者。
+- 新 migration：`migrations/073_showcase_public_url.sql`。原為 071；合併時 main 已用到 072，因此改為 073。不依賴其他新 migration。
 
 手動內容解析與 Agent 協議獨立。仍要求 session、Origin／CSRF、會員資格、rate limit、idempotency 和本人公開同意；客戶端不能寫入 official、owner 或會員身分。公開 API 保留原作者、來源關係（自行聲明）、固定 SHA、授權與正式收錄尚未審核的狀態。
 
@@ -50,7 +50,7 @@ Agent／聊天 AI／CLI 上傳保留在進階工具中；其既有 100 則短文
 - [WorkSharingEntry.tsx](../../apps/portal-web/src/modules/WorkSharingEntry.tsx)、[WorkSharing.css](../../apps/portal-web/src/modules/WorkSharing.css)：兩種分享方式與沿用主題的簡約樣式。
 - [App.tsx](../../apps/portal-web/src/App.tsx)：一般作品分享與合作需求。
 - [投稿 service](../../modules/skill-submissions/service.ts)、[投稿 routes](../../apps/platform-api/src/routes/skill-submissions.ts)。
-- [作品 service](../../modules/opportunity-project-work/business.ts)、[migration](../../migrations/071_showcase_public_url.sql)。
+- [作品 service](../../modules/opportunity-project-work/business.ts)、[migration](../../migrations/073_showcase_public_url.sql)。
 - [新流程 E2E](../../tests/e2e/simple-work-sharing.spec.ts)、[既有流程測試](../../tests/runtime/flows.test.ts)、[投稿 runtime 測試](../../tests/runtime/skill-submissions.test.ts)。
 
 ## 後續共創社群電商方向

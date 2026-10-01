@@ -1570,7 +1570,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30575,
-      "sha256": "3e3ff637747c3b2246d094c990c128ee675ee8b0bf3406036d160cb6faaea797"
+      "sha256": "0e6fc75368a1ea237c90e7c310b70950f673b0e8c520f80345900d4f6ae8953a"
     },
     {
       "path": "deploy/cloudflare/lib/cloudflare.mjs",
@@ -2074,8 +2074,8 @@
     },
     {
       "path": "docs/development/simple-work-sharing.md",
-      "bytes": 7506,
-      "sha256": "6e3654e3e09e8941db92ad2d517b05cffcddeeb6b6cd3826964cb76b9712421a"
+      "bytes": 7517,
+      "sha256": "ae359472d10eeb49df94f1bd22a2af96e9575393f1e5ced503c25baaef6d91d9"
     },
     {
       "path": "docs/development/skill-editor-guild-access.md",
@@ -3473,14 +3473,14 @@
       "sha256": "20f3dfc83dd035978ea9b5455edac808c967ff0a2d8f4d13bee36a5d7d8de214"
     },
     {
-      "path": "migrations/071_showcase_public_url.sql",
-      "bytes": 280,
-      "sha256": "13ba126153be4eae6781b90287b104f5407b8e81aa4b002cfb7278826cca923e"
-    },
-    {
       "path": "migrations/072_maintainer_handoffs.sql",
       "bytes": 2268,
       "sha256": "01e09129079a04bbe942689c4bcf1fcc3f362d25efe55578d69f6b56e058e2fd"
+    },
+    {
+      "path": "migrations/073_showcase_public_url.sql",
+      "bytes": 280,
+      "sha256": "13ba126153be4eae6781b90287b104f5407b8e81aa4b002cfb7278826cca923e"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
@@ -3855,7 +3855,7 @@
     {
       "path": "modules/development/pages.ts",
       "bytes": 23648,
-      "sha256": "4cb8bf2ac1d507eae7f47b7531a80774c46f7676f619fd0d69a90c26d053b2f9"
+      "sha256": "f0abc59ce7dfc15ea9e48ad39caf7a3488b583369e62fe3b78399d64ba006857"
     },
     {
       "path": "modules/development/service.ts",
