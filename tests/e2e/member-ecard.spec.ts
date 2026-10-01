@@ -75,12 +75,19 @@ test('member builds an e-card and visitors see each design',async({page,browser}
   await settings.getByRole('button',{name:'把「我的網站」加入名片',exact:true}).click();
   await expect(settings.locator('.ecard-link-list')).toContainText('我的網站');
   await settings.getByRole('button',{name:'建立分享連結',exact:true}).click();
-  await expect(settings.getByRole('button',{name:'複製連結',exact:true})).toBeVisible();
-  await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toBeVisible();
-  const shareUrl=await settings.getByLabel('名片邀請連結').inputValue();
-  await settings.getByRole('button',{name:'複製連結',exact:true}).click();
-  await expect(settings.getByText('分享未完成，你可以選取下方連結手動複製。')).toBeVisible();
-  await expect.poll(()=>settings.getByLabel('名片邀請連結').evaluate(element=>{const input=element as HTMLInputElement;return document.activeElement===input&&input.selectionStart===0&&input.selectionEnd===input.value.length;})).toBe(true);
+  const openCard=settings.getByRole('link',{name:'開啟名片',exact:true});
+  await expect(openCard).toBeVisible();
+  const shareUrl=await openCard.getAttribute('href');
+  expect(shareUrl).toMatch(/\/member-cards\/[A-Za-z0-9_-]{43}$/);
+  const share=settings.getByRole('button',{name:'分享名片',exact:true});
+  await expect(share).toBeEnabled();
+  await share.click();
+  const dialog=page.getByRole('dialog',{name:'分享「電子名片作者的工坊名片」',exact:true});
+  await expect(dialog.locator('.skill-share-url')).toHaveText(/\/go\/[A-Za-z0-9_-]{10}$/);
+  await dialog.getByRole('button',{name:'複製連結',exact:true}).click();
+  await expect(dialog.getByText('無法自動複製，請選取並複製下方內容')).toBeVisible();
+  await expect.poll(()=>dialog.getByLabel('手動複製分享內容').evaluate(element=>{const input=element as HTMLTextAreaElement;return document.activeElement===input&&input.selectionStart===0&&input.selectionEnd===input.value.length;})).toBe(true);
+  await dialog.getByRole('button',{name:'關閉分享',exact:true}).click();
   await page.screenshot({path:`${SHOTS}/settings-1280.png`,fullPage:true});
   await page.setViewportSize({width:390,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -94,10 +101,10 @@ test('member builds an e-card and visitors see each design',async({page,browser}
       await settings.getByRole('button',{name:'保存分享設定',exact:true}).click();
       const body=await (await saved).json();
       expect(body.design).toBe(design);
-      await expect(settings.getByLabel('名片邀請連結')).toHaveValue(shareUrl);
+      await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl!);
       for(const viewport of widths){
         await guest.setViewportSize(viewport);
-        await guest.goto(shareUrl);
+        await guest.goto(shareUrl!);
         await expect(guest.getByRole('heading',{name:'電子名片作者的工坊名片'})).toBeVisible();
         await expect(guest.getByText('做開源的人')).toBeVisible();
         await expect(guest.locator('.public-member-page')).toHaveAttribute('data-design',design);
@@ -114,4 +121,94 @@ test('member builds an e-card and visitors see each design',async({page,browser}
       }
     }
   }finally{await guestContext.close();}
+});
+
+const GUEST_UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+const themes=[['自由工坊－明亮','light'],['自由工坊－夜航','dark'],['自由工坊－敘生','versefolk']] as const;
+
+async function applyTheme(page:Page,label:string,id:string){
+  const menu=page.getByRole('button',{name:'設定',exact:true});
+  if(await menu.getAttribute('aria-expanded')!=='true')await menu.click();
+  await page.getByRole('menuitemradio',{name:label,exact:true}).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme',id);
+  if(await menu.getAttribute('aria-expanded')==='true')await menu.click();
+  await expect(menu).toHaveAttribute('aria-expanded','false');
+  await page.waitForTimeout(200);
+}
+
+test('sharing a member card from 我的名片 scores one guest click',async({page,browser})=>{
+  test.setTimeout(240000);
+  await page.setViewportSize({width:1280,height:900});
+  await signup(page,'名片推廣作者');
+  await navigate(page,'我的名片');
+  const settings=page.getByRole('region',{name:'分享我的工坊名片'});
+  await settings.getByRole('button',{name:'建立分享連結',exact:true}).click();
+  const share=settings.getByRole('button',{name:'分享名片',exact:true});
+  const openCard=settings.getByRole('link',{name:'開啟名片',exact:true});
+  await expect(share).toBeEnabled();
+  await expect(openCard).toHaveAttribute('href',/\/member-cards\/[A-Za-z0-9_-]{43}$/);
+  let go='';
+  for(const [label,id] of themes){
+    await applyTheme(page,label,id);
+    for(const width of [1280,820,390] as const){
+      await page.setViewportSize({width,height:width===390?844:900});
+      await page.waitForTimeout(200);
+      const shareBox=await share.boundingBox();
+      const openBox=await openCard.boundingBox();
+      const section=await settings.boundingBox();
+      expect(shareBox!.height).toBeGreaterThanOrEqual(44);
+      expect(openBox!.height).toBeGreaterThanOrEqual(44);
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      if(width===390){
+        expect(shareBox!.width).toBeGreaterThan(section!.width*0.8);
+        expect(openBox!.width).toBeGreaterThan(section!.width*0.8);
+      }else{
+        expect(Math.abs(shareBox!.y-openBox!.y)).toBeLessThanOrEqual(4);
+        expect(shareBox!.width).toBeLessThan(section!.width*0.6);
+      }
+      if(id!=='versefolk'&&(width===1280||width===390)){
+        await settings.locator('.member-card-share-actions').screenshot({path:`${SHOTS}/member-card-share-area-${id}-${width}.png`});
+      }
+    }
+    await page.setViewportSize({width:1280,height:900});
+    await share.click();
+    const dialog=page.getByRole('dialog',{name:'分享「名片推廣作者的工坊名片」',exact:true});
+    const url=dialog.locator('.skill-share-url');
+    await expect(url).toHaveText(/\/go\/[A-Za-z0-9_-]{10}$/);
+    await expect(dialog).toContainText('一起加入自由工坊，找到夥伴、學習與創作。');
+    if(!go)go=(await url.innerText()).trim();
+    else await expect(url).toHaveText(go);
+    for(const width of [1280,820,390] as const){
+      await page.setViewportSize({width,height:width===390?844:900});
+      await page.waitForTimeout(200);
+      const box=await dialog.boundingBox();
+      const titleBox=await dialog.getByRole('heading',{level:2}).boundingBox();
+      const closeBox=await dialog.getByRole('button',{name:'關閉分享',exact:true}).boundingBox();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.width).toBeLessThanOrEqual(width);
+      expect(titleBox!.width).toBeGreaterThan(160);
+      expect(titleBox!.height).toBeLessThan(96);
+      expect(closeBox!.width).toBeLessThan(160);
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      if(id!=='versefolk'&&(width===1280||width===390))await dialog.screenshot({path:`${SHOTS}/member-card-share-dialog-${id}-${width}.png`});
+    }
+    await dialog.getByRole('button',{name:'關閉分享',exact:true}).click();
+    await expect(dialog).toBeHidden();
+  }
+  const context=await browser.newContext({userAgent:GUEST_UA,viewport:{width:1280,height:900}});
+  const guest=await context.newPage();
+  try{
+    const clicked=guest.waitForResponse(response=>response.url().includes('/api/v1/promotion/clicks')&&response.request().method()==='POST');
+    await guest.goto(go);
+    expect((await clicked).ok()).toBe(true);
+    await expect(guest).toHaveURL(/\/member-cards\/[A-Za-z0-9_-]{43}$/);
+    await expect(guest.getByRole('heading',{name:'名片推廣作者的工坊名片'})).toBeVisible();
+    await expect(guest.getByRole('button',{name:'加入自由工坊／登入'})).toBeVisible();
+  }finally{await context.close();}
+  await navigate(page,'推廣排行榜');
+  await expect(page.getByRole('button',{name:'本週',exact:true})).toHaveAttribute('aria-pressed','true');
+  const board=page.getByRole('article',{name:'名片點擊排行榜',exact:true});
+  await expect(board).toContainText('在我的名片分享名片連結，每次點擊 +1。');
+  await expect(board).toContainText('名片推廣作者');
+  await expect(board).toContainText('我的名次：第 1 名・1 分');
 });

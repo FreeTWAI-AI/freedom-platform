@@ -10,7 +10,8 @@ import { tokenHash } from '../../modules/identity-membership/service.js';
 import { communityCatalog } from '../../modules/community/catalog.js';
 import { getSkillShareContent } from '../../modules/community/skill-share-content.js';
 import { PREVIEW_BOT_MARKERS, isPreviewBot } from '../../packages/shared/promotion-bots.js';
-import { promotionLeaderboardSql, taipeiDate, type PromotionKind } from '../../modules/community/promotion.js';
+import { promotionGo, promotionLeaderboardSql, taipeiDate, type PromotionKind } from '../../modules/community/promotion.js';
+import { readPublicCards } from '../../modules/identity-membership/member-sharing.js';
 import type { PreviewFetch } from '../../modules/community/link-preview.js';
 
 const origin = 'http://127.0.0.1:4310';
@@ -333,9 +334,12 @@ test('the interstitial escapes text, sets open-graph tags and ignores extra quer
   assert.match(openHtml, new RegExp(`content="${'公'.repeat(160)}"`));
   assert.match(openHtml, new RegExp(`https://freetwai\\.com/api/v1/public/events/${openId}/banner`));
   const closedHtml = await page(`/go/${closedLink.data.code}`);
-  assert.match(closedHtml, /content="自由工坊會員活動"/);
-  assert.match(closedHtml, /登入自由工坊查看活動內容。/);
-  assert.ok(!closedHtml.includes(secret) && !closedHtml.includes('機密說明YYY') && !closedHtml.includes('/banner'));
+  assert.match(closedHtml, /content="機密活動標題ZZZ"/);
+  assert.match(closedHtml, /content="機密說明YYY"/);
+  assert.match(closedHtml, /property="og:image" content="https:\/\/freetwai\.com\/brand\/freedom-workshop\.webp"/);
+  assert.match(closedHtml, /property="og:image:width" content="1280"/);
+  assert.match(closedHtml, /property="og:image:height" content="720"/);
+  assert.ok(closedHtml.includes(secret) && closedHtml.includes('機密說明YYY') && !closedHtml.includes('/banner'));
   assert.match(closedHtml, new RegExp(`data-target="/events/${closedId}\\?ref=`));
   const referralHtml = await page(`/go/${referralLink.data.code}`);
   assert.match(referralHtml, /content="推薦活動標題"/);
@@ -345,9 +349,80 @@ test('the interstitial escapes text, sets open-graph tags and ignores extra quer
   assert.deepEqual(after, before);
 });
 
-test('link creation validates each kind, stays idempotent and keeps member cards closed', async () => {
+test('guild and workshop previews use the brand image, and an ended event opens its highlight', async () => {
   const maker = await signIn();
-  assert.equal((await request('/promotion/links', maker, { kind: 'member_card', target: maker.user.user_id })).data.code, 'promotion_kind_unavailable');
+  const guildId = randomUUID();
+  const endedId = randomUUID();
+  const hiddenId = randomUUID();
+  const upcoming = new Date(Date.now() + 3 * 86400000);
+  const upcomingStart = new Date(Date.now() + 2 * 86400000);
+  const endedAt = new Date('2026-08-02T00:00:00.000Z');
+  const endedStart = new Date('2026-08-01T00:00:00.000Z');
+  await pool.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,title,description,starts_at,ends_at,mode,location,state,visibility,event_kind,guild_key)
+    VALUES($1,$2,$3,'公會預覽標題','公會預覽說明',$4,$5,'in_person','線上','published','guild','guild_skill_exchange','guild_event_space')`,
+  [guildId, DEMO_COMMUNITY, maker.user.user_id, upcomingStart, upcoming]);
+  await pool.query('INSERT INTO community_event_banners(event_id,image_bytes) VALUES($1,$2)', [guildId, Buffer.from([1])]);
+  await pool.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,title,description,starts_at,ends_at,mode,location,state,visibility,event_kind)
+    VALUES($1,$2,$3,'已結束的公開活動','結束後的說明',$4,$5,'online','線上','published','open','other')`,
+  [endedId, DEMO_COMMUNITY, maker.user.user_id, endedStart, endedAt]);
+  await pool.query(`INSERT INTO community_event_banners(event_id,image_bytes,orientation) VALUES($1,$2,'landscape')`, [endedId, Buffer.from([2])]);
+  const testerEmail = `ended-host-${randomUUID()}@example.invalid`;
+  const testerId = await addUser(testerEmail, '驗收主辦');
+  await pool.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,title,description,starts_at,ends_at,mode,location,state,visibility,event_kind)
+    VALUES($1,$2,$3,'測試帳號已結束','不該進公開集錦',$4,$5,'online','線上','published','open','other')`,
+  [hiddenId, DEMO_COMMUNITY, testerId, endedStart, endedAt]);
+  const guildLink = await request('/promotion/links', maker, { kind: 'event', target: guildId });
+  const endedLink = await request('/promotion/links', maker, { kind: 'event', target: endedId });
+  assert.equal(guildLink.status, 200, JSON.stringify(guildLink.data));
+  assert.equal(endedLink.status, 200, JSON.stringify(endedLink.data));
+  const tester = await signIn(testerEmail);
+  const hiddenLink = await request('/promotion/links', tester, { kind: 'event', target: hiddenId });
+  assert.equal(hiddenLink.status, 200, JSON.stringify(hiddenLink.data));
+  async function htmlOf(code: string) {
+    const response = await app.request(`${origin}/go/${code}`);
+    assert.equal(response.status, 200, code);
+    return response.text();
+  }
+  const guildHtml = await htmlOf(guildLink.data.code);
+  assert.match(guildHtml, /content="公會預覽標題"/);
+  assert.match(guildHtml, /content="公會預覽說明"/);
+  assert.match(guildHtml, /property="og:image" content="https:\/\/freetwai\.com\/brand\/freedom-workshop\.webp"/);
+  assert.match(guildHtml, /property="og:image:width" content="1280"/);
+  assert.match(guildHtml, /property="og:image:height" content="720"/);
+  assert.ok(!guildHtml.includes('/banner'));
+  assert.match(guildHtml, new RegExp(`data-target="/events/${guildId}\\?ref=`));
+  const seen: string[] = [];
+  const original = pool.query.bind(pool);
+  pool.query = ((...args: unknown[]) => {
+    const first = args[0];
+    seen.push(typeof first === 'string' ? first : first && typeof first === 'object' && 'text' in first ? String((first as { text: unknown }).text) : '');
+    return (original as (...inner: unknown[]) => Promise<unknown>)(...args);
+  }) as typeof pool.query;
+  let endedHtml = '';
+  try { endedHtml = await htmlOf(endedLink.data.code); }
+  finally { pool.query = original; }
+  assert.match(endedHtml, new RegExp(`data-target="/highlights/${endedId}"`));
+  assert.ok(!endedHtml.includes(`/events/${endedId}`));
+  assert.match(endedHtml, /content="已結束的公開活動"/);
+  assert.match(endedHtml, /content="結束後的說明"/);
+  assert.match(endedHtml, new RegExp(`property="og:image" content="https://freetwai\\.com/api/v1/public/event-highlights/${endedId}/banner"`));
+  assert.match(endedHtml, /property="og:image:width" content="1200"/);
+  assert.match(endedHtml, /property="og:image:height" content="675"/);
+  const bytes = seen.filter(sql => /community_event_highlight_images/i.test(sql) || (/community_event_banners/i.test(sql) && /image_bytes/i.test(sql)));
+  assert.deepEqual(bytes, []);
+  const hiddenHtml = await htmlOf(hiddenLink.data.code);
+  assert.match(hiddenHtml, new RegExp(`data-target="/events/${hiddenId}\\?ref=`));
+  assert.ok(!hiddenHtml.includes(`/highlights/${hiddenId}`));
+  await click(endedLink.data.code, REAL);
+  assert.equal(await pointsOf(endedLink.data.code), 1);
+});
+
+test('link creation validates each kind and stays idempotent', async () => {
+  const maker = await signIn();
+  const closedCard = await request('/promotion/links', maker, { kind: 'member_card', target: maker.user.user_id });
+  assert.equal(closedCard.status, 404);
+  assert.equal(closedCard.data.code, 'not_found');
+  assert.match(closedCard.data.detail, /先開啟名片分享/);
   const missingService = await request('/promotion/links', maker, { kind: 'member_service', target: randomUUID() });
   assert.equal(missingService.status, 404);
   assert.equal(missingService.data.code, 'not_found');
@@ -751,4 +826,143 @@ test('/go falls back home when a service or event disappears between the two rea
   const eventLink = await ownLink(maker.user.user_id, 'event', eventId);
   await vanishBetweenReads(sql => sql.includes('AS has_banner') && sql.includes('community_events'), `UPDATE community_events SET state='cancelled' WHERE event_id=$1`, eventId, eventLink.code);
   assert.equal((await pool.query(`SELECT state FROM community_events WHERE event_id=$1`, [eventId])).rows[0].state, 'cancelled');
+});
+
+test('a member card link is owner-only, scores a visitor, and dies when the card rotates or closes', async () => {
+  const maker = await signIn(), other = await signIn(DEMO_USERS[1].email);
+  const nasty = '<b>&"';
+  await pool.query('UPDATE users SET display_name=$2 WHERE user_id=$1', [maker.user.user_id, nasty]);
+  const off = await request('/promotion/links', maker, { kind: 'member_card', target: maker.user.user_id });
+  assert.equal(off.status, 404);
+  assert.equal(off.data.code, 'not_found');
+  assert.equal(off.data.detail, '先開啟名片分享，才能建立名片連結。');
+  const malformed = await request('/promotion/links', maker, { kind: 'member_card', target: 'self' });
+  assert.equal(malformed.status, 422);
+  assert.equal(malformed.data.code, 'validation_failed');
+
+  async function saveCard(session: Session, body: Record<string, unknown>, version?: number) {
+    const headers: Record<string, string> = {
+      Origin: origin, Cookie: session.cookie, 'X-CSRF-Token': session.csrf,
+      'Content-Type': 'application/json', 'Idempotency-Key': randomUUID(),
+    };
+    if (version !== undefined) headers['If-Match'] = `"${version}"`;
+    const response = await app.request(origin + '/api/v1/me/member-card-share', { method: 'POST', headers, body: JSON.stringify(body) });
+    return { status: response.status, data: await response.json() as any };
+  }
+  function tokenOf(path: string) {
+    return String(path).split('/').at(-1) ?? '';
+  }
+  function hides(value: unknown, token: string) {
+    assert.equal(JSON.stringify(value).includes(token), false);
+  }
+
+  const opened = await saveCard(maker, { enabled: true, include_avatar: false, headline: '一句介紹' });
+  assert.equal(opened.status, 200, opened.data.detail);
+  const firstToken = tokenOf(opened.data.share_path);
+  const card = (await readPublicCards(pool, DEMO_COMMUNITY, [maker.user.user_id])).get(maker.user.user_id)!;
+  assert.equal(card.generation.length, 16);
+  const created = await request('/promotion/links', maker, { kind: 'member_card', target: maker.user.user_id });
+  assert.equal(created.status, 200, created.data.detail);
+  assert.equal(created.data.target, `${maker.user.user_id}:${card.generation}`);
+  assert.equal(created.data.title, `${nasty} 的自由工坊名片`);
+  const again = await request('/promotion/links', maker, { kind: 'member_card', target: maker.user.user_id.toUpperCase() });
+  assert.equal(again.status, 200);
+  assert.equal(again.data.code, created.data.code);
+  assert.equal(again.data.target, created.data.target);
+  hides(created.data, firstToken);
+  hides(again.data, firstToken);
+  const stored = (await pool.query(`SELECT coalesce(string_agg(target_key || code, ''), '') AS blob FROM promotion_links WHERE kind='member_card'`)).rows[0].blob as string;
+  assert.equal(stored.includes(firstToken), false);
+  const forbidden = await request('/promotion/links', other, { kind: 'member_card', target: maker.user.user_id });
+  assert.equal(forbidden.status, 403);
+  assert.equal(forbidden.data.code, 'promotion_target_forbidden');
+  assert.equal(forbidden.data.detail, '只能分享自己的名片。');
+  hides(forbidden.data, firstToken);
+  const outward = await request('/promotion/links', maker, { kind: 'member_card', target: other.user.user_id });
+  assert.equal(outward.status, 403);
+  assert.equal(outward.data.code, 'promotion_target_forbidden');
+
+  const hiddenId = await addUser('hidden-card@example.invalid', '驗證名片');
+  await pool.query('INSERT INTO member_card_shares(user_id,community_id,share_token,enabled,include_avatar) VALUES($1,$2,$3,true,false)', [hiddenId, DEMO_COMMUNITY, randomBytes(32).toString('base64url')]);
+  const hidden = await signIn('hidden-card@example.invalid');
+  const hiddenLink = await request('/promotion/links', hidden, { kind: 'member_card', target: hiddenId });
+  assert.equal(hiddenLink.status, 404);
+  assert.equal(hiddenLink.data.code, 'not_found');
+  assert.equal(hiddenLink.data.detail, '先開啟名片分享，才能建立名片連結。');
+
+  const html = await promotionGo(pool, created.data.code, undefined, 'https://freetwai.com');
+  assert.ok(html);
+  assert.match(html, /property="og:title" content="&lt;b&gt;&amp;&quot; 的自由工坊名片"/);
+  assert.match(html, /property="og:description" content="一句介紹"/);
+  assert.match(html, /property="og:image" content="https:\/\/freetwai\.com\/brand\/freedom-workshop\.webp"/);
+  assert.match(html, /property="og:image:width" content="1280"/);
+  assert.match(html, /property="og:image:height" content="720"/);
+  assert.match(html, new RegExp(`data-target="${card.path}"`));
+  assert.equal(html.includes('<b>&"'), false);
+  assert.equal(html.includes('/avatar'), false);
+  const cleared = await saveCard(maker, { enabled: true, include_avatar: false, headline: null }, opened.data.aggregate_version);
+  assert.equal(cleared.status, 200, cleared.data.detail);
+  assert.equal(tokenOf(cleared.data.share_path), firstToken);
+  const plain = await promotionGo(pool, created.data.code, undefined, 'https://freetwai.com');
+  assert.ok(plain);
+  assert.match(plain, /property="og:description" content="加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。"/);
+  assert.match(plain, new RegExp(`data-target="${card.path}"`));
+
+  await click(created.data.code, REAL, maker.cookie);
+  await click(created.data.code, REAL);
+  assert.equal(await pointsOf(created.data.code), 1);
+  const board = (await request('/promotion/leaderboards?period=week', maker)).data.boards.find((item: { kind: string }) => item.kind === 'member_card');
+  assert.equal(board.items.find((item: { user_id: string }) => item.user_id === maker.user.user_id)?.points, 1);
+  assert.equal(board.me.points, 1);
+
+  const rotated = await saveCard(maker, { enabled: true, include_avatar: false, rotate: true }, cleared.data.aggregate_version);
+  assert.equal(rotated.status, 200, rotated.data.detail);
+  const rotatedToken = tokenOf(rotated.data.share_path);
+  assert.notEqual(rotatedToken, firstToken);
+  assert.equal(await promotionGo(pool, created.data.code, undefined, 'https://freetwai.com'), null);
+  const home = await app.request(`${origin}/go/${created.data.code}`);
+  assert.equal(home.status, 302);
+  assert.ok((home.headers.get('location') ?? '').endsWith('/'));
+  await click(created.data.code, REAL.replace('128.0.0.0', '128.0.0.9'));
+  assert.equal(await pointsOf(created.data.code), 1);
+  const afterRotate = await request('/promotion/links/mine', maker);
+  const stale = afterRotate.data.items.find((item: { code: string }) => item.code === created.data.code);
+  assert.equal(stale.available, false);
+  assert.equal(stale.title, '已無法開啟');
+  hides(afterRotate.data, firstToken);
+  hides(afterRotate.data, rotatedToken);
+  const renewed = await request('/promotion/links', maker, { kind: 'member_card', target: maker.user.user_id });
+  assert.equal(renewed.status, 200, renewed.data.detail);
+  assert.notEqual(renewed.data.code, created.data.code);
+  assert.notEqual(renewed.data.target, created.data.target);
+  assert.match(renewed.data.target, new RegExp(`^${maker.user.user_id}:[0-9a-f]{16}$`));
+  hides(renewed.data, rotatedToken);
+  const kept = (await pool.query(`SELECT count(*)::int AS n FROM promotion_links WHERE user_id=$1 AND kind='member_card' AND revoked_at IS NULL`, [maker.user.user_id])).rows[0].n;
+  assert.equal(kept, 2);
+
+  const disabled = await saveCard(maker, { enabled: false, include_avatar: false }, rotated.data.aggregate_version);
+  assert.equal(disabled.status, 200, disabled.data.detail);
+  assert.equal(await promotionGo(pool, renewed.data.code, undefined, 'https://freetwai.com'), null);
+  await click(renewed.data.code, 'Mozilla/5.0 Chrome/131.0.0.0 Safari/537.36');
+  assert.equal(await pointsOf(renewed.data.code), 0);
+  const afterDisable = await request('/promotion/links/mine', maker);
+  const paused = afterDisable.data.items.find((item: { code: string }) => item.code === renewed.data.code);
+  assert.equal(paused.available, false);
+  assert.equal(paused.title, '已無法開啟');
+  const blocked = await request('/promotion/links', maker, { kind: 'member_card', target: maker.user.user_id });
+  assert.equal(blocked.status, 404);
+  assert.equal(blocked.data.code, 'not_found');
+
+  const reopened = await saveCard(maker, { enabled: true, include_avatar: false }, disabled.data.aggregate_version);
+  assert.equal(reopened.status, 200, reopened.data.detail);
+  const reopenedToken = tokenOf(reopened.data.share_path);
+  assert.notEqual(reopenedToken, rotatedToken);
+  const fresh = await request('/promotion/links', maker, { kind: 'member_card', target: maker.user.user_id });
+  assert.equal(fresh.status, 200, fresh.data.detail);
+  assert.notEqual(fresh.data.code, renewed.data.code);
+  assert.notEqual(fresh.data.target, renewed.data.target);
+  hides(fresh.data, reopenedToken);
+  const rows = (await pool.query(`SELECT coalesce(string_agg(target_key || code, ''), '') AS blob FROM promotion_links WHERE kind='member_card'`)).rows[0].blob as string;
+  for (const token of [firstToken, rotatedToken, reopenedToken]) assert.equal(rows.includes(token), false);
+  assert.equal((await pool.query(`SELECT count(*)::int AS n FROM promotion_links WHERE user_id=$1 AND kind='member_card' AND code=$2 AND revoked_at IS NULL`, [maker.user.user_id, created.data.code])).rows[0].n, 1);
 });

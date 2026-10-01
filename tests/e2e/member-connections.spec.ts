@@ -39,23 +39,25 @@ test('a shared card opens anonymously, survives reload, rotates and can be disab
   const settings=page.getByRole('region',{name:'分享我的工坊名片'});
   await expect(settings.getByRole('checkbox',{name:'在分享頁顯示我的頭像'})).not.toBeChecked();
   await settings.getByRole('button',{name:'建立分享連結'}).click();
-  const first=await settings.getByLabel('名片邀請連結').inputValue(),guestContext=await browser.newContext({viewport:{width:320,height:720}}),guest=await guestContext.newPage();
+  const openCard=settings.getByRole('link',{name:'開啟名片',exact:true});
+  await expect(openCard).toBeVisible();
+  const first=await openCard.getAttribute('href'),guestContext=await browser.newContext({viewport:{width:320,height:720}}),guest=await guestContext.newPage();
   try{
-    await guest.goto(first);await expect(guest.getByRole('heading',{name:'分享名片作者的工坊名片'})).toBeVisible();await expect(guest.getByRole('button',{name:'加入自由工坊／登入'})).toBeVisible();
+    await guest.goto(first!);await expect(guest.getByRole('heading',{name:'分享名片作者的工坊名片'})).toBeVisible();await expect(guest.getByRole('button',{name:'加入自由工坊／登入'})).toBeVisible();
     await guest.reload();await expect(guest.getByRole('heading',{name:'分享名片作者的工坊名片'})).toBeVisible();expect(await guest.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await guest.screenshot({path:'test-results/issue-42-public-card-320.png',fullPage:true});
-    await settings.getByRole('button',{name:'更新連結',exact:true}).click();await expect(settings.getByLabel('名片邀請連結')).not.toHaveValue(first);const second=await settings.getByLabel('名片邀請連結').inputValue();
+    await settings.getByRole('button',{name:'更新連結',exact:true}).click();await expect(openCard).not.toHaveAttribute('href',first!);const second=await openCard.getAttribute('href');
     await guest.reload();await expect(guest.getByRole('heading',{name:'暫時無法開啟這張名片'})).toBeVisible();
-    await guest.goto(second);await expect(guest.getByRole('heading',{name:'分享名片作者的工坊名片'})).toBeVisible();
+    await guest.goto(second!);await expect(guest.getByRole('heading',{name:'分享名片作者的工坊名片'})).toBeVisible();
     await settings.getByRole('button',{name:'停用分享'}).click();await expect(settings.getByRole('button',{name:'建立分享連結'})).toBeVisible();await guest.reload();await expect(guest.getByRole('heading',{name:'暫時無法開啟這張名片'})).toBeVisible();
   }finally{await guestContext.close();}
 });
 test('invited visitor signs up, returns to the card and becomes a friend only after acceptance',async({page,browser})=>{
   await signup(page,'邀請發起人');await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();await navigate(page,'我的名片');
-  const sharing=page.getByRole('region',{name:'分享我的工坊名片'});await sharing.getByRole('button',{name:'建立分享連結'}).click();const url=await sharing.getByLabel('名片邀請連結').inputValue();
+  const sharing=page.getByRole('region',{name:'分享我的工坊名片'});await sharing.getByRole('button',{name:'建立分享連結'}).click();const openCard=sharing.getByRole('link',{name:'開啟名片',exact:true});await expect(openCard).toBeVisible();const url=await openCard.getAttribute('href');
   const context=await browser.newContext(),guest=await context.newPage();let releaseAccept=()=>{};
   try{
-    await guest.goto(url);await guest.getByRole('button',{name:'加入自由工坊／登入'}).click();await signup(guest,'受邀共創夥伴',false);
+    await guest.goto(url!);await guest.getByRole('button',{name:'加入自由工坊／登入'}).click();await signup(guest,'受邀共創夥伴',false);
     await expect(guest.getByRole('heading',{name:'邀請發起人的工坊名片'})).toBeVisible();await guest.getByRole('button',{name:'邀請成為好友',exact:true}).click();await expect(guest.getByText('好友邀請待回覆',{exact:true})).toBeVisible();
     await guest.getByRole('button',{name:'返回會員首頁'}).click();await navigate(guest,'我的好友');await guest.getByRole('button',{name:'送出的邀請',exact:true}).click();await expect(guest.locator('.friends-panel').getByRole('heading',{name:'邀請發起人',exact:true})).toBeVisible();
     await navigate(page,'我的好友');await page.getByRole('button',{name:'收到的邀請',exact:true}).click();const friend=page.locator('.friends-panel .directory-member').filter({has:page.getByRole('heading',{name:'受邀共創夥伴',exact:true})});

@@ -65,7 +65,7 @@ export function registerPublicPromotion(app: Hono<PlatformEnv>, pool: Pool, runt
   app.get('/go/:code', async c => {
     c.header('X-Robots-Tag', 'noindex, nofollow');
     c.header('Cache-Control', 'no-store');
-    const html = await promotionGo(pool, c.req.param('code'), c.req.query('intro'), runtime.publicOrigin);
+    const html = await promotionGo(pool, c.req.param('code'), c.req.query('intro'), runtime.publicOrigin, clock(runtime));
     if (!html) return c.redirect('/', 302);
     return c.html(html);
   });

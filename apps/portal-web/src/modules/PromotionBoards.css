@@ -19,7 +19,10 @@
 .promotion-mine li.is-unavailable .promotion-kind,
 .promotion-mine li.is-unavailable .promotion-link-title{color:var(--muted)}
 .promotion-rules{border-top:1px solid var(--line);padding-top:.4rem}
-.promotion-rules summary{min-height:44px;display:flex;align-items:center;cursor:pointer}
+.promotion-rules summary{min-height:44px;display:flex;align-items:center;gap:.4rem;padding:.8rem 0;cursor:pointer;font-weight:700;list-style:none}
+.promotion-rules summary::-webkit-details-marker{display:none}
+.promotion-rules summary::before{content:'▸';font-weight:400}
+.promotion-rules[open] summary::before{content:'▾'}
 .promotion-share-points,.promotion-share-rule{margin:.35rem 0;color:var(--muted);font-size:.85rem}
 @media(max-width:1100px){.promotion-boards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.promotion-boards{grid-template-columns:1fr}}

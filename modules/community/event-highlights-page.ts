@@ -59,10 +59,6 @@ export async function highlightsListHtml(pool: Pool, origin: string, query: {mod
 function paragraphs(description: string) {
   return description.split(/\n+/).map(line => line.trim()).filter(Boolean).map(line => `<p>${escape(line)}</p>`).join('') || '<p>這場活動沒有留下說明。</p>';
 }
-function copyBlock(description: string | null) {
-  if (description == null) return '<p>這是一場會員活動，活動說明只提供給會員。</p>';
-  return paragraphs(description);
-}
 
 export async function highlightsDetailHtml(pool: Pool, origin: string, eventId: string) {
   const detail = await readHighlightEvent(pool, {communityId: null, viewerId: null, eventId});
@@ -83,7 +79,7 @@ export async function highlightsDetailHtml(pool: Pool, origin: string, eventId: 
   const linkSection = linkHtml ? `<section><h2>錄影與影片</h2><div class="hl-links">${linkHtml}</div></section>` : '';
   const photoSection = photoHtml ? `<section><h2>活動照片</h2><div class="hl-photos">${photoHtml}</div></section>` : '';
   const empty = detail.items.length ? '' : '<p class="hl-empty">還沒有人補上內容。參加過的夥伴可以上傳照片、海報或貼上影片連結。</p>';
-  const summary = `<h1>${escape(detail.title)}</h1><p>${escape(highlightWhen(detail.starts_at, detail.ends_at))} · ${escape(modeLabel[detail.mode] ?? detail.mode)} · ${escape(kindLabel[detail.event_kind] ?? detail.event_kind)}</p><p>主辦 ${escape(detail.organizer_name)} · ${detail.attending_count} 人參加</p><div class="hl-copy">${copyBlock(detail.description)}</div>`;
+  const summary = `<h1>${escape(detail.title)}</h1><p>${escape(highlightWhen(detail.starts_at, detail.ends_at))} · ${escape(modeLabel[detail.mode] ?? detail.mode)} · ${escape(kindLabel[detail.event_kind] ?? detail.event_kind)}</p><p>主辦 ${escape(detail.organizer_name)} · ${detail.attending_count} 人參加</p><div class="hl-copy">${paragraphs(detail.description)}</div>`;
   const body = `${summary}${posterSection}${linkSection}${photoSection}${empty}`;
   const footer = `<a href="/">加入自由工坊</a><a href="/#highlights/${escape(eventId)}">會員登入後補上照片或影片連結</a>`;
   return head(origin, `/highlights/${eventId}`, `${detail.title}｜自由工坊活動集錦`, highlightMetaDescription(detail.description), image, 'article') + shell(body, footer);
@@ -94,11 +90,11 @@ export function highlightsNotFoundHtml(origin: string) {
   return head(origin, '/highlights', '找不到活動｜自由工坊活動集錦', '自由工坊社群活動回顧：海報、照片與錄影連結。', brandImage, 'website') + shell(body, '<a href="/">加入自由工坊</a>');
 }
 
-export const highlightsCss = `:root{color-scheme:light;--bg:#f6f8fb;--ink:#1c2636;--muted:#566376;--line:#dce3eb;--card:#fff;--link:#315500;--chip:#f2f8dc;--info:#eef4ff;--blue:#344cbd}
-@media(prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#08090b;--ink:#f4f6ef;--muted:#aeb5c2;--line:#333943;--card:#14161b;--link:#c4ff20;--chip:#222c12;--info:#181f38;--blue:#9ba7ff}}
+export const highlightsCss = `:root{color-scheme:light;--bg:#f6f8fb;--ink:#1c2636;--muted:#566376;--line:#dce3eb;--card:#fff;--link:#315500;--chip:#f2f8dc;--green:#9ed400;--accent-ink:#203000;--info:#eef4ff;--blue:#344cbd}
+@media(prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#08090b;--ink:#f4f6ef;--muted:#aeb5c2;--line:#333943;--card:#14161b;--link:#c4ff20;--chip:#222c12;--green:#c4ff20;--accent-ink:#12180a;--info:#181f38;--blue:#9ba7ff}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,sans-serif}main,header,footer{width:min(1080px,100%);margin:auto;padding:1rem}img{max-width:100%;height:auto}a{color:var(--link)}a:focus-visible,button:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
 .hl-top,.hl-foot{display:flex;flex-wrap:wrap;gap:.8rem 1rem;align-items:center}.hl-top{border-bottom:1px solid var(--line)}.hl-foot{border-top:1px solid var(--line);margin-top:1.5rem}.hl-logo{width:min(220px,70vw);height:auto;display:block}
-.hl-chips{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}.hl-chips a{min-height:44px;display:inline-flex;align-items:center;padding:.35rem .85rem;border:1px solid var(--line);border-radius:999px;text-decoration:none;color:var(--ink);background:var(--card)}.hl-chips a[aria-current]{background:var(--chip);color:var(--link);border-color:var(--link)}
+.hl-chips{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}.hl-chips a{min-height:44px;display:inline-flex;align-items:center;padding:.35rem .85rem;border:1px solid var(--line);border-radius:999px;text-decoration:none;color:var(--ink);background:var(--card)}.hl-chips a[aria-current="page"]{background:var(--green);color:var(--accent-ink);border-color:transparent}
 .hl-grid,.hl-links{display:grid;grid-template-columns:minmax(0,1fr);gap:.8rem}.hl-card,.hl-link{min-width:0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.8rem;overflow-wrap:anywhere}.hl-card h2 a{color:inherit;text-decoration:none}.hl-cover{display:block;aspect-ratio:16/9;overflow:hidden;border-radius:10px;background:var(--info);color:inherit;text-decoration:none}.hl-cover img,.hl-placeholder{width:100%;height:100%;object-fit:cover;display:block}.hl-placeholder{display:grid;place-items:center;align-content:center;gap:.25rem;min-height:8rem;background:var(--info);color:var(--ink);border:1px dashed var(--line);border-radius:10px;text-align:center;padding:.6rem}
 .hl-mode{display:inline-flex;align-items:center;min-height:1.6rem;padding:.1rem .5rem;border-radius:999px;background:var(--info);color:var(--blue);font-size:.85rem}.hl-mode-in_person{background:var(--chip);color:var(--link)}.hl-mode-hybrid{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--blue)}.hl-platform{display:inline-flex;align-items:center;min-height:1.6rem;padding:.1rem .5rem;border-radius:999px;border:1px solid var(--line);color:var(--ink);background:var(--card);font-size:.85rem}
 .hl-posters figure{margin:.6rem 0}.hl-posters img{width:100%;max-height:70vh;object-fit:contain;background:#14161b;border-radius:12px}.hl-photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem}.hl-photos img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px;background:var(--info)}.hl-link img,.hl-link .hl-placeholder{width:100%;aspect-ratio:16/9;height:auto;object-fit:cover;display:block;border-radius:10px}.hl-links{align-items:start}.hl-photos a{display:block;min-width:0}.hl-more a,.hl-foot a{min-height:44px;display:inline-flex;align-items:center}

@@ -451,7 +451,7 @@ test('public pages escape member text, page, and filter without echoing a bad qu
   assert.match(unknown.html, /這項服務目前沒有公開。/);
 });
 
-test('a member_service link scores the sharer, including the owner, and member cards stay closed', async () => {
+test('a member_service link scores the sharer, including the owner, and a non-uuid member card is rejected', async () => {
   const maker = await signIn(), reviewer = await signIn(DEMO_USERS[1].email);
   const created = await request('/member-services', maker, draft({ title: '可分享的課', summary: '一對一語言課', category: 'language' }));
   const id = created.data.service_id as string;
@@ -461,9 +461,9 @@ test('a member_service link scores the sharer, including the owner, and member c
   const missing = await request('/promotion/links', reviewer, { kind: 'member_service', target: randomUUID() });
   assert.equal(missing.status, 404);
   assert.equal(missing.data.code, 'not_found');
-  const closed = await request('/promotion/links', reviewer, { kind: 'member_card', target: 'self' });
-  assert.equal(closed.status, 422);
-  assert.equal(closed.data.code, 'promotion_kind_unavailable');
+  const badCard = await request('/promotion/links', reviewer, { kind: 'member_card', target: 'self' });
+  assert.equal(badCard.status, 422);
+  assert.equal(badCard.data.code, 'validation_failed');
 
   const shared = await request('/promotion/links', reviewer, { kind: 'member_service', target: id });
   assert.equal(shared.status, 200, JSON.stringify(shared.data));

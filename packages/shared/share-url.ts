@@ -72,20 +72,3 @@ export function normalizeShareUrl(raw: string): ShareUrl {
   if (url.length > 2048) return { ok: false };
   return { ok: true, url, host, platform: classifyShareHost(host) };
 }
-
-const VIDEO_ID = /^[A-Za-z0-9_-]{6,20}$/;
-
-/** YouTube watch, short, live, embed and youtu.be ids. Anything else is null. */
-export function youtubeVideoId(raw: string): string | null {
-  let parsed: URL;
-  try { parsed = new URL(raw); } catch { return null; }
-  const host = parsed.hostname.toLowerCase().replace(/\.$/, '');
-  const take = (value: string | null | undefined) => value && VIDEO_ID.test(value) ? value : null;
-  const parts = parsed.pathname.split('/').filter(Boolean);
-  if (host === 'youtu.be' || host.endsWith('.youtu.be')) return take(parts[0]);
-  if (host === 'youtube.com' || host.endsWith('.youtube.com')) {
-    if (parts[0] === 'watch') return take(parsed.searchParams.get('v'));
-    if (parts[0] === 'shorts' || parts[0] === 'live' || parts[0] === 'embed') return take(parts[1]);
-  }
-  return null;
-}
