@@ -4,11 +4,12 @@ import {z} from 'zod';
 import {command, journal, type Command} from '../../packages/db/index.js';
 import {Problem, requireCondition} from '../../packages/shared/problem.js';
 import {normalizeImage} from '../../packages/shared/image-runtime.js';
-import {inspectCanonicalWebp} from '../../packages/shared/image-webp.js';
 import {youtubeThumbnailUrl, youtubeVideoId} from '../../packages/shared/youtube-video-id.js';
 import {avatarUrl} from '../identity-membership/avatars.js';
+import type {Actor} from '../identity-membership/service.js';
 import {privateHost} from '../identity-membership/social-links.js';
 import {rasterFormat, rejectAnimation} from '../skill-submissions/payload.js';
+import {canAccessGuildEvent} from './events.js';
 
 const PAGE_SIZE = 12;
 const IMAGE_MAX = 10 * 1024 * 1024;
@@ -241,14 +242,20 @@ async function isPlatformAdmin(q: Pick<Pool, 'query'>, userId: string, community
   return row.rowCount === 1;
 }
 async function loadListed(q: Pick<Pool, 'query'>, eventId: string, communityId: string | null, viewerId: string | null, lock = false) {
-  const row = (await q.query(`SELECT e.event_id,e.community_id,e.organizer_ref,e.title,e.description,e.starts_at,e.ends_at,e.mode,e.event_kind,e.state,
+  const row = (await q.query(`SELECT e.event_id,e.community_id,e.organizer_ref,e.title,e.description,e.visibility,e.guild_key,e.starts_at,e.ends_at,e.mode,e.event_kind,e.state,
     u.display_name AS organizer_name,
     (SELECT orientation FROM community_event_banners b WHERE b.event_id=e.event_id) AS banner_orientation,
     ${attendanceSql} AS attending_count
     FROM community_events e JOIN users u ON u.user_id=e.organizer_ref
-    WHERE e.event_id=$3 AND ${listedSql}${lock ? ' FOR UPDATE OF e' : ''}`, [communityId, viewerId, eventId])).rows[0] as (CardRow & {description: string; organizer_ref: string; community_id: string; state: string}) | undefined;
+    WHERE e.event_id=$3 AND ${listedSql}${lock ? ' FOR UPDATE OF e' : ''}`, [communityId, viewerId, eventId])).rows[0] as (CardRow & {description: string; visibility: string; guild_key: string | null; organizer_ref: string; community_id: string; state: string}) | undefined;
   requireCondition(row, 404, 'not_found', '找不到這場活動集錦。');
   return row;
+}
+async function visibleDescription(q: Pick<Pool, 'query'>, row: {visibility: string; description: string; organizer_ref: string; community_id: string; guild_key: string | null}, viewerId: string | null) {
+  if (viewerId == null) return row.visibility === 'open' || row.visibility === 'referral' ? row.description : null;
+  if (row.visibility === 'open' || row.visibility === 'referral' || row.visibility === 'workshop') return row.description;
+  if (row.visibility === 'guild' && await canAccessGuildEvent(q, {user_id: viewerId} as Actor, row)) return row.description;
+  return null;
 }
 async function quota(q: Pick<Pool, 'query'>, eventId: string, viewerId: string) {
   const counts = (await q.query(`SELECT
@@ -275,7 +282,7 @@ export async function readHighlightEvent(pool: Pool, scope: {communityId: string
     WHERE h.event_id=$1 AND h.state='active' AND ${itemVisible}
     ORDER BY h.created_at DESC, h.media_id DESC`, [scope.eventId, scope.viewerId])).rows as ItemRow[];
   const admin = scope.viewerId ? await isPlatformAdmin(pool, scope.viewerId, row.community_id) : false;
-  const detail = {event_id: row.event_id, title: row.title, description: row.description, starts_at: iso(row.starts_at), ends_at: iso(row.ends_at),
+  const detail = {event_id: row.event_id, title: row.title, description: await visibleDescription(pool, row, scope.viewerId), starts_at: iso(row.starts_at), ends_at: iso(row.ends_at),
     mode: row.mode, event_kind: row.event_kind, organizer_name: row.organizer_name, attending_count: Number(row.attending_count),
     banner_url: row.banner_orientation ? bannerPath(row.event_id) : null, banner_orientation: row.banner_orientation,
     public_path: `/highlights/${row.event_id}`, items: items.map(item => presentItem(item, row.organizer_ref, scope.viewerId, admin))};
@@ -366,32 +373,20 @@ export async function highlightImageBytes(pool: Pool, mediaId: string, variant: 
   return row.bytes as Buffer;
 }
 
-function dimensions(bytes: Buffer, fallback: {width: number; height: number}) {
-  try { const shape = inspectCanonicalWebp(bytes); return {width: shape.width, height: shape.height}; }
-  catch { return fallback; }
+type ShareItem = {kind: string; image_url?: string; orientation?: Orientation | null; thumbnail_url?: string};
+function shareSize(orientation: Orientation | null | undefined, landscape: {width: number; height: number}, portrait: {width: number; height: number}) {
+  return orientation === 'portrait' ? portrait : landscape;
 }
-export async function highlightShareImage(pool: Pool, eventId: string) {
-  const detail = await readHighlightEvent(pool, {communityId: null, viewerId: null, eventId});
+// Processors always emit these exact sizes, so a public page can describe the share image without loading bytes.
+export function highlightShareImage(detail: {title: string; banner_url: string | null; banner_orientation: Orientation | null; items: ShareItem[]}) {
   const alt = detail.title;
-  if (detail.banner_url) {
-    const bytes = await highlightBannerBytes(pool, eventId);
-    const fallback = detail.banner_orientation === 'portrait' ? {width: 900, height: 1200} : {width: 1200, height: 675};
-    return {url: detail.banner_url, alt, ...dimensions(bytes, fallback)};
-  }
-  const poster = detail.items.find(item => item.kind === 'poster');
-  if (poster && 'image_url' in poster) {
-    const bytes = await highlightImageBytes(pool, poster.media_id, 'image');
-    const fallback = poster.orientation === 'portrait' ? {width: 1200, height: 1600} : {width: 1600, height: 1200};
-    return {url: poster.image_url, alt, ...dimensions(bytes, fallback)};
-  }
-  const photo = detail.items.find(item => item.kind === 'photo');
-  if (photo && 'image_url' in photo) {
-    const bytes = await highlightImageBytes(pool, photo.media_id, 'image');
-    const fallback = photo.orientation === 'portrait' ? {width: 1200, height: 1600} : {width: 1600, height: 1200};
-    return {url: photo.image_url, alt, ...dimensions(bytes, fallback)};
-  }
-  const video = detail.items.find(item => item.kind === 'link' && 'thumbnail_url' in item && item.thumbnail_url);
-  if (video && 'thumbnail_url' in video && video.thumbnail_url) return {url: video.thumbnail_url, alt, width: 480, height: 360};
+  if (detail.banner_url) return {url: detail.banner_url, alt, ...shareSize(detail.banner_orientation, {width: 1200, height: 675}, {width: 900, height: 1200})};
+  const poster = detail.items.find(item => item.kind === 'poster' && item.image_url);
+  if (poster?.image_url) return {url: poster.image_url, alt, ...shareSize(poster.orientation, {width: 1600, height: 1200}, {width: 1200, height: 1600})};
+  const photo = detail.items.find(item => item.kind === 'photo' && item.image_url);
+  if (photo?.image_url) return {url: photo.image_url, alt, ...shareSize(photo.orientation, {width: 1600, height: 1200}, {width: 1200, height: 1600})};
+  const video = detail.items.find(item => item.kind === 'link' && item.thumbnail_url);
+  if (video?.thumbnail_url) return {url: video.thumbnail_url, alt, width: 480, height: 360};
   return {url: '/brand/freedom-workshop.webp', alt: '自由工坊', width: 1280, height: 720};
 }
 

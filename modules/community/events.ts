@@ -42,7 +42,7 @@ async function scopedEvent(q:Pick<PoolClient,'query'>,actor:Actor,id:string,lock
   requireCondition(row,404,'not_found','找不到這場活動。');return row;
 }
 
-async function canAccessGuildEvent(q:Pick<PoolClient,'query'>,actor:Actor,row:any){
+export async function canAccessGuildEvent(q:Pick<PoolClient,'query'>,actor:Actor,row:any){
   if(row.visibility!=='guild'||row.organizer_ref===actor.user_id)return true;
   const member=await q.query(`SELECT 1 FROM positioning_profession_memberships
     WHERE community_id=$1 AND guild_key=$2 AND user_id=$3 AND state='active'`,[row.community_id,row.guild_key,actor.user_id]);

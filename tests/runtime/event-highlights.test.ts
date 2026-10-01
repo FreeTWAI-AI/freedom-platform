@@ -188,6 +188,7 @@ test('ended events of every visibility are listed newest first and private field
   assert.equal(card.mode, 'online');
   assert.equal(card.public_path, `/highlights/${online}`);
   assert.equal(card.cover, null);
+  assert.equal('description' in card, false);
   assert.deepEqual(card.counts, {links: 0, photos: 0, posters: 0});
   const onlineOnly = await call('/api/v1/event-highlights?mode=online', maker);
   assert.deepEqual(onlineOnly.data.items.map((item: any) => item.event_id).sort(), [online, hybrid, reading].sort());
@@ -511,6 +512,16 @@ test('public html escapes member text, pages with a cursor, and chooses the og i
   await pool.query('INSERT INTO community_event_banners(event_id,image_bytes,orientation) VALUES ($1,$2,\'landscape\')', [eventId, banner]);
   const withBanner = await call('/highlights/' + eventId);
   assert.match(withBanner.text, new RegExp(`og:image" content="${LIVE}/api/v1/public/event-highlights/${eventId}/banner"`));
+  assert.match(withBanner.text, /property="og:image:width" content="1200"/);
+  assert.match(withBanner.text, /property="og:image:height" content="675"/);
+  assert.match(detail.text, /property="og:image:width" content="1280"/);
+  assert.match(detail.text, /property="og:image:height" content="720"/);
+  assert.match(withVideo.text, /property="og:image:width" content="480"/);
+  assert.match(withVideo.text, /property="og:image:height" content="360"/);
+  assert.match(withPhoto.text, /property="og:image:width" content="1600"/);
+  assert.match(withPhoto.text, /property="og:image:height" content="1200"/);
+  assert.match(withPoster.text, /property="og:image:width" content="1200"/);
+  assert.match(withPoster.text, /property="og:image:height" content="1600"/);
   const bannerBytes = await call(`/api/v1/public/event-highlights/${eventId}/banner`);
   assert.equal(bannerBytes.status, 200);
   assert.equal(bannerBytes.headers.get('cache-control'), 'public, max-age=300');
@@ -526,6 +537,95 @@ test('public html escapes member text, pages with a cursor, and chooses the og i
   assert.equal(invalid.text.includes('<script'), false);
   assert.match(invalid.text, /&lt;script&gt;/);
   assert.match(invalid.text, new RegExp(`canonical" href="${LIVE}/highlights"`));
+});
+
+test('member-only descriptions stay out of public html, meta tags and other members’ detail', async () => {
+  const marker = (visibility: string) => `<script>hl-${visibility}-secret</script>`;
+  const generic = '自由工坊社群活動回顧：海報、照片與錄影連結。';
+  const line = '這是一場會員活動，活動說明只提供給會員。';
+  const visibilities = ['open', 'referral', 'workshop', 'guild'] as const;
+  const ids: Record<string, string> = {};
+  for (const visibility of visibilities) {
+    ids[visibility] = await insertEvent({
+      ...past(2), title: `說明權限 ${visibility}`, description: `開頭 ${marker(visibility)} 結尾`,
+      visibility, mode: 'online', kind: visibility === 'guild' ? 'guild_skill_exchange' : 'other',
+      guild: visibility === 'guild' ? 'guild_event_space' : null,
+    });
+  }
+  const member = await login(DEMO_USERS[1].email);
+  await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES ($1,$2,$3,'guild_event_space','active')`, [randomUUID(), DEMO_COMMUNITY, member.user.user_id]);
+  const outsider = await login(DEMO_USERS[2].email);
+  const organizer = await login();
+  const leftId = await addUser(`left-${randomUUID()}@member.test`, '已離開公會');
+  await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES ($1,$2,$3,'guild_event_space','left')`, [randomUUID(), DEMO_COMMUNITY, leftId]);
+  const leftEmail = (await pool.query('SELECT email FROM users WHERE user_id=$1', [leftId])).rows[0].email as string;
+  const left = await login(leftEmail);
+  const viewers = [
+    ['guild member', member, true],
+    ['organizer', organizer, true],
+    ['non-member', outsider, false],
+    ['former member', left, false],
+  ] as const;
+  for (const visibility of visibilities) {
+    const token = `hl-${visibility}-secret`;
+    const page = await call('/highlights/' + ids[visibility]);
+    const onPublicPage = visibility === 'open' || visibility === 'referral';
+    assert.equal(page.status, 200, page.text);
+    assert.equal(page.text.includes('<script'), false, visibility);
+    assert.equal(page.text.includes(token), onPublicPage, `public html ${visibility}`);
+    assert.equal(page.text.includes(line), !onPublicPage, `notice ${visibility}`);
+    for (const name of ['name="description"', 'property="og:description"', 'name="twitter:description"']) {
+      const meta = new RegExp(`<meta ${name} content="([^"]*)"`).exec(page.text);
+      assert.ok(meta, `${visibility} ${name}`);
+      assert.equal(meta[1].includes(token), onPublicPage, `${visibility} ${name}`);
+      if (!onPublicPage) assert.equal(meta[1], generic, `${visibility} ${name}`);
+    }
+    for (const [label, session, seesGuild] of viewers) {
+      const sees = visibility !== 'guild' || seesGuild;
+      const detail = await call('/api/v1/event-highlights/' + ids[visibility], session);
+      assert.equal(detail.status, 200, `${label} ${visibility} ${detail.text}`);
+      assert.equal(detail.text.includes(token), sees, `${label} ${visibility}`);
+      if (!sees) assert.equal(detail.data.description, null, `${label} ${visibility}`);
+    }
+    const anon = await call('/api/v1/event-highlights/' + ids[visibility]);
+    assert.equal(anon.text.includes(token), false, `signed-out api ${visibility}`);
+    assert.notEqual(anon.status, 200, visibility);
+  }
+  const listed = await call('/api/v1/event-highlights', outsider);
+  assert.equal(JSON.stringify(listed.data).includes('hl-'), false);
+  assert.equal(listed.data.items.every((item: {description?: unknown}) => !('description' in item)), true);
+  const htmlList = await call('/highlights');
+  for (const visibility of visibilities) assert.equal(htmlList.text.includes(`hl-${visibility}-secret`), false, visibility);
+});
+
+test('one public detail render does not select highlight or banner image bytes', async () => {
+  const maker = await login();
+  const eventId = await ended({title: '預覽不讀位元組'});
+  const photo = await upload(`/api/v1/event-highlights/${eventId}/photos`, maker, jpeg, 'image/jpeg', 'landscape', '現場');
+  assert.equal(photo.status, 201, photo.text);
+  const poster = await upload(`/api/v1/event-highlights/${eventId}/posters`, maker, png, 'image/png', 'portrait', '海報');
+  assert.equal(poster.status, 201, poster.text);
+  await post(`/api/v1/event-highlights/${eventId}/links`, maker, {url: 'https://www.youtube.com/watch?v=abcdefghijk'});
+  const banner = await sharp({create: {width: 16, height: 16, channels: 3, background: '#222222'}}).webp().toBuffer();
+  await pool.query(`INSERT INTO community_event_banners(event_id,image_bytes,orientation) VALUES ($1,$2,'landscape')`, [eventId, banner]);
+  const seen: string[] = [];
+  const original = pool.query.bind(pool);
+  pool.query = ((...args: unknown[]) => {
+    const first = args[0];
+    seen.push(typeof first === 'string' ? first : first && typeof first === 'object' && 'text' in first ? String((first as {text: unknown}).text) : '');
+    return (original as (...inner: unknown[]) => Promise<unknown>)(...args);
+  }) as typeof pool.query;
+  try {
+    const page = await call('/highlights/' + eventId);
+    assert.equal(page.status, 200, page.text);
+    assert.match(page.text, /property="og:image:width" content="1200"/);
+    assert.match(page.text, /property="og:image:height" content="675"/);
+    assert.match(page.text, new RegExp(`og:image" content="${LIVE}/api/v1/public/event-highlights/${eventId}/banner"`));
+  } finally {
+    pool.query = original;
+  }
+  const bytes = seen.filter(sql => /community_event_highlight_images/i.test(sql) || (/community_event_banners/i.test(sql) && /image_bytes/i.test(sql)));
+  assert.deepEqual(bytes, []);
 });
 
 test('twenty link adds are allowed and the next one is rate limited', async () => {

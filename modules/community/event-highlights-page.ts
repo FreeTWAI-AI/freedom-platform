@@ -22,7 +22,7 @@ export function highlightMetaDescription(description: string | null | undefined)
 function absolute(origin: string, url: string) { return url.startsWith('https://') || url.startsWith('http://') ? url : origin + url; }
 function head(origin: string, path: string, title: string, description: string, image: {url: string; width: number; height: number; alt: string}, type: 'website' | 'article') {
   const url = origin + path, src = escape(absolute(origin, image.url));
-  return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)}</title><link rel="canonical" href="${escape(url)}"><meta name="description" content="${escape(description)}"><meta property="og:type" content="${type}"><meta property="og:site_name" content="自由工坊"><meta property="og:locale" content="zh_TW"><meta property="og:title" content="${escape(title)}"><meta property="og:description" content="${escape(description)}"><meta property="og:url" content="${escape(url)}"><meta property="og:image" content="${src}"><meta property="og:image:width" content="${image.width}"><meta property="og:image:height" content="${image.height}"><meta property="og:image:alt" content="${escape(image.alt)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="${src}"><meta name="twitter:image:alt" content="${escape(image.alt)}"><link rel="stylesheet" href="/highlights.css"></head>`;
+  return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)}</title><link rel="canonical" href="${escape(url)}"><meta name="description" content="${escape(description)}"><meta property="og:type" content="${type}"><meta property="og:site_name" content="自由工坊"><meta property="og:locale" content="zh_TW"><meta property="og:title" content="${escape(title)}"><meta property="og:description" content="${escape(description)}"><meta name="twitter:description" content="${escape(description)}"><meta property="og:url" content="${escape(url)}"><meta property="og:image" content="${src}"><meta property="og:image:width" content="${image.width}"><meta property="og:image:height" content="${image.height}"><meta property="og:image:alt" content="${escape(image.alt)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="${src}"><meta name="twitter:image:alt" content="${escape(image.alt)}"><link rel="stylesheet" href="/highlights.css"></head>`;
 }
 function shell(inner: string, footer: string) {
   return `<body><header class="hl-top"><a href="/"><img class="hl-logo" src="/brand/freedom-workshop.webp" alt="自由工坊" width="1280" height="720"></a><a href="/highlights">活動集錦</a></header><main>${inner}</main><footer class="hl-foot">${footer}<p>自由工坊活動集錦</p></footer></body></html>`;
@@ -59,10 +59,14 @@ export async function highlightsListHtml(pool: Pool, origin: string, query: {mod
 function paragraphs(description: string) {
   return description.split(/\n+/).map(line => line.trim()).filter(Boolean).map(line => `<p>${escape(line)}</p>`).join('') || '<p>這場活動沒有留下說明。</p>';
 }
+function copyBlock(description: string | null) {
+  if (description == null) return '<p>這是一場會員活動，活動說明只提供給會員。</p>';
+  return paragraphs(description);
+}
 
 export async function highlightsDetailHtml(pool: Pool, origin: string, eventId: string) {
   const detail = await readHighlightEvent(pool, {communityId: null, viewerId: null, eventId});
-  const image = await highlightShareImage(pool, eventId);
+  const image = highlightShareImage(detail);
   const posters = detail.items.filter(item => item.kind === 'poster');
   const links = detail.items.filter(item => item.kind === 'link');
   const photos = detail.items.filter(item => item.kind === 'photo');
@@ -77,7 +81,7 @@ export async function highlightsDetailHtml(pool: Pool, origin: string, eventId: 
   }).join('');
   const photoHtml = photos.map(item => `<a href="${escape('image_url' in item ? item.image_url : '')}"><img src="${escape('thumb_url' in item ? item.thumb_url : '')}" alt="${escape(item.title || '活動照片')}" loading="lazy"></a>`).join('');
   const empty = detail.items.length ? '' : '<p class="hl-empty">還沒有人補上內容。參加過的夥伴可以上傳照片、海報或貼上影片連結。</p>';
-  const summary = `<h1>${escape(detail.title)}</h1><p>${escape(highlightWhen(detail.starts_at, detail.ends_at))} · ${escape(modeLabel[detail.mode] ?? detail.mode)} · ${escape(kindLabel[detail.event_kind] ?? detail.event_kind)}</p><p>主辦 ${escape(detail.organizer_name)} · ${detail.attending_count} 人參加</p><div class="hl-copy">${paragraphs(detail.description)}</div>`;
+  const summary = `<h1>${escape(detail.title)}</h1><p>${escape(highlightWhen(detail.starts_at, detail.ends_at))} · ${escape(modeLabel[detail.mode] ?? detail.mode)} · ${escape(kindLabel[detail.event_kind] ?? detail.event_kind)}</p><p>主辦 ${escape(detail.organizer_name)} · ${detail.attending_count} 人參加</p><div class="hl-copy">${copyBlock(detail.description)}</div>`;
   const body = `${summary}${posterSection}<section><h2>錄影與影片</h2>${linkHtml ? `<div class="hl-links">${linkHtml}</div>` : ''}</section><section><h2>活動照片</h2>${photoHtml ? `<div class="hl-photos">${photoHtml}</div>` : ''}</section>${empty}`;
   const footer = `<a href="/">加入自由工坊</a><a href="/#highlights/${escape(eventId)}">會員登入後補上照片或影片連結</a>`;
   return head(origin, `/highlights/${eventId}`, `${detail.title}｜自由工坊活動集錦`, highlightMetaDescription(detail.description), image, 'article') + shell(body, footer);
