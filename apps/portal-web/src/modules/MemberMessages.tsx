@@ -11,13 +11,16 @@ import type {MemberCardData} from './Membership';
 import {MemberPresence} from './MemberPresence';
 import './MemberSettings.css';
 import type {ChatEntry} from './chat-entry';
+import type {MessageContent,MessageContentInput} from '../../../../modules/member-communications/content-types';
+import {findChatSticker} from '../../../../modules/member-communications/stickers';
+import {ChatBody,ChatQuote,ChatExtras,chatPayload,sameChatPayload,quoteMessage,useRichChatDraft} from './ChatContent';
 
 type ActionTab='members'|'squads'|'guilds'|'guild-workspace'|'messages'|'events';
 type NotificationAction={tab:ActionTab;resource_id:string|null};
 type Notice={notification_id:string;kind:string;title:string;body:string;created_at:string;read_at:string|null;action:NotificationAction|null};
 type NoticePage={items:Notice[];unread_count:number;next_offset:number|null};
 type Participant={user_id:string;display_name:string;avatar_url:string|null;last_login_at:string|null;is_online:boolean};
-type Message={message_id:string;sender_ref:string;recipient_ref:string;body:string;created_at:string;read_at:string|null};
+type Message={message_id:string;sender_ref:string;recipient_ref:string;body:string;created_at:string;read_at:string|null}&MessageContent;
 const newestMessages=(items:Message[])=>[...items].sort((a,b)=>b.created_at.localeCompare(a.created_at));
 type Conversation={participant:Participant;can_send:boolean;last_message:Message;unread_count:number};
 type ConversationPage={items:Conversation[];unread_count:number;next_offset:number|null};
@@ -167,10 +170,11 @@ function Notifications({client,onUnread,onNavigate,onOpenPeer}:{client:PortalCli
   </div>;
 }
 
-type Pending={key:string;body:string;status:'sending'|'unknown'};
+type Pending={key:string;body:string;payload:MessageContentInput;status:'sending'|'unknown'};
 
 export function DirectMessages({client,session,onUnread,openPeer,active=true,compact=false}:{client:PortalClient;session:SessionPayload;onUnread:(count:InboxUnread)=>void;openPeer:{id:string;request:number}|null;active?:boolean;compact?:boolean}){
   const me=session.user.user_id,uid=useId();
+  const richDrafts=useRichChatDraft();
   const ids={list:`${uid}-conversations`,thread:`${uid}-thread`,error:`${uid}-send-error`};
   const [conversations,setConversations]=useState<Conversation[]>([]),[convNext,setConvNext]=useState<number|null>(null);
   const [convStatus,setConvStatus]=useState<'loading'|'ready'|'error'>('loading'),[convError,setConvError]=useState(''),[convMore,setConvMore]=useState({loading:false,error:''});
@@ -320,19 +324,18 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
   async function send(id:string){
     const previous=pending[id];
     if(previous?.status==='sending')return;
-    const body=(drafts[id]??'').trim();
-    if(!body){setSendErrors(value=>({...value,[id]:'請先輸入訊息內容。'}));return;}
-    if([...body].length>MAX_BODY){setSendErrors(value=>({...value,[id]:`訊息最多 ${MAX_BODY} 字。`}));return;}
-    // The same body after an unconfirmed result keeps its key so the server returns the original
-    // message instead of storing a duplicate; only changed text becomes a new message.
-    const attempt:Pending={key:previous?.status==='unknown'&&previous.body===body?previous.key:crypto.randomUUID(),body,status:'sending'};
+    const extras=richDrafts.get(id),payload=chatPayload(drafts[id]??'',extras),body=payload.body??`[貼圖] ${findChatSticker(payload.sticker_id)?.label}`;
+    if(!payload.body&&!payload.sticker_id){setSendErrors(value=>({...value,[id]:'請先輸入訊息內容，或選擇貼圖。'}));return;}
+    if(payload.body&&[...payload.body].length>MAX_BODY){setSendErrors(value=>({...value,[id]:`訊息最多 ${MAX_BODY} 字。`}));return;}
+    const attempt:Pending={key:previous?.status==='unknown'&&sameChatPayload(previous.payload,payload)?previous.key:crypto.randomUUID(),body,payload,status:'sending'};
     setPending(value=>({...value,[id]:attempt}));setSendErrors(({[id]:_,...rest})=>rest);
     try{
-      const message=await client.post<Message>(`/me/conversations/${encodeURIComponent(id)}/messages`,{body},{idempotencyKey:attempt.key});
+      const message=await client.post<Message>(`/me/conversations/${encodeURIComponent(id)}/messages`,payload,{idempotencyKey:attempt.key});
       const recipient=conversations.find(item=>item.participant.user_id===id)?.participant.display_name??(thread?.participant.user_id===id?thread.participant.display_name:'工坊夥伴');
       logConsoleEvent({channel:consoleChannel('chat_sent_direct'),level:'success',kind:'status',source:'私訊',message:`已傳送私人訊息給 ${recipient}。`});
       setPending(({[id]:_,...rest})=>rest);
-      setDrafts(value=>{if((value[id]??'').trim()!==body)return value;const {[id]:_,...rest}=value;return rest;});
+      if(!payload.sticker_id)setDrafts(value=>{if((value[id]??'').trim()!==body)return value;const {[id]:_,...rest}=value;return rest;});
+      richDrafts.clear(id,extras);
       if(currentPeer.current===id){stick.current=true;setThread(value=>value&&value.participant.user_id===id?{...value,items:newestMessages(merge([message],value.items,item=>item.message_id)),next_offset:value.next_offset===null?null:value.next_offset+(value.items.some(item=>item.message_id===message.message_id)?0:1)}:value);}
       setConversations(value=>{
         const existing=value.find(item=>item.participant.user_id===id);
@@ -353,6 +356,7 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
   }
 
   const participant=thread?.participant,draft=peer?drafts[peer]??'':'',attempt=peer?pending[peer]:undefined,sendError=peer?sendErrors[peer]:undefined;
+  const richDraft=richDrafts.get(peer??'');
   return <div className={`messages-layout${compact?' is-compact':''}`}>
     {compact&&peer&&<button type="button" className="btn btn-ghost messages-switch" aria-expanded={picking} aria-controls={`${uid}-picker`} onClick={()=>setPicking(value=>!value)}>{picking?'回到目前對話':'切換對象'}</button>}
     <div id={`${uid}-picker`} hidden={compact&&Boolean(peer)&&!picking} className="messages-side">
@@ -392,25 +396,27 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
           {thread.next_offset!==null&&<button className="btn btn-ghost" type="button" disabled={threadMore.loading} onClick={()=>void earlier()}>{threadMore.loading?'正在讀取…':threadMore.error?'重試載入較早訊息':'載入較早訊息'}</button>}
           {threadMore.error&&<p className="banner banner-error" role="alert">較早訊息讀取失敗：{threadMore.error}</p>}
           {thread.items.length===0?<p className="empty">還沒有訊息。</p>:<ol className="messages-bubbles" aria-label="訊息">
-            {[...thread.items].reverse().map(message=>{const mine=message.sender_ref!==thread.participant.user_id;return <li key={message.message_id} className={mine?'is-mine':undefined}>
+            {[...thread.items].reverse().map(message=>{const mine=message.sender_ref!==thread.participant.user_id;return <li key={message.message_id} className={mine?'is-mine':undefined} data-message-id={message.message_id}>
               <p className="messages-meta">{mine?'你':thread.participant.display_name} · {formatIsoLocal(message.created_at)}{!mine&&!message.read_at?' · 未讀':''}</p>
-              <p className="messages-body">{message.body}</p>
+              {message.reply_to&&<ChatQuote reply={message.reply_to}/>}<ChatBody message={message}/>
+              {thread.can_send&&<div className="chat-message-actions"><button className="btn btn-ghost" type="button" aria-label={`回覆${mine?'你':thread.participant.display_name}的訊息`} disabled={attempt?.status==='sending'} onClick={()=>{richDrafts.change(peer,{reply:quoteMessage(message,mine?'你':thread.participant.display_name)});document.getElementById(`${uid}-compose`)?.focus();}}>回覆</button></div>}
             </li>;})}
           </ol>}
-          {attempt?.status==='sending'&&<div className="messages-pending" role="status" aria-label="傳送狀態"><p className="messages-body">{attempt.body}</p><p className="messages-meta">傳送中…</p></div>}
+          {attempt?.status==='sending'&&<div className="messages-pending" role="status" aria-label="傳送狀態"><ChatBody message={{body:attempt.body,...(attempt.payload.sticker_id?{sticker:{id:findChatSticker(attempt.payload.sticker_id)!.id,label:findChatSticker(attempt.payload.sticker_id)!.label}}:{})}}/><p className="messages-meta">傳送中…</p></div>}
           </div>
           {hasNew&&<button className="btn btn-ghost messages-new" type="button" onClick={()=>{stick.current=true;scroll.current?.scrollTo({top:scroll.current.scrollHeight});setHasNew(false);}}>有新訊息 · 回到最新</button>}
           {thread.unread_count>0&&<div className="messages-actions"><span className="messages-meta">{thread.unread_count} 則未讀</span><button className="btn btn-ghost" type="button" disabled={reading} onClick={()=>void markRead()}>{reading?'正在標記…':'標為已讀'}</button></div>}
           {readError&&<div className="banner banner-error" role="alert">{readError}<div className="messages-actions"><button className="btn btn-ghost" type="button" disabled={reading} onClick={()=>void markRead()}>重試標為已讀</button></div></div>}
           {thread.can_send?<form className="messages-compose" onSubmit={(event:FormEvent)=>{event.preventDefault();void send(peer);}}>
-            <label className="field"><span>寫給 {thread.participant.display_name} 的訊息</span>
-              <textarea value={draft} rows={3} readOnly={attempt?.status==='sending'} aria-describedby={sendError?ids.error:undefined}
+            <ChatExtras target={peer} draft={richDraft} disabled={attempt?.status==='sending'} onChange={value=>richDrafts.change(peer,value)}/>
+            <label className="field" hidden={Boolean(richDraft.sticker_id)}><span>寫給 {thread.participant.display_name} 的訊息</span>
+              <textarea id={`${uid}-compose`} value={draft} rows={3} readOnly={attempt?.status==='sending'} aria-describedby={sendError?ids.error:undefined}
                 onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing&&event.keyCode!==229){event.preventDefault();void send(peer);}}}
                 onChange={event=>{const text=event.target.value;setDrafts(value=>({...value,[peer]:text}));}}/></label>
-            <p className="messages-meta">Enter 送出 · Shift+Enter 換行 · {[...draft].length}／{MAX_BODY} 字</p>
+            {!richDraft.sticker_id&&<p className="messages-meta">Enter 送出 · Shift+Enter 換行 · {[...draft].length}／{MAX_BODY} 字</p>}
             {sendError&&<p id={ids.error} className="banner banner-error" role="alert">{sendError}</p>}
             <div className="messages-actions">
-              <button className="btn btn-primary" type="submit" disabled={attempt?.status==='sending'}>{attempt?.status==='sending'?'正在送出…':attempt?.status==='unknown'&&draft.trim()===attempt.body?'重試送出':'送出'}</button>
+              <button className="btn btn-primary" type="submit" disabled={attempt?.status==='sending'}>{attempt?.status==='sending'?'正在送出…':attempt?.status==='unknown'&&sameChatPayload(attempt.payload,chatPayload(draft,richDraft))?'重試送出':'送出'}</button>
             </div>
           </form>:<p className="muted" role="note">對方目前無法接收私訊，仍可查看過去的訊息。</p>}
         </>}

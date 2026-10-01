@@ -1,0 +1,23 @@
+.chat-extras{display:grid;gap:.5rem;min-width:0}
+.messages-compose label[hidden]{display:none}
+.chat-extras>.btn{justify-self:start}
+.chat-sticker{display:inline-block;position:relative;width:128px;max-width:100%;aspect-ratio:1;overflow:hidden;vertical-align:middle;flex-shrink:0}
+.chat-sticker>img{position:absolute;width:200%;height:200%;max-width:none;pointer-events:none}
+.chat-sticker-picker{padding:.7rem;border:1px solid var(--line);border-radius:12px;background:var(--bg-elev);display:grid;gap:.5rem;min-width:0}
+.chat-picker-heading,.chat-reply-draft{display:flex;align-items:center;justify-content:space-between;gap:.5rem;min-width:0}
+.chat-sticker-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.35rem}
+.chat-sticker-choice{display:grid;justify-items:center;gap:.2rem;background:transparent;border:1px solid var(--line);border-radius:8px;color:inherit;min-height:44px;min-width:0;padding:.35rem;cursor:pointer;font:inherit}
+.chat-sticker-choice .chat-sticker{width:72px}
+.chat-sticker-choice span:last-child{font-size:14px}
+.chat-sticker-choice:hover,.chat-sticker-choice[aria-pressed=true]{background:var(--green-soft)}
+.chat-sticker-choice:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.chat-sticker-choice:disabled{opacity:.55;cursor:wait}
+.chat-sticker-preview{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+.chat-sticker-preview .chat-sticker{width:64px}
+.chat-quote{display:grid;gap:.15rem;border-inline-start:3px solid var(--focus);padding:.35rem .65rem;margin:0 0 .45rem;min-width:0;font-size:14px;overflow-wrap:anywhere;white-space:pre-wrap}
+.chat-quote span{max-height:4.8em;overflow:auto}
+.chat-reply-draft>.chat-quote{flex:1;margin:0}
+.chat-reply-draft>.btn{flex-shrink:0}
+.chat-message-actions{display:flex;justify-content:flex-end;margin-top:.2rem}
+.chat-message-actions .btn{min-height:44px;padding:.2rem .6rem;font-size:14px}
+@media(max-width:480px){.chat-sticker-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.chat-picker-heading{align-items:flex-start}.chat-sticker{width:112px}}

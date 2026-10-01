@@ -27,6 +27,8 @@ GitHub 連結固定列為必做待辦，以 `/me/github` 的真實狀態顯示�
 
 私訊使用純文字，每則最多 2,000 字；每位寄件者每分鐘最多 20 則。重試沿用同一操作識別碼避免重複傳送。對方停權後，既有對話保留給本人閱讀，但無法再傳新訊息。訊息正文只存在私訊資料表，不複製到操作收據或稽核日誌。
 
+本分支提供四張工坊原創圖片貼圖與指定訊息回覆，可用於公會、小隊、世界與私訊。可搜尋、預覽及取消引用；文字、貼圖與引用草稿按對話分開。貼圖使用固定 `sticker_id`，引用使用 `reply_to_message_id`，由 API 核對同一對話及讀取原文。詳見 [社群設計與聊天升級](social-project-upgrade.md)，部署需 migration 065。
+
 頻道未讀排除自己發出的內容；第一次加入尚未標記已讀時，既有他人訊息也列為未讀。已讀只推進到本人指定的已載入訊息，新到的內容仍保留未讀。離開時保留已讀位置，重新加入後接續使用；離開期間的內容仍依該位置計算。公會與小隊頻道彼此獨立，也不會轉成每位成員各一則重複通知。
 
 ## API
@@ -39,11 +41,11 @@ GitHub 連結固定列為必做待辦，以 `/me/github` 的真實狀態顯示�
 | `POST /me/notifications/:id/read` | 將本人的單則通知標為已讀 |
 | `GET /me/conversations` | 本人對話列表、私訊總未讀數 |
 | `GET /me/conversations/:userId/messages` | 本人與指定會員的訊息 |
-| `POST /me/conversations/:userId/messages` | 傳送 `{body}` |
+| `POST /me/conversations/:userId/messages` | 傳送 `{body}` 或 `{sticker_id}`，可選填 `reply_to_message_id` |
 | `POST /me/conversations/:userId/read` | 將對方傳給本人的訊息標為已讀 |
 | `GET /me/channels?kind=guild` 或 `kind=squad` | 本人目前可用的頻道及未讀數；不包含正文 |
 | `GET /me/channels/:kind/:key/messages` | 本人有資格的指定頻道訊息 |
-| `POST /me/channels/:kind/:key/messages` | 傳送 `{body}` 到該頻道 |
+| `POST /me/channels/:kind/:key/messages` | 傳送 `{body}` 或 `{sticker_id}` 到該頻道，可選填 `reply_to_message_id` |
 | `POST /me/channels/:kind/:key/read` | 用 `{through_message_id}` 標記已看過的訊息範圍 |
 | `POST /squads/:id/invitations` | 發起人送出 `{recipient_ref}` 邀請 |
 | `GET /squads/:id/invitations` | 發起人查看送出的邀請 |

@@ -5,15 +5,18 @@ import type {SessionPayload,TabId} from '../types';
 import {announceInboxChange,type InboxUnread} from './member-inbox';
 import {logConsoleEvent} from '../game-console-core';
 import {consoleChannel} from '../game-console-routing';
+import type {MessageContent,MessageContentInput} from '../../../../modules/member-communications/content-types';
+import {findChatSticker} from '../../../../modules/member-communications/stickers';
+import {ChatBody,ChatQuote,ChatExtras,chatPayload,sameChatPayload,quoteMessage,useRichChatDraft} from './ChatContent';
 import './MemberSettings.css';
 
 export type ChannelKind='guild'|'squad'|'world';
 type ChannelSummary={kind:ChannelKind;channel_key:string;name:string;unread_count:number;last_message_at:string|null};
 type ChannelPage={items:ChannelSummary[];unread_count:number;next_offset:number|null};
-type ChannelMessage={message_id:string;kind:ChannelKind;channel_key:string;sequence:string;sender_ref:string;sender_name:string;body:string;created_at:string};
+type ChannelMessage={message_id:string;kind:ChannelKind;channel_key:string;sequence:string;sender_ref:string;sender_name:string;body:string;created_at:string}&MessageContent;
 type History={channel:{kind:ChannelKind;channel_key:string;name:string};items:ChannelMessage[];unread_count:number;next_offset:number|null;next_after_sequence?:string|null};
 type Activity={latest_sequence:string;unread_count:number};
-type Pending={key:string;body:string;status:'sending'|'unknown'};
+type Pending={key:string;body:string;payload:MessageContentInput;status:'sending'|'unknown'};
 type Props={client:PortalClient;session:SessionPayload;kind:ChannelKind;onUnread:(count:InboxUnread)=>void;onNavigate:(id:TabId)=>void;active?:boolean;compact?:boolean;openChannel?:{key:string;request:number}|null};
 
 const PAGE=20,MAX_BODY=2000,LIVE_POLL_MS=1000;
@@ -35,6 +38,7 @@ const newestFirst=(items:ChannelMessage[])=>[...items].sort((a,b)=>compare(b.seq
 /** One guild or squad chat tab: the list is read on its own; a channel's history only after the member picks it. */
 export function MemberChannels({client,session,kind,onUnread,onNavigate,active=true,compact=false,openChannel}:Props){
   const me=session.user.user_id,text=copy[kind],uid=useId();
+  const richDrafts=useRichChatDraft();
   const path=(key:string,rest:string)=>`/me/channels/${kind}/${encodeURIComponent(key)}/${rest}`;
   const [channels,setChannels]=useState<ChannelSummary[]>([]),[listNext,setListNext]=useState<number|null>(null);
   const [listStatus,setListStatus]=useState<'loading'|'ready'|'error'>('loading'),[listError,setListError]=useState('');
@@ -75,6 +79,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
     }
     setChannels(value=>value.filter(item=>item.channel_key!==key));
     setPending(({[key]:_,...rest})=>rest);setSendErrors(({[key]:_,...rest})=>rest);
+    richDrafts.clear(key);
     announceInboxChange();
     // A list read already out may still include the channel; replace it with one taken now.
     if(reread&&alive.current)void loadList(true);
@@ -253,20 +258,20 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   async function send(key:string){
     const previous=pending[key];
     if(previous?.status==='sending')return;
-    const body=(drafts[key]??'').trim();
-    if(!body){setSendErrors(value=>({...value,[key]:'請先輸入訊息內容。'}));return;}
-    if([...body].length>MAX_BODY){setSendErrors(value=>({...value,[key]:`訊息最多 ${MAX_BODY} 字。`}));return;}
-    // The same body after an unconfirmed result keeps its key so the server returns the original
-    // message instead of storing a duplicate; only changed text becomes a new message.
-    const attempt:Pending={key:previous?.status==='unknown'&&previous.body===body?previous.key:crypto.randomUUID(),body,status:'sending'};
+    const extras=richDrafts.get(key),payload=chatPayload(drafts[key]??'',extras),body=payload.body??`[貼圖] ${findChatSticker(payload.sticker_id)?.label}`;
+    if(!payload.body&&!payload.sticker_id){setSendErrors(value=>({...value,[key]:'請先輸入訊息內容，或選擇貼圖。'}));return;}
+    if(payload.body&&[...payload.body].length>MAX_BODY){setSendErrors(value=>({...value,[key]:`訊息最多 ${MAX_BODY} 字。`}));return;}
+    // Reuse an unconfirmed send only when text, sticker and quoted target all match.
+    const attempt:Pending={key:previous?.status==='unknown'&&sameChatPayload(previous.payload,payload)?previous.key:crypto.randomUUID(),body,payload,status:'sending'};
     const since=epoch.current;
     setPending(value=>({...value,[key]:attempt}));setSendErrors(({[key]:_,...rest})=>rest);
     try{
-      const message=await client.post<ChannelMessage>(path(key,'messages'),{body},{idempotencyKey:attempt.key});
+      const message=await client.post<ChannelMessage>(path(key,'messages'),payload,{idempotencyKey:attempt.key});
       logConsoleEvent({channel:consoleChannel(kind==='guild'?'chat_sent_guild':kind==='world'?'chat_sent_world':'chat_sent_squad'),level:'success',kind:'status',source:text.unit,message:`已傳送訊息至「${selected?.name??text.unit+'頻道'}」。`});
       if(!alive.current)return;
       setPending(({[key]:_,...rest})=>rest);
-      setDrafts(value=>{if((value[key]??'').trim()!==body)return value;const {[key]:_,...rest}=value;return rest;});
+      if(!payload.sticker_id)setDrafts(value=>{if((value[key]??'').trim()!==body)return value;const {[key]:_,...rest}=value;return rest;});
+      richDrafts.clear(key,extras);
       if(gone.current.has(key))return;
       if(current.current===key){stick.current=true;setHistory(value=>value&&value.channel.channel_key===key?{...value,items:newestFirst(merge([message],value.items,item=>item.message_id)),next_offset:value.next_offset===null?null:value.next_offset+(value.items.some(item=>item.message_id===message.message_id)?0:1)}:value);}
       setChannels(value=>value.map(item=>item.channel_key===key?{...item,last_message_at:message.created_at}:item));
@@ -285,6 +290,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   }
 
   const key=selected?.key,draft=key?drafts[key]??'':'',attempt=key?pending[key]:undefined,sendError=key?sendErrors[key]:undefined;
+  const richDraft=richDrafts.get(key??'');
   const ids={list:`${uid}-list`,title:`${uid}-title`,error:`${uid}-send-error`};
   return <div className={`messages-layout member-channels${compact?' is-compact':''}`} data-channel-kind={kind}>
     {compact&&selected&&kind!=='world'&&<button type="button" className="btn btn-ghost messages-switch" aria-expanded={picking} aria-controls={`${uid}-picker`} onClick={()=>setPicking(value=>!value)}>{picking?'回到目前對話':`切換${text.unit}`}</button>}
@@ -333,10 +339,11 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
           {history.items.length===0?<p className="empty">這個頻道還沒有訊息。</p>:<ol className="messages-bubbles" aria-label="頻道訊息">
             {[...history.items].reverse().map(message=>{const mine=message.sender_ref===me;return <li key={message.message_id} className={mine?'is-mine':undefined} data-message-id={message.message_id}>
               <p className="messages-meta">{mine?'你':message.sender_name} · {formatIsoLocal(message.created_at)}</p>
-              <p className="messages-body">{message.body}</p>
+              {message.reply_to&&<ChatQuote reply={message.reply_to}/>}<ChatBody message={message}/>
+              <div className="chat-message-actions"><button className="btn btn-ghost" type="button" aria-label={`回覆${mine?'你':message.sender_name}的訊息`} disabled={attempt?.status==='sending'} onClick={()=>{richDrafts.change(selected.key,{reply:quoteMessage(message,mine?'你':message.sender_name)});document.getElementById(`${uid}-compose`)?.focus();}}>回覆</button></div>
             </li>;})}
           </ol>}
-          {attempt?.status==='sending'&&<div className="messages-pending" role="status" aria-label="傳送狀態"><p className="messages-body">{attempt.body}</p><p className="messages-meta">傳送中…</p></div>}
+          {attempt?.status==='sending'&&<div className="messages-pending" role="status" aria-label="傳送狀態"><ChatBody message={{body:attempt.body,...(attempt.payload.sticker_id?{sticker:{id:findChatSticker(attempt.payload.sticker_id)!.id,label:findChatSticker(attempt.payload.sticker_id)!.label}}:{})}}/><p className="messages-meta">傳送中…</p></div>}
           </div>
           {hasNew&&<button className="btn btn-ghost messages-new" type="button" onClick={()=>{stick.current=true;scroll.current?.scrollTo({top:scroll.current.scrollHeight});setHasNew(false);}}>有新訊息 · 回到最新</button>}
           {countUnconfirmed&&<div className="banner banner-error" role="alert">已標為已讀，但目前未讀數未確認：{countUnconfirmed}<div className="messages-actions"><button className="btn btn-ghost" type="button" aria-disabled={refresh.loading} onClick={()=>{if(!refresh.loading)void loadThread(selected.key,true);}}>重新讀取訊息</button></div></div>}
@@ -345,14 +352,15 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
             :<div className="messages-actions"><span className="messages-meta">{history.unread_count} 則未讀</span><button className="btn btn-ghost" type="button" disabled={reading} onClick={()=>void markRead()}>{reading?'正在標記…':'標為已讀'}</button></div>)}
           {readError&&<div className="banner banner-error" role="alert">{readError}<div className="messages-actions"><button className="btn btn-ghost" type="button" disabled={reading} onClick={()=>void markRead()}>重試標為已讀</button></div></div>}
           <form className="messages-compose" onSubmit={(event:FormEvent)=>{event.preventDefault();void send(selected.key);}}>
-            <label className="field"><span>{kind==='world'?'世界聊天訊息':`在 ${history.channel.name} 發言`}</span>
-              <textarea value={draft} rows={3} readOnly={attempt?.status==='sending'} aria-describedby={sendError?ids.error:undefined}
+            <ChatExtras target={selected.key} draft={richDraft} disabled={attempt?.status==='sending'} onChange={value=>richDrafts.change(selected.key,value)}/>
+            <label className="field" hidden={Boolean(richDraft.sticker_id)}><span>{kind==='world'?'世界聊天訊息':`在 ${history.channel.name} 發言`}</span>
+              <textarea id={`${uid}-compose`} value={draft} rows={3} readOnly={attempt?.status==='sending'} aria-describedby={sendError?ids.error:undefined}
                 onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing&&event.keyCode!==229){event.preventDefault();void send(selected.key);}}}
                 onChange={event=>{const value=event.target.value;setDrafts(drafts=>({...drafts,[selected.key]:value}));}}/></label>
-            <p className="messages-meta">Enter 送出 · Shift+Enter 換行 · {[...draft].length}／{MAX_BODY} 字</p>
+            {!richDraft.sticker_id&&<p className="messages-meta">Enter 送出 · Shift+Enter 換行 · {[...draft].length}／{MAX_BODY} 字</p>}
             {sendError&&<p id={ids.error} className="banner banner-error" role="alert">{sendError}</p>}
             <div className="messages-actions">
-              <button className="btn btn-primary" type="submit" disabled={attempt?.status==='sending'}>{attempt?.status==='sending'?'正在送出…':attempt?.status==='unknown'&&draft.trim()===attempt.body?'重試送出':kind==='world'?'傳送':'送出'}</button>
+              <button className="btn btn-primary" type="submit" disabled={attempt?.status==='sending'}>{attempt?.status==='sending'?'正在送出…':attempt?.status==='unknown'&&sameChatPayload(attempt.payload,chatPayload(draft,richDraft))?'重試送出':kind==='world'?'傳送':'送出'}</button>
             </div>
           </form>
         </>}

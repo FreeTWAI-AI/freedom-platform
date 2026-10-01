@@ -229,19 +229,19 @@ test('two synthetic members chat in their own guild and squad through the real U
       await expect(tab(r,'私人訊息')).toContainText('1 則未讀');
       await expect(tab(r,'通知')).toContainText('1 則未讀');
 
-      // The receiver answers from 320px; the sender sees it after a manual re-read.
+      // The receiver answers from 320px; the selected sender room updates automatically.
       const reply=`${kind} 回覆 <i>純文字</i> ${run}`;
       await rBox.fill(reply);await rThread.getByRole('button',{name:'送出',exact:true}).click();
       await expect(rThread.getByRole('list',{name:'頻道訊息'}).locator('li').last().locator('.messages-body')).toHaveText(reply);await expect(rBox).toHaveValue('');
       expect(await receiver.unread(`/me/channels?kind=${kind}&limit=1&offset=0`)).toBe(0);
-      // Before the sender re-reads, its page still shows the room at 0: no list badge, tab says none.
-      await expect(tab(s,label).locator('.messages-count')).toHaveText('沒有未讀');await expect(channelButton(s,kind,key).locator('.messages-count')).toHaveCount(0);
-      if(kind==='guild')await expect(settings(s).locator('.settings-dot')).toHaveCount(0);
+      await expect(sThread.getByRole('list',{name:'頻道訊息'}).locator('li').last().locator('.messages-body')).toHaveText(reply);
+      await expect(tab(s,label).locator('.messages-count')).toHaveText('1 則未讀');await expect(channelButton(s,kind,key).locator('.messages-count')).toHaveText('1 則未讀');
+      expect(await cursor(db,sender,kind,key),'automatic receipt never marks read').toBeUndefined();
       await sThread.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
       await expect(sThread.getByRole('list',{name:'頻道訊息'}).locator('li').last().locator('.messages-body')).toHaveText(reply);
       await expect(sThread.locator('.messages-bubbles i')).toHaveCount(0);
       expect(await sender.unread(`/me/channels?kind=${kind}&limit=1&offset=0`)).toBe(1);
-      // The manual re-read alone moves the room tab and this exact channel's list badge to 1 ...
+      // A manual re-read preserves the same real unread facts without marking read.
       await expect(tab(s,label).locator('.messages-count')).toHaveText('1 則未讀');await expect(channelButton(s,kind,key).locator('.messages-count')).toHaveText('1 則未讀');
       // The profile menu stays closed; the channel badge is the relevant unread indicator.
       if(kind==='guild')await expect(settings(s)).toHaveAttribute('aria-expanded','false');
