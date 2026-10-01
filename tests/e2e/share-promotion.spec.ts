@@ -272,15 +272,16 @@ test('social cards keep a 16:9 thumbnail, a small byline and actions on one row'
   expect((await leader.boundingBox())!.width).toBeLessThanOrEqual(36);
 });
 
-test('all six boards render, including the two that are not open yet', async ({ page }) => {
+test('all six boards render, and a board with no clicks says so', async ({ page }) => {
   await login(page);
   await navigate(page, '推廣排行榜');
   for (const name of ['名片點擊排行榜', '平台推廣排行榜', '技能推廣排行榜', '社群推廣排行榜', '業務推廣排行榜', '活動推廣排行榜']) {
     await expect(board(page, name)).toBeVisible();
   }
-  await expect(board(page, '名片點擊排行榜')).toContainText('還沒有人得分，分享第一個連結吧。');
+  const cards = board(page, '名片點擊排行榜');
+  await expect(cards).toContainText('在我的名片分享名片連結，每次點擊 +1。');
+  await expect(cards).toContainText('你在這個排行榜還沒有分數。');
   await expect(board(page, '業務推廣排行榜')).toContainText('還沒有人得分，分享第一個連結吧。');
-  await expect(board(page, '名片點擊排行榜')).toContainText('你在這個排行榜還沒有分數。');
   await expect(page.getByText('計分規則', { exact: true })).toBeVisible();
 });
 

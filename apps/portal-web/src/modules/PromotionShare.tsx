@@ -5,7 +5,7 @@ import './SkillDiscovery.css';
 type LinkView = {path: string; points: {week: number; all: number}};
 
 export function PromotionShare({client, kind, target, title, text, label = '分享'}: {
-  client: PortalClient; kind: 'platform' | 'social_post' | 'skill_book' | 'event' | 'member_service'; target: string; title: string; text?: string; label?: string;
+  client: PortalClient; kind: 'platform' | 'social_post' | 'skill_book' | 'event' | 'member_service' | 'member_card'; target: string; title: string; text?: string; label?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [link, setLink] = useState<LinkView | null>(null);

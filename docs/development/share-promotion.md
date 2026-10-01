@@ -2,18 +2,18 @@
 
 社員可以建立個人分享連結。別人點開才會計分，分數只顯示在六塊排行榜上，用來比較誰幫忙把內容帶出去。分數不是經驗、獎勵、貢獻或驗收。
 
-六種分享各有一塊榜。名片先留好資料與空榜，建立連結會回 422。社員服務已可建立連結。
+六種分享各有一塊榜，都可以建立個人連結。
 
 | kind | 分享對象 | 排行榜 | 現況 |
 | --- | --- | --- | --- |
-| `member_card` | 會員自己的名片 | 名片點擊排行榜 | 尚未開放 |
+| `member_card` | 會員自己的名片 | 名片點擊排行榜 | 已開放 |
 | `platform` | 自由工坊本身 | 平台推廣排行榜 | 已做 |
 | `skill_book` | 目錄技能書或已公開的社群技能書 | 技能推廣排行榜 | 已做 |
 | `social_post` | 社群媒體分享專區的一則貼文 | 社群推廣排行榜 | 已做 |
 | `member_service` | 一項公開的社員服務 | 業務推廣排行榜 | 已做 |
 | `event` | 已公開的社群活動 | 活動推廣排行榜 | 已做 |
 
-`target_key` 的格式：平台是 `workshop`；技能書是 `book:<技能 id>` 或 `submission:<uuid>`；活動、貼文與社員服務都是該筆 uuid。名片仍是日後的 uuid。
+`target_key` 的格式：平台是 `workshop`；技能書是 `book:<技能 id>` 或 `submission:<uuid>`；活動、貼文與社員服務都是該筆 uuid。名片是 `<小寫 user_id>:<generation>`，見下方「名片」。
 
 ## 為什麼先經過中繼頁
 
@@ -21,7 +21,7 @@
 
 所以 `GET /go/:code` 先回同一來源的小頁。頁面上的 `/go.js` 再用 same-origin 請求回報點擊，這次才帶得上 session，然後才前往目標。
 
-未知、已撤銷，或目標已不能分享（貼文刪除或隱藏、活動取消／退回／未公開、技能書不存在）時，這個網址 302 回首頁。除了技能書的 `intro`（1–999），其他 query 都忽略，避免開放式重導。
+未知、已撤銷，或目標已不能分享（貼文刪除或隱藏、活動取消／退回／未公開、技能書不存在、名片未公開或 generation 已換）時，這個網址 302 回首頁。除了技能書的 `intro`（1–999），其他 query 都忽略，避免開放式重導。
 
 中繼頁含 `noindex,nofollow`、`Cache-Control: no-store`、`Referrer-Policy: no-referrer`，以及網站既有的 CSP。不放 inline script 或 style。OG 圖網址使用 runtime 的公開來源。`og:type` 是 `website`。`og:url` 是這條個人連結本身（公開來源 + `/go/<code>`）；技能書只有在 `intro` 有效（1–999）時才附上 `?intro=N`。它不是目標網址，否則 Facebook 會把分享收成目標頁、跳過個人連結。
 
@@ -46,7 +46,7 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 
 每位會員每天最多新建立 200 條連結；已存在的同一條再取一次不算新的。每人每天最多新貼 20 則社群貼文。點擊路由另有每網路每小時約 300 次的速率限制，超過回 429，同樣不計分。
 
-`GET /api/v1/promotion/links/mine` 只讀。週、月、累計與所選期間的分數在同一則查詢用 `count(...) FILTER` 算出，不會為了標題去建立活動分享碼，也不會一條連結再查一次分數。出現過的活動、貼文、已公開社群技能書、社員服務各最多再讀一次（`= ANY`，限本人的社群）；目錄技能書不查資料庫。已公開技能書的條件與 `PUBLISHED` 同一份。每一筆有 `available`：活動要已公開、貼文要是有效、目錄書要在架上、社群技能書要已發布、社員服務要仍公開且擁有者有效。開不了的連結在「我的推廣連結」變淡、顯示「已無法開啟」、沒有複製鈕，分數仍留著。
+`GET /api/v1/promotion/links/mine` 只讀。週、月、累計與所選期間的分數在同一則查詢用 `count(...) FILTER` 算出，不會為了標題去建立活動分享碼，也不會一條連結再查一次分數。出現過的活動、貼文、已公開社群技能書、社員服務各最多再讀一次（`= ANY`，限本人的社群）；目錄技能書不查資料庫。已公開技能書的條件與 `PUBLISHED` 同一份。每一筆有 `available`：活動要已公開、貼文要是有效、目錄書要在架上、社群技能書要已發布、社員服務要仍公開且擁有者有效、名片要仍公開且 generation 與目前名片相同。開不了的連結在「我的推廣連結」變淡、顯示「已無法開啟」、沒有複製鈕，分數仍留著。
 
 ## 隱私
 
@@ -111,7 +111,7 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 
 公開頁 `GET /services` 每頁 12 筆，分類是連結，下一頁用 `?before=`。不正確的分類或分頁標記回到第一頁，不回應那串原文。`GET /services/:id` 只顯示封面、標題、分類、主人顯示名稱、簡介、說明、價格、地區、方式與聯絡按鈕，不顯示信箱、頭像或登入資料。頁面可被索引。找不到或未公開是同一風格的 404。OG 標題是「{標題}｜{主人} 的服務｜自由工坊」，描述是簡介，圖片是封面，否則是 `/brand/freedom-workshop.webp`。可見的圖片與頁內連結用根相對路徑；canonical 與 OG 用 `runtime.publicOrigin`。
 
-`member_service` 的目標是服務 uuid。服務仍公開、主人有效且不是測試帳號時才可分享，`/go/` 前往 `/services/<id>`。中繼頁的 OG 用服務標題、簡介與封面。業務榜的說明是「在社員服務分享區分享社員的服務，每次點擊 +1。」`member_card` 仍回 422 `promotion_kind_unavailable`。
+`member_service` 的目標是服務 uuid。服務仍公開、主人有效且不是測試帳號時才可分享，`/go/` 前往 `/services/<id>`。中繼頁的 OG 用服務標題、簡介與封面。業務榜的說明是「在社員服務分享區分享社員的服務，每次點擊 +1。」
 
 ### API
 
@@ -139,3 +139,13 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 `migrations/067_member_services.sql`：`member_services`、`member_service_covers`。公開列表索引是 `(community_id, updated_at DESC, service_id DESC) WHERE state='active'`，主人索引含有效與暫停。封面 `ON DELETE CASCADE`，但軟刪除要另外刪封面列。點擊分仍只在 `promotion_clicks`。列表的 `total_points` 用既有的 `promotion_links_target` 索引，合計該服務全部 `member_service` 連結的點擊。
 
 本文件描述功能與維護方式；實跑結果另記於交接，不以文件存在代表已發布。
+
+## 名片
+
+客戶端送 `target: <user_id>`。伺服器存的 `target_key` 是 `<小寫 user_id>:<generation>`。`generation` 是目前分享 token 的 sha256 前 16 個十六進位字，跟 `readPublicCards` 相同。token 不進資料列、日誌、回應或錯誤訊息；它只出現在 `/go/` 頁要前往的名片路徑。
+
+只有名片主人能建立。別人的 user id 回 403 `promotion_target_forbidden`（「只能分享自己的名片。」）；不是 uuid 回 422 `validation_failed`；名片目前沒有公開（未開啟、測試帳或尚未完成加入）回 404 `not_found`（「先開啟名片分享，才能建立名片連結。」）。
+
+更新連結、關閉分享或重新開啟都會換 token，generation 跟著變。舊連結與其他開不了的連結相同：`/go/<code>` 302 回首頁，點擊不計分，「我的推廣連結」顯示「已無法開啟」。舊列留著，不改寫。之後再建立會得到新的 key 與新的 code。
+
+名片仍公開且 generation 相同時，`/go/` 前往 `/member-cards/<token>`。`og:title` 是名片標題，`og:description` 是名片摘要，摘要是空的就用平台說明。`og:image` 固定是 `/brand/freedom-workshop.webp`（1280×720），不用頭像。名片榜的說明是「在我的名片分享名片連結，每次點擊 +1。」計分規則與其他種類相同。推廣模組只經 `readPublicCards` 讀名片，一次請求一批，不寫 `member_card_shares`。

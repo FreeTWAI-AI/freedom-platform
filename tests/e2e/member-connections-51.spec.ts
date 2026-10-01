@@ -268,18 +268,24 @@ test('welcome keeps one primary action and selected filters stay distinct in eve
   await shareControlWidths(page,true);
   await page.setViewportSize({width:1280,height:900});
   await settings.getByRole('button',{name:'建立分享連結',exact:true}).click();
-  await expect(settings.getByRole('button',{name:'複製連結',exact:true})).toBeVisible();
-  await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toBeVisible();
+  const openCard=settings.getByRole('link',{name:'開啟名片',exact:true});
+  await expect(openCard).toBeVisible();
+  await expect(settings.getByRole('button',{name:'分享名片',exact:true})).toBeEnabled();
+  await settings.getByRole('button',{name:'分享名片',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:/分享「.+的工坊名片」/});
+  await expect(dialog.getByRole('button',{name:'複製連結',exact:true})).toBeVisible();
+  await expect(dialog.locator('.skill-share-url')).toHaveText(/\/go\/[A-Za-z0-9_-]{10}$/);
+  await dialog.getByRole('button',{name:'關閉分享',exact:true}).click();
   await shareControlWidths(page,false);
   await page.setViewportSize({width:820,height:900});
   await shareControlWidths(page,false);
   await page.setViewportSize({width:390,height:844});
   await shareControlWidths(page,true);
   await page.setViewportSize({width:1280,height:900});
-  const shareUrl=await settings.getByLabel('名片邀請連結').inputValue();
+  const shareUrl=await openCard.getAttribute('href');
   const guestContext=await browser.newContext({viewport:{width:1280,height:900}}),guest=await guestContext.newPage();
   try{
-    await guest.goto(shareUrl);
+    await guest.goto(shareUrl!);
     await expect(guest.getByRole('heading',{name:`${name}的工坊名片`})).toBeVisible();
     await guest.screenshot({path:'test-results/mc51-public-card-1280.png',fullPage:true});
     await guest.setViewportSize({width:390,height:844});
