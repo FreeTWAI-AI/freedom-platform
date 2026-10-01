@@ -53,7 +53,7 @@ test('settings menu replaces the card button with an accessible keyboard menu',a
   // Personal pages are not side-navigation entries.
   const nav=page.getByRole('navigation',{name:'主要工作區',includeHidden:true});
   for(const name of ['待辦清單','我的名片'])await expect(nav.getByRole('button',{name,exact:true,includeHidden:true})).toHaveCount(0);
-  await expect(nav.getByRole('button',{name:'我的訊息',exact:true,includeHidden:true})).toHaveCount(0);
+  await expect(nav.getByRole('button',{name:'我的訊息',exact:true,includeHidden:true})).toHaveCount(1);
   await expect(page.getByRole('button',{name:'通知，2 則未讀'})).toBeVisible();
 
   await toggle.click();
@@ -331,6 +331,7 @@ async function direct(page:Page,options:{delayA?:Promise<void>;outcomes?:('abort
   await page.route(/\/api\/v1\/me\/conversations(\/.*)?(\?.*)?$/,async(route:Route)=>{
     const request=route.request(),url=new URL(request.url()),parts=url.pathname.split('/').slice(4);// ['conversations',peer?,sub?]
     const limit=Number(url.searchParams.get('limit')??20),offset=Number(url.searchParams.get('offset')??0);
+    if(parts[2]==='activity')return route.fulfill({json:{last_message_id:store[parts[1]]?.[0]?.message_id??null,unread_count:unread(parts[1]),can_send:true}});
     if(parts.length===1){
       const items=Object.keys(store).filter(peer=>store[peer].length).map(peer=>({participant:participants[peer],can_send:true,last_message:{...store[peer][0]},unread_count:unread(peer)}));
       const json={items,unread_count:Object.keys(store).reduce((sum,peer)=>sum+unread(peer),0),next_offset:null};

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {readConsoleFeed} from '../../apps/portal-web/src/game-console-feed.js'
 import type {PortalClient} from '../../apps/portal-web/src/api.js'
 
-test('console restores sent and received chat history without changing read receipts',async()=>{
+test('activity feed never reads private, guild, squad or world chat bodies without a selected conversation',async()=>{
   const paths:string[]=[]
   const pages:Record<string,unknown>={
     '/me/notifications?limit=20&offset=0':{items:[
@@ -30,13 +30,13 @@ test('console restores sent and received chat history without changing read rece
   }
   const client={get:async(path:string)=>{paths.push(path);assert.ok(Object.hasOwn(pages,path),path);return pages[path]}} as PortalClient
   const events=await readConsoleFeed(client,'me')
-  assert.deepEqual(events.map(event=>event.id),['room:g0','notice:n1','direct:d2','direct:d1','room:g1','guild:a1:2026-09-26T12:03:00Z','skill:s1','project:p1','room:w1','event-bulletin:b1','accepted-work:c1'])
-  assert.deepEqual(events.map(event=>event.channel),['guild','system','direct','direct','guild','guild','system','system','world_chat','system','system'])
-  assert.equal(events.find(event=>event.id==='direct:d2')?.source,'你 → 阿明')
-  assert.equal(events.find(event=>event.id==='room:g0')?.source,'公會 · AI 公會 · 你')
+  assert.deepEqual(events.map(event=>event.id),['notice:n1','guild:a1:2026-09-26T12:03:00Z','skill:s1','project:p1','event-bulletin:b1','accepted-work:c1'])
+  assert.deepEqual(events.map(event=>event.channel),['system','guild','system','system','system','system'])
+  assert.ok(events.every(event=>event.kind!=='chat'))
+  assert.ok(paths.every(path=>!path.startsWith('/me/conversations')&&!path.startsWith('/me/channels')))
   assert.ok(paths.every(path=>!path.endsWith('/read')))
   assert.ok(paths.includes('/pages/github-events'))
-  assert.equal(paths.length,13)
+  assert.equal(paths.length,7)
 })
 
 test('GitHub announcements describe approved reviews and design claim comments as distinct events',async()=>{

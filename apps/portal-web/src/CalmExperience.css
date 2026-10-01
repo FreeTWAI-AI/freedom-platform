@@ -1,0 +1,39 @@
+/* Common interaction structure; each theme keeps its own visual identity. */
+.nav-search{display:block;padding:4px 8px}.nav-search input{width:100%;min-width:0;min-height:44px;font-size:.875rem;border-radius:8px}
+.nav-search-results{display:grid;gap:4px}.nav-search-results>.field-hint{padding:8px}
+.registration-progress{font-size:.8rem;color:var(--muted);line-height:1.8}
+.entry-resources{display:grid;gap:12px;font-size:.9rem}.entry-benefits{display:flex;flex-wrap:wrap;gap:8px 18px;list-style:none;padding:0;margin:0;color:var(--muted)}
+.entry-benefits li::before{content:'✓';margin-right:6px;color:var(--blue-ink)}
+.entry-resources summary,.welcome-optional summary{min-height:44px;display:flex;align-items:center;cursor:pointer;color:var(--blue-ink);text-decoration:underline;text-underline-offset:4px}
+.entry-resource-list{display:grid;gap:10px;padding-top:8px}.entry-resource-list article{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding-top:8px}.entry-resource-list article strong{min-width:0}
+.welcome-optional{padding:0 8px}.welcome-optional>.experience-actions{padding-top:8px}
+.guild-first-step{display:grid;gap:8px;padding:12px;border:1px solid var(--line);border-radius:8px}.guild-first-step p{font-size:.85rem;color:var(--muted)}
+.messages-scroll{max-height:46dvh;min-height:100px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;overflow-anchor:none;padding:8px 4px}.messages-scroll .messages-bubbles{margin:0}.messages-body{white-space:pre-wrap;overflow-wrap:anywhere}.messages-compose textarea{min-height:80px;resize:vertical}.messages-new{justify-self:center}
+.member-channels[data-channel-kind="world"]{grid-template-columns:minmax(0,1fr)}
+.game-console-expanded.is-chat{height:min(78dvh,760px);grid-template-rows:auto auto minmax(0,1fr) auto}
+.game-console-chats{min-height:0;overflow:auto;padding:12px;font-family:inherit;color:var(--ink);background:var(--bg-elev)}.game-console-chats[hidden],.game-console-history[hidden]{display:none}
+.game-console-chats .messages-layout{gap:12px}.game-console-chats .messages-thread{min-width:0}.game-console-chats .messages-scroll{max-height:28dvh;min-height:100px}.game-console-chats .messages-compose{margin-top:8px}.game-console-chats h2{font-size:1rem}.game-console-chats .messages-meta{font-size:.75rem}.game-console-chats .messages-actions{flex-wrap:wrap}.game-console-chats .messages-side{min-width:0}
+.messages-side[hidden],.messages-thread[hidden]{display:none}.messages-layout.is-compact{grid-template-columns:minmax(0,1fr);gap:8px}.messages-switch{justify-self:start}
+.messages-pending{max-width:85%;margin:8px 0 8px auto;padding:10px 12px;border:1px dashed var(--line);border-radius:8px;background:var(--green-soft);color:var(--ink)}.messages-pending .messages-meta{margin-top:6px}
+.is-compact .messages-thread{position:relative;gap:8px;padding:12px}.is-compact .messages-thread>h2{padding-right:48px}.is-compact .messages-refresh{position:absolute;right:8px;top:8px}.is-compact .messages-refresh>.btn{font-size:0;width:44px;padding:0}.is-compact .messages-refresh>.btn::before{content:'↻';font-size:20px}
+.game-console-chats .is-compact .messages-scroll{max-height:18dvh;min-height:80px}.game-console-chats .is-compact .messages-compose{margin-top:0}.is-compact .messages-compose textarea{min-height:64px;height:64px}.game-console-chats .is-compact .messages-side{max-height:none;overflow:visible}
+.game-console-ticker-lines{animation:none}.game-console-ticker-lines>span:first-child:not(:last-child){display:none}
+html:is([data-theme="light"],[data-theme="versefolk"]) .messages-thread{background:var(--bg-elev);color:var(--ink)}
+html:is([data-theme="light"],[data-theme="versefolk"]) .messages-list>li,html:is([data-theme="light"],[data-theme="versefolk"]) .messages-peer{background:var(--bg-elev);color:var(--ink)}
+html:is([data-theme="light"],[data-theme="versefolk"]) .messages-bubbles>li{background:var(--bg);color:var(--ink)}
+html:is([data-theme="light"],[data-theme="versefolk"]) .messages-bubbles>li.is-mine{background:var(--green-soft);color:var(--ink)}
+html[data-theme="light"] .main,html[data-theme="light"] .sidebar,html[data-theme="light"] .login-layout{background:var(--bg-elev)}
+html[data-theme="light"] .card,html[data-theme="light"] .guild-card,html[data-theme="light"] .login-card,html[data-theme="light"] .home-module-card{box-shadow:none;border:1px solid var(--line);background:var(--bg-elev)}
+html[data-theme="light"] .pill,html[data-theme="light"] .chip{background:var(--bg);color:var(--muted)}
+html[data-theme="light"] .game-console{box-shadow:0 -4px 20px #23344c10}.game-console-signal{box-shadow:none}
+html[data-theme="light"] .freedom-home .guild-base-hero{background:var(--bg-elev);border:1px solid var(--line);padding-right:190px;isolation:isolate}
+html[data-theme="light"] .freedom-home .guild-base-hero::after{display:none}
+html[data-theme="light"] .freedom-home .guild-base-art{z-index:-1;inset:auto 18px auto auto;top:50%;transform:translateY(-50%);width:150px;height:auto;object-fit:contain;opacity:1;border-radius:8px}
+html[data-theme="light"] .freedom-home .home-module-cover img{object-fit:contain}
+@media(max-width:860px){
+  .workspace-navigation .nav-search{padding:0}.workspace-navigation.is-open{max-height:65dvh;overflow:auto}.nav-search-results{min-width:0}
+  .entry-benefits{font-size:.8rem;gap:5px 12px}.login-story-copy h1{font-size:1.2rem}.login-story .brand-poster{max-width:220px;margin-inline:auto}.entry-resources{font-size:.85rem}
+  .game-console-expanded.is-chat{height:85dvh}.game-console-chats .messages-side{max-height:180px;overflow:auto}.game-console-chats .messages-scroll{max-height:24dvh}.game-console-chats .messages-layout{grid-template-columns:minmax(0,1fr)}
+  html[data-theme="light"] .freedom-home .guild-base-hero{padding-right:90px}html[data-theme="light"] .freedom-home .guild-base-art{width:68px;right:12px;top:16px;transform:none}
+}
+@media(prefers-reduced-motion:reduce){.messages-scroll{scroll-behavior:auto}}

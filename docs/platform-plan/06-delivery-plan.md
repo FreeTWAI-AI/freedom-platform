@@ -8,7 +8,7 @@
 
 交付目標不是做出八個空選單，而是讓以下四條閉環在 production-like 環境可重複運作：
 
-1. `PEOPLE`：登入 → 定位（2026-09-23 起新註冊必填，取代舊 optional 入口）→ 本人確認方向及主力／次要 Guild → 領取技能書 → Work Feed → 完成 Result → Now/Next/Gained。完整 CareerProfile／WorkIntent、Agent equipped Skill 屬分階段實作，不與會員「裝備＝工具／訂閱」混用。
+1. `PEOPLE`：登入 → 選主要公會（2026-10-01 更新：快速加入為主，定位測驗可稍後補做；2026-09-23 的「新註冊必填定位」不再適用新註冊）→ 本人確認方向及主力／次要 Guild → 領取技能書 → Work Feed → 完成 Result → Now/Next/Gained。完整 CareerProfile／WorkIntent、Agent equipped Skill 屬分階段實作，不與會員「裝備＝工具／訂閱」混用。
 2. `BUILD`：規格 → WorkItem → GitHub Issue → 人／Agent claim → fork/branch/PR → checks → Grok adversarial review → Claude verification → module release → ContributionRecord。
 3. `AI-BUSINESS`：開源 asset → SkillPackage／Product Candidate → unpaid community QC → CommercialEdition／ServiceEngagement → Vibe＋Field＋Project assignments → proposal／delivery／support → Squad 自訂收益分配；三個不同自然人的 evidence 只控制 `commercial-ready`。
 4. `COMMERCE`：SupplierOffer → SellerListing 價格 → Supplier 接受 → fork Store → 單一 Seller checkout → Seller 收款 → 自動 settlement → Supplier 履約 → refund/reversal/reconciliation。
@@ -566,7 +566,7 @@ GitHub／community／growth：
 
 #### 2026-09-24 公開會員 beta 對照
 
-Base `8338a42` 已部署為 `freetwai.com` 公開會員 beta（Castle Node＋PostgreSQL＋Tunnel，見 [公開站運行手冊](../development/public-operations.md)）；本輪文件修正尚未部署。它是下列 package 的局部 runtime 子集，不改任何 package、milestone 或 acceptance 狀態；逐項來源見 [2026-09-23 落差對照](../development/plan-drift-2026-09-23.md)。
+Base `8338a42` 已部署為 `freetwai.com` 公開會員 beta（Castle Node＋PostgreSQL＋Tunnel，見 [公開站運行手冊](../development/public-operations.md)）；本輪文件修正尚未部署。它是下列 package 的局部 runtime 子集，不改任何 package、milestone 或 acceptance 狀態；逐項來源見 [2026-09-23 落差對照](../development/plan-drift-2026-09-23.md)。定位列的「新註冊必填」是該 base 當時的入口。2026-10-01 更新：新註冊改為先選主要公會，定位測驗可稍後補做。
 
 | 範圍（相關 package） | 目前 runtime | 仍未實作，不可推定完成 |
 | --- | --- | --- |

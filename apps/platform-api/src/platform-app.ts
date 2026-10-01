@@ -45,6 +45,7 @@ import {createCommunityEventRoutes,checkEventBannerUploadHeaders,checkEventVideo
 import {CollaborationGitHub} from '../../../modules/co-creation/github.js';
 import {acceptedWorkFeed,contributionRecords,previewTasks} from '../../../modules/community/task-board.js';
 import {publicEvent,publicEventBanner,publicEventVideo,registerPublicEvent} from '../../../modules/community/events.js';
+import {publicMemberCard,publicMemberAvatar} from '../../../modules/identity-membership/member-sharing.js';
 
 const COOKIE='freedom_local_session';
 function onboardingAllowed(path:string,method:string) {
@@ -56,7 +57,7 @@ function onboardingAllowed(path:string,method:string) {
   if(method==='POST'&&/^\/api\/v1\/me\/notifications\/[0-9a-f-]+\/read$/.test(path))return true;
   if(path==='/api/v1/session'||path==='/api/v1/auth/logout'||path==='/api/v1/me/account')return true;
   if(method==='GET'&&['/api/v1/assessment-definition','/api/v1/career-tracks','/api/v1/guilds','/api/v1/me/skill-books','/api/v1/me/guild-preferences','/api/v1/guilds/directory','/api/v1/events','/api/v1/task-board/preview'].includes(path))return true;
-  if(/^\/api\/v1\/me\/onboarding(?:\/(answers|evaluate|complete))?$/.test(path))return true;
+  if(/^\/api\/v1\/me\/onboarding(?:\/(answers|evaluate|complete|quick-start))?$/.test(path))return true;
   return method==='POST'&&/^\/api\/v1\/guilds\/[^/]+\/(join|leave|primary)$/.test(path);
 }
 // PostgreSQL bigint stays lossless internally; canonical AggregateVersion is a JSON safe integer.
@@ -70,6 +71,8 @@ function wireVersions(value:any):any {
   }));
   return value;
 }
+/** Browser page for a share token. The JSON and avatar routes set the same tag themselves. */
+export function isMemberCardPage(path:string){return /^\/member-cards\/[A-Za-z0-9_-]{43}\/?$/.test(path);}
 /** Runtime-neutral platform app. Host adapters: app.ts (Node) and worker.ts (Cloudflare). */
 export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions;coCreationGitHub?:CollaborationGitHub}={}) {
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
@@ -96,6 +99,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     const host=new URL(c.req.url).hostname;
     requireCondition(allowedHosts.has(host),403,'host_rejected',freedomEnv==='local'?'此版本只提供本機使用。':'請從自由工坊網站操作。');
     c.header('Cache-Control','no-store');c.header('X-Content-Type-Options','nosniff');c.header('Referrer-Policy','no-referrer');
+    if(isMemberCardPage(c.req.path))c.header('X-Robots-Tag','noindex, nofollow');
     const githubSetupForm=c.req.path==='/admin'||c.req.path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI-AI/settings/apps/new':'';
     c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm);
     if(!['GET','HEAD','OPTIONS'].includes(c.req.method)) {
@@ -131,13 +135,22 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
       c.res=new Response(JSON.stringify(data),{status:c.res.status,headers:c.res.headers});
     }
   });
-  app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken}));
+  app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken,guildReviewer:runtime.guildReviewer}));
   app.route('/',createPublishedSkillRoutes(pool,runtime.publicOrigin));
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id)));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
   app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog}));
   app.get('/api/v1/community',c=>c.json(communityCatalog));
+  app.get('/api/v1/public/member-cards/:token',async c=>{
+    c.header('X-Robots-Tag','noindex, nofollow');
+    return c.json(await publicMemberCard(pool,c.req.param('token')));
+  });
+  app.get('/api/v1/public/member-cards/:token/avatar',async c=>{
+    const bytes=await publicMemberAvatar(pool,c.req.param('token'));
+    c.header('Content-Type','image/webp');c.header('X-Robots-Tag','noindex, nofollow');
+    return c.body(new Uint8Array(bytes));
+  });
   app.get('/api/v1/public/events/:id',async c=>c.json(await publicEvent(pool,z.uuid().parse(c.req.param('id')))));
   app.get('/api/v1/public/events/:id/banner',async c=>{
     const bytes=await publicEventBanner(pool,z.uuid().parse(c.req.param('id')));
@@ -212,7 +225,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
       const got=Buffer.from(c.req.header('X-CSRF-Token')??''),expected=Buffer.from(actor.csrf_token);
       requireCondition(got.length===expected.length && timingSafeEqual(got,expected),403,'csrf_rejected','登入狀態已變更，請重新整理。');
     }
-    requireCondition(!actor.onboarding_required||Boolean(actor.onboarding_completed_at)||onboardingAllowed(c.req.path,c.req.method),403,'onboarding_required','請先完成定位測驗並選擇主要公會。');
+    requireCondition(!actor.onboarding_required||Boolean(actor.onboarding_completed_at)||onboardingAllowed(c.req.path,c.req.method),403,'onboarding_required','請先選擇主要公會，完成加入後即可使用會員功能。');
     await next();
   });
   const cmd=async(c:any):Promise<Command>=>{

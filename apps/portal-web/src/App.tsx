@@ -5,6 +5,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MEMBER_ACCESS_EXPIRED_MESSAGE } from './access-fetch'
 import { ApiError, PortalClient, requireDashboard, requireItems } from './api'
 import { MemberHome } from './modules/MemberHome'
+import {EntryResources} from './modules/EntryResources'
+import {CHAT_ENTRY_EVENT,isChatEntry,type ChatEntry} from './modules/chat-entry'
+import {FriendsPanel} from './modules/FriendsPanel'
+import {PublicMemberPage} from './modules/PublicMemberPage'
 import { Onboarding, type OnboardingView } from './modules/Onboarding'
 import { AccountPanel, MembersPanel, type MemberCardData } from './modules/Membership'
 import { MemberAvatar } from './modules/MemberAvatar'
@@ -72,6 +76,7 @@ const onboardingStarted=(userId:string)=>{try{return sessionStorage.getItem(`fre
 const rememberOnboarding=(userId:string,started:boolean)=>{try{if(started)sessionStorage.setItem(`freedom-onboarding-started:${userId}`,'yes');else sessionStorage.removeItem(`freedom-onboarding-started:${userId}`)}catch{/* Keep the in-memory choice. */}}
 
 const TAB_GUIDANCE: Record<TabId, string> = {
+  friends: '查看好友、待回覆邀請與可用的私訊入口。',
   home: '查看會員摘要與常用入口，從這裡繼續公會和技能書旅程。',
   positioning: '透過情境題整理你的能力與想走的方向；結果由你確認，也可以日後重新探索。',
   guilds: '加入感興趣的職業公會，設定主要公會，查看公會技能書。',
@@ -153,6 +158,7 @@ const eventIdFromLocation=()=>{
   if(window.location.hash)return null;
   return /^\/events\/([0-9a-f-]{36})\/?$/.exec(window.location.pathname)?.[1]??null;
 }
+const memberCardFromLocation=()=>/^\/member-cards\/([A-Za-z0-9_-]{43})\/?$/.exec(window.location.pathname)?.[1]??null
 const clearResetHash=()=>window.history.replaceState(null,'',window.location.pathname+window.location.search)
 
 function AdminConsoleShell(){
@@ -175,6 +181,10 @@ function MemberApp() {
   const [resetToken,setResetToken]=useState(resetTokenFromHash)
   const [publicEventId,setPublicEventId]=useState(eventIdFromLocation)
   const [eventLoginRequested,setEventLoginRequested]=useState(false)
+  const [sharedCardToken,setSharedCardToken]=useState(memberCardFromLocation)
+  const [memberLoginRequested,setMemberLoginRequested]=useState(false)
+  const returnToWorkshop=()=>{window.history.replaceState(null,'','/#home');setSharedCardToken(null);setMemberLoginRequested(false);window.dispatchEvent(new HashChangeEvent('hashchange'));}
+  useEffect(()=>{const changed=()=>{setSharedCardToken(memberCardFromLocation());setMemberLoginRequested(false)};window.addEventListener('popstate',changed);return()=>window.removeEventListener('popstate',changed)},[])
   useEffect(()=>{const changed=()=>setResetToken(resetTokenFromHash());window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed)},[])
   useEffect(()=>{const changed=()=>{setPublicEventId(eventIdFromLocation());setEventLoginRequested(false)};window.addEventListener('hashchange',changed);window.addEventListener('popstate',changed);return()=>{window.removeEventListener('hashchange',changed);window.removeEventListener('popstate',changed)}},[])
   const sessionGeneration = useRef(0)
@@ -267,10 +277,12 @@ function MemberApp() {
   }
 
   if (resetToken || phase !== 'ready' || !session) {
+    if(!resetToken&&sharedCardToken&&!memberLoginRequested)return <PublicMemberPage client={client} token={sharedCardToken} onLogin={()=>setMemberLoginRequested(true)} onReturn={returnToWorkshop}/>;
     if(!resetToken&&publicEventId&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} onLogin={()=>setEventLoginRequested(true)}/>;
     return (
       <div className="app-frame">
         {site?.demo_accounts_enabled && <DemoBanner />}
+        {sharedCardToken&&<button type="button" className="btn btn-ghost" onClick={()=>setMemberLoginRequested(false)}>返回邀請名片</button>}
         <LoginView
           site={site}
           notice={loginNotice}
@@ -286,12 +298,12 @@ function MemberApp() {
   }
 
   return (
-    <GameConsoleProvider key={session.user.user_id} client={client} userId={session.user.user_id} feedEnabled={Boolean(onboarding&&(!onboarding.required||onboarding.completed))} standalone={!onboarding||onboarding.required&&!onboarding.completed}>
+    <GameConsoleProvider key={session.user.user_id} client={client} userId={session.user.user_id} session={session} feedEnabled={Boolean(onboarding&&(!onboarding.required||onboarding.completed))} standalone={!onboarding||onboarding.required&&!onboarding.completed}>
     {!onboarding ? <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
     : onboarding.required && !onboarding.completed ? exploring&&!onboardingStarted(session.user.user_id)
-      ? <WelcomePreview client={client} name={session.user.display_name} onStart={()=>{rememberOnboarding(session.user.user_id,true);setExploring(false)}} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
+      ? <WelcomePreview client={client} name={session.user.display_name} onCompleted={()=>{rememberOnboarding(session.user.user_id,false);void loadOnboarding()}} onStart={()=>{rememberOnboarding(session.user.user_id,true);setExploring(false)}} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
       : <Onboarding client={client} initial={onboarding} profileName={session.user.display_name} onExplore={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}} onCompleted={() => { rememberOnboarding(session.user.user_id,false);window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => toLogin()).catch(error => setGateError(describeError(error).message))}/>
-    : <>
+    : sharedCardToken ? <PublicMemberPage client={client} token={sharedCardToken} session={session} onLogin={()=>{}} onReturn={returnToWorkshop}/> : <>
     <GitHubSocialProvider client={client} session={session}><AuthorClaimProvider client={client}><DevelopmentAccessProvider client={client} session={session}>
     <Workspace
       site={site}
@@ -376,7 +388,7 @@ function LoginView({
   const accessExpired = Boolean(bootError?.accessExpired || error?.accessExpired)
   return (
     <main className="login-layout">
-      <section className="login-story"><BrandPoster/><div className="login-story-copy"><h1>完成定位、加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。</h1></div></section>
+      <section className="login-story"><BrandPoster/><div className="login-story-copy"><h1>加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。</h1><EntryResources client={client}/></div></section>
       <div className="login-form-area">
       <section className="card login-card" aria-labelledby="login-heading">
         <div className="login-page-tools"><PageTools pageId="registration"/></div>
@@ -393,7 +405,7 @@ function LoginView({
         {error && <ErrorPanel error={error} />}
         {resetNotice&&<p className="banner banner-info" role="status">{resetNotice}</p>}
         {!accessExpired && <form className="stack" onSubmit={(event) => void onSubmit(event)}>
-          {activeMode==='register'&&<label className="field"><span className="field-label" id="register-nickname-label">社群顯示名稱</span><input name="nickname" required minLength={1} maxLength={60} autoComplete="nickname" aria-labelledby="register-nickname-label" aria-describedby="register-nickname-hint" value={nickname} onChange={event=>setNickname(event.target.value)} disabled={pending}/><span className="field-hint" id="register-nickname-hint">建議使用大家熟悉的社群名字</span></label>}
+          {activeMode==='register'&&<p className="registration-progress">1 · 建立帳號　2 · 選公會　3 · 開始參與</p>}
           {activeMode!=='confirm-reset'&&<label className="field">
             <span className="field-label">電子郵件</span>
             <input
@@ -421,7 +433,7 @@ function LoginView({
             />
           </label>}
           {activeMode==='confirm-reset'&&<label className="field">再次輸入新密碼<input type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)} disabled={pending}/></label>}
-          {activeMode==='register'&&<><p className="field-hint">只要名稱、Email 和密碼就能建立帳號。建立後可以先逛活動、任務與免費資源，再分段完成定位。</p><p className="field-hint">密碼至少 12 個字元。{site?.password_recovery_enabled?'忘記密碼時可從登入頁申請重設。':'請妥善保存，目前無法用 E-mail 找回密碼。'}Email 預設不公開。</p></>}
+          {activeMode==='register'&&<><label className="field"><span className="field-label" id="register-nickname-label">社群顯示名稱</span><input name="nickname" maxLength={60} autoComplete="nickname" aria-labelledby="register-nickname-label" aria-describedby="register-nickname-hint" placeholder="選填，可以稍後再改" value={nickname} onChange={event=>setNickname(event.target.value)} disabled={pending}/><span className="field-hint" id="register-nickname-hint">選填；留白會先使用隨機暱稱，不會公開你的 Email。</span></label><p className="field-hint">只需 Email 和密碼。密碼至少 12 個字元，建議使用密碼管理員。{site?.password_recovery_enabled?'忘記密碼可從登入頁重設。':'請保存密碼，目前未開放信箱找回。'}</p></>}
           {activeMode==='request-reset'&&<p className="field-hint">輸入註冊信箱；若帳號存在，重設連結會寄到信箱，30 分鐘內有效。</p>}
           <button className="btn btn-primary" type="submit" disabled={pending} aria-busy={pending}>
             {pending ? '處理中…' : activeMode==='register'?'建立帳號，先逛工坊':activeMode==='request-reset'?'寄送重設連結':activeMode==='confirm-reset'?'儲存新密碼':'登入'}
@@ -513,6 +525,11 @@ function Workspace({
     }
     else window.location.hash = next
   }, [])
+  const [chatEntry,setChatEntry]=useState<ChatEntry|null>(null)
+  useEffect(()=>{
+    const open=(event:Event)=>{const value=(event as CustomEvent).detail;if(!isChatEntry(value))return;setChatEntry(current=>({...value,request:(current?.request??0)+1}));selectTab('messages')}
+    window.addEventListener(CHAT_ENTRY_EVENT,open);return()=>window.removeEventListener(CHAT_ENTRY_EVENT,open)
+  },[selectTab])
   useEffect(() => {
     const changed = () => setTab(tabFromHash())
     window.addEventListener('hashchange', changed)
@@ -619,7 +636,8 @@ function Workspace({
             )}
             {tab === 'account' && <AccountPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'todos' && <MemberTasks client={client} onNavigate={selectTab} />}
-            {tab === 'messages' && <MemberMessages client={client} session={session} onNavigate={selectTab} onNotificationPeer={notificationTarget?.tab==='messages'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
+            {tab === 'messages' && <MemberMessages client={client} session={session} onNavigate={selectTab} chatEntry={chatEntry} onNotificationPeer={notificationTarget?.tab==='messages'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
+            {tab === 'friends' && <FriendsPanel client={client} session={session} onNavigate={selectTab} onMessage={id=>{setNotificationTarget(current=>({tab:'messages',resource_id:id,sequence:(current?.sequence??0)+1}));selectTab('messages');}} />}
             {tab === 'members' && <MembersPanel client={client} session={session} onNavigate={selectTab} onMessage={id=>{setNotificationTarget(current=>({tab:'messages',resource_id:id,sequence:(current?.sequence??0)+1}));selectTab('messages');}} focusRequest={notificationTarget?.tab==='members'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
             {tab === 'cocreation' && <CoCreationPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'community' && <CommunityPanel client={client} onNavigate={selectTab} />}

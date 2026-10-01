@@ -46,7 +46,7 @@ OAuth 採 PKCE 與單次 state，綁定同一工坊 session，回到 `/github/ca
 | `POST /admin/api/github-app/start` | `{}`；建立單次設定 manifest |
 | `POST /admin/api/github-app/complete` | `{state,code}`；完成設定，憑證不回傳瀏覽器 |
 
-所有會員操作須既有 session、同源與 CSRF，且完成定位。GitHub API 僅使用固定 host／路徑、timeout、回應大小上限與併發限制；公開數據依原作座標共用快取。失敗不推定為未加星或零人氣。
+所有會員操作須既有 session、同源與 CSRF，且已選擇主要公會、完成加入。GitHub API 僅使用固定 host／路徑、timeout、回應大小上限與併發限制；公開數據依原作座標共用快取。失敗不推定為未加星或零人氣。
 
 ## Star 權限錯誤
 

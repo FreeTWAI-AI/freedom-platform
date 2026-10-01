@@ -9,7 +9,7 @@ import './MemberSettings.css';
 type TaskState='loading'|'error'|'unavailable'|'todo'|'done';
 const stateLabels:Record<TaskState,string>={loading:'讀取中',error:'狀態讀取失敗',unavailable:'尚未啟用',todo:'待完成',done:'已完成'};
 
-type Onboarding={completed:boolean;primaryGuildKey:string|null;bookCount:number};
+type Onboarding={completed:boolean;entryMode:string;assessmentCompleted:boolean;primaryGuildKey:string|null;bookCount:number};
 type Guild={key:string;name:string;active:boolean};
 type Sources={onboarding:Onboarding;directory:Guild[];avatar:boolean;social:boolean};
 type SourceId=keyof Sources;
@@ -23,8 +23,8 @@ const isRecord=(value:unknown):value is Record<string,unknown>=>typeof value==='
 const readers:{[K in SourceId]:[string,(value:unknown)=>Sources[K]]}={
   onboarding:['/me/onboarding',value=>{
     const view=value as Partial<OnboardingView>;
-    if(!isRecord(view)||typeof view.completed!=='boolean'||!Array.isArray(view.skill_books)||!(view.primary_guild_key===null||typeof view.primary_guild_key==='string'))throw malformed();
-    return {completed:view.completed,primaryGuildKey:view.primary_guild_key||null,bookCount:view.skill_books.length};
+    if(!isRecord(view)||typeof view.completed!=='boolean'||typeof view.entry_mode!=='string'||typeof view.assessment_completed!=='boolean'||!Array.isArray(view.skill_books)||!(view.primary_guild_key===null||typeof view.primary_guild_key==='string'))throw malformed();
+    return {completed:view.completed,entryMode:view.entry_mode,assessmentCompleted:view.assessment_completed,primaryGuildKey:view.primary_guild_key||null,bookCount:view.skill_books.length};
   }],
   directory:['/guilds/directory',value=>{
     const items=isRecord(value)?value.items:undefined;if(!Array.isArray(items))throw malformed();
@@ -109,11 +109,13 @@ export function MemberTasks({client,onNavigate}:{client:PortalClient;onNavigate:
   const {onboarding,directory,avatar,social}=sources;
   const cards:Card[]=[];
 
-  // Positioning: only the recorded completion counts; a legacy exemption from the gate is not completion.
-  cards.push({key:'onboarding',required:true,title:'完成定位',
+  // Positioning: a finished assessment counts. Quick entry without it is optional, not a required to-do.
+  const quickAssessment=Boolean(onboarding.value&&onboarding.value.entryMode==='quick'&&!onboarding.value.assessmentCompleted);
+  cards.push({key:'onboarding',required:!quickAssessment,title:quickAssessment?'補做定位測驗':'完成定位',
     ...(onboarding.error?{state:'error',body:null,error:onboarding.error,retry:retrying(['onboarding'],'重新讀取定位狀態')}
       :!onboarding.value?loadingCard('正在確認定位進度…')
-      :onboarding.value.completed?{state:'done',body:<p>定位已完成，可隨時重新探索。</p>,action:go('positioning','查看我的定位',false)}
+      :onboarding.value.assessmentCompleted||(onboarding.value.completed&&onboarding.value.entryMode!=='quick')?{state:'done',body:<p>定位已完成，可隨時重新探索。</p>,action:go('positioning','查看我的定位',false)}
+      :quickAssessment?{state:'todo',body:<p>完成定位後，名片會顯示擅長能力，也更容易遇到合適的夥伴。</p>,action:go('positioning','前往我的定位',true)}
       :{state:'todo',body:<p>完成定位問答，找到適合你的公會方向。</p>,action:go('positioning','前往我的定位',true)})});
 
   // Primary guild: the chosen key must be a guild the member is actively in right now.

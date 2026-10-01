@@ -664,7 +664,7 @@ async function removeHarnessUser(db:Pool,id:string,email:string){
     const q=(sql:string)=>client.query(sql,[id]);
     await q('DELETE FROM outbox WHERE transition_id IN (SELECT transition_id FROM transition_journal WHERE actor_ref=$1)');
     await q('DELETE FROM transition_journal WHERE actor_ref=$1');
-    for(const table of ['member_social_links','member_avatars','onboarding_assessments','member_skill_book_grants','guild_member_preferences',
+    for(const table of ['member_guild_answers','member_social_links','member_avatars','onboarding_assessments','member_skill_book_grants','guild_member_preferences',
       'positioning_profession_memberships','member_accounts','member_client_errors','command_receipts','sessions'])await q(`DELETE FROM ${table} WHERE user_id=$1`);
     const removed=await client.query('DELETE FROM users WHERE user_id=$1 AND email=$2',[id,email]);
     expect(removed.rowCount).toBeLessThanOrEqual(1);
@@ -711,7 +711,8 @@ test('local harness: real session, CSRF, guild grant/revoke freshness, avatar, b
     expect(healthPhase.checks.map(check=>check.id)).not.toContain('release_sha_matches_expected');
     expect(report.statement).toMatch(/not evidence of any cloud deployment/);
     // The signed-in shell requests inbox previews by itself; every one was aborted, none answered.
-    for(const prefix of ['/api/v1/me/notifications','/api/v1/me/conversations'])expect(inbox.requested.some(path=>path===prefix),prefix).toBe(true);
+    expect(inbox.requested.some(path=>path==='/api/v1/me/notifications')).toBe(true);
+    expect(inbox.requested.some(path=>path==='/api/v1/me/conversations'),'the home console no longer preloads private conversations').toBe(false);
     expect(inbox.responses).toBe(0);
     expect(inbox.failed).toHaveLength(inbox.requested.length);
     expect(inbox.failed.every(text=>/BLOCKED_BY_CLIENT/.test(text))).toBe(true);
@@ -841,7 +842,7 @@ test('registration, messages and messages-mobile pass on the local harness and t
   expect((await e2eAuthPool.query('SELECT count(*)::int AS n FROM sessions WHERE user_id=ANY($1::uuid[]) AND revoked_at IS NULL',[ids])).rows[0].n).toBe(0);
 });
 
-test('public candidate only reads unread guild chat for the console and never writes it',async({browser})=>{
+test('public candidate leaves guild histories unopened and never writes guild chat',async({browser})=>{
   test.setTimeout(240000);
   const loop=localHarnessTarget(e2eOrigin());
   const target={...loop,name:'public' as const};
@@ -859,10 +860,11 @@ test('public candidate only reads unread guild chat for the console and never wr
   expect(report.phases.find(phase=>phase.id==='messages-mobile')?.status).toBe('pass');
   const paths=urls.map(requestPath);
   const history=paths.filter(path=>path.includes('/me/channels/guild/'));
-  expect(history.every(path=>/^\/api\/v1\/me\/channels\/guild\/[^/]+\/messages\?limit=20&offset=0$/.test(path))).toBe(true);
+  expect(history).toEqual([]);
   expect(guildWrites).toEqual([]);
   expect(paths.some(path=>/\/api\/v1\/me\/channels\?/.test(path)&&/(?:^|[?&])kind=guild(?:&|$)/.test(path))).toBe(true);
-  expect(paths.some(path=>path.includes('/guilds/directory'))).toBe(false);
+  // Directory metadata can guide a new member without reading any real guild history.
+  expect(paths.some(path=>path.includes('/guilds/directory'))).toBe(true);
   expect(urls.every(url=>url.startsWith(loop.origin))).toBe(true);
 });
 

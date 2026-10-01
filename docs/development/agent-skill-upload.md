@@ -16,13 +16,13 @@
 
 | 動作 | 誰 | 條件 |
 | --- | --- | --- |
-| 建立草稿＋一次性授權 | 瀏覽器或 agent 金鑰 | 會員啟用中且完成定位；未公開草稿最多 30 份 |
+| 建立草稿＋一次性授權 | 瀏覽器或 agent 金鑰 | 會員啟用中且完成加入（選定主要公會）；未公開草稿最多 30 份 |
 | 上傳內容 | 一次性授權（`fpg_`） | 只限該草稿、60 分鐘、只能用一次 |
 | 重發授權 | 瀏覽器 | 只在 `awaiting_upload`；舊授權立即失效 |
 | 撤回 | 瀏覽器 | 未公開；授權同時失效 |
 | 公開 | 瀏覽器 | `ready_for_review`、`consent_to_share:true`、`If-Match` 為目前版本 |
 
-## 瀏覽器 API（`/api/v1`，session＋CSRF＋完成定位）
+## 瀏覽器 API（`/api/v1`，session＋CSRF＋已選定主要公會）
 
 `createSkillSubmissionRoutes(pool, origin)`：
 
@@ -53,7 +53,7 @@
 每次請求依序：網路限流（`skill-agent-network`，每小時 120 次；在讀取憑證與內文之前）→ 檢查 `Content-Type`／`Content-Length` → 查憑證雜湊 → 會員限流（`skill-agent-owner`，每小時 60 次）→ 以串流讀取有上限的內文（不依賴 `Content-Length`）→ 在交易外驗證並重新編碼圖片 → 交易內依序鎖定會員（`FOR SHARE`）、原始金鑰、草稿，然後重新檢查。
 
 - 相同內容（NFC、前後空白整理後的 JSON 摘要，加上原始圖片的 SHA-256）以同一授權重送時，回傳相同確認。內容不同回 409 `upload_grant_consumed`。
-- 授權過期、被重發或撤回、草稿撤回、原始金鑰撤銷或到期、會員停用（401）或未完成定位（403），重送也會被拒絕。
+- 授權過期、被重發或撤回、草稿撤回、原始金鑰撤銷或到期、會員停用（401）或尚未選定主要公會（403），重送也會被拒絕。
 
 內容驗證見 CLI 的 [protocol.md](../../packages/skill-upload-client/protocol.md)：剛好 100 則不重複的單行分享介紹；`strict` 物件，不接受 `consent_to_share`、`official` 或會員 ID；示意圖只接受標準 base64 的靜態 PNG／JPEG／WebP，≤ 512 KiB、≤ 4096×4096、≤ 16M 像素。先比對檔頭，再拒絕 APNG 與動態 WebP，由 sharp 以 5 秒上限重新編碼成 1200×630 的 WebP（深色留邊、保留完整構圖），並移除中繼資料。
 
@@ -69,7 +69,7 @@
 - `readPublishedSkillSubmission(pool, id)` → 上述欄位加上 `use_notes`、`demo_url`，找不到時回 `null`
 - `readPublishedSkillIllustration(pool, id)` → `{bytes, mime_type:'image/webp'}` 或 `null`
 
-只列出已公開、擁有者仍啟用且完成定位、固定版本仍存在的投稿。不輸出擁有者 ID、email、草稿或授權資料。公開圖片網址為 `/api/v1/skill-submissions/:id/illustration`，由根路由提供。
+只列出已公開、擁有者仍啟用且完成加入（選定主要公會）、固定版本仍存在的投稿。不輸出擁有者 ID、email、草稿或授權資料。公開圖片網址為 `/api/v1/skill-submissions/:id/illustration`，由根路由提供。
 
 ## 根路由整合注意
 

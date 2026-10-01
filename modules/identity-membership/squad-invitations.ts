@@ -39,7 +39,7 @@ async function eligibleActor(q:Pool|PoolClient,actor:Actor) {
   const row=(await q.query(`SELECT ${eligible} AS eligible,EXISTS(SELECT 1 FROM sessions s WHERE s.token_hash=$3 AND s.user_id=u.user_id
     AND s.revoked_at IS NULL AND s.expires_at>now()) AS current_session FROM users u WHERE u.user_id=$1 AND u.community_id=$2`,[actor.user_id,actor.community_id,actor.session_hash])).rows[0];
   requireCondition(row?.current_session,401,'session_expired','請重新登入。');
-  requireCondition(row.eligible,403,'onboarding_required','請先完成定位測驗並選擇主要公會。');
+  requireCondition(row.eligible,403,'onboarding_required','請先選擇主要公會，完成加入後即可使用會員功能。');
 }
 async function communitySquad(q:Pool|PoolClient,actor:Actor,id:string) {
   const row=(await q.query('SELECT squad_id,name,owner_ref FROM member_squads WHERE squad_id=$1 AND community_id=$2',[id,actor.community_id])).rows[0];
