@@ -9,8 +9,9 @@ POSTs require CSRF and Idempotency-Key; updates to an existing version require
 uses persisted rate limits instead. IDs are UUIDs.
 
 - `GET /api/v1/site`: brand, registration_enabled, demo_accounts_enabled, community.
-- `POST /auth/register`: `{email,password,nickname,contacts?}`. Password 12–128
-  characters, nickname 1–60. Returns the existing session JSON and cookie (201).
+- `POST /auth/register`: `{email,password,nickname?,contacts?}`. Password 12–128
+  characters, nickname up to 60. A missing or blank nickname becomes
+  `新夥伴 <8 hex characters>`; the email is never used as a display name. Returns the existing session JSON and cookie (201).
   Optional social contacts are `discord`, `github`, `line`, each `{value,audiences?}`
   with a private default. Registration has exactly one email input: `email`.
   A separate `contacts.email` input is rejected. Contact email always comes from

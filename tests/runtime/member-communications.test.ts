@@ -10,7 +10,7 @@ import {createApp} from '../../apps/platform-api/src/app.js';
 import {login,type Actor} from '../../modules/identity-membership/service.js';
 import {notifyMember,type NotifyMemberInput} from '../../modules/member-communications/notifications.js';
 import {
-  listNotifications,markNotificationRead,listConversations,conversationMessages,sendDirectMessage,markConversationRead,
+  listNotifications,markNotificationRead,listConversations,conversationMessages,conversationActivity,sendDirectMessage,markConversationRead,
 } from '../../modules/member-communications/service.js';
 
 const origin='http://127.0.0.1:4310',databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
@@ -149,6 +149,7 @@ test('direct messages reject unauthenticated, cross-community, unready and disab
   await pool.query('UPDATE users SET active=false WHERE user_id=$1',[disabled.id]);
   for(const id of [outsider.id,unready.id,disabled.id,randomUUID()]){
     assert.equal((await request(`/me/conversations/${id}/messages`,a)).status,404,id);
+    assert.equal((await request(`/me/conversations/${id}/activity`,a)).status,404,id);
     assert.equal((await request(`/me/conversations/${id}/messages`,a,{body:'hello'})).status,404,id);
     assert.equal((await request(`/me/conversations/${id}/read`,a,{})).status,404,id);
   }
@@ -159,6 +160,17 @@ test('direct messages reject unauthenticated, cross-community, unready and disab
   const suspended=await extraMember('suspended'),session=await signIn(suspended.email);await pool.query('UPDATE users SET active=false WHERE user_id=$1',[suspended.id]);
   assert.equal((await request(`/me/conversations/${B}/messages`,session,{body:'hi'})).status,401);
   assert.equal(await count('member_direct_messages'),0);
+});
+
+test('body-free private activity detects new messages and read changes without exposing text or writing state',async()=>{
+  const [a,b]=await signInAll(),path=`/me/conversations/${B}/activity`;
+  assert.deepEqual((await request(path,a)).data,{last_message_id:null,unread_count:0,can_send:true});
+  const sent=await request(`/me/conversations/${A}/messages`,b,{body:'私密正文不傳入更新檢查'});assert.equal(sent.status,201);
+  const state=async()=>(await pool.query('SELECT (SELECT count(*) FROM command_receipts)::int AS receipts,(SELECT count(*) FROM member_direct_messages WHERE read_at IS NOT NULL)::int AS read')).rows[0];
+  const before=await state(),activity=await request(path,a);assert.equal(activity.status,200);assert.deepEqual(activity.data,{last_message_id:sent.data.message_id,unread_count:1,can_send:true});noPrivate(activity.data);assert.deepEqual(await state(),before);
+  await request(`/me/conversations/${B}/read`,a,{});assert.equal((await request(path,a)).data.unread_count,0);
+  await pool.query('UPDATE users SET active=false WHERE user_id=$1',[B]);assert.deepEqual((await request(path,a)).data,{last_message_id:sent.data.message_id,unread_count:0,can_send:false});
+  assert.equal((await request(path)).status,401);assert.equal((await request(path+'?extra=1',a)).status,422);assert.equal((await request(`/me/conversations/${A}/activity`,a)).status,422);
 });
 
 test('conversations show only own pairs sorted by latest message, with per-pair and total unread counts and read marking',async()=>{
@@ -244,6 +256,7 @@ const privateReads=(actor:Actor)=>({
   listNotifications:()=>listNotifications(pool,actor,{}),
   listConversations:()=>listConversations(pool,actor,{}),
   conversationMessages:()=>conversationMessages(pool,actor,B,{}),
+  conversationActivity:()=>conversationActivity(pool,actor,B,{}),
 });
 async function rejectsWith(run:()=>Promise<unknown>,status:number,code:string,label:string){
   let resolved=false;

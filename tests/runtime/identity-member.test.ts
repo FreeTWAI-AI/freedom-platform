@@ -42,6 +42,15 @@ test('registration saves salted password, private unverified contacts and server
   const directory=await request('/members',await signIn());assert.ok(!directory.data.items.some((u:any)=>u.user_id===member.user.user_id));
 });
 
+test('registration needs only email and a strong password; generated names never expose the login address',async()=>{
+  for(const [index,nickname] of [undefined,'   '].entries()){
+    const result=await request('/auth/register',undefined,{email:`private.identity.${index}@example.com`,password:'long-enough-private-password',...(nickname===undefined?{}:{nickname})});
+    assert.equal(result.status,201,JSON.stringify(result.data));assert.match(result.data.user.display_name,/^新夥伴 [a-f0-9]{8}$/);assert.ok(!result.data.user.display_name.includes('private.identity'));
+    const own=await request('/me/account',session(result));assert.deepEqual(own.data.contacts.email.audiences,[]);
+  }
+  assert.equal((await request('/auth/register',undefined,{email:'private@example.com',password:'short'})).status,422);
+});
+
 test('registration rejects forged contacts and weak passwords, persists per-network and per-email limits',async()=>{
   const body={email:'abuse@example.com',password:'long-enough-password',nickname:'正常名字'};
   assert.equal((await request('/auth/register',undefined,{...body,password:'short'})).status,422);

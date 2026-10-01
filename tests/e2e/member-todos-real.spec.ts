@@ -250,7 +250,8 @@ test('a newly registered member at 320px stays behind the mandatory positioning 
     await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill('freedom-workshop-member-2026');
     const registered=page.waitForResponse(response=>response.request().method()==='POST'&&response.url().endsWith('/api/v1/auth/register'));
     await page.getByRole('button',{name:'建立帳號，先逛工坊',exact:true}).click();
-    await page.getByRole('button',{name:'開始／繼續定位 →',exact:true}).click();
+    await page.locator('.welcome-optional > summary').click();
+  await page.getByRole('button',{name:'開始／繼續定位 →',exact:true}).click();
     expect((await registered).status()).toBeLessThan(300);
     const gate=page.getByRole('heading',{name:'你喜歡怎麼做事？',exact:true});await expect(gate).toBeVisible();
     const row=(await db.query('SELECT user_id,onboarding_required,onboarding_completed_at FROM users WHERE email=$1',[email])).rows;

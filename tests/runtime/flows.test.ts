@@ -197,8 +197,12 @@ test('showcase → opportunity → bilateral cooperation → delivery → receip
   for(const [s,action,body] of [[client,'agree',{terms_sha256:e.terms_sha256}],[maker,'deliver',{artifact_ref:'artifact:delivery-v1'}],[client,'accept',{terms_sha256:e.terms_sha256}]] as const) {
     const r=await request(`/engagements/${e.engagement_id}:${action}`,s,body,e.aggregate_version);assert.equal(r.status,200,JSON.stringify(r.data));e=r.data;
   }
-  // Use the database clock so Docker/host clock drift cannot make a valid observation appear older than agreement.
-  const receipt={amount_minor:120000,currency:'TWD',evidence_ref:'receipt:bank-demo-001',received_at:(await pool.query('SELECT now()')).rows[0].now.toISOString()};
+  // Agreement uses the DB clock; the future-time guard uses the Node clock.
+  // Let the host catch up to this real DB timestamp instead of inventing a receipt time.
+  const receivedAt=(await pool.query('SELECT now()')).rows[0].now.toISOString(),clockWait=Math.max(0,Date.parse(receivedAt)-Date.now());
+  assert.ok(clockWait<5000,'Host and PostgreSQL test clocks differ by five seconds or more.');
+  if(clockWait)await new Promise(resolve=>setTimeout(resolve,clockWait+5));
+  const receipt={amount_minor:120000,currency:'TWD',evidence_ref:'receipt:bank-demo-001',received_at:receivedAt};
   assert.equal((await request(`/engagements/${e.engagement_id}/receipts`,maker,{...receipt,amount_minor:1200},e.aggregate_version)).status,422);
   assert.equal((await request(`/engagements/${e.engagement_id}/receipts`,maker,{...receipt,received_at:new Date(Date.now()+86400000).toISOString()},e.aggregate_version)).data.code,'invalid_receipt_time');
   assert.equal((await request(`/engagements/${e.engagement_id}/receipts`,maker,{...receipt,received_at:'2020-01-01T00:00:00.000Z'},e.aggregate_version)).data.code,'invalid_receipt_time');
@@ -225,12 +229,12 @@ test('implemented claim request and response validate against existing canonical
   const response=await request(`/work-items/${DEMO_WORK}:claim`,maker,body,w.aggregate_version);
   assert.equal(response.status,201);assert.equal(typeof response.data.aggregate_version,'number');
   const script=`import json,sys,yaml\nfrom jsonschema import Draft202012Validator\napi=yaml.safe_load(open('docs/platform-plan/contracts/openapi-outline.yaml'))\ndata=json.load(sys.stdin)\nfor name,obj in [('ClaimWorkItemRequest',data['request']),('WorkClaim',data['response'])]:\n validator=Draft202012Validator(api)\n validator.evolve(schema={'$ref':'#/components/schemas/'+name}).validate(obj)\nprint('canonical claim request/response valid')\n`;
-  assert.match(execFileSync(pythonCommand,['-c',script],{input:JSON.stringify({request:body,response:response.data}),encoding:'utf8'}),/valid/);
+  assert.match(execFileSync(pythonCommand,['-X','utf8','-c',script],{input:JSON.stringify({request:body,response:response.data}),encoding:'utf8'}),/valid/);
 });
 test('generated participation terms conform to the existing schema, including maximum text lengths',async()=>{
   const owner=await signIn(DEMO_USERS[1].email),w=await newWork(owner,{objective:'a'.repeat(1000),acceptance_criteria:'b'.repeat(1000)});
   const script=`import json,sys\nfrom jsonschema import Draft202012Validator,FormatChecker\nschema=json.load(open('docs/platform-plan/contracts/work-participation.schema.json'))\nDraft202012Validator(schema,format_checker=FormatChecker()).validate(json.load(sys.stdin))\nprint('valid')\n`;
-  assert.match(execFileSync(pythonCommand,['-c',script],{input:JSON.stringify(w.participation_terms),encoding:'utf8'}),/valid/);
+  assert.match(execFileSync(pythonCommand,['-X','utf8','-c',script],{input:JSON.stringify(w.participation_terms),encoding:'utf8'}),/valid/);
   const r=await request('/work-items',owner,{title:'長度邊界',objective:'a'.repeat(1001),acceptance_criteria:'有效條件',gain:'公共成果',estimated_minutes:10,maximum_minutes:20,claim_by:new Date(Date.now()+86400000).toISOString(),finish_by:new Date(Date.now()+2*86400000).toISOString(),will_review:false});
   assert.equal(r.status,422);
 });

@@ -53,17 +53,23 @@ test('a shared card opens anonymously, survives reload, rotates and can be disab
 test('invited visitor signs up, returns to the card and becomes a friend only after acceptance',async({page,browser})=>{
   await signup(page,'邀請發起人');await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();await navigate(page,'我的名片');
   const sharing=page.getByRole('region',{name:'分享我的工坊名片'});await sharing.getByRole('button',{name:'建立分享連結'}).click();const url=await sharing.getByLabel('名片邀請連結').inputValue();
-  const context=await browser.newContext(),guest=await context.newPage();
+  const context=await browser.newContext(),guest=await context.newPage();let releaseAccept=()=>{};
   try{
     await guest.goto(url);await guest.getByRole('button',{name:'加入自由工坊／登入'}).click();await signup(guest,'受邀共創夥伴',false);
     await expect(guest.getByRole('heading',{name:'邀請發起人的工坊名片'})).toBeVisible();await guest.getByRole('button',{name:'邀請成為好友',exact:true}).click();await expect(guest.getByText('好友邀請待回覆',{exact:true})).toBeVisible();
     await guest.getByRole('button',{name:'返回會員首頁'}).click();await navigate(guest,'我的好友');await guest.getByRole('button',{name:'送出的邀請',exact:true}).click();await expect(guest.locator('.friends-panel').getByRole('heading',{name:'邀請發起人',exact:true})).toBeVisible();
-    await navigate(page,'我的好友');await page.getByRole('button',{name:'收到的邀請',exact:true}).click();const friend=page.locator('.friends-panel .directory-member').filter({has:page.getByRole('heading',{name:'受邀共創夥伴',exact:true})});await friend.getByRole('button',{name:'接受邀請'}).click();
+    await navigate(page,'我的好友');await page.getByRole('button',{name:'收到的邀請',exact:true}).click();const friend=page.locator('.friends-panel .directory-member').filter({has:page.getByRole('heading',{name:'受邀共創夥伴',exact:true})});
+    let accepted=false;const acknowledgement=new Promise<void>(resolve=>{releaseAccept=resolve;});
+    await page.route('**/api/v1/friends/*/accept',async route=>{const response=await route.fetch();expect(response.status()).toBe(200);accepted=true;await acknowledgement;await route.fulfill({response});});
+    await friend.getByRole('button',{name:'接受邀請'}).click();await expect.poll(()=>accepted).toBe(true);
+    await page.getByRole('button',{name:'我的好友',exact:true}).last().click();await expect(page.locator('.friends-panel').getByRole('heading',{name:'受邀共創夥伴',exact:true})).toBeVisible();
+    const refreshed=page.waitForResponse(response=>response.request().method()==='GET'&&response.url().includes('/api/v1/friends/directory?'));releaseAccept();expect(new URL((await refreshed).url()).searchParams.get('scope')).toBe('accepted');
+    await expect(page.locator('.friends-panel').getByRole('heading',{name:'受邀共創夥伴',exact:true})).toBeVisible();
     await page.getByRole('button',{name:'我的好友',exact:true}).last().click();await expect(page.locator('.friends-panel').getByRole('heading',{name:'受邀共創夥伴',exact:true})).toBeVisible();
     await page.getByLabel('搜尋好友名稱').fill('受邀共創夥伴');await expect(page.locator('.friends-panel .directory-member')).toHaveCount(1);await page.screenshot({path:'test-results/issue-42-friends-desktop.png',fullPage:true});
     await page.setViewportSize({width:320,height:720});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'test-results/issue-42-friends-320.png',fullPage:true});
     await navigate(guest,'會員首頁');await navigate(guest,'我的好友');await expect(guest.locator('.friends-panel').getByRole('heading',{name:'邀請發起人',exact:true})).toBeVisible();
-  }finally{await context.close();}
+  }finally{releaseAccept();await context.close();}
 });
 test('home recommends a shared-guild member and guild topic filtering works in all themes',async({page,browser})=>{
   const context=await browser.newContext({baseURL:new URL(test.info().project.use.baseURL as string).origin}),candidate=await context.newPage();
