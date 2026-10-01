@@ -20,6 +20,8 @@ export type ChannelMessage={
 };
 /** Newest sequence first; unread_count is this channel's unread for the viewer. */
 export type ChannelMessagePage={channel:Channel;items:ChannelMessage[];unread_count:number;next_offset:number|null;next_after_sequence?:string|null};
+/** Body-free update check for one currently authorized room. GET never marks read. */
+export type ChannelActivity={latest_sequence:string;unread_count:number};
 
 export type ChannelMessageInput={body:string};
 /** through_message_id must be a message of this channel the viewer has seen. */

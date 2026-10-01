@@ -18,13 +18,15 @@ type Notice={notification_id:string;kind:string;title:string;body:string;created
 type NoticePage={items:Notice[];unread_count:number;next_offset:number|null};
 type Participant={user_id:string;display_name:string;avatar_url:string|null;last_login_at:string|null;is_online:boolean};
 type Message={message_id:string;sender_ref:string;recipient_ref:string;body:string;created_at:string;read_at:string|null};
+const newestMessages=(items:Message[])=>[...items].sort((a,b)=>b.created_at.localeCompare(a.created_at));
 type Conversation={participant:Participant;can_send:boolean;last_message:Message;unread_count:number};
 type ConversationPage={items:Conversation[];unread_count:number;next_offset:number|null};
 type Thread={participant:Participant;can_send:boolean;items:Message[];next_offset:number|null;unread_count:number};
+type ConversationActivity={last_message_id:string|null;unread_count:number;can_send:boolean};
 type MemberPage={items:MemberCardData[];total:number;next_offset:number|null};
 type Props={client:PortalClient;session:SessionPayload;onNavigate:(id:TabId)=>void;onNotificationPeer?:{id:string;sequence:number}};
 
-const PAGE=20,MAX_BODY=2000;
+const PAGE=20,MAX_BODY=2000,LIVE_POLL_MS=1000;
 // Actions map to fixed in-app pages only; a notification can never supply a link.
 const actionLabels:Record<ActionTab,string>={members:'前往工坊夥伴',squads:'前往小隊集合',guilds:'前往職業公會','guild-workspace':'前往公會管理',messages:'開啟私訊',events:'前往活動'};
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -167,12 +169,13 @@ function Notifications({client,onUnread,onNavigate,onOpenPeer}:{client:PortalCli
 
 type Pending={key:string;body:string;status:'sending'|'unknown'};
 
-export function DirectMessages({client,session,onUnread,openPeer,active=true}:{client:PortalClient;session:SessionPayload;onUnread:(count:InboxUnread)=>void;openPeer:{id:string;request:number}|null;active?:boolean}){
+export function DirectMessages({client,session,onUnread,openPeer,active=true,compact=false}:{client:PortalClient;session:SessionPayload;onUnread:(count:InboxUnread)=>void;openPeer:{id:string;request:number}|null;active?:boolean;compact?:boolean}){
   const me=session.user.user_id,uid=useId();
   const ids={list:`${uid}-conversations`,thread:`${uid}-thread`,error:`${uid}-send-error`};
   const [conversations,setConversations]=useState<Conversation[]>([]),[convNext,setConvNext]=useState<number|null>(null);
   const [convStatus,setConvStatus]=useState<'loading'|'ready'|'error'>('loading'),[convError,setConvError]=useState(''),[convMore,setConvMore]=useState({loading:false,error:''});
   const [peer,setPeer]=useState<string|null>(null),[thread,setThread]=useState<Thread|null>(null);
+  const [picking,setPicking]=useState(true);
   const [threadStatus,setThreadStatus]=useState<'idle'|'loading'|'ready'|'error'>('idle'),[threadError,setThreadError]=useState(''),[threadMore,setThreadMore]=useState({loading:false,error:''});
   const [drafts,setDrafts]=useState<Record<string,string>>({}),[pending,setPending]=useState<Record<string,Pending>>({}),[sendErrors,setSendErrors]=useState<Record<string,string>>({});
   const [reading,setReading]=useState(false),[readError,setReadError]=useState('');
@@ -182,11 +185,15 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true}:{c
   const convInFlight=useRef<boolean|null>(null),threadInFlight=useRef<{id:string;quiet:boolean}|null>(null);
   const convGeneration=useRef(0),threadGeneration=useRef(0),currentPeer=useRef<string|null>(null),readKeys=useRef(new Map<string,string>()),heading=useRef<HTMLHeadingElement>(null),focusThread=useRef(false),alive=useRef(true);
   const scroll=useRef<HTMLDivElement>(null),stick=useRef(true),anchor=useRef<{height:number;top:number}|null>(null),moreState=useRef(threadMore);
+  const polling=useRef(false),retryAt=useRef(0),failures=useRef(0),listCheckedAt=useRef(0);
+  const [liveError,setLiveError]=useState('');
+  const snapshot=useRef({thread,threadStatus,reading,active,sending:false});snapshot.current={thread,threadStatus,reading,active:active&&(!compact||!picking),sending:pending[peer??'']?.status==='sending'};
   const [hasNew,setHasNew]=useState(false);moreState.current=threadMore;
-  useLayoutEffect(()=>{const node=scroll.current;if(!node)return;if(anchor.current){node.scrollTop=anchor.current.top+node.scrollHeight-anchor.current.height;anchor.current=null;}else if(stick.current){node.scrollTop=node.scrollHeight;setHasNew(false);}},[thread,peer]);
+  useLayoutEffect(()=>{const node=scroll.current;if(!node)return;if(anchor.current){node.scrollTop=anchor.current.top+node.scrollHeight-anchor.current.height;anchor.current=null;}else if(stick.current){node.scrollTop=node.scrollHeight;setHasNew(false);}},[thread,peer,pending[peer??'']]);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;convGeneration.current++;threadGeneration.current++;};},[]);
 
   const loadConversations=useCallback(async(quiet=false)=>{
+    listCheckedAt.current=Date.now();
     const current=++convGeneration.current;convInFlight.current=quiet;setConvMore({loading:false,error:''});
     if(quiet)setConvRefresh({loading:true,error:''});else{setConvStatus('loading');setConvError('');setConvRefresh({loading:false,error:''});}
     try{
@@ -216,7 +223,7 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true}:{c
     setThreadMore({loading:false,error:''});setReadError('');
     if(quiet)setThreadRefresh({loading:true,error:''});else{setThreadStatus('loading');setThreadError('');setThreadRefresh({loading:false,error:''});setThread(null);}
     try{
-      const value=await client.get<Thread>(`/me/conversations/${encodeURIComponent(id)}/messages?limit=${PAGE}&offset=0`);
+      const value=await client.get<Thread>(`/me/conversations/${encodeURIComponent(id)}/messages?limit=${PAGE}&offset=0`,{background:quiet});
       if(current===threadGeneration.current)threadInFlight.current=null;
       // A slower response for a previously selected member must never replace the open conversation.
       if(current!==threadGeneration.current||currentPeer.current!==id)return;
@@ -224,25 +231,54 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true}:{c
         if(!quiet||!existing)return value;
         const fresh=value.items.filter(item=>!existing.items.some(known=>known.message_id===item.message_id));
         if(fresh.length&&!stick.current)setHasNew(true);
-        return {...value,items:merge(value.items,existing.items,item=>item.message_id),next_offset:existing.next_offset===null?value.next_offset:Math.max(existing.next_offset,value.next_offset??0)+fresh.length};
-      });setThreadStatus('ready');setThreadRefresh({loading:false,error:''});
+        // A recent page cannot tell how many messages arrived while this tab was hidden.
+        // Restart older paging behind it when new ids appear, so a gap is never skipped.
+        return {...value,items:newestMessages(merge(value.items,existing.items,item=>item.message_id)),next_offset:fresh.length?value.next_offset:existing.next_offset};
+      });setThreadStatus('ready');setThreadRefresh({loading:false,error:''});setLiveError('');return true;
     }catch(cause){
       if(current===threadGeneration.current)threadInFlight.current=null;
       if(current!==threadGeneration.current||currentPeer.current!==id)return;
+      if(cause instanceof ApiError&&(cause.status===403||cause.status===404)){setThread(null);setThreadStatus('error');setThreadError(fail(cause));return;}
       if(quiet)setThreadRefresh({loading:false,error:fail(cause)});else{setThreadError(fail(cause));setThreadStatus('error');}
+      return false;
     }
   },[client]);
+  const live=useRef({pullLatest});live.current={pullLatest};
+  async function pullLatest(){
+    const shown=snapshot.current,id=currentPeer.current;
+    if(!shown.active||document.visibilityState!=='visible'||!navigator.onLine||polling.current||Date.now()<retryAt.current)return;
+    // Other conversations remain discoverable without reloading their previews every second.
+    if(convInFlight.current===null&&Date.now()-listCheckedAt.current>=8000)void loadConversations(true);
+    if(!id||shown.threadStatus!=='ready'||!shown.thread||shown.reading||shown.sending||threadInFlight.current||moreState.current.loading)return;
+    polling.current=true;const generation=threadGeneration.current;
+    try{
+      const activity=await client.get<ConversationActivity>(`/me/conversations/${encodeURIComponent(id)}/activity`,{background:true});
+      if(!alive.current||generation!==threadGeneration.current||currentPeer.current!==id||!snapshot.current.active||snapshot.current.sending)return;
+      if(activity.last_message_id===(shown.thread.items[0]?.message_id??null)&&activity.unread_count===shown.thread.unread_count&&activity.can_send===shown.thread.can_send){failures.current=0;retryAt.current=0;setLiveError('');return;}
+      const nextGeneration=threadGeneration.current+1,refreshed=await loadThread(id,true);
+      if(!alive.current||currentPeer.current!==id||threadGeneration.current!==nextGeneration)return;
+      if(!refreshed){retryAt.current=Date.now()+Math.min(60000,2000*2**Math.min(++failures.current,5));setLiveError('新訊息更新暫停，會自動重試。草稿仍保留，也可手動重讀。');return;}
+      failures.current=0;retryAt.current=0;setLiveError('');
+      if(convInFlight.current===null)void loadConversations(true);
+      announceInboxChange();
+    }catch(cause){
+      if(!alive.current||generation!==threadGeneration.current||currentPeer.current!==id)return;
+      if(cause instanceof ApiError&&(cause.status===403||cause.status===404)){setThread(null);setThreadStatus('error');setThreadError(fail(cause));onUnread(null);return;}
+      retryAt.current=Date.now()+Math.min(60000,2000*2**Math.min(++failures.current,5));setLiveError('新訊息更新暫停，會自動重試。草稿仍保留，也可手動重讀。');
+    }finally{polling.current=false;}
+  }
   useEffect(()=>{
-    if(!active)return;
-    const refresh=()=>{if(document.visibilityState!=='visible')return;if(convInFlight.current===null)void loadConversations(true);if(currentPeer.current&&threadInFlight.current===null&&!moreState.current.loading)void loadThread(currentPeer.current,true);};
-    const timer=window.setInterval(refresh,8000);document.addEventListener('visibilitychange',refresh);window.addEventListener('online',refresh);
-    return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',refresh);window.removeEventListener('online',refresh)};
-  },[active,loadConversations,loadThread]);
+    if(!active||compact&&picking)return;
+    const refresh=()=>void live.current.pullLatest();
+    const resume=()=>{retryAt.current=0;refresh();};
+    refresh();const timer=window.setInterval(refresh,LIVE_POLL_MS);document.addEventListener('visibilitychange',refresh);window.addEventListener('focus',resume);window.addEventListener('online',resume);
+    return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',refresh);window.removeEventListener('focus',resume);window.removeEventListener('online',resume)};
+  },[active,client,compact,picking]);
   const select=useCallback((id:string,moveFocus:boolean)=>{
     if(id===me)return;
-    stick.current=true;anchor.current=null;setHasNew(false);
-    currentPeer.current=id;focusThread.current=moveFocus;setPeer(id);void loadThread(id);
-  },[loadThread,me]);
+    stick.current=true;anchor.current=null;setHasNew(false);setLiveError('');retryAt.current=0;
+    currentPeer.current=id;focusThread.current=moveFocus;setPeer(id);if(compact)setPicking(false);void loadThread(id);
+  },[loadThread,me,compact]);
   useEffect(()=>{if(openPeer)select(openPeer.id,true);},[openPeer,select]);
   // A read that was already out when a write was confirmed may answer with the state before it.
   // Starting a new one supersedes it (and its busy flag), so the screen settles on a snapshot taken after the write.
@@ -259,7 +295,7 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true}:{c
       const value=await client.get<Thread>(`/me/conversations/${encodeURIComponent(id)}/messages?limit=${PAGE}&offset=${thread.next_offset}`);
       if(current!==threadGeneration.current||currentPeer.current!==id)return;
       if(scroll.current)anchor.current={top:scroll.current.scrollTop,height:scroll.current.scrollHeight};
-      setThread(existing=>existing&&{...existing,items:merge(existing.items,value.items,item=>item.message_id),next_offset:value.next_offset});setThreadMore({loading:false,error:''});
+      setThread(existing=>existing&&{...existing,items:newestMessages(merge(existing.items,value.items,item=>item.message_id)),next_offset:value.next_offset});setThreadMore({loading:false,error:''});
     }catch(cause){if(current===threadGeneration.current)setThreadMore({loading:false,error:fail(cause)});}
   }
 
@@ -293,12 +329,11 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true}:{c
     setPending(value=>({...value,[id]:attempt}));setSendErrors(({[id]:_,...rest})=>rest);
     try{
       const message=await client.post<Message>(`/me/conversations/${encodeURIComponent(id)}/messages`,{body},{idempotencyKey:attempt.key});
-      announceInboxChange();
       const recipient=conversations.find(item=>item.participant.user_id===id)?.participant.display_name??(thread?.participant.user_id===id?thread.participant.display_name:'工坊夥伴');
-      logConsoleEvent({channel:consoleChannel('chat_sent_direct'),level:'success',kind:'chat',source:'私訊',message:`已傳送私人訊息給 ${recipient}。`});
+      logConsoleEvent({channel:consoleChannel('chat_sent_direct'),level:'success',kind:'status',source:'私訊',message:`已傳送私人訊息給 ${recipient}。`});
       setPending(({[id]:_,...rest})=>rest);
       setDrafts(value=>{if((value[id]??'').trim()!==body)return value;const {[id]:_,...rest}=value;return rest;});
-      if(currentPeer.current===id){stick.current=true;setThread(value=>value&&value.participant.user_id===id?{...value,items:merge([message],value.items,item=>item.message_id),next_offset:value.next_offset===null?null:value.next_offset+1}:value);}
+      if(currentPeer.current===id){stick.current=true;setThread(value=>value&&value.participant.user_id===id?{...value,items:newestMessages(merge([message],value.items,item=>item.message_id)),next_offset:value.next_offset===null?null:value.next_offset+(value.items.some(item=>item.message_id===message.message_id)?0:1)}:value);}
       setConversations(value=>{
         const existing=value.find(item=>item.participant.user_id===id);
         const participant=existing?.participant??(thread?.participant.user_id===id?thread.participant:null);
@@ -318,8 +353,9 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true}:{c
   }
 
   const participant=thread?.participant,draft=peer?drafts[peer]??'':'',attempt=peer?pending[peer]:undefined,sendError=peer?sendErrors[peer]:undefined;
-  return <div className="messages-layout">
-    <div className="messages-side">
+  return <div className={`messages-layout${compact?' is-compact':''}`}>
+    {compact&&peer&&<button type="button" className="btn btn-ghost messages-switch" aria-expanded={picking} aria-controls={`${uid}-picker`} onClick={()=>setPicking(value=>!value)}>{picking?'回到目前對話':'切換對象'}</button>}
+    <div id={`${uid}-picker`} hidden={compact&&Boolean(peer)&&!picking} className="messages-side">
       <MemberPicker client={client} me={me} onSelect={id=>select(id,true)}/>
       <section className="stack" aria-labelledby={ids.list}>
         <h2 id={ids.list} className="member-section-title">對話</h2>
@@ -340,16 +376,17 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true}:{c
         {convStatus==='ready'&&convNext!==null&&<button className="btn btn-ghost" type="button" disabled={convMore.loading} onClick={()=>void moreConversations()}>{convMore.loading?'正在讀取…':convMore.error?'重試載入更多對話':'載入更多對話'}</button>}
       </section>
     </div>
-    <section className="messages-thread" aria-labelledby={ids.thread} aria-busy={threadStatus==='loading'}>
+    <section hidden={compact&&(!peer||picking)} className="messages-thread" aria-labelledby={ids.thread} aria-busy={threadStatus==='loading'}>
       {!peer&&<><h2 id={ids.thread}>私人訊息</h2><p className="muted">從對話列表或會員搜尋選擇對象。</p></>}
       {peer&&<>
         <h2 id={ids.thread} ref={heading} tabIndex={-1}>{participant?`與 ${participant.display_name} 的對話`:'讀取對話中'}</h2>
         {participant&&<MemberPresence online={participant.is_online} lastLogin={participant.last_login_at}/>}
+        {liveError&&<p className="messages-meta" role="status">{liveError}</p>}
         {threadStatus==='loading'&&<p role="status">正在讀取訊息…</p>}
         {threadStatus==='error'&&<div className="banner banner-error" role="alert">訊息讀取失敗：{threadError}<div className="messages-actions"><button className="btn btn-ghost" type="button" onClick={()=>void loadThread(peer)}>重新讀取訊息</button></div></div>}
         {threadStatus==='ready'&&thread&&<>
           {/* Also the safe way to check an unconfirmed send: the pending key and draft stay as they are. */}
-          <div className="messages-actions"><button className="btn btn-ghost" type="button" aria-disabled={threadRefresh.loading} onClick={()=>{if(!threadRefresh.loading)void loadThread(peer,true);}}>{threadRefresh.loading?'正在讀取訊息…':'重新讀取訊息'}</button></div>
+          <div className="messages-actions messages-refresh"><button className="btn btn-ghost" title="重新讀取訊息" type="button" aria-disabled={threadRefresh.loading} onClick={()=>{if(!threadRefresh.loading)void loadThread(peer,true);}}>{threadRefresh.loading?'正在讀取訊息…':'重新讀取訊息'}</button></div>
           {threadRefresh.error&&<p className="banner banner-error" role="alert">訊息重新讀取失敗：{threadRefresh.error}</p>}
           <div ref={scroll} className="messages-scroll" role="log" aria-live="polite" aria-relevant="additions" tabIndex={0} aria-label={`與${thread.participant.display_name}的對話紀錄`} onScroll={()=>{if(scroll.current){stick.current=scroll.current.scrollHeight-scroll.current.scrollTop-scroll.current.clientHeight<80;if(stick.current)setHasNew(false);}}}>
           {thread.next_offset!==null&&<button className="btn btn-ghost" type="button" disabled={threadMore.loading} onClick={()=>void earlier()}>{threadMore.loading?'正在讀取…':threadMore.error?'重試載入較早訊息':'載入較早訊息'}</button>}
@@ -360,6 +397,7 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true}:{c
               <p className="messages-body">{message.body}</p>
             </li>;})}
           </ol>}
+          {attempt?.status==='sending'&&<div className="messages-pending" role="status" aria-label="傳送狀態"><p className="messages-body">{attempt.body}</p><p className="messages-meta">傳送中…</p></div>}
           </div>
           {hasNew&&<button className="btn btn-ghost messages-new" type="button" onClick={()=>{stick.current=true;scroll.current?.scrollTo({top:scroll.current.scrollHeight});setHasNew(false);}}>有新訊息 · 回到最新</button>}
           {thread.unread_count>0&&<div className="messages-actions"><span className="messages-meta">{thread.unread_count} 則未讀</span><button className="btn btn-ghost" type="button" disabled={reading} onClick={()=>void markRead()}>{reading?'正在標記…':'標為已讀'}</button></div>}

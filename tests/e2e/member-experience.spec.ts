@@ -25,6 +25,7 @@ test('new member explores, submits an event and selects each theme',async({page}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/member-preview-light-320.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
+  await page.locator('.welcome-optional > summary').click();
   await page.getByRole('button',{name:'提交公開活動'}).click();
   await page.getByLabel('活動名稱').fill('新會員一起畫工坊');
   await page.getByLabel('活動說明').fill('一起畫出下一次活動的原創小插圖。');

@@ -65,6 +65,7 @@ test('phone keeps world chat in an in-page drawer and admin keeps a dock',async(
   await expect(page.getByRole('button',{name:'提出想法'})).toBeVisible();
   await page.getByRole('button',{name:'展開訊息控制台'}).click();
   await expect(page.getByRole('button',{name:'在獨立視窗開啟訊息控制台'})).toBeHidden();
+  await page.getByRole('tab',{name:/^世界聊天/}).click();
   await expect(page.getByRole('textbox',{name:'世界聊天訊息'})).toBeVisible();
   await page.screenshot({path:'test-results/page-tools-mobile-chat.png'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

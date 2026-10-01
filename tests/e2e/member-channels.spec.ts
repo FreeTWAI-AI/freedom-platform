@@ -56,10 +56,15 @@ async function channelServer(page:Page,setup:{guild?:[string,string,number][];sq
     }
     const kind=parts[1] as Kind,key=decodeURIComponent(parts[2]),channel=store.get(`${kind}:${key}`),info={kind,key,limit,offset};
     const denied=()=>route.fulfill({status:channel?.denied??404,json:{title:'頻道無法使用',code:'channel_not_available'}});
+    if(parts[3]==='activity'&&request.method()==='GET'){
+      if(!channel?.member)return denied();
+      return route.fulfill({json:{latest_sequence:channel.messages[0]?.sequence??'0',unread_count:unread(channel)}});
+    }
     if(parts[3]==='messages'&&request.method()==='GET'){
       log.history.push(info);
       if(!channel?.member)return denied();
-      return answer('history',info,{channel:{kind,channel_key:key,name:channel.name},items:channel.messages.slice(offset,offset+limit).map(item=>({...item})),unread_count:unread(channel),next_offset:offset+limit<channel.messages.length?offset+limit:null});
+      const after=url.searchParams.get('after_sequence'),items=after===null?channel.messages:channel.messages.filter(item=>BigInt(item.sequence)>BigInt(after)).reverse();
+      return answer('history',info,{channel:{kind,channel_key:key,name:channel.name},items:items.slice(offset,offset+limit).map(item=>({...item})),unread_count:unread(channel),next_offset:after===null&&offset+limit<items.length?offset+limit:null,...(after!==null?{next_after_sequence:items.length>limit?items[limit-1].sequence:null}:{})});
     }
     const headers=request.headers();
     if(parts[3]==='messages'&&request.method()==='POST'){

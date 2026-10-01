@@ -150,10 +150,9 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
     const update=()=>void refresh()
     window.addEventListener('focus',focus)
     window.addEventListener('visibilitychange',focus)
-    window.addEventListener('freedom-inbox-updated',update)
     window.addEventListener('freedom-world-facts-updated',update)
     window.addEventListener('freedom-profile-updated',focus)
-    return()=>{active=false;window.clearInterval(timer);window.removeEventListener('focus',focus);window.removeEventListener('visibilitychange',focus);window.removeEventListener('freedom-inbox-updated',update);window.removeEventListener('freedom-world-facts-updated',update);window.removeEventListener('freedom-profile-updated',focus)}
+    return()=>{active=false;window.clearInterval(timer);window.removeEventListener('focus',focus);window.removeEventListener('visibilitychange',focus);window.removeEventListener('freedom-world-facts-updated',update);window.removeEventListener('freedom-profile-updated',focus)}
   },[client,userId,feedEnabled,append])
 
   useEffect(() => {

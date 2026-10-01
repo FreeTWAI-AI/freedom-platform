@@ -9,7 +9,7 @@ import {seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY} from '../../packages/
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {login} from '../../modules/identity-membership/service.js';
 import {
-  listChannels,channelMessages,sendChannelMessage,markChannelRead,CHANNEL_MESSAGE_RATE_LIMIT,
+  listChannels,channelMessages,channelActivity,sendChannelMessage,markChannelRead,CHANNEL_MESSAGE_RATE_LIMIT,
 } from '../../modules/member-communications/channels.js';
 import {notifyMember} from '../../modules/member-communications/notifications.js';
 
@@ -81,6 +81,21 @@ test('world chat is community scoped and keeps sender identity and read receipts
   assert.equal((await read(b,'world','world',sent.data.message_id)).status,200);
   assert.equal((await messages(b,'world','world')).data.unread_count,0);
   assert.equal((await messages(a,'world','wrong')).status,422);
+});
+
+test('body-free channel activity checks preserve bigint cursors, unread facts, room access and read-only behavior',async()=>{
+  const [a,b]=await signInAll();await joinGuild(A,'guild_ai_vibe');await joinGuild(B,'guild_ai_vibe');
+  const path='/me/channels/guild/guild_ai_vibe/activity',empty=await tableCounts();
+  assert.deepEqual((await request(path,a)).data,{latest_sequence:'0',unread_count:0});assert.deepEqual(await tableCounts(),empty);
+  const first=(await post(b,'guild','guild_ai_vibe','不應出現在更新檢查的正文')).data;
+  const state=await tableCounts(),check=await request(path,a);assert.equal(check.status,200);assert.deepEqual(check.data,{latest_sequence:first.sequence,unread_count:1});
+  assert.ok(!JSON.stringify(check.data).includes('正文'));assert.deepEqual(await tableCounts(),state);noPrivate(check.data);
+  await read(a,'guild','guild_ai_vibe',first.message_id);assert.equal((await request(path,a)).data.unread_count,0);
+  await pool.query("UPDATE member_chat_channels SET last_sequence=9007199254740993 WHERE kind='guild' AND channel_key='guild_ai_vibe'");
+  const newer=(await post(b,'guild','guild_ai_vibe','大游標')).data;assert.equal(newer.sequence,'9007199254740994');assert.equal((await request(path,a)).data.latest_sequence,newer.sequence);
+  const s=await squad(B,[A]);const small=(await post(b,'squad',s,'小隊')).data;assert.deepEqual((await request(`/me/channels/squad/${s.toUpperCase()}/activity`,a)).data,{latest_sequence:small.sequence,unread_count:1});
+  assert.equal((await request(path)).status,401);assert.equal((await request(path+'?extra=1',a)).status,422);
+  await joinGuild(A,'guild_ai_vibe',DEMO_COMMUNITY,'left');assert.equal((await request(path,a)).data.code,'channel_not_available');
 });
 
 test('new-message sequence cursors catch up without skipping messages or changing read receipts and still recheck membership',async()=>{
@@ -266,7 +281,7 @@ test('any active member may use the room; guild keys keep case and custom guilds
   const actor=(await login(pool,DEMO_USERS[0].email,DEMO_PASSWORD)).actor;
   await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[actor.session_hash]);
   const cmd=(body:unknown):Command=>({actor,operation:'test',key:randomUUID(),body});
-  for(const call of [()=>listChannels(pool,actor,{kind:'guild'}),()=>channelMessages(pool,actor,'guild',upper,{}),
+  for(const call of [()=>listChannels(pool,actor,{kind:'guild'}),()=>channelMessages(pool,actor,'guild',upper,{}),()=>channelActivity(pool,actor,'guild',upper),
     ()=>sendChannelMessage(pool,cmd({body:'x'}),'guild',upper),()=>markChannelRead(pool,cmd({through_message_id:sent.data.message_id}),'guild',upper)])
     await assert.rejects(call,(error:unknown)=>error instanceof Problem&&error.status===401&&error.code==='session_expired');
 });

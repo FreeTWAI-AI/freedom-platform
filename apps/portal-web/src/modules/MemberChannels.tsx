@@ -12,10 +12,11 @@ type ChannelSummary={kind:ChannelKind;channel_key:string;name:string;unread_coun
 type ChannelPage={items:ChannelSummary[];unread_count:number;next_offset:number|null};
 type ChannelMessage={message_id:string;kind:ChannelKind;channel_key:string;sequence:string;sender_ref:string;sender_name:string;body:string;created_at:string};
 type History={channel:{kind:ChannelKind;channel_key:string;name:string};items:ChannelMessage[];unread_count:number;next_offset:number|null;next_after_sequence?:string|null};
+type Activity={latest_sequence:string;unread_count:number};
 type Pending={key:string;body:string;status:'sending'|'unknown'};
-type Props={client:PortalClient;session:SessionPayload;kind:ChannelKind;onUnread:(count:InboxUnread)=>void;onNavigate:(id:TabId)=>void;active?:boolean;openChannel?:{key:string;request:number}|null};
+type Props={client:PortalClient;session:SessionPayload;kind:ChannelKind;onUnread:(count:InboxUnread)=>void;onNavigate:(id:TabId)=>void;active?:boolean;compact?:boolean;openChannel?:{key:string;request:number}|null};
 
-const PAGE=20,MAX_BODY=2000;
+const PAGE=20,MAX_BODY=2000,LIVE_POLL_MS=1000;
 const copy={
   guild:{title:'公會閒聊',unit:'公會',pick:'從頻道列表選擇一個公會後才會讀取訊息。',empty:'你還沒有加入任何公會，加入後會出現該公會的閒聊頻道。',home:'guilds',homeLabel:'前往職業公會',back:'回到職業公會'},
   squad:{title:'小隊閒聊',unit:'小隊',pick:'從頻道列表選擇一個小隊後才會讀取訊息。',empty:'你還沒有加入任何小隊，加入後會出現該小隊的閒聊頻道。',home:'squads',homeLabel:'前往小隊集合',back:'回到小隊集合'},
@@ -32,7 +33,7 @@ const compare=(a:string,b:string)=>{const x=BigInt(a),y=BigInt(b);return x<y?-1:
 const newestFirst=(items:ChannelMessage[])=>[...items].sort((a,b)=>compare(b.sequence,a.sequence));
 
 /** One guild or squad chat tab: the list is read on its own; a channel's history only after the member picks it. */
-export function MemberChannels({client,session,kind,onUnread,onNavigate,active=true,openChannel}:Props){
+export function MemberChannels({client,session,kind,onUnread,onNavigate,active=true,compact=false,openChannel}:Props){
   const me=session.user.user_id,text=copy[kind],uid=useId();
   const path=(key:string,rest:string)=>`/me/channels/${kind}/${encodeURIComponent(key)}/${rest}`;
   const [channels,setChannels]=useState<ChannelSummary[]>([]),[listNext,setListNext]=useState<number|null>(null);
@@ -52,15 +53,16 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   const current=useRef<string|null>(null),epoch=useRef(0),gone=useRef(new Set<string>()),readKeys=useRef(new Map<string,string>());
   const heading=useRef<HTMLHeadingElement>(null),focusThread=useRef(false),alive=useRef(true);
   const [roomQuery,setRoomQuery]=useState(''),[liveError,setLiveError]=useState(''),[hasNew,setHasNew]=useState(false);
+  const [picking,setPicking]=useState(true);
   const scroll=useRef<HTMLDivElement>(null),stick=useRef(true),anchor=useRef<{top:number;height:number}|null>(null),polling=useRef(false),retryAt=useRef(0),failures=useRef(0);
-  const snapshot=useRef({history,status,more,reading,active});snapshot.current={history,status,more,reading,active};
+  const snapshot=useRef({history,status,more,reading,active,sending:false});snapshot.current={history,status,more,reading,active:active&&(!compact||!picking),sending:pending[selected?.key??'']?.status==='sending'};
   const openedRequest=useRef<number|null>(null);
   const searched=useRef('');
   useLayoutEffect(()=>{
     const node=scroll.current;if(!node)return;
     if(anchor.current){node.scrollTop=anchor.current.top+node.scrollHeight-anchor.current.height;anchor.current=null;}
     else if(stick.current){node.scrollTop=node.scrollHeight;setHasNew(false);}
-  },[history,selected?.key]);
+  },[history,selected?.key,pending[selected?.key??'']]);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;listGeneration.current++;threadGeneration.current++;};},[]);
 
   function revoke(key:string,since:number,reread=true){
@@ -122,20 +124,25 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
     else if(openChannel&&openedRequest.current!==openChannel.request){openedRequest.current=openChannel.request;select({kind,channel_key:openChannel.key,name:channels.find(item=>item.channel_key===openChannel.key)?.name??text.unit,unread_count:0,last_message_at:null});}
   },[active,openChannel?.request]);
   useEffect(()=>{
-    if(!active)return;
-    const update=()=>{if(document.visibilityState==='visible')void handlers.current.pullLatest();};
+    if(!active||compact&&picking)return;
+    const update=()=>{if(document.visibilityState==='visible'&&navigator.onLine)void handlers.current.pullLatest();};
     const resume=()=>{retryAt.current=0;update();};
-    update();const timer=window.setInterval(update,8000);window.addEventListener('focus',resume);window.addEventListener('online',resume);document.addEventListener('visibilitychange',update);
+    update();const timer=window.setInterval(update,LIVE_POLL_MS);window.addEventListener('focus',resume);window.addEventListener('online',resume);document.addEventListener('visibilitychange',update);
     return()=>{window.clearInterval(timer);window.removeEventListener('focus',resume);window.removeEventListener('online',resume);document.removeEventListener('visibilitychange',update);};
-  },[active,client]);
+  },[active,client,compact,picking]);
   async function pullLatest(){
     const key=current.current,shown=snapshot.current;
-    if(!key||!shown.active||shown.status!=='ready'||!shown.history||shown.more.loading||shown.reading||threadInFlight.current||polling.current||Date.now()<retryAt.current)return;
+    if(!key||!shown.active||shown.status!=='ready'||!shown.history||shown.more.loading||shown.reading||shown.sending||threadInFlight.current||polling.current||Date.now()<retryAt.current)return;
     polling.current=true;const generation=threadGeneration.current,since=epoch.current;
     try{
+      // Idle checks never download history bodies or refresh every joined room.
+      const activity=await client.get<Activity>(path(key,'activity'),{background:true});
+      if(!alive.current||generation!==threadGeneration.current||since!==epoch.current||current.current!==key||!snapshot.current.active||snapshot.current.sending)return;
+      if(compare(activity.latest_sequence,shown.history.items[0]?.sequence??'0')<=0&&activity.unread_count===shown.history.unread_count){failures.current=0;retryAt.current=0;setLiveError('');return;}
       const value=await client.get<History>(path(key,`messages?limit=50&after_sequence=${shown.history.items[0]?.sequence??'0'}`),{background:true});
-      if(!alive.current||generation!==threadGeneration.current||since!==epoch.current||current.current!==key)return;
+      if(!alive.current||generation!==threadGeneration.current||since!==epoch.current||current.current!==key||!snapshot.current.active)return;
       failures.current=0;retryAt.current=0;setLiveError('');
+      setCountUnconfirmed('');setNewerUnseen(Boolean(value.next_after_sequence));
       if(kind==='world')onUnread(value.unread_count);
       setHistory(existing=>{
         if(!existing)return existing;
@@ -147,7 +154,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
     }catch(cause){
       if(!alive.current||generation!==threadGeneration.current||since!==epoch.current||current.current!==key)return;
       if(revoked(cause)){revoke(key,since);return;}
-      retryAt.current=Date.now()+Math.min(60000,8000*2**Math.min(++failures.current,3));setLiveError('新訊息更新暫停，會自動重試。草稿仍保留，也可手動重讀。');
+      retryAt.current=Date.now()+Math.min(60000,2000*2**Math.min(++failures.current,5));setLiveError('新訊息更新暫停，會自動重試。草稿仍保留，也可手動重讀。');
     }finally{polling.current=false;}
   }
   async function moreChannels(){
@@ -184,7 +191,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   function select(item:ChannelSummary){
     current.current=item.channel_key;epoch.current++;gone.current.delete(item.channel_key);focusThread.current=true;
     stick.current=true;anchor.current=null;setHasNew(false);setLiveError('');retryAt.current=0;
-    setSelected({key:item.channel_key,name:item.name});void loadThread(item.channel_key);
+    setSelected({key:item.channel_key,name:item.name});if(compact)setPicking(false);void loadThread(item.channel_key);
   }
   useEffect(()=>{if(status==='ready'&&focusThread.current){focusThread.current=false;heading.current?.focus();}},[status]);
   // A read that was already out when a write was confirmed may answer with the state before it.
@@ -256,13 +263,12 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
     setPending(value=>({...value,[key]:attempt}));setSendErrors(({[key]:_,...rest})=>rest);
     try{
       const message=await client.post<ChannelMessage>(path(key,'messages'),{body},{idempotencyKey:attempt.key});
-      announceInboxChange();
       logConsoleEvent({channel:consoleChannel(kind==='guild'?'chat_sent_guild':kind==='world'?'chat_sent_world':'chat_sent_squad'),level:'success',kind:'status',source:text.unit,message:`已傳送訊息至「${selected?.name??text.unit+'頻道'}」。`});
       if(!alive.current)return;
       setPending(({[key]:_,...rest})=>rest);
       setDrafts(value=>{if((value[key]??'').trim()!==body)return value;const {[key]:_,...rest}=value;return rest;});
       if(gone.current.has(key))return;
-      if(current.current===key){stick.current=true;setHistory(value=>value&&value.channel.channel_key===key?{...value,items:newestFirst(merge([message],value.items,item=>item.message_id)),next_offset:value.next_offset===null?null:value.next_offset+1}:value);}
+      if(current.current===key){stick.current=true;setHistory(value=>value&&value.channel.channel_key===key?{...value,items:newestFirst(merge([message],value.items,item=>item.message_id)),next_offset:value.next_offset===null?null:value.next_offset+(value.items.some(item=>item.message_id===message.message_id)?0:1)}:value);}
       setChannels(value=>value.map(item=>item.channel_key===key?{...item,last_message_at:message.created_at}:item));
       rereadAfterWrite(key);
     }catch(cause){
@@ -280,8 +286,9 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
 
   const key=selected?.key,draft=key?drafts[key]??'':'',attempt=key?pending[key]:undefined,sendError=key?sendErrors[key]:undefined;
   const ids={list:`${uid}-list`,title:`${uid}-title`,error:`${uid}-send-error`};
-  return <div className="messages-layout member-channels" data-channel-kind={kind}>
-    {kind!=='world'&&<section className="messages-side stack" aria-labelledby={ids.list}>
+  return <div className={`messages-layout member-channels${compact?' is-compact':''}`} data-channel-kind={kind}>
+    {compact&&selected&&kind!=='world'&&<button type="button" className="btn btn-ghost messages-switch" aria-expanded={picking} aria-controls={`${uid}-picker`} onClick={()=>setPicking(value=>!value)}>{picking?'回到目前對話':`切換${text.unit}`}</button>}
+    {kind!=='world'&&<section id={`${uid}-picker`} hidden={compact&&Boolean(selected)&&!picking} className="messages-side stack" aria-labelledby={ids.list}>
       <h2 id={ids.list} className="member-section-title">{text.unit}頻道</h2>
       <label className="field">搜尋{text.unit}頻道<input type="search" value={roomQuery} maxLength={100} onChange={event=>setRoomQuery(event.target.value)} placeholder="輸入頻道名稱"/></label>
       {listStatus==='loading'&&<p role="status">正在讀取{text.unit}頻道…</p>}
@@ -304,7 +311,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
       {roomQuery.trim()&&listStatus==='ready'&&!listRefresh.loading&&!channels.some(item=>item.name.toLocaleLowerCase().includes(roomQuery.trim().toLocaleLowerCase()))&&<p className="empty">沒有符合的頻道，請換個關鍵字。</p>}
       {listStatus==='ready'&&listNext!==null&&<button className="btn btn-ghost" type="button" disabled={listMore.loading} onClick={()=>void moreChannels()}>{listMore.loading?'正在讀取…':listMore.error?`重試載入更多${text.unit}頻道`:`載入更多${text.unit}頻道`}</button>}
     </section>}
-    <section className="messages-thread" aria-labelledby={ids.title} aria-busy={status==='loading'}>
+    <section hidden={compact&&kind!=='world'&&(!selected||picking)} className="messages-thread" aria-labelledby={ids.title} aria-busy={status==='loading'}>
       {!selected&&<><h2 id={ids.title}>{text.title}</h2><p className="muted">{text.pick}</p></>}
       {selected&&status==='gone'&&<>
         <h2 id={ids.title}>{selected.name}</h2>
@@ -312,13 +319,13 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
       </>}
       {selected&&status!=='gone'&&<>
         <h2 id={ids.title} ref={heading} tabIndex={-1}>{kind==='world'?'世界聊天':history?`${history.channel.name}・${text.title}`:`${selected.name}・${text.title}`}</h2>
-        <p className="messages-meta">{kind==='world'?'所有會員可見':'只顯示這個頻道的訊息'} · {liveError?'更新暫停':'查看時每 8 秒更新'}</p>
+        <p className="messages-meta">{kind==='world'?'所有會員可見':'只顯示這個頻道的訊息'} · {liveError?'更新暫停':'新訊息自動更新'}</p>
         {liveError&&<p role="status" className="messages-meta">{liveError}</p>}
         {status==='loading'&&<p role="status">正在讀取訊息…</p>}
         {status==='error'&&<div className="banner banner-error" role="alert">訊息讀取失敗：{error}<div className="messages-actions"><button className="btn btn-ghost" type="button" onClick={()=>void loadThread(selected.key)}>重新讀取訊息</button></div></div>}
         {status==='ready'&&history&&<>
           {/* Also the safe way to check an unconfirmed send: the pending key and draft stay as they are. */}
-          <div className="messages-actions"><button className="btn btn-ghost" type="button" aria-disabled={refresh.loading} onClick={()=>{if(!refresh.loading)void loadThread(selected.key,true);}}>{refresh.loading?'正在讀取訊息…':'重新讀取訊息'}</button></div>
+          <div className="messages-actions messages-refresh"><button className="btn btn-ghost" title="重新讀取訊息" type="button" aria-disabled={refresh.loading} onClick={()=>{if(!refresh.loading)void loadThread(selected.key,true);}}>{refresh.loading?'正在讀取訊息…':'重新讀取訊息'}</button></div>
           {refresh.error&&<p className="banner banner-error" role="alert">訊息重新讀取失敗：{refresh.error}</p>}
           <div className="messages-scroll" ref={scroll} role="log" aria-live="polite" aria-relevant="additions" tabIndex={0} aria-label={`${history.channel.name}對話紀錄`} onScroll={()=>{if(scroll.current){stick.current=scroll.current.scrollHeight-scroll.current.scrollTop-scroll.current.clientHeight<80;if(stick.current)setHasNew(false);}}}>
           {history.next_offset!==null&&<button className="btn btn-ghost" type="button" disabled={more.loading} onClick={()=>void earlier()}>{more.loading?'正在讀取…':more.error?'重試載入較早訊息':'載入較早訊息'}</button>}
@@ -329,6 +336,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
               <p className="messages-body">{message.body}</p>
             </li>;})}
           </ol>}
+          {attempt?.status==='sending'&&<div className="messages-pending" role="status" aria-label="傳送狀態"><p className="messages-body">{attempt.body}</p><p className="messages-meta">傳送中…</p></div>}
           </div>
           {hasNew&&<button className="btn btn-ghost messages-new" type="button" onClick={()=>{stick.current=true;scroll.current?.scrollTo({top:scroll.current.scrollHeight});setHasNew(false);}}>有新訊息 · 回到最新</button>}
           {countUnconfirmed&&<div className="banner banner-error" role="alert">已標為已讀，但目前未讀數未確認：{countUnconfirmed}<div className="messages-actions"><button className="btn btn-ghost" type="button" aria-disabled={refresh.loading} onClick={()=>{if(!refresh.loading)void loadThread(selected.key,true);}}>重新讀取訊息</button></div></div>}

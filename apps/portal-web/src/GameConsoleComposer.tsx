@@ -21,9 +21,9 @@ export function GameConsoleComposer({client,session,enabled,channel,active,onUnr
   const world=useCallback((count:InboxUnread)=>onUnread('world_chat',count),[onUnread]);
   if(!enabled||!client||!session)return isChat(channel)?<div id="game-console-chats" role="tabpanel" aria-labelledby={`game-console-tab-${channel}`} className="game-console-action"><p>先選擇公會，即可開始與夥伴聊天。</p></div>:null;
   return <div id="game-console-chats" role="tabpanel" aria-labelledby={`game-console-tab-${channel}`} className="game-console-chats" hidden={!isChat(channel)}>
-    {visited.includes('guild')&&<div hidden={channel!=='guild'}><MemberChannels client={client} session={session} kind="guild" active={active&&channel==='guild'} onUnread={guild} onNavigate={onNavigate}/></div>}
-    {visited.includes('squad')&&<div hidden={channel!=='squad'}><MemberChannels client={client} session={session} kind="squad" active={active&&channel==='squad'} onUnread={squad} onNavigate={onNavigate}/></div>}
-    {visited.includes('direct')&&<div hidden={channel!=='direct'}><DirectMessages client={client} session={session} active={active&&channel==='direct'} onUnread={direct} openPeer={null}/></div>}
-    {visited.includes('world_chat')&&<div hidden={channel!=='world_chat'}><MemberChannels client={client} session={session} kind="world" active={active&&channel==='world_chat'} onUnread={world} onNavigate={onNavigate}/></div>}
+    {visited.includes('guild')&&<div hidden={channel!=='guild'}><MemberChannels client={client} session={session} kind="guild" compact active={active&&channel==='guild'} onUnread={guild} onNavigate={onNavigate}/></div>}
+    {visited.includes('squad')&&<div hidden={channel!=='squad'}><MemberChannels client={client} session={session} kind="squad" compact active={active&&channel==='squad'} onUnread={squad} onNavigate={onNavigate}/></div>}
+    {visited.includes('direct')&&<div hidden={channel!=='direct'}><DirectMessages client={client} session={session} compact active={active&&channel==='direct'} onUnread={direct} openPeer={null}/></div>}
+    {visited.includes('world_chat')&&<div hidden={channel!=='world_chat'}><MemberChannels client={client} session={session} kind="world" compact active={active&&channel==='world_chat'} onUnread={world} onNavigate={onNavigate}/></div>}
   </div>;
 }

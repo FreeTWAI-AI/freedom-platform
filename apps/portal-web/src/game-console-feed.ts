@@ -3,7 +3,6 @@ import {createConsoleEvent, type GameConsoleEvent} from './game-console-core'
 import {bulletinConsoleChannel, consoleChannel, githubConsoleChannel, githubConsoleMessage, notificationConsoleChannel} from './game-console-routing'
 
 type Notice = {notification_id:string;kind?:string;title:string;body:string;created_at:string;read_at:string|null}
-type RoomMessage = {message_id:string;sender_ref:string;sender_name:string;body:string;created_at:string}
 type Announcement = {announcement_id:string;title:string;body:string;guild_name:string;updated_at:string}
 type PublishedSkill = {submission_id:string;title:string;published_at:string}
 type Project = {project_id:string;title:string;created_at?:string;source_kind:'member_project'|'community_pilot'}
@@ -11,11 +10,6 @@ type Page<T> = {items:T[]}
 type GitHubEvents={items:{id:string;number:number|null;title:string;url:string;actor:string;created_at:string;kind:string}[]}
 type EventBulletin={bulletin_id:string;kind?:string;message:string;created_at:string}
 type AcceptedWork={contribution_id:string;title:string;member_name:string;accepted_at:string}
-
-export async function readWorldChatFeed(client:PortalClient):Promise<GameConsoleEvent[]> {
-  const page=await client.get<Page<RoomMessage>>('/me/channels/world/world/messages?limit=20&offset=0',{background:true})
-  return page.items.map(item=>createConsoleEvent({id:`room:${item.message_id}`,channel:consoleChannel('world_chat'),kind:'chat',source:item.sender_name,message:item.body,createdAt:item.created_at}))
-}
 
 /** Activity and public announcements only. Chat bodies are read by an explicitly selected room. */
 export async function readConsoleFeed(client:PortalClient, _userId:string, includeWorld=true):Promise<GameConsoleEvent[]> {

@@ -19,7 +19,11 @@
 
 控制台與「我的訊息」使用同一組頻道／私訊元件。草稿只保存在目前開頁記憶體，按對話分開；Enter 送出、Shift+Enter 換行，中文輸入法組字期間不送出。傳送結果不確定時沿用同一冪等鍵，避免重複訊息。較早訊息、手動已讀、失敗重試、離開公會後撤銷資格與晚到回應的防護保留。
 
-可見且開啟的對話每 8 秒更新；公會、小隊和世界失敗時退避到最多 60 秒。頻道 API 新增可選 `after_sequence` 增量游標；原本最近訊息和 offset 分頁保持相容。頻道搜尋由伺服器在分頁前篩選，未讀總數仍是全部可用頻道。這是 HTTP 輪詢，尚未實作 WebSocket 推送。
+底部控制台選定公會、小隊或私訊對象後收起列表，以「切換公會／小隊／對象」返回選擇。選擇與對話共用同一塊空間，讓手機上仍可直接操作輸入框與送出按鈕；完整訊息頁保留列表並排的桌面布局。
+
+可見且開啟的對話每秒檢查小型、沒有正文的 `/activity` 回應，有新訊息或未讀變化才讀取訊息。收合控制台、返回對象選擇、切到其他分頁、離線與傳送中會暫停該對話檢查；網路失敗逐次退避到最多 60 秒。私訊的其他對話列表維持每 8 秒更新。送出後立即顯示明確的「傳送中」，收到伺服器確認後才成為正式訊息；未知結果保留草稿與原冪等鍵。
+
+送出聊天不再觸發四份未讀清單或七份平台動態的重讀；接收到新訊息或標為已讀仍重新核對真實未讀數。頻道 API 新增可選 `after_sequence` 增量游標；原本最近訊息和 offset 分頁保持相容。頻道搜尋由伺服器在分頁前篩選，未讀總數仍是全部可用頻道。這是 HTTP 輪詢，接收等待約為下一次檢查加網路／API 時間，尚未實作 WebSocket 推送。
 
 重新取得視窗焦點會核對列表、資格與登入狀態。API 仍是存取權限的判斷來源；首頁的聊天室開啟事件只是導覽，不授予公會權限。聊天正文不複製到 Console 摘要、BroadcastChannel 或瀏覽器永久儲存。
 
@@ -29,7 +33,19 @@
 
 ## 本輪驗證
 
-完整 runtime、瀏覽器回歸、Worker 打包與 source inventory 使用實際輸出記錄。結果於提交前補入本節；先前版本的驗證歷史保留在 [會員交流規格](member-connections.md)。
+Node 24、隔離 PostgreSQL 與合成帳號。整合上游 `c1dbe4d`（社群技能書、管理介面）後，完整 runtime 為 **689/689**；最新 activity feed 補跑 **4/4**，新增入口／私訊分頁與控制台 focused 瀏覽器 **10/10**。最初非法游標曾回報 500，改為格式驗證通過後才轉 bigint，再完整重跑通過。
+
+TypeScript、前端 build、平台 local／staging-next／next 三環境 dry-run、真實 Worker／workerd **14/14** 均通過。固定契約重建為 32 operations、9 artifacts，與 Git 中的 bytes 一致；Windows 原 checkout 的 CRLF 已還原 canonical bytes。靜態契約／執行工具為 **659 passed、4 skipped**（既有 schema 路徑條件）。build 保留現有主程式 chunk 超過 500kB 的提示，尚未把本機入口時間當成慢網路效能驗收。
+
+最新完整瀏覽器回歸與最終 source inventory 結果於提交前補入；先前版本的驗證歷史保留在 [會員交流規格](member-connections.md)。跨倉 integration 由既有 GitHub CI gate 執行，沒有宣稱本機已重跑。
+
+## 實際畫面
+
+均為隔離本機的合成帳號，圖片沿用原有素材。
+
+- [桌面簡約首頁](../design/member-connections/calm-home-1440.png)
+- [320px 首頁與加入後指引](../design/member-connections/calm-home-320.png)
+- [390px 單一公會聊天室](../design/member-connections/calm-chat-390.png)
 
 ## Ted 可用的 staging 驗收
 

@@ -117,19 +117,22 @@ test('registration mode switches by keyboard, keeps one email field and states t
     const nickname = page.getByLabel('社群顯示名稱', { exact: true });
     await expect(nickname).toBeVisible();
     await expect(nickname).toHaveAccessibleName('社群顯示名稱');
-    await expect(nickname).toHaveAccessibleDescription('建議使用大家熟悉的社群名字');
-    await expect(page.getByText('建議使用大家熟悉的社群名字', { exact: true })).toBeVisible();
+    await expect(nickname).toHaveAccessibleDescription('選填；留白會先使用隨機暱稱，不會公開你的 Email。');
+    await expect(nickname).not.toHaveAttribute('required','');
+    await expect(page.locator('.login-card input[required]')).toHaveCount(2);
     await expect(page.locator('.login-card input')).toHaveCount(3);
     await expect(page.locator('.login-card input[type=email]')).toHaveCount(1);
     await expectTouchTargets(page, '.login-card button, .login-card input', `${viewport.name} registration controls`);
-    // Keyboard order in registration: nickname, email, password, submit.
-    await page.keyboard.press('Tab');
-    await expect(nickname).toBeFocused();
+    // Keyboard reaches the two required fields before the optional nickname.
     await page.keyboard.press('Tab');
     await expect(page.getByLabel('電子郵件', { exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByLabel('密碼', { exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(nickname).toBeFocused();
     await expect(page.getByLabel('電子郵件', { exact: true })).toHaveCount(1);
     await expect(page.getByLabel('密碼', { exact: true })).toHaveAttribute('minlength', '12');
-    await expect(page.getByText('目前無法用 E-mail 找回密碼', { exact: false })).toBeVisible();
+    await expect(page.getByText('目前未開放信箱找回。', { exact: false })).toBeVisible();
     await expect(page.getByRole('button', { name: '建立帳號，先逛工坊', exact: true })).toBeVisible();
     await noHorizontalOverflow(page, `${viewport.name} registration`);
     // Demo shortcuts belong to sign-in only.
@@ -199,6 +202,8 @@ for (const viewport of VIEWPORTS) {
       await expect(menu).toHaveAttribute('aria-expanded', 'true');
       await expect(nav).toBeVisible();
       await page.keyboard.press('Tab');
+      await expect(nav.getByRole('searchbox',{name:'搜尋功能'})).toBeFocused();
+      await page.keyboard.press('Tab');
       await expect(nav.getByRole('button', { name: '會員首頁', exact: true })).toBeFocused();
       // Every group opens inside the menu; the last destination can be scrolled into view and chosen.
       for (const summary of await nav.locator('.nav-section > summary').all()) {
@@ -223,7 +228,9 @@ for (const viewport of VIEWPORTS) {
       await expect(page.getByRole('heading', { name: '會員首頁', level: 1, exact: true })).toBeVisible();
       await page.keyboard.press('Tab');
       await expect(page.getByRole('link', { name: '跳到主要內容', exact: true })).toBeFocused();
-      for (const name of ['會員首頁', '社群活動', '社群任務', '職業公會', '技能書架']) {
+      await page.keyboard.press('Tab');
+      await expect(nav.getByRole('searchbox',{name:'搜尋功能'})).toBeFocused();
+      for (const name of ['會員首頁', '職業公會', '技能書架', '我的訊息', '社群活動', '社群任務']) {
         await page.keyboard.press('Tab');
         await expect(nav.getByRole('button', { name, exact: true })).toBeFocused();
         expect(await focusedIsVisiblyOutlined(page)).toBe(true);

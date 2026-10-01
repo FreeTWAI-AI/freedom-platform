@@ -16,8 +16,14 @@
 .game-console-expanded.is-chat{height:min(78dvh,760px);grid-template-rows:auto auto minmax(0,1fr) auto}
 .game-console-chats{min-height:0;overflow:auto;padding:12px;font-family:inherit;color:var(--ink);background:var(--bg-elev)}.game-console-chats[hidden],.game-console-history[hidden]{display:none}
 .game-console-chats .messages-layout{gap:12px}.game-console-chats .messages-thread{min-width:0}.game-console-chats .messages-scroll{max-height:28dvh;min-height:100px}.game-console-chats .messages-compose{margin-top:8px}.game-console-chats h2{font-size:1rem}.game-console-chats .messages-meta{font-size:.75rem}.game-console-chats .messages-actions{flex-wrap:wrap}.game-console-chats .messages-side{min-width:0}
+.messages-side[hidden],.messages-thread[hidden]{display:none}.messages-layout.is-compact{grid-template-columns:minmax(0,1fr);gap:8px}.messages-switch{justify-self:start}
+.messages-pending{max-width:85%;margin:8px 0 8px auto;padding:10px 12px;border:1px dashed var(--line);border-radius:8px;background:var(--green-soft);color:var(--ink)}.messages-pending .messages-meta{margin-top:6px}
+.is-compact .messages-thread{position:relative;gap:8px;padding:12px}.is-compact .messages-thread>h2{padding-right:48px}.is-compact .messages-refresh{position:absolute;right:8px;top:8px}.is-compact .messages-refresh>.btn{font-size:0;width:44px;padding:0}.is-compact .messages-refresh>.btn::before{content:'↻';font-size:20px}
+.game-console-chats .is-compact .messages-scroll{max-height:18dvh;min-height:80px}.game-console-chats .is-compact .messages-compose{margin-top:0}.is-compact .messages-compose textarea{min-height:64px;height:64px}.game-console-chats .is-compact .messages-side{max-height:none;overflow:visible}
 .game-console-ticker-lines{animation:none}.game-console-ticker-lines>span:first-child:not(:last-child){display:none}
 html:is([data-theme="light"],[data-theme="versefolk"]) .messages-thread{background:var(--bg-elev);color:var(--ink)}
+html:is([data-theme="light"],[data-theme="versefolk"]) .messages-list>li,html:is([data-theme="light"],[data-theme="versefolk"]) .messages-peer{background:var(--bg-elev);color:var(--ink)}
+html:is([data-theme="light"],[data-theme="versefolk"]) .messages-peer[aria-current="true"]{border-color:var(--blue-ink)}
 html:is([data-theme="light"],[data-theme="versefolk"]) .messages-bubbles>li{background:var(--bg);color:var(--ink)}
 html:is([data-theme="light"],[data-theme="versefolk"]) .messages-bubbles>li.is-mine{background:var(--green-soft);color:var(--ink)}
 html:is([data-theme="light"],[data-theme="versefolk"]) .messages-count{background:var(--info-bg);color:var(--blue-ink)}

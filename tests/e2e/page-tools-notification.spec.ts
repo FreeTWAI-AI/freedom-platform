@@ -108,6 +108,9 @@ test('all three page tools show their labels and the account buttons match them 
         document.body.append(probe);
         const green=getComputedStyle(probe).backgroundColor;
         probe.remove();
+        if(document.documentElement.dataset.theme==='light'){
+          return [...document.querySelectorAll('.page-tool-button')].every(node=>getComputedStyle(node).backgroundColor===idea)&&idea==='rgba(0, 0, 0, 0)';
+        }
         return idea===green;
       }),where).toBe(true);
     }
