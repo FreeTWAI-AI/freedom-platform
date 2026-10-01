@@ -1,5 +1,6 @@
 import { normalizeRemoteThumbnail } from '../skill-submissions/payload.js';
-import { normalizeShareUrl, youtubeVideoId } from '../../packages/shared/share-url.js';
+import { normalizeShareUrl } from '../../packages/shared/share-url.js';
+import { youtubeVideoId } from '../../packages/shared/youtube-video-id.js';
 
 export const PREVIEW_USER_AGENT = 'FreedomWorkshopPreview/1.0 (+https://freetwai.com)';
 const HTML_LIMIT = 1024 * 1024;

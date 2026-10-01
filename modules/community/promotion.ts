@@ -11,6 +11,7 @@ import { communityCatalog } from './catalog.js';
 import { readPublishedSkillSubmission, readPublishedSkillTitles } from '../skill-submissions/public.js';
 import { readMemberServiceShare, readMemberServiceTitles } from './member-services.js';
 import { getEventShareCode } from './events.js';
+import { highlightShareImage, readHighlightEvent } from './event-highlights.js';
 import { avatarUrl } from '../identity-membership/avatars.js';
 import type { Actor } from '../identity-membership/service.js';
 
@@ -262,11 +263,20 @@ export async function promotionLeaderboards(pool: Pool, actor: Actor, periodRaw:
 }
 
 async function eventStillShared(pool: Pool, id: string) {
-  const row = (await pool.query(`SELECT e.title,e.description,e.visibility,e.state,
+  const row = (await pool.query(`SELECT e.title,e.description,e.visibility,e.state,e.ends_at,
     b.event_id IS NOT NULL AS has_banner,is_verification_test_account(e.organizer_ref) AS test_host
     FROM community_events e LEFT JOIN community_event_banners b ON b.event_id=e.event_id WHERE e.event_id=$1`, [id])).rows[0];
   if (!row || row.state !== 'published') return null;
-  return row as { title: string; description: string; visibility: string; has_banner: boolean; test_host: boolean };
+  return row as { title: string; description: string; visibility: string; ends_at: Date | string; has_banner: boolean; test_host: boolean };
+}
+
+async function publicHighlight(pool: Pool, eventId: string) {
+  try { return await readHighlightEvent(pool, { communityId: null, viewerId: null, eventId }); }
+  catch (error) { if (error instanceof Problem && error.status === 404) return null; throw error; }
+}
+
+function absoluteUrl(origin: string, url: string) {
+  return url.startsWith('https://') || url.startsWith('http://') ? url : origin + url;
 }
 
 async function shareable(pool: Pool, link: LinkRow) {
@@ -294,7 +304,7 @@ function introNumber(raw: string | undefined) {
 
 type OpenTarget = { href: string; title: string; description: string; image?: { url: string; width: number; height: number } };
 
-async function openTarget(pool: Pool, link: LinkRow, introRaw: string | undefined, origin: string): Promise<OpenTarget | null> {
+async function openTarget(pool: Pool, link: LinkRow, introRaw: string | undefined, origin: string, now: Date): Promise<OpenTarget | null> {
   if (!await shareable(pool, link)) return null;
   if (link.kind === 'platform') return { href: '/', title: platformOg.title, description: platformOg.description, image: { url: origin + platformOg.image, width: platformOg.width, height: platformOg.height } };
   if (link.kind === 'skill_book') {
@@ -317,12 +327,23 @@ async function openTarget(pool: Pool, link: LinkRow, introRaw: string | undefine
   if (link.kind === 'event') {
     const event = await eventStillShared(pool, link.target_key);
     if (!event) return null;
+    const preview = { title: event.title, description: event.description.slice(0, 160) };
+    // Same gate as /highlights/:id: published, already ended in the database, and not a test-account host.
+    if (new Date(event.ends_at).getTime() <= now.getTime()) {
+      const highlight = await publicHighlight(pool, link.target_key);
+      if (highlight) {
+        const image = highlightShareImage(highlight);
+        return { href: `/highlights/${link.target_key}`, ...preview, image: { url: absoluteUrl(origin, image.url), width: image.width, height: image.height } };
+      }
+    }
     const code = (await pool.query('SELECT code FROM community_event_share_codes WHERE event_id=$1 AND user_id=$2', [link.target_key, link.user_id])).rows[0]?.code as string | undefined;
     const href = `/events/${link.target_key}${code ? `?ref=${encodeURIComponent(code)}` : ''}`;
     const open = event.visibility === 'referral' || event.visibility === 'open';
-    if (!open) return { href, title: '自由工坊會員活動', description: '登入自由工坊查看活動內容。' };
-    const image = event.has_banner && !event.test_host ? { url: `${origin}/api/v1/public/events/${link.target_key}/banner`, width: 1200, height: 675 } : undefined;
-    return { href, title: event.title, description: event.description.slice(0, 160), image };
+    // Public event banners exist only for open and referral, and never for a test-account host.
+    const image = open
+      ? (event.has_banner && !event.test_host ? { url: `${origin}/api/v1/public/events/${link.target_key}/banner`, width: 1200, height: 675 } : undefined)
+      : { url: origin + platformOg.image, width: platformOg.width, height: platformOg.height };
+    return { href, ...preview, image };
   }
   if (link.kind === 'member_service') {
     const service = await readMemberServiceShare(pool, link.community_id, link.target_key);
@@ -351,10 +372,10 @@ function goHtml(code: string, target: OpenTarget, ogUrl: string) {
   return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>正在開啟：${title}｜自由工坊</title><meta name="robots" content="noindex,nofollow"><meta property="og:type" content="website"><meta property="og:url" content="${escapeHtml(ogUrl)}"><meta property="og:title" content="${title}"><meta property="og:description" content="${description}"><meta property="og:site_name" content="自由工坊"><meta name="twitter:title" content="${title}"><meta name="twitter:description" content="${description}">${image}<link rel="stylesheet" href="/go.css"></head><body><main data-code="${escapeHtml(code)}" data-target="${href}"><p>正在前往「${title}」…</p><p><a href="${href}">沒有自動前往？請點這裡</a></p></main><script src="/go.js" defer></script></body></html>`;
 }
 
-export async function promotionGo(pool: Pool, code: string, intro: string | undefined, origin: string) {
+export async function promotionGo(pool: Pool, code: string, intro: string | undefined, origin: string, now = new Date()) {
   const link = await readLink(pool, code);
   if (!link) return null;
-  const target = await openTarget(pool, link, intro, origin);
+  const target = await openTarget(pool, link, intro, origin, now);
   if (!target) return null;
   const chosen = link.kind === 'skill_book' ? introNumber(intro) : null;
   return goHtml(link.code, target, `${origin}/go/${link.code}${chosen ? `?intro=${chosen}` : ''}`);

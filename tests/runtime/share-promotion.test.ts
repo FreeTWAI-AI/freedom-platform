@@ -333,9 +333,12 @@ test('the interstitial escapes text, sets open-graph tags and ignores extra quer
   assert.match(openHtml, new RegExp(`content="${'公'.repeat(160)}"`));
   assert.match(openHtml, new RegExp(`https://freetwai\\.com/api/v1/public/events/${openId}/banner`));
   const closedHtml = await page(`/go/${closedLink.data.code}`);
-  assert.match(closedHtml, /content="自由工坊會員活動"/);
-  assert.match(closedHtml, /登入自由工坊查看活動內容。/);
-  assert.ok(!closedHtml.includes(secret) && !closedHtml.includes('機密說明YYY') && !closedHtml.includes('/banner'));
+  assert.match(closedHtml, /content="機密活動標題ZZZ"/);
+  assert.match(closedHtml, /content="機密說明YYY"/);
+  assert.match(closedHtml, /property="og:image" content="https:\/\/freetwai\.com\/brand\/freedom-workshop\.webp"/);
+  assert.match(closedHtml, /property="og:image:width" content="1280"/);
+  assert.match(closedHtml, /property="og:image:height" content="720"/);
+  assert.ok(closedHtml.includes(secret) && closedHtml.includes('機密說明YYY') && !closedHtml.includes('/banner'));
   assert.match(closedHtml, new RegExp(`data-target="/events/${closedId}\\?ref=`));
   const referralHtml = await page(`/go/${referralLink.data.code}`);
   assert.match(referralHtml, /content="推薦活動標題"/);
@@ -343,6 +346,74 @@ test('the interstitial escapes text, sets open-graph tags and ignores extra quer
   await click(platform.code, REAL);
   const after = await facts();
   assert.deepEqual(after, before);
+});
+
+test('guild and workshop previews use the brand image, and an ended event opens its highlight', async () => {
+  const maker = await signIn();
+  const guildId = randomUUID();
+  const endedId = randomUUID();
+  const hiddenId = randomUUID();
+  const upcoming = new Date(Date.now() + 3 * 86400000);
+  const upcomingStart = new Date(Date.now() + 2 * 86400000);
+  const endedAt = new Date('2026-08-02T00:00:00.000Z');
+  const endedStart = new Date('2026-08-01T00:00:00.000Z');
+  await pool.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,title,description,starts_at,ends_at,mode,location,state,visibility,event_kind,guild_key)
+    VALUES($1,$2,$3,'公會預覽標題','公會預覽說明',$4,$5,'in_person','線上','published','guild','guild_skill_exchange','guild_event_space')`,
+  [guildId, DEMO_COMMUNITY, maker.user.user_id, upcomingStart, upcoming]);
+  await pool.query('INSERT INTO community_event_banners(event_id,image_bytes) VALUES($1,$2)', [guildId, Buffer.from([1])]);
+  await pool.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,title,description,starts_at,ends_at,mode,location,state,visibility,event_kind)
+    VALUES($1,$2,$3,'已結束的公開活動','結束後的說明',$4,$5,'online','線上','published','open','other')`,
+  [endedId, DEMO_COMMUNITY, maker.user.user_id, endedStart, endedAt]);
+  await pool.query(`INSERT INTO community_event_banners(event_id,image_bytes,orientation) VALUES($1,$2,'landscape')`, [endedId, Buffer.from([2])]);
+  const testerEmail = `ended-host-${randomUUID()}@example.invalid`;
+  const testerId = await addUser(testerEmail, '驗收主辦');
+  await pool.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,title,description,starts_at,ends_at,mode,location,state,visibility,event_kind)
+    VALUES($1,$2,$3,'測試帳號已結束','不該進公開集錦',$4,$5,'online','線上','published','open','other')`,
+  [hiddenId, DEMO_COMMUNITY, testerId, endedStart, endedAt]);
+  const guildLink = await request('/promotion/links', maker, { kind: 'event', target: guildId });
+  const endedLink = await request('/promotion/links', maker, { kind: 'event', target: endedId });
+  assert.equal(guildLink.status, 200, JSON.stringify(guildLink.data));
+  assert.equal(endedLink.status, 200, JSON.stringify(endedLink.data));
+  const tester = await signIn(testerEmail);
+  const hiddenLink = await request('/promotion/links', tester, { kind: 'event', target: hiddenId });
+  assert.equal(hiddenLink.status, 200, JSON.stringify(hiddenLink.data));
+  async function htmlOf(code: string) {
+    const response = await app.request(`${origin}/go/${code}`);
+    assert.equal(response.status, 200, code);
+    return response.text();
+  }
+  const guildHtml = await htmlOf(guildLink.data.code);
+  assert.match(guildHtml, /content="公會預覽標題"/);
+  assert.match(guildHtml, /content="公會預覽說明"/);
+  assert.match(guildHtml, /property="og:image" content="https:\/\/freetwai\.com\/brand\/freedom-workshop\.webp"/);
+  assert.match(guildHtml, /property="og:image:width" content="1280"/);
+  assert.match(guildHtml, /property="og:image:height" content="720"/);
+  assert.ok(!guildHtml.includes('/banner'));
+  assert.match(guildHtml, new RegExp(`data-target="/events/${guildId}\\?ref=`));
+  const seen: string[] = [];
+  const original = pool.query.bind(pool);
+  pool.query = ((...args: unknown[]) => {
+    const first = args[0];
+    seen.push(typeof first === 'string' ? first : first && typeof first === 'object' && 'text' in first ? String((first as { text: unknown }).text) : '');
+    return (original as (...inner: unknown[]) => Promise<unknown>)(...args);
+  }) as typeof pool.query;
+  let endedHtml = '';
+  try { endedHtml = await htmlOf(endedLink.data.code); }
+  finally { pool.query = original; }
+  assert.match(endedHtml, new RegExp(`data-target="/highlights/${endedId}"`));
+  assert.ok(!endedHtml.includes(`/events/${endedId}`));
+  assert.match(endedHtml, /content="已結束的公開活動"/);
+  assert.match(endedHtml, /content="結束後的說明"/);
+  assert.match(endedHtml, new RegExp(`property="og:image" content="https://freetwai\\.com/api/v1/public/event-highlights/${endedId}/banner"`));
+  assert.match(endedHtml, /property="og:image:width" content="1200"/);
+  assert.match(endedHtml, /property="og:image:height" content="675"/);
+  const bytes = seen.filter(sql => /community_event_highlight_images/i.test(sql) || (/community_event_banners/i.test(sql) && /image_bytes/i.test(sql)));
+  assert.deepEqual(bytes, []);
+  const hiddenHtml = await htmlOf(hiddenLink.data.code);
+  assert.match(hiddenHtml, new RegExp(`data-target="/events/${hiddenId}\\?ref=`));
+  assert.ok(!hiddenHtml.includes(`/highlights/${hiddenId}`));
+  await click(endedLink.data.code, REAL);
+  assert.equal(await pointsOf(endedLink.data.code), 1);
 });
 
 test('link creation validates each kind, stays idempotent and keeps member cards closed', async () => {
