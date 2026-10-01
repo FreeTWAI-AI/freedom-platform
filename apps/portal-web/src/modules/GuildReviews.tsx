@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import type { PortalClient } from '../api';
 import { useMemberClient } from './GuildWorkspace';
 import {
-  GITHUB_REVIEW_HINT, PullFacts, ReviewQueueRow, adoptionHint, pullClaimable, versionOf,
+  CLAIM_HELD, CLAIM_UNAVAILABLE, GITHUB_REVIEW_HINT, PullFacts, ReviewQueueRow, adoptionHint, pullClaimable, versionOf,
   type PullDetail, type PullRow,
 } from './review-center-shared';
 import './AdminReviewCenter.css';
@@ -152,8 +152,8 @@ function GuildDetailPanel({ detail, linked, busy, onError, onClaim, onRelease, o
     <div className="review-detail stack">
       <p className="field-hint">{GITHUB_REVIEW_HINT}</p>
       {detail.ownership.open_to_guilds && !detail.ownership.guild_key && chosen && <p className="field-hint">{adoptionHint(chosen.guild_name)}</p>}
-      {unavailable && <p className="field-hint">這個拉取請求目前未開啟、仍是草稿或已暫停，不能認領。</p>}
-      {claimed && !detail.can_release && <p className="field-hint">這個拉取請求已有人認領。</p>}
+      {unavailable && <p className="field-hint">{CLAIM_UNAVAILABLE}</p>}
+      {claimed && !detail.can_release && <p className="field-hint">{CLAIM_HELD}</p>}
       {linked && !claimed && options.length > 0 && <form className="stack" onSubmit={event => void claim(event)}>
         {options.length > 1 && <label className="field">審完後歸到<select aria-label="審完後歸到" value={guildKey} onChange={event => setGuildKey(event.target.value)}>{options.map(option => <option key={option.guild_key} value={option.guild_key}>{option.guild_name}</option>)}</select></label>}
         <div className="actions"><button className="btn btn-ghost" disabled={locked || unavailable}>我來審</button></div>

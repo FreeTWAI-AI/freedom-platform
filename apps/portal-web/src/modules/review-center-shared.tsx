@@ -38,7 +38,7 @@ export const QUEUE_LABEL: Record<string, string> = {
 };
 export const CLAIM_STATE: Record<string, string> = { active: '認領中', released: '已釋放', expired: '已到期', completed: '已完成' };
 export const END_REASON: Record<string, string> = {
-  self_released: '本人放棄認領', admin_released: '管理員已釋放', pull_closed: 'PR 已關閉',
+  self_released: '本人放棄認領', admin_released: '管理員已釋放', pull_closed: '拉取請求已關閉',
   reviewer_not_eligible: '已不是這個項目的公會長或管理員', review_submitted: '已送出審查',
 };
 export const REVIEW_STATE: Record<string, string> = {
@@ -59,10 +59,11 @@ export const SOURCE_LABEL: Record<string, string> = { admin: '管理員調整', 
 export const ADMIN_LINK_STATUS: Record<string, string> = {
   ready: '已可審查',
   no_member: '沒有同 email 的會員帳號',
-  email_unverified: '會員 email 尚未驗證（用會員登入頁的「忘記密碼」重設一次密碼即可完成驗證）',
+  email_unverified: '會員 email 尚未驗證',
   no_github: '會員尚未連結 GitHub',
 };
 export const CLAIM_UNAVAILABLE = '這個拉取請求目前未開啟、仍是草稿或已暫停（包括儲存庫已關閉），不能認領。';
+export const CLAIM_HELD = '這個拉取請求已有人認領。';
 export const GITHUB_REVIEW_HINT = '請在 GitHub 送出審查（Approve 或 Request changes），送出後這裡會自動標示完成。';
 
 export function versionOf(value: string | number): number {

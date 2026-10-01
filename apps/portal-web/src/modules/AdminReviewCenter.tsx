@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { AdminClient } from './admin-client';
 import {
-  ADMIN_LINK_STATUS, CLAIM_UNAVAILABLE, PullFacts, ReviewQueueRow, modeText, pullClaimable,
+  ADMIN_LINK_STATUS, CLAIM_HELD, CLAIM_UNAVAILABLE, PullFacts, ReviewQueueRow, modeText, pullClaimable,
   reviewerOptionLabel, reviewerOptionValue, scopeText, versionOf,
   type EligibleReviewer, type PullDetail, type PullRow,
 } from './review-center-shared';
 import './AdminReviewCenter.css';
 
-type Viewer = { user_id: string | null; github_login: string | null; can_self_claim: boolean; reason: string | null };
+type Viewer = {
+  user_id: string | null; github_login: string | null; can_self_claim: boolean;
+  status: 'ready' | 'no_member' | 'email_unverified' | 'no_github'; reason: string | null;
+};
 type Repo = {
   repository_id: string; full_name: string; mode: string; settings: Record<string, unknown>;
   aggregate_version: string | number; guild_key: string | null; scope_kind: string | null; open_to_guilds: boolean;
@@ -189,7 +192,7 @@ function ReviewDetail({ detail, viewer, repo, guilds, busy, onError, onMutate, o
     setPauseReason('');
   }
   const version = versionOf(detail.aggregate_version);
-  const claimBlock = detail.claim ? '這個拉取請求已有人認領。' : '';
+  const claimBlock = detail.claim ? CLAIM_HELD : '';
   const unavailable = !pullClaimable(detail);
   const selfBlock = viewer?.can_self_claim ? '' : (viewer?.reason ?? '');
   function saved(ok: boolean) {
