@@ -678,7 +678,8 @@ test('the card renders only https and mailto addresses as links',async({page})=>
     json.links=[...(json.links??[]),{label:'腳本連結',url:'javascript:alert(1)'},{label:'安全連結',url:'https://example.com/safe'}];
     json.profile_links=[
       ...(json.profile_links??[]),
-      {source:'contact:github',platform:'github',label:'壞帳號',handle:'../evil',url:'javascript:alert(1)',shown:true},
+      // Preview hides a profile row whose URL is already a manual link.
+      {source:'contact:github',platform:'github',label:'壞帳號',handle:'../evil',url:'javascript:alert(2)',shown:true},
       {source:'social:00000000-0000-4000-8000-000000000099',platform:'website',label:'明文網站',handle:'example.com',url:'http://example.com/plain',shown:true},
       {source:'social:00000000-0000-4000-8000-000000000098',platform:'website',label:'含帳密',handle:'example.com',url:'https://user:pass@example.com/secret',shown:true},
       {source:'contact:email',platform:'email',label:'Email',handle:'person@example.test',url:'mailto:person@example.test',shown:true},
