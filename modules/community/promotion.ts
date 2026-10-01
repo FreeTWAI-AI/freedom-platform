@@ -160,37 +160,91 @@ export async function createPromotionLink(pool: Pool, actor: Actor, raw: unknown
   throw new Problem(503, 'promotion_link_unavailable', '分享連結暫時無法建立，請稍後再試。');
 }
 
-async function titleOf(pool: Pool, actor: Actor, kind: PromotionKind, target: string) {
-  try { return await assertTarget(pool, actor, kind, target); } catch { return kind === 'platform' ? '自由工坊' : '已無法開啟的分享'; }
+type MineRow = { link_id: string; kind: PromotionKind; target_key: string; code: string; points: number; week_points: number; month_points: number; all_points: number };
+
+function catalogBook(target: string) {
+  const id = target.slice(5);
+  const book = /^[a-z0-9-]{1,64}$/.test(id) ? communityCatalog.skill_books.find(item => item.id === id) : undefined;
+  return { title: book?.title ?? '已無法開啟', available: Boolean(book) };
+}
+
+// Titles are read-only and batched: one query per kind that actually appears. Catalog books need none.
+async function mineTitles(pool: Pool, actor: Actor, rows: MineRow[]) {
+  const events = rows.filter(row => row.kind === 'event' && z.uuid().safeParse(row.target_key).success).map(row => row.target_key);
+  const posts = rows.filter(row => row.kind === 'social_post' && z.uuid().safeParse(row.target_key).success).map(row => row.target_key);
+  const submissions = rows.filter(row => row.kind === 'skill_book' && /^submission:[0-9a-f-]{36}$/i.test(row.target_key)).map(row => row.target_key.slice(11).toLowerCase());
+  const eventRows = events.length ? (await pool.query(`SELECT event_id::text AS id,title,state='published' AS available FROM community_events WHERE community_id=$1 AND event_id=ANY($2::uuid[])`, [actor.community_id, events])).rows as { id: string; title: string; available: boolean }[] : [];
+  const postRows = posts.length ? (await pool.query(`SELECT post_id::text AS id,title,state='active' AS available FROM community_social_posts WHERE community_id=$1 AND post_id=ANY($2::uuid[])`, [actor.community_id, posts])).rows as { id: string; title: string; available: boolean }[] : [];
+  const submissionRows = submissions.length ? (await pool.query(`SELECT s.submission_id::text AS id,s.payload->>'title' AS title
+    FROM skill_submissions s
+    JOIN users u ON u.user_id=s.owner_ref AND u.community_id=s.community_id
+    JOIN oss_projects p ON p.project_id=s.project_id AND p.owner_ref=s.owner_ref AND p.community_id=s.community_id
+    JOIN oss_project_versions v ON v.version_id=s.project_version_id AND v.project_id=s.project_id
+    WHERE s.community_id=$1 AND s.submission_id=ANY($2::uuid[])
+      AND s.status='published' AND s.consent_to_share AND NOT p.official
+      AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
+      AND NOT is_verification_test_account(u.user_id)`, [actor.community_id, submissions])).rows as { id: string; title: string }[] : [];
+  const eventById = new Map(eventRows.map(row => [row.id, row]));
+  const postById = new Map(postRows.map(row => [row.id, row]));
+  const submissionById = new Map(submissionRows.map(row => [row.id, row.title]));
+  return (row: MineRow) => {
+    if (row.kind === 'platform') return { title: '自由工坊', available: row.target_key === 'workshop' };
+    if (row.kind === 'skill_book' && row.target_key.startsWith('book:')) return catalogBook(row.target_key);
+    if (row.kind === 'skill_book' && /^submission:/i.test(row.target_key)) {
+      const title = submissionById.get(row.target_key.slice(11).toLowerCase());
+      return { title: title || '已無法開啟', available: Boolean(title) };
+    }
+    if (row.kind === 'event') {
+      const found = eventById.get(row.target_key.toLowerCase());
+      return found ? { title: found.title, available: found.available } : { title: '已無法開啟', available: false };
+    }
+    if (row.kind === 'social_post') {
+      const found = postById.get(row.target_key.toLowerCase());
+      return found ? { title: found.title, available: found.available } : { title: '已無法開啟', available: false };
+    }
+    return { title: '已無法開啟', available: false };
+  };
 }
 
 export async function listMyPromotionLinks(pool: Pool, actor: Actor, periodRaw: string | undefined, now = new Date()) {
   const period = periodSchema.parse(periodRaw ?? 'week');
   const since = periodStart(period, now);
-  const rows = (await pool.query(`SELECT l.link_id,l.kind,l.target_key,l.code,l.created_at,
+  const week = periodStart('week', now);
+  const month = periodStart('month', now);
+  const rows = (await pool.query(`SELECT l.link_id,l.kind,l.target_key,l.code,
+    count(c.link_id) FILTER (WHERE c.created_at>=$4)::int AS week_points,
+    count(c.link_id) FILTER (WHERE c.created_at>=$5)::int AS month_points,
+    count(c.link_id)::int AS all_points,
     count(c.link_id) FILTER (WHERE $3::timestamptz IS NULL OR c.created_at>=$3)::int AS points
     FROM promotion_links l LEFT JOIN promotion_clicks c ON c.link_id=l.link_id
     WHERE l.community_id=$1 AND l.user_id=$2 AND l.revoked_at IS NULL
-    GROUP BY l.link_id ORDER BY points DESC,l.created_at DESC LIMIT 100`, [actor.community_id, actor.user_id, since])).rows as { link_id: string; kind: PromotionKind; target_key: string; code: string; points: number }[];
-  const items = [];
-  for (const row of rows) items.push({ ...linkView(row, await titleOf(pool, actor, row.kind, row.target_key), await pointsFor(pool, row.link_id, now)), period_points: row.points });
+    GROUP BY l.link_id ORDER BY points DESC,l.created_at DESC LIMIT 100`, [actor.community_id, actor.user_id, since, week, month])).rows as MineRow[];
+  const resolve = await mineTitles(pool, actor, rows);
+  const items = rows.map(row => {
+    const resolved = resolve(row);
+    return { ...linkView(row, resolved.title, { week: row.week_points, month: row.month_points, all: row.all_points }), period_points: row.points, available: resolved.available };
+  });
   return { period, since: since?.toISOString() ?? null, items };
 }
 
 type Scored = { user_id: string; display_name: string; points: number; rank: number; avatar_url: string | null };
 
+// Clicks are scored first so the avatar bytea is never a GROUP BY key.
+export const promotionLeaderboardSql = `WITH scored AS (
+  SELECT kind,user_id,count(*)::int AS points FROM promotion_clicks
+  WHERE community_id=$1 AND ($2::timestamptz IS NULL OR created_at>=$2)
+  GROUP BY kind,user_id)
+SELECT s.kind,s.user_id,u.display_name,s.points,a.aggregate_version,a.image_bytes IS NOT NULL AS has_avatar
+FROM scored s
+JOIN users u ON u.user_id=s.user_id AND u.community_id=$1
+LEFT JOIN member_avatars a ON a.user_id=u.user_id AND a.community_id=u.community_id
+WHERE u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
+  AND (u.user_id=$3 OR NOT is_verification_test_account(u.user_id))`;
+
 export async function promotionLeaderboards(pool: Pool, actor: Actor, periodRaw: string | undefined, now = new Date()) {
   const period = periodSchema.parse(periodRaw ?? 'week');
   const since = periodStart(period, now);
-  const rows = (await pool.query(`SELECT c.kind,c.user_id,u.display_name,count(*)::int AS points,
-    a.aggregate_version,a.image_bytes IS NOT NULL AS has_avatar
-    FROM promotion_clicks c
-    JOIN users u ON u.user_id=c.user_id AND u.community_id=c.community_id
-    LEFT JOIN member_avatars a ON a.user_id=u.user_id AND a.community_id=u.community_id
-    WHERE c.community_id=$1 AND ($2::timestamptz IS NULL OR c.created_at>=$2)
-      AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
-      AND (u.user_id=$3 OR NOT is_verification_test_account(u.user_id))
-    GROUP BY c.kind,c.user_id,u.display_name,a.aggregate_version,a.image_bytes`, [actor.community_id, since, actor.user_id])).rows as { kind: PromotionKind; user_id: string; display_name: string; points: number; aggregate_version: string | null; has_avatar: boolean }[];
+  const rows = (await pool.query(promotionLeaderboardSql, [actor.community_id, since, actor.user_id])).rows as { kind: PromotionKind; user_id: string; display_name: string; points: number; aggregate_version: string | null; has_avatar: boolean }[];
   const boards = PROMOTION_KINDS.map(kind => {
     const scored: Scored[] = rows.filter(row => row.kind === kind).map(row => ({
       user_id: row.user_id, display_name: row.display_name, points: row.points, rank: 0,
@@ -273,12 +327,13 @@ async function openTarget(pool: Pool, link: LinkRow, introRaw: string | undefine
   };
 }
 
-function goHtml(code: string, target: OpenTarget) {
+function goHtml(code: string, target: OpenTarget, ogUrl: string) {
   const title = escapeHtml(target.title);
   const description = escapeHtml(target.description);
   const href = escapeHtml(target.href);
   const image = target.image ? `<meta property="og:image" content="${escapeHtml(target.image.url)}"><meta property="og:image:width" content="${target.image.width}"><meta property="og:image:height" content="${target.image.height}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="${escapeHtml(target.image.url)}">` : '<meta name="twitter:card" content="summary">';
-  return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>正在開啟：${title}｜自由工坊</title><meta name="robots" content="noindex,nofollow"><meta property="og:title" content="${title}"><meta property="og:description" content="${description}"><meta property="og:site_name" content="自由工坊"><meta name="twitter:title" content="${title}"><meta name="twitter:description" content="${description}">${image}<link rel="stylesheet" href="/go.css"></head><body><main data-code="${escapeHtml(code)}" data-target="${href}"><p>正在前往「${title}」…</p><p><a href="${href}">沒有自動前往？請點這裡</a></p></main><script src="/go.js" defer></script></body></html>`;
+  // og:url is this personal link, never the target. Otherwise Facebook collapses the share onto the target.
+  return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>正在開啟：${title}｜自由工坊</title><meta name="robots" content="noindex,nofollow"><meta property="og:type" content="website"><meta property="og:url" content="${escapeHtml(ogUrl)}"><meta property="og:title" content="${title}"><meta property="og:description" content="${description}"><meta property="og:site_name" content="自由工坊"><meta name="twitter:title" content="${title}"><meta name="twitter:description" content="${description}">${image}<link rel="stylesheet" href="/go.css"></head><body><main data-code="${escapeHtml(code)}" data-target="${href}"><p>正在前往「${title}」…</p><p><a href="${href}">沒有自動前往？請點這裡</a></p></main><script src="/go.js" defer></script></body></html>`;
 }
 
 export async function promotionGo(pool: Pool, code: string, intro: string | undefined, origin: string) {
@@ -286,7 +341,8 @@ export async function promotionGo(pool: Pool, code: string, intro: string | unde
   if (!link) return null;
   const target = await openTarget(pool, link, intro, origin);
   if (!target) return null;
-  return goHtml(code, target);
+  const chosen = link.kind === 'skill_book' ? introNumber(intro) : null;
+  return goHtml(link.code, target, `${origin}/go/${link.code}${chosen ? `?intro=${chosen}` : ''}`);
 }
 
 export async function creditPromotionClick(pool: Pool, input: { code: string; userAgent: string; network: string; sessionUserId: string | null; now: Date }) {

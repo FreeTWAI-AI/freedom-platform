@@ -17,6 +17,16 @@ const PLATFORM_HOSTS: readonly [string, SocialPlatform][] = [
 
 const TRACKING = new Set(['fbclid', 'igshid', 'si']);
 
+/** The workshop's own site. A /go/ link posted back into the zone would score one visit twice. */
+export function isOwnWorkshopHost(host: string, publicOrigin: string) {
+  const name = host.toLowerCase().replace(/\.$/, '');
+  if (name === 'freetwai.com' || name.endsWith('.freetwai.com')) return true;
+  try {
+    const originHost = new URL(publicOrigin).hostname.toLowerCase().replace(/\.$/, '');
+    return originHost.length > 0 && name === originHost;
+  } catch { return false; }
+}
+
 export function classifyShareHost(host: string): SocialPlatform {
   const name = host.toLowerCase().replace(/\.$/, '');
   for (const [domain, platform] of PLATFORM_HOSTS) {

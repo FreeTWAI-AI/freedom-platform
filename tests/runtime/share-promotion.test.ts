@@ -10,7 +10,7 @@ import { tokenHash } from '../../modules/identity-membership/service.js';
 import { communityCatalog } from '../../modules/community/catalog.js';
 import { getSkillShareContent } from '../../modules/community/skill-share-content.js';
 import { PREVIEW_BOT_MARKERS, isPreviewBot } from '../../packages/shared/promotion-bots.js';
-import { taipeiDate, type PromotionKind } from '../../modules/community/promotion.js';
+import { promotionLeaderboardSql, taipeiDate, type PromotionKind } from '../../modules/community/promotion.js';
 import type { PreviewFetch } from '../../modules/community/link-preview.js';
 
 const origin = 'http://127.0.0.1:4310';
@@ -25,8 +25,10 @@ const FBIAB = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like G
 const FBAN = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/500.0.0.0]';
 const IG = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 350.0.0.0.0';
 let clock = new Date('2026-10-04T16:30:00.000Z');
+let previewFetches = 0;
 
 const previewFetch: PreviewFetch = async input => {
+  previewFetches += 1;
   const url = String(input);
   if (url.startsWith('https://boom.example/')) throw new Error('preview down');
   if (url.startsWith('https://www.youtube.com/oembed')) return new Response(JSON.stringify({ title: '預覽標題' }), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -43,6 +45,7 @@ type Session = { cookie: string; csrf: string; user: { user_id: string; display_
 before(async () => { await admin.query(`CREATE SCHEMA ${schema}`); await migrate(pool); });
 after(async () => { await pool.end(); await admin.query(`DROP SCHEMA ${schema} CASCADE`); await admin.end(); });
 beforeEach(async () => {
+  previewFetches = 0;
   clock = new Date('2026-10-04T16:30:00.000Z');
   await pool.query('TRUNCATE communities, login_attempts, auth_rate_limits CASCADE');
   await pool.query('TRUNCATE promotion_click_salts');
@@ -289,6 +292,9 @@ test('the interstitial escapes text, sets open-graph tags and ignores extra quer
   }
   const home = await page(`/go/${platform.code}?utm_source=x&ref=evil`);
   assert.match(home, /<title>正在開啟：自由工坊｜自由工坊<\/title>/);
+  assert.match(home, /property="og:type" content="website"/);
+  assert.match(home, new RegExp(`property="og:url" content="https://freetwai.com/go/${platform.code}"`));
+  assert.ok(!home.includes('property="og:url" content="https://freetwai.com/"'));
   assert.match(home, /property="og:title" content="自由工坊"/);
   assert.match(home, /加入公會、領取 Repo 技能書/);
   assert.match(home, /property="og:image" content="https:\/\/freetwai\.com\/brand\/freedom-workshop\.webp"/);
@@ -297,6 +303,9 @@ test('the interstitial escapes text, sets open-graph tags and ignores extra quer
   assert.ok(!home.includes('utm_source') && !home.includes('evil'));
   const content = getSkillShareContent('social-post')!;
   const book = await page(`/go/${skill.data.code}?intro=2&evil=1`);
+  assert.match(book, /property="og:type" content="website"/);
+  assert.match(book, new RegExp(`property="og:url" content="https://freetwai.com/go/${skill.data.code}\\?intro=2"`));
+  assert.ok(!book.includes('property="og:url" content="https://freetwai.com/development/'));
   assert.match(book, new RegExp(`data-target="/development/skills/social-post\\?intro=2"`));
   assert.ok(book.includes(`content="${content.introductions[1]}"`) || book.includes(`content="${content.introductions[1].replaceAll('"', '&quot;')}"`));
   assert.match(book, /property="og:image" content="https:\/\/freetwai\.com\/brand\/skill-illustrations\/social-post\.webp"/);
@@ -308,8 +317,11 @@ test('the interstitial escapes text, sets open-graph tags and ignores extra quer
   assert.ok(!overflow.includes(content.introductions[0]));
   const ignored = await page(`/go/${skill.data.code}?intro=01`);
   assert.match(ignored, /data-target="\/development\/skills\/social-post"/);
+  assert.match(ignored, new RegExp(`property="og:url" content="https://freetwai.com/go/${skill.data.code}"`));
   assert.ok(!ignored.includes('intro=01'));
   const socialHtml = await page(`/go/${social.data.code}?intro=1`);
+  assert.match(socialHtml, new RegExp(`property="og:url" content="https://freetwai.com/go/${social.data.code}"`));
+  assert.ok(!socialHtml.includes('property="og:url" content="https://example.com/escape-me"'));
   assert.match(socialHtml, /data-target="https:\/\/example\.com\/escape-me"/);
   assert.ok(socialHtml.includes('&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;'));
   assert.ok(!socialHtml.includes('<script>alert'));
@@ -463,7 +475,14 @@ test('leaderboards use Taipei periods, competition ranks and the same member vis
   assert.equal(own.items.find((item: { user_id: string }) => item.user_id === hidden).avatar_url, `/api/v1/members/${hidden}/avatar?v=2`);
   const mineList = await request('/promotion/links/mine?period=all', maker);
   assert.equal(mineList.data.items[0].period_points, 3);
+  assert.equal(mineList.data.items[0].points.week, 1);
+  assert.equal(mineList.data.items[0].points.month, 2);
+  assert.equal(mineList.data.items[0].points.all, 3);
   assert.equal(mineList.data.items[0].title, 'Hao 社群貼文技能書');
+  assert.equal(mineList.data.items[0].available, true);
+  const plan = (await pool.query('EXPLAIN ' + promotionLeaderboardSql, [DEMO_COMMUNITY, clock, maker.user.user_id])).rows.map(row => row['QUERY PLAN']).join('\n');
+  assert.match(plan, /Group Key:.*kind.*user_id/);
+  assert.equal(/Group Key:.*image_bytes/.test(plan), false);
 });
 
 test('social posts normalize urls, classify hosts, paginate and enforce author and admin actions', async () => {
@@ -560,4 +579,107 @@ test('social posts normalize urls, classify hosts, paginate and enforce author a
   const before = await facts();
   await click((await platformLink(maker)).code, LINE);
   assert.deepEqual(await facts(), before);
+});
+
+test('promotion links are indexed by kind and target', async () => {
+  const row = (await pool.query(`SELECT indexdef FROM pg_indexes WHERE schemaname=current_schema() AND indexname='promotion_links_target'`)).rows[0];
+  assert.match(String(row?.indexdef), /\(kind, target_key\)/);
+});
+
+test('a click reuses the shared session check and still ignores the owner', async () => {
+  const maker = await signIn();
+  const link = await platformLink(maker);
+  const token = maker.cookie.slice(maker.cookie.indexOf('=') + 1);
+  await pool.query(`UPDATE sessions SET last_seen_at=now()-interval '5 minutes' WHERE token_hash=$1`, [tokenHash(token)]);
+  const before = new Date((await pool.query('SELECT last_seen_at FROM sessions WHERE token_hash=$1', [tokenHash(token)])).rows[0].last_seen_at);
+  const own = await click(link.code, REAL, maker.cookie);
+  assert.equal(own.status, 200);
+  assert.equal(await pointsOf(link.code), 0);
+  const after = new Date((await pool.query('SELECT last_seen_at FROM sessions WHERE token_hash=$1', [tokenHash(token)])).rows[0].last_seen_at);
+  assert.ok(after.getTime() > before.getTime());
+  const stranger = await click(link.code, REAL, `freedom_local_session=${'a'.repeat(43)}`);
+  assert.equal(stranger.status, 200);
+  assert.equal(stranger.data.ok, true);
+  assert.equal(await pointsOf(link.code), 1);
+});
+
+test('listing my links writes nothing and marks targets that can no longer be opened', async () => {
+  const maker = await signIn();
+  const eventId = randomUUID();
+  await eventRow(eventId, maker.user.user_id, 'open', '仍可開啟的活動', '說明');
+  const created = await request('/promotion/links', maker, { kind: 'event', target: eventId });
+  assert.equal(created.status, 200, JSON.stringify(created.data));
+  await pool.query('DELETE FROM community_event_share_codes WHERE user_id=$1', [maker.user.user_id]);
+  const counts = async () => (await pool.query(`SELECT
+    (SELECT count(*)::int FROM community_event_share_codes) AS codes,
+    (SELECT count(*)::int FROM promotion_links) AS links`)).rows[0] as { codes: number; links: number };
+  const before = await counts();
+  const listed = await request('/promotion/links/mine?period=all', maker);
+  assert.deepEqual(await counts(), before);
+  const open = listed.data.items.find((row: { code: string }) => row.code === created.data.code);
+  assert.equal(open.available, true);
+  assert.equal(open.title, '仍可開啟的活動');
+  assert.equal(open.points.all, 0);
+  await click(created.data.code, REAL);
+  await pool.query(`UPDATE community_events SET state='cancelled' WHERE event_id=$1`, [eventId]);
+  const closed = await request('/promotion/links/mine?period=week', maker);
+  assert.deepEqual(await counts(), before);
+  const muted = closed.data.items.find((row: { code: string }) => row.code === created.data.code);
+  assert.equal(muted.available, false);
+  assert.equal(muted.period_points, 1);
+  assert.equal(muted.points.week, 1);
+  const post = await request('/social-posts', maker, { url: 'https://no-title.example/mine-open', title: '還在' });
+  const postLink = await request('/promotion/links', maker, { kind: 'social_post', target: post.data.post_id });
+  await pool.query(`UPDATE community_social_posts SET state='deleted' WHERE post_id=$1`, [post.data.post_id]);
+  await pool.query(`INSERT INTO promotion_links(community_id,user_id,kind,target_key,code,created_at) VALUES($1,$2,'skill_book','book:missing-book',$3,$4)`, [DEMO_COMMUNITY, maker.user.user_id, randomBytes(7).toString('base64url'), clock]);
+  const again = await request('/promotion/links/mine?period=all', maker);
+  assert.equal(again.data.items.find((row: { code: string }) => row.code === postLink.data.code).available, false);
+  assert.equal(again.data.items.find((row: { target: string }) => row.target === 'book:missing-book').available, false);
+  const book = await request('/promotion/links', maker, { kind: 'skill_book', target: 'book:social-post' });
+  const books = await request('/promotion/links/mine?period=week', maker);
+  assert.equal(books.data.items.find((row: { code: string }) => row.code === book.data.code).available, true);
+});
+
+test('a duplicate social post is not fetched, own-site urls are refused, and the 31st preview is limited', async () => {
+  const maker = await signIn();
+  const seen = previewFetches;
+  const created = await request('/social-posts', maker, { url: 'https://no-title.example/already', title: '已有' });
+  assert.equal(created.status, 201, JSON.stringify(created.data));
+  assert.equal(previewFetches, seen + 1);
+  const afterCreate = previewFetches;
+  const duplicate = await request('/social-posts', maker, { url: 'https://no-title.example/already?utm_source=x' });
+  assert.equal(duplicate.status, 409);
+  assert.equal(duplicate.data.code, 'social_post_exists');
+  assert.equal(duplicate.data.post_id, created.data.post_id);
+  assert.equal(previewFetches, afterCreate);
+  const sameKey = randomUUID();
+  const first = await request('/social-posts', maker, { url: 'https://no-title.example/replay', title: '重送' }, 'POST', sameKey);
+  assert.equal(first.status, 201, JSON.stringify(first.data));
+  const afterFirst = previewFetches;
+  const replay = await request('/social-posts', maker, { url: 'https://no-title.example/replay', title: '重送' }, 'POST', sameKey);
+  assert.equal(replay.status, 201);
+  assert.equal(replay.data.post_id, first.data.post_id);
+  assert.equal(previewFetches, afterFirst);
+  const beforeOwn = previewFetches;
+  for (const url of ['https://freetwai.com/go/abcdefghij', 'https://www.freetwai.com/post/1', 'https://share.freetwai.com/a']) {
+    const rejected = await request('/social-posts', maker, { url, title: '站內' });
+    assert.equal(rejected.status, 422, url);
+    assert.equal(rejected.data.code, 'social_post_url');
+    assert.equal(rejected.data.detail, '請分享社群平台上的貼文。');
+  }
+  assert.equal(previewFetches, beforeOwn);
+  const outside = await request('/social-posts', maker, { url: 'https://notfreetwai.com/a', title: '外部' });
+  assert.equal(outside.status, 201, JSON.stringify(outside.data));
+  await addUser('preview-cap@member.test', '預覽上限');
+  const capped = await signIn('preview-cap@member.test');
+  for (let i = 0; i < 30; i++) {
+    const result = await request('/social-posts', capped, { url: `https://no-title.example/hour/${i}` });
+    if (i < 20) assert.equal(result.status, 201, `${i} ${JSON.stringify(result.data)}`);
+    else { assert.equal(result.status, 429, `${i} ${JSON.stringify(result.data)}`); assert.equal(result.data.code, 'social_post_limit'); }
+  }
+  const beforeLast = previewFetches;
+  const blocked = await request('/social-posts', capped, { url: 'https://no-title.example/hour/30' });
+  assert.equal(blocked.status, 429);
+  assert.equal(blocked.data.code, 'auth_rate_limited');
+  assert.equal(previewFetches, beforeLast);
 });

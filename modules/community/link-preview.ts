@@ -1,10 +1,9 @@
-import { normalizeImage } from '../../packages/shared/image-runtime.js';
+import { normalizeRemoteThumbnail } from '../skill-submissions/payload.js';
 import { normalizeShareUrl, youtubeVideoId } from '../../packages/shared/share-url.js';
 
 export const PREVIEW_USER_AGENT = 'FreedomWorkshopPreview/1.0 (+https://freetwai.com)';
 const HTML_LIMIT = 1024 * 1024;
 const IMAGE_LIMIT = 5 * 1024 * 1024;
-const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 
 export type PreviewFetch = (input: string, init?: RequestInit) => Promise<Response>;
 export type LinkPreview = { title: string | null; image: Buffer | null; source: 'youtube' | 'page' | null };
@@ -105,14 +104,9 @@ async function fetchChecked(fetcher: PreviewFetch, start: string, deadline: numb
 }
 
 async function asThumbnail(bytes: Buffer, type: string) {
-  if (!IMAGE_TYPES.has(type)) return null;
-  try {
-    return await normalizeImage(bytes, {
-      purpose: 'social_thumbnail', format: type.slice(6) as 'png' | 'jpeg' | 'webp',
-      maxDimension: 4096, maxPixels: 16_777_216, maxOutputBytes: 512 * 1024,
-      output: { width: 640, height: 360, fit: 'cover', quality: 80, effort: 4 },
-    });
-  } catch { return null; }
+  // Any declared image/* is accepted. The format comes from the bytes, never from Content-Type.
+  if (!type.startsWith('image/')) return null;
+  try { return await normalizeRemoteThumbnail(bytes); } catch { return null; }
 }
 
 /** Best-effort title and 640×360 thumbnail. Failures return nulls; they never throw. */

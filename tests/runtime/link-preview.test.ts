@@ -1,7 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { crc32 } from 'node:zlib';
+import sharp from 'sharp';
 import { previewImageUrl, previewLink, previewTitle, type PreviewFetch } from '../../modules/community/link-preview.js';
-import { classifyShareHost, normalizeShareUrl, youtubeVideoId } from '../../packages/shared/share-url.js';
+import { normalizeRemoteThumbnail } from '../../modules/skill-submissions/payload.js';
+import { runWithImageProcessor, type ImageProcessor } from '../../packages/shared/image-runtime.js';
+import { classifyShareHost, isOwnWorkshopHost, normalizeShareUrl, youtubeVideoId } from '../../packages/shared/share-url.js';
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 
@@ -11,6 +15,15 @@ function htmlResponse(body: string, status = 200, headers: Record<string, string
 function imageResponse(body: Buffer | string, type = 'image/png', status = 200, extra: Record<string, string> = {}) {
   return new Response(typeof body === 'string' ? body : new Uint8Array(body), { status, headers: { 'content-type': type, ...extra } });
 }
+
+test('own-site hosts are refused and other hosts are not', () => {
+  assert.equal(isOwnWorkshopHost('freetwai.com', 'https://example.com'), true);
+  assert.equal(isOwnWorkshopHost('www.freetwai.com', 'https://example.com'), true);
+  assert.equal(isOwnWorkshopHost('share.freetwai.com', 'https://example.com'), true);
+  assert.equal(isOwnWorkshopHost('preview.example', 'https://preview.example'), true);
+  assert.equal(isOwnWorkshopHost('notfreetwai.com', 'https://freetwai.com'), false);
+  assert.equal(isOwnWorkshopHost('youtube.com', 'https://freetwai.com'), false);
+});
 
 test('share URLs drop tracking, reject local hosts and classify platforms', () => {
   const youtube = normalizeShareUrl('https://WWW.YouTube.COM/watch?v=e2eDemo0001&utm_source=a&fbclid=b&si=c&igshid=d&keep=1#t=9');
@@ -129,4 +142,52 @@ test('a processor failure keeps the title and drops the thumbnail', async () => 
   assert.equal(result.title, '壞圖');
   assert.equal(result.image, null);
   assert.equal(result.source, null);
+});
+
+function pngChunk(type: string, data: Buffer) {
+  const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+  const out = Buffer.alloc(body.length + 8);
+  out.writeUInt32BE(data.length, 0);
+  body.copy(out, 4);
+  out.writeUInt32BE(crc32(body), body.length + 4);
+  return out;
+}
+
+test('remote thumbnails sniff the bytes and drop animation or gif', async () => {
+  const png = await sharp({ create: { width: 24, height: 16, channels: 3, background: 'red' } }).png().toBuffer();
+  const apng = Buffer.concat([png.subarray(0, 33), pngChunk('acTL', Buffer.from([0, 0, 0, 2, 0, 0, 0, 0])), png.subarray(33)]);
+  const animatedWebp = await sharp(await Promise.all(['red', 'blue'].map(background => sharp({ create: { width: 8, height: 8, channels: 3, background } }).png().toBuffer())), { join: { animated: true } }).webp({ loop: 0, delay: [100, 100] }).toBuffer();
+  const gif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+  const pages: Record<string, { body: Buffer; type: string }> = {
+    'https://cdn.example/labeled-jpeg': { body: png, type: 'image/jpeg' },
+    'https://cdn.example/apng': { body: apng, type: 'image/png' },
+    'https://cdn.example/awebp': { body: animatedWebp, type: 'image/webp' },
+    'https://cdn.example/gif': { body: gif, type: 'image/gif' },
+  };
+  const fetcher: PreviewFetch = async input => {
+    const url = String(input);
+    const image = pages[url];
+    if (image) return imageResponse(image.body, image.type);
+    const name = url.split('/').pop();
+    return htmlResponse(`<meta property="og:title" content="${name}"><meta property="og:image" content="https://cdn.example/${name}">`);
+  };
+  const labeled = await previewLink('https://example.com/labeled-jpeg', fetcher, 2000);
+  assert.equal(labeled.title, 'labeled-jpeg');
+  assert.ok(labeled.image && labeled.image.length > 16);
+  assert.equal(labeled.image.subarray(0, 4).toString('ascii'), 'RIFF');
+  const canonical = labeled.image;
+  const passer: ImageProcessor = { name: 'pass', normalize: async () => canonical };
+  await runWithImageProcessor(passer, async () => {
+    for (const name of ['apng', 'awebp', 'gif']) {
+      const result = await previewLink(`https://example.com/${name}`, fetcher, 2000);
+      assert.equal(result.title, name);
+      assert.equal(result.image, null);
+      assert.equal(result.source, null);
+    }
+  });
+  const bulky = await sharp({ create: { width: 1200, height: 800, channels: 3, background: 'navy' } }).png({ compressionLevel: 0 }).toBuffer();
+  assert.ok(bulky.length > 512 * 1024 && bulky.length <= 5 * 1024 * 1024, `png was ${bulky.length}`);
+  const wide = await normalizeRemoteThumbnail(bulky);
+  assert.ok(wide.length > 16 && wide.length <= 512 * 1024);
+  await assert.rejects(normalizeRemoteThumbnail(Buffer.alloc(5 * 1024 * 1024 + 1)));
 });

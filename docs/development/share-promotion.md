@@ -23,7 +23,7 @@
 
 未知、已撤銷，或目標已不能分享（貼文刪除或隱藏、活動取消／退回／未公開、技能書不存在）時，這個網址 302 回首頁。除了技能書的 `intro`（1–999），其他 query 都忽略，避免開放式重導。
 
-中繼頁含 `noindex,nofollow`、`Cache-Control: no-store`、`Referrer-Policy: no-referrer`，以及網站既有的 CSP。不放 inline script 或 style。OG 圖網址使用 runtime 的公開來源。僅限會員的活動不放標題、內文或海報，只顯示「自由工坊會員活動」。
+中繼頁含 `noindex,nofollow`、`Cache-Control: no-store`、`Referrer-Policy: no-referrer`，以及網站既有的 CSP。不放 inline script 或 style。OG 圖網址使用 runtime 的公開來源。`og:type` 是 `website`。`og:url` 是這條個人連結本身（公開來源 + `/go/<code>`）；技能書只有在 `intro` 有效（1–999）時才附上 `?intro=N`。它不是目標網址，否則 Facebook 會把分享收成目標頁、跳過個人連結。僅限會員的活動不放標題、內文或海報，只顯示「自由工坊會員活動」。
 
 ## 計分
 
@@ -42,6 +42,8 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 
 每位會員每天最多新建立 200 條連結；已存在的同一條再取一次不算新的。每人每天最多新貼 20 則社群貼文。點擊路由另有每網路每小時約 300 次的速率限制，超過回 429，同樣不計分。
 
+`GET /api/v1/promotion/links/mine` 只讀。週、月、累計與所選期間的分數在同一則查詢用 `count(...) FILTER` 算出，不會為了標題去建立活動分享碼，也不會一條連結再查一次分數。出現過的活動、貼文、已公開社群技能書各最多再讀一次（`= ANY`，限本人的社群）；目錄技能書不查資料庫。每一筆有 `available`：活動要已公開、貼文要是有效、目錄書要在架上、社群技能書要已發布。開不了的連結在「我的推廣連結」變淡、顯示「已無法開啟」、沒有複製鈕，分數仍留著。
+
 ## 隱私
 
 不保存原始 IP 或 User-Agent。訪客鍵與網路鍵是當天 32-byte salt 加網路（以及匿名訪客的 User-Agent）的 SHA-256。Salt 存在 `promotion_click_salts`，第一次用到那天時建立，並順便刪掉超過 3 天的列（`click_day < 今天 - 3`）。
@@ -52,9 +54,11 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 
 平台依主機分成 YouTube、Instagram、Facebook、Threads、TikTok、X，其餘為「其他」。同一社群已有相同有效網址時回 409 `social_post_exists`，並帶原本的 `post_id`。
 
+新增貼文在連外之前先驗證內容並正規化網址。網址已經有人分享就直接回 409，不抓頁面。接著每位會員每小時最多預覽 30 次（`social-post-preview`），第 31 次回 429。`freetwai.com`、它的子網域，以及與 `runtime.publicOrigin` 相同的主機，回 422 `social_post_url`，說明是「請分享社群平台上的貼文。」站內的 `/go/` 再貼進專區會讓一次瀏覽記兩次分。
+
 標題用投稿者填的；沒填就用預覽抓到的頁面標題（最多 120 字）；再沒有就用主機名。預覽失敗仍可建立貼文，只是沒有縮圖。作者可換縮圖或軟刪除。能審核活動的平台管理員可隱藏；公會長不行。隱藏或刪除後，列表看不到，分享連結回到首頁，公開縮圖 404。
 
-預覽抓取（`modules/community/link-preview.ts`）由 runtime 注入。YouTube 取影片 id（`watch?v=`、`youtu.be`、`/shorts/`、`/live/`、`/embed/`），再抓 `i.ytimg.com` 的 `hqdefault.jpg`，標題可選 oEmbed。其他平台讀 `og:image`、`og:image:secure_url` 或 `twitter:image`。限制是：`redirect:manual`、最多 3 次重導、每一跳都重跑網址規則、全程 6 秒、HTML 最多 1 MiB、圖片最多 5 MiB、只接受 png／jpeg／webp。User-Agent 固定為 `FreedomWorkshopPreview/1.0 (+https://freetwai.com)`。圖片再正規化成 640×360 的 WebP（`social_thumbnail`）。處理器失敗就沒有縮圖，不讓貼文失敗。測試與 e2e 使用假的 fetcher，不連外網。
+預覽抓取（`modules/community/link-preview.ts`）由 runtime 注入。YouTube 取影片 id（`watch?v=`、`youtu.be`、`/shorts/`、`/live/`、`/embed/`），再抓 `i.ytimg.com` 的 `hqdefault.jpg`，標題可選 oEmbed。其他平台讀 `og:image`、`og:image:secure_url` 或 `twitter:image`。限制是：`redirect:manual`、最多 3 次重導、每一跳都重跑網址規則、全程 6 秒、HTML 最多 1 MiB、圖片最多 5 MiB。回應只要聲明 `image/*` 就收下；格式以檔案簽名判斷，不採用對方的 Content-Type。GIF、動畫 PNG、動畫 WebP、簽名不符或超過 5 MiB 時捨棄縮圖、保留標題。靜態 png／jpeg／webp 正規化成 640×360 的 WebP（`social_thumbnail`）。處理器失敗就沒有縮圖，不讓貼文失敗。上傳的縮圖仍要聲明類型與簽名一致，且在 512 KiB 以下。User-Agent 固定為 `FreedomWorkshopPreview/1.0 (+https://freetwai.com)`。測試與 e2e 使用假的 fetcher，不連外網。
 
 ## API
 
@@ -65,7 +69,7 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 | `GET /go/:code` | 公開 | 中繼頁，或 302 回首頁 |
 | `POST /api/v1/promotion/clicks` | 公開 | `{code}`，永遠 `{ok:true}` |
 | `POST /api/v1/promotion/links` | 會員 | 取得或建立個人連結 |
-| `GET /api/v1/promotion/links/mine?period=` | 會員 | 自己的連結與該期間分數 |
+| `GET /api/v1/promotion/links/mine?period=` | 會員 | 自己的連結、各期間分數與 `available`；只讀 |
 | `GET /api/v1/promotion/leaderboards?period=` | 會員 | 六塊榜，`week`／`month`／`all` |
 | `GET /api/v1/social-posts` | 會員 | 有效貼文，每頁 24 |
 | `POST /api/v1/social-posts` | 會員 | 新增貼文，需 Idempotency-Key |
@@ -81,7 +85,7 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 
 ## 資料與部署
 
-資料表在 `migrations/063_share_promotion.sql`：`promotion_links`、`promotion_clicks`、`promotion_click_salts`、`community_social_posts`、`community_social_post_thumbnails`。有效連結以部分唯一索引保證一人一種目標一條；有效貼文的網址同樣唯一。
+資料表在 `migrations/063_share_promotion.sql`：`promotion_links`、`promotion_clicks`、`promotion_click_salts`、`community_social_posts`、`community_social_post_thumbnails`。有效連結以部分唯一索引保證一人一種目標一條；有效貼文的網址同樣唯一。`promotion_links_target` 索引 `(kind, target_key)`，給貼文列表的點擊合計、活動推薦報表，以及之後的服務列表用。
 
 部署時先套用 migration 063，再換 Worker。Worker 的預覽 fetch 必須是未綁定的 `globalThis.fetch`。
 

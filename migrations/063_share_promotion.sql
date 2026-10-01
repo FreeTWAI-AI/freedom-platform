@@ -16,6 +16,8 @@ CREATE TABLE promotion_links (
 CREATE UNIQUE INDEX promotion_links_active_owner
   ON promotion_links(community_id, user_id, kind, target_key) WHERE revoked_at IS NULL;
 CREATE INDEX promotion_links_owner_day ON promotion_links(user_id, created_at);
+-- Social-post totals, the event referral report and later service lists filter by (kind, target_key).
+CREATE INDEX promotion_links_target ON promotion_links(kind, target_key);
 
 CREATE TABLE promotion_clicks (
   link_id uuid NOT NULL REFERENCES promotion_links(link_id),

@@ -9,7 +9,7 @@ type Kind = 'member_card' | 'platform' | 'skill_book' | 'social_post' | 'member_
 type Item = {rank: number; user_id: string; display_name: string; avatar_url: string | null; points: number};
 type Board = {kind: Kind; items: Item[]; me: {rank: number; points: number} | null};
 type Boards = {period: Period; boards: Board[]};
-type Mine = {period: Period; items: {kind: Kind; target: string; code: string; path: string; title: string; period_points: number}[]};
+type Mine = {period: Period; items: {kind: Kind; target: string; code: string; path: string; title: string; period_points: number; available: boolean}[]};
 
 const PERIODS: {id: Period; label: string}[] = [{id: 'week', label: '本週'}, {id: 'month', label: '本月'}, {id: 'all', label: '累計'}];
 const COPY: Record<Kind, {title: string; how: string; label: string}> = {
@@ -68,7 +68,7 @@ export function PromotionBoards({client}: {client: PortalClient}) {
     <section className="card promotion-mine" aria-label="我的推廣連結">
       <h2>我的推廣連結</h2>
       {shown.length === 0 ? <p className="promotion-empty">還沒有分享連結。</p> : <ul>
-        {shown.map(item => <li key={item.code}><span className="promotion-kind">{COPY[item.kind].label}</span><span className="promotion-link-title">{item.title}</span><button type="button" className="btn btn-ghost" onClick={() => void copy(item.path)}>複製</button><strong>{item.period_points}</strong></li>)}
+        {shown.map(item => <li key={item.code} className={item.available ? undefined : 'is-unavailable'}><span className="promotion-kind">{COPY[item.kind].label}</span><span className="promotion-link-title">{item.available ? item.title : '已無法開啟'}</span>{item.available && <button type="button" className="btn btn-ghost" onClick={() => void copy(item.path)}>複製</button>}<strong>{item.period_points}</strong></li>)}
       </ul>}
       {mine.length > 10 && <button type="button" className="btn btn-ghost" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? '收合' : '顯示全部'}</button>}
     </section>

@@ -2,13 +2,13 @@ import type { Hono } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { z } from 'zod';
 import type { Pool } from 'pg';
-import { requireCondition } from '../../../../packages/shared/problem.js';
+import { Problem, requireCondition } from '../../../../packages/shared/problem.js';
+import { digest, type Command } from '../../../../packages/db/index.js';
 import { authRateLimit } from '../../../../modules/identity-membership/members.js';
-import { tokenHash } from '../../../../modules/identity-membership/service.js';
-import { normalizeShareUrl } from '../../../../packages/shared/share-url.js';
+import { authenticate } from '../../../../modules/identity-membership/service.js';
 import { previewLink } from '../../../../modules/community/link-preview.js';
 import { createPromotionLink, creditPromotionClick, listMyPromotionLinks, promotionGo, promotionLeaderboards } from '../../../../modules/community/promotion.js';
-import { SocialPostExists, createSocialPost, deleteSocialPost, hideSocialPost, listSocialPosts, publicSocialThumbnail, readSocialThumbnail, saveSocialThumbnail } from '../../../../modules/community/social-posts.js';
+import { SocialPostExists, activeSocialPostId, createSocialPost, deleteSocialPost, hideSocialPost, listSocialPosts, publicSocialThumbnail, readSocialThumbnail, saveSocialThumbnail, socialPostDraft } from '../../../../modules/community/social-posts.js';
 import { moduleCommand, type PlatformEnv } from '../module-context.js';
 import type { PlatformRuntime } from '../runtime.js';
 
@@ -25,10 +25,16 @@ export function checkSocialThumbnailHeaders(contentType?: string, contentLength?
 }
 
 async function optionalUser(pool: Pool, raw: string | undefined) {
-  if (!raw || !/^[A-Za-z0-9_-]{43}$/.test(raw)) return null;
-  const result = await pool.query(`SELECT u.user_id FROM sessions s JOIN users u USING(user_id)
-    WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>now() AND u.active`, [tokenHash(raw)]);
-  return (result.rows[0]?.user_id as string | undefined) ?? null;
+  try { return (await authenticate(pool, raw)).user_id; }
+  catch (error) { if (error instanceof Problem && error.status === 401) return null; throw error; }
+}
+
+async function storedSocialPost(pool: Pool, input: Command) {
+  const hash = digest({ body: input.body, expected: input.expected ?? null });
+  const prior = (await pool.query('SELECT request_sha256,response FROM command_receipts WHERE user_id=$1 AND operation=$2 AND idempotency_key=$3', [input.actor.user_id, input.operation, input.key])).rows[0];
+  if (!prior) return null;
+  requireCondition(prior.request_sha256 === hash, 409, 'idempotency_conflict', '同一操作識別碼不可搭配不同內容。');
+  return prior.response as Record<string, unknown>;
 }
 
 async function bounded(request: Request) {
@@ -86,10 +92,17 @@ export function registerMemberPromotion(app: Hono<PlatformEnv>, pool: Pool, runt
   app.get('/api/v1/social-posts', async c => c.json(await listSocialPosts(pool, c.get('actor'), { platform: c.req.query('platform'), cursor: c.req.query('cursor') })));
   app.post('/api/v1/social-posts', async c => {
     const commandInput = await moduleCommand(c);
-    const url = typeof (commandInput.body as { url?: unknown } | null)?.url === 'string' ? (commandInput.body as { url: string }).url : '';
-    const normalized = normalizeShareUrl(url);
-    const preview = normalized.ok ? await previewLink(normalized.url, previewFetch(runtime)) : { title: null, image: null, source: null };
-    try { return c.json(await createSocialPost(pool, commandInput, preview, clock(runtime)), 201); }
+    const draft = socialPostDraft(commandInput.body, runtime.publicOrigin);
+    requireCondition(/^[A-Za-z0-9_-]{8,128}$/.test(commandInput.key), 400, 'idempotency_required', '請提供有效的 Idempotency-Key。');
+    const existing = await activeSocialPostId(pool, commandInput.actor.community_id, draft.normalized.url);
+    if (existing) {
+      const replay = await storedSocialPost(pool, commandInput);
+      if (replay) return c.json(replay, 201);
+      return c.json({ type: 'about:blank', title: 'social_post_exists', status: 409, code: 'social_post_exists', detail: '這則貼文已經有人分享過了。', post_id: existing }, 409);
+    }
+    await authRateLimit(pool, 'social-post-preview', commandInput.actor.user_id, 30, 3600);
+    const preview = await previewLink(draft.normalized.url, previewFetch(runtime));
+    try { return c.json(await createSocialPost(pool, commandInput, preview, clock(runtime), runtime.publicOrigin), 201); }
     catch (error) {
       if (error instanceof SocialPostExists) return c.json({ type: 'about:blank', title: 'social_post_exists', status: 409, code: 'social_post_exists', detail: '這則貼文已經有人分享過了。', post_id: error.post_id }, 409);
       throw error;

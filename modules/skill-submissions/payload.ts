@@ -134,6 +134,22 @@ export async function normalizeEventPoster(mime:string,bytes:Buffer,orientation:
 
 const invalidThumbnail=()=>new Problem(422,'invalid_social_thumbnail','縮圖無法使用。請提供完整的靜態 PNG、JPEG 或 WebP，512 KiB 以下。');
 
+const REMOTE_THUMB_MAX=5*1024*1024;
+
+// Remote previews declare any image/* and sometimes lie. Sniff the bytes, refuse animation, then the same 640×360 cover.
+export async function normalizeRemoteThumbnail(bytes:Buffer):Promise<Buffer>{
+  if(bytes.length===0||bytes.length>REMOTE_THUMB_MAX)throw invalidThumbnail();
+  const format=rasterFormat(bytes);
+  if(!format)throw invalidThumbnail();
+  rejectAnimation(bytes,format);
+  try{
+    const webp=await normalizeImage(bytes,{purpose:'social_thumbnail',format,maxDimension:COVER_MAX_DIMENSION,maxPixels:COVER_MAX_PIXELS,maxOutputBytes:COVER_MAX_BYTES,
+      output:{width:640,height:360,fit:'cover',quality:80,effort:4}});
+    if(webp.length===0||webp.length>COVER_MAX_BYTES)throw invalidThumbnail();
+    return webp;
+  }catch(error){if(error instanceof Problem)throw error;throw invalidThumbnail();}
+}
+
 export async function normalizeSocialThumbnail(mime:string,bytes:Buffer):Promise<Buffer>{
   requireCondition(bytes.length>0&&bytes.length<=COVER_MAX_BYTES,413,'social_thumbnail_too_large','縮圖需為 512 KiB 以下。');
   const format=rasterFormat(bytes);

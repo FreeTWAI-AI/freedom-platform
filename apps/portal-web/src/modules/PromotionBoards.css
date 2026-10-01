@@ -16,6 +16,8 @@
 .promotion-mine li{padding:.45rem 0;border-top:1px solid var(--line)}
 .promotion-kind{flex:none;font-size:.75rem;color:var(--muted)}
 .promotion-link-title{flex:1}
+.promotion-mine li.is-unavailable .promotion-kind,
+.promotion-mine li.is-unavailable .promotion-link-title{color:var(--muted)}
 .promotion-rules{border-top:1px solid var(--line);padding-top:.4rem}
 .promotion-rules summary{min-height:44px;display:flex;align-items:center;cursor:pointer}
 .promotion-share-points,.promotion-share-rule{margin:.35rem 0;color:var(--muted);font-size:.85rem}

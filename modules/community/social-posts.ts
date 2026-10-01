@@ -3,7 +3,7 @@ import type { Pool } from 'pg';
 import { z } from 'zod';
 import { command, type Command } from '../../packages/db/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
-import { normalizeShareUrl, PLATFORM_LABELS, SOCIAL_PLATFORMS, type SocialPlatform } from '../../packages/shared/share-url.js';
+import { isOwnWorkshopHost, normalizeShareUrl, PLATFORM_LABELS, SOCIAL_PLATFORMS, type SocialPlatform } from '../../packages/shared/share-url.js';
 import { normalizeSocialThumbnail } from '../skill-submissions/payload.js';
 import { avatarUrl } from '../identity-membership/avatars.js';
 import type { Actor } from '../identity-membership/service.js';
@@ -81,22 +81,33 @@ export async function listSocialPosts(pool: Pool, actor: Actor, query: { platfor
   return { items: page, next_cursor: rows.length > 24 && last ? Buffer.from(`${last.created_at}\n${last.post_id}`).toString('base64url') : null, can_hide: await canHideSocialPosts(pool, actor) };
 }
 
-function prepared(raw: unknown, preview: LinkPreview) {
+export function socialPostDraft(raw: unknown, publicOrigin: string) {
   const body = input.parse(raw);
   const normalized = normalizeShareUrl(body.url);
   requireCondition(normalized.ok, 422, 'social_post_url', '這個網址不能分享。');
+  requireCondition(!isOwnWorkshopHost(normalized.host, publicOrigin), 422, 'social_post_url', '請分享社群平台上的貼文。');
   const submitted = body.title?.trim() ?? '';
   requireCondition(submitted.length <= 120, 422, 'validation_failed', '標題請在 120 字以內。');
   requireCondition(!/[\u0000-\u001f\u007f]/.test(submitted), 422, 'validation_failed', '標題含有無法使用的字元。');
-  const title = (submitted || preview.title || normalized.host).slice(0, 120);
-  requireCondition(title.length >= 1, 422, 'validation_failed', '請填寫標題。');
   const note = body.note?.trim() ? body.note.trim() : null;
   requireCondition(!note || note.length <= 500, 422, 'validation_failed', '說明請在 500 字以內。');
-  return { normalized, title, note };
+  return { normalized, submitted, note };
 }
 
-export async function createSocialPost(pool: Pool, inputCommand: Command, preview: LinkPreview, now = new Date()) {
-  const draft = prepared(inputCommand.body, preview);
+export async function activeSocialPostId(pool: Pool, communityId: string, url: string) {
+  const row = (await pool.query(`SELECT post_id FROM community_social_posts WHERE community_id=$1 AND url=$2 AND state='active'`, [communityId, url])).rows[0];
+  return (row?.post_id as string | undefined) ?? null;
+}
+
+function prepared(raw: unknown, preview: LinkPreview, publicOrigin: string) {
+  const draft = socialPostDraft(raw, publicOrigin);
+  const title = (draft.submitted || preview.title || draft.normalized.host).slice(0, 120);
+  requireCondition(title.length >= 1, 422, 'validation_failed', '請填寫標題。');
+  return { normalized: draft.normalized, title, note: draft.note };
+}
+
+export async function createSocialPost(pool: Pool, inputCommand: Command, preview: LinkPreview, now = new Date(), publicOrigin = 'https://freetwai.com') {
+  const draft = prepared(inputCommand.body, preview, publicOrigin);
   try {
     return await command(pool, inputCommand, async () => {}, async q => {
       const existing = (await q.query(`SELECT post_id FROM community_social_posts WHERE community_id=$1 AND url=$2 AND state='active'`, [inputCommand.actor.community_id, draft.normalized.url])).rows[0];

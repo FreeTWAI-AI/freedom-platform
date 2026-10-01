@@ -1,5 +1,5 @@
 import {useEffect, useId, useRef, useState} from 'react';
-import {ApiError, type PortalClient} from '../api';
+import type {PortalClient} from '../api';
 import './SkillDiscovery.css';
 
 type LinkView = {path: string; points: {week: number; all: number}};
@@ -69,8 +69,4 @@ export function PromotionShare({client, kind, target, title, text, label = 'åˆ†ä
       </div>}
     </dialog>
   </div>;
-}
-
-export function ApiMessage(error: unknown, fallback: string) {
-  return error instanceof ApiError || error instanceof Error ? error.message : fallback;
 }
