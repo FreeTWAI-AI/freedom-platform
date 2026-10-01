@@ -429,6 +429,17 @@ try {
     expect(metadata.height).toBe(cover.height);
   }
   console.log('All 37 distinct skill-book covers delivered over HTTPS: PASS');
+  // 社群技能書 without submitted artwork use drawn covers from their own manifest.
+  const communityArt=JSON.parse(await readFile(new URL('../docs/design/community-skill-art-manifest.json',import.meta.url),'utf8')).assets;
+  for(const asset of communityArt){
+    const image=await anonymous.get(origin+'/'+asset.path.replace(/^apps\/portal-web\/public\//,''));
+    expect(image.status()).toBe(200);
+    expect(image.headers()['content-type']).toContain('image/webp');
+    const metadata=await sharp(await image.body()).metadata();
+    expect(metadata.width).toBe(asset.width);
+    expect(metadata.height).toBe(asset.height);
+  }
+  console.log(`All ${communityArt.length} 社群技能書 art assets delivered over HTTPS: PASS`);
 
   stage = 'member card and privacy';
   await navigate(page, '我的名片');
@@ -660,10 +671,14 @@ try {
 
   stage='unlocked and locked skill shelves';
   const publicCatalogResponse=await page.request.get(origin+'/api/v1/community');expect(publicCatalogResponse.status()).toBe(200);
-  const fullBookIds=(await publicCatalogResponse.json()).skill_books.map(book=>book.id).sort();
+  const publicCatalog=await publicCatalogResponse.json(),fullBookIds=publicCatalog.skill_books.map(book=>book.id).sort();
+  const shelfDiscoveryResponse=await page.request.get(origin+'/api/v1/skills/discovery');expect(shelfDiscoveryResponse.status()).toBe(200);
+  const designated=new Set([...publicCatalog.skill_books.filter(book=>book.official_guild_keys?.length).map(book=>book.id),...(await shelfDiscoveryResponse.json()).books.filter(book=>book.official_guild_keys.length).map(book=>book.book_id)]);
   const grantResponse=await page.request.get(origin+'/api/v1/me/skill-books');expect(grantResponse.status()).toBe(200);
   const granted=(await grantResponse.json()).items.map(book=>book.book_id);
-  const unlockedIds=fullBookIds.filter(id=>granted.includes(id)),lockedIds=fullBookIds.filter(id=>!granted.includes(id));
+  // Guild-designated books split into unlocked／locked; every other catalog book is a 社群技能書 on its own shelf.
+  const guildIds=fullBookIds.filter(id=>designated.has(id)||granted.includes(id)),communityIds=fullBookIds.filter(id=>!guildIds.includes(id));
+  const unlockedIds=guildIds.filter(id=>granted.includes(id)),lockedIds=guildIds.filter(id=>!granted.includes(id));
   await navigate(page, '技能書架');
   const library=page.locator('.community-library'),shelfTabs=page.getByRole('group',{name:'技能書範圍'});
   const unlockedTab=shelfTabs.getByRole('button',{name:/^已解鎖(?: · \d+)?$/}),lockedTab=shelfTabs.getByRole('button',{name:'未解鎖',exact:true});
@@ -675,7 +690,11 @@ try {
   await expect(library.locator('article[data-book-id]')).toHaveCount(lockedIds.length);
   expect(await library.locator('article[data-book-id]').evaluateAll(cards=>cards.map(card=>card.getAttribute('data-book-id')).sort())).toEqual(lockedIds);
   await expect(library.locator('article[data-access="locked"]')).toHaveCount(lockedIds.length);
-  expect([...unlockedIds,...lockedIds].sort()).toEqual(fullBookIds);
+  expect([...unlockedIds,...lockedIds].sort()).toEqual(guildIds);
+  const communityBooks=page.locator('.community-skill-library article[data-book-id]');
+  await expect(communityBooks).toHaveCount(communityIds.length);
+  expect(await communityBooks.evaluateAll(cards=>cards.map(card=>card.getAttribute('data-book-id')).sort())).toEqual(communityIds);
+  expect([...guildIds,...communityIds].sort()).toEqual(fullBookIds);
   // Previewing a public guide does not join a guild or write a skill grant.
   if(lockedIds.length){
     await library.locator('.skill-library-book').first().getByRole('button',{name:'預覽技能書',exact:true}).click();
@@ -704,7 +723,7 @@ try {
     await noOverflow('Compact unlocked skill shelf overflow');
     await screenshot(`public-compact-skill-library-${width}.png`);
   }
-  console.log('Default unlocked shelf and free locked previews form a complete, disjoint catalog; responsive rows: PASS');
+  console.log('Unlocked and locked guild books plus 社群技能書 form a complete, disjoint catalog; responsive rows: PASS');
 
   stage='read-only skill dice preview and upload entry';
   // Guard every upload mutation during this read-only check, including an accidental
