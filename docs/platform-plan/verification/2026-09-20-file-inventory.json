@@ -209,8 +209,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/repo-maintainer.ts",
-      "bytes": 7368,
-      "sha256": "d2bf951c1d0522236bcf8107a89439a715087c2d97f9090dfe8328c7dd18c7d9"
+      "bytes": 7378,
+      "sha256": "5800bc972516e25ee48649361c65cbddf77b2d29e8d98af842d3a40ff45d6119"
     },
     {
       "path": "apps/platform-api/src/routes/skill-discovery.ts",
@@ -849,13 +849,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/AdminReviewCenter.css",
-      "bytes": 3940,
-      "sha256": "f60ad151d26dc5cf58a3f8d20b9c69931bf94bf090a79aed9d7456bd7d8b13c0"
+      "bytes": 3959,
+      "sha256": "bcfe9043267aeb24c0a9c4b1e014a60d8c12077db99b1e35e8ccd3038116997d"
     },
     {
       "path": "apps/portal-web/src/modules/AdminReviewCenter.tsx",
-      "bytes": 28679,
-      "sha256": "ae87f6a776836455b70e2d4295a11608a2e585439b47fb03bba9b700ca343040"
+      "bytes": 29246,
+      "sha256": "b21cd00af600a8e6d9a090964c8db1e08965021e5d6b6aa922a9d205d1bf5c14"
     },
     {
       "path": "apps/portal-web/src/modules/AgentShops.css",
@@ -1389,8 +1389,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/review-handoff.tsx",
-      "bytes": 8923,
-      "sha256": "c968c2b1390e8c5386a241e60ec047f13a3fb6ab824f5384fdb487340c1c770b"
+      "bytes": 9411,
+      "sha256": "72ff986c8c61b52c3d7bc54ddb6a7b958440bbbc64ef3e14187df0d8ed7764a7"
     },
     {
       "path": "apps/portal-web/src/modules/shared.tsx",
@@ -1954,8 +1954,8 @@
     },
     {
       "path": "docs/development/platform-admin-api.md",
-      "bytes": 25853,
-      "sha256": "8d45996a2f4e83721dd2641722f894723de091d5eb7ac5a2d33a4ce84df4bd99"
+      "bytes": 27689,
+      "sha256": "0ef8d0dd72f1d4c6c73f964415d30092eb0d515d7878401845ec11da8071a5f8"
     },
     {
       "path": "docs/development/public-operations.md",
@@ -1964,8 +1964,8 @@
     },
     {
       "path": "docs/development/repo-maintainer.md",
-      "bytes": 36242,
-      "sha256": "7cefc8b1881178e98cc372c4f9f1d41ec42a45f10a9ef56b6dc6daf426f3b76b"
+      "bytes": 37460,
+      "sha256": "4ad58b6bde41f5fbc38ea952ede2e42bba6b66c54d3f69109dce9fb2c19a78a9"
     },
     {
       "path": "docs/development/repository-guidance-index.json",
@@ -3949,13 +3949,13 @@
     },
     {
       "path": "modules/repo-maintainer/guild-reviews.ts",
-      "bytes": 18001,
-      "sha256": "3f66535324ff99e3ae1f724eb2240ce5caffab98ad6f28635d86922665219848"
+      "bytes": 18880,
+      "sha256": "12e38865ad4cf2f9181021038e49c71f33e3e965e43dd54e8e9176790a7fb2a2"
     },
     {
       "path": "modules/repo-maintainer/handoff-task.ts",
-      "bytes": 19112,
-      "sha256": "3f93282157808bf407ad28c9f55642b91f81b597f35d4938901c7b9a9a14d0a3"
+      "bytes": 22528,
+      "sha256": "395fcc1b3edc585c64072aaeb246ae2a7645b19714bc7e54a52e9b07da3a2bd0"
     },
     {
       "path": "modules/repo-maintainer/handoffs.ts",
@@ -3979,8 +3979,8 @@
     },
     {
       "path": "modules/repo-maintainer/service.ts",
-      "bytes": 30681,
-      "sha256": "64fc0d2f9cea8a2b335592803b7d24e3b67bbd70f1bd22ad4ab70a5816440ba5"
+      "bytes": 32303,
+      "sha256": "c4e70330a47ae99fbc2a1161b3eaf8698755d4353f01189857bf5611e2da3c01"
     },
     {
       "path": "modules/repo-maintainer/skill-books.ts",
@@ -4339,8 +4339,8 @@
     },
     {
       "path": "tests/e2e/admin-review-center.spec.ts",
-      "bytes": 36203,
-      "sha256": "2cf221eaa4f61699a6b4f13f0ae010a73cf66133f4d11e9f173fde1923750931"
+      "bytes": 38056,
+      "sha256": "dfad71c1d291a2999912b5d4466e7f549beebab74a5c4008af13f355052f6a7a"
     },
     {
       "path": "tests/e2e/admin.spec.ts",
@@ -4479,8 +4479,8 @@
     },
     {
       "path": "tests/e2e/guild-reviews.spec.ts",
-      "bytes": 31818,
-      "sha256": "f69598a47c3a1b2a44cf15796320e06db44b8079826ddd3e7a5d9211d2b15a36"
+      "bytes": 33690,
+      "sha256": "f4a0078fe0e67de63e5d8720231463b97ef70858bf93fef47d10ca6b98da6b5c"
     },
     {
       "path": "tests/e2e/guild-workspace.spec.ts",
@@ -5029,8 +5029,8 @@
     },
     {
       "path": "tests/runtime/repo-maintainer-handoff.test.ts",
-      "bytes": 26718,
-      "sha256": "952842a5f1c05deb7cc24fdf95e767210185127cbbaec6ef044c48a24520b1fc"
+      "bytes": 34288,
+      "sha256": "d2a507a79a92a6cf34488026a87c5543624ba728a65d979d031205389667bdba"
     },
     {
       "path": "tests/runtime/repo-maintainer-policy.test.ts",
