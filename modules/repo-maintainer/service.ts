@@ -49,6 +49,16 @@ const VIEWER_REASON: Record<Exclude<ViewerStatus, 'ready'>, string> = {
   no_github: '你的會員帳號還沒有連結 GitHub，所以不能認領給自己；仍可以指派其他人。',
 };
 
+const HANDOFF_VIEWER_REASON: Record<Exclude<ViewerStatus, 'ready'>, string> = {
+  no_member: '你的管理員 email 沒有對應的會員帳號，所以不能用自己的 GitHub 身分交給 AI。',
+  email_unverified: '你的會員 email 還沒驗證（用會員登入頁的「忘記密碼」重設一次密碼即可完成驗證），所以不能交給 AI。',
+  no_github: '你的會員帳號還沒有連結 GitHub，所以不能交給 AI。',
+};
+
+function handoffViewerReason(status: ViewerStatus): string {
+  return HANDOFF_VIEWER_REASON[status === 'ready' ? 'no_member' : status];
+}
+
 /** Same member pick as the reviewer directory: one user per admin email, then that user's GitHub link. */
 const ADMIN_MEMBER_LINK = `LEFT JOIN LATERAL (
        SELECT user_id, active, email_verified_at FROM users
@@ -139,7 +149,14 @@ async function scopedPull(q: Queryable, admin: AdminActor, id: string, lock = fa
 
 export async function reviewCenterPull(pool: Pool, admin: AdminActor, id: string) {
   z.uuid().parse(id);
-  return assemblePullDetail(pool, await scopedPull(pool, admin, id), true);
+  const pull = await scopedPull(pool, admin, id);
+  const detail = await assemblePullDetail(pool, pull, true);
+  if (!await adminEligibility(pool, admin, pull.repository_id)) {
+    const viewer = await resolveViewer(pool, admin);
+    const reason = handoffViewerReason(viewer.status);
+    detail.handoff = { allowed: false, reason, merge_allowed: false, merge_reason: reason, recent: detail.handoff.recent };
+  }
+  return detail;
 }
 
 async function maintainerWrite<T>(pool: Pool, input: AdminCommand, authorize: (q: PoolClient) => Promise<unknown>, run: (q: PoolClient) => Promise<T>): Promise<T> {
@@ -151,8 +168,8 @@ async function maintainerWrite<T>(pool: Pool, input: AdminCommand, authorize: (q
   }
 }
 
-async function adminIdentity(q: Queryable, admin: AdminActor, repositoryId: string): Promise<ClaimIdentity> {
-  const row = (await q.query(
+async function adminEligibility(q: Queryable, admin: AdminActor, repositoryId: string) {
+  return (await q.query(
     `SELECT e.user_id, e.github_user_id, e.github_login
      FROM maintainer_eligible_reviewers e
      JOIN users u ON u.user_id = e.user_id
@@ -161,11 +178,28 @@ async function adminIdentity(q: Queryable, admin: AdminActor, repositoryId: stri
      LIMIT 1`,
     [repositoryId, admin.community_id, admin.admin_id],
   )).rows[0] as { user_id: string; github_user_id: string; github_login: string } | undefined;
+}
+
+function adminClaim(row: { user_id: string; github_user_id: string; github_login: string }): ClaimIdentity {
+  return { ...row, acting_as: 'admin', guild_key: null, skill_book_id: null };
+}
+
+async function adminIdentity(q: Queryable, admin: AdminActor, repositoryId: string): Promise<ClaimIdentity> {
+  const row = await adminEligibility(q, admin, repositoryId);
   if (!row) {
     const viewer = await resolveViewer(q, admin);
     throw new Problem(409, 'maintainer_claim_identity_required', viewer.reason ?? VIEWER_REASON.no_member);
   }
-  return { ...row, acting_as: 'admin', guild_key: null, skill_book_id: null };
+  return adminClaim(row);
+}
+
+async function adminHandoffIdentity(q: Queryable, admin: AdminActor, repositoryId: string): Promise<ClaimIdentity> {
+  const row = await adminEligibility(q, admin, repositoryId);
+  if (!row) {
+    const viewer = await resolveViewer(q, admin);
+    throw new Problem(409, 'maintainer_claim_identity_required', handoffViewerReason(viewer.status));
+  }
+  return adminClaim(row);
 }
 
 async function eligibleIdentity(q: Queryable, repositoryId: string, userId: string, actingAs: ClaimIdentity['acting_as'], key: string | null, bookId: string | null): Promise<ClaimIdentity> {
@@ -492,7 +526,7 @@ export async function createAdminPullHandoff(pool: Pool, input: AdminCommand, id
   const body = parsePullHandoff(input.body);
   return maintainerWrite(pool, { ...input, expected: undefined }, async q => { await scopedPull(q, input.admin, id); }, async q => {
     const pull = await scopedPull(q, input.admin, id, true);
-    const reviewer = await adminIdentity(q, input.admin, pull.repository_id);
+    const reviewer = await adminHandoffIdentity(q, input.admin, pull.repository_id);
     const result = await recordPullHandoff(q, pull, reviewer, { guild_name: null, skill_book_title: null }, body, input.admin.admin_id);
     await audit(q, input.admin, 'maintainer_handoff_create', 'maintainer_pull', id, HANDOFF_AUDIT_REASON,
       { head_sha: pull.head_sha, queue_state: pull.queue_state },
@@ -506,7 +540,7 @@ export async function createAdminIssueHandoff(pool: Pool, input: AdminCommand, i
   const body = parseIssueHandoff(input.body);
   return maintainerWrite(pool, { ...input, expected: undefined }, async q => { await scopedRepository(q, input.admin, id); }, async q => {
     const repository = await scopedRepository(q, input.admin, id, true);
-    const reviewer = await adminIdentity(q, input.admin, repository.repository_id);
+    const reviewer = await adminHandoffIdentity(q, input.admin, repository.repository_id);
     const result = await recordIssueHandoff(q, repository, reviewer, { guild_name: null, skill_book_title: null }, body, input.admin.admin_id);
     await audit(q, input.admin, 'maintainer_handoff_create', 'maintainer_repository', id, HANDOFF_AUDIT_REASON,
       { head_sha: null, queue_state: null },

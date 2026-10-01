@@ -18,6 +18,11 @@ type Repo = {
   skill_book_id: string | null;
 };
 type Summary = { counts: Record<string, number>; repositories: Repo[]; viewer: Viewer };
+const HANDOFF_BLOCKED: Record<Exclude<Viewer['status'], 'ready'>, string> = {
+  no_member: '你的管理員 email 沒有對應的會員帳號，所以不能用自己的 GitHub 身分交給 AI。',
+  email_unverified: '你的會員 email 還沒驗證（用會員登入頁的「忘記密碼」重設一次密碼即可完成驗證），所以不能交給 AI。',
+  no_github: '你的會員帳號還沒有連結 GitHub，所以不能交給 AI。',
+};
 type AdminPerson = { admin_id: string; display_name: string; github_login: string | null; status: string };
 type GuildDirectory = {
   guild_key: string; name: string;
@@ -172,6 +177,7 @@ export function AdminReviewCenter({ client, busy, onMutate }: {
     {nextOffset !== null && <button type="button" className="btn btn-ghost" disabled={loading || busy} onClick={() => void loadQueue(tab, nextOffset, repositoryId, guildFilter)}>載入更多</button>}
     <IssueHandoff
       repositories={(summary?.repositories ?? []).filter(repo => repo.installation_state === 'active' && repo.mode !== 'off').map(repo => ({ id: repo.repository_id, full_name: repo.full_name }))}
+      blockedReason={summary && summary.viewer.status !== 'ready' ? HANDOFF_BLOCKED[summary.viewer.status] : undefined}
       submit={(repositoryId, body, key) => client.request<HandoffResult>(`/review-center/repositories/${repositoryId}/issue-handoffs`, body, { key })}
     />
     <SettingsBlock repositories={summary?.repositories ?? []} directory={directory} guilds={guildChoices} books={directory?.skill_book_choices ?? []} busy={busy} onMutate={onMutate} onSaved={() => void afterWrite(openId)} />

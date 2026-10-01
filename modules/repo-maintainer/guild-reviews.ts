@@ -14,6 +14,7 @@ import { skillBookTitle } from './skill-books.js';
 
 const REVIEW_ACCESS_REQUIRED = '此頁限現任公會長，或已任命的技能書維護者。';
 const GITHUB_REQUIRED = '請先在會員資料連結 GitHub，才能認領審查。';
+const HANDOFF_GITHUB_REQUIRED = '請先在會員資料連結 GitHub，才能交給 AI。';
 const GUILD_SCOPE = '這個項目不屬於你負責的公會。';
 const BOOK_SCOPE = '這個項目不是你負責的技能書。';
 const GUILD_REQUIRED = '你是多個公會的公會長，請選擇審完後要歸到哪個公會。';
@@ -139,9 +140,18 @@ function chooseOption(options: ClaimOptionRow[], access: Access, body: { acting_
   return chosen;
 }
 
-async function memberDetail(q: Queryable, actor: Actor, pull: Record<string, any>) {
+async function memberHandoffDenial(q: Queryable, actor: Actor, access: Access): Promise<{ status: 409 | 403; code: string; reason: string }> {
+  if (!await githubLogin(q, actor)) return { status: 409, code: 'maintainer_claim_identity_required', reason: HANDOFF_GITHUB_REQUIRED };
+  return { status: 403, code: 'maintainer_guild_scope', reason: access.guilds.length ? GUILD_SCOPE : BOOK_SCOPE };
+}
+
+async function memberDetail(q: Queryable, actor: Actor, pull: Record<string, any>, access: Access) {
   const detail = await assemblePullDetail(q, pull, false);
   const options = await claimOptionRows(q, actor, pull.repository_id);
+  if (!options.length) {
+    const denial = await memberHandoffDenial(q, actor, access);
+    detail.handoff = { allowed: false, reason: denial.reason, merge_allowed: false, merge_reason: denial.reason, recent: detail.handoff.recent };
+  }
   return {
     ...detail,
     claim_options: options.map(presentOption),
@@ -168,8 +178,11 @@ export async function listGuildReviews(pool: Pool, actor: Actor, filter: string,
       `SELECT r.repository_id AS id, r.full_name
        FROM maintainer_repositories r
        WHERE r.community_id=$1 AND r.installation_state='active' AND r.mode <> 'off' AND ${visibleSql('$2', '$3')}
+         AND EXISTS (
+           SELECT 1 FROM maintainer_eligible_reviewers e
+           WHERE e.repository_id = r.repository_id AND e.community_id = r.community_id AND e.user_id = $4)
        ORDER BY r.full_name, r.repository_id`,
-      [actor.community_id, access.guilds.map(guild => guild.guild_key), access.books.map(book => book.skill_book_id)],
+      [actor.community_id, access.guilds.map(guild => guild.guild_key), access.books.map(book => book.skill_book_id), actor.user_id],
     );
     return {
       guilds: access.guilds, skill_books: access.books, viewer: viewer(await githubLogin(q, actor)),
@@ -185,7 +198,7 @@ export async function guildReviewPull(pool: Pool, actor: Actor, id: string) {
   return transaction(pool, async q => {
     await activeMember(q, actor);
     const access = await requireReviewAccess(q, actor);
-    return memberDetail(q, actor, await visiblePull(q, actor, id, access));
+    return memberDetail(q, actor, await visiblePull(q, actor, id, access), access);
   });
 }
 
@@ -203,8 +216,8 @@ async function visibleRepository(q: Queryable, actor: Actor, id: string, access:
 async function memberHandoffIdentity(q: Queryable, actor: Actor, repositoryId: string, access: Access) {
   const chosen = pickHandoffIdentity(await claimOptionRows(q, actor, repositoryId));
   if (!chosen) {
-    if (!await githubLogin(q, actor)) throw new Problem(409, 'maintainer_claim_identity_required', GITHUB_REQUIRED);
-    throw new Problem(403, 'maintainer_guild_scope', access.guilds.length ? GUILD_SCOPE : BOOK_SCOPE);
+    const denial = await memberHandoffDenial(q, actor, access);
+    throw new Problem(denial.status, denial.code, denial.reason);
   }
   return chosen;
 }
@@ -243,7 +256,7 @@ export async function claimGuildReview(pool: Pool, input: Command, id: string) {
       acting_as: chosen.acting_as, guild_key: chosen.guild_key, skill_book_id: chosen.skill_book_id,
     }, { admin_id: null, user_id: input.actor.user_id }, 'self', null, now);
     await rederivePull(q, id, now);
-    return memberDetail(q, input.actor, await visiblePull(q, input.actor, id, access));
+    return memberDetail(q, input.actor, await visiblePull(q, input.actor, id, access), access);
   });
 }
 
@@ -289,7 +302,7 @@ export async function releaseGuildReview(pool: Pool, input: Command, claimId: st
     requireCondition(updated, 409, 'maintainer_claim_inactive', CLAIM_INACTIVE);
     if (updated.github_request_state === 'removing') await enqueueMaintainerJob(q, claim.repository_id, 'remove_reviewer_request', claimId, now);
     await rederivePull(q, claim.pull_id, now);
-    return memberDetail(q, input.actor, await visiblePull(q, input.actor, claim.pull_id, access));
+    return memberDetail(q, input.actor, await visiblePull(q, input.actor, claim.pull_id, access), access);
   });
 }
 

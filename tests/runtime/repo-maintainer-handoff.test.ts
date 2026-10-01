@@ -424,6 +424,9 @@ test('members hand off only the repositories they can review', async () => {
     { id: own, full_name: 'FreeTWAI-AI/own-module' },
     { id: open, full_name: 'FreeTWAI-AI/unclaimed-open' },
   ]);
+  const before = await memberRequest(leader, `/guild-reviews/${ownPull}`);
+  assert.equal(before.status, 200, JSON.stringify(before.data));
+  assert.equal(before.data.handoff.allowed, true);
   const created = await memberRequest(leader, `/guild-reviews/${ownPull}/handoffs`, { kind: 'fix', cli: 'claude', expected_head_sha: SHA }, 999);
   assert.equal(created.status, 201, JSON.stringify(created.data));
   assert.match(created.data.markdown, /`@leader-gh`（「/);
@@ -459,4 +462,60 @@ test('members hand off only the repositories they can review', async () => {
   const openDenied = await memberRequest(maintainer, `/guild-reviews/${openPull}/handoffs`, { kind: 'fix', cli: 'claude', expected_head_sha: SHA });
   assert.equal(openDenied.status, 404);
   assert.equal(openDenied.data.code, 'maintainer_pull_not_found');
+});
+
+const NO_GITHUB = '你的會員帳號還沒有連結 GitHub，所以不能交給 AI。';
+const MEMBER_HANDOFF_GITHUB = '請先在會員資料連結 GitHub，才能交給 AI。';
+
+test('an admin without a GitHub link is told before the handoff, and the 409 uses the same sentence', async () => {
+  const userId = randomUUID();
+  await pool.query(`INSERT INTO users (user_id, community_id, email, display_name, password_hash, profession_membership_ref, email_verified_at)
+    SELECT $1, community_id, $2, $3, password_hash, $4, now() FROM users WHERE user_id=$5`,
+  [userId, adminEmail, '尚未連結', randomUUID(), DEMO_USERS[0].user_id]);
+  const repository = await insertRepo({ full: 'FreeTWAI-AI/freedom-platform' });
+  const pull = await insertPull(repository, 21);
+  const detail = await adminRequest(`/review-center/pulls/${pull}`);
+  assert.equal(detail.status, 200, JSON.stringify(detail.data));
+  assert.equal(detail.data.handoff.allowed, false);
+  assert.equal(detail.data.handoff.merge_allowed, false);
+  assert.equal(detail.data.handoff.reason, NO_GITHUB);
+  assert.equal(detail.data.handoff.merge_reason, NO_GITHUB);
+  const denied = await adminRequest(`/review-center/pulls/${pull}/handoffs`, { kind: 'fix', cli: 'claude', expected_head_sha: SHA });
+  assert.equal(denied.status, 409);
+  assert.equal(denied.data.code, 'maintainer_claim_identity_required');
+  assert.equal(denied.data.detail, NO_GITHUB);
+  const issue = await adminRequest(`/review-center/repositories/${repository}/issue-handoffs`, { issue_number: 4, cli: 'claude' });
+  assert.equal(issue.status, 409);
+  assert.equal(issue.data.code, 'maintainer_claim_identity_required');
+  assert.equal(issue.data.detail, NO_GITHUB);
+  const claim = await adminRequest(`/review-center/pulls/${pull}/claim`, {}, Number(detail.data.aggregate_version));
+  assert.equal(claim.status, 409);
+  assert.equal(claim.data.code, 'maintainer_claim_identity_required');
+  assert.equal(claim.data.detail, '你的會員帳號還沒有連結 GitHub，所以不能認領給自己；仍可以指派其他人。');
+});
+
+test('a guild leader without a GitHub link sees an empty repository list and cannot hand off', async () => {
+  const leaderId = DEMO_USERS[0].user_id;
+  await lead(leaderId, 'guild_ai_vibe');
+  const own = await insertRepo({ guild: 'guild_ai_vibe', full: 'FreeTWAI-AI/own-module' });
+  const pull = await insertPull(own, 1);
+  const leader = await login(pool, DEMO_USERS[0].email, DEMO_PASSWORD);
+  const listed = await memberRequest(leader, '/guild-reviews?queue=open');
+  assert.equal(listed.status, 200, JSON.stringify(listed.data));
+  assert.deepEqual(listed.data.repositories, []);
+  assert.equal(listed.data.viewer.reason, '請先在會員資料連結 GitHub，才能認領審查。');
+  const detail = await memberRequest(leader, `/guild-reviews/${pull}`);
+  assert.equal(detail.status, 200, JSON.stringify(detail.data));
+  assert.equal(detail.data.handoff.allowed, false);
+  assert.equal(detail.data.handoff.merge_allowed, false);
+  assert.equal(detail.data.handoff.reason, MEMBER_HANDOFF_GITHUB);
+  assert.equal(detail.data.handoff.merge_reason, MEMBER_HANDOFF_GITHUB);
+  const denied = await memberRequest(leader, `/guild-reviews/${pull}/handoffs`, { kind: 'fix', cli: 'claude', expected_head_sha: SHA });
+  assert.equal(denied.status, 409);
+  assert.equal(denied.data.code, 'maintainer_claim_identity_required');
+  assert.equal(denied.data.detail, MEMBER_HANDOFF_GITHUB);
+  const claim = await memberRequest(leader, `/guild-reviews/${pull}/claim`, {}, Number(detail.data.aggregate_version));
+  assert.equal(claim.status, 409);
+  assert.equal(claim.data.code, 'maintainer_claim_identity_required');
+  assert.equal(claim.data.detail, '請先在會員資料連結 GitHub，才能認領審查。');
 });
