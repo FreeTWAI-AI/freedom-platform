@@ -19,6 +19,7 @@ import {NotificationBell,type BellAction} from './modules/NotificationBell'
 import { MemberTasks } from './modules/MemberTasks'
 import { MemberMessages } from './modules/MemberMessages'
 import { EventsPanel } from './modules/EventsPanel'
+import { EventHighlights } from './modules/EventHighlights'
 import {PublicEventPage} from './modules/PublicEventPage'
 import { TaskBoardPanel } from './modules/TaskBoardPanel'
 import { WelcomePreview } from './modules/WelcomePreview'
@@ -92,6 +93,7 @@ const TAB_GUIDANCE: Record<TabId, string> = {
   todos: '查看會員待辦事項與可直接前往的操作。',
   messages: '查看收到的訊息與對話。',
   events: '查看社群活動、審核結果與報名狀態。',
+  highlights: '活動結束後會自動出現在這裡。這一頁是公開的，參加過的夥伴可以補上照片、海報和影片連結。',
   tasks: '探索工坊工作、GitHub Issue／PR 歷史與已連結 GitHub 的會員排行，查看有來源的驗收紀錄。',
 }
 
@@ -624,6 +626,7 @@ function Workspace({
             {tab === 'cocreation' && <CoCreationPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'community' && <CommunityPanel client={client} onNavigate={selectTab} />}
             {tab === 'events' && <EventsPanel client={client} session={session} />}
+            {tab === 'highlights' && <EventHighlights client={client} />}
             {tab === 'tasks' && <TaskBoardPanel client={client} onNavigate={selectTab} />}
             {tab === 'skills' && <SkillsPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'squads' && <SquadsPanel client={client} session={session} onNavigate={selectTab} />}
@@ -652,6 +655,7 @@ function tabTitle(tab: TabId): string {
 function tabFromHash(): TabId {
   const value = window.location.hash.slice(1)
   if(value.startsWith('events/'))return 'events'
+  if(value === 'highlights' || value.startsWith('highlights/'))return 'highlights'
   if(!value&&eventIdFromLocation())return 'events'
   return Object.hasOwn(TAB_TITLES, value) ? value as TabId : 'home'
 }
