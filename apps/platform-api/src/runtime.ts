@@ -35,4 +35,8 @@ export type PlatformRuntime = {
   guildReviewer?: GuildReviewer;
   /** Extra non-secret fields merged into /api/v1/health. */
   health?: Readonly<Record<string, string | null>>;
+  /** Clock for promotion days. Tests inject a fixed instant. */
+  now?: () => Date;
+  /** Link-preview fetch. Production calls global fetch unbound; tests pass a fixture. */
+  linkPreviewFetch?: (input: string, init?: RequestInit) => Promise<Response>;
 };
