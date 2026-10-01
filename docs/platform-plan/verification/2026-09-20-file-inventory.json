@@ -1520,7 +1520,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30575,
-      "sha256": "ecf4b545c52eb692599aee63effdd9be0f48f82599a552a57918447c9925a1f2"
+      "sha256": "607f935312d79b8dca7d432d8c186395dccbabf74d85f5e3fca883ee8f208c26"
     },
     {
       "path": "deploy/cloudflare/lib/cloudflare.mjs",
@@ -3378,11 +3378,6 @@
       "sha256": "f6162dae8a786f707a9ef6b9866ab032e3dc7ab959adc7dde50198e0c70170b5"
     },
     {
-      "path": "migrations/068_manual_registration_skill_drafts.sql",
-      "bytes": 516,
-      "sha256": "24447a58fbeca66a5e796dc29e96cc53d66e162717d93fe680078719b9e3ba66"
-    },
-    {
       "path": "migrations/068_member_card_designs.sql",
       "bytes": 504,
       "sha256": "eb3e4767d80ea737bcb6b333e48a6a2c2bd761d22fddaff8d0c34906d5635b4c"
@@ -3391,6 +3386,11 @@
       "path": "migrations/069_guild_member_tiers.sql",
       "bytes": 2479,
       "sha256": "4a1dca2b8f0c0b91b6cd7e6134793445edce1302b8ed4e4f460cfdb1f9418bbf"
+    },
+    {
+      "path": "migrations/071_manual_registration_skill_drafts.sql",
+      "bytes": 516,
+      "sha256": "24447a58fbeca66a5e796dc29e96cc53d66e162717d93fe680078719b9e3ba66"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
