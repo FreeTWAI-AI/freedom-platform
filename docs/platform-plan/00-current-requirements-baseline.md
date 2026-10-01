@@ -4,6 +4,8 @@
 
 > 2026-09-23 會員入口修訂：Ted 明示新註冊會員必須完成重新設計的定位，再選主力公會、領技能書、進入平台。這項指示取代本 planning baseline 對新會員的 optional assessment／可略過入口；保留本人選擇公會、無診斷／資格推定、平台不過手錢等邊界。實作與其餘本輪決定見 [會員入口修訂](../development/member-onboarding-release.md)。
 
+> 2026-10-01 整合 Issue #42：新註冊會員仍須先選擇主要公會並領取該公會技能書，會員功能才開放；這道加入門維持。歡迎畫面以快速加入為主（完整公會清單、搜尋與主題篩選），定位測驗改為提供公會建議、可稍後補做。快速加入的會員在做完測驗前，會員首頁顯示「補做定位測驗」。管理員看到的加入方式為「已完成定位」、「已加入（未做定位）」、「尚未完成加入」或「既有會員」。未選主要公會時 403 `onboarding_required` 的說明是「請先選擇主要公會，完成加入後即可使用會員功能。」加入仍由本人自助完成，沒有審核；既有會員不追溯封鎖。見 [會員入口](../development/member-onboarding-release.md)。`docs/platform-plan/contracts/` 仍寫 "positioning gate"／"post-positioning"；那是新會員加入門（已記錄 `onboarding_completed_at`），快速選擇主要公會現在也會滿足這道門，契約用字先留著，待擁有者確認。
+
 > 2026-09-23 實作範圍對照：code 共創任務及 PR 以 GitHub 為真相，平台先保存協調資料與唯讀摘要，尚非下文完整雙向 WorkItem 同步。Guild 由本人選擇加入，登錄作品不自動替本人加入其他 Guild。會員「裝備」指工具／訂閱，「技能書」指 Repo，不等於 Agent installation。公開會員 beta 以 Node＋PostgreSQL 運行，完整 56 packages／12 runtimes 與 signed control plane 仍是目標，見 [落差盤點](../development/plan-drift-2026-09-23.md)。
 
 > 2026-09-24 使用者需求（優先於下文舊說法）：
