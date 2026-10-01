@@ -46,6 +46,7 @@ freedom-skill-upload submit --file skill.json [--cover cover.png]
 - `upload_key_invalid`：金鑰失效，請會員到網站建立新金鑰後重新 `init`。
 - `validation_failed`：依錯誤訊息修正內容（常見是介紹數量不是 100 或有重複）。上傳授權若未被使用，可以再送一次同一份草稿；否則重新執行 `submit` 會建立新草稿。
 - `upload_grant_consumed`：這份草稿已收到內容；修改後請重新 `submit` 建立新草稿，或請會員在網站撤回舊草稿。
+- `repository_mismatch`：上傳的儲存庫和這份草稿指定的不同。請改傳同一個儲存庫，或請會員撤銷草稿後重建；這次授權尚未消耗。
 - 其他錯誤：告訴會員錯誤代碼與草稿 ID，請他到網站查看；不要反覆重試。
 
 完整協定見 `protocol.md`。

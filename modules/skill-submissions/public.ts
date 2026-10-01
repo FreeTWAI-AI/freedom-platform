@@ -1,5 +1,6 @@
 import type { Pool } from 'pg';
 import { z } from 'zod';
+import { catalogRepositoryKeys } from './repository-match.js';
 import { publicPath } from './service.js';
 
 // Published-only, explicitly sanitised projections for public pages. A row is
@@ -55,7 +56,9 @@ export type PublishedSkillSubmission = ReturnType<typeof summary>;
 
 export async function listPublishedSkillSubmissions(pool: Pool, limit = 100): Promise<PublishedSkillSubmission[]> {
   const bounded = Math.max(1, Math.min(100, Number.isSafeInteger(limit) ? limit : 100));
-  return (await pool.query(`SELECT ${COLUMNS} ${PUBLISHED} ORDER BY s.published_at DESC,s.submission_id LIMIT $1`, [bounded])).rows.map(summary);
+  // Catalog books already occupy the shelf for these repositories. Filtering in SQL keeps LIMIT full.
+  return (await pool.query(`SELECT ${COLUMNS} ${PUBLISHED} AND lower(v.repository_full_name) <> ALL($2::text[]) ORDER BY s.published_at DESC,s.submission_id LIMIT $1`,
+    [bounded, catalogRepositoryKeys])).rows.map(summary);
 }
 
 export async function readPublishedSkillSubmission(pool: Pool, id: string) {

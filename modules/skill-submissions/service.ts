@@ -7,15 +7,17 @@ import { tokenHash, type Actor } from '../identity-membership/service.js';
 import { authRateLimit } from '../identity-membership/members.js';
 import { importProjectWithinTransaction, type GitHubRead } from '../opensource-marketing/service.js';
 import type { NormalizedSubmission } from './payload.js';
+import { lockMemberDrafts, MAX_ACTIVE_DRAFTS } from './limits.js';
+import { catalogBookForRepository, repositoryDisplayName, repositoryKey } from './repository-match.js';
 
+export { MAX_ACTIVE_DRAFTS };
 export const GRANT_PREFIX = 'fpg_';
 export const KEY_PREFIX = 'fpk_';
 export const GRANT_MINUTES = 60;
 export const MAX_ACTIVE_KEYS = 10;
-export const MAX_ACTIVE_DRAFTS = 30;
 const IDEMPOTENCY = /^[A-Za-z0-9_-]{8,128}$/;
 const MEMBER_READY = 'active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)';
-const SUBMISSION_COLUMNS = `submission_id,status,aggregate_version,payload,project_id,image_bytes IS NOT NULL AS has_image,
+const SUBMISSION_COLUMNS = `submission_id,status,aggregate_version,payload,project_id,source_project_id,seed,image_bytes IS NOT NULL AS has_image,
   LEAST(grant_expires_at,(SELECT k.expires_at FROM skill_upload_keys k WHERE k.key_id=skill_submissions.grant_key_id)) AS grant_expires_at,
   COALESCE(grant_revoked_at,(SELECT k.revoked_at FROM skill_upload_keys k WHERE k.key_id=skill_submissions.grant_key_id)) AS grant_revoked_at,
   grant_consumed_at,created_at,updated_at`;
@@ -47,9 +49,12 @@ const uuidOrNotFound = (id: string) => {
 };
 
 function submissionView(row: any) {
+  const repositoryUrl = row.payload?.repository_url ?? row.seed?.repository_url ?? null;
   return {
     submission_id: row.submission_id, status: row.status, aggregate_version: String(row.aggregate_version),
     payload: row.payload ?? null, project_id: row.project_id ?? null,
+    seed: row.seed ?? null, source_project_id: row.source_project_id ?? null,
+    catalog_book: catalogBookForRepository(repositoryKey(typeof repositoryUrl === 'string' ? repositoryUrl : null)),
     public_path: row.status === 'published' ? publicPath(row.submission_id) : null,
     illustration_url: row.has_image ? ownerIllustrationUrl(row.submission_id) : null,
     grant_expires_at: iso(row.grant_expires_at), grant_consumed_at: iso(row.grant_consumed_at), grant_revoked_at: iso(row.grant_revoked_at),
@@ -76,7 +81,7 @@ async function ownedSubmission(q: Queryable, actor: Owner, id: string, lock = fa
 }
 async function requireDraftCapacity(q: PoolClient, owner: Owner) {
   // Serialises concurrent issuing from browser and agent for the same member.
-  await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`skill-submissions/${owner.user_id}`]);
+  await lockMemberDrafts(q, owner.user_id);
   const active = Number((await q.query(`SELECT count(*) FROM skill_submissions WHERE community_id=$1 AND owner_ref=$2
     AND status IN ('awaiting_upload','ready_for_review')`, [owner.community_id, owner.user_id])).rows[0].count);
   requireCondition(active < MAX_ACTIVE_DRAFTS, 409, 'draft_limit', `最多保留 ${MAX_ACTIVE_DRAFTS} 份未公開的技能草稿；請先公開或撤回不再需要的草稿。`);
@@ -320,7 +325,7 @@ export async function agentUploadSubmission(pool: Pool, grant: Owner & { grant_h
         [peek.grant_key_id, grant.user_id, grant.community_id]);
       if (key.rowCount !== 1) throw grantInvalid();
     }
-    const row = (await q.query(`SELECT submission_id,status,grant_key_id,grant_revoked_at,grant_expires_at>now() AS grant_live,grant_consumed_at,payload_sha256
+    const row = (await q.query(`SELECT submission_id,status,grant_key_id,grant_revoked_at,grant_expires_at>now() AS grant_live,grant_consumed_at,payload_sha256,seed
       FROM skill_submissions WHERE submission_id=$1 AND grant_hash=$2 AND owner_ref=$3 AND community_id=$4 FOR UPDATE`,
       [grant.submission_id, grant.grant_hash, grant.user_id, grant.community_id])).rows[0];
     // Revoked, rotated, expired or re-bound grants are rejected even for identical replays.
@@ -331,6 +336,13 @@ export async function agentUploadSubmission(pool: Pool, grant: Owner & { grant_h
       return ack(row.status, row.grant_consumed_at);
     }
     requireCondition(row.status === 'awaiting_upload', 409, 'submission_not_awaiting_upload', '這份草稿目前不能上傳。');
+    if (row.seed) {
+      const expected = repositoryKey(typeof row.seed.repository_url === 'string' ? row.seed.repository_url : null);
+      if (expected !== repositoryKey(normalized.payload.repository_url)) {
+        const label = repositoryDisplayName(typeof row.seed.repository_url === 'string' ? row.seed.repository_url : null) ?? expected ?? '這個儲存庫';
+        throw new Problem(422, 'repository_mismatch', `這份草稿是為 ${label} 建立的；請上傳同一個儲存庫的內容，或撤銷草稿後重新建立。`);
+      }
+    }
     const saved = (await q.query(`UPDATE skill_submissions SET status='ready_for_review',payload=$2,payload_sha256=$3,image_bytes=$4,grant_consumed_at=now(),
       aggregate_version=aggregate_version+1,updated_at=now() WHERE submission_id=$1 RETURNING aggregate_version,grant_consumed_at`,
       [row.submission_id, JSON.stringify(normalized.payload), normalized.payload_sha256, normalized.image])).rows[0];

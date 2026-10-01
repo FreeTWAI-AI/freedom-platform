@@ -7,6 +7,7 @@ import { requireCondition } from '../../packages/shared/problem.js';
 import { text } from '../../packages/shared/validation.js';
 import { externalLink,githubCoordinate,inspectGitHubRepository } from './github.js';
 import { getMarketingProductSource } from '../catalog-commerce/service.js';
+import { seedDraftFromRegistration } from '../skill-submissions/seed.js';
 
 export const projectInput=z.object({
   repository_url:z.string().trim().max(300).transform(value=>`https://github.com/${githubCoordinate(value)}`),
@@ -49,7 +50,11 @@ export async function listProjects(pool:Pool,actor:Actor) {
 export type GitHubRead={fetcher?:typeof fetch;token?:string};
 export async function importProject(pool:Pool,input:Command,read:GitHubRead={}) {
   const body=projectInput.parse(input.body);
-  return command(pool,input,async()=>{},q=>importProjectWithinTransaction(q,input,body,{fetcher:read.fetcher,token:read.token}));
+  return command(pool,input,async()=>{},async q=>{
+    const project=await importProjectWithinTransaction(q,input,body,{fetcher:read.fetcher,token:read.token});
+    await seedDraftFromRegistration(q,input.actor,project);
+    return project;
+  });
 }
 // The caller already holds the authenticated user's mutation locks. Keeping
 // repository import on that same client lets publication commit source facts
