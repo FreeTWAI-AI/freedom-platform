@@ -1,10 +1,10 @@
-import { navigate } from './navigation.js';
+import { navigate, signOut } from './navigation.js';
 import { test,expect,type Page } from './fixtures.js';
 
 async function login(page:Page,email:string){
-  await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();
+  await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
 }
-async function switchTo(page:Page,email:string){await page.getByRole('button',{name:'登出',exact:true}).click();await expect(page.getByRole('heading',{name:'登入',exact:true})).toBeVisible();await login(page,email);}
+async function switchTo(page:Page,email:string){await signOut(page);await expect(page.getByRole('heading',{name:'登入',exact:true})).toBeVisible();await login(page,email);}
 
 test('supplier and retailer use distinct modules, agree on exact selection, and read persisted decision',async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));

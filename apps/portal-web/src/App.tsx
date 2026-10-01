@@ -609,9 +609,7 @@ function Workspace({
                 <h1>{tabTitle(tab)}</h1>
               </div>
               <PageTools pageId={tab} client={client}/>
-              <div className="topbar-actions"><NotificationBell client={client} onOpen={()=>selectTab('messages')} onNavigate={action=>{setNotificationTarget(current=>({...action,sequence:(current?.sequence??0)+1}));selectTab(action.tab)}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>}/><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
-                登出
-              </button></div>
+              <div className="topbar-actions"><NotificationBell client={client} onOpen={()=>selectTab('messages')} onNavigate={action=>{setNotificationTarget(current=>({...action,sequence:(current?.sequence??0)+1}));selectTab(action.tab)}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
             </header>
             {error && (
               <ErrorPanel
