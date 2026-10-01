@@ -4099,8 +4099,8 @@
     },
     {
       "path": "scripts/verify-member-settings.mjs",
-      "bytes": 4892,
-      "sha256": "ba13c2d8bb88ccf37d5959e9c75676cedb8d1bcc74f04695627310f7b4794b26"
+      "bytes": 4907,
+      "sha256": "5d712e7d97ae7d99746547de218af7371aed9749da23c7a81eb7b4fa779eb1b6"
     },
     {
       "path": "scripts/verify-public.mjs",
@@ -4109,8 +4109,8 @@
     },
     {
       "path": "scripts/verify-staging.mjs",
-      "bytes": 14324,
-      "sha256": "4ed6bf596289bc2aae4519d8361a78ac21d4e1820ab3c3bf580e7fa5a75482b2"
+      "bytes": 14543,
+      "sha256": "443cda1175c1d54480377d7534fab57427d2f1e6b9b9aacebb5e34d43f2abfbe"
     },
     {
       "path": "tests/e2e/admin-credentials.spec.ts",
