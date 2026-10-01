@@ -122,13 +122,13 @@ test('migration 033 grants its author-book designations to active members, cover
   assert.equal((await pool.query('SELECT count(*) FROM development_grants')).rows[0].count,'0');
 });
 
-test('migration 069 publishes the three manually registered works and replays without changes',async()=>{
+test('migration 070 publishes the three manually registered works and replays without changes',async()=>{
   const ids=['autovtuber','coding-audit-harness','video-to-podcast-toolkit'];
   const present=(await pool.query('SELECT book_id FROM skill_publications WHERE book_id=ANY($1::text[]) ORDER BY book_id',[ids])).rows.map(row=>row.book_id);
   assert.deepEqual(present,ids);
   const snapshot=(await pool.query('SELECT * FROM skill_publications ORDER BY book_id')).rows;
   const grantsBefore=(await pool.query('SELECT count(*) FROM member_skill_book_grants WHERE book_id=ANY($1::text[])',[ids])).rows[0].count;
-  const sql=await readFile(new URL('../../migrations/069_manual_work_skill_books.sql',import.meta.url),'utf8');
+  const sql=await readFile(new URL('../../migrations/070_manual_work_skill_books.sql',import.meta.url),'utf8');
   await pool.query(sql);
   assert.deepEqual((await pool.query('SELECT * FROM skill_publications ORDER BY book_id')).rows,snapshot);
   assert.equal((await pool.query('SELECT count(*) FROM member_skill_book_grants WHERE book_id=ANY($1::text[])',[ids])).rows[0].count,grantsBefore);

@@ -1550,7 +1550,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30575,
-      "sha256": "ecf4b545c52eb692599aee63effdd9be0f48f82599a552a57918447c9925a1f2"
+      "sha256": "9c42f3a1a11880d58ea4663d0b2d133cde263316d0e80c612fb8bdf5b850289f"
     },
     {
       "path": "deploy/cloudflare/lib/cloudflare.mjs",
@@ -1910,7 +1910,7 @@
     {
       "path": "docs/development/manual-work-skill-books.md",
       "bytes": 5273,
-      "sha256": "09c6b064feca018752e44f03c7fc16c446177f007bfe6e2753679762b4c7231c"
+      "sha256": "55d251e9e221ea72f1bbc8ebb54714818c1ed727404be1f433a40929a94b068d"
     },
     {
       "path": "docs/development/member-api.md",
@@ -3423,7 +3423,7 @@
       "sha256": "4a1dca2b8f0c0b91b6cd7e6134793445edce1302b8ed4e4f460cfdb1f9418bbf"
     },
     {
-      "path": "migrations/069_manual_work_skill_books.sql",
+      "path": "migrations/070_manual_work_skill_books.sql",
       "bytes": 246,
       "sha256": "15b6783999723a39b3524ec5f20398be8555bdae8400161d7abd479a41aae777"
     },
@@ -4975,7 +4975,7 @@
     {
       "path": "tests/runtime/member-skill-registration.test.ts",
       "bytes": 16948,
-      "sha256": "4dea0e75f980d7b77ea5ded460377878d7dac777e3e1bbd91ea823f606e7e320"
+      "sha256": "ab3be71d326e20a0f1b4bd700fd1c18e7974db8362fc14a55d4dc5ef4b635b6b"
     },
     {
       "path": "tests/runtime/notification-events.test.ts",
