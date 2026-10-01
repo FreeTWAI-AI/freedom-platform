@@ -113,8 +113,8 @@ function reviewStateLabel(state: string): string {
 }
 function claimSummary(claim: HistoryClaim): string {
   const how = claim.assignment === 'assigned' ? `由 ${claim.claimed_by} 指派` : '自己認領';
-  const parts = [claim.reviewer_login, how, CLAIM_STATE[claim.state] ?? claim.state];
-  if (claim.state !== 'active' && claim.end_reason && END_REASON[claim.end_reason]) parts.push(END_REASON[claim.end_reason]);
+  const ended = claim.state !== 'active' ? END_REASON[claim.end_reason ?? ''] : undefined;
+  const parts = [claim.reviewer_login, how, ended ?? CLAIM_STATE[claim.state] ?? claim.state];
   if (claim.github_request_state !== 'not_requested') {
     const github = GITHUB_REQUEST[claim.github_request_state];
     if (github) {
