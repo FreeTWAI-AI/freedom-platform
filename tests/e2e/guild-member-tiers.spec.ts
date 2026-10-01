@@ -85,7 +85,7 @@ test('an intern sees the calm notice and a disabled guild-exchange submit at pho
   await navigate(session.page,'社群活動');
   await session.page.getByRole('button',{name:'＋ 提交活動'}).click();
   await session.page.getByLabel('活動類型').selectOption('guild_skill_exchange');
-  await session.page.getByLabel('主辦公會').selectOption({label:fixture.guildName});
+  await session.page.getByRole('combobox',{name:/^主辦公會/}).selectOption({label:fixture.guildName});
   const submit=session.page.getByRole('button',{name:'送出審核',exact:true});
   for(const viewport of widths){
    await session.page.setViewportSize(viewport);

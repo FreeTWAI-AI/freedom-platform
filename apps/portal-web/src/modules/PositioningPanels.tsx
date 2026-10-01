@@ -59,11 +59,12 @@ export function GuildsPanel({client,session,onNavigate}:ModulePanelProps) {
   const [draft,setDraft]=useState({name:'',profession:'',reason:''}),[applicationSuccess,setApplicationSuccess]=useState(''),[focusDraft,setFocusDraft]=useState(false),[focusGuild,setFocusGuild]=useState<string|null>(null);
   const generation=useRef(0),successRef=useRef<HTMLParagraphElement>(null),nameRef=useRef<HTMLInputElement>(null);
   const {mutate,busy,error,setError}=useModuleMutation(client);
-  const load=useCallback(async()=>{
-    const sequence=++generation.current;setLoading(true);setLoadError(null);setError(null);
+  // A roster change refreshes expert counts without unmounting the open members dialog.
+  const load=useCallback(async(quiet=false)=>{
+    const sequence=++generation.current;if(!quiet){setLoading(true);setLoadError(null);setError(null);}
     try{
       const [g,p,a]=await Promise.all([client.get<{items:GuildSummary[]}>('/guilds/directory'),client.get<GuildPreferences>('/me/guild-preferences'),client.get<{items:GuildApplication[]}>('/guild-applications')]);
-      if(sequence===generation.current){setGuilds(g.items);setPreferences(p);setApplications(a.items);}
+      if(sequence===generation.current){setGuilds(g.items);setPreferences(p);setApplications(a.items);if(quiet)setLoadError(null);}
     }catch(e){if(sequence===generation.current)setLoadError(failure(e));}
     finally{if(sequence===generation.current)setLoading(false);}
   },[client,setError]);
@@ -151,7 +152,7 @@ export function GuildsPanel({client,session,onNavigate}:ModulePanelProps) {
     {!loading&&!loadError&&<>
       <div className="guild-secondary-toolbar"><button type="button" className="btn btn-ghost" aria-expanded={editing} aria-controls="secondary-guild-editor" disabled={busy} onClick={()=>{setSecondaryDraft(secondaryKeys);setEditing(!editing);}}>設定次要公會</button><span className="muted">主要 1 個・次要最多 2 個</span></div>
       {editing&&<form id="secondary-guild-editor" className="card guild-secondary-editor" onSubmit={saveSecondary}><fieldset disabled={busy}><legend>選擇次要公會 · {secondaryDraft.length} / 2</legend><div className="guild-secondary-choices">{classified.filter(g=>g.membership?.state==='active'&&!g.is_primary).map(g=><label key={g.guild_key} className="checkbox-row"><input type="checkbox" checked={secondaryDraft.includes(g.guild_key)} disabled={!secondaryDraft.includes(g.guild_key)&&secondaryDraft.length>=2} onChange={event=>setSecondaryDraft(current=>event.target.checked?[...current,g.guild_key]:current.filter(key=>key!==g.guild_key))}/>{g.name}{secondaryDraft.includes(g.guild_key)&&<span className="muted">次要 {secondaryDraft.indexOf(g.guild_key)+1}</span>}</label>)}</div>{joinedCount<2&&<p>先加入另一個公會，再設為次要公會。</p>}</fieldset><div className="actions"><button className="btn btn-primary" disabled={busy}>儲存次要公會</button><button className="btn btn-ghost" type="button" disabled={busy} onClick={()=>setEditing(false)}>取消</button></div></form>}
-      <div ref={cardsRoot} className="guild-groups">{groups.filter(group=>scope==='all'||group.key!=='unjoined').map(group=><section key={group.key} className="guild-group" aria-label={group.title}><header className="guild-group-heading"><h2>{group.title}</h2><span className="muted">{group.items.length}</span></header>{group.items.length?<div className="card-grid guild-directory">{group.items.map(g=><GuildCard key={g.guild_key} guild={g} client={client} busy={busy} viewerId={session.user.user_id} onChanged={()=>void load()} onPrimary={()=>void primary(g)} onSecondary={()=>void toggleSecondary(g)} secondaryFull={secondaryKeys.length>=2} onMembership={()=>void change(g)}/>)}</div>:<p className="muted">{search?'沒有符合的公會。':group.key==='featured'?'加入公會後，設定主要與次要公會。':group.key==='joined'?'沒有其他已加入公會。':'所有公會都已加入。'}</p>}</section>)}</div>
+      <div ref={cardsRoot} className="guild-groups">{groups.filter(group=>scope==='all'||group.key!=='unjoined').map(group=><section key={group.key} className="guild-group" aria-label={group.title}><header className="guild-group-heading"><h2>{group.title}</h2><span className="muted">{group.items.length}</span></header>{group.items.length?<div className="card-grid guild-directory">{group.items.map(g=><GuildCard key={g.guild_key} guild={g} client={client} busy={busy} viewerId={session.user.user_id} onChanged={()=>void load(true)} onPrimary={()=>void primary(g)} onSecondary={()=>void toggleSecondary(g)} secondaryFull={secondaryKeys.length>=2} onMembership={()=>void change(g)}/>)}</div>:<p className="muted">{search?'沒有符合的公會。':group.key==='featured'?'加入公會後，設定主要與次要公會。':group.key==='joined'?'沒有其他已加入公會。':'所有公會都已加入。'}</p>}</section>)}</div>
     </>}
   </section>;
 }
