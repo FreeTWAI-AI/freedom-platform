@@ -217,7 +217,8 @@ test('admin appointment, access sync, revocation and reactivation use real isola
     await picker.getByRole('searchbox',{name:'搜尋公會長人選',exact:true}).fill(targetEmail);await picker.getByRole('button',{name:'查詢人選',exact:true}).click();await choice.check();await picker.getByLabel('任命理由',{exact:true}).fill('本人同意帶領讀書會與活動安排');
     const appointment=page.waitForResponse(response=>response.url().endsWith(`/admin/api/guilds/${guildKey}/master`)&&response.request().method()==='POST');await picker.getByRole('button',{name:'確認任命',exact:true}).click();
     const assigned=await appointment;expect(assigned.status()).toBe(200);expect(assigned.request().headers()['x-admin-csrf']).toBe(identities.owner.csrfToken);expect(assigned.request().postDataJSON()).toEqual({user_id:targetId,reason:'本人同意帶領讀書會與活動安排'});
-    await expect(guildCard.getByText(`公會長：${leaderName}`,{exact:true})).toBeVisible();await expect(guildCard.getByText(`已任命 ${leaderName} 為${guildName}會長。`,{exact:true})).toBeVisible();
+    const leader=guildCard.locator('p.admin-guild-current').filter({hasText:`公會長：${leaderName}`});
+    await expect(leader).toBeVisible();await expect(leader.getByText('正式成員',{exact:true})).toBeVisible();await expect(guildCard.getByText(`已任命 ${leaderName} 為${guildName}會長。`,{exact:true})).toBeVisible();
     expect((await pool.query('SELECT user_id FROM positioning_guild_officers WHERE community_id=$1 AND guild_key=$2',[DEMO_COMMUNITY,guildKey])).rows[0].user_id).toBe(targetId);
     expect((await pool.query('SELECT state FROM positioning_profession_memberships WHERE user_id=$1 AND guild_key=$2',[targetId,guildKey])).rows[0].state).toBe('active');
     expect((await pool.query('SELECT book_id FROM member_skill_book_grants WHERE user_id=$1 AND guild_key=$2',[targetId,guildKey])).rows.map(item=>item.book_id).sort()).toEqual(['event-space','freedom-party-guild-lounge']);

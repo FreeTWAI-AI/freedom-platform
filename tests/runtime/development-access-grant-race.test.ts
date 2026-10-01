@@ -38,6 +38,7 @@ const waiterService=()=>new DevelopmentAccess(waiterPool,new GitHubSocial(waiter
 
 async function enable(){
  await changeGuildMembership(pool,{...command({},'join'),expected:undefined},'guild_ai_vibe','join');
+ await pool.query("UPDATE positioning_profession_memberships SET member_tier='full' WHERE user_id=$1 AND guild_key='guild_ai_vibe'",[actor.user_id]);
  const social=setupSocial(),pending=await social.start(actor,'#skills');
  await social.complete(actor,new URL(pending.authorization_url).searchParams.get('state')!,'synthetic-code');
  const service=setup();

@@ -342,8 +342,9 @@ function guildCandidate(knobs:{stale?:'join'|'leave';failAfterJoin?:'status500'|
     if(path==='/api/v1/me/skill-books')return {status:200,json:{items:[]}};
     if(path==='/api/v1/me/development/skill/video-autopilot'){
       if(joined&&knobs.failAfterJoin==='status500')return {status:500,json:{code:'internal'}};
-      const eligible=stale>0?(stale--,staleEligible):state==='active';
-      return {status:200,json:{eligible,enabled:false,consent:null,guilds:[{guild_key:'guild_ai_vibe',state}],keys:[],grant:null,app:{configured:false}}};
+      const readingStale=stale>0;if(readingStale)stale--;
+      const eligible=readingStale?staleEligible:false,intern_blocked=readingStale?false:state==='active';
+      return {status:200,json:{eligible,intern_blocked,enabled:false,consent:null,guilds:[{guild_key:'guild_ai_vibe',state}],keys:[],grant:null,app:{configured:false}}};
     }
     if(path==='/api/v1/guilds'){
       if(joined&&knobs.failAfterJoin==='status500')return {status:500,json:{code:'internal'}};
@@ -353,7 +354,7 @@ function guildCandidate(knobs:{stale?:'join'|'leave';failAfterJoin?:'status500'|
     const key=request.headers['Idempotency-Key'];
     if(key&&receipts.has(key))return receipts.get(key)!;
     let reply:Reply;
-    if(path==='/api/v1/guilds/guild_ai_vibe/join'){state='active';version++;joined=true;if(knobs.stale==='join'){stale=1;staleEligible=false;}
+    if(path==='/api/v1/guilds/guild_ai_vibe/join'){state='active';version++;joined=true;if(knobs.stale==='join'){stale=1;staleEligible=true;}
       const wire=knobs.join?.(version)??{},etag=wire.etag===undefined?`"${version}"`:wire.etag;
       reply={status:200,...(wire.raw!==undefined?{text:`{"state":"active","aggregate_version":${wire.raw}}`}:{json:{state,aggregate_version:'version' in wire?wire.version:version}}),headers:etag===null?{}:{etag}};}
     else if(path==='/api/v1/guilds/guild_ai_vibe/leave'){
@@ -372,9 +373,9 @@ test('guild-cache passes only when the first read after each commit is current; 
   const control=guildCandidate();
   const passed=await runCandidate({...base(['guild-cache']),transport:control.transport,account});
   expect(passed.phases.find(p=>p.id==='guild-cache')).toMatchObject({status:'pass'});
-  expect(passed.phases.find(p=>p.id==='guild-cache')!.metrics).toMatchObject({after_join:{eligible:true,enabled:false,grant:'none'},after_leave:{eligible:false,enabled:false}});
+  expect(passed.phases.find(p=>p.id==='guild-cache')!.metrics).toMatchObject({after_join:{eligible:false,intern_blocked:true,enabled:false,grant:'none'},after_leave:{eligible:false,enabled:false}});
   expect(guildCleanup(passed)).toBe('restored');expect(control.membership()).toBe('left');
-  for(const [stale,check,final] of [['join','join_first_read_eligible','left'],['leave','leave_first_read_revoked','left']] as const){
+  for(const [stale,check,final] of [['join','join_first_read_intern','left'],['leave','leave_first_read_revoked','left']] as const){
     const server=guildCandidate({stale});
     const report=await runCandidate({...base(['guild-cache']),transport:server.transport,account});
     expect(report.phases.find(p=>p.id==='guild-cache'),stale).toMatchObject({status:'fail',reason:check});
@@ -394,7 +395,7 @@ test('guild join accepts an exact strong or edge-weakened ETag for a positive sa
     const phase=report.phases.find(p=>p.id==='guild-cache')!;
     expect(phase,kind).toMatchObject({status:'pass',metrics:{join_etag:kind}});
     expect(phase.checks).toContainEqual({id:'join_active_versioned',status:'pass'});
-    for(const check of ['stale_version_rejected_412','join_first_read_eligible','leave_first_read_revoked','join_receipt_replayed','retained_receipt_does_not_restore_authority'])expect(phase.checks,check).toContainEqual({id:check,status:'pass'});
+    for(const check of ['stale_version_rejected_412','join_first_read_intern','leave_first_read_revoked','join_receipt_replayed','retained_receipt_does_not_restore_authority'])expect(phase.checks,check).toContainEqual({id:check,status:'pass'});
     // Stale (version+1), then the real leave: both strong, built from the body version, never the response ETag.
     expect(leaveIfMatch(server.calls)).toEqual(['"2"','"1"']);
     expect(guildCleanup(report)).toBe('restored');expect(server.membership()).toBe('left');
@@ -723,9 +724,9 @@ test('local harness: real session, CSRF, guild grant/revoke freshness, avatar, b
     expect(browserPhase.metrics).toMatchObject({routing_failures:{},teardown:{context_close:'ok',routes_pending_after_close:0}});
     expect(report.cleanup.items).toContainEqual({phase:'browser',item:'browser session of the synthetic account',state:'restored'});
     const guild=report.phases.find(p=>p.id==='guild-cache')!;
-    expect(guild.metrics).toMatchObject({baseline:{eligible:false,enabled:false},after_join:{eligible:true,enabled:false,grant:'none'},after_leave:{eligible:false,enabled:false,test_guild_state:'left'}});
+    expect(guild.metrics).toMatchObject({baseline:{eligible:false,enabled:false},after_join:{eligible:false,intern_blocked:true,enabled:false,grant:'none'},after_leave:{eligible:false,enabled:false,test_guild_state:'left'}});
     expect((guild.metrics!.after_leave as {skill_book_count:number}).skill_book_count).toBe(guild.metrics!.skill_books_after_join);
-    for(const check of ['join_first_read_eligible','join_second_read_eligible','leave_first_read_revoked','leave_second_read_revoked'])expect(guild.checks).toContainEqual({id:check,status:'pass'});
+    for(const check of ['join_first_read_intern','join_second_read_intern','leave_first_read_revoked','leave_second_read_revoked'])expect(guild.checks).toContainEqual({id:check,status:'pass'});
     expect(report.phases.find(p=>p.id==='load')!.metrics).toMatchObject({requests:24,failed:0,error_rate:0});
     expect(report.cleanup.items).toContainEqual({phase:'guild-cache',item:'test guild membership guild_ai_vibe',state:'restored'});
     expect(report.cleanup.required).toBe(true);

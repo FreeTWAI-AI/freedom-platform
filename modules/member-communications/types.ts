@@ -6,6 +6,7 @@ export const NOTIFICATION_KINDS=[
   'guild_application_approved','guild_application_rejected',
   'guild_expert_appointed','guild_expert_revoked',
   'guild_master_appointed','guild_master_revoked',
+  'guild_member_promoted','guild_member_demoted',
   'event_submitted','event_review_needed','event_approved','event_rejected',
 ] as const;
 export type NotificationKind=typeof NOTIFICATION_KINDS[number];
