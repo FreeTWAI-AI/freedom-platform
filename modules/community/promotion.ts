@@ -363,4 +363,3 @@ export async function creditPromotionClick(pool: Pool, input: { code: string; us
       VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING`, [link.link_id, day, visitor, network, link.community_id, link.user_id, link.kind, input.now]);
   });
 }
-
