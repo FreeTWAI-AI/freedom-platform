@@ -4,6 +4,7 @@ import type { TabId } from '../types';
 import { WorkshopIcon } from '../WorkshopIcon';
 import { loadLabels, type MemberCardData } from './Membership';
 import { MemberAvatar } from './MemberAvatar';
+import { PromotionShare } from './PromotionShare';
 import { logConsoleEvent } from '../game-console-core';
 import { consoleChannel } from '../game-console-routing';
 import './HomeDesign.css';
@@ -141,6 +142,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       <div className="home-member-actions">
         <button type="button" className="btn btn-ghost" onClick={() => onNavigate?.('account')}>編輯我的名片</button>
         {showAssessment && <button type="button" className="btn btn-ghost" onClick={() => onNavigate?.('positioning')}>補做定位測驗</button>}
+        <PromotionShare client={client} kind="platform" target="workshop" title="自由工坊" text="自由工坊：加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。" label="分享自由工坊"/>
       </div>
     </section>
     {loadError && <div ref={alertRef} role="alert" className="banner banner-error">

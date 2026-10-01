@@ -34,7 +34,7 @@ html:is([data-theme="light"],[data-theme="versefolk"]) :is(
   .guild-onboarding .onboarding-intro,.guild-onboarding .onboarding-card,
   .guild-onboarding .recommendation-card,.guild-onboarding .other-guild-choices,
   .guild-onboarding .other-guild-choices .stack > div,
-  .skill-intro-collaboration,.skill-intro-dialog,.skill-share-dialog,
+  .skill-intro-collaboration,.skill-intro-dialog,.skill-share-dialog,.promotion-share-dialog,
   .skill-upload-dialog,.skill-upload-preview
 ) { background:var(--bg-elev);color:var(--ink);border-color:var(--line); }
 html:is([data-theme="light"],[data-theme="versefolk"]) :is(
@@ -159,7 +159,7 @@ html:is([data-theme="light"],[data-theme="versefolk"]) :is(
   .members-panel .directory-member-expanded dl,.guild-workspace legend,
   .guild-thread-select,.guild-announcements summary,
   .social-links-editor .social-link-own-row strong,.member-social-link,
-  .skill-badge,.skill-badge-rank,.skill-share-text,.skill-share-dialog,
+  .skill-badge,.skill-badge-rank,.skill-share-text,.skill-share-dialog,.promotion-share-dialog,
   .skill-intro-dialog,.skill-upload-dialog,.skill-library-book .skill-library-copy > .skill-library-title,
   .github-book-metrics dd
 ) {color:var(--ink);}
@@ -218,7 +218,7 @@ html:is([data-theme="light"],[data-theme="versefolk"]) :is(
 ) {color:var(--module-green-ink);}
 
 /* Dialogs and profile details. */
-html:is([data-theme="light"],[data-theme="versefolk"]) :is(.skill-intro-header,.skill-share-dialog,.guild-detail-dialog) {background:var(--bg-elev);color:var(--ink);border-color:var(--line);}
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(.skill-intro-header,.skill-share-dialog,.promotion-share-dialog,.guild-detail-dialog) {background:var(--bg-elev);color:var(--ink);border-color:var(--line);}
 html:is([data-theme="light"],[data-theme="versefolk"]) .skill-intro-command {color:var(--ink);}
 html:is([data-theme="light"],[data-theme="versefolk"]) .skill-intro-details > summary {color:var(--ink);}
 html:is([data-theme="light"],[data-theme="versefolk"]) :is(.skill-intro-details > summary:hover,.skill-intro-details > summary:focus-visible) {color:var(--module-green-ink);}
@@ -240,6 +240,23 @@ html:is([data-theme="light"],[data-theme="versefolk"]) :is(
   :is(.community-library,.community-skill-library) .community-library-heading h3
 ) {color:var(--ink);}
 
+/* Pressed share controls must beat the light ghost button. Badge tones stay on tokens. */
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(
+  .promotion-page button.promotion-period[aria-pressed="true"],
+  .social-zone button.social-filter[aria-pressed="true"],
+  .service-zone button.service-filter[aria-pressed="true"]
+) {background:var(--green);color:#203000;border-color:transparent;box-shadow:none;}
+html[data-theme="versefolk"] :is(
+  .promotion-page button.promotion-period[aria-pressed="true"],
+  .social-zone button.social-filter[aria-pressed="true"],
+  .service-zone button.service-filter[aria-pressed="true"]
+) {color:#26351b;}
+html:is([data-theme="light"],[data-theme="versefolk"]) .social-platform-badge[data-platform="youtube"] {background:var(--danger-bg);color:var(--danger);border-color:transparent;}
+html:is([data-theme="light"],[data-theme="versefolk"]) .social-platform-badge[data-platform="instagram"] {background:var(--info-bg);color:var(--blue-ink);border-color:transparent;}
+html:is([data-theme="light"],[data-theme="versefolk"]) .social-platform-badge[data-platform="facebook"] {background:var(--green-soft);color:var(--ink);border-color:transparent;}
+html:is([data-theme="light"],[data-theme="versefolk"]) .social-platform-badge[data-platform="other"] {background:var(--bg-elev);color:var(--muted);border-color:var(--line);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .social-placeholder,
+html:is([data-theme="light"],[data-theme="versefolk"]) .service-placeholder {background:var(--navy);color:var(--ink);}
 /* 活動集錦 chips and mode marks. Bright green on a pale chip fails contrast. */
 html:is([data-theme="light"],[data-theme="versefolk"]) .hl-mode-in_person,
 html:is([data-theme="light"],[data-theme="versefolk"]) :is(.hl-chip[aria-pressed="true"],.hl-segment button[aria-pressed="true"]) {color:var(--module-green-ink);}
