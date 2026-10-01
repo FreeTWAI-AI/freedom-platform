@@ -5,7 +5,8 @@ import {Pool} from 'pg';
 import {createPool, LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
 import {syncGitHubRepositories} from '../../modules/community/github-sync.js';
-import {cleanTitle, authorOf} from '../../modules/community/github-history.js';
+import {cleanTitle, authorOf, postgresText} from '../../modules/community/github-history.js';
+import {publicEvent} from '../../modules/development/page-github.js';
 import {catalogMetricTargets} from '../../modules/github-social/service.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL;
@@ -121,8 +122,32 @@ after(async () => {
 test('titles and logins are sanitised before storage', () => {
   assert.equal(cleanTitle('想\u0000法  <img>', 'Issue #3'), '想法 <img>');
   assert.equal(cleanTitle('   ', 'Issue #4'), 'Issue #4');
+  assert.equal(cleanTitle(`${'題'.repeat(299)}😀尾巴`, 'Issue #1'), `${'題'.repeat(299)}😀`);
+  assert.equal(cleanTitle('\uD83D', 'Issue #9'), 'Issue #9');
   assert.equal(authorOf('not a login'), null);
   assert.equal(authorOf('dependabot[bot]'), 'dependabot[bot]');
+});
+
+test('postgresText drops NUL and lone surrogates and cuts on code points', () => {
+  assert.equal(postgresText('', 12000), '');
+  assert.equal(postgresText('a\u0000b\u0000', 10), 'ab');
+  assert.equal(postgresText('\uDC00', 10), '');
+  assert.equal(postgresText('a\uDC00b', 10), 'ab');
+  assert.equal(postgresText('ab\uD800', 10), 'ab');
+  assert.equal(postgresText(`${'a'.repeat(4)}😀z`, 5), `${'a'.repeat(4)}😀`);
+  assert.equal(postgresText(`${'a'.repeat(5)}😀`, 5), 'a'.repeat(5));
+  assert.equal(postgresText('a\nb\tc', 10), 'a\nb\tc');
+  const event = publicEvent({
+    id: 'emoji-title', type: 'IssuesEvent', actor: {login: 'member-demo'}, created_at: '2026-09-27T12:00:00Z',
+    payload: {action: 'opened', issue: {number: 44, title: `${'事'.repeat(299)}😀後記`, html_url: 'https://github.com/FreeTWAI-AI/freedom-platform/issues/44'}},
+  });
+  assert.equal(event?.title, `${'事'.repeat(299)}😀`);
+  assert.equal(event?.actor, 'member-demo');
+  assert.equal(event?.url, 'https://github.com/FreeTWAI-AI/freedom-platform/issues/44');
+  assert.equal(publicEvent({
+    id: 'forged', type: 'IssuesEvent', actor: {login: 'member-demo'}, created_at: '2026-09-27T12:00:00Z',
+    payload: {action: 'opened', issue: {number: 44, title: '別的倉庫', html_url: 'https://github.com/other/repo/issues/44'}},
+  }), null);
 });
 
 test('the first backfill walks full pages and stores issues and pull requests', async () => {
@@ -1055,6 +1080,69 @@ test('migration 057 clears issue cursors and the next run reads without since', 
     });
     assert.equal(summary.requests, 1);
     assert.equal(since, null);
+  } finally {
+    await quietSides();
+  }
+});
+
+test('NUL and an emoji on the excerpt boundary still commit, and the next repository syncs', async () => {
+  const second = 'freetwai-ai/video-autopilot-kit';
+  const excerpt = `${'a'.repeat(11999)}😀`;
+  const issueTitle = `${'題'.repeat(299)}😀`;
+  const eventTitle = `${'事'.repeat(299)}😀`;
+  const label = `${'a'.repeat(99)}😀`;
+  await quietSides();
+  try {
+    await resetRepo(PLATFORM);
+    await resetRepo(second);
+    await pool.query('DELETE FROM github_repository_events');
+    await dueAt([[PLATFORM, T0 - 2000], [second, T0 - 1000]]);
+    await dueFeed(null);
+    const summary = await syncGitHubRepositories(pool, {
+      now: () => T0,
+      fetcher: async input => {
+        const url = String(input);
+        if (url.includes('/events?')) {
+          return json([{
+            id: 'emoji-title', type: 'IssuesEvent', actor: {login: 'member-demo'}, created_at: '2026-09-27T12:00:00Z',
+            payload: {action: 'opened', issue: {number: 44, title: `${eventTitle}後記`, html_url: 'https://github.com/FreeTWAI-AI/freedom-platform/issues/44'}},
+          }]);
+        }
+        const key = requestedRepository(input);
+        if (key === PLATFORM) {
+          return json([
+            item(21, '2026-09-21T00:00:00.000Z', {title: `${issueTitle}尾巴`, body: `${excerpt}tail`, labels: [{name: label}]}),
+            item(22, '2026-09-21T00:00:01.000Z', {body: 'pre\u0000\uDC00\n\tpost'}),
+          ]);
+        }
+        if (key === second) return json([item(3, '2026-09-21T00:00:02.000Z', {title: '第二個儲存庫'})]);
+        throw new Error(`unexpected ${url}`);
+      },
+    });
+    assert.equal(summary.requests, 3);
+    assert.equal(summary.repositories, 2);
+    assert.equal(summary.items_upserted, 3);
+    assert.equal(summary.stop_reason, 'completed');
+    const open = (await pool.query<{body_excerpt: string; chars: number; title: string; title_chars: number; labels: string[]; label_chars: number}>(
+      `SELECT body_excerpt, char_length(body_excerpt)::int AS chars, title, char_length(title)::int AS title_chars, labels, char_length(labels[1])::int AS label_chars
+       FROM github_items WHERE repository_key=$1 AND number=21`, [PLATFORM])).rows[0];
+    assert.equal(open.body_excerpt, excerpt);
+    assert.equal(open.chars, 12000);
+    assert.equal(open.body_excerpt.includes('\u0000'), false);
+    assert.equal(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(open.body_excerpt), false);
+    assert.equal(open.title, issueTitle);
+    assert.equal(open.title_chars, 300);
+    assert.deepEqual(open.labels, [label]);
+    assert.equal(open.label_chars, 100);
+    const nul = (await pool.query<{body_excerpt: string}>('SELECT body_excerpt FROM github_items WHERE repository_key=$1 AND number=22', [PLATFORM])).rows[0];
+    assert.equal(nul.body_excerpt, 'pre\n\tpost');
+    assert.equal(nul.body_excerpt.includes('\u0000'), false);
+    const storedEvent = (await pool.query<{title: string; chars: number}>('SELECT title, char_length(title)::int AS chars FROM github_repository_events WHERE event_id=$1', ['emoji-title'])).rows[0];
+    assert.equal(storedEvent.title, eventTitle);
+    assert.equal(storedEvent.chars, 300);
+    assert.equal((await pool.query('SELECT title FROM github_items WHERE repository_key=$1 AND number=3', [second])).rows[0].title, '第二個儲存庫');
+    assert.equal((await repoRow(PLATFORM)).last_error, null);
+    assert.equal((await repoRow(second)).access_status, 'ok');
   } finally {
     await quietSides();
   }
