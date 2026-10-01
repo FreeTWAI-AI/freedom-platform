@@ -273,7 +273,7 @@ test('story theme keeps the workshop controls and cute artwork usable on a narro
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
   await page.getByRole('button',{name:'登入',exact:true}).click();
-  await page.getByRole('button',{name:'設定'}).click();
+  await page.getByRole('button',{name:'設定',exact:true}).click();
   await page.getByRole('menuitemradio',{name:'自由工坊－敘生'}).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme','versefolk');
   await expect(page.getByRole('menuitemradio',{name:'自由工坊－敘生'})).toHaveAttribute('aria-checked','true');

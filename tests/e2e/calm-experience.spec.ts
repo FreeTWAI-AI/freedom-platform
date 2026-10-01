@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {test,expect,type Page} from './fixtures.js';
 import {DEMO_USERS,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {navigate} from './navigation.js';
+import {quickJoin} from './quick-join.js';
 
 async function login(page:Page,email='maker@local.test'){
   await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
@@ -34,13 +35,19 @@ test('synthetic entry budget: two required fields and one guild choice reach use
   const email=`ux-${randomUUID().slice(0,8)}@example.test`;
   await page.getByLabel('電子郵件',{exact:true}).pressSequentially(email,{delay:100});await page.getByLabel('密碼',{exact:true}).pressSequentially('freedom-entry-2026',{delay:100});
   await page.getByRole('button',{name:'建立帳號，先逛工坊',exact:true}).click();await expect(page.locator('.welcome-optional')).not.toHaveAttribute('open','');
-  await page.getByLabel('找感興趣的公會').fill('AI 開發公會');await page.locator('.quick-start input[value="guild_ai_vibe"]').check();await page.getByRole('button',{name:'加入公會，開始參與',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();await expect(page.getByRole('button',{name:'閱讀第一本技能書',exact:true})).toBeVisible();
+  await page.getByLabel('找感興趣的公會').fill('AI 開發公會');await quickJoin(page);
+  await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
+  const next=page.getByRole('region',{name:'公會與技能書建議',exact:true});
+  await expect(next).toHaveCount(1);await expect(page.locator('.guild-next-steps')).toHaveCount(0);
+  await expect(next.getByText('到技能書架選一本技能書閱讀，開始練習。',{exact:true})).toBeVisible();
+  await expect(next.getByRole('button',{name:'閱讀第一本技能書',exact:true})).toBeVisible();
   const milliseconds=Date.now()-start;expect(milliseconds).toBeLessThan(30000);await test.info().attach('synthetic-entry-budget',{body:JSON.stringify({milliseconds,typing_delay_ms:100,email_length:email.length,password_length:'freedom-entry-2026'.length,scope:'local isolated schema; excludes human reading and thinking'}),contentType:'application/json'});
   await expect(page.locator('.home-member-name')).toContainText('新夥伴');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await expect(next.getByRole('button',{name:'進入AI 開發公會聊天室',exact:true})).toBeVisible();
+  await expect(next.getByRole('button',{name:/^(查看社群任務|分享作品與需求)$/})).toBeVisible();
   await page.screenshot({path:'test-results/calm-home-320.png',fullPage:true});
   await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'test-results/calm-home-1440.png',fullPage:true});await page.setViewportSize({width:320,height:720});
-  await page.getByRole('button',{name:'進入AI 開發公會聊天室',exact:true}).click();await expect(page.getByRole('heading',{name:'AI 開發公會・公會閒聊',exact:true})).toBeVisible();await expect(page.getByRole('textbox',{name:'在 AI 開發公會 發言'})).toBeVisible();
+  await next.getByRole('button',{name:'進入AI 開發公會聊天室',exact:true}).click();await expect(page.getByRole('heading',{name:'AI 開發公會・公會閒聊',exact:true})).toBeVisible();await expect(page.getByRole('textbox',{name:'在 AI 開發公會 發言'})).toBeVisible();
 });
 test('feature search finds chat and selling functions, and all themes work at 320 pixels',async({page})=>{
   await login(page);const search=page.getByLabel('搜尋功能');await search.fill('聊天室');await page.getByRole('navigation',{name:'主要工作區'}).getByRole('button',{name:'我的訊息',exact:true}).click();await expect(page.getByRole('heading',{name:'我的訊息',level:1})).toBeVisible();

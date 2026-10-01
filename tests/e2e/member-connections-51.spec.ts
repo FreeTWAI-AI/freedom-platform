@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
 import {test,expect,type Page} from './fixtures.js';
 import {navigate} from './navigation.js';
+import {quickJoin} from './quick-join.js';
 import {DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 mkdirSync('test-results',{recursive:true});
 const themes=[['自由工坊－明亮','light'],['自由工坊－夜航','dark'],['自由工坊－敘生','versefolk']] as const;
@@ -19,8 +20,7 @@ async function account(page:Page,name:string){
   return email;
 }
 async function joinGuild(page:Page){
-  await page.locator('.quick-start input[value="guild_ai_vibe"]').check();
-  await page.getByRole('button',{name:'加入公會，開始參與',exact:true}).click();
+  await quickJoin(page);
   await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
 }
 async function noOverflow(page:Page,label:string){
@@ -146,7 +146,8 @@ test('welcome keeps one primary action and selected filters stay distinct in eve
   await account(page,name);
   await page.setViewportSize({width:1280,height:900});
   await expect(page.locator('.welcome-preview .btn-primary')).toHaveCount(1);
-  await expect(page.locator('.welcome-preview .btn-primary')).toHaveText('加入公會，開始參與');
+  await expect(page.locator('.welcome-preview .btn-primary')).toHaveText('下一步：回答小問題');
+  await page.getByText('想先探索其他參與方式？',{exact:true}).click();
   const hero=page.getByRole('button',{name:'開始／繼續定位 →',exact:true});
   await expect(hero).toHaveClass(/btn-ghost/);await expect(hero).not.toHaveClass(/btn-primary/);
   await page.screenshot({path:'test-results/mc51-welcome-1280.png',fullPage:true});

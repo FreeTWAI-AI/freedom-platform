@@ -8,7 +8,8 @@ import { logConsoleEvent } from '../game-console-core';
 import { consoleChannel } from '../game-console-routing';
 import './HomeDesign.css';
 import {MemberRecommendations} from './MemberRecommendations';
-import {GuildNextSteps} from './GuildNextSteps';
+import {SkillBookIntro, type IntroBook} from './SkillBookIntro';
+import {openMemberChat} from './chat-entry';
 
 const shortcuts: { id: TabId; title: string }[] = [
   { id: 'events', title: '社群活動' },
@@ -31,6 +32,8 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
   const [onboarding, setOnboarding] = useState<HomeOnboarding | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [guideBook, setGuideBook] = useState<IntroBook | null>(null);
+  const [taskAction, setTaskAction] = useState<'tasks' | 'showcase' | null>(null);
   // Only the newest request of a mounted page may change the card; late or superseded replies are dropped.
   const request = useRef(0);
   const summary = useRef<HTMLElement>(null);
@@ -68,6 +71,39 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
   const nickname = member?.nickname ?? session.user.display_name;
   const featured = (member?.featured_capabilities ?? member?.capabilities.slice(0, 3) ?? []).slice(0, 3);
   const skillLabel = (id: string) => id.startsWith('custom:') ? id.slice(7) : labels?.[id] ?? id;
+  const primaryGuild = member?.primary_guild ?? null;
+  useEffect(() => {
+    const key = primaryGuild?.guild_key;
+    if (!key) { setGuideBook(null); setTaskAction(null); return; }
+    let active = true;
+    setGuideBook(null); setTaskAction(null);
+    // These reads only refine the buttons. A failure leaves the sentence and the shelf button in place.
+    void Promise.allSettled([
+      client.get<{ items: { guild_key: string; skill_books: IntroBook[] }[] }>('/guilds/directory'),
+      client.get<{ items: { book_id?: string; id?: string }[] }>('/me/skill-books'),
+      client.get<{ items: unknown[] }>('/task-board/preview'),
+    ]).then(results => {
+      if (!active) return;
+      const [directory, grants, tasks] = results;
+      const directoryItems = directory.status === 'fulfilled' && Array.isArray(directory.value.items) ? directory.value.items : null;
+      const grantItems = grants.status === 'fulfilled' && Array.isArray(grants.value.items) ? grants.value.items : null;
+      if (directoryItems && grantItems) {
+        const guild = directoryItems.find(item => item.guild_key === key);
+        const unlocked = new Set(grantItems.flatMap(item => {
+          const id = item.book_id ?? item.id;
+          return id ? [id] : [];
+        }));
+        setGuideBook(guild?.skill_books?.find(item => {
+          const id = item.book_id ?? item.id;
+          return Boolean(id && unlocked.has(id));
+        }) ?? null);
+      } else setGuideBook(null);
+      const taskItems = tasks.status === 'fulfilled' && Array.isArray(tasks.value.items) ? tasks.value.items : null;
+      setTaskAction(taskItems ? (taskItems.length > 0 ? 'tasks' : 'showcase') : null);
+    });
+    return () => { active = false; };
+  }, [client, primaryGuild?.guild_key]);
+
   const nextStep = useMemo<{ message: string; label: string; action: 'guilds' | 'skills' } | null>(() => {
     if (!member) return null;
     if (member.primary_guild) return { action: 'skills', label: '前往技能書架',
@@ -113,10 +149,14 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
     </div>}
     {nextStep && <section className="home-next-step" aria-label="公會與技能書建議">
       <p id="home-next-step-description">{nextStep.message}</p>
-      <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.(nextStep.action)}>{nextStep.label}</button>
+      {primaryGuild ? <div className="home-next-actions">
+        {guideBook
+          ? <SkillBookIntro book={guideBook} label="閱讀第一本技能書" describedBy="home-next-step-description"/>
+          : <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.('skills')}>前往技能書架</button>}
+        <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => openMemberChat('guild', primaryGuild.guild_key)}>進入{primaryGuild.name}聊天室</button>
+        {taskAction && <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.(taskAction)}>{taskAction === 'tasks' ? '查看社群任務' : '分享作品與需求'}</button>}
+      </div> : <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.(nextStep.action)}>{nextStep.label}</button>}
     </section>}
-
-    <GuildNextSteps client={client} onNavigate={onNavigate}/>
 
     <nav className="home-shortcuts" aria-label="常用入口">
       {shortcuts.map(entry => <button key={entry.id} type="button" className="home-shortcut" onClick={() => onNavigate?.(entry.id)}>

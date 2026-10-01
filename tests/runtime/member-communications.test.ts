@@ -170,7 +170,9 @@ test('body-free private activity detects new messages and read changes without e
   const before=await state(),activity=await request(path,a);assert.equal(activity.status,200);assert.deepEqual(activity.data,{last_message_id:sent.data.message_id,unread_count:1,can_send:true});noPrivate(activity.data);assert.deepEqual(await state(),before);
   await request(`/me/conversations/${B}/read`,a,{});assert.equal((await request(path,a)).data.unread_count,0);
   await pool.query('UPDATE users SET active=false WHERE user_id=$1',[B]);assert.deepEqual((await request(path,a)).data,{last_message_id:sent.data.message_id,unread_count:0,can_send:false});
-  assert.equal((await request(path)).status,401);assert.equal((await request(path+'?extra=1',a)).status,422);assert.equal((await request(`/me/conversations/${A}/activity`,a)).status,422);
+  assert.equal((await request(path)).status,401);assert.equal((await request(path+'?extra=1',a)).status,422);
+  assert.equal((await request(path+'?after_sequence=-1',a)).status,422);assert.equal((await request(path+'?after_sequence=9223372036854775808',a)).status,422);
+  assert.equal((await request(`/me/conversations/${A}/activity`,a)).status,422);
 });
 
 test('conversations show only own pairs sorted by latest message, with per-pair and total unread counts and read marking',async()=>{
