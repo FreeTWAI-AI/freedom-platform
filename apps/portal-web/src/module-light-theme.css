@@ -159,9 +159,9 @@ html:is([data-theme="light"],[data-theme="versefolk"]) :is(
   .member-social-display h4,.member-social-link > span:first-child,
   .skill-discovery .field-hint,.skill-share-status,.skill-share-url,
   .skill-intro-collaboration p,.skill-discovery .field-hint,
-  .community-library .skill-library-count,.community-library .community-book > p,
-  .community-library .community-library-heading > div > p:last-child,
-  .freedom-community .home-eyebrow,.community-library .home-eyebrow,
+  :is(.community-library,.community-skill-library) .skill-library-count,:is(.community-library,.community-skill-library) .community-book > p,
+  :is(.community-library,.community-skill-library) .community-library-heading > div > p:last-child,
+  .freedom-community .home-eyebrow,:is(.community-library,.community-skill-library) .home-eyebrow,
   .freedom-community .community-entry-copy > p:not(.home-eyebrow),
   .freedom-community .community-metric > strong > span,
   .freedom-community .community-metric > p:last-child,
@@ -177,8 +177,8 @@ html:is([data-theme="light"],[data-theme="versefolk"]) :is(
   .expedition-issue > .eyebrow,.skill-share-count,.guild-onboarding .positioning-title,
   .skill-badge-new,.skill-intro-dialog .badge,
   .skill-book.skill-book-volume.skill-library-book .skill-library-copy > .eyebrow,
-  .community-library .community-book-spine,
-  .community-library .community-library-heading .home-eyebrow,
+  :is(.community-library,.community-skill-library) .community-book-spine,
+  :is(.community-library,.community-skill-library) .community-library-heading .home-eyebrow,
   .skill-intro-header .eyebrow,.skill-upload-header .eyebrow
 ) {color:var(--blue-ink);}
 html:is([data-theme="light"],[data-theme="versefolk"]) :is(
@@ -194,6 +194,8 @@ html:is([data-theme="light"],[data-theme="versefolk"]) :is(
 /* Dialogs and profile details. */
 html:is([data-theme="light"],[data-theme="versefolk"]) :is(.skill-intro-header,.skill-share-dialog,.guild-detail-dialog) {background:var(--bg-elev);color:var(--ink);border-color:var(--line);}
 html:is([data-theme="light"],[data-theme="versefolk"]) .skill-intro-command {color:var(--ink);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .skill-intro-details > summary {color:var(--ink);}
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(.skill-intro-details > summary:hover,.skill-intro-details > summary:focus-visible) {color:var(--module-green-ink);}
 html:is([data-theme="light"],[data-theme="versefolk"]) .guild-detail-dialog .guild-library-entry {border-color:var(--line);}
 html:is([data-theme="light"],[data-theme="versefolk"]) .social-links-editor .social-link-form {background:var(--module-tint);}
 html:is([data-theme="light"],[data-theme="versefolk"]) .social-links-editor .social-link-own-row a {color:var(--blue-ink);}
@@ -203,11 +205,11 @@ html:is([data-theme="light"],[data-theme="versefolk"]) .skill-share-error p {col
 /* Community panels use a light canvas; the original logo poster stays untouched. */
 html:is([data-theme="light"],[data-theme="versefolk"]) :is(
   .freedom-community .community-entry-hero,.freedom-community > .community-footer,
-  .community-library .community-library-heading,.community-library .community-book,
+  :is(.community-library,.community-skill-library) .community-library-heading,:is(.community-library,.community-skill-library) .community-book,
   .freedom-community .community-project
 ) {background:var(--bg-elev);color:var(--ink);border-color:var(--line);}
-html:is([data-theme="light"],[data-theme="versefolk"]) .community-library .community-library-heading::after {background:linear-gradient(90deg,var(--bg-elev) 50%,transparent);}
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(.community-library,.community-skill-library) .community-library-heading::after {background:linear-gradient(90deg,var(--bg-elev) 50%,transparent);}
 html:is([data-theme="light"],[data-theme="versefolk"]) :is(
   .freedom-community .community-entry-copy h2,.freedom-community .community-metric > strong,
-  .community-library .community-library-heading h3
+  :is(.community-library,.community-skill-library) .community-library-heading h3
 ) {color:var(--ink);}

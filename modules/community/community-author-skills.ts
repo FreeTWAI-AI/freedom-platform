@@ -2,17 +2,19 @@ import type {SkillBook} from './catalog.js';
 import type {SkillBookGuide} from './skill-book-guides.js';
 
 // Community names supplied by the platform owner; no member identity is inferred.
+// Empty `guilds` keeps a work as a 社群技能書 instead of a guild designation.
 // Pinned upstream documentation reviewed 2026-09-24 or at each guide's reviewed_at; upstream apps were not run.
+type AuthorSource={author:string;repo:string;sha:string;title:string;reading:string;evidence:string[];guilds:string[]};
 export const communityAuthorSources = {
-  'bidding-radar-concept':{author:'綠豆',repo:'greenQQQ/bidding-radar-concept',sha:'a02db6cb6ef754bff3622e88eb10167cf772ca72',title:'領標雷達：標案與補助設計',reading:'README.md',evidence:['README.md','實作指南.md','LICENSE'],guilds:['guild_opportunity_partnership','guild_ai_field']},
+  'bidding-radar-concept':{author:'綠豆',repo:'greenQQQ/bidding-radar-concept',sha:'a02db6cb6ef754bff3622e88eb10167cf772ca72',title:'領標雷達：標案與補助設計',reading:'README.md',evidence:['README.md','實作指南.md','LICENSE'],guilds:['guild_opportunity_partnership']},
   'aiwff-runtime':{author:'隊長',repo:'zaxardery8011-design/aiwff-runtime',sha:'94b94abf6d0656de0a5998da4c4141d2e9971a7c',title:'小主腦：本機 AI 任務系統',reading:'README.zh-TW.md',evidence:['README.zh-TW.md','AGENTS.md','LICENSE'],guilds:['guild_ai_vibe','guild_ai_field']},
-  'n8n-marketing-flows':{author:'Yuri',repo:'YuriCrystal/n8n-marketing-flows',sha:'46c8e2535430ebe1e9bb4d8b6b335465c4702ffb',title:'n8n 行銷自動化模板',reading:'README.md',evidence:['README.md','LICENSE'],guilds:['guild_marketing','guild_ai_field']},
-  'anti-gambling-trader-tw':{author:'阿軒哥哥（阿軒割割）',repo:'mars-tw/anti-gambling-trader-tw',sha:'9d938b64c80ee29363aed496ba4e61d9110a7222',title:'反詐投資王：交易統計與驗證',reading:'README.md',evidence:['README.md','docs/user-guide.md','LICENSE'],guilds:['guild_ai_field']},
-  'web-card-game-skill':{author:'阿軒哥哥（阿軒割割）',repo:'mars-tw/web-card-game-skill',sha:'d690b88ea23333d53d9126c51127ded6b24b4927',title:'裂潮卡牌：網頁卡牌遊戲 Skill',reading:'README.md',evidence:['README.md','SKILL.md','LICENSE'],guilds:['guild_ai_vibe']},
-  'ai-avatar-bot':{author:'Yuri',repo:'YuriCrystal/ai-avatar-bot',sha:'d9276a227ea342eebfb9967f9245256406de7d23',title:'會說話的網站虛擬人',reading:'README.md',evidence:['README.md','LICENSE'],guilds:['guild_ai_vibe','guild_member_operations']},
-  'ai-manga-translator':{author:'綠豆',repo:'greenQQQ/ai-manga-translator',sha:'964734a9366b872b4c7ac2069be72124eb3d332e',title:'AI 漫畫圖片翻譯',reading:'README.md',evidence:['README.md','LICENSE'],guilds:['guild_ai_field','guild_media_automation']},
-  'line-persona':{author:'隊長',repo:'zaxardery8011-design/line-persona',sha:'d07131c9cb45f9037d272a176d7ce788542884f7',title:'LINE 影分身',reading:'README.md',evidence:['README.md','AGENTS.md','LICENSE'],guilds:['guild_member_operations','guild_ai_field']},
-};
+  'n8n-marketing-flows':{author:'Yuri',repo:'YuriCrystal/n8n-marketing-flows',sha:'46c8e2535430ebe1e9bb4d8b6b335465c4702ffb',title:'n8n 行銷自動化模板',reading:'README.md',evidence:['README.md','LICENSE'],guilds:['guild_marketing']},
+  'anti-gambling-trader-tw':{author:'阿軒哥哥（阿軒割割）',repo:'mars-tw/anti-gambling-trader-tw',sha:'9d938b64c80ee29363aed496ba4e61d9110a7222',title:'反詐投資王：交易統計與驗證',reading:'README.md',evidence:['README.md','docs/user-guide.md','LICENSE'],guilds:[]},
+  'web-card-game-skill':{author:'阿軒哥哥（阿軒割割）',repo:'mars-tw/web-card-game-skill',sha:'d690b88ea23333d53d9126c51127ded6b24b4927',title:'裂潮卡牌：網頁卡牌遊戲 Skill',reading:'README.md',evidence:['README.md','SKILL.md','LICENSE'],guilds:[]},
+  'ai-avatar-bot':{author:'Yuri',repo:'YuriCrystal/ai-avatar-bot',sha:'d9276a227ea342eebfb9967f9245256406de7d23',title:'會說話的網站虛擬人',reading:'README.md',evidence:['README.md','LICENSE'],guilds:[]},
+  'ai-manga-translator':{author:'綠豆',repo:'greenQQQ/ai-manga-translator',sha:'964734a9366b872b4c7ac2069be72124eb3d332e',title:'AI 漫畫圖片翻譯',reading:'README.md',evidence:['README.md','LICENSE'],guilds:[]},
+  'line-persona':{author:'隊長',repo:'zaxardery8011-design/line-persona',sha:'d07131c9cb45f9037d272a176d7ce788542884f7',title:'LINE 影分身',reading:'README.md',evidence:['README.md','AGENTS.md','LICENSE'],guilds:[]},
+} satisfies Record<string,AuthorSource>;
 type Id=keyof typeof communityAuthorSources;
 type Details=Omit<SkillBookGuide,'author_name'|'reading_url'|'source_commit'|'reviewed_at'|'source_evidence'|'contribution_url'>;
 const details:Record<Id,Details>={

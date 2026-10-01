@@ -61,6 +61,8 @@
 
 .skill-book.skill-book-volume.skill-library-book { display: flex; flex-direction: column; min-width: 0; overflow: hidden; padding: 14px; gap: 10px; border-radius: 12px; }
 .skill-library-heading { display: grid; grid-template-columns: 80px minmax(0,1fr); gap: 12px; align-items: center; min-width: 0; }
+/* Without a cover the title keeps the full width instead of the 80px cover column. */
+.skill-library-heading > .skill-library-copy:only-child { grid-column: 1 / -1; }
 .skill-library-book .skill-library-heading > .skill-book-illustration { display: block; width: 80px; height: 60px; object-fit: cover; border: 1px solid #3a4253; border-radius: 8px; background: #0c0f17; }
 .skill-library-copy { display: grid; align-content: start; gap: 4px; padding: 0; min-width: 0; }
 .skill-book.skill-book-volume.skill-library-book .skill-library-copy > .eyebrow { margin: 0; font-size: .68rem; letter-spacing: .02em; color: #9ba7ff; }
