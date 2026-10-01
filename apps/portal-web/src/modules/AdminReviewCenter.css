@@ -9,9 +9,19 @@
 .review-center .review-title a { min-width: 0; overflow-wrap: anywhere; color: var(--ink); font-weight: 650; }
 .review-center .review-row p { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: .875rem; }
 .review-center .review-path { display: inline-block; margin-left: 8px; color: var(--muted); }
-.review-center .badge { color: var(--ink); background: var(--info-bg); }
-.review-center .badge-ok { background: var(--green-soft); }
-.review-center .badge-alert { color: var(--danger); background: var(--danger-bg); }
+.review-center .badge,
+.module-panel .review-center .badge { color: var(--ink); background: var(--info-bg); }
+.review-center .badge-ok,
+.module-panel .review-center .badge-ok { background: var(--green-soft); }
+.review-center .badge-alert,
+.module-panel .review-center .badge-alert { color: var(--danger); background: var(--danger-bg); }
+.review-center .badge-own,
+.module-panel .review-center .badge-own { background: var(--green-soft); color: var(--ink); }
+.review-center .badge-open,
+.module-panel .review-center .badge-open { background: color-mix(in srgb, var(--blue, #3044ff) 24%, var(--bg-elev)); color: var(--ink); }
+.review-center [role="tab"][aria-selected="true"] { background: var(--green-soft); color: var(--ink); box-shadow: inset 0 0 0 1px var(--green); }
+.review-center .review-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.review-center .review-filters .field { flex: 0 1 16rem; min-width: min(100%, 12rem); }
 .review-center .review-detail { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); min-width: 0; }
 .review-center .review-detail h3 { font-size: 1rem; margin: 0; }
 .review-center .review-detail ul { margin: 0; padding-left: 1.2rem; }
