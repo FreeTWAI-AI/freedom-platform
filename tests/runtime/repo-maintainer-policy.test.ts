@@ -23,7 +23,7 @@ function codes(result: { reasons: Array<{ code: string; message: string; paths?:
 }
 
 test('repository settings fill defaults and an explicit profile wins', () => {
-  assert.equal(MAINTAINER_POLICY_VERSION, '2026-09-30.1');
+  assert.equal(MAINTAINER_POLICY_VERSION, '2026-09-30.2');
   assert.equal(settings.rules_profile, 'freedom-platform');
   assert.equal(settings.required_check, 'verify');
   assert.equal(settings.required_check_app_slug, 'github-actions');
@@ -34,6 +34,12 @@ test('repository settings fill defaults and an explicit profile wins', () => {
   assert.equal(resolveSettings('FreeTWAI-AI/freedom-platform', { rules_profile: 'default' }).rules_profile, 'default');
   assert.equal(resolveSettings('Other/repo', { rules_profile: 'freedom-platform', ci_grace_minutes: 5, sla_hours: { high: 12 } }).sla_hours.high, 12);
   assert.ok(RISK_REASON_CODES.includes('bot_author'));
+  assert.equal(settings.claim_hours, 24);
+  assert.equal(settings.request_reviewers, false);
+  assert.equal(resolveSettings('Other/repo', { claim_hours: 12, request_reviewers: true }).request_reviewers, true);
+  assert.throws(() => resolveSettings('Other/repo', { claim_hours: 0 }));
+  assert.throws(() => resolveSettings('Other/repo', { claim_hours: 169 }));
+  assert.ok(QUEUE_REASON_CODES.includes('review_claimed'));
   assert.ok(QUEUE_REASON_CODES.includes('ci_missing'));
   assert.ok(QUEUE_REASON_CODES.includes('migration_number_behind'));
   assert.ok(QUEUE_STATES.includes('in_review'));
@@ -257,6 +263,49 @@ test('deriveQueueState covers every phase-1a state and does not emit in_review',
     migration.state, waiting.state, ready.state, lowRank.state,
   ];
   assert.equal(seen.includes('in_review'), false);
+});
+
+test('an active claim turns awaiting review and a high-risk owner queue into in_review', () => {
+  const expires = new Date(NOW.getTime() + 3_600_000).toISOString();
+  const claim = { reviewer_github_id: '200', reviewer_login: 'ada', expires_at: expires };
+  const cases: Array<[string, Partial<QueueDerivationInput>, string, boolean]> = [
+    ['awaiting', { claim }, 'in_review', true],
+    ['expired', { claim: { ...claim, expires_at: NOW.toISOString() } }, 'awaiting_review', false],
+    ['past', { claim: { ...claim, expires_at: new Date(NOW.getTime() - 1000).toISOString() } }, 'awaiting_review', false],
+    ['invalid', { claim: { ...claim, expires_at: 'not-a-date' } }, 'awaiting_review', false],
+    ['absent', {}, 'awaiting_review', false],
+    ['high owner', { risk: 'high', claim }, 'in_review', true],
+    ['high ready', { risk: 'high', claim, reviews: [review()], reviewers: [{ github_user_id: '200', max_risk: 'high' }] }, 'ready', false],
+    ['other base', { claim, pull: pull({ base_ref: 'release' }) }, 'needs_owner', false],
+    ['merged', { claim, pull: pull({ merged_at: NOW.toISOString() }) }, 'merged', false],
+    ['closed', { claim, pull: pull({ state: 'closed' }) }, 'closed', false],
+    ['paused', { claim, pull: pull({ paused: true }) }, 'paused', false],
+    ['draft', { claim, pull: pull({ is_draft: true }) }, 'draft', false],
+    ['author', { claim, migration_reasons: [{ code: 'migration_bad_name', message: '壞檔名' }] }, 'needs_author', false],
+    ['ci running', { claim, pull: pull({ head_observed_at: new Date(NOW.getTime() - 14 * 60_000).toISOString() }), checks: [] }, 'waiting_ci', false],
+    ['ci missing', { claim, pull: pull({ head_observed_at: new Date(NOW.getTime() - 15 * 60_000).toISOString() }), checks: [] }, 'ci_not_run', false],
+  ];
+  for (const [label, over, state, claimed] of cases) {
+    const derived = derive(over);
+    assert.equal(derived.state, state, label);
+    assert.equal(derived.reasons.some(reason => reason.code === 'review_claimed'), claimed, label);
+  }
+  const claimed = derive({ claim });
+  assert.match(claimed.reasons.at(-1)?.message ?? '', /ada/);
+  assert.match(claimed.reasons.at(-1)?.message ?? '', new RegExp(expires.replace(/[.]/g, '\\.')));
+  assert.equal(claimed.recheck_at, expires);
+  const high = derive({ risk: 'high', claim });
+  assert.ok(high.reasons.some(reason => reason.code === 'high_risk_requires_owner'));
+  assert.equal(high.reasons.at(-1)?.code, 'review_claimed');
+  const overdue = derive({ claim, pull: pull({ head_observed_at: new Date(NOW.getTime() - 48 * 3_600_000).toISOString() }) });
+  assert.equal(overdue.state, 'in_review');
+  assert.equal(overdue.recheck_at, expires);
+  const sooner = derive({
+    claim: { ...claim, expires_at: new Date(NOW.getTime() + 48 * 3_600_000).toISOString() },
+    pull: pull({ head_observed_at: new Date(NOW.getTime() - 60 * 60_000).toISOString() }),
+  });
+  assert.equal(sooner.recheck_at, sooner.sla_due_at);
+  assert.ok(sooner.sla_due_at && Date.parse(sooner.sla_due_at) < Date.parse(claim.expires_at) + 47 * 3_600_000);
 });
 
 test('pull 46 is high risk and needs the author because of the conflict and migration numbers', () => {

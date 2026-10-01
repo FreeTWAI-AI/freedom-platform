@@ -27,7 +27,7 @@ const publicKey = await exportSPKI(pair.publicKey);
 const realFetch = globalThis.fetch;
 let clock = new Date('2026-09-30T12:00:00.000Z');
 const now = () => new Date(clock.getTime());
-const config: MaintainerTickConfig = { appId: APP_ID, organization: ORG, privateKey };
+const config: MaintainerTickConfig = { appId: APP_ID, organization: ORG, privateKey, writes: 'off' };
 
 type Call = { method: string; host: string; path: string; search: string; authorization: string; body: unknown };
 let calls: Call[] = [];
@@ -248,7 +248,7 @@ test('reconcile stores the mirror and an out-of-order run does not overwrite it'
   assert.equal(row.title, 'Observe me');
   assert.equal(row.queue_state, 'awaiting_review');
   assert.equal(row.risk_class, 'medium');
-  assert.equal(row.policy_version, '2026-09-30.1');
+  assert.equal(row.policy_version, '2026-09-30.2');
   assert.equal((await pool.query(`SELECT app_slug, conclusion FROM maintainer_checks`)).rows[0].app_slug, 'github-actions');
   assert.equal(logged.join('\n').includes(TOKEN), false);
   assert.equal(logged.join('\n').includes(privateKey.slice(40, 80)), false);

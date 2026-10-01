@@ -15,6 +15,7 @@ const ZERO = '0'.repeat(32);
 const empty: MaintainerSummary = {
   deliveries_deleted: 0, jobs_deleted: 0, rederived: 0, ignored_accounts: 0, suspended_installations: 0, repositories_upserted: 0, repositories_removed: 0,
   sweeps: 0, jobs_done: 0, jobs_failed: 0, jobs_released: 0, github_requests: 0, stopped: null,
+  claims_expired: 0, claims_released: 0, claims_completed: 0, writes: 'off',
 };
 
 function env(overrides: Partial<MaintainerEnv> = {}): MaintainerEnv {
@@ -73,6 +74,11 @@ test('configuration names the setting, rejects the placeholder and a PKCS#1 key,
   assert.equal(converted.privateKey.includes('\\n'), false);
   assert.equal(converted.appId, '12345');
   assert.equal(converted.organization, 'FreeTWAI-AI');
+  assert.equal(converted.writes, 'invalid');
+  assert.equal(readMaintainerConfig(env({ GITHUB_MAINTAINER_WRITES: 'off' })).writes, 'off');
+  assert.equal(readMaintainerConfig(env({ GITHUB_MAINTAINER_WRITES: 'requested_reviewers' })).writes, 'requested_reviewers');
+  assert.equal(readMaintainerConfig(env({ GITHUB_MAINTAINER_WRITES: 'on' })).writes, 'invalid');
+  assert.equal(readMaintainerConfig(env({ GITHUB_MAINTAINER_WRITES: 'OFF' })).writes, 'invalid');
   assert.equal(JSON.stringify(converted).includes(DSN), false);
 });
 
@@ -145,6 +151,25 @@ test('a successful tick logs counts only', async () => {
   assert.equal(pool.state.ended, 1);
   assert.equal(logged.length, 1);
   assert.deepEqual(JSON.parse(logged[0]), { ...empty, sweeps: 2, github_requests: 4 });
+  assert.equal(JSON.parse(logged[0]).claims_expired, 0);
+  assert.equal(JSON.parse(logged[0]).claims_released, 0);
+  assert.equal(JSON.parse(logged[0]).claims_completed, 0);
+  assert.equal(JSON.parse(logged[0]).writes, 'off');
+  assertQuiet(logged);
+  await Promise.all(pending);
+});
+
+test('an unexpected writes value fails the tick by name', async () => {
+  const pool = endedPool();
+  const handler = createMaintainerHandler({
+    createPool: () => pool,
+    run: async () => ({ ...empty, writes: 'on' as 'off' }),
+  });
+  const { ctx, pending } = context();
+  const { logged } = await capture(async () => {
+    await assert.rejects(handler.scheduled(tick(), env({ GITHUB_MAINTAINER_WRITES: 'off' }), ctx), (error: Error) => error.message === MAINTAINER_TICK_FAILURE);
+  });
+  assert.deepEqual(logged, ['maintainer_tick_failed maintainer_result_invalid']);
   assertQuiet(logged);
   await Promise.all(pending);
 });
@@ -165,6 +190,7 @@ test('the maintainer wrangler file is cron-only and separate from the platform W
   assert.match(text, /"name": "freedom-maintainer-next"/);
   assert.equal((text.match(/"GITHUB_MAINTAINER_APP_ID": "0"/g) ?? []).length, 3);
   assert.equal((text.match(/"GITHUB_MAINTAINER_ORG": "FreeTWAI-AI"/g) ?? []).length, 3);
+  assert.equal((text.match(/"GITHUB_MAINTAINER_WRITES": "off"/g) ?? []).length, 3);
   assert.equal(text.includes('GITHUB_MAINTAINER_PRIVATE_KEY'), true);
   assert.equal(/"GITHUB_MAINTAINER_PRIVATE_KEY"\s*:/.test(text), false);
   assert.match(text, /openssl pkcs8 -topk8 -nocrypt/);
