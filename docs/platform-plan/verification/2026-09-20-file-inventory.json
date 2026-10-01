@@ -1534,8 +1534,8 @@
     },
     {
       "path": "docs/development/co-creation.md",
-      "bytes": 7569,
-      "sha256": "177631fcd621043f91ed03b802cdb1ffcc93630f49a884bda7f7023a587e6a40"
+      "bytes": 7702,
+      "sha256": "95f3e91dc238f81d0380b59e4474a7d167c4c782e0e2b8c44cc4ae5409c3beae"
     },
     {
       "path": "docs/development/community-author-skills.md",
@@ -3084,13 +3084,13 @@
     },
     {
       "path": "modules/community/github-history.ts",
-      "bytes": 9466,
-      "sha256": "0c88d0a8d962fe5ae357c2d551fa49f699c49dab416d55ecf093cf21df7ade3e"
+      "bytes": 10153,
+      "sha256": "cd198136daeb095416b5af2470b6305fec13e03bb41e60a1852cd5e923143db2"
     },
     {
       "path": "modules/community/github-sync.ts",
-      "bytes": 30591,
-      "sha256": "107634a1e281e5510736bab3432a5f96a002fb7dbf355f915a930b0d3b6b3e77"
+      "bytes": 30772,
+      "sha256": "ce59c2d21b569029e172088ba0b150b1dbee61c0de310be3da494dc1bb5eb8c5"
     },
     {
       "path": "modules/community/member-skill-books.ts",
@@ -3319,8 +3319,8 @@
     },
     {
       "path": "modules/development/page-github.ts",
-      "bytes": 9730,
-      "sha256": "aea46c8cb43b57465eabb4317050c9646cd3f67f6d178adb41c06dfc2763a451"
+      "bytes": 9796,
+      "sha256": "50328508a0f4a12ab5001a9a485bed3c4125fb3da0c4c0b593650736bd056530"
     },
     {
       "path": "modules/development/pages.ts",
@@ -4204,8 +4204,8 @@
     },
     {
       "path": "tests/runtime/github-sync.test.ts",
-      "bytes": 52454,
-      "sha256": "213831a78bfe7ea88a1e9fd13bd07b1d41f0de25e416a5b57664c6d364760dc1"
+      "bytes": 60502,
+      "sha256": "d7a327fed85708a1a38b29f8371a4f2f321bebbe3a8d8a7407c9f24c880e468a"
     },
     {
       "path": "tests/runtime/guild-experts.test.ts",
@@ -4419,8 +4419,8 @@
     },
     {
       "path": "tests/worker/workerd.test.ts",
-      "bytes": 14757,
-      "sha256": "9bd2b29d52caeaf15abb1bf3919a756d9e39f21479e84e06f5904a3616208e2a"
+      "bytes": 18869,
+      "sha256": "2ee4082219d24c067187bfe4bc48239152b0e166d967f8e5f9ded1388d339868"
     },
     {
       "path": "tsconfig.json",

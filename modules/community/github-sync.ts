@@ -3,7 +3,7 @@ import type {Pool, PoolClient} from 'pg';
 import {Problem} from '../../packages/shared/problem.js';
 import {readGitHub, githubCoordinate, type GitHubRead} from '../opensource-marketing/github.js';
 import {communityCatalog} from './catalog.js';
-import {authorOf, cleanTitle, GITHUB_HISTORY_PAGE_CAP, GITHUB_REPOSITORY_NAME} from './github-history.js';
+import {authorOf, cleanTitle, postgresText, GITHUB_HISTORY_PAGE_CAP, GITHUB_REPOSITORY_NAME} from './github-history.js';
 import {pilotProject} from '../co-creation/service.js';
 import {pageIdsForIssue, publicEvent, FREEDOM_PLATFORM_EVENTS_FEED} from '../development/page-github.js';
 import {catalogMetricTargets, failRepositoryMetrics, saveRepositoryMetrics} from '../github-social/service.js';
@@ -150,7 +150,7 @@ function labelList(value: unknown) {
   const names: string[] = [];
   for (const entry of value) {
     const raw = typeof entry === 'string' ? entry : entry && typeof entry === 'object' && typeof (entry as {name?: unknown}).name === 'string' ? (entry as {name: string}).name : '';
-    const name = raw.trim().slice(0, 100);
+    const name = postgresText(raw.trim(), 100);
     if (!name) continue;
     names.push(name);
     if (names.length === 100) break;
@@ -171,7 +171,7 @@ function assigneeList(value: unknown) {
 }
 function bodyExcerpt(kind: 'issue' | 'pr', state: 'open' | 'closed', body: unknown) {
   if (kind !== 'issue' || state !== 'open' || typeof body !== 'string') return null;
-  const text = body.slice(0, 12000);
+  const text = postgresText(body, 12000);
   return text.length ? text : null;
 }
 function toStored(item: SyncItem): StoredItem {
@@ -364,7 +364,7 @@ function eventRow(raw: unknown) {
   if (!event) return null;
   if (event.id.length < 1 || event.id.length > 100) return null;
   if (event.actor.length < 1 || event.actor.length > 100) return null;
-  if (event.title.length < 1 || event.title.length > 300) return null;
+  if (event.title.length < 1 || postgresText(event.title, 300) !== event.title) return null;
   if (event.url.length < 1 || event.url.length > 1000) return null;
   if (event.number != null && (!Number.isInteger(event.number) || event.number <= 0 || event.number > 1000000000)) return null;
   return event;
@@ -450,7 +450,9 @@ function metricsFetcher(run: Run): typeof fetch {
   return (input, init) => {
     if (run.requests >= run.budget) throw new Error('github_sync_budget');
     run.requests += 1;
-    return run.fetcher(input, init);
+    // Unbound: workerd throws "Illegal invocation" when global fetch's receiver is not the global scope.
+    const fetcher = run.fetcher;
+    return fetcher(input, init);
   };
 }
 async function syncDueMetrics(pool: Pool, run: Run) {

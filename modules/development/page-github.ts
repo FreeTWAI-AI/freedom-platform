@@ -2,6 +2,7 @@ import {z} from 'zod';
 import type {Pool} from 'pg';
 import {developmentPages} from './pages.js';
 import {Problem} from '../../packages/shared/problem.js';
+import {postgresText} from '../community/github-history.js';
 
 export const PLATFORM_REPOSITORY='https://github.com/FreeTWAI-AI/freedom-platform';
 export const DESIGN_CLAIM_MARKER='<!-- freedom-design-claim -->';
@@ -30,7 +31,7 @@ const claimSchema=z.object({action:z.literal('created'),issue:subjectSchema.exte
 const reviewSchema=z.object({action:z.literal('created'),pull_request:subjectSchema,review:z.object({state:z.literal('approved').or(z.literal('APPROVED')),html_url:z.string().url()})});
 const activitySchema=z.object({action:z.enum(['opened','closed','reopened']),issue:subjectSchema.extend({pull_request:z.unknown().optional()}).optional(),pull_request:subjectSchema.extend({merged:z.boolean().optional()}).optional()});
 const releaseSchema=z.object({action:z.literal('published'),release:z.object({tag_name:z.string().regex(/^[\w.+-]{1,100}$/),name:z.string().max(1000).nullable().optional(),html_url:z.string().url()})});
-function eventTitle(value:string|undefined,fallback:string){const text=(value??'').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g,'').trim().slice(0,300);return text||fallback;}
+function eventTitle(value:string|undefined,fallback:string){const text=postgresText((value??'').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g,'').trim(),300);return text||fallback;}
 function subjectUrl(kind:'issues'|'pull',subject:z.infer<typeof subjectSchema>){
   const html=`${PLATFORM_REPOSITORY}/${kind}/${subject.number}`;
   const api=`https://api.github.com/repos/FreeTWAI-AI/freedom-platform/${kind==='pull'?'pulls':'issues'}/${subject.number}`;

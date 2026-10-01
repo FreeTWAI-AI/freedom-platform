@@ -49,7 +49,7 @@
 
 活動與任務 brief 讀 PostgreSQL 的 `github_items`，不再為了這兩個頁面呼叫 GitHub。網址與儲存的 `repository_full_name` 不一致時回 `409 repository_identity_changed`；網址不是公開 GitHub repo 時回 `422 invalid_github_url`。不再用 GitHub 數字 repo id、私人或封存狀態擋這次讀取。
 
-開放 Issue 是 `kind=issue` 且 `state=open`，最舊的先列，最多 30 筆，含 `body_excerpt`（最多 12,000 字）、labels 與 assignees。已合併 PR 是 `kind=pr` 且 `merged_at` 有值、並有作者，最近合併的先列，最多 30 筆。Issues API 沒有 `merge_commit_sha`，這個欄位是 `null`。實際筆數多於 30 才是 `truncated: true`。這是同步後的摘要，並非完整歷史。
+開放 Issue 是 `kind=issue` 且 `state=open`，最舊的先列，最多 30 筆，含 `body_excerpt`（最多 12,000 字）、labels 與 assignees。這 12,000 字按 Unicode 碼位計算；同步會先去掉 NUL 與不成對的代理字元，避免截斷切在表情符號中間。已合併 PR 是 `kind=pr` 且 `merged_at` 有值、並有作者，最近合併的先列，最多 30 筆。Issues API 沒有 `merge_commit_sha`，這個欄位是 `null`。實際筆數多於 30 才是 `truncated: true`。這是同步後的摘要，並非完整歷史。
 
 尚未同步（沒有資料列、`pending`，或沒有 `last_synced_at`）回 `unavailable_reason: github_sync_pending`，畫面寫「GitHub 資料同步中，這次還無法確認任務清單。請直接到 GitHub 查看，或稍後再回來。」已標成讀不到的儲存庫回 `github_unreadable`，畫面寫「目前無法同步這個 GitHub 儲存庫。請直接到 GitHub 查看。」這兩種情況都不把空清單說成沒有任務。Migration 057 會清掉 issue 游標，部署後大約一小時內，已同步過的專案仍可能暫時沒有 labels 與內文。
 
