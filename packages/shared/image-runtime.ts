@@ -13,7 +13,7 @@ export interface ImageOutputSpec {
 // Callers have already checked byte size, declared MIME, signature and
 // animation chunks; a processor must still fully decode and enforce limits.
 export interface ImageNormalizeSpec {
-  readonly purpose: 'avatar' | 'skill_cover' | 'event_poster';
+  readonly purpose: 'avatar' | 'skill_cover' | 'event_poster' | 'event_highlight';
   readonly format: RasterFormat;
   readonly maxDimension: number;
   readonly maxPixels: number;
