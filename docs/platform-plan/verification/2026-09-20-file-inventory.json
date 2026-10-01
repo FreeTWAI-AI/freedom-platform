@@ -94,8 +94,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/admin.ts",
-      "bytes": 7732,
-      "sha256": "be1757b6d89a0874259b3d44f3b1875de39cb724a4dec21122949ccaa5f524af"
+      "bytes": 8271,
+      "sha256": "085a6f387e7911521641670b3215f980c78273c8f27dd45553be16ee343fc505"
     },
     {
       "path": "apps/platform-api/src/routes/agent-commerce.ts",
@@ -748,6 +748,16 @@
       "sha256": "6dfc8fd814f9cc6637b4d3e8c9cc2274802cf69c34834da8c9940a2ea9c76b3f"
     },
     {
+      "path": "apps/portal-web/src/modules/AdminCredentials.css",
+      "bytes": 2856,
+      "sha256": "f5c5dc5c1ce776017a61edf3232e490f1926d2237f40a31826c6c6ebfee9dab2"
+    },
+    {
+      "path": "apps/portal-web/src/modules/AdminCredentials.tsx",
+      "bytes": 6450,
+      "sha256": "b1ff2f03ca96c900a501a06a9c7efff19f8a88ae2e54429501ee103c5ca98802"
+    },
+    {
       "path": "apps/portal-web/src/modules/AdminGitHubSetup.tsx",
       "bytes": 3923,
       "sha256": "d8b00b91993a706733fa8015f5414a8c5d6c6727d8c991f568e2d640f379d9f9"
@@ -769,8 +779,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AdminPanel.tsx",
-      "bytes": 29784,
-      "sha256": "9f4af5935c48807fc6a1990414afd6b50d3114da04d7ffa1f53ae62eea0cae55"
+      "bytes": 29927,
+      "sha256": "de20cac61a754cbfcfb0e0f74576a296178d452291055ba6d53cccc93c7455df"
     },
     {
       "path": "apps/portal-web/src/modules/AdminPermissions.css",
@@ -1300,7 +1310,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30575,
-      "sha256": "453d8170c553fcd8f66580d5cb51031f5ffffb0fdb650584e58c7f3ba6b0f41d"
+      "sha256": "22237bdc7dd287cccfeb5a85481d2c71197c3a25c44fa8ade23b1b43881c1f99"
     },
     {
       "path": "deploy/cloudflare/lib/cloudflare.mjs",
@@ -1674,8 +1684,8 @@
     },
     {
       "path": "docs/development/platform-admin-api.md",
-      "bytes": 11660,
-      "sha256": "d355ec8513dd4e67c78dfbaa567d0bb759d8a07ad54a0eac5e90d7c608325532"
+      "bytes": 12816,
+      "sha256": "fec302513bc76018b7f2ca4e64d01b4c485b2769accbc92bbd33ca9184bb4418"
     },
     {
       "path": "docs/development/public-operations.md",
@@ -3038,6 +3048,11 @@
       "sha256": "bfff27a492217a81d3c90ca5243b17012ed8bbe9dabbf232e8f52b26b02cf5d5"
     },
     {
+      "path": "migrations/058_platform_credential_status.sql",
+      "bytes": 2271,
+      "sha256": "397c0281e2d6a92344ec0c6f8b5192fd4d25e1bd9bdff57ed4702e67a5c1274f"
+    },
+    {
       "path": "modules/agent-commerce/distribution.ts",
       "bytes": 10476,
       "sha256": "2d60f26788a408905286751505ea0d4d2e38a4399e1ff11e3df4622b5c2601f3"
@@ -3109,8 +3124,8 @@
     },
     {
       "path": "modules/community/github-sync.ts",
-      "bytes": 31723,
-      "sha256": "6fb705282be10719f69107a67953761f6328dfad440baa51d4c96675b6ced27d"
+      "bytes": 34181,
+      "sha256": "95e386eb4eaeb592dedffc3ad172a5999f2cc1124ce8708b33f106cd9ef6a46a"
     },
     {
       "path": "modules/community/member-skill-books.ts",
@@ -3344,8 +3359,8 @@
     },
     {
       "path": "modules/development/pages.ts",
-      "bytes": 18397,
-      "sha256": "f60d64a1b49e94eda01d2fbf02cc05c848c0adf73777c5447a874322f4a03a7b"
+      "bytes": 18676,
+      "sha256": "a8728f05eb976b9921ec0e87bd4e7d5a21639f9f665ccb40220e8011a29fc410"
     },
     {
       "path": "modules/development/service.ts",
@@ -3439,8 +3454,8 @@
     },
     {
       "path": "modules/opensource-marketing/github.ts",
-      "bytes": 12306,
-      "sha256": "8de6498a43a24604fc074bd839b6bd9458098996b5fd34ed1180be6ad2c8c7d6"
+      "bytes": 12516,
+      "sha256": "cbef595a4dbb4fa966d8def3bb847e2cf530e080d7383aff590827ef3d6f6c69"
     },
     {
       "path": "modules/opensource-marketing/service.ts",
@@ -3466,6 +3481,11 @@
       "path": "modules/platform-admin/access.ts",
       "bytes": 2903,
       "sha256": "3ac2ca681256339887f8d9dff3aae1db0ff92e02fdb139f9270420e129d51025"
+    },
+    {
+      "path": "modules/platform-admin/credentials.ts",
+      "bytes": 8245,
+      "sha256": "82757370f0e8d32b12a6246a07ade37a5714141707016da96948e35eef865fad"
     },
     {
       "path": "modules/platform-admin/guild-appointment-membership.ts",
@@ -3806,6 +3826,11 @@
       "path": "scripts/verify-staging.mjs",
       "bytes": 14324,
       "sha256": "4ed6bf596289bc2aae4519d8361a78ac21d4e1820ab3c3bf580e7fa5a75482b2"
+    },
+    {
+      "path": "tests/e2e/admin-credentials.spec.ts",
+      "bytes": 7466,
+      "sha256": "6c2c6f177c7ccf6f49c395d46196dad42af09e043572fd8aa5944fd2b6d11407"
     },
     {
       "path": "tests/e2e/admin-guilds.spec.ts",
@@ -4351,6 +4376,11 @@
       "path": "tests/runtime/platform-admin.test.ts",
       "bytes": 40687,
       "sha256": "05d3f7ba12ad6597d30929108cdd63b4438212d2d055f418e57100a6a2269eae"
+    },
+    {
+      "path": "tests/runtime/platform-credentials.test.ts",
+      "bytes": 33594,
+      "sha256": "63f1539e93322f065b24e2109ae184de772d0a4b0c7144eb6cb9a004dc8254d9"
     },
     {
       "path": "tests/runtime/portal-client-recovery.test.ts",
