@@ -100,6 +100,9 @@ test('admin listings and mutations cannot cross community boundaries',async()=>{
  const other=await outsider(),appId=await application(other.community,other.user);
  await pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)',[randomUUID(),other.community,'other-admin@example.invalid','Other Admin']);
  const listed=await request('/members?limit=2');assert.equal(listed.data.items.length,2);assert.equal(listed.data.next_offset,2);assert.ok(!JSON.stringify(listed.data).includes('outsider@example.invalid'));
+ assert.ok(listed.data.items.every((item:any)=>item.onboarding_entry_mode==='assessment'||item.onboarding_entry_mode==='quick'));
+ await pool.query("UPDATE users SET onboarding_completed_at=now(),onboarding_entry_mode='quick' WHERE user_id=$1",[DEMO_USERS[0].user_id]);
+ assert.equal((await request('/members?q='+encodeURIComponent(DEMO_USERS[0].display_name))).data.items.find((item:any)=>item.user_id===DEMO_USERS[0].user_id).onboarding_entry_mode,'quick');
  assert.ok(!JSON.stringify((await request('/members?offset=2')).data).includes('outsider@example.invalid'));assert.equal((await request('/admins')).data.items.length,1);assert.equal((await request('/guild-applications?state=all')).data.items.length,0);
  assert.equal((await request(`/members/${other.user}/status`,disabled,1)).status,404);assert.equal((await request(`/guild-applications/${appId}/review`,{decision:'reject',reason:'不在本社群範圍。'},1)).status,404);
  const own=await application();assert.equal((await request(`/guild-applications/${own}/review`,approval,1)).data.code,'guild_catalog_scope_required');

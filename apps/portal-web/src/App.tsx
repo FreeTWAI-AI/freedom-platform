@@ -386,7 +386,7 @@ function LoginView({
   const accessExpired = Boolean(bootError?.accessExpired || error?.accessExpired)
   return (
     <main className="login-layout">
-      <section className="login-story"><BrandPoster/><div className="login-story-copy"><h1>找到夥伴，把想法一起做出來。加入公會、領免費技能書，開始你的共創。</h1></div></section>
+      <section className="login-story"><BrandPoster/><div className="login-story-copy"><h1>加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。</h1></div></section>
       <div className="login-form-area">
       <section className="card login-card" aria-labelledby="login-heading">
         <div className="login-page-tools"><PageTools pageId="registration"/></div>

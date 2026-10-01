@@ -15,7 +15,7 @@ export function GuildCard({guild:g,client,busy,onPrimary,onMembership,onSecondar
   useEffect(()=>{if(panel&&!dialog.current?.open)dialog.current?.showModal();},[panel]);
   function open(value:NonNullable<typeof panel>,button:HTMLButtonElement){trigger.current=button;setPanel(value);}
   function close(){dialog.current?.close();setPanel(null);trigger.current?.focus();}
-  return <article className={`card guild-card${g.is_primary?' primary-guild':active?' joined-guild':''}`} aria-label={g.name} data-guild-key={g.guild_key}>
+  return <article className={`card guild-card${g.is_primary?' primary-guild':active?' joined-guild':''}`} aria-label={g.name} data-guild-key={g.guild_key} tabIndex={-1}>
     <div className="guild-card-content">
       <div className="card-head guild-card-topline"><h3>{g.name}</h3><span className="badge">{g.is_primary?'主要公會':g.is_secondary?'次要公會':active?'已加入':'未加入'}</span></div>
       <GuildLeadership masterName={guildMasterLabel(g)} masterId={g.guild_master?.user_id} masterAvatarUrl={g.guild_master?.avatar_url} experts={g.guild_experts}/>

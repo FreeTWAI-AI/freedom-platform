@@ -4,7 +4,7 @@ import {useModuleMutation} from './shared';
 import './MemberConnections.css';
 type ShareSettings={enabled:boolean;include_avatar:boolean;aggregate_version:number|null;share_path:string|null};
 export function MemberShare({client}:{client:PortalClient}){
-  const [settings,setSettings]=useState<ShareSettings|null>(null),[includeAvatar,setIncludeAvatar]=useState(true),[loadError,setLoadError]=useState(''),[notice,setNotice]=useState('');
+  const [settings,setSettings]=useState<ShareSettings|null>(null),[includeAvatar,setIncludeAvatar]=useState(false),[loadError,setLoadError]=useState(''),[notice,setNotice]=useState('');
   const generation=useRef(0),{mutate,busy,error}=useModuleMutation(client);
   async function load(){const current=++generation.current;setLoadError('');try{const data=await client.get<ShareSettings>('/me/member-card-share');if(current===generation.current){setSettings(data);setIncludeAvatar(data.include_avatar);}}catch(cause){if(current===generation.current)setLoadError(cause instanceof Error?cause.message:'分享設定暫時無法載入。');}}
   useEffect(()=>{void load();return()=>{generation.current++;};},[client]);

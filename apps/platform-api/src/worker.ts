@@ -8,7 +8,7 @@ import { createUnavailableImageProcessor, runWithImageProcessor } from '../../..
 import { createCloudflareImageProcessor, type ImagesBinding } from '../../../packages/shared/image-cloudflare.js';
 import { createAdminAccessVerifier, type AdminAccessVerifier } from '../../../modules/platform-admin/access.js';
 import { assertOriginAllowed, resolveFreedomEnv, type FreedomEnv } from './env.js';
-import { createPlatformApp } from './platform-app.js';
+import { createPlatformApp, isMemberCardPage } from './platform-app.js';
 import { assertDatabaseReady, ReadinessError } from './readiness.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 import { GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories } from '../../../modules/community/github-sync.js';
@@ -135,6 +135,7 @@ const ASSET_OVERRIDDEN = new Set(['cache-control', 'content-security-policy', 'x
 function fromAsset(c: Context, asset: Response) {
   const headers: Record<string, string> = {};
   for (const [name, value] of asset.headers) if (!ASSET_OVERRIDDEN.has(name.toLowerCase())) headers[name] = value;
+  if (isMemberCardPage(new URL(c.req.url).pathname)) headers['X-Robots-Tag'] = 'noindex, nofollow';
   return c.body(asset.body as ReadableStream, asset.status as 200, headers);
 }
 /** Same order as server.ts: files after every app route, then the browser shell for GET navigation. */

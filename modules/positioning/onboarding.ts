@@ -264,13 +264,25 @@ export async function memberPositioningSummary(pool:Queryable,communityId:string
  return {positioning_title:primary?(guildTitles[primary.guild_key]??'專業探索者'):null,primary_guild:primary?select(primary):null,secondary_guilds:secondary.map(key=>select(membership.find(g=>g.guild_key===key))),joined_guilds:membership.filter(g=>!g.is_primary&&!secondary.includes(g.guild_key)).map(select),capabilities:profile?.capabilities??[],equipment:profile?.equipment??[],custom_capabilities:profile?.custom_capabilities??[],custom_equipment:profile?.custom_equipment??[],featured_capabilities:featuredChoices(profile)};
 }
 const ApplicationInput=z.object({name:z.string().trim().min(2).max(100),profession:z.string().trim().min(1).max(160),reason:z.string().trim().min(10).max(2000)}).strict();
+const memberApplicationSelect=`SELECT a.application_id,a.name,a.profession,a.reason,a.state,a.aggregate_version,a.created_at,a.reviewed_at,a.review_reason,a.approved_guild_key,g.name AS approved_guild_name
+ FROM guild_creation_applications a LEFT JOIN positioning_guild_catalog g ON g.guild_key=a.approved_guild_key`;
+function memberApplication(row:any){
+ const iso=(value:unknown)=>value==null?null:new Date(value as string).toISOString();
+ return {application_id:row.application_id,name:row.name,profession:row.profession,reason:row.reason,state:row.state,aggregate_version:Number(row.aggregate_version),created_at:iso(row.created_at),reviewed_at:iso(row.reviewed_at),review_reason:row.review_reason??null,approved_guild_key:row.approved_guild_key??null,approved_guild_name:row.approved_guild_name??null};
+}
+async function memberApplications(q:Queryable,actor:Actor,applicationId?:string){
+ const rows=(await q.query(`${memberApplicationSelect} WHERE a.community_id=$1 AND a.user_id=$2${applicationId?' AND a.application_id=$3':''} ORDER BY a.created_at DESC`,applicationId?[actor.community_id,actor.user_id,applicationId]:[actor.community_id,actor.user_id])).rows;
+ return rows.map(memberApplication);
+}
 export async function createGuildApplication(pool:Pool,input:Command){
  const body=ApplicationInput.parse(input.body);
  return command(pool,input,async()=>{},async q=>{
    await lockMemberGuilds(q,input.actor);
    requireCondition((await q.query("SELECT 1 FROM guild_creation_applications WHERE community_id=$1 AND user_id=$2 AND lower(name)=lower($3) AND state='pending'",[input.actor.community_id,input.actor.user_id,body.name])).rowCount===0,409,'application_pending','相同名稱的申請已在等待處理。');
    requireCondition(Number((await q.query("SELECT count(*) FROM guild_creation_applications WHERE community_id=$1 AND user_id=$2 AND state='pending'",[input.actor.community_id,input.actor.user_id])).rows[0].count)<5,409,'application_limit','目前最多保留五件待處理的公會申請。');
-   return (await q.query('INSERT INTO guild_creation_applications(application_id,community_id,user_id,name,profession,reason) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[randomUUID(),input.actor.community_id,input.actor.user_id,body.name,body.profession,body.reason])).rows[0];
+   const id=randomUUID();
+   await q.query('INSERT INTO guild_creation_applications(application_id,community_id,user_id,name,profession,reason) VALUES($1,$2,$3,$4,$5,$6)',[id,input.actor.community_id,input.actor.user_id,body.name,body.profession,body.reason]);
+   return (await memberApplications(q,input.actor,id))[0];
  });
 }
-export async function listGuildApplications(pool:Pool,actor:Actor){return (await pool.query('SELECT * FROM guild_creation_applications WHERE community_id=$1 AND user_id=$2 ORDER BY created_at DESC',[actor.community_id,actor.user_id])).rows;}
+export async function listGuildApplications(pool:Pool,actor:Actor){return memberApplications(pool,actor);}

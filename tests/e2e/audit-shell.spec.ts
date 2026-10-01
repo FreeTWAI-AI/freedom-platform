@@ -57,7 +57,7 @@ for (const viewport of VIEWPORTS) {
     await expect(page.locator('h1')).toHaveCount(1);
     // One concrete sentence under the logo; no English eyebrow, journey list or duplicate brand subheading.
     const purpose = page.getByRole('heading', { level: 1 });
-    await expect(purpose).toHaveText('找到夥伴，把想法一起做出來。加入公會、領免費技能書，開始你的共創。');
+    await expect(purpose).toHaveText('加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。');
     await expect(purpose).toBeVisible();
     expect(await purpose.evaluate(node => parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(16);
     await expect(page.locator('.login-layout')).not.toContainText(/BUILD WITHOUT LIMITS|DISCOVER|BELONG|CREATE|FREEDOM WORKSHOP/);

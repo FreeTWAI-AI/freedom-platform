@@ -1,6 +1,6 @@
 import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
-import {randomUUID} from 'node:crypto';
+import {randomBytes,randomUUID} from 'node:crypto';
 import {Pool} from 'pg';
 import {createPool,LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
@@ -55,7 +55,7 @@ test('share cards are opt-in, bounded, revocable and never expose IDs, contacts,
   await pool.query(`INSERT INTO onboarding_assessments(assessment_id,community_id,user_id,assessment_version,assessment_sha256,state,published_profile,occupation,answers)
     VALUES($1,$2,$3,'fixture',$4,'completed',$5,'不公開職業','{"secret":"私密答案"}')`,[randomUUID(),DEMO_COMMUNITY,owner.id,'0'.repeat(64),JSON.stringify({capabilities:['python','react'],equipment:['private_tool'],featured_capabilities:['python']})]);
   await pool.query('UPDATE member_accounts SET contacts=$2 WHERE user_id=$1',[owner.id,JSON.stringify({email:{audiences:['public']},line:{value:'私人LINE',audiences:['public']}})]);
-  assert.equal((await request('/me/member-card-share',owner)).data.enabled,false);
+  const defaults=await request('/me/member-card-share',owner);assert.equal(defaults.data.enabled,false);assert.equal(defaults.data.include_avatar,false);
   assert.equal((await request('/me/member-card-share',undefined,{enabled:true,include_avatar:true})).status,401);
   const enabled=await request('/me/member-card-share',owner,{enabled:true,include_avatar:true});assert.equal(enabled.status,200,JSON.stringify(enabled.data));
   const token=enabled.data.share_path.split('/').at(-1),shared=await request('/public/member-cards/'+token);assert.equal(shared.status,200);assert.equal(shared.response.headers.get('cache-control'),'no-store');
@@ -78,6 +78,16 @@ test('public avatar and authenticated share resolution recheck current sharing, 
   await request('/me/member-card-share',owner,{enabled:true,include_avatar:false},1);
   assert.equal((await app.request(origin+'/api/v1/public/member-cards/'+token+'/avatar')).status,404);
   await pool.query('UPDATE users SET active=false WHERE user_id=$1',[owner.id]);assert.equal((await request('/public/member-cards/'+token)).status,404);
+});
+test('an existing share row keeps its avatar choice and the card page is noindex only for a token',async()=>{
+  const saved=await member('已保存分享'),fresh=await member('尚未分享'),token=randomBytes(32).toString('base64url');
+  await pool.query('INSERT INTO member_card_shares(user_id,community_id,share_token,enabled,include_avatar) VALUES($1,$2,$3,true,true)',[saved.id,DEMO_COMMUNITY,token]);
+  assert.equal((await request('/me/member-card-share',saved)).data.include_avatar,true);assert.equal((await request('/me/member-card-share',fresh)).data.include_avatar,false);
+  assert.equal((await request('/public/member-cards/'+token)).data.avatar_url,null);
+  const pageToken='a'.repeat(43);
+  assert.equal((await app.request(origin+'/member-cards/'+pageToken)).headers.get('x-robots-tag'),'noindex, nofollow');
+  assert.equal((await app.request(origin+'/member-cards/'+pageToken+'/')).headers.get('x-robots-tag'),'noindex, nofollow');
+  for(const path of ['/','/guilds','/api/v1/health','/member-cards/short','/member-cards/'+pageToken+'/extra'])assert.equal((await app.request(origin+path)).headers.get('x-robots-tag'),null,path);
 });
 test('verification accounts and unfinished members cannot publish public cards',async()=>{
   const testAccount=await member('合成驗證帳',true,`${randomUUID()}@example.invalid`),unfinished=await member('尚未選公會',false);

@@ -10,7 +10,7 @@ import {memberCard} from './members.js';
 const Token=z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 const Settings=z.object({enabled:z.boolean(),include_avatar:z.boolean(),rotate:z.boolean().default(false)}).strict();
 const labels=Object.fromEntries(capabilityCategories.flatMap(group=>group.items.map(item=>[item.id,item.label])));
-const settings=(row:any)=>({enabled:row?.enabled??false,include_avatar:row?.include_avatar??true,aggregate_version:row?.aggregate_version??null,share_path:row?.enabled?`/member-cards/${row.share_token}`:null});
+const settings=(row:any)=>({enabled:row?.enabled??false,include_avatar:row?.include_avatar??false,aggregate_version:row?.aggregate_version??null,share_path:row?.enabled?`/member-cards/${row.share_token}`:null});
 export async function memberShareSettings(pool:Pool,actor:Actor){
   return settings((await pool.query('SELECT enabled,include_avatar,aggregate_version,share_token FROM member_card_shares WHERE user_id=$1 AND community_id=$2',[actor.user_id,actor.community_id])).rows[0]);
 }
@@ -35,7 +35,7 @@ export async function saveMemberShare(pool:Pool,input:Command){
 async function sharedRow(q:Pool|PoolClient,token:string){
   Token.parse(token);
   const row=(await q.query(`SELECT u.user_id,u.community_id,u.display_name,s.include_avatar,
-      a.published_profile,av.image_bytes,
+      a.published_profile,(av.image_bytes IS NOT NULL) AS has_avatar,
       (SELECT jsonb_build_object('guild_key',g.guild_key,'name',g.name) FROM guild_member_preferences p
         JOIN positioning_guild_catalog g ON g.guild_key=p.primary_guild_key
         JOIN positioning_profession_memberships m ON m.user_id=u.user_id AND m.community_id=u.community_id AND m.guild_key=g.guild_key AND m.state='active'
@@ -55,12 +55,14 @@ export async function publicMemberCard(pool:Pool,token:string){
   const featured=(profile?.featured_capabilities??available).filter((value:string)=>available.includes(value)).slice(0,3);
   return {nickname:row.display_name,primary_guild:row.primary_guild??null,
     capabilities:featured.map((id:string)=>id.startsWith('custom:')?id.slice(7):labels[id]??id),
-    avatar_url:row.include_avatar&&row.image_bytes?`/api/v1/public/member-cards/${token}/avatar`:null};
+    avatar_url:row.include_avatar&&row.has_avatar?`/api/v1/public/member-cards/${token}/avatar`:null};
 }
 export async function publicMemberAvatar(pool:Pool,token:string){
   const row=await sharedRow(pool,token);
-  requireCondition(row.include_avatar&&row.image_bytes,404,'avatar_not_found','這張名片沒有公開頭像。');
-  return row.image_bytes as Buffer;
+  requireCondition(row.include_avatar&&row.has_avatar,404,'avatar_not_found','這張名片沒有公開頭像。');
+  const stored=(await pool.query('SELECT image_bytes FROM member_avatars WHERE user_id=$1 AND community_id=$2 AND image_bytes IS NOT NULL',[row.user_id,row.community_id])).rows[0];
+  requireCondition(stored?.image_bytes,404,'avatar_not_found','這張名片沒有公開頭像。');
+  return stored.image_bytes as Buffer;
 }
 export async function sharedMemberForViewer(pool:Pool,actor:Actor,token:string){
   const row=await sharedRow(pool,token);

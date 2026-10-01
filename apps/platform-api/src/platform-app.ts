@@ -70,6 +70,8 @@ function wireVersions(value:any):any {
   }));
   return value;
 }
+/** Browser page for a share token. The JSON and avatar routes set the same tag themselves. */
+export function isMemberCardPage(path:string){return /^\/member-cards\/[A-Za-z0-9_-]{43}\/?$/.test(path);}
 /** Runtime-neutral platform app. Host adapters: app.ts (Node) and worker.ts (Cloudflare). */
 export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions;coCreationGitHub?:CollaborationGitHub}={}) {
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
@@ -96,6 +98,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     const host=new URL(c.req.url).hostname;
     requireCondition(allowedHosts.has(host),403,'host_rejected',freedomEnv==='local'?'此版本只提供本機使用。':'請從自由工坊網站操作。');
     c.header('Cache-Control','no-store');c.header('X-Content-Type-Options','nosniff');c.header('Referrer-Policy','no-referrer');
+    if(isMemberCardPage(c.req.path))c.header('X-Robots-Tag','noindex, nofollow');
     const githubSetupForm=c.req.path==='/admin'||c.req.path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI-AI/settings/apps/new':'';
     c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm);
     if(!['GET','HEAD','OPTIONS'].includes(c.req.method)) {
@@ -216,7 +219,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
       const got=Buffer.from(c.req.header('X-CSRF-Token')??''),expected=Buffer.from(actor.csrf_token);
       requireCondition(got.length===expected.length && timingSafeEqual(got,expected),403,'csrf_rejected','登入狀態已變更，請重新整理。');
     }
-    requireCondition(!actor.onboarding_required||Boolean(actor.onboarding_completed_at)||onboardingAllowed(c.req.path,c.req.method),403,'onboarding_required','請先完成定位測驗並選擇主要公會。');
+    requireCondition(!actor.onboarding_required||Boolean(actor.onboarding_completed_at)||onboardingAllowed(c.req.path,c.req.method),403,'onboarding_required','請先選擇主要公會，完成加入後即可使用會員功能。');
     await next();
   });
   const cmd=async(c:any):Promise<Command>=>{

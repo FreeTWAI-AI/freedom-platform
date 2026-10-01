@@ -22,9 +22,12 @@ const entries: { id: TabId; title: string; description: string; cover: string }[
   { id: 'marketing', title: '行銷工作室', description: '撰寫介紹與記錄分享', cover: 'cooperation-forge' },
 ];
 
+type HomeOnboarding = { entry_mode?: string; assessment_completed?: boolean };
+
 export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
   const [member, setMember] = useState<MemberCardData | null>(null);
   const [labels, setLabels] = useState<Record<string, string> | null>(null);
+  const [onboarding, setOnboarding] = useState<HomeOnboarding | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   // Only the newest request of a mounted page may change the card; late or superseded replies are dropped.
@@ -46,10 +49,13 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
     });
     // Labels only decorate featured skills; without them the saved names or ids still show.
     if (withLabels) void loadLabels(client).then(data => { if (current === request.current) setLabels(data); }).catch(() => {});
+    void client.get<HomeOnboarding>('/me/onboarding').then(data => {
+      if (current === request.current) setOnboarding(data);
+    }).catch(() => { if (current === request.current) setOnboarding(null); });
   }, [client, session.user.user_id]);
 
   useEffect(() => {
-    setMember(null); setLabels(null); setLoadError(null);
+    setMember(null); setLabels(null); setOnboarding(null); setLoadError(null);
     load(true);
     return () => { request.current++; };
   }, [load]);
@@ -57,6 +63,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
   // One request at a time and only on an explicit click; the button keeps focus while it waits.
   const retry = () => { if (!loading) load(labels === null); };
 
+  const showAssessment = onboarding?.entry_mode === 'quick' && onboarding.assessment_completed !== true;
   const nickname = member?.nickname ?? session.user.display_name;
   const featured = (member?.featured_capabilities ?? member?.capabilities.slice(0, 3) ?? []).slice(0, 3);
   const skillLabel = (id: string) => id.startsWith('custom:') ? id.slice(7) : labels?.[id] ?? id;
@@ -81,7 +88,11 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       {featured.length > 0 && <div className="member-featured home-member-skills" aria-label="擅長的能力">
         {featured.map(id => <span className="pill" key={id}>{skillLabel(id)}</span>)}
       </div>}
-      <div className="home-member-actions"><button type="button" className="btn btn-ghost" onClick={() => onNavigate?.('account')}>編輯我的名片</button></div>
+      <div className="home-member-actions">
+        <button type="button" className="btn btn-ghost" onClick={() => onNavigate?.('account')}>編輯我的名片</button>
+        {showAssessment && <button type="button" className="btn btn-ghost" onClick={() => onNavigate?.('positioning')}>補做定位測驗</button>}
+        {showAssessment && <p className="field-hint home-assessment-hint">完成定位後，名片會顯示擅長能力，也更容易遇到合適的夥伴。</p>}
+      </div>
     </section>
     {loadError && <div ref={alertRef} role="alert" className="banner banner-error">
       <p>{loadError}下方常用入口仍可使用。</p>

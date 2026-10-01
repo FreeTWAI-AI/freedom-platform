@@ -13,7 +13,7 @@ type Admin = {admin_id:string;email:string;display_name:string;role:string;commu
 type Bootstrap = {admin:Admin;csrf_token:string;available_skill_books:{id:string;title:string}[];pending_guild_appointments?:{guild_key:string;name:string;state:'pending'|'bound';bound_user_id:string|null}[];summary:{members:number;active_members:number;pending_guild_applications:number;guilds:number;admins:number}};
 type AccessState='pending'|'ready'|'pending_removal'|'revoked';
 type MemberAdmin={admin_id:string;active:boolean;aggregate_version:number;access_state:AccessState};
-type Member = {platform_admin?:MemberAdmin|null;user_id:string;email:string;display_name:string;active:boolean;is_test_account:boolean;onboarding_required:boolean;onboarding_completed_at:string|null;aggregate_version:number;guilds:{guild_key:string;name:string}[]};
+type Member = {platform_admin?:MemberAdmin|null;user_id:string;email:string;display_name:string;active:boolean;is_test_account:boolean;onboarding_required:boolean;onboarding_completed_at:string|null;onboarding_entry_mode?:'assessment'|'quick';aggregate_version:number;guilds:{guild_key:string;name:string}[]};
 type GuildApplication = {application_id:string;name:string;profession:string;reason:string;state:string;applicant_name:string;applicant_email?:string;aggregate_version:number;review_reason?:string|null;reviewreason?:string|null;approved_guild_key?:string|null};
 type Guild = ManagedGuild & {first_step:string;module_key:string};
 type AdminNomination = {aggregate_version?:number;access_state?:AccessState;user_id?:string|null;admin_id?:string;email?:string|null;display_name?:string;role?:string;state?:string;status?:string;enabled?:boolean;active?:boolean;identity_binding?:'no_member_account'|'unverified_email_match'|'verified_email_match';member_account_present?:boolean;member_account_active?:boolean;member_email_verified?:boolean};
@@ -101,7 +101,7 @@ export function AdminPanel({memberClient}:{memberClient?:PortalClient}={}){
   </main>;
 }
 function AdminMemberRow({member,busy,onAdmins,onMutate}:{member:Member;busy:boolean;onAdmins:()=>void;onMutate:(path:string,body:unknown,version?:number|null)=>Promise<boolean>}){
-  const positioning=member.onboarding_completed_at?'已完成定位':member.onboarding_required?'定位進行中':'既有會員';
+  const positioning=!member.onboarding_completed_at?(member.onboarding_required?'尚未完成加入':'既有會員'):member.onboarding_entry_mode==='quick'?'已加入（未做定位）':'已完成定位';
   return <li className="admin-member-row" data-member-id={member.user_id}>
     <div className="admin-member-row-main">
       <div className="admin-member-identity"><h3>{member.display_name}{member.is_test_account&&<span className="badge">測試帳號</span>}</h3><span>{member.email}</span></div>
