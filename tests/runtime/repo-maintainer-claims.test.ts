@@ -323,16 +323,16 @@ test('the tick expires, releases and completes claims, then rederives the pull',
   assert.equal(summary.claims_completed, 3);
   assert.equal((await claimRow(expired)).state, 'expired');
   assert.equal((await claimRow(expired)).end_reason, null);
-  assert.equal((await claimRow(expired)).github_request_state, 'skipped');
+  assert.equal((await claimRow(expired)).github_request_state, 'failed');
   assert.equal((await claimRow(expired)).github_request_error, 'writes_disabled');
   assert.equal(await queueOf(expiredPull), 'awaiting_review');
   assert.equal((await claimRow(closed)).end_reason, 'pull_closed');
   assert.equal((await claimRow(closed)).github_request_state, 'requested');
   assert.equal((await claimRow(inactive)).end_reason, 'reviewer_inactive');
-  assert.equal((await claimRow(inactive)).github_request_state, 'skipped');
+  assert.equal((await claimRow(inactive)).github_request_state, 'failed');
   assert.equal((await claimRow(inactive)).github_request_error, 'writes_disabled');
   assert.equal((await claimRow(ranked)).end_reason, 'reviewer_rank_too_low');
-  assert.equal((await claimRow(ranked)).github_request_state, 'skipped');
+  assert.equal((await claimRow(ranked)).github_request_state, 'failed');
   assert.equal((await claimRow(ranked)).github_request_error, 'writes_disabled');
   assert.equal((await claimRow(done)).end_reason, 'review_submitted');
   assert.equal((await claimRow(done)).github_request_state, 'not_requested');
@@ -346,9 +346,10 @@ test('the tick expires, releases and completes claims, then rederives the pull',
   assert.equal(await queueOf(stalePull), 'awaiting_review');
   const removals = (await pool.query(`SELECT state, last_error FROM maintainer_jobs WHERE kind='remove_reviewer_request' ORDER BY created_at`)).rows;
   assert.equal(removals.length, 3);
-  assert.deepEqual(removals.map(row => row.state), ['done', 'done', 'done']);
+  assert.deepEqual(removals.map(row => row.state), ['failed', 'failed', 'failed']);
   assert.deepEqual(removals.map(row => row.last_error), ['writes_disabled', 'writes_disabled', 'writes_disabled']);
-  assert.equal(summary.jobs_done, 3);
+  assert.equal(summary.jobs_done, 0);
+  assert.equal(summary.jobs_failed, 3);
   assert.equal(summary.github_requests, 0);
 });
 
@@ -477,4 +478,96 @@ test('requested-reviewer jobs honor the worker switch, the status code and a rel
   assert.equal(limitedJob.state, 'queued');
   assert.equal(limitedJob.attempts, 0);
   assert.equal((await claimRow(limited)).github_request_state, 'pending');
+});
+
+function countingFetcher() {
+  const calls: string[] = [];
+  const fetcher: typeof fetch = async (input, init) => {
+    const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+    calls.push(`${init?.method ?? 'GET'} ${url.pathname}`);
+    return new Response('should-not-be-called', { status: 500 });
+  };
+  return { calls, fetcher };
+}
+
+test('a request_reviewer re-run leaves an already requested claim requested', async () => {
+  const repository = await insertRepo({ request_reviewers: true });
+  const userId = await member('rerun-request@example.invalid', '再跑請求');
+  await link(userId, '77041', 'rerun-request');
+  const reviewerId = await reviewer(userId, '77041', 'rerun-request', 'high');
+  const pullId = await insertPull(repository, 21);
+  const claimId = await insertClaim(pullId, reviewerId, { github: 'requested' });
+  await enqueueMaintainerJob(pool, repository, 'request_reviewer', claimId, CLOCK);
+  const seen = countingFetcher();
+  const summary = await tick('requested_reviewers', seen.fetcher, () => CLOCK);
+  assert.equal(seen.calls.length, 0);
+  assert.equal(summary.github_requests, 0);
+  assert.equal((await claimRow(claimId)).state, 'active');
+  assert.equal((await claimRow(claimId)).github_request_state, 'requested');
+  assert.equal((await claimRow(claimId)).github_request_error, null);
+  const job = (await pool.query(`SELECT state, last_error FROM maintainer_jobs WHERE kind='request_reviewer' AND payload->>'claim_id'=$1`, [claimId])).rows[0];
+  assert.equal(job.state, 'done');
+  assert.equal(job.last_error, 'claim_state_changed');
+  const version = Number((await pool.query('SELECT aggregate_version FROM maintainer_review_claims WHERE claim_id=$1', [claimId])).rows[0].aggregate_version);
+  const released = await request(`/review-center/claims/${claimId}/release`, { reason: '再跑之後仍可放開。' }, version);
+  assert.equal(released.status, 200, JSON.stringify(released.data));
+  assert.equal((await claimRow(claimId)).github_request_state, 'removing');
+  const removal = (await pool.query(`SELECT dedupe_key, state FROM maintainer_jobs WHERE kind='remove_reviewer_request' AND payload->>'claim_id'=$1`, [claimId])).rows[0];
+  assert.equal(removal.dedupe_key, `remove_reviewer_request:${claimId}`);
+  assert.equal(removal.state, 'queued');
+});
+
+test('a remove_reviewer_request re-run leaves an already removed claim removed', async () => {
+  const repository = await insertRepo({ request_reviewers: true });
+  const userId = await member('rerun-remove@example.invalid', '再跑移除');
+  await link(userId, '77042', 'rerun-remove');
+  const reviewerId = await reviewer(userId, '77042', 'rerun-remove', 'high');
+  const pullId = await insertPull(repository, 22);
+  const claimId = await insertClaim(pullId, reviewerId, { github: 'removed' });
+  await pool.query(`UPDATE maintainer_review_claims SET state='released', end_reason='admin_released', ended_at=now() WHERE claim_id=$1`, [claimId]);
+  await enqueueMaintainerJob(pool, repository, 'remove_reviewer_request', claimId, CLOCK);
+  const seen = countingFetcher();
+  const summary = await tick('requested_reviewers', seen.fetcher, () => CLOCK);
+  assert.equal(seen.calls.length, 0);
+  assert.equal(summary.github_requests, 0);
+  assert.equal((await claimRow(claimId)).github_request_state, 'removed');
+  assert.equal((await claimRow(claimId)).github_request_error, null);
+  const job = (await pool.query(`SELECT state, last_error FROM maintainer_jobs WHERE kind='remove_reviewer_request' AND payload->>'claim_id'=$1`, [claimId])).rows[0];
+  assert.equal(job.state, 'done');
+  assert.equal(job.last_error, 'claim_state_changed');
+});
+
+test('a removal that cannot write fails the claim instead of skipping it', async () => {
+  const repository = await insertRepo({ request_reviewers: true });
+  const userId = await member('removal-off@example.invalid', '移除關閉');
+  await link(userId, '77043', 'removal-off');
+  const reviewerId = await reviewer(userId, '77043', 'removal-off', 'high');
+  const offPull = await insertPull(repository, 23);
+  const offClaim = await insertClaim(offPull, reviewerId, { github: 'removing' });
+  await pool.query(`UPDATE maintainer_review_claims SET state='released', end_reason='admin_released', ended_at=now() WHERE claim_id=$1`, [offClaim]);
+  await enqueueMaintainerJob(pool, repository, 'remove_reviewer_request', offClaim, CLOCK);
+  const offSeen = countingFetcher();
+  const off = await tick('off', offSeen.fetcher, () => CLOCK);
+  assert.equal(offSeen.calls.length, 0);
+  assert.equal(off.github_requests, 0);
+  assert.equal((await claimRow(offClaim)).github_request_state, 'failed');
+  assert.equal((await claimRow(offClaim)).github_request_error, 'writes_disabled');
+  const offJob = (await pool.query(`SELECT state, last_error FROM maintainer_jobs WHERE payload->>'claim_id'=$1`, [offClaim])).rows[0];
+  assert.equal(offJob.state, 'failed');
+  assert.equal(offJob.last_error, 'writes_disabled');
+
+  await pool.query(`UPDATE maintainer_repositories SET settings=$2::jsonb WHERE repository_id=$1`, [repository, JSON.stringify({ request_reviewers: false })]);
+  const settingPull = await insertPull(repository, 24);
+  const settingClaim = await insertClaim(settingPull, reviewerId, { github: 'removing' });
+  await pool.query(`UPDATE maintainer_review_claims SET state='expired', ended_at=now() WHERE claim_id=$1`, [settingClaim]);
+  await enqueueMaintainerJob(pool, repository, 'remove_reviewer_request', settingClaim, CLOCK);
+  const settingSeen = countingFetcher();
+  const setting = await tick('requested_reviewers', settingSeen.fetcher, () => CLOCK);
+  assert.equal(settingSeen.calls.length, 0);
+  assert.equal(setting.github_requests, 0);
+  assert.equal((await claimRow(settingClaim)).github_request_state, 'failed');
+  assert.equal((await claimRow(settingClaim)).github_request_error, 'writes_disabled');
+  const settingJob = (await pool.query(`SELECT state, last_error FROM maintainer_jobs WHERE payload->>'claim_id'=$1 AND kind='remove_reviewer_request'`, [settingClaim])).rows[0];
+  assert.equal(settingJob.state, 'failed');
+  assert.equal(settingJob.last_error, 'writes_disabled');
 });

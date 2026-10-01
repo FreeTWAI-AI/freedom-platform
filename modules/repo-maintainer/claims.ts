@@ -51,8 +51,9 @@ async function transition(pool: Pool, now: Date, sql: string): Promise<number> {
 
 /**
  * End claims that the database can decide without GitHub. Earlier steps win because each
- * UPDATE still requires state = 'active'. A requested reviewer is removed afterwards unless
- * GitHub already drops the request (a submitted review, or the pull is closed).
+ * UPDATE still requires state = 'active'. A requested reviewer is removed afterwards,
+ * except when that person has already submitted a review: GitHub drops the request then.
+ * Closing the pull leaves the request in place, and this maintainer leaves it there too.
  */
 export async function settleMaintainerClaims(pool: Pool, now: Date): Promise<ClaimSettlement> {
   const returning = `RETURNING c.claim_id, c.pull_id, p.repository_id, c.github_request_state`;
@@ -138,17 +139,15 @@ export async function runReviewerJob(pool: Pool, github: MaintainerGitHub, job: 
 }
 
 async function requestReviewer(pool: Pool, github: MaintainerGitHub, repo: ClaimRepo, claim: LoadedClaim, now: Date, allowed: boolean): Promise<ReviewerJobResult> {
+  // A re-run after the 201 was stored must not rewrite requested, removing, removed or failed.
+  if (claim.github_request_state !== 'pending') return { state: 'done', error: 'claim_state_changed' };
   if (claim.state !== 'active') {
-    if (claim.github_request_state === 'pending') await markGithub(pool, claim.claim_id, 'skipped', 'claim_inactive', 'pending');
+    await markGithub(pool, claim.claim_id, 'skipped', 'claim_inactive', 'pending');
     return { state: 'done', error: 'claim_inactive' };
   }
   if (!allowed) {
     await markGithub(pool, claim.claim_id, 'skipped', 'writes_disabled', 'pending');
     return { state: 'done', error: 'writes_disabled' };
-  }
-  if (claim.github_request_state !== 'pending') {
-    await markGithub(pool, claim.claim_id, 'skipped', 'claim_state_changed', claim.github_request_state);
-    return { state: 'done', error: 'claim_state_changed' };
   }
   const status = await github.requestReviewer(repo.full_name, repo.installation_id, repo.github_repository_id, claim.number, claim.github_login);
   if (status !== 201) {
@@ -165,6 +164,7 @@ async function requestReviewer(pool: Pool, github: MaintainerGitHub, repo: Claim
       [claim.claim_id],
     )).rows[0] as { state: string; end_reason: string | null; repository_id: string } | undefined;
     if (!locked) return;
+    // pull_closed keeps the GitHub request. Submitting a review is what makes GitHub drop it.
     if (locked.state === 'active' || locked.end_reason === 'pull_closed') {
       await q.query(`UPDATE maintainer_review_claims SET github_request_state='requested', github_request_error=NULL, aggregate_version=aggregate_version+1 WHERE claim_id=$1`, [claim.claim_id]);
       return;
@@ -176,13 +176,12 @@ async function requestReviewer(pool: Pool, github: MaintainerGitHub, repo: Claim
 }
 
 async function removeReviewer(pool: Pool, github: MaintainerGitHub, repo: ClaimRepo, claim: LoadedClaim, _now: Date, allowed: boolean): Promise<ReviewerJobResult> {
-  if (claim.github_request_state !== 'removing') {
-    await markGithub(pool, claim.claim_id, 'skipped', 'claim_state_changed', claim.github_request_state);
-    return { state: 'done', error: 'claim_state_changed' };
-  }
+  // A re-run after removed (or any other settled state) must not mark the row skipped.
+  if (claim.github_request_state !== 'removing') return { state: 'done', error: 'claim_state_changed' };
   if (!allowed) {
-    await markGithub(pool, claim.claim_id, 'skipped', 'writes_disabled', 'removing');
-    return { state: 'done', error: 'writes_disabled' };
+    // The request may still be on GitHub, so this is a failure, not a skip.
+    await markGithub(pool, claim.claim_id, 'failed', 'writes_disabled', 'removing');
+    return { state: 'failed', error: 'writes_disabled' };
   }
   const status = await github.removeRequestedReviewer(repo.full_name, repo.installation_id, repo.github_repository_id, claim.number, claim.github_login);
   if (status !== 200) {
