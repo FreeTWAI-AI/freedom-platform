@@ -62,7 +62,7 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 
 ## API
 
-會員路由沿用 session、CSRF、Origin 與新人定位。點擊與公開縮圖在 session middleware 之前。
+會員路由沿用 session、CSRF、Origin，並須已完成加入（選定主要公會）。點擊與公開縮圖在 session middleware 之前。
 
 | 方法與路徑 | 誰 | 用途 |
 | --- | --- | --- |
@@ -79,7 +79,7 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 | `DELETE /api/v1/social-posts/:id` | 作者 | 軟刪除 |
 | `POST /api/v1/social-posts/:id/hide` | 平台管理員 | 隱藏 |
 
-`period=week` 從週一 00:00（台北）起算，`month` 從當月 1 日 00:00 起算，`all` 的 `since` 是 null。榜上同分數並列（1、2、2、4），再以顯示名稱與 user id 排序。只計本人所屬社群的有效、已完成定位會員；驗收測試帳號不出現在別人的榜上。每人最多看前 10 名，`me` 是自己的名次，0 分則為 null。頭像規則與會員列表相同。
+`period=week` 從週一 00:00（台北）起算，`month` 從當月 1 日 00:00 起算，`all` 的 `since` 是 null。榜上同分數並列（1、2、2、4），再以顯示名稱與 user id 排序。只計本人所屬社群的有效、已完成加入（選定主要公會）的會員；驗收測試帳號不出現在別人的榜上。每人最多看前 10 名，`me` 是自己的名次，0 分則為 null。頭像規則與會員列表相同。
 
 活動分享沿用原本的活動分享碼。點進 `/go/` 後會到 `/events/<id>?ref=<分享者的活動碼>`，報名統計多了「點擊 N・報名 M 人」。舊的 `?ref=` 連結仍可報名，只是沒有點擊分。
 
@@ -111,7 +111,7 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 
 ### API
 
-會員路由沿用 session、CSRF、Origin 與新人定位。公開封面與公開頁在 session middleware 之前。
+會員路由沿用 session、CSRF、Origin，並須已完成加入（選定主要公會）。公開封面與公開頁在 session middleware 之前。
 
 | 方法與路徑 | 誰 | 用途 |
 | --- | --- | --- |
