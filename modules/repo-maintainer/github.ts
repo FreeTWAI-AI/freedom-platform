@@ -9,16 +9,28 @@ export type GitHubPermissions = Record<string, 'read' | 'write'>;
 
 const PAGE = 100;
 const POST_BYTES = 64 * 1024;
+function clipCodePoints(value: string, max: number): string {
+  return Array.from(value).slice(0, max).join('');
+}
 const githubHeaders = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'Freedom-Platform-maintainer' };
 const idSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const shaSchema = z.string().regex(/^[0-9a-fA-F]{40}$/).transform(value => value.toLowerCase());
 const loginSchema = z.string().regex(/^[A-Za-z0-9-]{1,39}(\[bot\])?$/);
 const userSchema = z.object({ id: idSchema, login: loginSchema, type: z.string().min(1).max(40) });
-const installationSchema = z.object({ id: idSchema, account: z.object({ login: z.string().min(1).max(100), type: z.string().min(1).max(40) }).nullable() });
+const installationSchema = z.object({
+  id: idSchema,
+  account: z.object({ login: z.string().min(1).max(100), type: z.string().min(1).max(40) }).nullable(),
+  suspended_at: z.string().nullable().optional(),
+});
 const repoSchema = z.object({
   id: idSchema,
   full_name: z.string().regex(/^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/),
   default_branch: z.string().min(1).max(255),
+});
+const installationRepositoryPageSchema = z.object({
+  total_count: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  repository_selection: z.string().min(1),
+  repositories: z.array(repoSchema),
 });
 const pullListSchema = z.object({ number: idSchema, updated_at: z.string(), head: z.object({ sha: shaSchema }) });
 const pullSchema = z.object({
@@ -36,7 +48,7 @@ const pullSchema = z.object({
   base: z.object({ ref: z.string().min(1).max(255), sha: shaSchema, repo: z.object({ id: idSchema }).nullable() }),
   mergeable: z.boolean().nullable(),
   mergeable_state: z.string().max(40).nullable(),
-  labels: z.array(z.object({ name: z.string().max(100) })).default([]),
+  labels: z.array(z.object({ name: z.string().transform(value => clipCodePoints(value, 100)) })).default([]),
   additions: z.number().int().nonnegative().max(100000000),
   deletions: z.number().int().nonnegative().max(100000000),
   changed_files: z.number().int().nonnegative().max(100000000),
@@ -59,14 +71,18 @@ const reviewSchema = z.object({
   submitted_at: z.string().nullable(),
 });
 const checkSchema = z.object({
-  name: z.string().min(1).max(200),
+  id: idSchema,
+  name: z.string().min(1).transform(value => clipCodePoints(value, 200)),
   status: z.string().min(1).max(40).nullable().optional(),
   conclusion: z.string().max(40).nullable().optional(),
   app: z.object({ id: idSchema, slug: z.string().min(1).max(100).nullable().optional() }).nullable().optional(),
   check_suite: z.object({ id: idSchema }).nullable().optional(),
   completed_at: z.string().nullable().optional(),
 });
-const statusSchema = z.object({ context: z.string().min(1).max(200), state: z.string().min(1).max(40) });
+const statusSchema = z.object({
+  context: z.string().min(1).transform(value => clipCodePoints(value, 200)),
+  state: z.string().min(1).max(40),
+});
 const contentSchema = z.object({ name: z.string().min(1).max(255), type: z.string() });
 const tokenSchema = z.object({ token: z.string().min(1).max(2000), permissions: z.record(z.string(), z.string()) });
 
@@ -82,7 +98,7 @@ export class GitHubSignal extends Error {
   }
 }
 
-export type MaintainerInstallation = { id: string; accountLogin: string; accountType: string };
+export type MaintainerInstallation = { id: string; accountLogin: string; accountType: string; suspendedAt: string | null };
 export type MaintainerRepoRef = { id: string; fullName: string; defaultBranch: string };
 export type MaintainerPullRef = { number: number; updatedAt: string; headSha: string };
 export type MaintainerPull = z.infer<typeof pullSchema>;
@@ -234,19 +250,28 @@ export function createMaintainerGitHub(options: {
     if (read.status !== 200 && read.status !== 201) throw new GitHubSignal('retry', `github_http_${read.status}`, undefined, installationId);
     return read.body;
   }
+  async function mintInstallationToken(installationId: string, cacheKey: string, body: Record<string, unknown>, permissions: GitHubPermissions): Promise<string> {
+    const cached = tokens.get(cacheKey);
+    if (cached) return cached;
+    const response = await call(`/app/installations/${installationId}/access_tokens`, { token: await appToken() }, installationId, 'POST', body);
+    const parsed = parse(tokenSchema, response, installationId);
+    for (const [name, want] of Object.entries(permissions)) {
+      if (!permissionCovers(parsed.permissions[name], want)) throw new GitHubSignal('permission', 'github_permission_missing', undefined, installationId);
+    }
+    tokens.set(cacheKey, parsed.token);
+    return parsed.token;
+  }
   async function installationToken(installationId: string, repositoryId: string, permissions: GitHubPermissions): Promise<string> {
     const repositoryIds = [Number(repositoryId)];
     if (!Number.isSafeInteger(repositoryIds[0]) || repositoryIds[0] <= 0) throw new GitHubSignal('retry', 'github_invalid_response', undefined, installationId);
     const key = `${installationId}\n${repositoryIds.join(',')}\n${JSON.stringify(permissions)}`;
-    const cached = tokens.get(key);
-    if (cached) return cached;
-    const body = await call(`/app/installations/${installationId}/access_tokens`, { token: await appToken() }, installationId, 'POST', { repository_ids: repositoryIds, permissions });
-    const parsed = parse(tokenSchema, body, installationId);
-    for (const [name, want] of Object.entries(permissions)) {
-      if (!permissionCovers(parsed.permissions[name], want)) throw new GitHubSignal('permission', 'github_permission_missing', undefined, installationId);
-    }
-    tokens.set(key, parsed.token);
-    return parsed.token;
+    return mintInstallationToken(installationId, key, { repository_ids: repositoryIds, permissions }, permissions);
+  }
+  // No repository list: this token covers every repository the installation can access.
+  async function syncInstallationToken(installationId: string): Promise<string> {
+    const permissions: GitHubPermissions = { ...SYNC_PERMISSIONS };
+    const key = `${installationId}\n*\n${JSON.stringify(permissions)}`;
+    return mintInstallationToken(installationId, key, { permissions }, permissions);
   }
   async function pages<T>(path: string, schema: z.ZodType<T[]>, cap: number, token: string | null, installationId?: string): Promise<{ items: T[]; truncated: boolean }> {
     const items: T[] = [];
@@ -265,14 +290,18 @@ export function createMaintainerGitHub(options: {
       const page = await pages('/app/installations', z.array(installationSchema), 10, null);
       return {
         truncated: page.truncated,
-        items: page.items.filter(item => item.account).map(item => ({ id: String(item.id), accountLogin: item.account!.login, accountType: item.account!.type })),
+        items: page.items.filter(item => item.account).map(item => ({
+          id: String(item.id), accountLogin: item.account!.login, accountType: item.account!.type, suspendedAt: item.suspended_at || null,
+        })),
       };
     },
     async listInstallationRepositories(installationId) {
+      // GET /installation/repositories is the installation-token route. The App JWT path does not exist.
+      const token = await syncInstallationToken(installationId);
       const items: MaintainerRepoRef[] = [];
       for (let page = 1; page <= 10; page += 1) {
-        const body = await call(withPage(`/app/installations/${installationId}/repositories`, page), { token: await appToken() }, installationId, 'GET');
-        const parsed = parse(z.object({ repositories: z.array(repoSchema) }), body, installationId);
+        const body = await call(withPage('/installation/repositories', page), { token }, installationId, 'GET');
+        const parsed = parse(installationRepositoryPageSchema, body, installationId);
         items.push(...parsed.repositories.map(repo => ({ id: String(repo.id), fullName: repo.full_name, defaultBranch: repo.default_branch })));
         if (parsed.repositories.length < PAGE) return { items, truncated: false };
       }
@@ -289,7 +318,7 @@ export function createMaintainerGitHub(options: {
     },
     async readFiles(fullName, installationId, repositoryId, number) {
       const token = await installationToken(installationId, repositoryId, { ...READ_PERMISSIONS });
-      const page = await pages(repoPath(fullName, `/pulls/${number}/files`), z.array(fileSchema), 30, token, installationId);
+      const page = await pages(repoPath(fullName, `/pulls/${number}/files`), z.array(fileSchema), 10, token, installationId);
       const items = new Map<string, MaintainerPullFile>();
       for (const file of page.items) items.set(file.filename, { path: file.filename, previous_path: file.previous_filename ?? null, status: file.status, additions: file.additions, deletions: file.deletions });
       return { items: [...items.values()], truncated: page.truncated };
@@ -317,12 +346,17 @@ export function createMaintainerGitHub(options: {
       const token = await installationToken(installationId, repositoryId, { ...READ_PERMISSIONS });
       const runs = await pages(repoPath(fullName, `/commits/${headSha}/check-runs?filter=latest`), z.object({ check_runs: z.array(checkSchema) }).transform(value => value.check_runs), 5, token, installationId);
       if (runs.truncated) throw new GitHubSignal('retry', 'github_page_cap', undefined, installationId);
-      const statusBody = await call(repoPath(fullName, `/commits/${headSha}/status`), { token }, installationId, 'GET');
+      const statusBody = await call(repoPath(fullName, `/commits/${headSha}/status?per_page=${PAGE}`), { token }, installationId, 'GET');
       const statuses = parse(z.object({ statuses: z.array(statusSchema) }), statusBody, installationId);
       const checks = new Map<string, MaintainerPullCheck>();
+      const checkIds = new Map<string, number>();
       for (const run of runs.items) {
         const appKey = run.app ? String(run.app.id) : '';
-        checks.set(`check_run\n${appKey}\n${run.name}`, {
+        const key = `check_run\n${appKey}\n${run.name}`;
+        const previousId = checkIds.get(key);
+        if (previousId !== undefined && previousId >= run.id) continue;
+        checkIds.set(key, run.id);
+        checks.set(key, {
           source: 'check_run', name: run.name, app_key: appKey, app_slug: run.app?.slug ?? null,
           status: run.status ?? 'completed', conclusion: run.conclusion ?? null, check_suite_id: run.check_suite ? String(run.check_suite.id) : null,
           completed_at: run.completed_at ?? null,

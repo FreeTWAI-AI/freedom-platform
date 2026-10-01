@@ -112,6 +112,8 @@ CREATE TABLE maintainer_pull_requests (
     'draft', 'waiting_ci', 'ci_not_run', 'needs_author', 'awaiting_review', 'in_review',
     'needs_owner', 'ready', 'paused', 'merged', 'closed')),
   queue_reasons jsonb NOT NULL CHECK (jsonb_typeof(queue_reasons) = 'array'),
+  -- Kept when the queue short-circuits, so rederive still sees a migration block after mode off → observe.
+  migration_reasons jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(migration_reasons) = 'array'),
   sla_due_at timestamptz,
   recheck_at timestamptz,
   paused boolean NOT NULL DEFAULT false,

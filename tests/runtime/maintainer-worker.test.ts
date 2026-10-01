@@ -13,7 +13,7 @@ const DSN = 'postgres://sync-user:pool-secret-do-not-log@10.1.2.3/freedom_secret
 const KEY = '-----BEGIN PRIVATE KEY-----\nSECRETKEYMATERIAL\n-----END PRIVATE KEY-----\n';
 const ZERO = '0'.repeat(32);
 const empty: MaintainerSummary = {
-  deliveries_deleted: 0, jobs_deleted: 0, rederived: 0, ignored_accounts: 0, repositories_upserted: 0, repositories_removed: 0,
+  deliveries_deleted: 0, jobs_deleted: 0, rederived: 0, ignored_accounts: 0, suspended_installations: 0, repositories_upserted: 0, repositories_removed: 0,
   sweeps: 0, jobs_done: 0, jobs_failed: 0, jobs_released: 0, github_requests: 0, stopped: null,
 };
 

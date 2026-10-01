@@ -10,12 +10,16 @@ export const MAINTAINER_TICK_MS = 50_000;
 const LEASE_MS = 5 * 60_000;
 const SWEEP_OK_MS = 30 * 60_000;
 const SWEEP_RETRY_MS = 15 * 60_000;
+const STALE_CI_MS = 10 * 60_000;
+const STALE_OPEN_MS = 6 * 60 * 60_000;
+const STALE_REFRESH_CAP = 20;
 const BACKOFF_MINUTES = [1, 5, 15, 60];
 
 export type MaintainerTickConfig = { appId: string; organization: string; privateKey: string };
 export type MaintainerTickDeps = { fetcher: typeof fetch; now?: () => Date; budget?: number };
 export type MaintainerSummary = {
   deliveries_deleted: number; jobs_deleted: number; rederived: number; ignored_accounts: number;
+  suspended_installations: number;
   repositories_upserted: number; repositories_removed: number; sweeps: number; jobs_done: number;
   jobs_failed: number; jobs_released: number; github_requests: number; stopped: string | null;
 };
@@ -75,6 +79,10 @@ function policyFiles(files: MaintainerPullFile[]): PolicyFile[] {
 function touchesDir(files: MaintainerPullFile[], dir: string): boolean {
   const prefix = `${dir}/`;
   return files.some(file => file.path.startsWith(prefix) || Boolean(file.previous_path?.startsWith(prefix)));
+}
+function pullIsFork(pull: MaintainerPull): boolean {
+  if (pull.head.repo === null || pull.base.repo === null) return true;
+  return pull.head.repo.id !== pull.base.repo.id;
 }
 
 async function communityId(pool: Pool): Promise<string> {
@@ -200,7 +208,7 @@ async function rederive(pool: Pool, now: Date): Promise<number> {
         files: children.files, profile: settings.rules_profile, author_association: pull.author_association,
         author_type: pull.author_type, is_fork: pull.is_fork, changed_files: pull.changed_files,
       });
-      const migrationReasons = (Array.isArray(pull.queue_reasons) ? pull.queue_reasons : []).filter((item: Reason) => String(item.code).startsWith('migration_'));
+      const migrationReasons = (Array.isArray(pull.migration_reasons) ? pull.migration_reasons : []) as Reason[];
       const observed = iso(pull.head_observed_at) ?? now.toISOString();
       const derived = deriveQueueState({
         pull: queueFromRow(pull, repo.default_branch, observed), risk: risk.risk,
@@ -235,6 +243,7 @@ async function syncInstallations(pool: Pool, github: MaintainerGitHub, config: M
     for (const installation of listed.items) {
       const wanted = installation.accountType === 'Organization' && installation.accountLogin.toLowerCase() === config.organization.toLowerCase();
       if (!wanted) { summary.ignored_accounts += 1; continue; }
+      if (installation.suspendedAt) { summary.suspended_installations += 1; continue; }
       const repos = await github.listInstallationRepositories(installation.id);
       if (repos.truncated) incomplete = true;
       for (const repo of repos.items) {
@@ -276,14 +285,23 @@ async function syncInstallations(pool: Pool, github: MaintainerGitHub, config: M
 async function sweepOne(pool: Pool, github: MaintainerGitHub, repo: RepoRow, now: Date): Promise<string | null> {
   try {
     const listed = await github.listOpenPulls(repo.full_name, repo.installation_id, repo.github_repository_id);
-    const stored = (await pool.query('SELECT number, head_sha, github_updated_at, state FROM maintainer_pull_requests WHERE repository_id=$1', [repo.repository_id])).rows;
+    const stored = (await pool.query('SELECT number, head_sha, github_updated_at, state, synced_at, queue_state, mergeable FROM maintainer_pull_requests WHERE repository_id=$1', [repo.repository_id])).rows;
     const seen = new Set<number>();
+    const refreshes: Array<{ number: number; syncedAt: number }> = [];
     for (const pull of listed.items) {
       seen.add(pull.number);
       const row = stored.find(item => item.number === pull.number);
-      const changed = !row || row.head_sha !== pull.headSha || millis(row.github_updated_at) !== Date.parse(pull.updatedAt);
-      if (changed) await enqueueReconcilePull(pool, repo.repository_id, pull.number, now);
+      if (!row || row.head_sha !== pull.headSha || millis(row.github_updated_at) !== Date.parse(pull.updatedAt)) {
+        await enqueueReconcilePull(pool, repo.repository_id, pull.number, now);
+        continue;
+      }
+      const age = now.getTime() - millis(row.synced_at);
+      if (age > STALE_OPEN_MS || (age > STALE_CI_MS && (row.queue_state === 'waiting_ci' || row.mergeable === null))) {
+        refreshes.push({ number: pull.number, syncedAt: millis(row.synced_at) });
+      }
     }
+    refreshes.sort((left, right) => left.syncedAt - right.syncedAt || left.number - right.number);
+    for (const item of refreshes.slice(0, STALE_REFRESH_CAP)) await enqueueReconcilePull(pool, repo.repository_id, item.number, now);
     if (!listed.truncated) {
       for (const row of stored) if (row.state === 'open' && !seen.has(row.number)) await enqueueReconcilePull(pool, repo.repository_id, row.number, now);
       await releaseSweep(pool, repo, now, new Date(now.getTime() + SWEEP_OK_MS), null);
@@ -319,10 +337,11 @@ async function replaceChildren(q: PoolClient, pullId: string, headSha: string, f
     FROM json_to_recordset($2::json) AS r(github_review_id text, reviewer_github_id text, reviewer_login text, reviewer_type text, reviewer_association text, state text, commit_id text, submitted_at timestamptz)`, [pullId, JSON.stringify(reviews)]);
 }
 
-async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, pull: MaintainerPull, files: MaintainerPullFile[], checks: MaintainerPullCheck[], reviews: MaintainerPullReview[], settings: MaintainerSettings, migrationReasons: Reason[], now: Date) {
+async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, pull: MaintainerPull, files: MaintainerPullFile[], checks: MaintainerPullCheck[], reviews: MaintainerPullReview[], settings: MaintainerSettings, migrationReasons: Reason[], filesTruncated: boolean, now: Date) {
+  const isFork = pullIsFork(pull);
   const risk = classifyRisk({
     files: policyFiles(files), profile: settings.rules_profile, author_association: pull.author_association,
-    author_type: pull.user.type, is_fork: pull.head.repo?.fork === true, changed_files: pull.changed_files,
+    author_type: pull.user.type, is_fork: isFork, changed_files: pull.changed_files, files_truncated: filesTruncated,
   });
   await transaction(pool, async q => {
     const owned = await q.query('SELECT job_id FROM maintainer_jobs WHERE job_id=$1 AND lease_until=$2 FOR UPDATE', [job.job_id, job.lease_until]);
@@ -354,12 +373,12 @@ async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, p
       github_pull_id: String(pull.id), title: titleOf(pull.title, pull.number), html_url: pull.html_url, state: pull.state,
       merged_at: pull.merged_at, closed_at: pull.closed_at, is_draft: pull.draft, author_github_id: String(pull.user.id),
       author_login: pull.user.login, author_type: pull.user.type, author_association: pull.author_association,
-      is_fork: pull.head.repo?.fork === true, head_sha: pull.head.sha, head_repository_id: pull.head.repo ? String(pull.head.repo.id) : null,
+      is_fork: isFork, head_sha: pull.head.sha, head_repository_id: pull.head.repo ? String(pull.head.repo.id) : null,
       base_ref: pull.base.ref, base_sha: pull.base.sha, mergeable: pull.mergeable, mergeable_state: pull.mergeable_state,
       labels: pull.labels.map(label => label.name).filter(Boolean).slice(0, 100), additions: pull.additions, deletions: pull.deletions,
       changed_files: pull.changed_files, github_created_at: pull.created_at, github_updated_at: pull.updated_at,
       first_ready_at: firstReady, head_observed_at: observed, risk_class: risk.risk, risk_reasons: risk.reasons,
-      queue_state: derived.state, queue_reasons: derived.reasons, sla_due_at: derived.sla_due_at, recheck_at: derived.recheck_at,
+      queue_state: derived.state, queue_reasons: derived.reasons, migration_reasons: migrationReasons, sla_due_at: derived.sla_due_at, recheck_at: derived.recheck_at,
       paused: existing?.paused ?? false, policy_version: MAINTAINER_POLICY_VERSION,
     };
     const previousChildren = existing ? await loadChildren(q, existing.pull_id) : { files: [], checks: [], reviews: [] };
@@ -375,7 +394,8 @@ async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, p
       github_created_at: iso(existing.github_created_at), github_updated_at: iso(existing.github_updated_at),
       first_ready_at: iso(existing.first_ready_at), head_observed_at: iso(existing.head_observed_at),
       risk_class: existing.risk_class, risk_reasons: existing.risk_reasons, queue_state: existing.queue_state,
-      queue_reasons: existing.queue_reasons, sla_due_at: iso(existing.sla_due_at), recheck_at: iso(existing.recheck_at),
+      queue_reasons: existing.queue_reasons, migration_reasons: existing.migration_reasons,
+      sla_due_at: iso(existing.sla_due_at), recheck_at: iso(existing.recheck_at),
       paused: existing.paused, policy_version: existing.policy_version,
     }, previousChildren.files, previousChildren.checks, previousChildren.reviews) : '';
     const pullId = existing?.pull_id ?? randomUUID();
@@ -386,14 +406,14 @@ async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, p
         author_github_id, author_login, author_type, author_association, is_fork, head_sha, head_repository_id,
         base_ref, base_sha, mergeable, mergeable_state, labels, additions, deletions, changed_files,
         github_created_at, github_updated_at, first_ready_at, head_observed_at, risk_class, risk_reasons,
-        queue_state, queue_reasons, sla_due_at, recheck_at, paused, policy_version, synced_at)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb,$32,$33::jsonb,$34,$35,$36,$37,$38)`, [
+        queue_state, queue_reasons, migration_reasons, sla_due_at, recheck_at, paused, policy_version, synced_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb,$32,$33::jsonb,$34::jsonb,$35,$36,$37,$38,$39)`, [
         pullId, repo.repository_id, pull.number, values.github_pull_id, values.title, values.html_url, values.state,
         values.merged_at, values.closed_at, values.is_draft, values.author_github_id, values.author_login, values.author_type,
         values.author_association, values.is_fork, values.head_sha, values.head_repository_id, values.base_ref, values.base_sha,
         values.mergeable, values.mergeable_state, values.labels, values.additions, values.deletions, values.changed_files,
         values.github_created_at, values.github_updated_at, values.first_ready_at, values.head_observed_at, values.risk_class,
-        JSON.stringify(values.risk_reasons), values.queue_state, JSON.stringify(values.queue_reasons), values.sla_due_at,
+        JSON.stringify(values.risk_reasons), values.queue_state, JSON.stringify(values.queue_reasons), JSON.stringify(values.migration_reasons), values.sla_due_at,
         values.recheck_at, values.paused, values.policy_version, now,
       ]);
       await replaceChildren(q, pullId, pull.head.sha, files, checks, reviews);
@@ -402,14 +422,14 @@ async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, p
         is_draft=$8, author_github_id=$9, author_login=$10, author_type=$11, author_association=$12, is_fork=$13, head_sha=$14,
         head_repository_id=$15, base_ref=$16, base_sha=$17, mergeable=$18, mergeable_state=$19, labels=$20, additions=$21,
         deletions=$22, changed_files=$23, github_created_at=$24, github_updated_at=$25, first_ready_at=$26, head_observed_at=$27,
-        risk_class=$28, risk_reasons=$29::jsonb, queue_state=$30, queue_reasons=$31::jsonb, sla_due_at=$32, recheck_at=$33,
-        policy_version=$34, synced_at=$35, aggregate_version=aggregate_version+1 WHERE pull_id=$1`, [
+        risk_class=$28, risk_reasons=$29::jsonb, queue_state=$30, queue_reasons=$31::jsonb, migration_reasons=$32::jsonb, sla_due_at=$33, recheck_at=$34,
+        policy_version=$35, synced_at=$36, aggregate_version=aggregate_version+1 WHERE pull_id=$1`, [
         existing.pull_id, values.github_pull_id, values.title, values.html_url, values.state, values.merged_at, values.closed_at,
         values.is_draft, values.author_github_id, values.author_login, values.author_type, values.author_association, values.is_fork,
         values.head_sha, values.head_repository_id, values.base_ref, values.base_sha, values.mergeable, values.mergeable_state,
         values.labels, values.additions, values.deletions, values.changed_files, values.github_created_at, values.github_updated_at,
         values.first_ready_at, values.head_observed_at, values.risk_class, JSON.stringify(values.risk_reasons), values.queue_state,
-        JSON.stringify(values.queue_reasons), values.sla_due_at, values.recheck_at, values.policy_version, now,
+        JSON.stringify(values.queue_reasons), JSON.stringify(values.migration_reasons), values.sla_due_at, values.recheck_at, values.policy_version, now,
       ]);
       await replaceChildren(q, existing.pull_id, pull.head.sha, files, checks, reviews);
     } else {
@@ -423,7 +443,6 @@ async function reconcile(pool: Pool, github: MaintainerGitHub, repo: RepoRow, jo
   const pull = await github.readPull(repo.full_name, repo.installation_id, repo.github_repository_id, number);
   if (!pull.base.repo || String(pull.base.repo.id) !== repo.github_repository_id) throw new UnitResult('repository_identity_changed', true);
   const files = await github.readFiles(repo.full_name, repo.installation_id, repo.github_repository_id, number);
-  if (files.truncated) throw new GitHubSignal('retry', 'github_page_cap', undefined, repo.installation_id);
   const reviews = await github.readReviews(repo.full_name, repo.installation_id, repo.github_repository_id, number);
   if (reviews.truncated) throw new GitHubSignal('retry', 'github_page_cap', undefined, repo.installation_id);
   const checks = await github.readChecks(repo.full_name, repo.installation_id, repo.github_repository_id, pull.head.sha);
@@ -431,8 +450,8 @@ async function reconcile(pool: Pool, github: MaintainerGitHub, repo: RepoRow, jo
   const baseNames = touchesDir(files.items, settings.migrations_dir)
     ? await github.readMigrationNames(repo.full_name, repo.installation_id, repo.github_repository_id, settings.migrations_dir, pull.base.ref)
     : [];
-  const migrationReasons = migrationCheck(policyFiles(files.items), baseNames, settings.migrations_dir);
-  await writeMirror(pool, repo, job, pull, files.items, checks, reviews.items, settings, migrationReasons, now);
+  const migrationReasons = migrationCheck(policyFiles(files.items), baseNames, settings.migrations_dir, pull.base.ref);
+  await writeMirror(pool, repo, job, pull, files.items, checks, reviews.items, settings, migrationReasons, files.truncated, now);
 }
 
 async function runJob(pool: Pool, github: MaintainerGitHub, job: MaintainerJobClaim, now: Date, summary: MaintainerSummary): Promise<string | null> {
@@ -485,7 +504,7 @@ export async function runMaintainerTick(pool: Pool, config: MaintainerTickConfig
   const nowFn = deps.now ?? (() => new Date());
   const now = nowFn();
   const summary: MaintainerSummary = {
-    deliveries_deleted: 0, jobs_deleted: 0, rederived: 0, ignored_accounts: 0, repositories_upserted: 0,
+    deliveries_deleted: 0, jobs_deleted: 0, rederived: 0, ignored_accounts: 0, suspended_installations: 0, repositories_upserted: 0,
     repositories_removed: 0, sweeps: 0, jobs_done: 0, jobs_failed: 0, jobs_released: 0, github_requests: 0, stopped: null,
   };
   const community = await communityId(pool);

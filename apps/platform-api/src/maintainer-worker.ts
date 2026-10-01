@@ -89,7 +89,8 @@ function logSummary(summary: MaintainerSummary): void {
   if (stopped !== null && !/^[a-z0-9_]{1,40}$/.test(stopped)) throw new Error('maintainer_result_invalid');
   console.log(JSON.stringify({
     deliveries_deleted: count(summary.deliveries_deleted), jobs_deleted: count(summary.jobs_deleted), rederived: count(summary.rederived),
-    ignored_accounts: count(summary.ignored_accounts), repositories_upserted: count(summary.repositories_upserted),
+    ignored_accounts: count(summary.ignored_accounts), suspended_installations: count(summary.suspended_installations),
+    repositories_upserted: count(summary.repositories_upserted),
     repositories_removed: count(summary.repositories_removed), sweeps: count(summary.sweeps), jobs_done: count(summary.jobs_done),
     jobs_failed: count(summary.jobs_failed), jobs_released: count(summary.jobs_released), github_requests: count(summary.github_requests),
     stopped,
