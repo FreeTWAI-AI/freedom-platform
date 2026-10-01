@@ -56,6 +56,28 @@ test('admin member toggle reveals classified test accounts without changing summ
  expect(queries.at(-1)).toBe('false');
 });
 
+test('admin header and navigation cards keep their content inside the card border on desktop and phones',async({page})=>{
+  await page.route('**/admin/api/**',route=>new URL(route.request().url()).pathname.endsWith('/bootstrap')
+    ?route.fulfill({json:{admin:{admin_id:'fixture-admin',community_id:'fixture-community',email:'admin@example.test',display_name:'管理員',role:'super_admin'},csrf_token:'fixture-csrf',summary:{members:1,active_members:1,pending_guild_applications:0,guilds:1,admins:1},available_skill_books:[],pending_guild_appointments:[]}})
+    :route.fulfill({json:{items:[]}}));
+  for(const [width,height] of [[1440,900],[390,844],[320,720]]){
+    await page.setViewportSize({width,height});
+    await page.goto('/admin');
+    await expect(page.getByRole('heading',{name:'會員管理',exact:true})).toBeVisible();
+    // Every theme paints both blocks as cards; the logo, page tools and nav buttons must not touch their border.
+    for(const theme of ['light','dark','versefolk']){
+      await page.evaluate(value=>{document.documentElement.dataset.theme=value;},theme);
+      const insets=await page.evaluate(()=>[['.admin-header','.brand,.page-tool-button,.admin-page-actions>.btn'],['.admin-tabs','.admin-nav-label,.btn']].map(([card,content])=>{
+        const box=document.querySelector<HTMLElement>(card)!,style=getComputedStyle(box),edge=box.getBoundingClientRect();
+        const items=[...box.querySelectorAll<HTMLElement>(content)].map(node=>node.getBoundingClientRect());
+        return Math.min(Math.min(...items.map(item=>item.left))-edge.left-parseFloat(style.borderLeftWidth),Math.min(...items.map(item=>item.top))-edge.top-parseFloat(style.borderTopWidth),edge.right-parseFloat(style.borderRightWidth)-Math.max(...items.map(item=>item.right)));
+      }));
+      for(const inset of insets)expect(inset,`${theme} ${width}px card inset`).toBeGreaterThanOrEqual(11.5);
+    }
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${width}px overflow`).toBe(true);
+  }
+});
+
 test('verified admin UI keeps member, guild, nomination and audit operations separate from member onboarding',async({page})=>{
   // Browser-only API response fixtures exercise UI wiring. Runtime tests verify signed Access JWTs and real DB commands.
   const csrf='browser-only-csrf-fixture',user='00000000-0000-4000-8000-000000000099';
