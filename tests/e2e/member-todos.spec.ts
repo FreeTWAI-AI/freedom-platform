@@ -43,7 +43,7 @@ test.beforeEach(async({page})=>{
 async function login(page:Page,hash='#todos'){
   await page.goto('/'+hash);
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
-  await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
 }
 const task=(page:Page,key:string)=>page.locator(`[data-task="${key}"]`);
 async function expectStates(page:Page,states:Record<string,string>){

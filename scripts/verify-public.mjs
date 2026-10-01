@@ -101,6 +101,13 @@ async function navigate(page, name) {
   await target.click();
 }
 
+// 登出 is the last item of the profile menu behind 設定.
+async function signOut(page) {
+  const settings=page.getByRole('button',{name:'設定',exact:true});
+  if(await settings.getAttribute('aria-expanded')!=='true')await settings.click();
+  await page.getByRole('menuitem',{name:'登出',exact:true}).click();
+}
+
 // Unlike the test runner, this live script does not inherit playwright.config.
 // Allow the actual HTTPS/Access route its bounded network budget.
 const expect=baseExpect.configure({timeout:20000});
@@ -815,7 +822,7 @@ try {
   console.log('Grouped phone menu, Escape focus, selected-page closure, distinct community/submission and preserved skip-link route: PASS');
 
   stage = 'logout and fresh login';
-  await page.getByRole('button', { name: '登出', exact: true }).click();
+  await signOut(page);
   await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
   expect((await page.request.get(origin + '/api/v1/session')).status()).toBe(401);
   await page.getByLabel('電子郵件', { exact: true }).fill(email);
@@ -865,7 +872,7 @@ try {
   await screenshot('public-member-messages-mobile.png');
   console.log('Settings, GitHub task, empty synthetic inbox and membership channel lists work on desktop and phone: PASS');
 
-  await page.getByRole('button', { name: '登出', exact: true }).click();
+  await signOut(page);
   await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
   expect((await page.request.get(origin + '/api/v1/session')).status()).toBe(401);
   expect(errors.length, 'Browser JavaScript errors').toBe(0);

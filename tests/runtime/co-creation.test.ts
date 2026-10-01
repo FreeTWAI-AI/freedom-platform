@@ -19,7 +19,11 @@ let app=createApp(pool,origin);
 interface Session{cookie:string;csrf:string;user:any}
 before(async()=>{await admin.query(`CREATE SCHEMA ${schema}`);await migrate(pool);});
 after(async()=>{await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();});
-beforeEach(async()=>{await pool.query('TRUNCATE communities,login_attempts,auth_rate_limits CASCADE');await seedLocal(pool);app=createApp(pool,origin);});
+beforeEach(async()=>{
+ await pool.query('TRUNCATE communities,login_attempts,auth_rate_limits CASCADE');
+ await pool.query('TRUNCATE github_sync_repositories, github_repository_events, github_feed_state, github_sync_backoff CASCADE');
+ await seedLocal(pool);app=createApp(pool,origin);
+});
 async function request(path:string,session?:Session,body?:unknown,version?:number,key:string=randomUUID(),extra:Record<string,string>={}){
  const headers:Record<string,string>={Origin:origin,...(session?{Cookie:session.cookie,'X-CSRF-Token':session.csrf}:{}),...extra};
  if(body!==undefined){headers['Content-Type']='application/json';headers['Idempotency-Key']=key;if(version)headers['If-Match']=`"${version}"`;}
@@ -55,6 +59,21 @@ function upstream(t?:TestContext){
 async function imported(owner:Session){const r=await request('/opensource/projects',owner,sourceInput);assert.equal(r.status,201,JSON.stringify(r.data));return r.data;}
 async function created(owner:Session,source:any){const r=await request('/co-creation/projects',owner,{...coInput,source_project_id:source.project_id});assert.equal(r.status,201,JSON.stringify(r.data));return r.data;}
 const errorCode=(expected:string)=>(error:any)=>{assert.equal(error.code,expected);return true;};
+const activityAt=new Date('2026-09-28T00:00:00.000Z');
+async function seedSync(key:string,status:'ok'|'pending'|'unreadable',at:Date|null){
+ await pool.query(`INSERT INTO github_sync_repositories(repository_key,repository,access_status,backfilled,last_synced_at,next_sync_at)
+  VALUES($1,$1,$2,$3,$4,COALESCE($4,now()))
+  ON CONFLICT(repository_key) DO UPDATE SET access_status=$2,backfilled=$3,last_synced_at=$4,last_error=NULL`,[key,status,status==='ok',at]);
+}
+async function seedItem(key:string,number:number,kind:'issue'|'pr',state:'open'|'closed',fields:{body?:string|null;labels?:string[];assignees?:string[];author?:string|null;created?:string;merged?:string|null}={}){
+ await pool.query(`INSERT INTO github_items(repository_key,number,kind,title,author_login,state,merged_at,created_at,updated_at,labels,assignees,page_ids,body_excerpt)
+  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10,'{}',$11)`,[key,number,kind,kind==='issue'?`任務 ${number}`:`貢獻 ${number}`,fields.author===undefined?'maker':fields.author,state,fields.merged??null,fields.created??activityAt.toISOString(),fields.labels??[],fields.assignees??[],state==='open'&&kind==='issue'&&fields.body?fields.body:null]);
+}
+function blockingFetch(){
+ let calls=0;const original=globalThis.fetch;
+ globalThis.fetch=(async()=>{calls+=1;throw new Error('activity must not fetch');}) as typeof fetch;
+ return {calls:()=>calls,restore(){globalThis.fetch=original;}};
+}
 
 test('import owner opens coordination metadata idempotently without GitHub writes or conferring repository ownership',async t=>{
  const {seen}=upstream(t),owner=await login(),source=await imported(owner),key=randomUUID(),body={...coInput,source_project_id:source.project_id,guild_keys:['guild_ai_field','guild_ai_vibe']};
@@ -155,101 +174,86 @@ test('concurrent openings produce one coordination fact and archived imported so
  assert.equal((await request('/co-creation/projects',other,{...coInput,source_project_id:archived.project_id})).data.code,'repository_archived');
 });
 
-test('GitHub activity uses verified coordinates, filters issues from pull requests and credits only merged PR evidence',async()=>{
- const {state,fetcher,seen}=upstream();state.issues.push({...openIssue(8),pull_request:{url:'https://evil.example/ignored-api'}});
- state.pulls.push({...mergedPull(10),merged_at:null},{...mergedPull(11),merge_commit_sha:null},{...mergedPull(12),user:null});
- const reader=new CollaborationGitHub(fetcher),activity=await reader.read(readerRepo);
- assert.equal(activity.issues.length,1);assert.equal(activity.issues[0].url,'https://github.com/example/shared-project/issues/7');assert.deepEqual(activity.issues[0].labels,['documentation','help wanted']);
- assert.equal(activity.contributions.length,1);assert.equal(activity.contributions[0].author,'upstream-contributor');assert.equal(activity.contributions[0].merge_commit_sha,sha);assert.equal(activity.contributions[0].merged_at,mergedAt);assert.equal(activity.contributions[0].url,'https://github.com/example/shared-project/pull/9');
- assert.ok(!JSON.stringify(activity).includes('evil.example'));assert.ok(!('user_id' in activity.contributions[0]));assert.ok(!('xp' in activity.contributions[0]));assert.equal(seen.length,3);
+test('stored activity lists open issues and merged pull requests without calling GitHub',async()=>{
+ const gate=blockingFetch();
+ try{
+  await seedSync('example/shared-project','ok',activityAt);
+  await seedItem('example/shared-project',7,'issue','open',{body:'## 完成條件\n加入一個可重現範例。',labels:['documentation','help wanted'],assignees:['volunteer']});
+  await seedItem('example/shared-project',8,'pr','open',{author:'someone'});
+  await seedItem('example/shared-project',9,'pr','closed',{author:'upstream-contributor',merged:mergedAt});
+  await seedItem('example/shared-project',10,'pr','closed',{author:'upstream-contributor'});
+  await seedItem('example/shared-project',12,'pr','closed',{author:null,merged:mergedAt});
+  const activity=await new CollaborationGitHub(pool).read(readerRepo,'unused-token');
+  assert.equal(gate.calls(),0);
+  assert.equal(activity.issues.length,1);assert.equal(activity.issues[0].url,'https://github.com/example/shared-project/issues/7');assert.deepEqual(activity.issues[0].labels,['documentation','help wanted']);assert.equal(activity.issues[0].body,'## 完成條件\n加入一個可重現範例。');
+  assert.equal(activity.contributions.length,1);assert.equal(activity.contributions[0].author,'upstream-contributor');assert.equal(activity.contributions[0].merge_commit_sha,null);assert.equal(activity.contributions[0].merged_at,new Date(mergedAt).toISOString());assert.equal(activity.contributions[0].url,'https://github.com/example/shared-project/pull/9');
+  assert.equal(activity.checked_at,activityAt.toISOString());assert.equal(activity.truncated,false);assert.equal(activity.unavailable_reason,undefined);
+  assert.ok(!JSON.stringify(activity).includes('evil.example'));assert.ok(!('user_id' in activity.contributions[0]));
+ }finally{gate.restore();}
 });
 
-test('private, archived and replaced GitHub repositories fail before task or contribution reads',async()=>{
- for(const mutate of [(s:any)=>{s.private=true;},(s:any)=>{s.archived=true;},(s:any)=>{s.id++;},(s:any)=>{s.fullName='example/replaced';}]) {
-  const {state,fetcher,seen}=upstream();mutate(state);await assert.rejects(()=>new CollaborationGitHub(fetcher).read(readerRepo),errorCode('repository_identity_changed'));assert.equal(seen.length,1);
- }
- const {fetcher,seen}=upstream();for(const repository_url of ['https://evil.example/example/shared-project','https://github.com/example/shared-project/tree/main','https://user:pass@github.com/example/shared-project'])await assert.rejects(()=>new CollaborationGitHub(fetcher).read({...readerRepo,repository_url}),errorCode('invalid_github_url'));
- await assert.rejects(()=>new CollaborationGitHub(fetcher).read({...readerRepo,repository_full_name:'example/different'}),errorCode('repository_identity_changed'));assert.equal(seen.length,0);
+test('activity rejects a changed or invalid repository coordinate before any read',async()=>{
+ const gate=blockingFetch();
+ try{
+  for(const repository_url of ['https://evil.example/example/shared-project','https://github.com/example/shared-project/tree/main','https://user:pass@github.com/example/shared-project'])await assert.rejects(()=>new CollaborationGitHub(pool).read({...readerRepo,repository_url}),errorCode('invalid_github_url'));
+  await assert.rejects(()=>new CollaborationGitHub(pool).read({...readerRepo,repository_full_name:'example/different'}),errorCode('repository_identity_changed'));
+  assert.equal(gate.calls(),0);
+ }finally{gate.restore();}
 });
 
-test('redirect, oversized and malformed GitHub responses never become verified activity',async()=>{
- const {state,fetcher,seen}=upstream();state.status=302;await assert.rejects(()=>new CollaborationGitHub(fetcher).read(readerRepo),errorCode('github_unavailable'));assert.deepEqual(seen.map(call=>call.url),['https://api.github.com/repos/example/shared-project']);
- const oversized=upstream();oversized.state.oversize='/issues?';await assert.rejects(()=>new CollaborationGitHub(oversized.fetcher).read(readerRepo),errorCode('github_response_too_large'));
- const invalid=upstream();invalid.state.pulls=[{...mergedPull(),merge_commit_sha:'javascript:forged'}];await assert.rejects(()=>new CollaborationGitHub(invalid.fetcher).read(readerRepo),errorCode('github_invalid_response'));
- await assert.rejects(()=>new CollaborationGitHub(async()=>{throw Error('network timeout');}).read(readerRepo),errorCode('github_unavailable'));
+test('an unsynced repository says sync is in progress and an unreadable one says sync cannot read it',async()=>{
+ const gate=blockingFetch();
+ try{
+  const pending=await new CollaborationGitHub(pool).read(readerRepo);
+  assert.equal(pending.unavailable_reason,'github_sync_pending');assert.deepEqual(pending.issues,[]);
+  await seedSync('example/shared-project','pending',null);
+  assert.equal((await new CollaborationGitHub(pool).read(readerRepo)).unavailable_reason,'github_sync_pending');
+  await seedSync('example/shared-project','unreadable',activityAt);
+  const unreadable=await new CollaborationGitHub(pool).read(readerRepo);
+  assert.equal(unreadable.unavailable_reason,'github_unreadable');assert.equal(unreadable.checked_at,activityAt.toISOString());
+  assert.equal(gate.calls(),0);
+ }finally{gate.restore();}
 });
 
-test('a cold rate limit returns an explicitly unavailable list and retries after its short backoff',async()=>{
- for(const status of [403,429]){
-  const {state,fetcher,seen}=upstream();let now=Date.parse('2026-09-28T00:00:00Z');state.status=status;
-  const reader=new CollaborationGitHub(fetcher,()=>now),unavailable=await reader.read(readerRepo);
-  assert.equal(unavailable.unavailable_reason,'github_rate_limited');assert.deepEqual(unavailable.issues,[]);assert.equal(unavailable.stale_reason,undefined);
-  assert.equal(seen.length,1);assert.deepEqual(await reader.read(readerRepo),unavailable);assert.equal(seen.length,1);
-  now+=60001;state.status=200;const fresh=await reader.read(readerRepo);
-  assert.equal(fresh.unavailable_reason,undefined);assert.equal(fresh.issues.length,1);assert.equal(seen.length,4);
- }
-});
-
-test('a signed-in member gets an honest 200 fallback when GitHub is rate limited before any snapshot exists',async t=>{
- const fixture=upstream(t);fixture.state.status=403;
+test('a signed-in member gets a sync-pending activity when the pilot repository has not been stored',async t=>{
+ const fixture=upstream(t);
  const member=await login();
  const response=await request('/co-creation/projects/workshop-video-autopilot/activity',member);
  assert.equal(response.status,200);
- assert.equal(response.data.unavailable_reason,'github_rate_limited');
+ assert.equal(response.data.unavailable_reason,'github_sync_pending');
  assert.deepEqual(response.data.issues,[]);
- assert.equal(fixture.seen.length,1);
+ assert.equal(fixture.seen.length,0);
 });
 
-test('concurrent activity reads coalesce, cache expires, and rate limits return marked last-good data',async()=>{
- const fixture=upstream();let now=Date.parse('2026-09-24T02:00:00Z'),release!:()=>void;
- fixture.state.delay=new Promise<void>(resolve=>{release=resolve;});const reader=new CollaborationGitHub(fixture.fetcher,()=>now);
- const reads=[reader.read(readerRepo),reader.read(readerRepo),reader.read(readerRepo)];release();const results=await Promise.all(reads);
- assert.equal(fixture.seen.length,3);assert.deepEqual(results[0],results[1]);assert.deepEqual(await reader.read(readerRepo),results[0]);assert.equal(fixture.seen.length,3);
- now+=600001;fixture.state.status=429;const stale=await reader.read(readerRepo);
- assert.equal(stale.stale_reason,'github_rate_limited');assert.equal(stale.checked_at,results[0].checked_at);assert.equal(fixture.seen.length,4);
- assert.deepEqual(await reader.read(readerRepo),stale);assert.equal(fixture.seen.length,4,'rate-limit retry backs off across selections');
- assert.match((await reader.brief(readerRepo,7)).text,/上次讀取的內容/);assert.equal(fixture.seen.length,4);
- now+=60001;fixture.state.status=200;fixture.state.pulls=[];const fresh=await reader.read(readerRepo);assert.deepEqual(fresh.contributions,[]);assert.notEqual(fresh.checked_at,results[0].checked_at);assert.equal(fresh.stale_reason,undefined);
-});
-
-test('activity sends an optional read token on all three GitHub GET requests',async()=>{
- const fixture=upstream(),headers:Headers[]=[];
- const fetcher:typeof fetch=async(input,init)=>{
-   headers.push(new Headers(init?.headers));
-   const withoutToken={...init,headers:new Headers(init?.headers)};
-   withoutToken.headers.delete('Authorization');
-   return fixture.fetcher(input,withoutToken);
- };
- await new CollaborationGitHub(fetcher).read(readerRepo,'read-only-fixture');
- assert.equal(headers.length,3);assert.ok(headers.every(header=>header.get('Authorization')==='Bearer read-only-fixture'));
- const anonymous=upstream(),anonymousHeaders:Headers[]=[];
- await new CollaborationGitHub(async(input,init)=>{anonymousHeaders.push(new Headers(init?.headers));return anonymous.fetcher(input,init);}).read(readerRepo);
- assert.equal(anonymousHeaders.length,3);assert.ok(anonymousHeaders.every(header=>!header.has('Authorization')));
-});
-
-test('a rate-limited read token gets one anonymous public retry before showing unavailable',async()=>{
- const fixture=upstream(),headers:Headers[]=[];
- const fetcher:typeof fetch=async(input,init)=>{
-  const header=new Headers(init?.headers);headers.push(header);
-  if(header.has('Authorization'))return new Response('{}',{status:403});
-  return fixture.fetcher(input,init);
- };
- const activity=await new CollaborationGitHub(fetcher).read(readerRepo,'restricted-token');
- assert.equal(activity.issues.length,1);assert.equal(activity.unavailable_reason,undefined);
- assert.equal(headers.length,6);assert.equal(headers.filter(header=>header.has('Authorization')).length,3);
- assert.equal(fixture.seen.length,3);
+test('concurrent activity reads return the same stored rows and do not call GitHub',async()=>{
+ const gate=blockingFetch();
+ try{
+  await seedSync('example/shared-project','ok',activityAt);
+  await seedItem('example/shared-project',7,'issue','open',{body:'範圍'});
+  const reader=new CollaborationGitHub(pool);
+  const results=await Promise.all([reader.read(readerRepo),reader.read(readerRepo),reader.read(readerRepo)]);
+  assert.deepEqual(results[0],results[1]);assert.deepEqual(results[1],results[2]);assert.equal(results[0].issues.length,1);
+  assert.equal(gate.calls(),0);
+ }finally{gate.restore();}
 });
 
 test('brief contains only public task/project text, not platform contacts, sessions or fabricated membership credit',async t=>{
  upstream(t);const owner=await login(),viewer=await login(DEMO_USERS[1].email),source=await imported(owner),project=await created(owner,source);
+ await seedSync('example/shared-project','ok',activityAt);
+ await seedItem('example/shared-project',7,'issue','open',{body:'## 完成條件\n加入一個可重現範例。',labels:['documentation'],assignees:['volunteer']});
+ await seedItem('example/shared-project',9,'pr','closed',{author:'upstream-contributor',merged:mergedAt});
  const account=await request('/me/account',owner);const saved=await request('/me/account',owner,{nickname:'Coordinator',contacts:{...emptyContacts(),github:{value:'upstream-contributor',audiences:[]},discord:{value:'private-contact-sentinel',audiences:[]}}},account.data.aggregate_version);assert.equal(saved.status,200);
- const activity=await request(`/co-creation/projects/${project.project_id}/activity`,viewer);assert.equal(activity.status,200);assert.equal(activity.data.contributions[0].author,'upstream-contributor');assert.ok(!JSON.stringify(activity.data.contributions).includes(owner.user.user_id));
+ const activity=await request(`/co-creation/projects/${project.project_id}/activity`,viewer);assert.equal(activity.status,200);assert.equal(activity.data.contributions[0].author,'upstream-contributor');assert.equal(activity.data.contributions[0].merge_commit_sha,null);assert.ok(!JSON.stringify(activity.data.contributions).includes(owner.user.user_id));
  const brief=await request(`/co-creation/projects/${project.project_id}/issues/7/brief`,viewer);assert.equal(brief.status,200);assert.match(brief.data.text,/GitHub|AGENTS\.md/);assert.match(brief.data.text,/Issue 原文（外部內容）/);assert.match(brief.data.text,/不可信輸入/);
  for(const secret of [owner.user.email,viewer.user.email,owner.cookie,owner.csrf,viewer.csrf,'private-contact-sentinel',owner.user.user_id])assert.ok(!brief.data.text.includes(secret));
  assert.ok(!brief.data.text.includes('evil.example'));assert.equal((await request(`/co-creation/projects/${project.project_id}/issues/999/brief`,viewer)).status,404);
 });
 
-test('bounded activity pages expose truncation and do not silently claim an exhaustive contribution history',async()=>{
- const {state,fetcher}=upstream();state.issues=Array.from({length:30},(_,index)=>openIssue(index+1));state.pulls=Array.from({length:30},(_,index)=>mergedPull(index+50));
- const activity=await new CollaborationGitHub(fetcher).read(readerRepo);assert.equal(activity.truncated,true);assert.equal(activity.contributions.length,30);assert.equal(activity.issues.length,30);
+test('bounded activity pages expose truncation only when more than thirty rows exist',async()=>{
+ await seedSync('example/shared-project','ok',activityAt);
+ for(let number=1;number<=31;number+=1)await seedItem('example/shared-project',number,'issue','open',{body:`任務 ${number}`,created:new Date(activityAt.getTime()+number*1000).toISOString()});
+ for(let number=1;number<=31;number+=1)await seedItem('example/shared-project',number+100,'pr','closed',{author:'maker',merged:new Date(activityAt.getTime()+number*1000).toISOString()});
+ const activity=await new CollaborationGitHub(pool).read(readerRepo);
+ assert.equal(activity.truncated,true);assert.equal(activity.issues.length,30);assert.equal(activity.contributions.length,30);
+ assert.equal(activity.issues[0].number,1);assert.equal(activity.contributions[0].number,131);
 });

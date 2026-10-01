@@ -107,7 +107,7 @@ test('a legacy member completes profile and positioning todos through the real U
     const githubWrites:string[]=[];page.on('request',request=>{const path=new URL(request.url()).pathname;if(path.startsWith('/api/v1/me/github')&&(request.method()!=='GET'||path!=='/api/v1/me/github'))githubWrites.push(`${request.method()} ${path}`);});
     await page.goto('/');
     await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill(DEMO_PASSWORD);
-    await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();
+    await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
     expect((await getJson(page,'/session')).user.user_id).toBe(user_id);
 
     // Start: every non-GitHub task is to do; a legacy exemption is not completion.

@@ -21,6 +21,7 @@ const snapshotInput=z.object({snapshot_sha256:z.string().regex(/^[a-f0-9]{64}$/)
 const decisionInput=snapshotInput.extend({decision:z.enum(['accepted','declined']),note:text(1000),acknowledge_internal_preview:z.literal(true)}).strict();
 
 const commerceLimits={checkout_enabled:false,money_movement_enabled:false,official:false,confirmation_kind:'internal_preview'} as const;
+// Legacy drill only. Live checkout uses commerce_distribution_acceptances in agent-commerce, not this internal_preview flag.
 function limited(row:any){return {...row,...commerceLimits};}
 
 async function productScope(q:PoolClient,actor:Actor,id:string,owned=false,lock=false){

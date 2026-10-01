@@ -4,12 +4,12 @@ import type { Pool } from 'pg';
 import { moduleCommand,type PlatformEnv } from '../module-context.js';
 import { listProjects,importProject,refreshProject,reviseProject,listCampaigns,createCampaign,reviseCampaign,recordShare } from '../../../../modules/opensource-marketing/service.js';
 
-export function createOpenSourceRoutes(pool:Pool) {
+export function createOpenSourceRoutes(pool:Pool, readToken:()=>string|undefined=()=>undefined) {
   const app=new Hono<PlatformEnv>();
   app.get('/opensource/projects',async c=>c.json({items:await listProjects(pool,c.get('actor'))}));
-  app.post('/opensource/projects',async c=>c.json(await importProject(pool,await moduleCommand(c)),201));
+  app.post('/opensource/projects',async c=>c.json(await importProject(pool,await moduleCommand(c),{token:readToken()}),201));
   app.post('/opensource/projects/:id{[0-9a-f-]+:refresh}',async c=>{
-    const result=await refreshProject(pool,await moduleCommand(c),z.uuid().parse(c.req.param('id').split(':')[0]));
+    const result=await refreshProject(pool,await moduleCommand(c),z.uuid().parse(c.req.param('id').split(':')[0]),{token:readToken()});
     c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);
   });
   app.post('/opensource/projects/:id{[0-9a-f-]+:revise}',async c=>{

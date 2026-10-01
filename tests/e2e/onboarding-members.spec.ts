@@ -1,5 +1,5 @@
 import { e2eOrigin } from '../../packages/testing/e2e-origin.js';
-import { navigate } from './navigation.js';
+import { navigate, signOut } from './navigation.js';
 import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from './fixtures.js';
 const password='freedom-workshop-member-2026';
@@ -56,7 +56,7 @@ test('member changes community name and optional identity, sees persisted cards 
   await page.reload();await expect(name).toHaveValue('社群常用的測試名字');await expect(identity).toHaveValue('alien');
   await navigate(page,'工坊夥伴');await page.getByRole('searchbox',{name:'搜尋夥伴',exact:true}).fill('社群常用的測試名字');
   const row=page.getByRole('article',{name:'社群常用的測試名字',exact:true});await expect(row.getByLabel('自我介紹：外星人',{exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'登出',exact:true}).click();
+  await signOut(page);
   await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill(password);await page.getByRole('button',{name:'登入',exact:true}).click();
   await navigate(page, '我的名片');await expect(identity).toHaveValue('alien');await expect(name).toHaveValue('社群常用的測試名字');
   await page.setViewportSize({width:320,height:844});
@@ -81,7 +81,7 @@ test('new member completes required positioning, chooses primary guild and gets 
   await expect(page.locator('.member-card .positioning-title')).not.toHaveText('探索自己的方向');
   // Once onboarding is complete, ordinary deep links still open their requested module.
   await page.goto('/#retail');
-  await expect(page.getByRole('heading',{name:'開店與銷售',exact:true}).first()).toBeVisible();
+  await expect(page.getByRole('heading',{name:'我可以賣東西',exact:true}).first()).toBeVisible();
   await expect(page).toHaveURL(/#retail$/);
   await navigate(page, '我的名片');
   await expect(page.getByRole('heading',{name:'我的名片',level:1,exact:true})).toBeVisible();
@@ -126,7 +126,7 @@ test('new member completes required positioning, chooses primary guild and gets 
 
 
   await navigate(page, '工坊夥伴');await expect(page.getByRole('heading',{name:/工坊新夥伴/})).toBeVisible();
-  await page.getByRole('button',{name:'登出',exact:true}).click();await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill(password);await page.getByRole('button',{name:'登入',exact:true}).click();
+  await signOut(page);await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill(password);await page.getByRole('button',{name:'登入',exact:true}).click();
   await expect(page.locator('.shell')).toBeVisible();await navigate(page, '我的名片');await expect(page.getByLabel('Discord 帳號',{exact:true})).toHaveValue('new.member');
   const restoredAudiences=page.getByRole('group',{name:'Discord 帳號可見範圍',exact:true});
   await expect(restoredAudiences.getByRole('checkbox',{name:'平台好友',exact:true})).toBeChecked();

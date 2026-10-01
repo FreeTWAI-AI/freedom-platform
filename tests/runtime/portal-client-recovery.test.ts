@@ -22,7 +22,7 @@ test('only co-creation activity reads turn known GitHub limits into task-specifi
     assert.ok(cause instanceof ApiError);assert.match(cause.message,/GitHub 暫時限制查詢/);assert.match(cause.message,/查看 Issue/);assert.doesNotMatch(cause.message,/untrusted/);return true;
   });
   await assert.rejects(client.get('/pages/github-events'),(cause:unknown)=>{
-    assert.ok(cause instanceof ApiError);assert.match(cause.message,/服務暫時無法回應/);assert.doesNotMatch(cause.message,/Issue|untrusted/);return true;
+    assert.ok(cause instanceof ApiError);assert.equal(cause.code,'github_rate_limited');assert.match(cause.message,/GitHub 暫時限制查詢/);assert.doesNotMatch(cause.message,/服務暫時無法回應|Issue|untrusted/);assert.equal(cause.detail,undefined);return true;
   });
 });
 
@@ -94,6 +94,38 @@ test('machine-code problem titles are hidden from members while ApiError keeps t
   assert.equal(cause.message,'版本已變更：請重新讀取後再送出。');
   cause=await reject();
   assert.equal(cause.message,'服務暫時無法回應（500）。尚未確認結果，請稍後重試。');assert.equal(cause.code,undefined);assert.equal(cause.detail,undefined);assert.equal(cause.network,true);
+});
+
+test('known GitHub publish failures keep the problem code and are reported instead of network_error',async t=>{
+  let reported='';
+  const seen=new Promise<void>(resolve=>{
+    t.mock.method(globalThis,'fetch',async(input:unknown,init?:RequestInit)=>{
+      const url=String(input);
+      if(url.includes('/me/client-errors')){reported=String(init?.body??'');resolve();return Response.json({recorded:true},{status:201});}
+      return Response.json({code:'github_rate_limited',detail:'untrusted upstream detail'},{status:503,headers:{'retry-after':'30'}});
+    });
+  });
+  const previous=(globalThis as {window?:unknown}).window;
+  (globalThis as {window?:unknown}).window=globalThis;
+  try{
+    const client=new PortalClient();client.csrfToken='synthetic-csrf';
+    await assert.rejects(client.post('/me/skill-submissions/11111111-1111-4111-8111-111111111111/publish',{consent_to_share:true}),(cause:unknown)=>{
+      assert.ok(cause instanceof ApiError);
+      assert.equal(cause.code,'github_rate_limited');
+      assert.equal(cause.network,false);
+      assert.equal(cause.detail,undefined);
+      assert.match(cause.message,/草稿已保留/);
+      assert.match(cause.message,/發佈/);
+      assert.match(cause.message,/30/);
+      assert.doesNotMatch(cause.message,/untrusted|服務暫時無法回應/);
+      return true;
+    });
+    await seen;
+  }finally{(globalThis as {window?:unknown}).window=previous;}
+  const body=JSON.parse(reported) as {error_code:string;action:string};
+  assert.equal(body.error_code,'github_rate_limited');
+  assert.match(body.action,/POST \/me\/skill-submissions\/:id\/publish/);
+  assert.equal(reported.includes('network_error'),false);
 });
 
 test('malformed 401 responses still clear the current session and preserve unauthorized status',async t=>{

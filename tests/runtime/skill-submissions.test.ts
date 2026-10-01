@@ -340,6 +340,70 @@ test('publish reuses the owner registered source without overwriting project met
  assert.equal((await pool.query('SELECT count(*) FROM oss_projects')).rows[0].count,'1');
 });
 
+test('a rate-limited publish keeps the draft and the same draft can be published afterwards',async t=>{
+ const token='github_pat_synthetic_fixture',owner=await login(),draft=await uploaded(owner);
+ let mode:'limited'|'ok'='limited';
+ const calls:{authorization:string|null;signal:AbortSignal|null|undefined}[]=[];
+ const sha='c'.repeat(40);
+ const tokenApp=createApp(pool,origin,'local',{githubSocial:{metricsToken:token}});
+ t.mock.method(globalThis,'fetch',async(input:string|URL|Request,init?:RequestInit)=>{
+  const url=String(input),headers=new Headers(init?.headers);
+  calls.push({authorization:headers.get('Authorization'),signal:init?.signal});
+  assert.equal(new URL(url).hostname,'api.github.com');assert.equal(init?.redirect,'manual');
+  assert.equal(url.includes(token),false);
+  if(mode==='limited')return new Response('{"message":"rate limit exceeded"}',{status:429,headers:{'retry-after':'30','content-type':'application/json'}});
+  if(url.endsWith('/repos/example/project'))return Response.json({id:777,full_name:'example/project',private:false,visibility:'public',default_branch:'main',fork:false,archived:false});
+  if(url.endsWith('/commits/main'))return Response.json({sha});
+  if(url.includes('/license?ref='))return Response.json({path:'LICENSE',license:{spdx_id:'MIT'}});
+  throw new Error('unexpected '+url);
+ });
+ const publish=(key:string)=>tokenApp.request(origin+`/api/v1/me/skill-submissions/${draft.submission_id}/publish`,{method:'POST',headers:{Origin:origin,Cookie:owner.cookie,'X-CSRF-Token':owner.csrf,'Content-Type':'application/json','Idempotency-Key':key,'If-Match':`"${draft.aggregate_version}"`},body:JSON.stringify({consent_to_share:true})});
+ const failed=await publish(randomUUID()),failedBody=await failed.json() as any;
+ assert.equal(failed.status,503);assert.equal(failedBody.code,'github_rate_limited');
+ assert.match(failedBody.detail,/草稿已保留/);assert.match(failedBody.detail,/發佈/);assert.match(failedBody.detail,/30/);
+ assert.equal(failed.headers.get('retry-after'),'30');assert.equal(JSON.stringify(failedBody).includes(token),false);
+ assert.equal(calls.length,2);assert.equal(calls[0].authorization,`Bearer ${token}`);assert.equal(calls[1].authorization,null);assert.equal(calls[0].signal,calls[1].signal);
+ const row=(await pool.query(`SELECT status,payload->>'title' AS title FROM skill_submissions WHERE submission_id=$1`,[draft.submission_id])).rows[0];
+ assert.equal(row.status,'ready_for_review');assert.equal(row.title,'共同筆記技能');
+ assert.equal((await pool.query('SELECT count(*) FROM oss_projects')).rows[0].count,'0');
+ mode='ok';
+ const retried=await publish(randomUUID());
+ assert.equal(retried.status,200,await retried.clone().text());
+ assert.equal((await pool.query(`SELECT status FROM skill_submissions WHERE submission_id=$1`,[draft.submission_id])).rows[0].status,'published');
+ assert.equal((await pool.query('SELECT count(*) FROM oss_projects')).rows[0].count,'1');
+});
+
+test('agent upload problems name the next step and do not echo the grant',async()=>{
+ const owner=await login(),key=(await newKey(owner)).token,draft=await agentDraft(key),id=draft.submission.submission_id,grant=draft.upload_grant.token;
+ const wrongType=await app.request(origin+`/agent-api/v1/skill-submissions/${id}`,{method:'POST',headers:{'Content-Type':'text/plain',Authorization:'Bearer '+grant},body:'{}'});
+ assert.equal(wrongType.status,415);assert.match((await wrongType.json() as any).detail,/Content-Type: application\/json/);
+ const tooBig=await agent(`/skill-submissions/${id}`,grant,{pad:'x'.repeat(820*1024)});
+ assert.equal(tooBig.status,413);assert.match(tooBig.data.detail,/800 KB/);
+ const bad=await app.request(origin+`/agent-api/v1/skill-submissions/${id}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+grant},body:'```json'});
+ const badBody=await bad.json() as any;assert.equal(bad.status,400);assert.match(badBody.detail,/JSON/);assert.match(badBody.detail,/Markdown/);
+ const malformed=await agent(`/skill-submissions/${id}`,'fpk_'+'a'.repeat(43),payload());
+ assert.equal(malformed.status,401);assert.match(malformed.data.detail,/Authorization: Bearer fpg_/);assert.equal(malformed.data.detail.includes(grant),false);
+ // Agent create omits aggregate_version; the browser reads the current draft before rotating.
+ const current=(await api(`/me/skill-submissions/${id}`,owner)).data;
+ const rotated=await api(`/me/skill-submissions/${id}/grant`,owner,{},current.aggregate_version);
+ assert.equal(rotated.status,200,JSON.stringify(rotated.data));
+ const stale=await agent(`/skill-submissions/${id}`,grant,payload());
+ assert.equal(stale.status,401);assert.match(stale.data.detail,/重新產生指令/);assert.match(stale.data.detail,/重新產生授權/);assert.equal(stale.data.detail.includes(grant),false);
+ const invalid=await agent(`/skill-submissions/${id}`,rotated.data.upload_grant.token,{title:'太短'});
+ assert.equal(invalid.status,422);assert.match(invalid.data.detail,/授權尚未被消耗/);assert.match(invalid.data.detail,/repository_url|share_introductions/);
+ assert.equal(JSON.stringify(invalid.data).includes(rotated.data.upload_grant.token),false);
+});
+
+test('a browser on the platform origin can upload with its grant, and another origin cannot',async()=>{
+ const owner=await login(),key=(await newKey(owner)).token,created=await agentDraft(key),id=created.submission.submission_id,grant=created.upload_grant.token;
+ const post=(originHeader?:string)=>app.request(origin+`/agent-api/v1/skill-submissions/${id}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+grant,...(originHeader?{Origin:originHeader}:{})},body:JSON.stringify(payload())});
+ assert.equal((await post('https://evil.example')).status,403);
+ assert.equal((await post(origin)).status,200);
+ const second=await agentDraft(key);
+ const noOrigin=await app.request(origin+`/agent-api/v1/skill-submissions/${second.submission.submission_id}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+second.upload_grant.token},body:JSON.stringify(payload())});
+ assert.equal(noOrigin.status,200);
+});
+
 test('platform app wiring: agent POSTs work without Origin, foreign Origin is refused, browser routes need a session',async()=>{
  const owner=await login(),key=(await newKey(owner)).token;
  const post=(path:string,token:string,body:unknown,extra:Record<string,string>={})=>platform.request(origin+path,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token,...extra},body:JSON.stringify(body)});

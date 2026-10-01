@@ -46,8 +46,9 @@ test('member can send a design claim comment from the Issue row',async({page})=>
   await login(page);
   let posted='';
   await page.route('**/api/v1/me/github',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({configured:true,connected:true,github_user:{id:'901',login:'maker'}})}));
-  await page.route('**/api/v1/me/github/pages/home/design-claims',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({items:posted?[{operation_key:'claim-e2e',state:'confirmed',issue_number:12,comment_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/12#issuecomment-91',created_at:new Date().toISOString()}]:[]})}));
-  await page.route('**/api/v1/me/github/pages/home/issues/12/design-claim',async route=>{posted=route.request().postData()??'';await route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({confirmed:true,issue_number:12,comment_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/12#issuecomment-91'})})});
+  // Page activity now comes from the synced open issue #14 (page:home). #12 stays closed for history.
+  await page.route('**/api/v1/me/github/pages/home/design-claims',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({items:posted?[{operation_key:'claim-e2e',state:'confirmed',issue_number:14,comment_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/14#issuecomment-91',created_at:new Date().toISOString()}]:[]})}));
+  await page.route('**/api/v1/me/github/pages/home/issues/14/design-claim',async route=>{posted=route.request().postData()??'';await route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({confirmed:true,issue_number:14,comment_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/14#issuecomment-91'})})});
   await page.getByRole('button',{name:'提出想法'}).click();
   const idea=page.getByRole('dialog',{name:'會員首頁：提出想法'});
   await idea.getByRole('button',{name:'回覆這則 Issue'}).click();

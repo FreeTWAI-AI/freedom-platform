@@ -32,9 +32,25 @@ export const GITHUB_REPOSITORY_NAME = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-
 const PAGE_SIZE = 100;
 const STALE_MS = 60 * 60 * 1000;
 const loginPattern = /^[A-Za-z0-9-]{1,39}(?:\[bot\])?$/;
+const loneSurrogate = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
 
+/** PostgreSQL text: drop NUL and lone surrogates, then keep at most `maxCodePoints` (`char_length`). */
+export function postgresText(value: string, maxCodePoints: number): string {
+  const cleaned = value.replace(/\u0000/g, '').replace(loneSurrogate, '');
+  let index = 0;
+  let points = 0;
+  while (index < cleaned.length && points < maxCodePoints) {
+    const unit = cleaned.charCodeAt(index);
+    if (unit >= 0xD800 && unit <= 0xDBFF) {
+      if (index + 1 >= cleaned.length) break;
+      index += 2;
+    } else index += 1;
+    points += 1;
+  }
+  return cleaned.slice(0, index);
+}
 export function cleanTitle(value: string, fallback: string) {
-  const text = value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  const text = postgresText(value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').replace(/\s+/g, ' ').trim(), 300);
   return text || fallback;
 }
 export function authorOf(login: string | null | undefined) {

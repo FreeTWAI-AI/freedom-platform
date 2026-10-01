@@ -16,7 +16,7 @@ type Connection={user_id:string;community_id:string;github_user_id:string;github
 export type GitHubSession={configured:boolean;connected:boolean;github_user:{id:string;login:string}|null};
 export type GitHubMetrics={book_id:string;repository_url:string;stargazers_count:number|null;forks_count:number|null;open_issues_count:number|null;subscribers_count:number|null;pushed_at:string|null;language:string|null;archived:boolean|null;checked_at:string|null;stale:boolean;error:string|null};
 const nullSnapshot={stargazers_count:null,forks_count:null,open_issues_count:null,subscribers_count:null,pushed_at:null,language:null,archived:null};
-const poolState=new WeakMap<Pool,{inflight:Map<string,Promise<MetricsRow>>;providers:WeakMap<typeof fetch,GitHubSocialProvider>}>();
+const poolState=new WeakMap<Pool,{providers:WeakMap<typeof fetch,GitHubSocialProvider>}>();
 const identityTaken='這個 GitHub 帳號已連結另一個工坊帳號。請先從原本的工坊帳號解除連結，或改用其他 GitHub 帳號。';
 const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
 // Serializes every change to one member's GitHub connection (connect, reconnect,
@@ -32,6 +32,28 @@ function upstream(bookId:string){
   requireCondition(url.protocol==='https:'&&url.hostname==='github.com'&&!url.port&&!url.username&&!url.password&&!url.search&&!url.hash&&/^\/[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9_.-]+\/?$/.test(url.pathname),422,'github_repository_unavailable','這本技能書沒有可連接的 GitHub 來源。');
   return {repository:url.pathname.replace(/^\//,'').replace(/\/$/,''),url:url.href};
 }
+export type CatalogMetricTarget={key:string;repository:string};
+/** Catalog books whose public counts `metrics()` serves. One row per repository. */
+export function catalogMetricTargets():CatalogMetricTarget[]{
+  const seen=new Set<string>(),targets:CatalogMetricTarget[]=[];
+  for(const book of communityCatalog.skill_books){
+    let source:{repository:string};
+    try{source=upstream(book.id);}catch{continue;}
+    const key=source.repository.toLowerCase();
+    if(seen.has(key))continue;
+    seen.add(key);targets.push({key,repository:source.repository});
+  }
+  return targets;
+}
+export async function saveRepositoryMetrics(q:Pool|PoolClient,key:string,snapshot:RepositorySnapshot):Promise<MetricsRow>{
+  return (await q.query<MetricsRow>(`INSERT INTO github_repository_metrics(repository_key,snapshot,checked_at,retry_after,last_error) VALUES($1,$2,now(),now()+interval '1 hour',NULL)
+    ON CONFLICT(repository_key) DO UPDATE SET snapshot=$2,checked_at=now(),retry_after=now()+interval '1 hour',last_error=NULL RETURNING snapshot,checked_at,retry_after,last_error`,[key,JSON.stringify(snapshot)])).rows[0];
+}
+export async function failRepositoryMetrics(q:Pool|PoolClient,key:string,code:string):Promise<MetricsRow>{
+  const safe=/^[a-z0-9_]{1,80}$/.test(code)?code:'github_unavailable';
+  return (await q.query<MetricsRow>(`INSERT INTO github_repository_metrics(repository_key,retry_after,last_error) VALUES($1,now()+interval '1 hour',$2)
+    ON CONFLICT(repository_key) DO UPDATE SET retry_after=now()+interval '1 hour',last_error=$2 RETURNING snapshot,checked_at,retry_after,last_error`,[key,safe])).rows[0];
+}
 function encode(key:Buffer,context:string,value:unknown){
   const nonce=randomBytes(12),cipher=createCipheriv('aes-256-gcm',key,nonce);cipher.setAAD(Buffer.from(context));
   const data=Buffer.concat([cipher.update(JSON.stringify(value),'utf8'),cipher.final()]);
@@ -45,16 +67,15 @@ function decode<T>(key:Buffer,context:string,value:string):T{
 export class GitHubSocial {
   private key?:Buffer;
   private provider:GitHubSocialProvider;
-  private inflight:Map<string,Promise<MetricsRow>>;
-  constructor(private pool:Pool,private config?:GitHubSocialConfig,fetcher:typeof fetch=fetch,private metricsToken?:string){
+  constructor(private pool:Pool,private config?:GitHubSocialConfig,fetcher:typeof fetch=fetch,_metricsToken?:string){
     if(config){
       this.key=Buffer.from(config.tokenKey,'base64');
       const redirect=new URL(config.redirectUri);
       if(this.key.length!==32||this.key.toString('base64')!==config.tokenKey||!config.clientId||!config.clientSecret||redirect.username||redirect.password||redirect.search||redirect.hash||redirect.pathname!=='/github/callback'||(redirect.protocol!=='https:'&&!(redirect.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(redirect.hostname))))throw new Error('Invalid GitHub social configuration.');
     }
-    let shared=poolState.get(pool);if(!shared){shared={inflight:new Map(),providers:new WeakMap()};poolState.set(pool,shared);}
+    let shared=poolState.get(pool);if(!shared){shared={providers:new WeakMap()};poolState.set(pool,shared);}
     let provider=shared.providers.get(fetcher);if(!provider){provider=new GitHubSocialProvider(fetcher);shared.providers.set(fetcher,provider);}
-    this.provider=provider;this.inflight=shared.inflight;
+    this.provider=provider;
   }
   private configured(){requireCondition(this.config&&this.key,503,'github_not_configured','GitHub 連線尚未設定。');return this.config;}
   private context(actor:Actor,purpose:string){return `github-social/v1/${this.config?.clientId}/${actor.community_id}/${actor.user_id}/${purpose}`;}
@@ -302,55 +323,15 @@ export class GitHubSocial {
       return {...this.view(null),provider_revoked:providerRevoked};
     });
   }
-  async metrics(bookId:string):Promise<GitHubMetrics>{
-    const book=upstream(bookId),key=book.repository.toLowerCase();
-    let pending=this.inflight.get(key);
-    if(!pending){pending=this.loadMetrics(key,book.repository);this.inflight.set(key,pending);void pending.finally(()=>this.inflight.delete(key)).catch(()=>{});}
-    return this.metricsView(bookId,book.url,await pending);
-  }
+  async metrics(bookId:string):Promise<GitHubMetrics>{return this.cachedMetrics(bookId);}
   async cachedMetrics(bookId:string):Promise<GitHubMetrics>{
     const book=upstream(bookId),row=(await this.pool.query<MetricsRow>('SELECT snapshot,checked_at,retry_after,last_error FROM github_repository_metrics WHERE repository_key=$1',[book.repository.toLowerCase()])).rows[0];
     return this.metricsView(bookId,book.url,row??{snapshot:null,checked_at:null,retry_after:new Date(),last_error:null});
   }
   private metricsView(bookId:string,repositoryUrl:string,row:MetricsRow):GitHubMetrics{
-    return {book_id:bookId,repository_url:repositoryUrl,...(row.snapshot??nullSnapshot),checked_at:row.checked_at?.toISOString()??null,stale:!row.checked_at||Date.now()-row.checked_at.getTime()>=HOUR||!!row.last_error,error:row.last_error};
+    const checked=row.checked_at?new Date(row.checked_at):null;
+    return {book_id:bookId,repository_url:repositoryUrl,...(row.snapshot??nullSnapshot),checked_at:checked?.toISOString()??null,stale:!checked||Date.now()-checked.getTime()>=HOUR||!!row.last_error,error:row.last_error};
   }
-  private async saveMetrics(q:PoolClient,key:string,snapshot:RepositorySnapshot):Promise<MetricsRow>{
-    return (await q.query<MetricsRow>(`INSERT INTO github_repository_metrics(repository_key,snapshot,checked_at,retry_after,last_error) VALUES($1,$2,now(),now()+interval '1 hour',NULL)
-      ON CONFLICT(repository_key) DO UPDATE SET snapshot=$2,checked_at=now(),retry_after=now()+interval '1 hour',last_error=NULL RETURNING *`,[key,JSON.stringify(snapshot)])).rows[0];
-  }
-  private async failMetrics(q:PoolClient,key:string,code:string):Promise<MetricsRow>{
-    return (await q.query<MetricsRow>(`INSERT INTO github_repository_metrics(repository_key,retry_after,last_error) VALUES($1,now()+interval '1 hour',$2)
-      ON CONFLICT(repository_key) DO UPDATE SET retry_after=now()+interval '1 hour',last_error=$2 RETURNING *`,[key,code])).rows[0];
-  }
-  // Anonymous GitHub quota is per IP and Worker egress IPs are shared, so public
-  // counts use the operator's read-only token when one is set. A rejected token
-  // falls back to one anonymous attempt instead of blanking the counts.
-  private async publicMetrics(repository:string):Promise<RepositorySnapshot>{
-    if(!this.metricsToken)return this.provider.metrics(repository);
-    try{return await this.provider.metrics(repository,this.metricsToken);}
-    catch(error){
-      if(!(error instanceof GitHubProviderError)||error.code!=='github_reconnect_required')throw error;
-      console.error('github_metrics_token_rejected');
-      return this.provider.metrics(repository);
-    }
-  }
-  private async loadMetrics(key:string,repository:string):Promise<MetricsRow>{
-    return transaction(this.pool,async q=>{
-      const cached=()=>q.query<MetricsRow>('SELECT snapshot,checked_at,retry_after,last_error FROM github_repository_metrics WHERE repository_key=$1',[key]);
-      let row=(await cached()).rows[0];if(row&&row.retry_after.getTime()>Date.now())return row;
-      const locked=(await q.query('SELECT pg_try_advisory_xact_lock(hashtextextended($1,0)) AS acquired',[`github-metrics/${key}`])).rows[0].acquired;
-      if(!locked)return row??{snapshot:null,checked_at:null,retry_after:new Date(),last_error:'github_refresh_in_progress'};
-      row=(await cached()).rows[0];if(row&&row.retry_after.getTime()>Date.now())return row;
-      try{
-        const snapshot=await this.publicMetrics(repository);
-        return this.saveMetrics(q,key,snapshot);
-      }catch(error){
-        if(!(error instanceof GitHubProviderError))throw error;
-        // One attempt per catalog repository/hour also bounds anonymous GitHub
-        // quota use during outages; a failed refresh never invents zero counts.
-        return this.failMetrics(q,key,error.code);
-      }
-    });
-  }
+  private saveMetrics(q:PoolClient,key:string,snapshot:RepositorySnapshot){return saveRepositoryMetrics(q,key,snapshot);}
+  private failMetrics(q:PoolClient,key:string,code:string){return failRepositoryMetrics(q,key,code);}
 }

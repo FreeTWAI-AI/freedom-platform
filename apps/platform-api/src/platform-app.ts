@@ -1,3 +1,4 @@
+import {createAgentCommerceRoutes,createShopMachineRoutes,createPublicShopRoutes} from './routes/agent-commerce.js';
 import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { z } from 'zod';
@@ -75,12 +76,16 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   const secureCookies=freedomEnv!=='local';
   const loadSocial=socialLoader(pool,origin,options.githubSocial,runtime.githubTokenKey,runtime.githubMetricsToken);
   const publicSocial=new GitHubSocial(pool,undefined,options.githubSocial?.fetcher??fetch,runtime.githubMetricsToken());
-  const pageGitHub=new PageGitHubReader(options.githubSocial?.fetcher??fetch,undefined,runtime.githubMetricsToken);
-  const pageGitHubEvents=new PageGitHubEventReader(options.githubSocial?.fetcher??fetch,undefined,runtime.githubMetricsToken);
+  const pageGitHub=new PageGitHubReader(pool);
+  const pageGitHubEvents=new PageGitHubEventReader(pool);
   const app=new Hono<{Variables:{actor:Actor}}>();
   app.onError((err,c)=>{
     if(err instanceof z.ZodError) return c.json({type:'about:blank',title:'Validation failed',status:422,code:'validation_failed',detail:err.issues.map(i=>`${i.path.join('.')}: ${i.message}`).join('; ')},422);
-    if(err instanceof Problem) return c.json({type:'about:blank',title:err.code,status:err.status,code:err.code,detail:err.message},err.status as 400);
+    if(err instanceof Problem) {
+      const retry=err.retryAfterSeconds;
+      if(typeof retry==='number'&&Number.isFinite(retry)&&retry>=0&&retry<=86400)c.header('Retry-After',String(Math.ceil(retry)));
+      return c.json({type:'about:blank',title:err.code,status:err.status,code:err.code,detail:err.message},err.status as 400);
+    }
     // Never echo SQL, request bodies, credentials, raw errors, or stack traces.
     console.error('request_failed', err instanceof Error ? err.name : 'unknown');
     return c.json({type:'about:blank',title:'Internal error',status:500,code:'internal_error',detail:'操作未完成，請重新整理並查看目前狀態。'},500);
@@ -96,7 +101,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
       const agentUpload=isAgentSkillUploadPath(c.req.method,c.req.path)||isAgentDevelopmentPath(c.req.method,c.req.path);
       // Only the narrow Bearer-authenticated Agent endpoints accept a CLI
       // without Origin. Browser requests keep the normal same-origin checks.
-      if(!agentUpload||c.req.header('Origin')!==undefined)requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected',freedomEnv==='local'?'操作來源不正確，請從本機工作台操作。':'操作來源不正確，請從自由工坊網站操作。');
+      const shopMachine=c.req.path.startsWith('/shop-api/v1/');
+      if((!agentUpload&&!shopMachine)||c.req.header('Origin')!==undefined)requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected',freedomEnv==='local'?'操作來源不正確，請從本機工作台操作。':'操作來源不正確，請從自由工坊網站操作。');
       if(agentUpload) {
         // The Agent route authenticates and consumes a bounded stream itself.
       } else if(isAvatarUpload(c.req.method,c.req.path)) {
@@ -120,7 +126,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
       c.res=new Response(JSON.stringify(data),{status:c.res.status,headers:c.res.headers});
     }
   });
-  app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher}));
+  app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken}));
   app.route('/',createPublishedSkillRoutes(pool,runtime.publicOrigin));
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id)));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health}));
@@ -150,6 +156,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createSkillDiscoveryRoutes(pool));
   app.route('/api/v1',createPublicClientConnectionRoutes(pool,origin,authNetwork));
   app.route('/client-api/v1',createClientApiRoutes(pool));
+  app.route('/shop-api/v1',createShopMachineRoutes(pool));
+  app.route('/',createPublicShopRoutes(pool));
   app.route('/agent-api/v1',createAgentSkillSubmissionRoutes(pool,origin,authNetwork));
   app.route('/development-agent/v1',createDevelopmentAgentRoutes(pool,loadSocial,authNetwork));
   app.post('/api/v1/auth/register',async c=>{
@@ -243,18 +251,19 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createMemberCommunicationRoutes(pool));
   app.route('/api/v1',createCommunityEventRoutes(pool,runtime.eventEmailSender,origin));
   app.route('/api/v1',createGitHubSocialRoutes(loadSocial));
-  app.route('/api/v1',createMemberAuthorClaimRoutes(pool,options.githubSocial?.fetcher??globalThis.fetch));
+  app.route('/api/v1',createMemberAuthorClaimRoutes(pool,options.githubSocial?.fetcher??globalThis.fetch,runtime.githubMetricsToken));
   app.route('/api/v1',createDevelopmentAccessRoutes(pool,loadSocial));
   app.route('/api/v1',createGuildWorkspaceRoutes(pool));
   app.route('/api/v1',createAvatarRoutes(pool));
   app.route('/api/v1',createClientConnectionRoutes(pool));
-  app.route('/api/v1',createSkillSubmissionRoutes(pool,origin));
+  app.route('/api/v1',createSkillSubmissionRoutes(pool,origin,runtime.githubMetricsToken));
   app.route('/api/v1',createPositioningRoutes(pool));
   app.route('/api/v1',createCommerceRoutes(pool));
-  app.route('/api/v1',createOpenSourceRoutes(pool));
-  app.route('/api/v1',createCoCreationRoutes(pool,runtime.githubMetricsToken,options.coCreationGitHub));
+  app.route('/api/v1',createAgentCommerceRoutes(pool,origin));
+  app.route('/api/v1',createOpenSourceRoutes(pool,runtime.githubMetricsToken));
+  app.route('/api/v1',createCoCreationRoutes(pool,options.coCreationGitHub));
   app.route('/api/v1',createBenefitRoutes(pool));
   // Unknown machine paths answer JSON 404 before any host serves the browser shell.
-  for(const prefix of ['/api/*','/client-api/*','/agent-api/*','/development-agent/*'])app.all(prefix,c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'此版本尚未提供這個 API。'},404));
+  for(const prefix of ['/api/*','/client-api/*','/agent-api/*','/development-agent/*','/shop-api/*'])app.all(prefix,c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'此版本尚未提供這個 API。'},404));
   return app;
 }

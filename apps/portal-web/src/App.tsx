@@ -84,8 +84,8 @@ const TAB_GUIDANCE: Record<TabId, string> = {
   workbench: '查看自己的工作、認領紀錄與進度。',
   showcase: '瀏覽作品和需求，尋找合作機會。',
   engagement: '查看合作紀錄與目前狀態。',
-  supplier: '整理商品資料與供貨條件。',
-  retail: '選品、建立商店草稿並安排銷售合作。',
+  supplier: '下載 MD，讓 AI 整理商品並製作內部商店。',
+  retail: '挑商品、下載 MD，讓 AI 製作公開商店。',
   marketing: '撰寫介紹草稿並記錄分享成果。',
   'guild-workspace': '管理你有權負責的公會資訊與技能書。',
   community: '查看自由工坊的社群入口和公開資訊。',
@@ -609,9 +609,7 @@ function Workspace({
                 <h1>{tabTitle(tab)}</h1>
               </div>
               <PageTools pageId={tab} client={client}/>
-              <div className="topbar-actions"><NotificationBell client={client} onOpen={()=>selectTab('messages')} onNavigate={action=>{setNotificationTarget(current=>({...action,sequence:(current?.sequence??0)+1}));selectTab(action.tab)}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>}/><button className="btn btn-ghost" type="button" onClick={() => void logout()} disabled={Boolean(pending)}>
-                登出
-              </button></div>
+              <div className="topbar-actions"><NotificationBell client={client} onOpen={()=>selectTab('messages')} onNavigate={action=>{setNotificationTarget(current=>({...action,sequence:(current?.sequence??0)+1}));selectTab(action.tab)}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
             </header>
             {error && (
               <ErrorPanel

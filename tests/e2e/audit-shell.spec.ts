@@ -178,7 +178,11 @@ for (const viewport of VIEWPORTS) {
     await signIn(page);
     await expect(page.locator('h1')).toHaveCount(1);
     await noHorizontalOverflow(page, `${viewport.name} home`);
-    for (const name of ['設定', '登出']) {
+    // One account group: the notification bell and the profile menu, which holds 登出.
+    await expect(page.locator('.topbar').getByRole('button', { name: /^通知/ })).toBeInViewport();
+    await expect(page.locator('.topbar').getByRole('button', { name: '設定', exact: true })).toBeInViewport();
+    await expect(page.locator('.topbar').getByRole('button', { name: '登出', exact: true })).toHaveCount(0);
+    for (const name of ['提出想法', '頁面說明', '參與編修']) {
       await expect(page.locator('.topbar').getByRole('button', { name, exact: true })).toBeInViewport();
     }
     await expectTouchTargets(page, '.topbar-actions .btn', `${viewport.name} topbar actions`);
@@ -249,7 +253,8 @@ for (const viewport of VIEWPORTS) {
     await noHorizontalOverflow(page, `${viewport.name} community`);
     await page.screenshot({ path: `test-results/audit-shell-workspace-${viewport.name}.png` });
     // Signing out returns to the sign-in form, not an empty page.
-    await page.locator('.topbar').getByRole('button', { name: '登出', exact: true }).click();
+    await page.locator('.topbar').getByRole('button', { name: '設定', exact: true }).click();
+    await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
     await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
     await expect(page.getByLabel('電子郵件', { exact: true })).toBeVisible();
   });

@@ -31,6 +31,13 @@ async function navigate(page, name) {
   await target.click();
 }
 
+// 登出 is the last item of the profile menu behind 設定.
+async function signOut(page) {
+  const settings=page.getByRole('button',{name:'設定',exact:true});
+  if(await settings.getAttribute('aria-expanded')!=='true')await settings.click();
+  await page.getByRole('menuitem',{name:'登出',exact:true}).click();
+}
+
 const credentialFile = process.env.FREEDOM_ACCESS_TOKEN_FILE;
 if (!credentialFile) throw new Error('Set FREEDOM_ACCESS_TOKEN_FILE to a private service-token JSON file.');
 const token = JSON.parse(await readFile(credentialFile, 'utf8'));
@@ -103,8 +110,8 @@ try {
     ['我的定位', '我的定位', 'positioning', ['/me/onboarding', '/assessment-definition']],
     ['職業公會', '職業公會', 'guilds', ['/guilds/directory', '/me/guild-preferences']],
     ['技能書架', '技能書架', 'skills', ['/me/skill-books']],
-    ['供貨中心', '供貨中心', 'supplier', ['/supplier/products', '/supplier/requests']],
-    ['開店與銷售', '開店與銷售', 'retail', ['/retail/catalog', '/retail/stores', '/retail/listings']],
+    ['我有東西要賣', '我有東西要賣', 'supplier', ['/commerce/shops', '/commerce/catalog', '/commerce/distribution-acceptances']],
+    ['我可以賣東西', '我可以賣東西', 'retail', ['/commerce/shops', '/commerce/catalog']],
     ['開源投稿', '開源投稿', 'opensource', ['/opensource/projects']],
     ['行銷工作室', '行銷工作室', 'marketing', ['/marketing/campaigns', '/opensource/projects', '/supplier/products']],
     ['我的工作', '我的工作', 'workbench', ['/dashboard', '/work-items']],
@@ -189,7 +196,7 @@ try {
   await verifyMemberSettings(page,{navigate,get:path=>context.request.get(origin+'/api/v1'+path,{headers,maxRedirects:0})});
   await page.screenshot({path:join(evidence,'staging-member-messages-mobile.png'),fullPage:true});
   console.log('HTTPS settings, GitHub task, private inbox and membership channel lists work on desktop and phone: PASS');
-  await page.getByRole('button', { name: '登出', exact: true }).click();
+  await signOut(page);
   await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
   expect(errors).toEqual([]);
   console.log('HTTPS workspace, mobile layout and logout: PASS');

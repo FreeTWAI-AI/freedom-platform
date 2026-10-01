@@ -111,12 +111,13 @@ test('ambiguous design claim response remains pending and cannot be reposted',as
  assert.equal((await (await request('/me/github/pages/home/design-claims')).json() as any).items[0].state,'pending');
 });
 
-test('public metrics use original catalog repository, are cached and appear in no-JavaScript skill pages',async()=>{
+test('public metrics read the stored catalog snapshot and appear in no-JavaScript skill pages',async()=>{
+ await pool.query(`INSERT INTO github_repository_metrics(repository_key,snapshot,checked_at,retry_after,last_error) VALUES('teddashh/ai-security-scanner',$1::jsonb,now(),now()+interval '1 hour',NULL)`,[JSON.stringify({stargazers_count:7,forks_count:3,open_issues_count:2,subscribers_count:1,pushed_at:'2026-09-20T12:00:00Z',language:'TypeScript',archived:false})]);
  const r=await app.request(origin+'/api/v1/github/books/security-scanner/metrics');assert.equal(r.status,200);
  const data=await r.json() as any;assert.equal(data.stargazers_count,7);assert.equal(data.forks_count,3);assert.equal(data.repository_url,'https://github.com/teddashh/ai-security-scanner');assert.equal(data.stale,false);
- assert.deepEqual(calls.map(x=>x.path),['/repos/teddashh/ai-security-scanner']);
- await app.request(origin+'/api/v1/github/books/security-scanner/metrics');assert.equal(calls.length,1);
- const html=await (await app.request(origin+'/development/skills/security-scanner')).text();assert.ok(html.includes('Stars 7'));assert.ok(html.includes('Forks 3'));assert.ok(html.includes('登入工坊 Star'));assert.equal(calls.length,1);
+ assert.deepEqual(calls,[]);
+ await app.request(origin+'/api/v1/github/books/security-scanner/metrics');assert.equal(calls.length,0);
+ const html=await (await app.request(origin+'/development/skills/security-scanner')).text();assert.ok(html.includes('Stars 7'));assert.ok(html.includes('Forks 3'));assert.ok(html.includes('登入工坊 Star'));assert.equal(calls.length,0);
  assert.equal((await app.request(origin+'/api/v1/github/books/not-a-real-book/metrics')).status,404);
  assert.equal((await app.request(origin+'/api/v1/me/github')).status,401);
 });

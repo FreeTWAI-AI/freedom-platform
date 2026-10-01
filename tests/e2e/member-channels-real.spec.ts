@@ -105,7 +105,7 @@ async function member(browser:Browser,baseURL:string,user:Account,viewport:{widt
   const page=await context.newPage();
   await page.goto('/');
   await page.getByLabel('電子郵件',{exact:true}).fill(user.email);await page.getByLabel('密碼',{exact:true}).fill(DEMO_PASSWORD);
-  await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'登出',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
   const session=await (await page.request.get('/api/v1/session')).json() as {user:{user_id:string};csrf_token:string};
   expect(session.user.user_id).toBe(user.user_id);
   const origin=new URL(baseURL).origin;

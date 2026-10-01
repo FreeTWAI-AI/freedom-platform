@@ -1,18 +1,11 @@
-import {z} from 'zod';
-import {publicJson,githubCoordinate} from '../opensource-marketing/github.js';
+import type {Pool} from 'pg';
+import {githubCoordinate} from '../opensource-marketing/github.js';
 import {Problem,requireCondition} from '../../packages/shared/problem.js';
 
-const login=z.string().regex(/^[a-zA-Z0-9-]{1,60}(?:\[bot\])?$/);
-const issueSchema=z.object({number:z.number().int().positive(),title:z.string().max(1000),body:z.string().nullable(),
-  state:z.literal('open'),labels:z.array(z.union([z.string(),z.object({name:z.string()})])).max(100),
-  assignees:z.array(z.object({login})).max(100),pull_request:z.unknown().optional()});
-const pullSchema=z.object({number:z.number().int().positive(),title:z.string().max(1000),user:z.object({login}).nullable(),
-  merged_at:z.iso.datetime().nullable(),merge_commit_sha:z.string().regex(/^[a-f0-9]{40}$/).nullable()});
-const repoSchema=z.object({id:z.number().int().positive().max(Number.MAX_SAFE_INTEGER),full_name:z.string(),
-  private:z.literal(false),visibility:z.literal('public'),archived:z.literal(false)});
 export type Repo={repository_id:string;repository_url:string;repository_full_name:string;title:string;goal:string;contribution_notes:string;upstream_url?:string|null};
-type Activity={repository_url:string;issues:{number:number;title:string;body:string;url:string;labels:string[];assignees:string[]}[];
-  contributions:{number:number;title:string;url:string;author:string;merged_at:string;merge_commit_sha:string}[];checked_at:string;truncated:boolean;stale_reason?:'github_rate_limited';unavailable_reason?:'github_rate_limited'};
+type Issue={number:number;title:string;body:string;url:string;labels:string[];assignees:string[]};
+type Contribution={number:number;title:string;url:string;author:string;merged_at:string;merge_commit_sha:string|null};
+type Activity={repository_url:string;issues:Issue[];contributions:Contribution[];checked_at:string;truncated:boolean;stale_reason?:'github_rate_limited';unavailable_reason?:'github_sync_pending'|'github_unreadable'};
 
 // A starting prompt does not depend on the GitHub activity cache being available.
 export function projectBrief(repo:Repo){
@@ -38,67 +31,28 @@ export function projectBrief(repo:Repo){
   ].join('\n')};
 }
 
-// One bounded cache per reader; the Worker shares its reader across request-built apps.
+// Activity comes from the sync tables. The optional token is ignored; member actions still call GitHub themselves.
 export class CollaborationGitHub {
-  private cache=new Map<string,{expires:number;value:Activity;retryAfter?:number}>();
-  private pending=new Map<string,Promise<Activity>>();
-  private budgets=new Map<string,number>();
-  constructor(private fetcher:typeof fetch=(...args)=>globalThis.fetch(...args),private now=()=>Date.now()){}
-  async read(repo:Repo,token?:string):Promise<Activity>{
+  constructor(private pool:Pool,private now=()=>Date.now()){}
+  async read(repo:Repo,_token?:string):Promise<Activity>{
     const coordinate=githubCoordinate(repo.repository_url);
     requireCondition(coordinate.toLowerCase()===repo.repository_full_name.toLowerCase(),409,'repository_identity_changed','儲存庫名稱已變更，請先更新作品來源。');
-    const key=repo.repository_id+'/'+coordinate.toLowerCase(),saved=this.cache.get(key);
-    if(saved&&saved.expires>this.now())return saved.value;
-    if(saved&&saved.retryAfter&&saved.retryAfter>this.now())return {...saved.value,stale_reason:'github_rate_limited'};
-    if(this.pending.has(key))return this.pending.get(key)!;
-    const promise=this.refresh(repo,coordinate,token).then(value=>{
-      if(this.cache.size>=128)this.cache.delete(this.cache.keys().next().value!);
-      this.cache.set(key,{value,expires:this.now()+600000});return value;
-    }).catch(error=>{
-      if(saved&&!saved.value.unavailable_reason&&error instanceof Problem&&error.code==='github_rate_limited'){
-        saved.retryAfter=this.now()+60000;
-        return {...saved.value,stale_reason:'github_rate_limited' as const};
-      }
-      if(error instanceof Problem&&(error.code==='github_rate_limited'||error.code==='github_read_budget')){
-        const unavailable:Activity={repository_url:`https://github.com/${coordinate}`,issues:[],contributions:[],checked_at:new Date(this.now()).toISOString(),truncated:false,unavailable_reason:'github_rate_limited'};
-        this.cache.set(key,{value:unavailable,expires:this.now()+60000});
-        return unavailable;
-      }
-      throw error;
-    }).finally(()=>this.pending.delete(key));
-    this.pending.set(key,promise);return promise;
-  }
-  private async refresh(repo:Repo,coordinate:string,token?:string):Promise<Activity>{
-    const minute=String(Math.floor(this.now()/60000));
-    for(const key of this.budgets.keys())if(key!==minute)this.budgets.delete(key);
-    const count=this.budgets.get(minute)??0;
-    requireCondition(count<10,503,'github_read_budget','GitHub 查詢忙碌，請稍後重試，或直接前往 repo。');this.budgets.set(minute,count+1);
-    const signal=AbortSignal.timeout(10000);
-    const get=async(path:string,maxBytes:number)=>{
-      try{return await publicJson(path,signal,this.fetcher,false,maxBytes,token);}
-      catch(error){
-        // A token may have exhausted its own quota while anonymous public reads
-        // still work. Only a rate-limit response gets one anonymous retry.
-        if(token&&error instanceof Problem&&error.code==='github_rate_limited')return publicJson(path,signal,this.fetcher,false,maxBytes);
-        throw error;
-      }
-    };
-    const actual=repoSchema.safeParse(await get(`/repos/${coordinate}`,196608));
-    requireCondition(actual.success&&String(actual.data.id)===repo.repository_id&&actual.data.full_name.toLowerCase()===coordinate.toLowerCase(),409,'repository_identity_changed','無法確認公開且可協作的原始 repo，請先檢查來源。');
-    const [issueRaw,pullRaw]=await Promise.all([
-      get(`/repos/${coordinate}/issues?state=open&sort=created&direction=asc&per_page=30`,1048576),
-      get(`/repos/${coordinate}/pulls?state=closed&sort=updated&direction=desc&per_page=30`,1048576),
-    ]);
-    const parsedIssues=z.array(issueSchema).max(30).safeParse(issueRaw),parsedPulls=z.array(pullSchema).max(30).safeParse(pullRaw);
-    requireCondition(parsedIssues.success&&parsedPulls.success,503,'github_invalid_response','GitHub 任務或貢獻資料不完整，請稍後重試。');
-    const base=`https://github.com/${coordinate}`;
-    return {repository_url:base,checked_at:new Date(this.now()).toISOString(),truncated:parsedIssues.data.length===30||parsedPulls.data.length===30,
-      issues:parsedIssues.data.filter(i=>!i.pull_request).map(i=>({number:i.number,title:i.title,body:(i.body??'').slice(0,12000),url:`${base}/issues/${i.number}`,labels:i.labels.map(x=>(typeof x==='string'?x:x.name).slice(0,100)),assignees:i.assignees.map(x=>x.login)})),
-      contributions:parsedPulls.data.filter(p=>p.merged_at&&p.merge_commit_sha&&p.user).map(p=>({number:p.number,title:p.title,url:`${base}/pull/${p.number}`,author:p.user!.login,merged_at:p.merged_at!,merge_commit_sha:p.merge_commit_sha!})),
+    const key=coordinate.toLowerCase(),base=`https://github.com/${coordinate}`;
+    const row=(await this.pool.query<{access_status:string;last_synced_at:Date|null}>('SELECT access_status, last_synced_at FROM github_sync_repositories WHERE repository_key=$1',[key])).rows[0];
+    const syncedAt=row?.last_synced_at?new Date(row.last_synced_at):null;
+    if(!row||row.access_status==='pending'||!syncedAt)return {repository_url:base,issues:[],contributions:[],checked_at:new Date(this.now()).toISOString(),truncated:false,unavailable_reason:'github_sync_pending'};
+    if(row.access_status==='unreadable')return {repository_url:base,issues:[],contributions:[],checked_at:syncedAt.toISOString(),truncated:false,unavailable_reason:'github_unreadable'};
+    const issues=(await this.pool.query<{number:number;title:string;body_excerpt:string|null;labels:string[]|null;assignees:string[]|null}>(`SELECT number, title, body_excerpt, labels, assignees FROM github_items
+      WHERE repository_key=$1 AND kind='issue' AND state='open' ORDER BY created_at ASC, number ASC LIMIT 31`,[key])).rows;
+    const pulls=(await this.pool.query<{number:number;title:string;author_login:string;merged_at:Date}>(`SELECT number, title, author_login, merged_at FROM github_items
+      WHERE repository_key=$1 AND kind='pr' AND merged_at IS NOT NULL AND author_login IS NOT NULL ORDER BY merged_at DESC, number DESC LIMIT 31`,[key])).rows;
+    return {repository_url:base,checked_at:syncedAt.toISOString(),truncated:issues.length>30||pulls.length>30,
+      issues:issues.slice(0,30).map(issue=>({number:issue.number,title:issue.title,body:issue.body_excerpt??'',url:`${base}/issues/${issue.number}`,labels:issue.labels??[],assignees:issue.assignees??[]})),
+      contributions:pulls.slice(0,30).map(pull=>({number:pull.number,title:pull.title,url:`${base}/pull/${pull.number}`,author:pull.author_login,merged_at:new Date(pull.merged_at).toISOString(),merge_commit_sha:null})),
     };
   }
   async brief(repo:Repo,number:number,token?:string){
-    const activity=await this.read(repo,token),issue=activity.issues.find(i=>i.number===number);
+    const activity=await this.read(repo,token),issue=activity.issues.find(item=>item.number===number);
     if(!issue)throw new Problem(404,'task_not_available','這張 Issue 未在目前的公開待辦清單；請到 GitHub 確認是否已結束。');
     return {text:[projectBrief(repo).text,'','## 本次指定任務',`Issue: ${issue.url}`,`任務：${issue.title}`,`讀取時間: ${activity.checked_at}`,
       ...(activity.stale_reason?['GitHub 暫時限制查詢；這是上次讀取的內容，請到 GitHub 核對 Issue 是否仍開放。']:[]),
