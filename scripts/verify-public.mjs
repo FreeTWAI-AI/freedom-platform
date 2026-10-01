@@ -21,7 +21,7 @@ const BUILTIN_GUILD_KEYS=Object.freeze(['guild_talent_direction','guild_product_
 const CUSTOM_GUILD_KEY=/^guild_custom_([0-9a-fA-F]{12}[1-8][0-9a-fA-F]{3}[89abAB][0-9a-fA-F]{15}|0{32}|f{32})$/;
 const GUILD_MODULE_KEYS=Object.freeze(['positioning','supplier','retail','marketing','workbench','guilds','engagement','opensource']);
 const GUILD_TOPIC_KEYS=Object.freeze(Object.keys(GUILD_TOPIC_LABELS));
-const GUILD_DIRECTORY_FIELDS=Object.freeze(['catalog_version','entry_questions','first_step','guild_experts','guild_key','guild_master','guild_master_nominee','is_primary','is_secondary','membership','module_key','name','profession_key','purpose','secondary_position','skill_books','tags']);
+const GUILD_DIRECTORY_FIELDS=Object.freeze(['alias','catalog_version','entry_questions','first_step','guild_experts','guild_key','guild_master','guild_master_nominee','is_primary','is_secondary','membership','module_key','name','profession_key','profession_title','purpose','secondary_position','skill_books','tags']);
 // Checks the public directory projection only; an approved-format custom row does not prove its review record.
 // bookIds is the canonical skill book id Set (development-map skill_books mirrors communityCatalog used by approval).
 function verifyGuildDirectory(guilds,bookIds){
@@ -50,10 +50,15 @@ function verifyGuildDirectory(guilds,bookIds){
     if(!GUILD_MODULE_KEYS.includes(guild.module_key))fail(`${label} module_key`);
     if(!Number.isInteger(guild.catalog_version)||guild.catalog_version<1)fail(`${label} catalog_version`);
     if(!isText(guild.name,1,100)||!isText(guild.purpose,1,1000)||!isText(guild.first_step,1,1000))fail(`${label} text fields`);
+    if(!isText(guild.alias,0,100))fail(`${label} alias`);
+    if(guild.alias&&guild.alias.toLowerCase()===guild.name.toLowerCase())fail(`${label} alias matches its name`);
+    if(!isText(guild.profession_title,0,40))fail(`${label} profession_title`);
+    if(builtin&&guild.profession_title!=='')fail(`${label} profession_title`);
     if(match){
-      // Approval stores trimmed name 2-100, purpose/first_step 5-1000, default catalog_version, and at least one bound book.
+      // Approval stores trimmed name 2-100, purpose/first_step 5-1000, catalog_version >= 1, and at least one bound book.
+      // Profile edits and a merge that writes an alias increment catalog_version above the insert default.
       if(guild.profession_key!=='custom_'+match[1])fail(`${label} profession_key`);
-      if(guild.catalog_version!==1)fail(`${label} catalog_version`);
+      if(!Number.isInteger(guild.catalog_version)||guild.catalog_version<1)fail(`${label} catalog_version`);
       if(!isText(guild.name,2,100)||!isText(guild.purpose,5,1000)||!isText(guild.first_step,5,1000))fail(`${label} custom text limits`);
       if(!Array.isArray(guild.skill_books)||guild.skill_books.length<1||guild.skill_books.length>20)fail(`${label} skill_books`);
       const unknown=guild.skill_books.filter(book=>!bookIds.has(book?.id)).map(book=>book?.id);
@@ -213,19 +218,19 @@ try {
   console.log('Public HTTPS landing, admin Access boundary, anonymous boundary and brand asset: PASS');
   const mapResponse=await anonymous.get(origin+'/api/v1/development-map');
   expect(mapResponse.status()).toBe(200);const development=await mapResponse.json();
-  expect(development.pages).toHaveLength(23);expect(development.repositories).toHaveLength(43);expect(development.skill_books).toHaveLength(37);
+  expect(development.pages).toHaveLength(23);expect(development.repositories).toHaveLength(44);expect(development.skill_books).toHaveLength(38);
   expect(JSON.stringify(development)).not.toMatch(/user_id|access_token|csrf_token/);
   for(const path of ['/llms.txt','/development','/development/guilds.md','/development/skills/security-scanner']){
     const response=await anonymous.get(origin+path);expect(response.status(),path).toBe(200);
     expect((await response.text()).length).toBeGreaterThan(100);
   }
-  console.log('Anonymous Agent discovery, 21 page guides, 43 repository guides and 37 skill books: PASS');
+  console.log('Anonymous Agent discovery, 21 page guides, 44 repository guides and 38 skill books: PASS');
   const discoveryResponse=await anonymous.get(origin+'/api/v1/skills/discovery');
   expect(discoveryResponse.status()).toBe(200);
-  const discovery=await discoveryResponse.json();expect(discovery.books).toHaveLength(37);
+  const discovery=await discoveryResponse.json();expect(discovery.books).toHaveLength(38);
   expect(discovery.timezone).toBe('Asia/Taipei');
   expect(JSON.stringify(discovery)).not.toMatch(/github_user_id|client_secret|csrf_token/);
-  for(const [id,author,repo] of [['local-workspace-mcp','Mini','arumwu/local-workspace-mcp'],['editkin','Hao','Hao0321/Editkin'],['positioning-companion','Jason','jason201385-commits/positioning-companion'],['freedom-party-guild-lounge','David','davidni0729/freedom-party-guild-lounge'],["bidding-radar-concept", "綠豆", "greenQQQ/bidding-radar-concept"],["aiwff-runtime", "隊長", "zaxardery8011-design/aiwff-runtime"],["n8n-marketing-flows", "Yuri", "YuriCrystal/n8n-marketing-flows"],["anti-gambling-trader-tw", "阿軒哥哥（阿軒割割）", "mars-tw/anti-gambling-trader-tw"],["web-card-game-skill", "阿軒哥哥（阿軒割割）", "mars-tw/web-card-game-skill"],["ai-avatar-bot", "Yuri", "YuriCrystal/ai-avatar-bot"],["ai-manga-translator", "綠豆", "greenQQQ/ai-manga-translator"],["line-persona", "隊長", "zaxardery8011-design/line-persona"]]){
+  for(const [id,author,repo] of [['local-workspace-mcp','Mini','arumwu/local-workspace-mcp'],['editkin','Hao','Hao0321/Editkin'],['positioning-companion','Jason','jason201385-commits/positioning-companion'],['freedom-party-guild-lounge','David','davidni0729/freedom-party-guild-lounge'],["bidding-radar-concept", "綠豆", "greenQQQ/bidding-radar-concept"],["aiwff-runtime", "隊長", "zaxardery8011-design/aiwff-runtime"],["n8n-marketing-flows", "Yuri", "YuriCrystal/n8n-marketing-flows"],["anti-gambling-trader-tw", "阿軒哥哥（阿軒割割）", "mars-tw/anti-gambling-trader-tw"],["web-card-game-skill", "阿軒哥哥（阿軒割割）", "mars-tw/web-card-game-skill"],["ai-avatar-bot", "Yuri", "YuriCrystal/ai-avatar-bot"],["ai-manga-translator", "綠豆", "greenQQQ/ai-manga-translator"],["line-persona", "隊長", "zaxardery8011-design/line-persona"],["open-seo-advisor", "阿軒哥哥（阿軒割割）", "mars-tw/open-seo-advisor-skill"]]){
     const book=development.skill_books.find(value=>value.id===id);expect(book.guide.author_name).toBe(author);
     expect(book.repository_url).toBe('https://github.com/'+repo);expect(book.upstream_url).toBe(book.repository_url);expect(book.star_url).toBe(book.upstream_url);
     const share=await anonymous.get(origin+'/development/skills/'+id);expect(share.status()).toBe(200);expect(await share.text()).toContain('作者：'+author);
@@ -243,7 +248,7 @@ try {
   for(const pageId of ['home','guilds','guild-workspace','admin']){
     const skill=await anonymous.get(origin+'/development/'+pageId+'/SKILL.md');expect(skill.status()).toBe(200);expect(await skill.text()).toMatch(/^---\nname:/);
   }
-  console.log('Public share metadata, 37-book discovery and readable skill/page Agent instructions: PASS');
+  console.log('Public share metadata, 38-book discovery and readable skill/page Agent instructions: PASS');
 
   stage='public skill introductions, illustrations and client download';
   const shareContentById=new Map();
@@ -434,7 +439,7 @@ try {
 
   stage = 'skill-book cover delivery';
   const covers=JSON.parse(await readFile(new URL('../docs/design/skill-book-art-manifest.json',import.meta.url),'utf8')).assets;
-  expect(covers).toHaveLength(37);
+  expect(covers).toHaveLength(38);
   for(const cover of covers){
     const image=await anonymous.get(origin+'/art/skills/'+cover.id+'.webp');
     expect(image.status()).toBe(200);
@@ -443,7 +448,7 @@ try {
     expect(metadata.width).toBe(cover.width);
     expect(metadata.height).toBe(cover.height);
   }
-  console.log('All 37 distinct skill-book covers delivered over HTTPS: PASS');
+  console.log('All 38 distinct skill-book covers delivered over HTTPS: PASS');
   // 社群技能書 without submitted artwork use drawn covers from their own manifest.
   const communityArt=JSON.parse(await readFile(new URL('../docs/design/community-skill-art-manifest.json',import.meta.url),'utf8')).assets;
   for(const asset of communityArt){
@@ -786,7 +791,7 @@ try {
     await expect(uploadTrigger).toBeFocused();await noOverflow('Skill shelf after upload preview at 320 px');
     expect(uploadWritePaths,'Preview must not issue a key, draft, upload grant or publication').toEqual([]);
   }finally{await page.unroute(uploadApiPattern,readOnlyUploads);}
-  console.log('37 × 100 introductions, 37 real 1200×630 illustrations, chosen OG text, gzip client, dice preview and read-only upload entry at 320 px: PASS');
+  console.log('38 × 100 introductions, 38 real 1200×630 illustrations, chosen OG text, gzip client, dice preview and read-only upload entry at 320 px: PASS');
   const githubConnection=await (await page.request.get(origin+'/api/v1/me/github')).json();
   if(githubConnection.configured){
     expect(githubConnection.connected).toBe(false);

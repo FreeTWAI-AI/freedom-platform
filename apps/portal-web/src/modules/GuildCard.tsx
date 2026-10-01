@@ -1,6 +1,7 @@
 import {useEffect,useId,useRef,useState} from 'react';
 import type {PortalClient} from '../api';
 import {guildMasterLabel,type GuildSummary} from './Onboarding';
+import {GuildName} from './GuildName';
 import {GuildLeadership} from './GuildLeadership';
 import {GuildMembers} from './GuildMembers';
 import {GuildAnnouncements} from './GuildWorkspace';
@@ -18,7 +19,7 @@ export function GuildCard({guild:g,client,busy,onPrimary,onMembership,onSecondar
   function close(){dialog.current?.close();setPanel(null);trigger.current?.focus();}
   return <article className={`card guild-card${g.is_primary?' primary-guild':active?' joined-guild':''}`} aria-label={g.name} data-guild-key={g.guild_key} tabIndex={-1}>
     <div className="guild-card-content">
-      <div className="card-head guild-card-topline"><h3>{g.name}</h3><span className="badge">{g.is_primary?'主要公會':g.is_secondary?'次要公會':active?'已加入':'未加入'}</span></div>
+      <div className="card-head guild-card-topline"><h3><GuildName name={g.name} alias={g.alias}/></h3><span className="badge">{g.is_primary?'主要公會':g.is_secondary?'次要公會':active?'已加入':'未加入'}</span></div>
       <GuildLeadership masterName={guildMasterLabel(g)} masterId={g.guild_master?.user_id} masterAvatarUrl={g.guild_master?.avatar_url} experts={g.guild_experts}/>
       <p className="guild-purpose">{g.purpose}</p><GuildTags tags={g.tags}/>
       <div className="guild-book-list"><strong>入門技能</strong>{firstBook?<SkillBookIntro book={firstBook} guildName={g.name} label={firstBook.title}/>:<p className="muted">技能書整理中</p>}</div>

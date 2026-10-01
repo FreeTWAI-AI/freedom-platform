@@ -1,33 +1,54 @@
 import {useCallback,useEffect,useRef,useState,type FormEvent} from 'react';
 import './AdminGuildManagement.css';
 import {GuildDiscoveryReport} from './GuildDiscoveryReport';
+import {GuildName} from './GuildName';
 
 export type GuildExpert={user_id:string;display_name:string;active:true;member_active:boolean;aggregate_version:number};
-export type ManagedGuild={guild_key:string;name:string;purpose:string;guild_master:{user_id?:string;display_name:string}|null;officer_version:number|null;guild_experts?:GuildExpert[]};
+export type ManagedGuild={guild_key:string;name:string;alias?:string;profession_title?:string;catalog_version?:number;purpose:string;guild_master:{user_id?:string;display_name:string}|null;officer_version:number|null;guild_experts?:GuildExpert[]};
+const customGuildKey=/^guild_custom_[0-9A-Fa-f]{32}$/;
+type ProfileBody={name?:string;alias:string;profession_title?:string;reason:string};
 type Client={request<T>(path:string):Promise<T>};
 type Candidate={user_id:string;display_name:string;email:string;active:boolean;eligible:boolean;eligibility_reason:null|'inactive';is_current:boolean;joined:boolean;is_expert:boolean;expert_version:number|null};
 type CandidatePage={items:Candidate[];total:number;next_offset:number|null};
 type Assignment=(guild:ManagedGuild,userId:string,reason:string)=>Promise<boolean>;
 type ExpertAssignment=(guild:ManagedGuild,userId:string,active:boolean,reason:string,version:number|null)=>Promise<boolean>;
-type Opened={guildKey:string;role:'master'|'expert'|'remove';userId?:string};
+type ProfileSave=(guild:ManagedGuild,body:ProfileBody)=>Promise<boolean>;
+type Opened={guildKey:string;role:'master'|'expert'|'remove'|'profile';userId?:string};
 const failure=(cause:unknown)=>cause instanceof Error?cause.message:'無法載入人選，請重試。';
 
-export function AdminGuildManagement({client,guilds,busy,loading,error,onSave,onExpert,onReload}:{client:Client;guilds:ManagedGuild[];busy:boolean;loading:boolean;error:string;onSave:Assignment;onExpert:ExpertAssignment;onReload:()=>Promise<void>}){
+export function AdminGuildManagement({client,guilds,busy,loading,error,onSave,onExpert,onProfile,onReload}:{client:Client;guilds:ManagedGuild[];busy:boolean;loading:boolean;error:string;onSave:Assignment;onExpert:ExpertAssignment;onProfile:ProfileSave;onReload:()=>Promise<void>}){
   const [search,setSearch]=useState(''),[opened,setOpened]=useState<Opened|null>(null),[saved,setSaved]=useState<{guildKey:string;message:string}|null>(null);
-  const term=search.trim().toLocaleLowerCase(),shown=guilds.filter(guild=>!term||guild.name.toLocaleLowerCase().includes(term));
+  const term=search.trim().toLocaleLowerCase(),shown=guilds.filter(guild=>!term||[guild.name,guild.alias].join(' ').toLocaleLowerCase().includes(term));
   function open(guildKey:string,role:Opened['role'],userId?:string){setOpened({guildKey,role,userId});setSaved(null);}
   return <section className="stack admin-guild-management"><div className="card-head"><h2>公會管理</h2><button type="button" className="btn btn-ghost" disabled={busy||loading} onClick={()=>void onReload()}>重讀公會</button></div><label className="field admin-guild-filter">搜尋公會<input type="search" value={search} disabled={busy} maxLength={100} onChange={event=>{setSearch(event.target.value);setOpened(null);}} placeholder="例如：影音、資安、活動…"/></label>
     <GuildDiscoveryReport client={client}/>
     {!opened&&error&&<p role="alert" className="banner banner-error">{error}</p>}
     {!loading&&!shown.length&&<p className="muted">{term?'沒有符合的公會。請換個名稱。':'目前沒有公會。'}</p>}
     <div className="admin-guild-list">{shown.map(guild=><article className={`card stack admin-guild-card${opened?.guildKey===guild.guild_key?' is-editing':''}`} key={guild.guild_key} aria-label={guild.name}>
-      <header className="admin-guild-heading"><div><h3>{guild.name}</h3><p>{guild.purpose}</p><p className="admin-guild-current">公會長：{guild.guild_master?.display_name??'待任命'}</p></div><div className="actions admin-guild-role-actions"><button type="button" className="btn btn-ghost" disabled={busy} onClick={()=>open(guild.guild_key,'master')}>設定公會長</button><button type="button" className="btn btn-ghost" disabled={busy||(guild.guild_experts?.length??0)>=3} onClick={()=>open(guild.guild_key,'expert')}>新增公會專家</button></div></header>
+      <header className="admin-guild-heading"><div><h3><GuildName name={guild.name} alias={guild.alias}/></h3><p>{guild.purpose}</p><p className="admin-guild-current">公會長：{guild.guild_master?.display_name??'待任命'}</p></div><div className="actions admin-guild-role-actions"><button type="button" className="btn btn-ghost" disabled={busy} onClick={()=>open(guild.guild_key,'profile')}>編輯名稱與別名</button><button type="button" className="btn btn-ghost" disabled={busy} onClick={()=>open(guild.guild_key,'master')}>設定公會長</button><button type="button" className="btn btn-ghost" disabled={busy||(guild.guild_experts?.length??0)>=3} onClick={()=>open(guild.guild_key,'expert')}>新增公會專家</button></div></header>
       <section className="admin-guild-experts" aria-label={`${guild.name}公會專家`}><h4>公會專家 <span className="admin-expert-capacity">{guild.guild_experts?.length??0}/3</span></h4>{(guild.guild_experts?.length??0)>=3&&<p className="admin-expert-limit">已滿3位，請先移除一位</p>}{!guild.guild_experts?.length?<p className="muted">尚未任命</p>:<ul>{guild.guild_experts.map(expert=><li key={expert.user_id}><span><strong>{expert.display_name}</strong>{!expert.member_active&&<span className="admin-candidate-status">帳號已停用</span>}</span><button type="button" className="btn btn-ghost" disabled={busy} aria-label={`移除專家 ${expert.display_name}`} onClick={()=>open(guild.guild_key,'remove',expert.user_id)}>移除</button></li>)}</ul>}</section>
       {saved?.guildKey===guild.guild_key&&<p role="status" className="admin-guild-success">{saved.message}</p>}
-      {opened?.guildKey===guild.guild_key&&opened.role!=='remove'&&<GuildRolePicker key={opened.role} role={opened.role} client={client} guild={guild} busy={busy} mutationError={error} onRefresh={onReload} onCancel={()=>setOpened(null)} onSave={async(candidate,reason)=>{const success=opened.role==='master'?await onSave(guild,candidate.user_id,reason):await onExpert(guild,candidate.user_id,true,reason,candidate.expert_version);if(success){setOpened(null);setSaved({guildKey:guild.guild_key,message:`已任命 ${candidate.display_name} 為${guild.name}${opened.role==='master'?'會長':'專家'}。`});}return success;}}/>}
+      {opened?.guildKey===guild.guild_key&&opened.role==='profile'&&<GuildProfileEditor key={guild.guild_key} guild={guild} busy={busy} error={error} onCancel={()=>setOpened(null)} onRefresh={onReload} onSave={async body=>{const success=await onProfile(guild,body);if(success){setOpened(null);setSaved({guildKey:guild.guild_key,message:'已更新公會名稱與別名。'});}return success;}}/>}
+      {opened?.guildKey===guild.guild_key&&(opened.role==='master'||opened.role==='expert')&&<GuildRolePicker key={opened.role} role={opened.role} client={client} guild={guild} busy={busy} mutationError={error} onRefresh={onReload} onCancel={()=>setOpened(null)} onSave={async(candidate,reason)=>{const success=opened.role==='master'?await onSave(guild,candidate.user_id,reason):await onExpert(guild,candidate.user_id,true,reason,candidate.expert_version);if(success){setOpened(null);setSaved({guildKey:guild.guild_key,message:`已任命 ${candidate.display_name} 為${guild.name}${opened.role==='master'?'會長':'專家'}。`});}return success;}}/>}
       {opened?.guildKey===guild.guild_key&&opened.role==='remove'&&guild.guild_experts?.filter(expert=>expert.user_id===opened.userId).map(expert=><ExpertRemoval key={expert.user_id} expert={expert} busy={busy} error={error} onCancel={()=>setOpened(null)} onRefresh={onReload} onSave={async reason=>{const success=await onExpert(guild,expert.user_id,false,reason,expert.aggregate_version);if(success){setOpened(null);setSaved({guildKey:guild.guild_key,message:`已移除 ${expert.display_name} 的${guild.name}專家身分。`});}return success;}}/>)}
     </article>)}</div>
   </section>;
+}
+
+function GuildProfileEditor({guild,busy,error,onSave,onCancel,onRefresh}:{guild:ManagedGuild;busy:boolean;error:string;onSave:(body:ProfileBody)=>Promise<boolean>;onCancel:()=>void;onRefresh:()=>Promise<void>}){
+  const custom=customGuildKey.test(guild.guild_key);
+  const [name,setName]=useState(guild.name),[alias,setAlias]=useState(guild.alias??''),[title,setTitle]=useState(guild.profession_title??''),[reason,setReason]=useState(''),[saving,setSaving]=useState(false);
+  const lock=useRef(false),pending=busy||saving;
+  const ready=reason.trim().length>=3&&alias.trim().length<=100&&(!custom||(name.trim().length>=2&&name.trim().length<=100&&title.trim().length<=40));
+  return <form className="admin-guild-profile admin-guild-appointment stack" aria-label={`編輯${guild.name}的名稱與別名`} onSubmit={async event=>{event.preventDefault();if(lock.current||pending||!ready)return;lock.current=true;setSaving(true);try{await onSave(custom?{name:name.trim(),alias:alias.trim(),profession_title:title.trim(),reason:reason.trim()}:{alias:alias.trim(),reason:reason.trim()});}finally{lock.current=false;setSaving(false);}}}>
+    {custom?<label className="field">公會名稱<input value={name} required minLength={2} maxLength={100} disabled={pending} onChange={event=>setName(event.target.value)}/></label>:<><p>公會名稱：{guild.name}</p><p className="field-hint">內建公會的名稱與職業稱號由平台維護。</p></>}
+    <label className="field">別名<input value={alias} maxLength={100} disabled={pending} onChange={event=>setAlias(event.target.value)}/></label>
+    <p className="field-hint">有趣的名字放這裡，會並排顯示在公會名稱旁；留空就不顯示。</p>
+    {custom&&<><label className="field">職業稱號<input value={title} maxLength={40} disabled={pending} onChange={event=>setTitle(event.target.value)}/></label><p className="field-hint">成員的職業稱號；留空時顯示「專業探索者」。</p></>}
+    <label className="field">調整理由<textarea required minLength={3} maxLength={1000} rows={3} value={reason} disabled={pending} onChange={event=>setReason(event.target.value)}/></label>
+    {error&&<div role="alert" className="banner banner-error"><p>{error}</p><button type="button" className="btn btn-ghost" disabled={pending} onClick={()=>void onRefresh()}>重讀公會</button></div>}
+    <div className="actions"><button className="btn btn-primary" disabled={pending||!ready}>{pending?'正在儲存…':'儲存名稱與別名'}</button><button type="button" className="btn btn-ghost" disabled={pending} onClick={onCancel}>取消</button></div>
+  </form>;
 }
 
 function GuildRolePicker({client,guild,role,busy,mutationError,onSave,onCancel,onRefresh}:{client:Client;guild:ManagedGuild;role:'master'|'expert';busy:boolean;mutationError:string;onSave:(candidate:Candidate,reason:string)=>Promise<boolean>;onCancel:()=>void;onRefresh:()=>Promise<void>}){

@@ -151,7 +151,7 @@ export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:numb
     SELECT u.user_id,u.display_name,u.created_at,a.published_profile,p.primary_guild_key,
       CASE WHEN EXISTS(SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=u.community_id
         AND m.user_id=u.user_id AND m.guild_key=p.primary_guild_key AND m.state='active')
-        THEN COALESCE($6::jsonb->>p.primary_guild_key,'專業探索者') ELSE NULL END AS positioning_title
+        THEN COALESCE(NULLIF($6::jsonb->>p.primary_guild_key,''),(SELECT NULLIF(c.profession_title,'') FROM positioning_guild_catalog c WHERE c.guild_key=p.primary_guild_key AND c.guild_key ~ '^guild_custom_[0-9A-Fa-f]{32}$'),'專業探索者') ELSE NULL END AS positioning_title
     FROM users u JOIN member_account_classification t USING(user_id,community_id)
       LEFT JOIN onboarding_assessments a ON a.user_id=u.user_id AND a.community_id=u.community_id
       LEFT JOIN guild_member_preferences p ON p.user_id=u.user_id AND p.community_id=u.community_id

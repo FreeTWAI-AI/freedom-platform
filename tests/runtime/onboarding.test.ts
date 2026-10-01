@@ -317,3 +317,17 @@ test('guild directory shows only active pending nominees in its community and ne
  rows=(await request('/guilds/directory',member)).data.items;
  assert.equal(rows.find((g:any)=>g.guild_key==='guild_security').guild_master_nominee,null);
 });
+
+test('joining 成長與行銷公會 grants Open SEO Advisor',async()=>{
+  const member=await signIn();
+  const joined=await request('/guilds/guild_marketing/join',member,{});
+  assert.equal(joined.status,200,JSON.stringify(joined.data));
+  const books=await request('/me/skill-books',member);
+  assert.equal(books.status,200);
+  const book=books.data.items.find((item:any)=>item.id==='open-seo-advisor');
+  assert.ok(book);
+  assert.ok(book.guild_keys.includes('guild_marketing'));
+  assert.equal(book.guide.author_name,'阿軒哥哥（阿軒割割）');
+  assert.equal(book.repository_url,'https://github.com/mars-tw/open-seo-advisor-skill');
+  assert.equal(book.source_commit,'f6178d797b45705b5b77f83507366a72eac34bde');
+});

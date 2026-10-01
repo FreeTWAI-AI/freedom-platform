@@ -2,7 +2,7 @@
 
 依 [Issue #42](https://github.com/FreeTWAI-AI/freedom-platform/issues/42)（Hao0321 的 9/30 意見）與 [#43](https://github.com/FreeTWAI-AI/freedom-platform/issues/43) 設計；最初實作來自 Hao0321 的 [PR #68](https://github.com/FreeTWAI-AI/freedom-platform/pull/68)。
 
-加入門、分享名片、好友名單與夥伴推薦的資料在 migration `059_member_connections.sql`：`users.onboarding_entry_mode`（`assessment` 或 `quick`，既有列預設 `assessment`）、`member_card_shares`、`guild_discovery_reports`。公會小問題的答案在 migration `060_member_guild_answers.sql` 的 `member_guild_answers`，每位會員每個公會一筆。
+加入門、分享名片、好友名單與夥伴推薦的資料在 migration `061_member_connections.sql`：`users.onboarding_entry_mode`（`assessment` 或 `quick`，既有列預設 `assessment`）、`member_card_shares`、`guild_discovery_reports`。公會小問題的答案在 migration `062_member_guild_answers.sql` 的 `member_guild_answers`，每位會員每個公會一筆。
 
 ## 新人入口
 
