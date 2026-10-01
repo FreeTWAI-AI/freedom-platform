@@ -109,7 +109,7 @@ export function MarketingPanel({client,session}:ModulePanelProps) {
       </form></section>
       <section className="stack" aria-label="我的行銷草稿"><div className="section-head"><h2>我的行銷草稿</h2><p>來源版本會保留下來，方便日後核對。</p></div>{loading&&<p role="status">正在載入草稿…</p>}{!loading&&!loadError&&campaigns.length===0&&<div className="card empty"><h3>把第一個想法寫下來</h3><p>從你的一件作品或活動開始，先準備一段能讓人理解的介紹。</p></div>}{campaigns.map(campaign=><CampaignCard key={campaign.campaign_id} campaign={campaign} client={client} reload={refresh}/>)}</section>
     </div>
-    <details className="card"><summary>行銷與影音公會的技能書</summary><RepositoryLibrary client={client} ids={['social-post','typo-studio','video-autopilot','short-drama','hao-studio','media-generator']} title="Hao 的行銷與影音技能書"/></details>
+    <details className="card"><summary>行銷與影音公會的技能書</summary><RepositoryLibrary client={client} ids={['social-post','typo-studio','video-autopilot','short-drama','media-generator']} title="Hao 的行銷與影音技能書"/></details>
   </div>;
 }
 

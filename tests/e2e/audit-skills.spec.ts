@@ -65,8 +65,9 @@ for (const width of [1280, 390]) {
       expect(catalog.skill_books).toHaveLength(37);
       await page.getByRole('button', { name: '免費預覽技能書', exact: true }).click();
       await expect(page.getByRole('button', { name: '未解鎖', exact: true })).toHaveAttribute('aria-pressed', 'true');
-      await expect(page.getByText('顯示 37 / 37 本技能書', { exact: true })).toBeVisible();
-      await expect(page.locator('.community-library article[data-access="locked"]')).toHaveCount(37);
+      // The catalog's 9 社群技能書 sit on their own shelf; the guild shelf previews the other 28.
+      await expect(page.getByText('顯示 28 / 28 本技能書', { exact: true })).toBeVisible();
+      await expect(page.locator('.community-library article[data-access="locked"]')).toHaveCount(28);
       expect(await readableText(page.locator('.community-library'), '.skill-library-description .field-hint')).toBeGreaterThan(0);
       await summariesReachable(page.locator('main'));
       await developmentFooter(page);
@@ -241,10 +242,10 @@ for (const width of [1280, 390]) {
       await navigate(page, '技能書架');
       await expect(page.getByRole('button', { name: '已解鎖 · 0', exact: true })).toBeVisible();
       await page.getByRole('button', { name: '未解鎖', exact: true }).click();
-      // multi-ai-chat is one of the AI 開發公會 books, so it leaves the locked list once granted.
-      const card = page.locator('.community-library article[data-book-id="multi-ai-chat"]');
+      // project-template is one of the AI 開發公會 books, so it leaves the locked list once granted.
+      const card = page.locator('.community-library article[data-book-id="project-template"]');
       await card.getByRole('button', { name: '預覽技能書', exact: true }).click();
-      const intro = page.locator('dialog.skill-intro-dialog[data-book-id="multi-ai-chat"]');
+      const intro = page.locator('dialog.skill-intro-dialog[data-book-id="project-template"]');
       await expect(intro).toBeVisible();
       await intro.getByRole('button', { name: '加入共同開發', exact: true }).click();
       const access = page.getByRole('dialog', { name: '開發啟用任務', exact: true });
@@ -253,7 +254,9 @@ for (const width of [1280, 390]) {
       const granted = await (await page.request.get('/api/v1/me/skill-books')).json() as { items: { book_id: string }[] };
       const total = new Set(granted.items.map(item => item.book_id)).size;
       expect(total).toBeGreaterThan(0);
-      expect(granted.items.map(item => item.book_id)).toContain('multi-ai-chat');
+      expect(granted.items.map(item => item.book_id)).toContain('project-template');
+      // Books the guild no longer designates are 社群技能書, never granted by joining.
+      expect(granted.items.map(item => item.book_id)).not.toContain('multi-ai-chat');
       // Closing the development dialog returns to the still-open book; the shelf does not re-render beneath it.
       await page.keyboard.press('Escape');
       await expect(access).toHaveCount(0);
@@ -268,7 +271,8 @@ for (const width of [1280, 390]) {
       await expect(page.getByRole('button', { name: `已解鎖 · ${total}`, exact: true })).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(page.locator('.community-library article[data-access="unlocked"]')).toHaveCount(total);
-      await expect(page.locator('.community-library article[data-book-id="multi-ai-chat"][data-access="unlocked"]')).toBeVisible();
+      await expect(page.locator('.community-library article[data-book-id="project-template"][data-access="unlocked"]')).toBeVisible();
+      await expect(page.locator('.community-skill-library article[data-book-id="multi-ai-chat"]')).toBeVisible();
       await noOverflow(page);
     });
   });

@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { RepositoryLibrary } from './Community';
 import type { ModulePanelProps } from './shared';
 import { SkillUpload } from './SkillUpload';
-import { CommunitySubmissions } from './CommunitySubmissions';
+import { CommunitySkillBooks } from './CommunitySkillBooks';
 import { GitHubConnectionSummary } from './GitHubSocial';
 
 export function SkillsPanel({ client, onNavigate }: ModulePanelProps) {
@@ -13,6 +13,7 @@ export function SkillsPanel({ client, onNavigate }: ModulePanelProps) {
   const [reload, setReload] = useState(0);
   const [submissionsRevision,setSubmissionsRevision]=useState(0);
   const shown = useRef<string[] | null>(null), pending = useRef<string[] | null>(null), refocus = useRef(false), unlockedTab = useRef<HTMLButtonElement>(null);
+  const guildHeading = useId(), communityHeading = useId();
   useEffect(() => {
     let active = true, generation = 0;
     // Guild joins elsewhere (e.g. the development dialog) change grants. Keep any open book dialog
@@ -47,22 +48,33 @@ export function SkillsPanel({ client, onNavigate }: ModulePanelProps) {
     refocus.current = false;
     if (!document.activeElement || document.activeElement === document.body) unlockedTab.current?.focus();
   }, [ids]);
+  // Guild-designated books unlock by joining a guild; every other book is a 社群技能書 anyone can read.
   return <section className="module-panel skills-panel" aria-label="技能書目錄">
     <GitHubConnectionSummary returnTo="#skills" onManage={() => onNavigate?.('account')}/>
-    <div className="page-toolbar">
-      <div className="scope-tabs" role="group" aria-label="技能書範圍">
-        <button ref={unlockedTab} className="btn btn-ghost" aria-pressed={scope === 'unlocked'} onClick={() => setScope('unlocked')}>已解鎖{ids ? ` · ${ids.length}` : ''}</button>
-        <button className="btn btn-ghost" aria-pressed={scope === 'locked'} onClick={() => setScope('locked')}>未解鎖</button>
-      </div>
-      <div className="actions"><SkillUpload client={client} onPublished={()=>setSubmissionsRevision(value=>value+1)}/><button className="btn btn-ghost" onClick={() => onNavigate?.('opensource')}>手動登錄作品</button></div>
+    <div className="skill-shelves">
+      <section className="skill-shelf" aria-labelledby={guildHeading}>
+        <header className="page-toolbar skill-shelf-heading">
+          <h2 id={guildHeading}>公會指定技能書</h2>
+          <div className="scope-tabs" role="group" aria-label="技能書範圍">
+            <button ref={unlockedTab} className="btn btn-ghost" aria-pressed={scope === 'unlocked'} onClick={() => setScope('unlocked')}>已解鎖{ids ? ` · ${ids.length}` : ''}</button>
+            <button className="btn btn-ghost" aria-pressed={scope === 'locked'} onClick={() => setScope('locked')}>未解鎖</button>
+          </div>
+        </header>
+        {notice && <p role="status" className="banner banner-info">{notice}</p>}
+        {error && <div role="alert" className="banner banner-error">{error}<button className="btn btn-ghost" onClick={() => setReload(value => value + 1)}>重新載入解鎖紀錄</button></div>}
+        {ids === null ? !error && <p role="status">正在載入解鎖紀錄…</p>
+          : <>
+            {(scope === 'locked' || ids.length === 0) && <div className="skill-unlock-prompt"><p>{scope === 'locked'?'加入公會即可解鎖對應技能書，也可先免費預覽。':'還沒有已解鎖的技能書。加入公會即可領取，也可先免費預覽。'}</p><div className="actions"><button className="btn btn-ghost" onClick={() => onNavigate?.('guilds')}>選擇公會</button>{scope === 'unlocked' && <button className="btn btn-primary" onClick={() => setScope('locked')}>免費預覽技能書</button>}</div></div>}
+            {(scope === 'locked' || ids.length > 0) && <RepositoryLibrary key={scope} client={client} ids={scope === 'unlocked' ? ids : undefined} excludeIds={scope === 'locked'?ids:undefined} access={scope} title={scope === 'unlocked' ? '已解鎖技能書' : '未解鎖技能書'} shelf="guild" headingLevel={3} compact/>}
+          </>}
+      </section>
+      <section className="skill-shelf" aria-labelledby={communityHeading}>
+        <header className="page-toolbar skill-shelf-heading">
+          <div><h2 id={communityHeading}>社群技能書</h2><p className="muted">社群成員分享的技能書，不需加入公會就能閱讀、分享與參與開發。</p></div>
+          <div className="actions"><SkillUpload client={client} onPublished={()=>setSubmissionsRevision(value=>value+1)}/><button className="btn btn-ghost" onClick={() => onNavigate?.('opensource')}>手動登錄作品</button></div>
+        </header>
+        <CommunitySkillBooks client={client} revision={submissionsRevision} guildIds={ids ?? []}/>
+      </section>
     </div>
-    {notice && <p role="status" className="banner banner-info">{notice}</p>}
-    {error && <div role="alert" className="banner banner-error">{error}<button className="btn btn-ghost" onClick={() => setReload(value => value + 1)}>重新載入解鎖紀錄</button></div>}
-    {ids === null ? !error && <p role="status">正在載入解鎖紀錄…</p>
-      : <>
-        {(scope === 'locked' || ids.length === 0) && <div className="skill-unlock-prompt"><p>{scope === 'locked'?'加入公會即可解鎖對應技能書，也可先免費預覽。':'還沒有已解鎖的技能書。加入公會即可領取，也可先免費預覽。'}</p><div className="actions"><button className="btn btn-ghost" onClick={() => onNavigate?.('guilds')}>選擇公會</button>{scope === 'unlocked' && <button className="btn btn-primary" onClick={() => setScope('locked')}>免費預覽技能書</button>}</div></div>}
-        {(scope === 'locked' || ids.length > 0) && <RepositoryLibrary key={scope} client={client} ids={scope === 'unlocked' ? ids : undefined} excludeIds={scope === 'locked'?ids:undefined} access={scope} title={scope === 'unlocked' ? '已解鎖技能書' : '未解鎖技能書'} compact/>}
-      </>}
-    <CommunitySubmissions client={client} revision={submissionsRevision}/>
   </section>;
 }

@@ -130,9 +130,16 @@ try {
       // reference through the authenticated API, then verify both rendered scopes.
       const catalogResponse=await context.request.get(origin+'/api/v1/community',{headers,maxRedirects:0});
       expect(catalogResponse.status()).toBe(200);
-      const catalog=(await catalogResponse.json()).skill_books.map(book=>book.id).sort();
+      const books=(await catalogResponse.json()).skill_books,all=books.map(book=>book.id).sort();
+      const discoveryResponse=await context.request.get(origin+'/api/v1/skills/discovery',{headers,maxRedirects:0});
+      expect(discoveryResponse.status()).toBe(200);
+      const designated=new Set([...books.filter(book=>book.official_guild_keys?.length).map(book=>book.id),...(await discoveryResponse.json()).books.filter(book=>book.official_guild_keys.length).map(book=>book.book_id)]);
       const grants=data.find(item=>item.path==='/me/skill-books').body.items.map(book=>book.book_id);
+      // The scope tabs cover guild-designated books; the rest are 社群技能書 on their own shelf.
+      const catalog=all.filter(id=>designated.has(id)||grants.includes(id)),community=all.filter(id=>!catalog.includes(id));
       const unlocked=catalog.filter(id=>grants.includes(id)),locked=catalog.filter(id=>!grants.includes(id));
+      const shared=page.locator('.community-skill-library article[data-book-id]');await expect(shared).toHaveCount(community.length);
+      expect(await shared.evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-book-id')).sort())).toEqual(community);
       const cards=page.locator('.community-library article[data-book-id]'),tabs=page.getByRole('group',{name:'技能書範圍'});
       const unlockedTab=tabs.getByRole('button',{name:/^已解鎖(?: · \d+)?$/});
       await expect(unlockedTab).toHaveAttribute('aria-pressed','true');await expect(cards).toHaveCount(unlocked.length);

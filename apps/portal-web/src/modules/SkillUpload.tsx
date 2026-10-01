@@ -16,7 +16,7 @@ type UploadKey = { key_id: string; label: string; scope: 'skill:submit'; expires
 type Secret = { submissionId: string; token: string; expiresAt: string; submitUrl: string };
 
 const statusLabels: Record<Submission['status'], string> = { awaiting_upload: '等待 Agent 上傳', ready_for_review: '待你預覽送出', published: '已送出', revoked: '已撤銷' };
-const relationshipLabels: Record<Relationship, string> = { author: '原作者', maintainer: '維護者', contributor: '貢獻者', curator: '推薦／整理者' };
+export const relationshipLabels: Record<Relationship, string> = { author: '原作者', maintainer: '維護者', contributor: '貢獻者', curator: '推薦／整理者' };
 const GUIDE = '/development/skill-upload';
 
 function httpsLink(value: string | null | undefined) {

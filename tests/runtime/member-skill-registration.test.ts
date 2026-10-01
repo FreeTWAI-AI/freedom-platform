@@ -8,6 +8,7 @@ import {migrate} from '../../scripts/database.js';
 import {communityCatalog,skillBooksForGuild} from '../../modules/community/catalog.js';
 import {skillMarkdown,pageHtml,skillAgentMarkdown} from '../../modules/development/service.js';
 import {communityAuthorSources} from '../../modules/community/community-author-skills.js';
+import {listSkillBooks} from '../../modules/positioning/onboarding.js';
 
 const url=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL,schema=`fp_member_books_${process.pid}_${Date.now()}`;
 const db=createPool(url),pool=new Pool({connectionString:url,options:`-c search_path=${schema}`});
@@ -55,15 +56,23 @@ test('eight community works credit original authors and use the actual upstream 
   assert.match(status('anti-gambling-trader-tw'),/不保證獲利.*PaperBroker/);
 });
 
-test('new publication grants match every active catalog guild and replay without changing prior grants',async()=>{
+// The author-book designations in effect when migration 033 shipped. Later curation moved several of these
+// books to 社群技能書; the migration and its grants stay as written, and listSkillBooks hides what no guild designates now.
+const migration033=[['guild_opportunity_partnership','bidding-radar-concept'],['guild_ai_field','bidding-radar-concept'],['guild_ai_vibe','aiwff-runtime'],['guild_ai_field','aiwff-runtime'],
+  ['guild_marketing','n8n-marketing-flows'],['guild_ai_field','n8n-marketing-flows'],['guild_ai_field','anti-gambling-trader-tw'],['guild_ai_vibe','web-card-game-skill'],['guild_ai_vibe','ai-avatar-bot'],
+  ['guild_member_operations','ai-avatar-bot'],['guild_ai_field','ai-manga-translator'],['guild_media_automation','ai-manga-translator'],['guild_member_operations','line-persona'],['guild_ai_field','line-persona']] as const;
+
+test('migration 033 grants its author-book designations to active members, covers every current one and replays without changing prior grants',async()=>{
+  // Every current author designation was granted by 033, so no member of a designating guild lacks the book.
+  for(const [id,source] of Object.entries(communityAuthorSources))for(const guild of source.guilds)assert.ok(migration033.some(([key,book])=>key===guild&&book===id),`${guild} → ${id} needs a grant migration`);
   const community=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[community,'Synthetic eight-book publication']);
-  const guilds=[...new Set(Object.values(communityAuthorSources).flatMap(source=>source.guilds))];
+  const guilds=[...new Set(migration033.map(([guild])=>guild))];
   const expected:{user_id:string;guild_key:string;book_id:string}[]=[];
   for(const guild of guilds){
     for(const [active,state] of [[true,'active'],[true,'left'],[false,'active']] as const){
       const id=randomUUID();await pool.query('INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,active) VALUES($1,$2,$3,$4,$5,$6,$7)',[id,community,id+'@example.invalid','Synthetic','unused',randomUUID(),active]);
       await pool.query('INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,$4,$5)',[randomUUID(),community,id,guild,state]);
-      if(active&&state==='active')for(const book of skillBooksForGuild(guild).filter(book=>Object.hasOwn(communityAuthorSources,book.id)))expected.push({user_id:id,guild_key:guild,book_id:book.id});
+      if(active&&state==='active')for(const [,book] of migration033.filter(([key])=>key===guild))expected.push({user_id:id,guild_key:guild,book_id:book});
     }
   }
   const sql=await readFile(new URL('../../migrations/033_community_author_skills.sql',import.meta.url),'utf8');
@@ -98,4 +107,18 @@ test('publication backfill grants only matching active memberships, is repeatabl
   assert.deepEqual((await pool.query('SELECT * FROM skill_publications ORDER BY book_id')).rows,publications);
   assert.deepEqual((await pool.query('SELECT * FROM guild_member_preferences WHERE community_id=$1',[community])).rows,before.rows);
   assert.equal((await pool.query('SELECT count(*) FROM development_grants')).rows[0].count,'0');
+});
+
+test('a book moved to 社群技能書 leaves the unlocked shelf without deleting its grant, and an approved binding keeps it',async()=>{
+  const community=randomUUID(),user=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[community,'Synthetic curated shelf']);
+  await pool.query('INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,active) VALUES($1,$2,$3,$4,$5,$6,true)',[user,community,user+'@example.invalid','Synthetic','unused',randomUUID()]);
+  // Historical grants from the AI 開發公會: two books it still designates, two it no longer does.
+  for(const book of ['project-template','aiwff-runtime','multi-ai-chat','ai-avatar-bot'])
+    await pool.query('INSERT INTO member_skill_book_grants(grant_id,community_id,user_id,guild_key,book_id) VALUES($1,$2,$3,$4,$5)',[randomUUID(),community,user,'guild_ai_vibe',book]);
+  const shelf=async()=>(await listSkillBooks(pool,{community_id:community,user_id:user})).map(book=>book.book_id as string).sort();
+  assert.deepEqual(await shelf(),['aiwff-runtime','project-template']);
+  assert.equal((await pool.query('SELECT count(*)::int AS count FROM member_skill_book_grants WHERE community_id=$1',[community])).rows[0].count,4);
+  // An administrator-approved binding designates the book again for this community only.
+  await pool.query('INSERT INTO guild_skill_book_bindings(community_id,guild_key,book_id) VALUES($1,$2,$3)',[community,'guild_ai_vibe','ai-avatar-bot']);
+  assert.deepEqual(await shelf(),['ai-avatar-bot','aiwff-runtime','project-template']);
 });
