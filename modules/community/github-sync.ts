@@ -8,6 +8,7 @@ import {pilotProject} from '../co-creation/service.js';
 import {pageIdsForIssue, publicEvent, FREEDOM_PLATFORM_EVENTS_FEED} from '../development/page-github.js';
 import {catalogMetricTargets, failRepositoryMetrics, saveRepositoryMetrics} from '../github-social/service.js';
 import {GitHubProviderError, GitHubSocialProvider} from '../github-social/provider.js';
+import {parseGitHubTokenExpiration, recordGitHubMetricsCredential} from '../platform-admin/credentials.js';
 import repositorySet from '../../repositories.lock.json' with {type:'json'};
 
 export const GITHUB_SYNC_REQUEST_BUDGET = 40;
@@ -49,11 +50,13 @@ type RepoRow = {
 };
 type Outcome = 'continue' | 'rate_limited' | 'budget';
 type Credential = 'anonymous' | 'token';
+type CredentialNote = 'none' | 'ok' | 'rejected' | 'unknown';
 type Run = {
   requests: number; items_upserted: number; not_modified: number; budget: number;
   token: string | undefined; warned: boolean; rejectedOwners: Set<string>;
   backoffUntil: Record<Credential, number>;
   fetcher: typeof fetch; now: () => number;
+  pool: Pool; credentialNote: CredentialNote;
 };
 
 export type GitHubSyncOptions = {fetcher?: typeof fetch; token?: string; now?: () => number; budget?: number};
@@ -144,6 +147,28 @@ function noteRejection(run: Run, response: GitHubRead, repository: string) {
   }
   if (response.status === 401) run.token = undefined;
   else run.rejectedOwners.add(owner);
+}
+function credentialErrorCode(error: unknown) {
+  const code = error && typeof error === 'object' && 'code' in error ? (error as {code: unknown}).code : '';
+  if (typeof code === 'string' && /^[A-Z0-9]{5}$/.test(code)) return code;
+  if (error instanceof Problem && /^[a-z0-9_]{1,80}$/.test(error.code)) return error.code;
+  return 'github_credential_status_failed';
+}
+/** At most one ok/unknown note per run. A 401 may replace an earlier ok. A write failure is not retried. */
+async function rememberGitHubCredential(run: Run, status: 'ok' | 'rejected' | 'unknown', expiresAt: Date | null) {
+  if (status === 'rejected') {
+    if (run.credentialNote === 'rejected') return;
+  } else if (run.credentialNote !== 'none') return;
+  run.credentialNote = status;
+  try { await recordGitHubMetricsCredential(run.pool, status, expiresAt); }
+  catch (error) { console.warn('github_credential_status_failed', credentialErrorCode(error)); }
+}
+async function observeTokenResponse(run: Run, status: number, expiration: string | null) {
+  try {
+    const expiresAt = parseGitHubTokenExpiration(expiration);
+    if (status === 401) await rememberGitHubCredential(run, 'rejected', expiresAt);
+    else await rememberGitHubCredential(run, 'ok', expiresAt);
+  } catch (error) { console.warn('github_credential_status_failed', credentialErrorCode(error)); }
 }
 function labelList(value: unknown) {
   if (!Array.isArray(value)) return [];
@@ -290,6 +315,7 @@ async function syncClaimed(client: PoolClient, repo: RepoRow, run: Run): Promise
     try {
       const first = await callGitHub(run, path, conditional, sendToken);
       if (!first) return stop('budget');
+      if (sendToken) await observeTokenResponse(run, first.status, first.tokenExpiration);
       response = first;
       if (sendToken && isTokenRejection(response)) {
         noteRejection(run, response, repo.repository);
@@ -397,6 +423,7 @@ async function syncPublicEvents(pool: Pool, run: Run) {
       let usedToken = sendToken;
       let response = await callGitHub(run, EVENTS_PATH, feed.etag ?? undefined, sendToken);
       if (!response) { await release(run.now()); return; }
+      if (sendToken) await observeTokenResponse(run, response.status, response.tokenExpiration);
       if (sendToken && isTokenRejection(response)) {
         noteRejection(run, response, repository);
         if (run.requests >= run.budget) { await release(run.now()); return; }
@@ -452,7 +479,14 @@ function metricsFetcher(run: Run): typeof fetch {
     run.requests += 1;
     // Unbound: workerd throws "Illegal invocation" when global fetch's receiver is not the global scope.
     const fetcher = run.fetcher;
-    return fetcher(input, init);
+    return fetcher(input, init).then(async response => {
+      try {
+        if (new Headers(init?.headers).has('authorization')) {
+          await observeTokenResponse(run, response.status, response.headers.get('github-authentication-token-expiration'));
+        }
+      } catch (error) { console.warn('github_credential_status_failed', credentialErrorCode(error)); }
+      return response;
+    });
   };
 }
 async function syncDueMetrics(pool: Pool, run: Run) {
@@ -533,6 +567,7 @@ export async function syncGitHubRepositories(pool: Pool, options: GitHubSyncOpti
     requests: 0, items_upserted: 0, not_modified: 0, budget: options.budget ?? GITHUB_SYNC_REQUEST_BUDGET,
     token: options.token, warned: false, rejectedOwners: new Set(), backoffUntil: {anonymous: 0, token: 0},
     fetcher: options.fetcher ?? globalThis.fetch, now: options.now ?? (() => Date.now()),
+    pool, credentialNote: 'none',
   };
   const summary: GitHubSyncSummary = {requests: 0, repositories: 0, items_upserted: 0, not_modified: 0, stop_reason: 'completed'};
   const tracked = await trackedGitHubRepositories(pool);
@@ -542,6 +577,7 @@ export async function syncGitHubRepositories(pool: Pool, options: GitHubSyncOpti
       ON CONFLICT (repository_key) DO NOTHING`, [new Date(run.now()), tracked.map(item => item.key), tracked.map(item => item.name)]);
   }
   await refreshBackoff(pool, run);
+  if (!run.token) await rememberGitHubCredential(run, 'unknown', null);
   // No token means one credential, so an active anonymous backoff stops the run the way the old single row did.
   if (!run.token && run.backoffUntil.anonymous > run.now()) {
     summary.stop_reason = 'rate_limited';
