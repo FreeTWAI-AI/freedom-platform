@@ -144,6 +144,10 @@ test('help boxes pad their text in light and dark, and the login demo box stays 
       await expect(project.getByText('如何開始', { exact: true })).toBeVisible();
       await expectPaddedBox(project.locator('.help-box'), `${theme} project`);
 
+      const advanced = page.locator('details.work-sharing-advanced').filter({ has: page.getByText('使用 Agent 或聊天 AI 協助整理（進階）', { exact: true }) });
+      if (!await advanced.evaluate(element => (element as HTMLDetailsElement).open)) {
+        await page.getByText('使用 Agent 或聊天 AI 協助整理（進階）', { exact: true }).click();
+      }
       await page.getByRole('button', { name: '上傳技能', exact: true }).click();
       const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
       // A ready draft's button reads 預覽 or 預覽並送出 depending on the dialog version.
