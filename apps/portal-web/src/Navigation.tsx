@@ -4,7 +4,7 @@ import type { TabId } from './types';
 
 export const TAB_TITLES: Record<TabId, string> = {
   home: '會員首頁', positioning: '我的定位', guilds: '職業公會', skills: '技能書架',
-  members: '工坊夥伴', account: '我的名片', cocreation: '一起開發', squads: '小隊集合',
+  friends: '我的好友', members: '工坊夥伴', account: '我的名片', cocreation: '一起開發', squads: '小隊集合',
   opensource: '開源投稿', workbench: '我的工作', showcase: '作品與需求', engagement: '合作紀錄',
   supplier: '我有東西要賣', retail: '我可以賣東西', marketing: '行銷工作室',
   'guild-workspace': '公會管理', community: '自由工坊社群',
@@ -13,7 +13,7 @@ export const TAB_TITLES: Record<TabId, string> = {
 
 const primary: TabId[] = ['home', 'events', 'tasks', 'guilds', 'skills'];
 const groups: { label: string; pages: TabId[] }[] = [
-  { label: '認識夥伴', pages: ['members', 'positioning', 'squads', 'cocreation'] },
+  { label: '認識夥伴', pages: ['members', 'friends', 'positioning', 'squads', 'cocreation'] },
   { label: '創作與合作', pages: ['workbench', 'opensource', 'showcase', 'engagement'] },
   { label: '供貨與銷售', pages: ['supplier', 'retail', 'marketing'] },
   { label: '管理', pages: ['guild-workspace'] },

@@ -5,6 +5,7 @@ import {GuildLeadership} from './GuildLeadership';
 import {GuildMembers} from './GuildMembers';
 import {GuildAnnouncements} from './GuildWorkspace';
 import {SkillBookIntro} from './SkillBookIntro';
+import {GuildTags} from './GuildFilters';
 
 export function GuildCard({guild:g,client,busy,onPrimary,onMembership,onSecondary,secondaryFull=false}:{guild:GuildSummary;client:PortalClient;busy:boolean;onPrimary:()=>void;onMembership:()=>void;onSecondary?:()=>void;secondaryFull?:boolean}) {
   const [panel,setPanel]=useState<'books'|'members'|'announcements'|null>(null);
@@ -18,7 +19,7 @@ export function GuildCard({guild:g,client,busy,onPrimary,onMembership,onSecondar
     <div className="guild-card-content">
       <div className="card-head guild-card-topline"><h3>{g.name}</h3><span className="badge">{g.is_primary?'主要公會':g.is_secondary?'次要公會':active?'已加入':'未加入'}</span></div>
       <GuildLeadership masterName={guildMasterLabel(g)} masterId={g.guild_master?.user_id} masterAvatarUrl={g.guild_master?.avatar_url} experts={g.guild_experts}/>
-      <p className="guild-purpose">{g.purpose}</p>
+      <p className="guild-purpose">{g.purpose}</p><GuildTags tags={g.tags}/>
       <div className="guild-book-list"><strong>入門技能</strong>{firstBook?<SkillBookIntro book={firstBook} guildName={g.name} label={firstBook.title}/>:<p className="muted">技能書整理中</p>}</div>
     </div>
     <div className="guild-card-controls">

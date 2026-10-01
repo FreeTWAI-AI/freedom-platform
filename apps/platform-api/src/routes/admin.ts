@@ -13,8 +13,9 @@ import {authenticateAdmin,adminBootstrap,adminMembers,changeMemberStatus,adminAp
 import {startGitHubAppSetup,completeGitHubAppSetup,githubAppSetupStatus} from '../../../../modules/github-social/setup.js';
 import {listAdminEventQueue,reviewEventAsAdmin} from '../../../../modules/community/events.js';
 import {acknowledgeAuthorClaimIdentity,adminAuthorClaims,refreshAuthorClaimObservation,reviewAuthorClaim} from '../../../../modules/community/repo-author-claims.js';
+import {guildDiscoveryReport,refreshGuildDiscoveryReports,type GuildReviewer} from '../../../../modules/community/guild-discovery.js';
 type AdminEnv={Variables:{admin:AdminActor;adminCsrf:string}};
-export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=verifyAdminAccess,github:{origin:string;tokenKey?:string;fetcher?:typeof fetch;readToken?:()=>string|undefined}={origin:'http://127.0.0.1:4310'}){
+export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=verifyAdminAccess,github:{origin:string;tokenKey?:string;fetcher?:typeof fetch;readToken?:()=>string|undefined;guildReviewer?:GuildReviewer}={origin:'http://127.0.0.1:4310'}){
   const app=new Hono<AdminEnv>();
   app.use('*',async(c,next)=>{
     const identity=await verifyAccess(c.req.raw),admin=await authenticateAdmin(pool,identity);
@@ -53,6 +54,12 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
   app.get('/events',async c=>c.json({items:await listAdminEventQueue(pool,c.get('admin'))}));
   app.post('/events/:id/review',async c=>result(c,await reviewEventAsAdmin(pool,await command(c),z.uuid().parse(c.req.param('id')))));
   app.post('/guild-applications/:id/review',async c=>result(c,await reviewGuildApplication(pool,await command(c),c.req.param('id'))));
+  app.get('/guild-discovery',async c=>c.json({...await guildDiscoveryReport(pool,c.get('admin').community_id),ai_configured:Boolean(github.guildReviewer)}));
+  app.post('/guild-discovery/refresh',async c=>{
+    z.object({}).strict().parse(await c.req.json());
+    await refreshGuildDiscoveryReports(pool,{communityId:c.get('admin').community_id,reviewer:github.guildReviewer});
+    return c.json({...await guildDiscoveryReport(pool,c.get('admin').community_id),ai_configured:Boolean(github.guildReviewer)});
+  });
   app.get('/guilds',async c=>c.json({items:await adminGuilds(pool,c.get('admin'))}));
   app.get('/guilds/:key/master-candidates',async c=>c.json(await adminGuildMasterCandidates(pool,c.get('admin'),c.req.param('key'),c.req.query())));
   app.post('/guilds/:key/master',async c=>result(c,await appointGuildMaster(pool,await command(c),z.string().min(1).max(100).parse(c.req.param('key')))));

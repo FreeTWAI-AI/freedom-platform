@@ -1,0 +1,29 @@
+.guild-topic-filter,.friend-scopes{display:flex;flex-wrap:wrap;gap:.4rem}
+.guild-topic-filter .btn,.friend-scopes .btn{font-size:.875rem;padding:.4rem .65rem;min-height:44px}
+.guild-topic-filter [aria-pressed=true],.friend-scopes [aria-pressed=true]{border-color:var(--green);background:var(--green-soft);color:var(--ink)}
+.quick-guild-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.65rem;border:0;padding:0;margin:0}
+.quick-guild-options legend{font-weight:600;margin-bottom:.65rem}
+.quick-guild-option{display:flex;align-items:flex-start;gap:.6rem;border:1px solid var(--line);border-radius:var(--radius);padding:.8rem;cursor:pointer;background:var(--bg-elev);min-width:0}
+.quick-guild-option input{flex:none;margin-top:.3rem;min-width:18px;min-height:18px}
+.quick-guild-option>span{display:grid;gap:.35rem;min-width:0}
+.quick-guild-option.is-selected{border-color:var(--green);box-shadow:0 0 0 1px var(--green)}
+.quick-guild-option:focus-within{outline:2px solid var(--focus);outline-offset:3px}
+.quick-guild-purpose{font-size:.875rem;color:var(--muted)}
+.quick-join-actions{position:sticky;top:.5rem;z-index:2;background:var(--bg-elev);border:1px solid var(--line);border-radius:var(--radius);padding:.65rem;box-shadow:var(--shadow)}
+.guild-topic-tags .pill{font-size:.75rem;padding:.12rem .4rem}
+.member-share-settings input[readonly]{width:100%;min-width:0;font-size:.875rem}
+.member-share-settings,.member-recommendation{margin-block:1rem}
+.connection-person,.public-member-identity{display:flex;align-items:center;gap:.8rem}
+.connection-person h3,.connection-person p,.public-member-identity h1,.public-member-identity p{margin:0}
+.connection-person p,.recommendation-reason{font-size:.875rem;color:var(--muted)}
+.public-member-page{max-width:780px;padding:1.2rem;margin-inline:auto;display:grid;gap:1rem}
+.public-member-page .brand-poster{max-width:280px;margin-inline:auto}
+.public-card-intro h1{font-size:clamp(1.25rem,4vw,1.8rem);overflow-wrap:anywhere}
+.public-card-intro>.btn-primary{justify-self:start}
+.friends-panel .field{max-width:32rem}
+.guild-review-pairs{display:grid;gap:.8rem;margin-block:1rem}
+.guild-review-pair{border-top:1px solid var(--line);padding-top:.8rem}
+.guild-review-pair h3{font-size:1rem;margin:0}
+.guild-review-pair p{font-size:.875rem;margin:.35rem 0}
+@media(max-width:900px){.quick-guild-options{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.quick-guild-options{grid-template-columns:1fr}.quick-start{padding:1rem}.public-member-page{padding:.75rem}.member-share-settings .actions{gap:.5rem}.member-share-settings input[readonly]{font-size:16px}}

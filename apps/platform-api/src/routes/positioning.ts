@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { moduleCommand, type PlatformEnv } from '../module-context.js';
 import { positioningView,saveProfile,listTracks,listGuilds,changeGuildMembership } from '../../../../modules/positioning/service.js';
+import {quickStartOnboarding} from '../../../../modules/positioning/onboarding.js';
 
 import { assessmentDefinition,onboardingView,saveAssessmentAnswers,evaluateSavedAssessment,completeOnboarding,guildDirectory,guildPreferences,setSecondaryGuilds,setPrimaryGuild,listSkillBooks,createGuildApplication,listGuildApplications } from '../../../../modules/positioning/onboarding.js';
 
@@ -20,6 +21,7 @@ export function createPositioningRoutes(pool:Pool) {
   });
   app.get('/assessment-definition',c=>c.json(assessmentDefinition()));
   app.get('/me/onboarding',async c=>c.json(await onboardingView(pool,c.get('actor'))));
+  app.post('/me/onboarding/quick-start',async c=>c.json(await quickStartOnboarding(pool,await moduleCommand(c))));
   for(const [action,fn] of [['answers',saveAssessmentAnswers],['evaluate',evaluateSavedAssessment],['complete',completeOnboarding]] as const)app.post(`/me/onboarding/${action}`,async c=>{
     const result=await fn(pool,await moduleCommand(c));
     if(result.draft)c.header('ETag',`"${result.draft.aggregate_version}"`);return c.json(result);

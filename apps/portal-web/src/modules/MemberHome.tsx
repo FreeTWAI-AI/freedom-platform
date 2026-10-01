@@ -7,6 +7,7 @@ import { MemberAvatar } from './MemberAvatar';
 import { logConsoleEvent } from '../game-console-core';
 import { consoleChannel } from '../game-console-routing';
 import './HomeDesign.css';
+import {MemberRecommendations} from './MemberRecommendations';
 
 const shortcuts: { id: TabId; title: string }[] = [
   { id: 'events', title: '社群活動' },
@@ -93,6 +94,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       </button>)}
     </nav>
 
+    <MemberRecommendations client={client}/>
     <section className="home-module-section" aria-labelledby="home-module-title">
       <header className="home-section-heading"><h2 id="home-module-title">商品、作品與推廣</h2></header>
       <div className="home-module-grid">

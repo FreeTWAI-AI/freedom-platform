@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { guildTopics } from '../../packages/shared/guild-topics.js';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { command, journal, checkVersion, type Command } from '../../packages/db/index.js';
@@ -103,10 +104,11 @@ export async function setSecondaryGuilds(pool:Pool,input:Command){
  });
 }
 export async function onboardingView(q:Queryable,actor:Actor){
- const user=(await q.query('SELECT onboarding_required,onboarding_completed_at FROM users WHERE user_id=$1 AND community_id=$2',[actor.user_id,actor.community_id])).rows[0];
+ const user=(await q.query('SELECT onboarding_required,onboarding_completed_at,onboarding_entry_mode FROM users WHERE user_id=$1 AND community_id=$2',[actor.user_id,actor.community_id])).rows[0];
  const row=(await q.query('SELECT * FROM onboarding_assessments WHERE community_id=$1 AND user_id=$2',[actor.community_id,actor.user_id])).rows[0];
  const prefs=await guildPreferences(q,actor);
  return {required:!!user?.onboarding_required&&!user?.onboarding_completed_at,completed:!!user?.onboarding_completed_at,
+   entry_mode:user?.onboarding_entry_mode??'assessment',assessment_completed:row?.state==='completed',
    assessment_update_required:!!row&&(row.assessment_version!==ASSESSMENT_VERSION||row.assessment_sha256!==ASSESSMENT_SHA256),
    current_assessment_version:ASSESSMENT_VERSION,current_assessment_sha256:ASSESSMENT_SHA256,
    state:row?.state??'new',draft:row?{aggregate_version:row.aggregate_version,assessment_version:row.assessment_version,assessment_sha256:row.assessment_sha256,
@@ -160,7 +162,7 @@ export async function evaluateSavedAssessment(pool:Pool,input:Command){
    return onboardingView(q,input.actor);
  });
 }
-const CompleteInput=z.object({guild_keys:distinct(15).refine(keys=>keys.length>0,'請至少加入一個公會。'),primary_guild_key:z.string().min(1).max(100),confirmed:z.literal(true)}).strict();
+const CompleteInput=z.object({guild_keys:distinct(100).refine(keys=>keys.length>0,'請至少加入一個公會。'),primary_guild_key:z.string().min(1).max(100),confirmed:z.literal(true)}).strict();
 async function joinInTransaction(q:PoolClient,actor:Actor,guildKey:string){
  let member=(await q.query('SELECT * FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 FOR UPDATE',[actor.community_id,actor.user_id,guildKey])).rows[0];
  if(!member||member.state!=='active'){
@@ -180,8 +182,24 @@ export async function completeOnboarding(pool:Pool,input:Command){
    for(const key of body.guild_keys)await joinInTransaction(q,input.actor,key);
    await savePrimaryPreference(q,input.actor,body.primary_guild_key);
    await q.query("UPDATE onboarding_assessments SET state='completed',published_profile=jsonb_build_object('capabilities',capabilities,'equipment',equipment,'custom_capabilities',custom_capabilities,'custom_equipment',custom_equipment,'featured_capabilities',featured_capabilities),aggregate_version=aggregate_version+1,updated_at=now() WHERE assessment_id=$1",[current.assessment_id]);
-   await q.query('UPDATE users SET onboarding_completed_at=COALESCE(onboarding_completed_at,now()) WHERE user_id=$1 AND community_id=$2',[input.actor.user_id,input.actor.community_id]);
+   await q.query("UPDATE users SET onboarding_completed_at=COALESCE(onboarding_completed_at,now()),onboarding_entry_mode='assessment' WHERE user_id=$1 AND community_id=$2",[input.actor.user_id,input.actor.community_id]);
    await journal(q,input.actor,'member_onboarding',current.assessment_id,(BigInt(current.aggregate_version)+1n).toString(),'complete_onboarding',{assessment_version:ASSESSMENT_VERSION,primary_guild_key:body.primary_guild_key},'freedom.membership.onboarding.completed.v1');
+   return onboardingView(q,input.actor);
+ });
+}
+export async function quickStartOnboarding(pool:Pool,input:Command){
+ const body=CompleteInput.parse(input.body);
+ requireCondition(body.guild_keys.includes(body.primary_guild_key),422,'primary_guild_not_selected','主要公會必須是你選擇加入的公會。');
+ return command(pool,{...input,lockUser:true},async()=>{},async q=>{
+   await lockMemberGuilds(q,input.actor);
+   const user=(await q.query('SELECT onboarding_completed_at FROM users WHERE user_id=$1 AND community_id=$2',[input.actor.user_id,input.actor.community_id])).rows[0];
+   requireCondition(!user.onboarding_completed_at,409,'onboarding_already_completed','已完成加入，請到公會頁調整公會。');
+   requireCondition((await q.query('SELECT guild_key FROM positioning_guild_catalog WHERE guild_key=ANY($1::text[])',[body.guild_keys])).rowCount===body.guild_keys.length,422,'unknown_guild','請選擇目前已建立的公會。');
+   for(const key of body.guild_keys)await joinInTransaction(q,input.actor,key);
+   await savePrimaryPreference(q,input.actor,body.primary_guild_key);
+   // Preserve a partly completed assessment and its last-confirmed profile.
+   await q.query("UPDATE users SET onboarding_completed_at=now(),onboarding_entry_mode='quick' WHERE user_id=$1 AND community_id=$2",[input.actor.user_id,input.actor.community_id]);
+   await journal(q,input.actor,'member_onboarding',input.actor.user_id,1,'quick_start_onboarding',{entry_mode:'quick',primary_guild_key:body.primary_guild_key},'freedom.membership.onboarding.completed.v1');
    return onboardingView(q,input.actor);
  });
 }
@@ -226,6 +244,7 @@ export async function guildDirectory(pool:Pool,actor:Actor){
    LEFT JOIN guild_leadership_nominations n ON n.community_id=$1 AND n.guild_key=g.guild_key AND n.state='pending'
    LEFT JOIN platform_admins a ON a.admin_id=n.admin_id AND a.community_id=$1 AND a.active
    ORDER BY is_primary DESC,COALESCE(m.state='active',false) DESC,g.guild_key`,[actor.community_id,actor.user_id,actor.session_hash])).rows;
+ for(const guild of result)guild.tags=guildTopics(guild);
  const secondary=effectiveSecondary({primary_guild_key:result.find(g=>g.is_primary)?.guild_key??null,secondary_guild_keys:result[0]?.stored_secondary_guild_keys??null,aggregate_version:null,active_guild_keys:result.filter(g=>g.membership?.state==='active').map(g=>g.guild_key)});
  const person=(row:any)=>({user_id:row.user_id,display_name:row.display_name,avatar_url:avatarUrl(row.user_id,row.avatar_version??'1',row.avatar_version!=null)});
  return Promise.all(result.map(async ({stored_secondary_guild_keys,...guild})=>({...guild,is_secondary:guild.membership?.state==='active'&&!guild.is_primary&&secondary.includes(guild.guild_key),secondary_position:guild.membership?.state==='active'&&!guild.is_primary&&secondary.includes(guild.guild_key)?secondary.indexOf(guild.guild_key)+1:null,guild_master:guild.guild_master?person(guild.guild_master):null,guild_experts:guild.guild_experts.map(person),skill_books:await listGuildSkillBooks(pool,actor.community_id,guild.guild_key)})));

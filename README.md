@@ -58,6 +58,10 @@ Cloudflare Workers＋PlanetScale 已於 2026-09-25 切換。2026-09-24 候選站
 
 「我有東西要賣」下載內部商店 MD；「我可以賣東西」挑商品後下載公開商店 MD。AI 整理商品、製作網站並引導各店申請金流，再由本人上傳成果、預覽確認歸檔。中央提供轉單、商店後台回報的兩筆付款記錄，以及人工出貨登記；不代收、不自動扣款、不追蹤物流。真人金流與各外部網站仍须另行驗收。詳見 [AI 雙商店規格](docs/development/supplier-retail-pricing.md)；下一位 Agent 先讀 [設計規劃與交接](docs/development/agent-shop-handoff.md)。
 
+## 本分支：新人入口與會員交流（Issue #42）
+
+新人可直接選主要公會並領技能書，定位測驗可稍後補做。我的名片提供可撤銷分享連結；新增好友名單、首頁與名片的夥伴推薦、公會主題篩選，以及每日公會目錄／選配 AI 分析。詳見 [會員交流規格與部署](docs/development/member-connections.md)。這是 PR 審查範圍，尚未宣稱正式站已部署。
+
 ## 啟動本機版本
 
 需要 Node.js 24 與 Docker Compose：
