@@ -4,9 +4,10 @@ import { z } from 'zod';
 import { checkVersion } from '../../packages/db/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { adminCommand, audit, type AdminActor, type AdminCommand } from '../platform-admin/service.js';
-import { enqueueReconcilePull } from './queue.js';
+import { rederivePull } from './derive.js';
+import { enqueueMaintainerJob, enqueueReconcilePull } from './queue.js';
 import {
-  annotateReviews, MAINTAINER_POLICY_VERSION, QUEUE_STATES, repositorySettingsSchema, resolveSettings,
+  annotateReviews, MAINTAINER_POLICY_VERSION, QUEUE_STATES, repositorySettingsSchema, resolveSettings, reviewerCovers,
   type ActiveReviewer, type Reason, type Risk,
 } from './policy.js';
 
@@ -30,6 +31,41 @@ function reasonsFor(reasons: Reason[], path: string, previous: string | null): R
 
 const REPOSITORY_FIELDS = `repository_id, full_name, default_branch, installation_state, mode, settings, last_swept_at, last_error, rate_limited_until, aggregate_version`;
 
+const IDENTITY_REQUIRED = '你還沒有已驗證的會員或 GitHub 連結，不能認領給自己，仍可以指派其他人。';
+const NOT_REVIEWER_SELF = '你不是啟用中的審查者，不能認領給自己，仍可以指派其他人。';
+const NOT_REVIEWER_ASSIGN = '這位審查者目前不是啟用中的審查者，不能指派。';
+const RANK_TOO_LOW = '這位審查者的風險上限低於這次變更，不能認領。';
+const CLAIM_AUTHOR = '審查者不能認領自己開的拉取請求。';
+const CLAIM_UNAVAILABLE = '這個拉取請求目前未開啟、仍是草稿或已暫停，不能認領。';
+const CLAIM_MISSING = '找不到這個認領。';
+const CLAIM_INACTIVE = '這個認領已經結束。';
+const SELF_CLAIM_REASON = '自己認領這次審查。';
+
+type ViewerReviewer = { reviewer_id: string; github_user_id: string; github_login: string; max_risk: Risk };
+export type ReviewCenterViewer = { github_login: string | null; reviewer_id: string | null; max_risk: Risk | null; reason: string | null };
+
+async function resolveViewer(q: Queryable, admin: AdminActor): Promise<ReviewCenterViewer & { reviewer: ViewerReviewer | null }> {
+  const member = (await q.query(
+    `SELECT u.user_id FROM users u
+     JOIN platform_admins a ON a.community_id=u.community_id AND lower(u.email)=a.email
+     WHERE a.admin_id=$1 AND u.community_id=$2 AND u.active AND u.email_verified_at IS NOT NULL`,
+    [admin.admin_id, admin.community_id],
+  )).rows[0] as { user_id: string } | undefined;
+  if (!member) return { github_login: null, reviewer_id: null, max_risk: null, reason: IDENTITY_REQUIRED, reviewer: null };
+  const github = (await q.query(
+    `SELECT github_user_id, github_login FROM github_social_connections WHERE user_id=$1 AND community_id=$2`,
+    [member.user_id, admin.community_id],
+  )).rows[0] as { github_user_id: string; github_login: string } | undefined;
+  if (!github) return { github_login: null, reviewer_id: null, max_risk: null, reason: IDENTITY_REQUIRED, reviewer: null };
+  const reviewer = (await q.query(
+    `SELECT reviewer_id, github_user_id, github_login, max_risk FROM maintainer_reviewers
+     WHERE community_id=$1 AND user_id=$2 AND github_user_id=$3 AND active`,
+    [admin.community_id, member.user_id, github.github_user_id],
+  )).rows[0] as ViewerReviewer | undefined;
+  if (!reviewer) return { github_login: github.github_login, reviewer_id: null, max_risk: null, reason: NOT_REVIEWER_SELF, reviewer: null };
+  return { github_login: reviewer.github_login, reviewer_id: reviewer.reviewer_id, max_risk: reviewer.max_risk, reason: null, reviewer };
+}
+
 export async function reviewCenterSummary(pool: Pool, admin: AdminActor) {
   const counts: Record<string, number> = {};
   for (const state of OPEN_STATES) counts[state] = 0;
@@ -44,59 +80,133 @@ export async function reviewCenterSummary(pool: Pool, admin: AdminActor) {
     `SELECT ${REPOSITORY_FIELDS} FROM maintainer_repositories WHERE community_id=$1 ORDER BY full_name, repository_id`,
     [admin.community_id],
   );
-  return { policy_version: MAINTAINER_POLICY_VERSION, counts, repositories: repositories.rows };
+  const viewer = await resolveViewer(pool, admin);
+  return {
+    policy_version: MAINTAINER_POLICY_VERSION, counts, repositories: repositories.rows,
+    viewer: { github_login: viewer.github_login, reviewer_id: viewer.reviewer_id, max_risk: viewer.max_risk, reason: viewer.reason },
+  };
+}
+
+function presentListRow(row: Record<string, any>) {
+  return {
+    pull_id: row.pull_id, repository_id: row.repository_id, full_name: row.full_name, number: row.number, title: row.title,
+    html_url: row.html_url, state: row.state, queue_state: row.queue_state, risk_class: row.risk_class, author_login: row.author_login,
+    author_association: row.author_association, author_type: row.author_type, is_draft: row.is_draft, is_fork: row.is_fork, paused: row.paused,
+    sla_due_at: row.sla_due_at, github_updated_at: row.github_updated_at, head_sha: row.head_sha, labels: row.labels, aggregate_version: row.aggregate_version,
+    first_risk_reason: row.first_risk_reason, first_queue_reason: row.first_queue_reason,
+    claim: row.claim_id ? {
+      claim_id: row.claim_id, reviewer_id: row.claim_reviewer_id, reviewer_login: row.reviewer_login, assignment: row.assignment,
+      claimed_by: row.claimed_by, created_at: row.claim_created_at, expires_at: row.claim_expires_at, head_sha: row.claim_head_sha,
+      github_request_state: row.github_request_state, aggregate_version: row.claim_aggregate_version,
+    } : null,
+    required_check: row.check_name ? { name: row.check_name, status: row.check_status, conclusion: row.check_conclusion, head_sha: row.check_head_sha } : null,
+  };
 }
 
 export async function listReviewCenterPulls(pool: Pool, admin: AdminActor, filter: string, repositoryId: string | null, limit: number, offset: number) {
-  const awaiting = filter === 'awaiting_review';
-  const order = awaiting
+  const viewer = await resolveViewer(pool, admin);
+  const order = filter === 'awaiting_review'
     ? 'p.sla_due_at ASC NULLS LAST, p.github_updated_at DESC, p.pull_id'
     : 'p.github_updated_at DESC, p.pull_id';
   const rows = await pool.query(
     `SELECT p.pull_id, p.repository_id, r.full_name, p.number, p.title, p.html_url, p.state, p.queue_state, p.risk_class,
-       p.author_login, p.is_draft, p.is_fork, p.sla_due_at, p.github_updated_at, p.head_sha, p.labels, p.aggregate_version
-     FROM maintainer_pull_requests p JOIN maintainer_repositories r ON r.repository_id=p.repository_id
+       p.author_login, p.author_association, p.author_type, p.is_draft, p.is_fork, p.paused, p.sla_due_at, p.github_updated_at,
+       p.head_sha, p.labels, p.aggregate_version, p.risk_reasons->0 AS first_risk_reason, p.queue_reasons->0 AS first_queue_reason,
+       active_claim.claim_id, active_claim.reviewer_id AS claim_reviewer_id, active_claim.reviewer_login, active_claim.assignment,
+       active_claim.claimed_by, active_claim.created_at AS claim_created_at, active_claim.expires_at AS claim_expires_at,
+       active_claim.head_sha AS claim_head_sha, active_claim.github_request_state, active_claim.aggregate_version AS claim_aggregate_version,
+       chk.name AS check_name, chk.status AS check_status, chk.conclusion AS check_conclusion, chk.head_sha AS check_head_sha
+     FROM maintainer_pull_requests p
+     JOIN maintainer_repositories r ON r.repository_id=p.repository_id
+     LEFT JOIN LATERAL (
+       SELECT c.claim_id, c.reviewer_id, v.github_login AS reviewer_login, c.assignment, a.display_name AS claimed_by,
+         c.created_at, c.expires_at, c.head_sha, c.github_request_state, c.aggregate_version
+       FROM maintainer_review_claims c
+       JOIN maintainer_reviewers v ON v.reviewer_id=c.reviewer_id
+       JOIN platform_admins a ON a.admin_id=c.claimed_by_admin
+       WHERE c.pull_id=p.pull_id AND c.state='active'
+     ) active_claim ON true
+     LEFT JOIN LATERAL (
+       SELECT ck.name, ck.status, ck.conclusion, ck.head_sha
+       FROM maintainer_checks ck
+       WHERE ck.pull_id=p.pull_id AND ck.head_sha=p.head_sha AND ck.source='check_run'
+         AND ck.name=COALESCE(r.settings->>'required_check', 'verify')
+         AND ck.app_slug=COALESCE(r.settings->>'required_check_app_slug', 'github-actions')
+       LIMIT 1
+     ) chk ON true
      WHERE r.community_id=$1 AND ($2::uuid IS NULL OR p.repository_id=$2)
-       AND (($3='open' AND p.state='open') OR ($3='done' AND p.queue_state IN ('merged','closed')) OR ($3 NOT IN ('open','done') AND p.queue_state=$3))
+       AND (($3='open' AND p.state='open')
+         OR ($3='done' AND p.queue_state IN ('merged','closed'))
+         OR ($3='author_action' AND p.queue_state IN ('needs_author','ci_not_run'))
+         OR ($3='mine' AND active_claim.reviewer_id=$6::uuid)
+         OR ($3 NOT IN ('open','done','author_action','mine') AND p.queue_state=$3))
      ORDER BY ${order} LIMIT $4 OFFSET $5`,
-    [admin.community_id, repositoryId, filter, limit + 1, offset],
+    [admin.community_id, repositoryId, filter, limit + 1, offset, viewer.reviewer_id],
   );
-  return { items: rows.rows.slice(0, limit), next_offset: rows.rows.length > limit ? offset + limit : null };
+  return { items: rows.rows.slice(0, limit).map(presentListRow), next_offset: rows.rows.length > limit ? offset + limit : null };
 }
 
-async function scopedPull(q: Queryable, admin: AdminActor, id: string) {
+async function scopedPull(q: Queryable, admin: AdminActor, id: string, lock = false) {
   const row = (await q.query(
-    `SELECT p.*, r.full_name, r.default_branch, r.mode, r.community_id
+    `SELECT p.*, r.full_name, r.default_branch, r.mode, r.settings, r.community_id
      FROM maintainer_pull_requests p JOIN maintainer_repositories r ON r.repository_id=p.repository_id
-     WHERE p.pull_id=$1 AND r.community_id=$2`,
+     WHERE p.pull_id=$1 AND r.community_id=$2${lock ? ' FOR UPDATE OF p' : ''}`,
     [id, admin.community_id],
   )).rows[0];
   requireCondition(row, 404, 'maintainer_pull_not_found', '找不到這個拉取請求。');
   return row;
 }
 
-export async function reviewCenterPull(pool: Pool, admin: AdminActor, id: string) {
+const CLAIM_COLUMNS = `c.claim_id, c.reviewer_id, v.github_login AS reviewer_login, c.assignment, a.display_name AS claimed_by,
+  c.created_at, c.expires_at, c.head_sha, c.github_request_state, c.aggregate_version, c.state, c.end_reason, c.ended_at`;
+
+function presentActiveClaim(row: Record<string, any> | undefined) {
+  if (!row?.claim_id) return null;
+  return {
+    claim_id: row.claim_id, reviewer_id: row.reviewer_id, reviewer_login: row.reviewer_login, assignment: row.assignment,
+    claimed_by: row.claimed_by, created_at: iso(row.created_at), expires_at: iso(row.expires_at), head_sha: row.head_sha,
+    github_request_state: row.github_request_state, aggregate_version: row.aggregate_version,
+  };
+}
+
+async function loadPullDetail(q: Queryable, admin: AdminActor, id: string) {
   z.uuid().parse(id);
-  const pull = await scopedPull(pool, admin, id);
-  const files = (await pool.query(
+  const pull = await scopedPull(q, admin, id);
+  const files = (await q.query(
     `SELECT path, previous_path, status, additions, deletions FROM maintainer_pull_files WHERE pull_id=$1 ORDER BY path`,
     [id],
   )).rows as Array<{ path: string; previous_path: string | null; status: string; additions: number; deletions: number }>;
-  const checks = (await pool.query(
+  const checks = (await q.query(
     `SELECT head_sha, source, name, app_key, app_slug, status, conclusion, check_suite_id, completed_at
      FROM maintainer_checks WHERE pull_id=$1 ORDER BY source, name`,
     [id],
   )).rows;
-  const reviews = (await pool.query(
+  const reviews = (await q.query(
     `SELECT github_review_id, reviewer_github_id, reviewer_login, reviewer_type, reviewer_association, state, commit_id, submitted_at
      FROM maintainer_reviews WHERE pull_id=$1 ORDER BY submitted_at, github_review_id`,
     [id],
   )).rows;
-  const reviewers = (await pool.query(
+  const reviewers = (await q.query(
     `SELECT github_user_id, max_risk FROM maintainer_reviewers WHERE community_id=$1 AND active`,
     [admin.community_id],
   )).rows as ActiveReviewer[];
   const riskReasons = (Array.isArray(pull.risk_reasons) ? pull.risk_reasons : []) as Reason[];
+  const active = (await q.query(
+    `SELECT ${CLAIM_COLUMNS}
+     FROM maintainer_review_claims c
+     JOIN maintainer_reviewers v ON v.reviewer_id=c.reviewer_id
+     JOIN platform_admins a ON a.admin_id=c.claimed_by_admin
+     WHERE c.pull_id=$1 AND c.state='active'`,
+    [id],
+  )).rows[0] as Record<string, any> | undefined;
+  const history = (await q.query(
+    `SELECT ${CLAIM_COLUMNS}
+     FROM maintainer_review_claims c
+     JOIN maintainer_reviewers v ON v.reviewer_id=c.reviewer_id
+     JOIN platform_admins a ON a.admin_id=c.claimed_by_admin
+     WHERE c.pull_id=$1 ORDER BY c.created_at DESC, c.claim_id DESC LIMIT 5`,
+    [id],
+  )).rows as Record<string, any>[];
   const annotated = annotateReviews(reviews.map(review => ({
     github_review_id: review.github_review_id as string,
     reviewer_github_id: review.reviewer_github_id as string,
@@ -122,7 +232,195 @@ export async function reviewCenterPull(pool: Pool, admin: AdminActor, id: string
       reviewer_login: reviews[index].reviewer_login,
       reviewer_type: reviews[index].reviewer_type,
     })),
+    claim: presentActiveClaim(active),
+    claims: history.map(row => ({ ...presentActiveClaim(row), state: row.state, end_reason: row.end_reason, ended_at: iso(row.ended_at) })),
   };
+}
+
+export async function reviewCenterPull(pool: Pool, admin: AdminActor, id: string) {
+  return loadPullDetail(pool, admin, id);
+}
+
+type ClaimReviewer = { reviewer_id: string; github_user_id: string; github_login: string; max_risk: Risk };
+
+function requireSelfReviewer(viewer: ReviewCenterViewer & { reviewer: ViewerReviewer | null }): ViewerReviewer {
+  if (viewer.reviewer) return viewer.reviewer;
+  if (!viewer.github_login) throw new Problem(409, 'maintainer_claim_identity_required', IDENTITY_REQUIRED);
+  throw new Problem(409, 'maintainer_claim_not_reviewer', NOT_REVIEWER_SELF);
+}
+function assertPullClaimable(pull: { state: string; is_draft: boolean; paused: boolean }) {
+  requireCondition(pull.state === 'open' && !pull.is_draft && !pull.paused, 409, 'maintainer_claim_unavailable', CLAIM_UNAVAILABLE);
+}
+function assertReviewerCanClaim(reviewer: { github_user_id: string; max_risk: Risk }, pull: { author_github_id: string; risk_class: Risk }) {
+  requireCondition(reviewer.github_user_id !== pull.author_github_id, 409, 'maintainer_claim_author', CLAIM_AUTHOR);
+  requireCondition(reviewerCovers(reviewer.max_risk, pull.risk_class), 409, 'maintainer_claim_rank_too_low', RANK_TOO_LOW);
+}
+async function activeClaimOnPull(q: Queryable, pullId: string) {
+  return (await q.query(
+    `SELECT c.claim_id, v.github_login AS reviewer_login, c.state, c.aggregate_version
+     FROM maintainer_review_claims c JOIN maintainer_reviewers v ON v.reviewer_id=c.reviewer_id
+     WHERE c.pull_id=$1 AND c.state='active'`,
+    [pullId],
+  )).rows[0] as { claim_id: string; reviewer_login: string; state: string; aggregate_version: string } | undefined;
+}
+function claimExists(login: string): never {
+  throw new Problem(409, 'maintainer_claim_exists', `這個拉取請求已由 ${login} 認領。`);
+}
+async function insertClaim(q: PoolClient, pull: Record<string, any>, reviewer: ClaimReviewer, admin: AdminActor, assignment: 'self' | 'assigned', assignReason: string | null, now: Date) {
+  const existing = await activeClaimOnPull(q, pull.pull_id);
+  if (existing) claimExists(existing.reviewer_login);
+  const settings = resolveSettings(pull.full_name, pull.settings);
+  const githubState = settings.request_reviewers ? 'pending' : 'not_requested';
+  const claimId = randomUUID();
+  const expires = new Date(now.getTime() + settings.claim_hours * 3_600_000);
+  await q.query('SAVEPOINT maintainer_claim_insert');
+  let row: Record<string, any>;
+  try {
+    row = (await q.query(
+      `INSERT INTO maintainer_review_claims (
+         claim_id, pull_id, reviewer_id, claimed_by_admin, assignment, assign_reason, head_sha,
+         created_at, expires_at, state, github_request_state)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active',$10)
+       RETURNING claim_id, reviewer_id, assignment, github_request_state, aggregate_version, state`,
+      [claimId, pull.pull_id, reviewer.reviewer_id, admin.admin_id, assignment, assignReason, pull.head_sha, now, expires, githubState],
+    )).rows[0];
+    await q.query('RELEASE SAVEPOINT maintainer_claim_insert');
+  } catch (error) {
+    if (pgCode(error) !== '23505') throw error;
+    await q.query('ROLLBACK TO SAVEPOINT maintainer_claim_insert');
+    const raced = await activeClaimOnPull(q, pull.pull_id);
+    claimExists(raced?.reviewer_login ?? '其他審查者');
+  }
+  if (githubState === 'pending') await enqueueMaintainerJob(q, pull.repository_id, 'request_reviewer', claimId, now);
+  return row!;
+}
+async function finishClaimWrite(q: PoolClient, admin: AdminActor, pullId: string, now: Date, action: string, targetType: string, targetRef: string, why: string, before: unknown, after: Record<string, unknown> = {}) {
+  await rederivePull(q, pullId, now);
+  const detail = await loadPullDetail(q, admin, pullId);
+  await audit(q, admin, action, targetType, targetRef, why, before, {
+    claim_id: detail.claim?.claim_id ?? null, reviewer_login: detail.claim?.reviewer_login ?? null,
+    state: detail.claim ? 'active' : null, queue_state: detail.queue_state,
+    aggregate_version: detail.aggregate_version, claim_aggregate_version: detail.claim?.aggregate_version ?? null,
+    ...after,
+  });
+  return detail;
+}
+
+export async function claimForSelf(pool: Pool, input: AdminCommand, id: string) {
+  z.uuid().parse(id);
+  z.object({}).strict().parse(input.body);
+  return adminCommand(pool, input, async q => { await scopedPull(q, input.admin, id); }, async q => {
+    const pull = await scopedPull(q, input.admin, id, true);
+    checkVersion(String(pull.aggregate_version), input.expected);
+    const reviewer = requireSelfReviewer(await resolveViewer(q, input.admin));
+    assertPullClaimable(pull);
+    assertReviewerCanClaim(reviewer, pull);
+    const now = new Date();
+    const claim = await insertClaim(q, pull, reviewer, input.admin, 'self', null, now);
+    return finishClaimWrite(q, input.admin, id, now, 'maintainer_claim_self', 'maintainer_pull', id, SELF_CLAIM_REASON, {
+      claim_id: null, reviewer_login: null, state: null, queue_state: pull.queue_state, aggregate_version: String(pull.aggregate_version),
+      claim_aggregate_version: null, opened_claim_id: claim.claim_id,
+    });
+  });
+}
+
+async function assignableReviewer(q: Queryable, admin: AdminActor, reviewerId: string): Promise<ClaimReviewer> {
+  const row = (await q.query(
+    `SELECT v.reviewer_id, v.github_user_id, v.github_login, v.max_risk
+     FROM maintainer_reviewers v
+     JOIN users u ON u.user_id=v.user_id AND u.community_id=v.community_id AND u.active AND u.email_verified_at IS NOT NULL
+     JOIN github_social_connections g ON g.user_id=v.user_id AND g.community_id=v.community_id AND g.github_user_id=v.github_user_id
+     WHERE v.reviewer_id=$1 AND v.community_id=$2 AND v.active`,
+    [reviewerId, admin.community_id],
+  )).rows[0] as ClaimReviewer | undefined;
+  requireCondition(row, 409, 'maintainer_claim_not_reviewer', NOT_REVIEWER_ASSIGN);
+  return row;
+}
+
+export async function assignReviewer(pool: Pool, input: AdminCommand, id: string) {
+  z.uuid().parse(id);
+  const body = z.object({ reviewer_id: z.uuid(), reason }).strict().parse(input.body);
+  return adminCommand(pool, input, async q => { await scopedPull(q, input.admin, id); }, async q => {
+    const pull = await scopedPull(q, input.admin, id, true);
+    checkVersion(String(pull.aggregate_version), input.expected);
+    const reviewer = await assignableReviewer(q, input.admin, body.reviewer_id);
+    assertPullClaimable(pull);
+    assertReviewerCanClaim(reviewer, pull);
+    const now = new Date();
+    const claim = await insertClaim(q, pull, reviewer, input.admin, 'assigned', body.reason, now);
+    return finishClaimWrite(q, input.admin, id, now, 'maintainer_claim_assign', 'maintainer_pull', id, body.reason, {
+      claim_id: null, reviewer_login: reviewer.github_login, state: null, queue_state: pull.queue_state,
+      aggregate_version: String(pull.aggregate_version), claim_aggregate_version: null, opened_claim_id: claim.claim_id,
+    });
+  });
+}
+
+async function scopedClaim(q: Queryable, admin: AdminActor, id: string, lock = false) {
+  const row = (await q.query(
+    `SELECT c.claim_id, c.pull_id, c.reviewer_id, c.state, c.aggregate_version, c.github_request_state,
+       v.github_login AS reviewer_login, p.repository_id, p.queue_state, p.aggregate_version AS pull_aggregate_version
+     FROM maintainer_review_claims c
+     JOIN maintainer_pull_requests p ON p.pull_id=c.pull_id
+     JOIN maintainer_repositories r ON r.repository_id=p.repository_id
+     JOIN maintainer_reviewers v ON v.reviewer_id=c.reviewer_id
+     WHERE c.claim_id=$1 AND r.community_id=$2${lock ? ' FOR UPDATE OF c' : ''}`,
+    [id, admin.community_id],
+  )).rows[0];
+  requireCondition(row, 404, 'maintainer_claim_not_found', CLAIM_MISSING);
+  return row;
+}
+
+export async function releaseClaim(pool: Pool, input: AdminCommand, id: string) {
+  z.uuid().parse(id);
+  const body = z.object({ reason }).strict().parse(input.body);
+  return adminCommand(pool, input, async q => { await scopedClaim(q, input.admin, id); }, async q => {
+    const claim = await scopedClaim(q, input.admin, id, true);
+    requireCondition(claim.state === 'active', 409, 'maintainer_claim_inactive', CLAIM_INACTIVE);
+    checkVersion(String(claim.aggregate_version), input.expected);
+    const now = new Date();
+    const updated = (await q.query(
+      `UPDATE maintainer_review_claims
+       SET state='released', end_reason='admin_released', ended_at=$2,
+         github_request_state=CASE WHEN github_request_state='requested' THEN 'removing' ELSE github_request_state END,
+         aggregate_version=aggregate_version+1
+       WHERE claim_id=$1 AND state='active'
+       RETURNING claim_id, github_request_state, aggregate_version, state`,
+      [id, now],
+    )).rows[0];
+    requireCondition(updated, 409, 'maintainer_claim_inactive', CLAIM_INACTIVE);
+    if (updated.github_request_state === 'removing') await enqueueMaintainerJob(q, claim.repository_id, 'remove_reviewer_request', id, now);
+    return finishClaimWrite(q, input.admin, claim.pull_id, now, 'maintainer_claim_release', 'maintainer_claim', id, body.reason, {
+      claim_id: claim.claim_id, reviewer_login: claim.reviewer_login, state: 'active', queue_state: claim.queue_state,
+      aggregate_version: String(claim.pull_aggregate_version), claim_aggregate_version: String(claim.aggregate_version),
+    }, {
+      claim_id: claim.claim_id, reviewer_login: claim.reviewer_login, state: 'released', claim_aggregate_version: updated.aggregate_version,
+    });
+  });
+}
+
+async function setPullPaused(pool: Pool, input: AdminCommand, id: string, paused: boolean) {
+  z.uuid().parse(id);
+  const body = z.object({ reason }).strict().parse(input.body);
+  const action = paused ? 'maintainer_pull_pause' : 'maintainer_pull_resume';
+  return adminCommand(pool, input, async q => { await scopedPull(q, input.admin, id); }, async q => {
+    const pull = await scopedPull(q, input.admin, id, true);
+    checkVersion(String(pull.aggregate_version), input.expected);
+    const current = await activeClaimOnPull(q, id);
+    await q.query('UPDATE maintainer_pull_requests SET paused=$2 WHERE pull_id=$1', [id, paused]);
+    const now = new Date();
+    return finishClaimWrite(q, input.admin, id, now, action, 'maintainer_pull', id, body.reason, {
+      claim_id: current?.claim_id ?? null, reviewer_login: current?.reviewer_login ?? null, state: current ? 'active' : null,
+      queue_state: pull.queue_state, aggregate_version: String(pull.aggregate_version), paused: pull.paused,
+      claim_aggregate_version: current?.aggregate_version ?? null,
+    });
+  });
+}
+
+export function pausePull(pool: Pool, input: AdminCommand, id: string) {
+  return setPullPaused(pool, input, id, true);
+}
+export function resumePull(pool: Pool, input: AdminCommand, id: string) {
+  return setPullPaused(pool, input, id, false);
 }
 
 export async function resyncReviewCenterPull(pool: Pool, input: AdminCommand, id: string) {

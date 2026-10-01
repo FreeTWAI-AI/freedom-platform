@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** Stored on every derived pull. Phase 1b maps the exported reason codes. */
-export const MAINTAINER_POLICY_VERSION = '2026-09-30.1';
+export const MAINTAINER_POLICY_VERSION = '2026-09-30.2';
 
 export const RISK_CLASSES = ['low', 'medium', 'high'] as const;
 export type Risk = (typeof RISK_CLASSES)[number];
@@ -9,8 +9,8 @@ export const REPOSITORY_MODES = ['off', 'observe', 'ai_review', 'merge_dry_run',
 export type RepositoryMode = (typeof REPOSITORY_MODES)[number];
 export const QUEUE_STATES = ['draft', 'waiting_ci', 'ci_not_run', 'needs_author', 'awaiting_review', 'in_review', 'needs_owner', 'ready', 'paused', 'merged', 'closed'] as const;
 export type QueueState = (typeof QUEUE_STATES)[number];
-/** Filters the admin list accepts. in_review is reserved for claims and is never produced here. */
-export const QUEUE_FILTERS = ['draft', 'waiting_ci', 'ci_not_run', 'needs_author', 'awaiting_review', 'in_review', 'needs_owner', 'ready', 'paused', 'open', 'done'] as const;
+/** Filters the admin list accepts. mine and author_action group claims and author/CI rows. */
+export const QUEUE_FILTERS = ['draft', 'waiting_ci', 'ci_not_run', 'needs_author', 'awaiting_review', 'in_review', 'needs_owner', 'ready', 'paused', 'open', 'done', 'mine', 'author_action'] as const;
 export type QueueFilter = (typeof QUEUE_FILTERS)[number];
 
 export const RISK_REASON_CODES = [
@@ -24,7 +24,7 @@ export const QUEUE_REASON_CODES = [
   'migration_number_collision', 'migration_number_behind', 'migration_duplicate_in_pr', 'migration_modified', 'migration_bad_name',
   'changes_requested', 'required_check_wrong_source', 'ci_failed', 'workflow_approval_required', 'ci_running', 'ci_pending', 'ci_missing',
   'other_check_failed', 'ready_human_approved', 'approval_stale', 'approval_rank_too_low', 'high_risk_requires_owner',
-  'awaiting_review', 'sla_overdue', 'owner_authored',
+  'awaiting_review', 'sla_overdue', 'owner_authored', 'review_claimed',
 ] as const;
 
 export type Reason = { code: string; message: string; paths?: string[] };
@@ -78,6 +78,7 @@ const QUEUE_MESSAGES: Record<string, string> = {
   awaiting_review: '檢查已過，還在等符合風險等級的真人核准。',
   sla_overdue: '已超過這個風險等級的審查時限，請盡快有人看。',
   owner_authored: '作者本人是審查者，不能核准自己的拉取請求，需要另一位審查者。',
+  review_claimed: '已有審查者認領這次審查。認領結束時間由畫面格式化。',
 };
 
 const RANK: Record<Risk, number> = { low: 0, medium: 1, high: 2 };
@@ -100,6 +101,8 @@ export const repositorySettingsSchema = z.object({
   sla_hours: z.object({ low: hour.optional(), medium: hour.optional(), high: hour.optional() }).strict().optional(),
   hold_labels: z.array(z.string().trim().min(1).max(50)).max(20).optional(),
   migrations_dir: z.string().trim().min(1).max(200).regex(/^[A-Za-z0-9_./-]+$/).refine(value => !value.split('/').includes('..') && !value.startsWith('/')).optional(),
+  claim_hours: z.number().int().min(1).max(168).optional(),
+  request_reviewers: z.boolean().optional(),
 }).strict();
 export type RepositorySettingsInput = z.infer<typeof repositorySettingsSchema>;
 export type MaintainerSettings = {
@@ -110,6 +113,8 @@ export type MaintainerSettings = {
   sla_hours: { low: number | null; medium: number | null; high: number | null };
   hold_labels: string[];
   migrations_dir: string;
+  claim_hours: number;
+  request_reviewers: boolean;
 };
 
 export function defaultRulesProfile(fullName: string): MaintainerSettings['rules_profile'] {
@@ -129,6 +134,8 @@ export function resolveSettings(fullName: string, raw: unknown): MaintainerSetti
     },
     hold_labels: parsed.hold_labels ?? ['hold', 'do-not-merge'],
     migrations_dir: parsed.migrations_dir ?? 'migrations',
+    claim_hours: parsed.claim_hours ?? 24,
+    request_reviewers: parsed.request_reviewers ?? false,
   };
 }
 
@@ -354,6 +361,8 @@ export type QueuePull = {
   author_github_id: string;
   paused: boolean;
 };
+/** A live claim. Only expires_at in the future counts; the caller does not pass ended rows. */
+export type QueueClaim = { reviewer_github_id: string; reviewer_login: string; expires_at: string };
 export type QueueDerivationInput = {
   pull: QueuePull;
   risk: Risk;
@@ -363,6 +372,7 @@ export type QueueDerivationInput = {
   mode: RepositoryMode;
   settings: MaintainerSettings;
   migration_reasons: Reason[];
+  claim?: QueueClaim | null;
 };
 export type QueueDerivation = { state: QueueState; reasons: Reason[]; sla_due_at: string | null; recheck_at: string | null };
 
@@ -389,6 +399,9 @@ function done(state: QueueState, reasons: Reason[], recheck_at: string | null = 
 function covers(maxRisk: Risk, risk: Risk): boolean {
   return RANK[maxRisk] >= RANK[risk];
 }
+export function reviewerCovers(maxRisk: Risk, risk: Risk): boolean {
+  return covers(maxRisk, risk);
+}
 
 /** Same rule deriveQueueState uses, so the detail API cannot drift. */
 export function annotateReviews(reviews: PolicyReview[], pull: Pick<QueuePull, 'head_sha' | 'author_github_id'>, risk: Risk, reviewers: ActiveReviewer[]) {
@@ -408,7 +421,29 @@ export function annotateReviews(reviews: PolicyReview[], pull: Pick<QueuePull, '
   });
 }
 
+function withClaim(derived: QueueDerivation, claim: QueueClaim | null | undefined, now: Date): QueueDerivation {
+  if (!claim) return derived;
+  const expires = Date.parse(claim.expires_at);
+  if (!Number.isFinite(expires) || expires <= now.getTime()) return derived;
+  const claimed = derived.state === 'awaiting_review'
+    || (derived.state === 'needs_owner' && derived.reasons.some(reason => reason.code === 'high_risk_requires_owner'));
+  if (!claimed) return derived;
+  const expiresIso = new Date(expires).toISOString();
+  let recheck = derived.recheck_at;
+  if (!recheck || Date.parse(recheck) > expires) recheck = expiresIso;
+  return {
+    state: 'in_review',
+    reasons: [...derived.reasons, queueReason('review_claimed', `${claim.reviewer_login} 已認領這次審查，認領到 ${expiresIso} 結束。`)],
+    sla_due_at: derived.sla_due_at,
+    recheck_at: recheck,
+  };
+}
+
 export function deriveQueueState(input: QueueDerivationInput, now: Date): QueueDerivation {
+  return withClaim(deriveWithoutClaim(input, now), input.claim, now);
+}
+
+function deriveWithoutClaim(input: QueueDerivationInput, now: Date): QueueDerivation {
   const pull = input.pull;
   if (pull.merged_at) return done('merged', [queueReason('merged')]);
   if (pull.state === 'closed') return done('closed', [queueReason('closed')]);

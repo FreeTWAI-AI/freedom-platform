@@ -1,6 +1,7 @@
 // Cron Worker that mirrors pull requests for the repository maintainer.
-// Phase 1a only reads GitHub. This Worker never posts a review, comment,
-// label, requested reviewer or merge.
+// Requested-reviewer writes stay off unless GITHUB_MAINTAINER_WRITES is
+// requested_reviewers. The committed value is off. This Worker does not
+// post a review, comment, label or merge.
 //
 // Wrangler cannot give an environment its own `main`, so this is a separate
 // config from wrangler.jsonc. The platform Worker stays the only routed
@@ -42,6 +43,9 @@
 //   GITHUB_MAINTAINER_APP_ID   numeric, not 0
 //   GITHUB_MAINTAINER_ORG      FreeTWAI-AI in this file; installations for any
 //                              other account are ignored
+//   GITHUB_MAINTAINER_WRITES   off, or requested_reviewers to allow the claim
+//                              mirror. Missing or any other value is treated
+//                              as off and reported as invalid.
 // Secret, uploaded out of band, never in this file:
 //   GITHUB_MAINTAINER_PRIVATE_KEY via
 //   `wrangler secret put GITHUB_MAINTAINER_PRIVATE_KEY --config <private overlay> --env <env>`.
@@ -76,7 +80,8 @@
   "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
   "vars": {
     "GITHUB_MAINTAINER_APP_ID": "0",
-    "GITHUB_MAINTAINER_ORG": "FreeTWAI-AI"
+    "GITHUB_MAINTAINER_ORG": "FreeTWAI-AI",
+    "GITHUB_MAINTAINER_WRITES": "off"
   },
   "env": {
     "staging-next": {
@@ -88,7 +93,8 @@
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
       "vars": {
         "GITHUB_MAINTAINER_APP_ID": "0",
-        "GITHUB_MAINTAINER_ORG": "FreeTWAI-AI"
+        "GITHUB_MAINTAINER_ORG": "FreeTWAI-AI",
+        "GITHUB_MAINTAINER_WRITES": "off"
       }
     },
     "next": {
@@ -100,7 +106,8 @@
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
       "vars": {
         "GITHUB_MAINTAINER_APP_ID": "0",
-        "GITHUB_MAINTAINER_ORG": "FreeTWAI-AI"
+        "GITHUB_MAINTAINER_ORG": "FreeTWAI-AI",
+        "GITHUB_MAINTAINER_WRITES": "off"
       }
     }
   }

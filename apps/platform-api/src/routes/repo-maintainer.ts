@@ -6,8 +6,9 @@ import type { AdminActor, AdminCommand } from '../../../../modules/platform-admi
 import { QUEUE_FILTERS } from '../../../../modules/repo-maintainer/policy.js';
 import { receiveMaintainerWebhook } from '../../../../modules/repo-maintainer/webhook.js';
 import {
-  appointReviewer, changeRepositorySettings, changeReviewer, listReviewCenterPulls, listReviewCenterRepositories,
-  listReviewers, resyncReviewCenterPull, reviewCenterPull, reviewCenterSummary, reviewerCandidates,
+  appointReviewer, assignReviewer, changeRepositorySettings, changeReviewer, claimForSelf, listReviewCenterPulls,
+  listReviewCenterRepositories, listReviewers, pausePull, releaseClaim, resyncReviewCenterPull, resumePull,
+  reviewCenterPull, reviewCenterSummary, reviewerCandidates,
 } from '../../../../modules/repo-maintainer/service.js';
 
 export const MAINTAINER_WEBHOOK_PATH = '/api/v1/maintainer/github/webhook';
@@ -55,6 +56,11 @@ export function createRepoMaintainerAdminRoutes(pool: Pool) {
     return c.json(value);
   });
   app.post('/review-center/pulls/:id/resync', async c => c.json(await resyncReviewCenterPull(pool, await command(c), c.req.param('id'))));
+  app.post('/review-center/pulls/:id/claim', async c => result(c, await claimForSelf(pool, await command(c), c.req.param('id'))));
+  app.post('/review-center/pulls/:id/assign', async c => result(c, await assignReviewer(pool, await command(c), c.req.param('id'))));
+  app.post('/review-center/claims/:id/release', async c => result(c, await releaseClaim(pool, await command(c), c.req.param('id'))));
+  app.post('/review-center/pulls/:id/pause', async c => result(c, await pausePull(pool, await command(c), c.req.param('id'))));
+  app.post('/review-center/pulls/:id/resume', async c => result(c, await resumePull(pool, await command(c), c.req.param('id'))));
   app.get('/review-center/repositories', async c => c.json(await listReviewCenterRepositories(pool, c.get('admin'))));
   app.post('/review-center/repositories/:id/settings', async c => result(c, await changeRepositorySettings(pool, await command(c), c.req.param('id'))));
   app.get('/review-center/reviewers', async c => c.json(await listReviewers(pool, c.get('admin'))));

@@ -2,10 +2,11 @@ import type { ExecutionContext, ExportedHandler, ScheduledController } from '@cl
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import { createRequestPool } from '../../../packages/db/index.js';
+import type { MaintainerWrites } from '../../../modules/repo-maintainer/claims.js';
 import { runMaintainerTick, type MaintainerSummary, type MaintainerTickConfig } from '../../../modules/repo-maintainer/tick.js';
 
 /**
- * Cron Worker for the observe-only repository mirror. Bindings contract
+ * Cron Worker for the repository maintainer mirror. Bindings contract
  * (see wrangler.maintainer.jsonc):
  * - HYPERDRIVE: the same caching-disabled configuration that environment's
  *   platform Worker uses. One configuration per database. This file never
@@ -16,6 +17,10 @@ import { runMaintainerTick, type MaintainerSummary, type MaintainerTickConfig } 
  *   account are ignored.
  * - GITHUB_MAINTAINER_PRIVATE_KEY: PKCS#8 PEM secret, uploaded out of band.
  *   A PKCS#1 key is rejected. The key is passed into the tick and never logged.
+ * - GITHUB_MAINTAINER_WRITES: exactly "off" or "requested_reviewers".
+ *   Anything else, including a missing value, is reported as writes "invalid"
+ *   and the requested-reviewer jobs skip the GitHub call. The committed value
+ *   is off. A review, comment, label or merge is never posted.
  * No fetch handler is exported. A route added later would put the private key
  * on the Internet; the export list is the guard.
  */
@@ -24,6 +29,7 @@ export interface MaintainerEnv {
   GITHUB_MAINTAINER_APP_ID?: string;
   GITHUB_MAINTAINER_ORG?: string;
   GITHUB_MAINTAINER_PRIVATE_KEY?: string;
+  GITHUB_MAINTAINER_WRITES?: string;
 }
 export type ScheduledContext = { readonly scheduledTime?: number | Date; readonly cron?: string; noRetry?: () => void };
 export type SyncContext = { waitUntil(promise: Promise<unknown>): void };
@@ -59,6 +65,11 @@ function privateKey(value: unknown): string {
   return text;
 }
 
+function writesMode(value: unknown): MaintainerWrites {
+  if (value === 'off' || value === 'requested_reviewers') return value;
+  return 'invalid';
+}
+
 /** Validates bindings without I/O. Errors name the setting and never echo a value. */
 export function readMaintainerConfig(env: MaintainerEnv): MaintainerTickConfig {
   const connectionString = env.HYPERDRIVE?.connectionString;
@@ -67,6 +78,7 @@ export function readMaintainerConfig(env: MaintainerEnv): MaintainerTickConfig {
     appId: shaped('GITHUB_MAINTAINER_APP_ID', env.GITHUB_MAINTAINER_APP_ID, APP_ID),
     organization: shaped('GITHUB_MAINTAINER_ORG', env.GITHUB_MAINTAINER_ORG, ORG),
     privateKey: privateKey(env.GITHUB_MAINTAINER_PRIVATE_KEY),
+    writes: writesMode(env.GITHUB_MAINTAINER_WRITES),
   };
 }
 
@@ -87,13 +99,20 @@ function failure(error: unknown): Error {
 function logSummary(summary: MaintainerSummary): void {
   const stopped = summary.stopped;
   if (stopped !== null && !/^[a-z0-9_]{1,40}$/.test(stopped)) throw new Error('maintainer_result_invalid');
+  const writes = summary.writes;
+  if (writes !== 'off' && writes !== 'requested_reviewers' && writes !== 'invalid') {
+    const error = new Error('maintainer_result_invalid');
+    error.name = 'maintainer_result_invalid';
+    throw error;
+  }
   console.log(JSON.stringify({
     deliveries_deleted: count(summary.deliveries_deleted), jobs_deleted: count(summary.jobs_deleted), rederived: count(summary.rederived),
     ignored_accounts: count(summary.ignored_accounts), suspended_installations: count(summary.suspended_installations),
     repositories_upserted: count(summary.repositories_upserted),
     repositories_removed: count(summary.repositories_removed), sweeps: count(summary.sweeps), jobs_done: count(summary.jobs_done),
     jobs_failed: count(summary.jobs_failed), jobs_released: count(summary.jobs_released), github_requests: count(summary.github_requests),
-    stopped,
+    claims_expired: count(summary.claims_expired), claims_released: count(summary.claims_released), claims_completed: count(summary.claims_completed),
+    writes, stopped,
   }));
 }
 

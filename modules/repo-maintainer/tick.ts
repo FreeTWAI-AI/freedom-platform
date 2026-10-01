@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { transaction } from '../../packages/db/index.js';
+import { claimIdFromPayload, failClaimGithub, runReviewerJob, settleMaintainerClaims, type MaintainerWrites } from './claims.js';
+import { loadActiveClaim, loadActiveReviewers, loadPullChildren, rederivePull } from './derive.js';
 import { createMaintainerGitHub, GitHubSignal, type MaintainerGitHub, type MaintainerPull, type MaintainerPullCheck, type MaintainerPullFile, type MaintainerPullReview } from './github.js';
-import { classifyRisk, deriveQueueState, migrationCheck, resolveSettings, MAINTAINER_POLICY_VERSION, type MaintainerSettings, type PolicyFile, type QueuePull, type Reason, type RepositoryMode, type Risk } from './policy.js';
+import { classifyRisk, deriveQueueState, migrationCheck, resolveSettings, MAINTAINER_POLICY_VERSION, type MaintainerSettings, type PolicyFile, type Reason, type RepositoryMode } from './policy.js';
 import { enqueueReconcilePull } from './queue.js';
 
 export const MAINTAINER_REQUEST_BUDGET = 60;
@@ -15,13 +17,15 @@ const STALE_OPEN_MS = 6 * 60 * 60_000;
 const STALE_REFRESH_CAP = 20;
 const BACKOFF_MINUTES = [1, 5, 15, 60];
 
-export type MaintainerTickConfig = { appId: string; organization: string; privateKey: string };
+export type { MaintainerWrites };
+export type MaintainerTickConfig = { appId: string; organization: string; privateKey: string; writes: MaintainerWrites };
 export type MaintainerTickDeps = { fetcher: typeof fetch; now?: () => Date; budget?: number };
 export type MaintainerSummary = {
   deliveries_deleted: number; jobs_deleted: number; rederived: number; ignored_accounts: number;
   suspended_installations: number;
   repositories_upserted: number; repositories_removed: number; sweeps: number; jobs_done: number;
   jobs_failed: number; jobs_released: number; github_requests: number; stopped: string | null;
+  claims_expired: number; claims_released: number; claims_completed: number; writes: MaintainerWrites;
 };
 
 type RepoRow = {
@@ -113,7 +117,8 @@ export async function claimMaintainerJob(pool: Pool, now: Date): Promise<Maintai
         AND NOT EXISTS (
           SELECT 1 FROM maintainer_repositories r
           WHERE r.repository_id=maintainer_jobs.repository_id
-            AND (r.rate_limited_until>$1 OR r.mode='off' OR r.installation_state<>'active'))
+            AND (r.rate_limited_until>$1 OR r.installation_state<>'active'
+              OR (r.mode='off' AND maintainer_jobs.kind NOT IN ('request_reviewer', 'remove_reviewer_request'))))
       ORDER BY run_after, created_at
       FOR UPDATE SKIP LOCKED LIMIT 1)
     RETURNING job_id, repository_id, kind, payload, attempts, max_attempts, lease_until, state`, [now, lease]);
@@ -170,24 +175,6 @@ async function releaseSweep(pool: Pool, repo: RepoRow, now: Date, next: Date, la
     WHERE repository_id=$1 AND next_sweep_at=$5`, [repo.repository_id, now, next, lastError, repo.next_sweep_at]);
 }
 
-function queueFromRow(row: PullRow, defaultBranch: string, observed: string): QueuePull {
-  return {
-    state: row.state, merged_at: iso(row.merged_at), is_draft: row.is_draft, base_ref: row.base_ref, default_branch: defaultBranch,
-    mergeable: row.mergeable, mergeable_state: row.mergeable_state, labels: row.labels ?? [], head_sha: row.head_sha,
-    head_observed_at: observed, author_github_id: row.author_github_id, paused: row.paused,
-  };
-}
-async function loadChildren(q: Pool | PoolClient, pullId: string) {
-  const files = (await q.query('SELECT path, previous_path, status, additions, deletions FROM maintainer_pull_files WHERE pull_id=$1 ORDER BY path', [pullId])).rows as MaintainerPullFile[];
-  const checks = (await q.query('SELECT head_sha, source, name, app_slug, status, conclusion FROM maintainer_checks WHERE pull_id=$1', [pullId])).rows;
-  const reviews = (await q.query(`SELECT github_review_id, reviewer_github_id, reviewer_association, state, commit_id, submitted_at
-    FROM maintainer_reviews WHERE pull_id=$1`, [pullId])).rows;
-  return { files, checks, reviews };
-}
-async function reviewersFor(q: Pool | PoolClient, community: string) {
-  const rows = await q.query(`SELECT github_user_id, max_risk FROM maintainer_reviewers WHERE community_id=$1 AND active`, [community]);
-  return rows.rows.map(row => ({ github_user_id: row.github_user_id as string, max_risk: row.max_risk as Risk }));
-}
 function snapshot(pull: Record<string, unknown>, files: unknown[], checks: unknown[], reviews: unknown[]): string {
   return JSON.stringify({ pull, files, checks, reviews });
 }
@@ -198,35 +185,9 @@ async function rederive(pool: Pool, now: Date): Promise<number> {
   let updated = 0;
   for (const dueRow of due.rows) {
     const changed = await transaction(pool, async q => {
-      const pull = (await q.query('SELECT * FROM maintainer_pull_requests WHERE pull_id=$1 FOR UPDATE', [dueRow.pull_id])).rows[0] as PullRow | undefined;
+      const pull = (await q.query('SELECT state, recheck_at FROM maintainer_pull_requests WHERE pull_id=$1 FOR UPDATE', [dueRow.pull_id])).rows[0] as PullRow | undefined;
       if (!pull || pull.state !== 'open' || !pull.recheck_at || new Date(pull.recheck_at).getTime() > now.getTime()) return false;
-      const repo = (await q.query('SELECT full_name, default_branch, mode, settings, community_id FROM maintainer_repositories WHERE repository_id=$1', [pull.repository_id])).rows[0];
-      if (!repo) return false;
-      const settings = resolveSettings(repo.full_name, repo.settings);
-      const children = await loadChildren(q, pull.pull_id);
-      const risk = classifyRisk({
-        files: children.files, profile: settings.rules_profile, author_association: pull.author_association,
-        author_type: pull.author_type, is_fork: pull.is_fork, changed_files: pull.changed_files,
-      });
-      const migrationReasons = (Array.isArray(pull.migration_reasons) ? pull.migration_reasons : []) as Reason[];
-      const observed = iso(pull.head_observed_at) ?? now.toISOString();
-      const derived = deriveQueueState({
-        pull: queueFromRow(pull, repo.default_branch, observed), risk: risk.risk,
-        checks: children.checks, reviews: children.reviews.map(review => ({ ...review, submitted_at: iso(review.submitted_at) ?? '', commit_id: review.commit_id })),
-        reviewers: await reviewersFor(q, repo.community_id), mode: repo.mode as RepositoryMode, settings, migration_reasons: migrationReasons,
-      }, now);
-      const same = pull.risk_class === risk.risk
-        && JSON.stringify(pull.risk_reasons) === JSON.stringify(risk.reasons)
-        && pull.queue_state === derived.state
-        && JSON.stringify(pull.queue_reasons) === JSON.stringify(derived.reasons)
-        && iso(pull.sla_due_at) === derived.sla_due_at
-        && iso(pull.recheck_at) === derived.recheck_at
-        && pull.policy_version === MAINTAINER_POLICY_VERSION;
-      if (same) return false;
-      await q.query(`UPDATE maintainer_pull_requests SET risk_class=$2, risk_reasons=$3::jsonb, queue_state=$4, queue_reasons=$5::jsonb,
-        sla_due_at=$6, recheck_at=$7, policy_version=$8, aggregate_version=aggregate_version+1
-        WHERE pull_id=$1`, [pull.pull_id, risk.risk, JSON.stringify(risk.reasons), derived.state, JSON.stringify(derived.reasons), derived.sla_due_at, derived.recheck_at, MAINTAINER_POLICY_VERSION]);
-      return true;
+      return rederivePull(q, dueRow.pull_id, now);
     });
     if (changed) updated += 1;
   }
@@ -354,6 +315,7 @@ async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, p
     const headChanged = !existing || existing.head_sha !== pull.head.sha;
     const observed = headChanged ? now.toISOString() : (iso(existing.head_observed_at) ?? now.toISOString());
     const firstReady = !pull.draft ? (iso(existing?.first_ready_at) ?? now.toISOString()) : iso(existing?.first_ready_at);
+    const activeClaim = existing ? await loadActiveClaim(q, existing.pull_id) : null;
     const derived = deriveQueueState({
       pull: {
         state: pull.state, merged_at: pull.merged_at, is_draft: pull.draft, base_ref: pull.base.ref, default_branch: repo.default_branch,
@@ -363,10 +325,11 @@ async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, p
       risk: risk.risk,
       checks: checks.map(check => ({ ...check, head_sha: pull.head.sha })),
       reviews,
-      reviewers: await reviewersFor(q, repo.community_id),
+      reviewers: await loadActiveReviewers(q, repo.community_id),
       mode: repo.mode as RepositoryMode,
       settings,
       migration_reasons: migrationReasons,
+      claim: activeClaim ? { reviewer_github_id: activeClaim.reviewer_github_id, reviewer_login: activeClaim.reviewer_login, expires_at: iso(activeClaim.expires_at) ?? '' } : null,
     }, now);
     if (!pull.html_url.startsWith('https://github.com/')) throw new UnitResult('github_invalid_response', false);
     const values = {
@@ -380,8 +343,9 @@ async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, p
       first_ready_at: firstReady, head_observed_at: observed, risk_class: risk.risk, risk_reasons: risk.reasons,
       queue_state: derived.state, queue_reasons: derived.reasons, migration_reasons: migrationReasons, sla_due_at: derived.sla_due_at, recheck_at: derived.recheck_at,
       paused: existing?.paused ?? false, policy_version: MAINTAINER_POLICY_VERSION,
+      requested_reviewers: pull.requested_reviewers.map(user => ({ github_user_id: String(user.id), login: user.login })),
     };
-    const previousChildren = existing ? await loadChildren(q, existing.pull_id) : { files: [], checks: [], reviews: [] };
+    const previousChildren = existing ? await loadPullChildren(q, existing.pull_id) : { files: [], checks: [], reviews: [] };
     const nextSnap = snapshot(values, files, checks, reviews);
     const prevSnap = existing ? snapshot({
       github_pull_id: existing.github_pull_id, title: existing.title, html_url: existing.html_url, state: existing.state,
@@ -397,6 +361,7 @@ async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, p
       queue_reasons: existing.queue_reasons, migration_reasons: existing.migration_reasons,
       sla_due_at: iso(existing.sla_due_at), recheck_at: iso(existing.recheck_at),
       paused: existing.paused, policy_version: existing.policy_version,
+      requested_reviewers: existing.requested_reviewers ?? [],
     }, previousChildren.files, previousChildren.checks, previousChildren.reviews) : '';
     const pullId = existing?.pull_id ?? randomUUID();
     const visible = nextSnap !== prevSnap;
@@ -406,15 +371,15 @@ async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, p
         author_github_id, author_login, author_type, author_association, is_fork, head_sha, head_repository_id,
         base_ref, base_sha, mergeable, mergeable_state, labels, additions, deletions, changed_files,
         github_created_at, github_updated_at, first_ready_at, head_observed_at, risk_class, risk_reasons,
-        queue_state, queue_reasons, migration_reasons, sla_due_at, recheck_at, paused, policy_version, synced_at)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb,$32,$33::jsonb,$34::jsonb,$35,$36,$37,$38,$39)`, [
+        queue_state, queue_reasons, migration_reasons, sla_due_at, recheck_at, paused, policy_version, synced_at, requested_reviewers)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb,$32,$33::jsonb,$34::jsonb,$35,$36,$37,$38,$39,$40::jsonb)`, [
         pullId, repo.repository_id, pull.number, values.github_pull_id, values.title, values.html_url, values.state,
         values.merged_at, values.closed_at, values.is_draft, values.author_github_id, values.author_login, values.author_type,
         values.author_association, values.is_fork, values.head_sha, values.head_repository_id, values.base_ref, values.base_sha,
         values.mergeable, values.mergeable_state, values.labels, values.additions, values.deletions, values.changed_files,
         values.github_created_at, values.github_updated_at, values.first_ready_at, values.head_observed_at, values.risk_class,
         JSON.stringify(values.risk_reasons), values.queue_state, JSON.stringify(values.queue_reasons), JSON.stringify(values.migration_reasons), values.sla_due_at,
-        values.recheck_at, values.paused, values.policy_version, now,
+        values.recheck_at, values.paused, values.policy_version, now, JSON.stringify(values.requested_reviewers),
       ]);
       await replaceChildren(q, pullId, pull.head.sha, files, checks, reviews);
     } else if (visible) {
@@ -423,13 +388,14 @@ async function writeMirror(pool: Pool, repo: RepoRow, job: MaintainerJobClaim, p
         head_repository_id=$15, base_ref=$16, base_sha=$17, mergeable=$18, mergeable_state=$19, labels=$20, additions=$21,
         deletions=$22, changed_files=$23, github_created_at=$24, github_updated_at=$25, first_ready_at=$26, head_observed_at=$27,
         risk_class=$28, risk_reasons=$29::jsonb, queue_state=$30, queue_reasons=$31::jsonb, migration_reasons=$32::jsonb, sla_due_at=$33, recheck_at=$34,
-        policy_version=$35, synced_at=$36, aggregate_version=aggregate_version+1 WHERE pull_id=$1`, [
+        policy_version=$35, synced_at=$36, requested_reviewers=$37::jsonb, aggregate_version=aggregate_version+1 WHERE pull_id=$1`, [
         existing.pull_id, values.github_pull_id, values.title, values.html_url, values.state, values.merged_at, values.closed_at,
         values.is_draft, values.author_github_id, values.author_login, values.author_type, values.author_association, values.is_fork,
         values.head_sha, values.head_repository_id, values.base_ref, values.base_sha, values.mergeable, values.mergeable_state,
         values.labels, values.additions, values.deletions, values.changed_files, values.github_created_at, values.github_updated_at,
         values.first_ready_at, values.head_observed_at, values.risk_class, JSON.stringify(values.risk_reasons), values.queue_state,
         JSON.stringify(values.queue_reasons), JSON.stringify(values.migration_reasons), values.sla_due_at, values.recheck_at, values.policy_version, now,
+        JSON.stringify(values.requested_reviewers),
       ]);
       await replaceChildren(q, existing.pull_id, pull.head.sha, files, checks, reviews);
     } else {
@@ -454,9 +420,14 @@ async function reconcile(pool: Pool, github: MaintainerGitHub, repo: RepoRow, jo
   await writeMirror(pool, repo, job, pull, files.items, checks, reviews.items, settings, migrationReasons, files.truncated, now);
 }
 
-async function runJob(pool: Pool, github: MaintainerGitHub, job: MaintainerJobClaim, now: Date, summary: MaintainerSummary): Promise<string | null> {
+function reviewerKind(kind: string): kind is 'request_reviewer' | 'remove_reviewer_request' {
+  return kind === 'request_reviewer' || kind === 'remove_reviewer_request';
+}
+async function runJob(pool: Pool, github: MaintainerGitHub, job: MaintainerJobClaim, now: Date, summary: MaintainerSummary, writes: MaintainerWrites): Promise<string | null> {
   const repo = (await pool.query('SELECT * FROM maintainer_repositories WHERE repository_id=$1', [job.repository_id])).rows[0] as RepoRow | undefined;
-  if (!repo || repo.mode === 'off' || repo.installation_state !== 'active') {
+  // A claim write follows the three switches, not the observe/off mode. Off still cancels reconcile.
+  const reviewer = reviewerKind(job.kind);
+  if (!repo || repo.installation_state !== 'active' || (!reviewer && repo.mode === 'off')) {
     await finishJob(pool, job, 'cancelled', now, 'repository_unavailable');
     summary.jobs_failed += 1;
     return null;
@@ -467,6 +438,13 @@ async function runJob(pool: Pool, github: MaintainerGitHub, job: MaintainerJobCl
     return 'rate_limit';
   }
   try {
+    if (reviewer) {
+      const outcome = await runReviewerJob(pool, github, job, repo, now, writes);
+      await finishJob(pool, job, outcome.state, now, outcome.error);
+      if (outcome.state === 'failed') summary.jobs_failed += 1;
+      else summary.jobs_done += 1;
+      return null;
+    }
     const number = job.kind === 'reconcile_pull' ? payloadNumber(job.payload) : null;
     if (number === null) throw new UnitResult('payload_invalid', true);
     await reconcile(pool, github, repo, job, number, now);
@@ -486,18 +464,33 @@ async function runJob(pool: Pool, github: MaintainerGitHub, job: MaintainerJobCl
       summary.jobs_released += 1;
       return null;
     }
+    if (reviewer && error instanceof GitHubSignal && error.kind === 'permission') {
+      const claimId = claimIdFromPayload(job.payload);
+      if (claimId) await failClaimGithub(pool, claimId, 'github_permission_missing', job.kind === 'remove_reviewer_request' ? 'removing' : 'pending');
+      await finishJob(pool, job, 'failed', now, 'github_permission_missing');
+      summary.jobs_failed += 1;
+      return null;
+    }
     if ((error instanceof GitHubSignal && error.kind === 'not_found') || (error instanceof UnitResult && error.terminal)) {
       if (error instanceof GitHubSignal || error.name === 'repository_identity_changed') await requestInstallationSync(pool, now);
+      if (reviewer) await failReviewerClaim(pool, job, errorCode(error));
       await finishJob(pool, job, 'failed', now, errorCode(error));
       summary.jobs_failed += 1;
       return null;
     }
     await backoff(pool, job, now, errorCode(error));
     const failed = delayMs(job.attempts, job.max_attempts) === null;
-    if (failed) summary.jobs_failed += 1;
-    else summary.jobs_released += 1;
+    if (failed) {
+      if (reviewer) await failReviewerClaim(pool, job, errorCode(error));
+      summary.jobs_failed += 1;
+    } else summary.jobs_released += 1;
     return null;
   }
+}
+async function failReviewerClaim(pool: Pool, job: MaintainerJobClaim, code: string) {
+  const claimId = claimIdFromPayload(job.payload);
+  if (!claimId) return;
+  await failClaimGithub(pool, claimId, code, job.kind === 'remove_reviewer_request' ? 'removing' : 'pending');
 }
 
 export async function runMaintainerTick(pool: Pool, config: MaintainerTickConfig, deps: MaintainerTickDeps): Promise<MaintainerSummary> {
@@ -506,6 +499,7 @@ export async function runMaintainerTick(pool: Pool, config: MaintainerTickConfig
   const summary: MaintainerSummary = {
     deliveries_deleted: 0, jobs_deleted: 0, rederived: 0, ignored_accounts: 0, suspended_installations: 0, repositories_upserted: 0,
     repositories_removed: 0, sweeps: 0, jobs_done: 0, jobs_failed: 0, jobs_released: 0, github_requests: 0, stopped: null,
+    claims_expired: 0, claims_released: 0, claims_completed: 0, writes: config.writes,
   };
   const community = await communityId(pool);
   const deliveries = await pool.query(`DELETE FROM maintainer_webhook_deliveries WHERE delivery_id IN (
@@ -514,6 +508,10 @@ export async function runMaintainerTick(pool: Pool, config: MaintainerTickConfig
   const jobs = await pool.query(`DELETE FROM maintainer_jobs WHERE job_id IN (
     SELECT job_id FROM maintainer_jobs WHERE state IN ('done','failed','cancelled') AND finished_at < $1::timestamptz - interval '14 days' LIMIT 1000)`, [now]);
   summary.jobs_deleted = jobs.rowCount ?? 0;
+  const settled = await settleMaintainerClaims(pool, now);
+  summary.claims_expired = settled.expired;
+  summary.claims_released = settled.released;
+  summary.claims_completed = settled.completed;
   summary.rederived = await rederive(pool, now);
   const github = createMaintainerGitHub({
     fetcher: deps.fetcher, appId: config.appId, privateKey: config.privateKey,
@@ -529,7 +527,7 @@ export async function runMaintainerTick(pool: Pool, config: MaintainerTickConfig
   while (!summary.stopped) {
     const job = await claimMaintainerJob(pool, nowFn());
     if (!job) break;
-    summary.stopped = await runJob(pool, github, job, nowFn(), summary);
+    summary.stopped = await runJob(pool, github, job, nowFn(), summary, config.writes);
   }
   summary.github_requests = github.requests;
   return summary;

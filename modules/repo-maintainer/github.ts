@@ -5,6 +5,8 @@ import { Problem } from '../../packages/shared/problem.js';
 
 export const SYNC_PERMISSIONS = { metadata: 'read' } as const;
 export const READ_PERMISSIONS = { metadata: 'read', pull_requests: 'read', checks: 'read', statuses: 'read', contents: 'read' } as const;
+/** One repository, and only the permission needed to request or remove that reviewer. */
+export const REVIEWER_WRITE_PERMISSIONS = { metadata: 'read', pull_requests: 'write' } as const;
 export type GitHubPermissions = Record<string, 'read' | 'write'>;
 
 const PAGE = 100;
@@ -54,6 +56,8 @@ const pullSchema = z.object({
   changed_files: z.number().int().nonnegative().max(100000000),
   created_at: z.string(),
   updated_at: z.string(),
+  // User entries only. requested_teams is ignored; a claim never requests a team.
+  requested_reviewers: z.array(z.object({ id: idSchema, login: loginSchema })).default([]),
 });
 const fileSchema = z.object({
   filename: z.string().min(1).max(1024),
@@ -116,6 +120,10 @@ export type MaintainerGitHub = {
   readReviews: (fullName: string, installationId: string, repositoryId: string, number: number) => Promise<{ items: MaintainerPullReview[]; truncated: boolean }>;
   readChecks: (fullName: string, installationId: string, repositoryId: string, headSha: string) => Promise<MaintainerPullCheck[]>;
   readMigrationNames: (fullName: string, installationId: string, repositoryId: string, dir: string, ref: string) => Promise<string[]>;
+  /** POST requested_reviewers. Resolves to the HTTP status. 201 means GitHub accepted it. The body is discarded. */
+  requestReviewer: (fullName: string, installationId: string, repositoryId: string, number: number, login: string) => Promise<number>;
+  /** DELETE requested_reviewers. Resolves to the HTTP status. 200 means GitHub removed it. The body is discarded. */
+  removeRequestedReviewer: (fullName: string, installationId: string, repositoryId: string, number: number, login: string) => Promise<number>;
 };
 
 const MIN_RATE_MS = 60_000;
@@ -161,11 +169,16 @@ function repoPath(fullName: string, rest: string): string {
   return `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}${rest}`;
 }
 
-async function postGitHub(path: string, body: unknown, token: string, signal: AbortSignal, fetcher: typeof fetch): Promise<GitHubRead> {
+/**
+ * POST or DELETE with a JSON body. `error` parses a 200/201 body and rejects anything over 64 KiB
+ * (the access-token mint). `stop` reads at most 64 KiB, cancels the rest, and still returns the
+ * status: requested_reviewers echoes the whole pull, and a retry would repeat a write GitHub already applied.
+ */
+async function sendGitHub(path: string, method: 'POST' | 'DELETE', body: unknown, token: string, signal: AbortSignal, fetcher: typeof fetch, oversized: 'error' | 'stop'): Promise<GitHubRead> {
   let response: Response;
   try {
     response = await fetcher(`https://api.github.com${path}`, {
-      method: 'POST',
+      method,
       headers: { ...githubHeaders, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       redirect: 'manual',
@@ -193,13 +206,19 @@ async function postGitHub(path: string, body: unknown, token: string, signal: Ab
       const { done, value } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > POST_BYTES) { await reader.cancel(); throw new Problem(503, 'github_response_too_large', 'GitHub 回應過大。'); }
-      chunks.push(value);
+      if (size > POST_BYTES) {
+        try { await reader.cancel(); } catch { /* the status already arrived */ }
+        if (oversized === 'stop') return { status: response.status, ...meta, body: null };
+        throw new Problem(503, 'github_response_too_large', 'GitHub 回應過大。');
+      }
+      if (oversized === 'error') chunks.push(value);
     }
   } catch (error) {
+    if (oversized === 'stop') return { status: response.status, ...meta, body: null };
     if (error instanceof Problem) throw error;
     throw new Problem(503, 'github_invalid_response', 'GitHub 回應不完整。');
   }
+  if (oversized === 'stop') return { status: response.status, ...meta, body: null };
   const text = Buffer.concat(chunks).toString('utf8');
   if (response.status !== 200 && response.status !== 201) return { status: response.status, ...meta, body: text };
   try { return { status: response.status, ...meta, body: text ? JSON.parse(text) : null }; }
@@ -237,7 +256,7 @@ export function createMaintainerGitHub(options: {
     const signal = AbortSignal.timeout(10_000);
     let read: GitHubRead;
     try {
-      if (method === 'POST') read = await postGitHub(path, body, auth.token ?? '', signal, fetcher);
+      if (method === 'POST') read = await sendGitHub(path, 'POST', body, auth.token ?? '', signal, fetcher, 'error');
       else read = await readGitHub(path, signal, fetcher, 4_194_304, auth.token);
     } catch (error) {
       if (error instanceof GitHubSignal) throw error;
@@ -250,10 +269,19 @@ export function createMaintainerGitHub(options: {
     if (read.status !== 200 && read.status !== 201) throw new GitHubSignal('retry', `github_http_${read.status}`, undefined, installationId);
     return read.body;
   }
-  async function mintInstallationToken(installationId: string, cacheKey: string, body: Record<string, unknown>, permissions: GitHubPermissions): Promise<string> {
+  async function mintInstallationToken(installationId: string, cacheKey: string, body: Record<string, unknown>, permissions: GitHubPermissions, mintDenied: 'retry' | 'permission' = 'retry'): Promise<string> {
     const cached = tokens.get(cacheKey);
     if (cached) return cached;
-    const response = await call(`/app/installations/${installationId}/access_tokens`, { token: await appToken() }, installationId, 'POST', body);
+    let response: unknown;
+    try {
+      response = await call(`/app/installations/${installationId}/access_tokens`, { token: await appToken() }, installationId, 'POST', body);
+    } catch (error) {
+      // Until the org owner approves Pull requests: write, asking for it returns 422 or 403 instead of a token.
+      if (mintDenied === 'permission' && error instanceof GitHubSignal && error.kind === 'retry' && (error.name === 'github_http_403' || error.name === 'github_http_422')) {
+        throw new GitHubSignal('permission', 'github_permission_missing', undefined, installationId);
+      }
+      throw error;
+    }
     const parsed = parse(tokenSchema, response, installationId);
     for (const [name, want] of Object.entries(permissions)) {
       if (!permissionCovers(parsed.permissions[name], want)) throw new GitHubSignal('permission', 'github_permission_missing', undefined, installationId);
@@ -261,11 +289,34 @@ export function createMaintainerGitHub(options: {
     tokens.set(cacheKey, parsed.token);
     return parsed.token;
   }
-  async function installationToken(installationId: string, repositoryId: string, permissions: GitHubPermissions): Promise<string> {
+  async function installationToken(installationId: string, repositoryId: string, permissions: GitHubPermissions, mintDenied: 'retry' | 'permission' = 'retry'): Promise<string> {
     const repositoryIds = [Number(repositoryId)];
     if (!Number.isSafeInteger(repositoryIds[0]) || repositoryIds[0] <= 0) throw new GitHubSignal('retry', 'github_invalid_response', undefined, installationId);
     const key = `${installationId}\n${repositoryIds.join(',')}\n${JSON.stringify(permissions)}`;
-    return mintInstallationToken(installationId, key, { repository_ids: repositoryIds, permissions }, permissions);
+    return mintInstallationToken(installationId, key, { repository_ids: repositoryIds, permissions }, permissions, mintDenied);
+  }
+  async function writeCall(path: string, method: 'POST' | 'DELETE', body: unknown, token: string, installationId: string): Promise<number> {
+    if (requests >= options.budget) throw new GitHubSignal('budget', 'github_budget', undefined, installationId);
+    if (options.now().getTime() >= options.deadlineMs) throw new GitHubSignal('time', 'github_tick_time', undefined, installationId);
+    requests += 1;
+    const signal = AbortSignal.timeout(10_000);
+    let read: GitHubRead;
+    try {
+      read = await sendGitHub(path, method, body, token, signal, fetcher, 'stop');
+    } catch (error) {
+      if (error instanceof GitHubSignal) throw error;
+      const code = error instanceof Problem && /^[a-z0-9_]{1,80}$/.test(error.code) ? error.code : 'github_unavailable';
+      throw new GitHubSignal('retry', code, undefined, installationId);
+    }
+    if (isRateLimit(read)) throw new GitHubSignal('rate_limit', 'github_rate_limited', rateUntil(options.now(), read.rateReset, read.retryAfter), installationId);
+    if (read.status >= 300 && read.status < 400) throw new GitHubSignal('moved', 'github_moved', undefined, installationId);
+    if (read.status === 404 || read.status === 410) throw new GitHubSignal('not_found', 'github_not_found', undefined, installationId);
+    if (read.status === 200 || read.status === 201 || read.status === 403 || read.status === 422) return read.status;
+    throw new GitHubSignal('retry', `github_http_${read.status}`, undefined, installationId);
+  }
+  async function reviewerWrite(fullName: string, installationId: string, repositoryId: string, number: number, login: string, method: 'POST' | 'DELETE'): Promise<number> {
+    const token = await installationToken(installationId, repositoryId, { ...REVIEWER_WRITE_PERMISSIONS }, 'permission');
+    return writeCall(repoPath(fullName, `/pulls/${number}/requested_reviewers`), method, { reviewers: [login] }, token, installationId);
   }
   // No repository list: this token covers every repository the installation can access.
   async function syncInstallationToken(installationId: string): Promise<string> {
@@ -383,6 +434,12 @@ export function createMaintainerGitHub(options: {
         if (error instanceof GitHubSignal && error.kind === 'not_found') return [];
         throw error;
       }
+    },
+    requestReviewer(fullName, installationId, repositoryId, number, login) {
+      return reviewerWrite(fullName, installationId, repositoryId, number, login, 'POST');
+    },
+    removeRequestedReviewer(fullName, installationId, repositoryId, number, login) {
+      return reviewerWrite(fullName, installationId, repositoryId, number, login, 'DELETE');
     },
   };
 }
