@@ -6,7 +6,7 @@ import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { adminCommand, audit, type AdminActor, type AdminCommand } from '../platform-admin/service.js';
 import { rederivePull } from './derive.js';
 import { enqueueMaintainerJob, enqueueReconcilePull } from './queue.js';
-import { MAINTAINER_POLICY_VERSION, QUEUE_STATES, repositorySettingsSchema, resolveSettings } from './policy.js';
+import { MAINTAINER_POLICY_VERSION, QUEUE_STATES, REPOSITORY_MODES, repositorySettingsSchema, resolveSettings } from './policy.js';
 import {
   activeClaimOnPull, assemblePullDetail, assertPullClaimable, openReviewClaim, pgCode,
   presentListRow, PULL_LIST_COLUMNS, PULL_LIST_JOINS, type ClaimIdentity,
@@ -20,7 +20,6 @@ type Queryable = Pick<Pool | PoolClient, 'query'>;
 
 const REPOSITORY_FIELDS = `repository_id, full_name, default_branch, installation_state, mode, settings, last_swept_at, last_error, rate_limited_until, aggregate_version, guild_key, scope_kind, open_to_guilds`;
 
-const IDENTITY_REQUIRED = '你的管理員帳號還沒有對應到 email 已驗證、且連結了 GitHub 的會員帳號，不能認領給自己，仍可以指派其他人。';
 const NOT_ELIGIBLE = '這個人目前不是這個項目的公會長或管理員，或還沒有連結 GitHub，不能審查。';
 const CLAIM_AUTHOR = '審查者不能認領自己開的拉取請求。';
 const CLAIM_MISSING = '找不到這個認領。';
@@ -32,20 +31,51 @@ const SELF_CLAIM_REASON = '自己認領這次審查。';
 const OWNERSHIP_INVALID = '已指定公會的儲存庫不能同時開放所有公會長認領。';
 const GUILD_NOT_FOUND = '找不到這個公會。';
 
-export type ReviewCenterViewer = { user_id: string | null; github_login: string | null; can_self_claim: boolean; reason: string | null };
+export type ViewerStatus = 'ready' | 'no_member' | 'email_unverified' | 'no_github';
+export type ReviewCenterViewer = {
+  user_id: string | null; github_login: string | null; can_self_claim: boolean; status: ViewerStatus; reason: string | null;
+};
+
+const VIEWER_REASON: Record<Exclude<ViewerStatus, 'ready'>, string> = {
+  no_member: '你的管理員 email 沒有對應的會員帳號，所以不能認領給自己；仍可以指派其他人。',
+  email_unverified: '你的會員 email 還沒驗證（用會員登入頁的「忘記密碼」重設一次密碼即可完成驗證），所以不能認領給自己；仍可以指派其他人。',
+  no_github: '你的會員帳號還沒有連結 GitHub，所以不能認領給自己；仍可以指派其他人。',
+};
+
+/** Same member pick as the reviewer directory: one user per admin email, then that user's GitHub link. */
+const ADMIN_MEMBER_LINK = `LEFT JOIN LATERAL (
+       SELECT user_id, active, email_verified_at FROM users
+       WHERE community_id=a.community_id AND lower(email)=a.email
+       ORDER BY active DESC, (email_verified_at IS NOT NULL) DESC, user_id LIMIT 1
+     ) u ON true
+     LEFT JOIN github_social_connections g ON g.user_id=u.user_id AND g.community_id=a.community_id`;
+
+type AdminLinkRow = { user_id: string | null; user_active: boolean | null; email_verified_at: Date | null; github_login: string | null };
+
+async function adminAccountLink(q: Queryable, admin: AdminActor): Promise<AdminLinkRow> {
+  const row = (await q.query(
+    `SELECT u.user_id, u.active AS user_active, u.email_verified_at, g.github_login
+     FROM platform_admins a
+     ${ADMIN_MEMBER_LINK}
+     WHERE a.admin_id=$1 AND a.community_id=$2 AND a.active`,
+    [admin.admin_id, admin.community_id],
+  )).rows[0] as AdminLinkRow | undefined;
+  return row ?? { user_id: null, user_active: null, email_verified_at: null, github_login: null };
+}
+
+function viewerFromLink(row: AdminLinkRow): ReviewCenterViewer {
+  const status = adminLinkStatus(row);
+  return {
+    user_id: row.user_id,
+    github_login: row.github_login,
+    can_self_claim: status === 'ready',
+    status,
+    reason: status === 'ready' ? null : VIEWER_REASON[status],
+  };
+}
 
 async function resolveViewer(q: Queryable, admin: AdminActor): Promise<ReviewCenterViewer> {
-  const row = (await q.query(
-    `SELECT e.user_id, e.github_login
-     FROM maintainer_eligible_reviewers e
-     JOIN users u ON u.user_id = e.user_id
-     JOIN platform_admins a ON a.admin_id = $2 AND a.community_id = e.community_id AND lower(u.email) = a.email AND a.active
-     WHERE e.acting_as = 'admin' AND e.community_id = $1
-     LIMIT 1`,
-    [admin.community_id, admin.admin_id],
-  )).rows[0] as { user_id: string; github_login: string } | undefined;
-  if (!row) return { user_id: null, github_login: null, can_self_claim: false, reason: IDENTITY_REQUIRED };
-  return { user_id: row.user_id, github_login: row.github_login, can_self_claim: true, reason: null };
+  return viewerFromLink(await adminAccountLink(q, admin));
 }
 
 export async function reviewCenterSummary(pool: Pool, admin: AdminActor) {
@@ -105,7 +135,7 @@ export async function reviewCenterPull(pool: Pool, admin: AdminActor, id: string
   return assemblePullDetail(pool, await scopedPull(pool, admin, id), true);
 }
 
-async function claimWrite<T>(pool: Pool, input: AdminCommand, authorize: (q: PoolClient) => Promise<unknown>, run: (q: PoolClient) => Promise<T>): Promise<T> {
+async function maintainerWrite<T>(pool: Pool, input: AdminCommand, authorize: (q: PoolClient) => Promise<unknown>, run: (q: PoolClient) => Promise<T>): Promise<T> {
   try {
     return await adminCommand(pool, input, authorize, run);
   } catch (error) {
@@ -124,7 +154,10 @@ async function adminIdentity(q: Queryable, admin: AdminActor, repositoryId: stri
      LIMIT 1`,
     [repositoryId, admin.community_id, admin.admin_id],
   )).rows[0] as { user_id: string; github_user_id: string; github_login: string } | undefined;
-  requireCondition(row, 409, 'maintainer_claim_identity_required', IDENTITY_REQUIRED);
+  if (!row) {
+    const viewer = await resolveViewer(q, admin);
+    throw new Problem(409, 'maintainer_claim_identity_required', viewer.reason ?? VIEWER_REASON.no_member);
+  }
   return { ...row, acting_as: 'admin', guild_key: null };
 }
 
@@ -154,7 +187,7 @@ async function finishClaimWrite(q: PoolClient, admin: AdminActor, pullId: string
 export async function claimForSelf(pool: Pool, input: AdminCommand, id: string) {
   z.uuid().parse(id);
   z.object({}).strict().parse(input.body);
-  return claimWrite(pool, input, async q => { await scopedPull(q, input.admin, id); }, async q => {
+  return maintainerWrite(pool, input, async q => { await scopedPull(q, input.admin, id); }, async q => {
     const pull = await scopedPull(q, input.admin, id, true);
     checkVersion(String(pull.aggregate_version), input.expected);
     const reviewer = await adminIdentity(q, input.admin, pull.repository_id);
@@ -177,7 +210,7 @@ export async function assignReviewer(pool: Pool, input: AdminCommand, id: string
     guild_key: guildKey.nullable(),
     reason,
   }).strict().parse(input.body);
-  return claimWrite(pool, input, async q => { await scopedPull(q, input.admin, id); }, async q => {
+  return maintainerWrite(pool, input, async q => { await scopedPull(q, input.admin, id); }, async q => {
     const pull = await scopedPull(q, input.admin, id, true);
     checkVersion(String(pull.aggregate_version), input.expected);
     const reviewer = await eligibleIdentity(q, pull.repository_id, body.user_id, body.acting_as, body.guild_key);
@@ -209,7 +242,7 @@ async function scopedClaim(q: Queryable, admin: AdminActor, id: string, lock = f
 export async function releaseClaim(pool: Pool, input: AdminCommand, id: string) {
   z.uuid().parse(id);
   const body = z.object({ reason }).strict().parse(input.body);
-  return claimWrite(pool, input, async q => { await scopedClaim(q, input.admin, id); }, async q => {
+  return maintainerWrite(pool, input, async q => { await scopedClaim(q, input.admin, id); }, async q => {
     const preview = await scopedClaim(q, input.admin, id);
     await scopedPull(q, input.admin, preview.pull_id, true);
     const claim = await scopedClaim(q, input.admin, id, true);
@@ -240,7 +273,7 @@ async function setPullPaused(pool: Pool, input: AdminCommand, id: string, paused
   z.uuid().parse(id);
   const body = z.object({ reason }).strict().parse(input.body);
   const action = paused ? 'maintainer_pull_pause' : 'maintainer_pull_resume';
-  return claimWrite(pool, input, async q => { await scopedPull(q, input.admin, id); }, async q => {
+  return maintainerWrite(pool, input, async q => { await scopedPull(q, input.admin, id); }, async q => {
     const pull = await scopedPull(q, input.admin, id, true);
     checkVersion(String(pull.aggregate_version), input.expected);
     if (paused && pull.paused) throw new Problem(409, 'maintainer_pull_already_paused', PULL_ALREADY_PAUSED);
@@ -292,12 +325,11 @@ async function scopedRepository(q: Queryable, admin: AdminActor, id: string, loc
 export async function changeRepositorySettings(pool: Pool, input: AdminCommand, id: string) {
   z.uuid().parse(id);
   const body = z.object({
-    mode: z.enum(['off', 'observe', 'ai_review', 'merge_dry_run', 'merge']),
+    mode: z.enum(REPOSITORY_MODES),
     settings: repositorySettingsSchema,
     reason,
   }).strict().parse(input.body);
-  requireCondition(body.mode === 'off' || body.mode === 'observe', 422, 'maintainer_mode_unavailable', '這個模式會在後續階段開放。目前只能關閉或觀察。');
-  return adminCommand(pool, input, async q => { await scopedRepository(q, input.admin, id); }, async q => {
+  return maintainerWrite(pool, input, async q => { await scopedRepository(q, input.admin, id); }, async q => {
     const prior = await scopedRepository(q, input.admin, id, true);
     checkVersion(String(prior.aggregate_version), input.expected);
     const settings = resolveSettings(prior.full_name, body.settings);
@@ -323,7 +355,7 @@ export async function changeRepositoryOwnership(pool: Pool, input: AdminCommand,
     reason,
   }).strict().parse(input.body);
   requireCondition(!(body.guild_key && body.open_to_guilds), 422, 'maintainer_ownership_invalid', OWNERSHIP_INVALID);
-  return adminCommand(pool, input, async q => { await scopedRepository(q, input.admin, id); }, async q => {
+  return maintainerWrite(pool, input, async q => { await scopedRepository(q, input.admin, id); }, async q => {
     if (body.guild_key) {
       const found = await q.query('SELECT 1 FROM positioning_guild_catalog WHERE guild_key=$1', [body.guild_key]);
       requireCondition(found.rowCount === 1, 422, 'maintainer_guild_not_found', GUILD_NOT_FOUND);
@@ -365,12 +397,7 @@ export async function listReviewers(pool: Pool, admin: AdminActor) {
   const admins = (await pool.query(
     `SELECT a.admin_id, a.display_name, u.user_id, u.active AS user_active, u.email_verified_at, g.github_login
      FROM platform_admins a
-     LEFT JOIN LATERAL (
-       SELECT user_id, active, email_verified_at FROM users
-       WHERE community_id=a.community_id AND lower(email)=a.email
-       ORDER BY active DESC, (email_verified_at IS NOT NULL) DESC, user_id LIMIT 1
-     ) u ON true
-     LEFT JOIN github_social_connections g ON g.user_id=u.user_id AND g.community_id=a.community_id
+     ${ADMIN_MEMBER_LINK}
      WHERE a.community_id=$1 AND a.active
      ORDER BY a.display_name, a.admin_id`,
     [admin.community_id],

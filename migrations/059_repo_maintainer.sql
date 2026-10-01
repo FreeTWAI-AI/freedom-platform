@@ -12,7 +12,7 @@ CREATE TABLE maintainer_repositories (
   full_name text NOT NULL CHECK (full_name ~ '^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$'),
   default_branch text NOT NULL CHECK (char_length(default_branch) BETWEEN 1 AND 255 AND default_branch !~ '[[:space:]]'),
   installation_state text NOT NULL CHECK (installation_state IN ('active', 'removed')),
-  mode text NOT NULL DEFAULT 'observe' CHECK (mode IN ('off', 'observe', 'ai_review', 'merge_dry_run', 'merge')),
+  mode text NOT NULL DEFAULT 'observe' CHECK (mode IN ('off', 'observe')),
   settings jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(settings) = 'object'),
   -- Sweep schedule and the row lease. A claim sets this a few minutes ahead.
   next_sweep_at timestamptz NOT NULL DEFAULT now(),

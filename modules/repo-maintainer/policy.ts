@@ -3,7 +3,7 @@ import { z } from 'zod';
 /** Stored on every derived pull. Bump when attention or queue rules change. */
 export const MAINTAINER_POLICY_VERSION = '2026-10-01.1';
 
-export const REPOSITORY_MODES = ['off', 'observe', 'ai_review', 'merge_dry_run', 'merge'] as const;
+export const REPOSITORY_MODES = ['off', 'observe'] as const;
 export type RepositoryMode = (typeof REPOSITORY_MODES)[number];
 export const QUEUE_STATES = ['draft', 'waiting_ci', 'ci_not_run', 'needs_author', 'awaiting_review', 'in_review', 'needs_decision', 'ready', 'paused', 'merged', 'closed'] as const;
 export type QueueState = (typeof QUEUE_STATES)[number];
