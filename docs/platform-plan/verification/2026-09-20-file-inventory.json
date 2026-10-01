@@ -854,8 +854,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AdminReviewCenter.tsx",
-      "bytes": 29246,
-      "sha256": "b21cd00af600a8e6d9a090964c8db1e08965021e5d6b6aa922a9d205d1bf5c14"
+      "bytes": 29727,
+      "sha256": "d88714056a0600d5aef6efff5b31f9d1711a0aa7f97ca6aad3f46bcfdd838757"
     },
     {
       "path": "apps/portal-web/src/modules/AgentShops.css",
@@ -1384,8 +1384,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/review-center-shared.tsx",
-      "bytes": 13475,
-      "sha256": "9112e89ee88800e0d6269bb2fbd29f0b180293f6b7ff335ed3d4681775b00f35"
+      "bytes": 13608,
+      "sha256": "1fee59a6f80349fb60bb566fab86416d57e60549b8f351ce3177073c5cbb359a"
     },
     {
       "path": "apps/portal-web/src/modules/review-handoff.tsx",
@@ -4339,8 +4339,8 @@
     },
     {
       "path": "tests/e2e/admin-review-center.spec.ts",
-      "bytes": 38056,
-      "sha256": "dfad71c1d291a2999912b5d4466e7f549beebab74a5c4008af13f355052f6a7a"
+      "bytes": 38583,
+      "sha256": "637307ade27291bd206015b36da0b64fb31945b9aba124bb34d1d1084dbb5329"
     },
     {
       "path": "tests/e2e/admin.spec.ts",
@@ -4479,8 +4479,8 @@
     },
     {
       "path": "tests/e2e/guild-reviews.spec.ts",
-      "bytes": 33690,
-      "sha256": "f4a0078fe0e67de63e5d8720231463b97ef70858bf93fef47d10ca6b98da6b5c"
+      "bytes": 34064,
+      "sha256": "b8f7fbeec71545de56eeeaeb6be3f6d3f47763bbafcdf17ef64ad2570ed70693"
     },
     {
       "path": "tests/e2e/guild-workspace.spec.ts",
