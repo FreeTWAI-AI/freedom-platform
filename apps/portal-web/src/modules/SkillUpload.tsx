@@ -5,6 +5,7 @@ import { formatIsoLocal } from '../format';
 import { logConsoleEvent } from '../game-console-core';
 import { consoleChannel } from '../game-console-routing';
 import { useModuleMutation } from './shared';
+import { CHAT_JSON_MAX_BYTES, chatSkillInstruction, parseChatSkillJson } from './skill-upload-chat';
 import './SkillUpload.css';
 
 type Relationship = 'author' | 'maintainer' | 'contributor' | 'curator';
@@ -14,6 +15,7 @@ type UploadGrant = { token: string; expires_at: string; submit_url: string };
 type GrantResult = { submission: Submission; upload_grant?: UploadGrant | null };
 type UploadKey = { key_id: string; label: string; scope: 'skill:submit'; expires_at: string; revoked_at: string | null };
 type Secret = { submissionId: string; token: string; expiresAt: string; submitUrl: string };
+type HeldGrant = { id: string; token: string; submitUrl: string; version: number };
 
 const statusLabels: Record<Submission['status'], string> = { awaiting_upload: '等待 Agent 上傳', ready_for_review: '待你預覽送出', published: '已送出', revoked: '已撤銷' };
 const relationshipLabels: Record<Relationship, string> = { author: '原作者', maintainer: '維護者', contributor: '貢獻者', curator: '推薦／整理者' };
@@ -116,6 +118,8 @@ export function SkillUpload({ client, onPublished }: { client: PortalClient; onP
   const [preview, setPreview] = useState<Submission | null>(null), [previewError, setPreviewError] = useState<string | null>(null);
   const [keys, setKeys] = useState<UploadKey[]>([]), [keysError, setKeysError] = useState<string | null>(null);
   const [keyDraft, setKeyDraft] = useState({ label: '', expires_in_days: '30' }), [issuedKey, setIssuedKey] = useState<{ id: string; label: string; token: string } | null>(null);
+  const [chatRepo, setChatRepo] = useState(''), [chatJson, setChatJson] = useState(''), [chatError, setChatError] = useState<string | null>(null), [chatBusy, setChatBusy] = useState(false), [chatCopied, setChatCopied] = useState('');
+  const chatFile = useRef<HTMLInputElement>(null), heldRef = useRef<HeldGrant | null>(null);
   const drafts = useModuleMutation(client), credentials = useModuleMutation(client);
 
   const refresh = useCallback(async () => {
@@ -123,6 +127,11 @@ export function SkillUpload({ client, onPublished }: { client: PortalClient; onP
     try {
       const loaded = requireItems<Submission>(await client.get('/me/skill-submissions'), '技能草稿');
       setItems(loaded);
+      const held = heldRef.current;
+      if (held) {
+        const draft = loaded.find(item => item.submission_id === held.id);
+        if (!draft || draft.status !== 'awaiting_upload' || draft.grant_revoked_at || (draft.grant_expires_at && isExpired(draft.grant_expires_at))) heldRef.current = null;
+      }
       setSecret(current => {
         const draft = loaded.find(item => item.submission_id === current?.submissionId);
         return draft && (draft.status !== 'awaiting_upload' || draft.grant_consumed_at || draft.grant_revoked_at || (draft.grant_expires_at && isExpired(draft.grant_expires_at))) ? null : current;
@@ -152,7 +161,9 @@ export function SkillUpload({ client, onPublished }: { client: PortalClient; onP
   function closed() {
     dialogSession.current += 1; dialogActive.current = false;
     flushSync(() => {
+      heldRef.current = null;
       setSecret(null); setIssuedKey(null); setIssue(null); setNotice(null); setPreview(null); setPreviewError(null);
+      setChatRepo(''); setChatJson(''); setChatError(null); setChatBusy(false); setChatCopied('');
       setOpen(false);
     });
   }
@@ -207,6 +218,89 @@ export function SkillUpload({ client, onPublished }: { client: PortalClient; onP
     logConsoleEvent({id:`skill:${saved.submission_id}`,createdAt:saved.updated_at,channel:consoleChannel('skill_published'),level:'success',kind:'broadcast',source:'技能書發布',message:`技能書「${saved.payload?.title??'未命名技能'}」已建立公開介紹頁。`});
     setPreview(saved); setNotice('技能已送出，公開介紹頁已建立。'); await refresh(); await onPublished?.();
   }
+  // Chat upload keeps the one-time grant in memory. It must not open the Agent instruction.
+  function rememberGrant(result: GrantResult | undefined): HeldGrant | null {
+    if (result) setItems(current => [result.submission, ...current.filter(item => item.submission_id !== result.submission.submission_id)]);
+    const grant = result?.upload_grant, submitUrl = grant ? sameOriginSubmitUrl(grant.submit_url) : null;
+    if (!result || !grant || !submitUrl || isExpired(grant.expires_at)) { heldRef.current = null; return null; }
+    const next = { id: result.submission.submission_id, token: grant.token, submitUrl, version: Number(result.submission.aggregate_version) };
+    heldRef.current = next;
+    return next;
+  }
+  function heldGrant(): HeldGrant | null {
+    const current = heldRef.current;
+    if (!current) return null;
+    const draft = items.find(item => item.submission_id === current.id);
+    if (draft && (draft.status !== 'awaiting_upload' || draft.grant_revoked_at || (draft.grant_expires_at && isExpired(draft.grant_expires_at)))) {
+      heldRef.current = null;
+      return null;
+    }
+    return current;
+  }
+  async function rotateHeld(id: string, version: number) {
+    const result = await client.post<GrantResult>(`/me/skill-submissions/${encodeURIComponent(id)}/grant`, {}, { ifMatch: version });
+    const grant = rememberGrant(result);
+    if (!grant) throw new Error('無法取得新的上傳授權。請按「重新產生指令」後再貼一次 JSON。');
+    return grant;
+  }
+  async function grantForPaste() {
+    const held = heldGrant();
+    if (held) return held;
+    const awaiting = items.find(item => item.status === 'awaiting_upload' && !item.grant_revoked_at && !(item.grant_expires_at && isExpired(item.grant_expires_at)));
+    if (awaiting) return rotateHeld(awaiting.submission_id, Number(awaiting.aggregate_version));
+    const created = await client.post<GrantResult>('/me/skill-submissions', {});
+    const grant = rememberGrant(created);
+    if (!grant) throw new Error('草稿已建立，但沒有可使用的上傳授權。請按「重新產生指令」後再貼一次 JSON。');
+    return grant;
+  }
+  async function agentDetail(response: Response) {
+    try {
+      const body = await response.json() as { detail?: unknown };
+      if (typeof body.detail === 'string' && body.detail.trim()) return body.detail.trim();
+    } catch { /* The status is enough for a fallback. */ }
+    if (response.status === 401) return '上傳授權已失效。請按「重新產生指令」後再貼一次 JSON。';
+    return `上傳沒有完成（${response.status}）。`;
+  }
+  async function submitChat(event: FormEvent) {
+    event.preventDefault();
+    setChatError(null); setNotice(null);
+    const parsed = parseChatSkillJson(chatJson);
+    if (!parsed.ok) { setChatError(parsed.message); return; }
+    const session = dialogSession.current;
+    setChatBusy(true);
+    try {
+      let grant = await grantForPaste();
+      const send = (current: HeldGrant) => fetch(current.submitUrl, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { Authorization: `Bearer ${current.token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: parsed.text,
+      });
+      let response = await send(grant);
+      if (response.status === 401) { grant = await rotateHeld(grant.id, grant.version); response = await send(grant); }
+      if (!sessionActive(session)) return;
+      if (!response.ok) { setChatError(await agentDetail(response)); return; }
+      setChatJson('');
+      setNotice('草稿已上傳，請預覽內容後再送出。');
+      await refresh();
+      if (sessionActive(session)) await showPreview({ submission_id: grant.id } as Submission);
+    } catch (cause) {
+      if (sessionActive(session)) setChatError(cause instanceof Error ? cause.message : '上傳沒有完成。');
+    } finally { if (sessionActive(session)) setChatBusy(false); }
+  }
+  async function loadChatFile(file: File) {
+    setChatError(null);
+    if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') { setChatError('請選擇 .json 檔。'); return; }
+    if (file.size > CHAT_JSON_MAX_BYTES) { setChatError('JSON 超過 800 KB 上限。請讓 AI 縮小內容，不要附上過大的示意圖。'); return; }
+    const text = await file.text();
+    setChatJson(text);
+    const parsed = parseChatSkillJson(text);
+    if (!parsed.ok) setChatError(parsed.message);
+  }
+  async function copyChat() {
+    const value = chatSkillInstruction(chatRepo);
+    try { await navigator.clipboard.writeText(value); setChatCopied('已複製給聊天 AI 的說明。'); }
+    catch { setChatCopied('無法自動複製，請選取說明後手動複製。'); }
+  }
   async function issueKey(event: FormEvent) {
     event.preventDefault(); setIssuedKey(null);
     const session = dialogSession.current;
@@ -239,6 +333,24 @@ export function SkillUpload({ client, onPublished }: { client: PortalClient; onP
           {drafts.error && <p role="alert" className="banner banner-error">{drafts.error}</p>}
           {notice && <p role="status" className="status-note">{notice}</p>}
           {secret && <CopySecret label="私人上傳指令" value={instruction} hint={`憑證 ${formatIsoLocal(secret.expiresAt)} 到期，只顯示在此視窗；關閉後即移除。`}/>}
+        </section>
+
+        <section className="skill-upload-chat stack" aria-labelledby={`${titleId}-chat`}>
+          <h3 id={`${titleId}-chat`}>沒有程式 Agent，改用聊天 AI</h3>
+          <p className="field-hint">ChatGPT、Claude、Gemini 網頁版不能替你上傳。把說明貼給它，再把回覆的 JSON 貼回來。說明裡沒有授權，也不含上傳網址。</p>
+          <label className="field">公開儲存庫網址<input value={chatRepo} maxLength={300} placeholder="https://github.com/擁有者/儲存庫" autoComplete="off" spellCheck={false} onChange={event => setChatRepo(event.target.value)}/></label>
+          <label className="field" htmlFor={`${titleId}-chat-instruction`}>給聊天 AI 的說明</label>
+          <textarea id={`${titleId}-chat-instruction`} readOnly rows={7} value={chatSkillInstruction(chatRepo)} spellCheck={false}/>
+          <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => void copyChat()}>複製給聊天 AI</button>{chatCopied && <span role="status" className="field-hint">{chatCopied}</span>}</div>
+          <form className="stack" onSubmit={event => void submitChat(event)}>
+            <label className="field" htmlFor={`${titleId}-chat-json`}>貼上 JSON<textarea id={`${titleId}-chat-json`} rows={7} value={chatJson} spellCheck={false} placeholder={'貼上聊天 AI 回覆的 JSON。若包在 ```json 裡，整段貼上即可。'} onChange={event => { setChatJson(event.target.value); setChatError(null); }}/></label>
+            <div className="actions">
+              <button type="button" className="btn btn-ghost" onClick={() => chatFile.current?.click()}>選擇 JSON 檔</button>
+              <input ref={chatFile} className="skill-upload-file" type="file" accept=".json,application/json" aria-label="選擇 JSON 檔" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void loadChatFile(file); }}/>
+              <button className="btn btn-primary" disabled={chatBusy}>{chatBusy ? '正在送出…' : '用這份 JSON 建立草稿'}</button>
+            </div>
+          </form>
+          {chatError && <p role="alert" className="banner banner-error">{chatError}</p>}
         </section>
 
         <section className="stack" aria-labelledby={`${titleId}-drafts`}>

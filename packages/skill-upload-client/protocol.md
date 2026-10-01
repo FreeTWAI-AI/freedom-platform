@@ -77,6 +77,8 @@ Content-Type: application/json
 
 錯誤回應為 `{"status", "code", "detail"}`。常見代碼：`upload_key_invalid`、`upload_grant_invalid`（401）、`onboarding_required`（403）、`upload_grant_consumed`、`draft_limit`（409）、`body_too_large`（413）、`json_required`（415）、`validation_failed`、`invalid_cover_image`（422）、`auth_rate_limited`（429）。
 
+401 `upload_grant_invalid`：請會員在網站按「重新產生指令」重新產生授權，再用新的 `Authorization: Bearer fpg_…` 上傳；不要重送舊授權。內容超過上限時縮小 JSON，不要分段。
+
 ## 公開
 
 agent 完成上傳後，草稿仍是私人的。會員在網站檢查內容、勾選同意分享並按下公開，平台才會讀取 GitHub 的公開資料，固定當下的 commit 與授權檔，並把關係標示為「自述」、非官方。公開之前，請不要對外宣稱作品已發表或已被平台認可。
