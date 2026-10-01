@@ -9,6 +9,9 @@ import {fileURLToPath} from 'node:url';
 const root=new URL('../',import.meta.url);
 const target='apps/platform-api/src/generated/runtime-text.ts';
 export const runtimeTextSources={
+  shopAgentCommon:'packages/shop-agent/common.md',
+  shopAgentInternal:'packages/shop-agent/internal.md',
+  shopAgentPublic:'packages/shop-agent/public.md',
   githubSocialCss:'apps/portal-web/src/modules/GitHubSocial.css',
   skillUploadSkillMarkdown:'packages/skill-upload-client/SKILL.md',
   skillUploadProtocolMarkdown:'packages/skill-upload-client/protocol.md',

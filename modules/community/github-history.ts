@@ -1,84 +1,55 @@
-import {z} from 'zod';
-import type {Pool, PoolClient} from 'pg';
+import type {Pool} from 'pg';
 import type {Actor} from '../identity-membership/service.js';
 import {communityCatalog, skillBooksForGuild} from './catalog.js';
 import {guildTitles} from '../positioning/assessment.js';
-import {githubCoordinate, publicJson, retryAnonymousGitHubRead} from '../opensource-marketing/github.js';
-import {Problem, requireCondition} from '../../packages/shared/problem.js';
-import {transaction} from '../../packages/db/index.js';
+import {githubCoordinate} from '../opensource-marketing/github.js';
+import {requireCondition} from '../../packages/shared/problem.js';
+import {rankedLeaderboards} from '../../packages/shared/github-leaderboard.js';
 import repositorySet from '../../repositories.lock.json' with {type:'json'};
 
 export type HistoryCategory = 'platform' | 'official' | 'personal';
 export type HistoryRepository = {name: string; title: string; category: HistoryCategory; url: string};
+export type HistorySyncStatus = 'syncing' | 'ok' | 'unreadable';
+export type HistoryRepositoryView = HistoryRepository & {sync: {status: HistorySyncStatus; last_synced_at: string | null}};
 export type HistoryKind = 'issue' | 'pr';
 export type HistoryItem = {
   kind: HistoryKind; repository: string; number: number; title: string; url: string; author: string | null;
   created_at: string; updated_at: string; state: 'open' | 'closed'; state_reason?: string | null; merged_at?: string | null;
 };
-export type HistoryUnavailable = 'github_rate_limited' | 'github_unavailable' | 'github_invalid_response' | 'github_refresh_in_progress';
+export type HistoryUnavailable = 'github_rate_limited' | 'github_unavailable' | 'github_invalid_response' | 'github_refresh_in_progress' | 'github_sync_pending' | 'github_unreadable';
 export type HistoryPage = {items: HistoryItem[]; has_more: boolean; checked_at: string | null; stale: boolean; unavailable?: HistoryUnavailable};
+export type HistoryLeaderboards = {
+  ideas: {login: string; count: number}[];
+  edits: {login: string; count: number}[];
+  contributions: {login: string; count: number}[];
+  complete: boolean;
+  oldest_synced_at: string | null;
+  syncing: string[];
+  unreadable: string[];
+};
 export const GITHUB_HISTORY_PAGE_CAP = 100;
-
-const FRESH_MS = 20 * 60 * 1000;
-const FAILURE_MS = 15 * 60 * 1000;
-const MAX_BACKOFF_MS = 60 * 60 * 1000;
-const MIN_BACKOFF_MS = 1000;
-const coordinate = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9_.-]{1,100}$/;
+export const GITHUB_REPOSITORY_NAME = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9_.-]{1,100}$/;
+const PAGE_SIZE = 100;
+const STALE_MS = 60 * 60 * 1000;
 const loginPattern = /^[A-Za-z0-9-]{1,39}(?:\[bot\])?$/;
-const date = z.iso.datetime({offset: true});
-const issueSchema = z.object({
-  number: z.number().int().positive(), title: z.string().max(1000), state: z.enum(['open', 'closed']),
-  state_reason: z.string().max(100).nullable().optional(), user: z.object({login: z.string()}).nullable(),
-  created_at: date, updated_at: date, pull_request: z.unknown().optional(),
-});
-const pullSchema = z.object({
-  number: z.number().int().positive(), title: z.string().max(1000), state: z.enum(['open', 'closed']),
-  user: z.object({login: z.string()}).nullable(), created_at: date, updated_at: date, merged_at: date.nullable(),
-});
-const storedItem = z.object({
-  kind: z.enum(['issue', 'pr']), repository: z.string().regex(coordinate), number: z.number().int().positive(),
-  title: z.string().max(300), url: z.string().url(), author: z.string().regex(loginPattern).nullable(),
-  created_at: date, updated_at: date, state: z.enum(['open', 'closed']),
-  state_reason: z.string().max(100).nullable().optional(), merged_at: date.nullable().optional(),
-});
-const snapshotSchema = z.object({items: z.array(storedItem).max(100), has_more: z.boolean()});
-const STORED_ERRORS = ['github_rate_limited', 'github_unavailable', 'github_invalid_response'] as const;
-type StoredError = typeof STORED_ERRORS[number];
-type CacheRow = {snapshot: unknown; checked_at: Date | null; retry_after: Date; last_error: string | null};
 
-function cleanTitle(value: string, fallback: string) {
+export function cleanTitle(value: string, fallback: string) {
   const text = value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').replace(/\s+/g, ' ').trim().slice(0, 300);
   return text || fallback;
 }
-function authorOf(login: string | null | undefined) {
+export function authorOf(login: string | null | undefined) {
   return login && loginPattern.test(login) ? login : null;
 }
-function knownError(code: string): StoredError {
-  return (STORED_ERRORS as readonly string[]).includes(code) ? code as StoredError : 'github_unavailable';
+
+type SyncMeta = {repository_key: string; access_status: string; backfilled: boolean; last_synced_at: Date | null};
+
+function syncStatus(row: SyncMeta | undefined): HistorySyncStatus {
+  if (row?.access_status === 'unreadable') return 'unreadable';
+  if (!row?.backfilled) return 'syncing';
+  return 'ok';
 }
-function describe(error: unknown): {code: StoredError; retryAfterSeconds?: number} {
-  if (error instanceof Problem) {
-    const code = error.code === 'github_rate_limited' || error.code === 'github_invalid_response' ? error.code : 'github_unavailable';
-    return {code, retryAfterSeconds: error.retryAfterSeconds};
-  }
-  return {code: 'github_unavailable'};
-}
-function backoffMs(seconds?: number) {
-  if (seconds === undefined || !Number.isFinite(seconds)) return FAILURE_MS;
-  return Math.min(MAX_BACKOFF_MS, Math.max(MIN_BACKOFF_MS, Math.ceil(seconds * 1000)));
-}
-function toItems(repository: string, kind: HistoryKind, data: Array<z.infer<typeof issueSchema> | z.infer<typeof pullSchema>>): HistoryItem[] {
-  return data.filter(item => kind === 'pr' || !('pull_request' in item) || item.pull_request == null).map(item => {
-    const fallback = `${kind === 'issue' ? 'Issue' : 'PR'} #${item.number}`;
-    return {
-      kind, repository, number: item.number, title: cleanTitle(item.title, fallback),
-      url: `https://github.com/${repository}/${kind === 'issue' ? 'issues' : 'pull'}/${item.number}`,
-      author: authorOf(item.user?.login ?? null), created_at: item.created_at, updated_at: item.updated_at, state: item.state,
-      ...(kind === 'issue'
-        ? {state_reason: 'state_reason' in item && typeof item.state_reason === 'string' ? item.state_reason : null}
-        : {merged_at: 'merged_at' in item ? item.merged_at : null}),
-    };
-  });
+function iso(value: Date | null | undefined) {
+  return value ? new Date(value).toISOString() : null;
 }
 
 /** The list is based on the current platform architecture set, guild bindings, and public works registered here. */
@@ -91,7 +62,7 @@ export async function historyRepositories(pool: Pool, actor: Actor): Promise<His
   for (const key of Object.keys(guildTitles)) for (const book of skillBooksForGuild(key)) assigned.add(book.id);
   const byName = new Map<string, HistoryRepository>();
   const add = (value: string, title: string, category: HistoryCategory) => {
-    if (!coordinate.test(value)) return;
+    if (!GITHUB_REPOSITORY_NAME.test(value)) return;
     const name = value.toLowerCase(), prior = byName.get(name);
     const priority = {personal: 0, official: 1, platform: 2};
     if (!prior || priority[category] > priority[prior.category]) byName.set(name, {name: value, title, category, url: `https://github.com/${value}`});
@@ -106,88 +77,81 @@ export async function historyRepositories(pool: Pool, actor: Actor): Promise<His
   return [...byName.values()].sort((a, b) => ({platform: 0, official: 1, personal: 2})[a.category] - ({platform: 0, official: 1, personal: 2})[b.category] || a.title.localeCompare(b.title, 'zh-TW'));
 }
 
-export class GitHubHistory {
-  private pending = new Map<string, Promise<HistoryPage>>();
-  constructor(private pool: Pool, private fetcher: typeof fetch = (...args) => globalThis.fetch(...args), private now = () => Date.now()) {}
-  async page(repository: string, kind: HistoryKind, page: number, token?: string): Promise<HistoryPage> {
-    requireCondition(coordinate.test(repository), 422, 'invalid_repository', '請選擇清單中的儲存庫。');
-    requireCondition(Number.isInteger(page) && page >= 1 && page <= GITHUB_HISTORY_PAGE_CAP, 422, 'invalid_page', '歷史頁碼無效。');
-    const key = `${repository.toLowerCase()}/${kind}/${page}`;
-    const existing = this.pending.get(key);
-    if (existing) return existing;
-    const work = this.load(repository, kind, page, key, token).finally(() => this.pending.delete(key));
-    this.pending.set(key, work);
-    return work;
-  }
-  private view(row: CacheRow): HistoryPage | null {
-    const parsed = row.snapshot == null ? null : snapshotSchema.safeParse(row.snapshot);
-    const snapshot = parsed?.success ? parsed.data : null;
-    if (!snapshot && !row.last_error) return null;
-    const unavailable = row.last_error ? knownError(row.last_error) : undefined;
-    if (!snapshot) return {items: [], has_more: false, checked_at: row.checked_at?.toISOString() ?? null, stale: true, unavailable: unavailable ?? 'github_unavailable'};
-    return {items: snapshot.items, has_more: snapshot.has_more, checked_at: row.checked_at?.toISOString() ?? null, stale: Boolean(row.last_error), ...(unavailable ? {unavailable} : {})};
-  }
-  private async read(q: PoolClient, key: string) {
-    return (await q.query<CacheRow>('SELECT snapshot,checked_at,retry_after,last_error FROM github_history_cache WHERE cache_key=$1', [key])).rows[0];
-  }
-  private async save(q: PoolClient, key: string, snapshot: {items: HistoryItem[]; has_more: boolean}) {
-    const retryAt = new Date(this.now() + FRESH_MS);
-    return (await q.query<CacheRow>(`INSERT INTO github_history_cache(cache_key,snapshot,checked_at,retry_after,last_error) VALUES($1,$2::jsonb,now(),$3,NULL)
-      ON CONFLICT(cache_key) DO UPDATE SET snapshot=EXCLUDED.snapshot,checked_at=now(),retry_after=EXCLUDED.retry_after,last_error=NULL
-      RETURNING snapshot,checked_at,retry_after,last_error`, [key, JSON.stringify(snapshot), retryAt])).rows[0];
-  }
-  private async fail(q: PoolClient, key: string, code: string, retryAt: Date) {
-    return (await q.query<CacheRow>(`INSERT INTO github_history_cache(cache_key,snapshot,checked_at,retry_after,last_error) VALUES($1,NULL,NULL,$2,$3)
-      ON CONFLICT(cache_key) DO UPDATE SET retry_after=EXCLUDED.retry_after,last_error=EXCLUDED.last_error
-      RETURNING snapshot,checked_at,retry_after,last_error`, [key, retryAt, code.slice(0, 80)])).rows[0];
-  }
-  private async fetchRaw(repository: string, kind: HistoryKind, page: number, token?: string) {
-    const path = `/repos/${repository}/${kind === 'issue' ? 'issues' : 'pulls'}?state=all&sort=created&direction=desc&per_page=100&page=${page}`;
-    const signal = AbortSignal.timeout(10000);
-    const once = (authorization?: string) => publicJson(path, signal, this.fetcher, false, 4194304, authorization);
-    if (!token) return once();
-    try { return await once(token); }
-    catch (error) {
-      if (!retryAnonymousGitHubRead(error)) throw error;
-      try { return await once(); }
-      catch (second) {
-        if (second instanceof Problem && error.retryAfterSeconds !== undefined && second.retryAfterSeconds === undefined) second.retryAfterSeconds = error.retryAfterSeconds;
-        throw second;
-      }
+async function syncMeta(pool: Pool, keys: string[]) {
+  if (!keys.length) return new Map<string, SyncMeta>();
+  const rows = await pool.query<SyncMeta>('SELECT repository_key, access_status, backfilled, last_synced_at FROM github_sync_repositories WHERE repository_key = ANY($1::text[])', [keys]);
+  return new Map(rows.rows.map(row => [row.repository_key, row]));
+}
+
+export async function historyRepositoryViews(pool: Pool, actor: Actor): Promise<HistoryRepositoryView[]> {
+  const repos = await historyRepositories(pool, actor);
+  const meta = await syncMeta(pool, repos.map(repo => repo.name.toLowerCase()));
+  return repos.map(repo => {
+    const row = meta.get(repo.name.toLowerCase());
+    return {...repo, sync: {status: syncStatus(row), last_synced_at: iso(row?.last_synced_at)}};
+  });
+}
+
+/** One page of stored issues or pull requests. This path does not call GitHub. */
+export async function githubHistoryPage(pool: Pool, repository: string, kind: HistoryKind, page: number, now = Date.now()): Promise<HistoryPage> {
+  requireCondition(GITHUB_REPOSITORY_NAME.test(repository), 422, 'invalid_repository', '請選擇清單中的儲存庫。');
+  requireCondition(Number.isInteger(page) && page >= 1 && page <= GITHUB_HISTORY_PAGE_CAP, 422, 'invalid_page', '歷史頁碼無效。');
+  const key = repository.toLowerCase();
+  const meta = (await syncMeta(pool, [key])).get(key);
+  const checkedAt = iso(meta?.last_synced_at);
+  const stale = !meta?.backfilled || !meta.last_synced_at || now - new Date(meta.last_synced_at).getTime() > STALE_MS;
+  const unavailable: HistoryUnavailable | undefined = meta?.access_status === 'unreadable' ? 'github_unreadable' : !meta?.last_synced_at ? 'github_sync_pending' : undefined;
+  const loaded = await pool.query<{number: number; title: string; author_login: string | null; state: 'open' | 'closed'; state_reason: string | null; merged_at: Date | null; created_at: Date; updated_at: Date}>(
+    `SELECT number, title, author_login, state, state_reason, merged_at, created_at, updated_at
+     FROM github_items WHERE repository_key=$1 AND kind=$2
+     ORDER BY created_at DESC, number DESC
+     LIMIT $3 OFFSET $4`,
+    [key, kind, PAGE_SIZE + 1, (page - 1) * PAGE_SIZE],
+  );
+  const hasMore = loaded.rows.length > PAGE_SIZE;
+  const items: HistoryItem[] = loaded.rows.slice(0, PAGE_SIZE).map(row => {
+    const base = {
+      kind, repository, number: row.number, title: row.title,
+      url: `https://github.com/${repository}/${kind === 'issue' ? 'issues' : 'pull'}/${row.number}`,
+      author: row.author_login, created_at: new Date(row.created_at).toISOString(), updated_at: new Date(row.updated_at).toISOString(), state: row.state,
+    };
+    return kind === 'issue' ? {...base, state_reason: row.state_reason} : {...base, merged_at: iso(row.merged_at)};
+  });
+  return {items, has_more: hasMore, checked_at: checkedAt, stale, ...(unavailable ? {unavailable} : {})};
+}
+
+/** Three display-only boards over the repositories this actor can already see. */
+export async function githubHistoryLeaderboards(pool: Pool, actor: Actor): Promise<HistoryLeaderboards> {
+  const repos = await historyRepositories(pool, actor);
+  const keys = repos.map(repo => repo.name.toLowerCase());
+  const meta = await syncMeta(pool, keys);
+  const syncing: string[] = [];
+  const unreadable: string[] = [];
+  let complete = repos.length > 0;
+  let oldest: number | null = null;
+  for (const repo of repos) {
+    const row = meta.get(repo.name.toLowerCase());
+    if (row?.access_status === 'unreadable') unreadable.push(repo.name);
+    else if (!row?.backfilled) syncing.push(repo.name);
+    if (row?.access_status === 'unreadable' || !row?.backfilled) complete = false;
+    if (row?.last_synced_at) {
+      const time = new Date(row.last_synced_at).getTime();
+      if (oldest === null || time < oldest) oldest = time;
     }
   }
-  private async load(repository: string, kind: HistoryKind, page: number, key: string, token?: string): Promise<HistoryPage> {
-    return transaction(this.pool, async q => {
-      let row = await this.read(q, key);
-      if (row && row.retry_after.getTime() > this.now()) {
-        const cached = this.view(row);
-        if (cached) return cached;
-      }
-      const locked = (await q.query('SELECT pg_try_advisory_xact_lock(hashtextextended($1,0)) AS acquired', [`github-history/${key}`])).rows[0].acquired;
-      if (!locked) {
-        row = await this.read(q, key);
-        const cached = row ? this.view(row) : null;
-        if (cached) return {...cached, stale: true};
-        return {items: [], has_more: false, checked_at: null, stale: true, unavailable: 'github_refresh_in_progress'};
-      }
-      row = await this.read(q, key);
-      if (row && row.retry_after.getTime() > this.now()) {
-        const cached = this.view(row);
-        if (cached) return cached;
-      }
-      try {
-        const raw = await this.fetchRaw(repository, kind, page, token);
-        const parsed = z.array(kind === 'issue' ? issueSchema : pullSchema).max(100).safeParse(raw);
-        if (!parsed.success) throw new Problem(503, 'github_invalid_response', 'GitHub 歷史資料不完整，請稍後重試。');
-        const items = toItems(repository, kind, parsed.data);
-        const snapshot = {items, has_more: parsed.data.length === 100};
-        const saved = await this.save(q, key, snapshot);
-        return this.view(saved) ?? {items, has_more: snapshot.has_more, checked_at: new Date(this.now()).toISOString(), stale: false};
-      } catch (error) {
-        const failure = describe(error);
-        const saved = await this.fail(q, key, failure.code, new Date(this.now() + backoffMs(failure.retryAfterSeconds)));
-        return this.view(saved) ?? {items: [], has_more: false, checked_at: null, stale: true, unavailable: failure.code};
-      }
-    });
-  }
+  const counts = keys.length ? await pool.query<{login: string; ideas: number; edits: number}>(
+    `SELECT min(author_login) AS login,
+            count(*) FILTER (WHERE kind = 'issue')::int AS ideas,
+            count(*) FILTER (WHERE kind = 'pr')::int AS edits
+     FROM github_items
+     WHERE repository_key = ANY($1::text[])
+       AND author_login IS NOT NULL
+       AND btrim(author_login) <> ''
+       AND lower(btrim(author_login)) NOT LIKE '%[bot]'
+       AND lower(btrim(author_login)) NOT IN ('dependabot', 'github-actions')
+     GROUP BY lower(btrim(author_login))`,
+    [keys],
+  ) : {rows: []};
+  const boards = rankedLeaderboards(counts.rows.map(row => ({login: row.login, ideas: Number(row.ideas), edits: Number(row.edits)})));
+  return {...boards, complete, oldest_synced_at: oldest === null ? null : new Date(oldest).toISOString(), syncing, unreadable};
 }

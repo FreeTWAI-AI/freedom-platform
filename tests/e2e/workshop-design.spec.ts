@@ -31,7 +31,7 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
   await page.screenshot({ path: 'test-results/design-home-desktop.png', fullPage: true });
   const destinations = [
     ['會員首頁', '會員首頁'], ['我的定位', '我的定位'], ['職業公會', '職業公會'], ['技能書架', '技能書架'], ['工坊夥伴', '工坊夥伴'], ['小隊集合', '小隊集合'],
-    ['供貨中心', '供貨中心'], ['開店與銷售', '開店與銷售'], ['開源投稿', '開源投稿'], ['一起開發', '一起開發'],
+    ['我有東西要賣', '我有東西要賣'], ['我可以賣東西', '我可以賣東西'], ['開源投稿', '開源投稿'], ['一起開發', '一起開發'],
     ['行銷工作室', '行銷工作室'], ['我的工作', '我的工作'], ['作品與需求', '作品與需求'], ['合作紀錄', '合作紀錄'], ['自由工坊社群', '自由工坊社群'],
   ];
   for (const width of [1440, 390, 320]) {
@@ -56,7 +56,7 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
         }
       }
       if (width === 390 && button === '職業公會') await page.screenshot({ path: 'test-results/design-guild-phone.png' });
-      if(width===390&&['我的定位','小隊集合','供貨中心','一起開發'].includes(button))await page.screenshot({path:`test-results/compact-module-${destinations.findIndex(item=>item[0]===button)}-phone.png`});
+      if(width===390&&['我的定位','小隊集合','我有東西要賣','一起開發'].includes(button))await page.screenshot({path:`test-results/compact-module-${destinations.findIndex(item=>item[0]===button)}-phone.png`});
       await fits(page, `${width}px ${heading}`);
       if(width!==320)await page.screenshot({path:`test-results/ia-page-${destinations.findIndex(item=>item[0]===button)}-${width}.png`});
     }
