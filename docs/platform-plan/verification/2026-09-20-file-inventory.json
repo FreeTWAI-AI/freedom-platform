@@ -4574,8 +4574,8 @@
     },
     {
       "path": "tests/runtime/event-highlights.test.ts",
-      "bytes": 46628,
-      "sha256": "f794310d0815972d7f14d06093ac77e1ec80f46c6d00ee0cc93c180be2bf5873"
+      "bytes": 46696,
+      "sha256": "73c720f86aabd53b88969349350bb70bc69abef502d06fa51cf872b5a7f74c62"
     },
     {
       "path": "tests/runtime/events-past.test.ts",
