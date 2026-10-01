@@ -102,7 +102,7 @@ function SubmissionPreview({ submission, busy, onPublish }: { submission: Submis
       <div><dt>專案</dt><dd>{repository ? <a href={repository} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">{payload.repository_url} ↗</a> : `${payload.repository_url}（網址無效，不提供連結）`}</dd></div>
       {payload.demo_url && <div><dt>展示</dt><dd>{demo ? <a href={demo} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">{payload.demo_url} ↗</a> : '網址無效，不提供連結'}</dd></div>}
     </dl>
-    <details className="skill-upload-blurbs"><summary>分享短文 {blurbs.length} 則</summary><ol>{blurbs.map((text, index) => <li key={index}>{text}</li>)}</ol></details>
+    <details className="skill-upload-blurbs"><summary>分享短文 {blurbs.length} 則</summary><ol>{blurbs.map((text, index) => <li className="multiline-text" key={index}>{text}</li>)}</ol></details>
     {submission.status === 'ready_for_review' && <>
       <p className="field-hint">送出後，介紹、示意圖與分享短文會公開在網路上。此投稿列為社群候選作品；正式收錄另由工坊審核。</p>
       <div className="actions"><button type="button" className="btn btn-primary" disabled={busy} onClick={onPublish}>送出技能</button></div>

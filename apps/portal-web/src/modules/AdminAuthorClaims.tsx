@@ -57,9 +57,9 @@ export function AdminAuthorClaims({client, busy, onMutate}: {client: AdminClient
       <div className="card-head"><h3>{claim.repo.full_name}</h3><span className="badge">{claim.state_label}</span></div>
       <p>{claim.role_label} · {claim.display_name} · @{claim.github_login}（{claim.github_user_id}）</p>
       <p className="field-hint">技能書 {claim.source_snapshot.book_id} · Repo {claim.repo.provider_repo_id}{claim.appeal_count > 0 ? ' · 申訴後重送' : ''}</p>
-      <p>{claim.statement}</p>
+      <p className="multiline-text">{claim.statement}</p>
       {claim.evidence_url && <p><a href={claim.evidence_url} target="_blank" rel="noopener noreferrer">查看證據 ↗</a></p>}
-      {claim.appeal_text && <p>申訴：{claim.appeal_text}</p>}
+      {claim.appeal_text && <p>申訴：<span className="multiline-text">{claim.appeal_text}</span></p>}
       {claim.reason && <p className="field-hint">先前理由：{claim.reason}</p>}
       {!!claim.related_claims.length && <ul>{claim.related_claims.map(item => <li key={item.claim_id}>{item.display_name} @{item.github_login} · {item.role_label} · {item.state_label}</li>)}</ul>}
       <label className="field">審核理由<input value={reasons[claim.claim_id] ?? ''} onChange={event => setReasons(current => ({...current, [claim.claim_id]: event.target.value}))} maxLength={1000}/></label>

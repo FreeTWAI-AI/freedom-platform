@@ -137,7 +137,7 @@ export function GuildsPanel({client,session,onNavigate}:ModulePanelProps) {
         <p className="guild-application-meta">專業：{application.profession}</p>
         <p className="guild-application-meta">送出時間：{formatIsoLocal(application.created_at)}</p>
         {application.reviewed_at&&<p className="guild-application-meta">審核時間：{formatIsoLocal(application.reviewed_at)}</p>}
-        {application.state!=='pending'&&application.review_reason&&<p>審查說明：{application.review_reason}</p>}
+        {application.state!=='pending'&&application.review_reason&&<p>審查說明：<span className="multiline-text">{application.review_reason}</span></p>}
         {application.state==='pending'&&<p className="field-hint">管理員審核後會通知你。</p>}
         {application.state==='approved'&&(listed?<button type="button" className="btn btn-ghost" onClick={()=>viewGuild(listed)}>查看公會</button>:<p className="guild-application-meta">{application.approved_guild_name}</p>)}
         {application.state==='declined'&&<><p className="field-hint">可依審查說明調整後重新申請。</p><button type="button" className="btn btn-ghost" onClick={()=>revise(application)}>修改後重新申請</button></>}
