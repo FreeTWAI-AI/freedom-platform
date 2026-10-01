@@ -41,6 +41,7 @@ import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './
 import { PositioningPanel, GuildsPanel } from './modules/PositioningPanels'
 import { SupplierPanel, RetailPanel } from './modules/CommercePanels'
 import { OpenSourcePanel, MarketingPanel } from './modules/OpenSourcePanels'
+import { WorkSharingEntry } from './modules/WorkSharingEntry'
 import {
   claimStateLabel,
   engagementStateLabel,
@@ -89,7 +90,7 @@ const TAB_GUIDANCE: Record<TabId, string> = {
   account: '編輯名片資料、頭像與公開範圍。',
   cocreation: '查看一起開發的作品和參與入口。',
   squads: '查看小隊與共同進行的協作。',
-  opensource: '登錄你的開源專案，整理可供夥伴參與的資訊。',
+  opensource: '貼上 GitHub 網址與介紹，預覽後分享到社群技能書。',
   workbench: '查看自己的工作、認領紀錄與進度。',
   showcase: '瀏覽作品和需求，尋找合作機會。',
   engagement: '查看合作紀錄與目前狀態。',
@@ -1278,12 +1279,11 @@ function ShowcasePanel() {
 
   return (
     <div className="panels">
-      <ModuleBanner eyebrow="SHOWCASE / 讓能力與機會相遇" title="分享作品或提出需求" description="" art="/art/rpg/cooperation-forge.webp"/>
-      <FlowLegend />
-      <CreateShowcaseForm pending={pending} mutate={mutate} onCreated={load} />
-      <Section title="社群作品" description="經本人同意分享的作品。可向其他作者提出商機。">
+      <WorkSharingEntry current="showcase" />
+      <CreateShowcaseForm pending={pending} mutate={mutate} onCreated={created => setShowcases(items => [created, ...(items ?? []).filter(item => item.showcase_id !== created.showcase_id)])} />
+      <Section title="社群作品" description="看看夥伴的作品，找到適合一起合作的人。">
         {showcases.length === 0 ? (
-          <EmptyState title="還沒有作品曝光" body="分享作品後，其他成員才看得到並提出商機。" />
+          <EmptyState title="把第一件作品放上來" body="設計、影片、文章、工具都可以。分享後，社群成員可以向你提出合作需求。" />
         ) : (
           <div className="card-grid">
             {showcases.map((showcase) => (
@@ -1327,11 +1327,15 @@ function CreateShowcaseForm({
 }: {
   pending: string | null
   mutate: PortalContextValue['mutate']
-  onCreated: () => Promise<void>
+  onCreated: (created: Showcase) => void
 }) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [artifactRef, setArtifactRef] = useState('artifact:template-v1')
+  const [artifactRef, setArtifactRef] = useState('')
+  const [publicUrl, setPublicUrl] = useState('')
+  const [published, setPublished] = useState<Showcase | null>(null)
+  const success = useRef<HTMLElement>(null)
+  useEffect(() => { if (published) success.current?.focus() }, [published])
   const [consent, setConsent] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const busy = Boolean(pending)
@@ -1342,24 +1346,29 @@ function CreateShowcaseForm({
     try {
       const artifact = artifactRef.trim()
       if (!consent) throw new Error('分享前須由本人勾選同意')
-      if (!artifact || looksLikeUrl(artifact)) throw new Error('成果引用須為不透明代號')
+      if (artifact && looksLikeUrl(artifact)) throw new Error('成果引用須為不透明代號')
+      let created: Showcase | null = null
       const ok = await mutate('create-showcase', async (key) => {
-        await client.post(
+        created = await client.post<Showcase>(
           '/showcases',
           {
             title: title.trim(),
             description: description.trim(),
-            artifact_ref: artifact,
+            ...(artifact ? { artifact_ref: artifact } : {}),
+            public_url: publicUrl.trim() || null,
             consent_to_share: true,
           },
           { idempotencyKey: key },
         )
       })
-      if (ok) {
+      if (ok && created) {
+        onCreated(created)
+        setPublished(created)
         setTitle('')
         setDescription('')
+        setPublicUrl('')
+        setArtifactRef('')
         setConsent(false)
-        await onCreated()
       }
     } catch (err) {
       setFormError(err instanceof Error ? err.message : '請檢查表單')
@@ -1367,35 +1376,40 @@ function CreateShowcaseForm({
   }
 
   return (
-    <section className="card">
+    <section className="card stack work-sharing-form">
       <h2>分享作品</h2>
-      <p className="lede">把你的作品分享給社群，讓有需求的人找到你。</p>
+      <p className="lede">寫名稱、說用途，就能讓社群看到你的作品。</p>
+      {published && <section ref={success} tabIndex={-1} className="work-sharing-success stack" aria-label="作品發布成功">
+        <h3>「{published.title}」已分享！</h3><p>社群成員可以看見這件作品，並向你提出合作需求。</p>
+        <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => { const card = document.getElementById(`showcase-${published.showcase_id}`); card?.scrollIntoView({ block: 'center', behavior: 'instant' }); card?.focus(); }}>查看剛分享的作品</button><a className="btn btn-ghost" href="#members">找合作夥伴</a></div>
+      </section>}
       {formError && (
         <p className="banner banner-error" role="alert">
           {formError}
         </p>
       )}
-      <form className="stack" onSubmit={(event) => void onSubmit(event)}>
+      <form className="stack" aria-busy={busy} onSubmit={(event) => void onSubmit(event)}>
         <label className="field">
           <span className="field-label">作品標題</span>
-          <input required value={title} onChange={(event) => setTitle(event.target.value)} disabled={busy} />
+          <input required maxLength={120} placeholder="例如：我的品牌識別設計" value={title} onChange={(event) => setTitle(event.target.value)} disabled={busy} />
         </label>
         <label className="field">
-          <span className="field-label">說明</span>
-          <textarea required rows={3} value={description} onChange={(event) => setDescription(event.target.value)} disabled={busy} />
+          <span className="field-label">一句話介紹</span>
+          <textarea required maxLength={2000} placeholder="你做了什麼？可以幫誰解決什麼問題？" rows={3} value={description} onChange={(event) => setDescription(event.target.value)} disabled={busy} />
         </label>
         <label className="field">
-          <span className="field-label">成果引用（例如 artifact:template-v1）</span>
-          <input required value={artifactRef} onChange={(event) => setArtifactRef(event.target.value)} disabled={busy} />
-          <span className="field-hint">填成果代號即可，檔案另行分享；不要貼含登入權限的連結或私人資料。</span>
+          <span className="field-label">作品連結（選填）</span>
+          <input aria-label="作品連結（選填）" type="url" maxLength={2000} placeholder="https://…" value={publicUrl} onChange={(event) => setPublicUrl(event.target.value)} disabled={busy} />
+          <span className="field-hint">可貼作品網站、影片或公開文章；請先確認連結不含私人資料或登入憑證。</span>
         </label>
+        <details><summary>連接既有成果紀錄（進階選填）</summary><label className="field"><span className="field-label">成果引用（例如 artifact:template-v1）</span><input maxLength={231} placeholder="留空由系統處理" value={artifactRef} onChange={event => setArtifactRef(event.target.value)} disabled={busy}/><span className="field-hint">已經有成果代號才需要填寫。</span></label></details>
         <label className="choice">
           <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} disabled={busy} />
           我同意以社群可見方式分享這件作品
         </label>
-        <button className="btn btn-primary" type="submit" disabled={busy || !consent}>
-          發布作品
-        </button>
+        <div className="actions"><button className="btn btn-primary" type="submit" disabled={busy || !consent}>
+          {busy ? '正在發布…' : '發布作品'}
+        </button></div>
       </form>
     </section>
   )
@@ -1431,7 +1445,7 @@ function ShowcaseCard({
   }
 
   return (
-    <article className="card">
+    <article className="card" id={`showcase-${showcase.showcase_id}`} tabIndex={-1}>
       <div className="card-head">
         <h3>{showcase.title}</h3>
         <span className="pill">社群可見</span>
@@ -1442,20 +1456,16 @@ function ShowcaseCard({
           <dt>作者</dt>
           <dd>{showcase.owner_name}</dd>
         </div>
-        <div>
-          <dt>成果引用</dt>
-          <dd>
-            <code>{showcase.artifact_ref}</code>
-          </dd>
-        </div>
       </dl>
+      {showcase.public_url && <div className="actions"><a className="btn btn-ghost" href={showcase.public_url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">查看作品 ↗</a></div>}
+      <details><summary>成果紀錄</summary><code>{showcase.artifact_ref}</code></details>
       {mine ? (
-        <p className="hint">這是你的作品。其他人提出商機後，你會在下方看到。</p>
+        <p className="hint">有人想合作時，需求會出現在下方「與你相關的商機」。</p>
       ) : (
         <div className="actions">
           {!open ? (
             <button type="button" className="btn btn-primary" disabled={busy} onClick={() => setOpen(true)}>
-              提出商機
+              我想找你合作
             </button>
           ) : (
             <form className="stack" onSubmit={(event) => void propose(event)}>
@@ -1465,7 +1475,7 @@ function ShowcaseCard({
               </label>
               <div className="actions">
                 <button className="btn btn-primary" type="submit" disabled={busy}>
-                  送出商機
+                  送出合作需求
                 </button>
                 <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setOpen(false)}>
                   取消

@@ -5,8 +5,9 @@ import { command,checkVersion,digest,journal,type Command } from '../../packages
 import { requireCondition } from '../../packages/shared/problem.js';
 import { text,opaqueRef,money,currency,isoTime } from '../../packages/shared/validation.js';
 import type { Actor } from '../identity-membership/service.js';
+import { externalLink } from '../opensource-marketing/github.js';
 
-export const showcaseInput=z.object({title:text(120),description:text(2000),artifact_ref:opaqueRef,consent_to_share:z.literal(true)}).strict();
+export const showcaseInput=z.object({title:text(120),description:text(2000),artifact_ref:opaqueRef.optional(),public_url:externalLink.nullable().default(null),consent_to_share:z.literal(true)}).strict();
 export const opportunityInput=z.object({showcase_id:z.uuid(),need:text(2000)}).strict();
 export const engagementInput=z.object({scope:text(3000),acceptance_criteria:text(2000),amount_minor:money,currency}).strict();
 export const receiptInput=z.object({amount_minor:money,currency,evidence_ref:opaqueRef,received_at:isoTime}).strict();
@@ -19,9 +20,10 @@ export async function listShowcases(pool:Pool,actor:Actor) {
 export async function createShowcase(pool:Pool,input:Command) {
   const body=showcaseInput.parse(input.body);
   return command(pool,input,async()=>{},async q=>{
-    const row=(await q.query(`INSERT INTO showcases(showcase_id,community_id,owner_ref,title,description,artifact_ref)
-      VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,[randomUUID(),input.actor.community_id,input.actor.user_id,body.title,body.description,body.artifact_ref])).rows[0];
-    await journal(q,input.actor,'showcase',row.showcase_id,1,'share_with_community',{artifact_ref:body.artifact_ref});
+    const artifact=body.artifact_ref??`artifact:${randomUUID()}`;
+    const row=(await q.query(`INSERT INTO showcases(showcase_id,community_id,owner_ref,title,description,artifact_ref,public_url)
+      VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,[randomUUID(),input.actor.community_id,input.actor.user_id,body.title,body.description,artifact,body.public_url])).rows[0];
+    await journal(q,input.actor,'showcase',row.showcase_id,1,'share_with_community',{artifact_ref:artifact});
     return {...row,owner_name:input.actor.display_name};
   });
 }

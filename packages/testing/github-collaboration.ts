@@ -4,6 +4,11 @@ export function collaborationGitHubFixture(input:string|URL|Request):Response {
   const url=new URL(input instanceof Request?input.url:String(input));
   const base='/repos/FreeTWAI-AI/video-autopilot-kit';
   if(url.origin!=='https://api.github.com')throw Error('Unexpected test outbound host');
+  // Isolated manual-submission fixture; never used by production/staging.
+  const simpleBase='/repos/freetwai-test/simple-work',sha='c'.repeat(40);
+  if(url.pathname===simpleBase)return Response.json({id:88009901,full_name:'freetwai-test/simple-work',private:false,visibility:'public',default_branch:'main',fork:false,archived:false});
+  if(url.pathname===simpleBase+'/commits/main')return Response.json({sha});
+  if(url.pathname===simpleBase+'/license')return Response.json({path:'LICENSE',license:{spdx_id:'MIT'}});
   if(url.searchParams.get('state')==='all'&&url.searchParams.has('page')&&/^\/repos\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/(issues|pulls)$/.test(url.pathname)){
     if(url.pathname==='/repos/FreeTWAI-AI/freedom-platform/issues')return Response.json([
       {number:12,title:'讓會員首頁的文字更清楚',state:'closed',state_reason:'completed',user:{login:'member-demo'},created_at:'2026-09-25T12:00:00Z',updated_at:'2026-09-26T12:00:00Z'},

@@ -71,7 +71,7 @@ export function SkillsPanel({ client, onNavigate }: ModulePanelProps) {
       <section className="skill-shelf" aria-labelledby={communityHeading}>
         <header className="page-toolbar skill-shelf-heading">
           <div><h2 id={communityHeading}>社群技能書</h2><p className="muted">社群成員分享的技能書，不需加入公會就能閱讀、分享與參與開發。</p></div>
-          <div className="actions"><SkillUpload client={client} onPublished={()=>setSubmissionsRevision(value=>value+1)}/><button className="btn btn-ghost" onClick={() => onNavigate?.('opensource')}>手動登錄作品</button></div>
+          <div className="actions"><button className="btn btn-primary" onClick={() => onNavigate?.('opensource')}>投稿開源工具</button><SkillUpload client={client} onPublished={()=>setSubmissionsRevision(value=>value+1)} secondary/></div>
         </header>
         <CommunitySkillBooks client={client} revision={submissionsRevision} guildIds={ids ?? []}/>
       </section>

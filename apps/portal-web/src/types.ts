@@ -134,6 +134,7 @@ export type Showcase = {
   title: string
   description: string
   artifact_ref: string
+  public_url: string | null
   visibility: 'community' | string
   aggregate_version: number
 }
