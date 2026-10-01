@@ -1,9 +1,12 @@
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readdir, readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
 import { exportPKCS8, exportSPKI, generateKeyPair, importSPKI, jwtVerify } from 'jose';
-import { createPool, LOCAL_DATABASE_URL } from '../../packages/db/index.js';
+import { createPool, LOCAL_DATABASE_URL, transaction } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { claimMaintainerJob, runMaintainerTick, type MaintainerTickConfig } from '../../modules/repo-maintainer/tick.js';
 import { enqueueReconcilePull } from '../../modules/repo-maintainer/queue.js';
@@ -588,4 +591,74 @@ test('enqueue pulls a backed-off job forward and a second call does not', async 
   job = (await pool.query('SELECT attempts, run_after FROM maintainer_jobs')).rows[0];
   assert.equal(job.attempts, 2);
   assert.equal(new Date(job.run_after).toISOString(), clock.toISOString());
+});
+
+test('a new repository is open with no guild, and only an untouched unowned row is opened', async () => {
+  const fresh = randomUUID();
+  await pool.query(`INSERT INTO maintainer_repositories
+    (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, next_sweep_at)
+    VALUES ($1,$2,'910065','77','FreeTWAI-AI/fresh-open','main','active','observe','2099-01-01T00:00:00Z')`, [fresh, community]);
+  const opened = (await pool.query('SELECT guild_key, open_to_guilds, aggregate_version FROM maintainer_repositories WHERE repository_id=$1', [fresh])).rows[0];
+  assert.equal(opened.guild_key, null);
+  assert.equal(opened.open_to_guilds, true);
+  assert.equal(opened.aggregate_version, '1');
+
+  const priorSchema = `fp_mopen_${process.pid}_${Date.now()}`;
+  const prior = new Pool({ connectionString: databaseUrl, options: `-c search_path=${priorSchema}`, max: 1 });
+  await database.query(`CREATE SCHEMA ${priorSchema}`);
+  try {
+    const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+    const names = (await readdir(resolve(root, 'migrations'))).filter(name => name.endsWith('.sql') && name < '065_').sort();
+    await transaction(prior, async q => {
+      for (const name of names) await q.query(await readFile(resolve(root, 'migrations', name), 'utf8'));
+    });
+    const communityId = randomUUID();
+    const adminId = randomUUID();
+    await prior.query('INSERT INTO communities (community_id, name) VALUES ($1,$2)', [communityId, 'Open default']);
+    await prior.query('INSERT INTO platform_admins (admin_id, community_id, email, display_name) VALUES ($1,$2,$3,$4)', [adminId, communityId, 'open-default@example.invalid', 'Open default']);
+    const guild = (await prior.query(`SELECT guild_key FROM positioning_guild_catalog ORDER BY guild_key LIMIT 1`)).rows[0].guild_key as string;
+    async function insert(github: string, full: string, guildKey: string | null, open: boolean) {
+      const id = randomUUID();
+      await prior.query(`INSERT INTO maintainer_repositories
+        (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, guild_key, open_to_guilds, next_sweep_at)
+        VALUES ($1,$2,$3,'77',$4,'main','active','observe',$5,$6,'2099-01-01T00:00:00Z')`,
+      [id, communityId, github, full, guildKey, open]);
+      return id;
+    }
+    const untouched = await insert('1', 'FreeTWAI-AI/untouched', null, false);
+    const already = await insert('2', 'FreeTWAI-AI/already-open', null, true);
+    const history = await insert('3', 'FreeTWAI-AI/has-history', null, false);
+    const owned = await insert('4', 'FreeTWAI-AI/guild-owned', guild, false);
+    await prior.query(`INSERT INTO maintainer_ownership_changes
+      (change_id, repository_id, guild_key, scope_kind, open_to_guilds, source, changed_by_admin, reason)
+      VALUES ($1,$2,NULL,NULL,false,'admin',$3,'管理員曾把這個儲存庫留在只限管理員。')`, [randomUUID(), history, adminId]);
+    await prior.query(await readFile(resolve(root, 'migrations', '065_maintainer_review_scope.sql'), 'utf8'));
+    const row = async (id: string) => (await prior.query('SELECT guild_key, open_to_guilds, aggregate_version FROM maintainer_repositories WHERE repository_id=$1', [id])).rows[0];
+    const openedRow = await row(untouched);
+    assert.equal(openedRow.guild_key, null);
+    assert.equal(openedRow.open_to_guilds, true);
+    assert.equal(openedRow.aggregate_version, '2');
+    const alreadyRow = await row(already);
+    assert.equal(alreadyRow.open_to_guilds, true);
+    assert.equal(alreadyRow.aggregate_version, '1');
+    const historyRow = await row(history);
+    assert.equal(historyRow.open_to_guilds, false);
+    assert.equal(historyRow.aggregate_version, '1');
+    const ownedRow = await row(owned);
+    assert.equal(ownedRow.guild_key, guild);
+    assert.equal(ownedRow.open_to_guilds, false);
+    assert.equal(ownedRow.aggregate_version, '1');
+    await assert.rejects(prior.query(`UPDATE maintainer_repositories SET open_to_guilds=true WHERE repository_id=$1`, [owned]));
+    const after = randomUUID();
+    await prior.query(`INSERT INTO maintainer_repositories
+      (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, next_sweep_at)
+      VALUES ($1,$2,'5','77','FreeTWAI-AI/after-migration','main','active','observe','2099-01-01T00:00:00Z')`, [after, communityId]);
+    const afterRow = await row(after);
+    assert.equal(afterRow.guild_key, null);
+    assert.equal(afterRow.open_to_guilds, true);
+    assert.equal(afterRow.aggregate_version, '1');
+  } finally {
+    await prior.end();
+    await database.query(`DROP SCHEMA IF EXISTS ${priorSchema} CASCADE`);
+  }
 });

@@ -209,6 +209,8 @@ async function syncInstallations(pool: Pool, github: MaintainerGitHub, config: M
       if (repos.truncated) incomplete = true;
       for (const repo of repos.items) {
         seen.add(repo.id);
+        // Omit guild_key and open_to_guilds so the table default applies: no guild,
+        // open to guild leaders. Never copy a catalog official_guild_keys value.
         await pool.query(`INSERT INTO maintainer_repositories
           (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, next_sweep_at, updated_at)
           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'active', 'observe', $6, $6)

@@ -250,7 +250,8 @@ test('the reviewer directory and repository ownership replace the roster', async
   const guild = directory.data.guilds.find((row: { guild_key: string }) => row.guild_key === 'guild_ai_vibe');
   assert.equal(guild.leader.display_name, '示範創作者');
   assert.equal(guild.leader.github_login, 'maker-gh');
-  assert.equal(directory.data.admin_only_repositories[0].repository_id, repository);
+  assert.equal(directory.data.open_repositories[0].repository_id, repository);
+  assert.equal(directory.data.admin_only_repositories.length, 0);
   assert.ok(directory.data.guild_choices.some((row: { guild_key: string }) => row.guild_key === 'guild_platform_engineering'));
   assert.equal((await request('/review-center/reviewer-candidates?q=maker-gh')).status, 404);
 

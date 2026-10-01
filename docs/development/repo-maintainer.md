@@ -4,7 +4,7 @@
 
 階段 1b 加上人工認領和管理頁「PR 審核」。認領是軟鎖，讓兩個人不要同時審同一筆拉取請求。預設不設到期；管理員仍可把 `claim_hours` 設成 1–168。認領不是審查證據。審查仍以 GitHub 上的 review 為準。
 
-階段 1c 把「誰可以審」從審查者名單改成儲存庫歸屬。一個儲存庫屬於一個公會，類型是模組、技能書或未分類。沒有公會的儲存庫預設只限管理員。管理員可以把它標成開放公會長認領；之後任何現任公會長都能審，第一筆完成的公會長審查會把儲存庫歸到那位公會長的公會。背景只做兩件事：鏡像 GitHub 事實，以及既有的、預設關閉的請求審查者鏡像。沒有自動處理，也沒有 AI。
+階段 1c 把「誰可以審」從審查者名單改成儲存庫歸屬。一個儲存庫屬於一個公會，類型是模組、技能書或未分類。新鏡像的儲存庫沒有公會，並開放公會長認領；目錄裡的 `official_guild_keys` 不會自動變成歸屬。管理員仍可把單一儲存庫改成只限管理員。開放時，任何現任公會長都能審，第一筆完成的公會長審查會把儲存庫歸到那位公會長的公會。背景只做兩件事：鏡像 GitHub 事實，以及既有的、預設關閉的請求審查者鏡像。沒有自動處理，也沒有 AI。
 
 這一階段不做這些事：
 
@@ -19,7 +19,7 @@
 
 | 元件 | 位置 | 做什麼 |
 | --- | --- | --- |
-| 資料表 | `migrations/061_repo_maintainer.sql`、`migrations/062_maintainer_review_claims.sql` | 儲存庫、歸屬變更、單列排程、webhook 投遞紀錄、工作、拉取請求鏡像、檔案、檢查、審查、認領、`maintainer_eligible_reviewers` |
+| 資料表 | `migrations/061_repo_maintainer.sql`、`migrations/062_maintainer_review_claims.sql`、`migrations/065_maintainer_review_scope.sql` | 儲存庫、歸屬變更、單列排程、webhook 投遞紀錄、工作、拉取請求鏡像、檔案、檢查、審查、認領、`maintainer_eligible_reviewers`。065 把新儲存庫預設改成開放認領 |
 | 政策 | `modules/repo-maintainer/policy.ts` | 注意事項、遷移編號、佇列狀態、認領覆寫。沒有 I/O。版本 `2026-10-01.1` |
 | 推導 | `modules/repo-maintainer/derive.ts` | `rederivePull`：用已存的鏡像、子表、資格視圖裡的 GitHub id、`migration_reasons` 與進行中的認領重算一筆。不重新推導遷移原因 |
 | Webhook | `POST /api/v1/maintainer/github/webhook` | 驗簽、正規化、寫一筆投遞、必要時排入 `reconcile_pull`。不呼叫 GitHub。只有這個精確的 POST 在會員驗證之前；同一路徑的 GET 回 401 `login_required` |
@@ -114,7 +114,7 @@ npx wrangler tail --config <maintainer-overlay.jsonc> --env staging-next --forma
 
 ## 歸屬與誰可以審查
 
-每個鏡像下來的儲存庫有 `guild_key`（沒有就是沒有公會）、`scope_kind`（`module` 模組、`skill_book` 技能書，或空的未分類）和 `open_to_guilds`。已指定公會時不能同時開放所有公會長認領。
+每個鏡像下來的儲存庫有 `guild_key`（沒有就是沒有公會）、`scope_kind`（`module` 模組、`skill_book` 技能書，或空的未分類）和 `open_to_guilds`。新列的預設是沒有公會、`open_to_guilds` true。安裝同步不寫這兩欄，也不從技能書目錄的 `official_guild_keys` 指派公會。已指定公會時不能同時開放所有公會長認領。遷移會把既有、沒有公會、尚未開放、而且沒有任何歸屬變更的列改成開放，並把 `aggregate_version` 加一。已經有歸屬變更，或已經屬於公會的列，維持原狀。
 
 `maintainer_eligible_reviewers` 是唯一的資格來源，TypeScript 不再寫第二套規則：
 

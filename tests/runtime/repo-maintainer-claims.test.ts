@@ -227,7 +227,7 @@ test('claim, assign, release, pause and resume enforce identity, version and the
   const otherUser = await member('other-reviewer@example.invalid', '另一位');
   await link(otherUser, '77002', 'other-reviewer');
   assert.equal((await request(`/review-center/pulls/${high}/assign`, { user_id: otherUser, acting_as: 'guild_leader', guild_key: 'guild_ai_vibe', reason: '他還不是公會長。' }, 1)).data.code, 'maintainer_reviewer_not_eligible');
-  await pool.query(`UPDATE maintainer_repositories SET guild_key='guild_ai_vibe' WHERE repository_id=$1`, [repository]);
+  await pool.query(`UPDATE maintainer_repositories SET guild_key='guild_ai_vibe', open_to_guilds=false WHERE repository_id=$1`, [repository]);
   await lead(otherUser, 'guild_ai_vibe');
   const assigned = await request(`/review-center/pulls/${high}/assign`, { user_id: otherUser, acting_as: 'guild_leader', guild_key: 'guild_ai_vibe', reason: '請這位公會長看這次變更。' }, 1);
   assert.equal(assigned.status, 200, JSON.stringify(assigned.data));

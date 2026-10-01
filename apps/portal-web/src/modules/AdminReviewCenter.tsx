@@ -265,6 +265,7 @@ function SettingsBlock({ repositories, directory, guilds, busy, onMutate, onSave
   return <details className="review-settings">
     <summary>儲存庫設定</summary>
     <div className="stack">
+      <p className="field-hint">新鏡像的儲存庫沒有公會，並開放公會長認領。只限管理員是管理員之後才改的。</p>
       {repositories.map(repo => <article className="card stack" key={`${repo.repository_id}-${repo.aggregate_version}`}>
         <h3>{repo.full_name}</h3>
         <p className="muted">目前模式 {modeText(repo.mode)} · 歸屬 {repo.guild_key ? (guilds.find(guild => guild.guild_key === repo.guild_key)?.name ?? repo.guild_key) : repo.open_to_guilds ? '開放認領' : '只限管理員'} · {scopeText(repo.scope_kind)}</p>
@@ -361,6 +362,7 @@ function OwnershipForm({ repo, guilds, busy, hint, onMutate, onSaved }: {
   }
   return <form className="stack" onSubmit={event => void save(event)}>
     <h4>歸屬</h4>
+    <p className="field-hint">新鏡像的儲存庫沒有公會，並開放公會長認領。只限管理員仍可事後設定。</p>
     {hint && <p className="field-hint">{hint}</p>}
     {error && <p className="banner banner-error" role="alert">{error}</p>}
     <label className="field">歸屬<select aria-label="歸屬" value={choice} onChange={event => setChoice(event.target.value)}><option value="admin">只限管理員</option><option value="open">開放公會長認領</option>{guilds.map(guild => <option key={guild.guild_key} value={guild.guild_key}>{guild.name}</option>)}</select></label>
