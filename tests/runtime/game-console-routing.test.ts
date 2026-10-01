@@ -12,6 +12,7 @@ const NOTIFICATION_CHANNELS: Record<NotificationKind, 'system'> = {
   guild_application_approved: 'system', guild_application_rejected: 'system',
   guild_expert_appointed: 'system', guild_expert_revoked: 'system',
   guild_master_appointed: 'system', guild_master_revoked: 'system',
+  guild_member_promoted: 'system', guild_member_demoted: 'system',
   event_submitted: 'system', event_review_needed: 'system', event_approved: 'system', event_rejected: 'system',
 };
 

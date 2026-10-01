@@ -228,10 +228,12 @@ test('failed book grants roll back automatic membership, officer assignment and 
 
 test('concurrent guild leave and a new explicit appointment yield a serial order without a nonmember officer',async()=>{
  await join();const session=await login(),body={user_id:DEMO_USERS[0].user_id,reason:'已確認成員參與。'};
+ // The joined row is an intern. Appointment promotes it, so it bumps the membership version.
+ // A leave that still quotes version 1 is rejected; a leave that commits first is undone when the appointment reactivates the member.
  const [appointment,left]=await Promise.all([request(`/guilds/${guild}/master`,body),member(`/guilds/${guild}/leave`,session.cookie,{},session.csrf,1)]);
- assert.equal(appointment.status,200,JSON.stringify(appointment));assert.equal(left.status,200,JSON.stringify(left));
- const membership=(await pool.query('SELECT state FROM positioning_profession_memberships WHERE user_id=$1 AND guild_key=$2',[body.user_id,guild])).rows[0];const officers=(await pool.query('SELECT user_id FROM positioning_guild_officers WHERE guild_key=$1',[guild])).rows;
- if(membership.state==='active')assert.deepEqual(officers.map(row=>row.user_id),[body.user_id]);else{assert.equal(membership.state,'left');assert.deepEqual(officers,[]);}
+ assert.equal(appointment.status,200,JSON.stringify(appointment));assert.ok(left.status===200||left.status===412,JSON.stringify(left));
+ const membership=(await pool.query('SELECT state,member_tier FROM positioning_profession_memberships WHERE user_id=$1 AND guild_key=$2',[body.user_id,guild])).rows[0];const officers=(await pool.query('SELECT user_id FROM positioning_guild_officers WHERE guild_key=$1',[guild])).rows;
+ assert.equal(membership.state,'active');assert.equal(membership.member_tier,'full');assert.deepEqual(officers.map(row=>row.user_id),[body.user_id]);
  assert.equal((await pool.query(`SELECT count(*) FROM positioning_guild_officers o LEFT JOIN positioning_profession_memberships m ON m.community_id=o.community_id AND m.guild_key=o.guild_key AND m.user_id=o.user_id AND m.state='active' WHERE m.membership_id IS NULL`)).rows[0].count,'0');
 });
 

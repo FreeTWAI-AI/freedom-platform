@@ -47,7 +47,7 @@ export async function positioningView(pool:Pool,actor:Actor) {
 }
 export async function listGuilds(pool:Pool,actor:Actor) {
   return (await pool.query(`SELECT g.*,COALESCE(t.track_count,0)::int AS track_count,
-    CASE WHEN m.membership_id IS NULL THEN NULL ELSE jsonb_build_object('membership_id',m.membership_id,'state',m.state,'rank',m.rank,'aggregate_version',m.aggregate_version) END AS membership
+    CASE WHEN m.membership_id IS NULL THEN NULL ELSE jsonb_build_object('membership_id',m.membership_id,'state',m.state,'rank',m.rank,'member_tier',m.member_tier,'aggregate_version',m.aggregate_version) END AS membership
     FROM positioning_guild_catalog g LEFT JOIN (SELECT guild_key,count(*) AS track_count FROM positioning_track_catalog GROUP BY guild_key)t USING(guild_key)
     LEFT JOIN positioning_profession_memberships m ON m.guild_key=g.guild_key AND m.community_id=$1 AND m.user_id=$2 ORDER BY g.guild_key`,[actor.community_id,actor.user_id])).rows;
 }
@@ -65,9 +65,9 @@ export async function changeGuildMembership(pool:Pool,input:Command,guildKey:str
     const state=action==='join'?'active':'left';
     if(membership?.state===state)return membership;
     if(action==='leave')await removeSecondaryGuildOnLeave(q,input.actor,guildKey);
-    if(membership)membership=(await q.query(`UPDATE positioning_profession_memberships SET state=$1,aggregate_version=aggregate_version+1,left_at=CASE WHEN $1='left' THEN now() ELSE NULL END,
+    if(membership)membership=(await q.query(`UPDATE positioning_profession_memberships SET state=$1,member_tier=CASE WHEN $1='active' THEN 'intern' ELSE member_tier END,aggregate_version=aggregate_version+1,left_at=CASE WHEN $1='left' THEN now() ELSE NULL END,
       joined_at=CASE WHEN $1='active' THEN now() ELSE joined_at END WHERE membership_id=$2 RETURNING *`,[state,membership.membership_id])).rows[0];
-    else membership=(await q.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,$4,'active') RETURNING *`,[randomUUID(),input.actor.community_id,input.actor.user_id,guildKey])).rows[0];
+    else membership=(await q.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier) VALUES($1,$2,$3,$4,'active','intern') RETURNING *`,[randomUUID(),input.actor.community_id,input.actor.user_id,guildKey])).rows[0];
     if(action==='join')await grantGuildBooks(q,input.actor,guildKey);
     await journal(q,input.actor,'profession_membership',membership.membership_id,membership.aggregate_version,`${action}_guild`,{guild_key:guildKey,state,rank:'runner'},'freedom.organization.profession_membership.updated.v1');
     return membership;
