@@ -565,16 +565,15 @@ test('a public detail with one link omits the empty photo section', async () => 
   assert.equal(page.text.includes('還沒有人補上內容'), false);
 });
 
-test('member-only descriptions stay out of public html, meta tags and other members’ detail', async () => {
+test('descriptions are public for every visibility while meeting links stay hidden', async () => {
   const marker = (visibility: string) => `<script>hl-${visibility}-secret</script>`;
-  const generic = '自由工坊社群活動回顧：海報、照片與錄影連結。';
-  const line = '這是一場會員活動，活動說明只提供給會員。';
+  const hiddenNotice = '這是一場會員活動，活動說明只提供給會員。';
   const visibilities = ['open', 'referral', 'workshop', 'guild'] as const;
   const ids: Record<string, string> = {};
   for (const visibility of visibilities) {
     ids[visibility] = await insertEvent({
       ...past(2), title: `說明權限 ${visibility}`, description: `開頭 ${marker(visibility)} 結尾`,
-      visibility, mode: 'online', kind: visibility === 'guild' ? 'guild_skill_exchange' : 'other',
+      visibility, mode: 'online', online: MEETING, kind: visibility === 'guild' ? 'guild_skill_exchange' : 'other',
       guild: visibility === 'guild' ? 'guild_event_space' : null,
     });
   }
@@ -587,41 +586,44 @@ test('member-only descriptions stay out of public html, meta tags and other memb
   const leftEmail = (await pool.query('SELECT email FROM users WHERE user_id=$1', [leftId])).rows[0].email as string;
   const left = await login(leftEmail);
   const viewers = [
-    ['guild member', member, true],
-    ['organizer', organizer, true],
-    ['non-member', outsider, false],
-    ['former member', left, false],
+    ['guild member', member],
+    ['organizer', organizer],
+    ['non-member', outsider],
+    ['former member', left],
   ] as const;
   for (const visibility of visibilities) {
     const token = `hl-${visibility}-secret`;
     const page = await call('/highlights/' + ids[visibility]);
-    const onPublicPage = visibility === 'open' || visibility === 'referral';
     assert.equal(page.status, 200, page.text);
     assert.equal(page.text.includes('<script'), false, visibility);
-    assert.equal(page.text.includes(token), onPublicPage, `public html ${visibility}`);
-    assert.equal(page.text.includes(line), !onPublicPage, `notice ${visibility}`);
+    assert.equal(page.text.includes(token), true, `public html ${visibility}`);
+    assert.equal(page.text.includes(hiddenNotice), false, visibility);
+    assert.equal(page.text.includes(MEETING_TOKEN), false, `public meeting ${visibility}`);
+    assert.equal(page.text.includes(LOCATION), false, `public location ${visibility}`);
     for (const name of ['name="description"', 'property="og:description"', 'name="twitter:description"']) {
       const meta = new RegExp(`<meta ${name} content="([^"]*)"`).exec(page.text);
       assert.ok(meta, `${visibility} ${name}`);
-      assert.equal(meta[1].includes(token), onPublicPage, `${visibility} ${name}`);
-      if (!onPublicPage) assert.equal(meta[1], generic, `${visibility} ${name}`);
+      assert.equal(meta[1].includes(token), true, `${visibility} ${name}`);
+      assert.equal(meta[1].includes(MEETING_TOKEN), false, `${visibility} ${name}`);
     }
-    for (const [label, session, seesGuild] of viewers) {
-      const sees = visibility !== 'guild' || seesGuild;
+    for (const [label, session] of viewers) {
       const detail = await call('/api/v1/event-highlights/' + ids[visibility], session);
       assert.equal(detail.status, 200, `${label} ${visibility} ${detail.text}`);
-      assert.equal(detail.text.includes(token), sees, `${label} ${visibility}`);
-      if (!sees) assert.equal(detail.data.description, null, `${label} ${visibility}`);
+      assert.equal(detail.data.description.includes(token), true, `${label} ${visibility}`);
+      assertPrivate(detail.data, detail.text);
     }
     const anon = await call('/api/v1/event-highlights/' + ids[visibility]);
-    assert.equal(anon.text.includes(token), false, `signed-out api ${visibility}`);
     assert.notEqual(anon.status, 200, visibility);
+    assert.equal(anon.text.includes(token), false, `signed-out api ${visibility}`);
+    assert.equal(anon.text.includes(MEETING_TOKEN), false, `signed-out meeting ${visibility}`);
   }
   const listed = await call('/api/v1/event-highlights', outsider);
   assert.equal(JSON.stringify(listed.data).includes('hl-'), false);
   assert.equal(listed.data.items.every((item: {description?: unknown}) => !('description' in item)), true);
+  assert.equal(JSON.stringify(listed.data).includes(MEETING_TOKEN), false);
   const htmlList = await call('/highlights');
   for (const visibility of visibilities) assert.equal(htmlList.text.includes(`hl-${visibility}-secret`), false, visibility);
+  assert.equal(htmlList.text.includes(MEETING_TOKEN), false);
 });
 
 test('one public detail render does not select highlight or banner image bytes', async () => {
