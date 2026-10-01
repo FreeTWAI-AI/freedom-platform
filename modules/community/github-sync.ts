@@ -467,30 +467,41 @@ async function syncDueMetrics(pool: Pool, run: Run) {
   if (!due.rows.length) return;
   const names = new Map(targets.map(target => [target.key, target.repository]));
   const provider = new GitHubSocialProvider(metricsFetcher(run));
-  let token = run.token;
-  let rejected = false;
+  const loggedOwners = new Set<string>();
   for (const row of due.rows) {
     if (run.requests >= run.budget) return;
     await refreshBackoff(pool, run);
-    const credential: Credential = token && !rejected ? 'token' : 'anonymous';
-    if (run.backoffUntil[credential] > run.now()) return;
     const repository = names.get(row.repository_key);
     if (!repository) continue;
+    if (backedOff(run, repository)) continue;
+    // An owner already rejected by events, repositories or an earlier book skips the token.
+    const sendToken = credentialFor(run, repository) === 'token';
+    let usedToken = sendToken;
     try {
       let snapshot;
       try {
-        snapshot = await provider.metrics(repository, token && !rejected ? token : undefined);
+        snapshot = await provider.metrics(repository, sendToken ? run.token : undefined);
       } catch (error) {
-        if (token && !rejected && error instanceof GitHubProviderError && error.code === 'github_reconnect_required') {
-          if (!rejected) console.error('github_metrics_token_rejected');
-          rejected = true;
-          token = undefined;
+        const permission = error instanceof GitHubProviderError && error.code === 'github_permission_required';
+        const reconnect = error instanceof GitHubProviderError && error.code === 'github_reconnect_required';
+        // 403 rejects this owner only. 401 drops the token for every later read in the run.
+        if (!(sendToken && (permission || reconnect))) throw error;
+        const owner = ownerOf(repository);
+        if (reconnect) {
+          console.error('github_metrics_token_rejected');
           run.token = undefined;
-          if (run.requests >= run.budget) return;
-          await refreshBackoff(pool, run);
-          if (run.backoffUntil.anonymous > run.now()) return;
-          snapshot = await provider.metrics(repository);
-        } else throw error;
+        } else {
+          run.rejectedOwners.add(owner);
+          if (!loggedOwners.has(owner)) {
+            loggedOwners.add(owner);
+            console.error('github_metrics_token_rejected', owner);
+          }
+        }
+        if (run.requests >= run.budget) return;
+        await refreshBackoff(pool, run);
+        if (run.backoffUntil.anonymous > run.now()) continue;
+        usedToken = false;
+        snapshot = await provider.metrics(repository);
       }
       await saveRepositoryMetrics(pool, row.repository_key, snapshot);
     } catch (error) {
@@ -501,7 +512,7 @@ async function syncDueMetrics(pool: Pool, run: Run) {
       if (code === 'github_rate_limited') {
         const client = await pool.connect();
         try {
-          await storeBackoff(client, token && !rejected ? 'token' : 'anonymous', new Date(run.now() + DEFAULT_RATE_MS), run);
+          await storeBackoff(client, usedToken ? 'token' : 'anonymous', new Date(run.now() + DEFAULT_RATE_MS), run);
         } finally { client.release(); }
         return;
       }

@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {Pool} from 'pg';
 import {createPool, LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
-import {syncGitHubRepositories} from '../../modules/community/github-sync.js';
+import {GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories} from '../../modules/community/github-sync.js';
 import {cleanTitle, authorOf, postgresText} from '../../modules/community/github-history.js';
 import {publicEvent} from '../../modules/development/page-github.js';
 import {catalogMetricTargets} from '../../modules/github-social/service.js';
@@ -69,6 +69,14 @@ function distinctOwners() {
 }
 function metricBody(stars = 9) {
   return {stargazers_count: stars, forks_count: 1, open_issues_count: 2, subscribers_count: 3, pushed_at: '2026-09-23T00:00:00Z', language: 'TypeScript', archived: false, private: false};
+}
+function metricBooks() {
+  const targets = catalogMetricTargets();
+  const org = targets.find(target => target.key.startsWith('freetwai-ai/'));
+  const other = targets.find(target => !target.key.startsWith('freetwai-ai/'));
+  assert.ok(org);
+  assert.ok(other);
+  return {org, other};
 }
 async function parkSideFeeds() {
   await pool.query(`INSERT INTO github_feed_state(feed_name, next_sync_at, checked_at, last_error)
@@ -1042,6 +1050,174 @@ test('book metrics refresh at most five due repositories and share the request b
     assert.equal(fallback.stop_reason, 'completed');
     assert.equal((await pool.query('SELECT snapshot->>\'stargazers_count\' AS stars, last_error FROM github_repository_metrics WHERE repository_key=$1', [targets[0].key])).rows[0].stars, '43');
     assert.deepEqual(errors, [['github_metrics_token_rejected']]);
+    assert.equal(JSON.stringify(errors).includes(SECRET), false);
+  } finally {
+    console.error = original;
+    await quietSides();
+  }
+});
+
+test('a 403 metrics token falls back anonymously for that owner and stays in use for another', async () => {
+  await quietSides();
+  const errors: unknown[][] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args); };
+  const {org, other} = metricBooks();
+  try {
+    await dueMetrics([org], T0 - 60_000);
+    await dueMetrics([other], T0);
+    const calls: {url: string; auth: string | null}[] = [];
+    const summary = await syncGitHubRepositories(pool, {
+      token: SECRET,
+      now: () => T0,
+      fetcher: async (input, init) => {
+        const url = String(input);
+        const auth = header(init, 'authorization');
+        calls.push({url, auth});
+        if (url === `https://api.github.com/repos/${org.repository}`) {
+          if (auth) return json({message: 'Resource not accessible by integration'}, 403);
+          return json(metricBody(11));
+        }
+        assert.equal(url, `https://api.github.com/repos/${other.repository}`);
+        assert.equal(auth, `Bearer ${SECRET}`);
+        return json(metricBody(22));
+      },
+    });
+    assert.equal(summary.requests, 3);
+    assert.equal(summary.stop_reason, 'completed');
+    assert.deepEqual(calls, [
+      {url: `https://api.github.com/repos/${org.repository}`, auth: `Bearer ${SECRET}`},
+      {url: `https://api.github.com/repos/${org.repository}`, auth: null},
+      {url: `https://api.github.com/repos/${other.repository}`, auth: `Bearer ${SECRET}`},
+    ]);
+    const orgRow = (await pool.query<{stars: string | null; last_error: string | null}>('SELECT snapshot->>\'stargazers_count\' AS stars, last_error FROM github_repository_metrics WHERE repository_key=$1', [org.key])).rows[0];
+    assert.equal(orgRow.stars, '11');
+    assert.equal(orgRow.last_error, null);
+    const otherRow = (await pool.query<{stars: string | null; last_error: string | null}>('SELECT snapshot->>\'stargazers_count\' AS stars, last_error FROM github_repository_metrics WHERE repository_key=$1', [other.key])).rows[0];
+    assert.equal(otherRow.stars, '22');
+    assert.equal(otherRow.last_error, null);
+    assert.deepEqual(errors, [['github_metrics_token_rejected', 'freetwai-ai']]);
+    assert.equal(JSON.stringify(errors).includes(SECRET), false);
+  } finally {
+    console.error = original;
+    await quietSides();
+  }
+});
+
+test('an owner rejected earlier in the run is read anonymously on the first metrics try', async () => {
+  await quietSides();
+  const warnings: unknown[][] = [];
+  const errors: unknown[][] = [];
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  console.warn = (...args: unknown[]) => { warnings.push(args); };
+  console.error = (...args: unknown[]) => { errors.push(args); };
+  const {org} = metricBooks();
+  try {
+    await dueFeed(null);
+    await dueMetrics([org]);
+    const eventAuth: Array<string | null> = [];
+    const metricAuth: Array<string | null> = [];
+    const summary = await syncGitHubRepositories(pool, {
+      token: SECRET,
+      now: () => T0,
+      fetcher: async (input, init) => {
+        const url = String(input);
+        const auth = header(init, 'authorization');
+        if (url.includes('/events')) {
+          eventAuth.push(auth);
+          return auth ? new Response('blocked by organization policy', {status: 403}) : json([]);
+        }
+        assert.equal(url, `https://api.github.com/repos/${org.repository}`);
+        metricAuth.push(auth);
+        return json(metricBody(8));
+      },
+    });
+    assert.equal(summary.requests, 3);
+    assert.equal(summary.stop_reason, 'completed');
+    assert.deepEqual(eventAuth, [`Bearer ${SECRET}`, null]);
+    assert.deepEqual(metricAuth, [null]);
+    const row = (await pool.query<{stars: string | null; last_error: string | null}>('SELECT snapshot->>\'stargazers_count\' AS stars, last_error FROM github_repository_metrics WHERE repository_key=$1', [org.key])).rows[0];
+    assert.equal(row.stars, '8');
+    assert.equal(row.last_error, null);
+    assert.ok(warnings.some(args => args[0] === 'github_sync_token_rejected' && args[1] === 'freetwai-ai'));
+    assert.equal(errors.some(args => args[0] === 'github_metrics_token_rejected'), false);
+    assert.equal(JSON.stringify(warnings).includes(SECRET), false);
+    assert.equal(JSON.stringify(errors).includes(SECRET), false);
+  } finally {
+    console.warn = originalWarn;
+    console.error = originalError;
+    await quietSides();
+  }
+});
+
+test('an anonymous metrics 403 stores github_permission_required and does not retry', async () => {
+  await quietSides();
+  const errors: unknown[][] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args); };
+  const {org} = metricBooks();
+  try {
+    await dueMetrics([org]);
+    let calls = 0;
+    const summary = await syncGitHubRepositories(pool, {
+      token: SECRET,
+      now: () => T0,
+      fetcher: async (_input, init) => {
+        calls += 1;
+        assert.ok(calls <= 2, 'anonymous 403 must not be retried');
+        assert.equal(header(init, 'authorization'), calls === 1 ? `Bearer ${SECRET}` : null);
+        return json({message: 'Resource not accessible by integration'}, 403);
+      },
+    });
+    assert.equal(calls, 2);
+    assert.equal(summary.requests, 2);
+    assert.equal(summary.stop_reason, 'completed');
+    const row = (await pool.query<{snapshot: unknown; last_error: string | null; retry_after: Date}>('SELECT snapshot, last_error, retry_after FROM github_repository_metrics WHERE repository_key=$1', [org.key])).rows[0];
+    assert.equal(row.snapshot, null);
+    assert.equal(row.last_error, 'github_permission_required');
+    assert.ok(new Date(row.retry_after).getTime() > T0);
+    assert.deepEqual(errors, [['github_metrics_token_rejected', 'freetwai-ai']]);
+    assert.equal(JSON.stringify(errors).includes(SECRET), false);
+  } finally {
+    console.error = original;
+    await quietSides();
+  }
+});
+
+test('the anonymous metrics retry counts toward the request budget', async () => {
+  await quietSides();
+  assert.equal(GITHUB_SYNC_REQUEST_BUDGET, 40);
+  const errors: unknown[][] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args); };
+  const {org, other} = metricBooks();
+  try {
+    await dueMetrics([org], T0 - 60_000);
+    await dueMetrics([other], T0);
+    const urls: string[] = [];
+    const summary = await syncGitHubRepositories(pool, {
+      token: SECRET,
+      budget: 2,
+      now: () => T0,
+      fetcher: async (input, init) => {
+        const url = String(input);
+        urls.push(url);
+        if (url !== `https://api.github.com/repos/${org.repository}`) throw new Error(`budget should stop before ${url}`);
+        return header(init, 'authorization') ? json({message: 'Resource not accessible by integration'}, 403) : json(metricBody(5));
+      },
+    });
+    assert.equal(summary.requests, 2);
+    assert.equal(summary.stop_reason, 'completed');
+    assert.deepEqual(urls, [
+      `https://api.github.com/repos/${org.repository}`,
+      `https://api.github.com/repos/${org.repository}`,
+    ]);
+    const saved = (await pool.query<{stars: string | null; last_error: string | null}>('SELECT snapshot->>\'stargazers_count\' AS stars, last_error FROM github_repository_metrics WHERE repository_key=$1', [org.key])).rows[0];
+    assert.equal(saved.stars, '5');
+    assert.equal(saved.last_error, null);
+    assert.equal((await pool.query('SELECT snapshot FROM github_repository_metrics WHERE repository_key=$1', [other.key])).rows[0].snapshot, null);
+    assert.deepEqual(errors, [['github_metrics_token_rejected', 'freetwai-ai']]);
     assert.equal(JSON.stringify(errors).includes(SECRET), false);
   } finally {
     console.error = original;
