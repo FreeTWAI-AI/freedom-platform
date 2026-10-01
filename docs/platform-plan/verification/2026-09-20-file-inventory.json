@@ -3454,8 +3454,8 @@
     },
     {
       "path": "modules/community/link-preview.ts",
-      "bytes": 6590,
-      "sha256": "4fa9e119a06fcdfa7e4cb636a6c087dc8decd69eee9eec18ca6fa88ae0e86f81"
+      "bytes": 6684,
+      "sha256": "dd225377f6a145a9a106d02196008df410ca425128464dd59d7d45ee3b6df7a9"
     },
     {
       "path": "modules/community/member-service-pages.ts",
@@ -4704,8 +4704,8 @@
     },
     {
       "path": "tests/runtime/event-highlights.test.ts",
-      "bytes": 46628,
-      "sha256": "f794310d0815972d7f14d06093ac77e1ec80f46c6d00ee0cc93c180be2bf5873"
+      "bytes": 46696,
+      "sha256": "73c720f86aabd53b88969349350bb70bc69abef502d06fa51cf872b5a7f74c62"
     },
     {
       "path": "tests/runtime/events-past.test.ts",
@@ -4824,8 +4824,8 @@
     },
     {
       "path": "tests/runtime/link-preview.test.ts",
-      "bytes": 11803,
-      "sha256": "0372325060560d6b1d992ed8638acfe3bfac6dfa8af32fe88335020db327648f"
+      "bytes": 12411,
+      "sha256": "d98d7493736982aaa46eddba8d023400271fbdd439a0a2c81a93cc022ad0144a"
     },
     {
       "path": "tests/runtime/maintainer-worker.test.ts",
