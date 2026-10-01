@@ -67,16 +67,24 @@ Migration `058_member_connections.sql` 新增 `users.onboarding_entry_mode`、`m
 
 完整測試開始於上游 `3f3b16b`。上游 #67 合併後，本分支已 rebase 到 `a982a31`，無衝突；再次通過 TypeScript、build、平台三環境 dry-run、`member-connections` 與 `github-sync` runtime 43/43，以及重新打包後的真實 workerd 排程／native fetch 案例 1/1。沒有把上游更新前的完整 runtime 宣稱為新 HEAD 的完整重跑。
 
+後續完整瀏覽器回歸初跑 288 項通過、4 項失敗：三個入口審查案例仍期待舊文案，一個名片錯誤案例把 `/members/recommendations` 誤當成 UUID 名片讀取而攔截。同步新文案並將錯誤注入限定為 UUID 名片後，四項重跑全部通過；292 個案例均已確認。不是整套零失敗的一次重跑。
+
+Python 3.13 的靜態契約／執行工具檢查為 659 passed、4 skipped；原測試在 schema 路徑數少於三條時跳過四項。Linux 乾淨 Git 匯出執行 inventory 產生與驗證：909 個檔案、462 個本機相對連結、0 failures。Windows 工作目錄的舊未提交建議稿未加入提交與 inventory。
+
 主要入口：
 
 ```sh
 npm run typecheck
 npm run build
 npm test
+npx playwright test
 npx playwright test tests/e2e/member-connections.spec.ts tests/e2e/member-experience.spec.ts tests/e2e/member-directory.spec.ts tests/e2e/onboarding-members.spec.ts tests/e2e/onboarding-recovery.spec.ts tests/e2e/guild-organization.spec.ts tests/e2e/member-settings.spec.ts tests/e2e/navigation-audit.spec.ts
+npx playwright test tests/e2e/audit-shell.spec.ts tests/e2e/audit-identity.spec.ts --grep 'sign-in keeps|a failed member card load'
 npm run worker:dry-run
 npm run worker:dry-run:admin-sync
 npm run test:worker
+npm run test:contracts
+npm run verify:inventory
 ```
 
 Runtime 覆蓋快速加入與併發、私人草稿保留、分享撤銷／輪替／頭像、好友方向與資料權限、推薦排除、每日分析 lease、模型不合法輸出與失敗回退。瀏覽器覆蓋 320px 手機、匿名名片、分享帶來的註冊與好友接受、主題篩選及三種既有外觀；管理分析畫面使用明確合成 fixture，模型 adapter 使用合成回應。實際 provider 推論與正式部署仍需部署者配置後驗收。

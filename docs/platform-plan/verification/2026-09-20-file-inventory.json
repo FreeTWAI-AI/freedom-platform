@@ -1669,8 +1669,8 @@
     },
     {
       "path": "docs/development/member-connections.md",
-      "bytes": 9500,
-      "sha256": "90341f34a88072ac1c1afc0ac39fb7451609c2d7fc25c4bc396e71672333f415"
+      "bytes": 10387,
+      "sha256": "4d5d08649c06f270c3c38d74beea44b1517c6fa808d6358ef02760bde4ba1440"
     },
     {
       "path": "docs/development/member-onboarding-release.md",
@@ -3909,8 +3909,8 @@
     },
     {
       "path": "tests/e2e/audit-identity.spec.ts",
-      "bytes": 15160,
-      "sha256": "b5f1f310fcf20edc3289be15c8427edec4ef84ff3b108aca1871106c1a1d7140"
+      "bytes": 15252,
+      "sha256": "034d0ebfff6ae39748913e3d33b0a9b2629300e3d1b77b6a31ba65e5d458eac3"
     },
     {
       "path": "tests/e2e/audit-operations.spec.ts",
@@ -3919,8 +3919,8 @@
     },
     {
       "path": "tests/e2e/audit-shell.spec.ts",
-      "bytes": 16754,
-      "sha256": "4f9f143bf2bc1181e6b72e262086c45f0ac5e6bb2fabd6e8f1e1060068db3053"
+      "bytes": 16748,
+      "sha256": "67366a34c19609cd756473d8bec1ef538bc175bb5cae1510e0b90874a01312ed"
     },
     {
       "path": "tests/e2e/audit-skills.spec.ts",

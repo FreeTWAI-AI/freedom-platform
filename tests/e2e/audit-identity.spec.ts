@@ -196,7 +196,8 @@ test('a failed member card load keeps quick links, claims nothing and recovers i
   await page.setViewportSize({ width: 390, height: 844 });
   await register(page, '名片重試'); await onboard(page);
   await expect(page.getByRole('heading', { level: 1, name: '會員首頁', exact: true })).toBeVisible();
-  const card = (url: URL) => /^\/api\/v1\/members\/[^/]+$/.test(url.pathname);
+  // Fail UUID card reads only; the independent recommendation endpoint stays live.
+  const card = (url: URL) => /^\/api\/v1\/members\/[0-9a-f-]{36}$/.test(url.pathname);
   let mode: 'fail' | 'hold' | 'pass' = 'fail', release!: () => void, requests = 0;
   const held = new Promise<void>(resolve => { release = resolve; });
   await page.route(card, async route => {
