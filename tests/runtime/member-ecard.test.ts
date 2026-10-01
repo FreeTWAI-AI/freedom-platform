@@ -129,6 +129,17 @@ test('profile link mapping follows the LINE rules and never invents a URL on the
   assert.equal(line('a'.repeat(21)).url,null);
   const github=mapMemberCardProfileLinks({contacts:{github:{value:'octocat',audiences:['public']}}})[0];
   assert.equal(github.url,'https://github.com/octocat');assert.equal(github.handle,'octocat');assert.equal(github.label,'GitHub');
+  for(const login of ['a','a-b','A1'])assert.equal(mapMemberCardProfileLinks({contacts:{github:{value:login,audiences:['public']}}})[0].url,`https://github.com/${login}`);
+  for(const login of ['-bad','bad-','../evil','user/repo','has space','a'.repeat(40),'javascript:alert(1)','https://github.com/octocat']){
+    const row=mapMemberCardProfileLinks({contacts:{github:{value:login,audiences:['public']}}})[0];
+    assert.equal(row.url,null,login);assert.equal(row.handle,login);
+  }
+  const socialOf=(url:string,label='社群')=>mapMemberCardProfileLinks({socialLinks:[{link_id:'abcdef00-0000-4000-8000-000000000002',platform:'website',label,url,audiences:['public'],created_at:'2026-01-02T00:00:00Z'}]});
+  assert.equal(socialOf('http://example.com/plain').length,0);
+  assert.equal(socialOf('https://user:pass@example.com/secret').length,0);
+  assert.equal(socialOf('https://localhost/secret').length,0);
+  assert.equal(socialOf('javascript:alert(1)').length,0);
+  assert.equal(socialOf('https://example.com/ok')[0].url,'https://example.com/ok');
   const discord=mapMemberCardProfileLinks({contacts:{discord:{value:'discorduser',audiences:['public']}}})[0];
   assert.equal(discord.url,null);assert.equal(discord.handle,'discorduser');
   const email=mapMemberCardProfileLinks({contacts:{email:{value:'person@example.test',audiences:['public']}}})[0];
@@ -141,6 +152,40 @@ test('profile link mapping follows the LINE rules and never invents a URL on the
   const shown=mapMemberCardProfileLinks({contacts:{github:{value:'octocat',audiences:['public']}}});
   assert.deepEqual(presentProfileLinks(shown,true,[{url:'https://github.com/octocat'}]),[]);
   assert.equal(presentProfileLinks(shown,false,[]).length,0);assert.equal(presentProfileLinks(shown,true,[]).length,1);
+});
+
+test('a share write without If-Match is version_required once a card row exists',async()=>{
+  const owner=await member('缺版本名片');
+  const created=await request('/me/member-card-share',owner,{enabled:false,include_avatar:false,rotate:false,headline:'第一句'});
+  assert.equal(created.status,200,created.data.detail);
+  const missing=await request('/me/member-card-share',owner,{enabled:false,include_avatar:false,rotate:false,headline:'不該寫入'});
+  assert.equal(missing.status,428);assert.equal(missing.data.code,'version_required');
+  assert.equal((await request('/me/member-card-share',owner)).data.headline,'第一句');
+});
+
+test('legacy github values and non-https social urls are not linked on the public card',async()=>{
+  const owner=await member('舊資料名片');
+  const community=(await pool.query('SELECT community_id FROM users WHERE user_id=$1',[owner.id])).rows[0].community_id as string;
+  await pool.query('UPDATE member_accounts SET contacts=$2::jsonb WHERE user_id=$1',[owner.id,JSON.stringify({github:{value:'../not-a-login',audiences:['public']},discord:{value:'',audiences:[]},line:{value:'',audiences:[]},email:{audiences:[]}})]);
+  const plain=randomUUID(),gone=randomUUID(),safe=randomUUID();
+  await pool.query(`INSERT INTO member_social_links(link_id,community_id,user_id,platform,label,url,audiences) VALUES
+    ($1,$4,$5,'website','明文網站','http://example.com/plain',ARRAY['public']),
+    ($2,$4,$5,'website','已刪連結','https://example.com/gone',ARRAY['public']),
+    ($3,$4,$5,'website','安全網站','https://example.com/ok',ARRAY['public'])`,[plain,gone,safe,community,owner.id]);
+  await pool.query('UPDATE member_social_links SET deleted_at=now() WHERE link_id=$1',[gone]);
+  const saved=await request('/me/member-card-share',owner,{enabled:true,include_avatar:false,rotate:false,design:'calm'});
+  assert.equal(saved.status,200,JSON.stringify(saved.data));
+  const github=saved.data.profile_links.find((item:{source:string})=>item.source==='contact:github');
+  assert.equal(github.handle,'../not-a-login');assert.equal(github.url,null);
+  assert.equal(saved.data.profile_links.some((item:{label:string})=>item.label==='明文網站'),false);
+  assert.equal(saved.data.profile_links.some((item:{label:string})=>item.label==='已刪連結'),false);
+  assert.equal(saved.data.profile_links.find((item:{label:string})=>item.label==='安全網站').url,'https://example.com/ok');
+  const token=saved.data.share_path.split('/').at(-1);
+  const shared=await request('/public/member-cards/'+token);
+  assert.equal(shared.status,200);
+  assert.equal(shared.data.profile_links.find((item:{label:string})=>item.label==='GitHub').url,null);
+  assert.equal(shared.data.profile_links.some((item:{label:string})=>item.label==='明文網站'||item.label==='已刪連結'),false);
+  assert.equal(shared.data.profile_links.some((item:{url:string|null})=>item.url==='https://example.com/ok'),true);
 });
 
 test('public cards show platform-public profile links, hide the rest, and content saves keep the token',async()=>{

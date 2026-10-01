@@ -6,6 +6,7 @@ import {requireCondition} from '../../packages/shared/problem.js';
 import {capabilityCategories} from '../community/catalog.js';
 import type {Actor} from './service.js';
 import {memberCard,normalizedContacts} from './members.js';
+import {privateHost} from './social-links.js';
 
 const Token=z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 const designs=['calm','workshop','night','classic'] as const;
@@ -92,6 +93,12 @@ function lineProfileTarget(value:string){
   return {handle:raw||null,url:null};
 }
 function socialHandle(url:string){try{return new URL(url).hostname.replace(/^www\./,'').replace(/\.$/,'')||null;}catch{return null;}}
+const githubLogin=/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+function githubProfileTarget(value:string){return githubLogin.test(value)?{handle:value,url:`https://github.com/${value}`}:{handle:value,url:null};}
+function acceptedSocialUrl(value:string){
+  let parsed:URL|undefined;try{parsed=new URL(value.trim());}catch{return false;}
+  return parsed.protocol==='https:'&&!parsed.username&&!parsed.password&&!privateHost(parsed.hostname);
+}
 function storedPrefs(value:unknown):Record<string,boolean>{
   const parsed=typeof value==='string'?JSON.parse(value):value;
   if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))return {};
@@ -116,11 +123,11 @@ export function mapMemberCardProfileLinks(input:{contacts?:Partial<Record<'line'
     const value=field?.value?.trim()??'';
     if(!value||!field?.audiences?.includes('public'))return [];
     const source=`contact:${key}`,meta=contactMeta[key];
-    const target=key==='line'?lineProfileTarget(value):key==='github'?{handle:value,url:`https://github.com/${value}`}:key==='discord'?{handle:value,url:null}:{handle:value,url:`mailto:${value}`};
+    const target=key==='line'?lineProfileTarget(value):key==='github'?githubProfileTarget(value):key==='discord'?{handle:value,url:null}:{handle:value,url:`mailto:${value}`};
     const shown=Object.hasOwn(prefs,source)?Boolean(prefs[source]):source!=='contact:email';
     return [{source,platform:meta.platform,label:meta.label,handle:target.handle,url:target.url,shown}];
   });
-  const social=(input.socialLinks??[]).filter(link=>!link.deleted_at&&link.audiences.includes('public')&&link.url.trim()&&link.label.trim()).slice().sort((a,b)=>{
+  const social=(input.socialLinks??[]).filter(link=>!link.deleted_at&&link.audiences.includes('public')&&link.url.trim()&&link.label.trim()&&acceptedSocialUrl(link.url)).slice().sort((a,b)=>{
     const time=Date.parse(String(a.created_at??''))-Date.parse(String(b.created_at??''));
     if(time)return time;
     return a.link_id<b.link_id?-1:a.link_id>b.link_id?1:0;
@@ -160,7 +167,7 @@ function cardSummary(headline:string|null,guild:string|null,capabilities:string[
 }
 const profileColumns=`u.email,account.contacts,COALESCE((SELECT jsonb_agg(jsonb_build_object(
         'link_id',l.link_id,'platform',l.platform,'label',l.label,'url',l.url,'audiences',to_jsonb(l.audiences),'created_at',l.created_at,'deleted_at',l.deleted_at)
-      ORDER BY l.created_at,l.link_id) FROM member_social_links l WHERE l.user_id=u.user_id AND l.community_id=u.community_id),'[]'::jsonb) AS social_links`;
+      ORDER BY l.created_at,l.link_id) FROM member_social_links l WHERE l.user_id=u.user_id AND l.community_id=u.community_id AND l.deleted_at IS NULL),'[]'::jsonb) AS social_links`;
 function profileItemsFrom(row:any,prefs:Record<string,boolean>){
   return mapMemberCardProfileLinks({contacts:normalizedContacts(row?.contacts,row?.email??''),socialLinks:storedSocial(row?.social_links),prefs});
 }

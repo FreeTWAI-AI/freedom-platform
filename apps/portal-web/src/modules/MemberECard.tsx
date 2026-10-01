@@ -44,8 +44,15 @@ function CopyLink({platform,label,handle}:{platform:string;label:string;handle:s
     {manual&&<input className="ecard-copy-fallback" readOnly value={handle} aria-label={fallbackName(platform)}/>}
     <span className="ecard-copy-status" role="status" aria-live="polite">{copied}</span></>;
 }
+function cardLinkHref(url:string|null):string|null{
+  if(!url)return null;
+  let parsed:URL|undefined;try{parsed=new URL(url);}catch{return null;}
+  if(parsed.username||parsed.password)return null;
+  if(parsed.protocol!=='https:'&&parsed.protocol!=='mailto:')return null;
+  return parsed.href;
+}
 function CardAnchor({url,platform,label,handle}:{url:string;platform:string;label:string;handle:string|null}){
-  const mail=url.toLowerCase().startsWith('mailto:');
+  const mail=url.startsWith('mailto:');
   return <a className="ecard-link" href={url} {...(mail?{}:{target:'_blank',rel:'noopener noreferrer nofollow ugc'})}><LinkBody platform={platform} label={label} handle={handle}/></a>;
 }
 
@@ -66,6 +73,6 @@ export function MemberECard({design,nickname,headline,guildName,capabilities,ava
       </div>
     </div>
     {capabilities.length>0&&<ul className="ecard-capabilities">{capabilities.map((label,index)=><li key={`${index}-${label}`}>{label}</li>)}</ul>}
-    {rows.length>0&&<ul className="ecard-links">{rows.map(item=><li key={item.key}>{item.url?<CardAnchor url={item.url} platform={item.platform} label={item.label} handle={item.handle}/>:item.handle?<CopyLink platform={item.platform} label={item.label} handle={item.handle}/>:<span className="ecard-link"><LinkBody platform={item.platform} label={item.label} handle={null}/></span>}</li>)}</ul>}
+    {rows.length>0&&<ul className="ecard-links">{rows.map(item=>{const href=cardLinkHref(item.url);return <li key={item.key}>{href?<CardAnchor url={href} platform={item.platform} label={item.label} handle={item.handle}/>:!item.url&&item.handle?<CopyLink platform={item.platform} label={item.label} handle={item.handle}/>:<span className="ecard-link"><LinkBody platform={item.platform} label={item.label} handle={item.handle}/></span>}</li>;})}</ul>}
   </article>;
 }

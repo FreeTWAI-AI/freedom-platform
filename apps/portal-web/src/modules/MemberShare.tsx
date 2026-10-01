@@ -16,7 +16,8 @@ type SaveKind='idle'|'dirty'|'saving'|'saved'|'error'|'conflict';
 type Explicit={enabled:boolean;rotate:boolean};
 const control=/[\u0000-\u001f\u007f]/;
 const chars=(value:string)=>Array.from(value).length;
-const SAVED='已自動儲存，分享頁就是這個樣子。';
+const savedCopy=(enabled:boolean)=>enabled?'已自動儲存，分享頁就是這個樣子。':'已自動儲存。建立分享連結後，朋友看到的就是這個樣子。';
+const HEADLINE_ACTION='請先修正一句話介紹，再按一次。';
 const blank:Local={includeAvatar:false,design:'calm',headline:'',links:[],showProfileLinks:true,prefs:{},profileLinks:[],sharePath:null,enabled:false};
 function headlineIssue(value:string){if(control.test(value))return '一句話介紹請使用單行文字。';if(chars(value.trim())>60)return '一句話介紹最多 60 個字。';return '';}
 function versionNum(value:number|string|null|undefined){if(value===null||value===undefined||value==='')return null;const n=Number(value);return Number.isFinite(n)?n:null;}
@@ -52,11 +53,16 @@ export function MemberShare({client}:{client:PortalClient}){
   pumpRef.current=async()=>{
     for(;;){
       pumpAgain.current=false;
-      const job=explicitRef.current;explicitRef.current=null;
       const issue=headlineIssue(localRef.current.headline);
-      if(issue){setHeadlineError(issue);break;}
+      if(issue){
+        const dropped=explicitRef.current;explicitRef.current=null;
+        setHeadlineError(issue);setActionBusy(false);
+        if(dropped)setStatus({kind:'dirty',message:HEADLINE_ACTION});
+        break;
+      }
+      const job=explicitRef.current;explicitRef.current=null;
       const sig=signature(localRef.current);
-      if(!job&&sig===lastSavedSig.current){setStatus({kind:'saved',message:SAVED});break;}
+      if(!job&&sig===lastSavedSig.current){setStatus({kind:'saved',message:savedCopy(localRef.current.enabled)});break;}
       const gen=editGen.current,sentRefresh=refreshSerial.current,snapshot=localRef.current;
       setStatus({kind:'saving',message:'儲存中…'});
       try{
@@ -69,10 +75,11 @@ export function MemberShare({client}:{client:PortalClient}){
         const base={...localRef.current,enabled:result.enabled,sharePath:result.share_path};
         const next=editGen.current===gen&&refreshSerial.current===sentRefresh?{...base,profileLinks:result.profile_links,showProfileLinks:result.show_profile_links,prefs:result.profile_link_prefs??{}}:base;
         localRef.current=next;setLocal(next);
-        if(editGen.current===gen){lastSavedSig.current=signature(next);setStatus({kind:'saved',message:SAVED});setNotice(job?.rotate?'連結已更新，舊連結已失效。':job&&!job.enabled?'分享名片已關閉。':'');}
+        if(editGen.current===gen){lastSavedSig.current=signature(next);setStatus({kind:'saved',message:savedCopy(next.enabled)});setNotice(job?.rotate?'連結已更新，舊連結已失效。':job&&!job.enabled?'分享名片已關閉。':'');}
         else setStatus({kind:'dirty',message:'有變更尚未儲存'});
       }catch(cause){
-        if(cause instanceof ApiError&&cause.status===412){try{await reloadConflict();}catch(reloadError){setStatus({kind:'error',message:reloadError instanceof Error?reloadError.message:'名片設定暫時無法載入。'});}break;}
+        const failed=cause instanceof ApiError?cause.status:0;
+        if(failed===412||failed===428){try{await reloadConflict();}catch(reloadError){setStatus({kind:'error',message:reloadError instanceof Error?reloadError.message:'名片設定暫時無法載入。'});}break;}
         setStatus({kind:'error',message:cause instanceof Error?cause.message:'名片設定暫時無法儲存。'});break;
       }
       if(job)setActionBusy(explicitRef.current!==null);
@@ -83,14 +90,14 @@ export function MemberShare({client}:{client:PortalClient}){
   function kick(){
     if(running.current){pumpAgain.current=true;return;}
     running.current=true;
-    void pumpRef.current().finally(()=>{running.current=false;setActionBusy(explicitRef.current!==null);if(explicitRef.current||pumpAgain.current||(signature(localRef.current)!==lastSavedSig.current&&!headlineIssue(localRef.current.headline)))kick();});
+    void pumpRef.current().finally(()=>{running.current=false;setActionBusy(explicitRef.current!==null);if(explicitRef.current||pumpAgain.current)kick();});
   }
   function assign(partial:Partial<Local>,when:'now'|'debounce'|'none'){
     const previous=localRef.current,next={...previous,...partial};
     localRef.current=next;setLocal(next);setHeadlineError(headlineIssue(next.headline));
     if(signature(next)===signature(previous))return;
     editGen.current+=1;
-    if(signature(next)===lastSavedSig.current&&!running.current&&!explicitRef.current){window.clearTimeout(debounce.current);setStatus({kind:'saved',message:SAVED});return;}
+    if(signature(next)===lastSavedSig.current&&!running.current&&!explicitRef.current){window.clearTimeout(debounce.current);setStatus({kind:'saved',message:savedCopy(next.enabled)});return;}
     setStatus({kind:'dirty',message:'有變更尚未儲存'});
     if(headlineIssue(next.headline)||when==='none'){window.clearTimeout(debounce.current);return;}
     if(when==='debounce'){window.clearTimeout(debounce.current);debounce.current=window.setTimeout(()=>{if(!headlineIssue(localRef.current.headline))kick();},800);return;}

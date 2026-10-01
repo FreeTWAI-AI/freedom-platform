@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
+import {e2eOrigin} from '../../packages/testing/e2e-origin.js';
 import {test,expect,type Locator,type Page} from './fixtures.js';
 import {navigate} from './navigation.js';
 import {quickJoin} from './quick-join.js';
@@ -261,6 +262,8 @@ test('autosave makes the preview the shared card without a save button',async({p
   await expect(settings.getByText('朋友打開連結就能看到你選的樣式、一句話介紹、連結，以及你設為「平台公開」的聯絡方式和社群連結（可逐項隱藏），並從名片加入自由工坊。所有變更都會自動儲存。')).toBeVisible();
   await expect(page.getByRole('button',{name:'保存分享設定'})).toHaveCount(0);
   await expect(settings.getByText('預覽用的是你自己的名片資料，保存後才會更新分享頁。')).toHaveCount(0);
+  await settings.getByRole('button',{name:'工坊',exact:true}).click();
+  await expect(settings.locator('.ecard-save-status')).toContainText('已自動儲存。建立分享連結後，朋友看到的就是這個樣子。');
   const shareUrl=await enableShare(settings);
   await settings.getByRole('button',{name:'夜空',exact:true}).click();
   await waitSaved(settings);
@@ -512,4 +515,188 @@ test('platform-public profile links render with brand icons and match the public
     await expect(guest.getByRole('link',{name:/Facebook/})).toBeVisible();
     await expect(guest.locator('a[href*="facebook.com/friends-only"]')).toHaveCount(0);
   }finally{await guestContext.close();}
+});
+
+const DRAFT_SAVED='已自動儲存。建立分享連結後，朋友看到的就是這個樣子。';
+function countSharePosts(page:Page){
+  let posts=0;
+  const onRequest=(request:{method:()=>string;url:()=>string})=>{if(request.method()==='POST'&&request.url().includes('/api/v1/me/member-card-share'))posts++;};
+  page.on('request',onRequest);
+  return {get count(){return posts;},stop(){page.off('request',onRequest);}};
+}
+
+test('a failed autosave stops until the member retries',async({page})=>{
+  test.setTimeout(180000);
+  await page.setViewportSize({width:1280,height:900});
+  await signup(page,'失敗儲存作者');
+  await navigate(page,'我的名片');
+  const settings=shareRegion(page);
+  const posts=countSharePosts(page);
+  await page.route('**/api/v1/me/member-card-share',async route=>{
+    if(route.request().method()!=='POST')return route.continue();
+    await route.fulfill({status:500,contentType:'application/problem+json',body:JSON.stringify({type:'about:blank',title:'伺服器錯誤',status:500,detail:'名片設定暫時無法儲存。',code:'member_card_share_failed'})});
+  });
+  try{
+    await settings.getByRole('button',{name:'夜空',exact:true}).click();
+    await expect(settings.locator('.ecard-save-status')).toContainText('服務暫時無法回應（500）。尚未確認結果，請稍後重試。');
+    await expect(settings.getByRole('button',{name:'重試',exact:true})).toBeVisible();
+    await expect(settings.getByRole('button',{name:'建立分享連結',exact:true})).toBeEnabled();
+    await page.waitForTimeout(3000);
+    expect(posts.count).toBe(1);
+    await settings.getByRole('button',{name:'重試',exact:true}).click();
+    await expect.poll(()=>posts.count).toBe(2);
+    await page.waitForTimeout(1000);
+    expect(posts.count).toBe(2);
+    await page.unroute('**/api/v1/me/member-card-share');
+    await settings.getByRole('button',{name:'重試',exact:true}).click();
+    await expect(settings.locator('.ecard-save-status')).toContainText(DRAFT_SAVED);
+    await page.reload();
+    await navigate(page,'我的名片');
+    await expect(shareRegion(page).getByRole('button',{name:'夜空',exact:true})).toHaveAttribute('aria-pressed','true');
+  }finally{posts.stop();await page.unroute('**/api/v1/me/member-card-share').catch(()=>{});}
+});
+
+test('a dropped save request is sent once per member action',async({page})=>{
+  test.setTimeout(180000);
+  await page.setViewportSize({width:390,height:844});
+  await signup(page,'斷線儲存作者');
+  await navigate(page,'我的名片');
+  const settings=shareRegion(page);
+  const posts=countSharePosts(page);
+  await page.route('**/api/v1/me/member-card-share',async route=>{
+    if(route.request().method()!=='POST')return route.continue();
+    await route.abort('internetdisconnected');
+  });
+  try{
+    await settings.getByRole('button',{name:'夜空',exact:true}).click();
+    await expect(settings.locator('.ecard-save-status')).toContainText('無法連線到伺服器，尚未確認結果。請確認網路後重試。');
+    await expect(settings.getByRole('button',{name:'重試',exact:true})).toBeVisible();
+    await expect(settings.getByRole('button',{name:'建立分享連結',exact:true})).toBeEnabled();
+    await page.waitForTimeout(3000);
+    expect(posts.count).toBe(1);
+    await settings.getByRole('button',{name:'重試',exact:true}).click();
+    await expect.poll(()=>posts.count).toBe(2);
+    await page.waitForTimeout(1000);
+    expect(posts.count).toBe(2);
+    await settings.getByRole('button',{name:'工坊',exact:true}).click();
+    await expect.poll(()=>posts.count).toBe(3);
+    await page.waitForTimeout(1000);
+    expect(posts.count).toBe(3);
+    await page.unroute('**/api/v1/me/member-card-share');
+    await settings.getByRole('button',{name:'重試',exact:true}).click();
+    await expect(settings.locator('.ecard-save-status')).toContainText(DRAFT_SAVED);
+    await page.reload();
+    await navigate(page,'我的名片');
+    await expect(shareRegion(page).getByRole('button',{name:'工坊',exact:true})).toHaveAttribute('aria-pressed','true');
+  }finally{posts.stop();await page.unroute('**/api/v1/me/member-card-share').catch(()=>{});}
+});
+
+test('a 428 from a card created elsewhere reloads and does not keep saving',async({page})=>{
+  test.setTimeout(180000);
+  await page.setViewportSize({width:820,height:900});
+  await signup(page,'版本要求作者');
+  await navigate(page,'我的名片');
+  const settings=shareRegion(page);
+  const headline=settings.getByLabel('一句話介紹');
+  // Focus once, before any other tab creates the card. A later window focus would refresh the version and skip the 428.
+  const focusRead=page.waitForResponse(response=>response.url().includes('/api/v1/me/member-card-share')&&response.request().method()==='GET',{timeout:1500}).catch(()=>null);
+  await headline.click();
+  await focusRead;
+  const posts:string[]=[];
+  page.on('request',request=>{if(request.method()==='POST'&&request.url().includes('/api/v1/me/member-card-share'))posts.push(request.headers()['if-match']??'');});
+  const session=await (await page.request.get('/api/v1/session')).json() as {csrf_token:string};
+  const created=await page.request.post('/api/v1/me/member-card-share',{headers:{Origin:e2eOrigin(),'X-CSRF-Token':session.csrf_token,'Idempotency-Key':randomUUID()},data:{enabled:true,include_avatar:false,rotate:false,design:'night',headline:'另一邊寫的',links:[],show_profile_links:true,profile_link_prefs:{}}});
+  expect(created.status()).toBe(200);
+  await headline.pressSequentially('這一邊寫的',{delay:20});
+  await expect(settings.locator('.ecard-save-status')).toContainText('名片設定在其他地方更新了，已重新載入最新版本。',{timeout:20000});
+  await expect(settings.getByLabel('一句話介紹')).toHaveValue('另一邊寫的');
+  await expect(settings.getByRole('button',{name:'夜空',exact:true})).toHaveAttribute('aria-pressed','true');
+  const open=settings.getByRole('link',{name:'開啟名片',exact:true});
+  await expect(open).toBeVisible();
+  const shareUrl=await open.getAttribute('href');
+  expect(posts).toEqual(['']);
+  await page.waitForTimeout(1500);
+  expect(posts).toEqual(['']);
+  await headline.fill('下一筆');
+  await headline.blur();
+  await expect(settings.locator('.ecard-save-status')).toContainText(SAVED);
+  await expect.poll(()=>posts.length).toBe(2);
+  expect(posts[1]).toMatch(/^"[1-9][0-9]*"$/);
+  await expect(open).toHaveAttribute('href',shareUrl!);
+  await page.reload();
+  await navigate(page,'我的名片');
+  const reloaded=shareRegion(page);
+  await expect(reloaded.getByLabel('一句話介紹')).toHaveValue('下一筆');
+  await expect(reloaded.getByRole('button',{name:'夜空',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(reloaded.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl!);
+});
+
+test('an explicit share action is dropped when the headline becomes invalid',async({page})=>{
+  test.setTimeout(180000);
+  await page.setViewportSize({width:1280,height:900});
+  await signup(page,'介紹失效作者');
+  await navigate(page,'我的名片');
+  const settings=shareRegion(page);
+  let release=()=>{},held=false,posts=0;
+  const gate=new Promise<void>(resolve=>{release=()=>resolve();});
+  await page.route('**/api/v1/me/member-card-share',async route=>{
+    if(route.request().method()!=='POST')return route.continue();
+    posts++;
+    if(!held){held=true;await gate;}
+    await route.continue();
+  });
+  try{
+    await settings.getByRole('button',{name:'工坊',exact:true}).click();
+    await expect.poll(()=>held).toBe(true);
+    await settings.getByRole('button',{name:'建立分享連結',exact:true}).click();
+    await expect(settings.getByRole('button',{name:'建立分享連結',exact:true})).toBeDisabled();
+    await settings.getByLabel('一句話介紹').fill('介'.repeat(61));
+    release();
+    await expect(settings.locator('.ecard-save-status')).toContainText('請先修正一句話介紹，再按一次。');
+    await expect(settings.getByRole('alert')).toContainText('一句話介紹最多 60 個字。');
+    await expect(settings.getByRole('button',{name:'建立分享連結',exact:true})).toBeEnabled();
+    await page.waitForTimeout(1200);
+    expect(posts).toBe(1);
+    await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toHaveCount(0);
+    const headline=settings.getByLabel('一句話介紹');
+    await headline.fill('修好了');
+    await headline.blur();
+    await expect(settings.locator('.ecard-save-status')).toContainText(DRAFT_SAVED);
+    expect(posts).toBe(2);
+    await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toHaveCount(0);
+  }finally{release();await page.unrouteAll({behavior:'ignoreErrors'}).catch(()=>{});}
+});
+
+test('the card renders only https and mailto addresses as links',async({page})=>{
+  test.setTimeout(180000);
+  await page.setViewportSize({width:390,height:844});
+  await signup(page,'網址防守作者');
+  await page.route('**/api/v1/me/member-card-share',async route=>{
+    if(route.request().method()!=='GET')return route.continue();
+    const response=await route.fetch();
+    const json=await response.json();
+    json.links=[...(json.links??[]),{label:'腳本連結',url:'javascript:alert(1)'},{label:'安全連結',url:'https://example.com/safe'}];
+    json.profile_links=[
+      ...(json.profile_links??[]),
+      {source:'contact:github',platform:'github',label:'壞帳號',handle:'../evil',url:'javascript:alert(1)',shown:true},
+      {source:'social:00000000-0000-4000-8000-000000000099',platform:'website',label:'明文網站',handle:'example.com',url:'http://example.com/plain',shown:true},
+      {source:'social:00000000-0000-4000-8000-000000000098',platform:'website',label:'含帳密',handle:'example.com',url:'https://user:pass@example.com/secret',shown:true},
+      {source:'contact:email',platform:'email',label:'Email',handle:'person@example.test',url:'mailto:person@example.test',shown:true},
+    ];
+    await route.fulfill({status:response.status(),contentType:'application/json',json});
+  });
+  try{
+    await navigate(page,'我的名片');
+    const card=shareRegion(page).locator('.ecard-preview .ecard');
+    await expect(card.getByRole('link',{name:/安全連結/})).toHaveAttribute('href','https://example.com/safe');
+    await expect(card.getByRole('link',{name:/安全連結/})).toHaveAttribute('rel','noopener noreferrer nofollow ugc');
+    await expect(card.getByRole('link',{name:/Email/})).toHaveAttribute('href','mailto:person@example.test');
+    await expect(card.locator('a[href^="mailto:"]')).not.toHaveAttribute('target','_blank');
+    await expect(card.locator('a')).toHaveCount(2);
+    for(const label of ['腳本連結','壞帳號','明文網站','含帳密']){
+      await expect(card.getByText(label,{exact:true})).toBeVisible();
+      await expect(card.getByRole('link',{name:new RegExp(label)})).toHaveCount(0);
+    }
+    await expect(card.locator('a[href^="javascript:"],a[href^="http:"],a[href*="user:pass"]')).toHaveCount(0);
+  }finally{await page.unrouteAll({behavior:'ignoreErrors'}).catch(()=>{});}
 });
