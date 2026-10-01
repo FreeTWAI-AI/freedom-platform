@@ -10,9 +10,10 @@
 | `POST /link-member` | `{}`；需要 Access 管理員驗證，加上同社群、同 email 的有效會員 cookie，且會員已完成定位。本人確認後才綁定信箱與預先指定的公會長任命。 |
 | `GET /members?limit=25&offset=0&q=` | `{items,next_offset}`；limit 1–100、offset 0–100000、q 最多100字。管理專用欄位包含 email、active、onboarding_required、onboarding_completed_at、email_verified_at、aggregate_version、目前公會。 |
 | `POST /members/:id/status` | `{active:boolean,reason:string}`；理由3–1000字。停用會撤銷既有會員 session 與客戶端讀取憑證；恢復不會復活舊憑證。 |
-| `GET /guild-applications?state=pending&limit=25&offset=0` | state 為 pending、approved、declined、all。回傳申請、申請者姓名與 email，以及審查者、理由、時間、核准的 guild key。 |
-| `POST /guild-applications/:id/review` | `{decision:'approve'|'reject',reason,guild?}`。核准必須提供完整 guild，拒絕不得帶 guild。每件僅能處理一次；重試相同操作回原結果。 |
-| `GET /guilds` | `{items}`；包含公會目錄、有效會員數、`guild_master:{user_id,display_name}\|null`、`officer_version:number\|null`、`guild_experts`。專家項目包含 `user_id,display_name,active,member_active,aggregate_version`；管理員可看見停用帳號尚待移除的專家紀錄。 |
+| `GET /guild-applications?state=pending&limit=25&offset=0` | state 為 pending、approved、declined、all。回傳申請、申請者姓名與 email，以及審查者、理由、時間、核准的 guild key。核准後另附 `approved_guild_name`、`approved_guild_alias`（尚未對到目錄時為 null；別名沒有設定時是空字串）。 |
+| `POST /guild-applications/:id/review` | `{decision:'approve'|'merge'|'reject',reason,guild?,merge?}`。核准必須提供完整 guild 且不得帶 merge；併入必須提供 merge 且不得帶 guild；拒絕兩者都不帶。形狀不符回 422 `review_details_required`。每件僅能處理一次；重試相同操作回原結果。 |
+| `GET /guilds` | `{items}`；包含公會目錄（含 `alias`、`profession_title`、`catalog_version`）、有效會員數、`guild_master:{user_id,display_name}\|null`、`officer_version:number\|null`、`guild_experts`。專家項目包含 `user_id,display_name,active,member_active,aggregate_version`；管理員可看見停用帳號尚待移除的專家紀錄。 |
+| `POST /guilds/:key/profile` | 調整公會名稱、別名與職業稱號。需要 `If-Match: "<catalog_version>"`。見下方「公會名稱、別名與職業稱號」。 |
 | `GET /guilds/:key/master-candidates?q=&scope=eligible&limit=20&offset=0` | 在整份本站會員資料篩選後分頁，回傳 `{items,total,next_offset}`。`q` 搜尋暱稱／Email 的字面片段；`scope=eligible` 列同社群的啟用中平台會員，尚未加入公會也可任命；`scope=all` 加上停用帳號。人選包含 `user_id,display_name,email,active,joined,eligible,eligibility_reason,is_current,is_expert,expert_version`；原因僅為 `inactive` 或 null。`joined` 獨立表示目前公會成員關係，`expert_version` 包含曾移除的專家版本。管理專用結果不可放進公開會員名冊。 |
 | `POST /guilds/:key/master` | `{user_id,reason}`；目標必須是同社群啟用中的平台會員。首次任命不傳 If-Match，後續任命使用 officer_version。若尚未加入，任命同時建立／恢復公會成員關係並領取技能書；回傳含 `membership_joined`，表示本次是否加入。 |
 | `POST /guilds/:key/experts` | `{user_id,active,reason}`；`active:true` 任命公會專家，同時加入公會／領書（若需要）；`active:false` 移除專家身分。回傳 `{guild_key,user_id,active,aggregate_version,membership_joined}`。首次建立不傳 If-Match；既有紀錄即使已移除，仍須最新版本。 |
@@ -20,6 +21,23 @@
 | `POST /members/:id/admin` | `{reason,confirmed:true}`，使用會員 aggregate_version；任命同社群的啟用中會員。已有管理紀錄回409，改用狀態操作。 |
 | `POST /admins/:id/status` | `{active,reason,confirmed:true}`，使用管理員 aggregate_version；不可停用自己，重新啟用須有啟用中的同信箱會員。 |
 | `GET /audit` | `{items}`；最近100筆本站管理操作，包含操作人顯示名、理由、對象、前後狀態與時間。 |
+| `GET /credentials` | `{items}`；固定兩筆，`github_metrics_token`（GitHub 讀取權杖）與 `cloudflare_deploy_token`（Cloudflare 部署權杖）。沒有資料列時 `status` 與 `level` 為 `unknown`。每筆含 `expires_at`、`days_left`、`checked_at`、`source`、`renewable`、`renew_hint`、`open_request`、`last_request`。`days_left` 是到期前的完整 24 小時數；已過期為負數。`level` 為 `expired`（已過期）、`danger`（剩餘 7 天以內，或狀態 `rejected`）、`warning`（剩餘 30 天以內）、`ok`、`unknown`。`open_request` 是尚未結束的續期（`pending` 或 `processing`）；`last_request` 是最近一筆 `done` 或 `failed`。 |
+| `POST /credentials/cloudflare_deploy_token/renewals` | `{}`。寫入一筆 `pending` 續期請求並記 `credential_renewal_request`。已有未結束的請求時回 200 與該筆，不重複建立、不重複記 audit；新建回 201。其他 credential key 回 404。`requested_by` 是同社群、同信箱且啟用中的會員；找不到唯一帳號回 422 `member_account_required`。Worker 不持有 Cloudflare 權杖，這個按鈕只留下請求。 |
+| `GET /review-center/summary` | `{policy_version, counts, repositories, viewer}`。counts 是未關閉拉取請求依 queue_state 的數量，含 `in_review` 與 `needs_decision`。repositories 含 repository_id、full_name、default_branch、mode、installation_state、settings、guild_key、scope_kind、open_to_guilds、last_swept_at、last_error、rate_limited_until、aggregate_version。不含 installation id 或 GitHub 原文。viewer 是 `{user_id, github_login, can_self_claim, status, reason}`，直接由這位管理員的 email 對到會員與 GitHub，不經過資格視圖，所以社群裡還沒有儲存庫時也能判斷。status 是 `ready`、`no_member`、`email_unverified`、`no_github`。ready 時 `can_self_claim` 是 true、`reason` 是 null。其他狀態 `can_self_claim` 是 false，`reason` 是對應的一句話，說明不能認領給自己、仍可以指派其他人。 |
+| `GET /review-center/pulls?queue=open&repository_id=&guild_key=&limit=25&offset=0` | `{items,next_offset}`。queue 可為 draft、waiting_ci、ci_not_run、needs_author、awaiting_review、in_review、needs_decision、ready、paused、open（全部未關閉）、done（merged／closed）、`mine`（進行中的認領屬於這位管理員對上的會員；沒有對上時是空的）或 `author_action`（needs_author 或 ci_not_run）。`guild_key` 是公會鍵，或字面 `none`（沒有公會的儲存庫）。awaiting_review 依 head_observed_at 由早到晚，再依 pull_id；其餘依 github_updated_at 新到舊。每一列含 `ownership`（guild_key、guild_name、scope_kind、open_to_guilds）、進行中的認領（沒有則 null）、第一個佇列原因，以及 head 上的必要檢查。認領含 reviewer_user_id、reviewer_login、acting_as、guild_key、guild_name、assignment、claimed_by、expires_at（可空）。 |
+| `GET /review-center/pulls/:id` | 拉取請求、`attention_reasons`、檔案（各附屬於該路徑的注意事項 `notes`）、檢查、審查、進行中的認領、最近 5 筆認領、歸屬與最近 5 筆歸屬變更，以及 `eligible_reviewers`（這個儲存庫的視圖列，去掉作者；管理員在前，再依公會名與顯示名）。每筆審查有 is_current_head 與 counts_as_valid。回應含 ETag（拉取請求的 aggregate_version）。 |
+| `POST /review-center/pulls/:id/claim` | `{}`，If-Match 是拉取請求的 aggregate_version。管理員替自己、以 `acting_as=admin` 建立認領。200 回更新後的細節與 ETag。資格仍看這個儲存庫的視圖。視圖沒有列時回 409 `maintainer_claim_identity_required`，detail 與 summary viewer 的 status 同一句。另有 409：`maintainer_claim_author`（比對 github_user_id，不比對 login）、`maintainer_claim_exists`、`maintainer_claim_unavailable`（未開啟、仍是草稿、已暫停，或儲存庫模式已關閉）。沒有 `claim_hours` 時 `expires_at` 是空的。稽核 `maintainer_claim_self`。同時寫入若遇到資料庫死結（40P01）回 409 `maintainer_write_conflict`。 |
+| `POST /review-center/pulls/:id/assign` | `{user_id, acting_as, guild_key, reason}`，If-Match 是拉取請求版本。這三元組必須是這個儲存庫的一列視圖，否則 409 `maintainer_reviewer_not_eligible`。作者本人 409 `maintainer_claim_author`。`assignment=assigned`，`claimed_by_admin` 是這位管理員。稽核 `maintainer_claim_assign`。 |
+| `POST /review-center/claims/:id/release` | `{reason}`，If-Match 是認領自己的 aggregate_version。任何有效認領都可釋放，標成 `released`／`admin_released`。若 GitHub 請求狀態是 `requested`，改成 `removing` 並排入移除。404 `maintainer_claim_not_found`。已經結束回 409 `maintainer_claim_inactive`。回應仍是拉取請求細節，ETag 是拉取請求版本。稽核 `maintainer_claim_release`。 |
+| `POST /review-center/pulls/:id/pause` | `{reason}`，If-Match 是拉取請求版本。`paused=true`，並把 aggregate_version 加一。已經暫停回 409 `maintainer_pull_already_paused`。不放開認領。稽核 `maintainer_pull_pause`。 |
+| `POST /review-center/pulls/:id/resume` | `{reason}`，If-Match 是拉取請求版本。`paused=false`，並把 aggregate_version 加一。沒有暫停回 409 `maintainer_pull_not_paused`。稽核 `maintainer_pull_resume`。 |
+| `POST /review-center/pulls/:id/resync` | `{}`。把 reconcile_pull 排進佇列。同一筆若已在佇列且 `run_after` 更晚，會提前到現在，嘗試次數不變；沒有更晚可提前時 `enqueued` 為 false。不需要 If-Match。稽核 `maintainer_pull_resync`。 |
+| `GET /review-center/repositories` | `{items}`；欄位與 summary 的 repositories 相同，含歸屬。 |
+| `POST /review-center/repositories/:id/settings` | `{mode, settings, reason}`，需要 If-Match（儲存庫 aggregate_version）。mode 只接受 off 與 observe，其他值回 422 `validation_failed`。settings 用政策 schema 驗證後存成補齊預設值的結果。`claim_hours` 可省略，省略表示認領不自動釋放；範圍是 1–168。送 `sla_hours` 或 `claim_hours: null` 會得到 422。`request_reviewers` 是布林，預設 false；為 true 時仍要 Worker 變數 `GITHUB_MAINTAINER_WRITES=requested_reviewers` 而且 App 有 Pull requests write，才會寫 GitHub。保存後把該儲存庫未關閉的拉取請求 recheck_at 設成現在。稽核 `maintainer_repository_settings`，含前後狀態。同時寫入若遇到資料庫死結（40P01）回 409 `maintainer_write_conflict`。 |
+| `POST /review-center/repositories/:id/ownership` | `{guild_key, scope_kind, open_to_guilds, reason}`，If-Match 是儲存庫 aggregate_version。缺 If-Match 回 428，版本不符回 412。公會不在目錄回 422 `maintainer_guild_not_found`。又指定公會又開放認領回 422 `maintainer_ownership_invalid`。沒有變更回 409 `maintainer_ownership_unchanged`。寫入歸屬變更（`source=admin`），並把未關閉的拉取請求 recheck_at 設成現在。稽核 `maintainer_repository_ownership`。不再符合資格的認領由下一次 tick 放開。同時寫入若遇到資料庫死結（40P01）回 409 `maintainer_write_conflict`。 |
+| `GET /review-center/reviewers` | 唯讀。`admins` 每位啟用中的管理員含 display_name、github_login、status（`ready`、`no_member`、`email_unverified`、`no_github`）。`guilds` 是有現任公會長或至少一個儲存庫的公會，含 leader 與旗下儲存庫。另有 `open_repositories`、`admin_only_repositories`，以及 `guild_choices`（整個公會目錄，供歸屬選單使用）。不含 email。 |
+
+認領、指派、釋放、暫停與恢復先鎖拉取請求列，再鎖認領列。若交易裡碰到 PostgreSQL `40P01`，回 409 `maintainer_write_conflict`，請重新整理後再試一次。API 不自己重試。交易已回復，沒有寫入收據，所以用同一個 Idempotency-Key 再送一次是安全的。
 
 核准的 `guild` 格式：
 
@@ -29,11 +47,39 @@
   "purpose": "公會的目標與協作範圍",
   "first_step": "加入後可以開始的第一步",
   "module_key": "guilds",
-  "skill_book_ids": ["從 available_skill_books 選擇既有 id"]
+  "skill_book_ids": ["從 available_skill_books 選擇既有 id"],
+  "alias": "可省略；有趣的名字，留空或不傳表示沒有別名",
+  "profession_title": "可省略；成員職業稱號，最多 40 字，留空時成員看到「專業探索者」"
 }
 ```
 
-名稱2–100字，purpose 與 first_step 各5–1000字。module_key 只能是 positioning、supplier、retail、marketing、workbench、guilds、engagement、opensource。skill_book_ids 需1–20個不重複且存在於平台目錄的技能書 ID，不接受任意 repo URL。新公會與技能書綁定同交易寫入；核准不會自動替申請人入會、領書或任命公會長。會員自行加入，或管理員另行明確任命並完成自動入會時，才獲得綁定技能書。
+名稱、別名、職業稱號都是單行文字（不可含控制字元）。名稱 2–100 字，別名 0–100 字，職業稱號 0–40 字，purpose 與 first_step 各 5–1000 字。module_key 只能是 positioning、supplier、retail、marketing、workbench、guilds、engagement、opensource。skill_book_ids 需 1–20 個不重複且存在於平台目錄的技能書 ID，不接受任意 repo URL。新公會與技能書綁定同交易寫入，並保存 `alias` 與 `profession_title`（省略時為空字串）。核准不會自動替申請人入會、領書或任命公會長。會員自行加入，或管理員另行明確任命並完成自動入會時，才獲得綁定技能書。
+
+非空別名不可與這間新公會自己的名稱或其他公會的名稱相同（不分大小寫），否則 409 `guild_alias_conflict`（「別名不可與公會名稱相同。」）。別名可以和其他公會的別名相同。名稱與既有公會名稱衝突仍是 409 `guild_name_exists`。
+
+併入既有公會的正文：
+
+```json
+{
+  "decision": "merge",
+  "reason": "審查說明",
+  "merge": { "guild_key": "guild_ai_field", "alias": "可省略；非空時成為目標公會的別名" }
+}
+```
+
+`guild_key` 必須是目錄裡的公會，否則 404 `guild_not_found`。申請改為 `approved`，`approved_guild_key` 指向目標，不新增目錄列、不綁技能書、不自動入會。`alias` 省略或空字串時，目標的別名與 `catalog_version` 都不變。非空別名會覆寫目標原本的別名（即使內容相同也覆寫），套用同一條別名規則，並把目標的 `catalog_version` 加 1。稽核 `guild_application_review` 的後狀態包含 `decision`、`guild_key`；併入另含 `alias_before`、`alias_after`。通知仍使用既有種類 `guild_application_approved`：標題「公會申請已併入既有公會」，內文說明申請名稱已併入目標公會名稱；這次有寫入別名時再加一行別名說明，其後是審查說明。動作指向目標公會。
+
+## 公會名稱、別名與職業稱號
+
+`POST /guilds/:key/profile` 的正文為 `{alias, reason, name?, profession_title?}`，`.strict()`。`alias` 必填，修剪後 0–100 字，空字串表示清除別名。`name` 省略則保留原名；有送時為 2–100 字。`profession_title` 省略則保留原值；有送時為 0–40 字。三者皆為單行。`reason` 為 3–1000 字。鍵必須符合其他公會路由的格式，否則 422；格式正確但目錄沒有這筆，回 404 `guild_not_found`（「找不到這個公會。」）。
+
+需要 `Idempotency-Key` 與 `If-Match: "<catalog_version>"`。缺版本 428，版本過期 412。交易內先取得 `admin-guild-catalog` 建議鎖，再 `SELECT … FOR UPDATE`。
+
+內建公會（不符合 `guild_custom_` 加 32 個十六進位字元）只能改別名。若送出的 `name` 或 `profession_title` 與目前的值不同，回 422 `guild_builtin_locked`（「內建公會只能調整別名。」）。送出與目前相同的值則可，省略的欄位保留原值。自訂公會三項都可改。內建職業稱號仍由定位題目維護，不寫進這個欄位。
+
+三項都沒有變化時回 422 `guild_profile_unchanged`（「沒有需要更新的內容。」），這項檢查在名稱唯一性之前。名稱在全目錄不分大小寫必須唯一（不含自己），否則 409 `guild_name_exists`（「已存在相同名稱的公會。」）。非空別名不可與更新後的自己名稱或其他公會名稱相同，否則 409 `guild_alias_conflict`。寫入時 `catalog_version` 加 1。稽核動作 `guild_profile_update`、對象 `guild`，前後狀態為 `{name, alias, profession_title, catalog_version}`。不發送會員通知。回傳更新後的目錄列，並以新的 `catalog_version` 作為 `aggregate_version` 與 ETag。
+
+會員看到的職業稱號：內建公會仍用定位題目的稱號。自訂公會有非空 `profession_title` 時，主要公會成員使用該稱號；留空則仍是「專業探索者」。`GET /api/v1/guilds` 與 `GET /api/v1/guilds/directory` 的公會物件帶 `alias` 與 `profession_title`。沒有別名時不另外顯示。
 
 目前基礎公會目錄為全域資料；資料庫只有一個社群時可核准建立新公會。若有多個社群，核准回 `409 guild_catalog_scope_required`，待目錄隔離完成後再開放；會員、申請、管理名單、操作紀錄及任命一律依管理員的 community_id 限定。
 

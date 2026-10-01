@@ -1,0 +1,114 @@
+// Cron Worker that mirrors pull requests for the repository maintainer.
+// Requested-reviewer writes stay off unless GITHUB_MAINTAINER_WRITES is
+// requested_reviewers. The committed value is off. This Worker does not
+// post a review, comment, label or merge.
+//
+// Wrangler cannot give an environment its own `main`, so this is a separate
+// config from wrangler.jsonc. The platform Worker stays the only routed
+// Worker and is the only one that receives the webhook. npm run worker:dry-run
+// checks wrangler.jsonc only. This file is checked by
+// npm run worker:dry-run:maintainer. deploy/cloudflare preflight's wrangler
+// command does not validate this file: that checker requires the platform
+// routes, assets and images bindings.
+//
+// This Worker exports scheduled and not fetch. It has no routes, no custom
+// domain, and no workers.dev or preview URL, so it answers nothing on the
+// public Internet. The GitHub App private key stays here and never on the
+// platform Worker.
+//
+// env `next` is production: Worker freedom-maintainer-next, the same database
+// as freedom-platform-next. env `staging-next` is staging: Worker
+// freedom-maintainer-staging-next, the same database as
+// freedom-platform-staging-next. One environment per database. Do not bind
+// the staging and production Workers to one Hyperdrive configuration.
+//
+// This file holds no provider IDs, App ids, installation ids or private keys.
+// The zero Hyperdrive IDs below are template placeholders; real IDs live only
+// in the operator's private overlay. A zero id makes an unprepared deploy
+// fail. It does not mean the resource is absent. The App id "0" is the same
+// kind of placeholder: the scheduled handler rejects it before any GitHub call.
+//
+// HYPERDRIVE (the only database binding; same name as the platform Worker):
+// - Bind the caching-disabled configuration that environment's platform Worker
+//   already uses (`wrangler hyperdrive create ... --caching-disabled`). The
+//   mirror transaction has to read its own writes. A comment here cannot
+//   disable Hyperdrive's query cache. One Hyperdrive configuration per
+//   database, shared with that environment's platform Worker, not across
+//   staging and production.
+// - Local dry-run never reads a committed credential. For a local isolated
+//   database only, export CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE
+//   in the shell. Do not write that URL into this file.
+//
+// Vars (configuration, not secrets; still not committed with a real App id):
+//   GITHUB_MAINTAINER_APP_ID   numeric, not 0
+//   GITHUB_MAINTAINER_ORG      FreeTWAI-AI in this file; installations for any
+//                              other account are ignored
+//   GITHUB_MAINTAINER_WRITES   off, or requested_reviewers to allow the claim
+//                              mirror. Missing or any other value is treated
+//                              as off and reported as invalid.
+// Secret, uploaded out of band, never in this file:
+//   GITHUB_MAINTAINER_PRIVATE_KEY via
+//   `wrangler secret put GITHUB_MAINTAINER_PRIVATE_KEY --config <private overlay> --env <env>`.
+//   The key must be PKCS#8 (`BEGIN PRIVATE KEY`). A PKCS#1 key
+//   (`BEGIN RSA PRIVATE KEY`) is rejected. Convert it with
+//   `openssl pkcs8 -topk8 -nocrypt -in app.pem -out app.pkcs8.pem`.
+//   Do not pass the key as a var or a committed secrets file. Do not reuse
+//   the member GitHub App key or GITHUB_MAINTAINER_WEBHOOK_SECRET.
+//   Deploy the private overlay so these placeholders are not the values a
+//   live cron runs with.
+//
+// Cron is every minute. A tick lists due repositories and runs queued
+// reconcile jobs. It stops after 60 GitHub requests or 50 seconds.
+// triggers is inherited; it is restated on each environment so an overlay
+// that replaces the env block cannot drop the only schedule.
+//
+// Top-level is the dry-run shape (freedom-maintainer-local). Deploy an
+// environment. Only `--dry-run --outdir` is used from this repository
+// (npm run worker:dry-run:maintainer).
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "freedom-maintainer-local",
+  "main": "apps/platform-api/src/maintainer-worker.ts",
+  // Same date as wrangler.jsonc: the newest the pinned workerd (1.20260921.1,
+  // via wrangler 4.138.0) supports. nodejs_compat is what the pg pool and jose need.
+  "compatibility_date": "2026-09-21",
+  "compatibility_flags": ["nodejs_compat"],
+  // No public hostname. Omitting preview_urls on deploy leaves an existing preview URL in place.
+  "workers_dev": false,
+  "preview_urls": false,
+  "triggers": { "crons": ["* * * * *"] },
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
+  "vars": {
+    "GITHUB_MAINTAINER_APP_ID": "0",
+    "GITHUB_MAINTAINER_ORG": "FreeTWAI-AI",
+    "GITHUB_MAINTAINER_WRITES": "off"
+  },
+  "env": {
+    "staging-next": {
+      "name": "freedom-maintainer-staging-next",
+      "workers_dev": false,
+      "preview_urls": false,
+      // No routes. Staging zone traffic stays on freedom-platform-staging-next.
+      "triggers": { "crons": ["* * * * *"] },
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
+      "vars": {
+        "GITHUB_MAINTAINER_APP_ID": "0",
+        "GITHUB_MAINTAINER_ORG": "FreeTWAI-AI",
+        "GITHUB_MAINTAINER_WRITES": "off"
+      }
+    },
+    "next": {
+      "name": "freedom-maintainer-next",
+      "workers_dev": false,
+      "preview_urls": false,
+      // No routes. Production zone traffic stays on freedom-platform-next.
+      "triggers": { "crons": ["* * * * *"] },
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
+      "vars": {
+        "GITHUB_MAINTAINER_APP_ID": "0",
+        "GITHUB_MAINTAINER_ORG": "FreeTWAI-AI",
+        "GITHUB_MAINTAINER_WRITES": "off"
+      }
+    }
+  }
+}

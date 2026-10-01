@@ -1,5 +1,6 @@
 import {Hono,type Context} from 'hono';
 import {createGuildWorkspaceAdminRoutes} from './guild-workspace.js';
+import {createRepoMaintainerAdminRoutes} from './repo-maintainer.js';
 import {timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
 import {getCookie} from 'hono/cookie';
@@ -9,10 +10,11 @@ import {setGuildExpert} from '../../../../modules/platform-admin/guild-experts.j
 import type {Pool} from 'pg';
 import {requireCondition} from '../../../../packages/shared/problem.js';
 import {verifyAdminAccess,type AdminAccessVerifier} from '../../../../modules/platform-admin/access.js';
-import {authenticateAdmin,adminBootstrap,adminMembers,changeMemberStatus,adminApplications,reviewGuildApplication,adminGuilds,adminGuildMasterCandidates,appointGuildMaster,adminNominees,adminAudit,appointPlatformAdmin,changePlatformAdminStatus,type AdminActor,type AdminCommand} from '../../../../modules/platform-admin/service.js';
+import {authenticateAdmin,adminBootstrap,adminMembers,changeMemberStatus,adminApplications,reviewGuildApplication,adminGuilds,adminGuildMasterCandidates,appointGuildMaster,updateGuildProfile,adminNominees,adminAudit,appointPlatformAdmin,changePlatformAdminStatus,type AdminActor,type AdminCommand} from '../../../../modules/platform-admin/service.js';
 import {startGitHubAppSetup,completeGitHubAppSetup,githubAppSetupStatus} from '../../../../modules/github-social/setup.js';
 import {listAdminEventQueue,reviewEventAsAdmin} from '../../../../modules/community/events.js';
 import {acknowledgeAuthorClaimIdentity,adminAuthorClaims,refreshAuthorClaimObservation,reviewAuthorClaim} from '../../../../modules/community/repo-author-claims.js';
+import {listCredentials,requestCloudflareRenewal} from '../../../../modules/platform-admin/credentials.js';
 type AdminEnv={Variables:{admin:AdminActor;adminCsrf:string}};
 export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=verifyAdminAccess,github:{origin:string;tokenKey?:string;fetcher?:typeof fetch;readToken?:()=>string|undefined}={origin:'http://127.0.0.1:4310'}){
   const app=new Hono<AdminEnv>();
@@ -56,6 +58,7 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
   app.get('/guilds',async c=>c.json({items:await adminGuilds(pool,c.get('admin'))}));
   app.get('/guilds/:key/master-candidates',async c=>c.json(await adminGuildMasterCandidates(pool,c.get('admin'),c.req.param('key'),c.req.query())));
   app.post('/guilds/:key/master',async c=>result(c,await appointGuildMaster(pool,await command(c),z.string().min(1).max(100).parse(c.req.param('key')))));
+  app.post('/guilds/:key/profile',async c=>result(c,await updateGuildProfile(pool,await command(c),z.string().min(1).max(100).regex(/^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/).parse(c.req.param('key')))));
   app.post('/guilds/:key/experts',async c=>result(c,await setGuildExpert(pool,await command(c),z.string().min(1).max(100).parse(c.req.param('key')))));
   app.get('/admins',async c=>c.json({items:await adminNominees(pool,c.get('admin'))}));
   app.post('/admins/:id/status',async c=>result(c,await changePlatformAdminStatus(pool,await command(c),c.req.param('id'))));
@@ -68,6 +71,12 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
   const skillBookId=(c:Context<AdminEnv>)=>z.string().regex(/^[a-z0-9-]{1,100}$/).parse(c.req.param('id'));
   app.post('/skill-books/:id/author-claim-observation',async c=>c.json(await refreshAuthorClaimObservation(pool,await command(c),skillBookId(c),github.fetcher??globalThis.fetch,github.readToken?.())));
   app.post('/skill-books/:id/author-claim-observation/acknowledge',async c=>c.json(await acknowledgeAuthorClaimIdentity(pool,await command(c),skillBookId(c))));
+  app.get('/credentials',async c=>c.json(await listCredentials(pool)));
+  app.post('/credentials/:key/renewals',async c=>{
+    if(c.req.param('key')!=='cloudflare_deploy_token')return c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'找不到這個憑證。'},404);
+    const value=await requestCloudflareRenewal(pool,await command(c));
+    return c.json(value.request,value.created?201:200);
+  });
   app.get('/client-errors',async c=>{
     const admin=c.get('admin');
     const rows=await pool.query(`SELECT e.error_id,e.user_id,u.display_name,e.action,e.error_code,e.http_status,e.created_at
@@ -75,6 +84,7 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
       WHERE e.community_id=$1 ORDER BY e.created_at DESC LIMIT 100`,[admin.community_id]);
     return c.json({items:rows.rows});
   });
+  app.route('/',createRepoMaintainerAdminRoutes(pool));
   app.all('*',c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'找不到這個管理 API。'},404));
   return app;
 }

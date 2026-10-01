@@ -45,6 +45,8 @@ export interface WorkerEnv {
   GITHUB_SOCIAL_TOKEN_KEY?: string;
   /** Optional read-only GitHub token: Workers share egress IPs, so anonymous GitHub quota is gone. */
   GITHUB_METRICS_TOKEN?: string;
+  /** Optional. Without it only POST /api/v1/maintainer/github/webhook answers 503. */
+  GITHUB_MAINTAINER_WEBHOOK_SECRET?: string;
   FREEDOM_PASSWORD_RESET_EMAIL_ENABLED?: string;
 }
 export type WorkerContext = { waitUntil(promise: Promise<unknown>): void; passThroughOnException?(): void };
@@ -105,10 +107,12 @@ export function workerAdminVerifier(env: WorkerEnv): AdminAccessVerifier {
 export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRuntime {
   const community = env.FREEDOM_REGISTRATION_COMMUNITY_ID || undefined, tokenKey = env.GITHUB_SOCIAL_TOKEN_KEY || undefined;
   const metricsToken = env.GITHUB_METRICS_TOKEN || undefined;
+  const maintainerWebhookSecret = env.GITHUB_MAINTAINER_WEBHOOK_SECRET || undefined;
   return {
     registrationCommunityId: () => community,
     githubTokenKey: () => tokenKey,
     githubMetricsToken: () => metricsToken,
+    maintainerWebhookSecret: () => maintainerWebhookSecret,
     adminVerifier: workerAdminVerifier(env),
     sourceNetwork: cloudflareSourceNetwork(config.trustConnectingIp),
     allowedHosts: new Set([new URL(config.origin).hostname]),
