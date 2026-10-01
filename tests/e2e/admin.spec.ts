@@ -98,6 +98,7 @@ test('verified admin UI keeps member, guild, nomination and audit operations sep
     await route.fulfill({json:payload});
   });
   await page.goto('/admin');await expect(page.getByRole('heading',{name:'會員管理',exact:true})).toBeVisible();
+  await expect(page.locator('.admin-member-positioning')).toHaveText('尚未完成加入');
   expect(memberSessionRequests).toBe(1);
   await expect(page.getByText('預定公會 · 等待本人確認連結',{exact:true})).toBeVisible();
   await page.locator('.admin-member-row').getByText('管理操作',{exact:true}).click();

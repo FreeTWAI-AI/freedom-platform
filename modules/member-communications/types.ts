@@ -39,6 +39,8 @@ export type Conversation={participant:Participant;can_send:boolean;last_message:
 export type ConversationPage={items:Conversation[];unread_count:number;next_offset:number|null};
 /** unread_count: unread messages from this participant to the viewer. */
 export type MessagePage={participant:Participant;can_send:boolean;items:Message[];unread_count:number;next_offset:number|null};
+/** Body-free update check for one conversation, under the same access rules as its history. */
+export type ConversationActivity={last_message_id:string|null;unread_count:number;can_send:boolean};
 
 export const COMMUNICATION_PAGE_DEFAULT_LIMIT=20;
 export const COMMUNICATION_PAGE_MAX_LIMIT=50;

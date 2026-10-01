@@ -612,6 +612,7 @@ code {
 .member-common p { color: var(--muted); margin-top: .3rem; }
 .member-common .actions { margin: 0; }
 select { max-width: 100%; min-height: 44px; border: 1px solid #cfc3b0; background: white; color: var(--ink); border-radius: 10px; padding: .6rem .7rem; }
+.field select { width: 100%; min-width: 0; }
 .card img:where(:not(.skill-upload-dialog *)), .product-image { max-width: 100%; object-fit: cover; border-radius: 10px; }
 .card a:where(:not(.skill-upload-dialog *)), .card code:where(:not(.skill-upload-dialog *)) { overflow-wrap: anywhere; }
 fieldset { min-width: 0; }

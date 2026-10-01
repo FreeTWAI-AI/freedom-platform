@@ -12,6 +12,7 @@ async function register(page:Page, nickname:string){
   await expect(page.getByLabel('聯絡 E-mail',{exact:true})).toHaveCount(0);
   const registrationRequest=page.waitForRequest(request=>request.url().endsWith('/api/v1/auth/register')&&request.method()==='POST');
   await page.getByRole('button',{name:'建立帳號，先逛工坊',exact:true}).click();
+  await page.locator('.welcome-optional > summary').click();
   await page.getByRole('button',{name:'開始／繼續定位 →',exact:true}).click();
   expect((await registrationRequest).postDataJSON()).toEqual({email,password,nickname});
   await expect(page.getByRole('heading',{name:'你喜歡怎麼做事？'})).toBeVisible();return email;

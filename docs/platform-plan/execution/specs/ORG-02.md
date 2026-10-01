@@ -15,9 +15,9 @@
 
 ## 使用者結果與明確不包含
 
-本人能確認想投入的 profession/work/capacity 並裝備 Skill，Agent Feed 有可解釋 basis。2026-09-23 起新註冊會員須先完成一次封閉定位並選主要公會；定位結果仍不自動成為 confirmed WorkIntent、rank 或 entitlement。不包含以 WorkIntent 作為入會或一般參與門檻、equipped＝installed/qualified，或 organization 借用個人私密 WorkIntent。
+本人能確認想投入的 profession/work/capacity 並裝備 Skill，Agent Feed 有可解釋 basis。2026-09-23 起新註冊會員須先完成一次封閉定位並選主要公會；定位結果仍不自動成為 confirmed WorkIntent、rank 或 entitlement。2026-10-01 更新：新註冊必經的是選定主要公會並領技能書，定位測驗可稍後補做。不包含以 WorkIntent 作為入會或一般參與門檻、equipped＝installed/qualified，或 organization 借用個人私密 WorkIntent。
 
-2026-09-24 beta 對應：已實作必填定位、主要／次要公會與入會領書（`modules/positioning/`、`migrations/006`／`027`）；尚無 WorkIntent revision、EquippedSkillSet 或 Agent Feed basis。未完成定位的新會員只能使用 `apps/platform-api/src/app.ts` `onboardingAllowed` 白名單內的會員 API，其餘讀寫皆拒絕。舊會員 `onboarding_required=false`，不追溯。
+2026-09-24 beta 對應：已實作必填定位、主要／次要公會與入會領書（`modules/positioning/`、`migrations/006`／`027`）；尚無 WorkIntent revision、EquippedSkillSet 或 Agent Feed basis。未完成定位的新會員只能使用 `apps/platform-api/src/app.ts` `onboardingAllowed` 白名單內的會員 API，其餘讀寫皆拒絕。舊會員 `onboarding_required=false`，不追溯。2026-10-01 更新：未完成加入（尚未選定主要公會）的新會員才受限於白名單；快速加入同樣記錄 `onboarding_completed_at`。舊會員仍不追溯。
 
 ## Actor／principal／acting role／資源範圍
 
@@ -37,7 +37,7 @@ WorkIntent、ProfessionMembership、EquippedSkillSet、availability、work_direc
 
 ## 版本與獨立驗收
 
-每次修改新 revision；Feed item保存 basis ref/reason。獨立 reviewer 驗 personal/org separation、新會員必填定位 gate，以及舊會員未定位時的 WorkIntent path。
+每次修改新 revision；Feed item保存 basis ref/reason。獨立 reviewer 驗 personal/org separation、新會員加入門（選定主要公會；2026-10-01 起定位可稍後），以及舊會員未定位時的 WorkIntent path。
 
 ## 冪等／業務唯一鍵／並發／fencing／lease／時間
 
@@ -61,7 +61,7 @@ Legacy preference 可成 draft/source evidence，不自動 active；rollback 是
 
 ## Given–When–Then
 
-- Given 新會員未完成定位；When 呼叫白名單（session、帳號、定位、入會／離會／主要公會與定位所需唯讀目錄）以外的會員 API，不論讀寫；Then 403 `onboarding_required`，完成定位與主要公會後可繼續；未登入可讀的公開路徑不受影響。
+- Given 新會員尚未完成加入（選定主要公會）；When 呼叫白名單（session、帳號、定位、快速加入、入會／離會／主要公會與定位所需唯讀目錄）以外的會員 API，不論讀寫；Then 403 `onboarding_required`，完成加入後可繼續；未登入可讀的公開路徑不受影響。2026-09-23 的「須先完成定位」不再是這條的前提。
 - Given 舊會員（`onboarding_required=false`）未定位；When self-confirm intent；Then可取得一般 low-risk Feed。
 - Given 已完成定位；When 未確認 WorkIntent；Then 定位結果不被當成 confirmed intent。
 - Given equipped package；When installation不存在；Then不冒充 verified installation。

@@ -11,7 +11,7 @@ export type VerifiedAdminIdentity={email:string;subject:string;csrfToken:string}
 export type AdminActor={admin_id:string;community_id:string;email:string;display_name:string;role:'super_admin';subject:string};
 export type AdminCommand={admin:AdminActor;operation:string;key:string;body:unknown;expected?:string};
 const reason=z.string().trim().min(3).max(1000);
-const administrativeMember=`user_id,email,display_name,active,onboarding_required,onboarding_completed_at,email_verified_at,admin_status_version AS aggregate_version`;
+const administrativeMember=`user_id,email,display_name,active,onboarding_required,onboarding_completed_at,onboarding_entry_mode,email_verified_at,admin_status_version AS aggregate_version`;
 const adminAccessStateSql=(alias:string)=>`CASE WHEN ${alias}.active THEN CASE WHEN ${alias}.access_synced_version=${alias}.aggregate_version THEN 'ready' ELSE 'pending' END ELSE CASE WHEN ${alias}.access_synced_version=${alias}.aggregate_version THEN 'revoked' ELSE 'pending_removal' END END`;
 function withAdminAccessState(row:any){
   const aggregate_version=Number(row.aggregate_version),access_synced_version=row.access_synced_version===null?null:Number(row.access_synced_version);
@@ -76,30 +76,83 @@ export async function changeMemberStatus(pool:Pool,input:AdminCommand,id:string)
   });
 }
 export async function adminApplications(pool:Pool,admin:AdminActor,limit:number,offset:number,state:string){
-  const rows=(await pool.query(`SELECT a.*,u.display_name AS applicant_name,u.email AS applicant_email FROM guild_creation_applications a JOIN users u ON u.user_id=a.user_id AND u.community_id=a.community_id
+  const rows=(await pool.query(`SELECT a.*,u.display_name AS applicant_name,u.email AS applicant_email,g.name AS approved_guild_name,g.alias AS approved_guild_alias
+    FROM guild_creation_applications a JOIN users u ON u.user_id=a.user_id AND u.community_id=a.community_id
+    LEFT JOIN positioning_guild_catalog g ON g.guild_key=a.approved_guild_key
     WHERE a.community_id=$1 AND ($4='all' OR a.state=$4) AND NOT is_verification_test_account(a.user_id) ORDER BY a.created_at,a.application_id LIMIT $2 OFFSET $3`,[admin.community_id,limit+1,offset,state])).rows;
   return {items:rows.slice(0,limit),next_offset:rows.length>limit?offset+limit:null};
 }
-const GuildInput=z.object({name:z.string().trim().min(2).max(100),purpose:z.string().trim().min(5).max(1000),first_step:z.string().trim().min(5).max(1000),module_key:z.enum(['positioning','supplier','retail','marketing','workbench','guilds','engagement','opensource']),skill_book_ids:z.array(z.string().min(1).max(100)).min(1).max(20).refine(ids=>new Set(ids).size===ids.length,'技能書不可重複。')}).strict();
+const singleLine=(max:number,min=0)=>z.string().trim().min(min).max(max).refine(value=>!/[\x00-\x1f\x7f]/.test(value),'請使用單行文字。');
+const guildKeySchema=z.string().min(1).max(100).regex(/^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/);
+const customGuildKey=/^guild_custom_[0-9A-Fa-f]{32}$/;
+const GuildInput=z.object({name:singleLine(100,2),purpose:z.string().trim().min(5).max(1000),first_step:z.string().trim().min(5).max(1000),module_key:z.enum(['positioning','supplier','retail','marketing','workbench','guilds','engagement','opensource']),skill_book_ids:z.array(z.string().min(1).max(100)).min(1).max(20).refine(ids=>new Set(ids).size===ids.length,'技能書不可重複。'),alias:singleLine(100).optional(),profession_title:singleLine(40).optional()}).strict();
+const MergeTarget=z.object({guild_key:guildKeySchema,alias:singleLine(100).optional()}).strict();
+const GuildProfileInput=z.object({name:singleLine(100,2).optional(),alias:singleLine(100),profession_title:singleLine(40).optional(),reason}).strict();
+function profileSnapshot(row:{name:string;alias:string;profession_title:string;catalog_version:number|string}){
+  return {name:row.name,alias:row.alias,profession_title:row.profession_title,catalog_version:Number(row.catalog_version)};
+}
+async function aliasConflicts(q:PoolClient,alias:string,guildKey:string,ownName:string){
+  if(!alias)return;
+  const hit=await q.query(`SELECT 1 FROM positioning_guild_catalog WHERE lower(name)=lower($1) AND guild_key<>$2 UNION ALL SELECT 1 WHERE lower($1)=lower($3) LIMIT 1`,[alias,guildKey,ownName]);
+  requireCondition(!hit.rowCount,409,'guild_alias_conflict','別名不可與公會名稱相同。');
+}
+export async function updateGuildProfile(pool:Pool,input:AdminCommand,key:string){
+  guildKeySchema.parse(key);const body=GuildProfileInput.parse(input.body);
+  return adminCommand(pool,input,async()=>{},async q=>{
+    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',['admin-guild-catalog']);
+    const current=(await q.query('SELECT * FROM positioning_guild_catalog WHERE guild_key=$1 FOR UPDATE',[key])).rows[0];
+    requireCondition(current,404,'guild_not_found','找不到這個公會。');
+    checkVersion(String(current.catalog_version),input.expected);
+    const custom=customGuildKey.test(key);
+    if(!custom){
+      const nameLocked=body.name!==undefined&&body.name!==current.name;
+      const titleLocked=body.profession_title!==undefined&&body.profession_title!==current.profession_title;
+      requireCondition(!nameLocked&&!titleLocked,422,'guild_builtin_locked','內建公會只能調整別名。');
+    }
+    const next={name:body.name??current.name,alias:body.alias,profession_title:body.profession_title??current.profession_title};
+    requireCondition(next.name!==current.name||next.alias!==current.alias||next.profession_title!==current.profession_title,422,'guild_profile_unchanged','沒有需要更新的內容。');
+    requireCondition(!(await q.query('SELECT 1 FROM positioning_guild_catalog WHERE lower(name)=lower($1) AND guild_key<>$2',[next.name,key])).rowCount,409,'guild_name_exists','已存在相同名稱的公會。');
+    await aliasConflicts(q,next.alias,key,next.name);
+    const updated=(await q.query('UPDATE positioning_guild_catalog SET name=$2,alias=$3,profession_title=$4,catalog_version=catalog_version+1 WHERE guild_key=$1 RETURNING *',[key,next.name,next.alias,next.profession_title])).rows[0];
+    await audit(q,input.admin,'guild_profile_update','guild',key,body.reason,profileSnapshot(current),profileSnapshot(updated));
+    return {...updated,aggregate_version:Number(updated.catalog_version)};
+  });
+}
 export async function reviewGuildApplication(pool:Pool,input:AdminCommand,id:string){
-  z.uuid().parse(id);const body=z.object({decision:z.enum(['approve','reject']),reason,guild:GuildInput.optional()}).strict().parse(input.body);
-  requireCondition(body.decision==='approve'?!!body.guild:!body.guild,422,'review_details_required','核准需填完整公會設定；拒絕請只填理由。');
+  z.uuid().parse(id);const body=z.object({decision:z.enum(['approve','merge','reject']),reason,guild:GuildInput.optional(),merge:MergeTarget.optional()}).strict().parse(input.body);
+  const shapeOk=body.decision==='approve'?!!body.guild&&!body.merge:body.decision==='merge'?!!body.merge&&!body.guild:!body.guild&&!body.merge;
+  requireCondition(shapeOk,422,'review_details_required','核准需填完整公會設定、併入需選擇公會；拒絕請只填理由。');
   const scoped=async(q:PoolClient,lock=false)=>{const row=(await q.query(`SELECT * FROM guild_creation_applications WHERE application_id=$1 AND community_id=$2${lock?' FOR UPDATE':''}`,[id,input.admin.community_id])).rows[0];requireCondition(row,404,'application_not_found','找不到這個公會申請。');return row;};
   return adminCommand(pool,input,q=>scoped(q),async q=>{
     const previous=await scoped(q,true);checkVersion(previous.aggregate_version,input.expected);requireCondition(previous.state==='pending',409,'application_reviewed','這件申請已完成審查。');
-    let guildKey:string|null=null;
+    let guildKey:string|null=null,aliasBefore:string|null=null,aliasAfter:string|null=null,aliasSet='';
+    if(body.decision==='approve'||body.decision==='merge')await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',['admin-guild-catalog']);
     if(body.decision==='approve'){
-      await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',['admin-guild-catalog']);
       requireCondition((await q.query('SELECT count(*)::int AS n FROM communities')).rows[0].n===1,409,'guild_catalog_scope_required','多社群資料庫需先隔離公會目錄，才能核准建立新公會。');
       requireCondition(!(await q.query('SELECT 1 FROM positioning_guild_catalog WHERE lower(name)=lower($1)',[body.guild!.name])).rowCount,409,'guild_name_exists','已存在相同名稱的公會。');
-      requireCondition(body.guild!.skill_book_ids.every(id=>communityCatalog.skill_books.some(book=>book.id===id)),422,'unknown_skill_book','請從平台技能書目錄選擇。');
+      requireCondition(body.guild!.skill_book_ids.every(bookId=>communityCatalog.skill_books.some(book=>book.id===bookId)),422,'unknown_skill_book','請從平台技能書目錄選擇。');
       guildKey='guild_custom_'+id.replaceAll('-','');
-      await q.query('INSERT INTO positioning_guild_catalog(guild_key,profession_key,name,purpose,first_step,module_key) VALUES($1,$2,$3,$4,$5,$6)',[guildKey,'custom_'+id.replaceAll('-',''),body.guild!.name,body.guild!.purpose,body.guild!.first_step,body.guild!.module_key]);
+      const alias=body.guild!.alias??'',title=body.guild!.profession_title??'';
+      await aliasConflicts(q,alias,guildKey,body.guild!.name);
+      await q.query('INSERT INTO positioning_guild_catalog(guild_key,profession_key,name,purpose,first_step,module_key,alias,profession_title) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[guildKey,'custom_'+id.replaceAll('-',''),body.guild!.name,body.guild!.purpose,body.guild!.first_step,body.guild!.module_key,alias,title]);
       for(const bookId of body.guild!.skill_book_ids)await q.query('INSERT INTO guild_skill_book_bindings(community_id,guild_key,book_id) VALUES($1,$2,$3)',[input.admin.community_id,guildKey,bookId]);
     }
-    const updated=(await q.query(`UPDATE guild_creation_applications SET state=$2,aggregate_version=aggregate_version+1,reviewed_by=$3,reviewed_at=now(),review_reason=$4,approved_guild_key=$5 WHERE application_id=$1 RETURNING *`,[id,body.decision==='approve'?'approved':'declined',input.admin.admin_id,body.reason,guildKey])).rows[0];
-    await notifyGuildApplicationReview(q,updated);
-    await audit(q,input.admin,'guild_application_review','guild_application',id,body.reason,{state:previous.state,aggregate_version:previous.aggregate_version},{state:updated.state,aggregate_version:updated.aggregate_version,guild_key:guildKey,guild:body.guild??null});return updated;
+    if(body.decision==='merge'){
+      const target=(await q.query('SELECT * FROM positioning_guild_catalog WHERE guild_key=$1 FOR UPDATE',[body.merge!.guild_key])).rows[0];
+      requireCondition(target,404,'guild_not_found','找不到這個公會。');
+      guildKey=target.guild_key;aliasBefore=target.alias;aliasAfter=target.alias;
+      const alias=body.merge!.alias??'';
+      if(alias){
+        await aliasConflicts(q,alias,target.guild_key,target.name);
+        const renamed=(await q.query('UPDATE positioning_guild_catalog SET alias=$2,catalog_version=catalog_version+1 WHERE guild_key=$1 RETURNING alias',[target.guild_key,alias])).rows[0];
+        aliasAfter=renamed.alias;aliasSet=alias;
+      }
+    }
+    const updated=(await q.query(`UPDATE guild_creation_applications SET state=$2,aggregate_version=aggregate_version+1,reviewed_by=$3,reviewed_at=now(),review_reason=$4,approved_guild_key=$5 WHERE application_id=$1 RETURNING *`,[id,body.decision==='reject'?'declined':'approved',input.admin.admin_id,body.reason,guildKey])).rows[0];
+    await notifyGuildApplicationReview(q,updated,aliasSet?{alias_set:aliasSet}:undefined);
+    const after:Record<string,unknown>={state:updated.state,aggregate_version:updated.aggregate_version,decision:body.decision,guild_key:guildKey,guild:body.guild??null};
+    if(body.decision==='merge'){after.alias_before=aliasBefore;after.alias_after=aliasAfter;}
+    await audit(q,input.admin,'guild_application_review','guild_application',id,body.reason,{state:previous.state,aggregate_version:previous.aggregate_version},after);return updated;
   });
 }
 export async function adminGuilds(pool:Pool,admin:AdminActor){

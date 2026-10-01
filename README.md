@@ -3,9 +3,9 @@
 <!-- freedom-repository-guide:start -->
 ## 在自由工坊的位置
 
-[自由工坊](https://freetwai.com) 讓會員先完成定位、選擇公會並領取 Repo 技能書，再以供貨、商店、開源作品、行銷與小隊共同完成成果。
+[自由工坊](https://freetwai.com) 讓會員先選擇公會並領取 Repo 技能書（定位測驗可稍後補做），再以供貨、商店、開源作品、行銷與小隊共同完成成果。
 
-自由工坊的會員入口、中央資料庫與跨模組業務規則。 已提供 email 註冊、封閉定位、公會與技能書、會員隱私、小隊、供貨與商店草稿、作品共創、行銷紀錄、Access 管理與公會長本人確認。
+自由工坊的會員入口、中央資料庫與跨模組業務規則。 已提供 email 註冊、選主要公會（定位測驗可稍後補做）、公會與技能書、會員隱私、小隊、供貨與商店草稿、作品共創、行銷紀錄、Access 管理與公會長本人確認。
 
 正式買家結帳、平台代收款、銀行實收核實、通用 Agent 執行授權都不能由目前的預覽紀錄推定已完成。
 
@@ -16,13 +16,15 @@
 會員、權限、公會、商品、商店、合作和稽核的權威寫入在本 repo 的 API／PostgreSQL。外倉用版本化契約；本機、staging、public 使用分開的資料庫。GitHub Issue／PR 保存程式協作事實；Seller／bank 保存實收事實。 跨 repo 的協定由[中央平台](https://github.com/FreeTWAI-AI/freedom-platform)維護。
 <!-- freedom-repository-guide:end -->
 
-本 workspace 保存 Freedom 大平台的完整規格，以及 **0.13.0-member-messages 自由工坊會員入口**。內建目錄為 18 個公會、37 本技能書（43 個原作 repo 指引）；管理員另可核准會員申請的自訂公會。新會員註冊後完成定位，選擇主力公會並取得 Repo 技能書，再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
+本 workspace 保存 Freedom 大平台的完整規格，以及 **0.13.0-member-messages 自由工坊會員入口**。內建目錄為 18 個公會、38 本技能書（44 個原作 repo 指引）；管理員另可核准會員申請的自訂公會。新會員註冊後選擇主要公會並取得 Repo 技能書（定位測驗可稍後補做），再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
 
-技能書分享可從每本 100 則介紹擲骰子選文，再分享或複製介紹與連結；37 本技能各有功能示意圖，供介紹頁與分享縮圖使用。新增「上傳技能」私人 Agent 指令、60 分鐘一次性投稿授權，以及可撤銷的投稿專用 API 金鑰與 Node 客戶端。Agent 上傳後由本人預覽送出，公開介紹頁保留 GitHub 來源、固定版本與授權；公開的作品列在技能書架的「社群技能書」，不自動成為公會指定技能。詳見 [Agent 技能草稿上傳](./docs/development/agent-skill-upload.md) 與 [0.12 版本紀錄](./docs/releases/2026-09-23-agent-skill-sharing.md)。
+技能書分享可從每本 100 則介紹擲骰子選文，再分享或複製介紹與連結；38 本技能各有功能示意圖，供介紹頁與分享縮圖使用。新增「上傳技能」私人 Agent 指令、60 分鐘一次性投稿授權，以及可撤銷的投稿專用 API 金鑰與 Node 客戶端。Agent 上傳後由本人預覽送出，公開介紹頁保留 GitHub 來源、固定版本與授權；公開的作品列在技能書架的「社群技能書」，不自動成為公會指定技能。詳見 [Agent 技能草稿上傳](./docs/development/agent-skill-upload.md) 與 [0.12 版本紀錄](./docs/releases/2026-09-23-agent-skill-sharing.md)。
 
 歷史（2026-09-24 第一批）：新增 Mini 的 Local Workspace MCP、Hao 的 Editkin、Jason 的定位小書僮與 David 的巫師公會交誼廳，當時目錄 29 本。保留原作署名、版本與授權觀察，詳見 [四位作者技能書登錄](./docs/development/member-skill-registration.md)。
 
-2026-09-24 第二批：加入綠豆、隊長、Yuri、阿軒哥哥的 8 個作品，成為目前的 37 本；名片可修改社群顯示名稱，並選填男／女／外星人／AI。詳見 [社群原作技能書與名片更新](./docs/development/community-author-skills.md)。
+2026-09-24 第二批：加入綠豆、隊長、Yuri、阿軒哥哥的 8 個作品，目錄從 29 本增至 37 本；名片可修改社群顯示名稱，並選填男／女／外星人／AI。詳見 [社群原作技能書與名片更新](./docs/development/community-author-skills.md)。
+
+2026-10-01：上架阿軒哥哥（阿軒割割）的 Open SEO Advisor，由成長與行銷公會指定。目錄為 38 本技能書、44 個原作 repo 指引。
 
 前版 0.9.7 修正 GitHub Star 權限錯誤提示，App 建立流程明確申請 Metadata 讀取，後台提供權限與 Repo 安裝入口。既有 App 仍需在 GitHub 補齊設定；站內連結成功不代表每個按星請求都已獲 GitHub 允許。
 
@@ -34,7 +36,7 @@ Cloudflare Workers＋PlanetScale 已於 2026-09-25 切換。2026-09-24 候選站
 
 名片可新增多個社群帳號或頻道，同平台也可重複加入；每筆獨立編輯、刪除及設定可見範圍，預設只有本人可見。詳見 [會員社群連結](./docs/development/member-social-links.md)。
 
-右上角「設定」集中我的名片、GitHub 必做待辦與我的訊息。訊息分為通知、公會閒聊、小隊閒聊與私人訊息，依當下成員資格開放；通知包含好友、小隊邀請、公會審核與任命結果。小隊邀請由受邀本人接受。詳見 [會員設定與訊息](./docs/development/member-settings-messages.md)。
+右上角「設定」集中我的名片、GitHub 必做待辦與我的訊息。訊息也可從主要導覽或功能搜尋找到，分為通知、公會閒聊、小隊閒聊、私人訊息與世界聊天，依當下成員資格開放；通知包含好友、小隊邀請、公會審核與任命結果。小隊邀請由受邀本人接受。詳見 [會員設定與訊息](./docs/development/member-settings-messages.md)。
 
 本分支的社群活動支援每場專頁與會員專屬分享連結、分享報名統計、未來活動行事曆，以及公會限定／工坊會員／推薦連結公開／完全公開四種參與範圍。推薦連結公開活動在報名後才提供線上連結，並寄送參與資料到填寫的 Email；公開訪客報名需要可用的 `EMAIL` binding（Node 本機可注入 `eventEmailSender`）。活動海報支援直式與橫式 PNG／JPEG／WebP（512 KiB 以下），影片支援 MP4／WebM（20 MiB 以下）。會員名冊與私訊依最近兩分鐘的有效 session 活動顯示在線狀態，並列出可確認的上次登入時間；舊 session 的登入時間不推測。這些是本分支實作，並非已部署聲明。
 
@@ -58,6 +60,12 @@ Cloudflare Workers＋PlanetScale 已於 2026-09-25 切換。2026-09-24 候選站
 
 「我有東西要賣」下載內部商店 MD；「我可以賣東西」挑商品後下載公開商店 MD。AI 整理商品、製作網站並引導各店申請金流，再由本人上傳成果、預覽確認歸檔。中央提供轉單、商店後台回報的兩筆付款記錄，以及人工出貨登記；不代收、不自動扣款、不追蹤物流。真人金流與各外部網站仍须另行驗收。詳見 [AI 雙商店規格](docs/development/supplier-retail-pricing.md)；下一位 Agent 先讀 [設計規劃與交接](docs/development/agent-shop-handoff.md)。
 
+## 新人入口與會員交流
+
+新會員須先選擇主要公會並領取該公會技能書，會員功能才會開放；定位測驗可稍後補做。我的名片可開啟可撤銷的分享連結。首頁與名片會推薦一位工坊夥伴，並提供好友名單、公會主題篩選，以及每日公會目錄分析。詳見 [新人入口與會員交流](docs/development/member-connections.md)。
+
+註冊只需 Email 與密碼，顯示名稱選填；訪客可先預覽免費資源。加入公會後，首頁直接提供已領技能書、公會聊天室與任務／作品入口。控制台與訊息頁只顯示選定的對話，保留草稿，並自動帶入新訊息。詳見 [簡約會員體驗](docs/development/calm-member-experience.md)。
+
 ## 啟動本機版本
 
 需要 Node.js 24 與 Docker Compose：
@@ -75,7 +83,7 @@ npm run demo
 
 Freedom Platform 是社群的接點、共同資料庫、核心 codebase 協作索引、工作／商業事實帳本與狀態機。Discord 承接討論與讀書會，LINE 承接即時聯絡，GitHub 承接程式版本與 PR；money 的權威事實留在 Seller 的 provider／bank，客戶 raw data 留在 client／Squad storage，平台只保存必要的 ref、digest 與 fact。
 
-現行推進：**2026-09-23，封閉式新人定位、主力公會、Repo 技能書與公開會員 Beta。** 2026-09-24：加入 AI 開發或 AI 導入與驗證公會取得技能開發資格，加入平台開發公會取得平台開發資格，離會即撤銷；GitHub OAuth、App 安裝與細範圍 key 分開驗證。見[公會開發資格](./docs/development/guild-development-access.md)，計畫對齊、逐頁稽核與驗證見 [2026-09-24 全站整合報告](./docs/development/audit-2026-09-24.md)。 完整架構保留，不把未來案源當報酬，不預設核心補位。第一筆真實合作與收款仍待真人證據，見 [首批營運驗證](./docs/development/operating-validation.md)。
+現行推進：**2026-10-01 整合 Issue #42，選主要公會（定位測驗可稍後補做）、Repo 技能書與公開會員 Beta。** 2026-09-23 起曾以封閉式新人定位為入口。 2026-09-24：加入 AI 開發或 AI 導入與驗證公會取得技能開發資格，加入平台開發公會取得平台開發資格，離會即撤銷；GitHub OAuth、App 安裝與細範圍 key 分開驗證。見[公會開發資格](./docs/development/guild-development-access.md)，計畫對齊、逐頁稽核與驗證見 [2026-09-24 全站整合報告](./docs/development/audit-2026-09-24.md)。 完整架構保留，不把未來案源當報酬，不預設核心補位。第一筆真實合作與收款仍待真人證據，見 [首批營運驗證](./docs/development/operating-validation.md)。
 
 先讀 [低維運互惠運作契約](./docs/platform-plan/12-low-ops-mutual-benefit.md) 與 [現況紀錄](./docs/platform-plan/09-handoff-record.md)。[2026-09-19 變更說明](./CHANGES-2026-09-19.md) 與當日 verification 保留作歷史紀錄；本次實跑結果以新版本紀錄為準。
 

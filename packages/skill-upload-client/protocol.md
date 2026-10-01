@@ -71,7 +71,7 @@ Content-Type: application/json
 {"submission_id": "…", "status": "ready_for_review", "grant_consumed_at": "…", "review_url": "https://freetwai.com/#skills"}
 ```
 
-以同一個授權重送完全相同的內容，會得到同樣的確認，不會重複建立。內容不同則回 409 `upload_grant_consumed`。授權過期、被撤銷、草稿被撤回、會員停用或尚未完成定位時，就算內容相同也會拒絕。
+以同一個授權重送完全相同的內容，會得到同樣的確認，不會重複建立。內容不同則回 409 `upload_grant_consumed`。授權過期、被撤銷、草稿被撤回、會員停用或尚未選擇主要公會時，就算內容相同也會拒絕。
 
 ## 錯誤
 

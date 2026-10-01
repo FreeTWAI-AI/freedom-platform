@@ -59,13 +59,13 @@ Base `8338a42` 公開會員 beta 只落在 M01（`FND-03` session／隱私、`WR
 
 ## M04 — 階段 1B：Guild 與完整首日旅程 skeleton
 
-- Outcome：新人自助加入既有 Guild、裝備／驗證、做第一件事並理解 Gained／Next。2026-09-23 起新註冊須先完成封閉定位並自行確認公會（Ted 明示 override 原「可跳過定位」）；既有會員不被重新封鎖。
+- Outcome：新人自助加入既有 Guild、裝備／驗證、做第一件事並理解 Gained／Next。2026-09-23 起新註冊須先完成封閉定位並自行確認公會（Ted 明示 override 原「可跳過定位」）；既有會員不被重新封鎖。2026-10-01 更新：新註冊改為先選定主要公會（快速加入或定位測驗），定位可稍後補做；既有會員仍不被重新封鎖。
 - Scope：readiness、Guild lifecycle、onboarding、positioning、coaching、starter Skill、intake、LINE／Discord ports。
 - Non-goal：不把 welcome、private channel、installation、stuck 或 connector 變成人身條件；不自動建立新 Guild。
 - 技術依賴／標籤：`M01`；installation contract 來自 `M02`。三類 supply owner evidence 只控制 `supply-ready`。
 - Owner：Jason（Talent，含 `ONB-01`、`POS-01`、`POS-02`、`COA-01`，以及參與 package `ORG-02`／`WRK-01` 的 Talent／Work 責任）、Ted（Skills）；保留各 package 的 `06 §4` 職能名（建議預設，五人共同閱讀確認）。Reviewer：Grok。Verifier：Claude。
 - Community／`INTK-01` owner：Hao（建議預設，五人共同閱讀確認）。
-- Evidence：positioning（既有會員相容與新註冊必填）、multi-Guild、no-CLI path、outage fallback、support cards、supply fixtures；全部未跑。
+- Evidence：positioning（既有會員相容；2026-10-01 起新註冊必填的是主要公會，定位可稍後補做）、multi-Guild、no-CLI path、outage fallback、support cards、supply fixtures；全部未跑。
 - 主 packages：`ORG-03`、`ONB-01`、`POS-01`、`POS-02`、`COA-01`、`SKL-02`、`INTK-01`、`INT-01`、`INT-02`。
 - 參與：`FND-05`、`ORG-01`、`ORG-02`、`WRK-01`、`AGT-05`、`SKL-03`。
 

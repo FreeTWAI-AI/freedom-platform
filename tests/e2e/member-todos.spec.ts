@@ -5,12 +5,12 @@ import {test,expect,type Page,type Route} from './fixtures.js';
 // skills group's real-API spec covers the same six tasks against PostgreSQL.
 const SHOTS='/tmp/freedom-member-todos-shots';
 type Guild={key:string;state:string|null};
-type Facts={required:boolean;completed:boolean;state:'new'|'draft'|'evaluated'|'completed';primary:string|null;books:number;guilds:Guild[];avatar:string|null;links:number;linksTotal?:number;github:{configured:boolean;connected:boolean}};
+type Facts={required:boolean;completed:boolean;entryMode?:'quick'|'assessment';assessmentCompleted?:boolean;state:'new'|'draft'|'evaluated'|'completed';primary:string|null;books:number;guilds:Guild[];avatar:string|null;links:number;linksTotal?:number;github:{configured:boolean;connected:boolean}};
 type Fail=Partial<Record<'onboarding'|'directory'|'account'|'social'|'github',boolean>>;
 const base=():Facts=>({required:false,completed:false,state:'new',primary:null,books:0,guilds:[{key:'maker',state:'active'},{key:'writer',state:null}],avatar:null,links:0,github:{configured:true,connected:false}});
 
 const book=(n:number)=>({book_id:`synthetic-book-${n}`,title:`合成技能書 ${n}`,description:'合成說明',repository_url:'https://github.com/synthetic/book',fork_url:null,guild_keys:['maker'],granted_at:'2026-09-20T00:00:00Z'});
-const onboardingDto=(f:Facts)=>({required:f.required,completed:f.completed,state:f.state,draft:null,result:null,primary_guild_key:f.primary,skill_books:Array.from({length:f.books},(_,n)=>book(n))});
+const onboardingDto=(f:Facts)=>({required:f.required,completed:f.completed,entry_mode:f.entryMode??'assessment',assessment_completed:f.assessmentCompleted??f.completed,state:f.state,draft:null,result:null,primary_guild_key:f.primary,skill_books:Array.from({length:f.books},(_,n)=>book(n))});
 const guildDto=(g:Guild)=>({guild_key:g.key,name:g.key==='maker'?'合成創客公會':'合成寫作公會',purpose:'合成用途',first_step:'合成第一步',track_count:0,guild_master:null,guild_experts:[],guild_master_nominee:null,is_primary:false,is_secondary:false,secondary_position:null,skill_books:[],membership:g.state?{state:g.state,aggregate_version:1}:null});
 const accountDto=(f:Facts)=>({user_id:'synthetic-user',avatar:{avatar_url:f.avatar,aggregate_version:1},nickname:'合成會員',identity_label:null,login_email:'maker@local.test',email_verified:true,contacts:{},aggregate_version:1});
 const linkDto=(n:number)=>({link_id:`synthetic-link-${n}`,platform:'facebook',label:`合成連結 ${n}`,url:'https://example.invalid/synthetic',audiences:[],aggregate_version:1,created_at:'2026-09-20T00:00:00Z',updated_at:'2026-09-20T00:00:00Z',verified:false});
@@ -92,6 +92,28 @@ test('recorded completion survives re-exploring, while an inactive or missing pr
   await expect(task(page,'primary-guild')).toContainText('不在已加入狀態');
   facts.primary='maker';await refocus(page);
   await expectStates(page,{'primary-guild':'done'});
+});
+
+test('quick entry without the assessment is an optional positioning to-do',async({page})=>{
+  const facts:Facts={...base(),completed:true,state:'completed',primary:'maker',books:1,guilds:[{key:'maker',state:'active'}],entryMode:'quick',assessmentCompleted:false};
+  await sources(page,facts);
+  await login(page);
+  await expectStates(page,{onboarding:'todo','primary-guild':'done','skill-book':'done'});
+  const card=task(page,'onboarding');
+  await expect(card.getByRole('heading',{level:3})).toHaveText('補做定位測驗');
+  await expect(card).toContainText('完成定位後，名片會顯示擅長能力，也更容易遇到合適的夥伴。');
+  await expect(card.getByRole('button',{name:'前往我的定位',exact:true})).toBeVisible();
+  await expect(card.getByRole('status')).toHaveText('待完成');
+  const groups=page.locator('.member-tasks-group');
+  await expect(groups.nth(1).getByRole('heading',{level:2})).toHaveText('建議待辦');
+  await expect(groups.nth(1).locator('[data-task="onboarding"]')).toHaveCount(1);
+  await expect(groups.nth(0).locator('[data-task="onboarding"]')).toHaveCount(0);
+  facts.assessmentCompleted=true;facts.entryMode='assessment';
+  await refocus(page);
+  await expectStates(page,{onboarding:'done'});
+  await expect(task(page,'onboarding').getByRole('heading',{level:3})).toHaveText('完成定位');
+  await expect(task(page,'onboarding')).toContainText('定位已完成，可隨時重新探索。');
+  await expect(groups.nth(0).locator('[data-task="onboarding"]')).toHaveCount(1);
 });
 
 test('one failing source only marks the tasks that depend on it, and each retries on its own',async({page})=>{

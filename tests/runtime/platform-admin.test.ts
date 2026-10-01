@@ -100,6 +100,9 @@ test('admin listings and mutations cannot cross community boundaries',async()=>{
  const other=await outsider(),appId=await application(other.community,other.user);
  await pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)',[randomUUID(),other.community,'other-admin@example.invalid','Other Admin']);
  const listed=await request('/members?limit=2');assert.equal(listed.data.items.length,2);assert.equal(listed.data.next_offset,2);assert.ok(!JSON.stringify(listed.data).includes('outsider@example.invalid'));
+ assert.ok(listed.data.items.every((item:any)=>item.onboarding_entry_mode==='assessment'||item.onboarding_entry_mode==='quick'));
+ await pool.query("UPDATE users SET onboarding_completed_at=now(),onboarding_entry_mode='quick' WHERE user_id=$1",[DEMO_USERS[0].user_id]);
+ assert.equal((await request('/members?q='+encodeURIComponent(DEMO_USERS[0].display_name))).data.items.find((item:any)=>item.user_id===DEMO_USERS[0].user_id).onboarding_entry_mode,'quick');
  assert.ok(!JSON.stringify((await request('/members?offset=2')).data).includes('outsider@example.invalid'));assert.equal((await request('/admins')).data.items.length,1);assert.equal((await request('/guild-applications?state=all')).data.items.length,0);
  assert.equal((await request(`/members/${other.user}/status`,disabled,1)).status,404);assert.equal((await request(`/guild-applications/${appId}/review`,{decision:'reject',reason:'不在本社群範圍。'},1)).status,404);
  const own=await application();assert.equal((await request(`/guild-applications/${own}/review`,approval,1)).data.code,'guild_catalog_scope_required');
@@ -190,7 +193,7 @@ test('explicit administrator appointment joins active nonmembers, grants books, 
  await join(DEMO_USERS[1].user_id);await pool.query('UPDATE users SET active=false WHERE user_id=$1',[DEMO_USERS[1].user_id]);assert.equal((await request(path,{...body,user_id:DEMO_USERS[1].user_id})).status,422);
  const first=await request(path,body);assert.equal(first.status,200,JSON.stringify(first.data));assert.ok(first.data.aggregate_version>=2);
  const membership=(await pool.query('SELECT * FROM positioning_profession_memberships WHERE user_id=$1 AND guild_key=$2',[body.user_id,guild])).rows[0];assert.equal(membership.state,'active');assert.equal((await pool.query('SELECT count(*) FROM guild_member_preferences WHERE user_id=$1',[body.user_id])).rows[0].count,'0');
- assert.deepEqual((await pool.query('SELECT book_id FROM member_skill_book_grants WHERE user_id=$1 AND guild_key=$2 ORDER BY book_id',[body.user_id,guild])).rows.map(row=>row.book_id),['n8n-marketing-flows','social-post','typo-studio']);
+ assert.deepEqual((await pool.query('SELECT book_id FROM member_skill_book_grants WHERE user_id=$1 AND guild_key=$2 ORDER BY book_id',[body.user_id,guild])).rows.map(row=>row.book_id),['n8n-marketing-flows','open-seo-advisor','social-post','typo-studio']);
  assert.equal((await request(path,body)).status,428);const listed=(await request('/guilds')).data.items.find((g:any)=>g.guild_key===guild);assert.equal(listed.officer_version,first.data.aggregate_version);assert.equal(listed.guild_master.user_id,body.user_id);assert.equal(listed.member_count,1);
  const outsiderUser=await outsider();assert.equal((await request(path,{...body,user_id:outsiderUser.user},first.data.aggregate_version)).status,422);
  const memberSession=await login(),left=await member(`/guilds/${guild}/leave`,memberSession.cookie,{},memberSession.csrf,Number(membership.aggregate_version));assert.equal(left.status,200,JSON.stringify(left.data));assert.equal((await pool.query('SELECT count(*) FROM positioning_guild_officers')).rows[0].count,'0');

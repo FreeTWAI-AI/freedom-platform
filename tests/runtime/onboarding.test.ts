@@ -8,6 +8,9 @@ import { seedLocal,DEMO_USERS,DEMO_PASSWORD } from '../../packages/testing/seed.
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { assessmentQuestions,ASSESSMENT_VERSION,ASSESSMENT_SHA256,evaluateAssessment,guildTitles } from '../../modules/positioning/assessment.js';
 import { memberPositioningSummary,listGuildSkillBooks } from '../../modules/positioning/onboarding.js';
+import { reviewGuildApplication } from '../../modules/platform-admin/service.js';
+import { communityCatalog } from '../../modules/community/catalog.js';
+const memberApplicationKeys=['aggregate_version','application_id','approved_guild_key','approved_guild_name','created_at','name','profession','reason','review_reason','reviewed_at','state'];
 
 const origin='http://127.0.0.1:4310',databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
 const schema=`fp_onboarding_test_${process.pid}_${Date.now()}`,admin=createPool(databaseUrl);
@@ -52,7 +55,8 @@ test('every guild can be the first recommendation for at least one preference co
 
 test('new members cannot bypass required assessment; draft resumes across sign-in and rejects forged score, unknown answer and old versions',async()=>{
  const member=await signIn();await pool.query('UPDATE users SET onboarding_required=true WHERE user_id=$1',[member.user.user_id]);
- assert.equal((await request('/supplier/products',member)).status,403);assert.equal((await request('/work-items',member)).status,403);
+ const blocked=await request('/supplier/products',member);assert.equal(blocked.status,403);assert.equal(blocked.data.code,'onboarding_required');assert.equal(blocked.data.detail,'請先選擇主要公會，完成加入後即可使用會員功能。');
+ assert.equal((await request('/work-items',member)).status,403);
  assert.equal((await request('/me/onboarding/complete',member,{guild_keys:chosen,primary_guild_key:chosen[0],confirmed:true})).status,409);
  const draft={...body,answers:{preferred_result:'product'}},key=randomUUID();
  const saved=await request('/me/onboarding/answers',member,draft,undefined,key);assert.equal(saved.status,200,JSON.stringify(saved.data));assert.equal(saved.data.required,true);assert.equal(saved.data.state,'draft');
@@ -108,10 +112,35 @@ test('concurrent completion produces one completion fact and one grant per guild
 test('guild applications remain pending, scoped to applicant, and never create guilds or grant officers',async()=>{
  const member=await signIn(),other=await signIn(DEMO_USERS[1].email),input={name:'農業職人公會',profession:'農業',reason:'希望一起整理農業現場的可重用知識與工具。'},key=randomUUID();
  const applied=await request('/guild-applications',member,input,undefined,key);assert.equal(applied.status,201,JSON.stringify(applied.data));assert.equal(applied.data.state,'pending');
+ assert.deepEqual(Object.keys(applied.data).sort(),memberApplicationKeys);assert.equal('reviewed_by' in applied.data,false);assert.equal('user_id' in applied.data,false);assert.equal('community_id' in applied.data,false);
+ assert.equal(applied.data.aggregate_version,1);assert.equal(typeof applied.data.aggregate_version,'number');assert.match(applied.data.created_at,/^\d{4}-\d{2}-\d{2}T/);assert.equal(applied.data.reviewed_at,null);assert.equal(applied.data.review_reason,null);assert.equal(applied.data.approved_guild_key,null);assert.equal(applied.data.approved_guild_name,null);
  assert.deepEqual((await request('/guild-applications',member,input,undefined,key)).data,applied.data);assert.equal((await request('/guild-applications',member,input)).status,409);
- assert.equal((await request('/guild-applications',member)).data.items.length,1);assert.equal((await request('/guild-applications',other)).data.items.length,0);
+ assert.equal((await request('/guild-applications',member)).data.items.length,1);assert.deepEqual(Object.keys((await request('/guild-applications',member)).data.items[0]).sort(),memberApplicationKeys);assert.equal((await request('/guild-applications',other)).data.items.length,0);
  assert.equal((await pool.query('SELECT count(*) FROM positioning_guild_catalog')).rows[0].count,'18');assert.equal((await pool.query('SELECT count(*) FROM positioning_guild_officers')).rows[0].count,'0');
  assert.equal((await request('/me/onboarding',other)).data.draft,null);assert.deepEqual((await request('/me/skill-books',other)).data.items,[]);
+});
+
+test('a reviewed application returns the renamed guild and the rejection reason only to its applicant',async()=>{
+ const member=await signIn(),other=await signIn(DEMO_USERS[1].email),community=(await pool.query('SELECT community_id FROM users WHERE user_id=$1',[member.user.user_id])).rows[0].community_id,adminId=randomUUID();
+ const admin={admin_id:adminId,community_id:community,email:`review-${adminId}@example.test`,display_name:'審核測試',role:'super_admin' as const,subject:'verified-test'};
+ const created:string[]=[];
+ try{
+  await pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)',[adminId,community,admin.email,admin.display_name]);
+  const applied=await request('/guild-applications',member,{name:'農業職人公會',profession:'農業',reason:'希望一起整理農業現場的可重用知識與工具。'});assert.equal(applied.status,201,JSON.stringify(applied.data));
+  const approved=await reviewGuildApplication(pool,{admin,operation:'POST /guild-applications/review',key:randomUUID(),expected:'1',body:{decision:'approve',reason:'已確認公會目標與第一步。',guild:{name:'田野知識公會',purpose:'整理田野觀察可以重用的方法。',first_step:'先寫下一則可以分享的觀察。',module_key:'guilds',skill_book_ids:[communityCatalog.skill_books[0].id]}}},applied.data.application_id);
+  created.push(approved.approved_guild_key);
+  const item=(await request('/guild-applications',member)).data.items[0];
+  assert.deepEqual(Object.keys(item).sort(),memberApplicationKeys);assert.equal(item.state,'approved');assert.equal(item.name,'農業職人公會');assert.equal(item.approved_guild_name,'田野知識公會');assert.equal(item.approved_guild_key,approved.approved_guild_key);
+  assert.equal(item.review_reason,'已確認公會目標與第一步。');assert.match(item.reviewed_at,/^\d{4}-\d{2}-\d{2}T/);assert.equal(JSON.stringify(item).includes(adminId),false);assert.equal(JSON.stringify(item).includes('reviewed_by'),false);
+  const declined=await request('/guild-applications',member,{name:'尚未成形公會',profession:'研究',reason:'想先試著提出一個還需要調整的方向。'});assert.equal(declined.status,201,JSON.stringify(declined.data));
+  await reviewGuildApplication(pool,{admin,operation:'POST /guild-applications/review',key:randomUUID(),expected:'1',body:{decision:'reject',reason:'請把第一步寫得更具體。'}},declined.data.application_id);
+  const rejected=(await request('/guild-applications',member)).data.items.find((row:any)=>row.application_id===declined.data.application_id);
+  assert.equal(rejected.state,'declined');assert.equal(rejected.review_reason,'請把第一步寫得更具體。');assert.equal(rejected.approved_guild_key,null);assert.equal(rejected.approved_guild_name,null);assert.match(rejected.reviewed_at,/^\d{4}-\d{2}-\d{2}T/);
+  assert.equal((await request('/guild-applications',other)).data.items.length,0);assert.equal((await pool.query('SELECT count(*) FROM positioning_guild_catalog')).rows[0].count,'19');
+ }finally{
+  for(const key of created){await pool.query('DELETE FROM guild_skill_book_bindings WHERE guild_key=$1',[key]);await pool.query('UPDATE guild_creation_applications SET approved_guild_key=NULL WHERE approved_guild_key=$1',[key]);await pool.query('DELETE FROM positioning_guild_catalog WHERE guild_key=$1',[key]);}
+ }
+ assert.equal((await pool.query('SELECT count(*) FROM positioning_guild_catalog')).rows[0].count,'18');
 });
 
 test('retaking the assessment preserves the last confirmed public capabilities until a new completion',async()=>{
@@ -287,4 +316,18 @@ test('guild directory shows only active pending nominees in its community and ne
  await pool.query("DELETE FROM positioning_guild_officers WHERE community_id=$1 AND guild_key='guild_security'",[community]);
  rows=(await request('/guilds/directory',member)).data.items;
  assert.equal(rows.find((g:any)=>g.guild_key==='guild_security').guild_master_nominee,null);
+});
+
+test('joining 成長與行銷公會 grants Open SEO Advisor',async()=>{
+  const member=await signIn();
+  const joined=await request('/guilds/guild_marketing/join',member,{});
+  assert.equal(joined.status,200,JSON.stringify(joined.data));
+  const books=await request('/me/skill-books',member);
+  assert.equal(books.status,200);
+  const book=books.data.items.find((item:any)=>item.id==='open-seo-advisor');
+  assert.ok(book);
+  assert.ok(book.guild_keys.includes('guild_marketing'));
+  assert.equal(book.guide.author_name,'阿軒哥哥（阿軒割割）');
+  assert.equal(book.repository_url,'https://github.com/mars-tw/open-seo-advisor-skill');
+  assert.equal(book.source_commit,'f6178d797b45705b5b77f83507366a72eac34bde');
 });
