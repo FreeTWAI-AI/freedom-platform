@@ -12,6 +12,7 @@ import { readPublishedSkillSubmission, readPublishedSkillTitles } from '../skill
 import { readMemberServiceShare, readMemberServiceTitles } from './member-services.js';
 import { getEventShareCode } from './events.js';
 import { avatarUrl } from '../identity-membership/avatars.js';
+import { readPublicCards } from '../identity-membership/member-sharing.js';
 import type { Actor } from '../identity-membership/service.js';
 
 // Click totals are a display board, like the GitHub author boards.
@@ -19,7 +20,6 @@ import type { Actor } from '../identity-membership/service.js';
 export const PROMOTION_KINDS = ['member_card', 'platform', 'skill_book', 'social_post', 'member_service', 'event'] as const;
 export type PromotionKind = typeof PROMOTION_KINDS[number];
 export type PromotionPeriod = 'week' | 'month' | 'all';
-const UNAVAILABLE = new Set<PromotionKind>(['member_card']);
 const VISITOR_CAP = 20;
 const NETWORK_CAP = 60;
 const LINK_CAP = 200;
@@ -95,31 +95,58 @@ async function skillTarget(pool: Pool, target: string) {
   return { title: submission!.title, summary: submission!.description };
 }
 
+const MEMBER_CARD_KEY = /^[0-9a-f-]{36}:[0-9a-f]{16}$/;
+
+function memberCardKey(target: string, ownerId: string) {
+  const key = target.toLowerCase();
+  if (!MEMBER_CARD_KEY.test(key)) return null;
+  const uid = key.slice(0, 36);
+  if (uid !== ownerId.toLowerCase()) return null;
+  return { uid, generation: key.slice(37) };
+}
+
+async function memberCardForLink(pool: Pool, link: { community_id: string; user_id: string; target_key: string }) {
+  const parsed = memberCardKey(link.target_key, link.user_id);
+  if (!parsed) return null;
+  const card = (await readPublicCards(pool, link.community_id, [parsed.uid])).get(parsed.uid);
+  if (!card || card.generation !== parsed.generation) return null;
+  return card;
+}
+
+async function memberCardTarget(pool: Pool, actor: Actor, target: string) {
+  requireCondition(z.uuid().safeParse(target).success, 422, 'validation_failed', '名片目標不正確。');
+  const uid = target.toLowerCase();
+  requireCondition(uid === actor.user_id.toLowerCase(), 403, 'promotion_target_forbidden', '只能分享自己的名片。');
+  const card = (await readPublicCards(pool, actor.community_id, [uid])).get(uid);
+  requireCondition(card, 404, 'not_found', '先開啟名片分享，才能建立名片連結。');
+  return { title: card.title, key: `${uid}:${card.generation}` };
+}
+
 async function assertTarget(pool: Pool, actor: Actor, kind: PromotionKind, target: string) {
   if (kind === 'platform') {
     requireCondition(target === 'workshop', 422, 'validation_failed', '平台分享目標不正確。');
-    return '自由工坊';
+    return { title: '自由工坊', key: target };
   }
-  if (kind === 'skill_book') return (await skillTarget(pool, target)).title;
+  if (kind === 'skill_book') return { title: (await skillTarget(pool, target)).title, key: target };
   if (kind === 'event') {
     requireCondition(z.uuid().safeParse(target).success, 422, 'validation_failed', '活動目標不正確。');
     await getEventShareCode(pool, actor, target);
     const row = (await pool.query('SELECT title FROM community_events WHERE event_id=$1 AND community_id=$2', [target, actor.community_id])).rows[0];
-    return (row?.title as string) || '社群活動';
+    return { title: (row?.title as string) || '社群活動', key: target };
   }
   if (kind === 'social_post') {
     requireCondition(z.uuid().safeParse(target).success, 422, 'validation_failed', '貼文目標不正確。');
     const row = (await pool.query(`SELECT title FROM community_social_posts WHERE post_id=$1 AND community_id=$2 AND state='active'`, [target, actor.community_id])).rows[0];
     requireCondition(row, 404, 'not_found', '找不到可分享的貼文。');
-    return row.title as string;
+    return { title: row.title as string, key: target };
   }
   if (kind === 'member_service') {
     requireCondition(z.uuid().safeParse(target).success, 422, 'validation_failed', '服務目標不正確。');
     const service = await readMemberServiceShare(pool, actor.community_id, target);
     requireCondition(service, 404, 'not_found', '找不到可分享的服務。');
-    return service.title;
+    return { title: service.title, key: target };
   }
-  throw new Problem(422, 'promotion_kind_unavailable', '這個分享方式尚未開放。');
+  return memberCardTarget(pool, actor, target);
 }
 
 async function pointsFor(q: Pool | PoolClient, linkId: string, now: Date): Promise<PromotionPoints> {
@@ -136,21 +163,20 @@ function linkView(row: { kind: PromotionKind; target_key: string; code: string }
 
 export async function createPromotionLink(pool: Pool, actor: Actor, raw: unknown, now = new Date()): Promise<PromotionLinkView> {
   const body = linkInput.parse(raw);
-  requireCondition(!UNAVAILABLE.has(body.kind), 422, 'promotion_kind_unavailable', '這個分享方式尚未開放。');
-  const title = await assertTarget(pool, actor, body.kind, body.target);
+  const { title, key } = await assertTarget(pool, actor, body.kind, body.target);
   const day = taipeiDayStart(now);
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
       return await transaction(pool, async q => {
         await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`promo-link:${actor.user_id}:${taipeiDate(now)}`]);
         const existing = (await q.query(`SELECT link_id,kind,target_key,code FROM promotion_links
-          WHERE community_id=$1 AND user_id=$2 AND kind=$3 AND target_key=$4 AND revoked_at IS NULL`, [actor.community_id, actor.user_id, body.kind, body.target])).rows[0];
+          WHERE community_id=$1 AND user_id=$2 AND kind=$3 AND target_key=$4 AND revoked_at IS NULL`, [actor.community_id, actor.user_id, body.kind, key])).rows[0];
         if (existing) return linkView(existing, title, await pointsFor(q, existing.link_id, now));
         const used = (await q.query('SELECT count(*)::int AS n FROM promotion_links WHERE user_id=$1 AND created_at>=$2', [actor.user_id, day])).rows[0].n as number;
         requireCondition(used < LINK_CAP, 429, 'promotion_link_limit', '今天建立的分享連結已達上限。');
         const code = randomBytes(7).toString('base64url');
         const inserted = (await q.query(`INSERT INTO promotion_links(community_id,user_id,kind,target_key,code,created_at)
-          VALUES($1,$2,$3,$4,$5,$6) RETURNING link_id,kind,target_key,code`, [actor.community_id, actor.user_id, body.kind, body.target, code, now])).rows[0];
+          VALUES($1,$2,$3,$4,$5,$6) RETURNING link_id,kind,target_key,code`, [actor.community_id, actor.user_id, body.kind, key, code, now])).rows[0];
         return linkView(inserted, title, { week: 0, month: 0, all: 0 });
       });
     } catch (error) {
@@ -158,7 +184,7 @@ export async function createPromotionLink(pool: Pool, actor: Actor, raw: unknown
       if (pg.code === '23505' && pg.constraint === 'promotion_links_code_key') continue;
       if (pg.code === '23505') {
         const existing = (await pool.query(`SELECT link_id,kind,target_key,code FROM promotion_links
-          WHERE community_id=$1 AND user_id=$2 AND kind=$3 AND target_key=$4 AND revoked_at IS NULL`, [actor.community_id, actor.user_id, body.kind, body.target])).rows[0];
+          WHERE community_id=$1 AND user_id=$2 AND kind=$3 AND target_key=$4 AND revoked_at IS NULL`, [actor.community_id, actor.user_id, body.kind, key])).rows[0];
         if (existing) return linkView(existing, title, await pointsFor(pool, existing.link_id, now));
       }
       throw error;
@@ -185,6 +211,12 @@ async function mineTitles(pool: Pool, actor: Actor, rows: MineRow[]) {
   const postRows = posts.length ? (await pool.query(`SELECT post_id::text AS id,title,state='active' AS available FROM community_social_posts WHERE community_id=$1 AND post_id=ANY($2::uuid[])`, [actor.community_id, posts])).rows as { id: string; title: string; available: boolean }[] : [];
   const submissionById = await readPublishedSkillTitles(pool, actor.community_id, submissions);
   const serviceById = await readMemberServiceTitles(pool, actor.community_id, services);
+  const cardOwners = [...new Set(rows.flatMap(row => {
+    if (row.kind !== 'member_card') return [];
+    const parsed = memberCardKey(row.target_key, actor.user_id);
+    return parsed ? [parsed.uid] : [];
+  }))];
+  const cardByOwner = cardOwners.length ? await readPublicCards(pool, actor.community_id, cardOwners) : new Map();
   const eventById = new Map(eventRows.map(row => [row.id, row]));
   const postById = new Map(postRows.map(row => [row.id, row]));
   return (row: MineRow) => {
@@ -205,6 +237,12 @@ async function mineTitles(pool: Pool, actor: Actor, rows: MineRow[]) {
     if (row.kind === 'member_service') {
       const found = serviceById.get(row.target_key.toLowerCase());
       return found ? { title: found.title, available: found.available } : { title: '已無法開啟', available: false };
+    }
+    if (row.kind === 'member_card') {
+      const parsed = memberCardKey(row.target_key, actor.user_id);
+      const card = parsed ? cardByOwner.get(parsed.uid) : undefined;
+      if (!parsed || !card || card.generation !== parsed.generation) return { title: '已無法開啟', available: false };
+      return { title: card.title, available: true };
     }
     return { title: '已無法開啟', available: false };
   };
@@ -283,6 +321,7 @@ async function shareable(pool: Pool, link: LinkRow) {
     return Boolean(row);
   }
   if (link.kind === 'member_service') return Boolean(await readMemberServiceShare(pool, link.community_id, link.target_key));
+  if (link.kind === 'member_card') return Boolean(await memberCardForLink(pool, link));
   return false;
 }
 
@@ -295,6 +334,17 @@ function introNumber(raw: string | undefined) {
 type OpenTarget = { href: string; title: string; description: string; image?: { url: string; width: number; height: number } };
 
 async function openTarget(pool: Pool, link: LinkRow, introRaw: string | undefined, origin: string): Promise<OpenTarget | null> {
+  if (link.kind === 'member_card') {
+    if (link.revoked_at || !link.owner_active) return null;
+    const card = await memberCardForLink(pool, link);
+    if (!card) return null;
+    return {
+      href: card.path,
+      title: card.title,
+      description: card.summary || PLATFORM_DESCRIPTION,
+      image: { url: origin + platformOg.image, width: platformOg.width, height: platformOg.height },
+    };
+  }
   if (!await shareable(pool, link)) return null;
   if (link.kind === 'platform') return { href: '/', title: platformOg.title, description: platformOg.description, image: { url: origin + platformOg.image, width: platformOg.width, height: platformOg.height } };
   if (link.kind === 'skill_book') {

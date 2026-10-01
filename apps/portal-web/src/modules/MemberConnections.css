@@ -34,6 +34,9 @@
 .guild-topic-tags .pill{font-size:.75rem;padding:.12rem .4rem}
 .member-share-settings input[readonly]{width:100%;min-width:0;font-size:.875rem}
 .member-share-settings>.btn,.member-share-settings .actions :is(.btn,a.btn){display:inline-flex;align-items:center;justify-content:center;width:fit-content;align-self:flex-start;max-width:100%}
+.member-card-share-actions{align-items:center}
+.member-card-share-actions>.skill-share{flex:0 1 auto;width:auto}
+.member-card-share-actions>.skill-share>.btn{width:auto}
 .member-share-settings,.member-recommendation{margin-block:1rem}
 .connection-person,.public-member-identity{display:flex;align-items:center;gap:.8rem}
 .connection-person h3,.connection-person p,.public-member-identity h1,.public-member-identity p{margin:0}
@@ -49,4 +52,4 @@
 .guild-review-pair p{font-size:.875rem;margin:.35rem 0}
 @media(max-width:900px){.quick-guild-options{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.quick-guild-options{grid-template-columns:1fr}.guild-question-option{flex-basis:100%}.quick-start{padding:1rem}.public-member-page{padding:.75rem}.member-share-settings .actions{gap:.5rem}.member-share-settings input[readonly]{font-size:16px}}
-@media(max-width:480px){.member-share-settings>.btn,.member-share-settings .actions :is(.btn,a.btn){width:100%;align-self:stretch}.member-share-settings .actions{flex-direction:column;align-items:stretch}}
+@media(max-width:480px){.member-share-settings>.btn,.member-share-settings .actions :is(.btn,a.btn){width:100%;align-self:stretch}.member-share-settings .actions{flex-direction:column;align-items:stretch}.member-card-share-actions>.skill-share,.member-card-share-actions>.skill-share>.btn,.member-card-share-actions>.btn{width:100%}.member-card-share-actions .skill-share-dialog :is(.btn,a.btn){width:auto;align-self:center}}
