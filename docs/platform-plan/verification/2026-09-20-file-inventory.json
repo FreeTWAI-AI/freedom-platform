@@ -4174,8 +4174,8 @@
     },
     {
       "path": "tests/e2e/calm-experience.spec.ts",
-      "bytes": 15512,
-      "sha256": "52b731a5f8836b2324114860ca4e4b4fb8c8e279f94088855b7770ce38170e33"
+      "bytes": 15502,
+      "sha256": "9685a970e9f2210b1f2255729f73f20f57fe7fce52d4e3fdee25d142d4e0276e"
     },
     {
       "path": "tests/e2e/client-connections-recovery.spec.ts",
