@@ -1,10 +1,10 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { navigate } from './navigation.js';
 import { test, expect, type Browser, type Page } from './fixtures.js';
 
 const GUEST_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
-const SHOTS = '/home/ted-h/tmp-scratch/fp_work/grok-share-promo/promo-core-scratch';
+const SHOTS = process.env.AUDIT_EVIDENCE_DIR ?? 'test-results/share-promotion';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 const EVENT_TITLE = 'E2E 推廣點擊活動';
 const YOUTUBE = 'https://www.youtube.com/watch?v=e2eDemo0001';
@@ -16,7 +16,6 @@ const COMMUNITY = '10000000-0000-4000-8000-000000000001';
 
 test.use({ userAgent: GUEST_UA });
 mkdirSync(SHOTS, { recursive: true });
-writeFileSync(`${SHOTS}/tiny.png`, PNG);
 
 let eventId = '';
 let eventGo = '';
@@ -193,7 +192,7 @@ test('the social zone previews, shares, replaces and keeps a thumbnail', async (
   await page.reload();
   await expect(page.locator('article.social-card').filter({ has: page.getByRole('heading', { name: 'E2E 示範影片', level: 3 }) })).toContainText('推廣點擊 1');
 
-  await youtube.locator('input[type="file"]').setInputFiles(`${SHOTS}/tiny.png`);
+  await youtube.locator('input[type="file"]').setInputFiles({ name: 'tiny.png', mimeType: 'image/png', buffer: PNG });
   await expect(page.getByText('縮圖已更新。')).toBeVisible();
   await expect(youtube.locator('img.social-thumb')).toBeVisible();
   await youtube.getByRole('link', { name: '開啟原文 ↗', exact: true }).getAttribute('href').then(href => expect(href).toBe(YOUTUBE));
