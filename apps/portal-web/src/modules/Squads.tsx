@@ -114,7 +114,7 @@ export function SquadsPanel({client,session}:ModulePanelProps){
       <div className="discovery-feedback">{squads.length>0&&<p role="status">顯示 {visibleSquads.length} / {squads.length} 支小隊</p>}{filtered&&<button className="btn btn-ghost" onClick={()=>{setQuery('');setKind('all');}}>清除小隊篩選</button>}</div>
       {nextOffset!==null&&<p className="field-hint">目前只篩選已載入的小隊。載入更多，可繼續找夥伴。</p>}
       <div className="card-grid">{visibleSquads.map(squad=><article className="card stack expedition-squad" key={squad.squad_id}>
-        <span className="eyebrow">{kindLabels[squad.kind]}</span><h3>{squad.name}</h3><p>{squad.purpose}</p>{squad.communication_channel_name&&<p className="muted">溝通頻道：{squad.communication_channel_name}</p>}<p className="muted squad-meta"><span>隊主：{squad.owner_name}</span><span>{squad.member_count} 位夥伴</span></p>
+        <span className="eyebrow">{kindLabels[squad.kind]}</span><h3>{squad.name}</h3><p className="multiline-text">{squad.purpose}</p>{squad.communication_channel_name&&<p className="muted">溝通頻道：{squad.communication_channel_name}</p>}<p className="muted squad-meta"><span>隊主：{squad.owner_name}</span><span>{squad.member_count} 位夥伴</span></p>
         <div className="actions"><button className="btn btn-ghost" aria-label={`查看小隊：${squad.name}`} onClick={event=>void open(squad.squad_id,event.currentTarget)}>查看小隊</button>{squad.membership?.state==='active'?<span className="badge">已加入</span>:squad.membership?.state==='pending'?<span className="muted">等候隊主接受</span>:<button className="btn btn-primary" disabled={busy} onClick={()=>void change(squad,'request',squad.membership?.aggregate_version)}>申請加入</button>}</div>
       </article>)}</div>
       {loading&&<p role="status">正在載入小隊…</p>}
