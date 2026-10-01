@@ -6,6 +6,8 @@
 
 階段 1c 把「誰可以審」從審查者名單改成儲存庫歸屬。一個儲存庫屬於一個公會，類型是模組、技能書或未分類。新鏡像的儲存庫沒有公會，並開放公會長認領；目錄裡的 `official_guild_keys` 不會自動變成歸屬。管理員仍可把單一儲存庫改成只限管理員。開放時，任何現任公會長都能審，第一筆完成的公會長審查會把儲存庫歸到那位公會長的公會。背景只做兩件事：鏡像 GitHub 事實，以及既有的請求審查者鏡像。沒有自動處理，也沒有 AI。
 
+階段 1d 加上技能書維護者。安裝同步把對得上技能書目錄的新儲存庫標成那本書，管理員也可以在「歸屬」改。這本書在任、而且連結了 GitHub 的維護者能審這個儲存庫，不論它歸哪個公會、開不開放公會長認領；他們審完不會把儲存庫歸到公會。沒有公會、也不開放的技能書儲存庫，畫面標成「管理員與技能書維護者」。會員端的「PR 審核」給現任公會長與在任的技能書維護者。
+
 階段 2a 是本機 AI 交接。AI 只在有資格的審查者按下按鈕時才會跑。平台交回一份任務檔，由這個人在自己的終端機、用自己的訂閱和自己的 `gh` 登入執行。平台仍然不呼叫 AI，也不為交接寫入 GitHub。見「本機 AI 交接」。
 
 這一階段不做這些事：
@@ -220,7 +222,7 @@ grok "$(cat freedom-handoff-1a2b3c4d.md)"
 
 `maintainer_handoffs` 只追加。一列有交接編號、儲存庫、拉取請求（Issue 交接是空的）、Issue 編號、種類（`fix`、`merge`、`issue`）、工具（`claude`、`codex`、`grok`）、head SHA、按的人（`user_id`、`github_user_id`、`github_login`、`acting_as`、`guild_key`、`skill_book_id`）、從後台按下時的 `requested_by_admin`，以及任務本文。程式不更新、也不刪這些列。從後台按下另外寫一筆 `platform_admin_audit`，動作 `maintainer_handoff_create`，理由固定是「產生本機 AI 交接任務。」會員按下不寫這筆稽核。
 
-資格只看 `maintainer_eligible_reviewers`。會員有多列時，先取公會長，再依顯示名稱。沒有列、但這個人看得到且還沒連結 GitHub，回 409 `maintainer_claim_identity_required`，句子是「請先在會員資料連結 GitHub，才能交給 AI。」管理員沒有列時回同一個碼，句子依 viewer 狀態：沒有會員帳號、email 還沒驗證，或還沒連結 GitHub。認領與指派仍用原本的認領句子。看不到的拉取請求或儲存庫仍是 404。拉取請求未開啟、仍是草稿、已暫停或儲存庫已關閉，回 409 `maintainer_handoff_unavailable`。head SHA 和畫面上的不一樣，回 409 `maintainer_head_moved`（這條不用 If-Match，因為無關的同步也會把 `aggregate_version` 加一）。不是 `ready` 卻要合併，回 409 `maintainer_handoff_merge_unavailable`。Issue 交接要求安裝仍是 `active` 且模式不是 `off`，否則同一個 `maintainer_handoff_unavailable`，句子改成儲存庫。主體不合格式回 400 `validation_failed`。
+資格只看 `maintainer_eligible_reviewers`。會員有多列時，先取公會長，再依公會名或書名。沒有列、但這個人看得到且還沒連結 GitHub，回 409 `maintainer_claim_identity_required`，句子是「請先在會員資料連結 GitHub，才能交給 AI。」管理員沒有列時回同一個碼，句子依 viewer 狀態：沒有會員帳號、email 還沒驗證，或還沒連結 GitHub。認領與指派仍用原本的認領句子。看不到的拉取請求或儲存庫仍是 404。拉取請求未開啟、仍是草稿、已暫停或儲存庫已關閉，回 409 `maintainer_handoff_unavailable`。head SHA 和畫面上的不一樣，回 409 `maintainer_head_moved`（這條不用 If-Match，因為無關的同步也會把 `aggregate_version` 加一）。不是 `ready` 卻要合併，回 409 `maintainer_handoff_merge_unavailable`。Issue 交接要求安裝仍是 `active` 且模式不是 `off`，否則同一個 `maintainer_handoff_unavailable`，句子改成儲存庫。主體不合格式回 400 `validation_failed`。
 
 路徑：管理端 `POST /review-center/pulls/:id/handoffs`、`POST /review-center/repositories/:id/issue-handoffs`，以及會員端 `POST /guild-reviews/:pullId/handoffs`、`POST /guild-reviews/repositories/:repositoryId/issue-handoffs`，都回 201，主體是 `{handoff_id, kind, cli, file_name, command, markdown, created_at}`。同一把 Idempotency-Key 重送回同一筆交接，不另插一列。任務檔的資料區依四層上限縮短（檔案、審查、檢查、每條注意事項的路徑、標籤、佇列原因、注意事項），省略的筆數寫在 `*_omitted`（含每個注意事項的 `paths_omitted`）；縮到最後一層仍達到 24000 字才拒絕。細節的 `handoff` 是 `{allowed, reason, merge_allowed, merge_reason, recent}`，按下之前就說明這個人為什麼不能交。`recent` 是這筆拉取請求最近五筆（種類、工具、login、head SHA、時間）。管理端的 Issue 表單用摘要裡安裝仍有效且模式不是 `off` 的儲存庫；viewer 不是 ready 時，表單改顯示同一句原因。
 
