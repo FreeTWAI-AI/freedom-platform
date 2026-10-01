@@ -185,7 +185,7 @@ test('unknown, inactive and off repositories are ignored; checks and installatio
   assert.deepEqual(numbers, [3, 7]);
 });
 
-test('the webhook exemption is the exact POST path and a missing secret is 503', async () => {
+test('POST webhook runs before member auth, GET requires a session, and a missing secret is 503', async () => {
   const padded = JSON.stringify({ zen: 'ok', pad: 'a'.repeat(40_000) });
   const wide = await post(PATH, padded, { 'X-GitHub-Event': 'ping', 'X-Hub-Signature-256': signature(padded) });
   assert.equal(wide.status, 202, JSON.stringify(wide.data));
@@ -198,7 +198,8 @@ test('the webhook exemption is the exact POST path and a missing secret is 503',
   const longer = await app.request(origin + PATH + '/extra', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
   assert.equal(longer.status, 403);
   const get = await app.request(origin + PATH, { method: 'GET' });
-  assert.equal(get.status, 404);
+  assert.equal(get.status, 401);
+  assert.equal((await get.json() as { code: string }).code, 'login_required');
   const previous = process.env.GITHUB_MAINTAINER_WEBHOOK_SECRET;
   process.env.GITHUB_MAINTAINER_WEBHOOK_SECRET = SECRET;
   try {

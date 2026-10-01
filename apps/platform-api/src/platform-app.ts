@@ -37,7 +37,7 @@ import {readSkillEditorial} from '../../../modules/guild-workspace/service.js';
 import {createGuildWorkspaceRoutes} from './routes/guild-workspace.js';
 import {onboardingDiagnostics} from './onboarding-diagnostics.js';
 import {createSkillSubmissionRoutes,createAgentSkillSubmissionRoutes,isAgentSkillUploadPath} from './routes/skill-submissions.js';
-import {createMaintainerWebhookRoutes,isMaintainerWebhookPath,MAINTAINER_WEBHOOK_PATH} from './routes/repo-maintainer.js';
+import {createMaintainerWebhookRoutes,isMaintainerWebhookPath} from './routes/repo-maintainer.js';
 import {createPublishedSkillRoutes} from './routes/published-skills.js';
 import {createMemberCommunicationRoutes} from './routes/member-communications.js';
 import {PageGitHubReader,PageGitHubEventReader} from '../../../modules/development/page-github.js';
@@ -203,8 +203,6 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   });
   app.route('/',createMaintainerWebhookRoutes(pool,runtime.maintainerWebhookSecret));
   app.use('/api/v1/*',async(c,next)=>{
-    // Member auth never runs for the webhook, including GET, so a missing secret is the route's 503 and not a login challenge.
-    if(c.req.path===MAINTAINER_WEBHOOK_PATH)return next();
     const actor=await authenticate(pool,getCookie(c,COOKIE));c.set('actor',actor);
     if(!['GET','HEAD'].includes(c.req.method)) {
       const got=Buffer.from(c.req.header('X-CSRF-Token')??''),expected=Buffer.from(actor.csrf_token);
