@@ -7,9 +7,6 @@
 .entry-resources summary,.welcome-optional summary{min-height:44px;display:flex;align-items:center;cursor:pointer;color:var(--blue-ink);text-decoration:underline;text-underline-offset:4px}
 .entry-resource-list{display:grid;gap:10px;padding-top:8px}.entry-resource-list article{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding-top:8px}.entry-resource-list article strong{min-width:0}
 .welcome-optional{padding:0 8px}.welcome-optional>.experience-actions{padding-top:8px}
-.guild-next-steps{display:grid;gap:16px}.guild-next-steps header{display:grid;gap:6px}.guild-next-steps .eyebrow{color:var(--muted);letter-spacing:.04em}
-.next-step-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.next-step-grid article{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:18px;border:1px solid var(--line);border-radius:12px;background:var(--bg-elev);min-width:0}.next-step-grid article>p{flex:1;color:var(--muted);font-size:.9rem}.next-step-grid .btn{white-space:normal;text-align:left;line-height:1.5}
-.next-step-number{display:grid;place-items:center;font-size:.8rem;width:28px;height:28px;border-radius:8px;color:var(--blue-ink);background:var(--info-bg)}
 .guild-first-step{display:grid;gap:8px;padding:12px;border:1px solid var(--line);border-radius:8px}.guild-first-step p{font-size:.85rem;color:var(--muted)}
 .messages-scroll{max-height:46dvh;min-height:100px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;overflow-anchor:none;padding:8px 4px}.messages-scroll .messages-bubbles{margin:0}.messages-body{white-space:pre-wrap;overflow-wrap:anywhere}.messages-compose textarea{min-height:80px;resize:vertical}.messages-new{justify-self:center}
 .member-channels[data-channel-kind="world"]{grid-template-columns:minmax(0,1fr)}
@@ -29,22 +26,15 @@ html:is([data-theme="light"],[data-theme="versefolk"]) .messages-bubbles>li.is-m
 html:is([data-theme="light"],[data-theme="versefolk"]) .messages-count{background:var(--info-bg);color:var(--blue-ink)}
 html:is([data-theme="light"],[data-theme="versefolk"]) .messages-tabs [aria-selected="true"]{background:var(--info-bg);color:var(--blue-ink);box-shadow:inset 0 0 0 1px var(--blue-ink)}
 html:is([data-theme="light"],[data-theme="versefolk"]) .member-channel-list .messages-peer[aria-current="true"]{border-color:var(--blue-ink);box-shadow:inset 3px 0 0 var(--blue-ink)}
-html[data-theme="light"]{--bg:#f7f9fb;--bg-elev:#fff;--line:#e0e6ec;--green:#23745a;--green-2:#155c44;--green-soft:#edf7f2;--blue:#3455b8;--blue-ink:#3455b8;--focus:#3455b8;--radius:12px;--shadow:0 4px 16px #23344c0a}
 html[data-theme="light"] .main,html[data-theme="light"] .sidebar,html[data-theme="light"] .login-layout{background:var(--bg-elev)}
-html[data-theme="light"] .btn-primary,html[data-theme="light"] .game-console-compose button{background:var(--green);color:#fff}
-html[data-theme="light"] .btn-primary:hover:not(:disabled){background:var(--green-2);color:#fff}
-html[data-theme="light"] .btn,html[data-theme="light"] .auth-switch,html[data-theme="light"] .auth-switch button{border-radius:8px}
 html[data-theme="light"] .card,html[data-theme="light"] .guild-card,html[data-theme="light"] .login-card,html[data-theme="light"] .home-module-card{box-shadow:none;border:1px solid var(--line);background:var(--bg-elev)}
 html[data-theme="light"] .workspace-navigation .nav-item.is-active{background:var(--info-bg);color:var(--blue-ink);box-shadow:inset 3px 0 0 var(--blue-ink)}
 html[data-theme="light"] .pill,html[data-theme="light"] .chip{background:var(--bg);color:var(--muted)}
-html[data-theme="light"] .page-tool-button{background:transparent;color:var(--muted);border-color:var(--line);border-radius:8px;box-shadow:none}
-html[data-theme="light"] .page-tool-button:hover{background:var(--bg);color:var(--ink)}
 html[data-theme="light"] .game-console{box-shadow:0 -4px 20px #23344c10}.game-console-signal{box-shadow:none}
 html[data-theme="light"] .freedom-home .guild-base-hero{background:var(--bg-elev);border:1px solid var(--line);padding-right:190px;isolation:isolate}
 html[data-theme="light"] .freedom-home .guild-base-hero::after{display:none}
 html[data-theme="light"] .freedom-home .guild-base-art{z-index:-1;inset:auto 18px auto auto;top:50%;transform:translateY(-50%);width:150px;height:auto;object-fit:contain;opacity:1;border-radius:8px}
 html[data-theme="light"] .freedom-home .home-module-cover img{object-fit:contain}
-@media(max-width:1100px){.next-step-grid{grid-template-columns:minmax(0,1fr)}.next-step-grid article{gap:8px}.next-step-number{display:none}}
 @media(max-width:860px){
   .workspace-navigation .nav-search{padding:0}.workspace-navigation.is-open{max-height:65dvh;overflow:auto}.nav-search-results{min-width:0}
   .entry-benefits{font-size:.8rem;gap:5px 12px}.login-story-copy h1{font-size:1.2rem}.login-story .brand-poster{max-width:220px;margin-inline:auto}.entry-resources{font-size:.85rem}

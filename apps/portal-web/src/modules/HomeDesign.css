@@ -40,6 +40,10 @@
 .freedom-home .home-next-step { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem 1rem; min-width: 0; padding: .75rem 1rem; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-elev); }
 .freedom-home .home-next-step p { flex: 1 1 220px; min-width: 0; margin: 0; color: var(--muted); overflow-wrap: anywhere; }
 .freedom-home .home-next-step .btn { min-height: 44px; width: fit-content; margin: 0; padding: .5rem .8rem; font-size: .875rem; color: var(--ink); }
+.freedom-home .home-next-actions { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: .5rem; min-width: 0; }
+.freedom-home .home-next-actions > .btn,
+.freedom-home .home-next-actions > .skill-intro-entry { flex: 0 0 auto; width: fit-content; max-width: 100%; }
+.freedom-home .home-next-actions .skill-intro-trigger { width: fit-content; max-width: 100%; }
 .freedom-home .home-shortcuts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .65rem; }
 .freedom-home .home-shortcut { display: flex; align-items: center; gap: .65rem; min-width: 0; min-height: 64px; padding: .85rem; border: 1px solid #3b4350; border-radius: 12px; background: #1b1f27; color: #f4f6ef; font-size: 1rem; font-weight: 650; text-align: left; cursor: pointer; }
 .freedom-home .home-shortcut .workshop-icon { flex: 0 0 20px; color: #c4ff20; }

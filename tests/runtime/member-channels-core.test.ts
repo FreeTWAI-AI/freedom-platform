@@ -95,7 +95,9 @@ test('body-free channel activity checks preserve bigint cursors, unread facts, r
   const newer=(await post(b,'guild','guild_ai_vibe','大游標')).data;assert.equal(newer.sequence,'9007199254740994');assert.equal((await request(path,a)).data.latest_sequence,newer.sequence);
   const s=await squad(B,[A]);const small=(await post(b,'squad',s,'小隊')).data;assert.deepEqual((await request(`/me/channels/squad/${s.toUpperCase()}/activity`,a)).data,{latest_sequence:small.sequence,unread_count:1});
   assert.equal((await request(path)).status,401);assert.equal((await request(path+'?extra=1',a)).status,422);
-  await joinGuild(A,'guild_ai_vibe',DEMO_COMMUNITY,'left');assert.equal((await request(path,a)).data.code,'channel_not_available');
+  for(const query of ['after_sequence=-1','after_sequence=9223372036854775808'])assert.equal((await request(`${path}?${query}`,a)).status,422);
+  await joinGuild(A,'guild_ai_vibe',DEMO_COMMUNITY,'left');
+  const left=await request(path,a);assert.equal(left.status,404);assert.equal(left.data.code,'channel_not_available');assert.equal(Object.hasOwn(left.data,'body'),false);
 });
 
 test('new-message sequence cursors catch up without skipping messages or changing read receipts and still recheck membership',async()=>{

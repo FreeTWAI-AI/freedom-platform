@@ -104,12 +104,16 @@ test('all three page tools show their labels and the account buttons match them 
       await expect.poll(()=>page.evaluate(()=>{
         const idea=getComputedStyle(document.querySelector('.page-tool-button--idea')!).backgroundColor;
         const probe=document.createElement('span');
-        probe.style.background=getComputedStyle(document.documentElement).getPropertyValue('--green').trim();
+        const root=getComputedStyle(document.documentElement);
+        probe.style.background=root.getPropertyValue('--green').trim();
         document.body.append(probe);
         const green=getComputedStyle(probe).backgroundColor;
+        probe.style.background=root.getPropertyValue('--green-soft').trim();
+        const soft=getComputedStyle(probe).backgroundColor;
         probe.remove();
         if(document.documentElement.dataset.theme==='light'){
-          return [...document.querySelectorAll('.page-tool-button')].every(node=>getComputedStyle(node).backgroundColor===idea)&&idea==='rgba(0, 0, 0, 0)';
+          const others=[...document.querySelectorAll('.page-tool-button:not(.page-tool-button--idea)')];
+          return idea===green&&others.length>0&&others.every(node=>getComputedStyle(node).backgroundColor===soft);
         }
         return idea===green;
       }),where).toBe(true);

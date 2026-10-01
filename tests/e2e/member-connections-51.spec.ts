@@ -205,6 +205,7 @@ test('welcome keeps one primary action and selected filters stay distinct in eve
   await page.setViewportSize({width:1280,height:900});
   await expect(page.locator('.welcome-preview .btn-primary')).toHaveCount(1);
   await expect(page.locator('.welcome-preview .btn-primary')).toHaveText('下一步：回答小問題');
+  await page.getByText('想先探索其他參與方式？',{exact:true}).click();
   const hero=page.getByRole('button',{name:'開始／繼續定位 →',exact:true});
   await expect(hero).toHaveClass(/btn-ghost/);await expect(hero).not.toHaveClass(/btn-primary/);
   await page.screenshot({path:'test-results/mc51-welcome-1280.png',fullPage:true});
