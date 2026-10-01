@@ -35,6 +35,7 @@ test('repository settings fill defaults and an explicit profile wins', () => {
   assert.equal(resolveSettings('Other/repo', { rules_profile: 'freedom-platform', ci_grace_minutes: 5, sla_hours: { high: 12 } }).sla_hours.high, 12);
   assert.ok(RISK_REASON_CODES.includes('bot_author'));
   assert.ok(QUEUE_REASON_CODES.includes('ci_missing'));
+  assert.ok(QUEUE_REASON_CODES.includes('migration_number_behind'));
   assert.ok(QUEUE_STATES.includes('in_review'));
 });
 
@@ -44,6 +45,10 @@ test('freedom-platform risk classes follow the path rules and escalations', () =
     ['ordinary code', [file('apps/portal-web/src/App.tsx')], {}, 'medium', 'medium_code'],
     ['workflow', [file('.github/workflows/verify.yml')], {}, 'high', 'high_sensitive'],
     ['scripts', [file('scripts/generate-runtime-text.mjs')], {}, 'high', 'high_verification'],
+    ['repositories lock', [file('repositories.lock.json')], {}, 'high', 'high_verification'],
+    ['npmrc', [file('.npmrc')], {}, 'high', 'high_verification'],
+    ['gitattributes', [file('.gitattributes')], {}, 'high', 'high_verification'],
+    ['gitmodules', [file('.gitmodules')], {}, 'high', 'high_verification'],
     ['rename into scripts', [file('scripts/run.mjs', 'renamed', 1, 0, 'docs/guide.md')], {}, 'high', 'high_verification'],
     ['removed test', [file('tests/runtime/old.test.ts', 'removed')], {}, 'high', 'test_removed'],
     ['removed spec', [file('apps/portal-web/src/App.spec.tsx', 'removed')], {}, 'high', 'test_removed'],
@@ -69,6 +74,17 @@ test('freedom-platform risk classes follow the path rules and escalations', () =
   assert.equal(riskOf([file('docs/guide.md', 'modified', 3001, 0)]).risk, 'high');
   assert.equal(riskOf([file('docs/guide.md')], { changed_files: 2 }).risk, 'high');
   assert.ok(codes(riskOf([file('docs/guide.md')], { changed_files: 2 }), 'changed_files_truncated').length === 1);
+  const truncatedList = classifyRisk({ files: [file('docs/guide.md')], profile: 'freedom-platform', changed_files: 1, files_truncated: true });
+  assert.equal(truncatedList.risk, 'high');
+  assert.equal(codes(truncatedList, 'changed_files_truncated').length, 1);
+  const renamedWithin = riskOf([file('tests/b.test.ts', 'renamed', 1, 0, 'tests/a.test.ts')]);
+  assert.equal(codes(renamedWithin, 'test_removed').length, 0);
+  const renamedToSource = riskOf([file('tests/a.ts', 'renamed', 1, 0, 'tests/a.test.ts')]);
+  assert.equal(renamedToSource.risk, 'high');
+  assert.equal(codes(renamedToSource, 'test_removed').length, 1);
+  const renamedOutOfTests = riskOf([file('src/x.ts', 'renamed', 1, 0, 'tests/x.ts')]);
+  assert.equal(renamedOutOfTests.risk, 'high');
+  assert.equal(codes(renamedOutOfTests, 'test_removed').length, 1);
   const first = riskOf([file('docs/guide.md')], { author_association: 'FIRST_TIME_CONTRIBUTOR', is_fork: true });
   assert.equal(first.risk, 'medium');
   assert.ok(codes(first, 'author_first_time_contributor').length === 1);
@@ -111,6 +127,15 @@ test('migrationCheck names colliding, duplicate, modified and badly named files'
   assert.equal(bad[0].code, 'migration_bad_name');
   assert.match(bad[0].message, /readme\.md/);
   assert.deepEqual(migrationCheck([file('migrations/057_ok.sql', 'added')], base), []);
+  const gapped = base.filter(name => !name.startsWith('050_'));
+  const behind = migrationCheck([file('migrations/050_gap.sql', 'added')], gapped);
+  assert.equal(behind.length, 1);
+  assert.equal(behind[0].code, 'migration_number_behind');
+  assert.equal(behind[0].message, '編號 050 小於 main 目前最新的 056，遷移只能往後加。請改用 057 或之後的編號。');
+  const onDevelop = migrationCheck([file('migrations/048_agent_shops.sql', 'added')], base, 'migrations', 'develop');
+  assert.equal(onDevelop[0].code, 'migration_number_collision');
+  assert.match(onDevelop[0].message, /編號 048 已存在於 develop/);
+  assert.equal(derive({ migration_reasons: behind }).state, 'needs_author');
 });
 
 function pull(over: Partial<QueuePull> = {}): QueuePull {
@@ -181,6 +206,22 @@ test('deriveQueueState covers every phase-1a state and does not emit in_review',
   assert.equal(derive({ checks: [check({ conclusion: 'skipped' })] }).reasons.at(-1)?.code, 'ci_failed');
   assert.equal(derive({ checks: [check({ conclusion: 'action_required' })] }).reasons.at(-1)?.code, 'workflow_approval_required');
   assert.equal(derive({ checks: [check({ status: 'in_progress', conclusion: null })] }).reasons.at(-1)?.code, 'ci_running');
+  const checkStatuses: Array<[string, string | null, string]> = [
+    ['queued', null, 'ci_running'],
+    ['in_progress', null, 'ci_running'],
+    ['waiting', null, 'ci_running'],
+    ['requested', null, 'ci_running'],
+    ['pending', null, 'ci_running'],
+    ['completed', 'success', 'awaiting_review'],
+    ['completed', 'failure', 'ci_failed'],
+    ['completed', 'action_required', 'workflow_approval_required'],
+    ['waiting', 'action_required', 'workflow_approval_required'],
+  ];
+  for (const [status, conclusion, expected] of checkStatuses) {
+    const derived = derive({ checks: [check({ status, conclusion })] });
+    const got = expected === 'awaiting_review' ? derived.state : derived.reasons.at(-1)?.code;
+    assert.equal(got, expected, `${status}/${String(conclusion)}`);
+  }
   const other = derive({ checks: [check(), check({ name: 'lint', conclusion: 'failure' })] });
   assert.equal(other.state, 'awaiting_review');
   assert.ok(other.reasons.some(reason => reason.code === 'other_check_failed'));

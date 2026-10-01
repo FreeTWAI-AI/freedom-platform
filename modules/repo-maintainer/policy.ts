@@ -21,7 +21,7 @@ export const RISK_REASON_CODES = [
 ] as const;
 export const QUEUE_REASON_CODES = [
   'merged', 'closed', 'repository_off', 'pull_paused', 'hold_label', 'draft', 'non_default_base', 'merge_conflict',
-  'migration_number_collision', 'migration_duplicate_in_pr', 'migration_modified', 'migration_bad_name',
+  'migration_number_collision', 'migration_number_behind', 'migration_duplicate_in_pr', 'migration_modified', 'migration_bad_name',
   'changes_requested', 'required_check_wrong_source', 'ci_failed', 'workflow_approval_required', 'ci_running', 'ci_pending', 'ci_missing',
   'other_check_failed', 'ready_human_approved', 'approval_stale', 'approval_rank_too_low', 'high_risk_requires_owner',
   'awaiting_review', 'sla_overdue', 'owner_authored',
@@ -140,6 +140,8 @@ export type RiskInput = {
   author_type?: string | null;
   is_fork?: boolean;
   changed_files?: number | null;
+  /** The file list stopped at the page cap, even when changed_files equals the listed length. */
+  files_truncated?: boolean;
 };
 
 type Hit = { risk: Risk; code: string; path: string };
@@ -167,7 +169,7 @@ function compile(globs: string[]): RegExp[] {
 }
 const FREEDOM_HIGH: Array<{ code: string; patterns: RegExp[] }> = [
   { code: 'high_sensitive', patterns: compile(['freedom.project.yaml', '.github/**', 'SECURITY.md', 'LICENSE*', 'site/assets/brand/**']) },
-  { code: 'high_verification', patterns: compile(['package.json', 'package-lock.json', '.tool-versions', 'tsconfig*.json', 'playwright.config.*', 'scripts/**', 'docs/platform-plan/verification/verify_revision.py', 'docs/platform-plan/execution/tools/**']) },
+  { code: 'high_verification', patterns: compile(['package.json', 'package-lock.json', 'repositories.lock.json', '.npmrc', '.gitattributes', '.gitmodules', '.tool-versions', 'tsconfig*.json', 'playwright.config.*', 'scripts/**', 'docs/platform-plan/verification/verify_revision.py', 'docs/platform-plan/execution/tools/**']) },
   { code: 'high_maintainer', patterns: compile(['wrangler.maintainer.jsonc']) },
   { code: 'high_data_deploy', patterns: compile(['migrations/**', 'deploy/**', 'wrangler*.jsonc', 'compose.yaml', 'packages/db/**']) },
   { code: 'high_authority', patterns: compile(['apps/platform-api/src/{worker,env,readiness,admin-sync-worker,maintainer-worker}.ts', 'apps/platform-api/src/routes/admin.ts', 'modules/{platform-admin,identity-membership,github-social,development-access,catalog-commerce,repo-maintainer}/**']) },
@@ -181,6 +183,9 @@ function matches(path: string, patterns: RegExp[]): boolean {
 }
 function isTestPath(path: string): boolean {
   return path === 'tests' || path.startsWith('tests/') || TEST_FILE.test(path);
+}
+function renameLeavesTests(previous: string, next: string): boolean {
+  return (isTestPath(previous) && !isTestPath(next)) || (TEST_FILE.test(previous) && !TEST_FILE.test(next));
 }
 function isRaster(path: string): boolean {
   return RASTER.test(path);
@@ -235,7 +240,7 @@ export function classifyRisk(input: RiskInput): { risk: Risk; reasons: Reason[] 
     if (counted) sawCounted = true;
     const hits: Hit[] = [];
     if (input.profile === 'freedom-platform' && file.status === 'removed' && isTestPath(file.path)) hits.push({ risk: 'high', code: 'test_removed', path: file.path });
-    if (input.profile === 'freedom-platform' && file.status === 'renamed' && file.previous_path && isTestPath(file.previous_path)) hits.push({ risk: 'high', code: 'test_removed', path: file.previous_path });
+    if (input.profile === 'freedom-platform' && file.status === 'renamed' && file.previous_path && renameLeavesTests(file.previous_path, file.path)) hits.push({ risk: 'high', code: 'test_removed', path: file.previous_path });
     const consider = (path: string | null | undefined) => {
       if (!path || GENERATED.has(path)) return;
       hits.push(input.profile === 'default' ? classifyDefault(path) : classifyFreedom(path));
@@ -258,7 +263,7 @@ export function classifyRisk(input: RiskInput): { risk: Risk; reasons: Reason[] 
   const lines = counted.reduce((sum, file) => sum + file.additions + file.deletions, 0);
   if (counted.length > 60 || lines > 3000) { merge(reasons, 'size_high'); risk = 'high'; }
   else if (counted.length > 20 || lines > 800) { merge(reasons, 'size_medium'); risk = atLeast(risk, 'medium'); }
-  if (input.changed_files != null && input.changed_files > input.files.length) { merge(reasons, 'changed_files_truncated'); risk = 'high'; }
+  if (input.files_truncated || (input.changed_files != null && input.changed_files > input.files.length)) { merge(reasons, 'changed_files_truncated'); risk = 'high'; }
   if (!reasons.length) merge(reasons, 'low_docs');
   return { risk, reasons };
 }
@@ -272,8 +277,9 @@ function migrationRelative(path: string, dir: string): string | null {
   if (!path.startsWith(prefix)) return null;
   return path.slice(prefix.length);
 }
-export function migrationCheck(files: PolicyFile[], baseMigrationNames: readonly string[], migrationsDir = 'migrations'): Reason[] {
+export function migrationCheck(files: PolicyFile[], baseMigrationNames: readonly string[], migrationsDir = 'migrations', baseRef = 'main'): Reason[] {
   const base = new Map<string, number>();
+  const baseNumbers = new Set<number>();
   let latest = 0;
   for (const name of baseMigrationNames) {
     const file = basename(name);
@@ -281,6 +287,7 @@ export function migrationCheck(files: PolicyFile[], baseMigrationNames: readonly
     if (!match) continue;
     const number = Number(match[1]);
     base.set(file, number);
+    baseNumbers.add(number);
     if (number > latest) latest = number;
   }
   const next = String(latest + 1).padStart(3, '0');
@@ -312,8 +319,14 @@ export function migrationCheck(files: PolicyFile[], baseMigrationNames: readonly
     paths.push(file.path);
     added.set(number, paths);
     if (number <= latest) {
-      merge(reasons, 'migration_number_collision', file.path,
-        `編號 ${match[1]} 已存在於 main（目前最新是 ${String(latest).padStart(3, '0')}）。請改用 ${next} 或之後的編號。`);
+      const latestLabel = String(latest).padStart(3, '0');
+      if (baseNumbers.has(number)) {
+        merge(reasons, 'migration_number_collision', file.path,
+          `編號 ${match[1]} 已存在於 ${baseRef}（目前最新是 ${latestLabel}）。請改用 ${next} 或之後的編號。`);
+      } else {
+        merge(reasons, 'migration_number_behind', file.path,
+          `編號 ${match[1]} 小於 ${baseRef} 目前最新的 ${latestLabel}，遷移只能往後加。請改用 ${next} 或之後的編號。`);
+      }
     }
   }
   for (const [number, paths] of added) {
@@ -438,7 +451,7 @@ export function deriveQueueState(input: QueueDerivationInput, now: Date): QueueD
   const conclusion = required.conclusion ?? '';
   const status = required.status ?? '';
   if (conclusion === 'action_required') return done('ci_not_run', [...info, queueReason('workflow_approval_required')]);
-  if (status === 'queued' || status === 'in_progress' || status === 'pending') return done('waiting_ci', [...info, queueReason('ci_running')]);
+  if (status !== 'completed') return done('waiting_ci', [...info, queueReason('ci_running')]);
   if (conclusion !== 'success' && conclusion !== 'neutral') return done('needs_author', [...info, queueReason('ci_failed')]);
 
   for (const review of latest.values()) {
