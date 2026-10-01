@@ -11,6 +11,7 @@ import {
   activeClaimOnPull, assemblePullDetail, assertPullClaimable, openReviewClaim, pgCode,
   presentListRow, PULL_LIST_COLUMNS, PULL_LIST_JOINS, type ClaimIdentity,
 } from './records.js';
+import { isCatalogSkillBook, skillBookChoices, skillBookTitle } from './skill-books.js';
 
 const reason = z.string().trim().min(3).max(1000);
 const guildKey = z.string().trim().regex(/^[A-Za-z0-9_-]{1,64}$/);
@@ -18,9 +19,9 @@ const OPEN_STATES = QUEUE_STATES.filter(state => state !== 'merged' && state !==
 
 type Queryable = Pick<Pool | PoolClient, 'query'>;
 
-const REPOSITORY_FIELDS = `repository_id, full_name, default_branch, installation_state, mode, settings, last_swept_at, last_error, rate_limited_until, aggregate_version, guild_key, scope_kind, open_to_guilds`;
+const REPOSITORY_FIELDS = `repository_id, full_name, default_branch, installation_state, mode, settings, last_swept_at, last_error, rate_limited_until, aggregate_version, guild_key, scope_kind, open_to_guilds, skill_book_id`;
 
-const NOT_ELIGIBLE = '這個人目前不是這個項目的公會長或管理員，或還沒有連結 GitHub，不能審查。';
+const NOT_ELIGIBLE = '這個人目前不是這個項目的公會長、技能書維護者或管理員，或還沒有連結 GitHub，不能審查。';
 const CLAIM_AUTHOR = '審查者不能認領自己開的拉取請求。';
 const CLAIM_MISSING = '找不到這個認領。';
 const CLAIM_INACTIVE = '這個認領已經結束。';
@@ -30,6 +31,11 @@ const WRITE_CONFLICT = '另一個操作同時在處理這個拉取請求，請�
 const SELF_CLAIM_REASON = '自己認領這次審查。';
 const OWNERSHIP_INVALID = '已指定公會的儲存庫不能同時開放所有公會長認領。';
 const GUILD_NOT_FOUND = '找不到這個公會。';
+const SKILL_BOOK_INVALID = '請選擇目錄裡的技能書，而且類型必須是技能書。';
+const SKILL_BOOK_TAKEN = '這本技能書已經對到另一個儲存庫。';
+const ASSIGN_BOOK = '請指定這位技能書維護者負責的技能書。';
+const ASSIGN_NO_BOOK = '公會長或管理員的指派不能帶技能書。';
+const skillBookIdSchema = z.string().trim().regex(/^[a-z0-9-]{1,100}$/);
 
 export type ViewerStatus = 'ready' | 'no_member' | 'email_unverified' | 'no_github';
 export type ReviewCenterViewer = {
@@ -115,7 +121,7 @@ export async function listReviewCenterPulls(pool: Pool, admin: AdminActor, filte
   return { items: rows.rows.slice(0, limit).map(presentListRow), next_offset: rows.rows.length > limit ? offset + limit : null };
 }
 
-const PULL_SCOPE = `p.*, r.full_name, r.default_branch, r.mode, r.settings, r.community_id, r.guild_key, r.scope_kind, r.open_to_guilds, g.name AS guild_name`;
+const PULL_SCOPE = `p.*, r.full_name, r.default_branch, r.mode, r.settings, r.community_id, r.guild_key, r.scope_kind, r.open_to_guilds, r.skill_book_id, g.name AS guild_name`;
 
 async function scopedPull(q: Queryable, admin: AdminActor, id: string, lock = false) {
   const row = (await q.query(
@@ -150,7 +156,7 @@ async function adminIdentity(q: Queryable, admin: AdminActor, repositoryId: stri
      FROM maintainer_eligible_reviewers e
      JOIN users u ON u.user_id = e.user_id
      JOIN platform_admins a ON a.admin_id = $3 AND a.community_id = e.community_id AND lower(u.email) = a.email AND a.active
-     WHERE e.repository_id=$1 AND e.community_id=$2 AND e.acting_as='admin' AND e.guild_key IS NULL
+     WHERE e.repository_id=$1 AND e.community_id=$2 AND e.acting_as='admin' AND e.guild_key IS NULL AND e.skill_book_id IS NULL
      LIMIT 1`,
     [repositoryId, admin.community_id, admin.admin_id],
   )).rows[0] as { user_id: string; github_user_id: string; github_login: string } | undefined;
@@ -158,15 +164,16 @@ async function adminIdentity(q: Queryable, admin: AdminActor, repositoryId: stri
     const viewer = await resolveViewer(q, admin);
     throw new Problem(409, 'maintainer_claim_identity_required', viewer.reason ?? VIEWER_REASON.no_member);
   }
-  return { ...row, acting_as: 'admin', guild_key: null };
+  return { ...row, acting_as: 'admin', guild_key: null, skill_book_id: null };
 }
 
-async function eligibleIdentity(q: Queryable, repositoryId: string, userId: string, actingAs: 'admin' | 'guild_leader', key: string | null): Promise<ClaimIdentity> {
+async function eligibleIdentity(q: Queryable, repositoryId: string, userId: string, actingAs: ClaimIdentity['acting_as'], key: string | null, bookId: string | null): Promise<ClaimIdentity> {
   const row = (await q.query(
-    `SELECT user_id, github_user_id, github_login, acting_as, guild_key
+    `SELECT user_id, github_user_id, github_login, acting_as, guild_key, skill_book_id
      FROM maintainer_eligible_reviewers
-     WHERE repository_id=$1 AND user_id=$2 AND acting_as=$3 AND guild_key IS NOT DISTINCT FROM $4`,
-    [repositoryId, userId, actingAs, key],
+     WHERE repository_id=$1 AND user_id=$2 AND acting_as=$3
+       AND guild_key IS NOT DISTINCT FROM $4 AND skill_book_id IS NOT DISTINCT FROM $5`,
+    [repositoryId, userId, actingAs, key, bookId],
   )).rows[0] as ClaimIdentity | undefined;
   requireCondition(row, 409, 'maintainer_reviewer_not_eligible', NOT_ELIGIBLE);
   return row;
@@ -206,14 +213,17 @@ export async function assignReviewer(pool: Pool, input: AdminCommand, id: string
   z.uuid().parse(id);
   const body = z.object({
     user_id: z.uuid(),
-    acting_as: z.enum(['admin', 'guild_leader']),
+    acting_as: z.enum(['admin', 'guild_leader', 'skill_book_maintainer']),
     guild_key: guildKey.nullable(),
+    skill_book_id: skillBookIdSchema.nullable().default(null),
     reason,
   }).strict().parse(input.body);
+  if (body.acting_as === 'skill_book_maintainer') requireCondition(body.skill_book_id !== null && body.guild_key === null, 422, 'maintainer_skill_book_invalid', ASSIGN_BOOK);
+  else requireCondition(body.skill_book_id === null, 422, 'maintainer_skill_book_invalid', ASSIGN_NO_BOOK);
   return maintainerWrite(pool, input, async q => { await scopedPull(q, input.admin, id); }, async q => {
     const pull = await scopedPull(q, input.admin, id, true);
     checkVersion(String(pull.aggregate_version), input.expected);
-    const reviewer = await eligibleIdentity(q, pull.repository_id, body.user_id, body.acting_as, body.guild_key);
+    const reviewer = await eligibleIdentity(q, pull.repository_id, body.user_id, body.acting_as, body.guild_key, body.skill_book_id);
     assertPullClaimable(pull);
     requireCondition(reviewer.github_user_id !== pull.author_github_id, 409, 'maintainer_claim_author', CLAIM_AUTHOR);
     const now = new Date();
@@ -352,9 +362,11 @@ export async function changeRepositoryOwnership(pool: Pool, input: AdminCommand,
     guild_key: guildKey.nullable(),
     scope_kind: z.enum(['module', 'skill_book']).nullable(),
     open_to_guilds: z.boolean(),
+    skill_book_id: skillBookIdSchema.nullable(),
     reason,
   }).strict().parse(input.body);
   requireCondition(!(body.guild_key && body.open_to_guilds), 422, 'maintainer_ownership_invalid', OWNERSHIP_INVALID);
+  requireCondition(body.skill_book_id === null || (body.scope_kind === 'skill_book' && isCatalogSkillBook(body.skill_book_id)), 422, 'maintainer_skill_book_invalid', SKILL_BOOK_INVALID);
   return maintainerWrite(pool, input, async q => { await scopedRepository(q, input.admin, id); }, async q => {
     if (body.guild_key) {
       const found = await q.query('SELECT 1 FROM positioning_guild_catalog WHERE guild_key=$1', [body.guild_key]);
@@ -362,25 +374,31 @@ export async function changeRepositoryOwnership(pool: Pool, input: AdminCommand,
     }
     const prior = await scopedRepository(q, input.admin, id, true);
     checkVersion(String(prior.aggregate_version), input.expected);
-    const unchanged = prior.guild_key === body.guild_key && prior.scope_kind === body.scope_kind && prior.open_to_guilds === body.open_to_guilds;
+    const unchanged = prior.guild_key === body.guild_key && prior.scope_kind === body.scope_kind && prior.open_to_guilds === body.open_to_guilds && prior.skill_book_id === body.skill_book_id;
     requireCondition(!unchanged, 409, 'maintainer_ownership_unchanged', '歸屬沒有變更。');
-    const updated = (await q.query(
-      `UPDATE maintainer_repositories
-       SET guild_key=$2, scope_kind=$3, open_to_guilds=$4, aggregate_version=aggregate_version+1, updated_at=now()
-       WHERE repository_id=$1 RETURNING ${REPOSITORY_FIELDS}`,
-      [id, body.guild_key, body.scope_kind, body.open_to_guilds],
-    )).rows[0];
+    let updated;
+    try {
+      updated = (await q.query(
+        `UPDATE maintainer_repositories
+         SET guild_key=$2, scope_kind=$3, open_to_guilds=$4, skill_book_id=$5, aggregate_version=aggregate_version+1, updated_at=now()
+         WHERE repository_id=$1 RETURNING ${REPOSITORY_FIELDS}`,
+        [id, body.guild_key, body.scope_kind, body.open_to_guilds, body.skill_book_id],
+      )).rows[0];
+    } catch (error) {
+      if (pgCode(error) === '23505') throw new Problem(409, 'maintainer_skill_book_taken', SKILL_BOOK_TAKEN);
+      throw error;
+    }
     await q.query(
       `INSERT INTO maintainer_ownership_changes (
-         change_id, repository_id, guild_key, scope_kind, open_to_guilds, source, changed_by_admin, reason)
-       VALUES ($1,$2,$3,$4,$5,'admin',$6,$7)`,
-      [randomUUID(), id, body.guild_key, body.scope_kind, body.open_to_guilds, input.admin.admin_id, body.reason],
+         change_id, repository_id, guild_key, scope_kind, open_to_guilds, skill_book_id, source, changed_by_admin, reason)
+       VALUES ($1,$2,$3,$4,$5,$6,'admin',$7,$8)`,
+      [randomUUID(), id, body.guild_key, body.scope_kind, body.open_to_guilds, body.skill_book_id, input.admin.admin_id, body.reason],
     );
     await q.query(`SELECT pull_id FROM maintainer_pull_requests WHERE repository_id=$1 AND state='open' ORDER BY pull_id FOR UPDATE`, [id]);
     await q.query(`UPDATE maintainer_pull_requests SET recheck_at=now() WHERE repository_id=$1 AND state='open'`, [id]);
     await audit(q, input.admin, 'maintainer_repository_ownership', 'maintainer_repository', id, body.reason,
-      { guild_key: prior.guild_key, scope_kind: prior.scope_kind, open_to_guilds: prior.open_to_guilds, aggregate_version: prior.aggregate_version },
-      { guild_key: updated.guild_key, scope_kind: updated.scope_kind, open_to_guilds: updated.open_to_guilds, aggregate_version: updated.aggregate_version });
+      { guild_key: prior.guild_key, scope_kind: prior.scope_kind, open_to_guilds: prior.open_to_guilds, skill_book_id: prior.skill_book_id, aggregate_version: prior.aggregate_version },
+      { guild_key: updated.guild_key, scope_kind: updated.scope_kind, open_to_guilds: updated.open_to_guilds, skill_book_id: updated.skill_book_id, aggregate_version: updated.aggregate_version });
     return updated;
   });
 }
@@ -424,11 +442,30 @@ export async function listReviewers(pool: Pool, admin: AdminActor) {
     [admin.community_id],
   )).rows;
   const owned = (await pool.query(
-    `SELECT repository_id, full_name, scope_kind, guild_key, open_to_guilds
+    `SELECT repository_id, full_name, scope_kind, guild_key, open_to_guilds, skill_book_id
      FROM maintainer_repositories WHERE community_id=$1 ORDER BY full_name, repository_id`,
     [admin.community_id],
-  )).rows as Array<{ repository_id: string; full_name: string; scope_kind: string | null; guild_key: string | null; open_to_guilds: boolean }>;
+  )).rows as Array<{ repository_id: string; full_name: string; scope_kind: string | null; guild_key: string | null; open_to_guilds: boolean; skill_book_id: string | null }>;
+  const appointments = (await pool.query(
+    `SELECT m.book_id, m.user_id, m.active, u.display_name, u.active AS user_active, g.github_login
+     FROM skill_book_maintainers m
+     JOIN users u ON u.user_id=m.user_id AND u.community_id=m.community_id
+     LEFT JOIN github_social_connections g ON g.user_id=u.user_id AND g.community_id=m.community_id
+     WHERE m.community_id=$1 AND NOT is_verification_test_account(m.user_id)
+     ORDER BY m.book_id, u.display_name, m.user_id`,
+    [admin.community_id],
+  )).rows as Array<{ book_id: string; user_id: string; active: boolean; display_name: string; user_active: boolean; github_login: string | null }>;
+  const byBook = new Map<string, Array<{ user_id: string; display_name: string; github_login: string | null; status: 'linked' | 'no_github' | 'inactive' }>>();
+  for (const row of appointments) {
+    const status = !row.active || !row.user_active ? 'inactive' : row.github_login ? 'linked' : 'no_github';
+    const list = byBook.get(row.book_id) ?? [];
+    list.push({ user_id: row.user_id, display_name: row.display_name, github_login: row.github_login, status });
+    byBook.set(row.book_id, list);
+  }
   const guildChoices = (await pool.query('SELECT guild_key, name FROM positioning_guild_catalog ORDER BY name, guild_key')).rows;
+  const repoCard = (repo: typeof owned[number]) => ({
+    repository_id: repo.repository_id, full_name: repo.full_name, scope_kind: repo.scope_kind, skill_book_id: repo.skill_book_id,
+  });
   return {
     admins: admins.map(row => ({
       admin_id: row.admin_id, display_name: row.display_name, github_login: row.github_login, status: adminLinkStatus(row),
@@ -437,16 +474,14 @@ export async function listReviewers(pool: Pool, admin: AdminActor) {
       guild_key: row.guild_key,
       name: row.name,
       leader: row.leader_user_id ? { user_id: row.leader_user_id, display_name: row.leader_name, github_login: row.leader_login } : null,
-      repositories: owned.filter(repo => repo.guild_key === row.guild_key).map(repo => ({
-        repository_id: repo.repository_id, full_name: repo.full_name, scope_kind: repo.scope_kind,
-      })),
+      repositories: owned.filter(repo => repo.guild_key === row.guild_key).map(repoCard),
     })),
-    open_repositories: owned.filter(repo => repo.guild_key == null && repo.open_to_guilds).map(repo => ({
-      repository_id: repo.repository_id, full_name: repo.full_name, scope_kind: repo.scope_kind,
-    })),
-    admin_only_repositories: owned.filter(repo => repo.guild_key == null && !repo.open_to_guilds).map(repo => ({
-      repository_id: repo.repository_id, full_name: repo.full_name, scope_kind: repo.scope_kind,
-    })),
+    open_repositories: owned.filter(repo => repo.guild_key == null && repo.open_to_guilds).map(repoCard),
+    admin_only_repositories: owned.filter(repo => repo.guild_key == null && !repo.open_to_guilds).map(repoCard),
+    skill_books: [...byBook.entries()].map(([bookId, maintainers]) => ({
+      skill_book_id: bookId, title: skillBookTitle(bookId) ?? bookId, maintainers,
+    })).sort((a, b) => a.title.localeCompare(b.title, 'zh-Hant') || a.skill_book_id.localeCompare(b.skill_book_id)),
+    skill_book_choices: skillBookChoices(),
     guild_choices: guildChoices,
   };
 }

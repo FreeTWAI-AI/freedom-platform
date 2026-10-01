@@ -22,7 +22,7 @@ const racer=(role:string)=>{const extra=new Pool({connectionString:databaseUrl,o
 const guild='guild_event_space',otherGuild='guild_projection_mapping',book='event-space',aiVibe='guild_ai_vibe',aiField='guild_ai_field';
 const requiredGuilds=[{guild_key:aiField,name:'AI 導入與驗證公會'},{guild_key:aiVibe,name:'AI 開發公會'}];
 const access=(appointed_books:number,active_guilds:string[])=>({appointed_books,eligible:active_guilds.length>0,requires_development_guild:appointed_books>0&&!active_guilds.length,active_guilds,required_guilds:requiredGuilds});
-const emptyWorkspace={managed_guilds:[],managed_books:[],can_discuss:false,skill_editor_access:access(0,[])};
+const emptyWorkspace={managed_guilds:[],managed_books:[],can_discuss:false,can_review_pulls:false,skill_editor_access:access(0,[])};
 const admin:AdminActor={admin_id:randomUUID(),community_id:DEMO_COMMUNITY,email:'guild-admin@example.invalid',display_name:'管理測試者',role:'super_admin',subject:'verified-test'};
 let actors:Actor[]=[];
 const cmd=(actor:Actor,body:unknown,expected?:number,key=randomUUID()):Command=>({actor,body,expected:expected?String(expected):undefined,key,operation:'test-guild-workspace'});
@@ -149,7 +149,7 @@ test('HTTP workspace uses existing member Origin, CSRF and onboarding guards; ad
 test('skill editing needs BOTH the named appointment and a current AI guild; neither alone grants editing',async()=>{
  await appoint();assert.equal((await pool.query('SELECT count(*)::int AS n FROM positioning_profession_memberships WHERE user_id=$1 AND guild_key=ANY($2::text[])',[actors[0].user_id,developmentGuilds.skill])).rows[0].n,0,'appointment never adds guild membership');
  await assert.rejects(service.skillEditor(pool,actors[0],book),code('skill_editor_guild_required'));await assert.rejects(service.saveSkillEditorial(pool,cmd(actors[0],editorial),book),code('skill_editor_guild_required'));assert.equal(await service.readSkillEditorial(pool,book),null);
- assert.deepEqual(await service.guildWorkspace(pool,actors[0]),{...emptyWorkspace,skill_editor_access:access(1,[])});
+ assert.deepEqual(await service.guildWorkspace(pool,actors[0]),{...emptyWorkspace,can_review_pulls:true,skill_editor_access:access(1,[])});
  await join(actors[1],aiVibe);await join(actors[1],aiField);await assert.rejects(service.skillEditor(pool,actors[1],book),code('skill_maintainer_required'));await assert.rejects(service.saveSkillEditorial(pool,cmd(actors[1],editorial),book),code('skill_maintainer_required'));
  assert.deepEqual(await service.guildWorkspace(pool,actors[1]),{...emptyWorkspace,skill_editor_access:access(0,[aiField,aiVibe])});
  // An unrelated guild (even as its leader) does not satisfy the AI guild requirement.
@@ -166,14 +166,14 @@ test('either AI guild suffices; leaving one keeps editing, leaving the last deni
  await changeGuild(actors[0],aiField,'leave');
  await assert.rejects(service.skillEditor(pool,actors[0],book),code('skill_editor_guild_required'));await assert.rejects(service.saveSkillEditorial(pool,cmd(actors[0],{...editorial,summary:'離會後'},2),book),code('skill_editor_guild_required'));
  await assert.rejects(service.saveSkillEditorial(pool,second,book),code('skill_editor_guild_required'),'an idempotent replay re-checks current eligibility');
- const hidden=await service.guildWorkspace(pool,actors[0]);assert.deepEqual(hidden.managed_books,[]);assert.deepEqual(hidden.skill_editor_access,access(1,[]));assert.equal((await service.readSkillEditorial(pool,book))!.aggregate_version,2,'public reading is unchanged');
+ const hidden=await service.guildWorkspace(pool,actors[0]);assert.deepEqual(hidden.managed_books,[]);assert.equal(hidden.can_review_pulls,true);assert.deepEqual(hidden.skill_editor_access,access(1,[]));assert.equal((await service.readSkillEditorial(pool,book))!.aggregate_version,2,'public reading is unchanged');
  const revoked=(await pool.query('SELECT revoked_at,revoke_reason FROM development_grants WHERE grant_id=$1',[grant])).rows[0];assert.equal(revoked.revoke_reason,'guild_eligibility_lost');
  await changeGuild(actors[0],aiField,'join');assert.equal((await service.skillEditor(pool,actors[0],book)).aggregate_version,2);assert.deepEqual((await service.guildWorkspace(pool,actors[0])).managed_books,[{book_id:book,title:'活動與空間實作手冊'}]);
  assert.equal((await service.saveSkillEditorial(pool,cmd(actors[0],{...editorial,summary:'重新加入後恢復'},2),book)).aggregate_version,3);
  const after=(await pool.query('SELECT g.revoked_at,g.revoke_reason,k.revoked_at AS key_revoked FROM development_grants g JOIN development_keys k ON k.source_grant_id=g.grant_id WHERE g.grant_id=$1',[grant])).rows[0];
  assert.deepEqual([after.revoked_at,after.revoke_reason],[revoked.revoked_at,'guild_eligibility_lost'],'editor eligibility never revives a revoked development grant');assert.notEqual(after.key_revoked,null);
  // Revoking the appointment still denies even with a current AI guild.
- await service.appointSkillMaintainer(pool,adm({user_id:actors[0].user_id,active:false,reason:'交接後撤回維護權。'},1),book);await assert.rejects(service.skillEditor(pool,actors[0],book),code('skill_maintainer_required'));assert.deepEqual((await service.guildWorkspace(pool,actors[0])).skill_editor_access,access(0,[aiField]));
+ await service.appointSkillMaintainer(pool,adm({user_id:actors[0].user_id,active:false,reason:'交接後撤回維護權。'},1),book);await assert.rejects(service.skillEditor(pool,actors[0],book),code('skill_maintainer_required'));const revokedView=await service.guildWorkspace(pool,actors[0]);assert.deepEqual(revokedView.skill_editor_access,access(0,[aiField]));assert.equal(revokedView.can_review_pulls,false);
 });
 
 test('disabled members and other-community members fail closed even with an appointment and an AI guild',async()=>{
@@ -225,7 +225,7 @@ test('race: workspace GET waits on the guild lock of an AI guild officer leaving
   await probe.query('ROLLBACK');
   await holder.query('COMMIT');
   const [left,seen]=await Promise.allSettled([leave,view]);assert.equal(left.status,'fulfilled');assert.equal(seen.status,'fulfilled',String((seen as PromiseRejectedResult).reason));
-  assert.deepEqual((seen as PromiseFulfilledResult<any>).value,{...emptyWorkspace,skill_editor_access:access(1,[])},'the committed leave removes officer and editor views');
+  assert.deepEqual((seen as PromiseFulfilledResult<any>).value,{...emptyWorkspace,can_review_pulls:true,skill_editor_access:access(1,[])},'the committed leave removes officer and editor views');
  }finally{await holder.query('ROLLBACK').catch(()=>{});await probe.query('ROLLBACK').catch(()=>{});holder.release();probe.release();await leaver.end().catch(()=>{});await reader.end().catch(()=>{});}
 });
 
@@ -235,7 +235,7 @@ test('HTTP skill editor routes enforce the AI guild requirement and expose the r
  const path=origin+'/api/v1/skill-books/'+book+'/editor',body=JSON.stringify(editorial);
  const blocked=await app.request(path,{headers:headers()});assert.equal(blocked.status,403);assert.equal((await blocked.json()).code,'skill_editor_guild_required');
  assert.equal((await app.request(path,{method:'POST',headers:headers(),body})).status,403);
- const workspace=await (await app.request(origin+'/api/v1/guild-workspace',{headers:headers()})).json();assert.deepEqual(workspace.managed_books,[]);assert.deepEqual(workspace.skill_editor_access,access(1,[]));
+ const workspace=await (await app.request(origin+'/api/v1/guild-workspace',{headers:headers()})).json();assert.deepEqual(workspace.managed_books,[]);assert.equal(workspace.can_review_pulls,true);assert.deepEqual(workspace.skill_editor_access,access(1,[]));
  await changeGuild(auth.actor,aiVibe,'join');assert.equal((await app.request(path,{headers:headers()})).status,200);
  const replayHeaders=headers(),saved=await app.request(path,{method:'POST',headers:replayHeaders,body});assert.equal(saved.status,200,await saved.clone().text());
  await changeGuild(auth.actor,aiVibe,'leave');assert.equal((await app.request(path,{method:'POST',headers:replayHeaders,body})).status,403);assert.equal((await app.request(path,{headers:headers()})).status,403);

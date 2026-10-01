@@ -82,13 +82,14 @@ async function memberRequest(auth: { token: string; actor: { csrf_token: string 
   const text = await response.text();
   return { status: response.status, data: text ? JSON.parse(text) : null };
 }
-async function insertRepo(over: { github?: string; guild?: string | null; open?: boolean; scope?: string | null; full?: string } = {}) {
+async function insertRepo(over: { github?: string; guild?: string | null; open?: boolean; scope?: string | null; full?: string; book?: string | null } = {}) {
   const id = randomUUID();
   githubSeq += 1;
+  const book = over.book ?? null;
   await pool.query(`INSERT INTO maintainer_repositories
-    (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, guild_key, scope_kind, open_to_guilds, next_sweep_at)
-    VALUES ($1,$2,$3,'77',$4,'main','active','observe',$5,$6,$7,'2099-01-01T00:00:00Z')`,
-  [id, DEMO_COMMUNITY, over.github ?? String(githubSeq), over.full ?? 'FreeTWAI-AI/freedom-platform', over.guild ?? null, over.scope ?? null, over.open ?? false]);
+    (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, guild_key, scope_kind, open_to_guilds, skill_book_id, next_sweep_at)
+    VALUES ($1,$2,$3,'77',$4,'main','active','observe',$5,$6,$7,$8,'2099-01-01T00:00:00Z')`,
+  [id, DEMO_COMMUNITY, over.github ?? String(githubSeq), over.full ?? 'FreeTWAI-AI/freedom-platform', over.guild ?? null, book ? 'skill_book' : (over.scope ?? null), over.open ?? false, book]);
   return id;
 }
 async function insertPull(repository: string, number: number, author = '42') {
@@ -127,7 +128,23 @@ async function insertReview(pullId: string, githubId: string, state: string) {
     VALUES ($1,$2,$3,'ada','User','MEMBER',$4,$5,'2026-09-30T11:30:00Z')`, [pullId, String(reviewSeq), githubId, state, SHA]);
 }
 async function eligible(repositoryId: string) {
-  return (await pool.query(`SELECT user_id, github_user_id, acting_as, guild_key FROM maintainer_eligible_reviewers WHERE repository_id=$1 ORDER BY acting_as, guild_key`, [repositoryId])).rows;
+  return (await pool.query(`SELECT user_id, github_user_id, acting_as, guild_key, skill_book_id FROM maintainer_eligible_reviewers WHERE repository_id=$1 ORDER BY acting_as, guild_key, skill_book_id`, [repositoryId])).rows;
+}
+async function appointBook(userId: string, bookId: string, active = true) {
+  await pool.query(`INSERT INTO skill_editorial_ownership (book_id, community_id) VALUES ($1,$2) ON CONFLICT (book_id) DO NOTHING`, [bookId, DEMO_COMMUNITY]);
+  await pool.query(`INSERT INTO skill_book_maintainers (book_id, community_id, user_id, appointed_by, active)
+    VALUES ($1,$2,$3,$4,$5)
+    ON CONFLICT (book_id, user_id) DO UPDATE SET active=EXCLUDED.active, appointed_by=EXCLUDED.appointed_by`,
+  [bookId, DEMO_COMMUNITY, userId, adminId, active]);
+}
+async function insertBookClaim(pullId: string, userId: string, githubId: string, loginName: string, bookId: string) {
+  const id = randomUUID();
+  await pool.query(`INSERT INTO maintainer_review_claims (
+    claim_id, pull_id, reviewer_user_id, reviewer_github_id, reviewer_login, acting_as, guild_key, skill_book_id,
+    claimed_by_user, assignment, head_sha, created_at, expires_at, state, github_request_state)
+    VALUES ($1,$2,$3,$4,$5,'skill_book_maintainer',NULL,$6,$3,'self',$7,'2026-09-30T10:00:00Z',NULL,'active','not_requested')`,
+  [id, pullId, userId, githubId, loginName, bookId, SHA]);
+  return id;
 }
 
 test('the eligibility view follows admins, leaders, open repositories and a departed officer', async () => {
@@ -273,7 +290,7 @@ test('a guild leader sees their own and open pulls, claims one guild, and releas
   const hiddenPull = await insertPull(hidden, 4);
   const stranger = await login(pool, DEMO_USERS[2].email, DEMO_PASSWORD);
   assert.equal((await memberRequest(stranger, '/guild-reviews?queue=open')).status, 403);
-  assert.equal((await memberRequest(stranger, '/guild-reviews?queue=open')).data.code, 'guild_leader_required');
+  assert.equal((await memberRequest(stranger, '/guild-reviews?queue=open')).data.code, 'review_access_required');
 
   await lead(DEMO_USERS[0].user_id, 'guild_ai_vibe');
   await lead(DEMO_USERS[0].user_id, 'guild_marketing');
@@ -327,4 +344,140 @@ test('a guild leader sees their own and open pulls, claims one guild, and releas
   assert.equal(released.data.claims[0].end_reason, 'self_released');
   const hiddenClaim = await insertClaim(hiddenPull, DEMO_USERS[1].user_id, '88022', 'other-leader', null, null);
   assert.equal((await memberRequest(leader, `/guild-reviews/claims/${hiddenClaim}/release`, {}, 1)).status, 404);
+});
+
+test('a skill-book maintainer is eligible only for the appointed book, with an active account and GitHub', async () => {
+  const user = DEMO_USERS[1].user_id;
+  const repository = await insertRepo({ book: 'career-guide', guild: 'guild_marketing', open: false, full: 'FreeTWAI-AI/freedom-skill-career-guide' });
+  const other = await insertRepo({ book: 'event-space', full: 'FreeTWAI-AI/freedom-skill-event-space' });
+  await appointBook(user, 'social-post');
+  await link(user, '88041', 'book-reviewer');
+  assert.equal((await eligible(repository)).some(row => row.user_id === user), false);
+  await appointBook(user, 'career-guide', false);
+  assert.equal((await eligible(repository)).some(row => row.user_id === user), false);
+  await appointBook(user, 'career-guide', true);
+  await pool.query('DELETE FROM github_social_connections WHERE user_id=$1', [user]);
+  assert.equal((await eligible(repository)).some(row => row.user_id === user), false);
+  await link(user, '88041', 'book-reviewer');
+  const rows = (await eligible(repository)).filter(row => row.user_id === user);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].acting_as, 'skill_book_maintainer');
+  assert.equal(rows[0].guild_key, null);
+  assert.equal(rows[0].skill_book_id, 'career-guide');
+  assert.equal((await eligible(other)).some(row => row.user_id === user), false);
+});
+
+test('a skill-book maintainer who is not a guild leader lists, claims and releases the book pull', async () => {
+  const user = DEMO_USERS[1].user_id;
+  await appointBook(user, 'career-guide');
+  const bookRepo = await insertRepo({ book: 'career-guide', guild: 'guild_marketing', open: false, full: 'FreeTWAI-AI/freedom-skill-career-guide' });
+  const open = await insertRepo({ open: true, full: 'FreeTWAI-AI/unclaimed-book' });
+  const foreign = await insertRepo({ guild: 'guild_platform_engineering', full: 'FreeTWAI-AI/their-module' });
+  const hidden = await insertRepo({ full: 'FreeTWAI-AI/admin-only' });
+  const bookPull = await insertPull(bookRepo, 1);
+  const openPull = await insertPull(open, 2);
+  const foreignPull = await insertPull(foreign, 3);
+  const hiddenPull = await insertPull(hidden, 4);
+  const member = await login(pool, DEMO_USERS[1].email, DEMO_PASSWORD);
+  const listed = await memberRequest(member, '/guild-reviews?queue=open');
+  assert.equal(listed.status, 200, JSON.stringify(listed.data));
+  const ids = listed.data.items.map((item: { pull_id: string }) => item.pull_id);
+  assert.ok(ids.includes(bookPull));
+  assert.ok(ids.includes(openPull));
+  assert.equal(ids.includes(foreignPull), false);
+  assert.equal(ids.includes(hiddenPull), false);
+  assert.equal(listed.data.viewer.github_login, null);
+  assert.equal(listed.data.skill_books[0].skill_book_id, 'career-guide');
+  assert.equal(listed.data.skill_books[0].title, '方向探索與陪跑入門');
+  const unlinked = await memberRequest(member, `/guild-reviews/${bookPull}/claim`, { acting_as: 'skill_book_maintainer', skill_book_id: 'career-guide' }, 1);
+  assert.equal(unlinked.status, 409);
+  assert.equal(unlinked.data.code, 'maintainer_claim_identity_required');
+
+  await link(user, '88042', 'book-reviewer');
+  const detail = await memberRequest(member, `/guild-reviews/${bookPull}`);
+  assert.equal(detail.status, 200, JSON.stringify(detail.data));
+  assert.equal(detail.data.claim_options.length, 1);
+  assert.equal(detail.data.claim_options[0].acting_as, 'skill_book_maintainer');
+  assert.equal(detail.data.claim_options[0].skill_book_id, 'career-guide');
+  assert.equal(detail.data.claim_options[0].skill_book_title, '方向探索與陪跑入門');
+  assert.equal(detail.data.claim_options[0].guild_key, null);
+  const openClaim = await memberRequest(member, `/guild-reviews/${openPull}/claim`, {}, 1);
+  assert.equal(openClaim.status, 403);
+  assert.equal(openClaim.data.code, 'maintainer_guild_scope');
+  assert.match(openClaim.data.detail, /技能書/);
+  const claimed = await memberRequest(member, `/guild-reviews/${bookPull}/claim`, { acting_as: 'skill_book_maintainer', skill_book_id: 'career-guide' }, 1);
+  assert.equal(claimed.status, 201, JSON.stringify(claimed.data));
+  assert.equal(claimed.data.claim.acting_as, 'skill_book_maintainer');
+  assert.equal(claimed.data.claim.guild_key, null);
+  assert.equal(claimed.data.claim.skill_book_id, 'career-guide');
+  assert.equal(claimed.data.claim.skill_book_title, '方向探索與陪跑入門');
+  assert.equal(claimed.data.can_release, true);
+  const released = await memberRequest(member, `/guild-reviews/claims/${claimed.data.claim.claim_id}/release`, {}, Number(claimed.data.claim.aggregate_version));
+  assert.equal(released.status, 200, JSON.stringify(released.data));
+  assert.equal(released.data.claim, null);
+  assert.equal(released.data.claims[0].end_reason, 'self_released');
+});
+
+test('a finished skill-book maintainer claim does not adopt the repository', async () => {
+  const user = DEMO_USERS[1].user_id;
+  await appointBook(user, 'career-guide');
+  await link(user, '88043', 'book-reviewer');
+  const repository = await insertRepo({ book: 'career-guide', open: true, full: 'FreeTWAI-AI/freedom-skill-career-guide' });
+  const pull = await insertPull(repository, 1);
+  const claim = await insertBookClaim(pull, user, '88043', 'book-reviewer', 'career-guide');
+  await insertReview(pull, '88043', 'APPROVED');
+  const settled = await settleMaintainerClaims(pool, CLOCK);
+  assert.equal(settled.adopted, 0);
+  assert.equal(settled.completed, 1);
+  const repo = (await pool.query('SELECT guild_key, open_to_guilds, skill_book_id FROM maintainer_repositories WHERE repository_id=$1', [repository])).rows[0];
+  assert.equal(repo.guild_key, null);
+  assert.equal(repo.open_to_guilds, true);
+  assert.equal(repo.skill_book_id, 'career-guide');
+  assert.equal((await pool.query('SELECT state FROM maintainer_review_claims WHERE claim_id=$1', [claim])).rows[0].state, 'completed');
+  assert.equal((await pool.query('SELECT count(*) FROM maintainer_ownership_changes WHERE repository_id=$1', [repository])).rows[0].count, '0');
+});
+
+test('revoking a skill-book appointment releases the claim on the next settlement', async () => {
+  const user = DEMO_USERS[1].user_id;
+  await appointBook(user, 'career-guide');
+  await link(user, '88044', 'book-reviewer');
+  const repository = await insertRepo({ book: 'career-guide', guild: 'guild_marketing', open: false, full: 'FreeTWAI-AI/freedom-skill-career-guide' });
+  const pull = await insertPull(repository, 1);
+  const claim = await insertBookClaim(pull, user, '88044', 'book-reviewer', 'career-guide');
+  await pool.query(`UPDATE skill_book_maintainers SET active=false WHERE book_id='career-guide' AND user_id=$1`, [user]);
+  const settled = await settleMaintainerClaims(pool, CLOCK);
+  assert.equal(settled.released, 1);
+  assert.equal(settled.adopted, 0);
+  assert.equal((await pool.query('SELECT end_reason FROM maintainer_review_claims WHERE claim_id=$1', [claim])).rows[0].end_reason, 'reviewer_not_eligible');
+  assert.equal((await pool.query('SELECT guild_key, skill_book_id FROM maintainer_repositories WHERE repository_id=$1', [repository])).rows[0].guild_key, 'guild_marketing');
+});
+
+test('an admin assigns a skill-book maintainer and rejects a mixed identity', async () => {
+  const user = DEMO_USERS[1].user_id;
+  await appointBook(user, 'career-guide');
+  await appointBook(DEMO_USERS[2].user_id, 'event-space', false);
+  await link(user, '88045', 'book-reviewer');
+  const repository = await insertRepo({ book: 'career-guide', full: 'FreeTWAI-AI/freedom-skill-career-guide' });
+  const pull = await insertPull(repository, 1);
+  const directory = await adminRequest('/review-center/reviewers');
+  assert.equal(directory.status, 200, JSON.stringify(directory.data));
+  const book = directory.data.skill_books.find((row: { skill_book_id: string }) => row.skill_book_id === 'career-guide');
+  assert.equal(book.title, '方向探索與陪跑入門');
+  assert.equal(book.maintainers.find((row: { user_id: string }) => row.user_id === user).status, 'linked');
+  assert.equal(book.maintainers.find((row: { user_id: string }) => row.user_id === user).github_login, 'book-reviewer');
+  const inactive = directory.data.skill_books.find((row: { skill_book_id: string }) => row.skill_book_id === 'event-space');
+  assert.equal(inactive.maintainers[0].status, 'inactive');
+  assert.ok(directory.data.skill_book_choices.some((row: { skill_book_id: string }) => row.skill_book_id === 'career-guide'));
+  const path = `/review-center/pulls/${pull}/assign`;
+  const missing = await adminRequest(path, { user_id: user, acting_as: 'skill_book_maintainer', guild_key: null, reason: '請這位技能書維護者看這次變更。' }, 1);
+  assert.equal(missing.status, 422);
+  assert.equal(missing.data.code, 'maintainer_skill_book_invalid');
+  const mixed = await adminRequest(path, { user_id: user, acting_as: 'guild_leader', guild_key: 'guild_ai_vibe', skill_book_id: 'career-guide', reason: '公會長不能帶技能書。' }, 1);
+  assert.equal(mixed.status, 422);
+  assert.equal(mixed.data.code, 'maintainer_skill_book_invalid');
+  const assigned = await adminRequest(path, { user_id: user, acting_as: 'skill_book_maintainer', guild_key: null, skill_book_id: 'career-guide', reason: '請這位技能書維護者看這次變更。' }, 1);
+  assert.equal(assigned.status, 200, JSON.stringify(assigned.data));
+  assert.equal(assigned.data.claim.acting_as, 'skill_book_maintainer');
+  assert.equal(assigned.data.claim.skill_book_id, 'career-guide');
+  assert.equal(assigned.data.claim.guild_key, null);
 });

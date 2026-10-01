@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { AdminClient } from './admin-client';
 import {
-  ADMIN_LINK_STATUS, CLAIM_HELD, CLAIM_UNAVAILABLE, GITHUB_REVIEW_LINK, PullFacts, ReviewQueueRow, modeText, pullClaimable,
+  ADMIN_LINK_STATUS, CLAIM_HELD, CLAIM_UNAVAILABLE, GITHUB_REVIEW_LINK, PullFacts, ReviewQueueRow, SKILL_MAINTAINER_STATUS, modeText, pullClaimable,
   reviewerOptionLabel, reviewerOptionValue, scopeText, versionOf,
   type EligibleReviewer, type PullDetail, type PullRow,
 } from './review-center-shared';
@@ -14,6 +14,7 @@ type Viewer = {
 type Repo = {
   repository_id: string; full_name: string; mode: string; settings: Record<string, unknown>;
   aggregate_version: string | number; guild_key: string | null; scope_kind: string | null; open_to_guilds: boolean;
+  skill_book_id: string | null;
 };
 type Summary = { counts: Record<string, number>; repositories: Repo[]; viewer: Viewer };
 type AdminPerson = { admin_id: string; display_name: string; github_login: string | null; status: string };
@@ -22,10 +23,13 @@ type GuildDirectory = {
   leader: { user_id: string; display_name: string; github_login: string | null } | null;
   repositories: { repository_id: string; full_name: string; scope_kind: string | null }[];
 };
-type RepoRef = { repository_id: string; full_name: string; scope_kind: string | null };
+type RepoRef = { repository_id: string; full_name: string; scope_kind: string | null; skill_book_id?: string | null };
+type SkillBookChoice = { skill_book_id: string; title: string };
 type Directory = {
   admins: AdminPerson[]; guilds: GuildDirectory[]; open_repositories: RepoRef[];
   admin_only_repositories: RepoRef[]; guild_choices: { guild_key: string; name: string }[];
+  skill_books?: Array<{ skill_book_id: string; title: string; maintainers: Array<{ user_id: string; display_name: string; github_login: string | null; status: string }> }>;
+  skill_book_choices?: SkillBookChoice[];
 };
 type AdminDetail = PullDetail & { eligible_reviewers: EligibleReviewer[] };
 type Page = { items: PullRow[]; next_offset: number | null };
@@ -156,19 +160,19 @@ export function AdminReviewCenter({ client, busy, onMutate }: {
       {items.map(row => <ReviewQueueRow key={row.pull_id} row={row} open={openId === row.pull_id} onToggle={() => void choose(row.pull_id)}>
         {openId === row.pull_id && detail?.pull_id === row.pull_id && <ReviewDetail
           detail={detail} viewer={summary?.viewer ?? null} repo={(summary?.repositories ?? []).find(item => item.repository_id === detail.repository_id) ?? null}
-          guilds={guildChoices} busy={busy} onError={setError} onMutate={onMutate} onDone={() => void afterWrite(row.pull_id)}
+          guilds={guildChoices} books={directory?.skill_book_choices ?? []} busy={busy} onError={setError} onMutate={onMutate} onDone={() => void afterWrite(row.pull_id)}
         />}
         {openId === row.pull_id && detail?.pull_id !== row.pull_id && <p role="status">正在載入細節…</p>}
       </ReviewQueueRow>)}
     </ul>
     {!loading && !items.length && !error && <p className="muted">這個佇列目前沒有拉取請求。</p>}
     {nextOffset !== null && <button type="button" className="btn btn-ghost" disabled={loading || busy} onClick={() => void loadQueue(tab, nextOffset, repositoryId, guildFilter)}>載入更多</button>}
-    <SettingsBlock repositories={summary?.repositories ?? []} directory={directory} guilds={guildChoices} busy={busy} onMutate={onMutate} onSaved={() => void afterWrite(openId)} />
+    <SettingsBlock repositories={summary?.repositories ?? []} directory={directory} guilds={guildChoices} books={directory?.skill_book_choices ?? []} busy={busy} onMutate={onMutate} onSaved={() => void afterWrite(openId)} />
   </section>;
 }
 
-function ReviewDetail({ detail, viewer, repo, guilds, busy, onError, onMutate, onDone }: {
-  detail: AdminDetail; viewer: Viewer | null; repo: Repo | null; guilds: { guild_key: string; name: string }[]; busy: boolean;
+function ReviewDetail({ detail, viewer, repo, guilds, books, busy, onError, onMutate, onDone }: {
+  detail: AdminDetail; viewer: Viewer | null; repo: Repo | null; guilds: { guild_key: string; name: string }[]; books: SkillBookChoice[]; busy: boolean;
   onError: (message: string) => void;
   onMutate: (path: string, body: unknown, version?: number | null) => Promise<boolean>;
   onDone: () => void;
@@ -206,10 +210,11 @@ function ReviewDetail({ detail, viewer, repo, guilds, busy, onError, onMutate, o
   async function assign(event: FormEvent) {
     event.preventDefault();
     if (assignReason.trim().length < 3) { onError('請填寫至少 3 個字的指派理由。'); return; }
-    const [userId, actingAs, guildKey] = assignValue.split('|');
-    if (!userId || (actingAs !== 'admin' && actingAs !== 'guild_leader')) { onError('請先選擇審查人。'); return; }
+    const [userId, actingAs, guildKey, skillBookId = ''] = assignValue.split('|');
+    if (!userId || (actingAs !== 'admin' && actingAs !== 'guild_leader' && actingAs !== 'skill_book_maintainer')) { onError('請先選擇審查人。'); return; }
     saved(await onMutate(`/review-center/pulls/${detail.pull_id}/assign`, {
-      user_id: userId, acting_as: actingAs, guild_key: actingAs === 'guild_leader' ? guildKey : null, reason: assignReason.trim(),
+      user_id: userId, acting_as: actingAs, guild_key: actingAs === 'guild_leader' ? guildKey : null,
+      skill_book_id: actingAs === 'skill_book_maintainer' ? skillBookId : null, reason: assignReason.trim(),
     }, version));
   }
   async function release(event: FormEvent) {
@@ -240,7 +245,7 @@ function ReviewDetail({ detail, viewer, repo, guilds, busy, onError, onMutate, o
       {!!selfBlock && <p className="field-hint">{selfBlock}</p>}
       {!!claimBlock && <p className="field-hint">{claimBlock}</p>}
       {showAssign && <form className="stack" onSubmit={event => void assign(event)}>
-        <label className="field">審查人<select aria-label="審查人" value={assignValue} onChange={event => setAssignValue(event.target.value)}>{people.map(person => <option key={reviewerOptionValue(person)} value={reviewerOptionValue(person)}>{reviewerOptionLabel(person)}</option>)}{!people.length && <option value="">目前沒有可指派的公會長或管理員</option>}</select></label>
+        <label className="field">審查人<select aria-label="審查人" value={assignValue} onChange={event => setAssignValue(event.target.value)}>{people.map(person => <option key={reviewerOptionValue(person)} value={reviewerOptionValue(person)}>{reviewerOptionLabel(person)}</option>)}{!people.length && <option value="">目前沒有可指派的公會長、技能書維護者或管理員</option>}</select></label>
         <label className="field">指派理由<input value={assignReason} onChange={event => setAssignReason(event.target.value)} minLength={3} maxLength={1000} required /></label>
         <div className="actions"><button className="btn btn-primary" disabled={busy}>確認指派</button></div>
       </form>}
@@ -252,13 +257,13 @@ function ReviewDetail({ detail, viewer, repo, guilds, busy, onError, onMutate, o
         <label className="field">{detail.paused ? '恢復理由' : '暫停理由'}<input value={pauseReason} onChange={event => setPauseReason(event.target.value)} minLength={3} maxLength={1000} required /></label>
         <div className="actions"><button className="btn btn-primary" disabled={busy}>{detail.paused ? '確認恢復' : '確認暫停'}</button></div>
       </form>}
-      {showOwnership && repo && <OwnershipForm repo={repo} guilds={guilds} busy={busy} hint={`會套用到整個 ${repo.full_name}。`} onMutate={onMutate} onSaved={() => saved(true)} />}
+      {showOwnership && repo && <OwnershipForm repo={repo} guilds={guilds} books={books} busy={busy} hint={`會套用到整個 ${repo.full_name}。`} onMutate={onMutate} onSaved={() => saved(true)} />}
     </div>
   </>;
 }
 
-function SettingsBlock({ repositories, directory, guilds, busy, onMutate, onSaved }: {
-  repositories: Repo[]; directory: Directory | null; guilds: { guild_key: string; name: string }[]; busy: boolean;
+function SettingsBlock({ repositories, directory, guilds, books, busy, onMutate, onSaved }: {
+  repositories: Repo[]; directory: Directory | null; guilds: { guild_key: string; name: string }[]; books: SkillBookChoice[]; busy: boolean;
   onMutate: (path: string, body: unknown, version?: number | null) => Promise<boolean>;
   onSaved: () => void;
 }) {
@@ -270,7 +275,7 @@ function SettingsBlock({ repositories, directory, guilds, busy, onMutate, onSave
         <h3>{repo.full_name}</h3>
         <p className="muted">目前模式 {modeText(repo.mode)} · 歸屬 {repo.guild_key ? (guilds.find(guild => guild.guild_key === repo.guild_key)?.name ?? repo.guild_key) : repo.open_to_guilds ? '開放認領' : '只限管理員'} · {scopeText(repo.scope_kind)}</p>
         <RepoForm repo={repo} busy={busy} onMutate={onMutate} onSaved={onSaved} />
-        <OwnershipForm repo={repo} guilds={guilds} busy={busy} onMutate={onMutate} onSaved={onSaved} />
+        <OwnershipForm repo={repo} guilds={guilds} books={books} busy={busy} onMutate={onMutate} onSaved={onSaved} />
       </article>)}
       {!repositories.length && <p className="muted">還沒有儲存庫。</p>}
       <ReviewerDirectory directory={directory} />
@@ -339,13 +344,14 @@ export function ownershipChoice(ownership: { guild_key: string | null; open_to_g
   return ownership.open_to_guilds ? 'open' : 'admin';
 }
 
-function OwnershipForm({ repo, guilds, busy, hint, onMutate, onSaved }: {
-  repo: Repo; guilds: { guild_key: string; name: string }[]; busy: boolean; hint?: string;
+function OwnershipForm({ repo, guilds, books, busy, hint, onMutate, onSaved }: {
+  repo: Repo; guilds: { guild_key: string; name: string }[]; books: SkillBookChoice[]; busy: boolean; hint?: string;
   onMutate: (path: string, body: unknown, version?: number | null) => Promise<boolean>;
   onSaved: () => void;
 }) {
   const [choice, setChoice] = useState(ownershipChoice(repo));
   const [scope, setScope] = useState(repo.scope_kind ?? '');
+  const [bookId, setBookId] = useState(repo.skill_book_id ?? '');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   async function save(event: FormEvent) {
@@ -354,10 +360,11 @@ function OwnershipForm({ repo, guilds, busy, hint, onMutate, onSaved }: {
     const guildKey = choice === 'admin' || choice === 'open' ? null : choice;
     const open = choice === 'open';
     const scopeKind = scope === 'module' || scope === 'skill_book' ? scope : null;
-    if (guildKey === repo.guild_key && open === repo.open_to_guilds && scopeKind === repo.scope_kind) { setError('歸屬沒有變更。'); return; }
+    const skillBookId = scopeKind === 'skill_book' && bookId ? bookId : null;
+    if (guildKey === repo.guild_key && open === repo.open_to_guilds && scopeKind === repo.scope_kind && skillBookId === (repo.skill_book_id ?? null)) { setError('歸屬沒有變更。'); return; }
     setError('');
     if (await onMutate(`/review-center/repositories/${repo.repository_id}/ownership`, {
-      guild_key: guildKey, scope_kind: scopeKind, open_to_guilds: open, reason: reason.trim(),
+      guild_key: guildKey, scope_kind: scopeKind, open_to_guilds: open, skill_book_id: skillBookId, reason: reason.trim(),
     }, versionOf(repo.aggregate_version))) onSaved();
   }
   return <form className="stack" onSubmit={event => void save(event)}>
@@ -367,6 +374,7 @@ function OwnershipForm({ repo, guilds, busy, hint, onMutate, onSaved }: {
     {error && <p className="banner banner-error" role="alert">{error}</p>}
     <label className="field">歸屬<select aria-label="歸屬" value={choice} onChange={event => setChoice(event.target.value)}><option value="admin">只限管理員</option><option value="open">開放公會長認領</option>{guilds.map(guild => <option key={guild.guild_key} value={guild.guild_key}>{guild.name}</option>)}</select></label>
     <label className="field">類型<select aria-label="類型" value={scope} onChange={event => setScope(event.target.value)}><option value="">未分類</option><option value="module">模組</option><option value="skill_book">技能書</option></select></label>
+    {scope === 'skill_book' && <label className="field">技能書<select aria-label="技能書" value={bookId} onChange={event => setBookId(event.target.value)}><option value="">不指定</option>{books.map(book => <option key={book.skill_book_id} value={book.skill_book_id}>{book.title}</option>)}</select></label>}
     <label className="field">歸屬理由<input value={reason} onChange={event => setReason(event.target.value)} minLength={3} maxLength={1000} required /></label>
     <div className="actions"><button className="btn btn-primary" disabled={busy}>儲存歸屬</button></div>
   </form>;
@@ -392,5 +400,10 @@ function ReviewerDirectory({ directory }: { directory: Directory | null }) {
     {directory.open_repositories.length ? <ul>{directory.open_repositories.map(repo => <li key={repo.repository_id}>{repoLine(repo)}</li>)}</ul> : <p className="muted">沒有開放認領的儲存庫。</p>}
     <h4>只限管理員</h4>
     {directory.admin_only_repositories.length ? <ul>{directory.admin_only_repositories.map(repo => <li key={repo.repository_id}>{repoLine(repo)}</li>)}</ul> : <p className="muted">沒有只限管理員的儲存庫。</p>}
+    <h4>技能書維護者</h4>
+    {directory.skill_books?.length ? directory.skill_books.map(book => <article key={book.skill_book_id}>
+      <p><strong>{book.title}</strong></p>
+      <ul>{book.maintainers.map(person => <li key={person.user_id}>{person.display_name}{person.github_login ? ` @${person.github_login}` : ''} · {SKILL_MAINTAINER_STATUS[person.status] ?? person.status}</li>)}</ul>
+    </article>) : <p className="muted">還沒有任命技能書維護者。</p>}
   </section>;
 }

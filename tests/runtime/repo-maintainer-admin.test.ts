@@ -212,7 +212,7 @@ test('summary viewer status does not need a mirrored repository', async () => {
 test('a deadlock on repository ownership is a retryable 409', async () => {
   const repository = await insertRepo();
   const path = `/review-center/repositories/${repository}/ownership`;
-  const body = { guild_key: null, scope_kind: 'module', open_to_guilds: false, reason: '死結時不該留下歸屬。' };
+  const body = { guild_key: null, scope_kind: 'module', open_to_guilds: false, skill_book_id: null, reason: '死結時不該留下歸屬。' };
   const key = randomUUID();
   await pool.query(`CREATE FUNCTION maintainer_ownership_deadlock_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'deadlock detected' USING ERRCODE = '40P01'; END $$`);
   await pool.query('CREATE TRIGGER maintainer_ownership_deadlock_test BEFORE UPDATE ON maintainer_repositories FOR EACH ROW EXECUTE FUNCTION maintainer_ownership_deadlock_test()');
@@ -256,7 +256,7 @@ test('the reviewer directory and repository ownership replace the roster', async
   assert.equal((await request('/review-center/reviewer-candidates?q=maker-gh')).status, 404);
 
   const path = `/review-center/repositories/${repository}/ownership`;
-  const body = { guild_key: 'guild_ai_vibe', scope_kind: 'module', open_to_guilds: false, reason: '這個儲存庫歸平台工程以外的開發公會。' };
+  const body = { guild_key: 'guild_ai_vibe', scope_kind: 'module', open_to_guilds: false, skill_book_id: null, reason: '這個儲存庫歸平台工程以外的開發公會。' };
   assert.equal((await request(path, body)).status, 428);
   assert.equal((await request(path, body, 9)).status, 412);
   assert.equal((await request(path, { ...body, guild_key: 'missing_guild', reason: '沒有這個公會' }, 1)).data.code, 'maintainer_guild_not_found');
@@ -288,4 +288,29 @@ test('the reviewer directory and repository ownership replace the roster', async
   assert.equal(detail.data.ownership.history[0].reason, body.reason);
   quiet(saved.data);
   quiet(detail.data);
+});
+
+test('ownership records a catalog skill book and rejects an unknown or taken id', async () => {
+  const repository = await insertRepo();
+  const other = randomUUID();
+  await pool.query(`INSERT INTO maintainer_repositories
+    (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, next_sweep_at)
+    VALUES ($1,$2,'9002','77','FreeTWAI-AI/other-book','main','active','observe','2099-01-01T00:00:00Z')`, [other, DEMO_COMMUNITY]);
+  const path = `/review-center/repositories/${repository}/ownership`;
+  const unknown = { guild_key: null, scope_kind: 'skill_book', open_to_guilds: true, skill_book_id: 'not-a-book', reason: '這本不在目錄裡。' };
+  assert.equal((await request(path, unknown, 1)).data.code, 'maintainer_skill_book_invalid');
+  const wrongScope = { guild_key: null, scope_kind: 'module', open_to_guilds: true, skill_book_id: 'career-guide', reason: '類型不是技能書。' };
+  assert.equal((await request(path, wrongScope, 1)).data.code, 'maintainer_skill_book_invalid');
+  const body = { guild_key: null, scope_kind: 'skill_book', open_to_guilds: true, skill_book_id: 'career-guide', reason: '這是方向探索技能書的工坊。' };
+  const saved = await request(path, body, 1);
+  assert.equal(saved.status, 200, JSON.stringify(saved.data));
+  assert.equal(saved.data.skill_book_id, 'career-guide');
+  assert.equal(saved.data.scope_kind, 'skill_book');
+  const history = (await pool.query(`SELECT skill_book_id, scope_kind, source FROM maintainer_ownership_changes WHERE repository_id=$1`, [repository])).rows[0];
+  assert.equal(history.skill_book_id, 'career-guide');
+  assert.equal(history.scope_kind, 'skill_book');
+  assert.equal(history.source, 'admin');
+  const taken = await request(`/review-center/repositories/${other}/ownership`, { ...body, reason: '這本書已經對到另一個儲存庫。' }, 1);
+  assert.equal(taken.status, 409, JSON.stringify(taken.data));
+  assert.equal(taken.data.code, 'maintainer_skill_book_taken');
 });

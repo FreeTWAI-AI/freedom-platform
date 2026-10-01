@@ -662,3 +662,72 @@ test('a new repository is open with no guild, and only an untouched unowned row 
     await database.query(`DROP SCHEMA IF EXISTS ${priorSchema} CASCADE`);
   }
 });
+
+test('installation sync classifies a catalog skill-book repository and leaves an admin scope alone', async () => {
+  const adminId = randomUUID();
+  await pool.query('INSERT INTO platform_admins (admin_id, community_id, email, display_name) VALUES ($1,$2,$3,$4)', [adminId, community, 'sync-scope@example.invalid', 'Sync scope']);
+  const preserved = await insertRepo(randomUUID(), '9203', '77', 'FreeTWAI-AI/freedom-supplier-client');
+  await pool.query(`UPDATE maintainer_repositories SET scope_kind='module' WHERE repository_id=$1`, [preserved]);
+  const fill = await insertRepo(randomUUID(), '9204', '77', 'FreeTWAI-AI/claude-skill-social-post');
+  const history = await insertRepo(randomUUID(), '9205', '77', 'FreeTWAI-AI/freedom-skill-event-space');
+  await pool.query(`INSERT INTO maintainer_ownership_changes
+    (change_id, repository_id, guild_key, scope_kind, open_to_guilds, source, changed_by_admin, reason)
+    VALUES ($1,$2,NULL,NULL,true,'admin',$3,'管理員曾看過這個儲存庫，分類先留空。')`, [randomUUID(), history, adminId]);
+  const before = async (id: string) => (await pool.query('SELECT aggregate_version FROM maintainer_repositories WHERE repository_id=$1', [id])).rows[0].aggregate_version as string;
+  const preservedVersion = await before(preserved);
+  const historyVersion = await before(history);
+  await pool.query(`UPDATE maintainer_worker_state SET next_installation_sync_at=$1 WHERE singleton`, [clock]);
+  respond = call => {
+    if (/\/app\/installations\/\d+\/repositories$/.test(call.path)) return new Response('missing', { status: 404 });
+    if (call.path === '/app/installations') return Response.json([{ id: 77, account: { login: 'FreeTWAI-AI', type: 'Organization' }, suspended_at: null }]);
+    if (call.method === 'POST' && call.path === '/app/installations/77/access_tokens') {
+      return Response.json({ token: TOKEN, permissions: (call.body as { permissions: Record<string, string> }).permissions }, { status: 201 });
+    }
+    if (call.path === '/installation/repositories') {
+      return Response.json({
+        total_count: 5, repository_selection: 'selected', repositories: [
+          { id: 9201, full_name: 'FreeTWAI-AI/Freedom-Skill-Career-Guide', default_branch: 'main' },
+          { id: 9202, full_name: 'FreeTWAI-AI/not-a-skill-book', default_branch: 'main' },
+          { id: 9203, full_name: 'FreeTWAI-AI/freedom-supplier-client', default_branch: 'main' },
+          { id: 9204, full_name: 'FreeTWAI-AI/claude-skill-social-post', default_branch: 'main' },
+          { id: 9205, full_name: 'FreeTWAI-AI/freedom-skill-event-space', default_branch: 'main' },
+        ],
+      });
+    }
+    if (call.path.endsWith('/pulls')) return Response.json([]);
+    if (call.path.endsWith('/files')) return Response.json([]);
+    if (call.path.endsWith('/reviews')) return Response.json([]);
+    if (call.path.endsWith('/check-runs')) return Response.json({ check_runs: [] });
+    if (call.path.endsWith('/status')) return Response.json({ statuses: [] });
+    return new Response('unexpected', { status: 500 });
+  };
+  await tick();
+  const row = async (githubId: string) => (await pool.query(
+    'SELECT guild_key, scope_kind, skill_book_id, open_to_guilds, aggregate_version FROM maintainer_repositories WHERE github_repository_id=$1',
+    [githubId],
+  )).rows[0];
+  const matched = await row('9201');
+  assert.equal(matched.guild_key, null);
+  assert.equal(matched.open_to_guilds, true);
+  assert.equal(matched.scope_kind, 'skill_book');
+  assert.equal(matched.skill_book_id, 'career-guide');
+  assert.equal(matched.aggregate_version, '1');
+  const unmatched = await row('9202');
+  assert.equal(unmatched.guild_key, null);
+  assert.equal(unmatched.open_to_guilds, true);
+  assert.equal(unmatched.scope_kind, null);
+  assert.equal(unmatched.skill_book_id, null);
+  const kept = await row('9203');
+  assert.equal(kept.scope_kind, 'module');
+  assert.equal(kept.skill_book_id, null);
+  assert.equal(kept.aggregate_version, preservedVersion);
+  const filled = await row('9204');
+  assert.equal(filled.scope_kind, 'skill_book');
+  assert.equal(filled.skill_book_id, 'social-post');
+  assert.equal(filled.aggregate_version, '2');
+  const untouched = await row('9205');
+  assert.equal(untouched.scope_kind, null);
+  assert.equal(untouched.skill_book_id, null);
+  assert.equal(untouched.aggregate_version, historyVersion);
+  assertHosts();
+});

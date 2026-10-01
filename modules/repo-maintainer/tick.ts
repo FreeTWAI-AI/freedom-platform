@@ -6,6 +6,7 @@ import { claimInput, loadActiveClaim, loadEligibleReviewerIds, loadPullChildren,
 import { createMaintainerGitHub, GitHubSignal, type MaintainerGitHub, type MaintainerPull, type MaintainerPullCheck, type MaintainerPullFile, type MaintainerPullReview } from './github.js';
 import { classifyAttention, deriveQueueState, migrationCheck, resolveSettings, MAINTAINER_POLICY_VERSION, type MaintainerSettings, type PolicyFile, type Reason, type RepositoryMode } from './policy.js';
 import { enqueueReconcilePull } from './queue.js';
+import { skillBookIdForFullName } from './skill-books.js';
 
 export const MAINTAINER_REQUEST_BUDGET = 60;
 export const MAINTAINER_TICK_MS = 50_000;
@@ -194,6 +195,30 @@ async function rederive(pool: Pool, now: Date): Promise<number> {
   return updated;
 }
 
+const SKILL_BOOK_FILL = `maintainer_repositories.scope_kind IS NULL
+  AND maintainer_repositories.skill_book_id IS NULL
+  AND EXCLUDED.skill_book_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM maintainer_ownership_changes c
+    WHERE c.repository_id = maintainer_repositories.repository_id)
+  AND NOT EXISTS (
+    SELECT 1 FROM maintainer_repositories other
+    WHERE other.community_id = maintainer_repositories.community_id
+      AND other.skill_book_id = EXCLUDED.skill_book_id
+      AND other.repository_id <> maintainer_repositories.repository_id)`;
+
+/** Book id for a new or still-unclassified row. Null when the catalog does not match, or another repository in the community already has that book. */
+async function openSkillBookId(pool: Pool, community: string, githubRepositoryId: string, fullName: string): Promise<string | null> {
+  const bookId = skillBookIdForFullName(fullName);
+  if (!bookId) return null;
+  const taken = await pool.query(
+    `SELECT 1 FROM maintainer_repositories
+     WHERE community_id=$1 AND skill_book_id=$2 AND github_repository_id <> $3`,
+    [community, bookId, githubRepositoryId],
+  );
+  return taken.rowCount ? null : bookId;
+}
+
 async function syncInstallations(pool: Pool, github: MaintainerGitHub, config: MaintainerTickConfig, community: string, now: Date, summary: MaintainerSummary): Promise<string | null> {
   const lease = await claimInstallation(pool, now);
   if (!lease) return null;
@@ -209,20 +234,25 @@ async function syncInstallations(pool: Pool, github: MaintainerGitHub, config: M
       if (repos.truncated) incomplete = true;
       for (const repo of repos.items) {
         seen.add(repo.id);
+        const skillBookId = await openSkillBookId(pool, community, repo.id, repo.fullName);
         // Omit guild_key and open_to_guilds so the table default applies: no guild,
         // open to guild leaders. Never copy a catalog official_guild_keys value.
+        // skill_book_id classifies the workshop repository. It is not guild ownership.
         await pool.query(`INSERT INTO maintainer_repositories
-          (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, next_sweep_at, updated_at)
-          VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'active', 'observe', $6, $6)
+          (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, next_sweep_at, updated_at, scope_kind, skill_book_id)
+          VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'active', 'observe', $6, $6, $7, $8)
           ON CONFLICT (github_repository_id) DO UPDATE SET
             installation_id=EXCLUDED.installation_id, full_name=EXCLUDED.full_name, default_branch=EXCLUDED.default_branch,
             installation_state='active', updated_at=EXCLUDED.updated_at,
+            scope_kind=CASE WHEN ${SKILL_BOOK_FILL} THEN 'skill_book' ELSE maintainer_repositories.scope_kind END,
+            skill_book_id=CASE WHEN ${SKILL_BOOK_FILL} THEN EXCLUDED.skill_book_id ELSE maintainer_repositories.skill_book_id END,
             aggregate_version=maintainer_repositories.aggregate_version + CASE
               WHEN maintainer_repositories.installation_id IS DISTINCT FROM EXCLUDED.installation_id
                 OR maintainer_repositories.full_name IS DISTINCT FROM EXCLUDED.full_name
                 OR maintainer_repositories.default_branch IS DISTINCT FROM EXCLUDED.default_branch
                 OR maintainer_repositories.installation_state IS DISTINCT FROM 'active'
-              THEN 1 ELSE 0 END`, [community, repo.id, installation.id, repo.fullName, repo.defaultBranch, now]);
+                OR (${SKILL_BOOK_FILL})
+              THEN 1 ELSE 0 END`, [community, repo.id, installation.id, repo.fullName, repo.defaultBranch, now, skillBookId ? 'skill_book' : null, skillBookId]);
         summary.repositories_upserted += 1;
       }
     }
