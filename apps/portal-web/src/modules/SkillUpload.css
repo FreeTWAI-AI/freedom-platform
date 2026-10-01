@@ -1,7 +1,8 @@
 .skill-upload-dialog {
+  --skill-dialog-bottom: 24px;
   width: min(760px, calc(100vw - 24px));
   max-height: calc(100dvh - 24px);
-  padding: 0 24px 24px;
+  padding: 0 24px var(--skill-dialog-bottom);
   border: 1px solid #535e77;
   border-radius: 20px;
   background: var(--bg-elev);
@@ -42,7 +43,7 @@
 .skill-upload-target { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
 .skill-upload-target p { margin: 0; }
 .skill-upload-target .btn { flex: 0 0 auto; width: auto; }
-.skill-upload-submit { position: sticky; bottom: 0; z-index: 3; display: grid; gap: 8px; margin-top: 12px; padding: 12px 0 4px; background: var(--bg-elev); color: var(--ink); border-top: 1px solid var(--line); }
+.skill-upload-submit { position: sticky; bottom: calc(var(--skill-dialog-bottom) * -1); z-index: 3; display: grid; gap: 8px; margin-top: 12px; padding: 12px 0 calc(4px + var(--skill-dialog-bottom)); background: var(--bg-elev); color: var(--ink); border-top: 1px solid var(--line); }
 .skill-upload-submit .field-hint { margin: 0; }
 .skill-upload-submit .actions { margin-top: 0; }
 .skill-upload-submit .btn { width: auto; }
@@ -54,7 +55,7 @@
 .skill-upload-key-form .field { flex: 1 1 180px; min-width: 0; }
 .skill-upload-key-form .field:nth-child(2) { flex: 0 1 120px; }
 @media (max-width: 480px) {
-  .skill-upload-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 0 14px 16px; border-radius: 14px; }
+  .skill-upload-dialog { --skill-dialog-bottom: 16px; width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 0 14px var(--skill-dialog-bottom); border-radius: 14px; }
   .skill-upload-key-form .field, .skill-upload-key-form .field:nth-child(2), .skill-upload-key-form .btn { flex: 1 1 100%; }
 }
 .manual-upload > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }

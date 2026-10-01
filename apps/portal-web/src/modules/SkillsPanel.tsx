@@ -104,7 +104,7 @@ function SkillDraftCallout({ client, revision, onOpen }: { client: ModulePanelPr
       }
       const seeded = newestDraft(items, item => item.status === 'awaiting_upload' && Boolean(item.seed));
       if (seeded?.seed) {
-        setView({ text: `${seeded.seed.title} 可以做成社群技能書，還差 100 則分享介紹。`, label: '補上分享介紹', submissionId: seeded.submission_id, mode: 'complete' });
+        setView({ text: `「${seeded.seed.title}」可以做成社群技能書，還差 100 則分享介紹。`, label: '補上分享介紹', submissionId: seeded.submission_id, mode: 'complete' });
         return;
       }
       setView(null);

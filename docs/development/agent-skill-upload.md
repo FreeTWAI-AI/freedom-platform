@@ -80,7 +80,7 @@
 - `readPublishedSkillSubmission(pool, id)` → 上述欄位加上 `use_notes`、`demo_url`，找不到時回 `null`
 - `readPublishedSkillIllustration(pool, id)` → `{bytes, mime_type:'image/webp'}` 或 `null`
 
-只列出已公開、擁有者仍啟用且完成定位、固定版本仍存在的投稿。`listPublishedSkillSubmissions` 另會略過儲存庫已是目錄技能書（`repository_url` 或 `upstream_url`）的列，讓書架一個儲存庫只出現一本；`readPublishedSkillSubmission` 與 `/development/submissions/<id>` 仍讀得到那些投稿。不輸出擁有者 ID、email、草稿或授權資料。公開圖片網址為 `/api/v1/skill-submissions/:id/illustration`，由根路由提供。
+只列出已公開、擁有者仍啟用且完成定位、固定版本仍存在的投稿。`listPublishedSkillSubmissions` 另會略過儲存庫已是目錄技能書（`repository_url` 或 `upstream_url`）的列，讓同一個儲存庫不會同時以目錄技能書和會員投稿出現在書架上；`readPublishedSkillSubmission` 與 `/development/submissions/<id>` 仍讀得到那些投稿。不輸出擁有者 ID、email、草稿或授權資料。公開圖片網址為 `/api/v1/skill-submissions/:id/illustration`，由根路由提供。
 
 ## 根路由整合注意
 

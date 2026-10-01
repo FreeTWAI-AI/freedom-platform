@@ -45,6 +45,23 @@ async function settleIllustration(dialog: Locator) {
   }));
 }
 
+async function expectInsideDialog(locator: Locator) {
+  await expect(locator).toBeVisible();
+  const inside = await locator.evaluate(element => {
+    const box = element.getBoundingClientRect();
+    const dialog = element.closest('dialog') as HTMLElement;
+    const dialogBox = dialog.getBoundingClientRect();
+    const header = dialog.querySelector('.skill-upload-header')?.getBoundingClientRect();
+    const style = getComputedStyle(dialog);
+    const top = Math.max(dialogBox.top + (Number.parseFloat(style.borderTopWidth) || 0), header?.bottom ?? dialogBox.top);
+    const bottom = dialogBox.bottom - (Number.parseFloat(style.borderBottomWidth) || 0);
+    const left = dialogBox.left + (Number.parseFloat(style.borderLeftWidth) || 0);
+    const right = dialogBox.right - (Number.parseFloat(style.borderRightWidth) || 0);
+    return box.height > 0 && box.top >= top - 1 && box.bottom <= bottom + 1 && box.left >= left - 1 && box.right <= right + 1 && box.top >= -1 && box.bottom <= window.innerHeight + 1;
+  });
+  expect(inside).toBe(true);
+}
+
 async function expectFullyInView(locator: Locator) {
   await expect(locator).toBeVisible();
   const placed = await locator.evaluate(element => {
@@ -151,7 +168,7 @@ test('a seeded draft is completed in chat, and a different repository does not r
   await dialog.getByRole('button', { name: '關閉上傳技能', exact: true }).click();
 
   const callout = page.locator('.skill-draft-callout');
-  await expect(callout).toContainText('種子技能 可以做成社群技能書，還差 100 則分享介紹。');
+  await expect(callout).toContainText('「種子技能」可以做成社群技能書，還差 100 則分享介紹。');
   await callout.getByRole('button', { name: '補上分享介紹', exact: true }).click();
   await expect(dialog.getByText('正在補完：種子技能', { exact: true })).toBeVisible();
   await expect(dialog.getByLabel('給聊天 AI 的說明', { exact: true })).toHaveValue(/種子技能/);
@@ -227,6 +244,156 @@ test('manual registration offers the seeded draft as the chat target', async ({ 
   const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
   await expect(dialog.getByText('正在補完：種子技能', { exact: true })).toBeVisible();
   await expect(dialog.getByRole('button', { name: '複製給聊天 AI', exact: true })).toBeFocused();
+});
+
+test('a paste still reaches a seeded draft after its grant expired', async ({ page }) => {
+  const seeded = submission('sub-seed', 'awaiting_upload', { seed, source_project_id: 'project-seed', aggregate_version: 4, grant_expires_at: '2020-01-01T00:00:00Z' });
+  const plain = submission('sub-plain', 'awaiting_upload', { aggregate_version: 2, grant_expires_at: '2099-01-01T00:00:00Z' });
+  const seededReady = submission('sub-seed', 'ready_for_review', { seed, source_project_id: 'project-seed' });
+  const grants: string[] = [];
+  const created: string[] = [];
+  const uploads: string[] = [];
+  await page.route('**/api/v1/me/skill-submissions**', async route => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname.replace('/api/v1', '');
+    if (path.endsWith('/illustration')) return route.fulfill({ status: 200, contentType: 'image/png', body: PNG });
+    if (request.method() === 'GET' && path === '/me/skill-submissions') return route.fulfill({ json: { items: [seeded, plain] } });
+    if (request.method() === 'GET') return route.fulfill({ json: path.endsWith('/sub-seed') ? seededReady : plain });
+    if (request.method() === 'POST' && path === '/me/skill-submissions') { created.push(path); return route.fulfill({ status: 201, json: { submission: submission('sub-new', 'awaiting_upload'), upload_grant: { token: GRANT, expires_at: '2099-01-01T00:00:00Z', submit_url: '/agent-api/v1/skill-submissions/sub-new' } } }); }
+    if (path.endsWith('/grant')) {
+      grants.push(path);
+      const id = path.split('/')[3];
+      return route.fulfill({ json: { submission: id === 'sub-seed' ? seeded : plain, upload_grant: { token: GRANT, expires_at: '2099-01-01T00:00:00Z', submit_url: `/agent-api/v1/skill-submissions/${id}` } } });
+    }
+    return route.fulfill({ json: seeded });
+  });
+  await page.route('**/agent-api/v1/skill-submissions/**', async route => {
+    uploads.push(new URL(route.request().url()).pathname);
+    return route.fulfill({ json: seededReady });
+  });
+  await login(page);
+  await navigate(page, '技能書架');
+  const callout = page.locator('.skill-draft-callout');
+  await expect(callout).toContainText('「種子技能」可以做成社群技能書，還差 100 則分享介紹。');
+  await callout.getByRole('button', { name: '補上分享介紹', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
+  await expect(dialog.getByText('正在補完：種子技能', { exact: true })).toBeVisible();
+  const paste = dialog.getByRole('textbox', { name: '貼上 JSON', exact: true });
+  await paste.evaluate(element => element.scrollIntoView({ block: 'center', inline: 'nearest' }));
+  await paste.fill(JSON.stringify({ repository_url: 'https://github.com/Example/Seeded-Book', title: '種子技能' }));
+  await dialog.getByRole('button', { name: '用這份 JSON 建立草稿', exact: true }).click();
+  await expect.poll(() => grants).toEqual(['/me/skill-submissions/sub-seed/grant']);
+  await expect.poll(() => uploads.some(path => path.endsWith('/sub-seed'))).toBe(true);
+  expect(uploads.some(path => path.endsWith('/sub-plain') || path.endsWith('/sub-new'))).toBe(false);
+  expect(created).toEqual([]);
+});
+
+test('publishing the last ready draft keeps the drafts section above the agent instructions', async ({ page }) => {
+  const ready = submission('sub-ready', 'ready_for_review');
+  const published = submission('sub-ready', 'published');
+  let sent = false;
+  await page.route('**/api/v1/me/skill-submissions**', async route => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname.replace('/api/v1', '');
+    if (path.endsWith('/illustration')) return route.fulfill({ status: 200, contentType: 'image/png', body: PNG });
+    if (request.method() === 'POST' && path.endsWith('/publish')) { sent = true; return route.fulfill({ json: published }); }
+    const current = sent ? published : ready;
+    if (request.method() === 'GET' && path === '/me/skill-submissions') return route.fulfill({ json: { items: [current] } });
+    return route.fulfill({ json: current });
+  });
+  await login(page);
+  await navigate(page, '技能書架');
+  await page.locator('.skill-draft-callout').getByRole('button', { name: '預覽並送出', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
+  await dialog.getByRole('button', { name: '送出技能', exact: true }).click();
+  await expect(dialog.getByText('技能已送出，公開介紹頁已建立。', { exact: true })).toBeVisible();
+  const order = await dialog.evaluate(element => {
+    const headings = [...element.querySelectorAll('h3')].map(node => node.textContent);
+    return headings.indexOf('我的私人技能草稿') >= 0 && headings.indexOf('我的私人技能草稿') < headings.indexOf('交給 Agent 讀取專案');
+  });
+  expect(order).toBe(true);
+});
+
+test('completing a seeded draft keeps the target line and copy button in view', async ({ page }) => {
+  const seeded = submission('sub-seed', 'awaiting_upload', { seed, source_project_id: 'project-seed' });
+  await page.route('**/api/v1/me/skill-submissions**', async route => {
+    const path = new URL(route.request().url()).pathname.replace('/api/v1', '');
+    if (route.request().method() === 'GET' && path === '/me/skill-submissions') return route.fulfill({ json: { items: [seeded] } });
+    if (route.request().method() === 'GET') return route.fulfill({ json: seeded });
+    return route.fulfill({ json: seeded });
+  });
+  await login(page);
+  await navigate(page, '技能書架');
+  const callout = page.locator('.skill-draft-callout');
+  const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await callout.getByRole('button', { name: '補上分享介紹', exact: true }).click();
+    const target = dialog.getByText('正在補完：種子技能', { exact: true });
+    const copy = dialog.getByRole('button', { name: '複製給聊天 AI', exact: true });
+    await expect(copy).toBeFocused();
+    await expectInsideDialog(target);
+    await expectInsideDialog(copy);
+    await dialog.getByRole('button', { name: '關閉上傳技能', exact: true }).click();
+    await expect(dialog).toBeHidden();
+  }
+});
+
+test('the stuck submit footer reaches the dialog bottom on a phone', async ({ page }) => {
+  const ready = submission('sub-ready', 'ready_for_review');
+  await page.route('**/api/v1/me/skill-submissions**', async route => {
+    const path = new URL(route.request().url()).pathname.replace('/api/v1', '');
+    if (path.endsWith('/illustration')) return route.fulfill({ status: 200, contentType: 'image/png', body: PNG });
+    if (route.request().method() === 'GET' && path === '/me/skill-submissions') return route.fulfill({ json: { items: [ready] } });
+    return route.fulfill({ json: ready });
+  });
+  await login(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await navigate(page, '技能書架');
+  await page.locator('.skill-draft-callout').getByRole('button', { name: '預覽並送出', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
+  const footer = dialog.locator('.skill-upload-submit');
+  await expect(footer).toBeVisible();
+  await settleIllustration(dialog);
+  await dialog.evaluate(element => { element.scrollTop = 0; });
+  const gap = await footer.evaluate(element => {
+    const dialogNode = element.closest('dialog')!;
+    return Math.abs(dialogNode.getBoundingClientRect().bottom - element.getBoundingClientRect().bottom);
+  });
+  expect(gap).toBeLessThanOrEqual(2);
+});
+
+test('manual registration brings the notice button into the phone viewport', async ({ page }) => {
+  const project = { project_id: 'project-seed', repository_url: 'https://github.com/example/seeded-book', title: '種子技能' };
+  const seeded = submission('sub-seed', 'awaiting_upload', { seed, source_project_id: 'project-seed' });
+  await page.route('**/api/v1/opensource/projects', async route => {
+    if (route.request().method() === 'POST') return route.fulfill({ status: 201, json: project });
+    return route.fallback();
+  });
+  await page.route('**/api/v1/me/skill-submissions**', async route => {
+    const path = new URL(route.request().url()).pathname.replace('/api/v1', '');
+    if (route.request().method() === 'GET' && path === '/me/skill-submissions') return route.fulfill({ json: { items: [seeded] } });
+    if (route.request().method() === 'GET') return route.fulfill({ json: seeded });
+    return route.fulfill({ json: seeded });
+  });
+  await login(page);
+  await navigate(page, '開源投稿');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByText('手動登錄作品', { exact: true }).click();
+  await page.getByLabel('GitHub 儲存庫網址', { exact: true }).fill(seed.repository_url);
+  await page.getByLabel('作品名稱', { exact: true }).fill(seed.title);
+  await page.getByLabel('這個作品可以做什麼', { exact: true }).fill(seed.description);
+  await page.getByLabel('如何開始使用', { exact: true }).fill(seed.use_notes);
+  await page.getByLabel('我同意讓社群會員看見作品介紹與來源關係', { exact: true }).check();
+  await page.getByRole('button', { name: '從 GitHub 登錄', exact: true }).click();
+  const button = page.locator('.skill-draft-callout').getByRole('button', { name: '補上分享介紹', exact: true });
+  await expect(button).toBeVisible();
+  const inside = await button.evaluate(element => {
+    const box = element.getBoundingClientRect();
+    return box.height > 0 && box.top >= -1 && box.left >= -1 && box.bottom <= window.innerHeight + 1 && box.right <= window.innerWidth + 1;
+  });
+  expect(inside).toBe(true);
+  await expect(button).not.toBeFocused();
 });
 
 for (const theme of ['light', 'dark', 'versefolk'] as const) {

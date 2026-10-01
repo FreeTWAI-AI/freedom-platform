@@ -1,6 +1,6 @@
 import { ModuleBanner } from './ModuleBanner';
 import { RepositoryLibrary,loadCommunityCatalog } from './Community';
-import { useCallback,useEffect,useRef,useState,type FormEvent } from 'react';
+import { useCallback,useEffect,useLayoutEffect,useRef,useState,type FormEvent } from 'react';
 import { requireItems } from '../api';
 import { useModuleMutation,type ModulePanelProps } from './shared';
 import { SkillUpload,type SkillOpenRequest } from './SkillUpload';
@@ -50,8 +50,9 @@ function LoadError({error,retry}:{error:string|null;retry:()=>void}) {
 export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
   const [projects,setProjects]=useState<Project[]>([]),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState<string|null>(null);
   const [draft,setDraft]=useState({...blankProject}),[notice,setNotice]=useState<RegistrationNotice|null>(null);
-  const [openRequest,setOpenRequest]=useState<SkillOpenRequest|null>(null);
-  const openNonce=useRef(0);
+  const [openRequest,setOpenRequest]=useState<SkillOpenRequest|null>(null),[noticeScroll,setNoticeScroll]=useState(0);
+  const openNonce=useRef(0),noticeRef=useRef<HTMLDivElement>(null);
+  useLayoutEffect(()=>{ if(!notice)return; noticeRef.current?.scrollIntoView({block:'nearest'}); },[notice,noticeScroll]);
   const {mutate,busy,error}=useModuleMutation(client);
   function openDraft(submissionId:string,mode:SkillOpenRequest['mode']){openNonce.current+=1;setOpenRequest({submissionId,mode,nonce:openNonce.current});}
   const refresh=useCallback(async()=>{
@@ -64,12 +65,12 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
   async function submit(event:FormEvent){
     event.preventDefault();setNotice(null);
     const saved=await mutate<Project>('/opensource/projects',{...draft,demo_url:draft.demo_url.trim()||null});
-    if(saved){setDraft({...blankProject});setNotice(await registrationNotice(client,saved));await refresh();}
+    if(saved){setDraft({...blankProject});setNotice(await registrationNotice(client,saved));await refresh();setNoticeScroll(value=>value+1);}
   }
   return <div className="stack">
     <ModuleBanner eyebrow="OPEN SOURCE" title="分享你的 GitHub 專案" description="" art="/art/rpg/skill-codex.webp"><div className="actions"><button className="btn btn-ghost" type="button" onClick={()=>onNavigate?.('skills')}>閱讀技能書</button><button className="btn btn-ghost" type="button" onClick={()=>onNavigate?.('cocreation')}>一起開發</button></div></ModuleBanner>
 
-    {notice&&<div role="status" className="banner banner-info skill-draft-callout"><p>{notice.text}</p>{notice.action==='complete'&&notice.submissionId&&<button type="button" className="btn btn-primary" onClick={()=>openDraft(notice.submissionId??'','complete')}>{notice.label}</button>}{notice.action==='preview'&&notice.submissionId&&<button type="button" className="btn btn-primary" onClick={()=>openDraft(notice.submissionId??'','preview')}>{notice.label}</button>}{notice.action==='skills'&&<button type="button" className="btn btn-primary" onClick={()=>onNavigate?.('skills')}>{notice.label}</button>}</div>}
+    {notice&&<div ref={noticeRef} role="status" className="banner banner-info skill-draft-callout"><p>{notice.text}</p>{notice.action==='complete'&&notice.submissionId&&<button type="button" className="btn btn-primary" onClick={()=>openDraft(notice.submissionId??'','complete')}>{notice.label}</button>}{notice.action==='preview'&&notice.submissionId&&<button type="button" className="btn btn-primary" onClick={()=>openDraft(notice.submissionId??'','preview')}>{notice.label}</button>}{notice.action==='skills'&&<button type="button" className="btn btn-primary" onClick={()=>onNavigate?.('skills')}>{notice.label}</button>}</div>}
     {error&&<p role="alert" className="banner banner-error">{error}</p>}
     <LoadError error={loadError} retry={()=>void refresh()}/>
     <div className="card-grid">

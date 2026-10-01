@@ -38,6 +38,12 @@ function sameOriginSubmitUrl(value: string) {
   } catch { return null; }
 }
 function isExpired(iso: string) { const time = Date.parse(iso); return !Number.isFinite(time) || time <= Date.now(); }
+function draftsLeadList(list: { status: string; seed?: unknown }[]) {
+  return list.some(item => item.status === 'ready_for_review' || (item.status === 'awaiting_upload' && Boolean(item.seed)));
+}
+function plainGrantUsable(item: Submission) {
+  return item.status === 'awaiting_upload' && !item.seed && !item.grant_revoked_at && !(item.grant_expires_at && isExpired(item.grant_expires_at));
+}
 
 export function agentInstruction(origin: string, secret: Secret, seed?: ChatSkillSeed | null) {
   const copied = seed ? `${seedCopyBlock(seed)}\n\n` : '';
@@ -139,22 +145,30 @@ function SubmissionPreview({ submission, busy, onPublish }: { submission: Submis
 
 export function SkillUpload({ client, onPublished, openRequest = null, onChanged }: { client: PortalClient; onPublished?: () => void | Promise<void>; openRequest?: SkillOpenRequest | null; onChanged?: () => void }) {
   const [open, setOpen] = useState(false), dialog = useRef<HTMLDialogElement>(null), trigger = useRef<HTMLButtonElement>(null), titleId = useId();
-  const dialogSession = useRef(0), dialogActive = useRef(false);
+  const dialogSession = useRef(0), dialogActive = useRef(false), draftsLeadReady = useRef(false);
   const [items, setItems] = useState<Submission[]>([]), [loading, setLoading] = useState(false), [loadError, setLoadError] = useState<string | null>(null);
   const [secret, setSecret] = useState<Secret | null>(null), [issue, setIssue] = useState<string | null>(null), [notice, setNotice] = useState<string | null>(null);
   const [preview, setPreview] = useState<Submission | null>(null), [previewError, setPreviewError] = useState<string | null>(null);
   const [keys, setKeys] = useState<UploadKey[]>([]), [keysError, setKeysError] = useState<string | null>(null);
   const [keyDraft, setKeyDraft] = useState({ label: '', expires_in_days: '30' }), [issuedKey, setIssuedKey] = useState<{ id: string; label: string; token: string } | null>(null);
   const [chatRepo, setChatRepo] = useState(''), [chatJson, setChatJson] = useState(''), [chatError, setChatError] = useState<string | null>(null), [chatBusy, setChatBusy] = useState(false), [chatCopied, setChatCopied] = useState('');
-  const [chatTargetId, setChatTargetId] = useState<string | null>(null);
+  const [chatTargetId, setChatTargetId] = useState<string | null>(null), [draftsLead, setDraftsLead] = useState<boolean | null>(null);
   const chatFile = useRef<HTMLInputElement>(null), heldRef = useRef<HeldGrant | null>(null), copyChatButton = useRef<HTMLButtonElement>(null), pendingChatFocus = useRef(false);
   const drafts = useModuleMutation(client), credentials = useModuleMutation(client);
+  // The first loaded list picks the section order. Later lists may move it up, never down, until the dialog closes.
+  const noteDraftOrder = useCallback((list: Submission[]) => {
+    if (!dialogActive.current) return;
+    const lead = draftsLeadList(list);
+    if (!draftsLeadReady.current) { draftsLeadReady.current = true; setDraftsLead(lead); return; }
+    if (lead) setDraftsLead(true);
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true); setLoadError(null);
     try {
       const loaded = requireItems<Submission>(await client.get('/me/skill-submissions'), '技能草稿');
       setItems(loaded);
+      noteDraftOrder(loaded);
       const held = heldRef.current;
       if (held) {
         const draft = loaded.find(item => item.submission_id === held.id);
@@ -168,7 +182,7 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
     }
     catch (cause) { setLoadError(cause instanceof Error ? cause.message : '無法載入技能草稿。'); return null; }
     finally { setLoading(false); }
-  }, [client]);
+  }, [client, noteDraftOrder]);
   const refreshKeys = useCallback(async () => {
     setKeysError(null);
     try { setKeys(requireItems<UploadKey>(await client.get('/me/skill-upload-keys'), '上傳金鑰')); }
@@ -188,12 +202,12 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
 
   // Remove secret DOM before native close() hides the dialog and queues its close event.
   function closed() {
-    dialogSession.current += 1; dialogActive.current = false;
+    dialogSession.current += 1; dialogActive.current = false; draftsLeadReady.current = false;
     flushSync(() => {
       heldRef.current = null;
       setSecret(null); setIssuedKey(null); setIssue(null); setNotice(null); setPreview(null); setPreviewError(null);
       setChatRepo(''); setChatJson(''); setChatError(null); setChatBusy(false); setChatCopied('');
-      setChatTargetId(null); pendingChatFocus.current = false;
+      setChatTargetId(null); pendingChatFocus.current = false; setDraftsLead(null);
       setOpen(false);
     });
     onChanged?.();
@@ -278,15 +292,13 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
     onChanged?.();
     return grant;
   }
-  function awaitingUpload(item: Submission) {
-    return item.status === 'awaiting_upload' && !item.grant_revoked_at && !(item.grant_expires_at && isExpired(item.grant_expires_at));
-  }
   async function grantForPaste(repositoryUrl: unknown) {
     const key = repositoryKey(typeof repositoryUrl === 'string' ? repositoryUrl : null);
     const target = chatTargetId ? items.find(item => item.submission_id === chatTargetId) : undefined;
-    const seeded = key ? items.find(item => awaitingUpload(item) && item.seed && repositoryKey(item.seed.repository_url) === key) : undefined;
-    const plain = items.find(item => awaitingUpload(item) && !item.seed);
-    const chosen = target && awaitingUpload(target) ? target : seeded ?? plain;
+    // /grant renews any awaiting_upload draft, including one whose previous grant expired or was revoked.
+    const seeded = key ? items.find(item => item.status === 'awaiting_upload' && item.seed && repositoryKey(item.seed.repository_url) === key) : undefined;
+    const plain = items.find(plainGrantUsable);
+    const chosen = target?.status === 'awaiting_upload' ? target : seeded ?? plain;
     const held = heldGrant();
     if (chosen) return held?.id === chosen.submission_id ? held : rotateHeld(chosen.submission_id, Number(chosen.aggregate_version));
     if (held && !items.some(item => item.submission_id === held.id && item.seed)) return held;
@@ -382,10 +394,33 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
     })();
     return () => { cancelled = true; };
   }, [openRequest]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!pendingChatFocus.current) return;
+    const node = dialog.current;
+    const button = copyChatButton.current;
+    if (!node || !button) return;
     pendingChatFocus.current = false;
-    copyChatButton.current?.focus();
+    const target = node.querySelector<HTMLElement>('.skill-upload-target');
+    if (!target) { button.focus(); return; }
+    {
+      const header = node.querySelector<HTMLElement>('.skill-upload-header');
+      const style = getComputedStyle(node);
+      const borderTop = Number.parseFloat(style.borderTopWidth) || 0;
+      const borderBottom = Number.parseFloat(style.borderBottomWidth) || 0;
+      const headerHeight = header?.getBoundingClientRect().height ?? 0;
+      const visibleTop = () => node.getBoundingClientRect().top + borderTop + headerHeight;
+      const visibleBottom = () => node.getBoundingClientRect().bottom - borderBottom;
+      node.scrollTop += target.getBoundingClientRect().top - visibleTop();
+      const instruction = node.querySelector<HTMLElement>('.skill-upload-chat textarea[readonly]');
+      const buttonBox = button.getBoundingClientRect();
+      if (instruction && (buttonBox.bottom > visibleBottom() + 1 || buttonBox.top < visibleTop() - 1)) {
+        const start = instruction.getBoundingClientRect().top;
+        if (start > visibleBottom()) node.scrollTop += start - visibleTop();
+        const covered = target.getBoundingClientRect().top - visibleTop();
+        if (covered < -1) node.scrollTop += covered;
+      }
+    }
+    button.focus({ preventScroll: true });
   }, [chatTargetId, open]);
   useEffect(() => {
     if (!open || !secret) return;
@@ -399,6 +434,7 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
           const loaded = requireItems<Submission>(await client.get('/me/skill-submissions'), '技能草稿');
           if (stopped || !dialogActive.current || dialogSession.current !== session) return;
           setItems(loaded);
+          noteDraftOrder(loaded);
           const draft = loaded.find(item => item.submission_id === watched);
           const expired = Boolean(draft?.grant_expires_at && isExpired(draft.grant_expires_at));
           if (!draft || draft.status === 'revoked' || draft.grant_revoked_at || expired) {
@@ -414,10 +450,10 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
       })();
     }, 10_000);
     return () => { stopped = true; window.clearInterval(timer); };
-  }, [open, secret, client]);
+  }, [open, secret, client, noteDraftOrder]);
 
   const instruction = secret ? agentInstruction(window.location.origin, secret, secret.seed) : '';
-  const actionable = items.some(item => item.status === 'ready_for_review' || (item.status === 'awaiting_upload' && item.seed));
+  const showDraftsFirst = draftsLead ?? draftsLeadList(items);
   function focusChat(item: Submission) {
     setChatTargetId(item.submission_id);
     setChatRepo(item.seed?.repository_url ?? '');
@@ -459,7 +495,7 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
     }}>
       {open && <div className="stack">
         <header className="skill-upload-header"><div><p className="eyebrow">自由工坊 · 技能上傳</p><h2 id={titleId}>上傳技能</h2></div><button type="button" className="btn btn-ghost" onClick={close} aria-label="關閉上傳技能">關閉</button></header>
-        {actionable && draftsSection}
+        {showDraftsFirst && draftsSection}
 
         <section className="stack" aria-labelledby={`${titleId}-agent`}>
           <h3 id={`${titleId}-agent`}>交給 Agent 讀取專案</h3>
@@ -490,7 +526,7 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
           {chatError && <p role="alert" className="banner banner-error">{chatError}</p>}
         </section>
 
-        {!actionable && draftsSection}
+        {!showDraftsFirst && draftsSection}
 
         <details className="skill-upload-cli">
           <summary>安裝上傳工具與長期金鑰</summary>
