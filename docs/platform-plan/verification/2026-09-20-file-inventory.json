@@ -1949,8 +1949,8 @@
     },
     {
       "path": "docs/development/member-editorial-card.md",
-      "bytes": 5490,
-      "sha256": "0f529dc89770e49bee77a243b1f46fde1de54a0f51dc2abfaa88805f0a8c5597"
+      "bytes": 5434,
+      "sha256": "8c3391ae5a13c7a386e7944e76b81fb91f420ec7765044d75cbfd555e64fadbd"
     },
     {
       "path": "docs/development/member-onboarding-release.md",
@@ -3443,7 +3443,7 @@
       "sha256": "eb3e4767d80ea737bcb6b333e48a6a2c2bd761d22fddaff8d0c34906d5635b4c"
     },
     {
-      "path": "migrations/069_member_card_editorial.sql",
+      "path": "migrations/070_member_card_editorial.sql",
       "bytes": 390,
       "sha256": "3ef734eea6a45a7c70f82183b7db157bde93c178b905d27162ca1c49e61ff235"
     },
@@ -4619,8 +4619,8 @@
     },
     {
       "path": "tests/e2e/onboarding-members.spec.ts",
-      "bytes": 39627,
-      "sha256": "96d85217a47fe677da40b1c5c6f9e77c1123aec0bd0e9aac9fac899fdbd8a470"
+      "bytes": 39678,
+      "sha256": "0b5cfcfd8c3f7781167837760caea04f773d1a9bb20b0f011279c7f7c1d528d5"
     },
     {
       "path": "tests/e2e/onboarding-recovery.spec.ts",

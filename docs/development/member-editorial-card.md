@@ -25,7 +25,7 @@
 - `apps/portal-web/src/modules/MemberCardQr.tsx`：四個模組寬的白色保留區、深色 QR、同來源分享路徑校驗。
 - `apps/portal-web/src/modules/MemberCardDownload.tsx`：PNG 匯出、錯誤與過期操作處理。
 - `MemberShare.tsx`、`Membership.tsx`、`PublicMemberPage.tsx`：本人預覽、個人名片與公開頁接線。
-- `migrations/069_member_card_editorial.sql`：新增允許的樣式與新卡預設；不改既有卡片的選擇。部署須先納入 #86 的 068，再依正常發布流程執行 069。若上游先占用編號，合併前需重新編號並調整部署 manifest。
+- `migrations/070_member_card_editorial.sql`：新增允許的樣式與新卡預設；不改既有卡片的選擇。#86 的 068 已合併；避開 #88 的 069 公會分級，依正常發布流程執行 070。
 
 ## 套件與素材
 
