@@ -350,6 +350,76 @@ test('completing a seeded draft keeps the target line and copy button in view', 
   await expectInsideDialog(shortCopy);
 });
 
+test('the upload header stays above the submit footer and use notes keep their inset', async ({ page }) => {
+  const ready = submission('sub-ready', 'ready_for_review');
+  await page.route('**/api/v1/me/skill-submissions**', async route => {
+    const path = new URL(route.request().url()).pathname.replace('/api/v1', '');
+    if (path.endsWith('/illustration')) return route.fulfill({ status: 200, contentType: 'image/png', body: PNG });
+    if (route.request().method() === 'GET' && path === '/me/skill-submissions') return route.fulfill({ json: { items: [ready] } });
+    return route.fulfill({ json: ready });
+  });
+  await login(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await navigate(page, '技能書架');
+  await page.locator('.skill-draft-callout').getByRole('button', { name: '預覽並送出', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
+  await settleIllustration(dialog);
+  const submit = dialog.getByRole('button', { name: '送出技能', exact: true });
+  await expect(submit).toBeVisible();
+  const submitOnTop = await submit.evaluate(element => {
+    const box = element.getBoundingClientRect();
+    return document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2) === element;
+  });
+  expect(submitOnTop).toBe(true);
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+    const notes = dialog.locator('.skill-upload-preview .help-box');
+    await expect(notes).toHaveCSS('padding-left', '12px');
+    const inset = await notes.evaluate(element => {
+      const strong = element.querySelector('strong');
+      if (!strong) return -1;
+      return strong.getBoundingClientRect().left - element.getBoundingClientRect().left;
+    });
+    expect(inset).toBeGreaterThanOrEqual(12);
+  }
+  await page.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
+  const placed = await dialog.evaluate(element => {
+    const header = element.querySelector<HTMLElement>('.skill-upload-header');
+    const footer = element.querySelector<HTMLElement>('.skill-upload-submit');
+    const title = header?.querySelector('h2');
+    if (!header || !footer || !title) return null;
+    // The title centre is ~30px above the header bottom, so a 20px overlap stays in the padding and cannot see z-index.
+    const target = () => title.getBoundingClientRect().top + title.getBoundingClientRect().height / 2 - 4;
+    const max = Math.max(0, element.scrollHeight - element.clientHeight);
+    let low = 0;
+    let high = max;
+    for (let step = 0; step < 28; step += 1) {
+      element.scrollTop = (low + high) / 2;
+      if (footer.getBoundingClientRect().top > target()) low = element.scrollTop;
+      else high = element.scrollTop;
+    }
+    element.scrollTop = high;
+    element.scrollTop += footer.getBoundingClientRect().top - target();
+    const footerBox = footer.getBoundingClientRect();
+    const headerBox = header.getBoundingClientRect();
+    const titleBox = title.getBoundingClientRect();
+    const x = titleBox.left + titleBox.width / 2;
+    const y = titleBox.top + titleBox.height / 2;
+    const hit = document.elementFromPoint(x, y);
+    return {
+      overlap: headerBox.bottom - footerBox.top,
+      pointInsideFooter: x >= footerBox.left && x <= footerBox.right && y >= footerBox.top && y <= footerBox.bottom,
+      titleMidFromHeaderBottom: headerBox.bottom - y,
+      hitInHeader: Boolean(hit?.closest('.skill-upload-header')),
+    };
+  });
+  expect(placed).not.toBeNull();
+  expect(placed?.pointInsideFooter).toBe(true);
+  expect(Math.abs((placed?.overlap ?? 0) - ((placed?.titleMidFromHeaderBottom ?? 0) + 4))).toBeLessThanOrEqual(2);
+  expect(placed?.hitInHeader).toBe(true);
+});
+
 test('the stuck submit footer reaches the dialog bottom on a phone', async ({ page }) => {
   const ready = submission('sub-ready', 'ready_for_review');
   await page.route('**/api/v1/me/skill-submissions**', async route => {
