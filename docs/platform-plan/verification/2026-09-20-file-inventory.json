@@ -1284,8 +1284,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SkillUpload.css",
-      "bytes": 5567,
-      "sha256": "3f7656a8c1c1b4dc45c7ee77ec5ff909126d375b510fcf33a8cc02fb471f5e84"
+      "bytes": 5638,
+      "sha256": "4d21327d4c0a2c8ca6e5fdcb2d5c06f078542ec0a82d062c64cdc9905a0eff0b"
     },
     {
       "path": "apps/portal-web/src/modules/SkillUpload.tsx",
@@ -4604,8 +4604,8 @@
     },
     {
       "path": "tests/e2e/skill-draft-flow.spec.ts",
-      "bytes": 41418,
-      "sha256": "46b690c544e23c937c7da8c37751b2b8b5110b972312badcc28abed247a3f0ee"
+      "bytes": 45532,
+      "sha256": "e930bc0acadc01c7d642b863bfdc1df464a6ba076f29109b29d84766cf8923eb"
     },
     {
       "path": "tests/e2e/skill-editor-guild-access.spec.ts",
