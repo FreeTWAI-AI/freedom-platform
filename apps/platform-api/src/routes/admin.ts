@@ -1,5 +1,6 @@
 import {Hono,type Context} from 'hono';
 import {createGuildWorkspaceAdminRoutes} from './guild-workspace.js';
+import {createRepoMaintainerAdminRoutes} from './repo-maintainer.js';
 import {timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
 import {getCookie} from 'hono/cookie';
@@ -83,6 +84,7 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
       WHERE e.community_id=$1 ORDER BY e.created_at DESC LIMIT 100`,[admin.community_id]);
     return c.json({items:rows.rows});
   });
+  app.route('/',createRepoMaintainerAdminRoutes(pool));
   app.all('*',c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'找不到這個管理 API。'},404));
   return app;
 }
