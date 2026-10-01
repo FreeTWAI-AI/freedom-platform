@@ -107,13 +107,13 @@ function holder(){
 /** Full history pages of one room. The console feed uses the same limit, so a hold can include that one extra copy. */
 const openPages=(log:{history:Info[]},kind:Kind,key:string)=>log.history.filter(item=>item.kind===kind&&item.key===key&&item.limit>1&&item.offset===0).length;
 
-test('four tabs keep their exact order and keyboard behaviour while the console reads its feed',async({page})=>{
+test('five tabs keep their order and keyboard behaviour without mixing room histories',async({page})=>{
   await page.setViewportSize({width:320,height:780});
   const server=await channelServer(page,{guild:[['builders','合成公會甲',3],['Makers','合成公會乙',0]],squad:[[squadA,'合成小隊甲',2]]});
   await open(page,server);
   const tabs=page.getByRole('tab');
-  await expect(tabs).toHaveCount(4);
-  const labels=['通知','公會閒聊','小隊閒聊','私人訊息'];
+  await expect(tabs).toHaveCount(5);
+  const labels=['通知','公會閒聊','小隊閒聊','私人訊息','世界聊天'];
   for(const [index,label] of labels.entries())await expect(tabs.nth(index)).toHaveText(new RegExp(`^${label}`));
   await expect(tab(page,'公會閒聊')).toContainText('3 則未讀');await expect(tab(page,'小隊閒聊')).toContainText('2 則未讀');
   await expect(tab(page,'私人訊息')).toContainText('沒有未讀');await expect(tab(page,'通知')).toContainText('沒有未讀');
@@ -125,11 +125,11 @@ test('four tabs keep their exact order and keyboard behaviour while the console 
     await expect(page.locator('#'+await current.getAttribute('aria-controls'))).toBeVisible();
     for(const name of labels.filter(item=>item!==label)){await expect(tab(page,name)).toHaveAttribute('aria-selected','false');await expect(tab(page,name)).toHaveAttribute('tabindex','-1');}
   };
-  for(const label of ['公會閒聊','小隊閒聊','私人訊息','通知']){await page.keyboard.press('ArrowRight');await expectSelected(label);}
+  for(const label of ['公會閒聊','小隊閒聊','私人訊息','世界聊天','通知']){await page.keyboard.press('ArrowRight');await expectSelected(label);}
+  await page.keyboard.press('ArrowLeft');await expectSelected('世界聊天');
   await page.keyboard.press('ArrowLeft');await expectSelected('私人訊息');
-  await page.keyboard.press('ArrowLeft');await expectSelected('小隊閒聊');
   await page.keyboard.press('Home');await expectSelected('通知');
-  await page.keyboard.press('End');await expectSelected('私人訊息');
+  await page.keyboard.press('End');await expectSelected('世界聊天');
   // The top bar still owns the only h1.
   await expect(page.getByRole('heading',{level:1})).toHaveCount(1);await expect(page.getByRole('heading',{level:1})).toHaveText('我的訊息');
   for(const label of labels){

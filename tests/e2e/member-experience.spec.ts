@@ -44,6 +44,7 @@ test('new member explores, submits an event and selects each theme',async({page}
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await page.locator('.preview-profile-menu > summary').click();
   await page.getByRole('radio',{name:'自由工坊－明亮'}).check();
+  await page.locator('.welcome-optional > summary').click();
   await page.getByRole('button',{name:'開始／繼續定位 →',exact:true}).click();
   await expect(page.getByRole('heading',{name:'你喜歡怎麼做事？'})).toBeVisible();
   await page.reload();

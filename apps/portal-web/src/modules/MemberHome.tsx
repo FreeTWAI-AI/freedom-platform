@@ -8,6 +8,7 @@ import { logConsoleEvent } from '../game-console-core';
 import { consoleChannel } from '../game-console-routing';
 import './HomeDesign.css';
 import {MemberRecommendations} from './MemberRecommendations';
+import {GuildNextSteps} from './GuildNextSteps';
 
 const shortcuts: { id: TabId; title: string }[] = [
   { id: 'events', title: '社群活動' },
@@ -87,6 +88,8 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       <p>{loadError}下方常用入口仍可使用。</p>
       <button type="button" className="btn btn-ghost" aria-disabled={loading} onClick={retry}>{loading ? '正在重新載入名片…' : '重新載入名片'}</button>
     </div>}
+
+    <GuildNextSteps client={client} onNavigate={onNavigate}/>
 
     <nav className="home-shortcuts" aria-label="常用入口">
       {shortcuts.map(entry => <button key={entry.id} type="button" className="home-shortcut" onClick={() => onNavigate?.(entry.id)}>

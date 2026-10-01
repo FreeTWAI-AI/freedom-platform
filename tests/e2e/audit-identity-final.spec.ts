@@ -178,7 +178,8 @@ test.describe('onboarding skill shelf heading levels', () => {
     await page.getByLabel('電子郵件', { exact: true }).fill(`shelf-${Date.now()}-${Math.random().toString(16).slice(2)}@example.test`);
     await page.getByLabel('密碼', { exact: true }).fill(password);
     await page.getByRole('button', { name: '建立帳號，先逛工坊', exact: true }).click();
-    await page.getByRole('button', { name: '開始／繼續定位 →', exact: true }).click();
+    await page.locator('.welcome-optional > summary').click();
+  await page.getByRole('button', { name: '開始／繼續定位 →', exact: true }).click();
     await answerQuestions(page);
     await checkShelf(page, 'first', 1);
     await page.getByRole('button', { name: '進入自由工坊 →', exact: true }).click();

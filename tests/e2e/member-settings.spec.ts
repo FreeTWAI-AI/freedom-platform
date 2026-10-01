@@ -53,7 +53,7 @@ test('settings menu replaces the card button with an accessible keyboard menu',a
   // Personal pages are not side-navigation entries.
   const nav=page.getByRole('navigation',{name:'主要工作區',includeHidden:true});
   for(const name of ['待辦清單','我的名片'])await expect(nav.getByRole('button',{name,exact:true,includeHidden:true})).toHaveCount(0);
-  await expect(nav.getByRole('button',{name:'我的訊息',exact:true,includeHidden:true})).toHaveCount(0);
+  await expect(nav.getByRole('button',{name:'我的訊息',exact:true,includeHidden:true})).toHaveCount(1);
   await expect(page.getByRole('button',{name:'通知，2 則未讀'})).toBeVisible();
 
   await toggle.click();

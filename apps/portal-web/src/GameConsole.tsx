@@ -1,7 +1,9 @@
 import React, {createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode} from 'react'
 import type {PortalClient} from './api'
 import {GameConsoleComposer} from './GameConsoleComposer'
-import {readConsoleFeed,readWorldChatFeed} from './game-console-feed'
+import {readConsoleFeed} from './game-console-feed'
+import type {SessionPayload,TabId} from './types'
+import type {InboxUnread} from './modules/member-inbox'
 import {
   GAME_CONSOLE_CHANNEL_NAME,
   GAME_CONSOLE_CHANNELS,
@@ -71,7 +73,7 @@ function keyTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
 }
 
-export function GameConsoleProvider({children, variant = 'dock', client, userId, feedEnabled = true, standalone = false}: {children?: ReactNode; variant?: 'dock' | 'popout'; client?: PortalClient; userId?: string; feedEnabled?: boolean; standalone?: boolean}) {
+export function GameConsoleProvider({children, variant = 'dock', client, userId, session,feedEnabled = true, standalone = false}: {children?: ReactNode; variant?: 'dock' | 'popout'; client?: PortalClient; userId?: string;session?:SessionPayload; feedEnabled?: boolean; standalone?: boolean}) {
   const [events, setEvents] = useState<GameConsoleEvent[]>(variant === 'dock' ? seedEvents : [])
   const eventsRef = useRef(events); eventsRef.current = events
   const seen = useRef(new Set(events.map(event=>event.id)))
@@ -144,7 +146,6 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
     }
     void refresh()
     const timer=window.setInterval(()=>void refresh(),30000)
-    const worldTimer=window.setInterval(()=>{if(active&&visibilityRef.current.world_chat&&document.visibilityState==='visible')void readWorldChatFeed(client).then(items=>{for(const event of items)if(active)append(event,true)}).catch(()=>{})},10000)
     const focus=()=>void refresh()
     const update=()=>void refresh()
     window.addEventListener('focus',focus)
@@ -152,7 +153,7 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
     window.addEventListener('freedom-inbox-updated',update)
     window.addEventListener('freedom-world-facts-updated',update)
     window.addEventListener('freedom-profile-updated',focus)
-    return()=>{active=false;window.clearInterval(timer);window.clearInterval(worldTimer);window.removeEventListener('focus',focus);window.removeEventListener('visibilitychange',focus);window.removeEventListener('freedom-inbox-updated',update);window.removeEventListener('freedom-world-facts-updated',update);window.removeEventListener('freedom-profile-updated',focus)}
+    return()=>{active=false;window.clearInterval(timer);window.removeEventListener('focus',focus);window.removeEventListener('visibilitychange',focus);window.removeEventListener('freedom-inbox-updated',update);window.removeEventListener('freedom-world-facts-updated',update);window.removeEventListener('freedom-profile-updated',focus)}
   },[client,userId,feedEnabled,append])
 
   useEffect(() => {
@@ -184,12 +185,13 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
   if(ended)return <div className="game-console-ended" role="status">登入已結束，請關閉此視窗或重新登入。</div>
   return <ConsoleContext.Provider value={value}>
     {variant === 'dock' ? <div className={`game-console-page${standalone?' is-standalone':''}`}>{children}</div> : children}
-    <GameConsole variant={variant} unread={unread} syncScope={syncScope.current} client={client} userId={userId} enabled={feedEnabled}/>
+    <GameConsole variant={variant} unread={unread} syncScope={syncScope.current} client={client} session={session} enabled={feedEnabled}/>
   </ConsoleContext.Provider>
 }
 
 export function GameConsolePopout({client}:{client:PortalClient}) {
   const [authorized,setAuthorized]=useState<boolean|null>(null)
+  const [currentSession,setCurrentSession]=useState<SessionPayload|undefined>()
   const account=useRef<string|null>(null)
   useEffect(()=>{
     let active=true
@@ -200,6 +202,7 @@ export function GameConsolePopout({client}:{client:PortalClient}) {
         if(account.current && account.current!==session.user.user_id){setAuthorized(false);return}
         account.current=session.user.user_id
         client.csrfToken=session.csrf_token
+        setCurrentSession(session)
         setAuthorized(true)
       } catch {if(active)setAuthorized(false)}
     }
@@ -213,14 +216,18 @@ export function GameConsolePopout({client}:{client:PortalClient}) {
   },[client])
   if(authorized===null)return <div className="game-console-ended" role="status">正在確認登入狀態…</div>
   if(!authorized)return <div className="game-console-ended" role="status">登入已結束。<a href="/">返回自由工坊</a></div>
-  return <GameConsoleProvider variant="popout" client={client} userId={account.current??undefined}/>
+  return <GameConsoleProvider variant="popout" client={client} userId={account.current??undefined} session={currentSession}/>
 }
 
-function GameConsole({variant, unread, syncScope,client,userId,enabled}: {variant: 'dock' | 'popout'; unread: Record<GameConsoleChannel, number>; syncScope: string;client?:PortalClient;userId?:string;enabled:boolean}) {
+function GameConsole({variant, unread, syncScope,client,session,enabled}: {variant: 'dock' | 'popout'; unread: Record<GameConsoleChannel, number>; syncScope: string;client?:PortalClient;session?:SessionPayload;enabled:boolean}) {
   const {events, expanded, activeChannel, visibility, toggleVisibility,log, setExpanded, setActiveChannel} = useGameConsole()
   const history = useRef<HTMLDivElement>(null)
+  const [chatUnread,setChatUnread]=useState<Partial<Record<GameConsoleChannel,InboxUnread>>>({})
+  const onChatUnread=useCallback((channel:GameConsoleChannel,count:InboxUnread)=>setChatUnread(value=>({...value,[channel]:count})),[])
+  const navigate=useCallback((id:TabId)=>{if(variant==='popout')window.open(`/#${id}`,'_blank','noopener');else window.location.hash=id},[variant])
+  const isChat=['guild','squad','direct','world_chat'].includes(activeChannel)
   const availableChannels=GAME_CONSOLE_CHANNELS.filter(channel=>channel.id==='all'||visibility[channel.id])
-  const visibleEvents=events.filter(event=>visibility[event.channel as Exclude<GameConsoleChannel,'all'>])
+  const visibleEvents=events.filter(event=>event.kind!=='chat'&&visibility[event.channel as Exclude<GameConsoleChannel,'all'>])
   const filtered = activeChannel==='all'?visibleEvents:visibleEvents.filter(event => event.channel === activeChannel)
   const latest = visibleEvents.slice(-2)
   useEffect(()=>{if(activeChannel!=='all'&&!visibility[activeChannel])setActiveChannel('all')},[activeChannel,visibility,setActiveChannel])
@@ -267,7 +274,7 @@ function GameConsole({variant, unread, syncScope,client,userId,enabled}: {varian
     </button>
   </aside>}
 
-  <aside hidden={variant==='dock'&&!expanded} className={`game-console game-console-expanded${variant === 'popout' ? ' is-popout' : ''}`} aria-label="訊息控制台" onKeyDown={event=>{if(variant==='dock'&&event.key==='Escape'){event.stopPropagation();collapse()}}}>
+  <aside hidden={variant==='dock'&&!expanded} className={`game-console game-console-expanded${isChat?' is-chat':''}${variant === 'popout' ? ' is-popout' : ''}`} aria-label="訊息控制台" onKeyDown={event=>{if(variant==='dock'&&event.key==='Escape'){event.stopPropagation();collapse()}}}>
     <header className="game-console-header">
       <div className="game-console-title"><span className="game-console-title-mark" aria-hidden="true">▣</span>{variant === 'popout' ? <h1>自由工坊 - 即時訊息控制台</h1> : <h2>自由工坊 - 即時訊息控制台</h2>}</div>
       <div className="game-console-header-actions">
@@ -279,10 +286,10 @@ function GameConsole({variant, unread, syncScope,client,userId,enabled}: {varian
     </header>
     <div className="game-console-tabs" role="tablist" aria-label="訊息頻道" onKeyDown={tabKeys}>
       {availableChannels.map(channel => <button type="button" role="tab" id={`game-console-tab-${channel.id}`} key={channel.id} data-channel={channel.id}
-        aria-selected={activeChannel === channel.id} aria-controls="game-console-history" tabIndex={activeChannel === channel.id ? 0 : -1}
-        onClick={() => setActiveChannel(channel.id)}>{channel.label}{unread[channel.id] > 0 && <span className="game-console-unread" aria-label={`${unread[channel.id]} 則新訊息`}>{unread[channel.id]}</span>}</button>)}
+        aria-selected={activeChannel === channel.id} aria-controls={['guild','squad','direct','world_chat'].includes(channel.id)?'game-console-chats':'game-console-history'} tabIndex={activeChannel === channel.id ? 0 : -1}
+        onClick={() => setActiveChannel(channel.id)}>{channel.label}{(chatUnread[channel.id]??unread[channel.id])! > 0 && <span className="game-console-unread" aria-label={`${chatUnread[channel.id]??unread[channel.id]} 則新訊息`}>{chatUnread[channel.id]??unread[channel.id]}</span>}</button>)}
     </div>
-    <div ref={history} id="game-console-history" className="game-console-history" role="log" aria-live="polite" aria-label={`${GAME_CONSOLE_CHANNELS.find(channel => channel.id === activeChannel)?.label} 歷史紀錄`}>
+    <div hidden={isChat} ref={history} id="game-console-history" className="game-console-history" role="log" aria-live="polite" aria-label={`${GAME_CONSOLE_CHANNELS.find(channel => channel.id === activeChannel)?.label} 歷史紀錄`}>
       {filtered.length ? filtered.map(event => <article key={event.id} className={`game-console-entry is-${event.level}${showEventSource(event) ? ' has-source' : ''}`} data-channel={event.channel} data-kind={event.kind} data-next-step={event.action ? 'true' : undefined}>
         <span className="game-console-channel-tag">{eventLabel(event)}</span>
         {showEventSource(event) && <strong title={event.source}>{event.source}</strong>}
@@ -290,7 +297,7 @@ function GameConsole({variant, unread, syncScope,client,userId,enabled}: {varian
         <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false})}</time>
       </article>) : <p className="game-console-empty">此頻道尚無訊息。</p>}
     </div>
-    <GameConsoleComposer client={client} userId={userId} enabled={enabled} channel={activeChannel} visibility={visibility}/>
+    <GameConsoleComposer client={client} session={session} enabled={enabled} channel={activeChannel} active={expanded} onUnread={onChatUnread} onNavigate={navigate}/>
     <footer className="game-console-footer"><span>本次登入訊息 {events.length}/{GAME_CONSOLE_EVENT_LIMIT}</span><span>{typeof BroadcastChannel === 'undefined' ? '僅此視窗' : '視窗同步中'}</span></footer>
   </aside></>
 }

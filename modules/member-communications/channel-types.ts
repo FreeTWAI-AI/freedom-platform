@@ -19,7 +19,7 @@ export type ChannelMessage={
   sender_ref:string;sender_name:string;body:string;created_at:string;
 };
 /** Newest sequence first; unread_count is this channel's unread for the viewer. */
-export type ChannelMessagePage={channel:Channel;items:ChannelMessage[];unread_count:number;next_offset:number|null};
+export type ChannelMessagePage={channel:Channel;items:ChannelMessage[];unread_count:number;next_offset:number|null;next_after_sequence?:string|null};
 
 export type ChannelMessageInput={body:string};
 /** through_message_id must be a message of this channel the viewer has seen. */

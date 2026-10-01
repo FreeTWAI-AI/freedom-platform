@@ -177,7 +177,7 @@ test('two synthetic members chat in their own guild and squad through the real U
     // Four tabs in order; opening a chat tab lists channels only - no history GET, no read.
     for(const m of [sender,receiver,third])await openMessages(m.page);
     await expect(settings(sender.page)).toHaveAttribute('aria-expanded','false');await expect(settings(sender.page).locator('.settings-dot')).toHaveCount(0);
-    await expect(receiver.page.getByRole('tab')).toHaveText([/^通知/,/^公會閒聊/,/^小隊閒聊/,/^私人訊息/]);
+    await expect(receiver.page.getByRole('tab')).toHaveText([/^通知/,/^公會閒聊/,/^小隊閒聊/,/^私人訊息/,/^世界聊天/]);
     for(const kind of ['guild','squad'] as const){
       const {key,name}=room[kind],r=receiver.page,s=sender.page,label=copy[kind].tab;
       receiver.channelRequests.length=0;

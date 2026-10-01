@@ -83,6 +83,18 @@ test('world chat is community scoped and keeps sender identity and read receipts
   assert.equal((await messages(a,'world','wrong')).status,422);
 });
 
+test('new-message sequence cursors catch up without skipping messages or changing read receipts and still recheck membership',async()=>{
+  const [a,b]=await signInAll();await joinGuild(A,'guild_ai_vibe');await joinGuild(B,'guild_ai_vibe');
+  const first=await post(b,'guild','guild_ai_vibe','已經看過');assert.equal(first.status,201);
+  await post(b,'guild','guild_ai_vibe','新訊息一');await post(b,'guild','guild_ai_vibe','新訊息二');await post(b,'guild','guild_ai_vibe','新訊息三');
+  const counts=await tableCounts();
+  const delta=await messages(a,'guild','guild_ai_vibe',`?after_sequence=${first.data.sequence}&limit=2`);
+  assert.equal(delta.status,200,JSON.stringify(delta.data));assert.deepEqual(delta.data.items.map((item:any)=>item.body),['新訊息一','新訊息二']);assert.equal(delta.data.next_after_sequence,delta.data.items[1].sequence);assert.equal(delta.data.next_offset,null);assert.equal(delta.data.unread_count,4);
+  const end=await messages(a,'guild','guild_ai_vibe',`?after_sequence=${delta.data.next_after_sequence}&limit=2`);assert.deepEqual(end.data.items.map((item:any)=>item.body),['新訊息三']);assert.equal(end.data.next_after_sequence,null);assert.deepEqual(await tableCounts(),counts);
+  for(const query of ['after_sequence=-1','after_sequence=1e9','after_sequence=9223372036854775808','after_sequence=1&offset=2'])assert.equal((await messages(a,'guild','guild_ai_vibe',`?${query}`)).status,422);
+  await joinGuild(A,'guild_ai_vibe',DEMO_COMMUNITY,'left');assert.equal((await messages(a,'guild','guild_ai_vibe','?after_sequence=0')).status,404);
+});
+
 test('the list shows every joined room, including empty ones, sorted and paged with total unread and no bodies, and GET writes nothing',async()=>{
   const [a,b]=await signInAll();
   for(const key of ['guild_marketing','guild_ai_vibe','guild_platform_engineering'])await joinGuild(A,key);
@@ -107,6 +119,7 @@ test('the list shows every joined room, including empty ones, sorted and paged w
   assert.deepEqual(first.data.items.map((i:any)=>[i.channel_key,i.unread_count]),[['guild_platform_engineering',0],['guild_ai_vibe',2]]);
   assert.deepEqual(second.data.items.map((i:any)=>[i.channel_key,i.last_message_at]),[['guild_marketing',null]]);
   assert.equal(first.data.unread_count,2);assert.equal(second.data.unread_count,2);assert.equal(first.data.next_offset,2);assert.equal(second.data.next_offset,null);
+  const searched=await request('/me/channels?kind=guild&search=AI&limit=1',a);assert.deepEqual(searched.data.items.map((item:any)=>item.channel_key),['guild_ai_vibe']);assert.equal(searched.data.unread_count,2);assert.equal(searched.data.next_offset,null);
   assert.ok(first.data.items[0].last_message_at>first.data.items[1].last_message_at);assert.match(first.data.items[0].last_message_at,/Z$/);
   for(const item of first.data.items)assert.deepEqual(Object.keys(item).sort(),['channel_key','kind','last_message_at','name','unread_count']);
   const text=JSON.stringify(first.data);for(const body of ['第一則','第二則','自己的訊息'])assert.ok(!text.includes(body),'list must not include bodies');
