@@ -4,10 +4,11 @@ import { test, expect, type Locator, type Page } from './fixtures.js';
 import { DEMO_COMMUNITY, DEMO_USERS } from '../../packages/testing/seed.js';
 
 const longUrl = `https://example.invalid/${'a'.repeat(96)}`;
+const maker = DEMO_USERS[0];
 
 async function login(page: Page) {
   await page.goto('/');
-  await page.getByLabel('電子郵件', { exact: true }).fill('maker@local.test');
+  await page.getByLabel('電子郵件', { exact: true }).fill(maker.email);
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
   await page.getByRole('button', { name: '登入', exact: true }).click();
   await expect(page.getByRole('heading', { name: '會員首頁', exact: true })).toBeVisible();
@@ -28,10 +29,11 @@ test('campaign drafts and project notes keep the line breaks a member typed', as
   const repository = 'example/newline-notes';
   const repositoryUrl = 'https://github.com/example/newline-notes';
   await e2eAuthPool.query(`INSERT INTO oss_projects(project_id,community_id,owner_ref,title,description,use_notes,repository_id,repository_full_name,repository_url,relationship)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'curator')`, [projectId, DEMO_COMMUNITY, DEMO_USERS[0].user_id, title, description, useNotes, repositoryId, repository, repositoryUrl]);
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'curator')`, [projectId, DEMO_COMMUNITY, maker.user_id, title, description, useNotes, repositoryId, repository, repositoryUrl]);
   await e2eAuthPool.query(`INSERT INTO oss_project_versions(version_id,project_id,repository_id,commit_sha,default_branch,repository_full_name,repository_url,readme_url,license_spdx,is_fork,archived,source_snapshot,source_sha256,facts_sha256,inspected_at)
     VALUES($1,$2,$3,$4,'main',$5,$6,$7,'MIT',false,false,'{}',$8,$8,now())`, [versionId, projectId, repositoryId, commit, repository, repositoryUrl, `${repositoryUrl}#readme`, sha]);
   await e2eAuthPool.query('UPDATE oss_projects SET current_version_id=$2 WHERE project_id=$1', [projectId, versionId]);
+  const campaignTitle = `換行草稿 ${randomUUID().slice(0, 8)}`;
   try {
     await login(page);
     await navigate(page, '開源投稿');
@@ -40,7 +42,6 @@ test('campaign drafts and project notes keep the line breaks a member typed', as
     expect(await rendered(project.locator('p.project-copy').first())).toBe(description);
     expect(await rendered(project.locator('.help-box p.project-copy'))).toBe(useNotes);
 
-    const campaignTitle = `換行草稿 ${randomUUID().slice(0, 8)}`;
     const brief = '週末下午的交流，不收費。\n請先讀完使用說明再來。';
     const draft = `第一行先說明這次交流要做的事。\n${longUrl}`;
     await navigate(page, '行銷工作室');
@@ -66,6 +67,7 @@ test('campaign drafts and project notes keep the line breaks a member typed', as
     expect(fit.left).toBeGreaterThanOrEqual(-1);
     expect(fit.right).toBeLessThanOrEqual(fit.viewport + 1);
   } finally {
+    await e2eAuthPool.query('DELETE FROM marketing_campaign_drafts WHERE owner_ref = $1 AND title = $2', [maker.user_id, campaignTitle]);
     await e2eAuthPool.query('UPDATE oss_projects SET current_version_id=NULL WHERE project_id=$1', [projectId]);
     await e2eAuthPool.query('DELETE FROM oss_project_versions WHERE project_id=$1', [projectId]);
     await e2eAuthPool.query('DELETE FROM oss_projects WHERE project_id=$1', [projectId]);
