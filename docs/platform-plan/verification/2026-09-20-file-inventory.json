@@ -49,8 +49,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 15126,
-      "sha256": "27ad84c09f282eee2e22e71f8fed116415ef2d148b97af0a2dafe933ce96a863"
+      "bytes": 15527,
+      "sha256": "e5fbb38e080ce150aea8503947e27cf99937d3dd5ad61fdddf2e9e4d062d267d"
     },
     {
       "path": "apps/platform-api/src/admin-sync-worker.ts",
@@ -241,6 +241,11 @@
       "path": "apps/portal-web/index.html",
       "bytes": 699,
       "sha256": "ae689996bd200145695dc8ad5ecfe77f38a734a5200dbbe6431ede063a1cf435"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/workshop-v1.png",
+      "bytes": 1026270,
+      "sha256": "48f7f9e9f2c49bdd4b0c4351733c434247770a2f9d73e6459650160d5709f997"
     },
     {
       "path": "apps/portal-web/public/art/community-skills/default.webp",
@@ -888,6 +893,26 @@
       "sha256": "68dedd766a08bea8c83af527cef34aa4b7ae4ae68027d9b3dad9502b665b210d"
     },
     {
+      "path": "apps/portal-web/src/modules/ChatContent.css",
+      "bytes": 2065,
+      "sha256": "b1f882b1eb4d2736fe8e7319f16cbf87cb61485033514f7bd5996b08832c571d"
+    },
+    {
+      "path": "apps/portal-web/src/modules/ChatContent.tsx",
+      "bytes": 5268,
+      "sha256": "b090dbc1770a90fd0fb091dc3a1e4d458190e621b22f8136e06420b1dc1683a9"
+    },
+    {
+      "path": "apps/portal-web/src/modules/ChatWorkspace.css",
+      "bytes": 5247,
+      "sha256": "48a0335fec80879b442324821eb0aa78fd5b7f487153b22f8fd6d69e3d69a404"
+    },
+    {
+      "path": "apps/portal-web/src/modules/ChatWorkspace.tsx",
+      "bytes": 2264,
+      "sha256": "fa3da7ccb2390a0c4f0276d19c8097c41bdd59ae860bdf06327157024aacd469"
+    },
+    {
       "path": "apps/portal-web/src/modules/ClientConnections.tsx",
       "bytes": 5745,
       "sha256": "096e6d40e97900cab3dc71a0822b4931c2dcf9192f6ef7a517dcb09b453d4731"
@@ -1089,8 +1114,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberChannels.tsx",
-      "bytes": 33015,
-      "sha256": "7a54ba86171633df889372a8c725f9f556cae115b00f569d73af04b4bdad591b"
+      "bytes": 34680,
+      "sha256": "eadc6aa5afca385fca3eb033779f128d3da1c0ff7c75be3cffd5c22bd906e327"
     },
     {
       "path": "apps/portal-web/src/modules/MemberConnections.css",
@@ -1124,8 +1149,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 41254,
-      "sha256": "fcc46832c4f1d9eaa745d1988c4462b7492f9486a9e55642cf52a9d363429641"
+      "bytes": 43467,
+      "sha256": "9afd7a69f29928df552e9a3049037db0fd32356d2930db3754278a971efa51a4"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -1520,7 +1545,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30575,
-      "sha256": "68a0e35aaf0c602b78f766bfd48150d101ebd6eb41de4c25feb7187407aed8f3"
+      "sha256": "3e3ff637747c3b2246d094c990c128ee675ee8b0bf3406036d160cb6faaea797"
     },
     {
       "path": "deploy/cloudflare/lib/cloudflare.mjs",
@@ -1643,6 +1668,11 @@
       "sha256": "d7bd638cac432db0cc10f9fefb6f9981d4059767e44c1ad76a326f366a85d4d2"
     },
     {
+      "path": "docs/design/chat-sticker-art-manifest.json",
+      "bytes": 1687,
+      "sha256": "59268545aba243076bccd45963abb3b061c0f2dd543ced60acea604e0c6afc7f"
+    },
+    {
       "path": "docs/design/community-skill-art-manifest.json",
       "bytes": 4241,
       "sha256": "c9e7698b3925905e18f4023edc69dc2ef5775b54521fff995c4855d5f96528ea"
@@ -1706,6 +1736,41 @@
       "path": "docs/design/skill-illustration-manifest.json",
       "bytes": 46380,
       "sha256": "34fad1f1ca1a4ff483a3f284378dc5adb7bc7ceccd8939857b6e504b86293f7c"
+    },
+    {
+      "path": "docs/design/social-chat/guild-sticker-reply-390.png",
+      "bytes": 104894,
+      "sha256": "bd893be5ec1fb806616e19d830087b1e9d6d5c2d8d1b40d335b24ad920d8ab0c"
+    },
+    {
+      "path": "docs/design/social-chat/guild-workspace-320.png",
+      "bytes": 84337,
+      "sha256": "d7492c634957cffe2941fb2d0a3ac1b13cfee484a538fb59a1a4797481cd96a8"
+    },
+    {
+      "path": "docs/design/social-chat/picker-dark-320.png",
+      "bytes": 136075,
+      "sha256": "ef5ddc653291746e66549477cc971c8c0dd5dddd26b70a3d7acf0232ba4b7b74"
+    },
+    {
+      "path": "docs/design/social-chat/picker-light-320.png",
+      "bytes": 120883,
+      "sha256": "96a10246b4826e5112432a2f4f85d500eb45382bf182ee20110ba9175b4f9867"
+    },
+    {
+      "path": "docs/design/social-chat/picker-versefolk-320.png",
+      "bytes": 123684,
+      "sha256": "a5a12a86cd357520c01bc4a3775ce12ac32d3ad286fc1cf4d8135e762d21a335"
+    },
+    {
+      "path": "docs/design/social-chat/private-sticker-reply-1280.png",
+      "bytes": 165087,
+      "sha256": "14be60bb5015d5abf98fe467a7c8747ece6afd254defda0f58ca62bd30d2ba62"
+    },
+    {
+      "path": "docs/design/social-chat/private-workspace-390.png",
+      "bytes": 83276,
+      "sha256": "c0a78b5ad80f71e74ae60595d6ae1861bca4ff916329210ed9565f983ce94e6b"
     },
     {
       "path": "docs/design/versefolk-theme-art-manifest.json",
@@ -1899,8 +1964,8 @@
     },
     {
       "path": "docs/development/member-settings-messages.md",
-      "bytes": 7452,
-      "sha256": "e9b6550964285e36e2a1c124e643e0bb889ec7a0e688f37c9684d49671a667b5"
+      "bytes": 7965,
+      "sha256": "2a262ca89e541124fd6968d44140b80959ce631395587f13a7321b4d5fda7bca"
     },
     {
       "path": "docs/development/member-skill-registration.md",
@@ -2006,6 +2071,11 @@
       "path": "docs/development/skill-editor-guild-access.md",
       "bytes": 7187,
       "sha256": "03e4139bd4c5bb69bb7c99ff45f080f163ef40a2ea4e224c51c74d6321d1094d"
+    },
+    {
+      "path": "docs/development/social-project-upgrade.md",
+      "bytes": 12278,
+      "sha256": "e6c8ba6039563eb3cd48cae8b8c0a318c3e0a344f3afb01adbd53b0663b8d1ca"
     },
     {
       "path": "docs/development/staging-access-deploy.md",
@@ -3383,6 +3453,11 @@
       "sha256": "eb3e4767d80ea737bcb6b333e48a6a2c2bd761d22fddaff8d0c34906d5635b4c"
     },
     {
+      "path": "migrations/072_chat_stickers_replies.sql",
+      "bytes": 1563,
+      "sha256": "2b81b303df7c4633175914e8dfa9dc733e1976c56dc5cc3e5450deb7e5c97ed3"
+    },
+    {
       "path": "modules/agent-commerce/distribution.ts",
       "bytes": 10476,
       "sha256": "2d60f26788a408905286751505ea0d4d2e38a4399e1ff11e3df4622b5c2601f3"
@@ -3723,16 +3798,6 @@
       "sha256": "335c3d5c3b47e1bcf3c6bcbebcae5f779cbf9c9d3abf78dabe8936760cee9bf7"
     },
     {
-      "path": "modules/development-access/guild-eligibility.ts",
-      "bytes": 1602,
-      "sha256": "9e9b6619a4e0e29beeb7ada9c1e11ba80fd60127bae443ef63c89a8f3e5f7c15"
-    },
-    {
-      "path": "modules/development-access/service.ts",
-      "bytes": 16648,
-      "sha256": "2bc4cac7903e0f03cd2ec869fa56ff9e0c99d588d218a95cc3468008c99c6518"
-    },
-    {
       "path": "modules/development/page-github.ts",
       "bytes": 9796,
       "sha256": "50328508a0f4a12ab5001a9a485bed3c4125fb3da0c4c0b593650736bd056530"
@@ -3746,6 +3811,16 @@
       "path": "modules/development/service.ts",
       "bytes": 42446,
       "sha256": "88603ac4bf7849dce161218f0592c2be59fea6b7aa5245984c7db010d7d85c3a"
+    },
+    {
+      "path": "modules/development-access/guild-eligibility.ts",
+      "bytes": 1602,
+      "sha256": "9e9b6619a4e0e29beeb7ada9c1e11ba80fd60127bae443ef63c89a8f3e5f7c15"
+    },
+    {
+      "path": "modules/development-access/service.ts",
+      "bytes": 16648,
+      "sha256": "2bc4cac7903e0f03cd2ec869fa56ff9e0c99d588d218a95cc3468008c99c6518"
     },
     {
       "path": "modules/github-social/provider.ts",
@@ -3814,13 +3889,23 @@
     },
     {
       "path": "modules/member-communications/channel-types.ts",
-      "bytes": 2428,
-      "sha256": "c3b981b993454df86afc09b91c57a46e168660414dd8d435249d842e35a73db8"
+      "bytes": 2525,
+      "sha256": "c8e92f13a57a3291ce0a0fb0e6c86df5518476be5917693b048ad80d13a0c757"
     },
     {
       "path": "modules/member-communications/channels.ts",
-      "bytes": 17619,
-      "sha256": "3e55893035bad304bbbc63ad0f3010a7665324b219ff2c42d4a41e51e4644b8d"
+      "bytes": 18005,
+      "sha256": "b58d74326ab705f521361927962e5344d83420e40ca24c2d99807b454f09f298"
+    },
+    {
+      "path": "modules/member-communications/content-types.ts",
+      "bytes": 422,
+      "sha256": "90f966223b437e2a85f8788fee188149dbc07301362840501189e9a36f5bf52f"
+    },
+    {
+      "path": "modules/member-communications/content.ts",
+      "bytes": 2396,
+      "sha256": "570c5f955170db77c4ca95525daa48c8df4f910b98e14d890a2d75285d4a9672"
     },
     {
       "path": "modules/member-communications/events.ts",
@@ -3834,13 +3919,18 @@
     },
     {
       "path": "modules/member-communications/service.ts",
-      "bytes": 15652,
-      "sha256": "c0b2aab7a992a6dd99265fdcb13c8321fbc85302811481d749835b436b5a14a1"
+      "bytes": 16528,
+      "sha256": "968af61bab1913f5b6acec65a90d637f2d28a7d7b921c581a60e8449ef8525ee"
+    },
+    {
+      "path": "modules/member-communications/stickers.ts",
+      "bytes": 800,
+      "sha256": "d823bccd9464dadcc185eec3955d01dedbdaf922041d7870b28dbdf230ef6368"
     },
     {
       "path": "modules/member-communications/types.ts",
-      "bytes": 2688,
-      "sha256": "fb5fd26b4f9ec60fc03638aa42a8cfee46111052bcc0a5fa146c5c10ca6cb432"
+      "bytes": 2818,
+      "sha256": "473e11f24398867a9bf51e5eec7e5e35d44fa3375fc0b4c7081acd4408ec1488"
     },
     {
       "path": "modules/opensource-marketing/github.ts",
@@ -4363,6 +4453,11 @@
       "sha256": "9685a970e9f2210b1f2255729f73f20f57fe7fce52d4e3fdee25d142d4e0276e"
     },
     {
+      "path": "tests/e2e/chat-stickers.spec.ts",
+      "bytes": 17086,
+      "sha256": "dcd3bdd6bdc4f3b888aff5335a7116c7680444eb0a20a127dc4400599bd5f1da"
+    },
+    {
       "path": "tests/e2e/client-connections-recovery.spec.ts",
       "bytes": 5655,
       "sha256": "e61fa8e4b2c7147a3e7a46d5225308833ade643bb552b11f15425ae6d6e358c1"
@@ -4464,13 +4559,13 @@
     },
     {
       "path": "tests/e2e/member-channels-real.spec.ts",
-      "bytes": 29153,
-      "sha256": "09f25164396f87df268670bcd4d1aa05fe1897abc6a02574900d22f44f4d0047"
+      "bytes": 29244,
+      "sha256": "7e69ffcfb0fad430a93779f02e1d8f242838ab0ba2fb6c4cb5943f5c506872b6"
     },
     {
       "path": "tests/e2e/member-channels.spec.ts",
-      "bytes": 54130,
-      "sha256": "3b7d3fad332623b2f54cf52e387c97ff401eac8084400bc8ed721cb06a1718e0"
+      "bytes": 54501,
+      "sha256": "fafcd5fdeda688cc3689f89a49a514ae134c276f152318dbd348f60096d99fd3"
     },
     {
       "path": "tests/e2e/member-connections-51.spec.ts",
@@ -4693,6 +4788,11 @@
       "sha256": "146c923f588e5c99fa3dec36ef49bda42a6435b885cca3370727a289c16db5ff"
     },
     {
+      "path": "tests/runtime/chat-content.test.ts",
+      "bytes": 12420,
+      "sha256": "54f63ab87a2ae548b7a8043d047201b9e357e414bccd58e0b3085916bf9efb39"
+    },
+    {
       "path": "tests/runtime/client-connections.test.ts",
       "bytes": 19164,
       "sha256": "d9eb22467e8e5d24ae873c6e717e986337354632ed9dd510ca0ae511a738e6da"
@@ -4869,8 +4969,8 @@
     },
     {
       "path": "tests/runtime/member-communications.test.ts",
-      "bytes": 33659,
-      "sha256": "1a04ee029ca0afbeadc5c4ff1fbe7781ac60bb41a0723995cbd42b4b35879444"
+      "bytes": 34256,
+      "sha256": "c7ab1fe0d5ff6e5487b2911c4c70244badc3438502bf701ec53debc6d7f6155f"
     },
     {
       "path": "tests/runtime/member-connections.test.ts",

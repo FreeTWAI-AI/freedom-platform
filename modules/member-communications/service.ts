@@ -4,6 +4,7 @@ import {command,type Command} from '../../packages/db/index.js';
 import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {avatarUrl} from '../identity-membership/avatars.js';
+import {MessageContentInput,messageContents,storedMessageBody} from './content.js';
 import {
   COMMUNICATION_PAGE_DEFAULT_LIMIT,COMMUNICATION_PAGE_MAX_LIMIT,DIRECT_MESSAGE_BODY_MAX,
   type ConversationActivity,type ConversationPage,type Message,type MessagePage,type Notification,type NotificationList,type Participant,
@@ -14,14 +15,7 @@ export const CommunicationPageQuery=z.object({
   offset:z.coerce.number().int().min(0).max(10000).default(0),
 }).strict();
 const Empty=z.object({}).strict();
-// Plain text only: stored and returned verbatim after trimming. Nothing is
-// parsed as HTML/Markdown or fetched. Length counts code points like PostgreSQL.
-const MessageInput=z.object({
-  body:z.string().transform(value=>value.replace(/\r\n?/g,'\n').trim())
-    .refine(value=>value.length>0,'請輸入訊息內容。')
-    .refine(value=>[...value].length<=DIRECT_MESSAGE_BODY_MAX,`訊息最多 ${DIRECT_MESSAGE_BODY_MAX} 字。`)
-    .refine(value=>!/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(value),'訊息不可包含控制字元。'),
-}).strict();
+const MessageInput=MessageContentInput;
 export const DIRECT_MESSAGE_RATE_LIMIT=20,DIRECT_MESSAGE_RATE_WINDOW_SECONDS=60;
 
 const ready=(alias:string)=>`${alias}.active AND (NOT ${alias}.onboarding_required OR ${alias}.onboarding_completed_at IS NOT NULL)`;
@@ -119,7 +113,7 @@ export async function listConversations(pool:Pool,actor:Actor,raw:unknown):Promi
     const unread=(await q.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE community_id=$1 AND recipient_ref=$2 AND read_at IS NULL',[actor.community_id,actor.user_id])).rows[0].n;
     const viewerReady=(await q.query(`SELECT ${ready('v')} AS ready FROM users v WHERE v.user_id=$1 AND v.community_id=$2`,[actor.user_id,actor.community_id])).rows[0]?.ready===true;
     const rows=(await q.query(`WITH latest AS (
-        SELECT DISTINCT ON (peer) peer,message_id,sender_ref,recipient_ref,body,created_at,read_at FROM (
+        SELECT DISTINCT ON (peer) peer,message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id FROM (
           SELECT CASE WHEN sender_ref=$2 THEN recipient_ref ELSE sender_ref END AS peer,* FROM member_direct_messages
           WHERE community_id=$1 AND (sender_ref=$2 OR recipient_ref=$2)) pair
         ORDER BY peer,created_at DESC,message_id DESC)
@@ -132,10 +126,11 @@ export async function listConversations(pool:Pool,actor:Actor,raw:unknown):Promi
       LEFT JOIN member_avatars av ON av.user_id=u.user_id AND av.community_id=u.community_id
       ORDER BY l.created_at DESC,l.message_id DESC LIMIT $3 OFFSET $4`,[actor.community_id,actor.user_id,limit+1,offset])).rows;
     const page=pageOf(rows,limit,offset);
-    return {unread_count:unread,next_offset:page.next_offset,items:page.items.map(row=>({
+    const contents=await messageContents(q,page.items,'direct',actor.user_id);
+    return {unread_count:unread,next_offset:page.next_offset,items:page.items.map((row,index)=>({
       participant:{user_id:row.peer,display_name:row.display_name,avatar_url:row.ready?avatarUrl(row.peer,row.avatar_version??'1',Boolean(row.avatar_present)):null,
         last_login_at:row.last_login_at?new Date(row.last_login_at).toISOString():null,is_online:row.is_online},
-      can_send:viewerReady&&row.ready,last_message:message(row),unread_count:row.unread_count}))};
+      can_send:viewerReady&&row.ready,last_message:{...message(row),...contents[index]},unread_count:row.unread_count}))};
   });
 }
 
@@ -144,11 +139,11 @@ export async function conversationMessages(pool:Pool,actor:Actor,rawPeer:string,
   return snapshot(pool,actor,async q=>{
     const peer=await resolvePeer(q,actor,id);
     const unread=(await q.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE community_id=$1 AND recipient_ref=$2 AND sender_ref=$3 AND read_at IS NULL',[actor.community_id,actor.user_id,id])).rows[0].n;
-    const rows=(await q.query(`SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at FROM member_direct_messages
+    const rows=(await q.query(`SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id FROM member_direct_messages
       WHERE community_id=$1 AND least(sender_ref,recipient_ref)=least($2::uuid,$3::uuid) AND greatest(sender_ref,recipient_ref)=greatest($2::uuid,$3::uuid)
       ORDER BY created_at DESC,message_id DESC LIMIT $4 OFFSET $5`,[actor.community_id,actor.user_id,id,limit+1,offset])).rows;
-    const page=pageOf(rows.map(message),limit,offset);
-    return {participant:peer.participant,can_send:peer.ready&&peer.viewer_ready,items:page.items,unread_count:unread,next_offset:page.next_offset};
+    const page=pageOf(rows,limit,offset),contents=await messageContents(q,page.items,'direct',actor.user_id);
+    return {participant:peer.participant,can_send:peer.ready&&peer.viewer_ready,items:page.items.map((row,index)=>({...message(row),...contents[index]})),unread_count:unread,next_offset:page.next_offset};
   });
 }
 
@@ -160,9 +155,13 @@ export async function conversationActivity(pool:Pool,actor:Actor,rawPeer:string,
       (SELECT message_id FROM member_direct_messages WHERE community_id=$1
         AND least(sender_ref,recipient_ref)=least($2::uuid,$3::uuid) AND greatest(sender_ref,recipient_ref)=greatest($2::uuid,$3::uuid)
         ORDER BY created_at DESC,message_id DESC LIMIT 1) AS last_message_id,
-      (SELECT count(*)::int FROM member_direct_messages WHERE community_id=$1 AND recipient_ref=$2 AND sender_ref=$3 AND read_at IS NULL) AS unread_count`,
+      (SELECT count(*)::int FROM member_direct_messages WHERE community_id=$1 AND recipient_ref=$2 AND sender_ref=$3 AND read_at IS NULL) AS unread_count,
+      (SELECT json_build_object('message_id',message_id,'read_at',read_at) FROM member_direct_messages
+        WHERE community_id=$1 AND sender_ref=$2 AND recipient_ref=$3
+        ORDER BY created_at DESC,message_id DESC LIMIT 1) AS last_outgoing`,
       [actor.community_id,actor.user_id,id])).rows[0];
-    return {last_message_id:row.last_message_id,unread_count:row.unread_count,can_send:peer.ready&&peer.viewer_ready};
+    return {last_message_id:row.last_message_id,unread_count:row.unread_count,can_send:peer.ready&&peer.viewer_ready,
+      last_outgoing:row.last_outgoing?{message_id:row.last_outgoing.message_id,read_at:iso(row.last_outgoing.read_at)}:null};
   });
 }
 
@@ -180,20 +179,23 @@ export async function sendDirectMessage(pool:Pool,input:Command,rawPeer:string):
       const peer=await resolvePeer(q,input.actor,id);
       requireCondition(false,409,'recipient_unavailable',`${peer.participant.display_name} 目前無法接收訊息。`);
     }
+    if(body.reply_to_message_id)requireCondition((await q.query(`SELECT 1 FROM member_direct_messages WHERE message_id=$1 AND community_id=$2
+      AND least(sender_ref,recipient_ref)=least($3::uuid,$4::uuid) AND greatest(sender_ref,recipient_ref)=greatest($3::uuid,$4::uuid)`,
+      [body.reply_to_message_id,input.actor.community_id,input.actor.user_id,id])).rowCount===1,404,'reply_not_available','找不到可回覆的訊息。');
   },async q=>{
     // Serialize one sender's sends so concurrent requests cannot exceed the budget.
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`direct-message-sender/${input.actor.community_id}/${input.actor.user_id}`]);
     const recent=(await q.query(`SELECT count(*)::int AS n FROM member_direct_messages WHERE community_id=$1 AND sender_ref=$2 AND created_at>clock_timestamp()-make_interval(secs=>$3)`,
       [input.actor.community_id,input.actor.user_id,DIRECT_MESSAGE_RATE_WINDOW_SECONDS])).rows[0].n;
     requireCondition(recent<DIRECT_MESSAGE_RATE_LIMIT,429,'message_rate_limited','訊息傳送太頻繁，請稍後再試。');
-    const row=(await q.query('INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body,created_at) VALUES($1,$2,$3,$4,clock_timestamp()) RETURNING message_id',
-      [input.actor.community_id,input.actor.user_id,id,body.body])).rows[0];
+    const row=(await q.query('INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body,sticker_id,reply_to_message_id,created_at) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp()) RETURNING message_id',
+      [input.actor.community_id,input.actor.user_id,id,storedMessageBody(body),body.sticker_id??null,body.reply_to_message_id??null])).rows[0];
     return {message_id:row.message_id as string};
   });
-  const row=(await pool.query('SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at FROM member_direct_messages WHERE message_id=$1 AND community_id=$2 AND sender_ref=$3',
+  const row=(await pool.query('SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id FROM member_direct_messages WHERE message_id=$1 AND community_id=$2 AND sender_ref=$3',
     [sent.message_id,input.actor.community_id,input.actor.user_id])).rows[0];
   requireCondition(row,404,'message_not_found','找不到這則訊息。');
-  return message(row);
+  return {...message(row),...(await messageContents(pool,[row],'direct',input.actor.user_id))[0]};
 }
 
 export async function markConversationRead(pool:Pool,input:Command,rawPeer:string){
