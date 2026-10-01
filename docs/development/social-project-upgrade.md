@@ -31,12 +31,27 @@
 
 貼圖包：工坊夥伴 v1，包含「你好」「謝謝」「加油」「一起共創」。本輪提供靜態原創貼圖；個人上傳、付費貼圖商店、GIF、撤回、表情反應、通話與輸入中狀態屬後續工作。
 
+## 聊天室操作更新（2026-10-02）
+
+依 Hao 要求，完整訊息頁採接近 App 的手機操作：
+
+- **列表 → 對話 → 返回列表**：760px 以下只顯示列表或目前聊天室。公會、小隊與私訊都有明確返回按鈕，返回後焦點回到列表；桌面保留左右雙欄。控制台沿用單一畫面切換。
+- **正在和誰聊**：私訊顯示頭像、名字與在線狀態；從既有對話選人時，等待 API 期間也保留對象名稱，不顯示另一人的歷史。
+- **訊息獨立捲動**：標頭、訊息區與輸入區分開；較早訊息、回到最新及手動重新讀取仍可操作。零未讀的文字保留給輔助科技，畫面只突出真正未讀或未確認狀態。
+- **簡短輸入區**：輸入框由一行自動長高至 128px；手機 Enter 換行、按送出才傳送，桌面維持 Enter 送出／Shift+Enter 換行與中文輸入法防誤送。
+- **真實傳送狀態**：傳送中與結果未確認各自顯示；重試沿用同一份 payload／key。只有 API 確認後標為已送出；私訊「對方已讀」來自 read_at。
+- **草稿不因返回而消失**：文字、貼圖、引用各自依對象保存於記憶體。手機返回、切換分頁、改變視窗尺寸，都不將草稿寄給別人。
+
+新增 `ChatWorkspace.tsx`／CSS 共用上述操作。私訊 body-free activity DTO 增加 `last_outgoing: {message_id,read_at} | null`，只查最近一則自己送出的訊息狀態；對方標記已讀且沒有新訊息時，畫面也會重新取得授權後的紀錄。活動檢查不傳正文、不自動標記已讀，既有客戶端可忽略新增欄位。
+
+本次合併主線至 `b330aa7`，將尚未部署的聊天 migration 由 065 改為 **072**，避免與主線活動 migration 及待審 069–071 分支碰撞。已套用的主線 migration 未改寫。
+
 ## API、資料庫與傳輸
 
 - 原 `POST /me/channels/:kind/:key/messages` 與 `POST /me/conversations/:userId/messages` 可傳 `{body}` 或 `{sticker_id}`，兩者擇一；可選填 `reply_to_message_id`。
 - 原文字 DTO 不增加必填欄位。貼圖新增 `sticker: {id,label}`，引用新增 `reply_to: {message_id,sender_ref,sender_name,body,sticker?}`；未用到的欄位不回傳。
 - 原 `body` 仍為非空純文字，貼圖採固定名稱 fallback；所有文字都以 React 純文字呈現。任意 URL、HTML、客戶端 quote 正文或假貼圖 metadata 被拒絕。
-- migration **065_chat_stickers_replies.sql** 在兩張訊息表增加 nullable 貼圖／引用 ID；私訊新增由 DB 產生的無序會員對，以 composite FK 限定引用範圍。原文不能單獨刪除而留下引用，後續刪除／審核流程須先清除引用，再刪除原文。
+- migration **072_chat_stickers_replies.sql** 在兩張訊息表增加 nullable 貼圖／引用 ID；私訊新增由 DB 產生的無序會員對，以 composite FK 限定引用範圍。原文不能單獨刪除而留下引用，後續刪除／審核流程須先清除引用，再刪除原文。
 - 查詢先通過原 session、同社群及即時成員資格判斷，再以一個批次查詢取得該頁的引用，沒有每則訊息個別查詢。世界聊天繼續排除其他 verification accounts，包括引用檢查。
 - CSRF、Idempotency-Key、每分鐘傳送限額、已讀與增量游標沿用原規則。重試比對文字、貼圖與原訊息 ID，不能用同一筆 key 寄另一份內容。receipts 只保存已確認的 message ID。
 - 保留已合併的每秒 body-free activity 檢查與立即「傳送中」回饋。沒有新增 WebSocket、外部圖片 provider、廣播聊天正文或把私訊永久存進瀏覽器。
@@ -50,7 +65,7 @@
 3. **創作者參與**：有作者、授權、審核與版本的自訂貼圖包；實際活動／資源／作品的分享頁，及創作者本人可見的真實成效。
 4. **可驗證的商業合作**：各方同意的分工、交付與收益條款，銜接既有 Seller 付款事實；社群參與數不能推定收入。
 
-「第二個 META」是使用者提出的長期願景。可驗證的近期成果是加入者能找到夥伴、順利溝通並完成一次合作。上述後續項目是建議，本 PR 的可用範圍以貼圖及回覆為準。
+「第二個 META」是使用者提出的長期願景。可驗證的近期成果是加入者能找到夥伴、順利溝通並完成一次合作。上述後續項目是建議，本 PR 的可用範圍是聊天室操作、貼圖及回覆。作品分享與合作入口另見 PR #90，兩個分支可分開審核。
 
 ## 驗收與部署
 
@@ -59,22 +74,25 @@
 | 本次命令／範圍 | 實跑結果 |
 | --- | --- |
 | `npm run typecheck`、`npm run build` | 通過；build 仍有既有大於 500 KiB chunk 提示 |
-| `tsx --test`：chat-content、member-communications、member-channels-core、member-channel-access | 46/46 通過，含既有並行傳送、權限撤銷與新貼圖案例 |
-| `tsx --test tests/runtime/chat-content.test.ts` | 補上跨社群／隱藏世界訊息與 DB 約束後 8/8 通過 |
-| `playwright test tests/e2e/chat-stickers.spec.ts` | 真實 API／DB 4/4 通過；含四類聊天、引用、載入、草稿隔離、未知 ACK、Enter 搜尋、Esc、320px／390px 與三主題 |
-| 原聊天／設定／控制台五份 Playwright suite | 33 passed、1 failed；失敗的舊案例仍假設只能手動重讀收到訊息，已更新為自動收到及不標已讀；包含該案例與退出撤權限的 real-channel suite 補跑 2/2 通過 |
+| `tsx --test`：chat-content、member-communications、member-channels-core、member-channel-access | 48/48 通過；含已讀狀態更新、既有並行傳送、權限撤銷、跨社群與 DB 約束 |
+| `playwright test`：chat-stickers、member-settings、member-channels、member-channels-real、game-console | 最終同一輪 39/39 通過；含六個真實貼圖／操作案例、兩個真實成員資格案例、所有原有聊天／通知／控制台回歸及三主題 |
+| 手機私訊返回／草稿／已讀、公會返回與尺寸切換兩案例 | 最終整理截圖後補跑 2/2 通過 |
 | `npm run worker:dry-run` | local／staging-next／next 三環境打包通過，未部署 |
 
-SQL migration 的最初草稿對 generated pair 使用 `ON DELETE SET NULL`，被 PostgreSQL 拒絕；已採相同對話的 FK 與預設 NO ACTION，完整通訊回歸通過。新增 raw-write 約束測試的最初 SQL 有未使用的 `$3` 參數，已修正並補跑 8/8。上述是開發中修正的結果，並非聲稱所有全倉測試都已重跑；完整 gate 交由新提交的 CI。靜態契約及跨倉 integration 本輪未重跑。
+SQL migration 的最初草稿對 generated pair 使用 `ON DELETE SET NULL`，被 PostgreSQL 拒絕；已採相同對話的 FK 與預設 NO ACTION。新增 raw-write 測試的未使用 SQL 參數已修正。此次 UI 更新第一輪 37 案例有六個失敗：圖示加入 accessible name、手機不再顯示列表的舊觸控測量、即時撤權限後點擊已消失的重讀按鈕，以及通用 hover 蓋掉敘生分頁選取狀態。已修正按鈕名稱／hover，更新手機返回與撤權限的實際操作測試；最終完整受影響五份 suite 39/39 通過。
+
+以上不代表全倉測試都已重跑；完整 gate 交由本次提交的 CI。靜態契約及跨倉 integration 本輪未重跑。手機驗證使用 Chromium 的 320px／390px 視窗，尚未在實體手機確認作業系統鍵盤、staging 或 production。
 
 實際畫面：[公會貼圖回覆 390px](../design/social-chat/guild-sticker-reply-390.png)、[私人貼圖回覆 1280px](../design/social-chat/private-sticker-reply-1280.png)、[明亮](../design/social-chat/picker-light-320.png)／[夜航](../design/social-chat/picker-dark-320.png)／[敘生](../design/social-chat/picker-versefolk-320.png)貼圖選擇器 320px。
 
+App 操作畫面：[私訊與返回入口 390px](../design/social-chat/private-workspace-390.png)、[公會聊天室 320px](../design/social-chat/guild-workspace-320.png)。全部使用本機合成會員。
+
 維護者部署順序：
 
-1. 更新主線相依，先依既有流程套用 migrations **063、064、065**；本 PR 的部署 manifest pin 為 65。
+1. 更新主線相依，依既有流程套用主線 migrations，再套用 **072_chat_stickers_replies.sql**；本 PR 的部署 manifest pin 為 72。069–071 為其他待審分支使用，合併時請核對順序。
 2. 部署同一 commit 的 Worker 與前端資產，確認 atlas 可以同源讀取。
 3. 兩位合成會員分別在公會、小隊、世界與私訊寄送貼圖／引用，重新載入並檢查成員退出後的拒絕行為。
 4. 在 320px／390px 及三主題確認貼圖選擇、搜尋、Esc、引用取消與送出；測試低速網路及未知 ACK 重試。
-5. 回退應用程式時保留 migration 065 與既有訊息。舊客戶端能讀貼圖 fallback，升級後再呈現原貼圖；不刪除會員訊息。
+5. 回退應用程式時保留 migration 072 與既有訊息。舊客戶端能讀貼圖 fallback，升級後再呈現原貼圖；不刪除會員訊息。
 
 本輪不部署正式站或 staging，不操作真實會員資料。提交作者 Hao0321，Codex 協助靜態查核、程式、原創素材生成、測試與文件，交由自由工坊維護者審查。

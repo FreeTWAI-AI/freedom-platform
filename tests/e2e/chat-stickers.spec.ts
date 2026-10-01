@@ -52,6 +52,7 @@ async function group(page:Page,kind:'guild'|'world'='guild'){
 }
 async function direct(page:Page,account:Account){
   await page.getByRole('tab',{name:/^私人訊息/}).click();const panel=page.locator('#messages-panel-direct');
+  if(!await panel.getByLabel('搜尋會員',{exact:true}).isVisible())await panel.getByRole('button',{name:'← 返回對話列表',exact:true}).click();
   await panel.getByLabel('搜尋會員',{exact:true}).fill(account.name);await panel.getByRole('button',{name:'搜尋會員',exact:true}).click();
   await panel.getByRole('button',{name:`傳訊給 ${account.name}`,exact:true}).click();await expect(panel.locator('.messages-compose')).toBeVisible();return panel;
 }
@@ -82,6 +83,38 @@ test('mobile guild sticker replies are received and reload from the real databas
   expect(await receiver.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   for(const button of [b.getByRole('button',{name:'選擇貼圖',exact:true}),b.getByRole('button',{name:'送出',exact:true})])expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   mkdirSync('test-results/social-chat',{recursive:true});await receiver.screenshot({path:'test-results/social-chat/guild-sticker-reply-390.png',fullPage:true});
+});
+
+test('mobile private chat uses one pane, preserves drafts and shows confirmed read receipts without sending on keyboard Enter',async({browser,baseURL})=>{
+  const sender=await member(browser,baseURL!,0,390),receiver=await member(browser,baseURL!,1),a=await direct(sender,accounts[1]),b=await direct(receiver,accounts[0]);
+  await expect(a.locator('.messages-side')).toBeHidden();await expect(a.getByRole('heading',{name:`與 ${accounts[1].name} 的對話`})).toBeVisible();
+  const box=a.getByLabel(`寫給 ${accounts[1].name} 的訊息`);await box.fill('一起討論作品');await box.press('Enter');await box.pressSequentially('明天見');
+  expect((await db.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE sender_ref=$1',[accounts[0].id])).rows[0].n).toBe(0);
+  await a.getByRole('button',{name:'送出',exact:true}).click();await expect(b.locator('.messages-bubbles')).toContainText('明天見');
+  const sent=a.locator('.messages-bubbles>li').filter({hasText:'明天見'});await expect(sent).toContainText('已送出');await expect(sent).not.toContainText('對方已讀');
+  await b.getByRole('button',{name:'標為已讀',exact:true}).click();await expect(sent).toContainText('對方已讀');
+  await box.fill('這份草稿留給乙');await a.getByRole('button',{name:'← 返回對話列表',exact:true}).click();
+  await expect(a.locator('.messages-side')).toBeVisible();await expect(a.locator('.messages-thread')).toBeHidden();await expect(a.getByRole('heading',{name:'對話',exact:true})).toBeFocused();
+  await direct(sender,accounts[2]);await expect(a.locator('textarea')).toHaveValue('');await a.locator('textarea').fill('這份留給丙');
+  await direct(sender,accounts[1]);await expect(box).toHaveValue('這份草稿留給乙');await expect(a.locator('.messages-side')).toBeHidden();
+  expect(await sender.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await sender.evaluate(()=>scrollTo(0,0));
+  await sender.screenshot({path:'test-results/social-chat/private-workspace-390.png',fullPage:true});
+  await a.locator('.messages-thread').screenshot({path:'test-results/social-chat/private-workspace-chat-390.png'});
+});
+
+test('mobile return to channel list keeps rich drafts and desktop resizing restores both panes',async({browser,baseURL})=>{
+  const page=await member(browser,baseURL!,0,320),panel=await group(page);
+  await panel.locator('textarea').fill('公會專用的草稿');await choose(panel,'一起共創');
+  await panel.getByRole('button',{name:'← 返回公會列表',exact:true}).click();await expect(panel.locator('.messages-thread')).toBeHidden();await expect(panel.locator('.messages-side')).toBeVisible();
+  await panel.locator(`[data-channel-key="${guild}"]`).click();await expect(panel.getByLabel('待送出的貼圖')).toBeVisible();
+  await panel.getByRole('button',{name:'改寫文字',exact:true}).click();await expect(panel.locator('textarea')).toHaveValue('公會專用的草稿');
+  await page.setViewportSize({width:1280,height:900});await expect(panel.locator('.messages-side')).toBeVisible();await expect(panel.locator('.messages-thread')).toBeVisible();
+  await page.setViewportSize({width:320,height:780});await expect(panel.locator('.messages-side')).toBeHidden();await expect(panel.locator('textarea')).toBeVisible();
+  for(const button of [panel.getByRole('button',{name:'← 返回公會列表',exact:true}),panel.getByRole('button',{name:'送出',exact:true})])expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.evaluate(()=>scrollTo(0,0));
+  await page.screenshot({path:'test-results/social-chat/guild-workspace-320.png',fullPage:true});
 });
 
 test('real private sticker replies stay in their conversation and rich drafts follow the selected partner',async({browser,baseURL})=>{

@@ -8,6 +8,7 @@ import {consoleChannel} from '../game-console-routing';
 import type {MessageContent,MessageContentInput} from '../../../../modules/member-communications/content-types';
 import {findChatSticker} from '../../../../modules/member-communications/stickers';
 import {ChatBody,ChatQuote,ChatExtras,chatPayload,sameChatPayload,quoteMessage,useRichChatDraft} from './ChatContent';
+import {ChatInput,ChatTime,useChatViewport} from './ChatWorkspace';
 import './MemberSettings.css';
 
 export type ChannelKind='guild'|'squad'|'world';
@@ -38,6 +39,7 @@ const newestFirst=(items:ChannelMessage[])=>[...items].sort((a,b)=>compare(b.seq
 /** One guild or squad chat tab: the list is read on its own; a channel's history only after the member picks it. */
 export function MemberChannels({client,session,kind,onUnread,onNavigate,active=true,compact=false,openChannel}:Props){
   const me=session.user.user_id,text=copy[kind],uid=useId();
+  const mobile=useChatViewport(),singlePane=compact||mobile;
   const richDrafts=useRichChatDraft();
   const path=(key:string,rest:string)=>`/me/channels/${kind}/${encodeURIComponent(key)}/${rest}`;
   const [channels,setChannels]=useState<ChannelSummary[]>([]),[listNext,setListNext]=useState<number|null>(null);
@@ -59,14 +61,14 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   const [roomQuery,setRoomQuery]=useState(''),[liveError,setLiveError]=useState(''),[hasNew,setHasNew]=useState(false);
   const [picking,setPicking]=useState(true);
   const scroll=useRef<HTMLDivElement>(null),stick=useRef(true),anchor=useRef<{top:number;height:number}|null>(null),polling=useRef(false),retryAt=useRef(0),failures=useRef(0);
-  const snapshot=useRef({history,status,more,reading,active,sending:false});snapshot.current={history,status,more,reading,active:active&&(!compact||!picking),sending:pending[selected?.key??'']?.status==='sending'};
+  const snapshot=useRef({history,status,more,reading,active,sending:false});snapshot.current={history,status,more,reading,active:active&&(kind==='world'||!singlePane||!picking),sending:pending[selected?.key??'']?.status==='sending'};
   const openedRequest=useRef<number|null>(null);
   const searched=useRef('');
   useLayoutEffect(()=>{
     const node=scroll.current;if(!node)return;
     if(anchor.current){node.scrollTop=anchor.current.top+node.scrollHeight-anchor.current.height;anchor.current=null;}
     else if(stick.current){node.scrollTop=node.scrollHeight;setHasNew(false);}
-  },[history,selected?.key,pending[selected?.key??'']]);
+  },[history,selected?.key,pending[selected?.key??''],picking,singlePane]);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;listGeneration.current++;threadGeneration.current++;};},[]);
 
   function revoke(key:string,since:number,reread=true){
@@ -129,12 +131,12 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
     else if(openChannel&&openedRequest.current!==openChannel.request){openedRequest.current=openChannel.request;select({kind,channel_key:openChannel.key,name:channels.find(item=>item.channel_key===openChannel.key)?.name??text.unit,unread_count:0,last_message_at:null});}
   },[active,openChannel?.request]);
   useEffect(()=>{
-    if(!active||compact&&picking)return;
+    if(!active||kind!=='world'&&singlePane&&picking)return;
     const update=()=>{if(document.visibilityState==='visible'&&navigator.onLine)void handlers.current.pullLatest();};
     const resume=()=>{retryAt.current=0;update();};
     update();const timer=window.setInterval(update,LIVE_POLL_MS);window.addEventListener('focus',resume);window.addEventListener('online',resume);document.addEventListener('visibilitychange',update);
     return()=>{window.clearInterval(timer);window.removeEventListener('focus',resume);window.removeEventListener('online',resume);document.removeEventListener('visibilitychange',update);};
-  },[active,client,compact,picking]);
+  },[active,client,singlePane,picking,kind]);
   async function pullLatest(){
     const key=current.current,shown=snapshot.current;
     if(!key||!shown.active||shown.status!=='ready'||!shown.history||shown.more.loading||shown.reading||shown.sending||threadInFlight.current||polling.current||Date.now()<retryAt.current)return;
@@ -196,7 +198,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   function select(item:ChannelSummary){
     current.current=item.channel_key;epoch.current++;gone.current.delete(item.channel_key);focusThread.current=true;
     stick.current=true;anchor.current=null;setHasNew(false);setLiveError('');retryAt.current=0;
-    setSelected({key:item.channel_key,name:item.name});if(compact)setPicking(false);void loadThread(item.channel_key);
+    setSelected({key:item.channel_key,name:item.name});setPicking(false);void loadThread(item.channel_key);
   }
   useEffect(()=>{if(status==='ready'&&focusThread.current){focusThread.current=false;heading.current?.focus();}},[status]);
   // A read that was already out when a write was confirmed may answer with the state before it.
@@ -292,10 +294,10 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   const key=selected?.key,draft=key?drafts[key]??'':'',attempt=key?pending[key]:undefined,sendError=key?sendErrors[key]:undefined;
   const richDraft=richDrafts.get(key??'');
   const ids={list:`${uid}-list`,title:`${uid}-title`,error:`${uid}-send-error`};
-  return <div className={`messages-layout member-channels${compact?' is-compact':''}`} data-channel-kind={kind}>
-    {compact&&selected&&kind!=='world'&&<button type="button" className="btn btn-ghost messages-switch" aria-expanded={picking} aria-controls={`${uid}-picker`} onClick={()=>setPicking(value=>!value)}>{picking?'回到目前對話':`切換${text.unit}`}</button>}
-    {kind!=='world'&&<section id={`${uid}-picker`} hidden={compact&&Boolean(selected)&&!picking} className="messages-side stack" aria-labelledby={ids.list}>
-      <h2 id={ids.list} className="member-section-title">{text.unit}頻道</h2>
+  return <div className={`messages-layout member-channels chat-workspace${compact?' is-compact':''}`} data-channel-kind={kind}>
+    {singlePane&&selected&&kind!=='world'&&<button type="button" className="btn btn-ghost messages-switch" aria-expanded={picking} aria-controls={`${uid}-picker`} onClick={()=>{setPicking(value=>!value);requestAnimationFrame(()=>{if(picking)heading.current?.focus();else document.getElementById(ids.list)?.focus();});}}>{picking?'回到目前對話':compact?`切換${text.unit}`:`← 返回${text.unit}列表`}</button>}
+    {kind!=='world'&&<section id={`${uid}-picker`} hidden={singlePane&&Boolean(selected)&&!picking} className="messages-side stack" aria-labelledby={ids.list}>
+      <h2 id={ids.list} tabIndex={-1} className="member-section-title">{text.unit}頻道</h2>
       <label className="field">搜尋{text.unit}頻道<input type="search" value={roomQuery} maxLength={100} onChange={event=>setRoomQuery(event.target.value)} placeholder="輸入頻道名稱"/></label>
       {listStatus==='loading'&&<p role="status">正在讀取{text.unit}頻道…</p>}
       {listStatus==='error'&&<div className="banner banner-error" role="alert">{text.unit}頻道讀取失敗：{listError}<div className="messages-actions"><button className="btn btn-ghost" type="button" onClick={()=>void loadList()}>重新讀取{text.unit}頻道</button></div></div>}
@@ -317,33 +319,33 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
       {roomQuery.trim()&&listStatus==='ready'&&!listRefresh.loading&&!channels.some(item=>item.name.toLocaleLowerCase().includes(roomQuery.trim().toLocaleLowerCase()))&&<p className="empty">沒有符合的頻道，請換個關鍵字。</p>}
       {listStatus==='ready'&&listNext!==null&&<button className="btn btn-ghost" type="button" disabled={listMore.loading} onClick={()=>void moreChannels()}>{listMore.loading?'正在讀取…':listMore.error?`重試載入更多${text.unit}頻道`:`載入更多${text.unit}頻道`}</button>}
     </section>}
-    <section hidden={compact&&kind!=='world'&&(!selected||picking)} className="messages-thread" aria-labelledby={ids.title} aria-busy={status==='loading'}>
+    <section hidden={singlePane&&kind!=='world'&&(!selected||picking)} className="messages-thread" aria-labelledby={ids.title} aria-busy={status==='loading'}>
       {!selected&&<><h2 id={ids.title}>{text.title}</h2><p className="muted">{text.pick}</p></>}
       {selected&&status==='gone'&&<>
         <h2 id={ids.title}>{selected.name}</h2>
         <div className="banner banner-error" role="alert">目前無法使用此頻道。<div className="messages-actions"><button className="btn btn-ghost" type="button" onClick={()=>onNavigate(text.home)}>{text.back}</button></div></div>
       </>}
       {selected&&status!=='gone'&&<>
-        <h2 id={ids.title} ref={heading} tabIndex={-1}>{kind==='world'?'世界聊天':history?`${history.channel.name}・${text.title}`:`${selected.name}・${text.title}`}</h2>
-        <p className="messages-meta">{kind==='world'?'所有會員可見':'只顯示這個頻道的訊息'} · {liveError?'更新暫停':'新訊息自動更新'}</p>
+        <div className="chat-header"><div><h2 id={ids.title} ref={heading} tabIndex={-1}>{kind==='world'?'世界聊天':history?`${history.channel.name}・${text.title}`:`${selected.name}・${text.title}`}</h2>
+        <span className="messages-meta">{kind==='world'?'所有會員可見':'只顯示這個頻道的訊息'} · {liveError?'更新暫停':'新訊息自動更新'}</span></div></div>
         {liveError&&<p role="status" className="messages-meta">{liveError}</p>}
         {status==='loading'&&<p role="status">正在讀取訊息…</p>}
         {status==='error'&&<div className="banner banner-error" role="alert">訊息讀取失敗：{error}<div className="messages-actions"><button className="btn btn-ghost" type="button" onClick={()=>void loadThread(selected.key)}>重新讀取訊息</button></div></div>}
         {status==='ready'&&history&&<>
           {/* Also the safe way to check an unconfirmed send: the pending key and draft stay as they are. */}
-          <div className="messages-actions messages-refresh"><button className="btn btn-ghost" title="重新讀取訊息" type="button" aria-disabled={refresh.loading} onClick={()=>{if(!refresh.loading)void loadThread(selected.key,true);}}>{refresh.loading?'正在讀取訊息…':'重新讀取訊息'}</button></div>
+          <div className="messages-actions messages-refresh"><button className="btn btn-ghost" title="重新讀取訊息" aria-label="重新讀取訊息" type="button" aria-disabled={refresh.loading} onClick={()=>{if(!refresh.loading)void loadThread(selected.key,true);}}>{refresh.loading?'正在讀取訊息…':'重新讀取訊息'}</button></div>
           {refresh.error&&<p className="banner banner-error" role="alert">訊息重新讀取失敗：{refresh.error}</p>}
           <div className="messages-scroll" ref={scroll} role="log" aria-live="polite" aria-relevant="additions" tabIndex={0} aria-label={`${history.channel.name}對話紀錄`} onScroll={()=>{if(scroll.current){stick.current=scroll.current.scrollHeight-scroll.current.scrollTop-scroll.current.clientHeight<80;if(stick.current)setHasNew(false);}}}>
           {history.next_offset!==null&&<button className="btn btn-ghost" type="button" disabled={more.loading} onClick={()=>void earlier()}>{more.loading?'正在讀取…':more.error?'重試載入較早訊息':'載入較早訊息'}</button>}
           {more.error&&<p className="banner banner-error" role="alert">較早訊息讀取失敗：{more.error}</p>}
           {history.items.length===0?<p className="empty">這個頻道還沒有訊息。</p>:<ol className="messages-bubbles" aria-label="頻道訊息">
             {[...history.items].reverse().map(message=>{const mine=message.sender_ref===me;return <li key={message.message_id} className={mine?'is-mine':undefined} data-message-id={message.message_id}>
-              <p className="messages-meta">{mine?'你':message.sender_name} · {formatIsoLocal(message.created_at)}</p>
+              <p className="messages-meta">{mine?'你':message.sender_name} · <ChatTime value={message.created_at}/>{mine?' · 已送出':''}</p>
               {message.reply_to&&<ChatQuote reply={message.reply_to}/>}<ChatBody message={message}/>
               <div className="chat-message-actions"><button className="btn btn-ghost" type="button" aria-label={`回覆${mine?'你':message.sender_name}的訊息`} disabled={attempt?.status==='sending'} onClick={()=>{richDrafts.change(selected.key,{reply:quoteMessage(message,mine?'你':message.sender_name)});document.getElementById(`${uid}-compose`)?.focus();}}>回覆</button></div>
             </li>;})}
           </ol>}
-          {attempt?.status==='sending'&&<div className="messages-pending" role="status" aria-label="傳送狀態"><ChatBody message={{body:attempt.body,...(attempt.payload.sticker_id?{sticker:{id:findChatSticker(attempt.payload.sticker_id)!.id,label:findChatSticker(attempt.payload.sticker_id)!.label}}:{})}}/><p className="messages-meta">傳送中…</p></div>}
+          {attempt&&<div className="messages-pending" role="status" aria-label="傳送狀態"><ChatBody message={{body:attempt.body,...(attempt.payload.sticker_id?{sticker:{id:findChatSticker(attempt.payload.sticker_id)!.id,label:findChatSticker(attempt.payload.sticker_id)!.label}}:{})}}/><p className="messages-meta">{attempt.status==='sending'?'傳送中…':'尚未確認送出，可用下方按鈕重試'}</p></div>}
           </div>
           {hasNew&&<button className="btn btn-ghost messages-new" type="button" onClick={()=>{stick.current=true;scroll.current?.scrollTo({top:scroll.current.scrollHeight});setHasNew(false);}}>有新訊息 · 回到最新</button>}
           {countUnconfirmed&&<div className="banner banner-error" role="alert">已標為已讀，但目前未讀數未確認：{countUnconfirmed}<div className="messages-actions"><button className="btn btn-ghost" type="button" aria-disabled={refresh.loading} onClick={()=>{if(!refresh.loading)void loadThread(selected.key,true);}}>重新讀取訊息</button></div></div>}
@@ -353,11 +355,8 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
           {readError&&<div className="banner banner-error" role="alert">{readError}<div className="messages-actions"><button className="btn btn-ghost" type="button" disabled={reading} onClick={()=>void markRead()}>重試標為已讀</button></div></div>}
           <form className="messages-compose" onSubmit={(event:FormEvent)=>{event.preventDefault();void send(selected.key);}}>
             <ChatExtras target={selected.key} draft={richDraft} disabled={attempt?.status==='sending'} onChange={value=>richDrafts.change(selected.key,value)}/>
-            <label className="field" hidden={Boolean(richDraft.sticker_id)}><span>{kind==='world'?'世界聊天訊息':`在 ${history.channel.name} 發言`}</span>
-              <textarea id={`${uid}-compose`} value={draft} rows={3} readOnly={attempt?.status==='sending'} aria-describedby={sendError?ids.error:undefined}
-                onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing&&event.keyCode!==229){event.preventDefault();void send(selected.key);}}}
-                onChange={event=>{const value=event.target.value;setDrafts(drafts=>({...drafts,[selected.key]:value}));}}/></label>
-            {!richDraft.sticker_id&&<p className="messages-meta">Enter 送出 · Shift+Enter 換行 · {[...draft].length}／{MAX_BODY} 字</p>}
+            <ChatInput id={`${uid}-compose`} label={kind==='world'?'世界聊天訊息':`在 ${history.channel.name} 發言`} value={draft} sending={attempt?.status==='sending'} hidden={Boolean(richDraft.sticker_id)} errorId={sendError?ids.error:undefined} mobile={mobile}
+              onSend={()=>void send(selected.key)} onChange={value=>setDrafts(drafts=>({...drafts,[selected.key]:value}))}/>
             {sendError&&<p id={ids.error} className="banner banner-error" role="alert">{sendError}</p>}
             <div className="messages-actions">
               <button className="btn btn-primary" type="submit" disabled={attempt?.status==='sending'}>{attempt?.status==='sending'?'正在送出…':attempt?.status==='unknown'&&sameChatPayload(attempt.payload,chatPayload(draft,richDraft))?'重試送出':kind==='world'?'傳送':'送出'}</button>

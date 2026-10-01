@@ -155,9 +155,13 @@ export async function conversationActivity(pool:Pool,actor:Actor,rawPeer:string,
       (SELECT message_id FROM member_direct_messages WHERE community_id=$1
         AND least(sender_ref,recipient_ref)=least($2::uuid,$3::uuid) AND greatest(sender_ref,recipient_ref)=greatest($2::uuid,$3::uuid)
         ORDER BY created_at DESC,message_id DESC LIMIT 1) AS last_message_id,
-      (SELECT count(*)::int FROM member_direct_messages WHERE community_id=$1 AND recipient_ref=$2 AND sender_ref=$3 AND read_at IS NULL) AS unread_count`,
+      (SELECT count(*)::int FROM member_direct_messages WHERE community_id=$1 AND recipient_ref=$2 AND sender_ref=$3 AND read_at IS NULL) AS unread_count,
+      (SELECT json_build_object('message_id',message_id,'read_at',read_at) FROM member_direct_messages
+        WHERE community_id=$1 AND sender_ref=$2 AND recipient_ref=$3
+        ORDER BY created_at DESC,message_id DESC LIMIT 1) AS last_outgoing`,
       [actor.community_id,actor.user_id,id])).rows[0];
-    return {last_message_id:row.last_message_id,unread_count:row.unread_count,can_send:peer.ready&&peer.viewer_ready};
+    return {last_message_id:row.last_message_id,unread_count:row.unread_count,can_send:peer.ready&&peer.viewer_ready,
+      last_outgoing:row.last_outgoing?{message_id:row.last_outgoing.message_id,read_at:iso(row.last_outgoing.read_at)}:null};
   });
 }
 

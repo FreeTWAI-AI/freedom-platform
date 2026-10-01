@@ -217,7 +217,8 @@ test('two synthetic members chat in their own guild and squad through the real U
       await noOverflow(r);
       const rBox=rThread.getByLabel(`在 ${name} 發言`);
       expect(await rBox.evaluate(node=>getComputedStyle(node).fontSize)).toBe('16px');
-      await tall([tab(r,label),channelButton(r,kind,key),rThread.getByRole('button',{name:'重新讀取訊息',exact:true}),rThread.getByRole('button',{name:'標為已讀',exact:true}),rThread.getByRole('button',{name:'送出',exact:true})]);
+      await expect(r.locator(`#messages-panel-${kind} .messages-side`)).toBeHidden();
+      await tall([tab(r,label),r.getByRole('button',{name:`← 返回${kind==='guild'?'公會':'小隊'}列表`,exact:true}),rThread.getByRole('button',{name:'重新讀取訊息',exact:true}),rThread.getByRole('button',{name:'標為已讀',exact:true}),rThread.getByRole('button',{name:'送出',exact:true})]);
 
       // Explicit read: PostgreSQL cursor, API and badges move together; private and notification unread stay.
       await rThread.getByRole('button',{name:'標為已讀',exact:true}).click();
@@ -299,9 +300,8 @@ test('after leaving a guild and a squad through the real API, the open chat clea
       }
       expect((await expectOk(leaver.get(`/me/channels?kind=${kind}`))).items.map((item:{channel_key:string})=>item.channel_key)).not.toContain(key);
 
-      // The page still showing the old history re-reads: history and composer are gone, the channel leaves the list.
-      await lThread.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
-      await expect(lThread.getByRole('alert')).toContainText('目前無法使用此頻道。');
+      // The live access check clears the old room without needing a manual refresh.
+      await expect(lThread.getByRole('alert')).toContainText('目前無法使用此頻道。',{timeout:5000});
       await expect(lThread.getByRole('list',{name:'頻道訊息'})).toHaveCount(0);await expect(lThread).not.toContainText(secret);
       await expect(lThread.locator('textarea')).toHaveCount(0);await expect(lThread.getByRole('button',{name:'送出',exact:true})).toHaveCount(0);
       await expect(channelButton(l,kind,key)).toHaveCount(0);

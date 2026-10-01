@@ -289,27 +289,29 @@ test('switching channels ignores slow answers and never mixes guild, squad or pr
   await open(page,server);await tab(page,'公會閒聊').click();
   const guild=panel(page,'公會閒聊'),thread=guild.locator('.messages-thread');
   await guild.getByRole('button',{name:'合成公會甲',exact:true}).click();await expect(thread.getByRole('status')).toHaveText('正在讀取訊息…');
+  await expect(guild.locator('.messages-side')).toBeHidden();await guild.getByRole('button',{name:'← 返回公會列表',exact:true}).click();
   await guild.getByRole('button',{name:'合成公會乙',exact:true}).click();
   await expect(thread.getByRole('heading',{level:2})).toHaveText('合成公會乙・公會閒聊');await expect(thread.getByText('這個頻道還沒有訊息。')).toBeVisible();
   hold.release();server.control.gate=undefined;await page.waitForTimeout(300);
   await expect(thread.getByRole('heading',{level:2})).toHaveText('合成公會乙・公會閒聊');await expect(thread.getByText(/合成公會甲 合成訊息/)).toHaveCount(0);
-  await expect(guild.getByRole('button',{name:'合成公會乙',exact:true})).toHaveAttribute('aria-current','true');
+  await expect(guild.getByRole('button',{name:'合成公會乙',exact:true,includeHidden:true})).toHaveAttribute('aria-current','true');
   // A slow answer for one squad does not land in another squad either.
   const squadHold=holder();server.control.gate=(what,info)=>what==='history'&&info.key===squadA?squadHold.wait():undefined;
   await tab(page,'小隊閒聊').click();
   const squad=panel(page,'小隊閒聊'),squadThread=squad.locator('.messages-thread');
-  await expect(squadThread.getByRole('heading',{level:2})).toHaveText('小隊閒聊');await expect(squadThread.locator('.messages-bubbles')).toHaveCount(0);
-  await squad.getByRole('button',{name:'合成小隊甲',exact:true}).click();await squad.getByRole('button',{name:'合成小隊乙',exact:true}).click();
+  await expect(squadThread).toBeHidden();await expect(squadThread.locator('.messages-bubbles')).toHaveCount(0);
+  await squad.getByRole('button',{name:'合成小隊甲',exact:true}).click();await squad.getByRole('button',{name:'← 返回小隊列表',exact:true}).click();await squad.getByRole('button',{name:'合成小隊乙',exact:true}).click();
   await expect(squadThread.locator('.messages-bubbles .messages-body')).toHaveText(['合成小隊乙 合成訊息 1']);
   squadHold.release();server.control.gate=undefined;await page.waitForTimeout(300);
   await expect(squadThread.locator('.messages-bubbles .messages-body')).toHaveText(['合成小隊乙 合成訊息 1']);
-  await squad.getByRole('button',{name:'合成小隊甲',exact:true}).click();
+  await squad.getByRole('button',{name:'← 返回小隊列表',exact:true}).click();await squad.getByRole('button',{name:'合成小隊甲',exact:true}).click();
   await expect(squadThread.locator('.messages-bubbles .messages-body')).toHaveText(['合成小隊甲 合成訊息 1','合成小隊甲 合成訊息 2']);
   await noOverflow(page);await shot(page,'squad-320');
   // Each panel holds only its own kind; the private panel holds none.
   await expect(squad.getByText(/合成公會/)).toHaveCount(0);await expect(guild.getByText(/合成小隊/)).toHaveCount(0);
   await expect(panel(page,'私人訊息').getByText(/合成(公會|小隊)/)).toHaveCount(0);
   await tab(page,'公會閒聊').click();await expect(thread.getByRole('heading',{level:2})).toHaveText('合成公會乙・公會閒聊');
+  await guild.getByRole('button',{name:'← 返回公會列表',exact:true}).click();
   await guild.getByRole('button',{name:'合成公會甲',exact:true}).click();await expect(thread.locator('.messages-bubbles .messages-body')).toHaveCount(3);
   await noOverflow(page);await shot(page,'guild-320');
 });
