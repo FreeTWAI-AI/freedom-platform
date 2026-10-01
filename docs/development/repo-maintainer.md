@@ -4,14 +4,14 @@
 
 階段 1b 加上人工認領和管理頁「PR 審核」。認領是軟鎖，讓兩個人不要同時審同一筆拉取請求。預設不設到期；管理員仍可把 `claim_hours` 設成 1–168。認領不是審查證據。審查仍以 GitHub 上的 review 為準。
 
-階段 1c 把「誰可以審」從審查者名單改成儲存庫歸屬。一個儲存庫屬於一個公會，類型是模組、技能書或未分類。新鏡像的儲存庫沒有公會，並開放公會長認領；目錄裡的 `official_guild_keys` 不會自動變成歸屬。管理員仍可把單一儲存庫改成只限管理員。開放時，任何現任公會長都能審，第一筆完成的公會長審查會把儲存庫歸到那位公會長的公會。背景只做兩件事：鏡像 GitHub 事實，以及既有的、預設關閉的請求審查者鏡像。沒有自動處理，也沒有 AI。
+階段 1c 把「誰可以審」從審查者名單改成儲存庫歸屬。一個儲存庫屬於一個公會，類型是模組、技能書或未分類。新鏡像的儲存庫沒有公會，並開放公會長認領；目錄裡的 `official_guild_keys` 不會自動變成歸屬。管理員仍可把單一儲存庫改成只限管理員。開放時，任何現任公會長都能審，第一筆完成的公會長審查會把儲存庫歸到那位公會長的公會。背景只做兩件事：鏡像 GitHub 事實，以及既有的請求審查者鏡像。沒有自動處理，也沒有 AI。
 
 這一階段不做這些事：
 
 - 不在 GitHub 上送審查、留言、標籤或合併。
 - 不呼叫 AI。
 - 儲存庫 mode 只有 `off` 與 `observe`。其他值回 422。
-- 把認領鏡像成 GitHub requested reviewer 已經接上，預設關閉。三個開關都打開才會寫，見「要求審查者」。
+- 把認領鏡像成 GitHub requested reviewer 已經接上。沒有另外設定時，認領會請求審查者。本機 Worker 變數仍是 `off`；staging 與 production 是 `requested_reviewers`。三個條件都成立才會寫，見「要求審查者」。
 
 會員用的 GitHub App（`modules/github-social`）不變：不留私鑰、不擴權、webhook 關閉。維護者 App 是另一個私有 App。
 
@@ -54,17 +54,17 @@ Webhook 只是提示。漏掉的投遞不會由 GitHub 重送。Worker 每 30 �
 
 另建一個私有 App，只裝在 FreeTWAI-AI，安裝時選「Only select repositories」。不要改會員 App。
 
-階段 1a 實際用到的權限都是讀：
+App 建立時就包含下面的權限。Pull requests 從一開始就是 Read & write，所以之後打開請求審查者時，不必再請組織重新同意。
 
-| 權限 | 階段 1a |
+| 權限 | 存取 |
 | --- | --- |
 | Metadata | Read |
-| Pull requests | Read |
+| Pull requests | Read & write |
 | Checks | Read |
 | Commit statuses | Read |
 | Contents | Read。只在拉取請求碰到遷移目錄時，讀 base 分支的檔名清單 |
 
-階段 1b 只有在下面三個開關都打開時，才會用 Pull requests 的 write，而且只對被認領的那一位審查者呼叫 requested reviewers。Issues、Actions 與 Contents 寫入仍不使用。App 增加權限時，GitHub 會要求組織重新核准；在核准之前，鑄 token 會失敗，工作記成 `github_permission_missing`，不重試。
+寫入只對被認領的那一位審查者呼叫 requested reviewers。Issues、Actions 與 Contents 寫入仍不使用。沒有 Pull requests write 時，鑄 token 失敗為 `github_permission_missing`，工作失敗且不重試，認領不受影響。
 
 事件：`pull_request`、`pull_request_review`、`check_suite`、`check_run`、`status`。`installation` 與 `installation_repositories` 會自動送出，用來提前做安裝同步。`ping` 只記錄、不排工作。Issues 與 issue comment 這一階段會被記成 ignored。
 
@@ -174,11 +174,13 @@ Tick 在重新推導之前結束認領。每一步先依 `pull_id` 順序鎖住�
 
 ### 要求審查者
 
-預設不寫 GitHub。三個開關都要開：
+沒有另外設定時會請求審查者。三個條件都要成立才寫入 GitHub：
 
-1. 維護者 App 的 Pull requests 權限是 write。組織必須在 GitHub 重新核准，否則鑄 token 會得到 403 或 422。
-2. 維護 Worker 的 `GITHUB_MAINTAINER_WRITES` 正好是 `requested_reviewers`。Committed 的值是 `off`。沒給、或任何其他字（含大小寫不同）都當成 `invalid`，不會寫。
-3. 該儲存庫設定 `request_reviewers` 是 true。
+1. 維護者 App 的 Pull requests 權限是 Read & write。App 建立時就包含這項，不必事後重新同意。沒有這個權限時，鑄 token 失敗為 `github_permission_missing`，工作失敗且不重試，認領不受影響。
+2. 維護 Worker 的 `GITHUB_MAINTAINER_WRITES` 正好是 `requested_reviewers`。本機 dry-run 的值是 `off`。`staging-next` 與 `next` 是 `requested_reviewers`。沒給、或任何其他字（含大小寫不同）都當成 `invalid`，不會寫。
+3. 該儲存庫設定 `request_reviewers`。沒有這個欄位時當成 true。管理員明確設成 false 就維持 false。
+
+GitHub 拒絕（例如 422，因為這個人不是 collaborator）記在認領上，不會擋下認領。
 
 認領或指派時，設定是 true 就把 `github_request_state` 設成 `pending` 並排入 `request_reviewer`；否則是 `not_requested`，不排工作。工作執行當下會再讀這三個開關。請求工作在狀態仍是 `pending` 時，不允許就標 `skipped`（`writes_disabled`），不呼叫 GitHub。認領已經不是 active、但狀態仍是 `pending`，就標 `skipped`（`claim_inactive`）。狀態已經不是這次工作預期的 `pending`（請求）或 `removing`（移除）時，不更新那一列，工作以 `claim_state_changed` 結束。這樣重跑不會把已經 `requested` 或 `removed` 的列改成 `skipped`。
 

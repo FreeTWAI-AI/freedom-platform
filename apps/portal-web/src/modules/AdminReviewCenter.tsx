@@ -306,7 +306,7 @@ function RepoForm({ repo, busy, onMutate, onSaved }: {
   const initialHours = typeof stored.claim_hours === 'number' ? String(stored.claim_hours) : '';
   const [mode, setMode] = useState(repo.mode === 'off' || repo.mode === 'observe' ? repo.mode : 'observe');
   const [claimHours, setClaimHours] = useState(initialHours);
-  const [requestReviewers, setRequestReviewers] = useState(stored.request_reviewers === true);
+  const [requestReviewers, setRequestReviewers] = useState(stored.request_reviewers !== false);
   const [requiredCheck, setRequiredCheck] = useState(String(stored.required_check ?? 'verify'));
   const [appSlug, setAppSlug] = useState(String(stored.required_check_app_slug ?? 'github-actions'));
   const [holds, setHolds] = useState(Array.isArray(stored.hold_labels) ? (stored.hold_labels as string[]).join(', ') : 'hold, do-not-merge');
@@ -330,7 +330,7 @@ function RepoForm({ repo, busy, onMutate, onSaved }: {
     <label className="field">模式<select value={mode} onChange={event => setMode(event.target.value)}><option value="off">關閉</option><option value="observe">觀察</option></select></label>
     <label className="field">認領時效（小時）<input inputMode="numeric" value={claimHours} placeholder="不自動釋放" onChange={event => setClaimHours(event.target.value)} /></label>
     <label className="checkbox-row"><input type="checkbox" checked={requestReviewers} onChange={event => setRequestReviewers(event.target.checked)} />把認領寫成 GitHub 請求審查</label>
-    <p className="field-hint">只有 Worker 變數 GITHUB_MAINTAINER_WRITES 也是 requested_reviewers，而且 GitHub App 已有 Pull requests 寫入權限時，才會寫入 GitHub。GitHub 組織必須重新核准這項權限。</p>
+    <p className="field-hint">沒有另外設定時，認領會請求審查者。App 建立時就包含 Pull requests 的讀寫，不必事後重新同意。Worker 變數 GITHUB_MAINTAINER_WRITES 是 requested_reviewers，而且這格有勾，才會寫入 GitHub。沒有寫入權限時，鑄 token 失敗為 github_permission_missing，工作失敗且不重試，認領不受影響。</p>
     <label className="field">必要檢查<input value={requiredCheck} onChange={event => setRequiredCheck(event.target.value)} maxLength={100} /></label>
     <label className="field">檢查 App<input value={appSlug} onChange={event => setAppSlug(event.target.value)} maxLength={100} /></label>
     <label className="field">保留標籤（逗號分隔，空白表示不使用）<input value={holds} onChange={event => setHolds(event.target.value)} /></label>

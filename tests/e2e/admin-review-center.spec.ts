@@ -321,7 +321,7 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
     for (const label of ['認領審核', '釋放審核認領', '指派審核', '暫停拉取請求', '恢復拉取請求', '變更 PR 審核歸屬']) {
       await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
     }
-    expect((await e2eAuthPool.query('SELECT count(*) FROM maintainer_jobs WHERE repository_id=$1', [REPO])).rows[0].count).toBe('0');
+    expect((await e2eAuthPool.query(`SELECT kind FROM maintainer_jobs WHERE repository_id=$1 ORDER BY kind`, [REPO])).rows.map(row => row.kind)).toEqual(['request_reviewer', 'request_reviewer']);
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('button', { name: 'PR 審核', exact: true }).click();

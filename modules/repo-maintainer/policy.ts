@@ -116,7 +116,7 @@ export function resolveSettings(fullName: string, raw: unknown): MaintainerSetti
     hold_labels: parsed.hold_labels ?? ['hold', 'do-not-merge'],
     migrations_dir: parsed.migrations_dir ?? 'migrations',
     claim_hours: parsed.claim_hours ?? null,
-    request_reviewers: parsed.request_reviewers ?? false,
+    request_reviewers: parsed.request_reviewers ?? true,
   };
 }
 

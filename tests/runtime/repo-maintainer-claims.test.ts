@@ -200,7 +200,8 @@ test('claim, assign, release, pause and resume enforce identity, version and the
   assert.equal(claimed.data.queue_state, 'in_review');
   assert.equal(claimed.data.claim.reviewer_login, 'self-reviewer');
   assert.equal(claimed.data.claim.assignment, 'self');
-  assert.equal(claimed.data.claim.github_request_state, 'not_requested');
+  assert.equal(claimed.data.claim.github_request_state, 'pending');
+  assert.equal((await pool.query(`SELECT count(*) FROM maintainer_jobs WHERE kind='request_reviewer'`)).rows[0].count, '1');
   assert.equal(claimed.etag, `"${claimed.data.aggregate_version}"`);
   assert.ok(claimed.data.queue_reasons.some((reason: { code: string }) => reason.code === 'review_claimed'));
   const replay = await request(path, {}, 1, key);

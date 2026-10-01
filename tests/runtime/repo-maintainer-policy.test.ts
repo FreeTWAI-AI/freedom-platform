@@ -61,7 +61,8 @@ test('repository settings fill defaults and reject a retired sla_hours field', (
   assert.equal(resolveSettings('Other/repo', {}).rules_profile, 'default');
   assert.equal(resolveSettings('FreeTWAI-AI/freedom-platform', { rules_profile: 'default' }).rules_profile, 'default');
   assert.equal(resolveSettings('Other/repo', { claim_hours: 12, request_reviewers: true }).claim_hours, 12);
-  assert.equal(settings.request_reviewers, false);
+  assert.equal(settings.request_reviewers, true);
+  assert.equal(resolveSettings('Other/repo', { request_reviewers: false }).request_reviewers, false);
   assert.equal(resolveSettings('Other/repo', { claim_hours: null }).claim_hours, null);
   assert.throws(() => resolveSettings('Other/repo', { claim_hours: 0 }));
   assert.throws(() => resolveSettings('Other/repo', { claim_hours: 169 }));
