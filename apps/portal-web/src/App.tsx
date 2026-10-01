@@ -92,7 +92,7 @@ const TAB_GUIDANCE: Record<TabId, string> = {
   todos: '查看會員待辦事項與可直接前往的操作。',
   messages: '查看收到的訊息與對話。',
   events: '查看社群活動、審核結果與報名狀態。',
-  tasks: '探索工坊工作、GitHub Issue／PR 歷史與作者排行榜，查看有來源的驗收紀錄。',
+  tasks: '探索工坊工作、GitHub Issue／PR 歷史與已連結 GitHub 的會員排行，查看有來源的驗收紀錄。',
 }
 
 type ActionError = {

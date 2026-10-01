@@ -86,14 +86,29 @@ export async function listEventBulletins(pool:Pool,actor:Actor){
     ORDER BY b.created_at DESC,b.bulletin_id DESC LIMIT 30`,[actor.community_id,actor.user_id])).rows;
 }
 
+const pastEventLimit=100;
+// Current and own rows stay whole. Other ended published rows are the newest slice, so old history cannot crowd them out.
+function rankedEvents(visible:string,columns:string){
+  return `WITH visible AS (${visible}), listed AS (
+    SELECT visible.*,0 AS list_rank,visible.starts_at AS list_time FROM visible WHERE NOT (state='published' AND ends_at<=now())
+    UNION ALL
+    SELECT visible.*,1,visible.starts_at FROM visible WHERE state='published' AND ends_at<=now() AND organizer_ref=$2
+    UNION ALL
+    SELECT capped.*,1,capped.starts_at FROM (
+      SELECT visible.* FROM visible WHERE state='published' AND ends_at<=now() AND organizer_ref<>$2
+      ORDER BY starts_at DESC,event_id DESC LIMIT $3::int) capped
+  ) SELECT ${columns} FROM listed
+  ORDER BY list_rank,CASE WHEN list_rank=0 THEN list_time END ASC,CASE WHEN list_rank=1 THEN list_time END DESC,event_id`;
+}
+
 export async function listEvents(pool:Pool,actor:Actor) {
+  const args=[actor.community_id,actor.user_id,pastEventLimit];
   if(actor.onboarding_required&&!actor.onboarding_completed_at) {
-    return (await pool.query(`SELECT event_id,title,starts_at,ends_at,mode,state
-      FROM community_events WHERE community_id=$1 AND ((state='published' AND visibility<>'guild' AND starts_at>now()) OR organizer_ref=$2)
-        AND (organizer_ref=$2 OR NOT is_verification_test_account(organizer_ref))
-      ORDER BY starts_at,event_id LIMIT 30`,[actor.community_id,actor.user_id])).rows;
+    return (await pool.query(rankedEvents(`SELECT event_id,title,starts_at,ends_at,mode,state,organizer_ref
+      FROM community_events WHERE community_id=$1 AND ((state='published' AND visibility<>'guild') OR organizer_ref=$2)
+        AND (organizer_ref=$2 OR NOT is_verification_test_account(organizer_ref))`,'event_id,title,starts_at,ends_at,mode,state'),args)).rows;
   }
-  const rows=(await pool.query(`SELECT e.*,u.display_name AS organizer_name,
+  const rows=(await pool.query(rankedEvents(`SELECT e.*,u.display_name AS organizer_name,
     (CASE WHEN EXISTS(SELECT 1 FROM community_event_banners b WHERE b.event_id=e.event_id)
       THEN '/api/v1/events/'||e.event_id||'/banner?v='||e.aggregate_version ELSE NULL END) AS banner_url,
     (SELECT orientation FROM community_event_banners b WHERE b.event_id=e.event_id) AS banner_orientation,
@@ -108,7 +123,7 @@ export async function listEvents(pool:Pool,actor:Actor) {
         ON m.community_id=o.community_id AND m.guild_key=o.guild_key AND m.user_id=o.user_id AND m.state='active'
       WHERE o.community_id=e.community_id AND o.guild_key=e.review_guild_key AND o.user_id=$2)) AS can_review
     FROM community_events e JOIN users u ON u.user_id=e.organizer_ref
-    WHERE e.community_id=$1 AND ((e.state='published' AND e.starts_at>now()-interval '30 days' AND
+    WHERE e.community_id=$1 AND ((e.state='published' AND
       (e.visibility<>'guild' OR e.organizer_ref=$2 OR EXISTS(
         SELECT 1 FROM positioning_profession_memberships gm WHERE gm.community_id=e.community_id
           AND gm.user_id=$2 AND gm.guild_key=e.guild_key AND gm.state='active')))
@@ -116,10 +131,12 @@ export async function listEvents(pool:Pool,actor:Actor) {
         SELECT 1 FROM positioning_guild_officers o JOIN positioning_profession_memberships m
           ON m.community_id=o.community_id AND m.guild_key=o.guild_key AND m.user_id=o.user_id AND m.state='active'
         WHERE o.community_id=e.community_id AND o.guild_key=e.review_guild_key AND o.user_id=$2)))
-      AND (e.organizer_ref=$2 OR NOT is_verification_test_account(e.organizer_ref))
-    ORDER BY e.starts_at,e.event_id LIMIT 100`,[actor.community_id,actor.user_id])).rows;
-  return rows.map(row=>row.visibility==='referral'&&row.my_rsvp!=='going'&&row.organizer_ref!==actor.user_id&&!row.can_review
-    ?{...row,location:row.mode==='online'||/https?:\/\//i.test(row.location)?'線上參與資料將寄至報名信箱':row.location,online_url:null}:row);
+      AND (e.organizer_ref=$2 OR NOT is_verification_test_account(e.organizer_ref))`,'*'),args)).rows;
+  return rows.map(row=>{
+    const {list_rank:_rank,list_time:_time,...rest}=row;
+    return rest.visibility==='referral'&&rest.my_rsvp!=='going'&&rest.organizer_ref!==actor.user_id&&!rest.can_review
+      ?{...rest,location:rest.mode==='online'||/https?:\/\//i.test(rest.location)?'線上參與資料將寄至報名信箱':rest.location,online_url:null}:rest;
+  });
 }
 
 const shareCode=z.string().regex(/^[A-Za-z0-9_-]{16,32}$/);

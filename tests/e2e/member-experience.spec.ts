@@ -1,7 +1,28 @@
 import { randomUUID } from 'node:crypto';
+import type { Pool } from 'pg';
 import sharp from 'sharp';
+import { DEMO_COMMUNITY } from '../../packages/testing/seed.js';
 import { test,expect } from './fixtures.js';
 import { navigate } from './navigation.js';
+
+const leaderboardFixtureUsers: string[] = [];
+test.afterEach(async ({ e2eAuthPool }) => {
+  if (!leaderboardFixtureUsers.length) return;
+  const ids = leaderboardFixtureUsers.splice(0);
+  await e2eAuthPool.query('DELETE FROM github_social_connections WHERE user_id = ANY($1::uuid[])', [ids]);
+  await e2eAuthPool.query('DELETE FROM users WHERE user_id = ANY($1::uuid[])', [ids]);
+});
+
+async function bindLeaderboardLogins(pool: Pool) {
+  const memberId = randomUUID(), contributorId = randomUUID();
+  leaderboardFixtureUsers.push(memberId, contributorId);
+  await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
+    SELECT $1,community_id,$2,'排行綁定甲',password_hash,$3,false FROM users WHERE email='maker@local.test'`, [memberId, `leaderboard-bind-${memberId}@example.test`, randomUUID()]);
+  await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
+    SELECT $1,community_id,$2,'排行綁定乙',password_hash,$3,false FROM users WHERE email='maker@local.test'`, [contributorId, `leaderboard-bind-${contributorId}@example.test`, randomUUID()]);
+  await pool.query(`INSERT INTO github_social_connections(user_id,community_id,github_user_id,github_login,encrypted_tokens)
+    VALUES ($1,$3,'9100100201','member-demo','e2e-not-a-token'),($2,$3,'9100100202','contributor-demo','e2e-not-a-token')`, [memberId, contributorId, DEMO_COMMUNITY]);
+}
 
 test('new member explores, submits an event and selects each theme',async({page})=>{
   await page.setViewportSize({width:390,height:844});
@@ -53,8 +74,9 @@ test('new member explores, submits an event and selects each theme',async({page}
   await expect(page.getByRole('heading',{name:'共創新夥伴，歡迎來到自由工坊。'})).toBeVisible();
 });
 
-test('completed member submits an event and sees accepted-work facts without provisional points',async({page})=>{
+test('completed member submits an event and sees accepted-work facts without provisional points',async({page,e2eAuthPool})=>{
   test.setTimeout(90_000);
+  await bindLeaderboardLogins(e2eAuthPool);
   await page.goto('/');
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
@@ -101,9 +123,14 @@ test('completed member submits an event and sees accepted-work facts without pro
   await expect(page.getByRole('heading',{name:'社群任務',level:1})).toBeVisible();
   await expect(page.getByText('GitHub 排行分數不計入這裡的驗收件數。',{exact:false})).toBeVisible();
   await expect(page.getByRole('heading',{name:'使用者排行榜與歷史紀錄'})).toBeVisible();
+  await expect(page.getByText('已在平台連結 GitHub')).toBeVisible();
+  await expect(page.getByText('這些分數只顯示在本頁，不計入會員經驗、獎勵或驗收。')).toBeVisible();
   await page.getByRole('button',{name:'歷史想法'}).click();
   await expect(page.getByRole('button',{name:/平台結構/})).toHaveAttribute('aria-pressed','true');
   await expect(page.getByRole('link',{name:'讓會員首頁的文字更清楚'})).toBeVisible();
+  const outsider=page.locator('.community-history-list li').filter({hasText:'外部協作者的紀錄'});
+  await expect(outsider.getByRole('link',{name:'外部協作者的紀錄'})).toBeVisible();
+  await expect(outsider).toContainText('outsider-demo');
   await expect(page.locator('.community-history-list li').filter({hasText:'自動檢查未採納'}).locator('.community-history-state')).toHaveText('已解決');
   await expect(page.locator('.community-history-list img')).toHaveCount(0);
   await expect(page.getByText('<img src=x onerror=alert(1)>')).toBeVisible();
@@ -133,6 +160,7 @@ test('completed member submits an event and sees accepted-work facts without pro
   await expect(ideas).toContainText('2 Issue');
   await expect(ideas).not.toContainText('dependabot');
   await expect(ideas).not.toContainText('github-actions');
+  await expect(ideas).not.toContainText('outsider-demo');
   const edits=page.locator('section.community-leaderboard').filter({has:page.getByRole('heading',{name:'編修排行榜'})});
   await expect(edits).toContainText('contributor-demo');
   await expect(edits).toContainText('2 PR');
@@ -142,6 +170,8 @@ test('completed member submits an event and sees accepted-work facts without pro
   await expect(points).toContainText('40 分');
   await expect(points).toContainText('30 分');
   await expect(points).not.toContainText('dependabot');
+  await expect(edits).not.toContainText('outsider-demo');
+  await expect(points).not.toContainText('outsider-demo');
   await page.getByLabel('選擇共創專案').selectOption({index:1});
   await expect(page.getByRole('heading',{name:'GitHub 共創 Issue'})).toBeVisible();
   await page.screenshot({path:'test-results/member-tasks-light.png',fullPage:true});
