@@ -1225,6 +1225,67 @@ test('the anonymous metrics retry counts toward the request budget', async () =>
   }
 });
 
+test('books skipped for an active backoff do not take metrics slots', async () => {
+  await quietSides();
+  const errors: unknown[][] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args); };
+  const targets = catalogMetricTargets();
+  const orgs = targets.filter(target => target.key.startsWith('freetwai-ai/')).slice(0, 6);
+  const other = targets.find(target => !target.key.startsWith('freetwai-ai/'));
+  assert.equal(orgs.length, 6);
+  assert.ok(other);
+  try {
+    await pool.query(`INSERT INTO github_sync_backoff(backoff_key, until_at) VALUES ('anonymous', $1)`, [new Date(T0 + 60 * 60 * 1000)]);
+    for (const [index, org] of orgs.entries()) await dueMetrics([org], T0 - (6 - index) * 60_000);
+    await dueMetrics([other], T0);
+    const seeded = (await pool.query<{repository_key: string; retry_after: Date; last_error: string | null; snapshot: unknown}>(
+      `SELECT repository_key, retry_after, last_error, snapshot FROM github_repository_metrics WHERE repository_key = ANY($1::text[]) ORDER BY repository_key`,
+      [orgs.map(org => org.key)],
+    )).rows;
+    assert.equal(seeded.length, 6);
+    const calls: {url: string; auth: string | null}[] = [];
+    const summary = await syncGitHubRepositories(pool, {
+      token: SECRET,
+      now: () => T0,
+      fetcher: async (input, init) => {
+        const url = String(input);
+        const auth = header(init, 'authorization');
+        calls.push({url, auth});
+        if (url === `https://api.github.com/repos/${orgs[0].repository}`) {
+          assert.equal(auth, `Bearer ${SECRET}`);
+          return json({message: 'Resource not accessible by integration'}, 403);
+        }
+        assert.equal(url, `https://api.github.com/repos/${other.repository}`);
+        assert.equal(auth, `Bearer ${SECRET}`);
+        return json(metricBody());
+      },
+    });
+    assert.equal(summary.requests, 2);
+    assert.equal(summary.stop_reason, 'completed');
+    assert.deepEqual(calls, [
+      {url: `https://api.github.com/repos/${orgs[0].repository}`, auth: `Bearer ${SECRET}`},
+      {url: `https://api.github.com/repos/${other.repository}`, auth: `Bearer ${SECRET}`},
+    ]);
+    const saved = (await pool.query<{stars: string | null; last_error: string | null}>(
+      `SELECT snapshot->>'stargazers_count' AS stars, last_error FROM github_repository_metrics WHERE repository_key=$1`,
+      [other.key],
+    )).rows[0];
+    assert.equal(saved.stars, '9');
+    assert.equal(saved.last_error, null);
+    const after = (await pool.query<{repository_key: string; retry_after: Date; last_error: string | null; snapshot: unknown}>(
+      `SELECT repository_key, retry_after, last_error, snapshot FROM github_repository_metrics WHERE repository_key = ANY($1::text[]) ORDER BY repository_key`,
+      [orgs.map(org => org.key)],
+    )).rows;
+    assert.deepEqual(after, seeded);
+    assert.deepEqual(errors, [['github_metrics_token_rejected', 'freetwai-ai']]);
+    assert.equal(JSON.stringify(errors).includes(SECRET), false);
+  } finally {
+    console.error = original;
+    await quietSides();
+  }
+});
+
 test('migration 057 clears issue cursors and the next run reads without since', async () => {
   await quietSides();
   try {
