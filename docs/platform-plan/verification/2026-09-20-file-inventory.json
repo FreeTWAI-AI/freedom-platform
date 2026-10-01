@@ -1445,7 +1445,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30575,
-      "sha256": "18f970a7c10f79f378e979de0eef404ad48893c3fb8b807a7cc72d2c7b2863ae"
+      "sha256": "e80e1b92a7a902ead6667018cf2748a6ab86d7ff3c6c6f06424e757c2613dc24"
     },
     {
       "path": "deploy/cloudflare/lib/cloudflare.mjs",
@@ -1755,7 +1755,7 @@
     {
       "path": "docs/development/event-highlights.md",
       "bytes": 8744,
-      "sha256": "dab4280c369a2a6ced034fb6569721496fac959689567104ff591bc43d1e8219"
+      "sha256": "3778d94a76f24d8effb59185baa8f3746877f8b8011ea156a18420f1ac4c34de"
     },
     {
       "path": "docs/development/first-real-case-pack.md",
@@ -3283,7 +3283,7 @@
       "sha256": "c2655e259143f6424d7bacf8c0079cdd131e905ae53035bde0ad106a8c59c345"
     },
     {
-      "path": "migrations/066_event_highlights.sql",
+      "path": "migrations/065_event_highlights.sql",
       "bytes": 2107,
       "sha256": "8a0499738fe215017c74663bb62f144dcd195bd965396486d04e64511d323cbf"
     },
@@ -3605,7 +3605,7 @@
     {
       "path": "modules/development/pages.ts",
       "bytes": 20188,
-      "sha256": "47cd1782058ebfa06f4db68c53d18f2f1b2d23186007d18f9358a8bd087e10ab"
+      "sha256": "c4548907fee20d24e892214cbdb36c187c9bd4748f04e3e0475b433c17c0eb1c"
     },
     {
       "path": "modules/development/service.ts",

@@ -102,7 +102,7 @@ YouTube 的影片縮圖由瀏覽器直接向 `https://i.ytimg.com/vi/<id>/hqdefa
 
 ## 部署順序
 
-先套用 migration `066_event_highlights.sql`，再發布 Worker。表還沒建立就上新程式，公開頁與會員頁都會在查詢時失敗。
+先套用 migration `065_event_highlights.sql`，再發布 Worker。表還沒建立就上新程式，公開頁與會員頁都會在查詢時失敗。
 
 程式入口：`modules/community/event-highlights.ts`、`modules/community/event-highlights-page.ts`、`apps/platform-api/src/routes/event-highlights.ts`、`apps/portal-web/src/modules/EventHighlights.tsx`。YouTube 影片編號的純函式在 `packages/shared/youtube-video-id.ts`。
 
