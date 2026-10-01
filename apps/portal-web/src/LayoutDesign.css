@@ -39,7 +39,6 @@
 .skip:focus { top: 12px; transform: none; }
 /* DESIGN: touch targets are at least 44px; older rules left these at 42px. */
 .topbar-actions .btn, .auth-switch button { min-height: 44px; }
-.login-card .help-box { padding: 12px; border-radius: 12px; }
 .login-card .help-box p { margin: 0; }
 /* Sign-in keeps the whole logo and one concrete sentence; the form carries the rest. */
 .login-story-copy h1 { font-size: clamp(1.2rem, 1.8vw, 1.55rem); line-height: 1.55; letter-spacing: 0; margin: 0; word-break: keep-all; text-wrap: balance; }

@@ -439,9 +439,14 @@ code {
 
 .help-box {
   margin-top: 1rem;
-  padding-top: 0.9rem;
+  padding: 12px;
   border-top: 1px solid var(--line);
+  border-radius: 12px;
 }
+
+/* Only the outer edges lose margin, so siblings inside the box keep theirs. */
+.help-box > :first-child { margin-top: 0; }
+.help-box > :last-child { margin-bottom: 0; }
 
 .chip-row {
   display: flex;
