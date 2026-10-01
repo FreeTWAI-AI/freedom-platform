@@ -94,11 +94,11 @@ const migration033=[['guild_opportunity_partnership','bidding-radar-concept'],['
   ['guild_marketing','n8n-marketing-flows'],['guild_ai_field','n8n-marketing-flows'],['guild_ai_field','anti-gambling-trader-tw'],['guild_ai_vibe','web-card-game-skill'],['guild_ai_vibe','ai-avatar-bot'],
   ['guild_member_operations','ai-avatar-bot'],['guild_ai_field','ai-manga-translator'],['guild_media_automation','ai-manga-translator'],['guild_member_operations','line-persona'],['guild_ai_field','line-persona']] as const;
 
-const migration063=[['guild_marketing','open-seo-advisor']] as const;
+const migration060=[['guild_marketing','open-seo-advisor']] as const;
 
 test('migration 033 grants its author-book designations to active members, covers every current one and replays without changing prior grants',async()=>{
   // Current author designations are the 033 grants plus later listing migrations. 033 itself stays as shipped.
-  const granted=[...migration033,...migration063];
+  const granted=[...migration033,...migration060];
   for(const [id,source] of Object.entries(communityAuthorSources))for(const guild of source.guilds)assert.ok(granted.some(([key,book])=>key===guild&&book===id),`${guild} → ${id} needs a grant migration`);
   const community=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[community,'Synthetic eight-book publication']);
   const guilds=[...new Set(migration033.map(([guild])=>guild))];
@@ -135,7 +135,7 @@ test('migration 065 publishes the three manually registered works and replays wi
   assert.equal((await pool.query('SELECT count(*) FROM development_grants')).rows[0].count,'0');
 });
 
-test('migration 063 grants Open SEO Advisor to an active guild_marketing member and skips inactive members and left memberships',async()=>{
+test('migration 060 grants Open SEO Advisor to an active guild_marketing member and skips inactive members and left memberships',async()=>{
   const community=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[community,'Synthetic SEO publication']);
   const cases=[[true,'active','guild_marketing'],[true,'left','guild_marketing'],[false,'active','guild_marketing'],[true,'active','guild_ai_vibe']] as const;
   const ids:string[]=[];

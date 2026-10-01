@@ -4425,7 +4425,7 @@
     {
       "path": "tests/runtime/member-skill-registration.test.ts",
       "bytes": 16948,
-      "sha256": "6021f9eaa3242a6a5fb1efbb46926aba6abf288eb246cbad7f5771c2708a09fd"
+      "sha256": "26d3091110e5239ad57a42ba31def5af0f478ff039c1ccd5ec2a1bea3f5d6c93"
     },
     {
       "path": "tests/runtime/notification-events.test.ts",
