@@ -8,7 +8,7 @@ import { PLATFORM_LABELS, type SocialPlatform } from '../../packages/shared/shar
 import { escapeHtml } from '../development/service.js';
 import { getSkillShareContent } from './skill-share-content.js';
 import { communityCatalog } from './catalog.js';
-import { readPublishedSkillSubmission } from '../skill-submissions/public.js';
+import { readPublishedSkillSubmission, readPublishedSkillTitles } from '../skill-submissions/public.js';
 import { getEventShareCode } from './events.js';
 import { avatarUrl } from '../identity-membership/avatars.js';
 import type { Actor } from '../identity-membership/service.js';
@@ -175,18 +175,9 @@ async function mineTitles(pool: Pool, actor: Actor, rows: MineRow[]) {
   const submissions = rows.filter(row => row.kind === 'skill_book' && /^submission:[0-9a-f-]{36}$/i.test(row.target_key)).map(row => row.target_key.slice(11).toLowerCase());
   const eventRows = events.length ? (await pool.query(`SELECT event_id::text AS id,title,state='published' AS available FROM community_events WHERE community_id=$1 AND event_id=ANY($2::uuid[])`, [actor.community_id, events])).rows as { id: string; title: string; available: boolean }[] : [];
   const postRows = posts.length ? (await pool.query(`SELECT post_id::text AS id,title,state='active' AS available FROM community_social_posts WHERE community_id=$1 AND post_id=ANY($2::uuid[])`, [actor.community_id, posts])).rows as { id: string; title: string; available: boolean }[] : [];
-  const submissionRows = submissions.length ? (await pool.query(`SELECT s.submission_id::text AS id,s.payload->>'title' AS title
-    FROM skill_submissions s
-    JOIN users u ON u.user_id=s.owner_ref AND u.community_id=s.community_id
-    JOIN oss_projects p ON p.project_id=s.project_id AND p.owner_ref=s.owner_ref AND p.community_id=s.community_id
-    JOIN oss_project_versions v ON v.version_id=s.project_version_id AND v.project_id=s.project_id
-    WHERE s.community_id=$1 AND s.submission_id=ANY($2::uuid[])
-      AND s.status='published' AND s.consent_to_share AND NOT p.official
-      AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
-      AND NOT is_verification_test_account(u.user_id)`, [actor.community_id, submissions])).rows as { id: string; title: string }[] : [];
+  const submissionById = await readPublishedSkillTitles(pool, actor.community_id, submissions);
   const eventById = new Map(eventRows.map(row => [row.id, row]));
   const postById = new Map(postRows.map(row => [row.id, row]));
-  const submissionById = new Map(submissionRows.map(row => [row.id, row.title]));
   return (row: MineRow) => {
     if (row.kind === 'platform') return { title: '自由工坊', available: row.target_key === 'workshop' };
     if (row.kind === 'skill_book' && row.target_key.startsWith('book:')) return catalogBook(row.target_key);

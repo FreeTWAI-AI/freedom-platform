@@ -640,6 +640,28 @@ test('listing my links writes nothing and marks targets that can no longer be op
   assert.equal(books.data.items.find((row: { code: string }) => row.code === book.data.code).available, true);
 });
 
+test('a published skill link closes when its owner is deactivated', async () => {
+  const maker = await signIn();
+  const owner = await addUser('shelf-owner@member.test', '技能書主人');
+  const project = randomUUID(), version = randomUUID(), submission = randomUUID(), sha = 'c'.repeat(64);
+  await pool.query(`INSERT INTO oss_projects(project_id,community_id,owner_ref,title,description,use_notes,repository_id,repository_full_name,repository_url,relationship)
+    VALUES($1,$2,$3,'社群技能','說明','用法','8801065','example/shelf-skill','https://github.com/example/shelf-skill','author')`, [project, DEMO_COMMUNITY, owner]);
+  await pool.query(`INSERT INTO oss_project_versions(version_id,project_id,repository_id,commit_sha,default_branch,repository_full_name,repository_url,readme_url,license_spdx,is_fork,archived,source_snapshot,source_sha256,facts_sha256,inspected_at)
+    VALUES($1,$2,'8801065',$3,'main','example/shelf-skill','https://github.com/example/shelf-skill','https://github.com/example/shelf-skill#readme','MIT',false,false,'{}',$4,$4,now())`, [version, project, 'd'.repeat(40), sha]);
+  await pool.query('UPDATE oss_projects SET current_version_id=$2 WHERE project_id=$1', [project, version]);
+  await pool.query(`INSERT INTO skill_submissions(submission_id,community_id,owner_ref,status,payload,payload_sha256,consent_to_share,project_id,project_version_id,published_at,grant_consumed_at)
+    VALUES($1,$2,$3,'published',$4,$5,true,$6,$7,now(),now())`, [submission, DEMO_COMMUNITY, owner, JSON.stringify({ title: '主人還在的技能', description: '技能說明', relationship: 'author', share_introductions: ['第一句介紹'], use_notes: '用法' }), sha, project, version]);
+  const linked = await request('/promotion/links', maker, { kind: 'skill_book', target: `submission:${submission}` });
+  assert.equal(linked.status, 200, JSON.stringify(linked.data));
+  const open = (await request('/promotion/links/mine', maker)).data.items.find((row: { code: string }) => row.code === linked.data.code);
+  assert.equal(open.available, true);
+  assert.equal(open.title, '主人還在的技能');
+  await pool.query('UPDATE users SET active=false WHERE user_id=$1', [owner]);
+  const closed = (await request('/promotion/links/mine', maker)).data.items.find((row: { code: string }) => row.code === linked.data.code);
+  assert.equal(closed.available, false);
+  assert.equal(closed.title, '已無法開啟');
+});
+
 test('a duplicate social post is not fetched, own-site urls are refused, and the 31st preview is limited', async () => {
   const maker = await signIn();
   const seen = previewFetches;

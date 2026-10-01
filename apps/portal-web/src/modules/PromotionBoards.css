@@ -11,7 +11,7 @@
 .promotion-board li{display:flex;justify-content:space-between;gap:.5rem;align-items:center;padding:.4rem 0;border-top:1px solid var(--line);min-width:0}
 .promotion-person{min-width:0}
 .promotion-person span,.promotion-link-title{min-width:0;overflow-wrap:anywhere}
-.promotion-avatar{width:1.75rem;height:1.75rem;flex:none}
+.promotion-person .member-avatar.promotion-avatar{width:2rem;height:2rem;min-width:2rem;flex:none;border-radius:50%;font-size:.8rem;box-shadow:none}
 .promotion-board strong,.promotion-mine strong{font-variant-numeric:tabular-nums}
 .promotion-mine li{padding:.45rem 0;border-top:1px solid var(--line)}
 .promotion-kind{flex:none;font-size:.75rem;color:var(--muted)}

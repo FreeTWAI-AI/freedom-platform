@@ -8,6 +8,7 @@ const SHOTS = process.env.AUDIT_EVIDENCE_DIR ?? 'test-results/share-promotion';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 const EVENT_TITLE = 'E2E 推廣點擊活動';
 const YOUTUBE = 'https://www.youtube.com/watch?v=e2eDemo0001';
+const LAYOUT = 'https://example.com/e2e-layout-thumb';
 const PLACEHOLDER = 'https://example.com/e2e-placeholder';
 const INSTAGRAM = 'https://www.instagram.com/p/E2E0001/';
 const FACEBOOK = 'https://www.facebook.com/share/e2eDemoPost';
@@ -32,7 +33,7 @@ test.afterAll(async ({ e2eAuthPool }) => {
   await e2eAuthPool.query(`DELETE FROM community_event_rsvps WHERE event_id IN (SELECT event_id FROM community_events WHERE title=$1)`, [EVENT_TITLE]);
   await e2eAuthPool.query(`DELETE FROM community_event_bulletins WHERE event_id IN (SELECT event_id FROM community_events WHERE title=$1)`, [EVENT_TITLE]);
   await e2eAuthPool.query(`DELETE FROM community_events WHERE title=$1`, [EVENT_TITLE]);
-  await e2eAuthPool.query(`DELETE FROM community_social_posts WHERE url IN ($1,$2,$3,$4) OR url LIKE 'https://www.youtube.com/watch?v=e2eDemo%'`, [YOUTUBE, PLACEHOLDER, INSTAGRAM, FACEBOOK]);
+  await e2eAuthPool.query(`DELETE FROM community_social_posts WHERE url IN ($1,$2,$3,$4,$5) OR url LIKE 'https://www.youtube.com/watch?v=e2eDemo%'`, [YOUTUBE, PLACEHOLDER, INSTAGRAM, FACEBOOK, LAYOUT]);
 });
 
 async function login(page: Page) {
@@ -197,6 +198,43 @@ test('the social zone previews, shares, replaces and keeps a thumbnail', async (
   await expect(youtube.locator('img.social-thumb')).toBeVisible();
   await youtube.getByRole('link', { name: '開啟原文 ↗', exact: true }).getAttribute('href').then(href => expect(href).toBe(YOUTUBE));
   await expect(youtube.getByRole('link', { name: '開啟原文 ↗' })).toHaveAttribute('rel', 'noopener noreferrer');
+});
+
+test('social cards keep a 16:9 thumbnail, a small byline and actions on one row', async ({ page, browser }) => {
+  test.setTimeout(60_000);
+  await login(page);
+  await navigate(page, '社群分享');
+  await sharePost(page, LAYOUT, '版面縮圖');
+  const card = page.locator('article.social-card').filter({ has: page.getByRole('heading', { name: '版面縮圖', level: 3 }) });
+  await card.locator('input[type="file"]').setInputFiles({ name: 'tiny.png', mimeType: 'image/png', buffer: PNG });
+  await expect(page.getByText('縮圖已更新。')).toBeVisible();
+  const thumb = card.locator('img.social-thumb');
+  await expect(thumb).toBeVisible();
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    const box = await thumb.boundingBox();
+    expect(box?.width).toBeGreaterThan(120);
+    expect(Math.abs(box!.height - box!.width * 9 / 16)).toBeLessThanOrEqual(2);
+  }
+  await page.setViewportSize({ width: 390, height: 900 });
+  const avatar = await card.locator('.social-byline .social-avatar').boundingBox();
+  expect(avatar!.width).toBeLessThanOrEqual(36);
+  const open = await card.getByRole('link', { name: '開啟原文 ↗', exact: true }).boundingBox();
+  const share = await card.getByRole('button', { name: '分享', exact: true }).boundingBox();
+  expect(Math.abs(open!.y - share!.y)).toBeLessThanOrEqual(1);
+
+  await navigate(page, '推廣排行榜');
+  await page.getByRole('button', { name: '分享自由工坊', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '分享「自由工坊」' });
+  await expect(dialog.locator('.skill-share-url')).toHaveText(/\/go\/[A-Za-z0-9_-]{10}$/);
+  const go = (await dialog.locator('.skill-share-url').innerText()).trim();
+  await dialog.getByRole('button', { name: '關閉分享', exact: true }).click();
+  await creditVisit(browser, go, url => url.pathname === '/');
+  await page.reload();
+  await navigate(page, '推廣排行榜');
+  const leader = page.locator('.promotion-person .promotion-avatar').first();
+  await expect(leader).toBeVisible();
+  expect((await leader.boundingBox())!.width).toBeLessThanOrEqual(36);
 });
 
 test('all six boards render, including the two that are not open yet', async ({ page }) => {
