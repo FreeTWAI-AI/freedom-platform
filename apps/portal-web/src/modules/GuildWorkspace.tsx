@@ -4,12 +4,13 @@ import {refreshSkillDiscovery} from './skill-discovery-client';
 import {logConsoleEvent} from '../game-console-core';
 import {consoleChannel} from '../game-console-routing';
 import './GuildWorkspace.css';
+import {GuildReviews} from './GuildReviews';
 
 type ReaderWriter={get<T>(path:string):Promise<T>;post<T>(path:string,body:unknown,version?:number):Promise<T>};
 type AdminClient={request<T>(path:string,body?:unknown,options?:{key?:string;version?:number|null}):Promise<T>};
 type EditorAccess={appointed_books:number;eligible:boolean;requires_development_guild:boolean;active_guilds:string[];required_guilds:{guild_key:string;name:string}[]};
 type Workspace={managed_guilds:{guild_key:string;name:string}[];managed_books:{book_id:string;title:string}[];can_discuss:boolean;skill_editor_access?:EditorAccess};
-type WorkspaceTab='announcements'|'skills'|'council';
+type WorkspaceTab='announcements'|'skills'|'council'|'reviews';
 type Announcement={announcement_id:string;guild_key:string;title:string;body:string;state:'draft'|'published'|'archived';aggregate_version:number;created_at:string;updated_at:string};
 type Task={id:string;title:string;description:string;acceptance:string[];issue_url:string|null;milestone_id:string|null;status:'todo'|'in_progress'|'done'};
 type Editorial={book_id:string;summary:string;collaboration_intro:string;milestones:{id:string;title:string}[];tasks:Task[];aggregate_version:number;updated_at:string|null};
@@ -19,7 +20,7 @@ const failure=(error:unknown)=>error instanceof Error?error.message:'暫時無�
 // Only this problem code means "appointed, but not in an AI guild"; other 403s keep their own message.
 const guildRequired=(error:unknown)=>error instanceof ApiError&&error.status===403&&error.code==='skill_editor_guild_required';
 const date=(value:string)=>new Date(value).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-function retrySafeWriter(send:<T>(path:string,body:unknown,version:number|undefined,key:string)=>Promise<T>):ReaderWriter['post']{
+export function retrySafeWriter(send:<T>(path:string,body:unknown,version:number|undefined,key:string)=>Promise<T>):ReaderWriter['post']{
   const keys=new Map<string,string>();
   return async<T,>(path:string,body:unknown,version?:number):Promise<T>=>{
     const fingerprint=JSON.stringify([path,body,version]),key=keys.get(fingerprint)??crypto.randomUUID();
@@ -28,7 +29,7 @@ function retrySafeWriter(send:<T>(path:string,body:unknown,version:number|undefi
     catch(cause){const status=(cause as {status?:unknown}|null)?.status;if(typeof status==='number'&&status>=400&&status<500)keys.delete(fingerprint);throw cause;}
   };
 }
-function useMemberClient(client:PortalClient){return useMemo<ReaderWriter>(()=>({get:path=>client.get(path),post:retrySafeWriter((path,body,version,key)=>client.post(path,body,{ifMatch:version,idempotencyKey:key}))}),[client]);}
+export function useMemberClient(client:PortalClient){return useMemo<ReaderWriter>(()=>({get:path=>client.get(path),post:retrySafeWriter((path,body,version,key)=>client.post(path,body,{ifMatch:version,idempotencyKey:key}))}),[client]);}
 function useAdminClient(client:AdminClient){return useMemo<ReaderWriter>(()=>({get:path=>client.request(path),post:retrySafeWriter((path,body,version,key)=>client.request(path,body,{version,key}))}),[client]);}
 
 export function GuildAnnouncements({client,guildKey,expanded=false}:{client:PortalClient;guildKey:string;expanded?:boolean}){
@@ -37,7 +38,7 @@ export function GuildAnnouncements({client,guildKey,expanded=false}:{client:Port
   return <details className="guild-announcements" open={expanded||undefined}><summary>公會公告{items?.length?` · ${items.length}`:''}</summary>{error?<div role="alert" className="banner banner-error"><p>{error}</p><button className="btn btn-ghost" onClick={()=>setRetry(value=>value+1)}>重讀公告</button></div>:items===null?<p>正在載入公告…</p>:!items.length?<p className="muted">目前沒有公告。</p>:items.map(item=><article key={item.announcement_id}><h4>{item.title}</h4><p className="guild-workspace-body">{item.body}</p><time dateTime={item.updated_at}>{date(item.updated_at)}</time></article>)}</details>;
 }
 
-const tabLabels:Record<WorkspaceTab,string>={announcements:'公會公告',skills:'技能書編輯',council:'公會長議事區'};
+const tabLabels:Record<WorkspaceTab,string>={announcements:'公會公告',skills:'技能書編輯',council:'公會長議事區',reviews:'PR 審核'};
 export function MemberGuildWorkspace({client}:{client:PortalClient}){
   const api=useMemberClient(client),[workspace,setWorkspace]=useState<Workspace|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState(''),[checking,setChecking]=useState(false),[locked,setLocked]=useState(false),[books,setBooks]=useState<Workspace['managed_books']>([]),[tab,setTab]=useState<WorkspaceTab|null>(null),generation=useRef(0);
   // Only a successful read changes the lock; a failed re-check never restores write access. An open editor keeps its books while locked so the draft survives.
@@ -46,10 +47,10 @@ export function MemberGuildWorkspace({client}:{client:PortalClient}){
   const lose=useCallback(()=>{setLocked(true);setNotice('');void refresh();},[refresh]);
   useEffect(()=>{void refresh();const update=()=>void refresh();window.addEventListener('freedom-profile-updated',update);return()=>{generation.current++;window.removeEventListener('freedom-profile-updated',update);};},[refresh]);
   useEffect(()=>{if(!locked)return;const update=()=>void refresh();window.addEventListener('focus',update);return()=>window.removeEventListener('focus',update);},[locked,refresh]);
-  const available=workspace?([workspace.managed_guilds.length>0&&'announcements',books.length>0&&'skills',workspace.can_discuss&&'council'] as const).filter((item):item is WorkspaceTab=>Boolean(item)):[],current=tab&&available.includes(tab)?tab:available[0];
+  const available=workspace?([workspace.managed_guilds.length>0&&'announcements',books.length>0&&'skills',workspace.can_discuss&&'council',workspace.managed_guilds.length>0&&'reviews'] as const).filter((item):item is WorkspaceTab=>Boolean(item)):[],current=tab&&available.includes(tab)?tab:available[0];
   // newTab keeps unsaved announcement/council text as well as a paused skill draft; only the latter is described as a paused edit.
   const recovery=(draft:boolean,newTab=draft)=><EditorGuildRecovery access={workspace?.skill_editor_access} draft={draft} newTab={newTab} checking={checking} error={error} notice={notice} onRecheck={()=>void recheck()}/>;
-  return <section className="module-panel guild-workspace">{error&&!(workspace&&locked)&&<div role="alert" className="banner banner-error"><p>{error}</p><button className="btn btn-ghost" onClick={()=>void refresh()}>重新載入</button></div>}{!workspace&&!error&&<p role="status">正在載入管理權限…</p>}{workspace&&<>{!available.length&&!locked?<div className="empty"><strong>目前沒有公會或技能書的管理職務</strong><p>公會長、技能書維護者由平台管理員任命；任命後會在這裡管理公告、技能書與議事區。一般成員可在「職業公會」閱讀公告。</p></div>:<>{locked&&current!=='skills'&&recovery(false,current!==undefined)}{available.length>0&&<nav className="guild-workspace-tabs" aria-label="公會管理功能">{available.map(item=><button key={item} className="btn btn-ghost" aria-pressed={current===item} onClick={()=>setTab(item)}>{tabLabels[item]}</button>)}</nav>}{current==='announcements'&&<AnnouncementManager api={api} guilds={workspace.managed_guilds}/>}{current==='skills'&&<SkillEditor api={api} books={books} locked={locked} onGuildRequired={lose} recovery={recovery}/>}{current==='council'&&<Council api={api}/>}</>}</>}</section>;
+  return <section className="module-panel guild-workspace">{error&&!(workspace&&locked)&&<div role="alert" className="banner banner-error"><p>{error}</p><button className="btn btn-ghost" onClick={()=>void refresh()}>重新載入</button></div>}{!workspace&&!error&&<p role="status">正在載入管理權限…</p>}{workspace&&<>{!available.length&&!locked?<div className="empty"><strong>目前沒有公會或技能書的管理職務</strong><p>公會長、技能書維護者由平台管理員任命；任命後會在這裡管理公告、技能書與議事區。一般成員可在「職業公會」閱讀公告。</p></div>:<>{locked&&current!=='skills'&&recovery(false,current!==undefined)}{available.length>0&&<nav className="guild-workspace-tabs" aria-label="公會管理功能">{available.map(item=><button key={item} className="btn btn-ghost" aria-pressed={current===item} onClick={()=>setTab(item)}>{tabLabels[item]}</button>)}</nav>}{current==='announcements'&&<AnnouncementManager api={api} guilds={workspace.managed_guilds}/>}{current==='skills'&&<SkillEditor api={api} books={books} locked={locked} onGuildRequired={lose} recovery={recovery}/>}{current==='council'&&<Council api={api}/>}{current==='reviews'&&<GuildReviews client={client}/>}</>}</>}</section>;
 }
 
 function EditorGuildRecovery({access,draft,newTab,checking,error,notice,onRecheck}:{access?:EditorAccess;draft:boolean;newTab:boolean;checking:boolean;error:string;notice:string;onRecheck:()=>void}){

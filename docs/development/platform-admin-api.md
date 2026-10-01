@@ -7,8 +7,8 @@
 | 方法與路徑（前綴 `/admin/api`） | 用途與回傳 |
 | --- | --- |
 | `GET /bootstrap` | `{admin, csrf_token, summary, available_skill_books, pending_guild_appointments}`；admin 包含 `admin_id, community_id, email, display_name, role`。summary 包含會員數、有效會員數、待審公會數、公會數、有效管理員數。 |
-| `POST /link-member` | `{}`；需要 Access 管理員驗證，加上同社群、同 email 的有效會員 cookie，且會員已完成定位。本人確認後才綁定信箱與預先指定的公會長任命。 |
-| `GET /members?limit=25&offset=0&q=` | `{items,next_offset}`；limit 1–100、offset 0–100000、q 最多100字。管理專用欄位包含 email、active、onboarding_required、onboarding_completed_at、email_verified_at、aggregate_version、目前公會。 |
+| `POST /link-member` | `{}`；需要 Access 管理員驗證，加上同社群、同 email 的有效會員 cookie，且會員已完成加入（選定主要公會）。本人確認後才綁定信箱與預先指定的公會長任命。 |
+| `GET /members?limit=25&offset=0&q=` | `{items,next_offset}`；limit 1–100、offset 0–100000、q 最多100字。管理專用欄位包含 email、active、onboarding_required、onboarding_completed_at、onboarding_entry_mode、email_verified_at、aggregate_version、目前公會。`onboarding_entry_mode` 為 `assessment` 或 `quick`（既有會員預設 `assessment`，不因此被重新封鎖）。名單把加入方式顯示成「已完成定位」、「已加入（未做定位）」、「尚未完成加入」或「既有會員」：還沒選定主要公會是「尚未完成加入」；已用快速加入、定位測驗還沒做完是「已加入（未做定位）」；定位測驗已做完是「已完成定位」；`onboarding_required=false` 的舊帳號是「既有會員」。 |
 | `POST /members/:id/status` | `{active:boolean,reason:string}`；理由3–1000字。停用會撤銷既有會員 session 與客戶端讀取憑證；恢復不會復活舊憑證。 |
 | `GET /guild-applications?state=pending&limit=25&offset=0` | state 為 pending、approved、declined、all。回傳申請、申請者姓名與 email，以及審查者、理由、時間、核准的 guild key。核准後另附 `approved_guild_name`、`approved_guild_alias`（尚未對到目錄時為 null；別名沒有設定時是空字串）。 |
 | `POST /guild-applications/:id/review` | `{decision:'approve'|'merge'|'reject',reason,guild?,merge?}`。核准必須提供完整 guild 且不得帶 merge；併入必須提供 merge 且不得帶 guild；拒絕兩者都不帶。形狀不符回 422 `review_details_required`。每件僅能處理一次；重試相同操作回原結果。 |
@@ -23,6 +23,21 @@
 | `GET /audit` | `{items}`；最近100筆本站管理操作，包含操作人顯示名、理由、對象、前後狀態與時間。 |
 | `GET /credentials` | `{items}`；固定兩筆，`github_metrics_token`（GitHub 讀取權杖）與 `cloudflare_deploy_token`（Cloudflare 部署權杖）。沒有資料列時 `status` 與 `level` 為 `unknown`。每筆含 `expires_at`、`days_left`、`checked_at`、`source`、`renewable`、`renew_hint`、`open_request`、`last_request`。`days_left` 是到期前的完整 24 小時數；已過期為負數。`level` 為 `expired`（已過期）、`danger`（剩餘 7 天以內，或狀態 `rejected`）、`warning`（剩餘 30 天以內）、`ok`、`unknown`。`open_request` 是尚未結束的續期（`pending` 或 `processing`）；`last_request` 是最近一筆 `done` 或 `failed`。 |
 | `POST /credentials/cloudflare_deploy_token/renewals` | `{}`。寫入一筆 `pending` 續期請求並記 `credential_renewal_request`。已有未結束的請求時回 200 與該筆，不重複建立、不重複記 audit；新建回 201。其他 credential key 回 404。`requested_by` 是同社群、同信箱且啟用中的會員；找不到唯一帳號回 422 `member_account_required`。Worker 不持有 Cloudflare 權杖，這個按鈕只留下請求。 |
+| `GET /review-center/summary` | `{policy_version, counts, repositories, viewer}`。counts 是未關閉拉取請求依 queue_state 的數量，含 `in_review` 與 `needs_decision`。repositories 含 repository_id、full_name、default_branch、mode、installation_state、settings、guild_key、scope_kind、open_to_guilds、last_swept_at、last_error、rate_limited_until、aggregate_version。不含 installation id 或 GitHub 原文。viewer 是 `{user_id, github_login, can_self_claim, status, reason}`，直接由這位管理員的 email 對到會員與 GitHub，不經過資格視圖，所以社群裡還沒有儲存庫時也能判斷。status 是 `ready`、`no_member`、`email_unverified`、`no_github`。ready 時 `can_self_claim` 是 true、`reason` 是 null。其他狀態 `can_self_claim` 是 false，`reason` 是對應的一句話，說明不能認領給自己、仍可以指派其他人。 |
+| `GET /review-center/pulls?queue=open&repository_id=&guild_key=&limit=25&offset=0` | `{items,next_offset}`。queue 可為 draft、waiting_ci、ci_not_run、needs_author、awaiting_review、in_review、needs_decision、ready、paused、open（全部未關閉）、done（merged／closed）、`mine`（進行中的認領屬於這位管理員對上的會員；沒有對上時是空的）或 `author_action`（needs_author 或 ci_not_run）。`guild_key` 是公會鍵，或字面 `none`（沒有公會的儲存庫）。awaiting_review 依 head_observed_at 由早到晚，再依 pull_id；其餘依 github_updated_at 新到舊。每一列含 `ownership`（guild_key、guild_name、scope_kind、open_to_guilds）、進行中的認領（沒有則 null）、第一個佇列原因，以及 head 上的必要檢查。認領含 reviewer_user_id、reviewer_login、acting_as、guild_key、guild_name、assignment、claimed_by、expires_at（可空）。 |
+| `GET /review-center/pulls/:id` | 拉取請求、`attention_reasons`、檔案（各附屬於該路徑的注意事項 `notes`）、檢查、審查、進行中的認領、最近 5 筆認領、歸屬與最近 5 筆歸屬變更，以及 `eligible_reviewers`（這個儲存庫的視圖列，去掉作者；管理員在前，再依公會名與顯示名）。每筆審查有 is_current_head 與 counts_as_valid。回應含 ETag（拉取請求的 aggregate_version）。 |
+| `POST /review-center/pulls/:id/claim` | `{}`，If-Match 是拉取請求的 aggregate_version。管理員替自己、以 `acting_as=admin` 建立認領。200 回更新後的細節與 ETag。資格仍看這個儲存庫的視圖。視圖沒有列時回 409 `maintainer_claim_identity_required`，detail 與 summary viewer 的 status 同一句。另有 409：`maintainer_claim_author`（比對 github_user_id，不比對 login）、`maintainer_claim_exists`、`maintainer_claim_unavailable`（未開啟、仍是草稿、已暫停，或儲存庫模式已關閉）。沒有 `claim_hours` 時 `expires_at` 是空的。稽核 `maintainer_claim_self`。同時寫入若遇到資料庫死結（40P01）回 409 `maintainer_write_conflict`。 |
+| `POST /review-center/pulls/:id/assign` | `{user_id, acting_as, guild_key, reason}`，If-Match 是拉取請求版本。這三元組必須是這個儲存庫的一列視圖，否則 409 `maintainer_reviewer_not_eligible`。作者本人 409 `maintainer_claim_author`。`assignment=assigned`，`claimed_by_admin` 是這位管理員。稽核 `maintainer_claim_assign`。 |
+| `POST /review-center/claims/:id/release` | `{reason}`，If-Match 是認領自己的 aggregate_version。任何有效認領都可釋放，標成 `released`／`admin_released`。若 GitHub 請求狀態是 `requested`，改成 `removing` 並排入移除。404 `maintainer_claim_not_found`。已經結束回 409 `maintainer_claim_inactive`。回應仍是拉取請求細節，ETag 是拉取請求版本。稽核 `maintainer_claim_release`。 |
+| `POST /review-center/pulls/:id/pause` | `{reason}`，If-Match 是拉取請求版本。`paused=true`，並把 aggregate_version 加一。已經暫停回 409 `maintainer_pull_already_paused`。不放開認領。稽核 `maintainer_pull_pause`。 |
+| `POST /review-center/pulls/:id/resume` | `{reason}`，If-Match 是拉取請求版本。`paused=false`，並把 aggregate_version 加一。沒有暫停回 409 `maintainer_pull_not_paused`。稽核 `maintainer_pull_resume`。 |
+| `POST /review-center/pulls/:id/resync` | `{}`。把 reconcile_pull 排進佇列。同一筆若已在佇列且 `run_after` 更晚，會提前到現在，嘗試次數不變；沒有更晚可提前時 `enqueued` 為 false。不需要 If-Match。稽核 `maintainer_pull_resync`。 |
+| `GET /review-center/repositories` | `{items}`；欄位與 summary 的 repositories 相同，含歸屬。 |
+| `POST /review-center/repositories/:id/settings` | `{mode, settings, reason}`，需要 If-Match（儲存庫 aggregate_version）。mode 只接受 off 與 observe，其他值回 422 `validation_failed`。settings 用政策 schema 驗證後存成補齊預設值的結果。`claim_hours` 可省略，省略表示認領不自動釋放；範圍是 1–168。送 `sla_hours` 或 `claim_hours: null` 會得到 422。`request_reviewers` 是布林，預設 false；為 true 時仍要 Worker 變數 `GITHUB_MAINTAINER_WRITES=requested_reviewers` 而且 App 有 Pull requests write，才會寫 GitHub。保存後把該儲存庫未關閉的拉取請求 recheck_at 設成現在。稽核 `maintainer_repository_settings`，含前後狀態。同時寫入若遇到資料庫死結（40P01）回 409 `maintainer_write_conflict`。 |
+| `POST /review-center/repositories/:id/ownership` | `{guild_key, scope_kind, open_to_guilds, reason}`，If-Match 是儲存庫 aggregate_version。缺 If-Match 回 428，版本不符回 412。公會不在目錄回 422 `maintainer_guild_not_found`。又指定公會又開放認領回 422 `maintainer_ownership_invalid`。沒有變更回 409 `maintainer_ownership_unchanged`。寫入歸屬變更（`source=admin`），並把未關閉的拉取請求 recheck_at 設成現在。稽核 `maintainer_repository_ownership`。不再符合資格的認領由下一次 tick 放開。同時寫入若遇到資料庫死結（40P01）回 409 `maintainer_write_conflict`。 |
+| `GET /review-center/reviewers` | 唯讀。`admins` 每位啟用中的管理員含 display_name、github_login、status（`ready`、`no_member`、`email_unverified`、`no_github`）。`guilds` 是有現任公會長或至少一個儲存庫的公會，含 leader 與旗下儲存庫。另有 `open_repositories`、`admin_only_repositories`，以及 `guild_choices`（整個公會目錄，供歸屬選單使用）。不含 email。 |
+
+認領、指派、釋放、暫停與恢復先鎖拉取請求列，再鎖認領列。若交易裡碰到 PostgreSQL `40P01`，回 409 `maintainer_write_conflict`，請重新整理後再試一次。API 不自己重試。交易已回復，沒有寫入收據，所以用同一個 Idempotency-Key 再送一次是安全的。
 
 核准的 `guild` 格式：
 
@@ -72,7 +87,7 @@
 
 後台「公會管理」先找公會，再按「設定公會長」或「新增公會專家」。人選從同社群的全部平台會員搜尋，按暱稱或 Email 找人、載入更多、點選並確認任命。未入會者顯示「任命時加入公會」且可選；停用帳號不可任命。更改查詢會清除舊人選，較慢的舊回應不能覆蓋新結果；只是搜尋或看見人選不會替任何人加入公會。
 
-確認任命後，伺服器在同一交易中核對管理身分、目標帳號與版本，再建立／恢復會員關係、領取綁定技能書並保存職務。缺版本、版本過期、領書或職務保存失敗時，入會也一併回復。既有主力公會、定位題目、完成狀態和信箱驗證均保持不變；沒有主力公會者也不會由任命代選。尚未完成定位的會員仍須本人完成原流程。
+確認任命後，伺服器在同一交易中核對管理身分、目標帳號與版本，再建立／恢復會員關係、領取綁定技能書並保存職務。缺版本、版本過期、領書或職務保存失敗時，入會也一併回復。既有主力公會、定位題目、完成狀態和信箱驗證均保持不變；沒有主力公會者也不會由任命代選。尚未完成加入（選定主要公會）的會員仍須本人完成加入；定位測驗可稍後補做。
 
 自動入會以 `admin_join_guild` 記入管理稽核，操作人是已驗證管理員，不冒稱會員自行加入。會長任命另記 `appoint_guild_master`；專家任命／移除分別記 `appoint_guild_expert`／`remove_guild_expert`。相同操作重播只回原紀錄，不在後來離會時重新入會或補發新綁定技能書；需重新任命時，先重讀最新狀態、使用新的操作識別碼及必要版本。
 
@@ -86,7 +101,7 @@
 
 `/admins` 的 `identity_binding` 為 `no_member_account`、`unverified_email_match` 或 `verified_email_match`。API 同時提供 `member_account_present`、`member_account_active`、`member_email_verified`；未驗證相同地址不得標示為已確認的管理員會員身分。本模組不提供公開授權管理員、email 密碼重設或自動 email 身分綁定功能。
 
-公會長提名由平台負責人私下建立，bootstrap 只回傳目前管理員自己的提名。`/link-member` 會在同一交易驗證會員 session、確認信箱、加入被指定的公會、領取技能書並完成任命；既有主力公會保持不變。若任一公會已有其他公會長，整批回 `409 appointment_changed` 並回復所有修改。未註冊、未完成定位或登入不同信箱時不建立替身帳號、不自動綁定。
+公會長提名由平台負責人私下建立，bootstrap 只回傳目前管理員自己的提名。`/link-member` 會在同一交易驗證會員 session、確認信箱、加入被指定的公會、領取技能書並完成任命；既有主力公會保持不變。若任一公會已有其他公會長，整批回 `409 appointment_changed` 並回復所有修改。未註冊、未完成加入（選定主要公會）或登入不同信箱時不建立替身帳號、不自動綁定。
 
 修改會把已驗證的 Access subject 與管理員 ID、理由、前後狀態寫入獨立 audit；JWT 本身不落盤。所有權限與版本會在交易中重查，相同 idempotency 重試不重複記錄。
 

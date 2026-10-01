@@ -88,7 +88,7 @@ export function AvatarEditor({ client, nickname, initial, onSaved }: { client: P
     <div className="avatar-editor-content">
       <h3 id={`${helpId}-title`}>我的頭像</h3>
       <p id={helpId}>JPEG、PNG 或 WebP，2 MB 以下；長寬各不超過 4096 像素，僅限靜態圖片。保存時會裁成正方形。</p>
-      <p>同一工坊內已登入、完成定位的會員可以看見你的頭像。</p>
+      <p>同一工坊內已登入、已完成加入的會員可以看見你的頭像。</p>
       <label className="field avatar-file-field">選擇頭像<input ref={input} type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || needsRefresh} aria-describedby={helpId} onChange={event => void choose(event.currentTarget.files?.[0])}/></label>
       <div className="actions">
         <button type="button" className="btn btn-primary" disabled={busy || needsRefresh || !file} onClick={() => void mutate()}>{busy ? '處理中…' : '保存頭像'}</button>

@@ -18,7 +18,7 @@
 2. 供應端 client、商店、專案介紹頁、行銷工具：該頁指引列出的模組 Repo。
 3. 技能書裡的工具或手冊：預設從該書原作 Fork，向原作提交 PR，由原作維護者決定合併。工坊既有 Issue 保留作任務協調；明確針對工坊整合的改動才送工坊 fork，另記回饋原作的 PR 或未回送原因。參見[原作、版本與貢獻歸屬](./author-owned-collaboration.md)。
 
-每個 Repo 的 README 說明用途和目前範圍，AGENTS 說明資料與操作邊界，CONTRIBUTING 說明任務、認領、驗證、PR、署名和溝通。GitHub Issue／PR 是程式任務的協調與審查來源；平台不另造一份認領狀態。已明確派工的對話沿用現有授權，不為流程再等待一次。
+每個 Repo 的 README 說明用途和目前範圍，AGENTS 說明資料與操作邊界，CONTRIBUTING 說明任務、認領、驗證、PR、署名和溝通。GitHub Issue／PR 是程式任務的協調與審查來源；平台不另造一份認領狀態。後台與「公會管理」的「PR 審核」只記錄由哪位公會長或管理員負責審，避免重工；那不是任務認領，也不算審核證據，審核仍以 GitHub 上的 review 為準。已明確派工的對話沿用現有授權，不為流程再等待一次。
 
 中央與外倉的通訊仍以 `contracts/preview/v1`、來源 pins、範圍受限的 client token 和 `/api/v1/protocol` 為準。新開發地圖是文件 discovery，不是新版業務 SDK，也不表示所有規劃模組已互通。不可由外倉直接連中央資料庫。
 

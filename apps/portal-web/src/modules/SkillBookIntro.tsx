@@ -13,7 +13,7 @@ export type IntroBook={id?:string;book_id?:string;title:string;description:strin
 export function httpsLink(value?:string|null){
   try {const url=new URL(value??'');return url.protocol==='https:'&&!url.username&&!url.password?url.href:null;}catch{return null;}
 }
-export function SkillBookIntro({book,guildName,label='閱讀技能書',community=false}:{book:IntroBook;guildName?:string;label?:string;community?:boolean}){
+export function SkillBookIntro({book,guildName,label='閱讀技能書',community=false,describedBy}:{book:IntroBook;guildName?:string;label?:string;community?:boolean;describedBy?:string}){
   const [open,setOpen]=useState(false),dialog=useRef<HTMLDialogElement>(null),trigger=useRef<HTMLButtonElement>(null),id=useId();
   const [cooperation,setCooperation]=useState<{purpose:string;summary:string}|null>(null),[cooperationError,setCooperationError]=useState('');
   const [illustration,setIllustration]=useState<{bookId:string;url:string;alt:string}|null>(null);
@@ -36,7 +36,7 @@ export function SkillBookIntro({book,guildName,label='閱讀技能書',community
     return()=>controller.abort();
   },[open,bookId]);
   function close(){dialog.current?.close();setOpen(false);trigger.current?.focus();}
-  return <><span className="skill-intro-entry"><button ref={trigger} type="button" className="btn btn-ghost skill-intro-trigger" aria-haspopup="dialog" onClick={()=>setOpen(true)}>{label}</button>{guildName&&<SkillBookBadges bookId={bookId}/>}</span>
+  return <><span className="skill-intro-entry"><button ref={trigger} type="button" className="btn btn-ghost skill-intro-trigger" aria-haspopup="dialog" aria-describedby={describedBy} onClick={()=>setOpen(true)}>{label}</button>{guildName&&<SkillBookBadges bookId={bookId}/>}</span>
     <dialog ref={dialog} className="skill-intro-dialog" aria-labelledby={id} aria-describedby={`${id}-purpose`} data-book-id={book.id??book.book_id} onCancel={event=>{if(event.target!==event.currentTarget)return;event.preventDefault();close();}} onClose={event=>{if(event.target===event.currentTarget)setOpen(false);}}>
       <div className="stack"><header className="skill-intro-header"><div><p className="eyebrow">{community?'自由工坊 · 社群技能書':'自由工坊 · 公會技能庫'}</p><h2 id={id}>{book.title}</h2></div><button className="btn btn-ghost" type="button" onClick={close} autoFocus aria-label="關閉技能書介紹">關閉</button></header>
         <div className="skill-intro-cover"><div className="skill-intro-cover-copy"><div className="tag-list">{beginner&&<span className="badge">{beginner.category}</span>}{guide&&<span className="badge">{guide.format}</span>}{guildName&&<span className="badge">{guildName}</span>}</div>

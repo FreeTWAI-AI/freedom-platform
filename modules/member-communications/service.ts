@@ -6,7 +6,7 @@ import type {Actor} from '../identity-membership/service.js';
 import {avatarUrl} from '../identity-membership/avatars.js';
 import {
   COMMUNICATION_PAGE_DEFAULT_LIMIT,COMMUNICATION_PAGE_MAX_LIMIT,DIRECT_MESSAGE_BODY_MAX,
-  type ConversationPage,type Message,type MessagePage,type Notification,type NotificationList,type Participant,
+  type ConversationActivity,type ConversationPage,type Message,type MessagePage,type Notification,type NotificationList,type Participant,
 } from './types.js';
 
 export const CommunicationPageQuery=z.object({
@@ -42,7 +42,7 @@ async function currentMember(q:PoolClient,actor:Actor,session:boolean){
   requireCondition(user,401,'session_expired','請重新登入。');
   if(session)requireCondition((await q.query('SELECT 1 FROM sessions WHERE token_hash=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at>now() FOR SHARE',
     [actor.session_hash,actor.user_id])).rowCount===1,401,'session_expired','請重新登入。');
-  requireCondition(user.ready,403,'onboarding_required','請先完成定位並選擇主要公會。');
+  requireCondition(user.ready,403,'onboarding_required','請先選擇主要公會，完成加入後即可使用會員功能。');
 }
 const SNAPSHOT_ATTEMPTS=3;
 /**
@@ -149,6 +149,20 @@ export async function conversationMessages(pool:Pool,actor:Actor,rawPeer:string,
       ORDER BY created_at DESC,message_id DESC LIMIT $4 OFFSET $5`,[actor.community_id,actor.user_id,id,limit+1,offset])).rows;
     const page=pageOf(rows.map(message),limit,offset);
     return {participant:peer.participant,can_send:peer.ready&&peer.viewer_ready,items:page.items,unread_count:unread,next_offset:page.next_offset};
+  });
+}
+
+export async function conversationActivity(pool:Pool,actor:Actor,rawPeer:string,raw:unknown={}):Promise<ConversationActivity>{
+  Empty.parse(raw);const id=peerId(actor,rawPeer);
+  return snapshot(pool,actor,async q=>{
+    const peer=await resolvePeer(q,actor,id);
+    const row=(await q.query(`SELECT
+      (SELECT message_id FROM member_direct_messages WHERE community_id=$1
+        AND least(sender_ref,recipient_ref)=least($2::uuid,$3::uuid) AND greatest(sender_ref,recipient_ref)=greatest($2::uuid,$3::uuid)
+        ORDER BY created_at DESC,message_id DESC LIMIT 1) AS last_message_id,
+      (SELECT count(*)::int FROM member_direct_messages WHERE community_id=$1 AND recipient_ref=$2 AND sender_ref=$3 AND read_at IS NULL) AS unread_count`,
+      [actor.community_id,actor.user_id,id])).rows[0];
+    return {last_message_id:row.last_message_id,unread_count:row.unread_count,can_send:peer.ready&&peer.viewer_ready};
   });
 }
 

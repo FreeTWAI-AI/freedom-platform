@@ -28,7 +28,7 @@ html:is([data-theme="light"],[data-theme="versefolk"]) :is(
   .cocreation-panel .expedition-brief,.account-panel .account-settings,
   .card.member-card.expedition-dossier,.social-links-editor .social-link-form,
   .guild-thread-select,.skill-book.skill-book-volume,
-  .guilds-panel .guild-card,.guilds-panel .guild-application,
+  .guilds-panel .guild-card,.guilds-panel .guild-application,.guilds-panel .guild-application-item,
   .positioning-panel .positioning-journey,.positioning-panel .positioning-preferences,
   .positioning-next .card-grid > .card,.positioning-panel .positioning-result,
   .guild-onboarding .onboarding-intro,.guild-onboarding .onboarding-card,
@@ -62,8 +62,19 @@ html:is([data-theme="light"],[data-theme="versefolk"]) :is(
   .guild-onboarding .quiz-option.selected,.guild-onboarding .selection-chip.selected,
   .positioning-panel .checkbox-card:has(input:checked),
   .guild-scope .btn[aria-pressed="true"],.skill-discovery-tabs .is-selected,
-  .guild-workspace-tabs [aria-pressed="true"]
+  .guild-workspace-tabs [aria-pressed="true"],
+  .guild-topic-filter .btn[aria-pressed="true"],.friend-scopes .btn[aria-pressed="true"]
 ) { background:var(--green-soft);color:var(--module-green-ink);border-color:var(--green); }
+html:is([data-theme="light"],[data-theme="versefolk"]) .guilds-panel .guild-application-status.is-pending { background:#fff3cc;color:#6a4a00; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .guilds-panel .guild-application-status.is-approved { background:#e4f5d4;color:#1d5a16; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .guilds-panel .guild-application-status.is-declined { background:#fde7ea;color:#8e1b32; }
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-question-option{background:var(--bg-elev);color:var(--ink);border-color:var(--line);font-weight:450}
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-question-option.is-selected,
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-question-option:has(input:checked){background:var(--green-soft);color:var(--module-green-ink);border-color:var(--green);font-weight:650}
+html[data-theme="dark"] .guild-question-option{background:var(--bg-elev);color:var(--ink);border-color:var(--line);font-weight:450}
+html[data-theme="dark"] .guild-question-option.is-selected,
+html[data-theme="dark"] .guild-question-option:has(input:checked){background:var(--green-soft);color:var(--ink);border-color:var(--green);font-weight:650}
+html:is([data-theme="light"],[data-theme="versefolk"]) .guild-join-notice .btn-ghost{background:var(--bg-elev);color:var(--ink);border-color:var(--line)}
 
 /* Book covers remain book covers, with readable ink in the bright themes. */
 html:is([data-theme="light"],[data-theme="versefolk"]) .skill-book-cover {
@@ -109,6 +120,21 @@ html:is([data-theme="light"],[data-theme="versefolk"]) .guilds-panel .guild-card
   background:var(--green-soft);border-color:var(--line);color:var(--module-green-ink);
 }
 html:is([data-theme="light"],[data-theme="versefolk"]) .guilds-panel .joined-guild .badge {
+  background:var(--module-blue-tint);color:var(--blue-ink);
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .review-center .badge {
+  color:var(--ink);background:var(--info-bg);
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .review-center .badge-ok {
+  background:var(--green-soft);
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .review-center .badge-alert {
+  color:var(--danger);background:var(--danger-bg);
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .review-center .badge-own {
+  background:var(--green-soft);color:var(--module-green-ink);
+}
+html:is([data-theme="light"],[data-theme="versefolk"]) .review-center .badge-open {
   background:var(--module-blue-tint);color:var(--blue-ink);
 }
 

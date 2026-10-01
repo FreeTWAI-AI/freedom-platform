@@ -2,7 +2,7 @@
 
 會員在「設定 → 我的訊息」裡的通知、閒聊頻道與私訊，資料存放在中央 PostgreSQL（migration 035、037），由 `modules/member-communications/` 負責。這裡只有站內紀錄：不寄 email、不推播、不連外部服務，也不回填歷史事件。四個分區與完整路徑見 [會員設定、待辦與訊息](member-settings-messages.md)。
 
-## API（全部需要會員登入並完成定位）
+## API（全部需要會員登入，並已選定主要公會）
 
 分頁參數一律是 `limit`（1–50，預設 20）與 `offset`（0–10000，預設 0）；未知查詢參數回 422。通知與私訊列表都是新到舊，同時間以 UUID 由大到小排序；頻道訊息依交易內配置的序號由大到小排序。未讀數在同一個資料庫快照內計算，不受目前頁數影響。GET 不會標記已讀。
 
@@ -21,18 +21,18 @@ POST 走既有的 Origin、CSRF 與 `Idempotency-Key` 規則，不需要 `If-Mat
 
 ## 服務層授權、鎖與快照
 
-路由仍掛在共用的 session、Origin、CSRF 與定位 middleware 之後，但服務函式不信任傳進來的 `Actor`：直接呼叫、或驗證後才被撤銷的請求，也會在服務層重新以資料庫目前狀態判斷。
+路由仍掛在共用的 session、Origin、CSRF 與加入資格 middleware 之後，但服務函式不信任傳進來的 `Actor`：直接呼叫、或驗證後才被撤銷的請求，也會在服務層重新以資料庫目前狀態判斷。
 
-- **讀取**（`listNotifications`、`listConversations`、`conversationMessages`）：在 `BEGIN ISOLATION LEVEL REPEATABLE READ` 交易的第一步先 `FOR SHARE` 鎖會員列（`user_id`＋`community_id`＋`active`），再 `FOR SHARE` 鎖 session 列（未撤銷、未過期），順序與 `command()` 相同（先 users 再 sessions，不反向）。停用、跨社群、撤銷或過期回 `401 session_expired`；定位資格改由剛鎖住的會員列判斷，未完成回 `403 onboarding_required`。計數與分頁仍在同一快照內，GET 不寫任何領域資料。因為 `FOR SHARE` 不能在 `READ ONLY` 交易執行，所以拿掉了 `READ ONLY`，快照不變。
+- **讀取**（`listNotifications`、`listConversations`、`conversationMessages`、`conversationActivity`）：在 `BEGIN ISOLATION LEVEL REPEATABLE READ` 交易的第一步先 `FOR SHARE` 鎖會員列（`user_id`＋`community_id`＋`active`），再 `FOR SHARE` 鎖 session 列（未撤銷、未過期），順序與 `command()` 相同（先 users 再 sessions，不反向）。停用、跨社群、撤銷或過期回 `401 session_expired`；加入資格改由剛鎖住的會員列判斷，未完成加入（選定主要公會）回 `403 onboarding_required`。計數與分頁仍在同一快照內，GET 不寫任何領域資料。因為 `FOR SHARE` 不能在 `READ ONLY` 交易執行，所以拿掉了 `READ ONLY`，快照不變。
 - **與撤銷同時發生**：讀取若先拿到鎖，會排在撤銷之前完成（撤銷等它提交）。若撤銷已提交或先拿到鎖，讀取等待後，快照看到的是舊列而 PostgreSQL 回 `40001`；整個讀取以新交易重跑（最多 3 次，只限這三個讀取），重跑時看到撤銷而拒絕。不會回傳內容，也不會把原始 `40001` 丟出；3 次都衝突時回 `503 communications_busy`。
-- **指令**（`markNotificationRead`、`markConversationRead`、`sendDirectMessage`）：`command()` 已先鎖會員列、再鎖 session 列；授權 callback 只在同一交易內用已鎖住的會員列重新確認定位資格（`currentMember(q, actor, false)`，不再鎖 session），之後才查 receipt。所以定位被重設後，重送舊 key 也回 `403 onboarding_required`，不會回放舊結果。私訊重送另外會以 `FOR SHARE` 重新確認收件者可收訊（`409 recipient_unavailable`）。
-- 對方停用或未完成定位時，自己仍能讀取既有對話與標已讀（只檢查「自己」的資格，不改變上面的私訊規則）。
+- **指令**（`markNotificationRead`、`markConversationRead`、`sendDirectMessage`）：`command()` 已先鎖會員列、再鎖 session 列；授權 callback 只在同一交易內用已鎖住的會員列重新確認加入資格（`currentMember(q, actor, false)`，不再鎖 session），之後才查 receipt。所以加入資格被重設後，重送舊 key 也回 `403 onboarding_required`，不會回放舊結果。私訊重送另外會以 `FOR SHARE` 重新確認收件者可收訊（`409 recipient_unavailable`）。
+- 對方停用或未完成加入（選定主要公會）時，自己仍能讀取既有對話與標已讀（只檢查「自己」的資格，不改變上面的私訊規則）。
 
 ## 私訊規則
 
-- 雙方都必須是同一社群、啟用中且已完成定位的會員；不能傳給自己。不需要先成為好友。
+- 雙方都必須是同一社群、啟用中且已完成加入（選定主要公會）的會員；不能傳給自己。不需要先成為好友。
 - 內容是純文字：前後空白會去掉，換行統一為 `\n`，長度 1–2000 字（以 Unicode 字元計）。不解析 HTML／Markdown，也不抓取網址；前端必須當文字顯示。
-- 找不到、跨社群、或未完成定位且沒有往來紀錄的會員一律回 404，無法分辨。已有對話但對方已停用或尚未完成定位時，自己仍能讀取、標已讀，`can_send` 為 `false`，傳送回 `409 recipient_unavailable`。
+- 找不到、跨社群、或未完成加入（選定主要公會）且沒有往來紀錄的會員一律回 404，無法分辨。已有對話但對方已停用或尚未完成加入（選定主要公會）時，自己仍能讀取、標已讀，`can_send` 為 `false`，傳送回 `409 recipient_unavailable`。
 - 每位傳送者 60 秒內最多 20 則新訊息（`429 message_rate_limited`）。同一傳送者的傳送以 advisory lock 排序，同時送出也不會超過；重送既有 key 不計次、也不會被擋。收件者以 `FOR SHARE` 鎖定，雙向同時傳送不會互鎖。
 - 私訊不產生通知（避免未讀重複計算）。訊息內容不寫入 command receipt 或 transition journal；receipt 只保留 `message_id`。
 

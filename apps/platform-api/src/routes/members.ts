@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import type { Command } from '../../../../packages/db/index.js';
 import { z } from 'zod';
+import {memberShareSettings,saveMemberShare,sharedMemberForViewer} from '../../../../modules/identity-membership/member-sharing.js';
+import {friendDirectory,memberRecommendations} from '../../../../modules/identity-membership/member-connections.js';
 import { moduleCommand,type PlatformEnv } from '../module-context.js';
 import { accountView,saveAccount,listMembers,memberPresence,MemberDirectoryQuery,memberCard,listFriends,changeFriendship,listSquads,squadView,createSquad,updateSquadChannel,changeSquadMembership } from '../../../../modules/identity-membership/members.js';
 import {inviteToSquad,resolveSquadInvitation,squadInvitations,receivedSquadInvitations} from '../../../../modules/identity-membership/squad-invitations.js';
@@ -12,6 +14,11 @@ const pagination=z.object({limit:z.coerce.number().int().min(1).max(50).default(
 export function createMemberRoutes(pool:Pool) {
   const app=new Hono<PlatformEnv>();
   app.get('/me/account',async c=>c.json(await accountView(pool,c.get('actor'))));
+  app.get('/me/member-card-share',async c=>c.json(await memberShareSettings(pool,c.get('actor'))));
+  app.post('/me/member-card-share',async c=>c.json(await saveMemberShare(pool,await moduleCommand(c))));
+  app.get('/member-cards/:token/member',async c=>c.json(await sharedMemberForViewer(pool,c.get('actor'),c.req.param('token'))));
+  app.get('/members/recommendations',async c=>c.json(await memberRecommendations(pool,c.get('actor'),c.req.query())));
+  app.get('/friends/directory',async c=>c.json(await friendDirectory(pool,c.get('actor'),c.req.query())));
   app.post('/me/account',async c=>{const result=await saveAccount(pool,await moduleCommand(c));c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);});
   app.get('/me/social-links',async c=>c.json(await ownSocialLinks(pool,c.get('actor'),c.req.query())));
   app.post('/me/social-links',async c=>{const result=await createSocialLink(pool,await moduleCommand(c));c.header('ETag',`"${result.aggregate_version}"`);return c.json(result,201);});

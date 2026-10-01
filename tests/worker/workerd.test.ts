@@ -86,7 +86,21 @@ test('workerd: strict host, JSON 404 for machine paths, assets with security hea
   for (const path of ['/', '/guilds']) {
     const shell = await call(path);
     assert.equal(shell.status, 200, path); assert.equal(await shell.text(), SHELL);
+    assert.equal(shell.headers.get('x-robots-tag'), null, path);
   }
+  assert.equal(asset.headers.get('x-robots-tag'), null);
+});
+
+test('workerd marks only the member-card page noindex', async () => {
+  const token = 'a'.repeat(43);
+  for (const path of [`/member-cards/${token}`, `/member-cards/${token}/`]) {
+    const page = await call(path);
+    assert.equal(page.status, 200, path);
+    assert.equal(await page.text(), SHELL, path);
+    assert.equal(page.headers.get('x-robots-tag'), 'noindex, nofollow', path);
+  }
+  assert.equal((await call('/member-cards/short')).headers.get('x-robots-tag'), null);
+  assert.equal((await call(`/member-cards/${token}/extra`)).headers.get('x-robots-tag'), null);
 });
 
 test('workerd: embedded Markdown and CSS match their canonical sources', async () => {
@@ -243,4 +257,26 @@ test('workerd scheduled sync refreshes book metrics through native fetch', async
       assert.equal(row.stars, '17', row.repository_key);
     }
   } finally { await withSync.dispose(); }
+});
+
+test('workerd: the maintainer webhook is 503 without a secret and 401 for a bad signature', async () => {
+  const delivery = randomUUID();
+  const headers = { 'Content-Type': 'application/json', 'X-GitHub-Event': 'ping', 'X-GitHub-Delivery': delivery, 'X-Hub-Signature-256': 'sha256=' + 'ab'.repeat(32) };
+  const missing = await call('/api/v1/maintainer/github/webhook', { method: 'POST', headers, body: '{}' });
+  assert.equal(missing.status, 503);
+  assert.equal(((await missing.json()) as any).code, 'maintainer_webhook_unavailable');
+  const secret = 'workerd-maintainer-webhook-secret-32';
+  const withSecret = new Miniflare(convertV4MiniflareOptions({ workers: [{
+    name: 'freedom-platform-workerd-maintainer-webhook', modules: true, scriptPath: resolve(bundleDir, 'worker.js'),
+    compatibilityDate, compatibilityFlags: ['nodejs_compat'],
+    bindings: { FREEDOM_ENV: 'local', APP_ORIGIN: origin, GITHUB_MAINTAINER_WEBHOOK_SECRET: secret },
+    hyperdrives: { HYPERDRIVE: databaseUrl },
+    assets: { directory: assetsDir, binding: 'ASSETS', routerConfig: { has_user_worker: true, invoke_user_worker_ahead_of_assets: true }, assetConfig: { html_handling: 'auto-trailing-slash', not_found_handling: 'none' } },
+  }] } as any));
+  try {
+    const rejected = await withSecret.dispatchFetch(origin + '/api/v1/maintainer/github/webhook', { method: 'POST', headers, body: '{}' }) as unknown as Response;
+    assert.equal(rejected.status, 401, await rejected.clone().text());
+    assert.equal(((await rejected.json()) as any).code, 'webhook_signature_invalid');
+    assert.equal((await db.query('SELECT count(*)::int AS n FROM maintainer_webhook_deliveries')).rows[0].n, 0);
+  } finally { await withSecret.dispose(); }
 });

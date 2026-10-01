@@ -70,6 +70,7 @@ async function removeOwned(db:Pool,own:Owned){
     await q('DELETE FROM member_squad_invitations WHERE squad_id=ANY($1::uuid[]) OR owner_ref=ANY($2::uuid[]) OR recipient_ref=ANY($2::uuid[])',[squads,users]);
     await q('DELETE FROM member_squad_memberships WHERE squad_id=ANY($1::uuid[]) OR user_id=ANY($2::uuid[])',[squads,users]);
     await q('DELETE FROM member_squads WHERE squad_id=ANY($1::uuid[])',[squads]);
+    await q('DELETE FROM member_guild_answers WHERE user_id=ANY($1::uuid[]) OR guild_key=ANY($2::text[])',[users,guilds]);
     await q('DELETE FROM positioning_profession_memberships WHERE guild_key=ANY($1::text[]) OR user_id=ANY($2::uuid[])',[guilds,users]);
     for(const table of ['guild_member_preferences','member_skill_book_grants'])await q(`DELETE FROM ${table} WHERE user_id=ANY($1::uuid[])`,[users]);
     for(const table of ['guild_skill_book_bindings','positioning_guild_officers','positioning_guild_experts'])await q(`DELETE FROM ${table} WHERE guild_key=ANY($1::text[])`,[guilds]);
@@ -177,7 +178,7 @@ test('two synthetic members chat in their own guild and squad through the real U
     // Four tabs in order; opening a chat tab lists channels only - no history GET, no read.
     for(const m of [sender,receiver,third])await openMessages(m.page);
     await expect(settings(sender.page)).toHaveAttribute('aria-expanded','false');await expect(settings(sender.page).locator('.settings-dot')).toHaveCount(0);
-    await expect(receiver.page.getByRole('tab')).toHaveText([/^通知/,/^公會閒聊/,/^小隊閒聊/,/^私人訊息/]);
+    await expect(receiver.page.getByRole('tab')).toHaveText([/^通知/,/^公會閒聊/,/^小隊閒聊/,/^私人訊息/,/^世界聊天/]);
     for(const kind of ['guild','squad'] as const){
       const {key,name}=room[kind],r=receiver.page,s=sender.page,label=copy[kind].tab;
       receiver.channelRequests.length=0;

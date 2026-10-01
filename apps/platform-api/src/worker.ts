@@ -8,10 +8,12 @@ import { createUnavailableImageProcessor, runWithImageProcessor } from '../../..
 import { createCloudflareImageProcessor, type ImagesBinding } from '../../../packages/shared/image-cloudflare.js';
 import { createAdminAccessVerifier, type AdminAccessVerifier } from '../../../modules/platform-admin/access.js';
 import { assertOriginAllowed, resolveFreedomEnv, type FreedomEnv } from './env.js';
-import { createPlatformApp } from './platform-app.js';
+import { createPlatformApp, isMemberCardPage } from './platform-app.js';
 import { assertDatabaseReady, ReadinessError } from './readiness.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 import { GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories } from '../../../modules/community/github-sync.js';
+import {refreshGuildDiscoveryReports} from '../../../modules/community/guild-discovery.js';
+import {guildReviewerFromBindings,type GuildReviewBindings} from './guild-review.js';
 
 /**
  * Cloudflare Worker adapter. Bindings contract (see wrangler.jsonc):
@@ -26,7 +28,7 @@ import { GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories } from '../../../mod
  * Secrets arrive as bindings and are only passed into explicit per-request
  * options; process.env is never read or written here.
  */
-export interface WorkerEnv {
+export interface WorkerEnv extends GuildReviewBindings {
   HYPERDRIVE: { readonly connectionString: string };
   ASSETS: { fetch(request: Request): Promise<Response> };
   IMAGES?: ImagesBinding;
@@ -45,6 +47,8 @@ export interface WorkerEnv {
   GITHUB_SOCIAL_TOKEN_KEY?: string;
   /** Optional read-only GitHub token: Workers share egress IPs, so anonymous GitHub quota is gone. */
   GITHUB_METRICS_TOKEN?: string;
+  /** Optional. Without it only POST /api/v1/maintainer/github/webhook answers 503. */
+  GITHUB_MAINTAINER_WEBHOOK_SECRET?: string;
   FREEDOM_PASSWORD_RESET_EMAIL_ENABLED?: string;
 }
 export type WorkerContext = { waitUntil(promise: Promise<unknown>): void; passThroughOnException?(): void };
@@ -105,16 +109,19 @@ export function workerAdminVerifier(env: WorkerEnv): AdminAccessVerifier {
 export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRuntime {
   const community = env.FREEDOM_REGISTRATION_COMMUNITY_ID || undefined, tokenKey = env.GITHUB_SOCIAL_TOKEN_KEY || undefined;
   const metricsToken = env.GITHUB_METRICS_TOKEN || undefined;
+  const maintainerWebhookSecret = env.GITHUB_MAINTAINER_WEBHOOK_SECRET || undefined;
   return {
     registrationCommunityId: () => community,
     githubTokenKey: () => tokenKey,
     githubMetricsToken: () => metricsToken,
+    maintainerWebhookSecret: () => maintainerWebhookSecret,
     adminVerifier: workerAdminVerifier(env),
     sourceNetwork: cloudflareSourceNetwork(config.trustConnectingIp),
     allowedHosts: new Set([new URL(config.origin).hostname]),
     // Every Worker links, canonicalizes and documents its own configured origin;
     // only the existing Node deployments keep the live-site default.
     publicOrigin: config.origin,
+    guildReviewer: guildReviewerFromBindings(env),
     passwordEmailSender:env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED==='true'&&env.EMAIL
       ?async(to,url)=>{await env.EMAIL!.send({to,from:'no-reply@mail.freetwai.com',subject:'自由工坊：重設密碼',text:`有人申請重設自由工坊帳號的密碼。\n\n請在 30 分鐘內開啟以下連結：\n${url}\n\n若不是你提出申請，請忽略此信。`});}
       :undefined,
@@ -132,6 +139,7 @@ const ASSET_OVERRIDDEN = new Set(['cache-control', 'content-security-policy', 'x
 function fromAsset(c: Context, asset: Response) {
   const headers: Record<string, string> = {};
   for (const [name, value] of asset.headers) if (!ASSET_OVERRIDDEN.has(name.toLowerCase())) headers[name] = value;
+  if (isMemberCardPage(new URL(c.req.url).pathname)) headers['X-Robots-Tag'] = 'noindex, nofollow';
   return c.body(asset.body as ReadableStream, asset.status as 200, headers);
 }
 /** Same order as server.ts: files after every app route, then the browser shell for GET navigation. */
@@ -155,6 +163,7 @@ export type WorkerDependencies = {
   /** Test seam. Production uses syncGitHubRepositories. */
   syncGitHub?: typeof syncGitHubRepositories;
   githubFetcher?: typeof fetch;
+  guildDiscovery?: typeof refreshGuildDiscoveryReports;
 };
 
 /**
@@ -218,7 +227,12 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
       const work = (async () => {
         try {
           pool = createPool(env);
-          await syncGitHub(pool, {fetcher: deps.githubFetcher, token, budget: GITHUB_SYNC_REQUEST_BUDGET});
+          try{await syncGitHub(pool, {fetcher: deps.githubFetcher, token, budget: GITHUB_SYNC_REQUEST_BUDGET});}
+          catch(error){const name=error instanceof Error&&/^[A-Za-z][A-Za-z0-9_]*$/.test(error.name)?error.name:'unknown';console.error('github_sync_failed',name);}
+          if(env.FREEDOM_REGISTRATION_COMMUNITY_ID){
+            try{await (deps.guildDiscovery??refreshGuildDiscoveryReports)(pool,{communityId:env.FREEDOM_REGISTRATION_COMMUNITY_ID,reviewer:guildReviewerFromBindings(env)});}
+            catch{console.error('guild_discovery_failed');}
+          }
         } catch (error) {
           const name = error instanceof Error && /^[A-Za-z][A-Za-z0-9_]*$/.test(error.name) ? error.name : 'unknown';
           console.error('github_sync_failed', name);
