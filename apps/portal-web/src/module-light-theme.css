@@ -239,3 +239,10 @@ html:is([data-theme="light"],[data-theme="versefolk"]) :is(
   .freedom-community .community-entry-copy h2,.freedom-community .community-metric > strong,
   :is(.community-library,.community-skill-library) .community-library-heading h3
 ) {color:var(--ink);}
+
+/* 活動集錦 chips and mode marks. Bright green on a pale chip fails contrast. */
+html:is([data-theme="light"],[data-theme="versefolk"]) .hl-mode-in_person,
+html:is([data-theme="light"],[data-theme="versefolk"]) :is(.hl-chip[aria-pressed="true"],.hl-segment button[aria-pressed="true"]) {color:var(--module-green-ink);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .hl-placeholder {color:var(--ink);background:var(--info-bg);}
+html:is([data-theme="light"],[data-theme="versefolk"]) .hl-platform,
+html:is([data-theme="light"],[data-theme="versefolk"]) .hl-organizer {color:var(--ink);background:var(--bg-elev);}

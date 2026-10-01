@@ -72,14 +72,14 @@ function decodeBase64(value: string): Buffer {
   return bytes;
 }
 
-function rasterFormat(bytes: Buffer): 'png' | 'jpeg' | 'webp' | null {
+export function rasterFormat(bytes: Buffer): 'png' | 'jpeg' | 'webp' | null {
   if (bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return 'png';
   if (bytes.length >= 3 && bytes.subarray(0, 3).equals(Buffer.from([255, 216, 255]))) return 'jpeg';
   if (bytes.length >= 16 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP') return 'webp';
   return null;
 }
 
-function rejectAnimation(bytes: Buffer, format: 'png' | 'jpeg' | 'webp') {
+export function rejectAnimation(bytes: Buffer, format: 'png' | 'jpeg' | 'webp') {
   if (format === 'png') {
     // libpng may decode only the first APNG frame; reject the animation chunk itself.
     for (let offset = 8; offset + 12 <= bytes.length;) {

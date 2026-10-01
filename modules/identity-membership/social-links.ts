@@ -11,7 +11,7 @@ const audienceKeys=['public','friends','squad','guild'] as const;
 const control=/[\x00-\x1f\x7f]/;
 const providerDomains:Partial<Record<typeof platformKeys[number],string[]>>={facebook:['facebook.com','fb.com'],instagram:['instagram.com'],youtube:['youtube.com','youtu.be'],threads:['threads.net','threads.com'],tiktok:['tiktok.com'],linkedin:['linkedin.com'],x:['x.com','twitter.com']};
 function privateIpv4(host:string){const [a,b,c]=host.split('.').map(Number);return a===0||a===10||a===127||a===169&&b===254||a===172&&b>=16&&b<=31||a===192&&b===168||a===100&&b>=64&&b<=127||a===198&&(b===18||b===19)||a===192&&b===0&&c===0||a>=224;}
-function privateHost(host:string){
+export function privateHost(host:string){
  const name=host.toLowerCase().replace(/^\[|\]$/g,'').replace(/\.$/,'');
  const version=isIP(name);
  if(version===4)return privateIpv4(name);
