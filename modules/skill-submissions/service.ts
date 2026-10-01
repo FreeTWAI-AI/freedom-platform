@@ -7,18 +7,25 @@ import { tokenHash, type Actor } from '../identity-membership/service.js';
 import { authRateLimit } from '../identity-membership/members.js';
 import { importProjectWithinTransaction, projectInput, type GitHubRead } from '../opensource-marketing/service.js';
 import type { NormalizedSubmission } from './payload.js';
+import { lockMemberDrafts, MAX_ACTIVE_DRAFTS } from './limits.js';
+import { catalogBookForRepository, repositoryDisplayName, repositoryKey } from './repository-match.js';
 
+export { MAX_ACTIVE_DRAFTS };
 export const GRANT_PREFIX = 'fpg_';
 export const KEY_PREFIX = 'fpk_';
 export const GRANT_MINUTES = 60;
 export const MAX_ACTIVE_KEYS = 10;
-export const MAX_ACTIVE_DRAFTS = 30;
 const IDEMPOTENCY = /^[A-Za-z0-9_-]{8,128}$/;
 const MEMBER_READY = 'active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)';
-const SUBMISSION_COLUMNS = `submission_id,status,aggregate_version,payload,project_id,image_bytes IS NOT NULL AS has_image,grant_hash IS NULL AS manual,
+// manual is a simple submission: no upload grant and not an upgrade draft.
+const SUBMISSION_COLUMNS = `submission_id,status,aggregate_version,payload,project_id,upgrades_submission_id,seed,image_bytes IS NOT NULL AS has_image,(grant_hash IS NULL AND seed IS NULL) AS manual,
   LEAST(grant_expires_at,(SELECT k.expires_at FROM skill_upload_keys k WHERE k.key_id=skill_submissions.grant_key_id)) AS grant_expires_at,
   COALESCE(grant_revoked_at,(SELECT k.revoked_at FROM skill_upload_keys k WHERE k.key_id=skill_submissions.grant_key_id)) AS grant_revoked_at,
-  grant_consumed_at,created_at,updated_at`;
+  grant_consumed_at,created_at,updated_at,
+  (SELECT json_build_object('submission_id',u.submission_id,'status',u.status) FROM skill_submissions u
+    WHERE u.upgrades_submission_id=skill_submissions.submission_id ORDER BY u.created_at DESC,u.submission_id ASC LIMIT 1) AS upgrade,
+  EXISTS (SELECT 1 FROM skill_submissions u WHERE u.upgrades_submission_id=skill_submissions.submission_id
+    AND u.status IN ('awaiting_upload','ready_for_review','published')) AS upgrade_blocks`;
 const KEY_COLUMNS = 'key_id,label,scope,expires_at,revoked_at,created_at,last_used_at';
 
 const empty = z.object({}).strict();
@@ -54,11 +61,28 @@ const uuidOrNotFound = (id: string) => {
   requireCondition(z.uuid().safeParse(id).success, 404, 'not_found', '找不到這份技能投稿。');
   return id.toLowerCase();
 };
+function uniqueConstraint(error: unknown) {
+  if (!error || typeof error !== 'object' || !('code' in error)) return null;
+  const pg = error as { code?: string; constraint?: string };
+  return pg.code === '23505' ? pg.constraint ?? '' : null;
+}
+function upgradeSeed(payload: { repository_url: string; title: string; description: string; use_notes: string; demo_url: string | null; relationship: string }) {
+  return {
+    repository_url: payload.repository_url, title: payload.title, description: payload.description,
+    use_notes: payload.use_notes, demo_url: payload.demo_url ?? null, relationship: payload.relationship,
+  };
+}
 
 function submissionView(row: any) {
+  const repositoryUrl = row.payload?.repository_url ?? row.seed?.repository_url ?? null;
+  const catalogBook = catalogBookForRepository(repositoryKey(typeof repositoryUrl === 'string' ? repositoryUrl : null));
   return {
     submission_id: row.submission_id, status: row.status, aggregate_version: String(row.aggregate_version),
     payload: row.payload ?? null, project_id: row.project_id ?? null,
+    seed: row.seed ?? null, upgrades_submission_id: row.upgrades_submission_id ?? null,
+    upgrade: row.upgrade ?? null,
+    can_upgrade: row.status === 'published' && Boolean(row.manual) && !catalogBook && !row.upgrade_blocks,
+    catalog_book: catalogBook,
     can_edit: row.status === 'ready_for_review' && Boolean(row.manual),
     public_path: row.status === 'published' ? publicPath(row.submission_id) : null,
     illustration_url: row.has_image ? ownerIllustrationUrl(row.submission_id) : null,
@@ -86,7 +110,7 @@ async function ownedSubmission(q: Queryable, actor: Owner, id: string, lock = fa
 }
 async function requireDraftCapacity(q: PoolClient, owner: Owner) {
   // Serialises concurrent issuing from browser and agent for the same member.
-  await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`skill-submissions/${owner.user_id}`]);
+  await lockMemberDrafts(q, owner.user_id);
   const active = Number((await q.query(`SELECT count(*) FROM skill_submissions WHERE community_id=$1 AND owner_ref=$2
     AND status IN ('awaiting_upload','ready_for_review')`, [owner.community_id, owner.user_id])).rows[0].count);
   requireCondition(active < MAX_ACTIVE_DRAFTS, 409, 'draft_limit', `最多保留 ${MAX_ACTIVE_DRAFTS} 份未公開的技能草稿；請先公開或撤回不再需要的草稿。`);
@@ -165,6 +189,53 @@ export async function issueSubmission(pool: Pool, input: Command, origin: string
   return { submission: result.submission, upload_grant: grantFor(origin, result.submission, secret) };
 }
 
+const ALREADY_UPGRADED = '這件作品已升級成完整技能書。';
+async function openUpgrade(q: Queryable, actor: Owner, sourceId: string) {
+  return (await q.query(`SELECT ${SUBMISSION_COLUMNS} FROM skill_submissions WHERE upgrades_submission_id=$1 AND community_id=$2 AND owner_ref=$3
+    AND status IN ('awaiting_upload','ready_for_review') ORDER BY created_at DESC,submission_id ASC LIMIT 1`,
+    [sourceId, actor.community_id, actor.user_id])).rows[0];
+}
+export async function upgradeSubmission(pool: Pool, input: Command, id: string) {
+  empty.parse(input.body);
+  id = uuidOrNotFound(id);
+  await authRateLimit(pool, 'skill-submission-issue', input.actor.user_id, 30, 3600);
+  return command(pool, input, async q => { await requireReadyMember(q, input.actor); await ownedSubmission(q, input.actor, id); }, async q => {
+    await lockMemberDrafts(q, input.actor.user_id);
+    const current = await ownedSubmission(q, input.actor, id, true);
+    requireCondition(current.status === 'published' && current.manual, 409, 'not_upgradable', '只有已公開的簡易投稿可以升級。');
+    const catalog = catalogBookForRepository(repositoryKey(typeof current.payload?.repository_url === 'string' ? current.payload.repository_url : null));
+    requireCondition(!catalog, 409, 'catalog_book_exists', `這個儲存庫已收錄為技能書「${catalog?.title ?? ''}」，不需要再升級。`);
+    const published = (await q.query(`SELECT 1 FROM skill_submissions WHERE upgrades_submission_id=$1 AND status='published'`, [id])).rows[0];
+    requireCondition(!published, 409, 'already_upgraded', ALREADY_UPGRADED);
+    const existing = await openUpgrade(q, input.actor, id);
+    if (existing) return { submission: submissionView(existing), created: false };
+    await requireDraftCapacity(q, input.actor);
+    const seed = upgradeSeed(current.payload);
+    const draftId = randomUUID();
+    await q.query('SAVEPOINT upgrade_insert');
+    try {
+      const row = (await q.query(`INSERT INTO skill_submissions(submission_id,community_id,owner_ref,upgrades_submission_id,seed)
+        VALUES($1,$2,$3,$4,$5) RETURNING ${SUBMISSION_COLUMNS}`,
+        [draftId, input.actor.community_id, input.actor.user_id, id, JSON.stringify(seed)])).rows[0];
+      await q.query('RELEASE SAVEPOINT upgrade_insert');
+      await journal(q, input.actor, 'skill_submission', draftId, 1, 'seed_upgrade_from_simple_submission',
+        { upgrades_submission_id: id, repository_url: seed.repository_url });
+      return { submission: submissionView(row), created: true };
+    } catch (error) {
+      await q.query('ROLLBACK TO SAVEPOINT upgrade_insert');
+      const constraint = uniqueConstraint(error);
+      if (constraint === 'skill_submissions_one_open_upgrade') {
+        const raced = await openUpgrade(q, input.actor, id);
+        if (raced) return { submission: submissionView(raced), created: false };
+      }
+      if (constraint === 'skill_submissions_one_open_upgrade' || constraint === 'skill_submissions_one_published_upgrade') {
+        throw new Problem(409, 'already_upgraded', ALREADY_UPGRADED);
+      }
+      throw error;
+    }
+  });
+}
+
 export async function rotateGrant(pool: Pool, input: Command, id: string, origin: string) {
   empty.parse(input.body);
   id = uuidOrNotFound(id);
@@ -235,9 +306,18 @@ export async function publishSubmission(pool: Pool, input: Command, id: string, 
     }
     requireCondition(project?.project_id && project?.current_version?.version_id && project.official === false && project.relationship_verification === 'self_declared',
       502, 'import_unverified', '作品匯入結果無法確認，這次沒有公開；請稍後重試。');
-    const row = (await q.query(`UPDATE skill_submissions SET status='published',consent_to_share=true,project_id=$2,project_version_id=$3,
-      published_at=now(),aggregate_version=aggregate_version+1,updated_at=now() WHERE submission_id=$1 AND status='ready_for_review'
-      RETURNING ${SUBMISSION_COLUMNS}`, [id, project.project_id, project.current_version.version_id])).rows[0];
+    let row: any;
+    await q.query('SAVEPOINT publish_upgrade');
+    try {
+      row = (await q.query(`UPDATE skill_submissions SET status='published',consent_to_share=true,project_id=$2,project_version_id=$3,
+        published_at=now(),aggregate_version=aggregate_version+1,updated_at=now() WHERE submission_id=$1 AND status='ready_for_review'
+        RETURNING ${SUBMISSION_COLUMNS}`, [id, project.project_id, project.current_version.version_id])).rows[0];
+      await q.query('RELEASE SAVEPOINT publish_upgrade');
+    } catch (error) {
+      await q.query('ROLLBACK TO SAVEPOINT publish_upgrade');
+      if (uniqueConstraint(error) === 'skill_submissions_one_published_upgrade') throw new Problem(409, 'already_upgraded', '這件作品已升級成完整技能書。');
+      throw error;
+    }
     requireCondition(row, 409, 'submission_not_ready', '這份草稿狀態已變更，請重新整理。');
     await journal(q, input.actor, 'skill_submission', id, row.aggregate_version, 'publish_with_consent',
       { project_id: project.project_id, version_id: project.current_version.version_id, commit_sha: project.current_version.commit_sha,
@@ -361,7 +441,7 @@ export async function agentUploadSubmission(pool: Pool, grant: Owner & { grant_h
         [peek.grant_key_id, grant.user_id, grant.community_id]);
       if (key.rowCount !== 1) throw grantInvalid();
     }
-    const row = (await q.query(`SELECT submission_id,status,grant_key_id,grant_revoked_at,grant_expires_at>now() AS grant_live,grant_consumed_at,payload_sha256
+    const row = (await q.query(`SELECT submission_id,status,grant_key_id,grant_revoked_at,grant_expires_at>now() AS grant_live,grant_consumed_at,payload_sha256,seed
       FROM skill_submissions WHERE submission_id=$1 AND grant_hash=$2 AND owner_ref=$3 AND community_id=$4 FOR UPDATE`,
       [grant.submission_id, grant.grant_hash, grant.user_id, grant.community_id])).rows[0];
     // Revoked, rotated, expired or re-bound grants are rejected even for identical replays.
@@ -372,6 +452,13 @@ export async function agentUploadSubmission(pool: Pool, grant: Owner & { grant_h
       return ack(row.status, row.grant_consumed_at);
     }
     requireCondition(row.status === 'awaiting_upload', 409, 'submission_not_awaiting_upload', '這份草稿目前不能上傳。');
+    if (row.seed) {
+      const expected = repositoryKey(typeof row.seed.repository_url === 'string' ? row.seed.repository_url : null);
+      if (expected !== repositoryKey(normalized.payload.repository_url)) {
+        const label = repositoryDisplayName(typeof row.seed.repository_url === 'string' ? row.seed.repository_url : null) ?? expected ?? '這個儲存庫';
+        throw new Problem(422, 'repository_mismatch', `這份草稿是為 ${label} 建立的；請上傳同一個儲存庫的內容，或撤銷草稿後重新建立。`);
+      }
+    }
     const saved = (await q.query(`UPDATE skill_submissions SET status='ready_for_review',payload=$2,payload_sha256=$3,image_bytes=$4,grant_consumed_at=now(),
       aggregate_version=aggregate_version+1,updated_at=now() WHERE submission_id=$1 RETURNING aggregate_version,grant_consumed_at`,
       [row.submission_id, JSON.stringify(normalized.payload), normalized.payload_sha256, normalized.image])).rows[0];
