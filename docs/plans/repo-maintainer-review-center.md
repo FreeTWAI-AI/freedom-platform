@@ -120,9 +120,9 @@ freedom-maintainer Worker（新，沒有路由）
 
 ## 6. 資料模型
 
-每個階段各一支純新增 migration。main 目前最新的是 056（#61），本案從 **057** 開始；編號以合併當時為準，合併前再確認一次。規則照舊：只新增、不改已套用的 migration、不使用 preflight 禁用的語法，背景工作用單一 UPDATE row lease，不用 session advisory lock。GitHub 的 repo、使用者、review 一律存數字 ID（文字欄位、`^[0-9]+$`，比照 053），名稱只供顯示。
+每個階段各一支純新增 migration。main 目前最新的是 057（#64），開著的 #68 用 058，本案從 **059** 開始；編號以合併當時為準，合併前再確認一次。新增 migration 的 PR 要一併把 `deploy/cloudflare/environments.json` 的 `database_defaults.migrations.last` 改成新的最後編號（#70）。規則照舊：只新增、不改已套用的 migration、不使用 preflight 禁用的語法，背景工作用單一 UPDATE row lease，不用 session advisory lock。GitHub 的 repo、使用者、review 一律存數字 ID（文字欄位、`^[0-9]+$`，比照 053），名稱只供顯示。
 
-**階段 1a（057）：**
+**階段 1a（059）：**
 
 | 表 | 用途 | 重點欄位 |
 | --- | --- | --- |
@@ -136,7 +136,7 @@ freedom-maintainer Worker（新，沒有路由）
 | `maintainer_reviews` | GitHub review 鏡像 | `github_review_id`、`reviewer_github_id`、`reviewer_login`、`reviewer_type`、`reviewer_association`、`state`、`commit_id`、`submitted_at` |
 | `maintainer_reviewers` | 管理員指派的審核員 | `github_user_id`、`github_login`、`user_id`（來源會員）、`max_risk`（`low`／`medium`／`high`）、`active`、`appointed_by`（管理員） |
 
-**階段 1b（058）：** `maintainer_review_claims`（`reviewer_id`、`claimed_by_admin`、`assignment`（`self`／`assigned`；指派時要寫理由）、`head_sha`、`expires_at`、`state`（`active`／`released`／`expired`／`completed`）、`end_reason`、`github_request_state`（預設 `not_requested`；三個開關都開才會有 `pending`／`requested`／`removing`／`removed`／`failed`）；每張 PR 同時只有一個有效認領）。`maintainer_pull_requests` 加 `requested_reviewers`（GitHub 上目前的 requested reviewer，只供顯示）。
+**階段 1b（060）：** `maintainer_review_claims`（`reviewer_id`、`claimed_by_admin`、`assignment`（`self`／`assigned`；指派時要寫理由）、`head_sha`、`expires_at`、`state`（`active`／`released`／`expired`／`completed`）、`end_reason`、`github_request_state`（預設 `not_requested`；三個開關都開才會有 `pending`／`requested`／`removing`／`removed`／`failed`）；每張 PR 同時只有一個有效認領）。`maintainer_pull_requests` 加 `requested_reviewers`（GitHub 上目前的 requested reviewer，只供顯示）。
 
 **階段 2：** `maintainer_ai_reviews`（`head_sha`、`provider`、`role`、`model`、`trigger`、`state`、`verdict`、`findings`、`input_tokens`、`output_tokens`、`cost_usd_micros`、`github_review_id`、`prompt_version`）、每月預算帳、`maintainer_issue_triage`（以既有 `github_items` 為清單來源；`state` 為 `new`／`triaged`／`needs_info`／`duplicate`／`declined`）。
 
@@ -392,8 +392,8 @@ Cloudflare 方面，多一個每分鐘執行的 cron Worker，每月約 4.3 萬�
 | 階段 | 內容 | 誰做 | 出口條件 |
 | --- | --- | --- | --- |
 | 0 | 兩個 GitHub App、ruleset（含高風險路徑審核）、測試 repo | Ted（可提供逐步清單） | App 收到 ping；ruleset 生效 |
-| 1a | 觀察（後端）：migration 057、webhook、維護 Worker（installation 同步、補查、reconcile、row lease、請求預算）、風險分級與狀態推導、審核員名單、管理 API（清單、詳情、repo 設定、重新同步） | grok-4.7 | 驗證全綠；三個 Worker 的 dry-run 都成功 |
-| 1b | 人工審核與畫面：認領、指派、釋放（058；同步成 requested reviewer，預設不寫 GitHub）、後台「PR 審核」分頁、E2E | grok-4.7 | Staging 上看得到測試 repo 各種 PR 的正確狀態與原因 |
+| 1a | 觀察（後端）：migration 059、webhook、維護 Worker（installation 同步、補查、reconcile、row lease、請求預算）、風險分級與狀態推導、審核員名單、管理 API（清單、詳情、repo 設定、重新同步） | grok-4.7 | 驗證全綠；三個 Worker 的 dry-run 都成功 |
+| 1b | 人工審核與畫面：認領、指派、釋放（060；同步成 requested reviewer，預設不寫 GitHub）、後台「PR 審核」分頁、E2E | grok-4.7 | Staging 上看得到測試 repo 各種 PR 的正確狀態與原因 |
 | 2 | SLA、通知、AI 雙審（手動＋逾時）、預算、Issue 分流（人工＋AI 建議） | grok-4.7 | 20 張 PR 的 AI 結果與人審對照，沒有漏掉 blocker |
 | 3 | Policy 乾跑、決策紀錄、熔斷、合併相關設定 | grok-4.7 | 連續兩週乾跑，「會合併」的判斷都與 Ted 一致 |
 | 4 | 低風險真合併；App 加 Contents 寫入；更新 `AGENTS.md`、`freedom.project.yaml` | Ted 決定後，小 PR | — |

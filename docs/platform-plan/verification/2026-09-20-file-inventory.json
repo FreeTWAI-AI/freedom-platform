@@ -1685,7 +1685,7 @@
     {
       "path": "docs/development/repo-maintainer.md",
       "bytes": 19994,
-      "sha256": "837392423653e0a82888a3f4e3a54c77f1dd478c517292a1bd385acec0d9c536"
+      "sha256": "da31d6b6ec5e9a590c9f10bde070f8fc2cdd4c2a19440a2799e214856e0a1a99"
     },
     {
       "path": "docs/development/repository-guidance-index.json",
@@ -1759,8 +1759,8 @@
     },
     {
       "path": "docs/plans/repo-maintainer-review-center.md",
-      "bytes": 44180,
-      "sha256": "8502bf14a009f73eb25791c0e4beda959bd2df4e94fec2e2d99dbe1ae720d1f5"
+      "bytes": 44355,
+      "sha256": "98ee356c20c81cb8f088453febf9919dd35ac0d3f527d09fed02c1c67c427d99"
     },
     {
       "path": "docs/platform-plan/00-current-requirements-baseline.md",
@@ -3048,12 +3048,12 @@
       "sha256": "bfff27a492217a81d3c90ca5243b17012ed8bbe9dabbf232e8f52b26b02cf5d5"
     },
     {
-      "path": "migrations/057_repo_maintainer.sql",
+      "path": "migrations/059_repo_maintainer.sql",
       "bytes": 11218,
       "sha256": "25df4fe2d020b38ebfa54d6250b485777135a012d7fc5b1d4cbd1cda3ad14412"
     },
     {
-      "path": "migrations/058_maintainer_review_claims.sql",
+      "path": "migrations/060_maintainer_review_claims.sql",
       "bytes": 2629,
       "sha256": "0ebce73ce8630ff3b5b062a33cfdf86f9815d66b3add6e046d5aebd9eeb1657b"
     },

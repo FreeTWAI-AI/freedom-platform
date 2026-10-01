@@ -17,7 +17,7 @@
 
 | 元件 | 位置 | 做什麼 |
 | --- | --- | --- |
-| 資料表 | `migrations/057_repo_maintainer.sql`、`migrations/058_maintainer_review_claims.sql` | 儲存庫、單列排程、webhook 投遞紀錄、工作、拉取請求鏡像、檔案、檢查、審查、審查者、認領 |
+| 資料表 | `migrations/059_repo_maintainer.sql`、`migrations/060_maintainer_review_claims.sql` | 儲存庫、單列排程、webhook 投遞紀錄、工作、拉取請求鏡像、檔案、檢查、審查、審查者、認領 |
 | 政策 | `modules/repo-maintainer/policy.ts` | 風險、遷移編號、佇列狀態、認領覆寫。沒有 I/O。版本 `2026-09-30.2` |
 | 推導 | `modules/repo-maintainer/derive.ts` | `rederivePull`：用已存的鏡像、子表、啟用中的審查者、`migration_reasons` 與進行中的認領重算一筆。不重新推導遷移原因 |
 | Webhook | `POST /api/v1/maintainer/github/webhook` | 驗簽、正規化、寫一筆投遞、必要時排入 `reconcile_pull`。不呼叫 GitHub。只有這個精確的 POST 在會員驗證之前；同一路徑的 GET 回 401 `login_required` |
