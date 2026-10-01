@@ -49,7 +49,7 @@ beforeEach(async () => {
   clock = new Date('2026-09-30T12:00:00.000Z');
   calls = [];
   respond = () => new Response('missing', { status: 404 });
-  await pool.query('TRUNCATE maintainer_webhook_deliveries, maintainer_jobs, maintainer_pull_requests, maintainer_repositories, maintainer_reviewers CASCADE');
+  await pool.query('TRUNCATE maintainer_webhook_deliveries, maintainer_jobs, maintainer_pull_requests, maintainer_repositories CASCADE');
   await pool.query(`UPDATE maintainer_worker_state SET next_installation_sync_at='2099-01-01T00:00:00Z', last_installation_sync_at=NULL, last_error=NULL WHERE singleton`);
 });
 
@@ -88,8 +88,8 @@ async function insertPull(repository: string, number: number, head = SHA, update
   await pool.query(`INSERT INTO maintainer_pull_requests (
     pull_id, repository_id, number, github_pull_id, title, html_url, state, is_draft, author_github_id, author_login, author_type,
     author_association, is_fork, head_sha, base_ref, base_sha, mergeable, labels, additions, deletions, changed_files, github_created_at,
-    github_updated_at, head_observed_at, risk_class, risk_reasons, queue_state, queue_reasons, policy_version, synced_at)
-    VALUES ($1,$2,$3,$4,$5,$6,'open',false,'42','octocat','User','CONTRIBUTOR',false,$7,'main',$8,$9,'{}',1,0,1,$10,$10,$10,'low','[]',$11,'[]','2026-09-30.1',$12)`,
+    github_updated_at, head_observed_at, attention_reasons, queue_state, queue_reasons, policy_version, synced_at)
+    VALUES ($1,$2,$3,$4,$5,$6,'open',false,'42','octocat','User','CONTRIBUTOR',false,$7,'main',$8,$9,'{}',1,0,1,$10,$10,$10,'[]',$11,'[]','2026-10-01.1',$12)`,
   [randomUUID(), repository, number, String(700 + number), title, `https://github.com/FreeTWAI-AI/freedom-platform/pull/${number}`, head, BASE, mergeable, updated, queue, synced]);
 }
 async function insertJob(repository: string, number: number, state = 'queued', attempts = 0, runAfter: Date = clock, lease: Date | null = null) {
@@ -244,11 +244,11 @@ test('reconcile stores the mirror and an out-of-order run does not overwrite it'
   let summary;
   try { summary = await tick(); } finally { console.log = originals[0]; console.error = originals[1]; console.warn = originals[2]; }
   assert.equal(summary.jobs_done, 1);
-  const row = (await pool.query('SELECT title, queue_state, risk_class, policy_version, aggregate_version FROM maintainer_pull_requests')).rows[0];
+  const row = (await pool.query('SELECT title, queue_state, attention_reasons, policy_version, aggregate_version FROM maintainer_pull_requests')).rows[0];
   assert.equal(row.title, 'Observe me');
   assert.equal(row.queue_state, 'awaiting_review');
-  assert.equal(row.risk_class, 'medium');
-  assert.equal(row.policy_version, '2026-09-30.2');
+  assert.deepEqual(row.attention_reasons, []);
+  assert.equal(row.policy_version, '2026-10-01.1');
   assert.equal((await pool.query(`SELECT app_slug, conclusion FROM maintainer_checks`)).rows[0].app_slug, 'github-actions');
   assert.equal(logged.join('\n').includes(TOKEN), false);
   assert.equal(logged.join('\n').includes(privateKey.slice(40, 80)), false);
@@ -368,9 +368,9 @@ test('failures back off and the fifth attempt fails; a missing migrations direct
   });
   const summary = await tick();
   assert.equal(summary.jobs_done, 1, JSON.stringify(summary));
-  const stored = (await pool.query('SELECT queue_state, risk_class FROM maintainer_pull_requests')).rows[0];
-  assert.equal(stored.risk_class, 'high');
-  assert.equal(stored.queue_state, 'needs_owner');
+  const stored = (await pool.query('SELECT queue_state, attention_reasons FROM maintainer_pull_requests')).rows[0];
+  assert.ok(stored.attention_reasons.some((reason: { code: string }) => reason.code === 'data_deploy'));
+  assert.equal(stored.queue_state, 'awaiting_review');
   assert.equal((await pool.query('SELECT last_error FROM maintainer_jobs')).rows[0].last_error, null);
   assertHosts();
 });
@@ -461,7 +461,7 @@ test('migration reasons survive turning the repository off and back to observe',
   assert.ok(row.queue_reasons.some((reason: { code: string }) => reason.code === 'migration_number_collision'));
 });
 
-test('a file list that fills the page cap is mirrored and marked high', async () => {
+test('a file list that fills the page cap is mirrored and marked truncated', async () => {
   const repository = await insertRepo();
   await insertJob(repository, 8);
   installRoutes([], call => {
@@ -475,9 +475,10 @@ test('a file list that fills the page cap is mirrored and marked high', async ()
   });
   const summary = await tick();
   assert.equal(summary.jobs_done, 1, JSON.stringify(summary));
-  const stored = (await pool.query('SELECT risk_class, risk_reasons, queue_state FROM maintainer_pull_requests')).rows[0];
-  assert.equal(stored.risk_class, 'high');
-  assert.ok(stored.risk_reasons.some((reason: { code: string }) => reason.code === 'changed_files_truncated'));
+  const stored = (await pool.query('SELECT attention_reasons, queue_state FROM maintainer_pull_requests')).rows[0];
+  assert.ok(stored.attention_reasons.some((reason: { code: string }) => reason.code === 'size_huge'));
+  assert.ok(stored.attention_reasons.some((reason: { code: string }) => reason.code === 'changed_files_truncated'));
+  assert.equal(stored.queue_state, 'awaiting_review');
   assert.equal((await pool.query('SELECT count(*) FROM maintainer_pull_files')).rows[0].count, '1000');
   assert.equal((await pool.query('SELECT state, last_error FROM maintainer_jobs')).rows[0].state, 'done');
 });
@@ -538,16 +539,13 @@ test('fork follows head repository identity, not the fork flag', async () => {
   });
   const summary = await tick();
   assert.equal(summary.jobs_done, 3, JSON.stringify(summary));
-  const rows = (await pool.query('SELECT number, is_fork, risk_class, risk_reasons FROM maintainer_pull_requests ORDER BY number')).rows;
+  const rows = (await pool.query('SELECT number, is_fork, attention_reasons FROM maintainer_pull_requests ORDER BY number')).rows;
   assert.equal(rows[0].is_fork, false);
-  assert.equal(rows[0].risk_class, 'low');
-  assert.equal(rows[0].risk_reasons.some((reason: { code: string }) => reason.code === 'fork_head'), false);
+  assert.deepEqual(rows[0].attention_reasons, []);
   assert.equal(rows[1].is_fork, true);
-  assert.equal(rows[1].risk_class, 'medium');
-  assert.ok(rows[1].risk_reasons.some((reason: { code: string }) => reason.code === 'fork_head'));
+  assert.deepEqual(rows[1].attention_reasons, []);
   assert.equal(rows[2].is_fork, true);
-  assert.equal(rows[2].risk_class, 'medium');
-  assert.ok(rows[2].risk_reasons.some((reason: { code: string }) => reason.code === 'fork_head'));
+  assert.deepEqual(rows[2].attention_reasons, []);
 });
 
 test('a sweep refreshes stale open pulls and caps those refreshes', async () => {

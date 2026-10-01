@@ -71,28 +71,26 @@ async function request(path: string, body?: unknown, version?: number, key: stri
   try { data = text ? JSON.parse(text) : null; } catch { /* non-JSON */ }
   return { status: response.status, data, etag: response.headers.get('etag') };
 }
-async function insertRepo(settings: Record<string, unknown> = {}, mode = 'observe') {
+async function insertRepo(settings: Record<string, unknown> = {}, mode = 'observe', githubId = '9001') {
   const id = randomUUID();
   await pool.query(`INSERT INTO maintainer_repositories
     (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, settings, next_sweep_at)
-    VALUES ($1,$2,'9001','77','FreeTWAI-AI/freedom-platform','main','active',$3,$4::jsonb,'2099-01-01T00:00:00Z')`,
-  [id, DEMO_COMMUNITY, mode, JSON.stringify(settings)]);
+    VALUES ($1,$2,$3,'77','FreeTWAI-AI/freedom-platform','main','active',$4,$5::jsonb,'2099-01-01T00:00:00Z')`,
+  [id, DEMO_COMMUNITY, githubId, mode, JSON.stringify(settings)]);
   return id;
 }
-async function insertPull(repository: string, number: number, over: { queue?: string; risk?: string; author?: string; draft?: boolean; paused?: boolean; state?: string; file?: string; check?: { status: string; conclusion: string | null } | null; migration?: unknown[]; observed?: string; merged?: boolean } = {}) {
+async function insertPull(repository: string, number: number, over: { queue?: string; author?: string; draft?: boolean; paused?: boolean; state?: string; file?: string; check?: { status: string; conclusion: string | null } | null; migration?: unknown[]; observed?: string; merged?: boolean } = {}) {
   const id = randomUUID();
   const file = over.file ?? 'README.md';
-  const risk = over.risk ?? (file.includes('workflows') ? 'high' : 'low');
   const queue = over.queue ?? 'awaiting_review';
   const observed = over.observed ?? '2026-09-30T11:00:00Z';
   await pool.query(`INSERT INTO maintainer_pull_requests (
     pull_id, repository_id, number, github_pull_id, title, html_url, state, merged_at, is_draft, author_github_id, author_login, author_type,
     author_association, is_fork, head_sha, base_ref, base_sha, labels, additions, deletions, changed_files, github_created_at,
-    github_updated_at, head_observed_at, risk_class, risk_reasons, queue_state, queue_reasons, migration_reasons, sla_due_at, paused, policy_version, synced_at)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'octocat','User','CONTRIBUTOR',false,$11,'main',$12,'{}',1,0,1,$13,$13,$13,$14,$15::jsonb,$16,'[]'::jsonb,$17::jsonb,$18,$19,'2026-09-30.1',$13)`,
-  [id, repository, number, String(8000 + number), `PR ${number}`, `https://github.com/FreeTWAI-AI/freedom-platform/pull/${number}`, over.state ?? 'open', over.merged ? observed : null, over.draft ?? false, over.author ?? '42', SHA, OLD, observed, risk,
-    JSON.stringify([{ code: risk === 'high' ? 'high_sensitive' : 'low_docs', message: risk === 'high' ? '敏感路徑' : '文件', paths: [file] }]), queue,
-    JSON.stringify(over.migration ?? []), queue === 'awaiting_review' ? '2026-09-30T18:00:00Z' : null, over.paused ?? false]);
+    github_updated_at, head_observed_at, attention_reasons, queue_state, queue_reasons, migration_reasons, paused, policy_version, synced_at)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'octocat','User','CONTRIBUTOR',false,$11,'main',$12,'{}',1,0,1,$13,$13,$13,'[]'::jsonb,$14,'[]'::jsonb,$15::jsonb,$16,'2026-10-01.1',$13)`,
+  [id, repository, number, String(8000 + number), `PR ${number}`, `https://github.com/FreeTWAI-AI/freedom-platform/pull/${number}`, over.state ?? 'open', over.merged ? observed : null, over.draft ?? false, over.author ?? '42', SHA, OLD, observed, queue,
+    JSON.stringify(over.migration ?? []), over.paused ?? false]);
   await pool.query(`INSERT INTO maintainer_pull_files (pull_id, path, status, additions, deletions) VALUES ($1,$2,'modified',1,0)`, [id, file]);
   if (over.check !== null) {
     const check = over.check ?? { status: 'completed', conclusion: 'success' };
@@ -109,23 +107,27 @@ async function member(address: string, name: string) {
 async function link(userId: string, githubId: string, login: string) {
   await pool.query(`INSERT INTO github_social_connections (user_id, community_id, github_user_id, github_login, encrypted_tokens) VALUES ($1,$2,$3,$4,$5)`, [userId, DEMO_COMMUNITY, githubId, login, TOKEN]);
 }
-async function reviewer(userId: string, githubId: string, login: string, max: string, active = true) {
-  const id = randomUUID();
-  await pool.query(`INSERT INTO maintainer_reviewers (reviewer_id, community_id, github_user_id, github_login, user_id, max_risk, active, appointed_by)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, [id, DEMO_COMMUNITY, githubId, login, userId, max, active, adminId]);
-  return id;
+type Identity = { userId: string; githubId: string; login: string; acting: 'admin' | 'guild_leader'; guild: string | null };
+async function lead(userId: string, guildKey: string) {
+  await pool.query(`INSERT INTO positioning_profession_memberships (membership_id, community_id, user_id, guild_key, state)
+    VALUES ($1,$2,$3,$4,'active') ON CONFLICT (community_id, user_id, guild_key) DO UPDATE SET state='active'`,
+  [randomUUID(), DEMO_COMMUNITY, userId, guildKey]);
+  await pool.query(`INSERT INTO positioning_guild_officers (community_id, guild_key, user_id) VALUES ($1,$2,$3)
+    ON CONFLICT (community_id, guild_key) DO UPDATE SET user_id=$3`, [DEMO_COMMUNITY, guildKey, userId]);
 }
-async function asSelf(max = 'high') {
+async function asSelf(): Promise<Identity> {
   const userId = await member(email, '審核管理員');
   await link(userId, '77001', 'self-reviewer');
-  return { userId, reviewerId: await reviewer(userId, '77001', 'self-reviewer', max) };
+  return { userId, githubId: '77001', login: 'self-reviewer', acting: 'admin', guild: null };
 }
-async function insertClaim(pullId: string, reviewerId: string, over: { created?: string; expires?: string; github?: string } = {}) {
+async function insertClaim(pullId: string, identity: Identity, over: { created?: string; expires?: string | null; github?: string } = {}) {
   const id = randomUUID();
+  const expires = over.expires === undefined ? '2026-09-30T18:00:00Z' : over.expires;
   await pool.query(`INSERT INTO maintainer_review_claims (
-    claim_id, pull_id, reviewer_id, claimed_by_admin, assignment, head_sha, created_at, expires_at, state, github_request_state)
-    VALUES ($1,$2,$3,$4,'self',$5,$6,$7,'active',$8)`,
-  [id, pullId, reviewerId, adminId, SHA, over.created ?? '2026-09-30T10:00:00Z', over.expires ?? '2026-09-30T18:00:00Z', over.github ?? 'not_requested']);
+    claim_id, pull_id, reviewer_user_id, reviewer_github_id, reviewer_login, acting_as, guild_key,
+    claimed_by_admin, assignment, head_sha, created_at, expires_at, state, github_request_state)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'self',$9,$10,$11,'active',$12)`,
+  [id, pullId, identity.userId, identity.githubId, identity.login, identity.acting, identity.guild, adminId, SHA, over.created ?? '2026-09-30T10:00:00Z', expires, over.github ?? 'not_requested']);
   return id;
 }
 async function insertReview(pullId: string, githubId: string, state: string, submitted: string, commit: string | null = SHA) {
@@ -146,7 +148,7 @@ async function queueOf(id: string) {
 test('claim, assign, release, pause and resume enforce identity, version and the queue filters', async () => {
   const repository = await insertRepo();
   const low = await insertPull(repository, 1);
-  const high = await insertPull(repository, 2, { file: '.github/workflows/verify.yml', queue: 'needs_owner', risk: 'high' });
+  const high = await insertPull(repository, 2, { file: '.github/workflows/verify.yml' });
   const authorQueue = await insertPull(repository, 3, { queue: 'needs_author', migration: [{ code: 'migration_number_collision', message: '編號衝突' }] });
   const ci = await insertPull(repository, 4, { queue: 'waiting_ci', check: { status: 'in_progress', conclusion: null } });
   const path = `/review-center/pulls/${low}/claim`;
@@ -164,21 +166,19 @@ test('claim, assign, release, pause and resume enforce identity, version and the
   assert.match(unnamed.data.detail, /仍可以指派其他人/);
   const viewer = (await request('/review-center/summary')).data.viewer;
   assert.equal(viewer.github_login, null);
-  assert.equal(viewer.reviewer_id, null);
+  assert.equal(viewer.user_id, null);
+  assert.equal(viewer.can_self_claim, false);
   assert.match(viewer.reason, /不能認領給自己/);
 
   const linkedOnly = await member('linked-only@example.invalid', '只有連結');
   await link(linkedOnly, '77009', 'linked-only');
-  await pool.query('UPDATE users SET email=$2 WHERE user_id=$1', [linkedOnly, email]);
-  const notReviewer = await request(path, {}, 1);
-  assert.equal(notReviewer.data.code, 'maintainer_claim_not_reviewer');
+  await pool.query('UPDATE users SET email=$2, email_verified_at=NULL WHERE user_id=$1', [linkedOnly, email]);
+  const unverified = await request(path, {}, 1);
+  assert.equal(unverified.data.code, 'maintainer_claim_identity_required');
   await pool.query('DELETE FROM github_social_connections WHERE user_id=$1', [linkedOnly]);
   await pool.query('DELETE FROM users WHERE user_id=$1', [linkedOnly]);
 
-  const self = await asSelf('low');
-  const lowRank = await request(`/review-center/pulls/${high}/claim`, {}, 1);
-  assert.equal(lowRank.data.code, 'maintainer_claim_rank_too_low');
-  await pool.query(`UPDATE maintainer_reviewers SET max_risk='high' WHERE reviewer_id=$1`, [self.reviewerId]);
+  const self = await asSelf();
   const ownPr = await insertPull(repository, 5, { author: '77001' });
   assert.equal((await request(`/review-center/pulls/${ownPr}/claim`, {}, 1)).data.code, 'maintainer_claim_author');
   await pool.query(`UPDATE maintainer_pull_requests SET is_draft=true WHERE pull_id=$1`, [low]);
@@ -214,19 +214,16 @@ test('claim, assign, release, pause and resume enforce identity, version and the
   const summary = await request('/review-center/summary');
   assert.equal(summary.data.counts.in_review, 1);
   assert.equal(summary.data.viewer.github_login, 'self-reviewer');
-  assert.equal(summary.data.viewer.reviewer_id, self.reviewerId);
-  assert.equal(summary.data.viewer.max_risk, 'high');
+  assert.equal(summary.data.viewer.user_id, self.userId);
+  assert.equal(summary.data.viewer.can_self_claim, true);
   assert.equal(summary.data.viewer.reason, null);
 
   const otherUser = await member('other-reviewer@example.invalid', '另一位');
   await link(otherUser, '77002', 'other-reviewer');
-  const other = await reviewer(otherUser, '77002', 'other-reviewer', 'low');
-  assert.equal((await request(`/review-center/pulls/${high}/assign`, { reviewer_id: other, reason: '請他看高風險。' }, 1)).data.code, 'maintainer_claim_rank_too_low');
-  await pool.query(`UPDATE maintainer_reviewers SET max_risk='high' WHERE reviewer_id=$1`, [other]);
-  await pool.query(`UPDATE github_social_connections SET github_user_id='77099' WHERE user_id=$1`, [otherUser]);
-  assert.equal((await request(`/review-center/pulls/${high}/assign`, { reviewer_id: other, reason: '連結已換帳號。' }, 1)).data.code, 'maintainer_claim_not_reviewer');
-  await pool.query(`UPDATE github_social_connections SET github_user_id='77002' WHERE user_id=$1`, [otherUser]);
-  const assigned = await request(`/review-center/pulls/${high}/assign`, { reviewer_id: other, reason: '請他看這次高風險變更。' }, 1);
+  assert.equal((await request(`/review-center/pulls/${high}/assign`, { user_id: otherUser, acting_as: 'guild_leader', guild_key: 'guild_ai_vibe', reason: '他還不是公會長。' }, 1)).data.code, 'maintainer_reviewer_not_eligible');
+  await pool.query(`UPDATE maintainer_repositories SET guild_key='guild_ai_vibe' WHERE repository_id=$1`, [repository]);
+  await lead(otherUser, 'guild_ai_vibe');
+  const assigned = await request(`/review-center/pulls/${high}/assign`, { user_id: otherUser, acting_as: 'guild_leader', guild_key: 'guild_ai_vibe', reason: '請這位公會長看這次變更。' }, 1);
   assert.equal(assigned.status, 200, JSON.stringify(assigned.data));
   assert.equal(assigned.data.queue_state, 'in_review');
   assert.equal(assigned.data.claim.assignment, 'assigned');
@@ -286,36 +283,43 @@ test('request_reviewers off stores not_requested and enqueues nothing', async ()
 
 test('the tick expires, releases and completes claims, then rederives the pull', async () => {
   const repository = await insertRepo();
-  const selfUser = await member('tick-reviewer@example.invalid', '計時審查者');
+  await pool.query(`UPDATE maintainer_repositories SET open_to_guilds=true WHERE repository_id=$1`, [repository]);
+  const selfUser = await member(email, '計時審查者');
   await link(selfUser, '77001', 'self-reviewer');
-  const reviewerId = await reviewer(selfUser, '77001', 'self-reviewer', 'high');
+  const self: Identity = { userId: selfUser, githubId: '77001', login: 'self-reviewer', acting: 'admin', guild: null };
   const expiredPull = await insertPull(repository, 1);
-  const expired = await insertClaim(expiredPull, reviewerId, { expires: '2026-09-30T11:00:00Z', github: 'requested' });
+  const expired = await insertClaim(expiredPull, self, { expires: '2026-09-30T11:00:00Z', github: 'requested' });
   const closedPull = await insertPull(repository, 2, { state: 'closed', queue: 'closed' });
-  const closed = await insertClaim(closedPull, reviewerId, { github: 'requested' });
+  const closed = await insertClaim(closedPull, self, { github: 'requested' });
+  const officer = await member('officer-gone@example.invalid', '卸任公會長');
+  await link(officer, '77003', 'idle-reviewer');
+  await lead(officer, 'guild_ai_vibe');
   const inactivePull = await insertPull(repository, 3);
-  const inactiveReviewer = await reviewer(selfUser, '77003', 'idle-reviewer', 'high', false);
-  const inactive = await insertClaim(inactivePull, inactiveReviewer, { github: 'requested' });
-  const lowUser = await member('low-reviewer@example.invalid', '低風險');
-  await link(lowUser, '77004', 'low-reviewer');
-  const lowReviewer = await reviewer(lowUser, '77004', 'low-reviewer', 'low');
-  const rankPull = await insertPull(repository, 4, { file: '.github/workflows/verify.yml', queue: 'needs_owner', risk: 'high' });
-  const ranked = await insertClaim(rankPull, lowReviewer, { github: 'requested' });
+  const inactive = await insertClaim(inactivePull, { userId: officer, githubId: '77003', login: 'idle-reviewer', acting: 'guild_leader', guild: 'guild_ai_vibe' }, { github: 'requested' });
+  await pool.query(`DELETE FROM positioning_guild_officers WHERE community_id=$1 AND guild_key='guild_ai_vibe'`, [DEMO_COMMUNITY]);
+  const mover = await member('moved-leader@example.invalid', '被搬走');
+  await link(mover, '77004', 'low-reviewer');
+  await lead(mover, 'guild_platform_engineering');
+  const rankPull = await insertPull(repository, 4);
+  const ranked = await insertClaim(rankPull, { userId: mover, githubId: '77004', login: 'low-reviewer', acting: 'guild_leader', guild: 'guild_platform_engineering' }, { github: 'requested' });
+  await pool.query(`UPDATE maintainer_repositories SET guild_key='guild_marketing', open_to_guilds=false WHERE repository_id=$1`, [repository]);
   const donePull = await insertPull(repository, 5);
-  const done = await insertClaim(donePull, reviewerId);
+  const done = await insertClaim(donePull, self);
   await insertReview(donePull, '77001', 'APPROVED', '2026-09-30T11:30:00Z');
   const changesPull = await insertPull(repository, 6);
-  const changes = await insertClaim(changesPull, reviewerId);
+  const changes = await insertClaim(changesPull, self);
   await insertReview(changesPull, '77001', 'CHANGES_REQUESTED', '2026-09-30T11:30:00Z');
   const commentPull = await insertPull(repository, 7);
-  const comment = await insertClaim(commentPull, reviewerId);
+  const comment = await insertClaim(commentPull, self);
   await insertReview(commentPull, '77001', 'COMMENTED', '2026-09-30T11:30:00Z');
   await pool.query(`UPDATE maintainer_pull_requests SET recheck_at=$2 WHERE pull_id=$1`, [commentPull, CLOCK]);
   const earlyPull = await insertPull(repository, 8);
-  const early = await insertClaim(earlyPull, reviewerId, { created: '2026-09-30T11:00:00Z' });
+  const early = await insertClaim(earlyPull, self, { created: '2026-09-30T11:00:00Z' });
   await insertReview(earlyPull, '77001', 'APPROVED', '2026-09-30T10:00:00Z');
+  const lastingPull = await insertPull(repository, 80);
+  const lasting = await insertClaim(lastingPull, self, { expires: null });
   const stalePull = await insertPull(repository, 9);
-  const stale = await insertClaim(stalePull, reviewerId);
+  const stale = await insertClaim(stalePull, self);
   await insertReview(stalePull, '77001', 'APPROVED', '2026-09-30T11:30:00Z', OLD);
 
   const summary = await tick('off');
@@ -329,10 +333,10 @@ test('the tick expires, releases and completes claims, then rederives the pull',
   assert.equal(await queueOf(expiredPull), 'awaiting_review');
   assert.equal((await claimRow(closed)).end_reason, 'pull_closed');
   assert.equal((await claimRow(closed)).github_request_state, 'requested');
-  assert.equal((await claimRow(inactive)).end_reason, 'reviewer_inactive');
+  assert.equal((await claimRow(inactive)).end_reason, 'reviewer_not_eligible');
   assert.equal((await claimRow(inactive)).github_request_state, 'failed');
   assert.equal((await claimRow(inactive)).github_request_error, 'writes_disabled');
-  assert.equal((await claimRow(ranked)).end_reason, 'reviewer_rank_too_low');
+  assert.equal((await claimRow(ranked)).end_reason, 'reviewer_not_eligible');
   assert.equal((await claimRow(ranked)).github_request_state, 'failed');
   assert.equal((await claimRow(ranked)).github_request_error, 'writes_disabled');
   assert.equal((await claimRow(done)).end_reason, 'review_submitted');
@@ -343,6 +347,8 @@ test('the tick expires, releases and completes claims, then rederives the pull',
   assert.equal((await claimRow(comment)).state, 'active');
   assert.equal(await queueOf(commentPull), 'in_review');
   assert.equal((await claimRow(early)).state, 'active');
+  assert.equal((await claimRow(lasting)).state, 'active');
+  assert.equal((await claimRow(lasting)).end_reason, null);
   assert.equal((await claimRow(stale)).end_reason, 'review_submitted');
   assert.equal(await queueOf(stalePull), 'awaiting_review');
   const removals = (await pool.query(`SELECT state, last_error FROM maintainer_jobs WHERE kind='remove_reviewer_request' ORDER BY created_at`)).rows;
@@ -352,15 +358,17 @@ test('the tick expires, releases and completes claims, then rederives the pull',
   assert.equal(summary.jobs_done, 0);
   assert.equal(summary.jobs_failed, 3);
   assert.equal(summary.github_requests, 0);
+  assert.equal(summary.repositories_adopted, 0);
 });
 
 test('requested-reviewer jobs honor the worker switch, the status code and a release during the call', async () => {
   const repository = await insertRepo({ request_reviewers: true });
   const userId = await member('job-reviewer@example.invalid', '工作審查者');
+  await pool.query('UPDATE users SET email=$2 WHERE user_id=$1', [userId, email]);
   await link(userId, '77001', 'self-reviewer');
-  const reviewerId = await reviewer(userId, '77001', 'self-reviewer', 'high');
+  const identity: Identity = { userId, githubId: '77001', login: 'self-reviewer', acting: 'admin', guild: null };
   const pullId = await insertPull(repository, 7);
-  const claimId = await insertClaim(pullId, reviewerId, { github: 'pending' });
+  const claimId = await insertClaim(pullId, identity, { github: 'pending' });
   await enqueueMaintainerJob(pool, repository, 'request_reviewer', claimId, CLOCK);
 
   const skipped = await tick('off');
@@ -405,7 +413,7 @@ test('requested-reviewer jobs honor the worker switch, the status code and a rel
   assert.equal((await pool.query(`SELECT state, attempts FROM maintainer_jobs WHERE payload->>'claim_id'=$1 AND kind='request_reviewer' ORDER BY created_at DESC`, [claimId])).rows[0].state, 'failed');
 
   const deniedPull = await insertPull(repository, 8);
-  const denied = await insertClaim(deniedPull, reviewerId, { github: 'pending' });
+  const denied = await insertClaim(deniedPull, identity, { github: 'pending' });
   await enqueueMaintainerJob(pool, repository, 'request_reviewer', denied, CLOCK);
   let reviewerPosts = 0;
   await tick('requested_reviewers', async (input) => {
@@ -429,7 +437,7 @@ test('requested-reviewer jobs honor the worker switch, the status code and a rel
   assert.equal((await claimRow(claimId)).github_request_state, 'removed');
 
   const raced = await insertPull(repository, 9);
-  const racedClaim = await insertClaim(raced, reviewerId, { github: 'pending' });
+  const racedClaim = await insertClaim(raced, identity, { github: 'pending' });
   await enqueueMaintainerJob(pool, repository, 'request_reviewer', racedClaim, CLOCK);
   const racedCalls: string[] = [];
   await tick('requested_reviewers', async (input, init) => {
@@ -448,7 +456,7 @@ test('requested-reviewer jobs honor the worker switch, the status code and a rel
   assert.notEqual((await claimRow(racedClaim)).github_request_state, 'requested');
 
   const closedPull = await insertPull(repository, 10);
-  const closedClaim = await insertClaim(closedPull, reviewerId, { github: 'pending' });
+  const closedClaim = await insertClaim(closedPull, identity, { github: 'pending' });
   await enqueueMaintainerJob(pool, repository, 'request_reviewer', closedClaim, CLOCK);
   let closedDeletes = 0;
   await tick('requested_reviewers', async (input, init) => {
@@ -466,7 +474,7 @@ test('requested-reviewer jobs honor the worker switch, the status code and a rel
   assert.equal((await claimRow(closedClaim)).github_request_state, 'requested');
 
   const limitedPull = await insertPull(repository, 11);
-  const limited = await insertClaim(limitedPull, reviewerId, { github: 'pending' });
+  const limited = await insertClaim(limitedPull, identity, { github: 'pending' });
   await enqueueMaintainerJob(pool, repository, 'request_reviewer', limited, CLOCK);
   const limitedSummary = await tick('requested_reviewers', async (input) => {
     const url = new URL(String(input));
@@ -503,10 +511,11 @@ async function waitUntilBlocked(pid: number) {
 test('a request_reviewer re-run leaves an already requested claim requested', async () => {
   const repository = await insertRepo({ request_reviewers: true });
   const userId = await member('rerun-request@example.invalid', '再跑請求');
+  await pool.query('UPDATE users SET email=$2 WHERE user_id=$1', [userId, email]);
   await link(userId, '77041', 'rerun-request');
-  const reviewerId = await reviewer(userId, '77041', 'rerun-request', 'high');
+  const identity: Identity = { userId, githubId: '77041', login: 'rerun-request', acting: 'admin', guild: null };
   const pullId = await insertPull(repository, 21);
-  const claimId = await insertClaim(pullId, reviewerId, { github: 'requested' });
+  const claimId = await insertClaim(pullId, identity, { github: 'requested' });
   await enqueueMaintainerJob(pool, repository, 'request_reviewer', claimId, CLOCK);
   const seen = countingFetcher();
   const summary = await tick('requested_reviewers', seen.fetcher, () => CLOCK);
@@ -531,9 +540,9 @@ test('a remove_reviewer_request re-run leaves an already removed claim removed',
   const repository = await insertRepo({ request_reviewers: true });
   const userId = await member('rerun-remove@example.invalid', '再跑移除');
   await link(userId, '77042', 'rerun-remove');
-  const reviewerId = await reviewer(userId, '77042', 'rerun-remove', 'high');
+  const identity: Identity = { userId, githubId: '77042', login: 'rerun-remove', acting: 'admin', guild: null };
   const pullId = await insertPull(repository, 22);
-  const claimId = await insertClaim(pullId, reviewerId, { github: 'removed' });
+  const claimId = await insertClaim(pullId, identity, { github: 'removed' });
   await pool.query(`UPDATE maintainer_review_claims SET state='released', end_reason='admin_released', ended_at=now() WHERE claim_id=$1`, [claimId]);
   await enqueueMaintainerJob(pool, repository, 'remove_reviewer_request', claimId, CLOCK);
   const seen = countingFetcher();
@@ -551,9 +560,9 @@ test('a removal that cannot write fails the claim instead of skipping it', async
   const repository = await insertRepo({ request_reviewers: true });
   const userId = await member('removal-off@example.invalid', '移除關閉');
   await link(userId, '77043', 'removal-off');
-  const reviewerId = await reviewer(userId, '77043', 'removal-off', 'high');
+  const identity: Identity = { userId, githubId: '77043', login: 'removal-off', acting: 'admin', guild: null };
   const offPull = await insertPull(repository, 23);
-  const offClaim = await insertClaim(offPull, reviewerId, { github: 'removing' });
+  const offClaim = await insertClaim(offPull, identity, { github: 'removing' });
   await pool.query(`UPDATE maintainer_review_claims SET state='released', end_reason='admin_released', ended_at=now() WHERE claim_id=$1`, [offClaim]);
   await enqueueMaintainerJob(pool, repository, 'remove_reviewer_request', offClaim, CLOCK);
   const offSeen = countingFetcher();
@@ -568,7 +577,7 @@ test('a removal that cannot write fails the claim instead of skipping it', async
 
   await pool.query(`UPDATE maintainer_repositories SET settings=$2::jsonb WHERE repository_id=$1`, [repository, JSON.stringify({ request_reviewers: false })]);
   const settingPull = await insertPull(repository, 24);
-  const settingClaim = await insertClaim(settingPull, reviewerId, { github: 'removing' });
+  const settingClaim = await insertClaim(settingPull, identity, { github: 'removing' });
   await pool.query(`UPDATE maintainer_review_claims SET state='expired', ended_at=now() WHERE claim_id=$1`, [settingClaim]);
   await enqueueMaintainerJob(pool, repository, 'remove_reviewer_request', settingClaim, CLOCK);
   const settingSeen = countingFetcher();
@@ -587,8 +596,7 @@ test('settling an expired claim locks the pull before the claim', { timeout: 15_
   const pullId = await insertPull(repository, 31);
   const userId = await member('lock-settle@example.invalid', '鎖結算');
   await link(userId, '77051', 'lock-settle');
-  const reviewerId = await reviewer(userId, '77051', 'lock-settle', 'high');
-  const claimId = await insertClaim(pullId, reviewerId, { expires: '2026-09-30T11:00:00Z' });
+  const claimId = await insertClaim(pullId, { userId, githubId: '77051', login: 'lock-settle', acting: 'admin', guild: null }, { expires: '2026-09-30T11:00:00Z' });
   const holder = await pool.connect();
   let pending: Promise<{ value?: { expired: number }; error?: unknown }> | undefined;
   try {
@@ -616,8 +624,7 @@ test('releasing a claim locks the pull before the claim', { timeout: 15_000 }, a
   const pullId = await insertPull(repository, 32);
   const userId = await member('lock-release@example.invalid', '鎖釋放');
   await link(userId, '77052', 'lock-release');
-  const reviewerId = await reviewer(userId, '77052', 'lock-release', 'high');
-  const claimId = await insertClaim(pullId, reviewerId);
+  const claimId = await insertClaim(pullId, { userId, githubId: '77052', login: 'lock-release', acting: 'admin', guild: null });
   const holder = await pool.connect();
   let pending: Promise<{ status: number; data: any }> | undefined;
   try {
@@ -685,15 +692,12 @@ test('pause and resume bump the version and reject a no-op', async () => {
 test('repository mode off rejects claim and assign without a row or a job', async () => {
   const repository = await insertRepo({}, 'off');
   const pullId = await insertPull(repository, 51);
-  await asSelf('high');
-  const other = await member('mode-off@example.invalid', '模式關閉');
-  await link(other, '77061', 'mode-off');
-  const reviewerId = await reviewer(other, '77061', 'mode-off', 'high');
+  const self = await asSelf();
   const claim = await request(`/review-center/pulls/${pullId}/claim`, {}, 1);
   assert.equal(claim.status, 409);
   assert.equal(claim.data.code, 'maintainer_claim_unavailable');
   assert.match(claim.data.detail, /儲存庫已關閉/);
-  const assign = await request(`/review-center/pulls/${pullId}/assign`, { reviewer_id: reviewerId, reason: '模式關閉仍不該指派。' }, 1);
+  const assign = await request(`/review-center/pulls/${pullId}/assign`, { user_id: self.userId, acting_as: 'admin', guild_key: null, reason: '模式關閉仍不該指派。' }, 1);
   assert.equal(assign.status, 409);
   assert.equal(assign.data.code, 'maintainer_claim_unavailable');
   assert.equal((await pool.query('SELECT count(*) FROM maintainer_review_claims WHERE pull_id=$1', [pullId])).rows[0].count, '0');

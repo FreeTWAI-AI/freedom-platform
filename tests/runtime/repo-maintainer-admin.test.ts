@@ -68,14 +68,14 @@ async function insertRepo() {
     VALUES ($1,$2,'9001','77','FreeTWAI-AI/freedom-platform','main','active','observe','2099-01-01T00:00:00Z')`, [id, DEMO_COMMUNITY]);
   return id;
 }
-async function insertPull(repository: string, number: number, queue: string, sla: string | null, state = 'open') {
+async function insertPull(repository: string, number: number, queue: string, observed = '2026-09-30T00:00:00Z', state = 'open') {
   const id = randomUUID();
   await pool.query(`INSERT INTO maintainer_pull_requests (
     pull_id, repository_id, number, github_pull_id, title, html_url, state, is_draft, author_github_id, author_login, author_type,
     author_association, is_fork, head_sha, base_ref, base_sha, labels, additions, deletions, changed_files, github_created_at,
-    github_updated_at, head_observed_at, risk_class, risk_reasons, queue_state, queue_reasons, sla_due_at, policy_version, synced_at)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,false,'42','octocat','User','CONTRIBUTOR',false,$8,'main',$9,'{}',1,0,1,$10,$10,$10,'low',$11::jsonb,$12,'[]'::jsonb,$13,'2026-09-30.1',$10)`,
-  [id, repository, number, String(800 + number), `PR ${number}`, `https://github.com/FreeTWAI-AI/freedom-platform/pull/${number}`, state, SHA, 'e'.repeat(40), '2026-09-30T00:00:00Z', JSON.stringify([{ code: 'low_docs', message: '文件', paths: ['README.md'] }]), queue, sla]);
+    github_updated_at, head_observed_at, attention_reasons, queue_state, queue_reasons, policy_version, synced_at)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,false,'42','octocat','User','CONTRIBUTOR',false,$8,'main',$9,'{}',1,0,1,$10,$10,$11,'[]'::jsonb,$12,'[]'::jsonb,'2026-10-01.1',$10)`,
+  [id, repository, number, String(800 + number), `PR ${number}`, `https://github.com/FreeTWAI-AI/freedom-platform/pull/${number}`, state, SHA, 'e'.repeat(40), '2026-09-30T00:00:00Z', observed, queue]);
   await pool.query(`INSERT INTO maintainer_pull_files (pull_id, path, status, additions, deletions) VALUES ($1,'README.md','modified',1,0)`, [id]);
   await pool.query(`INSERT INTO maintainer_reviews (pull_id, github_review_id, reviewer_github_id, reviewer_login, reviewer_type, reviewer_association, state, commit_id, submitted_at)
     VALUES ($1,'91','200','reviewer-gh','User','MEMBER','APPROVED',$2,'2026-09-30T01:00:00Z')`, [id, SHA]);
@@ -94,9 +94,9 @@ function quiet(value: unknown) {
 
 test('review center reads require the provisioned admin and hide secrets', async () => {
   const repository = await insertRepo();
-  const earlier = await insertPull(repository, 1, 'awaiting_review', '2026-09-30T06:00:00Z');
-  await insertPull(repository, 2, 'awaiting_review', null);
-  const done = await insertPull(repository, 3, 'merged', null, 'closed');
+  const earlier = await insertPull(repository, 1, 'awaiting_review', '2026-09-29T00:00:00Z');
+  await insertPull(repository, 2, 'awaiting_review', '2026-09-30T00:00:00Z');
+  const done = await insertPull(repository, 3, 'merged', '2026-09-30T01:00:00Z', 'closed');
   await pool.query(`UPDATE maintainer_pull_requests SET queue_state='merged', merged_at=now() WHERE pull_id=$1`, [done]);
   const anonymous = await request('/review-center/summary', undefined, undefined, randomUUID(), { 'Cf-Access-Jwt-Assertion': '' });
   assert.equal(anonymous.status, 401);
@@ -104,7 +104,7 @@ test('review center reads require the provisioned admin and hide secrets', async
   assert.equal(stranger.status, 403);
   const summary = await request('/review-center/summary');
   assert.equal(summary.status, 200, JSON.stringify(summary.data));
-  assert.equal(summary.data.policy_version, '2026-09-30.2');
+  assert.equal(summary.data.policy_version, '2026-10-01.1');
   assert.equal(summary.data.counts.awaiting_review, 2);
   assert.equal(summary.data.counts.in_review, 0);
   assert.equal(summary.data.counts.merged, undefined);
@@ -115,7 +115,8 @@ test('review center reads require the provisioned admin and hide secrets', async
   assert.equal((await request('/review-center/pulls?queue=done')).data.items.length, 1);
   const detail = await request(`/review-center/pulls/${earlier}`);
   assert.equal(detail.status, 200);
-  assert.equal(detail.data.files[0].risk_reasons[0].code, 'low_docs');
+  assert.deepEqual(detail.data.files[0].notes, []);
+  assert.deepEqual(detail.data.attention_reasons, []);
   assert.equal(detail.data.reviews[0].is_current_head, true);
   assert.equal(detail.data.reviews[0].counts_as_valid, false);
   quiet(summary.data); quiet(listed.data); quiet(detail.data);
@@ -124,8 +125,8 @@ test('review center reads require the provisioned admin and hide secrets', async
 
 test('settings writes enforce csrf, idempotency, version and the phase-1a mode limit', async () => {
   const repository = await insertRepo();
-  const open = await insertPull(repository, 1, 'awaiting_review', null);
-  const closed = await insertPull(repository, 2, 'closed', null, 'closed');
+  const open = await insertPull(repository, 1, 'awaiting_review');
+  const closed = await insertPull(repository, 2, 'closed', '2026-09-30T00:00:00Z', 'closed');
   const path = `/review-center/repositories/${repository}/settings`;
   const body = { mode: 'off', settings: {}, reason: '先關閉觀察。' };
   assert.equal((await request(path, body, 1, randomUUID(), { 'X-Admin-CSRF': 'wrong' })).status, 403);
@@ -136,12 +137,16 @@ test('settings writes enforce csrf, idempotency, version and the phase-1a mode l
   assert.equal((await request(path, body, 9)).status, 412);
   assert.equal((await request(path, { mode: 'ai_review', settings: {}, reason: '想開自動審查' }, 1)).data.code, 'maintainer_mode_unavailable');
   assert.equal((await request(path, { mode: 'observe', settings: { extra: true }, reason: '多了欄位' }, 1)).status, 422);
+  assert.equal((await request(path, { mode: 'observe', settings: { sla_hours: 24 }, reason: '舊的時效欄位' }, 1)).status, 422);
+  assert.equal((await request(path, { mode: 'observe', settings: { claim_hours: null }, reason: '空的時效' }, 1)).status, 422);
   assert.equal((await pool.query('SELECT count(*) FROM platform_admin_audit')).rows[0].count, '0');
   const key = randomUUID();
   const saved = await request(path, body, 1, key);
   assert.equal(saved.status, 200, JSON.stringify(saved.data));
   assert.equal(saved.data.mode, 'off');
   assert.equal(saved.data.settings.required_check, 'verify');
+  assert.equal(saved.data.settings.claim_hours, null);
+  assert.equal(saved.data.settings.sla_hours, undefined);
   assert.equal(saved.data.settings.rules_profile, 'freedom-platform');
   assert.equal(saved.data.aggregate_version, 2);
   assert.deepEqual((await request(path, body, 1, key)).data, saved.data);
@@ -163,49 +168,58 @@ test('settings writes enforce csrf, idempotency, version and the phase-1a mode l
   quiet(saved.data);
 });
 
-test('reviewers are appointed from a verified connection and can be changed', async () => {
+test('the reviewer directory and repository ownership replace the roster', async () => {
   const repository = await insertRepo();
-  const open = await insertPull(repository, 1, 'awaiting_review', null);
+  const open = await insertPull(repository, 1, 'awaiting_review', '2026-09-29T00:00:00Z');
+  const closed = await insertPull(repository, 2, 'closed', '2026-09-30T00:00:00Z', 'closed');
   await connect();
-  const unlinked = await request('/review-center/reviewers', { user_id: DEMO_USERS[1].user_id, max_risk: 'low', reason: '沒有連結' });
-  assert.equal(unlinked.status, 409);
-  assert.equal(unlinked.data.code, 'github_link_required');
-  const verifierId = randomUUID();
-  await pool.query(`INSERT INTO users (user_id, community_id, email, display_name, password_hash, profession_membership_ref)
-    SELECT $1, community_id, 'verifier-maintainer@example.invalid', 'Verifier', password_hash, $2 FROM users WHERE user_id=$3`,
-  [verifierId, randomUUID(), DEMO_USERS[0].user_id]);
-  await pool.query(`INSERT INTO github_social_connections (user_id, community_id, github_user_id, github_login, encrypted_tokens) VALUES ($1,$2,'777','verifier-gh',$3)`, [verifierId, DEMO_COMMUNITY, TOKEN]);
-  assert.equal((await request('/review-center/reviewer-candidates?q=verifier-gh')).data.items.length, 0);
-  const candidates = await request('/review-center/reviewer-candidates?q=maker-gh');
-  assert.equal(candidates.data.items.length, 1);
-  assert.equal(candidates.data.items[0].user_id, DEMO_USERS[0].user_id);
-  assert.equal(candidates.data.items[0].active_reviewer, false);
-  quiet(candidates.data);
-  const appointed = await request('/review-center/reviewers', { user_id: DEMO_USERS[0].user_id, max_risk: 'high', reason: '請他審查高風險變更。' });
-  assert.equal(appointed.status, 200, JSON.stringify(appointed.data));
-  assert.equal(appointed.data.github_login, 'maker-gh');
-  assert.equal(appointed.data.active, true);
-  assert.equal(appointed.data.aggregate_version, 1);
-  assert.equal((await request('/review-center/reviewers', { user_id: DEMO_USERS[0].user_id, max_risk: 'high', reason: '再指派一次' })).status, 409);
-  const changed = await request(`/review-center/reviewers/${appointed.data.reviewer_id}`, { active: false, reason: '先停用這位審查者。' }, 1);
-  assert.equal(changed.status, 200, JSON.stringify(changed.data));
-  assert.equal(changed.data.active, false);
-  assert.equal(changed.data.aggregate_version, 2);
-  assert.equal((await request(`/review-center/reviewers/${appointed.data.reviewer_id}`, { reason: '沒有變更' }, 2)).status, 422);
-  const again = await request('/review-center/reviewers', { user_id: DEMO_USERS[0].user_id, max_risk: 'medium', reason: '重新啟用並降為中風險。' });
-  assert.equal(again.status, 200, JSON.stringify(again.data));
-  assert.equal(again.data.active, true);
-  assert.equal(again.data.max_risk, 'medium');
-  assert.equal(again.data.aggregate_version, 3);
-  const audits = (await pool.query(`SELECT action, before_state, after_state FROM platform_admin_audit ORDER BY created_at`)).rows;
-  assert.deepEqual(audits.map(row => row.action), ['maintainer_reviewer_appoint', 'maintainer_reviewer_change', 'maintainer_reviewer_appoint']);
-  assert.equal(audits[0].before_state, null);
-  assert.equal(audits[1].before_state.active, true);
-  assert.equal(audits[1].after_state.active, false);
-  assert.equal(audits[2].before_state.active, false);
+  await pool.query(`INSERT INTO positioning_profession_memberships (membership_id, community_id, user_id, guild_key, state)
+    VALUES ($1,$2,$3,'guild_ai_vibe','active')`, [randomUUID(), DEMO_COMMUNITY, DEMO_USERS[0].user_id]);
+  await pool.query(`INSERT INTO positioning_guild_officers (community_id, guild_key, user_id) VALUES ($1,'guild_ai_vibe',$2)`, [DEMO_COMMUNITY, DEMO_USERS[0].user_id]);
+  const directory = await request('/review-center/reviewers');
+  assert.equal(directory.status, 200, JSON.stringify(directory.data));
+  quiet(directory.data);
+  const adminRow = directory.data.admins.find((row: { admin_id: string }) => row.admin_id === adminId);
+  assert.equal(adminRow.status, 'no_member');
+  assert.equal(adminRow.github_login, null);
+  const guild = directory.data.guilds.find((row: { guild_key: string }) => row.guild_key === 'guild_ai_vibe');
+  assert.equal(guild.leader.display_name, '示範創作者');
+  assert.equal(guild.leader.github_login, 'maker-gh');
+  assert.equal(directory.data.admin_only_repositories[0].repository_id, repository);
+  assert.ok(directory.data.guild_choices.some((row: { guild_key: string }) => row.guild_key === 'guild_platform_engineering'));
+  assert.equal((await request('/review-center/reviewer-candidates?q=maker-gh')).status, 404);
+
+  const path = `/review-center/repositories/${repository}/ownership`;
+  const body = { guild_key: 'guild_ai_vibe', scope_kind: 'module', open_to_guilds: false, reason: '這個儲存庫歸平台工程以外的開發公會。' };
+  assert.equal((await request(path, body)).status, 428);
+  assert.equal((await request(path, body, 9)).status, 412);
+  assert.equal((await request(path, { ...body, guild_key: 'missing_guild', reason: '沒有這個公會' }, 1)).data.code, 'maintainer_guild_not_found');
+  assert.equal((await request(path, { ...body, open_to_guilds: true, reason: '不能同時開放' }, 1)).data.code, 'maintainer_ownership_invalid');
+  const saved = await request(path, body, 1);
+  assert.equal(saved.status, 200, JSON.stringify(saved.data));
+  assert.equal(saved.data.guild_key, 'guild_ai_vibe');
+  assert.equal(saved.data.scope_kind, 'module');
+  assert.equal(saved.data.open_to_guilds, false);
+  assert.equal(saved.data.aggregate_version, 2);
+  assert.equal((await request(path, body, 2)).data.code, 'maintainer_ownership_unchanged');
+  const history = (await pool.query(`SELECT source, guild_key, scope_kind, open_to_guilds, changed_by_admin, reason FROM maintainer_ownership_changes WHERE repository_id=$1`, [repository])).rows;
+  assert.equal(history.length, 1);
+  assert.equal(history[0].source, 'admin');
+  assert.equal(history[0].changed_by_admin, adminId);
+  assert.equal(history[0].guild_key, 'guild_ai_vibe');
+  const audit = (await pool.query(`SELECT action, before_state, after_state FROM platform_admin_audit`)).rows[0];
+  assert.equal(audit.action, 'maintainer_repository_ownership');
+  assert.equal(audit.before_state.guild_key, null);
+  assert.equal(audit.after_state.guild_key, 'guild_ai_vibe');
   assert.ok((await pool.query('SELECT recheck_at FROM maintainer_pull_requests WHERE pull_id=$1', [open])).rows[0].recheck_at);
-  const listed = await request('/review-center/reviewers');
-  quiet(listed.data); quiet(appointed.data); quiet(changed.data);
-  assert.equal(listed.data.items[0].display_name, '示範創作者');
-  assert.equal(JSON.stringify(listed.data).includes(email), false);
+  assert.equal((await pool.query('SELECT recheck_at FROM maintainer_pull_requests WHERE pull_id=$1', [closed])).rows[0].recheck_at, null);
+  const listed = await request('/review-center/pulls?queue=open&guild_key=guild_ai_vibe');
+  assert.equal(listed.data.items.some((item: { pull_id: string }) => item.pull_id === open), true);
+  assert.equal((await request('/review-center/pulls?queue=open&guild_key=none')).data.items.length, 0);
+  const detail = await request(`/review-center/pulls/${open}`);
+  assert.equal(detail.data.ownership.guild_key, 'guild_ai_vibe');
+  assert.equal(detail.data.ownership.history[0].source, 'admin');
+  assert.equal(detail.data.ownership.history[0].reason, body.reason);
+  quiet(saved.data);
+  quiet(detail.data);
 });

@@ -171,9 +171,9 @@ test('unknown, inactive and off repositories are ignored; checks and installatio
   await pool.query(`INSERT INTO maintainer_pull_requests (
     pull_id, repository_id, number, github_pull_id, title, html_url, state, is_draft, author_github_id, author_login, author_type,
     author_association, is_fork, head_sha, base_ref, base_sha, labels, additions, deletions, changed_files, github_created_at,
-    github_updated_at, head_observed_at, risk_class, risk_reasons, queue_state, queue_reasons, policy_version, synced_at)
+    github_updated_at, head_observed_at, attention_reasons, queue_state, queue_reasons, policy_version, synced_at)
     VALUES ($1,$2,7,'700','Stored','https://github.com/FreeTWAI-AI/freedom-platform/pull/7','open',false,'42','octocat','User',
-    'CONTRIBUTOR',false,$3,'main',$4,'{}',1,0,1,now(),now(),now(),'low','[]','awaiting_review','[]','2026-09-30.1',now())`,
+    'CONTRIBUTOR',false,$3,'main',$4,'{}',1,0,1,now(),now(),now(),'[]','awaiting_review','[]','2026-10-01.1',now())`,
   [randomUUID(), repositoryId, SHA, 'c'.repeat(40)]);
   const suite = JSON.stringify({
     installation: { id: 77 }, repository: { id: 9001 },
