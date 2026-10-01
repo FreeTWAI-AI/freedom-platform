@@ -47,9 +47,11 @@ async function settleIllustration(dialog: Locator) {
 
 async function expectInsideDialog(locator: Locator) {
   await expect(locator).toBeVisible();
-  const inside = await locator.evaluate(element => {
+  await expect.poll(() => locator.evaluate(element => {
+    if (!element.isConnected) return false;
+    const dialog = element.closest('dialog') as HTMLElement | null;
+    if (!dialog) return false;
     const box = element.getBoundingClientRect();
-    const dialog = element.closest('dialog') as HTMLElement;
     const dialogBox = dialog.getBoundingClientRect();
     const header = dialog.querySelector('.skill-upload-header')?.getBoundingClientRect();
     const style = getComputedStyle(dialog);
@@ -58,8 +60,7 @@ async function expectInsideDialog(locator: Locator) {
     const left = dialogBox.left + (Number.parseFloat(style.borderLeftWidth) || 0);
     const right = dialogBox.right - (Number.parseFloat(style.borderRightWidth) || 0);
     return box.height > 0 && box.top >= top - 1 && box.bottom <= bottom + 1 && box.left >= left - 1 && box.right <= right + 1 && box.top >= -1 && box.bottom <= window.innerHeight + 1;
-  });
-  expect(inside).toBe(true);
+  }), 'element was not inside the dialog\'s visible area').toBe(true);
 }
 
 async function expectFullyInView(locator: Locator) {
@@ -399,16 +400,15 @@ test('manual registration brings the notice button into the phone viewport', asy
   const notice = page.locator('.skill-draft-callout');
   const button = notice.getByRole('button', { name: '補上分享介紹', exact: true });
   await expect(button).toBeVisible();
-  const placed = await notice.evaluate(element => {
+  await expect.poll(() => notice.evaluate(element => {
+    if (!element.isConnected) return { inView: false, belowBar: false };
     const box = element.getBoundingClientRect();
     const bar = document.querySelector('.sidebar')!.getBoundingClientRect();
     return {
       inView: box.height > 0 && box.top >= -1 && box.left >= -1 && box.bottom <= window.innerHeight + 1 && box.right <= window.innerWidth + 1,
       belowBar: box.top >= bar.bottom - 1,
     };
-  });
-  expect(placed.inView).toBe(true);
-  expect(placed.belowBar).toBe(true);
+  }), 'registration notice was not inside the phone viewport').toEqual({ inView: true, belowBar: true });
   await expect(button).not.toBeFocused();
 });
 
