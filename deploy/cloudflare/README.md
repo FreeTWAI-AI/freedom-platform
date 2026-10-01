@@ -26,7 +26,7 @@ node deploy/cloudflare/preflight.mjs all
 node deploy/cloudflare/preflight.mjs wrangler --config <runtime wrangler.jsonc>
 ```
 
-Worker entry、`wrangler.jsonc`、`apps/platform-api`、`packages/db` 與套件依賴由其他工作流負責；本目錄只讀取並驗證它們。`preflight.mjs wrangler` 不驗證 [wrangler.admin-sync.jsonc](../../wrangler.admin-sync.jsonc)：那個 checker 要求平台 route、assets 與 images。cron Worker 由 `npm run worker:dry-run:admin-sync` 打包。見下方「管理員 Access 同步 Worker」。
+Worker entry、`wrangler.jsonc`、`apps/platform-api`、`packages/db` 與套件依賴由其他工作流負責；本目錄只讀取並驗證它們。`preflight.mjs wrangler` 不驗證 [wrangler.admin-sync.jsonc](../../wrangler.admin-sync.jsonc) 與 [wrangler.maintainer.jsonc](../../wrangler.maintainer.jsonc)：那個 checker 要求平台 route、assets 與 images。兩支 cron Worker 分別由 `npm run worker:dry-run:admin-sync` 與 `npm run worker:dry-run:maintainer` 打包。見下方「管理員 Access 同步 Worker」與「維護者鏡像 Worker」。
 
 ## 管理員 Access 同步 Worker
 
@@ -80,3 +80,16 @@ npx wrangler delete --config <private-overlay.jsonc> --env next
 ```
 
 然後依 [會員工具部署](../../docs/development/member-toolkit.md) 恢復私有環境的 `node --import tsx scripts/sync-admin-access.ts`（每 15 秒，大約每 15 分鐘加 `--force`）。未同步的版本維持 pending，由 timer 重試。不要用舊的靜態名單覆蓋現行 Access policy。若這個 Worker 的程式可能被改過，先停 cron，再輪替 `CF_API_TOKEN`。刪除的是 `freedom-admin-sync-*`，不是平台 Worker。
+
+## 維護者鏡像 Worker
+
+階段 1a 只讀 GitHub，把拉取請求、檔案、審查與檢查鏡像進資料庫，並算出風險與佇列。它不寫 GitHub、不呼叫 AI。入口是 [apps/platform-api/src/maintainer-worker.ts](../../apps/platform-api/src/maintainer-worker.ts)，只匯出 `scheduled`，沒有 `fetch`、route、custom domain、workers.dev 或 preview URL。設定是 [wrangler.maintainer.jsonc](../../wrangler.maintainer.jsonc)。Webhook 收在平台 Worker，私鑰只放在這支 Worker。操作說明見 [repo-maintainer.md](../../docs/development/repo-maintainer.md)。
+
+`npm run worker:dry-run:maintainer` 打包 top-level、`staging-next` 與 `next`。`preflight.mjs wrangler` 不檢查這個檔。Repo 只做 dry-run，不部署。
+
+| env | Worker 名稱 | 資料庫 |
+| --- | --- | --- |
+| `staging-next` | `freedom-maintainer-staging-next` | 與 `freedom-platform-staging-next` 同一份、caching disabled 的 Hyperdrive |
+| `next` | `freedom-maintainer-next` | 與 `freedom-platform-next` 同一份、caching disabled 的 Hyperdrive |
+
+每個環境在私有 overlay 要替換的名稱：`HYPERDRIVE`、`GITHUB_MAINTAINER_APP_ID`（數字，不能是 0）、`GITHUB_MAINTAINER_ORG`。Secret 是 `GITHUB_MAINTAINER_PRIVATE_KEY`（PKCS#8），用 `wrangler secret put` 上傳，不要寫進 `--var`。平台 Worker 另有選填的 `GITHUB_MAINTAINER_WEBHOOK_SECRET`。排程是 `* * * * *`。失敗訊息固定，日誌只有計數。刪除的是 `freedom-maintainer-*`，不是平台 Worker。

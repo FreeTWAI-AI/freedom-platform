@@ -20,6 +20,16 @@
 | `POST /members/:id/admin` | `{reason,confirmed:true}`，使用會員 aggregate_version；任命同社群的啟用中會員。已有管理紀錄回409，改用狀態操作。 |
 | `POST /admins/:id/status` | `{active,reason,confirmed:true}`，使用管理員 aggregate_version；不可停用自己，重新啟用須有啟用中的同信箱會員。 |
 | `GET /audit` | `{items}`；最近100筆本站管理操作，包含操作人顯示名、理由、對象、前後狀態與時間。 |
+| `GET /review-center/summary` | `{policy_version, counts, repositories}`。counts 是未關閉拉取請求依 queue_state 的數量。repositories 含 repository_id、full_name、default_branch、mode、installation_state、settings、last_swept_at、last_error、rate_limited_until、aggregate_version。不含 installation id 或 GitHub 原文。 |
+| `GET /review-center/pulls?queue=open&repository_id=&limit=25&offset=0` | `{items,next_offset}`。queue 可為 draft、waiting_ci、ci_not_run、needs_author、awaiting_review、in_review、needs_owner、ready、paused、open（全部未關閉）或 done（merged／closed）。awaiting_review 依 sla_due_at 由早到晚、空值在後，再依 github_updated_at；其餘依 github_updated_at 新到舊。 |
+| `GET /review-center/pulls/:id` | 拉取請求、檔案（各附屬於該路徑的風險理由）、檢查、審查。每筆審查有 is_current_head 與 counts_as_valid。回應含 queue_reasons、risk_reasons 與 ETag。 |
+| `POST /review-center/pulls/:id/resync` | `{}`。把 reconcile_pull 排進佇列。不需要 If-Match。稽核 `maintainer_pull_resync`。 |
+| `GET /review-center/repositories` | `{items}`；欄位與 summary 的 repositories 相同。 |
+| `POST /review-center/repositories/:id/settings` | `{mode, settings, reason}`，需要 If-Match。這一階段 mode 只接受 off 與 observe；ai_review、merge_dry_run、merge 回 422 `maintainer_mode_unavailable`。settings 用政策 schema 驗證後存成補齊預設值的結果，並把該儲存庫未關閉的拉取請求 recheck_at 設成現在。稽核 `maintainer_repository_settings`，含前後狀態。 |
+| `GET /review-center/reviewers` | `{items}`；reviewer_id、user_id、display_name、github_user_id、github_login、max_risk、active、appointed_at、updated_at、aggregate_version。不含 email。 |
+| `GET /review-center/reviewer-candidates?q=` | 最多 20 位同社群、已啟用、不是驗證測試帳、而且已有 GitHub 連結的會員。q 最多 100 字，比對顯示名稱或 GitHub login。不含 email 與 token。 |
+| `POST /review-center/reviewers` | `{user_id, max_risk, reason}`。從該會員的 GitHub 連結建立或重新啟用審查者。沒有連結回 409 `github_link_required`。已經在名單上且為啟用回 409 `maintainer_reviewer_exists`。稽核 `maintainer_reviewer_appoint`。會把同社群未關閉的拉取請求排入重新推導。 |
+| `POST /review-center/reviewers/:id` | `{max_risk?, active?, reason}`，至少要有 max_risk 或 active 其中一個，需要 If-Match。稽核 `maintainer_reviewer_change`。同樣會把未關閉的拉取請求排入重新推導。 |
 
 核准的 `guild` 格式：
 
