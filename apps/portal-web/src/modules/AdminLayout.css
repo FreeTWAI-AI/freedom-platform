@@ -67,6 +67,7 @@
 .admin-workspace > .stack > h2 { font-size: 1.2rem; }
 .admin-workspace .admin-test-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; font-size: .875rem; }
 .admin-workspace .admin-test-toggle input:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.admin-workspace .guild-review-form > .btn { align-self: flex-start; width: auto; }
 @media (max-width: 900px) {
   .admin-workspace .admin-tabs { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .admin-workspace .admin-nav-group { grid-template-columns: 6rem minmax(0, 1fr); align-items: center; }
@@ -87,6 +88,7 @@
   .admin-workspace .admin-tabs .btn { padding-inline: 10px; }
   .admin-workspace .admin-search .field { min-width: 0; flex-basis: 100%; }
   .admin-workspace .admin-pending-appointments .btn { width: 100%; }
+  .admin-workspace .guild-review-form > .btn { align-self: stretch; width: 100%; }
 }
 
 /* A dense management list keeps actions in the selected row. */

@@ -235,14 +235,17 @@ export async function guildDirectory(pool:Pool,actor:Actor){
  const person=(row:any)=>({user_id:row.user_id,display_name:row.display_name,avatar_url:avatarUrl(row.user_id,row.avatar_version??'1',row.avatar_version!=null)});
  return Promise.all(result.map(async ({stored_secondary_guild_keys,...guild})=>({...guild,is_secondary:guild.membership?.state==='active'&&!guild.is_primary&&secondary.includes(guild.guild_key),secondary_position:guild.membership?.state==='active'&&!guild.is_primary&&secondary.includes(guild.guild_key)?secondary.indexOf(guild.guild_key)+1:null,guild_master:guild.guild_master?person(guild.guild_master):null,guild_experts:guild.guild_experts.map(person),skill_books:await listGuildSkillBooks(pool,actor.community_id,guild.guild_key)})));
 }
+function memberProfessionTitle(guild:{guild_key:string;profession_title?:string}){
+ return guildTitles[guild.guild_key]??((/^guild_custom_[0-9A-Fa-f]{32}$/.test(guild.guild_key)&&guild.profession_title)?guild.profession_title:'專業探索者');
+}
 export async function memberPositioningSummary(pool:Queryable,communityId:string,userId:string){
- const membership=(await pool.query(`SELECT g.guild_key,g.name,m.joined_at,p.secondary_guild_keys,COALESCE(p.primary_guild_key=g.guild_key,false) AS is_primary FROM positioning_profession_memberships m
+ const membership=(await pool.query(`SELECT g.guild_key,g.name,g.alias,g.profession_title,m.joined_at,p.secondary_guild_keys,COALESCE(p.primary_guild_key=g.guild_key,false) AS is_primary FROM positioning_profession_memberships m
   JOIN positioning_guild_catalog g USING(guild_key) LEFT JOIN guild_member_preferences p ON p.community_id=m.community_id AND p.user_id=m.user_id
   WHERE m.community_id=$1 AND m.user_id=$2 AND m.state='active' ORDER BY g.guild_key`,[communityId,userId])).rows;
  const row=(await pool.query("SELECT published_profile FROM onboarding_assessments WHERE community_id=$1 AND user_id=$2",[communityId,userId])).rows[0];
- const primary=membership.find(g=>g.is_primary),select=(g:any)=>({guild_key:g.guild_key,name:g.name,joined_at:new Date(g.joined_at).toISOString()}),profile=row?.published_profile;
+ const primary=membership.find(g=>g.is_primary),select=(g:any)=>({guild_key:g.guild_key,name:g.name,alias:g.alias??'',joined_at:new Date(g.joined_at).toISOString()}),profile=row?.published_profile;
  const secondary=effectiveSecondary({primary_guild_key:primary?.guild_key??null,secondary_guild_keys:membership[0]?.secondary_guild_keys??null,aggregate_version:null,active_guild_keys:membership.map(g=>g.guild_key)});
- return {positioning_title:primary?(guildTitles[primary.guild_key]??'專業探索者'):null,primary_guild:primary?select(primary):null,secondary_guilds:secondary.map(key=>select(membership.find(g=>g.guild_key===key))),joined_guilds:membership.filter(g=>!g.is_primary&&!secondary.includes(g.guild_key)).map(select),capabilities:profile?.capabilities??[],equipment:profile?.equipment??[],custom_capabilities:profile?.custom_capabilities??[],custom_equipment:profile?.custom_equipment??[],featured_capabilities:featuredChoices(profile)};
+ return {positioning_title:primary?memberProfessionTitle(primary):null,primary_guild:primary?select(primary):null,secondary_guilds:secondary.map(key=>select(membership.find(g=>g.guild_key===key))),joined_guilds:membership.filter(g=>!g.is_primary&&!secondary.includes(g.guild_key)).map(select),capabilities:profile?.capabilities??[],equipment:profile?.equipment??[],custom_capabilities:profile?.custom_capabilities??[],custom_equipment:profile?.custom_equipment??[],featured_capabilities:featuredChoices(profile)};
 }
 const ApplicationInput=z.object({name:z.string().trim().min(2).max(100),profession:z.string().trim().min(1).max(160),reason:z.string().trim().min(10).max(2000)}).strict();
 export async function createGuildApplication(pool:Pool,input:Command){
