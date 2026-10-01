@@ -268,7 +268,8 @@ test('welcome keeps one primary action and selected filters stay distinct in eve
   await shareControlWidths(page,true);
   await page.setViewportSize({width:1280,height:900});
   await settings.getByRole('button',{name:'建立分享連結',exact:true}).click();
-  await expect(settings.getByRole('button',{name:'分享名片',exact:true})).toBeVisible();
+  await expect(settings.getByRole('button',{name:'複製連結',exact:true})).toBeVisible();
+  await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toBeVisible();
   await shareControlWidths(page,false);
   await page.setViewportSize({width:820,height:900});
   await shareControlWidths(page,false);
