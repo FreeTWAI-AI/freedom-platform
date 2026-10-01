@@ -226,7 +226,30 @@ test('a member adds a video link, photos and a poster, then uses the lightbox', 
   await page.getByLabel('海報', {exact: true}).setInputFiles({name: 'poster.webp', mimeType: 'image/webp', buffer: await sharp({create: {width: 90, height: 50, channels: 3, background: '#ff8800'}}).webp().toBuffer()});
   await page.getByLabel('標題（選填）').fill('主視覺海報');
   await page.getByRole('button', {name: '送出', exact: true}).click();
-  await expect(page.getByRole('img', {name: '主視覺海報'})).toBeVisible();
+  const posterImage = page.getByRole('img', {name: '主視覺海報'});
+  await expect(posterImage).toBeVisible();
+  await expect.poll(() => posterImage.evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  const frames = await page.locator('.hl-posters .hl-frame').evaluateAll(nodes => nodes.map(node => {
+    const box = node.getBoundingClientRect();
+    return {left: box.left, width: box.width};
+  }));
+  expect(frames.length).toBeGreaterThanOrEqual(2);
+  expect(Math.abs(frames[0].left - frames[1].left)).toBeLessThanOrEqual(2);
+  expect(Math.abs(frames[0].width - frames[1].width)).toBeLessThanOrEqual(2);
+  const posterAlign = await page.locator('.hl-posters figure').filter({hasText: '主視覺海報'}).evaluate(figure => {
+    const frame = figure.querySelector('.hl-frame')!.getBoundingClientRect();
+    const image = figure.querySelector('img')!.getBoundingClientRect();
+    const caption = figure.querySelector('figcaption')!.getBoundingClientRect();
+    const button = figure.querySelector('button')!.getBoundingClientRect();
+    return {
+      imageCenter: Math.abs((image.left + image.right) / 2 - (frame.left + frame.right) / 2),
+      captionLeft: Math.abs(caption.left - frame.left),
+      buttonLeft: Math.abs(button.left - frame.left),
+    };
+  });
+  expect(posterAlign.imageCenter).toBeLessThan(2);
+  expect(posterAlign.captionLeft).toBeLessThanOrEqual(2);
+  expect(posterAlign.buttonLeft).toBeLessThanOrEqual(2);
   const cells = page.locator('.hl-photo');
   await expect(cells).toHaveCount(2);
   for (const cell of await cells.all()) {
@@ -259,6 +282,10 @@ test('another member cannot remove someone else\'s item, and the organizer can',
   await login(page, 'reviewer@local.test');
   await page.goto(`/#highlights/${GUILD}`);
   await expect(page.getByRole('heading', {name: '實體公會聚會', level: 2})).toBeVisible();
+  await expect(page.getByRole('heading', {name: '海報', level: 2})).toBeVisible();
+  await expect(page.getByRole('heading', {name: '錄影與影片', level: 2})).toBeVisible();
+  await expect(page.getByRole('heading', {name: '活動照片', level: 2})).toBeVisible();
+  await expect(page.getByText('還沒有人補上內容。參加過的夥伴可以上傳照片、海報或貼上影片連結。')).toBeVisible();
   await expect(page.getByText(MEMBER_COPY)).toBeVisible();
   await expect(page.getByText(GUILD_COPY)).toHaveCount(0);
   await expect(page.getByRole('button', {name: '展開', exact: true})).toHaveCount(0);
@@ -305,6 +332,10 @@ test('signed-out visitors see the same public pages without private fields', asy
   await page.setViewportSize({width: 1280, height: 900});
   await page.goto(`/highlights/${GUILD}`);
   await expect(page.getByRole('heading', {name: '實體公會聚會', level: 1})).toBeVisible();
+  await expect(page.getByRole('heading', {name: '海報'})).toHaveCount(0);
+  await expect(page.getByRole('heading', {name: '錄影與影片'})).toHaveCount(0);
+  await expect(page.getByRole('heading', {name: '活動照片'})).toHaveCount(0);
+  await expect(page.getByText('還沒有人補上內容。參加過的夥伴可以上傳照片、海報或貼上影片連結。')).toBeVisible();
   await expect(page.getByText(MEMBER_COPY)).toBeVisible();
   await expect(page.getByText(GUILD_COPY)).toHaveCount(0);
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', GENERIC_META);
@@ -318,6 +349,9 @@ test('signed-out visitors see the same public pages without private fields', asy
   await page.goto(`/highlights/${ONLINE}`);
   await expect(page.getByRole('heading', {name: '線上分享回顧', level: 1})).toBeVisible();
   await expect(page.getByText('這是一場已經結束的線上分享，歡迎回顧照片與影片。')).toBeVisible();
+  await expect(page.getByRole('heading', {name: '海報', level: 2})).toBeVisible();
+  await expect(page.getByRole('heading', {name: '錄影與影片', level: 2})).toBeVisible();
+  await expect(page.getByRole('heading', {name: '活動照片', level: 2})).toBeVisible();
   await expect(page.getByText('YouTube 影片')).toBeVisible();
   await expect(page.getByText('主視覺海報')).toBeVisible();
   await expect(page.getByRole('link', {name: '開啟影片 ↗'})).toHaveAttribute('href', 'https://www.youtube.com/watch?v=abcdefghijk');

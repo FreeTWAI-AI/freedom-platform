@@ -539,6 +539,30 @@ test('public html escapes member text, pages with a cursor, and chooses the og i
   assert.match(invalid.text, new RegExp(`canonical" href="${LIVE}/highlights"`));
 });
 
+test('a public detail with no media omits empty section headings', async () => {
+  const eventId = await ended({title: '還沒有集錦'});
+  const page = await call('/highlights/' + eventId);
+  assert.equal(page.status, 200, page.text);
+  assert.equal(page.text.includes('<h2>海報</h2>'), false);
+  assert.equal(page.text.includes('錄影與影片'), false);
+  assert.equal(page.text.includes('活動照片'), false);
+  assert.match(page.text, /<p class="hl-empty">還沒有人補上內容。參加過的夥伴可以上傳照片、海報或貼上影片連結。<\/p>/);
+});
+
+test('a public detail with one link omits the empty photo section', async () => {
+  const maker = await login();
+  const eventId = await ended({title: '只有影片'});
+  const link = await post(`/api/v1/event-highlights/${eventId}/links`, maker, {url: 'https://www.youtube.com/watch?v=abcdefghijk', title: '回顧影片'});
+  assert.equal(link.status, 201, link.text);
+  const page = await call('/highlights/' + eventId);
+  assert.equal(page.status, 200, page.text);
+  assert.match(page.text, /<h2>錄影與影片<\/h2>/);
+  assert.match(page.text, /回顧影片/);
+  assert.equal(page.text.includes('<h2>海報</h2>'), false);
+  assert.equal(page.text.includes('活動照片'), false);
+  assert.equal(page.text.includes('還沒有人補上內容'), false);
+});
+
 test('member-only descriptions stay out of public html, meta tags and other members’ detail', async () => {
   const marker = (visibility: string) => `<script>hl-${visibility}-secret</script>`;
   const generic = '自由工坊社群活動回顧：海報、照片與錄影連結。';

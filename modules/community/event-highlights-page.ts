@@ -80,9 +80,11 @@ export async function highlightsDetailHtml(pool: Pool, origin: string, eventId: 
     return `<article class="hl-link">${thumb}<h3>${escape(item.title || '相關連結')}</h3><p class="hl-platform">${escape(platformLabel[platform] ?? '連結')}</p><p><a href="${escape(String(url))}" target="_blank" rel="noopener noreferrer">開啟影片 ↗</a></p></article>`;
   }).join('');
   const photoHtml = photos.map(item => `<a href="${escape('image_url' in item ? item.image_url : '')}"><img src="${escape('thumb_url' in item ? item.thumb_url : '')}" alt="${escape(item.title || '活動照片')}" loading="lazy"></a>`).join('');
+  const linkSection = linkHtml ? `<section><h2>錄影與影片</h2><div class="hl-links">${linkHtml}</div></section>` : '';
+  const photoSection = photoHtml ? `<section><h2>活動照片</h2><div class="hl-photos">${photoHtml}</div></section>` : '';
   const empty = detail.items.length ? '' : '<p class="hl-empty">還沒有人補上內容。參加過的夥伴可以上傳照片、海報或貼上影片連結。</p>';
   const summary = `<h1>${escape(detail.title)}</h1><p>${escape(highlightWhen(detail.starts_at, detail.ends_at))} · ${escape(modeLabel[detail.mode] ?? detail.mode)} · ${escape(kindLabel[detail.event_kind] ?? detail.event_kind)}</p><p>主辦 ${escape(detail.organizer_name)} · ${detail.attending_count} 人參加</p><div class="hl-copy">${copyBlock(detail.description)}</div>`;
-  const body = `${summary}${posterSection}<section><h2>錄影與影片</h2>${linkHtml ? `<div class="hl-links">${linkHtml}</div>` : ''}</section><section><h2>活動照片</h2>${photoHtml ? `<div class="hl-photos">${photoHtml}</div>` : ''}</section>${empty}`;
+  const body = `${summary}${posterSection}${linkSection}${photoSection}${empty}`;
   const footer = `<a href="/">加入自由工坊</a><a href="/#highlights/${escape(eventId)}">會員登入後補上照片或影片連結</a>`;
   return head(origin, `/highlights/${eventId}`, `${detail.title}｜自由工坊活動集錦`, highlightMetaDescription(detail.description), image, 'article') + shell(body, footer);
 }

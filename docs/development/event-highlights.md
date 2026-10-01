@@ -58,7 +58,7 @@ YouTube 的影片縮圖由瀏覽器直接向 `https://i.ytimg.com/vi/<id>/hqdefa
 
 `GET /highlights` 每頁 12 場，用 `?before=` 連到「較早的活動」，形式用 `?mode=online` 或 `?mode=in_person`。混合活動兩種篩選都會出現。不正確的分頁或形式會回到第一頁，不是錯誤。
 
-`GET /highlights/:eventId` 是單場回顧。沒有這一場時是同一風格的 404 頁，並連回列表。
+`GET /highlights/:eventId` 是單場回顧。沒有這一場時是同一風格的 404 頁，並連回列表。公開頁的「海報」、「錄影與影片」、「活動照片」只在該區有內容時出現；活動本身的海報算海報區。還沒有任何集錦項目時，留下「還沒有人補上內容。參加過的夥伴可以上傳照片、海報或貼上影片連結。」會員頁仍顯示這三個標題。
 
 頁面標題是「活動集錦｜自由工坊」或「{活動標題}｜自由工坊活動集錦」。含 canonical、說明，以及 Open Graph／Twitter 標籤（`summary_large_image`，含 `twitter:description`）。可以索引。預覽圖依序使用：活動海報、最新海報、最新照片、最新 YouTube 縮圖、最後才是 `/brand/freedom-workshop.webp`（1280×720）。列表頁用品牌圖。公開、介紹活動的說明取前 160 字；沒有可公開的說明時用「自由工坊社群活動回顧：海報、照片與錄影連結。」
 
