@@ -9,6 +9,7 @@ import {communityCatalog,skillBooksForGuild} from '../../modules/community/catal
 import {skillMarkdown,pageHtml,skillAgentMarkdown} from '../../modules/development/service.js';
 import {communityAuthorSources} from '../../modules/community/community-author-skills.js';
 import {listSkillBooks} from '../../modules/positioning/onboarding.js';
+import {guildTitles} from '../../modules/positioning/assessment.js';
 
 const url=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL,schema=`fp_member_books_${process.pid}_${Date.now()}`;
 const db=createPool(url),pool=new Pool({connectionString:url,options:`-c search_path=${schema}`});
@@ -34,7 +35,7 @@ test('registered member books retain named original credit, original PR targets 
   assert.equal(communityCatalog.skill_books.find(value=>value.id==='freedom-party-guild-lounge')!.license_status,'NOASSERTION');
 });
 
-test('community works credit original authors and use the actual upstream branch and source limitations',()=>{
+test('community works credit their stated authors and use the actual upstream branch and source limitations',()=>{
   for(const [id,source] of Object.entries(communityAuthorSources)){
     const book=communityCatalog.skill_books.find(value=>value.id===id)!;
     assert.equal(book.guide?.author_name,source.author);
@@ -42,7 +43,7 @@ test('community works credit original authors and use the actual upstream branch
     assert.equal(book.star_url,book.repository_url);assert.equal(book.fork_url,book.repository_url+'/fork');
     assert.equal(book.guide?.reading_url,book.repository_url+'/blob/'+source.sha+'/'+source.reading);
     for(const guild of source.guilds)assert.ok(skillBooksForGuild(guild).some(value=>value.id===id));
-    const branch=['aiwff-runtime','line-persona'].includes(id)?'master':'main';
+    const branch=['aiwff-runtime','line-persona','autovtuber'].includes(id)?'master':'main';
     assert.ok(skillAgentMarkdown(id)?.includes('預設 PR 目標：'+source.repo+':'+branch));
     assert.ok(skillMarkdown(id)?.includes('作者：'+source.author));
   }
@@ -54,6 +55,19 @@ test('community works credit original authors and use the actual upstream branch
   assert.match(status('aiwff-runtime'),/登入連結/);
   assert.match(status('line-persona'),/LINE 訊息仍經 LINE 服務/);
   assert.match(status('anti-gambling-trader-tw'),/不保證獲利.*PaperBroker/);
+  const manual=['video-to-podcast-toolkit','autovtuber','coding-audit-harness'] as const;
+  for(const id of manual){
+    const book=communityCatalog.skill_books.find(value=>value.id===id)!;
+    assert.equal(book.guide?.reviewed_at,'2026-10-01');
+    assert.deepEqual(book.official_guild_keys,[]);
+    for(const guild of Object.keys(guildTitles))assert.equal(skillBooksForGuild(guild).some(value=>value.id===id),false,`${guild} designates ${id}`);
+  }
+  assert.equal(communityCatalog.skill_books.find(value=>value.id==='autovtuber')!.license_status,'NOASSERTION');
+  assert.match(status('autovtuber'),/NOASSERTION/);
+  assert.match(status('autovtuber'),/VRM 0\.x 底模/);
+  assert.match(status('video-to-podcast-toolkit'),/Gemini/);
+  assert.match(status('video-to-podcast-toolkit'),/min_duration_sec/);
+  assert.match(status('coding-audit-harness'),/不是沙箱/);
   const seo=communityCatalog.skill_books.find(book=>book.id==='open-seo-advisor')!;
   assert.equal(seo.guide?.author_name,'阿軒哥哥（阿軒割割）');
   assert.equal(seo.source_commit,'f6178d797b45705b5b77f83507366a72eac34bde');
@@ -80,11 +94,11 @@ const migration033=[['guild_opportunity_partnership','bidding-radar-concept'],['
   ['guild_marketing','n8n-marketing-flows'],['guild_ai_field','n8n-marketing-flows'],['guild_ai_field','anti-gambling-trader-tw'],['guild_ai_vibe','web-card-game-skill'],['guild_ai_vibe','ai-avatar-bot'],
   ['guild_member_operations','ai-avatar-bot'],['guild_ai_field','ai-manga-translator'],['guild_media_automation','ai-manga-translator'],['guild_member_operations','line-persona'],['guild_ai_field','line-persona']] as const;
 
-const migration063=[['guild_marketing','open-seo-advisor']] as const;
+const migration060=[['guild_marketing','open-seo-advisor']] as const;
 
 test('migration 033 grants its author-book designations to active members, covers every current one and replays without changing prior grants',async()=>{
   // Current author designations are the 033 grants plus later listing migrations. 033 itself stays as shipped.
-  const granted=[...migration033,...migration063];
+  const granted=[...migration033,...migration060];
   for(const [id,source] of Object.entries(communityAuthorSources))for(const guild of source.guilds)assert.ok(granted.some(([key,book])=>key===guild&&book===id),`${guild} → ${id} needs a grant migration`);
   const community=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[community,'Synthetic eight-book publication']);
   const guilds=[...new Set(migration033.map(([guild])=>guild))];
@@ -108,7 +122,20 @@ test('migration 033 grants its author-book designations to active members, cover
   assert.equal((await pool.query('SELECT count(*) FROM development_grants')).rows[0].count,'0');
 });
 
-test('migration 063 grants Open SEO Advisor to an active guild_marketing member and skips inactive members and left memberships',async()=>{
+test('migration 070 publishes the three manually registered works and replays without changes',async()=>{
+  const ids=['autovtuber','coding-audit-harness','video-to-podcast-toolkit'];
+  const present=(await pool.query('SELECT book_id FROM skill_publications WHERE book_id=ANY($1::text[]) ORDER BY book_id',[ids])).rows.map(row=>row.book_id);
+  assert.deepEqual(present,ids);
+  const snapshot=(await pool.query('SELECT * FROM skill_publications ORDER BY book_id')).rows;
+  const grantsBefore=(await pool.query('SELECT count(*) FROM member_skill_book_grants WHERE book_id=ANY($1::text[])',[ids])).rows[0].count;
+  const sql=await readFile(new URL('../../migrations/070_manual_work_skill_books.sql',import.meta.url),'utf8');
+  await pool.query(sql);
+  assert.deepEqual((await pool.query('SELECT * FROM skill_publications ORDER BY book_id')).rows,snapshot);
+  assert.equal((await pool.query('SELECT count(*) FROM member_skill_book_grants WHERE book_id=ANY($1::text[])',[ids])).rows[0].count,grantsBefore);
+  assert.equal((await pool.query('SELECT count(*) FROM development_grants')).rows[0].count,'0');
+});
+
+test('migration 060 grants Open SEO Advisor to an active guild_marketing member and skips inactive members and left memberships',async()=>{
   const community=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[community,'Synthetic SEO publication']);
   const cases=[[true,'active','guild_marketing'],[true,'left','guild_marketing'],[false,'active','guild_marketing'],[true,'active','guild_ai_vibe']] as const;
   const ids:string[]=[];

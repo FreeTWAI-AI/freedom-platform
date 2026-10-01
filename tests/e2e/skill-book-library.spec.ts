@@ -13,7 +13,7 @@ test.beforeEach(async({page})=>{
   await page.route('**/api/v1/skill-submissions/published',route=>route.fulfill({json:{items:[]}}));
 });
 // Catalog books no guild designates: they sit on the 社群技能書 shelf and are not granted by joining a guild.
-const communityBookIds=['anti-gambling-trader-tw','web-card-game-skill','ai-avatar-bot','ai-manga-translator','line-persona','hao-studio','ai-sister','multi-ai-desktop','multi-ai-chat'];
+const communityBookIds=['anti-gambling-trader-tw','web-card-game-skill','ai-avatar-bot','ai-manga-translator','line-persona','hao-studio','ai-sister','multi-ai-desktop','multi-ai-chat','video-to-podcast-toolkit','autovtuber','coding-audit-harness'];
 
 async function openLibrary(page:Page){
   await page.goto('/');
@@ -55,12 +55,12 @@ test('guild skill book introduces a real first deliverable before external readi
 });
 
 
-test('the guild shelf and 社群技能書 hold all 38 books once each; guild search intersects workshop categories without granting books',async({page})=>{
+test('the guild shelf and 社群技能書 hold all 41 books once each; guild search intersects workshop categories without granting books',async({page})=>{
   const library=await openLibrary(page),cards=library.locator('article.skill-library-book');
   const community=page.locator('.community-skill-library'),communityCards=community.locator('article.skill-library-book');
   const grantedBefore=await (await page.request.get('/api/v1/me/skill-books')).json();
   await expect(library.getByRole('status')).toHaveText('顯示 29 / 29 本技能書');
-  await expect(community.getByRole('status')).toHaveText('顯示 9 / 9 本社群技能書');
+  await expect(community.getByRole('status')).toHaveText('顯示 12 / 12 本社群技能書');
   const catalog=await (await page.request.get('/api/v1/community')).json() as {skill_books:SkillBook[]};
   const shelved=async(cards:Locator)=>(await cards.evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-book-id')!))).sort();
   expect(await shelved(communityCards)).toEqual([...communityBookIds].sort());
@@ -68,12 +68,12 @@ test('the guild shelf and 社群技能書 hold all 38 books once each; guild sea
   expect([...await shelved(cards),...await shelved(communityCards)].sort()).toEqual(catalog.skill_books.map(book=>book.id).sort());
   // One badge slot: guild designations above, 社群技能書 below; never both on one book.
   await expect(cards.getByText('社群技能書',{exact:true})).toHaveCount(0);
-  await expect(communityCards.locator('.skill-badge-community')).toHaveCount(9);
+  await expect(communityCards.locator('.skill-badge-community')).toHaveCount(12);
   await expect(communityCards.locator('.skill-badge-official')).toHaveCount(0);
   const illustrations=page.locator('.skill-shelves article.skill-library-book .skill-book-illustration');
-  await expect(illustrations).toHaveCount(38);
+  await expect(illustrations).toHaveCount(41);
   const urls=await illustrations.evaluateAll(images=>images.map(image=>image.getAttribute('src')));
-  expect(new Set(urls).size).toBe(38);
+  expect(new Set(urls).size).toBe(41);
   for(const url of urls){
     expect(url).toMatch(/^\/art\/skills\/[a-z0-9-]+\.webp$/);
     const response=await page.request.get(url!);
@@ -174,7 +174,7 @@ test('book cards credit the original GitHub author and offer direct reading acti
 test('all public book pages and Markdown preserve beginner summaries, covers, original stars and source facts',async({page,request})=>{
   const response=await request.get('/api/v1/development-map');expect(response.status()).toBe(200);
   const map=await response.json() as {skill_books:(SkillBook&{guide_url:string;markdown_url:string})[]};
-  expect(map.skill_books).toHaveLength(38);
+  expect(map.skill_books).toHaveLength(41);
   for(const book of map.skill_books){
     const htmlResponse=await request.get(book.guide_url),markdownResponse=await request.get(book.markdown_url);
     expect(htmlResponse.status(),book.id).toBe(200);expect(markdownResponse.status(),book.id).toBe(200);
@@ -287,7 +287,7 @@ test('a published member work is packaged as a 社群技能書 like every catalo
   await expect(page.getByRole('heading',{name:'公會指定技能書',level:2,exact:true})).toBeVisible();
   await expect(page.getByRole('heading',{name:'社群技能書',level:2,exact:true})).toBeVisible();
   const shelf=page.locator('.community-skill-library'),cards=shelf.locator('article.skill-library-book');
-  await expect(shelf.getByRole('status')).toHaveText('顯示 10 / 10 本社群技能書');
+  await expect(shelf.getByRole('status')).toHaveText('顯示 13 / 13 本社群技能書');
   // Newest member works lead the shelf, in the same card as the catalog books after them.
   const card=cards.first();await expect(card).toHaveAttribute('data-submission-id',id);
   await expect(card.getByRole('heading',{name:item.title,level:3,exact:true})).toBeVisible();
@@ -324,7 +324,7 @@ test('a published member work is packaged as a 社群技能書 like every catalo
   await share.getByRole('button',{name:'關閉分享預覽',exact:true}).click();
   const search=shelf.getByLabel('搜尋社群技能書',{exact:true});
   await search.fill('綠豆');await expect(cards).toHaveCount(1);await expect(cards.first()).toHaveAttribute('data-book-id','ai-manga-translator');
-  await expect(shelf.getByRole('status')).toHaveText('顯示 1 / 10 本社群技能書');
+  await expect(shelf.getByRole('status')).toHaveText('顯示 1 / 13 本社群技能書');
   await search.fill('沒有這本書');await expect(cards).toHaveCount(0);await expect(shelf.getByText('沒有符合的社群技能書。',{exact:true})).toBeVisible();
   await page.screenshot({path:'test-results/community-skill-books.png'});
 });
