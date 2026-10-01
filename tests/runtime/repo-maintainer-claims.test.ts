@@ -661,3 +661,24 @@ test('a deadlock inside a claim command is a retryable 409', async () => {
   assert.equal(retried.status, 200, JSON.stringify(retried.data));
 });
 
+test('pause and resume bump the version and reject a no-op', async () => {
+  const repository = await insertRepo();
+  const merged = await insertPull(repository, 41, { merged: true, state: 'closed', queue: 'merged' });
+  const before = Number((await pool.query('SELECT aggregate_version FROM maintainer_pull_requests WHERE pull_id=$1', [merged])).rows[0].aggregate_version);
+  const paused = await request(`/review-center/pulls/${merged}/pause`, { reason: '合併後仍記下暫停。' }, before);
+  assert.equal(paused.status, 200, JSON.stringify(paused.data));
+  assert.ok(Number(paused.data.aggregate_version) > before);
+  const stale = await request(`/review-center/pulls/${merged}/pause`, { reason: '用舊版本再暫停。' }, before);
+  assert.equal(stale.status, 412);
+  const again = await request(`/review-center/pulls/${merged}/pause`, { reason: '已經暫停再按一次。' }, Number(paused.data.aggregate_version));
+  assert.equal(again.status, 409);
+  assert.equal(again.data.code, 'maintainer_pull_already_paused');
+  assert.match(again.data.detail, /已經暫停/);
+  const open = await insertPull(repository, 42);
+  const resume = await request(`/review-center/pulls/${open}/resume`, { reason: '它本來就沒有暫停。' }, 1);
+  assert.equal(resume.status, 409);
+  assert.equal(resume.data.code, 'maintainer_pull_not_paused');
+  assert.match(resume.data.detail, /沒有暫停/);
+  assert.equal(Number((await pool.query('SELECT aggregate_version FROM maintainer_pull_requests WHERE pull_id=$1', [open])).rows[0].aggregate_version), 1);
+});
+

@@ -39,6 +39,8 @@ const CLAIM_AUTHOR = '審查者不能認領自己開的拉取請求。';
 const CLAIM_UNAVAILABLE = '這個拉取請求目前未開啟、仍是草稿或已暫停，不能認領。';
 const CLAIM_MISSING = '找不到這個認領。';
 const CLAIM_INACTIVE = '這個認領已經結束。';
+const PULL_ALREADY_PAUSED = '這個拉取請求已經暫停。';
+const PULL_NOT_PAUSED = '這個拉取請求沒有暫停。';
 const WRITE_CONFLICT = '另一個操作同時在處理這個拉取請求，請重新整理後再試一次。';
 const SELF_CLAIM_REASON = '自己認領這次審查。';
 
@@ -417,8 +419,10 @@ async function setPullPaused(pool: Pool, input: AdminCommand, id: string, paused
   return claimWrite(pool, input, async q => { await scopedPull(q, input.admin, id); }, async q => {
     const pull = await scopedPull(q, input.admin, id, true);
     checkVersion(String(pull.aggregate_version), input.expected);
+    if (paused && pull.paused) throw new Problem(409, 'maintainer_pull_already_paused', PULL_ALREADY_PAUSED);
+    if (!paused && !pull.paused) throw new Problem(409, 'maintainer_pull_not_paused', PULL_NOT_PAUSED);
     const current = await activeClaimOnPull(q, id);
-    await q.query('UPDATE maintainer_pull_requests SET paused=$2 WHERE pull_id=$1', [id, paused]);
+    await q.query('UPDATE maintainer_pull_requests SET paused=$2, aggregate_version=aggregate_version+1 WHERE pull_id=$1', [id, paused]);
     const now = new Date();
     return finishClaimWrite(q, input.admin, id, now, action, 'maintainer_pull', id, body.reason, {
       claim_id: current?.claim_id ?? null, reviewer_login: current?.reviewer_login ?? null, state: current ? 'active' : null,
