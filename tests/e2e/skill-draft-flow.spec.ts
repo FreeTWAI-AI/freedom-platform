@@ -334,9 +334,19 @@ test('completing a seeded draft keeps the target line and copy button in view', 
     await expect(copy).toBeFocused();
     await expectInsideDialog(target);
     await expectInsideDialog(copy);
+    const gap = await target.evaluate(element => {
+      const header = element.closest('dialog')!.querySelector('.skill-upload-header')!.getBoundingClientRect();
+      return element.getBoundingClientRect().top - header.bottom;
+    });
+    expect(gap).toBeGreaterThanOrEqual(8);
     await dialog.getByRole('button', { name: '關閉上傳技能', exact: true }).click();
     await expect(dialog).toBeHidden();
   }
+  await page.setViewportSize({ width: 390, height: 520 });
+  await callout.getByRole('button', { name: '補上分享介紹', exact: true }).click();
+  const shortCopy = dialog.getByRole('button', { name: '複製給聊天 AI', exact: true });
+  await expect(shortCopy).toBeFocused();
+  await expectInsideDialog(shortCopy);
 });
 
 test('the stuck submit footer reaches the dialog bottom on a phone', async ({ page }) => {
@@ -386,14 +396,140 @@ test('manual registration brings the notice button into the phone viewport', asy
   await page.getByLabel('如何開始使用', { exact: true }).fill(seed.use_notes);
   await page.getByLabel('我同意讓社群會員看見作品介紹與來源關係', { exact: true }).check();
   await page.getByRole('button', { name: '從 GitHub 登錄', exact: true }).click();
-  const button = page.locator('.skill-draft-callout').getByRole('button', { name: '補上分享介紹', exact: true });
+  const notice = page.locator('.skill-draft-callout');
+  const button = notice.getByRole('button', { name: '補上分享介紹', exact: true });
   await expect(button).toBeVisible();
-  const inside = await button.evaluate(element => {
+  const placed = await notice.evaluate(element => {
     const box = element.getBoundingClientRect();
-    return box.height > 0 && box.top >= -1 && box.left >= -1 && box.bottom <= window.innerHeight + 1 && box.right <= window.innerWidth + 1;
+    const bar = document.querySelector('.sidebar')!.getBoundingClientRect();
+    return {
+      inView: box.height > 0 && box.top >= -1 && box.left >= -1 && box.bottom <= window.innerHeight + 1 && box.right <= window.innerWidth + 1,
+      belowBar: box.top >= bar.bottom - 1,
+    };
   });
-  expect(inside).toBe(true);
+  expect(placed.inView).toBe(true);
+  expect(placed.belowBar).toBe(true);
   await expect(button).not.toBeFocused();
+});
+
+const resultViewports = [{ width: 1280, height: 800 }, { width: 390, height: 844 }];
+
+async function dialogTypography(dialog: Locator) {
+  return dialog.evaluate(element => {
+    const value = (node: Element | null) => node ? getComputedStyle(node) : null;
+    const title = value(element.querySelector('.skill-upload-header h2'));
+    const agent = [...element.querySelectorAll('section')].find(section => section.querySelector('h3')?.textContent === '交給 Agent 讀取專案');
+    const heading = value(agent?.querySelector('h3') ?? null);
+    const hint = value(element.querySelector('.field-hint'));
+    const paragraph = value(agent?.querySelector('p') ?? null);
+    return {
+      titleSize: title?.fontSize ?? '',
+      titleMarginTop: title?.marginTop ?? '',
+      headingSize: heading?.fontSize ?? '',
+      hintSize: hint?.fontSize ?? '',
+      paragraphSize: paragraph?.fontSize ?? '',
+    };
+  });
+}
+
+test('publish, revoke, and chat upload show their results inside the drafts section', async ({ page }) => {
+  const ready = submission('sub-ready', 'ready_for_review');
+  const published = submission('sub-ready', 'published');
+  const revoked = submission('sub-ready', 'ready_for_review', { status: 'revoked', aggregate_version: 4 });
+  const chatReady = submission('sub-chat', 'ready_for_review');
+  let publishedSent = false;
+  let revokedSent = false;
+  let uploaded = false;
+  await page.route('**/api/v1/me/skill-submissions**', async route => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname.replace('/api/v1', '');
+    if (path.endsWith('/illustration')) return route.fulfill({ status: 200, contentType: 'image/png', body: PNG });
+    if (request.method() === 'POST' && path.endsWith('/publish')) { publishedSent = true; return route.fulfill({ json: published }); }
+    if (request.method() === 'POST' && path.endsWith('/revoke')) { revokedSent = true; return route.fulfill({ json: revoked }); }
+    if (request.method() === 'POST' && path === '/me/skill-submissions') {
+      const created = submission('sub-chat', 'awaiting_upload', { aggregate_version: 1 });
+      return route.fulfill({ status: 201, json: { submission: created, upload_grant: { token: GRANT, expires_at: '2099-01-01T00:00:00Z', submit_url: '/agent-api/v1/skill-submissions/sub-chat' } } });
+    }
+    if (request.method() === 'GET' && path === '/me/skill-submissions') {
+      if (uploaded) return route.fulfill({ json: { items: [chatReady] } });
+      const current = publishedSent ? published : revokedSent ? revoked : ready;
+      return route.fulfill({ json: { items: [current] } });
+    }
+    if (path.endsWith('/sub-chat')) return route.fulfill({ json: chatReady });
+    const current = publishedSent ? published : revokedSent ? revoked : ready;
+    return route.fulfill({ json: current });
+  });
+  await page.route('**/agent-api/v1/skill-submissions/**', async route => {
+    uploaded = true;
+    return route.fulfill({ json: chatReady });
+  });
+  await login(page);
+  for (const viewport of resultViewports) {
+    publishedSent = false; revokedSent = false; uploaded = false;
+    await page.setViewportSize(viewport);
+    await navigate(page, '開源投稿');
+    await navigate(page, '技能書架');
+    await page.locator('.skill-draft-callout').getByRole('button', { name: '預覽並送出', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
+    await settleIllustration(dialog);
+    await dialog.getByRole('button', { name: '送出技能', exact: true }).click();
+    const drafts = dialog.getByRole('region', { name: '我的私人技能草稿', exact: true });
+    const publishedNotice = drafts.getByText('技能已送出，公開介紹頁已建立。', { exact: true });
+    await expectInsideDialog(publishedNotice);
+    await expect(dialog.getByRole('alert')).toHaveCount(0);
+    await dialog.getByRole('button', { name: '關閉上傳技能', exact: true }).click();
+    await expect(dialog).toBeHidden();
+
+    publishedSent = false; revokedSent = false; uploaded = false;
+    await navigate(page, '開源投稿');
+    await navigate(page, '技能書架');
+    await page.getByRole('button', { name: '上傳技能', exact: true }).click();
+    await dialog.getByRole('button', { name: '撤銷草稿：流程整理技能', exact: true }).click();
+    const revokedNotice = dialog.getByRole('region', { name: '我的私人技能草稿', exact: true }).getByText('草稿已撤銷，憑證無法再上傳。', { exact: true });
+    await expectInsideDialog(revokedNotice);
+    await expect(dialog.getByRole('alert')).toHaveCount(0);
+    await dialog.getByRole('button', { name: '關閉上傳技能', exact: true }).click();
+    await expect(dialog).toBeHidden();
+
+    publishedSent = false; revokedSent = false; uploaded = false;
+    await navigate(page, '開源投稿');
+    await navigate(page, '技能書架');
+    await page.getByRole('button', { name: '上傳技能', exact: true }).click();
+    const paste = dialog.getByRole('textbox', { name: '貼上 JSON', exact: true });
+    await paste.evaluate(element => element.scrollIntoView({ block: 'center', inline: 'nearest' }));
+    await paste.fill(JSON.stringify({ repository_url: 'https://github.com/example/skill-demo', title: '流程整理技能' }));
+    await dialog.getByRole('button', { name: '用這份 JSON 建立草稿', exact: true }).click();
+    const uploadedNotice = dialog.getByRole('region', { name: '我的私人技能草稿', exact: true }).getByText('草稿已上傳，請預覽內容後再送出。', { exact: true });
+    await expectInsideDialog(uploadedNotice);
+    await expect(dialog.getByRole('alert')).toHaveCount(0);
+    await dialog.getByRole('button', { name: '關閉上傳技能', exact: true }).click();
+    await expect(dialog).toBeHidden();
+  }
+});
+
+test('the upload dialog keeps the same type on the skill shelf and the open-source page', async ({ page }) => {
+  await login(page);
+  for (const viewport of resultViewports) {
+    await page.setViewportSize(viewport);
+    await navigate(page, '技能書架');
+    await expect(page.getByRole('heading', { name: '公會指定技能書', level: 2, exact: true })).toHaveCSS('font-size', '18px');
+    await expect(page.getByRole('heading', { name: '社群技能書', level: 2, exact: true })).toHaveCSS('font-size', '18px');
+    await expect(page.locator('.skill-shelf-heading p.muted')).toHaveCSS('font-size', '14px');
+    await page.getByRole('button', { name: '上傳技能', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
+    await expect(dialog.getByRole('heading', { name: '交給 Agent 讀取專案', exact: true })).toBeVisible();
+    const fromShelf = await dialogTypography(dialog);
+    await expect(page.getByRole('heading', { name: '社群技能書', level: 2, exact: true })).toHaveCSS('font-size', '18px');
+    await expect(page.locator('.skill-shelf-heading p.muted')).toHaveCSS('font-size', '14px');
+    await dialog.getByRole('button', { name: '關閉上傳技能', exact: true }).click();
+    await expect(dialog).toBeHidden();
+
+    await navigate(page, '開源投稿');
+    await page.getByRole('button', { name: '上傳技能', exact: true }).click();
+    await expect(dialog.getByRole('heading', { name: '交給 Agent 讀取專案', exact: true })).toBeVisible();
+    expect(await dialogTypography(dialog)).toEqual(fromShelf);
+    await dialog.getByRole('button', { name: '關閉上傳技能', exact: true }).click();
+  }
 });
 
 for (const theme of ['light', 'dark', 'versefolk'] as const) {

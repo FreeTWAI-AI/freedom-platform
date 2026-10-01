@@ -147,13 +147,13 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
   const [open, setOpen] = useState(false), dialog = useRef<HTMLDialogElement>(null), trigger = useRef<HTMLButtonElement>(null), titleId = useId();
   const dialogSession = useRef(0), dialogActive = useRef(false), draftsLeadReady = useRef(false);
   const [items, setItems] = useState<Submission[]>([]), [loading, setLoading] = useState(false), [loadError, setLoadError] = useState<string | null>(null);
-  const [secret, setSecret] = useState<Secret | null>(null), [issue, setIssue] = useState<string | null>(null), [notice, setNotice] = useState<string | null>(null);
+  const [secret, setSecret] = useState<Secret | null>(null), [issue, setIssue] = useState<string | null>(null), [notice, setNotice] = useState<string | null>(null), [draftResult, setDraftResult] = useState<string | null>(null);
   const [preview, setPreview] = useState<Submission | null>(null), [previewError, setPreviewError] = useState<string | null>(null);
   const [keys, setKeys] = useState<UploadKey[]>([]), [keysError, setKeysError] = useState<string | null>(null);
   const [keyDraft, setKeyDraft] = useState({ label: '', expires_in_days: '30' }), [issuedKey, setIssuedKey] = useState<{ id: string; label: string; token: string } | null>(null);
   const [chatRepo, setChatRepo] = useState(''), [chatJson, setChatJson] = useState(''), [chatError, setChatError] = useState<string | null>(null), [chatBusy, setChatBusy] = useState(false), [chatCopied, setChatCopied] = useState('');
   const [chatTargetId, setChatTargetId] = useState<string | null>(null), [draftsLead, setDraftsLead] = useState<boolean | null>(null);
-  const chatFile = useRef<HTMLInputElement>(null), heldRef = useRef<HeldGrant | null>(null), copyChatButton = useRef<HTMLButtonElement>(null), pendingChatFocus = useRef(false);
+  const chatFile = useRef<HTMLInputElement>(null), heldRef = useRef<HeldGrant | null>(null), copyChatButton = useRef<HTMLButtonElement>(null), pendingChatFocus = useRef(false), draftResultRef = useRef<HTMLParagraphElement>(null);
   const drafts = useModuleMutation(client), credentials = useModuleMutation(client);
   // The first loaded list picks the section order. Later lists may move it up, never down, until the dialog closes.
   const noteDraftOrder = useCallback((list: Submission[]) => {
@@ -205,7 +205,7 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
     dialogSession.current += 1; dialogActive.current = false; draftsLeadReady.current = false;
     flushSync(() => {
       heldRef.current = null;
-      setSecret(null); setIssuedKey(null); setIssue(null); setNotice(null); setPreview(null); setPreviewError(null);
+      setSecret(null); setIssuedKey(null); setIssue(null); setNotice(null); setDraftResult(null); setPreview(null); setPreviewError(null);
       setChatRepo(''); setChatJson(''); setChatError(null); setChatBusy(false); setChatCopied('');
       setChatTargetId(null); pendingChatFocus.current = false; setDraftsLead(null);
       setOpen(false);
@@ -233,26 +233,27 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
     setIssue(null); setSecret({ submissionId: result.submission.submission_id, token: grant.token, expiresAt: grant.expires_at, submitUrl, seed: result.submission.seed ?? null });
   }
   async function createDraft() {
-    setNotice(null); setIssue(null);
+    setNotice(null); setDraftResult(null); setIssue(null);
     const session = dialogSession.current;
     const result = await drafts.mutate<GrantResult>('/me/skill-submissions', {});
     if (result) onChanged?.();
     if (sessionActive(session)) acceptGrant(result);
   }
   async function regrant(item: Submission) {
-    setNotice(null); setIssue(null);
+    setNotice(null); setDraftResult(null); setIssue(null);
     const session = dialogSession.current;
     const result = await drafts.mutate<GrantResult>(`/me/skill-submissions/${encodeURIComponent(item.submission_id)}/grant`, {}, Number(item.aggregate_version));
     if (result) onChanged?.();
     if (sessionActive(session)) acceptGrant(result);
   }
   async function revoke(item: Submission) {
+    setDraftResult(null);
     const saved = await drafts.mutate<Submission>(`/me/skill-submissions/${encodeURIComponent(item.submission_id)}/revoke`, {}, Number(item.aggregate_version));
     if (!saved) return;
     if (secret?.submissionId === item.submission_id) setSecret(null);
     if (preview?.submission_id === item.submission_id) setPreview(null);
     if (chatTargetId === item.submission_id) setChatTargetId(null);
-    setNotice('草稿已撤銷，憑證無法再上傳。'); await refresh(); onChanged?.();
+    setNotice(null); setDraftResult('草稿已撤銷，憑證無法再上傳。'); await refresh(); onChanged?.();
   }
   async function showPreview(item: Submission) {
     setPreviewError(null); setPreview(null);
@@ -261,10 +262,11 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
     catch (cause) { if (sessionActive(session)) setPreviewError(cause instanceof Error ? cause.message : '無法載入草稿內容。'); }
   }
   async function publish(item: Submission) {
+    setDraftResult(null);
     const saved = await drafts.mutate<Submission>(`/me/skill-submissions/${encodeURIComponent(item.submission_id)}/publish`, { consent_to_share: true }, Number(item.aggregate_version));
     if (!saved) return;
     logConsoleEvent({id:`skill:${saved.submission_id}`,createdAt:saved.updated_at,channel:consoleChannel('skill_published'),level:'success',kind:'broadcast',source:'技能書發布',message:`技能書「${saved.payload?.title??'未命名技能'}」已建立公開介紹頁。`});
-    setPreview(saved); setNotice('技能已送出，公開介紹頁已建立。'); await refresh(); onChanged?.(); await onPublished?.();
+    setPreview(saved); setNotice(null); setDraftResult('技能已送出，公開介紹頁已建立。'); await refresh(); onChanged?.(); await onPublished?.();
   }
   // Chat upload keeps the one-time grant in memory. It must not open the Agent instruction.
   function rememberGrant(result: GrantResult | undefined): HeldGrant | null {
@@ -318,7 +320,7 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
   }
   async function submitChat(event: FormEvent) {
     event.preventDefault();
-    setChatError(null); setNotice(null);
+    setChatError(null); setNotice(null); setDraftResult(null);
     const parsed = parseChatSkillJson(chatJson);
     if (!parsed.ok) { setChatError(parsed.message); return; }
     const session = dialogSession.current;
@@ -335,7 +337,7 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
       if (!sessionActive(session)) return;
       if (!response.ok) { setChatError(await agentDetail(response)); return; }
       setChatJson('');
-      setNotice('草稿已上傳，請預覽內容後再送出。');
+      setChatError(null); setNotice(null); setDraftResult('草稿已上傳，請預覽內容後再送出。');
       onChanged?.();
       await refresh();
       if (sessionActive(session)) await showPreview({ submission_id: grant.id } as Submission);
@@ -402,24 +404,17 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
     pendingChatFocus.current = false;
     const target = node.querySelector<HTMLElement>('.skill-upload-target');
     if (!target) { button.focus(); return; }
-    {
-      const header = node.querySelector<HTMLElement>('.skill-upload-header');
-      const style = getComputedStyle(node);
-      const borderTop = Number.parseFloat(style.borderTopWidth) || 0;
-      const borderBottom = Number.parseFloat(style.borderBottomWidth) || 0;
-      const headerHeight = header?.getBoundingClientRect().height ?? 0;
-      const visibleTop = () => node.getBoundingClientRect().top + borderTop + headerHeight;
-      const visibleBottom = () => node.getBoundingClientRect().bottom - borderBottom;
-      node.scrollTop += target.getBoundingClientRect().top - visibleTop();
-      const instruction = node.querySelector<HTMLElement>('.skill-upload-chat textarea[readonly]');
-      const buttonBox = button.getBoundingClientRect();
-      if (instruction && (buttonBox.bottom > visibleBottom() + 1 || buttonBox.top < visibleTop() - 1)) {
-        const start = instruction.getBoundingClientRect().top;
-        if (start > visibleBottom()) node.scrollTop += start - visibleTop();
-        const covered = target.getBoundingClientRect().top - visibleTop();
-        if (covered < -1) node.scrollTop += covered;
-      }
-    }
+    const header = node.querySelector<HTMLElement>('.skill-upload-header');
+    const style = getComputedStyle(node);
+    const borderTop = Number.parseFloat(style.borderTopWidth) || 0;
+    const borderBottom = Number.parseFloat(style.borderBottomWidth) || 0;
+    const headerHeight = header?.getBoundingClientRect().height ?? 0;
+    const visibleTop = () => node.getBoundingClientRect().top + borderTop + headerHeight;
+    const visibleBottom = () => node.getBoundingClientRect().bottom - borderBottom;
+    // Keep the target a step below the sticky header. The focused copy button wins when the dialog is too short to show both.
+    node.scrollTop += target.getBoundingClientRect().top - visibleTop() - 12;
+    const overflow = button.getBoundingClientRect().bottom - visibleBottom();
+    if (overflow > 0) node.scrollTop += overflow;
     button.focus({ preventScroll: true });
   }, [chatTargetId, open]);
   useEffect(() => {
@@ -443,7 +438,7 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
           }
           if (draft.status === 'ready_for_review') {
             setSecret(current => current?.submissionId === watched ? null : current);
-            setNotice(`Agent 已上傳「${draft.payload?.title ?? ''}」，請預覽後送出。`);
+            setDraftResult(null); setNotice(`Agent 已上傳「${draft.payload?.title ?? ''}」，請預覽後送出。`);
             await actions.current.showPreview(draft);
           }
         } catch { /* The next visible tick tries again. */ }
@@ -451,6 +446,31 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
     }, 10_000);
     return () => { stopped = true; window.clearInterval(timer); };
   }, [open, secret, client, noteDraftOrder]);
+  useLayoutEffect(() => {
+    const note = draftResultRef.current;
+    if (!draftResult || !note) return;
+    const bringIntoView = () => {
+      const dialogNode = note.closest('dialog');
+      const header = dialogNode?.querySelector<HTMLElement>('.skill-upload-header');
+      // The sticky header covers the scrollport's top edge, which nearest would otherwise treat as visible.
+      note.style.scrollMarginTop = `${(header?.getBoundingClientRect().height ?? 0) + 8}px`;
+      note.scrollIntoView({ block: 'nearest' });
+      const footer = dialogNode?.querySelector<HTMLElement>('.skill-upload-submit');
+      if (!dialogNode || !footer) return;
+      const noteBox = note.getBoundingClientRect();
+      const foot = footer.getBoundingClientRect();
+      if (foot.top < noteBox.bottom - 1 && foot.bottom > noteBox.top + 1) dialogNode.scrollTop += noteBox.bottom - foot.top + 8;
+    };
+    bringIntoView();
+    const image = note.closest('dialog')?.querySelector<HTMLImageElement>('.skill-upload-preview img');
+    if (!image || image.complete) return;
+    image.addEventListener('load', bringIntoView);
+    image.addEventListener('error', bringIntoView);
+    return () => {
+      image.removeEventListener('load', bringIntoView);
+      image.removeEventListener('error', bringIntoView);
+    };
+  }, [draftResult, preview?.submission_id, draftsLead]);
 
   const instruction = secret ? agentInstruction(window.location.origin, secret, secret.seed) : '';
   const showDraftsFirst = draftsLead ?? draftsLeadList(items);
@@ -484,8 +504,10 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
         </div>
       </li>;
     })}</ul>
+    {!preview && draftResult && <p ref={draftResultRef} role="status" className="status-note">{draftResult}</p>}
     {previewError && <p role="alert" className="banner banner-error">{previewError}</p>}
     {preview && <SubmissionPreview submission={preview} busy={drafts.busy} onPublish={() => void publish(preview)}/>}
+    {preview && draftResult && <p ref={draftResultRef} role="status" className="status-note">{draftResult}</p>}
   </section>;
   return <>
     <button ref={trigger} type="button" className="btn btn-primary skill-upload-trigger" aria-haspopup="dialog" onClick={show}>上傳技能</button>

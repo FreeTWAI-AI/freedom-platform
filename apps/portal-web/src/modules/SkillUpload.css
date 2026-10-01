@@ -47,7 +47,7 @@
 .skill-upload-submit .field-hint { margin: 0; }
 .skill-upload-submit .actions { margin-top: 0; }
 .skill-upload-submit .btn { width: auto; }
-.skill-draft-callout { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; border: 1px solid var(--line); }
+.skill-draft-callout { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; border: 1px solid var(--line); scroll-margin-top: 12px; }
 .skill-draft-callout p { margin: 0; min-width: 0; flex: 1 1 16rem; }
 .skill-draft-callout .btn { flex: 0 0 auto; width: auto; }
 .skill-upload-cli { border-top: 1px solid var(--line); padding-top: 6px; }
