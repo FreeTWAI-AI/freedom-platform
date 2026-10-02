@@ -121,7 +121,7 @@ test('DEVICE-01 real low-privilege fresh-device approval/exchange/status, no mem
   await approve(f, started); assert.deepEqual((await counts()).slice(0, 4), [1,0,0,0]);
   await owner.query('UPDATE sessions SET revoked_at=clock_timestamp() WHERE token_hash=$1', [f.actor.session_hash]);
   const { result, input } = await exchange(f, started);
-  assert.deepEqual(DeviceAuthorizationPollResultSchema.parse(result), result); assert.equal(result.refreshSupported, false);
+  assert.deepEqual(DeviceAuthorizationPollResultSchema.parse(result), result); assert.equal(result.refreshSupported, true);
   assert.equal(issuer.privateKey.extractable, false);
   const claims = decodeJwt(result.accessToken); assert.equal(claims.scope, 'bootstrap.status.read'); assert.equal(claims.purpose, 'bootstrap_access');
   const { issuerKid: _kid, beginUri: _begin, pollUri: _poll, verificationUri: _verify, clientDisplayName: _name, ...host } = f.host;
@@ -133,7 +133,7 @@ test('DEVICE-01 real low-privilege fresh-device approval/exchange/status, no mem
   const tables = (await owner.query("SELECT tablename FROM pg_tables WHERE schemaname=current_schema() ORDER BY tablename")).rows;
   for (const { tablename } of tables) {
     const rows = JSON.stringify((await owner.query(`SELECT * FROM "${tablename}"`)).rows);
-    for (const secret of [started.deviceCode, started.userCode, result.accessToken, input.proof, input.enrollmentProof!]) assert(!rows.includes(secret), `${tablename} must not store raw secret/proof`);
+    for (const secret of [started.deviceCode, started.userCode, result.accessToken, result.refresh.handle, input.proof, input.enrollmentProof!]) assert(!rows.includes(secret), `${tablename} must not store raw secret/proof`);
   }
 });
 test('DEVICE-02 begin replay cannot redeliver codes or claim another public key', async () => {

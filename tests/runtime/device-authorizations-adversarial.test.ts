@@ -187,7 +187,7 @@ test('DEVICE-ADV actual non-superuser LOGIN roles and full public proof_required
   await waitUntil(await dbNow() + reply.interval * 1000);
   const outcome = await api.poll({ ...await pollInput(f), enrollmentProof: proof }); assert.equal(outcome.status, 'issued');
   if (outcome.status !== 'issued') return assert.fail('Expected bootstrap issuance');
-  assert.equal(outcome.refreshSupported, false); assert.equal(outcome.tokenType, 'DPoP');
+  assert.equal(outcome.refreshSupported, true); assert.equal(outcome.tokenType, 'DPoP');
   const jwt = JSON.parse(Buffer.from(outcome.accessToken.split('.')[1], 'base64url').toString());
   assert.equal(jwt.purpose, 'bootstrap_access'); assert.equal(jwt.scope, 'bootstrap.status.read');
   assert.equal(jwt.owner_user_id, human.actor.user_id); assert.ok(jwt.exp - jwt.iat <= 600);
@@ -430,7 +430,7 @@ for (const revoked of ['user', 'person', 'scope', 'onboarding'] as const) {
   });
 }
 
-for (const sink of ['runtime_registrations', 'agent_connections', 'bootstrap_nonces', 'device_poll_proofs']) {
+for (const sink of ['runtime_registrations', 'agent_connections', 'bootstrap_refresh_families', 'bootstrap_refresh_generations', 'bootstrap_nonces', 'device_poll_proofs']) {
   test(`DEVICE-ADV exchange ${sink} fault rolls back all durable issuance state`, async () => {
     const f = await approved(), initial = await durableCounts(), input = { ...await pollInput(f), enrollmentProof: f.enrollmentProof };
     await owner.query("CREATE FUNCTION device_sink_fault() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'PRIVATE_DEVICE_FAULT'; END $$");

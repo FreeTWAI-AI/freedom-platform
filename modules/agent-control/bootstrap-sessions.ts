@@ -125,21 +125,23 @@ export async function createBootstrapSessions(pool: Pool, options: { host: Boots
     return guarded(() => transaction(pool, async q => {
       await bounded(q);
       const { connection, runtime } = await lock(q, await locate(q, input.connectionId));
-      const stamp = await now(q); current(connection, stamp);
+      const family = (await q.query<Family>('SELECT *,current_generation::text FROM bootstrap_refresh_families WHERE connection_id=$1 FOR UPDATE', [connection.connection_id])).rows[0];
+      if (!family) return invalid();
+      const stamp = await now(q); current(connection, stamp, family);
       const proof = await verifier.verifyNonce({ accessToken: input.accessToken, proof: input.proof, expectedBinding: binding(connection, runtime), nowMs: stamp.getTime() });
       if (!proof) return invalid();
-      const fresh = await now(q); current(connection, fresh, undefined, [proof]);
+      const fresh = await now(q); current(connection, fresh, family, [proof]);
       const counts = (await q.query<{ pending: number; lifetime: number }>(`SELECT count(*)::int lifetime,
         count(*) FILTER(WHERE consumed_at IS NULL AND expires_at>clock_timestamp())::int pending FROM bootstrap_nonces WHERE connection_id=$1`, [connection.connection_id])).rows[0];
       if (counts.pending >= BOOTSTRAP_NONCE_LIMITS.pending || counts.lifetime >= BOOTSTRAP_NONCE_LIMITS.lifetime) return invalid();
       await ledger(q, connection, 'nonce', proof.proofId, fresh);
-      const issuedAt = await now(q); current(connection, issuedAt, undefined, [proof]);
+      const issuedAt = await now(q); current(connection, issuedAt, family, [proof]);
       const nonce: BootstrapNonce = { nonceId: randomUUID(), nonce: randomBytes(32).toString('base64url'), connectionId: connection.connection_id,
         issuedAt: issuedAt.toISOString(), expiresAt: new Date(Math.min(issuedAt.getTime()+BOOTSTRAP_NONCE_LIMITS.ttlMs, connection.expires_at.getTime())).toISOString(), operational_authority: false };
       await q.query(`INSERT INTO bootstrap_nonces(nonce_id,connection_id,runtime_device_id,owner_user_id,owner_principal_id,scope_id,environment,client_id,connection_version,challenge_key,nonce,issued_at,expires_at)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, [nonce.nonceId, connection.connection_id, runtime.runtime_device_id, connection.owner_user_id,
         connection.owner_principal_id, connection.scope_id, environment, clientId, connection.aggregate_version, 'session_'+nonce.nonceId, nonce.nonce, issuedAt, nonce.expiresAt]);
-      const final = await now(q); current(connection, final, undefined, [proof]); if (final >= new Date(nonce.expiresAt)) return invalid();
+      const final = await now(q); current(connection, final, family, [proof]); if (final >= new Date(nonce.expiresAt)) return invalid();
       return nonce;
     }));
   }
