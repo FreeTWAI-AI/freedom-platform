@@ -17,7 +17,7 @@
 | CORE-2 | `40e0f2d`、`4a74b31`、`6f3485f`、`4ea8f47` | migration 078、獨立 scoped member receipts/facts、bounded JSON、當前權限及 DB-clock expiry；28 項新增 runtime 回歸 |
 | ASSET-A lifecycle 增量 | `769840a`、`6da6b89`、`bdd05c4`、`0371c19`、`360fc30` | migration 079、封閉頭像 intent/lease/fence/write/finalize、真實 avatar version CAS；14 項 lifecycle 與 23 項獨立 race tests |
 
-目前整合分支為 `feat/foundation-lifecycle-20261002`，worktree 同名，從前批整合 `ba35981` 延續上表提交鏈；各批次另保留在各自 worktree。全部只在 `~/tmp-scratch/fp_work/` 工作，未 push、建立 PR、merge main 或部署。主 checkout 及其 staged 刪除未更動。下文各批次數字與限制保留當時脈絡，以最新批次說明目前增量。
+目前整合分支為 `feat/foundation-release-20261002`，worktree 同名，從前批 `foundation-lifecycle-20261002` 的 `0f93e1f` 延續；各批次另保留在各自 worktree。全部只在 `~/tmp-scratch/fp_work/` 工作，未 push、建立 PR、merge main 或部署。主 checkout 及其 staged 刪除未更動。下文各批次數字與限制保留當時脈絡，以最新批次說明目前增量。
 
 ## GOV-A/B 與 CORE-0 證據
 
@@ -111,17 +111,44 @@ migration 076/077 仍是暫用號；整合 manifest last=77、known_gaps=`[22]`�
 
 目前 migration 076–079 全為未合併暫用號，manifest last=79、known_gaps=`[22]`；本批再查 remote main 仍為 `3de70ccbd24362a7925508fb42d36aaa256a0806`。啟用前仍須真實 policy source、retained-byte quota、GC/deletion fence、backup pins/restore、avatar read bridge/legacy-writer fence 及 rollback floor。預設 1 小時 intent、5 分鐘 lease、最多 3 筆並行 intent／各 128 KiB reservation 是可配置的內部限制，不是累積儲存或收費配額；expired/orphan/retired objects 不會自動刪除。
 
+## 頭像相容串接與實際 consumer 本機接入
+
+本批仍由三隻 Astra 在不同 worktree 分工與獨立審查。以下記錄截至整合 `1aad418` 的 076–083 增量；後續 084 私人 Result schema 與共用 profile engine 另行驗證，不能套用本段測試數。
+
+- 原生 R2 adapter 使用 conditional immutable PUT 與完整 bounded read-back；明確注入 request-scoped `MEDIA`，無 ambient bucket／credential，delete 預設拒絕。缺少 storage 不影響 login/health，也不讓 asset-backed read 回退旧 bytes。Native binding suite 有 16 項 local workerd 測試，不是真實 Cloudflare 帳號。
+- 080 加 `storage_source`、legacy-writer fence 與 canonical presence projection；讀取在 object I/O 前後驗當前資格、pointer/version/share generation。本人移除立即清 pointer／retire，沒有同步 object DELETE。083 在原 avatar POST 接入共用 lifecycle，沿用舊 body digest、receipt namespace、response、CSRF/Origin；同一 finalize 交易提交 pointer/version/scoped facts 及原 receipt。舊成功 receipt 不需 storage 也能重播，但仍先驗目前身分與 domain。
+- Quota policy 為必要的明確正 bigint 上限，計入同用途 object 實際大小或保守 reservation、retained legacy bytes；expired/orphan/retired/tombstoned 及 GC missing 都不自動扣除。預設 legacy／persistence-disabled，沒有正式啟用或自動清理。
+- 081 加 owner-only server 內部私人 Work create/update/archive，真實 Work CAS、scoped receipt/facts、當前 persistence policy；archive 可在 persistence 不可用時停止工作。不新增 mutation HTTP、模型呼叫或 Grant。
+- 082 加不可逆 deletion fence、永久 tombstone、late PUT 對帳，以及先建 barrier 再取 bounded snapshot references 的 backup capture/pins；到期 barrier/pins 不暗中釋放保護。GC 只接受 avatar profile；備份 pin/capture 不是 DB dump、object 複本或 restore 成功。預設停用且没有 scheduler。Ted 已同意未完成／無引用物件至少 48 小時、替換舊圖 7 天、使用者刪除立即停止讀取；備份政策另確認，此同意不啟用正式清理。
+- Runtime verifier 以固定 baseline、批次 process 及明確隔離 DB 執行實際 runtime tests，拒絕空／skip／cancelled 證據。中央工具另支援 Agent Kit 的直接 Node test suite、精確 scoped package name、repo-root descriptor 與 consumer report schema；不執行 consumer package hooks。未放寬 host trust 或 surface audit。
+
+完整 runtime 首跑 1,168 項有 4 項失敗：bridge 的 metadata helper 誤要求 onboarding，阻擋原有帳號設定流程。修正 `5824348` 保留登入／本人要求、恢復 onboarding 前 metadata 查詢，補 1 項反例並加強既有 HTTP status assertion。定向 52/52 後，完整重跑 **1,169 passed、0 failed/skipped**，約 253 秒；未刪失敗案例。獨立競態審查仍持續，這不代表所有未來 profile 已驗證。
+
+| 本批檢查 | 實際結果 | 證據範圍 |
+| --- | --- | --- |
+| Runtime | 1,169 passed，0 failed/skipped | 明確指定 disposable PostgreSQL，076–083 |
+| Worker | 28 passed，0 failed/skipped | 既有 20 加新 8 native avatar cases；local workerd/R2/Images 與合成 DB |
+| Browser | 23 passed | avatar、member e-card、member connections 三套 Chromium；沒有 UI 變更 |
+| Governance | 135 passed，0 failed/skipped | local/host-boundary、固定 runner、實際 consumer suite；不是 trusted GitHub check |
+| 既有契約 | 659 passed，4 個原有 clock cases skipped | 未改 skip 條件 |
+| Skill client／common schema | 10 passed／exact-byte check 通過 | 本機契約回歸 |
+| Typecheck／platform dry-run | 通過／各環境通過 | 沒有上傳或部署 |
+
+Agent Kit 真實 repo 另在 `foundation-agent-kit-source-20261002` 本機分支接入，base `201fdab8017e2850bafc7b2f1e8dec7e4c0d6233`、consumer commit `84d30a342cc058b67b64e533e345a98e695d47a3`，固定本機中央 source `1aad41836eefe1b7bee5f8fe9bbba8e66a810e75`。薄 CLI wrapper、中央工具 vendor、descriptor、lock 與 README 已提交；原 preview vendor exact bytes 不變。實際 Node tests **2/2**、build syntax check、local pin check 通過；prepare/verify 使用真正 `origin/main`，回 exit 2 `unavailable`：缺 baseline governance 與 registration behavior audit。這是本機尚未公開的 producer pin，不是已批准 ReleaseSet、可信 CI 或可直接發布的 consumer 升級。Kit 現有功能只有 local demo status read，不能當真實 CLI 模型／Grant adapter。中央 `repositories.lock.json` 未改。
+
+本批 Opus maintenance 唯讀審查完成，補採 capture/pin 索引建議；Grok avatar compatibility 程式審查逾時，沒有結論，不算通過。資料庫仍是同 digest PostgreSQL 18.6、network none、2 GiB tmpfs、專屬 Unix socket；Worker 短期 proxy 已關閉。因後續 Result/engine 測試正在使用，本批容器尚未清理；沒有接觸 `freedom_local.public`。本段尚未重產 inventory 或宣稱最終交付完成。
+
 ## 尚未交付
 
 - execution/service current-state validators、Invocation/Grant adapters，以及有真實 backing record 的 service/site schema；scoped composition/receipt 目前僅支援 member session。
-- Asset retained-byte quota、GC/deletion fence/backup pins、真實 R2 頭像 bridge 與正式 policy source；新增私人寫入/Result/share 的完整讀取矩陣、RunAttempt／模型 broker／私人 AI 草稿及瀏覽器 execution guard。
-- 真實 consumer 升級、TS/Rust 共用樣本、Windows/macOS、packaged clients、cloud 備份恢復及 staging/prod 演練。
+- 正式 avatar policy／quota 值與 storage cutover、備份政策／cloud restore／rollback floor；新增私人 Result/share 的完整讀取矩陣、RunAttempt／模型 broker／私人 AI 草稿及瀏覽器 execution guard。Local R2、bridge、quota、maintenance/pins 已有實作，但不等同正式啟用。
+- 已批准 ReleaseSet 的真實 consumer 發布、另一個 client repo、TS/Rust 共用樣本、Windows/macOS、packaged clients、cloud 備份恢復及 staging/prod 演練。
 - 已批准的 publisher/trust profile、可信 CI publisher／required workflow、GitHub 強制審查與不可繞過的發布限制。
 
-本機 `verify` 面對尚未治理的 main 或未實作的 runtime adapter，明確回 `unavailable`，不是綠燈。手動跑過 runtime tests 不會自動偽造 trusted check。原始 168 項產品驗收仍保留 `not_run`，須逐項取得完整證據再更新。
+本機 `verify` 面對尚未治理的 main、缺少 surface audit 或未支援的 adapter，明確回 `unavailable`，不是綠燈。手動跑過 runtime tests 不會自動偽造 trusted check。原始 168 項產品驗收仍保留 `not_run`，須逐項取得完整證據再更新。
 
 ## 下一批
 
-銜接頭像 read bridge／legacy-writer fencing、retained quota／GC／backup pins 與正式 policy source，再接私人 Result；同時補治理的 runtime adapter、實際 surface audit 與 host observation 接線。private mutation 仍須目前權限、expected version、撤銷重驗及無外部 I/O 的短交易。service 分支在 backing schema 和 validator 齊備前拒絕啟用。migration 076–079 尚未合併或發布，不永久預留編號。完整新增 private 讀取矩陣及 rollback floor 齊備前不開啟私人寫入或新頭像路由。
+銜接共用 profile lifecycle 與私人 Result schema／人工成果 adapter，另做獨立鎖等待、配額與 current ACL 反例；同時補實際 surface audit 與 host observation 接線。Private mutation 仍須目前權限、expected version、撤銷重驗及無外部 I/O 的短交易。service 分支在 backing schema 和 validator 齊備前拒絕啟用。migration 076–083 尚未合併或發布，不永久預留編號。完整新增 private 讀取矩陣及 rollback floor 齊備前不開啟正式私人寫入或頭像非 legacy 模式。
 
 推送、PR、合併、GitHub 規則、信任來源／金鑰、正式資料盤點或部署另依 Ted 的操作授權處理；Discord 全文仍須逐則核准。

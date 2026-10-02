@@ -4,7 +4,7 @@ Spec ID：`UF-SPEC-ASSET-WORK`；狀態：`local-partial`。來源：U2/U4、UF-
 
 第一個完成條件是會員換頭像仍正常；第二個是本人建立私人文案工作、以明選模型產出草稿，成果經同一 Asset 核心保存並只供本人查看及修改。第二條需 EXEC 的最小 RunAttempt/Grant adapter 才能完成。
 
-2026-10-02 本機增量已有 [ASSET-A object I/O](../../../../packages/asset-storage/README.md)、[封閉頭像 lifecycle](../../../../modules/assets/README.md) 及 [WORK-A 模式隔離與 owner-only 讀取](../../../../modules/opportunity-project-work/README.md)。頭像內部原型已串接 durable intent、lease/fence、交易外處理／read-back 及原子 finalize；仍無正式 HTTP、R2 adapter、GC 或頭像讀取 bridge。私人 Work 仍只有合成 fixture 能建立 row，寫入、Result、分享與執行未開放。這不是上述兩條完整流程已完成的聲明；詳見 [交付紀錄](implementation-status.md)。
+2026-10-02 本機增量已有 [原生 R2 object I/O](../../../../packages/asset-storage/README.md)、[頭像讀取 bridge](../../../../modules/assets/README.md)、[既有 POST 相容 facade](../../../../modules/assets/avatar-upload.md) 及 [私人 Work 命令與 owner-only 讀取](../../../../modules/opportunity-project-work/README.md)。頭像串接 durable intent、lease/fence、交易外轉圖／read-back、原子 finalize、舊 receipt 與 retained-byte quota；預設仍是 legacy 寫入且 persistence 關閉，沒有修改雲端 binding 或正式政策。另有預設停用的 [maintenance／backup pins](../../../../modules/assets/maintenance.md)，不代表備份恢復已完成。私人 Work 建立／修改／封存只有 server 內部命令，Result、分享與 AI 執行尚未開放。這不是上述兩條完整流程已完成的聲明；詳見 [交付紀錄](implementation-status.md)。
 
 ## 現有入口與首版範圍
 
@@ -53,9 +53,11 @@ Data policy 分開描述 capture、model processing location/provider、platform
 
 現有頭像單次 POST 可作相容 facade，在內部走 prepare/effect/finalize，保留原 idempotency request identity 及 response；無需強迫現有頁面一開始全部改新三步 API。facade 在效果外完成轉圖，不能仍持有 user/session/domain locks。
 
-目前封閉原型只支援 member avatar：版本權威仍是實際 `member_avatars.aggregate_version`，typed sidecar 指向同 owner/scope/purpose 的 ready Asset。Finalize 更新同一真實版本及 pointer，但不替換 legacy `image_bytes`；因此現有頭像 route 絕不可在 bridge 完成前直接呼叫它。sidecar 的 `linked_at_version` 只記錄掛載時的真實版本，不是另一個版本計數器；legacy 換圖/刪圖後，舊 sidecar 讀取會失效。新 scoped receipt/event 與舊社群紀錄分開，沒有自動 fanout。
+已整合的 avatar profile 以實際 `member_avatars.aggregate_version` 為唯一版本權威，typed sidecar 指向同 owner/scope/purpose 的 ready Asset。080 的 `storage_source` 明確區分 legacy／asset；新讀取 bridge 不會因 R2 缺檔退回保留的舊 bytes。083 facade 先查原 receipt，效果在交易外執行；finalize 在同一交易提交真實版本、pointer、intent、scoped facts 及原 receipt。sidecar 的 `linked_at_version` 只記錄掛載時版本。新事件不進旧 community fanout；legacy writer fence 阻止舊程式覆蓋已切換的 row。
 
-原型預設 intent 一小時、lease 五分鐘、最多三筆有效 pending intent，各預留 128 KiB 輸出上限；這些為可配置的內部預設，不是正式 retention 或收費配額。它只限制同時在途 reservation，不限制累積 orphan/retired bytes。GC、永久刪除、backup pins/barrier、retained-byte quota 及正式 policy source 尚未接線，啟用前必須完成；不得因 TTL 到期便自動刪 bucket 物件。
+頭像預設 intent 一小時、lease 五分鐘、最多三筆有效 pending intent，各預留 128 KiB 輸出上限；這些為可配置的內部限制，不是正式 retention 或收費配額。Policy 必須另提供正 bigint retained-byte limit；計入同用途的實際 object bytes、尚無 object 時的保守 reservation，以及 retained legacy bytes。Expired／orphan／retired／tombstoned 不自動扣除，GC 觀察到 missing 也不釋放配額。082 有永久 deletion fence、late PUT 對帳及 backup capture/pins，預設停用；capture 只證明引用集合受保護，不等於完成 DB／object 備份或 restore。
+
+Ted 已同意保留政策起點：未完成／無引用物件至少 48 小時、替換舊圖 7 天，使用者刪除立即停止讀取。備份的保留、刪除與恢復政策另行確認；此同意不啟用正式自動清理。不得因 TTL 到期便刪 bucket 物件。
 
 ## 首版驗證 profiles
 
@@ -69,7 +71,7 @@ R2 缺檔回受控 unavailable/not-found 並產生安全診斷，不 fallback �
 
 ## Private Work 相容及 ACL
 
-本機 migration 077 固定 `community_collaboration`、`personal_execution` 兩種模式。既有 rows 預設 community mode 且可暫留 null scope；填入後須由 composite FK 指向同一 community。personal owner/scope 由 server 決定，community_id 必須為 null，真實 person/user/personal scope 由複合 FK 綁定。私人分支只允許 draft，不得虛構協作條款/期限或 Claim/Contribution/Benefit。site service 保留設計但 SQL 拒絕，待真實 site principal 支援。
+本機 migration 077 固定 `community_collaboration`、`personal_execution` 兩種模式。既有 rows 預設 community mode 且可暫留 null scope；填入後須由 composite FK 指向同一 community。personal owner/scope 由 server 決定，community_id 必須為 null，真實 person/user/personal scope 由複合 FK 綁定。081 增加封閉的 create/update/archive 命令與終止狀態 archived；不得虛構協作條款/期限或 Claim/Contribution/Benefit。Create/update 及其 replay 必須驗當前 persistence policy，archive 不因 policy 不可用而失去停止功能。未新增私人 mutation HTTP；site service 保留設計但 SQL 拒絕，待真實 site principal 支援。
 
 私人工作不能沿舊 community 列表把新 rows 交給旧 UI 過濾；舊 endpoints 必須明確只投影舊模式。所有 mutation 同樣驗 Work 模式與目前權限，不能只堵 read。
 
@@ -92,7 +94,7 @@ R2 缺檔回受控 unavailable/not-found 並產生安全診斷，不 fallback �
 
 backfill 由受控 ops 流程以固定 source revision 讀取及核對 hash；切 pointer 的短交易檢查原 row version，遇到會員同時改圖就重新讀取而非覆蓋。備份、restore、撤銷及對帳證據齊備前保留舊欄位。首筆 R2-only/private Work 成功後，rollback floor 必須支援兩者。
 
-目前 076–079 皆為未合併的暫用號，合併前重新核對最小可用編號；manifest last 為 79、known_gaps 仍為 `[22]`。078 加 scoped member facts，079 加封閉 Asset lifecycle；沒有 backfill、bucket I/O 或 route cutover。尚無 down migration 或 release-tool rollback floor。舊 binary 的 `workView` 使用 row spread，套 077 後可能多回 metadata，不能宣稱混跑期間 wire bytes 不變。新 binary 用顯式舊欄位投影；正式私人寫入及新頭像 route 串接保持關閉，直到回退政策與新增資料面驗收完成。
+目前整合 076–083 皆為未合併的暫用號，合併前重新核對最小可用編號；manifest last 為 83、known_gaps 仍為 `[22]`。078 加 scoped member facts，079 加 Asset lifecycle，080 加 avatar read bridge／writer fence，081 加私人 Work 命令，082 加 maintenance／backup pins，083 加相容 POST 的政策欄位。沒有正式 backfill、bucket cutover 或資料清理。尚無 down migration 或 release-tool rollback floor。舊 binary 的 `workView` 使用 row spread，套 077 後可能多回 metadata，不能宣稱混跑期間 wire bytes 不變。新 binary 用顯式舊欄位投影；正式私人寫入與頭像非 legacy 模式保持關閉，直到回退政策與新增資料面驗收完成。
 
 ## 可交付 PR 與驗收
 
