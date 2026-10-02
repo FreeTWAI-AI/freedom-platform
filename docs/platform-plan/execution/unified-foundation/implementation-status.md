@@ -200,7 +200,15 @@ TypeScript 7 typecheck、common/execution 生成契約 check、deploy preflight 
 
 [發布相容性診斷](../../../../deploy/cloudflare/release-compatibility.md) 以精確 source/artifact、完整 SQL ledger、全部 active consumers、已啟用／曾寫入／外部保留的歷史形狀檢查相容性。Schema 077 即使未有 private write 仍需 explicit wire；085 私人形狀另需 server policy。普通 CLI 沒有獨立可信 host 就 unavailable，candidate JSON 不供應批准／時鐘／觀察。所有回覆的 deployment/execution authority、restore proof 均 false。Host 觀察／信任 transport 未實作，跨 DB restore 的歷史 schema／policy 下限也尚缺，不能把 local compatible 當成可還原或可部署。
 
-整合完整驗證及本批隔離資源收尾待本段更新；前批測試數不算本批重跑。Manifest last=85、known_gaps=`[22]`；076–085 皆為未合併暫用號，合併前重新核對。
+固定整合 code commit `3b6a0bf8b1c80846a703a2d3ab5342aa7c03db6c`，對真正 `origin/main`（`3de70cc`）執行 prepare／verify；驗證中 tracked workspace 不變。完整 runtime **1,397/1,397（111 files）**、governance **196/196（8 files）** 通過，0 failed/skipped/cancelled；runtime 子集合不重複加總。TypeScript 7、common/execution 生成 bytes、descriptor refs／preview bytes 通過。整體仍 exit 2、local unavailable，明列 `baseline_governance_unavailable`、`surface_unmapped`、`registration_behavior_audit_required`；沒有改 base 或偽造可信 CI。
+
+公開 preflight 全套 **107/107**（含 32 項獨立相容性反例）、Worker **28/28**，0 failed/skipped。Worker 使用既有 dry-run bundle 配新 085 的隔離 fixtures，本批沒有新 Worker/HTTP 接線或 UI，不宣稱重跑瀏覽器。既有契約 **659 passed、4 個原有 clock cases skipped**；沒有新增 skip。
+
+獨立實跑原樣 psql templates：真正分開的 non-superuser migrator/app LOGIN、新建 `fp_*` DB 的 public schema，確認重複套用、app row lock、禁止 policy UPDATE、PUBLIC／SET-only membership 拒絕、生成欄位漂移拒絕，並用原本未授權的 marker table 證明失敗會 rollback 整筆 grants。SQL 使用 `ON_ERROR_STOP=1`；30 checker 仍只印報表，不能只看 exit code。Migrator→grants 之間須保持應用連線關閉，並不是跨整段發布交易已原子化。未讀秘密 release helper，也未驗真實 PlanetScale／Hyperdrive 權限。
+
+本批使用新的 PG18.6 network-none、2 GiB tmpfs、無公開 port 的測試容器；Worker 只用短期 localhost proxy。收尾查得 `fp_*` schemas／roles／其他 clients 全為 0，只剩 `fp_foundation` 與 postgres/template；隨後清理本輪容器和 socket，僅移除可由測試重建的合成資料。第一次容器 init 的 Unix socket mount 不符 entrypoint 預期，修正後才取得連線並開始測試，沒有 fallback 到本機資料庫。
+
+本批 inventory **1,212 file hashes、688 本機連結、0 failures**，diff check 通過。Manifest last=85、known_gaps=`[22]`；076–085 皆為未合併暫用號，合併前重新核對。遠端 main 仍 `3de70cc`；未 push、開 PR、merge、部署或啟用正式清理。備份政策仍另行確認。
 
 ## 尚未交付
 
