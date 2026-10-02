@@ -5,20 +5,27 @@
   "owned_paths": [
     "modules/opportunity-project-work/**",
     "apps/platform-api/src/platform-app.ts",
+    "apps/platform-api/src/routes/private-work.ts",
+    "modules/community/task-board.ts",
+    "modules/results/benefits.ts",
+    "migrations/077_work_scope_privacy.sql",
+    "tests/runtime/work-privacy.test.ts",
     "apps/portal-web/src/modules/MemberTasks.tsx",
     "tests/runtime/flows.test.ts"
   ],
   "public_exports": [
-    "modules/opportunity-project-work/work.ts"
+    "modules/opportunity-project-work/work.ts",
+    "modules/opportunity-project-work/private-work.ts"
   ],
-  "dependencies": ["command-core"],
+  "dependencies": ["command-core", "resource-scopes"],
   "contract_families": [
-    "preview"
+    "preview", "common"
   ],
   "client_profiles": [
     "member"
   ],
   "instructions": [
+    "modules/opportunity-project-work/README.md",
     "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
     "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
     "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md",
@@ -29,9 +36,16 @@
     "no-secrets-in-artifacts"
   ],
   "tests": [
-    "runtime.work"
+    "runtime.work", "runtime.work-privacy", "runtime.full"
   ],
   "surfaces": [
+    {
+      "surface_id": "work.private-read-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/private-work.ts",
+      "operations": ["work.private.list", "work.private.read"],
+      "auth_profile": "member-session"
+    },
     {
       "surface_id": "work.legacy-api",
       "kind": "http",

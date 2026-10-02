@@ -318,10 +318,31 @@ test('upgrade from 075 preserves every legacy table and receipt; migration/backf
     const owner = await member(upgrade);
     const receiptInput = { actor: owner, operation: 'POST /legacy-synthetic', key: 'old-receipt-001', body: { original: true } };
     await command(upgrade, receiptInput, async () => {}, async () => ({ original: true }));
+    // Populate the old Work graph, not just empty tables, before 077 adds its
+    // discriminator/FKs. These are synthetic legacy facts, never real data.
+    const contributor = await member(upgrade), workId = randomUUID(), claimId = randomUUID(), submissionId = randomUUID(), decisionId = randomUUID();
+    const historicalTerms = { synthetic: 'historical terms remain byte-equivalent' }, termsHash = digest(historicalTerms);
+    await upgrade.query(`INSERT INTO work_items(work_item_id,community_id,owner_ref,title,objective,acceptance_criteria,gain,state,participation_terms,participation_terms_sha256,claim_window_expires_at,due_at)
+      VALUES($1,$2,$3,'Legacy title','Legacy objective','Legacy criteria','Legacy gain','accepted',$4,$5,now(),now())`, [workId, firstCommunity, owner.user_id, historicalTerms, termsHash]);
+    await upgrade.query("INSERT INTO work_review_routes(work_item_id,reviewer_ref,valid_until) VALUES($1,$2,now()+interval '1 day')", [workId, owner.user_id]);
+    await upgrade.query(`INSERT INTO work_claims(claim_id,work_item_id,claimant_ref,acting_profession_membership_ref,state,terms_revision,terms_sha256,terms_snapshot)
+      VALUES($1,$2,$3,$4,'accepted',1,$5,$6)`, [claimId, workId, contributor.user_id, contributor.profession_membership_ref, termsHash, historicalTerms]);
+    await upgrade.query("INSERT INTO submissions(submission_id,claim_id,revision,summary,artifact_ref,sha256) VALUES($1,$2,1,'Legacy summary','artifact:legacy',$3)", [submissionId, claimId, termsHash]);
+    await upgrade.query("INSERT INTO work_decisions(decision_id,claim_id,submission_id,reviewer_ref,decision,feedback,submission_sha256) VALUES($1,$2,$3,$4,'accept','Legacy feedback',$5)", [decisionId, claimId, submissionId, owner.user_id, termsHash]);
+    await upgrade.query("INSERT INTO contributions(contribution_id,claim_id,user_id,community_id,work_item_id,decision_id,title,summary,artifact_ref) VALUES($1,$2,$3,$4,$5,$6,'Legacy title','Legacy summary','artifact:legacy')", [randomUUID(), claimId, contributor.user_id, firstCommunity, workId, decisionId]);
+    await upgrade.query("INSERT INTO work_benefit_observations(observation_id,community_id,work_item_ref,reporter_principal_ref,role,observation_revision,report) VALUES($1,$2,$3,$4,'beneficiary',1,$5)", [randomUUID(), firstCommunity, workId, owner.user_id, { synthetic: 'Legacy self report' }]);
     const tables = (await upgrade.query("SELECT tablename FROM pg_tables WHERE schemaname=$1 AND tablename<>'schema_migrations' ORDER BY tablename", [upgradeSchema])).rows.map(row => row.tablename as string);
+    // Freeze the old column projection before additive migrations. New metadata
+    // is not an altered legacy fact; every original column is still compared.
+    const legacyColumns = new Map<string, string[]>();
+    for (const table of tables) legacyColumns.set(table, (await upgrade.query('SELECT column_name FROM information_schema.columns WHERE table_schema=$1 AND table_name=$2 ORDER BY ordinal_position', [upgradeSchema, table])).rows.map(row => row.column_name));
     const snapshot = async () => {
       const hashes: Record<string, string> = {};
-      for (const table of tables) { assert.match(table, /^[a-z_][a-z0-9_]*$/); hashes[table] = digest((await upgrade.query(`SELECT to_jsonb(t)::text AS row FROM ${table} t ORDER BY to_jsonb(t)::text`)).rows); }
+      for (const table of tables) {
+        assert.match(table, /^[a-z_][a-z0-9_]*$/);
+        const columns = legacyColumns.get(table)!; for (const column of columns) assert.match(column, /^[a-z_][a-z0-9_]*$/);
+        hashes[table] = digest((await upgrade.query(`SELECT to_jsonb(t)::text AS row FROM (SELECT ${columns.map(column => '"' + column + '"').join(',')} FROM ${table}) t ORDER BY to_jsonb(t)::text`)).rows);
+      }
       return hashes;
     };
     const old = await snapshot(), oldLedger = (await upgrade.query('SELECT * FROM schema_migrations ORDER BY name')).rows;
