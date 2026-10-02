@@ -39,6 +39,11 @@ function audit(path, transform) {
 const reject = (path, change) => {
   const report = audit(path, change);
   assert.notEqual(report.registration_status, 'passed', JSON.stringify(report.issues));
+  // An unconditional whole-platform blocker is not evidence this mutation was
+  // detected. Require a concrete candidate rejection, so a permanently
+  // unavailable aggregate cannot make these negative vectors vacuously green.
+  assert(report.issues.some(issue => issue.revision === 'candidate'
+    && !['surface_unmapped', 'registration_behavior_audit_required'].includes(issue.code)), JSON.stringify(report.issues));
 };
 
 test('independent real-source positive control is only a six-route syntax map, never whole-platform approval', () => {
