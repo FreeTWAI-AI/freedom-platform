@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { OpaqueId } from '../../common/v1/identity.js';
 import { BOOTSTRAP_LIMITS, BootstrapBindingSchema, BootstrapClientIdSchema, BootstrapProofHostSchema } from './bootstrap.js';
 import { BootstrapNonceSchema } from './bootstrap-status.js';
+import { BootstrapRefreshSchema } from './bootstrap-session.js';
 import { RuntimeEnvironmentSchema, RuntimePublicJwkSchema, RuntimeRegistrationChallengeSchema, RUNTIME_ENROLLMENT_LIMITS } from './runtime-registration.js';
 
 export const DEVICE_PAIRING_TYP = 'freedom-device-pairing+jwt' as const;
@@ -74,7 +75,7 @@ export const DeviceAuthorizationPollResultSchema = z.discriminatedUnion('status'
   z.object({ status: z.literal('expired_token'), operational_authority: z.literal(false) }).strict(),
   z.object({ status: z.literal('issued'), accessToken: Proof, tokenType: z.literal('DPoP'), expiresAt: IsoTime,
     connectionId: OpaqueId, runtimeDeviceId: OpaqueId, nonce: BootstrapNonceSchema,
-    refreshSupported: z.literal(false), operational_authority: z.literal(false) }).strict(),
+    refreshSupported: z.literal(true), refresh: BootstrapRefreshSchema, operational_authority: z.literal(false) }).strict(),
 ]).describe('Closed device-flow protocol variants, not full OAuth transport compatibility or execution authority.');
 
 export type DeviceRuntimeKind = z.infer<typeof DeviceRuntimeKindSchema>;
