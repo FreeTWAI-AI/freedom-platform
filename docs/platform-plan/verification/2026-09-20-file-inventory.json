@@ -819,8 +819,8 @@
     },
     {
       "path": "apps/portal-web/src/light-theme.css",
-      "bytes": 12457,
-      "sha256": "b38a3f09c5d5eb651229537f5f27669578c83952a0b840b64b23a2e43a0ca2b1"
+      "bytes": 13683,
+      "sha256": "df4da5b4ddaf6d1d418763ef397c5cad7e1d8373002e14a5a646654520876c8f"
     },
     {
       "path": "apps/portal-web/src/main.tsx",
@@ -4644,8 +4644,8 @@
     },
     {
       "path": "tests/e2e/member-channels.spec.ts",
-      "bytes": 54130,
-      "sha256": "3b7d3fad332623b2f54cf52e387c97ff401eac8084400bc8ed721cb06a1718e0"
+      "bytes": 54117,
+      "sha256": "d842fc3d0c21930979b5c86dd3875e4d7281ac5d2386a350c54ea07dcb011e4b"
     },
     {
       "path": "tests/e2e/member-connections-51.spec.ts",
@@ -4776,6 +4776,11 @@
       "path": "tests/e2e/share-promotion.spec.ts",
       "bytes": 25691,
       "sha256": "662f1f05fee4b60e8cac912dcd1a769d4358e68583a1ae4d6a80dcd5f8bab5ef"
+    },
+    {
+      "path": "tests/e2e/sidebar-refine.spec.ts",
+      "bytes": 3447,
+      "sha256": "0664dad8eaa50da23306ea9c603d6bee92fd7b8dcb9f0717d63f735a607f5424"
     },
     {
       "path": "tests/e2e/simple-work-sharing.spec.ts",
