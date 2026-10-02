@@ -2,6 +2,8 @@
 
 查核日期：2026-10-02。本紀錄區分原始產品要求、本機實作、合成測試及尚缺的真實部署證據；不修改原計畫的歷史內容，也不把組件測試轉寫成完整產品 PASS。
 
+最新交付方向依 Ted 指示：完成原計畫 scope 後受控前向 migration，不為提早上線另做多套過渡 release，也不以退回舊應用為交付目標。小批次只是開發／測試的切分，不是分批部署承諾。原計畫的資料保護、撤銷、失敗停機及備份恢復仍保留；staging 驗證先於 live，備份政策另確認。完整決策集中於 [基準與決策](00-baseline-and-decisions.md#本輪發布方向)，不另建一套政策。
+
 ## 工程進度估算
 
 以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約 **25–40%**，約 **60–75%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。先前對話的 30–40% 是同一粗估；加入獨立審查後保留下緣不確定性。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
@@ -13,11 +15,11 @@
 | U0 規格與共用契約 | 5% | 80–90% | 正式批准與版本發布 |
 | U1 身分／scope／command | 10% | 60–75% | machine/service backing records 與 adapter |
 | U2 Asset 與私人 ACL | 15% | 65–80% | 完整讀面、正式政策及接線 |
-| U3 執行狀態與模型 ports | 15% | 15–25% | machine request 身分、真實 Attempt/Grant binding、實際模型路徑；封閉 durable Run 與 runtime 金鑰登錄已有本機證據 |
+| U3 執行狀態與模型 ports | 15% | 15–25% | machine request 即時身分／nonce、防重播、真實 Attempt/Grant binding、模型路徑；Run、runtime 登錄、connection 紀錄及 bootstrap 加密元件已有本機證據 |
 | U4 兩條垂直流程 | 15% | 10–25% | 私人 AI 草稿及跨端產品驗收 |
 | U5 browser／Kit／broker | 15% | 0–10% | 實際 runtime 接線與封裝驗證 |
 | U6 媒體搬遷與 restore | 10% | 5–15% | 真實盤點、七類媒體搬遷與還原 |
-| U7 legacy 退出 | 5% | 0–5% | 相容窗口、回退證據與收尾 |
+| U7 legacy 退出 | 5% | 0–5% | 資料遷移、最低安全版本與舊路徑退出 |
 | UX affected CI／開發工具 | 5% | 20–35% | 跨語言／跨端覆蓋與工具接線 |
 | CG 共同治理 | 5% | 25–45% | 可信 runner/publisher、完整入口與 rollout |
 
@@ -304,6 +306,37 @@ Opus 對缺少 expectedVersion／變更 begin payload 的假說已由實際 comm
 
 Manifest last=87、known_gaps=`[22]`；076–087 全為未合併暫用號，合併前須重新核對。19:55 UTC 唯讀確認遠端 main 仍為 `3de70cc`；沒有 push、開 PR、合併、部署、處理其他 PR 或啟用正式清理，備份政策仍另確認。固定程式 inventory 為 **1,249 hashes、709 本機文件／目錄連結、0 failures**；收尾文件重產後為 **1,249 hashes、711 本機連結、0 failures**。本紀錄持續分開本機證據與產品驗收；168 項原始產品要求仍是 `not_run`，不以本批測試數宣稱完成。
 
+## 本批機器連線與 bootstrap 加密基礎
+
+三個工作位在獨立 worktree 分工 connection service／SQL、bootstrap crypto／中央契約及獨立反例；根整合者補共用交易修正、生成與責任對應、CI fixtures、發布診斷和完整回歸。Grok 4.7／Opus 4.6 CLI 各完成一輪限定公開 source 的設計審查及一輪實碼審查，四路都完成、沒有 402／429；實碼審查未找到具體缺陷。缺失來源的假說不當成漏洞或通過證據；文字意見不是實跑證據或操作批准。
+
+[規格 08](08-agent-connections-bootstrap.md) 明確區分 durable record、crypto evidence 及尚未完成的 machine authority；沿用 AP §1.5／4.3、U1／U3，沒有增加過渡發布支線。
+
+- 暫用 088 保存不可改綁的 owner/person/personal scope/runtime/client/environment，30 日 expiry、32 筆 lifetime quota 與 terminal tombstones。Create/read/revoke 沿目前 member/session/onboarding、固定鎖順序及 scoped facts/receipt；create/replay 要求 runtime 仍 enrolled、connection 未撤銷／到期。允許本人讀取／撤銷過期紀錄作清理，但不因此授機器權。這些是封閉工程限制，不是正式 refresh 或配額政策。
+- Bootstrap verifier 以實際 `jose` ES256/P-256 驗 issuer/device 簽章、用途／audience／環境／client／binding、method/URI/nonce/ath 及 token/proof/key 的時間區間。嚴格有界 JSON／UTF-8／base64url，拒 decoded duplicate keys、私鑰、未知欄位和非法數字；host/call input 深度快照，時間跨單位運算用 BigInt。
+- 三份中央結構 JSON Schema 由同一 Zod 契約生成，exact-byte check 納入固定 runtime baseline。13 個 descriptors 的獨占 ownership、refs、相依關係和無循環另經獨立查核。結構 schema 不等於驗簽；驗簽成功也不等於目前 DB 身分、nonce 消耗或 execution 權。
+- 所有 crypto 成功結果保持 `cryptographic_only`、`operational_authority:false`，不輸出可冒充 VerifiedContext 的品牌。合法 high-S／low-S ECDSA 均可驗過；同一合法 proof 重驗也可成功，因此後續必須用 DB nonce／proof jti 原子防重播，不能拿簽章 bytes 去重。本批沒有 token issuer、refresh family、HTTP mount、machine DB validator、Grant／Attempt 或模型呼叫。
+
+### 真正反例與修正
+
+獨立 PostgreSQL 測試先重現 receipt INSERT 等鎖跨過 session expiry 後仍成功提交的漏洞。`6178c15` 在 scoped receipt 讀取／寫入後重驗 DB session clock；原樣反例轉綠，connection、journal、outbox、receipt 全數回滾。檢查屬 commit 前的授權決策，不宣稱回應送達時仍有效；舊 `command()` 和 avatar receipt adapter 未改。
+
+獨立 28 項反例使用真正 non-superuser LOGIN、真實 enrollment 簽章、`pg_blocking_pids` 與合成故障，另有作者 20 項 connection、44 項 crypto 和 1 項生成契約檢查。新增合計 **93 項**，已包含完整 runtime，不重複加總。沒有 mock signature=true，也未放寬失敗案例。
+
+整合審查另發現 CI 原本建立 `freedom_local`，與要求明確 `fp_*` target 的測試不相容；已改為 `fp_foundation_ci`，health/URL 同步。CI-only disposable Postgres 明示 trust 供無密碼低權限 fixture LOGIN 使用，published port 僅綁 `127.0.0.1`；不改測試防護、正式 DB 或 GitHub settings，也不宣稱遠端 CI 已跑過。
+
+### 固定程式驗證
+
+固定整合 commit **`e4a3251764fe53be0118e7b8c33adb37818d1864`**，對真正 `origin/main`（`3de70ccbd24362a7925508fb42d36aaa256a0806`）執行 prepare/verify；期間 tracked workspace 未變。完整 runtime **1,679/1,679（126 files）**、治理 **241/241（10 files）**，0 failed/skipped/cancelled；descriptor／contract checks 通過。定向 121 項是其中子集合，不另累加。
+
+整體仍 exit 2、local `unavailable`，保留 `baseline_governance_unavailable`、`registration_behavior_audit_required`、`surface_unmapped`。可信 host/publisher／GitHub enforcement、完整入口行為與跨端產品驗收仍待交付，沒有改 base 或偽造通過。
+
+發布診斷 **199/199**（新增 connection shape/capability 的 12 項反例），新 build 與三類 Worker 各環境 dry-run 通過，再以新 bundle 跑 Worker **28/28**；均未部署。Typecheck、common/execution/runtime/bootstrap generated checks、Skill client **10/10**、diff check 通過；既有契約 **659 passed、4 個原有 clock cases skipped**。Build 有既有大型 chunk 警告；本批沒改 UI、沒跑 Browser，不沿用舊 Browser 結果宣稱重跑。固定程式 inventory **1,266 hashes、720 本機連結、0 failures**，收尾文件重產後 **1,266 hashes、722 本機連結、0 failures**。
+
+驗證只使用固定 digest PG18.6 的 network-none／無公開 port／2 GiB tmpfs disposable 容器、專屬 Unix socket、明確 `fp_foundation`／`fp_*` fixtures。結束查到測試 schemas／roles／其他 clients／子資料庫全為 0，核對 container ID/task label 後移除容器與空 socket；僅清除可重建的合成資料，程式、worktrees、ignored 報告保留，未碰 Ted 的 `freedom_local.public`。
+
+Manifest last=88、known_gaps=`[22]`，076–088 全未合併／發布，合併前重查最小可用編號。沒有 push、PR、merge、部署、外部規則／金鑰變更或其他 PR 整合。原始 168 項產品驗收仍維持 `not_run`，本機元件測試不冒充整體驗收。
+
 ## 尚未交付
 
 - execution/service current-state validators、Invocation/Grant adapters，以及有真實 backing record 的 service/site schema；scoped composition/receipt 目前僅支援 member session。
@@ -315,9 +348,9 @@ Manifest last=87、known_gaps=`[22]`；076–087 全為未合併暫用號，合�
 
 ## 下一批
 
-Runtime enrollment 已完成上述封閉本機實作。下一批先定版獨立機器連線／bootstrap proof 的工程規格：issuer/audience、不同 token/proof purpose、受信 verifier-key source、TTL/skew、method/URI 精確綁定、nonce/replay、容量與撤銷鎖順序，再實作真正 connection backing record 及有限的目前身分驗證。只驗本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權；本機使用合成短期金鑰，不建立正式 signing key、HTTP token endpoint 或 refresh family。這些仍是下一批待實作項目，不把 enrollment row 或 caller passed 當 machine authority，也不重用 storefront/supplier 的 `fw_read` 連線。後續 ModelConnection、Grant 與 Attempt 各須真正 backing records，模型/provider/billing/custody 選擇仍不替 Ted 擅自決定。
+Runtime enrollment、connection backing record 及 bootstrap crypto 已完成上述封閉本機實作。下一步接真正 machine current-state validator 與 server nonce／原子 replay prevention：在同一交易依固定鎖順序解析目前 user/person/scope/runtime/connection，驗簽 await 後重查 DB clock、撤銷／expiry 與 nonce，僅提供本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權。不把 active row、caller binding／clock 或 crypto result 當成完整機器身分，也不重用 storefront/supplier 的 `fw_read` 連線。之後續接原計畫的 device flow／issuer／refresh、ModelConnection、Grant 和 Attempt 真實 backing records；正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定。
 
-治理可另推進固定單一 profile 的本機隔離 supervisor，把 host harness 與 candidate app 隔離，以父程序專屬一次性管道回收 observation；不能把 candidate stdout/JSON 當可信結果。隔離不成立就 unavailable，並保留 approved host source、完整入口、publisher/GitHub enforcement 的缺口。這是下一步工程建議，尚未實作。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代真正 transport／外部保存／政策 restore 的證據。migration 076–087 尚未合併或發布；完整私人讀取矩陣與正式 rollback gate 齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。
+治理可另推進固定單一 profile 的本機隔離 supervisor，把 host harness 與 candidate app 隔離，以父程序專屬一次性管道回收 observation；不能把 candidate stdout/JSON 當可信結果。隔離不成立就 unavailable，並保留 approved host source、完整入口、publisher/GitHub enforcement 的缺口。這是下一步工程建議，尚未實作。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代真正 transport／外部保存／政策 restore 的證據。migration 076–088 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
 
 早先唯讀查核 #85／#87 的衝突與 migration 重號紀錄保留歷史用途；依 Ted 最新指示，其他 PR 的 rebase／整合現在不在派工範圍。這次沒有修改作者 PR 或把舊 CI 結果當新整合驗收。
 
