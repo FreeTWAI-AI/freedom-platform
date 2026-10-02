@@ -15,7 +15,7 @@
 | U0 規格與共用契約 | 5% | 80–90% | 正式批准與版本發布 |
 | U1 身分／scope／command | 10% | 60–75% | machine/service backing records 與 adapter |
 | U2 Asset 與私人 ACL | 15% | 65–80% | 完整讀面、正式政策及接線 |
-| U3 執行狀態與模型 ports | 15% | 15–25% | device flow／issuer／refresh、真實 Attempt/Grant binding、模型路徑；Run、runtime 登錄、connection 及封閉 bootstrap 即時身分／nonce 防重播已有本機證據，尚非 execution authority |
+| U3 執行狀態與模型 ports | 15% | 15–25% | refresh／重複 machine nonce／HTTP、真實 Attempt/Grant binding、模型路徑；Run、runtime 登錄、connection、bootstrap 及封閉配對／一次性 issuer 已有本機證據，尚非完整 device flow 或 execution authority |
 | U4 兩條垂直流程 | 15% | 10–25% | 私人 AI 草稿及跨端產品驗收 |
 | U5 browser／Kit／broker | 15% | 0–10% | 實際 runtime 接線與封裝驗證 |
 | U6 媒體搬遷與 restore | 10% | 5–15% | 真實盤點、七類媒體搬遷與還原 |
@@ -375,6 +375,36 @@ Runtime／Worker 只用固定 digest PG18.6、network-none／無 published ports
 
 Manifest last=89、known_gaps=`[22]`；076–089 全未合併／發布，合併前須重查編號。21:49 UTC 唯讀確認遠端 main 仍為 `3de70cc`。沒有 push、PR、merge、部署、外部規則／金鑰變更或其他 PR 整合；備份政策仍另確認。原始 168 項產品要求仍是 `not_run`，本機增量不代表全部原 scope 完成。
 
+## 本批裝置配對與一次性 bootstrap 交換
+
+三個工作位分別實作中央 crypto／issuer、配對服務／SQL，以及獨立低權限反例，各用獨立 worktree。根整合者維護 [規格 10](10-device-authorization.md)、生成 schema、descriptor、固定測試 baseline 與發布矩陣；[服務說明](../../../../modules/agent-control/device-authorizations.md) 和 [簽章說明](../../../../modules/agent-control/device-pairing-proof.md) 記錄同一契約的責任界線。沒有新增提前部署的過渡版本。
+
+- 新裝置以實際 ES256/P-256 proof 開始，取得一次交付的短效代碼；會員 inspect／decide 綁 exact request digest、client/environment/runtime kind/key，以及 begin 時保存的名稱。本人批准只建立真正 087 challenge，不直接登錄裝置或授權執行。
+- Poll 使用獨立用途 proof，綁 code hash、request digest 與 server nonce；交換另驗真實 087 enrollment 簽章。同交易建立 runtime、088 connection、第一個 089 nonce，受限 issuer 簽 bootstrap token，再保存 consumed/token JTI，最後重驗 DB clock，commit 後才回秘密。實測登出原會員 session 後，裝置仍可用真正 token/DPoP 讀一次 bootstrap status，沒有傳送會員 cookie。
+- Issuer 只接受匹配 purpose-bound 公鑰的 nonextractable P-256 WebCrypto signing handle，初始化真正 sign/verify，每次發行再驗回 exact header／claims；token 最多 10 分鐘且不超過 connection/key expiry。沒有 callback signer、私鑰 JSON、正式 key discovery 或 execution scope。
+- 暫用 090 保存不可變 request/owner、terminal states、append-only poll JTI 與 durable member review bucket；valid early polling 提交 slowdown，wrong proof/code 不消耗合法 throttle。未知短碼及後續 domain rollback 仍保留獨立 current-member 交易的查找 charge。容量與 original 300 秒 deadline 均列入規格，核准不延長期限。
+- Raw codes、proofs、token/private key 不進 durable tables、facts 或 generic receipts；失去已提交的秘密回應不偷偷重發。這個 fresh-only 增量明確回 `refreshSupported:false`、`operational_authority:false`，重配對須新 key，沒有完整長期登入、HTTP/UI、正式 issuer trust、模型、Grant 或 Attempt。
+
+### 審查修正及反例
+
+Grok 4.7／Opus 4.6 各完成一輪公開來源的設計審查。採納配對 challenge 可被舊 member confirm 單獨 consume 的旁路風險：090 新 guard 要求 live approval 與經驗證交換的 ledger marker，deferred constraint 要求完整 exchange；marker 不可單獨 commit，原始 deadline 不能繞過，未連入配對的 087 行為不變。087–089 的 migration 檔案完全未改。另排除「savepoint release 等於獨立提交限流」的錯誤建議；實作使用真正獨立交易，不把模型文字當正確答案。
+
+獨立 SQL 審查找到 nullable timestamp CHECK 的三值邏輯漏洞。另一位 agent 用真正 runtime LOGIN 重現五項 RED：approved／denied 的 NULL 或 submillisecond decided_at，以及 genuine exchange 的 NULL consumed_at。修正為明確 nonnull／finite／millisecond constraints 後，原樣六項反例全 GREEN（consumed_at 的 submillisecond 原本已被拒絕）。這是 SQL 結構約束缺口，不宣稱已重現 HTTP 授權繞過；沒有關閉 guard 或刪除反例。
+
+作者 PostgreSQL **23/23**、獨立 PostgreSQL **40/40**、pairing crypto **25/25**、issuer **8/8**、生成契約 **4/4**，本批新增合計 **100 項**。涵蓋 genuine signatures／等價 ECDSA 競態、兩人競爭核准、錯用途／key／environment、original deadline、真實 SQL lock 及簽章 await 跨期、每個交換／批准 sink 故障回滾、不可改綁／TEMP shadow／低權限 DDL、quota 與全表秘密掃描。後續額外程式審查的 Grok 逾時、Opus 未回結論，均不算通過證據；沒有 402／429、帳號／權限／付費變更。
+
+### 固定整合驗證
+
+固定程式 **`84625f96c80418f4490d1bdd94b8b171c80fac74`**，驗證期間 tracked worktree 未變。對真正 `origin/main` 跑 prepare/verify：完整 runtime **1,829/1,829（133 files）**、治理 **244/244（11 files）**，0 failed/skipped/cancelled；上述 100 項已包含其中，不重複加總。Descriptor 與 producer preview bytes 通過。整體仍 exit 2、local `unavailable`：`baseline_governance_unavailable`、`registration_behavior_audit_required`、`surface_unmapped` 未消失，本機測試不是 trusted CI 或發布批准。
+
+公開 preflight **225/225**（新增 13 項 090 shape／capability／歷史相依反例）、Worker **28/28**、TypeScript 7、新 build、三類 Worker 各環境 dry-run、全部五組 generated checks、Skill client **10/10** 均通過。既有契約 **659 passed、4 個原有 clock cases skipped**，未新增 skip。Build 仍有既有 large-chunk 警告；沒有改 UI／apps 接線，未跑 Browser。
+
+另一位 agent 在相同固定 commit 重跑真實隔離 supervisor **6/6**，兩次正向觀測各含 27 個固定 app 請求，另外測偽造 frame、output flood、busy loop 及 retained DB 竄改。12 個本輪容器按六個 exact owner labels 清除，各 label 查核均空，沒有匿名 volume mount；結果仍 local/unavailable，不能取代可信安裝、publisher 或完整入口覆蓋。
+
+Runtime／Worker 使用固定 digest PG18、network-none、無 published ports、2 GiB tmpfs、專屬 Unix socket 與明確 `fp_*` fixtures。收尾 schemas／roles／其他 clients／子資料庫皆 0；核對 exact container ID/task label 後停止並移除容器及空 socket。只清可重建合成資料，沒有碰 `freedom_local.public`；程式、worktrees、ignored evidence 保留。
+
+Manifest last=90、known_gaps=`[22]`；076–090 全為未合併／未部署暫用號，合併前須重查。22:57 UTC 遠端 main 唯讀查核仍為 `3de70cc`。收尾 inventory 為 **1,304 hashes、759 本機連結、0 failures**，diff check 通過。沒有 push、PR、merge、部署、外部設定／金鑰變更或其他 PR 整合，備份政策仍另確認。原始 168 項產品要求仍 `not_run`；本批不把組件測試轉成全產品完成率。
+
 ## 尚未交付
 
 - execution/service current-state validators、Invocation/Grant adapters，以及有真實 backing record 的 service/site schema；scoped composition/receipt 目前僅支援 member session。
@@ -386,9 +416,9 @@ Manifest last=89、known_gaps=`[22]`；076–089 全未合併／發布，合併�
 
 ## 下一批
 
-Runtime enrollment、connection backing record、bootstrap crypto 及 [封閉 bootstrap status](09-bootstrap-status.md) 已有本機實作：同一交易依固定鎖順序解析目前 user/person/scope/runtime/connection，驗簽 await 後重查 DB clock，原子消耗 nonce／proof ID，再於 nonce UPDATE 後重查時計。它只提供本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權，也不輸出通用 VerifiedContext。下一步依 [原 AP §4.3](../../../plans/autopilot-vnext.md#43-機器配對與登入流程) 完成 device authorization、本人核准、proof-bound polling、一次性交換、裝置可用 nonce transport，再完成 refresh family rotation／reuse revocation，之後接 ModelConnection、Grant 和 Attempt 真實 backing records。300 秒代碼／5 秒 polling 等原規格初值可在本機直接實作及測試，不要求 Ted 重選 routine 細節；不把 active row、caller binding／clock 或 crypto result 當成完整機器身分，不重用 storefront/supplier 的 `fw_read` 連線。正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定。
+Runtime enrollment、connection backing record、[封閉 bootstrap status](09-bootstrap-status.md) 與 [裝置配對／一次性交換](10-device-authorization.md) 已有本機實作。它们只提供受限配對與本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權，也不輸出通用 VerifiedContext。下一步依 [原 AP §4.3](../../../plans/autopilot-vnext.md#43-機器配對與登入流程) 完成 refresh family rotation／reuse revocation 和可重複取得 nonce 的獨立 machine admission，再接 HTTP、ModelConnection、Grant 和 Attempt 真實 backing records。Refresh 最長 30 日且不能延長既有 connection expiry；真正 spent-handle reuse 要提交整個 family／connection 撤銷，使已發 bootstrap token 也被當前狀態驗證拒絕，不能 throw 導致撤銷 rollback。Wrong secret/key/proof 不能藉此撤銷受害者。Nonce 取得要在上一個 nonce 過期後仍可用，但不接受過期 nonce、不借會員 cookie，也不把既有固定 GET verifier 改成任意 operation。這些原規格內的本機實作不需 Ted 重選 routine 細節；正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定，不重用 storefront/supplier 的 `fw_read` 連線。
 
-治理已推進固定單一 profile 的 [本機隔離 supervisor](../../../../packages/contribution-tools/behavior-supervisor.md)：host harness 透過有界 HTTP response frames 呼叫隔離容器內的 candidate app，由 host 自行判斷結果；不能把 candidate stdout/JSON 當可信測試結果。隔離不成立就 unavailable，並保留 approved host source／runtime、完整入口、publisher/GitHub enforcement 的缺口。下一步是可信安裝、來源與 publisher 接線，不是把本機 observation 宣稱可合併。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代完整入口／外部保存／政策 restore 的證據。migration 076–089 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
+治理已推進固定單一 profile 的 [本機隔離 supervisor](../../../../packages/contribution-tools/behavior-supervisor.md)：host harness 透過有界 HTTP response frames 呼叫隔離容器內的 candidate app，由 host 自行判斷結果；不能把 candidate stdout/JSON 當可信測試結果。隔離不成立就 unavailable，並保留 approved host source／runtime、完整入口、publisher/GitHub enforcement 的缺口。下一步是可信安裝、來源與 publisher 接線，不是把本機 observation 宣稱可合併。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代完整入口／外部保存／政策 restore 的證據。migration 076–090 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
 
 早先唯讀查核 #85／#87 的衝突與 migration 重號紀錄保留歷史用途；依 Ted 最新指示，其他 PR 的 rebase／整合現在不在派工範圍。這次沒有修改作者 PR 或把舊 CI 結果當新整合驗收。
 
