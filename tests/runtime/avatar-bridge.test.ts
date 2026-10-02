@@ -81,6 +81,16 @@ test('BRIDGE-01 migration defaults legacy; legacy bytes, URL and wire shape rema
   assert.deepEqual(Object.keys(saved).sort(),['aggregate_version','avatar_url']);
 });
 
+test('BRIDGE-23 self metadata stays available before onboarding without granting content or upload access', async()=>{
+  const owner=await member();
+  await pool.query('UPDATE users SET onboarding_required=true WHERE user_id=$1',[owner.user_id]);
+  assert.deepEqual(await avatarMetadata(pool,owner),{avatar_url:null,aggregate_version:'1'});
+  await assert.rejects(readAvatar(pool,owner,owner.user_id),problem('avatar_not_found'));
+  await assert.rejects(saveAvatar(pool,command(owner),{bytes:png,mime:'image/png'}),problem('onboarding_required'));
+  await pool.query('UPDATE sessions SET revoked_at=clock_timestamp() WHERE token_hash=$1',[owner.session_hash]);
+  await assert.rejects(avatarMetadata(pool,owner),problem('avatar_not_found'));
+});
+
 test('BRIDGE-02 asset source serves one verified object, presence and current URL without exposing storage identity', async()=>{
   const owner=await member(),viewer=await member(),{store,finalized}=await bridge(owner,{legacy:true});
   let gets=0;const original=store.get.bind(store);store.get=async(...args)=>{gets++;return original(...args);};

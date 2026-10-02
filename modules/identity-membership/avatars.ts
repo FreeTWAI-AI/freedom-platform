@@ -20,11 +20,12 @@ export function avatarUrl(userId: string, version: string | number, present: boo
 }
 export async function avatarMetadata(pool: Pool, actor: Actor) {
   actor = Object.freeze({ ...actor });
+  // Account settings are available before guild onboarding. Self metadata must
+  // not block that page; content reads and writes keep their onboarding gates.
   const row = (await pool.query(`SELECT a.aggregate_version,a.present FROM users u
     JOIN sessions s ON s.user_id=u.user_id AND s.token_hash=$3
     LEFT JOIN member_avatar_presence a ON a.user_id=u.user_id AND a.community_id=u.community_id
     WHERE u.user_id=$1 AND u.community_id=$2 AND u.active
-      AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
       AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp()`, [actor.user_id, actor.community_id, actor.session_hash])).rows[0];
   requireCondition(row, 404, 'avatar_not_found', '找不到這個頭像。');
   return { avatar_url: avatarUrl(actor.user_id, row?.aggregate_version ?? '1', Boolean(row?.present)), aggregate_version: row?.aggregate_version ?? '1' };
