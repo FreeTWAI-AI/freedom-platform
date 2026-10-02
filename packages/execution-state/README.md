@@ -67,7 +67,14 @@ representations; JSON Schema operates on already parsed numeric values. Digest
 references are exactly 64 lowercase hex characters; no hash computation, JCS,
 signature, signing identity or authenticity is claimed.
 
-The wire bound is 32 KiB UTF-8, depth 24 and 4096 nodes. Attempt/dispatch/evidence
+The wire bound is 32 KiB UTF-8, depth 24 and 4096 nodes. A separate 24 KiB
+control-reserved snapshot budget charges the maximum serialized widths of mutable
+control/version/Result fields and dispatch status/usage before admitting growth.
+It leaves 8 KiB for the bounded event/assertion envelope. Thus a newly admitted
+snapshot still fits a compact owner Stop/ACK input even as epochs grow or proposals
+are fenced. The next history-growing transition is denied before it creates an
+unrepresentable successor; the previous snapshot remains usable. This is byte
+budget accounting, not canonicalization or a hash. Attempt/dispatch/evidence
 array bounds are 16/128/128; the byte bound can be reached earlier. These are
 **prototype input bounds**, not product lifetime/history limits. Exceeding a bound
 denies the operation; records are never evicted or truncated. Duplicate decoded

@@ -1,6 +1,6 @@
 import { ExecutionInputSchema, type ExecutionInput } from '../../contracts/execution/v1/state.js';
 
-export const EXECUTION_LIMITS = Object.freeze({ inputBytes: 32768, depth: 24, nodes: 4096, attempts: 16, dispatches: 128, evidence: 128 });
+export const EXECUTION_LIMITS = Object.freeze({ inputBytes: 32768, snapshotBytes: 24576, depth: 24, nodes: 4096, attempts: 16, dispatches: 128, evidence: 128 });
 export class ExecutionInputError extends Error {
   constructor(readonly code: 'invalid_input'|'input_limit' = 'invalid_input') { super(code); this.name = 'ExecutionInputError'; }
 }

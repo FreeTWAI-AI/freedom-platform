@@ -19,6 +19,20 @@ const terminal = new Set(['completed', 'cancelled', 'failed']);
 const unresolved = (s: RunSnapshot) => s.dispatches.some(d => ['in_flight', 'unknown', 'manual_unknown'].includes(d.state) || d.usage === 'unknown');
 const unsettled = (s: RunSnapshot) => unresolved(s) || s.dispatches.some(d => d.state === 'proposed');
 
+/** Conservative compact-wire budget, NOT a digest/canonicalization profile.
+ * All schema strings are ASCII. Reserve mutable control-field maxima now so a
+ * future Stop/ACK cannot exceed the budget just by fencing existing history.
+ * The remaining 8 KiB covers the bounded assertions/event/input envelope. */
+function controlReservedSnapshotBytes(s: RunSnapshot): number {
+  const size = (value: unknown) => JSON.stringify(value).length;
+  let bytes = size(s);
+  const reserve = (value: unknown, maxBytes: number) => { bytes += maxBytes - size(value); };
+  for (const value of [s.version, s.work_version, s.recovery_generation, s.task_lease.epoch, s.control.epoch, s.control.acknowledged_epoch]) reserve(value, 21);
+  reserve(s.state, 32); reserve(s.desired_control, 16); reserve(s.task_lease.expires_at, 26); reserve(s.result, 512);
+  for (const d of s.dispatches) { reserve(d.state, 32); reserve(d.usage, 32); }
+  return bytes;
+}
+
 function consistent(input: ExecutionInput): void {
   const s = input.snapshot;
   const versionKeys = new Set(['version', 'work_version', 'expected_version', 'expected_work_version', 'epoch', 'acknowledged_epoch', 'task_epoch', 'control_epoch', 'grant_revision', 'recovery_generation']);
@@ -48,6 +62,7 @@ function consistent(input: ExecutionInput): void {
   if (s.result) requireFact(s.attempts.some(a => a.attempt_id === s.result!.attempt_id), 'invalid_result_binding');
   if (terminal.has(s.state)) requireFact(!unsettled(s), 'unresolved_terminal_state');
   if (s.state === 'completed') requireFact(s.result !== null, 'result_required');
+  requireFact(controlReservedSnapshotBytes(s) <= EXECUTION_LIMITS.snapshotBytes, 'prototype_history_limit');
 }
 
 /** Evaluates declared facts ONLY. No authentication, durability, lock, clock

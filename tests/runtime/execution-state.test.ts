@@ -220,3 +220,62 @@ test('generated JSON Schema and authoring validator agree on positive/negative s
   const result = spawnSync('python3', ['-c', script], { input: JSON.stringify({ schema, cases }), encoding: 'utf8', env: verificationEnvironment(), timeout: 10000 });
   assert.equal(result.status, 0, result.stderr); assert.equal(result.stdout.trim(), 'conformant');
 });
+test('reachable history growth stops before compact owner Stop/ACK can exceed the wire bound', () => {
+  const input = clone(); let denied = false, steps = 0;
+  const accept = () => {
+    const result = evaluateExecution(JSON.stringify(input)); assert(result.admissible, result.reason);
+    input.snapshot = structuredClone(result.next!); input.expected_version = input.snapshot.version;
+    input.assertions.task_epoch = input.snapshot.task_lease.epoch; input.assertions.control_epoch = input.snapshot.control.epoch;
+  };
+  for (; steps < EXECUTION_LIMITS.dispatches; steps++) {
+    input.event = { type: 'advance_model', dispatch_id: fixtureId(1000 + steps), step_id: fixtureId(2000 + steps), request_digest: 'f'.repeat(64) };
+    const decision = evaluateExecution(JSON.stringify(input));
+    if (!decision.admissible) { assert.equal(decision.reason, 'prototype_history_limit'); denied = true; break; }
+    input.snapshot = structuredClone(decision.next!); input.expected_version = input.snapshot.version;
+    input.event = { type: 'record_dispatch', dispatch_id: fixtureId(1000 + steps) }; accept();
+    input.event = { type: 'record_outcome', dispatch_id: fixtureId(1000 + steps), outcome: 'succeeded', usage: 'known' }; accept();
+  }
+  assert(denied && steps > 10 && steps < 77, 'Conservative budget must reject growth before the original 77-step deadend');
+  const history = structuredClone(input.snapshot.dispatches);
+  // Maximal-width control assertions: all IDs already36 bytes; false booleans
+  // and nonnull dates/IDs are longest. Stop needs no provider/Grant readiness.
+  const nearMax = '9223372036854775805';
+  input.expected_version = input.snapshot.version = nearMax;
+  input.snapshot.task_lease.epoch = input.snapshot.control.epoch = input.snapshot.recovery_generation = nearMax;
+  for (const key of ['work_version', 'grant_revision', 'task_epoch', 'control_epoch', 'recovery_generation'] as const) input.assertions[key] = nearMax;
+  Object.assign(input.assertions, { actor_kind: 'owner', work_active: false, connection_active: false, runtime_online: false,
+    model_ready: false, budget_available: false, policy_allowed: false, grant_active: false, policy_revision: 'p'.repeat(96) });
+  input.event = { type: 'stop' };
+  assert(Buffer.byteLength(JSON.stringify(input)) < EXECUTION_LIMITS.inputBytes); accept();
+  assert.equal(input.snapshot.state, 'cancelling'); assert.deepEqual(input.snapshot.dispatches, history);
+  Object.assign(input.assertions, { actor_kind: 'runtime', connection_active: true, runtime_online: true });
+  input.event = { type: 'control_ack', epoch: input.snapshot.control.epoch }; accept();
+  assert.equal(input.snapshot.state, 'cancelled'); assert.deepEqual(input.snapshot.dispatches, history);
+});
+test('reserved snapshot budget preserves unknown history through maximal status-growth Stop', () => {
+  const input = clone(); input.assertions.actor_kind = 'owner'; input.event = { type: 'stop' };
+  input.snapshot.state = 'running'; input.snapshot.dispatches = Array.from({ length: 40 }, (_, i) => ({
+    ...dispatch(i === 0 ? 'unknown' : 'proposed', i === 0 ? 'unknown' : 'not_dispatched'), dispatch_id: fixtureId(3000 + i), step_id: fixtureId(4000 + i),
+  }));
+  const result = evaluateExecution(JSON.stringify(input)); assert(result.admissible, result.reason);
+  assert.equal(result.next!.dispatches.length, 40); assert.equal(result.next!.dispatches[0].state, 'unknown');
+  assert.equal(result.next!.dispatches[0].usage, 'unknown'); assert(result.next!.dispatches.slice(1).every(d => d.state === 'cancelled_before_dispatch'));
+  input.snapshot = structuredClone(result.next!); input.expected_version = input.snapshot.version;
+  Object.assign(input.assertions, { actor_kind: 'runtime', task_epoch: input.snapshot.task_lease.epoch, control_epoch: input.snapshot.control.epoch });
+  input.event = { type: 'control_ack', epoch: input.snapshot.control.epoch };
+  assert(Buffer.byteLength(JSON.stringify(input)) < EXECUTION_LIMITS.inputBytes);
+  assert.equal(evaluateExecution(JSON.stringify(input)).next?.state, 'cancelling');
+});
+test('maximal strict control envelope fits the separate 8 KiB reserve', () => {
+  const input = clone(), max = '9223372036854775807';
+  Object.assign(input.assertions, { actor_kind: 'runtime_evidence', work_version: max, grant_revision: max, task_epoch: max,
+    control_epoch: max, recovery_generation: max, policy_revision: 'p'.repeat(96), owner_active: false, scope_active: false,
+    work_active: false, connection_active: false, runtime_online: false, model_ready: false, budget_available: false, policy_allowed: false, grant_active: false });
+  input.expected_version = max;
+  for (const event of [{ type: 'stop' }, { type: 'revoke' }, { type: 'pause' }, { type: 'control_ack', epoch: max }] as const) {
+    input.event = event; assert(ExecutionInputSchema.safeParse(input).success);
+    // Subtract the actual compact snapshot, retaining its key/separator bytes.
+    assert(Buffer.byteLength(JSON.stringify(input)) - Buffer.byteLength(JSON.stringify(input.snapshot))
+      < EXECUTION_LIMITS.inputBytes - EXECUTION_LIMITS.snapshotBytes);
+  }
+});
