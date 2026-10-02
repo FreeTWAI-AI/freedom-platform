@@ -295,3 +295,18 @@ test('RUNTIME-ADV caller mutation during observed row wait cannot change snapsho
   assert.deepEqual(await api.confirm(f.actor,f.confirm),value);
   assert.equal((await pool.query('SELECT consumed_at FROM runtime_registration_challenges WHERE challenge_id=$1',[peer.challenge.challenge_id])).rows[0].consumed_at,null);
 });
+
+test('RUNTIME-ADV changed public key under an existing begin key is an application conflict with no duplicate SQL write',async()=>{
+  const f=await fixture(),before=await counts();
+  await assert.rejects(api.begin(f.actor,{...f.input,publicJwk:keypair().publicJwk}),error=>
+    status(409)(error) && (error as {code?:string}).code==='idempotency_conflict');
+  assert.deepEqual(await counts(),before);
+  assert.deepEqual(await api.begin(f.actor,f.input),f.challenge);
+});
+
+test('RUNTIME-ADV missing revoke CAS precondition returns428 before any SQL mutation',async()=>{
+  const f=await fixture(),value=await api.confirm(f.actor,f.confirm),before=await counts();
+  await assert.rejects(api.revoke(f.actor,{key:randomUUID(),runtimeDeviceId:value.runtimeDeviceId} as Parameters<typeof api.revoke>[1]),status(428));
+  assert.deepEqual(await counts(),before);
+  assert.deepEqual(await api.read(f.actor,{runtimeDeviceId:value.runtimeDeviceId}),value);
+});
