@@ -57,10 +57,11 @@ values; identities and schema rows have the same structure as the request/scanne
 
 | Field | Required meaning |
 | --- | --- |
-| `schema` | `freedom.release-compatibility-host/v1` |
+| `schema` | `freedom.release-compatibility-host/v2`; old v1 is unavailable, never silently upgraded |
 | `target` | `{environment, database_identity, recovery_generation}`; environment is `next` or `staging-next`, database identity is an opaque nonsecret ID, generation a positive decimal string |
 | `now_ms`, `max_age_ms` | trusted host time and explicit observation freshness bound, at most 300,000 ms; candidate clock is not used |
 | `rollback_floor_shapes` | independently retained historical shape watermark; never erase this just because a feature is disabled or a DB snapshot is restored |
+| `rollback_floor` | mandatory independently retained historical ledger/capability floor, described below; missing/null/empty is unavailable, not an empty-history default |
 | `observation` | complete current observation described below, from an independently authenticated reader |
 | `release_records` | independently approved or withdrawn exact source/artifact capability records, described below |
 
@@ -74,10 +75,46 @@ an older Worker, cron, helper or reader to make a rolling deployment pass. This
 v1 intentionally cannot certify an empty/incompletely observed environment.
 
 The host must collect a consistent observation and maintain durable historical
-shape watermarks. The evaluator cannot detect a host lying about completeness or
-an independently retained watermark. A snapshot rollback must not roll back the
-host's generation or historical floor. This is an **input requirement**, not a
-claim that the runtime now enforces recovery generations or that a restore is safe.
+shape, ledger and capability watermarks outside the restorable database. The
+evaluator cannot detect a host lying about completeness or replacing a retained
+watermark with an older one. A snapshot rollback must not roll back the host's
+generation or historical floor. This is an **input requirement**, not a claim
+that the runtime now enforces recovery generations or that a restore is safe.
+
+`rollback_floor` has exactly these fields:
+
+| Field | Meaning |
+| --- | --- |
+| `evidence_id` | bounded nonsecret host audit reference; not a URL, signature or authority |
+| `target` | same `{environment, database_identity, recovery_generation}` structure as current target; historical retained generation, not the restored DB's claim |
+| `schema_ledger`, `schema_ledger_digest` | full historically retained minimum ledger, with the existing exact filename/SQL digest convention and ledger digest |
+| `capabilities` | historical required capabilities from the same reviewed capability registry used by release approvals |
+
+The retained environment and database identity must exactly match the current
+host target. This profile has no cross-database restore-lineage authorization;
+changing the database identity cannot create fresh history or adopt another
+database's floor. The retained recovery generation must be **less than or equal
+to** the current independently supplied generation, compared as bounded decimal
+integers without JavaScript number rounding. Current observations still require
+the exact current generation. Increasing a generation does not clear any floor.
+
+The historical ledger must be an exact prefix of **both** current observed and
+candidate-planned ledgers, including every SQL digest. A restored schema below
+the floor is incompatible even if the candidate plans to reapply migrations;
+repair requires a separately authorized operation and a new current observation
+before a compatible diagnostic. Changed names/digests, gaps and unknown schema
+extensions are never inferred compatible from a last migration number alone.
+
+For one environment/database lineage, external retention must only extend its
+ledger by exact prefix and union its capability and shape sets. It must preserve
+`rollback_floor_shapes` when replacing/advancing `rollback_floor`. Floors do not
+expire merely because old evidence is older than `max_age_ms`; that freshness
+bound applies to the **current observation**, not to historical obligations.
+An explicit baseline ledger and capability set are required even for a new
+fixture/environment; this evaluator does not initialize or persist them. There
+is no history reducer, collector, external checkpoint store or authentication
+adapter in this slice. Cross-call monotonic retention remains a host obligation,
+not something this stateless evaluator can prove from a supplied object.
 
 The reader must account for durable prepared and abandoned upload intents,
 retained/orphaned objects and private Work/Result history, not just ready Assets
@@ -88,15 +125,16 @@ does not erase that historical compatibility obligation. The host must retain
 the relevant shape in its independent rollback floor; this library neither
 collects those rows nor supplies evidence that they can safely be forgotten.
 
-This v1 models **shape history**, not an independent historical minimum schema
-ledger or policy-capability history. For example, a host supplying a restored
-schema 084 and the private-human-Result shape retains ACL/history requirements,
-but does not cause this evaluator to infer that schema 085 previously existed.
-Its conditional `work.server-policy.v1` requirement applies when 085 is planned.
-A locally compatible 084 diagnostic is therefore **not approval to restore or
-roll back across 085**. The real restore gate must separately retain and enforce
-historical minimum ledger/capability requirements; that gate remains unavailable
-here. `restore_proof` is always false, including in this counterexample.
+The old host-v1 shape-only input is now rejected, not interpreted as proof that
+schema/policy history was empty. A retained 085 ledger rejects a restored/planned
+084 matrix even if every binary has approval for 084. A retained
+`work.server-policy.v1` capability is required from every active/candidate binary
+even if all current shape arrays are empty. These checks close the former
+shape-only counterexample; they do **not** prove policy restoration. Restoring
+older allowing policy rows under the same 085 schema can revive revoked policy
+state. This evaluator neither reads nor reconciles per-scope policy revisions,
+revocation/tombstones, DB+R2 backup sets, live grants or queue effects. Therefore
+`restore_proof` remains false even when schema/capability history is compatible.
 
 Each `release_records` entry contains exactly:
 
@@ -139,7 +177,7 @@ not merely after the first new-shape write. No SQL file or migration is changed.
 | `avatar.asset-bridge.v1` | source-routed avatar reads/presence, same current ACL around external I/O, missing-object fail-closed behavior and legacy-writer fencing; not an R2 binding/backup proof |
 | `work.personal-owner-acl.v1` | current personal owner/scope checks and private Work compatibility without exposing it through old community projections |
 | `work.private-human-result.v1` | profile-bound private text lifecycle, typed Work target, immutable human Result history and legal reads; never model/Run provenance |
-| `work.server-policy.v1` | current DB-backed private persistence revision/quota resolver; required for any private shape when schema 085 is planned, never a caller-supplied blanket persistence allowance |
+| `work.server-policy.v1` | current DB-backed private persistence revision/quota resolver; required for any private shape when schema 085 is planned or retained, or whenever explicitly in the historical capability floor; never a caller-supplied blanket persistence allowance |
 
 | Shape | Minimum schema | Additional capabilities |
 | --- | --- | --- |
@@ -147,12 +185,14 @@ not merely after the first new-shape write. No SQL file or migration is changed.
 | `work.private.v1` | 081 | personal owner ACL |
 | `work.private-human-result.v1` | 084 | personal owner ACL + human Result |
 
-Schema 085 alone does not enable a private shape. When it is planned, any private
-shape in the required union also requires `work.server-policy.v1` from every
+Schema 085 alone does not enable a private shape. When it is planned or retained,
+any private shape in the required union also requires `work.server-policy.v1` from every
 binary. This guards policy-aware rollback without claiming HTTP/UI activation,
 private cleanup, model execution or approved production configuration.
 
-Required shapes are the union of requested enablement, current enabled shapes,
+Required capabilities union the independently retained capability floor with
+the schema/shape-derived requirements; they apply to **every** active binary
+and the candidate, not just to the newest release. Required shapes are the union of requested enablement, current enabled shapes,
 already written shapes, and independent historical rollback floors. Turning a
 feature off never subtracts a stored-data requirement. Observed enabled/written
 shapes also require their schema already applied. New enablement requires its
@@ -173,6 +213,9 @@ Dedicated tests use synthetic host approvals/observations plus the actual local
 scanner ledger. Counterexamples cover the schema-077/no-write leakage floor,
 mixed old binaries, disabled-but-written shapes, historical watermarks, wrong
 source/artifact/target/generation, stale/future evidence, withdrawn approvals,
-ledger name/digest/order/gap differences, unknown extensions, candidate
+ledger name/digest/order/gap differences, historical 085-to-084 rollback,
+current schema below floor despite a repair plan, disabled historical policy
+capabilities, cross-database/environment floor transplant, exact generation
+comparisons beyond safe integers, absent/v1/invalid historical inputs, unknown extensions, candidate
 self-approval, bounded data and actual CLI failure propagation. No live release,
 database, private helper, production approval or cloud restore was exercised.
