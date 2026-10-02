@@ -15,6 +15,7 @@
 | [執行端與發布收尾](04-execution-adapters-release.md) | U3/U5/U6/U7、UX、CG-G | 共用 attempt、broker、queue、migration 及恢復邊界 |
 | [七類媒體搬遷](05-media-migration.md) | R2 RS-00–06/10/11、U6/U7 | 完整搬遷程序；正式資料盤點與 cloud/restore 實測另做 |
 | [Autopilot API 與瀏覽器](06-browser-runtime.md) | AP M0–M6/T0–T5、U3/U5 | API/auth、MV3/native/neo guard、journal；實際 source audit 與 capability 另做 |
+| [Runtime 金鑰登錄](07-runtime-enrollment.md) | U1/U3、AP AUTH 前置 | 封閉會員批准、真實金鑰持有證明及撤銷；不是完整 device flow 或機器執行授權 |
 | [共同基礎驗收](acceptance.md) | INT-01–28、GOV-01–32 | 60 項原要求，全部 `not_run` |
 | [R2/AP 原始驗收](source-acceptance.md) | R2 S/A/M/D、AP AUTH/WORK/EXT/NEO/OPS | 108 項原要求，加 24 條 guardrails/invariants 對照，全部未驗收 |
 

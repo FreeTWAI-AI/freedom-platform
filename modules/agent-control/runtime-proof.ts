@@ -14,7 +14,9 @@ const invalid = (): never => { throw new RuntimeProofError(); };
 const header = base64url.encode(RUNTIME_ENROLLMENT_PROTECTED_HEADER);
 
 /** Object API only; transport must reject duplicate JSON keys before producing
- * an object. Accessors/toJSON, private key material, and extra fields fail shut. */
+ * an object. Accessors/toJSON, private key material, and extra fields fail shut.
+ * This parses structure, not curve validity or possession; callers must use
+ * runtimePublicKeyThumbprint or verifyRuntimeRegistrationProof for key import. */
 export function parseRuntimePublicJwk(input: unknown): RuntimePublicJwk {
   try { return Object.freeze(RuntimePublicJwkSchema.parse(snapshotInput(input))); }
   catch { return invalid(); }

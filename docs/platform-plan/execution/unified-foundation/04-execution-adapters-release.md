@@ -1,6 +1,6 @@
 # 執行端與發布收尾規格
 
-Spec ID：`UF-SPEC-EXEC-OPS`；狀態：`local-closed-run-records`。來源：U3/U5/U6/U7/UX、CG-G、統一計畫 §04、08–16、18、29–30。本規格固定共用執行/發布邊界；AP/R2 原文已補齊，詳細 API/瀏覽器見 [BROWSER](06-browser-runtime.md)，七類搬遷見 [MEDIA](05-media-migration.md)。實際 runtime、capability 與 cloud/restore 證據仍由對應實作 PR 完成。
+Spec ID：`UF-SPEC-EXEC-OPS`；狀態：`local-closed-run-and-enrollment`。來源：U3/U5/U6/U7/UX、CG-G、統一計畫 §04、08–16、18、29–30。本規格固定共用執行/發布邊界；AP/R2 原文已補齊，詳細 API/瀏覽器見 [BROWSER](06-browser-runtime.md)，七類搬遷見 [MEDIA](05-media-migration.md)。實際 runtime、capability 與 cloud/restore 證據仍由對應實作 PR 完成。
 
 ## 已有本機增量與界線
 
@@ -13,6 +13,8 @@ Spec ID：`UF-SPEC-EXEC-OPS`；狀態：`local-closed-run-records`。來源：U3
 [本機發布相容性診斷](../../../../deploy/cloudflare/release-compatibility.md) 已檢查精確 source/artifact 身分、完整 schema ledger、全部 active consumers 與資料形狀歷史下限；要求的能力包含 explicit Work wire、Asset bridge、personal ACL、human Result、085 server policy 及 086 closed Run。Host v2 另提供外部保留的歷史 ledger/capability floor；觀測和預計 schema 都須保留其 exact prefix，資料庫還原或更換 recovery generation 不能在診斷中清除此下限。Candidate 不能自帶批准或 host；一般 CLI 缺獨立可信 host port 就回 unavailable。Host 驗證／觀察 transport、歷史資料的持續保存及同 schema 下政策撤銷的還原對帳尚未完成。所有結果固定 deployment/execution authority 與 restore proof 為 false，不是正式 rollback 或 release gate 已完成。
 
 ## 最小 execution 核心
+
+[Runtime 金鑰登錄](07-runtime-enrollment.md) 及暫用 087 已補封閉會員 begin/confirm/read/revoke。確認使用真正 ES256 挑戰簽章及目前會員權限，原子保存一次性消耗與 owner/key/environment 不可改綁的登錄；撤銷保留 tombstone。它只提供會員核准與持有金鑰的紀錄，不是 build/capability attestation、machine token、model connection 或 Grant；不能把 enrolled 狀態直接接成 execution authentication。
 
 Work 表達目的，Run 表達一次邏輯執行，RunAttempt 固定 runtime、connection、Grant revision、inference binding、data policy、contract/adapter 版本及 billing source。`(run_id,attempt_number)` 唯一，attempt 的 work/scope 由 run 導出。歷史 binding 不原地更新。
 

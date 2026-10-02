@@ -171,7 +171,7 @@ not inspect or apply a cloud overlay or a persistence-policy update.
 The existing scanner's `sha256(JSON.stringify(sql))` convention is unchanged.
 The evaluator validates ordered full filename/digest ledgers, first migration 001,
 the historical missing 022, no duplicates or other gaps, and exact reviewed names
-076–086. Recognizing a reviewed filename does not approve its SQL digest or a release;
+076–087. Recognizing a reviewed filename does not approve its SQL digest or a release;
 exact independently approved ledger support is still required. Schema below 075
 and unknown extensions are unavailable. Applied DB
 ledger must be an exact prefix of the planned scanner ledger. Every binary must
@@ -188,6 +188,7 @@ not merely after the first new-shape write. No SQL file or migration is changed.
 | `work.private-human-result.v1` | profile-bound private text lifecycle, typed Work target, immutable human Result history and legal reads; never model/Run provenance |
 | `work.server-policy.v1` | current DB-backed private persistence revision/quota resolver; required for any private shape when schema 085 is planned or retained, or whenever explicitly in the historical capability floor; never a caller-supplied blanket persistence allowance |
 | `execution.member-run-record.v1` | owner-only closed Run records and human pause/stop controls, immutable Work input and independent fences; not Attempt/Grant, machine authentication or dispatch support |
+| `execution.runtime-enrollment.v1` | current-member public-key challenge/enrollment/revocation, immutable identity and retained key tombstones; not device attestation, machine token or execution support |
 
 | Shape | Minimum schema | Additional capabilities |
 | --- | --- | --- |
@@ -195,6 +196,7 @@ not merely after the first new-shape write. No SQL file or migration is changed.
 | `work.private.v1` | 081 | personal owner ACL |
 | `work.private-human-result.v1` | 084 | personal owner ACL + human Result |
 | `execution.member-run-record.v1` | 086 | personal owner ACL + server persistence policy + closed member Run records |
+| `execution.runtime-enrollment.v1` | 087 | closed runtime enrollment |
 
 Schema 085 alone does not enable a private shape. When it is planned or retained,
 any private shape in the required union also requires `work.server-policy.v1` from every
@@ -206,6 +208,11 @@ are enabled/written or retained in history, every consumer needs their narrow
 capability and owner/persistence protections. Records remain relevant after
 pause/cancellation. This shape never means an execution Grant was approved or
 an Agent may run; no Attempt, runtime connection or model path is activated.
+
+087 alone likewise enables nothing. Pending/expired/consumed enrollment
+challenges and enrolled/revoked registrations all count toward retained shape
+history. Enrollment compatibility does not imply private Work persistence or
+Run support, and successful key possession is not a runtime execution grant.
 
 Required capabilities union the independently retained capability floor with
 the schema/shape-derived requirements; they apply to **every** active binary

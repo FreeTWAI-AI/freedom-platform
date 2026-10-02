@@ -49,6 +49,8 @@ AP 範例 envelope 上限 64 KiB、event 8 KiB 是候選專用限制，不能放
 
 ## 配對、憑證與模型 custody
 
+封閉的 [runtime enrollment 前置實作](07-runtime-enrollment.md) 已提供會員核准、真實公鑰持有證明與撤銷紀錄，沒有以下完整 device flow 的 code/poll、proof-bound token、refresh family 或 HTTP 接線。公鑰登錄 challenge 的公開 nonce 不是 device_code，也不是 bearer credential；兩種流程不得混用。
+
 裝置配對以 RFC 8628 型流程設計：device proof、短效 code、exact client/origin/environment/scopes、真人確認、poll backoff/rate limit；既有唯讀配對獨立保留。token proof 驗 method、URI、audience、iat/nonce/replay、access-token hash 與綁定公鑰；sender label 不是身分。
 
 以下是 AP 的待驗測起始值，不是現況或已批准安全政策：device code 300 秒/poll 5 秒、access 10 分鐘、execution token 最長 5 分鐘且不超 Grant、refresh family 最長 30 日、TaskLease 90 秒/heartbeat 20 秒、action permit 5 秒且 max-use=1。實作 PR 統一成 versioned profile 並測離線/延遲/時鐘誤差；未定 skew/expiry 行為不得開 managed mode。

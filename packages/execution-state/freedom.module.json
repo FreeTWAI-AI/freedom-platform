@@ -2,7 +2,7 @@
   "format": "freedom.module/v1",
   "module_id": "execution-decision",
   "owner_role": "foundation",
-  "owned_paths": ["packages/execution-state/**", "contracts/execution/**", "tests/runtime/execution-state.test.ts", "tests/runtime/execution-state-adversarial.test.ts"],
+  "owned_paths": ["packages/execution-state/**", "contracts/execution/v1/state.ts", "contracts/execution/v1/decision-input.schema.json", "tests/runtime/execution-state.test.ts", "tests/runtime/execution-state-adversarial.test.ts"],
   "public_exports": ["packages/execution-state/index.ts", "contracts/execution/v1/state.ts"],
   "dependencies": ["resource-scopes"],
   "contract_families": ["common", "execution-decision"],

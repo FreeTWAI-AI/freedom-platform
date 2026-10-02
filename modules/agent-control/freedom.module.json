@@ -1,0 +1,14 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "runtime-registration",
+  "owner_role": "foundation",
+  "owned_paths": ["modules/agent-control/**", "contracts/execution/v1/runtime-registration.ts", "contracts/execution/v1/runtime-public-jwk.schema.json", "contracts/execution/v1/runtime-registration-binding.schema.json", "contracts/execution/v1/runtime-registration-challenge.schema.json", "migrations/087_runtime_registrations.sql", "tests/runtime/runtime-proof.test.ts", "tests/runtime/runtime-registration.test.ts", "tests/runtime/runtime-registration-adversarial.test.ts", "tests/runtime/runtime-registration-contracts.test.ts", "tests/runtime/runtime-registration-grants.test.ts"],
+  "public_exports": ["contracts/execution/v1/runtime-registration.ts", "modules/agent-control/runtime-proof.ts", "modules/agent-control/runtime-registration.ts"],
+  "dependencies": ["execution-decision", "resource-scopes", "scoped-commands"],
+  "contract_families": ["common", "runtime-enrollment"],
+  "client_profiles": [],
+  "instructions": ["modules/agent-control/README.md", "docs/platform-plan/execution/unified-foundation/07-runtime-enrollment.md", "packages/scoped-commands/README.md"],
+  "invariants": ["current-authority-before-replay", "public-challenge-not-bearer", "real-signature-and-atomic-consumption", "no-key-squatting", "immutable-owner-key-environment", "revocation-no-resurrection", "no-operational-execution-authority"],
+  "tests": ["runtime.full"],
+  "surfaces": []
+}
