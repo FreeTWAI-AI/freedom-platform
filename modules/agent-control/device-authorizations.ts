@@ -17,6 +17,7 @@ import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { createRuntimeRegistrationChallenge, verifyRuntimeRegistrationProof } from './runtime-proof.js';
 import { createDevicePairingProofVerifier, parseDeviceAuthorizationHost, DevicePairingProofError } from './device-pairing-proof.js';
 import { createBootstrapTokenIssuer } from './bootstrap-issuer.js';
+import { insertInitialRefreshFamily } from './bootstrap-session-store.js';
 
 type State = 'pending' | 'approved' | 'denied' | 'consumed';
 interface Authorization {
@@ -288,6 +289,7 @@ export async function createDeviceAuthorizations(pool: Pool, options: { host: De
           const connectionId = randomUUID(), connectionExpiry = new Date(stamp.getTime()+30*24*60*60*1000);
           await q.query(`INSERT INTO agent_connections(connection_id,runtime_device_id,owner_user_id,owner_principal_id,scope_id,environment,client_id,issued_at,expires_at)
             VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [connectionId, enrollment.runtime_device_id, row.owner_user_id, row.owner_principal_id, row.scope_id, environment, clientId, stamp, connectionExpiry]);
+          const refresh = await insertInitialRefreshFamily(q, connectionId, stamp, connectionExpiry);
           const nonce: BootstrapNonce = { nonceId: randomUUID(), nonce: randomBytes(32).toString('base64url'), connectionId,
             issuedAt: stamp.toISOString(), expiresAt: new Date(stamp.getTime()+60000).toISOString(), operational_authority: false };
           await q.query(`INSERT INTO bootstrap_nonces(nonce_id,connection_id,runtime_device_id,owner_user_id,owner_principal_id,scope_id,environment,client_id,connection_version,challenge_key,nonce,issued_at,expires_at)
@@ -304,7 +306,7 @@ export async function createDeviceAuthorizations(pool: Pool, options: { host: De
           if (!live(row, final) || final >= enrollment.expires_at || final.getTime() < token.validFromMs || final.getTime() >= token.validUntilMs
             || final >= connectionExpiry || final >= new Date(nonce.expiresAt)) return invalid();
           return { status: 'issued', accessToken: token.accessToken, tokenType: 'DPoP', expiresAt: new Date(token.expiresAt*1000).toISOString(),
-            connectionId, runtimeDeviceId: enrollment.runtime_device_id, nonce, refreshSupported: false, operational_authority: false };
+            connectionId, runtimeDeviceId: enrollment.runtime_device_id, nonce, refresh, refreshSupported: true, operational_authority: false };
         });
         if (result) return result;
       }
