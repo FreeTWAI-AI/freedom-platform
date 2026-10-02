@@ -3,7 +3,9 @@ import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
 import type { Actor } from '../identity-membership/service.js';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
-import type { RuntimePublicJwk, RuntimeRegistrationChallenge } from '../../contracts/execution/v1/runtime-registration.js';
+import { RuntimeEnvironmentSchema as environmentSchema, RUNTIME_ENROLLMENT_TTL_MS, RUNTIME_ENROLLMENT_LIMITS,
+  type RuntimePublicJwk, type RuntimeRegistrationChallenge } from '../../contracts/execution/v1/runtime-registration.js';
+import { ExecutionVersion } from '../../contracts/execution/v1/state.js';
 import { parseRuntimePublicJwk, runtimePublicKeyThumbprint, createRuntimeRegistrationChallenge, verifyRuntimeRegistrationProof } from './runtime-proof.js';
 import { withMemberScope, type MemberScopeContext } from '../../packages/resource-scopes/index.js';
 import { scopedMemberCommand, scopedJournal } from '../../packages/scoped-commands/index.js';
@@ -11,11 +13,10 @@ import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { checkVersion } from '../../packages/db/index.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 
-const environmentSchema = z.enum(['local', 'staging-next', 'next']);
 const keySchema = z.string().min(8).max(128).regex(/^[A-Za-z0-9_-]+$(?![\s\S])/);
-const versionSchema = z.string().regex(/^[1-9][0-9]{0,18}$(?![\s\S])/).refine(v => BigInt(v) <= 9223372036854775807n);
+const versionSchema = ExecutionVersion.refine(v => BigInt(v) <= 9223372036854775807n);
 const beginSchema = z.object({ key: keySchema, publicJwk: z.unknown() }).strict();
-const confirmSchema = z.object({ key: keySchema, challengeId: OpaqueId, proof: z.string().min(1).max(4096) }).strict();
+const confirmSchema = z.object({ key: keySchema, challengeId: OpaqueId, proof: z.string().min(1).max(RUNTIME_ENROLLMENT_LIMITS.proofBytes) }).strict();
 const readSchema = z.object({ runtimeDeviceId: OpaqueId }).strict();
 const revokeSchema = readSchema.extend({ key: keySchema, expectedVersion: versionSchema.optional() }).strict();
 export interface BeginRuntimeRegistrationInput { key: string; publicJwk: RuntimePublicJwk }
@@ -130,7 +131,7 @@ export function createRuntimeRegistrations(pool: Pool, rawOptions: { environment
         (challenge_id,runtime_device_id,owner_user_id,owner_principal_id,scope_id,environment,begin_key,public_jwk,key_thumbprint,nonce,issued_at,expires_at)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
       [randomUUID(), randomUUID(), actor.user_id, context.subject_principal.principal_id, context.scope.scope_id,
-        environment, input.key, publicJwk, thumbprint, randomBytes(32).toString('base64url'), issuedAt, new Date(issuedAt.getTime() + 300_000)])).rows[0];
+        environment, input.key, publicJwk, thumbprint, randomBytes(32).toString('base64url'), issuedAt, new Date(issuedAt.getTime() + RUNTIME_ENROLLMENT_TTL_MS)])).rows[0];
       await scopedJournal(q, context, { aggregate_type: 'runtime_registration_challenge', id: row.challenge_id,
         version: '1', operation, data: { environment, operational_authority: false }, eventType: 'freedom.runtime.registration.challenge.v1' });
       return challenge(row);
