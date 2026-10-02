@@ -1,0 +1,51 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "assets",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/identity-membership/avatars.ts",
+    "apps/platform-api/src/routes/avatars.ts",
+    "apps/portal-web/src/modules/MemberAvatar.tsx",
+    "apps/portal-web/src/modules/MemberAvatar.css",
+    "apps/portal-web/src/modules/avatar-client.ts",
+    "tests/runtime/avatar.test.ts"
+  ],
+  "public_exports": [
+    "modules/identity-membership/avatars.ts",
+    "apps/portal-web/src/modules/avatar-client.ts"
+  ],
+  "dependencies": [],
+  "contract_families": [
+    "preview"
+  ],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
+    "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md",
+    "docs/platform-plan/execution/unified-foundation/05-media-migration.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.avatar"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "member.avatar",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/avatars.ts",
+      "operations": [
+        "member.avatar.metadata",
+        "member.avatar.read",
+        "member.avatar.replace",
+        "member.avatar.remove"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "work",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/opportunity-project-work/**",
+    "apps/platform-api/src/platform-app.ts",
+    "apps/portal-web/src/modules/MemberTasks.tsx",
+    "tests/runtime/flows.test.ts"
+  ],
+  "public_exports": [
+    "modules/opportunity-project-work/work.ts"
+  ],
+  "dependencies": [],
+  "contract_families": [
+    "preview"
+  ],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
+    "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md",
+    "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.work"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "work.legacy-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/platform-app.ts",
+      "operations": [
+        "work.list",
+        "work.create",
+        "work.claim",
+        "work.claim.update"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "work.member-tasks",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/MemberTasks.tsx",
+      "operations": [
+        "work.list",
+        "work.create"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
+}

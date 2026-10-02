@@ -5,9 +5,12 @@ import { fileURLToPath } from 'node:url';
 import { readBounded, parseJson, sha256, artifactPath, uniquePaths } from './io.mjs';
 import { validateFormat } from './formats.mjs';
 import { requireCondition as check } from './errors.mjs';
+import { verificationEnvironment } from './process-env.mjs';
 
 export const PORTABLE_TOOL_FILES = [
-  ...['errors', 'io', 'schema', 'formats', 'contracts', 'pin-cli'].map(name => `packages/contribution-tools/${name}.mjs`),
+  ...['errors', 'io', 'schema', 'formats', 'contracts', 'pin-cli', 'workspace', 'context', 'verify', 'cli',
+    'local-artifacts', 'process-env', 'test-reporter'].map(name => `packages/contribution-tools/${name}.mjs`),
+  'governance/README.md',
   ...['release-set', 'contract-pin-v1', 'contract-pin-v2', 'release-proof', 'release-trust', 'module', 'coding-context', 'verifier-report']
     .map(name => `governance/schemas/${name}.schema.json`),
 ];
@@ -39,7 +42,9 @@ export async function exportPreviewBundle(destinations, {
       check(rel && (rel === '..' || rel.startsWith('../') || rel.startsWith('..\\') || isAbsolute(rel)), 'overlapping_export_destination');
     }
   }
-  const git = args => execFileSync('git', args, { cwd: root, encoding: 'buffer', maxBuffer: 4_000_000, stdio: ['ignore', 'pipe', 'pipe'] });
+  const git = args => execFileSync('git', ['--no-optional-locks', '-c', 'core.fsmonitor=false', ...args], {
+    cwd: root, env: verificationEnvironment(), encoding: 'buffer', maxBuffer: 4_000_000, stdio: ['ignore', 'pipe', 'pipe'],
+  });
   const commit = git(['rev-parse', 'HEAD']).toString().trim();
   const bundleBytes = await readBounded(root, 'contracts/preview/v1/bundle.json'), bundle = parseJson(bundleBytes);
   const lock = { format: 'freedom.contract-pin/v1', source_repository: 'FreeTWAI-AI/freedom-platform', source_commit: commit,
@@ -56,7 +61,7 @@ export async function exportPreviewBundle(destinations, {
   };
   for (const name of artifactNames) await add(`contracts/preview/v1/${name}`, `vendor/freedom-platform/${name}`, bundle.files[name]);
   for (const name of PORTABLE_TOOL_FILES) await add(name, `vendor/freedom-tooling/${name}`);
-  for (const name of ['verify-contracts.mjs', 'verify-project-manifest.py']) {
+  for (const name of ['verify-contracts.mjs', 'verify-project-manifest.py', 'freedom.mjs']) {
     await add(`scripts/repository-bootstrap/${name}`, `scripts/${name}`);
   }
   // The lock is written last. No sync, GitHub call, commit, deletion or push.

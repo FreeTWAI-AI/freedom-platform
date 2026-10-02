@@ -19,8 +19,8 @@
     },
     {
       "path": ".gitignore",
-      "bytes": 200,
-      "sha256": "8ad7c472a0d1f5d15fdb4b67db9371f8658be9d58d0fa145c6121e9ddca1c6b4"
+      "bytes": 210,
+      "sha256": "6f1f463a281bc6d361cd1df4cc24c57228a6409ae0e1d849f7e17f73a5c351b6"
     },
     {
       "path": ".tool-versions",
@@ -1411,6 +1411,11 @@
       "path": "apps/portal-web/src/modules/event-banner-client.ts",
       "bytes": 3700,
       "sha256": "cb6283e189b6a03a556fbf4c379926cced4c631c6b9d751acec1fdcff79bdca2"
+    },
+    {
+      "path": "apps/portal-web/src/modules/freedom.module.json",
+      "bytes": 1659,
+      "sha256": "0dfd3e2a97e66695ea494cd270bdabe0db2f2c26467a2053bc2189e0dbc3e175"
     },
     {
       "path": "apps/portal-web/src/modules/github-connect-help.ts",
@@ -3104,8 +3109,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/README.md",
-      "bytes": 5279,
-      "sha256": "d768574c6a4f6754c7797eba6b4fe1e839bd696868b9365080f557f851f25e6b"
+      "bytes": 5427,
+      "sha256": "5996f8b42609d28c81afa9e2d887e644bc341666d0515184bcf589f5bdbc11d2"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
@@ -3139,8 +3144,8 @@
     },
     {
       "path": "docs/platform-plan/verification/verify_revision.py",
-      "bytes": 2803,
-      "sha256": "922297b2db3f930791be93d6b1cdd2ab4639f9203ca013794ea3098c11983200"
+      "bytes": 2815,
+      "sha256": "a369597865d925e438a5d20809d42726147ad230a5522d4e0b498abec044291f"
     },
     {
       "path": "docs/releases/2026-09-20-local-core.md",
@@ -3194,13 +3199,13 @@
     },
     {
       "path": "governance/README.md",
-      "bytes": 6030,
-      "sha256": "aa6f44d422c48438b60b3f9b6523b4e6fb13372325f4b43cebf72317aaa87eb5"
+      "bytes": 9740,
+      "sha256": "ccc6c1fc5c31444c2d0767b7d7a75fbea1599a53dc28137c86e02c2d20c2438c"
     },
     {
       "path": "governance/schemas/coding-context.schema.json",
-      "bytes": 3367,
-      "sha256": "fc574ceda8fda2ab73a5bba4fa8e5ba69c7049ac9d9f2bcbf27bf51038209642"
+      "bytes": 4438,
+      "sha256": "d1e4c68da753cb807270a0f86932a791134c7587b09e58614f7770a938c903e7"
     },
     {
       "path": "governance/schemas/contract-pin-v1.schema.json",
@@ -3214,8 +3219,8 @@
     },
     {
       "path": "governance/schemas/module.schema.json",
-      "bytes": 4448,
-      "sha256": "c00b6fca6a5abd3b777bac9c9eca5a0ddba0382a0972362ef9543fbd7766aedb"
+      "bytes": 4469,
+      "sha256": "3a3035066267f1ba9be015676350c3239ec4f1971eeb76fe26ae3aa409f7e657"
     },
     {
       "path": "governance/schemas/release-proof.schema.json",
@@ -3234,8 +3239,8 @@
     },
     {
       "path": "governance/schemas/verifier-report.schema.json",
-      "bytes": 2449,
-      "sha256": "31dbb13fd34053e0ddef73b7e9419c058aa9df4da04e83a0f59fa3cdbc1e1d95"
+      "bytes": 2658,
+      "sha256": "ddd76855f8d2b2fbca6480990f28bd8511c07fb457f5caed27b40861b161fb45"
     },
     {
       "path": "migrations/001_local_core.sql",
@@ -4013,6 +4018,11 @@
       "sha256": "704313580571aa148b676f2d6d7f1a795185d12e114745dc1fe2925ed33f68e9"
     },
     {
+      "path": "modules/identity-membership/freedom.module.json",
+      "bytes": 1454,
+      "sha256": "fe07563286512f29adf9fab5b92a17a1cc71975e2222b69021830f09456e0a41"
+    },
+    {
       "path": "modules/identity-membership/member-connections.ts",
       "bytes": 5045,
       "sha256": "66d6c095944d22891053f9c1416f9568b7541df141cbf6a210c946c46c8a2917"
@@ -4096,6 +4106,11 @@
       "path": "modules/opportunity-project-work/business.ts",
       "bytes": 10898,
       "sha256": "a9b218c6873ba895192235ea35dcdcfc87a55a8ae325c1ab923f17f4c7e18fa4"
+    },
+    {
+      "path": "modules/opportunity-project-work/freedom.module.json",
+      "bytes": 1517,
+      "sha256": "e111325ce7f0bcee395f4c93a27b2108b88f00a7e643841a3e82e315157f2126"
     },
     {
       "path": "modules/opportunity-project-work/work.ts",
@@ -4278,6 +4293,16 @@
       "sha256": "b47e3449b7415b097e14ef75bd750a3c8bee893eb11b78aa3de0f794cdf4782d"
     },
     {
+      "path": "packages/contribution-tools/cli.mjs",
+      "bytes": 2566,
+      "sha256": "d6158d84aa1e893286328a7b9b62e3a04336a54420b83b05d459e94473ce101c"
+    },
+    {
+      "path": "packages/contribution-tools/context.mjs",
+      "bytes": 11162,
+      "sha256": "64cef9d42f73c8a893c195141bb91d650e95b626d70ec2aee1732cb9ee9e8114"
+    },
+    {
       "path": "packages/contribution-tools/contracts.mjs",
       "bytes": 13521,
       "sha256": "b93c38fafc5c18de401236efee247980e75e26d58f9cd627eaaf6ff897efb3ca"
@@ -4289,8 +4314,8 @@
     },
     {
       "path": "packages/contribution-tools/export.mjs",
-      "bytes": 4322,
-      "sha256": "b1810fedfeb2951090ed7c55ef469a1fa7e3f28c9ea33d836b9fb5d871896b55"
+      "bytes": 4617,
+      "sha256": "cfcff79e3031e6c34e43a9aaec27dd9d55993afcead6213e405082b8eb2246f1"
     },
     {
       "path": "packages/contribution-tools/formats.mjs",
@@ -4298,9 +4323,19 @@
       "sha256": "45c9e1eedfa877b47869556322b8e0d9cb7de1183152eefdd9f998395db0dde4"
     },
     {
+      "path": "packages/contribution-tools/freedom.module.json",
+      "bytes": 1341,
+      "sha256": "6db3b5d895c59ce7b939067395e58a51f40da2d36e7d05f10564d4630c5feb23"
+    },
+    {
       "path": "packages/contribution-tools/io.mjs",
       "bytes": 9366,
       "sha256": "72f7efa4d7e7f068dd7dc34641eb5ba743c39a49630121a512ea665321b70c00"
+    },
+    {
+      "path": "packages/contribution-tools/local-artifacts.mjs",
+      "bytes": 2421,
+      "sha256": "c3daf7c3f90e49684889a3e2d146d2219ae1135850f2f3d67552e7f8e61644c2"
     },
     {
       "path": "packages/contribution-tools/pin-cli.mjs",
@@ -4308,19 +4343,29 @@
       "sha256": "1127a18c1ad53bc5b03d4be5f7e671a770fd0e2713bd35fc9272b42244646092"
     },
     {
+      "path": "packages/contribution-tools/process-env.mjs",
+      "bytes": 416,
+      "sha256": "34feb71f312c4298a02e8c7911c260947221b6ff1e786ddd5e2d2aa65eec1d6f"
+    },
+    {
       "path": "packages/contribution-tools/schema.mjs",
       "bytes": 2668,
       "sha256": "d49f73c04dffd77f6b4805b4978e174a0a2b380dd622a73fdeb09c64164b55a2"
     },
     {
+      "path": "packages/contribution-tools/test/context.test.mjs",
+      "bytes": 16472,
+      "sha256": "5fbd5ae6c0afce315389011681d6e5470a4df4b1a46e0cd56011469fdc8f37c1"
+    },
+    {
       "path": "packages/contribution-tools/test/contracts.test.mjs",
-      "bytes": 15071,
-      "sha256": "e9a95b08e2386c6b9e50e625b9230b725ae0830f0cfc4c8497ed2862d7f63f3c"
+      "bytes": 15092,
+      "sha256": "db7083eddf4d566ea4669d6bc0d1bb67a7737c177f37fd1bda6f62e116760eb5"
     },
     {
       "path": "packages/contribution-tools/test/export.test.mjs",
-      "bytes": 3266,
-      "sha256": "2a3d9b5e5c4208282e0a428e37f30f8e68ca7aeb7a7f8bdda7cbbfca4287da8a"
+      "bytes": 5465,
+      "sha256": "967c2008a19523584b4d27b13eb3c74f64c124df3af00403d2c143dcb61020a4"
     },
     {
       "path": "packages/contribution-tools/test/fixtures.mjs",
@@ -4331,6 +4376,21 @@
       "path": "packages/contribution-tools/test/io.test.mjs",
       "bytes": 5714,
       "sha256": "a400de3901b8fa961696c19915cfede02284218ef45813abfd9c0f4c824474db"
+    },
+    {
+      "path": "packages/contribution-tools/test-reporter.mjs",
+      "bytes": 492,
+      "sha256": "dcedbcb270e0555c8ab0069d15f5bb5c82dacbbf95260335a232f33fe36215d8"
+    },
+    {
+      "path": "packages/contribution-tools/verify.mjs",
+      "bytes": 6222,
+      "sha256": "19a9f3acd83910ae61822531d1c6d3bb5bfe0983b385fd7e7b10254f4676e8bc"
+    },
+    {
+      "path": "packages/contribution-tools/workspace.mjs",
+      "bytes": 4109,
+      "sha256": "d33f1abc6db45d371b958c573459ad364fff3bbf62738036edcf976aa890cd35"
     },
     {
       "path": "packages/db/index.ts",
@@ -4553,6 +4613,11 @@
       "sha256": "2ff9bd0082a126b87e12d08b970cccc7698d8da658b598b8d2c8324a8b7f2623"
     },
     {
+      "path": "scripts/freedom.mjs",
+      "bytes": 198,
+      "sha256": "286b978e5d17b46a01e57fb52b5cfc5aae03b30b54759b4e800c32e9deaad1fb"
+    },
+    {
       "path": "scripts/generate-runtime-text.mjs",
       "bytes": 1825,
       "sha256": "791936793b4262d060f210ba2886d93690a31a2bd8acd5ec4b9dc80ee04b2b53"
@@ -4561,6 +4626,11 @@
       "path": "scripts/label-page-issue.ts",
       "bytes": 2820,
       "sha256": "9d251f0ea7e8f2bda2b6285b055fe23655f92b23532509171c191ef848ae1572"
+    },
+    {
+      "path": "scripts/repository-bootstrap/freedom.mjs",
+      "bytes": 216,
+      "sha256": "323fa7ee4ac91158aa91d25fe16ae4d105380914749f0bef09269a07dea863b7"
     },
     {
       "path": "scripts/repository-bootstrap/generate-manifests.py",

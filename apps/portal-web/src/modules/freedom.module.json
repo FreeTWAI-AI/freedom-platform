@@ -1,0 +1,58 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "member-card",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/identity-membership/member-sharing.ts",
+    "modules/identity-membership/social-links.ts",
+    "apps/portal-web/src/modules/MemberECard.tsx",
+    "apps/portal-web/src/modules/MemberECard.css",
+    "apps/portal-web/src/modules/Membership.tsx",
+    "apps/portal-web/src/modules/PublicMemberPage.tsx",
+    "apps/portal-web/src/modules/MemberCardShareActions.tsx",
+    "tests/runtime/member-ecard.test.ts"
+  ],
+  "public_exports": [
+    "modules/identity-membership/member-sharing.ts"
+  ],
+  "dependencies": [],
+  "contract_families": [
+    "preview"
+  ],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
+    "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.member-card"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "member.card.editor",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/MemberECard.tsx",
+      "operations": [
+        "member.card.read",
+        "member.card.update"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "member.card.public",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/PublicMemberPage.tsx",
+      "operations": [
+        "member.card.share.read"
+      ],
+      "auth_profile": "revocable-share"
+    }
+  ]
+}

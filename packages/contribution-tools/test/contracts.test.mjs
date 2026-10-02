@@ -206,7 +206,7 @@ test('module/context/report schemas require scope and disallow candidate command
 test('bootstrap CLI has safe machine output and exit 0/1/2; candidate trust is not an option', async t => {
   const entry = fileURLToPath(new URL('../pin-cli.mjs', import.meta.url));
   const run = (root, args = []) => spawnSync(process.execPath,
-    ['--input-type=module', '-e', `import { runPinCli } from ${JSON.stringify(new URL('../pin-cli.mjs', import.meta.url).href)}; process.exitCode = await runPinCli();`, '--', ...args],
+    ['--input-type=module', '-e', `import { runPinCli } from ${JSON.stringify(new URL('../pin-cli.mjs', import.meta.url).href)}; process.exitCode = await runPinCli(process.argv.slice(1));`, '--', ...args],
     { cwd: root, encoding: 'utf8' });
   assert(entry.endsWith('pin-cli.mjs'));
   const legacy = await legacyFixture(t), release = await releaseFixture(t);

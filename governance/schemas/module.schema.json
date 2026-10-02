@@ -133,7 +133,8 @@
               "scheduled",
               "queue",
               "mcp",
-              "native"
+              "native",
+              "cli"
             ]
           },
           "entry": {

@@ -4,6 +4,24 @@
   "title": "Freedom coding-context development schema",
   "type": "object",
   "properties": {
+    "workspace_id": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "branch": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "publisher_trust": { "const": "unverified" },
+    "library_usage": { "const": "not_checked" },
+    "version_inputs": {
+      "type": "array", "minItems": 0, "maxItems": 32,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["path", "revision", "sha256", "bytes"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1, "maxLength": 240 },
+          "revision": { "enum": ["base", "candidate"] },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "bytes": { "type": "integer", "minimum": 0, "maximum": 2000000 },
+          "content": { "type": "string", "maxLength": 2000000 }
+        }
+      }
+    },
     "format": {
       "const": "freedom.coding-context/v1"
     },
@@ -93,13 +111,20 @@
           "content": {
             "type": "string",
             "maxLength": 2000000
+          },
+          "revision": {
+            "enum": [
+              "base",
+              "candidate"
+            ]
           }
         },
         "required": [
           "path",
           "sha256",
           "bytes",
-          "content"
+          "content",
+          "revision"
         ],
         "additionalProperties": false
       },
@@ -132,6 +157,7 @@
     }
   },
   "required": [
+    "workspace_id", "branch", "version_inputs", "publisher_trust", "library_usage",
     "format",
     "assurance_level",
     "task_id",

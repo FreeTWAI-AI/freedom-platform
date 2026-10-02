@@ -1,4 +1,4 @@
-# Contract release verification
+# Contract release verification and development context
 
 This directory defines the development schemas for the unified-foundation governance work. The first implementation verifies legacy preview pins and signed ReleaseSet pins locally. It does **not** configure a trusted publisher, GitHub protection, runtime authorization, or production signing.
 
@@ -13,6 +13,24 @@ git diff --exit-code -- contracts/preview/v1 packages/sdk
 ```
 
 The tests use synthetic repositories, ephemeral in-memory signing keys and temporary files. They do not connect to a database, provider, R2 or GitHub. Existing preview bytes are used for compatibility tests.
+
+## Development entrypoints
+
+```sh
+node scripts/freedom.mjs prepare --base-ref origin/main --scope assets,member-card
+node scripts/freedom.mjs context --base-ref origin/main --paths apps/portal-web/src/modules/Membership.tsx
+node scripts/freedom.mjs verify --base-ref origin/main --report .freedom/reports/current.json
+```
+
+Run from the repository root with Node 24. `prepare` writes an ignored, task-scoped context bundle; `context` prints the full applicable content; `verify` runs the implemented local checks and optionally saves a report. Exit codes are 0 (complete for the requested local scope), 1 (failed), and 2 (required evidence unavailable). None of these results is a trusted merge or execution authorization.
+
+Context contains repository/base/head, a hashed worktree identity, branch, staged and unstaged changes, untracked source, root and applicable nested AGENTS instructions, and both baseline and changed policy text. Contract pins/ReleaseSets include their public version information; dependency manifests are fingerprinted without copying potentially private registry settings. The bundle records `publisher_trust=unverified` and `library_usage=not_checked`, never that an Agent understood it. Regenerate after changing scope, base, lock, branch/worktree, or session; no receipt is committed into a shared JSON file.
+
+Module descriptors use exact paths or directory `/**` patterns. Impact is the union of baseline and candidate descriptors plus reverse dependencies. Deleting, renaming or shrinking a descriptor cannot subtract baseline scope/tests. Unknown non-document paths select all modules and require a full fallback; missing baseline governance, missing instructions and unmapped surfaces remain explicit blockers. Descriptor references check file existence, **not** actual route registration or ACL behavior.
+
+The first descriptors cover governance, legacy avatar/member-card entrypoints and work. This is not a complete runtime registry. `governance.unit` is the only implemented test adapter: fixed Node tests, no candidate shell commands or package hooks, bounded execution/output, no inherited provider/DB tokens or Node preload hooks. A custom reporter consumes [Node test summary events](https://nodejs.org/docs/latest-v24.x/api/test.html#event-testsummary), requiring real nonempty tests in every selected file and zero skips/TODO/failures. Unknown test adapters and runtime registration/behavior checks return `not_run`, making the report unavailable rather than green. The runner is not a security sandbox: local tests remain code with the current OS user's filesystem/network rights; untrusted PR tests require isolated secret-free CI.
+
+During initial adoption, running against an `origin/main` without descriptors correctly returns `baseline_governance_unavailable`. Do not change the base to hide that result in PR evidence. Synthetic repositories with an established baseline test the successful path. The export command also supplies the same central context library and a thin `scripts/freedom.mjs` to consumers; each consumer must supply reviewed module descriptors and actual suite adapters.
 
 An explicit export, after committing all source files, remains:
 
@@ -51,5 +69,7 @@ Trusted CI must run the fixed verifier against an isolated, immutable checkout w
 ## Implementation evidence
 
 On 2026-10-02, the first local implementation passed 88 Node tests with no skips. The existing preview build regenerated 32 operations and 9 bundle artifacts with no changes under `contracts/preview/v1` or `packages/sdk`.
+
+The context increment passed 106 Node tests, zero skips, including baseline/candidate scope, deleted rules, nested context, branch/worktree changes, stale workspace/base, secret-free subprocess environment, bounded report writes, zero/skipped/forged test output and three independently initialized synthetic consumer repositories. Existing contract tests passed 659 cases with 4 pre-existing skips (clock cases with fewer than three schema paths). These fixtures do not mean the real Agent Kit, client or other consumer repos have been upgraded.
 
 The evidence supports the local portions of GOV-01/02/03/22, path/input safety and v1 compatibility; it does not mark those full product requirements passed. Release-proof purpose tests are not execution-token tests. Three real consumer checkouts, TS/Rust conformance, Windows/macOS, trusted GitHub checks, production publishers and runtime rejection remain unverified. All source acceptance rows remain `not_run` until their complete required evidence exists.

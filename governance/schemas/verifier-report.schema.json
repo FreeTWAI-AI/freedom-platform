@@ -70,6 +70,14 @@
             "minLength": 1,
             "maxLength": 160,
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._/-]*$"
+          },
+          "test_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "evidence_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
           }
         },
         "required": [
