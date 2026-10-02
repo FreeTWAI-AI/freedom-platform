@@ -1,6 +1,6 @@
-# Closed member-avatar upload lifecycle
+# Member-avatar lifecycle and default-closed Asset upload
 
-This ASSET-A increment composes the [scoped member command core](../../packages/scoped-commands/index.ts) with [asset-storage](../../packages/asset-storage/README.md). Upload remains an internal prototype, not an enabled product flow. ASSET-B adds a [default-legacy read bridge and writer fencing](../identity-membership/avatar-bridge.md); it does not register an Asset upload route, configure a Worker binding, permit private Work writes, or enable automatic cleanup.
+This increment composes the [scoped member command core](../../packages/scoped-commands/index.ts) with [asset-storage](../../packages/asset-storage/README.md). ASSET-B provides a [default-legacy read bridge](../identity-membership/avatar-bridge.md) and a [compatible upload facade](avatar-upload.md) on the existing POST. New Asset uploads require an injected store plus explicit database policy/revision/quota; defaults remain legacy and persistence-disabled. These modules do not configure cloud resources, permit private Work writes, or enable automatic cleanup.
 
 ## One version authority, not a live avatar cutover
 
@@ -10,7 +10,7 @@ The target is the real `member_avatars.user_id` FK and **its existing `aggregate
 
 ## Internal API
 
-`createAvatarAssetService(pool, dependencies)` captures a trusted `ObjectStore`, `AvatarNormalizer`, and `resolvePolicy(q, context, targetUserId)` function. The policy resolver runs inside the same transaction and must only do local/database work; if its policy can change, lock its backing records until commit. A true-returning test resolver is not production data-policy evidence. Callers cannot send serialized policy or storage verification evidence.
+`createAvatarAssetService(pool, dependencies)` captures a trusted `ObjectStore`, `AvatarNormalizer`, and `resolvePolicy(q, context, targetUserId)` function. Every resolver must return an explicit `retainedByteLimit` decimal string as well as persistence permission/revision. It runs inside the same transaction and must only do local/database work; if its policy can change, lock its backing records until commit. The HTTP facade uses only the server-backed resolver from `avatar-policy.ts`, never an injected true policy. A true-returning test resolver is not production data-policy evidence. Callers cannot send serialized policy or storage verification evidence.
 
 | Method | Input beyond authenticated server Actor | Result |
 | --- | --- | --- |
@@ -40,7 +40,7 @@ The database lock order is current user → session → principal → personal s
 
 [Migration 079](../../migrations/079_asset_upload_lifecycle.sql), provisionally numbered until integration, creates `assets`, immutable `asset_objects`, `asset_upload_intents` and the typed avatar sidecar. Composite FKs bind actual user/principal/personal-scope, purpose, representation and policy. Pointer FKs require a ready Asset of the same user/scope/purpose. Assets must be inserted pending and intents prepared without a lease; direct ready/stored/finalized inserts cannot skip transition checks. A ready/stored transition requires its persisted representation. Required first-profile variants are exactly the single canonical avatar representation. These SQL constraints establish metadata relationships; only the trusted write path establishes actual object bytes/digest.
 
-Default intent TTL is one hour (configurable 1–86400 seconds), lease is five minutes (1–3600), and concurrent pending-intent limit is three (1–100). Each intent reserves the maximum 128 KiB avatar output. The limit bounds simultaneous live reservations, **not lifetime physical storage**: expired/orphan/retired bytes remain. Expired intents are rejected based on their clock deadline, without a background state rewrite. A total retained-byte quota and reclamation policy are required before activation.
+Default intent TTL is one hour (configurable 1–86400 seconds), lease is five minutes (1–3600), and concurrent pending-intent limit is three (1–100). Each intent reserves the maximum 128 KiB avatar output. Separately, every prepare checks the mandatory per-owner retained-byte limit while holding the real avatar lock. Verified objects charge actual immutable byte size; all other Assets reserve the maximum, including expired/orphaned intents; retired/tombstoned objects and retained legacy bytes remain charged. No observation of missing storage automatically releases quota. Expired intents are rejected based on their clock deadline, without a background state rewrite. Reclamation policy remains a separate activation gate.
 
 GC, deletion fences, backup pins/barriers, retention and orphan reconciliation remain closed. No service method calls `ObjectStore.delete`; SQL rejects deletion/rebinding of lifecycle rows and object metadata. This is not a claim that a late external PUT cannot recreate a manually deleted object. No automatic expiry deletion, R2 setup, backup/restore, private Work result or machine credential support is provided.
 
@@ -48,4 +48,4 @@ GC, deletion fences, backup pins/barriers, retention and orphan reconciliation r
 
 [Focused lifecycle tests](../../tests/runtime/asset-lifecycle.test.ts) register `ASSET-LIFE-01`–`14` against explicit disposable PostgreSQL and fresh `fp_asset_lifecycle_*` schemas, with real image decoding and fake object I/O. They cover durable phases, idempotency/quota, original source-manifest validation, fresh policy, owner/version checks, missing-object retry, SQL constraints, lease takeover, legacy-version invalidation, caller mutation across an await, strict input validation, and actual blocked-lock session expiry before metadata disclosure or source/object I/O. Independent race tests are maintained in a separate integration slice.
 
-Executed local checks belong in the handoff, not inferred from this list. No staging/prod/cloud/HTTP/complete ASSET-A acceptance is implied. The remaining bridge, retained-byte quota, GC/backup, rollout and full private-work surfaces must pass their own acceptance before enabling this prototype.
+Executed local checks belong in the handoff, not inferred from this list. No staging/prod/cloud or complete ASSET-A acceptance is implied. The upload facade has synthetic local HTTP/race/atomicity evidence; actual cloud media, GC/backup/restore, rollout and full private-work surfaces must pass their own acceptance before production cutover.

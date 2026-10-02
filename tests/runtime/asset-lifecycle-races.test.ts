@@ -61,7 +61,7 @@ class ObservedStore extends FakeObjectStore {
   }
 }
 function service(store = new ObservedStore()) {
-  const policy: PersistencePolicy & { revision: string; platformPersistenceAllowed: boolean } = { revision: 'asset-race-policy-1', platformPersistenceAllowed: true };
+  const policy: PersistencePolicy & { revision: string; platformPersistenceAllowed: boolean; retainedByteLimit: string } = { revision: 'asset-race-policy-1', platformPersistenceAllowed: true, retainedByteLimit: '10485760' };
   const api = createAvatarAssetService(pool, { store, resolvePolicy: async () => ({ ...policy }),
     normalizeAvatar: async (bytes, spec) => normalizeImage(Buffer.from(bytes), spec), leaseSeconds: 60, intentTtlSeconds: 600 });
   return { api, store, policy };
@@ -339,7 +339,7 @@ test('ASSET-RACE-16 mutable Actor cannot switch the target while server policy r
     normalizeAvatar: async (bytes, spec) => normalizeImage(Buffer.from(bytes), spec),
     resolvePolicy: async () => {
       if (armed) { entered.release(); await release.promise; }
-      return { revision: 'actor-snapshot-policy', platformPersistenceAllowed: true };
+      return { revision: 'actor-snapshot-policy', platformPersistenceAllowed: true, retainedByteLimit: '10485760' };
     } });
   await api.prepare(owner, await manifest(owner));
   armed = true;
@@ -424,7 +424,7 @@ for (const [index, table] of ['scoped_transition_journal', 'scoped_outbox', 'sco
 
 test('ASSET-RACE-23 intent expiry is checked after a demonstrated row-lock wait, not at transaction start', async () => {
   const owner = await member(), store = new ObservedStore();
-  const policy = { revision: 'expiry-race-policy', platformPersistenceAllowed: true };
+  const policy = { revision: 'expiry-race-policy', platformPersistenceAllowed: true, retainedByteLimit: '10485760' };
   const api = createAvatarAssetService(pool, { store, resolvePolicy: async () => ({ ...policy }),
     normalizeAvatar: async (bytes, spec) => normalizeImage(Buffer.from(bytes), spec), intentTtlSeconds: 2, leaseSeconds: 2 });
   const upload = await stored({ api, store, policy }, owner), lock = await pool.connect();

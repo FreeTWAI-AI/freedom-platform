@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import type { ObjectStore } from '../../../../packages/asset-storage/index.js';
+import { createAvatarUploadFacade } from '../../../../modules/assets/avatar-upload.js';
 import { moduleCommand, type PlatformEnv } from '../module-context.js';
 import { requireCondition } from '../../../../packages/shared/problem.js';
 import { authRateLimit } from '../../../../modules/identity-membership/members.js';
@@ -35,6 +36,7 @@ async function boundedUpload(request: Request) {
 }
 export function createAvatarRoutes(pool: Pool, store?: ObjectStore) {
   const app = new Hono<PlatformEnv>();
+  const uploadAvatar = createAvatarUploadFacade(pool, { store, legacySave: (input, upload) => saveAvatar(pool, input, upload) });
   app.get('/me/avatar', async c => c.json(await avatarMetadata(pool, c.get('actor'))));
   app.post('/me/avatar', async c => {
     checkAvatarUploadHeaders(c.req.header('Content-Type'), c.req.header('Content-Length'));
@@ -45,7 +47,7 @@ export function createAvatarRoutes(pool: Pool, store?: ObjectStore) {
     await authRateLimit(pool, 'avatar-upload-member', c.get('actor').user_id, 12, 60);
     await authRateLimit(pool, 'avatar-upload-global', 'global', 120, 60);
     const bytes = await boundedUpload(c.req.raw);
-    const result = await saveAvatar(pool, { actor: c.get('actor'), operation: `${c.req.method} ${c.req.path}`, key, expected: version.slice(1, -1), body: null }, { bytes, mime: c.req.header('Content-Type')! });
+    const result = await uploadAvatar({ actor: c.get('actor'), operation: `${c.req.method} ${c.req.path}`, key, expected: version.slice(1, -1), body: null }, { bytes, mime: c.req.header('Content-Type')! });
     c.header('ETag', `"${result.aggregate_version}"`);
     return c.json(result);
   });

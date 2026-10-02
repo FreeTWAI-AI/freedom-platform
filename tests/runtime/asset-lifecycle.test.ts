@@ -38,7 +38,7 @@ function service(store: ObjectStore = new FakeObjectStore(), overrides: Partial<
   return createAvatarAssetService(pool, { store, normalizeAvatar: (bytes, spec) => normalizeImage(Buffer.from(bytes), spec),
     resolvePolicy: async (q, _context, userId) => {
       const row = (await q.query('SELECT revision,allowed FROM test_asset_policy WHERE user_id=$1 FOR SHARE', [userId])).rows[0];
-      return { revision: row.revision, platformPersistenceAllowed: row.allowed };
+      return { revision: row.revision, platformPersistenceAllowed: row.allowed, retainedByteLimit: '10485760' };
     }, ...overrides });
 }
 const body = () => new ReadableStream<Uint8Array>({ start(c) { c.enqueue(png); c.close(); } });
@@ -167,7 +167,7 @@ test('ASSET-LIFE-10 actor mutation during policy await cannot select another mem
   await pool.query('UPDATE member_avatars SET aggregate_version=123 WHERE user_id=$1', [peer.user_id]);
   let entered!: () => void, release!: () => void;
   const started = new Promise<void>(resolve => { entered = resolve; }), barrier = new Promise<void>(resolve => { release = resolve; });
-  const api = service(undefined, { resolvePolicy: async () => { entered(); await barrier; return { revision: 'policy-1', platformPersistenceAllowed: true }; } });
+  const api = service(undefined, { resolvePolicy: async () => { entered(); await barrier; return { revision: 'policy-1', platformPersistenceAllowed: true, retainedByteLimit: '10485760' }; } });
   const mutable = { ...owner }, pending = api.readTarget(mutable);
   await started; mutable.user_id = peer.user_id; release();
   assert.deepEqual(await pending, { targetUserId: owner.user_id, assetId: null, aggregateVersion: '1' });

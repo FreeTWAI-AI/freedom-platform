@@ -2,14 +2,15 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
 import type { Actor } from '../identity-membership/service.js';
-import { checkVersion, digest } from '../../packages/db/index.js';
+import { checkVersion, digest, type Command } from '../../packages/db/index.js';
 import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
-import { scopedMemberCommand, scopedJournal } from '../../packages/scoped-commands/index.js';
+import { avatarMemberCommand, scopedMemberCommand, scopedJournal } from '../../packages/scoped-commands/index.js';
 import { withMemberScope, type MemberScopeContext } from '../../packages/resource-scopes/index.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
+import { requireAvatarCapacity, requireAvatarQuotaLimit, type AvatarPersistencePolicy } from './avatar-policy.js';
 import { AVATAR_PROFILE, objectKey, prepareAvatar, readBounded, requirePersistence, sha256, verifyObject, writeVerifiedObject,
-  type AvatarNormalizer, type ObjectMetadata, type ObjectStore, type PersistencePolicy } from '../../packages/asset-storage/index.js';
+  type AvatarNormalizer, type ObjectMetadata, type ObjectStore } from '../../packages/asset-storage/index.js';
 
 const version = z.string().refine(v => /^[1-9][0-9]{0,18}$/.test(v) && !/[\r\n]/.test(v) && BigInt(v) <= 9223372036854775807n);
 const key = z.string().min(8).max(128).regex(/^[A-Za-z0-9_-]+$/).refine(v => !/[\r\n]/.test(v));
@@ -26,7 +27,7 @@ export interface AvatarAssetDependencies {
   readonly normalizeAvatar: AvatarNormalizer;
   /** Trusted server resolver: same transaction, database-only; lock any mutable
    * policy backing records until commit. Never accept caller-supplied policy. */
-  readonly resolvePolicy: (q: PoolClient, context: MemberScopeContext, targetUserId: string) => Promise<PersistencePolicy>;
+  readonly resolvePolicy: (q: PoolClient, context: MemberScopeContext, targetUserId: string) => Promise<AvatarPersistencePolicy>;
   readonly intentTtlSeconds?: number;
   readonly leaseSeconds?: number;
   readonly maxPendingIntents?: number;
@@ -42,18 +43,20 @@ interface Intent {
 const missing = (present: unknown) => requireCondition(present, 404, 'asset_intent_not_found', '找不到這個上傳。');
 const invalidState = (allowed: boolean) => requireCondition(allowed, 409, 'asset_intent_state', '上傳狀態已改變。');
 
-/** CLOSED internal prototype. No HTTP registration, storage binding, private
- * Work creation, legacy bytes replacement, GC, execution or service auth. */
+/** Internal lifecycle used by the explicitly configured avatar facade. No
+ * generic Asset routes, storage binding, private Work, GC or machine auth. */
 export function createAvatarAssetService(pool: Pool, dependencies: AvatarAssetDependencies) {
   const settings = z.object({ ttl: z.number().int().min(1).max(86400), lease: z.number().int().min(1).max(3600), pending: z.number().int().min(1).max(100) })
     .parse({ ttl: dependencies.intentTtlSeconds ?? 3600, lease: dependencies.leaseSeconds ?? 300, pending: dependencies.maxPendingIntents ?? 3 });
   // Capture ports once; dependencies are server configuration, not request data.
   const { store, normalizeAvatar, resolvePolicy } = dependencies;
 
-  async function policy(q: PoolClient, context: MemberScopeContext, userId: string, pinned?: string): Promise<PersistencePolicy> {
+  async function policy(q: PoolClient, context: MemberScopeContext, userId: string, pinned?: string): Promise<AvatarPersistencePolicy> {
     const resolved = await resolvePolicy(q, context, userId);
-    const snapshot = Object.freeze({ revision: resolved?.revision, platformPersistenceAllowed: resolved?.platformPersistenceAllowed });
+    const snapshot = Object.freeze({ revision: resolved?.revision, platformPersistenceAllowed: resolved?.platformPersistenceAllowed,
+      retainedByteLimit: resolved?.retainedByteLimit });
     requirePersistence(snapshot);
+    requireAvatarQuotaLimit(snapshot.retainedByteLimit);
     requireCondition(pinned === undefined || snapshot.revision === pinned, 409, 'asset_policy_changed', '內容政策已變更，請重新準備上傳。');
     return snapshot;
   }
@@ -102,7 +105,7 @@ export function createAvatarAssetService(pool: Pool, dependencies: AvatarAssetDe
   async function prepare(actor: Actor, raw: AvatarPrepareInput) {
     actor = Object.freeze({ ...actor });
     const input = prepareInput.parse(raw), { key: receiptKey, ...body } = input;
-    let resolved!: PersistencePolicy, avatar!: Target;
+    let resolved!: AvatarPersistencePolicy, avatar!: Target;
     return scopedMemberCommand(pool, { actor, scope: 'personal', operation: 'asset.upload.prepare', key: receiptKey,
       target: { kind: 'member.avatar', id: input.targetUserId }, expected: input.expectedVersion, body }, async (q, context) => {
       requireCondition(input.targetUserId === actor.user_id, 404, 'asset_target_not_found', '找不到這個目標。');
@@ -114,6 +117,7 @@ export function createAvatarAssetService(pool: Pool, dependencies: AvatarAssetDe
       const pending = (await q.query('SELECT count(*)::int AS n FROM asset_upload_intents WHERE owner_principal_id=$1 AND scope_id=$2 AND state<>\'finalized\' AND expires_at>clock_timestamp()',
         [context.subject_principal.principal_id, context.scope.scope_id])).rows[0].n;
       requireCondition(pending < settings.pending, 409, 'asset_upload_quota', '進行中的上傳已達上限。');
+      await requireAvatarCapacity(q, actor.user_id, resolved.retainedByteLimit, AVATAR_PROFILE.outputMaxBytes);
       const assetId = randomUUID(), intentId = randomUUID(), representationId = randomUUID();
       await q.query('INSERT INTO assets(asset_id,scope_id,owner_principal_id,owner_user_id,policy_revision,representation_id) VALUES($1,$2,$3,$4,$5,$6)',
         [assetId, context.scope.scope_id, context.subject_principal.principal_id, actor.user_id, resolved.revision, representationId]);
@@ -182,6 +186,24 @@ export function createAvatarAssetService(pool: Pool, dependencies: AvatarAssetDe
       return { intentId: row.intent_id, assetId: row.asset_id, state: 'stored' as const };
     });
   }
+  async function publish(q: PoolClient, context: MemberScopeContext, actor: Actor, row: Intent, avatar: Target, mode: string, legacyReceipt = false) {
+    invalidState(row.state === 'stored');
+    checkVersion(avatar.aggregate_version, row.expected_version);
+    const activated = await q.query("UPDATE assets SET state='ready',ready_at=clock_timestamp() WHERE asset_id=$1 AND state='pending'", [row.asset_id]);
+    invalidState(activated.rowCount === 1);
+    const result = (await q.query("UPDATE member_avatars SET aggregate_version=aggregate_version+1,storage_source=CASE WHEN $3='legacy' THEN storage_source ELSE 'asset' END,updated_at=clock_timestamp() WHERE user_id=$1 AND aggregate_version=$2 RETURNING aggregate_version",
+      [actor.user_id, row.expected_version, mode])).rows[0];
+    requireCondition(result, 412, 'version_conflict', '頭像版本已改變。');
+    await q.query('UPDATE member_avatar_asset_targets SET asset_id=$2,linked_at_version=$3 WHERE user_id=$1', [actor.user_id, row.asset_id, result.aggregate_version]);
+    if (avatar.asset_id && avatar.asset_id !== row.asset_id) await q.query("UPDATE assets SET state='retired',retired_at=clock_timestamp() WHERE asset_id=$1 AND state='ready'", [avatar.asset_id]);
+    await q.query("UPDATE asset_upload_intents SET state='finalized',finalized_at=clock_timestamp() WHERE intent_id=$1", [row.intent_id]);
+    await scopedJournal(q, context, legacyReceipt
+      ? { aggregate_type: 'member_avatar', id: actor.user_id, version: result.aggregate_version, operation: 'member.avatar.replace',
+          data: { intent_id: row.intent_id, asset_id: row.asset_id }, eventType: 'freedom.member.avatar.replaced.v1' }
+      : { aggregate_type: 'asset', id: row.asset_id, version: result.aggregate_version, operation: 'asset.upload.finalize',
+          data: { intent_id: row.intent_id, target_user_id: actor.user_id }, eventType: 'freedom.asset.avatar.stored.v1' });
+    return { intentId: row.intent_id, assetId: row.asset_id, targetUserId: actor.user_id, aggregateVersion: result.aggregate_version as string };
+  }
   async function finalize(actor: Actor, raw: AvatarLeaseInput) {
     actor = Object.freeze({ ...actor });
     const input = leaseInput.parse(raw), snapshot = await inspect(actor, input, true);
@@ -197,19 +219,48 @@ export function createAvatarAssetService(pool: Pool, dependencies: AvatarAssetDe
       if (row.state !== 'finalized') await live(q, row, input);
       else requireCondition(row.fence === input.fence && row.lease_token === input.leaseToken, 409, 'asset_lease_stale', '上傳租約已失效。');
     }, async (q, context) => {
-      invalidState(row.state === 'stored');
-      checkVersion(avatar.aggregate_version, row.expected_version);
-      const activated = await q.query("UPDATE assets SET state='ready',ready_at=clock_timestamp() WHERE asset_id=$1 AND state='pending'", [row.asset_id]);
-      invalidState(activated.rowCount === 1);
-      const result = (await q.query("UPDATE member_avatars SET aggregate_version=aggregate_version+1,storage_source=CASE WHEN $3='legacy' THEN storage_source ELSE 'asset' END,updated_at=clock_timestamp() WHERE user_id=$1 AND aggregate_version=$2 RETURNING aggregate_version",
-        [actor.user_id, row.expected_version, routing.mode])).rows[0];
-      requireCondition(result, 412, 'version_conflict', '頭像版本已改變。');
-      await q.query('UPDATE member_avatar_asset_targets SET asset_id=$2,linked_at_version=$3 WHERE user_id=$1', [actor.user_id, row.asset_id, result.aggregate_version]);
-      if (avatar.asset_id && avatar.asset_id !== row.asset_id) await q.query("UPDATE assets SET state='retired',retired_at=clock_timestamp() WHERE asset_id=$1 AND state='ready'", [avatar.asset_id]);
-      await q.query("UPDATE asset_upload_intents SET state='finalized',finalized_at=clock_timestamp() WHERE intent_id=$1", [row.intent_id]);
-      await scopedJournal(q, context, { aggregate_type: 'asset', id: row.asset_id, version: result.aggregate_version,
-        operation: 'asset.upload.finalize', data: { intent_id: row.intent_id, target_user_id: actor.user_id }, eventType: 'freedom.asset.avatar.stored.v1' });
-      return { intentId: row.intent_id, assetId: row.asset_id, targetUserId: actor.user_id, aggregateVersion: result.aggregate_version as string };
+      return publish(q, context, actor, row, avatar, routing.mode);
+    });
+  }
+  /** Server-only facade recovery. An unexpired lease is reusable by the SAME
+   * authenticated intent owner; immutable PUT still resolves duplicate effects.
+   * Expired takeover uses a stable key bound to the previous monotonic fence. */
+  async function resumeUpload(actor: Actor, raw: AvatarClaimInput) {
+    actor = Object.freeze({ ...actor });
+    const input = claimInput.parse(raw);
+    const snapshot = await withMemberScope(pool, { actor, scope: 'personal' }, async () => {}, async (q, context) => {
+      await target(q, context, actor); const row = await intent(q, context, actor, input.intentId);
+      await policy(q, context, actor.user_id, row.policy_revision);
+      if (row.state !== 'finalized') await live(q, row);
+      const active = (await q.query('SELECT lease_expires_at>clock_timestamp() AS active FROM asset_upload_intents WHERE intent_id=$1', [row.intent_id])).rows[0].active;
+      await assertCurrentSessionClock(q, actor);
+      return { row, active };
+    });
+    if (snapshot.active || snapshot.row.state === 'finalized') return { state: snapshot.row.state,
+      intentId: snapshot.row.intent_id, fence: snapshot.row.fence, leaseToken: snapshot.row.lease_token! };
+    const lease = await claim(actor, { intentId: input.intentId, key: digest({ facadeKey: input.key, intentId: input.intentId, priorFence: snapshot.row.fence }) });
+    return { state: snapshot.row.state === 'stored' ? 'stored' as const : 'processing' as const,
+      intentId: lease.intentId, fence: lease.fence, leaseToken: lease.leaseToken };
+  }
+  /** Final facade commit: pointer + real version + scoped facts + the original
+   * member command receipt share ONE transaction. Never called by a raw route
+   * with a caller-created VerifiedObject, policy, key or metadata proof. */
+  async function finalizeAvatar(legacy: Command, raw: AvatarLeaseInput) {
+    legacy = Object.freeze({ ...legacy, actor: Object.freeze({ ...legacy.actor }),
+      body: Object.freeze(z.object({ content_type: z.enum(['image/png','image/jpeg','image/webp']), sha256: z.string().length(64).regex(/^[0-9a-f]+$/) }).strict().parse(legacy.body)) });
+    const actor = legacy.actor, input = leaseInput.parse(raw), snapshot = await inspect(actor, input, true);
+    invalidState(snapshot.row.state === 'stored' || snapshot.row.state === 'finalized');
+    if (snapshot.row.state === 'stored') await verifyObject(store, storageKey(snapshot.row), snapshot.metadata!);
+    return avatarMemberCommand(pool, legacy, q => eligibleMember(q, actor), async (q, context) => {
+      const avatar = await target(q, context, actor), row = await intent(q, context, actor, input.intentId);
+      await policy(q, context, actor.user_id, row.policy_revision);
+      const routing = (await q.query("SELECT mode FROM avatar_storage_policy WHERE profile='member.avatar' FOR SHARE")).rows[0];
+      requireCondition(routing.mode !== 'legacy', 503, 'avatar_upload_unavailable', '頭像上傳暫時無法使用。');
+      requireCondition(legacy.expected === row.expected_version && digest(legacy.body) === digest({ content_type: row.source_content_type, sha256: row.source_sha256 }),
+        409, 'asset_source_mismatch', '上傳內容與準備紀錄不同。');
+      await live(q, row, input); await assertCurrentSessionClock(q, actor);
+      const saved = await publish(q, context, actor, row, avatar, routing.mode, true);
+      return { avatar_url: `/api/v1/members/${actor.user_id}/avatar?v=${saved.aggregateVersion}`, aggregate_version: saved.aggregateVersion };
     });
   }
   async function readTarget(actor: Actor) {
@@ -223,5 +274,5 @@ export function createAvatarAssetService(pool: Pool, dependencies: AvatarAssetDe
       return { targetUserId: actor.user_id, assetId: (row?.asset_id ?? null) as string | null, aggregateVersion: (row?.aggregate_version ?? '1') as string };
     });
   }
-  return Object.freeze({ prepare, claim, write, finalize, readTarget });
+  return Object.freeze({ prepare, claim, write, finalize, readTarget, resumeUpload, finalizeAvatar });
 }

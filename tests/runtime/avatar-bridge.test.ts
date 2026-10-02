@@ -53,7 +53,7 @@ async function bridge(owner: Actor, options: { mode?: 'bridge'|'r2_only'; legacy
   const store=options.store??new FakeObjectStore();
   const api=createAvatarAssetService(pool,{store,normalizeAvatar:(bytes,spec)=>normalizeImage(Buffer.from(bytes),spec),
     // Explicit SYNTHETIC test policy; this is not runtime activation wiring.
-    resolvePolicy:async()=>({revision:'synthetic-policy',platformPersistenceAllowed:true})});
+    resolvePolicy:async()=>({revision:'synthetic-policy',platformPersistenceAllowed:true,retainedByteLimit:'10485760'})});
   const intent=await api.prepare(owner,{key:randomUUID(),targetUserId:owner.user_id,expectedVersion:options.legacy?'2':'1',contentType:'image/png',byteSize:png.length,sha256:await sha256(png)});
   const lease=await api.claim(owner,{key:randomUUID(),intentId:intent.intentId});
   const input={intentId:intent.intentId,fence:lease.fence,leaseToken:lease.leaseToken};
