@@ -16,6 +16,16 @@ CREATE TABLE asset_maintenance_policy (
     AND delete_lease_seconds IS NOT NULL AND capture_seconds IS NOT NULL AND pin_seconds IS NOT NULL AND max_capture_objects IS NOT NULL))
 );
 INSERT INTO asset_maintenance_policy DEFAULT VALUES;
+CREATE FUNCTION preserve_asset_maintenance_gate() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP='DELETE' OR NEW.singleton IS DISTINCT FROM OLD.singleton OR NEW.generation<OLD.generation THEN
+    RAISE EXCEPTION 'Maintenance gate identity and generation are permanent' USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER preserve_asset_maintenance_gate BEFORE UPDATE OR DELETE ON asset_maintenance_policy
+  FOR EACH ROW EXECUTE FUNCTION preserve_asset_maintenance_gate();
 CREATE TABLE asset_backup_captures (
   capture_id uuid PRIMARY KEY,
   state text NOT NULL DEFAULT 'capturing' CHECK(state IN ('capturing','pinned','released','failed')),
@@ -43,6 +53,11 @@ CREATE TABLE asset_backup_pins (
   PRIMARY KEY(capture_id,asset_id),
   FOREIGN KEY(asset_id,scope_id,representation_id,policy_revision) REFERENCES assets(asset_id,scope_id,representation_id,policy_revision)
 );
+ALTER TABLE asset_objects ADD CONSTRAINT asset_object_backup_identity
+  UNIQUE(asset_id,scope_id,representation_id,policy_revision,byte_size,content_sha256);
+ALTER TABLE asset_backup_pins ADD CONSTRAINT backup_pin_verified_metadata
+  FOREIGN KEY(asset_id,scope_id,representation_id,policy_revision,byte_size,content_sha256)
+  REFERENCES asset_objects(asset_id,scope_id,representation_id,policy_revision,byte_size,content_sha256);
 CREATE TABLE asset_deletion_tombstones (
   asset_id uuid PRIMARY KEY REFERENCES assets(asset_id),
   policy_revision text NOT NULL,
@@ -107,6 +122,9 @@ BEGIN
   PERFORM 1 FROM member_avatar_asset_targets WHERE user_id=target.owner_user_id FOR UPDATE;
   PERFORM 1 FROM asset_upload_intents WHERE asset_id=NEW.asset_id FOR UPDATE;
   SELECT * INTO STRICT target FROM assets WHERE asset_id=NEW.asset_id FOR UPDATE;
+  IF target.purpose<>'member.avatar' THEN
+    RAISE EXCEPTION 'Maintenance profile not supported' USING ERRCODE='23514';
+  END IF;
   SELECT * INTO STRICT policy FROM asset_maintenance_policy WHERE singleton FOR SHARE;
   IF NOT policy.enabled OR NEW.policy_revision<>policy.revision OR NEW.attempt<>1 OR NEW.lease_expires_at<=clock_timestamp()
     OR NEW.lease_expires_at>clock_timestamp()+make_interval(secs=>policy.delete_lease_seconds) THEN
@@ -150,6 +168,9 @@ BEGIN
       OR OLD.state='pinned' AND OLD.pin_expires_at<=clock_timestamp()) THEN
       RAISE EXCEPTION 'Expired protection cannot certify references' USING ERRCODE='23514';
     END IF;
+    IF OLD.state='capturing' AND NEW.state='pinned' AND NEW.reference_count<>(SELECT count(*) FROM asset_backup_pins WHERE capture_id=NEW.capture_id) THEN
+      RAISE EXCEPTION 'Captured reference count does not match pins' USING ERRCODE='23514';
+    END IF;
     IF NEW.capture_expires_at>OLD.capture_expires_at AND (OLD.state<>'capturing' OR OLD.capture_expires_at<=clock_timestamp())
       OR NEW.pin_expires_at>OLD.pin_expires_at AND (OLD.state<>'pinned' OR OLD.pin_expires_at<=clock_timestamp()) THEN
       RAISE EXCEPTION 'Expired backup protection cannot be renewed' USING ERRCODE='23514';
@@ -162,7 +183,21 @@ CREATE TRIGGER preserve_backup_capture BEFORE INSERT OR UPDATE OR DELETE ON asse
 -- Do not rely on a side-table EXISTS in an old RR snapshot. Every change to
 -- barrier/pin protection physically updates the tuple GC must lock last.
 CREATE FUNCTION advance_asset_maintenance_generation() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN UPDATE asset_maintenance_policy SET generation=generation+1 WHERE singleton; RETURN NULL; END;
+BEGIN
+  UPDATE asset_maintenance_policy SET generation=generation+1 WHERE singleton;
+  -- The gate UPDATE itself may wait. Verify the decision clock AFTER that wait.
+  IF TG_OP='INSERT' AND NEW.capture_expires_at<=clock_timestamp() THEN
+    RAISE EXCEPTION 'Capture expired during gate wait' USING ERRCODE='23514';
+  END IF;
+  IF TG_OP='UPDATE' THEN
+    IF OLD.state='capturing' AND NEW.state='pinned' AND (OLD.capture_expires_at<=clock_timestamp() OR NEW.pin_expires_at<=clock_timestamp())
+      OR NEW.capture_expires_at>OLD.capture_expires_at AND OLD.capture_expires_at<=clock_timestamp()
+      OR NEW.pin_expires_at>OLD.pin_expires_at AND (OLD.pin_expires_at<=clock_timestamp() OR NEW.pin_expires_at<=clock_timestamp()) THEN
+      RAISE EXCEPTION 'Protection expired during gate wait' USING ERRCODE='23514';
+    END IF;
+  END IF;
+  RETURN NULL;
+END;
 $$;
 CREATE TRIGGER advance_asset_maintenance_generation AFTER INSERT OR UPDATE ON asset_backup_captures
   FOR EACH ROW EXECUTE FUNCTION advance_asset_maintenance_generation();

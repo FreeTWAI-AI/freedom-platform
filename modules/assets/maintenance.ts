@@ -94,17 +94,20 @@ export function createAssetMaintenance(pool: Pool, dependencies: { store: Object
     active(); captureId = id.parse(captureId);
     const q = await pool.connect();
     try {
-      await q.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
+      await q.query('BEGIN');
       const current = await policy(q);
       const capture = (await q.query<Capture>(`SELECT *,capture_expires_at>clock_timestamp() live FROM asset_backup_captures WHERE capture_id=$1`, [captureId])).rows[0] as Capture & { live: boolean };
       requireCondition(capture?.state === 'capturing' && capture.live, 409, 'asset_capture_expired', '參照集合擷取已失效。');
       // Conservatively capture ALL persisted, unfenced representations in this
       // one DB snapshot, including retired versions, not caller-selected IDs.
-      const refs = (await q.query(`SELECT o.asset_id,o.scope_id,o.representation_id,o.policy_revision,o.byte_size,o.content_sha256
-        FROM asset_objects o JOIN assets a USING(asset_id) WHERE a.deletion_fence=0
-        ORDER BY o.asset_id LIMIT $1`, [current.max_capture_objects + 1])).rows;
+      const observed = (await q.query(`WITH refs AS MATERIALIZED (
+        SELECT o.asset_id,o.scope_id,o.representation_id,o.policy_revision,o.byte_size,o.content_sha256
+        FROM asset_objects o JOIN assets a USING(asset_id) WHERE a.deletion_fence=0 ORDER BY o.asset_id LIMIT $1)
+        SELECT pg_current_snapshot()::text snapshot,COALESCE(jsonb_agg(to_jsonb(refs) ORDER BY asset_id),'[]'::jsonb) refs FROM refs`,
+      [current.max_capture_objects + 1])).rows[0];
+      const refs = observed.refs as { asset_id: string; scope_id: string; representation_id: string; policy_revision: string; byte_size: number; content_sha256: string }[];
       requireCondition(refs.length <= current.max_capture_objects, 409, 'asset_capture_limit', '參照集合超過本次擷取上限。');
-      const snapshot = (await q.query('SELECT pg_current_snapshot()::text snapshot')).rows[0].snapshot;
+      const snapshot = observed.snapshot;
       // Asset FK locks are obtained in UUID order. Do not lock the gate or the
       // capture row while waiting on assets; the committed barrier protects us.
       for (const ref of refs) await q.query(`INSERT INTO asset_backup_pins(capture_id,asset_id,scope_id,representation_id,policy_revision,byte_size,content_sha256)
@@ -124,6 +127,7 @@ export function createAssetMaintenance(pool: Pool, dependencies: { store: Object
       requireCondition(capture, 409, 'asset_capture_expired', '備份參照已失效。');
       const references = (await q.query(`SELECT asset_id,scope_id,representation_id,policy_revision,byte_size,content_sha256
         FROM asset_backup_pins WHERE capture_id=$1 ORDER BY asset_id`, [captureId])).rows;
+      await policy(q, 'SHARE');
       requireCondition((await q.query('SELECT pin_expires_at>clock_timestamp() live FROM asset_backup_captures WHERE capture_id=$1', [captureId])).rows[0].live,
         409, 'asset_capture_expired', '備份參照已失效。');
       return { captureId, referenceSnapshot: capture.reference_snapshot as string, sourceRelease: capture.source_release as string,
