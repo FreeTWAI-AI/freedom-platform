@@ -1,6 +1,6 @@
 # 契約發布與開發治理規格
 
-Spec ID：`UF-SPEC-GOV`；狀態：`draft-ready-local`。來源：統一計畫 §11、14、23–31，CG-01–08。本規格供 grok 4.7 實作第一批治理工具，讓每個 checkout 取得可追溯的契約、適用上下文及獨立驗證結果。
+Spec ID：`UF-SPEC-GOV`；狀態：`local-partial`。來源：統一計畫 §11、14、23–31，CG-01–08。本規格供分工實作治理工具，讓每個 checkout 取得可追溯的契約、適用上下文及獨立驗證結果。GOV-A/B 本機工具與 GOV-C 的 host-owned 資料驗證邊界已有實作；正式 runner、可信 check publisher 及 GitHub 強制仍未接線，證據見 [交付紀錄](implementation-status.md)。
 
 ## 範圍與原有實作
 
@@ -10,7 +10,7 @@ Spec ID：`UF-SPEC-GOV`；狀態：`draft-ready-local`。來源：統一計畫 �
 
 ## ReleaseSet 及 lock
 
-新增 `governance/schemas/` 的正式 schema 與 `governance/releases/` 的 authoring metadata。以下是待實作欄位契約，不代表檔案已存在。
+`governance/schemas/` 已有本機 schema；批准後的 release authoring metadata、正式發行與信任來源仍待接線。以下是目標欄位契約，實作的固定 wire 名稱與限制以 [治理實作](../../../../governance/README.md) 及其 schema 為準。
 
 | 物件 | 必填內容 | 不变量 |
 | --- | --- | --- |
@@ -45,7 +45,7 @@ Hono、navigation、queue/MCP/native registration 優先導出實際 registry。
 
 ## 開工 CLI
 
-命令均待實作：
+以下命令已有本機實作；對未治理的 baseline 或尚缺的檢查 adapter 會回 unavailable，而不是宣稱可信 CI 通過：
 
 ```sh
 node scripts/freedom.mjs prepare --base-ref origin/main --scope assets,member-card
@@ -120,6 +120,6 @@ sync 首先產生 dry-run 計畫，列 batch ID、目標 ReleaseSet digest、明
 
 GOV-A/B 最少測 v1 不變、vendor+hash 同改、path traversal/symlink/case collision、self-signed root、missing/withdrawn source、deep module、換 worktree、rename/delete、空 test set、未註冊入口與雙 SDK。GOV-C/D 加 workflow echo-pass、偽 artifact、同名 App check、fork secret 隔離及 base 前進，對應 [GOV 驗收](acceptance.md)。
 
-本規格新增的測試路徑由實作 PR 放進 suite registry 並附真實 test IDs；目前未建立。既有 `npm run contracts:build`、`npm run test:contracts`、`npm run test:repos` 與 `npm run verify:inventory` 仍保留；integration tests 僅可用隔離 `fp_*` schema。
+本機 suite registry 已有 governance adapter；GOV-C 新增 13 項合成 host/候選版本反例，治理總計 119 tests。候選 Git tree、baseline ownership fallback、vendor exact bytes 及完整 observation binding 均在本機驗證；host observation 的真實來源仍未認證，所有 report 保持 local、merge/execution 未授權。其餘 adapter 不能用手動結果補造通過。既有 `npm run contracts:build`、`npm run test:contracts`、`npm run test:repos` 與 `npm run verify:inventory` 仍保留；integration tests 僅可用隔離 `fp_*` schema。
 
 回退可以停用新 CLI/consumer v2 升級；已發布且被撤銷的 release 不得因工具回退重新標為可信。缺 v2 能力的舊 client 回到原 preview 能力範圍，不能忽略不認識的新必需 policy。

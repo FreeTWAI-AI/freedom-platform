@@ -1,8 +1,10 @@
 # 資產與私人工作規格
 
-Spec ID：`UF-SPEC-ASSET-WORK`；狀態：`draft-ready-after-core`。來源：U2/U4、UF-03/04/10、統一計畫 §04–07、16、18。依賴 [CORE](02-principal-command.md) 的身分、scope 與交易介面，以及 [GOV](01-contracts-and-governance.md) 的新契約驗證。
+Spec ID：`UF-SPEC-ASSET-WORK`；狀態：`local-partial`。來源：U2/U4、UF-03/04/10、統一計畫 §04–07、16、18。依賴 [CORE](02-principal-command.md) 的身分、scope 與交易介面，以及 [GOV](01-contracts-and-governance.md) 的新契約驗證。
 
 第一個完成條件是會員換頭像仍正常；第二個是本人建立私人文案工作、以明選模型產出草稿，成果經同一 Asset 核心保存並只供本人查看及修改。第二條需 EXEC 的最小 RunAttempt/Grant adapter 才能完成。
+
+2026-10-02 本機增量已有 [ASSET-A object I/O](../../../../packages/asset-storage/README.md) 及 [WORK-A 模式隔離與 owner-only 讀取](../../../../modules/opportunity-project-work/README.md)。前者尚無 DB intent/fence/finalize/GC 或 R2 adapter；後者只有合成 fixture 能建立私人 row，產品的私人寫入、Result、分享與執行都未開放。這不是上述兩條完整流程已完成的聲明；詳見 [交付紀錄](implementation-status.md)。
 
 ## 現有入口與首版範圍
 
@@ -55,7 +57,7 @@ Data policy 分開描述 capture、model processing location/provider、platform
 
 頭像保持目前輸入上限 2 MiB、靜態 JPEG/PNG/WebP、最大 4096×4096；輸出沿用 256×256 WebP、128 KiB 上限與已存在的 metadata stripping/動畫拒絕測試。transform profile 單獨版控；變更輸出規格需明示相容性。
 
-私人文字草稿建議首版限制 256 KiB UTF-8，purpose=`work.private-draft`，MIME 為 `text/plain` 或 `text/markdown`；這是本 spec 的 proposed 新預設，實作 PR 固定 schema/測試。預覽將內容視為不可信文字；若渲染 Markdown，禁 raw HTML、script 及未驗 URL。尚未固定 retention/grace 前，不啟用自動永久刪除。
+私人文字草稿 purpose=`work.private-draft`；本機 I/O profile 已固定非空、最多 256 KiB 實際 UTF-8 bytes、精確 MIME `text/plain` 或 `text/markdown`，保留原 bytes/BOM，拒絕 NUL/C0（tab/LF/CR 除外）與 DEL。此決策尚未啟用 HTTP upload。預覽將內容視為不可信文字；若渲染 Markdown，禁 raw HTML、script 及未驗 URL。尚未固定 retention/grace 前，不啟用自動永久刪除。
 
 讀取 GET/HEAD/Range/條件請求都先驗當前 ACL。私人/可撤銷 share 的回覆與 cache 必須經相同授權；首版採 private/no-store，不能讓 304 或 CDN cache 略過驗權。已下載的本機 bytes 無法追回，產品不得承諾撤銷能刪除訪客既有副本。
 
@@ -63,7 +65,7 @@ R2 缺檔回受控 unavailable/not-found 並產生安全診斷，不 fallback �
 
 ## Private Work 相容及 ACL
 
-新增 work mode：community collaboration、personal、site service，具體 wire enum 在 schema PR 固定。既有 rows 回填 community mode；personal owner/scope 由 server 決定。site service 保留設計但首版不開，待真實 site principal 支援。
+本機 migration 077 固定 `community_collaboration`、`personal_execution` 兩種模式。既有 rows 預設 community mode 且可暫留 null scope；填入後須由 composite FK 指向同一 community。personal owner/scope 由 server 決定，community_id 必須為 null，真實 person/user/personal scope 由複合 FK 綁定。私人分支只允許 draft，不得虛構協作條款/期限或 Claim/Contribution/Benefit。site service 保留設計但 SQL 拒絕，待真實 site principal 支援。
 
 私人工作不能沿舊 community 列表把新 rows 交給旧 UI 過濾；舊 endpoints 必須明確只投影舊模式。所有 mutation 同樣驗 Work 模式與目前權限，不能只堵 read。
 
@@ -85,6 +87,8 @@ R2 缺檔回受控 unavailable/not-found 並產生安全診斷，不 fallback �
 先加 Asset/intent/typed pointer 及 Work scope/mode，再以相容讀取 bridge 支援 legacy bytes 和新 Asset。legacy fallback 只適用明確仍是 legacy 的 row；已切換 Asset 的 row 缺 object 不回舊內容。
 
 backfill 由受控 ops 流程以固定 source revision 讀取及核對 hash；切 pointer 的短交易檢查原 row version，遇到會員同時改圖就重新讀取而非覆蓋。備份、restore、撤銷及對帳證據齊備前保留舊欄位。首筆 R2-only/private Work 成功後，rollback floor 必須支援兩者。
+
+目前 076/077 皆為未合併的暫用號，合併前重新核對最小可用編號；manifest last 為 77、known_gaps 仍為 `[22]`。077 尚無 down migration 或 release-tool rollback floor。舊 binary 的 `workView` 使用 row spread，套新 schema 後可能多回 metadata，不能宣稱混跑期間 wire bytes 不變。新 binary 用顯式舊欄位投影；正式私人寫入保持關閉，直到回退政策與新增資料面驗收完成。
 
 ## 可交付 PR 與驗收
 

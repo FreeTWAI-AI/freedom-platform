@@ -10,9 +10,12 @@
 | GOV-A | `2c8da89` | ReleaseSet／pin／proof／trust schemas、本機 verifier、preview v1 相容與中央工具 export |
 | GOV-B | `5b98bca` | prepare/context/verify、baseline/candidate 影響聯集、module descriptors、版本及 worktree context、三個合成 consumer |
 | CORE-0 | `2a40d8f` | neutral command orchestration、相容 member adapter、legacy transaction/digest 抽取、16 項真實 PostgreSQL 回歸 |
-| CORE-1 | 本文件所在的後續提交 | common identity refs、person/community/personal 映射、受約束 migration、會員 scope context、可重跑分批回填及 27 項新增 runtime 回歸 |
+| CORE-1 | `5c9afcd` | common identity refs、person/community/personal 映射、受約束 migration、會員 scope context、可重跑分批回填及 27 項新增 runtime 回歸 |
+| GOV-C 本機邊界 | `0963bee` | host-owned Git candidate／policy／observation binding、baseline fallback 與 vendor exact-byte 驗證；尚非可信 CI |
+| ASSET-A I/O 首段 | `ded9c98`、修正 `5e23d91` | bounded bytes/profile、immutable object port／fake store、digest read-back 與安全錯誤；尚無 DB lifecycle／R2 接線 |
+| WORK-A | `c3eae47` | migration 077、私人 owner/scope FK、社群投影與 mutation 隔離、本人私人 list/detail、18 項新增 runtime 回歸 |
 
-目前工作分支為 `feat/foundation-principal-scope-20261002`，包含前面四個提交；前兩批保留在 `feat/foundation-command-core-20261002` 與 `feat/foundation-governance-20261002`。全部只在 `~/tmp-scratch/fp_work/` 的 worktree，未 push、建立 PR、merge 或部署。主 checkout 及其 staged 刪除未更動。
+目前整合分支為 `feat/foundation-parallel-20261002`，worktree 同名，包含上表完整提交鏈；CORE-1 與先前批次另保留在各自 worktree。全部只在 `~/tmp-scratch/fp_work/` 工作，未 push、建立 PR、merge main 或部署。主 checkout 及其 staged 刪除未更動。
 
 ## GOV-A/B 與 CORE-0 證據
 
@@ -47,10 +50,44 @@
 
 本批另建一個 PostgreSQL 18.6 disposable 容器，沿用上述 image digest、network none、2 GB tmpfs、專用 Unix socket／短期 Worker localhost proxy。全部測試只寫合成 `fp_*` schema/db；結束後查到測試 schema 和 role 都是 0、只剩容器本身的 `fp_foundation`，再清理容器/socket，沒有正式資料或長駐測試服務。遠端 main 收尾查核仍為 `3de70ccbd24362a7925508fb42d36aaa256a0806`。
 
+## 平行批次：GOV-C 邊界、ASSET I/O 與 WORK-A
+
+依 Ted 本輪授權，三隻 GPT-6 Astra 在獨立 worktree 分別實作治理、Asset I/O、私人 Work；另以 Grok CLI 的 `grok-4.7` 執行兩路反例審查，以 agy CLI 的 `claude-opus-4-6-thinking` 執行兩路唯讀 schema/治理審查。四路外援都完成，review worktree 無程式變更。主 agent 負責契約交集、整合與全套驗證，再由 Astra 互審實際差異。CLI review 是意見來源，不能計為測試通過或 Ted 的操作批准。
+
+### 實作與交叉審查
+
+- GOV-C 新增 host-only `verifyHostCandidate`，未放進本機 CLI/consumer exports。host 供應固定 verifier、policy 與 bare Git objects，驗真正 base/head/candidate/tree、來源 pins、實際 vendor bytes 與完整 suite/workflow/harness binding，不執行 candidate 程式。審查發現新 descriptor 可覆蓋原本未知路徑後，補上 baseline ownership fallback 反例。完整可信 observation transport、runner isolation、proof/publisher/source approval 接線及 GitHub check/rules 仍缺；report 一律 local、merge/execution 未授權。
+- ASSET-A 首段只交付 effect-phase I/O，不建 DB migration 或啟用路由。固定 scope/asset/representation key、先驗 persistence policy、實際 bytes 上限、嚴格 UTF-8/頭像 profile、immutable PUT 後完整 GET + digest；PUT 結果不明時只能核對 bytes 恢復。store 成功不等於 ready、權限或業務 receipt；intent/fence/finalize/GC、R2/Images 與 read ACL 留待後續。
+- 跨 agent 審查另重現兩個原 20 tests 未涵蓋的問題：upstream `AssetStorageError` 原樣重拋可能帶出私密診斷；`Uint8Array` 在型別／長度驗證前複製可能接受 array/numeric 或先分配超限記憶體。修正後新增四例，24/24 通過；原審查者再獨立重跑原漏洞案例，確認固定錯誤不含原訊息、非法 bytes 在 allocation/I/O 前拒絕，合法 Buffer 仍正常。
+- WORK-A 的 077 保留舊 Work 事實，私人 owner/user/personal scope 用複合 FK 綁定，模式與身分不能改綁或 DELETE 重建。私人只允許 draft，不填協作條款/期限；Claim/Review/Contribution/Benefit 的生成 discriminator + FK 防止私人資料變成社群事實。site/service 仍拒絕。
+- 既有 Work、dashboard、task-board、contribution、benefit 與 command replay 均先限社群模式。新 `/api/v1/me/private-work` list/search/count/page/detail 只認當前會員、person principal 與 personal scope；管理員/公會長不例外。HEAD/Range/條件標頭不能省略授權，回覆 private/no-store。私人寫入、Result、Asset/share/export/run 路由未開放；通知/outbox 無私人 producer，新增 producer 前仍須重驗整張讀取矩陣。
+- WORK-A 18 項含同/跨社群枚舉、admin/officer、過期/停用、複合 FK、假協作事實、replay、bigint 精度與真正 `pg_blocking_pids` 鎖等待 barrier。075 升級 fixture 補齊 Work→Claim→Submission→Decision→Contribution/Benefit，固定舊欄位 snapshot 避免新增 metadata 造成假失敗。既有 E2E 只調整 fixture cleanup，改由自有 schema teardown 清理 immutable Work；沒有 UI 變更。
+- 失敗及重跑：WORK 定向測試初次 65/66，原因是新增合成 admin fixture 使用不存在的 `admin` enum；改為既有 `super_admin` 後完整定向 suite 69/69。後續強化鎖等待 barrier，再跑 WORK-A 18/18。未刪測試、弱化 SQL constraint 或把模型建議直接當通過證據。
+
+### 整合後實測
+
+| 檢查 | 結果 | 邊界 |
+| --- | --- | --- |
+| `npm test` | 967 passed，0 failed/skipped；約 204 秒 | 隔離 PostgreSQL，含新 24 ASSET／18 WORK cases |
+| `npm run test:worker` | 20 passed，0 failed/skipped | localhost proxy 接合成資料庫；非真實 Cloudflare |
+| `npm run test:governance` | 119 passed，0 skipped | 含 13 個新 host-boundary cases；非 GitHub 強制 |
+| `npm run test:contracts` | 659 passed，4 個原有 clock cases skipped | 不改原有 skip 條件 |
+| Skill client／deploy preflight | 10／37 passed，0 skipped | 既有回歸及靜態發布前檢查 |
+| `typed-line-breaks.spec.ts` | Chromium 1 passed | build 後執行受影響 cleanup 的案例，非全套 E2E；GitHub 使用 fixtures |
+| typecheck／build／common schemas | 全通過 | build 保留既有 large-chunk 警告 |
+| 三類 Worker dry-run | 各環境全通過 | platform、admin-sync、maintainer；沒有上傳部署 |
+| preview build | 32 operations／9 artifacts | preview 與 SDK 重產無 diff |
+| inventory／diff-check | 1,144 hashes、637 本機連結，0 failures；diff-check 通過 | 不驗外部連結或產品行為 |
+| 對真正 `origin/main` prepare／verify | exit 2，unavailable | descriptor/refs、preview、119 governance tests 通過；缺 baseline governance、surface audit 及 runtime suite adapter |
+
+本批使用新的 PostgreSQL 18.6 container（與 repo CI 同 image digest）、network none、無 published port、2 GiB tmpfs、專用 Unix socket。Runtime/E2E 使用新 `fp_*` schema，Worker 使用新 `fp_*` database；不繼承 provider/DB secrets。結束查到 `fp_*` schema/role 都為 0，資料庫僅有本輪 `fp_foundation` 及預設 postgres/template，隨後移除容器和空 socket 目錄。只刪可重建的合成資料，未讀寫 `freedom_local.public`。
+
+migration 076/077 仍是暫用號；整合 manifest last=77、known_gaps=`[22]`，遠端 main 收尾再查仍為 `3de70ccbd24362a7925508fb42d36aaa256a0806`。077 尚無 down migration 或 release-tool rollback floor；舊 binary 的 row spread 可能額外回 metadata，不能宣稱新舊混跑 byte-exact。私人寫入保持關閉，直到回退、命令與新增讀取面驗收齊備。
+
 ## 尚未交付
 
 - Scoped command composition、新 receipt namespace、execution/service current-state validators，以及有真實 backing record 的 service/site schema。
-- 新 Asset/R2 頭像流程、private Work 完整讀取矩陣、RunAttempt／模型 broker／私人 AI 草稿及瀏覽器 execution guard。
+- Asset DB intent/fence/finalize/GC、真實 R2 頭像流程、新增私人寫入/Result/share 的完整讀取矩陣、RunAttempt／模型 broker／私人 AI 草稿及瀏覽器 execution guard。
 - 真實 consumer 升級、TS/Rust 共用樣本、Windows/macOS、packaged clients、cloud 備份恢復及 staging/prod 演練。
 - 已批准的 publisher/trust profile、可信 CI publisher／required workflow、GitHub 強制審查與不可繞過的發布限制。
 
@@ -58,6 +95,6 @@
 
 ## 下一批
 
-先審查 CORE-0/1 的相容性、映射 lifecycle 與鎖順序，再銜接 Asset/Work 的 composite scope FK 及 private Work 讀取 ACL；新 private mutation 仍須適用的 command/receipt 保護。service 分支在 backing schema 和 validator 齊備前拒絕啟用。migration 076 尚未合併或發布，不永久預留編號。完整 private 讀取矩陣通過前不開啟新 private 寫入。
+銜接 ASSET-A 的 durable intent/fence/finalize/GC 與 scoped command/receipt，再接頭像 bridge 及私人 Result；同時補治理的 runtime adapter、實際 surface audit 與 host observation 接線。private mutation 仍須目前權限、expected version、撤銷重驗及無外部 I/O 的短交易。service 分支在 backing schema 和 validator 齊備前拒絕啟用。migration 076/077 尚未合併或發布，不永久預留編號。完整新增 private 讀取矩陣及 rollback floor 齊備前不開啟私人寫入。
 
 推送、PR、合併、GitHub 規則、信任來源／金鑰、正式資料盤點或部署另依 Ted 的操作授權處理；Discord 全文仍須逐則核准。

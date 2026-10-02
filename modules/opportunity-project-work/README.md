@@ -12,6 +12,8 @@
 
 Claim、Review route、Contribution 與 Benefit 的固定社群 discriminator 及 composite FK 拒絕私人 Work，即使錯誤程式直接送 SQL 也不能建成協作事實。既有社群程式仍逐一加模式 filter，並在 command replay 前再次驗 domain 權限。
 
+部署限制：原 `3de70cc` 的 `workView` 使用 row spread，套 077 後舊 binary 可能額外回傳新增 metadata；不能把新 binary 的顯式投影測試當成舊新版混跑時的 byte-exact 證據。077 無 down migration，也尚無發布工具強制的 rollback floor。首筆真實私人資料出現後不可降回不支援其 shape/ACL 的 schema 或未核准 binary；啟用私人寫入前須補 OPS 回退政策與實測。
+
 ## 讀取介面與鎖
 
 `GET /api/v1/me/private-work` 支援 `q`（標題 literal substring，最多 120 字）、`limit`（1–50，預設 20）與 `offset`（0–10000，預設 0）。單一 SQL snapshot 同時產生 owner-only count 與頁面；SQL statement timeout 為五秒。未知或重複 query key 拒絕，不接受 caller owner/scope。列表依建立時間及 UUID 降冪排序。

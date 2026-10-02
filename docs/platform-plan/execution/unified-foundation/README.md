@@ -2,7 +2,7 @@
 
 這組 spec 將 [Unified Foundation 1.1 計畫](../../../plans/unified-foundation.md) 轉成可分批開發、審查及驗收的工作。結論是可以依此計畫開發；先交付固定契約與開工工具、相容的身分及交易核心，再完成「會員換頭像」與「本人私人 AI 草稿」兩條完整流程。
 
-版本：`0.2-draft`；查核日期：2026-10-02。已讀完 Unified Foundation 1.1、R2 及 Autopilot 原文並完成規格對照。中央程式查核基準為 `3de70ccbd24362a7925508fb42d36aaa256a0806`；其後已有本機契約 verifier、開工工具、會員相容交易核心及受約束的 person/community/personal 映射，範圍和測試證據見 [本機交付紀錄](implementation-status.md)。這些組件測試不代表完整產品驗收通過。
+版本：`0.2-draft`；查核日期：2026-10-02。已讀完 Unified Foundation 1.1、R2 及 Autopilot 原文並完成規格對照。中央程式查核基準為 `3de70ccbd24362a7925508fb42d36aaa256a0806`；其後已有本機契約 verifier、開工工具、會員相容交易核心及受約束的 person/community/personal 映射。本批再加入 host-owned 候選版本驗證邊界、bounded Asset I/O 與私人 Work 讀取隔離，範圍和測試證據見 [本機交付紀錄](implementation-status.md)。這些組件測試不代表完整產品驗收通過。
 
 ## 文件與開工順序
 
@@ -36,7 +36,7 @@
 
 ## 開發與交付規則
 
-Ted 在規格完成後已明確授權由目前 agent 直接實作並持續推進，不再要求所有產品程式交給 grok 4.7；需要外援時可把範圍清楚的小工作交給 grok 4.7。派工仍須提供固定 source SHA、此組 spec、可改檔案、預期反例及隔離測試方式。此授權不自動包含推送、合併、部署、正式設定或公告。
+Ted 在規格完成後已明確授權由目前 agent 直接實作並持續推進，後續又授權多隻 GPT-6 Astra、Grok 4.7 與 Opus 4.6 平行分工，不再要求所有產品程式交給 grok 4.7。派工仍須提供固定 source SHA、此組 spec、可改檔案、預期反例及隔離測試方式；獨立 worktree 避免互踩，共同檔案由整合者負責。此授權不自動包含推送、合併、部署、正式設定或公告。
 
 工作限於 `~/tmp-scratch/fp_work/` 的獨立 worktree。主 checkout 及其 staged 刪除保留。所有 DB 測試只使用本輪建立、名稱以 `fp_` 開頭的 schema 或資料庫；禁止對 `freedom_local.public` 執行 migration、seed 或 truncate。
 
