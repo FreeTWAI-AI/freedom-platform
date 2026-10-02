@@ -6,6 +6,14 @@ import { Pool, type PoolClient } from 'pg';
 import { migrate } from '../../scripts/database.js';
 import { withMemberScope } from '../../packages/resource-scopes/index.js';
 import type { Actor } from '../../modules/identity-membership/service.js';
+import sharp from 'sharp';
+import { createAvatarAssetService } from '../../modules/assets/index.js';
+import { FakeObjectStore } from '../../packages/asset-storage/fake-store.js';
+import { sha256 } from '../../packages/asset-storage/index.js';
+import { normalizeImage } from '../../packages/shared/image-runtime.js';
+import { Problem } from '../../packages/shared/problem.js';
+import { createAssetLifecycle, type LifecyclePrepare } from '../../modules/assets/engine.js';
+import { z } from 'zod';
 
 // Independent SQL counterexamples. No production defaults or external objects.
 const connectionString = process.env.TEST_DATABASE_URL;
@@ -132,4 +140,78 @@ test('RESULT-INDEPENDENT-04 lease expiry during actual target lock wait cannot p
   }
   assert.equal(await version(id), '1');
   assert.equal((await pool.query('SELECT count(*)::int n FROM private_work_results WHERE work_item_id=$1', [id])).rows[0].n, 0);
+});
+
+test('ENGINE-INDEPENDENT-05 replacing avatar cannot outlive session while waiting on previous asset', async () => {
+  const o = await owner(), bytes = await sharp({ create: { width: 30, height: 40, channels: 3, background: 'red' } }).png().toBuffer();
+  const api = createAvatarAssetService(pool, { store: new FakeObjectStore(), normalizeAvatar: (input, spec) => normalizeImage(Buffer.from(input), spec),
+    resolvePolicy: async () => ({ revision: 'synthetic-independent-v1', platformPersistenceAllowed: true, retainedByteLimit: '10485760' }) });
+  const upload = async (expectedVersion: string) => {
+    const prepared = await api.prepare(o.actor, { key: randomUUID(), targetUserId: o.actor.user_id, expectedVersion, contentType: 'image/png', byteSize: bytes.length, sha256: await sha256(bytes) });
+    const lease = await api.claim(o.actor, { key: randomUUID(), intentId: prepared.intentId });
+    const request = { intentId: lease.intentId, fence: lease.fence, leaseToken: lease.leaseToken };
+    await api.write(o.actor, { ...request, key: randomUUID() }, new ReadableStream({ start(c) { c.enqueue(bytes); c.close(); } }));
+    return { prepared, request };
+  };
+  const first = await upload('1'); await api.finalize(o.actor, { ...first.request, key: randomUUID() });
+  const second = await upload('2'), blocker = await pool.connect(); let pending: ReturnType<typeof api.finalize> | undefined;
+  try {
+    await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '700 milliseconds' WHERE token_hash=$1", [o.actor.session_hash]);
+    await blocker.query('BEGIN'); const pid = (await blocker.query('SELECT pg_backend_pid() pid')).rows[0].pid;
+    // The maintenance backup pin trigger acquires this same SHARE lock without
+    // holding the avatar target. Never assume the replaced Asset is nonblocking.
+    await blocker.query('SELECT asset_id FROM assets WHERE asset_id=$1 FOR SHARE', [first.prepared.assetId]);
+    pending = api.finalize(o.actor, { ...second.request, key: randomUUID() }); void pending.catch(() => undefined);
+    await blockedBy(pid);
+    let expired = false;
+    for (let i = 0; i < 250; i++) {
+      expired = (await pool.query('SELECT expires_at<=clock_timestamp() expired FROM sessions WHERE token_hash=$1', [o.actor.session_hash])).rows[0].expired;
+      if (expired) break; await delay(10);
+    }
+    assert(expired); await blocker.query('COMMIT');
+    await assert.rejects(pending, error => error instanceof Problem && error.code === 'session_expired');
+  } finally { await blocker.query('ROLLBACK'); await pending?.catch(() => undefined); blocker.release(); }
+  const current = (await pool.query('SELECT aggregate_version FROM member_avatars WHERE user_id=$1', [o.actor.user_id])).rows[0];
+  assert.equal(current.aggregate_version, '2');
+  assert.equal((await pool.query('SELECT asset_id FROM member_avatar_asset_targets WHERE user_id=$1', [o.actor.user_id])).rows[0].asset_id, first.prepared.assetId);
+  assert.equal((await pool.query('SELECT state FROM asset_upload_intents WHERE intent_id=$1', [second.prepared.intentId])).rows[0].state, 'stored');
+});
+
+test('ENGINE-INDEPENDENT-06 quota serialization spans distinct Work targets for the same owner', async () => {
+  const o = await owner(), first = await work(o), second = await work(o);
+  let release!: () => void, arrived!: (pid: number) => void;
+  const hold = new Promise<void>(resolve => { release = resolve; });
+  const entered = new Promise<number>(resolve => { arrived = resolve; });
+  let capacityChecks = 0;
+  const api = createAssetLifecycle<LifecyclePrepare & { workId: string }, never>(pool, { store: new FakeObjectStore(), maxPendingIntents: 100 }, {
+    purpose: 'work.private-draft', targetKind: 'work.private-result', variant: 'draft', inputMaxBytes: 262144, outputMaxBytes: 262144, retireReplacedAsset: false,
+    parsePrepare: raw => z.object({ key: z.string().uuid(), workId: z.string().uuid(), expectedVersion: z.literal('1'), contentType: z.literal('text/plain'), byteSize: z.literal(4), sha256: z.string().length(64) }).strict().parse(raw),
+    targetId: input => input.workId,
+    lockTarget: async (q, context, actor, id) => {
+      const row = (await q.query(`SELECT aggregate_version FROM work_items WHERE work_item_id=$1 AND scope_id=$2 AND owner_principal_id=$3 AND owner_ref=$4 AND work_mode='personal_execution' AND state='draft' FOR UPDATE`,
+        [id, context.scope.scope_id, context.subject_principal.principal_id, actor.user_id])).rows[0];
+      assert(row); return { targetId: id, aggregateVersion: row.aggregate_version, assetId: null };
+    },
+    resolvePolicy: async () => ({ revision: 'synthetic-independent-v1', platformPersistenceAllowed: true, retainedByteLimit: '262144' }),
+    requireCapacity: async (q, context, actor, _target, policy, reserve) => {
+      if (++capacityChecks === 1) { arrived((await q.query('SELECT pg_backend_pid() pid')).rows[0].pid); await hold; }
+      const count = (await q.query("SELECT count(*)::int n FROM assets WHERE owner_user_id=$1 AND scope_id=$2 AND purpose='work.private-draft'", [actor.user_id, context.scope.scope_id])).rows[0].n;
+      if (BigInt(count + 1) * BigInt(reserve) > BigInt(policy.retainedByteLimit)) throw new Problem(409, 'fixture_retained_quota', 'Synthetic quota reached');
+    },
+    // This fixture tests common allocation only; no object effects or alternate
+    // production publication implementation are supplied.
+    prepareRepresentation: async () => { throw new Error('Unexpected object effect'); },
+    lockPublication: async () => { throw new Error('Unexpected publication'); },
+    publish: async () => { throw new Error('Unexpected publication'); },
+  });
+  const request = (id: string) => ({ key: randomUUID(), workId: id, expectedVersion: '1', contentType: 'text/plain', byteSize: 4, sha256: 'a'.repeat(64) });
+  const one = api.prepare(o.actor, request(first)); void one.catch(() => undefined);
+  let two: ReturnType<typeof api.prepare> | undefined;
+  try {
+    const pid = await entered; two = api.prepare(o.actor, request(second)); void two.catch(() => undefined);
+    await blockedBy(pid); assert.equal(capacityChecks, 1, 'Second Work waits before observing quota');
+    release(); await one; await assert.rejects(two, error => error instanceof Problem && error.code === 'fixture_retained_quota');
+  } finally { release(); await one.catch(() => undefined); await two?.catch(() => undefined); }
+  assert.equal((await pool.query("SELECT count(*)::int n FROM assets WHERE owner_user_id=$1 AND purpose='work.private-draft'", [o.actor.user_id])).rows[0].n, 1);
+  assert.equal(await version(first), '1'); assert.equal(await version(second), '1');
 });
