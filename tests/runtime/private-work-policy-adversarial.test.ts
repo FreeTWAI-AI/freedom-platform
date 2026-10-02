@@ -94,6 +94,21 @@ test('POLICY independent missing/default-deny/foreign owner remain denied, with 
   await assert.rejects(commands.create(peer.actor, { key: randomUUID(), title: 'a', objective: 'b' }), status(503));
 });
 
+test('POLICY independent restricted runtime can execute the actual resolver without policy mutation authority', async () => {
+  const f = await member(); await enable(f);
+  const q = await pool.connect(), role = `fp_policy_read_${process.pid}_${Date.now()}`;
+  try {
+    await q.query('BEGIN'); await q.query(`CREATE ROLE ${role}`);
+    await q.query(`GRANT USAGE ON SCHEMA ${schema} TO ${role}`);
+    await q.query(`GRANT SELECT ON private_work_persistence_policy TO ${role}`);
+    await q.query(`SET LOCAL ROLE ${role}`);
+    const current = await resolvePolicy(q, f.context);
+    assert.equal(current.revision, 'private-work.v1');
+    for (const column of ['revision', 'persistence_allowed', 'retained_byte_limit'])
+      assert.equal((await q.query("SELECT has_column_privilege(current_user,'private_work_persistence_policy',$1,'UPDATE') allowed", [column])).rows[0].allowed, false);
+  } finally { await q.query('ROLLBACK'); q.release(); }
+});
+
 test('POLICY independent SQL cannot rebind purpose/scope/owner, skip revision, delete, or enable absent quota', async () => {
   const f = await member(), peer = await member(); await enable(f);
   for (const [sql, params] of [
