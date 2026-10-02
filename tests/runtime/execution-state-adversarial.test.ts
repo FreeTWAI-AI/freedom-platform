@@ -194,3 +194,61 @@ test('EXEC object decoder rejects accessors without executing them or serializin
   const result = decide(value); assert.equal(result.admissible, false); assert.equal(calls, 0);
   assert(!JSON.stringify(result).includes('PRIVATE_MARKER'));
 });
+
+for (const width of ['ordinary', 'maximum'] as const) test(`EXEC retained-history ${width} boundary preserves usable Stop/revoke and every charge`, () => {
+  const value = input(), binding = structuredClone(value.snapshot.attempts[0]);
+  if (width === 'maximum') {
+    // Maximum wire widths, but sufficient arithmetic headroom for the sequence.
+    const wide = '9223372036854700000';
+    value.expected_version = value.snapshot.version = value.snapshot.work_version = value.assertions.work_version = wide;
+    value.snapshot.task_lease.epoch = value.assertions.task_epoch = wide;
+    value.snapshot.control.epoch = value.assertions.control_epoch = wide;
+    value.snapshot.recovery_generation = value.assertions.recovery_generation = wide;
+    binding.grant_revision = value.assertions.grant_revision = wide;
+    for (const key of ['provider_ref', 'model_ref', 'processing_location', 'data_policy_revision', 'contract_version', 'adapter_version'] as const) binding[key] = 'L'.repeat(96);
+    value.assertions.policy_revision = binding.data_policy_revision;
+  }
+  value.snapshot.state = 'created'; value.snapshot.current_attempt_id = null; value.snapshot.attempts = [];
+  value.snapshot.task_lease.expires_at = null; value.snapshot.control.acknowledged_epoch = null;
+  value.assertions.actor_kind = 'owner'; apply(value, { type: 'preflight', binding });
+  value.assertions.actor_kind = 'runtime'; apply(value, { type: 'activate', expires_at: '2026-10-02T12:01:00.000Z' });
+  apply(value, { type: 'control_ack', epoch: value.snapshot.control.epoch });
+  let boundary = false, lastInFlight: ExecutionInput | undefined;
+  outer: for (let n = 0; n < 128; n++) {
+    for (const event of [
+      { type: 'advance_model', dispatch_id: id(1000 + n), step_id: id(2000 + n), request_digest: 'a'.repeat(64) },
+      { type: 'record_dispatch', dispatch_id: id(1000 + n) },
+      { type: 'record_outcome', dispatch_id: id(1000 + n), outcome: 'succeeded', usage: 'known' },
+    ] as ExecutionEvent[]) {
+      value.event = event;
+      const before = structuredClone(value), decision = decide(value);
+      if (!decision.admissible) {
+        assert.equal(event.type, 'advance_model', 'Refuse growth before an accepted next snapshot strands later control/outcome');
+        assert.deepEqual(value, before, 'Denied growth must not trim retained history');
+        boundary = true; break outer;
+      }
+      apply(value, event);
+      if (event.type === 'record_dispatch') lastInFlight = structuredClone(value);
+    }
+  }
+  assert(boundary && lastInFlight && value.snapshot.dispatches.length > 1, 'Exercise an actual nonempty retained-history boundary');
+  // The last in-flight snapshot was actually reached, not fabricated from a
+  // settled history. It can record unknown outcome/charge without adding a row.
+  const unknown = structuredClone(lastInFlight!);
+  apply(unknown, { type: 'record_outcome', dispatch_id: unknown.snapshot.dispatches.at(-1)!.dispatch_id, outcome: 'unknown', usage: 'unknown' });
+  for (const retained of [value, unknown]) for (const operation of ['stop', 'revoke'] as const) {
+    const control = structuredClone(retained), history = structuredClone(retained.snapshot.dispatches), attempts = structuredClone(retained.snapshot.attempts);
+    control.assertions.actor_kind = 'owner';
+    for (const key of ['model_ready', 'runtime_online', 'connection_active', 'policy_allowed', 'grant_active', 'budget_available'] as const) control.assertions[key] = false;
+    control.event = { type: operation };
+    decodeExecutionInput(JSON.stringify(control));
+    apply(control, { type: operation });
+    assert.deepEqual(control.snapshot.dispatches, history); assert.deepEqual(control.snapshot.attempts, attempts);
+    assert.equal(control.snapshot.state, 'cancelling');
+    control.assertions.actor_kind = 'runtime'; control.assertions.runtime_online = control.assertions.connection_active = true;
+    apply(control, { type: 'control_ack', epoch: control.snapshot.control.epoch });
+    assert.deepEqual(control.snapshot.dispatches, history);
+    assert.equal(control.snapshot.state, retained === unknown ? 'cancelling' : 'cancelled');
+    decodeExecutionInput(JSON.stringify(control));
+  }
+});
