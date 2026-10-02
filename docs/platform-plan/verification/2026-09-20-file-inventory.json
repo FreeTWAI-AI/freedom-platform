@@ -3264,8 +3264,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/09-bootstrap-status.md",
-      "bytes": 6631,
-      "sha256": "f941c2dcba3f9c980bd025c7f85397f543ab98ae0b4a01927b8643fc7e3b722d"
+      "bytes": 7184,
+      "sha256": "16b4b6900af53a25423b2c842680dd0c9763ecea9f6388a721bdf13b7759ddee"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/README.md",
@@ -3899,8 +3899,8 @@
     },
     {
       "path": "modules/agent-control/bootstrap-status.md",
-      "bytes": 4104,
-      "sha256": "4c4a2d614821499000e0925246e19fa06286983e033c872145f97440efa30cd4"
+      "bytes": 4652,
+      "sha256": "b803bd5d056dbe7ec3d6a694185d76131b18b8432b58d36270d3291649cdd23d"
     },
     {
       "path": "modules/agent-control/bootstrap-status.ts",
