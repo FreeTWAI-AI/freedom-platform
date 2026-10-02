@@ -85,6 +85,22 @@ test('single-module consumer root descriptor participates in candidate and basel
   assert.deepEqual(baseline.context.tests, ['governance.unit']);
 });
 
+test('real consumer suite evidence validates in a complete local report without hiding surface blockers', async t => {
+  const f = await fixture(t), consumer = descriptor('agent-kit', ['src/**']);
+  consumer.tests = ['consumer.agent-kit'];
+  await put(f.root, 'src/freedom.module.json', pretty(consumer));
+  await put(f.root, 'src/index.mjs', 'export const version=1;');
+  await put(f.root, 'tests/workspace.test.mjs', "import {test} from 'node:test'; test('consumer',()=>{});");
+  f.git(['update-ref', 'refs/heads/baseline', f.commit()]);
+  await put(f.root, 'src/index.mjs', 'export const version=2;');
+  const report = await verifyWorkspace(f.options);
+  assert.equal(report.status, 'unavailable');
+  const suite = report.checks.find(check => check.check_id === 'consumer.agent-kit');
+  assert.equal(suite.status, 'passed'); assert.equal(suite.test_count, 1);
+  assert.equal(suite.test_files[0].path, 'tests/workspace.test.mjs');
+  assert.deepEqual(report.blockers, ['registration_behavior_audit_required']);
+});
+
 test('unchanged mandatory content is deduplicated; generated context is not source state', async t => {
   const f = await fixture(t);
   const one = (await buildContext({ ...f.options, scopes: ['governance'] })).context;

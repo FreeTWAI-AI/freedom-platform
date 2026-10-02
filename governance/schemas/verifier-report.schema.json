@@ -77,7 +77,7 @@
           },
           "selected_files": {
             "type": "array", "minItems": 1, "maxItems": 512, "uniqueItems": true,
-            "items": { "type": "string", "pattern": "^(tests/runtime/[a-z][a-z0-9_-]*\\.test\\.ts|packages/contribution-tools/test/[a-z][a-z0-9-]*\\.test\\.mjs)$", "maxLength": 240 }
+            "items": { "type": "string", "pattern": "^(tests/runtime/[a-z][a-z0-9_-]*\\.test\\.ts|tests/[a-z][a-z0-9_-]*\\.test\\.mjs|packages/contribution-tools/test/[a-z][a-z0-9-]*\\.test\\.mjs)$", "maxLength": 240 }
           },
           "test_files": {
             "type": "array",
@@ -86,7 +86,7 @@
             "items": {
               "type": "object",
               "properties": {
-                "path": { "type": "string", "pattern": "^(tests/runtime/[a-z][a-z0-9_-]*\\.test\\.ts|packages/contribution-tools/test/[a-z][a-z0-9-]*\\.test\\.mjs)$", "maxLength": 240 },
+                "path": { "type": "string", "pattern": "^(tests/runtime/[a-z][a-z0-9_-]*\\.test\\.ts|tests/[a-z][a-z0-9_-]*\\.test\\.mjs|packages/contribution-tools/test/[a-z][a-z0-9-]*\\.test\\.mjs)$", "maxLength": 240 },
                 "counts": {
                   "type": "object",
                   "properties": {
