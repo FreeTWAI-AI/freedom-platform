@@ -764,8 +764,8 @@
     },
     {
       "path": "apps/portal-web/src/LayoutDesign.css",
-      "bytes": 8125,
-      "sha256": "d7eb3f4df6db8ba617688650106ab05851c2b97f17af147f36a0c5407d58fab3"
+      "bytes": 8201,
+      "sha256": "372d73da45afc227b5789ca02d6365314d784a75052b52fe4721336b03a523bc"
     },
     {
       "path": "apps/portal-web/src/Navigation.tsx",
@@ -4784,8 +4784,8 @@
     },
     {
       "path": "tests/e2e/skill-book-library.spec.ts",
-      "bytes": 34669,
-      "sha256": "9fe977e4b9873e71d2cf77a22320cfa25919b8a5fd94518506d01e0c163c80d9"
+      "bytes": 36897,
+      "sha256": "42cbf6dddbd249f3588a879837fa0742207d0791ee927dc96220f215d620aba7"
     },
     {
       "path": "tests/e2e/skill-book-upgrade.spec.ts",
