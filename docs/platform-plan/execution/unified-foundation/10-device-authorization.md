@@ -35,11 +35,15 @@ Device code 是 32 隨機 bytes 的 canonical base64url secret；user code 是 1
 
 暫用 migration 090 新增 device authorizations、poll proof JTI ledger 與 member review rate buckets；087–089 不改寫。Pending request 保存 immutable key/request/nonce/hash/expiry，沒有 owner/runtime 權威。Original issued_at＋300 秒是獨立截止，會員核准不能延長。
 
+Client display name 在 begin 時保存，並納入 request digest；inspect 讀保存值，不使用稍後 host instance 改名後的 label。SQL 要求 decided／consumed 狀態的必要時間非 NULL、有限且為毫秒精度；不能只依賴 nullable comparison 的 CHECK。
+
 `pending → approved|denied` 只由目前有效的 member 決定，owner/person/personal scope 一次綁定，不可改派給第二個人。Approve 原子建立真實 087 challenge 並連回 authorization；087 自己保持精確 300 秒 TTL，但 poll／exchange 同時驗 original authorization deadline。Approve 不建立 enrolled runtime、connection 或 token。Deny 不產生 087 challenge。無論 expired/denied/consumed 都不刪除或復活。
 
 Poll 先用未授權 locator 得到 immutable state/owner；pending-only 路徑不能先鎖 authorization 再升級到 owner 鎖。若等鎖後看到 approval 與 locator 不同，就結束該唯讀交易並重啟有界的 approved 路徑，不在同交易倒序取鎖。Approved 路徑沿 user SHARE → person SHARE → personal scope SHARE → existing owner/environment advisory → existing key advisory → 087 challenge → existing runtime/connection（若有）→ authorization／proof ledger → 089 nonce。Member 在 user 後多 session，scope 後多 scoped-command advisory，其餘一致。當前 authority、state、binding 皆須鎖後重驗。
 
-Approved poll 沒有 enrollment proof 時，回 exact challenge。交換時必須以既有 `verifyRuntimeRegistrationProof` 真正驗該 challenge；不能 fake Actor、巢狀呼叫自己開交易的 member factory 或以批准 row 代替 proof。成功同交易 consume challenge → INSERT enrolled runtime → INSERT 30 日 immutable connection → INSERT 第一個 089 nonce → authorization consumed → sign bootstrap。之後再驗 DB clock、member-independent目前身分及 token validity，commit 後才回 issued。Raw enrollment/poll proof、device code 與 token 不落表；失敗任一 sink／驗簽／簽發／最後時計，全數 rollback。沒有 fake member business receipt，交換的 durable facts 是這些 backing records。
+Approved poll 沒有 enrollment proof 時，回 exact challenge。交換時必須以既有 `verifyRuntimeRegistrationProof` 真正驗該 challenge；不能 fake Actor、巢狀呼叫自己開交易的 member factory 或以批准 row 代替 proof。成功同交易寫 verified poll marker → consume challenge → INSERT enrolled runtime → INSERT 30 日 immutable connection → INSERT 第一個 089 nonce → sign bootstrap → authorization consumed。之後再驗 DB clock、member-independent目前身分及 token validity，commit 後才回 issued。Raw enrollment/poll proof、device code 與 token 不落表；失敗任一 sink／驗簽／簽發／最後時計，全數 rollback。沒有 fake member business receipt，交換的 durable facts 是這些 backing records。
+
+090 額外保護已連入配對的 087 challenge：舊 member confirm 入口不能單獨 consume，避免繞過 original deadline 或一次性交換。Consume trigger 要求該 authorization 仍 approved／未到期及同交易 poll ledger 的 `exchange_challenge_id` marker；deferred constraint 又要求完整 consumed authorization 與實際 challenge／runtime／connection／nonce，marker 不可單獨 commit。未連入配對的 087 challenge 行為不變。這是 DB 結構限制，不假裝 SQL 已驗簽；真正 proof admission 仍由受信服務負責。
 
 ## Polling 與容量
 

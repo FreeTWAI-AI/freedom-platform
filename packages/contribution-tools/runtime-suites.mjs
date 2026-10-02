@@ -22,8 +22,8 @@ export const NODE_CONSUMER_SUITES = Object.freeze({
 export const FULL_RUNTIME_BASELINE = Object.freeze(paths(`
 admin-access-session admin-access-sync admin-access admin-appointments admin-guild-candidates admin-sync-worker
 agent-commerce agent-connections agent-connections-adversarial asset-engine asset-lifecycle-races asset-lifecycle asset-maintenance asset-r2 asset-storage avatar avatar-bridge
-avatar-command-compat avatar-upload benefits bootstrap-contracts bootstrap-proof bootstrap-status bootstrap-status-adversarial client-connections co-creation
-command-core commerce development-access-grant-race development-access development-map e2e-auth-isolation
+avatar-command-compat avatar-upload benefits bootstrap-contracts bootstrap-issuer bootstrap-proof bootstrap-status bootstrap-status-adversarial client-connections co-creation
+command-core commerce development-access-grant-race development-access development-map device-authorizations device-authorizations-adversarial device-pairing-contracts device-pairing-proof e2e-auth-isolation
 event-highlights events-past execution-runs execution-runs-adversarial execution-runs-grants execution-state execution-state-adversarial fixed-behavior-harness flows freedom_env game-console-feed game-console-routing game-console
 github-app-setup github-history github-identity github-repository-read github-social-routes github-social-store
 github-social github-sync guild-entry-questions guild-experts guild-member-tiers guild-preferences guild-profile

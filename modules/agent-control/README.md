@@ -11,6 +11,14 @@ verification with current DB authority and atomic nonce/JTI admission for one
 minimal status operation. It still has no token issuer, HTTP mount or execution
 Grant, and it does not turn enrollment or crypto DTOs into reusable credentials.
 
+The [device authorization coordinator](device-authorizations.md) now composes
+fresh-device pairing, exact member approval, genuine enrollment proof and a
+[constrained bootstrap issuer](device-pairing-proof.md). Its linked challenges
+cannot be consumed through this older member `confirm` entry point: migration
+090 requires their complete, original-deadline-bound one-time exchange. Ordinary
+unlinked enrollment remains unchanged. This is an internal service, not mounted
+device-flow HTTP, refresh support or production key custody.
+
 `createRuntimeRegistrations(pool, { environment })` is an internal server factory
 for current members. The host must explicitly select `local`, `staging-next`, or
 `next`; there is no environment default or request override. It provides:

@@ -171,7 +171,7 @@ not inspect or apply a cloud overlay or a persistence-policy update.
 The existing scanner's `sha256(JSON.stringify(sql))` convention is unchanged.
 The evaluator validates ordered full filename/digest ledgers, first migration 001,
 the historical missing 022, no duplicates or other gaps, and exact reviewed names
-076–089. Recognizing a reviewed filename does not approve its SQL digest or a release;
+076–090. Recognizing a reviewed filename does not approve its SQL digest or a release;
 exact independently approved ledger support is still required. Schema below 075
 and unknown extensions are unavailable. Applied DB
 ledger must be an exact prefix of the planned scanner ledger. Every binary must
@@ -191,6 +191,7 @@ not merely after the first new-shape write. No SQL file or migration is changed.
 | `execution.runtime-enrollment.v1` | current-member public-key challenge/enrollment/revocation, immutable identity and retained key tombstones; not device attestation, machine token or execution support |
 | `execution.agent-connection-record.v1` | owner/runtime/client/environment-bound, expiring and revocable connection metadata; not token issuance, nonce replay prevention or machine authorization |
 | `execution.bootstrap-status.v1` | current owner/runtime/connection and cryptographic checks plus single-use nonce/proof ID admission for minimal status only; not issuer, device-flow HTTP, private data or execution Grant support |
+| `execution.device-authorization.v1` | closed device requests, exact member approval, genuine enrollment proof and one-time bootstrap issuance with durable throttling; not refresh families, HTTP/UI, production issuer trust or execution Grants |
 
 | Shape | Minimum schema | Additional capabilities |
 | --- | --- | --- |
@@ -201,6 +202,7 @@ not merely after the first new-shape write. No SQL file or migration is changed.
 | `execution.runtime-enrollment.v1` | 087 | closed runtime enrollment |
 | `execution.agent-connection-record.v1` | 088 | closed runtime enrollment + agent connection records |
 | `execution.bootstrap-status.v1` | 089 | runtime enrollment + connection records + bootstrap nonce admission |
+| `execution.device-authorization.v1` | 090 | runtime enrollment + connection records + bootstrap nonce admission + closed device authorization |
 
 Schema 085 alone does not enable a private shape. When it is planned or retained,
 any private shape in the required union also requires `work.server-policy.v1` from every
@@ -232,6 +234,13 @@ all count as retained shape history. Bootstrap admission support requires both
 connection and enrollment support, including capability-only history floors.
 Nonce consumption or a successful status read never implies Run/Grant, private
 Work, provider, public HTTP activation or token issuance support.
+
+090 alone enables nothing. Pending, approved, denied, expired and consumed
+device requests, poll-proof history and review buckets remain retained records.
+Device authorization support requires bootstrap admission, connection and
+enrollment support, including capability-only floors. A local one-time token
+exchange is not production issuer approval, refresh support, HTTP/UI activation
+or permission to execute. These checks do not call the issuer or mutate storage.
 
 Required capabilities union the independently retained capability floor with
 the schema/shape-derived requirements; they apply to **every** active binary

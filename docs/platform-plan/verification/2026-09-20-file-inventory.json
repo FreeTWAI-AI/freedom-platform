@@ -1593,6 +1593,46 @@
       "sha256": "3b9103df5ed28b09d4503c382e74248b6681dac67959089900c388f7413d9bb8"
     },
     {
+      "path": "contracts/execution/v1/device-authorization-begin.schema.json",
+      "bytes": 2459,
+      "sha256": "3b7523bfd8a366ed2f4d88c88a3e5bc5aae3f12e371484178a1d937b3c75b048"
+    },
+    {
+      "path": "contracts/execution/v1/device-authorization-decision.schema.json",
+      "bytes": 1136,
+      "sha256": "c99acc0ec87ec5810ed9042400b27b191a1244a524d633b62d76a912464b114b"
+    },
+    {
+      "path": "contracts/execution/v1/device-authorization-poll.schema.json",
+      "bytes": 10411,
+      "sha256": "c3266b7c5149b397baa95afbdd4a288c0d439688ec75dba1832396d6dfb75520"
+    },
+    {
+      "path": "contracts/execution/v1/device-authorization-review.schema.json",
+      "bytes": 2355,
+      "sha256": "200b8724c901b9bb1953fb2520605804330999003b3ffcba392a6c4173d924a2"
+    },
+    {
+      "path": "contracts/execution/v1/device-pairing-begin-claims.schema.json",
+      "bytes": 1605,
+      "sha256": "ce73a12c41d714795637021aa1be639ee8abc9c88dd6f9dd1a854713d2a152c2"
+    },
+    {
+      "path": "contracts/execution/v1/device-pairing-poll-claims.schema.json",
+      "bytes": 2385,
+      "sha256": "65e9fa043bc448570bb2f8e1952263a4a10a5634775a5a4241d002c9143d2a0b"
+    },
+    {
+      "path": "contracts/execution/v1/device-pairing-proof-result.schema.json",
+      "bytes": 1341,
+      "sha256": "89c8e0175e65a310ecb491ae71179cf22c784968eafe16b413c2eb9625a11828"
+    },
+    {
+      "path": "contracts/execution/v1/device-pairing.ts",
+      "bytes": 8182,
+      "sha256": "a578179c59d91049f815c381d7864611eb9346659de1b60fc51f1413a9b1e9b2"
+    },
+    {
       "path": "contracts/execution/v1/runtime-public-jwk.schema.json",
       "bytes": 952,
       "sha256": "d1968ec13c05946c7db925c151b312fd584fedc504bb9e903793dc0e31aa68e1"
@@ -1680,7 +1720,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30575,
-      "sha256": "3fa618b761b4932e9fa0bedec500258e5356e4e1b3bce91c8acef339ab37240a"
+      "sha256": "6a356d6f01cfb5ca7995c2fca071845911d8f745bcb8a72bbc213ade82b4c896"
     },
     {
       "path": "deploy/cloudflare/lib/cloudflare.mjs",
@@ -1729,8 +1769,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 15879,
-      "sha256": "888f2424501ebda523ab5800da05685b2b30bd007f1be73e894bc4d9189a2629"
+      "bytes": 16272,
+      "sha256": "a135d97b7936265cb593dd8f94e84a72f567911d3f1f9b2c137b28e090dba880"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -1744,8 +1784,8 @@
     },
     {
       "path": "deploy/cloudflare/release-compatibility.md",
-      "bytes": 18451,
-      "sha256": "9d4ee2add819e8c13297b1fdc8091472da86eb77c908da21f6a41e68dc883cd2"
+      "bytes": 19311,
+      "sha256": "662b8e71b9e77fb00f4704e574816160d90bd6a983635d2d567d937b37683269"
     },
     {
       "path": "deploy/cloudflare/sql/10-create-roles.psql",
@@ -1774,8 +1814,8 @@
     },
     {
       "path": "deploy/cloudflare/test/release-bootstrap-status.test.mjs",
-      "bytes": 5824,
-      "sha256": "3aada3ba2083d2316ea5f0b05b536536f0487ff50a4bf1223ec470f6a3195035"
+      "bytes": 5829,
+      "sha256": "8dbe20af95d68cd0b89a6665a4f7cc459d6345adaa98e2ea78c898a8265b8a63"
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility-adversarial.test.mjs",
@@ -1786,6 +1826,11 @@
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
       "bytes": 21415,
       "sha256": "b95a9a7e0e0a21841d84f9c042b94f49717a6264ccb27f4c006b7cc8c811b12e"
+    },
+    {
+      "path": "deploy/cloudflare/test/release-device-authorization.test.mjs",
+      "bytes": 6043,
+      "sha256": "6cfbd0b603a1add434719945293b2c9a88962b43474c4f427a82aadbac817b23"
     },
     {
       "path": "deploy/cloudflare/test/release-execution-run.test.mjs",
@@ -3268,9 +3313,14 @@
       "sha256": "16b4b6900af53a25423b2c842680dd0c9763ecea9f6388a721bdf13b7759ddee"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/10-device-authorization.md",
+      "bytes": 12370,
+      "sha256": "ec40d66e145f333b75a576e290a797c930592e4f3844920a754911147bf25246"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/README.md",
-      "bytes": 6980,
-      "sha256": "2f4b1f7340d27d25f8dda4bdb10e208a55eac0e997a32ee6e5189b10e6a82b4c"
+      "bytes": 7211,
+      "sha256": "099738175b8265ab43c4fe76f1e0df64a8573ec6cc83c5e3d923f5e8e6d0c673"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
@@ -3848,6 +3898,11 @@
       "sha256": "f331edc4069b675f22b765181a605ca2ca2e033b8827a7a08cd187b5038a6a35"
     },
     {
+      "path": "migrations/090_device_authorizations.sql",
+      "bytes": 13407,
+      "sha256": "938d55fc53ad13643b23a52c4b11a46b355e23a289b8d5627d7724eb397678c7"
+    },
+    {
       "path": "modules/agent-commerce/distribution.ts",
       "bytes": 10476,
       "sha256": "2d60f26788a408905286751505ea0d4d2e38a4399e1ff11e3df4622b5c2601f3"
@@ -3874,8 +3929,8 @@
     },
     {
       "path": "modules/agent-control/README.md",
-      "bytes": 6222,
-      "sha256": "b928ad7ff2f67c88fdce270e6d7a2f0eb6d531b1b6682bea0950b24dd2d3a7ae"
+      "bytes": 6756,
+      "sha256": "74fa34713a3f3a16610674556e0a49d517240ed88dc3d667a9a1e34c88af3d17"
     },
     {
       "path": "modules/agent-control/agent-connections.md",
@@ -3886,6 +3941,11 @@
       "path": "modules/agent-control/agent-connections.ts",
       "bytes": 11557,
       "sha256": "9219cda1dec2319cc7573123eb2e7391a2c763b7372d55f815ad69b7a94817a4"
+    },
+    {
+      "path": "modules/agent-control/bootstrap-issuer.ts",
+      "bytes": 5509,
+      "sha256": "d5a6e4421feb383391ee157d9aa57f6a74ef0805b37b7b5d28e60b0f3981ee83"
     },
     {
       "path": "modules/agent-control/bootstrap-proof.md",
@@ -3908,14 +3968,39 @@
       "sha256": "d63ac2a27c690d41a5dc3880740b1b9e16ca7a341990a42f3920881bf0a12e3c"
     },
     {
+      "path": "modules/agent-control/device-authorizations.md",
+      "bytes": 6811,
+      "sha256": "3aafec4281a1d56e5c0eef724708faf0e1796c1819644b219344e0c00f2c1d7f"
+    },
+    {
+      "path": "modules/agent-control/device-authorizations.ts",
+      "bytes": 29263,
+      "sha256": "7b31f9be55b36e3442dd5cd109264a4b0efb720da340f8d071e156af076ad941"
+    },
+    {
+      "path": "modules/agent-control/device-pairing-proof.md",
+      "bytes": 4549,
+      "sha256": "64ad71e9563f57c5769988fd2c42f53259b8631285260a27cd6c1c4c5c6d0ec6"
+    },
+    {
+      "path": "modules/agent-control/device-pairing-proof.ts",
+      "bytes": 4570,
+      "sha256": "3869b591c71e52d89ee40473aeeae5d8dcd3e2116e93fbddd0b0601ecf4afcb0"
+    },
+    {
       "path": "modules/agent-control/freedom.module.json",
-      "bytes": 2949,
-      "sha256": "ba99147077c716d0464673d094361ef83a60e2d81fbdde83e547c900ba2d4097"
+      "bytes": 4203,
+      "sha256": "f701b76eedf8178b9dbc5bfe5f5e25d76708380be5fca4b362b2db44bd23eba8"
     },
     {
       "path": "modules/agent-control/generate-bootstrap.ts",
       "bytes": 1575,
       "sha256": "a05c6d7d5ad1f6195ad9aa960cfd20f1579856c9f0dfea8a557420314a9ee63d"
+    },
+    {
+      "path": "modules/agent-control/generate-device-pairing.ts",
+      "bytes": 1882,
+      "sha256": "5dd548cc64218be16fa9eebaaa873b73da6e89a04b4a5bf1e7c1f5c20eaad695"
     },
     {
       "path": "modules/agent-control/generate.ts",
@@ -4699,8 +4784,8 @@
     },
     {
       "path": "package.json",
-      "bytes": 4117,
-      "sha256": "f0b86b5fdbba8c488e824946005510064a73785acd65564032788c5cfa7ae89c"
+      "bytes": 4297,
+      "sha256": "5299a495239b82228ad7a89afc1ba67f92916c3390d710859902296d0ae5706e"
     },
     {
       "path": "packages/asset-storage/README.md",
@@ -4829,8 +4914,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 3833,
-      "sha256": "3027f77e24a9a3fb22c8ba6a345dc803960cac5c39e53d57f4bb46691adfb66b"
+      "bytes": 3952,
+      "sha256": "60a747db24cb5da61a7daa65c80f5926d5ba74f60e371eab95ec62bf50789e0e"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -5823,6 +5908,11 @@
       "sha256": "dc6130e52ba2a566011bb830a3c2897dfc8490ffe2fae005d6aff9dc01f103dd"
     },
     {
+      "path": "tests/runtime/bootstrap-issuer.test.ts",
+      "bytes": 8634,
+      "sha256": "b90a9a4e3e3cedfae8a1f1133375afe05fe1c24396c56014e63f0ea447964ddb"
+    },
+    {
       "path": "tests/runtime/bootstrap-proof.test.ts",
       "bytes": 22522,
       "sha256": "9483d574f46d4c9beb2ca072d7211bd0d64be338fb571043b24950e4a88400bc"
@@ -5871,6 +5961,26 @@
       "path": "tests/runtime/development-map.test.ts",
       "bytes": 6472,
       "sha256": "76ed65b759d30d9459992f69b108f05ae4ec602abbb10686916440868f88348f"
+    },
+    {
+      "path": "tests/runtime/device-authorizations-adversarial.test.ts",
+      "bytes": 40088,
+      "sha256": "d33c5dbaad44b829d08c0010eb799215878eb1134f46e53d188ccdcbac13ae55"
+    },
+    {
+      "path": "tests/runtime/device-authorizations.test.ts",
+      "bytes": 27757,
+      "sha256": "734ab3c4f6a88c88009055ae353abd59c75797ccdf48a038071a9c95222641fc"
+    },
+    {
+      "path": "tests/runtime/device-pairing-contracts.test.ts",
+      "bytes": 2997,
+      "sha256": "9a20ac7a43cdae8b50495425900328d8f80b3ac49dc4c3d7a6572b8cde9cc7cf"
+    },
+    {
+      "path": "tests/runtime/device-pairing-proof.test.ts",
+      "bytes": 10489,
+      "sha256": "bb236490d362f466e80e13c373d4de76edba494d1835fa7b11db007a389d5c6c"
     },
     {
       "path": "tests/runtime/e2e-auth-isolation.test.ts",

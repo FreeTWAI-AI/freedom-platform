@@ -1,0 +1,320 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "authorization_pending"
+        },
+        "interval": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 325,
+          "description": "Seconds; initial 5 plus at most 64 accepted proof slowdowns of 5 seconds."
+        },
+        "operational_authority": {
+          "type": "boolean",
+          "const": false
+        }
+      },
+      "required": [
+        "status",
+        "interval",
+        "operational_authority"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "slow_down"
+        },
+        "interval": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 325,
+          "description": "Seconds; initial 5 plus at most 64 accepted proof slowdowns of 5 seconds."
+        },
+        "operational_authority": {
+          "type": "boolean",
+          "const": false
+        }
+      },
+      "required": [
+        "status",
+        "interval",
+        "operational_authority"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "proof_required"
+        },
+        "challenge": {
+          "type": "object",
+          "properties": {
+            "challenge_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "owner_member_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "owner_principal_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "scope_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "runtime_device_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "environment": {
+              "type": "string",
+              "enum": [
+                "local",
+                "staging-next",
+                "next"
+              ]
+            },
+            "key_thumbprint": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43,
+              "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+            },
+            "nonce": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43,
+              "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+            },
+            "issued_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+            },
+            "expires_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+            },
+            "profile": {
+              "type": "string",
+              "const": "freedom.runtime-enrollment/v1"
+            },
+            "purpose": {
+              "type": "string",
+              "const": "runtime_enrollment"
+            },
+            "operational_authority": {
+              "type": "boolean",
+              "const": false
+            },
+            "payload": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            }
+          },
+          "required": [
+            "challenge_id",
+            "owner_member_id",
+            "owner_principal_id",
+            "scope_id",
+            "runtime_device_id",
+            "environment",
+            "key_thumbprint",
+            "nonce",
+            "issued_at",
+            "expires_at",
+            "profile",
+            "purpose",
+            "operational_authority",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        "interval": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 325,
+          "description": "Seconds; initial 5 plus at most 64 accepted proof slowdowns of 5 seconds."
+        },
+        "operational_authority": {
+          "type": "boolean",
+          "const": false
+        }
+      },
+      "required": [
+        "status",
+        "challenge",
+        "interval",
+        "operational_authority"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "access_denied"
+        },
+        "operational_authority": {
+          "type": "boolean",
+          "const": false
+        }
+      },
+      "required": [
+        "status",
+        "operational_authority"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "expired_token"
+        },
+        "operational_authority": {
+          "type": "boolean",
+          "const": false
+        }
+      },
+      "required": [
+        "status",
+        "operational_authority"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "issued"
+        },
+        "accessToken": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        },
+        "tokenType": {
+          "type": "string",
+          "const": "DPoP"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+        },
+        "connectionId": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "runtimeDeviceId": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "nonce": {
+          "type": "object",
+          "properties": {
+            "nonceId": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "nonce": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43,
+              "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+            },
+            "connectionId": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "issuedAt": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+            },
+            "expiresAt": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+            },
+            "operational_authority": {
+              "type": "boolean",
+              "const": false
+            }
+          },
+          "required": [
+            "nonceId",
+            "nonce",
+            "connectionId",
+            "issuedAt",
+            "expiresAt",
+            "operational_authority"
+          ],
+          "additionalProperties": false,
+          "description": "Public one-use bootstrap challenge metadata. Shape is not member approval or machine authentication. Server checks current owner/runtime/connection, bounded lifetime and atomic nonce consumption."
+        },
+        "refreshSupported": {
+          "type": "boolean",
+          "const": false
+        },
+        "operational_authority": {
+          "type": "boolean",
+          "const": false
+        }
+      },
+      "required": [
+        "status",
+        "accessToken",
+        "tokenType",
+        "expiresAt",
+        "connectionId",
+        "runtimeDeviceId",
+        "nonce",
+        "refreshSupported",
+        "operational_authority"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "description": "Closed device-flow protocol variants, not full OAuth transport compatibility or execution authority.",
+  "$id": "https://freetwai.com/contracts/execution/v1/device-authorization-poll"
+}
