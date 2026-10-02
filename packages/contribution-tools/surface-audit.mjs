@@ -31,8 +31,8 @@ export function auditSurfaceRegistrations({ baseline, candidate, changedPaths = 
   const add = (revision, entry, code, status = 'unavailable') => issues.push({ revision, entry, code, status });
   const output = () => ({ format: 'freedom.surface-audit/v1', assurance_level: 'local', profile,
     status: issues.some(x => x.status === 'failed') ? 'failed' : 'unavailable',
-    registration_status: issues.some(x => x.status === 'failed') ? 'failed'
-      : issues.some(x => !['registration_behavior_audit_required', 'surface_unmapped'].includes(x.code)) ? 'unavailable' : 'passed',
+    structural_status: issues.some(x => x.status === 'failed') ? 'failed' : 'unavailable',
+    coverage_kind: 'fixed-syntax-only',
     behavior_checked: false, execution_authorized: false, merge_authorized: false,
     parser: parser && approvedParser ? { version: approvedParser.version, installation_sha256: approvedParser.installationSha256,
       provenance: 'host-supplied-not-authenticated-by-this-audit' } : null,
@@ -195,12 +195,9 @@ export function auditSurfaceRegistrations({ baseline, candidate, changedPaths = 
       const parent = ref.parent;
       if (member(parent, 'app') && ts.isCallExpression(parent.parent) && parent.parent.expression === parent
         && !parent.parent.questionDotToken && (METHODS.has(parent.name.text) || parent.name.text === 'onError')) continue;
-      // Existing aggregate delegate helpers are explicitly NOT audited. Allowing
-      // these references avoids claiming the whole root is a closed grammar;
-      // the mandatory aggregate surface_unmapped/behavior blockers remain.
-      if (ts.isCallExpression(parent) && parent.arguments[0] === ref && !parent.questionDotToken
-        && ['registerMemberPromotion', 'registerMemberServices', 'registerPublicPromotion', 'registerPublicMemberServices'].some(name => ident(parent.expression, name))
-        && statementCall(parent, selected.fn.body)) continue;
+      // Even existing delegate names are not proof of safe registration behavior.
+      // Keep their receiver escapes visible; no name-based exemption or green
+      // substatus is granted for the partially inspected aggregate.
       add(revision, ROOT, 'registration_receiver_escape');
     }
   }

@@ -23,11 +23,16 @@ const run = (candidate = original, baseline = original, options = {}) => auditSu
 }, ports);
 function changed(path, transform) { const result = new Map(original); result.set(path, Buffer.from(transform(result.get(path).toString()))); return result; }
 const has = (report, code, revision = 'candidate') => report.issues.some(x => x.code === code && x.revision === revision);
+const newCandidateIssue = report => report.issues.filter(x => x.revision === 'candidate').some(x =>
+  report.issues.filter(y => y.revision === 'candidate' && y.code === x.code && y.entry === x.entry).length
+  > report.issues.filter(y => y.revision === 'baseline' && y.code === x.code && y.entry === x.entry).length);
 const descriptorChange = mutate => changed(avatarDescriptor, text => { const value = JSON.parse(text); mutate(value); return JSON.stringify(value); });
 
 test('actual avatar/private routes and real mounts map twelve baseline+candidate registrations without global pass', () => {
   const report = run();
-  assert.equal(report.registration_status, 'passed', JSON.stringify(report.issues));
+  assert.equal(report.structural_status, 'unavailable', JSON.stringify(report.issues));
+  assert.equal(report.coverage_kind, 'fixed-syntax-only');
+  assert.equal(report.issues.filter(x => x.revision === 'candidate' && x.code === 'registration_receiver_escape').length, 4);
   assert.equal(report.status, 'unavailable'); assert.equal(report.registrations.length, 12);
   assert.equal(report.evidence.length, 10); assert.equal(report.behavior_checked, false);
   assert.equal(report.merge_authorized, false); assert.equal(report.execution_authorized, false);
@@ -79,7 +84,7 @@ for (const [name, transform] of [
   ['optional call', s => s.replace("app.get('/me/avatar'", "app.get?.('/me/avatar'")],
   ['constructor alias', s => s.replace("{ Hono } from 'hono'", "{ Hono as H } from 'hono'").replace('new Hono<', 'new H<')],
 ]) test(`${name} is uncovered, never treated as absent or statically approved`, () => {
-  const report = run(changed(avatar, transform)); assert.notEqual(report.registration_status, 'passed', JSON.stringify(report.issues));
+  const report = run(changed(avatar, transform)); assert(newCandidateIssue(report), JSON.stringify(report.issues));
 });
 for (const [name, transform] of [
   ['missing mount', s => s.replace("  app.route('/api/v1',createAvatarRoutes(pool,runtime.avatarAssetStore));", '')],
@@ -111,7 +116,7 @@ test('early throw/control flow and changed middleware are uncovered, not approve
 test('missing or nonapproved host parser fails closed but retains baseline/candidate declaration union', () => {
   for (const options of [{}, { ...ports, approvedParser: { ...approvedParser, installationSha256: '0'.repeat(64) } }]) {
     const report = auditSurfaceRegistrations({ baseline: reader(original), candidate: reader(original) }, options);
-    assert(report.blockers.includes('trusted_parser_unavailable')); assert.equal(report.registration_status, 'unavailable');
+    assert(report.blockers.includes('trusted_parser_unavailable')); assert.equal(report.structural_status, 'unavailable');
     assert(report.required_tests.includes('runtime.avatar')); assert(report.surface_ids.includes('member.avatar'));
   }
 });

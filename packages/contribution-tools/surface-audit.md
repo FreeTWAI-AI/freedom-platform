@@ -45,14 +45,18 @@ fixed route modules and mount each exactly once with
 `app.route('/api/v1', factory(...))` in the body of `createPlatformApp`.
 Missing/aliased/conditional mounts, changed import source/prefix, literal shadow
 endpoints, early root return/throw, wrong final receiver, and root receiver
-mutation/unknown escapes are detected. Four pre-existing public/member
-promotion/service delegates are explicitly recognized as **uncovered** escapes,
-not certified registration implementations. The aggregate's other routes, delegated helpers,
+mutation/unknown escapes are detected. All receiver delegates, including the
+four pre-existing public/member promotion/service helpers, remain **uncovered**
+escapes. No helper-name exemption certifies their implementation. The aggregate's other routes, delegated helpers,
 dynamic loops, middleware and runtime entrypoints remain **uncovered**.
 
-`registration_status: passed` only means the fixed six leaf registrations and
-their mount syntax matched. Overall `status` is always `unavailable` or
-`failed`, never `passed`. Auth-profile equality checks a declaration, not actual
+Extracted registrations are raw syntax facts labelled
+`coverage_kind: fixed-syntax-only`, not evidence of live registrations. Both
+`structural_status` and overall `status` remain `unavailable` or `failed`, never
+`passed`. In particular, the unmodified current platform produces twelve
+baseline/candidate syntax facts but remains unavailable because its aggregate
+receiver escapes and broader entrypoints are uncovered. No green substatus is
+inferred from matching the six literals. Auth-profile equality checks a declaration, not actual
 session/onboarding/CSRF/share/HEAD/304 behavior. Real runtime acceptance remains
 mandatory. The report never authorizes execution or merge.
 This is structural registration consistency, not semantic reachability: even
