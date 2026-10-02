@@ -73,7 +73,12 @@ for (const [name, change] of [
   ['short-circuit mount', s => s.replace("app.route('/api/v1',createAvatarRoutes", "false && app.route('/api/v1',createAvatarRoutes")],
   ['factory parameter shadows import', s => s.replace('createPlatformApp(pool:Pool,', 'createPlatformApp(createAvatarRoutes:any,pool:Pool,')],
   ['explicit early return before fixed mount', s => s.replace("  app.route('/api/v1',createAvatarRoutes", "  return app;\n  app.route('/api/v1',createAvatarRoutes")],
+  ['early throw before fixed mount', s => s.replace("  app.route('/api/v1',createAvatarRoutes", "  throw new Error('stop');\n  app.route('/api/v1',createAvatarRoutes")],
+  ['conditional early return before fixed mount', s => s.replace("  app.route('/api/v1',createAvatarRoutes", "  if (runtime) return app;\n  app.route('/api/v1',createAvatarRoutes")],
+  ['wrong final returned receiver', s => s.replace('  return app;', '  return null;')],
   ['direct replacement of root mount method', s => s.replace("  app.route('/api/v1',createAvatarRoutes", "  app.route = () => app;\n  app.route('/api/v1',createAvatarRoutes")],
+  ['computed replacement of root mount method', s => s.replace("  app.route('/api/v1',createAvatarRoutes", "  app['route'] = () => null;\n  app.route('/api/v1',createAvatarRoutes")],
+  ['root receiver escapes to arbitrary mutator', s => s.replace("  app.route('/api/v1',createAvatarRoutes", "  mutate(app);\n  app.route('/api/v1',createAvatarRoutes")],
 ]) test(`adversarial mount: ${name} is not covered`, () => reject(root, change));
 
 test('invoked throwing initializer cannot fabricate reachable registrations', () => reject(avatar,
