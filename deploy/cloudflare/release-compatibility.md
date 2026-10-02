@@ -79,6 +79,15 @@ an independently retained watermark. A snapshot rollback must not roll back the
 host's generation or historical floor. This is an **input requirement**, not a
 claim that the runtime now enforces recovery generations or that a restore is safe.
 
+The reader must account for durable prepared and abandoned upload intents,
+retained/orphaned objects and private Work/Result history, not just ready Assets
+or currently attached pointers. Deleted, archived, expired or retired records can
+still matter to old writers, background readers and retained bytes. A disabled
+feature, removed live pointer, missing-object observation or restored older DB
+does not erase that historical compatibility obligation. The host must retain
+the relevant shape in its independent rollback floor; this library neither
+collects those rows nor supplies evidence that they can safely be forgotten.
+
 Each `release_records` entry contains exactly:
 
 - `source_sha`, `artifact_sha256`, `evidence_id`;
