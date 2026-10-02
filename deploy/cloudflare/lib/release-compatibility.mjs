@@ -6,7 +6,7 @@ const HEX40 = /^[0-9a-f]{40}$/;
 const HEX64 = /^[0-9a-f]{64}$/;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}$/;
 const ENVIRONMENTS = ['next', 'staging-next'];
-const CAPABILITIES = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1'];
+const CAPABILITIES = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1'];
 const SHAPES = Object.freeze({
   'avatar.asset.v1': { migration: 80, capabilities: ['avatar.asset-bridge.v1'] },
   'work.private.v1': { migration: 81, capabilities: ['work.personal-owner-acl.v1'] },
@@ -16,6 +16,7 @@ const FOUNDATION_NAMES = [
   '076_principal_resource_scopes.sql', '077_work_scope_privacy.sql', '078_scoped_member_commands.sql',
   '079_asset_upload_lifecycle.sql', '080_avatar_asset_bridge.sql', '081_private_work_commands.sql',
   '082_asset_maintenance.sql', '083_avatar_upload_policy.sql', '084_private_work_result_profiles.sql',
+  '085_private_work_policy.sql',
 ];
 
 function reject(code) { throw new Error(code); }
@@ -89,8 +90,8 @@ function ledger(value, digest) {
   if (previous < 75 || compatibilityLedgerDigest(value) !== digest) reject('schema_ledger_invalid');
   return previous;
 }
-function failReport(code, required = []) {
-  return { schema: 'freedom.release-compatibility-report/v1', status: 'unavailable', deployment_authority: false, restore_proof: false, execution_authority: false, required_capabilities: [...required].sort(), required_shapes: [], checked_releases: 0, issues: [{ code }] };
+function failReport(code, required = [], shapes = []) {
+  return { schema: 'freedom.release-compatibility-report/v1', status: 'unavailable', deployment_authority: false, restore_proof: false, execution_authority: false, required_capabilities: [...required].sort(), required_shapes: [...shapes].sort(), checked_releases: 0, issues: [{ code }] };
 }
 
 /**
@@ -111,8 +112,12 @@ export function evaluateReleaseCompatibility(input, { scan, host } = {}) {
     if (planned.ok !== true) reject('schema_scan_failed');
     plannedLast = ledger(planned.ledger, planned.ledger_digest);
     if (plannedLast >= 77) required.add('work.explicit-wire.v1');
+    for (const shape of request.enable_shapes) {
+      for (const capability of SHAPES[shape].capabilities) required.add(capability);
+      if (plannedLast >= 85 && shape.startsWith('work.private')) required.add('work.server-policy.v1');
+    }
   } catch (error) { return failReport(['schema_unknown', 'schema_ledger_invalid', 'schema_scan_failed'].includes(error.message) ? error.message : 'request_invalid', required); }
-  if (!host) return failReport('trusted_host_required', required);
+  if (!host) return failReport('trusted_host_required', required, request.enable_shapes);
 
   let trusted, observed, observedLast;
   try {
@@ -149,7 +154,7 @@ export function evaluateReleaseCompatibility(input, { scan, host } = {}) {
     }
   } catch (error) {
     const codes = ['target_mismatch', 'observation_stale', 'observation_incomplete', 'schema_unknown', 'schema_ledger_invalid', 'schema_ledger_mismatch', 'release_evidence_invalid'];
-    return failReport(codes.includes(error.message) ? error.message : 'host_evidence_invalid', required);
+    return failReport(codes.includes(error.message) ? error.message : 'host_evidence_invalid', required, request.enable_shapes);
   }
 
   const shapes = new Set([...trusted.rollback_floor_shapes, ...observed.enabled_shapes, ...observed.written_shapes, ...request.enable_shapes]);
@@ -160,6 +165,7 @@ export function evaluateReleaseCompatibility(input, { scan, host } = {}) {
     if (plannedLast < profile.migration) issue('shape_schema_missing', { shape });
     if ([...observed.enabled_shapes, ...observed.written_shapes].includes(shape) && observedLast < profile.migration) issue('observed_shape_schema_missing', { shape });
     for (const capability of profile.capabilities) required.add(capability);
+    if (plannedLast >= 85 && shape.startsWith('work.private')) required.add('work.server-policy.v1');
   }
   const releases = new Map([...observed.active_releases, request.candidate].map((release) => [identity(release), release]));
   for (const [id, release] of releases) {

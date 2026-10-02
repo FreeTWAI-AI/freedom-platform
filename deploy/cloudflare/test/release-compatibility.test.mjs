@@ -11,7 +11,7 @@ import { run } from '../preflight.mjs';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const NOW = 1790899200000;
-const CAPABILITIES = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1'];
+const CAPABILITIES = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1'];
 function fixture() {
   const scan = checkMigrations(join(ROOT, 'migrations'), loadManifest().database_defaults.migrations);
   const candidate = { source_sha: 'a'.repeat(40), artifact_sha256: 'b'.repeat(64) };
@@ -43,9 +43,9 @@ test('exact current source/artifact, full ledger and synthetic host produce ONLY
   assert.equal(result.status, 'compatible');
   assert.deepEqual(result.issues, []);
   assert.equal(result.checked_releases, 1);
-  assert.deepEqual(result.required_capabilities, [...CAPABILITIES].sort());
+  assert.deepEqual(result.required_capabilities, CAPABILITIES.filter((c) => c !== 'work.server-policy.v1' || f.scan.ledger.at(-1).name.startsWith('085_')).sort());
   for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[flag], false);
-  assert.equal(f.host.release_records[0].capabilities.length, 5, 'caller data unchanged');
+  assert.equal(f.host.release_records[0].capabilities.length, 6, 'caller data unchanged');
 });
 
 test('077 floor rejects old Work row-spread binary before any private writes', () => {
@@ -139,9 +139,27 @@ test('migrating prefix checks BOTH current and planned schema for every consumer
 
 test('schema extension is unavailable until its exact known migration rule is reviewed', () => {
   const f = fixture();
-  f.scan.ledger.push({ name: '085_unknown.sql', sha256: 'd'.repeat(64) });
+  const next = Number(f.scan.ledger.at(-1).name.slice(0, 3)) + 1;
+  f.scan.ledger.push({ name: `${String(next).padStart(3, '0')}_unknown.sql`, sha256: 'd'.repeat(64) });
   f.scan.ledger_digest = compatibilityLedgerDigest(f.scan.ledger);
   assert.deepEqual(codes(evaluate(f)), ['schema_unknown']);
+});
+
+test('085 requires current server-policy support for private shapes, but never activates private writes', () => {
+  for (const source of ['enable_shapes', 'enabled_shapes', 'written_shapes', 'rollback_floor_shapes']) {
+    const f = fixture();
+    if (!f.scan.ledger.at(-1).name.startsWith('085_')) f.scan.ledger.push({ name: '085_private_work_policy.sql', sha256: 'd'.repeat(64) });
+    f.scan.ledger_digest = compatibilityLedgerDigest(f.scan.ledger);
+    f.host.observation.schema_ledger = structuredClone(f.scan.ledger); f.host.observation.schema_ledger_digest = f.scan.ledger_digest;
+    f.host.release_records[0].schema_ledger_digests = [f.scan.ledger_digest];
+    f.host.release_records[0].capabilities = CAPABILITIES.filter((c) => c !== 'work.server-policy.v1');
+    assert.equal(evaluate(f).status, 'compatible', 'schema alone does not activate private persistence');
+    const container = source === 'enable_shapes' ? f.input : source === 'rollback_floor_shapes' ? f.host : f.host.observation;
+    container[source] = ['work.private-human-result.v1'];
+    assert.ok(evaluate(f).issues.some((i) => i.capability === 'work.server-policy.v1'), source);
+    f.host.release_records[0].capabilities.push('work.server-policy.v1');
+    assert.equal(evaluate(f).status, 'compatible');
+  }
 });
 
 test('new shape cannot be enabled or observed before its migration', () => {
