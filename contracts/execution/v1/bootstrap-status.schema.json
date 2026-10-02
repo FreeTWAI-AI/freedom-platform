@@ -63,6 +63,6 @@
     "operational_authority"
   ],
   "additionalProperties": false,
-  "description": "Structural bootstrap crypto profile only. The server verifier checks signatures, trusted issuer/key purpose and validity, exact host identity/URI/binding, canonical encoding, signed-64-bit version and time bounds. Caller-provided keys/time/binding are not authenticated by this schema. No current DB authority, nonce consumption, replay prevention, machine authentication or execution permission.",
+  "description": "Minimal connection status at a server DB authorization decision. No private Work, execution Grant, provider access or reusable VerifiedContext. Shape alone is not authorization.",
   "$id": "https://freetwai.com/contracts/execution/v1/bootstrap-status"
 }

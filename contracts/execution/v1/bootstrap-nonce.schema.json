@@ -44,6 +44,6 @@
     "operational_authority"
   ],
   "additionalProperties": false,
-  "description": "Structural bootstrap crypto profile only. The server verifier checks signatures, trusted issuer/key purpose and validity, exact host identity/URI/binding, canonical encoding, signed-64-bit version and time bounds. Caller-provided keys/time/binding are not authenticated by this schema. No current DB authority, nonce consumption, replay prevention, machine authentication or execution permission.",
+  "description": "Public one-use bootstrap challenge metadata. Shape is not member approval or machine authentication. Server checks current owner/runtime/connection, bounded lifetime and atomic nonce consumption.",
   "$id": "https://freetwai.com/contracts/execution/v1/bootstrap-nonce"
 }

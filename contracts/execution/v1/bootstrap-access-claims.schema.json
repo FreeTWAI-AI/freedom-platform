@@ -120,6 +120,6 @@
     "jti"
   ],
   "additionalProperties": false,
-  "description": "Structural bootstrap crypto profile only. The server verifier checks signatures, trusted issuer/key purpose and validity, exact host identity/URI/binding, canonical encoding, signed-64-bit version and time bounds. Caller-provided keys/time/binding are not authenticated by this schema. No current DB authority, nonce consumption, replay prevention, machine authentication or execution permission.",
+  "description": "Bootstrap JWT shape only. Crypto verifier checks signatures, exact host binding, canonical URI, bounded version and all time intervals. Not current machine authority.",
   "$id": "https://freetwai.com/contracts/execution/v1/bootstrap-access-claims"
 }

@@ -45,5 +45,5 @@
   ],
   "additionalProperties": false,
   "$id": "https://freetwai.com/contracts/execution/v1/bootstrap-dpop-claims",
-  "description": "Structural bootstrap crypto profile only. The server verifier checks signatures, trusted issuer/key purpose and validity, exact host identity/URI/binding, canonical encoding, signed-64-bit version and time bounds. Caller-provided keys/time/binding are not authenticated by this schema. No current DB authority, nonce consumption, replay prevention, machine authentication or execution permission."
+  "description": "Structural DPoP claims only. The server must verify the signature, issuer/device/host binding, encoding, time and nonce. Parsing this schema does not authenticate a machine or grant execution permission."
 }

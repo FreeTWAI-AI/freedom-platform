@@ -14,7 +14,7 @@ const profiles = [
 for (const [name, schema] of profiles) {
   const path = new URL(`../../contracts/execution/v1/${name}.schema.json`, import.meta.url);
   const bytes = JSON.stringify({ ...z.toJSONSchema(schema), $id: `https://freetwai.com/contracts/execution/v1/${name}`,
-    description: 'Structural bootstrap crypto profile only. The server verifier checks signatures, trusted issuer/key purpose and validity, exact host identity/URI/binding, canonical encoding, signed-64-bit version and time bounds. Caller-provided keys/time/binding are not authenticated by this schema. No current DB authority, nonce consumption, replay prevention, machine authentication or execution permission.' }, null, 2) + '\n';
+    description: schema.description ?? 'Structural DPoP claims only. The server must verify the signature, issuer/device/host binding, encoding, time and nonce. Parsing this schema does not authenticate a machine or grant execution permission.' }, null, 2) + '\n';
   if (process.argv.includes('--check')) {
     if (await readFile(path, 'utf8') !== bytes) throw new Error(`Generated ${name} schema is stale.`);
   } else await writeFile(path, bytes);
