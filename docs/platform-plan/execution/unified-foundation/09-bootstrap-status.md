@@ -11,7 +11,7 @@
 | `challenge(actor,{key,connectionId})` | 回 `nonceId,nonce,connectionId,issuedAt,expiresAt,operational_authority:false`；時間為 ISO 毫秒格式 | 本人 member session、onboarding、person/personal scope、enrolled runtime 及 active/unexpired connection；沿用 scoped command／journal／outbox／receipt |
 | `read({connectionId,nonceId,accessToken,proof})` | 回 `connectionId,runtimeDeviceId,clientId,environment,connectionVersion,expiresAt,state:'active',operation:'bootstrap.status.read',operational_authority:false` | 真正 issuer/device 簽章、目前 DB 身分與一次性 nonce；沒有 Actor／session cookie 或任意 operation 參數 |
 
-Challenge 是暫時的內部會員服務接點，供未來 pairing/nonce transport 組合，不要求裝置取得會員 cookie。Nonce 是公開挑戰，不是登入 secret；只有 nonce 不授任何權。相同 challenge receipt 只在目前會員及連線仍有效、nonce 未消耗／未到期時重播；不同 idempotency key 不能繞過容量。
+Challenge 是暫時的內部會員服務接點，供未來 pairing/nonce transport 組合，不要求裝置取得會員 cookie。Nonce 是公開挑戰，不是登入 secret；只有 nonce 不授任何權。相同 challenge receipt 在 receipt 查詢前的 locked domain 決策時點，檢查目前會員及連線仍有效、nonce 未消耗／未到期；不同 idempotency key 不能繞過容量。
 
 Machine read 不冒用 member session，也不要求原配對 session 仍登入；獨立 machine connection 的撤銷由 connection/runtime、active user、person 及 personal scope 控制。停用 owner 或未完成 required onboarding 一律拒絕。沒有 lazy mapping、client supplied owner/scope、舊 `fw_read` token 升權或 private Work／model 健康依賴。
 
@@ -27,11 +27,13 @@ Nonce TTL 至多 60 秒且不得晚於 connection expiry；service 固定取兩�
 
 ## 鎖與時鐘
 
+會員 challenge 的最後 connection／nonce 時計檢查，重播在 receipt SELECT 前，新發行在 domain facts 後、receipt INSERT 前。若其後 receipt storage 等待跨過到期，scoped adapter 只再次驗 member session 時限，因此仍可能回傳已到期的公開 nonce；`expiresAt` 不延長，也不保證收到後仍可使用。這不是 machine admission；machine read 仍在驗簽後及 nonce UPDATE 後重驗 connection／nonce／crypto 時限，過期即拒絕並回滾。
+
 Machine 先用 connection ID 作未授權、未加鎖的 identity lookup，之後依序鎖並重新核對：user SHARE → person SHARE → personal scope SHARE → 087 owner/environment advisory → 087 key advisory → enrollment challenge → runtime → connection → nonce。會員 challenge 在 user 後多 session、scope 後多 member command advisory，其餘相同。不升級 scope SHARE，不以第一次 lookup 或 claims 取代鎖後的目前資料。
 
 真正驗簽在有界交易內執行，沒有外部 I/O。Crypto result 新增 `validFromMs`／`validUntilMs`：以 BigInt 計算 token、issuer key 與 DPoP 時間窗口交集，語意為 `[from,until)`，僅供可信 caller 在 await 後重驗時鐘，仍是 `cryptographic_only`。交集包括 DPoP 秒級窗口的 floor 邊界，不複寫另一套時限演算法。
 
-Service 在等鎖後、驗簽後、nonce 更新後取新 DB `clock_timestamp()`；檢查 connection／nonce 到期和 crypto interval，再返回固定 metadata。成功 nonce UPDATE 的 AFTER guard 同時拒絕 constraint/index 等待後過期。所有授權狀態保持相應 row lock 到 commit；撤銷先取得鎖就拒絕，已授權交易先取得鎖則在撤銷提交前完成。最終時計是 commit 前的決策時點，不保證 commit 或網路回應送達時仍有效，也不授下一個 request 權限。
+Machine read 在等鎖後、驗簽後、nonce 更新後取新 DB `clock_timestamp()`；檢查 connection／nonce 到期和 crypto interval，再返回固定 metadata。成功 nonce UPDATE 的 AFTER guard 同時拒絕 constraint/index 等待後過期。所有授權狀態保持相應 row lock 到 commit；撤銷先取得鎖就拒絕，已授權交易先取得鎖則在撤銷提交前完成。最終時計是 commit 前的決策時點，不保證 commit 或網路回應送達時仍有效，也不授下一個 request 權限。
 
 Machine read 的非法 shape、查無資料、撤銷、錯 owner/client/environment/purpose、簽章／nonce／重播均回相同 401 `bootstrap_invalid`，不透露存在性；未預期 SQL／timeout 為固定 503，不回 SQL、stack 或提交內容。Caller input 必須在第一個 await 前 snapshot，拒 getter／toJSON／額外欄位，不得靠它們執行程式。
 

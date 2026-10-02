@@ -13,9 +13,17 @@ onboarding, person/personal scope, enrolled runtime and active unexpired connect
 It issues a public random nonce for 60 seconds, capped by connection expiry.
 Eight pending and 4,096 lifetime records per connection are engineering limits;
 there is no cleanup or implied production retention policy. Exact receipt replay
-requires an unconsumed, unexpired nonce and current member/domain authority.
+checks an unconsumed, unexpired nonce and current member/domain authority at the
+locked domain decision, before receipt lookup.
 The nonce and three scoped sinks commit together; public nonce disclosure alone
 confers no authority and never sends a member cookie to a device.
+
+For member challenge, the final connection/nonce clock check is before receipt
+SELECT on replay, or after domain facts and before receipt INSERT on issuance.
+If receipt storage subsequently waits across expiry, the scoped adapter rechecks
+member session time only: the response may contain an already-expired public
+nonce. Its `expiresAt` is never extended, and receipt delivery does not guarantee
+a usable challenge. Machine admission still rejects expired nonces/connections.
 
 `read({connectionId, nonceId, accessToken, proof})` requires actual issuer and
 device signatures and has no Actor/session parameter. It locks and checks the
@@ -32,9 +40,9 @@ authority are checked again under locks. Transactions use five-second statement
 and lock timeouts. Cryptography has bounded input and performs no external I/O;
 the eventual host still owns request/concurrency budgets.
 
-After locks, after actual asynchronous cryptography and after nonce storage, the
-service samples the database clock. Connection and nonce expiry and the verifier's
-exact `[validFromMs, validUntilMs)` interval must still allow admission. The final
+For machine read, after locks, after actual asynchronous cryptography and after
+nonce storage, the service samples the database clock. Connection and nonce expiry
+and the verifier's exact `[validFromMs, validUntilMs)` interval must still allow admission. The final
 decision precedes commit, not client delivery. Current state locks remain held to
 commit. A successful read consumes the nonce and stores bounded proof/token JTIs
 in that transaction, without a fake member receipt or business outbox event.
