@@ -80,9 +80,11 @@ async function checkSnapshot(directory, records) {
     if (!stat.isFile() || sha256(await readFile(target)) !== digest) fail('supervisor_source_changed');
   }
 }
-async function validateDependencies(source) {
+export async function validateBehaviorDependencyCache(source) {
   if (!isAbsolute(source)) fail('supervisor_dependencies_invalid');
   const root = await realpath(source); let bytes = 0, count = 0; const records = [];
+  // Host fixture pg/sharp imports and candidate imports must share this identity.
+  if (root !== await realpath(join(ROOT, 'node_modules'))) fail('supervisor_dependencies_invalid');
   if (basename(root) !== 'node_modules' || !(await lstat(root)).isDirectory()) fail('supervisor_dependencies_invalid');
   async function inspect(path) {
     for (const entry of (await readdir(path, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name, 'en'))) {
@@ -173,6 +175,7 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
       || value.HostConfig.NanoCpus !== 1000000000 || value.Image !== (item.kind === 'candidate' ? BASE_IMAGE : PG_IMAGE)
       || value.Config.User !== (item.kind === 'candidate' ? `${process.getuid()}:${process.getgid()}` : 'postgres')
       || !value.HostConfig.CapDrop?.includes('ALL') || !value.HostConfig.SecurityOpt?.includes('no-new-privileges')) fail('supervisor_container_changed');
+    if (value.Mounts.some(mount => !['bind', 'tmpfs'].includes(mount.Type))) fail('supervisor_container_changed');
     const mounts = value.Mounts.filter(mount => mount.Type === 'bind').map(mount => [mount.Source, mount.Destination, mount.RW]).sort();
     if (item.mounts && JSON.stringify(mounts) !== JSON.stringify(item.mounts.slice().sort())) fail('supervisor_container_changed');
     if (item.kind === 'candidate' && value.Config.Env.some(entry => !['PATH', 'TMPDIR', 'NODE_ENV', 'FP_BEHAVIOR_DB_PASSWORD'].includes(entry.split('=', 1)[0]))) fail('supervisor_container_changed');
@@ -185,7 +188,7 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
     await mkdir(candidate); await mkdir(socket); await chmod(socket, 0o777);
     timer = setTimeout(() => { timedOut = true; killCandidate(); }, LIMITS.wallMs);
     phase = 'snapshot'; const snapshot = await materializeBehaviorCandidate(candidateRepository, candidateCommit, candidate);
-    const dependency = await validateDependencies(dependencyRoot), dependencies = dependency.root;
+    const dependency = await validateBehaviorDependencyCache(dependencyRoot), dependencies = dependency.root;
     const installation = await installedSupervisorIdentity();
     await mkdir(join(candidate, 'node_modules'));
     await writeFile(launcher, await readFile(new URL('./behavior-supervisor-target.mjs', import.meta.url)), { mode: 0o444, flag: 'wx' });
@@ -194,6 +197,7 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
       '--log-driver', 'none', '--ulimit', 'nofile=256:256', '--ulimit', 'core=0:0'];
     const adminPassword = randomBytes(32).toString('base64url'), appPassword = randomBytes(32).toString('base64url');
     phase = 'database'; const pgId = docker(['run', '-d', ...common, '--user', 'postgres', '--tmpfs', '/tmp:rw,nosuid,nodev,size=256m,mode=1777',
+      '--tmpfs', '/var/lib/postgresql:rw,nosuid,nodev,size=1m',
       '--mount', `type=bind,src=${socket},dst=/run/postgresql`, '-e', 'PGDATA=/tmp/data', '-e', 'POSTGRES_DB=' + FIXTURE_DATABASE,
       '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_INITDB_ARGS=--auth-local=scram-sha-256 --auth-host=reject',
       PG_IMAGE, 'postgres', '-c', 'listen_addresses=', '-c', 'unix_socket_directories=/run/postgresql'], { POSTGRES_PASSWORD: adminPassword }).toString().trim();
@@ -236,7 +240,7 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
     killCandidate();
     await pool.query("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1 AND usename='behavior_app'", [FIXTURE_DATABASE]);
     if (JSON.stringify(before) !== JSON.stringify(await supervisorFixtureFacts(pool, fixture))) fail('supervisor_fixture_changed');
-    if (dependency.sha256 !== (await validateDependencies(dependencyRoot)).sha256
+    if (dependency.sha256 !== (await validateBehaviorDependencyCache(dependencyRoot)).sha256
       || JSON.stringify(installation) !== JSON.stringify(await installedSupervisorIdentity())) fail('supervisor_installation_changed');
     return report('isolated_behavior_observed_only', { check: observed.check, observation: observed.observation,
       isolation, candidate: { commit: snapshot.commit, tree: snapshot.tree, source_sha256: snapshot.source_sha256 },
@@ -252,7 +256,7 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
     for (const item of owned.reverse()) {
       // Remove only IDs this invocation created and whose random owner label matches.
       try { const owner = docker(['inspect', '--format', '{{index .Config.Labels "freedom.behavior-owner"}}', item.id]).toString().trim();
-        if (owner === label) docker(['rm', '-f', item.id]); } catch {}
+        if (owner === label) docker(['rm', '-f', '-v', item.id]); } catch {}
     }
     if (directory && dirname(directory) === tmpdir() && (await lstat(directory)).isDirectory() && !((await lstat(directory)).isSymbolicLink())) {
       await rm(directory, { recursive: true, force: false });

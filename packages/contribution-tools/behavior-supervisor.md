@@ -29,7 +29,9 @@ Node images are older than the repository's supported runtime. No checkout,
 home directory, Git metadata, Docker socket or host credential directory is
 mounted. Candidate mounts are its export, a host-selected public dependency
 cache, a fixed launcher, and the disposable database's socket directory; all
-are read-only. The dependency directory must resolve to `node_modules`, have
+are read-only. The dependency directory must resolve to the host installation's
+same `node_modules` realpath, so host fixture pg/sharp bytes and candidate
+dependency bytes share one fingerprint; alternate caches are rejected. It must have
 bounded entries/bytes, contain no credential dotfiles, and have only relative
 symlinks resolving inside itself. Its actual file/link hashes are checked before
 and after the run. A cache fingerprint does not authenticate registry origin.
@@ -71,7 +73,9 @@ and statement timeout fail closed. This checks retained before/after facts, not
 all transient intermediate effects or a general semantic audit.
 
 Cleanup resolves only this invocation's random owner label and exact container
-IDs, removes them, then removes its own `mkdtemp` directory. Success requires
+IDs, removes them and any attached anonymous volumes, then removes its own
+`mkdtemp` directory. The PostgreSQL image's declared volume path is overridden
+with bounded tmpfs; unexpected volume mounts are rejected. Success requires
 the host to verify no such containers remain. Only disposable synthetic data
 is discarded; no existing database, named volume or image is deleted.
 

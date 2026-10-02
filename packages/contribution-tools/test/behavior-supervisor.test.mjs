@@ -5,10 +5,15 @@ import { mkdir, symlink, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fixtureRoot, put } from './fixtures.mjs';
 import { verificationEnvironment } from '../process-env.mjs';
-import { decodeBehaviorResponseFrame, materializeBehaviorCandidate } from '../behavior-supervisor.mjs';
+import { decodeBehaviorResponseFrame, materializeBehaviorCandidate, validateBehaviorDependencyCache } from '../behavior-supervisor.mjs';
 
 const bytes = value => Buffer.from(JSON.stringify(value));
 const frame = { id: 1, status: 200, headers: [['content-type', 'application/json']], body: Buffer.from('{}').toString('base64') };
+test('dependency identity rejects a different node_modules cache before fixture creation', async t => {
+  const root = await fixtureRoot(t), cache = join(root, 'node_modules');
+  await mkdir(cache);
+  await assert.rejects(validateBehaviorDependencyCache(cache), /supervisor_dependencies_invalid/);
+});
 test('isolated transport accepts only bounded response fields, never candidate results/identity', () => {
   assert.equal(decodeBehaviorResponseFrame(bytes(frame), 1).body.toString(), '{}');
   for (const value of [{ ...frame, id: 2 }, { ...frame, check: { status: 'passed' } },
