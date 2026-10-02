@@ -163,3 +163,24 @@ test('RUN-ACL invoker trigger cannot trust TEMP-shadowed allowing policy over re
     await assert.rejects(insertRun(q,f),sqlCode('23514'));
   });
 });
+test('RUN-ACL invoker trigger cannot trust TEMP-shadowed draft/version over real archived Work', async () => {
+  const f=await fixture();
+  await owner.query("UPDATE work_items SET state='archived',aggregate_version=2 WHERE work_item_id=$1",[f.workId]);
+  await assert.rejects(insertRun(app,f),sqlCode('23514'));
+  await transaction(async q=>{
+    await q.query(`CREATE TEMP TABLE work_items (LIKE ${schema}.work_items INCLUDING ALL) ON COMMIT DROP`);
+    await q.query(`INSERT INTO pg_temp.work_items(work_item_id,work_mode,scope_id,owner_principal_id,owner_ref,title,objective,state,participation_terms_revision)
+      VALUES($1,'personal_execution',$2,$3,$4,'Synthetic shadow','Never an authority','draft',NULL)`,
+    [f.workId,f.context.scope.scope_id,f.context.subject_principal.principal_id,f.actor.user_id]);
+    await assert.rejects(insertRun(q,f),sqlCode('23514'));
+  });
+});
+test('RUN-ACL direct Run initialization cannot skip or null independent counters', async () => {
+  const f=await fixture();
+  for (const column of ['aggregate_version','task_lease_epoch','control_epoch']) {
+    for (const value of [null,2]) await assert.rejects(app.query(`INSERT INTO execution_runs
+      (run_id,work_item_id,scope_id,owner_principal_id,owner_user_id,input_work_version,persistence_policy_revision,${column})
+      VALUES($1,$2,$3,$4,$5,1,'private-work.v1',$6)`,
+    [randomUUID(),f.workId,f.context.scope.scope_id,f.context.subject_principal.principal_id,f.actor.user_id,value]),sqlCode(value===null?'23502':'23514'));
+  }
+});
