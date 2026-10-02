@@ -212,3 +212,22 @@ test('HTTP-13 exact32KiB body, split Unicode bytes and escaped field names retai
   const invalidPage = await router.request(ORIGIN+`/api/v1/me/private-work/${id}/results?limit=1%0A`, { headers: headers(f) });
   assert.equal(invalidPage.status, 422);
 });
+
+test('HTTP-14 actual empty stored CSRF fails closed in both shared production and closed member boundaries', async () => {
+  const malformed = await member(), healthy = await member(), closed = app(), production = createApp(pool);
+  await pool.query("UPDATE sessions SET csrf_token='' WHERE token_hash=$1", [malformed.actor.session_hash]);
+  assert.equal((await pool.query('SELECT csrf_token FROM sessions WHERE token_hash=$1', [malformed.actor.session_hash])).rows[0].csrf_token, '');
+  for (const emptyHeader of [false, true]) for (const [router, path, value] of [
+    [closed, '/api/v1/me/private-work', input()], [production, '/api/v1/auth/logout', {}],
+  ] as const) {
+    const requestHeaders = new Headers(headers(malformed, { 'Idempotency-Key': randomUUID() }));
+    if (emptyHeader) requestHeaders.set('X-CSRF-Token', ''); else requestHeaders.delete('X-CSRF-Token');
+    const response = await router.request(ORIGIN+path, { method: 'POST', headers: requestHeaders, body: JSON.stringify(value) });
+    assert.equal(response.status, 403); assert.equal((await response.json()).code, 'csrf_rejected');
+  }
+  assert.equal((await pool.query('SELECT revoked_at FROM sessions WHERE token_hash=$1', [malformed.actor.session_hash])).rows[0].revoked_at, null);
+  assert.equal((await pool.query('SELECT count(*)::int n FROM work_items WHERE owner_ref=$1', [malformed.actor.user_id])).rows[0].n, 0);
+  assert.equal((await post(closed, '', healthy, input())).status, 201, 'normal generated CSRF remains valid');
+  const logout = await production.request(ORIGIN+'/api/v1/auth/logout', { method: 'POST', headers: headers(healthy), body: '{}' });
+  assert.equal(logout.status, 200, 'normal generated CSRF remains valid in production boundary');
+});

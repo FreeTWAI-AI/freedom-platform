@@ -13,6 +13,10 @@ export function memberBoundary(pool: Pool, onboardingAllowed: (path: string, met
     const actor = await authenticate(pool, getCookie(c, 'freedom_local_session'));
     c.set('actor', actor);
     if (!['GET', 'HEAD'].includes(c.req.method)) {
+      // Legacy schema only says NOT NULL. A malformed stored empty token must
+      // not make an absent/empty request header pass the zero-byte comparison.
+      requireCondition(typeof actor.csrf_token === 'string' && actor.csrf_token.length > 0,
+        403, 'csrf_rejected', '登入狀態已變更，請重新整理。');
       const got = Buffer.from(c.req.header('X-CSRF-Token') ?? ''), expected = Buffer.from(actor.csrf_token);
       requireCondition(got.length === expected.length && timingSafeEqual(got, expected), 403, 'csrf_rejected', '登入狀態已變更，請重新整理。');
     }

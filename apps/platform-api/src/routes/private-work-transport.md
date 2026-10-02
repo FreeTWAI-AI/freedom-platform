@@ -12,10 +12,18 @@ No pending PR, UI, migration, model, cloud policy or binding is changed.
 The factory independently authenticates the real `freedom_local_session` cookie.
 It never trusts a previously injected Actor, bearer/Agent credential, request
 owner/scope, or caller policy. [The shared member middleware](../member-boundary.ts)
-was extracted from the existing platform app without changing its cookie, CSRF
-comparison, authentication or onboarding rules. Production passes its unchanged
+was extracted from the existing platform app, retaining its cookie, timing-safe
+CSRF comparison, authentication and onboarding rules except for the fail-closed
+empty-token guard described below. Production passes its unchanged
 onboarding exception list; this factory passes no exception. All private paths
 require completed onboarding, including HEAD and failed command replays.
+
+A narrowly approved hardening rejects an empty/non-string stored CSRF token
+before comparison. The legacy schema allows an empty string, although normal
+login/registration always generate a random nonempty token. A malformed DB row
+must not make an absent/empty header pass a zero-byte equality check. Tests use
+an actual empty-token session and both production and closed routers; ordinary
+generated-token requests still succeed. No other auth semantics are changed.
 
 The configured host/origin allowlists come from the existing environment helpers.
 Unsafe methods require an allowed Origin and the existing `X-CSRF-Token` compared
