@@ -4,13 +4,13 @@
 
 ## 固定 profile 與中央契約
 
-中央 `contracts/execution/v1/device-pairing.ts` 定义嚴格 inputs、DTOs、host、proof claims 及容量常數。Runtime kind 封閉為 `agent-kit`、`extension`、`neo`；這只是請求 metadata，不是 runtime build／capability attestation。Host 固定既有 `BootstrapProofHost`、issuer key ID、begin/poll/verification 的 canonical HTTPS URI 與可信 client display name；URI 不接受 query、fragment、userinfo、非 canonical encoding 或相同 begin/poll 端點。裝置不能傳任意 scope、owner、環境或 operation；scope 唯一為 `bootstrap.status.read`。
+中央 `contracts/execution/v1/device-pairing.ts` 定義嚴格 inputs、DTOs、host、proof claims 及容量常數。Runtime kind 封閉為 `agent-kit`、`extension`、`neo`；這只是請求 metadata，不是 runtime build／capability attestation。Flat host 擴充既有 `BootstrapProofHost`，另有 `issuerKid,beginUri,pollUri,verificationUri,clientDisplayName`；URI 不接受 query、fragment、userinfo、非 canonical encoding 或相同 begin/poll 端點，client display name 由可信 host 固定。裝置不能傳任意 scope、owner、環境或 operation；scope 唯一為 `bootstrap.status.read`。
 
 `createDeviceAuthorizations(pool,{host,signingKey})` 是 async factory：自行建立真正 pairing verifier 及 bootstrap issuer，`signingKey` 是 host 提供、不可從 JSON 取得的 private P-256 WebCrypto signing handle。沒有 verify=true、caller clock、issuer callback、既有 member session 或 raw private JWK 注入介面。測試只用 ephemeral keys；正式信任來源仍待 operations 設定。
 
 ## Pairing proof 與 issuer
 
-Begin/poll 使用独立 `freedom-device-pairing+jwt` typ、ES256/P-256 與嚴格 public-JWK header，不混用 09 的 GET+ath DPoP。Begin claims 包含 `purpose:'device_pairing_begin'`、`client_id`、`environment`、`runtime_kind`、固定 `scope`、`jti`、`iat`、`htm:'POST'`、exact begin `htu`。Poll 的 purpose 為 `device_pairing_poll`，另外綁 `authorization_id`、server public `nonce`、`device_code_hash`（exact canonical secret 的 SHA-256 base64url）與 exact poll URI。裝置把 raw device code 交給服務，簽章只綁其 hash；不得把這個自訂欄位叫做標準 DPoP ath。
+Begin/poll 使用獨立 `freedom-device-pairing+jwt` typ、ES256/P-256 與嚴格 public-JWK header，不混用 09 的 GET+ath DPoP。Begin claims 包含 `purpose:'device_pairing_begin'`、`client_id`、`environment`、`runtime_kind`、固定 `scope`、`jti`、`iat`、`htm:'POST'`、exact begin `htu`。Poll 的 purpose 為 `device_pairing_poll`，另外綁 `authorization_id`、`request_digest`（begin 回傳的 exact requestDigest）、server public `nonce`、`device_code_hash`（exact canonical secret 的 SHA-256 base64url）與 exact poll URI。裝置把 raw device code 交給服務，簽章只綁其 hash；不得把這個自訂欄位叫做標準 DPoP ath。
 
 Verifier 重用既有 strict JSON／canonical compact encoding、真正 JOSE 曲線與簽章驗證。Proof JTI 為 16–128 個 base64url 字元、iat 為 safe nonnegative 整數秒；允許 DB nowSeconds−60 至 nowSeconds+5，回 exact millisecond interval，仍為 `cryptographic_only`／`operational_authority:false`。Begin header key 與 request public key 必須相同；poll 必須匹配儲存的 key/client/environment/runtime kind/request/nonce/code hash。Caller input 在 await 前 snapshot，拒 getter／toJSON／額外欄位；不從 token 下載 key。
 
@@ -47,7 +47,7 @@ Approved poll 沒有 enrollment proof 時，回 exact challenge。交換時必�
 
 固定工程界線：每 environment 最多 1,000 未到期 pending/approved 與 10,000 lifetime authorization；每 key 最多 4 pending/approved、32 lifetime；每 authorization 最多 64 accepted poll proof JTIs。Begin 真正 proof 驗過後，在 environment admission advisory lock 下算 quota，因此換 key 不能繞過 global bound。這是內部容量防護，不是對 Internet 的完整來源限流；掛 HTTP 前還需 trusted transport 的來源／全域流量限制、TLS、CSRF與人類確認UI，不能把呼叫端自填 IP/key 當完整防濫用。
 
-Member inspect／decide 對每 owner/environment 使用 60 秒、最多 10 次 user-code 查找的 durable bucket，包含猜錯與查不到的代碼；無效 code 的結果必須在 bucket 提交後才拋出對外錯誤。同一桶 row/advisory 的鎖序需固定在 scope／member-command之後、domain locks 之前；不得與 domain 路徑反轉。這些是封閉工程限額，不是正式配額／retention／GC 政策；沒有清理或 production 啟用。
+Member inspect／decide 對每 owner/environment 使用 60 秒、最多 10 次 user-code 查找的 durable bucket，包含猜錯與查不到的代碼；無效 code 的結果必須在 bucket 提交後才拋出對外錯誤。Bucket charge 使用獨立、真正 current-member-scoped transaction，在 scope 後取固定 bucket advisory/row lock，不先取 domain 鎖。Decide 隨後在自己的 scoped-command transaction 重新查 exact code/id/digest、目前身分及 domain locks；precheck 不携帶任何 authority，不因先前成功就省略重驗。即使 decision／facts rollback，先前限流 charge 仍保留；核准／challenge／decision facts 本身依然同交易。這些是封閉工程限額，不是正式配額／retention／GC 政策；沒有清理或 production 啟用。
 
 ## 驗證與剩餘範圍
 
