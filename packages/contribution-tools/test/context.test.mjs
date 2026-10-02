@@ -73,6 +73,18 @@ test('existing scoped Agent Kit package resolves local identity without granting
   await assert.rejects(buildContext(f.options), { code: 'repository_identity_required' });
 });
 
+test('single-module consumer root descriptor participates in candidate and baseline context', async t => {
+  const f = await fixture(t);
+  await rename(join(f.root, 'packages/contribution-tools/freedom.module.json'), join(f.root, 'freedom.module.json'));
+  const renamed = await buildContext({ ...f.options, scopes: ['governance'] });
+  assert.deepEqual(renamed.context.module_ids, ['governance']);
+  assert(!renamed.context.blockers.includes('candidate_governance_unavailable'));
+  f.git(['update-ref', 'refs/heads/baseline', f.commit()]);
+  const baseline = await buildContext({ ...f.options, scopes: ['governance'] });
+  assert(!baseline.context.blockers.includes('baseline_governance_unavailable'));
+  assert.deepEqual(baseline.context.tests, ['governance.unit']);
+});
+
 test('unchanged mandatory content is deduplicated; generated context is not source state', async t => {
   const f = await fixture(t);
   const one = (await buildContext({ ...f.options, scopes: ['governance'] })).context;

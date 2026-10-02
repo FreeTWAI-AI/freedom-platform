@@ -5,7 +5,7 @@ import { VerificationError, requireCondition as check } from './errors.mjs';
 import { validateReleaseSet } from './contracts.mjs';
 
 export const ROOT_INSTRUCTIONS = ['AGENTS.md', 'README.md', 'CONTRIBUTING.md'];
-const descriptorFile = path => path.endsWith('/freedom.module.json');
+export const isModuleDescriptorPath = path => path === 'freedom.module.json' || path.endsWith('/freedom.module.json');
 export function validateDescriptor(value) {
   validateFormat('moduleDescriptor', value);
   for (const path of value.owned_paths) {
@@ -52,7 +52,7 @@ export function selectImpact({ baseline, candidate, changedPaths, requestedPaths
 }
 
 async function descriptorsFor(workspace, revision) {
-  const paths = (revision === 'base' ? workspace.base_paths : workspace.candidate_paths).filter(descriptorFile);
+  const paths = (revision === 'base' ? workspace.base_paths : workspace.candidate_paths).filter(isModuleDescriptorPath);
   check(paths.length <= 256, 'module_limit');
   const descriptors = [];
   for (const path of paths) {

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { isAbsolute, join } from 'node:path';
 import { lstat } from 'node:fs/promises';
 import { artifactPath, parseJson, readBounded, sha256, uniquePaths, MAX_TOTAL_BYTES } from './io.mjs';
-import { validateDescriptor, selectImpact } from './context.mjs';
+import { validateDescriptor, selectImpact, isModuleDescriptorPath } from './context.mjs';
 import { validateReleaseSet } from './contracts.mjs';
 import { validateFormat } from './formats.mjs';
 import { VerificationError, requireCondition as check } from './errors.mjs';
@@ -89,7 +89,7 @@ async function objectReader(root) {
 }
 
 function readDescriptors(reader, files) {
-  const paths = [...files.keys()].filter(path => path.endsWith('/freedom.module.json'));
+  const paths = [...files.keys()].filter(isModuleDescriptorPath);
   check(paths.length > 0 && paths.length <= 256, 'governance_descriptors_required');
   let bytesRead = 0;
   const descriptors = paths.map(path => {
