@@ -1,12 +1,12 @@
 # Closed member-avatar upload lifecycle
 
-This ASSET-A increment composes the [scoped member command core](../../packages/scoped-commands/index.ts) with [asset-storage](../../packages/asset-storage/README.md). It is an internal prototype, not an enabled product flow. There are no routes, Worker bindings, legacy avatar replacement handlers, private Work writes, execution/Grant adapters or automatic cleanup.
+This ASSET-A increment composes the [scoped member command core](../../packages/scoped-commands/index.ts) with [asset-storage](../../packages/asset-storage/README.md). Upload remains an internal prototype, not an enabled product flow. ASSET-B adds a [default-legacy read bridge and writer fencing](../identity-membership/avatar-bridge.md); it does not register an Asset upload route, configure a Worker binding, permit private Work writes, or enable automatic cleanup.
 
 ## One version authority, not a live avatar cutover
 
-The target is the real `member_avatars.user_id` FK and **its existing `aggregate_version` is the only version authority**. Prepare creates a metadata-only avatar row when absent, as the existing avatar domain does. Finalize increments that real version and writes a typed sidecar pointer atomically, but preserves `image_bytes`. Legacy avatar routes still read those legacy bytes; this increment must not be described as a completed avatar replacement or read bridge.
+The target is the real `member_avatars.user_id` FK and **its existing `aggregate_version` is the only version authority**. Prepare creates a metadata-only avatar row when absent, as the existing avatar domain does. Finalize increments that real version and writes a typed sidecar pointer atomically, but preserves `image_bytes`. Migration 080 defaults to `legacy`: finalize leaves those rows legacy-routed unless a separately authorized operator explicitly selects `bridge` or `r2_only`. In those modes finalize activates the asset source atomically; reads never fall back to retained bytes.
 
-`member_avatar_asset_targets.linked_at_version` is only the real version observed at attachment. It is never independently incremented. A subsequent legacy save/delete advances the real version and makes the sidecar stale; `readTarget` returns `assetId: null` at the new real version. A later prototype finalize still uses real avatar CAS. A production bridge must define all live read/presence surfaces, legacy-writer fencing, pointer invalidation/cutover and rollback floor before any route can call this service.
+`member_avatar_asset_targets.linked_at_version` is only the real version observed at attachment. It is never independently incremented. While a row is explicitly legacy-routed, legacy saves advance the real version and make the sidecar stale; `readTarget` returns `assetId: null` at the new real version. Asset-routed rows have a deferred current-pointer constraint and reject legacy bytes writes. Explicit removal detaches and retires atomically. A later finalize still uses real avatar CAS. Upload routing, persistence policy, retained quota, GC/backup and actual rollout evidence remain required before enabling new Asset uploads.
 
 ## Internal API
 

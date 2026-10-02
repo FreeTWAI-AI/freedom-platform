@@ -159,8 +159,9 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     return c.json(await publicMemberCard(pool,c.req.param('token')));
   });
   app.get('/api/v1/public/member-cards/:token/avatar',async c=>{
-    const bytes=await publicMemberAvatar(pool,c.req.param('token'));
+    const bytes=await publicMemberAvatar(pool,c.req.param('token'),runtime.avatarAssetStore);
     c.header('Content-Type','image/webp');c.header('X-Robots-Tag','noindex, nofollow');
+    c.header('Cache-Control','no-store');c.header('Content-Length',String(bytes.length));
     return c.body(new Uint8Array(bytes));
   });
   app.get('/api/v1/public/events/:id',async c=>c.json(await publicEvent(pool,z.uuid().parse(c.req.param('id')))));
@@ -293,7 +294,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createDevelopmentAccessRoutes(pool,loadSocial));
   app.route('/api/v1',createGuildWorkspaceRoutes(pool));
   app.route('/api/v1',createRepoMaintainerMemberRoutes(pool));
-  app.route('/api/v1',createAvatarRoutes(pool));
+  app.route('/api/v1',createAvatarRoutes(pool,runtime.avatarAssetStore));
   app.route('/api/v1',createClientConnectionRoutes(pool));
   app.route('/api/v1',createSkillSubmissionRoutes(pool,origin,runtime.githubMetricsToken));
   app.route('/api/v1',createPositioningRoutes(pool));

@@ -268,9 +268,9 @@ function assertRoom(counts: {my_links: number; event_links: number; my_photos: n
 export async function readHighlightEvent(pool: Pool, scope: {communityId: string | null; viewerId: string | null; eventId: string}) {
   const row = await loadListed(pool, scope.eventId, scope.communityId, scope.viewerId);
   const items = (await pool.query(`SELECT h.media_id,h.kind,h.title,h.url,h.platform,h.orientation,h.created_at,h.uploader_user_id,u.display_name,
-    a.aggregate_version AS avatar_version, a.image_bytes IS NOT NULL AS avatar_present
+    a.aggregate_version AS avatar_version, a.present AS avatar_present
     FROM community_event_highlights h JOIN users u ON u.user_id=h.uploader_user_id
-    LEFT JOIN member_avatars a ON a.user_id=h.uploader_user_id AND a.community_id=h.community_id
+    LEFT JOIN member_avatar_presence a ON a.user_id=h.uploader_user_id AND a.community_id=h.community_id
     WHERE h.event_id=$1 AND h.state='active' AND ${itemVisible}
     ORDER BY h.created_at DESC, h.media_id DESC`, [scope.eventId, scope.viewerId])).rows as ItemRow[];
   const admin = scope.viewerId ? await isPlatformAdmin(pool, scope.viewerId, row.community_id) : false;
@@ -283,8 +283,8 @@ export async function readHighlightEvent(pool: Pool, scope: {communityId: string
 }
 
 async function uploaderView(q: PoolClient, userId: string, communityId: string) {
-  const row = (await q.query(`SELECT u.display_name, a.aggregate_version AS avatar_version, a.image_bytes IS NOT NULL AS avatar_present
-    FROM users u LEFT JOIN member_avatars a ON a.user_id=u.user_id AND a.community_id=$2 WHERE u.user_id=$1`, [userId, communityId])).rows[0];
+  const row = (await q.query(`SELECT u.display_name, a.aggregate_version AS avatar_version, a.present AS avatar_present
+    FROM users u LEFT JOIN member_avatar_presence a ON a.user_id=u.user_id AND a.community_id=$2 WHERE u.user_id=$1`, [userId, communityId])).rows[0];
   return {user_id: userId, display_name: row.display_name as string, avatar_url: avatarUrl(userId, row.avatar_version ?? '1', Boolean(row.avatar_present))};
 }
 

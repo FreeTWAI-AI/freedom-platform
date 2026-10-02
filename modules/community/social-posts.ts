@@ -44,12 +44,12 @@ function view(row: PostRow, viewerId: string) {
 }
 
 const LIST = `SELECT p.post_id,p.url,p.platform,p.title,p.note,p.created_at,p.author_user_id,u.display_name,
-  a.aggregate_version,a.image_bytes IS NOT NULL AS has_avatar,is_verification_test_account(u.user_id) AS test_account,t.post_id IS NOT NULL AS has_thumbnail,
+  a.aggregate_version,a.present AS has_avatar,is_verification_test_account(u.user_id) AS test_account,t.post_id IS NOT NULL AS has_thumbnail,
   (SELECT count(*)::int FROM promotion_clicks c JOIN promotion_links l ON l.link_id=c.link_id WHERE l.kind='social_post' AND l.target_key=p.post_id::text) AS total_points,
   (SELECT count(*)::int FROM promotion_clicks c JOIN promotion_links l ON l.link_id=c.link_id WHERE l.kind='social_post' AND l.target_key=p.post_id::text AND l.user_id=$2) AS my_points
   FROM community_social_posts p
   JOIN users u ON u.user_id=p.author_user_id
-  LEFT JOIN member_avatars a ON a.user_id=u.user_id AND a.community_id=p.community_id
+  LEFT JOIN member_avatar_presence a ON a.user_id=u.user_id AND a.community_id=p.community_id
   LEFT JOIN community_social_post_thumbnails t ON t.post_id=p.post_id`;
 
 function cursorOf(raw: string | undefined) {

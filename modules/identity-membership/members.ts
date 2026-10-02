@@ -111,7 +111,7 @@ export async function memberCard(pool:Pool,actor:Actor,id:string) {
   // Contact values and their audience predicates must share ONE database snapshot.
   // Split reads can combine an old friendship with a newly changed private value.
   const [projection,positioning]=await Promise.all([
-    pool.query(`SELECT u.user_id,u.display_name,u.created_at,u.created_at_source,u.email,account.contacts,account.identity_label,avatar.aggregate_version AS avatar_version,avatar.image_bytes IS NOT NULL AS avatar_present,
+    pool.query(`SELECT u.user_id,u.display_name,u.created_at,u.created_at_source,u.email,account.contacts,account.identity_label,avatar.aggregate_version AS avatar_version,avatar.present AS avatar_present,
       (SELECT max(s.created_at) FROM sessions s WHERE s.user_id=u.user_id) AS last_login_at,
       EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.user_id AND s.revoked_at IS NULL AND s.expires_at>now()
         AND s.last_seen_at>now()-interval '2 minutes') AS is_online,
@@ -119,7 +119,7 @@ export async function memberCard(pool:Pool,actor:Actor,id:string) {
       EXISTS(SELECT 1 FROM positioning_profession_memberships a JOIN positioning_profession_memberships b USING(community_id,guild_key) WHERE a.community_id=$1 AND a.user_id=$4 AND b.user_id=$5 AND a.state='active' AND b.state='active') AS guild,
       EXISTS(SELECT 1 FROM member_squad_memberships a JOIN member_squad_memberships b USING(squad_id) JOIN member_squads s USING(squad_id) WHERE s.community_id=$1 AND a.user_id=$4 AND b.user_id=$5 AND a.state='active' AND b.state='active') AS squad
       FROM users u LEFT JOIN member_accounts account ON account.user_id=u.user_id AND account.community_id=u.community_id
-      LEFT JOIN member_avatars avatar ON avatar.user_id=u.user_id AND avatar.community_id=u.community_id
+      LEFT JOIN member_avatar_presence avatar ON avatar.user_id=u.user_id AND avatar.community_id=u.community_id
       WHERE u.user_id=$5 AND u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) AND ($5=$4 OR NOT is_verification_test_account(u.user_id))`,[actor.community_id,low,high,actor.user_id,id]),
     memberPositioningSummary(pool,actor.community_id,id),
   ]);

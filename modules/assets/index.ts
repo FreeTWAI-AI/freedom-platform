@@ -187,20 +187,22 @@ export function createAvatarAssetService(pool: Pool, dependencies: AvatarAssetDe
     const input = leaseInput.parse(raw), snapshot = await inspect(actor, input, true);
     invalidState(snapshot.row.state === 'stored' || snapshot.row.state === 'finalized');
     if (snapshot.row.state === 'stored') await verifyObject(store, storageKey(snapshot.row), snapshot.metadata!);
-    let row!: Intent, avatar!: Target;
+    let row!: Intent, avatar!: Target, routing!: { mode: string };
     return scopedMemberCommand(pool, { actor, scope: 'personal', operation: 'asset.upload.finalize', key: input.key,
       target: { kind: 'asset_upload_intent', id: input.intentId }, body: { intentId: input.intentId, fence: input.fence } }, async (q, context) => {
       avatar = await target(q, context, actor); row = await intent(q, context, actor, input.intentId);
       await policy(q, context, actor.user_id, row.policy_revision);
+      routing = (await q.query("SELECT mode FROM avatar_storage_policy WHERE profile='member.avatar' FOR SHARE")).rows[0];
       invalidState(row.state === 'stored' || row.state === 'finalized');
       if (row.state !== 'finalized') await live(q, row, input);
       else requireCondition(row.fence === input.fence && row.lease_token === input.leaseToken, 409, 'asset_lease_stale', '上傳租約已失效。');
     }, async (q, context) => {
       invalidState(row.state === 'stored');
       checkVersion(avatar.aggregate_version, row.expected_version);
-      await q.query("UPDATE assets SET state='ready',ready_at=clock_timestamp() WHERE asset_id=$1 AND state='pending'", [row.asset_id]);
-      const result = (await q.query('UPDATE member_avatars SET aggregate_version=aggregate_version+1,updated_at=clock_timestamp() WHERE user_id=$1 AND aggregate_version=$2 RETURNING aggregate_version',
-        [actor.user_id, row.expected_version])).rows[0];
+      const activated = await q.query("UPDATE assets SET state='ready',ready_at=clock_timestamp() WHERE asset_id=$1 AND state='pending'", [row.asset_id]);
+      invalidState(activated.rowCount === 1);
+      const result = (await q.query("UPDATE member_avatars SET aggregate_version=aggregate_version+1,storage_source=CASE WHEN $3='legacy' THEN storage_source ELSE 'asset' END,updated_at=clock_timestamp() WHERE user_id=$1 AND aggregate_version=$2 RETURNING aggregate_version",
+        [actor.user_id, row.expected_version, routing.mode])).rows[0];
       requireCondition(result, 412, 'version_conflict', '頭像版本已改變。');
       await q.query('UPDATE member_avatar_asset_targets SET asset_id=$2,linked_at_version=$3 WHERE user_id=$1', [actor.user_id, row.asset_id, result.aggregate_version]);
       if (avatar.asset_id && avatar.asset_id !== row.asset_id) await q.query("UPDATE assets SET state='retired',retired_at=clock_timestamp() WHERE asset_id=$1 AND state='ready'", [avatar.asset_id]);

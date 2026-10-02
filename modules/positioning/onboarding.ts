@@ -254,11 +254,11 @@ export async function guildDirectory(pool:Pool,actor:Actor){
  // Avatar metadata uses the same visibility snapshot as the roles. New members
  // may browse guild choices, but cannot receive another member's avatar URL.
  const result=(await pool.query(`WITH visible_avatars AS (
-   SELECT av.user_id,av.aggregate_version FROM member_avatars av
+   SELECT av.user_id,av.aggregate_version FROM member_avatar_presence av
    JOIN users owner ON owner.user_id=av.user_id AND owner.community_id=av.community_id
    JOIN users viewer ON viewer.user_id=$2 AND viewer.community_id=av.community_id
    JOIN sessions viewer_session ON viewer_session.user_id=viewer.user_id AND viewer_session.token_hash=$3
-   WHERE av.community_id=$1 AND av.image_bytes IS NOT NULL
+   WHERE av.community_id=$1 AND av.present
      AND owner.active AND (NOT owner.onboarding_required OR owner.onboarding_completed_at IS NOT NULL)
      AND viewer.active AND (NOT viewer.onboarding_required OR viewer.onboarding_completed_at IS NOT NULL)
      AND viewer_session.revoked_at IS NULL AND viewer_session.expires_at>now()

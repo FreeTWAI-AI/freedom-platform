@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
+import type { ObjectStore } from '../../../../packages/asset-storage/index.js';
 import { moduleCommand, type PlatformEnv } from '../module-context.js';
 import { requireCondition } from '../../../../packages/shared/problem.js';
 import { authRateLimit } from '../../../../modules/identity-membership/members.js';
@@ -32,7 +33,7 @@ async function boundedUpload(request: Request) {
   requireCondition(size > 0, 422, 'invalid_avatar', '請先選擇圖片。');
   return Buffer.concat(chunks, size);
 }
-export function createAvatarRoutes(pool: Pool) {
+export function createAvatarRoutes(pool: Pool, store?: ObjectStore) {
   const app = new Hono<PlatformEnv>();
   app.get('/me/avatar', async c => c.json(await avatarMetadata(pool, c.get('actor'))));
   app.post('/me/avatar', async c => {
@@ -54,7 +55,7 @@ export function createAvatarRoutes(pool: Pool) {
     return c.json(result);
   });
   app.get('/members/:id/avatar', async c => {
-    const avatar = await readAvatar(pool, c.get('actor'), c.req.param('id'), c.req.query('v'));
+    const avatar = await readAvatar(pool, c.get('actor'), c.req.param('id'), c.req.query('v'), store);
     c.header('Content-Type', 'image/webp');
     c.header('Cache-Control', 'private, no-store');
     c.header('Vary', 'Cookie');

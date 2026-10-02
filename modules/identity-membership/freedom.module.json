@@ -4,6 +4,7 @@
   "owner_role": "foundation",
   "owned_paths": [
     "modules/identity-membership/avatars.ts",
+    "modules/identity-membership/avatar-bridge.md",
     "apps/platform-api/src/routes/avatars.ts",
     "apps/portal-web/src/modules/MemberAvatar.tsx",
     "apps/portal-web/src/modules/MemberAvatar.css",
@@ -14,7 +15,7 @@
     "modules/identity-membership/avatars.ts",
     "apps/portal-web/src/modules/avatar-client.ts"
   ],
-  "dependencies": ["command-core"],
+  "dependencies": ["command-core", "asset-storage", "asset-lifecycle"],
   "contract_families": [
     "preview"
   ],

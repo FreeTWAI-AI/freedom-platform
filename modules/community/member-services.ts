@@ -23,13 +23,13 @@ type Row = {
 
 const LIST = `SELECT s.service_id,s.title,s.category,s.summary,s.description,s.price_text,s.area_text,s.service_mode,s.contacts,s.state,
   s.aggregate_version::text AS aggregate_version,s.updated_at,s.owner_user_id,u.display_name,
-  a.aggregate_version::text AS avatar_version,a.image_bytes IS NOT NULL AS has_avatar,
+  a.aggregate_version::text AS avatar_version,a.present AS has_avatar,
   is_verification_test_account(u.user_id) AS test_account,c.service_id IS NOT NULL AS has_cover,
   (SELECT count(*)::int FROM promotion_clicks k JOIN promotion_links l ON l.link_id=k.link_id WHERE l.kind='member_service' AND l.target_key=s.service_id::text) AS total_points,
   (SELECT count(*)::int FROM promotion_clicks k JOIN promotion_links l ON l.link_id=k.link_id WHERE l.kind='member_service' AND l.target_key=s.service_id::text AND l.user_id=$2) AS my_points
   FROM member_services s
   JOIN users u ON u.user_id=s.owner_user_id
-  LEFT JOIN member_avatars a ON a.user_id=u.user_id AND a.community_id=s.community_id
+  LEFT JOIN member_avatar_presence a ON a.user_id=u.user_id AND a.community_id=s.community_id
   LEFT JOIN member_service_covers c ON c.service_id=s.service_id`;
 const PUBLIC_VISIBLE = `s.state='active' AND u.active AND NOT is_verification_test_account(u.user_id)`;
 

@@ -3,6 +3,7 @@ import type { AdminAccessVerifier } from '../../../modules/platform-admin/access
 import type { PasswordEmailSender } from '../../../modules/identity-membership/password-recovery.js';
 import type { EventEmailSender } from '../../../modules/community/events.js';
 import type {GuildReviewer} from '../../../modules/community/guild-discovery.js';
+import type { ObjectStore } from '../../../packages/asset-storage/index.js';
 
 /** Stable rate-limit key used whenever no trusted network address is available. */
 export const SHARED_NETWORK_KEY = 'shared-server';
@@ -33,6 +34,8 @@ export type PlatformRuntime = {
   /** Public event participation details are sent only when a mail adapter exists. */
   eventEmailSender?: EventEmailSender;
   guildReviewer?: GuildReviewer;
+  /** Explicit server port; absent keeps asset-backed reads unavailable. No mode activation. */
+  avatarAssetStore?: ObjectStore;
   /** Extra non-secret fields merged into /api/v1/health. */
   health?: Readonly<Record<string, string | null>>;
   /** Clock for promotion days. Tests inject a fixed instant. */

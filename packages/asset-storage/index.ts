@@ -164,11 +164,13 @@ export interface ObjectStore {
   delete(key: AssetObjectKey): Promise<'deleted' | 'missing'>;
 }
 export interface VerifiedObject { readonly key: AssetObjectKey; readonly metadata: ObjectMetadata; readonly etag?: string }
+export interface VerifiedObjectBytes extends VerifiedObject { readonly bytes: Uint8Array }
 function sameMetadata(actual: ObjectMetadata, expected: ObjectMetadata): boolean {
   return actual.contentType === expected.contentType && actual.byteSize === expected.byteSize && actual.sha256 === expected.sha256
     && actual.transformVersion === expected.transformVersion && actual.policyRevision === expected.policyRevision;
 }
-export async function verifyObject(store: ObjectStore, key: AssetObjectKey, expected: ObjectMetadata): Promise<VerifiedObject> {
+/** One bounded GET: only these exact digest-verified bytes may be served. */
+export async function readVerifiedObject(store: ObjectStore, key: AssetObjectKey, expected: ObjectMetadata): Promise<VerifiedObjectBytes> {
   expected = Object.freeze({ ...expected });
   assertObjectKey(key); validateMetadata(expected);
   let object: StoredObject | null;
@@ -180,7 +182,11 @@ export async function verifyObject(store: ObjectStore, key: AssetObjectKey, expe
   }
   const bytes = await readBounded(object.body, expected.byteSize);
   if (bytes.byteLength !== expected.byteSize || await sha256(bytes) !== expected.sha256) fail('integrity_mismatch');
-  return Object.freeze({ key, metadata: Object.freeze({ ...expected }), ...(object.etag ? { etag: object.etag } : {}) });
+  return Object.freeze({ key, metadata: Object.freeze({ ...expected }), bytes: snapshotBoundedBytes(bytes, expected.byteSize), ...(object.etag ? { etag: object.etag } : {}) });
+}
+export async function verifyObject(store: ObjectStore, key: AssetObjectKey, expected: ObjectMetadata): Promise<VerifiedObject> {
+  const { bytes: _bytes, ...evidence } = await readVerifiedObject(store, key, expected);
+  return Object.freeze(evidence);
 }
 /** Returns storage evidence, NOT ready state, authority, a receipt or a pointer.
  * On ambiguous PUT, GET may establish presence; a missing object stays unknown. */
