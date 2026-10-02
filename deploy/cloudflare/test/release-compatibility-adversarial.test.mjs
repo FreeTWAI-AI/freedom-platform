@@ -16,7 +16,10 @@ function fixture() {
   const target = { environment: 'next', database_identity: 'synthetic-database', recovery_generation: '7' };
   // This is a synthetic independent HOST port. No actual approved publisher,
   // production observation, cloud configuration or deployment is asserted.
-  const host = { schema: 'freedom.release-compatibility-host/v1', target, now_ms: now, max_age_ms: 10000,
+  const baseline = scan.ledger.filter(row => Number(row.name.slice(0, 3)) <= 75);
+  const host = { schema: 'freedom.release-compatibility-host/v2', target, now_ms: now, max_age_ms: 10000,
+    rollback_floor: { evidence_id: 'synthetic-history-baseline', target: { ...target }, schema_ledger: structuredClone(baseline),
+      schema_ledger_digest: compatibilityLedgerDigest(baseline), capabilities: [] },
     rollback_floor_shapes: [], observation: { evidence_id: 'synthetic-observation', observed_at_ms: now - 1, target: { ...target },
       schema_ledger: structuredClone(scan.ledger), schema_ledger_digest: scan.ledger_digest,
       enabled_shapes: [], written_shapes: ['avatar.asset.v1', 'work.private-human-result.v1'], active_releases: [current], complete: true },
