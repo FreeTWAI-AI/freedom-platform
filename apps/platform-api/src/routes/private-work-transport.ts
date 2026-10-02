@@ -15,8 +15,8 @@ import type { PlatformEnv } from '../module-context.js';
 const MAX_BODY = 32768;
 const editBody = z.object({ title: z.string(), objective: z.string() }).strict();
 const emptyBody = z.object({}).strict();
-const page = z.object({ limit: z.string().regex(/^[1-9][0-9]*$/).transform(Number).pipe(z.number().int().max(50)).optional(),
-  offset: z.string().regex(/^(0|[1-9][0-9]*)$/).transform(Number).pipe(z.number().int().max(10000)).optional() }).strict();
+const page = z.object({ limit: z.string().regex(/^[1-9][0-9]*$(?![\s\S])/).transform(Number).pipe(z.number().int().max(50)).optional(),
+  offset: z.string().regex(/^(0|[1-9][0-9]*)$(?![\s\S])/).transform(Number).pipe(z.number().int().max(10000)).optional() }).strict();
 const errorCodes = new Set(['login_required', 'session_expired', 'csrf_rejected', 'onboarding_required', 'host_rejected', 'origin_rejected',
   'json_required', 'encoding_rejected', 'body_too_large', 'invalid_json', 'invalid_body', 'idempotency_required', 'invalid_version',
   'version_required', 'version_conflict', 'version_overflow', 'not_found', 'resource_not_found', 'principal_disabled', 'scope_disabled',
