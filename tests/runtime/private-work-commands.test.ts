@@ -91,6 +91,24 @@ test('WORK-B-01 real human create/update/archive use one aggregate and metadata-
   assert.deepEqual(await facts(), { receipts: 3, journal: 3, outbox: 3 });
 });
 
+test('WORK-B-23 private commands consume central canonical Work identities before policy or SQL work', async () => {
+  const owner = await member(), { api } = service(), first = await api.create(owner, input());
+  let policyCalls = 0;
+  const guarded = createPrivateWorkCommands(pool, { resolvePolicy: async () => {
+    policyCalls++; return { revision: 'synthetic-v1', platformPersistenceAllowed: true };
+  } });
+  const initialFacts = await facts();
+  for (const workId of ['ABCDEFAB-1234-4234-8234-ABCDEFABCDEF', '00000000-0000-0000-0000-000000000000',
+    'abcdefab-1234-9234-8234-abcdefabcdef', first.workId + '\n']) {
+    const change = { ...input(), workId, expectedVersion: '1' };
+    await assert.rejects(guarded.update(owner, change), error => (error as Error).name === 'ZodError');
+    await assert.rejects(guarded.archive(owner, { key: randomUUID(), workId, expectedVersion: '1' }), error => (error as Error).name === 'ZodError');
+  }
+  assert.equal(policyCalls, 0);
+  assert.deepEqual(await facts(), initialFacts);
+  assert.equal((await pool.query('SELECT aggregate_version FROM work_items WHERE work_item_id=$1', [first.workId])).rows[0].aggregate_version, '1');
+});
+
 test('WORK-B-02 simultaneous create replay has stable server ID and changed input conflicts', async () => {
   const owner = await member(), { api } = service(), body = input();
   const [a, b] = await simultaneous(owner, () => api.create(owner, body));

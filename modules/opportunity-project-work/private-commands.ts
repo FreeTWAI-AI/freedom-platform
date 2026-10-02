@@ -6,6 +6,7 @@ import type { MemberScopeContext } from '../../packages/resource-scopes/index.js
 import { scopedMemberCommand, scopedJournal } from '../../packages/scoped-commands/index.js';
 import { checkVersion } from '../../packages/db/index.js';
 import { requireCondition } from '../../packages/shared/problem.js';
+import { OpaqueId } from '../../contracts/common/v1/identity.js';
 
 const key = z.string().min(8).max(128).regex(/^[A-Za-z0-9_-]+$/).refine(v => !/[\r\n]/.test(v));
 const version = z.string().refine(v => /^[1-9][0-9]{0,18}$/.test(v) && !/[\r\n]/.test(v) && BigInt(v) <= 9223372036854775807n);
@@ -14,7 +15,7 @@ const plaintext = (maximumBytes: number) => z.string().refine(v => v.trim().leng
 const title = plaintext(480).pipe(z.string().max(120));
 const objective = plaintext(16 * 1024);
 const createInput = z.object({ key, title, objective }).strict();
-const archiveInput = z.object({ key, workId: z.uuid(), expectedVersion: version.optional() }).strict();
+const archiveInput = z.object({ key, workId: OpaqueId, expectedVersion: version.optional() }).strict();
 const updateInput = archiveInput.extend({ title, objective });
 export type PrivateWorkCreateInput = z.infer<typeof createInput>;
 export type PrivateWorkUpdateInput = z.infer<typeof updateInput>;
