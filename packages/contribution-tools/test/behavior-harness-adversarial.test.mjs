@@ -33,8 +33,8 @@ async function fixture() {
     if (item.shape === 'avatar') return new Response('RIFF1234WEBPsynthetic', { status: item.status, headers: { ...headers, 'Content-Type': 'image/webp' } });
     const value = item.shape === 'problem' ? { type: 'about:blank', code: 'synthetic_denial', status: item.status }
       : item.shape === 'metadata' ? { aggregate_version: 1, avatar_url: `/api/v1/members/${input.fixture.owner.id}/avatar?v=1` }
-      : item.shape === 'empty-list' ? { total: 0, items: [] }
-      : item.shape === 'list' ? { total: 1, items: [work] } : work;
+      : item.shape === 'empty-list' ? { total: 0, items: [], limit: 20, offset: 0 }
+      : item.shape === 'list' ? { total: 1, items: [work], limit: 20, offset: 0 } : work;
     return new Response(JSON.stringify(value), { status: item.status, headers });
   };
   const ports = { observeTarget: async () => observed(), request: async request => { requests.push(request); return response(cases[count++]); } };
@@ -133,7 +133,7 @@ test('BEHAVIOR independent one wrong owner-private body fails even if all other 
   const f = await fixture(); let count = 0;
   f.ports.request = async () => {
     const item = cases[count++];
-    if (item.id === 'owner.work.list') return new Response(JSON.stringify({ total: 0, items: [] }), { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+    if (item.id === 'owner.work.list') return new Response(JSON.stringify({ total: 0, items: [], limit: 20, offset: 0 }), { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
     return f.response(item);
   };
   const report = await runMemberRouteBehavior(f.input, f.ports); failed(report);
@@ -144,7 +144,7 @@ for (const leaked of ['objective', 'work_id']) test(`BEHAVIOR independent outsid
   const f = await fixture(); let count = 0;
   f.ports.request = async () => {
     const item = cases[count++];
-    if (item.shape === 'empty-list') return new Response(JSON.stringify({ total: 0, items: [],
+    if (item.shape === 'empty-list') return new Response(JSON.stringify({ total: 0, items: [], limit: 20, offset: 0,
       accidental_private_field: leaked === 'objective' ? manifest.objective : f.input.fixture.work_id }), {
       status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
     return f.response(item);
