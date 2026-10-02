@@ -31,7 +31,7 @@ export async function requireAvatarCapacity(q: PoolClient, userId: string, limit
   const row = (await q.query(`SELECT
       COALESCE((SELECT sum(COALESCE(o.byte_size,i.reserved_bytes,131072)::bigint)
         FROM assets a LEFT JOIN asset_objects o ON o.asset_id=a.asset_id
-        LEFT JOIN asset_upload_intents i ON i.asset_id=a.asset_id WHERE a.owner_user_id=$1),0)
+        LEFT JOIN asset_upload_intents i ON i.asset_id=a.asset_id WHERE a.owner_user_id=$1 AND a.purpose='member.avatar'),0)
       + COALESCE((SELECT octet_length(image_bytes) FROM member_avatars WHERE user_id=$1),0) AS used`, [userId])).rows[0];
   requireCondition(BigInt(row.used) + BigInt(reserveBytes) <= BigInt(limit), 409, 'asset_retained_quota', '頭像儲存容量已達上限。');
 }

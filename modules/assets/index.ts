@@ -114,7 +114,7 @@ export function createAvatarAssetService(pool: Pool, dependencies: AvatarAssetDe
     }, async (q, context) => {
       checkVersion(avatar.aggregate_version, input.expectedVersion);
       // Avatar target lock serializes quota checks across different request keys.
-      const pending = (await q.query('SELECT count(*)::int AS n FROM asset_upload_intents WHERE owner_principal_id=$1 AND scope_id=$2 AND state<>\'finalized\' AND expires_at>clock_timestamp()',
+      const pending = (await q.query('SELECT count(*)::int AS n FROM asset_upload_intents WHERE owner_principal_id=$1 AND scope_id=$2 AND purpose=\'member.avatar\' AND state<>\'finalized\' AND expires_at>clock_timestamp()',
         [context.subject_principal.principal_id, context.scope.scope_id])).rows[0].n;
       requireCondition(pending < settings.pending, 409, 'asset_upload_quota', '進行中的上傳已達上限。');
       await requireAvatarCapacity(q, actor.user_id, resolved.retainedByteLimit, AVATAR_PROFILE.outputMaxBytes);
