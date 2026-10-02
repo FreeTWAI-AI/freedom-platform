@@ -1,0 +1,14 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "assets",
+  "owner_role": "foundation",
+  "owned_paths": ["modules/assets/**", "migrations/079_asset_upload_lifecycle.sql", "tests/runtime/asset-lifecycle.test.ts"],
+  "public_exports": ["modules/assets/index.ts"],
+  "dependencies": ["command-core", "resource-scopes", "scoped-commands", "asset-storage"],
+  "contract_families": ["common"],
+  "client_profiles": [],
+  "instructions": ["modules/assets/README.md", "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md", "docs/platform-plan/execution/unified-foundation/05-media-migration.md"],
+  "invariants": ["current-authority-before-replay", "single-avatar-version-authority", "immutable-object-content", "external-io-outside-row-locks", "fenced-finalize", "private-scoped-facts"],
+  "tests": ["runtime.full"],
+  "surfaces": []
+}

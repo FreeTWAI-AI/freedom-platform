@@ -3,15 +3,15 @@ import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
 import type { Actor } from '../identity-membership/service.js';
 import { checkVersion, digest } from '../../packages/db/index.js';
-import { scopedMemberCommand, scopedJournal } from '../../packages/db/scoped-member-command.js';
+import { scopedMemberCommand, scopedJournal } from '../../packages/scoped-commands/index.js';
 import { withMemberScope, type MemberScopeContext } from '../../packages/resource-scopes/index.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import { AVATAR_PROFILE, objectKey, prepareAvatar, readBounded, requirePersistence, sha256, verifyObject, writeVerifiedObject,
   type AvatarNormalizer, type ObjectMetadata, type ObjectStore, type PersistencePolicy } from '../../packages/asset-storage/index.js';
 
-const version = z.string().regex(/^[1-9][0-9]*$/).max(19).refine(v => BigInt(v) <= 9223372036854775807n);
-const key = z.string().min(8).max(128).regex(/^[A-Za-z0-9_-]+$/);
+const version = z.string().refine(v => /^[1-9][0-9]{0,18}$/.test(v) && !/[\r\n]/.test(v) && BigInt(v) <= 9223372036854775807n);
+const key = z.string().min(8).max(128).regex(/^[A-Za-z0-9_-]+$/).refine(v => !/[\r\n]/.test(v));
 const prepareInput = z.object({ key, targetUserId: OpaqueId, expectedVersion: version,
   contentType: z.enum(['image/png','image/jpeg','image/webp']), byteSize: z.number().int().min(1).max(AVATAR_PROFILE.inputMaxBytes),
   sha256: z.string().length(64).regex(/^[0-9a-f]+$/) }).strict();
@@ -56,10 +56,14 @@ export function createAvatarAssetService(pool: Pool, dependencies: AvatarAssetDe
     requireCondition(pinned === undefined || snapshot.revision === pinned, 409, 'asset_policy_changed', '內容政策已變更，請重新準備上傳。');
     return snapshot;
   }
-  async function target(q: PoolClient, context: MemberScopeContext, actor: Actor, create = false): Promise<Target> {
-    requireCondition(context.scope.kind === 'personal', 403, 'asset_scope_required', '需要本人的私人範圍。');
+  async function eligibleMember(q: PoolClient, actor: Actor): Promise<{ community_id: string }> {
     const current = (await q.query('SELECT community_id FROM users WHERE user_id=$1 AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)', [actor.user_id])).rows[0];
     requireCondition(current, 403, 'onboarding_required', '請先完成加入。');
+    return current;
+  }
+  async function target(q: PoolClient, context: MemberScopeContext, actor: Actor, create = false): Promise<Target> {
+    requireCondition(context.scope.kind === 'personal', 403, 'asset_scope_required', '需要本人的私人範圍。');
+    const current = await eligibleMember(q, actor);
     if (create) await q.query('INSERT INTO member_avatars(user_id,community_id) VALUES($1,$2) ON CONFLICT DO NOTHING', [actor.user_id, current.community_id]);
     const avatar = (await q.query('SELECT user_id,aggregate_version FROM member_avatars WHERE user_id=$1 FOR UPDATE', [actor.user_id])).rows[0];
     missing(avatar);
@@ -204,6 +208,7 @@ export function createAvatarAssetService(pool: Pool, dependencies: AvatarAssetDe
   async function readTarget(actor: Actor) {
     actor = Object.freeze({ ...actor });
     return withMemberScope(pool, { actor, scope: 'personal' }, async () => {}, async (q, context) => {
+      await eligibleMember(q, actor);
       await policy(q, context, actor.user_id);
       const row = (await q.query('SELECT a.aggregate_version,t.asset_id FROM member_avatars a LEFT JOIN member_avatar_asset_targets t ON t.user_id=a.user_id AND t.scope_id=$2 AND t.owner_principal_id=$3 AND t.linked_at_version=a.aggregate_version WHERE a.user_id=$1',
         [actor.user_id, context.scope.scope_id, context.subject_principal.principal_id])).rows[0];
