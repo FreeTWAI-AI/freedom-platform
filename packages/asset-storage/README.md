@@ -65,7 +65,7 @@ corruption, unknown outcomes, bounds, sanitized errors and disabled deletion.
 Cloud/staging/prod, backup/restore and route activation are separate evidence.
 
 The Worker adapter accepts an optional, request-scoped `MEDIA` native binding and
-passes a delete-disabled store to avatar reads. Missing or invalid storage leaves
+passes a delete-disabled store to avatar reads and the compatible upload facade. Missing or invalid storage leaves
 asset-backed reads unavailable without breaking login/health or falling back to
 retained legacy bytes. This wiring does not create a bucket, add a deployed
 binding, change the default legacy write mode, or enable maintenance.

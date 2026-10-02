@@ -4,7 +4,7 @@ Spec ID：`UF-SPEC-ASSET-WORK`；狀態：`local-partial`。來源：U2/U4、UF-
 
 第一個完成條件是會員換頭像仍正常；第二個是本人建立私人文案工作、以明選模型產出草稿，成果經同一 Asset 核心保存並只供本人查看及修改。第二條需 EXEC 的最小 RunAttempt/Grant adapter 才能完成。
 
-2026-10-02 本機增量已有 [原生 R2 object I/O](../../../../packages/asset-storage/README.md)、[頭像讀取 bridge](../../../../modules/assets/README.md)、[既有 POST 相容 facade](../../../../modules/assets/avatar-upload.md) 及 [私人 Work 命令與 owner-only 讀取](../../../../modules/opportunity-project-work/README.md)。頭像串接 durable intent、lease/fence、交易外轉圖／read-back、原子 finalize、舊 receipt 與 retained-byte quota；預設仍是 legacy 寫入且 persistence 關閉，沒有修改雲端 binding 或正式政策。另有預設停用的 [maintenance／backup pins](../../../../modules/assets/maintenance.md)，不代表備份恢復已完成。私人 Work 建立／修改／封存只有 server 內部命令，Result、分享與 AI 執行尚未開放。這不是上述兩條完整流程已完成的聲明；詳見 [交付紀錄](implementation-status.md)。
+2026-10-02 本機增量已有 [原生 R2 object I/O](../../../../packages/asset-storage/README.md)、[头像讀取 bridge](../../../../modules/assets/README.md)、[既有 POST 相容 facade](../../../../modules/assets/avatar-upload.md)、[私人 Work 命令](../../../../modules/opportunity-project-work/README.md) 與 [人工私人 Result 服務](../../../../modules/autopilot-work/README.md)。頭像和私人文字沿用同一 [Asset 引擎](../../../../modules/assets/engine.md)：durable intent、lease/fence、交易外处理／read-back、原子 finalize 與 retained-byte quota；頭像另保留旧 receipt。預設仍是 legacy 寫入且 persistence 關閉，沒有修改雲端 binding 或正式政策。另有預設停用的 [maintenance／backup pins](../../../../modules/assets/maintenance.md)，不代表備份恢復已完成。私人 mutation／Result 只有 server 內部服務，HTTP／UI、分享與 AI 執行尚未開放。這不是上述兩條完整流程已完成的聲明；詳見 [交付紀錄](implementation-status.md)。
 
 ## 現有入口與首版範圍
 
@@ -88,13 +88,21 @@ R2 缺檔回受控 unavailable/not-found 並產生安全診斷，不 fallback �
 
 私人工作成果可有人工/Agent 多版本。人編輯後提高版本；Agent 帶舊 expected version finalize 必須 412，保存其待核對產物而不覆蓋人稿。Result submitted 不自動 publish，公開是一項另有權限及確認的 operation。
 
+### 已實作的封閉人工 Result
+
+084 的實際表為 `private_work_results` 與 `private_work_result_targets`，不是另一套 Asset；文字 profile 使用同一 assets/object/intent/fence 表，typed Work FK 取代虛構 avatar target。原有頭像大小、MIME、transform 和舊 receipt bytes 不變。Result 的 INSERT 是唯一 Work CAS，版本變動在成功 INSERT 之後，不能被 `ON CONFLICT DO NOTHING` 空操作觸發；unique-index 等待後再次驗實際 lease clock。Result／intent finalize 有雙向 deferred constraint，應用在同一交易提交 scoped facts／receipt。
+
+`createPrivateResultService` 僅接受當前 member session，逐階段驗本人 personal scope、draft Work、onboarding、明確的私人文字 persistence policy 與 retained quota；配額鎖以 scope/purpose 為單位，涵蓋同一人多個 Work。新 Result 保留歷史 Asset，讀取 ready／retired 歷史並不要求它仍是 current pointer，但必須仍通過當前 Work ACL。讀取在交易外 GET 前後都驗權、政策與 Work version，等待鎖跨過 session expiry 仍拒絕回傳內容。archive 後不讀歷史，也不重播私人成功 receipt。
+
+本段 provenance 固定 `human`，沒有 RunAttempt／Grant／machine auth。未來 AI Result 必須新增真實 typed execution provenance 與授權 adapter，不得把模型輸出送進此人類服務後標成人工。HTTP 的 HEAD／Range／304、渲染、分享、私人文字 GC、正式保留期限、cloud／restore 仍另驗；本段通過不解除這些門檻。
+
 ## Migration 與 bridge
 
 先加 Asset/intent/typed pointer 及 Work scope/mode，再以相容讀取 bridge 支援 legacy bytes 和新 Asset。legacy fallback 只適用明確仍是 legacy 的 row；已切換 Asset 的 row 缺 object 不回舊內容。
 
 backfill 由受控 ops 流程以固定 source revision 讀取及核對 hash；切 pointer 的短交易檢查原 row version，遇到會員同時改圖就重新讀取而非覆蓋。備份、restore、撤銷及對帳證據齊備前保留舊欄位。首筆 R2-only/private Work 成功後，rollback floor 必須支援兩者。
 
-目前整合 076–083 皆為未合併的暫用號，合併前重新核對最小可用編號；manifest last 為 83、known_gaps 仍為 `[22]`。078 加 scoped member facts，079 加 Asset lifecycle，080 加 avatar read bridge／writer fence，081 加私人 Work 命令，082 加 maintenance／backup pins，083 加相容 POST 的政策欄位。沒有正式 backfill、bucket cutover 或資料清理。尚無 down migration 或 release-tool rollback floor。舊 binary 的 `workView` 使用 row spread，套 077 後可能多回 metadata，不能宣稱混跑期間 wire bytes 不變。新 binary 用顯式舊欄位投影；正式私人寫入與頭像非 legacy 模式保持關閉，直到回退政策與新增資料面驗收完成。
+目前整合 076–084 皆為未合併的暫用號，合併前重新核對最小可用編號；manifest last 為 84、known_gaps 仍為 `[22]`。078 加 scoped member facts，079 加 Asset lifecycle，080 加 avatar read bridge／writer fence，081 加私人 Work 命令，082 加 maintenance／backup pins，083 加相容 POST 的政策欄位，084 加共用文字 profile 與人工 Result。沒有正式 backfill、bucket cutover 或資料清理。尚無 down migration 或 release-tool rollback floor。舊 binary 的 `workView` 使用 row spread，套 077 後可能多回 metadata，不能宣稱混跑期間 wire bytes 不變。新 binary 用顯式舊欄位投影；正式私人寫入與頭像非 legacy 模式保持關閉，直到回退政策與新增資料面驗收完成。首筆私人文字存在後，回退版本必須認得 typed target、Work ACL、歷史與 profile-bound engine。
 
 ## 可交付 PR 與驗收
 

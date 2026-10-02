@@ -138,17 +138,37 @@ Agent Kit 真實 repo 另在 `foundation-agent-kit-source-20261002` 本機分支
 
 本批 Opus maintenance 唯讀審查完成，補採 capture/pin 索引建議；Grok avatar compatibility 程式審查逾時，沒有結論，不算通過。資料庫仍是同 digest PostgreSQL 18.6、network none、2 GiB tmpfs、專屬 Unix socket；Worker 短期 proxy 已關閉。因後續 Result/engine 測試正在使用，本批容器尚未清理；沒有接觸 `freedom_local.public`。本段尚未重產 inventory 或宣稱最終交付完成。
 
+## 共用 Asset 引擎與人工私人成果
+
+整合至 `ba10127` 的本機版本已包含共用 profile engine、084 schema 與 human Result service；這是人工服務增量，不是模型產稿或 Autopilot 完成。
+
+- `modules/assets/engine.ts` 成為唯一 member-personal upload lifecycle。Avatar adapter 保留原 prepare manifest/digest、API shape 與旧 receipt；private Result adapter 共用 prepare/claim/effect/store/finalize，沒有第二套 upload engine。Purpose/target kind 綁定在任何 lease／source／storage 操作之前，跨 profile 的 avatar claim/write/finalize 均拒絕。
+- Prepare 用 `(scope,purpose)` quota advisory lock 序列化不同 Work 的保留容量。Retirement 涉及的舊／新 Asset 在 policy 和 clock check 之前，依 UUID 排序預鎖。獨立測試先重現舊 Asset 被 backup 類 SHARE lock 阻擋後，session 過期仍完成的問題；修正後同一案例拒絕且不開始 GET。
+- 084 保留 avatar profile 與舊 rows/receipts，新增精確 owner/scope/private Work typed intent、256 KiB UTF-8 text object、不可變 human Result 與 current pointer。Result 的唯一真實 Work CAS 在 AFTER successful INSERT。獨立測試先重現 conflict-suppressed INSERT 消耗版本，再驗修正；另以兩個交易重現 unique-index 等待後對方 rollback、自己 lease 過期仍 INSERT 的邊界，補 AFTER clock check 後同一反例轉綠。這是受信 SQL invariants 的測試，不聲稱外部 caller 可以選擇服務內生成的 Result UUID。
+- `modules/autopilot-work/results.ts` 只提供 member-session server 內部人工服務。實際 Result ID／revision／Work version、intent finalize、facts/outbox/receipt 原子提交；遺失 COMMIT 回覆後相同 key 重播不新增成果。Current/history read 在無 SQL locks 的 bounded verified GET 前後驗目前 owner／Work／session／policy／version；歷史 retired Asset 仍可合法讀取，archive/revoke 不可。返回文字沒有 raw key／presigned URL，Markdown 不執行或渲染。私人 GC、HTTP/UI、機器身分與 AI provenance 均未開放。
+- 34 項 service cases、30 項 schema cases、5 項 engine cases、16 項獨立 race/read cases 已整合。獨立審查者在最終 service hardening 後再跑其 16/16 通過；作者組合 suite 156/156。主 agent 另把私人 Work command 的 ID validator 改為中央 `OpaqueId`，補反例後該 suite 23/23。
+
+主整合完整 `npm test` **1,255 passed、0 failed/skipped**，約 269 秒；之前只有 schema/engine 的中間版本 1,210/1,210 亦通過。整合後 Worker 再跑 **28/28**，包括 native R2 avatar cases；governance **137/137**、deploy preflight **37/37**、typecheck 與 platform 三環境 dry-run 通過。Browser 23/23 是本批前述 083 facade/bridge 的回歸，未因新增內部 Result 服務再次宣稱 UI 驗收。資料庫仍只用本輪 disposable PostgreSQL；Worker proxy 結束即關閉，容器留供後續驗證。
+
+Opus 對 engine/schema/Result 的唯讀文字審查已完成。其歷史讀取 412 建議未採：當前規格明確要求 I/O 期間 Work version 改變就拒絕並重新讀取；不可變 history 不能取代目前 Work ACL。關於重複 object rows 的假說由既有 `asset_id` primary key 排除。模型審查不當成執行測試或操作批准。
+
+### 第二個實際 consumer
+
+Storefront base/main `9823df79f8eee86008c269437880ed2e49bdc394` 的獨立本機分支，commit `58edbddb5c17d5acc24053aa349396ed815b6e9e`，固定中央 producer `ba101270d456db7994f539c0788a031e2668fb70`。同一 export generator 產生薄 wrapper 與工具，preview vendor、read client、client-source lock、SDK、UI、templates、package/CI 完全未改。18/18 現有測試與 local client-source/contract-pin checks 通過。
+
+在兩個 consumer 的最後 HEAD 對真正 `origin/main` 重跑：Kit 2/2、Storefront 18/18 的 suite 確實執行，descriptor/pin 檢查通過，總結果均 exit 2 `unavailable`，保留 baseline governance 與 registration behavior audit 缺口。兩者 producer pins 都僅在本機，沒有 approved ReleaseSet 或 remote source availability 的證明。三倉仍未 push、開 PR 或部署，中央 integration sample lock 不變。
+
 ## 尚未交付
 
 - execution/service current-state validators、Invocation/Grant adapters，以及有真實 backing record 的 service/site schema；scoped composition/receipt 目前僅支援 member session。
 - 正式 avatar policy／quota 值與 storage cutover、備份政策／cloud restore／rollback floor；新增私人 Result/share 的完整讀取矩陣、RunAttempt／模型 broker／私人 AI 草稿及瀏覽器 execution guard。Local R2、bridge、quota、maintenance/pins 已有實作，但不等同正式啟用。
-- 已批准 ReleaseSet 的真實 consumer 發布、另一個 client repo、TS/Rust 共用樣本、Windows/macOS、packaged clients、cloud 備份恢復及 staging/prod 演練。
+- 已批准 ReleaseSet 的真實 consumer 發布、TS/Rust 共用樣本、Windows/macOS、packaged clients、cloud 備份恢復及 staging/prod 演練。Kit 與 Storefront 已完成本機接入，不能把兩倉本機測試當整組正式治理鏈完成。
 - 已批准的 publisher/trust profile、可信 CI publisher／required workflow、GitHub 強制審查與不可繞過的發布限制。
 
 本機 `verify` 面對尚未治理的 main、缺少 surface audit 或未支援的 adapter，明確回 `unavailable`，不是綠燈。手動跑過 runtime tests 不會自動偽造 trusted check。原始 168 項產品驗收仍保留 `not_run`，須逐項取得完整證據再更新。
 
 ## 下一批
 
-銜接共用 profile lifecycle 與私人 Result schema／人工成果 adapter，另做獨立鎖等待、配額與 current ACL 反例；同時補實際 surface audit 與 host observation 接線。Private mutation 仍須目前權限、expected version、撤銷重驗及無外部 I/O 的短交易。service 分支在 backing schema 和 validator 齊備前拒絕啟用。migration 076–083 尚未合併或發布，不永久預留編號。完整新增 private 讀取矩陣及 rollback floor 齊備前不開啟正式私人寫入或頭像非 legacy 模式。
+銜接封閉 EXEC-A 契約／純狀態決策核心，以及有限範圍的實際 source-registration audit 與獨立反例；不把這些局部檢查改成完整 trusted CI。Private mutation 仍須目前權限、expected version、撤銷重驗及無外部 I/O 的短交易。machine/service 分支在 backing schema 和 validator 齊備前拒絕啟用。migration 076–084 尚未合併或發布，不永久預留編號。完整新增 private HTTP/UI 讀取矩陣及 rollback floor 齊備前不開啟正式私人寫入或頭像非 legacy 模式。備份政策、明選模型路徑與實際治理信任仍按各自門檻確認。
 
 推送、PR、合併、GitHub 規則、信任來源／金鑰、正式資料盤點或部署另依 Ted 的操作授權處理；Discord 全文仍須逐則核准。
