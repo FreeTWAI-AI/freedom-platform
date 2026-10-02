@@ -6,6 +6,7 @@ import { requireCondition } from '../shared/problem.js';
 import { runCommandCore } from '../db/command-core.js';
 import { digest } from '../db/legacy-digest.js';
 import { assertCurrentSessionClock } from '../db/member-session.js';
+import { legacyMemberReceiptPorts, type Command } from '../db/member-command.js';
 
 export interface ScopedMemberCommand extends MemberScopeInput {
   operation: string;
@@ -26,7 +27,10 @@ export interface ScopedJournalInput {
 const ID = /^[a-z][a-z0-9_.-]{0,159}$/;
 const MAX_JSON_BYTES = 256 * 1024;
 const MAX_METADATA_BYTES = 32 * 1024;
-const activeCommands = new WeakMap<MemberScopeContext, { q: PoolClient; operation: string; authorized: boolean }>();
+const activeCommands = new WeakMap<MemberScopeContext, {
+  q: PoolClient; operation: string; authorized: boolean;
+  journalTarget?: { aggregate_type: 'member_avatar'; id: string };
+}>();
 function stableId(value: unknown): value is string {
   return typeof value === 'string' && value.length <= 160 && ID.test(value) && !/[\r\n]/.test(value);
 }
@@ -144,6 +148,56 @@ export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberComm
   } finally { if (context!) activeCommands.delete(context); }
 }
 
+/** Closed member-avatar replacement compatibility adapter. Current personal
+ * authority precedes the ORIGINAL POST receipt lookup. New domain/pointer
+ * facts and that same receipt commit on one client; no external I/O here.
+ * For an early replay-only probe, a trusted caller may throw its own private
+ * sentinel from run on a miss: transaction rollback leaves no success receipt.
+ * This does not enable arbitrary legacy/scoped receipt-profile selection. */
+export async function avatarMemberCommand<T>(pool: Pool, input: Command,
+  authorize: (q: PoolClient, context: MemberScopeContext) => Promise<unknown>,
+  run: (q: PoolClient, context: MemberScopeContext) => Promise<T>): Promise<T> {
+  requireCondition(input && typeof input === 'object' && Object.keys(input).every(key =>
+    ['actor', 'operation', 'key', 'body', 'expected', 'lockUser'].includes(key))
+    && input.operation === 'POST /api/v1/me/avatar', 400, 'invalid_avatar_command', '頭像操作資料無效。');
+  requireCondition(typeof input.key === 'string' && /^[A-Za-z0-9_-]{8,128}$/.test(input.key)
+    && !/[\r\n]/.test(input.key), 400, 'idempotency_required', '請提供有效的 Idempotency-Key。');
+  requireCondition(input.expected === undefined || validVersion(input.expected), 400, 'invalid_expected_version', '版本無效。');
+  requireCondition(input.lockUser === undefined || typeof input.lockUser === 'boolean', 400, 'invalid_avatar_command', '頭像操作資料無效。');
+  requireCondition(input.actor && uuid(input.actor.user_id) && uuid(input.actor.community_id)
+    && typeof input.actor.session_hash === 'string' && input.actor.session_hash.length > 0 && input.actor.session_hash.length <= 256,
+  401, 'session_expired', '請重新登入。');
+  const body = jsonSnapshot(input.body, MAX_JSON_BYTES).value as Record<string, unknown>;
+  requireCondition(body && typeof body === 'object' && !Array.isArray(body) && Object.keys(body).length === 2
+    && ['image/jpeg', 'image/png', 'image/webp'].includes(body.content_type as string)
+    && typeof body.sha256 === 'string' && /^[a-f0-9]{64}$/.test(body.sha256) && body.sha256.length === 64,
+  400, 'invalid_avatar_command', '頭像操作資料無效。');
+  const actor = Object.freeze({ ...input.actor });
+  const snapshot: Command = Object.freeze({ actor, operation: 'POST /api/v1/me/avatar', key: input.key,
+    body, expected: input.expected, lockUser: input.lockUser });
+  const receipts = legacyMemberReceiptPorts<T>(snapshot);
+  let context: MemberScopeContext;
+  try {
+    return await runCommandCore(pool, {
+      ...receipts,
+      async authenticateAndLock(q) {
+        context = await lockMemberScope(q, { actor, scope: 'personal', lockUser: snapshot.lockUser });
+        await assertCurrentSessionClock(q, actor);
+        activeCommands.set(context, { q, operation: 'member.avatar.replace', authorized: false,
+          journalTarget: { aggregate_type: 'member_avatar', id: actor.user_id } });
+      },
+      async readReceipt(q) {
+        const prior = await receipts.readReceipt(q);
+        return prior ? { ...prior, response: jsonSnapshot(prior.response, MAX_JSON_BYTES).value as T } : null;
+      },
+    }, async q => {
+      await authorize(q, context);
+      await assertCurrentSessionClock(q, actor);
+      activeCommands.get(context)!.authorized = true;
+    }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T);
+  } finally { if (context!) activeCommands.delete(context); }
+}
+
 /** Explicit server-selected metadata only. The context must be from the run
  * callback of the current scoped command on the same client. This is not a
  * serialized authorization token and it never writes the community outbox. */
@@ -155,6 +209,8 @@ export async function scopedJournal(q: PoolClient, context: MemberScopeContext, 
     && stableId(input.aggregate_type) && uuid(input.id) && stableId(input.operation),
   400, 'invalid_scoped_journal', '操作紀錄無效。');
   requireCondition(input.operation === active.operation, 400, 'journal_operation_mismatch', '操作紀錄與目前操作不符。');
+  requireCondition(!active.journalTarget || input.aggregate_type === active.journalTarget.aggregate_type
+    && input.id === active.journalTarget.id, 400, 'journal_target_mismatch', '操作紀錄與目前目標不符。');
   const version = typeof input.version === 'number' && Number.isSafeInteger(input.version) ? String(input.version) : input.version;
   requireCondition(validVersion(version), 400, 'invalid_scoped_journal', '操作紀錄無效。');
   requireCondition(input.eventType === undefined || stableId(input.eventType), 400, 'invalid_scoped_journal', '操作紀錄無效。');
