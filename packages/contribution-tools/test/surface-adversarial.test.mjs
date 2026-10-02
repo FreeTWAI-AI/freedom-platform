@@ -38,7 +38,7 @@ function audit(path, transform) {
 }
 const reject = (path, change) => {
   const report = audit(path, change);
-  assert.notEqual(report.registration_status, 'passed', JSON.stringify(report.issues));
+  assert.notEqual(report.structural_status, 'passed', JSON.stringify(report.issues));
   // An unconditional whole-platform blocker is not evidence this mutation was
   // detected. Require a concrete candidate rejection, so a permanently
   // unavailable aggregate cannot make these negative vectors vacuously green.
@@ -57,9 +57,11 @@ const reject = (path, change) => {
   }), JSON.stringify(report.issues));
 };
 
-test('independent real-source positive control is only a six-route syntax map, never whole-platform approval', () => {
+test('independent real-source control extracts six-route facts but cannot approve unresolved root delegates', () => {
   const report = audit();
-  assert.equal(report.registration_status, 'passed');
+  assert.equal(report.coverage_kind, 'fixed-syntax-only');
+  assert.equal(report.structural_status, 'unavailable');
+  assert.equal(Object.hasOwn(report, 'registration_status'), false);
   assert.equal(report.status, 'unavailable');
   assert.equal(report.registrations.length, 12);
   assert(report.blockers.includes('surface_unmapped'));
@@ -112,12 +114,12 @@ test('candidate top-level and initializer side effects never execute in the host
   const result = audit(avatar, s => `globalThis.${marker} = 'top-level';\n` + s.replace('  const uploadAvatar',
     `  const effect = (() => { globalThis.${marker} = 'initializer'; return 1; })();\n  const uploadAvatar`));
   assert.equal(globalThis[marker], undefined);
-  assert.notEqual(result.registration_status, 'passed');
+  assert.notEqual(result.structural_status, 'passed');
 });
 
 test('an unchanged scoped map cannot use its own parser declaration as host approval', () => {
   const result = auditSurfaceRegistrations({ baseline: reader(files), candidate: reader(files),
     approvedParser, parser: ports.parser });
-  assert.equal(result.registration_status, 'unavailable');
+  assert.equal(result.structural_status, 'unavailable');
   assert(result.blockers.includes('trusted_parser_unavailable'));
 });
