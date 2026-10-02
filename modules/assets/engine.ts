@@ -36,6 +36,8 @@ export interface LifecycleDependencies {
 }
 /** Trusted server code, NEVER a request/profile JSON or caller-controlled SQL.
  * Domain ports perform database-only work on the supplied live transaction.
+ * lockTarget/lockPublication acquire every publication lock before the engine's
+ * decision-clock refresh; publish may only reuse already-held domain locks.
  * The engine alone owns upload state transitions, source effects and fences. */
 export interface LifecycleProfile<P extends LifecyclePrepare,R> {
   readonly purpose: 'member.avatar'|'work.private-draft'; readonly targetKind: 'member.avatar'|'work.private-result'; readonly variant: 'avatar'|'draft';
@@ -73,7 +75,7 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
     const snapshot = Object.freeze({revision:resolved?.revision,platformPersistenceAllowed:resolved?.platformPersistenceAllowed,retainedByteLimit:resolved?.retainedByteLimit});
     requirePersistence(snapshot);
     requireCondition(typeof snapshot.retainedByteLimit==='string' && /^[1-9][0-9]{0,18}$/.test(snapshot.retainedByteLimit) && !/[\r\n]/.test(snapshot.retainedByteLimit)
-      && BigInt(snapshot.retainedByteLimit)>=BigInt(profile.outputMaxBytes) && BigInt(snapshot.retainedByteLimit)<=9223372036854775807n,503,'avatar_upload_unavailable','內容上傳暫時無法使用。');
+      && BigInt(snapshot.retainedByteLimit)>=BigInt(profile.outputMaxBytes) && BigInt(snapshot.retainedByteLimit)<=9223372036854775807n,503,profile.purpose==='member.avatar'?'avatar_upload_unavailable':'asset_upload_unavailable','內容上傳暫時無法使用。');
     requireCondition(pinned===undefined || snapshot.revision===pinned,409,'asset_policy_changed','內容政策已變更，請重新準備上傳。');return snapshot;
   }
   async function readIntent(q: PoolClient, context: MemberScopeContext, actor: Actor, id: string, lock: boolean): Promise<LifecycleIntent> {
@@ -85,7 +87,10 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
     // Target always precedes intent/Asset. State/fence come from the re-read.
     const hint=await readIntent(q,context,actor,id,false);
     const target=await profile.lockTarget(q,context,actor,targetId(hint),false),row=await readIntent(q,context,actor,id,true);missing(target.targetId===targetId(row));
-    await q.query('SELECT asset_id FROM assets WHERE asset_id=$1 FOR UPDATE',[row.asset_id]);return {target,row};
+    // Replaced avatar retirement is also a write. Acquire both rows NOW, in the
+    // same UUID order as backup capture, never after the decision-clock check.
+    const assets=profile.retireReplacedAsset&&target.assetId?[row.asset_id,target.assetId]:[row.asset_id];
+    await q.query('SELECT asset_id FROM assets WHERE asset_id=ANY($1::uuid[]) ORDER BY asset_id FOR UPDATE',[assets]);return {target,row};
   }
   async function live(q: PoolClient,row: LifecycleIntent,lease?: AssetLeaseInput) {
     const now=(await q.query('SELECT expires_at>clock_timestamp() AS live,lease_expires_at>clock_timestamp() AS leased FROM asset_upload_intents WHERE intent_id=$1',[row.intent_id])).rows[0];
