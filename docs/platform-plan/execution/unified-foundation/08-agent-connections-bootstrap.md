@@ -2,6 +2,8 @@
 
 本增量接續 [runtime 登錄](07-runtime-enrollment.md)，對應 AP §1.5／4.3、U1／U3。第一段交付真正的會員機器連線紀錄及獨立的 token／DPoP 加密驗證組件；不把兩個組件相加就宣稱機器授權已接通。原有 `fw_read` 配對不變，不建立 provider／billing／credential custody 選擇或正式金鑰。
 
+後續 [09 的封閉 bootstrap status](09-bootstrap-status.md) 已另接目前 DB 身分與 nonce 原子消耗，僅允許 `bootstrap.status.read`。本文件繼續描述連線紀錄與純加密元件的邊界；完整配對、token 發行與 execution 授權仍未由這些元件完成。
+
 ## 會員連線服務
 
 `createAgentConnections(pool, { environment, clientId })` 由 host 固定環境及 client ID，輸入不能覆寫。client ID 只接受 1–64 個 ASCII 字元，首字元英數，其餘英數、點、底線或連字號；它是設定身分，不是 client build 認證。服務提供 `create(actor, {key,runtimeDeviceId})`、`read(actor, {connectionId})`、`revoke(actor, {key,connectionId,expectedVersion})`。所有會員寫入沿用 scoped member command／journal／outbox／receipt。
@@ -41,10 +43,10 @@ kid 為 1–64 個英數／底線／連字號，jti 為 16–128 個同字元。
 
 Factory 的 `verify({accessToken,proof,expectedNonce,nowMs,expectedBinding})` 使用 host 提供的綁定快照。expectedBinding 精確包含 `ownerUserId,principalId,scopeId,runtimeDeviceId,connectionId,connectionVersion,keyThumbprint`。成功只回受限 claims、proof jti、nonce、時間窗口交集 `validFromMs`／`validUntilMs`（前含後不含）及 `assurance:'cryptographic_only'`、`operational_authority:false`；失敗回 null。時間交集供 [09 的可信 DB adapter](09-bootstrap-status.md) 在 await 後重驗時鐘，本純 verifier 不自行查當下 DB clock。不得輸出可被當成 execution Invocation／VerifiedContext 的品牌或 handle。
 
-Caller 填 now／binding／keys 不會因此成為可信來源。這個純組件不查 DB、不做 nonce 發行或原子 consume，也不防跨呼叫 replay；同一合法 proof 重驗可以成功，測試須明示這項限制。合法 ECDSA high-S／low-S 簽章皆可驗過，後續 replay 防護須使用 server nonce／proof jti，不以簽章 bytes 去重。後續真正 machine validator 必須在同一交易內解析目前 user/person/scope/runtime/connection、檢查到期／撤銷、DB-clock freshness 與 server nonce/replay，並將結果限制在唯一 operation。這些接線完成前不掛 machine route、不發布 token、不授私人正文、Work、Run、Grant、model 或 effect 權。
+Caller 填 now／binding／keys 不會因此成為可信來源。這個純組件不查 DB、不做 nonce 發行或原子 consume，也不防跨呼叫 replay；同一合法 proof 重驗可以成功，測試須明示這項限制。合法 ECDSA high-S／low-S 簽章皆可驗過，replay 防護須使用 server nonce／proof jti，不以簽章 bytes 去重。[封閉 status 服務](../../../../modules/agent-control/bootstrap-status.md) 已在同一交易內解析目前 user/person/scope/runtime/connection、檢查到期／撤銷及 DB clock，並原子消耗 nonce／proof jti；結果只允許這一次 `bootstrap.status.read`，沒有可重用的 VerifiedContext。後續 execution 仍須真正 Grant／Attempt 與 operation-specific 授權，不能沿用 status 結果取得私人正文、Work、Run、model 或 effect 權。
 
 ## 測試及未完成部分
 
 Member service 用全新隔離 PostgreSQL、真實 enrollment 簽章及 non-superuser 角色測 FK、TEMP shadow、目前資格、runtime revoke、到期、同 key 重播、並發 CAS、真正鎖等待、三個 fact sink 故障全回滾。Proof suite 用獨立合成 issuer/device key 實際簽 token／DPoP，測錯用途／issuer／audience／client／環境／key／binding／URI／nonce／ath、時間邊界、duplicate keys／私鑰／編碼、host/input mutation 與 signature malleability；不以 mock true 驗證成功。
 
-本增量沒有 token issuer、device_code/user_code/poll、refresh family、nonce store、正式信任來源、HTTP/UI、machine DB validator 或真正 Grant/Attempt。完整配對與 machine authorization 仍沿 AP 原計畫繼續，不以此組件測試完成所有 AUTH 要求。
+本文件原始增量僅包含連線紀錄及純加密元件；nonce ledger 與唯一 status operation 的 DB 驗權已另由 [09](09-bootstrap-status.md) 實作。Token issuer、device_code/user_code/poll、refresh family、正式信任來源、HTTP/UI 及真正 Grant/Attempt 仍待交付。完整配對與 execution authorization 繼續沿 AP 原計畫推進，不以局部元件測試宣稱完成所有 AUTH 要求。

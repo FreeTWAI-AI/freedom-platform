@@ -41,9 +41,18 @@ time/binding. This component does not read owner/runtime/connection status,
 issue/consume a nonce, retain replay IDs, mount HTTP, or grant any machine,
 private Work, model, execution or operational access. Repeating a valid proof
 can return the same success. ECDSA `(r,s)` and `(r,n-s)` signatures both satisfy
-the standard verification algorithm: future atomic replay protection must use
+the standard verification algorithm: atomic replay protection must use
 the server nonce/proof jti, not raw signature bytes. Do not enable a route by
 combining these crypto claims with a caller-asserted active connection record.
+
+The separate [bootstrap status service](bootstrap-status.md) implements the
+[09 admission profile](../../docs/platform-plan/execution/unified-foundation/09-bootstrap-status.md):
+current user/person/scope/runtime/connection checks, fresh DB clock checks after
+cryptography, and atomic nonce/proof-ID consumption in one transaction. Its
+result permits only that `bootstrap.status.read` response and remains
+`operational_authority:false`; it is not a reusable authentication context.
+HTTP transport, token issuance and execution-specific Grant/Attempt authority
+remain separate work.
 
 `tests/runtime/bootstrap-proof.test.ts` uses independent ephemeral issuer/device
 keys and actual signatures, plus Node-native signing for malformed protected
