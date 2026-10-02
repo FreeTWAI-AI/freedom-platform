@@ -5,6 +5,7 @@ import { lockMemberScope, type MemberScopeInput, type MemberScopeContext } from 
 import { requireCondition } from '../shared/problem.js';
 import { runCommandCore } from '../db/command-core.js';
 import { digest } from '../db/legacy-digest.js';
+import { assertCurrentSessionClock } from '../db/member-session.js';
 
 export interface ScopedMemberCommand extends MemberScopeInput {
   operation: string;
@@ -111,18 +112,11 @@ export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberComm
   const body = jsonSnapshot(input.body, MAX_JSON_BYTES).value, lockUser = input.lockUser;
   let context: MemberScopeContext;
   const namespace = () => [context.subject_principal.principal_id, context.authn_kind, context.scope.scope_id, operation, key];
-  const requireUnexpiredSession = async (q: PoolClient) => {
-    // Session row is already share-locked, but time advances while waiting for
-    // receipt/domain locks. Transaction-start now() is not the decision clock.
-    const current = await q.query(`SELECT token_hash FROM sessions WHERE token_hash=$1 AND user_id=$2
-      AND revoked_at IS NULL AND expires_at>clock_timestamp()`, [actor.session_hash, actor.user_id]);
-    requireCondition(current.rowCount === 1, 401, 'session_expired', '請重新登入。');
-  };
   try {
     return await runCommandCore(pool, {
       async authenticateAndLock(q) {
         context = await lockMemberScope(q, { actor, scope, lockUser });
-        await requireUnexpiredSession(q);
+        await assertCurrentSessionClock(q, actor);
         activeCommands.set(context, { q, operation, authorized: false });
       },
       async lockReceipt(q) {
@@ -144,7 +138,7 @@ export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberComm
       },
     }, async q => {
       await authorize(q, context);
-      await requireUnexpiredSession(q);
+      await assertCurrentSessionClock(q, actor);
       activeCommands.get(context)!.authorized = true;
     }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T);
   } finally { if (context!) activeCommands.delete(context); }

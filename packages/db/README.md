@@ -60,6 +60,15 @@ An authorized command already past that decision may complete; expiry does not
 retroactively cancel a committed effect. Revocation locks retain the documented
 resource-scopes linearization order.
 
+`assertCurrentSessionClock(q, actor)` in `member-session.ts` exposes that narrow
+decision-clock refresh for new effect/read adapters. It requires the preceding
+user/session locks from `lockMemberSession` or member-scope resolution on the
+same still-open transaction; it is not standalone authentication or permission.
+Call it after the last blocking domain/policy query before returning private
+data or releasing an authorized snapshot for external I/O. Legacy command and
+`withMemberScope` behavior are unchanged; new callers must choose this explicit
+final decision point themselves.
+
 The new receipt namespace combines principal, `member_session`, resolved scope
 UUID, stable operation and key. The advisory key is a serialized JSON array with a
 separate profile prefix, not delimiter concatenation. The new digest profile is
