@@ -46,7 +46,11 @@ DECLARE family record; connection record; parent record;
 BEGIN
   IF TG_OP='DELETE' THEN RAISE EXCEPTION 'Session history is retained' USING ERRCODE='23514'; END IF;
   IF TG_TABLE_NAME='bootstrap_refresh_families' THEN
-    EXECUTE format('SELECT * FROM %I.agent_connections WHERE connection_id=$1',TG_TABLE_SCHEMA) INTO connection USING NEW.connection_id;
+    -- Initial attachment must serialize with connection revocation: otherwise
+    -- its cascade cannot see this uncommitted family and both could commit.
+    -- Updates already serialize on the family; do not upgrade family -> conn.
+    EXECUTE format('SELECT * FROM %I.agent_connections WHERE connection_id=$1%s',TG_TABLE_SCHEMA,
+      CASE WHEN TG_OP='INSERT' THEN ' FOR SHARE' ELSE '' END) INTO connection USING NEW.connection_id;
     IF connection.connection_id IS NULL OR NEW.issued_at<connection.issued_at OR NEW.expires_at>connection.expires_at THEN
       RAISE EXCEPTION 'Invalid family backing' USING ERRCODE='23514'; END IF;
     IF TG_OP='INSERT' THEN
