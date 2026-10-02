@@ -22,7 +22,7 @@ CREATE TABLE execution_runs (
 CREATE INDEX execution_runs_owner_work ON execution_runs(owner_principal_id,scope_id,work_item_id,run_id);
 
 CREATE FUNCTION preserve_execution_run() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE target work_items%ROWTYPE; policy private_work_persistence_policy%ROWTYPE;
+DECLARE target record; policy record;
 BEGIN
   IF TG_OP='DELETE' THEN
     RAISE EXCEPTION 'Run history cannot be deleted' USING ERRCODE='23514';
@@ -31,14 +31,18 @@ BEGIN
     IF NEW.state<>'created' OR NEW.aggregate_version<>1 OR NEW.task_lease_epoch<>1 OR NEW.control_epoch<>1 THEN
       RAISE EXCEPTION 'Run must start unexecuted' USING ERRCODE='23514';
     END IF;
-    SELECT * INTO target FROM work_items WHERE work_item_id=NEW.work_item_id FOR SHARE;
-    IF NOT FOUND OR target.work_mode<>'personal_execution' OR target.state<>'draft'
+    -- Invoker rights stay intact, but TEMP/search_path cannot substitute fake
+    -- backing rows for the physical Work and operator policy of this Run table.
+    EXECUTE format('SELECT * FROM %I.work_items WHERE work_item_id=$1 FOR SHARE',TG_TABLE_SCHEMA)
+      INTO target USING NEW.work_item_id;
+    IF target.work_item_id IS NULL OR target.work_mode<>'personal_execution' OR target.state<>'draft'
       OR target.aggregate_version<>NEW.input_work_version THEN
       RAISE EXCEPTION 'Run requires current draft Work input' USING ERRCODE='23514';
     END IF;
-    SELECT * INTO policy FROM private_work_persistence_policy
-      WHERE scope_id=NEW.scope_id AND owner_principal_id=NEW.owner_principal_id AND purpose='work.private-draft' FOR SHARE;
-    IF NOT FOUND OR NOT policy.persistence_allowed OR policy.retained_byte_limit IS NULL
+    EXECUTE format('SELECT * FROM %I.private_work_persistence_policy
+      WHERE scope_id=$1 AND owner_principal_id=$2 AND purpose=''work.private-draft'' FOR SHARE',TG_TABLE_SCHEMA)
+      INTO policy USING NEW.scope_id,NEW.owner_principal_id;
+    IF policy.scope_id IS NULL OR NOT policy.persistence_allowed OR policy.retained_byte_limit IS NULL
       OR policy.retained_byte_limit<262144 OR NEW.persistence_policy_revision<>'private-work.v'||policy.revision::text THEN
       RAISE EXCEPTION 'Run requires current private metadata persistence policy' USING ERRCODE='23514';
     END IF;
