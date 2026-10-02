@@ -168,6 +168,28 @@ Storefront base/main `9823df79f8eee86008c269437880ed2e49bdc394` 的獨立本機�
 
 本機 `npm audit` 另列出既有開發工具鏈 2 moderate／1 high；相關 miniflare、wrangler、undici lock entries 與 `origin/main` 相同，不是本次 parser 增量。尚未另行升版及重新驗證工具鏈，不宣稱 dependency security clean。
 
+## 封閉 EXEC-A 與本批收尾
+
+實作固定版本為 `0308f543591916d5f03ceb5a1d7fa559c30e27d6`。新增中央 execution decision schema、同源 JSON Schema、有界 decoder、不可變 Attempt binding、單一 Run 狀態及轉移矩陣；[模組說明](../../../../packages/execution-state/README.md)明列 actor、控制／租約／恢復世代、unknown effect/usage 與人工控制語意。Module descriptor 登記真實 exports／instructions，兩份新測試加入 protected full-runtime baseline；不新增註冊入口或 migration。
+
+這是 `hypothetical_decision_only`，每個結果均 `operational_authority=false`，activation 固定 unavailable。Caller 的 owner、Grant、policy、model readiness 與時間只是假設輸入，不是可信驗證結果；沒有 durable Run、機器授權、模型呼叫、HTTP 或 AI Result 寫入。084 的 human provenance 不能拿來保存模型成果。Wire、結構 schema 與關係／狀態語意分層檢查，不把 JSON Schema 當成簽章或完整授權。
+
+審查修正 stale recovery/control ACK、終態被遲到 ACK 改寫、resume 後 ACK 撤回 preflight、非 running outcome 恢復執行，以及可能被 Number 四捨五入的數字／非 index array keys。獨立反例另以不變的 task/control epochs、更新後的 recovery generation 重現舊 dispatch 被接受，補原 dispatch generation 等值檢查後轉綠；舊 observation 仍可作有限 metadata evidence，不能重新派送。
+
+第一輪整合 runtime **1,355/1,355** 通過後，連續狀態探索又重現第 77 筆 dispatch 附近的容量死結：已接受的 next snapshot 連 Stop input 都超過 32 KiB。修正改以 **24 KiB control-reserved snapshot + 8 KiB envelope**，預先計入可變狀態／版本／Result 的最大空間，超限前拒絕歷史增長，不刪除紀錄。原樣重跑普通及最大欄寬序列，Stop/revoke、ACK 和 unknown charge 保留均通過。作者 76 項加獨立 29 項，合計 **105/105**；這是 prototype 邊界，不是正式產品歷史保留政策。
+
+### 固定版本最終驗證
+
+對真正 `origin/main`（`3de70ccbd24362a7925508fb42d36aaa256a0806`）執行 prepare/verify，而非自選已治理 base。固定 runner 實跑 **runtime 1,360/1,360（108 files）、governance 196/196（8 files）**，0 failed/skipped/cancelled；各 runtime 子集合是同一批次的覆蓋切片，不額外重複加總。Workspace 未於驗證期間變動，descriptor/schema/ref 及原 preview bytes 檢查通過。
+
+整體仍為 exit 2、local `unavailable`，保留 `baseline_governance_unavailable`、`surface_unmapped`、`registration_behavior_audit_required` 三個真實缺口。有限 source audit 與本機成功測試都沒有取代可信 publisher、host observation transport、完整入口行為或 GitHub 強制。
+
+TypeScript 7 typecheck、common/execution 生成契約 check、deploy preflight **37/37** 通過；既有契約 **659 passed、4 個原有 clock cases skipped**。Preview 重產仍為 32 operations／9 artifacts，preview、SDK 與中央 consumer sample lock 相對 main 無差異。Worker **28/28**、Browser **23/23** 是前述 bridge/Result 批次證據；本次沒有新增 runtime 接線或 UI，不再宣稱重跑這兩組。
+
+收尾已查隔離 PostgreSQL 的 `fp_*` schema、role 及其他 client 都為 0，只剩本輪 `fp_foundation` 與 postgres/template 預設資料庫；停止並自動移除本輪測試容器及空 socket 目錄。只移除可重建合成資料，沒有碰 `freedom_local.public`。Worktrees、提交及 ignored 測試報告保留供查核；沒有殘留本輪 Worker proxy、模型審查程序或長駐測試 DB。遠端 main 再查仍為 `3de70cc`，全程未 push、開 PR、合併或部署。
+
+本批收尾 inventory 為 **1,203 file hashes、679 本機檔案／目錄連結、0 failures**；`git diff --check` 通過。這項檢查不驗外部 URL、產品行為或簽章信任。
+
 ## 尚未交付
 
 - execution/service current-state validators、Invocation/Grant adapters，以及有真實 backing record 的 service/site schema；scoped composition/receipt 目前僅支援 member session。
@@ -179,6 +201,8 @@ Storefront base/main `9823df79f8eee86008c269437880ed2e49bdc394` 的獨立本機�
 
 ## 下一批
 
-銜接封閉 EXEC-A 契約／純狀態決策核心，以及有限範圍的實際 source-registration audit 與獨立反例；不把這些局部檢查改成完整 trusted CI。Private mutation 仍須目前權限、expected version、撤銷重驗及無外部 I/O 的短交易。machine/service 分支在 backing schema 和 validator 齊備前拒絕啟用。migration 076–084 尚未合併或發布，不永久預留編號。完整新增 private HTTP/UI 讀取矩陣及 rollback floor 齊備前不開啟正式私人寫入或頭像非 legacy 模式。備份政策、明選模型路徑與實際治理信任仍按各自門檻確認。
+下一批優先補發布相容性／rollback floor、正式 default-deny 私人 persistence policy 與完整新增讀取面，以及固定行為 harness／可信 observation 接線；現有 decision kernel 與 source audit 不重造，也不當成完整 trusted CI。Private mutation 仍須目前權限、expected version、撤銷重驗及無外部 I/O 的短交易。machine/service 分支在 backing schema 和 validator 齊備前拒絕啟用。migration 076–084 尚未合併或發布，不永久預留編號。完整新增 private HTTP/UI 讀取矩陣及 rollback floor 齊備前不開啟正式私人寫入或頭像非 legacy 模式。備份政策、明選模型路徑與實際治理信任仍按各自門檻確認。
+
+另於本輪唯讀查核 #85／#87：兩者當時均有整合衝突，分別使用已被 main 占用的 072／070 新 migration，並與 avatar presence/shared service 改動重疊。其整合可在獨立分支先處理，不必等完整 Autopilot；須保留作者功能、只重編尚未套用的 migration，重新取得當前 HEAD 與相容回歸證據。這次沒有修改作者 PR 或把舊 CI 結果當新整合驗收。
 
 推送、PR、合併、GitHub 規則、信任來源／金鑰、正式資料盤點或部署另依 Ted 的操作授權處理；Discord 全文仍須逐則核准。

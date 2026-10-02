@@ -1543,6 +1543,16 @@
       "sha256": "d80b17e8951c5973b0e7e4155fb2361f62a51ed5a0244cfb20ef4345a7cc5b98"
     },
     {
+      "path": "contracts/execution/v1/decision-input.schema.json",
+      "bytes": 43712,
+      "sha256": "3b9103df5ed28b09d4503c382e74248b6681dac67959089900c388f7413d9bb8"
+    },
+    {
+      "path": "contracts/execution/v1/state.ts",
+      "bytes": 6140,
+      "sha256": "3d5a701da91e453a2d2dd8988b1a3f97c0829ca032751df85eebbc8daf01f30e"
+    },
+    {
       "path": "contracts/preview/v1/bundle.json",
       "bytes": 1474,
       "sha256": "835e9a898d3c10eaabd16c92cfeb25eae050f658814da3aec055f019a7245d3d"
@@ -3104,8 +3114,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/01-contracts-and-governance.md",
-      "bytes": 14231,
-      "sha256": "6b44a4cdd51c80c213d8e8d47ac25180de00343c4892052062979645470cce63"
+      "bytes": 15010,
+      "sha256": "dce60de4f768c71617eefebd45478498376b778e76bad1e595f93980d46921a6"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
@@ -3119,8 +3129,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md",
-      "bytes": 11262,
-      "sha256": "ca451724b3664f0369c3ba0e7bd8079b20937839adb6e589536a764c8d76f80c"
+      "bytes": 12315,
+      "sha256": "b1137b12570d7a6e207fc99dc4f6c58a82e938f20d0264e3bc6b4aeb2261a66c"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/05-media-migration.md",
@@ -3134,8 +3144,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/README.md",
-      "bytes": 5722,
-      "sha256": "dfa3894f6815ce995e45cbb3f8d7863b7557f3bf85d5714695d4a34522c341ab"
+      "bytes": 5896,
+      "sha256": "7e4d590182e8d2cb519d3f02f64e822e69615c96235f04e7c7078a4c2ed1a531"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
@@ -3144,8 +3154,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 31162,
-      "sha256": "4a38a968f712522918b1f0cb9f70de1782556cea8cf451d300ec699557707c23"
+      "bytes": 37203,
+      "sha256": "cd6698b35e9b6c9226773a130c3c3a71cb997f271485931b91af12b1710d6b44"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -4254,8 +4264,8 @@
     },
     {
       "path": "modules/opportunity-project-work/README.md",
-      "bytes": 10654,
-      "sha256": "19a29e8cb502c692ee5f44c489065777badc134adc2fe1e730f5ef347c9b2d96"
+      "bytes": 11018,
+      "sha256": "23c06efa039ae6a34c3a4790e175987fdc93228d5f66aa210eb807e398148120"
     },
     {
       "path": "modules/opportunity-project-work/business.ts",
@@ -4449,8 +4459,8 @@
     },
     {
       "path": "package.json",
-      "bytes": 3639,
-      "sha256": "328541518d670d706c7fa85861ad5a6c9a6fbbec4802fb0326b5fd256b20df59"
+      "bytes": 3795,
+      "sha256": "f4cee186b576412402f07e9776eff2f244b3da2d7acc4995a25d267bb1087636"
     },
     {
       "path": "packages/asset-storage/README.md",
@@ -4544,8 +4554,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 3323,
-      "sha256": "5c28b2f0328151a8eef0c1e9b69252b4297db6c6f4bf1e2abe379ba42e103f9d"
+      "bytes": 3367,
+      "sha256": "a1693b1ea535a5454721c186d034e3d1e7ee4863a1045d72532106f141c41405"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -4559,13 +4569,13 @@
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
-      "bytes": 8138,
-      "sha256": "98595b67105b9fc5ca8125ecd57a64296d349d0f5f216f5ff10eb79137a5a031"
+      "bytes": 9127,
+      "sha256": "da90545d8f70331426a4069d453ee83d30b5015f6b12c197b1ab42b457e00341"
     },
     {
       "path": "packages/contribution-tools/surface-audit.mjs",
-      "bytes": 15814,
-      "sha256": "225e10e4a23e92c6c5b858c85cd6acc65a8d2e9141f39adca759ed3757ba24fb"
+      "bytes": 19029,
+      "sha256": "c569913e07c9be00fbdc48b715314f62b21f92f456fb3e6e8f7a3ed18e4a7f80"
     },
     {
       "path": "packages/contribution-tools/test/context.test.mjs",
@@ -4598,9 +4608,14 @@
       "sha256": "d76370caa93ec946b9e81360c7082975025c0d8fe8870fcd77df38174cc7180b"
     },
     {
+      "path": "packages/contribution-tools/test/surface-adversarial.test.mjs",
+      "bytes": 8583,
+      "sha256": "30ed6ba98b05bb883bcc52e793dd7d7344c17f6f52c11f3ec54ca521328373a6"
+    },
+    {
       "path": "packages/contribution-tools/test/surface-audit.test.mjs",
-      "bytes": 12010,
-      "sha256": "06821b88a5909f5fc73f07aaeb0355798f9847f1a5e1d02f95655e61a9d0fd24"
+      "bytes": 12493,
+      "sha256": "936446bb2ea630acf6681585e974ed432767bbc1e1ad3198f7b82ffd770dd64c"
     },
     {
       "path": "packages/contribution-tools/test/trusted-ci.test.mjs",
@@ -4666,6 +4681,36 @@
       "path": "packages/db/transaction.ts",
       "bytes": 449,
       "sha256": "4dd8d49fb8de175f1049d3f93d07338d017593cf7087cccddca3ebd5a5011d11"
+    },
+    {
+      "path": "packages/execution-state/README.md",
+      "bytes": 7570,
+      "sha256": "45b561e7c00ba202ab0ec148e5182dd083d41d1aa05fbf45acc2912e5d1a2883"
+    },
+    {
+      "path": "packages/execution-state/decode.ts",
+      "bytes": 6690,
+      "sha256": "e5a283df3527ae4512a5473f0befd41a131f56d06c4ef9d451a3e8fda6ebb5f7"
+    },
+    {
+      "path": "packages/execution-state/freedom.module.json",
+      "bytes": 931,
+      "sha256": "d8f80e330ffc5c0978deec3b540e735e5ce7b1a1449d3efd7b9a2b79a2eacab2"
+    },
+    {
+      "path": "packages/execution-state/generate.ts",
+      "bytes": 996,
+      "sha256": "4d836f272f288c8ef5a21de0c015057044b8b8be8464bbf0178b437d5197de1e"
+    },
+    {
+      "path": "packages/execution-state/index.ts",
+      "bytes": 17565,
+      "sha256": "f5ebfc0bb64a60da8875afa8f2e4d8469419a71f2cd6a94732f61a4ee73e1205"
+    },
+    {
+      "path": "packages/execution-state/vectors.ts",
+      "bytes": 9199,
+      "sha256": "6b632b151b1838a2b9dad41d02a85d731b9f6bdb9142f038336fa3337650eb5b"
     },
     {
       "path": "packages/resource-scopes/README.md",
@@ -5516,6 +5561,16 @@
       "path": "tests/runtime/events-past.test.ts",
       "bytes": 8172,
       "sha256": "0f94ad3ceea311a24d0501356406807a02b6ab0de1871f660eda7fc286de71e9"
+    },
+    {
+      "path": "tests/runtime/execution-state-adversarial.test.ts",
+      "bytes": 17095,
+      "sha256": "6a560df1cba73b56a3d57e67d7932b47b85bb73dac1001fb6528418ed3d85f29"
+    },
+    {
+      "path": "tests/runtime/execution-state.test.ts",
+      "bytes": 24452,
+      "sha256": "9960b6af67bebddc70c661f5d091419904e8dc973939fd52ab765a85d1b10cf8"
     },
     {
       "path": "tests/runtime/fixtures/repo-maintainer/pr-46-files.json",

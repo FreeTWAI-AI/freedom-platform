@@ -25,7 +25,7 @@ Task lease epoch、browser control epoch、Grant/policy revision、deployment re
 | late evidence | 只對既有 dispatch 提交大小/來源受限的 observation，不可重啟 effect 或擴大讀權 |
 | finish | 全部已派 effect/Result 狀態可解釋；unknown 不得填成 success |
 
-正式 enum/轉移表須在 EXEC-A 契約 PR 中固定。每個轉移列 actor、前置 state、需要的版本、並發衝突、side effects、receipt 與可重試類別；server/native 以同一 vectors 驗證。不能只生成 DTO 就宣稱狀態機完成。
+本機 enum／轉移矩陣已有上述封閉 decision 實作；正式 runtime 契約仍須在 EXEC-A 後續補齊目前身分／Grant、持久化、並發衝突、side effects、receipt 與可重試類別。server/native 以同一 vectors 驗證。不能只生成 DTO 或取得 hypothetical admissible 就宣稱可執行的狀態機完成。
 
 ## ActionIntent 與本機 journal
 
