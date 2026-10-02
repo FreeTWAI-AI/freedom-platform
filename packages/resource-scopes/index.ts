@@ -1,0 +1,108 @@
+import type { Pool, PoolClient } from 'pg';
+import type { Actor } from '../../modules/identity-membership/service.js';
+import { PrincipalRefSchema, ResourceScopeRefSchema, type PrincipalRef, type ResourceScopeRef } from '../../contracts/common/v1/identity.js';
+import { transaction } from '../db/transaction.js';
+import { lockMemberSession } from '../db/member-session.js';
+import { requireCondition } from '../shared/problem.js';
+
+type MemberScopeKind = 'personal' | 'community';
+type PrincipalRow = { principal_id: string; kind: 'person'; status: 'active' | 'disabled' };
+type ScopeRow = { scope_id: string; kind: MemberScopeKind; status: 'active' | 'disabled' };
+type Created = { principals: number; community_scopes: number; personal_scopes: number };
+export interface MemberScopeContext {
+  readonly authn_kind: 'member_session';
+  readonly subject_principal: Readonly<PrincipalRef>;
+  readonly scope: Readonly<ResourceScopeRef>;
+}
+
+async function ensurePrincipal(q: PoolClient, userId: string, created?: Created): Promise<PrincipalRow> {
+  let row = (await q.query<PrincipalRow>("SELECT principal_id,kind,status FROM principals WHERE user_ref=$1 FOR SHARE", [userId])).rows[0];
+  if (!row) {
+    const inserted = await q.query("INSERT INTO principals(user_ref) VALUES($1) ON CONFLICT(user_ref) DO NOTHING", [userId]);
+    if (created) created.principals += inserted.rowCount ?? 0;
+    // A separate READ COMMITTED statement sees the winner after a concurrent
+    // INSERT. Never use DO UPDATE to fetch it: that could reset disabled state.
+    row = (await q.query<PrincipalRow>("SELECT principal_id,kind,status FROM principals WHERE user_ref=$1 FOR SHARE", [userId])).rows[0];
+  }
+  requireCondition(row, 503, 'foundation_mapping_unavailable', '身分映射暫時無法使用。');
+  return row;
+}
+
+async function ensureScope(q: PoolClient, kind: MemberScopeKind, backingId: string, created?: Created): Promise<ScopeRow> {
+  // Only server-selected identifiers enter SQL. Values are always parameters.
+  const column = kind === 'community' ? 'community_ref' : 'owner_principal_id';
+  let row = (await q.query<ScopeRow>(`SELECT scope_id,kind,status FROM resource_scopes WHERE ${column}=$1 FOR SHARE`, [backingId])).rows[0];
+  if (!row) {
+    const inserted = await q.query(`INSERT INTO resource_scopes(kind,${column}) VALUES($1,$2) ON CONFLICT(${column}) DO NOTHING`, [kind, backingId]);
+    if (created) created[kind === 'community' ? 'community_scopes' : 'personal_scopes'] += inserted.rowCount ?? 0;
+    row = (await q.query<ScopeRow>(`SELECT scope_id,kind,status FROM resource_scopes WHERE ${column}=$1 FOR SHARE`, [backingId])).rows[0];
+  }
+  requireCondition(row && row.kind === kind, 503, 'foundation_mapping_unavailable', '資源範圍映射暫時無法使用。');
+  return row;
+}
+
+/** Equality of typed refs is necessary, not sufficient, for domain authorization. */
+export function requireSameScope(expected: ResourceScopeRef, actual: unknown): void {
+  const parsed = ResourceScopeRefSchema.safeParse(actual);
+  requireCondition(parsed.success && parsed.data.kind === expected.kind && parsed.data.scope_id === expected.scope_id,
+    404, 'resource_not_found', '找不到這項資源。');
+}
+
+/**
+ * A server-side transaction, not a command receipt/Grant and not an HTTP route.
+ * Current user/session/principal/selected scope are locked before domain auth.
+ * Mapping is lazy for new members, without touching any old member route.
+ * Domain writes still need their own idempotency and version checks; never use
+ * this wrapper to bypass command(). No network I/O in either callback.
+ */
+export async function withMemberScope<T>(pool: Pool,
+  input: { actor: Actor; scope: MemberScopeKind | ResourceScopeRef; lockUser?: boolean },
+  authorize: (q: PoolClient, context: MemberScopeContext) => Promise<unknown>,
+  run: (q: PoolClient, context: MemberScopeContext) => Promise<T>): Promise<T> {
+  const requested = typeof input.scope === 'string' ? null : ResourceScopeRefSchema.parse(input.scope);
+  const kind = typeof input.scope === 'string' ? input.scope : requested!.kind;
+  requireCondition(kind === 'personal' || kind === 'community', 403, 'scope_kind_unavailable', '這種資源範圍尚未開放。');
+  return transaction(pool, async q => {
+    await lockMemberSession(q, input.actor, input.lockUser);
+    const principal = await ensurePrincipal(q, input.actor.user_id);
+    requireCondition(principal.status === 'active', 403, 'principal_disabled', '這個身分目前無法使用。');
+    const scope = await ensureScope(q, kind, kind === 'personal' ? principal.principal_id : input.actor.community_id);
+    const ref = ResourceScopeRefSchema.parse({ scope_id: scope.scope_id, kind: scope.kind });
+    if (requested) requireSameScope(ref, requested);
+    requireCondition(scope.status === 'active', 403, 'scope_disabled', '這個資源範圍目前無法使用。');
+    const context = Object.freeze({ authn_kind: 'member_session' as const,
+      subject_principal: Object.freeze(PrincipalRefSchema.parse({ principal_id: principal.principal_id, kind: principal.kind })),
+      scope: Object.freeze(ref) });
+    await authorize(q, context); // A scope never substitutes for domain ACL.
+    return run(q, context);
+  });
+}
+
+/** No credentials, email matching or permission writes. Disabled rows count as
+ * mapped and are never re-enabled. Each call is one bounded, resumable batch. */
+export async function backfillLegacyScopeBatch(pool: Pool, limit = 100) {
+  requireCondition(Number.isSafeInteger(limit) && limit >= 1 && limit <= 500, 400, 'invalid_batch_limit', '批次大小必須介於 1 到 500。');
+  return transaction(pool, async q => {
+    await q.query("SET LOCAL lock_timeout='5s'");
+    await q.query("SET LOCAL statement_timeout='30s'");
+    const created: Created = { principals: 0, community_scopes: 0, personal_scopes: 0 };
+    const communities = await q.query<{ community_id: string }>(`SELECT c.community_id FROM communities c
+      WHERE NOT EXISTS(SELECT 1 FROM resource_scopes s WHERE s.community_ref=c.community_id)
+      ORDER BY c.community_id LIMIT $1 FOR UPDATE OF c SKIP LOCKED`, [limit]);
+    for (const row of communities.rows) await ensureScope(q, 'community', row.community_id, created);
+    // Never hold a newly inserted community scope while waiting for a member's
+    // principal: the runtime takes user -> principal -> community scope. Keep
+    // these phases in separate transactions; skip users already in use.
+    const users = communities.rows.length ? { rows: [] } : await q.query<{ user_id: string }>(`SELECT u.user_id FROM users u
+      WHERE NOT EXISTS(SELECT 1 FROM principals p JOIN resource_scopes s ON s.owner_principal_id=p.principal_id WHERE p.user_ref=u.user_id)
+      ORDER BY u.user_id LIMIT $1 FOR UPDATE OF u SKIP LOCKED`, [limit]);
+    for (const row of users.rows) {
+      const principal = await ensurePrincipal(q, row.user_id, created);
+      await ensureScope(q, 'personal', principal.principal_id, created);
+    }
+    const remaining = (await q.query<{ communities: number; users: number }>(`SELECT
+      (SELECT count(*)::int FROM communities c WHERE NOT EXISTS(SELECT 1 FROM resource_scopes s WHERE s.community_ref=c.community_id)) AS communities,
+      (SELECT count(*)::int FROM users u WHERE NOT EXISTS(SELECT 1 FROM principals p JOIN resource_scopes s ON s.owner_principal_id=p.principal_id WHERE p.user_ref=u.user_id)) AS users`)).rows[0];
+    return { processed: communities.rows.length + users.rows.length, created, remaining };
+  });
+}

@@ -1,6 +1,6 @@
 # 身分範圍與交易核心規格
 
-Spec ID：`UF-SPEC-CORE`；狀態：會員核心已本機實作，principal/scope 與機器驗權仍待實作。來源：UF-01/02/06、U1、統一計畫 §02–03、08。目標是保留會員 command 的現有行為，讓同一交易機制能接收各自正確驗證的人類、execution 與 service 呼叫。
+Spec ID：`UF-SPEC-CORE`；狀態：會員核心及 person/community/personal 映射已本機實作；scoped command、機器驗權仍待實作。來源：UF-01/02/06、U1、統一計畫 §02–03、08。目標是保留會員 command 的現有行為，讓同一交易機制能接收各自正確驗證的人類、execution 與 service 呼叫。
 
 ## 2026-10-02 實作進度
 
@@ -8,7 +8,11 @@ Spec ID：`UF-SPEC-CORE`；狀態：會員核心已本機實作，principal/scop
 
 先用 14 項真實 PostgreSQL 回歸驗證抽取前實作，再以相同測試驗證新核心；新增 journal/outbox rollback 反例後為 16 項。測試使用無網路的全新 disposable PostgreSQL 18.6、`fp_foundation` 資料庫及獨立 `fp_*` schema，沒有連接 `freedom_local.public`。完整本機結果與未驗證項目見 [本機交付紀錄](implementation-status.md)。
 
-未新增 principal/scope 表或 migration，未實作 execution/service validator 或新 receipt namespace。以下仍是後續共同基礎的完整要求，不能把會員相容測試視為機器授權驗收。
+後續 CORE-1 新增 [映射 schema](../../../../migrations/076_principal_resource_scopes.sql)、[共用 reference 契約](../../../../contracts/common/README.md) 與 [resource-scopes package](../../../../packages/resource-scopes/README.md)。076 是本機暫用編號，合併時重新確認。migration 只有 additive DDL；回填是另行明確呼叫、每批最多 500 筆的 library，不會自動碰資料。person 對真實 user、community 對真實 community、personal 對 person 均有唯一約束與 FK/CHECK；映射不能改綁或以 DELETE 重建，停用也不被回填復活。
+
+`withMemberScope` 驗目前會員 session、principal 及所選 scope，之後仍須 domain authorize；它只是同交易的 context helper，沒有 receipt、idempotency、version、journal 或 outbox，不可拿來繞過 `command()` 做 mutation。舊會員 route 沒有切到新 helper，仍維持既有 receipt／驗權。community scope 停用不等於停用個人的 personal scope；principal 停用只限制新 helper，不宣稱已成為所有舊路徑的全域停權開關。
+
+新增回歸包括 075 升級前後所有舊表與 receipt 不變、並行 first-use/回填、disabled 與 SQL 反例、真實 row-lock 撤銷競態及非 superuser migrator／DML runtime。詳細鎖順序、回填重試與證據限制見 package README。尚未實作 execution/service validator、新 receipt namespace、private Work ACL 或正式環境回填；不能把這些組件測試視為整項 U1 或機器授權驗收。
 
 ## 實作邊界
 
@@ -91,4 +95,4 @@ core callback 不允許 R2、Images、provider、GitHub、browser 或其他網�
 | 歷史 fixture 經原 wrapper 再執行 | request hash、receipt key、錯誤碼及回傳形狀相容 |
 | domain 成功但 journal/receipt/outbox insert 失敗 | 全部 rollback |
 
-新增測試加入既有 runtime suite，使用合成會員及獨立 `fp_*` schema。保留 `flows.test.ts`、member/session 及 avatar 回歸，並加入真正多連線競態測試；mock authorize 為 true 不算機器身分驗收。映射及機器驗權 PR 必須附 schema、鎖順序、SQL constraint 與試跑輸出，這些新增能力仍 `not_run`。
+新增測試加入既有 runtime suite，使用合成會員及獨立 `fp_*` schema。保留 `flows.test.ts`、member/session 及 avatar 回歸，並加入真正多連線競態測試；mock authorize 為 true 不算機器身分驗收。映射及機器驗權 PR 必須附 schema、鎖順序、SQL constraint 與試跑輸出；本機映射證據單獨記錄，完整產品驗收仍 `not_run`。

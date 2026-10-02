@@ -10,6 +10,8 @@ The member path remains: validate idempotency key → BEGIN → lock active user
 
 The digest stays `digest({body, expected: expected ?? null})`. The historical sorted-key JSON encoder in `legacy-digest.ts` is unchanged; it is not JCS. Operation strings, receipt primary keys, response JSON and error codes remain unchanged. Scope/principal/attempt-based receipt namespaces must be implemented separately, never by pretending a service is a member.
 
+The follow-on [resource-scopes package](../resource-scopes/README.md) shares only current member user/session locking through `member-session.ts`; it adds no scope check, query, mapping creation or new receipt behavior to the legacy `command()` path. Its separate context helper does not replace this command wrapper.
+
 Ports are internal server functions, not a serialized VerifiedContext or an authorization proof. A future adapter must verify backing credentials and current authority inside this transaction, define lock ordering and a collision-free namespace, and pass real revocation/concurrency tests before exposing a route. No provider/object-store/network I/O belongs in core callbacks. Historical avatar normalization remains inside its existing command callback and is not fixed by this extraction.
 
 ## Regression evidence
