@@ -13,7 +13,8 @@ export const MEMBER_BEHAVIOR = freeze({
     { operation: 'work.private.list', method: 'GET', path: '/api/v1/me/private-work' },
     { operation: 'work.private.read', method: 'GET', path: '/api/v1/me/private-work/:work' },
   ],
-  limits: { response_bytes: 262144, total_response_bytes: 2097152, request_timeout_ms: 2000, run_timeout_ms: 60000 },
+  limits: { response_bytes: 262144, total_response_bytes: 2097152, response_header_bytes: 16384, response_header_count: 128,
+    request_timeout_ms: 2000, run_timeout_ms: 60000 },
 });
 const cases = [];
 for (const actor of ['anonymous', 'revoked']) for (const route of MEMBER_BEHAVIOR.routes)

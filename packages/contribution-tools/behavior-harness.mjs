@@ -14,7 +14,7 @@ const freeze = value => { if (value && typeof value === 'object') { for (const i
 const reasons = new Set(['behavior_response_invalid','behavior_body_missing','behavior_transport_timeout','behavior_response_limit',
   'behavior_status_mismatch','behavior_cache_mismatch','behavior_conditional_bypass','behavior_head_body','behavior_avatar_mismatch',
   'behavior_content_type_mismatch','behavior_problem_mismatch','behavior_metadata_mismatch','behavior_private_leak',
-  'behavior_list_mismatch','behavior_work_mismatch','behavior_target_binding_mismatch']);
+  'behavior_list_mismatch','behavior_work_mismatch','behavior_target_binding_mismatch','behavior_header_limit']);
 const safeReason = error => error instanceof VerificationError && reasons.has(error.code) ? error.code : 'behavior_transport_failed';
 function fields(value, keys) { check(value && Object.getPrototypeOf(value) === Object.prototype && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key)), 'invalid_behavior_input'); }
 function fixtureCopy(value) {
@@ -78,6 +78,15 @@ async function responseBytes(response, signal) {
 }
 function assertResponse(item, response, bytes, fixture) {
   check(response.status === item.status && !response.redirected, 'behavior_status_mismatch');
+  const credentials = ['owner','outsider','revoked'].flatMap(actor => [fixture[actor].cookie,
+    fixture[actor].cookie.slice('freedom_local_session='.length), fixture[actor].csrf]);
+  let headerBytes = 0, headerCount = 0;
+  for (const [key, value] of response.headers) {
+    check(++headerCount <= manifest.limits.response_header_count && (headerBytes += Buffer.byteLength(key) + Buffer.byteLength(value))
+      <= manifest.limits.response_header_bytes, 'behavior_header_limit');
+    check(![...credentials,manifest.title,manifest.objective,fixture.work_id].some(marker => (key + ':' + value).includes(marker)), 'behavior_private_leak');
+  }
+  check(!credentials.some(marker => new TextDecoder().decode(bytes).includes(marker)), 'behavior_private_leak');
   check(/(?:^|,)\s*(?:private,\s*)?no-store(?:\s*,|$)/i.test(response.headers.get('cache-control') ?? ''), 'behavior_cache_mismatch');
   if (item.conditional) check(!response.headers.has('etag') && !response.headers.has('content-range'), 'behavior_conditional_bypass');
   if (item.shape === 'head') { check(bytes.length === 0, 'behavior_head_body'); return; }
@@ -85,10 +94,13 @@ function assertResponse(item, response, bytes, fixture) {
     check(response.headers.get('content-type') === 'image/webp' && bytes.length >= 12
       && new TextDecoder().decode(bytes.subarray(0,4)) === 'RIFF' && new TextDecoder().decode(bytes.subarray(8,12)) === 'WEBP', 'behavior_avatar_mismatch'); return;
   }
-  check((response.headers.get('content-type') ?? '').startsWith('application/json') || item.shape === 'problem'
-    && (response.headers.get('content-type') ?? '').startsWith('application/problem+json'), 'behavior_content_type_mismatch');
+  const mediaType = (response.headers.get('content-type') ?? '').split(';', 1)[0].trim().toLowerCase();
+  check(mediaType === 'application/json' || item.shape === 'problem' && mediaType === 'application/problem+json', 'behavior_content_type_mismatch');
   const value = parseJson(bytes, { maxBytes: manifest.limits.response_bytes, maxNodes: 4096 });
-  const text = new TextDecoder().decode(bytes);
+  // Search semantic JSON, not wire spelling: escaped Unicode must not hide
+  // synthetic private markers inside otherwise legitimate problem fields.
+  const text = JSON.stringify(value);
+  check(!credentials.some(marker => text.includes(marker)), 'behavior_private_leak');
   if (item.shape === 'problem') {
     check(value && typeof value === 'object' && !Array.isArray(value) && typeof value.code === 'string'
       && !text.includes(manifest.title) && !text.includes(manifest.objective) && !text.includes(fixture.work_id), 'behavior_problem_mismatch'); return;
@@ -97,7 +109,10 @@ function assertResponse(item, response, bytes, fixture) {
     check(same(Object.keys(value).sort(), ['aggregate_version','avatar_url']) && value.aggregate_version === 1
       && value.avatar_url === `/api/v1/members/${fixture.owner.id}/avatar?v=1`, 'behavior_metadata_mismatch'); return;
   }
-  if (item.shape === 'empty-list') { check(value.total === 0 && Array.isArray(value.items) && value.items.length === 0 && !text.includes(manifest.title), 'behavior_private_leak'); return; }
+  if (item.shape === 'list' || item.shape === 'empty-list') check(same(Object.keys(value).sort(), ['items','limit','offset','total'])
+    && value.limit === 20 && value.offset === 0, 'behavior_list_mismatch');
+  if (item.shape === 'empty-list') { check(value.total === 0 && Array.isArray(value.items) && value.items.length === 0
+    && !text.includes(manifest.title) && !text.includes(manifest.objective) && !text.includes(fixture.work_id), 'behavior_private_leak'); return; }
   if (item.shape === 'list') { check(value.total === 1 && Array.isArray(value.items) && value.items.length === 1, 'behavior_list_mismatch'); }
   const work = item.shape === 'list' ? value.items[0] : value;
   check(same(Object.keys(work).sort(), ['aggregate_version','created_at','objective','state','title','work_item_id'])

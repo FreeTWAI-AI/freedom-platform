@@ -24,7 +24,7 @@ async function fixture() {
     if(item.shape==='head') body=null;
     else if(item.shape==='avatar') body='RIFF0000WEBPsynthetic';
     else body=JSON.stringify(item.shape==='problem'?{code:'synthetic_denial'}:item.shape==='metadata'?{aggregate_version:1,avatar_url:`/api/v1/members/${input.fixture.owner.id}/avatar?v=1`}:
-      item.shape==='empty-list'?{items:[],total:0}:item.shape==='list'?{items:[work],total:1}:work);
+      item.shape==='empty-list'?{items:[],total:0,limit:20,offset:0}:item.shape==='list'?{items:[work],total:1,limit:20,offset:0}:work);
     return new Response(body,{status:item.status,headers:{'Cache-Control':'private, no-store','Content-Type':item.shape==='avatar'?'image/webp':'application/json'}});
   }};
   return {input,ports,observed,requests};
@@ -80,4 +80,9 @@ test('input identities and host functions are snapshotted before asynchronous in
   f.input.expectedHarnessSha256='0'.repeat(64); f.input.binding.candidate_tree='0'.repeat(40);
   f.ports.request=async()=>{throw Error('replaced');};
   assert.equal((await pending).check.status,'passed');
+});
+test('JSON-like but invalid media types cannot satisfy response assertions',async()=>{
+  const f=await fixture(),request=f.ports.request;
+  f.ports.request=async input=>{const response=await request(input); if(response.headers.get('content-type')==='application/json') response.headers.set('content-type','application/json-pretend');return response;};
+  assert.equal((await runMemberRouteBehavior(f.input,f.ports)).check.status,'failed');
 });
