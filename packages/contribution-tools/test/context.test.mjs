@@ -63,6 +63,16 @@ test('context includes deep-module rules, base and candidate text, without claim
   assert(!('read_by_agent' in context)); assert.deepEqual(context.module_ids, ['governance']);
 });
 
+test('existing scoped Agent Kit package resolves local identity without granting trust', async t => {
+  const f = await fixture(t);
+  await put(f.root, 'package.json', pretty({ name: '@freetwai/agent-kit' }));
+  const { context } = await buildContext(f.options);
+  assert.equal(context.repository, 'FreeTWAI-AI/freedom-agent-kit');
+  assert.equal(context.assurance_level, 'local');
+  await put(f.root, 'package.json', pretty({ name: '@unreviewed/agent-kit' }));
+  await assert.rejects(buildContext(f.options), { code: 'repository_identity_required' });
+});
+
 test('unchanged mandatory content is deduplicated; generated context is not source state', async t => {
   const f = await fixture(t);
   const one = (await buildContext({ ...f.options, scopes: ['governance'] })).context;
