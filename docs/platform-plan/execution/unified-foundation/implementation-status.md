@@ -337,6 +337,44 @@ Manifest last=87、known_gaps=`[22]`；076–087 全為未合併暫用號，合�
 
 Manifest last=88、known_gaps=`[22]`，076–088 全未合併／發布，合併前重查最小可用編號。沒有 push、PR、merge、部署、外部規則／金鑰變更或其他 PR 整合。原始 168 項產品驗收仍維持 `not_run`，本機元件測試不冒充整體驗收。
 
+## 本批 bootstrap 即時驗權與本機隔離 supervisor
+
+三個平行工作位分別負責 bootstrap status／SQL、獨立競態反例及隔離 supervisor；根整合者補中央契約、精確時鐘區間、生成工具、責任對應、發布診斷與整體驗證。另以 Grok CLI `grok-4.7` 和 agy CLI `claude-opus-4-6-thinking` 各完成一輪限定公開程式的審查，沒有 402／429。文字審查不是測試通過、正式信任來源或 Ted 的操作批准。文件維護沿既有中央 spec 更新邊界，沒有另建平行規格。
+
+### 封閉機器 admission
+
+[規格 09](09-bootstrap-status.md) 與 [服務說明](../../../../modules/agent-control/bootstrap-status.md) 將 `bootstrap.status.read` 接到真正 DB 狀態及 ES256 驗簽。會員 challenge 仍是內部組合接點；machine read 沒有 Actor、member cookie、caller clock／binding 或可注入的 verifier。它按固定鎖順序核對 active user、onboarding、person/personal scope、runtime、connection 和 nonce，不建立 lazy mapping，不回傳可重用 VerifiedContext，不授私人 Work／Run／Grant／模型或 effect 權。
+
+- 暫用 089 保存不可改綁的 nonce 與身份關聯、一次性 consumption tombstone；同 runtime 的 proof JTI 跨不同 client/connection 唯一。錯簽章／錯 binding／到期／storage failure 不消耗 nonce；已提交的成功不能重播，包含合法 high-S／low-S 等價 ECDSA 簽章。
+- Nonce service TTL 取 60 秒與 connection expiry 的較早者；SQL 容許更短但不能延長。8 pending／4,096 lifetime 是明列工程容量，不是正式 retention／GC／付費政策。沒有自動刪除，沒有 raw token/proof/private key 進 durable rows。
+- Crypto result 以 BigInt 計算精確 `[validFromMs,validUntilMs)`，涵蓋 token、issuer key 和 floor-based DPoP window。Machine read 在鎖後、真正 crypto await 後及 nonce UPDATE 後重驗 DB clock；最後可能阻塞的 SQL 不會延長有效期。SQL AFTER guard 另防 nonce 在 constraint/index 等待中到期。
+- 會員 challenge 的 domain clock 在 receipt I/O 前檢查，其後 scoped adapter 重驗 member session；receipt 等待後可能回傳已到期的公開 nonce，但不延長它，也不授機器權。Spec 明確區別這個公開 challenge 回應與 machine admission 的最後時計，不宣稱回應送達仍有效。
+- 五份結構 JSON Schema 同源生成，中央 input/DTO 不在 service 重抄。Schema 只驗 shape；issuer keyset 的來源／撤銷仍由 host 負責。沒有 HTTP、device flow、token issuer、refresh family 或 Grant／Attempt。
+
+新增 22 項作者、26 項獨立 DB 反例及 2 項精確 crypto interval 測試，共 **50 項**，包含在下面完整 runtime。定向 suite **95/95** 是包含既有 crypto／生成案例的子集合，不另累加。反例使用真正非 superuser migrator/app LOGIN、實際 ES256、`pg_blocking_pids` 與延遲真正 WebCrypto 的 expiry races，沒有 mock verifier=true。覆蓋相同 nonce／proof ID 競態、跨 client binding、目前權限撤銷、三個 challenge fact sinks 回滾、最後 nonce UPDATE 跨 token expiry、低權限 DDL／immutable／TEMP shadow 與容量上限。新增 interval 測試初版曾把 token iat 與 proof 的 future-skew 下界混淆；修正測試期待值後重跑，沒有為通過而放寬 verifier。
+
+### 真實隔離與審查修正
+
+[本機 supervisor](../../../../packages/contribution-tools/behavior-supervisor.md) 從指定 commit 的 Git blobs 建立唯讀 snapshot，以 host 固定的 27-case harness 呼叫獨立 Docker container 內的真實 `createApp`。Candidate 只能回有界 HTTP response frames，不能提供通過結果、fixture identity 或測試清單。容器 network-none、無 host home／Git／Docker socket，唯讀 source/dependency/launcher/runtime mounts，限制 CPU、memory、PID、輸出與時間；host 從容器實際狀態、source bytes 及 DB facts 取證，不靠 candidate 自我聲明。
+
+獨立審查發現共享 PostgreSQL socket 若用 trust，candidate 可以冒用 `postgres`；已改 local SCRAM、彼此獨立的隨機 admin/app 密碼，僅從環境傳給各自程序、不進 argv／log／report。真正 candidate 用空密碼、app 密碼嘗試管理員登入與角色升權皆被拒絕。這與普通 trusted runtime fixture 的 disposable trust DB 是兩個不同用途的環境，不能互相當作不可信程式的隔離證據。
+
+另修正 fixture facts 覆蓋不全、host 執行依賴未必等於被 fingerprint 的 cache，以及 supervisor／migration／runtime 身分不足。現在 host 在終止 candidate 與其 DB backends 後，比較全部 public table rows/columns 的 bounded DB-side SHA-256（僅排除合法 session last_seen_at touch）；source、supervisor/fixture/launcher、migration、lockfile、harness 靜態依賴及同一 realpath dependency cache 都有 before/after fingerprint。Node 與列明 linked libraries 有獨立 fingerprint；整個 OS／Docker／供應鏈仍未批准，不能據此取得 publisher trust。
+
+Root 在固定整合版本重跑實際 Docker suite **6/6**，0 skipped：真實 app 27 項行為；host 檔案／網路／唯讀寫入／管理員登入反例；偽造結果、output flood、busy event loop；以及 users.active 等 retained fixture 被篡改時拒絕 observation。三項新 unit checks 包含 alternate dependency cache 拒絕。Docker suite 使用明確 opt-in，沒有混入普通 runtime baseline，也不把缺 Docker 當 passing skip。
+
+審查另發現 PostgreSQL image 自帶匿名 volume，即使 PGDATA 已用 tmpfs 仍可能殘留空 volume；已覆寫該路徑為 bounded tmpfs、拒絕意外 volume mount，並只按本輪隨機 owner label／exact container ID 清理。作者依 Docker event 證據刪除 11 個可歸屬本輪的匿名測試 volumes，刪除不可復原，但僅含可重建測試資料；事件歷史不足以歸屬的舊匿名 volumes 未動，不能宣稱所有舊 volume 都已清除。Root 最終查到本輪 owner-label containers 為 0。
+
+### 固定整合驗證與剩餘邊界
+
+固定程式 **`b3c16101265d99e9b8d868599a35040337bbf814`**，對真正 `origin/main`（`3de70ccbd24362a7925508fb42d36aaa256a0806`）跑 prepare/verify；期間 tracked workspace 未變。完整 runtime **1,729/1,729（128 files）**、治理 **244/244（11 files）**，0 failed/skipped/cancelled；descriptor／contract checks 通過。整體仍 exit 2、local `unavailable`，保留 `baseline_governance_unavailable`、`registration_behavior_audit_required`、`surface_unmapped`。本機容器證據沒有自動接成 trusted publisher、GitHub enforcement 或完整入口審查，這些缺口仍在。
+
+公開發布診斷 **212/212**（新增 13 項 bootstrap capability／歷史 shape／相依下限反例）、新 build、三類 Worker 各環境 dry-run 及 Worker **28/28** 通過；沒有部署。Typecheck、全部四組 generated checks、Skill client **10/10** 通過；既有契約 **659 passed、4 個原有 clock cases skipped**。本批未改 apps／workflow／wrangler 接線或 UI，沒有跑 Browser，也不沿用舊 Browser 證據。固定程式 inventory 為 **1,282 hashes、738 本機連結、0 failures**；本收尾文件另重產。
+
+Runtime／Worker 只用固定 digest PG18.6、network-none／無 published ports／2 GiB tmpfs 的 disposable DB、專屬 Unix socket及明確 `fp_foundation`／`fp_*` fixtures。收尾確認 schemas／roles／其他 clients／子資料庫皆 0，核對 exact container ID/task label 後停止並移除 DB 容器及空 socket，只清可重建合成資料，沒有碰 `freedom_local.public`。Worktrees、程式與 ignored evidence 保留。
+
+Manifest last=89、known_gaps=`[22]`；076–089 全未合併／發布，合併前須重查編號。21:49 UTC 唯讀確認遠端 main 仍為 `3de70cc`。沒有 push、PR、merge、部署、外部規則／金鑰變更或其他 PR 整合；備份政策仍另確認。原始 168 項產品要求仍是 `not_run`，本機增量不代表全部原 scope 完成。
+
 ## 尚未交付
 
 - execution/service current-state validators、Invocation/Grant adapters，以及有真實 backing record 的 service/site schema；scoped composition/receipt 目前僅支援 member session。
@@ -348,7 +386,7 @@ Manifest last=88、known_gaps=`[22]`，076–088 全未合併／發布，合併�
 
 ## 下一批
 
-Runtime enrollment、connection backing record、bootstrap crypto 及 [封閉 bootstrap status](09-bootstrap-status.md) 已有本機實作：同一交易依固定鎖順序解析目前 user/person/scope/runtime/connection，驗簽 await 與最後可能阻塞的 query 後重查 DB clock，再原子消耗 nonce／proof ID。它只提供本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權，也不輸出通用 VerifiedContext。下一步續接原計畫的 device flow／issuer／refresh、ModelConnection、Grant 和 Attempt 真實 backing records；不把 active row、caller binding／clock 或 crypto result 當成完整機器身分，不重用 storefront/supplier 的 `fw_read` 連線。正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定。
+Runtime enrollment、connection backing record、bootstrap crypto 及 [封閉 bootstrap status](09-bootstrap-status.md) 已有本機實作：同一交易依固定鎖順序解析目前 user/person/scope/runtime/connection，驗簽 await 後重查 DB clock，原子消耗 nonce／proof ID，再於 nonce UPDATE 後重查時計。它只提供本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權，也不輸出通用 VerifiedContext。下一步依 [原 AP §4.3](../../../plans/autopilot-vnext.md#43-機器配對與登入流程) 完成 device authorization、本人核准、proof-bound polling、一次性交換、裝置可用 nonce transport，再完成 refresh family rotation／reuse revocation，之後接 ModelConnection、Grant 和 Attempt 真實 backing records。300 秒代碼／5 秒 polling 等原規格初值可在本機直接實作及測試，不要求 Ted 重選 routine 細節；不把 active row、caller binding／clock 或 crypto result 當成完整機器身分，不重用 storefront/supplier 的 `fw_read` 連線。正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定。
 
 治理已推進固定單一 profile 的 [本機隔離 supervisor](../../../../packages/contribution-tools/behavior-supervisor.md)：host harness 透過有界 HTTP response frames 呼叫隔離容器內的 candidate app，由 host 自行判斷結果；不能把 candidate stdout/JSON 當可信測試結果。隔離不成立就 unavailable，並保留 approved host source／runtime、完整入口、publisher/GitHub enforcement 的缺口。下一步是可信安裝、來源與 publisher 接線，不是把本機 observation 宣稱可合併。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代完整入口／外部保存／政策 restore 的證據。migration 076–089 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
 
