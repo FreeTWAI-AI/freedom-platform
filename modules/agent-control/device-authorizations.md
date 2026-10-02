@@ -26,8 +26,9 @@ The four methods form one closed device flow:
   expired and enrollment-proof-required outcomes are committed protocol results.
   Exchange additionally verifies the exact 087 enrollment signature, atomically
   consumes its challenge, creates the runtime and immutable 30-day connection,
-  creates the first status nonce, consumes the authorization, and signs a token
-  restricted to `bootstrap.status.read`. Only successful COMMIT releases the raw
+  creates the first status nonce, signs an in-memory token restricted to
+  `bootstrap.status.read`, then stores the consumed authorization and token JTI.
+  Only successful COMMIT releases the raw
   token response. Machine calls never require or receive the member cookie.
 
 The first public nonce makes [09 status admission](bootstrap-status.md) usable
