@@ -190,6 +190,14 @@ CREATE TRIGGER append_private_work_result BEFORE INSERT OR UPDATE OR DELETE ON p
   FOR EACH ROW EXECUTE FUNCTION append_private_work_result();
 CREATE FUNCTION publish_private_work_result() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
+  -- Unique-index insertion can wait after the BEFORE trigger (even when the
+  -- competing transaction eventually rolls back). Recheck the actual clock
+  -- here, still holding Work/intent/Asset locks, before consuming a Work CAS.
+  IF NOT EXISTS(SELECT 1 FROM asset_upload_intents i JOIN assets a ON a.asset_id=i.asset_id
+    WHERE i.intent_id=NEW.intent_id AND i.state='stored' AND i.expires_at>clock_timestamp()
+      AND i.lease_expires_at>clock_timestamp() AND a.state='ready' AND a.deletion_fence=0) THEN
+    RAISE EXCEPTION 'Result lease expired before actual insertion' USING ERRCODE='23514';
+  END IF;
   -- Mutation occurs only for a successfully inserted Result, never for a row
   -- suppressed by INSERT ... ON CONFLICT DO NOTHING after its BEFORE trigger.
   UPDATE work_items SET aggregate_version=NEW.work_version
