@@ -1,6 +1,6 @@
 # 身分範圍與交易核心規格
 
-Spec ID：`UF-SPEC-CORE`；狀態：會員核心及 person/community/personal 映射已本機實作；scoped command、機器驗權仍待實作。來源：UF-01/02/06、U1、統一計畫 §02–03、08。目標是保留會員 command 的現有行為，讓同一交易機制能接收各自正確驗證的人類、execution 與 service 呼叫。
+Spec ID：`UF-SPEC-CORE`；狀態：會員核心、person/community/personal 映射及 scoped member command 已本機實作；機器驗權仍待實作。來源：UF-01/02/06、U1、統一計畫 §02–03、08。目標是保留會員 command 的現有行為，讓同一交易機制能接收各自正確驗證的人類、execution 與 service 呼叫。
 
 ## 2026-10-02 實作進度
 
@@ -10,9 +10,11 @@ Spec ID：`UF-SPEC-CORE`；狀態：會員核心及 person/community/personal �
 
 後續 CORE-1 新增 [映射 schema](../../../../migrations/076_principal_resource_scopes.sql)、[共用 reference 契約](../../../../contracts/common/README.md) 與 [resource-scopes package](../../../../packages/resource-scopes/README.md)。076 是本機暫用編號，合併時重新確認。migration 只有 additive DDL；回填是另行明確呼叫、每批最多 500 筆的 library，不會自動碰資料。person 對真實 user、community 對真實 community、personal 對 person 均有唯一約束與 FK/CHECK；映射不能改綁或以 DELETE 重建，停用也不被回填復活。
 
-`withMemberScope` 驗目前會員 session、principal 及所選 scope，之後仍須 domain authorize；它只是同交易的 context helper，沒有 receipt、idempotency、version、journal 或 outbox，不可拿來繞過 `command()` 做 mutation。舊會員 route 沒有切到新 helper，仍維持既有 receipt／驗權。community scope 停用不等於停用個人的 personal scope；principal 停用只限制新 helper，不宣稱已成為所有舊路徑的全域停權開關。
+`withMemberScope` 驗目前會員 session、principal 及所選 scope，之後仍須 domain authorize；它只是同交易的 context helper，沒有 receipt、idempotency、version、journal 或 outbox，不可單獨拿來做 mutation。後續新增的 scoped adapter 使用抽出的 `lockMemberScope` 在原 command transaction 內組合，不巢狀開第二個 transaction。舊會員 route 仍維持既有 receipt／驗權。community scope 停用不等於停用個人的 personal scope；principal 停用只限制新路徑，不宣稱已成為所有舊路徑的全域停權開關。
 
-新增回歸包括 075 升級前後所有舊表與 receipt 不變、並行 first-use/回填、disabled 與 SQL 反例、真實 row-lock 撤銷競態及非 superuser migrator／DML runtime。詳細鎖順序、回填重試與證據限制見 package README。尚未實作 execution/service validator、新 receipt namespace、private Work ACL 或正式環境回填；不能把這些組件測試視為整項 U1 或機器授權驗收。
+映射回歸包括 075 升級前後所有舊表與 receipt 不變、並行 first-use/回填、disabled 與 SQL 反例、真實 row-lock 撤銷競態及非 superuser migrator／DML runtime。後續 WORK-A 已補封閉私人讀取 ACL；execution/service validator 與正式環境回填仍未實作，不能把這些組件測試視為整項 U1 或機器授權驗收。
+
+CORE-2 的 [scoped-commands](../../../../packages/scoped-commands/README.md) 與暫用 migration 078 提供獨立 member receipt、journal/outbox。新 namespace 為 principal/authn-kind/scope/operation/key；digest 固定 profile、typed target、scope、expected version 與 bounded JSON body，舊 member digest 完全不變。新路徑在 blocking domain authorization 後再用 DB 當下時鐘驗 session 到期，重播也不能略過目前權限。私有事件不寫舊 community outbox，且尚無新 consumer/fanout。各 domain 仍須自行驗 typed target、expected version，並只輸出必要 metadata。這是 member-session adapter，不是 execution/service 的 Invocation/Grant 已交付。
 
 ## 實作邊界
 
@@ -41,6 +43,7 @@ typed target 必須同時驗其 scope；只驗 UUID 存在不足。跨 scope ref
 | 呼叫入口 | 必須驗證 | receipt namespace |
 | --- | --- | --- |
 | 舊 command/memberCommand | active user、community、session 未撤銷且未過期、當前 domain authority | 原 user_id + 原 operation + idempotency key |
+| 新 scopedMemberCommand | 當前 member session、person principal、所選 scope、domain authority；等鎖後到期重驗 | 獨立 principal + member_session + scope + stable operation + key；不改舊 receipt |
 | executionCommand | credential 用途/environment、executor binding、active attempt/Grant、epochs、scope、domain authority | principal + authn kind + scope + stable operation + key；語意 binding 納入 digest |
 | serviceCommand | site credential/service principal、audience/purpose、site scope、當前 domain authority | 同新 namespace，與 member/execution 互不碰撞 |
 

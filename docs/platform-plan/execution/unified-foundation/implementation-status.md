@@ -14,8 +14,10 @@
 | GOV-C 本機邊界 | `0963bee` | host-owned Git candidate／policy／observation binding、baseline fallback 與 vendor exact-byte 驗證；尚非可信 CI |
 | ASSET-A I/O 首段 | `ded9c98`、修正 `5e23d91` | bounded bytes/profile、immutable object port／fake store、digest read-back 與安全錯誤；尚無 DB lifecycle／R2 接線 |
 | WORK-A | `c3eae47` | migration 077、私人 owner/scope FK、社群投影與 mutation 隔離、本人私人 list/detail、18 項新增 runtime 回歸 |
+| CORE-2 | `40e0f2d`、`4a74b31`、`6f3485f`、`4ea8f47` | migration 078、獨立 scoped member receipts/facts、bounded JSON、當前權限及 DB-clock expiry；28 項新增 runtime 回歸 |
+| ASSET-A lifecycle 增量 | `769840a`、`6da6b89`、`bdd05c4`、`0371c19`、`360fc30` | migration 079、封閉頭像 intent/lease/fence/write/finalize、真實 avatar version CAS；14 項 lifecycle 與 23 項獨立 race tests |
 
-目前整合分支為 `feat/foundation-parallel-20261002`，worktree 同名，包含上表完整提交鏈；CORE-1 與先前批次另保留在各自 worktree。全部只在 `~/tmp-scratch/fp_work/` 工作，未 push、建立 PR、merge main 或部署。主 checkout 及其 staged 刪除未更動。
+目前整合分支為 `feat/foundation-lifecycle-20261002`，worktree 同名，從前批整合 `ba35981` 延續上表提交鏈；各批次另保留在各自 worktree。全部只在 `~/tmp-scratch/fp_work/` 工作，未 push、建立 PR、merge main 或部署。主 checkout 及其 staged 刪除未更動。下文各批次數字與限制保留當時脈絡，以最新批次說明目前增量。
 
 ## GOV-A/B 與 CORE-0 證據
 
@@ -84,10 +86,35 @@
 
 migration 076/077 仍是暫用號；整合 manifest last=77、known_gaps=`[22]`，遠端 main 收尾再查仍為 `3de70ccbd24362a7925508fb42d36aaa256a0806`。077 尚無 down migration 或 release-tool rollback floor；舊 binary 的 row spread 可能額外回 metadata，不能宣稱新舊混跑 byte-exact。私人寫入保持關閉，直到回退、命令與新增讀取面驗收齊備。
 
+## 本批：CORE-2 與封閉 Asset lifecycle
+
+三隻 Astra 使用獨立 worktree：一隻實作 scoped command、一隻實作 Asset lifecycle、一隻獨立撰寫競態／原子性反例；整合後互審。外援以唯讀 Grok 4.7 與 Opus 4.6 各做設計及程式審查：Grok 設計、Opus 設計與程式三路完成；Grok 程式審查逾時，未取得結論，不列為通過證據。CLI 輸出僅為建議；與實際程式不符的 replay 順序推測等已排除，不能把建議測試數當成已執行數。
+
+### 實作與修正
+
+- CORE-2 透過同一 transaction 的 `lockMemberScope` 組合，不巢狀開交易。新 `packages/scoped-commands` 與 resource-scopes/command-core 的 module 依賴無循環；新 receipt namespace 為 principal/authn-kind/scope/operation/key，digest 加入固定 profile、typed target、scope、expected version 與 bounded plain JSON。舊 member command/digest/receipt 不變，execution/service 仍拒絕啟用。
+- 暫用 078 新增 scoped receipt、journal/outbox 的 owner/scope 複合 FK、metadata 上限及 append-only DML 限制；不寫舊 community outbox，沒有新 fanout。`scopedJournal` 僅接受同一交易、已授權 run 的 live context 與相同 operation。這不是防止 schema owner 停 trigger/TRUNCATE 的機制；另以 DML-only runtime role 跑反例。
+- 暫用 079 新增 Asset、不可改寫 representation、upload intent 與 typed avatar sidecar。prepare 固定 manifest/target/version/policy；claim 取得 nonce、遞增 fence 與 lease；source hash/size、轉圖、immutable PUT/read-back 在交易外；新的 scoped command 重驗目前權限、policy、fence/expiry 後存 stored，finalize 再驗 object 並原子寫 ready/pointer/real version/facts/receipt。
+- 版本唯一權威是既有 `member_avatars.aggregate_version`。Sidecar `linked_at_version` 只是掛載快照；legacy save/delete 後 `readTarget` 不再回舊 pointer。Finalize 不替換舊 `image_bytes`，因此不能接到現有頭像路由；尚無 HTTP、R2 adapter、完整 Asset reader 或 cutover。
+- 整合審查修正 operation ID 不一致、Actor 跨 await 可變、同名 module descriptor，以及 SQL 只驗 UPDATE 卻可直接 INSERT ready/stored 的繞過。現在只允許 pending Asset 與 prepared/no-lease intent 起始狀態，current policy/owner/version、typed ready pointer 及狀態轉移均有回歸。
+- 原先 1,030 項整合 runtime 全通過後，交叉審查仍重現另一個真實邊界：session 在 avatar/policy row lock 等待期間到期，Asset inspection 仍可能啟動 source/PUT，或 readTarget 回 metadata；事後 command 拒絕不足以補救。新增兩項 actual `pg_blocking_pids`／DB-clock 測試先 RED，再於最終 DB query 後呼叫共用 `assertCurrentSessionClock`，轉為 GREEN。它要求同一 `q` 已持有 user/session 鎖，不是可單獨呼叫的身分驗證。
+- 原審查者獨立重跑最初漏洞腳本：過期 write 的 source/decode/PUT/SQL object 全為 0，過期 readTarget 不回 metadata；中間穿插正常 write/finalize/readTarget 仍成功。再跑 scoped/legacy/lifecycle/race 共 81/81、零 skip。這是獨立合成環境證據，不是真實 R2 或 prod 授權驗收。
+- 23 項獨立 race tests 包含同 key 並行只提交一次、相同 expected version 只一個 winner、I/O 暫停時可完成 revoke、lease takeover/fence、policy 變動、legacy save/delete、原子 pointer/journal/outbox/receipt 故障回滾及重試。SQL fault trigger 由另一操作明確移除後重試，未使用會被同交易 rollback 還原的「一次性」旗標。
+
+### 本批驗證及未啟用範圍
+
+最終整合 `npm test` 為 **1,032 passed、0 failed/skipped**，約 218 秒；包含新增 28 scoped、14 lifecycle、23 race cases。修正前 1,030/1,030、修正後獨立定向 81/81 亦完成。以下其他檢查已在本批執行：Worker 20/20、governance 119/119、skill client 10/10、deploy preflight 37/37；既有契約 659 passed／4 個原有 clock cases skipped。Typecheck、build、三類 Worker 的所有環境 dry-run 均通過；common schemas exact-byte check 通過，preview 仍為 32 operations／9 artifacts 且 preview/SDK 無 diff。本批沒有重跑瀏覽器 E2E，沒有 UI 或 route 接線變更。
+
+對真正 `origin/main` 執行 prepare/verify，新增 `asset-lifecycle` 與 `scoped-commands` ownership/refs 有效、119 governance tests 確實執行；總結果仍 exit 2 `unavailable`，原因為 baseline governance、surface audit 與 runtime suite adapters 未齊。手動 runtime 結果不冒充 trusted CI。Inventory 為 1,155 個檔案 hash、650 個本機文件／目錄連結，0 failures；`git diff --check` 通過。
+
+本批另建與 repo CI 同 digest 的 PostgreSQL 18.6 disposable container，network none、無 published port、2 GiB tmpfs、專用 Unix socket；Worker 短期 localhost proxy 在測試後關閉。所有 DB 測試明確指定新 `fp_foundation`，每套各自使用 `fp_*` schema/role/db，沒有連接 `freedom_local.public`。收尾查到測試 schema/role 均為 0，僅剩 `fp_foundation` 及預設 postgres/template，之後移除容器和空 socket 目錄；只刪除可重建的合成資料。兩個外援 review worktree 保持乾淨，沒有程式變更。
+
+目前 migration 076–079 全為未合併暫用號，manifest last=79、known_gaps=`[22]`；本批再查 remote main 仍為 `3de70ccbd24362a7925508fb42d36aaa256a0806`。啟用前仍須真實 policy source、retained-byte quota、GC/deletion fence、backup pins/restore、avatar read bridge/legacy-writer fence 及 rollback floor。預設 1 小時 intent、5 分鐘 lease、最多 3 筆並行 intent／各 128 KiB reservation 是可配置的內部限制，不是累積儲存或收費配額；expired/orphan/retired objects 不會自動刪除。
+
 ## 尚未交付
 
-- Scoped command composition、新 receipt namespace、execution/service current-state validators，以及有真實 backing record 的 service/site schema。
-- Asset DB intent/fence/finalize/GC、真實 R2 頭像流程、新增私人寫入/Result/share 的完整讀取矩陣、RunAttempt／模型 broker／私人 AI 草稿及瀏覽器 execution guard。
+- execution/service current-state validators、Invocation/Grant adapters，以及有真實 backing record 的 service/site schema；scoped composition/receipt 目前僅支援 member session。
+- Asset retained-byte quota、GC/deletion fence/backup pins、真實 R2 頭像 bridge 與正式 policy source；新增私人寫入/Result/share 的完整讀取矩陣、RunAttempt／模型 broker／私人 AI 草稿及瀏覽器 execution guard。
 - 真實 consumer 升級、TS/Rust 共用樣本、Windows/macOS、packaged clients、cloud 備份恢復及 staging/prod 演練。
 - 已批准的 publisher/trust profile、可信 CI publisher／required workflow、GitHub 強制審查與不可繞過的發布限制。
 
@@ -95,6 +122,6 @@ migration 076/077 仍是暫用號；整合 manifest last=77、known_gaps=`[22]`�
 
 ## 下一批
 
-銜接 ASSET-A 的 durable intent/fence/finalize/GC 與 scoped command/receipt，再接頭像 bridge 及私人 Result；同時補治理的 runtime adapter、實際 surface audit 與 host observation 接線。private mutation 仍須目前權限、expected version、撤銷重驗及無外部 I/O 的短交易。service 分支在 backing schema 和 validator 齊備前拒絕啟用。migration 076/077 尚未合併或發布，不永久預留編號。完整新增 private 讀取矩陣及 rollback floor 齊備前不開啟私人寫入。
+銜接頭像 read bridge／legacy-writer fencing、retained quota／GC／backup pins 與正式 policy source，再接私人 Result；同時補治理的 runtime adapter、實際 surface audit 與 host observation 接線。private mutation 仍須目前權限、expected version、撤銷重驗及無外部 I/O 的短交易。service 分支在 backing schema 和 validator 齊備前拒絕啟用。migration 076–079 尚未合併或發布，不永久預留編號。完整新增 private 讀取矩陣及 rollback floor 齊備前不開啟私人寫入或新頭像路由。
 
 推送、PR、合併、GitHub 規則、信任來源／金鑰、正式資料盤點或部署另依 Ted 的操作授權處理；Discord 全文仍須逐則核准。

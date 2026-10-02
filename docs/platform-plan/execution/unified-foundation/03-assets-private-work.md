@@ -4,7 +4,7 @@ Spec ID：`UF-SPEC-ASSET-WORK`；狀態：`local-partial`。來源：U2/U4、UF-
 
 第一個完成條件是會員換頭像仍正常；第二個是本人建立私人文案工作、以明選模型產出草稿，成果經同一 Asset 核心保存並只供本人查看及修改。第二條需 EXEC 的最小 RunAttempt/Grant adapter 才能完成。
 
-2026-10-02 本機增量已有 [ASSET-A object I/O](../../../../packages/asset-storage/README.md) 及 [WORK-A 模式隔離與 owner-only 讀取](../../../../modules/opportunity-project-work/README.md)。前者尚無 DB intent/fence/finalize/GC 或 R2 adapter；後者只有合成 fixture 能建立私人 row，產品的私人寫入、Result、分享與執行都未開放。這不是上述兩條完整流程已完成的聲明；詳見 [交付紀錄](implementation-status.md)。
+2026-10-02 本機增量已有 [ASSET-A object I/O](../../../../packages/asset-storage/README.md)、[封閉頭像 lifecycle](../../../../modules/assets/README.md) 及 [WORK-A 模式隔離與 owner-only 讀取](../../../../modules/opportunity-project-work/README.md)。頭像內部原型已串接 durable intent、lease/fence、交易外處理／read-back 及原子 finalize；仍無正式 HTTP、R2 adapter、GC 或頭像讀取 bridge。私人 Work 仍只有合成 fixture 能建立 row，寫入、Result、分享與執行未開放。這不是上述兩條完整流程已完成的聲明；詳見 [交付紀錄](implementation-status.md)。
 
 ## 現有入口與首版範圍
 
@@ -40,11 +40,11 @@ Data policy 分開描述 capture、model processing location/provider、platform
 
 ## Upload 交易與 API 行為
 
-新增 operation IDs `asset.upload.prepare`、`asset.upload.write`、`asset.upload.finalize`、`asset.read`；target profile 引用 `member.avatar.replace` 或 `work.result.submit`。operation registry 決定允許的 auth kinds，caller 不能自填 profile 取得權限。
+新增 operation IDs `asset.upload.prepare`、`asset.upload.claim`、`asset.upload.write`、`asset.upload.finalize`、`asset.read`；target profile 引用 `member.avatar.replace` 或 `work.result.submit`。operation registry 決定允許的 auth kinds，caller 不能自填 profile 取得權限。封閉原型已有四個 upload commands；完整 `asset.read` 仍未開放，`readTarget` 只回本人的 pointer/version metadata。
 
 建議 member HTTP 入口為 `/api/v1/assets/upload-intents` 及 `/:id/content`、`/:id/finalize`；實際路由於 schema PR 固定。execution/service 可以有不同 auth route 組，最後呼叫同一 typed service。不能為新 route 放寬全站 member CSRF/Origin。
 
-1. **Prepare**：短交易驗當前 credential、domain 權限、scope、用途、target version 及配額；建立 intent/lease、固定 request digest。真人頭像不需 Work、模型或 Grant。
+1. **Prepare／Claim**：短交易驗當前 credential、domain 權限、scope、用途、target version 及配額；固定 request digest。封閉原型的 prepare 只建立 prepared intent，另由 claim 取得 lease 並增加 fence；不能省略 claim 直接寫入。真人頭像不需 Work、模型或 Grant。
 2. **處理及寫入**：交易外 bounded streaming、實際檔案格式/尺寸驗證、digest 與轉換，寫 immutable R2 key。傳輸端 content-length 不能取代讀取上限；required variants 齊備才可進 stored。
 3. **Finalize**：短交易重驗目前 credential、domain、scope、version、intent fence/expiry 及適用的 attempt/Grant；原子提交 ready、typed pointer、Result 關係、journal/outbox、成功 receipt。
 4. **失敗對帳**：R2 成功但 PG 失敗可用同 intent 核對 object 後重試 finalize；若目前權限已失效則拒絕。無引用 bytes 由 GC 回收，不回報假成功。
@@ -52,6 +52,10 @@ Data policy 分開描述 capture、model processing location/provider、platform
 同 intent 的重試不可另建目標、覆寫 object、重複 Result 或略過 version。已 finalize 的 replay 先驗目前讀取資格；原成功 receipt 不保證失權後仍可取得私人內容。epoch/Grant 失效後只保留有限 evidence，不允許再次 finalize 業務寫入。
 
 現有頭像單次 POST 可作相容 facade，在內部走 prepare/effect/finalize，保留原 idempotency request identity 及 response；無需強迫現有頁面一開始全部改新三步 API。facade 在效果外完成轉圖，不能仍持有 user/session/domain locks。
+
+目前封閉原型只支援 member avatar：版本權威仍是實際 `member_avatars.aggregate_version`，typed sidecar 指向同 owner/scope/purpose 的 ready Asset。Finalize 更新同一真實版本及 pointer，但不替換 legacy `image_bytes`；因此現有頭像 route 絕不可在 bridge 完成前直接呼叫它。sidecar 的 `linked_at_version` 只記錄掛載時的真實版本，不是另一個版本計數器；legacy 換圖/刪圖後，舊 sidecar 讀取會失效。新 scoped receipt/event 與舊社群紀錄分開，沒有自動 fanout。
+
+原型預設 intent 一小時、lease 五分鐘、最多三筆有效 pending intent，各預留 128 KiB 輸出上限；這些為可配置的內部預設，不是正式 retention 或收費配額。它只限制同時在途 reservation，不限制累積 orphan/retired bytes。GC、永久刪除、backup pins/barrier、retained-byte quota 及正式 policy source 尚未接線，啟用前必須完成；不得因 TTL 到期便自動刪 bucket 物件。
 
 ## 首版驗證 profiles
 
@@ -88,7 +92,7 @@ R2 缺檔回受控 unavailable/not-found 並產生安全診斷，不 fallback �
 
 backfill 由受控 ops 流程以固定 source revision 讀取及核對 hash；切 pointer 的短交易檢查原 row version，遇到會員同時改圖就重新讀取而非覆蓋。備份、restore、撤銷及對帳證據齊備前保留舊欄位。首筆 R2-only/private Work 成功後，rollback floor 必須支援兩者。
 
-目前 076/077 皆為未合併的暫用號，合併前重新核對最小可用編號；manifest last 為 77、known_gaps 仍為 `[22]`。077 尚無 down migration 或 release-tool rollback floor。舊 binary 的 `workView` 使用 row spread，套新 schema 後可能多回 metadata，不能宣稱混跑期間 wire bytes 不變。新 binary 用顯式舊欄位投影；正式私人寫入保持關閉，直到回退政策與新增資料面驗收完成。
+目前 076–079 皆為未合併的暫用號，合併前重新核對最小可用編號；manifest last 為 79、known_gaps 仍為 `[22]`。078 加 scoped member facts，079 加封閉 Asset lifecycle；沒有 backfill、bucket I/O 或 route cutover。尚無 down migration 或 release-tool rollback floor。舊 binary 的 `workView` 使用 row spread，套 077 後可能多回 metadata，不能宣稱混跑期間 wire bytes 不變。新 binary 用顯式舊欄位投影；正式私人寫入及新頭像 route 串接保持關閉，直到回退政策與新增資料面驗收完成。
 
 ## 可交付 PR 與驗收
 

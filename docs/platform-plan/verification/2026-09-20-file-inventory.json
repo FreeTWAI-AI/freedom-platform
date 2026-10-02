@@ -1605,7 +1605,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30575,
-      "sha256": "09b8687d0ca1b99bfb19ef74071ff59f7a6e99252e1d88c9f544c78220665bd5"
+      "sha256": "122cf8731f913f8273846bb5556fd79c9890884a66925da07f836aea536c00e4"
     },
     {
       "path": "deploy/cloudflare/lib/cloudflare.mjs",
@@ -3109,13 +3109,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
-      "bytes": 10491,
-      "sha256": "e39485370dfb9238b813e6ccb0b6d28767bae2caf8188b0b961c8d2fb91ddf20"
+      "bytes": 11463,
+      "sha256": "1f219ce313d9af621fe38c9e40da54ec9ab040532b15bd52dd9df093f8156eb1"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md",
-      "bytes": 12403,
-      "sha256": "c671d4753d5892fcabb76c58f8aa63a86f6a648a579397f28b06b78d3281c1ba"
+      "bytes": 13971,
+      "sha256": "ba11ad8b50c64c8c714e09e617fffbe1b57653b0b13dc9f0d9f92c0085289ae9"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md",
@@ -3134,8 +3134,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/README.md",
-      "bytes": 5661,
-      "sha256": "77bdd97b2159434d8f59785ee596a142c33720b2dadd74e7d9a465a4d36122e0"
+      "bytes": 5722,
+      "sha256": "dfa3894f6815ce995e45cbb3f8d7863b7557f3bf85d5714695d4a34522c341ab"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
@@ -3144,8 +3144,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 15075,
-      "sha256": "5813399c5a67a79341ccea2d2ca30b94e633c73ffa87cfa7818712d570c8b68a"
+      "bytes": 21541,
+      "sha256": "91bb61226f141cb46c6d6404454619f80dd57b90075a27a91c3630a596cfe161"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -3653,6 +3653,16 @@
       "sha256": "e6f0c7020178fd119d2553b80729521d870a8488d3a444d20f403b57d8571655"
     },
     {
+      "path": "migrations/078_scoped_member_commands.sql",
+      "bytes": 4335,
+      "sha256": "4146219c91664bb8d76277264e55a50ba7d0d91478f8a1fcb257670b75fb60b1"
+    },
+    {
+      "path": "migrations/079_asset_upload_lifecycle.sql",
+      "bytes": 10905,
+      "sha256": "1a8eba98bccfd5eb0f343340876ea4f2f6d426f1062ed851a9b5d10908569c69"
+    },
+    {
       "path": "modules/agent-commerce/distribution.ts",
       "bytes": 10476,
       "sha256": "2d60f26788a408905286751505ea0d4d2e38a4399e1ff11e3df4622b5c2601f3"
@@ -3676,6 +3686,21 @@
       "path": "modules/agent-commerce/schema.ts",
       "bytes": 3779,
       "sha256": "a51e4be8490db0dca2faf455899019c55b558ffab05588974692bb308f223c4c"
+    },
+    {
+      "path": "modules/assets/README.md",
+      "bytes": 9211,
+      "sha256": "169c9648ea60f767535b6aadcf595f56ea7d0b127561b7059197bf00069d42de"
+    },
+    {
+      "path": "modules/assets/freedom.module.json",
+      "bytes": 910,
+      "sha256": "240d1c8597cec18e904e0f4743bb1ecb753ec717df2e383aabd78f42be2d713a"
+    },
+    {
+      "path": "modules/assets/index.ts",
+      "bytes": 19116,
+      "sha256": "023e983cc66f183f0b90d453f4b9352cc339d420ec1435a283aeac1fcd30b5fc"
     },
     {
       "path": "modules/catalog-commerce/service.ts",
@@ -4334,8 +4359,8 @@
     },
     {
       "path": "packages/asset-storage/README.md",
-      "bytes": 7277,
-      "sha256": "8ddaf26cf90f2406a34ad17062d71f54fe14cf49a823ad8a6ee04d287afcb54f"
+      "bytes": 7570,
+      "sha256": "2564a77431aa15c92fa44b23adc5508d53a8efa519e7432fb8279f4ea14dc1b5"
     },
     {
       "path": "packages/asset-storage/fake-store.ts",
@@ -4474,8 +4499,8 @@
     },
     {
       "path": "packages/db/README.md",
-      "bytes": 3800,
-      "sha256": "d62892e7fc993e031a692cd0ef23ea4160895c0f283686bb444390f7f544ccfd"
+      "bytes": 10650,
+      "sha256": "b0e023f558f95fdafa178b2c84bdbf127cbb0ecb4f38150497dc5b5c8058cd51"
     },
     {
       "path": "packages/db/command-core.ts",
@@ -4504,8 +4529,8 @@
     },
     {
       "path": "packages/db/member-session.ts",
-      "bytes": 916,
-      "sha256": "9849601e1b3366228fc2c75e28ac1ba64cac7fae6aa0ae115cba8a1f8848f3eb"
+      "bytes": 1817,
+      "sha256": "dd9064fba0c4ab93554295bbf6610ef24bf2142bb4275281d69fc3ab0c338ceb"
     },
     {
       "path": "packages/db/transaction.ts",
@@ -4514,8 +4539,8 @@
     },
     {
       "path": "packages/resource-scopes/README.md",
-      "bytes": 7735,
-      "sha256": "187bac712b02c34791201ab2fbcb0d83553f4c9347c5d339b242633e35ea1558"
+      "bytes": 8080,
+      "sha256": "c929711d416e5148b62634bce41d5901461e5b4d35502cdf73153ba87cd1bb8d"
     },
     {
       "path": "packages/resource-scopes/freedom.module.json",
@@ -4524,8 +4549,23 @@
     },
     {
       "path": "packages/resource-scopes/index.ts",
-      "bytes": 7539,
-      "sha256": "13cc06474c570fd22e97f91c9af397d91304ca27708a7b86e14e4e39746320ae"
+      "bytes": 8323,
+      "sha256": "7d64fa4adda1df62811ad57910967e1903a49ca133a955c4e30334b4b8ac9917"
+    },
+    {
+      "path": "packages/scoped-commands/README.md",
+      "bytes": 1069,
+      "sha256": "3fea59017c1a76b7db73f8737c275887ebf03804e383b7a62f80a29164427edc"
+    },
+    {
+      "path": "packages/scoped-commands/freedom.module.json",
+      "bytes": 868,
+      "sha256": "5962c2fb6469f8c10f88fd3a06ceb4a1723986904a2406481dd5eee907030944"
+    },
+    {
+      "path": "packages/scoped-commands/index.ts",
+      "bytes": 11485,
+      "sha256": "af93598bf0040b7ad4d607063336911e6f101839b1a9d9dea73f7c7aa5774f21"
     },
     {
       "path": "packages/sdk/client.d.mts",
@@ -5243,6 +5283,16 @@
       "sha256": "c6c6f91998649ff6b91ac9cb99c9974c49712ccb19a7ffecf313738b85396b0d"
     },
     {
+      "path": "tests/runtime/asset-lifecycle-races.test.ts",
+      "bytes": 33336,
+      "sha256": "ddbdb76d2ec85c15300a22543b252559cb2e773719c914211614efb27c00a16d"
+    },
+    {
+      "path": "tests/runtime/asset-lifecycle.test.ts",
+      "bytes": 19176,
+      "sha256": "59480a284cbf33e3d98d174a9a2acc6f48c8592cd8102a15878bc90022bd82c0"
+    },
+    {
       "path": "tests/runtime/asset-storage.test.ts",
       "bytes": 22919,
       "sha256": "6bb53e6557ff81bd4af47c0b7633a79390777a395c44f3b6e7d27bdb59c09df5"
@@ -5596,6 +5646,11 @@
       "path": "tests/runtime/resource-scopes.test.ts",
       "bytes": 29396,
       "sha256": "64e77e17a48a5c48ca27adb5f70455344e450f319f6bc8d666d4e94214790cd8"
+    },
+    {
+      "path": "tests/runtime/scoped-member-command.test.ts",
+      "bytes": 23136,
+      "sha256": "510e0f244d55ea3f04849658dcc49358db9a13dccacf5fdebce5ea3a47d58bff"
     },
     {
       "path": "tests/runtime/share-promotion.test.ts",
