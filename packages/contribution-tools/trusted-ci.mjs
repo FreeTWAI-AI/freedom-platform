@@ -26,16 +26,16 @@ function commit(value) { check(typeof value === 'string' && SHA.test(value), 'in
 // Complete static import closure, including imported schemas. This is an
 // installation fingerprint, NOT a self-authenticating trust root: the host must
 // approve the expected digest before loading these immutable bytes.
-const VERIFIER_FILES = [
+export const VERIFIER_INSTALLATION_FILES = Object.freeze([
   ...['trusted-ci', 'context', 'workspace', 'process-env', 'contracts', 'formats', 'schema', 'io', 'errors']
     .map(name => `packages/contribution-tools/${name}.mjs`),
   ...['release-set', 'contract-pin-v1', 'contract-pin-v2', 'release-proof', 'release-trust', 'module', 'coding-context', 'verifier-report']
     .map(name => `governance/schemas/${name}.schema.json`),
-].sort();
+].sort());
 export async function installedVerifierDigest() {
   const root = fileURLToPath(new URL('../../', import.meta.url));
   const records = [];
-  for (const path of VERIFIER_FILES) records.push([path, sha256(await readBounded(root, path))]);
+  for (const path of VERIFIER_INSTALLATION_FILES) records.push([path, sha256(await readBounded(root, path))]);
   return sha256(JSON.stringify(records));
 }
 
@@ -147,6 +147,21 @@ function validateBinding(value) {
   fields(value, BINDING_FIELDS); id(value.repository); id(value.run_id);
   check(Number.isSafeInteger(value.pull_request) && value.pull_request > 0, 'invalid_pull_request');
   for (const key of ['base_commit', 'head_commit', 'candidate_commit', 'candidate_tree']) commit(value[key]);
+}
+
+// Structural validation only: exporting these helpers does NOT authenticate
+// a host, transport, workflow, candidate checkout or serialized observation.
+export function validateHostEvidenceBinding(value) {
+  const additional = ['source_commit', 'release_set_sha256', 'policy_revision', 'policy_sha256', 'verifier_commit', 'verifier_sha256'];
+  fields(value, [...BINDING_FIELDS, ...additional]);
+  validateBinding(Object.fromEntries(BINDING_FIELDS.map(key => [key, value[key]])));
+  commit(value.source_commit); commit(value.verifier_commit); id(value.policy_revision);
+  for (const key of ['release_set_sha256', 'policy_sha256', 'verifier_sha256']) digest(value[key]);
+  return Object.freeze(Object.fromEntries([...BINDING_FIELDS, ...additional].map(key => [key, value[key]])));
+}
+export function validateHostWorkflow(value) {
+  fields(value, ['identity', 'commit', 'publisher']); id(value.identity); commit(value.commit); id(value.publisher);
+  return Object.freeze({ identity: value.identity, commit: value.commit, publisher: value.publisher });
 }
 
 /**
