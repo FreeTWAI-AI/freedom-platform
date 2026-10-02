@@ -168,6 +168,23 @@ test('BEHAVIOR independent JSON-escaped private problem detail is still a leak',
   assert.equal(report.outcomes[0].status, 'failed');
 });
 
+for (const leak of ['head-private-header', 'credential-header', 'credential-body'])
+  test(`BEHAVIOR independent ${leak} must fail even with correct denial status`, async () => {
+    const f = await fixture(); let count = 0;
+    f.ports.request = async () => {
+      const item = cases[count++], response = f.response(item);
+      if (leak === 'head-private-header' && item.id === 'outsider.work.head.conditional')
+        response.headers.set('X-Private-Objective', manifest.objective);
+      if (count === 1 && leak === 'credential-header') response.headers.set('X-Diagnostic', f.input.fixture.owner.cookie);
+      if (count === 1 && leak === 'credential-body') return new Response(JSON.stringify({ code: 'denied', detail: f.input.fixture.owner.csrf }), {
+        status: 401, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      return response;
+    };
+    const report = await runMemberRouteBehavior(f.input, f.ports); failed(report);
+    assert.equal(report.outcomes.filter(row => row.status === 'failed').length, 1);
+    for (const marker of [manifest.objective, f.input.fixture.owner.cookie, f.input.fixture.owner.csrf]) assert(!JSON.stringify(report).includes(marker));
+  });
+
 test('BEHAVIOR independent ignored abort and unresolved stream are bounded, never observed as success', async () => {
   const f = await fixture(); let count = 0;
   f.ports.request = async () => {
