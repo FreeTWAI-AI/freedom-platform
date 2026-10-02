@@ -126,8 +126,50 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
   }, [nextStep]);
 
   return <div className="member-home freedom-home">
+    <div className="home-layout">
+    <div className="home-main">
+    {loadError && <div ref={alertRef} role="alert" className="banner banner-error home-load-error">
+      <p>{loadError}下方常用入口仍可使用。</p>
+      <button type="button" className="btn btn-ghost" aria-disabled={loading} onClick={retry}>{loading ? '正在重新載入名片…' : '重新載入名片'}</button>
+    </div>}
+    {nextStep && <section className="home-next-step" aria-label="公會與技能書建議">
+      <div className="home-next-copy">
+      <p className="home-next-eyebrow">下一步</p>
+      <p id="home-next-step-description">{nextStep.message}</p>
+      {internPrimary && <p className="field-hint guild-intern-notice" role="status">你是這個公會的實習成員：可以閱讀公會內容、在公會聊天室聊天。想發布或編輯，可以在聊天室跟會長打聲招呼，會長能把你設為正式成員。</p>}
+      {primaryGuild ? <div className="home-next-actions">
+        {guideBook
+          ? <SkillBookIntro book={guideBook} label="閱讀第一本技能書" describedBy="home-next-step-description"/>
+          : <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.('skills')}>前往技能書架</button>}
+        <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => openMemberChat('guild', primaryGuild.guild_key)}>進入{primaryGuild.name}聊天室</button>
+        {taskAction && <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.(taskAction)}>{taskAction === 'tasks' ? '查看社群任務' : '分享作品與需求'}</button>}
+      </div> : <div className="home-next-actions"><button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.(nextStep.action)}>{nextStep.label}</button></div>}
+      </div>
+      <img className="home-next-art" src="/art/rpg/skill-codex.webp" alt="" width="124" height="108"/>
+    </section>}
+
+    <nav className="home-shortcuts" aria-label="常用入口">
+      {shortcuts.map(entry => <button key={entry.id} type="button" className="home-shortcut" onClick={() => onNavigate?.(entry.id)}>
+        <span className="home-shortcut-icon" aria-hidden="true"><WorkshopIcon name={entry.id}/></span><span>{entry.title}</span>
+      </button>)}
+    </nav>
+
+    <section className="home-module-section" aria-labelledby="home-module-title">
+      <header className="home-section-heading"><h2 id="home-module-title">商品、作品與推廣</h2></header>
+      <div className="home-module-grid">
+        {entries.map(entry => <article key={entry.id} className={`home-module-card home-module-${entry.id}`}>
+          <div className="home-module-cover"><img src={`/art/rpg/${entry.cover}.webp`} alt="" width="768" height="512" loading="lazy"/></div>
+          <div className="home-module-body">
+            <h3 className="home-module-name">{entry.title}</h3>
+            <p className="home-module-description">{entry.description}</p>
+            <button type="button" className="btn home-module-button" aria-label={`進入${entry.title}`} onClick={() => onNavigate?.(entry.id)}>進入<span aria-hidden="true">↗</span></button>
+          </div>
+        </article>)}
+      </div>
+    </section>
+    </div>
+    <aside className="home-rail">
     <section ref={summary} tabIndex={-1} className="member-card home-member-summary guild-base-hero" aria-label="我的會員摘要" aria-busy={loading}>
-      <img className="guild-base-art" src="/art/rpg/workshop-hub.webp" alt="" width="1536" height="1024" fetchPriority="high"/>
       <div className="home-member-identity">
         <MemberAvatar nickname={nickname} avatarUrl={member?.avatar_url} className="home-member-initial"/>
         <div>
@@ -146,41 +188,8 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
         <PromotionShare client={client} kind="platform" target="workshop" title="自由工坊" text="自由工坊：加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。" label="分享自由工坊"/>
       </div>
     </section>
-    {loadError && <div ref={alertRef} role="alert" className="banner banner-error">
-      <p>{loadError}下方常用入口仍可使用。</p>
-      <button type="button" className="btn btn-ghost" aria-disabled={loading} onClick={retry}>{loading ? '正在重新載入名片…' : '重新載入名片'}</button>
-    </div>}
-    {nextStep && <section className="home-next-step" aria-label="公會與技能書建議">
-      <p id="home-next-step-description">{nextStep.message}</p>
-      {internPrimary && <p className="field-hint guild-intern-notice" role="status">你是這個公會的實習成員：可以閱讀公會內容、在公會聊天室聊天。想發布或編輯，可以在聊天室跟會長打聲招呼，會長能把你設為正式成員。</p>}
-      {primaryGuild ? <div className="home-next-actions">
-        {guideBook
-          ? <SkillBookIntro book={guideBook} label="閱讀第一本技能書" describedBy="home-next-step-description"/>
-          : <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.('skills')}>前往技能書架</button>}
-        <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => openMemberChat('guild', primaryGuild.guild_key)}>進入{primaryGuild.name}聊天室</button>
-        {taskAction && <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.(taskAction)}>{taskAction === 'tasks' ? '查看社群任務' : '分享作品與需求'}</button>}
-      </div> : <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.(nextStep.action)}>{nextStep.label}</button>}
-    </section>}
-
-    <nav className="home-shortcuts" aria-label="常用入口">
-      {shortcuts.map(entry => <button key={entry.id} type="button" className="home-shortcut" onClick={() => onNavigate?.(entry.id)}>
-        <WorkshopIcon name={entry.id}/><span>{entry.title}</span><span className="home-shortcut-arrow" aria-hidden="true">↗</span>
-      </button>)}
-    </nav>
-
     <MemberRecommendations client={client}/>
-    <section className="home-module-section" aria-labelledby="home-module-title">
-      <header className="home-section-heading"><h2 id="home-module-title">商品、作品與推廣</h2></header>
-      <div className="home-module-grid">
-        {entries.map(entry => <article key={entry.id} className={`home-module-card home-module-${entry.id}`}>
-          <div className="home-module-cover"><img src={`/art/rpg/${entry.cover}.webp`} alt="" width="768" height="512" loading="lazy"/></div>
-          <div className="home-module-body">
-            <h3 className="home-module-name">{entry.title}</h3>
-            <p className="home-module-description">{entry.description}</p>
-            <button type="button" className="btn home-module-button" onClick={() => onNavigate?.(entry.id)}>進入{entry.title}<span aria-hidden="true">↗</span></button>
-          </div>
-        </article>)}
-      </div>
-    </section>
+    </aside>
+    </div>
   </div>;
 }
