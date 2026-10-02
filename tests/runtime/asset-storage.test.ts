@@ -269,3 +269,76 @@ test('ASSET-IO-20 exact emoji cap accepts split code points; ranges return raw b
   const fragment = await store.get(key, { offset: 1, length: 2 });
   assert.deepEqual(await readBounded(fragment!.body, 2), bytes.subarray(1, 3));
 });
+
+test('ASSET-IO-21 stream errors cannot smuggle mutable AssetStorageError diagnostics', async () => {
+  const marker = 'PRIVATE_UPSTREAM_MARKER';
+  for (const mutate of [
+    (error: AssetStorageError) => { error.message = marker; error.name = marker; },
+    (error: AssetStorageError) => { Object.defineProperty(error, 'code', { value: marker }); },
+    (error: AssetStorageError) => { Object.defineProperty(error, 'code', { get() { throw new Error(marker); } }); },
+  ]) {
+    const upstream = new AssetStorageError('too_large'); mutate(upstream);
+    const body = new ReadableStream<Uint8Array>({ pull() { throw upstream; } });
+    await assert.rejects(readBounded(body, 10), (error: unknown) => {
+      assert(error instanceof AssetStorageError); assert.notEqual(error, upstream);
+      assert.equal(error.code, 'invalid_content'); assert.equal(error.name, 'AssetStorageError');
+      assert.equal(error.message, 'invalid_content'); assert(!String(error.stack).includes(marker));
+      return true;
+    });
+    assert.equal(body.locked, false);
+  }
+});
+
+async function assertNoCopyOf(value: unknown, run: () => Promise<void>) {
+  const original = globalThis.Uint8Array;
+  let attempts = 0;
+  globalThis.Uint8Array = new Proxy(original, { construct(target, args, newTarget) {
+    if (args[0] === value) { attempts++; throw new Error('copy must not be attempted'); }
+    return Reflect.construct(target, args, newTarget);
+  } });
+  try { await run(); assert.equal(attempts, 0, 'reject before snapshot allocation'); }
+  finally { globalThis.Uint8Array = original; }
+}
+
+test('ASSET-IO-22 writer and fake reject non-byte/oversized representations before copying or I/O', async () => {
+  const value = await text(), store = new FakeObjectStore();
+  let calls = 0;
+  const port: ObjectStore = {
+    putImmutable: async () => { calls++; return 'created'; }, get: async () => { calls++; return null; },
+    head: async () => { calls++; return null; }, delete: async () => { calls++; return 'missing'; },
+  };
+  // The numeric case is intercepted if a regression tries to allocate it.
+  // The actual oversized fixture is only 256 KiB + 1, never a huge allocation.
+  for (const bytes of [Array.from(value.bytes), 2 ** 32, null, { length: 2 ** 32 }, new Uint8Array(PRIVATE_TEXT_MAX_BYTES + 1)]) {
+    const expected = bytes instanceof Uint8Array ? 'too_large' : 'invalid_content';
+    await assertNoCopyOf(bytes, async () => {
+      const input = { metadata: value.metadata, bytes: bytes as Uint8Array };
+      await assert.rejects(writeVerifiedObject(port, key, input, policy), errorCode(expected));
+      await assert.rejects(store.putImmutable(key, input), errorCode(expected));
+    });
+  }
+  assert.equal(calls, 0); assert.equal(await store.head(key), null);
+});
+
+test('ASSET-IO-23 avatar normalizer output is bounded typed bytes before any copy', async () => {
+  const png = await sharp({ create: { width: 2, height: 2, channels: 3, background: 'red' } }).png().toBuffer();
+  const valid = await sharp(png).resize(256, 256).webp().toBuffer();
+  for (const output of [Array.from(valid), 2 ** 32, undefined, { length: 2 ** 32 }, new Uint8Array(AVATAR_PROFILE.outputMaxBytes + 1)]) {
+    const expected = output instanceof Uint8Array ? 'too_large' : 'invalid_content';
+    await assertNoCopyOf(output, async () => {
+      await assert.rejects(prepareAvatar(stream(png), 'image/png', policy, async () => output as Uint8Array), errorCode(expected));
+    });
+  }
+});
+
+test('ASSET-IO-24 own byteLength properties cannot bypass actual byte bounds', async () => {
+  const value = await text(), store = new FakeObjectStore();
+  const oversized = new Uint8Array(PRIVATE_TEXT_MAX_BYTES + 1);
+  Object.defineProperty(oversized, 'byteLength', { get: () => value.metadata.byteSize });
+  await assertNoCopyOf(oversized, async () => {
+    await assert.rejects(writeVerifiedObject(store, key, { bytes: oversized, metadata: value.metadata }, policy), errorCode('too_large'));
+    await assert.rejects(store.putImmutable(key, { bytes: oversized, metadata: value.metadata }), errorCode('too_large'));
+  });
+  await assert.rejects(readBounded(stream(oversized), PRIVATE_TEXT_MAX_BYTES), errorCode('too_large'));
+  assert.equal(await store.head(key), null);
+});

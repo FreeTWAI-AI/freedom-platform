@@ -61,6 +61,17 @@ export function validateMetadata(metadata: ObjectMetadata): void {
     || metadata.byteSize > (avatar ? AVATAR_PROFILE.outputMaxBytes : PRIVATE_TEXT_MAX_BYTES)) fail('invalid_metadata');
 }
 
+// Read the actual typed-array length, not an own property/subclass getter.
+const typedArrayByteLength = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(Uint8Array.prototype), 'byteLength')!.get!;
+/** Validate before allocating a copy; numeric/array-like inputs are never bytes. */
+export function snapshotBoundedBytes(value: unknown, maxBytes: number): Uint8Array<ArrayBuffer> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > AVATAR_PROFILE.inputMaxBytes) fail('invalid_metadata');
+  if (!(value instanceof Uint8Array) || !ArrayBuffer.isView(value)) fail('invalid_content');
+  const size = typedArrayByteLength.call(value) as number;
+  if (size > maxBytes) fail('too_large');
+  try { return new Uint8Array(value); } catch { fail('invalid_content'); }
+}
+
 /** Bounded accumulation for small profiles. Content-Length is never trusted.
  * Cancels on overflow/error, releases its reader and never reports raw input. */
 export async function readBounded(body: ReadableStream<Uint8Array>, maxBytes: number): Promise<Uint8Array> {
@@ -68,25 +79,30 @@ export async function readBounded(body: ReadableStream<Uint8Array>, maxBytes: nu
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   const buffer = new Uint8Array(maxBytes);
   let size = 0;
+  let failure: 'invalid_content' | 'too_large' = 'invalid_content';
   try {
     reader = body.getReader();
     for (;;) {
       const { value, done } = await reader.read();
       if (done) break;
-      if (!(value instanceof Uint8Array)) fail('invalid_content');
-      if (value.byteLength > maxBytes - size) fail('too_large');
+      if (!(value instanceof Uint8Array) || !ArrayBuffer.isView(value)) fail('invalid_content');
+      const chunkSize = typedArrayByteLength.call(value) as number;
+      if (chunkSize > maxBytes - size) { failure = 'too_large'; fail(failure); }
       buffer.set(value, size);
-      size += value.byteLength;
+      size += chunkSize;
     }
     return buffer.slice(0, size);
-  } catch (error) {
+  } catch {
     try { await reader?.cancel(); } catch { /* cancellation cannot mask validation */ }
-    if (error instanceof AssetStorageError) throw error;
-    throw new AssetStorageError('invalid_content');
-  } finally { reader?.releaseLock(); }
+    // Upstream errors may masquerade as this class with mutated message/code.
+    // Only this function's own validation may select a non-default fixed code.
+    throw new AssetStorageError(failure);
+  } finally {
+    try { reader?.releaseLock(); } catch { fail(failure); }
+  }
 }
 export async function sha256(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(bytes));
+  const digest = await crypto.subtle.digest('SHA-256', snapshotBoundedBytes(bytes, AVATAR_PROFILE.inputMaxBytes));
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 function validateText(bytes: Uint8Array): void {
@@ -98,7 +114,7 @@ function validateText(bytes: Uint8Array): void {
   } catch { fail('invalid_content'); }
 }
 async function prepared(bytes: Uint8Array, contentType: ObjectMetadata['contentType'], transformVersion: ObjectMetadata['transformVersion'], policy: PersistencePolicy): Promise<PreparedRepresentation> {
-  const snapshot = new Uint8Array(bytes);
+  const snapshot = snapshotBoundedBytes(bytes, contentType === 'image/webp' ? AVATAR_PROFILE.outputMaxBytes : PRIVATE_TEXT_MAX_BYTES);
   return Object.freeze({ bytes: snapshot, metadata: Object.freeze({ contentType, byteSize: snapshot.byteLength,
     sha256: await sha256(snapshot), transformVersion, policyRevision: policy.revision }) });
 }
@@ -123,10 +139,10 @@ export async function prepareAvatar(body: ReadableStream<Uint8Array>, contentTyp
   const spec: ImageNormalizeSpec = Object.freeze({ purpose: 'avatar', format, maxDimension: AVATAR_PROFILE.maxDimension,
     maxPixels: AVATAR_PROFILE.maxDimension ** 2, maxOutputBytes: AVATAR_PROFILE.outputMaxBytes,
     output: Object.freeze({ width: 256, height: 256, fit: 'cover', quality: 82, effort: 3 }) });
-  let output: Uint8Array;
-  try { output = new Uint8Array(await normalize(new Uint8Array(bytes), spec)); }
+  let normalized: unknown;
+  try { normalized = await normalize(snapshotBoundedBytes(bytes, AVATAR_PROFILE.inputMaxBytes), spec); }
   catch { fail('invalid_content'); }
-  if (output.byteLength > AVATAR_PROFILE.outputMaxBytes) fail('too_large');
+  const output = snapshotBoundedBytes(normalized, AVATAR_PROFILE.outputMaxBytes);
   try { assertCanonicalWebp(output, 256, 256); } catch { fail('invalid_content'); }
   return prepared(output, 'image/webp', AVATAR_PROFILE.transformVersion, policy);
 }
@@ -173,7 +189,7 @@ export async function writeVerifiedObject(store: ObjectStore, key: AssetObjectKe
   const metadata = Object.freeze({ ...value.metadata });
   validateMetadata(metadata);
   if (metadata.policyRevision !== policy.revision) fail('invalid_policy');
-  const bytes = new Uint8Array(value.bytes);
+  const bytes = snapshotBoundedBytes(value.bytes, metadata.byteSize);
   if (bytes.byteLength !== metadata.byteSize || await sha256(bytes) !== metadata.sha256) fail('integrity_mismatch');
   if (metadata.contentType === 'image/webp') {
     try { assertCanonicalWebp(bytes, 256, 256); } catch { fail('invalid_content'); }

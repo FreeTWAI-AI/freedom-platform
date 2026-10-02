@@ -1,4 +1,4 @@
-import { assertObjectKey, AssetStorageError, sha256, validateMetadata, validateRange,
+import { assertObjectKey, AssetStorageError, sha256, snapshotBoundedBytes, validateMetadata, validateRange,
   type AssetObjectKey, type ObjectHead, type ObjectRange, type ObjectStore, type PreparedRepresentation, type StoredObject } from './index.js';
 
 export type FakeStoreFault = 'put-before' | 'put-after' | 'get' | 'delete-before' | 'delete-after';
@@ -12,7 +12,8 @@ export class FakeObjectStore implements ObjectStore {
   }
   async putImmutable(key: AssetObjectKey, value: PreparedRepresentation): Promise<'created' | 'exists'> {
     assertObjectKey(key); validateMetadata(value.metadata); this.fault('put-before');
-    const bytes = new Uint8Array(value.bytes), metadata = Object.freeze({ ...value.metadata });
+    const metadata = Object.freeze({ ...value.metadata });
+    const bytes = snapshotBoundedBytes(value.bytes, metadata.byteSize);
     if (bytes.byteLength !== metadata.byteSize || await sha256(bytes) !== metadata.sha256) throw new AssetStorageError('integrity_mismatch');
     // No await between existence check and insertion: atomic for this in-process fake.
     const current = this.objects.get(key);
