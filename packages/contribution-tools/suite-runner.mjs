@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readBounded, parseJson, sha256 } from './io.mjs';
 import { verificationEnvironment } from './process-env.mjs';
-import { RUNTIME_SUITES, FULL_RUNTIME_BASELINE } from './runtime-suites.mjs';
+import { RUNTIME_SUITES, FULL_RUNTIME_BASELINE, NODE_CONSUMER_SUITES } from './runtime-suites.mjs';
 
 const MAX_OUTPUT = 16_000_000, MAX_FILES = 512;
 const COUNT_KEYS = ['tests', 'passed', 'failed', 'cancelled', 'skipped', 'todo'];
@@ -37,6 +37,11 @@ async function suiteFiles(root, id) {
     files = (await readdir(resolve(root, 'packages/contribution-tools/test')))
       .filter(name => /^[a-z][a-z0-9-]*\.test\.mjs$/.test(name)).sort()
       .map(name => 'packages/contribution-tools/test/' + name);
+  } else if (Object.hasOwn(NODE_CONSUMER_SUITES, id)) {
+    const { directory, baseline } = NODE_CONSUMER_SUITES[id];
+    const found = (await readdir(resolve(root, directory)))
+      .filter(name => /^[a-z][a-z0-9_-]*\.test\.mjs$/.test(name)).map(name => directory + '/' + name);
+    files = [...new Set([...baseline, ...found])].sort();
   } else if (id === 'runtime.full') {
     const found = (await readdir(resolve(root, 'tests/runtime')))
       .filter(name => /^[a-z][a-z0-9_-]*\.test\.ts$/.test(name)).map(name => 'tests/runtime/' + name);
@@ -145,7 +150,7 @@ export async function runLocalSuites(root, ids, options = {}) {
   const results = new Map(), governance = [], runtime = [];
   for (const id of [...new Set(ids)].sort()) {
     const isRuntime = id === 'runtime.full' || Object.hasOwn(RUNTIME_SUITES, id);
-    if (id !== 'governance.unit' && !isRuntime) { results.set(id, result(id, 'not_run', 'suite_adapter_unavailable')); continue; }
+    if (id !== 'governance.unit' && !isRuntime && !Object.hasOwn(NODE_CONSUMER_SUITES, id)) { results.set(id, result(id, 'not_run', 'suite_adapter_unavailable')); continue; }
     if (isRuntime && !isDisposableDatabaseUrl(options.testDatabaseUrl)) {
       results.set(id, result(id, 'not_run', options.testDatabaseUrl === undefined ? 'test_database_required' : 'test_database_rejected')); continue;
     }

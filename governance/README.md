@@ -53,6 +53,14 @@ Separate `suite_events` retain describe/suite statuses, because Node's test coun
 
 Runtime registration/behavior coverage and missing baseline governance remain explicit blockers even after every selected test passes. This increment does not close the actual surface-registration audit or enable trusted merge/execution authorization.
 
+The reviewed `consumer.agent-kit` adapter runs the real consumer's direct
+`tests/*.test.mjs` files with the same bounded Node reporter and a fixed
+`tests/workspace.test.mjs` deletion-protected baseline. It has no TypeScript
+loader, package hooks or database environment; it uses the 60-second non-runtime
+budget. New consumer tests are discovered, and missing/empty/skipped tests fail
+closed. This is a local consumer regression check, not Agent execution authority,
+an authenticated upstream release, or a replacement for surface auditing.
+
 During initial adoption, running against an `origin/main` without descriptors correctly returns `baseline_governance_unavailable`. Do not change the base to hide that result in PR evidence. Synthetic repositories with an established baseline test the successful path. The export command also supplies the same central context library and a thin `scripts/freedom.mjs` to consumers; each consumer must supply reviewed module descriptors and actual suite adapters.
 
 An explicit export, after committing all source files, remains:

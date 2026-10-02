@@ -12,9 +12,16 @@ export const RUNTIME_SUITES = Object.freeze(Object.fromEntries(Object.entries({
   'runtime.work-privacy': ['work-privacy'],
 }).map(([id, names]) => [id, Object.freeze(paths(names))])));
 
+// Reviewed consumer adapters share the same bounded reporter/process runner.
+// They never invoke package scripts or receive the producer's database URL.
+export const NODE_CONSUMER_SUITES = Object.freeze({
+  'consumer.agent-kit': Object.freeze({ directory: 'tests', baseline: Object.freeze(['tests/workspace.test.mjs']) }),
+});
+
 export const FULL_RUNTIME_BASELINE = Object.freeze(paths(`
 admin-access-session admin-access-sync admin-access admin-appointments admin-guild-candidates admin-sync-worker
-agent-commerce asset-lifecycle-races asset-lifecycle asset-storage avatar benefits client-connections co-creation
+agent-commerce asset-lifecycle-races asset-lifecycle asset-maintenance asset-r2 asset-storage avatar avatar-bridge
+avatar-command-compat avatar-upload benefits client-connections co-creation
 command-core commerce development-access-grant-race development-access development-map e2e-auth-isolation
 event-highlights events-past flows freedom_env game-console-feed game-console-routing game-console
 github-app-setup github-history github-identity github-repository-read github-social-routes github-social-store
@@ -23,7 +30,7 @@ guild-workspace identity-member image-cloudflare image-runtime link-preview main
 member-channels-core member-communications member-connections member-directory member-ecard member-experience
 member-services member-skill-registration notification-events onboarding-diagnostics onboarding opensource-marketing
 page-github page-issue-label page-tools-notification password-hash password-recovery platform-admin platform-credentials
-portal-client-recovery positioning preview-protocol published-skills repo-author-claims repo-maintainer-admin
+portal-client-recovery positioning preview-protocol private-work-commands published-skills repo-author-claims repo-maintainer-admin
 repo-maintainer-claims repo-maintainer-guild repo-maintainer-handoff repo-maintainer-policy repo-maintainer-sync
 repo-maintainer-webhook resource-scopes scoped-member-command share-promotion skill-book-guides skill-book-upstreams
 skill-collaboration skill-discovery skill-share-content skill-sharing skill-submission-upgrades skill-submissions

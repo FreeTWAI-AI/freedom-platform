@@ -33,6 +33,32 @@ test('runtime requires an explicitly supplied local fp database; unsafe URL cont
   for (const url of [database, 'postgres://postgres@127.0.0.1:5444/fp_fixture', 'postgresql://postgres@[::1]/fp_fixture']) assert(isDisposableDatabaseUrl(url));
 });
 
+test('reviewed consumer adapter runs all direct MJS cases without producer DB or package hooks', async t => {
+  const root = await fixtureRoot(t);
+  await put(root, 'tests/workspace.test.mjs', `import {test} from 'node:test'; import assert from 'node:assert/strict';
+test('consumer env',()=>{for(const name of ['TEST_DATABASE_URL','NODE_OPTIONS','GITHUB_TOKEN','DATABASE_URL','PGPASSWORD'])assert.equal(process.env[name],undefined);});`);
+  await put(root, 'tests/new-consumer.test.mjs', simple);
+  await put(root, 'package.json', JSON.stringify({ scripts: { pretest: 'exit 99', test: 'exit 99' } }));
+  const results = await runLocalSuites(root, ['consumer.agent-kit', 'consumer.agent-kit'], runtimeOptions);
+  assert.equal(results.length, 1); assert.equal(results[0].status, 'passed'); assert.equal(results[0].test_count, 2);
+  assert.deepEqual(results[0].selected_files, ['tests/new-consumer.test.mjs', 'tests/workspace.test.mjs']);
+  assert(!JSON.stringify(results).includes(database));
+});
+
+test('consumer baseline deletion, symlink, empty and skipped cases never pass', async t => {
+  const root = await fixtureRoot(t);
+  await put(root, 'tests/extra.test.mjs', simple);
+  assert.equal((await runLocalSuite(root, 'consumer.agent-kit')).reason, 'suite_files_unavailable');
+  await put(root, 'tests/workspace.test.mjs', '');
+  assert.equal((await runLocalSuite(root, 'consumer.agent-kit')).status, 'failed');
+  await put(root, 'tests/workspace.test.mjs', "import {test,describe} from 'node:test'; test('okay',()=>{}); describe.skip('private-suite',()=>{});");
+  assert.equal((await runLocalSuite(root, 'consumer.agent-kit')).status, 'failed');
+  await unlink(join(root, 'tests/workspace.test.mjs'));
+  await symlink(join(root, 'tests/extra.test.mjs'), join(root, 'tests/workspace.test.mjs'));
+  assert.equal((await runLocalSuite(root, 'consumer.agent-kit')).reason, 'suite_files_unavailable');
+  assert.equal((await runLocalSuite(root, 'consumer.exec-arbitrary')).reason, 'suite_adapter_unavailable');
+});
+
 test('runtime fixed argv executes TypeScript with clean environment and no package hooks', async t => {
   const root = await runtimeFixture(t, 'runtime.command-core', `
 import {test} from 'node:test'; import assert from 'node:assert/strict';
