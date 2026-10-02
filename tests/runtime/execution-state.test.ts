@@ -182,6 +182,15 @@ test('ordinary outcome cannot undo pause, Stop or non-running state even with ap
   }
   for (const control of ['pause', 'stop'] as const) { const input = vectorInput(executionVectors[4]); input.snapshot.desired_control = control; deny(input, 'invalid_transition'); }
 });
+test('dispatch and ordinary outcome reject old recovery generation even when task/control epochs match', () => {
+  for (const vector of [executionVectors[3], executionVectors[4]]) {
+    const input = vectorInput(vector); input.snapshot.recovery_generation = input.assertions.recovery_generation = '5';
+    deny(input, 'dispatch_fenced');
+  }
+  const input = vectorInput(executionVectors[13]); input.snapshot.recovery_generation = input.assertions.recovery_generation = '5';
+  const retained = evaluateExecution(input); assert(retained.admissible); assert.equal(retained.next!.state, 'reconciling');
+  assert.equal(retained.next!.dispatches[0].recovery_generation, '4'); assert.equal(retained.next!.evidence.length, 1);
+});
 test('wire integers reject fractional/exponent tokens before Number rounding', () => {
   for (const token of ['1.0000000000000001', '0.99999999999999999', '1e0', '1.0', '10000000000000001e-16']) {
     deny(JSON.stringify(base).replace('"attempt_number":1', `"attempt_number":${token}`), 'invalid_input');

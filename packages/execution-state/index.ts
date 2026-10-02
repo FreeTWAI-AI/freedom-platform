@@ -124,14 +124,15 @@ export function evaluateExecution(raw: unknown): ExecutionDecision {
       case 'record_dispatch': {
         requireFact(s.state === 'running' && s.desired_control === 'run', 'invalid_transition'); fresh(true, true); const d = dispatch(event.dispatch_id);
         requireFact(d.attempt_id === s.current_attempt_id && d.state === 'proposed' && d.task_epoch === s.task_lease.epoch
-          && d.control_epoch === s.control.epoch && s.control.acknowledged_epoch === s.control.epoch, 'dispatch_fenced');
+          && d.control_epoch === s.control.epoch && d.recovery_generation === s.recovery_generation
+          && s.control.acknowledged_epoch === s.control.epoch, 'dispatch_fenced');
         d.state = 'in_flight'; d.usage = 'unknown'; break;
       }
       case 'record_outcome': {
         requireFact(s.state === 'running' && s.desired_control === 'run', 'invalid_transition');
         fresh(); const d = dispatch(event.dispatch_id);
         requireFact(d.attempt_id === s.current_attempt_id && d.state === 'in_flight' && d.task_epoch === s.task_lease.epoch
-          && d.control_epoch === s.control.epoch, 'dispatch_fenced');
+          && d.control_epoch === s.control.epoch && d.recovery_generation === s.recovery_generation, 'dispatch_fenced');
         d.state = event.outcome; d.usage = event.usage; s.state = unresolved(s) ? 'reconciling' : 'running'; break;
       }
       case 'wait': fresh(); requireFact(['ready', 'running'].includes(s.state), 'invalid_transition');
