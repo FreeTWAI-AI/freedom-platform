@@ -33,6 +33,37 @@ Metadata includes actual byte size/SHA-256, content type, transform version and 
 
 ## Fake-store evidence and remaining lifecycle work
 
+### Native R2 adapter
+
+Import `createR2ObjectStore` from [r2.ts](r2.ts) with an explicit native bucket
+binding. No bucket, credential, environment setting, route or public URL is
+created or discovered. The implementation follows the
+[R2 Workers API](https://developers.cloudflare.com/r2/api/workers/workers-api-reference/).
+Conditional PUT uses `etagDoesNotMatch: '*'`; a precondition failure means only
+`exists`, not same content. Call `writeVerifiedObject` for full read-back and
+actual SHA-256 comparison, including a PUT whose outcome is unknown. There is
+no unconditional write retry. ETag is not a content digest.
+
+The adapter validates its versioned metadata, copies input before awaits and
+bounds native response bytes to the profile size. A range is snapshotted,
+validated against HEAD, and GET is conditioned on the same ETag; metadata-only
+conditional failure is unavailable. Full GET accepts an absent range or exactly
+offset zero/full length, as returned by the native runtime. Internal GET returns
+only the shared metadata, opaque ETag and bounded body; domain ACL still belongs
+to the caller. Upstream messages and arbitrary metadata are not propagated.
+
+Delete is disabled unless a server-owned maintenance adapter explicitly sets
+`allowDelete: true`. Its `deleted`/`missing` result describes the existence
+observed before deletion, not an atomic existence result or durable tombstone.
+The native R2 delete API returns no existence result. GC must still provide DB
+fencing, pins and late-PUT reconciliation; this option does not authorize GC.
+
+[Native binding tests](../../tests/runtime/asset-r2.test.ts) run actual local
+workerd R2 via Miniflare with synthetic ephemeral objects, not cloud credentials.
+They cover conditional/concurrent writes, ranges, input snapshots, digest
+corruption, unknown outcomes, bounds, sanitized errors and disabled deletion.
+Cloud/staging/prod, backup/restore and route activation are separate evidence.
+
 `FakeObjectStore` is test-only and models atomically visible writes, no overwrite while an object exists, independent snapshot reads, missing deletes and injected pre/post-effect failures. Errors use fixed codes. A post-PUT failure can leave durable bytes; a post-delete failure can leave absence. Repeated verification/delete reconcile those outcomes. A successful storage verification followed by failed DB finalize can be retried by the future service with the same intent identity.
 
 DELETE has no ACL or GC eligibility checks. The fake permits a late PUT to recreate a deleted key: permanent tombstones, deletion fences, no-attach checks, live-reference/intent/backup pins, retention and orphan reconciliation are the future DB lifecycle's responsibility. No fake GC or fake intent state machine claims to prove those concurrency guarantees. Never call DELETE from untrusted client input or activate automatic cleanup from this package.
