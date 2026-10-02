@@ -172,6 +172,21 @@ test('new shape cannot be enabled or observed before its migration', () => {
   assert.ok(codes(result).includes('observed_shape_schema_missing'));
 });
 
+test('compatible pre085 local matrix is NOT proof for restore across historical085 policy', () => {
+  const f = fixture();
+  f.scan = prefix(f.scan, 84);
+  f.host.observation.schema_ledger = structuredClone(f.scan.ledger);
+  f.host.observation.schema_ledger_digest = f.scan.ledger_digest;
+  f.host.release_records[0].schema_ledger_digests = [f.scan.ledger_digest];
+  f.host.release_records[0].capabilities = CAPABILITIES.filter((c) => c !== 'work.server-policy.v1');
+  f.host.rollback_floor_shapes = ['work.private-human-result.v1'];
+  const result = evaluate(f);
+  assert.equal(result.status, 'compatible', 'v1 does not model a historical minimum schema or policy-capability ledger');
+  assert.equal(result.restore_proof, false, 'a separate historical schema/policy-aware restore gate remains mandatory');
+  assert.equal(result.deployment_authority, false);
+  assert.ok(result.required_capabilities.includes('work.private-human-result.v1'), 'shape history is still required');
+});
+
 test('data boundary rejects accessors, functions, sparse arrays, cycles, oversized data and trailing delimiters', () => {
   let invoked = 0;
   const cases = [

@@ -88,6 +88,16 @@ does not erase that historical compatibility obligation. The host must retain
 the relevant shape in its independent rollback floor; this library neither
 collects those rows nor supplies evidence that they can safely be forgotten.
 
+This v1 models **shape history**, not an independent historical minimum schema
+ledger or policy-capability history. For example, a host supplying a restored
+schema 084 and the private-human-Result shape retains ACL/history requirements,
+but does not cause this evaluator to infer that schema 085 previously existed.
+Its conditional `work.server-policy.v1` requirement applies when 085 is planned.
+A locally compatible 084 diagnostic is therefore **not approval to restore or
+roll back across 085**. The real restore gate must separately retain and enforce
+historical minimum ledger/capability requirements; that gate remains unavailable
+here. `restore_proof` is always false, including in this counterexample.
+
 Each `release_records` entry contains exactly:
 
 - `source_sha`, `artifact_sha256`, `evidence_id`;
@@ -102,6 +112,12 @@ Matching only source SHA, semver, newest migration number or a candidate's claim
 capabilities is insufficient. A withdrawn/expired record cannot be recovered by
 a matching schema digest. An evidence ID is a bounded audit reference, not a URL,
 credential or authentication mechanism. Reports do not echo raw host input.
+
+Requested enablement is not authorization to change configuration. Before using
+the diagnostic, an integrating host must independently account for every shape
+the actual proposed configuration can enable; an omitted `enable_shapes` entry
+cannot serve as proof that the candidate will not enable it. This library does
+not inspect or apply a cloud overlay or a persistence-policy update.
 
 ## Supported rules
 
