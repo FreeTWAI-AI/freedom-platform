@@ -75,7 +75,7 @@ Verify 報告每 row/variant 必屬 verified-linked、合法 deleted/replaced、
 
 沿共同 Asset lifecycle。R2 原 `abandoned` 在這組對應未 finalize 的 UploadIntent，不建立第二套可見 Asset enum。GC 短交易檢查沒有 live pointer/intent/backup pin，領 deletion fence 後禁止 attach；交易外刪除，之後記結果。lease 逾期與重送可對帳；GC 之後才完成的遲到 PUT 由 orphan scan 再清理。
 
-R2 的 proposed 起點：intent 24 小時後可判 abandoned；uncommitted object 在無 live reference/intent 且滿至少 48 小時後清理；一般替換的舊版本可保留 7 日供回退。這些均需政策/實测定版；使用者刪除應立即不可讀，物理與 backup 保留遵正式刪除政策，不能把 7 日當作無條件恢復使用者刪除內容的權限。ready object 不做全 bucket 到期清除。
+Ted 於 2026-10-02 同意的頭像清理起點：未完成且未被引用的物件至少保留 48 小時、一般替換的舊圖保留 7 日、使用者刪除後立即不可讀。實際回收仍須同時滿足沒有 live reference/intent/backup pin，並取得 deletion fence；不能只按物件年齡刪除。這項同意不表示正式清理已啟動，也沒有批准備份保留、刪除或還原政策。7 日不是無條件恢復使用者刪除內容的權限，ready object 不做全 bucket 到期清除。原 R2 提議的 intent 24 小時 abandoned 判定仍待實測定版，不能與這次保留政策同意混為一談。
 
 Maintenance 每 run 限批數、物件数、時間與 in-flight bytes，與 GitHub sync 預算分離。使用共同 queue transport 不改 DB 的 truth；單純媒體功能不依賴模型/Grant readiness。
 
