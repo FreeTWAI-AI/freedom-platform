@@ -94,6 +94,12 @@ export function CommunityPanel({ client, onNavigate }: { client: PortalClient; o
       <BrandPoster compact/>
     </header>
     <CommunityLinks/>
+    <section className="card stack community-project" aria-labelledby="community-erp-demo-title">
+      <h3 id="community-erp-demo-title">ERP／CRM 產業範本試用</h3>
+      <p>mars-tw 的 MIT 個人開源專案，提供零售、批發、服務、餐飲、製造、電商、專案及一般企業八種範本。每位訪客建立自己的模擬工作區，只使用測試幣與虛構商品。</p>
+      <div className="actions"><a className="btn btn-ghost" href="https://freedom-erp-crm-demo.digimkt.workers.dev/" target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">建立我的模擬測試系統 ↗</a><a className="btn btn-ghost" href="https://github.com/mars-tw/freedom-erp-crm" target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">查看開源程式與一指令建立 ↗</a></div>
+      <p className="hint">開啟獨立站點，不轉送工坊會員資料。公開測試資料閒置 72 小時後清除；沒有接入真實財務。</p>
+    </section>
     <section className="community-footprint" aria-labelledby="community-footprint-title">
       <header><p className="home-eyebrow">OUR FOOTPRINT</p><h3 id="community-footprint-title">社群足跡</h3></header>
       {error && <div role="alert" className="banner banner-error"><p>{error}</p><button type="button" className="btn btn-ghost" onClick={() => setReload(value => value + 1)}>重新載入社群足跡</button></div>}
