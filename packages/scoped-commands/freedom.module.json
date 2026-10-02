@@ -2,7 +2,7 @@
   "format": "freedom.module/v1",
   "module_id": "scoped-commands",
   "owner_role": "foundation",
-  "owned_paths": ["packages/scoped-commands/**", "migrations/078_scoped_member_commands.sql", "tests/runtime/scoped-member-command.test.ts"],
+  "owned_paths": ["packages/scoped-commands/**", "migrations/078_scoped_member_commands.sql", "tests/runtime/scoped-member-command.test.ts", "tests/runtime/avatar-command-compat.test.ts"],
   "public_exports": ["packages/scoped-commands/index.ts"],
   "dependencies": ["command-core", "resource-scopes"],
   "contract_families": ["common"],

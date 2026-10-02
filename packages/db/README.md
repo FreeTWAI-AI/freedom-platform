@@ -2,7 +2,7 @@
 
 `index.ts` retains the public `command(pool, input, authorize, run)`, `transaction`, `digest`, `journal` and `checkVersion` entrypoints. `command` is an alias of `memberCommand`. Existing callers and historical receipts do not migrate.
 
-The internal orchestration in [command-core.ts](command-core.ts) depends on PostgreSQL types, transaction handling and neutral Problem errors, not the identity or execution domain. Server-owned adapter ports provide current authentication/locking, receipt serialization, digest and receipt storage. The member adapter is the only implemented adapter. No service/execution API or credential acceptance is enabled.
+The internal orchestration in [command-core.ts](command-core.ts) depends on PostgreSQL types, transaction handling and neutral Problem errors, not the identity or execution domain. Server-owned adapter ports provide current authentication/locking, receipt serialization, digest and receipt storage. The public DB command entrypoint still selects only the legacy member adapter. No service/execution API or credential acceptance is enabled.
 
 ## Order and invariants
 
@@ -13,6 +13,15 @@ The digest stays `digest({body, expected: expected ?? null})`. The historical so
 The follow-on [resource-scopes package](../resource-scopes/README.md) shares only current member user/session locking through `member-session.ts`; it adds no scope check, query, mapping creation or new receipt behavior to the legacy `command()` path. Its separate context helper does not replace this command wrapper.
 
 Ports are internal server functions, not a serialized VerifiedContext or an authorization proof. Each adapter must verify backing credentials and current authority inside this transaction, define lock ordering and a collision-free namespace, and pass real revocation/concurrency tests before exposing a route. No provider/object-store/network I/O belongs in core callbacks. Historical avatar normalization remains inside its existing command callback and is not fixed by this extraction.
+
+The closed [avatar compatibility adapter](../scoped-commands/README.md#closed-avatar-receipt-compatibility)
+reuses internal `legacyMemberReceiptPorts` from `member-command.ts`, keeping the
+original advisory string, hash and receipt SQL verbatim. That internal factory
+does not authenticate and is not exported from the public DB index. It enables
+the reviewed avatar adapter to compose current personal authority and scoped
+facts with the existing receipt in one transaction, not a general caller-selected
+receipt profile. The ordinary member wrapper gains no scope or expiry-clock
+queries and its historical behavior remains unchanged.
 
 ## Additive scoped member commands
 

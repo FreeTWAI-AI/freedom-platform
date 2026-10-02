@@ -15,3 +15,58 @@ credentials, external I/O, publication/fanout or implicit target ACL. Migration
 [078](../../migrations/078_scoped_member_commands.sql) is additive; the separate
 scoped journal/outbox never writes legacy community events. Domain callbacks must
 authorize the actual target and supply only bounded, explicit metadata.
+
+## Closed avatar receipt compatibility
+
+`avatarMemberCommand<T>(pool, input: Command, authorize(q, context), run(q, context))`
+is a server-only migration adapter for exactly `POST /api/v1/me/avatar`. It does
+not alter `command()` or make receipt profiles caller-selectable. Its body is
+exactly `{content_type, sha256}` (JPEG/PNG/WebP MIME and the lowercase SHA-256 of
+the original upload); asset/intent/generated representation IDs never enter the
+historical request hash. Target is implicitly the authenticated member's own
+avatar and scope is always that member's current personal scope. Arbitrary
+operations, explicit target/scope/profile overrides and extra body fields fail.
+
+The order is current user/session → person/personal scope → original
+user/operation/key advisory lock → current domain authorization → decision-clock
+session refresh → original digest/receipt → replay or new domain/facts/receipt
+on one transaction client. Internal legacy receipt ports are shared with the
+unchanged member wrapper; the digest remains `digest({body, expected: expected ??
+null})`, not the scoped-command digest. Missing mappings are lazily created;
+disabled principal/personal scope still denies even an old successful receipt.
+
+The run callback may use `scopedJournal` only with operation
+`member.avatar.replace`, aggregate type `member_avatar`, ID `actor.user_id` and
+the real saved avatar version. Journal/outbox are scoped facts; there is no
+community fanout or second scoped receipt. The callback must publish the actual
+pointer/version and return the existing avatar response shape before this same
+transaction inserts the old receipt. Failure of any part rolls all of it back.
+As for `scopedMemberCommand`, input/response JSON snapshots are bounded and
+frozen, but external variables captured by callbacks are the domain's duty to
+snapshot; current target ACL and actual version/fence checks are not inferred.
+
+A trusted upload facade can probe for old replay before selecting storage mode
+or invoking any normalizer/provider: call this adapter and throw a private
+identity sentinel from `run` on a miss. The transaction then rolls back without
+creating a success receipt or retaining newly created mappings. A successful
+old receipt skips `run`, including current version/CAS and new pipeline setup;
+current member eligibility is still required in `authorize`. The final adapter
+invocation rechecks the same receipt under its original lock, so a competing
+legacy/new writer cannot produce a second effect. Keep media I/O outside these
+callbacks. If the new-effect callback waits on additional domain/policy locks,
+call `assertCurrentSessionClock` after those waits before publishing, on the
+same locked transaction client. This adapter alone activates no HTTP route,
+storage binding, mode switch, deployment or machine credentials.
+
+`avatar-command-compat.test.ts` exercises actual avatar/pointer tables and scoped
+facts, old/new receipt races, lazy legacy replay, revocation and elapsed-time
+expiry, metadata-only rollback, closed input/live-context restrictions and a
+DML-only database role. Object metadata is synthetic: these CORE tests perform
+no provider write and are not proof of an upload pipeline or production cutover.
+
+Local evidence on 2026-10-02: 22 compatibility cases plus legacy command/scoped
+command/avatar/flows/access-session regressions passed (108 total, zero skips)
+on an explicitly provisioned disposable PostgreSQL target. Fresh schemas and the
+DML-only role were removed afterward; typecheck and diff whitespace checks also
+passed. This evidence does not attest deployment, real object durability or
+trusted CI enforcement.
