@@ -2,6 +2,11 @@
 
 This increment composes the [scoped member command core](../../packages/scoped-commands/index.ts) with [asset-storage](../../packages/asset-storage/README.md). ASSET-B provides a [default-legacy read bridge](../identity-membership/avatar-bridge.md) and a [compatible upload facade](avatar-upload.md) on the existing POST. New Asset uploads require an injected store plus explicit database policy/revision/quota; defaults remain legacy and persistence-disabled. These modules do not configure cloud resources, permit private Work writes, or enable automatic cleanup.
 
+The common phases now live in one [profile-bound lifecycle engine](engine.md).
+`index.ts` is the avatar domain adapter, not a second upload state machine.
+Prepare serializes retained quota per scope/purpose before target locks. All
+phases prelock affected Asset rows in UUID order before decision-clock checks.
+
 ## One version authority, not a live avatar cutover
 
 The target is the real `member_avatars.user_id` FK and **its existing `aggregate_version` is the only version authority**. Prepare creates a metadata-only avatar row when absent, as the existing avatar domain does. Finalize increments that real version and writes a typed sidecar pointer atomically, but preserves `image_bytes`. Migration 080 defaults to `legacy`: finalize leaves those rows legacy-routed unless a separately authorized operator explicitly selects `bridge` or `r2_only`. In those modes finalize activates the asset source atomically; reads never fall back to retained bytes.
