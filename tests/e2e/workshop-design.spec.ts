@@ -26,7 +26,8 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
   await expect(page.getByRole('heading', { name: '會員首頁', exact: true })).toBeVisible();
   await page.setViewportSize({ width: 1440, height: 1000 });
   for(const cover of await page.locator('.home-module-cover').all()){
-    const box=await cover.boundingBox();expect(box!.width).toBeLessThanOrEqual(112);expect(box!.height).toBeLessThanOrEqual(112);
+    // Desktop covers span the card without dominating its content.
+    const box=await cover.boundingBox(),cardBox=await cover.locator('..').boundingBox();expect(box!.width).toBeLessThanOrEqual(cardBox!.width);expect(box!.height).toBeLessThanOrEqual(130);
   }
   await page.screenshot({ path: 'test-results/design-home-desktop.png', fullPage: true });
   const destinations = [
@@ -50,9 +51,15 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
         await expect(page.locator('.home-module-card')).toHaveCount(4);
         for(const card of await page.locator('.home-module-card').all()){
           const cover=card.locator('.home-module-cover'),box=await cover.boundingBox();
-          expect(box!.height,'Module artwork should not dominate the phone').toBeLessThanOrEqual(96);
-          expect(box!.width).toBeLessThanOrEqual(96);
-          expect((await card.boundingBox())!.height).toBeLessThan(220);
+          if(width>=1100){
+            // Desktop artwork stays above the compact card content.
+            expect(box!.height).toBeLessThanOrEqual(130);
+            expect((await card.boundingBox())!.height).toBeLessThan(300);
+          }else{
+            expect(box!.height,'Module artwork should not dominate the phone').toBeLessThanOrEqual(96);
+            expect(box!.width).toBeLessThanOrEqual(96);
+            expect((await card.boundingBox())!.height).toBeLessThan(220);
+          }
         }
       }
       if (width === 390 && button === '職業公會') await page.screenshot({ path: 'test-results/design-guild-phone.png' });

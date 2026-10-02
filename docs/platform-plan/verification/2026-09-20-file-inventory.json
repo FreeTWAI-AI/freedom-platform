@@ -819,8 +819,8 @@
     },
     {
       "path": "apps/portal-web/src/light-theme.css",
-      "bytes": 12457,
-      "sha256": "b38a3f09c5d5eb651229537f5f27669578c83952a0b840b64b23a2e43a0ca2b1"
+      "bytes": 17333,
+      "sha256": "3099ed72f632443fb6d81386d8fd12cabeeefb7fba8b6a9ea9e0add364cb1e28"
     },
     {
       "path": "apps/portal-web/src/main.tsx",
@@ -1099,8 +1099,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/HomeDesign.css",
-      "bytes": 16101,
-      "sha256": "4a1f76e4688c32602f0e028f5c7ef28d960df84566cf8d5b8af01bdaff0664c2"
+      "bytes": 20014,
+      "sha256": "ff2dbbd207c30fa55beff1c5da64973ba5dc4c9be57882d9e07b825b0300cb9c"
     },
     {
       "path": "apps/portal-web/src/modules/LegacyCommercePanels.tsx",
@@ -1154,8 +1154,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberHome.tsx",
-      "bytes": 12223,
-      "sha256": "48d28eab9bf9d55da61e3ecb8ae7ecfb20e29f32b13f0712b80ddd742f0bbc76"
+      "bytes": 12514,
+      "sha256": "cdca8e2fb7dc35002074669ffa2b07d0e04dd2fe37f5e305f95f861e43eccc6d"
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
@@ -1174,8 +1174,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberRecommendations.tsx",
-      "bytes": 3492,
-      "sha256": "12a0ab9486430975b967337c7241f2d46db7a2e76ca47d6a07cb4e6cd505d7b2"
+      "bytes": 3544,
+      "sha256": "54f1091a62f735b37987041238ce3cad0d287f4281f05b4da5de828e97d83cb1"
     },
     {
       "path": "apps/portal-web/src/modules/MemberServices.css",
@@ -4829,8 +4829,8 @@
     },
     {
       "path": "tests/e2e/workshop-design.spec.ts",
-      "bytes": 5324,
-      "sha256": "eedf85652def5d2b0562b0849f0b03f29dfd82ff21ebef3966d4253648c74fab"
+      "bytes": 5714,
+      "sha256": "949f6c15d2a216edb1bb11f7e6d34622a4db20838078f7f6615dda9f094ed779"
     },
     {
       "path": "tests/integration/repositories.test.ts",
