@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { before, after, test } from 'node:test';
-import { generateKeyPairSync, randomUUID, sign, type KeyObject } from 'node:crypto';
+import { createHash, generateKeyPairSync, randomUUID, sign, verify, type KeyObject } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Pool, type PoolClient } from 'pg';
 import { migrate } from '../../scripts/database.js';
 import { createRuntimeRegistrations } from '../../modules/agent-control/runtime-registration.js';
-import { createRuntimeRegistrationChallenge } from '../../modules/agent-control/runtime-proof.js';
+import { createRuntimeRegistrationChallenge, verifyRuntimeRegistrationProof } from '../../modules/agent-control/runtime-proof.js';
 import { withMemberScope } from '../../packages/resource-scopes/index.js';
 import type { Actor } from '../../modules/identity-membership/service.js';
 
@@ -309,4 +309,32 @@ test('RUNTIME-ADV missing revoke CAS precondition returns428 before any SQL muta
   await assert.rejects(api.revoke(f.actor,{key:randomUUID(),runtimeDeviceId:value.runtimeDeviceId} as Parameters<typeof api.revoke>[1]),status(428));
   assert.deepEqual(await counts(),before);
   assert.deepEqual(await api.read(f.actor,{runtimeDeviceId:value.runtimeDeviceId}),value);
+});
+
+test('RUNTIME-ADV actual valid ECDSA high-S alternative cannot bypass proof digest or challenge consumption',async()=>{
+  const f=await fixture(),parts=f.confirm.proof.split('.'),signature=Buffer.from(parts[2],'base64url');
+  assert.equal(signature.length,64);
+  // secp256r1 group order n, SEC 2 v2 §2.4.2:
+  // https://www.secg.org/sec2-v2.pdf (printed page10). ECDSA (r,n-s) is
+  // mathematically another valid signature; confirm identity still binds bytes.
+  const order=BigInt('0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551');
+  const s=BigInt('0x'+signature.subarray(32).toString('hex'));
+  const low=s<order-s?s:order-s,high=order-low;
+  const alternate=(value:bigint)=>[parts[0],parts[1],Buffer.concat([signature.subarray(0,32),Buffer.from(value.toString(16).padStart(64,'0'),'hex')]).toString('base64url')].join('.');
+  const lowProof=alternate(low),highProof=alternate(high);
+  assert.notEqual(lowProof,highProof);
+  assert.notEqual(createHash('sha256').update(lowProof).digest('hex'),createHash('sha256').update(highProof).digest('hex'));
+  for(const candidate of [lowProof,highProof]) {
+    assert.equal(verify('sha256',Buffer.from(parts.slice(0,2).join('.')),{key:f.privateKey,dsaEncoding:'ieee-p1363'},Buffer.from(candidate.split('.')[2],'base64url')),true);
+    assert.equal(await verifyRuntimeRegistrationProof({proof:candidate,challenge:f.challenge,public_jwk:f.publicJwk}),true);
+  }
+  const before=await counts(),original={...f.confirm,proof:lowProof};
+  const value=await api.confirm(f.actor,original);
+  const after=await counts();
+  assert.deepEqual(after,before.map((n,index)=>n+(index===0?0:1)));
+  await assert.rejects(api.confirm(f.actor,{...original,proof:highProof}),error=>
+    status(409)(error)&&(error as {code?:string}).code==='idempotency_conflict');
+  await assert.rejects(api.confirm(f.actor,{...original,key:randomUUID(),proof:highProof}),status(409));
+  assert.deepEqual(await counts(),after);
+  assert.deepEqual(await api.confirm(f.actor,original),value);
 });
