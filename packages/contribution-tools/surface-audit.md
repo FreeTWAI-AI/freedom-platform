@@ -28,8 +28,11 @@ is not a separate explicit registration or a behavior proof from this audit.
 The admitted leaf grammar is intentionally narrow: an exported, synchronous,
 non-generator function, one direct `const app = new Hono<...>()`, top-level
 direct `app.get/post(string literal, arrow handler)` statements, the fixed
-private-work `app.use` path, and a final `return app`. Other constant setup
-declarations are allowed but cannot reference/escape `app`. Hono must be a
+private-work `app.use` path, and a final `return app`. The only other leaf setup
+allowed is the reviewed avatar `uploadAvatar = createAvatarUploadFacade(pool,
+{store, legacySave: (input, upload) => saveAvatar(pool, input, upload)})` shape.
+Arbitrary constant initializers, including throwing IIFEs, are not admitted.
+Hono must be a
 direct unaliased named import from `hono`. All receiver references, including
 escaped identifier spelling and template interpolations, are inspected.
 Computed members, method/receiver aliases, conditional/nested registration,
@@ -40,8 +43,11 @@ is not interpreted or executed.
 `platform-app.ts` must directly import the two fixed factory names from their
 fixed route modules and mount each exactly once with
 `app.route('/api/v1', factory(...))` in the body of `createPlatformApp`.
-Missing/aliased/conditional mounts, changed import source/prefix and literal
-shadow endpoints are detected. The aggregate's other routes, delegated helpers,
+Missing/aliased/conditional mounts, changed import source/prefix, literal shadow
+endpoints, early root return/throw, wrong final receiver, and root receiver
+mutation/unknown escapes are detected. Four pre-existing public/member
+promotion/service delegates are explicitly recognized as **uncovered** escapes,
+not certified registration implementations. The aggregate's other routes, delegated helpers,
 dynamic loops, middleware and runtime entrypoints remain **uncovered**.
 
 `registration_status: passed` only means the fixed six leaf registrations and
@@ -49,6 +55,9 @@ their mount syntax matched. Overall `status` is always `unavailable` or
 `failed`, never `passed`. Auth-profile equality checks a declaration, not actual
 session/onboarding/CSRF/share/HEAD/304 behavior. Real runtime acceptance remains
 mandatory. The report never authorizes execution or merge.
+This is structural registration consistency, not semantic reachability: even
+reviewed constructor/setup dependencies can throw or fail configuration at run
+time. No static success here removes that runtime acceptance requirement.
 
 ## Host and data boundary
 

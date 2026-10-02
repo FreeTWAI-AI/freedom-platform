@@ -78,6 +78,25 @@ export function auditSurfaceRegistrations({ baseline, candidate, changedPaths = 
   const member = (node, object, name) => node && ts.isPropertyAccessExpression(node) && !node.questionDotToken
     && ident(node.expression, object) && (!name || node.name.text === name);
   const statementCall = (node, body) => ts.isExpressionStatement(node.parent) && node.parent.parent === body;
+  function avatarSetup(declaration) {
+    const call = declaration.initializer;
+    if (!ident(declaration.name, 'uploadAvatar') || !call || !ts.isCallExpression(call) || !ident(call.expression, 'createAvatarUploadFacade')
+      || call.questionDotToken || call.arguments.length !== 2 || !ident(call.arguments[0], 'pool')) return false;
+    const object = call.arguments[1];
+    if (!ts.isObjectLiteralExpression(object) || object.properties.length !== 2) return false;
+    const store = object.properties[0], save = object.properties[1];
+    if (!ts.isShorthandPropertyAssignment(store) || !ident(store.name, 'store') || store.objectAssignmentInitializer
+      || !ts.isPropertyAssignment(save) || !ident(save.name, 'legacySave') || !ts.isArrowFunction(save.initializer)) return false;
+    const fn = save.initializer, body = fn.body;
+    return fn.parameters.length === 2 && fn.parameters.every((x, i) => ident(x.name, ['input', 'upload'][i]) && !x.initializer && !x.dotDotDotToken)
+      && ts.isCallExpression(body) && ident(body.expression, 'saveAvatar') && !body.questionDotToken && body.arguments.length === 3
+      && body.arguments.every((x, i) => ident(x, ['pool', 'input', 'upload'][i]));
+  }
+  function finalReturn(ast, selected, path, revision) {
+    const last = selected.fn.body.statements.at(-1);
+    if (!last || !ts.isReturnStatement(last) || !ident(last.expression, 'app')
+      || selected.fn.body.statements.filter(x => ts.isReturnStatement(x)).length !== 1) add(revision, path, 'registration_return_unsupported');
+  }
   function factory(ast, name, path, revision) {
     const values = ast.file.statements.filter(x => ts.isFunctionDeclaration(x) && ident(x.name, name) && exported(x) && x.body);
     if (values.length !== 1) { add(revision, path, 'registration_factory_missing', 'failed'); return null; }
@@ -121,15 +140,20 @@ export function auditSurfaceRegistrations({ baseline, candidate, changedPaths = 
         method: method.toUpperCase(), path: '/api/v1' + path, line: ast.file.getLineAndCharacterOfPosition(node.getStart()).line + 1 });
     }
     if (ast.nodes.some(x => ident(x, 'app') && !allowed.has(x))) add(revision, p.entry, 'registration_receiver_escape');
+    let setups = 0;
     for (const statement of selected.fn.body.statements) {
-      if (ts.isVariableStatement(statement) && (statement.declarationList.flags & ts.NodeFlags.Const)) continue;
+      if (ts.isVariableStatement(statement) && (statement.declarationList.flags & ts.NodeFlags.Const)
+        && statement.declarationList.declarations.length === 1) {
+        const declaration = statement.declarationList.declarations[0];
+        if (declaration === selected.app) continue;
+        if (p.factory === 'createAvatarRoutes' && avatarSetup(declaration) && ++setups === 1) continue;
+      }
       if (ts.isReturnStatement(statement) && ident(statement.expression, 'app')) continue;
       if (ts.isExpressionStatement(statement) && ts.isCallExpression(statement.expression)
         && member(statement.expression.expression, 'app')) continue;
       add(revision, p.entry, 'registration_factory_grammar_unsupported');
     }
-    if (selected.fn.body.statements.filter(x => ts.isReturnStatement(x) && ident(x.expression, 'app')).length !== 1
-      || !ts.isReturnStatement(selected.fn.body.statements.at(-1))) add(revision, p.entry, 'registration_return_unsupported');
+    finalReturn(ast, selected, p.entry, revision);
     if (!same(uses.sort(), [...p.middleware].sort())) add(revision, p.entry, 'registration_middleware_changed');
     for (const [, , op] of p.routes) {
       const count = seen.filter(x => x === op).length;
@@ -152,6 +176,33 @@ export function auditSurfaceRegistrations({ baseline, candidate, changedPaths = 
     const imports = refs.filter(x => ts.isImportSpecifier(x.parent) && permitted.has(x));
     if (mounts !== 1 || imports.length !== 1) add(revision, ROOT, 'registration_mount_missing_or_changed', 'failed');
     if (refs.some(x => !permitted.has(x))) add(revision, ROOT, 'registration_factory_escape');
+  }
+  function inspectRootReceiver(ast, selected, revision) {
+    finalReturn(ast, selected, ROOT, revision);
+    const final = selected.fn.body.statements.at(-1);
+    for (const statement of selected.fn.body.statements) {
+      if (ts.isVariableStatement(statement) || ts.isExpressionStatement(statement) || ts.isForOfStatement(statement) || statement === final) continue;
+      add(revision, ROOT, 'registration_root_grammar_unsupported');
+    }
+    // Return/throw in an executing root block/loop is not a handler return.
+    for (const node of ast.nodes) if ((ts.isReturnStatement(node) || ts.isThrowStatement(node)) && node !== final) {
+      let owner = node.parent;
+      while (owner && !ts.isFunctionLike(owner)) owner = owner.parent;
+      if (owner === selected.fn) add(revision, ROOT, 'registration_root_grammar_unsupported');
+    }
+    for (const ref of ast.nodes.filter(x => ident(x, 'app'))) {
+      if (ref === selected.app.name || (ts.isReturnStatement(final) && ref === final.expression)) continue;
+      const parent = ref.parent;
+      if (member(parent, 'app') && ts.isCallExpression(parent.parent) && parent.parent.expression === parent
+        && !parent.parent.questionDotToken && (METHODS.has(parent.name.text) || parent.name.text === 'onError')) continue;
+      // Existing aggregate delegate helpers are explicitly NOT audited. Allowing
+      // these references avoids claiming the whole root is a closed grammar;
+      // the mandatory aggregate surface_unmapped/behavior blockers remain.
+      if (ts.isCallExpression(parent) && parent.arguments[0] === ref && !parent.questionDotToken
+        && ['registerMemberPromotion', 'registerMemberServices', 'registerPublicPromotion', 'registerPublicMemberServices'].some(name => ident(parent.expression, name))
+        && statementCall(parent, selected.fn.body)) continue;
+      add(revision, ROOT, 'registration_receiver_escape');
+    }
   }
   for (const [revision, reader] of [['baseline', baseline], ['candidate', candidate]]) {
     if (!reader || !Array.isArray(reader.paths) || reader.paths.length > 8192 || typeof reader.read !== 'function') {
@@ -194,6 +245,7 @@ export function auditSurfaceRegistrations({ baseline, candidate, changedPaths = 
       const rootFactory = factory(ast, 'createPlatformApp', ROOT, revision);
       if (rootFactory) {
         honoImport(ast, rootFactory, ROOT, revision);
+        inspectRootReceiver(ast, rootFactory, revision);
         for (const p of ROUTES) inspectMount(ast, p, rootFactory, revision);
         for (const node of ast.nodes) if (ts.isCallExpression(node) && member(node.expression, 'app') && METHODS.has(node.expression.name.text)) {
           const path = literal(node.arguments[0]), method = node.expression.name.text;
