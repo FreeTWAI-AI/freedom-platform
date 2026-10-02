@@ -6,6 +6,7 @@
     "governance/**",
     "packages/contribution-tools/**",
     "tests/runtime/fixed-behavior-harness.test.ts",
+    "tests/integration/behavior-supervisor.test.ts",
     "scripts/freedom.mjs",
     "scripts/repository-bootstrap/**",
     "scripts/export-contract-bundle.mjs",
@@ -31,6 +32,7 @@
   ],
   "instructions": [
     "governance/README.md",
+    "packages/contribution-tools/behavior-supervisor.md",
     "docs/platform-plan/execution/unified-foundation/01-contracts-and-governance.md"
   ],
   "invariants": [

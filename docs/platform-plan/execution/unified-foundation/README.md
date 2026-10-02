@@ -17,6 +17,7 @@
 | [Autopilot API 與瀏覽器](06-browser-runtime.md) | AP M0–M6/T0–T5、U3/U5 | API/auth、MV3/native/neo guard、journal；實際 source audit 與 capability 另做 |
 | [Runtime 金鑰登錄](07-runtime-enrollment.md) | U1/U3、AP AUTH 前置 | 封閉會員批准、真實金鑰持有證明及撤銷；不是完整 device flow 或機器執行授權 |
 | [機器連線與 bootstrap 驗證](08-agent-connections-bootstrap.md) | U1/U3、AP §1.5／4.3 | 會員連線 backing record 與獨立 token／DPoP 加密組件；目前身分／nonce 原子驗證接線另列 |
+| [Bootstrap 即時驗權與防重播](09-bootstrap-status.md) | U1/U3、AP AUTH-13 | DB 目前身分、單次 nonce／proof ID admission；只回最小 status，不授 Grant／Attempt 或模型權 |
 | [共同基礎驗收](acceptance.md) | INT-01–28、GOV-01–32 | 60 項原要求，全部 `not_run` |
 | [R2/AP 原始驗收](source-acceptance.md) | R2 S/A/M/D、AP AUTH/WORK/EXT/NEO/OPS | 108 項原要求，加 24 條 guardrails/invariants 對照，全部未驗收 |
 

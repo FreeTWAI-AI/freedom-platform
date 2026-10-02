@@ -15,7 +15,7 @@
 | U0 規格與共用契約 | 5% | 80–90% | 正式批准與版本發布 |
 | U1 身分／scope／command | 10% | 60–75% | machine/service backing records 與 adapter |
 | U2 Asset 與私人 ACL | 15% | 65–80% | 完整讀面、正式政策及接線 |
-| U3 執行狀態與模型 ports | 15% | 15–25% | machine request 即時身分／nonce、防重播、真實 Attempt/Grant binding、模型路徑；Run、runtime 登錄、connection 紀錄及 bootstrap 加密元件已有本機證據 |
+| U3 執行狀態與模型 ports | 15% | 15–25% | device flow／issuer／refresh、真實 Attempt/Grant binding、模型路徑；Run、runtime 登錄、connection 及封閉 bootstrap 即時身分／nonce 防重播已有本機證據，尚非 execution authority |
 | U4 兩條垂直流程 | 15% | 10–25% | 私人 AI 草稿及跨端產品驗收 |
 | U5 browser／Kit／broker | 15% | 0–10% | 實際 runtime 接線與封裝驗證 |
 | U6 媒體搬遷與 restore | 10% | 5–15% | 真實盤點、七類媒體搬遷與還原 |
@@ -348,9 +348,9 @@ Manifest last=88、known_gaps=`[22]`，076–088 全未合併／發布，合併�
 
 ## 下一批
 
-Runtime enrollment、connection backing record 及 bootstrap crypto 已完成上述封閉本機實作。下一步接真正 machine current-state validator 與 server nonce／原子 replay prevention：在同一交易依固定鎖順序解析目前 user/person/scope/runtime/connection，驗簽 await 後重查 DB clock、撤銷／expiry 與 nonce，僅提供本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權。不把 active row、caller binding／clock 或 crypto result 當成完整機器身分，也不重用 storefront/supplier 的 `fw_read` 連線。之後續接原計畫的 device flow／issuer／refresh、ModelConnection、Grant 和 Attempt 真實 backing records；正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定。
+Runtime enrollment、connection backing record、bootstrap crypto 及 [封閉 bootstrap status](09-bootstrap-status.md) 已有本機實作：同一交易依固定鎖順序解析目前 user/person/scope/runtime/connection，驗簽 await 與最後可能阻塞的 query 後重查 DB clock，再原子消耗 nonce／proof ID。它只提供本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權，也不輸出通用 VerifiedContext。下一步續接原計畫的 device flow／issuer／refresh、ModelConnection、Grant 和 Attempt 真實 backing records；不把 active row、caller binding／clock 或 crypto result 當成完整機器身分，不重用 storefront/supplier 的 `fw_read` 連線。正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定。
 
-治理可另推進固定單一 profile 的本機隔離 supervisor，把 host harness 與 candidate app 隔離，以父程序專屬一次性管道回收 observation；不能把 candidate stdout/JSON 當可信結果。隔離不成立就 unavailable，並保留 approved host source、完整入口、publisher/GitHub enforcement 的缺口。這是下一步工程建議，尚未實作。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代真正 transport／外部保存／政策 restore 的證據。migration 076–088 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
+治理已推進固定單一 profile 的 [本機隔離 supervisor](../../../../packages/contribution-tools/behavior-supervisor.md)：host harness 透過有界 HTTP response frames 呼叫隔離容器內的 candidate app，由 host 自行判斷結果；不能把 candidate stdout/JSON 當可信測試結果。隔離不成立就 unavailable，並保留 approved host source／runtime、完整入口、publisher/GitHub enforcement 的缺口。下一步是可信安裝、來源與 publisher 接線，不是把本機 observation 宣稱可合併。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代完整入口／外部保存／政策 restore 的證據。migration 076–089 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
 
 早先唯讀查核 #85／#87 的衝突與 migration 重號紀錄保留歷史用途；依 Ted 最新指示，其他 PR 的 rebase／整合現在不在派工範圍。這次沒有修改作者 PR 或把舊 CI 結果當新整合驗收。
 

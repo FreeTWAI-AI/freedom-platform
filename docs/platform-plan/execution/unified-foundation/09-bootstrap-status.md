@@ -19,7 +19,7 @@ Machine read 不冒用 member session，也不要求原配對 session 仍登入�
 
 暫用 migration 089 `bootstrap_nonces` 保存 server UUID、32-byte canonical base64url nonce、connection/runtime/owner/person/scope/environment/client/version 綁定、建立與到期時間、可空的 consumed_at／proof_jti／token_jti。外鍵及固定 physical schema 的 trigger 核對真正 087/088 backing rows；identity、nonce、time 不可改綁，pending 只能消耗一次，不可 DELETE／復活。SQL 保結構與目前 backing row，不驗簽，也不能抵抗可信 app DB 憑證或 schema owner 被控制。
 
-Nonce TTL 為 60 秒且不得晚於 connection expiry；每 connection 最多 8 pending、4,096 lifetime，expired/consumed 都算 lifetime。這是有界工程 profile，不是正式保留／清理／付費政策；沒有自動 GC 或正式刪除。回傳不能延長效期；challenge 的最後 domain 決策時點和 receipt 後 member clock 都要有效。
+Nonce TTL 至多 60 秒且不得晚於 connection expiry；service 固定取兩者較早時間，SQL 可接受更短但不能延長。每 connection 最多 8 pending、4,096 lifetime，expired/consumed 都算 lifetime。這是有界工程 profile，不是正式保留／清理／付費政策；沒有自動 GC 或正式刪除。回傳不能延長效期；challenge 的最後 domain 決策時點和 receipt 後 member clock 都要有效。
 
 成功 read 在同一交易把 nonce 由 pending 改成 consumed，保存已驗的 bounded proof/token jti，不保存 raw token/proof/private key。`UNIQUE(runtime_device_id,proof_jti)` 跨同 runtime 的不同 client/connection 防重用 proof ID；NULL pending 不占用。相同 proof、ECDSA 等價簽章、改 proof ID 後重用 nonce 都不能再次成功。錯簽章、錯綁定、過期或 SQL failure 不消耗 nonce，已提交的第一次成功則永久保留。
 

@@ -6,6 +6,10 @@ separate from machine authentication and does not issue tokens or execution righ
 The [bootstrap JWT/DPoP verifier](bootstrap-proof.md) separately checks actual
 signatures and exact purpose/binding. Its output is cryptographic evidence only:
 no current DB authorization, nonce consumption, replay prevention or HTTP mount.
+The separate [bootstrap status service](bootstrap-status.md) composes real proof
+verification with current DB authority and atomic nonce/JTI admission for one
+minimal status operation. It still has no token issuer, HTTP mount or execution
+Grant, and it does not turn enrollment or crypto DTOs into reusable credentials.
 
 `createRuntimeRegistrations(pool, { environment })` is an internal server factory
 for current members. The host must explicitly select `local`, `staging-next`, or
@@ -23,8 +27,8 @@ for current members. The host must explicitly select `local`, `staging-next`, or
 All returned objects carry `operational_authority: false`. Enrollment proves
 member approval and possession of the corresponding private key under this closed service; it
 does not attest a runtime build, hardware, capability, provider, model, official
-CLI login, or permission to execute. There is no HTTP mount, machine validator,
-token, Grant, Attempt, lease, provider call, or dispatch in this module. Actor must
+CLI login, or permission to execute. The enrollment factory has no HTTP mount,
+machine validator, token, Grant, Attempt, lease, provider call, or dispatch. Actor must
 come from trusted server member authentication, not caller JSON. Every operation
 rechecks active user/session/person/personal scope and completed required onboarding.
 Read/revoke have no model or private-work persistence-policy dependency.

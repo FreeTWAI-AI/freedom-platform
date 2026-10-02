@@ -18,7 +18,9 @@ The runtime/client pair remains unique after revocation. There is no renewal,
 rebind or delete; expiry does not rewrite the durable `active` state. This is a
 closed engineering profile, not an approved production refresh/session policy.
 An active connection whose runtime was revoked is likewise not usable machine
-authority; a future validator must independently check the current runtime.
+authority; the separate [bootstrap status service](bootstrap-status.md) checks
+current runtime authority before admitting its one status operation. Future
+execution validators must do the same for their own Grant/Attempt boundaries.
 
 Create and its exact receipt replay require the same current member, session,
 onboarding, principal, personal scope and enrolled runtime. An existing connection
