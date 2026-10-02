@@ -1,5 +1,6 @@
 -- Closed, operator-configured persistence policy. No rows are seeded and no
--- scope is implicitly enabled. Deployment runtime roles receive SELECT only;
+-- scope is implicitly enabled. Runtime roles get SELECT plus lock-only UPDATE
+-- of the generated constant scope_kind, never UPDATE of stored policy columns;
 -- this schema-owner migration does not authenticate an operator or configure
 -- production quota/retention. No private GC or backup copying is enabled.
 CREATE TABLE private_work_persistence_policy (

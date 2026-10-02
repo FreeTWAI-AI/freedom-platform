@@ -15,6 +15,71 @@ and hold mutable policy rows `FOR SHARE` until commit. Return an explicit
 `retainedByteLimit` (at least 262144 bytes); no production policy/quota value is
 inferred. Tests inject a synthetic DB policy, not approved operating settings.
 
+## Closed DB-backed persistence policy
+
+[policy.ts](policy.ts) now provides
+`resolvePrivateWorkPersistencePolicy(q, context)` for explicit injection into
+both `createPrivateWorkCommands(pool, { resolvePolicy })` and
+`createPrivateResultService(pool, { store, resolvePolicy })`. No constructor
+default, environment flag, HTTP/UI activation or allowing policy row is added.
+The existing lower-level callback remains a trusted-server port, not request JSON.
+
+Provisional [migration 085](../../migrations/085_private_work_policy.sql) stores
+one policy per real personal scope and the fixed `work.private-draft` purpose.
+Its composite FK binds the scope to the exact person owner, not merely to any
+valid principal. Missing row, disabled policy, wrong context/scope/owner/purpose,
+unavailable DB source, invalid revision or absent/insufficient quota fails closed.
+Policy errors are sanitized and do not embed SQL, IDs or private text.
+
+Operator-configured writes are distinct from application authority. Application
+deployment roles get **SELECT plus column-level UPDATE(scope_kind)** on this
+table, never table-level UPDATE or UPDATE of stored policy fields. PostgreSQL
+requires some UPDATE privilege for `FOR SHARE`: pure SELECT is not sufficient.
+`scope_kind` is a GENERATED ALWAYS constant; assigning DEFAULT is an exact no-op,
+and assigning a different value is rejected. This narrow privilege exists only
+to support row locking, not to configure policy. Blanket runtime DML grants are
+not sufficient. The migration does not create/configure a role or
+authenticate an operator; the deployment grants template must enforce that
+boundary. Tests use a fresh synthetic `fp_*` NOLOGIN role to reproduce pure-SELECT
+locking failure, then prove real Work/Result service calls succeed under the
+lock-only grant while all stored-field UPDATEs, mixed assignments, INSERT, DELETE
+and TRUNCATE remain denied. The generated DEFAULT update preserves the entire
+row, revision, flags, quota and timestamps. Schema owners/superusers can bypass
+ordinary grants or triggers and are not defended against by this application
+contract; restore/truncate is not an allowed policy-reset workflow.
+
+Policy starts at explicit bigint revision 1. Every changed row requires exactly
+the next revision, with immutable scope/purpose/owner/creation identity and no
+DELETE/recreate reset. An exact no-op may retain its revision. Disable and later
+re-enable therefore produce distinct pins (`private-work.v1`, `.v2`, `.v3`), never
+reuse an old upload revision. Both clocks are server-written. Enabling requires
+an explicit retained-byte limit of at least 262144; no production quota is chosen.
+This is the existing retained private-Asset budget, not a new limit/accounting
+scheme for Work title/objective SQL bytes or a release of retained storage.
+
+The resolver takes the current policy row `FOR SHARE` on the already authorized
+transaction, after Work/Asset locks, until commit. Operator policy updates acquire
+policy locks only, never reverse-acquire Work/Asset locks. The resolver is not
+standalone authentication: service adapters must first hold current user/session,
+principal/scope/domain locks and then refresh the DB session clock after this
+query and every later blocking query. Existing Work/Result adapters do so. Real
+policy-row lock waits crossing session expiry reject before private data/effects.
+
+Work create/update and their successful receipt replays consult this current
+policy; archive still never consults policy/provider and remains possible when
+policy is disabled/unavailable. Existing Work read ACL semantics are unchanged.
+Result reads/list/replays and upload phases consult current DB policy; reads use
+the existing pre/post-I/O checks. A newer allowing policy may authorize a fresh
+historical read, but any revision change during GET denies that call, and old
+upload/finalize pins do not revive after disable/re-enable. Private GC, backup
+copying, erasure/retention promises, provider processing and AI remain closed.
+
+`tests/runtime/private-work-policy.test.ts` uses explicit disposable `fp_*`
+PostgreSQL schemas, synthetic bytes and bounded runtime-role grants. It proves both
+services use the resolver, strict SQL revision/FK guards, replay/revocation,
+retained quota configuration, real policy lock/session expiry, and read-only
+runtime lock-only privileges. It is not evidence of production policy approval or rollout.
+
 ## Internal methods
 
 - `prepare(actor, { key, targetWorkId, expectedVersion, contentType, byteSize, sha256 })`
