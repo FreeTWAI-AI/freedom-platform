@@ -159,3 +159,32 @@ test('ENROLL-12 current version controls revoke, with exactly one winner', async
   assert.equal(results.filter(v => v.status === 'fulfilled').length, 1);
   assert.equal(results.filter(v => v.status === 'rejected' && status(412)(v.reason)).length, 1);
 });
+test('ENROLL-13 expired challenge history counts toward the fixed lifetime limit', async () => {
+  const f = await member(), pair = await keys();
+  // Synthetic historical challenge records, not registrations or proof evidence.
+  await pool.query(`INSERT INTO runtime_registration_challenges
+    (challenge_id,runtime_device_id,owner_user_id,owner_principal_id,scope_id,environment,begin_key,public_jwk,key_thumbprint,nonce,issued_at,expires_at)
+    SELECT gen_random_uuid(),gen_random_uuid(),$1,$2,$3,'local',gen_random_uuid()::text,$4,$5,$5,
+      '2020-01-01T00:00:00.000Z'::timestamptz,'2020-01-01T00:05:00.000Z'::timestamptz FROM generate_series(1,1000)`,
+  [f.actor.user_id, f.context.subject_principal.principal_id, f.context.scope.scope_id, pair.publicJwk, 'A'.repeat(43)]);
+  await assert.rejects(service.begin(f.actor, { key: randomUUID(), publicJwk: pair.publicJwk }), status(429));
+  assert.equal(await count('runtime_registration_challenges'), 1000); assert.equal(await count('scoped_command_receipts'), 0);
+});
+test('ENROLL-14 registered cap includes revoked tombstones and serializes competing confirmations', async () => {
+  const f = await member();
+  async function pending() {
+    const pair = await keys(), challenge = await service.begin(f.actor, { key: randomUUID(), publicJwk: pair.publicJwk });
+    return { key: randomUUID(), challengeId: challenge.challenge_id, proof: await sign(challenge, pair.privateKey) };
+  }
+  for (let i = 0; i < 31; i++) {
+    const row = await service.confirm(f.actor, await pending());
+    if (i === 0) await service.revoke(f.actor, { key: randomUUID(), runtimeDeviceId: row.runtimeDeviceId, expectedVersion: '1' });
+  }
+  const a = await pending(), b = await pending();
+  const results = await Promise.allSettled([service.confirm(f.actor, a), service.confirm(f.actor, b)]);
+  assert.equal(results.filter(v => v.status === 'fulfilled').length, 1);
+  assert.equal(results.filter(v => v.status === 'rejected' && status(429)(v.reason)).length, 1);
+  assert.equal(await count('runtime_registrations'), 32);
+  const pair = await keys();
+  await assert.rejects(service.begin(f.actor, { key: randomUUID(), publicJwk: pair.publicJwk }), status(429));
+});
