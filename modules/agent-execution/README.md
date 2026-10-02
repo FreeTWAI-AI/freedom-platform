@@ -22,6 +22,11 @@ these record-management operations.
 All versions/epochs use positive signed-64-bit decimal strings, never Number.
 Input keys/IDs use existing scoped-command/canonical identity constraints.
 Unknown fields are rejected; there are no caller policy/provider/store options.
+The TypeScript inputs require an expected version. Runtime parsing deliberately
+allows its absence through to the shared `checkVersion`, which returns the
+existing 428 `version_required` before any new-effect INSERT/UPDATE. Malformed
+versions are schema errors; stale versions are 412. SQL NOT NULL constraints
+are an additional direct-DML guard, not the service's missing-version handler.
 The member Actor must come from the existing trusted member authentication path;
 the service still revalidates current user/session/principal/personal scope.
 An Actor-shaped object or the returned DTO is not standalone authentication.
@@ -29,6 +34,8 @@ An Actor-shaped object or the returned DTO is not standalone authentication.
 The DTO is `{runId, workId, inputWorkVersion, aggregateVersion, state,
 taskLeaseEpoch, controlEpoch, operational_authority:false}`. It is NOT a complete
 execution `RunSnapshot` and cannot enter an operational adapter as a permit.
+The owner's visible epochs are non-secret metadata, not bearer credentials or
+an authorization proof. No transport exposes this service in the current slice.
 
 ## SQL and transitions
 
@@ -51,6 +58,11 @@ general-purpose execution state machine:
 
 Each actual control transition advances all three counters by exactly one;
 they are distinct fields and must never be substituted for one another. Future
+task/control operations may advance different domains, but this closed slice
+only has owner pause/stop: both deliberately fence both domains, as does the
+central decision kernel. A new-key pause on paused is another fencing decision;
+same-key replay is not. This does not claim independently advancing operations
+already exist in this slice. Future
 execution activation must introduce genuine current Attempt and lease semantics
 before these counters could participate in runtime authorization. This migration
 does **not** add an unfenced nullable Attempt reference, fake Grant, TaskLease,
@@ -66,6 +78,10 @@ privileges do not imply authority to change schema or disable these guards.
 There is no policy/Work-active check on control UPDATE: withdrawal or archive
 must not prevent cancelling retained records. No Run operation changes the
 Work aggregate version, collaboration facts or immutable human Results.
+`created_at` is the database's row-construction wall-clock sample, not a request
+receipt timestamp or proof of commit time (a direct SQL INSERT can wait in its
+BEFORE trigger after the default was sampled). It is retained for database
+history; the intentionally minimal DTO is not a general audit-query API.
 
 ## Transactions, replay and revocation
 
@@ -76,6 +92,11 @@ Lock order is current member/session/principal/scope → receipt advisory → Wo
 first without a lock solely to resolve the immutable Work lock order. It never
 escapes before full owner/Work/Run authorization. Scope SHARE locks are not
 upgraded. No network or object I/O occurs anywhere in these callbacks.
+Read deliberately uses the same Work→Run UPDATE locks in its short transaction,
+giving one conservative serialization point with edit/archive/control. This can
+serialize concurrent reads and controls; no high-throughput performance claim
+is made. A future SHARE-lock optimization needs its own revocation/clock/lock-
+order evidence, not an unreviewed lock-strength change in this closed increment.
 
 Create checks draft/current policy even on replay. Its new-effect Work CAS is
 after replay lookup, so a valid historical create receipt can survive a later
