@@ -8,6 +8,8 @@ Spec ID：`UF-SPEC-EXEC-OPS`；狀態：`local-decision-kernel-only`。來源：
 
 具體 enum、轉移矩陣及三層驗證邊界見該 README；`npm run check:execution-contracts` 驗生成 bytes。舊 dispatch 的 recovery generation 與 task/control epochs 分別檢查，Stop 不要求模型健康；遲到 evidence 只能保留觀察，不能恢復 dispatch 或產生 Result。084 的人工 Result 不可作模型成果捷徑，仍須未來 typed attempt/Grant provenance 與 authenticated atomic adapter。下列正式產品規格與未解除依賴維持不變。
 
+[本機發布相容性診斷](../../../../deploy/cloudflare/release-compatibility.md) 已檢查精確 source/artifact 身分、完整 schema ledger、全部 active consumers 與資料形狀歷史下限；要求的能力包含 explicit Work wire、Asset bridge、personal ACL、human Result 與 085 server policy。Candidate 不能自帶批准或 host；一般 CLI 缺獨立可信 host port 就回 unavailable。Host 驗證／觀察 transport 尚未接線，所有結果固定 deployment/execution authority 與 restore proof 為 false，不是正式 rollback 或 release gate 已完成。
+
 ## 最小 execution 核心
 
 Work 表達目的，Run 表達一次邏輯執行，RunAttempt 固定 runtime、connection、Grant revision、inference binding、data policy、contract/adapter 版本及 billing source。`(run_id,attempt_number)` 唯一，attempt 的 work/scope 由 run 導出。歷史 binding 不原地更新。

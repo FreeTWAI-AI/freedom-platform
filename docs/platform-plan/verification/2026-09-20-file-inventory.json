@@ -1609,13 +1609,13 @@
     },
     {
       "path": "deploy/cloudflare/README.md",
-      "bytes": 12204,
-      "sha256": "7c0139e1f31a1057e85cb0b4b7844ab8cb46cf36e3754a2d5116aa68b29fda7b"
+      "bytes": 13976,
+      "sha256": "1f7ea958f7d53b697a848339a16ad070f5de7a468738d077d8df8d0baad7da42"
     },
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30575,
-      "sha256": "924efe8cfebbd1344f235eadc1c5a747dd32b8ab40d652782256f292089f74f8"
+      "sha256": "8e59966013b36dd0addc1b5b606594e522714a2061235f8ef168d024c33ce41b"
     },
     {
       "path": "deploy/cloudflare/lib/cloudflare.mjs",
@@ -1663,14 +1663,24 @@
       "sha256": "20f71857e477a63fc564528119a83a041808ca07f92d9c3bfe03acb3599f502c"
     },
     {
+      "path": "deploy/cloudflare/lib/release-compatibility.mjs",
+      "bytes": 12572,
+      "sha256": "bb04fdf44fce246587a56288ae907074e8620cec42097cb2d9f3469ba23d3537"
+    },
+    {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
       "bytes": 10822,
       "sha256": "279998c8ed331a2c75f453fd2900a42b7c2344c088e7e318d30b4476cc69855d"
     },
     {
       "path": "deploy/cloudflare/preflight.mjs",
-      "bytes": 8613,
-      "sha256": "8ab29e088aafe494c83eaea761bdce799da99b9e294cd52484783b8172d6b785"
+      "bytes": 10317,
+      "sha256": "f4f7f0243e9bb0808c08f3c1866381417eaab78b43fedd7e0635e3ea33bfa8d3"
+    },
+    {
+      "path": "deploy/cloudflare/release-compatibility.md",
+      "bytes": 11226,
+      "sha256": "d4af64434b791bc09de028fd8be95ae8015d552af8134118c97d2ed9ef157fe7"
     },
     {
       "path": "deploy/cloudflare/sql/10-create-roles.psql",
@@ -1679,18 +1689,28 @@
     },
     {
       "path": "deploy/cloudflare/sql/20-runtime-grants.psql",
-      "bytes": 937,
-      "sha256": "13c0bc0f98176c2addaa6f4dfe92f284505e976c7a2d9c7448e125ffea807e46"
+      "bytes": 3370,
+      "sha256": "00e6ae115411b3bdf287f88b042f55c8250f4257e88a4d83d2f704e0618b4382"
     },
     {
       "path": "deploy/cloudflare/sql/30-verify-readonly.psql",
-      "bytes": 2047,
-      "sha256": "382da1fc6527fb9c8e9193bbc6ce99ef2192ce76013acaea047b1be661dc0349"
+      "bytes": 3475,
+      "sha256": "62f94463c7369afaa6cac95452677c4922d6a435ccdf22f63109d5055a527ff2"
     },
     {
       "path": "deploy/cloudflare/test/preflight.test.mjs",
       "bytes": 74721,
       "sha256": "c400fa3d843d16f23ca0425810c87c6ddb2defc35d9563b2624e89575be8b8d5"
+    },
+    {
+      "path": "deploy/cloudflare/test/release-compatibility-adversarial.test.mjs",
+      "bytes": 9136,
+      "sha256": "90e98e998bc4b3c163dcd9cad7cc458aa09a75db3cdc8a1dce175642c0949a48"
+    },
+    {
+      "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
+      "bytes": 15250,
+      "sha256": "34bfad4f49e27cd87f496afcc51cb62dea95893711c03bc9913b5b0937afe483"
     },
     {
       "path": "deploy/public/freedom-public-backup.service",
@@ -3124,13 +3144,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md",
-      "bytes": 16944,
-      "sha256": "8085141eab4cd228bd07c6a06ffcad6d9cf7d792fc71dd24d662ca089d0aca51"
+      "bytes": 17799,
+      "sha256": "20e99525000ab99d1051ae12009d5adb49bc3747f58b0850206097dc7d2e0e5d"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md",
-      "bytes": 12315,
-      "sha256": "b1137b12570d7a6e207fc99dc4f6c58a82e938f20d0264e3bc6b4aeb2261a66c"
+      "bytes": 12905,
+      "sha256": "f2657b8ae810c4cd8c0b6d615be78f2920ebd19e7e94e485895a32d6634e00a4"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/05-media-migration.md",
@@ -3154,8 +3174,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 37203,
-      "sha256": "cd6698b35e9b6c9226773a130c3c3a71cb997f271485931b91af12b1710d6b44"
+      "bytes": 39532,
+      "sha256": "130c5d918d89e34590447169e1417002ffb613c2a0790cc873b7afe28d23af3c"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -3698,6 +3718,11 @@
       "sha256": "c46bf14a6d20f1303a5817a77e2ce3421702eee8d0b9f7ea6a2b5c6610d8de4e"
     },
     {
+      "path": "migrations/085_private_work_policy.sql",
+      "bytes": 2750,
+      "sha256": "7da1a89630ddf92df5bee869b4d4ed50911e36570146a2324353b7b4c0a9d320"
+    },
+    {
       "path": "modules/agent-commerce/distribution.ts",
       "bytes": 10476,
       "sha256": "2d60f26788a408905286751505ea0d4d2e38a4399e1ff11e3df4622b5c2601f3"
@@ -3779,13 +3804,18 @@
     },
     {
       "path": "modules/autopilot-work/README.md",
-      "bytes": 7226,
-      "sha256": "d976191a12ca909dfd427ea44ad30d0c5d0a4380c04a568697b90896c2319712"
+      "bytes": 11646,
+      "sha256": "c67dd004860225e1ceb7a89ab3ef74673fc45680710ddfb983fbac9d143fd29c"
     },
     {
       "path": "modules/autopilot-work/freedom.module.json",
-      "bytes": 840,
-      "sha256": "eec80f24868ec1adf889d17820e93cb42cbef04f724c2f794e6101df36723188"
+      "bytes": 1067,
+      "sha256": "11fa2ca86f57eeadce27c1aa40a7b6967e32bea3a66041f0e01154b092e2e4e3"
+    },
+    {
+      "path": "modules/autopilot-work/policy.ts",
+      "bytes": 2640,
+      "sha256": "7cf9838c70f2bd1f2fdd32ad4a2cf45d061d766011018f7c76ff21e60a8ee6be"
     },
     {
       "path": "modules/autopilot-work/results.ts",
@@ -4554,8 +4584,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 3367,
-      "sha256": "a1693b1ea535a5454721c186d034e3d1e7ee4863a1045d72532106f141c41405"
+      "bytes": 3441,
+      "sha256": "aa2f5716d6a480413155b24c5ab4b21d72a404b828c56200650b7da94fbb7725"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -5813,6 +5843,11 @@
       "sha256": "72be53afa325c9f3d21e37df1c0683990793ff708af6f0547e5f480cbecea1e0"
     },
     {
+      "path": "tests/runtime/private-policy-grants.test.ts",
+      "bytes": 7077,
+      "sha256": "e4fe9be535c94bc02136c57008d4e40784120e7918b6628dbafdda8312a4d85e"
+    },
+    {
       "path": "tests/runtime/private-result-races.test.ts",
       "bytes": 28018,
       "sha256": "648cf090305eb6caf233aab187a858845e14672e7daac7172ebed8b0296106c6"
@@ -5831,6 +5866,16 @@
       "path": "tests/runtime/private-work-commands.test.ts",
       "bytes": 31219,
       "sha256": "e4ac95fe889a534fb9832eaedd1ea9fcd6cdcd044ea43d71ac6c9b0a6999ccf4"
+    },
+    {
+      "path": "tests/runtime/private-work-policy-adversarial.test.ts",
+      "bytes": 13579,
+      "sha256": "3bf7d1eda1e3a33a5f3f1c23425649812a8435da1613eef2ea3f022654d51ab0"
+    },
+    {
+      "path": "tests/runtime/private-work-policy.test.ts",
+      "bytes": 22060,
+      "sha256": "eebaaee2c859b9715bd98086f4ca7ee150a2473469899e32b9fd3bccf9115cb9"
     },
     {
       "path": "tests/runtime/published-skills.test.ts",

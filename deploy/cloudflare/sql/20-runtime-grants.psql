@@ -10,4 +10,40 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE O
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO :"runtime";
 -- The migration ledger is read-only for the application.
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON schema_migrations FROM :"runtime";
+-- Operator-owned private policy: no application changes to policy content.
+-- FOR SHARE needs UPDATE on at least one column. The only column granted is
+-- generated scope_kind, whose only legal assignment is DEFAULT (a no-op).
+-- Clear old column ACLs as well as table ACLs. Inherited/PUBLIC privileges
+-- cannot be removed here; the guard aborts this transaction if they remain.
+-- App roles must be dedicated: no memberships (including SET-only/ADMIN-only)
+-- or role-administration attributes. NOINHERIT alone does not prevent SET ROLE.
+-- Absence before migration 085 is allowed; run again AFTER migrate/restore.
+-- BEGIN PRIVATE POLICY GRANTS
+SELECT format($policy$
+  REVOKE ALL PRIVILEGES ON TABLE %1$s FROM %2$I;
+  REVOKE ALL PRIVILEGES (%4$s) ON TABLE %1$s FROM %2$I;
+  GRANT SELECT, UPDATE (scope_kind) ON TABLE %1$s TO %2$I;
+  DO $guard$
+  BEGIN
+    IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=%2$L AND
+        (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls
+          OR EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)))
+      OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+        JOIN pg_catalog.pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
+        WHERE a.attrelid=%3$L::oid AND a.attname='scope_kind' AND a.attgenerated='s'
+          AND pg_catalog.pg_get_expr(d.adbin,d.adrelid)='''personal''::text')
+      OR pg_catalog.has_table_privilege(%2$L,%3$L::oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+      OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+        WHERE a.attrelid=%3$L::oid AND a.attnum>0 AND NOT a.attisdropped AND (
+          pg_catalog.has_column_privilege(%2$L,%3$L::oid,a.attnum,'INSERT,REFERENCES,SELECT WITH GRANT OPTION,UPDATE WITH GRANT OPTION')
+          OR (a.attname<>'scope_kind' AND pg_catalog.has_column_privilege(%2$L,%3$L::oid,a.attnum,'UPDATE'))))
+    THEN RAISE EXCEPTION 'Unsafe runtime private policy privileges'; END IF;
+  END $guard$;
+$policy$, c.oid::regclass, :'runtime', c.oid,
+  (SELECT string_agg(quote_ident(a.attname),',' ORDER BY a.attnum)
+    FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped))
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND c.relname='private_work_persistence_policy' AND c.relkind='r'
+\gexec
+-- END PRIVATE POLICY GRANTS
 COMMIT;

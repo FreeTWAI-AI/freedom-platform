@@ -31,7 +31,7 @@ guild-workspace identity-member image-cloudflare image-runtime link-preview main
 member-channels-core member-communications member-connections member-directory member-ecard member-experience
 member-services member-skill-registration notification-events onboarding-diagnostics onboarding opensource-marketing
 page-github page-issue-label page-tools-notification password-hash password-recovery platform-admin platform-credentials
-portal-client-recovery positioning preview-protocol private-result-races private-result-schema private-results private-work-commands published-skills repo-author-claims repo-maintainer-admin
+portal-client-recovery positioning preview-protocol private-policy-grants private-result-races private-result-schema private-results private-work-commands private-work-policy private-work-policy-adversarial published-skills repo-author-claims repo-maintainer-admin
 repo-maintainer-claims repo-maintainer-guild repo-maintainer-handoff repo-maintainer-policy repo-maintainer-sync
 repo-maintainer-webhook resource-scopes scoped-member-command share-promotion skill-book-guides skill-book-upstreams
 skill-collaboration skill-discovery skill-share-content skill-sharing skill-submission-upgrades skill-submissions

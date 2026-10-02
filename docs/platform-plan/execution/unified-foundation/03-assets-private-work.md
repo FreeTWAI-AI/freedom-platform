@@ -59,6 +59,8 @@ Data policy 分開描述 capture、model processing location/provider、platform
 
 Ted 已同意保留政策起點：未完成／無引用物件至少 48 小時、替換舊圖 7 天，使用者刪除立即停止讀取。備份的保留、刪除與恢復政策另行確認；此同意不啟用正式自動清理。不得因 TTL 到期便刪 bucket 物件。
 
+085 新增明確注入 Work／Result 的 [DB persistence policy resolver](../../../../modules/autopilot-work/README.md#closed-db-backed-persistence-policy)：固定 personal owner/scope/purpose、revision 與 retained-byte quota；缺設定預設拒絕，不 seed 允許列。交易持政策 SHARE lock，等鎖後重驗 session clock。應用角色只有 SELECT 及生成常數 `scope_kind` 的 UPDATE 鎖權限，不能更改政策欄位；公開 grants template 另拒絕繼承／PUBLIC 越權。這不是正式政策批准、秘密部署工具接線、備份或私人 GC 完成。
+
 ## 首版驗證 profiles
 
 頭像保持目前輸入上限 2 MiB、靜態 JPEG/PNG/WebP、最大 4096×4096；輸出沿用 256×256 WebP、128 KiB 上限與已存在的 metadata stripping/動畫拒絕測試。transform profile 單獨版控；變更輸出規格需明示相容性。
@@ -102,7 +104,7 @@ R2 缺檔回受控 unavailable/not-found 並產生安全診斷，不 fallback �
 
 backfill 由受控 ops 流程以固定 source revision 讀取及核對 hash；切 pointer 的短交易檢查原 row version，遇到會員同時改圖就重新讀取而非覆蓋。備份、restore、撤銷及對帳證據齊備前保留舊欄位。首筆 R2-only/private Work 成功後，rollback floor 必須支援兩者。
 
-目前整合 076–084 皆為未合併的暫用號，合併前重新核對最小可用編號；manifest last 為 84、known_gaps 仍為 `[22]`。078 加 scoped member facts，079 加 Asset lifecycle，080 加 avatar read bridge／writer fence，081 加私人 Work 命令，082 加 maintenance／backup pins，083 加相容 POST 的政策欄位，084 加共用文字 profile 與人工 Result。沒有正式 backfill、bucket cutover 或資料清理。尚無 down migration 或 release-tool rollback floor。舊 binary 的 `workView` 使用 row spread，套 077 後可能多回 metadata，不能宣稱混跑期間 wire bytes 不變。新 binary 用顯式舊欄位投影；正式私人寫入與頭像非 legacy 模式保持關閉，直到回退政策與新增資料面驗收完成。首筆私人文字存在後，回退版本必須認得 typed target、Work ACL、歷史與 profile-bound engine。
+目前整合 076–085 皆為未合併的暫用號，合併前重新核對最小可用編號；manifest last 為 85、known_gaps 仍為 `[22]`。078 加 scoped member facts，079 加 Asset lifecycle，080 加 avatar read bridge／writer fence，081 加私人 Work 命令，082 加 maintenance／backup pins，083 加相容 POST 的政策欄位，084 加共用文字 profile 與人工 Result，085 加預設拒絕的私人政策。沒有正式 backfill、bucket cutover、down migration 或資料清理。已有 [本機相容性診斷](../../../../deploy/cloudflare/release-compatibility.md)，但可信觀察來源及真正 release helper 尚未接入。舊 binary 的 `workView` 使用 row spread，套 077 後可能多回 metadata，不能宣稱混跑期間 wire bytes 不變；診斷因此即使未有私人寫入也要求 explicit wire capability。新 binary 用顯式舊欄位投影；正式私人寫入與頭像非 legacy 模式保持關閉，直到回退政策與新增資料面驗收完成。首筆私人文字存在後，回退版本必須認得 typed target、Work ACL、歷史與 profile-bound engine；085 私人形狀另要求當前 server policy。
 
 ## 可交付 PR 與驗收
 

@@ -190,6 +190,18 @@ TypeScript 7 typecheck、common/execution 生成契約 check、deploy preflight 
 
 本批收尾 inventory 為 **1,203 file hashes、679 本機檔案／目錄連結、0 failures**；`git diff --check` 通過。這項檢查不驗外部 URL、產品行為或簽章信任。
 
+## 本批：私人 DB 政策與本機發布相容性
+
+三個 worktree 分別實作私人政策、發布相容性，以及獨立反例；主 agent 整合並補公開 SQL grants。暫用 migration 085 不 seed 允許列，固定 personal owner/scope/purpose、單調 revision 與明確 retained-byte quota；Work／Result 顯式注入同一 resolver，讀取政策持 SHARE lock，等待後重驗 session clock。Archive 不依賴政策，舊 Work read ACL 不改；沒有新增 HTTP/UI、AI、私人 GC 或正式政策值。
+
+整合時先重現 SELECT-only app role 的 resolver 失敗：PostgreSQL row lock 需要 UPDATE 權限。修正只授權生成常數 `scope_kind` 的 column UPDATE；實測 DEFAULT 更新全列不變，其他 policy 欄位／混合賦值及 INSERT/DELETE/TRUNCATE 均拒絕，真正 Work／Result 服務可運作。作者 17、獨立 9 項 PostgreSQL 測試通過。
+
+主 agent 的公開 grants／checker 清除 table 及 column 舊權限，拒絕 inherited／PUBLIC 寫入及 grant option。獨立審查再用真正 app LOGIN、未改寫的 psql template 重現 NOINHERIT + SET ROLE 繞過；因此專用 app role 一律拒絕父角色 membership（含 SET-only／ADMIN-only）與管理屬性，並驗生成常數未漂移。新增 11 項隔離 PostgreSQL 測試已通過；公開 checker 仍是報表，exit 0 不代表欄位全部安全。私有 release helper 尚未接線。
+
+[發布相容性診斷](../../../../deploy/cloudflare/release-compatibility.md) 以精確 source/artifact、完整 SQL ledger、全部 active consumers、已啟用／曾寫入／外部保留的歷史形狀檢查相容性。Schema 077 即使未有 private write 仍需 explicit wire；085 私人形狀另需 server policy。普通 CLI 沒有獨立可信 host 就 unavailable，candidate JSON 不供應批准／時鐘／觀察。所有回覆的 deployment/execution authority、restore proof 均 false。Host 觀察／信任 transport 未實作，跨 DB restore 的歷史 schema／policy 下限也尚缺，不能把 local compatible 當成可還原或可部署。
+
+整合完整驗證及本批隔離資源收尾待本段更新；前批測試數不算本批重跑。Manifest last=85、known_gaps=`[22]`；076–085 皆為未合併暫用號，合併前重新核對。
+
 ## 尚未交付
 
 - execution/service current-state validators、Invocation/Grant adapters，以及有真實 backing record 的 service/site schema；scoped composition/receipt 目前僅支援 member session。
@@ -201,7 +213,7 @@ TypeScript 7 typecheck、common/execution 生成契約 check、deploy preflight 
 
 ## 下一批
 
-下一批優先補發布相容性／rollback floor、正式 default-deny 私人 persistence policy 與完整新增讀取面，以及固定行為 harness／可信 observation 接線；現有 decision kernel 與 source audit 不重造，也不當成完整 trusted CI。Private mutation 仍須目前權限、expected version、撤銷重驗及無外部 I/O 的短交易。machine/service 分支在 backing schema 和 validator 齊備前拒絕啟用。migration 076–084 尚未合併或發布，不永久預留編號。完整新增 private HTTP/UI 讀取矩陣及 rollback floor 齊備前不開啟正式私人寫入或頭像非 legacy 模式。備份政策、明選模型路徑與實際治理信任仍按各自門檻確認。
+下一批優先補新增 private HTTP/UI 的完整讀取矩陣，以及固定行為 harness／可信 observation 接線；發布相容性與 DB policy 已有本機實作，仍須真正 host／private helper／正式設定證據，不重造另一套。現有 decision kernel 與 source audit 不當成完整 trusted CI。Private mutation 仍須目前權限、expected version、撤銷重驗及無外部 I/O 的短交易。machine/service 分支在 backing schema 和 validator 齊備前拒絕啟用。migration 076–085 尚未合併或發布，不永久預留編號。完整新增 private HTTP/UI 讀取矩陣及真正 rollback floor 齊備前不開啟正式私人寫入或頭像非 legacy 模式。備份政策、明選模型路徑與實際治理信任仍按各自門檻確認。
 
 另於本輪唯讀查核 #85／#87：兩者當時均有整合衝突，分別使用已被 main 占用的 072／070 新 migration，並與 avatar presence/shared service 改動重疊。其整合可在獨立分支先處理，不必等完整 Autopilot；須保留作者功能、只重編尚未套用的 migration，重新取得當前 HEAD 與相容回歸證據。這次沒有修改作者 PR 或把舊 CI 結果當新整合驗收。
 

@@ -31,6 +31,16 @@ node deploy/cloudflare/preflight.mjs wrangler --config <runtime wrangler.jsonc>
 
 Worker entry、`wrangler.jsonc`、`apps/platform-api`、`packages/db` 與套件依賴由其他工作流負責；本目錄只讀取並驗證它們。`preflight.mjs wrangler` 不驗證 [wrangler.admin-sync.jsonc](../../wrangler.admin-sync.jsonc) 與 [wrangler.maintainer.jsonc](../../wrangler.maintainer.jsonc)：那個 checker 要求平台 route、assets 與 images。兩支 cron Worker 分別由 `npm run worker:dry-run:admin-sync` 與 `npm run worker:dry-run:maintainer` 打包。見下方「管理員 Access 同步 Worker」與「維護者鏡像 Worker」。
 
+## 私人政策的應用角色邊界
+
+085 之後，公開 [runtime grants template](sql/20-runtime-grants.psql) 在同一交易內先套一般 grants，再移除私人政策表的所有直接 table／column grants，只給 SELECT 與生成常數 `scope_kind` 的 column UPDATE。後者只讓 PostgreSQL `FOR SHARE` 能執行，不能修改保存開關、配額、revision 或 owner。一般 SELECT-only 角色不能取得該 row lock。
+
+App role 必須是專用角色：沒有父角色 membership（包括 NOINHERIT 下仍可 SET ROLE 的 membership、ADMIN-only membership）或管理角色屬性。殘留 inherited／PUBLIC 寫入、其他 column UPDATE、grant option、生成欄位漂移都令 template 拒絕並 rollback；不自動撤銷別的角色／PUBLIC 權限。Operator 須處理根因後重跑，不能忽略錯誤。
+
+每次 migration 或 restore 後、應用程式連回前重跑。085 前表不存在不做變更；這不是 085 後可缺表的證據。[唯讀 checker](sql/30-verify-readonly.psql) 是報表，不以 exit 0 表示安全：085 後須恰有一列 `private_policy_read=true`、`private_policy_lock=true`、`private_policy_unsafe=false`，並另通過原有角色、ownership、public CREATE 與 ledger 檢查。只有 SQL ledger 相符不足以排除 ACL／DDL 漂移。
+
+這些是公開模板及隔離 PostgreSQL 測試，不會自動更新含秘密的 release helper。正式 grants-check 的接線與 redacted evidence 尚須另驗；未設定正式允許政策、quota、備份、私人 GC 或新的 HTTP/UI。
+
 ## 管理員 Access 同步 Worker
 
 Castle 上每 15 秒跑 `scripts/sync-admin-access.ts` 的 timer，是管理員 Access 允許名單仍依賴家用機器的最後一段。這個 Worker 把同一次 `syncAdminAccess()` 放進 cron。它只匯出 `scheduled`，沒有 `fetch`，沒有 route、custom domain、workers.dev 或 preview URL，所以不在公開網路上回答任何要求。入口是 [apps/platform-api/src/admin-sync-worker.ts](../../apps/platform-api/src/admin-sync-worker.ts)。Wrangler 不能讓同一個設定檔的環境使用不同 `main`，所以設定是 repo 根目錄的 [wrangler.admin-sync.jsonc](../../wrangler.admin-sync.jsonc)，與平台 Worker 的 `wrangler.jsonc` 分開。

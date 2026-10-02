@@ -23,3 +23,19 @@ SELECT count(*) AS applied_migrations, min(name) AS first_migration, max(name) A
 SELECT count(*) AS local_demo_accounts FROM users WHERE email LIKE '%@local.test';
 SELECT count(*) AS runtime_ledger_write FROM information_schema.role_table_grants
   WHERE grantee = :'runtime' AND table_name = 'schema_migrations' AND privilege_type IN ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE');
+-- Effective privileges include inherited and PUBLIC ACLs, not just direct grants.
+-- Zero rows means pre-085/absent: NOT evidence that a migrated target is safe.
+SELECT has_table_privilege(:'runtime',c.oid,'SELECT') AS private_policy_read,
+  has_column_privilege(:'runtime',c.oid,'scope_kind','UPDATE') AS private_policy_lock,
+  EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname=:'runtime' AND
+    (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls
+      OR EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=r.oid)))
+    OR NOT EXISTS (SELECT 1 FROM pg_attribute a JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
+      WHERE a.attrelid=c.oid AND a.attname='scope_kind' AND a.attgenerated='s'
+        AND pg_get_expr(d.adbin,d.adrelid)='''personal''::text')
+    OR has_table_privilege(:'runtime',c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+    OR EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+      AND (has_column_privilege(:'runtime',c.oid,a.attnum,'INSERT,REFERENCES,SELECT WITH GRANT OPTION,UPDATE WITH GRANT OPTION')
+        OR (a.attname<>'scope_kind' AND has_column_privilege(:'runtime',c.oid,a.attnum,'UPDATE')))) AS private_policy_unsafe
+FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND c.relname='private_work_persistence_policy' AND c.relkind='r';
