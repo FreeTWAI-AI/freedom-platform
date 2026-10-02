@@ -5,6 +5,7 @@ import type { Actor } from '../identity-membership/service.js';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import { RuntimeEnvironmentSchema, type RuntimeEnvironment } from '../../contracts/execution/v1/runtime-registration.js';
 import { ExecutionVersion } from '../../contracts/execution/v1/state.js';
+import { BootstrapClientIdSchema } from '../../contracts/execution/v1/bootstrap.js';
 import { withMemberScope, type MemberScopeContext } from '../../packages/resource-scopes/index.js';
 import { scopedMemberCommand, scopedJournal } from '../../packages/scoped-commands/index.js';
 import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
@@ -13,7 +14,6 @@ import { requireCondition } from '../../packages/shared/problem.js';
 
 const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const keySchema = z.string().min(8).max(128).regex(/^[A-Za-z0-9_-]+$(?![\s\S])/);
-const clientSchema = z.string().min(1).max(64).regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$(?![\s\S])/);
 const versionSchema = ExecutionVersion.refine(value => BigInt(value) <= 9223372036854775807n);
 const createSchema = z.object({ key: keySchema, runtimeDeviceId: OpaqueId }).strict();
 const readSchema = z.object({ connectionId: OpaqueId }).strict();
@@ -48,7 +48,7 @@ function plainInput(value: unknown): void {
 /** Current-member management only. A connection row is not machine authentication. */
 export function createAgentConnections(pool: Pool, rawOptions: { environment: RuntimeEnvironment; clientId: string }) {
   plainInput(rawOptions);
-  const { environment, clientId } = z.object({ environment: RuntimeEnvironmentSchema, clientId: clientSchema }).strict().parse(rawOptions);
+  const { environment, clientId } = z.object({ environment: RuntimeEnvironmentSchema, clientId: BootstrapClientIdSchema }).strict().parse(rawOptions);
   async function eligible(q: PoolClient, actor: Actor) {
     const row = await q.query('SELECT user_id FROM users WHERE user_id=$1 AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)', [actor.user_id]);
     requireCondition(row.rowCount === 1, 403, 'onboarding_required', '請先完成加入。');

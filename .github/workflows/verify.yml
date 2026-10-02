@@ -16,7 +16,10 @@ jobs:
           POSTGRES_USER: freedom_local
           POSTGRES_PASSWORD: local-development-only
           POSTGRES_DB: fp_foundation_ci
-        ports: [5432:5432]
+          # Disposable runner-only synthetic DB: low-privilege fixture LOGIN roles
+          # have no passwords. Never use this authentication mode outside CI.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['127.0.0.1:5432:5432']
         options: >-
           --health-cmd "pg_isready -U freedom_local -d fp_foundation_ci"
           --health-interval 5s --health-timeout 3s --health-retries 20

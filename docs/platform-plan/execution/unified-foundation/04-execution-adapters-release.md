@@ -95,6 +95,8 @@ UX 的 shell extraction 每個 PR 只抽一組責任，維持現有會員 sessio
 
 ## 發布與 restore
 
+依 Ted 於 2026-10-02 的最新指示，本輪先完成原計畫 scope，再採受控前向 migration；不另做提早上線用的多版過渡 release，也不把退回舊應用程式當成發布策略。下列歷史資料形狀／復原要求仍約束資料安全，不代表要擴大成一項舊版維護工程。正式切換需停止不相容的舊 consumers，完成 schema/grants 及驗證後才恢復新程式；維護窗口另確認。
+
 相容下限合併 Asset bridge、private ACL、execution evidence/reconciliation、credential purpose 及 vault 邊界。rollback 須能處理所有已啟用資料形狀，不只 UI 可開。U7 移除 legacy 欄位之前要證明受支援舊 client/舊資料均已退出。
 
 restore 前 fence runtime；restore 環境預設停 dispatch。以不隨舊 DB snapshot 回退的環境 recovery generation 作新授權前提，恢復後增加 generation，再對帳 R2、撤銷/刪除 tombstones、outbox、provider unknown effects。不能靠還原同一 DB 欄位阻止舊 token 復活。

@@ -35,6 +35,8 @@
     "check:execution-contracts": "tsx packages/execution-state/generate.ts --check",
     "contracts:runtime-registration": "tsx modules/agent-control/generate.ts",
     "check:runtime-registration": "tsx modules/agent-control/generate.ts --check",
+    "contracts:bootstrap": "tsx modules/agent-control/generate-bootstrap.ts",
+    "check:bootstrap": "tsx modules/agent-control/generate-bootstrap.ts --check",
     "test:repos": "tsx --test --test-concurrency=1 tests/integration/repositories.test.ts",
     "check:skill-book-upstreams": "tsx scripts/check-skill-book-upstreams.ts"
   },

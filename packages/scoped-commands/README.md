@@ -16,6 +16,14 @@ credentials, external I/O, publication/fanout or implicit target ACL. Migration
 scoped journal/outbox never writes legacy community events. Domain callbacks must
 authorize the actual target and supply only bounded, explicit metadata.
 
+`scopedMemberCommand` rechecks the locked member session against the database
+clock after receipt lookup and receipt insertion, including on replay. A receipt
+storage wait that crosses session expiry fails and rolls back the domain change,
+journal, outbox and receipt together. This is a pre-commit authorization decision,
+not a promise that the session remains valid through commit or response delivery.
+Domain callbacks still recheck their own expiring resources after domain waits;
+this change does not alter the legacy `command()` or avatar receipt adapter.
+
 ## Closed avatar receipt compatibility
 
 `avatarMemberCommand<T>(pool, input: Command, authorize(q, context), run(q, context))`

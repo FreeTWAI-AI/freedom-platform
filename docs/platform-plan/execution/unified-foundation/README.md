@@ -16,6 +16,7 @@
 | [七類媒體搬遷](05-media-migration.md) | R2 RS-00–06/10/11、U6/U7 | 完整搬遷程序；正式資料盤點與 cloud/restore 實測另做 |
 | [Autopilot API 與瀏覽器](06-browser-runtime.md) | AP M0–M6/T0–T5、U3/U5 | API/auth、MV3/native/neo guard、journal；實際 source audit 與 capability 另做 |
 | [Runtime 金鑰登錄](07-runtime-enrollment.md) | U1/U3、AP AUTH 前置 | 封閉會員批准、真實金鑰持有證明及撤銷；不是完整 device flow 或機器執行授權 |
+| [機器連線與 bootstrap 驗證](08-agent-connections-bootstrap.md) | U1/U3、AP §1.5／4.3 | 會員連線 backing record 與獨立 token／DPoP 加密組件；目前身分／nonce 原子驗證接線另列 |
 | [共同基礎驗收](acceptance.md) | INT-01–28、GOV-01–32 | 60 項原要求，全部 `not_run` |
 | [R2/AP 原始驗收](source-acceptance.md) | R2 S/A/M/D、AP AUTH/WORK/EXT/NEO/OPS | 108 項原要求，加 24 條 guardrails/invariants 對照，全部未驗收 |
 
@@ -36,6 +37,8 @@
 接著交付 Asset 頭像與 private Work ACL，再把 RunAttempt／一條明確模型路徑接進私人草稿。完整共同基礎的完成條件同時包含 A 頭像、B 私人 AI 草稿及治理反例；第一批完成不能取代這三類證據。
 
 ## 開發與交付規則
+
+2026-10-02 Ted 的最新方向是完成原計畫 scope 後做受控前向 migration，不為提早上線另做相容過渡 release，也不把回到舊應用版本作交付目標。資料安全與發布保護仍保留，詳見 [發布決策](00-baseline-and-decisions.md)；目前不變更 staging/live。
 
 Ted 在規格完成後已明確授權由目前 agent 直接實作並持續推進，後續又授權多隻 GPT-6 Astra、Grok 4.7 與 Opus 4.6 平行分工，不再要求所有產品程式交給 grok 4.7。派工仍須提供固定 source SHA、此組 spec、可改檔案、預期反例及隔離測試方式；獨立 worktree 避免互踩，共同檔案由整合者負責。此授權不自動包含推送、合併、部署、正式設定或公告。
 

@@ -3,6 +3,9 @@
 The adjacent [member-managed agent connection service](agent-connections.md)
 records an enrolled runtime's fixed host client binding and expiry. It remains
 separate from machine authentication and does not issue tokens or execution rights.
+The [bootstrap JWT/DPoP verifier](bootstrap-proof.md) separately checks actual
+signatures and exact purpose/binding. Its output is cryptographic evidence only:
+no current DB authorization, nonce consumption, replay prevention or HTTP mount.
 
 `createRuntimeRegistrations(pool, { environment })` is an internal server factory
 for current members. The host must explicitly select `local`, `staging-next`, or

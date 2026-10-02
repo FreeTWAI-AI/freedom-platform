@@ -12,7 +12,7 @@ connection 有效期固定 DB 當下時間起 30 日、每 owner/environment 累
 
 Create 及其 receipt replay 都驗目前 member/session/onboarding/person/scope、runtime enrolled，existing connection 未過期／未撤銷。已完成登錄的 runtime 不因原 enrollment challenge 過期而失效。Read/revoke 仍驗目前本人資格，但允許清理 runtime 已撤銷或 connection 已過期的紀錄；不要求模型、私人 Work policy 或 provider 健康。相同 revoke receipt 可以重播；缺版本 428、過舊 412、同 key 不同內容 409。
 
-鎖顺序沿 087：user/session/person/personal scope → member command advisory → enrollment owner/environment advisory → enrollment key advisory → enrollment challenge → runtime registration → connection。Read 不拿 command advisory。不要升級已取得的 scope SHARE 鎖。跨 await 先 snapshot；所有等鎖後及最後 DB query 後重驗 session clock，create 還驗 connection 到期。讀到曾 enrolled 不等於目前可用。
+鎖順序沿 087：user/session/person/personal scope → member command advisory → enrollment owner/environment advisory → enrollment key advisory → enrollment challenge → runtime registration → connection。Read 不拿 command advisory。不要升級已取得的 scope SHARE 鎖。跨 await 先 snapshot；domain 等鎖後重驗 session clock，create 還驗 connection 到期；共用 scoped command 在 receipt 讀取／寫入後再次驗 session clock，逾期則整筆回滾。這是 commit 前的授權決策時點，不保證 commit 或回應送達時仍未過期。讀到曾 enrolled 不等於目前可用。
 
 create/revoke 與三個 scoped sinks 原子提交；不向舊 community outbox 發送私人 producer。SQL 僅強制結構／目前 backing row，不能抵抗可信 app DB 憑證被控制；runtime token 授權不得僅憑 active row。
 
@@ -31,17 +31,17 @@ create/revoke 與三個 scoped sinks 原子提交；不向舊 community outbox �
 | token 時間 | iat/exp 為非負安全整數秒；`iat <= floor(nowMs/1000) < exp`、`0 < exp-iat <= 600`；token 整段效期及目前時間都在 trusted key 有效期內，沒有 expiry grace |
 | DPoP header | 只有 `alg:'ES256'`、`typ:'dpop+jwt'`、`jwk`，公鑰同一嚴格格式，實際 import 驗曲線 |
 | DPoP claims | 只有 `jti,htm,htu,iat,ath,nonce`；htm 固定 GET，htu 精確等於 host bootstrapUri，拒 query/fragment／非 canonical alias |
-| proof 時間 | 非負安全整數秒；`nowSeconds-60 <= iat <= nowSeconds+5`，此窗口只是工程 profile |
+| proof 時間 | 非負安全整數秒，`nowSeconds = floor(nowMs/1000)`；`nowSeconds-60 <= iat <= nowSeconds+5`，此窗口只是工程 profile |
 | proof binding | ath 是原始 ASCII access token 的 SHA-256 base64url；DPoP key thumbprint 等於 cnf.jkt 及預期 binding；nonce 精確等於 host 給定的 canonical 32-byte base64url 公開 nonce |
 | 大小及 JSON | access/proof 各最多 8 KiB，header 最多 1 KiB、payload 最多 4 KiB；嚴格 UTF-8、canonical base64url／64-byte signature；拒重複解碼 key、未知欄位、非法數字、超深物件、私鑰、jku/x5u/crit、detached/unencoded payload |
 
-kid 為 1–64 個英數／底線／連字號，jti 為 16–128 個同字元。不要求一般 JSON key 排序，但拒重複 key／prototype 特殊欄位。任何輸入或驗簽錯誤回固定失敗，不回傳 token／proof／key 原文、stack 或 provider 診斷。Issuer 公鑰與 device 公鑰用途分開，不能將登錄用 key 自行宣稱為受信 issuer。
+kid 為 1–64 個英數／底線／連字號，jti 為 16–128 個同字元。不要求一般 JSON key 排序，但拒重複 key／prototype 特殊欄位。數字只接受整數字面值，拒小數、指數、負零及不安全整數。key 效期的目前時間採 `[notBeforeMs,notAfterMs)`，token 的 exp 可恰等於 key 的 notAfterMs；秒轉毫秒使用 BigInt 避免溢位。Factory 無效設定拋固定訊息的 `BootstrapProofError`，verify 的輸入或驗簽失敗回 null；不回傳 token／proof／key 原文、stack 或 provider 診斷。Issuer 公鑰與 device 公鑰用途分開，不能將登錄用 key 自行宣稱為受信 issuer。
 
 ## Crypto 結果不是機器身分
 
 Factory 的 `verify({accessToken,proof,expectedNonce,nowMs,expectedBinding})` 使用 host 提供的綁定快照。expectedBinding 精確包含 `ownerUserId,principalId,scopeId,runtimeDeviceId,connectionId,connectionVersion,keyThumbprint`。成功只回受限 claims、proof jti、nonce 及 `assurance:'cryptographic_only'`、`operational_authority:false`；失敗回 null。不得輸出可被當成 execution Invocation／VerifiedContext 的品牌或 handle。
 
-Caller 填 now／binding／keys 不會因此成為可信來源。這個純組件不查 DB、不做 nonce 發行或原子 consume，也不防跨呼叫 replay；同一合法 proof 重驗可以成功，測試須明示這項限制。後續真正 machine validator 必須在同一交易內解析目前 user/person/scope/runtime/connection、檢查到期／撤銷、DB-clock freshness 與 server nonce/replay，並將結果限制在唯一 operation。這些接線完成前不掛 machine route、不發布 token、不授私人正文、Work、Run、Grant、model 或 effect 權。
+Caller 填 now／binding／keys 不會因此成為可信來源。這個純組件不查 DB、不做 nonce 發行或原子 consume，也不防跨呼叫 replay；同一合法 proof 重驗可以成功，測試須明示這項限制。合法 ECDSA high-S／low-S 簽章皆可驗過，後續 replay 防護須使用 server nonce／proof jti，不以簽章 bytes 去重。後續真正 machine validator 必須在同一交易內解析目前 user/person/scope/runtime/connection、檢查到期／撤銷、DB-clock freshness 與 server nonce/replay，並將結果限制在唯一 operation。這些接線完成前不掛 machine route、不發布 token、不授私人正文、Work、Run、Grant、model 或 effect 權。
 
 ## 測試及未完成部分
 
