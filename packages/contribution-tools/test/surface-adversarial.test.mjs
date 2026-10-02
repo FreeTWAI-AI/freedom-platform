@@ -42,8 +42,19 @@ const reject = (path, change) => {
   // An unconditional whole-platform blocker is not evidence this mutation was
   // detected. Require a concrete candidate rejection, so a permanently
   // unavailable aggregate cannot make these negative vectors vacuously green.
-  assert(report.issues.some(issue => issue.revision === 'candidate'
-    && !['surface_unmapped', 'registration_behavior_audit_required'].includes(issue.code)), JSON.stringify(report.issues));
+  const concrete = issues => issues.filter(issue => issue.revision === 'candidate'
+    && !['surface_unmapped', 'registration_behavior_audit_required'].includes(issue.code));
+  const prior = new Map();
+  for (const issue of concrete(audit().issues)) {
+    const key = JSON.stringify(issue);
+    prior.set(key, (prior.get(key) ?? 0) + 1);
+  }
+  assert(concrete(report.issues).some(issue => {
+    const key = JSON.stringify(issue), count = prior.get(key) ?? 0;
+    if (!count) return true;
+    prior.set(key, count - 1);
+    return false;
+  }), JSON.stringify(report.issues));
 };
 
 test('independent real-source positive control is only a six-route syntax map, never whole-platform approval', () => {
