@@ -13,7 +13,7 @@
 | U0 規格與共用契約 | 5% | 80–90% | 正式批准與版本發布 |
 | U1 身分／scope／command | 10% | 60–75% | machine/service backing records 與 adapter |
 | U2 Asset 與私人 ACL | 15% | 65–80% | 完整讀面、正式政策及接線 |
-| U3 執行狀態與模型 ports | 15% | 15–25% | runtime 身分、真實 Attempt/Grant binding、實際模型路徑；封閉 durable Run 已有本機證據 |
+| U3 執行狀態與模型 ports | 15% | 15–25% | machine request 身分、真實 Attempt/Grant binding、實際模型路徑；封閉 durable Run 與 runtime 金鑰登錄已有本機證據 |
 | U4 兩條垂直流程 | 15% | 10–25% | 私人 AI 草稿及跨端產品驗收 |
 | U5 browser／Kit／broker | 15% | 0–10% | 實際 runtime 接線與封裝驗證 |
 | U6 媒體搬遷與 restore | 10% | 5–15% | 真實盤點、七類媒體搬遷與還原 |
@@ -273,6 +273,37 @@ TypeScript 7、common/execution 生成 bytes 與 diff check 通過；既有契�
 
 Manifest last=86、known_gaps=`[22]`；076–086 都未合併，不永久預留編號。遠端 main 最後唯讀確認仍是 `3de70cc`。沒有 push、開 PR、合併、部署、處理其他 PR、啟用正式清理或接觸 Ted 的本機真實資料；備份政策仍另確認。本批程式驗證時 inventory 為 **1,232 file hashes、699 本機文件／目錄連結、0 failures**；收尾文件另重產 inventory。本機實作、合成測試與正式驗收分開記錄，168 項原始產品要求仍未改成 PASS。
 
+## 本批 runtime 金鑰登錄
+
+三個 Astra 工作位分別負責中央 proof／契約與低權限測試、登錄服務／SQL，以及獨立競態反例；各自使用獨立 worktree，根整合者補生成工具、descriptor、發布相容性矩陣與完整回歸。額外兩路 Grok 4.7、兩路 Opus 4.6 CLI 僅審查限定的公開原始碼。Grok proof 與兩路 Opus 完成，Grok SQL 審查逾時而沒有結論；沒有 402／429，也未增加付費、變更帳號或權限。模型意見不能充當實跑或操作批准。
+
+[固定工程規格 07](07-runtime-enrollment.md) 與 [模組說明](../../../../modules/agent-control/README.md) 將本批限定為會員核准、對應私鑰持有證明與可撤銷的公鑰登錄。中央型別／validator 及三份結構 JSON Schema 同源，exact-byte check 與五份新 suite 納入固定 runtime baseline；13 個 module descriptors 的路徑、參照、獨占 ownership 及無循環依賴已另行查核。Schema 只驗結構，不冒充實際驗簽、目前授權或完整語意。
+
+- 封閉 ES256／P-256 profile 使用既有 `jose` 驗真正簽章及曲線點，嚴格公鑰欄位、固定 protected header／payload bytes、SHA-256 thumbprint、300 秒 DB-clock challenge，拒重複 key／演算法或用途替換／編碼別名。Host 明確固定 environment；owner／scope／runtime／nonce／期限由 server 產生或解析，不接受 caller 宣稱可信。
+- 暫用 migration 087 保存 challenge 與 registration，member-only begin/confirm/read/revoke 使用目前 user/session/person/personal scope/onboarding、scoped command 及固定鎖順序。等待鎖、非同步驗簽與最後 query 後重驗時鐘；consume、registration、journal/outbox/receipt 同交易。過期或已消耗 begin 不再回傳；成功 confirm 的完全相同 receipt 可晚於 challenge TTL 重播，但目前權限與未撤銷登錄仍必要。
+- 公開 pending challenge 不獨占 key，防止先提交別人的公鑰搶註。成功確認才取得 environment/key 唯一登錄；owner／scope／runtime／key 不可改綁，revoked tombstone 不可復活，rotation 需新 key。每 owner/environment 的 10 pending、1,000 lifetime challenges、32 registrations 是明列的工程容量限制，不是正式配額政策。
+- Nonce 是公開挑戰而非 bearer secret，可在 begin receipt 重播；私鑰不由服務接收或保存，raw JWS 不進任何 durable row／receipt／facts。SQL 只保結構約束，不驗 ES256，也不防持有可信 app 寫入憑證者偽造業務事實。所有 DTO 的 `operational_authority` 固定 false；沒有 HTTP/UI、device flow、machine token、provider、Grant／Attempt／lease 或 dispatch。
+
+### 反例與實際修正
+
+兩個真正 SQL 反例先 RED 再 GREEN：BEFORE UPDATE 比較完整 row 時，NEW 的生成 `scope_kind` 尚未計算，誤擋合法 consume/revoke；改從 immutable 比較排除這個不可指定的生成欄位。JWK JSON null 另能經 SQL 三值邏輯繞过 CHECK；改為明確 string／canonical 座標及 `COALESCE(..., false)`。原樣反例、正常流程與真正 non-superuser migrator/app LOGIN 均重跑通過；未削弱 FK 或取消反例。
+
+獨立測試用真正 `pg_blocking_pids` 證明鎖等待，並把實際 WebCrypto 驗簽延遲到 expiry 之後，沒有 mock verifier=true。涵蓋目前身分停用、錯 owner/environment/purpose/key、同／不同 idempotency key 競態、public-key squatting、三個 fact sink 故障全回滾、TEMP shadow 與不可改綁。另實際驗證同一 payload 的 high-S／low-S 兩種合法 ECDSA 簽章：更換 proof 後同 command key 回 409，改新 key 也不能再次 consume，總共仍只有一筆登錄及一組 confirm facts／receipt。
+
+Opus 對缺少 expectedVersion／變更 begin payload 的假說已由實際 command core 排除，再補兩個獨立反例固定 428／409 與零新效果。Proof review 的結構 parse 與曲線 import 界線補入註解；不把文字意見當新的實作證據。根整合者首次 descriptor 使用不支援的檔名中段 wildcard，工具拒絕後改為精確路徑，未放寬 validator；新測試匯入既有 JS helper 的 TS7016 依 repo 同類測試補明確預期註解，型別檢查重跑通過。
+
+### 固定整合驗證
+
+程式固定於 **`7d8eff3f47c6108600262260a178153ae6bfc0a1`**，驗證期間 tracked workspace 未變；對真正 `origin/main`（`3de70ccbd24362a7925508fb42d36aaa256a0806`）執行 prepare/verify。完整 runtime **1,586/1,586（122 files）**、治理 **241/241（10 files）**，0 failed/skipped/cancelled。新增 **87 項**由 proof 36、service 16、獨立反例 22、grants 12、生成契約 1 組成，已包含在完整 runtime，不重複加總。Descriptor／contract checks 也通過。
+
+整體仍 exit 2、local `unavailable`，保留 `baseline_governance_unavailable`、`surface_unmapped`、`registration_behavior_audit_required`；本批不消除可信 host transport／publisher、完整入口行為及 GitHub enforcement 缺口。真正 token、Grant／Attempt binding、runtime build/capability／provider attestation 和正式部署證據仍沒有。
+
+公開 preflight **187/187**（新增 12 項 enrollment capability／歷史 shape／schema 下限反例），Worker **28/28**，皆零 skip。Worker 使用前批既有 dry-run bundle 搭配本批 087 隔離 fixtures；本批未改 Worker/HTTP/UI 接線，沒有重新 build 或跑 Browser。TypeScript 7、common/execution/runtime-enrollment 生成 bytes 及 diff check 通過；既有契約 **659 passed、4 個原有 clock cases skipped**，Skill client **10/10**。收尾僅另修文件的「公鑰持有」用語為「對應私鑰持有」，不改已驗程式。
+
+本批另建固定 digest 的 PG18.6 disposable 容器：network-none、無公開 port、2 GiB tmpfs、專屬 Unix socket、`max_locks_per_transaction=256`；所有測試明確用新 `fp_foundation`／`fp_*` 合成 schema、role、db。Worker proxy 已結束。收尾確認 schemas／roles／其他 clients／子資料庫全為 0，核對 container ID/task label 後停止並移除容器及空 socket；只移除可重建的合成資料，沒有碰 `freedom_local.public`。程式、worktrees、ignored 報告保留，沒有留下本輪 CLI 審查或 DB 程序。
+
+Manifest last=87、known_gaps=`[22]`；076–087 全為未合併暫用號，合併前須重新核對。19:55 UTC 唯讀確認遠端 main 仍為 `3de70cc`；沒有 push、開 PR、合併、部署、處理其他 PR 或啟用正式清理，備份政策仍另確認。固定程式 inventory 為 **1,249 hashes、709 本機文件／目錄連結、0 failures**；收尾文件重產後為 **1,249 hashes、711 本機連結、0 failures**。本紀錄持續分開本機證據與產品驗收；168 項原始產品要求仍是 `not_run`，不以本批測試數宣稱完成。
+
 ## 尚未交付
 
 - execution/service current-state validators、Invocation/Grant adapters，以及有真實 backing record 的 service/site schema；scoped composition/receipt 目前僅支援 member session。
@@ -284,9 +315,9 @@ Manifest last=86、known_gaps=`[22]`；076–086 都未合併，不永久預留�
 
 ## 下一批
 
-下一批先固定 runtime enrollment 的 proof profile，再實作會員批准與真實金鑰持有證明：一次性 challenge 綁定 owner/scope/runtime/public-key/environment/purpose/期限，實際驗簽、鎖後重驗目前權限與時鐘、原子 consume/receipt、撤銷不可復活。這只證明會員核准及持有金鑰，不證明 runtime build/capability 或模型登入；不得重用 storefront/supplier 的 `fw_read` 連線、發 bootstrap/token 或先建立缺少真實 binding 的 Attempt。後續 execution connection、ModelConnection、Grant 與 Attempt 各須真正 backing records，模型/provider/billing/custody 選擇仍不替 Ted 擅自決定。
+Runtime enrollment 已完成上述封閉本機實作。下一批先定版獨立機器連線／bootstrap proof 的工程規格：issuer/audience、不同 token/proof purpose、受信 verifier-key source、TTL/skew、method/URI 精確綁定、nonce/replay、容量與撤銷鎖順序，再實作真正 connection backing record 及有限的目前身分驗證。只驗本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權；本機使用合成短期金鑰，不建立正式 signing key、HTTP token endpoint 或 refresh family。這些仍是下一批待實作項目，不把 enrollment row 或 caller passed 當 machine authority，也不重用 storefront/supplier 的 `fw_read` 連線。後續 ModelConnection、Grant 與 Attempt 各須真正 backing records，模型/provider/billing/custody 選擇仍不替 Ted 擅自決定。
 
-治理可另推進固定單一 profile 的本機隔離 supervisor，把 host harness 與 candidate app 隔離，以父程序專屬一次性管道回收 observation；不能把 candidate stdout/JSON 當可信結果。隔離不成立就 unavailable，並保留 approved host source、完整入口、publisher/GitHub enforcement 的缺口。這是下一步工程建議，尚未實作。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代真正 transport／外部保存／政策 restore 的證據。migration 076–086 尚未合併或發布；完整私人讀取矩陣與正式 rollback gate 齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。
+治理可另推進固定單一 profile 的本機隔離 supervisor，把 host harness 與 candidate app 隔離，以父程序專屬一次性管道回收 observation；不能把 candidate stdout/JSON 當可信結果。隔離不成立就 unavailable，並保留 approved host source、完整入口、publisher/GitHub enforcement 的缺口。這是下一步工程建議，尚未實作。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代真正 transport／外部保存／政策 restore 的證據。migration 076–087 尚未合併或發布；完整私人讀取矩陣與正式 rollback gate 齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。
 
 早先唯讀查核 #85／#87 的衝突與 migration 重號紀錄保留歷史用途；依 Ted 最新指示，其他 PR 的 rebase／整合現在不在派工範圍。這次沒有修改作者 PR 或把舊 CI 結果當新整合驗收。
 

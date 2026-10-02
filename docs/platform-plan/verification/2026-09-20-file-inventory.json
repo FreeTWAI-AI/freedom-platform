@@ -3204,8 +3204,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/06-browser-runtime.md",
-      "bytes": 19094,
-      "sha256": "089bbdd378fb908ec6a6bcc6dded08530fcec6f0a9b8104e0d7796e84e16fa24"
+      "bytes": 19103,
+      "sha256": "e2b571b018a5e0ae51c09f76a87eb66c139c981b61a3ec087a41d283209bd04d"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/07-runtime-enrollment.md",
@@ -3224,8 +3224,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 53573,
-      "sha256": "ceba5b016fce20029222cbda18934703633c1020a131f33abbe59d8032b62bcc"
+      "bytes": 60641,
+      "sha256": "deaab8af23647eb985228925644cb536ee9d04f425f770b7e01740cfc111f37c"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -3809,8 +3809,8 @@
     },
     {
       "path": "modules/agent-control/README.md",
-      "bytes": 5400,
-      "sha256": "dee8288c8bc70de926ccaa5c25c2ea1366e1797dccaa276fa43a882612ee326e"
+      "bytes": 5417,
+      "sha256": "83bf5aefcfac2dcaff0ef881b1f7376b9ebe3f59d6d30d88c2bf43cd64677f1d"
     },
     {
       "path": "modules/agent-control/freedom.module.json",

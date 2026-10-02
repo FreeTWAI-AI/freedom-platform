@@ -14,7 +14,7 @@ for current members. The host must explicitly select `local`, `staging-next`, or
   using an exact decimal aggregate version; matching receipt retries are safe.
 
 All returned objects carry `operational_authority: false`. Enrollment proves
-member approval and possession of a public key under this closed service; it
+member approval and possession of the corresponding private key under this closed service; it
 does not attest a runtime build, hardware, capability, provider, model, official
 CLI login, or permission to execute. There is no HTTP mount, machine validator,
 token, Grant, Attempt, lease, provider call, or dispatch in this module. Actor must
