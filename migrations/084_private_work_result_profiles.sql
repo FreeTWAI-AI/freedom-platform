@@ -165,10 +165,8 @@ BEGIN
   IF target.work_mode<>'personal_execution' OR target.state<>'draft' THEN
     RAISE EXCEPTION 'Result requires active private Work' USING ERRCODE='23514';
   END IF;
-  IF NOT EXISTS(SELECT 1 FROM private_work_result_targets WHERE work_item_id=target.work_item_id) THEN
-    INSERT INTO private_work_result_targets(work_item_id,scope_id,owner_principal_id,owner_user_id)
-      VALUES(target.work_item_id,target.scope_id,target.owner_principal_id,target.owner_ref);
-  END IF;
+  -- Work serializes first creation as well; don't create a placeholder in this
+  -- BEFORE trigger because ON CONFLICT may subsequently suppress the Result.
   PERFORM 1 FROM private_work_result_targets WHERE work_item_id=target.work_item_id FOR UPDATE;
   SELECT * INTO STRICT intent FROM asset_upload_intents WHERE intent_id=NEW.intent_id FOR UPDATE;
   SELECT * INTO STRICT artifact FROM assets WHERE asset_id=intent.asset_id FOR UPDATE;
@@ -185,7 +183,6 @@ BEGIN
   NEW.work_version:=target.aggregate_version+1;
   SELECT COALESCE(max(revision),0)+1 INTO NEW.revision FROM private_work_results WHERE work_item_id=target.work_item_id;
   NEW.created_at:=clock_timestamp();
-  UPDATE work_items SET aggregate_version=NEW.work_version WHERE work_item_id=target.work_item_id;
   RETURN NEW;
 END;
 $$;
@@ -193,8 +190,14 @@ CREATE TRIGGER append_private_work_result BEFORE INSERT OR UPDATE OR DELETE ON p
   FOR EACH ROW EXECUTE FUNCTION append_private_work_result();
 CREATE FUNCTION publish_private_work_result() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-  UPDATE private_work_result_targets SET result_id=NEW.result_id,asset_id=NEW.asset_id,linked_at_work_version=NEW.work_version
-    WHERE work_item_id=NEW.work_item_id;
+  -- Mutation occurs only for a successfully inserted Result, never for a row
+  -- suppressed by INSERT ... ON CONFLICT DO NOTHING after its BEFORE trigger.
+  UPDATE work_items SET aggregate_version=NEW.work_version
+    WHERE work_item_id=NEW.work_item_id AND aggregate_version=NEW.work_version-1 AND state='draft';
+  IF NOT FOUND THEN RAISE EXCEPTION 'Private Work version changed' USING ERRCODE='P0412'; END IF;
+  INSERT INTO private_work_result_targets(work_item_id,scope_id,owner_principal_id,owner_user_id,result_id,asset_id,linked_at_work_version)
+    VALUES(NEW.work_item_id,NEW.scope_id,NEW.owner_principal_id,NEW.owner_user_id,NEW.result_id,NEW.asset_id,NEW.work_version)
+    ON CONFLICT(work_item_id) DO UPDATE SET result_id=EXCLUDED.result_id,asset_id=EXCLUDED.asset_id,linked_at_work_version=EXCLUDED.linked_at_work_version;
   RETURN NULL;
 END;
 $$;
@@ -210,3 +213,15 @@ END;
 $$;
 CREATE CONSTRAINT TRIGGER require_private_result_finalization AFTER INSERT ON private_work_results
   DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION require_private_result_finalization();
+CREATE FUNCTION require_finalized_private_intent_result() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NOT EXISTS(SELECT 1 FROM private_work_results WHERE intent_id=NEW.intent_id) THEN
+    RAISE EXCEPTION 'Private intent finalization requires its immutable Result' USING ERRCODE='23514';
+  END IF;
+  RETURN NULL;
+END;
+$$;
+CREATE CONSTRAINT TRIGGER require_finalized_private_intent_result AFTER INSERT OR UPDATE ON asset_upload_intents
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
+  WHEN (NEW.purpose='work.private-draft' AND NEW.state='finalized')
+  EXECUTE FUNCTION require_finalized_private_intent_result();
