@@ -1,7 +1,7 @@
 # Closed member private Work/Result HTTP transport
 
 `createPrivateWorkTransport(pool, { origin, freedomEnv, store? })` in
-[private-work-transport.ts](private-work-transport.ts) is an **unmounted** router
+[private-work-transport.ts](../../apps/platform-api/src/routes/private-work-transport.ts) is an **unmounted** router
 factory. Tests may mount it under `/api/v1`; neither `createPlatformApp` nor the
 Worker imports or registers it. Production retains only its existing two private
 Work GET routes. This is local transport evidence, not private-feature activation.
@@ -11,7 +11,7 @@ No pending PR, UI, migration, model, cloud policy or binding is changed.
 
 The factory independently authenticates the real `freedom_local_session` cookie.
 It never trusts a previously injected Actor, bearer/Agent credential, request
-owner/scope, or caller policy. [The shared member middleware](../member-boundary.ts)
+owner/scope, or caller policy. [The shared member middleware](../../apps/platform-api/src/member-boundary.ts)
 was extracted from the existing platform app, retaining its cookie, timing-safe
 CSRF comparison, authentication and onboarding rules except for the fail-closed
 empty-token guard described below. Production passes its unchanged
@@ -126,11 +126,11 @@ or policy change during storage I/O rejects the response; no fallback is allowed
 
 ## Evidence and remaining gates
 
-[Author tests](../../../../tests/runtime/private-work-http.test.ts) cover the
+[Author tests](../../tests/runtime/private-work-http.test.ts) cover the
 real cookie boundary, scoped commands/policy/replay, strict headers, actual
 stream limits, escaped duplicates/UTF-8/BOM/surrogates, exact legacy DTO
 comparison, bigint overflow, missing-store behavior and no production mount.
-[Independent tests](../../../../tests/runtime/private-work-http-adversarial.test.ts)
+[Independent tests](../../tests/runtime/private-work-http-adversarial.test.ts)
 cover real PostgreSQL lock waits crossing session expiry, post-GET revocation,
 policy/archive/version changes, owner isolation and same-key/CAS concurrency.
 They use explicit disposable `fp_*` schemas and synthetic text/stores, not live

@@ -198,11 +198,6 @@
       "sha256": "445f4476c595202daf4e393dd2862a8525ed2be1f7082d12022f86fd65c59f2e"
     },
     {
-      "path": "apps/platform-api/src/routes/private-work-transport.md",
-      "bytes": 9146,
-      "sha256": "4977a293d0113d27ab80facd17c3258ed96bc56dd196554b8edce2a73526abdc"
-    },
-    {
       "path": "apps/platform-api/src/routes/private-work-transport.ts",
       "bytes": 11355,
       "sha256": "c958a6a6f9ef9436d014c6dad07c6768547bcd231221a92b87b99e1176830848"
@@ -3159,8 +3154,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md",
-      "bytes": 19021,
-      "sha256": "09ba54913d8357a8f736895084534b268f08b4d01021b466b8b7ad886e0d9621"
+      "bytes": 19007,
+      "sha256": "73249f9b4238bcd48e46b59d1379df7503c7609d1c7a69ddcdf1a30dd4f80ab1"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md",
@@ -3824,8 +3819,13 @@
     },
     {
       "path": "modules/autopilot-work/freedom.module.json",
-      "bytes": 1397,
-      "sha256": "b35a6456a6e83bff36e20b1fa946dd53d4217de0ab82cb45c1464f6532b9954d"
+      "bytes": 1325,
+      "sha256": "4e5ace70877440c40af5906a2b2bed9198c6db9102b22ef9bf04e3ce4a9938be"
+    },
+    {
+      "path": "modules/autopilot-work/http-transport.md",
+      "bytes": 9194,
+      "sha256": "cbddf12af53cc3c6f7c471e344753fa60a0bbb1de0c2f274c1a112a81749fcf3"
     },
     {
       "path": "modules/autopilot-work/policy.ts",
