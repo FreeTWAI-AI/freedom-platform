@@ -49,7 +49,8 @@ test('R2-03 metadata projects only allowed fields and supports exact bounded ran
   const ranged = await store.get(id, { offset: 1, length: 3 }); assert.ok(ranged);
   assert.equal(new TextDecoder().decode(await readBounded(ranged.body, 3)), 'bcd');
   assert.deepEqual(ranged.metadata, value.metadata);
-  for (const range of [{ offset: -1, length: 1 }, { offset: 1, length: 6 }, { offset: 6, length: 1 }, { offset: 1, length: 0 }, { offset: 1, length: 0.5 }]) {
+  for (const range of [{ offset: -1, length: 1 }, { offset: 1, length: 6 }, { offset: 6, length: 1 }, { offset: 1, length: 0 },
+    { offset: 1, length: 0.5 }, { offset: NaN, length: 1 }, { offset: 0, length: Infinity }, { offset: undefined as unknown as number, length: 1 }]) {
     await assert.rejects(store.get(id, range), code('invalid_range'));
   }
   assert.equal(await store.get(key()), null); assert.equal(await store.head(key()), null);
@@ -136,4 +137,27 @@ test('R2-13 oversized/truncated native streams are bounded and never returned', 
 test('R2-14 no ambient binding or caller credentials are accepted', () => {
   assert.throws(() => createR2ObjectStore(undefined as unknown as AssetR2Binding), code('object_unavailable'));
   assert.throws(() => createR2ObjectStore({} as AssetR2Binding), code('object_unavailable'));
+});
+
+test('R2-15 transport read errors remain unavailable, including forged upstream error classes', async () => {
+  const id = key(), value = await prepared(); await createR2ObjectStore(bucket).putImmutable(id, value);
+  const object = (await bucket.head(id))!;
+  for (const error of [new Error('secret diagnostics'), new AssetStorageError('invalid_content')]) {
+    error.message = 'private upstream details';
+    const store = createR2ObjectStore(port({ get: async () => ({ ...object,
+      body: new ReadableStream({ pull() { throw error; } }, { highWaterMark: 0 }),
+    }) as never }));
+    await assert.rejects(store.get(id), code('object_unavailable'));
+  }
+});
+test('R2-16 native reader release failure fails closed without raw diagnostics', async () => {
+  const id = key(), value = await prepared(); await createR2ObjectStore(bucket).putImmutable(id, value);
+  const object = (await bucket.head(id))!; let done = false;
+  const store = createR2ObjectStore(port({ get: async () => ({ ...object, body: {
+    getReader() { return {
+      async read() { if (done) return { done: true }; done = true; return { done: false, value: value.bytes }; },
+      async cancel() {}, releaseLock() { throw new Error('secret release details'); },
+    }; }, async cancel() {},
+  } }) as never }));
+  await assert.rejects(store.get(id), code('object_unavailable'));
 });

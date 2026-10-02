@@ -28,10 +28,11 @@ async function bytesOf(object: R2ObjectBody, size: number): Promise<Uint8Array> 
   // R2 and DOM stream declarations differ, so adapt through reader operations.
   // Small profiles are fully bounded before handing bytes to the caller.
   const reader = object.body.getReader();
+  let upstreamFailed = false;
   const body = new ReadableStream<Uint8Array>({
     async pull(controller) {
       try { const next = await reader.read(); if (next.done) controller.close(); else controller.enqueue(next.value); }
-      catch { controller.error(unavailable()); }
+      catch { upstreamFailed = true; controller.error(unavailable()); }
     },
     async cancel() { try { await reader.cancel(); } catch { /* no upstream diagnostics */ } },
   }, { highWaterMark: 0 });
@@ -39,7 +40,10 @@ async function bytesOf(object: R2ObjectBody, size: number): Promise<Uint8Array> 
     const bytes = await readBounded(body, size);
     if (bytes.byteLength !== size) throw mismatch();
     return bytes;
-  } finally { try { reader.releaseLock(); } catch { /* no diagnostics */ } }
+  } catch (error) {
+    if (upstreamFailed) throw unavailable();
+    throw error;
+  } finally { try { reader.releaseLock(); } catch { throw unavailable(); } }
 }
 
 /** Explicit native binding only: no credentials, environment lookup, bucket
