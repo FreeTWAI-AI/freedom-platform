@@ -4,7 +4,7 @@ Spec ID：`UF-SPEC-ASSET-WORK`；狀態：`local-partial`。來源：U2/U4、UF-
 
 第一個完成條件是會員換頭像仍正常；第二個是本人建立私人文案工作、以明選模型產出草稿，成果經同一 Asset 核心保存並只供本人查看及修改。第二條需 EXEC 的最小 RunAttempt/Grant adapter 才能完成。
 
-2026-10-02 本機增量已有 [原生 R2 object I/O](../../../../packages/asset-storage/README.md)、[头像讀取 bridge](../../../../modules/assets/README.md)、[既有 POST 相容 facade](../../../../modules/assets/avatar-upload.md)、[私人 Work 命令](../../../../modules/opportunity-project-work/README.md) 與 [人工私人 Result 服務](../../../../modules/autopilot-work/README.md)。頭像和私人文字沿用同一 [Asset 引擎](../../../../modules/assets/engine.md)：durable intent、lease/fence、交易外处理／read-back、原子 finalize 與 retained-byte quota；頭像另保留旧 receipt。預設仍是 legacy 寫入且 persistence 關閉，沒有修改雲端 binding 或正式政策。另有預設停用的 [maintenance／backup pins](../../../../modules/assets/maintenance.md)，不代表備份恢復已完成。私人 mutation／Result 只有 server 內部服務，HTTP／UI、分享與 AI 執行尚未開放。這不是上述兩條完整流程已完成的聲明；詳見 [交付紀錄](implementation-status.md)。
+2026-10-02 本機增量已有 [原生 R2 object I/O](../../../../packages/asset-storage/README.md)、[头像讀取 bridge](../../../../modules/assets/README.md)、[既有 POST 相容 facade](../../../../modules/assets/avatar-upload.md)、[私人 Work 命令](../../../../modules/opportunity-project-work/README.md) 與 [人工私人 Result 服務](../../../../modules/autopilot-work/README.md)。頭像和私人文字沿用同一 [Asset 引擎](../../../../modules/assets/engine.md)：durable intent、lease/fence、交易外处理／read-back、原子 finalize 與 retained-byte quota；頭像另保留旧 receipt。預設仍是 legacy 寫入且 persistence 關閉，沒有修改雲端 binding 或正式政策。另有預設停用的 [maintenance／backup pins](../../../../modules/assets/maintenance.md)，不代表備份恢復已完成。私人 mutation／Result 新增 [未掛載的 HTTP factory](../../../../apps/platform-api/src/routes/private-work-transport.md)，正式 app 仍只有既有私人 Work GET；UI、分享與 AI 執行尚未開放。這不是上述兩條完整流程已完成的聲明；詳見 [交付紀錄](implementation-status.md)。
 
 ## 現有入口與首版範圍
 
@@ -96,7 +96,13 @@ R2 缺檔回受控 unavailable/not-found 並產生安全診斷，不 fallback �
 
 `createPrivateResultService` 僅接受當前 member session，逐階段驗本人 personal scope、draft Work、onboarding、明確的私人文字 persistence policy 與 retained quota；配額鎖以 scope/purpose 為單位，涵蓋同一人多個 Work。新 Result 保留歷史 Asset，讀取 ready／retired 歷史並不要求它仍是 current pointer，但必須仍通過當前 Work ACL。讀取在交易外 GET 前後都驗權、政策與 Work version，等待鎖跨過 session expiry 仍拒絕回傳內容。archive 後不讀歷史，也不重播私人成功 receipt。
 
-本段 provenance 固定 `human`，沒有 RunAttempt／Grant／machine auth。未來 AI Result 必須新增真實 typed execution provenance 與授權 adapter，不得把模型輸出送進此人類服務後標成人工。HTTP 的 HEAD／Range／304、渲染、分享、私人文字 GC、正式保留期限、cloud／restore 仍另驗；本段通過不解除這些門檻。
+本段 provenance 固定 `human`，沒有 RunAttempt／Grant／machine auth。未來 AI Result 必須新增真實 typed execution provenance 與授權 adapter，不得把模型輸出送進此人類服務後標成人工。新增封閉 HTTP 的 HEAD 實跑 GET 授權鏈，Range／conditional 忽略而回完整 200，不提供 206／304 捷徑；仍須當前 Work／Result ACL 與 object GET 後重驗。正式掛載、渲染、分享、私人文字 GC、正式保留期限、cloud／restore 仍另驗；本段通過不解除這些門檻。
+
+### 未掛載的私人 HTTP 邊界
+
+`createPrivateWorkTransport` 重用現有真實 cookie session、CSRF、onboarding，以及 Work command／085 policy／Result service；request 不能選 owner、scope、policy 或 store。新增 create/edit/archive 與 Result list/current/history，不新增 upload、模型執行或分享。所有成功及錯誤均 private/no-store，不輸出 object key、SQL/storage 診斷或未知欄位名稱。Work GET 保留既有數字版本 DTO；command／Result 保留中央十進位字串版本。
+
+Mutation 嚴格驗 Idempotency-Key、強 quoted bigint If-Match，以及最多 32 KiB 實際 UTF-8 bytes 的扁平 JSON；拒絕重複／escaped duplicate keys、巢狀內容與非法編碼。這是 byte bound，不是 slow-client deadline；正式 app 的前置 JSON reader 仍須另處理後才能掛載。Factory 已登記模組所有權／測試，但 `surfaces` 不虛報為已註冊的正式入口。
 
 ## Migration 與 bridge
 

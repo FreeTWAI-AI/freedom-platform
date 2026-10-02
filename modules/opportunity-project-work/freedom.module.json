@@ -5,6 +5,7 @@
   "owned_paths": [
     "modules/opportunity-project-work/**",
     "apps/platform-api/src/platform-app.ts",
+    "apps/platform-api/src/member-boundary.ts",
     "apps/platform-api/src/routes/private-work.ts",
     "modules/community/task-board.ts",
     "modules/results/benefits.ts",

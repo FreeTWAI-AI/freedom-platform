@@ -5,6 +5,7 @@
   "owned_paths": [
     "governance/**",
     "packages/contribution-tools/**",
+    "tests/runtime/fixed-behavior-harness.test.ts",
     "scripts/freedom.mjs",
     "scripts/repository-bootstrap/**",
     "scripts/export-contract-bundle.mjs",
@@ -37,7 +38,7 @@
     "no-secrets-in-artifacts"
   ],
   "tests": [
-    "governance.unit"
+    "governance.unit", "runtime.full"
   ],
   "surfaces": [
     {

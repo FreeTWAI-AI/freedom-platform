@@ -83,6 +83,11 @@
       "sha256": "25f71a607281c4b529363e7cb292f46b8e2eef6c4bcb10cd37669b73677e7e8b"
     },
     {
+      "path": "apps/platform-api/src/member-boundary.ts",
+      "bytes": 1747,
+      "sha256": "805c29ebc49ffc764bd53e486887c10eb1705284115b216ccbcf14f5c1b76681"
+    },
+    {
       "path": "apps/platform-api/src/module-context.ts",
       "bytes": 841,
       "sha256": "2f33e9e08663e8c915d45e728f41595012510231b70ae4cb84ac2d100b3cc114"
@@ -94,8 +99,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 26038,
-      "sha256": "f7928a382451abaa82537799fc542dc6b065d9dca86b751dcbfba903dc50978c"
+      "bytes": 25408,
+      "sha256": "7e0205d51998a44e3fdf3bf27d9c585e8895a29de58940152226f39f459dca4f"
     },
     {
       "path": "apps/platform-api/src/readiness.ts",
@@ -191,6 +196,16 @@
       "path": "apps/platform-api/src/routes/positioning.ts",
       "bytes": 3399,
       "sha256": "445f4476c595202daf4e393dd2862a8525ed2be1f7082d12022f86fd65c59f2e"
+    },
+    {
+      "path": "apps/platform-api/src/routes/private-work-transport.md",
+      "bytes": 9146,
+      "sha256": "4977a293d0113d27ab80facd17c3258ed96bc56dd196554b8edce2a73526abdc"
+    },
+    {
+      "path": "apps/platform-api/src/routes/private-work-transport.ts",
+      "bytes": 11355,
+      "sha256": "c958a6a6f9ef9436d014c6dad07c6768547bcd231221a92b87b99e1176830848"
     },
     {
       "path": "apps/platform-api/src/routes/private-work.ts",
@@ -3134,8 +3149,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/01-contracts-and-governance.md",
-      "bytes": 15010,
-      "sha256": "dce60de4f768c71617eefebd45478498376b778e76bad1e595f93980d46921a6"
+      "bytes": 15771,
+      "sha256": "ce819ef4793d11dcf22ee4d523f75f9290a559ed49faafe0e3f1c27abac31eb3"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
@@ -3144,8 +3159,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md",
-      "bytes": 17799,
-      "sha256": "20e99525000ab99d1051ae12009d5adb49bc3747f58b0850206097dc7d2e0e5d"
+      "bytes": 19021,
+      "sha256": "09ba54913d8357a8f736895084534b268f08b4d01021b466b8b7ad886e0d9621"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md",
@@ -3174,8 +3189,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 41639,
-      "sha256": "153f578017b338ed21330aa3689912e91b5459aeae275ee2b5035522143b0d85"
+      "bytes": 43509,
+      "sha256": "25b07633d1a1ffb82c2390b3180450557dac6f229e54b97aa4bf5f021f68213c"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -3809,8 +3824,8 @@
     },
     {
       "path": "modules/autopilot-work/freedom.module.json",
-      "bytes": 1067,
-      "sha256": "11fa2ca86f57eeadce27c1aa40a7b6967e32bea3a66041f0e01154b092e2e4e3"
+      "bytes": 1397,
+      "sha256": "b35a6456a6e83bff36e20b1fa946dd53d4217de0ab82cb45c1464f6532b9954d"
     },
     {
       "path": "modules/autopilot-work/policy.ts",
@@ -4304,8 +4319,8 @@
     },
     {
       "path": "modules/opportunity-project-work/freedom.module.json",
-      "bytes": 2557,
-      "sha256": "c7eaa7ce366f0f7af301d79c58914067180c9d445559a5069914051cffc0a5e0"
+      "bytes": 2605,
+      "sha256": "0ccb9750d918672c803a691a008953e51936d608a68a456b22d28e9255b4842e"
     },
     {
       "path": "modules/opportunity-project-work/private-commands.ts",
@@ -4528,6 +4543,21 @@
       "sha256": "b47e3449b7415b097e14ef75bd750a3c8bee893eb11b78aa3de0f794cdf4782d"
     },
     {
+      "path": "packages/contribution-tools/behavior-harness.md",
+      "bytes": 5131,
+      "sha256": "b845f9259b5eff3e49ca6b41d3d3fa8304e49c050ff8918da96a7779a3f76e4b"
+    },
+    {
+      "path": "packages/contribution-tools/behavior-harness.mjs",
+      "bytes": 13941,
+      "sha256": "182e64abe0168329d368adb7ede7fb76b3d69391d12e8ac18d06366a8f0aed78"
+    },
+    {
+      "path": "packages/contribution-tools/behavior-manifest.mjs",
+      "bytes": 3285,
+      "sha256": "e5e71de37ad84ee317a4ffd395005d6c169cd366ac8d13266e784ecd3fb1a97c"
+    },
+    {
       "path": "packages/contribution-tools/cli.mjs",
       "bytes": 2618,
       "sha256": "b7dda22bbefb4202ce8012c176c437cf0f7a5a621f6daf45a458dc7cb14b809f"
@@ -4559,8 +4589,8 @@
     },
     {
       "path": "packages/contribution-tools/freedom.module.json",
-      "bytes": 1341,
-      "sha256": "6db3b5d895c59ce7b939067395e58a51f40da2d36e7d05f10564d4630c5feb23"
+      "bytes": 1409,
+      "sha256": "560951a19261e87c2c0affe2f918ce30690bb2ddcf880c273279878966792d9a"
     },
     {
       "path": "packages/contribution-tools/io.mjs",
@@ -4584,8 +4614,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 3441,
-      "sha256": "aa2f5716d6a480413155b24c5ab4b21d72a404b828c56200650b7da94fbb7725"
+      "bytes": 3512,
+      "sha256": "ccde43719904bc3002c4fda15fa670988cc1a8f64d3a6ae9030294f073cecfce"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -4606,6 +4636,16 @@
       "path": "packages/contribution-tools/surface-audit.mjs",
       "bytes": 19029,
       "sha256": "c569913e07c9be00fbdc48b715314f62b21f92f456fb3e6e8f7a3ed18e4a7f80"
+    },
+    {
+      "path": "packages/contribution-tools/test/behavior-harness-adversarial.test.mjs",
+      "bytes": 14527,
+      "sha256": "b676cd258740bdc7f1e19bc3fbcf0bf40b364253a01c2353f22c0b4f0623dcfe"
+    },
+    {
+      "path": "packages/contribution-tools/test/behavior-harness.test.mjs",
+      "bytes": 7738,
+      "sha256": "801da134fda8b0b05234416096a44f89f5ccd8e93cbb368669410953fc0fba6d"
     },
     {
       "path": "packages/contribution-tools/test/context.test.mjs",
@@ -4659,8 +4699,8 @@
     },
     {
       "path": "packages/contribution-tools/trusted-ci.mjs",
-      "bytes": 16195,
-      "sha256": "8099ba0c06bd33e6180f05b7e193dcbd9a58c7316f28e730a18d4c354cfccc6f"
+      "bytes": 17296,
+      "sha256": "455457a959850dd5bae1e0009aad630c028850583a48e77d0f15349e3f76dfca"
     },
     {
       "path": "packages/contribution-tools/verify.mjs",
@@ -5603,6 +5643,11 @@
       "sha256": "9960b6af67bebddc70c661f5d091419904e8dc973939fd52ab765a85d1b10cf8"
     },
     {
+      "path": "tests/runtime/fixed-behavior-harness.test.ts",
+      "bytes": 6455,
+      "sha256": "4536bcb1cdccf8821c1ac2fc16cb7a7174f89c6fba8c37219fcce2e1a79aeb91"
+    },
+    {
       "path": "tests/runtime/fixtures/repo-maintainer/pr-46-files.json",
       "bytes": 4726,
       "sha256": "2becff0f9b5051226260f1a7985fa44920a36e4c711ba93b1616685771d29da4"
@@ -5866,6 +5911,16 @@
       "path": "tests/runtime/private-work-commands.test.ts",
       "bytes": 31219,
       "sha256": "e4ac95fe889a534fb9832eaedd1ea9fcd6cdcd044ea43d71ac6c9b0a6999ccf4"
+    },
+    {
+      "path": "tests/runtime/private-work-http-adversarial.test.ts",
+      "bytes": 23504,
+      "sha256": "f66c98c43b8b8bf8d710341476fae83fe4567ead22e6bbb4a3abd1f332606c79"
+    },
+    {
+      "path": "tests/runtime/private-work-http.test.ts",
+      "bytes": 20905,
+      "sha256": "9324715d8b555e1b2ff59f3b58e458d0e2598ebbc72f14f920f6af22c53e5854"
     },
     {
       "path": "tests/runtime/private-work-policy-adversarial.test.ts",

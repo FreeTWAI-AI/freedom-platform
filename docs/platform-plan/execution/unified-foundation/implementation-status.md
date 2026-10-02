@@ -2,6 +2,27 @@
 
 查核日期：2026-10-02。本紀錄區分原始產品要求、本機實作、合成測試及尚缺的真實部署證據；不修改原計畫的歷史內容，也不把組件測試轉寫成完整產品 PASS。
 
+## 工程進度估算
+
+以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約 **25–40%**，約 **60–75%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。先前對話的 30–40% 是同一粗估；加入獨立審查後保留下緣不確定性。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
+
+以下權重是工程量假設，不是原計畫承諾；估算依本頁實作證據與尚缺項目，正式產品驗收仍須逐項取得證據。
+
+| 原里程碑 | 工程量權重 | 本機實作估算 | 主要剩餘工作 |
+| --- | --- | --- | --- |
+| U0 規格與共用契約 | 5% | 80–90% | 正式批准與版本發布 |
+| U1 身分／scope／command | 10% | 60–75% | machine/service backing records 與 adapter |
+| U2 Asset 與私人 ACL | 15% | 65–80% | 完整讀面、正式政策及接線 |
+| U3 執行狀態與模型 ports | 15% | 10–20% | durable Run/Attempt/Grant、實際模型路徑 |
+| U4 兩條垂直流程 | 15% | 10–25% | 私人 AI 草稿及跨端產品驗收 |
+| U5 browser／Kit／broker | 15% | 0–10% | 實際 runtime 接線與封裝驗證 |
+| U6 媒體搬遷與 restore | 10% | 5–15% | 真實盤點、七類媒體搬遷與還原 |
+| U7 legacy 退出 | 5% | 0–5% | 相容窗口、回退證據與收尾 |
+| UX affected CI／開發工具 | 5% | 20–35% | 跨語言／跨端覆蓋與工具接線 |
+| CG 共同治理 | 5% | 25–45% | 可信 runner/publisher、完整入口與 rollout |
+
+此組權重約得 26–39%，對外只用較寬的 25–40%。不同 reviewer 對範圍／剩餘難度的估法約落在 20–42%，因此不報精確單一百分比。本輪只推進共同基礎；依 Ted 最新指示，不整合等待中的其他 PR。備份政策仍另確認。
+
 ## 本機提交與範圍
 
 | 批次 | 本機 commit／位置 | 交付內容 |
@@ -221,8 +242,8 @@ TypeScript 7 typecheck、common/execution 生成契約 check、deploy preflight 
 
 ## 下一批
 
-下一批優先補新增 private HTTP/UI 的完整讀取矩陣，以及固定行為 harness／可信 observation 接線；發布相容性與 DB policy 已有本機實作，仍須真正 host／private helper／正式設定證據，不重造另一套。現有 decision kernel 與 source audit 不當成完整 trusted CI。Private mutation 仍須目前權限、expected version、撤銷重驗及無外部 I/O 的短交易。machine/service 分支在 backing schema 和 validator 齊備前拒絕啟用。migration 076–085 尚未合併或發布，不永久預留編號。完整新增 private HTTP/UI 讀取矩陣及真正 rollback floor 齊備前不開啟正式私人寫入或頭像非 legacy 模式。備份政策、明選模型路徑與實際治理信任仍按各自門檻確認。
+下一批優先補 durable member Run/Attempt/Grant 的真實 backing records，繼續保持 execution authority 關閉；並推進可信 observation transport／完整入口覆蓋，以及 rollback 的歷史 schema/policy 下限。未掛載 private HTTP 和固定行為 harness 已有本機實作，但私人 UI／upload 接線及真正 host／private helper／正式設定證據仍缺。現有 decision kernel、source audit 與本機 harness 不當成完整 trusted CI。Private mutation 仍須目前權限、expected version、撤銷重驗及無外部 I/O 的短交易。machine/service 分支在 backing schema 和 validator 齊備前拒絕啟用。migration 076–085 尚未合併或發布，不永久預留編號。完整新增 private HTTP/UI 讀取矩陣及真正 rollback floor 齊備前不開啟正式私人寫入或頭像非 legacy 模式。備份政策、明選模型路徑與實際治理信任仍按各自門檻確認。
 
-另於本輪唯讀查核 #85／#87：兩者當時均有整合衝突，分別使用已被 main 占用的 072／070 新 migration，並與 avatar presence/shared service 改動重疊。其整合可在獨立分支先處理，不必等完整 Autopilot；須保留作者功能、只重編尚未套用的 migration，重新取得當前 HEAD 與相容回歸證據。這次沒有修改作者 PR 或把舊 CI 結果當新整合驗收。
+早先唯讀查核 #85／#87 的衝突與 migration 重號紀錄保留歷史用途；依 Ted 最新指示，其他 PR 的 rebase／整合現在不在派工範圍。這次沒有修改作者 PR 或把舊 CI 結果當新整合驗收。
 
 推送、PR、合併、GitHub 規則、信任來源／金鑰、正式資料盤點或部署另依 Ted 的操作授權處理；Discord 全文仍須逐則核准。
