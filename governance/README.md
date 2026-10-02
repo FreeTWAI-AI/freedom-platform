@@ -66,10 +66,86 @@ The governance validator implements only the fixed schema keyword subset used he
 
 Trusted CI must run the fixed verifier against an isolated, immutable checkout with no production secrets. Filesystem checks do not make a concurrently hostile workspace a sandbox. Local candidate tests and reports cannot publish trusted CI status. No new runtime endpoints, tables or execution permissions are enabled by this package.
 
+## Host-owned verification boundary (local GOV-C increment)
+
+`packages/contribution-tools/trusted-ci.mjs` provides `verifyHostCandidate` for a
+future independently managed host. It is deliberately absent from the consumer
+export list and local CLI. The host must approve and load an immutable verifier
+installation **before** accepting candidate data. `installedVerifierDigest()`
+fingerprints the complete static module/schema import closure; comparing that
+digest inside an already compromised process cannot establish trust. The host
+also owns the Git executable, environment, object store, policy and observation
+transport. Candidate runners must have no write access to any of them.
+
+The input has exactly five fields:
+
+- `objectRepository`: absolute path to a host-owned, complete bare Git object
+  repository populated through a separately authenticated, bounded acquisition
+  step. Do not point this at a candidate-created bare repository or copy its
+  configuration. This library performs no fetch or checkout. It disables replace
+  refs, ambient Git configuration and lazy fetches, rejects grafts/alternates,
+  and applies bounded Git subprocess time/output limits.
+- `binding`: independently acquired repository, positive PR number, run ID,
+  exact base/head/candidate commits and candidate tree. A head candidate must
+  contain the base; an integration candidate must have exactly the base and head
+  as its ordered parents. This is a narrow local topology profile, not a claim
+  that every GitHub merge-queue topology is supported.
+- `policyBytes` and `expectedPolicy`: independently approved exact policy bytes
+  and their revision/SHA-256. `freedom.trusted-ci-policy/v1` contains repository,
+  source repository/commit/ReleaseSet digest, verifier commit/install digest,
+  workflow identity/commit/publisher, nonempty required and fallback suite lists,
+  and the allowed suite ID/harness-digest registry. Unknown keys and arbitrary
+  commands are rejected. The host must independently enforce policy freshness
+  and revocation; candidate policy files cannot update this input.
+- `observations`: records from an authenticated host adapter for an isolated
+  runner, **never** JSON artifacts supplied by the candidate. Each record binds
+  the full repository/PR/run/base/head/candidate/tree/source/ReleaseSet/policy/
+  verifier tuple, expected workflow publisher/revision and harness digest. A
+  positive real test count, success, and zero failures/skips/cancellations are
+  required. The evidence digest identifies the adapter's retained evidence; it
+  is not a signature or proof of its origin. Missing suites return `unavailable`;
+  duplicate/unexpected suites, changed bindings and invalid results are rejected.
+
+The verifier recomputes changed paths from immutable tree entries, including
+deletions, renames and mode-only changes. It unions baseline and candidate module
+descriptors and reverse dependencies using the installed selector. Candidate
+descriptor changes cannot subtract baseline tests or host-required suites;
+paths without baseline ownership add host fallback suites even when a new or
+expanded candidate descriptor claims them. Candidate descriptors are bounded data,
+not executable policy. The candidate's v2 lock and manifest must match the
+host-approved source and ReleaseSet digest. Actual immutable vendor blobs must
+match the manifest/lock artifact paths, exact file set, byte counts and digests;
+the detached proof must match its lock digest. This step does not replace the
+existing detached-signature/publisher verification, actual source approval, library
+resolution, route registration or behavioral tests; the independent host must
+require the appropriate harnesses when integrating those checks.
+
+See `test/trusted-ci.test.mjs` under contribution-tools for the exact synthetic
+host policy and adapter record shapes. The tests exercise fake `echo pass`
+workflows/reports, a replaced candidate verifier, descriptor deletion/shrinking,
+empty/unknown suites, zero/skipped/cancelled/failing tests, same-name wrong-source
+workflows, changed harness/policy/base/run/tree/source, Git graph overrides and
+candidate symlinks. Test fixtures mint observations directly to test the local
+boundary; they do not authenticate an external runner.
+
+Reports retain `assurance_level=local`, `publisher_trust=unverified`,
+`merge_authorized=false` and `execution_authorized=false`, even when all supplied
+host observations pass this boundary. There is no authenticated CI adapter,
+isolated runner provisioning, trusted check publication, GitHub protection,
+production signing or completed GOV-C/D enforcement in this increment. Existing
+local CLI and preview/v1 compatibility remain unchanged; this host-only profile
+requires v2 source pins and does not silently promote preview/v1 to trusted CI.
+
 ## Implementation evidence
 
 On 2026-10-02, the first local implementation passed 88 Node tests with no skips. The existing preview build regenerated 32 operations and 9 bundle artifacts with no changes under `contracts/preview/v1` or `packages/sdk`.
 
 The context increment passed 106 Node tests, zero skips, including baseline/candidate scope, deleted rules, nested context, branch/worktree changes, stale workspace/base, secret-free subprocess environment, bounded report writes, zero/skipped/forged test output and three independently initialized synthetic consumer repositories. Existing contract tests passed 659 cases with 4 pre-existing skips (clock cases with fewer than three schema paths). These fixtures do not mean the real Agent Kit, client or other consumer repos have been upgraded.
+
+The host-boundary increment passed 119 Node governance tests, zero skips,
+including 13 new synthetic bare-repository/host-observation cases. The local
+profile covers immutable candidate binding, pinned installed code/policy,
+baseline-owned fallback and exact vendor integrity. It does not supply the
+authenticated observations or GitHub enforcement described above.
 
 The evidence supports the local portions of GOV-01/02/03/22, path/input safety and v1 compatibility; it does not mark those full product requirements passed. Release-proof purpose tests are not execution-token tests. Three real consumer checkouts, TS/Rust conformance, Windows/macOS, trusted GitHub checks, production publishers and runtime rejection remain unverified. All source acceptance rows remain `not_run` until their complete required evidence exists.
