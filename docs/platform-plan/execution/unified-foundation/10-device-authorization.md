@@ -1,6 +1,8 @@
 # 裝置配對與一次性 bootstrap 交換
 
-接續 [09](09-bootstrap-status.md)，實作 [AP §4.3](../../../plans/autopilot-vnext.md#43-機器配對與登入流程) 的新裝置配對協調器、真正簽章輪詢及受限 issuer。保留 087–089 的不可改綁／撤銷規則，不讓會員核准代替裝置持有私鑰的證明。本批是原 scope 的內部工程增量，不是提早部署的過渡版本；沒有 HTTP/UI、正式 key custody、refresh family、Grant／Attempt 或 execution 權。
+接續 [09](09-bootstrap-status.md)，實作 [AP §4.3](../../../plans/autopilot-vnext.md#43-機器配對與登入流程) 的新裝置配對協調器、真正簽章輪詢及受限 issuer。保留 087–089 的不可改綁／撤銷規則，不讓會員核准代替裝置持有私鑰的證明。本批是原 scope 的內部工程增量，不是提早部署的過渡版本；沒有 HTTP/UI、正式 key custody、Grant／Attempt 或 execution 權。
+
+本篇記錄 090 配對流程的初始規格；目前 issued 結果及交易已由 [11](11-bootstrap-sessions.md) 前向擴充：必定同交易建立初始 refresh family/generation，回 `refreshSupported:true` 及 refresh DTO，取代下述初始的 false／無 refresh 限制。090 歷史 SQL 不改寫，091 增加完整性約束；不是兩套可選的交換模式。
 
 ## 固定 profile 與中央契約
 

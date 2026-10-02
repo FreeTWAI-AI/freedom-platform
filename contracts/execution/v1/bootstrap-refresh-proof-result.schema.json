@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "proofId": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$(?![\\s\\S])"
+    },
+    "validFromMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "validUntilMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "assurance": {
+      "type": "string",
+      "const": "cryptographic_only"
+    },
+    "operational_authority": {
+      "type": "boolean",
+      "const": false
+    }
+  },
+  "required": [
+    "proofId",
+    "validFromMs",
+    "validUntilMs",
+    "assurance",
+    "operational_authority"
+  ],
+  "additionalProperties": false,
+  "description": "Signatures and supplied binding only; no current DB authority or replay prevention. Interval is inclusive/exclusive milliseconds.",
+  "$id": "https://freetwai.com/contracts/execution/v1/bootstrap-refresh-proof-result"
+}

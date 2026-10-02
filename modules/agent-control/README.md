@@ -17,7 +17,12 @@ fresh-device pairing, exact member approval, genuine enrollment proof and a
 cannot be consumed through this older member `confirm` entry point: migration
 090 requires their complete, original-deadline-bound one-time exchange. Ordinary
 unlinked enrollment remains unchanged. This is an internal service, not mounted
-device-flow HTTP, refresh support or production key custody.
+device-flow HTTP or production key custody. Exchange now creates an initial
+[refresh family](bootstrap-sessions.md) atomically. Its separate machine service
+rotates one-use handles, commits family/connection revocation on verified reuse,
+and issues fresh status nonces without a member cookie or an old nonce. These
+operations still confer no execution authority; their [proof profiles](bootstrap-session-proof.md)
+share the existing bootstrap access-token checks.
 
 `createRuntimeRegistrations(pool, { environment })` is an internal server factory
 for current members. The host must explicitly select `local`, `staging-next`, or

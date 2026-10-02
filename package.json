@@ -39,6 +39,8 @@
     "check:bootstrap": "tsx modules/agent-control/generate-bootstrap.ts --check",
     "contracts:device-pairing": "tsx modules/agent-control/generate-device-pairing.ts",
     "check:device-pairing": "tsx modules/agent-control/generate-device-pairing.ts --check",
+    "contracts:bootstrap-session": "tsx modules/agent-control/generate-bootstrap-session.ts",
+    "check:bootstrap-session": "tsx modules/agent-control/generate-bootstrap-session.ts --check",
     "test:repos": "tsx --test --test-concurrency=1 tests/integration/repositories.test.ts",
     "check:skill-book-upstreams": "tsx scripts/check-skill-book-upstreams.ts"
   },

@@ -26,15 +26,18 @@ The four methods form one closed device flow:
   expired and enrollment-proof-required outcomes are committed protocol results.
   Exchange additionally verifies the exact 087 enrollment signature, atomically
   consumes its challenge, creates the runtime and immutable 30-day connection,
-  creates the first status nonce, signs an in-memory token restricted to
+  creates the initial refresh family/generation and first status nonce, signs an in-memory token restricted to
   `bootstrap.status.read`, then stores the consumed authorization and token JTI.
   Only successful COMMIT releases the raw
-  token response. Machine calls never require or receive the member cookie.
+  token and refresh handle response. Machine calls never require or receive the member cookie.
 
 The first public nonce makes [09 status admission](bootstrap-status.md) usable
-without another member call. The result says `refreshSupported:false` and
-`operational_authority:false`. There is no machine refresh, repeated status-nonce
-transport, HTTP/UI, production issuer trust, model access, Grant or Attempt here.
+without another member call. The result says `refreshSupported:true`, includes
+the one-time-delivered refresh DTO, and retains `operational_authority:false`.
+[Specification 11](../../docs/platform-plan/execution/unified-foundation/11-bootstrap-sessions.md)
+and the separate [session service](bootstrap-sessions.md) define rotation/reuse
+revocation and repeated nonce acquisition. There is no HTTP/UI, production issuer
+trust, model access, Grant or Attempt here.
 Read [pairing cryptography](device-pairing-proof.md) for the separate pure-proof
 and signing boundaries.
 
@@ -43,7 +46,8 @@ and signing boundaries.
 Approved machine calls use user/person/personal-scope SHARE locks, then the
 existing enrollment owner/environment advisory, key advisory, enrollment
 challenge, any existing runtime/connection, authorization/proof ledger and first
-bootstrap nonce. Member decisions add session and scoped-command locks in the
+bootstrap nonce; initial family/generation insertion follows the connection.
+Member decisions add session and scoped-command locks in the
 existing order. A pending locator that becomes approved while waiting causes
 a bounded transaction restart, never an authorization-to-owner lock inversion.
 Machine identity lookup does not lazily create mappings.
@@ -63,7 +67,8 @@ values; nullable SQL comparisons alone are not sufficient. Its added trigger on
 087 prevents the legacy member `confirm` entry point from consuming a linked
 device-flow challenge. Only exchange appends a poll ledger marker after genuine
 enrollment verification. A deferred constraint requires that marker to commit
-with the completed authorization exchange; failed exchanges leave no reusable
+with the completed authorization exchange; 091 additionally requires its initial
+family/generation. Failed exchanges leave no reusable
 permit. Standalone 087 challenges are unaffected. SQL backing queries are
 physical-schema-qualified, not TEMP shadows. These guards do not defend against
 compromise of trusted app credentials or the schema owner.
@@ -89,7 +94,7 @@ requests; each key has four live/32 lifetime requests and each authorization has
 These are closed engineering limits, not retention/GC/payment policy or complete
 Internet abuse protection. There is no cleanup or expiry extension.
 
-No code/token secret or raw proof is written to ordinary receipts or any durable
+No code/token/refresh secret or raw proof is written to ordinary receipts or any durable
 table. A lost begin response requires another begin JTI; a lost committed exchange
 response cannot mint again. Fresh-only re-pairing requires a new key and still
 counts against lifetime quotas. This is not exactly-once network delivery or a

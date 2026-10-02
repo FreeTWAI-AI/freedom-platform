@@ -21,7 +21,7 @@ function fixture() {
       schema_ledger: scan.ledger, schema_ledger_digest: scan.ledger_digest, enabled_shapes: [], written_shapes: [], active_releases: [active], complete: true },
     release_records: [active, candidate].map(identity => ({ ...identity, evidence_id: 'synthetic-approval', status: 'approved',
       environments: ['next'], schema_ledger_digests: [scan.ledger_digest],
-      capabilities: ['platform.legacy.v1', 'work.explicit-wire.v1', device, ...prerequisites], approved_at_ms: 9000, expires_at_ms: 11000 })) };
+      capabilities: ['platform.legacy.v1', 'work.explicit-wire.v1', device, 'execution.bootstrap-session.v1', ...prerequisites], approved_at_ms: 9000, expires_at_ms: 11000 })) };
   return { input: { schema: 'freedom.release-compatibility-request/v1', environment: 'next', candidate, enable_shapes: [] }, scan, host };
 }
 function run(f) {

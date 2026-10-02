@@ -13,7 +13,7 @@
 | `refresh({familyId,refreshHandle,proof})` | exact family locator、32-byte canonical base64url secret、真正 device proof | `{accessToken,tokenType:'DPoP',expiresAt,connectionId,runtimeDeviceId,refresh,operational_authority:false}`；refresh DTO 為 `{familyId,generation,handle,expiresAt}`，generation 是正十進位字串 |
 | `nonce({connectionId,accessToken,proof})` | 仍有效的 bootstrap token 與獨立用途 device proof | 既有 089 BootstrapNonce DTO；不接受舊 nonce、不消耗 status nonce、不發 execution 權 |
 
-10 的 device exchange 改為必定在同一交易建立初始 family/generation，回 `refreshSupported:true` 及上述 refresh DTO；其 host／factory 參數不增加選項。既有中央 issued DTO 和對應測試一起前向更新，不同時保留另一套可選發行模式。舊本機歷史紀錄不自動補發 refresh，沒有資料回填或 secret recovery。Device pairing 的第一個 status nonce 保留。
+10 的 device exchange 改為必定在同一交易建立初始 family/generation，回 `refreshSupported:true` 及上述 refresh DTO；其 host／factory 參數不增加選項。既有中央 issued DTO 和對應測試一起前向更新，不同時保留另一套可選發行模式。舊本機歷史紀錄不自動補發 refresh，沒有資料回填或 secret recovery。Device pairing 的第一個 status nonce 保留。新的 nonce 方法也要求該 connection 有 active／未到期 family，缺少 family 的歷史 connection 不因這條新路徑獲得升級；09 既有固定介面仍不變。
 
 ## Proof 與用途隔離
 
@@ -41,7 +41,7 @@ Proof ledger 保存實際 runtime/connection、operation=`refresh|nonce`、proof
 
 Spent-handle reuse 判定在一般 JTI duplicate／quota 檢查之前；完全相同或 high-S/low-S 等價的有效 proof 重送仍要撤銷，不能因先命中 ledger 就漏掉 reuse。錯誤 handle、key、簽章、用途、環境或過期 proof 一律無寫入，不能撤銷別人的 family。並發有效使用同一代可能先回一次新 token，接著被第二次重用撤銷，最終沒有可用連線；測試不能錯誤要求保留一個 active winner。
 
-091 的 connection-revocation trigger 同步撤銷其 active family；family revoked 必須在交易最終對應 revoked connection，拒單獨恢復／撤銷半套狀態。原 member revoke 的 CAS／facts 仍不變；family 的衍生撤銷和 connection 同交易。Runtime/owner 停用或 connection expiry 仍即時阻止 admission，不能靠尚未 physical revoke 的 family row 繞過。
+091 的 connection-revocation trigger 同步撤銷其 active family；family revoked 必須在交易最終對應 revoked connection，拒單獨恢復／撤銷半套狀態。初始 family INSERT 的 backing 查詢以 FOR SHARE 鎖 connection，避免建立與撤銷並發時各自看不到對方而提交 active family／revoked connection；family UPDATE 不另引入反向鎖序。原 member revoke 的 CAS／facts 仍不變；family 的衍生撤銷和 connection 同交易。Runtime/owner 停用或 connection expiry 仍即時阻止 admission，不能靠尚未 physical revoke 的 family row 繞過。
 
 Lost committed refresh response 無法從 receipt 復原；舊 handle 再送會觸發上述 reuse，而不是 reissue grace。需要 fresh-key re-pair，仍計 retained quotas。這是明列的安全恢復 profile，不宣稱 exactly-once 網路交付或已完成同 owner key恢復。Access token仍最多10分鐘且受family/connection/key expiry上限；只保留原 bootstrap.status.read scope。
 

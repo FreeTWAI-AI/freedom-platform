@@ -1,0 +1,99 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
+import { checkMigrations } from '../lib/migrations.mjs';
+import { loadManifest } from '../lib/manifest.mjs';
+import { evaluateReleaseCompatibility, compatibilityLedgerDigest } from '../lib/release-compatibility.mjs';
+
+const root = fileURLToPath(new URL('../../../', import.meta.url));
+const session = 'execution.bootstrap-session.v1', device = 'execution.device-authorization.v1';
+const prerequisites = ['execution.bootstrap-status.v1', 'execution.agent-connection-record.v1', 'execution.runtime-enrollment.v1'];
+function fixture() {
+  const scan = checkMigrations(`${root}migrations`, loadManifest().database_defaults.migrations); assert.equal(scan.ok, true);
+  const candidate = { source_sha: 'a'.repeat(40), artifact_sha256: 'b'.repeat(64) };
+  const active = { source_sha: 'c'.repeat(40), artifact_sha256: 'd'.repeat(64) };
+  const target = { environment: 'next', database_identity: 'synthetic-bootstrap-session', recovery_generation: '2' };
+  const host = { schema: 'freedom.release-compatibility-host/v2', target, now_ms: 10000, max_age_ms: 100,
+    rollback_floor_shapes: [], rollback_floor: { evidence_id: 'synthetic-history', target,
+      schema_ledger: scan.ledger, schema_ledger_digest: scan.ledger_digest, capabilities: [] },
+    observation: { evidence_id: 'synthetic-observation', observed_at_ms: 9999, target,
+      schema_ledger: scan.ledger, schema_ledger_digest: scan.ledger_digest, enabled_shapes: [], written_shapes: [], active_releases: [active], complete: true },
+    release_records: [active, candidate].map(identity => ({ ...identity, evidence_id: 'synthetic-approval', status: 'approved',
+      environments: ['next'], schema_ledger_digests: [scan.ledger_digest],
+      capabilities: ['platform.legacy.v1', 'work.explicit-wire.v1', session, device, ...prerequisites], approved_at_ms: 9000, expires_at_ms: 11000 })) };
+  return { input: { schema: 'freedom.release-compatibility-request/v1', environment: 'next', candidate, enable_shapes: [] }, scan, host };
+}
+function run(f) {
+  const result = evaluateReleaseCompatibility(f.input, { scan: f.scan, host: f.host });
+  for (const field of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[field], false);
+  return result;
+}
+test('091 schema alone enables neither refresh nor operational execution', () => {
+  const f = fixture(); for (const record of f.host.release_records) record.capabilities.splice(2);
+  assert.equal(run(f).status, 'compatible');
+  assert.deepEqual(run(f).required_capabilities, ['platform.legacy.v1', 'work.explicit-wire.v1']);
+});
+for (const source of ['enable_shapes', 'enabled_shapes', 'written_shapes', 'rollback_floor_shapes']) for (const binary of [0, 1]) {
+  test(`091 ${source} requires bootstrap session and prerequisites from binary ${binary}`, () => {
+    const f = fixture();
+    (source === 'enable_shapes' ? f.input : source === 'rollback_floor_shapes' ? f.host : f.host.observation)[source] = [session];
+    assert.equal(run(f).status, 'compatible');
+    for (const capability of [session, ...prerequisites]) {
+      const changed = structuredClone(f);
+      changed.host.release_records[binary].capabilities = changed.host.release_records[binary].capabilities.filter(c => c !== capability);
+      assert(run(changed).issues.some(i => i.capability === capability && i.source_sha === changed.host.release_records[binary].source_sha));
+    }
+  });
+}
+test('retained session capability carries prerequisites without asserting shapes or pairing support', () => {
+  const f = fixture(); f.host.rollback_floor.capabilities = [session];
+  assert(!run(f).required_capabilities.includes(device));
+  for (const capability of prerequisites) for (const binary of [0, 1]) {
+    const changed = structuredClone(f); changed.host.release_records[binary].capabilities = changed.host.release_records[binary].capabilities.filter(c => c !== capability);
+    assert(run(changed).issues.some(i => i.capability === capability));
+  }
+});
+function before091(f) {
+  const ledger = f.scan.ledger.filter(row => Number(row.name.slice(0, 3)) < 91);
+  assert.equal(ledger.at(-1).name.slice(0, 3), '090');
+  return { ledger, digest: compatibilityLedgerDigest(ledger) };
+}
+function current090(f) {
+  const old = before091(f);
+  f.scan = { ...f.scan, ledger: old.ledger, ledger_digest: old.digest };
+  f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.digest;
+  f.host.rollback_floor.schema_ledger = old.ledger; f.host.rollback_floor.schema_ledger_digest = old.digest;
+  for (const record of f.host.release_records) record.schema_ledger_digests.push(old.digest);
+}
+test('session shape requires planned091 despite capability claims', () => {
+  const f = fixture(); current090(f); f.input.enable_shapes = [session];
+  assert(run(f).issues.some(i => i.code === 'shape_schema_missing' && i.shape === session));
+});
+test('retained session history requires actual091, not future repair', () => {
+  const f = fixture(), old = before091(f); f.host.rollback_floor_shapes = [session];
+  f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.digest;
+  f.host.rollback_floor.schema_ledger = old.ledger; f.host.rollback_floor.schema_ledger_digest = old.digest;
+  for (const record of f.host.release_records) record.schema_ledger_digests.push(old.digest);
+  assert(run(f).issues.some(i => i.code === 'historical_shape_schema_missing' && i.shape === session));
+});
+for (const history of [false, true]) for (const binary of [0, 1]) {
+  test(`091 mandatory initial family fences old device writer ${binary}, capability history ${history}`, () => {
+    const f = fixture();
+    if (history) f.host.rollback_floor.capabilities = [device]; else f.input.enable_shapes = [device];
+    assert.equal(run(f).status, 'compatible');
+    f.host.release_records[binary].capabilities = f.host.release_records[binary].capabilities.filter(c => c !== session);
+    assert(run(f).issues.some(i => i.capability === session && i.source_sha === f.host.release_records[binary].source_sha));
+  });
+}
+test('090 device diagnostic remains its older schema profile, not retroactive091 activation', () => {
+  const f = fixture(); current090(f); f.input.enable_shapes = [device];
+  for (const record of f.host.release_records) record.capabilities = record.capabilities.filter(c => c !== session);
+  assert.equal(run(f).status, 'compatible'); assert(!run(f).required_capabilities.includes(session));
+});
+test('bootstrap status capability does not imply refresh, pairing, private data or execution', () => {
+  const f = fixture(); f.input.enable_shapes = [prerequisites[0]];
+  for (const record of f.host.release_records) record.capabilities = record.capabilities.filter(c => ![session, device].includes(c));
+  const result = run(f); assert.equal(result.status, 'compatible');
+  assert(!result.required_capabilities.includes(session)); assert(!result.required_capabilities.includes(device));
+  assert(!result.required_capabilities.some(c => c.startsWith('work.private') || c === 'execution.member-run-record.v1'));
+});
