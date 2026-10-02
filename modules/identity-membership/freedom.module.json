@@ -14,7 +14,7 @@
     "modules/identity-membership/avatars.ts",
     "apps/portal-web/src/modules/avatar-client.ts"
   ],
-  "dependencies": [],
+  "dependencies": ["command-core"],
   "contract_families": [
     "preview"
   ],

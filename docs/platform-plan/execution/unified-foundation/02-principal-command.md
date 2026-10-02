@@ -1,6 +1,14 @@
 # 身分範圍與交易核心規格
 
-Spec ID：`UF-SPEC-CORE`；狀態：`draft-ready`。來源：UF-01/02/06、U1、統一計畫 §02–03、08。目標是保留會員 command 的現有行為，讓同一交易機制能接收各自正確驗證的人類、execution 與 service 呼叫。
+Spec ID：`UF-SPEC-CORE`；狀態：會員核心已本機實作，principal/scope 與機器驗權仍待實作。來源：UF-01/02/06、U1、統一計畫 §02–03、08。目標是保留會員 command 的現有行為，讓同一交易機制能接收各自正確驗證的人類、execution 與 service 呼叫。
+
+## 2026-10-02 實作進度
+
+已抽出 [command-core.ts](../../../../packages/db/command-core.ts)、member adapter、原 transaction 與 legacy digest；[DB README](../../../../packages/db/README.md) 記錄順序及相容邊界。舊 `command()` 仍由相同 export 提供，不改呼叫者、receipt key、歷史 hash 或錯誤碼。
+
+先用 14 項真實 PostgreSQL 回歸驗證抽取前實作，再以相同測試驗證新核心；新增 journal/outbox rollback 反例後為 16 項。測試使用無網路的全新 disposable PostgreSQL 18.6、`fp_foundation` 資料庫及獨立 `fp_*` schema，沒有連接 `freedom_local.public`。完整本機結果與未驗證項目見 [本機交付紀錄](implementation-status.md)。
+
+未新增 principal/scope 表或 migration，未實作 execution/service validator 或新 receipt namespace。以下仍是後續共同基礎的完整要求，不能把會員相容測試視為機器授權驗收。
 
 ## 實作邊界
 
@@ -83,4 +91,4 @@ core callback 不允許 R2、Images、provider、GitHub、browser 或其他網�
 | 歷史 fixture 經原 wrapper 再執行 | request hash、receipt key、錯誤碼及回傳形狀相容 |
 | domain 成功但 journal/receipt/outbox insert 失敗 | 全部 rollback |
 
-新增測試加入既有 runtime suite，使用合成會員及獨立 `fp_*` schema。保留 `flows.test.ts`、member/session 及 avatar 回歸，並加入真正多連線競態測試；mock authorize 為 true 不算機器身分驗收。實作 PR 必須附 schema、鎖順序、SQL constraint 與試跑輸出，本輪均 `not_run`。
+新增測試加入既有 runtime suite，使用合成會員及獨立 `fp_*` schema。保留 `flows.test.ts`、member/session 及 avatar 回歸，並加入真正多連線競態測試；mock authorize 為 true 不算機器身分驗收。映射及機器驗權 PR 必須附 schema、鎖順序、SQL constraint 與試跑輸出，這些新增能力仍 `not_run`。

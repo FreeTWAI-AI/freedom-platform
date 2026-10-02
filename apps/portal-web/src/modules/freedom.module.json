@@ -15,7 +15,7 @@
   "public_exports": [
     "modules/identity-membership/member-sharing.ts"
   ],
-  "dependencies": [],
+  "dependencies": ["command-core"],
   "contract_families": [
     "preview"
   ],

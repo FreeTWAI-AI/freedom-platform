@@ -1,7 +1,10 @@
 import { Pool, type PoolClient } from 'pg';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { Problem, requireCondition } from '../shared/problem.js';
 import type { Actor } from '../../modules/identity-membership/service.js';
+export { digest } from './legacy-digest.js';
+export { transaction } from './transaction.js';
+export { memberCommand, memberCommand as command, type Command } from './member-command.js';
 
 export const LOCAL_DATABASE_URL = 'postgresql://freedom_local:local-development-only@127.0.0.1:54339/freedom_local';
 export function createPool(connectionString = process.env.DATABASE_URL ?? LOCAL_DATABASE_URL) {
@@ -16,50 +19,6 @@ export function createPool(connectionString = process.env.DATABASE_URL ?? LOCAL_
 export function createRequestPool(connectionString: string) {
   if (!connectionString) throw new Error('A request database connection is required.');
   return new Pool({ connectionString, max: 5, connectionTimeoutMillis: 5000 });
-}
-export function digest(value: unknown): string {
-  function stable(v: any): any {
-    if (Array.isArray(v)) return v.map(stable);
-    if (v && typeof v === 'object') return Object.fromEntries(Object.keys(v).sort().map(k => [k,stable(v[k])]));
-    return v;
-  }
-  return createHash('sha256').update(JSON.stringify(stable(value))).digest('hex');
-}
-export async function transaction<T>(pool: Pool, run: (q: PoolClient) => Promise<T>): Promise<T> {
-  const q = await pool.connect();
-  try { await q.query('BEGIN'); const result = await run(q); await q.query('COMMIT'); return result; }
-  catch (error) { await q.query('ROLLBACK'); throw error; }
-  finally { q.release(); }
-}
-export interface Command {
-  actor: Actor; operation: string; key: string; body: unknown; expected?: string;
-  // Acquire the final lock strength before the domain lock when a command updates users.
-  lockUser?: boolean;
-}
-export async function command<T>(pool: Pool, input: Command,
-  authorize: (q: PoolClient) => Promise<unknown>, run: (q: PoolClient) => Promise<T>): Promise<T> {
-  requireCondition(/^[A-Za-z0-9_-]{8,128}$/.test(input.key),400,'idempotency_required','請提供有效的 Idempotency-Key。');
-  return transaction(pool, async q => {
-    // Every mutation locks the user before any session. Administration revokes
-    // sessions after locking users, so a join locking sessions first can deadlock.
-    const activeUser=await q.query(`SELECT user_id FROM users WHERE user_id=$1 AND community_id=$2 AND active
-      ${input.lockUser ? 'FOR UPDATE' : 'FOR SHARE'}`,[input.actor.user_id,input.actor.community_id]);
-    requireCondition(activeUser.rowCount===1,401,'session_expired','請重新登入。');
-    const active=await q.query(`SELECT token_hash FROM sessions WHERE token_hash=$1 AND user_id=$2
-      AND revoked_at IS NULL AND expires_at>now() FOR SHARE`,[input.actor.session_hash,input.actor.user_id]);
-    requireCondition(active.rowCount===1,401,'session_expired','請重新登入。');
-    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`${input.actor.user_id}/${input.operation}/${input.key}`]);
-    await authorize(q); // Current authority is checked even for a replay.
-    const hash = digest({body: input.body, expected: input.expected ?? null});
-    const prior = await q.query('SELECT * FROM command_receipts WHERE user_id=$1 AND operation=$2 AND idempotency_key=$3', [input.actor.user_id,input.operation,input.key]);
-    if (prior.rowCount) {
-      requireCondition(prior.rows[0].request_sha256===hash,409,'idempotency_conflict','同一操作識別碼不可搭配不同內容。');
-      return prior.rows[0].response as T;
-    }
-    const response = await run(q);
-    await q.query('INSERT INTO command_receipts(user_id,operation,idempotency_key,request_sha256,response) VALUES($1,$2,$3,$4,$5)',[input.actor.user_id,input.operation,input.key,hash,JSON.stringify(response)]);
-    return response;
-  });
 }
 export async function journal(q: PoolClient, actor: Actor, type: string, id: string, version: string | number, operation: string, data: unknown = {}, eventType?: string) {
   const transition = randomUUID();

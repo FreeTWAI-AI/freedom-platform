@@ -11,7 +11,7 @@
   "public_exports": [
     "modules/opportunity-project-work/work.ts"
   ],
-  "dependencies": [],
+  "dependencies": ["command-core"],
   "contract_families": [
     "preview"
   ],

@@ -1414,8 +1414,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/freedom.module.json",
-      "bytes": 1659,
-      "sha256": "0dfd3e2a97e66695ea494cd270bdabe0db2f2c26467a2053bc2189e0dbc3e175"
+      "bytes": 1673,
+      "sha256": "bb5c8922c05a08d176d0b10755debf09abc92d44d6d82e3b0e6ff082c211f4c4"
     },
     {
       "path": "apps/portal-web/src/modules/github-connect-help.ts",
@@ -3084,8 +3084,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
-      "bytes": 8094,
-      "sha256": "22e418e49a54cf181572ecc1811cd169d0aaea28573b9c61669f92fb5544cc5b"
+      "bytes": 9120,
+      "sha256": "700eb1273568b20d0b873a1d4e1a2695ffec4a49ef33e02ad8f1a3a667a4172f"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md",
@@ -3109,13 +3109,18 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/README.md",
-      "bytes": 5427,
-      "sha256": "5996f8b42609d28c81afa9e2d887e644bc341666d0515184bcf589f5bdbc11d2"
+      "bytes": 5440,
+      "sha256": "3c8cedf176adf9895aca700dfe837671a84cd53c36e41eda1a1ce36c9a4ccd2f"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
       "bytes": 12202,
       "sha256": "250573fe8630ae97be3d273d914eeca91513d290069683ba0863cdb0196740e2"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
+      "bytes": 4962,
+      "sha256": "5215455b7c7af0195f1b36bb45c9dfb788906a7c67bb370290e9628abf14449d"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -4019,8 +4024,8 @@
     },
     {
       "path": "modules/identity-membership/freedom.module.json",
-      "bytes": 1454,
-      "sha256": "fe07563286512f29adf9fab5b92a17a1cc71975e2222b69021830f09456e0a41"
+      "bytes": 1468,
+      "sha256": "7f77fb7164d87a4eed3ac7db515352d94c9b1729929f3a209b872cf37bd31924"
     },
     {
       "path": "modules/identity-membership/member-connections.ts",
@@ -4109,8 +4114,8 @@
     },
     {
       "path": "modules/opportunity-project-work/freedom.module.json",
-      "bytes": 1517,
-      "sha256": "e111325ce7f0bcee395f4c93a27b2108b88f00a7e643841a3e82e315157f2126"
+      "bytes": 1531,
+      "sha256": "11e30008c64788f942c6f55020a668aef21c4126b0aa29d2010c893f2f8d229e"
     },
     {
       "path": "modules/opportunity-project-work/work.ts",
@@ -4393,9 +4398,39 @@
       "sha256": "d33f1abc6db45d371b958c573459ad364fff3bbf62738036edcf976aa890cd35"
     },
     {
+      "path": "packages/db/README.md",
+      "bytes": 3481,
+      "sha256": "dbd0e7ddb6041d5589049c9a85761c41b4a5f65ff8b907f8339f1e36eb6747dd"
+    },
+    {
+      "path": "packages/db/command-core.ts",
+      "bytes": 1699,
+      "sha256": "2e82d540b3ac42669c60bae776cd3ad369dc06582497e4126d8b21bc1a7310aa"
+    },
+    {
+      "path": "packages/db/freedom.module.json",
+      "bytes": 653,
+      "sha256": "a2ac7f5c42b7939f811952b656806cf24c2d848a7dd097b585daf7fca219b9f5"
+    },
+    {
       "path": "packages/db/index.ts",
-      "bytes": 4909,
-      "sha256": "8a77cb1db18dc803d440e44963358bed6adba747e4b869c5e6f66a3d02a7d3cd"
+      "bytes": 2148,
+      "sha256": "2619a6ef9a7fa5df0be7876cb143b4779a435edefd62c6086eed30a86ba2cab5"
+    },
+    {
+      "path": "packages/db/legacy-digest.ts",
+      "bytes": 542,
+      "sha256": "bccd9a689839b00854de84e6f54f4a0397cbf9e69f1fd203429b667c1c6f8542"
+    },
+    {
+      "path": "packages/db/member-command.ts",
+      "bytes": 2524,
+      "sha256": "1d3dfc3d8aa63ecf296f702be2eddae9d58bda807522cccc18cf40d3ad3921cd"
+    },
+    {
+      "path": "packages/db/transaction.ts",
+      "bytes": 449,
+      "sha256": "4dd8d49fb8de175f1049d3f93d07338d017593cf7087cccddca3ebd5a5011d11"
     },
     {
       "path": "packages/sdk/client.d.mts",
@@ -5126,6 +5161,11 @@
       "path": "tests/runtime/co-creation.test.ts",
       "bytes": 26940,
       "sha256": "c552d2c1f45f082d6b709dd3e0e6e60da39971c495ca68069cc0dc3a1b1c9a11"
+    },
+    {
+      "path": "tests/runtime/command-core.test.ts",
+      "bytes": 11734,
+      "sha256": "f329212d4c53396e5dd260d307a8cba3230c64f8781b2cbd374a776e758e24b3"
     },
     {
       "path": "tests/runtime/commerce.test.ts",

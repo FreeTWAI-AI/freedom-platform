@@ -2,7 +2,7 @@
 
 這組 spec 將 [Unified Foundation 1.1 計畫](../../../plans/unified-foundation.md) 轉成可分批開發、審查及驗收的工作。結論是可以依此計畫開發；先交付固定契約與開工工具、相容的身分及交易核心，再完成「會員換頭像」與「本人私人 AI 草稿」兩條完整流程。
 
-版本：`0.2-draft`；查核日期：2026-10-02。已讀完 Unified Foundation 1.1、R2 及 Autopilot 原文並完成規格對照。中央程式查核基準為 `3de70ccbd24362a7925508fb42d36aaa256a0806`；其後已開始本機契約 verifier 與開工工具，實作範圍和測試證據見 [governance README](../../../../governance/README.md)。這些組件測試不代表完整產品驗收通過。
+版本：`0.2-draft`；查核日期：2026-10-02。已讀完 Unified Foundation 1.1、R2 及 Autopilot 原文並完成規格對照。中央程式查核基準為 `3de70ccbd24362a7925508fb42d36aaa256a0806`；其後已開始本機契約 verifier、開工工具及會員相容交易核心，範圍和測試證據見 [本機交付紀錄](implementation-status.md)。這些組件測試不代表完整產品驗收通過。
 
 ## 文件與開工順序
 
