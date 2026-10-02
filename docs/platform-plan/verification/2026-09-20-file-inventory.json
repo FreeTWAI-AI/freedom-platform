@@ -1474,8 +1474,8 @@
     },
     {
       "path": "apps/portal-web/src/styles.css",
-      "bytes": 30864,
-      "sha256": "0d4c2dc554778edab60e16d5d7fd062a6f194a4a0b85aebe5dde5338bdcab666"
+      "bytes": 30999,
+      "sha256": "ccf3d692b049ea73d9ccdb624196adb71fccf6f4071b7809ad780c095ee8c0fa"
     },
     {
       "path": "apps/portal-web/src/types.ts",
@@ -4821,6 +4821,11 @@
       "path": "tests/e2e/squad-types-channel.spec.ts",
       "bytes": 3179,
       "sha256": "a06a56764fcf42f5e6cb321821de9a873c7c5f172691bd573e0d15f5168aed52"
+    },
+    {
+      "path": "tests/e2e/text-autospace.spec.ts",
+      "bytes": 1828,
+      "sha256": "51c7fc98aa2d691d5f0b41ae4c9aff2386ac9da758d0d792d6ea8d92823fa0a3"
     },
     {
       "path": "tests/e2e/typed-line-breaks.spec.ts",
