@@ -212,7 +212,12 @@ the schema/shape-derived requirements; they apply to **every** active binary
 and the candidate, not just to the newest release. Required shapes are the union of requested enablement, current enabled shapes,
 already written shapes, and independent historical rollback floors. Turning a
 feature off never subtracts a stored-data requirement. Observed enabled/written
-shapes also require their schema already applied. New enablement requires its
+shapes and independently retained historical shapes also require their schema
+already applied. A retained shape can impose a stronger current-schema minimum
+than the separately retained ledger; these components combine conservatively
+rather than requiring identical watermarks. Planned migrations cannot satisfy
+the historical shape requirement until a fresh observation confirms application.
+New enablement requires its
 schema in the planned ledger. Unknown profiles, policy versions or execution
 capabilities fail closed rather than borrowing human Result or avatar support.
 

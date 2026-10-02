@@ -221,6 +221,24 @@ test('current schema below retained floor is incompatible even if planned migrat
   assert.deepEqual(codes(evaluate(f)), ['historical_schema_floor_mismatch']);
 });
 
+test('retained shape independently constrains current schema even when the separate ledger floor is lower', () => {
+  for (const shape of ['avatar.asset.v1','work.private.v1','work.private-human-result.v1']) {
+    const f = fixture(), old = prefix(f.scan,75);
+    f.host.rollback_floor_shapes = [shape]; // Explicit retained075 ledger remains unchanged.
+    f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
+    f.host.release_records[0].schema_ledger_digests.push(old.ledger_digest);
+    const bad = evaluate(f);
+    assert.equal(bad.status,'incompatible');
+    assert.ok(bad.issues.some(issue => issue.code === 'historical_shape_schema_missing' && issue.shape === shape));
+    // Independent lower ledger and higher shape components are not inherently
+    // contradictory: their conservative union is satisfiable by current085.
+    f.host.observation.schema_ledger = structuredClone(f.scan.ledger);
+    f.host.observation.schema_ledger_digest = f.scan.ledger_digest;
+    assert.equal(evaluate(f).status,'compatible');
+    assert.equal(evaluate(f).restore_proof,false);
+  }
+});
+
 test('historical capability floor survives disabled/empty shapes for every mixed active and candidate binary', () => {
   for (const missing of ['active', 'candidate']) {
     const f = fixture(), other = { source_sha: 'c'.repeat(40), artifact_sha256: 'd'.repeat(64) };

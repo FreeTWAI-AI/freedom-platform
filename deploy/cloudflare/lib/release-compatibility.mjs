@@ -184,6 +184,7 @@ export function evaluateReleaseCompatibility(input, { scan, host } = {}) {
     const profile = SHAPES[shape];
     if (plannedLast < profile.migration) issue('shape_schema_missing', { shape });
     if ([...observed.enabled_shapes, ...observed.written_shapes].includes(shape) && observedLast < profile.migration) issue('observed_shape_schema_missing', { shape });
+    if (trusted.rollback_floor_shapes.includes(shape) && observedLast < profile.migration) issue('historical_shape_schema_missing', { shape });
     for (const capability of profile.capabilities) required.add(capability);
     if (Math.max(plannedLast, floorLast) >= 85 && shape.startsWith('work.private')) required.add('work.server-policy.v1');
   }
