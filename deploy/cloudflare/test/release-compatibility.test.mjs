@@ -1,0 +1,199 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { test } from 'node:test';
+import { checkMigrations } from '../lib/migrations.mjs';
+import { loadManifest } from '../lib/manifest.mjs';
+import { evaluateReleaseCompatibility, compatibilityLedgerDigest } from '../lib/release-compatibility.mjs';
+import { run } from '../preflight.mjs';
+
+const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
+const NOW = 1790899200000;
+const CAPABILITIES = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1'];
+function fixture() {
+  const scan = checkMigrations(join(ROOT, 'migrations'), loadManifest().database_defaults.migrations);
+  const candidate = { source_sha: 'a'.repeat(40), artifact_sha256: 'b'.repeat(64) };
+  const target = { environment: 'next', database_identity: 'synthetic-db', recovery_generation: '2' };
+  const input = { schema: 'freedom.release-compatibility-request/v1', environment: 'next', candidate, enable_shapes: [] };
+  const host = {
+    schema: 'freedom.release-compatibility-host/v1', target, now_ms: NOW, max_age_ms: 30000,
+    rollback_floor_shapes: [], observation: {
+      evidence_id: 'synthetic-observation', observed_at_ms: NOW - 1000, target: { ...target },
+      schema_ledger: structuredClone(scan.ledger), schema_ledger_digest: scan.ledger_digest,
+      enabled_shapes: [], written_shapes: [], active_releases: [{ ...candidate }], complete: true,
+    },
+    release_records: [{ ...candidate, evidence_id: 'synthetic-approval', status: 'approved', environments: ['next'],
+      schema_ledger_digests: [scan.ledger_digest], capabilities: [...CAPABILITIES], approved_at_ms: NOW - 60000, expires_at_ms: NOW + 60000 }],
+  };
+  return { input, host, scan };
+}
+const evaluate = ({ input, host, scan }) => evaluateReleaseCompatibility(input, { host, scan });
+const codes = (result) => result.issues.map((i) => i.code);
+function prefix(value, last) {
+  const rows = value.ledger.filter((r) => Number(r.name.slice(0, 3)) <= last);
+  return { ...value, ledger: rows, ledger_digest: compatibilityLedgerDigest(rows) };
+}
+
+test('exact current source/artifact, full ledger and synthetic host produce ONLY local compatibility', () => {
+  const f = fixture();
+  f.input.enable_shapes = ['avatar.asset.v1', 'work.private.v1', 'work.private-human-result.v1'];
+  const result = evaluate(f);
+  assert.equal(result.status, 'compatible');
+  assert.deepEqual(result.issues, []);
+  assert.equal(result.checked_releases, 1);
+  assert.deepEqual(result.required_capabilities, [...CAPABILITIES].sort());
+  for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[flag], false);
+  assert.equal(f.host.release_records[0].capabilities.length, 5, 'caller data unchanged');
+});
+
+test('077 floor rejects old Work row-spread binary before any private writes', () => {
+  const f = fixture();
+  f.host.release_records[0].capabilities = ['platform.legacy.v1'];
+  assert.equal(evaluate(f).status, 'incompatible');
+  assert.ok(evaluate(f).issues.some((i) => i.capability === 'work.explicit-wire.v1'));
+  const old = prefix(f.scan, 75);
+  f.scan = old; f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
+  f.host.release_records[0].schema_ledger_digests = [old.ledger_digest];
+  assert.equal(evaluate(f).status, 'compatible', '075 is not given a fabricated 077 floor');
+});
+
+test('every mixed-version active binary, not only candidate, must meet the floor', () => {
+  const f = fixture();
+  const old = { source_sha: 'c'.repeat(40), artifact_sha256: 'd'.repeat(64) };
+  f.host.observation.active_releases.push(old);
+  f.host.release_records.push({ ...f.host.release_records[0], ...old, capabilities: ['platform.legacy.v1'] });
+  const result = evaluate(f);
+  assert.equal(result.status, 'incompatible');
+  assert.equal(result.checked_releases, 2);
+  assert.ok(result.issues.some((i) => i.source_sha === old.source_sha && i.capability === 'work.explicit-wire.v1'));
+});
+
+for (const source of ['enable_shapes', 'enabled_shapes', 'written_shapes', 'rollback_floor_shapes']) {
+  test(`${source} adds requirements; disabling writes never subtracts persisted rollback floors`, () => {
+    const f = fixture();
+    const container = source === 'enable_shapes' ? f.input : source === 'rollback_floor_shapes' ? f.host : f.host.observation;
+    container[source] = ['avatar.asset.v1', 'work.private-human-result.v1'];
+    f.host.release_records[0].capabilities = ['platform.legacy.v1', 'work.explicit-wire.v1'];
+    const result = evaluate(f);
+    assert.equal(result.status, 'incompatible');
+    for (const capability of ['avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1']) {
+      assert.ok(result.issues.some((i) => i.capability === capability), capability);
+    }
+  });
+}
+
+for (const [name, mutate, code] of [
+  ['missing host', (f) => { f.host = undefined; }, 'trusted_host_required'],
+  ['candidate approvals rejected', (f) => { f.input.capabilities = CAPABILITIES; }, 'request_invalid'],
+  ['candidate clock rejected', (f) => { f.input.now_ms = NOW; }, 'request_invalid'],
+  ['wrong source', (f) => { f.input.candidate.source_sha = 'e'.repeat(40); }, 'release_approval_missing'],
+  ['wrong artifact', (f) => { f.input.candidate.artifact_sha256 = 'e'.repeat(64); }, 'release_approval_missing'],
+  ['withdrawn', (f) => { f.host.release_records[0].status = 'withdrawn'; }, 'release_withdrawn'],
+  ['expired approval', (f) => { f.host.release_records[0].expires_at_ms = NOW; }, 'release_approval_stale'],
+  ['future approval', (f) => { f.host.release_records[0].approved_at_ms = NOW + 1; }, 'release_approval_stale'],
+  ['stale observation', (f) => { f.host.observation.observed_at_ms = NOW - 30001; }, 'observation_stale'],
+  ['future observation', (f) => { f.host.observation.observed_at_ms = NOW + 1; }, 'observation_stale'],
+  ['wrong environment', (f) => { f.host.observation.target.environment = 'staging-next'; }, 'target_mismatch'],
+  ['wrong database', (f) => { f.host.observation.target.database_identity = 'other-db'; }, 'target_mismatch'],
+  ['old recovery generation', (f) => { f.host.observation.target.recovery_generation = '1'; }, 'target_mismatch'],
+  ['incomplete observation', (f) => { f.host.observation.complete = false; }, 'observation_incomplete'],
+  ['empty active list', (f) => { f.host.observation.active_releases = []; }, 'observation_incomplete'],
+  ['duplicate approval', (f) => { f.host.release_records.push(f.host.release_records[0]); }, 'release_evidence_invalid'],
+  ['wrong approval environment', (f) => { f.host.release_records[0].environments = ['staging-next']; }, 'release_environment_mismatch'],
+  ['unknown execution shape', (f) => { f.input.enable_shapes = ['execution.run.v1']; }, 'request_invalid'],
+  ['unknown stored shape', (f) => { f.host.observation.written_shapes = ['future.media.v1']; }, 'host_evidence_invalid'],
+  ['unknown execution capability', (f) => { f.host.release_records[0].capabilities.push('execution.authorized.v1'); }, 'host_evidence_invalid'],
+  ['full ledger approval missing', (f) => { f.host.release_records[0].schema_ledger_digests = ['f'.repeat(64)]; }, 'release_schema_unsupported'],
+  ['host provenance absent', (f) => { delete f.host.observation.evidence_id; }, 'host_evidence_invalid'],
+]) {
+  test(`fail closed: ${name}`, () => {
+    const f = fixture(); mutate(f);
+    const result = evaluate(f);
+    assert.notEqual(result.status, 'compatible'); assert.ok(codes(result).includes(code), JSON.stringify(result));
+  });
+}
+
+test('schema ledger compares exact SQL digests, names, order and known gap22', () => {
+  for (const mutation of [
+    (rows) => { rows[0].sha256 = 'f'.repeat(64); },
+    (rows) => { rows[0].name = '001_fake.sql'; },
+    (rows) => { rows.splice(1, 1); },
+    (rows) => { [rows[0], rows[1]] = [rows[1], rows[0]]; },
+    (rows) => { rows.splice(21, 0, { name: '022_invented.sql', sha256: 'e'.repeat(64) }); },
+  ]) {
+    const f = fixture(); mutation(f.host.observation.schema_ledger);
+    f.host.observation.schema_ledger_digest = compatibilityLedgerDigest(f.host.observation.schema_ledger);
+    assert.notEqual(evaluate(f).status, 'compatible');
+  }
+});
+
+test('migrating prefix checks BOTH current and planned schema for every consumer', () => {
+  const f = fixture(); const old = prefix(f.scan, 75);
+  f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
+  assert.ok(codes(evaluate(f)).includes('release_schema_unsupported'));
+  f.host.release_records[0].schema_ledger_digests.push(old.ledger_digest);
+  assert.equal(evaluate(f).status, 'compatible');
+});
+
+test('schema extension is unavailable until its exact known migration rule is reviewed', () => {
+  const f = fixture();
+  f.scan.ledger.push({ name: '085_unknown.sql', sha256: 'd'.repeat(64) });
+  f.scan.ledger_digest = compatibilityLedgerDigest(f.scan.ledger);
+  assert.deepEqual(codes(evaluate(f)), ['schema_unknown']);
+});
+
+test('new shape cannot be enabled or observed before its migration', () => {
+  const f = fixture(); const old = prefix(f.scan, 75);
+  f.scan = old; f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
+  f.host.release_records[0].schema_ledger_digests = [old.ledger_digest];
+  f.input.enable_shapes = ['avatar.asset.v1']; f.host.observation.written_shapes = ['work.private-human-result.v1'];
+  const result = evaluate(f);
+  assert.ok(codes(result).includes('shape_schema_missing'));
+  assert.ok(codes(result).includes('observed_shape_schema_missing'));
+});
+
+test('data boundary rejects accessors, functions, sparse arrays, cycles, oversized data and trailing delimiters', () => {
+  let invoked = 0;
+  const cases = [
+    (f) => { Object.defineProperty(f.input, 'candidate', { enumerable: true, get() { invoked++; return {}; } }); },
+    (f) => { f.input.toJSON = () => { invoked++; return {}; }; },
+    (f) => { f.input.enable_shapes = [, 'avatar.asset.v1']; },
+    (f) => { f.input.enable_shapes = f.input; },
+    (f) => { f.input.extra = 'x'.repeat(16385); },
+    (f) => { f.input.candidate.source_sha += '\n'; },
+    (f) => { f.host.target.recovery_generation += '\r'; },
+  ];
+  for (const mutate of cases) { const f = fixture(); mutate(f); assert.notEqual(evaluate(f).status, 'compatible'); }
+  assert.equal(invoked, 0);
+});
+
+test('CLI concretely uses scanner and host port; no host fails, all propagates requested failure', async (t) => {
+  const f = fixture();
+  const dir = mkdtempSync(join(tmpdir(), 'fp-release-compatibility-')); t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const path = join(dir, 'request.json'); writeFileSync(path, JSON.stringify(f.input));
+  const flags = ['--compatibility-input', path];
+  let result = await run(['compatibility', ...flags]);
+  assert.equal(result.code, 1); assert.equal(JSON.parse(result.output).compatibility.status, 'unavailable');
+  result = await run(['compatibility', ...flags], { compatibilityHost: f.host });
+  assert.equal(result.code, 0); assert.equal(JSON.parse(result.output).compatibility.status, 'compatible');
+  result = await run(['all', ...flags]); assert.equal(result.code, 1);
+  result = await run(['all']); assert.equal(result.code, 0); assert.equal(JSON.parse(result.output).compatibility, undefined);
+  assert.equal((await run(['compatibility', ...flags, '--execute'], { compatibilityHost: f.host })).code, 3);
+  await assert.rejects(run(['compatibility', ...flags, '--trust-host', path]), /Unknown option/);
+  await assert.rejects(run(['manifest', ...flags]), /only valid/);
+});
+
+test('CLI never executes candidate JSON and rejects duplicates, nonregular input and unbounded bytes', async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'fp-release-input-')); t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const path = join(dir, 'request.json');
+  for (const body of ['{"schema":"x","schema":"y"}', 'x'.repeat(16385), 'export default (()=>{throw Error("private-marker")})()']) {
+    writeFileSync(path, body);
+    const result = await run(['compatibility', '--compatibility-input', path]);
+    assert.equal(result.code, 2); assert.doesNotMatch(result.output, /private-marker|export default/);
+  }
+  symlinkSync(path, join(dir, 'link.json'));
+  assert.equal((await run(['compatibility', '--compatibility-input', join(dir, 'link.json')])).code, 2);
+  assert.equal((await run(['compatibility', '--compatibility-input', resolve(dir, 'missing.json')])).code, 2);
+});
