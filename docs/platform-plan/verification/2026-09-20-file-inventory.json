@@ -944,8 +944,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Community.tsx",
-      "bytes": 10531,
-      "sha256": "4d4d98f77cc983911e6b0e74e574bd1324ea736b3ad1f73de84c739cc5605841"
+      "bytes": 11528,
+      "sha256": "8cc8c40e221abc7f77fd4fb118148c2dc477197727e654843eb3476ee23db7f5"
     },
     {
       "path": "apps/portal-web/src/modules/CommunityHistory.css",
@@ -4546,6 +4546,11 @@
       "path": "tests/e2e/commerce-modules.spec.ts",
       "bytes": 7575,
       "sha256": "ed915d1d3a2016e05fce70027a9723b8f53fcd30e95c710587841f5272737af3"
+    },
+    {
+      "path": "tests/e2e/community-erp-demo.spec.ts",
+      "bytes": 1404,
+      "sha256": "aa2aa3b6c9450d106c91a819f8986ca244fcc276bb9b36f52c7bb48194029532"
     },
     {
       "path": "tests/e2e/development-access.spec.ts",
