@@ -5,17 +5,18 @@ import type { Actor } from '../identity-membership/service.js';
 import { withMemberScope, type MemberScopeContext } from '../../packages/resource-scopes/index.js';
 import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { requireCondition } from '../../packages/shared/problem.js';
+import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import { objectKey, preparePrivateText, readVerifiedObject, requirePersistence, PRIVATE_TEXT_MAX_BYTES,
   type ObjectMetadata } from '../../packages/asset-storage/index.js';
 import { assetCommandKey, assetVersion, createAssetLifecycle, type LifecycleDependencies, type LifecyclePolicy,
   type LifecycleTarget } from '../assets/engine.js';
 
 const purpose = 'work.private-draft';
-const prepareInput = z.object({ key: assetCommandKey, targetWorkId: z.uuid(), expectedVersion: assetVersion,
+const prepareInput = z.object({ key: assetCommandKey, targetWorkId: OpaqueId, expectedVersion: assetVersion,
   contentType: z.enum(['text/plain', 'text/markdown']), byteSize: z.number().int().min(1).max(PRIVATE_TEXT_MAX_BYTES),
   sha256: z.string().length(64).regex(/^[0-9a-f]+$/) }).strict();
-const readInput = z.object({ workId: z.uuid() }).strict();
-const historyInput = readInput.extend({ resultId: z.uuid() });
+const readInput = z.object({ workId: OpaqueId }).strict();
+const historyInput = readInput.extend({ resultId: OpaqueId });
 const listInput = readInput.extend({ limit: z.number().int().min(1).max(50).default(20), offset: z.number().int().min(0).max(10000).default(0) });
 export type PrivateResultPrepareInput = z.infer<typeof prepareInput>;
 export interface PrivateResultDependencies extends LifecycleDependencies {
@@ -95,7 +96,7 @@ export function createPrivateResultService(pool: Pool, dependencies: PrivateResu
     },
     prepareRepresentation: preparePrivateText,
     lockPublication: async () => undefined,
-    async publish(q, _context, _actor, intent) {
+    async publish(q, _context, actor, intent) {
       let row: { result_id: string; work_item_id: string; asset_id: string; revision: string; work_version: string };
       try {
         row = (await q.query(`INSERT INTO private_work_results(result_id,intent_id) VALUES($1,$2)
@@ -104,6 +105,9 @@ export function createPrivateResultService(pool: Pool, dependencies: PrivateResu
         if ((error as { code?: string })?.code === 'P0412') requireCondition(false, 412, 'version_conflict', '工作版本已改變。');
         throw error;
       }
+      // Even a normally collision-free generated Result UUID is inserted into
+      // unique indexes; fail closed if a wait outlives the current session.
+      await assertCurrentSessionClock(q, actor);
       const result: PrivateResultPublished = { intentId: intent.intent_id, resultId: row.result_id, workId: row.work_item_id,
         assetId: row.asset_id, revision: row.revision, aggregateVersion: row.work_version, provenance: 'human' };
       return { aggregateVersion: row.work_version, result, fact: { aggregateType: 'private_work', id: row.work_item_id,
