@@ -9,11 +9,12 @@ import type { Actor } from '../../modules/identity-membership/service.js';
 import sharp from 'sharp';
 import { createAvatarAssetService } from '../../modules/assets/index.js';
 import { FakeObjectStore } from '../../packages/asset-storage/fake-store.js';
-import { sha256 } from '../../packages/asset-storage/index.js';
+import { sha256, AssetStorageError } from '../../packages/asset-storage/index.js';
 import { normalizeImage } from '../../packages/shared/image-runtime.js';
 import { Problem } from '../../packages/shared/problem.js';
 import { createAssetLifecycle, type LifecyclePrepare } from '../../modules/assets/engine.js';
 import { z } from 'zod';
+import { createPrivateResultService } from '../../modules/autopilot-work/results.js';
 
 // Independent SQL counterexamples. No production defaults or external objects.
 const connectionString = process.env.TEST_DATABASE_URL;
@@ -29,6 +30,7 @@ const community = randomUUID(); let created = false;
 before(async () => {
   await admin.query(`CREATE SCHEMA ${schema}`); created = true; await migrate(pool);
   await pool.query('INSERT INTO communities VALUES($1,$2)', [community, 'Independent synthetic Result review']);
+  await pool.query('CREATE TABLE fp_result_policy(owner uuid PRIMARY KEY REFERENCES users,revision text NOT NULL,allowed boolean NOT NULL,quota text NOT NULL)');
 });
 after(async () => { await pool.end(); try { if (created) await admin.query(`DROP SCHEMA ${schema} CASCADE`); } finally { await admin.end(); } });
 
@@ -208,10 +210,132 @@ test('ENGINE-INDEPENDENT-06 quota serialization spans distinct Work targets for 
   const one = api.prepare(o.actor, request(first)); void one.catch(() => undefined);
   let two: ReturnType<typeof api.prepare> | undefined;
   try {
-    const pid = await entered; two = api.prepare(o.actor, request(second)); void two.catch(() => undefined);
+    const pid = await Promise.race([entered, one.then(() => { throw new Error('Prepare never entered quota check'); })]);
+    two = api.prepare(o.actor, request(second)); void two.catch(() => undefined);
     await blockedBy(pid); assert.equal(capacityChecks, 1, 'Second Work waits before observing quota');
     release(); await one; await assert.rejects(two, error => error instanceof Problem && error.code === 'fixture_retained_quota');
   } finally { release(); await one.catch(() => undefined); await two?.catch(() => undefined); }
   assert.equal((await pool.query("SELECT count(*)::int n FROM assets WHERE owner_user_id=$1 AND purpose='work.private-draft'", [o.actor.user_id])).rows[0].n, 1);
   assert.equal(await version(first), '1'); assert.equal(await version(second), '1');
+});
+
+async function privateService(o: Owner) {
+  const store = new FakeObjectStore();
+  await pool.query("INSERT INTO fp_result_policy VALUES($1,'synthetic-reader-v1',true,'10485760')", [o.actor.user_id]);
+  const api = createPrivateResultService(pool, { store, resolvePolicy: async q => {
+    const row = (await q.query('SELECT * FROM fp_result_policy WHERE owner=$1 FOR SHARE', [o.actor.user_id])).rows[0];
+    return { revision: row.revision, platformPersistenceAllowed: row.allowed, retainedByteLimit: row.quota };
+  } });
+  const publish = async (workId: string, expectedVersion: string, text: string) => {
+    const bytes = Buffer.from(text);
+    const prepared = await api.prepare(o.actor, { key: randomUUID(), targetWorkId: workId, expectedVersion, contentType: 'text/markdown', byteSize: bytes.length, sha256: await sha256(bytes) });
+    const lease = await api.claim(o.actor, { key: randomUUID(), intentId: prepared.intentId });
+    const request = { intentId: lease.intentId, fence: lease.fence, leaseToken: lease.leaseToken };
+    await api.write(o.actor, { key: randomUUID(), ...request }, new ReadableStream({ start(c) { c.enqueue(bytes); c.close(); } }));
+    return api.finalize(o.actor, { key: randomUUID(), ...request });
+  };
+  return { api, store, publish };
+}
+
+test('RESULT-READER-INDEPENDENT-07 retired history stays owner-only and requires current active Work', async () => {
+  const o = await owner(), peer = await owner(), id = await work(o), service = await privateService(o);
+  const first = await service.publish(id, '1', 'Private historical text'), second = await service.publish(id, '2', 'Private current text');
+  await pool.query("UPDATE assets SET state='retired',retired_at=clock_timestamp() WHERE asset_id=$1", [first.assetId]);
+  const old = await service.api.readResult(o.actor, { workId: id, resultId: first.resultId });
+  assert.equal(old.text, 'Private historical text'); assert.equal(old.workVersion, '2'); assert.equal(old.aggregateVersion, '3');
+  assert.equal((await service.api.readCurrent(o.actor, { workId: id }))?.resultId, second.resultId);
+  let gets = 0; const get = service.store.get.bind(service.store); service.store.get = async (...args) => { gets++; return get(...args); };
+  await assert.rejects(service.api.readResult(peer.actor, { workId: id, resultId: first.resultId }), error => error instanceof Problem && error.status === 404);
+  await pool.query("UPDATE work_items SET state='archived',aggregate_version=aggregate_version+1 WHERE work_item_id=$1", [id]);
+  await assert.rejects(service.api.readResult(o.actor, { workId: id, resultId: first.resultId }), error => error instanceof Problem && error.status === 404);
+  assert.equal(gets, 0, 'Denied historical reads never touch private object bytes');
+});
+
+for (const change of ['session', 'scope', 'work-version', 'archive', 'policy', 'policy-revision'] as const) {
+  test(`RESULT-READER-INDEPENDENT-08 ${change} committed during unlocked GET prevents disclosure`, async () => {
+    const o = await owner(), id = await work(o), service = await privateService(o);
+    await service.publish(id, '1', 'Synthetic confidential text must not escape after revocation');
+    let release!: () => void, arrived!: () => void;
+    const hold = new Promise<void>(resolve => { release = resolve; }), entered = new Promise<void>(resolve => { arrived = resolve; });
+    const get = service.store.get.bind(service.store);
+    service.store.get = async (...args) => { const object = await get(...args); arrived(); await hold; return object; };
+    const pending = service.api.readCurrent(o.actor, { workId: id }); void pending.catch(() => undefined);
+    try {
+      await Promise.race([entered, pending.then(() => { throw new Error('Read never reached object I/O'); })]);
+      // Successful UPDATE proves the storage effect holds no corresponding
+      // authority/domain/policy lock across I/O. No fake callback-only ACL.
+      if (change === 'session') await pool.query('UPDATE sessions SET revoked_at=clock_timestamp() WHERE token_hash=$1', [o.actor.session_hash]);
+      if (change === 'scope') await pool.query("UPDATE resource_scopes SET status='disabled' WHERE scope_id=$1", [o.scope]);
+      if (change === 'work-version') await pool.query('UPDATE work_items SET aggregate_version=aggregate_version+1 WHERE work_item_id=$1', [id]);
+      if (change === 'archive') await pool.query("UPDATE work_items SET state='archived',aggregate_version=aggregate_version+1 WHERE work_item_id=$1", [id]);
+      if (change === 'policy') await pool.query('UPDATE fp_result_policy SET allowed=false WHERE owner=$1', [o.actor.user_id]);
+      if (change === 'policy-revision') await pool.query("UPDATE fp_result_policy SET revision='synthetic-reader-v2' WHERE owner=$1", [o.actor.user_id]);
+      release();
+      const expected = { session: 'session_expired', scope: 'scope_disabled', 'work-version': 'version_conflict', archive: 'not_found', policy: 'persistence_prohibited', 'policy-revision': 'asset_policy_changed' }[change];
+      await assert.rejects(pending, error => (error instanceof Problem || error instanceof AssetStorageError) && error.code === expected);
+    } finally { release(); await pending.catch(() => undefined); }
+  });
+}
+
+test('RESULT-INDEPENDENT-09 uniqueness winner rollback after lease expiry cannot publish delayed loser', async () => {
+  const o = await owner(), first = await work(o), second = await work(o);
+  const a = await stored(o, first), b = await stored(o, second), result = randomUUID();
+  const winner = await pool.connect(), loser = await pool.connect(); let pending: ReturnType<typeof append> | undefined;
+  try {
+    await pool.query("UPDATE asset_upload_intents SET lease_expires_at=clock_timestamp()+interval '500 milliseconds' WHERE intent_id=$1", [b]);
+    await winner.query('BEGIN'); await loser.query('BEGIN');
+    const pid = (await winner.query('SELECT pg_backend_pid() pid')).rows[0].pid;
+    await append(winner, result, a); await finish(winner, a);
+    // Different Work/intent/assets: the wait is on the real unique Result key,
+    // AFTER the loser's BEFORE INSERT lease decision, not its Work row lock.
+    pending = append(loser, result, b); void pending.catch(() => undefined); await blockedBy(pid);
+    let expired = false;
+    for (let i = 0; i < 250; i++) {
+      expired = (await pool.query('SELECT lease_expires_at<=clock_timestamp() expired FROM asset_upload_intents WHERE intent_id=$1', [b])).rows[0].expired;
+      if (expired) break; await delay(10);
+    }
+    assert(expired); await winner.query('ROLLBACK');
+    await assert.rejects(async () => { await pending; await finish(loser, b); await loser.query('COMMIT'); }, error => (error as {code?: string}).code === '23514');
+  } finally {
+    await winner.query('ROLLBACK'); await pending?.catch(() => undefined); await loser.query('ROLLBACK'); winner.release(); loser.release();
+  }
+  assert.equal(await version(first), '1'); assert.equal(await version(second), '1');
+});
+
+test('RESULT-QUOTA-INDEPENDENT-10 real private adapter enforces one retained owner limit across Work', async () => {
+  const o = await owner(), first = await work(o), second = await work(o);
+  await pool.query("INSERT INTO fp_result_policy VALUES($1,'synthetic-quota-v1',true,'262144')", [o.actor.user_id]);
+  let arrived!: (pid: number) => void, release!: () => void, calls = 0;
+  const entered = new Promise<number>(resolve => { arrived = resolve; }), hold = new Promise<void>(resolve => { release = resolve; });
+  const api = createPrivateResultService(pool, { store: new FakeObjectStore(), resolvePolicy: async q => {
+    const row = (await q.query('SELECT * FROM fp_result_policy WHERE owner=$1 FOR SHARE', [o.actor.user_id])).rows[0];
+    if (++calls === 1) { arrived((await q.query('SELECT pg_backend_pid() pid')).rows[0].pid); await hold; }
+    return { revision: row.revision, platformPersistenceAllowed: row.allowed, retainedByteLimit: row.quota };
+  } });
+  const request = (targetWorkId: string) => ({ targetWorkId, key: randomUUID(), expectedVersion: '1', contentType: 'text/plain' as const, byteSize: 4, sha256: 'a'.repeat(64) });
+  const one = api.prepare(o.actor, request(first)); void one.catch(() => undefined); let two: ReturnType<typeof api.prepare> | undefined;
+  try {
+    const pid = await Promise.race([entered, one.then(() => { throw new Error('Missing policy checkpoint'); })]);
+    two = api.prepare(o.actor, request(second)); void two.catch(() => undefined); await blockedBy(pid);
+    assert.equal(calls, 1); release(); await one;
+    await assert.rejects(two, error => error instanceof Problem && error.code === 'asset_retained_quota');
+  } finally { release(); await one.catch(() => undefined); await two?.catch(() => undefined); }
+  assert.equal((await pool.query("SELECT count(*)::int n FROM assets WHERE owner_user_id=$1 AND purpose='work.private-draft'", [o.actor.user_id])).rows[0].n, 1);
+});
+
+test('RESULT-PROFILE-INDEPENDENT-11 avatar phases reject a real private intent before source or storage effects', async () => {
+  const o = await owner(), id = await work(o), service = await privateService(o);
+  const intent = await service.api.prepare(o.actor, { targetWorkId: id, key: randomUUID(), expectedVersion: '1', contentType: 'text/plain', byteSize: 4, sha256: 'a'.repeat(64) });
+  const lease = await service.api.claim(o.actor, { key: randomUUID(), intentId: intent.intentId });
+  let effects = 0; const store = new FakeObjectStore();
+  store.get = async () => { effects++; throw new Error('Unexpected private read via avatar profile'); };
+  store.putImmutable = async () => { effects++; throw new Error('Unexpected private write via avatar profile'); };
+  const avatar = createAvatarAssetService(pool, { store, normalizeAvatar: async () => { effects++; throw new Error('Unexpected normalization'); },
+    resolvePolicy: async () => { effects++; throw new Error('Wrong-profile access reached policy'); } });
+  const request = { intentId: intent.intentId, fence: lease.fence, leaseToken: lease.leaseToken, key: randomUUID() };
+  const deny = (error: unknown) => error instanceof Problem && error.code === 'asset_intent_not_found';
+  await assert.rejects(avatar.claim(o.actor, { intentId: intent.intentId, key: randomUUID() }), deny);
+  await assert.rejects(avatar.write(o.actor, request, new ReadableStream({ pull() { effects++; } }, { highWaterMark: 0 })), deny);
+  await assert.rejects(avatar.finalize(o.actor, request), deny);
+  assert.equal(effects, 0);
 });
