@@ -72,7 +72,7 @@ target, including the externally maintained recovery generation. Future, stale,
 incomplete and empty-active-release observations are unavailable. Every consumer
 still able to access this database must appear in `active_releases`; do not omit
 an older Worker, cron, helper or reader to make a rolling deployment pass. This
-v1 intentionally cannot certify an empty/incompletely observed environment.
+profile intentionally cannot certify an empty/incompletely observed environment.
 
 The host must collect a consistent observation and maintain durable historical
 shape, ledger and capability watermarks outside the restorable database. The
