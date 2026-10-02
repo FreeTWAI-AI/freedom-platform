@@ -1,0 +1,14 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "execution-runs",
+  "owner_role": "foundation",
+  "owned_paths": ["modules/agent-execution/**", "migrations/086_execution_runs.sql", "tests/runtime/execution-runs.test.ts", "tests/runtime/execution-runs-adversarial.test.ts", "tests/runtime/execution-runs-grants.test.ts"],
+  "public_exports": ["modules/agent-execution/runs.ts"],
+  "dependencies": ["work", "private-results", "resource-scopes", "scoped-commands", "execution-decision"],
+  "contract_families": ["common", "execution-decision"],
+  "client_profiles": [],
+  "instructions": ["modules/agent-execution/README.md", "packages/scoped-commands/README.md", "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md"],
+  "invariants": ["current-authority-before-replay", "immutable-work-input-version", "independent-fencing-domains", "human-control-without-provider-health", "no-operational-execution-authority", "private-scoped-facts"],
+  "tests": ["runtime.full"],
+  "surfaces": []
+}

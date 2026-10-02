@@ -1,6 +1,6 @@
 # 執行端與發布收尾規格
 
-Spec ID：`UF-SPEC-EXEC-OPS`；狀態：`local-decision-kernel-only`。來源：U3/U5/U6/U7/UX、CG-G、統一計畫 §04、08–16、18、29–30。本規格固定共用執行/發布邊界；AP/R2 原文已補齊，詳細 API/瀏覽器見 [BROWSER](06-browser-runtime.md)，七類搬遷見 [MEDIA](05-media-migration.md)。實際 runtime、capability 與 cloud/restore 證據仍由對應實作 PR 完成。
+Spec ID：`UF-SPEC-EXEC-OPS`；狀態：`local-closed-run-records`。來源：U3/U5/U6/U7/UX、CG-G、統一計畫 §04、08–16、18、29–30。本規格固定共用執行/發布邊界；AP/R2 原文已補齊，詳細 API/瀏覽器見 [BROWSER](06-browser-runtime.md)，七類搬遷見 [MEDIA](05-media-migration.md)。實際 runtime、capability 與 cloud/restore 證據仍由對應實作 PR 完成。
 
 ## 已有本機增量與界線
 
@@ -8,7 +8,9 @@ Spec ID：`UF-SPEC-EXEC-OPS`；狀態：`local-decision-kernel-only`。來源：
 
 具體 enum、轉移矩陣及三層驗證邊界見該 README；`npm run check:execution-contracts` 驗生成 bytes。舊 dispatch 的 recovery generation 與 task/control epochs 分別檢查，Stop 不要求模型健康；遲到 evidence 只能保留觀察，不能恢復 dispatch 或產生 Result。084 的人工 Result 不可作模型成果捷徑，仍須未來 typed attempt/Grant provenance 與 authenticated atomic adapter。下列正式產品規格與未解除依賴維持不變。
 
-[本機發布相容性診斷](../../../../deploy/cloudflare/release-compatibility.md) 已檢查精確 source/artifact 身分、完整 schema ledger、全部 active consumers 與資料形狀歷史下限；要求的能力包含 explicit Work wire、Asset bridge、personal ACL、human Result 與 085 server policy。Candidate 不能自帶批准或 host；一般 CLI 缺獨立可信 host port 就回 unavailable。Host 驗證／觀察 transport 尚未接線，所有結果固定 deployment/execution authority 與 restore proof 為 false，不是正式 rollback 或 release gate 已完成。
+另有 [durable member Run](../../../../modules/agent-execution/README.md) 封閉內部服務：暫用 086 保存實際 personal Work/owner/scope FK 與不可變輸入版本，提供本人 create/read/pause/stop。Create 使用目前 085 metadata persistence policy；讀取與停止保留紀錄不受政策撤回或 Work 封存阻擋，仍須目前會員權限。控制使用 Run CAS、task/control epochs 與同交易 scoped facts/receipt，不更動 Work 版本。狀態僅 created/paused/cancelled，所有 DTO 的 `operational_authority` 為 false；它不是完整 RunSnapshot，也没有 runtime、Attempt、Grant、lease、dispatch、model、recovery authority 或 HTTP 接線。不得以待填字串、假預設 generation 或 nullable backing ref 取代真正的執行關聯。
+
+[本機發布相容性診斷](../../../../deploy/cloudflare/release-compatibility.md) 已檢查精確 source/artifact 身分、完整 schema ledger、全部 active consumers 與資料形狀歷史下限；要求的能力包含 explicit Work wire、Asset bridge、personal ACL、human Result、085 server policy 及 086 closed Run。Host v2 另提供外部保留的歷史 ledger/capability floor；觀測和預計 schema 都須保留其 exact prefix，資料庫還原或更換 recovery generation 不能在診斷中清除此下限。Candidate 不能自帶批准或 host；一般 CLI 缺獨立可信 host port 就回 unavailable。Host 驗證／觀察 transport、歷史資料的持續保存及同 schema 下政策撤銷的還原對帳尚未完成。所有結果固定 deployment/execution authority 與 restore proof 為 false，不是正式 rollback 或 release gate 已完成。
 
 ## 最小 execution 核心
 

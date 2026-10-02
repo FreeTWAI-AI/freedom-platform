@@ -3,10 +3,14 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { checkMigrations } from '../lib/migrations.mjs';
+import { loadManifest } from '../lib/manifest.mjs';
 import { evaluateReleaseCompatibility, compatibilityLedgerDigest } from '../lib/release-compatibility.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
-const scanner = checkMigrations(join(root, 'migrations'), { first: 1, last: 85, known_gaps: [22] });
+const current = checkMigrations(join(root, 'migrations'), loadManifest().database_defaults.migrations);
+// These are deliberately historical085 vectors, not a hardcoded latest scanner.
+const historicalLedger = current.ledger.filter(row => Number(row.name.slice(0, 3)) <= 85);
+const scanner = { ok: current.ok, ledger: historicalLedger, ledger_digest: compatibilityLedgerDigest(historicalLedger) };
 const capabilities = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1',
   'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1'];
 const identity = character => ({ source_sha: character.repeat(40), artifact_sha256: character.repeat(64) });

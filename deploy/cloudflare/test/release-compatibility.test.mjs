@@ -45,7 +45,7 @@ test('exact current source/artifact, full ledger and synthetic host produce ONLY
   assert.equal(result.status, 'compatible');
   assert.deepEqual(result.issues, []);
   assert.equal(result.checked_releases, 1);
-  assert.deepEqual(result.required_capabilities, CAPABILITIES.filter((c) => c !== 'work.server-policy.v1' || f.scan.ledger.at(-1).name.startsWith('085_')).sort());
+  assert.deepEqual(result.required_capabilities, CAPABILITIES.filter((c) => c !== 'work.server-policy.v1' || Number(f.scan.ledger.at(-1).name.slice(0, 3)) >= 85).sort());
   for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[flag], false);
   assert.equal(f.host.release_records[0].capabilities.length, 6, 'caller data unchanged');
 });
@@ -150,7 +150,7 @@ test('schema extension is unavailable until its exact known migration rule is re
 test('085 requires current server-policy support for private shapes, but never activates private writes', () => {
   for (const source of ['enable_shapes', 'enabled_shapes', 'written_shapes', 'rollback_floor_shapes']) {
     const f = fixture();
-    if (!f.scan.ledger.at(-1).name.startsWith('085_')) f.scan.ledger.push({ name: '085_private_work_policy.sql', sha256: 'd'.repeat(64) });
+    f.scan = prefix(f.scan, 85); // Keep this historical085 vector stable as later migrations arrive.
     f.scan.ledger_digest = compatibilityLedgerDigest(f.scan.ledger);
     f.host.observation.schema_ledger = structuredClone(f.scan.ledger); f.host.observation.schema_ledger_digest = f.scan.ledger_digest;
     f.host.release_records[0].schema_ledger_digests = [f.scan.ledger_digest];

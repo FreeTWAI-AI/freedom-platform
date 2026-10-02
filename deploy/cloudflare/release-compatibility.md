@@ -125,6 +125,15 @@ does not erase that historical compatibility obligation. The host must retain
 the relevant shape in its independent rollback floor; this library neither
 collects those rows nor supplies evidence that they can safely be forgotten.
 
+Historical capability requirements retain their reviewed prerequisites even
+when shape arrays are empty: human Result requires owner ACL and, from schema
+085, server policy; closed member Run requires both owner ACL and server policy.
+Every active/candidate approval must explicitly contain these capabilities;
+the evaluator never upgrades a release's declared support. An owner-ACL-only
+requirement may describe read/projection protection, so it does not imply Result,
+Run or persistence support. Capability floors do not replace retained shape and
+ledger evidence or prove that a corresponding data shape was written.
+
 The old host-v1 shape-only input is now rejected, not interpreted as proof that
 schema/policy history was empty. A retained 085 ledger rejects a restored/planned
 084 matrix even if every binary has approval for 084. A retained
@@ -162,7 +171,7 @@ not inspect or apply a cloud overlay or a persistence-policy update.
 The existing scanner's `sha256(JSON.stringify(sql))` convention is unchanged.
 The evaluator validates ordered full filename/digest ledgers, first migration 001,
 the historical missing 022, no duplicates or other gaps, and exact reviewed names
-076–085. Recognizing the 085 filename does not approve its SQL digest or a release;
+076–086. Recognizing a reviewed filename does not approve its SQL digest or a release;
 exact independently approved ledger support is still required. Schema below 075
 and unknown extensions are unavailable. Applied DB
 ledger must be an exact prefix of the planned scanner ledger. Every binary must
@@ -178,17 +187,25 @@ not merely after the first new-shape write. No SQL file or migration is changed.
 | `work.personal-owner-acl.v1` | current personal owner/scope checks and private Work compatibility without exposing it through old community projections |
 | `work.private-human-result.v1` | profile-bound private text lifecycle, typed Work target, immutable human Result history and legal reads; never model/Run provenance |
 | `work.server-policy.v1` | current DB-backed private persistence revision/quota resolver; required for any private shape when schema 085 is planned or retained, or whenever explicitly in the historical capability floor; never a caller-supplied blanket persistence allowance |
+| `execution.member-run-record.v1` | owner-only closed Run records and human pause/stop controls, immutable Work input and independent fences; not Attempt/Grant, machine authentication or dispatch support |
 
 | Shape | Minimum schema | Additional capabilities |
 | --- | --- | --- |
 | `avatar.asset.v1` | 080 | avatar bridge |
 | `work.private.v1` | 081 | personal owner ACL |
 | `work.private-human-result.v1` | 084 | personal owner ACL + human Result |
+| `execution.member-run-record.v1` | 086 | personal owner ACL + server persistence policy + closed member Run records |
 
 Schema 085 alone does not enable a private shape. When it is planned or retained,
 any private shape in the required union also requires `work.server-policy.v1` from every
 binary. This guards policy-aware rollback without claiming HTTP/UI activation,
 private cleanup, model execution or approved production configuration.
+
+Likewise, 086 schema alone does not enable Run creation. Once closed Run records
+are enabled/written or retained in history, every consumer needs their narrow
+capability and owner/persistence protections. Records remain relevant after
+pause/cancellation. This shape never means an execution Grant was approved or
+an Agent may run; no Attempt, runtime connection or model path is activated.
 
 Required capabilities union the independently retained capability floor with
 the schema/shape-derived requirements; they apply to **every** active binary

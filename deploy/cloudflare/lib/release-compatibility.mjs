@@ -6,17 +6,19 @@ const HEX40 = /^[0-9a-f]{40}$/;
 const HEX64 = /^[0-9a-f]{64}$/;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}$/;
 const ENVIRONMENTS = ['next', 'staging-next'];
-const CAPABILITIES = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1'];
+const CAPABILITIES = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1', 'execution.member-run-record.v1'];
 const SHAPES = Object.freeze({
   'avatar.asset.v1': { migration: 80, capabilities: ['avatar.asset-bridge.v1'] },
   'work.private.v1': { migration: 81, capabilities: ['work.personal-owner-acl.v1'] },
   'work.private-human-result.v1': { migration: 84, capabilities: ['work.personal-owner-acl.v1', 'work.private-human-result.v1'] },
+  // Closed member metadata/control only, never Attempt/Grant/dispatch authority.
+  'execution.member-run-record.v1': { migration: 86, capabilities: ['work.personal-owner-acl.v1', 'work.server-policy.v1', 'execution.member-run-record.v1'] },
 });
 const FOUNDATION_NAMES = [
   '076_principal_resource_scopes.sql', '077_work_scope_privacy.sql', '078_scoped_member_commands.sql',
   '079_asset_upload_lifecycle.sql', '080_avatar_asset_bridge.sql', '081_private_work_commands.sql',
   '082_asset_maintenance.sql', '083_avatar_upload_policy.sql', '084_private_work_result_profiles.sql',
-  '085_private_work_policy.sql',
+  '085_private_work_policy.sql', '086_execution_runs.sql',
 ];
 
 function reject(code) { throw new Error(code); }
@@ -184,6 +186,17 @@ export function evaluateReleaseCompatibility(input, { scan, host } = {}) {
     if ([...observed.enabled_shapes, ...observed.written_shapes].includes(shape) && observedLast < profile.migration) issue('observed_shape_schema_missing', { shape });
     for (const capability of profile.capabilities) required.add(capability);
     if (Math.max(plannedLast, floorLast) >= 85 && shape.startsWith('work.private')) required.add('work.server-policy.v1');
+  }
+  // Retained capability-only requirements keep their reviewed prerequisites,
+  // even when current shapes are empty. Do not infer written shapes from a
+  // binary capability, or silently add support to any release approval.
+  if (required.has('work.private-human-result.v1')) {
+    required.add('work.personal-owner-acl.v1');
+    if (Math.max(plannedLast, floorLast) >= 85) required.add('work.server-policy.v1');
+  }
+  if (required.has('execution.member-run-record.v1')) {
+    required.add('work.personal-owner-acl.v1');
+    required.add('work.server-policy.v1');
   }
   const releases = new Map([...observed.active_releases, request.candidate].map((release) => [identity(release), release]));
   for (const [id, release] of releases) {
