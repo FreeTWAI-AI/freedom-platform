@@ -468,3 +468,37 @@ for (const sink of ['runtime_registration_challenges', 'scoped_command_receipts'
     assert.equal((await api.decide(human.actor, input)).state, 'approved');
   });
 }
+
+for (const target of ['approved', 'denied'] as const) {
+  for (const timestamp of ['NULL', "date_trunc('milliseconds',clock_timestamp()) - interval '0.000999 seconds'"] as const) {
+    test(`DEVICE-SQL-TIME ${target} rejects ${timestamp === 'NULL' ? 'NULL' : 'submillisecond'} decided_at under real runtime LOGIN`, async () => {
+      const f = await begun(), human = await member();
+      const challenge = target === 'approved' ? await createRuntimeRegistrations(app, { environment: 'local' })
+        .begin(human.actor, { key: randomUUID(), publicJwk: f.key.publicJwk }) : null;
+      const q = await app.connect(); await q.query('BEGIN');
+      try {
+        await assert.rejects(q.query(`UPDATE device_authorizations SET state=$2,owner_user_id=$3,owner_principal_id=$4,
+          scope_id=$5,challenge_id=$6,decided_at=${timestamp} WHERE authorization_id=$1`, [f.authorization.authorizationId,
+          target, human.actor.user_id, human.context.subject_principal.principal_id, human.context.scope.scope_id, challenge?.challenge_id ?? null]),
+        sqlCode('23514'));
+      } finally { await q.query('ROLLBACK'); q.release(); }
+      assert.equal((await owner.query('SELECT state FROM device_authorizations WHERE authorization_id=$1', [f.authorization.authorizationId])).rows[0].state, 'pending');
+    });
+  }
+}
+
+for (const timestamp of ['NULL', "NEW.consumed_at + interval '0.000001 second'"] as const) {
+  test(`DEVICE-SQL-TIME genuine exchange cannot store ${timestamp === 'NULL' ? 'NULL' : 'submillisecond'} consumed_at`, async () => {
+    const f = await approved(), initial = await durableCounts();
+    // Structural SQL invariant probe, NOT a claim that an HTTP caller controls
+    // this timestamp: the fixture owner corrupts NEW only at the final UPDATE.
+    // Enrollment, issuer signatures and all backing rows remain genuine, and
+    // the mutation itself is issued by the actual non-superuser runtime LOGIN.
+    await owner.query(`CREATE FUNCTION device_timestamp_corruption() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+      IF NEW.state='consumed' AND OLD.state<>'consumed' THEN NEW.consumed_at := ${timestamp}; END IF; RETURN NEW; END $$`);
+    await owner.query('CREATE TRIGGER aaa_device_timestamp_corruption BEFORE UPDATE ON device_authorizations FOR EACH ROW EXECUTE FUNCTION device_timestamp_corruption()');
+    try { await assert.rejects(api.poll({ ...await pollInput(f), enrollmentProof: f.enrollmentProof }), status(401)); }
+    finally { await owner.query('DROP TRIGGER aaa_device_timestamp_corruption ON device_authorizations'); await owner.query('DROP FUNCTION device_timestamp_corruption()'); }
+    await assertUnconsumed(f); assert.deepEqual(await durableCounts(), initial);
+  });
+}
