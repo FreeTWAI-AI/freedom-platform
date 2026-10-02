@@ -195,6 +195,41 @@ test('a granted primary-guild book opens from the same next-step region', async 
   await expect.poll(() => page.evaluate(() => (window as unknown as { __openedChat?: { kind: string; key: string }[] }).__openedChat)).toEqual([{ kind: 'guild', key: guild.guild_key }]);
 });
 
+const taskHint = '社群任務板有開放中的任務，可自行挑選一件參與。';
+
+test('the task hint appears only when the board has open tasks and leaves the Console guidance unchanged', async ({ page }) => {
+  await stubCard(page, memberCard({ primary_guild: guild }));
+  await stubJson(page, '/api/v1/me/skill-books', { items: [] });
+  await stubJson(page, '/api/v1/task-board/preview', { items: [{ work_item_id: 'preview-1', title: '不應顯示的任務標題' }] });
+  await login(page);
+  const prompt = suggestion(page);
+  await expect(prompt.getByText(taskHint, { exact: true })).toBeVisible();
+  await expect(prompt.getByText(skillsMessage, { exact: true })).toBeVisible();
+  await expect(prompt).not.toContainText('不應顯示的任務標題');
+  await expect(prompt.getByRole('button', { name: '查看社群任務', exact: true })).toHaveAccessibleDescription(`${skillsMessage} ${taskHint}`);
+  await checkConsole(page, skillsMessage, 'skills');
+  await expect(page.locator('.game-console-entry[data-next-step="true"]').last()).not.toContainText(taskHint);
+});
+
+for (const [name, mock] of [
+  ['an empty board', (page: Page) => stubJson(page, '/api/v1/task-board/preview', { items: [] })],
+  ['a failed board read', (page: Page) => page.route(url => url.pathname === '/api/v1/task-board/preview', route => route.fulfill({ status: 503, body: '' }))],
+] as const) {
+  test(`the task hint stays hidden for ${name}`, async ({ page }) => {
+    await stubCard(page, memberCard({ primary_guild: guild }));
+    await stubJson(page, '/api/v1/me/skill-books', { items: [] });
+    await mock(page);
+    await login(page);
+    const prompt = suggestion(page);
+    await expect(prompt.getByText(skillsMessage, { exact: true })).toBeVisible();
+    await expect(prompt.getByRole('button', { name: '進入測試資安公會聊天室', exact: true })).toBeVisible();
+    await expect(prompt.getByText(taskHint, { exact: true })).toHaveCount(0);
+    if (name === 'an empty board') {
+      await expect(prompt.getByRole('button', { name: '分享作品與需求', exact: true })).toHaveAccessibleDescription(skillsMessage);
+    } else await expect(prompt.getByRole('button', { name: /社群任務|分享作品與需求/ })).toHaveCount(0);
+  });
+}
+
 test('the home action stays compact, readable and reachable in all themes on desktop and phones', async ({ page }) => {
   test.setTimeout(90000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -218,7 +253,7 @@ test('the home action stays compact, readable and reachable in all themes on des
       const region = await prompt.boundingBox();
       for (const name of names) {
         const button = prompt.getByRole('button', { name, exact: true });
-        await expect(button).toHaveAttribute('aria-describedby', 'home-next-step-description');
+        await expect(button).toHaveAttribute('aria-describedby', name === '查看社群任務' ? 'home-next-step-description home-next-task-hint' : 'home-next-step-description');
         await button.focus();
         await expect(button).toBeFocused();
         const box = await button.boundingBox();

@@ -153,12 +153,13 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
     {nextStep && <section className="home-next-step" aria-label="公會與技能書建議">
       <p id="home-next-step-description">{nextStep.message}</p>
       {internPrimary && <p className="field-hint guild-intern-notice" role="status">你是這個公會的實習成員：可以閱讀公會內容、在公會聊天室聊天。想發布或編輯，可以在聊天室跟會長打聲招呼，會長能把你設為正式成員。</p>}
+      {primaryGuild && taskAction === 'tasks' && <p id="home-next-task-hint">社群任務板有開放中的任務，可自行挑選一件參與。</p>}
       {primaryGuild ? <div className="home-next-actions">
         {guideBook
           ? <SkillBookIntro book={guideBook} label="閱讀第一本技能書" describedBy="home-next-step-description"/>
           : <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.('skills')}>前往技能書架</button>}
         <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => openMemberChat('guild', primaryGuild.guild_key)}>進入{primaryGuild.name}聊天室</button>
-        {taskAction && <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.(taskAction)}>{taskAction === 'tasks' ? '查看社群任務' : '分享作品與需求'}</button>}
+        {taskAction && <button type="button" className="btn btn-ghost" aria-describedby={taskAction === 'tasks' ? 'home-next-step-description home-next-task-hint' : 'home-next-step-description'} onClick={() => onNavigate?.(taskAction)}>{taskAction === 'tasks' ? '查看社群任務' : '分享作品與需求'}</button>}
       </div> : <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.(nextStep.action)}>{nextStep.label}</button>}
     </section>}
 

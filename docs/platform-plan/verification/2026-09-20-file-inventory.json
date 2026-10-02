@@ -1154,8 +1154,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberHome.tsx",
-      "bytes": 12223,
-      "sha256": "48d28eab9bf9d55da61e3ecb8ae7ecfb20e29f32b13f0712b80ddd742f0bbc76"
+      "bytes": 12453,
+      "sha256": "a28a19def9de89a968886f85f36ceceb8b82e37fdf5e407233fed25c7872f700"
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
@@ -4674,8 +4674,8 @@
     },
     {
       "path": "tests/e2e/member-home-next-step.spec.ts",
-      "bytes": 15162,
-      "sha256": "e689164934d4d5acc2a2d0f3cf97a90df463ef8fd898fe4adca8c5be2290d5d7"
+      "bytes": 17497,
+      "sha256": "8051210133fabc208491d74d3be18c43e45b7c89f9ab3338f3699021967abaf2"
     },
     {
       "path": "tests/e2e/member-services.spec.ts",
