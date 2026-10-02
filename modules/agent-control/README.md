@@ -1,5 +1,9 @@
 # Closed runtime public-key enrollment
 
+The adjacent [member-managed agent connection service](agent-connections.md)
+records an enrolled runtime's fixed host client binding and expiry. It remains
+separate from machine authentication and does not issue tokens or execution rights.
+
 `createRuntimeRegistrations(pool, { environment })` is an internal server factory
 for current members. The host must explicitly select `local`, `staging-next`, or
 `next`; there is no environment default or request override. It provides:
