@@ -131,6 +131,9 @@ export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberComm
       async readReceipt(q) {
         const prior = (await q.query(`SELECT request_sha256,response FROM scoped_command_receipts
           WHERE principal_id=$1 AND authn_kind=$2 AND scope_id=$3 AND operation=$4 AND idempotency_key=$5`, namespace())).rows[0];
+        // Receipt storage can block after domain authorization (e.g. DDL or a
+        // sink trigger). Never disclose a replay after that wait expires login.
+        await assertCurrentSessionClock(q, actor);
         return prior ? { request_sha256: prior.request_sha256, response: jsonSnapshot(prior.response, MAX_JSON_BYTES).value as T } : null;
       },
       async writeReceipt(q, hash, response) {
@@ -139,6 +142,10 @@ export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberComm
           principal_kind,scope_kind,target_kind,target_id,request_sha256,response)
           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
         [...namespace(), context.subject_principal.kind, context.scope.kind, target.kind, target.id, hash, encoded.json]);
+        // Keep the response and every domain/fact write in the same rollback
+        // when a receipt sink wait crosses session expiry. This is a decision
+        // clock check, not a guarantee about COMMIT/network delivery time.
+        await assertCurrentSessionClock(q, actor);
       },
     }, async q => {
       await authorize(q, context);
