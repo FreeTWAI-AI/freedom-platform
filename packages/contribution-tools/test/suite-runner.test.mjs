@@ -80,6 +80,23 @@ test('synthetic-private-case-name', () => {
   assert(!JSON.stringify(result).includes('synthetic-private')); assert(!JSON.stringify(result).includes(database));
 });
 
+test('storefront adapter requires all three real baseline files and discovers new direct tests', async t => {
+  const root = await fixtureRoot(t), baseline = ['read-client', 'storefront', 'templates'];
+  for (const name of baseline) await put(root, `tests/${name}.test.mjs`, simple);
+  await put(root, 'tests/new-case.test.mjs', simple);
+  await put(root, 'package.json', JSON.stringify({ scripts: { pretest: 'exit 99', test: 'exit 99' } }));
+  const ran = await runLocalSuite(root, 'consumer.storefront', runtimeOptions);
+  assert.equal(ran.status, 'passed'); assert.equal(ran.test_count, 4);
+  assert.deepEqual(ran.selected_files, ['tests/new-case.test.mjs', 'tests/read-client.test.mjs', 'tests/storefront.test.mjs', 'tests/templates.test.mjs']);
+  for (const name of baseline) {
+    await unlink(join(root, `tests/${name}.test.mjs`));
+    assert.equal((await runLocalSuite(root, 'consumer.storefront')).reason, 'suite_files_unavailable');
+    await put(root, `tests/${name}.test.mjs`, simple);
+  }
+  await put(root, 'tests/templates.test.mjs', "import{test}from'node:test';test.skip('not_run',()=>{});");
+  assert.equal((await runLocalSuite(root, 'consumer.storefront')).status, 'failed');
+});
+
 test('missing runtime DB still runs governance; unknown IDs cannot supply commands', async t => {
   const root = await fixtureRoot(t);
   await put(root, 'packages/contribution-tools/test/local.test.mjs', simple);

@@ -125,9 +125,10 @@ export async function buildContext({ repositoryRoot, baseRef = 'origin/main', re
   const workspace = await inspectWorkspace(repositoryRoot, baseRef);
   if (!repository) {
     const pkg = parseJson(await readBounded(workspace.root, 'package.json'));
-    // Reviewed existing scoped consumer name; this labels local context, never
+    // Reviewed existing scoped consumer names; this labels local context, never
     // authenticates a remote repository or grants publisher trust.
-    const name = pkg.name === '@freetwai/agent-kit' ? 'freedom-agent-kit' : pkg.name;
+    const scopedNames = { '@freetwai/agent-kit': 'freedom-agent-kit', '@freetwai/freedom-storefront': 'freedom-storefront' };
+    const name = Object.hasOwn(scopedNames, pkg.name) ? scopedNames[pkg.name] : pkg.name;
     check(typeof name === 'string' && /^freedom-[a-z-]+$/.test(name) && !/[\r\n]/.test(name), 'repository_identity_required');
     repository = 'FreeTWAI-AI/' + name;
   }

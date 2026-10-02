@@ -85,6 +85,19 @@ test('single-module consumer root descriptor participates in candidate and basel
   assert.deepEqual(baseline.context.tests, ['governance.unit']);
 });
 
+test('existing scoped Storefront package resolves only the reviewed local identity', async t => {
+  const f = await fixture(t);
+  await put(f.root, 'package.json', pretty({ name: '@freetwai/freedom-storefront' }));
+  const { context } = await buildContext(f.options);
+  assert.equal(context.repository, 'FreeTWAI-AI/freedom-storefront');
+  assert.equal(context.assurance_level, 'local');
+  assert.equal(context.publisher_trust, 'unverified');
+  for (const name of ['@unreviewed/freedom-storefront', '@freetwai/storefront', '@freetwai/freedom-storefront-extra']) {
+    await put(f.root, 'package.json', pretty({ name }));
+    await assert.rejects(buildContext(f.options), { code: 'repository_identity_required' });
+  }
+});
+
 test('real consumer suite evidence validates in a complete local report without hiding surface blockers', async t => {
   const f = await fixture(t), consumer = descriptor('agent-kit', ['src/**']);
   consumer.tests = ['consumer.agent-kit'];
