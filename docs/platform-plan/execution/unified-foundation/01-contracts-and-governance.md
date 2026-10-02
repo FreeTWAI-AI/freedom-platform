@@ -120,6 +120,8 @@ sync 首先產生 dry-run 計畫，列 batch ID、目標 ReleaseSet digest、明
 
 GOV-A/B 最少測 v1 不變、vendor+hash 同改、path traversal/symlink/case collision、self-signed root、missing/withdrawn source、deep module、換 worktree、rename/delete、空 test set、未註冊入口與雙 SDK。GOV-C/D 加 workflow echo-pass、偽 artifact、同名 App check、fork secret 隔離及 base 前進，對應 [GOV 驗收](acceptance.md)。
 
-本機 suite registry 已有 governance adapter；GOV-C 新增 13 項合成 host/候選版本反例，治理總計 119 tests。候選 Git tree、baseline ownership fallback、vendor exact bytes 及完整 observation binding 均在本機驗證；host observation 的真實來源仍未認證，所有 report 保持 local、merge/execution 未授權。其餘 adapter 不能用手動結果補造通過。既有 `npm run contracts:build`、`npm run test:contracts`、`npm run test:repos` 與 `npm run verify:inventory` 仍保留；integration tests 僅可用隔離 `fp_*` schema。
+本機 suite registry 已有 governance、明確隔離 DB 的 runtime，以及 Kit/Storefront 固定 Node suite adapters；不執行 consumer package hooks。整合 `7a1c1b2` 的治理測試為 196/196、無跳過。候選 Git tree、baseline ownership fallback、vendor exact bytes 及完整 observation binding 均在本機驗證；host observation 的真實來源仍未認證，所有 report 保持 local、merge/execution 未授權。既有 `npm run contracts:build`、`npm run test:contracts`、`npm run test:repos` 與 `npm run verify:inventory` 仍保留；integration tests 僅可用隔離 `fp_*` schema。
+
+新增 [有限 source audit](../../../../packages/contribution-tools/surface-audit.md) 只以 host 注入的 parser 解析 baseline/candidate bytes，不 import 或執行候選程式。它抽取六條 avatar/private-read route 及 mount 的語法事實；既有 receiver delegates、其他 routes 與 runtime behavior 仍未覆蓋。`coverage_kind=fixed-syntax-only`，`structural_status` 及整體狀態只有 unavailable/failed，沒有局部綠燈或 helper 名稱豁免。29 項作者測試加 30 項獨立反例通過；負向案例必須產生相對 baseline 新增的具體問題，不能靠固定 unavailable 假通過。這個 host-only 模組尚未接入 CLI/可信 publisher，不解除 `registration_behavior_audit_required`。
 
 回退可以停用新 CLI/consumer v2 升級；已發布且被撤銷的 release 不得因工具回退重新標為可信。缺 v2 能力的舊 client 回到原 preview 能力範圍，不能忽略不認識的新必需 policy。

@@ -158,6 +158,16 @@ Storefront base/main `9823df79f8eee86008c269437880ed2e49bdc394` 的獨立本機�
 
 在兩個 consumer 的最後 HEAD 對真正 `origin/main` 重跑：Kit 2/2、Storefront 18/18 的 suite 確實執行，descriptor/pin 檢查通過，總結果均 exit 2 `unavailable`，保留 baseline governance 與 registration behavior audit 缺口。兩者 producer pins 都僅在本機，沒有 approved ReleaseSet 或 remote source availability 的證明。三倉仍未 push、開 PR 或部署，中央 integration sample lock 不變。
 
+## 有限入口原始碼稽核
+
+整合 `7a1c1b2` 新增 host-only AST audit 與獨立反例，不接入 CLI、consumer export 或可信 publisher。固定解析 avatar 四條與 private-read 兩條 route、兩個 mount，以及 baseline/candidate descriptor/test 聯集；候選 source 永遠只當資料，不 import、執行或讓它選 parser。
+
+獨立審查先重現八個局部假通過案例，包括 root 提早 return/throw、條件 return、錯誤最終 receiver、直接／computed method replacement、receiver escape 與 leaf throwing initializer。修正後 **59/59** 定向測試通過。現有 root 的四個 receiver delegates 仍是未覆蓋範圍，沒有以 helper 名稱豁免；輸出十二筆 baseline/candidate 語法資料並標 `fixed-syntax-only`，`structural_status` 和整體均不提供 passed。反例要求新增具體 candidate finding，避免「永遠 unavailable」掩蓋沒抓到變更。
+
+主整合治理 **196/196、0 failed/skipped**，TypeScript 7.0.2 typecheck 通過。Parser 使用獨立 dev dependency `@typescript/typescript6`，不改 runtime 依賴；因其 wrapper 也提供 `tsc` bin，typecheck 明確指定原 TypeScript 7 compiler 路徑，避免 npm 安裝順序切換編譯器。這是本機固定來源解析，沒有替 parser/publisher 配置正式信任。
+
+本機 `npm audit` 另列出既有開發工具鏈 2 moderate／1 high；相關 miniflare、wrangler、undici lock entries 與 `origin/main` 相同，不是本次 parser 增量。尚未另行升版及重新驗證工具鏈，不宣稱 dependency security clean。
+
 ## 尚未交付
 
 - execution/service current-state validators、Invocation/Grant adapters，以及有真實 backing record 的 service/site schema；scoped composition/receipt 目前僅支援 member session。
