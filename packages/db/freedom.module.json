@@ -2,13 +2,13 @@
   "format": "freedom.module/v1",
   "module_id": "command-core",
   "owner_role": "foundation",
-  "owned_paths": ["packages/db/**", "tests/runtime/command-core.test.ts", "tests/runtime/scoped-member-command.test.ts", "migrations/078_scoped_member_commands.sql"],
-  "public_exports": ["packages/db/index.ts", "packages/db/command-core.ts", "packages/db/scoped-member-command.ts"],
+  "owned_paths": ["packages/db/**", "tests/runtime/command-core.test.ts"],
+  "public_exports": ["packages/db/index.ts", "packages/db/command-core.ts"],
   "dependencies": [],
   "contract_families": ["preview"],
   "client_profiles": ["member"],
   "instructions": ["packages/db/README.md", "docs/platform-plan/execution/unified-foundation/02-principal-command.md"],
   "invariants": ["current-authority-before-replay", "legacy-member-receipt-compatibility", "single-transaction-effects"],
-  "tests": ["runtime.command-core", "runtime.scoped-member-command", "runtime.full"],
+  "tests": ["runtime.command-core", "runtime.full"],
   "surfaces": []
 }

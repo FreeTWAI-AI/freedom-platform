@@ -3,8 +3,8 @@ import type { Pool, PoolClient } from 'pg';
 import { OpaqueId, ResourceScopeRefSchema } from '../../contracts/common/v1/identity.js';
 import { lockMemberScope, type MemberScopeInput, type MemberScopeContext } from '../resource-scopes/index.js';
 import { requireCondition } from '../shared/problem.js';
-import { runCommandCore } from './command-core.js';
-import { digest } from './legacy-digest.js';
+import { runCommandCore } from '../db/command-core.js';
+import { digest } from '../db/legacy-digest.js';
 
 export interface ScopedMemberCommand extends MemberScopeInput {
   operation: string;

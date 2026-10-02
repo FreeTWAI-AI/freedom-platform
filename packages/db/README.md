@@ -17,7 +17,7 @@ Ports are internal server functions, not a serialized VerifiedContext or an auth
 ## Additive scoped member commands
 
 Import `scopedMemberCommand`, `scopedJournal` and `ScopedMemberCommand` directly
-from [scoped-member-command.ts](scoped-member-command.ts). The old index exports
+from [scoped-commands/index.ts](../scoped-commands/index.ts). The old index exports
 and legacy adapter stay unchanged. This additional adapter accepts only a real
 current member session; service/execution credentials and site scopes remain
 unsupported. This is a server-only library with no new HTTP route.

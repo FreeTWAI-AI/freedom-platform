@@ -1,0 +1,14 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "scoped-commands",
+  "owner_role": "foundation",
+  "owned_paths": ["packages/scoped-commands/**", "migrations/078_scoped_member_commands.sql", "tests/runtime/scoped-member-command.test.ts"],
+  "public_exports": ["packages/scoped-commands/index.ts"],
+  "dependencies": ["command-core", "resource-scopes"],
+  "contract_families": ["common"],
+  "client_profiles": ["member"],
+  "instructions": ["packages/scoped-commands/README.md", "packages/db/README.md", "docs/platform-plan/execution/unified-foundation/02-principal-command.md"],
+  "invariants": ["current-authority-before-replay", "scope-is-not-domain-authority", "single-transaction-effects", "legacy-member-receipt-compatibility"],
+  "tests": ["runtime.scoped-member-command", "runtime.command-core", "runtime.resource-scopes", "runtime.full"],
+  "surfaces": []
+}

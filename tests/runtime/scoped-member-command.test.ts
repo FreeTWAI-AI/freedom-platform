@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Pool, type PoolClient } from 'pg';
-import { scopedMemberCommand, scopedJournal, type ScopedMemberCommand } from '../../packages/db/scoped-member-command.js';
+import { scopedMemberCommand, scopedJournal, type ScopedMemberCommand } from '../../packages/scoped-commands/index.js';
 import { withMemberScope, type MemberScopeContext } from '../../packages/resource-scopes/index.js';
 import { command, checkVersion, digest } from '../../packages/db/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
