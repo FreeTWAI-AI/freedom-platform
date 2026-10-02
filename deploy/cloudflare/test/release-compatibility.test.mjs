@@ -18,7 +18,9 @@ function fixture() {
   const target = { environment: 'next', database_identity: 'synthetic-db', recovery_generation: '2' };
   const input = { schema: 'freedom.release-compatibility-request/v1', environment: 'next', candidate, enable_shapes: [] };
   const host = {
-    schema: 'freedom.release-compatibility-host/v1', target, now_ms: NOW, max_age_ms: 30000,
+    schema: 'freedom.release-compatibility-host/v2', target, now_ms: NOW, max_age_ms: 30000,
+    rollback_floor: { evidence_id: 'synthetic-retained-075', target: { ...target },
+      schema_ledger: prefix(scan, 75).ledger, schema_ledger_digest: prefix(scan, 75).ledger_digest, capabilities: [] },
     rollback_floor_shapes: [], observation: {
       evidence_id: 'synthetic-observation', observed_at_ms: NOW - 1000, target: { ...target },
       schema_ledger: structuredClone(scan.ledger), schema_ledger_digest: scan.ledger_digest,
@@ -172,8 +174,11 @@ test('new shape cannot be enabled or observed before its migration', () => {
   assert.ok(codes(result).includes('observed_shape_schema_missing'));
 });
 
-test('compatible pre085 local matrix is NOT proof for restore across historical085 policy', () => {
+test('retained085 ledger and policy floor reject restored084 even with matching local approvals', () => {
   const f = fixture();
+  f.host.rollback_floor.schema_ledger = structuredClone(f.scan.ledger);
+  f.host.rollback_floor.schema_ledger_digest = f.scan.ledger_digest;
+  f.host.rollback_floor.capabilities = ['work.server-policy.v1'];
   f.scan = prefix(f.scan, 84);
   f.host.observation.schema_ledger = structuredClone(f.scan.ledger);
   f.host.observation.schema_ledger_digest = f.scan.ledger_digest;
@@ -181,10 +186,81 @@ test('compatible pre085 local matrix is NOT proof for restore across historical0
   f.host.release_records[0].capabilities = CAPABILITIES.filter((c) => c !== 'work.server-policy.v1');
   f.host.rollback_floor_shapes = ['work.private-human-result.v1'];
   const result = evaluate(f);
-  assert.equal(result.status, 'compatible', 'v1 does not model a historical minimum schema or policy-capability ledger');
+  assert.equal(result.status, 'incompatible');
+  assert.ok(codes(result).includes('historical_schema_floor_mismatch'));
+  assert.ok(result.issues.some(i => i.capability === 'work.server-policy.v1'));
   assert.equal(result.restore_proof, false, 'a separate historical schema/policy-aware restore gate remains mandatory');
   assert.equal(result.deployment_authority, false);
   assert.ok(result.required_capabilities.includes('work.private-human-result.v1'), 'shape history is still required');
+});
+
+test('host-v1, absent/null/empty retained floor never receive an empty-history default', () => {
+  for (const mutate of [f => { f.host.schema = 'freedom.release-compatibility-host/v1'; },
+    f => { delete f.host.rollback_floor; }, f => { f.host.rollback_floor = null; }, f => { f.host.rollback_floor = {}; }]) {
+    const f = fixture(); mutate(f); const result = evaluate(f);
+    assert.equal(result.status, 'unavailable'); assert.equal(result.restore_proof, false);
+  }
+});
+
+test('retained full ledger requires exact SQL bytes, names, order and digest even when current ledgers agree', () => {
+  for (const mutate of [rows => { rows[0].sha256 = 'f'.repeat(64); }, rows => { rows[0].name = '001_changed.sql'; },
+    rows => { rows.splice(1, 1); }, rows => { [rows[0], rows[1]] = [rows[1], rows[0]]; }]) {
+    const f = fixture(); mutate(f.host.rollback_floor.schema_ledger);
+    f.host.rollback_floor.schema_ledger_digest = compatibilityLedgerDigest(f.host.rollback_floor.schema_ledger);
+    assert.notEqual(evaluate(f).status, 'compatible');
+  }
+  const f = fixture(); f.host.rollback_floor.schema_ledger_digest = 'f'.repeat(64);
+  assert.deepEqual(codes(evaluate(f)), ['schema_ledger_invalid']);
+});
+
+test('current schema below retained floor is incompatible even if planned migrations would repair it', () => {
+  const f = fixture(); f.host.rollback_floor.schema_ledger = structuredClone(f.scan.ledger);
+  f.host.rollback_floor.schema_ledger_digest = f.scan.ledger_digest;
+  const old = prefix(f.scan, 84); f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
+  f.host.release_records[0].schema_ledger_digests.push(old.ledger_digest);
+  assert.deepEqual(codes(evaluate(f)), ['historical_schema_floor_mismatch']);
+});
+
+test('historical capability floor survives disabled/empty shapes for every mixed active and candidate binary', () => {
+  for (const missing of ['active', 'candidate']) {
+    const f = fixture(), other = { source_sha: 'c'.repeat(40), artifact_sha256: 'd'.repeat(64) };
+    f.host.observation.active_releases = [other];
+    f.host.release_records.push({ ...structuredClone(f.host.release_records[0]), ...other });
+    f.host.rollback_floor.capabilities = ['work.server-policy.v1'];
+    f.host.release_records[missing === 'candidate' ? 0 : 1].capabilities = ['platform.legacy.v1','work.explicit-wire.v1'];
+    const result = evaluate(f); assert.equal(result.status, 'incompatible'); assert.equal(result.checked_releases, 2);
+    assert.ok(result.issues.some(i => i.capability === 'work.server-policy.v1'));
+  }
+});
+
+test('retained target lineage cannot be silently moved across databases or environments', () => {
+  for (const [field, value] of [['environment','staging-next'],['database_identity','synthetic-restored-db']]) {
+    const f = fixture(); f.host.rollback_floor.target[field] = value;
+    assert.deepEqual(codes(evaluate(f)), ['historical_target_mismatch']);
+  }
+});
+
+test('recovery comparison is exact beyond safe integers and increasing generation never removes retained capabilities', () => {
+  const f = fixture(); f.host.rollback_floor.target.recovery_generation = '9007199254740993';
+  f.host.target.recovery_generation = f.host.observation.target.recovery_generation = '9007199254740992';
+  assert.deepEqual(codes(evaluate(f)), ['historical_recovery_regression']);
+  f.host.target.recovery_generation = f.host.observation.target.recovery_generation = '9007199254740994';
+  f.host.rollback_floor.capabilities = ['work.server-policy.v1'];
+  f.host.release_records[0].capabilities = ['platform.legacy.v1','work.explicit-wire.v1'];
+  assert.ok(evaluate(f).issues.some(i => i.capability === 'work.server-policy.v1'));
+  f.host.release_records[0].capabilities.push('work.server-policy.v1');
+  assert.equal(evaluate(f).status, 'compatible'); assert.equal(evaluate(f).restore_proof, false);
+});
+
+test('floor source remains external: candidate override, unknown capabilities and malformed floor data fail closed', () => {
+  for (const mutate of [f => { f.input.rollback_floor = f.host.rollback_floor; },
+    f => { f.host.rollback_floor.capabilities = ['execution.authorized.v1']; },
+    f => { f.host.rollback_floor.capabilities = ['work.server-policy.v1','work.server-policy.v1']; },
+    f => { f.host.rollback_floor.target.recovery_generation += '\n'; },
+    f => { f.host.rollback_floor.evidence_id = 'x'.repeat(161); },
+    f => { f.host.rollback_floor.schema_ledger = []; }]) {
+    const f = fixture(); mutate(f); assert.equal(evaluate(f).status, 'unavailable');
+  }
 });
 
 test('data boundary rejects accessors, functions, sparse arrays, cycles, oversized data and trailing delimiters', () => {

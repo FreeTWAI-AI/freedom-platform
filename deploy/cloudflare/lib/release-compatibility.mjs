@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
 const REQUEST = 'freedom.release-compatibility-request/v1';
-const HOST = 'freedom.release-compatibility-host/v1';
+const HOST = 'freedom.release-compatibility-host/v2';
 const HEX40 = /^[0-9a-f]{40}$/;
 const HEX64 = /^[0-9a-f]{64}$/;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}$/;
@@ -90,6 +90,9 @@ function ledger(value, digest) {
   if (previous < 75 || compatibilityLedgerDigest(value) !== digest) reject('schema_ledger_invalid');
   return previous;
 }
+function ledgerPrefix(prefix, complete) {
+  return prefix.length <= complete.length && prefix.every((row, index) => row.name === complete[index].name && row.sha256 === complete[index].sha256);
+}
 function failReport(code, required = [], shapes = []) {
   return { schema: 'freedom.release-compatibility-report/v1', status: 'unavailable', deployment_authority: false, restore_proof: false, execution_authority: false, required_capabilities: [...required].sort(), required_shapes: [...shapes].sort(), checked_releases: 0, issues: [{ code }] };
 }
@@ -119,14 +122,25 @@ export function evaluateReleaseCompatibility(input, { scan, host } = {}) {
   } catch (error) { return failReport(['schema_unknown', 'schema_ledger_invalid', 'schema_scan_failed'].includes(error.message) ? error.message : 'request_invalid', required); }
   if (!host) return failReport('trusted_host_required', required, request.enable_shapes);
 
-  let trusted, observed, observedLast;
+  let trusted, observed, observedLast, floor, floorLast;
   try {
     trusted = snapshot(host);
-    exact(trusted, ['schema', 'target', 'now_ms', 'max_age_ms', 'rollback_floor_shapes', 'observation', 'release_records']);
-    if (trusted.schema !== HOST || trusted.target.environment !== request.environment) reject('target_mismatch');
+    if (trusted?.schema !== HOST) reject('host_version_unsupported');
+    if (!trusted.rollback_floor) reject('historical_floor_required');
+    exact(trusted, ['schema', 'target', 'now_ms', 'max_age_ms', 'rollback_floor_shapes', 'rollback_floor', 'observation', 'release_records']);
+    if (trusted.target.environment !== request.environment) reject('target_mismatch');
     const targetIdentity = target(trusted.target);
     integer(trusted.now_ms); integer(trusted.max_age_ms, 1, 300000);
     strings(trusted.rollback_floor_shapes, Object.keys(SHAPES));
+    // This independently retained floor is a HOST assertion, not a collector,
+    // durable checkpoint or proof that host state cannot itself be rolled back.
+    floor = trusted.rollback_floor;
+    exact(floor, ['evidence_id', 'target', 'schema_ledger', 'schema_ledger_digest', 'capabilities']);
+    text(floor.evidence_id, ID); target(floor.target);
+    if (floor.target.environment !== trusted.target.environment || floor.target.database_identity !== trusted.target.database_identity) reject('historical_target_mismatch');
+    if (BigInt(floor.target.recovery_generation) > BigInt(trusted.target.recovery_generation)) reject('historical_recovery_regression');
+    floorLast = ledger(floor.schema_ledger, floor.schema_ledger_digest);
+    strings(floor.capabilities, CAPABILITIES);
     observed = trusted.observation;
     exact(observed, ['evidence_id', 'observed_at_ms', 'target', 'schema_ledger', 'schema_ledger_digest', 'enabled_shapes', 'written_shapes', 'active_releases', 'complete']);
     text(observed.evidence_id, ID); integer(observed.observed_at_ms);
@@ -137,7 +151,7 @@ export function evaluateReleaseCompatibility(input, { scan, host } = {}) {
     if (new Set(identities).size !== identities.length) reject('observation_incomplete');
     strings(observed.enabled_shapes, Object.keys(SHAPES)); strings(observed.written_shapes, Object.keys(SHAPES));
     observedLast = ledger(observed.schema_ledger, observed.schema_ledger_digest);
-    if (observed.schema_ledger.length > planned.ledger.length || observed.schema_ledger.some((row, index) => row.name !== planned.ledger[index].name || row.sha256 !== planned.ledger[index].sha256)) reject('schema_ledger_mismatch');
+    if (!ledgerPrefix(observed.schema_ledger, planned.ledger)) reject('schema_ledger_mismatch');
     if (!Array.isArray(trusted.release_records) || trusted.release_records.length < 1 || trusted.release_records.length > 64) reject('release_evidence_invalid');
     const records = new Set();
     for (const record of trusted.release_records) {
@@ -153,19 +167,23 @@ export function evaluateReleaseCompatibility(input, { scan, host } = {}) {
       if (record.expires_at_ms <= record.approved_at_ms) reject('release_evidence_invalid');
     }
   } catch (error) {
-    const codes = ['target_mismatch', 'observation_stale', 'observation_incomplete', 'schema_unknown', 'schema_ledger_invalid', 'schema_ledger_mismatch', 'release_evidence_invalid'];
+    const codes = ['host_version_unsupported', 'historical_floor_required', 'historical_target_mismatch', 'historical_recovery_regression',
+      'target_mismatch', 'observation_stale', 'observation_incomplete', 'schema_unknown', 'schema_ledger_invalid', 'schema_ledger_mismatch', 'release_evidence_invalid'];
     return failReport(codes.includes(error.message) ? error.message : 'host_evidence_invalid', required, request.enable_shapes);
   }
 
   const shapes = new Set([...trusted.rollback_floor_shapes, ...observed.enabled_shapes, ...observed.written_shapes, ...request.enable_shapes]);
   const issues = [];
   const issue = (code, extra = {}) => issues.push({ code, ...extra });
+  if (!ledgerPrefix(floor.schema_ledger, observed.schema_ledger) || !ledgerPrefix(floor.schema_ledger, planned.ledger)) issue('historical_schema_floor_mismatch');
+  for (const capability of floor.capabilities) required.add(capability);
+  if (floorLast >= 77) required.add('work.explicit-wire.v1');
   for (const shape of shapes) {
     const profile = SHAPES[shape];
     if (plannedLast < profile.migration) issue('shape_schema_missing', { shape });
     if ([...observed.enabled_shapes, ...observed.written_shapes].includes(shape) && observedLast < profile.migration) issue('observed_shape_schema_missing', { shape });
     for (const capability of profile.capabilities) required.add(capability);
-    if (plannedLast >= 85 && shape.startsWith('work.private')) required.add('work.server-policy.v1');
+    if (Math.max(plannedLast, floorLast) >= 85 && shape.startsWith('work.private')) required.add('work.server-policy.v1');
   }
   const releases = new Map([...observed.active_releases, request.candidate].map((release) => [identity(release), release]));
   for (const [id, release] of releases) {
