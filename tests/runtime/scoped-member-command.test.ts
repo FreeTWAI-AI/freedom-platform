@@ -92,6 +92,7 @@ test('CORE2-01 typed namespace, stable replay and separate scoped facts preserve
   const owner = await member(), context = await setup(owner), input = request(owner);
   const first = await invoke(owner), replay = await invoke(owner, { scope: context.scope });
   assert.deepEqual(first, replay); assert.equal(first.version, '2');
+  assert(Object.isFrozen(first) && Object.isFrozen(first.scope) && Object.isFrozen(replay) && Object.isFrozen(replay.scope));
   const receipt = (await pool.query('SELECT * FROM scoped_command_receipts')).rows[0];
   assert.equal(receipt.principal_id, context.subject_principal.principal_id); assert.equal(receipt.authn_kind, 'member_session');
   assert.equal(receipt.request_sha256, digest({ profile: 'freedom.scoped-member-command/v1', scope: context.scope,
@@ -99,6 +100,7 @@ test('CORE2-01 typed namespace, stable replay and separate scoped facts preserve
   assert.notEqual(receipt.principal_id, owner.user_id);
   const payload = (await pool.query('SELECT payload FROM scoped_outbox')).rows[0].payload;
   assert.deepEqual(payload.scope, context.scope); assert(!('community_id' in payload));
+  assert(!JSON.stringify(receipt).includes('metadata-only') && !JSON.stringify(payload).includes('metadata-only'));
   assert.deepEqual(await counts(), { ...empty, receipts: 1, journals: 1, events: 1, effects: 1 });
   const legacy = await command(pool, { actor: owner, operation, key: input.key, body: input.body }, async () => {}, async () => ({ legacy: true }));
   assert.deepEqual(legacy, { legacy: true });
@@ -256,4 +258,61 @@ test('CORE2-13 SQL refuses foreign personal owner, wrong scope kind, machine aut
   const transition = (await pool.query('SELECT transition_id FROM scoped_transition_journal WHERE scope_id=$1', [cb.scope.scope_id])).rows[0].transition_id;
   await assert.rejects(pool.query(`INSERT INTO scoped_outbox(event_id,transition_id,scope_id,scope_kind,event_type,payload)
     VALUES($1,$2,$3,'personal','fixture.bad','{}')`, [randomUUID(), transition, ca.scope.scope_id]), sqlCode('23503'));
+});
+
+for (const replay of [false, true]) test(`CORE2-14 expiry during a real domain-lock wait rejects ${replay ? 'replay' : 'new effect'}`, async () => {
+  const owner = await member(), context = await setup(owner);
+  if (replay) await invoke(owner);
+  const blocker = await pool.connect();
+  try {
+    await blocker.query('BEGIN');
+    const pid = (await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await blocker.query('SELECT version FROM fp_scoped_effects WHERE scope_id=$1 FOR UPDATE', [context.scope.scope_id]);
+    // Set expiry before the command locks the session. Expiry must advance on
+    // PostgreSQL's real clock even though transaction now() stays at BEGIN.
+    await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '400 milliseconds' WHERE token_hash=$1", [owner.session_hash]);
+    const denied = assert.rejects(invoke(owner), problem(401, 'session_expired'));
+    try {
+      await blockedBy(pid);
+      let expired = false;
+      for (let i = 0; i < 150; i++) {
+        expired = (await admin.query(`SELECT expires_at<=clock_timestamp() expired FROM ${schema}.sessions WHERE token_hash=$1`, [owner.session_hash])).rows[0].expired;
+        if (expired) break;
+        await delay(10);
+      }
+      assert(expired, 'Database clock must confirm expiry before releasing the domain lock');
+      await blocker.query('COMMIT');
+    } finally { await blocker.query('ROLLBACK'); }
+    await denied;
+    assert.deepEqual(await counts(), replay ? { ...empty, receipts: 1, journals: 1, events: 1, effects: 1 } : empty);
+  } finally { blocker.release(); }
+});
+
+test('CORE2-15 domain version checks retain 428/412 without creating successful receipts', async () => {
+  const owner = await member(); await setup(owner);
+  await assert.rejects(scopedMemberCommand(pool, request(owner, { expected: undefined }), authorize,
+    async () => { checkVersion('1', undefined); return {}; }), problem(428, 'version_required'));
+  await assert.rejects(invoke(owner, { expected: '2' }), problem(412, 'version_conflict'));
+  assert.deepEqual(await counts(), empty);
+});
+
+test('CORE2-16 DML-only runtime can use scoped commands but cannot rebind immutable receipts', async () => {
+  const owner = await member(); await setup(owner);
+  const role = `fp_scoped_runtime_${process.pid}_${Date.now()}`;
+  const runtime = new Pool({ connectionString, options: `-c search_path=${schema} -c role=${role} -c statement_timeout=10000`, max: 2 });
+  let roleCreated = false;
+  try {
+    await admin.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE`); roleCreated = true;
+    await admin.query(`GRANT USAGE ON SCHEMA ${schema} TO ${role}`);
+    await admin.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA ${schema} TO ${role}`);
+    await admin.query(`GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA ${schema} TO ${role}`);
+    const permissions = (await runtime.query('SELECT rolsuper,rolcreaterole FROM pg_roles WHERE rolname=current_user')).rows[0];
+    assert.equal(permissions.rolsuper, false); assert.equal(permissions.rolcreaterole, false);
+    const first = await scopedMemberCommand(runtime, request(owner), authorize, mutate);
+    assert.deepEqual(await scopedMemberCommand(runtime, request(owner), authorize, mutate), first);
+    await assert.rejects(runtime.query("UPDATE scoped_command_receipts SET response='{}'"), sqlCode('23514'));
+  } finally {
+    await runtime.end();
+    if (roleCreated) { await admin.query(`DROP OWNED BY ${role}`); await admin.query(`DROP ROLE ${role}`); }
+  }
 });

@@ -133,7 +133,7 @@ export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberComm
       async readReceipt(q) {
         const prior = (await q.query(`SELECT request_sha256,response FROM scoped_command_receipts
           WHERE principal_id=$1 AND authn_kind=$2 AND scope_id=$3 AND operation=$4 AND idempotency_key=$5`, namespace())).rows[0];
-        return prior ? { request_sha256: prior.request_sha256, response: prior.response as T } : null;
+        return prior ? { request_sha256: prior.request_sha256, response: jsonSnapshot(prior.response, MAX_JSON_BYTES).value as T } : null;
       },
       async writeReceipt(q, hash, response) {
         const encoded = jsonSnapshot(response, MAX_JSON_BYTES);
