@@ -83,7 +83,7 @@ export function createPrivateWorkCommands(pool: Pool, dependencies: PrivateWorkD
     }, async (q, context) => {
       checkVersion(work.aggregate_version, input.expectedVersion);
       const updated = (await q.query<Work>(`UPDATE work_items SET title=$2,objective=$3,aggregate_version=aggregate_version+1
-        WHERE work_item_id=$1 AND aggregate_version=$4 RETURNING work_item_id,aggregate_version,state`,
+        WHERE work_item_id=$1 AND state='draft' AND aggregate_version=$4 RETURNING work_item_id,aggregate_version,state`,
       [input.workId, input.title, input.objective, input.expectedVersion])).rows[0];
       requireCondition(updated, 412, 'version_conflict', '資料已更新，請重新整理後再操作。');
       return record(q, context, updated, operation);
@@ -98,7 +98,7 @@ export function createPrivateWorkCommands(pool: Pool, dependencies: PrivateWorkD
       checkVersion(work.aggregate_version, input.expectedVersion);
       requireCondition(work.state === 'draft', 409, 'private_work_archived', '這個工作已封存。');
       const archived = (await q.query<Work>(`UPDATE work_items SET state='archived',aggregate_version=aggregate_version+1
-        WHERE work_item_id=$1 AND aggregate_version=$2 RETURNING work_item_id,aggregate_version,state`, [input.workId, input.expectedVersion])).rows[0];
+        WHERE work_item_id=$1 AND state='draft' AND aggregate_version=$2 RETURNING work_item_id,aggregate_version,state`, [input.workId, input.expectedVersion])).rows[0];
       requireCondition(archived, 412, 'version_conflict', '資料已更新，請重新整理後再操作。');
       return record(q, context, archived, operation);
     });

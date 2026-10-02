@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import type { Actor } from '../identity-membership/service.js';
 import { withMemberScope } from '../../packages/resource-scopes/index.js';
 import { requireCondition } from '../../packages/shared/problem.js';
@@ -52,7 +52,7 @@ export async function readPrivateWork(pool: Pool, actor: Actor, id: string) {
   }, async q => { await assertCurrentSessionClock(q, actor); return work!; });
 }
 
-async function requirePrivateWorkEligibility(q: import('pg').PoolClient, actor: Actor) {
+async function requirePrivateWorkEligibility(q: PoolClient, actor: Actor) {
   const result = await q.query('SELECT user_id FROM users WHERE user_id=$1 AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)', [actor.user_id]);
   requireCondition(result.rowCount === 1, 403, 'onboarding_required', '請先完成加入。');
 }

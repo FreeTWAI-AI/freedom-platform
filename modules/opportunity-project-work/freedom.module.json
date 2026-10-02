@@ -9,15 +9,18 @@
     "modules/community/task-board.ts",
     "modules/results/benefits.ts",
     "migrations/077_work_scope_privacy.sql",
+    "migrations/081_private_work_commands.sql",
     "tests/runtime/work-privacy.test.ts",
+    "tests/runtime/private-work-commands.test.ts",
     "apps/portal-web/src/modules/MemberTasks.tsx",
     "tests/runtime/flows.test.ts"
   ],
   "public_exports": [
     "modules/opportunity-project-work/work.ts",
-    "modules/opportunity-project-work/private-work.ts"
+    "modules/opportunity-project-work/private-work.ts",
+    "modules/opportunity-project-work/private-commands.ts"
   ],
-  "dependencies": ["command-core", "resource-scopes"],
+  "dependencies": ["command-core", "resource-scopes", "scoped-commands"],
   "contract_families": [
     "preview", "common"
   ],
