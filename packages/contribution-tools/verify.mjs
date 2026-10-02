@@ -1,45 +1,11 @@
-import { execFileSync } from 'node:child_process';
-import { readdir } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { buildContext } from './context.mjs';
 import { inspectWorkspace, resolveCommit } from './workspace.mjs';
 import { readBounded, parseJson, sha256 } from './io.mjs';
 import { validateFormat } from './formats.mjs';
 import { verifyContractPin } from './contracts.mjs';
 import { safeFailure, requireCondition as check } from './errors.mjs';
-import { verificationEnvironment } from './process-env.mjs';
-
-export async function runLocalSuite(root, id) {
-  // Candidate descriptors may choose IDs, never executable commands or hooks.
-  if (id !== 'governance.unit') return { check_id: id, status: 'not_run', reason: 'suite_adapter_unavailable' };
-  let files;
-  try {
-    files = (await readdir(resolve(root, 'packages/contribution-tools/test')))
-      .filter(name => /^[a-z][a-z0-9-]*\.test\.mjs$/.test(name)).sort()
-      .map(name => 'packages/contribution-tools/test/' + name);
-    for (const path of files) await readBounded(root, path);
-  } catch { return { check_id: id, status: 'not_run', reason: 'suite_files_unavailable' }; }
-  if (!files.length) return { check_id: id, status: 'failed', reason: 'empty_test_set', test_count: 0 };
-  let output;
-  try {
-    output = execFileSync(process.execPath, ['--test', '--test-reporter=' + fileURLToPath(new URL('./test-reporter.mjs', import.meta.url)), ...files], {
-      cwd: root, timeout: 60_000, maxBuffer: 4_000_000, env: verificationEnvironment(), stdio: ['ignore', 'pipe', 'pipe'],
-    });
-  } catch { return { check_id: id, status: 'failed', reason: 'test_process_failed' }; }
-  let result;
-  try { result = parseJson(output); }
-  catch { return { check_id: id, status: 'failed', reason: 'invalid_test_results' }; }
-  const validCounts = item => item?.success === true && Number.isSafeInteger(item.counts?.tests)
-    && item.counts.tests > 0 && item.counts.passed === item.counts.tests
-    && ['failed', 'cancelled', 'skipped', 'todo'].every(name => item.counts[name] === 0);
-  const tests = result.counts?.tests;
-  const expected = new Set(files.map(file => resolve(root, file)));
-  const complete = validCounts(result) && Array.isArray(result.files) && result.files.length === files.length
-    && result.files.every(item => expected.delete(item.file) && validCounts(item)) && expected.size === 0;
-  return { check_id: id, status: complete ? 'passed' : 'failed', reason: complete ? 'tests_executed' : 'incomplete_test_results',
-    ...(Number.isSafeInteger(tests) ? { test_count: tests } : {}), evidence_sha256: sha256(output) };
-}
+import { runLocalSuites } from './suite-runner.mjs';
+export { runLocalSuite, runLocalSuites } from './suite-runner.mjs';
 
 async function contractCheck(workspace) {
   try {
@@ -64,7 +30,7 @@ async function contractCheck(workspace) {
   }
 }
 
-export async function verifyWorkspace(options, { suiteRunner = runLocalSuite } = {}) {
+export async function verifyWorkspace(options, { suiteRunner, testDatabaseUrl } = {}) {
   const built = await buildContext(options), { workspace, context, impact } = built;
   const checks = [{ check_id: 'descriptors', status: 'passed', reason: 'schema_and_references_checked' }, await contractCheck(workspace)];
   for (const blocker of context.blockers) checks.push({ check_id: blocker, status: 'not_run', reason: blocker });
@@ -74,7 +40,9 @@ export async function verifyWorkspace(options, { suiteRunner = runLocalSuite } =
   }
   const codeChanged = workspace.changed_paths.some(path => /\.(?:[cm]?[jt]sx?|rs|sql|jsonc?)$/.test(path));
   if (codeChanged && !suites.size) checks.push({ check_id: 'coverage', status: 'not_run', reason: 'surface_unmapped' });
-  for (const id of [...suites].sort()) checks.push(await suiteRunner(workspace.root, id));
+  if (suiteRunner) {
+    for (const id of [...suites].sort()) checks.push(await suiteRunner(workspace.root, id));
+  } else checks.push(...await runLocalSuites(workspace.root, [...suites], { testDatabaseUrl }));
   const runtimeChanged = impact.module_ids.some(id => id !== 'governance') || impact.unknown_paths.length > 0;
   if (runtimeChanged) checks.push({ check_id: 'runtime.surface-coverage', status: 'not_run', reason: 'registration_behavior_audit_required' });
   const current = await inspectWorkspace(workspace.root, workspace.base_commit);

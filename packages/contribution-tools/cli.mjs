@@ -26,7 +26,7 @@ export async function runFreedomCli(args = process.argv.slice(2), repositoryRoot
     const { command, options, report: reportPath } = parseArgs(args);
     if (reportPath) validateArtifactOutputPath(reportPath);
     if (command === 'verify') {
-      const report = await verifyWorkspace({ repositoryRoot, ...options });
+      const report = await verifyWorkspace({ repositoryRoot, ...options }, { testDatabaseUrl: process.env.TEST_DATABASE_URL });
       if (reportPath) await writeLocalArtifact(repositoryRoot, reportPath, report);
       console.log(JSON.stringify(report));
       return report.status === 'passed' ? 0 : report.status === 'unavailable' ? 2 : 1;
