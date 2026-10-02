@@ -1,9 +1,9 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
 import type { Actor } from '../identity-membership/service.js';
-import { OpaqueId } from '../../contracts/common/v1/identity.js';
-import { BOOTSTRAP_LIMITS, BootstrapProofHostSchema, type BootstrapProofHost, type BootstrapProofResult } from '../../contracts/execution/v1/bootstrap.js';
+import { BootstrapProofHostSchema, type BootstrapProofHost, type BootstrapProofResult } from '../../contracts/execution/v1/bootstrap.js';
+import { BOOTSTRAP_NONCE_LIMITS, BootstrapChallengeInputSchema, BootstrapStatusReadInputSchema,
+  type BootstrapChallengeInput, type BootstrapStatusReadInput, type BootstrapNonce, type BootstrapStatus } from '../../contracts/execution/v1/bootstrap-status.js';
 import { freezeTree, snapshotInput } from '../../packages/execution-state/decode.js';
 import { scopedMemberCommand, scopedJournal } from '../../packages/scoped-commands/index.js';
 import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
@@ -12,20 +12,6 @@ import type { MemberScopeContext } from '../../packages/resource-scopes/index.js
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { BootstrapProofError, createBootstrapProofVerifier } from './bootstrap-proof.js';
 
-const challengeSchema = z.object({ key: z.string().min(8).max(128).regex(/^[A-Za-z0-9_-]+$(?![\s\S])/), connectionId: OpaqueId }).strict();
-const readSchema = z.object({ connectionId: OpaqueId, nonceId: OpaqueId,
-  accessToken: z.string().min(1).max(BOOTSTRAP_LIMITS.compactBytes), proof: z.string().min(1).max(BOOTSTRAP_LIMITS.compactBytes) }).strict();
-export interface BootstrapChallengeInput { key: string; connectionId: string }
-export interface BootstrapStatusInput { connectionId: string; nonceId: string; accessToken: string; proof: string }
-export interface BootstrapChallenge {
-  readonly nonceId: string; readonly nonce: string; readonly connectionId: string;
-  readonly issuedAt: string; readonly expiresAt: string; readonly operational_authority: false;
-}
-export interface BootstrapStatus {
-  readonly connectionId: string; readonly runtimeDeviceId: string; readonly clientId: string;
-  readonly environment: BootstrapProofHost['environment']; readonly connectionVersion: string; readonly expiresAt: string;
-  readonly state: 'active'; readonly operation: 'bootstrap.status.read'; readonly operational_authority: false;
-}
 interface ConnectionRow {
   connection_id: string; runtime_device_id: string; owner_user_id: string; owner_principal_id: string; scope_id: string;
   environment: BootstrapProofHost['environment']; client_id: string; aggregate_version: string;
@@ -37,7 +23,7 @@ interface NonceRow extends Omit<ConnectionRow, 'aggregate_version' | 'state'> {
 }
 const invalid = (): never => { throw new Problem(401, 'bootstrap_invalid', '機器連線驗證無效。'); };
 const unavailable = () => new Problem(503, 'bootstrap_unavailable', '機器連線驗證暫時無法使用。');
-const nonceView = (row: NonceRow): BootstrapChallenge => Object.freeze({ nonceId: row.nonce_id, nonce: row.nonce,
+const nonceView = (row: NonceRow): BootstrapNonce => Object.freeze({ nonceId: row.nonce_id, nonce: row.nonce,
   connectionId: row.connection_id, issuedAt: row.issued_at.toISOString(), expiresAt: row.expires_at.toISOString(), operational_authority: false });
 const statusView = (row: ConnectionRow): BootstrapStatus => Object.freeze({ connectionId: row.connection_id, runtimeDeviceId: row.runtime_device_id,
   clientId: row.client_id, environment: row.environment, connectionVersion: row.aggregate_version, expiresAt: row.expires_at.toISOString(),
@@ -97,8 +83,8 @@ export function createBootstrapStatus(pool: Pool, configuration: BootstrapProofH
   async function memberClock(q: PoolClient, actor: Actor, connection: ConnectionRow, nonce?: NonceRow) {
     await assertCurrentSessionClock(q, actor); current(connection, nonce, await now(q), false);
   }
-  async function challenge(actor: Actor, raw: BootstrapChallengeInput): Promise<BootstrapChallenge> {
-    const input = freezeTree(challengeSchema.parse(snapshotInput(raw))); actor = Object.freeze({ ...actor });
+  async function challenge(actor: Actor, raw: BootstrapChallengeInput): Promise<BootstrapNonce> {
+    const input = freezeTree(BootstrapChallengeInputSchema.parse(snapshotInput(raw))); actor = Object.freeze({ ...actor });
     const operation = 'bootstrap.challenge.create';
     let connection!: ConnectionRow, existing: NonceRow | undefined;
     return scopedMemberCommand(pool, { actor, scope: 'personal', operation, key: input.key,
@@ -119,22 +105,23 @@ export function createBootstrapStatus(pool: Pool, configuration: BootstrapProofH
       const counts = (await q.query<{ pending: number; lifetime: number }>(`SELECT count(*)::int lifetime,
         count(*) FILTER (WHERE consumed_at IS NULL AND expires_at>clock_timestamp())::int pending
         FROM bootstrap_nonces WHERE connection_id=$1`, [input.connectionId])).rows[0];
-      requireCondition(counts.pending < 8 && counts.lifetime < 4096, 429, 'bootstrap_challenge_limit', '連線挑戰數量已達上限。');
+      requireCondition(counts.pending < BOOTSTRAP_NONCE_LIMITS.pending && counts.lifetime < BOOTSTRAP_NONCE_LIMITS.lifetime,
+        429, 'bootstrap_challenge_limit', '連線挑戰數量已達上限。');
       await memberClock(q, actor, connection); const issuedAt = await now(q);
       const row = (await q.query<NonceRow>(`INSERT INTO bootstrap_nonces
         (nonce_id,connection_id,runtime_device_id,owner_user_id,owner_principal_id,scope_id,environment,client_id,connection_version,challenge_key,nonce,issued_at,expires_at)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *,connection_version::text`,
       [randomUUID(), connection.connection_id, connection.runtime_device_id, actor.user_id, context.subject_principal.principal_id, context.scope.scope_id,
         environment, clientId, connection.aggregate_version, input.key, randomBytes(32).toString('base64url'), issuedAt,
-        new Date(Math.min(issuedAt.getTime()+60_000, connection.expires_at.getTime()))])).rows[0];
+        new Date(Math.min(issuedAt.getTime()+BOOTSTRAP_NONCE_LIMITS.ttlMs, connection.expires_at.getTime()))])).rows[0];
       await scopedJournal(q, context, { aggregate_type: 'bootstrap_nonce', id: row.nonce_id, version: '1', operation,
         data: { environment, operational_authority: false }, eventType: 'freedom.bootstrap.challenge.created.v1' });
       await memberClock(q, actor, connection, row); return nonceView(row);
     });
   }
-  async function read(raw: BootstrapStatusInput): Promise<BootstrapStatus> {
-    let input: BootstrapStatusInput;
-    try { input = freezeTree(readSchema.parse(snapshotInput(raw))); } catch { return invalid(); }
+  async function read(raw: BootstrapStatusReadInput): Promise<BootstrapStatus> {
+    let input: BootstrapStatusReadInput;
+    try { input = freezeTree(BootstrapStatusReadInputSchema.parse(snapshotInput(raw))); } catch { return invalid(); }
     try {
       return await transaction(pool, async q => {
         await limits(q);
