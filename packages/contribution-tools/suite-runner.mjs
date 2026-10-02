@@ -82,28 +82,33 @@ function execute(root, files, runtime, databaseUrl, timeoutMs) {
 
 function countsValid(counts) {
   return counts && COUNT_KEYS.every(key => Number.isSafeInteger(counts[key]) && counts[key] >= 0)
+    && Number.isSafeInteger(counts.suites) && counts.suites >= 0
     && counts.tests === COUNT_KEYS.slice(1).reduce((sum, key) => sum + counts[key], 0);
 }
 
 function evidenceFor(raw, files) {
   const expected = new Set(files), seen = new Set(), ids = new Set();
   if (typeof raw.success !== 'boolean' || !countsValid(raw.counts) || !Array.isArray(raw.files)
-    || raw.files.length !== files.length || !Array.isArray(raw.cases)) return;
+    || raw.files.length !== files.length || !Array.isArray(raw.cases) || !Array.isArray(raw.suites)) return;
   const evidence = [];
   for (const item of raw.files) {
     if (!expected.has(item.file) || seen.has(item.file) || typeof item.success !== 'boolean' || !countsValid(item.counts)) return;
     seen.add(item.file);
     const cases = raw.cases.filter(entry => entry.file === item.file);
-    if (cases.length !== item.counts.tests || cases.length > 20_000) return;
-    for (const entry of cases) {
+    const suites = raw.suites.filter(entry => entry.file === item.file);
+    if (cases.length !== item.counts.tests || cases.length > 20_000 || suites.length !== item.counts.suites || suites.length > 20_000) return;
+    for (const entry of [...cases, ...suites]) {
       if (!/^[a-f0-9]{64}$/.test(entry.case_sha256) || !COUNT_KEYS.slice(1).includes(entry.status) || ids.has(entry.case_sha256)) return;
       ids.add(entry.case_sha256);
     }
     if (COUNT_KEYS.slice(1).some(key => item.counts[key] !== cases.filter(entry => entry.status === key).length)) return;
     evidence.push({ path: item.file, counts: Object.fromEntries(COUNT_KEYS.map(key => [key, item.counts[key]])),
-      cases: cases.map(({ case_sha256, status }) => ({ case_sha256, status })) });
+      cases: cases.map(({ case_sha256, status }) => ({ case_sha256, status })),
+      suite_events: suites.map(({ case_sha256, status }) => ({ case_sha256, status })) });
   }
-  if (raw.cases.some(item => !expected.has(item.file)) || COUNT_KEYS.some(key => raw.counts[key] !== evidence.reduce((n, file) => n + file.counts[key], 0))) return;
+  if ([...raw.cases, ...raw.suites].some(item => !expected.has(item.file))
+    || raw.counts.suites !== raw.suites.length
+    || COUNT_KEYS.some(key => raw.counts[key] !== evidence.reduce((n, file) => n + file.counts[key], 0))) return;
   return evidence.sort((a, b) => a.path.localeCompare(b.path));
 }
 
@@ -129,7 +134,8 @@ async function runGroup(root, selections, runtime, options) {
     const test_count = test_files.reduce((count, item) => count + item.counts.tests, 0);
     // Any process-level failure fails the batch, even if one subset passed.
     const passed = !ran.failed && raw.success && raw.files.every(file => file.success)
-      && test_files.every(file => file.counts.tests > 0 && file.counts.tests === file.counts.passed);
+      && test_files.every(file => file.counts.tests > 0 && file.counts.tests === file.counts.passed
+        && file.suite_events.every(event => event.status === 'passed'));
     return { ...result(id, passed ? 'passed' : 'failed', passed ? 'tests_executed' : ran.failed ? 'test_process_failed' : 'incomplete_test_results'),
       test_count, evidence_sha256, selected_files: selected, test_files };
   });

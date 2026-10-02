@@ -116,4 +116,40 @@ test('nested real cases reconcile with file totals, suites are not fabricated te
 describe('suite', () => { test('case', async t => { await t.test('nested', () => {}); }); });`);
   const result = await runLocalSuite(root, 'runtime.command-core', runtimeOptions);
   assert.equal(result.status, 'passed'); assert.equal(result.test_count, 2); assert.equal(result.test_files[0].cases.length, 2);
+  assert.equal(result.test_files[0].suite_events.length, 1);
+});
+
+test('skipped and TODO suites fail even when Node test-only skip counts are zero', async t => {
+  const root = await runtimeFixture(t);
+  for (const kind of ['skip', 'todo']) {
+    await put(root, 'tests/runtime/command-core.test.ts', `import {test,describe} from 'node:test';
+test('okay',()=>{}); describe.${kind}('private-suite-label',()=>{});`);
+    const result = await runLocalSuite(root, 'runtime.command-core', runtimeOptions);
+    assert.equal(result.status, 'failed'); assert.equal(result.test_count, 1);
+    assert.equal(result.test_files[0].counts.skipped, 0); assert.equal(result.test_files[0].counts.todo, 0);
+    assert.equal(result.test_files[0].suite_events[0].status, kind === 'skip' ? 'skipped' : 'todo');
+    assert(!JSON.stringify(result).includes('private-suite-label'));
+  }
+});
+
+test('timed-out and parent-cancelled cases retain cancellation evidence', async t => {
+  const root = await runtimeFixture(t, 'runtime.command-core', `import {test} from 'node:test';
+test('timed',{timeout:20},async()=>{await new Promise(resolve=>setTimeout(resolve,100));});
+test('parent',{timeout:20},async t=>{await t.test('pending',()=>new Promise(resolve=>setTimeout(resolve,100)));});`);
+  const result = await runLocalSuite(root, 'runtime.command-core', { ...runtimeOptions, timeoutMs: 3000 });
+  assert.equal(result.status, 'failed'); assert.equal(result.test_count, 3, JSON.stringify(result));
+  assert.equal(result.test_files[0].counts.cancelled, 3);
+  assert.equal(result.test_files[0].cases.filter(item => item.status === 'cancelled').length, 3);
+});
+
+test('inconsistent Node abort file/global counts fail closed instead of inventing totals', async t => {
+  const root = await runtimeFixture(t, 'runtime.command-core', `import {test} from 'node:test';
+test('aborted',{signal:AbortSignal.abort()},()=>{});`);
+  const result = await runLocalSuite(root, 'runtime.command-core', { ...runtimeOptions, timeoutMs: 3000 });
+  assert.equal(result.status, 'failed');
+  // Node24 may classify the same abort as cancelled in the file summary but
+  // failed in its parent runner. Either consistent failed evidence or explicit
+  // incomplete evidence is acceptable, never a synthesized successful result.
+  assert(['test_process_failed', 'incomplete_test_results'].includes(result.reason));
+  assert.deepEqual(result.selected_files, ['tests/runtime/command-core.test.ts']);
 });
