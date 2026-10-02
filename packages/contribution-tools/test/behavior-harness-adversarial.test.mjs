@@ -153,6 +153,21 @@ for (const leaked of ['objective', 'work_id']) test(`BEHAVIOR independent outsid
   assert.equal(report.outcomes.filter(row => row.status === 'failed').length, 1);
 });
 
+test('BEHAVIOR independent JSON-escaped private problem detail is still a leak', async () => {
+  const f = await fixture(); let count = 0;
+  f.ports.request = async () => {
+    const item = cases[count++];
+    if (count === 1) {
+      const escaped = Array.from(manifest.objective, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0')).join('');
+      return new Response('{"code":"denied","detail":"' + escaped + '"}', {
+        status: 401, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+    }
+    return f.response(item);
+  };
+  const report = await runMemberRouteBehavior(f.input, f.ports); failed(report);
+  assert.equal(report.outcomes[0].status, 'failed');
+});
+
 test('BEHAVIOR independent ignored abort and unresolved stream are bounded, never observed as success', async () => {
   const f = await fixture(); let count = 0;
   f.ports.request = async () => {
