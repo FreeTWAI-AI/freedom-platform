@@ -102,10 +102,30 @@ test('POLICY independent restricted runtime can execute the actual resolver with
     await q.query(`GRANT USAGE ON SCHEMA ${schema} TO ${role}`);
     await q.query(`GRANT SELECT ON private_work_persistence_policy TO ${role}`);
     await q.query(`SET LOCAL ROLE ${role}`);
+    await q.query('SAVEPOINT select_only');
+    await assert.rejects(resolvePolicy(q, f.context), status(503));
+    await q.query('ROLLBACK TO SAVEPOINT select_only');
+    await q.query('RESET ROLE');
+    await q.query(`GRANT UPDATE(scope_kind) ON private_work_persistence_policy TO ${role}`);
+    await q.query(`SET LOCAL ROLE ${role}`);
     const current = await resolvePolicy(q, f.context);
     assert.equal(current.revision, 'private-work.v1');
-    for (const column of ['revision', 'persistence_allowed', 'retained_byte_limit'])
+    for (const column of ['scope_id', 'purpose', 'owner_principal_id', 'revision', 'persistence_allowed', 'retained_byte_limit', 'created_at', 'updated_at'])
       assert.equal((await q.query("SELECT has_column_privilege(current_user,'private_work_persistence_policy',$1,'UPDATE') allowed", [column])).rows[0].allowed, false);
+    const before = (await q.query('SELECT to_jsonb(p) state FROM private_work_persistence_policy p WHERE scope_id=$1', [f.scope])).rows[0].state;
+    await q.query('UPDATE private_work_persistence_policy SET scope_kind=DEFAULT WHERE scope_id=$1', [f.scope]);
+    assert.deepEqual((await q.query('SELECT to_jsonb(p) state FROM private_work_persistence_policy p WHERE scope_id=$1', [f.scope])).rows[0].state, before);
+    for (const [sql, errorCode] of [
+      ["UPDATE private_work_persistence_policy SET scope_kind='personal'", '428C9'],
+      ['UPDATE private_work_persistence_policy SET scope_kind=DEFAULT,persistence_allowed=false', '42501'],
+      ['UPDATE private_work_persistence_policy SET revision=revision+1', '42501'],
+      ['DELETE FROM private_work_persistence_policy', '42501'],
+      ['TRUNCATE private_work_persistence_policy', '42501'],
+      ['INSERT INTO private_work_persistence_policy DEFAULT VALUES', '42501'],
+    ]) {
+      await q.query('SAVEPOINT denied_mutation'); await assert.rejects(q.query(sql), code(errorCode));
+      await q.query('ROLLBACK TO SAVEPOINT denied_mutation');
+    }
   } finally { await q.query('ROLLBACK'); q.release(); }
 });
 
