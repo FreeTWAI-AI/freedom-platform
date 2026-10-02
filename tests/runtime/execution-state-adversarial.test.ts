@@ -155,6 +155,13 @@ test('EXEC revoked device cannot use late evidence as a permanent authentication
   denied(value);
 });
 
+for (const history of ['empty', 'failed'] as const) test(`EXEC completion requires a successful current step, not only a ${history} history and Result assertion`, () => {
+  const value = input(); value.event = { type: 'complete' };
+  value.snapshot.result = { result_id: id(13), attempt_id: id(4), work_version: '10', provenance: 'model_draft' };
+  if (history === 'failed') value.snapshot.dispatches = [charge('failed_known', 'known')];
+  denied(value);
+});
+
 test('EXEC wire rejects fractional lexemes that round to a valid integer', () => {
   const raw = JSON.stringify(input());
   for (const number of ['1.0000000000000001', '0.99999999999999999', '1.0000000000000001e0']) {
