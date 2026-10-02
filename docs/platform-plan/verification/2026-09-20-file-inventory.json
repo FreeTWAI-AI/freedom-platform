@@ -2108,6 +2108,11 @@
       "sha256": "3158a2308118019b8221715b558e4786c0e2288abe5f93716797fa0be0ac2b62"
     },
     {
+      "path": "docs/plans/autopilot-vnext.md",
+      "bytes": 128867,
+      "sha256": "819e54304d7532c8ff0f319f69f2a8d4892f731baa6f7d218a458e6513e8cdcf"
+    },
+    {
       "path": "docs/plans/issue-pipeline-2026-09-28.md",
       "bytes": 2406,
       "sha256": "752c3918a8d2c3cf28ead9504e7ae4499cb9bd4484b879ae8e74995fb94497bd"
@@ -2118,9 +2123,19 @@
       "sha256": "5b2bc2e5d49b2d5f8fd4bbc3667befe87a0ae6a2f386801dc430375987712f52"
     },
     {
+      "path": "docs/plans/platform-restructure-r2.md",
+      "bytes": 73184,
+      "sha256": "4b8015a1b6e5654c3ba8bcf59b82c9cb957241a3f26125ce7001adcb3a22c11e"
+    },
+    {
       "path": "docs/plans/repo-maintainer-review-center.md",
       "bytes": 57747,
       "sha256": "3334772e7ac7921cabf54749c1fd8247f62fc003629ab7f19429b06d984e29df"
+    },
+    {
+      "path": "docs/plans/unified-foundation.md",
+      "bytes": 101473,
+      "sha256": "aca0218d1a76a52eadc4f023bb107c9695570b8b93a373139a535e3694ee2ab5"
     },
     {
       "path": "docs/platform-plan/00-current-requirements-baseline.md",
@@ -2924,8 +2939,8 @@
     },
     {
       "path": "docs/platform-plan/execution/spec-index.md",
-      "bytes": 22897,
-      "sha256": "99846e5ec5500b29166254e7ae4c8bfd1828dd7ecc1c8617dccd431e34f46346"
+      "bytes": 23198,
+      "sha256": "604bfab0070d36c933fc8071e5308c05e28c693fd5fad17da30bdfb0557af520"
     },
     {
       "path": "docs/platform-plan/execution/specs/AGT-01.md",
@@ -3051,6 +3066,56 @@
       "path": "docs/platform-plan/execution/tools/tests/test_check_specs.py",
       "bytes": 8804,
       "sha256": "32c139fd3a7ed3e3b9dbc3d2e22f0e314f8be8d4f23803d73647c07ae4195a35"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
+      "bytes": 11315,
+      "sha256": "218035f7ad53189d39a036a6faa3f792f2cfc3b3bf38355ec3aef1630328e9c6"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/01-contracts-and-governance.md",
+      "bytes": 13331,
+      "sha256": "33896f3d40a9364245dc1a4c0347c8d30cfafd79af558ea5ed244e27b48a2fe9"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
+      "bytes": 8094,
+      "sha256": "22e418e49a54cf181572ecc1811cd169d0aaea28573b9c61669f92fb5544cc5b"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md",
+      "bytes": 11171,
+      "sha256": "d9278eb393c1e31a69c33bfaf33a21e7561936f747e3854eedc710d267b174fd"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md",
+      "bytes": 11262,
+      "sha256": "ca451724b3664f0369c3ba0e7bd8079b20937839adb6e589536a764c8d76f80c"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/05-media-migration.md",
+      "bytes": 12723,
+      "sha256": "de79afde39f402e8326d109d077c7592e531bf8554964b475998558783c652e3"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/06-browser-runtime.md",
+      "bytes": 18739,
+      "sha256": "6a9e7be2370949c8aea793ab833cf128d3723efd3c73f57021ca59e7a84b6143"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/README.md",
+      "bytes": 5279,
+      "sha256": "d768574c6a4f6754c7797eba6b4fe1e839bd696868b9365080f557f851f25e6b"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
+      "bytes": 12202,
+      "sha256": "250573fe8630ae97be3d273d914eeca91513d290069683ba0863cdb0196740e2"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
+      "bytes": 24327,
+      "sha256": "92362aa1b8157e0e90796495efec52feb18227609b6ee102c22f0ab407e31097"
     },
     {
       "path": "docs/platform-plan/verification/2026-09-17-tree-verification.md",
@@ -3853,16 +3918,6 @@
       "sha256": "335c3d5c3b47e1bcf3c6bcbebcae5f779cbf9c9d3abf78dabe8936760cee9bf7"
     },
     {
-      "path": "modules/development-access/guild-eligibility.ts",
-      "bytes": 2209,
-      "sha256": "03b051b623b82304a502bfc51264bfa1bc1690eff55032e9390716c35d2fb17a"
-    },
-    {
-      "path": "modules/development-access/service.ts",
-      "bytes": 17359,
-      "sha256": "3cec323a21e04edfe9c069e966a5b7bc77c1303d165115d529af0b03ec398ee1"
-    },
-    {
       "path": "modules/development/page-github.ts",
       "bytes": 9796,
       "sha256": "50328508a0f4a12ab5001a9a485bed3c4125fb3da0c4c0b593650736bd056530"
@@ -3876,6 +3931,16 @@
       "path": "modules/development/service.ts",
       "bytes": 42446,
       "sha256": "88603ac4bf7849dce161218f0592c2be59fea6b7aa5245984c7db010d7d85c3a"
+    },
+    {
+      "path": "modules/development-access/guild-eligibility.ts",
+      "bytes": 2209,
+      "sha256": "03b051b623b82304a502bfc51264bfa1bc1690eff55032e9390716c35d2fb17a"
+    },
+    {
+      "path": "modules/development-access/service.ts",
+      "bytes": 17359,
+      "sha256": "3cec323a21e04edfe9c069e966a5b7bc77c1303d165115d529af0b03ec398ee1"
     },
     {
       "path": "modules/github-social/provider.ts",
