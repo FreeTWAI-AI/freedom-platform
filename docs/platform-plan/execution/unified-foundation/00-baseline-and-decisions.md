@@ -83,7 +83,7 @@ AP 所述六份 schema、28 個假資料案例、validator/validation-report/SHA
 
 - CG-B/F：受信任 publisher/workflow/revision、proof 格式及驗證器套件、policy freshness 上限、撤銷來源、允許 bypass 的實際身分。先用明確 non-production fixture；實際設定由有權 operations 執行。
 - U3/U5：首版 model adapter/provider 版本、實際工具限制、時鐘偏差、local journal 上限與 expiry；BROWSER 已列 AP 提議 TTL/heartbeat，仍需測量及契約定版才開 managed mode。
-- U2/U6：新 draft 保留期限、各 media profile 既有數值/transform 的 source mapping、備份保留與刪除對帳；MEDIA 已列 GC 提議值，不能直接視為正式刪除政策。沿用既有限制，未知格式先拒絕。
+- U2/U6：新 draft 保留期限、各 media profile 既有數值/transform 的 source mapping、備份保留與刪除對帳仍需補齊。Ted 於 2026-10-02 同意頭像清理起點：未完成且未被引用的物件至少保留 48 小時、替換下來的舊圖保留 7 天、使用者刪除後立即停止讀取。這是開發設定與測試的政策依據，不表示正式環境已啟動清理；備份保留、刪除及還原政策另行確認。活躍引用、intent、備份 pin 與刪除 fence 仍優先限制回收，不能只按物件年齡刪除。沿用既有限制，未知格式先拒絕。
 - U6：recovery generation 的環境權威存放點及更新人；必須不隨 DB snapshot 回退。沒有 restore 演練不得開新 execution dispatch。
 
 ## CI 判斷的官方依據

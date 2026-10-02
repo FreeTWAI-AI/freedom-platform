@@ -64,6 +64,12 @@ They cover conditional/concurrent writes, ranges, input snapshots, digest
 corruption, unknown outcomes, bounds, sanitized errors and disabled deletion.
 Cloud/staging/prod, backup/restore and route activation are separate evidence.
 
+The Worker adapter accepts an optional, request-scoped `MEDIA` native binding and
+passes a delete-disabled store to avatar reads. Missing or invalid storage leaves
+asset-backed reads unavailable without breaking login/health or falling back to
+retained legacy bytes. This wiring does not create a bucket, add a deployed
+binding, change the default legacy write mode, or enable maintenance.
+
 `FakeObjectStore` is test-only and models atomically visible writes, no overwrite while an object exists, independent snapshot reads, missing deletes and injected pre/post-effect failures. Errors use fixed codes. A post-PUT failure can leave durable bytes; a post-delete failure can leave absence. Repeated verification/delete reconcile those outcomes. A successful storage verification followed by failed DB finalize can be retried by the future service with the same intent identity.
 
 DELETE has no ACL or GC eligibility checks. The fake permits a late PUT to recreate a deleted key: permanent tombstones, deletion fences, no-attach checks, live-reference/intent/backup pins, retention and orphan reconciliation are the future DB lifecycle's responsibility. No fake GC or fake intent state machine claims to prove those concurrency guarantees. Never call DELETE from untrusted client input or activate automatic cleanup from this package.

@@ -3,6 +3,7 @@ import type { Context, Hono } from 'hono';
 import { isIP } from 'node:net';
 import type { Pool } from 'pg';
 import { createRequestPool } from '../../../packages/db/index.js';
+import { createR2ObjectStore, type AssetR2Binding } from '../../../packages/asset-storage/r2.js';
 import { Problem } from '../../../packages/shared/problem.js';
 import { createUnavailableImageProcessor, runWithImageProcessor } from '../../../packages/shared/image-runtime.js';
 import { createCloudflareImageProcessor, type ImagesBinding } from '../../../packages/shared/image-cloudflare.js';
@@ -25,6 +26,8 @@ import {guildReviewerFromBindings,type GuildReviewBindings} from './guild-review
  * - ASSETS: the built browser app (apps/portal-web/dist), with run_worker_first.
  * - IMAGES (optional): Cloudflare Images binding that decodes and re-encodes uploads.
  *   Without it only image mutations answer 503; everything else keeps working.
+ * - MEDIA (optional): private native R2 binding for asset-backed avatars. Absence
+ *   never enables a legacy fallback or GC; legacy avatars keep their current path.
  * Secrets arrive as bindings and are only passed into explicit per-request
  * options; process.env is never read or written here.
  */
@@ -32,6 +35,7 @@ export interface WorkerEnv extends GuildReviewBindings {
   HYPERDRIVE: { readonly connectionString: string };
   ASSETS: { fetch(request: Request): Promise<Response> };
   IMAGES?: ImagesBinding;
+  MEDIA?: AssetR2Binding;
   EMAIL?: {send(message:{to:string;from:string;subject:string;text:string}):Promise<{messageId:string}>};
   FREEDOM_ENV?: string;
   APP_ORIGIN?: string;
@@ -110,7 +114,12 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
   const community = env.FREEDOM_REGISTRATION_COMMUNITY_ID || undefined, tokenKey = env.GITHUB_SOCIAL_TOKEN_KEY || undefined;
   const metricsToken = env.GITHUB_METRICS_TOKEN || undefined;
   const maintainerWebhookSecret = env.GITHUB_MAINTAINER_WEBHOOK_SECRET || undefined;
+  let avatarAssetStore: PlatformRuntime['avatarAssetStore'];
+  // Optional storage failure is scoped to asset operations, not login/health.
+  // This request captures only its own binding. App ports cannot delete objects.
+  try { if (env.MEDIA) avatarAssetStore = createR2ObjectStore(env.MEDIA); } catch { /* unavailable, no binding diagnostics */ }
   return {
+    avatarAssetStore,
     registrationCommunityId: () => community,
     githubTokenKey: () => tokenKey,
     githubMetricsToken: () => metricsToken,
