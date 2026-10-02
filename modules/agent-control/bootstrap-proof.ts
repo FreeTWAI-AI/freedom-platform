@@ -70,8 +70,21 @@ export function createBootstrapProofVerifier(configuration: BootstrapProofHost) 
         const issuerKey = await importJWK(issuerJwk, 'ES256'), deviceKey = await importJWK(deviceJwk, 'ES256');
         await compactVerify(input.accessToken, issuerKey, { algorithms: ['ES256'] });
         await compactVerify(input.proof, deviceKey, { algorithms: ['ES256'] });
+        // NumericDate uses floor(nowMs/1000). Preserve its exact inclusive
+        // second windows as [from,until) milliseconds, including the final
+        // accepted second of the proof. BigInt prevents overflow before the
+        // intersection with the already-bounded issuer-key interval.
+        const from = [0n, BigInt(key.notBeforeMs), BigInt(claims.iat) * 1000n,
+          (BigInt(proofClaims.iat) - BigInt(BOOTSTRAP_LIMITS.proofFutureSeconds)) * 1000n]
+          .reduce((a, b) => a > b ? a : b);
+        const until = [BigInt(key.notAfterMs), BigInt(claims.exp) * 1000n,
+          (BigInt(proofClaims.iat) + BigInt(BOOTSTRAP_LIMITS.proofPastSeconds) + 1n) * 1000n]
+          .reduce((a, b) => a < b ? a : b);
+        if (from > BigInt(input.nowMs) || BigInt(input.nowMs) >= until
+          || until > BigInt(Number.MAX_SAFE_INTEGER)) return null;
         return freezeTree({ binding: expected, tokenId: claims.jti, proofId: proofClaims.jti,
           issuedAt: claims.iat, expiresAt: claims.exp, nonce: proofClaims.nonce,
+          validFromMs: Number(from), validUntilMs: Number(until),
           assurance: 'cryptographic_only' as const, operational_authority: false as const });
       } catch { return null; }
     },

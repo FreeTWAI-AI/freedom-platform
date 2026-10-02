@@ -18,7 +18,7 @@ decoded-key duplicate rejection, canonical base64url and 64-byte signatures.
 The closed JSON grammar admits integer number lexemes only: decimal fractions,
 exponents, negative zero and unsafe integers are rejected before schema parsing.
 
-The frozen result is `{binding,tokenId,proofId,issuedAt,expiresAt,nonce,
+The frozen result is `{binding,tokenId,proofId,issuedAt,expiresAt,nonce,validFromMs,validUntilMs,
 assurance:'cryptographic_only',operational_authority:false}`. It contains no raw
 token/proof and is not a branded credential or VerifiedContext. Versions are
 positive signed-64-bit decimal strings; the central shape validator describes
@@ -28,6 +28,12 @@ Issuer-key validity contains the whole token interval, with current time in
 DPoP accepts `nowSeconds-60 <= iat <= nowSeconds+5` and exact GET/URI/nonce/ath.
 Token-second to key-millisecond comparisons use `BigInt` products, avoiding
 floating-point overflow even when a malformed token uses the largest safe integer.
+The millisecond interval `[validFromMs,validUntilMs)` intersects token validity,
+issuer-key validity and the exact floor-based DPoP window using BigInt before
+conversion. A trusted DB adapter must compare a fresh DB clock against this
+interval after crypto awaits and its last potentially blocking query; it is not
+a caller clock override or a promise of validity at response delivery. The pure
+verifier itself neither reads that fresh clock nor authenticates its source.
 
 Host input is not authenticated by its shape or by constructing this factory.
 The caller must independently establish trusted configuration and current DB

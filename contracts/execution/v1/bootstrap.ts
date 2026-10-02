@@ -41,8 +41,9 @@ export const BootstrapProofInputSchema = z.object({
 }).strict();
 export const BootstrapProofResultSchema = z.object({ binding: BootstrapBindingSchema,
   tokenId: Jti, proofId: Jti, issuedAt: Time, expiresAt: Time, nonce: Bytes32,
+  validFromMs: Time, validUntilMs: Time,
   assurance: z.literal('cryptographic_only'), operational_authority: z.literal(false),
-}).strict().describe('Cryptographic evidence under caller-supplied host assumptions only; no DB authority, replay prevention, nonce consumption, execution permission or VerifiedContext.');
+}).strict().describe('Cryptographic evidence under caller-supplied host assumptions only; validFromMs inclusive and validUntilMs exclusive intersect token, issuer-key and proof clock windows for trusted post-await rechecks. No DB authority, replay prevention, nonce consumption, execution permission or VerifiedContext.');
 export type BootstrapBinding = z.infer<typeof BootstrapBindingSchema>;
 export type BootstrapProofHost = z.infer<typeof BootstrapProofHostSchema>;
 export type BootstrapProofInput = z.infer<typeof BootstrapProofInputSchema>;

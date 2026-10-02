@@ -113,6 +113,40 @@ test('issuer key must cover entire token interval and current host time; exact e
   config.keys[0].revoked = true; assert.equal(await verify(good, config), null);
   assert.equal(await verify(await pair({ ...claims, exp: Number.MAX_SAFE_INTEGER })), null);
 });
+test('crypto evidence exports exact millisecond intersection for post-await decision clocks', async () => {
+  const result = await verify(); assert(result);
+  assert.equal(result.validFromMs, (now - 5) * 1000);
+  assert.equal(result.validUntilMs, (now + 61) * 1000);
+  for (const ms of [result.validFromMs, result.validUntilMs - 1]) assert(await verify({ ...good, nowMs: ms }));
+  for (const ms of [result.validFromMs - 1, result.validUntilMs]) assert.equal(await verify({ ...good, nowMs: ms }), null);
+
+  const future = await pair(claims, { iat: now + 5 }), futureResult = await verify(future); assert(futureResult);
+  assert.equal(futureResult.validFromMs, now * 1000);
+  assert.equal(await verify({ ...future, nowMs: futureResult.validFromMs - 1 }), null);
+  const lastSecond = await pair(claims, { iat: now - 60 }), lastResult = await verify(lastSecond); assert(lastResult);
+  assert.equal(lastResult.validUntilMs, (now + 1) * 1000);
+  assert(await verify({ ...lastSecond, nowMs: lastResult.validUntilMs - 1 }));
+  assert.equal(await verify({ ...lastSecond, nowMs: lastResult.validUntilMs }), null);
+
+  const short = await pair({ ...claims, exp: now + 1 }), shortResult = await verify(short); assert(shortResult);
+  assert.equal(shortResult.validUntilMs, (now + 1) * 1000);
+  const newToken = await pair({ ...claims, iat: now }), newTokenResult = await verify(newToken); assert(newTokenResult);
+  assert.equal(newTokenResult.validFromMs, now * 1000);
+});
+test('clock interval arithmetic stays exact at the largest host millisecond and at epoch zero', async () => {
+  const max = Number.MAX_SAFE_INTEGER, seconds = Math.floor(max / 1000), config = structuredClone(host);
+  config.keys[0].notBeforeMs = (seconds - 600) * 1000;
+  config.keys[0].notAfterMs = max;
+  const input = await pair({ ...claims, iat: seconds - 2, exp: seconds }, { iat: seconds - 1 });
+  const high = await verify({ ...input, nowMs: seconds * 1000 - 1 }, config); assert(high);
+  assert.equal(high.validFromMs, (seconds - 2) * 1000);
+  assert.equal(high.validUntilMs, seconds * 1000);
+  assert.equal(await verify({ ...input, nowMs: high.validUntilMs }, config), null);
+  config.keys[0].notBeforeMs = 0; config.keys[0].notAfterMs = 100_000;
+  const first = await pair({ ...claims, iat: 0, exp: 60 }, { iat: 0 });
+  const zero = await verify({ ...first, nowMs: 0 }, config); assert(zero);
+  assert.equal(zero.validFromMs, 0); assert.equal(zero.validUntilMs, 60_000);
+});
 test('keyset has fixed local purpose/environment/kid and no unknown-kid refresh', async () => {
   assert.equal(await verify(await pair(claims, {}, { access: { ...accessHeader, kid: 'unknown' }, proof: proofHeader })), null);
   for (const changes of [{ purpose: 'execution' }, { environment: 'next' }, { kid: '' },

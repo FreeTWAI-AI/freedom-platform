@@ -39,7 +39,7 @@ kid 為 1–64 個英數／底線／連字號，jti 為 16–128 個同字元。
 
 ## Crypto 結果不是機器身分
 
-Factory 的 `verify({accessToken,proof,expectedNonce,nowMs,expectedBinding})` 使用 host 提供的綁定快照。expectedBinding 精確包含 `ownerUserId,principalId,scopeId,runtimeDeviceId,connectionId,connectionVersion,keyThumbprint`。成功只回受限 claims、proof jti、nonce 及 `assurance:'cryptographic_only'`、`operational_authority:false`；失敗回 null。不得輸出可被當成 execution Invocation／VerifiedContext 的品牌或 handle。
+Factory 的 `verify({accessToken,proof,expectedNonce,nowMs,expectedBinding})` 使用 host 提供的綁定快照。expectedBinding 精確包含 `ownerUserId,principalId,scopeId,runtimeDeviceId,connectionId,connectionVersion,keyThumbprint`。成功只回受限 claims、proof jti、nonce、時間窗口交集 `validFromMs`／`validUntilMs`（前含後不含）及 `assurance:'cryptographic_only'`、`operational_authority:false`；失敗回 null。時間交集供 [09 的可信 DB adapter](09-bootstrap-status.md) 在 await 後重驗時鐘，本純 verifier 不自行查當下 DB clock。不得輸出可被當成 execution Invocation／VerifiedContext 的品牌或 handle。
 
 Caller 填 now／binding／keys 不會因此成為可信來源。這個純組件不查 DB、不做 nonce 發行或原子 consume，也不防跨呼叫 replay；同一合法 proof 重驗可以成功，測試須明示這項限制。合法 ECDSA high-S／low-S 簽章皆可驗過，後續 replay 防護須使用 server nonce／proof jti，不以簽章 bytes 去重。後續真正 machine validator 必須在同一交易內解析目前 user/person/scope/runtime/connection、檢查到期／撤銷、DB-clock freshness 與 server nonce/replay，並將結果限制在唯一 operation。這些接線完成前不掛 machine route、不發布 token、不授私人正文、Work、Run、Grant、model 或 effect 權。
 

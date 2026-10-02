@@ -86,6 +86,16 @@
       "maxLength": 43,
       "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
     },
+    "validFromMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "validUntilMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
     "assurance": {
       "type": "string",
       "const": "cryptographic_only"
@@ -102,6 +112,8 @@
     "issuedAt",
     "expiresAt",
     "nonce",
+    "validFromMs",
+    "validUntilMs",
     "assurance",
     "operational_authority"
   ],
