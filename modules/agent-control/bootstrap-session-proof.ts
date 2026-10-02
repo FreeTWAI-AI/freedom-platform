@@ -30,8 +30,8 @@ export function parseBootstrapSessionHost(raw: unknown): BootstrapSessionHost {
 function interval(iat: number, nowMs: number, token?: { validFrom: bigint; validUntil: bigint }) {
   const from = [0n, token?.validFrom ?? 0n,
     (BigInt(iat) - BigInt(BOOTSTRAP_LIMITS.proofFutureSeconds)) * 1000n].reduce((a, b) => a > b ? a : b);
-  const until = [token?.validUntil ?? BigInt(Number.MAX_SAFE_INTEGER),
-    (BigInt(iat) + BigInt(BOOTSTRAP_LIMITS.proofPastSeconds) + 1n) * 1000n].reduce((a, b) => a < b ? a : b);
+  const proofUntil = (BigInt(iat) + BigInt(BOOTSTRAP_LIMITS.proofPastSeconds) + 1n) * 1000n;
+  const until = token && token.validUntil < proofUntil ? token.validUntil : proofUntil;
   if (BigInt(nowMs) < from || BigInt(nowMs) >= until || until > BigInt(Number.MAX_SAFE_INTEGER)) return null;
   return { validFromMs: Number(from), validUntilMs: Number(until) };
 }
