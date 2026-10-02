@@ -21,7 +21,7 @@
 | UX affected CI／開發工具 | 5% | 20–35% | 跨語言／跨端覆蓋與工具接線 |
 | CG 共同治理 | 5% | 25–45% | 可信 runner/publisher、完整入口與 rollout |
 
-此組權重約得 26–39%，對外只用較寬的 25–40%。不同 reviewer 對範圍／剩餘難度的估法約落在 20–42%，因此不報精確單一百分比。本輪只推進共同基礎；依 Ted 最新指示，不整合等待中的其他 PR。備份政策仍另確認。
+此組權重約得 26–38%，對外只用較寬的 25–40%。不同 reviewer 對範圍／剩餘難度的估法約落在 20–42%，因此不報精確單一百分比。本輪只推進共同基礎；依 Ted 最新指示，不整合等待中的其他 PR。備份政策仍另確認。
 
 ## 本機提交與範圍
 
@@ -230,6 +230,30 @@ TypeScript 7 typecheck、common/execution 生成契約 check、deploy preflight 
 本批使用新的 PG18.6 network-none、2 GiB tmpfs、無公開 port 的測試容器；Worker 只用短期 localhost proxy。收尾查得 `fp_*` schemas／roles／其他 clients 全為 0，只剩 `fp_foundation` 與 postgres/template；隨後清理本輪容器和 socket，僅移除可由測試重建的合成資料。第一次容器 init 的 Unix socket mount 不符 entrypoint 預期，修正後才取得連線並開始測試，沒有 fallback 到本機資料庫。
 
 本批 inventory **1,212 file hashes、688 本機連結、0 failures**，diff check 通過。Manifest last=85、known_gaps=`[22]`；076–085 皆為未合併暫用號，合併前重新核對。遠端 main 仍 `3de70cc`；未 push、開 PR、merge、部署或啟用正式清理。備份政策仍另行確認。
+
+## 本批私人 HTTP 與固定行為驗證
+
+三個 Astra 工作位負責私人 HTTP、固定行為 harness 及獨立反例；另以 CLI 完成四路 Grok 4.7、兩路 Opus 4.6 文字審查，不占用 Astra 工作位。部分早期 Grok 請求逾時；Opus 初次遇 429，等待額度重置後才成功，未切換帳號、付費或權限。沒有把啟動程序、逾時或模型意見算成完成／測試證據。
+
+新增 [私人 HTTP factory](../../../../modules/autopilot-work/http-transport.md)：Work create/edit/archive、本人 list/detail、人工 Result list/current/history；重用真實 cookie/CSRF/onboarding、scoped commands、085 policy 及共用 Asset/Result 服務。嚴格驗實際 UTF-8 bytes、重複 JSON keys、Idempotency-Key 與版本；HEAD 仍完整驗權，Range/conditional 不繞過 ACL。正式 app 沒有 import/mount 此 factory，也沒有 upload／分享／AI 或私人寫入啟用。
+
+共用 member middleware 保留既有授權順序及 onboarding 例外。Grok 指出的空 CSRF 邊界經 schema／真實 session 重現：舊表只要求 NOT NULL，空 token 可與缺少 header 作零長度比對。新增非空字串 guard，正式 app 與封閉 factory 的反例和正常登入控制均通過。列表參數由既有 strict validator 檢查，archive 缺版本由既有 `checkVersion` 回 428；Result identity/object metadata 不可更新，政策改動強制增加 revision。這些已存在的保護沒有因文字審查而重造。
+
+[固定行為 harness](../../../../packages/contribution-tools/behavior-harness.md) 對六條既有 route 執行 27 個 host 固定 request/assertion，前後綁定候選／workflow／harness／fixture，限制 response bytes、headers、chunks 及合作式 timeout。不接受 candidate 的測試清單或 passed 報告。成功 observation 不包含 cookie／CSRF／私人正文，也不授予執行、合併或發布權限；真實 transport 認證、隔離與 publisher 仍缺。
+
+獨立反例先重現六個漏檢，再原樣複驗修正：空清單額外 objective／Work ID、Unicode escaped problem 內容、HEAD private header、header／body credential echo。改為精確清單 DTO、decoded JSON 及有界 header sentinel 檢查；不宣稱可抓任意編碼側通道。Auth-negative avatar/remove 另保留獨立缺少版本條件，避免只要 auth 回歸就刪除 fixture。作者 10 加獨立 35 項工具測試通過；真正 createApp + 隔離 PostgreSQL 的 27 個請求也通過，頭像 bytes／version 與 command facts 不變。
+
+固定驗證版本 `ead11c321337a90a0959f9ae386aa088fa58ae12`。對真正 `origin/main` 的 prepare／verify 實跑完整 runtime **1,437/1,437（114 files）**、治理 **241/241（10 files）**，0 failed/skipped/cancelled；runtime 子集合不另加總。新增兩份 HTTP suite 及 actual-app smoke 均納入 protected baseline，descriptor 不把未掛載 factory 宣稱為正式 surface。初次 prepare 抓到根整合者把 instruction 放在不允許的 app 路徑，將文件搬回其 module 並修正連結後重跑，沒有放寬路徑保護。最終仍 exit 2、local unavailable，保留 baseline governance、surface mapping 與 registration behavior audit 三個缺口。
+
+TypeScript 7、前端 build、三類 Worker 的全部環境 dry-run、common/execution 生成 bytes 通過；build 仍有既有大型 chunk 警告。重新建好的 Worker 回歸 **28/28**、公開 preflight **107/107**，均無 skip；既有契約 **659 passed、4 個原有 clock cases skipped**。没有改 migration 或 manifest，076–085 仍是未合併暫用號，last=85、known_gaps=`[22]`。
+
+新 build 的 Chromium 瀏覽器回歸 **23/23**：頭像預覽／儲存／移除、名片 autosave／版本衝突、會員連線／公開分享撤銷，約 1.1 分鐘。只使用合成會員與本輪隔離 schema，無 UI 改動；不把這 23 項當成新增私人草稿 UI 驗收。
+
+部分平行 PG suite 的 assertion 通過後，schema teardown 曾因 `53200 max_locks_per_transaction` 失敗；那些執行不算通過。後續改為序列重跑，再取得上述完整主整合證據；未修改正式 DB 或容器參數來掩蓋失敗。所有資料均屬本輪 network-none／tmpfs disposable PG18.6 與合成 `fp_*` schema/db。
+
+收尾查核沒有其他 client、`fp_*` role 或子資料庫，僅留一次失敗 teardown 的合成 Result schema；核對容器 ID／task label 後，停止並移除本輪容器及空 socket 目錄，該殘留合成資料一併清除，可由測試重建。程式、worktrees 與 ignored 報告保留，沒有殘留本輪 Worker proxy／瀏覽器 server／CLI 審查程序。遠端 main 再查仍 `3de70cc`；未 push、開 PR、merge、部署、處理其他 PR 或啟用正式清理。備份政策仍另確認。
+
+最終 inventory：**1,223 file hashes、696 本機文件／目錄連結、0 failures**，diff check 通過。文件分開保留本機實作、合成測試、進度估算與正式驗收缺口；原始產品驗收仍未改成 PASS。
 
 ## 尚未交付
 
