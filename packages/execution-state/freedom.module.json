@@ -1,0 +1,14 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "execution-decision",
+  "owner_role": "foundation",
+  "owned_paths": ["packages/execution-state/**", "contracts/execution/**", "tests/runtime/execution-state.test.ts", "tests/runtime/execution-state-adversarial.test.ts"],
+  "public_exports": ["packages/execution-state/index.ts", "contracts/execution/v1/state.ts"],
+  "dependencies": ["resource-scopes"],
+  "contract_families": ["common", "execution-decision"],
+  "client_profiles": [],
+  "instructions": ["packages/execution-state/README.md", "contracts/common/README.md", "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md"],
+  "invariants": ["hypothetical-decision-not-authority", "immutable-attempt-bindings", "independent-fencing-domains", "unknown-effects-and-usage-retained", "human-control-without-provider-health", "no-secrets-in-artifacts"],
+  "tests": ["runtime.full"],
+  "surfaces": []
+}

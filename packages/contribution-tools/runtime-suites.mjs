@@ -24,7 +24,7 @@ admin-access-session admin-access-sync admin-access admin-appointments admin-gui
 agent-commerce asset-engine asset-lifecycle-races asset-lifecycle asset-maintenance asset-r2 asset-storage avatar avatar-bridge
 avatar-command-compat avatar-upload benefits client-connections co-creation
 command-core commerce development-access-grant-race development-access development-map e2e-auth-isolation
-event-highlights events-past flows freedom_env game-console-feed game-console-routing game-console
+event-highlights events-past execution-state execution-state-adversarial flows freedom_env game-console-feed game-console-routing game-console
 github-app-setup github-history github-identity github-repository-read github-social-routes github-social-store
 github-social github-sync guild-entry-questions guild-experts guild-member-tiers guild-preferences guild-profile
 guild-workspace identity-member image-cloudflare image-runtime link-preview maintainer-worker member-channel-access

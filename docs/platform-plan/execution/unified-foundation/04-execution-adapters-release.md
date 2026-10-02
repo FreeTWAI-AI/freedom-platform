@@ -1,6 +1,12 @@
 # 執行端與發布收尾規格
 
-Spec ID：`UF-SPEC-EXEC-OPS`；狀態：`design-with-explicit-dependencies`。來源：U3/U5/U6/U7/UX、CG-G、統一計畫 §04、08–16、18、29–30。本規格固定共用執行/發布邊界；AP/R2 原文已補齊，詳細 API/瀏覽器見 [BROWSER](06-browser-runtime.md)，七類搬遷見 [MEDIA](05-media-migration.md)。实际 source audit、capability 與 cloud/restore 證據仍由對應實作 PR 完成。
+Spec ID：`UF-SPEC-EXEC-OPS`；狀態：`local-decision-kernel-only`。來源：U3/U5/U6/U7/UX、CG-G、統一計畫 §04、08–16、18、29–30。本規格固定共用執行/發布邊界；AP/R2 原文已補齊，詳細 API/瀏覽器見 [BROWSER](06-browser-runtime.md)，七類搬遷見 [MEDIA](05-media-migration.md)。實際 runtime、capability 與 cloud/restore 證據仍由對應實作 PR 完成。
+
+## 已有本機增量與界線
+
+[Execution decision kernel](../../../../packages/execution-state/README.md) 已提供嚴格 schema、生成 JSON Schema、有界 decoder、狀態轉移與反例。它只計算 caller 宣告之事實的假設結果：所有回覆均為 `hypothetical_decision_only`／`operational_authority=false`，activation 固定 unavailable。沒有可信時間、身分／Grant 驗證、durable Run、SQL／HTTP、provider 或 dispatch，不接受其輸出作權限憑證。
+
+具體 enum、轉移矩陣及三層驗證邊界見該 README；`npm run check:execution-contracts` 驗生成 bytes。舊 dispatch 的 recovery generation 與 task/control epochs 分別檢查，Stop 不要求模型健康；遲到 evidence 只能保留觀察，不能恢復 dispatch 或產生 Result。084 的人工 Result 不可作模型成果捷徑，仍須未來 typed attempt/Grant provenance 與 authenticated atomic adapter。下列正式產品規格與未解除依賴維持不變。
 
 ## 最小 execution 核心
 

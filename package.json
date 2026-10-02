@@ -31,6 +31,8 @@
     "contracts:build": "node scripts/build-contract-bundle.mjs",
     "contracts:common": "tsx scripts/build-common-contracts.ts",
     "check:common-contracts": "tsx scripts/build-common-contracts.ts --check",
+    "contracts:execution": "tsx packages/execution-state/generate.ts",
+    "check:execution-contracts": "tsx packages/execution-state/generate.ts --check",
     "test:repos": "tsx --test --test-concurrency=1 tests/integration/repositories.test.ts",
     "check:skill-book-upstreams": "tsx scripts/check-skill-book-upstreams.ts"
   },
