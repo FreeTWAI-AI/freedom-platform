@@ -24,6 +24,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test --test-concurrency=1 tests/runtime/*.test.ts",
     "test:skill-client": "node --test packages/skill-upload-client/test/*.test.mjs",
+    "test:governance": "node --test packages/contribution-tools/test/*.test.mjs",
     "test:e2e": "playwright test",
     "test:contracts": "python3 -m pytest -q -p no:cacheprovider docs/platform-plan/contracts/tests docs/platform-plan/execution/tools/tests",
     "verify:inventory": "python3 docs/platform-plan/verification/verify_revision.py",

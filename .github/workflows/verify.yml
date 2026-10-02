@@ -51,6 +51,7 @@ jobs:
       - run: npm run test:worker
       - run: npm test
       - run: npm run test:skill-client
+      - run: npm run test:governance
       - run: node scripts/checkout-repositories.mjs
         env:
           FREEDOM_REPOSITORIES_ROOT: ${{ runner.temp }}/freedom-consumers

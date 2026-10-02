@@ -14,8 +14,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 2664,
-      "sha256": "dcad3f3fd60bc609791a1e1e1cad681e12d1f23a9dfea7f34e41a07d5708c722"
+      "bytes": 2701,
+      "sha256": "965542c5e2819dfa0e90930442ab154643747f564818efa99d03dd256c451d69"
     },
     {
       "path": ".gitignore",
@@ -1509,8 +1509,8 @@
     },
     {
       "path": "contracts/README.md",
-      "bytes": 1792,
-      "sha256": "cff4b66c62613600b0c00dad995608297689931f73a6ef9153f5db186494d301"
+      "bytes": 2251,
+      "sha256": "532a2b782f4e237d4b2d373f3d15f46c6cda062af18f22929682c61adfd40998"
     },
     {
       "path": "contracts/preview/v1/bundle.json",
@@ -3074,8 +3074,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/01-contracts-and-governance.md",
-      "bytes": 13331,
-      "sha256": "33896f3d40a9364245dc1a4c0347c8d30cfafd79af558ea5ed244e27b48a2fe9"
+      "bytes": 13522,
+      "sha256": "80808c947f4ae4ce76bea162f66441d9430888cb970612706cd4c4b64ee45c30"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
@@ -3191,6 +3191,51 @@
       "path": "freedom.project.yaml",
       "bytes": 5948,
       "sha256": "0cba297f5db8c901a92af3296233e229af4362d49c9185aa459a1c81cdefd481"
+    },
+    {
+      "path": "governance/README.md",
+      "bytes": 6030,
+      "sha256": "aa6f44d422c48438b60b3f9b6523b4e6fb13372325f4b43cebf72317aaa87eb5"
+    },
+    {
+      "path": "governance/schemas/coding-context.schema.json",
+      "bytes": 3367,
+      "sha256": "fc574ceda8fda2ab73a5bba4fa8e5ba69c7049ac9d9f2bcbf27bf51038209642"
+    },
+    {
+      "path": "governance/schemas/contract-pin-v1.schema.json",
+      "bytes": 965,
+      "sha256": "eca4b4bae1daee70d37cda9695f9d2b3bd5d7d9db2f3234f3e8de53f9b431215"
+    },
+    {
+      "path": "governance/schemas/contract-pin-v2.schema.json",
+      "bytes": 2302,
+      "sha256": "eec1edf2c088eb991bf53386bef92e33f85a73b71c9b5e5b882bcc5c0d65aaa8"
+    },
+    {
+      "path": "governance/schemas/module.schema.json",
+      "bytes": 4448,
+      "sha256": "c00b6fca6a5abd3b777bac9c9eca5a0ddba0382a0972362ef9543fbd7766aedb"
+    },
+    {
+      "path": "governance/schemas/release-proof.schema.json",
+      "bytes": 1045,
+      "sha256": "5f8a97cea67f6a2580970f3eab938c276f9ad2ff5163300b486f1efd3312228d"
+    },
+    {
+      "path": "governance/schemas/release-set.schema.json",
+      "bytes": 6471,
+      "sha256": "ad29e66838edce175ce0700a0232a2fdd7a42d6c88c66d685ed4bce58213e477"
+    },
+    {
+      "path": "governance/schemas/release-trust.schema.json",
+      "bytes": 3673,
+      "sha256": "1daace63d5673ecfe8f61c7ee583b10035740151ee228ebc5bbbbbb6afc9dd28"
+    },
+    {
+      "path": "governance/schemas/verifier-report.schema.json",
+      "bytes": 2449,
+      "sha256": "31dbb13fd34053e0ddef73b7e9419c058aa9df4da04e83a0f59fa3cdbc1e1d95"
     },
     {
       "path": "migrations/001_local_core.sql",
@@ -4219,8 +4264,8 @@
     },
     {
       "path": "package.json",
-      "bytes": 3340,
-      "sha256": "606a1c5638e931adb06cc03eb41d3b7e30ac04fdd6d9325ffc25969cc69971d1"
+      "bytes": 3422,
+      "sha256": "749262998bd1c0495b6347e95b66c0b4b0180249241ff796b34cf14bafa5bea9"
     },
     {
       "path": "packages/client-connections/cli.mjs",
@@ -4231,6 +4276,61 @@
       "path": "packages/client-connections/read-client.mjs",
       "bytes": 4020,
       "sha256": "b47e3449b7415b097e14ef75bd750a3c8bee893eb11b78aa3de0f794cdf4782d"
+    },
+    {
+      "path": "packages/contribution-tools/contracts.mjs",
+      "bytes": 13521,
+      "sha256": "b93c38fafc5c18de401236efee247980e75e26d58f9cd627eaaf6ff897efb3ca"
+    },
+    {
+      "path": "packages/contribution-tools/errors.mjs",
+      "bytes": 638,
+      "sha256": "70f9f61ff5780fcbb85a01bd56f5ae873d88ed56fe446dca461f0a1dd5644ea7"
+    },
+    {
+      "path": "packages/contribution-tools/export.mjs",
+      "bytes": 4322,
+      "sha256": "b1810fedfeb2951090ed7c55ef469a1fa7e3f28c9ea33d836b9fb5d871896b55"
+    },
+    {
+      "path": "packages/contribution-tools/formats.mjs",
+      "bytes": 1280,
+      "sha256": "45c9e1eedfa877b47869556322b8e0d9cb7de1183152eefdd9f998395db0dde4"
+    },
+    {
+      "path": "packages/contribution-tools/io.mjs",
+      "bytes": 9366,
+      "sha256": "72f7efa4d7e7f068dd7dc34641eb5ba743c39a49630121a512ea665321b70c00"
+    },
+    {
+      "path": "packages/contribution-tools/pin-cli.mjs",
+      "bytes": 911,
+      "sha256": "1127a18c1ad53bc5b03d4be5f7e671a770fd0e2713bd35fc9272b42244646092"
+    },
+    {
+      "path": "packages/contribution-tools/schema.mjs",
+      "bytes": 2668,
+      "sha256": "d49f73c04dffd77f6b4805b4978e174a0a2b380dd622a73fdeb09c64164b55a2"
+    },
+    {
+      "path": "packages/contribution-tools/test/contracts.test.mjs",
+      "bytes": 15071,
+      "sha256": "e9a95b08e2386c6b9e50e625b9230b725ae0830f0cfc4c8497ed2862d7f63f3c"
+    },
+    {
+      "path": "packages/contribution-tools/test/export.test.mjs",
+      "bytes": 3266,
+      "sha256": "2a3d9b5e5c4208282e0a428e37f30f8e68ca7aeb7a7f8bdda7cbbfca4287da8a"
+    },
+    {
+      "path": "packages/contribution-tools/test/fixtures.mjs",
+      "bytes": 5230,
+      "sha256": "af8090248c18b785b7c9a9e44d37bcffe79d27bdab00a36830727fdb81e9a6fb"
+    },
+    {
+      "path": "packages/contribution-tools/test/io.test.mjs",
+      "bytes": 5714,
+      "sha256": "a400de3901b8fa961696c19915cfede02284218ef45813abfd9c0f4c824474db"
     },
     {
       "path": "packages/db/index.ts",
@@ -4449,8 +4549,8 @@
     },
     {
       "path": "scripts/export-contract-bundle.mjs",
-      "bytes": 1976,
-      "sha256": "1174cd2f3080e142ee03cd48180a400aee3fa808b8a9bfa90e093cfae1d62c84"
+      "bytes": 421,
+      "sha256": "2ff9bd0082a126b87e12d08b970cccc7698d8da658b598b8d2c8324a8b7f2623"
     },
     {
       "path": "scripts/generate-runtime-text.mjs",
@@ -4469,8 +4569,8 @@
     },
     {
       "path": "scripts/repository-bootstrap/verify-contracts.mjs",
-      "bytes": 2611,
-      "sha256": "ce87d3dfe76c8dd095c5db65bb6ddaee6ebce177e1f3d8ac19b55cfdb03a4cbf"
+      "bytes": 224,
+      "sha256": "4639339f8e0a865ab478a93ef7b7240d5a4c728a54631db17f393fc9155d5a71"
     },
     {
       "path": "scripts/repository-bootstrap/verify-project-manifest.py",

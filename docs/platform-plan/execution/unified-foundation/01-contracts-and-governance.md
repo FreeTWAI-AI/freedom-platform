@@ -21,7 +21,7 @@ Spec ID：`UF-SPEC-GOV`；狀態：`draft-ready-local`。來源：統一計畫 �
 | support metadata | release set digest、支援期間、撤銷/最低安全版本、revision、到期時間 | 由獨立可信更新來源發布；不改已發布 manifest bytes |
 | contracts.lock v2 | exact ReleaseSet ref/digest、artifact pins、producer SHA、格式版本 | 固定 checkout 的內容；不當部署紀錄 |
 
-Manifest 的 JSON canonicalization 及 proof wire format 必須由中央 schema 與受審標準 library 固定；實作 PR 提供選型、固定版本及正反向 vectors。這個新 digest namespace 不得改寫既有 preview hash 或 SQL `digest(sql)`。
+首批本機實作固定 ReleaseSet 為 `sha256-exact-bytes/v1`，簽署 domain-separated 的原始 UTF-8 manifest bytes，使用 Node 24 原生 Ed25519；deterministic authoring 對 key 排序，但不宣稱是 JCS。此選擇與向量見 [治理實作](../../../../governance/README.md)。未來 execution 的 JCS/JOSE profile 另定；不改既有 preview hash 或 SQL `digest(sql)`。目前只有 fixture keys，尚未配置正式 publisher。
 
 Reader 必須同時支援 v1 與 v2。v1 走原有 preview 驗證，報告 `legacy_preview`；不能聲稱已有可信 ReleaseSet 發布，更不能換得 execution 權限。原 v1 檔案與 bundle 無變動時，build 不得造成無關的重新生成差異。
 

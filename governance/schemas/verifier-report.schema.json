@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freetwai.com/contracts/governance/verifier-report/v1",
+  "title": "Freedom verifier-report development schema",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "freedom.verifier-report/v1"
+    },
+    "assurance_level": {
+      "const": "local"
+    },
+    "repository": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._/-]*$"
+    },
+    "base_commit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "head_commit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "workspace_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "failed",
+        "unavailable"
+      ]
+    },
+    "scope": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160,
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._/-]*$"
+      },
+      "minItems": 0,
+      "maxItems": 1024,
+      "uniqueItems": true
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "check_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._/-]*$"
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "failed",
+              "not_run"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._/-]*$"
+          }
+        },
+        "required": [
+          "check_id",
+          "status",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 1024
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160,
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._/-]*$"
+      },
+      "minItems": 0,
+      "maxItems": 1024,
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "format",
+    "assurance_level",
+    "repository",
+    "base_commit",
+    "head_commit",
+    "workspace_sha256",
+    "status",
+    "scope",
+    "checks",
+    "blockers"
+  ],
+  "additionalProperties": false
+}

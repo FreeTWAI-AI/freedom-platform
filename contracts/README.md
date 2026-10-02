@@ -6,6 +6,8 @@ The full production planning contracts remain authored once in `docs/platform-pl
 
 Consumers pin a full `freedom-platform` commit and bundle SHA-256 in `contracts.lock.json`. The copied verifier checks every artifact locally and, with `--remote`, against that exact GitHub source. This proves byte identity, not official approval or release status. A contract change requires deliberate regeneration, review, updated pins and producer/consumer tests.
 
+New exports use a thin entrypoint backed by the shared contribution-tools implementation. Existing v1 pins and preview bytes remain valid; v2 ReleaseSet verification requires independently supplied publisher approval. The [governance implementation](../governance/README.md) documents the exact-byte signature profile and evidence limits. Adding governance schemas does not publish a production contract or require existing consumers to upgrade immediately.
+
 Current HTTP transport: JSON over HTTPS (HTTP loopback for development), `/api/v1`, member cookie + CSRF + exact Origin, explicit `Idempotency-Key`, quoted integer `If-Match`, structured problem responses. Native SDK writes never retry themselves or follow redirects. Protocol hash negotiation rejects version skew before mutation. No secrets belong in a manifest, bundle, URL, generated page or frontend build.
 
 Public storefront purpose tokens, agent device flow, leased workers, provider credentials, callbacks and signed project status remain separate production contracts. This preview must not claim those APIs already exist or relax the Portal's CORS/session protections to simulate them.
