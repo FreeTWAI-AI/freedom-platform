@@ -14,6 +14,11 @@ export interface MemberScopeContext {
   readonly subject_principal: Readonly<PrincipalRef>;
   readonly scope: Readonly<ResourceScopeRef>;
 }
+export interface MemberScopeInput {
+  actor: Actor;
+  scope: MemberScopeKind | ResourceScopeRef;
+  lockUser?: boolean;
+}
 
 async function ensurePrincipal(q: PoolClient, userId: string, created?: Created): Promise<PrincipalRow> {
   let row = (await q.query<PrincipalRow>("SELECT principal_id,kind,status FROM principals WHERE user_ref=$1 FOR SHARE", [userId])).rows[0];
@@ -56,26 +61,37 @@ export function requireSameScope(expected: ResourceScopeRef, actual: unknown): v
  * this wrapper to bypass command(). No network I/O in either callback.
  */
 export async function withMemberScope<T>(pool: Pool,
-  input: { actor: Actor; scope: MemberScopeKind | ResourceScopeRef; lockUser?: boolean },
+  input: MemberScopeInput,
   authorize: (q: PoolClient, context: MemberScopeContext) => Promise<unknown>,
   run: (q: PoolClient, context: MemberScopeContext) => Promise<T>): Promise<T> {
   const requested = typeof input.scope === 'string' ? null : ResourceScopeRefSchema.parse(input.scope);
   const kind = typeof input.scope === 'string' ? input.scope : requested!.kind;
   requireCondition(kind === 'personal' || kind === 'community', 403, 'scope_kind_unavailable', '這種資源範圍尚未開放。');
   return transaction(pool, async q => {
-    await lockMemberSession(q, input.actor, input.lockUser);
-    const principal = await ensurePrincipal(q, input.actor.user_id);
-    requireCondition(principal.status === 'active', 403, 'principal_disabled', '這個身分目前無法使用。');
-    const scope = await ensureScope(q, kind, kind === 'personal' ? principal.principal_id : input.actor.community_id);
-    const ref = ResourceScopeRefSchema.parse({ scope_id: scope.scope_id, kind: scope.kind });
-    if (requested) requireSameScope(ref, requested);
-    requireCondition(scope.status === 'active', 403, 'scope_disabled', '這個資源範圍目前無法使用。');
-    const context = Object.freeze({ authn_kind: 'member_session' as const,
-      subject_principal: Object.freeze(PrincipalRefSchema.parse({ principal_id: principal.principal_id, kind: principal.kind })),
-      scope: Object.freeze(ref) });
+    const context = await lockMemberScope(q, { ...input, scope: requested ?? kind });
     await authorize(q, context); // A scope never substitutes for domain ACL.
     return run(q, context);
   });
+}
+
+/** Resolve/lock current authority on the caller's existing transaction client.
+ * Does not begin a transaction, authorize a target, or read/write receipts.
+ * Caller must maintain user -> session -> principal -> scope -> domain order.
+ */
+export async function lockMemberScope(q: PoolClient, input: MemberScopeInput): Promise<MemberScopeContext> {
+  const requested = typeof input.scope === 'string' ? null : ResourceScopeRefSchema.parse(input.scope);
+  const kind = typeof input.scope === 'string' ? input.scope : requested!.kind;
+  requireCondition(kind === 'personal' || kind === 'community', 403, 'scope_kind_unavailable', '這種資源範圍尚未開放。');
+  await lockMemberSession(q, input.actor, input.lockUser);
+  const principal = await ensurePrincipal(q, input.actor.user_id);
+  requireCondition(principal.status === 'active', 403, 'principal_disabled', '這個身分目前無法使用。');
+  const scope = await ensureScope(q, kind, kind === 'personal' ? principal.principal_id : input.actor.community_id);
+  const ref = ResourceScopeRefSchema.parse({ scope_id: scope.scope_id, kind: scope.kind });
+  if (requested) requireSameScope(ref, requested);
+  requireCondition(scope.status === 'active', 403, 'scope_disabled', '這個資源範圍目前無法使用。');
+  return Object.freeze({ authn_kind: 'member_session' as const,
+    subject_principal: Object.freeze(PrincipalRefSchema.parse({ principal_id: principal.principal_id, kind: principal.kind })),
+    scope: Object.freeze(ref) });
 }
 
 /** No credentials, email matching or permission writes. Disabled rows count as
