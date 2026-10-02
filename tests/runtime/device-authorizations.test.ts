@@ -216,3 +216,104 @@ test('DEVICE-11 malformed/getter input and extra authority fields fail before ex
   await assert.rejects(createDeviceAuthorizations(app, options)); assert.equal(accessed, false);
   assert.equal((await owner.query('SELECT count(*)::int n FROM device_authorizations')).rows[0].n, 0);
 });
+test('DEVICE-12 concurrent begin admission retains exactly four live requests per key', async () => {
+  const f = await fixture(), inputs = await Promise.all(Array.from({ length: 6 }, () => beginInput(f)));
+  const results = await Promise.allSettled(inputs.map(input => f.api.begin(input)));
+  assert.equal(results.filter(result => result.status === 'fulfilled').length, 4);
+  for (const result of results) if (result.status === 'rejected') assert(problem(429, 'device_authorization_limit')(result.reason));
+  assert.equal((await owner.query('SELECT count(*)::int n FROM device_authorizations')).rows[0].n, 4);
+});
+test('DEVICE-13 concurrent actual exchanges release exactly one token and one durable backing set', async () => {
+  const f = await fixture(), started = await start(f); await approve(f, started);
+  const enrollment = await enrolledProof(f, started); await waitPoll(started);
+  const inputs = await Promise.all(Array.from({ length: 4 }, () => pollInput(f, started, {}, enrollment.proof)));
+  const results = await Promise.allSettled(inputs.map(input => f.api.poll(input)));
+  assert.equal(results.filter(result => result.status === 'fulfilled' && result.value.status === 'issued').length, 1);
+  assert.deepEqual((await counts()).slice(0, 4), [1,1,1,1]);
+  assert.equal((await owner.query('SELECT count(*)::int n FROM device_poll_proofs WHERE exchange_challenge_id IS NOT NULL')).rows[0].n, 1);
+  await assert.rejects(start(f), invalid, 'a completed key cannot silently re-pair into a new runtime');
+});
+test('DEVICE-14 standalone 087 enrollment remains unaffected by linked-challenge guard', async () => {
+  const f = await fixture(), registry = createRuntimeRegistrations(app, { environment: 'local' });
+  const challenge = await registry.begin(f.actor, { key: randomUUID(), publicJwk: f.publicJwk });
+  const proof = await new CompactSign(new TextEncoder().encode(challenge.payload))
+    .setProtectedHeader({ alg: 'ES256', typ: 'freedom-runtime-enrollment+jws' }).sign(f.device.privateKey);
+  assert.equal((await registry.confirm(f.actor, { key: randomUUID(), challengeId: challenge.challenge_id, proof })).state, 'enrolled');
+  assert.equal((await owner.query('SELECT count(*)::int n FROM device_authorizations')).rows[0].n, 0);
+});
+test('DEVICE-15 exchange marker cannot commit as an unused permit', async () => {
+  const f = await fixture(), started = await start(f); await approve(f, started);
+  const challenge = (await owner.query('SELECT challenge_id FROM device_authorizations')).rows[0].challenge_id;
+  const q = await app.connect();
+  try {
+    await q.query('BEGIN');
+    await q.query("INSERT INTO device_poll_proofs(authorization_id,proof_jti,accepted_at,exchange_challenge_id) VALUES($1,$2,date_trunc('milliseconds',clock_timestamp()),$3)",
+      [started.authorizationId, randomUUID(), challenge]);
+    await assert.rejects(q.query('COMMIT'), sqlCode('23514'));
+  } finally { await q.query('ROLLBACK'); q.release(); }
+  assert.equal((await owner.query('SELECT count(*)::int n FROM device_poll_proofs')).rows[0].n, 0);
+});
+
+// Trusted fixture-only SQL fills retained capacity without pretending these
+// synthetic requests passed cryptographic admission. Guards stay enabled.
+async function quotaRows(started: DeviceAuthorizationBeginResult, count: number, sameKey: boolean) {
+  await owner.query(`INSERT INTO device_authorizations
+    (authorization_id,environment,client_id,client_display_name,runtime_kind,public_jwk,key_thumbprint,begin_jti,
+      device_code_hash,device_code_wire_hash,user_code_hash,nonce,request_digest,issued_at,expires_at)
+    SELECT gen_random_uuid(),environment,client_id,client_display_name,runtime_kind,public_jwk,
+      CASE WHEN $3 THEN key_thumbprint ELSE translate(rtrim(encode(sha256(convert_to('quota-key-'||n,'UTF8')),'base64'),'='),'+/','-_') END,
+      'quota_seed_'||lpad(n::text,10,'0'),md5('device-'||n)||md5('device-extra-'||n),device_code_wire_hash,
+      md5('user-'||n)||md5('user-extra-'||n),nonce,request_digest,issued_at,expires_at
+    FROM device_authorizations CROSS JOIN generate_series(1,$2::int) n WHERE authorization_id=$1`, [started.authorizationId, count, sameKey]);
+}
+async function denyQuotaRows(f: Fixture) {
+  await owner.query(`UPDATE device_authorizations SET state='denied',owner_user_id=$1,owner_principal_id=$2,scope_id=$3,
+    decided_at=date_trunc('milliseconds',clock_timestamp()) WHERE state='pending'`, [f.actor.user_id, f.context.subject_principal.principal_id, f.context.scope.scope_id]);
+}
+test('DEVICE-16 denied history still counts toward per-key lifetime32', async () => {
+  const f = await fixture(), started = await start(f); await quotaRows(started, 31, true); await denyQuotaRows(f);
+  await assert.rejects(start(f), problem(429, 'device_authorization_limit'));
+  assert.equal((await owner.query('SELECT count(*)::int n FROM device_authorizations')).rows[0].n, 32);
+});
+test('DEVICE-17 global live1000 cannot be bypassed by changing device key', async () => {
+  const f = await fixture(), started = await start(f); await quotaRows(started, 999, false);
+  const peer = await fixture(); await assert.rejects(start(peer), problem(429, 'device_authorization_limit'));
+  await denyQuotaRows(f); assert.equal((await start(peer)).expiresIn, 300, 'terminal requests no longer count as live');
+});
+test('DEVICE-18 global lifetime10000 includes denied requests across keys', async () => {
+  const f = await fixture(), started = await start(f); await quotaRows(started, 9999, false); await denyQuotaRows(f);
+  const peer = await fixture(); await assert.rejects(start(peer), problem(429, 'device_authorization_limit'));
+  assert.equal((await owner.query('SELECT count(*)::int n FROM device_authorizations')).rows[0].n, 10000);
+});
+test('DEVICE-19 sixty-four retained poll JTIs exhaust one authorization without consuming it', async () => {
+  const f = await fixture(), started = await start(f);
+  await owner.query(`INSERT INTO device_poll_proofs(authorization_id,proof_jti,accepted_at)
+    SELECT $1,'quota_poll_'||lpad(n::text,10,'0'),date_trunc('milliseconds',clock_timestamp()) FROM generate_series(1,64) n`, [started.authorizationId]);
+  await assert.rejects(f.api.poll(await pollInput(f, started)), invalid);
+  assert.equal((await owner.query('SELECT state FROM device_authorizations')).rows[0].state, 'pending');
+  assert.equal((await owner.query('SELECT count(*)::int n FROM device_poll_proofs')).rows[0].n, 64);
+});
+test('DEVICE-20 low-privilege SQL cannot bypass required decision timestamp through NULL/precision/infinity', async () => {
+  const f = await fixture(), started = await start(f);
+  for (const expression of ["NULL", "date_trunc('milliseconds',clock_timestamp())-interval '0.0001 second'", "'-infinity'::timestamptz", "'infinity'::timestamptz"]) {
+    await assert.rejects(app.query(`UPDATE device_authorizations SET state='denied',owner_user_id=$2,owner_principal_id=$3,scope_id=$4,
+      decided_at=${expression} WHERE authorization_id=$1`, [started.authorizationId, f.actor.user_id, f.context.subject_principal.principal_id, f.context.scope.scope_id]), sqlCode('23514'));
+  }
+  assert.equal((await owner.query('SELECT state FROM device_authorizations')).rows[0].state, 'pending');
+});
+test('DEVICE-21 SQL CHECK rejects NULL consumed_at even after BEFORE guards validated a real exchange', async () => {
+  const f = await fixture(), started = await start(f); await approve(f, started);
+  const enrollment = await enrolledProof(f, started); await waitPoll(started);
+  // Trusted fixture fault runs after preserve_device_authorization, isolating
+  // the CHECK's three-valued-logic boundary without disabling any guard.
+  await owner.query(`CREATE FUNCTION null_device_consumption() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN
+    IF NEW.state='consumed' THEN NEW.consumed_at=NULL; END IF; RETURN NEW; END$$;
+    CREATE TRIGGER zzz_null_device_consumption BEFORE UPDATE ON device_authorizations FOR EACH ROW EXECUTE FUNCTION null_device_consumption()`);
+  try {
+    await assert.rejects(f.api.poll(await pollInput(f, started, {}, enrollment.proof)), invalid);
+    assert.deepEqual((await counts()).slice(0, 4), [1,0,0,0]);
+    assert.equal((await owner.query('SELECT state FROM device_authorizations')).rows[0].state, 'approved');
+    assert.equal((await owner.query('SELECT count(*)::int n FROM device_poll_proofs WHERE exchange_challenge_id IS NOT NULL')).rows[0].n, 0);
+  } finally { await owner.query('DROP TRIGGER zzz_null_device_consumption ON device_authorizations; DROP FUNCTION null_device_consumption()'); }
+  assert.equal((await f.api.poll(await pollInput(f, started, {}, enrollment.proof))).status, 'issued');
+});

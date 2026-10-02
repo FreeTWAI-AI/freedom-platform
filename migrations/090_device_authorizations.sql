@@ -33,8 +33,10 @@ CREATE TABLE device_authorizations (
   FOREIGN KEY(scope_id,scope_kind,owner_principal_id) REFERENCES resource_scopes(scope_id,kind,owner_principal_id),
   CHECK((state='pending' AND owner_user_id IS NULL AND owner_principal_id IS NULL AND scope_id IS NULL AND decided_at IS NULL AND challenge_id IS NULL)
     OR (state IN ('approved','denied','consumed') AND owner_user_id IS NOT NULL AND owner_principal_id IS NOT NULL AND scope_id IS NOT NULL
+      AND decided_at IS NOT NULL AND isfinite(decided_at) AND decided_at=date_trunc('milliseconds',decided_at)
       AND decided_at>=issued_at AND decided_at<expires_at AND ((state='denied' AND challenge_id IS NULL) OR (state<>'denied' AND challenge_id IS NOT NULL)))),
-  CHECK((state='consumed' AND consumed_at>=decided_at AND consumed_at<expires_at AND connection_id IS NOT NULL AND bootstrap_nonce_id IS NOT NULL AND token_jti IS NOT NULL)
+  CHECK((state='consumed' AND consumed_at IS NOT NULL AND isfinite(consumed_at) AND consumed_at=date_trunc('milliseconds',consumed_at)
+    AND consumed_at>=decided_at AND consumed_at<expires_at AND connection_id IS NOT NULL AND bootstrap_nonce_id IS NOT NULL AND token_jti IS NOT NULL)
     OR (state<>'consumed' AND consumed_at IS NULL AND connection_id IS NULL AND bootstrap_nonce_id IS NULL AND token_jti IS NULL))
 );
 CREATE INDEX device_authorizations_capacity ON device_authorizations(environment,key_thumbprint,expires_at);
