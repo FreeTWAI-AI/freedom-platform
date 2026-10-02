@@ -1625,7 +1625,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30575,
-      "sha256": "8e59966013b36dd0addc1b5b606594e522714a2061235f8ef168d024c33ce41b"
+      "sha256": "0c788dfffb49ac09095a1bb7de5149ad455c123948515c2dfcc3de8667632faf"
     },
     {
       "path": "deploy/cloudflare/lib/cloudflare.mjs",
@@ -1674,8 +1674,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 12572,
-      "sha256": "bb04fdf44fce246587a56288ae907074e8620cec42097cb2d9f3469ba23d3537"
+      "bytes": 15028,
+      "sha256": "367befc58d1a1cb7f5f1734b7918bfa395202f4249236950e7aee9df2b8c2457"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -1689,8 +1689,8 @@
     },
     {
       "path": "deploy/cloudflare/release-compatibility.md",
-      "bytes": 11226,
-      "sha256": "d4af64434b791bc09de028fd8be95ae8015d552af8134118c97d2ed9ef157fe7"
+      "bytes": 16253,
+      "sha256": "dcce24604c37ce258e568ad7420b1bcb6d5d9fb76ab0909d98ebc4428e030e72"
     },
     {
       "path": "deploy/cloudflare/sql/10-create-roles.psql",
@@ -1714,13 +1714,23 @@
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility-adversarial.test.mjs",
-      "bytes": 9136,
-      "sha256": "90e98e998bc4b3c163dcd9cad7cc458aa09a75db3cdc8a1dce175642c0949a48"
+      "bytes": 9433,
+      "sha256": "97fc4b3a107213b54ea94c1d97b209f01f2c765789581cf6749adb5f025f5772"
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
-      "bytes": 15250,
-      "sha256": "34bfad4f49e27cd87f496afcc51cb62dea95893711c03bc9913b5b0937afe483"
+      "bytes": 21415,
+      "sha256": "b95a9a7e0e0a21841d84f9c042b94f49717a6264ccb27f4c006b7cc8c811b12e"
+    },
+    {
+      "path": "deploy/cloudflare/test/release-execution-run.test.mjs",
+      "bytes": 7760,
+      "sha256": "eb541e4ff4a3fe59cb4ef8a8388f8a18fb4da8f681d6470ca1ddcd818a9f1977"
+    },
+    {
+      "path": "deploy/cloudflare/test/release-history-floor-adversarial.test.mjs",
+      "bytes": 13105,
+      "sha256": "9d02d06fe5d7e848a327c60637226e8dadbdb913dad3de363e58bd09ee9fdf50"
     },
     {
       "path": "deploy/public/freedom-public-backup.service",
@@ -3159,8 +3169,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md",
-      "bytes": 12905,
-      "sha256": "f2657b8ae810c4cd8c0b6d615be78f2920ebd19e7e94e485895a32d6634e00a4"
+      "bytes": 13982,
+      "sha256": "450e2e177e6d66e1d037c6f8c70d5192940b9efcbc2d2eb0ae0b463b07aa7b5b"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/05-media-migration.md",
@@ -3174,8 +3184,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/README.md",
-      "bytes": 5896,
-      "sha256": "7e4d590182e8d2cb519d3f02f64e822e69615c96235f04e7c7078a4c2ed1a531"
+      "bytes": 6076,
+      "sha256": "2e41b9222f11f1fc7549e9383f2b3f3368b7cd33256862e895a727df77ff4e64"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
@@ -3733,6 +3743,11 @@
       "sha256": "7da1a89630ddf92df5bee869b4d4ed50911e36570146a2324353b7b4c0a9d320"
     },
     {
+      "path": "migrations/086_execution_runs.sql",
+      "bytes": 3930,
+      "sha256": "1a3f5d5cbc5d576972a1bd43da124b0e6d5d0d44055f4ee697f790b6cc00d292"
+    },
+    {
       "path": "modules/agent-commerce/distribution.ts",
       "bytes": 10476,
       "sha256": "2d60f26788a408905286751505ea0d4d2e38a4399e1ff11e3df4622b5c2601f3"
@@ -3756,6 +3771,21 @@
       "path": "modules/agent-commerce/schema.ts",
       "bytes": 3779,
       "sha256": "a51e4be8490db0dca2faf455899019c55b558ffab05588974692bb308f223c4c"
+    },
+    {
+      "path": "modules/agent-execution/README.md",
+      "bytes": 8052,
+      "sha256": "3b39cd8c48047a2bd7c672b7edcc0dc4d35df8f1d76a719aa6b1e947b8c1c51c"
+    },
+    {
+      "path": "modules/agent-execution/freedom.module.json",
+      "bytes": 1015,
+      "sha256": "9a21377e563b38b2b8b03c53f6b01b8b7033eb165c20d7eef0c17bd9d3033777"
+    },
+    {
+      "path": "modules/agent-execution/runs.ts",
+      "bytes": 9241,
+      "sha256": "017434f20a9cd92bdc1967f31501f8d6c4eea4dd56c555564ec29babf369dc13"
     },
     {
       "path": "modules/assets/README.md",
@@ -4614,8 +4644,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 3512,
-      "sha256": "ccde43719904bc3002c4fda15fa670988cc1a8f64d3a6ae9030294f073cecfce"
+      "bytes": 3576,
+      "sha256": "c87bf77de8ae60df5856e74ef23ceceb0f99ba793d5468510f8e803ef2b3b021"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -5631,6 +5661,21 @@
       "path": "tests/runtime/events-past.test.ts",
       "bytes": 8172,
       "sha256": "0f94ad3ceea311a24d0501356406807a02b6ab0de1871f660eda7fc286de71e9"
+    },
+    {
+      "path": "tests/runtime/execution-runs-adversarial.test.ts",
+      "bytes": 20485,
+      "sha256": "9840dd380ada0b52b2ea78cbc3477a16ea992a1c3b8b1a2f9e4610a6287c1477"
+    },
+    {
+      "path": "tests/runtime/execution-runs-grants.test.ts",
+      "bytes": 16100,
+      "sha256": "bd2d4b5bfe5fb8a14458b85785f21586b332b0602a8a9e47aee42fe1cf91291e"
+    },
+    {
+      "path": "tests/runtime/execution-runs.test.ts",
+      "bytes": 21769,
+      "sha256": "65c88c00563cdc7312cc804fa8b798bb5547cd3af1bec7d563a173c9f0729f60"
     },
     {
       "path": "tests/runtime/execution-state-adversarial.test.ts",
