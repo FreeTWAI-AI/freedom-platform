@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
 import type { Actor } from '../identity-membership/service.js';
 import { checkVersion, digest } from '../../packages/db/index.js';
+import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { scopedMemberCommand, scopedJournal } from '../../packages/scoped-commands/index.js';
 import { withMemberScope, type MemberScopeContext } from '../../packages/resource-scopes/index.js';
 import { requireCondition } from '../../packages/shared/problem.js';
@@ -146,7 +147,11 @@ export function createAvatarAssetService(pool: Pool, dependencies: AvatarAssetDe
       invalidState(row.state === 'processing' || row.state === 'stored' || (allowFinalized && row.state === 'finalized'));
       if (row.state !== 'finalized') await live(q, row, input);
       else requireCondition(row.fence === input.fence && row.lease_token === input.leaseToken, 409, 'asset_lease_stale', '上傳租約已失效。');
-      return { row: Object.freeze({ ...row }), policy: resolved, metadata: row.state === 'stored' ? await metadata(q, row) : null };
+      const storedMetadata = row.state === 'stored' ? await metadata(q, row) : null;
+      // Scope auth may precede a blocked target/policy/metadata query. Reject an
+      // elapsed session before releasing this snapshot to external object I/O.
+      await assertCurrentSessionClock(q, actor);
+      return { row: Object.freeze({ ...row }), policy: resolved, metadata: storedMetadata };
     });
   }
   async function write(actor: Actor, raw: AvatarLeaseInput, body: ReadableStream<Uint8Array>) {
@@ -212,6 +217,7 @@ export function createAvatarAssetService(pool: Pool, dependencies: AvatarAssetDe
       await policy(q, context, actor.user_id);
       const row = (await q.query('SELECT a.aggregate_version,t.asset_id FROM member_avatars a LEFT JOIN member_avatar_asset_targets t ON t.user_id=a.user_id AND t.scope_id=$2 AND t.owner_principal_id=$3 AND t.linked_at_version=a.aggregate_version WHERE a.user_id=$1',
         [actor.user_id, context.scope.scope_id, context.subject_principal.principal_id])).rows[0];
+      await assertCurrentSessionClock(q, actor);
       return { targetUserId: actor.user_id, assetId: (row?.asset_id ?? null) as string | null, aggregateVersion: (row?.aggregate_version ?? '1') as string };
     });
   }

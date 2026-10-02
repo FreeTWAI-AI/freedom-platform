@@ -1,6 +1,7 @@
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 import { Pool } from 'pg';
 import sharp from 'sharp';
 import { migrate } from '../../scripts/database.js';
@@ -189,4 +190,58 @@ test('ASSET-LIFE-12 invalid bigint and key inputs fail validation without coerci
   }
   await assert.rejects(api.prepare(owner, { ...input, key: input.key + '\n' }), validation);
   assert.equal((await pool.query('SELECT count(*)::int AS n FROM asset_upload_intents')).rows[0].n, 0);
+});
+
+async function waitForLock(blockerPid: number) {
+  for (let attempt = 0; attempt < 500; attempt++) {
+    if ((await admin.query('SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))) AS blocked', [blockerPid])).rows[0].blocked) return;
+    await delay(10);
+  }
+  assert.fail('expected actual PostgreSQL lock wait');
+}
+async function waitForSessionExpiry(actor: Actor) {
+  for (let attempt = 0; attempt < 500; attempt++) {
+    if ((await admin.query(`SELECT expires_at<=clock_timestamp() AS expired FROM ${schema}.sessions WHERE token_hash=$1`, [actor.session_hash])).rows[0].expired) return;
+    await delay(10);
+  }
+  assert.fail('expected actual database-clock session expiry');
+}
+
+test('ASSET-LIFE-13 session expiry during locked inspection prevents source consumption and all object I/O', async () => {
+  const owner = await member(), store = new FakeObjectStore(); let reads = 0, decodes = 0, io = 0;
+  const api = service({
+    putImmutable: async (...args) => { io++; return store.putImmutable(...args); },
+    get: async (...args) => { io++; return store.get(...args); },
+    head: async (...args) => { io++; return store.head(...args); },
+    delete: async (...args) => { io++; return store.delete(...args); },
+  }, { normalizeAvatar: async (bytes, spec) => { decodes++; return normalizeImage(Buffer.from(bytes), spec); } });
+  const { intent } = await prepared(owner, api), lease = await api.claim(owner, { key: randomUUID(), intentId: intent.intentId });
+  const source = new ReadableStream<Uint8Array>({ pull(c) { reads++; c.enqueue(png); c.close(); } }, { highWaterMark: 0 });
+  const locker = await pool.connect();
+  try {
+    await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '1 second' WHERE token_hash=$1", [owner.session_hash]);
+    await locker.query('BEGIN');
+    const blocker = (await locker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await locker.query('SELECT 1 FROM member_avatars WHERE user_id=$1 FOR UPDATE', [owner.user_id]);
+    const rejected = assert.rejects(api.write(owner, { key: randomUUID(), intentId: lease.intentId, fence: lease.fence, leaseToken: lease.leaseToken }, source), problem('session_expired'));
+    await waitForLock(blocker); await waitForSessionExpiry(owner);
+    await locker.query('COMMIT'); await rejected;
+    assert.equal(reads, 0); assert.equal(decodes, 0); assert.equal(io, 0);
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM asset_objects')).rows[0].n, 0);
+  } finally { await locker.query('ROLLBACK'); locker.release(); await source.cancel(); }
+});
+
+test('ASSET-LIFE-14 session expiry during policy lock wait prevents target metadata disclosure', async () => {
+  const owner = await member(), upload = await stored(owner);
+  await upload.api.finalize(owner, { key: randomUUID(), ...upload.leaseInput });
+  const locker = await pool.connect();
+  try {
+    await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '1 second' WHERE token_hash=$1", [owner.session_hash]);
+    await locker.query('BEGIN');
+    const blocker = (await locker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await locker.query('SELECT 1 FROM test_asset_policy WHERE user_id=$1 FOR UPDATE', [owner.user_id]);
+    const rejected = assert.rejects(upload.api.readTarget(owner), problem('session_expired'));
+    await waitForLock(blocker); await waitForSessionExpiry(owner);
+    await locker.query('COMMIT'); await rejected;
+  } finally { await locker.query('ROLLBACK'); locker.release(); }
 });
