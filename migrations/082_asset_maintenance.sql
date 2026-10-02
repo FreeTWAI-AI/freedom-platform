@@ -58,6 +58,11 @@ ALTER TABLE asset_objects ADD CONSTRAINT asset_object_backup_identity
 ALTER TABLE asset_backup_pins ADD CONSTRAINT backup_pin_verified_metadata
   FOREIGN KEY(asset_id,scope_id,representation_id,policy_revision,byte_size,content_sha256)
   REFERENCES asset_objects(asset_id,scope_id,representation_id,policy_revision,byte_size,content_sha256);
+-- History is retained: GC must not scan every completed capture or every
+-- unrelated pin while holding business locks.
+CREATE INDEX asset_backup_captures_protecting ON asset_backup_captures(state)
+  WHERE state IN ('capturing','pinned');
+CREATE INDEX asset_backup_pins_by_asset ON asset_backup_pins(asset_id,capture_id);
 CREATE TABLE asset_deletion_tombstones (
   asset_id uuid PRIMARY KEY REFERENCES assets(asset_id),
   policy_revision text NOT NULL,
