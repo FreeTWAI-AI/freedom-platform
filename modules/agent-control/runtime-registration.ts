@@ -45,11 +45,22 @@ const challenge = (row: ChallengeRow): RuntimeRegistrationChallenge => createRun
   key_thumbprint: row.key_thumbprint, nonce: row.nonce, issued_at: row.issued_at.toISOString(), expires_at: row.expires_at.toISOString(),
 });
 const unavailable = () => requireCondition(false, 409, 'runtime_registration_unavailable', '這項裝置登錄目前無法使用。');
+function plainInput(value: unknown): void {
+  requireCondition(value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype
+    && Object.getOwnPropertySymbols(value).length === 0
+    && Object.values(Object.getOwnPropertyDescriptors(value)).every(d => d.enumerable && 'value' in d),
+  400, 'invalid_runtime_registration', '裝置登錄資料無效。');
+}
 
 /** Internal current-member factory only. Enrollment proves key possession, never
  * a trustworthy runtime build, machine authentication, or execution authority. */
 export function createRuntimeRegistrations(pool: Pool, rawOptions: { environment: z.infer<typeof environmentSchema> }) {
+  plainInput(rawOptions);
   const { environment } = z.object({ environment: environmentSchema }).strict().parse(rawOptions);
+  async function eligible(q: PoolClient, actor: Actor) {
+    const row = await q.query('SELECT user_id FROM users WHERE user_id=$1 AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)', [actor.user_id]);
+    requireCondition(row.rowCount === 1, 403, 'onboarding_required', '請先完成加入。');
+  }
   async function ownerLock(q: PoolClient, context: MemberScopeContext) {
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
       [JSON.stringify(['freedom.runtime-enrollment.owner/v1', environment, context.subject_principal.principal_id])]);
@@ -90,6 +101,7 @@ export function createRuntimeRegistrations(pool: Pool, rawOptions: { environment
   }
   async function begin(actor: Actor, raw: BeginRuntimeRegistrationInput): Promise<RuntimeRegistrationChallenge> {
     actor = Object.freeze({ ...actor });
+    plainInput(raw);
     const parsed = beginSchema.parse(raw), publicJwk = Object.freeze(parseRuntimePublicJwk(parsed.publicJwk));
     const input = Object.freeze({ key: parsed.key, publicJwk }), thumbprint = await runtimePublicKeyThumbprint(publicJwk);
     const operation = 'runtime.registration.begin';
@@ -97,6 +109,7 @@ export function createRuntimeRegistrations(pool: Pool, rawOptions: { environment
     return scopedMemberCommand(pool, { actor, scope: 'personal', operation, key: input.key,
       target: { kind: 'member_runtime_enrollment', id: actor.user_id }, body: { environment, publicJwk } },
     async (q, context) => {
+      await eligible(q, actor);
       await ownerLock(q, context); await keyLock(q, thumbprint);
       prior = (await q.query<ChallengeRow>(`SELECT * FROM runtime_registration_challenges
         WHERE owner_principal_id=$1 AND environment=$2 AND begin_key=$3 FOR UPDATE`,
@@ -112,23 +125,26 @@ export function createRuntimeRegistrations(pool: Pool, rawOptions: { environment
       [context.subject_principal.principal_id, environment, now])).rows[0];
       requireCondition(counts.lifetime < 1000 && counts.pending < 10 && counts.registered < 32,
         429, 'runtime_registration_limit', '裝置登錄數量已達上限。');
+      const issuedAt = await decisionClock(q, actor);
       const row = (await q.query<ChallengeRow>(`INSERT INTO runtime_registration_challenges
         (challenge_id,runtime_device_id,owner_user_id,owner_principal_id,scope_id,environment,begin_key,public_jwk,key_thumbprint,nonce,issued_at,expires_at)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
       [randomUUID(), randomUUID(), actor.user_id, context.subject_principal.principal_id, context.scope.scope_id,
-        environment, input.key, publicJwk, thumbprint, randomBytes(32).toString('base64url'), now, new Date(now.getTime() + 300_000)])).rows[0];
+        environment, input.key, publicJwk, thumbprint, randomBytes(32).toString('base64url'), issuedAt, new Date(issuedAt.getTime() + 300_000)])).rows[0];
       await scopedJournal(q, context, { aggregate_type: 'runtime_registration_challenge', id: row.challenge_id,
         version: '1', operation, data: { environment, operational_authority: false }, eventType: 'freedom.runtime.registration.challenge.v1' });
       return challenge(row);
     });
   }
   async function confirm(actor: Actor, raw: ConfirmRuntimeRegistrationInput): Promise<RuntimeRegistrationMetadata> {
+    plainInput(raw);
     actor = Object.freeze({ ...actor }); const input = Object.freeze(confirmSchema.parse(raw)), operation = 'runtime.registration.confirm';
     let current!: ChallengeRow, existing: RegistrationRow | undefined;
     return scopedMemberCommand(pool, { actor, scope: 'personal', operation, key: input.key,
       target: { kind: 'runtime_registration_challenge', id: input.challengeId },
       body: { environment, proof_sha256: createHash('sha256').update(input.proof).digest('hex') } },
     async (q, context) => {
+      await eligible(q, actor);
       await ownerLock(q, context);
       const identity = await ownedChallenge(q, context, actor, input.challengeId, false);
       await keyLock(q, identity.key_thumbprint);
@@ -142,11 +158,11 @@ export function createRuntimeRegistrations(pool: Pool, rawOptions: { environment
       requireCondition(current.issued_at <= now && now < current.expires_at, 409, 'runtime_challenge_expired', '裝置登錄驗證已過期。');
       const valid = await verifyRuntimeRegistrationProof({ proof: input.proof, challenge: challenge(current), public_jwk: current.public_jwk });
       requireCondition(valid, 403, 'runtime_proof_invalid', '裝置登錄驗證無效。');
-      const finalNow = await decisionClock(q, actor);
-      requireCondition(current.issued_at <= finalNow && finalNow < current.expires_at, 409, 'runtime_challenge_expired', '裝置登錄驗證已過期。');
       const count = (await q.query<{ n: number }>('SELECT count(*)::int n FROM runtime_registrations WHERE owner_principal_id=$1 AND environment=$2',
         [context.subject_principal.principal_id, environment])).rows[0].n;
       requireCondition(count < 32, 429, 'runtime_registration_limit', '裝置登錄數量已達上限。');
+      const finalNow = await decisionClock(q, actor);
+      requireCondition(current.issued_at <= finalNow && finalNow < current.expires_at, 409, 'runtime_challenge_expired', '裝置登錄驗證已過期。');
       await q.query('UPDATE runtime_registration_challenges SET consumed_at=$2 WHERE challenge_id=$1 AND consumed_at IS NULL', [current.challenge_id, finalNow]);
       const row = (await q.query<RegistrationRow>(`INSERT INTO runtime_registrations
         (runtime_device_id,challenge_id,owner_user_id,owner_principal_id,scope_id,environment,public_jwk,key_thumbprint,enrolled_at)
@@ -157,18 +173,20 @@ export function createRuntimeRegistrations(pool: Pool, rawOptions: { environment
     });
   }
   async function read(actor: Actor, raw: ReadRuntimeRegistrationInput): Promise<RuntimeRegistrationMetadata> {
+    plainInput(raw);
     actor = Object.freeze({ ...actor }); const input = Object.freeze(readSchema.parse(raw));
-    return withMemberScope(pool, { actor, scope: 'personal' }, async () => {}, async (q, context) => {
+    return withMemberScope(pool, { actor, scope: 'personal' }, async q => { await eligible(q, actor); }, async (q, context) => {
       await ownerLock(q, context); const row = await ownedRegistration(q, context, actor, input.runtimeDeviceId);
       await decisionClock(q, actor); return metadata(row);
     });
   }
   async function revoke(actor: Actor, raw: RevokeRuntimeRegistrationInput): Promise<RuntimeRegistrationMetadata> {
+    plainInput(raw);
     actor = Object.freeze({ ...actor }); const input = Object.freeze(revokeSchema.parse(raw)), operation = 'runtime.registration.revoke';
     let current!: RegistrationRow;
     return scopedMemberCommand(pool, { actor, scope: 'personal', operation, key: input.key,
       target: { kind: 'runtime_registration', id: input.runtimeDeviceId }, expected: input.expectedVersion, body: { environment } },
-    async (q, context) => { await ownerLock(q, context); current = await ownedRegistration(q, context, actor, input.runtimeDeviceId); },
+    async (q, context) => { await eligible(q, actor); await ownerLock(q, context); current = await ownedRegistration(q, context, actor, input.runtimeDeviceId); },
     async (q, context) => {
       checkVersion(current.aggregate_version, input.expectedVersion);
       if (current.state === 'revoked') unavailable();

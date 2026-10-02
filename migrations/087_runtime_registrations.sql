@@ -8,9 +8,10 @@ CREATE TABLE runtime_registration_challenges (
   scope_kind text GENERATED ALWAYS AS ('personal'::text) STORED,
   environment text NOT NULL CHECK(environment IN ('local','staging-next','next')),
   begin_key text NOT NULL CHECK(begin_key ~ '^[A-Za-z0-9_-]{8,128}$'),
-  public_jwk jsonb NOT NULL CHECK(jsonb_typeof(public_jwk)='object' AND public_jwk->>'kty'='EC' AND public_jwk->>'crv'='P-256'
-    AND public_jwk->>'x' ~ '^[A-Za-z0-9_-]{43}$' AND public_jwk->>'y' ~ '^[A-Za-z0-9_-]{43}$'
-    AND public_jwk ?& ARRAY['kty','crv','x','y'] AND public_jwk - ARRAY['kty','crv','x','y'] = '{}'::jsonb),
+  public_jwk jsonb NOT NULL CHECK(COALESCE(jsonb_typeof(public_jwk)='object' AND public_jwk->>'kty'='EC' AND public_jwk->>'crv'='P-256'
+    AND jsonb_typeof(public_jwk->'x')='string' AND jsonb_typeof(public_jwk->'y')='string'
+    AND public_jwk->>'x' ~ '^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$' AND public_jwk->>'y' ~ '^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$'
+    AND public_jwk ?& ARRAY['kty','crv','x','y'] AND public_jwk - ARRAY['kty','crv','x','y'] = '{}'::jsonb,false)),
   key_thumbprint text NOT NULL CHECK(key_thumbprint ~ '^[A-Za-z0-9_-]{43}$'),
   nonce text NOT NULL CHECK(nonce ~ '^[A-Za-z0-9_-]{43}$'),
   issued_at timestamptz NOT NULL,
@@ -55,7 +56,7 @@ BEGIN
     END IF;
     RETURN NEW;
   END IF;
-  IF (to_jsonb(NEW)-'consumed_at') IS DISTINCT FROM (to_jsonb(OLD)-'consumed_at')
+  IF (to_jsonb(NEW)-ARRAY['consumed_at','scope_kind']) IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['consumed_at','scope_kind'])
     OR OLD.consumed_at IS NOT NULL OR NEW.consumed_at IS NULL
     OR NEW.consumed_at>clock_timestamp() OR clock_timestamp()>=OLD.expires_at THEN
     RAISE EXCEPTION 'Challenge identity is immutable and consume is one-time before expiry' USING ERRCODE='23514';
@@ -84,7 +85,7 @@ BEGIN
     END IF;
     RETURN NEW;
   END IF;
-  IF (to_jsonb(NEW)-ARRAY['state','aggregate_version','revoked_at']) IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['state','aggregate_version','revoked_at'])
+  IF (to_jsonb(NEW)-ARRAY['state','aggregate_version','revoked_at','scope_kind']) IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['state','aggregate_version','revoked_at','scope_kind'])
     OR OLD.state<>'enrolled' OR NEW.state<>'revoked' OR NEW.aggregate_version::numeric<>OLD.aggregate_version::numeric+1
     OR NEW.revoked_at IS NULL OR NEW.revoked_at>clock_timestamp() THEN
     RAISE EXCEPTION 'Registration identity is immutable and revocation is terminal' USING ERRCODE='23514';
