@@ -86,7 +86,8 @@ before(async () => {
   tlsServer.on('request',getRequestListener(request=>main.fetch(request),{overrideGlobalObjects:false}));
   transport={request:trustedRequest};
   const spki=createHash('sha256').update(new X509Certificate(certificate).publicKey.export({type:'spki',format:'der'})).digest('base64');
-  browser=await chromium.launch({headless:true,args:['--host-resolver-rules=MAP device.test 127.0.0.1','--no-proxy-server','--ignore-certificate-errors-spki-list='+spki]});
+  browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_EXECUTABLE_PATH,
+    args:['--host-resolver-rules=MAP device.test 127.0.0.1','--no-proxy-server','--ignore-certificate-errors-spki-list='+spki]});
 });
 after(async () => {
   await Promise.all(contexts.map(context=>context.close()));await browser?.close();

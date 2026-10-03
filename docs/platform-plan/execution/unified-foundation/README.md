@@ -20,7 +20,7 @@
 | [Bootstrap 即時驗權與防重播](09-bootstrap-status.md) | U1/U3、AP AUTH-13 | DB 目前身分、單次 nonce／proof ID admission；只回最小 status，不授 Grant／Attempt 或模型權 |
 | [裝置配對與一次性 bootstrap 交換](10-device-authorization.md) | U1/U3、AP §4.3／AUTH-13/14/15 | 短效代碼、本人核准、真正裝置 proof 及受限 issuer；目前交換依 11 同交易建立 refresh family |
 | [Bootstrap refresh 與重複 nonce admission](11-bootstrap-sessions.md) | U1/U3、AP §4.3／AUTH-13/14/15 | 一次性輪替、重用撤銷 family/connection、獨立用途 machine nonce；沒有 HTTP／正式信任或 execution 權 |
-| [Bootstrap HTTP 配對與登入邊界](12-bootstrap-http.md) | U1/U3、AP M2／§4.3 | 配對／refresh／nonce／status 的封閉 HTTP factory、會員 CSRF／來源／限流；正式 Node／Worker 仍未掛載 |
+| [Bootstrap HTTP 配對與登入邊界](12-bootstrap-http.md) | U1/U3、AP M2／§4.3 | 配對／refresh／nonce／status 的封閉 HTTP factory 與 Node product 明確安裝 port；預設 Node／Worker 仍未啟用 |
 | [本人模型選擇、限定 Grant 與封閉 Attempt](13-member-execution-prerequisites.md) | U3、AP M1/M2/M3 | 真正 backing records、限定會員同意與 blocked history；模型認證／adapter 仍待做 |
 | [本人執行前置紀錄的封閉 HTTP 邊界](14-member-execution-http.md) | U1/U3、AP M2/M3 | 真實會員 cookie／CSRF、exact origin／CAS、bounded JSON 與獨立限流；Run／模型選擇／Grant／blocked Attempt 的 factory，正式入口與模型執行未啟用 |
 | [三條模型 adapter 核心](15-model-adapter-cores.md) | U3、AP M2/M3 | Codex／Claude 訂閱及 BYOK 平行 codecs、受限 candidate 與隔離 metadata；真實認證、有效 policy 及 operational dispatch 仍待做 |

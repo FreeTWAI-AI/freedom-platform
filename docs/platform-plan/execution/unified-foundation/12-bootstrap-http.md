@@ -1,6 +1,8 @@
 # Bootstrap HTTP 配對與登入邊界
 
-接續 [10](10-device-authorization.md) 與 [11](11-bootstrap-sessions.md)，把既有真正簽章／當前 DB 服務接入 Hono HTTP。沿用 [AP §4.3](../../../plans/autopilot-vnext.md#43-機器配對與登入流程) 的用途分離與 TLS；本批提供明確建構的 transport factory，正式 Node／Worker 仍不掛載，也不配置正式 issuer。不是完整 OAuth authorization server、ModelConnection、Grant／Attempt、私人 Work 或 execution 權。
+接續 [10](10-device-authorization.md) 與 [11](11-bootstrap-sessions.md)，把既有真正簽章／當前 DB 服務接入 Hono HTTP。沿用 [AP §4.3](../../../plans/autopilot-vnext.md#43-機器配對與登入流程) 的用途分離與 TLS。除了明確建構的 transport factory，Node 的 genuine private AI product 可透過 `bootstrap:{host,signingKey}` 明確安裝；預設 Node 與 Worker 仍未安裝，也未配置正式 issuer。用途保持 `bootstrap.status.read`，不建立 ModelConnection、Grant／Attempt、私人 Work 或 execution 權。
+
+安裝時固定同一個 product pool、canonical HTTPS origin、environment 與 clientId，拒絕 getter、未知 port、錯誤 host binding 或不吻合的簽章金鑰。不存在 genuine product 時入口回 503 `private_ai_product_unavailable`；有 product 但沒有 bootstrap port 時回 503 `bootstrap_http_unavailable`，兩者都不讀原始 body。Machine 路徑先交給自己的用途與驗簽邊界；會員路徑自行檢查當前 session／CSRF，不從其他 transport 借用 Actor。
 
 ## 固定來源與用途
 
@@ -34,4 +36,4 @@ JSON 只接受 application/json、可選 charset=utf-8；不接壓縮、form、�
 
 每個成功／錯誤／未知入口均 private/no-store、no-cache、nosniff、no-referrer、noindex、same-origin resource policy；不輸出 CORS、secret-bearing Location、錯誤 stack／SQL／輸入。Body 等 HTTP 錯誤與既有服務的少數 safe code 固定 allowlist。Sensitive response 只由既有 commit 後的 service 回傳；HTTP serialized secrets 不另放 durable receipt。
 
-以獨立 fp_* PostgreSQL、non-superuser migrator/runtime 和 genuine ES256 驗完整 HTTP 配對→本人 review/approve→poll challenge/exchange→refresh→nonce→status→reuse/本人 revoke。反例涵蓋來源／環境／憑證用途、重複 keys、header confusion、限流並發與 rollback、過期／撤權、HEAD、串流卡死／取消、錯誤去敏、SQL grants 和相關 machine／receipt／fact 表的秘密掃描。正式 app 不掛載的回歸須實際驗證；不把 factory passing tests 計為 AP M2 部署完成或原 168 項完整驗收。
+以獨立 fp_* PostgreSQL、non-superuser migrator/runtime 和 genuine ES256 驗完整 HTTP 配對→本人 review/approve→poll challenge/exchange→refresh→nonce→status→reuse/本人 revoke。反例涵蓋來源／環境／憑證用途、重複 keys、header confusion、限流並發與 rollback、過期／撤權、HEAD、串流卡死／取消、錯誤去敏、SQL grants 和相關 machine／receipt／fact 表的秘密掃描。實際 createApp 的安裝與未安裝路徑分別驗證；不把 factory 或本機安裝測試計為 AP M2 部署完成或原 168 項完整驗收。

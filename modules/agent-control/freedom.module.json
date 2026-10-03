@@ -45,7 +45,9 @@
     "tests/runtime/member-device-bootstrap-http.test.ts",
     "tests/runtime/member-device-bootstrap-adversarial.test.ts",
     "tests/runtime/member-device-browser.test.ts",
-    "tests/runtime/member-device-client.test.ts"
+    "tests/runtime/member-device-client.test.ts",
+    "tests/e2e/device-connections.spec.ts",
+    "tests/e2e/device-connections-visual.ts"
   ],
   "public_exports": [
     "contracts/execution/v1/runtime-registration.ts",
