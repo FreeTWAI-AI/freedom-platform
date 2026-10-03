@@ -136,7 +136,15 @@ HTTP wrappers must handle that honestly. No HTTP Range parser or 206/416,
 If-Range, player seek, deployed R2, backfill or cloud configuration is claimed.
 
 `tests/runtime/asset-media-profiles.test.ts` exercises synthetic 20 MiB MP4 bytes
-through shared preparation/writer and local workerd R2 readback, native ranges,
+through shared preparation/writer in Node and local workerd R2 readback, native ranges,
 lazy pull/cancel, stale pins, purpose caps, invalid metadata, fixed header/raster
 checks, distinct non-avatar WebP and uncertain PUT reconciliation. These are
 local storage semantics, not an uploaded real video or cloud delivery proof.
+
+`tests/worker/media-object-io.test.ts` separately executes the shared preparation,
+writer, full 20 MiB SHA readback and conditional range cancellation **inside the
+actual workerd isolate**, with no Node compatibility flags. Its synthetic MP4
+header is not a playable video. This local proof does not establish Cloudflare
+CPU/memory quotas, real player seek, remote R2 configuration or domain adapters.
+Full digest verification still buffers the bounded whole representation; partial
+range streaming only pins the immutable ETag, not a whole-content SHA proof.

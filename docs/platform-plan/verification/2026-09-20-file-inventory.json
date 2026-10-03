@@ -4084,13 +4084,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 147694,
-      "sha256": "03c2274842c65b33f1eab2b37f9bd751c33321b79a8c97c5411a5c6b3c91e98f"
+      "bytes": 157206,
+      "sha256": "8aad140dfb853e7ab63a861679445057b48d93eee0dc8f8579e079a7a54e8e81"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
-      "bytes": 6635,
-      "sha256": "6497f7ed1bd101dbd6b8c4f82d0e093904c8fbf82356a9e92750453cccd5f920"
+      "bytes": 7383,
+      "sha256": "19824ffed58856f8c2d4571d74af924a94efae2f24ed739593a55b1560b63d25"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -5774,8 +5774,8 @@
     },
     {
       "path": "packages/asset-storage/README.md",
-      "bytes": 14561,
-      "sha256": "4da2b15b1852e1ea12c8039f6afbf5bd8f203125460095449813339afb96dd81"
+      "bytes": 15130,
+      "sha256": "a5b00c0fc60d71327d9d927540e0f61d384570c29fa50e63bbdc4cf344e370dc"
     },
     {
       "path": "packages/asset-storage/fake-store.ts",
@@ -5844,8 +5844,8 @@
     },
     {
       "path": "packages/contribution-tools/behavior-supervisor.mjs",
-      "bytes": 22885,
-      "sha256": "b6c4ba6292b78d153fa5bb11b36df3273114ffcc1c7e2edcc76ce1455177ef08"
+      "bytes": 24251,
+      "sha256": "668ccf49568188daddfa83e92eccc5ccea141a17169da4f8b97e4871198c0f5c"
     },
     {
       "path": "packages/contribution-tools/cli.mjs",
@@ -5949,8 +5949,8 @@
     },
     {
       "path": "packages/contribution-tools/test/behavior-supervisor.test.mjs",
-      "bytes": 3106,
-      "sha256": "65bd53fddb432bcaa4eac56d693967ca6a4e6c4c0685b0ead6511efcf51010cc"
+      "bytes": 3891,
+      "sha256": "9d016936b2595205a7aa5c4de746ef67eba1b6bfde52785b964877ec1bff9282"
     },
     {
       "path": "packages/contribution-tools/test/context.test.mjs",
@@ -6854,8 +6854,8 @@
     },
     {
       "path": "tests/integration/behavior-supervisor.test.ts",
-      "bytes": 6689,
-      "sha256": "0feb685c97fd39e616b0497f726d91740cd98ad5374ea3c113b963383241a956"
+      "bytes": 7192,
+      "sha256": "d8cf2cba84c3625887d8e8b1f85b45dca4817a3802f0bb9435372640e2c59976"
     },
     {
       "path": "tests/integration/repositories.test.ts",
@@ -7834,8 +7834,8 @@
     },
     {
       "path": "tests/worker/private-ai-composition.test.ts",
-      "bytes": 14538,
-      "sha256": "6089576e3a8161e6238822194e3899561c0e828af1647c5634f3e99160fbd0dd"
+      "bytes": 14994,
+      "sha256": "71e8a69a1c71d9ba61780c7c50cc38c15fc731a9b1684c59952b11fe268f2a35"
     },
     {
       "path": "tests/worker/private-ai-fixtures/issuer.ts",
@@ -7854,8 +7854,8 @@
     },
     {
       "path": "tests/worker/private-ai-service-binding.test.ts",
-      "bytes": 8650,
-      "sha256": "d86e33c9fbc2d51b9cbddb6ebf75ecc08a457946750a220cb349767dd7b5ceb9"
+      "bytes": 8640,
+      "sha256": "feefd4be8c7f169a51802cc651da25985d1b30839a56a554212153e448be2c38"
     },
     {
       "path": "tests/worker/share-go.test.ts",

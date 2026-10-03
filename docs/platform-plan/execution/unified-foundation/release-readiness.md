@@ -1,6 +1,16 @@
 # Push, merge and deployment readiness
 
-Checked 2026-10-03 at integration baseline `946d67bd200624ba61d23032ee7571e9fd47c602`. This checklist records conditions, not authorization or completed checks. Current engineering estimate remains 40–55%; the 168 original product acceptance items remain `not_run`, as recorded in [implementation status](implementation-status.md), [foundation acceptance](acceptance.md) and [source acceptance](source-acceptance.md).
+Checked 2026-10-03 at integration baseline `946d67bd200624ba61d23032ee7571e9fd47c602`. This checklist records conditions, not authorization or completed checks. The historical 40–55% engineering estimate is not a deployment completion rate or calendar forecast; the 168 original product acceptance items remain `not_run`, as recorded in [implementation status](implementation-status.md), [foundation acceptance](acceptance.md) and [source acceptance](source-acceptance.md).
+
+The subsequent local target-runtime increment has passed standard runtime at
+`1584a77` (2,430), with Worker/host-tool supplement at `d238a87` (43 Worker,
+250 governance, six isolated supervisor cases). It adds Worker composition,
+media profiles/read-only aggregate inventory and a pinned-host CI adapter. None
+of the four actual release artifacts is delivered yet: remote staging flow,
+seven-kind full migration report, DB+R2 restore report, or malicious PR refusal
+through an installed GitHub gate. Full broker execution/ingest, six domain
+adapters, migration/restore tooling and authenticated publisher/enforcement are
+implementation work as well as configuration/acceptance dependencies.
 
 ## What changes a remote system
 

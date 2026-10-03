@@ -158,7 +158,7 @@ migration 076/077 仍是暫用號；整合 manifest last=77、known_gaps=`[22]`�
 - 080 加 `storage_source`、legacy-writer fence 與 canonical presence projection；讀取在 object I/O 前後驗當前資格、pointer/version/share generation。本人移除立即清 pointer／retire，沒有同步 object DELETE。083 在原 avatar POST 接入共用 lifecycle，沿用舊 body digest、receipt namespace、response、CSRF/Origin；同一 finalize 交易提交 pointer/version/scoped facts 及原 receipt。舊成功 receipt 不需 storage 也能重播，但仍先驗目前身分與 domain。
 - Quota policy 為必要的明確正 bigint 上限，計入同用途 object 實際大小或保守 reservation、retained legacy bytes；expired/orphan/retired/tombstoned 及 GC missing 都不自動扣除。預設 legacy／persistence-disabled，沒有正式啟用或自動清理。
 - 081 加 owner-only server 內部私人 Work create/update/archive，真實 Work CAS、scoped receipt/facts、當前 persistence policy；archive 可在 persistence 不可用時停止工作。不新增 mutation HTTP、模型呼叫或 Grant。
-- 082 加不可逆 deletion fence、永久 tombstone、late PUT 對帳，以及先建 barrier 再取 bounded snapshot references 的 backup capture/pins；到期 barrier/pins 不暗中釋放保護。GC 只接受 avatar profile；備份 pin/capture 不是 DB dump、object 複本或 restore 成功。預設停用且没有 scheduler。Ted 已同意未完成／無引用物件至少 48 小時、替換舊圖 7 天、使用者刪除立即停止讀取；備份政策另確認，此同意不啟用正式清理。
+- 082 加不可逆 deletion fence、永久 tombstone、late PUT 對帳，以及先建 barrier 再取 bounded snapshot references 的 backup capture/pins；到期 barrier/pins 不暗中釋放保護。GC 只接受 avatar profile；備份 pin/capture 不是 DB dump、object 複本或 restore 成功。預設停用且沒有 scheduler。Ted 已同意未完成／無引用物件至少 48 小時、替換舊圖 7 天、使用者刪除立即停止讀取；備份政策另確認，此同意不啟用正式清理。
 - Runtime verifier 以固定 baseline、批次 process 及明確隔離 DB 執行實際 runtime tests，拒絕空／skip／cancelled 證據。中央工具另支援 Agent Kit 的直接 Node test suite、精確 scoped package name、repo-root descriptor 與 consumer report schema；不執行 consumer package hooks。未放寬 host trust 或 surface audit。
 
 完整 runtime 首跑 1,168 項有 4 項失敗：bridge 的 metadata helper 誤要求 onboarding，阻擋原有帳號設定流程。修正 `5824348` 保留登入／本人要求、恢復 onboarding 前 metadata 查詢，補 1 項反例並加強既有 HTTP status assertion。定向 52/52 後，完整重跑 **1,169 passed、0 failed/skipped**，約 253 秒；未刪失敗案例。獨立競態審查仍持續，這不代表所有未來 profile 已驗證。
@@ -263,7 +263,7 @@ TypeScript 7 typecheck、common/execution 生成契約 check、deploy preflight 
 
 固定驗證版本 `ead11c321337a90a0959f9ae386aa088fa58ae12`。對真正 `origin/main` 的 prepare／verify 實跑完整 runtime **1,437/1,437（114 files）**、治理 **241/241（10 files）**，0 failed/skipped/cancelled；runtime 子集合不另加總。新增兩份 HTTP suite 及 actual-app smoke 均納入 protected baseline，descriptor 不把未掛載 factory 宣稱為正式 surface。初次 prepare 抓到根整合者把 instruction 放在不允許的 app 路徑，將文件搬回其 module 並修正連結後重跑，沒有放寬路徑保護。最終仍 exit 2、local unavailable，保留 baseline governance、surface mapping 與 registration behavior audit 三個缺口。
 
-TypeScript 7、前端 build、三類 Worker 的全部環境 dry-run、common/execution 生成 bytes 通過；build 仍有既有大型 chunk 警告。重新建好的 Worker 回歸 **28/28**、公開 preflight **107/107**，均無 skip；既有契約 **659 passed、4 個原有 clock cases skipped**。没有改 migration 或 manifest，076–085 仍是未合併暫用號，last=85、known_gaps=`[22]`。
+TypeScript 7、前端 build、三類 Worker 的全部環境 dry-run、common/execution 生成 bytes 通過；build 仍有既有大型 chunk 警告。重新建好的 Worker 回歸 **28/28**、公開 preflight **107/107**，均無 skip；既有契約 **659 passed、4 個原有 clock cases skipped**。沒有改 migration 或 manifest，076–085 仍是未合併暫用號，last=85、known_gaps=`[22]`。
 
 新 build 的 Chromium 瀏覽器回歸 **23/23**：頭像預覽／儲存／移除、名片 autosave／版本衝突、會員連線／公開分享撤銷，約 1.1 分鐘。只使用合成會員與本輪隔離 schema，無 UI 改動；不把這 23 項當成新增私人草稿 UI 驗收。
 
@@ -1149,27 +1149,76 @@ extension/native capture保護、真人provider、R2、跨端封裝、staging/li
 文件收尾核對 **1,527 hashes、866 本機連結、0 failures**，diff-check通過；
 文件提交未更動固定source的production程式，spec只澄清輸入欄位限制限於模型設定區。
 
+## 2026-10-03 裝置入口與目標 runtime／storage／CI 增量
+
+原查核基準為公開 #108 `946d67b`；本批第一次固定整合 source 為 `9915caf59a9d668dea6b1fa43b3425128f4ca317`；修正後完整回歸 source 為 `1584a7761a1d9563cd6be2047625ea0c0bd4ac64`。Ted 的最新查核要求把交付重心轉到目標 runtime、七類資料與真實發布驗證；[決策紀錄](00-baseline-and-decisions.md) 已同步，保留原 scope 與一次受控正式切換，不把本機成功或主觀工程百分比當作部署完成率。
+
+### 本批實作
+
+- 會員裝置配對／連線管理：Opus5.5 實際產出畫面程式，GPT‑6.1 Sol 補 client、真實 mounted HTTP／SQL、瀏覽器和反例。本人核准／撤銷均須明確同意，未確認寫入保留原 key/body/CAS；代碼與秘密不進 URL、持久儲存或自動重送。真正 `/device` 深連結已接通。原 author-only 誤選 label／缺 canonical grant exclusions 的 browser fixture 失敗保留，修正後 root 2/2 通過；mocked DTO 畫面補驗 18/18，不能當作 provider 或 SQL 證據。
+- [ObjectStore](../../../../packages/asset-storage/README.md)：通用 bytes/hash 上限與用途 profile 分離，七類用途／八個 variant 保留原限制；Native R2 media/range 用 pull stream，完整 read-back 核對 SHA‑256。原 runtime case 的 prepare/hash 在 Node，新增單一 actual Worker isolate case 在無 Node flags 的原生 WebCrypto/R2 內執行完整 20MiB prepare/write/read-back 與 conditional Range cancel，root 1/1 通過。partial Range 僅提供 immutable ETag pin，明列 `wholeDigestVerified:false`；20MiB MP4 是合成 header fixture，沒有實際播放器 seek 證據。原頭像／小文字行為維持，其他六類 domain adapter／typed pointer 尚未完成。
+- [唯讀媒體盤點](../../../../packages/media-migration/README.md)：Opus5.5 真正產出 SQL library，root 補 CLI／普通 table/RLS 防錯與 release provenance；GPT‑6.1 Sol 以低權限 PG 與完整 migrations 驗證。預設 dry-run，不讀 connection secret／不匯出 bytes；七類大小與異常、影片 MIME、highlight variants/pairs 有彙總，image decode／實際 hash／讀寫入口全集仍未執行。正式盤點、backfill／delta／GC＋backup／restore 仍待交付。
+- [Worker native binding 接線](../../../development/worker-private-ai-bindings.md)：主 Worker 以 request-scoped Hyperdrive、既有 MEDIA 與完整 closed opt-in trust profile 安裝 genuine product；簽章 broker／外部 recovery bindings 分開，主站不拿 KEK／cipher pool／provider。Node native provider transport 從 shared registry 隔離，Wrangler Worker alias 明確關閉。真正 workerd CryptoKey own metadata 的相容缺口已修，保留 native nonextractability 與 matching-public-key sign/verify；extractable:false shadow 反例不能冒充不可匯出。
+- [可信 host adapter](../../../../packages/contribution-tools/github-trusted-adapter.md)：獨立候選 roots 以外的 signed closure 安裝、分用途 host/event/runner proof 與 exact candidate/tree/base/run 驗證 CLI；保留 `gate_enforced:false`。正式 event gateway／replay storage／supervisor／App publisher／branch enforcement／惡意 PR 實際被拒仍未安裝。沒有把 base 改成本分支消除信任啟動問題。
+- CI diagnostic 加入 merge_group 與 superseded PR cancellation；全覆蓋拆成 runtime、UI、static/Worker、governance/consumer 四條平行工作，沿用 40 分鐘時限及全部原命令，`verify` 為 always-run 且四路必須全成功。affected-job planner 仍是下一個獨立檢查點，#108 的 DB/auth/shared 變更維持完整覆蓋。
+
+### 真實失敗與證據邊界
+
+公開 `946d67b` 的 GitHub verify 最終為 failure：runtime 2,330 項中 2,321 passed／3 failed／6 skipped。三項是短效測試授權在 setup 提前到期或尚未抵達 SQL wait；相同 2.6 秒延遲反例修正前失敗、修正後通過。`216357d` 修正只調整合成授權的 phase scheduling margin，保留真實 signed/SQL expiry、原 statement/test/workflow timeout 與所有 rollback assertions；作者相關 19/19 通過。這不代表新 GitHub CI 已通過。
+
+CodeQL 原 24 alerts 中 23 測試檔已作 source 修正；main 相同 identity service 的那一筆未改 production crypto 或自行 dismiss。新的 exact-head scan 仍須實際查核，不能以分析 job 成功當安全結果。
+
+Root 第一次整合 Worker 39/41 失敗保留：新 composition fixture 僅接受 Unix socket、binding fixture 讀 author-only private bundle，與既有 TCP CI／標準 dry-run 入口不相容。`05ab0ef` 僅修改兩個 fixture 的 loopback TCP／Unix admission、per-run synthetic role password 與標準 local bundle 路徑；作者 exact SHA standard TCP 42/42、Unix composition 2/2 通過，root 在 `d238a87` 整合標準入口 **43/43**（含新增原生 media case）通過；沒有改產品程式或 skip。固定 source 的 runtime／governance 驗證期間 root 沒有修改程式。
+
+第一次完整 runtime 2,430 中 2,429 passed／1 failed／0 skipped，governance 248/248。`candidate_base_equals_candidate` 在固定路由本機觀察的 structural parser 就拒絕，未發送 request。`fe7f518` 將規則保留在真正 candidate admission／authenticated adapter，PR與merge-group自當基準仍拒絕；相同 fixed SQL harness 1/1、27 requests 與 governance 249/249 已通過，第二次 root approved standard 在 `1584a77`：runtime **2,430/2,430**（179 files）與 governance **249/249**（12 files），0 failed/cancelled/skipped/todo；原時限未變。整體 verifier exit2／unavailable，仍為 `baseline_governance_unavailable`、`registration_behavior_audit_required`、`surface_unmapped`。
+
+隔離 supervisor supplemental 第一次3/6，三項在 candidate phase/behavior 因 nofile=256 的 expanded tsx import graph 出現 EMFILE、container exit1/OOM=false；不能引用舊版本6/6。量測 peak275，原上限不足；`1987b6c` 將 candidate 設為有界512、DB仍256/core0，新增每次觀察的exact Docker Ulimits核對與missing/duplicate/unlimited/altered反例。其他CPU/memory/PID/time/network/read-only/caps原限制維持。author six 6/6；root `d238a87` six **6/6**、full governance **250/250**、typecheck 通過。原 setup timeout／probe formatting/type 失敗亦保留，沒有加長原budget。
+
+其他本批作者失敗包括 source/count/runner 設定假設；原 raw 與不同版本的補充結果分開保存，不補造 hash。Opus5.5 是開發者而非外援 reviewer；Grok4.7 多次 cancelled／timeout 或零輸出，沒有 usable implementation，不列為開發交付或 PASS。
+
+### 本批根節點實跑
+
+| 檢查 | 結果與版本 |
+| --- | --- |
+| approved standard runtime.full | `1584a77`：2,430/2,430，179 files，零失敗／跳過 |
+| approved standard governance.unit | `1584a77`：249/249；host修正後 `d238a87` full unit補驗250/250 |
+| 標準Worker | `d238a87`：43/43，TCP／標準bundle；包括no-Node-flags實際20MiB Worker I/O |
+| 隔離supervisor | `d238a87`：6/6；original180s cap、actuallimits與27-route判斷 |
+| Cloudflare發布相容性 | 335/335；9915相同release source，非remote deployment |
+| 前端補驗 | 18/18 mocked DTO；實際device browser2已含完整runtime |
+| 型別／build／15generators／三類dry-run | 通過；host／fixture變更後另補typecheck，app source未變 |
+
+### 四個產品成果
+
+| 要求的真實成果 | 本批有的證據 | 完成狀態 |
+| --- | --- | --- |
+| 真實隔離 staging 流程 | 本機 workerd／Hyperdrive／restricted PG 的 metadata＋device，以及 native signed broker transport；public ingress／provider 尚缺 | `not_run` |
+| 七類全量搬遷報告 | 七類 Object I/O profiles＋唯讀 aggregate inventory；domain adapters／backfill／full verify／delta 尚缺 | `not_run` |
+| DB＋R2 隔離還原報告 | 既有 lifecycle／fencing／maintenance 核心；一致 backup/restore 工具與演練尚缺 | `not_run` |
+| 真正不可繞過的 GitHub gate | 可執行 pinned host adapter 與 diagnostic CI；正式 publisher／rules／negative PR 尚缺 | `not_run` |
+
+本人真人模型／native CLI、machine commands、heartbeat／reconciliation、多步 Action、extension／neo 跨端交接仍在原 scope。168 原始產品驗收保持未驗收，不用新增本機 tests 增加產品完成率。076–097 SQL bytes 與 staging/live 都未變更；migration 022 原歷史 gap 保留，實際 migrations 是 96 個檔案，不虛構 97。
+
+第二次完整 source 後差異只有兩個 Worker fixture、host supervisor、其 unit 與 integration fixture；application／runtime test source 逐byte相同。`d238a87` root補驗 Worker43、governance250、supervisor6、typecheck 全過；build／15生成／三類dry-run／Cloudflare335原 source9915 的相關程式沒有再變。新CodeQL與GitHub candidate CI仍待push後實查，不能把本機結果當新遠端Check。
+
+合成資料清理前：schemas、extra roles／DBs／clients、public relations全為0；exact owned container移除且absence確認。剩下兩個UID70 owned socket以cached pinned image的network-none／read-only／cap-drop helper只刪exact paths，空目錄移除、helper自動移除；marker-owned synthetic HOME亦移除。ignored raw/report／作者證據／全部worktrees保留，未掃除Ted真實HOME或其他容器。
+
+正式 push／merge／部署條件繼續見 [release readiness](release-readiness.md)。原 checkout 的 131 個 tracked 文檔均已在分支，補回 11 合成 fixtures 與 4 安全歷史證據；33 operational handoffs 的穩定要求逐項落到 canonical specs、38 差異文件亦完成語意對照，原私有對話／pycache 不當公開產品文件。主 checkout 未改動。
+
+
 ## 下一批
 
-[21](21-member-model-settings.md) 的主站模型與憑證設定、真正 platform shell 的
-exact broker form-action／origin-only HTML policy 已完成本機驗證。接著優先補齊
-既有 PrivateWorkAI 的會員裝置配對／連線管理，以及 explicit host-installed
-bootstrap HTTP 綁定，再銜接設定頁；現有 storefront/supplier 的 `fw_read` 不可
-替代 AI 裝置配對。正式隔離安裝／capture-disabled readiness、獨立 recovery floor／
-key custody、真人 provider/model 本人驗收、訂閱 native host、machine execution auth、
-heartbeat／reconciliation、多步、媒體／restore 與跨端仍待完成。缺必要 port 保持
-unavailable；不能把 code factory／local fixture 當正式服務，也不為提早上線
-另做 ingest-only 過渡產品或復活已退役的 Node units。依既有 Worker 主入口方案，
-後續需落實支援的隔離服務與主站安裝接線。
+會員裝置入口、explicit bootstrap factory 與 Worker 主入口的本機接線已完成，後續改按四條真實交付線驗收：
 
-credential terminal control 仍須 broker 的原 SQL 權限及 deferred ciphertext
-existence 檢查，不能把主站 model revoke 當 credential revoke。可信 producer CI
-還需自己的 reviewed profile、完整 surface／behavior entry coverage、approved host
-source/artifact policy、authenticated observation、外部 publisher／GitHub enforcement；
-現有 consumer-v2 verifier 不能直接替 producer 自證批准。
+1. 完成隔離 broker Worker／受控部署入口、executor／cipher roles、provider及capture接線，再以隔離 staging 的真實 Platform Worker＋R2/Images驗真人頭像及本人模型草稿。正式信任、recovery／floor、keys與環境mapping需要可核對的operator evidence；目前不是只差一個bucket。
+2. 接其他六類domain adapters／typed pointers，保留原URL、ACL、format／size／variants／video Range。同步實作可續跑backfill、全量verify／delta、GC與backup協調及一致DB＋R2 restore；先用合成資料預演，正式切換仍集中一次。
+3. 完成可信host安裝、首次baseline採納、實際library/入口coverage、authenticated gateway／replay/supersession保存、獨立publisher及必要App-bound check，讓惡意PR在真正合併路徑被拒。候選workflow四路平行只是diagnostic；affected-job planner仍須單獨交付，未知與DB/auth/shared變更保持full fallback。
+4. 真人model／官方native CLI、machine command、heartbeat／reconciliation、多步Action、extension／neo與跨端交接仍在原scope；一次批准的單步local模型不是最終自主產品。
 
-治理已推進固定單一 profile 的 [本機隔離 supervisor](../../../../packages/contribution-tools/behavior-supervisor.md)：host harness 透過有界 HTTP response frames 呼叫隔離容器內的 candidate app，由 host 自行判斷結果；不能把 candidate stdout/JSON 當可信測試結果。隔離不成立就 unavailable，並保留 approved host source／runtime、完整入口、publisher/GitHub enforcement 的缺口。下一步是可信安裝、來源與 publisher 接線，不是把本機 observation 宣稱可合併。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代完整入口／外部保存／政策 restore 的證據。migration 076–097 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
+四項真實成果目前皆未驗收，歷史工程百分比不換算為正式部署完成率或日程。缺必要port維持unavailable；不為提早上線另建過渡產品、第二套storage／secret truth，或復活已退役Node units。完整私人讀取、migration/grants、backup/restore及版本相容證據未齊，不啟用正式私人寫入或頭像非legacy模式。
 
-早先唯讀查核 #85／#87 的衝突與 migration 重號紀錄保留歷史用途；依 Ted 最新指示，其他 PR 的 rebase／整合現在不在派工範圍。這次沒有修改作者 PR 或把舊 CI 結果當新整合驗收。
+主站model revoke仍不能冒充credential revoke；credential terminal control需broker原SQL權限與deferred ciphertext existence check。原076–097仍未正式套用，numeric→v2的相容過渡仍有結束條件。
 
-Ted 已授權將累積重構推送至同一個 Draft PR，並持續沿 `feat/unified-foundation` 更新；不因此取得合併、改 GitHub 規則、信任來源／金鑰、正式資料盤點或部署授權。Discord 全文仍須逐則核准。
+#108繼續是單一Draft整合入口。低耦合既有修正可依維護者正常review/CI/畫面驗收走main；涉及DB、身分、ACL、Asset或共同API的變更才與本重構協調。不把本批「不整合其他PR」派工限制擴張為整個repo技術上必須freeze；其他PR review/rebase仍不在本批工作範圍。
+
+Ted已授權沿 `feat/unified-foundation` 推送並更新同一Draft PR；merge、遠端trust／keys／rules、正式資料盤點與deployment仍需各自的具體發布條件及授權。Discord全文仍須逐則核准。
