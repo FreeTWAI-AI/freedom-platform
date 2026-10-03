@@ -91,12 +91,12 @@ test('exact floor intervals reject one millisecond beyond either boundary and nu
 });
 test('strict signed JSON rejects decoded duplicates, fractions, exponent lexemes and excess size', async () => {
   const json = JSON.stringify(beginClaims);
-  for (const raw of [json.replace('{', '{"jti":"first_duplicate",'), json.replace('{', '{"cl\\u0069ent_id":"other",'),
+  for (const raw of [json.replace(/^\{/, '{"jti":"first_duplicate",'), json.replace(/^\{/, '{"cl\\u0069ent_id":"other",'),
     json.replace(String(iat), iat + '.0'), json.replace(String(iat), '18e8'), json.replace(String(iat), '-0'),
-    json.replace('{', '{"__proto__":{},'), json.replace('{', '{"extra":"' + 'x'.repeat(8200) + '",')]) {
+    json.replace(/^\{/, '{"__proto__":{},'), json.replace(/^\{/, '{"extra":"' + 'x'.repeat(8200) + '",')]) {
     assert.equal(await verifier.verifyBegin({ ...begin, proof: await proof(raw) }), null);
   }
-  const rawHeader = JSON.stringify(header).replace('{', '{"alg":"ES256",');
+  const rawHeader = JSON.stringify(header).replace(/^\{/, '{"alg":"ES256",');
   const body = base64url.encode(rawHeader) + '.' + base64url.encode(json);
   const signature = sign('sha256', Buffer.from(body), { key: KeyObject.from(device.privateKey), dsaEncoding: 'ieee-p1363' });
   assert.equal(await verifier.verifyBegin({ ...begin, proof: body + '.' + base64url.encode(signature) }), null);

@@ -339,21 +339,24 @@ test('HTTP real ephemeral TLS socket verifies genuine signed begin and rejects c
   const dir=await mkdtemp(join(tmpdir(),'fp-bootstrap-http-tls-'));
   const server=createServer(); let api:typeof transport|undefined;
   try {
-    const result=spawnSync('openssl',['req','-x509','-newkey','ec','-pkeyopt','ec_paramgen_curve:P-256','-nodes','-days','1','-subj','/CN=localhost',
+    const result=spawnSync('openssl',['req','-x509','-newkey','ec','-pkeyopt','ec_paramgen_curve:P-256','-nodes','-days','1','-subj','/CN=localhost','-addext','subjectAltName=DNS:localhost,IP:127.0.0.1',
       '-keyout',join(dir,'key.pem'),'-out',join(dir,'cert.pem')],{env:verificationEnvironment(),encoding:'utf8',timeout:10000});
     assert.equal(result.status,0,result.stderr);
-    server.setSecureContext({key:await readFile(join(dir,'key.pem')),cert:await readFile(join(dir,'cert.pem'))});
+    const trustedCertificate=await readFile(join(dir,'cert.pem'));
+    server.setSecureContext({key:await readFile(join(dir,'key.pem')),cert:trustedCertificate});
     server.on('request',getRequestListener(r=>api!.fetch(r),{overrideGlobalObjects:false}));
     await new Promise<void>((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',()=>resolve());});
     const socketOrigin='https://127.0.0.1:'+(server.address() as AddressInfo).port;
     const config={...host,clientId:'bootstrap-http-tls-synthetic',audience:socketOrigin+'/',bootstrapUri:socketOrigin+paths.status,beginUri:socketOrigin+paths.begin,pollUri:socketOrigin+paths.token,verificationUri:socketOrigin+'/device'};
     api=await createBootstrapHttpTransport(app,{host:config,signingKey});
     const key=device(),body=JSON.stringify({publicJwk:key.publicJwk,runtimeKind:'agent-kit'}),proof=await beginProof(key,{},config);
-    const call=(headers:Record<string,string>)=>new Promise<{status:number;body:string}>((resolve,reject)=>{
-      const req=httpsRequest(config.beginUri,{method:'POST',rejectUnauthorized:false,headers:{'Content-Type':'application/json',DPoP:proof,...headers}},res=>{
+    const call=(headers:Record<string,string>,trustFixture=true,servername='localhost')=>new Promise<{status:number;body:string}>((resolve,reject)=>{
+      const req=httpsRequest(config.beginUri,{method:'POST',ca:trustFixture?trustedCertificate:undefined,servername,headers:{'Content-Type':'application/json',DPoP:proof,...headers}},res=>{
         let data='';res.setEncoding('utf8');res.on('data',chunk=>data+=chunk);res.on('end',()=>resolve({status:res.statusCode!,body:data}));});
       req.once('error',reject);req.end(body);
     });
+    await assert.rejects(call({},false),/self.signed certificate/i);
+    await assert.rejects(call({},true,'untrusted.example.invalid'),/does not match certificate/i);
     const response=await call({});assert.equal(response.status,201,response.body);DeviceAuthorizationBeginResultSchema.parse(JSON.parse(response.body));
     assert.equal((await call({Host:'platform.example.invalid','X-Forwarded-Host':new URL(socketOrigin).host})).status,403);
   } finally {server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));await rm(dir,{recursive:true,force:true});}

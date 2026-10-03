@@ -86,8 +86,8 @@ for (const header of [
 test('runtime enrollment rejects duplicate payload keys, altered whitespace, order, and authority', async () => {
   const parsed = JSON.parse(challenge.payload);
   for (const payload of [
-    challenge.payload.replace('{', '{"purpose":"runtime_enrollment",'),
-    challenge.payload.replace('{', '{"\\u0070urpose":"runtime_enrollment",'),
+    challenge.payload.replace(/^\{/, '{"purpose":"runtime_enrollment",'),
+    challenge.payload.replace(/^\{/, '{"\\u0070urpose":"runtime_enrollment",'),
     JSON.stringify(parsed, null, 1), ` ${challenge.payload}`,
     JSON.stringify(Object.fromEntries(Object.entries(parsed).reverse())),
     JSON.stringify({ ...parsed, operational_authority: true }),

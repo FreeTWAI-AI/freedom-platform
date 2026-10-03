@@ -209,12 +209,12 @@ test('valid arbitrary JSON order/whitespace is accepted; no fabricated canonical
   assert(await verify(await nativeInput(payload, header), nativeHost));
 });
 test('decoded duplicate JSON keys in protected header/payload/nested binding fail closed', async () => {
-  for (const header of [JSON.stringify(accessHeader).replace('{', '{"alg":"ES256",'),
-    JSON.stringify(accessHeader).replace('{', '{"\\u0061lg":"ES256",')]) {
+  for (const header of [JSON.stringify(accessHeader).replace(/^\{/, '{"alg":"ES256",'),
+    JSON.stringify(accessHeader).replace(/^\{/, '{"\\u0061lg":"ES256",')]) {
     assert.equal(await verify(await nativeInput(JSON.stringify(claims), header), nativeHost), null);
   }
-  for (const payload of [JSON.stringify(claims).replace('{', '{"iss":"https://issuer.example/",'),
-    JSON.stringify(claims).replace('{', '{"\\u0069ss":"https://issuer.example/",'),
+  for (const payload of [JSON.stringify(claims).replace(/^\{/, '{"iss":"https://issuer.example/",'),
+    JSON.stringify(claims).replace(/^\{/, '{"\\u0069ss":"https://issuer.example/",'),
     JSON.stringify(claims).replace('"cnf":{', `"cnf":{"jkt":"${binding.keyThumbprint}",`)]) {
     assert.equal(await verify(await nativeInput(payload), nativeHost), null);
   }
@@ -225,11 +225,11 @@ test('DPoP decoded duplicate header/claims/JWK keys fail despite a real device s
     const body = `${base64url.encode(h)}.${base64url.encode(p)}`;
     return `${body}.${sign('sha256', Buffer.from(body), { key: KeyObject.from(device.privateKey), dsaEncoding: 'ieee-p1363' }).toString('base64url')}`;
   };
-  for (const badHeader of [header.replace('{', '{"typ":"dpop+jwt",'),
-    header.replace('{', '{"\\u0074yp":"dpop+jwt",'), header.replace('"jwk":{', '"jwk":{"kty":"EC",')]) {
+  for (const badHeader of [header.replace(/^\{/, '{"typ":"dpop+jwt",'),
+    header.replace(/^\{/, '{"\\u0074yp":"dpop+jwt",'), header.replace('"jwk":{', '"jwk":{"kty":"EC",')]) {
     assert.equal(await verify({ ...good, proof: signRaw(badHeader, payload) }), null);
   }
-  for (const badPayload of [payload.replace('{', '{"htm":"GET",'), payload.replace('{', '{"\\u0068tm":"GET",')]) {
+  for (const badPayload of [payload.replace(/^\{/, '{"htm":"GET",'), payload.replace(/^\{/, '{"\\u0068tm":"GET",')]) {
     assert.equal(await verify({ ...good, proof: signRaw(header, badPayload) }), null);
   }
 });
@@ -238,8 +238,8 @@ test('strict JSON rejects illegal numbers, prototype keys, unknown claims, inval
   for (const payload of [json.replace(`"iat":${claims.iat}`, '"iat":-0'),
     json.replace(`"iat":${claims.iat}`, '"iat":1e9'), json.replace(`"iat":${claims.iat}`, '"iat":1.0'),
     json.replace(`"iat":${claims.iat}`, '"iat":9007199254740993'),
-    json.replace('{', '{"__proto__":{},'), json.replace('{', '{"constructor":{},'),
-    json.replace('{', '{"prototype":{},'), json.replace('{', '{"unknown":true,'),
+    json.replace(/^\{/, '{"__proto__":{},'), json.replace(/^\{/, '{"constructor":{},'),
+    json.replace(/^\{/, '{"prototype":{},'), json.replace(/^\{/, '{"unknown":true,'),
     json.replace('synthetic_access_token_1', '\\ud800'), '\ufeff' + json,
     new Uint8Array([0xc3, 0x28]), json + '\0']) {
     assert.equal(await verify(await nativeInput(payload), nativeHost), null);

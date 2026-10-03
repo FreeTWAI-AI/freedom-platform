@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { fork, type ChildProcess } from 'node:child_process';
-import { createHash, randomUUID, randomBytes } from 'node:crypto';
+import { createHash, randomUUID, randomBytes, X509Certificate } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import { mkdtemp, mkdir, readFile, rm, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -50,9 +50,11 @@ async function childProcess(kind:string,config:Record<string,unknown>):Promise<C
 }
 
 
-/** Native HTTPS against a local SAN fixture; no DNS or trust-store changes. */
+const fixtureCertificates = new Map<string,string>();
+
+/** Native HTTPS trusts only the certificate belonging to this fixture origin. */
 export async function httpsFetch(url:string,options:{method?:string;headers?:Record<string,string>;body?:string|Uint8Array}={}) {
-  const target=new URL(url);return new Promise<Response>((resolve,reject)=>{const req=tlsRequest({hostname:'127.0.0.1',port:target.port,servername:target.hostname,rejectUnauthorized:false,path:target.pathname+target.search,method:options.method??'GET',headers:{Host:target.host,...options.headers}},res=>{const chunks:Buffer[]=[];res.on('data',chunk=>chunks.push(Buffer.from(chunk)));res.on('end',()=>{const headers=new Headers();for(const [key,value]of Object.entries(res.headers))if(value!==undefined)for(const val of Array.isArray(value)?value:[value])headers.append(key,val);resolve(new Response(Buffer.concat(chunks),{status:res.statusCode,headers}));});});req.on('error',reject);req.end(options.body);});
+  const target=new URL(url),ca=fixtureCertificates.get(target.origin);if(!ca)throw Error('No trusted fixture certificate for '+target.origin);return new Promise<Response>((resolve,reject)=>{const req=tlsRequest({hostname:'127.0.0.1',port:target.port,servername:target.hostname,ca,path:target.pathname+target.search,method:options.method??'GET',headers:{Host:target.host,...options.headers}},res=>{const chunks:Buffer[]=[];res.on('data',chunk=>chunks.push(Buffer.from(chunk)));res.on('end',()=>{const headers=new Headers();for(const [key,value]of Object.entries(res.headers))if(value!==undefined)for(const val of Array.isArray(value)?value:[value])headers.append(key,val);resolve(new Response(Buffer.concat(chunks),{status:res.statusCode,headers}));});});req.on('error',reject);req.end(options.body);});
 }
 export async function ingestFixture() {
   const connectionString=process.env.TEST_DATABASE_URL;
@@ -85,6 +87,8 @@ export async function ingestFixture() {
   const tls={key:await readFile(join(tlsDirectory,'key.pem'),'utf8'),cert:await readFile(join(tlsDirectory,'cert.pem'),'utf8')};
   async function reservedOrigin(host:string){const server=createServer();const origin=await listen(server);await closeServer(server);return `https://${host}:${new URL(origin).port}`;}
   const mainOrigin=await reservedOrigin('platform.test'),setupOrigin=await reservedOrigin('broker.test');
+  fixtureCertificates.set(mainOrigin,tls.cert);fixtureCertificates.set(setupOrigin,tls.cert);
+  const certificatePin=createHash('sha256').update(new X509Certificate(tls.cert).publicKey.export({type:'spki',format:'der'})).digest('base64');
   let browser:Browser|undefined;const contexts:BrowserContext[]=[];
   const common={schema,...profile,recoveryOrigin,recoveryPublicJwk:await exportJWK(recoveryKeys.publicKey),directory,tls,mainOrigin,setupOrigin};
   const brokerConfig={...common,cipherUrl:roleUrl(roles.broker),executorUrl:roleUrl(roles.executor),providerOrigin,kekBytes,executionPublicJwk:await exportJWK(issuerKeys.publicKey),ingestPublicJwk:await exportJWK(ingestKeys.publicKey),responsePrivateJwk:await exportJWK(responseKeys.privateKey)};
@@ -95,7 +99,7 @@ export async function ingestFixture() {
     broker=await childProcess('broker',brokerConfig);
     const brokerInternalOrigin=await broker.request('origin');
     main=await childProcess('main',{...common,appUrl:roleUrl(roles.app),brokerInternalOrigin,executionPrivateJwk:await exportJWK(issuerKeys.privateKey),ingestPrivateJwk:await exportJWK(ingestKeys.privateKey),responsePublicJwk:await exportJWK(responseKeys.publicKey)});
-  } catch(error) {await main?.close();await broker?.close();await closeServer(provider);await closeServer(external);await Promise.all([app.end(),executor.end(),brokerPool.end(),owner.end()]);if(created)await admin.query(`DROP SCHEMA ${schema} CASCADE;DROP ROLE ${Object.values(roles).join(',')}`);await admin.end();await rm(directory,{recursive:true,force:true});await rm(tlsDirectory,{recursive:true,force:true});throw error;}
+  } catch(error) {fixtureCertificates.delete(mainOrigin);fixtureCertificates.delete(setupOrigin);await main?.close();await broker?.close();await closeServer(provider);await closeServer(external);await Promise.all([app.end(),executor.end(),brokerPool.end(),owner.end()]);if(created)await admin.query(`DROP SCHEMA ${schema} CASCADE;DROP ROLE ${Object.values(roles).join(',')}`);await admin.end();await rm(directory,{recursive:true,force:true});await rm(tlsDirectory,{recursive:true,force:true});throw error;}
   const executionOrigin=await main.request('executionOrigin');
   const options={environment:profile.environment,clientId:profile.clientId};
   const prerequisites=createExecutionPrerequisites(app,options),runs=createExecutionRuns(app),works=createPrivateWorkCommands(app,{resolvePolicy:resolvePrivateWorkPersistencePolicy});
@@ -135,8 +139,8 @@ export async function ingestFixture() {
     return httpsFetch(mainOrigin+'/api/v1/me/credential-ingests',{method:'POST',headers:{...human.headers,Origin:mainOrigin,'Content-Type':'application/json','Idempotency-Key':randomUUID(),'If-Match':'"1"',...headers},body:JSON.stringify({operation:'create',modelConnectionId,consent:true})});
   }
   async function browserContext(human:Awaited<ReturnType<typeof member>>) {
-    browser??=await chromium.launch({headless:true,args:['--host-resolver-rules=MAP platform.test 127.0.0.1, MAP broker.test 127.0.0.1','--no-proxy-server']});
-    const context=await browser.newContext({ignoreHTTPSErrors:true});contexts.push(context);
+    browser??=await chromium.launch({headless:true,args:['--ignore-certificate-errors-spki-list='+certificatePin,'--host-resolver-rules=MAP platform.test 127.0.0.1, MAP broker.test 127.0.0.1','--no-proxy-server']});
+    const context=await browser.newContext();contexts.push(context);
     await context.route('**/*',route=>{const origin=new URL(route.request().url()).origin;return [mainOrigin,setupOrigin].includes(origin)?route.continue():route.abort();});
     await context.addCookies([{name:'freedom_local_session',value:human.token,domain:'platform.test',path:'/',secure:true,httpOnly:true,sameSite:'Strict'}]);
     return context;
@@ -168,6 +172,6 @@ export async function ingestFixture() {
     return {...human,initial,work,run,model,grant,credential,approval:await response.json() as any};
   }
   async function activated() {const f=await approved();const response=await post(f,'/api/v1/me/model-steps',{approvalId:f.approval.approvalId,expectedRunVersion:'1'});assert.equal(response.status,201,await response.clone().text());return {...f,step:ModelStepMetadataSchema.parse(await response.json())};}
-  async function cleanup() { providerGate?.release();await Promise.all(contexts.map(c=>c.close()));await browser?.close();await Promise.all(replicas.map(p=>p.close()));await main?.close();await broker?.close();await closeServer(provider);await closeServer(external);await Promise.all([app.end(),executor.end(),brokerPool.end(),owner.end()]);await admin.query(`DROP SCHEMA ${schema} CASCADE;DROP ROLE ${Object.values(roles).join(',')}`);await admin.end();await rm(directory,{recursive:true,force:true});await rm(tlsDirectory,{recursive:true,force:true}); }
+  async function cleanup() { fixtureCertificates.delete(mainOrigin);fixtureCertificates.delete(setupOrigin);providerGate?.release();await Promise.all(contexts.map(c=>c.close()));await browser?.close();await Promise.all(replicas.map(p=>p.close()));await main?.close();await broker?.close();await closeServer(provider);await closeServer(external);await Promise.all([app.end(),executor.end(),brokerPool.end(),owner.end()]);await admin.query(`DROP SCHEMA ${schema} CASCADE;DROP ROLE ${Object.values(roles).join(',')}`);await admin.end();await rm(directory,{recursive:true,force:true});await rm(tlsDirectory,{recursive:true,force:true}); }
   return {schema,roles,owner,app,executor,brokerPool,admin,directory,secret,output,posts,main:main!,broker:broker!,mainOrigin,setupOrigin,executionOrigin,recoveryOrigin,issuerKeys,ingestKeys,responseKeys,recovery,refreshRecovery,member,paired,configured,issue,browserContext,navigateSetup,ingestBrowser,approved,activated,post,cleanup,async restartBroker(){await broker!.close();broker=await childProcess('broker',brokerConfig);return broker;},async spawnReplica(){const replica=await childProcess('broker',{...brokerConfig,listenSetup:false});replicas.push(replica);return replica;},holdProvider(){providerGate=barrier();providerEntered=barrier();return {entered:providerEntered.promise,release:providerGate.release};}};
 }

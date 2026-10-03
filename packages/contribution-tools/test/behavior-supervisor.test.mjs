@@ -22,7 +22,7 @@ test('isolated transport accepts only bounded response fields, never candidate r
     { ...frame, body: 'e30' }, { ...frame, body: 'e31=' }, { ...frame, body: Buffer.alloc(262145).toString('base64') }]) {
     assert.throws(() => decodeBehaviorResponseFrame(bytes(value), 1));
   }
-  assert.throws(() => decodeBehaviorResponseFrame(Buffer.from(JSON.stringify(frame).replace('{', '{"id":1,')), 1));
+  assert.throws(() => decodeBehaviorResponseFrame(Buffer.from(JSON.stringify(frame).replace(/^\{/, '{"id":1,')), 1));
 });
 function git(root, args) {
   return execFileSync('git', args, { cwd: root, env: { ...verificationEnvironment(), GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null',
