@@ -14,6 +14,7 @@ import { assertDatabaseReady, ReadinessError } from './readiness.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 import { GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories } from '../../../modules/community/github-sync.js';
 import {refreshGuildDiscoveryReports} from '../../../modules/community/guild-discovery.js';
+import {createServiceCoverAssetService,resolveServiceCoverUploadPolicy} from '../../../modules/assets/media-domain.js';
 import { workerPrivateAiPorts,type WorkerPrivateAiBindings } from './worker-private-ai.js';
 import {guildReviewerFromBindings,type GuildReviewBindings} from './guild-review.js';
 
@@ -33,6 +34,8 @@ import {guildReviewerFromBindings,type GuildReviewBindings} from './guild-review
  * options; process.env is never read or written here.
  */
 export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
+  /** Explicit cover composition; native MEDIA alone grants no persistence. */
+  FREEDOM_SERVICE_COVER_ENABLED?: string;
   HYPERDRIVE: { readonly connectionString: string };
   ASSETS: { fetch(request: Request): Promise<Response> };
   IMAGES?: ImagesBinding;
@@ -224,6 +227,10 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
         }
         const runtime=workerRuntime(env,config),privateAi=await workerPrivateAiPorts(pool,env,config);
         if(privateAi)Object.assign(runtime,privateAi);
+        if(env.FREEDOM_SERVICE_COVER_ENABLED==='true'&&runtime.avatarAssetStore){
+          runtime.serviceCoverAssetStore=runtime.avatarAssetStore;
+          runtime.serviceCoverAssets=createServiceCoverAssetService(pool,{store:runtime.avatarAssetStore,resolvePolicy:resolveServiceCoverUploadPolicy});
+        }
         const app = createPlatformApp(pool, config.origin, config.freedomEnv, runtime);
         mountAssets(app, env.ASSETS);
         return await scope(env, async () => app.fetch(request, env, ctx as never));
