@@ -326,7 +326,12 @@ test('CLI never executes candidate JSON and rejects duplicates, nonregular input
 });
 
 test('096 broker bridge compatibility requires exact lineage and retained dependencies without granting execution', () => {
-  const f=fixture();assert.equal(f.scan.last,'096_model_broker_authorizations.sql');assert.equal(f.scan.ok,true);
+  const f=fixture();assert.equal(f.scan.ok,true);
+  // Keep the original096 lineage vector stable as later reviewed migrations arrive.
+  f.scan={...prefix(f.scan,96),last:'096_model_broker_authorizations.sql'};
+  f.host.observation.schema_ledger=f.scan.ledger;f.host.observation.schema_ledger_digest=f.scan.ledger_digest;
+  f.host.release_records[0].schema_ledger_digests=[f.scan.ledger_digest];
+  assert.equal(f.scan.ledger.at(-1).name,'096_model_broker_authorizations.sql');
   const bridgeCapabilities=['execution.model-broker-bridge.v1','execution.model-credential-custody.v1','execution.model-text-step.v1',
     'work.private-model-result.v1','work.private-human-result.v1','execution.member-prerequisites.v1','execution.member-run-record.v1',
     'execution.runtime-enrollment.v1','execution.agent-connection-record.v1','execution.bootstrap-status.v1','execution.bootstrap-session.v1'];

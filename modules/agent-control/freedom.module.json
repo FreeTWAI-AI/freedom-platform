@@ -64,7 +64,11 @@
     "tests/runtime/bootstrap-http.test.ts",
     "tests/runtime/bootstrap-http-contracts.test.ts",
     "migrations/096_model_broker_authorizations.sql",
-    "tests/runtime/model-broker-authorizations.test.ts"
+    "tests/runtime/model-broker-authorizations.test.ts",
+    "migrations/097_credential_ingest_authorizations.sql",
+    "apps/platform-api/src/credential-ingest-client.ts",
+    "apps/platform-api/src/routes/member-credential-ingest-http.ts",
+    "tests/runtime/credential-ingest-authorizations.test.ts"
   ],
   "public_exports": [
     "contracts/execution/v1/runtime-registration.ts",
@@ -100,7 +104,8 @@
     "device-pairing",
     "bootstrap-session",
     "bootstrap-http",
-    "model-broker-bridge"
+    "model-broker-bridge",
+    "model-credential-ingest"
   ],
   "client_profiles": [],
   "instructions": [
@@ -119,7 +124,8 @@
     "modules/agent-control/bootstrap-sessions.md",
     "docs/platform-plan/execution/unified-foundation/11-bootstrap-sessions.md",
     "docs/platform-plan/execution/unified-foundation/12-bootstrap-http.md",
-    "docs/platform-plan/execution/unified-foundation/19-authenticated-broker-bridge.md"
+    "docs/platform-plan/execution/unified-foundation/19-authenticated-broker-bridge.md",
+    "docs/platform-plan/execution/unified-foundation/20-direct-credential-ingest.md"
   ],
   "invariants": [
     "current-authority-before-replay",
@@ -144,7 +150,10 @@
     "unmounted-without-production-trust",
     "original-session-command-not-wire-actor",
     "one-use-transport-admission-not-domain-dispatch",
-    "initial-cas-then-stage-domain-fences"
+    "initial-cas-then-stage-domain-fences",
+    "separate-one-use-ingest-purpose-original-session",
+    "main-metadata-only-without-secret-proxy",
+    "immutable-no-extension-bootstrap-submission-claims"
   ],
   "tests": [
     "runtime.full"

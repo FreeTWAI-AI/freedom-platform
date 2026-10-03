@@ -41,6 +41,7 @@ jobs:
       - run: npm run contracts:build
       - run: npm run check:common-contracts
       - run: npm run check:model-broker-bridge
+      - run: npm run check:model-credential-ingest
       - run: git diff --exit-code -- contracts/preview/v1 packages/sdk
       - run: npm run typecheck
       - run: npm run build

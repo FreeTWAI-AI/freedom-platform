@@ -7,16 +7,14 @@ import type { CredentialIngestAuthorizations } from '../../../modules/agent-cont
 import { RuntimeEnvironmentSchema, type RuntimeEnvironment } from '../../../contracts/execution/v1/runtime-registration.js';
 import { BootstrapClientIdSchema } from '../../../contracts/execution/v1/bootstrap.js';
 import { CredentialIngestBootstrapClaimsSchema, CredentialIngestBootstrapProtectedHeaderSchema,
-  CredentialIngestBootstrapRequestSchema, CredentialIngestCommandSchema, CredentialIngestLimits,
+  CredentialIngestHandoffSchema, CredentialIngestCommandSchema, CredentialIngestLimits,
   CredentialIngestOwnerOutcomeSchema, type CredentialIngestCommand } from '../../../contracts/execution/v2/model-credential-ingest.js';
 import { freezeTree, snapshotInput } from '../../../packages/execution-state/decode.js';
 import { Problem } from '../../../packages/shared/problem.js';
 
 declare const clientBrand: unique symbol;
 export interface CredentialIngestClient { readonly [clientBrand]: never }
-export const CredentialIngestHandoffSchema = CredentialIngestBootstrapRequestSchema.extend({
-  setupOrigin:z.string().url(), expiresAt:z.iso.datetime({precision:3}), operational_authority:z.literal(false),
-}).strict();
+export { CredentialIngestHandoffSchema };
 export interface CredentialIngestClientOptions {
   origin:string; environment:RuntimeEnvironment; clientId:string; setupOrigin:string; issuer:string; audience:string;
   keyId:string; signingKey:CryptoKey; authorizations:CredentialIngestAuthorizations;

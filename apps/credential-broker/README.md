@@ -51,3 +51,9 @@ recreates opaque evidence. Main verifies replies and reads current owner SQL.
 Production private service binding, secret ingest with capture disabled, provider verification/settings and actual
 member/provider acceptance remain separate work. Tests use synthetic keys and
 disposable PostgreSQL only; no production credentials or deployments are implied.
+
+## Direct member setup factory
+
+`createCredentialIngestService` and `createCredentialIngestHttp` implement the purpose-bound direct setup in [the canonical ingest specification](../../docs/platform-plan/execution/unified-foundation/20-direct-credential-ingest.md). The main API signs metadata; the protected document and key bytes remain on a different HTTPS cookie host. Bootstrap and submission are one-use SQL transitions. The original vault/store retain genuine intent provenance, a 30-second write deadline and commit guards; history remains readable without recovery/provider health.
+
+The optional main product `ingest` port is explicitly bound to its database/origin/environment/client. Missing ports return unavailable. This factory does not install a public service or supply default keys, KEK, capture readiness, external recovery, DNS or certificates. The local HTTPS/Chromium fixture uses synthetic readiness and provider/storage; it is not a production capture or deployment acceptance.

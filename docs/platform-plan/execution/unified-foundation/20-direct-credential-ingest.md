@@ -24,7 +24,7 @@ execution activate／execute assertion 不能在此接受。broker 回應方向�
 金鑰與 purpose `credential-broker.ingest-response`，不是只改 kid。
 
 同本人原 session 的同 key 重試只回原 assertion/ref/nonce；更改 semantics 拒絕。
-签章後再次檢查原當前 SQL 授權與期限，不讓 await 的晚到結果交付。主站 production
+簽章後再次檢查原當前 SQL 授權與期限，不讓 await 的晚到結果交付。主站 production
 組裝沒有 vault／KEK／cipher pool／provider endpoint；秘密不經主站代理或 JSON。
 
 ## 真正瀏覽器 handoff
@@ -33,7 +33,8 @@ execution activate／execute assertion 不能在此接受。broker 回應方向�
 瀏覽器以 top-level POST 到 pinned broker `/credential-setup`，使用
 `application/x-www-form-urlencoded`，恰好一個 `assertion` field，無 query/fragment。
 compact JWS 已包含 ref／nonce。拒絕重複 field、非 canonical encoding、過大 body、
-錯誤 Origin；只接受 main Origin 的 navigation/document handoff profile。
+錯誤 Origin；只接受 main Origin 的 navigation/document handoff profile，Fetch-Site
+可為 same-site 或 cross-site（不同 hostname），不可為 same-origin／none。
 不依賴第三方 credentialed fetch、CORS、redirect 或 broker cookie 已存在。
 不同 host 的真實 Secure／SameSite 行為必須由瀏覽器驗證；Node 手填 cookie 不是證據。
 
@@ -94,6 +95,10 @@ session/scope/backing/provenance guard 均保留。rotation final guard 只能�
 genuine intent 的 exact replacement credential/binding、old credential rotated/version+1
 及 old model revoked/version+1；不能要求已合法改變的舊 active CAS，也不能接受
 任意歷史 rotated 列。Result／模型執行既有 authority 不因 ingest 成功而放寬。
+097 另以 deferred whole-state constraint 在真正 SQL COMMIT 檢查 exclusive
+authorization/setup/write clock、原 session／owner／scope／backing 與 exact replacement，
+擋住最後 session-clock driver 結果等待跨過較短 command 期限的交易。外部 recovery
+仍是最新有界觀測，沒有宣稱與 SQL COMMIT 或網路交付原子一致。
 
 app SQL role 可 issue/read，不能 update claim 或讀 ciphertext；cipher broker role
 只有必要 transition columns 及原 store privileges；executor 不得碰 ingest authority

@@ -28,6 +28,7 @@
 | [私人 AI 會員產品入口](17-private-ai-product.md) | U3/U4、AP M3 | 本人 HTTP／畫面、同意、成果歷史及控制已有本機證據；真正 provider/runtime 驗收未完成 |
 | [隔離憑證 broker 核心](18-credential-broker-core.md) | U3、AP M2/M3、UF restore | 加密 custody、固定世代 resolver 與外部 recovery 核心；service binding／秘密 ingest／真人模型仍待接續 |
 | [隔離 broker 認證橋](19-authenticated-broker-bridge.md) | U3/U4、AP M2/M3、UF authority | 原始 session command、broker 內原 Step／Result、最後 SQL guard；正式 trust／直接秘密 ingest 待續 |
+| [直接 broker 憑證輸入](20-direct-credential-ingest.md) | U3/U5、AP M2/M3、AUTH/OPS/EXT | 主站 metadata handoff、隔離保護表單與原 vault/store 接線；正式 capture/binding/provider 尚待驗證 |
 | [共同基礎驗收](acceptance.md) | INT-01–28、GOV-01–32 | 60 項原要求，全部 `not_run` |
 | [R2/AP 原始驗收](source-acceptance.md) | R2 S/A/M/D、AP AUTH/WORK/EXT/NEO/OPS | 108 項原要求，加 24 條 guardrails/invariants 對照，全部未驗收 |
 

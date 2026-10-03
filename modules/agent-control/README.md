@@ -117,3 +117,6 @@ adds server-only original-session command authorizations. Its signed wire contai
 only references, nonce, digest, purpose and deadlines. SQL derives the broker-local
 Actor from the original genuine session; JSON cannot supply one. One-use claim
 admission does not replace the existing ModelStep dispatch claim or stage CAS.
+
+
+直接憑證 ingest 的中央契約與 original-session SQL authority 見 [20](../../docs/platform-plan/execution/unified-foundation/20-direct-credential-ingest.md)。主 API 只 issue/read；bootstrap/submission 各一次、registry miss 不重鑄 opaque intent，最後 SQL COMMIT 保留本人/backing/期限檢查。ModelConnection 仍 unverified，成功保管不能授模型執行權。097 尚未合併／發布。

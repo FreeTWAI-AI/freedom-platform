@@ -2,12 +2,14 @@ import type { Pool } from 'pg';
 import { Hono } from 'hono';
 import type { ObjectStore } from '../../../packages/asset-storage/index.js';
 import type { ModelBrokerClient } from './model-broker-client.js';
+import type { CredentialIngestClient } from './credential-ingest-client.js';
 import type { ModelStepHost } from '../../../modules/agent-execution/model-step-host.js';
 import { resolvePrivateWorkPersistencePolicy } from '../../../modules/autopilot-work/policy.js';
 import { RuntimeEnvironmentSchema, type RuntimeEnvironment } from '../../../contracts/execution/v1/runtime-registration.js';
 import { createPrivateWorkTransport } from './routes/private-work-transport.js';
 import { createMemberExecutionHttpTransport } from './routes/member-execution-http.js';
 import { createMemberModelHttpTransport } from './routes/member-model-http.js';
+import { createMemberCredentialIngestHttpTransport } from './routes/member-credential-ingest-http.js';
 import { assertOriginAllowed, type FreedomEnv } from './env.js';
 
 declare const privateAiProductBrand: unique symbol;
@@ -26,11 +28,11 @@ function rejected(code:string,status:number) {
 
 export async function createPrivateAiProductTransport(pool: Pool, options: {
   origin: string; environment: RuntimeEnvironment; clientId: string; host?: ModelStepHost; broker?: ModelBrokerClient; store: ObjectStore;
-  sourceNetwork?: (request: Request) => string;
+  sourceNetwork?: (request: Request) => string; ingest?: CredentialIngestClient;
 }): Promise<PrivateAiProductTransport> {
   if (!options || Object.getPrototypeOf(options) !== Object.prototype) throw new Error('invalid_private_ai_product_configuration');
   const descriptors = Object.getOwnPropertyDescriptors(options);
-  if (Reflect.ownKeys(options).some(key => typeof key !== 'string' || !['origin','environment','clientId','host','broker','store','sourceNetwork'].includes(key))
+  if (Reflect.ownKeys(options).some(key => typeof key !== 'string' || !['origin','environment','clientId','host','broker','store','sourceNetwork','ingest'].includes(key))
     || Object.values(descriptors).some(value => !value.enumerable || !('value' in value))
     || ['origin','environment','clientId','store'].some(key => !descriptors[key]) || (!!descriptors.host === !!descriptors.broker)) throw new Error('invalid_private_ai_product_configuration');
   const environment = RuntimeEnvironmentSchema.parse(descriptors.environment.value);
@@ -45,6 +47,8 @@ export async function createPrivateAiProductTransport(pool: Pool, options: {
   const privateWork = createPrivateWorkTransport(pool, { origin, freedomEnv, store });
   const privateWorkApp = new Hono().route('/api/v1', privateWork);
   const prerequisites = await createMemberExecutionHttpTransport(pool, { origin, environment, clientId, ...network });
+  const ingest = descriptors.ingest ? await createMemberCredentialIngestHttpTransport(pool,
+    {origin,environment,clientId,ingest:descriptors.ingest.value as CredentialIngestClient,...network}) : undefined;
   const models = await createMemberModelHttpTransport(pool, { origin, environment, clientId, ...(broker ? {broker} : {host:host!}), store,
     resolvePolicy: resolvePrivateWorkPersistencePolicy, ...network });
   const port = Object.freeze(Object.create(null)) as PrivateAiProductTransport;
@@ -56,6 +60,9 @@ export async function createPrivateAiProductTransport(pool: Pool, options: {
     if((sentOrigin!==null&&sentOrigin!==origin)||(!read&&sentOrigin!==origin)||(site!==null&&site!=='same-origin'))return rejected('origin_rejected',403);
     if(['Authorization','DPoP','X-Freedom-Connection','X-Freedom-Nonce'].some(header=>request.headers.has(header)))return rejected('credential_kind_rejected',403);
     if(request.headers.has('Content-Encoding'))return rejected('encoding_rejected',415);
+    if (matches(path, '/api/v1/me/credential-ingests')) {
+      return ingest ? ingest.fetch(request) : rejected('credential_ingest_unavailable',503);
+    }
     if (matches(path, privateWorkPath)) {
       // Private Work's reusable router has relative /me routes. Route through a
       // Hono base path rather than changing the authenticated request URL.

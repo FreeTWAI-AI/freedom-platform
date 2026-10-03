@@ -14,8 +14,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 3006,
-      "sha256": "94ce4f4fec02cd2116cb465b60532ba143a39008b625ca055b20ef55391acb28"
+      "bytes": 3057,
+      "sha256": "9d1d496cf4a3bba5bb4d4e03be478cff312f072c90f540cda4c1b40734e2dd39"
     },
     {
       "path": ".gitignore",
@@ -54,13 +54,13 @@
     },
     {
       "path": "apps/credential-broker/README.md",
-      "bytes": 3404,
-      "sha256": "ef155a8c56e525c68f8d20f130b11ad8b552fda10c48e361bab4dbf0381b65db"
+      "bytes": 4405,
+      "sha256": "4657bf2bd332ae15c7c313fdd6e63590f5ad73785ef43b3716e176351145fc45"
     },
     {
       "path": "apps/credential-broker/freedom.module.json",
-      "bytes": 1865,
-      "sha256": "7893bf7c5d05163123bcfe63beb6065510326c6d0427b5fff5d77b8ec8d13eda"
+      "bytes": 2367,
+      "sha256": "d0dc9425e6b5f563356f902397d8c53c03d9453d9e5e24c1b1eb4ec7c3fbd019"
     },
     {
       "path": "apps/credential-broker/src/bridge.ts",
@@ -73,6 +73,26 @@
       "sha256": "6429cf8c9be499ee5517060f93c1d4e7e7724f58afa1eff9dd0bb116af851b64"
     },
     {
+      "path": "apps/credential-broker/src/ingest-crypto.ts",
+      "bytes": 7372,
+      "sha256": "28af0b92c10d1cc0615a6873899e70cc86cc978e7a1cf706748f033a210a82f1"
+    },
+    {
+      "path": "apps/credential-broker/src/ingest-http.ts",
+      "bytes": 12647,
+      "sha256": "813f2d275adc385779376fb0d90a9957dd9e2514441ae78f752460fb43bb9203"
+    },
+    {
+      "path": "apps/credential-broker/src/ingest-process.ts",
+      "bytes": 4887,
+      "sha256": "413277b88b92507e890b076a2f526344ae4cb7dc3e70fcf04a33d37173319ade"
+    },
+    {
+      "path": "apps/credential-broker/src/ingest.ts",
+      "bytes": 13909,
+      "sha256": "d24ea2fb1b331131c2425dc8a0fe83af95091fb494498dae52ca758d3ea5e046"
+    },
+    {
       "path": "apps/credential-broker/src/process.ts",
       "bytes": 3668,
       "sha256": "3e019092301bd1d033c093091496c023fec5ddc37b3aed176ca4d21dcedd5f86"
@@ -83,9 +103,14 @@
       "sha256": "2e35d41555dc74d3e6819101b1cd45c74a29915772fa46392a690f12156b44f1"
     },
     {
+      "path": "apps/credential-broker/src/setup-ui.ts",
+      "bytes": 10399,
+      "sha256": "4b10b633793b3c6d68479fead4d740ac89d316e19631fcc61728296d7f0b9ddc"
+    },
+    {
       "path": "apps/credential-broker/src/store.ts",
-      "bytes": 31000,
-      "sha256": "b46ef1685a13b9dd3d19bf4c32e5176eda56a076e5fd57a4564477b9fc9fffbc"
+      "bytes": 33397,
+      "sha256": "997ac10ddb95760ce72b2fb1a40ad75828b42b337c70a5728327ee1e37799913"
     },
     {
       "path": "apps/credential-broker/src/vault.ts",
@@ -101,6 +126,11 @@
       "path": "apps/platform-api/src/app.ts",
       "bytes": 3550,
       "sha256": "952c44b3db929dd7902290cf3cc409385644d90805810b3db02476888ffa9a98"
+    },
+    {
+      "path": "apps/platform-api/src/credential-ingest-client.ts",
+      "bytes": 6736,
+      "sha256": "2b3ce6720888f73bf8f21e5dda66185577d321795bbe0f00ca5e15e92eb824a1"
     },
     {
       "path": "apps/platform-api/src/env.ts",
@@ -149,8 +179,8 @@
     },
     {
       "path": "apps/platform-api/src/private-ai-product.ts",
-      "bytes": 6240,
-      "sha256": "33c3b5aecdd63c9d9ee55d9a672018062b614b6c7d1ff5c2320af0f6da3de9b0"
+      "bytes": 6828,
+      "sha256": "f5082e28cedf9e121c56946369b5ddb95b13d5b7342b39838e91a550125fa637"
     },
     {
       "path": "apps/platform-api/src/readiness.ts",
@@ -231,6 +261,11 @@
       "path": "apps/platform-api/src/routes/member-communications.ts",
       "bytes": 3333,
       "sha256": "b82578b3b51acdec4862c6a9460d7d7c56f71cde29ae14d52c1ccfa915034148"
+    },
+    {
+      "path": "apps/platform-api/src/routes/member-credential-ingest-http.ts",
+      "bytes": 8431,
+      "sha256": "cab668ab4d50f90c2e0a8eb25c052fc6805ce2f2c6c1a55e85f5faf34e1414b9"
     },
     {
       "path": "apps/platform-api/src/routes/member-execution-http.ts",
@@ -1898,6 +1933,61 @@
       "sha256": "7958b09247fc045e437165fbf4cf2e78dd40d2a1ef3796fe1b6b3072d87b1bcb"
     },
     {
+      "path": "contracts/execution/v2/credential-ingest-bootstrap-claims.schema.json",
+      "bytes": 3381,
+      "sha256": "34d46d71527a76fbc9152b1cbda980bac8be03de88cca6f5d145cb6f4078d9cc"
+    },
+    {
+      "path": "contracts/execution/v2/credential-ingest-bootstrap-protected-header.schema.json",
+      "bytes": 748,
+      "sha256": "80e43410ea5c7693e9ed58b3ab3cc21cb6536cb0f7e67db0ea2cbb914505c64c"
+    },
+    {
+      "path": "contracts/execution/v2/credential-ingest-bootstrap-request.schema.json",
+      "bytes": 970,
+      "sha256": "30e66183527e58f9e8f1ff0db977739dfb971f6ab1e8149159a8609e07a8a63a"
+    },
+    {
+      "path": "contracts/execution/v2/credential-ingest-command.schema.json",
+      "bytes": 4548,
+      "sha256": "84cf48b50357805b32472b588f0095e8c5c9aaaa5b8fdcfbf1a1a218b9ebe3d3"
+    },
+    {
+      "path": "contracts/execution/v2/credential-ingest-handoff.schema.json",
+      "bytes": 1596,
+      "sha256": "a0cf8b3262703c4151a2c61d087bb0d08738a41594405a369d90eb8d6b141363"
+    },
+    {
+      "path": "contracts/execution/v2/credential-ingest-issue-input.schema.json",
+      "bytes": 2388,
+      "sha256": "db9cec10a22e44fa591cf59ce11fa6d82610a63ca57a1eae8a8b12617eae59ad"
+    },
+    {
+      "path": "contracts/execution/v2/credential-ingest-owner-outcome.schema.json",
+      "bytes": 8121,
+      "sha256": "8a925eb98545875b0c0f721f266daacfce46a1a22e70d1077cae0c605d2a8f3c"
+    },
+    {
+      "path": "contracts/execution/v2/credential-ingest-response-claims.schema.json",
+      "bytes": 24936,
+      "sha256": "39e80468fb918351f582860bb41f2ca388bdcc1f29fab661d6a9338cf4ae0978"
+    },
+    {
+      "path": "contracts/execution/v2/credential-ingest-response-envelope.schema.json",
+      "bytes": 595,
+      "sha256": "bf363d800b74fac339dcaf843e6aaebabe147d36881ce97fbcb28e73e586383e"
+    },
+    {
+      "path": "contracts/execution/v2/credential-ingest-response-protected-header.schema.json",
+      "bytes": 746,
+      "sha256": "e8a9a6cf1be076f09adeab72be3541ce41c7c8dd838dbe718d2d520e82a9e44e"
+    },
+    {
+      "path": "contracts/execution/v2/credential-ingest-setup-metadata.schema.json",
+      "bytes": 9752,
+      "sha256": "ed7f21b3e309d9c889c3a172bf38c24834475bcfaa5f0b1325f75cfe4e5e2c50"
+    },
+    {
       "path": "contracts/execution/v2/credential-recovery-floor.schema.json",
       "bytes": 1334,
       "sha256": "37f61670818ad3842422766c5c07b1995354e6d8deb587796f527e7607bd04ff"
@@ -1986,6 +2076,11 @@
       "path": "contracts/execution/v2/model-credential-create.schema.json",
       "bytes": 1423,
       "sha256": "eb359ef8a2564bb02284884fc17971b44db02c0052dc7f4b9f995540b74e93c0"
+    },
+    {
+      "path": "contracts/execution/v2/model-credential-ingest.ts",
+      "bytes": 5762,
+      "sha256": "5a8e5bd7a32d6fa2613286db491a9dfa1daf5b5d155c4bc0f74d5853f3670ec3"
     },
     {
       "path": "contracts/execution/v2/model-credential-metadata.schema.json",
@@ -2135,7 +2230,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30575,
-      "sha256": "0a04978bbc53d309c900e8ec796f3bd11cb0229cffd60fbeecc2636e589f844f"
+      "sha256": "5876d9fa54b80b96f6b6e7c2c463c6c6dae076cbe50858b9018e4e805e025c22"
     },
     {
       "path": "deploy/cloudflare/lib/cloudflare.mjs",
@@ -2184,8 +2279,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 20177,
-      "sha256": "3eb930290e448f115c5567f9839fd351c999487853a12399a50c54310ea4caae"
+      "bytes": 20637,
+      "sha256": "29ba7ea3a1ec930b9acde3f9efe4b8d9b826a42dddc99a9b572f3e1bb6254016"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -2209,8 +2304,8 @@
     },
     {
       "path": "deploy/cloudflare/sql/20-runtime-grants.psql",
-      "bytes": 7375,
-      "sha256": "e0a9954fa02c7b045919d834f21752aadb9dbe4794b85c3292411d0aa9ac44fa"
+      "bytes": 7415,
+      "sha256": "d51721b6f311af96fb7f7dd569437e6818bc68ebd1f9a4cb9b5a58aacbdde663"
     },
     {
       "path": "deploy/cloudflare/sql/30-verify-readonly.psql",
@@ -2219,13 +2314,13 @@
     },
     {
       "path": "deploy/cloudflare/sql/40-credential-broker-grants.psql",
-      "bytes": 3947,
-      "sha256": "745c9300edfa8df20e7df3a4b2450a08c8f52dda1994850d2ff9c90368391477"
+      "bytes": 5515,
+      "sha256": "f09d218c1ba99e02380ca98a43afc4810cec0a80a2b386a13828e071b4d3c364"
     },
     {
       "path": "deploy/cloudflare/sql/45-model-broker-execution-grants.psql",
-      "bytes": 9119,
-      "sha256": "695ecb6bc01d313c54cb86f5a793e29b793e31a5c873e3439d9fb6bda14e877b"
+      "bytes": 9416,
+      "sha256": "efd3a02595b1f11b955d51437da7e6cf6d75e6b5f121266de91114499469ecf7"
     },
     {
       "path": "deploy/cloudflare/test/preflight.test.mjs",
@@ -2254,13 +2349,18 @@
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
-      "bytes": 23310,
-      "sha256": "4b07b8bc38bf2802526f76d0778cb0ad2aa31d138bba0c7c9566a128152bb83e"
+      "bytes": 23673,
+      "sha256": "b7a5c5349ce30e00d7cb75356a6658637058f01ae1a40566012eeae82028bc4f"
     },
     {
       "path": "deploy/cloudflare/test/release-credential-broker.test.mjs",
       "bytes": 5666,
       "sha256": "3c1f6c9c423a385f804cc216e6b4b4dd57d9e68fff2e6aa2ceda68e06f589330"
+    },
+    {
+      "path": "deploy/cloudflare/test/release-credential-ingest.test.mjs",
+      "bytes": 5708,
+      "sha256": "e1db93e9149e840c8056b04ef83788cd570dd79aafca2f731b0747ef5c6947a1"
     },
     {
       "path": "deploy/cloudflare/test/release-device-authorization.test.mjs",
@@ -3813,9 +3913,14 @@
       "sha256": "5a03e9c43987e638bca6451c159ded7df01777a658151a5d335772be8258f888"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/20-direct-credential-ingest.md",
+      "bytes": 9807,
+      "sha256": "b86d4b59a8848a95b85f0d6dff39ed43017c5850788d18bd6b3425ff1d64facd"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/README.md",
-      "bytes": 9817,
-      "sha256": "161250e679ab516015342af6717b95e51ef835721d3065bdded9a897f92932fe"
+      "bytes": 10035,
+      "sha256": "793744064aa6de0195a7e087773b8b3f381c7c2da33003f0522cf8c11f9a0391"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
@@ -4428,6 +4533,11 @@
       "sha256": "dfa63a8c9ac4a6296de7d58877445908153d4550232bb15c6b5d701b9e7e4181"
     },
     {
+      "path": "migrations/097_credential_ingest_authorizations.sql",
+      "bytes": 23647,
+      "sha256": "a6d4fdf099c30d0e55067d84948280be8650868a561c7eb06f5fe978d0b1e65a"
+    },
+    {
       "path": "modules/agent-commerce/distribution.ts",
       "bytes": 10476,
       "sha256": "2d60f26788a408905286751505ea0d4d2e38a4399e1ff11e3df4622b5c2601f3"
@@ -4454,8 +4564,8 @@
     },
     {
       "path": "modules/agent-control/README.md",
-      "bytes": 8152,
-      "sha256": "b5350e48a0d772e965d003c7639073a0b064e290fd5520eeeb8195c02e6b42c3"
+      "bytes": 8574,
+      "sha256": "740cd1c93e491c469efe966cd35231c27b420f495edf3557d6db8f4785f28c3b"
     },
     {
       "path": "modules/agent-control/agent-connections.md",
@@ -4528,6 +4638,11 @@
       "sha256": "d63ac2a27c690d41a5dc3880740b1b9e16ca7a341990a42f3920881bf0a12e3c"
     },
     {
+      "path": "modules/agent-control/credential-ingest-authorizations.ts",
+      "bytes": 32295,
+      "sha256": "8c52c21c6cb8bf27270745055a6876cf331fd6dd13ef2dae89a15963a0699326"
+    },
+    {
       "path": "modules/agent-control/device-authorizations.md",
       "bytes": 7218,
       "sha256": "f80219246ba6ea4af868146e1bdd8fc643f8840778cb53136e925a4e95a479a9"
@@ -4549,8 +4664,8 @@
     },
     {
       "path": "modules/agent-control/freedom.module.json",
-      "bytes": 7049,
-      "sha256": "06678a2846ca396e030cdcabcbc58e13911f83b71ef6a32c90429a3b93c44f41"
+      "bytes": 7574,
+      "sha256": "55c0f9ee7f1debe26ead202f9585b51cfd12d3408298ea7b403e71e0e7a6058f"
     },
     {
       "path": "modules/agent-control/generate-bootstrap-http.ts",
@@ -4576,6 +4691,11 @@
       "path": "modules/agent-control/generate-model-broker-bridge.ts",
       "bytes": 1428,
       "sha256": "7cc5a711b40d0559fab301cec25e1a71ae7fd36a73468107f8a9b8d43b10eae2"
+    },
+    {
+      "path": "modules/agent-control/generate-model-credential-ingest.ts",
+      "bytes": 1792,
+      "sha256": "96c0c4a23f712b4d434aa6c5f642c6beff3b4b294e5ffd6ba271ff1e88886ac2"
     },
     {
       "path": "modules/agent-control/generate.ts",
@@ -4644,8 +4764,8 @@
     },
     {
       "path": "modules/agent-execution/freedom.module.json",
-      "bytes": 7422,
-      "sha256": "7b75a9b656d73c8e921ac4dcb192a8ddc75f7249d7bfc676b70999e7043965eb"
+      "bytes": 7596,
+      "sha256": "dba3b125ebe4255a935a02c95b80fe87a4cbc79dcd5ae74b52ffecff0d696d60"
     },
     {
       "path": "modules/agent-execution/generate-member-execution-http.ts",
@@ -5464,8 +5584,8 @@
     },
     {
       "path": "package.json",
-      "bytes": 5839,
-      "sha256": "5d88255b929329c7db0e03c7c32b49741a3f8377c58d3d5667f10998c46cdb0e"
+      "bytes": 6055,
+      "sha256": "bc6abc5133713ac1703d06b040ebebe7d23ae4c1a795ed241a04b98632731e70"
     },
     {
       "path": "packages/asset-storage/README.md",
@@ -5594,8 +5714,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 4756,
-      "sha256": "dc2467ad373510ae2999d80608c040cbfa909c07e9b1df394d9a19335256f1c1"
+      "bytes": 4870,
+      "sha256": "5649fcc93d59a63a5d072084baf67312d4c49e108426cc91c85382ff9bbf09ef"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -6686,6 +6806,46 @@
       "path": "tests/runtime/credential-broker-store.test.ts",
       "bytes": 19722,
       "sha256": "1ab5d96b3c00e4afaa45970a9ed6ac11a1e6cea184d6764037ad74a025addaa1"
+    },
+    {
+      "path": "tests/runtime/credential-ingest-adversarial.test.ts",
+      "bytes": 16706,
+      "sha256": "0a1161d80fd89f4915f6dfe8688307933e2b2b28d31a5ebe4724498536b87820"
+    },
+    {
+      "path": "tests/runtime/credential-ingest-authorizations.test.ts",
+      "bytes": 29093,
+      "sha256": "41fcb4e12a73e41bf09f5aac0a53a375758f6b3fa5c6f2ba0671c5b10d93a25d"
+    },
+    {
+      "path": "tests/runtime/credential-ingest-broker.test.ts",
+      "bytes": 8216,
+      "sha256": "e3ffae1c5a56c34974b04b84a03f6893a22832845c7a3ef983783f9dad145e2d"
+    },
+    {
+      "path": "tests/runtime/credential-ingest-fixtures/broker-child.ts",
+      "bytes": 9436,
+      "sha256": "cddfa815de517d1d0f968caf0443142d2bea4a3b8a96572cf6f2a408529c6c89"
+    },
+    {
+      "path": "tests/runtime/credential-ingest-fixtures/main-child.ts",
+      "bytes": 6649,
+      "sha256": "eaf0ffce20753370729b3a0a30ac6c5055835b9fcd4ca6fabf5e4dd4c511ac38"
+    },
+    {
+      "path": "tests/runtime/credential-ingest-fixtures/shared.ts",
+      "bytes": 2283,
+      "sha256": "a6b02dfa9fffbb68c66695f5a8723ae3f685a08cecc19bd444c168fca4fb2a3e"
+    },
+    {
+      "path": "tests/runtime/credential-ingest-helpers.ts",
+      "bytes": 24841,
+      "sha256": "dcb1399a1051e2046562b52a667b7fd72f4df18ef2ec5bc19ea1ebd3600d6431"
+    },
+    {
+      "path": "tests/runtime/credential-ingest-process.test.ts",
+      "bytes": 3803,
+      "sha256": "f837f7fa66a7e1c02f213a256cffe0f63ea319225e83658848f67f95f72e561a"
     },
     {
       "path": "tests/runtime/development-access-grant-race.test.ts",

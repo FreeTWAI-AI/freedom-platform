@@ -76,7 +76,8 @@
     "apps/platform-api/src/routes/member-model-http.ts",
     "contracts/execution/v2/member-model-http.ts",
     "contracts/execution/v2/model-credential.ts",
-    "contracts/execution/v2/model-broker-bridge.ts"
+    "contracts/execution/v2/model-broker-bridge.ts",
+    "contracts/execution/v2/model-credential-ingest.ts"
   ],
   "dependencies": [
     "work",
@@ -96,7 +97,8 @@
     "model-step",
     "member-model-http",
     "model-credential",
-    "model-broker-bridge"
+    "model-broker-bridge",
+    "model-credential-ingest"
   ],
   "client_profiles": [],
   "instructions": [
@@ -109,7 +111,8 @@
     "docs/platform-plan/execution/unified-foundation/16-private-model-step.md",
     "docs/platform-plan/execution/unified-foundation/17-private-ai-product.md",
     "docs/platform-plan/execution/unified-foundation/18-credential-broker-core.md",
-    "docs/platform-plan/execution/unified-foundation/19-authenticated-broker-bridge.md"
+    "docs/platform-plan/execution/unified-foundation/19-authenticated-broker-bridge.md",
+    "docs/platform-plan/execution/unified-foundation/20-direct-credential-ingest.md"
   ],
   "invariants": [
     "current-authority-before-replay",
