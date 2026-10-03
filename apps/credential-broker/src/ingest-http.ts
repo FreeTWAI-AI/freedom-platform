@@ -84,7 +84,7 @@ export function createCredentialIngestHttp(options:CredentialIngestHttpOptions) 
       if(sentOrigin!==(bootstrapRoute?mainOrigin:setupOrigin))rejected();
       const fetchSite=h.get('Sec-Fetch-Site'),fetchMode=h.get('Sec-Fetch-Mode'),fetchDest=h.get('Sec-Fetch-Dest');
       if(bootstrapRoute){if(fetchSite!==null&&fetchSite!=='cross-site'||fetchMode!==null&&fetchMode!=='navigate'||fetchDest!==null&&fetchDest!=='document')rejected();}
-      else if(fetchSite!==null&&fetchSite!=='same-origin'||fetchMode!==null&&!['cors','same-origin'].includes(fetchMode)||fetchDest!==null&&fetchDest!=='')rejected();
+      else if(fetchSite!==null&&fetchSite!=='same-origin'||fetchMode!==null&&!['cors','same-origin'].includes(fetchMode)||fetchDest!==null&&fetchDest!=='empty')rejected();
       const token=cookie(h.get('Cookie'));const csrf=h.get('X-FP-Broker-CSRF');
       const user=h.get('Sec-Fetch-User');if(user!==null&&(!bootstrapRoute||user!=='?1'))rejected();
       if(bootstrapRoute){if(csrf!==null)rejected();}else if(!token||!csrf||!/^[A-Za-z0-9_-]{43}$(?![\s\S])/.test(csrf))rejected();
