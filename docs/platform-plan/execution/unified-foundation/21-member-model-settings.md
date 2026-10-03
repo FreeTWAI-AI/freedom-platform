@@ -35,7 +35,7 @@ rotation replacement model secondary CAS、本人明確consent。任何未知結
 ## 主站不接金鑰
 
 現有「私人工作與 AI」中新增模型／憑證設定區，在工作選擇之前、獨立刷新。
-主站沒有 key/password/upload/clipboard 欄位，不儲存assertion/ref/key於URL、
+模型設定區沒有 API key/password/upload/clipboard 欄位，不儲存assertion/ref/key於URL、
 localStorage/sessionStorage、console／client telemetry或第三方資源。明示provider／
 model、平台加密保管、remote processing與rotation的原模型／Grant／Step影響。
 同意需為本次明確動作；沒有安裝port或沒有catalog時顯示無法設定及原因。
