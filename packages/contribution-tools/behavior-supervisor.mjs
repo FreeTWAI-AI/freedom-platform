@@ -17,6 +17,22 @@ import { openSupervisorDatabase, initializeSupervisorFixture, supervisorFixtureF
 const BASE_IMAGE = 'sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171';
 const PG_IMAGE = 'sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd';
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
+// Current genuine import graph measured275 descriptors in an isolated container.
+// Finite per-process ceilings; every Docker observation attests these exact values.
+export const SUPERVISOR_NOFILE = Object.freeze({ candidate: 512, database: 256 });
+export function validateSupervisorUlimits(ulimits, kind) {
+  if (!Object.hasOwn(SUPERVISOR_NOFILE, kind) || !Array.isArray(ulimits) || ulimits.length !== 2) fail('supervisor_container_changed');
+  const found = new Map();
+  for (const item of ulimits) {
+    if (!item || Object.keys(item).sort().join(',') !== 'Hard,Name,Soft' || found.has(item.Name)
+      || !['nofile', 'core'].includes(item.Name)) fail('supervisor_container_changed');
+    const expected = item.Name === 'nofile' ? SUPERVISOR_NOFILE[kind] : 0;
+    if (item.Soft !== expected || item.Hard !== expected) fail('supervisor_container_changed');
+    found.set(item.Name, Object.freeze({ Name: item.Name, Soft: item.Soft, Hard: item.Hard }));
+  }
+  if (!found.has('nofile') || !found.has('core')) fail('supervisor_container_changed');
+  return Object.freeze([...found.values()].sort((a,b)=>a.Name.localeCompare(b.Name)));
+}
 const LIMITS = Object.freeze({ files: 8192, sourceBytes: 64 * 1024 * 1024, dependencyBytes: 512 * 1024 * 1024,
   frameBytes: 384 * 1024, outputBytes: 4 * 1024 * 1024, stderrBytes: 16384, wallMs: 120000 });
 const fail = code => { throw new Error(code); };
@@ -169,6 +185,7 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
     execution_authorized: false, publisher_trust: 'unverified', reason, ...extra });
   function observeContainer(item) {
     const value = JSON.parse(docker(['inspect', '--format', '{{json .}}', item.id]));
+    const ulimits = validateSupervisorUlimits(value.HostConfig.Ulimits, item.kind);
     if (value.Id !== item.id || value.Config.Labels?.['freedom.behavior-owner'] !== label || !value.State.Running
       || value.HostConfig.NetworkMode !== 'none' || !value.HostConfig.ReadonlyRootfs || value.HostConfig.Privileged
       || value.HostConfig.PidsLimit !== 128 || value.HostConfig.Memory !== 536870912
@@ -179,7 +196,7 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
     const mounts = value.Mounts.filter(mount => mount.Type === 'bind').map(mount => [mount.Source, mount.Destination, mount.RW]).sort();
     if (item.mounts && JSON.stringify(mounts) !== JSON.stringify(item.mounts.slice().sort())) fail('supervisor_container_changed');
     if (item.kind === 'candidate' && value.Config.Env.some(entry => !['PATH', 'TMPDIR', 'NODE_ENV', 'FP_BEHAVIOR_DB_PASSWORD'].includes(entry.split('=', 1)[0]))) fail('supervisor_container_changed');
-    return { id: value.Id, image: value.Image, network: 'none', readonly_root: true, memory_bytes: value.HostConfig.Memory, pids: value.HostConfig.PidsLimit };
+    return { id: value.Id, image: value.Image, network: 'none', readonly_root: true, memory_bytes: value.HostConfig.Memory, pids: value.HostConfig.PidsLimit, ulimits };
   }
   try {
     if (process.platform !== 'linux' || Number(process.versions.node.split('.')[0]) < 24 || process.getuid() === 0) fail('supervisor_host_command_failed');
@@ -194,9 +211,9 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
     await writeFile(launcher, await readFile(new URL('./behavior-supervisor-target.mjs', import.meta.url)), { mode: 0o444, flag: 'wx' });
     const common = ['--pull=never', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
       '--memory', '512m', '--memory-swap', '512m', '--pids-limit', '128', '--cpus', '1', '--label', 'freedom.behavior-owner=' + label,
-      '--log-driver', 'none', '--ulimit', 'nofile=256:256', '--ulimit', 'core=0:0'];
+      '--log-driver', 'none', '--ulimit', 'core=0:0'];
     const adminPassword = randomBytes(32).toString('base64url'), appPassword = randomBytes(32).toString('base64url');
-    phase = 'database'; const pgId = docker(['run', '-d', ...common, '--user', 'postgres', '--tmpfs', '/tmp:rw,nosuid,nodev,size=256m,mode=1777',
+    phase = 'database'; const pgId = docker(['run', '-d', ...common, '--ulimit', `nofile=${SUPERVISOR_NOFILE.database}:${SUPERVISOR_NOFILE.database}`, '--user', 'postgres', '--tmpfs', '/tmp:rw,nosuid,nodev,size=256m,mode=1777',
       '--tmpfs', '/var/lib/postgresql:rw,nosuid,nodev,size=1m',
       '--mount', `type=bind,src=${socket},dst=/run/postgresql`, '-e', 'PGDATA=/tmp/data', '-e', 'POSTGRES_DB=' + FIXTURE_DATABASE,
       '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_INITDB_ARGS=--auth-local=scram-sha-256 --auth-host=reject',
@@ -204,7 +221,7 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
     if (!/^[a-f0-9]{64}$/.test(pgId)) fail('supervisor_host_command_failed'); owned.push({ id: pgId, kind: 'database', mounts: [[socket, '/run/postgresql', true]] });
     observeContainer(owned[0]); pool = await openSupervisorDatabase(socket, adminPassword);
     phase = 'fixture'; const fixture = await initializeSupervisorFixture(pool, appPassword), before = await supervisorFixtureFacts(pool, fixture);
-    phase = 'candidate'; const appId = docker(['create', '-i', ...common, '--user', `${process.getuid()}:${process.getgid()}`,
+    phase = 'candidate'; const appId = docker(['create', '-i', ...common, '--ulimit', `nofile=${SUPERVISOR_NOFILE.candidate}:${SUPERVISOR_NOFILE.candidate}`, '--user', `${process.getuid()}:${process.getgid()}`,
       '--tmpfs', '/tmp:rw,nosuid,nodev,size=32m,mode=1777', '--mount', 'type=bind,src=/usr,dst=/usr,readonly',
       '--mount', `type=bind,src=${candidate},dst=/candidate,readonly`, '--mount', `type=bind,src=${dependencies},dst=/candidate/node_modules,readonly`,
       '--mount', `type=bind,src=${socket},dst=/database,readonly`, '--mount', `type=bind,src=${launcher},dst=/target.mjs,readonly`,

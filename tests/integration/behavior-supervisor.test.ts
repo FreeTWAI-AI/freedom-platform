@@ -35,10 +35,15 @@ test('real isolated createApp passes all fixed requests with authenticated DB ro
   assert.equal(result.status, 'unavailable'); assert.equal(result.merge_authorized, false); assert.equal(result.execution_authorized, false);
   assert.equal(result.cleanup_verified, true); assert.match(result.installation.supervisor_sha256, /^[a-f0-9]{64}$/);
   assert.match(result.installation.dependency_sha256, /^[a-f0-9]{64}$/); assert.equal(result.isolation.length, 2);
+  const isolation: Array<{ulimits:Array<{Name:string;Soft:number;Hard:number}>}> = result.isolation;
+  assert.deepEqual(isolation.map(item=>item.ulimits.find(limit=>limit.Name==='nofile')!.Soft).sort((a,b)=>a-b),[256,512]);
+  assert(isolation.every(item=>item.ulimits.find(limit=>limit.Name==='core')!.Hard===0));
 });
 test('actual candidate cannot reach host files/network, overwrite RO mounts, or authenticate as postgres', async () => {
   const result = await run(`
     const probeFs = await import('node:fs/promises');
+    const actualLimits=await probeFs.readFile('/proc/self/limits','utf8');
+    if(!/^Max open files\\s+512\\s+512\\s+files[ ]*$/m.test(actualLimits)) throw Error('isolation_probe_failed');
     for (const path of ['/home/ted-h', '/root/.ssh', '/var/run/docker.sock', '/proc/1/root/home/ted-h']) {
       if (await probeFs.access(path).then(()=>true,()=>false)) throw Error('isolation_probe_failed');
     }

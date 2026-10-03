@@ -5,7 +5,7 @@ import { mkdir, symlink, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fixtureRoot, put } from './fixtures.mjs';
 import { verificationEnvironment } from '../process-env.mjs';
-import { decodeBehaviorResponseFrame, materializeBehaviorCandidate, validateBehaviorDependencyCache } from '../behavior-supervisor.mjs';
+import { decodeBehaviorResponseFrame, materializeBehaviorCandidate, validateBehaviorDependencyCache, validateSupervisorUlimits } from '../behavior-supervisor.mjs';
 
 const bytes = value => Buffer.from(JSON.stringify(value));
 const frame = { id: 1, status: 200, headers: [['content-type', 'application/json']], body: Buffer.from('{}').toString('base64') };
@@ -38,4 +38,17 @@ test('candidate export reads committed blobs and rejects symlinks, not mutable w
   assert.equal(await readFile(join(out, 'value.txt'), 'utf8'), 'committed'); assert.equal(result.commit, commit);
   await symlink('/etc/passwd', join(repo, 'escape')); git(repo, ['add', 'escape']); git(repo, ['commit', '-qm', 'Synthetic symlink']);
   await assert.rejects(materializeBehaviorCandidate(repo, git(repo, ['rev-parse', 'HEAD']), join(root, 'unsafe')), /supervisor_nonregular_candidate/);
+});
+
+
+test('Docker-observed resource ceilings reject unlimited, missing, duplicate and altered limits', () => {
+  const good = [{ Name: 'core', Soft: 0, Hard: 0 }, { Name: 'nofile', Soft: 512, Hard: 512 }];
+  assert.deepEqual(validateSupervisorUlimits(good, 'candidate'), good);
+  assert.throws(() => validateSupervisorUlimits(good, 'database'), /supervisor_container_changed/);
+  for (const limits of [null, [], good.slice(0,1), [...good,good[1]],
+    [good[0],{...good[1],Soft:-1,Hard:-1}], [good[0],{...good[1],Soft:1024,Hard:1024}],
+    [good[0],{...good[1],Soft:256}], [{...good[0],Hard:1},good[1]],
+    [good[0],{...good[1],Name:'nproc'}]]) {
+    assert.throws(() => validateSupervisorUlimits(limits, 'candidate'), /supervisor_container_changed/);
+  }
 });
