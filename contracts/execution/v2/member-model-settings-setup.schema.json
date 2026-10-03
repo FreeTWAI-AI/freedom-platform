@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string",
+          "const": "unavailable"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string",
+          "const": "installed"
+        },
+        "setupOrigin": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "format": "uri"
+        }
+      },
+      "required": [
+        "state",
+        "setupOrigin"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "description": "Closed owner metadata only. Parsing establishes no provider readiness, secret capture or operational authority.",
+  "$id": "https://freetwai.com/contracts/execution/v2/member-model-settings-setup"
+}
