@@ -10,6 +10,9 @@ import {ingestFixture,httpsFetch} from './credential-ingest-helpers.js';
 type Fixture=Awaited<ReturnType<typeof ingestFixture>>;
 const bytes=(text:string)=>Array.from(new TextEncoder().encode(text));
 const claims=(assertion:string)=>JSON.parse(new TextDecoder().decode(base64url.decode(assertion.split('.')[1])));
+// Scheduling margin only: real signed/SQL expiry still decides rejection.
+// Keep below the fixture's 10s statement timeout and existing 60s test timeout.
+const expiryPhaseMs=8000;
 const formHeaders=(f:Fixture)=>({Origin:f.mainOrigin,'Content-Type':'application/x-www-form-urlencoded','Sec-Fetch-Mode':'navigate','Sec-Fetch-Site':'cross-site','Sec-Fetch-Dest':'document'});
 async function setup(f:Fixture,human:Awaited<ReturnType<Fixture['configured']>>,priorBootstrap?:any) {
  const issued=priorBootstrap?null:await f.issue(human,human.model.modelConnectionId);if(issued)assert.equal(issued.status,201,await issued.clone().text());const bootstrap=priorBootstrap??await issued!.json() as any;
@@ -67,10 +70,10 @@ test('INGEST-ADV copied cookie and SQL claim cannot revive private setup on a wr
 });
 
 test('INGEST-ADV command-only expiry during the actual last receipt INSERT rolls back ciphertext, index and custody receipt',{timeout:60000},async()=>{
- const f=await ingestFixture();let holder:any;try{const human=await f.configured();await f.main.request('issuerDeadline',Date.now()+3500);const s=await prepared(f,human),expiry=Date.parse(claims(s.bootstrap.assertion).expiresAt);
+ const f=await ingestFixture();let holder:any;try{const human=await f.configured();await f.main.request('issuerDeadline',Date.now()+expiryPhaseMs);const s=await prepared(f,human),expiry=Date.parse(claims(s.bootstrap.assertion).expiresAt);
   const lock='independent-ingest-receipt-'+randomUUID();await f.owner.query(`CREATE FUNCTION ingest_validation_receipt_gate() RETURNS trigger LANGUAGE plpgsql AS $gate$ BEGIN IF NEW.operation='broker.credential.create' THEN PERFORM pg_advisory_xact_lock(hashtextextended('${lock}',0)); END IF; RETURN NEW; END $gate$;CREATE TRIGGER z_ingest_validation_gate BEFORE INSERT ON scoped_command_receipts FOR EACH ROW EXECUTE FUNCTION ingest_validation_receipt_gate()`);
   holder=await f.owner.connect();await holder.query('BEGIN');await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[lock]);
-  const pending=f.broker.request('direct',secretRequest(f,s));await sqlBlocked(f,holder);
+  assert(expiry>Date.now(),'Setup must complete before the command deadline');const pending=f.broker.request('direct',secretRequest(f,s));await sqlBlocked(f,holder);assert(expiry>Date.now(),'The receipt INSERT must block before command expiry');
   const sessionExpiry=(await f.owner.query('SELECT expires_at FROM sessions WHERE token_hash=$1',[human.actor.session_hash])).rows[0].expires_at;assert(sessionExpiry.getTime()>expiry+30000);assert(Date.parse(claims(f.recovery.raw).expiresAt)>expiry+30000);
   await delay(Math.max(0,expiry-Date.now()+50));await holder.query('COMMIT');holder.release();holder=undefined;const result=await pending;assert.equal(result.pulls,1);assert.equal(result.cleared,true);
   assert.deepEqual(await counts(f),{credentials:0,cipher:0,receipts:0});const row=(await f.owner.query('SELECT submission_claimed_at,committed_at FROM credential_ingest_authorizations WHERE authorization_id=$1',[s.bootstrap.authorizationRef])).rows[0];assert(row.submission_claimed_at);assert.equal(row.committed_at,null);assert.equal(f.posts.length,0);
@@ -78,8 +81,8 @@ test('INGEST-ADV command-only expiry during the actual last receipt INSERT rolls
 });
 
 test('INGEST-ADV a secret reader resolving after its actual command deadline is cleared and cannot publish custody',{timeout:60000},async()=>{
- const f=await ingestFixture();try{const human=await f.configured();await f.main.request('issuerDeadline',Date.now()+2200);const s=await prepared(f,human);const result=await f.broker.request('direct',{...secretRequest(f,s),delayMs:3000});assert.equal(result.pulls,1);
-  await delay(3100);assert((await f.broker.request('snapshot')).reads.every((r:any)=>r.cleared));assert.deepEqual(await counts(f),{credentials:0,cipher:0,receipts:0});assert.equal(f.posts.length,0);
+ const f=await ingestFixture();try{const human=await f.configured();await f.main.request('issuerDeadline',Date.now()+expiryPhaseMs);const s=await prepared(f,human),expiry=Date.parse(claims(s.bootstrap.assertion).expiresAt);assert(expiry>Date.now(),'Setup must complete before the command deadline');const readerDelay=expiry-Date.now()+50;const result=await f.broker.request('direct',{...secretRequest(f,s),delayMs:readerDelay});assert.equal(result.pulls,1);
+  await delay(readerDelay+100);assert((await f.broker.request('snapshot')).reads.every((r:any)=>r.cleared));assert.deepEqual(await counts(f),{credentials:0,cipher:0,receipts:0});assert.equal(f.posts.length,0);
  }finally{await f.cleanup();}
 });
 
