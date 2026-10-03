@@ -174,8 +174,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 26773,
-      "sha256": "11822b9cb1a181b880f7ff0b26f315fd8c2062e806e5ebe9bc59d36436b1e861"
+      "bytes": 26833,
+      "sha256": "ddc06a3793a08841c3977cf51f8c9dda8024185859359296e15f6cc73ff3bb60"
     },
     {
       "path": "apps/platform-api/src/private-ai-product.ts",
@@ -4664,8 +4664,8 @@
     },
     {
       "path": "modules/agent-control/freedom.module.json",
-      "bytes": 7574,
-      "sha256": "55c0f9ee7f1debe26ead202f9585b51cfd12d3408298ea7b403e71e0e7a6058f"
+      "bytes": 5650,
+      "sha256": "3b78bfef04bcd41ad40be2f98382aa444bee615a9f63df20842b39a7dab49112"
     },
     {
       "path": "modules/agent-control/generate-bootstrap-http.ts",
@@ -6809,8 +6809,8 @@
     },
     {
       "path": "tests/runtime/credential-ingest-adversarial.test.ts",
-      "bytes": 16706,
-      "sha256": "0a1161d80fd89f4915f6dfe8688307933e2b2b28d31a5ebe4724498536b87820"
+      "bytes": 20335,
+      "sha256": "0f5c6e3e885bda38fee69384e5e17b82d171d863658f6f0fea94301420d9ee4c"
     },
     {
       "path": "tests/runtime/credential-ingest-authorizations.test.ts",
