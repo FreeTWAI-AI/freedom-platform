@@ -99,16 +99,16 @@ export async function createCredentialIngestService(options:CredentialIngestServ
         const selection=BrokerModelSelectionSchema.parse(data.model.selection);
         const expiresAt=new Date(Math.min(Date.parse(claims.expiresAt),Date.parse(data.expiresAt),Date.parse(data.setupExpiresAt))).toISOString();
         const s:Setup={invocation,data,cookieHash,csrfHash,expiresAt,end:Math.min(f.end,performance.now()+Date.parse(expiresAt)-Date.now()),phase:'setup'};
-        await current(s,f);await readiness(f);f.assert();setups.set(cookieHash,s);installed=cookieHash;
+        await readiness(f);await current(s,f);f.assert();setups.set(cookieHash,s);installed=cookieHash;
         return {cookieToken,csrfToken,setup:Object.freeze({selection,operation:data.command.operation,modelConnectionId:data.model.modelConnectionId,
           csrfToken,expiresAt,operational_authority:false})};
       }catch(error){if(installed)setups.delete(installed);throw error;}finally{unwatch?.();pending--;}
     },
-    async assertSetupCurrent(cookie:string):Promise<void>{const s=locate(cookie),f=fence(s);await current(s,f);await readiness(f);f.assert();},
+    async assertSetupCurrent(cookie:string):Promise<void>{const s=locate(cookie),f=fence(s);await readiness(f);await current(s,f);f.assert();},
     async prepare(cookie:string,csrf:string,signal?:AbortSignal):Promise<{expiresAt:string;operational_authority:false}>{
       const s=locate(cookie,csrf);if(s.phase!=='setup')problem('credential_ingest_submission_consumed',409);s.phase='preparing';const f=fence(s);
       const unwatch=f.watch(signal);try{
-        await current(s,f);await readiness(f);const g=guard(s,f),command=s.data.command,prepareEnd=performance.now()+c.CredentialIngestLimits.writeMs;
+        await readiness(f);await current(s,f);const g=guard(s,f),command=s.data.command,prepareEnd=performance.now()+c.CredentialIngestLimits.writeMs;
         const intent=await f.wait(()=>command.operation==='create'?store.prepareCreate(s.data.actor,command.input,g):store.prepareRotate(s.data.actor,command.input,g));
         const metadata=getCredentialWriteIntentMetadata(intent);f.assert();
         s.writeExpiresAt=new Date(Math.min(Date.parse(metadata.expiresAt),Date.parse(s.expiresAt))).toISOString();
@@ -120,16 +120,17 @@ export async function createCredentialIngestService(options:CredentialIngestServ
       const s=locate(cookie,csrf);if(s.phase!=='prepared'||!s.intent)problem('credential_ingest_submission_consumed',409);
       if(!body||typeof body.read!=='function')problem();const readBody=body.read.bind(body);s.phase='submitting';const f=fence(s,true);const unwatch=f.watch(body.signal);let bytes:Uint8Array|undefined;
       try{
-        await current(s,f);await readiness(f);const metadata=getCredentialWriteIntentMetadata(s.intent!);
+        await readiness(f);await current(s,f);const metadata=getCredentialWriteIntentMetadata(s.intent!);
         await f.wait(()=>claimSubmission(s.invocation,{binding:metadata.binding,writeExpiresAt:s.writeExpiresAt!,cookieHash:s.cookieHash,csrfHash:s.csrfHash}));
-        await current(s,f);await readiness(f);f.assert();
+        await readiness(f);await current(s,f);f.assert();
         bytes=await f.wait(()=>readBody({maxBytes:c.CredentialIngestLimits.secretBytes,maxChunks:c.CredentialIngestLimits.chunks,
           timeoutMs:c.CredentialIngestLimits.bodyMs,expiresAt:s.writeExpiresAt!,monotonicDeadline:f.end}),c.CredentialIngestLimits.bodyMs,value=>value.fill(0));
         if(!(bytes instanceof Uint8Array)||bytes.length<1||bytes.length>c.CredentialIngestLimits.secretBytes)problem();
         for(const v of bytes)if(!(v>=48&&v<=57||v>=65&&v<=90||v>=97&&v<=122||v===46||v===95||v===45))problem();
-        await current(s,f);f.assert();const sealed=await f.wait(()=>vault.seal(metadata.binding,bytes!));f.assert();
+        await readiness(f);await current(s,f);f.assert();const sealed=await f.wait(()=>vault.seal(metadata.binding,bytes!));f.assert();
         const credential=await f.wait(()=>store.commit(s.data.actor,s.intent!,sealed,guard(s,f)));f.assert();
-        return await cryptoPort.response(s.data,{kind:'metadata',credential});
+        const response=await f.wait(()=>cryptoPort.response(s.data,{kind:'metadata',credential}),c.CredentialIngestLimits.responseMs);
+        await current(s,f);f.assert();return response;
       }catch(error){
         f.cancelled=true;const parsed=c.CredentialIngestProblemCodeSchema.safeParse((error as {code?:unknown})?.code);
         return cryptoPort.response(s.data,{kind:'problem',code:parsed.success?parsed.data:'credential_ingest_outcome_unknown'});

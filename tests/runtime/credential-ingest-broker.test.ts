@@ -70,3 +70,15 @@ test('late secret chunk after exclusive timeout is cleared without waiting for h
   assert.equal(cancelled,1);assert.equal(released,1);resolve({done:false,value:late});await new Promise<void>(r=>setImmediate(r));
   assert.ok(late.every(v=>v===0));
 });
+test('aborted secret read and excessive chunks reject and clear the actual last delivered bytes',async()=>{
+  const controller=new AbortController(),source=new TextEncoder().encode('Synthetic_aborted');
+  let resolve!:(value:ReadableStreamReadResult<Uint8Array>)=>void;
+  const stream={getReader(){return {read(){return new Promise<ReadableStreamReadResult<Uint8Array>>(r=>{resolve=r;});},
+    cancel(){return Promise.resolve();},releaseLock(){}};}} as unknown as ReadableStream<Uint8Array>;
+  const result=readCredentialIngestBytes(stream,controller.signal,source.length,budget());controller.abort();await assert.rejects(result);
+  resolve({done:false,value:source});await new Promise<void>(r=>setImmediate(r));assert.ok(source.every(v=>v===0));
+  const chunks=Array.from({length:129},()=>new Uint8Array([65]));let index=0;
+  const excessive=new ReadableStream<Uint8Array>({pull(c){if(index<chunks.length)c.enqueue(chunks[index++]);else c.close();}},{highWaterMark:0});
+  await assert.rejects(readCredentialIngestBytes(excessive,new AbortController().signal,129,budget()));
+  assert.equal(index,129);assert.ok(chunks.every(bytes=>bytes[0]===0));
+});

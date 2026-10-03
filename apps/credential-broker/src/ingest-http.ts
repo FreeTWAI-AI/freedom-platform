@@ -83,7 +83,7 @@ export function createCredentialIngestHttp(options:CredentialIngestHttpOptions) 
       const bootstrapRoute=path==='/credential-setup',sentOrigin=h.get('Origin');
       if(sentOrigin!==(bootstrapRoute?mainOrigin:setupOrigin))rejected();
       const fetchSite=h.get('Sec-Fetch-Site'),fetchMode=h.get('Sec-Fetch-Mode'),fetchDest=h.get('Sec-Fetch-Dest');
-      if(bootstrapRoute){if(fetchSite!==null&&fetchSite!=='cross-site'||fetchMode!==null&&fetchMode!=='navigate'||fetchDest!==null&&fetchDest!=='document')rejected();}
+      if(bootstrapRoute){if(fetchSite!==null&&!['cross-site','same-site'].includes(fetchSite)||fetchMode!==null&&fetchMode!=='navigate'||fetchDest!==null&&fetchDest!=='document')rejected();}
       else if(fetchSite!==null&&fetchSite!=='same-origin'||fetchMode!==null&&!['cors','same-origin'].includes(fetchMode)||fetchDest!==null&&fetchDest!=='empty')rejected();
       const token=cookie(h.get('Cookie'));const csrf=h.get('X-FP-Broker-CSRF');
       const user=h.get('Sec-Fetch-User');if(user!==null&&(!bootstrapRoute||user!=='?1'))rejected();
