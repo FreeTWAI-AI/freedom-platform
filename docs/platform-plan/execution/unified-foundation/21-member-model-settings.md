@@ -17,9 +17,12 @@ platform_vault/openai或anthropic BYOK metadata，不能將這些標籤當可用
 
 沿用 current member/session、active person principal／personal scope、onboarding、
 exact user/principal/scope/environment/client 與最後SQL session-clock檢查。
+沿原 withMemberScope 取得當前權限，保留其新會員 canonical lazy identity mapping
+與 user/session/principal/scope FOR SHARE；不另造 resolver 或重建 Actor。
 SQL-only read service 不含 vault、cipher pool、recovery、resolver、provider 或新Actor
 重建；查詢明列安全欄位，不把 binding／envelope 傳至主站。主站原SELECT-only
-credential grants不變，read不使用 FOR UPDATE 或寫入 journal。HTTP沿用閉合
+credential grants不變，credential domain read不使用 FOR UPDATE 或寫入 journal；
+既有 canonical identity mapping 不改憑證或模型狀態。HTTP沿用閉合
 method/path、origin/Host、cookie、machine credentials拒絕、限流、no-store及安全
 錯誤；未知method/query/body/conditional headers在原body reader前拒絕。
 
