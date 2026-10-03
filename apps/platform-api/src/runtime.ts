@@ -1,3 +1,4 @@
+import type {SkillImageAssetService} from '../../../modules/assets/skill-image.js';
 import type {SocialThumbnailAssetService} from '../../../modules/assets/social-thumbnail.js';
 import type {EventVideoAssetService} from '../../../modules/assets/event-video.js';
 import type {EventBannerAssetService} from '../../../modules/assets/event-banner.js';
@@ -47,6 +48,8 @@ export type PlatformRuntime = {
   eventBannerAssetStore?:ObjectStore;
   eventVideoAssets?:EventVideoAssetService;
   eventVideoAssetStore?:ObjectStore;
+  skillImageAssets?:SkillImageAssetService;
+  skillImageAssetStore?:ObjectStore;
   socialThumbnailAssets?:SocialThumbnailAssetService;
   socialThumbnailAssetStore?:ObjectStore;
   /** Explicit host-installed private Work/model product transport. No ambient

@@ -184,7 +184,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     }
   });
   app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken,guildReviewer:runtime.guildReviewer}));
-  app.route('/',createPublishedSkillRoutes(pool,runtime.publicOrigin));
+  app.route('/',createPublishedSkillRoutes(pool,runtime.publicOrigin,runtime.skillImageAssetStore));
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id)));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
@@ -228,7 +228,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/client-api/v1',createClientApiRoutes(pool));
   app.route('/shop-api/v1',createShopMachineRoutes(pool));
   app.route('/',createPublicShopRoutes(pool));
-  app.route('/agent-api/v1',createAgentSkillSubmissionRoutes(pool,origin,authNetwork));
+  app.route('/agent-api/v1',createAgentSkillSubmissionRoutes(pool,origin,authNetwork,runtime));
   app.route('/development-agent/v1',createDevelopmentAgentRoutes(pool,loadSocial,authNetwork));
   app.post('/api/v1/auth/register',async c=>{
     await authRateLimit(pool,'registration-network',authNetwork(c),8);
@@ -324,7 +324,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createRepoMaintainerMemberRoutes(pool));
   app.route('/api/v1',createAvatarRoutes(pool,runtime.avatarAssetStore));
   app.route('/api/v1',createClientConnectionRoutes(pool));
-  app.route('/api/v1',createSkillSubmissionRoutes(pool,origin,runtime.githubMetricsToken));
+  app.route('/api/v1',createSkillSubmissionRoutes(pool,origin,runtime.githubMetricsToken,runtime));
   app.route('/api/v1',createPositioningRoutes(pool));
   app.route('/api/v1',createCommerceRoutes(pool));
   app.route('/api/v1',createAgentCommerceRoutes(pool,origin));

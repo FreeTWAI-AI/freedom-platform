@@ -13,7 +13,7 @@ import type { EventEmailSender } from '../../../modules/community/events.js';
 import { bindPrivateAiProductTransport, bindPrivateAiProductBrowserPolicy, type PrivateAiProductTransport } from './private-ai-product.js';
 
 type NodeAppOptions = {adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;
-  eventEmailSender?:EventEmailSender;maintainerWebhookSecret?:string;now?:()=>Date;avatarAssetStore?:PlatformRuntime['avatarAssetStore'];serviceCoverAssets?:PlatformRuntime['serviceCoverAssets'];serviceCoverAssetStore?:PlatformRuntime['serviceCoverAssetStore'];eventBannerAssets?:PlatformRuntime['eventBannerAssets'];eventBannerAssetStore?:PlatformRuntime['eventBannerAssetStore'];eventVideoAssets?:PlatformRuntime['eventVideoAssets'];eventVideoAssetStore?:PlatformRuntime['eventVideoAssetStore'];socialThumbnailAssets?:PlatformRuntime['socialThumbnailAssets'];socialThumbnailAssetStore?:PlatformRuntime['socialThumbnailAssetStore'];
+  eventEmailSender?:EventEmailSender;maintainerWebhookSecret?:string;now?:()=>Date;avatarAssetStore?:PlatformRuntime['avatarAssetStore'];serviceCoverAssets?:PlatformRuntime['serviceCoverAssets'];serviceCoverAssetStore?:PlatformRuntime['serviceCoverAssetStore'];eventBannerAssets?:PlatformRuntime['eventBannerAssets'];eventBannerAssetStore?:PlatformRuntime['eventBannerAssetStore'];eventVideoAssets?:PlatformRuntime['eventVideoAssets'];eventVideoAssetStore?:PlatformRuntime['eventVideoAssetStore'];skillImageAssets?:PlatformRuntime['skillImageAssets'];skillImageAssetStore?:PlatformRuntime['skillImageAssetStore'];socialThumbnailAssets?:PlatformRuntime['socialThumbnailAssets'];socialThumbnailAssetStore?:PlatformRuntime['socialThumbnailAssetStore'];
   linkPreviewFetch?:PlatformRuntime['linkPreviewFetch'];privateAiProduct?:PrivateAiProductTransport};
 
 // Node host adapter. The Worker bundle never imports this module, so the
@@ -38,7 +38,7 @@ export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<Nod
     sourceNetwork:authNetwork,
     allowedHosts:allowedRequestHosts(freedomEnv,origin),
     publicOrigin:LIVE_PUBLIC_ORIGIN,
-    passwordEmailSender:options.passwordEmailSender,avatarAssetStore:options.avatarAssetStore,serviceCoverAssets:options.serviceCoverAssets,serviceCoverAssetStore:options.serviceCoverAssetStore,eventBannerAssets:options.eventBannerAssets,eventBannerAssetStore:options.eventBannerAssetStore,eventVideoAssets:options.eventVideoAssets,eventVideoAssetStore:options.eventVideoAssetStore,socialThumbnailAssets:options.socialThumbnailAssets,socialThumbnailAssetStore:options.socialThumbnailAssetStore,
+    passwordEmailSender:options.passwordEmailSender,avatarAssetStore:options.avatarAssetStore,serviceCoverAssets:options.serviceCoverAssets,serviceCoverAssetStore:options.serviceCoverAssetStore,eventBannerAssets:options.eventBannerAssets,eventBannerAssetStore:options.eventBannerAssetStore,eventVideoAssets:options.eventVideoAssets,eventVideoAssetStore:options.eventVideoAssetStore,skillImageAssets:options.skillImageAssets,skillImageAssetStore:options.skillImageAssetStore,socialThumbnailAssets:options.socialThumbnailAssets,socialThumbnailAssetStore:options.socialThumbnailAssetStore,
     eventEmailSender:options.eventEmailSender,
     now:options.now,
     linkPreviewFetch:options.linkPreviewFetch??((input,init)=>globalThis.fetch(input,init)),

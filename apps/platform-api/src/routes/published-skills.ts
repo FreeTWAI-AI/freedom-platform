@@ -59,7 +59,7 @@ export function submittedSkillHtml(skill:Published,intro?:string,publicOrigin=LI
   return developmentHtml(skill.title,body,{path:skill.public_path,description:selected?skill.share_introductions[selected-1]:skill.description,share:true,shareQuery:selected?`intro=${selected}`:undefined,image:image?{url:image,width:1200,height:630,alt:`${skill.title}功能示意圖`}:undefined,origin:publicOrigin});
 }
 
-export function createPublishedSkillRoutes(pool:Pool,publicOrigin=LIVE_PUBLIC_ORIGIN){
+export function createPublishedSkillRoutes(pool:Pool,publicOrigin=LIVE_PUBLIC_ORIGIN,store?:import('../../../../packages/asset-storage/index.js').ObjectStore){
   const app=new Hono();
   const skillMarkdown=authoredUploadText(skillUploadSkillMarkdown,publicOrigin),protocolMarkdown=authoredUploadText(skillUploadProtocolMarkdown,publicOrigin);
   app.get('/api/v1/skill-submissions/published',async c=>{
@@ -81,7 +81,7 @@ export function createPublishedSkillRoutes(pool:Pool,publicOrigin=LIVE_PUBLIC_OR
     return c.json({introductions:skill.share_introductions,illustration_url:skill.illustration_url??'',illustration_alt:skill.illustration_url?`${skill.title}功能示意圖`:''});
   });
   app.get('/api/v1/skill-submissions/:id/illustration',async c=>{
-    const image=await readPublishedSkillIllustration(pool,c.req.param('id'));
+    const image=await readPublishedSkillIllustration(pool,c.req.param('id'),store);
     if(!image)return c.notFound();
     c.header('Content-Type',image.mime_type);c.header('Content-Length',String(image.bytes.length));
     return c.body(new Uint8Array(image.bytes));
