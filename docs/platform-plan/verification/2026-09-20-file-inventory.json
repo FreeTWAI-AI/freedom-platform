@@ -3519,8 +3519,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/README.md",
-      "bytes": 8275,
-      "sha256": "0acf91a18e436dfb2e57ef36f89352b72024363441daf16f99360358ffbb9a81"
+      "bytes": 8339,
+      "sha256": "f545923292bbf427555be0f2d5e3302643e61fad018798ea4e78efc7abd51b90"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
@@ -3529,8 +3529,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 99093,
-      "sha256": "a3cbf8945dcc164c895d74afdba483ffb5612b3b686a77034a8c452ff84831c9"
+      "bytes": 105533,
+      "sha256": "cdaa591d69b7e88818db5dc91c9d5979e64136340116e3e78765d7a8ef996ac6"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -5349,8 +5349,8 @@
     },
     {
       "path": "packages/execution-state/http-body.ts",
-      "bytes": 2788,
-      "sha256": "3e8dfd6fe618d961318ffec166679161752baabd3c25e5e18134da2ebf660233"
+      "bytes": 2787,
+      "sha256": "f4a757d81126f16386ef9a84fbb8dda1114f3e5ac81f41500a7787a2d11d7e24"
     },
     {
       "path": "packages/execution-state/index.ts",

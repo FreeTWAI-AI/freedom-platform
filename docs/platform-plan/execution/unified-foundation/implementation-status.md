@@ -6,7 +6,7 @@
 
 ## 工程進度估算
 
-以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約 **30–40%**，約 **60–70%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。此次重新核對三份原計畫及本頁證據：配對、refresh／nonce、封閉 HTTP，以及未驗證 ModelConnection／限定同意 Grant／blocked Attempt 推進 U1/U3；真實模型認證及執行、跨端、七類媒體與正式治理仍占主要剩餘工作。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
+以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約 **30–40%**，約 **60–70%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。此次重新核對三份原計畫及本頁證據：配對、refresh／nonce、封閉 bootstrap／會員 HTTP，以及未驗證 ModelConnection／限定同意 Grant／blocked Attempt 推進 U1/U3；真實模型認證及執行、跨端、七類媒體與正式治理仍占主要剩餘工作。會員 HTTP 增量沿用原工程區間，未因多了入口或測試就把私人 AI 里程碑大幅提高。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
 
 以下權重是工程量假設，不是原計畫承諾；估算依本頁實作證據與尚缺項目，正式產品驗收仍須逐項取得證據。
 
@@ -550,6 +550,88 @@ staging/live 未動。真正模型認證／adapter／token/lease／私人 AI、H
 跨端、媒體搬遷/restore、可信 CI 與正式信任仍待後續完成。收尾 inventory
 為 **1,358 hashes、794 本機連結、0 failures**，diff whitespace check 通過。
 
+## 本批：本人 Run／模型選擇／Grant／blocked Attempt HTTP
+
+延續三個 GPT-6.1 Sol 工作位，分別實作中央 wire 契約、閉合 HTTP 入口及獨立
+反例；根整合者固定介面、維護 [spec 14](14-member-execution-http.md)、責任對應、
+標準 verifier 與交付證據。先查核真正 CLI 的隔離 help/version 及官方說明，
+確認安裝不等於模型認證或完整工具隔離；第一條產品模型路徑尚待本人選定。
+因此本批完成可獨立交付的真人 HTTP 接線，沒有補預設 provider/model/billing/custody。
+
+### 實作與獨立審查
+
+- 新 `createMemberExecutionHttpTransport` factory 接既有 Run create/read/pause/stop、
+  ModelConnection create/read/revoke、Grant create/read/revoke、Attempt create/read。
+  真正 cookie／CSRF／onboarding 取得 Actor，DB 服務照原契約重查目前身分、
+  owner/personal scope、backing、policy、expiry、versions 及 replay。
+- Origin/Host/method/用途明確隔離；Authorization、DPoP、bootstrap connection/nonce
+  標頭即使混有有效 cookie 也拒絕。HEAD／OPTIONS 不利用 Hono fallback；
+  primary CAS 只取 If-Match，次要 expected versions 在嚴格 body 必填。
+  六份 generated JSON Schema 與 Zod/Python Draft 2020-12 parity 同源驗證。
+- 抽出共用 `readBoundedHttpJson`，保留 32 KiB／128 chunks／5 秒、actual length、
+  fatal UTF-8、decoded duplicate／prototype key、depth/node 與 cancellation 限制。
+  既有 bootstrap 42 項回歸通過；會員入口先驗用途、來源及真人，再讀 body。
+- 新 `execution_member` 只增加限流 operation，無 migration 或 release shape。
+  真正獨立 DB charge 為每 network 60／global 600 每分鐘，domain rollback
+  不回退 charge。Source callback 失效即拒絕；錯誤、private/no-store、ETag
+  與 strict output DTO 不洩 SQL／Work 文本／憑證，也不變成 operational permit。
+- 契約審查者實際重現 remote HTTP trusted configuration 被接受；作者補上
+  HTTPS、僅 local explicit loopback 可 HTTP 的限制，再由原審查者驗證。
+  新增作者 **10**、獨立 PostgreSQL **19**、契約／reader **7** 項，合計
+  **36/36** 通過，均包含在完整 runtime。獨立案例涵蓋真 ES256 配對、
+  non-superuser LOGIN roles、SQL 鎖等待跨 session/Grant expiry、receipt INSERT
+  回滾、各 owner/path/credential/CAS/body 邊界及實際 network/global 限流。
+
+模型仍 unverified，Grant 只是 bounded consent，Attempt 為 preflight_blocked；
+所有 metadata 都 operational_authority false。正式 app／Node／Worker 未掛載，
+沒有產品模型 dispatch、lease、private AI Result 或新 Run activation。
+
+Grok CLI `grok-4.7`、agy CLI `claude-opus-4-6-thinking` 各以相同固定 source
+做一次 bounded 唯讀審查：Grok 180 秒逾時、沒有 stdout；Opus exit 0 但 final
+content 為空。兩路均無可用結論，不列為測試或批准證據。Report 的關鍵字診斷
+亦不推論帳單原因；沒有變更其帳號／付費設定。五份 source digests 對應固定
+程式，保留於 ignored `.freedom/reviews/` 與 `.freedom/reports/`。
+
+### 固定驗證與收尾
+
+固定程式 **`49591d14ac856cde2f5258909fb5cbb4b76197be`**，base
+`3de70ccbd24362a7925508fb42d36aaa256a0806`。Detached controller 完成標準
+verifier、原 governance 60 秒／runtime 900 秒限制，約 550 秒；沒有逾時或中斷。
+`.freedom/reports/member-execution-http-integrated.json` 的 SHA-256 為
+`5bc2fab81c7dff6db9a85f88111035ca3760703ea7c7843c5118e06c7a2a702c`。
+
+| 檢查 | 實際結果 |
+| --- | --- |
+| 完整 runtime | **2,080/2,080，146 files**；0 failed/skipped/cancelled/todo |
+| 治理 unit | **244/244，11 files**；0 failed/skipped/cancelled/todo |
+| 發布／migration 相容性 | **256/256**；沒有新增資料形狀或改歷史 migrations |
+| Worker | **28/28**；task-owned loopback→Unix proxy，已關閉 |
+| 真實隔離 supervisor | **6/6**；owned containers 已清理 |
+| Typecheck／generated contracts／build／dry-run | passed；九組生成、三類 Worker 各三環境 dry-run，既有 large-chunk warning 保留 |
+| Descriptor／producer preview bytes | passed |
+| 整體治理 | local **unavailable**；baseline_governance_unavailable、registration_behavior_audit_required、surface_unmapped |
+
+逐檔 counts、每例 status、selected files 及固定 source SHA 已核對；手跑證據
+沒有冒充可信 CI 或產品驗收。完整回歸後僅刪除共用 reader 末端一個空行，
+內容除該空行外與固定程式完全相等；證據另記 before/after digests，沒有再改
+功能。076–092 SQL bytes、manifest last=92／known_gaps=[22] 及 capabilities 不變。
+原始 **168 項完整產品驗收維持 not_run**，整體工程估算仍 **30–40%**。
+
+容器初始化前三次因 socket 權限、entrypoint 預設 socket 及 PG18 parent volume
+設定失敗；尚未跑產品測試即更正／重建，失敗證據保留。相關合成容器已移除；
+兩個初始匿名 volume 由 exact Docker mount/unmount/container events 確認本輪
+來源及無其他 container 引用後移除，未廣泛 prune。成功環境使用固定 PG18.6
+CI image、network-none、無 published ports、2 GiB tmpfs 與專屬 Unix socket。
+最終非預設 schemas/roles、其他 clients/databases 及 public relations 全為 0，
+核對 exact ID/task label 後移除成功容器與空 socket。只清可重建的合成資料。
+
+收尾唯讀核對 remote main 仍為 `3de70cc`；主 checkout staged 狀態雜湊
+仍為原值。沒有其他 PR 整合、push、PR、merge、正式資料／金鑰設定或部署，
+staging/live 未動。封閉程式、spec 及 ignored evidence 保留在工作分支。
+收尾 inventory 為 **1,372 hashes、807 本機文件／目錄連結、0 failures**。
+本批相對 `6343d6a` 的 whitespace check 通過；相對 origin/main 的完整 branch
+仍有原文快照四處 Markdown hard-break trailing spaces，保留原始文件 bytes。
+
 ## 尚未交付
 
 - operational execution/service current-state validators、Invocation/Grant/token/lease adapters，以及有真實 backing record 的 service/site schema；本批限定會員同意 Grant 不取代執行端 Grant，scoped composition/receipt 目前僅支援 member session。
@@ -561,7 +643,7 @@ staging/live 未動。真正模型認證／adapter／token/lease／私人 AI、H
 
 ## 下一批
 
-Runtime enrollment、connection backing record、[封閉 bootstrap status](09-bootstrap-status.md)、[裝置配對／一次性交換](10-device-authorization.md)、[refresh／nonce](11-bootstrap-sessions.md) 及 [HTTP 邊界](12-bootstrap-http.md) 已有本機實作。它們提供受限配對、可持續 refresh 及本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權，也不輸出通用 VerifiedContext。[13](13-member-execution-prerequisites.md) 已建立未驗證 ModelConnection、精確限定同意 Grant 與 immutable blocked Attempt backing records，全部仍無 operational authority。下一步是明確選定一條真正模型認證／adapter 路徑，接完整 inference binding、execution token／operation validator、current Attempt／lease／獨立 fences，再串成模型產生私人 Result 的真實垂直流程。正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定，不重用 storefront/supplier 的 `fw_read` 連線。
+Runtime enrollment、connection backing record、[封閉 bootstrap status](09-bootstrap-status.md)、[裝置配對／一次性交換](10-device-authorization.md)、[refresh／nonce](11-bootstrap-sessions.md) 及 [HTTP 邊界](12-bootstrap-http.md) 已有本機實作。它們提供受限配對、可持續 refresh 及本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權，也不輸出通用 VerifiedContext。[13](13-member-execution-prerequisites.md) 已建立未驗證 ModelConnection、精確限定同意 Grant 與 immutable blocked Attempt backing records，[14](14-member-execution-http.md) 接上真人 cookie/CSRF 的紀錄管理 HTTP factory，全部仍無 operational authority。下一步是明確選定一條真正模型認證／adapter 路徑，接完整 inference binding、execution token／operation validator、current Attempt／lease／獨立 fences，再串成模型產生私人 Result 的真實垂直流程。已提出本人 Codex subscription、Claude Code subscription 或 BYOK 的偏好選項，尚未收到選定回覆；這只是模型路徑的缺失資訊，沒有另要求本機開發批准。正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定，不重用 storefront/supplier 的 `fw_read` 連線。
 
 治理已推進固定單一 profile 的 [本機隔離 supervisor](../../../../packages/contribution-tools/behavior-supervisor.md)：host harness 透過有界 HTTP response frames 呼叫隔離容器內的 candidate app，由 host 自行判斷結果；不能把 candidate stdout/JSON 當可信測試結果。隔離不成立就 unavailable，並保留 approved host source／runtime、完整入口、publisher/GitHub enforcement 的缺口。下一步是可信安裝、來源與 publisher 接線，不是把本機 observation 宣稱可合併。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代完整入口／外部保存／政策 restore 的證據。migration 076–092 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
 
