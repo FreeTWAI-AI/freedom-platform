@@ -15,7 +15,7 @@
 | U0 規格與共用契約 | 5% | 80–90% | 正式批准與版本發布 |
 | U1 身分／scope／command | 10% | 60–75% | machine/service backing records 與 adapter |
 | U2 Asset 與私人 ACL | 15% | 65–80% | 完整讀面、正式政策及接線 |
-| U3 執行狀態與模型 ports | 15% | 15–25% | refresh／重複 machine nonce／HTTP、真實 Attempt/Grant binding、模型路徑；Run、runtime 登錄、connection、bootstrap 及封閉配對／一次性 issuer 已有本機證據，尚非完整 device flow 或 execution authority |
+| U3 執行狀態與模型 ports | 15% | 15–25% | HTTP、真實 Attempt/Grant binding、模型路徑；Run、runtime 登錄、connection、bootstrap、配對／issuer、refresh 輪替／重用撤銷及重複 machine nonce 已有本機證據，尚非完整 device flow 或 execution authority |
 | U4 兩條垂直流程 | 15% | 10–25% | 私人 AI 草稿及跨端產品驗收 |
 | U5 browser／Kit／broker | 15% | 0–10% | 實際 runtime 接線與封裝驗證 |
 | U6 媒體搬遷與 restore | 10% | 5–15% | 真實盤點、七類媒體搬遷與還原 |
@@ -405,6 +405,36 @@ Runtime／Worker 使用固定 digest PG18、network-none、無 published ports�
 
 Manifest last=90、known_gaps=`[22]`；076–090 全為未合併／未部署暫用號，合併前須重查。22:57 UTC 遠端 main 唯讀查核仍為 `3de70cc`。收尾 inventory 為 **1,304 hashes、759 本機連結、0 failures**，diff check 通過。沒有 push、PR、merge、部署、外部設定／金鑰變更或其他 PR 整合，備份政策仍另確認。原始 168 項產品要求仍 `not_run`；本批不把組件測試轉成全產品完成率。
 
+## 本批 refresh 輪替與 nonce 取得
+
+接續 [規格 11](11-bootstrap-sessions.md)，配對交換現在必定同交易建立初始 refresh family/generation，回 `refreshSupported:true`。前批的 false 是當時交付狀態；目前只有這一套前向擴充契約，沒有另保留可選的舊發行模式。中央 schemas、module descriptor、固定 runtime 清單及發布相容性矩陣已同步。
+
+- `createBootstrapSessions` 使用真正 ES256 proof、既有受限 issuer 與不可匯出的 signing handle；refresh 和 nonce 分開固定 typ/purpose/URI。Refresh 不依賴 access token 尚未過期；nonce 取得須有目前有效 token、獨立用途 proof 及 active／未到期 family，不需要舊 nonce 或會員 cookie。
+- 每次 refresh 只消耗一代，原子建立下一代、更新 family pointer、寫 proof ledger 及簽 token；family deadline 不延長且不超過 connection expiry。簽章、SQL 或最後 DB clock 檢查失敗全部回滾，回應只在 commit 後交付。
+- 保存的 spent handle 通過真正 key/binding/proof 驗證後，先提交整個 family 和 connection 撤銷，再回固定 invalid response；duplicate JTI、quota、完全相同或等價 ECDSA proof 不能提前擋掉 reuse 撤銷。已發 token 由目前 connection/version 檢查拒絕。Wrong secret/key/proof 無權撤銷；遺失已提交的秘密回應沒有 grace reissue。
+- 新增暫用 migration 091，以 immutable rows、連續 generation、deferred whole-state constraints 與 connection revoke trigger 保存完整狀態。Raw handle/token/proof 不進 durable tables、facts、一般 receipts 或 logs。087–090 歷史 SQL 未改。
+
+獨立反例找到 family 已到期但 connection 尚有效時，nonce 路徑原會放行；已補上 family lock／時效檢查。SQL 並發審查另補 initial family INSERT 對 connection 的 `FOR SHARE`，避免建立與撤銷互相看不到對方而提交 active family／revoked connection。獨立測試 **67/67** 包含這兩項反例、spent 多代／等價／並發 proof、錯用途／秘密／key、當前會員資格、quota、真實 lock／sign／最後 SQL 跨期、每個 sink 故障回滾與秘密掃描。新增 crypto tests **47/47**、結構契約 **5/5**、完整配對→refresh→nonce→status lifecycle **1/1** 均已包含於下述全套結果，不另加總。Grok 4.7／Opus 4.6 這輪有返回設計審查內容；設計意見不能代替最終程式的獨立測試或可信發布證據。
+
+### 固定整合驗證與 session 恢復
+
+固定程式 **`a7f71c50e59e13f1af80de2c29b7f1e910c4af36`**，對 `origin/main` 基準 **`3de70ccbd24362a7925508fb42d36aaa256a0806`** 完成 prepare/verify。最終本機報告 `.freedom/reports/refresh-sessions-integrated.json` 保存完整逐檔／逐例結果：
+
+| 檢查 | 實際結果 |
+| --- | --- |
+| 完整 runtime | **1,951/1,951，137 files**；0 failed/skipped/cancelled/todo |
+| 治理 unit | **244/244，11 files**；0 failed/skipped/cancelled/todo |
+| Descriptor 與 producer preview bytes | passed |
+| 整體治理驗證 | local `unavailable`；保留 `baseline_governance_unavailable`、`registration_behavior_audit_required`、`surface_unmapped` |
+
+上一輪亦留下發布相容性 **243/243**、Worker **28/28**、隔離 supervisor **6/6**、typecheck、六組契約生成檢查、新 build 與三類 Worker 各環境 dry-run 通過的回報。它們是本機／隔離證據，不能轉成 staging、真人產品驗收或正式發布綠燈。
+
+2026-10-02 的 session 日誌最後停在 **19:35:38 EDT** 的等待呼叫，沒有對應完成回報；上述最終報告已在 **19:35:59 EDT** 落盤。接手時沒有該測試程序，分支仍乾淨且停在固定程式。恢復查核實際驗證 report schema、137 files／總數、零失敗／跳過，以及目前 HEAD／workspace SHA-256 與報告完全吻合；報告檔案 SHA-256 為 `34ec0d232b74eb8a068deb6f9897d59449450d5eca06c15e8653ec5066a03df5`。因此本批測試已完成，缺的是完成回報與收尾；目前證據不能判定 session 停止回應的具體原因。這次只補文件並核對既有證據，沒有重跑或重算完整 runtime。
+
+恢復時核對本輪 exact Docker container ID／`foundation-refresh-20261002` label，確認 network-none、無 published ports、2 GiB tmpfs、無匿名 volume，以及專用 `fp-refresh-db-BNgBB8` socket。`fp_foundation` 中非預設 schemas、合成 roles、其他 clients、其他 databases 與 public relations 均為 0。隨後停止並移除該容器，僅在 socket 目錄確實為空後用 `rmdir` 清除；同 label 容器剩餘 0。只清可重建合成資料，保留 worktrees、程式與 ignored evidence，沒有碰真實資料或 staging/live。
+
+Manifest last=91、known_gaps=`[22]`；076–091 尚未合併／發布，合併前須重查編號。正式 issuer/key custody、HTTP/UI、ModelConnection／Grant／Attempt、完整入口覆蓋與可信 CI 仍待完成；沒有 push、PR、merge、部署或正式設定／金鑰變更。原始 168 項產品要求仍 `not_run`。
+
 ## 尚未交付
 
 - execution/service current-state validators、Invocation/Grant adapters，以及有真實 backing record 的 service/site schema；scoped composition/receipt 目前僅支援 member session。
@@ -416,9 +446,9 @@ Manifest last=90、known_gaps=`[22]`；076–090 全為未合併／未部署暫�
 
 ## 下一批
 
-Runtime enrollment、connection backing record、[封閉 bootstrap status](09-bootstrap-status.md) 與 [裝置配對／一次性交換](10-device-authorization.md) 已有本機實作。它们只提供受限配對與本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權，也不輸出通用 VerifiedContext。下一步依 [原 AP §4.3](../../../plans/autopilot-vnext.md#43-機器配對與登入流程) 完成 refresh family rotation／reuse revocation 和可重複取得 nonce 的獨立 machine admission，再接 HTTP、ModelConnection、Grant 和 Attempt 真實 backing records。Refresh 最長 30 日且不能延長既有 connection expiry；真正 spent-handle reuse 要提交整個 family／connection 撤銷，使已發 bootstrap token 也被當前狀態驗證拒絕，不能 throw 導致撤銷 rollback。Wrong secret/key/proof 不能藉此撤銷受害者。Nonce 取得要在上一個 nonce 過期後仍可用，但不接受過期 nonce、不借會員 cookie，也不把既有固定 GET verifier 改成任意 operation。這些原規格內的本機實作不需 Ted 重選 routine 細節；正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定，不重用 storefront/supplier 的 `fw_read` 連線。
+Runtime enrollment、connection backing record、[封閉 bootstrap status](09-bootstrap-status.md)、[裝置配對／一次性交換](10-device-authorization.md) 及 [refresh 輪替／重用撤銷與 nonce 取得](11-bootstrap-sessions.md) 已有本機實作。它們提供受限配對、可持續 refresh 及本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權，也不輸出通用 VerifiedContext。下一步接這些服務的 HTTP 邊界，驗用途、來源、限流與會員 CSRF，再接 ModelConnection、Grant 和 Attempt 真實 backing records。正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定，不重用 storefront/supplier 的 `fw_read` 連線。
 
-治理已推進固定單一 profile 的 [本機隔離 supervisor](../../../../packages/contribution-tools/behavior-supervisor.md)：host harness 透過有界 HTTP response frames 呼叫隔離容器內的 candidate app，由 host 自行判斷結果；不能把 candidate stdout/JSON 當可信測試結果。隔離不成立就 unavailable，並保留 approved host source／runtime、完整入口、publisher/GitHub enforcement 的缺口。下一步是可信安裝、來源與 publisher 接線，不是把本機 observation 宣稱可合併。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代完整入口／外部保存／政策 restore 的證據。migration 076–090 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
+治理已推進固定單一 profile 的 [本機隔離 supervisor](../../../../packages/contribution-tools/behavior-supervisor.md)：host harness 透過有界 HTTP response frames 呼叫隔離容器內的 candidate app，由 host 自行判斷結果；不能把 candidate stdout/JSON 當可信測試結果。隔離不成立就 unavailable，並保留 approved host source／runtime、完整入口、publisher/GitHub enforcement 的缺口。下一步是可信安裝、來源與 publisher 接線，不是把本機 observation 宣稱可合併。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代完整入口／外部保存／政策 restore 的證據。migration 076–091 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
 
 早先唯讀查核 #85／#87 的衝突與 migration 重號紀錄保留歷史用途；依 Ted 最新指示，其他 PR 的 rebase／整合現在不在派工範圍。這次沒有修改作者 PR 或把舊 CI 結果當新整合驗收。
 
