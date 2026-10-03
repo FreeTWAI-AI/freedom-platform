@@ -21,6 +21,12 @@ export async function serviceCoverStorageMode(q:Pick<PoolClient,'query'>):Promis
  const row=(await q.query("SELECT mode FROM domain_media_storage_policy WHERE purpose='member.service-cover' FOR SHARE")).rows[0];
  requireCondition(row,503,'media_upload_unavailable','內容上傳暫時無法使用。');return row.mode;
 }
+/** Canonical locked DB policy. Defaults are prohibited, without guessed quotas. */
+export async function resolveServiceCoverUploadPolicy(q:PoolClient,_context:MemberScopeContext,_targetServiceId:string):Promise<LifecyclePolicy>{
+ const row=(await q.query("SELECT mode,policy_revision,persistence_allowed,retained_byte_limit FROM domain_media_storage_policy WHERE purpose='member.service-cover' FOR SHARE")).rows[0];
+ requireCondition(row&&row.mode!=='legacy'&&row.persistence_allowed===true&&row.policy_revision&&row.retained_byte_limit,503,'media_upload_unavailable','內容上傳暫時無法使用。');
+ return Object.freeze({revision:row.policy_revision,platformPersistenceAllowed:true,retainedByteLimit:row.retained_byte_limit as string});
+}
 /** Existing service owner/CAS is authoritative; no new public ACL is introduced. */
 function serviceCoverLifecycle(pool:Pool,dependencies:ServiceCoverAssetDependencies,legacySource?:ServiceCoverLegacySource) {
  async function lockTarget(q:PoolClient,context:MemberScopeContext,actor:Actor,id:string,create:boolean):Promise<LifecycleTarget> {
@@ -40,7 +46,7 @@ function serviceCoverLifecycle(pool:Pool,dependencies:ServiceCoverAssetDependenc
  return createAssetLifecycle<ServiceCoverPrepareInput,{intentId:string;assetId:string;serviceId:string;aggregateVersion:string}>(pool,dependencies,{
   purpose:'member.service-cover',targetKind:'member.service-cover',variant:'cover',inputMaxBytes:4194304,outputMaxBytes:524288,retireReplacedAsset:true,
   parsePrepare:raw=>{const parsed=input.parse(raw);if(legacySource)requireCondition(parsed.targetServiceId===legacySource.serviceId&&parsed.expectedVersion===legacySource.expectedVersion&&parsed.contentType==='image/webp'&&parsed.byteSize===legacySource.byteSize&&parsed.sha256===legacySource.sha256,409,'media_source_changed','原始內容已改變，請重新建立移轉計畫。');return parsed;},targetId:value=>value.targetServiceId,lockTarget,
-  async resolvePolicy(q,context,id){requireCondition(await serviceCoverStorageMode(q)!=='legacy',503,'media_upload_unavailable','內容上傳暫時無法使用。');return dependencies.resolvePolicy(q,context,id);},
+  async resolvePolicy(q,context,id){const canonical=await resolveServiceCoverUploadPolicy(q,context,id),installed=await dependencies.resolvePolicy(q,context,id);requireCondition(installed?.platformPersistenceAllowed===true&&installed.revision===canonical.revision&&typeof installed.retainedByteLimit==='string'&&/^[1-9][0-9]{0,18}$/.test(installed.retainedByteLimit),503,'media_upload_unavailable','內容上傳暫時無法使用。');return Object.freeze({...canonical,retainedByteLimit:(BigInt(installed.retainedByteLimit)<BigInt(canonical.retainedByteLimit)?installed.retainedByteLimit:canonical.retainedByteLimit)});},
   async requireCapacity(q,_context,actor,_target,policy,reserve){
    const row=(await q.query(`SELECT COALESCE(sum(COALESCE(o.byte_size,i.reserved_bytes,524288)::bigint),0) AS used FROM assets a LEFT JOIN asset_objects o USING(asset_id) LEFT JOIN asset_upload_intents i USING(asset_id) WHERE a.owner_user_id=$1 AND a.purpose='member.service-cover'`,[actor.user_id])).rows[0];
    const legacy=(await q.query('SELECT COALESCE(sum(octet_length(c.image_bytes)),0) AS used FROM member_service_covers c JOIN member_services s USING(service_id) WHERE s.owner_user_id=$1',[actor.user_id])).rows[0];

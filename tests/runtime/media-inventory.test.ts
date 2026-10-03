@@ -45,7 +45,7 @@ function tracked(pool:Pool,tweak:(sql:string)=>string=sql=>sql){
 test('MEDIA-INV-01 full actual migration ledger is compatible with low-privilege aggregate-only inventory',async()=>{
   const f=await fixture(true);try{
     const identity=(await f.reader.query('SELECT current_user,rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user')).rows[0];assert.equal(identity.current_user,f.role);assert.equal(identity.rolsuper,false);assert.equal(identity.rolbypassrls,false);
-    const ledger=(await f.owner.query('SELECT count(*)::text AS count,max(name) AS last FROM schema_migrations')).rows[0];assert.equal(ledger.count,String((await readdir(new URL('../../migrations',import.meta.url))).filter(name=>name.endsWith('.sql')).length));assert.match(ledger.last,/^098_/);
+    const ledger=(await f.owner.query('SELECT count(*)::text AS count,max(name) AS last FROM schema_migrations')).rows[0];assert.equal(ledger.count,String((await readdir(new URL('../../migrations',import.meta.url))).filter(name=>name.endsWith('.sql')).length));assert.equal(ledger.last,(await readdir(new URL('../../migrations',import.meta.url))).filter(name=>name.endsWith('.sql')).sort().at(-1));
     const seen=tracked(f.reader),report=await inventoryMedia(seen.port,f.target);assert.equal(report.completeness,'aggregate_inventory_complete');assert.equal(report.profiles.length,7);noAuthority(report);
     for(const value of report.profiles){assert.equal(value.status,'inventoried');assert.deepEqual(value.counts,zero);assert.equal(value.reason,null);}
     assert.equal(profile(report,'community.event-highlight').highlightDetails!.incompleteActivePairCount,'0');
