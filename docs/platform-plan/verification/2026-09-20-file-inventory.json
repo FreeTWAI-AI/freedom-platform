@@ -4679,8 +4679,8 @@
     },
     {
       "path": "modules/agent-execution/model-results.ts",
-      "bytes": 13459,
-      "sha256": "dfdd4b80141866ae1b32d3190dd3fb2fc5c5f4cc7a5f46a05049cb84e809a276"
+      "bytes": 13573,
+      "sha256": "2070ce80fd776197229fc04f0d9eb879c9b45ca0639c7e5f7ed051d0686be6e4"
     },
     {
       "path": "modules/agent-execution/model-step-host.ts",

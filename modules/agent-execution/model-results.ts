@@ -92,9 +92,9 @@ export function createPrivateModelResultService(pool: Pool, dependencies: Privat
     }
     const underlying = dependencies.store;
     const guardedStore = invocation === undefined ? underlying : Object.freeze({
-      async putImmutable(...args: Parameters<typeof underlying.putImmutable>) { await beforeStorage(); return underlying.putImmutable(...args); },
-      async head(...args: Parameters<typeof underlying.head>) { await beforeStorage(); return underlying.head(...args); },
-      async get(...args: Parameters<typeof underlying.get>) { await beforeStorage(); return underlying.get(...args); },
+      async putImmutable(...args: Parameters<typeof underlying.putImmutable>) { await beforeStorage(); assertModelStepInvocationTime(guard); return underlying.putImmutable(...args); },
+      async head(...args: Parameters<typeof underlying.head>) { await beforeStorage(); assertModelStepInvocationTime(guard); return underlying.head(...args); },
+      async get(...args: Parameters<typeof underlying.get>) { await beforeStorage(); assertModelStepInvocationTime(guard); return underlying.get(...args); },
       async delete(..._args: Parameters<typeof underlying.delete>): Promise<never> { throw new Error('model_result_storage_unavailable'); },
     });
     const engine = createAssetLifecycle<Prepare, PrivateModelResultPublished>(pool, { ...dependencies, store: guardedStore }, {
