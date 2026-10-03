@@ -22,7 +22,7 @@ export interface LifecyclePolicy extends PersistencePolicy { readonly retainedBy
 export interface LifecycleTarget { readonly targetId: string; readonly aggregateVersion: string; readonly assetId: string|null }
 export interface LifecycleIntent {
   intent_id: string; asset_id: string; representation_id: string; scope_id: string; owner_principal_id: string;
-  target_user_id: string; target_work_id?: string|null; target_service_id?:string|null; target_event_id?:string|null; target_video_event_id?:string|null; target_community_id?:string|null; source_orientation?:'landscape'|'portrait'|null; target_kind?: string; purpose: string; policy_revision: string; expected_version: string;
+  target_user_id: string; target_work_id?: string|null; target_service_id?:string|null; target_event_id?:string|null; target_video_event_id?:string|null; target_post_id?:string|null; target_community_id?:string|null; source_orientation?:'landscape'|'portrait'|null; target_kind?: string; purpose: string; policy_revision: string; expected_version: string;
   source_content_type: string; source_byte_size: number; source_sha256: string;
   state: 'prepared'|'processing'|'stored'|'finalized'; fence: string; lease_token: string|null;
   lease_expires_at: Date|null; expires_at: Date;
@@ -40,7 +40,7 @@ export interface LifecycleDependencies {
  * decision-clock refresh; publish may only reuse already-held domain locks.
  * The engine alone owns upload state transitions, source effects and fences. */
 export interface LifecycleProfile<P extends LifecyclePrepare,R> {
-  readonly purpose: 'member.avatar'|'work.private-draft'|'member.service-cover'|'community.event-banner'|'community.event-video'; readonly targetKind: 'member.avatar'|'work.private-result'|'work.model-result'|'member.service-cover'|'community.event-banner'|'community.event-video'; readonly variant: 'avatar'|'draft'|'cover'|'banner'|'video';
+  readonly purpose: 'member.avatar'|'work.private-draft'|'member.service-cover'|'community.event-banner'|'community.event-video'|'community.social-thumbnail'; readonly targetKind: 'member.avatar'|'work.private-result'|'work.model-result'|'member.service-cover'|'community.event-banner'|'community.event-video'|'community.social-thumbnail'; readonly variant: 'avatar'|'draft'|'cover'|'banner'|'video'|'thumbnail';
   readonly inputMaxBytes: number; readonly outputMaxBytes: number; readonly retireReplacedAsset: boolean;
   /** Additional trusted invocation check on the caller's current transaction.
    * Captured at composition, never supplied by upload/lease JSON. */
@@ -80,9 +80,10 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
     || (profile.purpose==='work.private-draft' && profile.targetKind==='work.model-result' && profile.variant==='draft' && profile.inputMaxBytes===16384 && profile.outputMaxBytes===16384)
     || (profile.purpose==='member.service-cover'&&profile.targetKind==='member.service-cover'&&profile.variant==='cover'&&profile.inputMaxBytes===4194304&&profile.outputMaxBytes===524288)
     || (profile.purpose==='community.event-banner'&&profile.targetKind==='community.event-banner'&&profile.variant==='banner'&&profile.inputMaxBytes===524288&&profile.outputMaxBytes===524288)
-    || (profile.purpose==='community.event-video'&&profile.targetKind==='community.event-video'&&profile.variant==='video'&&profile.inputMaxBytes===20971520&&profile.outputMaxBytes===20971520),500,'asset_profile_invalid','內容設定不正確。');
-  const targetId = (row: LifecycleIntent) => profile.targetKind==='member.avatar' ? row.target_user_id : OpaqueId.parse(profile.targetKind==='community.event-video'?row.target_video_event_id:profile.targetKind==='community.event-banner'?row.target_event_id:profile.targetKind==='member.service-cover'?row.target_service_id:row.target_work_id);
-  const scopeKind=(profile.purpose==='community.event-banner'||profile.purpose==='community.event-video')?'community' as const:'personal' as const;
+    || (profile.purpose==='community.event-video'&&profile.targetKind==='community.event-video'&&profile.variant==='video'&&profile.inputMaxBytes===20971520&&profile.outputMaxBytes===20971520)
+    || (profile.purpose==='community.social-thumbnail'&&profile.targetKind==='community.social-thumbnail'&&profile.variant==='thumbnail'&&profile.inputMaxBytes===524288&&profile.outputMaxBytes===524288),500,'asset_profile_invalid','內容設定不正確。');
+  const targetId = (row: LifecycleIntent) => profile.targetKind==='member.avatar' ? row.target_user_id : OpaqueId.parse(profile.targetKind==='community.social-thumbnail'?row.target_post_id:profile.targetKind==='community.event-video'?row.target_video_event_id:profile.targetKind==='community.event-banner'?row.target_event_id:profile.targetKind==='member.service-cover'?row.target_service_id:row.target_work_id);
+  const scopeKind=(profile.purpose==='community.event-banner'||profile.purpose==='community.event-video'||profile.purpose==='community.social-thumbnail')?'community' as const:'personal' as const;
   const lockUser=scopeKind==='community';
   const storageKey = (row: LifecycleIntent) => objectKey({scopeId:row.scope_id,assetId:row.asset_id,representationId:row.representation_id});
   async function policy(q: PoolClient, context: MemberScopeContext, id: string, pinned?: string): Promise<LifecyclePolicy> {
@@ -137,7 +138,7 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
       if(scopeKind==='community')assetValues.push(scopeKind,actor.community_id);
       await q.query(`INSERT INTO assets(asset_id,scope_id,owner_principal_id,owner_user_id,policy_revision,representation_id,purpose${scopeKind==='community'?',scope_kind,community_ref':''}) VALUES($1,$2,$3,$4,$5,$6,$7${scopeKind==='community'?',$8,$9':''})`,assetValues);
       const values:unknown[]=[intentId,assetId,representationId,context.scope.scope_id,context.subject_principal.principal_id,actor.user_id,resolved.revision,receiptKey,digest(body),input.contentType,input.byteSize,input.sha256,input.expectedVersion,settings.ttl,profile.purpose,profile.outputMaxBytes];
-      const work=profile.targetKind!=='member.avatar',column=profile.targetKind==='community.event-video'?'target_video_event_id':profile.targetKind==='community.event-banner'?'target_event_id':profile.targetKind==='member.service-cover'?'target_service_id':'target_work_id';if(work)values.push(profile.targetKind,id);const banner=profile.purpose==='community.event-banner'||profile.purpose==='community.event-video';if(banner)values.push(actor.community_id,profile.purpose==='community.event-banner'?(input as P&{orientation:string}).orientation:null);
+      const work=profile.targetKind!=='member.avatar',column=profile.targetKind==='community.social-thumbnail'?'target_post_id':profile.targetKind==='community.event-video'?'target_video_event_id':profile.targetKind==='community.event-banner'?'target_event_id':profile.targetKind==='member.service-cover'?'target_service_id':'target_work_id';if(work)values.push(profile.targetKind,id);const banner=scopeKind==='community';if(banner)values.push(actor.community_id,profile.purpose==='community.event-banner'?(input as P&{orientation:string}).orientation:null);
       const row=(await q.query(`INSERT INTO asset_upload_intents(intent_id,asset_id,representation_id,scope_id,owner_principal_id,target_user_id,policy_revision,prepare_key,request_digest,source_content_type,source_byte_size,source_sha256,expected_version,expires_at,purpose,reserved_bytes${work?',target_kind,'+column:''}${banner?',target_community_id,source_orientation':''}) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,clock_timestamp()+make_interval(secs=>$14),$15,$16${work?',$17,$18':''}${banner?',$19,$20':''}) RETURNING expires_at`,values)).rows[0];
       await scopedJournal(q,context,{aggregate_type:'asset_upload_intent',id:intentId,version:'1',operation:'asset.upload.prepare',data:{asset_id:assetId}});
       return {intentId,assetId,representationId,expiresAt:row.expires_at.toISOString() as string};
@@ -168,6 +169,7 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
     requireCondition(prepared.metadata.byteSize<=profile.outputMaxBytes && (profile.purpose==='member.avatar'
       ? prepared.metadata.contentType==='image/webp'&&prepared.metadata.transformVersion==='avatar.webp.v1'
       : profile.purpose==='member.service-cover'?prepared.metadata.profileId==='member.service-cover'&&prepared.metadata.contentType==='image/webp'&&prepared.metadata.transformVersion==='member.service-cover.legacy-bytes.v1'
+      : profile.purpose==='community.social-thumbnail'?prepared.metadata.profileId==='community.social-thumbnail'&&prepared.metadata.contentType==='image/webp'&&prepared.metadata.transformVersion==='community.social-thumbnail.legacy-bytes.v1'
       : profile.purpose==='community.event-banner'?prepared.metadata.profileId==='community.event-banner'&&prepared.metadata.contentType==='image/webp'&&prepared.metadata.transformVersion==='community.event-banner.legacy-bytes.v1'
       : profile.purpose==='community.event-video'?prepared.metadata.profileId==='community.event-video'&&['video/mp4','video/webm'].includes(prepared.metadata.contentType)&&prepared.metadata.transformVersion==='community.event-video.legacy-bytes.v1'
       : ['text/plain','text/markdown'].includes(prepared.metadata.contentType)&&prepared.metadata.transformVersion==='private-text.utf8.v1'),422,'asset_profile_invalid','內容不符合儲存規格。');

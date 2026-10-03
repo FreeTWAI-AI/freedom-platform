@@ -1,7 +1,11 @@
 import { createHash } from 'node:crypto';
-import type { Pool } from 'pg';
+import type { Pool,PoolClient } from 'pg';
 import { z } from 'zod';
-import { command, type Command } from '../../packages/db/index.js';
+import { command,digest as commandDigest, type Command } from '../../packages/db/index.js';
+import { socialThumbnailMemberCommand } from '../../packages/scoped-commands/index.js';
+import { AssetStorageError,type ObjectStore } from '../../packages/asset-storage/index.js';
+import { readDomainMedia,type DomainMediaSnapshot } from '../../packages/media-migration/domain-bridge.js';
+import { socialThumbnailStorageMode,type SocialThumbnailAssetService } from '../assets/social-thumbnail.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { isOwnWorkshopHost, normalizeShareUrl, PLATFORM_LABELS, SOCIAL_PLATFORMS, type SocialPlatform } from '../../packages/shared/share-url.js';
 import { normalizeSocialThumbnail } from '../skill-submissions/payload.js';
@@ -128,12 +132,16 @@ export async function createSocialPost(pool: Pool, inputCommand: Command, previe
 }
 
 async function owned(q: Pick<Pool, 'query'>, actor: Actor, id: string, lock = false) {
-  const row = (await q.query(`SELECT post_id,author_user_id,state FROM community_social_posts WHERE post_id=$1 AND community_id=$2${lock ? ' FOR UPDATE' : ''}`, [id, actor.community_id])).rows[0];
+  const row = (await q.query(`SELECT post_id,author_user_id,state,media_version FROM community_social_posts WHERE post_id=$1 AND community_id=$2${lock ? ' FOR UPDATE' : ''}`, [id, actor.community_id])).rows[0];
   requireCondition(row, 404, 'not_found', '找不到這則貼文。');
   requireCondition(row.author_user_id === actor.user_id, 403, 'author_required', '只能管理自己分享的貼文。');
-  return row as { post_id: string; state: string };
+  return row as { post_id: string; state: string;media_version:string };
 }
 
+export async function authorizeSocialThumbnailWrite(q:Pick<Pool,'query'>,actor:Actor,id:string,lock=false){
+ const row=await owned(q,actor,id,lock);requireCondition(row.state==='active',404,'not_found','找不到這則貼文。');return row;
+}
+async function shownSocial(q:Pick<Pool,'query'>,actor:Actor,id:string){const row=(await q.query(`${LIST} WHERE p.community_id=$1 AND p.post_id=$3`,[actor.community_id,actor.user_id,id])).rows[0] as PostRow;return view(row,actor.user_id);}
 export async function deleteSocialPost(pool: Pool, inputCommand: Command, id: string, now = new Date()) {
   z.object({}).strict().parse(inputCommand.body ?? {});
   return command(pool, inputCommand, q => owned(q, inputCommand.actor, id), async q => {
@@ -154,9 +162,11 @@ export async function hideSocialPost(pool: Pool, inputCommand: Command, id: stri
   });
 }
 
-export async function saveSocialThumbnail(pool: Pool, inputCommand: Command, id: string, file: { bytes: Buffer; mime: string }, now = new Date()) {
-  const digest = createHash('sha256').update(file.bytes).digest('hex');
-  const commandInput = { ...inputCommand, body: { sha256: digest } };
+export async function saveSocialThumbnail(pool: Pool, inputCommand: Command, id: string, file: { bytes: Buffer; mime: string }, now = new Date(),assets?:SocialThumbnailAssetService) {
+  const bytes=Buffer.from(file.bytes);file={bytes,mime:file.mime};
+  const digest = createHash('sha256').update(bytes).digest('hex');
+  const commandInput = { ...inputCommand,actor:Object.freeze({...inputCommand.actor}), body: { sha256: digest } };
+  if(await socialThumbnailStorageMode(pool)!=='legacy')return saveAssetSocialThumbnail(pool,commandInput,id,file,assets);
   return command(pool, commandInput, q => owned(q, inputCommand.actor, id), async q => {
     const row = await owned(q, inputCommand.actor, id, true);
     requireCondition(row.state === 'active', 404, 'not_found', '找不到這則貼文。');
@@ -168,18 +178,34 @@ export async function saveSocialThumbnail(pool: Pool, inputCommand: Command, id:
   });
 }
 
-export async function readSocialThumbnail(pool: Pool, actor: Actor, id: string) {
-  const row = (await pool.query(`SELECT t.image_bytes FROM community_social_post_thumbnails t
-    JOIN community_social_posts p ON p.post_id=t.post_id
-    WHERE p.post_id=$1 AND p.community_id=$2 AND p.state='active'`, [id, actor.community_id])).rows[0];
-  requireCondition(row, 404, 'not_found', '找不到縮圖。');
-  return row.image_bytes as Buffer;
+async function saveAssetSocialThumbnail(pool:Pool,input:Command,id:string,file:{bytes:Buffer;mime:string},assets?:SocialThumbnailAssetService){
+ const authorize=(q:PoolClient)=>owned(q,input.actor,id);
+ const probe=async()=>{const miss=new Error('social_thumbnail_receipt_miss');try{return await socialThumbnailMemberCommand(pool,input,authorize,async()=>{throw miss;});}catch(error){if(error!==miss)throw error;return undefined;}};
+ const prior=await probe();if(prior)return prior;
+ requireCondition(assets,503,'media_upload_unavailable','內容上傳暫時無法使用。');
+ const key=commandDigest({operation:input.operation,key:input.key}),post=await authorizeSocialThumbnailWrite(pool,input.actor,id),expectedVersion=post.media_version;
+ try{
+  const prepared=await assets.prepare(input.actor,{key,targetPostId:id,expectedVersion,contentType:file.mime as 'image/png'|'image/jpeg'|'image/webp',byteSize:file.bytes.length,sha256:(input.body as {sha256:string}).sha256});
+  const lease=await assets.resumeUpload(input.actor,{key,intentId:prepared.intentId}),binding={intentId:lease.intentId,fence:lease.fence,leaseToken:lease.leaseToken};
+  if(lease.state==='prepared'||lease.state==='processing')await assets.write(input.actor,{...binding,key:commandDigest({key,phase:'write',fence:lease.fence})},new ReadableStream({start(c){c.enqueue(file.bytes);c.close();}}));
+  let publicationClient:PoolClient;
+  return await assets.finalizeVia<Awaited<ReturnType<typeof shownSocial>>>(input.actor,{...binding,key:commandDigest({key,phase:'finalize'})},{operation:'community.social.thumbnail.replace',
+   execute:run=>socialThumbnailMemberCommand(pool,input,authorize,async(q,context)=>{publicationClient=q;return run(q,context);}),
+   validateIntent:row=>requireCondition(row.target_post_id===id&&row.source_sha256===(input.body as {sha256:string}).sha256&&row.source_content_type===file.mime,409,'asset_source_mismatch','上傳內容與準備紀錄不同。'),
+   result:()=>shownSocial(publicationClient,input.actor,id)});
+ }catch(error){const committed=await probe();if(committed)return committed;if(error instanceof AssetStorageError)throw new Problem(503,'media_upload_unavailable','內容上傳暫時無法使用。');throw error;}
 }
-
-export async function publicSocialThumbnail(pool: Pool, id: string) {
-  const row = (await pool.query(`SELECT t.image_bytes FROM community_social_post_thumbnails t
-    JOIN community_social_posts p ON p.post_id=t.post_id
-    WHERE p.post_id=$1 AND p.state='active'`, [id])).rows[0];
-  requireCondition(row, 404, 'not_found', '找不到縮圖。');
-  return row.image_bytes as Buffer;
+async function socialThumbnailSnapshot(pool:Pool,id:string,actor?:Actor):Promise<DomainMediaSnapshot|undefined>{
+ const row=(await pool.query(`SELECT p.media_version,p.state,p.community_id,t.storage_source,t.image_bytes,a.asset_id,a.scope_id,o.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id
+ FROM community_social_post_thumbnails t JOIN community_social_posts p USING(post_id)
+ LEFT JOIN community_social_thumbnail_asset_targets a USING(post_id) LEFT JOIN asset_objects o ON o.asset_id=a.asset_id
+ WHERE p.post_id=$1 AND p.state='active' AND ($5::boolean OR p.community_id=$2)
+ AND ($5::boolean OR t.storage_source='legacy' OR EXISTS(SELECT 1 FROM sessions s JOIN users u USING(user_id) WHERE s.token_hash=$3 AND s.user_id=$4 AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp() AND u.active AND u.community_id=p.community_id))`,[id,actor?.community_id??null,actor?.session_hash??null,actor?.user_id??null,actor===undefined])).rows[0];
+ if(!row)return;return {purpose:'community.social-thumbnail',targetId:id,variant:'thumbnail',domainVersion:row.media_version,authorizationVersion:JSON.stringify([row.state,row.community_id]),source:row.storage_source,legacyBytes:row.image_bytes,legacyContentType:'image/webp',assetId:row.asset_id,scopeId:row.scope_id,representationId:row.representation_id,metadata:row.profile_id?{profileId:row.profile_id,contentType:row.content_type,byteSize:row.byte_size,sha256:row.content_sha256,transformVersion:row.transform_version,policyRevision:row.policy_revision}:null};
+}
+export async function readSocialThumbnail(pool:Pool,actor:Actor,id:string,store?:ObjectStore){
+ try{return (await readDomainMedia(()=>socialThumbnailSnapshot(pool,id,actor),{purpose:'community.social-thumbnail',targetId:id,variant:'thumbnail'},store)).bytes;}catch(error){if(error instanceof Problem&&error.status===404&&error.code==='media_not_found')throw new Problem(404,'not_found','找不到縮圖。');throw error;}
+}
+export async function publicSocialThumbnail(pool:Pool,id:string,store?:ObjectStore){
+ try{return (await readDomainMedia(()=>socialThumbnailSnapshot(pool,id),{purpose:'community.social-thumbnail',targetId:id,variant:'thumbnail'},store)).bytes;}catch(error){if(error instanceof Problem&&error.status===404&&error.code==='media_not_found')throw new Problem(404,'not_found','找不到縮圖。');throw error;}
 }

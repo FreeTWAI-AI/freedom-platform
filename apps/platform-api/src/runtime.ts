@@ -1,3 +1,4 @@
+import type {SocialThumbnailAssetService} from '../../../modules/assets/social-thumbnail.js';
 import type {EventVideoAssetService} from '../../../modules/assets/event-video.js';
 import type {EventBannerAssetService} from '../../../modules/assets/event-banner.js';
 import type { Context } from 'hono';
@@ -46,6 +47,8 @@ export type PlatformRuntime = {
   eventBannerAssetStore?:ObjectStore;
   eventVideoAssets?:EventVideoAssetService;
   eventVideoAssetStore?:ObjectStore;
+  socialThumbnailAssets?:SocialThumbnailAssetService;
+  socialThumbnailAssetStore?:ObjectStore;
   /** Explicit host-installed private Work/model product transport. No ambient
    * credentials or default Worker activation; it owns its bounded HTTP body. */
   privateAiProduct?: (request: Request) => Promise<Response>;
