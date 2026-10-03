@@ -1,0 +1,36 @@
+{
+  "scope": "FW-01 static contracts and synthetic reference fixtures; not runtime",
+  "python": "3.14.4",
+  "packages": {
+    "pytest": "9.0.2",
+    "PyYAML": "6.0.3",
+    "jsonschema": "4.26.0",
+    "referencing": "0.37.0"
+  },
+  "files": {
+    "docs/platform-plan/contracts/openapi-outline.yaml": "bd9ea5aa167be9ddac86b47a48b6a9ded301b2cc17e029a960ec4373b6c9120a",
+    "docs/platform-plan/contracts/state-machines/core.example.yaml": "c73cbd61cbfeccd0122cdd3c1702630219444d7a205557098621e089bbd82c5e",
+    "docs/platform-plan/03-domain-events-state-machines.md": "9ce63e9d99497f96aa926c8ad2a717a1d4b2ae9689ee8448dc71b65efcb67e8b",
+    "docs/platform-plan/contracts/domain-skill-overlay.schema.json": "aca28b3347a403911437c5e86f1431ccf9518269e6c346a665e22c2b55b63a2d",
+    "docs/platform-plan/contracts/entity-playbook.schema.json": "81d522598a8e3df937e5166ada74c0413ce015a4e935a5f1c08d849094797346",
+    "docs/platform-plan/contracts/event-envelope.schema.json": "edfa09250e9ab6f140f473000c6bf7d1a6ab2b5c111222ba5eb4e3f89ff9af80",
+    "docs/platform-plan/contracts/member-onboarding.schema.json": "d70fd4a131a84caddd40f28dcf39a926327b130f25ba1e41125bbb77981f768f",
+    "docs/platform-plan/contracts/portable-activation.schema.json": "e19d02cd0940cf55f0faa3f6ff184a57d4546525344cff5ec264a12f631deeb5",
+    "docs/platform-plan/contracts/project-manifest.schema.json": "d818f12dc0cdf25db7a2fc529b7b01a5f0df78f9282f339940a08a3caa0b2304",
+    "docs/platform-plan/contracts/project-status-attestation.schema.json": "b403bb198d12cad43da8aec7c54cd07eb63469fcff013100ca12f649dab7f5e8",
+    "docs/platform-plan/contracts/skill-package.schema.json": "ad4d96a05694a19fd270dadde48a5ce56ae444b80bbc90b861fea6b37341fb1f",
+    "docs/platform-plan/contracts/xp-policy.schema.json": "4e76f90c5e23b8d727206234b598901b15f388d2f87bc6506ea7b2f5698cfc86",
+    "docs/platform-plan/contracts/tests/test_five_clock_invariants.py": "785f255aa22785af0c406aef3386ab894154f174ee3a46023c6f702cc86d27bc",
+    "docs/platform-plan/contracts/tests/fixtures/five-clocks/schema-mutations.json": "9fddc052e880cded979e603923cd4ec1b8a3106508221e803874f195920917c3",
+    "docs/platform-plan/contracts/tests/fixtures/five-clocks/clock-cases.json": "3f428f8c9cb83ec4825ca4b541887b3e8fcba034db09373f7c74f3f95ed74437",
+    "docs/platform-plan/contracts/tests/fixtures/five-clocks/examples/appointment_create_request.json": "62269084bd3b8950dc4435e7c0085d71c8fbcdb1a86ea6e4c6bbf4819f3d948f",
+    "docs/platform-plan/contracts/tests/fixtures/five-clocks/examples/appointment_reviewer.json": "12c706f78df8ac82059eef7967f015bd9d76d2f9dbaeb9887bcac767c911c289",
+    "docs/platform-plan/contracts/tests/fixtures/five-clocks/examples/delivery_sow_milestone.json": "ae2d7c03daf45098a114ec2f10e102dae30679cbd91c1cd833d5db8ee056cf63",
+    "docs/platform-plan/contracts/tests/fixtures/five-clocks/examples/grant_create_request.json": "3da4982e034a8c5ecb3bce1a12410b199633c0b1af0359ad48927541367abf66",
+    "docs/platform-plan/contracts/tests/fixtures/five-clocks/examples/grant_day_one.json": "4a4adc0a7131f1739b6b91c436a96467fc7696f9d7f8954b055a117927a02c9b",
+    "docs/platform-plan/contracts/tests/fixtures/five-clocks/examples/grant_summary.json": "8beb94f3c4ed1f89e7cd3d3c72e4d7fd1d7d38290a614a4f3c84659d6dc60f67",
+    "docs/platform-plan/contracts/tests/fixtures/five-clocks/examples/lease_agent_run.json": "0b73e966e99989141934b4ff7e75ee375e00f5490b7734b6f8d1da322e729dff",
+    "docs/platform-plan/contracts/tests/fixtures/five-clocks/examples/lease_heartbeat.json": "81811c0d2272ee0124491491c207123f4e8019d520e9ee12a396a504eb5a30ed",
+    "docs/platform-plan/contracts/tests/fixtures/five-clocks/examples/lease_job.json": "138963d5749d0badad73d79b7d91b0fe46f3cf5c70d97d23078fcfaa0f1beb63"
+  }
+}
