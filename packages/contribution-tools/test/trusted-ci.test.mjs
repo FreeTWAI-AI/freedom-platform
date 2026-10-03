@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { unlink, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import { verifyHostCandidate, installedVerifierDigest } from '../trusted-ci.mjs';
+import { verifyHostCandidate, verifyHostMergeGroupCandidate, validateHostEvidenceBinding, installedVerifierDigest } from '../trusted-ci.mjs';
 import { sha256 } from '../io.mjs';
 import { verificationEnvironment } from '../process-env.mjs';
 import { releaseFixture, fixtureRoot, put, pretty, copy } from './fixtures.mjs';
@@ -230,4 +230,18 @@ test('integration candidate must bind both exact base and head parents', async t
   assert.equal((await verifyHostCandidate(f.input)).status, 'unavailable');
   f.input.binding.base_commit = f.head;
   await assert.rejects(verifyHostCandidate(f.input), { code: 'candidate_parent_mismatch' });
+});
+
+
+test('local single-target evidence is structurally valid but cannot approve a self-baseline candidate', async t => {
+  const f = await fixture(t);
+  const binding = { ...f.input.binding, base_commit: f.head, source_commit: f.policy.source.commit,
+    release_set_sha256: f.policy.source.release_set_sha256, policy_revision: f.policy.revision,
+    policy_sha256: f.input.expectedPolicy.sha256, verifier_commit: f.policy.verifier.commit,
+    verifier_sha256: f.policy.verifier.sha256 };
+  assert.equal(validateHostEvidenceBinding(binding).base_commit, f.head);
+  await assert.rejects(verifyHostCandidate({ ...f.input, binding: { ...f.input.binding, base_commit: f.head } }),
+    { code: 'candidate_base_equals_candidate' });
+  await assert.rejects(verifyHostMergeGroupCandidate({ ...f.input, binding: { ...f.input.binding, pull_request: null, base_commit: f.head } }),
+    { code: 'candidate_base_equals_candidate' });
 });

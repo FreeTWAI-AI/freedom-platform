@@ -59,6 +59,7 @@ test('authenticated host adapter executes external verifier on actual Git object
  const cli=fileURLToPath(new URL('../github-trusted-adapter.mjs',import.meta.url));const cliResult=JSON.parse(execFileSync(process.execPath,[cli,'--verify',join(f.host,'host-config.json'),join(f.host,'job.proof.json'),join(f.host,'observations.proof.json')],{env:verificationEnvironment(),timeout:10000}));assert.equal(cliResult.authenticated_inputs,true);assert.equal(cliResult.verification_status,'unavailable');assert.equal(cliResult.gate_enforced,false);
  const merge=await run({...job,event:'merge_group',pull_request:null});assert.equal(merge.report.binding.pull_request,null);assert.equal(merge.report.binding.candidate_commit,head);
  await assert.rejects(run({...job,base_commit:head}),{code:'candidate_base_equals_candidate'});
+ await assert.rejects(run({...job,event:'merge_group',pull_request:null,base_commit:head}),{code:'candidate_base_equals_candidate'});
  await assert.rejects(run({...job,event:'merge_group',pull_request:42}),{code:'host_event_candidate_mismatch'});
  await assert.rejects(run({...job,expires_at:new Date(Date.now()-1).toISOString()}),{code:'host_event_stale'});
  await assert.rejects(run(job,{...observed,run_id:'superseded-run'}),{code:'host_runner_identity_mismatch'});

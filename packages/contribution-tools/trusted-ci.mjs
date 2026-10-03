@@ -146,7 +146,6 @@ const BINDING_FIELDS = ['repository', 'pull_request', 'run_id', 'base_commit', '
 function validateBinding(value, mergeGroup = false) {
   fields(value, BINDING_FIELDS); id(value.repository); id(value.run_id);
   check(mergeGroup ? value.pull_request === null : Number.isSafeInteger(value.pull_request) && value.pull_request > 0, 'invalid_pull_request');
-  check(value.base_commit !== value.candidate_commit, 'candidate_base_equals_candidate');
   if (mergeGroup) check(value.candidate_commit === value.head_commit, 'merge_group_candidate_mismatch');
   for (const key of ['base_commit', 'head_commit', 'candidate_commit', 'candidate_tree']) commit(value[key]);
 }
@@ -181,6 +180,10 @@ export async function verifyHostMergeGroupCandidate(input) { return verifyCandid
 async function verifyCandidate(input, mergeGroup) {
   fields(input, ['objectRepository', 'binding', 'policyBytes', 'expectedPolicy', 'observations']);
   validateBinding(input.binding, mergeGroup);
+  // Graph admission belongs here, not in the shared structural evidence parser:
+  // local single-target behavior observations can bind one commit without
+  // claiming an approved baseline or merge eligibility.
+  check(input.binding.base_commit !== input.binding.candidate_commit, 'candidate_base_equals_candidate');
   const binding = structuredClone(input.binding), policy = readPolicy(input.policyBytes, input.expectedPolicy);
   check(binding.repository === policy.repository, 'host_repository_mismatch');
   check(await installedVerifierDigest() === policy.verifier.sha256, 'host_verifier_digest_mismatch');
