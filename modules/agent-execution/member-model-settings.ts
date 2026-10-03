@@ -31,6 +31,7 @@ function captureActor(raw: Actor): Actor {
 
 /** SQL-only member history. Configured choices carry no provider or execution authority. */
 export function createMemberModelSettings(pool: Pool, raw: { environment: RuntimeEnvironment; clientId: string; selections: readonly BrokerModelSelection[] }) {
+  if (!raw || Object.getPrototypeOf(raw) !== Object.prototype) throw new Error('invalid_member_model_settings_configuration');
   const configuration = freezeTree(Configuration.parse(snapshotInput(raw)));
   async function current<T>(rawActor: Actor, read: (q: PoolClient, values: unknown[]) => Promise<T>) {
     const actor = captureActor(rawActor);

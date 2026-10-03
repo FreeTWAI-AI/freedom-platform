@@ -23,10 +23,10 @@ function security(c: Context<PlatformEnv>) {
   c.header('X-Content-Type-Options','nosniff'); c.header('Referrer-Policy','no-referrer');
   c.header('X-Robots-Tag','noindex, nofollow'); c.header('Cross-Origin-Resource-Policy','same-origin');
 }
-function httpsOrigin(value: unknown): URL {
+function canonicalOrigin(value: unknown, requireHttps = true): URL {
   if (typeof value !== 'string' || value.length > 256 || /[?#%\\\x00-\x20\x7f-\uffff]/.test(value)) throw new Error();
   const url = new URL(value);
-  if (url.protocol !== 'https:' || url.origin !== value || url.username || url.password) throw new Error();
+  if (!(requireHttps ? url.protocol === 'https:' : ['http:','https:'].includes(url.protocol)) || url.origin !== value || url.username || url.password) throw new Error();
   return url;
 }
 
@@ -43,12 +43,13 @@ export async function createMemberModelSettingsHttpTransport(pool: Pool, raw: {
       || !['origin','environment','clientId','selections','setupOrigin','sourceNetwork'].includes(key))) throw new Error();
     const ds = Object.getOwnPropertyDescriptors(raw);
     if (['origin','environment','clientId','selections'].some(key => !ds[key]) || Object.values(ds).some(d => !d.enumerable || !('value' in d))) throw new Error();
-    const main = httpsOrigin(ds.origin.value); origin = main.origin; host = main.host;
     environment = RuntimeEnvironmentSchema.parse(ds.environment.value); clientId = BootstrapClientIdSchema.parse(ds.clientId.value);
+    const main = canonicalOrigin(ds.origin.value,false); origin = main.origin; host = main.host;
+    if (main.protocol === 'http:' && (environment !== 'local' || !['localhost','127.0.0.1','[::1]'].includes(main.hostname) || ds.setupOrigin)) throw new Error();
     selections = freezeTree(z.array(BrokerModelSelectionSchema).max(50).parse(snapshotInput(ds.selections.value)));
     sourceNetwork = ds.sourceNetwork?.value;
     if (sourceNetwork !== undefined && typeof sourceNetwork !== 'function') throw new Error();
-    setup = ds.setupOrigin ? {state:'installed',setupOrigin:httpsOrigin(ds.setupOrigin.value).origin} : {state:'unavailable'};
+    setup = ds.setupOrigin ? {state:'installed',setupOrigin:canonicalOrigin(ds.setupOrigin.value).origin} : {state:'unavailable'};
     if (setup.state === 'installed' && new URL(setup.setupOrigin).hostname === main.hostname) throw new Error();
     freezeTree(setup);
   } catch { throw new Error('invalid_member_model_settings_http_configuration'); }
@@ -74,7 +75,7 @@ export async function createMemberModelSettingsHttpTransport(pool: Pool, raw: {
     const sentOrigin = c.req.header('Origin'), site = c.req.header('Sec-Fetch-Site');
     requireCondition((sentOrigin === undefined || sentOrigin === origin) && (site === undefined || site === 'same-origin'),403,'origin_rejected','Origin rejected.');
     requireCondition(['Authorization','DPoP','X-Freedom-Connection','X-Freedom-Nonce'].every(h => c.req.header(h) === undefined),403,'credential_kind_rejected','Credential rejected.');
-    requireCondition((c.req.header('Cookie') ?? '').split(';').filter(v => v.trim().startsWith('freedom_local_session=')).length <= 1,
+    requireCondition((c.req.header('Cookie') ?? '').split(';').filter(v => v.includes('=') && v.slice(0,v.indexOf('=')).trim() === 'freedom_local_session').length <= 1,
       403,'credential_kind_rejected','Credential rejected.');
     requireCondition(c.req.header('Content-Encoding') === undefined,415,'encoding_rejected','Encoding unsupported.');
     requireCondition(c.req.raw.body === null && ['If-None-Match','If-Modified-Since','If-Unmodified-Since','If-Range','Range',
