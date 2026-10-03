@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "authorizationId": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "deviceCode": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43,
+          "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+        },
+        "enrollmentProof": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "grantType": {
+          "type": "string",
+          "const": "device_code"
+        }
+      },
+      "required": [
+        "authorizationId",
+        "deviceCode",
+        "grantType"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "familyId": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "refreshHandle": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43,
+          "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+        },
+        "grantType": {
+          "type": "string",
+          "const": "refresh_token"
+        }
+      },
+      "required": [
+        "familyId",
+        "refreshHandle",
+        "grantType"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "$id": "https://freetwai.com/contracts/execution/v1/bootstrap-http-token",
+  "description": "Closed HTTP body shape only. Transport must separately enforce origin, credential kind, real proof and current DB authority. No execution authority or production trust."
+}

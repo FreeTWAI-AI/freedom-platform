@@ -6,16 +6,16 @@
 
 ## 工程進度估算
 
-以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約 **25–40%**，約 **60–75%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。先前對話的 30–40% 是同一粗估；加入獨立審查後保留下緣不確定性。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
+以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約 **30–40%**，約 **60–70%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。此次重新核對三份原計畫及本頁證據：配對、refresh／nonce 與封閉 HTTP 推進 U1/U3，但模型、Grant／Attempt、跨端、七類媒體與正式治理仍占主要剩餘工作。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
 
 以下權重是工程量假設，不是原計畫承諾；估算依本頁實作證據與尚缺項目，正式產品驗收仍須逐項取得證據。
 
 | 原里程碑 | 工程量權重 | 本機實作估算 | 主要剩餘工作 |
 | --- | --- | --- | --- |
 | U0 規格與共用契約 | 5% | 80–90% | 正式批准與版本發布 |
-| U1 身分／scope／command | 10% | 60–75% | machine/service backing records 與 adapter |
+| U1 身分／scope／command | 10% | 70–85% | machine/service Invocation／Grant 的當前驗權與 command adapter；會員映射與受限 machine 登入已有實作 |
 | U2 Asset 與私人 ACL | 15% | 65–80% | 完整讀面、正式政策及接線 |
-| U3 執行狀態與模型 ports | 15% | 15–25% | HTTP、真實 Attempt/Grant binding、模型路徑；Run、runtime 登錄、connection、bootstrap、配對／issuer、refresh 輪替／重用撤銷及重複 machine nonce 已有本機證據，尚非完整 device flow 或 execution authority |
+| U3 執行狀態與模型 ports | 15% | 25–35% | ModelConnection、真實 Attempt/Grant binding、Control／Action 與模型路徑；Run、runtime、connection、配對／refresh／nonce／status 核心及封閉 HTTP 已有本機證據，正式入口仍未啟用 |
 | U4 兩條垂直流程 | 15% | 10–25% | 私人 AI 草稿及跨端產品驗收 |
 | U5 browser／Kit／broker | 15% | 0–10% | 實際 runtime 接線與封裝驗證 |
 | U6 媒體搬遷與 restore | 10% | 5–15% | 真實盤點、七類媒體搬遷與還原 |
@@ -23,7 +23,21 @@
 | UX affected CI／開發工具 | 5% | 20–35% | 跨語言／跨端覆蓋與工具接線 |
 | CG 共同治理 | 5% | 25–45% | 可信 runner/publisher、完整入口與 rollout |
 
-此組權重約得 27–39%，對外只用較寬的 25–40%。不同 reviewer 對範圍／剩餘難度的估法約落在 20–42%，因此不報精確單一百分比。本輪只推進共同基礎；依 Ted 最新指示，不整合等待中的其他 PR。備份政策仍另確認。
+此組權重得約 30–41%，對外使用「約三成到四成」。R2、AP 與 UF 有重疊，不能把三份計畫各自的完成百分比相加。剩餘 60–70% 是工程量估算，不是日曆工期；真實 provider、跨端及搬遷演練仍有不確定性。本輪只推進共同基礎；依 Ted 指示，不整合等待中的其他 PR。備份政策仍另確認。
+
+若「Milestone」指 [AP M0–M6](../../../plans/autopilot-vnext.md#54-遷移步驟)，目前位置是 **M1 基礎已建立、M2 認證核心完成本機接線，尚未完成整個 M2**。以下仍只估本機工程，不宣稱已達原文的部署／產品完成條件。
+
+| AP Milestone | 本機工程估算 | 仍缺的完成條件 |
+| --- | --- | --- |
+| M0 來源與需求 | 80–90% | 正式 protocol／consumer 版本發布與確認 |
+| M1 資料與 ACL | 60–75% | 完整 list/detail/search/event/export 讀面矩陣及遷移驗收 |
+| M2 認證與只讀觀測 | 50–65% | ModelConnection settings、本人確認 UI、正式 key/host 設定及部署驗收；配對／refresh／nonce／status 與 HTTP factory 已有本機證據 |
+| M3 私人 AI 草稿 | 10–20% | 本人 CLI/BYOK、真實 Grant／Attempt、一條 runtime 產生本人可看的私人 Result；人工 Work/Result 和 Run 是前置基礎 |
+| M4 瀏覽器交接 | 0–10% | extension／neo 實接、pause/takeover/resume/revoke、舊 epoch 拒絕及 unknown effect 對帳 |
+| M5 業務 actions | 0–5% | 逐 domain 授權、精確 effect、A4 的本人簽章／step-up |
+| M6 設計收斂與相容期 | 5–15% | consumer 相容矩陣、schema 收斂、舊路徑退出及正式版本驗證 |
+
+R2 重構已有 ObjectStore／Asset lifecycle、頭像、私人 Result、本機相容性診斷與治理工具；RS-05 多媒體 adapters、RS-06 真實 backfill/verify/restore、RS-10/11 正式 cutover／legacy 退出仍大多待做。前端責任拆分、可信 CI／publisher 及跨平台封裝也未完成。原始 **168 項完整產品驗收仍是 `not_run`**；本機工程已有部分證據，不能據此將整列標成 PASS，也不能用 0/168 反推工程完全沒開始。
 
 ## 本機提交與範圍
 
@@ -435,6 +449,16 @@ Manifest last=90、known_gaps=`[22]`；076–090 全為未合併／未部署暫�
 
 Manifest last=91、known_gaps=`[22]`；076–091 尚未合併／發布，合併前須重查編號。正式 issuer/key custody、HTTP/UI、ModelConnection／Grant／Attempt、完整入口覆蓋與可信 CI 仍待完成；沒有 push、PR、merge、部署或正式設定／金鑰變更。原始 168 項產品要求仍 `not_run`。
 
+## 本批 bootstrap HTTP 邊界與進度重估
+
+本批依 [12](12-bootstrap-http.md) 接入同一套真實服務：machine begin、用途區分的 token、nonce、status，以及本人 review/decision、connection list/read/revoke。HTTP 以受信設定建構，固定 canonical HTTPS origin/path；member cookie/CSRF 與 machine DPoP 分開，拒絕跨來源、混用憑證、query/encoded path 和錯誤方法。HEAD 不消耗 GET nonce。本人 list 只回最多 32 筆固定 client/environment 的 metadata；revoke 沿用精確 ETag／If-Match、428/412 和既有 receipt replay／撤銷 cascade。
+
+JSON 限 32 KiB、128 chunks、5 秒 body deadline；拒絕 duplicate decoded keys、無效 UTF-8、BOM、prototype keys 及多餘權威欄位。取消卡死的 stream 不阻塞回應。限流使用獨立提交的 DB-clock global/network 預算，失敗 body／crypto 不退還 charge；global 超限時不新增任意 network bucket。沒有受信來源解析器時共用 shared-server，IP forwarding headers 不授新身分。HTTP 工程預算與 retained bucket 的正式容量／清理政策尚未批准。
+
+新增 HTTP／wire tests **44/44** 通過：non-superuser migrator/runtime LOGIN、真正 ES256、公開 challenge 的完整配對、sessionless refresh/nonce/status、重用撤銷、會員 CAS/撤銷、並發與 durable 限流、錯誤去敏，以及相關 machine／receipt／fact 表不保存 raw machine secrets。另實際啟動本機短暫 TLS socket，以 ephemeral self-signed cert 驗 Node adapter 的 signed begin 與 Host 拒絕；沒有測正式 proxy 或 production TLS。正式 `createApp` 的未掛載路徑也實際回 404，沒有配置或啟用 issuer。
+
+TypeScript、七組 structural contract 生成檢查、發布相容性 **243/243**、build 與 platform 三環境 Worker dry-run 通過。這些是本機合成證據；原始 168 項完整產品驗收仍 `not_run`。本頁前段更新 UF 加權工程估算及 AP M0–M6 對照，不以新增測試數推算進度。下一個工程接點為 ModelConnection／Grant／Attempt；staging/live、正式 keys/host、部署與其他 PR 仍未動。
+
 ## 尚未交付
 
 - execution/service current-state validators、Invocation/Grant adapters，以及有真實 backing record 的 service/site schema；scoped composition/receipt 目前僅支援 member session。
@@ -446,7 +470,7 @@ Manifest last=91、known_gaps=`[22]`；076–091 尚未合併／發布，合併�
 
 ## 下一批
 
-Runtime enrollment、connection backing record、[封閉 bootstrap status](09-bootstrap-status.md)、[裝置配對／一次性交換](10-device-authorization.md) 及 [refresh 輪替／重用撤銷與 nonce 取得](11-bootstrap-sessions.md) 已有本機實作。它們提供受限配對、可持續 refresh 及本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權，也不輸出通用 VerifiedContext。下一步接這些服務的 HTTP 邊界，驗用途、來源、限流與會員 CSRF，再接 ModelConnection、Grant 和 Attempt 真實 backing records。正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定，不重用 storefront/supplier 的 `fw_read` 連線。
+Runtime enrollment、connection backing record、[封閉 bootstrap status](09-bootstrap-status.md)、[裝置配對／一次性交換](10-device-authorization.md)、[refresh／nonce](11-bootstrap-sessions.md) 及 [HTTP 邊界](12-bootstrap-http.md) 已有本機實作。它們提供受限配對、可持續 refresh 及本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權，也不輸出通用 VerifiedContext。下一步接 ModelConnection、Grant 和 Attempt 真實 backing records，讓配對後的裝置依當前本人模型設定與精確 scope 取得受限執行授權。正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定，不重用 storefront/supplier 的 `fw_read` 連線。
 
 治理已推進固定單一 profile 的 [本機隔離 supervisor](../../../../packages/contribution-tools/behavior-supervisor.md)：host harness 透過有界 HTTP response frames 呼叫隔離容器內的 candidate app，由 host 自行判斷結果；不能把 candidate stdout/JSON 當可信測試結果。隔離不成立就 unavailable，並保留 approved host source／runtime、完整入口、publisher/GitHub enforcement 的缺口。下一步是可信安裝、來源與 publisher 接線，不是把本機 observation 宣稱可合併。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代完整入口／外部保存／政策 restore 的證據。migration 076–091 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
 

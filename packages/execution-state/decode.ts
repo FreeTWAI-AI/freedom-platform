@@ -108,6 +108,8 @@ export function snapshotInput(raw: unknown): unknown {
   const result = copy(raw, 0);
   return result;
 }
+/** Server-internal bounded JSON parsing only; success grants no authority. */
+export function parseBoundedJson(raw: string): unknown { return strictJson(raw); }
 export function decodeExecutionInput(raw: string): ExecutionInput {
   if (typeof raw !== 'string') return invalid();
   const parsed = ExecutionInputSchema.safeParse(strictJson(raw));

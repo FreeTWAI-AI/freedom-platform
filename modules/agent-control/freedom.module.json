@@ -54,7 +54,15 @@
     "tests/runtime/bootstrap-session-contracts.test.ts",
     "tests/runtime/bootstrap-session-proof.test.ts",
     "tests/runtime/bootstrap-sessions.test.ts",
-    "tests/runtime/bootstrap-sessions-adversarial.test.ts"
+    "tests/runtime/bootstrap-sessions-adversarial.test.ts",
+    "apps/platform-api/src/routes/bootstrap-http.ts",
+    "contracts/execution/v1/bootstrap-http.ts",
+    "contracts/execution/v1/bootstrap-http-begin.schema.json",
+    "contracts/execution/v1/bootstrap-http-token.schema.json",
+    "contracts/execution/v1/bootstrap-http-nonce.schema.json",
+    "contracts/execution/v1/bootstrap-http-decision.schema.json",
+    "tests/runtime/bootstrap-http.test.ts",
+    "tests/runtime/bootstrap-http-contracts.test.ts"
   ],
   "public_exports": [
     "contracts/execution/v1/runtime-registration.ts",
@@ -71,7 +79,9 @@
     "modules/agent-control/device-authorizations.ts",
     "contracts/execution/v1/bootstrap-session.ts",
     "modules/agent-control/bootstrap-session-proof.ts",
-    "modules/agent-control/bootstrap-sessions.ts"
+    "modules/agent-control/bootstrap-sessions.ts",
+    "contracts/execution/v1/bootstrap-http.ts",
+    "apps/platform-api/src/routes/bootstrap-http.ts"
   ],
   "dependencies": [
     "execution-decision",
@@ -85,7 +95,8 @@
     "bootstrap-proof",
     "bootstrap-status",
     "device-pairing",
-    "bootstrap-session"
+    "bootstrap-session",
+    "bootstrap-http"
   ],
   "client_profiles": [],
   "instructions": [
@@ -102,7 +113,8 @@
     "packages/scoped-commands/README.md",
     "modules/agent-control/bootstrap-session-proof.md",
     "modules/agent-control/bootstrap-sessions.md",
-    "docs/platform-plan/execution/unified-foundation/11-bootstrap-sessions.md"
+    "docs/platform-plan/execution/unified-foundation/11-bootstrap-sessions.md",
+    "docs/platform-plan/execution/unified-foundation/12-bootstrap-http.md"
   ],
   "invariants": [
     "current-authority-before-replay",
@@ -121,7 +133,10 @@
     "no-operational-execution-authority",
     "one-use-refresh-rotation",
     "verified-reuse-commits-whole-family-revocation",
-    "nonce-acquisition-requires-live-family"
+    "nonce-acquisition-requires-live-family",
+    "http-purpose-origin-credential-kind-isolation",
+    "committed-http-abuse-charge",
+    "unmounted-without-production-trust"
   ],
   "tests": [
     "runtime.full"

@@ -24,6 +24,13 @@ and issues fresh status nonces without a member cookie or an old nonce. These
 operations still confer no execution authority; their [proof profiles](bootstrap-session-proof.md)
 share the existing bootstrap access-token checks.
 
+The explicitly constructed [bootstrap HTTP transport](../../apps/platform-api/src/routes/bootstrap-http.ts)
+now connects these real services to closed JSON routes with origin/credential
+separation, member cookie/CSRF, bounded body deadlines and independently committed
+DB-clock request limits. [Profile 12](../../docs/platform-plan/execution/unified-foundation/12-bootstrap-http.md)
+defines the wire contract. Production Node/Worker still do not mount the factory;
+approved key custody, host/proxy settings and product UI remain outstanding.
+
 `createRuntimeRegistrations(pool, { environment })` is an internal server factory
 for current members. The host must explicitly select `local`, `staging-next`, or
 `next`; there is no environment default or request override. It provides:

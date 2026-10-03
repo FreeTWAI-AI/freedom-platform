@@ -42,7 +42,9 @@
     "contracts:bootstrap-session": "tsx modules/agent-control/generate-bootstrap-session.ts",
     "check:bootstrap-session": "tsx modules/agent-control/generate-bootstrap-session.ts --check",
     "test:repos": "tsx --test --test-concurrency=1 tests/integration/repositories.test.ts",
-    "check:skill-book-upstreams": "tsx scripts/check-skill-book-upstreams.ts"
+    "check:skill-book-upstreams": "tsx scripts/check-skill-book-upstreams.ts",
+    "contracts:bootstrap-http": "tsx modules/agent-control/generate-bootstrap-http.ts",
+    "check:bootstrap-http": "tsx modules/agent-control/generate-bootstrap-http.ts --check"
   },
   "dependencies": {
     "@hono/node-server": "2.1.1",

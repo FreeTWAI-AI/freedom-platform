@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "publicJwk": {
+      "type": "object",
+      "properties": {
+        "kty": {
+          "type": "string",
+          "const": "EC"
+        },
+        "crv": {
+          "type": "string",
+          "const": "P-256"
+        },
+        "x": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43,
+          "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+        },
+        "y": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43,
+          "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "kty",
+        "crv",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "runtimeKind": {
+      "type": "string",
+      "enum": [
+        "agent-kit",
+        "extension",
+        "neo"
+      ]
+    }
+  },
+  "required": [
+    "publicJwk",
+    "runtimeKind"
+  ],
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/execution/v1/bootstrap-http-begin",
+  "description": "Closed HTTP body shape only. Transport must separately enforce origin, credential kind, real proof and current DB authority. No execution authority or production trust."
+}

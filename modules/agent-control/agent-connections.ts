@@ -147,5 +147,17 @@ export function createAgentConnections(pool: Pool, rawOptions: { environment: Ru
       await decisionClock(q, actor); return result;
     });
   }
-  return Object.freeze({ create, read, revoke });
+  async function list(actor: Actor): Promise<readonly AgentConnectionMetadata[]> {
+    actor = Object.freeze({ ...actor });
+    return withMemberScope(pool, { actor, scope: 'personal' }, async q => { await eligible(q, actor); }, async (q, context) => {
+      await q.query("SET LOCAL statement_timeout='5s'"); await q.query("SET LOCAL lock_timeout='5s'");
+      await ownerLock(q, context);
+      const rows = await q.query<ConnectionRow>(`SELECT *,aggregate_version::text FROM agent_connections
+        WHERE environment=$1 AND client_id=$2 AND owner_user_id=$3 AND owner_principal_id=$4 AND scope_id=$5
+        ORDER BY issued_at DESC,connection_id LIMIT 32`,
+      [environment, clientId, actor.user_id, context.subject_principal.principal_id, context.scope.scope_id]);
+      await decisionClock(q, actor); return Object.freeze(rows.rows.map(metadata));
+    });
+  }
+  return Object.freeze({ create, read, revoke, list });
 }

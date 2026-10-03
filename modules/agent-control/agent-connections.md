@@ -6,11 +6,17 @@ choose environment, client identity, owner, expiry or policy. The engineering
 profile is specified in [08-agent-connections-bootstrap](../../docs/platform-plan/execution/unified-foundation/08-agent-connections-bootstrap.md).
 
 The current-member methods are `create(actor, { key, runtimeDeviceId })`,
-`read(actor, { connectionId })` and
+`list(actor)`, `read(actor, { connectionId })` and
 `revoke(actor, { key, connectionId, expectedVersion })`. Metadata includes its
 server UUID, runtime, environment, client ID, state, decimal aggregate version
 and ISO millisecond issuance/expiry. Every result has `operational_authority:false`.
 No token, refresh secret, nonce or copied runtime public key is stored here.
+
+List returns at most 32 immutable metadata records for the current owner's
+personal scope and fixed host client/environment, newest first. It rechecks
+current membership and session after its final query, and includes terminal or
+expired records so the owner can inspect them; durable `active` is not proof of
+current runtime or machine authority.
 
 Connections last exactly 720 hours from the database clock. All 32 lifetime
 records per owner/environment count, including revoked and expired records.

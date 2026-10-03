@@ -128,6 +128,11 @@
       "sha256": "65129a38c67b3baf4b3e34f14d8738ff181e58051167690e3dd33e731a4a2461"
     },
     {
+      "path": "apps/platform-api/src/routes/bootstrap-http.ts",
+      "bytes": 14802,
+      "sha256": "3d3d5ca6a02856c66870761e21fc4284efb16a06d56425a9f45c775645ec844e"
+    },
+    {
       "path": "apps/platform-api/src/routes/client-connections.ts",
       "bytes": 3215,
       "sha256": "927f03eb82696d5b96847efca3b4a3dc17ce9c7bce4ce0362ec926258b71d4f9"
@@ -1561,6 +1566,31 @@
       "path": "contracts/execution/v1/bootstrap-dpop-claims.schema.json",
       "bytes": 1241,
       "sha256": "517d4dcdac60009597dd51ebce44a13f6da31e8b00b288cff93f91988b6581b0"
+    },
+    {
+      "path": "contracts/execution/v1/bootstrap-http-begin.schema.json",
+      "bytes": 1318,
+      "sha256": "c44bea223e8b3be2a28c4665a880be44d24242336ddddd6edc30f2b6c0995a75"
+    },
+    {
+      "path": "contracts/execution/v1/bootstrap-http-decision.schema.json",
+      "bytes": 1101,
+      "sha256": "d4ccfa7c6f7a94deb16ffe38e38fb3fc1b1de312fbb2f7e68b1f8dce67485fdc"
+    },
+    {
+      "path": "contracts/execution/v1/bootstrap-http-nonce.schema.json",
+      "bytes": 637,
+      "sha256": "ab2a5dc340170a9e7d703797ddf5ebca5f249bd4e71316e372974d8dd7d98e25"
+    },
+    {
+      "path": "contracts/execution/v1/bootstrap-http-token.schema.json",
+      "bytes": 1873,
+      "sha256": "5c72296b88cf17487bd6a2e313359f325bf7e750068217c422c29509a71af5fc"
+    },
+    {
+      "path": "contracts/execution/v1/bootstrap-http.ts",
+      "bytes": 983,
+      "sha256": "e311364241f5979899ddd127da3557b8b83ccc84b9f200f307b89e5d0340ec4f"
     },
     {
       "path": "contracts/execution/v1/bootstrap-nonce-claims.schema.json",
@@ -3363,9 +3393,14 @@
       "sha256": "4a82c8a453175a14aa8d4f99b4804ea6d9d90275365407d0f3e431545ffe13c4"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/12-bootstrap-http.md",
+      "bytes": 5930,
+      "sha256": "80f8b6c4e99e3ea60e0474bb98608be1265de4734c921e268a33f201eedcc2b0"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/README.md",
-      "bytes": 7448,
-      "sha256": "2d6d96475eaa397b299492e6ad575619b73258c6825f1c89ac60ec63bee58e2b"
+      "bytes": 7664,
+      "sha256": "53fd0a509495e8672124255c120b90c34220e21717a149060210b786138b4405"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
@@ -3374,8 +3409,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 86156,
-      "sha256": "0caa14a86be03d80db3e6cc1508667b6feeaa427f07da525ec8012035fee58ad"
+      "bytes": 90314,
+      "sha256": "6b0415855537d5b3caf480632a435b9af4d61476ec2fcce53d218e6f9cf19487"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -3979,23 +4014,28 @@
     },
     {
       "path": "modules/agent-control/README.md",
-      "bytes": 7160,
-      "sha256": "ee13b2cfa70ab9ba851d51513f36168a1534ab5bc180a221d7cb40845686a249"
+      "bytes": 7703,
+      "sha256": "c4cae31682751bbae04ac390ed8d78e6bbd4141ec7a8340e30dddae4816fdcac"
     },
     {
       "path": "modules/agent-control/agent-connections.md",
-      "bytes": 3784,
-      "sha256": "146bf37552c816baae8a42cb79837b3eb35ab3170ec7e3b48bc99917f5e119fb"
+      "bytes": 4148,
+      "sha256": "ca392a9f7525d567fcaaedf9807c4ff44bb3ecdbf4d7237636960ef49ce884c1"
     },
     {
       "path": "modules/agent-control/agent-connections.ts",
-      "bytes": 11557,
-      "sha256": "9219cda1dec2319cc7573123eb2e7391a2c763b7372d55f815ad69b7a94817a4"
+      "bytes": 12432,
+      "sha256": "fba74cf6c70c9745511f33c07973aa9bf5cdd2fb80e82834a36591efb78577ba"
     },
     {
       "path": "modules/agent-control/bootstrap-access-crypto.ts",
       "bytes": 3232,
       "sha256": "cf2fa98fa471bb604cfd4718703389d2661dafb6cdeaae9815ca183fb793a7fb"
+    },
+    {
+      "path": "modules/agent-control/bootstrap-http-limits.ts",
+      "bytes": 2289,
+      "sha256": "f335d25f55e1b17163f2990399c4cb6273c6e87c29bb04f3a1a61963a9b1ba36"
     },
     {
       "path": "modules/agent-control/bootstrap-issuer.ts",
@@ -4069,8 +4109,13 @@
     },
     {
       "path": "modules/agent-control/freedom.module.json",
-      "bytes": 5837,
-      "sha256": "b260fdc89eb626baa849057a6b06ea4553b593d6f56bc94786b8a5c87e121881"
+      "bytes": 6622,
+      "sha256": "db8a9fdf555bba1214bfefdaf15effb333fac04448626875b559e0027efedd2f"
+    },
+    {
+      "path": "modules/agent-control/generate-bootstrap-http.ts",
+      "bytes": 1309,
+      "sha256": "b68bfb71ac83cc64789b31baf24a4f37f321651c14cf6bd5e576307c5b9d954a"
     },
     {
       "path": "modules/agent-control/generate-bootstrap-session.ts",
@@ -4869,8 +4914,8 @@
     },
     {
       "path": "package.json",
-      "bytes": 4489,
-      "sha256": "40f6bf5092017a5ffcf4ffb6b395e01ab0863b675c9531c26ef3ff881c8314af"
+      "bytes": 4669,
+      "sha256": "6d23b7cf34351086757701e25f6d50861cd06b6f6d3916ccf2fa0ee30a722a72"
     },
     {
       "path": "packages/asset-storage/README.md",
@@ -4999,8 +5044,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 4054,
-      "sha256": "bd9e6de713ac7eb93fd364d1abd2cdb283f17dfb7a7476ef0a1bc7b12ff7d89e"
+      "bytes": 4094,
+      "sha256": "b26481f03b71710d41140e0d9afec53936d6453c958cd74e88c98f3ecf5712cc"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -5149,8 +5194,8 @@
     },
     {
       "path": "packages/execution-state/decode.ts",
-      "bytes": 6690,
-      "sha256": "e5a283df3527ae4512a5473f0befd41a131f56d06c4ef9d451a3e8fda6ebb5f7"
+      "bytes": 6852,
+      "sha256": "e32fbdea37d9af30e062ef1bacba81a753044ba047eae5c782fd69173b9b38a9"
     },
     {
       "path": "packages/execution-state/freedom.module.json",
@@ -5991,6 +6036,16 @@
       "path": "tests/runtime/bootstrap-contracts.test.ts",
       "bytes": 793,
       "sha256": "dc6130e52ba2a566011bb830a3c2897dfc8490ffe2fae005d6aff9dc01f103dd"
+    },
+    {
+      "path": "tests/runtime/bootstrap-http-contracts.test.ts",
+      "bytes": 1825,
+      "sha256": "14b4100c5340e2ac15cfd6448bc9d3f575d8b5a1f41a3daf331fe990da8d60be"
+    },
+    {
+      "path": "tests/runtime/bootstrap-http.test.ts",
+      "bytes": 32578,
+      "sha256": "36ed5ef41d5533c7fc814b2ddb05add808a0a097f3440519313da9832c8da076"
     },
     {
       "path": "tests/runtime/bootstrap-issuer.test.ts",
