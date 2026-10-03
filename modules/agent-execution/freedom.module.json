@@ -35,14 +35,22 @@
     "contracts/execution/v1/member-execution-http-model-create.schema.json",
     "contracts/execution/v1/member-execution-http-grant-create.schema.json",
     "contracts/execution/v1/member-execution-http-attempt-create.schema.json",
-    "contracts/execution/v1/member-execution-http-run-metadata.schema.json"
+    "contracts/execution/v1/member-execution-http-run-metadata.schema.json",
+    "tests/runtime/model-codex-adapter.test.ts",
+    "tests/runtime/model-claude-adapter.test.ts",
+    "tests/runtime/model-byok-adapter.test.ts",
+    "tests/runtime/model-adapter-common.test.ts",
+    "tests/runtime/model-adapter-independent.test.ts",
+    "tests/runtime/model-adapter-registry.test.ts",
+    "tests/runtime/model-cli-probe.test.ts"
   ],
   "public_exports": [
     "modules/agent-execution/runs.ts",
     "modules/agent-execution/prerequisites.ts",
     "contracts/execution/v1/member-execution.ts",
     "contracts/execution/v1/member-execution-http.ts",
-    "apps/platform-api/src/routes/member-execution-http.ts"
+    "apps/platform-api/src/routes/member-execution-http.ts",
+    "modules/agent-execution/adapters/index.ts"
   ],
   "dependencies": [
     "work",
@@ -50,7 +58,8 @@
     "resource-scopes",
     "scoped-commands",
     "execution-decision",
-    "runtime-registration"
+    "runtime-registration",
+    "asset-storage"
   ],
   "contract_families": [
     "common",
@@ -64,7 +73,8 @@
     "packages/scoped-commands/README.md",
     "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md",
     "docs/platform-plan/execution/unified-foundation/13-member-execution-prerequisites.md",
-    "docs/platform-plan/execution/unified-foundation/14-member-execution-http.md"
+    "docs/platform-plan/execution/unified-foundation/14-member-execution-http.md",
+    "docs/platform-plan/execution/unified-foundation/15-model-adapter-cores.md"
   ],
   "invariants": [
     "current-authority-before-replay",
@@ -81,7 +91,12 @@
     "exact-origin-host-and-header-cas",
     "bounded-json-before-domain-effects",
     "committed-http-abuse-charge",
-    "unmounted-without-production-trust"
+    "unmounted-without-production-trust",
+    "explicit-model-routes-without-defaults",
+    "private-candidates-without-dispatch",
+    "unverified-provider-output-only",
+    "isolated-metadata-without-member-credentials",
+    "no-fallback-on-unknown-provider-outcome"
   ],
   "tests": [
     "runtime.full"

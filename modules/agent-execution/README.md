@@ -188,3 +188,21 @@ and Attempts preflight_blocked. A 201 Attempt response records a blocked attempt
 it never acknowledges model execution. No list/execute/dispatch/provider-test
 endpoint or production mount is added. This transport writes only the existing
 086/092 shapes and does not require a new migration or release capability.
+
+## Three model adapter cores
+
+[Private adapter factories](adapters/index.ts) cover Codex subscription, Claude Code
+subscription and OpenAI/Anthropic BYOK in parallel. Selection is explicit; there
+are no default providers/models, credential reads, network dispatch or fallback.
+`prepare` returns a private candidate, `decode` returns bounded unverified text,
+and every `invoke` rejects `execution_authority_unavailable`. CLI policy remains
+unsupported; BYOK is candidate-only. Every output retains
+`operational_authority:false`. These cores do not promote ModelConnection, Grant
+or Attempt to operational execution and are not mounted into the app/Worker.
+
+The [adapter spec](../../docs/platform-plan/execution/unified-foundation/15-model-adapter-cores.md)
+defines version/digest pins, isolated metadata probes, strict response bounds,
+requested versus reported models, usage uncertainty and remaining inference
+export/permit/custody requirements. Runtime tests include private codecs, local
+synthetic HTTP framing and real isolated native process counterexamples; they
+do not claim authenticated provider inference.

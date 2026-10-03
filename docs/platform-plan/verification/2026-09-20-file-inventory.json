@@ -3514,13 +3514,18 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/14-member-execution-http.md",
-      "bytes": 8922,
-      "sha256": "ac6684069873715557ca5ae99918e331cbaf8afbe228e7f643ffecccbbf2f3ba"
+      "bytes": 8970,
+      "sha256": "fdddd4f444146703fa546b41b6cab7db7f7187b48e088c97f045331b0db0e4e7"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/15-model-adapter-cores.md",
+      "bytes": 6929,
+      "sha256": "94c9acd6a2c0dedaf86a19355f376d27db944a1472dfacad3a84ffaaee6988eb"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/README.md",
-      "bytes": 8339,
-      "sha256": "f545923292bbf427555be0f2d5e3302643e61fad018798ea4e78efc7abd51b90"
+      "bytes": 8707,
+      "sha256": "f81cb87cb9ceaf05df90f6feca0db211207747a408cc469190b09b916fd33000"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
@@ -3529,8 +3534,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 105533,
-      "sha256": "cdaa591d69b7e88818db5dc91c9d5979e64136340116e3e78765d7a8ef996ac6"
+      "bytes": 105790,
+      "sha256": "e1b13355abd467900d788264a95a0f20ccd0c82afa5f9f7245ce9de6237efb55"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -4279,13 +4284,43 @@
     },
     {
       "path": "modules/agent-execution/README.md",
-      "bytes": 11978,
-      "sha256": "f1957f8b9fd1f1010f0a567a60d1a667eab14d7e8f744d518dac42237a725cd1"
+      "bytes": 13095,
+      "sha256": "aab999ac0b50d9f6ca8d484c45f1c9261e77034005ddf32b05e2d918ee759b39"
+    },
+    {
+      "path": "modules/agent-execution/adapters/byok.ts",
+      "bytes": 13112,
+      "sha256": "65442a4f52cb9611ee42822a661642612bec4607877c316e9e82ca88d5a799d5"
+    },
+    {
+      "path": "modules/agent-execution/adapters/claude.ts",
+      "bytes": 10931,
+      "sha256": "432a3674facc1a2347f36bd83c2327ec06dcb9de98459fbd6549dc07f6ca1eda"
+    },
+    {
+      "path": "modules/agent-execution/adapters/cli-probe.ts",
+      "bytes": 11071,
+      "sha256": "cb87a34889b6704adc151b9f8e6b9ea71fc82c917cabf1ef96118075a19aeaa8"
+    },
+    {
+      "path": "modules/agent-execution/adapters/codex.ts",
+      "bytes": 14199,
+      "sha256": "0738efcb13e22629efa94c509955063c080263b16f623baa370e4cccedfc58a9"
+    },
+    {
+      "path": "modules/agent-execution/adapters/common.ts",
+      "bytes": 9291,
+      "sha256": "480a6e84a8f81296e784719897b745470a099b9423019faf5a1e29d02ebd7607"
+    },
+    {
+      "path": "modules/agent-execution/adapters/index.ts",
+      "bytes": 1277,
+      "sha256": "6d1e43100f35b9dc307a09c00fe22674c0ca953b086eb04351c1b6bccfbd779b"
     },
     {
       "path": "modules/agent-execution/freedom.module.json",
-      "bytes": 3819,
-      "sha256": "ebad73912d82e1326490e31caf62437ed16d58b2b21367c239026afc036e2569"
+      "bytes": 4546,
+      "sha256": "a76bf828ab9e2f34b0feb0ff8578f9886071f70d25ebb295e9188b2ef709e40d"
     },
     {
       "path": "modules/agent-execution/generate-member-execution-http.ts",
@@ -5184,8 +5219,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 4299,
-      "sha256": "de159fd020e9827f531f03fc7c5b8ec613cdacd6bb62c023624f1f0ed0a1f93e"
+      "bytes": 4445,
+      "sha256": "3f3bae943e1a5178be163bf2fdde453904e06a7f2e2417c2d0bf4631256c1466"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -6531,6 +6566,41 @@
       "path": "tests/runtime/member-skill-registration.test.ts",
       "bytes": 16948,
       "sha256": "ab3be71d326e20a0f1b4bd700fd1c18e7974db8362fc14a55d4dc5ef4b635b6b"
+    },
+    {
+      "path": "tests/runtime/model-adapter-common.test.ts",
+      "bytes": 9859,
+      "sha256": "d94848d0f1cf3d05118603a38cd470ec5a03a845e478b9f2eb3cb27078657b25"
+    },
+    {
+      "path": "tests/runtime/model-adapter-independent.test.ts",
+      "bytes": 9447,
+      "sha256": "db4c170c2d3be52040ffea8036b6876c8c9476969f63c90b02d7bb1d16b5f5ff"
+    },
+    {
+      "path": "tests/runtime/model-adapter-registry.test.ts",
+      "bytes": 2437,
+      "sha256": "db978f9aebd4517f0bd3542af38d3e669ddc752c745e2d40cdb3f1d9aa41a124"
+    },
+    {
+      "path": "tests/runtime/model-byok-adapter.test.ts",
+      "bytes": 16650,
+      "sha256": "d6328c428be05d8455e8ae6b3a90596382c4e259904b59f788cc50d577e8dd2a"
+    },
+    {
+      "path": "tests/runtime/model-claude-adapter.test.ts",
+      "bytes": 12119,
+      "sha256": "f4fdf0aab07bb42633e645dba1eb6af22f2118666dba5316d427af66d0f67884"
+    },
+    {
+      "path": "tests/runtime/model-cli-probe.test.ts",
+      "bytes": 12118,
+      "sha256": "80261540e89d0b612c3a3749109ea2486b479ef4837b5fde2090b88ab388718d"
+    },
+    {
+      "path": "tests/runtime/model-codex-adapter.test.ts",
+      "bytes": 15099,
+      "sha256": "5e93a9f2f19fa09710f00d8d799f848d49ab5f2520b2bf697248eeaf95433f9f"
     },
     {
       "path": "tests/runtime/notification-events.test.ts",

@@ -2,7 +2,7 @@
 
 這組 spec 將 [Unified Foundation 1.1 計畫](../../../plans/unified-foundation.md) 轉成可分批開發、審查及驗收的工作。結論是可以依此計畫開發；先交付固定契約與開工工具、相容的身分及交易核心，再完成「會員換頭像」與「本人私人 AI 草稿」兩條完整流程。
 
-版本：`0.2-draft`；查核日期：2026-10-02。已讀完 Unified Foundation 1.1、R2 及 Autopilot 原文並完成規格對照。中央程式查核基準為 `3de70ccbd24362a7925508fb42d36aaa256a0806`；其後已有本機契約 verifier、開工工具、會員相容交易核心及受約束的 person/community/personal 映射。目前另有 scoped member receipt、共用 Asset 引擎、原生 R2 adapter、頭像讀寫相容 bridge、私人 Work 命令、人工 Result 及封閉 Run 內部服務。Run 僅支援本人建立／讀取／暫停／取消，另有未驗證 ModelConnection、限定同意 Grant 及不可改綁的 blocked Attempt，並有真實 cookie／CSRF 的封閉紀錄管理 HTTP factory；實際模型執行仍未接通；本機 release 診斷另保留歷史 schema/capability 下限。治理包含 host-owned 候選資料驗證、有限入口語法稽核，以及 Kit/Storefront 本機固定來源接入。範圍和測試證據見 [本機交付紀錄](implementation-status.md)；預設仍是 legacy／persistence 關閉，尚非正式新頭像啟用、私人 AI 草稿或完整治理驗收。
+版本：`0.2-draft`；查核日期：2026-10-03。已讀完 Unified Foundation 1.1、R2 及 Autopilot 原文並完成規格對照。中央程式查核基準為 `3de70ccbd24362a7925508fb42d36aaa256a0806`；其後已有本機契約 verifier、開工工具、會員相容交易核心及受約束的 person/community/personal 映射。目前另有 scoped member receipt、共用 Asset 引擎、原生 R2 adapter、頭像讀寫相容 bridge、私人 Work 命令、人工 Result 及封閉 Run 內部服務。Run 僅支援本人建立／讀取／暫停／取消，另有未驗證 ModelConnection、限定同意 Grant 及不可改綁的 blocked Attempt，並有真實 cookie／CSRF 的封閉紀錄管理 HTTP factory；實際模型執行仍未接通；本機 release 診斷另保留歷史 schema/capability 下限。治理包含 host-owned 候選資料驗證、有限入口語法稽核，以及 Kit/Storefront 本機固定來源接入。範圍和測試證據見 [本機交付紀錄](implementation-status.md)；預設仍是 legacy／persistence 關閉，尚非正式新頭像啟用、私人 AI 草稿或完整治理驗收。
 
 ## 文件與開工順序
 
@@ -23,6 +23,7 @@
 | [Bootstrap HTTP 配對與登入邊界](12-bootstrap-http.md) | U1/U3、AP M2／§4.3 | 配對／refresh／nonce／status 的封閉 HTTP factory、會員 CSRF／來源／限流；正式 Node／Worker 仍未掛載 |
 | [本人模型選擇、限定 Grant 與封閉 Attempt](13-member-execution-prerequisites.md) | U3、AP M1/M2/M3 | 真正 backing records、限定會員同意與 blocked history；模型認證／adapter 仍待做 |
 | [本人執行前置紀錄的封閉 HTTP 邊界](14-member-execution-http.md) | U1/U3、AP M2/M3 | 真實會員 cookie／CSRF、exact origin／CAS、bounded JSON 與獨立限流；Run／模型選擇／Grant／blocked Attempt 的 factory，正式入口與模型執行未啟用 |
+| [三條模型 adapter 核心](15-model-adapter-cores.md) | U3、AP M2/M3 | Codex／Claude 訂閱及 BYOK 平行 codecs、受限 candidate 與隔離 metadata；真實認證、有效 policy 及 operational dispatch 仍待做 |
 | [共同基礎驗收](acceptance.md) | INT-01–28、GOV-01–32 | 60 項原要求，全部 `not_run` |
 | [R2/AP 原始驗收](source-acceptance.md) | R2 S/A/M/D、AP AUTH/WORK/EXT/NEO/OPS | 108 項原要求，加 24 條 guardrails/invariants 對照，全部未驗收 |
 
@@ -40,7 +41,7 @@
 
 可信 CI 的實作與 GitHub 設定跟第一批銜接；它是治理完成條件。上述 PR 不能因尚未完成強制機制就自称已有抗繞過保護。
 
-接著交付 Asset 頭像與 private Work ACL，再把 RunAttempt／一條明確模型路徑接進私人草稿。完整共同基礎的完成條件同時包含 A 頭像、B 私人 AI 草稿及治理反例；第一批完成不能取代這三類證據。
+接著交付 Asset 頭像與 private Work ACL，再把 RunAttempt 與明確模型路徑接進私人草稿。2026-10-03 Ted 已授權 Codex 訂閱、Claude 訂閱及 BYOK 三路平行開發；每位會員實際使用的模型及計費仍須明確選擇。完整共同基礎的完成條件同時包含 A 頭像、B 私人 AI 草稿及治理反例；第一批完成不能取代這三類證據。
 
 ## 開發與交付規則
 

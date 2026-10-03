@@ -97,8 +97,9 @@ HTTP chain、錯誤真人／用途／owner／origin、CAS／replay／撤銷／ex
 鎖等待、嚴格 streaming JSON、safe response、durable rate 與未掛載正式 app。
 實際結果集中 [交付紀錄](implementation-status.md)，未跑項不能計為通過。
 
-第一條模型路徑尚待本人選定 CLI subscription 或 BYOK，provider、exact model、
-processing location、artifact custody 與 billing 不補預設。開發 agent 用的模型
+三條模型路徑已依 Ted 指示平行開發，見 [15](15-model-adapter-cores.md)；
+各會員實際使用的 provider、exact model、processing location、artifact custody
+與 billing 仍不補預設。開發 agent 用的模型
 不代表產品會員已選擇同一模型。Kit 的既有 adapters 目前是文件，demo member
 status 並非 execution grant；此批沒有從其模擬紀錄取得認證。
 

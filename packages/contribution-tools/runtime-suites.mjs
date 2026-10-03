@@ -29,6 +29,7 @@ github-app-setup github-history github-identity github-repository-read github-so
 github-social github-sync guild-entry-questions guild-experts guild-member-tiers guild-preferences guild-profile
 guild-workspace identity-member image-cloudflare image-runtime link-preview maintainer-worker member-execution-contracts member-execution-http member-execution-http-adversarial member-execution-http-contracts member-channel-access
 member-channels-core member-communications member-connections member-directory member-ecard member-experience
+model-adapter-common model-adapter-independent model-adapter-registry model-byok-adapter model-claude-adapter model-cli-probe model-codex-adapter
 member-services member-skill-registration notification-events onboarding-diagnostics onboarding opensource-marketing
 page-github page-issue-label page-tools-notification password-hash password-recovery platform-admin platform-credentials
 portal-client-recovery positioning preview-protocol private-policy-grants private-result-races private-result-schema private-results private-work-commands private-work-http private-work-http-adversarial private-work-policy private-work-policy-adversarial published-skills repo-author-claims repo-maintainer-admin

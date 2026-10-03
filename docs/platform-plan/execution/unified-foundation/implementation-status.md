@@ -1,12 +1,12 @@
 # 共同基礎：本機交付紀錄
 
-查核日期：2026-10-02。本紀錄區分原始產品要求、本機實作、合成測試及尚缺的真實部署證據；不修改原計畫的歷史內容，也不把組件測試轉寫成完整產品 PASS。
+查核日期：2026-10-03。本紀錄區分原始產品要求、本機實作、合成測試及尚缺的真實部署證據；不修改原計畫的歷史內容，也不把組件測試轉寫成完整產品 PASS。
 
 最新交付方向依 Ted 指示：完成原計畫 scope 後受控前向 migration，不為提早上線另做多套過渡 release，也不以退回舊應用為交付目標。小批次只是開發／測試的切分，不是分批部署承諾。原計畫的資料保護、撤銷、失敗停機及備份恢復仍保留；staging 驗證先於 live，備份政策另確認。完整決策集中於 [基準與決策](00-baseline-and-decisions.md#本輪發布方向)，不另建一套政策。
 
 ## 工程進度估算
 
-以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約 **30–40%**，約 **60–70%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。此次重新核對三份原計畫及本頁證據：配對、refresh／nonce、封閉 bootstrap／會員 HTTP，以及未驗證 ModelConnection／限定同意 Grant／blocked Attempt 推進 U1/U3；真實模型認證及執行、跨端、七類媒體與正式治理仍占主要剩餘工作。會員 HTTP 增量沿用原工程區間，未因多了入口或測試就把私人 AI 里程碑大幅提高。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
+以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約 **30–40%**，約 **60–70%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。此次重新核對三份原計畫及本頁證據：配對、refresh／nonce、封閉 bootstrap／會員 HTTP，以及未驗證 ModelConnection／限定同意 Grant／blocked Attempt 推進 U1/U3；真實模型認證及執行、跨端、七類媒體與正式治理仍占主要剩餘工作。會員 HTTP 及三路 adapter codec／隔離診斷增量沿用原工程區間；真正認證及 operational dispatch 尚未完成，未因多了入口或測試就把私人 AI 里程碑大幅提高。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
 
 以下權重是工程量假設，不是原計畫承諾；估算依本頁實作證據與尚缺項目，正式產品驗收仍須逐項取得證據。
 
@@ -643,7 +643,7 @@ staging/live 未動。封閉程式、spec 及 ignored evidence 保留在工作�
 
 ## 下一批
 
-Runtime enrollment、connection backing record、[封閉 bootstrap status](09-bootstrap-status.md)、[裝置配對／一次性交換](10-device-authorization.md)、[refresh／nonce](11-bootstrap-sessions.md) 及 [HTTP 邊界](12-bootstrap-http.md) 已有本機實作。它們提供受限配對、可持續 refresh 及本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權，也不輸出通用 VerifiedContext。[13](13-member-execution-prerequisites.md) 已建立未驗證 ModelConnection、精確限定同意 Grant 與 immutable blocked Attempt backing records，[14](14-member-execution-http.md) 接上真人 cookie/CSRF 的紀錄管理 HTTP factory，全部仍無 operational authority。下一步是明確選定一條真正模型認證／adapter 路徑，接完整 inference binding、execution token／operation validator、current Attempt／lease／獨立 fences，再串成模型產生私人 Result 的真實垂直流程。已提出本人 Codex subscription、Claude Code subscription 或 BYOK 的偏好選項，尚未收到選定回覆；這只是模型路徑的缺失資訊，沒有另要求本機開發批准。正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定，不重用 storefront/supplier 的 `fw_read` 連線。
+Runtime enrollment、connection backing record、[封閉 bootstrap status](09-bootstrap-status.md)、[裝置配對／一次性交換](10-device-authorization.md)、[refresh／nonce](11-bootstrap-sessions.md) 及 [HTTP 邊界](12-bootstrap-http.md) 已有本機實作。它們提供受限配對、可持續 refresh 及本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權，也不輸出通用 VerifiedContext。[13](13-member-execution-prerequisites.md) 已建立未驗證 ModelConnection、精確限定同意 Grant 與 immutable blocked Attempt backing records，[14](14-member-execution-http.md) 接上真人 cookie/CSRF 的紀錄管理 HTTP factory，全部仍無 operational authority。Ted 最新指示已授權 Codex 訂閱、Claude Code 訂閱與 BYOK 三路一起派工；[15](15-model-adapter-cores.md) 接上候選準備、受限 codecs 與隔離 metadata 診斷，不再等待先選一條的回覆。下一步是目前本人／精確 Work version 的 inference export policy、完整 binding、genuine operational permit、execution token／operation validator、current Attempt／lease／獨立 fences，再串成模型產生私人 Result 的真實垂直流程。會員實際 provider/model/billing/custody 與正式登入仍未指定，這不妨礙已授權的本機實作。正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定，不重用 storefront/supplier 的 `fw_read` 連線。
 
 治理已推進固定單一 profile 的 [本機隔離 supervisor](../../../../packages/contribution-tools/behavior-supervisor.md)：host harness 透過有界 HTTP response frames 呼叫隔離容器內的 candidate app，由 host 自行判斷結果；不能把 candidate stdout/JSON 當可信測試結果。隔離不成立就 unavailable，並保留 approved host source／runtime、完整入口、publisher/GitHub enforcement 的缺口。下一步是可信安裝、來源與 publisher 接線，不是把本機 observation 宣稱可合併。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代完整入口／外部保存／政策 restore 的證據。migration 076–092 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
 
