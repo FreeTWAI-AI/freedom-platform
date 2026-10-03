@@ -59,8 +59,8 @@
     },
     {
       "path": "apps/credential-broker/freedom.module.json",
-      "bytes": 1443,
-      "sha256": "a8f512fc8b2c5a49a598c1df9e62b685dbc7bbbab96ea2bfbd7a7c0d17bdc291"
+      "bytes": 1403,
+      "sha256": "ee9a4e0b1b026f654896db0229550a5633762dc3c50ffd044fec80e488442ee9"
     },
     {
       "path": "apps/credential-broker/src/recovery.ts",

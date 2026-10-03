@@ -21,7 +21,6 @@
   ],
   "client_profiles": [],
   "instructions": [
-    "apps/credential-broker/README.md",
     "docs/platform-plan/execution/unified-foundation/18-credential-broker-core.md",
     "packages/scoped-commands/README.md"
   ],
