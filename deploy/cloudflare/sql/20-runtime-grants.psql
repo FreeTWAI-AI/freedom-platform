@@ -75,6 +75,53 @@ FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespac
 WHERE n.nspname='public' AND c.relname IN ('domain_media_storage_policy') AND c.relkind='r'
 \gexec
 -- END DOMAIN MEDIA POLICY GRANTS
+-- An app role cannot approve, run or rewrite an operator migration.
+-- Remove table and stale column grants left by the broad legacy grant above.
+-- BEGIN OPERATOR MEDIA TABLE EXCLUSIONS
+SELECT format($operator$
+  REVOKE ALL PRIVILEGES ON TABLE %1$s FROM %2$I;
+  REVOKE ALL PRIVILEGES (%4$s) ON TABLE %1$s FROM %2$I;
+  DO $guard$
+  BEGIN
+    IF pg_catalog.has_table_privilege(%2$L,%3$L::oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+      OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid=%3$L::oid
+        AND a.attnum>0 AND NOT a.attisdropped
+        AND pg_catalog.has_column_privilege(%2$L,%3$L::oid,a.attnum,'SELECT,INSERT,UPDATE,REFERENCES'))
+    THEN RAISE EXCEPTION 'Unsafe runtime operator media privileges'; END IF;
+  END $guard$;
+$operator$, c.oid::regclass, :'runtime', c.oid,
+  (SELECT string_agg(quote_ident(a.attname),',' ORDER BY a.attnum)
+    FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped))
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND c.relname IN ('media_backfill_operator_policy','media_backfill_jobs','media_backfill_items','media_backfill_audit') AND c.relkind='r'
+\gexec
+-- END OPERATOR MEDIA TABLE EXCLUSIONS
+-- BEGIN OPERATOR MEDIA FUNCTION EXCLUSIONS
+SELECT format($operator$
+  REVOKE ALL PRIVILEGES ON FUNCTION %1$s FROM %2$I;
+  DO $guard$
+  BEGIN
+    IF pg_catalog.has_function_privilege(%2$L,%3$L::oid,'EXECUTE')
+    THEN RAISE EXCEPTION 'Unsafe runtime operator media privileges'; END IF;
+  END $guard$;
+$operator$, p.oid::regprocedure, :'runtime', p.oid)
+FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+WHERE n.nspname='public' AND p.proname IN ('lock_media_backfill_operator_approval','lock_media_backfill_cover_owner','lock_media_backfill_cover_consent','publish_media_backfill_cover')
+\gexec
+-- END OPERATOR MEDIA FUNCTION EXCLUSIONS
+-- BEGIN OPERATOR MEDIA SEQUENCE EXCLUSIONS
+SELECT format($operator$
+  REVOKE ALL PRIVILEGES ON SEQUENCE %1$s FROM %2$I;
+  DO $guard$
+  BEGIN
+    IF pg_catalog.has_sequence_privilege(%2$L,%3$L::oid,'USAGE,SELECT,UPDATE')
+    THEN RAISE EXCEPTION 'Unsafe runtime operator media privileges'; END IF;
+  END $guard$;
+$operator$, c.oid::regclass, :'runtime', c.oid)
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND c.relname='media_backfill_audit_audit_id_seq' AND c.relkind='S'
+\gexec
+-- END OPERATOR MEDIA SEQUENCE EXCLUSIONS
 -- Broker ciphertext is excluded after the legacy broad application grant.
 -- Clear pre-existing column ACLs as well; role inheritance/SET ROLE is rejected.
 -- BEGIN BROKER CREDENTIAL EXCLUSIONS

@@ -1,6 +1,6 @@
 # Manual social thumbnail Worker installation
 
-`FREEDOM_SOCIAL_THUMBNAIL_ENABLED=true` explicitly installs the genuine manual
+`FREEDOM_SOCIAL_THUMBNAIL_ENABLED=true` explicitly installs the genuine manual and automatic
 thumbnail lifecycle on the main Worker using the existing private MEDIA bucket
 and IMAGES. Only absent, `false` and `true` flags are accepted. Explicit activation
 without required native bindings refuses requests before SQL or route effects.
@@ -27,3 +27,5 @@ replacement retirement and deleted-post ACLs. Domain posts are explicit syntheti
 SQL fixtures so no preview or provider network calls occur. IMAGES uses the local
 Miniflare emulator. Remote bindings, actual cloud processing, deployed policy,
 restore, backfill and staging acceptance remain unverified.
+
+The106 automatic preview writer uses the same installation flag and Asset profile as manual upload. Any trusted activation observation for this flag must include both `media.social-thumbnail.asset.v1` and `media.social-preview-create.v1`; a102 manual-only binary does not possess the latter capability. This statement is a mapping requirement, not a remote readback or gate installation.

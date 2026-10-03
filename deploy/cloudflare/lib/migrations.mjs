@@ -16,6 +16,16 @@ const PRIVILEGED = [
   [/\bSECURITY\s+DEFINER\b/i, 'SECURITY DEFINER function (review search_path and owner)'],
 ];
 
+// Integration-reviewed source exception only, never installation/deployment
+// authority. Any byte change requires a fresh review. All other privileged
+// categories and every unlisted SECURITY DEFINER migration remain rejected.
+const REVIEWED_DEFINER = Object.freeze({
+  '105_operator_service_cover_backfill.sql': Object.freeze({
+    sha256: 'e27f74e859485c264cadfd48d5841f0a35e32df3e47e53d115c260a49370814e',
+    review: 'docs/development/operator-backfill-sql-review.md',
+  }),
+});
+
 /** Same digest as packages/db digest(sql): sha256 over JSON.stringify of the SQL string. */
 export function migrationDigest(sql) {
   return createHash('sha256').update(JSON.stringify(sql)).digest('hex');
@@ -36,12 +46,18 @@ export function checkMigrations(dir, expected) {
   const unexpectedGaps = gaps.filter((g) => !expected.known_gaps.includes(g));
   if (unexpectedGaps.length) problems.push(`unexpected gaps: ${unexpectedGaps.join(',')}`);
   if (Math.max(...numbers) !== expected.last) problems.push(`last migration is ${Math.max(...numbers)}, manifest expects ${expected.last}`);
-  const privileged = [];
+  const privileged = [], reviewedPrivileged = [];
   const entries = files.map((name) => {
     const sql = readFileSync(join(dir, name), 'utf8');
     const body = stripComments(sql);
-    for (const [re, why] of PRIVILEGED) if (re.test(body)) privileged.push({ file: name, statement: why });
-    return { name, sha256: migrationDigest(sql) };
+    const sha256 = migrationDigest(sql);
+    for (const [re, why] of PRIVILEGED) if (re.test(body)) {
+      const reviewed = REVIEWED_DEFINER[name];
+      if (why === 'SECURITY DEFINER function (review search_path and owner)' && reviewed?.sha256 === sha256) {
+        reviewedPrivileged.push({ file: name, statement: why, sha256, review: reviewed.review });
+      } else privileged.push({ file: name, statement: why });
+    }
+    return { name, sha256 };
   });
   const functionsAndTriggers = files.filter((name) => /\bCREATE\s+(OR\s+REPLACE\s+)?(FUNCTION|TRIGGER)\b/i.test(stripComments(readFileSync(join(dir, name), 'utf8'))));
   return {
@@ -52,6 +68,7 @@ export function checkMigrations(dir, expected) {
     known_gaps: gaps.filter((g) => expected.known_gaps.includes(g)),
     problems,
     privileged,
+    reviewed_privileged: reviewedPrivileged,
     plpgsql_trigger_files: functionsAndTriggers,
     ledger: entries,
     ledger_digest: createHash('sha256').update(entries.map((e) => `${e.name}:${e.sha256}`).join('\n')).digest('hex'),

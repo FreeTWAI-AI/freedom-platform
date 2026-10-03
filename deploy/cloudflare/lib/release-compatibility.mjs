@@ -6,10 +6,11 @@ const HEX40 = /^[0-9a-f]{40}$/;
 const HEX64 = /^[0-9a-f]{64}$/;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}$/;
 const ENVIRONMENTS = ['next', 'staging-next'];
-const CAPABILITIES = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1', 'execution.member-run-record.v1', 'execution.runtime-enrollment.v1', 'execution.agent-connection-record.v1', 'execution.bootstrap-status.v1', 'execution.device-authorization.v1', 'execution.bootstrap-session.v1', 'execution.member-prerequisites.v1', 'execution.model-text-step.v1', 'work.private-model-result.v1', 'execution.model-credential-custody.v1', 'execution.model-broker-bridge.v1', 'execution.model-credential-ingest.v1', 'execution.member-model-settings.v1', 'execution.member-device-management.v1', 'media.server-policy.v1', 'media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1'];
+const CAPABILITIES = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1', 'execution.member-run-record.v1', 'execution.runtime-enrollment.v1', 'execution.agent-connection-record.v1', 'execution.bootstrap-status.v1', 'execution.device-authorization.v1', 'execution.bootstrap-session.v1', 'execution.member-prerequisites.v1', 'execution.model-text-step.v1', 'work.private-model-result.v1', 'execution.model-credential-custody.v1', 'execution.model-broker-bridge.v1', 'execution.model-credential-ingest.v1', 'execution.member-model-settings.v1', 'execution.member-device-management.v1', 'media.server-policy.v1', 'media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.social-preview-create.v1'];
 const SHAPES = Object.freeze({
   // Current canonical persistence policy and original domain ACL are mandatory.
   // Compatibility never grants persistence, cutover, cloud readiness or restore.
+  'media.social-preview-create.v1': { migration: 106, capabilities: ['media.social-preview-create.v1', 'media.social-thumbnail.asset.v1', 'media.server-policy.v1'] },
   'media.social-thumbnail.asset.v1': { migration: 102, capabilities: ['media.social-thumbnail.asset.v1', 'media.server-policy.v1'] },
   'media.event-highlight.asset.v1': { migration: 104, capabilities: ['media.event-highlight.asset.v1', 'media.server-policy.v1'] },
   'media.skill-image.asset.v1': { migration: 103, capabilities: ['media.skill-image.asset.v1', 'media.server-policy.v1'] },
@@ -55,6 +56,7 @@ const FOUNDATION_NAMES = [
   '100_domain_media_persistence_policy.sql', '101_community_event_video_assets.sql',
   '102_community_social_thumbnail_assets.sql', '103_skill_submission_image_assets.sql',
   '104_community_event_highlight_asset_pairs.sql',
+  '105_operator_service_cover_backfill.sql', '106_social_preview_asset_creation.sql',
 ];
 
 function reject(code) { throw new Error(code); }
@@ -227,9 +229,9 @@ export function evaluateReleaseCompatibility(input, { scan, host } = {}) {
   // Retained capability-only requirements keep their reviewed prerequisites,
   // even when current shapes are empty. Do not infer written shapes from a
   // binary capability, or silently add support to any release approval.
-  for (const shape of ['media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1']) {
+  for (const shape of ['media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.social-preview-create.v1']) {
     if (!required.has(shape)) continue;
-    required.add('media.server-policy.v1');
+    for (const capability of SHAPES[shape].capabilities) required.add(capability);
     if (floor.capabilities.includes(shape)) {
       if (plannedLast < SHAPES[shape].migration) issue('shape_schema_missing', { shape });
       if (observedLast < SHAPES[shape].migration) issue('historical_shape_schema_missing', { shape });

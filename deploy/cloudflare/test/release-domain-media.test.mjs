@@ -6,7 +6,7 @@ import { loadManifest } from '../lib/manifest.mjs';
 import { evaluateReleaseCompatibility, compatibilityLedgerDigest } from '../lib/release-compatibility.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
-const media = ['media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1'];
+const media = ['media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.social-preview-create.v1'];
 function fixture() {
   const scan = checkMigrations(`${root}migrations`, loadManifest().database_defaults.migrations);
   assert.equal(scan.ok, true);
@@ -48,8 +48,9 @@ for (const shape of media) test(`${shape} requires domain and policy support in 
   for (const source of ['enable_shapes', 'enabled_shapes', 'written_shapes', 'rollback_floor_shapes']) {
     const f = fixture(); (source === 'enable_shapes' ? f.input : source === 'rollback_floor_shapes' ? f.host : f.host.observation)[source] = [shape];
     const result = run(f); assert.equal(result.status, 'compatible');
-    assert.deepEqual(result.required_capabilities, ['platform.legacy.v1', 'work.explicit-wire.v1', 'media.server-policy.v1', shape].sort());
-    for (const binary of [0, 1]) for (const capability of [shape, 'media.server-policy.v1']) {
+    const required = ['media.server-policy.v1', shape, ...(shape==='media.social-preview-create.v1'?['media.social-thumbnail.asset.v1']:[])];
+    assert.deepEqual(result.required_capabilities, ['platform.legacy.v1', 'work.explicit-wire.v1', ...required].sort());
+    for (const binary of [0, 1]) for (const capability of required) {
       const bad = structuredClone(f); bad.host.release_records[binary].capabilities = bad.host.release_records[binary].capabilities.filter(item => item !== capability);
       assert(run(bad).issues.some(issue => issue.code === 'release_capability_missing' && issue.capability === capability && issue.source_sha === bad.host.release_records[binary].source_sha));
     }
@@ -57,7 +58,7 @@ for (const shape of media) test(`${shape} requires domain and policy support in 
 });
 
 test('retained media capabilities cannot replace missing prerequisite migrations or a restored lower schema', () => {
-  for (const [capability, missing] of [['media.server-policy.v1', 99], ['media.service-cover.asset.v1', 99], ['media.event-banner.asset.v1', 99], ['media.event-video.asset.v1', 100], ['media.social-thumbnail.asset.v1', 101], ['media.skill-image.asset.v1', 102], ['media.event-highlight.asset.v1', 103]]) {
+  for (const [capability, missing] of [['media.server-policy.v1', 99], ['media.service-cover.asset.v1', 99], ['media.event-banner.asset.v1', 99], ['media.event-video.asset.v1', 100], ['media.social-thumbnail.asset.v1', 101], ['media.skill-image.asset.v1', 102], ['media.event-highlight.asset.v1', 103], ['media.social-preview-create.v1', 105]]) {
     const f = fixture(); prefix(f, missing); f.host.rollback_floor.capabilities = [capability];
     const result = run(f); assert.equal(result.status, 'incompatible');
     assert(result.issues.some(issue => issue.code === 'shape_schema_missing'));
@@ -83,4 +84,10 @@ test('uninstalled media purposes and changed SQL bytes cannot claim compatibilit
   altered.host.observation.schema_ledger.at(-1).sha256 = 'e'.repeat(64);
   altered.host.observation.schema_ledger_digest = compatibilityLedgerDigest(altered.host.observation.schema_ledger);
   assert.equal(run(altered).status, 'unavailable');
+});
+
+test('automatic social writer capability cannot be supplied by a manual-thumbnail-only binary', () => {
+  const f = fixture(); f.input.enable_shapes = ['media.social-preview-create.v1'];
+  f.host.release_records[0].capabilities = f.host.release_records[0].capabilities.filter(x => x !== 'media.social-preview-create.v1');
+  assert(run(f).issues.some(issue => issue.code === 'release_capability_missing' && issue.capability === 'media.social-preview-create.v1'));
 });

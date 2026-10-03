@@ -1231,10 +1231,16 @@ Ted已授權沿 `feat/unified-foundation` 推送並更新同一Draft PR；merge�
 CAS（原功能有時才要求）與刪除行為；技能圖沿原 upload-grant，沒有偽造
 會員 session；活動集錦沿原任何社群會員可上傳已結束活動、本人／
 organizer／已驗證 admin 可移除的規則，兩個 Asset 同一交易發布。
-社群自動 preview writer 尚為 legacy，R2-only 對此用途仍明確拒絕。
+106 接通原社群自動 preview writer：原 fetch／安全檢查／normalizer不變，
+只將既有 normalized bytes 透過同一 profile 發布；post／typed pointer／
+原 DTO receipt 同一交易，pending reservation 不成為可見貼文。
+R2-only 仍須所有歷史 legacy sources／retained bytes 清理條件完成，
+並不是安裝 adapter 即可切換。
 
-主 Worker 已 opt-in 安裝 cover／banner／video／skill／manual social；
-集錦主入口仍在接線。獨立 broker Worker 以真正 workerd、restricted SQL
+主 Worker 已 opt-in 安裝 cover／banner／video／skill／social／highlight；
+明確 enabled 的 MEDIA 須具備 get／put／head／delete，影像亦須 IMAGES。
+只提供 get／put 的 native partial binding 在舊寫入前回503，不會
+吞 factory failure 再退回 legacy。獨立 broker Worker 以真正 workerd、restricted SQL
 roles、KEK cipher vault、合成 HTTPS provider 及 native local R2 跑通。
 provider 與 R2 是本機合成證據，並不是雲端或真人模型驗收。
 
@@ -1271,3 +1277,29 @@ CodeQL39 的 exact-head SARIF 資料流查核見
 [告警紀錄](../../../development/codeql-alert-39.md)，安全 gate 未自行
 dismiss。正式 publisher／baseline／GitHub enforcement、遠端 staging、
 七類全量搬遷與完整 restore acceptance 仍未完成。
+
+作者固定104集錦 source `6835542` 的 runtime＋原流程＋engine/races
+為73/73；Worker安装 `4939562` exact native TCP／socket 各1/1。
+106自動preview固定 `ca94d6d` 為52/52（含原manual/link-preview/promotion），
+零跳過、typecheck/diffcheck通過；該 HTTP preview 是合成來源，Cloudflare
+原生主入口的106實測另在進行。本節結果是作者證據，整合回歸另列。
+
+105新增跨會員供貨封面 operator host，沒有會員 session／Actor／scoped receipt。
+批准綁定真正 dedicated role／DB／schema／release／store／migration／plan SHA
+及有限時效；common job＋intent fences、原 owner/source CAS/SHA、canonical
+政策、原 typed target 及 source retained。root整合驗證 **19/19**，包括
+主站原 broad grants 能真實插入 approved=true，排除後42501，PUBLIC／
+inherited 授權則拒絕安裝。真實最後 audit SQL lock 跨租約有效期時全部
+publication回滾。105仍僅cover profile，CLI未安裝trusted host時不執行；
+其他operator profiles、unknown PUT cleanup、完整GC及正式切換仍待完成。
+
+發布掃描維持全域 SECURITY DEFINER 拒絕，只接受105已查核的精確 ledger
+SHA；source改一個byte或加入其他privileged statement仍拒絕，沒有通用
+跳過旗標。查核邊界見[SQL紀錄](../../../development/operator-backfill-sql-review.md)。
+106自動社群writer有獨立 `media.social-preview-create.v1` schema106 capability，
+102 manual-only binary不能冒充。發布相容性／scanner共 **353/353**。
+
+原生主Worker的106合成HTTPS→IMAGES→restricted SQL／R2／receipt路徑
+固定 `31850b8` 實測1/1，原URL／redirect／size guards11/11，沒有追加
+或宣稱原checker具備DNS pin。目前完整整合版本準備固定後重跑全部檢查；
+第一輪14項失敗及所有中間反例失敗紀錄保留。
