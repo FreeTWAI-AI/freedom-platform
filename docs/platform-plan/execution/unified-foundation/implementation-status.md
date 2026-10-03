@@ -641,6 +641,71 @@ staging/live 未動。封閉程式、spec 及 ignored evidence 保留在工作�
 
 本機 `verify` 面對尚未治理的 main、缺少 surface audit 或未支援的 adapter，明確回 `unavailable`，不是綠燈。手動跑過 runtime tests 不會自動偽造 trusted check。原始 168 項產品驗收仍保留 `not_run`，須逐項取得完整證據再更新。
 
+## 本批：三路模型 adapter 核心與隔離 metadata
+
+本批依 Ted 的最新指示將 Codex 訂閱、Claude Code 訂閱、BYOK 三路分開派工，
+不再等待先選一條模型路徑。固定整合程式 commit 為 `6c9df7b7010a1e5174a5cae9606604030f40da1d`，
+規格見 [15](15-model-adapter-cores.md)，核心見 [adapters](../../../../modules/agent-execution/adapters/index.ts)。
+三路都提供明確 route／private candidate／bounded observation codec；BYOK 另含
+OpenAI Responses 與 Anthropic Messages 兩種固定 protocol。沒有 provider/model
+預設、keychain/vault resolver、產品模型 request 或正式 HTTP 掛載。全部
+`invoke` 固定拒絕 `execution_authority_unavailable`；ModelConnection／Grant／Attempt
+仍沿原封閉狀態，不從 codec 成功推定 operational authority。
+
+- 作者測試：Codex **9**、Claude **16**、BYOK **12**，共 **37**。
+- 共用／registry／獨立反例：**41**；另有真正 Linux native fixture **6**。
+  合計 **84 項新增測試**，零失敗／跳過。真實 fixture 另由非作者獨立重跑 **6/6**。
+  mock HTTP 只在 loopback 使用 synthetic header/key fixture，不是供應商認證。
+- 已重現並修正：小數用量捨入成整數、Claude／BYOK 未知或巢狀 tool/model metadata、
+  Codex 未完成／換 type／hidden event、診斷對原 port 再讀 accessor，以及 bwrap
+  對已 unlink snapshot FD 的 path canonicalization 失敗。最後改用 readonly
+  `--ro-bind-data` 直接從驗證過的 snapshot FD 建 executable；6 個實際程序反例驗
+  無網路／host 檔案／parent env、fresh home、錯 hash／symlink／path／inode mutation、
+  stdout flood、卡死、setsid 及父程序退出後仍持有 pipe 的子程序清理。
+- 真實已安裝 Codex **0.160.0**、Claude Code **2.1.288** 經新 runner 的 version／help
+  查核成功。fresh-home auth_status 回無登入；此結果只適用空的隔離 home，不能
+  宣稱 Ted 真實帳戶未登入。兩路仍 `unsupported`／effective_tool_policy_unavailable，
+  BYOK 仍 candidate_only／authentication_unavailable；沒有 genuine 模型認證。
+- CLI native artifact 最多 512 MiB、程式 3 秒 deadline、合計輸出 32 KiB／256 chunks。
+  binary copy 每段 I/O 之間檢查 5 秒期限，不能中斷卡住的 filesystem I/O；不將此
+  描述為完整 probe 硬 deadline。僅固定可信 host artifact path，沒有會員 path 輸入。
+
+固定 commit 的標準 verifier 完成：runtime **2,164/2,164**（153 files），治理
+unit **244/244**（11 files），零失敗／取消／跳過／todo。完整執行約 **554 秒**。
+報告 `.freedom/reports/model-adapters-integrated.json` SHA-256：
+`511070bccca5069516c39160d7f94b1956de9a43e650907190275edeb6e3f5c9`；整理證據為
+`.freedom/reports/model-adapters-final-evidence.json`。Standard verifier 整體仍
+`unavailable`（exit 2）：baseline_governance_unavailable、
+registration_behavior_audit_required、surface_unmapped。沒有將本機全過改寫成
+可信 CI／publisher／完整入口已完成或正式 release 綠燈。
+
+
+型別檢查、9 組契約生成檢查、build、發布相容性 **256/256**、Worker **28/28**、
+隔離 supervisor **6/6** 與 9 次 dry-run 通過；dry-run 沒有部署。migration 076–092、
+既有 platform-api／中央 execution 契約及 release manifest 未改。
+Grok 4.7／Opus 4.6 本批未執行外援審查：沒有採用可限制憑證／config／hooks
+暴露範圍的 wrapper，不把前批 timeout／空輸出當本批審查證據。
+
+收尾確認 disposable PostgreSQL 的 schemas、測試角色、public relations、其他
+clients／databases 全部為 0，再移除本輪專屬 network-none／tmpfs 容器及空 Unix
+socket 目錄；沒有剩餘本輪容器。沒有修改主 checkout、Ted 真實資料、正式
+credentials 或 staging/live，也沒有 push／PR／merge／部署。Inventory、文件
+連結與 whitespace 檢查另在最後文件提交前完成；原始計畫快照 bytes 保留。
+
+
+全計畫工程估算維持 **30–40%**、剩餘 **60–70%**；U3 **30–40%**、AP M2
+**50–65%**、M3 **15–25%**。三路 ports／metadata 不等於 AP M2 正式模型驗證，
+也沒有完成 U4／AP M3 的私人 AI Result。原始 **168 項完整產品驗收仍 not_run**。
+
+下一步先做與 085 保存政策分開的 inference export policy、精確 Work version 的
+明確本人同意、bounded prompt binding 及一次性消耗；不把 092 active consent
+Grant 當出口權。Operational Permit 仍需 genuine auth/tools/transport/budget。
+092 blocked Attempt 是不可變歷史；Run 現行狀態只收 created／paused／cancelled，
+真正 running／lease／control 必須另以受控前向 migration 及版本化 projection
+接線，不能在舊 DTO 中暗藏執行狀態。既有 blocked Attempt 已占流水號，新增
+operational subtype 必須接續真實歷史及 cap，不能重編號或補造 inference binding。其後串 provider transport、dispatch journal、
+取消／unknown outcome、私人 AI Result finalize，再推跨端、媒體及正式治理。
+
 ## 下一批
 
 Runtime enrollment、connection backing record、[封閉 bootstrap status](09-bootstrap-status.md)、[裝置配對／一次性交換](10-device-authorization.md)、[refresh／nonce](11-bootstrap-sessions.md) 及 [HTTP 邊界](12-bootstrap-http.md) 已有本機實作。它們提供受限配對、可持續 refresh 及本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權，也不輸出通用 VerifiedContext。[13](13-member-execution-prerequisites.md) 已建立未驗證 ModelConnection、精確限定同意 Grant 與 immutable blocked Attempt backing records，[14](14-member-execution-http.md) 接上真人 cookie/CSRF 的紀錄管理 HTTP factory，全部仍無 operational authority。Ted 最新指示已授權 Codex 訂閱、Claude Code 訂閱與 BYOK 三路一起派工；[15](15-model-adapter-cores.md) 接上候選準備、受限 codecs 與隔離 metadata 診斷，不再等待先選一條的回覆。下一步是目前本人／精確 Work version 的 inference export policy、完整 binding、genuine operational permit、execution token／operation validator、current Attempt／lease／獨立 fences，再串成模型產生私人 Result 的真實垂直流程。會員實際 provider/model/billing/custody 與正式登入仍未指定，這不妨礙已授權的本機實作。正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定，不重用 storefront/supplier 的 `fw_read` 連線。
