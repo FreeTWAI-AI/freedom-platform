@@ -193,6 +193,7 @@ not merely after the first new-shape write. No SQL file or migration is changed.
 | `execution.bootstrap-status.v1` | current owner/runtime/connection and cryptographic checks plus single-use nonce/proof ID admission for minimal status only; not issuer, device-flow HTTP, private data or execution Grant support |
 | `execution.device-authorization.v1` | closed device requests, exact member approval, genuine enrollment proof and one-time bootstrap issuance with durable throttling; not refresh families, HTTP/UI, production issuer trust or execution Grants |
 | `execution.bootstrap-session.v1` | one-use refresh rotation, committed family/connection reuse revocation and purpose-bound machine nonce acquisition; not HTTP/UI, production issuer trust or execution Grants |
+| `execution.member-device-management.v1` | explicitly installed bootstrap HTTP and canonical member inspect/decide/read/revoke support with current owner/session/connection fences; not machine execution authority, issuer approval, model access or credential custody |
 | `execution.member-prerequisites.v1` | unverified member model choice, exact bounded consent, and immutable blocked Attempt history with current-authority replay checks; never model authentication, execution, lease, billing or recovery support |
 
 | Shape | Minimum schema | Additional capabilities |
@@ -206,6 +207,7 @@ not merely after the first new-shape write. No SQL file or migration is changed.
 | `execution.bootstrap-status.v1` | 089 | runtime enrollment + connection records + bootstrap nonce admission |
 | `execution.device-authorization.v1` | 090 | runtime enrollment + connection records + bootstrap nonce admission + closed device authorization |
 | `execution.bootstrap-session.v1` | 091 | runtime enrollment + connection records + bootstrap nonce admission + refresh/session records |
+| `execution.member-device-management.v1` | 091 | installed member device port + runtime enrollment + connection records + bootstrap status + device authorization + refresh/session |
 | `execution.member-prerequisites.v1` | 092 | personal owner ACL + server persistence policy + member Run + runtime enrollment + connection records + bootstrap status + refresh/session + member prerequisites |
 
 Schema 085 alone does not enable a private shape. When it is planned or retained,
@@ -255,6 +257,24 @@ the initial family atomically and return the forward-updated issued DTO. This
 applies to capability-only history floors too. Historical 090 device support is
 not retroactively reclassified. Neither capability authorizes private Work,
 model access, production issuer use or execution.
+
+The installed member device-management profile adds no migration. Its reviewed
+minimum is the exact ledger through 091, because its bootstrap HTTP exchange
+and member inspect/decide/read/revoke flows include both device authorization
+and session-family behavior. Requesting, enabling, writing or retaining
+`execution.member-device-management.v1` requires its explicit capability plus
+runtime enrollment, connection records, bootstrap status, device authorization
+and bootstrap session from every active and candidate approval. Capability-only
+history retains that closure and requires observed and planned schema 091; a
+future plan cannot repair a restored 090 observation. The canonical member DTO
+describes owner control and safe metadata, without machine execution authority.
+
+Schema presence, connection support or device/session core support alone does
+not claim this installed member port. When the port is unavailable and no
+enablement or retained obligation requests it, the legacy compatibility matrix
+remains unchanged. This profile infers no Work/Run, model text, custody, ingest
+or provider support. Synthetic compatible diagnostics keep
+`deployment_authority`, `execution_authority` and `restore_proof` false.
 
 Required capabilities union the independently retained capability floor with
 the schema/shape-derived requirements; they apply to **every** active binary
