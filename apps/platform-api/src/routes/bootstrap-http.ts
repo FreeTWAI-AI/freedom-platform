@@ -34,7 +34,7 @@ function route(path: string): Route | undefined {
 }
 const safeCodes = new Set(['host_rejected','origin_rejected','method_not_allowed','credential_kind_rejected',
   'json_required','encoding_rejected','body_too_large','body_timeout','invalid_body','invalid_json','validation_failed',
-  'idempotency_required','version_required','invalid_version','bootstrap_invalid','bootstrap_unavailable',
+  'read_headers_rejected','idempotency_required','version_required','invalid_version','bootstrap_invalid','bootstrap_unavailable',
   'bootstrap_http_unavailable','bootstrap_http_rate_limited','device_authorization_invalid','device_authorization_unavailable',
   'device_authorization_not_found','device_authorization_limit','runtime_registration_limit','bootstrap_nonce_limit',
   'login_required','session_expired','csrf_rejected','onboarding_required','not_found','principal_disabled','scope_disabled',
@@ -66,7 +66,7 @@ function version(c: Context<PlatformEnv>): string {
     400,'invalid_version','Invalid version.'); return value.slice(1,-1);
 }
 
-/** Explicit closed transport. Production app/Node/Worker do not mount this.
+/** Explicit closed transport. Only a genuine Node product installation mounts this.
  * Configuration and sourceNetwork are trusted server ports, never request data. */
 export async function createBootstrapHttpTransport(pool: Pool, options: {
   host: DeviceAuthorizationHost; signingKey: CryptoKey; sourceNetwork?: (request: Request) => string;
@@ -113,8 +113,21 @@ export async function createBootstrapHttpTransport(pool: Pool, options: {
       && (!entry.member || entry.method === 'GET' || sentOrigin === origin)
       && (fetchSite === undefined || fetchSite === 'same-origin' || !entry.member && fetchSite === 'none'),403,'origin_rejected','Origin rejected.');
     requireCondition(c.req.header('Content-Encoding') === undefined,415,'encoding_rejected','Encoding unsupported.');
-    if (entry.member) requireCondition(c.req.header('Authorization') === undefined && c.req.header('DPoP') === undefined,
-      403,'credential_kind_rejected','Credential kind rejected.');
+    if (entry.member) {
+      requireCondition(['Authorization','DPoP','X-Freedom-Connection','X-Freedom-Nonce'].every(h => c.req.header(h) === undefined),
+        403,'credential_kind_rejected','Credential kind rejected.');
+      requireCondition((c.req.header('Cookie') ?? '').split(';').filter(v => v.includes('=')
+        && v.slice(0,v.indexOf('=')).trim() === 'freedom_local_session').length <= 1,
+        403,'credential_kind_rejected','Credential kind rejected.');
+      requireCondition(['If-None-Match','If-Modified-Since','If-Unmodified-Since','If-Range','Range'].every(h => c.req.header(h) === undefined),
+        400,'read_headers_rejected','Conditional headers unsupported.');
+      if (entry.id) OpaqueId.parse(entry.id);
+      if (entry.method === 'GET') requireCondition(c.req.raw.body === null
+        && ['Idempotency-Key','If-Match','Content-Length','Transfer-Encoding'].every(h => c.req.header(h) === undefined),
+        400,'read_headers_rejected','Read headers rejected.');
+      if (entry.name === 'decide' || entry.name === 'revoke') key(c);
+      if (entry.name === 'revoke') version(c);
+    }
     else {
       requireCondition(c.req.header('Cookie') === undefined && c.req.header('X-CSRF-Token') === undefined,403,'credential_kind_rejected','Credential kind rejected.');
       if (entry.name === 'begin' || entry.name === 'token') requireCondition(c.req.header('Authorization') === undefined,

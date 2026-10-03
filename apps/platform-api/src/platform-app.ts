@@ -53,12 +53,15 @@ import {publicMemberCard,publicMemberAvatar} from '../../../modules/identity-mem
 
 const COOKIE='freedom_local_session';
 const privateAiFamilies=['private-work','execution-runs','model-connections','execution-grants','execution-attempts',
-  'model-step-overview','model-step-approvals','model-steps','credential-ingests','model-settings','model-credentials'];
+  'model-step-overview','model-step-approvals','model-steps','credential-ingests','model-settings','model-credentials',
+  'device-authorizations','agent-connections'];
 function isPrivateAiPath(path:string) {
+  if(path==='/execution-api/v1'||path.startsWith('/execution-api/v1/'))return true;
   return privateAiFamilies.some(family=>{const base='/api/v1/me/'+family;return path===base||path.startsWith(base+'/')||path.startsWith(base+':');});
 }
 function isInstalledPrivateAiPath(path:string) {
-  return ['model-step-overview','model-step-approvals','model-steps','credential-ingests','model-settings','model-credentials'].some(family=>{
+  if(path==='/execution-api/v1'||path.startsWith('/execution-api/v1/'))return true;
+  return ['device-authorizations','agent-connections','model-step-overview','model-step-approvals','model-steps','credential-ingests','model-settings','model-credentials'].some(family=>{
     const base='/api/v1/me/'+family;return path===base||path.startsWith(base+'/')||path.startsWith(base+':');
   });
 }

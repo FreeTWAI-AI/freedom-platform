@@ -1,4 +1,7 @@
 import type { Pool } from 'pg';
+import type { DeviceAuthorizationHost } from '../../../contracts/execution/v1/device-pairing.js';
+import { parseDeviceAuthorizationHost } from '../../../modules/agent-control/device-pairing-proof.js';
+import { createBootstrapHttpTransport } from './routes/bootstrap-http.js';
 import { Hono } from 'hono';
 import type { ObjectStore } from '../../../packages/asset-storage/index.js';
 import type { ModelBrokerClient } from './model-broker-client.js';
@@ -19,6 +22,7 @@ import { assertOriginAllowed, type FreedomEnv } from './env.js';
 declare const privateAiProductBrand: unique symbol;
 /** Node-only host composition. JSON cannot construct this server port. */
 export interface PrivateAiProductTransport { readonly [privateAiProductBrand]: never }
+export type PrivateAiBootstrapInstallation = { host: DeviceAuthorizationHost; signingKey: CryptoKey };
 type Product = { pool: Pool; origin: string; freedomEnv: FreedomEnv; setupOrigin?: string; fetch: (request: Request) => Promise<Response> };
 const products = new WeakMap<object, Product>();
 const privateWorkPath = '/api/v1/me/private-work';
@@ -33,10 +37,11 @@ function rejected(code:string,status:number) {
 export async function createPrivateAiProductTransport(pool: Pool, options: {
   origin: string; environment: RuntimeEnvironment; clientId: string; host?: ModelStepHost; broker?: ModelBrokerClient; store: ObjectStore;
   sourceNetwork?: (request: Request) => string; ingest?: CredentialIngestClient; settingsSelections?: readonly z.infer<typeof BrokerModelSelectionSchema>[];
+  bootstrap?: PrivateAiBootstrapInstallation;
 }): Promise<PrivateAiProductTransport> {
   if (!options || Object.getPrototypeOf(options) !== Object.prototype) throw new Error('invalid_private_ai_product_configuration');
   const descriptors = Object.getOwnPropertyDescriptors(options);
-  if (Reflect.ownKeys(options).some(key => typeof key !== 'string' || !['origin','environment','clientId','host','broker','store','sourceNetwork','ingest','settingsSelections'].includes(key))
+  if (Reflect.ownKeys(options).some(key => typeof key !== 'string' || !['origin','environment','clientId','host','broker','store','sourceNetwork','ingest','settingsSelections','bootstrap'].includes(key))
     || Object.values(descriptors).some(value => !value.enumerable || !('value' in value))
     || ['origin','environment','clientId','store'].some(key => !descriptors[key]) || (!!descriptors.host === !!descriptors.broker)) throw new Error('invalid_private_ai_product_configuration');
   const environment = RuntimeEnvironmentSchema.parse(descriptors.environment.value);
@@ -48,6 +53,21 @@ export async function createPrivateAiProductTransport(pool: Pool, options: {
   const network = sourceNetwork === undefined ? {} : { sourceNetwork };
   const settingsSelections = freezeTree(z.array(BrokerModelSelectionSchema).max(50).parse(
     descriptors.settingsSelections ? snapshotInput(descriptors.settingsSelections.value) : []));
+  let bootstrap: Awaited<ReturnType<typeof createBootstrapHttpTransport>> | undefined;
+  if (descriptors.bootstrap) {
+    const installation = descriptors.bootstrap.value;
+    if (!installation || Object.getPrototypeOf(installation) !== Object.prototype
+      || Reflect.ownKeys(installation).some(key => typeof key !== 'string' || !['host','signingKey'].includes(key)))
+      throw new Error('invalid_private_ai_bootstrap_configuration');
+    const ports = Object.getOwnPropertyDescriptors(installation);
+    if (!ports.host || !ports.signingKey || Object.values(ports).some(value => !value.enumerable || !('value' in value)))
+      throw new Error('invalid_private_ai_bootstrap_configuration');
+    const bootstrapHost = parseDeviceAuthorizationHost(ports.host.value);
+    if (bootstrapHost.environment !== environment || bootstrapHost.clientId !== clientId
+      || new URL(bootstrapHost.bootstrapUri).origin !== origin)
+      throw new Error('invalid_private_ai_bootstrap_binding');
+    bootstrap = await createBootstrapHttpTransport(pool,{host:bootstrapHost,signingKey:ports.signingKey.value as CryptoKey,...network});
+  }
   const ingestClient = descriptors.ingest ? bindCredentialIngestClient(descriptors.ingest.value as CredentialIngestClient,pool,origin,environment,clientId) : undefined;
   const setupOrigin = ingestClient?.setupOrigin;
   // Each child owns its member boundary and original bounded request stream.
@@ -65,6 +85,9 @@ export async function createPrivateAiProductTransport(pool: Pool, options: {
     const url=new URL(request.url),path=url.pathname,sentHost=request.headers.get('Host'),sentOrigin=request.headers.get('Origin');
     if(url.origin!==origin||url.href!==request.url||url.hash||/[#%\\\x00-\x20\x7f-\uffff]/.test(path)
       ||(sentHost!==null&&sentHost!==new URL(origin).host))return rejected('host_rejected',403);
+    if (path === '/execution-api/v1' || path.startsWith('/execution-api/v1/')
+      || matches(path,'/api/v1/me/device-authorizations') || matches(path,'/api/v1/me/agent-connections'))
+      return bootstrap ? bootstrap.fetch(request) : rejected('bootstrap_http_unavailable',503);
     const read=['GET','HEAD'].includes(request.method),site=request.headers.get('Sec-Fetch-Site');
     if((sentOrigin!==null&&sentOrigin!==origin)||(!read&&sentOrigin!==origin)||(site!==null&&site!=='same-origin'))return rejected('origin_rejected',403);
     if(['Authorization','DPoP','X-Freedom-Connection','X-Freedom-Nonce'].some(header=>request.headers.has(header)))return rejected('credential_kind_rejected',403);
