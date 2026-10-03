@@ -2,8 +2,10 @@ import {Problem} from '../../packages/shared/problem.js';
 import {objectKey,readPinnedObjectRange,readVerifiedObject,sha256,type ObjectStore} from '../../packages/asset-storage/index.js';
 import {planObjectHttpRequest,type ObjectHttpPlan} from '../../packages/asset-storage/http-range.js';
 import type {DomainMediaSnapshot} from '../../packages/media-migration/domain-bridge.js';
-const missing=()=>new Problem(404,'media_not_found','找不到活動影片。');
-const unavailable=()=>new Problem(503,'media_unavailable','內容暫時無法讀取。');
+const ownedErrors=new WeakSet<Problem>();
+function owned(status:number,code:string,detail:string){const error=new Problem(status,code,detail);ownedErrors.add(error);return error;}
+const missing=()=>owned(404,'media_not_found','找不到活動影片。');
+const unavailable=()=>owned(503,'media_unavailable','內容暫時無法讀取。');
 function identity(s:DomainMediaSnapshot){return JSON.stringify([s.purpose,s.targetId,s.variant,s.domainVersion,s.authorizationVersion,s.source,s.assetId,s.scopeId,s.representationId,s.metadata,s.legacyContentType]);}
 /** Fresh original domain ACL before transport, and again after obtaining bytes
  * or a lazy stream. Partial ranges prove immutable ETag identity, never the
@@ -22,5 +24,5 @@ export async function readEventVideoHttp(snapshot:()=>Promise<DomainMediaSnapsho
   if(!plan.sendBody){await recheck();return {plan,body:null,wholeDigestVerified:false};}
   if(plan.range){const ranged=await readPinnedObjectRange(store,key,first.metadata,plan.range,head.etag);body=ranged.body;await recheck();return {plan,body,wholeDigestVerified:false};}
   const full=await readVerifiedObject(store,key,first.metadata);if(full.etag!==head.etag)throw unavailable();await recheck();return {plan,body:full.bytes,wholeDigestVerified:true};
- }catch(error){if(body)await body.cancel().catch(()=>{});if(error instanceof Problem)throw error;throw unavailable();}
+ }catch(error){if(body)await body.cancel().catch(()=>{});if(error instanceof Problem&&ownedErrors.has(error))throw error;throw unavailable();}
 }
