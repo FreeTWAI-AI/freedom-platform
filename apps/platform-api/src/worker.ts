@@ -1,3 +1,4 @@
+import {createEventHighlightAssetService,resolveEventHighlightUploadPolicy} from '../../../modules/assets/event-highlight.js';
 import {createSocialThumbnailAssetService,resolveSocialThumbnailUploadPolicy} from '../../../modules/assets/social-thumbnail.js';
 import {createSkillImageAssetService} from '../../../modules/assets/skill-image.js';
 import type { ExecutionContext, Hyperdrive, ImagesBinding as OfficialImagesBinding } from '@cloudflare/workers-types';
@@ -45,6 +46,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_EVENT_VIDEO_ENABLED?: string;
   FREEDOM_SKILL_IMAGE_ENABLED?: string;
   FREEDOM_SOCIAL_THUMBNAIL_ENABLED?: string;
+  FREEDOM_EVENT_HIGHLIGHT_ENABLED?: string;
   HYPERDRIVE: { readonly connectionString: string };
   ASSETS: { fetch(request: Request): Promise<Response> };
   IMAGES?: ImagesBinding;
@@ -95,12 +97,12 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   if (typeof env.ASSETS?.fetch !== 'function') throw new ReadinessError('ASSETS binding is required.');
   if (env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED !== undefined && !['true','false'].includes(env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED)) throw new ReadinessError('FREEDOM_PASSWORD_RESET_EMAIL_ENABLED must be true or false.');
   if (env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED === 'true' && typeof env.EMAIL?.send !== 'function') throw new ReadinessError('EMAIL binding is required when password recovery is enabled.');
-  for(const flag of [env.FREEDOM_SERVICE_COVER_ENABLED,env.FREEDOM_EVENT_BANNER_ENABLED,env.FREEDOM_SKILL_IMAGE_ENABLED,env.FREEDOM_SOCIAL_THUMBNAIL_ENABLED]){
+  for(const flag of [env.FREEDOM_SERVICE_COVER_ENABLED,env.FREEDOM_EVENT_BANNER_ENABLED,env.FREEDOM_SKILL_IMAGE_ENABLED,env.FREEDOM_SOCIAL_THUMBNAIL_ENABLED,env.FREEDOM_EVENT_HIGHLIGHT_ENABLED]){
     if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Media installation flag must be true or false.');
-    if(flag==='true'&&(typeof env.MEDIA?.get!=='function'||typeof env.MEDIA?.put!=='function'||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('MEDIA and IMAGES are required for enabled image lifecycle.');
+    if(flag==='true'&&(['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('MEDIA and IMAGES are required for enabled image lifecycle.');
   }
   if(env.FREEDOM_EVENT_VIDEO_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_EVENT_VIDEO_ENABLED))throw new ReadinessError('Video installation flag must be true or false.');
-  if(env.FREEDOM_EVENT_VIDEO_ENABLED==='true'&&(typeof env.MEDIA?.get!=='function'||typeof env.MEDIA?.put!=='function'))throw new ReadinessError('MEDIA is required for enabled video lifecycle.');
+  if(env.FREEDOM_EVENT_VIDEO_ENABLED==='true'&&(['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')))throw new ReadinessError('MEDIA is required for enabled video lifecycle.');
   return { freedomEnv, origin, release, trustConnectingIp };
 }
 
@@ -261,6 +263,10 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
         if(env.FREEDOM_SOCIAL_THUMBNAIL_ENABLED==='true'&&runtime.avatarAssetStore){
           runtime.socialThumbnailAssetStore=runtime.avatarAssetStore;
           runtime.socialThumbnailAssets=createSocialThumbnailAssetService(pool,{store:runtime.avatarAssetStore,resolvePolicy:resolveSocialThumbnailUploadPolicy});
+        }
+        if(env.FREEDOM_EVENT_HIGHLIGHT_ENABLED==='true'&&runtime.avatarAssetStore){
+          runtime.eventHighlightAssetStore=runtime.avatarAssetStore;
+          runtime.eventHighlightAssets=createEventHighlightAssetService(pool,{store:runtime.avatarAssetStore,resolvePolicy:resolveEventHighlightUploadPolicy});
         }
         const app = createPlatformApp(pool, config.origin, config.freedomEnv, runtime);
         mountAssets(app, env.ASSETS);
