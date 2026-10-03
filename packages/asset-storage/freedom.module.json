@@ -2,13 +2,37 @@
   "format": "freedom.module/v1",
   "module_id": "asset-storage",
   "owner_role": "foundation",
-  "owned_paths": ["packages/asset-storage/**", "tests/runtime/asset-storage.test.ts", "tests/runtime/asset-r2.test.ts"],
-  "public_exports": ["packages/asset-storage/index.ts", "packages/asset-storage/r2.ts"],
-  "dependencies": ["resource-scopes"],
-  "contract_families": ["common"],
+  "owned_paths": [
+    "packages/asset-storage/**",
+    "tests/runtime/asset-storage.test.ts",
+    "tests/runtime/asset-r2.test.ts",
+    "tests/runtime/asset-media-profiles.test.ts"
+  ],
+  "public_exports": [
+    "packages/asset-storage/index.ts",
+    "packages/asset-storage/r2.ts"
+  ],
+  "dependencies": [
+    "resource-scopes"
+  ],
+  "contract_families": [
+    "common"
+  ],
   "client_profiles": [],
-  "instructions": ["packages/asset-storage/README.md", "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md", "docs/platform-plan/execution/unified-foundation/05-media-migration.md"],
-  "invariants": ["immutable-object-content", "actual-bytes-integrity", "platform-persistence-policy", "storage-evidence-is-not-domain-authority", "external-io-outside-row-locks"],
-  "tests": ["runtime.full"],
+  "instructions": [
+    "packages/asset-storage/README.md",
+    "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md",
+    "docs/platform-plan/execution/unified-foundation/05-media-migration.md"
+  ],
+  "invariants": [
+    "immutable-object-content",
+    "actual-bytes-integrity",
+    "platform-persistence-policy",
+    "storage-evidence-is-not-domain-authority",
+    "external-io-outside-row-locks"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
   "surfaces": []
 }

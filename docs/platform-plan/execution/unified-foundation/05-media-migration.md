@@ -1,6 +1,6 @@
 # 七類媒體搬遷與恢復規格
 
-Spec ID：`UF-SPEC-MEDIA`；狀態：`draft-ready-for-profile-inventory`。來源：[R2 原文 §3–11、17–21](../../../plans/platform-restructure-r2.md)、Unified Foundation §05–07、13、16。依賴 [ASSET-WORK](03-assets-private-work.md)；共用 Asset/Principal/Scope，不另建 media 專用身分或儲存真相。
+Spec ID：`UF-SPEC-MEDIA`；狀態：`profile-io-and-aggregate-inventory-local; domain-backfill-restore-pending`。來源：[R2 原文 §3–11、17–21](../../../plans/platform-restructure-r2.md)、Unified Foundation §05–07、13、16。依賴 [ASSET-WORK](03-assets-private-work.md)；共用 Asset/Principal/Scope，不另建 media 專用身分或儲存真相。
 
 本規格補齊搬遷程序與驗收，不代表已讀取正式資料或配置 R2。七類 schema 來源已取得；每類目前資料量、完整呼叫面及限制仍由實作前的唯讀盤點固定。
 
@@ -25,6 +25,8 @@ ASSET-A 提供共同機制，ASSET-B 先接頭像；MEDIA-B/C 再用同一機制
 實作 PR 附 profile fixture manifest，逐列列出既有數值限制及其 source/test 路徑。未知格式不自動轉成合法；歷史異常明列 exception，不能靜默刪除或公開。
 
 ## Store、配置與資料約束
+
+共用 Object I/O 已與固定用途 profile 分離：七類用途／八個 variant profile 保留各自 byte cap，原頭像與小文字驗證維持；通用 bytes/hash 有界上限為 20 MiB。Native R2 的 Range／media GET 以 pull stream 傳遞；partial Range 標記 immutable ETag pin，明列未驗整個物件 SHA-256，完整 verify 仍核對實際 bytes。這是本機 workerd 證據，未完成其他六類 domain／typed pointer／migration adapter。
 
 ObjectStore port 提供 putImmutable、get（含單一已驗 Range）、head、delete；list 僅供有界維運，不作正常 page 的存在判斷。以 Web streams/runtime-neutral metadata 接口隔離 Workers R2 binding 與 ops adapter。若維運需要 S3 SDK，只能在 ops bundle；不為測試要求每人架 MinIO。
 
@@ -89,7 +91,7 @@ Restore 在隔離 `fp_*` DB/schema 與測試 bucket 演練：還原同一集合�
 
 ## 工具、發布與證據
 
-目標命令 media:inventory/backfill/verify/finalize 均待實作。修改型命令預設 dry-run，必填 environment、expected DB identity、bucket identity、release SHA、profile/migration ID 及批次界限；不从空環境值退回 freedom_local.public 或正式預設。長作業保存可重啟 checkpoint、bytes/latency/failure metrics；log 不含原內容。
+`media:inventory` 已有 [唯讀彙總工具](../../../../packages/media-migration/README.md)，預設 dry-run；只驗過合成 PostgreSQL，正式資料盤點尚未執行。它沒有實際內容 hash／image decode、完整讀寫入口與 base64/local-disk 掃描，不能把 aggregate report 當作搬遷或 restore 證據。`media:backfill/verify/finalize` 仍待實作。修改型命令預設 dry-run，必填 environment、expected DB identity、bucket identity、release SHA、profile/migration ID 及批次界限；不从空環境值退回 freedom_local.public 或正式預設。長作業保存可重啟 checkpoint、bytes/latency/failure metrics；log 不含原內容。
 
 有權操作依 staging smoke → 故障/併發 → bridge → 類別 cutover → 有界 backfill/verify → DB+R2 restore → prod 相同程序。另遵 Ted 發布槽/備份/migrator/grants-check/app-probe/health 流程。schema/release/backup/backfill 不受一般 PR concurrency 自動取消。
 

@@ -1,0 +1,14 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "media-migration",
+  "owner_role": "foundation",
+  "owned_paths": ["packages/media-migration/**", "scripts/media-inventory.ts", "tests/runtime/media-inventory.test.ts"],
+  "public_exports": ["packages/media-migration/inventory.ts"],
+  "dependencies": [],
+  "contract_families": ["common"],
+  "client_profiles": [],
+  "instructions": ["packages/media-migration/README.md", "docs/platform-plan/execution/unified-foundation/05-media-migration.md"],
+  "invariants": ["explicit-readonly-target", "aggregate-only-report", "no-media-bytes-export", "inventory-is-not-migration-proof"],
+  "tests": ["runtime.full"],
+  "surfaces": [{"surface_id": "operations.media-inventory", "kind": "cli", "entry": "scripts/media-inventory.ts", "operations": ["media.inventory"], "auth_profile": "operator-readonly"}]
+}

@@ -60,7 +60,8 @@
     "contracts:model-credential-ingest": "tsx modules/agent-control/generate-model-credential-ingest.ts",
     "check:model-credential-ingest": "tsx modules/agent-control/generate-model-credential-ingest.ts --check",
     "contracts:member-model-settings": "tsx modules/agent-execution/generate-member-model-settings.ts",
-    "check:member-model-settings": "tsx modules/agent-execution/generate-member-model-settings.ts --check"
+    "check:member-model-settings": "tsx modules/agent-execution/generate-member-model-settings.ts --check",
+    "media:inventory": "tsx scripts/media-inventory.ts"
   },
   "dependencies": {
     "@hono/node-server": "2.1.1",
