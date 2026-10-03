@@ -14,7 +14,7 @@ export async function runMediaBackfill(args:string[],_env:NodeJS.ProcessEnv,inst
     };
     let execute=false;
     const flags:Record<string,string>={
-      '--environment':'environment','--expected-database':'database','--schema':'schema','--expected-role':'role','--release-sha':'releaseSha','--job-id':'jobId','--store-binding-id':'storeBindingId','--migration-id':'migrationId','--max-rows':'maxRows','--max-bytes':'maxBytes','--lease-seconds':'leaseSeconds'
+      '--environment':'environment','--expected-database':'database','--schema':'schema','--expected-role':'role','--release-sha':'releaseSha','--job-id':'jobId','--store-binding-id':'storeBindingId','--migration-id':'migrationId','--max-rows':'maxRows','--max-bytes':'maxBytes','--lease-seconds':'leaseSeconds','--purpose':'purpose'
     };
     for(let i=0;
     i<args.length;
@@ -27,12 +27,12 @@ export async function runMediaBackfill(args:string[],_env:NodeJS.ProcessEnv,inst
       if(!field||Object.hasOwn(values,field)||!args[i+1]||args[i+1].startsWith('--'))throw Error();
       values[field]=args[++i];
     }const {
-      environment,database,schema,role,releaseSha,jobId,storeBindingId,migrationId,maxRows,maxBytes,leaseSeconds
+      environment,database,schema,role,releaseSha,jobId,storeBindingId,migrationId,maxRows,maxBytes,leaseSeconds,purpose
     }=values;
     const plan=planOperatorBackfill({
       target:{
         environment,database,schema,role,releaseSha
-      },jobId,storeBindingId,migrationId,maxRows:Number(maxRows),maxBytes:Number(maxBytes),leaseSeconds:Number(leaseSeconds),purpose:'member.service-cover',logicalStore:'MEDIA'
+      },jobId,storeBindingId,migrationId,maxRows:Number(maxRows),maxBytes:Number(maxBytes),leaseSeconds:Number(leaseSeconds),purpose:purpose??'member.service-cover',logicalStore:'MEDIA'
     });
     if(!execute)return {
       exitCode:0,report:{
