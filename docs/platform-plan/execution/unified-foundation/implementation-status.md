@@ -6,7 +6,7 @@
 
 ## 工程進度估算
 
-以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約四成，合理區間 **35–50%**，約 **50–65%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。配對、refresh／nonce、封閉 bootstrap／會員 HTTP 已有本機實作；單步模型的明確出口批准、active Attempt／running Run／lease、一次性派送、Asset 與私人 Result，現已接到本人會員 HTTP 及「私人工作與 AI」畫面，完成本機工作建立／編輯、成果歷史、逐次同意與控制流程。模型端仍只以合成 HTTP 實測；隔離 broker/vault 與外部 recovery 的內部核心正完成本機驗證，正式隔離服務、本人 provider 認證與 runtime 驗收尚缺。跨端、七類媒體、legacy 退出與正式治理仍占主要剩餘工作。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
+以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約四成，合理區間 **35–50%**，約 **50–65%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。配對、refresh／nonce、封閉 bootstrap／會員 HTTP 已有本機實作；單步模型的明確出口批准、active Attempt／running Run／lease、一次性派送、Asset 與私人 Result，現已接到本人會員 HTTP 及「私人工作與 AI」畫面，完成本機工作建立／編輯、成果歷史、逐次同意與控制流程。模型端仍只以合成 HTTP 實測；隔離 broker/vault 與外部 recovery 的內部核心已通過本機驗證，正式隔離服務、本人 provider 認證與 runtime 驗收尚缺。跨端、七類媒體、legacy 退出與正式治理仍占主要剩餘工作。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
 
 以下權重是工程量假設，不是原計畫承諾；估算依本頁實作證據與尚缺項目，正式產品驗收仍須逐項取得證據。
 
@@ -15,7 +15,7 @@
 | U0 規格與共用契約 | 5% | 80–90% | 正式批准與版本發布 |
 | U1 身分／scope／command | 10% | 70–85% | machine/service Invocation／Grant 的當前驗權與 command adapter；會員映射與受限 machine 登入已有實作 |
 | U2 Asset 與私人 ACL | 15% | 65–80% | 完整讀面、正式政策及接線 |
-| U3 執行狀態與模型 ports | 15% | 45–60% | 單步 BYOK、active Attempt／Run／lease、本人 HTTP、暫停／停止與 once-only dispatch 已有本機證據；broker/vault 及外部 recovery 內部核心正驗證；尚缺隔離服務／跨程序證據橋、真人模型認證、machine execution auth、訂閱 native CLI、heartbeat/reconcile、多步及 Action |
+| U3 執行狀態與模型 ports | 15% | 45–60% | 單步 BYOK、active Attempt／Run／lease、本人 HTTP、暫停／停止與 once-only dispatch 已有本機證據；broker/vault 及外部 recovery 內部核心已有本機證據；尚缺隔離服務／跨程序證據橋、真人模型認證、machine execution auth、訂閱 native CLI、heartbeat/reconcile、多步及 Action |
 | U4 兩條垂直流程 | 15% | 45–60% | 頭像回歸及私人 AI 草稿的本人 HTTP／畫面、SQL、Asset 與 Result 已有本機流程；尚缺真正 provider／R2／本人 runtime 及跨端產品驗收 |
 | U5 browser／Kit／broker | 15% | 0–10% | 實際 runtime 接線與封裝驗證 |
 | U6 媒體搬遷與 restore | 10% | 5–15% | 真實盤點、七類媒體搬遷與還原 |
@@ -32,7 +32,7 @@
 | M0 來源與需求 | 80–90% | 正式 protocol／consumer 版本發布與確認 |
 | M1 資料與 ACL | 60–75% | 完整 list/detail/search/event/export 讀面矩陣及遷移驗收 |
 | M2 認證與只讀觀測 | 50–65% | ModelConnection settings UI／真正模型驗證、本人確認 UI、bootstrap-key exchange、正式 key/host 設定及部署驗收；device pairing／refresh／nonce／status 與 HTTP factory 已有本機證據 |
-| M3 私人 AI 草稿 | 50–65% | 本人 HTTP／畫面、出口批准、operational Attempt／lease、一次性派送、typed AI Result 與人工共同歷史已有本機完整流程；broker/vault 及外部 recovery 內部核心正驗證；尚缺隔離服務／跨程序證據橋、本人 BYOK 驗收、訂閱 native CLI 與 runtime 整合 |
+| M3 私人 AI 草稿 | 50–65% | 本人 HTTP／畫面、出口批准、operational Attempt／lease、一次性派送、typed AI Result 與人工共同歷史已有本機完整流程；broker/vault 及外部 recovery 內部核心已有本機證據；尚缺隔離服務／跨程序證據橋、本人 BYOK 驗收、訂閱 native CLI 與 runtime 整合 |
 | M4 瀏覽器交接 | 0–10% | extension／neo 實接、pause/takeover/resume/revoke、舊 epoch 拒絕及 unknown effect 對帳 |
 | M5 業務 actions | 0–5% | 逐 domain 授權、精確 effect、A4 的本人簽章／step-up |
 | M6 設計收斂與相容期 | 5–15% | consumer 相容矩陣、schema 收斂、舊路徑退出及正式版本驗證 |
@@ -853,15 +853,59 @@ provider、R2、隔離 host 或本人端已驗收。WebCrypto KEK 與 provider b
 固定前作者 SQL **7/7**、加密 **8/8**，永久獨立反例 **23/23** 通過；
 後兩者合跑 **31/31**，沒有 failed/cancelled/skipped/todo。每個實際 production
 缺陷的修正前證據保留；晚到 plaintext 清零等首次即通過的案例不虛構修正前失敗。外部 floor 與 SQL 沒有跨來源原子鎖，仍保留派送前
-與 Result finalization 的 operational fence。完整固定版本的回歸、發布診斷與
-清理結果尚待收齊，本段不列最終 PASS。
+與 Result finalization 的 operational fence。
+
+實作 commit **`0f344fd`**，完整驗證固定 source **`28259f9`**。首次 verifier
+在執行測試前以 `instruction_path_denied` 擋下新 descriptor 的 app README
+宣告；保留原始失敗，只改成引用已有 canonical spec，不放寬治理允許路徑。
+兩個 commit 間只改 descriptor／inventory，runtime production 與 tests bytes
+相同。重新從頭執行標準 verifier：161 個 runtime files **2,260/2,260**、11 個
+治理 files **244/244**，沒有 failed/cancelled/skipped/todo，耗時 **612.445 秒**。
+這包含本批 **38 個唯一新增核心案例**；單獨反例重跑不重複加進總數。
+
+發布相容性 **292/292**、既有模型／會員 HTTP 定向回歸 **57/57**、Worker
+**28/28**、隔離 supervisor **6/6**、12 組契約生成檢查、typecheck、build 及
+三類 Worker 的 9 次 dry-run 通過。這些 component 檢查綁 `0f344fd`，全部在
+下一個 descriptor 修正 commit 前完成；最後完整驗證綁 `28259f9`。本批未改
+前端，沒有重跑瀏覽器，也未實跑真人 provider／R2／隔離 broker host。
+
+fixture 失敗另保留：resolver 預算從 3 秒縮為 2.5 秒後，舊測試固定多等 200ms
+會在 3.1 秒 callee 真正 handoff 前判斷，先為 **6/7**；只改測試等待實際
+handoff 後 **7/7**，保留真正 decrypted bytes 清零斷言。發布 fixture 初次
+**9/12** 也保留；補 capability-only prerequisites closure 及正確 095 fixture
+範圍後 **12/12**，最後全套發布診斷 **292/292**。
+
+標準 verifier exit 2 **unavailable**，只保留既有
+`baseline_governance_unavailable`、`registration_behavior_audit_required`、
+`surface_unmapped`；本機測試沒有取代可信 CI／publisher 或發布許可。
+證據索引為 ignored `.freedom/reports/credential-broker-final-evidence.json`，
+含 exact source SHA、獨立 source hashes、各修正前後反例、component 來源差異
+及實際清理紀錄。本批未重跑先前無可用結論的 Opus／Grok CLI 審查，沒有列為
+新增通過證據。獨立測試 lane 中途有工具中止，沒有把中止算成通過；crypto
+reviewer 接續兩個永久案例與完整 23 項，root 再以固定 source 跑全套。
+
+清理前查得本輪所有 schemas、合成 roles、其他 clients/databases、public
+relations 全部 0；只移除本輪 exact network-none／tmpfs container、空 socket
+與自有檢查 home，剩餘本輪容器 0。076–094 bytes 未改，095 未合併／發布；
+主 checkout status SHA-256 保持
+`c5baa881d9476c25a274af274e42b723bfcc643fe55450ff3c72612ee401f19a`。
+沒有 push、PR、merge、部署、正式 keys/設定、待審 PR 整合或凍結安排變更；
+staging/live 未動。整體工程估算仍約四成 **35–50%**，剩餘 **50–65%**；
+新增內部核心不能取代隔離服務、真人 provider/runtime、跨端及搬遷驗收，原始
+**168 項完整產品驗收維持 not_run**。文件收尾核對 **1,453 hashes、839 本機
+連結、0 failures**，diff-check 通過；文件提交不替代上述固定 source 的完整回歸。
 
 ## 下一批
 
 [17](17-private-ai-product.md) 已接本機會員 HTTP、畫面及單步私人 AI 成果。
-本批內部 vault/recovery 核心驗證後，下一批優先接隔離程序、認證且只傳參照的
-證據橋、專用 secret ingest、明確模型與憑證設定及受批准 exact provider/model
-的本人端驗收；不得把合成 fixture 的認證／成本／恢復 generation
+下一個本機閉環將既有 ModelStep host／service／runner／Result finalizer 留在
+隔離 broker，主 API 只傳用途分離、已認證的 command 參照，並從當前本人 SQL
+重讀 metadata。opaque proof／capability／observation 不跨程序，不從 JSON 或
+歷史 DB 重鑄。先固定 command authorization 與最後 SQL sink 的重驗介面；
+重啟／replica registry miss 保留 unavailable／unknown 及 owner control，不重送。
+接著接直接 broker 的 one-use secret ingest、本人 cookie／CSRF setup、明確模型
+與憑證設定及受批准 exact provider/model 的本人端驗收；
+不得把合成 fixture 的認證／成本／恢復 generation
 當作真實來源。其後是訂閱 native host、
 機器 execution auth、heartbeat/reconciliation、多步調度、媒體/跨端與可信治理。
 沒有把 codefactory/local fixture 當正式服務可用，也不重用 storefront/supplier 的
