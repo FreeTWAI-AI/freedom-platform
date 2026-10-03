@@ -23,7 +23,7 @@
 | UX affected CI／開發工具 | 5% | 20–35% | 跨語言／跨端覆蓋與工具接線 |
 | CG 共同治理 | 5% | 25–45% | 可信 runner/publisher、完整入口與 rollout |
 
-此組權重得約 30–41%，對外使用「約三成到四成」。R2、AP 與 UF 有重疊，不能把三份計畫各自的完成百分比相加。剩餘 60–70% 是工程量估算，不是日曆工期；真實 provider、跨端及搬遷演練仍有不確定性。本輪只推進共同基礎；依 Ted 指示，不整合等待中的其他 PR。備份政策仍另確認。
+此組權重得約 29–41%，對外使用「約三成到四成」。R2、AP 與 UF 有重疊，不能把三份計畫各自的完成百分比相加。剩餘 60–70% 是工程量估算，不是日曆工期；真實 provider、跨端及搬遷演練仍有不確定性。本輪只推進共同基礎；依 Ted 指示，不整合等待中的其他 PR。備份政策仍另確認。
 
 若「Milestone」指 [AP M0–M6](../../../plans/autopilot-vnext.md#54-遷移步驟)，目前位置是 **M1 基礎已建立、M2 認證核心完成本機接線，尚未完成整個 M2**。以下仍只估本機工程，不宣稱已達原文的部署／產品完成條件。
 
@@ -31,7 +31,7 @@
 | --- | --- | --- |
 | M0 來源與需求 | 80–90% | 正式 protocol／consumer 版本發布與確認 |
 | M1 資料與 ACL | 60–75% | 完整 list/detail/search/event/export 讀面矩陣及遷移驗收 |
-| M2 認證與只讀觀測 | 50–65% | ModelConnection settings、本人確認 UI、正式 key/host 設定及部署驗收；配對／refresh／nonce／status 與 HTTP factory 已有本機證據 |
+| M2 認證與只讀觀測 | 50–65% | ModelConnection settings、本人確認 UI、bootstrap-key exchange、正式 key/host 設定及部署驗收；device pairing／refresh／nonce／status 與 HTTP factory 已有本機證據 |
 | M3 私人 AI 草稿 | 10–20% | 本人 CLI/BYOK、真實 Grant／Attempt、一條 runtime 產生本人可看的私人 Result；人工 Work/Result 和 Run 是前置基礎 |
 | M4 瀏覽器交接 | 0–10% | extension／neo 實接、pause/takeover/resume/revoke、舊 epoch 拒絕及 unknown effect 對帳 |
 | M5 業務 actions | 0–5% | 逐 domain 授權、精確 effect、A4 的本人簽章／step-up |
@@ -458,6 +458,14 @@ JSON 限 32 KiB、128 chunks、5 秒 body deadline；拒絕 duplicate decoded ke
 新增 HTTP／wire tests **44/44** 通過：non-superuser migrator/runtime LOGIN、真正 ES256、公開 challenge 的完整配對、sessionless refresh/nonce/status、重用撤銷、會員 CAS/撤銷、並發與 durable 限流、錯誤去敏，以及相關 machine／receipt／fact 表不保存 raw machine secrets。另實際啟動本機短暫 TLS socket，以 ephemeral self-signed cert 驗 Node adapter 的 signed begin 與 Host 拒絕；沒有測正式 proxy 或 production TLS。正式 `createApp` 的未掛載路徑也實際回 404，沒有配置或啟用 issuer。
 
 TypeScript、七組 structural contract 生成檢查、發布相容性 **243/243**、build 與 platform 三環境 Worker dry-run 通過。這些是本機合成證據；原始 168 項完整產品驗收仍 `not_run`。本頁前段更新 UF 加權工程估算及 AP M0–M6 對照，不以新增測試數推算進度。下一個工程接點為 ModelConnection／Grant／Attempt；staging/live、正式 keys/host、部署與其他 PR 仍未動。
+
+固定程式版本 **`5832f4fd2da4a479dd28f31097047eeb228ad6ba`**，base 為 `3de70ccbd24362a7925508fb42d36aaa256a0806`。完整 runtime **1,995/1,995（139 files）** 通過，0 failed/skipped/cancelled/todo。首輪標準 verifier 的治理套件觸及 60 秒上限，該份 `failed` 報告原樣保留；其他驗證程序結束後，使用標準 runner、原 60 秒上限單獨補驗治理，**244/244（11 files）** 通過，0 failed/skipped/cancelled/todo。兩次之間沒有改 source；另核對同一 head/workspace SHA、完整 selected files 與逐案例 counts。
+
+本機整合紀錄 `.freedom/reports/bootstrap-http-reconciled.json` 明列兩份來源報告及 SHA-256，沒有覆寫首輪失敗或重跑已通過的 runtime。整合紀錄 digest 為 `6e3908d934d45cc0f574607ea1fdd074b538da295008e24a7f914222fe97c0d8`；仍是 local／`unavailable`，保留 `baseline_governance_unavailable`、`registration_behavior_audit_required`、`surface_unmapped`，沒有 trusted CI、merge 或 deployment authority。
+
+Worker 最終 **28/28** 通過：首輪直接傳 Unix socket URL 被 Miniflare Hyperdrive 的必填密碼檢查擋下，改用既有 task-owned loopback TCP→Unix 測試橋接及合成密碼後完整重跑，橋接已關閉。實際隔離 supervisor **6/6** 通過（固定 app requests、偽造結果、卡死程序及 fixture 竄改）；各測試容器 cleanup 已驗證。這些不取代本批 HTTP factory 的來源覆蓋或產品驗收。
+
+本輪 disposable PG18 使用固定 CI image digest、network-none、無公開 ports、2 GiB tmpfs、專屬 socket，明列 `max_locks_per_transaction=256`。收尾查得非預設 schema／role、其他 clients／databases、public tables 全為 0，再核對 exact container ID/task label 移除容器與空 socket 目錄。只移除可重建的合成資料，程式與 ignored 測試證據保留；主 checkout 的既有 staged 狀態雜湊亦保持相同。
 
 ## 尚未交付
 
