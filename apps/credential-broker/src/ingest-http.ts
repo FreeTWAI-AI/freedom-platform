@@ -106,7 +106,7 @@ export function createCredentialIngestHttp(options:CredentialIngestHttpOptions) 
       }
       const started=performance.now(),bytes=await read({maxBytes,maxChunks:limits.chunks,timeoutMs:limits.bodyMs,
         expiresAt:new Date(Date.now()+limits.bodyMs).toISOString(),monotonicDeadline:started+limits.bodyMs});let value:string;
-      try{value=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}finally{zero(bytes);}
+      try{value=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(bytes);}finally{zero(bytes);}
       if(path.endsWith('/prepare')){
         const input=parseBoundedJson(value);if(!input||typeof input!=='object'||Object.keys(input).length!==1||(input as {consent?:unknown}).consent!==true)rejected();
         const dto=await prepare(token!,csrf!,request.signal);headers.set('Content-Type','application/json; charset=utf-8');return new Response(JSON.stringify(dto),{headers});
