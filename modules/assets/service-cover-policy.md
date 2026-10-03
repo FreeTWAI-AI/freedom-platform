@@ -25,3 +25,11 @@ until a separately authorized migration and recovery procedure clears them.
 Asset reads never fall back to retained database bytes. Worker installation flags,
 R2 bindings, a storage mode, and policy permission are separate prerequisites.
 Other domains remain disabled until their own closed adapters are installed.
+
+The runtime grants template removes all table and column write privileges from
+`domain_media_storage_policy`. It grants SELECT and UPDATE on `policy_lock` only;
+that column is generated as constant zero and accepts only DEFAULT assignments.
+This permits PostgreSQL row locking without granting policy mutation. The guard
+rejects inherited/PUBLIC write privileges, role memberships, administrative role
+attributes, and a missing or mutable lock column. Reapply the grants after migration
+or restore; policy changes require the separate operator/migrator role.
