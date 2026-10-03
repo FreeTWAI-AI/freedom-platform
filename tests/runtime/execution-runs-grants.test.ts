@@ -39,7 +39,7 @@ before(async () => {
     for (const row of statements.rows) await q.query(Object.values(row)[0] as string); await q.query('COMMIT');
   } catch (error) { await q.query('ROLLBACK'); throw error; } finally { q.release(); }
   const check = await readFile(new URL('../../deploy/cloudflare/sql/30-verify-readonly.psql', import.meta.url), 'utf8');
-  checkQuery = check.slice(check.indexOf("SELECT has_table_privilege(:'runtime',c.oid,'SELECT')"))
+  checkQuery = check.split("-- BEGIN PRIVATE POLICY READBACK\n")[1].split("\n-- END PRIVATE POLICY READBACK")[0]
     .replaceAll(":'runtime'", `'${runtime}'`).replace("n.nspname='public'", `n.nspname='${schema}'`);
 });
 after(async () => {

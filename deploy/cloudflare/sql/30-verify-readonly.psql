@@ -25,6 +25,7 @@ SELECT count(*) AS runtime_ledger_write FROM information_schema.role_table_grant
   WHERE grantee = :'runtime' AND table_name = 'schema_migrations' AND privilege_type IN ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE');
 -- Effective privileges include inherited and PUBLIC ACLs, not just direct grants.
 -- Expect one protected policy at 085--092 and two at 093+. Missing rows are not safety evidence.
+-- BEGIN PRIVATE POLICY READBACK
 SELECT has_table_privilege(:'runtime',c.oid,'SELECT') AS private_policy_read,
   has_column_privilege(:'runtime',c.oid,'scope_kind','UPDATE') AS private_policy_lock,
   EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname=:'runtime' AND
@@ -40,6 +41,7 @@ SELECT has_table_privilege(:'runtime',c.oid,'SELECT') AS private_policy_read,
 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
 WHERE n.nspname='public' AND c.relname IN ('private_work_persistence_policy','model_inference_export_policy') AND c.relkind='r'
 ORDER BY c.relname DESC;
+-- END PRIVATE POLICY READBACK
 -- BEGIN DOMAIN MEDIA POLICY READBACK
 -- Exactly one row after migration098+; absence is unavailable, not safe.
 -- The generated lock appears only at100+. Expected after grants: true,true,false.

@@ -19,7 +19,7 @@ before(async () => {
   grantQuery = template.split('-- BEGIN PRIVATE POLICY GRANTS\n')[1].split('\n\\gexec')[0]
     .replaceAll(":'runtime'", `'${runtime}'`).replace("n.nspname='public'", `n.nspname='${schema}'`);
   const check = await readFile(new URL('../../deploy/cloudflare/sql/30-verify-readonly.psql', import.meta.url), 'utf8');
-  checkQuery = check.slice(check.indexOf("SELECT has_table_privilege(:'runtime',c.oid,'SELECT')"))
+  checkQuery = check.split("-- BEGIN PRIVATE POLICY READBACK\n")[1].split("\n-- END PRIVATE POLICY READBACK")[0]
     .replaceAll(":'runtime'", `'${runtime}'`).replace("n.nspname='public'", `n.nspname='${schema}'`);
   await admin.query(`CREATE ROLE ${migrator} NOLOGIN; CREATE ROLE ${runtime} NOLOGIN; CREATE ROLE ${inherited} NOLOGIN;
     CREATE SCHEMA ${schema} AUTHORIZATION ${migrator}; GRANT USAGE ON SCHEMA ${schema} TO ${runtime},${inherited}`);
