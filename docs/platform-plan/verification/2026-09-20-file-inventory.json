@@ -3814,8 +3814,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/README.md",
-      "bytes": 9805,
-      "sha256": "4fc28b6b36eb1a566a0a092885ad28ffc602af3d0804409158e3f04e4f0e160f"
+      "bytes": 9817,
+      "sha256": "161250e679ab516015342af6717b95e51ef835721d3065bdded9a897f92932fe"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
@@ -3824,8 +3824,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 125475,
-      "sha256": "8d0ca777abba6a4c6ae1d1697ad20289829248696cdb9b040e5316dc26b7f66f"
+      "bytes": 130973,
+      "sha256": "e3ad0084701d1b7c43390aed5d763aaf28fcbb201a5380572f6f6514c4464736"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
