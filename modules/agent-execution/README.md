@@ -231,3 +231,21 @@ Main product assembly can explicitly install an opaque reference client instead
 of a local host. Reply metadata is authenticated and then read from owner SQL.
 Missing registry proofs after restart or on another replica cannot be restored
 from JSON, receipts or SQL verified_binding. Production trust remains uninstalled.
+
+## Owner model and credential settings
+
+[Spec21](../../docs/platform-plan/execution/unified-foundation/21-member-model-settings.md)
+adds `createMemberModelSettings` and closed member settings HTTP routes. The
+overview and individual credential history select only safe metadata under
+current member/personal scope and exact environment/client authority. Their
+availability does not depend on provider, recovery or private Work policy.
+The existing ModelConnection and credential-ingest commands keep their own CAS
+and consent; rotation first creates an immutable replacement ModelConnection.
+
+The portal never accepts the provider key. It uses one native form POST to the
+exact HTTPS broker origin captured from the same genuine installed ingest
+client. Only installed HTML documents use strict-origin referrer policy, so
+the broker can require the actual main Origin without receiving paths/queries.
+Model revocation retains custody records and does not delete the encrypted key.
+Configured choices, custody receipts and this settings UI do not prove model
+authentication, provider readiness, execution authority or production trust.
