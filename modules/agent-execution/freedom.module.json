@@ -48,7 +48,8 @@
     "tests/runtime/member-model-settings-process.test.ts",
     "tests/runtime/member-model-settings-helpers.ts",
     "tests/runtime/member-model-settings-fixtures/**",
-    "tests/e2e/model-settings.spec.ts"
+    "tests/e2e/model-settings.spec.ts",
+    "tests/e2e/model-settings-visual.ts"
   ],
   "public_exports": [
     "modules/agent-execution/runs.ts",
