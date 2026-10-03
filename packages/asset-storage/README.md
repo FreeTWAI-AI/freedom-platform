@@ -23,7 +23,7 @@ Only authoritative server policy should be passed. `PersistencePolicy` is delibe
 | `private-text.utf8.v1` | Exact MIME `text/plain` or `text/markdown`; nonempty, at most 256 KiB actual bytes; fatal UTF-8 validation; reject NUL/C0 controls except tab/LF/CR, and DEL | Original bytes including BOM, with no normalization; same MIME |
 | `avatar.webp.v1` | Exact MIME `image/jpeg`, `image/png`, `image/webp`; nonempty, at most 2 MiB; complete static container, at most 4096×4096 | Fully decoded/oriented/resized/metadata-stripped 256×256 WebP, at most 128 KiB; quality 82, effort 3 |
 
-The 256 KiB/nonempty/control-character rules fix this package's proposed first private-text profile; no private upload schema or HTTP activation is claimed. Text is untrusted, including HTML-looking text inside plain text or Markdown. This library does not render, execute, sanitize Markdown, detect embedded secrets or grant publication permission. Rendering must escape text and reject raw HTML/unsafe URLs. Binary/document/script/archive MIME types are unsupported. Neither profile trusts Content-Length; it is not an input.
+The 256 KiB/nonempty/control-character rules fix this package's proposed first private-text profile; no private upload schema or HTTP activation is claimed. Text is untrusted, including HTML-looking text inside plain text or Markdown. This library does not render, execute, sanitize Markdown, detect embedded secrets or grant publication permission. Rendering must escape text and reject raw HTML/unsafe URLs. The original text/avatar preparation APIs reject binary/document/script/archive MIME types. Neither profile trusts Content-Length; it is not an input.
 
 `readBounded` uses one fixed-capacity buffer plus the final snapshot, so many tiny chunks do not grow an unbounded array of retained chunks. It cancels on error/overflow and releases its reader. Transport deadlines and client disconnect cancellation belong to the future HTTP/runtime adapter; a byte bound alone does not time out a stalled stream.
 
@@ -75,3 +75,68 @@ binding, change the default legacy write mode, or enable maintenance.
 DELETE has no ACL or GC eligibility checks. The fake permits a late PUT to recreate a deleted key: permanent tombstones, deletion fences, no-attach checks, live-reference/intent/backup pins, retention and orphan reconciliation belong to the separate DB maintenance service. This package alone does not prove those concurrency guarantees. Never call DELETE from untrusted client input or activate automatic cleanup from this package.
 
 `tests/runtime/asset-storage.test.ts` registers `ASSET-IO-01` through `ASSET-IO-24`: keys/policy, byte/UTF-8 boundaries, error sanitization, policy/metadata await barriers, real decoder constraints, concurrent immutable writes, corrupt/missing read-back, recovery and delete/range behavior, pre-allocation bounds and malformed adapter output. Run `node --import tsx --test tests/runtime/asset-storage.test.ts` and `npm run typecheck`. These use synthetic data and no database/network. PostgreSQL prepare/fence/finalize/GC races, Work ACLs, avatar route integration, real R2/Images, staging/prod, backup/restore and complete UF acceptance remain unverified by this slice.
+
+
+## Purpose profiles and legacy media
+
+`profiles.ts` fixes storage limits for the seven existing media purposes; these
+limits describe stored representations, not permission to upload. The highlight
+thumbnail has its own fixed variant profile. No caller can supply a profile with
+arbitrary caps, MIME types or transform versions.
+
+| Profile ID | Maximum stored bytes | Existing source |
+| --- | --- | --- |
+| `member.avatar` | 128 KiB | `modules/identity-membership/avatars.ts` |
+| `skill.submission-image` | 512 KiB | `modules/skill-submissions/payload.ts` |
+| `community.event-banner` | 512 KiB | `modules/skill-submissions/payload.ts` |
+| `community.event-video` | 20 MiB | `modules/community/events.ts` |
+| `community.event-highlight` | 1 MiB | `modules/community/event-highlights.ts` |
+| `community.event-highlight.thumbnail` | 200 KiB | `modules/community/event-highlights.ts` |
+| `community.social-thumbnail` | 512 KiB | `modules/skill-submissions/payload.ts` |
+| `member.service-cover` | 512 KiB | `modules/skill-submissions/payload.ts` |
+
+Raster legacy profiles permit PNG/JPEG/WebP; video permits MP4/WebM. Media
+metadata carries the exact `profileId` and its fixed `legacy-bytes.v1` transform.
+Changing MIME, purpose, variant or cap cannot borrow the avatar or text profile.
+Existing avatar/text metadata without `profileId`, normalization and caps remain
+unchanged. Common byte-copy, bounded-read and SHA-256 primitives now have an
+independent maximum of 20 MiB; each preparation/writer validates its narrower
+purpose before I/O. The fake and native adapters validate the same metadata.
+
+`prepareLegacyMediaRepresentation(body, mime, profileId, policy)` preserves the
+bytes of an existing domain-validated representation. It checks nonempty bytes,
+actual size, static raster framing (at most 8192 per axis/40 million pixels) or
+the **existing** MP4 `ftyp`/WebM EBML header rules, then records their actual hash.
+Header checks do not prove a complete playable video or decoder success. It is
+not a replacement for new-upload domain decoding, orientation, thumbnail pairing,
+SSRF checks or variant-specific dimensions. Such uploads must retain their
+existing normalizers before preparing stored representations. An invalid legacy
+row remains an exception; this library neither reencodes nor repairs it. The
+media writer rechecks framing/header and digest after snapshotting caller bytes;
+it does not apply the avatar's 256×256 rule to other purposes.
+
+Native media GET and **all** native range GET return lazy exact-length bounded
+streams. They never accumulate a whole object to serve a partial range; byte
+length validation completes as the stream is consumed. Consumer cancellation
+reaches the native reader and releases its lock. Full old avatar/text GET remains
+eager to preserve its existing error timing. Whole `readVerifiedObject` still
+accumulates bounded bytes and checks the full SHA-256 before returning evidence.
+
+`readPinnedObjectRange(store, key, expected, range, expectedEtag)` requires a
+caller-retained metadata/version pin. R2 additionally obtains HEAD and sends a
+conditional native range GET using that ETag, checking returned metadata, version
+and exact range. The helper returns `integrity: 'immutable-etag-range'` and
+`wholeDigestVerified: false`: a partial response **cannot** verify the full
+SHA-256. The pin relies on the adapter's immutable-version semantics and a
+previously verified whole representation; it is not a substitute for ACL,
+attachment readiness or cryptographic proof of partial contents. Native ETags
+remain opaque transport versions, never content hashes. Cancellation and
+truncated/oversized streams may fail after response bytes were delivered; domain
+HTTP wrappers must handle that honestly. No HTTP Range parser or 206/416,
+If-Range, player seek, deployed R2, backfill or cloud configuration is claimed.
+
+`tests/runtime/asset-media-profiles.test.ts` exercises synthetic 20 MiB MP4 bytes
+through shared preparation/writer and local workerd R2 readback, native ranges,
+lazy pull/cancel, stale pins, purpose caps, invalid metadata, fixed header/raster
+checks, distinct non-avatar WebP and uncertain PUT reconciliation. These are
+local storage semantics, not an uploaded real video or cloud delivery proof.

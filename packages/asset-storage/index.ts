@@ -1,3 +1,6 @@
+import { MEDIA_OBJECT_PROFILES, OBJECT_IO_MAX_BYTES, type MediaObjectProfileId, type MediaObjectTransform } from './profiles.js';
+export { MEDIA_OBJECT_PROFILES, OBJECT_IO_MAX_BYTES } from './profiles.js';
+export type { MediaObjectProfileId } from './profiles.js';
 import { assertCompleteRaster } from '../shared/image-container.js';
 import { assertCanonicalWebp } from '../shared/image-webp.js';
 import type { ImageNormalizeSpec } from '../shared/image-runtime.js';
@@ -43,21 +46,34 @@ function persistenceSnapshot(policy: PersistencePolicy): PersistencePolicy {
 export const PRIVATE_TEXT_MAX_BYTES = 256 * 1024;
 export const AVATAR_PROFILE = Object.freeze({ inputMaxBytes: 2 * 1024 * 1024, maxDimension: 4096,
   outputMaxBytes: 128 * 1024, width: 256, height: 256, transformVersion: 'avatar.webp.v1' });
-const contentTypes = ['text/plain', 'text/markdown', 'image/webp'] as const;
+const contentTypes = ['text/plain', 'text/markdown', 'image/webp', 'image/png', 'image/jpeg', 'video/mp4', 'video/webm'] as const;
 export interface ObjectMetadata {
   readonly contentType: typeof contentTypes[number];
   readonly byteSize: number;
   readonly sha256: string;
-  readonly transformVersion: 'private-text.utf8.v1' | 'avatar.webp.v1';
+  readonly transformVersion: 'private-text.utf8.v1' | 'avatar.webp.v1' | MediaObjectTransform;
+  readonly profileId?: MediaObjectProfileId;
   readonly policyRevision: string;
 }
 export interface PreparedRepresentation { readonly bytes: Uint8Array; readonly metadata: ObjectMetadata }
 export function validateMetadata(metadata: ObjectMetadata): void {
-  if (!metadata || !contentTypes.includes(metadata.contentType) || !Number.isSafeInteger(metadata.byteSize)
-    || metadata.byteSize < 1 || typeof metadata.sha256 !== 'string' || metadata.sha256.length !== 64 || !/^[0-9a-f]{64}$/.test(metadata.sha256)
-    || !validPolicyRevision(metadata.policyRevision)) fail('invalid_metadata');
+  try { checkedMetadata(metadata); } catch { fail('invalid_metadata'); }
+}
+function checkedMetadata(metadata: ObjectMetadata): void {
+  if (!metadata || Object.keys(metadata).some(key => !['contentType','byteSize','sha256','transformVersion','policyRevision','profileId'].includes(key))
+    || !contentTypes.includes(metadata.contentType) || !Number.isSafeInteger(metadata.byteSize)
+    || metadata.byteSize < 1 || metadata.byteSize > OBJECT_IO_MAX_BYTES || typeof metadata.sha256 !== 'string'
+    || metadata.sha256.length !== 64 || !/^[0-9a-f]{64}$/.test(metadata.sha256) || !validPolicyRevision(metadata.policyRevision)) fail('invalid_metadata');
+  if (metadata.profileId !== undefined) {
+    if (typeof metadata.profileId !== 'string' || !Object.hasOwn(MEDIA_OBJECT_PROFILES, metadata.profileId)) fail('invalid_metadata');
+    const profile = MEDIA_OBJECT_PROFILES[metadata.profileId];
+    if (!(profile.contentTypes as readonly string[]).includes(metadata.contentType)
+      || metadata.transformVersion !== profile.transformVersion || metadata.byteSize > profile.maxBytes) fail('invalid_metadata');
+    return;
+  }
   const avatar = metadata.contentType === 'image/webp';
-  if (metadata.transformVersion !== (avatar ? AVATAR_PROFILE.transformVersion : 'private-text.utf8.v1')
+  if ((!avatar && metadata.contentType !== 'text/plain' && metadata.contentType !== 'text/markdown')
+    || metadata.transformVersion !== (avatar ? AVATAR_PROFILE.transformVersion : 'private-text.utf8.v1')
     || metadata.byteSize > (avatar ? AVATAR_PROFILE.outputMaxBytes : PRIVATE_TEXT_MAX_BYTES)) fail('invalid_metadata');
 }
 
@@ -65,7 +81,7 @@ export function validateMetadata(metadata: ObjectMetadata): void {
 const typedArrayByteLength = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(Uint8Array.prototype), 'byteLength')!.get!;
 /** Validate before allocating a copy; numeric/array-like inputs are never bytes. */
 export function snapshotBoundedBytes(value: unknown, maxBytes: number): Uint8Array<ArrayBuffer> {
-  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > AVATAR_PROFILE.inputMaxBytes) fail('invalid_metadata');
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > OBJECT_IO_MAX_BYTES) fail('invalid_metadata');
   if (!(value instanceof Uint8Array) || !ArrayBuffer.isView(value)) fail('invalid_content');
   const size = typedArrayByteLength.call(value) as number;
   if (size > maxBytes) fail('too_large');
@@ -75,7 +91,7 @@ export function snapshotBoundedBytes(value: unknown, maxBytes: number): Uint8Arr
 /** Bounded accumulation for small profiles. Content-Length is never trusted.
  * Cancels on overflow/error, releases its reader and never reports raw input. */
 export async function readBounded(body: ReadableStream<Uint8Array>, maxBytes: number): Promise<Uint8Array> {
-  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > AVATAR_PROFILE.inputMaxBytes) fail('invalid_metadata');
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > OBJECT_IO_MAX_BYTES) fail('invalid_metadata');
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   const buffer = new Uint8Array(maxBytes);
   let size = 0;
@@ -102,7 +118,7 @@ export async function readBounded(body: ReadableStream<Uint8Array>, maxBytes: nu
   }
 }
 export async function sha256(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', snapshotBoundedBytes(bytes, AVATAR_PROFILE.inputMaxBytes));
+  const digest = await crypto.subtle.digest('SHA-256', snapshotBoundedBytes(bytes, OBJECT_IO_MAX_BYTES));
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 function validateText(bytes: Uint8Array): void {
@@ -167,7 +183,7 @@ export interface VerifiedObject { readonly key: AssetObjectKey; readonly metadat
 export interface VerifiedObjectBytes extends VerifiedObject { readonly bytes: Uint8Array }
 function sameMetadata(actual: ObjectMetadata, expected: ObjectMetadata): boolean {
   return actual.contentType === expected.contentType && actual.byteSize === expected.byteSize && actual.sha256 === expected.sha256
-    && actual.transformVersion === expected.transformVersion && actual.policyRevision === expected.policyRevision;
+    && actual.transformVersion === expected.transformVersion && actual.policyRevision === expected.policyRevision && actual.profileId === expected.profileId;
 }
 /** One bounded GET: only these exact digest-verified bytes may be served. */
 export async function readVerifiedObject(store: ObjectStore, key: AssetObjectKey, expected: ObjectMetadata): Promise<VerifiedObjectBytes> {
@@ -197,10 +213,78 @@ export async function writeVerifiedObject(store: ObjectStore, key: AssetObjectKe
   if (metadata.policyRevision !== policy.revision) fail('invalid_policy');
   const bytes = snapshotBoundedBytes(value.bytes, metadata.byteSize);
   if (bytes.byteLength !== metadata.byteSize || await sha256(bytes) !== metadata.sha256) fail('integrity_mismatch');
-  if (metadata.contentType === 'image/webp') {
+  if (metadata.profileId !== undefined) validateLegacyMediaBytes(bytes, metadata.contentType);
+  else if (metadata.contentType === 'image/webp') {
     try { assertCanonicalWebp(bytes, 256, 256); } catch { fail('invalid_content'); }
   } else validateText(bytes);
   try { await store.putImmutable(key, { bytes, metadata }); }
   catch { /* Network failure can be after commit; reconcile actual bytes below. */ }
   return verifyObject(store, key, metadata);
+}
+
+function validateLegacyMediaBytes(bytes: Uint8Array, mime: string): void {
+  if (!bytes.byteLength) fail('empty_content');
+  if (mime === 'video/mp4') {
+    if (bytes.length < 12 || String.fromCharCode(...bytes.subarray(4,8)) !== 'ftyp') fail('invalid_content');
+  } else if (mime === 'video/webm') {
+    if (bytes.length < 4 || ![0x1a,0x45,0xdf,0xa3].every((byte,index)=>bytes[index]===byte)) fail('invalid_content');
+  } else {
+    try { assertCompleteRaster(bytes, mime.slice(6) as 'png'|'jpeg'|'webp', 8192, 40_000_000); }
+    catch { fail('invalid_content'); }
+  }
+}
+/** Byte-preserving legacy representation preparation. Caller resolves domain
+ * policy/variant first; this does not normalize uploads or approve exceptions. */
+export async function prepareLegacyMediaRepresentation(body: ReadableStream<Uint8Array>, contentType: string,
+  profileId: MediaObjectProfileId, policy: PersistencePolicy): Promise<PreparedRepresentation> {
+  policy = persistenceSnapshot(policy);
+  if (typeof profileId !== 'string' || !Object.hasOwn(MEDIA_OBJECT_PROFILES, profileId)) fail('invalid_metadata');
+  const profile = MEDIA_OBJECT_PROFILES[profileId];
+  if (!(profile.contentTypes as readonly string[]).includes(contentType)) fail('unsupported_content_type');
+  const bytes = await readBounded(body, profile.maxBytes);
+  validateLegacyMediaBytes(bytes, contentType);
+  return Object.freeze({bytes,metadata:Object.freeze({profileId,contentType:contentType as ObjectMetadata['contentType'],
+    byteSize:bytes.byteLength,sha256:await sha256(bytes),transformVersion:profile.transformVersion,policyRevision:policy.revision})});
+}
+
+/** Pull-based exact-length stream. No full-object allocation; malformed lengths
+ * fail while consuming, cancellation propagates to the native reader. */
+export function boundedObjectStream(body: ReadableStream<Uint8Array>, size: number): ReadableStream<Uint8Array> {
+  if (!Number.isSafeInteger(size) || size < 1 || size > OBJECT_IO_MAX_BYTES) fail('invalid_metadata');
+  let reader: ReadableStreamDefaultReader<Uint8Array>;
+  try { reader = body.getReader(); } catch { fail('object_unavailable'); }
+  let count=0,closed=false;
+  function release() { if (!closed) { closed=true; try {reader.releaseLock();} catch {fail('object_unavailable');} } }
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      let next: ReadableStreamReadResult<Uint8Array>;
+      try {next=await reader.read();} catch {try{await reader.cancel();}catch{}try{release();}catch{}controller.error(new AssetStorageError('object_unavailable'));return;}
+      try {
+        if(next.done){if(count!==size)fail('integrity_mismatch');release();controller.close();return;}
+        const chunk=snapshotBoundedBytes(next.value,size-count || 1);
+        if(chunk.length>size-count)fail('too_large');count+=chunk.length;controller.enqueue(chunk);
+      } catch(error) {
+        try{await reader.cancel();}catch{}try{release();}catch{}
+        controller.error(new AssetStorageError(error instanceof AssetStorageError ? error.code : 'invalid_content'));
+      }
+    },
+    async cancel() {try{await reader.cancel();}catch{}finally{release();}},
+  },{highWaterMark:0});
+}
+export interface PinnedObjectRange extends ObjectHead {
+  readonly key: AssetObjectKey; readonly body: ReadableStream<Uint8Array>; readonly range: ObjectRange;
+  readonly integrity: 'immutable-etag-range'; readonly wholeDigestVerified: false;
+}
+/** Partial bytes are not SHA-256 evidence for the full object. The caller must
+ * retain verified immutable-object metadata and its opaque version/ETag pin. */
+export async function readPinnedObjectRange(store:ObjectStore,key:AssetObjectKey,expected:ObjectMetadata,
+  range:ObjectRange,expectedEtag:string):Promise<PinnedObjectRange> {
+  assertObjectKey(key);expected=Object.freeze({...expected});validateMetadata(expected);
+  const requested=Object.freeze({offset:range.offset,length:range.length});validateRange(requested,expected.byteSize);
+  if(typeof expectedEtag!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(expectedEtag))fail('invalid_metadata');
+  let object:StoredObject|null;try{object=await store.get(key,requested);}catch{fail('object_unavailable');}
+  if(!object)fail('object_unavailable');
+  if(!sameMetadata(object.metadata,expected)||object.etag!==expectedEtag){try{await object.body.cancel();}catch{}fail('integrity_mismatch');}
+  return Object.freeze({key,metadata:expected,etag:expectedEtag,range:requested,
+    body:boundedObjectStream(object.body,requested.length),integrity:'immutable-etag-range',wholeDigestVerified:false});
 }

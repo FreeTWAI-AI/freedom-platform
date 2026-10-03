@@ -4,7 +4,8 @@ import { assertObjectKey, AssetStorageError, sha256, snapshotBoundedBytes, valid
 export type FakeStoreFault = 'put-before' | 'put-after' | 'get' | 'delete-before' | 'delete-after';
 /** Test-only store. No ACL, database lifecycle, GC eligibility or cloud claims. */
 export class FakeObjectStore implements ObjectStore {
-  private readonly objects = new Map<AssetObjectKey, PreparedRepresentation>();
+  private readonly objects = new Map<AssetObjectKey, PreparedRepresentation & {readonly etag:string}>();
+  private version=0n;
   private readonly faults: FakeStoreFault[] = [];
   failNext(fault: FakeStoreFault): void { this.faults.push(fault); }
   private fault(fault: FakeStoreFault): void {
@@ -20,17 +21,17 @@ export class FakeObjectStore implements ObjectStore {
     if (current) {
       if (current.metadata.sha256 !== metadata.sha256 || current.metadata.byteSize !== metadata.byteSize
         || current.metadata.contentType !== metadata.contentType || current.metadata.transformVersion !== metadata.transformVersion
-        || current.metadata.policyRevision !== metadata.policyRevision) throw new AssetStorageError('object_conflict');
+        || current.metadata.policyRevision !== metadata.policyRevision || current.metadata.profileId !== metadata.profileId) throw new AssetStorageError('object_conflict');
       return 'exists';
     }
-    this.objects.set(key, { bytes, metadata });
+    this.objects.set(key, { bytes, metadata, etag:'fake-version-'+(++this.version) });
     this.fault('put-after');
     return 'created';
   }
   async head(key: AssetObjectKey): Promise<ObjectHead | null> {
     assertObjectKey(key);
     const value = this.objects.get(key);
-    return value ? { metadata: Object.freeze({ ...value.metadata }), etag: 'fake-etag-not-a-digest' } : null;
+    return value ? { metadata: Object.freeze({ ...value.metadata }), etag: value.etag } : null;
   }
   async get(key: AssetObjectKey, range?: ObjectRange): Promise<StoredObject | null> {
     assertObjectKey(key); this.fault('get');
@@ -38,7 +39,7 @@ export class FakeObjectStore implements ObjectStore {
     if (!value) return null;
     if (range) validateRange(range, value.bytes.byteLength);
     const bytes = range ? value.bytes.slice(range.offset, range.offset + range.length) : value.bytes.slice();
-    return { metadata: Object.freeze({ ...value.metadata }), etag: 'fake-etag-not-a-digest',
+    return { metadata: Object.freeze({ ...value.metadata }), etag: value.etag,
       body: new ReadableStream({ start(controller) { controller.enqueue(bytes); controller.close(); } }) };
   }
   async delete(key: AssetObjectKey): Promise<'deleted' | 'missing'> {

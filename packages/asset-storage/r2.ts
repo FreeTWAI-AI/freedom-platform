@@ -1,5 +1,5 @@
 import type { R2Bucket, R2Object, R2ObjectBody } from '@cloudflare/workers-types';
-import { assertObjectKey, AssetStorageError, PRIVATE_TEXT_MAX_BYTES, readBounded, sha256, snapshotBoundedBytes,
+import { assertObjectKey, AssetStorageError, OBJECT_IO_MAX_BYTES, boundedObjectStream, readBounded, sha256, snapshotBoundedBytes,
   validateMetadata, validateRange, type AssetObjectKey, type ObjectHead, type ObjectMetadata, type ObjectRange,
   type ObjectStore, type PreparedRepresentation, type StoredObject } from './index.js';
 
@@ -17,7 +17,8 @@ function checkedMetadataOf(object: R2Object, key: AssetObjectKey): ObjectHead {
   const metadata = Object.freeze({ contentType: object.httpMetadata?.contentType,
     byteSize: object.size, sha256: object.customMetadata.sha256,
     transformVersion: object.customMetadata.transform_version,
-    policyRevision: object.customMetadata.policy_revision }) as ObjectMetadata;
+    policyRevision: object.customMetadata.policy_revision,
+    ...(object.customMetadata.profile_id !== undefined ? {profileId:object.customMetadata.profile_id} : {}) }) as ObjectMetadata;
   validateMetadata(metadata);
   // Never expose arbitrary upstream metadata, response headers or bucket names.
   if (typeof object.etag !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(object.etag)) throw mismatch();
@@ -66,14 +67,14 @@ export function createR2ObjectStore(binding: AssetR2Binding, options: { allowDel
       try {
         result = await put(key, bytes, { onlyIf: { etagDoesNotMatch: '*' }, sha256: metadata.sha256,
           httpMetadata: { contentType: metadata.contentType }, customMetadata: { format: FORMAT,
-            sha256: metadata.sha256, transform_version: metadata.transformVersion, policy_revision: metadata.policyRevision } });
+            sha256: metadata.sha256, transform_version: metadata.transformVersion, policy_revision: metadata.policyRevision, ...(metadata.profileId ? {profile_id:metadata.profileId} : {}) } });
       } catch { throw unavailable(); } // outcome may be unknown; never retry a PUT here
       // Exists does not assert equivalent content; writeVerifiedObject reconciles
       // with a full GET and actual digest, including uncertain PUT outcomes.
       if (result === null) return 'exists';
       const observed = metadataOf(result, key).metadata;
       if (observed.contentType !== metadata.contentType || observed.byteSize !== metadata.byteSize || observed.sha256 !== metadata.sha256
-        || observed.transformVersion !== metadata.transformVersion || observed.policyRevision !== metadata.policyRevision) throw mismatch();
+        || observed.transformVersion !== metadata.transformVersion || observed.policyRevision !== metadata.policyRevision || observed.profileId !== metadata.profileId) throw mismatch();
       return 'created';
     },
     async head(key: AssetObjectKey): Promise<ObjectHead | null> {
@@ -86,7 +87,7 @@ export function createR2ObjectStore(binding: AssetR2Binding, options: { allowDel
       assertObjectKey(key);
       const requested = range === undefined ? undefined : Object.freeze({ offset: range.offset, length: range.length });
       if (requested && (!Number.isSafeInteger(requested.offset) || requested.offset < 0 || !Number.isSafeInteger(requested.length)
-        || requested.length < 1 || requested.length > PRIVATE_TEXT_MAX_BYTES)) throw new AssetStorageError('invalid_range');
+        || requested.length < 1 || requested.length > OBJECT_IO_MAX_BYTES)) throw new AssetStorageError('invalid_range');
       let etag: string | undefined;
       if (requested) {
         let current: R2Object | null;
@@ -107,7 +108,12 @@ export function createR2ObjectStore(binding: AssetR2Binding, options: { allowDel
             || !('length' in result.range) || result.range.length !== requested.length) throw mismatch();
         } else if (result.range && (!('offset' in result.range) || result.range.offset !== 0
           || !('length' in result.range) || result.range.length !== found.metadata.byteSize)) throw mismatch();
-        const bytes = await bytesOf(result, requested?.length ?? found.metadata.byteSize);
+        // Native range reads and large media preserve pull-based backpressure.
+        // Small legacy avatar/text full GET behavior remains eager for compatibility.
+        if (requested || found.metadata.profileId !== undefined) {
+          return Object.freeze({...found,body:boundedObjectStream(result.body as unknown as ReadableStream<Uint8Array>,requested?.length ?? found.metadata.byteSize)});
+        }
+        const bytes = await bytesOf(result, found.metadata.byteSize);
         return Object.freeze({ ...found, body: new ReadableStream<Uint8Array>({ start(c) { c.enqueue(bytes); c.close(); } }) });
       } catch (error) {
         try { await result.body.cancel(); } catch { /* cancel cannot mask failure */ }
