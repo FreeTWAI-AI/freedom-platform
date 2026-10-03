@@ -57,11 +57,11 @@ before(async () => {
   const template = await readFile(new URL('../../deploy/cloudflare/sql/20-runtime-grants.psql',import.meta.url),'utf8');
   const prefix = template.slice(template.indexOf('BEGIN;'),template.indexOf('-- BEGIN PRIVATE POLICY GRANTS'))
     .replaceAll('SCHEMA public',`SCHEMA ${schema}`).replaceAll(':"runtime"',`"${runtime}"`);
-  const grants = template.split('-- BEGIN PRIVATE POLICY GRANTS\n')[1].split('\n\\gexec')[0]
-    .replaceAll(":'runtime'",`'${runtime}'`).replace("n.nspname='public'",`n.nspname='${schema}'`);
+  const exclusions = ['PRIVATE POLICY GRANTS','BROKER CREDENTIAL EXCLUSIONS','MODEL BROKER AUTHORIZATION EXCLUSIONS'].map(marker=>
+    template.split('-- BEGIN '+marker+'\n')[1].split('\n\\gexec')[0].replaceAll(":'runtime'",`'${runtime}'`).replace("n.nspname='public'",`n.nspname='${schema}'`));
   const q = await owner.connect();
-  try { await q.query(prefix); const rows=await q.query(grants); assert.equal(rows.rowCount,2);
-    for (const row of rows.rows) await q.query(Object.values(row)[0] as string); await q.query('COMMIT'); }
+  try { await q.query(prefix);for(const exclusion of exclusions){const rows=await q.query(exclusion);assert.equal(rows.rowCount,2);
+    for(const row of rows.rows)await q.query(Object.values(row)[0] as string);}await q.query('COMMIT'); }
   catch(error) { await q.query('ROLLBACK'); throw error; } finally { q.release(); }
   tlsDirectory=await mkdtemp(join(tmpdir(),'fp-device-browser-tls-'));
   const generated=spawnSync('openssl',['req','-x509','-newkey','ec','-pkeyopt','ec_paramgen_curve:P-256','-nodes','-days','1',
@@ -227,7 +227,8 @@ test('DEVICE-BROWSER actual TLS portal reviews and approves bootstrap-only pairi
 });
 test('DEVICE-BROWSER actual portal revokes owner connection and blocks issued status, nonce and refresh',{timeout:60000},async()=>{
   const f=await uiPair();
-  await f.page.reload();await f.panel.getByLabel('管理的裝置連線',{exact:true}).selectOption(f.issued.connectionId);
+  await f.page.reload();
+  await f.panel.getByLabel('管理的裝置連線').selectOption(f.issued.connectionId);
   await f.panel.getByRole('checkbox',{name:'我確認撤銷目前選取的裝置連線。',exact:true}).check();
   const revoked=f.page.waitForResponse(response=>response.url()===origin+paths.list+'/'+f.issued.connectionId+':revoke'&&response.request().method()==='POST');
   await f.panel.getByRole('button',{name:'撤銷裝置連線',exact:true}).click();const response=await revoked;assert.equal(response.status(),200);
