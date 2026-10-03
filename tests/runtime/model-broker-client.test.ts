@@ -197,3 +197,35 @@ test('CLIENT-04 actual 45 second main timeout prevents a new exchange after bloc
   assert.equal(exchanges,0,'late predispatch recovery must not initiate a new broker exchange');
   assert.equal((await owner.query('SELECT count(*)::int n FROM model_text_steps')).rows[0].n,0);
 });
+
+test('CLIENT-05 original session revoked during the final recovery await prevents genuine Step metadata delivery',async()=>{
+  const f=await authorized(),accepted=await authority.claim(f.payload);
+  const server=createServer((req,res)=>{res.setHeader('Content-Type','application/json');assert.equal(req.method,'GET');res.end(JSON.stringify({id:'synthetic-model',object:'model',created:0,owned_by:'synthetic-fixture'}));});
+  await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));
+  let release!:()=>void,entered!:()=>void,metadataReturns=0,recoveryCount=0;
+  const gate=new Promise<void>(r=>{release=r;}),blocked=new Promise<void>(r=>{entered=r;});
+  try {
+    const address=server.address();assert(address&&typeof address==='object');
+    const resolver=await store.createResolver(f.actor,authority.read(accepted.invocation).credentialPin);
+    const host=createLocalFixtureModelStepHost({environment:'local',origin:`http://127.0.0.1:${address.port}`,recover,resolveCredential:resolver});
+    const actualSteps=createModelStepService(app,{...options,host});
+    const step=await actualSteps.activate(f.actor,f.input.command.input,q=>authority.assertCurrent(q,accepted.invocation));
+    // This is the final main recovery observation for a same-key activation
+    // reply. The original SQL authorization/receipt already exists; no new
+    // activation or provider dispatch is requested by this metadata reply.
+    const mainRecovery=async()=>{if(++recoveryCount===6){entered();await gate;}return {generation:'1',expiresAt:new Date(Date.now()+120000).toISOString()};};
+    const keys=await clientOptions(async()=>{throw Error('unused');},mainRecovery);
+    const client=await createModelBrokerClient(app,{...keys.opts,exchange:request=>signResponse(responsePayload(request,{outcome:{kind:'metadata',step}}),keys.responseKeys.privateKey as CryptoKey)});
+    const pending=bindModelBrokerClient(client,app,mainOrigin,'local',options.clientId).activate(f.actor,f.input.command.input)
+      .then(value=>{metadataReturns++;return {kind:'metadata' as const,stepId:value.stepId};},error=>({kind:'rejected' as const,code:error.code}));
+    await Promise.race([blocked,pending.then(()=>{throw Error('Expected final recovery barrier was not reached');})]);
+    await owner.query('UPDATE sessions SET revoked_at=clock_timestamp() WHERE token_hash=$1',[f.actor.session_hash]);
+    assert((await owner.query('SELECT revoked_at FROM sessions WHERE token_hash=$1',[f.actor.session_hash])).rows[0].revoked_at);
+    release();
+    const outcome=await pending;
+    assert.equal(outcome.kind,'rejected','A signed response must not disclose Step metadata after original session revocation commits during the final recovery await');
+    assert.equal(metadataReturns,0);assert.equal(recoveryCount,6);
+    assert.equal((await owner.query('SELECT count(*)::int n FROM model_text_steps WHERE step_id=$1',[step.stepId])).rows[0].n,1);
+    assert.equal((await owner.query('SELECT count(*)::int n FROM private_model_work_results')).rows[0].n,0);
+  } finally {release?.();await new Promise<void>((r,j)=>server.close(e=>e?j(e):r()));}
+});

@@ -204,7 +204,7 @@ export function createModelStepService(pool:Pool, rawOptions:{environment:c.Mode
     if(result.stepId===binding.stepId && !proofs.has(result.stepId))proofs.set(result.stepId,verified);return result;
   }
   async function read(actor:Actor,raw:c.ModelStepReadInput,invocation?:ModelStepInvocationGuard) {const guard=captureModelStepInvocation(invocation);actor=Object.freeze({...actor});const input=parse(c.ReadSchema,raw);
-    return withMemberScope(pool,{actor,scope:'personal'},async()=>{},async(q,context)=>{const value=metadata((await locateStep(q,actor,context,input.stepId,false)).step!);await guard(q);return value;});}
+    return withMemberScope(pool,{actor,scope:'personal'},async()=>{},async(q,context)=>{const value=metadata((await locateStep(q,actor,context,input.stepId,false)).step!);await guard(q);await now(q,actor);return value;});}
   async function begin(actor:Actor,raw:c.ModelStepBeginInput,invocation?:ModelStepInvocationGuard):Promise<{metadata:c.ModelStepMetadata;capability:OpaqueModelStepCapability|null}> {
     const guard=captureModelStepInvocation(invocation);actor=Object.freeze({...actor});const input=parse(c.BeginSchema,raw),operation='execution.model-step.begin';let b!:BindingRows,fresh=false;
     const validate=async(q:PoolClient)=>{await current(q,actor,b,true);if(b.step!.state==='reserved')checkVersion(b.step!.aggregate_version,input.expectedVersion);

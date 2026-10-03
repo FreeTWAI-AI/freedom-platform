@@ -42,6 +42,9 @@ canonical base64url；JSON 拒絕 duplicate keys、未知欄位與過量 bytes�
 Wire 回應只含經驗證的 safe Step metadata 或固定 problem code，
 `operational_authority:false`。主 API 重驗方向、nonce、ref、digest、generation
 及期限後，從當前本人 SQL 重讀 metadata；回應不能製造 Step、Result 或執行權。
+所有外部 recovery 等待須先完成，activation 的 approval binding 與最後 session
+clock 在同一個 owner SQL 交易核對；交易返回後只做同步 deadline check，不能
+再等待外部來源後交付舊 metadata。
 
 ## 原始本人 session 與一次性 admission
 

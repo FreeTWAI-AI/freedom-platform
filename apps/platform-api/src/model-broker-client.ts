@@ -94,12 +94,17 @@ export async function createModelBrokerClient(pool:Pool,options:ModelBrokerClien
         if(command.operation==='execute'&&response.outcome.step.stepId!==command.input.stepId)unavailable();
         // Signed metadata cannot manufacture a Step, an opaque proof or Result.
         // Read existing owner/session-authorized SQL after verifying the reply.
-        const latest=await steps.read(actor,{stepId:response.outcome.step.stepId});
-        if(command.operation==='activate'){
-          const q=await pool.query('SELECT approval_id FROM model_text_steps WHERE step_id=$1 AND owner_user_id=$2',[latest.stepId,actor.user_id]);
-          if(q.rows[0]?.approval_id!==command.input.approvalId)unavailable();
-        }
-        await freshRecovery();return latest;
+        await freshRecovery();
+        const stepId=response.outcome.step.stepId;
+        const latest=await steps.read(actor,{stepId},async q=>{
+          if(command.operation==='activate'){
+            const row=await q.query('SELECT approval_id FROM model_text_steps WHERE step_id=$1 AND owner_user_id=$2',[stepId,actor.user_id]);
+            if(row.rows[0]?.approval_id!==command.input.approvalId)unavailable();
+          }
+          active();
+        });
+        // No recovery/network await after the final owner/session transaction.
+        active();return latest;
       };
       return await Promise.race([perform(),new Promise<never>((_,reject)=>{timer=setTimeout(()=>{cancelled=true;reject(new Problem(503,'model_broker_unavailable','Model execution is unavailable.'));},45_000);})]);
     } catch(error){if(error instanceof Problem&&error.code.startsWith('model_broker_')||error instanceof Problem&&error.code.startsWith('model_step_'))throw error;return unavailable();}

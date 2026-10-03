@@ -129,8 +129,8 @@
     },
     {
       "path": "apps/platform-api/src/model-broker-client.ts",
-      "bytes": 10146,
-      "sha256": "531ab44969f4327585ef84191c50bd199fef67fa659f925ce193574ad38edcac"
+      "bytes": 10309,
+      "sha256": "9cdbf49e239a690db38e7431dc4691f7f939b4b886199894150049e0144ef003"
     },
     {
       "path": "apps/platform-api/src/module-context.ts",
@@ -3809,8 +3809,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/19-authenticated-broker-bridge.md",
-      "bytes": 9494,
-      "sha256": "73bdbe9b36955cbff13abb18f995a9088d2f2dc40770fd38067045383f8b5872"
+      "bytes": 9729,
+      "sha256": "5a03e9c43987e638bca6451c159ded7df01777a658151a5d335772be8258f888"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/README.md",
@@ -4699,8 +4699,8 @@
     },
     {
       "path": "modules/agent-execution/model-step-service.ts",
-      "bytes": 37504,
-      "sha256": "20269f3332b343860986b729f0e89e2dff7d09dcfa041342a040c34455d3f958"
+      "bytes": 37523,
+      "sha256": "ba4116d5b25c75d8c0089515cbd6b6ef178276d600e4b772c863d2b3d71fe987"
     },
     {
       "path": "modules/agent-execution/model-step-state.ts",
@@ -7009,8 +7009,8 @@
     },
     {
       "path": "tests/runtime/model-broker-client.test.ts",
-      "bytes": 20040,
-      "sha256": "c8b08dd0124438b149d3c0b6be9dc4cebe903eec95e5354d8d9dd43e78514cb4"
+      "bytes": 23157,
+      "sha256": "0f0659300a46d1779d75dbe041ac83ad670182e555e73c2f1cf1f63d035e240e"
     },
     {
       "path": "tests/runtime/model-broker-process.test.ts",
