@@ -18,7 +18,7 @@ import type { CredentialVault, OpaqueSealedCredential } from './vault.js';
 declare const writeBrand: unique symbol;
 export interface OpaqueCredentialWriteIntent { readonly [writeBrand]: never }
 interface WriteIntent {
-  store: object; actor: Actor; binding: c.ModelCredentialBinding; deadline: number;
+  store: object; actor: Actor; binding: c.ModelCredentialBinding; deadline: number; monotonic: number; guard: CredentialWriteInvocationGuard;
   input: c.ModelCredentialCreate | c.ModelCredentialRotate; kind: 'create' | 'rotate';
 }
 const intents = new WeakMap<object, WriteIntent>();
@@ -59,6 +59,22 @@ async function port<T>(operation: () => Promise<T>, discard?: (late: T) => void,
     timer = setTimeout(() => { expired = true; reject(new Error('broker_authority_unavailable')); }, budgetMs);
   })]); } catch { invalid(); throw new Error('broker_authority_unavailable'); }
   finally { if (timer) clearTimeout(timer); }
+}
+export type CredentialWriteInvocationGuard = (q: PoolClient) => Promise<void>;
+const localWriteGuard: CredentialWriteInvocationGuard = async () => {};
+function captureWriteGuard(guard?: CredentialWriteInvocationGuard): CredentialWriteInvocationGuard {
+  if (guard === undefined) return localWriteGuard;
+  requireCondition(typeof guard === 'function', 409, 'broker_write_intent_required', 'Private write guard required.');
+  return guard;
+}
+function assertIntentTime(data: WriteIntent) {
+  if (Date.now() >= data.deadline || performance.now() >= data.monotonic || Date.parse(data.binding.expiresAt) <= Date.now()) invalid();
+}
+export function getCredentialWriteIntentMetadata(intent: OpaqueCredentialWriteIntent): Readonly<{ binding: c.ModelCredentialBinding; expiresAt: string }> {
+  const data = intent && typeof intent === 'object' ? intents.get(intent) : undefined;
+  requireCondition(data, 409, 'broker_write_intent_required', 'Private write intent required.');
+  assertIntentTime(data);
+  return Object.freeze({ binding: data.binding, expiresAt: new Date(Math.min(data.deadline, Date.parse(data.binding.expiresAt))).toISOString() });
 }
 export function getCredentialWriteBinding(intent: OpaqueCredentialWriteIntent): c.ModelCredentialBinding {
   const data = intent && typeof intent === 'object' ? intents.get(intent) : undefined;
@@ -164,11 +180,14 @@ export function createBrokerCredentialStore(pool: Pool, options: {
     }
     if (b.model.state !== 'unverified') invalid(); return { time, recoveryExpiresAt: null };
   }
-  async function prepare(actorRaw: Actor, raw: unknown, kind: 'create' | 'rotate') {
+  async function prepare(actorRaw: Actor, raw: unknown, kind: 'create' | 'rotate', invocation?: CredentialWriteInvocationGuard) {
+    const guard = captureWriteGuard(invocation), started = performance.now();
+    const active = () => { if (performance.now() - started >= 30_000) invalid(); };
     const actor = captureActor(actorRaw);
     const input = kind === 'create' ? parse(c.ModelCredentialCreateSchema, raw) : parse(c.ModelCredentialRotateSchema, raw);
-    const r = await recovery();
+    const r = await recovery(); active();
     const data = await withMemberScope(pool, { actor, scope: 'personal' }, q => eligible(q, actor), async (q, context) => {
+      await guard(q); active(); await stamp(q, actor);
       await ownerLock(q, context);
       let generation = '1';
       if (kind === 'rotate') {
@@ -189,18 +208,26 @@ export function createBrokerCredentialStore(pool: Pool, options: {
         runtimeDeviceId: b.model.runtime_device_id, connectionId: b.model.connection_id, familyId: b.model.family_id,
         selection: b.model.selection, recoveryGeneration: r.generation, issuedAt: now.toISOString(),
         expiresAt: new Date(Math.min(now.getTime() + ttl * 1000, b.connection.expires_at.getTime(), b.family.expires_at.getTime(), Date.parse(r.expiresAt))).toISOString() });
-      await current(q, actor, b, binding);
-      return { store: identity, actor, input, kind, binding, deadline: now.getTime() + 30_000 };
+      await current(q, actor, b, binding); await guard(q); active();
+      const finalTime = await stamp(q, actor); active();
+      const deadline = now.getTime() + 30_000;
+      if (finalTime.getTime() >= deadline || Date.now() >= deadline) invalid();
+      return { store: identity, actor, input, kind, binding, deadline, guard, monotonic: performance.now() + Math.max(0, deadline - Date.now()) };
     });
+    active(); assertIntentTime(data);
     const intent = Object.freeze(Object.create(null)) as OpaqueCredentialWriteIntent;
     intents.set(intent, data); return intent;
   }
-  async function commit(actorRaw: Actor, handle: OpaqueCredentialWriteIntent, sealed: OpaqueSealedCredential): Promise<c.ModelCredentialMetadata> {
+  async function commit(actorRaw: Actor, handle: OpaqueCredentialWriteIntent, sealed: OpaqueSealedCredential, invocation?: CredentialWriteInvocationGuard): Promise<c.ModelCredentialMetadata> {
+    const suppliedGuard = captureWriteGuard(invocation);
     const actor = captureActor(actorRaw), data = handle && typeof handle === 'object' ? intents.get(handle) : undefined;
     requireCondition(data, 409, 'broker_write_intent_required', 'Current private write intent required.');
     requireCondition(data.store === identity && equal(actor, data.actor), 409, 'broker_write_intent_required', 'Current private write intent required.');
+    const guard: CredentialWriteInvocationGuard = async q => { await data.guard(q); if (suppliedGuard !== data.guard) await suppliedGuard(q); };
+    assertIntentTime(data);
     // Authenticated private vault provenance precedes any domain SQL mutation.
     const envelope = parse(c.BrokerCredentialEnvelopeSchema, await port(async () => vault.readSealedCredential(sealed, data.binding)));
+    assertIntentTime(data);
     const input = data.input, operation = `broker.credential.${data.kind}`, binding = data.binding;
     let b!: Backing, old: CredentialRow | undefined, applied = false;
     const validate = async (q: PoolClient, context: MemberScopeContext) => {
@@ -219,8 +246,11 @@ export function createBrokerCredentialStore(pool: Pool, options: {
       if (now.getTime() >= data.deadline || context.subject_principal.principal_id !== binding.ownerPrincipalId || context.scope.scope_id !== binding.scopeId) invalid();
       const found = (await q.query<CredentialRow>('SELECT credential_id,binding,state,aggregate_version::text,terminal_at,replacement_credential_id FROM broker_model_credentials WHERE model_connection_id=$1 FOR UPDATE', [binding.modelConnectionId])).rows[0];
       if (found && (found.credential_id !== binding.credentialId || found.state !== 'active' || !equal(parse(c.ModelCredentialBindingSchema, found.binding), binding))) invalid();
+      await guard(q); assertIntentTime(data);
+      const finalTime = await stamp(q, actor); assertIntentTime(data);
+      if (finalTime.getTime() >= data.deadline) invalid();
     };
-    return scopedMemberCommand(pool, { actor, scope: 'personal', operation, key: input.key,
+    const result = await scopedMemberCommand(pool, { actor, scope: 'personal', operation, key: input.key,
       target: { kind: 'model_connection', id: binding.modelConnectionId },
       body: { environment, clientId, input, binding, sealedSha256: hash(envelope) } }, validate,
     async (q, context) => {
@@ -245,6 +275,7 @@ export function createBrokerCredentialStore(pool: Pool, options: {
         data: { state: 'active', generation: binding.generation, modelConnectionId: binding.modelConnectionId } });
       return metadata(row);
     }, validate);
+    assertIntentTime(data); return result;
   }
   async function read(actorRaw: Actor, raw: c.ModelCredentialRead): Promise<c.ModelCredentialMetadata> {
     const actor = captureActor(actorRaw), input = parse(c.ModelCredentialReadSchema, raw);
@@ -376,6 +407,6 @@ export function createBrokerCredentialStore(pool: Pool, options: {
       } finally { cancelled = true; key?.fill(0); }
     };
   }
-  return Object.freeze({ prepareCreate: (actor: Actor, input: c.ModelCredentialCreate) => prepare(actor,input,'create'),
-    prepareRotate: (actor: Actor, input: c.ModelCredentialRotate) => prepare(actor,input,'rotate'), commit, read, revoke, createResolver });
+  return Object.freeze({ prepareCreate: (actor: Actor, input: c.ModelCredentialCreate, guard?: CredentialWriteInvocationGuard) => prepare(actor,input,'create',guard),
+    prepareRotate: (actor: Actor, input: c.ModelCredentialRotate, guard?: CredentialWriteInvocationGuard) => prepare(actor,input,'rotate',guard), commit, read, revoke, createResolver });
 }

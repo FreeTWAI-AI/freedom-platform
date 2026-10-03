@@ -100,7 +100,7 @@ $authorization$, c.oid::regclass, :'runtime', c.oid,
   (SELECT string_agg(quote_ident(a.attname),',' ORDER BY a.attnum)
     FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped))
 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
-WHERE n.nspname='public' AND c.relname='model_broker_authorizations' AND c.relkind='r'
+WHERE n.nspname='public' AND c.relname IN ('model_broker_authorizations','credential_ingest_authorizations') AND c.relkind='r'
 \gexec
 -- END MODEL BROKER AUTHORIZATION EXCLUSIONS
 COMMIT;
