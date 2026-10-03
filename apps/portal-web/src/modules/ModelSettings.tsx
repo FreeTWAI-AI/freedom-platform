@@ -69,7 +69,14 @@ export function ModelSettings({ client }: { client: PortalClient }) {
     setLoading(false);
   }, [client]);
   useEffect(() => {
-    live.current = true; void refresh();
+    // A different client starts a new memory context. Old requests still retain
+    // their lifetime fence and cannot update or navigate the replacement view.
+    live.current = true; lock.current = false; current.current = null;
+    setBusy(false); setPending(null); setOverview(null); setError(''); setNotice('');
+    setConnectionId(''); setSelectionIndex(''); setModelId(''); setCredentialId(''); setReplacementId('');
+    setConfirmedCredential(''); setCredentialLoading(false);
+    setModelConsent(false); setCaptureConsent(false); setRotateConsent(false); setRevokeConsent(false);
+    void refresh();
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => { live.current = false; lifetime.current++; reading.current++; ownerRef.current = null; handed.current.clear(); window.clearInterval(timer); };
   }, [refresh]);
@@ -85,8 +92,7 @@ export function ModelSettings({ client }: { client: PortalClient }) {
       if (command.kind === 'handoff') {
         const dto = CredentialIngestHandoffSchema.parse(raw), setup = current.current?.setup;
         const pinned = command.setupOrigin && setupOrigin(command.setupOrigin), expiry = Date.parse(dto.expiresAt), clock = Date.now();
-        if (!pinned || setup?.state !== 'installed' || setupOrigin(setup.setupOrigin) !== pinned || dto.setupOrigin !== pinned
-          || expiry <= clock || expiry > clock + 60_000 || handed.current.has(dto.authorizationRef) || handed.current.size >= 128) throw new Error('invalid_handoff');
+        if (!pinned || dto.setupOrigin !== pinned) throw new Error('invalid_handoff');
         ownerRef.current = dto.authorizationRef;
         // Confirmation after an uncertain response reads the original command;
         // it never re-submits a previously used setup or starts navigation.
@@ -94,6 +100,8 @@ export function ModelSettings({ client }: { client: PortalClient }) {
           setPending(null); setNotice('已確認原設定請求。請重新讀取本人保管結果；這次設定不會再次送往保管頁。');
           await refresh(); return;
         }
+        if (setup?.state !== 'installed' || setupOrigin(setup.setupOrigin) !== pinned || expiry <= clock || expiry > clock + 60_000
+          || handed.current.has(dto.authorizationRef) || handed.current.size >= 128) throw new Error('invalid_handoff');
         handed.current.add(dto.authorizationRef); setPending(null);
         setNotice('即將前往金鑰保管頁。返回後請重新讀取本人設定；保管不代表模型已驗證。');
         const form = document.createElement('form'), field = document.createElement('input');
