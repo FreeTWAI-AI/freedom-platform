@@ -20,7 +20,7 @@ export interface CredentialIngestClientOptions {
   keyId:string; signingKey:CryptoKey; authorizations:CredentialIngestAuthorizations;
 }
 const unavailable=()=>new Problem(503,'credential_ingest_unavailable','Credential setup is unavailable.');
-const ports=new WeakMap<object,{pool:Pool;origin:string;environment:RuntimeEnvironment;clientId:string;
+const ports=new WeakMap<object,{pool:Pool;origin:string;environment:RuntimeEnvironment;clientId:string;setupOrigin:string;
   issue:(actor:Actor,input:{command:CredentialIngestCommand})=>Promise<z.infer<typeof CredentialIngestHandoffSchema>>;
   readOwnerOutcome:CredentialIngestAuthorizations['readOwnerOutcome']}>();
 
@@ -48,7 +48,7 @@ export async function createCredentialIngestClient(pool:Pool,raw:CredentialInges
   // Capture ports once; later mutation of host options cannot change authority.
   const issue=auth.issue.bind(auth),readOutcome=auth.readOwnerOutcome.bind(auth);
   const port=Object.freeze(Object.create(null)) as CredentialIngestClient;
-  ports.set(port,{pool,origin:origin.origin,environment,clientId,async issue(actor,input){
+  ports.set(port,{pool,origin:origin.origin,environment,clientId,setupOrigin:setup.origin,async issue(actor,input){
     const command=freezeTree(CredentialIngestCommandSchema.parse(snapshotInput(input.command)));
     const originalActor=Object.freeze({...actor}),nonce=randomBytes(32).toString('base64url');
     const started=performance.now();let cancelled=false,timer:ReturnType<typeof setTimeout>|undefined;
@@ -80,5 +80,5 @@ export async function createCredentialIngestClient(pool:Pool,raw:CredentialInges
 export function bindCredentialIngestClient(port:CredentialIngestClient,pool:Pool,origin:string,environment:RuntimeEnvironment,clientId:string) {
   const client=port&&typeof port==='object'?ports.get(port):undefined;
   if(!client||client.pool!==pool||client.origin!==origin||client.environment!==environment||client.clientId!==clientId)throw unavailable();
-  return Object.freeze({issue:client.issue,readOwnerOutcome:client.readOwnerOutcome});
+  return Object.freeze({issue:client.issue,readOwnerOutcome:client.readOwnerOutcome,setupOrigin:client.setupOrigin});
 }

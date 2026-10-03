@@ -39,6 +39,8 @@ export type PlatformRuntime = {
   /** Explicit host-installed private Work/model product transport. No ambient
    * credentials or default Worker activation; it owns its bounded HTTP body. */
   privateAiProduct?: (request: Request) => Promise<Response>;
+  /** Same installed opaque product-derived browser policy. No wire/config DTO. */
+  privateAiSetupOrigin?: () => string | undefined;
   /** Extra non-secret fields merged into /api/v1/health. */
   health?: Readonly<Record<string, string | null>>;
   /** Clock for promotion days. Tests inject a fixed instant. */

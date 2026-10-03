@@ -53,12 +53,12 @@ import {publicMemberCard,publicMemberAvatar} from '../../../modules/identity-mem
 
 const COOKIE='freedom_local_session';
 const privateAiFamilies=['private-work','execution-runs','model-connections','execution-grants','execution-attempts',
-  'model-step-overview','model-step-approvals','model-steps','credential-ingests'];
+  'model-step-overview','model-step-approvals','model-steps','credential-ingests','model-settings','model-credentials'];
 function isPrivateAiPath(path:string) {
   return privateAiFamilies.some(family=>{const base='/api/v1/me/'+family;return path===base||path.startsWith(base+'/')||path.startsWith(base+':');});
 }
 function isInstalledPrivateAiPath(path:string) {
-  return ['model-step-overview','model-step-approvals','model-steps','credential-ingests'].some(family=>{
+  return ['model-step-overview','model-step-approvals','model-steps','credential-ingests','model-settings','model-credentials'].some(family=>{
     const base='/api/v1/me/'+family;return path===base||path.startsWith(base+'/')||path.startsWith(base+':');
   });
 }
@@ -91,6 +91,13 @@ export function isMemberCardPage(path:string){return /^\/member-cards\/[A-Za-z0-
 export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions;coCreationGitHub?:CollaborationGitHub}={}) {
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
   const allowedHosts=runtime.allowedHosts,authNetwork=runtime.sourceNetwork;
+  const brokerFormOrigin=runtime.privateAiProduct?runtime.privateAiSetupOrigin?.():undefined;
+  if(brokerFormOrigin!==undefined){
+    const setup=new URL(brokerFormOrigin),main=new URL(origin);
+    if(setup.protocol!=='https:'||setup.origin!==brokerFormOrigin||setup.username||setup.password
+      ||setup.hostname===main.hostname||/[?#%\\\x00-\x20\x7f-\uffff]/.test(brokerFormOrigin))throw new Error('invalid_private_ai_browser_policy');
+  }
+
   const secureCookies=freedomEnv!=='local';
   const loadSocial=socialLoader(pool,origin,options.githubSocial,runtime.githubTokenKey,runtime.githubMetricsToken);
   const publicSocial=new GitHubSocial(pool,undefined,options.githubSocial?.fetcher??fetch,runtime.githubMetricsToken());
@@ -115,7 +122,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     c.header('Cache-Control','no-store');c.header('X-Content-Type-Options','nosniff');c.header('Referrer-Policy','no-referrer');
     if(isMemberCardPage(c.req.path))c.header('X-Robots-Tag','noindex, nofollow');
     const githubSetupForm=c.req.path==='/admin'||c.req.path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI-AI/settings/apps/new':'';
-    c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm);
+    c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm+(brokerFormOrigin?' '+brokerFormOrigin:''));
     // These host-installed child transports authorize and bound the ORIGINAL
     // request body. The legacy generic text reader must not consume it first.
     if(isPrivateAiPath(c.req.path)&&runtime.privateAiProduct)return runtime.privateAiProduct(c.req.raw);

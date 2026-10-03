@@ -2,7 +2,11 @@ import type { Pool } from 'pg';
 import { Hono } from 'hono';
 import type { ObjectStore } from '../../../packages/asset-storage/index.js';
 import type { ModelBrokerClient } from './model-broker-client.js';
-import type { CredentialIngestClient } from './credential-ingest-client.js';
+import { bindCredentialIngestClient, type CredentialIngestClient } from './credential-ingest-client.js';
+import { z } from 'zod';
+import { BrokerModelSelectionSchema } from '../../../contracts/execution/v2/model-credential.js';
+import { freezeTree, snapshotInput } from '../../../packages/execution-state/decode.js';
+import { createMemberModelSettingsHttpTransport } from './routes/member-model-settings-http.js';
 import type { ModelStepHost } from '../../../modules/agent-execution/model-step-host.js';
 import { resolvePrivateWorkPersistencePolicy } from '../../../modules/autopilot-work/policy.js';
 import { RuntimeEnvironmentSchema, type RuntimeEnvironment } from '../../../contracts/execution/v1/runtime-registration.js';
@@ -15,7 +19,7 @@ import { assertOriginAllowed, type FreedomEnv } from './env.js';
 declare const privateAiProductBrand: unique symbol;
 /** Node-only host composition. JSON cannot construct this server port. */
 export interface PrivateAiProductTransport { readonly [privateAiProductBrand]: never }
-type Product = { pool: Pool; origin: string; freedomEnv: FreedomEnv; fetch: (request: Request) => Promise<Response> };
+type Product = { pool: Pool; origin: string; freedomEnv: FreedomEnv; setupOrigin?: string; fetch: (request: Request) => Promise<Response> };
 const products = new WeakMap<object, Product>();
 const privateWorkPath = '/api/v1/me/private-work';
 const modelPaths = ['/api/v1/me/model-step-overview', '/api/v1/me/model-step-approvals', '/api/v1/me/model-steps'];
@@ -28,11 +32,11 @@ function rejected(code:string,status:number) {
 
 export async function createPrivateAiProductTransport(pool: Pool, options: {
   origin: string; environment: RuntimeEnvironment; clientId: string; host?: ModelStepHost; broker?: ModelBrokerClient; store: ObjectStore;
-  sourceNetwork?: (request: Request) => string; ingest?: CredentialIngestClient;
+  sourceNetwork?: (request: Request) => string; ingest?: CredentialIngestClient; settingsSelections?: readonly z.infer<typeof BrokerModelSelectionSchema>[];
 }): Promise<PrivateAiProductTransport> {
   if (!options || Object.getPrototypeOf(options) !== Object.prototype) throw new Error('invalid_private_ai_product_configuration');
   const descriptors = Object.getOwnPropertyDescriptors(options);
-  if (Reflect.ownKeys(options).some(key => typeof key !== 'string' || !['origin','environment','clientId','host','broker','store','sourceNetwork','ingest'].includes(key))
+  if (Reflect.ownKeys(options).some(key => typeof key !== 'string' || !['origin','environment','clientId','host','broker','store','sourceNetwork','ingest','settingsSelections'].includes(key))
     || Object.values(descriptors).some(value => !value.enumerable || !('value' in value))
     || ['origin','environment','clientId','store'].some(key => !descriptors[key]) || (!!descriptors.host === !!descriptors.broker)) throw new Error('invalid_private_ai_product_configuration');
   const environment = RuntimeEnvironmentSchema.parse(descriptors.environment.value);
@@ -42,6 +46,10 @@ export async function createPrivateAiProductTransport(pool: Pool, options: {
   const clientId = descriptors.clientId.value as string, host = descriptors.host?.value as ModelStepHost | undefined, broker = descriptors.broker?.value as ModelBrokerClient | undefined, store = descriptors.store.value as ObjectStore;
   const sourceNetwork = descriptors.sourceNetwork?.value as ((request: Request) => string) | undefined;
   const network = sourceNetwork === undefined ? {} : { sourceNetwork };
+  const settingsSelections = freezeTree(z.array(BrokerModelSelectionSchema).max(50).parse(
+    descriptors.settingsSelections ? snapshotInput(descriptors.settingsSelections.value) : []));
+  const ingestClient = descriptors.ingest ? bindCredentialIngestClient(descriptors.ingest.value as CredentialIngestClient,pool,origin,environment,clientId) : undefined;
+  const setupOrigin = ingestClient?.setupOrigin;
   // Each child owns its member boundary and original bounded request stream.
   // Wildcard child middleware must never be appended to the whole platform.
   const privateWork = createPrivateWorkTransport(pool, { origin, freedomEnv, store });
@@ -49,10 +57,11 @@ export async function createPrivateAiProductTransport(pool: Pool, options: {
   const prerequisites = await createMemberExecutionHttpTransport(pool, { origin, environment, clientId, ...network });
   const ingest = descriptors.ingest ? await createMemberCredentialIngestHttpTransport(pool,
     {origin,environment,clientId,ingest:descriptors.ingest.value as CredentialIngestClient,...network}) : undefined;
+  const settings = await createMemberModelSettingsHttpTransport(pool, {origin,environment,clientId,selections:settingsSelections,...(setupOrigin?{setupOrigin}:{}),...network});
   const models = await createMemberModelHttpTransport(pool, { origin, environment, clientId, ...(broker ? {broker} : {host:host!}), store,
     resolvePolicy: resolvePrivateWorkPersistencePolicy, ...network });
   const port = Object.freeze(Object.create(null)) as PrivateAiProductTransport;
-  products.set(port, { pool, origin, freedomEnv, async fetch(request) {
+  products.set(port, { pool, origin, freedomEnv, setupOrigin, async fetch(request) {
     const url=new URL(request.url),path=url.pathname,sentHost=request.headers.get('Host'),sentOrigin=request.headers.get('Origin');
     if(url.origin!==origin||url.href!==request.url||url.hash||/[#%\\\x00-\x20\x7f-\uffff]/.test(path)
       ||(sentHost!==null&&sentHost!==new URL(origin).host))return rejected('host_rejected',403);
@@ -60,6 +69,7 @@ export async function createPrivateAiProductTransport(pool: Pool, options: {
     if((sentOrigin!==null&&sentOrigin!==origin)||(!read&&sentOrigin!==origin)||(site!==null&&site!=='same-origin'))return rejected('origin_rejected',403);
     if(['Authorization','DPoP','X-Freedom-Connection','X-Freedom-Nonce'].some(header=>request.headers.has(header)))return rejected('credential_kind_rejected',403);
     if(request.headers.has('Content-Encoding'))return rejected('encoding_rejected',415);
+    if (matches(path, '/api/v1/me/model-settings') || matches(path, '/api/v1/me/model-credentials')) return settings.fetch(request);
     if (matches(path, '/api/v1/me/credential-ingests')) {
       return ingest ? ingest.fetch(request) : rejected('credential_ingest_unavailable',503);
     }
@@ -82,4 +92,13 @@ export function bindPrivateAiProductTransport(port: PrivateAiProductTransport, p
     throw new Error('invalid_private_ai_product_binding');
   }
   return product.fetch.bind(product);
+}
+
+/** Browser policy is derived from the same genuine installed product/client,
+ * never a separate caller-supplied origin. Closure stays inside the host. */
+export function bindPrivateAiProductBrowserPolicy(port: PrivateAiProductTransport,pool: Pool,origin: string,freedomEnv: FreedomEnv): () => string | undefined {
+  const product=port&&typeof port==='object'?products.get(port):undefined;
+  if(!product||product.pool!==pool||product.origin!==origin||product.freedomEnv!==freedomEnv)throw new Error('invalid_private_ai_product_binding');
+  const setupOrigin=product.setupOrigin;
+  return Object.freeze(() => setupOrigin);
 }

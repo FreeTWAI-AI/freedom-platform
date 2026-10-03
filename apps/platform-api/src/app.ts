@@ -10,7 +10,7 @@ import type { GitHubSocialOptions } from './routes/github-social.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 import type { PasswordEmailSender } from '../../../modules/identity-membership/password-recovery.js';
 import type { EventEmailSender } from '../../../modules/community/events.js';
-import { bindPrivateAiProductTransport, type PrivateAiProductTransport } from './private-ai-product.js';
+import { bindPrivateAiProductTransport, bindPrivateAiProductBrowserPolicy, type PrivateAiProductTransport } from './private-ai-product.js';
 
 type NodeAppOptions = {adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;
   eventEmailSender?:EventEmailSender;maintainerWebhookSecret?:string;now?:()=>Date;avatarAssetStore?:PlatformRuntime['avatarAssetStore'];
@@ -47,6 +47,10 @@ export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<Nod
 
 export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:FreedomEnv='local',options:NodeAppOptions={}) {
   const runtime=nodeRuntime(freedomEnv,origin,options);
-  if(options.privateAiProduct!==undefined)runtime.privateAiProduct=bindPrivateAiProductTransport(options.privateAiProduct,pool,origin,freedomEnv);
+  const product=options.privateAiProduct;
+  if(product!==undefined){
+    runtime.privateAiProduct=bindPrivateAiProductTransport(product,pool,origin,freedomEnv);
+    runtime.privateAiSetupOrigin=bindPrivateAiProductBrowserPolicy(product,pool,origin,freedomEnv);
+  }
   return createPlatformApp(pool,origin,freedomEnv,runtime,{githubSocial:options.githubSocial});
 }
