@@ -1,3 +1,4 @@
+import {createSocialThumbnailAssetService,resolveSocialThumbnailUploadPolicy} from '../../../modules/assets/social-thumbnail.js';
 import {createSkillImageAssetService} from '../../../modules/assets/skill-image.js';
 import type { ExecutionContext, Hyperdrive, ImagesBinding as OfficialImagesBinding } from '@cloudflare/workers-types';
 import type { Context, Hono } from 'hono';
@@ -43,6 +44,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_EVENT_BANNER_ENABLED?: string;
   FREEDOM_EVENT_VIDEO_ENABLED?: string;
   FREEDOM_SKILL_IMAGE_ENABLED?: string;
+  FREEDOM_SOCIAL_THUMBNAIL_ENABLED?: string;
   HYPERDRIVE: { readonly connectionString: string };
   ASSETS: { fetch(request: Request): Promise<Response> };
   IMAGES?: ImagesBinding;
@@ -93,7 +95,7 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   if (typeof env.ASSETS?.fetch !== 'function') throw new ReadinessError('ASSETS binding is required.');
   if (env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED !== undefined && !['true','false'].includes(env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED)) throw new ReadinessError('FREEDOM_PASSWORD_RESET_EMAIL_ENABLED must be true or false.');
   if (env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED === 'true' && typeof env.EMAIL?.send !== 'function') throw new ReadinessError('EMAIL binding is required when password recovery is enabled.');
-  for(const flag of [env.FREEDOM_SERVICE_COVER_ENABLED,env.FREEDOM_EVENT_BANNER_ENABLED,env.FREEDOM_SKILL_IMAGE_ENABLED]){
+  for(const flag of [env.FREEDOM_SERVICE_COVER_ENABLED,env.FREEDOM_EVENT_BANNER_ENABLED,env.FREEDOM_SKILL_IMAGE_ENABLED,env.FREEDOM_SOCIAL_THUMBNAIL_ENABLED]){
     if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Media installation flag must be true or false.');
     if(flag==='true'&&(typeof env.MEDIA?.get!=='function'||typeof env.MEDIA?.put!=='function'||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('MEDIA and IMAGES are required for enabled image lifecycle.');
   }
@@ -255,6 +257,10 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
         if(env.FREEDOM_SKILL_IMAGE_ENABLED==='true'&&runtime.avatarAssetStore){
           runtime.skillImageAssetStore=runtime.avatarAssetStore;
           runtime.skillImageAssets=createSkillImageAssetService(pool,{store:runtime.avatarAssetStore});
+        }
+        if(env.FREEDOM_SOCIAL_THUMBNAIL_ENABLED==='true'&&runtime.avatarAssetStore){
+          runtime.socialThumbnailAssetStore=runtime.avatarAssetStore;
+          runtime.socialThumbnailAssets=createSocialThumbnailAssetService(pool,{store:runtime.avatarAssetStore,resolvePolicy:resolveSocialThumbnailUploadPolicy});
         }
         const app = createPlatformApp(pool, config.origin, config.freedomEnv, runtime);
         mountAssets(app, env.ASSETS);
