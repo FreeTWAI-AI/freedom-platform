@@ -6,8 +6,11 @@ const HEX40 = /^[0-9a-f]{40}$/;
 const HEX64 = /^[0-9a-f]{64}$/;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}$/;
 const ENVIRONMENTS = ['next', 'staging-next'];
-const CAPABILITIES = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1', 'execution.member-run-record.v1', 'execution.runtime-enrollment.v1', 'execution.agent-connection-record.v1', 'execution.bootstrap-status.v1', 'execution.device-authorization.v1', 'execution.bootstrap-session.v1', 'execution.member-prerequisites.v1', 'execution.model-text-step.v1', 'work.private-model-result.v1', 'execution.model-credential-custody.v1', 'execution.model-broker-bridge.v1', 'execution.model-credential-ingest.v1'];
+const CAPABILITIES = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1', 'execution.member-run-record.v1', 'execution.runtime-enrollment.v1', 'execution.agent-connection-record.v1', 'execution.bootstrap-status.v1', 'execution.device-authorization.v1', 'execution.bootstrap-session.v1', 'execution.member-prerequisites.v1', 'execution.model-text-step.v1', 'work.private-model-result.v1', 'execution.model-credential-custody.v1', 'execution.model-broker-bridge.v1', 'execution.model-credential-ingest.v1', 'execution.member-model-settings.v1'];
 const SHAPES = Object.freeze({
+  // Owner metadata API compatibility only. Offline history needs no ingestion,
+  // reference bridge, provider availability or operational text-step support.
+  'execution.member-model-settings.v1': { migration: 95, capabilities: ['execution.member-model-settings.v1', 'execution.model-credential-custody.v1'] },
   // Safe setup/custody metadata only; no capture readiness, provider validation or release authority.
   'execution.model-credential-ingest.v1': { migration: 97, capabilities: ['execution.model-credential-ingest.v1', 'execution.model-credential-custody.v1'] },
   // Reference transport compatibility never substitutes for current SQL or
@@ -209,6 +212,7 @@ export function evaluateReleaseCompatibility(input, { scan, host } = {}) {
   // Retained capability-only requirements keep their reviewed prerequisites,
   // even when current shapes are empty. Do not infer written shapes from a
   // binary capability, or silently add support to any release approval.
+  if (required.has('execution.member-model-settings.v1')) required.add('execution.model-credential-custody.v1');
   if (required.has('execution.model-credential-ingest.v1')) required.add('execution.model-credential-custody.v1');
   if (required.has('execution.model-broker-bridge.v1')) {
     required.add('execution.model-credential-custody.v1');
