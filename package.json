@@ -56,7 +56,9 @@
     "contracts:model-credential": "tsx modules/agent-execution/generate-model-credential.ts",
     "check:model-credential": "tsx modules/agent-execution/generate-model-credential.ts --check",
     "contracts:model-broker-bridge": "tsx modules/agent-control/generate-model-broker-bridge.ts",
-    "check:model-broker-bridge": "tsx modules/agent-control/generate-model-broker-bridge.ts --check"
+    "check:model-broker-bridge": "tsx modules/agent-control/generate-model-broker-bridge.ts --check",
+    "contracts:model-credential-ingest": "tsx modules/agent-control/generate-model-credential-ingest.ts",
+    "check:model-credential-ingest": "tsx modules/agent-control/generate-model-credential-ingest.ts --check"
   },
   "dependencies": {
     "@hono/node-server": "2.1.1",
