@@ -37,6 +37,7 @@ export const CredentialIngestBootstrapClaimsSchema=z.object({profile:z.literal('
   authorizationRef:OpaqueId,nonce:Nonce,commandDigest:Digest,recoveryGeneration:MemberExecutionVersionSchema,
   issuedAt:Time,expiresAt:Time}).strict();
 export const CredentialIngestBootstrapRequestSchema=z.object({authorizationRef:OpaqueId,nonce:Nonce,assertion:Compact}).strict();
+export const CredentialIngestHandoffSchema=CredentialIngestBootstrapRequestSchema.extend({setupOrigin:Origin,expiresAt:Time,operational_authority:z.literal(false)}).strict();
 export const CredentialIngestSetupMetadataSchema=z.object({authorizationRef:OpaqueId,operation:z.enum(['create','rotate']),
   model:ModelConnectionMetadataSchema,expiresAt:Time,operational_authority:z.literal(false)}).strict();
 export const CredentialIngestOwnerOutcomeSchema=z.object({authorizationRef:OpaqueId,operation:z.enum(['create','rotate']),
@@ -58,6 +59,7 @@ export type CredentialIngestCommand=z.infer<typeof CredentialIngestCommandSchema
 export type CredentialIngestIssueInput=z.infer<typeof CredentialIngestIssueInputSchema>;
 export type CredentialIngestBootstrapClaims=z.infer<typeof CredentialIngestBootstrapClaimsSchema>;
 export type CredentialIngestBootstrapRequest=z.infer<typeof CredentialIngestBootstrapRequestSchema>;
+export type CredentialIngestHandoff=z.infer<typeof CredentialIngestHandoffSchema>;
 export type CredentialIngestSetupMetadata=z.infer<typeof CredentialIngestSetupMetadataSchema>;
 export type CredentialIngestOwnerOutcome=z.infer<typeof CredentialIngestOwnerOutcomeSchema>;
 export type CredentialIngestResponseClaims=z.infer<typeof CredentialIngestResponseClaimsSchema>;

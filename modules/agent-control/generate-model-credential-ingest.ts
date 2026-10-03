@@ -9,6 +9,7 @@ for(const [name,schema] of [
   ['credential-ingest-response-protected-header',c.CredentialIngestResponseProtectedHeaderSchema],
   ['credential-ingest-bootstrap-claims',c.CredentialIngestBootstrapClaimsSchema],
   ['credential-ingest-bootstrap-request',c.CredentialIngestBootstrapRequestSchema],
+  ['credential-ingest-handoff',c.CredentialIngestHandoffSchema],
   ['credential-ingest-setup-metadata',c.CredentialIngestSetupMetadataSchema],
   ['credential-ingest-owner-outcome',c.CredentialIngestOwnerOutcomeSchema],
   ['credential-ingest-response-claims',c.CredentialIngestResponseClaimsSchema],
@@ -20,4 +21,4 @@ for(const [name,schema] of [
   if(process.argv.includes('--check')){if(await readFile(path,'utf8')!==bytes)throw new Error(`Generated ${name} schema is stale.`);}
   else await writeFile(path,bytes);
 }
-console.log('Ten credential ingestion schemas checked/generated.');
+console.log('Eleven credential ingestion schemas checked/generated.');
