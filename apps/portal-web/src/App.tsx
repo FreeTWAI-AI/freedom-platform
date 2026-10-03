@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MEMBER_ACCESS_EXPIRED_MESSAGE } from './access-fetch'
 import { ApiError, PortalClient, requireDashboard, requireItems } from './api'
 import { MemberHome } from './modules/MemberHome'
+import { PageSpirit } from './modules/page-spirit/PageSpirit'
 import {EntryResources} from './modules/EntryResources'
 import {CHAT_ENTRY_EVENT,isChatEntry,type ChatEntry} from './modules/chat-entry'
 import {FriendsPanel} from './modules/FriendsPanel'
@@ -512,6 +513,14 @@ function Workspace({
     return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',heartbeat)};
   },[session.user.user_id]);
   const [tab, setTab] = useState<TabId>(() => tabFromHash())
+  const [spiritLocation, setSpiritLocation] = useState(() => `${window.location.pathname}${window.location.hash}`)
+  useEffect(() => {
+    const changed = () => setSpiritLocation(`${window.location.pathname}${window.location.hash}`)
+    window.addEventListener('hashchange', changed)
+    window.addEventListener('popstate', changed)
+    return () => { window.removeEventListener('hashchange', changed); window.removeEventListener('popstate', changed) }
+  }, [])
+  const spiritScope = `${session.user.user_id}:${tab}:${spiritLocation}`
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notificationTarget,setNotificationTarget]=useState<(BellAction&{sequence:number})|null>(null)
   const menuToggle = useRef<HTMLButtonElement>(null)
@@ -670,6 +679,8 @@ function Workspace({
             {tab === 'retail' && <RetailPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'opensource' && <OpenSourcePanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'marketing' && <MarketingPanel client={client} session={session} onNavigate={selectTab} />}
+            <PageSpirit key={spiritScope} pageId={tab} scopeKey={spiritScope}
+              disabled={mobileOpen || Boolean(pending) || (tab === 'guild-workspace' && !canManageGuild)} />
           </main>
         </div>
       </div>

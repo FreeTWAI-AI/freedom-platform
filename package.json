@@ -11,7 +11,7 @@
     "db:down": "docker compose down",
     "db:migrate": "tsx scripts/database.ts migrate",
     "db:seed": "tsx scripts/database.ts seed",
-    "build": "node scripts/generate-runtime-text.mjs --check && node scripts/build-skill-upload-client.mjs && vite build --config apps/portal-web/vite.config.ts",
+    "build": "node scripts/generate-runtime-text.mjs --check && node scripts/build-skill-upload-client.mjs && node scripts/build-page-spirit-gallery.mjs && vite build --config apps/portal-web/vite.config.ts",
     "start": "tsx apps/platform-api/src/server.ts",
     "generate:runtime-text": "node scripts/generate-runtime-text.mjs",
     "check:runtime-text": "node scripts/generate-runtime-text.mjs --check",

@@ -22,15 +22,15 @@ def source_files():
             if (name == ".env" or name.startswith(".env.")) and name != ".env.example":
                 continue
             path = Path(directory) / name
-            if path != MANIFEST and str(path.relative_to(ROOT)) not in GENERATED_FILES:
+            if path != MANIFEST and path.relative_to(ROOT).as_posix() not in GENERATED_FILES:
                 yield path
 
 def main():
-    manifest = json.loads(MANIFEST.read_text())
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     failures = []
     listed = {e["path"] for e in manifest["files"]}
     files = list(source_files())
-    actual = {str(p.relative_to(ROOT)) for p in files}
+    actual = {p.relative_to(ROOT).as_posix() for p in files}
     if actual != listed:
         failures.append(f"File set changed: extra={sorted(actual-listed)}, missing={sorted(listed-actual)}")
     for entry in manifest["files"]:
@@ -44,7 +44,7 @@ def main():
     for path in files:
         if path.suffix != ".md":
             continue
-        for raw in re.findall(r"(?<!!)\[[^\]\n]*\]\(([^\s)]+)(?:\s+\"[^\"]*\")?\)", path.read_text()):
+        for raw in re.findall(r"(?<!!)\[[^\]\n]*\]\(([^\s)]+)(?:\s+\"[^\"]*\")?\)", path.read_text(encoding="utf-8")):
             target = raw.split("#", 1)[0]
             if not target or re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", target) or target.startswith("/"):
                 continue

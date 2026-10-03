@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-02T16:37:03.618Z",
+  "status": "PASS",
+  "scope": "Local public assets and current built release bundle; remote HTTP not evaluated",
+  "manifest": {
+    "path": "docs/design/page-spirit-art-manifest.json",
+    "sha256": "09675d47b4d2ef7b2863d05b9d5539f5b17221eed437077bf299b953a26a39c1",
+    "bytes": 80735,
+    "sourceCommit": "3de70ccbd24362a7925508fb42d36aaa256a0806",
+    "promptReference": "./page-spirit-prompts.md",
+    "promptCount": 26,
+    "promptDocumentBytes": 104953
+  },
+  "totals": {
+    "characters": 26,
+    "publicWebpFiles": 364,
+    "builtWebpFilesVerified": 364,
+    "bytes": 41016186,
+    "canonicalSourceShaMatches": 338,
+    "mechanicalPortraits": 26,
+    "views": 156,
+    "greetingFrames": 156
+  },
+  "catalogUrls": "all 364 URLs match public manifest paths",
+  "gallery": {
+    "path": "page-spirit-characters.html",
+    "builtIdentical": true,
+    "bytes": 31488,
+    "viewUrls": 156,
+    "uniqueViewUrls": 156
+  },
+  "normalization": {
+    "spriteCanvas": {
+      "width": 384,
+      "height": 576
+    },
+    "portraitCanvas": {
+      "width": 96,
+      "height": 104
+    },
+    "footAnchor": {
+      "x": 192,
+      "y": 552
+    },
+    "maximumProjectedFootDeviation": 0.49056603773584584,
+    "minimumFrameAlphaPadding": 16,
+    "measuredOpaqueCentralFootY": {
+      "minimum": 550,
+      "maximum": 552
+    },
+    "noForeignOpaqueSeeds": true,
+    "ownCoresRetained": true
+  },
+  "portraits": {
+    "alphaPresent": true,
+    "headRegionSafetyPass": 26,
+    "sourceWindow": {
+      "width": 240,
+      "height": 260
+    },
+    "headLeadSourcePixels": 24,
+    "sourceHeroMechanicallyCropped": true
+  },
+  "notes": "character ROI retains source lighting; six greeting keyframes per character",
+  "errors": []
+}
