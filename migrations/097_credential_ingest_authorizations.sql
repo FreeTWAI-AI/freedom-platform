@@ -13,7 +13,11 @@ CREATE TABLE credential_ingest_authorizations (
   command jsonb NOT NULL CHECK(COALESCE((jsonb_typeof(command)='object' AND octet_length(command::text)<=2048),false)),
   command_digest text NOT NULL CHECK(COALESCE((command_digest ~ '^[0-9a-f]{64}$'),false)),
   nonce_hash text NOT NULL UNIQUE CHECK(COALESCE((nonce_hash ~ '^[0-9a-f]{64}$'),false)),
-  assertion jsonb NOT NULL CHECK(COALESCE((jsonb_typeof(assertion)='object' AND octet_length(assertion::text)<=4096),false)),
+  assertion jsonb NOT NULL CHECK(COALESCE((jsonb_typeof(assertion)='object' AND octet_length(assertion::text)<=4096
+    AND jsonb_typeof(assertion->'issuer')='string' AND assertion->>'issuer' ~ '^[A-Za-z0-9][A-Za-z0-9._:/-]{0,159}$'
+    AND jsonb_typeof(assertion->'audience')='string' AND assertion->>'audience' ~ '^[A-Za-z0-9][A-Za-z0-9._:/-]{0,159}$'
+    AND jsonb_typeof(assertion->'setupOrigin')='string' AND length(assertion->>'setupOrigin') BETWEEN 1 AND 256
+    AND jsonb_typeof(assertion->'nonce')='string' AND assertion->>'nonce' ~ '^[A-Za-z0-9_-]{43}$'),false)),
   model_connection_id uuid NOT NULL REFERENCES model_connections(model_connection_id),
   model_version bigint NOT NULL CHECK(COALESCE((model_version>0),false)),
   model_metadata jsonb NOT NULL CHECK(COALESCE((jsonb_typeof(model_metadata)='object' AND octet_length(model_metadata::text)<=4096),false)),
@@ -59,7 +63,7 @@ CREATE TABLE credential_ingest_authorizations (
 REVOKE ALL ON credential_ingest_authorizations FROM PUBLIC;
 
 CREATE FUNCTION preserve_credential_ingest_authorization() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE current_owner boolean; model record; old_credential record; expected_command jsonb; expected_metadata jsonb; committed record;
+DECLARE current_owner boolean; model record; old_credential record; expected_command jsonb; expected_metadata jsonb; committed record; runtime record; connection record; family record; existing record; old_model record;
 BEGIN
   IF TG_OP='DELETE' THEN RAISE EXCEPTION 'Credential ingest history is retained' USING ERRCODE='23514'; END IF;
   IF TG_OP='UPDATE' THEN
@@ -98,6 +102,21 @@ BEGIN
     OR ROW(model.owner_user_id,model.owner_principal_id,model.scope_id,model.environment,model.client_id)
       IS DISTINCT FROM ROW(NEW.owner_user_id,NEW.owner_principal_id,NEW.scope_id,NEW.environment,NEW.client_id) THEN
     RAISE EXCEPTION 'Exact current ingest model required' USING ERRCODE='23514'; END IF;
+  EXECUTE format('SELECT * FROM %I.runtime_registrations WHERE runtime_device_id=$1',TG_TABLE_SCHEMA) INTO runtime USING model.runtime_device_id;
+  EXECUTE format('SELECT * FROM %I.agent_connections WHERE connection_id=$1',TG_TABLE_SCHEMA) INTO connection USING model.connection_id;
+  EXECUTE format('SELECT * FROM %I.bootstrap_refresh_families WHERE family_id=$1',TG_TABLE_SCHEMA) INTO family USING model.family_id;
+  IF COALESCE(runtime.state='enrolled' AND runtime.enrolled_at<=clock_timestamp()
+    AND connection.state='active' AND connection.issued_at<=clock_timestamp() AND connection.expires_at>=NEW.expires_at
+    AND family.state='active' AND family.connection_id=model.connection_id AND family.issued_at<=clock_timestamp() AND family.expires_at>=NEW.expires_at
+    AND model.created_at<=NEW.issued_at
+    AND model.selection->>'providerRef' IN ('openai','anthropic') AND model.selection->>'credentialCustody'='platform_vault'
+    AND model.selection->>'engineLocation'='platform' AND model.selection->>'billingSource'='user_byok'
+    AND model.selection->>'processingLocation'='provider_remote' AND model.selection->>'artifactCustody'='platform_asset',false) IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'Current exact ingest backing/custody required' USING ERRCODE='23514'; END IF;
+  EXECUTE format('SELECT * FROM %I.broker_model_credentials WHERE model_connection_id=$1',TG_TABLE_SCHEMA) INTO existing USING model.model_connection_id;
+  IF existing.credential_id IS NOT NULL AND (existing.credential_id IS DISTINCT FROM NEW.submitted_credential_id
+    OR existing.binding IS DISTINCT FROM NEW.submitted_binding OR existing.state IS DISTINCT FROM 'active' OR existing.expires_at<=clock_timestamp()) THEN
+    RAISE EXCEPTION 'Target model lifetime is already occupied' USING ERRCODE='23514'; END IF;
   expected_metadata=jsonb_build_object('modelConnectionId',model.model_connection_id::text,'connectionId',model.connection_id::text,
     'runtimeDeviceId',model.runtime_device_id::text,'familyId',model.family_id::text,'environment',model.environment,'clientId',model.client_id,
     'selection',model.selection,'state',model.state,'aggregateVersion',model.aggregate_version::text,
@@ -116,6 +135,19 @@ BEGIN
       OR (NEW.committed_at IS NOT NULL AND (old_credential.state<>'rotated' OR old_credential.aggregate_version<>NEW.old_credential_version+1
         OR old_credential.replacement_credential_id<>NEW.submitted_credential_id)) THEN
       RAISE EXCEPTION 'Exact original/replacement credential required' USING ERRCODE='23514'; END IF;
+    EXECUTE format('SELECT * FROM %I.model_connections WHERE model_connection_id=$1',TG_TABLE_SCHEMA) INTO old_model USING NEW.old_model_connection_id;
+    EXECUTE format('SELECT * FROM %I.runtime_registrations WHERE runtime_device_id=$1',TG_TABLE_SCHEMA) INTO runtime USING old_credential.runtime_device_id;
+    EXECUTE format('SELECT * FROM %I.agent_connections WHERE connection_id=$1',TG_TABLE_SCHEMA) INTO connection USING old_credential.connection_id;
+    EXECUTE format('SELECT * FROM %I.bootstrap_refresh_families WHERE family_id=$1',TG_TABLE_SCHEMA) INTO family USING old_credential.family_id;
+    IF COALESCE(old_credential.recovery_generation=NEW.recovery_generation AND old_credential.expires_at>=NEW.expires_at
+      AND runtime.state='enrolled' AND runtime.enrolled_at<=clock_timestamp() AND connection.state='active'
+      AND connection.issued_at<=clock_timestamp() AND connection.expires_at>=NEW.expires_at AND family.state='active'
+      AND family.connection_id=old_credential.connection_id AND family.issued_at<=clock_timestamp() AND family.expires_at>=NEW.expires_at
+      AND old_model.selection=old_credential.selection AND old_model.runtime_device_id=old_credential.runtime_device_id
+      AND old_model.connection_id=old_credential.connection_id AND old_model.family_id=old_credential.family_id
+      AND ((NEW.committed_at IS NULL AND old_model.state='unverified' AND old_model.aggregate_version=NEW.old_model_version)
+        OR (NEW.committed_at IS NOT NULL AND old_model.state='revoked' AND old_model.aggregate_version=NEW.old_model_version+1)),false) IS DISTINCT FROM true THEN
+      RAISE EXCEPTION 'Exact current rotation backing required' USING ERRCODE='23514'; END IF;
     expected_command=jsonb_build_object('operation','rotate','input',jsonb_build_object('key',NEW.command_key,
       'credentialId',NEW.old_credential_id::text,'expectedVersion',NEW.old_credential_version::text,
       'replacementModelConnectionId',NEW.model_connection_id::text,'expectedReplacementModelVersion',NEW.model_version::text,'consent',true));
