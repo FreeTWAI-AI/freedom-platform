@@ -13,13 +13,18 @@ import {MemberModelSettingsOverviewSchema} from '../../contracts/execution/v2/me
 import {DeviceAuthorizationBeginResultSchema,DeviceAuthorizationPollResultSchema} from '../../contracts/execution/v1/device-pairing.js';
 
 const rawUrl=process.env.TEST_DATABASE_URL;
-if(!rawUrl||!/^\/fp_[a-z0-9_]+$/.test(new URL(rawUrl).pathname)||!new URL(rawUrl).searchParams.get('host'))throw new Error('Owned fp_* Unix-socket TEST_DATABASE_URL required.');
+if(!rawUrl)throw new Error('Owned fp_* TEST_DATABASE_URL required.');
+const adminUrl=new URL(rawUrl),socketDirectory=adminUrl.searchParams.get('host');
+if(!/^\/fp_[a-z0-9_]+$/.test(adminUrl.pathname)
+  || (socketDirectory ? !socketDirectory.startsWith('/') : !['127.0.0.1','localhost','[::1]'].includes(adminUrl.hostname)))
+  throw new Error('Owned fp_* Unix-socket or loopback TCP TEST_DATABASE_URL required.');
+const rolePassword=randomBytes(24).toString('hex');
 const database=`fp_worker_ai_${process.pid}_${Date.now()}`,migrator=database+'_owner',runtime=database+'_app';
 const admin=new Pool({connectionString:rawUrl});
-function roleUrl(role:string){const url=new URL(rawUrl!);url.pathname='/'+database;url.username=role;url.password='';return url.href;}
+function roleUrl(role:string){const url=new URL(rawUrl!);url.pathname='/'+database;url.username=role;url.password=rolePassword;return url.href;}
 const owner=new Pool({connectionString:roleUrl(migrator)}),app=new Pool({connectionString:roleUrl(runtime)});
-const sockets=new Set<Socket>(),proxy=createServer(client=>{const upstream=createConnection(join(new URL(rawUrl!).searchParams.get('host')!,'.s.PGSQL.5432'));
-  for(const socket of [client,upstream]){sockets.add(socket);socket.on('close',()=>sockets.delete(socket));socket.on('error',()=>{client.destroy();upstream.destroy();});}client.pipe(upstream).pipe(client);});
+const sockets=new Set<Socket>(),proxy=socketDirectory?createServer(client=>{const upstream=createConnection(join(socketDirectory!,'.s.PGSQL.5432'));
+  for(const socket of [client,upstream]){sockets.add(socket);socket.on('close',()=>sockets.delete(socket));socket.on('error',()=>{client.destroy();upstream.destroy();});}client.pipe(upstream).pipe(client);}):undefined;
 let created=false,mf:Miniflare,directory:string;
 const origin='https://platform.test',clientId='native-worker-private-ai';
 const requestKeys=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']),responseKeys=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']),recoveryKeys=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);
@@ -29,8 +34,8 @@ const community=randomUUID(),user=randomUUID(),cookie=randomBytes(32).toString('
 const headers={Cookie:'freedom_local_session='+cookie,'X-CSRF-Token':csrf,Origin:origin,'Content-Type':'application/json'};
 const paths={begin:'/execution-api/v1/auth/device-authorizations',token:'/execution-api/v1/auth/token',inspect:'/api/v1/me/device-authorizations/inspect',decide:'/api/v1/me/device-authorizations/decide',list:'/api/v1/me/agent-connections',status:'/execution-api/v1/bootstrap'};
 before(async()=>{
-  await admin.query(`CREATE ROLE ${migrator} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT;
-    CREATE ROLE ${runtime} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT`);
+  await admin.query(`CREATE ROLE ${migrator} LOGIN PASSWORD '${rolePassword}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT;
+    CREATE ROLE ${runtime} LOGIN PASSWORD '${rolePassword}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT`);
   await admin.query(`CREATE DATABASE ${database} OWNER ${migrator}`);created=true;await migrate(owner);
   const template=await readFile('deploy/cloudflare/sql/20-runtime-grants.psql','utf8'),replace=(s:string)=>s.replaceAll(':"runtime"',`"${runtime}"`).replaceAll(":'runtime'",`'${runtime}'`);
   const q=await owner.connect();try{await q.query(replace(template.slice(template.indexOf('BEGIN;'),template.indexOf('-- BEGIN PRIVATE POLICY GRANTS'))));
@@ -39,8 +44,10 @@ before(async()=>{
   await owner.query("INSERT INTO communities VALUES($1,'Native Worker synthetic community')",[community]);
   await owner.query("INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref) VALUES($1,$2,$3,'Native Worker member','not-a-login',$4)",[user,community,user+'@example.invalid',randomUUID()]);
   await owner.query("INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at) VALUES($1,$2,$3,clock_timestamp()+interval '1 hour')",[tokenHash(cookie),user,csrf]);
-  await new Promise<void>(r=>proxy.listen(0,'127.0.0.1',r));const address=proxy.address();assert(address&&typeof address==='object');
-  const tcp=`postgresql://${runtime}:synthetic-worker-only@127.0.0.1:${address.port}/${database}`;
+  const hyperdriveUrl=new URL(roleUrl(runtime));
+  if(proxy){await new Promise<void>(r=>proxy.listen(0,'127.0.0.1',r));const address=proxy.address();assert(address&&typeof address==='object');
+    hyperdriveUrl.hostname='127.0.0.1';hyperdriveUrl.port=String(address.port);hyperdriveUrl.searchParams.delete('host');}
+  const tcp=hyperdriveUrl.href;
   directory=await mkdtemp(resolve('.wrangler/fp-composition-'));await mkdir(join(directory,'assets'));await writeFile(join(directory,'assets/index.html'),'<!doctype html><title>Native Worker test</title>');
   const bootstrap={environment:'staging-next',clientId,issuer:'https://issuer.test/',audience:origin+'/',bootstrapUri:origin+paths.status,beginUri:origin+paths.begin,pollUri:origin+paths.token,
     verificationUri:origin+'/device',clientDisplayName:'Native Worker synthetic client',issuerKid:'bootstrap-issuer',keys:[{kid:'bootstrap-issuer',purpose:'bootstrap_access',environment:'staging-next',
@@ -50,13 +57,13 @@ before(async()=>{
   const bindings={FREEDOM_ENV:'staging',APP_ORIGIN:origin,FREEDOM_RELEASE_SHA:'a'.repeat(40),FREEDOM_DATABASE_NAME:database,FREEDOM_PRIVATE_AI_ENABLED:'true',
     FREEDOM_PRIVATE_AI_PROFILE:JSON.stringify(profile),FREEDOM_PRIVATE_AI_REQUEST_KEY:JSON.stringify(await jwk(requestKeys.privateKey)),FREEDOM_PRIVATE_AI_BOOTSTRAP_KEY:JSON.stringify(await jwk(issuerKeys.privateKey))};
   const unavailable="let calls=0; export default {fetch(request){if(new URL(request.url).pathname==='/counter')return Response.json({calls});calls++;return Response.json({code:'unavailable'},{status:503});}};";
-  mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'platform-private-ai',modules:true,scriptPath:resolve(process.env.FREEDOM_WORKERD_BUNDLE_DIR??'.wrangler/dry-run/private-ai-final','worker.js'),compatibilityDate:'2026-09-21',compatibilityFlags:['nodejs_compat'],bindings,
+  mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'platform-private-ai',modules:true,scriptPath:resolve(process.env.FREEDOM_WORKERD_BUNDLE_DIR??'.wrangler/dry-run/local','worker.js'),compatibilityDate:'2026-09-21',compatibilityFlags:['nodejs_compat'],bindings,
     hyperdrives:{HYPERDRIVE:tcp},r2Buckets:{MEDIA:'synthetic-private-assets'},serviceBindings:{MODEL_BROKER:'broker-unavailable',CREDENTIAL_RECOVERY_STATE:'state-unavailable',CREDENTIAL_RECOVERY_FLOOR:'floor-unavailable'},
     assets:{directory:join(directory,'assets'),binding:'ASSETS',routerConfig:{has_user_worker:true,invoke_user_worker_ahead_of_assets:true},assetConfig:{not_found_handling:'none'}}},
     {name:'synthetic-ingress',modules:true,compatibilityDate:'2026-09-21',serviceBindings:{MAIN:'platform-private-ai'},script:"export default {fetch(request,env){const url=new URL(request.url);const headers=new Headers(request.headers);headers.set('Host','platform.test');const origin=headers.get('X-Synthetic-Origin');headers.delete('X-Synthetic-Origin');if(origin)headers.set('Origin',origin);return env.MAIN.fetch(new Request('https://platform.test'+url.pathname+url.search,{method:request.method,headers,body:['GET','HEAD'].includes(request.method)?undefined:request.body,redirect:'manual'}));}};"},
     ...['broker-unavailable','state-unavailable','floor-unavailable'].map(name=>({name,modules:true,script:unavailable,compatibilityDate:'2026-09-21'}))]}));await mf.ready;
 });
-after(async()=>{await mf?.dispose();for(const socket of sockets)socket.destroy();if(proxy.listening)await new Promise<void>(r=>proxy.close(()=>r()));
+after(async()=>{await mf?.dispose();for(const socket of sockets)socket.destroy();if(proxy?.listening)await new Promise<void>(r=>proxy.close(()=>r()));
   await app.end();await owner.end();try{if(created){await admin.query(`DROP DATABASE ${database} WITH (FORCE)`);await admin.query(`DROP ROLE ${runtime},${migrator}`);}}finally{await admin.end();}
   if(directory)await rm(directory,{recursive:true,force:true});});
 const call=async(path:string,init?:RequestInit)=>{const requestHeaders=new Headers(init?.headers);requestHeaders.set('Host',new URL(origin).host);if(requestHeaders.has('Origin')){requestHeaders.set('X-Synthetic-Origin',requestHeaders.get('Origin')!);requestHeaders.delete('Origin');}const worker=await mf.getWorker('synthetic-ingress');return worker.fetch(origin+path,{...init,headers:requestHeaders} as never) as unknown as Promise<Response>;};

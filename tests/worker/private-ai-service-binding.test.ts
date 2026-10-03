@@ -57,9 +57,9 @@ test('missing or partial Worker bindings stay inactive without DB or service cal
     assert.equal(await workerPrivateAiPorts(pool,bindings,{origin:'https://main.test',freedomEnv:'staging'}),undefined);
 });
 test('actual Wrangler Worker bundle excludes native provider transport and Node listeners',async()=>{
-  const bundle=await readFile(resolve(process.env.FREEDOM_WORKERD_BUNDLE_DIR??'.wrangler/dry-run/private-ai','worker.js'),'utf8');
+  const bundle=await readFile(resolve(process.env.FREEDOM_WORKERD_BUNDLE_DIR??'.wrangler/dry-run/local','worker.js'),'utf8');
   assert(!bundle.includes('model-step-node-transport.ts'));assert(!/from ["']node:(?:https|http)["']/.test(bundle));
-  const load=new Miniflare(convertV4MiniflareOptions({workers:[{name:'main-bundle',modules:true,scriptPath:resolve(process.env.FREEDOM_WORKERD_BUNDLE_DIR??'.wrangler/dry-run/private-ai','worker.js'),compatibilityDate:'2026-09-21',compatibilityFlags:['nodejs_compat']}]}));
+  const load=new Miniflare(convertV4MiniflareOptions({workers:[{name:'main-bundle',modules:true,scriptPath:resolve(process.env.FREEDOM_WORKERD_BUNDLE_DIR??'.wrangler/dry-run/local','worker.js'),compatibilityDate:'2026-09-21',compatibilityFlags:['nodejs_compat']}]}));
   try{await load.ready;const response=await load.dispatchFetch('https://main.test/api/v1/me/model-settings');assert.equal(response.status,503);}finally{await load.dispose();}
 });
 test('Worker profile environment and exact platform origin reject before DB or binding calls',async()=>{
