@@ -54,7 +54,7 @@ R2 重構已有 ObjectStore／Asset lifecycle、頭像、私人 Result、本機�
 | CORE-2 | `40e0f2d`、`4a74b31`、`6f3485f`、`4ea8f47` | migration 078、獨立 scoped member receipts/facts、bounded JSON、當前權限及 DB-clock expiry；28 項新增 runtime 回歸 |
 | ASSET-A lifecycle 增量 | `769840a`、`6da6b89`、`bdd05c4`、`0371c19`、`360fc30` | migration 079、封閉頭像 intent/lease/fence/write/finalize、真實 avatar version CAS；14 項 lifecycle 與 23 項獨立 race tests |
 
-目前整合分支為 `feat/foundation-model-settings-20261003`，worktree 同名，從前批 direct credential ingest 的交付提交 `082204550e0492f4ad503c697380ef8b96a17596` 延續；各批次另保留在各自 worktree。全部只在 `~/tmp-scratch/fp_work/` 工作，未 push、建立 PR、merge main 或部署。主 checkout 及其 staged 刪除未更動。下文各批次數字與限制保留當時脈絡，以最新批次說明目前增量。
+持續整合分支為 `feat/unified-foundation`，沿用 `foundation-model-settings-20261003` 隔離 worktree；模型設定批次從 direct credential ingest 的交付提交 `082204550e0492f4ad503c697380ef8b96a17596` 延續，各批次仍保留各自分支與 worktree。依 Ted 2026-10-03 指示，累積重構集中至同一個 Draft PR，後續沿此分支提交並更新 PR 描述；仍維持 Draft，直到原 scope 與發布要求完成。開發仍在 `~/tmp-scratch/fp_work/`，主 checkout 及其 staged 刪除未更動。下文歷史批次的「未 push／未建立 PR」是當時狀態；本次公開進度不代表 merge main、部署或產品驗收。
 
 ## GOV-A/B 與 CORE-0 證據
 
@@ -1170,4 +1170,4 @@ source/artifact policy、authenticated observation、外部 publisher／GitHub e
 
 早先唯讀查核 #85／#87 的衝突與 migration 重號紀錄保留歷史用途；依 Ted 最新指示，其他 PR 的 rebase／整合現在不在派工範圍。這次沒有修改作者 PR 或把舊 CI 結果當新整合驗收。
 
-推送、PR、合併、GitHub 規則、信任來源／金鑰、正式資料盤點或部署另依 Ted 的操作授權處理；Discord 全文仍須逐則核准。
+Ted 已授權將累積重構推送至同一個 Draft PR，並持續沿 `feat/unified-foundation` 更新；不因此取得合併、改 GitHub 規則、信任來源／金鑰、正式資料盤點或部署授權。Discord 全文仍須逐則核准。
