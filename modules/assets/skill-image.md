@@ -27,7 +27,11 @@ member-session receipt is minted.
 
 Owner-private illustration and the original published-project/version shelf
 rules remain at their existing URLs. Asset reads verify bytes and recheck those
-ACLs after I/O; asset sources never fall back to old SQL bytes. SQL constraints
+ACLs after I/O. Owner asset reads use the genuine current session and active
+personal scope before and after I/O, with a fresh session clock check. Public
+asset reads require active owner principal and personal scope along with the
+original published-project rules. Every immutable metadata field is pinned
+between those snapshots; asset sources never fall back to old SQL bytes. SQL constraints
 reject cross-owner targets and legacy rewrites of asset sources. Old legacy
 images require the existing migration/restore process before R2-only policy.
 
