@@ -13,7 +13,7 @@ test('native Worker shared20MiB media preparation and verifiedI/O plus lazy cond
   try{
     const bundle=await build({entryPoints:[resolve('tests/worker/media-object-fixtures/io.ts')],write:false,bundle:true,format:'esm',platform:'neutral',conditions:['workerd','worker','browser']});
     const source=bundle.outputFiles[0].text;assert(!/from ["']node:/.test(source));
-    mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'fp-worker-media-io',modules:true,script:source,compatibilityDate:'2026-09-21',compatibilityFlags:['nodejs_compat'],r2Buckets:['MEDIA']}]}));await mf.ready;
+    mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'fp-worker-media-io',modules:true,script:source,compatibilityDate:'2026-09-21',r2Buckets:['MEDIA']}]}));await mf.ready;
     const response=await mf.dispatchFetch('https://media-io.test/');assert.equal(response.status,200);
     const report=await response.json() as Record<string,unknown>;
     assert.equal(report.profile,'synthetic.worker-media-io/v1');assert.equal(report.preparedBytes,20*1024*1024);assert.equal(report.verifiedBytes,20*1024*1024);assert.equal(report.digestMatches,true);assert.match(report.sha256 as string,/^[0-9a-f]{64}$/);
