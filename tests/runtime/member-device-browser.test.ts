@@ -228,6 +228,7 @@ test('DEVICE-BROWSER actual TLS portal reviews and approves bootstrap-only pairi
 test('DEVICE-BROWSER actual portal revokes owner connection and blocks issued status, nonce and refresh',{timeout:60000},async()=>{
   const f=await uiPair();
   await f.page.reload();await f.panel.getByLabel('管理的裝置連線',{exact:true}).selectOption(f.issued.connectionId);
+  await f.panel.getByRole('checkbox',{name:'我確認撤銷目前選取的裝置連線。',exact:true}).check();
   const revoked=f.page.waitForResponse(response=>response.url()===origin+paths.list+'/'+f.issued.connectionId+':revoke'&&response.request().method()==='POST');
   await f.panel.getByRole('button',{name:'撤銷裝置連線',exact:true}).click();const response=await revoked;assert.equal(response.status(),200);
   assert.equal((await response.json()).state,'revoked');
