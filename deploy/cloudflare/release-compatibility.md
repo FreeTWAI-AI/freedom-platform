@@ -300,3 +300,13 @@ dependencies without inventing written shapes, device-pairing permissions or
 actual model readiness. Bootstrap-only releases do not acquire this new
 capability merely by supporting refresh/status. See
 [spec 13](../../docs/platform-plan/execution/unified-foundation/13-member-execution-prerequisites.md).
+
+
+Migration 093 introduces `execution.model-text-step.v1`; 094 introduces
+`work.private-model-result.v1`. Enabled, written and retained history require
+these exact shapes and their prerequisite capabilities from every active and
+candidate binary. A schema ledger, compatible report or synthetic model fixture
+does not authorize inference export, credentials, execution or deployment. The
+original human Result shape remains separate; model history is never projected
+as human provenance. Runtime policy ACLs now protect both persistence and model
+inference export operator tables, including old column grants.

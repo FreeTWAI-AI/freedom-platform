@@ -40,7 +40,7 @@ export interface LifecycleDependencies {
  * decision-clock refresh; publish may only reuse already-held domain locks.
  * The engine alone owns upload state transitions, source effects and fences. */
 export interface LifecycleProfile<P extends LifecyclePrepare,R> {
-  readonly purpose: 'member.avatar'|'work.private-draft'; readonly targetKind: 'member.avatar'|'work.private-result'; readonly variant: 'avatar'|'draft';
+  readonly purpose: 'member.avatar'|'work.private-draft'; readonly targetKind: 'member.avatar'|'work.private-result'|'work.model-result'; readonly variant: 'avatar'|'draft';
   readonly inputMaxBytes: number; readonly outputMaxBytes: number; readonly retireReplacedAsset: boolean;
   readonly parsePrepare: (raw: P) => P;
   readonly targetId: (input: P) => string;
@@ -55,6 +55,8 @@ export interface LifecycleProfile<P extends LifecyclePrepare,R> {
  * context. This callable port is never serialized verification evidence. */
 export interface LifecycleCommitPort<R,T> {
   readonly operation: string;
+  /** Trusted external authority recheck after storage I/O, before DB commit work. */
+  readonly beforeCommit?: () => Promise<void>;
   readonly execute: (run: (q: PoolClient, context: MemberScopeContext) => Promise<T>) => Promise<T>;
   readonly validateIntent: (intent: LifecycleIntent) => void;
   readonly result: (value: R) => T;
@@ -67,7 +69,8 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
     .parse({ ttl: dependencies.intentTtlSeconds??3600, lease: dependencies.leaseSeconds??300, pending: dependencies.maxPendingIntents??3 });
   const profile = Object.freeze({ ...definition }), store = dependencies.store;
   requireCondition((profile.purpose==='member.avatar' && profile.targetKind==='member.avatar' && profile.variant==='avatar' && profile.inputMaxBytes===2097152 && profile.outputMaxBytes===131072)
-    || (profile.purpose==='work.private-draft' && profile.targetKind==='work.private-result' && profile.variant==='draft' && profile.inputMaxBytes===262144 && profile.outputMaxBytes===262144),500,'asset_profile_invalid','內容設定不正確。');
+    || (profile.purpose==='work.private-draft' && profile.targetKind==='work.private-result' && profile.variant==='draft' && profile.inputMaxBytes===262144 && profile.outputMaxBytes===262144)
+    || (profile.purpose==='work.private-draft' && profile.targetKind==='work.model-result' && profile.variant==='draft' && profile.inputMaxBytes===16384 && profile.outputMaxBytes===16384),500,'asset_profile_invalid','內容設定不正確。');
   const targetId = (row: LifecycleIntent) => profile.targetKind==='member.avatar' ? row.target_user_id : OpaqueId.parse(row.target_work_id);
   const storageKey = (row: LifecycleIntent) => objectKey({scopeId:row.scope_id,assetId:row.asset_id,representationId:row.representation_id});
   async function policy(q: PoolClient, context: MemberScopeContext, id: string, pinned?: string): Promise<LifecyclePolicy> {
@@ -117,7 +120,7 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
       const assetId=randomUUID(),intentId=randomUUID(),representationId=randomUUID();
       await q.query('INSERT INTO assets(asset_id,scope_id,owner_principal_id,owner_user_id,policy_revision,representation_id,purpose) VALUES($1,$2,$3,$4,$5,$6,$7)',[assetId,context.scope.scope_id,context.subject_principal.principal_id,actor.user_id,resolved.revision,representationId,profile.purpose]);
       const values:unknown[]=[intentId,assetId,representationId,context.scope.scope_id,context.subject_principal.principal_id,actor.user_id,resolved.revision,receiptKey,digest(body),input.contentType,input.byteSize,input.sha256,input.expectedVersion,settings.ttl,profile.purpose,profile.outputMaxBytes];
-      const work=profile.targetKind==='work.private-result';if(work)values.push(profile.targetKind,id);
+      const work=profile.targetKind==='work.private-result'||profile.targetKind==='work.model-result';if(work)values.push(profile.targetKind,id);
       const row=(await q.query(`INSERT INTO asset_upload_intents(intent_id,asset_id,representation_id,scope_id,owner_principal_id,target_user_id,policy_revision,prepare_key,request_digest,source_content_type,source_byte_size,source_sha256,expected_version,expires_at,purpose,reserved_bytes${work?',target_kind,target_work_id':''}) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,clock_timestamp()+make_interval(secs=>$14),$15,$16${work?',$17,$18':''}) RETURNING expires_at`,values)).rows[0];
       await scopedJournal(q,context,{aggregate_type:'asset_upload_intent',id:intentId,version:'1',operation:'asset.upload.prepare',data:{asset_id:assetId}});
       return {intentId,assetId,representationId,expiresAt:row.expires_at.toISOString() as string};
@@ -154,7 +157,7 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
     },async q=>{
       if(row.state==='stored')requireCondition(digest(await metadata(q,row))===digest(verified.metadata),409,'asset_object_conflict','已儲存內容不同。');
       else{
-        const value=verified.metadata,work=profile.targetKind==='work.private-result';const values:unknown[]=[row.asset_id,row.scope_id,row.representation_id,value.contentType,value.byteSize,value.sha256,value.transformVersion,value.policyRevision];if(work)values.push(profile.purpose,profile.variant);
+        const value=verified.metadata,work=profile.targetKind==='work.private-result'||profile.targetKind==='work.model-result';const values:unknown[]=[row.asset_id,row.scope_id,row.representation_id,value.contentType,value.byteSize,value.sha256,value.transformVersion,value.policyRevision];if(work)values.push(profile.purpose,profile.variant);
         await q.query(`INSERT INTO asset_objects(asset_id,scope_id,representation_id,content_type,byte_size,content_sha256,transform_version,policy_revision${work?',purpose,variant':''}) VALUES($1,$2,$3,$4,$5,$6,$7,$8${work?',$9,$10':''})`,values);
         await q.query("UPDATE asset_upload_intents SET state='stored' WHERE intent_id=$1",[row.intent_id]);
       }
@@ -183,6 +186,8 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
   }
   async function finalizeVia<T>(actor:Actor,raw:AssetLeaseInput,bridge:LifecycleCommitPort<R,T>){
     actor=Object.freeze({...actor});const input=leaseInput.parse(raw),port=Object.freeze({...bridge});await verifyFinalization(actor,input);
+    requireCondition(port.beforeCommit===undefined||typeof port.beforeCommit==='function',500,'asset_commit_port_invalid','內容設定不正確。');
+    if(port.beforeCommit)await port.beforeCommit();
     return port.execute(async(q,context)=>{const {row,target,publication}=await authorizeFinalization(q,context,actor,input);port.validateIntent(Object.freeze({...row}));return port.result(await publish(q,context,actor,row,target,publication,port.operation));});
   }
   async function resumeUpload(actor:Actor,raw:AssetClaimInput){

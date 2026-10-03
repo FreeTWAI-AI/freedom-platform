@@ -89,3 +89,11 @@ operational permit、dispatch 前後 current-authority／fences，以及受約�
 resolver／provider transport；再驗真正模型認證、有效工具政策及私人 Result 的
 完整垂直流程。已派三路不表示三個 production adapter 都完成；原始產品驗收、
 trusted CI 及 staging/live 保持原完成條件。
+
+
+## 接續單步流程
+
+以上是原 adapter core 的介面限制，`invoke` 仍不啟用；
+[16](16-private-model-step.md) 另以受信任 host 接明確出口政策、current Attempt、
+once-only dispatch 與私人模型 Result。BYOK 正式 transport 程式先限 platform
+vault/engine，只有 local fixture 的完整流程有本批實際測試，仍未呼叫正式 provider。

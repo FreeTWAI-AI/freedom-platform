@@ -63,6 +63,8 @@ export function createExecutionRuns(pool: Pool) {
       WHERE run_id=$1 AND owner_user_id=$2 AND owner_principal_id=$3 AND scope_id=$4 FOR UPDATE`,
     [runId, actor.user_id, context.subject_principal.principal_id, context.scope.scope_id])).rows[0];
     requireCondition(row, 404, 'not_found', '找不到這項執行紀錄。');
+    const operational = await q.query('SELECT step_id FROM model_text_steps WHERE run_id=$1', [runId]);
+    requireCondition(operational.rowCount === 0, 409, 'execution_run_profile_required', '請使用目前模型步驟的讀取與暫停／停止介面。');
     return row;
   }
   async function record(q: PoolClient, context: MemberScopeContext, operation: string, row: Run) {

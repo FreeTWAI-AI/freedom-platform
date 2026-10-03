@@ -706,11 +706,38 @@ Grant 當出口權。Operational Permit 仍需 genuine auth/tools/transport/budg
 operational subtype 必須接續真實歷史及 cap，不能重編號或補造 inference binding。其後串 provider transport、dispatch journal、
 取消／unknown outcome、私人 AI Result finalize，再推跨端、媒體及正式治理。
 
+## 本批：單步文字執行與私人模型成果
+
+Ted 指出進度未接成成果後，本批集中完成 [16](16-private-model-step.md) 的
+垂直實作：獨立 inference export policy／本人明確批准、真正 active Attempt／
+running Run／lease、一次性 committed dispatch、受限 BYOK host transport、
+opaque observation、Asset 寫入、typed private model Result 與人工共同歷史。
+不是只有 candidate/blocked ports。正式 HTTPS 程式限明確 platform vault/engine
+及 platform Asset custody；其他 custody/subscription 沒有自動 fallback。
+
+本機 fixture 用真實 HTTP、非 superuser PostgreSQL runtime 與 ObjectStore bytes，
+全部結果明確帶 `synthetic_local_fixture`／`costStatus:unknown`；沒有呼叫正式
+provider、取用真實 key 或正式 recovery source。原 human generated provenance
+保留，AI 原始文字沒有進 receipts/facts。076–092 migration bytes 不變，新 schema
+為 093／094；兩張 operator policy 都套 dedicated runtime column ACL fence。
+
+完整垂直 fixture 已確認一次派送與 Result Work CAS，成功 replay 零新增 POST／PUT。
+最終固定版本、作者／獨立反例、標準完整回歸、發布相容性及清理結果在驗證完成後
+補入本節；驗證途中不把暫時綠燈當交付總數。原始 168 項產品驗收維持 not_run，
+沒有從 loopback fixture 推定真人 provider／跨端／正式發布已驗收。
+
 ## 下一批
 
-Runtime enrollment、connection backing record、[封閉 bootstrap status](09-bootstrap-status.md)、[裝置配對／一次性交換](10-device-authorization.md)、[refresh／nonce](11-bootstrap-sessions.md) 及 [HTTP 邊界](12-bootstrap-http.md) 已有本機實作。它們提供受限配對、可持續 refresh 及本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權，也不輸出通用 VerifiedContext。[13](13-member-execution-prerequisites.md) 已建立未驗證 ModelConnection、精確限定同意 Grant 與 immutable blocked Attempt backing records，[14](14-member-execution-http.md) 接上真人 cookie/CSRF 的紀錄管理 HTTP factory，全部仍無 operational authority。Ted 最新指示已授權 Codex 訂閱、Claude Code 訂閱與 BYOK 三路一起派工；[15](15-model-adapter-cores.md) 接上候選準備、受限 codecs 與隔離 metadata 診斷，不再等待先選一條的回覆。下一步是目前本人／精確 Work version 的 inference export policy、完整 binding、genuine operational permit、execution token／operation validator、current Attempt／lease／獨立 fences，再串成模型產生私人 Result 的真實垂直流程。會員實際 provider/model/billing/custody 與正式登入仍未指定，這不妨礙已授權的本機實作。正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定，不重用 storefront/supplier 的 `fw_read` 連線。
+[16](16-private-model-step.md) 已接本機單步文字垂直流程；下一批優先接產品的
+Work/Run HTTP 及畫面、明確出口批准與新版暫停/停止控制。HTTP 必須沿既有用途、
+本人 cookie/CSRF、來源、限流、有界 JSON/CAS 與原 receipt 規則，不能接受 caller
+provider URL、credential、policy 或 ready boolean。其後是正式 vault/recovery
+信任來源與受批准 exact provider/model 的本人端驗收，以及訂閱 native host、
+機器 execution auth、heartbeat/reconciliation、多步調度、媒體/跨端與可信治理。
+沒有把 codefactory/local fixture 當正式服務可用，也不重用 storefront/supplier 的
+`fw_read` 連線。
 
-治理已推進固定單一 profile 的 [本機隔離 supervisor](../../../../packages/contribution-tools/behavior-supervisor.md)：host harness 透過有界 HTTP response frames 呼叫隔離容器內的 candidate app，由 host 自行判斷結果；不能把 candidate stdout/JSON 當可信測試結果。隔離不成立就 unavailable，並保留 approved host source／runtime、完整入口、publisher/GitHub enforcement 的缺口。下一步是可信安裝、來源與 publisher 接線，不是把本機 observation 宣稱可合併。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代完整入口／外部保存／政策 restore 的證據。migration 076–092 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
+治理已推進固定單一 profile 的 [本機隔離 supervisor](../../../../packages/contribution-tools/behavior-supervisor.md)：host harness 透過有界 HTTP response frames 呼叫隔離容器內的 candidate app，由 host 自行判斷結果；不能把 candidate stdout/JSON 當可信測試結果。隔離不成立就 unavailable，並保留 approved host source／runtime、完整入口、publisher/GitHub enforcement 的缺口。下一步是可信安裝、來源與 publisher 接線，不是把本機 observation 宣稱可合併。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代完整入口／外部保存／政策 restore 的證據。migration 076–094 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
 
 早先唯讀查核 #85／#87 的衝突與 migration 重號紀錄保留歷史用途；依 Ted 最新指示，其他 PR 的 rebase／整合現在不在派工範圍。這次沒有修改作者 PR 或把舊 CI 結果當新整合驗收。
 

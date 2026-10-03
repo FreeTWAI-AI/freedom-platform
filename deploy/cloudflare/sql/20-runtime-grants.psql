@@ -43,7 +43,7 @@ $policy$, c.oid::regclass, :'runtime', c.oid,
   (SELECT string_agg(quote_ident(a.attname),',' ORDER BY a.attnum)
     FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped))
 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
-WHERE n.nspname='public' AND c.relname='private_work_persistence_policy' AND c.relkind='r'
+WHERE n.nspname='public' AND c.relname IN ('private_work_persistence_policy','model_inference_export_policy') AND c.relkind='r'
 \gexec
 -- END PRIVATE POLICY GRANTS
 COMMIT;

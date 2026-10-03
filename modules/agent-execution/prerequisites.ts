@@ -267,7 +267,7 @@ export function createExecutionPrerequisites(pool: Pool, rawOptions: { environme
     return withMemberScope(pool, { actor, scope: 'personal' }, async q => eligible(q, actor), async (q, context) => {
       await ownerLock(q, context);
       const first = found((await q.query<Attempt>(`SELECT a.* FROM execution_attempts a JOIN execution_grants g ON g.grant_id=a.grant_id
-        WHERE a.attempt_id=$1 AND a.owner_user_id=$2 AND a.owner_principal_id=$3 AND a.scope_id=$4 AND g.environment=$5 AND g.client_id=$6`,
+        WHERE a.state='preflight_blocked' AND a.attempt_id=$1 AND a.owner_user_id=$2 AND a.owner_principal_id=$3 AND a.scope_id=$4 AND g.environment=$5 AND g.client_id=$6`,
       [input.attemptId, ...ownerValues(actor, context), environment, clientId])).rows[0]);
       const grant = await locateGrant(q, actor, context, first.grant_id);
       await lockBinding(q, actor, context, first.run_id, grant.connection_id, grant.model_connection_id);

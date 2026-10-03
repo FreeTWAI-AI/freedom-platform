@@ -42,7 +42,13 @@
     "tests/runtime/model-adapter-common.test.ts",
     "tests/runtime/model-adapter-independent.test.ts",
     "tests/runtime/model-adapter-registry.test.ts",
-    "tests/runtime/model-cli-probe.test.ts"
+    "tests/runtime/model-cli-probe.test.ts",
+    "migrations/093_export_model_steps.sql",
+    "migrations/094_private_model_results.sql",
+    "contracts/execution/v2/**",
+    "tests/runtime/model-step-service.test.ts",
+    "tests/runtime/model-step-contracts.test.ts",
+    "tests/runtime/model-step-adversarial.test.ts"
   ],
   "public_exports": [
     "modules/agent-execution/runs.ts",
@@ -50,7 +56,12 @@
     "contracts/execution/v1/member-execution.ts",
     "contracts/execution/v1/member-execution-http.ts",
     "apps/platform-api/src/routes/member-execution-http.ts",
-    "modules/agent-execution/adapters/index.ts"
+    "modules/agent-execution/adapters/index.ts",
+    "contracts/execution/v2/model-step.ts",
+    "modules/agent-execution/model-step-service.ts",
+    "modules/agent-execution/model-step-host.ts",
+    "modules/agent-execution/model-step-runner.ts",
+    "modules/agent-execution/model-results.ts"
   ],
   "dependencies": [
     "work",
@@ -59,13 +70,15 @@
     "scoped-commands",
     "execution-decision",
     "runtime-registration",
-    "asset-storage"
+    "asset-storage",
+    "asset-lifecycle"
   ],
   "contract_families": [
     "common",
     "execution-decision",
     "member-execution",
-    "member-execution-http"
+    "member-execution-http",
+    "model-step"
   ],
   "client_profiles": [],
   "instructions": [
@@ -74,7 +87,8 @@
     "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md",
     "docs/platform-plan/execution/unified-foundation/13-member-execution-prerequisites.md",
     "docs/platform-plan/execution/unified-foundation/14-member-execution-http.md",
-    "docs/platform-plan/execution/unified-foundation/15-model-adapter-cores.md"
+    "docs/platform-plan/execution/unified-foundation/15-model-adapter-cores.md",
+    "docs/platform-plan/execution/unified-foundation/16-private-model-step.md"
   ],
   "invariants": [
     "current-authority-before-replay",
@@ -96,7 +110,13 @@
     "private-candidates-without-dispatch",
     "unverified-provider-output-only",
     "isolated-metadata-without-member-credentials",
-    "no-fallback-on-unknown-provider-outcome"
+    "no-fallback-on-unknown-provider-outcome",
+    "explicit-inference-export-policy",
+    "one-use-dispatch-before-external-effect",
+    "current-authority-immediately-before-send",
+    "typed-model-result-with-shared-work-cas",
+    "synthetic-evidence-origin-is-explicit",
+    "unknown-provider-outcome-keeps-reservation"
   ],
   "tests": [
     "runtime.full"

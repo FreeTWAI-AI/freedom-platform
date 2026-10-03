@@ -206,3 +206,15 @@ requested versus reported models, usage uncertainty and remaining inference
 export/permit/custody requirements. Runtime tests include private codecs, local
 synthetic HTTP framing and real isolated native process counterexamples; they
 do not claim authenticated provider inference.
+
+
+## One-use private text profile
+
+[16](../../docs/platform-plan/execution/unified-foundation/16-private-model-step.md)
+adds explicit operator export policy/member approval, a real active Attempt and
+running Run, a one-use dispatched journal, bounded fixed HTTPS BYOK host,
+private model Result through the Asset lifecycle and shared human/model history.
+The local fixture origin is explicitly synthetic. No route, native subscription
+execution, ambient credential, production recovery source or deployment is enabled.
+The older closed Run API returns `execution_run_profile_required` for this profile;
+use ModelStep read/control ports. Public metadata never carries operational authority.

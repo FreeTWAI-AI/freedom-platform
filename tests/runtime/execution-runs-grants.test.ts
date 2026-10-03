@@ -35,8 +35,8 @@ before(async () => {
   const q = await owner.connect();
   try {
     await q.query(prefix);
-    const statements = await q.query(grants); assert.equal(statements.rowCount, 1);
-    await q.query(Object.values(statements.rows[0])[0] as string); await q.query('COMMIT');
+    const statements = await q.query(grants); assert.equal(statements.rowCount, 2);
+    for (const row of statements.rows) await q.query(Object.values(row)[0] as string); await q.query('COMMIT');
   } catch (error) { await q.query('ROLLBACK'); throw error; } finally { q.release(); }
   const check = await readFile(new URL('../../deploy/cloudflare/sql/30-verify-readonly.psql', import.meta.url), 'utf8');
   checkQuery = check.slice(check.indexOf("SELECT has_table_privilege(:'runtime',c.oid,'SELECT')"))
@@ -80,7 +80,7 @@ test('RUN-ACL actual migrator/app sessions are non-superuser and real grant chec
       FROM pg_roles WHERE rolname=current_user`)).rows[0];
     assert.deepEqual(row, { current_user:name, session_user:name, rolsuper:false, rolcreaterole:false, rolcreatedb:false, rolreplication:false, rolbypassrls:false });
   }
-  assert.deepEqual((await owner.query(checkQuery)).rows, [{ private_policy_read:true, private_policy_lock:true, private_policy_unsafe:false }]);
+  assert.deepEqual((await owner.query(checkQuery)).rows, [{ private_policy_read:true, private_policy_lock:true, private_policy_unsafe:false }, { private_policy_read:true, private_policy_lock:true, private_policy_unsafe:false }]);
   const privileges = (await app.query(`SELECT has_table_privilege(current_user,'execution_runs','SELECT') AS read,
     has_table_privilege(current_user,'execution_runs','INSERT') AS insert,
     has_table_privilege(current_user,'execution_runs','UPDATE') AS update,

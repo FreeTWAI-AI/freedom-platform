@@ -32,24 +32,31 @@ export interface PrivateResultPublished {
 export interface PrivateResultMetadata {
   readonly resultId: string; readonly workId: string; readonly revision: string; readonly workVersion: string;
   readonly contentType: 'text/plain' | 'text/markdown'; readonly byteSize: number; readonly sha256: string;
-  readonly createdAt: string; readonly provenance: 'human';
+  readonly createdAt: string; readonly provenance: 'human' | 'model';
+  readonly model?: { readonly stepId: string; readonly attemptId: string; readonly dispatchIntentId: string;
+    readonly selection: unknown; readonly evidenceOrigin: 'synthetic_local_fixture' | 'provider_https'; readonly usage: unknown; readonly costStatus: 'unknown' };
 }
 export interface PrivateResultText extends PrivateResultMetadata { readonly aggregateVersion: string; readonly text: string }
 interface ResultRow {
   result_id: string; work_item_id: string; revision: string; work_version: string; created_at: Date;
   asset_id: string; scope_id: string; representation_id: string; policy_revision: string;
+  provenance: 'human' | 'model'; evidence_origin: 'synthetic_local_fixture' | 'provider_https' | null;
+  step_id: string | null; attempt_id: string | null; dispatch_intent_id: string | null; model_binding: Record<string, unknown> | null; observation: Record<string, unknown> | null;
   content_type: 'text/plain' | 'text/markdown'; byte_size: number; content_sha256: string;
 }
 const missing = (value: unknown) => requireCondition(value, 404, 'not_found', '找不到這個私人成果。');
 const resultFields = `r.result_id,r.work_item_id,r.revision::text,r.work_version::text,r.created_at,
-  r.asset_id,r.scope_id,r.representation_id,r.policy_revision,o.content_type,o.byte_size,o.content_sha256`;
+  r.asset_id,r.scope_id,r.representation_id,r.policy_revision,r.provenance,r.evidence_origin,r.step_id,r.attempt_id,r.dispatch_intent_id,r.model_binding,r.observation,o.content_type,o.byte_size,o.content_sha256`;
 function publicMetadata(row: ResultRow): PrivateResultMetadata {
   return Object.freeze({ resultId: row.result_id, workId: row.work_item_id, revision: row.revision, workVersion: row.work_version,
-    contentType: row.content_type, byteSize: row.byte_size, sha256: row.content_sha256, createdAt: row.created_at.toISOString(), provenance: 'human' });
+    contentType: row.content_type, byteSize: row.byte_size, sha256: row.content_sha256, createdAt: row.created_at.toISOString(), provenance: row.provenance,
+    ...(row.provenance === 'model' ? { model: Object.freeze({ stepId: row.step_id!, attemptId: row.attempt_id!,
+      dispatchIntentId: row.dispatch_intent_id!, selection: row.model_binding!.selection, evidenceOrigin: row.evidence_origin!,
+      usage: row.observation!.usage, costStatus: 'unknown' as const }) } : {}) });
 }
 
-/** Closed human-only domain adapter. No HTTP registration, provider/model
- * connection, fake Grant, publication, community facts or automatic GC. */
+/** Human uploads retain their original profile. Reads share the typed human/model
+ * catalog and actual provenance; no provider call or publication occurs here. */
 export function createPrivateResultService(pool: Pool, dependencies: PrivateResultDependencies) {
   const { resolvePolicy, store } = dependencies;
   requireCondition(typeof resolvePolicy === 'function', 500, 'private_result_policy_required', '私人成果政策尚未設定。');
@@ -118,7 +125,7 @@ export function createPrivateResultService(pool: Pool, dependencies: PrivateResu
   async function snapshot(actor: Actor, workId: string, resultId?: string) {
     return withMemberScope(pool, { actor, scope: 'personal' }, async () => {}, async (q, context) => {
       const target = await work(q, context, actor, workId, false);
-      const row = (await q.query<ResultRow>(`SELECT ${resultFields} FROM private_work_results r
+      const row = (await q.query<ResultRow>(`SELECT ${resultFields} FROM private_work_result_catalog r
         JOIN assets a ON a.asset_id=r.asset_id JOIN asset_objects o ON o.asset_id=r.asset_id
         ${resultId ? '' : 'JOIN private_work_result_targets t ON t.work_item_id=r.work_item_id AND t.result_id=r.result_id'}
         WHERE r.work_item_id=$1 AND r.scope_id=$2 AND r.owner_principal_id=$3 AND r.owner_user_id=$4
@@ -160,7 +167,7 @@ export function createPrivateResultService(pool: Pool, dependencies: PrivateResu
     actor = Object.freeze({ ...actor }); const input = listInput.parse(raw);
     return withMemberScope(pool, { actor, scope: 'personal' }, async () => {}, async (q, context) => {
       const target = await work(q, context, actor, input.workId, false);
-      const rows = (await q.query<ResultRow>(`SELECT ${resultFields} FROM private_work_results r
+      const rows = (await q.query<ResultRow>(`SELECT ${resultFields} FROM private_work_result_catalog r
         JOIN assets a ON a.asset_id=r.asset_id JOIN asset_objects o ON o.asset_id=r.asset_id
         WHERE r.work_item_id=$1 AND r.scope_id=$2 AND r.owner_principal_id=$3 AND r.owner_user_id=$4
           AND a.purpose='work.private-draft' AND a.state IN ('ready','retired') AND a.deletion_fence=0

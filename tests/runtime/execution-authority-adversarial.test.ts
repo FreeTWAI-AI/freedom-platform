@@ -45,8 +45,8 @@ before(async () => {
   const grants = template.split('-- BEGIN PRIVATE POLICY GRANTS\n')[1].split('\n\\gexec')[0]
     .replaceAll(":'runtime'", `'${runtime}'`).replace("n.nspname='public'", `n.nspname='${schema}'`);
   const q = await owner.connect();
-  try { await q.query(prefix); const statements = await q.query(grants); assert.equal(statements.rowCount, 1);
-    await q.query(Object.values(statements.rows[0])[0] as string); await q.query('COMMIT'); }
+  try { await q.query(prefix); const statements = await q.query(grants); assert.equal(statements.rowCount, 2);
+    for (const row of statements.rows) await q.query(Object.values(row)[0] as string); await q.query('COMMIT'); }
   catch (error) { await q.query('ROLLBACK'); throw error; } finally { q.release(); }
   const issuer = await generateKeyPair('ES256');
   host = { ...hostOptions, issuerKid: 'synthetic-issuer', issuer: 'https://issuer.example.invalid/', audience: 'https://platform.example.invalid/',

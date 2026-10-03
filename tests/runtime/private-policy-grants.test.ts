@@ -33,8 +33,8 @@ after(async () => {
 });
 async function grant(q: PoolClient) {
   const statements = await q.query(grantQuery);
-  assert.equal(statements.rowCount, 1);
-  await q.query(Object.values(statements.rows[0])[0] as string);
+  assert.equal(statements.rowCount, 2);
+  for (const row of statements.rows) await q.query(Object.values(row)[0] as string);
 }
 async function transaction(run: (q: PoolClient) => Promise<void>) {
   const q = await owner.connect();
@@ -48,7 +48,7 @@ test('POLICY-ACL-01 real template clears old table/column ACLs and allows row lo
     await q.query(`GRANT ALL PRIVILEGES ON private_work_persistence_policy TO ${runtime};
       GRANT UPDATE(revision),INSERT(purpose),SELECT(scope_id) ON private_work_persistence_policy TO ${runtime} WITH GRANT OPTION`);
     await grant(q); await grant(q); // Reapplying the post-restore fence is safe.
-    assert.deepEqual((await q.query(checkQuery)).rows, [{ private_policy_read: true, private_policy_lock: true, private_policy_unsafe: false }]);
+    assert.deepEqual((await q.query(checkQuery)).rows, [{ private_policy_read: true, private_policy_lock: true, private_policy_unsafe: false }, { private_policy_read: true, private_policy_lock: true, private_policy_unsafe: false }]);
     await q.query(`SET LOCAL ROLE ${runtime}`);
     await q.query('SELECT revision,persistence_allowed FROM private_work_persistence_policy FOR SHARE');
     for (const sql of ['UPDATE private_work_persistence_policy SET persistence_allowed=true',
@@ -63,7 +63,7 @@ test('POLICY-ACL-01 real template clears old table/column ACLs and allows row lo
 });
 test('POLICY-ACL-02 absent pre-085 table emits no grant, and is not reported safe', async () => {
   await transaction(async q => {
-    await q.query('ALTER TABLE private_work_persistence_policy RENAME TO policy_not_yet_present');
+    await q.query('ALTER TABLE private_work_persistence_policy RENAME TO policy_not_yet_present; ALTER TABLE model_inference_export_policy RENAME TO export_not_yet_present');
     assert.equal((await q.query(grantQuery)).rowCount, 0);
     assert.equal((await q.query(checkQuery)).rowCount, 0);
   });
