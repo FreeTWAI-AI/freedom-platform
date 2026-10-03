@@ -3,6 +3,7 @@ import type { AdminAccessVerifier } from '../../../modules/platform-admin/access
 import type { PasswordEmailSender } from '../../../modules/identity-membership/password-recovery.js';
 import type { EventEmailSender } from '../../../modules/community/events.js';
 import type {GuildReviewer} from '../../../modules/community/guild-discovery.js';
+import type { ServiceCoverAssetService } from '../../../modules/assets/media-domain.js';
 import type { ObjectStore } from '../../../packages/asset-storage/index.js';
 
 /** Stable rate-limit key used whenever no trusted network address is available. */
@@ -36,6 +37,9 @@ export type PlatformRuntime = {
   guildReviewer?: GuildReviewer;
   /** Explicit server port; absent keeps asset-backed reads unavailable. No mode activation. */
   avatarAssetStore?: ObjectStore;
+  /** Explicit installed cover lifecycle/read store; no ambient activation. */
+  serviceCoverAssets?: ServiceCoverAssetService;
+  serviceCoverAssetStore?: ObjectStore;
   /** Explicit host-installed private Work/model product transport. No ambient
    * credentials or default Worker activation; it owns its bounded HTTP body. */
   privateAiProduct?: (request: Request) => Promise<Response>;

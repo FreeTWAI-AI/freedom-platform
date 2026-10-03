@@ -13,7 +13,7 @@ import type { EventEmailSender } from '../../../modules/community/events.js';
 import { bindPrivateAiProductTransport, bindPrivateAiProductBrowserPolicy, type PrivateAiProductTransport } from './private-ai-product.js';
 
 type NodeAppOptions = {adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;
-  eventEmailSender?:EventEmailSender;maintainerWebhookSecret?:string;now?:()=>Date;avatarAssetStore?:PlatformRuntime['avatarAssetStore'];
+  eventEmailSender?:EventEmailSender;maintainerWebhookSecret?:string;now?:()=>Date;avatarAssetStore?:PlatformRuntime['avatarAssetStore'];serviceCoverAssets?:PlatformRuntime['serviceCoverAssets'];serviceCoverAssetStore?:PlatformRuntime['serviceCoverAssetStore'];
   linkPreviewFetch?:PlatformRuntime['linkPreviewFetch'];privateAiProduct?:PrivateAiProductTransport};
 
 // Node host adapter. The Worker bundle never imports this module, so the
@@ -38,7 +38,7 @@ export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<Nod
     sourceNetwork:authNetwork,
     allowedHosts:allowedRequestHosts(freedomEnv,origin),
     publicOrigin:LIVE_PUBLIC_ORIGIN,
-    passwordEmailSender:options.passwordEmailSender,avatarAssetStore:options.avatarAssetStore,
+    passwordEmailSender:options.passwordEmailSender,avatarAssetStore:options.avatarAssetStore,serviceCoverAssets:options.serviceCoverAssets,serviceCoverAssetStore:options.serviceCoverAssetStore,
     eventEmailSender:options.eventEmailSender,
     now:options.now,
     linkPreviewFetch:options.linkPreviewFetch??((input,init)=>globalThis.fetch(input,init)),

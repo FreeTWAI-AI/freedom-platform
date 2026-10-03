@@ -7,6 +7,8 @@ import { createPool, LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal, DEMO_USERS, DEMO_PASSWORD, DEMO_COMMUNITY } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
+import { createServiceCoverAssetService } from '../../modules/assets/media-domain.js';
+import { FakeObjectStore } from '../../packages/asset-storage/fake-store.js';
 import { inspectCanonicalWebp } from '../../packages/shared/image-webp.js';
 
 const origin = 'http://127.0.0.1:4310';
@@ -512,4 +514,58 @@ test('a member_service link scores the sharer, including the owner, and a non-uu
   const unavailable = closedMine.data.items.find((item: { code: string }) => item.code === shared.data.code);
   assert.equal(unavailable.available, false);
   assert.equal(unavailable.title, '可分享的課');
+});
+
+// Synthetic PostgreSQL plus shared in-process storage: domain/API compatibility,
+// not deployed R2, cloud quota, data backfill or restore acceptance.
+test('opted-in cover facade preserves legacy receipt, current ACL, CAS and deletion while missing storage fails closed',async()=>{
+ const maker=await signIn(),reviewer=await signIn(DEMO_USERS[1].email);
+ const created=await request('/member-services',maker,draft({title:'Synthetic asset-backed cover'}));
+ const legacyCreated=await request('/member-services',maker,draft({title:'Synthetic retained legacy cover'})),legacyId=legacyCreated.data.service_id;
+ const legacyUpload=await app.request(origin+`/api/v1/member-services/${legacyId}/cover`,{method:'PUT',headers:{Origin:origin,Cookie:maker.cookie,'X-CSRF-Token':maker.csrf,'Content-Type':'image/png','Idempotency-Key':randomUUID(),'If-Match':'"1"'},body:PNG});assert.equal(legacyUpload.status,200);
+ const id=created.data.service_id,store=new FakeObjectStore();
+ const assets=createServiceCoverAssetService(pool,{store,resolvePolicy:async()=>({revision:'synthetic-cover-policy',platformPersistenceAllowed:true,retainedByteLimit:'10485760'})});
+ const installed=createApp(pool,origin,'local',{serviceCoverAssets:assets,serviceCoverAssetStore:store});
+ const call=async(path:string,method='GET',body?:unknown,version?:string,key=randomUUID(),actor=maker)=>installed.request(origin+'/api/v1'+path,{method,headers:{Origin:origin,Cookie:actor.cookie,'X-CSRF-Token':actor.csrf,'Content-Type':body instanceof Buffer?'image/png':'application/json','Idempotency-Key':key,...(version?{'If-Match':'"'+version+'"'}:{})},...(body===undefined?{}:{body:body instanceof Buffer?body:JSON.stringify(body)})});
+ await pool.query("UPDATE domain_media_storage_policy SET mode='bridge' WHERE purpose='member.service-cover'");
+ const unavailable=await app.request(origin+`/api/v1/member-services/${id}/cover`,{method:'PUT',headers:{Origin:origin,Cookie:maker.cookie,'X-CSRF-Token':maker.csrf,'Content-Type':'image/png','Idempotency-Key':randomUUID(),'If-Match':'"1"'},body:PNG});
+ assert.equal(unavailable.status,503);assert.equal((await pool.query('SELECT count(*)::int n FROM asset_upload_intents')).rows[0].n,0);
+ let puts=0;const put=store.putImmutable.bind(store);store.putImmutable=async(...args)=>{puts++;return put(...args);};
+ const key=randomUUID(),saved=await call(`/member-services/${id}/cover`,'PUT',PNG,'1',key);assert.equal(saved.status,200,await saved.clone().text());
+ const dto=await saved.json() as any;assert.equal(dto.aggregate_version,2);assert(dto.cover_url);assert(!JSON.stringify(dto).includes('asset_id'));
+ const replay=await call(`/member-services/${id}/cover`,'PUT',PNG,'1',key);assert.equal(replay.status,200);assert.deepEqual(await replay.json(),dto);
+ assert.equal(puts,1,'committed replay must not resend object write');
+ const changed=Buffer.concat([PNG,Buffer.from([0])]);assert.equal((await call(`/member-services/${id}/cover`,'PUT',changed,'1',key)).status,409);
+ assert.equal((await pool.query('SELECT count(*)::int n FROM command_receipts WHERE user_id=$1 AND operation=$2 AND idempotency_key=$3',[maker.user.user_id,`PUT /api/v1/member-services/${id}/cover`,key])).rows[0].n,1);
+ assert.equal((await pool.query('SELECT count(*)::int n FROM asset_upload_intents WHERE target_service_id=$1',[id])).rows[0].n,1);
+ const cover=await call(`/member-services/${id}/cover`);assert.equal(cover.status,200);const dimensions=inspectCanonicalWebp(Buffer.from(await cover.arrayBuffer()));assert.equal(dimensions.width,1200);assert.equal(dimensions.height,675);
+ assert.equal((await installed.request(origin+`/api/v1/public/member-services/${id}/cover`)).status,200);
+ const missing=createApp(pool,origin,'local');assert.equal((await missing.request(origin+`/api/v1/public/member-services/${id}/cover`)).status,503);
+ store.failNext('get');assert.equal((await call(`/member-services/${id}/cover`)).status,503);
+ assert.equal((await call(`/member-services/${id}/cover`,'PUT',PNG)).status,428);
+ assert.equal((await call(`/member-services/${id}/cover`,'PUT',PNG,'1')).status,412);
+ assert.equal((await call(`/member-services/${id}/cover`,'PUT',PNG,'2',randomUUID(),reviewer)).status,403);
+ const paused=await call(`/member-services/${id}/pause`,'POST',{},'2');assert.equal(paused.status,200);assert.equal((await call(`/member-services/${id}/cover`)).status,200);
+ assert.equal((await call(`/member-services/${id}/cover`,'GET',undefined,undefined,randomUUID(),reviewer)).status,404);
+ assert.equal((await installed.request(origin+`/api/v1/public/member-services/${id}/cover`)).status,404);
+ const resumed=await call(`/member-services/${id}/resume`,'POST',{},'3');assert.equal(resumed.status,200);assert.equal((await installed.request(origin+`/api/v1/public/member-services/${id}/cover`)).status,200);
+ // Real state change during object I/O must defeat the second ACL snapshot.
+ const nativeGet=store.get.bind(store);store.get=async(...args)=>{const object=await nativeGet(...args);await pool.query("UPDATE member_services SET state='paused',aggregate_version=aggregate_version+1 WHERE service_id=$1",[id]);return object;};
+ assert.equal((await installed.request(origin+`/api/v1/public/member-services/${id}/cover`)).status,404);store.get=nativeGet;
+ const removed=await call(`/member-services/${id}/cover/remove`,'POST',{},'5');assert.equal(removed.status,200);assert.equal((await removed.json() as any).cover_url,null);
+ assert.equal((await call(`/member-services/${id}/cover`)).status,404);
+ assert.equal((await pool.query("SELECT state FROM assets WHERE purpose='member.service-cover'")).rows[0].state,'retired');
+ assert.equal((await pool.query('SELECT asset_id FROM member_service_cover_asset_targets WHERE service_id=$1',[id])).rows[0].asset_id,null);
+ const retained=await call(`/member-services/${legacyId}/cover`,'PUT',PNG,'2');assert.equal(retained.status,200);
+ const retainedRow=(await pool.query('SELECT storage_source,image_bytes FROM member_service_covers WHERE service_id=$1',[legacyId])).rows[0];assert.equal(retainedRow.storage_source,'asset');assert(retainedRow.image_bytes.length>0);
+ assert.equal((await missing.request(origin+`/api/v1/public/member-services/${legacyId}/cover`)).status,503,'retained legacy bytes must never mask unavailable asset storage');
+ const deleted=await call(`/member-services/${legacyId}`,'DELETE',{},'3');assert.equal(deleted.status,200);
+ assert.equal((await installed.request(origin+`/api/v1/public/member-services/${legacyId}/cover`)).status,404);assert.equal((await call(`/member-services/${legacyId}/cover`)).status,404);
+ assert.equal((await pool.query("SELECT count(*)::int n FROM assets WHERE purpose='member.service-cover' AND state='retired'")).rows[0].n,2);
+ const reattached=await call(`/member-services/${id}/cover`,'PUT',PNG,'6');assert.equal(reattached.status,200);
+ await pool.query('UPDATE users SET email_verified_at=now() WHERE user_id=$1',[maker.user.user_id]);
+ await pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)',[randomUUID(),DEMO_COMMUNITY,DEMO_USERS[0].email,'Synthetic cover administrator']);
+ const hidden=await call(`/member-services/${id}/hide`,'POST',{},'7');assert.equal(hidden.status,200);
+ assert.equal((await call(`/member-services/${id}/cover?v=7`)).status,404);assert.equal((await installed.request(origin+`/api/v1/public/member-services/${id}/cover?v=7`)).status,404);
+
 });
