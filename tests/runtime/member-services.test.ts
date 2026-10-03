@@ -527,7 +527,7 @@ test('opted-in cover facade preserves legacy receipt, current ACL, CAS and delet
  const assets=createServiceCoverAssetService(pool,{store,resolvePolicy:async()=>({revision:'synthetic-cover-policy',platformPersistenceAllowed:true,retainedByteLimit:'10485760'})});
  const installed=createApp(pool,origin,'local',{serviceCoverAssets:assets,serviceCoverAssetStore:store});
  const call=async(path:string,method='GET',body?:unknown,version?:string,key=randomUUID(),actor=maker)=>installed.request(origin+'/api/v1'+path,{method,headers:{Origin:origin,Cookie:actor.cookie,'X-CSRF-Token':actor.csrf,'Content-Type':body instanceof Buffer?'image/png':'application/json','Idempotency-Key':key,...(version?{'If-Match':'"'+version+'"'}:{})},...(body===undefined?{}:{body:body instanceof Buffer?body:JSON.stringify(body)})});
- await pool.query("UPDATE domain_media_storage_policy SET mode='bridge' WHERE purpose='member.service-cover'");
+ await pool.query("UPDATE domain_media_storage_policy SET mode='bridge',policy_revision='synthetic-cover-policy',persistence_allowed=true,retained_byte_limit=10485760 WHERE purpose='member.service-cover'");
  const unavailable=await app.request(origin+`/api/v1/member-services/${id}/cover`,{method:'PUT',headers:{Origin:origin,Cookie:maker.cookie,'X-CSRF-Token':maker.csrf,'Content-Type':'image/png','Idempotency-Key':randomUUID(),'If-Match':'"1"'},body:PNG});
  assert.equal(unavailable.status,503);assert.equal((await pool.query('SELECT count(*)::int n FROM asset_upload_intents')).rows[0].n,0);
  let puts=0;const put=store.putImmutable.bind(store);store.putImmutable=async(...args)=>{puts++;return put(...args);};

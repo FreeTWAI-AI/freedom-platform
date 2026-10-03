@@ -213,6 +213,30 @@ test('ASSET-MAINT-13 expiry fails closed: no renew or usable manifest and GC wai
   await s.api.releaseProtection(capture.captureId, 'abort'); await s.api.claimDelete(f.assetId);
 });
 
+test('ASSET-MAINT snapshot importer pins exactly the exported dump snapshot, excluding committed late objects', async () => {
+  const s=service(),first=await fixture(s.store),capture=await s.api.beginCapture(source),exporter=await pool.connect();
+  try {
+    await exporter.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    const observed=(await exporter.query('SELECT pg_export_snapshot() exported,pg_current_snapshot()::text reference')).rows[0];
+    const late=await fixture(s.store);
+    await s.api.captureReferences(capture.captureId,{snapshotId:observed.exported});
+    const pins=await s.api.readReferences(capture.captureId);
+    assert.equal(pins.referenceSnapshot,observed.reference);
+    assert.deepEqual(pins.references.map(row=>row.asset_id),[first.assetId]);
+    assert(!pins.references.some(row=>row.asset_id===late.assetId));
+    await assert.rejects(s.api.claimDelete(first.assetId),code('23514'));
+    await exporter.query('COMMIT');
+  } finally {await exporter.query('ROLLBACK');exporter.release();}
+});
+
+test('ASSET-MAINT snapshot importer rejects SQL fragments and missing exported snapshots without creating pins', async () => {
+  const s=service(),capture=await s.api.beginCapture(source);
+  await assert.rejects(s.api.captureReferences(capture.captureId,{snapshotId:"x'; COMMIT; --"}));
+  await assert.rejects(s.api.captureReferences(capture.captureId,{snapshotId:'00000000-00000000-1'}),code('42704'));
+  assert.equal((await pool.query('SELECT count(*)::int n FROM asset_backup_pins WHERE capture_id=$1',[capture.captureId])).rows[0].n,0);
+  assert.equal((await pool.query('SELECT state FROM asset_backup_captures WHERE capture_id=$1',[capture.captureId])).rows[0].state,'capturing');
+});
+
 test('ASSET-MAINT-14 begin barrier never waits for owner rows and defeats GC already blocked on an owner', async () => {
   const s = service(), f = await fixture(s.store), lock = await pool.connect(); let pending: Promise<unknown> | undefined;
   try {

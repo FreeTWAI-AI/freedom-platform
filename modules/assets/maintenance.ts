@@ -90,11 +90,16 @@ export function createAssetMaintenance(pool: Pool, dependencies: { store: Object
       return { captureId, captureExpiresAt: row.capture_expires_at.toISOString() as string };
     });
   }
-  async function captureReferences(captureId: string) {
+  async function captureReferences(captureId: string, options?: { snapshotId: string }) {
     active(); captureId = id.parse(captureId);
+    // A trusted backup host keeps the exporting transaction open until both
+    // this reference capture and pg_dump finish. Never accept a SQL fragment.
+    const imported = options === undefined ? undefined : z.object({ snapshotId: z.string()
+      .regex(/^[0-9A-F]{8}-[0-9A-F]{8}-[1-9][0-9]{0,9}$/) }).strict().parse(options).snapshotId;
     const q = await pool.connect();
     try {
-      await q.query('BEGIN');
+      await q.query(imported ? 'BEGIN ISOLATION LEVEL REPEATABLE READ' : 'BEGIN');
+      if (imported) await q.query(`SET TRANSACTION SNAPSHOT '${imported}'`);
       const current = await policy(q);
       const capture = (await q.query<Capture>(`SELECT *,capture_expires_at>clock_timestamp() live FROM asset_backup_captures WHERE capture_id=$1`, [captureId])).rows[0] as Capture & { live: boolean };
       requireCondition(capture?.state === 'capturing' && capture.live, 409, 'asset_capture_expired', '參照集合擷取已失效。');
