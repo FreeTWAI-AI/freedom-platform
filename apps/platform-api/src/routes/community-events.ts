@@ -2,6 +2,8 @@ import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import type { Pool } from 'pg';
 import { requireCondition } from '../../../../packages/shared/problem.js';
+import { sha256 } from '../../../../packages/asset-storage/index.js';
+import { planObjectHttpRequest } from '../../../../packages/asset-storage/http-range.js';
 import { authRateLimit } from '../../../../modules/identity-membership/members.js';
 import type { EventEmailSender } from '../../../../modules/community/events.js';
 import { moduleCommand, type PlatformEnv } from '../module-context.js';
@@ -28,15 +30,17 @@ export async function boundedMedia(request:Request,max:number,message:string){
   requireCondition(size>0,422,'invalid_media','請先選擇檔案。');return Buffer.concat(chunks,size);
 }
 
-export function eventVideoResponse(c:Context,media:{bytes:Buffer;mime:string},publicCache=false){
-  const size=media.bytes.length,range=c.req.header('Range');let start=0,end=size-1,status:200|206=200;
-  if(range){const match=/^bytes=(\d+)-(\d*)$/.exec(range);start=match?Number(match[1]):-1;end=match&&match[2]?Number(match[2]):size-1;
-    if(!match||!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||start>=size||end<start){c.header('Content-Range',`bytes */${size}`);return c.body(null,416);}
-    end=Math.min(end,size-1);status=206;c.header('Content-Range',`bytes ${start}-${end}/${size}`);
-  }
-  c.header('Content-Type',media.mime);c.header('Content-Length',String(end-start+1));c.header('Accept-Ranges','bytes');
+/** Called only after the original member/public domain read authorizes media.
+ * This legacy bytea response uses the same range planner as future Asset reads;
+ * a range is transport evidence, never whole-object integrity verification. */
+export async function eventVideoResponse(c:Context,media:{bytes:Buffer;mime:string},publicCache=false){
+  const plan=planObjectHttpRequest({method:c.req.method==='HEAD'?'HEAD':'GET',byteSize:media.bytes.length,
+    contentType:media.mime,etag:await sha256(media.bytes),rangeHeader:c.req.header('Range'),ifRangeHeader:c.req.header('If-Range')});
+  for(const [name,value] of Object.entries(plan.headers))c.header(name,value);
   c.header('Cache-Control',publicCache?'public, max-age=300':'private, no-store');c.header('Cross-Origin-Resource-Policy','same-origin');
-  return c.body(new Uint8Array(media.bytes.subarray(start,end+1)),status);
+  if(!plan.sendBody)return c.body(null,plan.status);
+  const range=plan.range??{offset:0,length:media.bytes.length};
+  return c.body(new Uint8Array(media.bytes.subarray(range.offset,range.offset+range.length)),plan.status);
 }
 
 export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSender,origin='') {

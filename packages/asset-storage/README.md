@@ -132,8 +132,7 @@ previously verified whole representation; it is not a substitute for ACL,
 attachment readiness or cryptographic proof of partial contents. Native ETags
 remain opaque transport versions, never content hashes. Cancellation and
 truncated/oversized streams may fail after response bytes were delivered; domain
-HTTP wrappers must handle that honestly. No HTTP Range parser or 206/416,
-If-Range, player seek, deployed R2, backfill or cloud configuration is claimed.
+HTTP wrappers must handle that honestly. The [HTTP range planner](http-range.ts) supplies single closed/open/suffix ranges, strong ETag If-Range, HEAD metadata, and 200/206/416 headers. It is used by the canonical legacy event-video HTTP response; malformed or multiple ranges fall back to a full response. It performs no authorization or storage I/O. Native R2 video domain attachment, real player seek, deployed R2, backfill or cloud configuration is not established by this planner.
 
 `tests/runtime/asset-media-profiles.test.ts` exercises synthetic 20 MiB MP4 bytes
 through shared preparation/writer in Node and local workerd R2 readback, native ranges,
