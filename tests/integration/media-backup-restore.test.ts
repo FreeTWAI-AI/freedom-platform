@@ -4,8 +4,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
-import { randomUUID, createHash } from 'node:crypto';
+import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { Pool } from 'pg';
+import {readFile} from 'node:fs/promises';
+import {tokenHash} from '../../modules/identity-membership/service.js';
+import {sevenMediaFixtures,mediaApp,memberHeaders,origin} from './helpers/media-restore-fixtures.js';
 import sharp from 'sharp';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { migrate } from '../../scripts/database.js';
@@ -31,19 +34,23 @@ assert((details.Config.Labels?.['freedom.task']==='base-ci-20261003'&&details.Co
   ||(details.Config.Labels?.['freedom.task']==='media-restore-drill'&&details.Config.Labels?.['freedom.owner']==='run-media-restore-test'));
 assert(details.HostConfig.Tmpfs?.['/var/lib/postgresql']);
 const sourceDatabase=url.pathname.slice(1),schema='fp_base_backup_'+randomUUID().replaceAll('-','');
-const restoredDatabase='fp_base_restore_'+randomUUID().replaceAll('-','');
+const restoredDatabase='fp_base_restore_'+randomUUID().replaceAll('-',''),runtimeRole='fp_restore_app_'+randomUUID().replaceAll('-','');
 const admin=new Pool({connectionString:url.href,max:2});
 const pool=new Pool({connectionString:url.href,options:`-c search_path=${schema} -c statement_timeout=10000`,max:6});
 const restoredUrl=new URL(url);restoredUrl.pathname='/'+restoredDatabase;
+const runtime=new Pool({connectionString:url.href,options:`-c role=${runtimeRole} -c search_path=${schema} -c statement_timeout=10000`,max:6});
+let restoredRuntime:Pool|undefined,createdRole=false;
 let restored:Pool|undefined,mf:Miniflare|undefined,createdSchema=false,createdDatabase=false;
 let source:ObjectStore,backup:ObjectStore,destination:ObjectStore;
 before(async()=>{
-  await admin.query(`CREATE SCHEMA ${schema}`);createdSchema=true;await migrate(pool);
+  await admin.query(`CREATE ROLE ${runtimeRole} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT`);createdRole=true;
+  await admin.query(`CREATE SCHEMA ${schema}`);createdSchema=true;await migrate(pool);await grantRuntime(pool);
   await admin.query(`CREATE DATABASE ${restoredDatabase}`);createdDatabase=true;
   restored=new Pool({connectionString:restoredUrl.href,options:`-c search_path=${schema} -c statement_timeout=10000`,max:4});
+  restoredRuntime=new Pool({connectionString:restoredUrl.href,options:`-c role=${runtimeRole} -c search_path=${schema} -c statement_timeout=10000`,max:4});
   mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'synthetic-media-restore',modules:true,
     script:'export default {fetch(){return new Response(null,{status:503})}}',
-    compatibilityDate:'2026-09-21',r2Buckets:['SOURCE','BACKUP','RESTORED'],outboundService:()=>new Response(null,{status:503})}]}));
+    compatibilityDate:'2026-09-21',r2Buckets:['SOURCE','BACKUP','RESTORED','INCOMPLETE'],outboundService:()=>new Response(null,{status:503})}]}));
   await mf.ready;
   source=createR2ObjectStore(await mf.getR2Bucket('SOURCE') as unknown as AssetR2Binding,{allowDelete:true});
   backup=createR2ObjectStore(await mf.getR2Bucket('BACKUP') as unknown as AssetR2Binding);
@@ -52,11 +59,19 @@ before(async()=>{
     retired_retention_seconds=1,delete_lease_seconds=30,capture_seconds=60,pin_seconds=60,max_capture_objects=10`);
 });
 after(async()=>{
-  await mf?.dispose();await restored?.end();await pool.end();
+  await mf?.dispose();await restoredRuntime?.end();await restored?.end();await runtime.end();await pool.end();
   try{if(createdDatabase)await admin.query(`DROP DATABASE ${restoredDatabase} WITH (FORCE)`);
-    if(createdSchema)await admin.query(`DROP SCHEMA ${schema} CASCADE`);
+    if(createdSchema)await admin.query(`DROP SCHEMA ${schema} CASCADE`);if(createdRole)await admin.query(`DROP ROLE ${runtimeRole}`);
   }finally{await admin.end();}
 });
+
+// Apply the actual canonical generator, changing only the fixture's schema and role.
+async function grantRuntime(target:Pool){
+ const script=(await readFile('deploy/cloudflare/sql/20-runtime-grants.psql','utf8')).replace(/^\\set .*$/mg,'').replaceAll(':"runtime"','"'+runtimeRole+'"').replaceAll(":'runtime'","'"+runtimeRole+"'").replaceAll('SCHEMA public','SCHEMA '+schema).replaceAll("n.nspname='public'","n.nspname='"+schema+"'");
+ const q=await target.connect();try{await q.query(`GRANT USAGE ON SCHEMA ${schema} TO ${runtimeRole}`);const parts=script.split('\\gexec');for(let i=0;i<parts.length;i++){const result=await q.query(parts[i]);if(i<parts.length-1){const last=Array.isArray(result)?result.at(-1)!:result;for(const row of last.rows)await q.query(Object.values(row)[0] as string);}}}catch(error){await q.query('ROLLBACK');throw error;}finally{q.release();}
+}
+const pointerTables=['member_avatar_asset_targets','member_service_cover_asset_targets','community_event_banner_asset_targets','community_event_video_asset_targets','skill_submission_image_asset_targets','community_social_thumbnail_asset_targets','community_event_highlight_asset_targets','community_event_highlight_images'];
+async function pointerSnapshot(target:Pool){const snapshots:Record<string,unknown>={};for(const table of pointerTables)snapshots[table]=(await target.query(`SELECT to_jsonb(t) value FROM ${table} t ORDER BY to_jsonb(t)::text`)).rows;return snapshots;}
 
 async function pgTool(tool:'pg_dump'|'pg_restore',args:string[],input?:Buffer):Promise<Buffer>{
   const child=spawn('docker',['exec',...(input?['-i']:[]),container!,tool,'-U','postgres',...args],{stdio:['pipe','pipe','pipe'],detached:true});
@@ -96,7 +111,7 @@ async function asset(retired=false){
 }
 
 test('Actual consistent PG dump and nativeR2 restore exclude concurrent additions, retain retired objects and fence restored member sessions',async()=>{
-  const first=await asset(),retired=await asset(true),maintenance=createAssetMaintenance(pool,{store:source,enabled:true});
+  const first=await asset(),retired=await asset(true),seven=await sevenMediaFixtures(pool,runtime,source),pointers=await pointerSnapshot(pool),snapshotIds=(await pool.query('SELECT asset_id FROM assets ORDER BY asset_id')).rows.map(r=>r.asset_id),maintenance=createAssetMaintenance(pool,{store:source,enabled:true});
   const target={database:sourceDatabase,sourceSchema:schema,sourceRelease:'a'.repeat(40)};
   let dump:Buffer|undefined,late:Awaited<ReturnType<typeof asset>>|undefined;
   const manifest=await createConsistentAssetBackup(pool,{enabled:true,target,maintenance,source,destination:backup,databaseSnapshot:{async write(input){
@@ -106,36 +121,68 @@ test('Actual consistent PG dump and nativeR2 restore exclude concurrent addition
       '--format=custom','--no-owner','--no-privileges']);
     return {sha256:createHash('sha256').update(dump).digest('hex'),byteSize:dump.length};
   }}});
-  assert.equal(manifest.status,'database_snapshot_and_objects_verified');assert.equal(manifest.objects.objects.length,2);
+  assert.equal(manifest.status,'database_snapshot_and_objects_verified');assert.equal(manifest.objects.objects.length,10);
   assert(late&&dump);const lateAsset=late;assert(!manifest.objects.objects.some(o=>o.key===lateAsset.key));
   await assert.rejects(maintenance.claimDelete(retired.assetId),(e:any)=>e.code==='23514','pins block actual GC');
   await pgTool('pg_restore',['--dbname',restoredDatabase,'--single-transaction','--exit-on-error','--no-owner','--no-privileges'],dump);
   const restoredIds=(await restored!.query('SELECT asset_id FROM assets ORDER BY asset_id')).rows.map(r=>r.asset_id);
-  assert.deepEqual(restoredIds,[first.assetId,retired.assetId].sort());assert(!restoredIds.includes(late.assetId));
+  assert.deepEqual(restoredIds,snapshotIds);assert.equal(restoredIds.length,10);assert(!restoredIds.includes(late.assetId));
   assert.equal((await restored!.query('SELECT count(*)::int AS n FROM asset_backup_pins')).rows[0].n,0,'dump imports original pre-pin snapshot');
   assert.deepEqual((await restored!.query('SELECT name,sha256 FROM schema_migrations ORDER BY name')).rows,
     (await pool.query('SELECT name,sha256 FROM schema_migrations ORDER BY name')).rows);
+  assert.deepEqual(await pointerSnapshot(restored!),pointers,'Every original typed pointer and both highlight variants survive pg_dump.');
+  assert.deepEqual((await restored!.query("SELECT a.asset_id,a.purpose,a.scope_kind,a.community_ref,o.variant,o.profile_id,o.content_sha256,o.byte_size,o.object_key FROM assets a JOIN asset_objects o USING(asset_id) WHERE a.owner_user_id=$1 ORDER BY a.asset_id",[seven.member.actor.user_id])).rows,seven.rows);
+  await assert.rejects(restoredRuntime!.query(`SELECT * FROM ${schema}.schema_migrations`),(e:any)=>e.code==='42501','No ACLs imported from --no-privileges dump.');
+  // --no-privileges also strips migration105's PUBLIC function revocations.
+  // The unchanged canonical guard must reject that unsafe restored default.
+  await assert.rejects(grantRuntime(restored!),(e:any)=>e.code==='P0001'&&e.message==='Unsafe runtime operator media privileges');
+  const functionPrivileges=()=>restored!.query("SELECT p.proname,has_function_privilege($1,p.oid,'EXECUTE') allowed FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$2 AND p.proname IN ('lock_media_backfill_operator_approval','lock_media_backfill_cover_owner','lock_media_backfill_cover_consent','publish_media_backfill_cover') ORDER BY p.proname",[runtimeRole,schema]);
+  const unsafeFunctions=(await functionPrivileges()).rows;assert.equal(unsafeFunctions.length,4);assert(unsafeFunctions.every(r=>r.allowed===true),'Stripped ACLs restore PostgreSQL PUBLIC EXECUTE default.');
+  // Restore the exact source migration lockdown, not a new runtime authority.
+  const operatorMigration=await readFile('migrations/105_operator_service_cover_backfill.sql','utf8');
+  const revocations=[...operatorMigration.matchAll(/REVOKE ALL ON FUNCTION [\s\S]*? FROM PUBLIC;/g)].map(m=>m[0]);assert.equal(revocations.length,3);
+  for(const sql of revocations)await restored!.query(sql);
+  await grantRuntime(restored!);const closedFunctions=(await functionPrivileges()).rows;assert.equal(closedFunctions.length,4);assert(closedFunctions.every(r=>r.allowed===false));
+  await assert.rejects(restoredRuntime!.query("UPDATE domain_media_storage_policy SET persistence_allowed=true"),(e:any)=>e.code==='42501');
+  await assert.rejects(restoredRuntime!.query("UPDATE schema_migrations SET sha256=sha256"),(e:any)=>e.code==='42501');
   // Restoring a DB alone also rewinds revocation. Fence all dispatch and apply
   // current external authority before exposing the target; this drill exercises
   // member-session invalidation, not a complete broker/device recovery proof.
   await transaction(restored!,q=>lockMemberSession(q,first.actor));
   await restored!.query("UPDATE sessions SET revoked_at=clock_timestamp() WHERE revoked_at IS NULL; UPDATE asset_maintenance_policy SET enabled=false");
   await assert.rejects(transaction(restored!,q=>lockMemberSession(q,first.actor)),(e:any)=>e.code==='session_expired');
-  await source.delete(first.key);await source.delete(retired.key);
+  for(const entry of manifest.objects.objects)await source.delete(entry.key);assert.deepEqual((await(await mf!.getR2Bucket('SOURCE')).list()).objects.map(o=>o.key),[late.key],'Only excluded late writer remains in source R2.');
   const recovered=await transferRestore(manifest.objects,backup,destination,{async assertAllowed(entry){
     const found=(await restored!.query(`SELECT 1 FROM asset_objects o JOIN assets a USING(asset_id)
       WHERE o.object_key=$1 AND a.deletion_fence=0 AND o.content_sha256=$2 AND o.byte_size=$3 AND o.policy_revision=$4`,
       [entry.key,entry.metadata.sha256,entry.metadata.byteSize,entry.metadata.policyRevision])).rowCount;
     assert.equal(found,1);
   }});
-  assert.equal(recovered.objectCount,2);
+  assert.equal(recovered.objectCount,10);
   for(const f of [first,retired])assert.deepEqual((await readVerifiedObject(destination,f.key,f.metadata)).bytes,f.bytes);
+  const restoredApp=mediaApp(restoredRuntime!,destination,seven.community);
+  for(const read of seven.reads){const denied=await restoredApp.request(origin+read.path,{headers:memberHeaders(seven.member)});if(!read.path.startsWith('/api/v1/public/'))assert.equal(denied.status,401,'Dumped sessions stay fenced.');}
+  // New recovery sessions are issued only after fencing the imported sessions.
+  for(const member of [seven.member,seven.other]){const token=randomBytes(32).toString('base64url'),hash=tokenHash(token);await restored!.query("INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at) VALUES($1,$2,'synthetic',clock_timestamp()+interval '1 hour')",[hash,member.actor.user_id]);member.token=token;member.actor={...member.actor,session_hash:hash};}
+  for(const read of seven.reads){
+   const result=await restoredApp.request(origin+read.path,{headers:memberHeaders(seven.member)});assert.equal(result.status,200,await result.clone().text());assert.deepEqual(Buffer.from(await result.arrayBuffer()),read.bytes,read.purpose+' original URL and SHA');
+   if(read.publicPath){const publicRead=await restoredApp.request(origin+read.publicPath);assert.equal(publicRead.status,200,await publicRead.clone().text());assert.deepEqual(Buffer.from(await publicRead.arrayBuffer()),read.bytes);if(read.publicPath.includes('/public/'))assert.equal(publicRead.headers.get('cache-control'),'public, max-age=300');}
+   if(read.dtoPath){const view=await restoredApp.request(origin+read.dtoPath,{headers:memberHeaders(seven.member)});assert.equal(view.status,200,read.dtoPath+' '+await view.clone().text());assert.deepEqual(await view.json(),read.dto,'Original DTO remains identical after restoring.');}
+  }
+  const skill=seven.reads.find(r=>r.purpose==='skill.submission-image')!;assert.equal((await restoredApp.request(origin+skill.path.replace('/api/v1/me/','/api/v1/'))).status,404,'Private draft remains unavailable on public illustration route.');assert.equal((await restoredApp.request(origin+skill.path,{headers:memberHeaders(seven.other)})).status,404);
+  await restored!.query('UPDATE users SET active=false WHERE user_id=$1',[seven.member.actor.user_id]);
+  for(const read of seven.reads.filter(r=>!r.path.startsWith('/api/v1/public/')))assert.equal((await restoredApp.request(origin+read.path,{headers:memberHeaders(seven.member)})).status,401,'Inactive caller cannot read restored bytes.');
+  await restored!.query('UPDATE users SET active=true WHERE user_id=$1',[seven.member.actor.user_id]);
   const tampered={...manifest.objects,objects:manifest.objects.objects.map((o,i)=>i===0?{...o,metadata:{...o.metadata,sha256:'f'.repeat(64)}}:o)};
   await assert.rejects(transferRestore(tampered,backup,destination,{async assertAllowed(){}}));
   // An external deletion fact survives the DB restore and must veto old bytes.
   await assert.rejects(transferRestore(manifest.objects,backup,destination,{async assertAllowed(entry){
     if(entry.key===first.key)throw Error('external_current_deletion');
   }}));
+  const missing=manifest.objects.objects[0];await(await mf!.getR2Bucket('BACKUP')).delete(missing.key);
+  const incomplete=createR2ObjectStore(await mf!.getR2Bucket('INCOMPLETE') as unknown as AssetR2Binding);
+  await assert.rejects(transferRestore(manifest.objects,backup,incomplete,{async assertAllowed(){}}),'Missing native backup object cannot produce a verified restore.');
+  assert((await(await mf!.getR2Bucket('INCOMPLETE')).list()).objects.length<10);
 });
 
 test('Backup default-off, mismatched target and single-connection pool fail before snapshot/dump authority',async()=>{

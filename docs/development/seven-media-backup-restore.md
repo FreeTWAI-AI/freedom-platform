@@ -1,0 +1,15 @@
+# Seven-media local backup and restore drill
+
+`npm run test:media-restore` retains its original owned PostgreSQL 18.6 container, network-none/no-port/tmpfs isolation and 120-second limit. It runs actual exported-snapshot `pg_dump` and `pg_restore`, plus native ephemeral SOURCE, BACKUP, RESTORED and INCOMPLETE R2 buckets. It does not use cloud credentials or real accounts.
+
+The drill now creates eight current variants through delivered original HTTP routes and genuine finite factories: avatar, service cover, event banner, event video, skill submission image using its original upload grant, manual social thumbnail, and both event highlight image/thumb variants. Existing ready/retired avatar references remain, giving ten captured objects. The video is a signature-only 20 MiB synthetic WebM payload; it proves bounded storage, byte hashing and restore, not decoding or playback.
+
+The source application uses a dedicated restricted role with the actual canonical runtime grant generator. The restore compares typed domain pointers, both highlight variants, asset scope/profile metadata and SHA values, as well as the migration ledger. A committed late writer is excluded from the exported snapshot and object manifest. Pins still veto deletion. All captured SOURCE objects are deleted before object restoration; original URLs then return identical bytes from RESTORED, with original DTO and cache behavior. Imported sessions are fenced before new synthetic recovery sessions are issued. Inactive callers and private skill-image reads by another owner are denied. Existing tamper/deletion veto/default-off/target/pool tests remain; a missing native BACKUP object cannot yield a verified restore.
+
+## Restore ACL refusal and repair
+
+A `--no-privileges` dump intentionally omits ACLs. That also omits migration 105's PUBLIC EXECUTE revocations on the four operator-only security-definer functions. PostgreSQL restores its default PUBLIC EXECUTE authority on these functions. The unchanged canonical runtime grant guard rejects this state; the test verifies the refusal before repair.
+
+Before granting application access, the local drill reads and applies the **three exact `REVOKE ALL ON FUNCTION ... FROM PUBLIC` statements from `migrations/105_operator_service_cover_backfill.sql`**, then reruns `deploy/cloudflare/sql/20-runtime-grants.psql` against the restored fixture schema. It verifies that the application cannot execute the operator functions, write the policy consent columns, or change the migration ledger. It does not replay the whole migration, add an operator approval, widen application privileges or dismiss the guard. A real restore procedure must restore this source-defined lockdown when using a dump stripped of ACLs; running the application grant script alone safely refuses.
+
+This is local synthetic seven-media database/object restore acceptance. Cloud/offsite backup durability, deployed role/configuration correspondence, real video playback and full broker/device external recovery-floor authority remain separate, untested deployment work.
