@@ -1,6 +1,6 @@
 # Bootstrap HTTP 配對與登入邊界
 
-接續 [10](10-device-authorization.md) 與 [11](11-bootstrap-sessions.md)，把既有真正簽章／當前 DB 服務接入 Hono HTTP。沿用 [AP §4.3](../../../plans/autopilot-vnext.md#43-機器配對與登入流程) 的用途分離與 TLS。除了明確建構的 transport factory，Node 的 genuine private AI product 可透過 `bootstrap:{host,signingKey}` 明確安裝；預設 Node 與 Worker 仍未安裝，也未配置正式 issuer。用途保持 `bootstrap.status.read`，不建立 ModelConnection、Grant／Attempt、私人 Work 或 execution 權。
+接續 [10](10-device-authorization.md) 與 [11](11-bootstrap-sessions.md)，把既有真正簽章／當前 DB 服務接入 Hono HTTP。沿用 [AP §4.3](../../../plans/autopilot-vnext.md#43-機器配對與登入流程) 的用途分離與 TLS。除了明確建構的 transport factory，Node 的 genuine private AI product 可透過 `bootstrap:{host,signingKey}` 明確安裝；Worker 的完整 opt-in profile 亦可透過獨立 P-256 key 安裝相同 genuine port，見 [native binding 接線](../../../development/worker-private-ai-bindings.md)；預設 Node 與 Worker 仍未安裝，也未配置正式 issuer。用途保持 `bootstrap.status.read`，不建立 ModelConnection、Grant／Attempt、私人 Work 或 execution 權。
 
 安裝時固定同一個 product pool、canonical HTTPS origin、environment 與 clientId，拒絕 getter、未知 port、錯誤 host binding 或不吻合的簽章金鑰。不存在 genuine product 時入口回 503 `private_ai_product_unavailable`；有 product 但沒有 bootstrap port 時回 503 `bootstrap_http_unavailable`，兩者都不讀原始 body。Machine 路徑先交給自己的用途與驗簽邊界；會員路徑自行檢查當前 session／CSRF，不從其他 transport 借用 Actor。
 

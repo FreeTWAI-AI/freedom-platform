@@ -49,7 +49,14 @@
     "tests/runtime/member-model-settings-helpers.ts",
     "tests/runtime/member-model-settings-fixtures/**",
     "tests/e2e/model-settings.spec.ts",
-    "tests/e2e/model-settings-visual.ts"
+    "tests/e2e/model-settings-visual.ts",
+    "apps/platform-api/src/worker-private-ai.ts",
+    "apps/platform-api/src/model-broker-service-binding.ts",
+    "tests/worker/private-ai-composition.test.ts",
+    "tests/worker/private-ai-service-binding.test.ts",
+    "tests/worker/private-ai-fixtures/**",
+    "wrangler.private-ai.example.jsonc",
+    "docs/development/worker-private-ai-bindings.md"
   ],
   "public_exports": [
     "modules/agent-execution/runs.ts",
@@ -108,7 +115,8 @@
     "docs/platform-plan/execution/unified-foundation/18-credential-broker-core.md",
     "docs/platform-plan/execution/unified-foundation/19-authenticated-broker-bridge.md",
     "docs/platform-plan/execution/unified-foundation/20-direct-credential-ingest.md",
-    "docs/platform-plan/execution/unified-foundation/21-member-model-settings.md"
+    "docs/platform-plan/execution/unified-foundation/21-member-model-settings.md",
+    "docs/development/worker-private-ai-bindings.md"
   ],
   "invariants": [
     "current-authority-before-replay",
