@@ -66,7 +66,7 @@ export async function createMemberCredentialIngestHttpTransport(pool:Pool,raw:{o
     requireCondition(c.req.header('Content-Encoding')===undefined,415,'encoding_rejected','Encoding unsupported.');
     requireCondition(['If-None-Match','If-Modified-Since','If-Unmodified-Since','If-Range','Range'].every(h=>c.req.header(h)===undefined),400,'read_headers_rejected','Conditional headers unsupported.');
     const cookie=c.req.header('Cookie')??'';
-    requireCondition(cookie.split(';').filter(v=>v.trim().startsWith('freedom_local_session=')).length<=1,403,'credential_kind_rejected','Credential rejected.');
+    requireCondition(cookie.split(';').filter(v=>v.includes('=')&&v.slice(0,v.indexOf('=')).trim()==='freedom_local_session').length<=1,403,'credential_kind_rejected','Credential rejected.');
     if(method==='GET')requireCondition(c.req.raw.body===null&&['Idempotency-Key','If-Match','Content-Length','Transfer-Encoding'].every(h=>c.req.header(h)===undefined),400,'read_headers_rejected','Read headers rejected.');
     else{key(c);version(c);}
     let network=SHARED_NETWORK_KEY;
