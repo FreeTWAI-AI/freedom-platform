@@ -150,7 +150,7 @@ test('base advancement, run replay, source and policy changes invalidate old obs
   const f = await fixture(t); await f.observe();
   for (const [key, value] of [['run_id', 'later-run'], ['base_commit', f.head], ['pull_request', 43]]) {
     const input = { ...f.input, binding: { ...f.input.binding, [key]: value } };
-    await assert.rejects(verifyHostCandidate(input), { code: 'host_evidence_binding_mismatch' });
+    await assert.rejects(verifyHostCandidate(input), { code: key === 'base_commit' ? 'candidate_base_equals_candidate' : 'host_evidence_binding_mismatch' });
   }
   f.policy.revision = 'policy-fixture-2'; f.savePolicy();
   await assert.rejects(verifyHostCandidate(f.input), { code: 'host_evidence_binding_mismatch' });

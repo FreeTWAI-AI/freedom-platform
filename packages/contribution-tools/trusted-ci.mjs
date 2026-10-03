@@ -143,9 +143,11 @@ function readPolicy(bytes, expected) {
 }
 
 const BINDING_FIELDS = ['repository', 'pull_request', 'run_id', 'base_commit', 'head_commit', 'candidate_commit', 'candidate_tree'];
-function validateBinding(value) {
+function validateBinding(value, mergeGroup = false) {
   fields(value, BINDING_FIELDS); id(value.repository); id(value.run_id);
-  check(Number.isSafeInteger(value.pull_request) && value.pull_request > 0, 'invalid_pull_request');
+  check(mergeGroup ? value.pull_request === null : Number.isSafeInteger(value.pull_request) && value.pull_request > 0, 'invalid_pull_request');
+  check(value.base_commit !== value.candidate_commit, 'candidate_base_equals_candidate');
+  if (mergeGroup) check(value.candidate_commit === value.head_commit, 'merge_group_candidate_mismatch');
   for (const key of ['base_commit', 'head_commit', 'candidate_commit', 'candidate_tree']) commit(value[key]);
 }
 
@@ -154,7 +156,7 @@ function validateBinding(value) {
 export function validateHostEvidenceBinding(value) {
   const additional = ['source_commit', 'release_set_sha256', 'policy_revision', 'policy_sha256', 'verifier_commit', 'verifier_sha256'];
   fields(value, [...BINDING_FIELDS, ...additional]);
-  validateBinding(Object.fromEntries(BINDING_FIELDS.map(key => [key, value[key]])));
+  validateBinding(Object.fromEntries(BINDING_FIELDS.map(key => [key, value[key]])), value.pull_request === null);
   commit(value.source_commit); commit(value.verifier_commit); id(value.policy_revision);
   for (const key of ['release_set_sha256', 'policy_sha256', 'verifier_sha256']) digest(value[key]);
   return Object.freeze(Object.fromEntries([...BINDING_FIELDS, ...additional].map(key => [key, value[key]])));
@@ -170,9 +172,15 @@ export function validateHostWorkflow(value) {
  * runs candidate tests nor authenticates an external CI transport. A local pass
  * validates this boundary only, not complete source approval or merge eligibility.
  */
-export async function verifyHostCandidate(input) {
+export async function verifyHostCandidate(input) { return verifyCandidate(input, false); }
+
+// A merge queue candidate may combine multiple PRs. It has no fabricated PR id:
+// use its authenticated base/head and require the candidate to be that exact head.
+export async function verifyHostMergeGroupCandidate(input) { return verifyCandidate(input, true); }
+
+async function verifyCandidate(input, mergeGroup) {
   fields(input, ['objectRepository', 'binding', 'policyBytes', 'expectedPolicy', 'observations']);
-  validateBinding(input.binding);
+  validateBinding(input.binding, mergeGroup);
   const binding = structuredClone(input.binding), policy = readPolicy(input.policyBytes, input.expectedPolicy);
   check(binding.repository === policy.repository, 'host_repository_mismatch');
   check(await installedVerifierDigest() === policy.verifier.sha256, 'host_verifier_digest_mismatch');
