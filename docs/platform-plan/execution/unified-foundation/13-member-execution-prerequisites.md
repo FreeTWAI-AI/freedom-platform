@@ -12,7 +12,8 @@ records。對應 U3、AP M1/M2/M3、AP:WORK-03/05 的前置條件；不是完整
 `attempts.create/read`。environment/clientId 與 TTL 是可信 server configuration；
 會員 Actor 必須來自既有真人驗證路徑，服務仍於 DB 重查目前會員、session、
 person/personal scope 及 onboarding。Bootstrap token 的用途仍只有 bootstrap
-status，不能拿來操作這些會員服務。正式 HTTP/UI 尚未掛載。
+status，不能拿來操作這些會員服務。[封閉 HTTP factory](14-member-execution-http.md)
+沿用真實會員 cookie／CSRF；正式 HTTP/UI 尚未掛載。
 
 ## 模型選擇與撤銷
 
@@ -104,6 +105,6 @@ deployment/execution/restore authority。
 Work 編輯、Run 控制、model/Grant/family 撤銷、政策撤回、重播、直接 SQL/TEMP
 替換，以及 receipt 等待跨過 Grant/session 到期的失敗結果。
 
-真正模型認證、單一明確 adapter、private Result 執行、HTTP/UI、可信 CI、正式金鑰、
+真正模型認證、單一明確 adapter、private Result 執行、正式 HTTP/UI、可信 CI、正式金鑰、
 cloud/restore、packaged client 與 staging/live 均另列待做，不以本批 metadata 或
 測試數量折算產品驗收。168 項原始 acceptance 保留原本 `not_run`。

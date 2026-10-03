@@ -24,12 +24,25 @@
     "contracts/execution/v1/execution-grant-metadata.schema.json",
     "contracts/execution/v1/create-execution-attempt-input.schema.json",
     "contracts/execution/v1/read-execution-attempt-input.schema.json",
-    "contracts/execution/v1/execution-attempt-metadata.schema.json"
+    "contracts/execution/v1/execution-attempt-metadata.schema.json",
+    "apps/platform-api/src/routes/member-execution-http.ts",
+    "tests/runtime/member-execution-http.test.ts",
+    "tests/runtime/member-execution-http-adversarial.test.ts",
+    "tests/runtime/member-execution-http-contracts.test.ts",
+    "contracts/execution/v1/member-execution-http.ts",
+    "contracts/execution/v1/member-execution-http-run-create.schema.json",
+    "contracts/execution/v1/member-execution-http-empty.schema.json",
+    "contracts/execution/v1/member-execution-http-model-create.schema.json",
+    "contracts/execution/v1/member-execution-http-grant-create.schema.json",
+    "contracts/execution/v1/member-execution-http-attempt-create.schema.json",
+    "contracts/execution/v1/member-execution-http-run-metadata.schema.json"
   ],
   "public_exports": [
     "modules/agent-execution/runs.ts",
     "modules/agent-execution/prerequisites.ts",
-    "contracts/execution/v1/member-execution.ts"
+    "contracts/execution/v1/member-execution.ts",
+    "contracts/execution/v1/member-execution-http.ts",
+    "apps/platform-api/src/routes/member-execution-http.ts"
   ],
   "dependencies": [
     "work",
@@ -42,14 +55,16 @@
   "contract_families": [
     "common",
     "execution-decision",
-    "member-execution"
+    "member-execution",
+    "member-execution-http"
   ],
   "client_profiles": [],
   "instructions": [
     "modules/agent-execution/README.md",
     "packages/scoped-commands/README.md",
     "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md",
-    "docs/platform-plan/execution/unified-foundation/13-member-execution-prerequisites.md"
+    "docs/platform-plan/execution/unified-foundation/13-member-execution-prerequisites.md",
+    "docs/platform-plan/execution/unified-foundation/14-member-execution-http.md"
   ],
   "invariants": [
     "current-authority-before-replay",
@@ -61,7 +76,12 @@
     "unverified-model-selection",
     "bounded-exact-member-consent",
     "immutable-blocked-attempt-history",
-    "receipt-sink-current-domain-revalidation"
+    "receipt-sink-current-domain-revalidation",
+    "http-member-cookie-csrf-purpose-isolation",
+    "exact-origin-host-and-header-cas",
+    "bounded-json-before-domain-effects",
+    "committed-http-abuse-charge",
+    "unmounted-without-production-trust"
   ],
   "tests": [
     "runtime.full"

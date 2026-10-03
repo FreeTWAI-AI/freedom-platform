@@ -81,7 +81,8 @@
     "modules/agent-control/bootstrap-session-proof.ts",
     "modules/agent-control/bootstrap-sessions.ts",
     "contracts/execution/v1/bootstrap-http.ts",
-    "apps/platform-api/src/routes/bootstrap-http.ts"
+    "apps/platform-api/src/routes/bootstrap-http.ts",
+    "modules/agent-control/bootstrap-http-limits.ts"
   ],
   "dependencies": [
     "execution-decision",

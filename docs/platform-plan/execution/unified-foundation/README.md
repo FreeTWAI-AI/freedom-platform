@@ -22,6 +22,7 @@
 | [Bootstrap refresh 與重複 nonce admission](11-bootstrap-sessions.md) | U1/U3、AP §4.3／AUTH-13/14/15 | 一次性輪替、重用撤銷 family/connection、獨立用途 machine nonce；沒有 HTTP／正式信任或 execution 權 |
 | [Bootstrap HTTP 配對與登入邊界](12-bootstrap-http.md) | U1/U3、AP M2／§4.3 | 配對／refresh／nonce／status 的封閉 HTTP factory、會員 CSRF／來源／限流；正式 Node／Worker 仍未掛載 |
 | [本人模型選擇、限定 Grant 與封閉 Attempt](13-member-execution-prerequisites.md) | U3、AP M1/M2/M3 | 真正 backing records、限定會員同意與 blocked history；模型認證／adapter 仍待做 |
+| [本人執行前置紀錄的封閉 HTTP 邊界](14-member-execution-http.md) | U1/U3、AP M2/M3 | 真實會員 cookie／CSRF、exact origin／CAS、bounded JSON 與獨立限流；Run／模型選擇／Grant／blocked Attempt 的 factory，正式入口與模型執行未啟用 |
 | [共同基礎驗收](acceptance.md) | INT-01–28、GOV-01–32 | 60 項原要求，全部 `not_run` |
 | [R2/AP 原始驗收](source-acceptance.md) | R2 S/A/M/D、AP AUTH/WORK/EXT/NEO/OPS | 108 項原要求，加 24 條 guardrails/invariants 對照，全部未驗收 |
 

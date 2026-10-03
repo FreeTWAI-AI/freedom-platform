@@ -35,7 +35,8 @@ The DTO is `{runId, workId, inputWorkVersion, aggregateVersion, state,
 taskLeaseEpoch, controlEpoch, operational_authority:false}`. It is NOT a complete
 execution `RunSnapshot` and cannot enter an operational adapter as a permit.
 The owner's visible epochs are non-secret metadata, not bearer credentials or
-an authorization proof. No transport exposes this service in the current slice.
+an authorization proof. The separate closed member HTTP factory below composes
+this service; production app/Node/Worker remain unmounted.
 
 ## SQL and transitions
 
@@ -126,7 +127,10 @@ AP:WORK-03 and AP:INV-04/11. It does not finish EXEC-A or AP:WORK-05–16, Grant
 handoff/late-evidence/billing/restore acceptance, or the private AI milestone.
 The existing hypothetical decision kernel and its activation-unavailable result
 are unchanged. HTTP/UI, model credentials and operational runtime bindings,
-Actual execution Attempt/lease/recovery binding, external recovery authority and deployment remain absent. The separate closed prerequisite service below now persists member consent and blocked Attempt history.
+Operational execution Attempt/lease/recovery binding, external recovery authority
+and deployment remain absent. The separate closed prerequisite service below now
+persists member consent and blocked Attempt history; its member HTTP factory is
+not registered in the production app.
 
 
 ## Member model selection, bounded consent and blocked Attempts
@@ -164,4 +168,23 @@ clock; any failure rolls back domain state, scoped journal/outbox and receipt.
 The invoker-rights SQL guards qualify physical backing tables and preserve all
 bigint snapshot versions as decimal text. They are structural DML guards, not
 member authentication or model signature verification. These services remain
-server-only and unmounted; bootstrap credentials remain status-only.
+server-only; production transports remain unmounted, and bootstrap credentials
+remain status-only.
+
+## Closed member HTTP factory
+
+[createMemberExecutionHttpTransport](../../apps/platform-api/src/routes/member-execution-http.ts)
+composes the real Run and prerequisite services behind the existing member cookie,
+CSRF and onboarding boundary. Its [wire schemas](../../contracts/execution/v1/member-execution-http.ts)
+reject caller identity/authority, command keys and primary versions in body JSON.
+Primary CAS comes from strong quoted If-Match, and every POST requires an
+Idempotency-Key. Required secondary versions remain in strict typed JSON bodies.
+The [HTTP spec](../../docs/platform-plan/execution/unified-foundation/14-member-execution-http.md)
+defines exact paths, origin/host/method checks, bounded streams, committed abuse
+charges, safe errors and owner-only historical reads.
+
+All metadata remains operational_authority false, model selections unverified,
+and Attempts preflight_blocked. A 201 Attempt response records a blocked attempt;
+it never acknowledges model execution. No list/execute/dispatch/provider-test
+endpoint or production mount is added. This transport writes only the existing
+086/092 shapes and does not require a new migration or release capability.

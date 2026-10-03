@@ -46,7 +46,9 @@
     "contracts:bootstrap-http": "tsx modules/agent-control/generate-bootstrap-http.ts",
     "check:bootstrap-http": "tsx modules/agent-control/generate-bootstrap-http.ts --check",
     "contracts:member-execution": "tsx modules/agent-execution/generate-member-execution.ts",
-    "check:member-execution": "tsx modules/agent-execution/generate-member-execution.ts --check"
+    "check:member-execution": "tsx modules/agent-execution/generate-member-execution.ts --check",
+    "contracts:member-execution-http": "tsx modules/agent-execution/generate-member-execution-http.ts",
+    "check:member-execution-http": "tsx modules/agent-execution/generate-member-execution-http.ts --check"
   },
   "dependencies": {
     "@hono/node-server": "2.1.1",

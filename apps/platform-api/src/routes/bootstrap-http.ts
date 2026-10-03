@@ -5,8 +5,8 @@ import { OpaqueId } from '../../../../contracts/common/v1/identity.js';
 import { BOOTSTRAP_LIMITS } from '../../../../contracts/execution/v1/bootstrap.js';
 import { BootstrapHttpBeginSchema, BootstrapHttpTokenSchema, BootstrapHttpNonceSchema, BootstrapHttpDecisionSchema } from '../../../../contracts/execution/v1/bootstrap-http.js';
 import { DeviceAuthorizationInspectInputSchema, type DeviceAuthorizationHost } from '../../../../contracts/execution/v1/device-pairing.js';
-import { parseBoundedJson, ExecutionInputError } from '../../../../packages/execution-state/decode.js';
-import { snapshotBoundedBytes } from '../../../../packages/asset-storage/index.js';
+import { ExecutionInputError } from '../../../../packages/execution-state/decode.js';
+import { readBoundedHttpJson } from '../../../../packages/execution-state/http-body.js';
 import { Problem, requireCondition } from '../../../../packages/shared/problem.js';
 import { createDeviceAuthorizations } from '../../../../modules/agent-control/device-authorizations.js';
 import { parseDeviceAuthorizationHost } from '../../../../modules/agent-control/device-pairing-proof.js';
@@ -18,7 +18,6 @@ import { memberBoundary } from '../member-boundary.js';
 import { SHARED_NETWORK_KEY } from '../runtime.js';
 import type { PlatformEnv } from '../module-context.js';
 
-const BODY_BYTES = 32768, BODY_CHUNKS = 128, BODY_MS = 5000;
 const execution = '/execution-api/v1', member = '/api/v1/me';
 const paths = Object.freeze({ begin: execution+'/auth/device-authorizations', token: execution+'/auth/token',
   nonce: execution+'/auth/nonce', status: execution+'/bootstrap', inspect: member+'/device-authorizations/inspect',
@@ -65,49 +64,6 @@ function version(c: Context<PlatformEnv>): string {
   requireCondition(value !== undefined,428,'version_required','Version required.');
   requireCondition(/^"[1-9][0-9]{0,18}"$(?![\s\S])/.test(value) && BigInt(value.slice(1,-1)) <= 9223372036854775807n,
     400,'invalid_version','Invalid version.'); return value.slice(1,-1);
-}
-async function body(c: Context<PlatformEnv>): Promise<unknown> {
-  requireCondition(/^application\/json(?:;\s*charset=utf-8)?$(?![\s\S])/i.test(c.req.header('Content-Type') ?? ''),415,'json_required','JSON required.');
-  const length = c.req.header('Content-Length');
-  requireCondition(length === undefined || /^(0|[1-9][0-9]*)$(?![\s\S])/.test(length) && Number(length) <= BODY_BYTES,
-    413,'body_too_large','Body too large.');
-  requireCondition(c.req.raw.body,400,'invalid_body','Body required.');
-  const reader = c.req.raw.body.getReader(), buffer = new Uint8Array(BODY_BYTES);
-  let timer: ReturnType<typeof setTimeout> | undefined, size = 0, chunks = 0, complete = false;
-  let abort: (() => void) | undefined;
-  const deadline = new Promise<never>((_,reject) => {
-    timer = setTimeout(() => reject(new Problem(408,'body_timeout','Body timeout.')),BODY_MS);
-    abort = () => reject(new Problem(400,'invalid_body','Body aborted.'));
-    c.req.raw.signal.addEventListener('abort',abort,{once:true});
-    if (c.req.raw.signal.aborted) abort();
-  });
-  try {
-    for (;;) {
-      const next = await Promise.race([reader.read(),deadline]);
-      if (next.done) { complete = true; break; }
-      requireCondition(++chunks <= BODY_CHUNKS,413,'body_too_large','Body too large.');
-      let bytes: Uint8Array;
-      try { bytes = snapshotBoundedBytes(next.value,BODY_BYTES); }
-      catch (error) {
-        if ((error as { code?: string })?.code === 'too_large') throw new Problem(413,'body_too_large','Body too large.');
-        throw new Problem(400,'invalid_body','Invalid body chunk.');
-      }
-      requireCondition(bytes.length <= BODY_BYTES-size,413,'body_too_large','Body too large.');
-      buffer.set(bytes,size); size += bytes.length;
-    }
-    requireCondition(length === undefined || Number(length) === size,400,'invalid_body','Invalid body length.');
-    const raw = new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(buffer.subarray(0,size));
-    return parseBoundedJson(raw);
-  } catch (error) {
-    if (error instanceof Problem) throw error;
-    throw new Problem(400,'invalid_json','Invalid JSON.');
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-    if (abort) c.req.raw.signal.removeEventListener('abort',abort);
-    // A hostile/failed source cannot make cancellation hold the request open.
-    if (!complete) void reader.cancel().catch(() => {});
-    reader.releaseLock();
-  }
 }
 
 /** Explicit closed transport. Production app/Node/Worker do not mount this.
@@ -178,26 +134,26 @@ export async function createBootstrapHttpTransport(pool: Pool, options: {
   app.all('*',async c => {
     const entry = route(new URL(c.req.url).pathname)!;
     switch (entry.name) {
-      case 'begin': return c.json(await pairing.begin({...BootstrapHttpBeginSchema.parse(await body(c)),proof:proof(c)}),201);
+      case 'begin': return c.json(await pairing.begin({...BootstrapHttpBeginSchema.parse(await readBoundedHttpJson(c.req.raw)),proof:proof(c)}),201);
       case 'token': {
-        const input = BootstrapHttpTokenSchema.parse(await body(c)), dpop = proof(c);
+        const input = BootstrapHttpTokenSchema.parse(await readBoundedHttpJson(c.req.raw)), dpop = proof(c);
         if (input.grantType === 'device_code') {
           const {grantType:_grant,...poll} = input; return c.json(await pairing.poll({...poll,proof:dpop}));
         }
         const {grantType:_grant,...refresh} = input; return c.json(await sessions.refresh({...refresh,proof:dpop}));
       }
-      case 'nonce': return c.json(await sessions.nonce({...BootstrapHttpNonceSchema.parse(await body(c)),accessToken:access(c),proof:proof(c)}),201);
+      case 'nonce': return c.json(await sessions.nonce({...BootstrapHttpNonceSchema.parse(await readBoundedHttpJson(c.req.raw)),accessToken:access(c),proof:proof(c)}),201);
       case 'status': return c.json(await status.read({connectionId:OpaqueId.parse(c.req.header('X-Freedom-Connection')),
         nonceId:OpaqueId.parse(c.req.header('X-Freedom-Nonce')),accessToken:access(c),proof:proof(c)}));
-      case 'inspect': return c.json(await pairing.inspect(c.get('actor'),DeviceAuthorizationInspectInputSchema.parse(await body(c))));
-      case 'decide': return c.json(await pairing.decide(c.get('actor'),{...BootstrapHttpDecisionSchema.parse(await body(c)),key:key(c)}));
+      case 'inspect': return c.json(await pairing.inspect(c.get('actor'),DeviceAuthorizationInspectInputSchema.parse(await readBoundedHttpJson(c.req.raw))));
+      case 'decide': return c.json(await pairing.decide(c.get('actor'),{...BootstrapHttpDecisionSchema.parse(await readBoundedHttpJson(c.req.raw)),key:key(c)}));
       case 'list': return c.json({items:await connections.list(c.get('actor')),operational_authority:false});
       case 'connection': {
         const value = await connections.read(c.get('actor'),{connectionId:OpaqueId.parse(entry.id)});
         c.header('ETag',`"${value.aggregateVersion}"`); return c.json(value);
       }
       case 'revoke': {
-        z.object({}).strict().parse(await body(c));
+        z.object({}).strict().parse(await readBoundedHttpJson(c.req.raw));
         const value = await connections.revoke(c.get('actor'),{connectionId:OpaqueId.parse(entry.id),key:key(c),expectedVersion:version(c)});
         c.header('ETag',`"${value.aggregateVersion}"`); return c.json(value);
       }

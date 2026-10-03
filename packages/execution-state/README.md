@@ -99,3 +99,15 @@ issues a token/permit, or exposes HTTP.
 Run `node --import tsx --test tests/runtime/execution-state.test.ts` for declared
 transitions, adversarial decoder cases, generated-schema parity and negative
 fence/history/provenance vectors. No database is used.
+
+## Shared bounded HTTP JSON reader
+
+[http-body.ts](http-body.ts) exports `readBoundedHttpJson(request)` for the closed
+bootstrap and member execution factories. It retains the existing strict JSON
+grammar and actual byte/chunk/deadline bounds, rejects malformed UTF-8 and
+decoded duplicate/prototype keys, checks Content-Length against actual bytes,
+and releases failed readers without awaiting hostile cancellation. The helper
+does not authenticate, authorize, issue permits or register any HTTP route.
+Each transport verifies its credential purpose, origin and member/machine
+boundary before calling it. Domain services separately revalidate current DB
+authority after potentially delayed body reads.
