@@ -40,3 +40,21 @@ SELECT has_table_privilege(:'runtime',c.oid,'SELECT') AS private_policy_read,
 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
 WHERE n.nspname='public' AND c.relname IN ('private_work_persistence_policy','model_inference_export_policy') AND c.relkind='r'
 ORDER BY c.relname DESC;
+-- BEGIN DOMAIN MEDIA POLICY READBACK
+-- Exactly one row after migration098+; absence is unavailable, not safe.
+-- The generated lock appears only at100+. Expected after grants: true,true,false.
+SELECT has_table_privilege(:'runtime',c.oid,'SELECT') AS media_policy_read,
+  has_column_privilege(:'runtime',c.oid,'policy_lock','UPDATE') AS media_policy_lock,
+  EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname=:'runtime' AND
+    (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls
+      OR EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=r.oid)))
+    OR NOT EXISTS (SELECT 1 FROM pg_attribute a JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
+      WHERE a.attrelid=c.oid AND a.attname='policy_lock' AND a.attgenerated='s'
+        AND pg_get_expr(d.adbin,d.adrelid)='0')
+    OR has_table_privilege(:'runtime',c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+    OR EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+      AND (has_column_privilege(:'runtime',c.oid,a.attnum,'INSERT,REFERENCES,SELECT WITH GRANT OPTION,UPDATE WITH GRANT OPTION')
+        OR (a.attname<>'policy_lock' AND has_column_privilege(:'runtime',c.oid,a.attnum,'UPDATE')))) AS media_policy_unsafe
+FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND c.relname='domain_media_storage_policy' AND c.relkind='r';
+-- END DOMAIN MEDIA POLICY READBACK

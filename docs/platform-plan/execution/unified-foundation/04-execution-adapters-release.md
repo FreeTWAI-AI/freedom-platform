@@ -95,7 +95,7 @@ UX 的 shell extraction 每個 PR 只抽一組責任，維持現有會員 sessio
 
 ## 發布與 restore
 
-依 Ted 於 2026-10-02 的最新指示，本輪先完成原計畫 scope，再採受控前向 migration；不另做提早上線用的多版過渡 release，也不把退回舊應用程式當成發布策略。下列歷史資料形狀／復原要求仍約束資料安全，不代表要擴大成一項舊版維護工程。正式切換需停止不相容的舊 consumers，完成 schema/grants 及驗證後才恢復新程式；維護窗口另確認。
+依 Ted 於 2026-10-02 的歷史指示，當時先完成原計畫 scope 再受控前向 migration；2026-10-03 已更新為 [基底優先](00-baseline-and-decisions.md#2026-10-03-基底優先的最新指示)，未驗收執行端維持關閉。不另做提早上線用的多版過渡 release，也不把退回舊應用程式當成發布策略。下列歷史資料形狀／復原要求仍約束資料安全，不代表要擴大成一項舊版維護工程。正式切換需停止不相容的舊 consumers，完成 schema/grants 及驗證後才恢復新程式；維護窗口另確認。
 
 相容下限合併 Asset bridge、private ACL、execution evidence/reconciliation、credential purpose 及 vault 邊界。rollback 須能處理所有已啟用資料形狀，不只 UI 可開。U7 移除 legacy 欄位之前要證明受支援舊 client/舊資料均已退出。
 

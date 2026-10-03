@@ -2,15 +2,19 @@
 
 Checked 2026-10-03 at integration baseline `946d67bd200624ba61d23032ee7571e9fd47c602`. This checklist records conditions, not authorization or completed checks. The historical 40–55% engineering estimate is not a deployment completion rate or calendar forecast; the 168 original product acceptance items remain `not_run`, as recorded in [implementation status](implementation-status.md), [foundation acceptance](acceptance.md) and [source acceptance](source-acceptance.md).
 
+Ted’s latest scope is foundation-first; other PRs are not worked during this task. Full original Autopilot acceptance remains separate, and unaccepted functionality stays disabled. This changes development/release scope, not deployment authority.
+
 The subsequent local target-runtime increment has passed standard runtime at
 `1584a77` (2,430), with Worker/host-tool supplement at `d238a87` (43 Worker,
 250 governance, six isolated supervisor cases). It adds Worker composition,
 media profiles/read-only aggregate inventory and a pinned-host CI adapter. None
 of the four actual release artifacts is delivered yet: remote staging flow,
 seven-kind full migration report, DB+R2 restore report, or malicious PR refusal
-through an installed GitHub gate. Full broker execution/ingest, six domain
-adapters, migration/restore tooling and authenticated publisher/enforcement are
-implementation work as well as configuration/acceptance dependencies.
+through an installed GitHub gate. That paragraph describes the earlier source. The current foundation increment
+adds genuine broker Worker execution, service-cover/banner/video adapters and a
+consistent local DB+R2 restore drill. Remaining media adapters, operator backfill/
+delta/cutover, complete recovery acceptance and authenticated publisher/enforcement
+are still implementation work as well as configuration/acceptance dependencies.
 
 ## What changes a remote system
 
@@ -30,9 +34,9 @@ Do not run migration/seed against the original checkout or `freedom_local.public
 
 ## Required release evidence
 
-- [ ] Finish original scope and acceptance evidence, including avatar/private-read matrix, real provider/runtime paths, packaged clients and trustworthy governance. Mock/schema/local runtime passes are recorded separately from product acceptance. Security review must cover machine/bootstrap authentication, secret isolation, credential purpose, replay/rate limits, private Asset/Work/Result reads and revocation.
+- [ ] Complete the deployable foundation selected by Ted on 2026-10-03: preserve existing member flows and ACLs, finish all seven media adapters and migration/delta verification, consistent DB+R2 backup/restore, target Cloudflare wiring and trustworthy GitHub release checks. Unaccepted Autopilot/machine/multistep/cross-runtime features stay disabled and remain original-scope backlog; they are not foundation acceptance evidence. Review default-off behavior, installed authentication, secret boundaries, replay/rate limits, private reads and revocation.
 - [ ] Revalidate the exact release SHA, artifact digest and affected consumers. Complete CI checks required by the actual current repository policy, verify source pins and inventory, and record independent review. Earlier CI or a Draft PR is insufficient. The checked baseline does not prove enforced branch protection or a trusted publisher.
-- [ ] Reconcile migrations **076–097**, immutable ledger hashes and any subsequently merged numbering; these are not applied to staging/public by this work. Prepare migrator/runtime grants separation and app/grants probes. Additive/expand steps must preserve historical data shapes and ACLs; do not contract/remove legacy storage until supported consumers and data have exited. Per the [release decision](04-execution-adapters-release.md#發布與-restore), complete original scope then use controlled forward migration, without creating an early transition release. Stop incompatible consumers during the approved maintenance window.
+- [ ] Reconcile migrations **076–101**, immutable ledger hashes and any subsequently merged numbering; these are not applied to staging/public by this work. Prepare migrator/runtime grants separation and app/grants probes. Additive/expand steps must preserve historical data shapes and ACLs; do not contract/remove legacy storage until supported consumers and data have exited. Per the [release decision](04-execution-adapters-release.md#發布與-restore), use controlled forward migration for the foundation-first scope recorded in the [latest decision](00-baseline-and-decisions.md#2026-10-03-基底優先的最新指示). Stop incompatible consumers during the approved maintenance window.
 - [ ] Confirm each target's private overlay, routes, database identity, Hyperdrive cache-off readback, required secret/binding presence and `FREEDOM_RELEASE_SHA` injection through the [cloud migration procedure](../../../development/cloudflare-migration.md). Preserve Access boundaries and separately gate scheduled/admin-sync/maintainer writes. Repository dry-run is bundle verification only.
 - [ ] Capture pre-migration backups and complete a restore drill into a new isolated database with schema/ledger/grants and DB+R2 object/version checks. Fence dispatch before restore; recover using an external generation that cannot rewind with a DB snapshot, then reconcile revocation/deletion tombstones, outbox and unknown provider effects. Demonstrate old tokens cannot revive. Backup policy, maintenance window and recovery authority still require explicit operator decisions.
 - [ ] Deploy authorized exact SHA to staging first; verify real HTTPS/member/privacy flows, provider behavior, actual scheduled writes where applicable, release SHA and Access. Remove temporary verification policies/tokens and synthetic accounts. Only then perform the separately authorized public backup/migration/grants/deploy/probes and record resulting health/release evidence.

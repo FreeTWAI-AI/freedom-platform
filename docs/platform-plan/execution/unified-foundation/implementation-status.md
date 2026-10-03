@@ -2,11 +2,11 @@
 
 查核日期：2026-10-03。本紀錄區分原始產品要求、本機實作、合成測試及尚缺的真實部署證據；不修改原計畫的歷史內容，也不把組件測試轉寫成完整產品 PASS。
 
-最新交付方向依 Ted 指示：完成原計畫 scope 後受控前向 migration，不為提早上線另做多套過渡 release，也不以退回舊應用為交付目標。小批次只是開發／測試的切分，不是分批部署承諾。原計畫的資料保護、撤銷、失敗停機及備份恢復仍保留；staging 驗證先於 live，備份政策另確認。完整決策集中於 [基準與決策](00-baseline-and-decisions.md#本輪發布方向)，不另建一套政策。
+最新交付方向依 Ted 於 2026-10-03 的指示更新為基底優先：既有會員平台的移植、七類媒體搬遷／恢復與可信發布驗證先完成；未驗收的 Autopilot 功能保持關閉，保留原計畫後續 scope。這取代先前「完整原 scope 才正式 migration」的發布前置，但不降低資料保護、撤銷、失敗停機、權限與 staging 先行的要求。其他 PR 本輪不處理。完整決策集中於 [基準與決策](00-baseline-and-decisions.md#2026-10-03-基底優先的最新指示)。
 
-## 工程進度估算
+## 原始完整範圍的歷史工程估算
 
-以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約四至五成，合理區間 **40–55%**，約 **45–60%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。配對、refresh／nonce、封閉 bootstrap／會員 HTTP 已有本機實作；單步模型的明確出口批准、active Attempt／running Run／lease、一次性派送、Asset 與私人 Result，現已接到本人會員 HTTP 及「私人工作與 AI」畫面，完成本機工作建立／編輯、成果歷史、逐次同意與控制流程。模型端仍只以合成 HTTP 實測；隔離 broker/vault 與外部 recovery 的內部核心已通過本機驗證，用途分離的主 API／隔離 broker 認證橋與真正兩程序閉環也已通過本機驗證；直接 broker 秘密輸入與保護頁已有真正本機 HTTPS browser 證據；主站 settings、模型與憑證歷史及真正 platform HTML 的保管／輪替交接已有本機證據；正式安裝、裝置配對入口、provider 認證與 runtime 驗收尚缺。跨端、七類媒體、legacy 退出與正式治理仍占主要剩餘工作。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
+以下為基底優先增量前，按原計畫 U0–U7／UX 及治理工作包全部工作量的歷史估算：約四至五成，合理區間 **40–55%**，約 **45–60%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。配對、refresh／nonce、封閉 bootstrap／會員 HTTP 已有本機實作；單步模型的明確出口批准、active Attempt／running Run／lease、一次性派送、Asset 與私人 Result，現已接到本人會員 HTTP 及「私人工作與 AI」畫面，完成本機工作建立／編輯、成果歷史、逐次同意與控制流程。模型端仍只以合成 HTTP 實測；隔離 broker/vault 與外部 recovery 的內部核心已通過本機驗證，用途分離的主 API／隔離 broker 認證橋與真正兩程序閉環也已通過本機驗證；直接 broker 秘密輸入與保護頁已有真正本機 HTTPS browser 證據；主站 settings、模型與憑證歷史及真正 platform HTML 的保管／輪替交接已有本機證據；正式安裝、裝置配對入口、provider 認證與 runtime 驗收尚缺。跨端、七類媒體、legacy 退出與正式治理仍占主要剩餘工作。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
 
 以下權重是工程量假設，不是原計畫承諾；估算依本頁實作證據與尚缺項目，正式產品驗收仍須逐項取得證據。
 
@@ -54,7 +54,7 @@ R2 重構已有 ObjectStore／Asset lifecycle、頭像、私人 Result、本機�
 | CORE-2 | `40e0f2d`、`4a74b31`、`6f3485f`、`4ea8f47` | migration 078、獨立 scoped member receipts/facts、bounded JSON、當前權限及 DB-clock expiry；28 項新增 runtime 回歸 |
 | ASSET-A lifecycle 增量 | `769840a`、`6da6b89`、`bdd05c4`、`0371c19`、`360fc30` | migration 079、封閉頭像 intent/lease/fence/write/finalize、真實 avatar version CAS；14 項 lifecycle 與 23 項獨立 race tests |
 
-持續整合分支為 `feat/unified-foundation`，沿用 `foundation-model-settings-20261003` 隔離 worktree；模型設定批次從 direct credential ingest 的交付提交 `082204550e0492f4ad503c697380ef8b96a17596` 延續，各批次仍保留各自分支與 worktree。依 Ted 2026-10-03 指示，累積重構集中至 [Draft PR #108](https://github.com/FreeTWAI-AI/freedom-platform/pull/108)，後續沿此分支提交並更新 PR 描述；仍維持 Draft，直到原 scope 與發布要求完成。開發仍在 `~/tmp-scratch/fp_work/`，主 checkout 及其 staged 刪除未更動。下文歷史批次的「未 push／未建立 PR」是當時狀態；本次公開進度不代表 merge main、部署或產品驗收。
+持續整合分支為 `feat/unified-foundation`，沿用 `foundation-model-settings-20261003` 隔離 worktree；模型設定批次從 direct credential ingest 的交付提交 `082204550e0492f4ad503c697380ef8b96a17596` 延續，各批次仍保留各自分支與 worktree。依 Ted 2026-10-03 指示，累積重構集中至 [Draft PR #108](https://github.com/FreeTWAI-AI/freedom-platform/pull/108)，後續沿此分支提交並更新 PR 描述；仍維持 Draft，直到最新指示選定的上線基底與發布要求完成；完整 Autopilot scope 另行驗收。開發仍在 `~/tmp-scratch/fp_work/`，主 checkout 及其 staged 刪除未更動。下文歷史批次的「未 push／未建立 PR」是當時狀態；本次公開進度不代表 merge main、部署或產品驗收。
 
 首次公開 head `b944a9df20a6b33117455d6285ee60d9aa37e129` 的 GitHub CI 初次觀察：契約生成、typecheck、build、三類 Worker dry-run、Worker 測試與 deploy-preflight 已通過，完整 verify 仍在執行。CodeQL 的三組分析工作執行成功，但獨立安全檢查回報 24 筆高風險警示並為 failure：23 筆位於測試檔案，1 筆位於與 `main` 完全相同的 `modules/identity-membership/service.ts`。這是位置與基準比對，尚未完成逐筆有效性判定；不將分析工作成功當作安全檢查通過，也不因測試用途或既有程式而忽略警示。後續修正與 CI 結果沿同一個 PR 更新。
 
@@ -1219,6 +1219,6 @@ Root 第一次整合 Worker 39/41 失敗保留：新 composition fixture 僅接�
 
 主站model revoke仍不能冒充credential revoke；credential terminal control需broker原SQL權限與deferred ciphertext existence check。原076–097仍未正式套用，numeric→v2的相容過渡仍有結束條件。
 
-#108繼續是單一Draft整合入口。低耦合既有修正可依維護者正常review/CI/畫面驗收走main；涉及DB、身分、ACL、Asset或共同API的變更才與本重構協調。不把本批「不整合其他PR」派工限制擴張為整個repo技術上必須freeze；其他PR review/rebase仍不在本批工作範圍。
+#108繼續是單一Draft整合入口。當時曾建議低耦合 PR 另行維護；Ted 隨後明確選擇先完成基底、暫不處理其他 PR，因此本輪不沿用該建議派工。沒有更改 GitHub repo 保護設定。
 
 Ted已授權沿 `feat/unified-foundation` 推送並更新同一Draft PR；merge、遠端trust／keys／rules、正式資料盤點與deployment仍需各自的具體發布條件及授權。Discord全文仍須逐則核准。
