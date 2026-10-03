@@ -223,3 +223,36 @@ test('INGEST-AUTH-07 actual cipher/executor grants reject ciphertext, ingest col
   }finally{await q.query('RESET ROLE');q.release();await admin.query(`REVOKE ${brokerRole} FROM ${executorRole}`);}
   await executorGrants();
 });
+
+test('INGEST-AUTH-08 actual final SQL session-result delivery beyond command-only expiry cannot commit credential custody',async()=>{
+  const f=await fixture(),command={operation:'create' as const,input:{key:randomUUID(),modelConnectionId:f.model.modelConnectionId,expectedModelVersion:'1',consent:true as const}};
+  const expiry=Date.now()+3000,shortIssuer=createCredentialIngestAuthorizations(app,{...ingestOptions,recover:async()=>({generation:'1',expiresAt:new Date(expiry).toISOString()})});
+  const claims=await shortIssuer.issue(f.actor,{command,nonce:nonce()}),cookieHash=tokenHash(),csrfHash=tokenHash();
+  const invocation=await authority.claimBootstrap(claims,{cookieHash,csrfHash}),intent=await store.prepareCreate(f.actor,command.input,q=>authority.assertCurrent(q,invocation)),meta=getCredentialWriteIntentMetadata(intent);
+  assert(Date.parse(meta.binding.expiresAt)>expiry+10000);await authority.claimSubmission(invocation,{binding:meta.binding,writeExpiresAt:claims.expiresAt,cookieHash,csrfHash});
+  const bytes=new TextEncoder().encode('synthetic-final-delivery-key'),sealed=await vault.seal(meta.binding,bytes);bytes.fill(0);
+  let release!:()=>void,entered!:()=>void,delivered=0;const gate=new Promise<void>(r=>{release=r;}),blocked=new Promise<void>(r=>{entered=r;});
+  // Test-only driver-result gate on the actual transaction PoolClient. SQL,
+  // row mutation, original store and original receipt orchestration stay real.
+  const originalConnect=broker.connect.bind(broker);let pending:Promise<unknown>|undefined;
+  (broker as any).connect=async()=>{const q=await originalConnect(),originalQuery=q.query,originalRelease=q.release;let marked=false;
+    (q as any).query=async(...args:any[])=>{const result=await (originalQuery as any).apply(q,args),sql=typeof args[0]==='string'?args[0]:args[0]?.text;
+      if(sql?.includes('UPDATE credential_ingest_authorizations a SET committed_at')&&result.rowCount===1)marked=true;
+      if(marked&&delivered===0&&sql?.startsWith('SELECT token_hash FROM sessions')&&sql.includes('clock_timestamp()')){delivered++;entered();await gate;}
+      return result;};
+    (q as any).release=(...args:any[])=>{q.query=originalQuery;q.release=originalRelease;(originalRelease as any).apply(q,args);};return q;};
+  try {
+    pending=store.commit(f.actor,intent,sealed,q=>authority.assertCurrent(q,invocation));
+    await Promise.race([blocked,pending.then(()=>{throw Error('Expected actual final SQL result barrier was not reached');},error=>{throw error;})]);
+    await delay(Math.max(0,expiry-Date.now()+100));release();
+    const settled=await pending.then(()=>({kind:'committed' as const}),()=>({kind:'rejected' as const}));
+    const facts=(await owner.query(`SELECT (SELECT count(*)::int FROM broker_model_credentials) credentials,
+      (SELECT count(*)::int FROM broker_credential_vault) ciphertext,
+      (SELECT count(*)::int FROM scoped_command_receipts WHERE operation='broker.credential.create') receipts`)).rows[0];
+    assert.equal(settled.kind,'rejected',`Final command expiry must roll back custody; actual credentials=${facts.credentials}, ciphertext=${facts.ciphertext}, receipts=${facts.receipts}`);assert.equal(delivered,1);
+    assert.equal((await owner.query('SELECT count(*)::int n FROM broker_model_credentials')).rows[0].n,0);
+    assert.equal((await owner.query('SELECT count(*)::int n FROM broker_credential_vault')).rows[0].n,0);
+    assert.equal((await owner.query("SELECT count(*)::int n FROM scoped_command_receipts WHERE operation='broker.credential.create'")).rows[0].n,0);
+    const outcome=await issuer.readOwnerOutcome(f.actor,claims.authorizationRef);assert.equal(outcome.state,'submission_claimed');assert.equal(outcome.credential,null);
+  }finally{release?.();(broker as any).connect=originalConnect;if(pending)await pending.catch(()=>{});}
+});

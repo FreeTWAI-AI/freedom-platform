@@ -181,3 +181,57 @@ END;
 $$;
 CREATE TRIGGER preserve_credential_ingest_authorization BEFORE INSERT OR UPDATE OR DELETE ON credential_ingest_authorizations
   FOR EACH ROW EXECUTE FUNCTION preserve_credential_ingest_authorization();
+
+-- Scoped commands refresh their member session clock after domain revalidation.
+-- That last SQL result can itself wait past a shorter ingest command deadline.
+-- Retain an exclusive SQL decision at COMMIT, after all receipt/clock waits;
+-- external recovery remains a bounded observation, never an atomic SQL claim.
+CREATE FUNCTION check_credential_ingest_whole_state() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE valid boolean;
+BEGIN
+  IF NEW.committed_at IS NULL THEN RETURN NULL; END IF;
+  EXECUTE format($query$
+    SELECT true FROM %1$I.credential_ingest_authorizations a
+    JOIN %1$I.users u ON u.user_id=a.owner_user_id AND u.active
+      AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
+    JOIN %1$I.sessions s ON s.token_hash=a.original_session_hash AND s.user_id=u.user_id
+      AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp()
+    JOIN %1$I.principals p ON p.principal_id=a.owner_principal_id AND p.user_ref=u.user_id AND p.kind='person' AND p.status='active'
+    JOIN %1$I.resource_scopes rs ON rs.scope_id=a.scope_id AND rs.owner_principal_id=p.principal_id AND rs.kind='personal' AND rs.status='active'
+    JOIN %1$I.broker_model_credentials c ON c.credential_id=a.committed_credential_id AND c.credential_id=a.submitted_credential_id
+      AND c.binding=a.submitted_binding AND c.state='active' AND c.recovery_generation=a.recovery_generation
+      AND c.owner_user_id=u.user_id AND c.owner_principal_id=p.principal_id AND c.scope_id=rs.scope_id
+      AND c.environment=a.environment AND c.client_id=a.client_id AND c.issued_at<=clock_timestamp() AND c.expires_at>clock_timestamp()
+    JOIN %1$I.broker_credential_vault v ON v.credential_id=c.credential_id
+    JOIN %1$I.model_connections m ON m.model_connection_id=a.model_connection_id AND m.aggregate_version=a.model_version
+      AND m.model_connection_id=c.model_connection_id AND m.aggregate_version=c.model_version AND m.selection=c.selection AND m.state='unverified'
+      AND m.runtime_device_id=c.runtime_device_id AND m.connection_id=c.connection_id AND m.family_id=c.family_id
+    JOIN %1$I.runtime_registrations rt ON rt.runtime_device_id=c.runtime_device_id AND rt.state='enrolled' AND rt.enrolled_at<=clock_timestamp()
+    JOIN %1$I.agent_connections ac ON ac.connection_id=c.connection_id AND ac.state='active'
+      AND ac.issued_at<=clock_timestamp() AND ac.expires_at>clock_timestamp()
+    JOIN %1$I.bootstrap_refresh_families f ON f.family_id=c.family_id AND f.connection_id=ac.connection_id AND f.state='active'
+      AND f.issued_at<=clock_timestamp() AND f.expires_at>clock_timestamp()
+    LEFT JOIN %1$I.broker_model_credentials old ON old.credential_id=a.old_credential_id
+    LEFT JOIN %1$I.model_connections om ON om.model_connection_id=a.old_model_connection_id
+    LEFT JOIN %1$I.runtime_registrations ort ON ort.runtime_device_id=old.runtime_device_id
+    LEFT JOIN %1$I.agent_connections oac ON oac.connection_id=old.connection_id
+    LEFT JOIN %1$I.bootstrap_refresh_families ofam ON ofam.family_id=old.family_id
+    WHERE a.authorization_id=$1 AND a.committed_at IS NOT NULL AND a.expires_at>clock_timestamp()
+      AND a.setup_expires_at>clock_timestamp() AND a.write_expires_at>clock_timestamp()
+      AND (a.operation='create' OR (old.state='rotated' AND old.aggregate_version::numeric=a.old_credential_version::numeric+1
+        AND old.generation=a.old_credential_generation AND c.generation::numeric=old.generation::numeric+1
+        AND old.model_connection_id=a.old_model_connection_id AND old.model_version=a.old_model_version
+        AND old.replacement_credential_id=c.credential_id AND old.recovery_generation=a.recovery_generation
+        AND old.expires_at>clock_timestamp() AND om.state='revoked' AND om.aggregate_version::numeric=a.old_model_version::numeric+1
+        AND om.selection=old.selection AND om.runtime_device_id=old.runtime_device_id AND om.connection_id=old.connection_id AND om.family_id=old.family_id
+        AND ort.state='enrolled' AND ort.enrolled_at<=clock_timestamp() AND oac.state='active'
+        AND oac.issued_at<=clock_timestamp() AND oac.expires_at>clock_timestamp() AND ofam.state='active'
+        AND ofam.issued_at<=clock_timestamp() AND ofam.expires_at>clock_timestamp()))
+  $query$,TG_TABLE_SCHEMA) INTO valid USING NEW.authorization_id;
+  IF valid IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'Fresh original-session ingest commit required' USING ERRCODE='23514'; END IF;
+  RETURN NULL;
+END;
+$$;
+CREATE CONSTRAINT TRIGGER check_credential_ingest_whole_state AFTER INSERT OR UPDATE ON credential_ingest_authorizations
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION check_credential_ingest_whole_state();
