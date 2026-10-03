@@ -111,3 +111,9 @@ cryptography, lock barriers and low-privilege SQL behavior.
 
 These local checks are not evidence of deployment, packaged browser/native
 support, hardware protection, production grants, or full device-flow/DPoP acceptance.
+
+The [authenticated broker bridge](../../docs/platform-plan/execution/unified-foundation/19-authenticated-broker-bridge.md)
+adds server-only original-session command authorizations. Its signed wire contains
+only references, nonce, digest, purpose and deadlines. SQL derives the broker-local
+Actor from the original genuine session; JSON cannot supply one. One-use claim
+admission does not replace the existing ModelStep dispatch claim or stage CAS.

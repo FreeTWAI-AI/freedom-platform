@@ -1,6 +1,7 @@
 import type { Pool } from 'pg';
 import { Hono } from 'hono';
 import type { ObjectStore } from '../../../packages/asset-storage/index.js';
+import type { ModelBrokerClient } from './model-broker-client.js';
 import type { ModelStepHost } from '../../../modules/agent-execution/model-step-host.js';
 import { resolvePrivateWorkPersistencePolicy } from '../../../modules/autopilot-work/policy.js';
 import { RuntimeEnvironmentSchema, type RuntimeEnvironment } from '../../../contracts/execution/v1/runtime-registration.js';
@@ -24,19 +25,19 @@ function rejected(code:string,status:number) {
 }
 
 export async function createPrivateAiProductTransport(pool: Pool, options: {
-  origin: string; environment: RuntimeEnvironment; clientId: string; host: ModelStepHost; store: ObjectStore;
+  origin: string; environment: RuntimeEnvironment; clientId: string; host?: ModelStepHost; broker?: ModelBrokerClient; store: ObjectStore;
   sourceNetwork?: (request: Request) => string;
 }): Promise<PrivateAiProductTransport> {
   if (!options || Object.getPrototypeOf(options) !== Object.prototype) throw new Error('invalid_private_ai_product_configuration');
   const descriptors = Object.getOwnPropertyDescriptors(options);
-  if (Reflect.ownKeys(options).some(key => typeof key !== 'string' || !['origin','environment','clientId','host','store','sourceNetwork'].includes(key))
+  if (Reflect.ownKeys(options).some(key => typeof key !== 'string' || !['origin','environment','clientId','host','broker','store','sourceNetwork'].includes(key))
     || Object.values(descriptors).some(value => !value.enumerable || !('value' in value))
-    || ['origin','environment','clientId','host','store'].some(key => !descriptors[key])) throw new Error('invalid_private_ai_product_configuration');
+    || ['origin','environment','clientId','store'].some(key => !descriptors[key]) || (!!descriptors.host === !!descriptors.broker)) throw new Error('invalid_private_ai_product_configuration');
   const environment = RuntimeEnvironmentSchema.parse(descriptors.environment.value);
   const freedomEnv: FreedomEnv = environment === 'local' ? 'local' : environment === 'staging-next' ? 'staging' : 'public';
   const origin = descriptors.origin.value as string;
   assertOriginAllowed(freedomEnv, origin);
-  const clientId = descriptors.clientId.value as string, host = descriptors.host.value as ModelStepHost, store = descriptors.store.value as ObjectStore;
+  const clientId = descriptors.clientId.value as string, host = descriptors.host?.value as ModelStepHost | undefined, broker = descriptors.broker?.value as ModelBrokerClient | undefined, store = descriptors.store.value as ObjectStore;
   const sourceNetwork = descriptors.sourceNetwork?.value as ((request: Request) => string) | undefined;
   const network = sourceNetwork === undefined ? {} : { sourceNetwork };
   // Each child owns its member boundary and original bounded request stream.
@@ -44,7 +45,7 @@ export async function createPrivateAiProductTransport(pool: Pool, options: {
   const privateWork = createPrivateWorkTransport(pool, { origin, freedomEnv, store });
   const privateWorkApp = new Hono().route('/api/v1', privateWork);
   const prerequisites = await createMemberExecutionHttpTransport(pool, { origin, environment, clientId, ...network });
-  const models = await createMemberModelHttpTransport(pool, { origin, environment, clientId, host, store,
+  const models = await createMemberModelHttpTransport(pool, { origin, environment, clientId, ...(broker ? {broker} : {host:host!}), store,
     resolvePolicy: resolvePrivateWorkPersistencePolicy, ...network });
   const port = Object.freeze(Object.create(null)) as PrivateAiProductTransport;
   products.set(port, { pool, origin, freedomEnv, async fetch(request) {

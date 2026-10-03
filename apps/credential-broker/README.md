@@ -1,9 +1,10 @@
-# Model credential broker core
+# Model credential broker
 
 This directory implements the isolated custody boundary planned in AP P-17/P-24.
-The current batch is a closed internal factory, not an installed HTTP service.
-Provider keys and KEKs stay in the broker; the public app/Worker does not import
-these factories or acquire a credential resolver.
+The internal core now includes a purpose-bound authenticated execution bridge
+and a fixed local process RPC listener. Production service trust is not installed.
+Provider keys and KEKs stay in the broker; the main app uses only an opaque
+reference client. Public Node/Worker defaults do not install these factories.
 
 Use the [central contract](../../contracts/execution/v2/model-credential.ts) and
 [spec 18](../../docs/platform-plan/execution/unified-foundation/18-credential-broker-core.md).
@@ -40,7 +41,13 @@ Do not add ambient environment keys, R2 secret storage, default models or a
 generic proxy. Do not serialize WeakMap handles or member Actor DTOs as cross
 process authorization.
 
-Authenticated service binding, the reference-only execution evidence bridge,
-secret ingest with capture disabled, provider verification/settings and actual
+See [spec 19](../../docs/platform-plan/execution/unified-foundation/19-authenticated-broker-bridge.md)
+for original-session SQL authorization, pinned separate signing directions,
+bounded in-process proofs registry, per-transaction invocation guards and
+separate cipher/executor roles. The existing complete host/service/runner/
+Result finalizer remains broker-local; JSON or historical DB metadata never
+recreates opaque evidence. Main verifies replies and reads current owner SQL.
+
+Production private service binding, secret ingest with capture disabled, provider verification/settings and actual
 member/provider acceptance remain separate work. Tests use synthetic keys and
 disposable PostgreSQL only; no production credentials or deployments are implied.

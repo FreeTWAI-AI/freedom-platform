@@ -222,3 +222,12 @@ subscription execution, ambient credentials, production recovery and deployment
 are not enabled.
 The older closed Run API returns `execution_run_profile_required` for this profile;
 use ModelStep read/control ports. Public metadata never carries operational authority.
+
+The [broker bridge](../../docs/platform-plan/execution/unified-foundation/19-authenticated-broker-bridge.md)
+keeps the original host/service/runner/Result finalizer in one broker process.
+An additional captured invocation guard runs on the real transaction client at
+current-authority and final SQL sinks; it never replaces the domain checks.
+Main product assembly can explicitly install an opaque reference client instead
+of a local host. Reply metadata is authenticated and then read from owner SQL.
+Missing registry proofs after restart or on another replica cannot be restored
+from JSON, receipts or SQL verified_binding. Production trust remains uninstalled.

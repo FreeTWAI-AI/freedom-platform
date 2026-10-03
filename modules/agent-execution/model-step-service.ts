@@ -1,4 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto';
+import { captureModelStepInvocation, assertModelStepInvocationTime, modelStepInvocationExpiry, type ModelStepInvocationGuard } from './model-step-invocation.js';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
 import type { Actor } from '../identity-membership/service.js';
@@ -160,9 +161,10 @@ export function createModelStepService(pool:Pool, rawOptions:{environment:c.Mode
     const first=await step(q,actor,context,id),a=await approval(q,actor,context,first.approval_id);const b=await lock(q,actor,context,a.grant_id,a.approval_id,id);
     if(check){await policy(q,context,b);await current(q,actor,b,true);}else await now(q,actor);return b;
   }
-  async function activate(actor:Actor,raw:c.ModelStepActivateInput) {
+  async function activate(actor:Actor,raw:c.ModelStepActivateInput, invocation?:ModelStepInvocationGuard) {
+    const guard=captureModelStepInvocation(invocation);
     actor=Object.freeze({...actor});const input=parse(c.ActivateSchema,raw),operation='execution.model-step.activate';
-    const derive=async(q:PoolClient,context:MemberScopeContext)=>{await eligible(q,actor);await ownerLock(q,context);const a=await approval(q,actor,context,input.approvalId);
+    const derive=async(q:PoolClient,context:MemberScopeContext)=>{await guard(q);await eligible(q,actor);await ownerLock(q,context);const a=await approval(q,actor,context,input.approvalId);
       const prior=(await q.query<{step_id:string}>('SELECT step_id FROM model_text_steps WHERE owner_principal_id=$1 AND scope_id=$2 AND environment=$3 AND client_id=$4 AND creation_key=$5',
       [context.subject_principal.principal_id,context.scope.scope_id,environment,clientId,input.key])).rows[0];
       const b=await lock(q,actor,context,a.grant_id,a.approval_id,prior?.step_id);await policy(q,context,b);await current(q,actor,b,!!b.step);
@@ -180,7 +182,7 @@ export function createModelStepService(pool:Pool, rawOptions:{environment:c.Mode
       exportPolicyId:a.policy_id,exportPolicyRevision:a.export_policy_revision,contextSha256:a.context_sha256,inputByteSize:a.input_byte_size,maxOutputTokens:a.max_output_tokens}));
     const verified=await host.verify(binding),proof=readVerifiedModelBinding(verified,binding);let b!:BindingRows;
     const validate=async(q:PoolClient)=>{await current(q,actor,b,!!b.step);readVerifiedModelBinding(verified,binding);
-      if(b.step && b.step.step_id===binding.stepId && b.step.verified_binding.recoveryGeneration!==proof.recoveryGeneration)stale();};
+      if(b.step && b.step.step_id===binding.stepId && b.step.verified_binding.recoveryGeneration!==proof.recoveryGeneration)stale();await guard(q);};
     const result=await scopedMemberCommand(pool,{actor,scope:'personal',operation,key:input.key,target:{kind:'model_export_approval',id:input.approvalId},expected:input.expectedApprovalVersion,
       body:{environment,clientId,expectedRunVersion:input.expectedRunVersion}},async(q,context)=>{b=await derive(q,context);await validate(q);},async(q,context)=>{
       requireCondition(!b.step,409,'model_step_already_activated','模型步驟已啟用。');
@@ -201,19 +203,19 @@ export function createModelStepService(pool:Pool, rawOptions:{environment:c.Mode
     },async q=>validate(q));
     if(result.stepId===binding.stepId && !proofs.has(result.stepId))proofs.set(result.stepId,verified);return result;
   }
-  async function read(actor:Actor,raw:c.ModelStepReadInput) {actor=Object.freeze({...actor});const input=parse(c.ReadSchema,raw);
-    return withMemberScope(pool,{actor,scope:'personal'},async()=>{},async(q,context)=>metadata((await locateStep(q,actor,context,input.stepId,false)).step!));}
-  async function begin(actor:Actor,raw:c.ModelStepBeginInput):Promise<{metadata:c.ModelStepMetadata;capability:OpaqueModelStepCapability|null}> {
-    actor=Object.freeze({...actor});const input=parse(c.BeginSchema,raw),operation='execution.model-step.begin';let b!:BindingRows,fresh=false;
+  async function read(actor:Actor,raw:c.ModelStepReadInput,invocation?:ModelStepInvocationGuard) {const guard=captureModelStepInvocation(invocation);actor=Object.freeze({...actor});const input=parse(c.ReadSchema,raw);
+    return withMemberScope(pool,{actor,scope:'personal'},async()=>{},async(q,context)=>{const value=metadata((await locateStep(q,actor,context,input.stepId,false)).step!);await guard(q);return value;});}
+  async function begin(actor:Actor,raw:c.ModelStepBeginInput,invocation?:ModelStepInvocationGuard):Promise<{metadata:c.ModelStepMetadata;capability:OpaqueModelStepCapability|null}> {
+    const guard=captureModelStepInvocation(invocation);actor=Object.freeze({...actor});const input=parse(c.BeginSchema,raw),operation='execution.model-step.begin';let b!:BindingRows,fresh=false;
     const validate=async(q:PoolClient)=>{await current(q,actor,b,true);if(b.step!.state==='reserved')checkVersion(b.step!.aggregate_version,input.expectedVersion);
       else requireCondition(b.step!.state==='dispatched',409,'model_step_already_consumed','模型步驟不能重送。');
-      if(fresh && (!b.step!.permit_expires_at || await now(q,actor)>=b.step!.permit_expires_at))stale();};
+      if(fresh && (!b.step!.permit_expires_at || await now(q,actor)>=b.step!.permit_expires_at))stale();await guard(q);};
     const result=await scopedMemberCommand(pool,{actor,scope:'personal',operation,key:input.key,target:{kind:'model_text_step',id:input.stepId},expected:input.expectedVersion,body:{environment,clientId}},
     async(q,context)=>{b=await locateStep(q,actor,context,input.stepId);await validate(q);},async(q,context)=>{
       checkVersion(b.step!.aggregate_version,input.expectedVersion);requireCondition(b.step!.state==='reserved',409,'model_step_already_consumed','模型步驟不能重送。');
       const opaque=proofs.get(input.stepId);requireCondition(opaque,503,'model_authentication_unavailable','模型認證暫時無法使用。');
       const verified=readVerifiedModelBinding(opaque,b.step!.binding);requireCondition(verified.recoveryGeneration===b.step!.verified_binding.recoveryGeneration,409,'model_step_binding_stale','復原世代已變更。');
-      const t=await current(q,actor,b,true),expiry=new Date(Math.min(t.getTime()+5000,b.step!.lease_expires_at.getTime(),new Date(verified.expiresAt).getTime()));
+      const t=await current(q,actor,b,true),expiry=new Date(Math.min(t.getTime()+5000,b.step!.lease_expires_at.getTime(),new Date(verified.expiresAt).getTime(),modelStepInvocationExpiry(guard)));
       await q.query(`UPDATE model_text_steps SET state='dispatched',aggregate_version=aggregate_version+1,usage_status='unknown',dispatched_at=$3,permit_expires_at=$4,verified_binding=$5
         WHERE step_id=$1 AND aggregate_version=$2`,[input.stepId,input.expectedVersion,t,expiry,JSON.stringify(verified)]);
       b.step=await step(q,actor,context,input.stepId,true);fresh=true;await journal(q,context,operation,'model_text_step',input.stepId,b.step.aggregate_version,b.step.state);return metadata(b.step);
@@ -221,26 +223,28 @@ export function createModelStepService(pool:Pool, rawOptions:{environment:c.Mode
     if(!fresh)return Object.freeze({metadata:result,capability:null});
     const beforeDispatch=async()=>{await withMemberScope(pool,{actor,scope:'personal'},async()=>{},async(q,context)=>{
       const latest=await locateStep(q,actor,context,input.stepId);const t=await current(q,actor,latest,true);
-      if(latest.step!.state!=='dispatched'||!latest.step!.permit_expires_at||t>=latest.step!.permit_expires_at)stale();});};
+      if(latest.step!.state!=='dispatched'||!latest.step!.permit_expires_at||t>=latest.step!.permit_expires_at)stale();await guard(q);});assertModelStepInvocationTime(guard);};
     const capability=createModelStepCapability(b.step!.binding,proofs.get(input.stepId)!,b.step!.permit_expires_at!.toISOString(),beforeDispatch);
     capabilities.set(capability,input.stepId);return Object.freeze({metadata:result,capability});
   }
-  async function contextBytes(actor:Actor,capability:OpaqueModelStepCapability) {
+  async function contextBytes(actor:Actor,capability:OpaqueModelStepCapability,invocation?:ModelStepInvocationGuard) {
+    const guard=captureModelStepInvocation(invocation);
     actor=Object.freeze({...actor});const cap=readModelStepCapability(capability);requireCondition(capabilities.get(capability)===cap.binding.stepId,403,'model_step_capability_invalid','模型步驟憑證無效。');
     return withMemberScope(pool,{actor,scope:'personal'},async()=>{},async(q,context)=>{const b=await locateStep(q,actor,context,cap.binding.stepId);const t=await current(q,actor,b,true);
-      if(b.step!.state!=='dispatched'||t>=new Date(cap.expiresAt))stale();return new Uint8Array(b.bytes!);});
+      if(b.step!.state!=='dispatched'||t>=new Date(cap.expiresAt))stale();await guard(q);return new Uint8Array(b.bytes!);});
   }
-  async function record(actor:Actor,capability:OpaqueModelStepCapability,observation:OpaqueModelObservation) {
+  async function record(actor:Actor,capability:OpaqueModelStepCapability,observation:OpaqueModelObservation,invocation?:ModelStepInvocationGuard) {
+    const guard=captureModelStepInvocation(invocation);
     actor=Object.freeze({...actor});const cap=readModelStepCapability(capability);requireCondition(capabilities.get(capability)===cap.binding.stepId,403,'model_step_capability_invalid','模型步驟憑證無效。');
     const observed=readModelObservation(observation,capability);await assertModelObservationCurrent(observation);
     const {text:_text,binding:_binding,...safe}=observed;let b!:BindingRows;const operation='execution.model-step.record';
     return scopedMemberCommand(pool,{actor,scope:'personal',operation,key:cap.binding.intentId,target:{kind:'model_text_step',id:cap.binding.stepId},body:{outputSha256:observed.outputSha256}},
     async(q,context)=>{b=await locateStep(q,actor,context,cap.binding.stepId);if(b.step!.state!=='dispatched'&&b.step!.state!=='awaiting_result')stale();
-      if(b.step!.verified_binding.bindingId!==observed.bindingId||b.step!.verified_binding.recoveryGeneration!==observed.recoveryGeneration)stale();},
+      if(b.step!.verified_binding.bindingId!==observed.bindingId||b.step!.verified_binding.recoveryGeneration!==observed.recoveryGeneration)stale();await guard(q);},
     async(q,context)=>{const t=await current(q,actor,b,true);await q.query(`UPDATE model_text_steps SET state='awaiting_result',aggregate_version=aggregate_version+1,
       usage_status='known',observation=$2,observed_at=$3 WHERE step_id=$1 AND state='dispatched'`,[cap.binding.stepId,JSON.stringify(safe),t]);b.step=await step(q,actor,context,cap.binding.stepId,true);
       await journal(q,context,operation,'model_text_step',b.step.step_id,b.step.aggregate_version,b.step.state);return metadata(b.step);},async q=>{
-        await assertModelObservationCurrent(observation);await current(q,actor,b,true);});
+        await assertModelObservationCurrent(observation);await current(q,actor,b,true);await guard(q);});
   }
   async function control(actor:Actor,raw:c.ModelStepControlInput) {actor=Object.freeze({...actor});const input=parse(c.ControlSchema,raw),operation=`execution.model-step.${input.action}`;let b!:BindingRows;
     return scopedMemberCommand(pool,{actor,scope:'personal',operation,key:input.key,target:{kind:'model_text_step',id:input.stepId},expected:input.expectedVersion,body:{environment,clientId}},

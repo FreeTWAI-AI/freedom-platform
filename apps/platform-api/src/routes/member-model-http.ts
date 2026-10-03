@@ -8,6 +8,8 @@ import { MemberModelHttpApprovalCreateSchema, MemberModelHttpActivateSchema, Mem
 import { ModelStepApprovalMetadataSchema, ModelStepMetadataSchema } from '../../../../contracts/execution/v2/model-step.js';
 import type { ObjectStore } from '../../../../packages/asset-storage/index.js';
 import type { PrivateResultDependencies } from '../../../../modules/autopilot-work/results.js';
+import { bindModelBrokerClient, type ModelBrokerClient } from '../model-broker-client.js';
+import { createUnavailableModelStepHost } from '../../../../modules/agent-execution/model-step-host.js';
 import type { ModelStepHost } from '../../../../modules/agent-execution/model-step-host.js';
 import { createModelStepService } from '../../../../modules/agent-execution/model-step-service.js';
 import { createModelStepRunner } from '../../../../modules/agent-execution/model-step-runner.js';
@@ -33,7 +35,7 @@ function route(path: string): Route | undefined {
   const step = /^\/api\/v1\/me\/model-steps\/([0-9a-f-]{36})(:execute|:pause|:stop)?$(?![\s\S])/.exec(path);
   if(step) return {name:step[2] === ':execute'?'execute':step[2] === ':pause'?'pause':step[2] === ':stop'?'stop':'read',method:step[2]?'POST':'GET',id:step[1]};
 }
-const safeCodes = new Set(['host_rejected','origin_rejected','method_not_allowed','credential_kind_rejected','encoding_rejected',
+const safeCodes = new Set(['model_broker_unavailable','model_broker_authorization_invalid','model_broker_registry_unavailable','model_step_outcome_unknown','host_rejected','origin_rejected','method_not_allowed','credential_kind_rejected','encoding_rejected',
   'json_required','body_too_large','body_timeout','invalid_body','invalid_json','validation_failed','idempotency_required',
   'version_required','invalid_version','read_headers_rejected','member_model_http_unavailable','member_model_http_rate_limited',
   'login_required','session_expired','csrf_rejected','onboarding_required','not_found','principal_disabled','scope_disabled',
@@ -64,17 +66,18 @@ function version(c: Context<PlatformEnv>): string {
 /** Member-cookie ModelStep transport. All execution ports are trusted host
  * configuration. No caller field can select a host, credential or policy. */
 export interface MemberModelHttpOptions {
-  origin: string; environment: RuntimeEnvironment; clientId: string; host: ModelStepHost;
+  origin: string; environment: RuntimeEnvironment; clientId: string; host?: ModelStepHost; broker?: ModelBrokerClient;
   store: ObjectStore; resolvePolicy: PrivateResultDependencies['resolvePolicy']; sourceNetwork?: (request: Request) => string;
 }
 export async function createMemberModelHttpTransport(pool: Pool, options: MemberModelHttpOptions) {
   let origin: string, environment: RuntimeEnvironment, clientId: string, host: ModelStepHost, store: ObjectStore, resolvePolicy: PrivateResultDependencies['resolvePolicy'];
+  let broker: ReturnType<typeof bindModelBrokerClient> | undefined;
   let sourceNetwork: ((request: Request) => string) | undefined;
   try {
     if (!options || Object.getPrototypeOf(options) !== Object.prototype || Reflect.ownKeys(options).some(k => typeof k !== 'string'
-      || !['origin','environment','clientId','host','store','resolvePolicy','sourceNetwork'].includes(k))) throw new Error();
+      || !['origin','environment','clientId','host','broker','store','resolvePolicy','sourceNetwork'].includes(k))) throw new Error();
     const desc = Object.getOwnPropertyDescriptors(options);
-    if (['origin','environment','clientId','host','store','resolvePolicy'].some(k => !desc[k]) || Object.values(desc).some(d => !d.enumerable || !('value' in d))) throw new Error();
+    if (['origin','environment','clientId','store','resolvePolicy'].some(k => !desc[k]) || (!!desc.host === !!desc.broker) || Object.values(desc).some(d => !d.enumerable || !('value' in d))) throw new Error();
     const candidateOrigin = desc.origin.value;
     if (typeof candidateOrigin !== 'string' || /[?#%\\\x00-\x20\x7f-\uffff]/.test(candidateOrigin)) throw new Error();
     origin = candidateOrigin;
@@ -83,14 +86,16 @@ export async function createMemberModelHttpTransport(pool: Pool, options: Member
     environment = RuntimeEnvironmentSchema.parse(desc.environment.value);
     if (url.protocol === 'http:' && (environment !== 'local' || !['localhost','127.0.0.1','[::1]'].includes(url.hostname))) throw new Error();
     clientId = BootstrapClientIdSchema.parse(desc.clientId.value);
-    sourceNetwork = desc.sourceNetwork?.value; host = desc.host.value as ModelStepHost; store = desc.store.value as ObjectStore; resolvePolicy = desc.resolvePolicy.value as PrivateResultDependencies["resolvePolicy"];
+    sourceNetwork = desc.sourceNetwork?.value;
+    broker = desc.broker ? bindModelBrokerClient(desc.broker.value as ModelBrokerClient,pool,origin,environment,clientId) : undefined;
+    host = desc.host ? desc.host.value as ModelStepHost : createUnavailableModelStepHost(); store = desc.store.value as ObjectStore; resolvePolicy = desc.resolvePolicy.value as PrivateResultDependencies["resolvePolicy"];
     if (sourceNetwork !== undefined && typeof sourceNetwork !== 'function') throw new Error();
     if (!store || typeof store !== 'object' || ['get','head','putImmutable','delete'].some(k => typeof (store as unknown as Record<string,unknown>)[k] !== 'function') || typeof resolvePolicy !== 'function') throw new Error();
   } catch { throw new Error('invalid_member_model_http_configuration'); }
   const requestHost = new URL(origin).host, boundary = memberBoundary(pool);
   const steps = createModelStepService(pool,{environment,clientId,host});
-  const finalizer = createPrivateModelResultService(pool,{steps,host,store,resolvePolicy});
-  const runner = createModelStepRunner({service:steps,host,resultFinalizer:finalizer});
+  const finalizer = broker ? undefined : createPrivateModelResultService(pool,{steps,host,store,resolvePolicy});
+  const runner = broker ? undefined : createModelStepRunner({service:steps,host,resultFinalizer:finalizer!});
   const app = new Hono<PlatformEnv>();
   app.onError((error,c) => {
     security(c); c.res.headers.delete('ETag'); let code = 'internal_error', httpStatus = 500;
@@ -146,11 +151,12 @@ export async function createMemberModelHttpTransport(pool: Pool, options: Member
         MemberModelHttpEmptySchema.parse(await readBoundedHttpJson(c.req.raw));
         return approvalResponse(await steps.approvals.revoke(actor,{approvalId:entry.id!,key:key(c),expectedVersion:version(c)}));
       }
-      case 'activate': return stepResponse(await steps.activate(actor,{...MemberModelHttpActivateSchema.parse(await readBoundedHttpJson(c.req.raw)),key:key(c),expectedApprovalVersion:version(c)}),201);
+      case 'activate': return stepResponse(await (broker ? broker.activate : steps.activate)(actor,{...MemberModelHttpActivateSchema.parse(await readBoundedHttpJson(c.req.raw)),key:key(c),expectedApprovalVersion:version(c)}),201);
       case 'read': return stepResponse(await steps.read(actor,{stepId:entry.id!}));
       case 'execute': {
         MemberModelHttpEmptySchema.parse(await readBoundedHttpJson(c.req.raw));
-        const executed = await runner.execute(actor,{stepId:entry.id!,key:key(c),expectedVersion:version(c)});
+        const input={stepId:entry.id!,key:key(c),expectedVersion:version(c)};
+        const executed = broker ? {metadata:await broker.execute(actor,input)} : await runner!.execute(actor,input);
         // The finalizer's Result pointer never carries bytes across this wire;
         // callers read private text through the established authorized Result API.
         return stepResponse(executed.metadata);

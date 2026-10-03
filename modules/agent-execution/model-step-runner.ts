@@ -1,3 +1,4 @@
+import { captureModelStepInvocation, type ModelStepInvocationGuard } from './model-step-invocation.js';
 import type { Actor } from '../identity-membership/service.js';
 import { BeginSchema, ModelStepMetadataSchema, type ModelStepBeginInput, type ModelStepMetadata } from '../../contracts/execution/v2/model-step.js';
 import { snapshotInput, freezeTree } from '../../packages/execution-state/decode.js';
@@ -5,14 +6,14 @@ import { AdapterFault } from './adapters/common.js';
 import { readModelStepCapability, type ModelStepHost, type OpaqueModelStepCapability, type OpaqueModelObservation } from './model-step-host.js';
 
 export interface ModelStepRunnerService {
-  begin(actor: Actor, input: ModelStepBeginInput): Promise<{ metadata: ModelStepMetadata; capability: OpaqueModelStepCapability | null }>;
-  context(actor: Actor, capability: OpaqueModelStepCapability): Promise<Uint8Array>;
-  record(actor: Actor, capability: OpaqueModelStepCapability, observation: OpaqueModelObservation): Promise<ModelStepMetadata>;
+  begin(actor: Actor, input: ModelStepBeginInput, guard?: ModelStepInvocationGuard): Promise<{ metadata: ModelStepMetadata; capability: OpaqueModelStepCapability | null }>;
+  context(actor: Actor, capability: OpaqueModelStepCapability, guard?: ModelStepInvocationGuard): Promise<Uint8Array>;
+  record(actor: Actor, capability: OpaqueModelStepCapability, observation: OpaqueModelObservation, guard?: ModelStepInvocationGuard): Promise<ModelStepMetadata>;
   unknown(actor: Actor, capability: OpaqueModelStepCapability): Promise<ModelStepMetadata>;
-  read(actor: Actor, input: { stepId: string }): Promise<ModelStepMetadata>;
+  read(actor: Actor, input: { stepId: string }, guard?: ModelStepInvocationGuard): Promise<ModelStepMetadata>;
 }
 export interface ModelStepResultFinalizer<Result> {
-  finalize(actor: Actor, input: { key: string; stepId: string; expectedVersion: string }, observation: OpaqueModelObservation): Promise<Result>;
+  finalize(actor: Actor, input: { key: string; stepId: string; expectedVersion: string }, observation: OpaqueModelObservation, guard?: ModelStepInvocationGuard): Promise<Result>;
 }
 /** One committed claim, one transport call, one typed private Result. The
  * transactional service owns every current-authority and durable journal check.
@@ -35,9 +36,10 @@ export function createModelStepRunner<Result>(options: {
   const begin = method(service, 'begin'), context = method(service, 'context'), record = method(service, 'record'),
     unknown = method(service, 'unknown'), read = method(service, 'read'), dispatch = method(host, 'dispatch'), finalize = method(finalizer, 'finalize');
   return Object.freeze({
-    async execute(actor: Actor, raw: ModelStepBeginInput): Promise<{ metadata: ModelStepMetadata; result: Result | null }> {
+    async execute(actor: Actor, raw: ModelStepBeginInput, invocation?: ModelStepInvocationGuard): Promise<{ metadata: ModelStepMetadata; result: Result | null }> {
+      const guard = captureModelStepInvocation(invocation);
       const input = freezeTree(BeginSchema.parse(snapshotInput(raw)));
-      const begun = await begin(actor, input);
+      const begun = await begin(actor, input, guard);
       const metadata = freezeTree(ModelStepMetadataSchema.parse(snapshotInput(begun.metadata)));
       if (begun.capability === null) return Object.freeze({ metadata, result: null });
       const capability = begun.capability;
@@ -45,11 +47,11 @@ export function createModelStepRunner<Result>(options: {
       if (cap.binding.stepId !== input.stepId || cap.binding.stepId !== metadata.stepId || cap.consumed) throw new AdapterFault('execution_authority_unavailable');
       let bytes: Uint8Array | undefined;
       try {
-        bytes = await context(actor, capability);
+        bytes = await context(actor, capability, guard);
         const observation = await dispatch(capability, bytes);
-        const recorded = await record(actor, capability, observation);
-        const result = await finalize(actor, { key: cap.binding.intentId, stepId: input.stepId, expectedVersion: recorded.aggregateVersion }, observation);
-        const latest = await read(actor, { stepId: input.stepId });
+        const recorded = await record(actor, capability, observation, guard);
+        const result = await finalize(actor, { key: cap.binding.intentId, stepId: input.stepId, expectedVersion: recorded.aggregateVersion }, observation, guard);
+        const latest = await read(actor, { stepId: input.stepId }, guard);
         return Object.freeze({ metadata: freezeTree(ModelStepMetadataSchema.parse(snapshotInput(latest))), result });
       } catch {
         // Committed dispatch claims remain spent even when execution never

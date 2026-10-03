@@ -62,7 +62,9 @@
     "contracts/execution/v1/bootstrap-http-nonce.schema.json",
     "contracts/execution/v1/bootstrap-http-decision.schema.json",
     "tests/runtime/bootstrap-http.test.ts",
-    "tests/runtime/bootstrap-http-contracts.test.ts"
+    "tests/runtime/bootstrap-http-contracts.test.ts",
+    "migrations/096_model_broker_authorizations.sql",
+    "tests/runtime/model-broker-authorizations.test.ts"
   ],
   "public_exports": [
     "contracts/execution/v1/runtime-registration.ts",
@@ -97,7 +99,8 @@
     "bootstrap-status",
     "device-pairing",
     "bootstrap-session",
-    "bootstrap-http"
+    "bootstrap-http",
+    "model-broker-bridge"
   ],
   "client_profiles": [],
   "instructions": [
@@ -115,7 +118,8 @@
     "modules/agent-control/bootstrap-session-proof.md",
     "modules/agent-control/bootstrap-sessions.md",
     "docs/platform-plan/execution/unified-foundation/11-bootstrap-sessions.md",
-    "docs/platform-plan/execution/unified-foundation/12-bootstrap-http.md"
+    "docs/platform-plan/execution/unified-foundation/12-bootstrap-http.md",
+    "docs/platform-plan/execution/unified-foundation/19-authenticated-broker-bridge.md"
   ],
   "invariants": [
     "current-authority-before-replay",
@@ -137,7 +141,10 @@
     "nonce-acquisition-requires-live-family",
     "http-purpose-origin-credential-kind-isolation",
     "committed-http-abuse-charge",
-    "unmounted-without-production-trust"
+    "unmounted-without-production-trust",
+    "original-session-command-not-wire-actor",
+    "one-use-transport-admission-not-domain-dispatch",
+    "initial-cas-then-stage-domain-fences"
   ],
   "tests": [
     "runtime.full"

@@ -7,7 +7,10 @@
     "migrations/095_credential_vault.sql",
     "tests/runtime/credential-broker-store.test.ts",
     "tests/runtime/credential-broker-crypto.test.ts",
-    "tests/runtime/credential-broker-adversarial.test.ts"
+    "tests/runtime/credential-broker-adversarial.test.ts",
+    "tests/runtime/model-broker-bridge.test.ts",
+    "tests/runtime/model-broker-process.test.ts",
+    "tests/runtime/model-broker-bridge-adversarial.test.ts"
   ],
   "public_exports": [],
   "dependencies": [
@@ -17,12 +20,14 @@
     "runtime-registration"
   ],
   "contract_families": [
-    "model-credential"
+    "model-credential",
+    "model-broker-bridge"
   ],
   "client_profiles": [],
   "instructions": [
     "docs/platform-plan/execution/unified-foundation/18-credential-broker-core.md",
-    "packages/scoped-commands/README.md"
+    "packages/scoped-commands/README.md",
+    "docs/platform-plan/execution/unified-foundation/19-authenticated-broker-bridge.md"
   ],
   "invariants": [
     "no-ambient-secrets-or-default-key",
@@ -35,8 +40,12 @@
     "short-lived-opaque-write-intent",
     "pinned-resolver-without-latest-key-fallback",
     "bounded-ports-and-late-plaintext-zeroization",
-    "uninstalled-until-authenticated-reference-bridge",
-    "no-model-verification-or-operational-authority"
+    "no-model-verification-or-operational-authority",
+    "no-serialized-actor-or-proof",
+    "original-session-purpose-bound-one-use-command",
+    "broker-only-original-model-step-finalizer",
+    "bounded-registry-without-proof-rehydration",
+    "uninstalled-without-reviewed-production-trust"
   ],
   "tests": [
     "runtime.full"

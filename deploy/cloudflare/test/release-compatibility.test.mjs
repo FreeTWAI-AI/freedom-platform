@@ -324,3 +324,21 @@ test('CLI never executes candidate JSON and rejects duplicates, nonregular input
   assert.equal((await run(['compatibility', '--compatibility-input', join(dir, 'link.json')])).code, 2);
   assert.equal((await run(['compatibility', '--compatibility-input', resolve(dir, 'missing.json')])).code, 2);
 });
+
+test('096 broker bridge compatibility requires exact lineage and retained dependencies without granting execution', () => {
+  const f=fixture();assert.equal(f.scan.last,'096_model_broker_authorizations.sql');assert.equal(f.scan.ok,true);
+  const bridgeCapabilities=['execution.model-broker-bridge.v1','execution.model-credential-custody.v1','execution.model-text-step.v1',
+    'work.private-model-result.v1','work.private-human-result.v1','execution.member-prerequisites.v1','execution.member-run-record.v1',
+    'execution.runtime-enrollment.v1','execution.agent-connection-record.v1','execution.bootstrap-status.v1','execution.bootstrap-session.v1'];
+  f.host.release_records[0].capabilities=[...CAPABILITIES,...bridgeCapabilities.filter(c=>!CAPABILITIES.includes(c))];
+  f.input.enable_shapes=['execution.model-broker-bridge.v1'];
+  let result=evaluate(f);assert.equal(result.status,'compatible');assert(result.required_capabilities.includes('execution.model-broker-bridge.v1'));
+  for(const key of ['deployment_authority','execution_authority','restore_proof'])assert.equal(result[key],false);
+  f.host.release_records[0].capabilities=f.host.release_records[0].capabilities.filter(c=>c!=='execution.model-broker-bridge.v1');
+  assert(evaluate(f).issues.some(i=>i.capability==='execution.model-broker-bridge.v1'));
+  f.input.enable_shapes=[];f.host.rollback_floor.capabilities=['execution.model-broker-bridge.v1'];
+  assert(evaluate(f).issues.some(i=>i.capability==='execution.model-broker-bridge.v1'));
+  const old=prefix(f.scan,95);f.scan=old;f.host.observation.schema_ledger=old.ledger;f.host.observation.schema_ledger_digest=old.ledger_digest;
+  f.host.release_records[0].schema_ledger_digests=[old.ledger_digest];f.host.rollback_floor.capabilities=[];f.input.enable_shapes=['execution.model-broker-bridge.v1'];
+  assert(evaluate(f).issues.some(i=>i.code==='shape_schema_missing'));
+});

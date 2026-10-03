@@ -42,6 +42,9 @@ export interface LifecycleDependencies {
 export interface LifecycleProfile<P extends LifecyclePrepare,R> {
   readonly purpose: 'member.avatar'|'work.private-draft'; readonly targetKind: 'member.avatar'|'work.private-result'|'work.model-result'; readonly variant: 'avatar'|'draft';
   readonly inputMaxBytes: number; readonly outputMaxBytes: number; readonly retireReplacedAsset: boolean;
+  /** Additional trusted invocation check on the caller's current transaction.
+   * Captured at composition, never supplied by upload/lease JSON. */
+  readonly revalidate?: (q: PoolClient) => Promise<void>;
   readonly parsePrepare: (raw: P) => P;
   readonly targetId: (input: P) => string;
   readonly lockTarget: (q: PoolClient, context: MemberScopeContext, actor: Actor, targetId: string, create: boolean) => Promise<LifecycleTarget>;
@@ -67,6 +70,10 @@ const state = (value: boolean) => requireCondition(value,409,'asset_intent_state
 export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, dependencies: LifecycleDependencies, definition: LifecycleProfile<P,R>) {
   const settings = z.object({ ttl: z.number().int().min(1).max(86400), lease: z.number().int().min(1).max(3600), pending: z.number().int().min(1).max(100) })
     .parse({ ttl: dependencies.intentTtlSeconds??3600, lease: dependencies.leaseSeconds??300, pending: dependencies.maxPendingIntents??3 });
+  const revalidation=Object.getOwnPropertyDescriptor(definition,'revalidate');
+  requireCondition(revalidation===undefined||(revalidation.enumerable&&'value' in revalidation
+    &&(revalidation.value===undefined||typeof revalidation.value==='function')),500,'asset_profile_invalid','內容設定不正確。');
+  const revalidate=revalidation?.value as LifecycleProfile<P,R>['revalidate'];
   const profile = Object.freeze({ ...definition }), store = dependencies.store;
   requireCondition((profile.purpose==='member.avatar' && profile.targetKind==='member.avatar' && profile.variant==='avatar' && profile.inputMaxBytes===2097152 && profile.outputMaxBytes===131072)
     || (profile.purpose==='work.private-draft' && profile.targetKind==='work.private-result' && profile.variant==='draft' && profile.inputMaxBytes===262144 && profile.outputMaxBytes===262144)
@@ -124,7 +131,7 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
       const row=(await q.query(`INSERT INTO asset_upload_intents(intent_id,asset_id,representation_id,scope_id,owner_principal_id,target_user_id,policy_revision,prepare_key,request_digest,source_content_type,source_byte_size,source_sha256,expected_version,expires_at,purpose,reserved_bytes${work?',target_kind,target_work_id':''}) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,clock_timestamp()+make_interval(secs=>$14),$15,$16${work?',$17,$18':''}) RETURNING expires_at`,values)).rows[0];
       await scopedJournal(q,context,{aggregate_type:'asset_upload_intent',id:intentId,version:'1',operation:'asset.upload.prepare',data:{asset_id:assetId}});
       return {intentId,assetId,representationId,expiresAt:row.expires_at.toISOString() as string};
-    });
+    },revalidate);
   }
   async function claim(actor:Actor,raw:AssetClaimInput){
     actor=Object.freeze({...actor});const input=claimInput.parse(raw);let row!:LifecycleIntent;
@@ -134,14 +141,14 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
       const updated=(await q.query<LifecycleIntent>(`UPDATE asset_upload_intents SET fence=fence+1,lease_token=$2,lease_expires_at=LEAST(expires_at,clock_timestamp()+make_interval(secs=>$3)),state=CASE WHEN state='stored' THEN 'stored' ELSE 'processing' END WHERE intent_id=$1 AND (lease_expires_at IS NULL OR lease_expires_at<=clock_timestamp()) RETURNING *`,[row.intent_id,randomUUID(),settings.lease])).rows[0];
       requireCondition(updated,409,'asset_lease_active','目前仍有有效上傳租約。');
       return {intentId:updated.intent_id,assetId:updated.asset_id,representationId:updated.representation_id,fence:updated.fence,leaseToken:updated.lease_token!,leaseExpiresAt:updated.lease_expires_at!.toISOString()};
-    });
+    },revalidate);
   }
   async function inspect(actor:Actor,input:AssetLeaseInput,allowFinalized=false){
     return withMemberScope(pool,{actor,scope:'personal'},async()=>{},async(q,context)=>{
       const {row}=await locked(q,context,actor,input.intentId),resolved=await policy(q,context,targetId(row),row.policy_revision);
       state(row.state==='processing'||row.state==='stored'||allowFinalized&&row.state==='finalized');
       if(row.state!=='finalized')await live(q,row,input);else requireCondition(row.fence===input.fence&&row.lease_token===input.leaseToken,409,'asset_lease_stale','上傳租約已失效。');
-      const storedMetadata=row.state==='stored'?await metadata(q,row):null;await assertCurrentSessionClock(q,actor);return {row:Object.freeze({...row}),policy:resolved,metadata:storedMetadata};
+      const storedMetadata=row.state==='stored'?await metadata(q,row):null;await assertCurrentSessionClock(q,actor);if(revalidate)await revalidate(q);return {row:Object.freeze({...row}),policy:resolved,metadata:storedMetadata};
     });
   }
   async function write(actor:Actor,raw:AssetLeaseInput,body:ReadableStream<Uint8Array>){
@@ -162,7 +169,7 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
         await q.query("UPDATE asset_upload_intents SET state='stored' WHERE intent_id=$1",[row.intent_id]);
       }
       return {intentId:row.intent_id,assetId:row.asset_id,state:'stored' as const};
-    });
+    },revalidate);
   }
   async function publish(q:PoolClient,context:MemberScopeContext,actor:Actor,row:LifecycleIntent,target:LifecycleTarget,publication:unknown,operation:string):Promise<R>{
     state(row.state==='stored');checkVersion(target.aggregateVersion,row.expected_version);
@@ -170,19 +177,19 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
     const outcome=await profile.publish(q,context,actor,row,target,publication,operation);
     if(profile.retireReplacedAsset&&target.assetId&&target.assetId!==row.asset_id)await q.query("UPDATE assets SET state='retired',retired_at=clock_timestamp() WHERE asset_id=$1 AND state='ready'",[target.assetId]);
     await q.query("UPDATE asset_upload_intents SET state='finalized',finalized_at=clock_timestamp() WHERE intent_id=$1",[row.intent_id]);
-    await scopedJournal(q,context,{aggregate_type:outcome.fact.aggregateType,id:outcome.fact.id,version:outcome.aggregateVersion,operation,data:outcome.fact.data,eventType:outcome.fact.eventType});return outcome.result;
+    await scopedJournal(q,context,{aggregate_type:outcome.fact.aggregateType,id:outcome.fact.id,version:outcome.aggregateVersion,operation,data:outcome.fact.data,eventType:outcome.fact.eventType});if(revalidate)await revalidate(q);return outcome.result;
   }
   async function verifyFinalization(actor:Actor,input:AssetLeaseInput){const snapshot=await inspect(actor,input,true);state(snapshot.row.state==='stored'||snapshot.row.state==='finalized');if(snapshot.row.state==='stored')await verifyObject(store,storageKey(snapshot.row),snapshot.metadata!);}
   async function authorizeFinalization(q:PoolClient,context:MemberScopeContext,actor:Actor,input:AssetLeaseInput){
     const {target,row}=await locked(q,context,actor,input.intentId);await policy(q,context,targetId(row),row.policy_revision);
     const publication=await profile.lockPublication(q,context,actor,row,target);state(row.state==='stored'||row.state==='finalized');
     if(row.state!=='finalized')await live(q,row,input);else requireCondition(row.fence===input.fence&&row.lease_token===input.leaseToken,409,'asset_lease_stale','上傳租約已失效。');
-    await assertCurrentSessionClock(q,actor);return {target,row,publication};
+    await assertCurrentSessionClock(q,actor);if(revalidate)await revalidate(q);return {target,row,publication};
   }
   async function finalize(actor:Actor,raw:AssetLeaseInput){
     actor=Object.freeze({...actor});const input=leaseInput.parse(raw);await verifyFinalization(actor,input);let authorized!:Awaited<ReturnType<typeof authorizeFinalization>>;
     return scopedMemberCommand(pool,{actor,scope:'personal',operation:'asset.upload.finalize',key:input.key,target:{kind:'asset_upload_intent',id:input.intentId},body:{intentId:input.intentId,fence:input.fence}},async(q,context)=>{authorized=await authorizeFinalization(q,context,actor,input);},
-      (q,context)=>publish(q,context,actor,authorized.row,authorized.target,authorized.publication,'asset.upload.finalize'));
+      (q,context)=>publish(q,context,actor,authorized.row,authorized.target,authorized.publication,'asset.upload.finalize'),revalidate);
   }
   async function finalizeVia<T>(actor:Actor,raw:AssetLeaseInput,bridge:LifecycleCommitPort<R,T>){
     actor=Object.freeze({...actor});const input=leaseInput.parse(raw),port=Object.freeze({...bridge});await verifyFinalization(actor,input);
@@ -194,7 +201,7 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
     actor=Object.freeze({...actor});const input=claimInput.parse(raw);
     const snapshot=await withMemberScope(pool,{actor,scope:'personal'},async()=>{},async(q,context)=>{
       const {row}=await locked(q,context,actor,input.intentId);await policy(q,context,targetId(row),row.policy_revision);if(row.state!=='finalized')await live(q,row);
-      const active=(await q.query('SELECT lease_expires_at>clock_timestamp() AS active FROM asset_upload_intents WHERE intent_id=$1',[row.intent_id])).rows[0].active;await assertCurrentSessionClock(q,actor);return {row,active};
+      const active=(await q.query('SELECT lease_expires_at>clock_timestamp() AS active FROM asset_upload_intents WHERE intent_id=$1',[row.intent_id])).rows[0].active;await assertCurrentSessionClock(q,actor);if(revalidate)await revalidate(q);return {row,active};
     });
     if(snapshot.active||snapshot.row.state==='finalized')return {state:snapshot.row.state,intentId:snapshot.row.intent_id,fence:snapshot.row.fence,leaseToken:snapshot.row.lease_token!};
     const lease=await claim(actor,{intentId:input.intentId,key:digest({facadeKey:input.key,intentId:input.intentId,priorFence:snapshot.row.fence})});return {state:snapshot.row.state==='stored'?'stored' as const:'processing' as const,intentId:lease.intentId,fence:lease.fence,leaseToken:lease.leaseToken};

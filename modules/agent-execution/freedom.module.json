@@ -56,7 +56,9 @@
     "packages/testing/private-ai-product-fixture.ts",
     "tests/runtime/member-model-http.test.ts",
     "tests/runtime/member-model-http-adversarial.test.ts",
-    "tests/e2e/private-work-ai.spec.ts"
+    "tests/e2e/private-work-ai.spec.ts",
+    "apps/platform-api/src/model-broker-client.ts",
+    "tests/runtime/model-broker-client.test.ts"
   ],
   "public_exports": [
     "modules/agent-execution/runs.ts",
@@ -73,7 +75,8 @@
     "apps/platform-api/src/private-ai-product.ts",
     "apps/platform-api/src/routes/member-model-http.ts",
     "contracts/execution/v2/member-model-http.ts",
-    "contracts/execution/v2/model-credential.ts"
+    "contracts/execution/v2/model-credential.ts",
+    "contracts/execution/v2/model-broker-bridge.ts"
   ],
   "dependencies": [
     "work",
@@ -92,7 +95,8 @@
     "member-execution-http",
     "model-step",
     "member-model-http",
-    "model-credential"
+    "model-credential",
+    "model-broker-bridge"
   ],
   "client_profiles": [],
   "instructions": [
@@ -104,7 +108,8 @@
     "docs/platform-plan/execution/unified-foundation/15-model-adapter-cores.md",
     "docs/platform-plan/execution/unified-foundation/16-private-model-step.md",
     "docs/platform-plan/execution/unified-foundation/17-private-ai-product.md",
-    "docs/platform-plan/execution/unified-foundation/18-credential-broker-core.md"
+    "docs/platform-plan/execution/unified-foundation/18-credential-broker-core.md",
+    "docs/platform-plan/execution/unified-foundation/19-authenticated-broker-bridge.md"
   ],
   "invariants": [
     "current-authority-before-replay",
@@ -137,7 +142,10 @@
     "opaque-host-product-bound-to-pool-origin-environment",
     "owner-control-survives-persistence-withdrawal",
     "exact-member-cas-without-bigint-rounding",
-    "no-private-browser-storage-or-auto-dispatch"
+    "no-private-browser-storage-or-auto-dispatch",
+    "additional-invocation-authority-at-last-sql-sink",
+    "opaque-reference-client-without-main-provider-keys",
+    "verified-response-then-current-owner-sql-read"
   ],
   "tests": [
     "runtime.full"

@@ -54,7 +54,9 @@
     "contracts:member-model-http": "tsx modules/agent-execution/generate-member-model-http.ts",
     "check:member-model-http": "tsx modules/agent-execution/generate-member-model-http.ts --check",
     "contracts:model-credential": "tsx modules/agent-execution/generate-model-credential.ts",
-    "check:model-credential": "tsx modules/agent-execution/generate-model-credential.ts --check"
+    "check:model-credential": "tsx modules/agent-execution/generate-model-credential.ts --check",
+    "contracts:model-broker-bridge": "tsx modules/agent-control/generate-model-broker-bridge.ts",
+    "check:model-broker-bridge": "tsx modules/agent-control/generate-model-broker-bridge.ts --check"
   },
   "dependencies": {
     "@hono/node-server": "2.1.1",
