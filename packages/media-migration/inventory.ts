@@ -108,7 +108,7 @@ export interface MediaProfileResult {
   readonly profileId: MediaProfileId;
   readonly table: string;
   readonly status: 'inventoried' | 'source_unavailable';
-  readonly reason: 'required_table_or_column_missing' | null;
+  readonly reason: 'required_source_shape_unavailable' | null;
   readonly counts: MediaAggregate | null;
   readonly unknownMimeCount: string | null;
   readonly mimeEvidence: MimeEvidence;
@@ -122,6 +122,7 @@ export interface MediaInventoryReport {
   readonly finishedAt: string;
   readonly completeness: 'aggregate_inventory_complete' | 'incomplete';
   readonly migrationReadiness: 'not_evaluated';
+  readonly releaseBinding: 'operator_declared_not_runtime_verified';
   readonly contentDigests: 'not_run';
   readonly dataMoved: false;
   readonly restore: 'not_run';
@@ -204,7 +205,7 @@ const TARGET_KEYS: readonly string[] = ['environment', 'database', 'schema', 'ro
 const invalid = (): MediaInventoryError => new MediaInventoryError('invalid_target');
 const unavailable = (): MediaInventoryError => new MediaInventoryError('inventory_unavailable');
 
-function validateTarget(input: unknown): InventoryTarget {
+export function validateInventoryTarget(input: unknown): InventoryTarget {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) throw invalid();
   const proto: unknown = Object.getPrototypeOf(input);
   if (proto !== Object.prototype && proto !== null) throw invalid();
@@ -277,8 +278,12 @@ FROM ${from}`;
 
 async function hasColumns(client: PoolClient, schema: string, table: string, columns: readonly string[]): Promise<boolean> {
   const result = await client.query<Row>(
-    `SELECT column_name::text AS column_name FROM information_schema.columns
-     WHERE table_schema = $1 AND table_name = $2 AND column_name = ANY($3::text[])`,
+    `SELECT a.attname::text AS column_name FROM pg_catalog.pg_attribute a
+     JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+     JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = $1 AND c.relname = $2 AND c.relkind IN ('r', 'p')
+       AND NOT c.relrowsecurity AND a.attnum > 0 AND NOT a.attisdropped
+       AND a.attname = ANY($3::text[])`,
     [schema, table, [...columns]],
   );
   const found = new Set(result.rows.map((r) => r['column_name']));
@@ -345,7 +350,7 @@ async function inventorySource(client: PoolClient, schema: string, s: MediaSourc
     (p === null || (await hasColumns(client, schema, p.table, [p.keyColumn, p.kindColumn, p.stateColumn])));
   const base = { profileId: s.profileId, table: s.table, mimeEvidence };
   if (!available) {
-    return { ...base, status: 'source_unavailable', reason: 'required_table_or_column_missing', counts: null, unknownMimeCount: null, highlightDetails: null };
+    return { ...base, status: 'source_unavailable', reason: 'required_source_shape_unavailable', counts: null, unknownMimeCount: null, highlightDetails: null };
   }
   const bytes = `t.${q(s.byteColumn)}`;
   const params: unknown[] = [s.maxBytes];
@@ -367,7 +372,7 @@ async function inventorySource(client: PoolClient, schema: string, s: MediaSourc
 }
 
 export async function inventoryMedia(pool: Pool, target: InventoryTarget): Promise<MediaInventoryReport> {
-  const snapshot = validateTarget(target);
+  const snapshot = validateInventoryTarget(target);
   const startedAt = new Date().toISOString();
   let client: PoolClient;
   try {
@@ -401,6 +406,7 @@ export async function inventoryMedia(pool: Pool, target: InventoryTarget): Promi
       finishedAt: new Date().toISOString(),
       completeness: profiles.every((r) => r.status === 'inventoried') ? 'aggregate_inventory_complete' : 'incomplete',
       migrationReadiness: 'not_evaluated',
+      releaseBinding: 'operator_declared_not_runtime_verified',
       contentDigests: 'not_run',
       dataMoved: false,
       restore: 'not_run',
