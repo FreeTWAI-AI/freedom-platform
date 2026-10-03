@@ -42,7 +42,7 @@ import {createMaintainerWebhookRoutes,createRepoMaintainerMemberRoutes,isMaintai
 import {createPublishedSkillRoutes} from './routes/published-skills.js';
 import {createMemberCommunicationRoutes} from './routes/member-communications.js';
 import {PageGitHubReader,PageGitHubEventReader} from '../../../modules/development/page-github.js';
-import {createCommunityEventRoutes,checkEventBannerUploadHeaders,checkEventVideoUploadHeaders,eventVideoResponse,isEventBannerUpload,isEventVideoUpload} from './routes/community-events.js';
+import {createCommunityEventRoutes,checkEventBannerUploadHeaders,checkEventVideoUploadHeaders,eventVideoResponse,eventAssetVideoResponse,isEventBannerUpload,isEventVideoUpload} from './routes/community-events.js';
 import {checkHighlightPhotoUploadHeaders,checkHighlightPosterUploadHeaders,createEventHighlightMemberRoutes,createEventHighlightPublicRoutes,isHighlightPhotoUpload,isHighlightPosterUpload} from './routes/event-highlights.js';
 import {CollaborationGitHub} from '../../../modules/co-creation/github.js';
 import {acceptedWorkFeed,contributionRecords,previewTasks} from '../../../modules/community/task-board.js';
@@ -206,7 +206,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     c.header('Content-Type','image/webp');c.header('Cache-Control','public, max-age=300');c.header('Cross-Origin-Resource-Policy','same-origin');
     return c.body(new Uint8Array(bytes));
   });
-  app.get('/api/v1/public/events/:id/video',async c=>eventVideoResponse(c,await publicEventVideo(pool,z.uuid().parse(c.req.param('id'))),true));
+  app.get('/api/v1/public/events/:id/video',async c=>eventAssetVideoResponse(c,pool,z.uuid().parse(c.req.param('id')),runtime.eventVideoAssetStore));
   registerPublicPromotion(app,pool,runtime);
   registerPublicMemberServices(app,pool,runtime);
   app.route('/',createEventHighlightPublicRoutes(pool,runtime.publicOrigin));

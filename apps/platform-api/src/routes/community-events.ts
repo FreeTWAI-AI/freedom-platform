@@ -8,7 +8,7 @@ import { planObjectHttpRequest } from '../../../../packages/asset-storage/http-r
 import { authRateLimit } from '../../../../modules/identity-membership/members.js';
 import type { EventEmailSender } from '../../../../modules/community/events.js';
 import { moduleCommand, type PlatformEnv } from '../module-context.js';
-import { cancelEvent, createEvent, eventReferralReport, getEventShareCode, listEventBulletins, listEvents, readEvent, readEventBanner, readEventVideo, reviewEventAsGuildMaster, saveEventBanner, saveEventVideo, setRsvp, updateEvent } from '../../../../modules/community/events.js';
+import { eventVideoHttp, cancelEvent, createEvent, eventReferralReport, getEventShareCode, listEventBulletins, listEvents, readEvent, readEventBanner, readEventVideo, reviewEventAsGuildMaster, saveEventBanner, saveEventVideo, setRsvp, updateEvent } from '../../../../modules/community/events.js';
 
 const BANNER_MAX_BYTES=512*1024;
 const VIDEO_MAX_BYTES=20*1024*1024;
@@ -44,7 +44,17 @@ export async function eventVideoResponse(c:Context,media:{bytes:Buffer;mime:stri
   return c.body(new Uint8Array(media.bytes.subarray(range.offset,range.offset+range.length)),plan.status);
 }
 
-export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSender,origin='',runtime?:Pick<PlatformRuntime,'eventBannerAssets'|'eventBannerAssetStore'>) {
+/** Asset range transport is lazy; the domain has rechecked its original ACL. */
+export async function eventAssetVideoResponse(c:Context,pool:Pool,id:string,store:PlatformRuntime['eventVideoAssetStore'],actor?:PlatformEnv['Variables']['actor']){
+ const media=await eventVideoHttp(pool,id,{method:c.req.method==='HEAD'?'HEAD':'GET',rangeHeader:c.req.header('Range'),ifRangeHeader:c.req.header('If-Range')},store,actor);
+ for(const [name,value] of Object.entries(media.plan.headers))c.header(name,value);
+ c.header('Cache-Control',actor?'private, no-store':'public, max-age=300');c.header('Cross-Origin-Resource-Policy','same-origin');if(actor)c.header('Vary','Cookie');
+ if(media.body===null)return c.body(null,media.plan.status);
+ if(media.body instanceof Uint8Array)return c.body(new Uint8Array(media.body),media.plan.status);
+ return c.body(media.body,media.plan.status);
+}
+
+export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSender,origin='',runtime?:Pick<PlatformRuntime,'eventBannerAssets'|'eventBannerAssetStore'|'eventVideoAssets'|'eventVideoAssetStore'>) {
   const app=new Hono<PlatformEnv>();
   const id=(raw:string)=>z.uuid().parse(raw);
   app.get('/events',async c=>c.json({items:await listEvents(pool,c.get('actor'))}));
@@ -69,14 +79,14 @@ export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSend
     c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);
   });
   app.post('/events/:id/banner/remove',async c=>c.json(await saveEventBanner(pool,await moduleCommand(c),id(c.req.param('id')),null)));
-  app.get('/events/:id/video',async c=>eventVideoResponse(c,await readEventVideo(pool,c.get('actor'),id(c.req.param('id')))));
+  app.get('/events/:id/video',async c=>eventAssetVideoResponse(c,pool,id(c.req.param('id')),runtime?.eventVideoAssetStore,c.get('actor')));
   app.post('/events/:id/video',async c=>{
     checkEventVideoUploadHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
     const version=c.req.header('If-Match');requireCondition(version&&/^"[1-9][0-9]*"$/.test(version),version?400:428,'version_required','請重新整理活動後再保存影片。');
     const key=c.req.header('Idempotency-Key')??'';requireCondition(/^[A-Za-z0-9_-]{8,128}$/.test(key),400,'idempotency_required','請提供有效的 Idempotency-Key。');
     await authRateLimit(pool,'event-video-member',c.get('actor').user_id,8,3600);
     const bytes=await boundedMedia(c.req.raw,VIDEO_MAX_BYTES,'影片需為 20 MiB 以下。');
-    const result=await saveEventVideo(pool,{actor:c.get('actor'),operation:`${c.req.method} ${c.req.path}`,key,expected:version.slice(1,-1),body:null},id(c.req.param('id')),{bytes,mime:c.req.header('Content-Type') as 'video/mp4'|'video/webm'});
+    const result=await saveEventVideo(pool,{actor:c.get('actor'),operation:`${c.req.method} ${c.req.path}`,key,expected:version.slice(1,-1),body:null},id(c.req.param('id')),{bytes,mime:c.req.header('Content-Type') as 'video/mp4'|'video/webm'},runtime?.eventVideoAssets);
     c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);
   });
   app.post('/events/:id/video/remove',async c=>c.json(await saveEventVideo(pool,await moduleCommand(c),id(c.req.param('id')),null)));

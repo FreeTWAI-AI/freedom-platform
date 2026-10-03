@@ -1,3 +1,5 @@
+import {eventVideoStorageMode,type EventVideoAssetService} from '../assets/event-video.js';
+import {readEventVideoHttp} from '../assets/event-video-read.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
@@ -12,7 +14,7 @@ import {requireFullGuildMember} from '../positioning/member-tier.js';
 import {adminCommand,audit,type AdminActor,type AdminCommand} from '../platform-admin/service.js';
 
 import {eventBannerStorageMode,type EventBannerAssetService} from '../assets/event-banner.js';
-import {eventBannerMemberCommand} from '../../packages/scoped-commands/index.js';
+import {eventBannerMemberCommand,eventVideoMemberCommand} from '../../packages/scoped-commands/index.js';
 import {readDomainMedia,type DomainMediaSnapshot} from '../../packages/media-migration/domain-bridge.js';
 import {snapshotBoundedBytes,type ObjectStore,AssetStorageError} from '../../packages/asset-storage/index.js';
 
@@ -292,6 +294,20 @@ async function saveAssetBanner(pool:Pool,input:Command,id:string,file:{bytes:Buf
   return await assets!.finalizeVia<Awaited<ReturnType<typeof eventBannerResult>>>(input.actor,{...binding,key:digest({key,phase:'finalize'})},{operation:'community.event.banner.replace',execute:run=>eventBannerMemberCommand(pool,input,authorize,async(q,context)=>{publicationClient=q;return run(q,context);}),validateIntent:row=>requireCondition(row.expected_version===input.expected&&row.target_event_id===id&&row.source_sha256===(input.body as {sha256:string}).sha256&&row.source_orientation===file.orientation,409,'asset_source_mismatch','上傳內容與準備紀錄不同。'),result:()=>eventBannerResult(publicationClient,input.actor,id)});
  }catch(e){const committed=await probe();if(committed)return committed;if(e instanceof AssetStorageError)throw new Problem(503,'media_upload_unavailable','內容上傳暫時無法使用。');throw e;}
 }
+async function saveAssetVideo(pool:Pool,input:Command,id:string,file:{bytes:Buffer;mime:'video/mp4'|'video/webm'},assets?:EventVideoAssetService){
+ const authorize=(q:PoolClient)=>authorizeEventBannerWrite(q,input.actor,id,false,false).then(()=>{});
+ const probe=async()=>{const miss=new Error('video_receipt_miss');try{return await eventVideoMemberCommand(pool,input,authorize,async()=>{throw miss;});}catch(e){if(e!==miss)throw e;return undefined;}};
+ const replay=await probe();if(replay)return replay;
+ requireCondition(assets,503,'media_upload_unavailable','內容上傳暫時無法使用。');if(input.expected===undefined)checkVersion('1',input.expected);
+ const key=digest({operation:input.operation,key:input.key});
+ try{
+  const prepared=await assets!.prepare(input.actor,{key,targetEventId:id,expectedVersion:input.expected!,contentType:file.mime,byteSize:file.bytes.length,sha256:(input.body as {sha256:string}).sha256});
+  const lease=await assets!.resumeUpload(input.actor,{key,intentId:prepared.intentId}),binding={intentId:lease.intentId,fence:lease.fence,leaseToken:lease.leaseToken};
+  if(lease.state==='prepared'||lease.state==='processing')await assets!.write(input.actor,{...binding,key:digest({key,phase:'write',fence:lease.fence})},new ReadableStream({start(c){c.enqueue(file.bytes);c.close();}}));
+  let publicationClient:PoolClient;
+  return await assets!.finalizeVia<Awaited<ReturnType<typeof eventBannerResult>>>(input.actor,{...binding,key:digest({key,phase:'finalize'})},{operation:'community.event.video.replace',execute:run=>eventVideoMemberCommand(pool,input,authorize,async(q,context)=>{publicationClient=q;return run(q,context);}),validateIntent:row=>requireCondition(row.expected_version===input.expected&&row.target_video_event_id===id&&row.source_sha256===(input.body as {sha256:string}).sha256&&row.source_content_type===file.mime,409,'asset_source_mismatch','上傳內容與準備紀錄不同。'),result:()=>eventBannerResult(publicationClient,input.actor,id)});
+ }catch(e){const committed=await probe();if(committed)return committed;if(e instanceof AssetStorageError)throw new Problem(503,'media_upload_unavailable','內容上傳暫時無法使用。');throw e;}
+}
 async function bannerSnapshot(pool:Pool,id:string,actor?:Actor):Promise<DomainMediaSnapshot|undefined>{
  const row=(await pool.query(`SELECT e.*,b.storage_source,b.image_bytes,b.orientation,t.asset_id,t.scope_id,o.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id
  FROM community_events e JOIN community_event_banners b USING(event_id)
@@ -306,7 +322,8 @@ async function bannerSnapshot(pool:Pool,id:string,actor?:Actor):Promise<DomainMe
 }
 export async function readEventBanner(pool:Pool,actor:Actor,id:string,store?:ObjectStore){return (await readDomainMedia(()=>bannerSnapshot(pool,id,actor),{purpose:'community.event-banner',targetId:id,variant:'banner'},store)).bytes;}
 
-export async function saveEventVideo(pool:Pool,input:Command,id:string,upload:{bytes:Buffer;mime:'video/mp4'|'video/webm'}|null){
+export async function saveEventVideo(pool:Pool,input:Command,id:string,upload:{bytes:Buffer;mime:'video/mp4'|'video/webm'}|null,assets?:EventVideoAssetService){
+  if(upload)upload={...upload,bytes:Buffer.from(snapshotBoundedBytes(upload.bytes,20971520))};
   const body=upload?{mime:upload.mime,sha256:createHash('sha256').update(upload.bytes).digest('hex')}:{removed:true};
   if(upload){
     const bytes=upload.bytes;
@@ -315,6 +332,7 @@ export async function saveEventVideo(pool:Pool,input:Command,id:string,upload:{b
       :bytes.length>=4&&bytes.subarray(0,4).equals(Buffer.from([0x1a,0x45,0xdf,0xa3]));
     requireCondition(valid,422,'invalid_event_video','影片格式不符，請上傳 MP4 或 WebM。');
   }
+  if(upload&&await eventVideoStorageMode(pool)!=='legacy')return saveAssetVideo(pool,{...input,actor:Object.freeze({...input.actor}),body},id,upload,assets);
   return command(pool,{...input,body},async q=>{
     const row=await scopedEvent(q,input.actor,id);
     requireCondition(row.organizer_ref===input.actor.user_id,403,'organizer_required','只能修改自己活動的影片。');
@@ -331,19 +349,14 @@ export async function saveEventVideo(pool:Pool,input:Command,id:string,upload:{b
   });
 }
 
-export async function readEventVideo(pool:Pool,actor:Actor,id:string){
-  await readEvent(pool,actor,id);
-  const row=(await pool.query('SELECT media_bytes,mime_type FROM community_event_videos WHERE event_id=$1',[id])).rows[0];
-  requireCondition(row,404,'not_found','找不到活動影片。');
-  return {bytes:row.media_bytes as Buffer,mime:row.mime_type as 'video/mp4'|'video/webm'};
+async function videoSnapshot(pool:Pool,id:string,actor?:Actor):Promise<DomainMediaSnapshot|undefined>{
+ let access;try{access=actor?await readEvent(pool,actor,id):await publicEvent(pool,id);}catch(error){if(error instanceof Problem&&error.status===404)return undefined;throw error;}
+ const row=(await pool.query(`SELECT e.aggregate_version::text AS version,v.storage_source,CASE WHEN v.storage_source='legacy' THEN v.media_bytes END AS media_bytes,v.mime_type,t.asset_id,t.scope_id,o.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id FROM community_events e JOIN community_event_videos v USING(event_id) LEFT JOIN community_event_video_asset_targets t ON t.event_id=e.event_id AND t.linked_at_version<=e.aggregate_version LEFT JOIN assets a ON a.asset_id=t.asset_id AND a.state='ready' AND a.purpose='community.event-video' LEFT JOIN asset_objects o ON o.asset_id=a.asset_id AND o.purpose='community.event-video' WHERE e.event_id=$1`,[id])).rows[0];if(!row)return undefined;
+ return {purpose:'community.event-video',targetId:id,variant:'video',domainVersion:row.version,source:row.storage_source,authorizationVersion:JSON.stringify(access),legacyBytes:row.media_bytes,legacyContentType:row.mime_type,assetId:row.asset_id,scopeId:row.scope_id,representationId:row.representation_id,metadata:row.representation_id?{contentType:row.content_type,byteSize:row.byte_size,sha256:row.content_sha256,transformVersion:row.transform_version,policyRevision:row.policy_revision,profileId:row.profile_id}:null};
 }
-
-export async function publicEventVideo(pool:Pool,id:string){
-  await publicEvent(pool,id);
-  const row=(await pool.query('SELECT media_bytes,mime_type FROM community_event_videos WHERE event_id=$1',[id])).rows[0];
-  requireCondition(row,404,'not_found','找不到活動影片。');
-  return {bytes:row.media_bytes as Buffer,mime:row.mime_type as 'video/mp4'|'video/webm'};
-}
+export async function readEventVideo(pool:Pool,actor:Actor,id:string,store?:ObjectStore){const media=await readDomainMedia(()=>videoSnapshot(pool,id,actor),{purpose:'community.event-video',targetId:id,variant:'video'},store);return {bytes:media.bytes,mime:media.contentType as 'video/mp4'|'video/webm'};}
+export async function publicEventVideo(pool:Pool,id:string,store?:ObjectStore){const media=await readDomainMedia(()=>videoSnapshot(pool,id),{purpose:'community.event-video',targetId:id,variant:'video'},store);return {bytes:media.bytes,mime:media.contentType as 'video/mp4'|'video/webm'};}
+export async function eventVideoHttp(pool:Pool,id:string,request:{method:'GET'|'HEAD';rangeHeader?:string;ifRangeHeader?:string},store?:ObjectStore,actor?:Actor){return readEventVideoHttp(()=>videoSnapshot(pool,id,actor),request,store);}
 
 async function activeGuildTier(q:PoolClient,actor:Actor,guildKey:string|null){
   if(!guildKey)return undefined;
