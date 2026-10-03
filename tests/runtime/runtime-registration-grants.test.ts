@@ -33,8 +33,8 @@ before(async()=>{
   const grants=template.split('-- BEGIN PRIVATE POLICY GRANTS\n')[1].split('\n\\gexec')[0]
     .replaceAll(":'runtime'",`'${runtime}'`).replace("n.nspname='public'",`n.nspname='${schema}'`);
   const q=await owner.connect();
-  try {await q.query(prefix);const rows=await q.query(grants);assert.equal(rows.rowCount,1);
-    await q.query(Object.values(rows.rows[0])[0] as string);await q.query('COMMIT');}
+  try {await q.query(prefix);const rows=await q.query(grants);assert.equal(rows.rowCount,2);
+    for(const row of rows.rows)await q.query(Object.values(row)[0] as string);await q.query('COMMIT');}
   catch(error){await q.query('ROLLBACK');throw error;}finally{q.release();}
   const verify=await readFile(new URL('../../deploy/cloudflare/sql/30-verify-readonly.psql',import.meta.url),'utf8');
   checkQuery=verify.slice(verify.indexOf("SELECT has_table_privilege(:'runtime',c.oid,'SELECT')"))
@@ -72,7 +72,10 @@ test('RUNTIME-ACL actual app and migrator LOGIN sessions retain constrained effe
       FROM pg_roles WHERE rolname=current_user`)).rows[0];
     assert.deepEqual(row,{current_user:name,session_user:name,rolsuper:false,rolcreaterole:false,rolcreatedb:false,rolreplication:false,rolbypassrls:false});
   }
-  assert.deepEqual((await owner.query(checkQuery)).rows,[{private_policy_read:true,private_policy_lock:true,private_policy_unsafe:false}]);
+  assert.deepEqual((await owner.query(checkQuery)).rows,[
+    {private_policy_read:true,private_policy_lock:true,private_policy_unsafe:false},
+    {private_policy_read:true,private_policy_lock:true,private_policy_unsafe:false},
+  ]);
   for(const table of ['runtime_registration_challenges','runtime_registrations']) {
     const row=(await app.query(`SELECT has_table_privilege(current_user,$1,'SELECT') AS read,
       has_table_privilege(current_user,$1,'INSERT') AS insert,has_table_privilege(current_user,$1,'UPDATE') AS update,

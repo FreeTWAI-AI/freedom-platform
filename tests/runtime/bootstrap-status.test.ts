@@ -36,8 +36,8 @@ before(async () => {
   const grants = template.split('-- BEGIN PRIVATE POLICY GRANTS\n')[1].split('\n\\gexec')[0]
     .replaceAll(":'runtime'", `'${runtime}'`).replace("n.nspname='public'", `n.nspname='${schema}'`);
   const q = await owner.connect();
-  try { await q.query(prefix); const rows = await q.query(grants); assert.equal(rows.rowCount, 1);
-    await q.query(Object.values(rows.rows[0])[0] as string); await q.query('COMMIT'); }
+  try { await q.query(prefix); const rows = await q.query(grants); assert.equal(rows.rowCount, 2);
+    for (const row of rows.rows) await q.query(Object.values(row)[0] as string); await q.query('COMMIT'); }
   catch (error) { await q.query('ROLLBACK'); throw error; } finally { q.release(); }
 });
 after(async () => { await app.end(); await owner.end(); try {

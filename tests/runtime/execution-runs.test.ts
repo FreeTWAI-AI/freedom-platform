@@ -179,11 +179,16 @@ test('RUN-12 direct UPDATE cannot rebind identity, alter input/provenance, bypas
   await assert.rejects(pool.query('UPDATE execution_runs SET state=state WHERE run_id=$1', [value.runId]), sqlCode('23514'));
   await assert.rejects(pool.query("UPDATE execution_runs SET state='created',aggregate_version=3,task_lease_epoch=3,control_epoch=3 WHERE run_id=$1", [value.runId]), sqlCode('23514'));
 });
-test('RUN-13 no fake Attempt/Grant/current lease/recovery/token/Result authority fields exist', async () => {
+test('RUN-13 closed v1 Run never fabricates operational authority in the additive Attempt profile', async () => {
   const columns = (await pool.query("SELECT column_name FROM information_schema.columns WHERE table_schema=$1 AND table_name='execution_runs'", [schema])).rows.map(r => r.column_name);
-  for (const column of ['current_attempt_id', 'grant_id', 'runtime_id', 'connection_id', 'recovery_generation', 'expires_at', 'operational_authority', 'result_id']) assert.ok(!columns.includes(column));
+  assert.ok(columns.includes('current_attempt_id'));
+  for (const column of ['grant_id', 'runtime_id', 'connection_id', 'recovery_generation', 'expires_at', 'operational_authority', 'result_id']) assert.ok(!columns.includes(column));
   const f = await fixture(), value = await stored(f);
   assert.equal(value.operational_authority, false);
+  assert.equal((await pool.query('SELECT current_attempt_id FROM execution_runs WHERE run_id=$1', [value.runId])).rows[0].current_attempt_id, null);
+  assert.equal(await count('execution_attempts'), 0); assert.equal(await count('model_text_steps'), 0);
+  assert.ok(!Object.hasOwn(value, 'currentAttemptId'));
+  await assert.rejects(pool.query("UPDATE execution_runs SET state='running',current_attempt_id=$2,aggregate_version=2,task_lease_epoch=2 WHERE run_id=$1", [value.runId, randomUUID()]), sqlCode('23514'));
   assert.equal(await count('work_claims'), 0); assert.equal(await count('contributions'), 0);
 });
 for (const table of ['scoped_transition_journal', 'scoped_outbox', 'scoped_command_receipts']) {

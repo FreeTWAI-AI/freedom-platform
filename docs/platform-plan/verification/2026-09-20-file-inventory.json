@@ -6284,8 +6284,8 @@
     },
     {
       "path": "tests/runtime/agent-connections-adversarial.test.ts",
-      "bytes": 25724,
-      "sha256": "9382399d00ac5505169b2935b5556fb6c98dd02ba3450f6859f72575b3c1822d"
+      "bytes": 25744,
+      "sha256": "608c4c1bb6d8bc6c6e0e8672b1abe2a4afce04867a19c6ff769fd7c9e8f31f32"
     },
     {
       "path": "tests/runtime/agent-connections.test.ts",
@@ -6359,8 +6359,8 @@
     },
     {
       "path": "tests/runtime/bootstrap-http.test.ts",
-      "bytes": 32578,
-      "sha256": "36ed5ef41d5533c7fc814b2ddb05add808a0a097f3440519313da9832c8da076"
+      "bytes": 32598,
+      "sha256": "f9fd7075a0c12e432c45d492a4f5ced42bee3a3107d3008fc824fde4fab92c32"
     },
     {
       "path": "tests/runtime/bootstrap-issuer.test.ts",
@@ -6384,23 +6384,23 @@
     },
     {
       "path": "tests/runtime/bootstrap-sessions-adversarial.test.ts",
-      "bytes": 51611,
-      "sha256": "f8a6b7951829d3de83e2ee5a461828d143b5dd00f49d9e66f57568436e145ec5"
+      "bytes": 51631,
+      "sha256": "54696ab7076d8e00cf64dd0498194f21246efb4fe9d24375cdfb7292ed07e726"
     },
     {
       "path": "tests/runtime/bootstrap-sessions.test.ts",
-      "bytes": 10814,
-      "sha256": "72fdbfa4aa66bfc0ee40665afd817fd757a14f39fe299601d99d6a75c0db1fa3"
+      "bytes": 10834,
+      "sha256": "6a9a0589976c538dfda392443abc08722f255dce34730c724139a424e51a2aff"
     },
     {
       "path": "tests/runtime/bootstrap-status-adversarial.test.ts",
-      "bytes": 29010,
-      "sha256": "10f6c96b73adfd73418a8b9116d4dee79a23efcfe6c4a7bb02f41ac57038197b"
+      "bytes": 29030,
+      "sha256": "7e9c5ff40afab22ce1d88f5f3e66e053792b786ecbce63436c2041c09c72e82f"
     },
     {
       "path": "tests/runtime/bootstrap-status.test.ts",
-      "bytes": 21775,
-      "sha256": "8082f17bdb67b60597be6812a2830e52b04c66442dea034f133788b9a9b7e571"
+      "bytes": 21795,
+      "sha256": "c73ddc545ac8711d7b16d6d0d5752e20bbf0e2d007e53c4df925b9ab89f54c61"
     },
     {
       "path": "tests/runtime/client-connections.test.ts",
@@ -6439,13 +6439,13 @@
     },
     {
       "path": "tests/runtime/device-authorizations-adversarial.test.ts",
-      "bytes": 40150,
-      "sha256": "d9a22b423103ecbeb3547d838decae62299137d50d7f86e446e82fff4395bf63"
+      "bytes": 40170,
+      "sha256": "76e967d866ff947ff482e1220f86d88ad38f14608b7d7916628c13b901860db0"
     },
     {
       "path": "tests/runtime/device-authorizations.test.ts",
-      "bytes": 27779,
-      "sha256": "c89ab0c5fa750be0fb2a0595390b10ee006a7b3262e7fd3d31cb71e7df2fb240"
+      "bytes": 27799,
+      "sha256": "f38fac129012b706db167def4b70337a7c02c40827a99cd602014f4647594673"
     },
     {
       "path": "tests/runtime/device-pairing-contracts.test.ts",
@@ -6479,8 +6479,8 @@
     },
     {
       "path": "tests/runtime/execution-prerequisites.test.ts",
-      "bytes": 25724,
-      "sha256": "ce864a6f83002e8d7b18ea47868ae9287cae115443d35b0e1c56b335e23e5c30"
+      "bytes": 25744,
+      "sha256": "92005967d2384d7631912b667fa24524312f673c23e5a75f66603f12e3cc9a64"
     },
     {
       "path": "tests/runtime/execution-runs-adversarial.test.ts",
@@ -6494,8 +6494,8 @@
     },
     {
       "path": "tests/runtime/execution-runs.test.ts",
-      "bytes": 21769,
-      "sha256": "65c88c00563cdc7312cc804fa8b798bb5547cd3af1bec7d563a173c9f0729f60"
+      "bytes": 22318,
+      "sha256": "85a29b6c596590a1fed4fe8b2834640f6a44d9a66b2023e9037597616652a817"
     },
     {
       "path": "tests/runtime/execution-state-adversarial.test.ts",
@@ -6669,8 +6669,8 @@
     },
     {
       "path": "tests/runtime/member-execution-http-adversarial.test.ts",
-      "bytes": 41347,
-      "sha256": "53959e033325c3ad1a73e0e1f8b8a880ea1d48feb9553433a30d19e8921fa622"
+      "bytes": 41367,
+      "sha256": "29a34b7c0fb299a11fca84152aec686da7532ae074e37341f0326897ed309f11"
     },
     {
       "path": "tests/runtime/member-execution-http-contracts.test.ts",
@@ -6679,8 +6679,8 @@
     },
     {
       "path": "tests/runtime/member-execution-http.test.ts",
-      "bytes": 20140,
-      "sha256": "9bfbd5446e008747d21644d96c2f28b9261739f9a891fa23d5048700f191800e"
+      "bytes": 20161,
+      "sha256": "3985931bf3c559dbbc8812bdd0b8d3dff55791c7922537eb7aedcc4b4c919a6c"
     },
     {
       "path": "tests/runtime/member-experience.test.ts",
@@ -6929,8 +6929,8 @@
     },
     {
       "path": "tests/runtime/runtime-registration-grants.test.ts",
-      "bytes": 17924,
-      "sha256": "0831b3ef6c4ab4d7fa7ce25f2b93b2d0c5b97aa6c560e61d745741ca5cfa3d1d"
+      "bytes": 18036,
+      "sha256": "a5d7d8b7c348e617209d810296a0ebc87cf3a05de76831a57a9e290b7526907f"
     },
     {
       "path": "tests/runtime/runtime-registration.test.ts",
