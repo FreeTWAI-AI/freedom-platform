@@ -85,3 +85,18 @@ service deployment, public platform and private broker rollout, real provider
 acceptance, multi-replica routing and browser staging acceptance remain release
 gaps. Direct credential ingest is not installed by this Worker. No resources,
 secrets or staging/live routes are changed by local dry runs or these tests.
+
+## Repository candidate preflight
+
+`npm run check:broker-worker-candidate` is a fixed, static-only check against
+the canonical deployment manifest. It reports exact database/role/environment
+mappings and required Hyperdrive cache-off readback, but always reports
+`deployment_ready:false` and remote cloud `not_run`. Placeholder IDs, comments,
+a cache-off variable or synthetic local acceptance cannot supply provider
+readback or release authority. This does not replace the existing compatibility
+ledger/grants checks or operator release procedure.
+
+`npm run worker:dry-run:broker` bundles both disabled candidate profiles. The
+standard verification workflow runs the static check and this dry run before
+Worker acceptance tests. These commands do not create bindings, turn on the
+broker, install secrets or make remote API calls.

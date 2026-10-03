@@ -157,6 +157,10 @@ jobs:
       - run: npm run worker:dry-run:maintainer
         env:
           WRANGLER_SEND_METRICS: 'false'
+      - run: npm run check:broker-worker-candidate
+      - run: npm run worker:dry-run:broker
+        env:
+          WRANGLER_SEND_METRICS: 'false'
       - run: npm run test:worker
   governance-consumers:
     runs-on: ubuntu-24.04
