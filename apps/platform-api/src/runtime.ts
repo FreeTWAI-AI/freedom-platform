@@ -1,3 +1,4 @@
+import type {EventHighlightAssetService} from '../../../modules/assets/event-highlight.js';
 import type {SkillImageAssetService} from '../../../modules/assets/skill-image.js';
 import type {SocialThumbnailAssetService} from '../../../modules/assets/social-thumbnail.js';
 import type {EventVideoAssetService} from '../../../modules/assets/event-video.js';
@@ -52,6 +53,8 @@ export type PlatformRuntime = {
   skillImageAssetStore?:ObjectStore;
   socialThumbnailAssets?:SocialThumbnailAssetService;
   socialThumbnailAssetStore?:ObjectStore;
+  eventHighlightAssets?:EventHighlightAssetService;
+  eventHighlightAssetStore?:ObjectStore;
   /** Explicit host-installed private Work/model product transport. No ambient
    * credentials or default Worker activation; it owns its bounded HTTP body. */
   privateAiProduct?: (request: Request) => Promise<Response>;

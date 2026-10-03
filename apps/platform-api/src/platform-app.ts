@@ -209,7 +209,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.get('/api/v1/public/events/:id/video',async c=>eventAssetVideoResponse(c,pool,z.uuid().parse(c.req.param('id')),runtime.eventVideoAssetStore));
   registerPublicPromotion(app,pool,runtime);
   registerPublicMemberServices(app,pool,runtime);
-  app.route('/',createEventHighlightPublicRoutes(pool,runtime.publicOrigin));
+  app.route('/',createEventHighlightPublicRoutes(pool,runtime.publicOrigin,runtime));
   app.post('/api/v1/public/events/:id/register',async c=>{
     requireCondition(runtime.eventEmailSender,503,'event_email_unavailable','活動郵件服務暫時無法使用。');
     const body=await c.req.json();
@@ -316,7 +316,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createCommunityEventRoutes(pool,runtime.eventEmailSender,origin,runtime));
   registerMemberPromotion(app,pool,runtime);
   registerMemberServices(app,pool,runtime);
-  app.route('/api/v1',createEventHighlightMemberRoutes(pool));
+  app.route('/api/v1',createEventHighlightMemberRoutes(pool,runtime));
   app.route('/api/v1',createGitHubSocialRoutes(loadSocial));
   app.route('/api/v1',createMemberAuthorClaimRoutes(pool,options.githubSocial?.fetcher??globalThis.fetch,runtime.githubMetricsToken));
   app.route('/api/v1',createDevelopmentAccessRoutes(pool,loadSocial));

@@ -29,7 +29,7 @@ const MAX_JSON_BYTES = 256 * 1024;
 const MAX_METADATA_BYTES = 32 * 1024;
 const activeCommands = new WeakMap<MemberScopeContext, {
   q: PoolClient; operation: string; authorized: boolean;
-  journalTarget?: { aggregate_type: 'member_avatar'|'member_service'|'community_event'|'social_post'; id: string };
+  journalTarget?: { aggregate_type: 'member_avatar'|'member_service'|'community_event'|'social_post'|'community_event_highlight'; id: string };
 }>();
 function stableId(value: unknown): value is string {
   return typeof value === 'string' && value.length <= 160 && ID.test(value) && !/[\r\n]/.test(value);
@@ -372,6 +372,49 @@ export async function socialThumbnailMemberCommand<T>(pool: Pool, input: Command
         await assertCurrentSessionClock(q, actor);
         activeCommands.set(context, { q, operation: 'community.social.thumbnail.replace', authorized: false,
           journalTarget: { aggregate_type: 'social_post', id: input.operation.split('/')[4] } });
+      },
+      async readReceipt(q) {
+        const prior = await receipts.readReceipt(q);
+        return prior ? { ...prior, response: jsonSnapshot(prior.response, MAX_JSON_BYTES).value as T } : null;
+      },
+    }, async q => {
+      await authorize(q, context);
+      await assertCurrentSessionClock(q, actor);
+      activeCommands.get(context)!.authorized = true;
+    }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T);
+  } finally { if (context!) activeCommands.delete(context); }
+}
+
+export async function highlightMemberCommand<T>(pool: Pool, input: Command, mediaId:string,
+  authorize: (q: PoolClient, context: MemberScopeContext) => Promise<unknown>,
+  run: (q: PoolClient, context: MemberScopeContext) => Promise<T>): Promise<T> {
+  requireCondition(input && typeof input === 'object' && Object.keys(input).every(key =>
+    ['actor', 'operation', 'key', 'body', 'expected', 'lockUser'].includes(key))
+    && typeof input.operation==='string' && /^POST \/api\/v1\/event-highlights\/[0-9a-f-]{36}\/(photos|posters)$/.test(input.operation) && uuid(input.operation.split('/')[4])&&uuid(mediaId), 400, 'invalid_highlight_command', '集錦操作資料無效。');
+  requireCondition(typeof input.key === 'string' && /^[A-Za-z0-9_-]{8,128}$/.test(input.key)
+    && !/[\r\n]/.test(input.key), 400, 'idempotency_required', '請提供有效的 Idempotency-Key。');
+  requireCondition(input.expected === undefined || validVersion(input.expected), 400, 'invalid_expected_version', '版本無效。');
+  requireCondition(input.lockUser === undefined || typeof input.lockUser === 'boolean', 400, 'invalid_highlight_command', '集錦操作資料無效。');
+  requireCondition(input.actor && uuid(input.actor.user_id) && uuid(input.actor.community_id)
+    && typeof input.actor.session_hash === 'string' && input.actor.session_hash.length > 0 && input.actor.session_hash.length <= 256,
+  401, 'session_expired', '請重新登入。');
+  const body = jsonSnapshot(input.body, MAX_JSON_BYTES).value as Record<string, unknown>;
+  requireCondition(body && typeof body === 'object' && !Array.isArray(body) && Object.keys(body).length === 3 && ['sha256','orientation','title'].every(key=>Object.hasOwn(body,key)) && ['landscape','portrait'].includes(body.orientation as string) && (body.title===null||typeof body.title==='string'&&body.title.length<=120)
+    && typeof body.sha256 === 'string' && /^[a-f0-9]{64}$/.test(body.sha256) && body.sha256.length === 64,
+  400, 'invalid_highlight_command', '集錦操作資料無效。');
+  const actor = Object.freeze({ ...input.actor });
+  const snapshot: Command = Object.freeze({ actor, operation: input.operation, key: input.key,
+    body, expected: input.expected, lockUser: true });
+  const receipts = legacyMemberReceiptPorts<T>(snapshot);
+  let context: MemberScopeContext;
+  try {
+    return await runCommandCore(pool, {
+      ...receipts,
+      async authenticateAndLock(q) {
+        context = await lockMemberScope(q, { actor, scope: 'community', lockUser: snapshot.lockUser });
+        await assertCurrentSessionClock(q, actor);
+        activeCommands.set(context, { q, operation: 'community.event.highlight.create', authorized: false,
+          journalTarget: { aggregate_type: 'community_event_highlight', id: mediaId } });
       },
       async readReceipt(q) {
         const prior = await receipts.readReceipt(q);

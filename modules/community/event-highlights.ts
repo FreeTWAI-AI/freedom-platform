@@ -2,6 +2,10 @@ import {createHash, randomUUID} from 'node:crypto';
 import type {Pool, PoolClient} from 'pg';
 import {z} from 'zod';
 import {command, journal, type Command} from '../../packages/db/index.js';
+import type {Actor} from '../identity-membership/service.js';
+import {readDomainMedia,type DomainMediaSnapshot} from '../../packages/media-migration/domain-bridge.js';
+import type {ObjectStore} from '../../packages/asset-storage/index.js';
+import {highlightStorageMode,type EventHighlightAssetService} from '../assets/event-highlight.js';
 import {Problem, requireCondition} from '../../packages/shared/problem.js';
 import {normalizeImage} from '../../packages/shared/image-runtime.js';
 import {youtubeThumbnailUrl, youtubeVideoId} from '../../packages/shared/youtube-video-id.js';
@@ -312,7 +316,26 @@ export async function addHighlightLink(pool: Pool, input: Command, eventId: stri
   });
 }
 
-export async function addHighlightImage(pool: Pool, input: Command, eventId: string, kind: 'photo' | 'poster', image: Buffer, thumb: Buffer, orientation: Orientation, title: string | null) {
+/** Original listed-event permission: any current community member, not organizer-only. */
+export async function authorizeHighlightUpload(q:Pick<Pool,'query'>,actor:Actor,eventId:string,kind:'photo'|'poster',lock=false,checkQuota=false){
+ const event=await loadListed(q,eventId,actor.community_id,actor.user_id,lock);
+ if(checkQuota){const counts=(await q.query(`SELECT 0::int AS event_links,0::int AS my_links,
+ count(*) FILTER(WHERE kind='photo')::int AS event_photos,count(*) FILTER(WHERE kind='photo' AND uploader_user_id=$2)::int AS my_photos,
+ count(*) FILTER(WHERE kind='poster')::int AS event_posters,count(*) FILTER(WHERE kind='poster' AND uploader_user_id=$2)::int AS my_posters
+ FROM community_event_highlights WHERE event_id=$1 AND state='active'`,[eventId,actor.user_id])).rows[0];assertRoom(counts,kind);}
+ return event;
+}
+/** Database-only original metadata/response port, used only after BOTH Assets are ready. */
+export async function publishHighlightAssetPair(q:PoolClient,actor:Actor,eventId:string,mediaId:string,kind:'photo'|'poster',imageByteSize:number,orientation:Orientation,title:string|null){
+ const event=await authorizeHighlightUpload(q,actor,eventId,kind,true,true);
+ await q.query(`INSERT INTO community_event_highlights(media_id,event_id,community_id,uploader_user_id,kind,title,orientation,byte_size,state,storage_source) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'active','asset')`,[mediaId,eventId,event.community_id,actor.user_id,kind,title,orientation,imageByteSize]);
+ await q.query("INSERT INTO community_event_highlight_images(media_id,variant,bytes) VALUES($1,'image',NULL),($1,'thumb',NULL)",[mediaId]);
+ await journal(q,actor,'community_event_highlight',mediaId,1,'create',{kind,event_id:eventId},'freedom.community.event_highlight.created.v1');
+ const created=iso((await q.query('SELECT created_at FROM community_event_highlights WHERE media_id=$1',[mediaId])).rows[0].created_at);
+ return {media_id:mediaId,kind,title,created_at:created,image_url:imagePath(mediaId),thumb_url:thumbPath(mediaId),orientation,uploader:await uploaderView(q,actor.user_id,event.community_id),uploaded_by_organizer:actor.user_id===event.organizer_ref,can_remove:true};
+}
+export async function addHighlightImage(pool: Pool, input: Command, eventId: string, kind: 'photo' | 'poster', image: Buffer, thumb: Buffer, orientation: Orientation, title: string | null,assets?:EventHighlightAssetService) {
+  if(await highlightStorageMode(pool)!=='legacy'){requireCondition(assets,503,'media_upload_unavailable','內容上傳暫時無法使用。');return assets.uploadPair(input,eventId,kind,image,thumb,orientation,title);}
   return command(pool, input, async q => { await loadListed(q, eventId, input.actor.community_id, input.actor.user_id); }, async q => {
     const event = await loadListed(q, eventId, input.actor.community_id, input.actor.user_id, true);
     const counts = (await q.query(`SELECT 0::int AS event_links, 0::int AS my_links,
@@ -349,20 +372,31 @@ export async function removeHighlight(pool: Pool, input: Command, mediaId: strin
   });
 }
 
-export async function highlightBannerBytes(pool: Pool, eventId: string) {
-  const row = (await pool.query(`SELECT b.image_bytes FROM community_event_banners b JOIN community_events e ON e.event_id=b.event_id
-    WHERE e.event_id=$1 AND e.state='published' AND e.ends_at<=now() AND NOT is_verification_test_account(e.organizer_ref)`, [eventId])).rows[0];
-  requireCondition(row, 404, 'not_found', '找不到活動海報。');
-  return row.image_bytes as Buffer;
+async function highlightBannerSnapshot(pool:Pool,eventId:string):Promise<DomainMediaSnapshot|undefined>{
+ const row=(await pool.query(`SELECT e.aggregate_version,e.state,e.ends_at,e.organizer_ref,b.storage_source,b.image_bytes,b.orientation,t.asset_id,t.scope_id,o.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id
+ FROM community_event_banners b JOIN community_events e USING(event_id)
+ LEFT JOIN community_event_banner_asset_targets t ON t.event_id=e.event_id AND t.linked_at_version<=e.aggregate_version
+ LEFT JOIN assets a ON a.asset_id=t.asset_id AND a.state='ready' AND a.purpose='community.event-banner'
+ LEFT JOIN asset_objects o ON o.asset_id=a.asset_id AND o.purpose='community.event-banner'
+ WHERE e.event_id=$1 AND e.state='published' AND e.ends_at<=clock_timestamp() AND NOT is_verification_test_account(e.organizer_ref)`,[eventId])).rows[0];
+ if(!row)return;return {purpose:'community.event-banner',targetId:eventId,variant:'banner',domainVersion:String(row.aggregate_version),authorizationVersion:JSON.stringify([row.state,row.ends_at,row.organizer_ref,row.orientation]),source:row.storage_source,legacyBytes:row.image_bytes,legacyContentType:'image/webp',assetId:row.asset_id,scopeId:row.scope_id,representationId:row.representation_id,metadata:row.profile_id?{profileId:row.profile_id,contentType:row.content_type,byteSize:row.byte_size,sha256:row.content_sha256,transformVersion:row.transform_version,policyRevision:row.policy_revision}:null};
 }
-export async function highlightImageBytes(pool: Pool, mediaId: string, variant: 'image' | 'thumb') {
-  const row = (await pool.query(`SELECT i.bytes FROM community_event_highlight_images i
-    JOIN community_event_highlights h ON h.media_id=i.media_id JOIN community_events e ON e.event_id=h.event_id
-    WHERE i.media_id=$1 AND i.variant=$2 AND h.state='active' AND h.kind IN ('photo','poster')
-      AND e.state='published' AND e.ends_at<=now() AND NOT is_verification_test_account(e.organizer_ref)
-      AND NOT is_verification_test_account(h.uploader_user_id)`, [mediaId, variant])).rows[0];
-  requireCondition(row, 404, 'not_found', '找不到這張圖片。');
-  return row.bytes as Buffer;
+export async function highlightBannerBytes(pool:Pool,eventId:string,store?:ObjectStore){
+ try{return (await readDomainMedia(()=>highlightBannerSnapshot(pool,eventId),{purpose:'community.event-banner',targetId:eventId,variant:'banner'},store)).bytes;}catch(error){if(error instanceof Problem&&error.status===404&&error.code==='media_not_found')throw new Problem(404,'not_found','找不到活動海報。');throw error;}
+}
+async function highlightImageSnapshot(pool:Pool,mediaId:string,variant:'image'|'thumb'):Promise<DomainMediaSnapshot|undefined>{
+ const row=(await pool.query(`SELECT h.storage_source,h.event_id,h.orientation,h.kind,h.state,e.aggregate_version,e.state AS event_state,e.ends_at,h.uploader_user_id,e.organizer_ref,i.bytes,t.scope_id,
+ CASE WHEN $2='image' THEN t.image_asset_id ELSE t.thumb_asset_id END AS asset_id,
+ o.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id
+ FROM community_event_highlight_images i JOIN community_event_highlights h USING(media_id) JOIN community_events e ON e.event_id=h.event_id
+ LEFT JOIN community_event_highlight_asset_targets t USING(media_id)
+ LEFT JOIN asset_objects o ON o.asset_id=CASE WHEN $2='image' THEN t.image_asset_id ELSE t.thumb_asset_id END
+ WHERE i.media_id=$1 AND i.variant=$2 AND h.state='active' AND h.kind IN ('photo','poster') AND e.state='published' AND e.ends_at<=clock_timestamp()
+ AND NOT is_verification_test_account(e.organizer_ref) AND NOT is_verification_test_account(h.uploader_user_id)`,[mediaId,variant])).rows[0];
+ if(!row)return;return {purpose:'community.event-highlight',targetId:mediaId,variant,domainVersion:row.aggregate_version,authorizationVersion:JSON.stringify([row.state,row.event_state,row.ends_at,row.uploader_user_id,row.organizer_ref,row.kind,row.orientation]),source:row.storage_source,legacyBytes:row.bytes,legacyContentType:'image/webp',assetId:row.asset_id,scopeId:row.scope_id,representationId:row.representation_id,metadata:row.profile_id?{profileId:row.profile_id,contentType:row.content_type,byteSize:row.byte_size,sha256:row.content_sha256,transformVersion:row.transform_version,policyRevision:row.policy_revision}:null};
+}
+export async function highlightImageBytes(pool:Pool,mediaId:string,variant:'image'|'thumb',store?:ObjectStore){
+ try{return (await readDomainMedia(()=>highlightImageSnapshot(pool,mediaId,variant),{purpose:'community.event-highlight',targetId:mediaId,variant},store)).bytes;}catch(error){if(error instanceof Problem&&error.status===404&&error.code==='media_not_found')throw new Problem(404,'not_found','找不到這張圖片。');throw error;}
 }
 
 type ShareItem = {kind: string; image_url?: string; orientation?: Orientation | null; thumbnail_url?: string};
