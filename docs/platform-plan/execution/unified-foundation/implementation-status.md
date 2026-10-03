@@ -6,7 +6,7 @@
 
 ## 工程進度估算
 
-以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約 **30–40%**，約 **60–70%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。此次重新核對三份原計畫及本頁證據：配對、refresh／nonce 與封閉 HTTP 推進 U1/U3，但模型、Grant／Attempt、跨端、七類媒體與正式治理仍占主要剩餘工作。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
+以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約 **30–40%**，約 **60–70%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。此次重新核對三份原計畫及本頁證據：配對、refresh／nonce、封閉 HTTP，以及未驗證 ModelConnection／限定同意 Grant／blocked Attempt 推進 U1/U3；真實模型認證及執行、跨端、七類媒體與正式治理仍占主要剩餘工作。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
 
 以下權重是工程量假設，不是原計畫承諾；估算依本頁實作證據與尚缺項目，正式產品驗收仍須逐項取得證據。
 
@@ -15,7 +15,7 @@
 | U0 規格與共用契約 | 5% | 80–90% | 正式批准與版本發布 |
 | U1 身分／scope／command | 10% | 70–85% | machine/service Invocation／Grant 的當前驗權與 command adapter；會員映射與受限 machine 登入已有實作 |
 | U2 Asset 與私人 ACL | 15% | 65–80% | 完整讀面、正式政策及接線 |
-| U3 執行狀態與模型 ports | 15% | 25–35% | ModelConnection、真實 Attempt/Grant binding、Control／Action 與模型路徑；Run、runtime、connection、配對／refresh／nonce／status 核心及封閉 HTTP 已有本機證據，正式入口仍未啟用 |
+| U3 執行狀態與模型 ports | 15% | 30–40% | 真實模型認證／adapter、operational Attempt／lease、Control／Action 與模型路徑；Run、runtime、connection、配對／refresh／nonce／status、封閉 HTTP，以及限定 Grant／blocked Attempt backing 已有本機證據，正式入口仍未啟用 |
 | U4 兩條垂直流程 | 15% | 10–25% | 私人 AI 草稿及跨端產品驗收 |
 | U5 browser／Kit／broker | 15% | 0–10% | 實際 runtime 接線與封裝驗證 |
 | U6 媒體搬遷與 restore | 10% | 5–15% | 真實盤點、七類媒體搬遷與還原 |
@@ -23,7 +23,7 @@
 | UX affected CI／開發工具 | 5% | 20–35% | 跨語言／跨端覆蓋與工具接線 |
 | CG 共同治理 | 5% | 25–45% | 可信 runner/publisher、完整入口與 rollout |
 
-此組權重得約 29–41%，對外使用「約三成到四成」。R2、AP 與 UF 有重疊，不能把三份計畫各自的完成百分比相加。剩餘 60–70% 是工程量估算，不是日曆工期；真實 provider、跨端及搬遷演練仍有不確定性。本輪只推進共同基礎；依 Ted 指示，不整合等待中的其他 PR。備份政策仍另確認。
+此組權重得約 30–42%，對外使用「約三成到四成」。R2、AP 與 UF 有重疊，不能把三份計畫各自的完成百分比相加。剩餘 60–70% 是工程量估算，不是日曆工期；真實 provider、跨端及搬遷演練仍有不確定性。本輪只推進共同基礎；依 Ted 指示，不整合等待中的其他 PR。備份政策仍另確認。
 
 若「Milestone」指 [AP M0–M6](../../../plans/autopilot-vnext.md#54-遷移步驟)，目前位置是 **M1 基礎已建立、M2 認證核心完成本機接線，尚未完成整個 M2**。以下仍只估本機工程，不宣稱已達原文的部署／產品完成條件。
 
@@ -31,8 +31,8 @@
 | --- | --- | --- |
 | M0 來源與需求 | 80–90% | 正式 protocol／consumer 版本發布與確認 |
 | M1 資料與 ACL | 60–75% | 完整 list/detail/search/event/export 讀面矩陣及遷移驗收 |
-| M2 認證與只讀觀測 | 50–65% | ModelConnection settings、本人確認 UI、bootstrap-key exchange、正式 key/host 設定及部署驗收；device pairing／refresh／nonce／status 與 HTTP factory 已有本機證據 |
-| M3 私人 AI 草稿 | 10–20% | 本人 CLI/BYOK、真實 Grant／Attempt、一條 runtime 產生本人可看的私人 Result；人工 Work/Result 和 Run 是前置基礎 |
+| M2 認證與只讀觀測 | 50–65% | ModelConnection settings UI／真正模型驗證、本人確認 UI、bootstrap-key exchange、正式 key/host 設定及部署驗收；device pairing／refresh／nonce／status 與 HTTP factory 已有本機證據 |
+| M3 私人 AI 草稿 | 15–25% | 本人 CLI/BYOK 真正認證、operational Grant／Attempt／lease、一條 runtime 產生本人可看的私人 Result；人工 Work/Result、Run 與限定同意／blocked history 是前置基礎 |
 | M4 瀏覽器交接 | 0–10% | extension／neo 實接、pause/takeover/resume/revoke、舊 epoch 拒絕及 unknown effect 對帳 |
 | M5 業務 actions | 0–5% | 逐 domain 授權、精確 effect、A4 的本人簽章／step-up |
 | M6 設計收斂與相容期 | 5–15% | consumer 相容矩陣、schema 收斂、舊路徑退出及正式版本驗證 |

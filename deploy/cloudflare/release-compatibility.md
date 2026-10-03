@@ -171,7 +171,7 @@ not inspect or apply a cloud overlay or a persistence-policy update.
 The existing scanner's `sha256(JSON.stringify(sql))` convention is unchanged.
 The evaluator validates ordered full filename/digest ledgers, first migration 001,
 the historical missing 022, no duplicates or other gaps, and exact reviewed names
-076–091. Recognizing a reviewed filename does not approve its SQL digest or a release;
+076–092. Recognizing a reviewed filename does not approve its SQL digest or a release;
 exact independently approved ledger support is still required. Schema below 075
 and unknown extensions are unavailable. Applied DB
 ledger must be an exact prefix of the planned scanner ledger. Every binary must
@@ -193,6 +193,7 @@ not merely after the first new-shape write. No SQL file or migration is changed.
 | `execution.bootstrap-status.v1` | current owner/runtime/connection and cryptographic checks plus single-use nonce/proof ID admission for minimal status only; not issuer, device-flow HTTP, private data or execution Grant support |
 | `execution.device-authorization.v1` | closed device requests, exact member approval, genuine enrollment proof and one-time bootstrap issuance with durable throttling; not refresh families, HTTP/UI, production issuer trust or execution Grants |
 | `execution.bootstrap-session.v1` | one-use refresh rotation, committed family/connection reuse revocation and purpose-bound machine nonce acquisition; not HTTP/UI, production issuer trust or execution Grants |
+| `execution.member-prerequisites.v1` | unverified member model choice, exact bounded consent, and immutable blocked Attempt history with current-authority replay checks; never model authentication, execution, lease, billing or recovery support |
 
 | Shape | Minimum schema | Additional capabilities |
 | --- | --- | --- |
@@ -205,6 +206,7 @@ not merely after the first new-shape write. No SQL file or migration is changed.
 | `execution.bootstrap-status.v1` | 089 | runtime enrollment + connection records + bootstrap nonce admission |
 | `execution.device-authorization.v1` | 090 | runtime enrollment + connection records + bootstrap nonce admission + closed device authorization |
 | `execution.bootstrap-session.v1` | 091 | runtime enrollment + connection records + bootstrap nonce admission + refresh/session records |
+| `execution.member-prerequisites.v1` | 092 | personal owner ACL + server persistence policy + member Run + runtime enrollment + connection records + bootstrap status + refresh/session + member prerequisites |
 
 Schema 085 alone does not enable a private shape. When it is planned or retained,
 any private shape in the required union also requires `work.server-policy.v1` from every
@@ -288,3 +290,13 @@ capabilities, cross-database/environment floor transplant, exact generation
 comparisons beyond safe integers, absent/v1/invalid historical inputs, unknown extensions, candidate
 self-approval, bounded data and actual CLI failure propagation. No live release,
 database, private helper, production approval or cloud restore was exercised.
+
+
+092 alone enables no member prerequisites or operational authority. Its shape
+represents selection/consent metadata and blocked history. Enabled, written and
+retained shape history requires every listed prerequisite from both current and
+candidate binaries. Capability-only historical floors retain the same
+dependencies without inventing written shapes, device-pairing permissions or
+actual model readiness. Bootstrap-only releases do not acquire this new
+capability merely by supporting refresh/status. See
+[spec 13](../../docs/platform-plan/execution/unified-foundation/13-member-execution-prerequisites.md).

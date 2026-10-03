@@ -1,4 +1,4 @@
-# Closed member Run records
+# Closed member Run and execution prerequisite records
 
 `createExecutionRuns(pool)` in [runs.ts](runs.ts) persists one logical Run tied
 to a real personal Work. This is a server-only, unmounted member service. Every
@@ -125,5 +125,43 @@ This advances only durable member records/control prerequisites of AP:WORK-01,
 AP:WORK-03 and AP:INV-04/11. It does not finish EXEC-A or AP:WORK-05–16, Grant/
 handoff/late-evidence/billing/restore acceptance, or the private AI milestone.
 The existing hypothetical decision kernel and its activation-unavailable result
-are unchanged. HTTP/UI, credentials, actual model choice, runtime proofs,
-Attempt/Grant backing, external recovery authority and deployment remain absent.
+are unchanged. HTTP/UI, model credentials and operational runtime bindings,
+Actual execution Attempt/lease/recovery binding, external recovery authority and deployment remain absent. The separate closed prerequisite service below now persists member consent and blocked Attempt history.
+
+
+## Member model selection, bounded consent and blocked Attempts
+
+[prerequisites.ts](prerequisites.ts) exposes
+`createExecutionPrerequisites(pool, {environment, clientId, grantTtlSeconds?})`
+with frozen `models.create/read/revoke`, `grants.create/read/revoke`, and
+`attempts.create/read` ports. The [spec](../../docs/platform-plan/execution/unified-foundation/13-member-execution-prerequisites.md)
+and [central schemas](../../contracts/execution/v1/member-execution.ts) define
+strict member inputs and metadata. Migration [092](../../migrations/092_execution_prerequisites.sql)
+adds real immutable owner/scope-bound records while leaving 086 and its closed
+Run transitions unchanged.
+
+Models retain explicit unverified provider/model/processing/custody/billing
+choices bound to a genuinely paired Runtime, connection and refresh family.
+Grants retain exact current Work/Run versions, independent epochs, connection,
+model, family and policy revision, with explicit consent and at most one hour
+clipped to backing expiry. The trusted server may shorten TTL to 1–3600 seconds;
+no caller TTL or credential is accepted. Active consent grants no operational
+authority. Normal refresh rotation preserves the binding; expiry, revocation,
+Work edits, Run controls or policy changes deny new creates and old create
+receipts. Owner read/revoke remain available after backing withdrawal.
+
+Attempts bind the original Grant snapshot immutably, with consecutive bounded
+per-Run numbering and no activation transition. Every Attempt is
+`preflight_blocked` with `model_authentication_unavailable` and
+`model_adapter_unavailable`. Its nested Grant is historical metadata, never a
+current authorization assertion. No inferred model login, fake inferenceRef,
+currentAttempt pointer, lease, model I/O, Result or dispatch exists. All public
+metadata explicitly reports `operational_authority: false`.
+
+Creation/replay checks current backing under locks and revalidates after actual
+scoped receipt reads and writes. Callback waits also recheck the current session
+clock; any failure rolls back domain state, scoped journal/outbox and receipt.
+The invoker-rights SQL guards qualify physical backing tables and preserve all
+bigint snapshot versions as decimal text. They are structural DML guards, not
+member authentication or model signature verification. These services remain
+server-only and unmounted; bootstrap credentials remain status-only.

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "grantId": {
+      "type": "string",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    }
+  },
+  "required": [
+    "grantId"
+  ],
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/execution/v1/read-execution-grant-input",
+  "description": "Closed member execution prerequisite shape only. Server revalidates current identity, backing bindings, versions, consent, expiry and policy. Parsing never grants model or operational execution authority."
+}

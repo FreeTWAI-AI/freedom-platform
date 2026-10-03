@@ -2,13 +2,69 @@
   "format": "freedom.module/v1",
   "module_id": "execution-runs",
   "owner_role": "foundation",
-  "owned_paths": ["modules/agent-execution/**", "migrations/086_execution_runs.sql", "tests/runtime/execution-runs.test.ts", "tests/runtime/execution-runs-adversarial.test.ts", "tests/runtime/execution-runs-grants.test.ts"],
-  "public_exports": ["modules/agent-execution/runs.ts"],
-  "dependencies": ["work", "private-results", "resource-scopes", "scoped-commands", "execution-decision"],
-  "contract_families": ["common", "execution-decision"],
+  "owned_paths": [
+    "modules/agent-execution/**",
+    "migrations/086_execution_runs.sql",
+    "tests/runtime/execution-runs.test.ts",
+    "tests/runtime/execution-runs-adversarial.test.ts",
+    "tests/runtime/execution-runs-grants.test.ts",
+    "migrations/092_execution_prerequisites.sql",
+    "tests/runtime/member-execution-contracts.test.ts",
+    "tests/runtime/execution-prerequisites.test.ts",
+    "tests/runtime/execution-authority-adversarial.test.ts",
+    "contracts/execution/v1/member-execution.ts",
+    "contracts/execution/v1/model-selection.schema.json",
+    "contracts/execution/v1/create-model-connection-input.schema.json",
+    "contracts/execution/v1/read-model-connection-input.schema.json",
+    "contracts/execution/v1/revoke-model-connection-input.schema.json",
+    "contracts/execution/v1/model-connection-metadata.schema.json",
+    "contracts/execution/v1/create-execution-grant-input.schema.json",
+    "contracts/execution/v1/read-execution-grant-input.schema.json",
+    "contracts/execution/v1/revoke-execution-grant-input.schema.json",
+    "contracts/execution/v1/execution-grant-metadata.schema.json",
+    "contracts/execution/v1/create-execution-attempt-input.schema.json",
+    "contracts/execution/v1/read-execution-attempt-input.schema.json",
+    "contracts/execution/v1/execution-attempt-metadata.schema.json"
+  ],
+  "public_exports": [
+    "modules/agent-execution/runs.ts",
+    "modules/agent-execution/prerequisites.ts",
+    "contracts/execution/v1/member-execution.ts"
+  ],
+  "dependencies": [
+    "work",
+    "private-results",
+    "resource-scopes",
+    "scoped-commands",
+    "execution-decision",
+    "runtime-registration"
+  ],
+  "contract_families": [
+    "common",
+    "execution-decision",
+    "member-execution"
+  ],
   "client_profiles": [],
-  "instructions": ["modules/agent-execution/README.md", "packages/scoped-commands/README.md", "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md"],
-  "invariants": ["current-authority-before-replay", "immutable-work-input-version", "independent-fencing-domains", "human-control-without-provider-health", "no-operational-execution-authority", "private-scoped-facts"],
-  "tests": ["runtime.full"],
+  "instructions": [
+    "modules/agent-execution/README.md",
+    "packages/scoped-commands/README.md",
+    "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md",
+    "docs/platform-plan/execution/unified-foundation/13-member-execution-prerequisites.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "immutable-work-input-version",
+    "independent-fencing-domains",
+    "human-control-without-provider-health",
+    "no-operational-execution-authority",
+    "private-scoped-facts",
+    "unverified-model-selection",
+    "bounded-exact-member-consent",
+    "immutable-blocked-attempt-history",
+    "receipt-sink-current-domain-revalidation"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
   "surfaces": []
 }

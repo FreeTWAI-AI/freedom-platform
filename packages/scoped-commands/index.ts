@@ -94,7 +94,12 @@ function jsonSnapshot(value: unknown, maxBytes: number): { value: unknown; json:
  * network I/O, target ACL inference or change to historical member receipts. */
 export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberCommand,
   authorize: (q: PoolClient, context: MemberScopeContext) => Promise<unknown>,
-  run: (q: PoolClient, context: MemberScopeContext) => Promise<T>): Promise<T> {
+  run: (q: PoolClient, context: MemberScopeContext) => Promise<T>,
+  revalidate?: (q: PoolClient, context: MemberScopeContext) => Promise<unknown>): Promise<T> {
+  // This server-owned port is outside the request/digest. Time-bounded domain
+  // authority must survive the actual receipt read/write wait on this client.
+  requireCondition(revalidate === undefined || typeof revalidate === 'function',
+    400, 'invalid_scoped_command', '操作資料無效。');
   requireCondition(input && typeof input === 'object' && Object.keys(input).every(key =>
     ['actor', 'scope', 'operation', 'key', 'body', 'target', 'expected', 'lockUser'].includes(key)),
   400, 'invalid_scoped_command', '操作資料無效。');
@@ -134,6 +139,7 @@ export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberComm
         // Receipt storage can block after domain authorization (e.g. DDL or a
         // sink trigger). Never disclose a replay after that wait expires login.
         await assertCurrentSessionClock(q, actor);
+        if (revalidate) { await revalidate(q, context); await assertCurrentSessionClock(q, actor); }
         return prior ? { request_sha256: prior.request_sha256, response: jsonSnapshot(prior.response, MAX_JSON_BYTES).value as T } : null;
       },
       async writeReceipt(q, hash, response) {
@@ -146,6 +152,7 @@ export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberComm
         // when a receipt sink wait crosses session expiry. This is a decision
         // clock check, not a guarantee about COMMIT/network delivery time.
         await assertCurrentSessionClock(q, actor);
+        if (revalidate) { await revalidate(q, context); await assertCurrentSessionClock(q, actor); }
       },
     }, async q => {
       await authorize(q, context);

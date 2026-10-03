@@ -21,8 +21,15 @@ clock after receipt lookup and receipt insertion, including on replay. A receipt
 storage wait that crosses session expiry fails and rolls back the domain change,
 journal, outbox and receipt together. This is a pre-commit authorization decision,
 not a promise that the session remains valid through commit or response delivery.
-Domain callbacks still recheck their own expiring resources after domain waits;
-this change does not alter the legacy `command()` or avatar receipt adapter.
+For time-bounded domain authority, the optional fifth server-owned callback
+`revalidate(q, context)` runs after each actual receipt SELECT and INSERT and
+the member-session clock check. It also runs when SELECT finds no receipt.
+Keep it safe before the new-effect callback has created a record; afterward,
+validate the actual new record as well. A failure after insertion rolls back
+domain writes, scoped facts and the receipt on the same client. The callback is
+outside caller JSON, receipt namespace and digest. Existing four-argument
+callers are unchanged. Domain callbacks still check expiring resources after
+their other waits; this does not alter `command()` or the avatar adapter.
 
 ## Closed avatar receipt compatibility
 

@@ -2,7 +2,7 @@
 
 這組 spec 將 [Unified Foundation 1.1 計畫](../../../plans/unified-foundation.md) 轉成可分批開發、審查及驗收的工作。結論是可以依此計畫開發；先交付固定契約與開工工具、相容的身分及交易核心，再完成「會員換頭像」與「本人私人 AI 草稿」兩條完整流程。
 
-版本：`0.2-draft`；查核日期：2026-10-02。已讀完 Unified Foundation 1.1、R2 及 Autopilot 原文並完成規格對照。中央程式查核基準為 `3de70ccbd24362a7925508fb42d36aaa256a0806`；其後已有本機契約 verifier、開工工具、會員相容交易核心及受約束的 person/community/personal 映射。目前另有 scoped member receipt、共用 Asset 引擎、原生 R2 adapter、頭像讀寫相容 bridge、私人 Work 命令、人工 Result 及封閉 Run 內部服務。Run 僅支援本人建立／讀取／暫停／取消，尚無 Attempt／Grant 或實際模型執行；本機 release 診斷另保留歷史 schema/capability 下限。治理包含 host-owned 候選資料驗證、有限入口語法稽核，以及 Kit/Storefront 本機固定來源接入。範圍和測試證據見 [本機交付紀錄](implementation-status.md)；預設仍是 legacy／persistence 關閉，尚非正式新頭像啟用、私人 AI 草稿或完整治理驗收。
+版本：`0.2-draft`；查核日期：2026-10-02。已讀完 Unified Foundation 1.1、R2 及 Autopilot 原文並完成規格對照。中央程式查核基準為 `3de70ccbd24362a7925508fb42d36aaa256a0806`；其後已有本機契約 verifier、開工工具、會員相容交易核心及受約束的 person/community/personal 映射。目前另有 scoped member receipt、共用 Asset 引擎、原生 R2 adapter、頭像讀寫相容 bridge、私人 Work 命令、人工 Result 及封閉 Run 內部服務。Run 僅支援本人建立／讀取／暫停／取消，另有未驗證 ModelConnection、限定同意 Grant 及不可改綁的 blocked Attempt；實際模型執行仍未接通；本機 release 診斷另保留歷史 schema/capability 下限。治理包含 host-owned 候選資料驗證、有限入口語法稽核，以及 Kit/Storefront 本機固定來源接入。範圍和測試證據見 [本機交付紀錄](implementation-status.md)；預設仍是 legacy／persistence 關閉，尚非正式新頭像啟用、私人 AI 草稿或完整治理驗收。
 
 ## 文件與開工順序
 
@@ -21,6 +21,7 @@
 | [裝置配對與一次性 bootstrap 交換](10-device-authorization.md) | U1/U3、AP §4.3／AUTH-13/14/15 | 短效代碼、本人核准、真正裝置 proof 及受限 issuer；目前交換依 11 同交易建立 refresh family |
 | [Bootstrap refresh 與重複 nonce admission](11-bootstrap-sessions.md) | U1/U3、AP §4.3／AUTH-13/14/15 | 一次性輪替、重用撤銷 family/connection、獨立用途 machine nonce；沒有 HTTP／正式信任或 execution 權 |
 | [Bootstrap HTTP 配對與登入邊界](12-bootstrap-http.md) | U1/U3、AP M2／§4.3 | 配對／refresh／nonce／status 的封閉 HTTP factory、會員 CSRF／來源／限流；正式 Node／Worker 仍未掛載 |
+| [本人模型選擇、限定 Grant 與封閉 Attempt](13-member-execution-prerequisites.md) | U3、AP M1/M2/M3 | 真正 backing records、限定會員同意與 blocked history；模型認證／adapter 仍待做 |
 | [共同基礎驗收](acceptance.md) | INT-01–28、GOV-01–32 | 60 項原要求，全部 `not_run` |
 | [R2/AP 原始驗收](source-acceptance.md) | R2 S/A/M/D、AP AUTH/WORK/EXT/NEO/OPS | 108 項原要求，加 24 條 guardrails/invariants 對照，全部未驗收 |
 
@@ -44,7 +45,7 @@
 
 2026-10-02 Ted 的最新方向是完成原計畫 scope 後做受控前向 migration，不為提早上線另做相容過渡 release，也不把回到舊應用版本作交付目標。資料安全與發布保護仍保留，詳見 [發布決策](00-baseline-and-decisions.md)；目前不變更 staging/live。
 
-Ted 在規格完成後已明確授權由目前 agent 直接實作並持續推進，後續又授權多隻 GPT-6 Astra、Grok 4.7 與 Opus 4.6 平行分工，不再要求所有產品程式交給 grok 4.7。派工仍須提供固定 source SHA、此組 spec、可改檔案、預期反例及隔離測試方式；獨立 worktree 避免互踩，共同檔案由整合者負責。此授權不自動包含推送、合併、部署、正式設定或公告。
+Ted 在規格完成後已明確授權由目前 agent 直接實作並持續推進，後續又授權多隻 GPT-6 Astra，之後明確指定 GPT-6.1 Sol 並允許 Grok 4.7 與 Opus 4.6 平行分工，不再要求所有產品程式交給 grok 4.7。派工仍須提供固定 source SHA、此組 spec、可改檔案、預期反例及隔離測試方式；獨立 worktree 避免互踩，共同檔案由整合者負責。此授權不自動包含推送、合併、部署、正式設定或公告。
 
 工作限於 `~/tmp-scratch/fp_work/` 的獨立 worktree。主 checkout 及其 staged 刪除保留。所有 DB 測試只使用本輪建立、名稱以 `fp_` 開頭的 schema 或資料庫；禁止對 `freedom_local.public` 執行 migration、seed 或 truncate。
 
