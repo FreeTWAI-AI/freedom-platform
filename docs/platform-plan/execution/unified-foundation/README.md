@@ -49,6 +49,8 @@
 
 接著交付 Asset 頭像與 private Work ACL，再把 RunAttempt 與明確模型路徑接進私人草稿。2026-10-03 Ted 已授權 Codex 訂閱、Claude 訂閱及 BYOK 三路平行開發；每位會員實際使用的模型及計費仍須明確選擇。完整共同基礎的完成條件同時包含 A 頭像、B 私人 AI 草稿及治理反例；第一批完成不能取代這三類證據。
 
+發布條件見 [push、merge 與部署檢查表](release-readiness.md)；原 checkout 文件保全與補齊見 [完整性查核](../../verification/2026-10-03-documentation-completeness.md)。
+
 ## 開發與交付規則
 
 2026-10-02 Ted 的最新方向是完成原計畫 scope 後做受控前向 migration，不為提早上線另做相容過渡 release，也不把回到舊應用版本作交付目標。資料安全與發布保護仍保留，詳見 [發布決策](00-baseline-and-decisions.md)；目前不變更 staging/live。

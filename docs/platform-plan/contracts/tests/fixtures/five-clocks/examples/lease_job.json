@@ -1,0 +1,17 @@
+{
+  "job_id": "job_01fw01",
+  "job_type": "github_sync",
+  "executor_group": "integration",
+  "source_queue": "integration-jobs",
+  "queue_delivery_id": "qd_01fw01",
+  "job_registry_version": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "provider_operation_key": "github-sync-op-01fw01",
+  "lease_id": "jlea_01fw01",
+  "fencing_token": "1",
+  "expires_at": "2026-09-20T12:05:00Z",
+  "attempt": 1,
+  "input_refs": [],
+  "connection_refs": [
+    {"provider": "github", "connection_id": "conn_01fw01"}
+  ]
+}

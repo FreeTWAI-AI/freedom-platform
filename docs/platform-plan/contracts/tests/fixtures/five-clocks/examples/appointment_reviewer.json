@@ -1,0 +1,11 @@
+{
+  "appointment_id": "appt_01fw01",
+  "appointer_ref": "usr_01appointer",
+  "subject_member_ref": "usr_01reviewer",
+  "scope": "qc.skill",
+  "granted_at": "2026-09-20T12:00:00Z",
+  "review_by": "2026-12-20T12:00:00Z",
+  "reason": "named OD-10 appointment for exact skill review scope",
+  "state": "active",
+  "aggregate_version": 1
+}
