@@ -1,6 +1,6 @@
 # 本人模型與憑證設定
 
-版本 `0.1-draft`，2026-10-03。沿用 [17](17-member-model-http.md)、
+版本 `0.1-draft`，2026-10-03。沿用 [17](17-private-ai-product.md)、
 [18](18-credential-broker-core.md)、[19](19-authenticated-broker-bridge.md)、
 [20](20-direct-credential-ingest.md)，實作 AP M2/M3 的本人設定入口。
 本批為本機工程增量，不表示 provider／runtime／正式部署或168項產品驗收完成。
