@@ -54,7 +54,9 @@ R2 重構已有 ObjectStore／Asset lifecycle、頭像、私人 Result、本機�
 | CORE-2 | `40e0f2d`、`4a74b31`、`6f3485f`、`4ea8f47` | migration 078、獨立 scoped member receipts/facts、bounded JSON、當前權限及 DB-clock expiry；28 項新增 runtime 回歸 |
 | ASSET-A lifecycle 增量 | `769840a`、`6da6b89`、`bdd05c4`、`0371c19`、`360fc30` | migration 079、封閉頭像 intent/lease/fence/write/finalize、真實 avatar version CAS；14 項 lifecycle 與 23 項獨立 race tests |
 
-持續整合分支為 `feat/unified-foundation`，沿用 `foundation-model-settings-20261003` 隔離 worktree；模型設定批次從 direct credential ingest 的交付提交 `082204550e0492f4ad503c697380ef8b96a17596` 延續，各批次仍保留各自分支與 worktree。依 Ted 2026-10-03 指示，累積重構集中至同一個 Draft PR，後續沿此分支提交並更新 PR 描述；仍維持 Draft，直到原 scope 與發布要求完成。開發仍在 `~/tmp-scratch/fp_work/`，主 checkout 及其 staged 刪除未更動。下文歷史批次的「未 push／未建立 PR」是當時狀態；本次公開進度不代表 merge main、部署或產品驗收。
+持續整合分支為 `feat/unified-foundation`，沿用 `foundation-model-settings-20261003` 隔離 worktree；模型設定批次從 direct credential ingest 的交付提交 `082204550e0492f4ad503c697380ef8b96a17596` 延續，各批次仍保留各自分支與 worktree。依 Ted 2026-10-03 指示，累積重構集中至 [Draft PR #108](https://github.com/FreeTWAI-AI/freedom-platform/pull/108)，後續沿此分支提交並更新 PR 描述；仍維持 Draft，直到原 scope 與發布要求完成。開發仍在 `~/tmp-scratch/fp_work/`，主 checkout 及其 staged 刪除未更動。下文歷史批次的「未 push／未建立 PR」是當時狀態；本次公開進度不代表 merge main、部署或產品驗收。
+
+首次公開 head `b944a9df20a6b33117455d6285ee60d9aa37e129` 的 GitHub CI 初次觀察：契約生成、typecheck、build、三類 Worker dry-run、Worker 測試與 deploy-preflight 已通過，完整 verify 仍在執行。CodeQL 的三組分析工作執行成功，但獨立安全檢查回報 24 筆高風險警示並為 failure：23 筆位於測試檔案，1 筆位於與 `main` 完全相同的 `modules/identity-membership/service.ts`。這是位置與基準比對，尚未完成逐筆有效性判定；不將分析工作成功當作安全檢查通過，也不因測試用途或既有程式而忽略警示。後續修正與 CI 結果沿同一個 PR 更新。
 
 ## GOV-A/B 與 CORE-0 證據
 
