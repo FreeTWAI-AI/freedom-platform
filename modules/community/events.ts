@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
-import { checkVersion, command, journal, transaction, type Command } from '../../packages/db/index.js';
+import { checkVersion, command, digest, journal, transaction, type Command } from '../../packages/db/index.js';
 import { Problem,requireCondition } from '../../packages/shared/problem.js';
 import { text, isoTime } from '../../packages/shared/validation.js';
 import type { Actor } from '../identity-membership/service.js';
@@ -10,6 +10,11 @@ import {notifyMember} from '../member-communications/notifications.js';
 import {lockMemberGuilds} from '../positioning/onboarding.js';
 import {requireFullGuildMember} from '../positioning/member-tier.js';
 import {adminCommand,audit,type AdminActor,type AdminCommand} from '../platform-admin/service.js';
+
+import {eventBannerStorageMode,type EventBannerAssetService} from '../assets/event-banner.js';
+import {eventBannerMemberCommand} from '../../packages/scoped-commands/index.js';
+import {readDomainMedia,type DomainMediaSnapshot} from '../../packages/media-migration/domain-bridge.js';
+import {snapshotBoundedBytes,type ObjectStore,AssetStorageError} from '../../packages/asset-storage/index.js';
 
 const details = z.object({
   title:text(120), description:text(3000), starts_at:isoTime, ends_at:isoTime,
@@ -188,10 +193,8 @@ export async function publicEvent(pool:Pool,id:string){
     video_url:row.video_mime?`/api/v1/public/events/${id}/video`:null,video_mime:row.video_mime};
 }
 
-export async function publicEventBanner(pool:Pool,id:string){
-  const row=(await pool.query(`SELECT b.image_bytes FROM community_event_banners b JOIN community_events e ON e.event_id=b.event_id
-    WHERE e.event_id=$1 AND e.state='published' AND e.visibility IN ('referral','open') AND NOT is_verification_test_account(e.organizer_ref)`,[id])).rows[0];
-  requireCondition(row,404,'not_found','找不到活動海報。');return row.image_bytes as Buffer;
+export async function publicEventBanner(pool:Pool,id:string,store?:ObjectStore){
+ return (await readDomainMedia(()=>bannerSnapshot(pool,id),{purpose:'community.event-banner',targetId:id,variant:'banner'},store)).bytes;
 }
 
 export type EventEmailSender=(to:string,subject:string,body:string)=>Promise<void>;
@@ -236,9 +239,26 @@ export async function readEvent(pool:Pool,actor:Actor,id:string){
   return eventView(pool,actor,row);
 }
 
-export async function saveEventBanner(pool:Pool,input:Command,id:string,upload:{bytes:Buffer;mime:string;orientation?:'landscape'|'portrait'}|null){
+/** Existing organizer/intern/state rules, composed by the closed banner profile. */
+export async function authorizeEventBannerWrite(q:PoolClient,actor:Actor,id:string,lock=false,editable=true){
+ await lockMemberGuilds(q,actor);
+ const row=await scopedEvent(q,actor,id,lock);
+ requireCondition(row.organizer_ref===actor.user_id,403,'organizer_required','只能修改自己活動的 Banner。');
+ await refuseInternGuildExchange(q,actor,row);
+ if(editable){const clock=(await q.query('SELECT clock_timestamp() AS now')).rows[0].now;requireCondition(row.state==='pending'&&Date.parse(row.starts_at)>clock.getTime(),409,'event_closed','只能修改待審核且尚未開始的活動。');}
+ return row;
+}
+export async function eventBannerResult(q:PoolClient,actor:Actor,id:string){
+ // The original HTTP DTO serializes PostgreSQL Date values to ISO strings.
+ // Serialize that trusted domain result before the strict receipt JSON boundary.
+ return JSON.parse(JSON.stringify(await eventView(q,actor,await scopedEvent(q,actor,id)))) as Awaited<ReturnType<typeof eventView>>;
+}
+
+export async function saveEventBanner(pool:Pool,input:Command,id:string,upload:{bytes:Buffer;mime:string;orientation?:'landscape'|'portrait'}|null,assets?:EventBannerAssetService){
+  if(upload)upload={...upload,bytes:Buffer.from(snapshotBoundedBytes(upload.bytes,524288))};
   const orientation=upload?.orientation??'landscape';
   const body=upload?{mime:upload.mime,orientation,sha256:createHash('sha256').update(upload.bytes).digest('hex')}:{removed:true};
+  if(upload&&await eventBannerStorageMode(pool)!=='legacy')return saveAssetBanner(pool,{...input,actor:Object.freeze({...input.actor}),body},id,{...upload,orientation},assets);
   return command(pool,{...input,body},async q=>{
     const row=await scopedEvent(q,input.actor,id);
     requireCondition(row.organizer_ref===input.actor.user_id,403,'organizer_required','只能修改自己活動的 Banner。');
@@ -258,17 +278,33 @@ export async function saveEventBanner(pool:Pool,input:Command,id:string,upload:{
   });
 }
 
-export async function readEventBanner(pool:Pool,actor:Actor,id:string){
-  const row=(await pool.query(`SELECT e.*,b.image_bytes FROM community_events e JOIN community_event_banners b ON b.event_id=e.event_id
-    WHERE e.event_id=$1 AND e.community_id=$2`,[id,actor.community_id])).rows[0];
-  requireCondition(row,404,'not_found','找不到活動 Banner。');
-  const member=await canAccessGuildEvent(pool,actor,row);
-  const reviewer=row.state==='pending'&&row.review_guild_key&&(await pool.query(`SELECT 1 FROM positioning_guild_officers o
-    JOIN positioning_profession_memberships m ON m.community_id=o.community_id AND m.guild_key=o.guild_key AND m.user_id=o.user_id AND m.state='active'
-    WHERE o.community_id=$1 AND o.guild_key=$2 AND o.user_id=$3`,[actor.community_id,row.review_guild_key,actor.user_id])).rowCount===1;
-  requireCondition(row.organizer_ref===actor.user_id||Boolean(reviewer)||row.state==='published'&&member,404,'not_found','找不到活動 Banner。');
-  return row.image_bytes as Buffer;
+async function saveAssetBanner(pool:Pool,input:Command,id:string,file:{bytes:Buffer;mime:string;orientation:'landscape'|'portrait'},assets?:EventBannerAssetService){
+ const authorize=(q:PoolClient)=>authorizeEventBannerWrite(q,input.actor,id,false,false).then(()=>{});
+ const probe=async()=>{const miss=new Error('banner_receipt_miss');try{return await eventBannerMemberCommand(pool,input,authorize,async()=>{throw miss;});}catch(e){if(e!==miss)throw e;return undefined;}};
+ const replay=await probe();if(replay)return replay;
+ requireCondition(assets,503,'media_upload_unavailable','內容上傳暫時無法使用。');if(input.expected===undefined)checkVersion('1',input.expected);
+ const key=digest({operation:input.operation,key:input.key});
+ try{
+  const prepared=await assets!.prepare(input.actor,{key,targetEventId:id,expectedVersion:input.expected!,contentType:file.mime as 'image/png'|'image/jpeg'|'image/webp',byteSize:file.bytes.length,sha256:(input.body as {sha256:string}).sha256,orientation:file.orientation});
+  const lease=await assets!.resumeUpload(input.actor,{key,intentId:prepared.intentId}),binding={intentId:lease.intentId,fence:lease.fence,leaseToken:lease.leaseToken};
+  if(lease.state==='prepared'||lease.state==='processing')await assets!.write(input.actor,{...binding,key:digest({key,phase:'write',fence:lease.fence})},new ReadableStream({start(c){c.enqueue(file.bytes);c.close();}}));
+  let publicationClient:PoolClient;
+  return await assets!.finalizeVia<Awaited<ReturnType<typeof eventBannerResult>>>(input.actor,{...binding,key:digest({key,phase:'finalize'})},{operation:'community.event.banner.replace',execute:run=>eventBannerMemberCommand(pool,input,authorize,async(q,context)=>{publicationClient=q;return run(q,context);}),validateIntent:row=>requireCondition(row.expected_version===input.expected&&row.target_event_id===id&&row.source_sha256===(input.body as {sha256:string}).sha256&&row.source_orientation===file.orientation,409,'asset_source_mismatch','上傳內容與準備紀錄不同。'),result:()=>eventBannerResult(publicationClient,input.actor,id)});
+ }catch(e){const committed=await probe();if(committed)return committed;if(e instanceof AssetStorageError)throw new Problem(503,'media_upload_unavailable','內容上傳暫時無法使用。');throw e;}
 }
+async function bannerSnapshot(pool:Pool,id:string,actor?:Actor):Promise<DomainMediaSnapshot|undefined>{
+ const row=(await pool.query(`SELECT e.*,b.storage_source,b.image_bytes,b.orientation,t.asset_id,t.scope_id,o.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id
+ FROM community_events e JOIN community_event_banners b USING(event_id)
+ LEFT JOIN community_event_banner_asset_targets t ON t.event_id=e.event_id AND t.linked_at_version<=e.aggregate_version
+ LEFT JOIN assets a ON a.asset_id=t.asset_id AND a.state='ready' AND a.purpose='community.event-banner'
+ LEFT JOIN asset_objects o ON o.asset_id=a.asset_id AND o.purpose='community.event-banner'
+ WHERE e.event_id=$1 AND ${actor?'e.community_id=$2':"e.state='published' AND e.visibility IN ('referral','open') AND NOT is_verification_test_account(e.organizer_ref)"}`,actor?[id,actor.community_id]:[id])).rows[0];
+ if(!row)return undefined;
+ let member=false,reviewer=false;
+ if(actor){member=await canAccessGuildEvent(pool,actor,row);reviewer=row.state==='pending'&&row.review_guild_key&&(await pool.query(`SELECT 1 FROM positioning_guild_officers o JOIN positioning_profession_memberships m ON m.community_id=o.community_id AND m.guild_key=o.guild_key AND m.user_id=o.user_id AND m.state='active' WHERE o.community_id=$1 AND o.guild_key=$2 AND o.user_id=$3`,[actor.community_id,row.review_guild_key,actor.user_id])).rowCount===1;if(!(row.organizer_ref===actor.user_id||reviewer||row.state==='published'&&member))return undefined;}
+ return {purpose:'community.event-banner',targetId:id,variant:'banner',domainVersion:String(row.aggregate_version),source:row.storage_source,authorizationVersion:JSON.stringify([row.community_id,row.organizer_ref,row.state,row.visibility,row.guild_key,row.review_guild_key,row.orientation,member,reviewer]),legacyBytes:row.image_bytes,assetId:row.asset_id,scopeId:row.scope_id,representationId:row.representation_id,metadata:row.representation_id?{contentType:row.content_type,byteSize:row.byte_size,sha256:row.content_sha256,transformVersion:row.transform_version,policyRevision:row.policy_revision,profileId:row.profile_id}:null};
+}
+export async function readEventBanner(pool:Pool,actor:Actor,id:string,store?:ObjectStore){return (await readDomainMedia(()=>bannerSnapshot(pool,id,actor),{purpose:'community.event-banner',targetId:id,variant:'banner'},store)).bytes;}
 
 export async function saveEventVideo(pool:Pool,input:Command,id:string,upload:{bytes:Buffer;mime:'video/mp4'|'video/webm'}|null){
   const body=upload?{mime:upload.mime,sha256:createHash('sha256').update(upload.bytes).digest('hex')}:{removed:true};
@@ -315,7 +351,7 @@ async function activeGuildTier(q:PoolClient,actor:Actor,guildKey:string|null){
   return (await q.query(`SELECT member_tier FROM positioning_profession_memberships WHERE community_id=$1 AND guild_key=$2 AND user_id=$3 AND state='active'`,[actor.community_id,guildKey,actor.user_id])).rows[0]?.member_tier as string|undefined;
 }
 /** Active interns cannot post or edit a guild skill exchange. Former members keep the organizer path. */
-async function refuseInternGuildExchange(q:PoolClient,actor:Actor,row:{event_kind?:string;guild_key?:string|null}){
+export async function refuseInternGuildExchange(q:PoolClient,actor:Actor,row:{event_kind?:string;guild_key?:string|null}){
   if(row.event_kind!=='guild_skill_exchange')return;
   const tier=await activeGuildTier(q,actor,row.guild_key??null);
   if(tier)requireFullGuildMember(tier);

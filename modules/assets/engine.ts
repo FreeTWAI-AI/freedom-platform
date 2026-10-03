@@ -22,7 +22,7 @@ export interface LifecyclePolicy extends PersistencePolicy { readonly retainedBy
 export interface LifecycleTarget { readonly targetId: string; readonly aggregateVersion: string; readonly assetId: string|null }
 export interface LifecycleIntent {
   intent_id: string; asset_id: string; representation_id: string; scope_id: string; owner_principal_id: string;
-  target_user_id: string; target_work_id?: string|null; target_service_id?:string|null; target_kind?: string; purpose: string; policy_revision: string; expected_version: string;
+  target_user_id: string; target_work_id?: string|null; target_service_id?:string|null; target_event_id?:string|null; target_community_id?:string|null; source_orientation?:'landscape'|'portrait'|null; target_kind?: string; purpose: string; policy_revision: string; expected_version: string;
   source_content_type: string; source_byte_size: number; source_sha256: string;
   state: 'prepared'|'processing'|'stored'|'finalized'; fence: string; lease_token: string|null;
   lease_expires_at: Date|null; expires_at: Date;
@@ -40,7 +40,7 @@ export interface LifecycleDependencies {
  * decision-clock refresh; publish may only reuse already-held domain locks.
  * The engine alone owns upload state transitions, source effects and fences. */
 export interface LifecycleProfile<P extends LifecyclePrepare,R> {
-  readonly purpose: 'member.avatar'|'work.private-draft'|'member.service-cover'; readonly targetKind: 'member.avatar'|'work.private-result'|'work.model-result'|'member.service-cover'; readonly variant: 'avatar'|'draft'|'cover';
+  readonly purpose: 'member.avatar'|'work.private-draft'|'member.service-cover'|'community.event-banner'; readonly targetKind: 'member.avatar'|'work.private-result'|'work.model-result'|'member.service-cover'|'community.event-banner'; readonly variant: 'avatar'|'draft'|'cover'|'banner';
   readonly inputMaxBytes: number; readonly outputMaxBytes: number; readonly retireReplacedAsset: boolean;
   /** Additional trusted invocation check on the caller's current transaction.
    * Captured at composition, never supplied by upload/lease JSON. */
@@ -50,7 +50,7 @@ export interface LifecycleProfile<P extends LifecyclePrepare,R> {
   readonly lockTarget: (q: PoolClient, context: MemberScopeContext, actor: Actor, targetId: string, create: boolean) => Promise<LifecycleTarget>;
   readonly resolvePolicy: (q: PoolClient, context: MemberScopeContext, targetId: string) => Promise<LifecyclePolicy>;
   readonly requireCapacity: (q: PoolClient, context: MemberScopeContext, actor: Actor, target: LifecycleTarget, policy: LifecyclePolicy, reserveBytes: number) => Promise<void>;
-  readonly prepareRepresentation: (body: ReadableStream<Uint8Array>, mime: string, policy: LifecyclePolicy) => Promise<PreparedRepresentation>;
+  readonly prepareRepresentation: (body: ReadableStream<Uint8Array>, mime: string, policy: LifecyclePolicy, source:Readonly<LifecycleIntent>) => Promise<PreparedRepresentation>;
   readonly lockPublication: (q: PoolClient, context: MemberScopeContext, actor: Actor, intent: LifecycleIntent, target: LifecycleTarget) => Promise<unknown>;
   readonly publish: (q: PoolClient, context: MemberScopeContext, actor: Actor, intent: LifecycleIntent, target: LifecycleTarget, publication: unknown, operation: string) => Promise<LifecyclePublication<R>>;
 }
@@ -78,8 +78,11 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
   requireCondition((profile.purpose==='member.avatar' && profile.targetKind==='member.avatar' && profile.variant==='avatar' && profile.inputMaxBytes===2097152 && profile.outputMaxBytes===131072)
     || (profile.purpose==='work.private-draft' && profile.targetKind==='work.private-result' && profile.variant==='draft' && profile.inputMaxBytes===262144 && profile.outputMaxBytes===262144)
     || (profile.purpose==='work.private-draft' && profile.targetKind==='work.model-result' && profile.variant==='draft' && profile.inputMaxBytes===16384 && profile.outputMaxBytes===16384)
-    || (profile.purpose==='member.service-cover'&&profile.targetKind==='member.service-cover'&&profile.variant==='cover'&&profile.inputMaxBytes===4194304&&profile.outputMaxBytes===524288),500,'asset_profile_invalid','內容設定不正確。');
-  const targetId = (row: LifecycleIntent) => profile.targetKind==='member.avatar' ? row.target_user_id : OpaqueId.parse(profile.targetKind==='member.service-cover'?row.target_service_id:row.target_work_id);
+    || (profile.purpose==='member.service-cover'&&profile.targetKind==='member.service-cover'&&profile.variant==='cover'&&profile.inputMaxBytes===4194304&&profile.outputMaxBytes===524288)
+    || (profile.purpose==='community.event-banner'&&profile.targetKind==='community.event-banner'&&profile.variant==='banner'&&profile.inputMaxBytes===524288&&profile.outputMaxBytes===524288),500,'asset_profile_invalid','內容設定不正確。');
+  const targetId = (row: LifecycleIntent) => profile.targetKind==='member.avatar' ? row.target_user_id : OpaqueId.parse(profile.targetKind==='community.event-banner'?row.target_event_id:profile.targetKind==='member.service-cover'?row.target_service_id:row.target_work_id);
+  const scopeKind=profile.purpose==='community.event-banner'?'community' as const:'personal' as const;
+  const lockUser=scopeKind==='community';
   const storageKey = (row: LifecycleIntent) => objectKey({scopeId:row.scope_id,assetId:row.asset_id,representationId:row.representation_id});
   async function policy(q: PoolClient, context: MemberScopeContext, id: string, pinned?: string): Promise<LifecyclePolicy> {
     const resolved = await profile.resolvePolicy(q,context,id);
@@ -115,7 +118,7 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
   }
   async function prepare(actor: Actor,raw: P) {
     actor=Object.freeze({...actor});const input=Object.freeze({...profile.parsePrepare(raw)}),{key:receiptKey,...body}=input,id=OpaqueId.parse(profile.targetId(input));let target!:LifecycleTarget,resolved!:LifecyclePolicy;
-    return scopedMemberCommand(pool,{actor,scope:'personal',operation:'asset.upload.prepare',key:receiptKey,target:{kind:profile.targetKind,id},expected:input.expectedVersion,body},async(q,context)=>{
+    return scopedMemberCommand(pool,{actor,scope:scopeKind,lockUser,operation:'asset.upload.prepare',key:receiptKey,target:{kind:profile.targetKind,id},expected:input.expectedVersion,body},async(q,context)=>{
       // One owner may have many Work targets. No scope SHARE->UPDATE upgrade.
       // Fixed namespace; receipt precedes quota, quota precedes target.
       await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`asset.quota/v1/${context.scope.scope_id}/${profile.purpose}`]);
@@ -126,17 +129,17 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
       requireCondition(pending<settings.pending,409,'asset_upload_quota','進行中的上傳已達上限。');
       await profile.requireCapacity(q,context,actor,target,resolved,profile.outputMaxBytes);await assertCurrentSessionClock(q,actor);
       const assetId=randomUUID(),intentId=randomUUID(),representationId=randomUUID();
-      await q.query('INSERT INTO assets(asset_id,scope_id,owner_principal_id,owner_user_id,policy_revision,representation_id,purpose) VALUES($1,$2,$3,$4,$5,$6,$7)',[assetId,context.scope.scope_id,context.subject_principal.principal_id,actor.user_id,resolved.revision,representationId,profile.purpose]);
+      await q.query('INSERT INTO assets(asset_id,scope_id,owner_principal_id,owner_user_id,policy_revision,representation_id,purpose,scope_kind,community_ref) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[assetId,context.scope.scope_id,context.subject_principal.principal_id,actor.user_id,resolved.revision,representationId,profile.purpose,scopeKind,scopeKind==='community'?actor.community_id:null]);
       const values:unknown[]=[intentId,assetId,representationId,context.scope.scope_id,context.subject_principal.principal_id,actor.user_id,resolved.revision,receiptKey,digest(body),input.contentType,input.byteSize,input.sha256,input.expectedVersion,settings.ttl,profile.purpose,profile.outputMaxBytes];
-      const work=profile.targetKind!=='member.avatar',column=profile.targetKind==='member.service-cover'?'target_service_id':'target_work_id';if(work)values.push(profile.targetKind,id);
-      const row=(await q.query(`INSERT INTO asset_upload_intents(intent_id,asset_id,representation_id,scope_id,owner_principal_id,target_user_id,policy_revision,prepare_key,request_digest,source_content_type,source_byte_size,source_sha256,expected_version,expires_at,purpose,reserved_bytes${work?',target_kind,'+column:''}) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,clock_timestamp()+make_interval(secs=>$14),$15,$16${work?',$17,$18':''}) RETURNING expires_at`,values)).rows[0];
+      const work=profile.targetKind!=='member.avatar',column=profile.targetKind==='community.event-banner'?'target_event_id':profile.targetKind==='member.service-cover'?'target_service_id':'target_work_id';if(work)values.push(profile.targetKind,id);const banner=profile.purpose==='community.event-banner';if(banner)values.push(actor.community_id,(input as P&{orientation:string}).orientation);
+      const row=(await q.query(`INSERT INTO asset_upload_intents(intent_id,asset_id,representation_id,scope_id,owner_principal_id,target_user_id,policy_revision,prepare_key,request_digest,source_content_type,source_byte_size,source_sha256,expected_version,expires_at,purpose,reserved_bytes${work?',target_kind,'+column:''}${banner?',target_community_id,source_orientation':''}) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,clock_timestamp()+make_interval(secs=>$14),$15,$16${work?',$17,$18':''}${banner?',$19,$20':''}) RETURNING expires_at`,values)).rows[0];
       await scopedJournal(q,context,{aggregate_type:'asset_upload_intent',id:intentId,version:'1',operation:'asset.upload.prepare',data:{asset_id:assetId}});
       return {intentId,assetId,representationId,expiresAt:row.expires_at.toISOString() as string};
     },revalidate);
   }
   async function claim(actor:Actor,raw:AssetClaimInput){
     actor=Object.freeze({...actor});const input=claimInput.parse(raw);let row!:LifecycleIntent;
-    return scopedMemberCommand(pool,{actor,scope:'personal',operation:'asset.upload.claim',key:input.key,target:{kind:'asset_upload_intent',id:input.intentId},body:{intentId:input.intentId}},async(q,context)=>{
+    return scopedMemberCommand(pool,{actor,scope:scopeKind,lockUser,operation:'asset.upload.claim',key:input.key,target:{kind:'asset_upload_intent',id:input.intentId},body:{intentId:input.intentId}},async(q,context)=>{
       ({row}=await locked(q,context,actor,input.intentId));await policy(q,context,targetId(row),row.policy_revision);state(row.state!=='finalized');await live(q,row);
     },async q=>{
       const updated=(await q.query<LifecycleIntent>(`UPDATE asset_upload_intents SET fence=fence+1,lease_token=$2,lease_expires_at=LEAST(expires_at,clock_timestamp()+make_interval(secs=>$3)),state=CASE WHEN state='stored' THEN 'stored' ELSE 'processing' END WHERE intent_id=$1 AND (lease_expires_at IS NULL OR lease_expires_at<=clock_timestamp()) RETURNING *`,[row.intent_id,randomUUID(),settings.lease])).rows[0];
@@ -145,7 +148,7 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
     },revalidate);
   }
   async function inspect(actor:Actor,input:AssetLeaseInput,allowFinalized=false){
-    return withMemberScope(pool,{actor,scope:'personal'},async()=>{},async(q,context)=>{
+    return withMemberScope(pool,{actor,scope:scopeKind,lockUser},async()=>{},async(q,context)=>{
       const {row}=await locked(q,context,actor,input.intentId),resolved=await policy(q,context,targetId(row),row.policy_revision);
       state(row.state==='processing'||row.state==='stored'||allowFinalized&&row.state==='finalized');
       if(row.state!=='finalized')await live(q,row,input);else requireCondition(row.fence===input.fence&&row.lease_token===input.leaseToken,409,'asset_lease_stale','上傳租約已失效。');
@@ -155,13 +158,14 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
   async function write(actor:Actor,raw:AssetLeaseInput,body:ReadableStream<Uint8Array>){
     actor=Object.freeze({...actor});const input=leaseInput.parse(raw),snapshot=await inspect(actor,input),bytes=await readBounded(body,profile.inputMaxBytes);
     requireCondition(bytes.byteLength===snapshot.row.source_byte_size&&await sha256(bytes)===snapshot.row.source_sha256,409,'asset_source_mismatch','上傳內容與準備紀錄不同。');
-    const prepared=await profile.prepareRepresentation(new ReadableStream({start(c){c.enqueue(bytes);c.close();}}),snapshot.row.source_content_type,snapshot.policy);
+    const prepared=await profile.prepareRepresentation(new ReadableStream({start(c){c.enqueue(bytes);c.close();}}),snapshot.row.source_content_type,snapshot.policy,snapshot.row);
     requireCondition(prepared.metadata.byteSize<=profile.outputMaxBytes && (profile.purpose==='member.avatar'
       ? prepared.metadata.contentType==='image/webp'&&prepared.metadata.transformVersion==='avatar.webp.v1'
       : profile.purpose==='member.service-cover'?prepared.metadata.profileId==='member.service-cover'&&prepared.metadata.contentType==='image/webp'&&prepared.metadata.transformVersion==='member.service-cover.legacy-bytes.v1'
+      : profile.purpose==='community.event-banner'?prepared.metadata.profileId==='community.event-banner'&&prepared.metadata.contentType==='image/webp'&&prepared.metadata.transformVersion==='community.event-banner.legacy-bytes.v1'
       : ['text/plain','text/markdown'].includes(prepared.metadata.contentType)&&prepared.metadata.transformVersion==='private-text.utf8.v1'),422,'asset_profile_invalid','內容不符合儲存規格。');
     const verified=await writeVerifiedObject(store,storageKey(snapshot.row),prepared,snapshot.policy);let row!:LifecycleIntent;
-    return scopedMemberCommand(pool,{actor,scope:'personal',operation:'asset.upload.write',key:input.key,target:{kind:'asset_upload_intent',id:input.intentId},body:{intentId:input.intentId,fence:input.fence,metadata:verified.metadata}},async(q,context)=>{
+    return scopedMemberCommand(pool,{actor,scope:scopeKind,lockUser,operation:'asset.upload.write',key:input.key,target:{kind:'asset_upload_intent',id:input.intentId},body:{intentId:input.intentId,fence:input.fence,metadata:verified.metadata}},async(q,context)=>{
       ({row}=await locked(q,context,actor,input.intentId));await policy(q,context,targetId(row),row.policy_revision);state(row.state==='processing'||row.state==='stored');await live(q,row,input);
     },async q=>{
       if(row.state==='stored')requireCondition(digest(await metadata(q,row))===digest(verified.metadata),409,'asset_object_conflict','已儲存內容不同。');
@@ -190,7 +194,7 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
   }
   async function finalize(actor:Actor,raw:AssetLeaseInput){
     actor=Object.freeze({...actor});const input=leaseInput.parse(raw);await verifyFinalization(actor,input);let authorized!:Awaited<ReturnType<typeof authorizeFinalization>>;
-    return scopedMemberCommand(pool,{actor,scope:'personal',operation:'asset.upload.finalize',key:input.key,target:{kind:'asset_upload_intent',id:input.intentId},body:{intentId:input.intentId,fence:input.fence}},async(q,context)=>{authorized=await authorizeFinalization(q,context,actor,input);},
+    return scopedMemberCommand(pool,{actor,scope:scopeKind,lockUser,operation:'asset.upload.finalize',key:input.key,target:{kind:'asset_upload_intent',id:input.intentId},body:{intentId:input.intentId,fence:input.fence}},async(q,context)=>{authorized=await authorizeFinalization(q,context,actor,input);},
       (q,context)=>publish(q,context,actor,authorized.row,authorized.target,authorized.publication,'asset.upload.finalize'),revalidate);
   }
   async function finalizeVia<T>(actor:Actor,raw:AssetLeaseInput,bridge:LifecycleCommitPort<R,T>){
@@ -201,7 +205,7 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
   }
   async function resumeUpload(actor:Actor,raw:AssetClaimInput){
     actor=Object.freeze({...actor});const input=claimInput.parse(raw);
-    const snapshot=await withMemberScope(pool,{actor,scope:'personal'},async()=>{},async(q,context)=>{
+    const snapshot=await withMemberScope(pool,{actor,scope:scopeKind,lockUser},async()=>{},async(q,context)=>{
       const {row}=await locked(q,context,actor,input.intentId);await policy(q,context,targetId(row),row.policy_revision);if(row.state!=='finalized')await live(q,row);
       const active=(await q.query('SELECT lease_expires_at>clock_timestamp() AS active FROM asset_upload_intents WHERE intent_id=$1',[row.intent_id])).rows[0].active;await assertCurrentSessionClock(q,actor);if(revalidate)await revalidate(q);return {row,active};
     });

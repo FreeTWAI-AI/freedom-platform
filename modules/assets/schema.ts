@@ -1,7 +1,7 @@
 /** Closed existing-domain media identities. Server-selected; never caller SQL. */
 export const DOMAIN_MEDIA = Object.freeze({
   'skill.submission-image': Object.freeze({variants:Object.freeze(['image'] as const)}),
-  'community.event-banner': Object.freeze({variants:Object.freeze(['banner'] as const)}),
+  'community.event-banner': Object.freeze({scopeKind:'community' as const,variants:Object.freeze(['banner'] as const)}),
   'community.event-video': Object.freeze({variants:Object.freeze(['video'] as const)}),
   'community.event-highlight': Object.freeze({variants:Object.freeze(['image','thumb'] as const),atomicVariants:true}),
   'community.social-thumbnail': Object.freeze({variants:Object.freeze(['thumbnail'] as const)}),

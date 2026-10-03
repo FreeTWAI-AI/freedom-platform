@@ -1,3 +1,4 @@
+import type {PlatformRuntime} from '../runtime.js';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import type { Pool } from 'pg';
@@ -43,7 +44,7 @@ export async function eventVideoResponse(c:Context,media:{bytes:Buffer;mime:stri
   return c.body(new Uint8Array(media.bytes.subarray(range.offset,range.offset+range.length)),plan.status);
 }
 
-export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSender,origin='') {
+export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSender,origin='',runtime?:Pick<PlatformRuntime,'eventBannerAssets'|'eventBannerAssetStore'>) {
   const app=new Hono<PlatformEnv>();
   const id=(raw:string)=>z.uuid().parse(raw);
   app.get('/events',async c=>c.json({items:await listEvents(pool,c.get('actor'))}));
@@ -52,7 +53,7 @@ export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSend
   app.get('/events/:id/referrals',async c=>c.json({items:await eventReferralReport(pool,c.get('actor'),id(c.req.param('id')))}));
   app.post('/events/:id/share-code',async c=>c.json(await getEventShareCode(pool,c.get('actor'),id(c.req.param('id')))));
   app.get('/events/:id/banner',async c=>{
-    const bytes=await readEventBanner(pool,c.get('actor'),id(c.req.param('id')));
+    const bytes=await readEventBanner(pool,c.get('actor'),id(c.req.param('id')),runtime?.eventBannerAssetStore);
     c.header('Content-Type','image/webp');c.header('Cache-Control','private, no-store');c.header('Vary','Cookie');c.header('Cross-Origin-Resource-Policy','same-origin');
     return c.body(new Uint8Array(bytes));
   });
@@ -64,7 +65,7 @@ export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSend
     await authRateLimit(pool,'event-banner-member',c.get('actor').user_id,12,60);
     const bytes=await boundedMedia(c.req.raw,BANNER_MAX_BYTES,'Banner 需為 512 KiB 以下。');
     const orientation=c.req.header('X-Poster-Orientation')??'landscape';requireCondition(orientation==='portrait'||orientation==='landscape',422,'invalid_orientation','海報方向不正確。');
-    const result=await saveEventBanner(pool,{actor:c.get('actor'),operation:`${c.req.method} ${c.req.path}`,key,expected:version.slice(1,-1),body:null},id(c.req.param('id')),{bytes,mime:c.req.header('Content-Type')!,orientation});
+    const result=await saveEventBanner(pool,{actor:c.get('actor'),operation:`${c.req.method} ${c.req.path}`,key,expected:version.slice(1,-1),body:null},id(c.req.param('id')),{bytes,mime:c.req.header('Content-Type')!,orientation},runtime?.eventBannerAssets);
     c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);
   });
   app.post('/events/:id/banner/remove',async c=>c.json(await saveEventBanner(pool,await moduleCommand(c),id(c.req.param('id')),null)));

@@ -1,3 +1,4 @@
+import type {EventBannerAssetService} from '../../../modules/assets/event-banner.js';
 import type { Context } from 'hono';
 import type { AdminAccessVerifier } from '../../../modules/platform-admin/access.js';
 import type { PasswordEmailSender } from '../../../modules/identity-membership/password-recovery.js';
@@ -40,6 +41,8 @@ export type PlatformRuntime = {
   /** Explicit installed cover lifecycle/read store; no ambient activation. */
   serviceCoverAssets?: ServiceCoverAssetService;
   serviceCoverAssetStore?: ObjectStore;
+  eventBannerAssets?:EventBannerAssetService;
+  eventBannerAssetStore?:ObjectStore;
   /** Explicit host-installed private Work/model product transport. No ambient
    * credentials or default Worker activation; it owns its bounded HTTP body. */
   privateAiProduct?: (request: Request) => Promise<Response>;

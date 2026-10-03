@@ -202,7 +202,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   });
   app.get('/api/v1/public/events/:id',async c=>c.json(await publicEvent(pool,z.uuid().parse(c.req.param('id')))));
   app.get('/api/v1/public/events/:id/banner',async c=>{
-    const bytes=await publicEventBanner(pool,z.uuid().parse(c.req.param('id')));
+    const bytes=await publicEventBanner(pool,z.uuid().parse(c.req.param('id')),runtime.eventBannerAssetStore);
     c.header('Content-Type','image/webp');c.header('Cache-Control','public, max-age=300');c.header('Cross-Origin-Resource-Policy','same-origin');
     return c.body(new Uint8Array(bytes));
   });
@@ -313,7 +313,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.post('/api/v1/engagements/:id/receipts',async c=>respond(c,await changeEngagement(pool,await cmd(c),routeId(c),'receipt'),201));
   app.route('/api/v1',createMemberRoutes(pool));
   app.route('/api/v1',createMemberCommunicationRoutes(pool));
-  app.route('/api/v1',createCommunityEventRoutes(pool,runtime.eventEmailSender,origin));
+  app.route('/api/v1',createCommunityEventRoutes(pool,runtime.eventEmailSender,origin,runtime));
   registerMemberPromotion(app,pool,runtime);
   registerMemberServices(app,pool,runtime);
   app.route('/api/v1',createEventHighlightMemberRoutes(pool));
