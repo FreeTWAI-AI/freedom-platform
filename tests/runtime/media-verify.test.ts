@@ -11,6 +11,12 @@ import {createR2ObjectStore,type AssetR2Binding} from '../../packages/asset-stor
 import {createEventVideoAssetService,resolveEventVideoUploadPolicy} from '../../modules/assets/event-video.js';
 import {tokenHash,type Actor} from '../../modules/identity-membership/service.js';
 import {sha256} from '../../packages/asset-storage/index.js';
+import sharp from 'sharp';
+import {createEventHighlightAssetService,resolveEventHighlightUploadPolicy} from '../../modules/assets/event-highlight.js';
+import {addHighlightImage,normalizeHighlightImage,highlightImageDigest} from '../../modules/community/event-highlights.js';
+import {createSkillImageAssetService} from '../../modules/assets/skill-image.js';
+import {issueSubmission,findUploadGrant,agentUploadSubmission} from '../../modules/skill-submissions/service.js';
+import {normalizeSubmission} from '../../modules/skill-submissions/payload.js';
 const url=process.env.TEST_DATABASE_URL;if(!url)throw new Error('Explicit isolated TEST_DATABASE_URL required');
 const owner=new Pool({connectionString:url}),database=new URL(url).pathname.slice(1),role=`fp_verify_role_${process.pid}_${Date.now()}`,schema=`fp_verify_${process.pid}_${Date.now()}`,full=`fp_verify_full_${process.pid}_${Date.now()}`,password=randomBytes(24).toString('hex');let reader:Pool,actual:Pool,mf:Miniflare,bucket:AssetR2Binding;
 const target=(s=schema):InventoryTarget=>({environment:'local',database,schema:s,role,releaseSha:'2'.repeat(40)}),hash=(v:Buffer)=>createHash('sha256').update(v).digest('hex'),safe=(e:unknown)=>e instanceof MediaVerifyError&&e.message==='media content verification is unavailable';
@@ -34,4 +40,31 @@ test('a view masquerading as source is rejected before its diagnostic function c
 
 test('a missing active highlight pair with zero byte rows cannot silently finish verified',async()=>{await clear();await owner.query(`INSERT INTO ${schema}.community_event_highlights VALUES($1,'photo','active')`,[randomUUID()]);const r=await verifyMedia(reader,{target:target()});assert.equal(r.scanComplete,true);assert.equal(r.records.length,0);assert.equal(r.verificationCompleteness,'incomplete');assert.equal(r.inventoryAnomalies.find(p=>p.profileId==='community.event-highlight')?.highlightDetails?.incompleteActivePairCount,'1');});
 test('real PostgreSQL lock wait honors query cap and rolls back without private diagnostics',async()=>{await clear();const blocker=await owner.connect();await blocker.query('BEGIN');await blocker.query(`LOCK TABLE ${schema}.member_avatars IN ACCESS EXCLUSIVE MODE`);try{const start=Date.now();await assert.rejects(verifyMedia(reader,{target:target(),limits:{statementTimeoutMs:50,maxDurationMs:1000}}),safe);assert.ok(Date.now()-start<1000);}finally{await blocker.query('ROLLBACK');blocker.release();}assert.equal((await reader.query("SELECT current_setting('transaction_read_only') AS ro")).rows[0].ro,'off');});
+test('genuine skill grant and atomic highlight pair verify all installed pointer variants; missing thumb never passes',async()=>{
+ const community=randomUUID(),user=randomUUID(),event=randomUUID(),token=randomBytes(32).toString('base64url'),origin='http://127.0.0.1:4310',store=createR2ObjectStore(bucket);
+ await actual.query('INSERT INTO communities VALUES($1,$2)',[community,'Synthetic new pointer verification']);
+ const actor=(await actual.query('INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[user,community,user+'@verify.local.test','Synthetic pointer owner','not-login-password',randomUUID()])).rows[0] as Actor;
+ actor.session_hash=tokenHash(token);actor.csrf_token='synthetic';
+ await actual.query("INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at) VALUES($1,$2,'synthetic',clock_timestamp()+interval '1 hour')",[actor.session_hash,user]);
+ await actual.query("UPDATE domain_media_storage_policy SET mode='bridge',persistence_allowed=true,policy_revision='synthetic-new-pointer-verify',retained_byte_limit=104857600 WHERE purpose IN ('skill.submission-image','community.event-highlight')");
+ const png=await sharp({create:{width:40,height:21,channels:3,background:'green'}}).png().toBuffer();
+ const issued=await issueSubmission(actual,{actor,operation:'POST /api/v1/me/skill-submissions',key:randomUUID(),body:{}},origin);
+ assert.ok(issued.upload_grant);const id=issued.submission.submission_id;
+ const grant=await findUploadGrant(actual,'Bearer '+issued.upload_grant.token,id);
+ const normalized=await normalizeSubmission({repository_url:'https://github.com/example/project',title:'Synthetic pointer skill',description:'Owned native fixture',use_notes:'Read README',demo_url:null,relationship:'author',share_introductions:Array.from({length:100},(_,i)=>`Synthetic introduction ${i+1}`),cover_image:{mime_type:'image/png',data_base64:png.toString('base64')}});
+ await agentUploadSubmission(actual,grant,normalized,origin,createSkillImageAssetService(actual,{store}));
+ await actual.query("INSERT INTO community_events(event_id,community_id,organizer_ref,title,description,starts_at,ends_at,mode,location,state,visibility,event_kind) VALUES($1,$2,$3,'Synthetic ended','Synthetic',clock_timestamp()-interval '2 days',clock_timestamp()-interval '1 day','online','Synthetic','published','open','other')",[event,community,user]);
+ const variants=await normalizeHighlightImage(png,'image/png','landscape'),api=createEventHighlightAssetService(actual,{store,resolvePolicy:resolveEventHighlightUploadPolicy});
+ const result=await addHighlightImage(actual,{actor,operation:`POST /api/v1/event-highlights/${event}/photos`,key:randomUUID(),body:highlightImageDigest(png,'landscape','Synthetic')},event,'photo',variants.image,variants.thumb,'landscape','Synthetic',api);
+ const good=await verifyMedia(reader,{target:target(full)},store),records=good.records.filter(r=>r.key[0]===id||r.key[0]===result.media_id);
+ assert.equal(records.length,3);assert.ok(records.every(r=>r.source==='asset'&&r.status==='asset_verified'&&r.byteSize===null&&r.provenance==='actual_object_full_sha256'));
+ assert.equal(records.find(r=>r.key[0]===id)?.objectSha256,hash(normalized.image!));
+ for(const variant of ['image','thumb'] as const)assert.equal(records.find(r=>r.key[1]===variant)?.objectSha256,hash(variants[variant]));
+ assert.equal(good.inventoryAnomalies.find(r=>r.profileId==='community.event-highlight')?.highlightDetails?.incompleteActivePairCount,'0');
+ assert.ok(!good.sourceUnavailable.includes('skill.submission-image'));assert.ok(!good.sourceUnavailable.includes('community.event-highlight'));
+ const nativeKey=(await actual.query("SELECT o.object_key FROM community_event_highlight_asset_targets t JOIN asset_objects o ON o.asset_id=t.thumb_asset_id WHERE t.media_id=$1",[result.media_id])).rows[0].object_key;
+ await bucket.delete(nativeKey);const bad=await verifyMedia(reader,{target:target(full)},store);
+ assert.equal(bad.records.find(r=>r.key[0]===result.media_id&&r.key[1]==='thumb')?.status,'asset_object_unavailable_or_corrupt');assert.equal(bad.verificationCompleteness,'incomplete');
+});
+
 test('object deadline stops a hanging read and cancels a late body without emitting its private error',async()=>{let resolve!: (value:any)=>void,cancelled=false;const native=createR2ObjectStore(bucket),store={...native,get:async()=>new Promise<any>(r=>{resolve=r;})};const verification=verifyMedia(reader,{target:target(full),limits:{maxDurationMs:300}},store);await assert.rejects(verification,safe);assert.ok(resolve,'actual asset read must reach the trusted port before deadline');resolve({metadata:{},body:new ReadableStream({cancel(){cancelled=true;}},{highWaterMark:0})});await new Promise<void>(r=>setImmediate(r));assert.equal(cancelled,true);});

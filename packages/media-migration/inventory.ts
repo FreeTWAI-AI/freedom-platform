@@ -311,8 +311,12 @@ async function inventoryHighlight(
   const image = groups.get('image');
   const thumb = groups.get('thumb');
   if (image === undefined || thumb === undefined) throw unavailable();
+  // Asset pairs retain both original variant rows with NULL legacy bytes.
+  // Count their structural pair here; verifyMedia separately checks typed ready
+  // pointers and actual objects before reporting content verification.
+  const assetParent = await hasColumns(client, schema, p.table, ['storage_source']);
   const exactlyOne = (param: string): string =>
-    `count(*) FILTER (WHERE ${v} = ${param}) = 1 AND count(*) FILTER (WHERE ${v} = ${param} AND octet_length(${bytes}) > 0) = 1`;
+    `count(*) FILTER (WHERE ${v} = ${param}) = 1 AND count(*) FILTER (WHERE ${v} = ${param} AND (octet_length(${bytes}) > 0${assetParent ? " OR p.storage_source='asset'" : ''})) = 1`;
   const row = await one(
     client,
     `SELECT

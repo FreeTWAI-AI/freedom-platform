@@ -6,7 +6,7 @@ import { loadManifest } from '../lib/manifest.mjs';
 import { evaluateReleaseCompatibility, compatibilityLedgerDigest } from '../lib/release-compatibility.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
-const media = ['media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1'];
+const media = ['media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1'];
 function fixture() {
   const scan = checkMigrations(`${root}migrations`, loadManifest().database_defaults.migrations);
   assert.equal(scan.ok, true);
@@ -56,8 +56,8 @@ for (const shape of media) test(`${shape} requires domain and policy support in 
   }
 });
 
-test('policy or video capability claims cannot replace missing100/101 or a restored lower schema', () => {
-  for (const [capability, missing] of [['media.server-policy.v1', 99], ['media.service-cover.asset.v1', 99], ['media.event-banner.asset.v1', 99], ['media.event-video.asset.v1', 100]]) {
+test('retained media capabilities cannot replace missing prerequisite migrations or a restored lower schema', () => {
+  for (const [capability, missing] of [['media.server-policy.v1', 99], ['media.service-cover.asset.v1', 99], ['media.event-banner.asset.v1', 99], ['media.event-video.asset.v1', 100], ['media.social-thumbnail.asset.v1', 101], ['media.skill-image.asset.v1', 102], ['media.event-highlight.asset.v1', 103]]) {
     const f = fixture(); prefix(f, missing); f.host.rollback_floor.capabilities = [capability];
     const result = run(f); assert.equal(result.status, 'incompatible');
     assert(result.issues.some(issue => issue.code === 'shape_schema_missing'));
@@ -77,7 +77,7 @@ test('written video floor cannot be removed by disabling the current installatio
 });
 
 test('uninstalled media purposes and changed SQL bytes cannot claim compatibility', () => {
-  const unknown = fixture(); unknown.input.enable_shapes = ['media.skill-image.asset.v1'];
+  const unknown = fixture(); unknown.input.enable_shapes = ['media.future-kind.asset.v1'];
   assert.equal(run(unknown).status, 'unavailable');
   const altered = fixture(); altered.host.observation.schema_ledger = structuredClone(altered.host.observation.schema_ledger);
   altered.host.observation.schema_ledger.at(-1).sha256 = 'e'.repeat(64);

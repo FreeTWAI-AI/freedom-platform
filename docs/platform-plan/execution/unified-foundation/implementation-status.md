@@ -1222,3 +1222,52 @@ Root 第一次整合 Worker 39/41 失敗保留：新 composition fixture 僅接�
 #108繼續是單一Draft整合入口。當時曾建議低耦合 PR 另行維護；Ted 隨後明確選擇先完成基底、暫不處理其他 PR，因此本輪不沿用該建議派工。沒有更改 GitHub repo 保護設定。
 
 Ted已授權沿 `feat/unified-foundation` 推送並更新同一Draft PR；merge、遠端trust／keys／rules、正式資料盤點與deployment仍需各自的具體發布條件及授權。Discord全文仍須逐則核准。
+
+## 2026-10-03 基底優先：七類 domain 接線與真實內容工具
+
+本批是基底優先的本機增量，沒有啟用 staging/live 或處理其他 PR。七類用途
+已有有限的原功能 adapter：頭像、供貨封面、活動 banner、影片、活動集錦
+主圖＋縮圖、手動社群縮圖及技能上傳圖。保留原 URL／DTO／會員 ACL／
+CAS（原功能有時才要求）與刪除行為；技能圖沿原 upload-grant，沒有偽造
+會員 session；活動集錦沿原任何社群會員可上傳已結束活動、本人／
+organizer／已驗證 admin 可移除的規則，兩個 Asset 同一交易發布。
+社群自動 preview writer 尚為 legacy，R2-only 對此用途仍明確拒絕。
+
+主 Worker 已 opt-in 安裝 cover／banner／video／skill／manual social；
+集錦主入口仍在接線。獨立 broker Worker 以真正 workerd、restricted SQL
+roles、KEK cipher vault、合成 HTTPS provider 及 native local R2 跑通。
+provider 與 R2 是本機合成證據，並不是雲端或真人模型驗收。
+
+Opus5.5／agy 實際產出 immutable backup transfer，Grok4.7 CLI 實際
+產出 Range planner；root 修正邊界、型別及授權再整合測試。前者進入
+exported PostgreSQL snapshot＋Asset refs／GC pins＋實際 pg_dump/pg_restore
+演練；後者進入原影片 route，保留 ACL、HEAD、Range／If-Range／416。
+目前 GC deletion claim 仍只支援頭像，不會因共用 backup refs 涵蓋
+其他用途而宣稱七類 GC 已完成。
+
+新增 `media:verify` 用受限唯讀 PG 角色、固定七來源／八變體、bounded
+actual SHA-256、fresh source/pointer recheck、cursor 及 baseline delta。
+內容不變但時間點跨 batch 不是一致 snapshot；MIME 是 stored writer
+provenance，沒有宣稱影像解碼、正式全量盤點或 remote bucket 已核對。
+root 補 skill 與 highlight Asset pointer，真正 grant upload 與原 paired
+API 的 native R2 物件核對、missing thumb 反例，與原 aggregate inventory
+合計 **25/25**；typecheck 通過。相同新 pointer 反例在未修 verifier
+的 `de699d2` 為12/13（錯漏技能 Asset record），修正後25/25全過。
+新增 release persisted capability floor 反例亦抓到104 prerequisite漏列，
+修正後發布相容性 **348/348**，失敗原始紀錄保留。
+
+固定 `a78f585` 第一輪完整 runtime 為 **2,475 pass／14 fail／0 skip**
+（2,489 cases），governance **250/250**；static native Worker 為49/50。
+失敗紀錄保留於 `.freedom/reports/base-foundation-first-a78/`。實際原因
+是 personal Asset INSERT 增加 broker 不可寫的欄位引發42501，以及三個
+舊權限 fixture 把新的 media policy SQL query 誤收進舊 SELECT。
+`19c29bc` 沿原 personal column defaults 修正，不擴大 broker 權限；
+`0c02c69` 用精確 SQL marker 保留原 assertions。六個受影響 runtime
+檔案 **42/42**，原 native broker case **1/1** 由失敗轉為通過。
+
+來源仍在整合後續增量，新的完整固定 SHA 結果需另列；前一輪的
+2,430 全過、上述 targeted 全過與作者各自結果都不代替本批完整回歸。
+CodeQL39 的 exact-head SARIF 資料流查核見
+[告警紀錄](../../../development/codeql-alert-39.md)，安全 gate 未自行
+dismiss。正式 publisher／baseline／GitHub enforcement、遠端 staging、
+七類全量搬遷與完整 restore acceptance 仍未完成。

@@ -62,6 +62,7 @@
     "contracts:member-model-settings": "tsx modules/agent-execution/generate-member-model-settings.ts",
     "check:member-model-settings": "tsx modules/agent-execution/generate-member-model-settings.ts --check",
     "media:inventory": "tsx scripts/media-inventory.ts",
+    "media:verify": "tsx scripts/media-verify.ts",
     "worker:dry-run:broker": "wrangler deploy --dry-run --config wrangler.broker.example.jsonc --env staging-next --outdir .wrangler/dry-run/broker-staging-next && wrangler deploy --dry-run --config wrangler.broker.example.jsonc --env next --outdir .wrangler/dry-run/broker-next",
     "check:broker-worker-candidate": "node deploy/cloudflare/broker-preflight.mjs",
     "test:media-restore": "node scripts/run-media-restore-test.mjs"
