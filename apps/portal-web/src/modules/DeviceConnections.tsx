@@ -341,7 +341,7 @@ export function DeviceConnections({ client, onChanged }: { client: PortalClient;
       {listMessage && <p className={listState === 'loading' ? 'muted' : 'banner banner-info'}>{listMessage}</p>}
       {connections && connections.length === 0 && listState === 'ready' && <p className='muted'>目前沒有本人的裝置連線。核准配對且裝置完成連線後，會顯示在這裡。</p>}
       {connections && connections.length > 0 && <>
-        <p className='field-hint'>共 {connections.length} 筆{listState === 'loading' ? ' · 更新中…' : ''}。「已到期」依本機時間推算，僅供參考；實際效力以伺服器紀錄為準。</p>
+        <p className='field-hint'>目前列出 {connections.length} 筆{listState === 'loading' ? ' · 更新中…' : ''}。「已到期」依本機時間推算，僅供參考；實際效力以伺服器紀錄為準。</p>
         <ul className='device-connections-list'>
           {connections.map((item, index) => <li key={item.connectionId}>
             <strong>{connectionLabel(item, now)}</strong>

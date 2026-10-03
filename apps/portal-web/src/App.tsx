@@ -686,6 +686,7 @@ function tabTitle(tab: TabId): string {
 
 function tabFromHash(): TabId {
   const value = window.location.hash.slice(1)
+  if(!value && window.location.pathname === '/device')return 'private-ai'
   if(value.startsWith('events/'))return 'events'
   if(value === 'highlights' || value.startsWith('highlights/'))return 'highlights'
   if(!value&&eventIdFromLocation())return 'events'

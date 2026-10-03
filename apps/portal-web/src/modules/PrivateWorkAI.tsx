@@ -5,6 +5,7 @@ import type { MemberModelHttpOverview } from '../../../../contracts/execution/v2
 import type { ModelStepApprovalMetadata, ModelStepMetadata } from '../../../../contracts/execution/v2/model-step';
 import './PrivateWorkAI.css';
 import { ModelSettings } from './ModelSettings';
+import { DeviceConnections } from './DeviceConnections';
 
 type Work = { work_item_id: string; title: string; objective: string; state: string; aggregate_version: number | string };
 type Run = { runId: string; workId: string; inputWorkVersion: string; aggregateVersion: string; state: string };
@@ -136,6 +137,7 @@ export function PrivateWorkAI({ client }: { client: PortalClient }) {
     {unresolved && <div className="banner banner-info"><p>{unresolved.label}的結果尚未確認；補送沿用同一請求與原版本。</p><div className="actions">
       <button type="button" className="btn btn-ghost" disabled={busy || loading} onClick={() => void submit(unresolved)}>以原請求確認結果</button>
     </div></div>}
+    <DeviceConnections client={client} onChanged={() => void refresh()}/>
     <ModelSettings client={client}/>
     <div className="private-ai-grid">
       <section className="card stack"><h2>建立與編輯工作</h2>

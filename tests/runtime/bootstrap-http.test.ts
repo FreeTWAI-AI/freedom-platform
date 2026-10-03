@@ -323,8 +323,8 @@ test('HTTP later crypto failure does not refund an independently committed reque
 test('HTTP production Node application keeps new machine and member routes closed without trust configuration',async()=>{
   const productionOrigin='http://127.0.0.1:4310',production=createApp(app,productionOrigin),m=await member();
   for(const path of [paths.begin,paths.token,paths.nonce,paths.inspect,paths.decide,paths.list+'/'+randomUUID()+':revoke'])
-    await expect(await production.request(productionOrigin+path,{method:'POST',headers:{'Content-Type':'application/json',...m.headers,Origin:productionOrigin},body:'{}'}),404);
-  await expect(await production.request(productionOrigin+paths.status),404);
+    await expect(await production.request(productionOrigin+path,{method:'POST',headers:{'Content-Type':'application/json',...m.headers,Origin:productionOrigin},body:'{}'}),503);
+  await expect(await production.request(productionOrigin+paths.status),503);
 });
 test('HTTP configuration snapshots trust, rejects getters without running them and has no injected verifier',async()=>{
   let invoked=false;
