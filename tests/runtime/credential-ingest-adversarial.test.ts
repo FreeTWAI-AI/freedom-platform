@@ -107,3 +107,36 @@ test('INGEST-ADV genuine main rotation accepts its own exact transition and orig
   const read=await httpsFetch(f.mainOrigin+'/api/v1/me/credential-ingests/'+bootstrap.authorizationRef,{headers:{Cookie:human.headers.Cookie}});assert.equal(read.status,200);const outcome=await read.json() as any;assert.equal(outcome.state,'committed');assert.equal(outcome.credential.modelConnectionId,replacement.modelConnectionId);assert.equal(outcome.operational_authority,false);
  }finally{await f.cleanup();}
 });
+
+test('INGEST-ADV actual parent app dispatches installed ingest and denies missing ports before reading the original stream',{timeout:60000},async()=>{
+ const f=await ingestFixture();try{
+  const {createApp}=await import('../../apps/platform-api/src/app.js');
+  const {createPrivateAiProductTransport,bindPrivateAiProductTransport}=await import('../../apps/platform-api/src/private-ai-product.js');
+  const {createCredentialIngestClient}=await import('../../apps/platform-api/src/credential-ingest-client.js');
+  const {createCredentialIngestAuthorizations}=await import('../../modules/agent-control/credential-ingest-authorizations.js');
+  const {createUnavailableModelStepHost}=await import('../../modules/agent-execution/model-step-host.js');
+  const {fileStore}=await import('./credential-ingest-fixtures/shared.js');
+  const origin='https://platform.test:5443',environment='staging-next' as const;
+  const authorizations=createCredentialIngestAuthorizations(f.app,{environment,clientId:profile.clientId,issuer:profile.issuer,audience:profile.audience,setupOrigin:f.setupOrigin,recover:async()=>({generation:'1',expiresAt:new Date(Date.now()+60000).toISOString()})});
+  const ingest=await createCredentialIngestClient(f.app,{origin,environment,clientId:profile.clientId,setupOrigin:f.setupOrigin,issuer:profile.issuer,audience:profile.audience,keyId:'parent-ingest-1',signingKey:f.ingestKeys.privateKey,authorizations});
+  const options={origin,environment,clientId:profile.clientId,host:createUnavailableModelStepHost(),store:fileStore(f.directory)};
+  const product=await createPrivateAiProductTransport(f.app,{...options,ingest}),withoutIngest=await createPrivateAiProductTransport(f.app,options);
+  const direct=bindPrivateAiProductTransport(product,f.app,origin,'staging');
+  const installed=createApp(f.app,origin,'staging',{privateAiProduct:product}),missingProduct=createApp(f.app,origin,'staging'),missingIngest=createApp(f.app,origin,'staging',{privateAiProduct:withoutIngest});
+  const facts:any[]=[];
+  for(const [name,app,expected]of [['installed',installed,401],['missing-product',missingProduct,503],['missing-ingest',missingIngest,503]] as const){
+   for(const method of ['GET','POST'] as const){
+    let pulls=0;const path='/api/v1/me/credential-ingests'+(method==='GET'?'/'+randomUUID():'');
+    const headers={Origin:origin,'Content-Type':'application/json','Idempotency-Key':randomUUID(),'If-Match':'"1"'};
+    const request=new Request(origin+path,{method,headers:method==='POST'?headers:{},...(method==='POST'?{body:new ReadableStream<Uint8Array>({pull(controller){pulls++;controller.enqueue(new TextEncoder().encode('{}'));controller.close();}},{highWaterMark:0}),duplex:'half'}:{})} as RequestInit);
+    let childBody:any;
+    if(name==='installed'){const baseline=await direct(new Request(origin+path,{method,headers:method==='POST'?headers:{}}));assert.equal(baseline.status,401);childBody=await baseline.json();assert.equal(childBody.code,'login_required');}
+    const response=await app.fetch(request),body=await response.text();facts.push({name,method,status:response.status,expected,pulls,body,childBody,dispatchMatches:childBody===undefined||JSON.stringify(childBody)===body});
+   }
+  }
+  // Collect all actual parent outcomes before asserting so the RED receipt also
+  // records both missing-port paths and their original stream pulls.
+  assert(facts.every(row=>row.status===row.expected&&row.pulls===0&&row.dispatchMatches),JSON.stringify(facts));
+  for(const row of facts)if(row.name==='installed')assert.equal(JSON.parse(row.body).code,'login_required');
+ }finally{await f.cleanup();}
+});
