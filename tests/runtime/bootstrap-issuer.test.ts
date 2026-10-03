@@ -94,3 +94,9 @@ test('every token is verified back against the configured public key after signi
   try { assert.equal(await issuer.issue(input), null); }
   finally { crypto.subtle.sign = original; }
 });
+
+test('native exportability cannot be hidden by own metadata shadows', async () => {
+  const key = await generateKeyPair('ES256', { extractable: true });
+  Object.defineProperty(key.privateKey, 'extractable', { value: false, enumerable: true, configurable: true });
+  await assert.rejects(createBootstrapTokenIssuer({ ...configuration, signingKey: key.privateKey }), BootstrapIssuerError);
+});

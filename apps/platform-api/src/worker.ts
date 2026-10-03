@@ -14,6 +14,7 @@ import { assertDatabaseReady, ReadinessError } from './readiness.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 import { GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories } from '../../../modules/community/github-sync.js';
 import {refreshGuildDiscoveryReports} from '../../../modules/community/guild-discovery.js';
+import { workerPrivateAiPorts,type WorkerPrivateAiBindings } from './worker-private-ai.js';
 import {guildReviewerFromBindings,type GuildReviewBindings} from './guild-review.js';
 
 /**
@@ -31,7 +32,7 @@ import {guildReviewerFromBindings,type GuildReviewBindings} from './guild-review
  * Secrets arrive as bindings and are only passed into explicit per-request
  * options; process.env is never read or written here.
  */
-export interface WorkerEnv extends GuildReviewBindings {
+export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   HYPERDRIVE: { readonly connectionString: string };
   ASSETS: { fetch(request: Request): Promise<Response> };
   IMAGES?: ImagesBinding;
@@ -221,7 +222,9 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
           }
           verified.add(env);
         }
-        const app = createPlatformApp(pool, config.origin, config.freedomEnv, workerRuntime(env, config));
+        const runtime=workerRuntime(env,config),privateAi=await workerPrivateAiPorts(pool,env,config);
+        if(privateAi)Object.assign(runtime,privateAi);
+        const app = createPlatformApp(pool, config.origin, config.freedomEnv, runtime);
         mountAssets(app, env.ASSETS);
         return await scope(env, async () => app.fetch(request, env, ctx as never));
       } catch (error) {

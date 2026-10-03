@@ -27,10 +27,24 @@ export async function createBootstrapTokenIssuer(configuration: BootstrapTokenIs
     kid = BootstrapAccessHeaderSchema.shape.kid.parse(descriptors.kid.value);
     signingKey = descriptors.signingKey.value!;
     createBootstrapProofVerifier(host);
-    if (!(signingKey instanceof CryptoKey) || Reflect.ownKeys(signingKey).length !== 0
-      || signingKey.type !== 'private' || signingKey.extractable
-      || signingKey.algorithm.name !== 'ECDSA' || (signingKey.algorithm as EcKeyAlgorithm).namedCurve !== 'P-256'
-      || signingKey.usages.length !== 1 || signingKey.usages[0] !== 'sign') throw new Error();
+    const ownKeyFields = Reflect.ownKeys(signingKey);
+    const nativeGetters = Object.getOwnPropertyDescriptor(CryptoKey.prototype, 'extractable')?.get;
+    const workerMetadata = ['algorithm', 'extractable', 'type', 'usages'];
+    if (!(signingKey instanceof CryptoKey)
+      || (nativeGetters ? ownKeyFields.length !== 0 : ownKeyFields.length !== 4
+        || ownKeyFields.some(field => typeof field !== 'string' || !workerMetadata.includes(field))
+        || Object.values(Object.getOwnPropertyDescriptors(signingKey)).some(d => !('value' in d) || d.writable || !d.enumerable))
+      || signingKey.type !== 'private' || signingKey.extractable) throw new Error();
+    const algorithm = snapshotInput(signingKey.algorithm) as {name?: unknown; namedCurve?: unknown};
+    const usages = snapshotInput(signingKey.usages) as unknown[];
+    if (Object.keys(algorithm).sort().join(',') !== 'name,namedCurve'
+      || algorithm.name !== 'ECDSA' || algorithm.namedCurve !== 'P-256'
+      || usages.length !== 1 || usages[0] !== 'sign') throw new Error();
+    // Native Worker metadata is own data, and may be shadowed even on a genuine
+    // handle. Verify nonextractability through a native operation as well.
+    let exported: ArrayBuffer | undefined;
+    try { exported = await crypto.subtle.exportKey('pkcs8', signingKey); } catch { /* Required native refusal. */ }
+    if (exported) { new Uint8Array(exported).fill(0); throw new Error(); }
     const descriptor = host.keys.find(key => key.kid === kid);
     if (!descriptor || descriptor.revoked) throw new Error();
     publicKey = await importJWK(parseRuntimePublicJwk(descriptor.publicJwk), 'ES256') as CryptoKey;

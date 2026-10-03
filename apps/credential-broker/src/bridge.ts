@@ -16,6 +16,7 @@ export interface BrokerBridgeOptions {
   responseSigningKey: CryptoKey; responseKeyId: string;
   authorizations: ReturnType<typeof createModelBrokerAuthorizations>; execution: BrokerModelExecution;
 }
+const genuineBridges=new WeakSet<object>();
 function denied(): never { throw new Problem(403, 'model_broker_authorization_invalid', 'Broker authorization is invalid.'); }
 function segment(raw: string, maximum: number): Uint8Array {
   if (!/^[A-Za-z0-9_-]+$(?![\s\S])/.test(raw) || raw.length > Math.ceil(maximum * 4 / 3)) denied();
@@ -64,7 +65,7 @@ export async function createBrokerBridge(options: BrokerBridgeOptions) {
   const separation = new TextEncoder().encode('freedom/model-broker/key-direction-separation/v1');
   const signature = await crypto.subtle.sign('Ed25519', responseSigningKey, separation);
   for (const key of keys.values()) if (await crypto.subtle.verify('Ed25519', key, signature, separation)) configuration();
-  return Object.freeze({
+  const bridge=Object.freeze({
     async handle(raw: unknown): Promise<ModelBrokerResponseEnvelope> {
       let payload: ModelBrokerAssertionPayload;
       try {
@@ -104,5 +105,9 @@ export async function createBrokerBridge(options: BrokerBridgeOptions) {
       return freezeTree(ModelBrokerResponseEnvelopeSchema.parse({ response: compact }));
     },
   });
+  genuineBridges.add(bridge);return bridge;
+}
+export function assertGenuineBrokerBridge(bridge:BrokerBridge):void {
+  if(!bridge||typeof bridge!=='object'||!genuineBridges.has(bridge))throw new Problem(503,'model_broker_unavailable','Broker ports are unavailable.');
 }
 export type BrokerBridge = Awaited<ReturnType<typeof createBrokerBridge>>;

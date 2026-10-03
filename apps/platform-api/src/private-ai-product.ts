@@ -20,7 +20,7 @@ import { createMemberCredentialIngestHttpTransport } from './routes/member-crede
 import { assertOriginAllowed, type FreedomEnv } from './env.js';
 
 declare const privateAiProductBrand: unique symbol;
-/** Node-only host composition. JSON cannot construct this server port. */
+/** Genuine host composition. Workers install signed broker mode only; JSON cannot construct this server port. */
 export interface PrivateAiProductTransport { readonly [privateAiProductBrand]: never }
 export type PrivateAiBootstrapInstallation = { host: DeviceAuthorizationHost; signingKey: CryptoKey };
 type Product = { pool: Pool; origin: string; freedomEnv: FreedomEnv; setupOrigin?: string; fetch: (request: Request) => Promise<Response> };
