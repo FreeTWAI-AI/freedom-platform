@@ -5784,8 +5784,8 @@
     },
     {
       "path": "packages/asset-storage/freedom.module.json",
-      "bytes": 982,
-      "sha256": "8752813dd420fa6e44c585aab6b014f7a3f44a3e5d025e811c54a3517e1e618f"
+      "bytes": 1071,
+      "sha256": "8a86e78a340986a7193786d6d9c7a7668e5b6530d3505789b4453cc0f230eb65"
     },
     {
       "path": "packages/asset-storage/index.ts",
@@ -5974,8 +5974,8 @@
     },
     {
       "path": "packages/contribution-tools/test/github-trusted-adapter.test.mjs",
-      "bytes": 9891,
-      "sha256": "17455f34fd3e6c33644f8fecce5e1ace74839256b493ce9a62b9c1c1c43923a1"
+      "bytes": 10025,
+      "sha256": "f61755c2f860e909c9101280bd94912282ac76cacb09df9696ae64150e1530a8"
     },
     {
       "path": "packages/contribution-tools/test/io.test.mjs",
@@ -5999,8 +5999,8 @@
     },
     {
       "path": "packages/contribution-tools/test/trusted-ci.test.mjs",
-      "bytes": 15229,
-      "sha256": "6fa93d4861ab5064e5bf68d830aa89569c05c4dd23fcdc70c010a09a9d80f256"
+      "bytes": 16212,
+      "sha256": "83c9f31c7ecb351b3eb7e9774f9838350cb7e1822d8321fdf45439d9d986c5cb"
     },
     {
       "path": "packages/contribution-tools/test-reporter.mjs",
@@ -6009,8 +6009,8 @@
     },
     {
       "path": "packages/contribution-tools/trusted-ci.mjs",
-      "bytes": 17954,
-      "sha256": "639aa960aed2a8f18eba647723f024eadd86eba245556c726d159193748c8eb0"
+      "bytes": 18183,
+      "sha256": "3761abeaf052fd3ec079c16a6f08c1a5c94b5e36150e75a4971ac6d92041fc14"
     },
     {
       "path": "packages/contribution-tools/verify.mjs",
@@ -7821,6 +7821,16 @@
       "path": "tests/worker/maintainer-scheduled.test.ts",
       "bytes": 6884,
       "sha256": "5ae288f8d77a75e2fcc4ba7b71544d2304ef8094c19b1d8bf92b53e4ea61ee83"
+    },
+    {
+      "path": "tests/worker/media-object-fixtures/io.ts",
+      "bytes": 3807,
+      "sha256": "ddecefda80ef4b96ccc0c835cadd20a248534aa8df4c2fe221584cdd686208d5"
+    },
+    {
+      "path": "tests/worker/media-object-io.test.ts",
+      "bytes": 2520,
+      "sha256": "727c8ccb3c33838f2f43323ccd2697fe2d5d71b36edf537bf0c565ac445dbe69"
     },
     {
       "path": "tests/worker/private-ai-composition.test.ts",

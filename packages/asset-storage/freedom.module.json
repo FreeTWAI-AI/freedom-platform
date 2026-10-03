@@ -6,7 +6,9 @@
     "packages/asset-storage/**",
     "tests/runtime/asset-storage.test.ts",
     "tests/runtime/asset-r2.test.ts",
-    "tests/runtime/asset-media-profiles.test.ts"
+    "tests/runtime/asset-media-profiles.test.ts",
+    "tests/worker/media-object-io.test.ts",
+    "tests/worker/media-object-fixtures/**"
   ],
   "public_exports": [
     "packages/asset-storage/index.ts",
