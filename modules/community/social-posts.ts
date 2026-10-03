@@ -99,15 +99,20 @@ export async function activeSocialPostId(pool: Pool, communityId: string, url: s
   return (row?.post_id as string | undefined) ?? null;
 }
 
-function prepared(raw: unknown, preview: LinkPreview, publicOrigin: string) {
+export function preparedSocialPost(raw: unknown, preview: LinkPreview, publicOrigin: string) {
   const draft = socialPostDraft(raw, publicOrigin);
   const title = (draft.submitted || preview.title || draft.normalized.host).slice(0, 120);
   requireCondition(title.length >= 1, 422, 'validation_failed', '請填寫標題。');
   return { normalized: draft.normalized, title, note: draft.note };
 }
 
-export async function createSocialPost(pool: Pool, inputCommand: Command, preview: LinkPreview, now = new Date(), publicOrigin = 'https://freetwai.com') {
-  const draft = prepared(inputCommand.body, preview, publicOrigin);
+export async function createSocialPost(pool: Pool, inputCommand: Command, preview: LinkPreview, now = new Date(), publicOrigin = 'https://freetwai.com',assets?:SocialThumbnailAssetService) {
+  const draft = preparedSocialPost(inputCommand.body, preview, publicOrigin);
+  if(await socialThumbnailStorageMode(pool)!=='legacy'){
+    if(preview.image&&preview.source){requireCondition(assets,503,'media_upload_unavailable','縮圖上傳暫時無法使用。');try{return await assets.createPost(inputCommand,preview,now,publicOrigin);}catch(error){if((error as {code?:string}).code==='23505'){const existing=await activeSocialPostId(pool,inputCommand.actor.community_id,draft.normalized.url);if(existing)throw new SocialPostExists(existing);}throw error;}}
+    const pending=(await pool.query('SELECT 1 FROM community_social_thumbnail_asset_targets WHERE create_key=$1 AND owner_user_id=$2',[commandDigest({key:inputCommand.key,operation:inputCommand.operation}),inputCommand.actor.user_id])).rowCount;
+    requireCondition(!pending,503,'media_upload_unavailable','預覽來源暫時無法取得，請稍後重試。');
+  }
   try {
     return await command(pool, inputCommand, async () => {}, async q => {
       const existing = (await q.query(`SELECT post_id FROM community_social_posts WHERE community_id=$1 AND url=$2 AND state='active'`, [inputCommand.actor.community_id, draft.normalized.url])).rows[0];
@@ -131,6 +136,14 @@ export async function createSocialPost(pool: Pool, inputCommand: Command, previe
   }
 }
 
+export async function authorizeSocialCreate(q:Pick<Pool,'query'>,actor:Actor,draft:ReturnType<typeof preparedSocialPost>,now:Date){
+ const existing=(await q.query("SELECT post_id FROM community_social_posts WHERE community_id=$1 AND url=$2 AND state='active'",[actor.community_id,draft.normalized.url])).rows[0];if(existing)throw new SocialPostExists(existing.post_id);
+ const used=(await q.query('SELECT count(*)::int AS n FROM community_social_posts WHERE author_user_id=$1 AND created_at>=$2',[actor.user_id,taipeiDayStart(now)])).rows[0].n;requireCondition(used<POST_CAP,429,'social_post_limit','今天分享的貼文已達上限。');
+}
+export async function publishSocialCreate(q:PoolClient,actor:Actor,id:string,draft:ReturnType<typeof preparedSocialPost>,now:Date){
+ await authorizeSocialCreate(q,actor,draft,now);await q.query("INSERT INTO community_social_posts(post_id,community_id,author_user_id,url,platform,title,note,state,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,'active',$8,$8)",[id,actor.community_id,actor.user_id,draft.normalized.url,draft.normalized.platform,draft.title,draft.note,now]);
+}
+export {shownSocial};
 async function owned(q: Pick<Pool, 'query'>, actor: Actor, id: string, lock = false) {
   const row = (await q.query(`SELECT post_id,author_user_id,state,media_version FROM community_social_posts WHERE post_id=$1 AND community_id=$2${lock ? ' FOR UPDATE' : ''}`, [id, actor.community_id])).rows[0];
   requireCondition(row, 404, 'not_found', '找不到這則貼文。');

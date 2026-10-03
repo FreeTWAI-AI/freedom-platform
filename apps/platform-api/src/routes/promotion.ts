@@ -102,7 +102,7 @@ export function registerMemberPromotion(app: Hono<PlatformEnv>, pool: Pool, runt
     }
     await authRateLimit(pool, 'social-post-preview', commandInput.actor.user_id, 30, 3600);
     const preview = await previewLink(draft.normalized.url, previewFetch(runtime));
-    try { return c.json(await createSocialPost(pool, commandInput, preview, clock(runtime), runtime.publicOrigin), 201); }
+    try { return c.json(await createSocialPost(pool, commandInput, preview, clock(runtime), runtime.publicOrigin,runtime.socialThumbnailAssets), 201); }
     catch (error) {
       if (error instanceof SocialPostExists) return c.json({ type: 'about:blank', title: 'social_post_exists', status: 409, code: 'social_post_exists', detail: '這則貼文已經有人分享過了。', post_id: error.post_id }, 409);
       throw error;
