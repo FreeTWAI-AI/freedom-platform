@@ -52,6 +52,16 @@ import {checkServiceCoverHeaders,isServiceCoverUpload,registerMemberServices,reg
 import {publicMemberCard,publicMemberAvatar} from '../../../modules/identity-membership/member-sharing.js';
 
 const COOKIE='freedom_local_session';
+const privateAiFamilies=['private-work','execution-runs','model-connections','execution-grants','execution-attempts',
+  'model-step-overview','model-step-approvals','model-steps'];
+function isPrivateAiPath(path:string) {
+  return privateAiFamilies.some(family=>{const base='/api/v1/me/'+family;return path===base||path.startsWith(base+'/')||path.startsWith(base+':');});
+}
+function isModelStepPath(path:string) {
+  return ['model-step-overview','model-step-approvals','model-steps'].some(family=>{
+    const base='/api/v1/me/'+family;return path===base||path.startsWith(base+'/')||path.startsWith(base+':');
+  });
+}
 function onboardingAllowed(path:string,method:string) {
   if(path==='/api/v1/me/client-errors'&&method==='POST')return true;
   if(path==='/api/v1/events'&&method==='POST')return true;
@@ -106,6 +116,16 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     if(isMemberCardPage(c.req.path))c.header('X-Robots-Tag','noindex, nofollow');
     const githubSetupForm=c.req.path==='/admin'||c.req.path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI-AI/settings/apps/new':'';
     c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm);
+    // These host-installed child transports authorize and bound the ORIGINAL
+    // request body. The legacy generic text reader must not consume it first.
+    if(isPrivateAiPath(c.req.path)&&runtime.privateAiProduct)return runtime.privateAiProduct(c.req.raw);
+    if(isModelStepPath(c.req.path)) {
+      c.header('Cache-Control','private, no-store');c.header('Pragma','no-cache');
+      c.header('Vary','Origin, Cookie, Authorization, DPoP');c.header('X-Robots-Tag','noindex, nofollow');
+      c.header('Cross-Origin-Resource-Policy','same-origin');
+      return c.json({type:'about:blank',title:'private_ai_product_unavailable',status:503,
+        code:'private_ai_product_unavailable',detail:'私人 AI 草稿服務尚未設定。'},503);
+    }
     if(!['GET','HEAD','OPTIONS'].includes(c.req.method)) {
       const agentUpload=isAgentSkillUploadPath(c.req.method,c.req.path)||isAgentDevelopmentPath(c.req.method,c.req.path);
       // Only the narrow Bearer-authenticated Agent endpoints accept a CLI

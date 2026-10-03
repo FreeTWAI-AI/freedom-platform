@@ -10,6 +10,11 @@ import type { GitHubSocialOptions } from './routes/github-social.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 import type { PasswordEmailSender } from '../../../modules/identity-membership/password-recovery.js';
 import type { EventEmailSender } from '../../../modules/community/events.js';
+import { bindPrivateAiProductTransport, type PrivateAiProductTransport } from './private-ai-product.js';
+
+type NodeAppOptions = {adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;
+  eventEmailSender?:EventEmailSender;maintainerWebhookSecret?:string;now?:()=>Date;avatarAssetStore?:PlatformRuntime['avatarAssetStore'];
+  linkPreviewFetch?:PlatformRuntime['linkPreviewFetch'];privateAiProduct?:PrivateAiProductTransport};
 
 // Node host adapter. The Worker bundle never imports this module, so the
 // socket-based address below is only ever read from a real Node server.
@@ -22,7 +27,7 @@ function authNetwork(c:Context) {
 }
 
 /** Node runtime: settings are read from process configuration when used, as before. */
-export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:{adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;eventEmailSender?:EventEmailSender;maintainerWebhookSecret?:string;now?:()=>Date;avatarAssetStore?:PlatformRuntime['avatarAssetStore'];linkPreviewFetch?:PlatformRuntime['linkPreviewFetch']}={}):PlatformRuntime {
+export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<NodeAppOptions,'privateAiProduct'>={}):PlatformRuntime {
   return {
     registrationCommunityId:()=>process.env.FREEDOM_REGISTRATION_COMMUNITY_ID,
     githubTokenKey:()=>options.githubSocial?.tokenKey??process.env.GITHUB_SOCIAL_TOKEN_KEY,
@@ -40,6 +45,8 @@ export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:{adminVe
   };
 }
 
-export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:FreedomEnv='local',options:{adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;eventEmailSender?:EventEmailSender;maintainerWebhookSecret?:string;now?:()=>Date;avatarAssetStore?:PlatformRuntime['avatarAssetStore'];linkPreviewFetch?:PlatformRuntime['linkPreviewFetch']}={}) {
-  return createPlatformApp(pool,origin,freedomEnv,nodeRuntime(freedomEnv,origin,options),{githubSocial:options.githubSocial});
+export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:FreedomEnv='local',options:NodeAppOptions={}) {
+  const runtime=nodeRuntime(freedomEnv,origin,options);
+  if(options.privateAiProduct!==undefined)runtime.privateAiProduct=bindPrivateAiProductTransport(options.privateAiProduct,pool,origin,freedomEnv);
+  return createPlatformApp(pool,origin,freedomEnv,runtime,{githubSocial:options.githubSocial});
 }

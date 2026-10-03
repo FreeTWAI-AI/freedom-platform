@@ -50,7 +50,9 @@
     "contracts:member-execution-http": "tsx modules/agent-execution/generate-member-execution-http.ts",
     "check:member-execution-http": "tsx modules/agent-execution/generate-member-execution-http.ts --check",
     "contracts:model-step": "tsx modules/agent-execution/generate-model-step.ts",
-    "check:model-step-contracts": "tsx modules/agent-execution/generate-model-step.ts --check"
+    "check:model-step-contracts": "tsx modules/agent-execution/generate-model-step.ts --check",
+    "contracts:member-model-http": "tsx modules/agent-execution/generate-member-model-http.ts",
+    "check:member-model-http": "tsx modules/agent-execution/generate-member-model-http.ts --check"
   },
   "dependencies": {
     "@hono/node-server": "2.1.1",

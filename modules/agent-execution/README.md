@@ -214,7 +214,11 @@ do not claim authenticated provider inference.
 adds explicit operator export policy/member approval, a real active Attempt and
 running Run, a one-use dispatched journal, bounded fixed HTTPS BYOK host,
 private model Result through the Asset lifecycle and shared human/model history.
-The local fixture origin is explicitly synthetic. No route, native subscription
-execution, ambient credential, production recovery source or deployment is enabled.
+The local fixture origin is explicitly synthetic.
+[17](../../docs/platform-plan/execution/unified-foundation/17-private-ai-product.md)
+adds a member UI and an explicit opaque Node product transport installation;
+default Node/Worker hosts stay unavailable without configured ports. Native
+subscription execution, ambient credentials, production recovery and deployment
+are not enabled.
 The older closed Run API returns `execution_run_profile_required` for this profile;
 use ModelStep read/control ports. Public metadata never carries operational authority.

@@ -36,6 +36,9 @@ export type PlatformRuntime = {
   guildReviewer?: GuildReviewer;
   /** Explicit server port; absent keeps asset-backed reads unavailable. No mode activation. */
   avatarAssetStore?: ObjectStore;
+  /** Explicit host-installed private Work/model product transport. No ambient
+   * credentials or default Worker activation; it owns its bounded HTTP body. */
+  privateAiProduct?: (request: Request) => Promise<Response>;
   /** Extra non-secret fields merged into /api/v1/health. */
   health?: Readonly<Record<string, string | null>>;
   /** Clock for promotion days. Tests inject a fixed instant. */

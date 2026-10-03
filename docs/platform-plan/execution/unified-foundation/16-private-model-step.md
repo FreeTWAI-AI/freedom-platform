@@ -3,8 +3,9 @@
 本批沿 [04](04-execution-adapters-release.md)、[13](13-member-execution-prerequisites.md)
 及 [15](15-model-adapter-cores.md) 接完整的本機垂直流程：本人明確同意資料出口、
 目前的配對與 Grant、實際 active Attempt／running Run、一次性派送、受限文字
-transport、Asset 儲存及有模型來源的私人 Result。此服務沒有 HTTP 註冊或 UI；
-既有 v1 HTTP 仍管理未執行的前置紀錄，不能啟用這個 profile。
+transport、Asset 儲存及有模型來源的私人 Result。本批核心原先沒有 HTTP/UI；
+後續 [17](17-private-ai-product.md) 接會員畫面及明確 Node host 安裝。既有 v1 Run
+DTO 仍管理前置紀錄，不能承載 running profile；新 ModelStep 契約獨立處理。
 
 合成 loopback fixture 使用真實 HTTP、PostgreSQL、會員簽章配對及 ObjectStore
 bytes，但來源必須標為 `synthetic_local_fixture`。這不是正式 provider 成功、

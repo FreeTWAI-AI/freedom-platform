@@ -33,7 +33,7 @@ const safeCodes = new Set(['host_rejected','origin_rejected','method_not_allowed
   'version_required','invalid_version','read_headers_rejected','member_execution_http_unavailable','member_execution_http_rate_limited',
   'login_required','session_expired','csrf_rejected','onboarding_required','not_found','principal_disabled','scope_disabled',
   'foundation_mapping_unavailable','scope_kind_unavailable','personal_scope_required','idempotency_conflict','version_conflict',
-  'private_work_archived','private_work_policy_unavailable','execution_run_terminal','execution_run_version_exhausted',
+  'private_work_archived','private_work_policy_unavailable','execution_run_terminal','execution_run_version_exhausted','execution_run_profile_required',
   'execution_backing_unavailable','execution_binding_stale','execution_binding_mismatch','execution_prerequisite_limit',
   'execution_attempt_limit','execution_version_exhausted']);
 function security(c: Context<PlatformEnv>) {
@@ -53,7 +53,8 @@ function version(c: Context<PlatformEnv>): string {
     400,'invalid_version','Invalid version.'); return value.slice(1,-1);
 }
 
-/** Closed member metadata transport; deliberately absent from app/Node/Worker mounts.
+/** Closed-profile member metadata transport. Explicit Node product ports may
+ * install it; default Node/Worker hosts remain unconfigured.
  * Options are trusted server configuration, never body-controlled execution ports. */
 export async function createMemberExecutionHttpTransport(pool: Pool, options: {
   origin: string; environment: RuntimeEnvironment; clientId: string; sourceNetwork?: (request: Request) => string; grantTtlSeconds?: number;

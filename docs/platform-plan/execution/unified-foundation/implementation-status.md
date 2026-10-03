@@ -775,13 +775,37 @@ fixture 推定真人 provider／跨端／正式發布已驗收。文件交付另
 hashes、823 本機連結、0 failures** 及 `git diff --check`；完整 runtime 證據綁
 上述 source commit，文件提交沒有重跑或取代該份證據。
 
+## 本批：私人 AI 的會員 HTTP 與畫面
+
+沿 [17](17-private-ai-product.md) 接完成本人私人工作建立／編輯、current/history、
+model Grant、明確逐次出口批准、active Attempt／單次執行／暫停／停止／撤銷的
+會員入口。三個 GPT-6.1 Sol 工作位負責 HTTP、UI、獨立反例；主 agent 組合實際
+Node app、普通 runtime role 的瀏覽器 fixture、設計／來源紀錄與全套驗證。
+
+目前定向驗證：作者 HTTP **6/6**，獨立 HTTP **13/13**，與兩個既有私人 HTTP
+suite 合跑 **52/52**；shared client **18/18**。瀏覽器以真實 app／隔離 SQL／
+合成 loopback provider 完成 **5/5**，未設定服務另跑 **1/1**，沒有 skipped。
+同 key 補送沒有新增 provider POST 或 Result；結果遺失、新版本、政策撤回與
+重載後的 Stop/revoke 均有實際案例。1440／768／390 截圖、無 overflow 與三項
+標準頁面工具已驗證。沒有真實 provider、付費、金鑰或產品本人端驗收。
+
+交叉審查實際重現測試 shutdown 可能刪除同名既有 role：修正後相同 countercase
+保留既有合成角色並清理自有 schema；選用證據檔寫入失敗也不再阻止必要清理。
+既有 32 KiB Unicode 正例曾因 32,768 個單 byte chunks 超過新增 128 chunk 上限
+失敗；保留原失敗紀錄，正例改成 108 chunks，負例仍驗 129 chunks 拒絕。沒有
+放寬 production 資源界線。歷史 Step metadata 在政策撤回後仍可供本人控制，是
+契約澄清；私人 Work title/objective、Result 文字及新效果仍被當前政策阻擋。
+
+固定 source commit、標準完整回歸、發布／Worker 與隔離環境收尾證據待本批完整
+驗證後補入，定向綠燈不當作全套通過。新加的是中央契約／Node conditional
+product composition 與 UI，076–094 migration bytes 未改；staging/live 未動。
+
 ## 下一批
 
-[16](16-private-model-step.md) 已接本機單步文字垂直流程；下一批優先接產品的
-Work/Run HTTP 及畫面、明確出口批准與新版暫停/停止控制。HTTP 必須沿既有用途、
-本人 cookie/CSRF、來源、限流、有界 JSON/CAS 與原 receipt 規則，不能接受 caller
-provider URL、credential、policy 或 ready boolean。其後是正式 vault/recovery
-信任來源與受批准 exact provider/model 的本人端驗收，以及訂閱 native host、
+[17](17-private-ai-product.md) 已接本機會員 HTTP、畫面及單步私人 AI 成果。
+下一批優先補正式 vault/recovery 信任來源、明確模型與憑證設定及受批准 exact
+provider/model 的本人端驗收；不得把合成 fixture 的認證／成本／恢復 generation
+當作真實來源。其後是訂閱 native host、
 機器 execution auth、heartbeat/reconciliation、多步調度、媒體/跨端與可信治理。
 沒有把 codefactory/local fixture 當正式服務可用，也不重用 storefront/supplier 的
 `fw_read` 連線。

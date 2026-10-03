@@ -203,10 +203,17 @@ test('HTTP-13 exact32KiB body, split Unicode bytes and escaped field names retai
   const f = await member(), router = app();
   const value = JSON.stringify({ title: 'Human 😀 title', objective: '人類目的' }).replace('"title"', '"ti\\u0074le"');
   const bytes = new TextEncoder().encode(value+' '.repeat(32768-Buffer.byteLength(value)));
-  let index = 0;
-  const stream = new ReadableStream<Uint8Array>({ pull(c) { if (index < bytes.length) c.enqueue(bytes.slice(index, ++index)); else c.close(); } });
+  let index = 0, chunks = 0;
+  // Split the content's Unicode code points byte by byte, then send padding
+  // in bounded chunks within the shared wire reader's 128-chunk limit.
+  const stream = new ReadableStream<Uint8Array>({ pull(c) {
+    if (index === bytes.length) { c.close(); return; }
+    const end = Math.min(bytes.length, index < 100 ? index + 1 : index + 4096);
+    c.enqueue(bytes.slice(index, end)); index = end; chunks++;
+  } });
   const response = await router.request(new Request(ORIGIN+'/api/v1/me/private-work', { method: 'POST', headers: headers(f, { 'Idempotency-Key': randomUUID(), 'Content-Length': '32768' }), body: stream, duplex: 'half' } as RequestInit));
   assert.equal(response.status, 201);
+  assert.equal(index, 32768); assert.equal(chunks, 108); assert(chunks <= 128);
   const id = (await response.json()).workId;
   const read = await router.request(ORIGIN+`/api/v1/me/private-work/${id}`, { headers: headers(f) }); assert.equal((await read.json()).title, 'Human 😀 title');
   const invalidPage = await router.request(ORIGIN+`/api/v1/me/private-work/${id}/results?limit=1%0A`, { headers: headers(f) });

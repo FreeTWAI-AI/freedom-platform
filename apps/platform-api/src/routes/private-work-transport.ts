@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import type { Pool } from 'pg';
 import { OpaqueId } from '../../../../contracts/common/v1/identity.js';
-import { AssetStorageError, readBounded, type ObjectStore } from '../../../../packages/asset-storage/index.js';
+import { AssetStorageError, type ObjectStore } from '../../../../packages/asset-storage/index.js';
 import { Problem, requireCondition } from '../../../../packages/shared/problem.js';
 import { createPrivateWorkCommands } from '../../../../modules/opportunity-project-work/private-commands.js';
 import { listPrivateWork, readPrivateWork } from '../../../../modules/opportunity-project-work/private-work.js';
@@ -11,14 +11,15 @@ import { resolvePrivateWorkPersistencePolicy } from '../../../../modules/autopil
 import { allowedBrowserOrigins, allowedRequestHosts, type FreedomEnv } from '../env.js';
 import { memberBoundary } from '../member-boundary.js';
 import type { PlatformEnv } from '../module-context.js';
+import { readBoundedHttpJson } from '../../../../packages/execution-state/http-body.js';
+import { ExecutionInputError } from '../../../../packages/execution-state/decode.js';
 
-const MAX_BODY = 32768;
 const editBody = z.object({ title: z.string(), objective: z.string() }).strict();
 const emptyBody = z.object({}).strict();
 const page = z.object({ limit: z.string().regex(/^[1-9][0-9]*$(?![\s\S])/).transform(Number).pipe(z.number().int().max(50)).optional(),
   offset: z.string().regex(/^(0|[1-9][0-9]*)$(?![\s\S])/).transform(Number).pipe(z.number().int().max(10000)).optional() }).strict();
 const errorCodes = new Set(['login_required', 'session_expired', 'csrf_rejected', 'onboarding_required', 'host_rejected', 'origin_rejected',
-  'json_required', 'encoding_rejected', 'body_too_large', 'invalid_json', 'invalid_body', 'idempotency_required', 'invalid_version',
+  'json_required', 'encoding_rejected', 'body_too_large', 'body_timeout', 'invalid_json', 'invalid_body', 'idempotency_required', 'invalid_version',
   'version_required', 'version_conflict', 'version_overflow', 'not_found', 'resource_not_found', 'principal_disabled', 'scope_disabled',
   'foundation_mapping_unavailable', 'scope_kind_unavailable', 'personal_scope_required', 'idempotency_conflict',
   'private_work_archived', 'private_work_persistence_denied', 'private_work_policy_unavailable', 'private_result_unavailable', 'asset_policy_changed']);
@@ -58,44 +59,9 @@ function commandHeaders(c: Context<PlatformEnv>, versionRequired: boolean) {
   return { key, expectedVersion: quoted.slice(1, -1) };
 }
 
-/** The only accepted JSON grammar is a flat object of string fields (or {}).
- * This is not a general JSON parser or canonicalization/digest implementation. */
-function flatStringObject(raw: string): Record<string, string> {
-  let index = 0; const result: Record<string, string> = Object.create(null);
-  const invalid = (): never => { throw new Problem(400, 'invalid_json', 'Invalid JSON.'); };
-  const space = () => { while (index < raw.length && /[ \t\r\n]/.test(raw[index])) index++; };
-  const string = () => {
-    const token = /"(?:[^"\\\u0000-\u001f]|\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4}))*"/y;
-    token.lastIndex = index; const match = token.exec(raw); if (!match) return invalid();
-    index = token.lastIndex;
-    try { return JSON.parse(match[0]) as string; } catch { return invalid(); }
-  };
-  space(); if (raw[index++] !== '{') invalid(); space();
-  if (raw[index] !== '}') for (;;) {
-    const key = string();
-    if (Object.hasOwn(result, key) || ['__proto__', 'constructor', 'prototype'].includes(key)) invalid();
-    space(); if (raw[index++] !== ':') invalid(); space(); result[key] = string(); space();
-    if (raw[index] === '}') break;
-    if (raw[index++] !== ',') invalid(); space();
-  }
-  if (raw[index++] !== '}') invalid(); space(); if (index !== raw.length) invalid(); return result;
-}
 async function body(c: Context<PlatformEnv>) {
-  const type = c.req.header('Content-Type') ?? '';
-  requireCondition(/^application\/json(?:;\s*charset=utf-8)?$/i.test(type), 415, 'json_required', 'JSON required.');
   requireCondition(c.req.header('Content-Encoding') === undefined, 415, 'encoding_rejected', 'Content encoding unsupported.');
-  const length = c.req.header('Content-Length');
-  requireCondition(length === undefined || /^(0|[1-9][0-9]*)$/.test(length) && !/[\r\n]/.test(length) && Number(length) <= MAX_BODY,
-    413, 'body_too_large', 'Body too large.');
-  requireCondition(c.req.raw.body, 400, 'invalid_body', 'Body required.');
-  let bytes: Uint8Array;
-  try { bytes = await readBounded(c.req.raw.body, MAX_BODY); }
-  catch (error) { throw new Problem(error instanceof AssetStorageError && error.code === 'too_large' ? 413 : 400,
-    error instanceof AssetStorageError && error.code === 'too_large' ? 'body_too_large' : 'invalid_body', 'Invalid body.'); }
-  let raw: string;
-  try { raw = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes); }
-  catch { throw new Problem(400, 'invalid_json', 'Invalid JSON.'); }
-  return flatStringObject(raw);
+  return readBoundedHttpJson(c.req.raw);
 }
 // Preserve the existing GET wire contract, including rejecting unsafe bigint.
 function workDto(row: Record<string, unknown>) {
@@ -105,7 +71,8 @@ function workDto(row: Record<string, unknown>) {
     aggregate_version: version, created_at: row.created_at };
 }
 
-/** CLOSED member-only transport. Not mounted by the production app/Worker.
+/** Member-only transport, mounted only by explicit Node private-product ports.
+ * Default production/Worker hosts remain unconfigured.
  * Options are trusted construction-time server ports, never request fields.
  * No uploads, execution credentials, sharing, publication or policy override. */
 export function createPrivateWorkTransport(pool: Pool, options: { origin: string; freedomEnv: FreedomEnv; store?: ObjectStore }) {
@@ -117,6 +84,7 @@ export function createPrivateWorkTransport(pool: Pool, options: { origin: string
     security(c);
     let status = 500, code = 'internal_error';
     if (error instanceof z.ZodError) { status = 422; code = 'validation_failed'; }
+    else if (error instanceof ExecutionInputError) { status = 400; code = 'invalid_json'; }
     else if (error instanceof AssetStorageError) { status = 503; code = 'private_result_unavailable'; }
     else if (error instanceof Problem && errorCodes.has(error.code) && Number.isInteger(error.status) && error.status >= 400 && error.status <= 599) {
       status = error.status; code = error.code;

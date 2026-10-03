@@ -48,7 +48,15 @@
     "contracts/execution/v2/**",
     "tests/runtime/model-step-service.test.ts",
     "tests/runtime/model-step-contracts.test.ts",
-    "tests/runtime/model-step-adversarial.test.ts"
+    "tests/runtime/model-step-adversarial.test.ts",
+    "apps/platform-api/src/private-ai-product.ts",
+    "apps/platform-api/src/routes/member-model-http.ts",
+    "apps/portal-web/src/modules/PrivateWorkAI.tsx",
+    "apps/portal-web/src/modules/PrivateWorkAI.css",
+    "packages/testing/private-ai-product-fixture.ts",
+    "tests/runtime/member-model-http.test.ts",
+    "tests/runtime/member-model-http-adversarial.test.ts",
+    "tests/e2e/private-work-ai.spec.ts"
   ],
   "public_exports": [
     "modules/agent-execution/runs.ts",
@@ -61,7 +69,10 @@
     "modules/agent-execution/model-step-service.ts",
     "modules/agent-execution/model-step-host.ts",
     "modules/agent-execution/model-step-runner.ts",
-    "modules/agent-execution/model-results.ts"
+    "modules/agent-execution/model-results.ts",
+    "apps/platform-api/src/private-ai-product.ts",
+    "apps/platform-api/src/routes/member-model-http.ts",
+    "contracts/execution/v2/member-model-http.ts"
   ],
   "dependencies": [
     "work",
@@ -78,7 +89,8 @@
     "execution-decision",
     "member-execution",
     "member-execution-http",
-    "model-step"
+    "model-step",
+    "member-model-http"
   ],
   "client_profiles": [],
   "instructions": [
@@ -88,7 +100,8 @@
     "docs/platform-plan/execution/unified-foundation/13-member-execution-prerequisites.md",
     "docs/platform-plan/execution/unified-foundation/14-member-execution-http.md",
     "docs/platform-plan/execution/unified-foundation/15-model-adapter-cores.md",
-    "docs/platform-plan/execution/unified-foundation/16-private-model-step.md"
+    "docs/platform-plan/execution/unified-foundation/16-private-model-step.md",
+    "docs/platform-plan/execution/unified-foundation/17-private-ai-product.md"
   ],
   "invariants": [
     "current-authority-before-replay",
@@ -116,10 +129,30 @@
     "current-authority-immediately-before-send",
     "typed-model-result-with-shared-work-cas",
     "synthetic-evidence-origin-is-explicit",
-    "unknown-provider-outcome-keeps-reservation"
+    "unknown-provider-outcome-keeps-reservation",
+    "original-bounded-http-body-before-legacy-reader",
+    "opaque-host-product-bound-to-pool-origin-environment",
+    "owner-control-survives-persistence-withdrawal",
+    "exact-member-cas-without-bigint-rounding",
+    "no-private-browser-storage-or-auto-dispatch"
   ],
   "tests": [
     "runtime.full"
   ],
-  "surfaces": []
+  "surfaces": [
+    {
+      "surface_id": "member.private-ai",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/PrivateWorkAI.tsx",
+      "operations": [
+        "work.private.create",
+        "work.private.edit",
+        "work.private.result.read",
+        "execution.model.approval",
+        "execution.model.execute",
+        "execution.model.control"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
 }
