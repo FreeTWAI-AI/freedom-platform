@@ -169,6 +169,12 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
       }
     }
     await next();
+    // A native cross-origin form uses the source document's referrer policy
+    // when deriving Origin. Suppressing all referrers makes that Origin null.
+    // Only installed HTML documents disclose the origin, never path or query;
+    // API replies and hosts without the genuine broker keep no-referrer.
+    if(brokerFormOrigin&&['GET','HEAD'].includes(c.req.method)
+      &&/^text\/html(?:;|$)/i.test(c.res.headers.get('Content-Type')??''))c.header('Referrer-Policy','strict-origin');
     if((c.req.path.startsWith('/api/')||c.req.path.startsWith('/agent-api/')||c.req.path.startsWith('/client-api/')||c.req.path.startsWith('/admin/api/')) && c.res.headers.get('Content-Type')?.includes('application/json')) {
       const data=wireVersions(await c.res.json());
       c.res=new Response(JSON.stringify(data),{status:c.res.status,headers:c.res.headers});

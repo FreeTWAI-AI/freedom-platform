@@ -63,6 +63,10 @@ opaque product，驗pool/main-origin/environment，runtime取得相同pinnedorig
 
 實際portal HTML保留platform CSP；其form-action只加 exact已安裝setupOrigin，
 保留self與既有GitHub admin例外，其餘directive不放寬。沒有port維持self。
+已安裝同一genuine port的HTML GET/HEAD回應使用`Referrer-Policy: strict-origin`，
+讓native cross-origin form送出原main Origin；只揭露origin，不帶path/query，
+HTTPS降級不送referrer。API與沒有port的HTML仍為`no-referrer`；broker仍拒絕
+`Origin: null`，不得為交接放寬來源檢查。
 Node dist靜態資產／index fallback及Worker ASSETS保留規則要驗證；Vite開發HTML
 或blankfixture沒有正式CSP，不能當作這個接點的證據。此policy不證明capture
 readiness、credential保存、provider登入或inference批准；每次broker既有檢查仍保留。
