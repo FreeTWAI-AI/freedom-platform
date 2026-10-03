@@ -6,7 +6,7 @@
 
 ## 工程進度估算
 
-以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約 **30–40%**，約 **60–70%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。此次重新核對三份原計畫及本頁證據：配對、refresh／nonce、封閉 bootstrap／會員 HTTP，以及未驗證 ModelConnection／限定同意 Grant／blocked Attempt 推進 U1/U3；真實模型認證及執行、跨端、七類媒體與正式治理仍占主要剩餘工作。會員 HTTP 及三路 adapter codec／隔離診斷增量沿用原工程區間；真正認證及 operational dispatch 尚未完成，未因多了入口或測試就把私人 AI 里程碑大幅提高。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
+以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約 **35–45%**，約 **55–65%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。此次重新核對三份原計畫及本頁證據：配對、refresh／nonce、封閉 bootstrap／會員 HTTP 已有本機實作；本批再接明確出口批准、active Attempt／running Run／lease、一次性模型派送、Asset 與有模型來源的私人 Result，使 U3/U4 及 AP M3 有完整本機垂直流程。模型端只以合成 HTTP 實測，產品 HTTP/UI、正式 vault/recovery 與真人 provider 驗收尚缺；跨端、七類媒體、legacy 退出與正式治理仍占主要剩餘工作。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
 
 以下權重是工程量假設，不是原計畫承諾；估算依本頁實作證據與尚缺項目，正式產品驗收仍須逐項取得證據。
 
@@ -15,24 +15,24 @@
 | U0 規格與共用契約 | 5% | 80–90% | 正式批准與版本發布 |
 | U1 身分／scope／command | 10% | 70–85% | machine/service Invocation／Grant 的當前驗權與 command adapter；會員映射與受限 machine 登入已有實作 |
 | U2 Asset 與私人 ACL | 15% | 65–80% | 完整讀面、正式政策及接線 |
-| U3 執行狀態與模型 ports | 15% | 30–40% | 真實模型認證／adapter、operational Attempt／lease、Control／Action 與模型路徑；Run、runtime、connection、配對／refresh／nonce／status、封閉 HTTP，以及限定 Grant／blocked Attempt backing 已有本機證據，正式入口仍未啟用 |
-| U4 兩條垂直流程 | 15% | 10–25% | 私人 AI 草稿及跨端產品驗收 |
+| U3 執行狀態與模型 ports | 15% | 40–55% | 單步 BYOK、active Attempt／Run／lease、暫停／停止與 once-only dispatch 已有本機證據；尚缺正式 HTTP、vault/recovery、真人模型認證、machine execution auth、訂閱 native CLI、heartbeat/reconcile、多步及 Action |
+| U4 兩條垂直流程 | 15% | 25–40% | 私人 AI 草稿核心已接實際 HTTP fixture、SQL、Asset 與 Result；尚缺會員畫面、正式 provider／本人端及跨端產品驗收 |
 | U5 browser／Kit／broker | 15% | 0–10% | 實際 runtime 接線與封裝驗證 |
 | U6 媒體搬遷與 restore | 10% | 5–15% | 真實盤點、七類媒體搬遷與還原 |
 | U7 legacy 退出 | 5% | 0–5% | 資料遷移、最低安全版本與舊路徑退出 |
 | UX affected CI／開發工具 | 5% | 20–35% | 跨語言／跨端覆蓋與工具接線 |
 | CG 共同治理 | 5% | 25–45% | 可信 runner/publisher、完整入口與 rollout |
 
-此組權重得約 30–42%，對外使用「約三成到四成」。R2、AP 與 UF 有重疊，不能把三份計畫各自的完成百分比相加。剩餘 60–70% 是工程量估算，不是日曆工期；真實 provider、跨端及搬遷演練仍有不確定性。本輪只推進共同基礎；依 Ted 指示，不整合等待中的其他 PR。備份政策仍另確認。
+此組權重得約 33–47%，對外取粗略區間 **35–45%**。R2、AP 與 UF 有重疊，不能把三份計畫各自的完成百分比相加。剩餘 55–65% 是工程量估算，不是日曆工期；真實 provider、跨端及搬遷演練仍有不確定性。本輪只推進共同基礎；依 Ted 指示，不整合等待中的其他 PR。備份政策仍另確認。
 
-若「Milestone」指 [AP M0–M6](../../../plans/autopilot-vnext.md#54-遷移步驟)，目前位置是 **M1 基礎已建立、M2 的配對／refresh／nonce／status 完成本機接線，尚未完成整個 M2**。以下仍只估本機工程，不宣稱已達原文的部署／產品完成條件。
+若「Milestone」指 [AP M0–M6](../../../plans/autopilot-vnext.md#54-遷移步驟)，目前位置是 **M1 基礎已建立、M2 的配對／refresh／nonce／status 完成本機接線，M3 的單步私人 AI 草稿核心已接通；M2/M3 的產品及正式模型驗收仍未完成**。以下仍只估本機工程，不宣稱已達原文的部署／產品完成條件。
 
 | AP Milestone | 本機工程估算 | 仍缺的完成條件 |
 | --- | --- | --- |
 | M0 來源與需求 | 80–90% | 正式 protocol／consumer 版本發布與確認 |
 | M1 資料與 ACL | 60–75% | 完整 list/detail/search/event/export 讀面矩陣及遷移驗收 |
 | M2 認證與只讀觀測 | 50–65% | ModelConnection settings UI／真正模型驗證、本人確認 UI、bootstrap-key exchange、正式 key/host 設定及部署驗收；device pairing／refresh／nonce／status 與 HTTP factory 已有本機證據 |
-| M3 私人 AI 草稿 | 15–25% | 本人 CLI/BYOK 真正認證、operational Grant／Attempt／lease、一條 runtime 產生本人可看的私人 Result；人工 Work/Result、Run 與限定同意／blocked history 是前置基礎 |
+| M3 私人 AI 草稿 | 35–50% | 出口批准、operational Attempt／lease、一次性派送、typed AI Result 與人工共同歷史已有本機完整流程；尚缺產品 HTTP/UI、正式 vault/recovery／本人 BYOK 驗收、訂閱 native CLI 與 runtime 整合 |
 | M4 瀏覽器交接 | 0–10% | extension／neo 實接、pause/takeover/resume/revoke、舊 epoch 拒絕及 unknown effect 對帳 |
 | M5 業務 actions | 0–5% | 逐 domain 授權、精確 effect、A4 的本人簽章／step-up |
 | M6 設計收斂與相容期 | 5–15% | consumer 相容矩陣、schema 收斂、舊路徑退出及正式版本驗證 |
@@ -712,7 +712,7 @@ Ted 指出進度未接成成果後，本批集中完成 [16](16-private-model-st
 垂直實作：獨立 inference export policy／本人明確批准、真正 active Attempt／
 running Run／lease、一次性 committed dispatch、受限 BYOK host transport、
 opaque observation、Asset 寫入、typed private model Result 與人工共同歷史。
-不是只有 candidate/blocked ports。正式 HTTPS 程式限明確 platform vault/engine
+正式 HTTPS 程式限明確 platform vault/engine
 及 platform Asset custody；其他 custody/subscription 沒有自動 fallback。
 
 本機 fixture 用真實 HTTP、非 superuser PostgreSQL runtime 與 ObjectStore bytes，
@@ -722,9 +722,58 @@ provider、取用真實 key 或正式 recovery source。原 human generated prov
 為 093／094；兩張 operator policy 都套 dedicated runtime column ACL fence。
 
 完整垂直 fixture 已確認一次派送與 Result Work CAS，成功 replay 零新增 POST／PUT。
-最終固定版本、作者／獨立反例、標準完整回歸、發布相容性及清理結果在驗證完成後
-補入本節；驗證途中不把暫時綠燈當交付總數。原始 168 項產品驗收維持 not_run，
-沒有從 loopback fixture 推定真人 provider／跨端／正式發布已驗收。
+AI → 人工 → AI 共用 revision 1/2/3、Work version 2/3/4，讀取面保留實際來源。
+會員 Stop／Grant 或 connection/family 撤銷、政策或 recovery/credential 變更後，
+舊 capability 不會派送；晚到的回覆不能寫入 Result。provider outcome 不明時保留
+unknown／用量預留，不自動重送、不補造取消或零成本。
+
+本批沿用三個 GPT-6.1 Sol 工作位分別實作服務、契約/host 及獨立反例，主 agent
+整合 Asset／typed Result／共同歷史與發布相容性。作者服務 **10/10**、契約/host
+**10/10**，非作者反例 **18/18**；共 **38 項新增測試**，均在最終完整回歸再次通過。
+實測涵蓋真實 ES256 配對、non-superuser runtime、OpenAI／Anthropic 兩路合成
+HTTP、真正 SQL receipt 等待跨越期限、policy/family/Grant/control 撤銷、recovery
+或 credential 在 Asset GET 後變更、假 observation／錯 host、ACK 遺失及無 DB
+鎖跨越 Asset PUT。NULL permit 的 SQL 邊界由審查發現並修正，獨立測試驗證修正後
+拒絕；本批沒有修正前執行證據，不聲稱已做 before/after runtime 重現。
+Grok 4.7／Opus 4.6 本批未執行外援審查，不沿用前批結果充作本批證據。
+
+功能實作固定於 `36dbdf324551cd000500898c7a9e2c3fca0c74ee`；最終完整驗證固定於
+`c65137f958dfe6cf8177e7b4e2c3f898cd10d3d4`。第二個 commit 僅修正 13 個舊測試
+fixture/assertion 並更新 inventory；production 程式、migration、契約及 build
+source bytes 與功能 commit 相同。驗證途中 tracked workspace 不變。
+
+第一次完整回歸為 **1,889/2,202 通過、313 失敗**，不列為通過。12 個舊 fixture
+仍預期只有一張 operator policy，未套用新增的第二張 ACL/lock grant；另一個
+Run 測試仍預期實體表不存在 `current_attempt_id`。改為在原交易完整套用兩張
+policy 的真實 SQL template，並驗 blocked profile 沒有 active Attempt/Step、
+假 current Attempt 被 SQL constraint 拒絕，沒有弱化 production 權限或略過測試。
+受影響測試獨立重跑 **336/336**，再從頭執行標準完整 verifier。
+
+最終 runtime **2,202/2,202**（156 files）、governance unit **244/244**（11 files），
+零失敗／取消／跳過／todo，完整 verifier 約 **597 秒**。報告
+`.freedom/reports/model-step-vertical-integrated.json` SHA-256：
+`650805ee7cee2ec75c86afc89b2f37762a32cd9028912ca26ea35988232de272`；彙整證據
+為 `.freedom/reports/model-step-vertical-final-evidence.json`。治理總狀態仍為
+`unavailable`（exit 2），原因是 `baseline_governance_unavailable`、
+`registration_behavior_audit_required`、`surface_unmapped`；不當作可信 CI 或發布批准。
+
+型別檢查、10 組契約生成檢查、build、發布相容性 **280/280**、Worker **28/28**、
+隔離 supervisor **6/6** 及三類 Worker 的 9 次 dry-run 通過。組件檢查在功能
+commit 執行，production source 與完整驗證 commit 相同；型別檢查亦在完整驗證
+commit 通過。未改 UI，本批未跑瀏覽器 E2E，也沒有真人 provider/產品驗收。
+
+收尾查得本輪 disposable PostgreSQL 的 schemas、測試 roles、其他 clients、
+其他 databases 及 public relations 全部為 0，再移除本輪 network-none／tmpfs
+容器、空 socket 目錄與合成檢查 home，剩餘本輪容器 0。主 checkout status hash
+維持 `c5baa881d9476c25a274af274e42b723bfcc643fe55450ff3c72612ee401f19a`。
+未 push、開 PR、merge、部署；Ted 的真實資料及 staging/live 未動。
+
+工程估算隨完整垂直實作調整為：全計畫 **35–45%**，剩餘 **55–65%**；U3
+**40–55%**、U4 **25–40%**、AP M2 **50–65%**、M3 **35–50%**。估算依工作範圍，
+不是測試通過率。原始 **168 項完整產品驗收維持 not_run**，沒有從 loopback
+fixture 推定真人 provider／跨端／正式發布已驗收。文件交付另通過 **1,412 file
+hashes、823 本機連結、0 failures** 及 `git diff --check`；完整 runtime 證據綁
+上述 source commit，文件提交沒有重跑或取代該份證據。
 
 ## 下一批
 
