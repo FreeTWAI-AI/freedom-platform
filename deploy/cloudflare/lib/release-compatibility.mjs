@@ -6,8 +6,10 @@ const HEX40 = /^[0-9a-f]{40}$/;
 const HEX64 = /^[0-9a-f]{64}$/;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}$/;
 const ENVIRONMENTS = ['next', 'staging-next'];
-const CAPABILITIES = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1', 'execution.member-run-record.v1', 'execution.runtime-enrollment.v1', 'execution.agent-connection-record.v1', 'execution.bootstrap-status.v1', 'execution.device-authorization.v1', 'execution.bootstrap-session.v1', 'execution.member-prerequisites.v1', 'execution.model-text-step.v1', 'work.private-model-result.v1'];
+const CAPABILITIES = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1', 'execution.member-run-record.v1', 'execution.runtime-enrollment.v1', 'execution.agent-connection-record.v1', 'execution.bootstrap-status.v1', 'execution.device-authorization.v1', 'execution.bootstrap-session.v1', 'execution.member-prerequisites.v1', 'execution.model-text-step.v1', 'work.private-model-result.v1', 'execution.model-credential-custody.v1'];
 const SHAPES = Object.freeze({
+  // Encrypted custody compatibility only; no provider readiness or dispatch.
+  'execution.model-credential-custody.v1': { migration: 95, capabilities: ['execution.runtime-enrollment.v1', 'execution.agent-connection-record.v1', 'execution.bootstrap-status.v1', 'execution.bootstrap-session.v1', 'execution.member-prerequisites.v1', 'execution.model-credential-custody.v1'] },
   'avatar.asset.v1': { migration: 80, capabilities: ['avatar.asset-bridge.v1'] },
   'work.private.v1': { migration: 81, capabilities: ['work.personal-owner-acl.v1'] },
   'work.private-human-result.v1': { migration: 84, capabilities: ['work.personal-owner-acl.v1', 'work.private-human-result.v1'] },
@@ -29,7 +31,7 @@ const FOUNDATION_NAMES = [
   '076_principal_resource_scopes.sql', '077_work_scope_privacy.sql', '078_scoped_member_commands.sql',
   '079_asset_upload_lifecycle.sql', '080_avatar_asset_bridge.sql', '081_private_work_commands.sql',
   '082_asset_maintenance.sql', '083_avatar_upload_policy.sql', '084_private_work_result_profiles.sql',
-  '085_private_work_policy.sql', '086_execution_runs.sql', '087_runtime_registrations.sql', '088_agent_connections.sql', '089_bootstrap_nonces.sql', '090_device_authorizations.sql', '091_bootstrap_sessions.sql', '092_execution_prerequisites.sql', '093_export_model_steps.sql', '094_private_model_results.sql',
+  '085_private_work_policy.sql', '086_execution_runs.sql', '087_runtime_registrations.sql', '088_agent_connections.sql', '089_bootstrap_nonces.sql', '090_device_authorizations.sql', '091_bootstrap_sessions.sql', '092_execution_prerequisites.sql', '093_export_model_steps.sql', '094_private_model_results.sql', '095_credential_vault.sql',
 ];
 
 function reject(code) { throw new Error(code); }
@@ -206,6 +208,7 @@ export function evaluateReleaseCompatibility(input, { scan, host } = {}) {
     required.add('work.private-human-result.v1');
     required.add('execution.model-text-step.v1');
   }
+  if (required.has('execution.model-credential-custody.v1')) required.add('execution.member-prerequisites.v1');
   if (required.has('execution.model-text-step.v1')) required.add('execution.member-prerequisites.v1');
   if (required.has('work.private-human-result.v1')) {
     required.add('work.personal-owner-acl.v1');

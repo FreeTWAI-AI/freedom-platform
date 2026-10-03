@@ -1,0 +1,46 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "credential-broker",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "apps/credential-broker/**",
+    "migrations/095_credential_vault.sql",
+    "tests/runtime/credential-broker-store.test.ts",
+    "tests/runtime/credential-broker-crypto.test.ts",
+    "tests/runtime/credential-broker-adversarial.test.ts"
+  ],
+  "public_exports": [],
+  "dependencies": [
+    "execution-runs",
+    "resource-scopes",
+    "scoped-commands",
+    "runtime-registration"
+  ],
+  "contract_families": [
+    "model-credential"
+  ],
+  "client_profiles": [],
+  "instructions": [
+    "apps/credential-broker/README.md",
+    "docs/platform-plan/execution/unified-foundation/18-credential-broker-core.md",
+    "packages/scoped-commands/README.md"
+  ],
+  "invariants": [
+    "no-ambient-secrets-or-default-key",
+    "broker-only-ciphertext-and-key-material",
+    "purpose-and-complete-binding-aead",
+    "external-recovery-floor-outside-restorable-db",
+    "immutable-model-selection-and-credential-generation",
+    "current-member-authority-before-replay",
+    "rotation-revokes-old-model-even-same-key",
+    "short-lived-opaque-write-intent",
+    "pinned-resolver-without-latest-key-fallback",
+    "bounded-ports-and-late-plaintext-zeroization",
+    "uninstalled-until-authenticated-reference-bridge",
+    "no-model-verification-or-operational-authority"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": []
+}

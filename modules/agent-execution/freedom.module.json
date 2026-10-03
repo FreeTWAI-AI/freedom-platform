@@ -72,7 +72,8 @@
     "modules/agent-execution/model-results.ts",
     "apps/platform-api/src/private-ai-product.ts",
     "apps/platform-api/src/routes/member-model-http.ts",
-    "contracts/execution/v2/member-model-http.ts"
+    "contracts/execution/v2/member-model-http.ts",
+    "contracts/execution/v2/model-credential.ts"
   ],
   "dependencies": [
     "work",
@@ -90,7 +91,8 @@
     "member-execution",
     "member-execution-http",
     "model-step",
-    "member-model-http"
+    "member-model-http",
+    "model-credential"
   ],
   "client_profiles": [],
   "instructions": [
@@ -101,7 +103,8 @@
     "docs/platform-plan/execution/unified-foundation/14-member-execution-http.md",
     "docs/platform-plan/execution/unified-foundation/15-model-adapter-cores.md",
     "docs/platform-plan/execution/unified-foundation/16-private-model-step.md",
-    "docs/platform-plan/execution/unified-foundation/17-private-ai-product.md"
+    "docs/platform-plan/execution/unified-foundation/17-private-ai-product.md",
+    "docs/platform-plan/execution/unified-foundation/18-credential-broker-core.md"
   ],
   "invariants": [
     "current-authority-before-replay",

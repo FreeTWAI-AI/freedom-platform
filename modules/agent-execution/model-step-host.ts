@@ -16,6 +16,8 @@ export interface OpaqueVerifiedModelBinding { readonly [verifiedBrand]: never }
 export interface OpaqueModelStepCapability { readonly [capabilityBrand]: never }
 export interface OpaqueModelObservation { readonly [observationBrand]: never }
 export interface RecoveryObservation { readonly generation: string; readonly expiresAt: string }
+/** The resolver transfers ownership of fresh key bytes to the host. The host
+ * clears that buffer on acceptance, rejection and late timeout completion. */
 export interface ResolvedModelCredential { readonly key: Uint8Array; readonly expiresAt: string }
 export interface ModelStepHost {
   verify(binding: ModelStepBinding): Promise<OpaqueVerifiedModelBinding>;
@@ -56,12 +58,30 @@ const digest = (bytes: Uint8Array | string) => createHash('sha256').update(bytes
 const fail = (code: ConstructorParameters<typeof AdapterFault>[0]): never => { throw new AdapterFault(code); };
 const token = <T>(): T => Object.freeze(Object.create(null)) as T;
 const fresh = (expiresAt: string) => { if (!time.safeParse(expiresAt).success || Date.parse(expiresAt) <= Date.now()) fail('execution_authority_unavailable'); };
-async function boundedHostPort<T>(operation: () => Promise<T>): Promise<T> {
+async function boundedHostPort<T>(operation: () => Promise<T>, discard?: (value: T) => void): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  try { return await Promise.race([Promise.resolve().then(operation), new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new AdapterFault('execution_authority_unavailable')), 3000);
+  let expired = false;
+  const deadline = performance.now() + 3000;
+  const pending = Promise.resolve().then(operation).then(value => {
+    if (expired || performance.now() >= deadline) {
+      discard?.(value); return fail('execution_authority_unavailable');
+    }
+    return value;
+  });
+  try { return await Promise.race([pending, new Promise<never>((_, reject) => {
+    timer = setTimeout(() => { expired = true; reject(new AdapterFault('execution_authority_unavailable')); }, 3000);
   })]); } catch (error) { if (error instanceof AdapterFault) throw error; return fail('execution_authority_unavailable'); }
   finally { if (timer) clearTimeout(timer); }
+}
+
+function clearTransferredCredential(raw: unknown): void {
+  try {
+    if (!raw || typeof raw !== 'object') return;
+    const descriptor = Object.getOwnPropertyDescriptor(raw, 'key');
+    if (descriptor && 'value' in descriptor && descriptor.value instanceof Uint8Array) {
+      Uint8Array.prototype.fill.call(descriptor.value, 0);
+    }
+  } catch { /* A malformed port result must not prevent clearing other buffers. */ }
 }
 
 export function parseModelStepBinding(raw: unknown): ModelStepBinding {
@@ -148,18 +168,22 @@ export async function assertModelObservationCurrent(raw: OpaqueModelObservation)
   finally { resolved.key.fill(0); }
 }
 async function credential(resolve: (binding: ModelStepBinding) => Promise<ResolvedModelCredential>, binding: ModelStepBinding): Promise<ResolvedModelCredential> {
+  let raw: unknown, key: Uint8Array | undefined;
   try {
-    const raw = await boundedHostPort(() => resolve(binding));
+    raw = await boundedHostPort(() => resolve(binding), clearTransferredCredential);
     if (!raw || Object.getPrototypeOf(raw) !== Object.prototype || Reflect.ownKeys(raw).length !== 2) fail('authentication_unavailable');
     const descriptors = Object.getOwnPropertyDescriptors(raw);
     if (!descriptors.key || !descriptors.expiresAt || Object.values(descriptors).some(d => !d.enumerable || !('value' in d))) fail('authentication_unavailable');
-    const key = copyModelBytes(descriptors.key.value, 4096), expiresAt: unknown = descriptors.expiresAt.value;
-    if (typeof expiresAt !== 'string' || !time.safeParse(expiresAt).success || Date.parse(expiresAt) <= Date.now()) { key.fill(0); fail('authentication_unavailable'); }
-    let text: string;
-    try { text = new TextDecoder('utf-8', { fatal: true }).decode(key); } catch { key.fill(0); return fail('authentication_unavailable'); }
-    if (!key.byteLength || !/^[A-Za-z0-9._-]+$(?![\s\S])/.test(text)) { key.fill(0); fail('authentication_unavailable'); }
-    return { key, expiresAt: expiresAt as string };
+    key = copyModelBytes(descriptors.key.value, 4096);
+    const expiresAt: unknown = descriptors.expiresAt.value;
+    if (typeof expiresAt !== 'string' || !time.safeParse(expiresAt).success || Date.parse(expiresAt) <= Date.now()) fail('authentication_unavailable');
+    if (!key.byteLength || key.some(byte => !(byte >= 48 && byte <= 57 || byte >= 65 && byte <= 90
+      || byte >= 97 && byte <= 122 || byte === 45 || byte === 46 || byte === 95))) fail('authentication_unavailable');
+    const result = { key, expiresAt: expiresAt as string };
+    key = undefined;
+    return result;
   } catch { return fail('authentication_unavailable'); }
+  finally { clearTransferredCredential(raw); key?.fill(0); }
 }
 
 interface HostOptions {
@@ -240,8 +264,11 @@ function host(options: HostOptions, origin: ModelStepEvidenceOrigin, fixtureOrig
       if (origin === 'provider_https' && (binding.selection.credentialCustody !== 'platform_vault'
         || binding.selection.engineLocation !== 'platform')) fail('unsupported_selection');
       const before = await recovery(captured.recover), resolved = await credential(captured.resolve, binding);
-      let response: ByokObservation; const credentialDigest = digest(resolved.key);
-      try { response = await exchange(target(binding, `/v1/models/${encodeURIComponent(binding.selection.modelRef)}`), 'GET', authHeaders(binding, resolved.key)); }
+      let response: ByokObservation, credentialDigest: string;
+      try {
+        credentialDigest = digest(resolved.key);
+        response = await exchange(target(binding, `/v1/models/${encodeURIComponent(binding.selection.modelRef)}`), 'GET', authHeaders(binding, resolved.key));
+      }
       finally { resolved.key.fill(0); }
       const observed = parseModelJson(response.body);
       const model = binding.selection.providerRef === 'openai' ? openaiModel.safeParse(observed) : anthropicModel.safeParse(observed);
@@ -267,19 +294,21 @@ function host(options: HostOptions, origin: ModelStepEvidenceOrigin, fixtureOrig
       // with this object even when the provider never received a request.
       cap.consumed = true;
       const input = context(bytes, cap.binding);
-      const generation = await recovery(captured.recover);
-      if (generation.generation !== cap.verified.data.recoveryGeneration) fail('execution_authority_unavailable');
-      const resolved = await credential(captured.resolve, cap.binding);
-      const candidate = byok.prepare({ selection: cap.binding.selection, prompt: input.prompt, maxOutputTokens: cap.binding.maxOutputTokens });
+      let resolved: ResolvedModelCredential | undefined;
+      let candidate: ReturnType<typeof byok.prepare> | undefined;
       let response: ByokObservation;
       try {
+        const generation = await recovery(captured.recover);
+        if (generation.generation !== cap.verified.data.recoveryGeneration) fail('execution_authority_unavailable');
+        resolved = await credential(captured.resolve, cap.binding);
+        candidate = byok.prepare({ selection: cap.binding.selection, prompt: input.prompt, maxOutputTokens: cap.binding.maxOutputTokens });
         if (digest(resolved.key) !== cap.verified.credentialDigest) fail('authentication_unavailable');
         const immediatelyBefore = await recovery(captured.recover);
         if (immediatelyBefore.generation !== cap.verified.data.recoveryGeneration) fail('execution_authority_unavailable');
         await boundedHostPort(cap.beforeDispatch);
         fresh(cap.expiresAt); fresh(cap.verified.data.expiresAt); fresh(resolved.expiresAt);
         response = await exchange(target(cap.binding, new URL(candidate.endpoint).pathname), 'POST', { ...candidate.headers, ...authHeaders(cap.binding, resolved.key) }, candidate.body);
-      } finally { resolved.key.fill(0); input.bytes.fill(0); candidate.body.fill(0); }
+      } finally { resolved?.key.fill(0); input.bytes.fill(0); candidate?.body.fill(0); }
       const decoded = byok.decode(response, { selection: cap.binding.selection, prompt: input.prompt, maxOutputTokens: cap.binding.maxOutputTokens });
       if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(decoded.text)) fail('invalid_response');
       if (decoded.reportedModelRef !== cap.binding.selection.modelRef) fail('model_mismatch');

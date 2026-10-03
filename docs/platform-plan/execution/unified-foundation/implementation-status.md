@@ -6,7 +6,7 @@
 
 ## 工程進度估算
 
-以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約四成，合理區間 **35–50%**，約 **50–65%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。配對、refresh／nonce、封閉 bootstrap／會員 HTTP 已有本機實作；單步模型的明確出口批准、active Attempt／running Run／lease、一次性派送、Asset 與私人 Result，現已接到本人會員 HTTP 及「私人工作與 AI」畫面，完成本機工作建立／編輯、成果歷史、逐次同意與控制流程。模型端仍只以合成 HTTP 實測；正式隔離 broker/vault、外部 recovery、本人 provider 認證與 runtime 驗收尚缺。跨端、七類媒體、legacy 退出與正式治理仍占主要剩餘工作。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
+以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約四成，合理區間 **35–50%**，約 **50–65%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。配對、refresh／nonce、封閉 bootstrap／會員 HTTP 已有本機實作；單步模型的明確出口批准、active Attempt／running Run／lease、一次性派送、Asset 與私人 Result，現已接到本人會員 HTTP 及「私人工作與 AI」畫面，完成本機工作建立／編輯、成果歷史、逐次同意與控制流程。模型端仍只以合成 HTTP 實測；隔離 broker/vault 與外部 recovery 的內部核心正完成本機驗證，正式隔離服務、本人 provider 認證與 runtime 驗收尚缺。跨端、七類媒體、legacy 退出與正式治理仍占主要剩餘工作。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
 
 以下權重是工程量假設，不是原計畫承諾；估算依本頁實作證據與尚缺項目，正式產品驗收仍須逐項取得證據。
 
@@ -15,7 +15,7 @@
 | U0 規格與共用契約 | 5% | 80–90% | 正式批准與版本發布 |
 | U1 身分／scope／command | 10% | 70–85% | machine/service Invocation／Grant 的當前驗權與 command adapter；會員映射與受限 machine 登入已有實作 |
 | U2 Asset 與私人 ACL | 15% | 65–80% | 完整讀面、正式政策及接線 |
-| U3 執行狀態與模型 ports | 15% | 45–60% | 單步 BYOK、active Attempt／Run／lease、本人 HTTP、暫停／停止與 once-only dispatch 已有本機證據；尚缺隔離 broker/vault、外部 recovery、真人模型認證、machine execution auth、訂閱 native CLI、heartbeat/reconcile、多步及 Action |
+| U3 執行狀態與模型 ports | 15% | 45–60% | 單步 BYOK、active Attempt／Run／lease、本人 HTTP、暫停／停止與 once-only dispatch 已有本機證據；broker/vault 及外部 recovery 內部核心正驗證；尚缺隔離服務／跨程序證據橋、真人模型認證、machine execution auth、訂閱 native CLI、heartbeat/reconcile、多步及 Action |
 | U4 兩條垂直流程 | 15% | 45–60% | 頭像回歸及私人 AI 草稿的本人 HTTP／畫面、SQL、Asset 與 Result 已有本機流程；尚缺真正 provider／R2／本人 runtime 及跨端產品驗收 |
 | U5 browser／Kit／broker | 15% | 0–10% | 實際 runtime 接線與封裝驗證 |
 | U6 媒體搬遷與 restore | 10% | 5–15% | 真實盤點、七類媒體搬遷與還原 |
@@ -32,7 +32,7 @@
 | M0 來源與需求 | 80–90% | 正式 protocol／consumer 版本發布與確認 |
 | M1 資料與 ACL | 60–75% | 完整 list/detail/search/event/export 讀面矩陣及遷移驗收 |
 | M2 認證與只讀觀測 | 50–65% | ModelConnection settings UI／真正模型驗證、本人確認 UI、bootstrap-key exchange、正式 key/host 設定及部署驗收；device pairing／refresh／nonce／status 與 HTTP factory 已有本機證據 |
-| M3 私人 AI 草稿 | 50–65% | 本人 HTTP／畫面、出口批准、operational Attempt／lease、一次性派送、typed AI Result 與人工共同歷史已有本機完整流程；尚缺隔離 broker/vault、外部 recovery／本人 BYOK 驗收、訂閱 native CLI 與 runtime 整合 |
+| M3 私人 AI 草稿 | 50–65% | 本人 HTTP／畫面、出口批准、operational Attempt／lease、一次性派送、typed AI Result 與人工共同歷史已有本機完整流程；broker/vault 及外部 recovery 內部核心正驗證；尚缺隔離服務／跨程序證據橋、本人 BYOK 驗收、訂閱 native CLI 與 runtime 整合 |
 | M4 瀏覽器交接 | 0–10% | extension／neo 實接、pause/takeover/resume/revoke、舊 epoch 拒絕及 unknown effect 對帳 |
 | M5 業務 actions | 0–5% | 逐 domain 授權、精確 effect、A4 的本人簽章／step-up |
 | M6 設計收斂與相容期 | 5–15% | consumer 相容矩陣、schema 收斂、舊路徑退出及正式版本驗證 |
@@ -54,7 +54,7 @@ R2 重構已有 ObjectStore／Asset lifecycle、頭像、私人 Result、本機�
 | CORE-2 | `40e0f2d`、`4a74b31`、`6f3485f`、`4ea8f47` | migration 078、獨立 scoped member receipts/facts、bounded JSON、當前權限及 DB-clock expiry；28 項新增 runtime 回歸 |
 | ASSET-A lifecycle 增量 | `769840a`、`6da6b89`、`bdd05c4`、`0371c19`、`360fc30` | migration 079、封閉頭像 intent/lease/fence/write/finalize、真實 avatar version CAS；14 項 lifecycle 與 23 項獨立 race tests |
 
-目前整合分支為 `feat/foundation-release-20261002`，worktree 同名，從前批 `foundation-lifecycle-20261002` 的 `0f93e1f` 延續；各批次另保留在各自 worktree。全部只在 `~/tmp-scratch/fp_work/` 工作，未 push、建立 PR、merge main 或部署。主 checkout 及其 staged 刪除未更動。下文各批次數字與限制保留當時脈絡，以最新批次說明目前增量。
+目前整合分支為 `feat/foundation-credential-broker-20261003`，worktree 同名，從前批 `foundation-release-20261002` 的 `43cf6de` 延續；各批次另保留在各自 worktree。全部只在 `~/tmp-scratch/fp_work/` 工作，未 push、建立 PR、merge main 或部署。主 checkout 及其 staged 刪除未更動。下文各批次數字與限制保留當時脈絡，以最新批次說明目前增量。
 
 ## GOV-A/B 與 CORE-0 證據
 
@@ -829,17 +829,45 @@ PR，尚無 review；不能用既有 verify/deploy-preflight checks 代替本批
 main 仍 `3de70cc`；沒有修改凍結安排、rulesets 或待審內容。原計畫的 scope
 完成後受控前向 migration 決策仍有效；後續並行推工程與可信治理接線。
 
+## 本批：隔離 credential broker 內部核心
+
+沿 [18](18-credential-broker-core.md) 完成內部加密保管與外部復原 adapter、
+中央 credential／recovery 契約、095 暫用 migration、broker 專用 SQL grants、
+prepare／seal／commit、固定世代 resolver、不同 ModelConnection 輪替與撤銷。
+這是未安裝到公開 app／Worker 的核心 factory；Actor DTO、WeakMap token、
+ciphertext 或契約 JSON 均不能當跨程序授權。正式隔離程序、認證證據橋、secret
+capture 關閉的 ingest、本人 provider 登入與 runtime 驗收仍未完成。
+
+作者與獨立測試使用真正 AES-256-GCM／Ed25519 簽章、不同 non-superuser SQL
+roles 及本輪 network-none PostgreSQL，驗同 key 輪替後舊 authority 不再派送。
+實際 ModelStep 流程已做到單次 loopback POST、record、檔案系統原子 ObjectStore
+PUT、私人 Asset／Result／provenance、owner read 及 replay；不能由此推定實際
+provider、R2、隔離 host 或本人端已驗收。WebCrypto KEK 與 provider bytes 均為
+本輪合成資料，沒有讀取正式秘密。
+
+獨立反例已重現並推動修正：SQL JSON null CHECK 三值邏輯、舊 recovery 世代
+阻斷歷史控制、resolver 巢狀鎖與 ModelStep 交易互等、host 原始明文 buffer
+未清除、provider request 組裝拋錯跳過清理、SQL delivery 卡住時 plaintext
+晚於外層逾時仍留存，以及最後 genuine SQL 結果送達時跨過期限／外部 recovery
+已前進。
+固定前作者 SQL **7/7**、加密 **8/8**，永久獨立反例 **23/23** 通過；
+後兩者合跑 **31/31**，沒有 failed/cancelled/skipped/todo。每個實際 production
+缺陷的修正前證據保留；晚到 plaintext 清零等首次即通過的案例不虛構修正前失敗。外部 floor 與 SQL 沒有跨來源原子鎖，仍保留派送前
+與 Result finalization 的 operational fence。完整固定版本的回歸、發布診斷與
+清理結果尚待收齊，本段不列最終 PASS。
+
 ## 下一批
 
 [17](17-private-ai-product.md) 已接本機會員 HTTP、畫面及單步私人 AI 成果。
-下一批優先補正式 vault/recovery 信任來源、明確模型與憑證設定及受批准 exact
-provider/model 的本人端驗收；不得把合成 fixture 的認證／成本／恢復 generation
+本批內部 vault/recovery 核心驗證後，下一批優先接隔離程序、認證且只傳參照的
+證據橋、專用 secret ingest、明確模型與憑證設定及受批准 exact provider/model
+的本人端驗收；不得把合成 fixture 的認證／成本／恢復 generation
 當作真實來源。其後是訂閱 native host、
 機器 execution auth、heartbeat/reconciliation、多步調度、媒體/跨端與可信治理。
 沒有把 codefactory/local fixture 當正式服務可用，也不重用 storefront/supplier 的
 `fw_read` 連線。
 
-治理已推進固定單一 profile 的 [本機隔離 supervisor](../../../../packages/contribution-tools/behavior-supervisor.md)：host harness 透過有界 HTTP response frames 呼叫隔離容器內的 candidate app，由 host 自行判斷結果；不能把 candidate stdout/JSON 當可信測試結果。隔離不成立就 unavailable，並保留 approved host source／runtime、完整入口、publisher/GitHub enforcement 的缺口。下一步是可信安裝、來源與 publisher 接線，不是把本機 observation 宣稱可合併。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代完整入口／外部保存／政策 restore 的證據。migration 076–094 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
+治理已推進固定單一 profile 的 [本機隔離 supervisor](../../../../packages/contribution-tools/behavior-supervisor.md)：host harness 透過有界 HTTP response frames 呼叫隔離容器內的 candidate app，由 host 自行判斷結果；不能把 candidate stdout/JSON 當可信測試結果。隔離不成立就 unavailable，並保留 approved host source／runtime、完整入口、publisher/GitHub enforcement 的缺口。下一步是可信安裝、來源與 publisher 接線，不是把本機 observation 宣稱可合併。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代完整入口／外部保存／政策 restore 的證據。migration 076–095 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
 
 早先唯讀查核 #85／#87 的衝突與 migration 重號紀錄保留歷史用途；依 Ted 最新指示，其他 PR 的 rebase／整合現在不在派工範圍。這次沒有修改作者 PR 或把舊 CI 結果當新整合驗收。
 
