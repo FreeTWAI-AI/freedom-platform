@@ -6,7 +6,7 @@
 
 ## 工程進度估算
 
-以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約 **35–45%**，約 **55–65%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。此次重新核對三份原計畫及本頁證據：配對、refresh／nonce、封閉 bootstrap／會員 HTTP 已有本機實作；本批再接明確出口批准、active Attempt／running Run／lease、一次性模型派送、Asset 與有模型來源的私人 Result，使 U3/U4 及 AP M3 有完整本機垂直流程。模型端只以合成 HTTP 實測，產品 HTTP/UI、正式 vault/recovery 與真人 provider 驗收尚缺；跨端、七類媒體、legacy 退出與正式治理仍占主要剩餘工作。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
+以原計畫 U0–U7／UX 及治理工作包的全部工作量估算，目前約四成，合理區間 **35–50%**，約 **50–65%** 尚待完成。這是排程用的主觀區間，不是驗收率、部署率，也不是用測試或檔案數計算。配對、refresh／nonce、封閉 bootstrap／會員 HTTP 已有本機實作；單步模型的明確出口批准、active Attempt／running Run／lease、一次性派送、Asset 與私人 Result，現已接到本人會員 HTTP 及「私人工作與 AI」畫面，完成本機工作建立／編輯、成果歷史、逐次同意與控制流程。模型端仍只以合成 HTTP 實測；正式隔離 broker/vault、外部 recovery、本人 provider 認證與 runtime 驗收尚缺。跨端、七類媒體、legacy 退出與正式治理仍占主要剩餘工作。另一個 65–80% 僅指已選定的 member/scope/command、Asset、人工私人 Work/Result 及本機治理組件，不能稱作全部底層架構完成率。
 
 以下權重是工程量假設，不是原計畫承諾；估算依本頁實作證據與尚缺項目，正式產品驗收仍須逐項取得證據。
 
@@ -15,24 +15,24 @@
 | U0 規格與共用契約 | 5% | 80–90% | 正式批准與版本發布 |
 | U1 身分／scope／command | 10% | 70–85% | machine/service Invocation／Grant 的當前驗權與 command adapter；會員映射與受限 machine 登入已有實作 |
 | U2 Asset 與私人 ACL | 15% | 65–80% | 完整讀面、正式政策及接線 |
-| U3 執行狀態與模型 ports | 15% | 40–55% | 單步 BYOK、active Attempt／Run／lease、暫停／停止與 once-only dispatch 已有本機證據；尚缺正式 HTTP、vault/recovery、真人模型認證、machine execution auth、訂閱 native CLI、heartbeat/reconcile、多步及 Action |
-| U4 兩條垂直流程 | 15% | 25–40% | 私人 AI 草稿核心已接實際 HTTP fixture、SQL、Asset 與 Result；尚缺會員畫面、正式 provider／本人端及跨端產品驗收 |
+| U3 執行狀態與模型 ports | 15% | 45–60% | 單步 BYOK、active Attempt／Run／lease、本人 HTTP、暫停／停止與 once-only dispatch 已有本機證據；尚缺隔離 broker/vault、外部 recovery、真人模型認證、machine execution auth、訂閱 native CLI、heartbeat/reconcile、多步及 Action |
+| U4 兩條垂直流程 | 15% | 45–60% | 頭像回歸及私人 AI 草稿的本人 HTTP／畫面、SQL、Asset 與 Result 已有本機流程；尚缺真正 provider／R2／本人 runtime 及跨端產品驗收 |
 | U5 browser／Kit／broker | 15% | 0–10% | 實際 runtime 接線與封裝驗證 |
 | U6 媒體搬遷與 restore | 10% | 5–15% | 真實盤點、七類媒體搬遷與還原 |
 | U7 legacy 退出 | 5% | 0–5% | 資料遷移、最低安全版本與舊路徑退出 |
 | UX affected CI／開發工具 | 5% | 20–35% | 跨語言／跨端覆蓋與工具接線 |
 | CG 共同治理 | 5% | 25–45% | 可信 runner/publisher、完整入口與 rollout |
 
-此組權重得約 33–47%，對外取粗略區間 **35–45%**。R2、AP 與 UF 有重疊，不能把三份計畫各自的完成百分比相加。剩餘 55–65% 是工程量估算，不是日曆工期；真實 provider、跨端及搬遷演練仍有不確定性。本輪只推進共同基礎；依 Ted 指示，不整合等待中的其他 PR。備份政策仍另確認。
+此組權重得 **37–50.25%**，對外取粗略區間 **35–50%**。R2、AP 與 UF 有重疊，不能把三份計畫各自的完成百分比相加。剩餘 50–65% 是工程量估算，不是日曆工期；真實 provider、跨端及搬遷演練仍有不確定性。U4 的調整只計入完成的本機會員流程；原文仍要求實際 CLI/BYOK、R2 與跨端驗收。本輪只推進共同基礎；依 Ted 指示，不整合等待中的其他 PR。備份政策仍另確認。
 
-若「Milestone」指 [AP M0–M6](../../../plans/autopilot-vnext.md#54-遷移步驟)，目前位置是 **M1 基礎已建立、M2 的配對／refresh／nonce／status 完成本機接線，M3 的單步私人 AI 草稿核心已接通；M2/M3 的產品及正式模型驗收仍未完成**。以下仍只估本機工程，不宣稱已達原文的部署／產品完成條件。
+若「Milestone」指 [AP M0–M6](../../../plans/autopilot-vnext.md#54-遷移步驟)，目前位置是 **M1 基礎已建立、M2 的配對／refresh／nonce／status 完成本機接線，M3 的單步私人 AI 草稿已接會員 HTTP／畫面；M2/M3 的本人模型、runtime 及部署驗收仍未完成**。以下仍只估本機工程，不宣稱已達原文的部署／產品完成條件。
 
 | AP Milestone | 本機工程估算 | 仍缺的完成條件 |
 | --- | --- | --- |
 | M0 來源與需求 | 80–90% | 正式 protocol／consumer 版本發布與確認 |
 | M1 資料與 ACL | 60–75% | 完整 list/detail/search/event/export 讀面矩陣及遷移驗收 |
 | M2 認證與只讀觀測 | 50–65% | ModelConnection settings UI／真正模型驗證、本人確認 UI、bootstrap-key exchange、正式 key/host 設定及部署驗收；device pairing／refresh／nonce／status 與 HTTP factory 已有本機證據 |
-| M3 私人 AI 草稿 | 35–50% | 出口批准、operational Attempt／lease、一次性派送、typed AI Result 與人工共同歷史已有本機完整流程；尚缺產品 HTTP/UI、正式 vault/recovery／本人 BYOK 驗收、訂閱 native CLI 與 runtime 整合 |
+| M3 私人 AI 草稿 | 50–65% | 本人 HTTP／畫面、出口批准、operational Attempt／lease、一次性派送、typed AI Result 與人工共同歷史已有本機完整流程；尚缺隔離 broker/vault、外部 recovery／本人 BYOK 驗收、訂閱 native CLI 與 runtime 整合 |
 | M4 瀏覽器交接 | 0–10% | extension／neo 實接、pause/takeover/resume/revoke、舊 epoch 拒絕及 unknown effect 對帳 |
 | M5 業務 actions | 0–5% | 逐 domain 授權、精確 effect、A4 的本人簽章／step-up |
 | M6 設計收斂與相容期 | 5–15% | consumer 相容矩陣、schema 收斂、舊路徑退出及正式版本驗證 |
@@ -782,7 +782,7 @@ model Grant、明確逐次出口批准、active Attempt／單次執行／暫停�
 會員入口。三個 GPT-6.1 Sol 工作位負責 HTTP、UI、獨立反例；主 agent 組合實際
 Node app、普通 runtime role 的瀏覽器 fixture、設計／來源紀錄與全套驗證。
 
-目前定向驗證：作者 HTTP **6/6**，獨立 HTTP **13/13**，與兩個既有私人 HTTP
+定向驗證：作者 HTTP **6/6**，獨立 HTTP **13/13**，與兩個既有私人 HTTP
 suite 合跑 **52/52**；shared client **18/18**。瀏覽器以真實 app／隔離 SQL／
 合成 loopback provider 完成 **5/5**，未設定服務另跑 **1/1**，沒有 skipped。
 同 key 補送沒有新增 provider POST 或 Result；結果遺失、新版本、政策撤回與
@@ -796,9 +796,38 @@ suite 合跑 **52/52**；shared client **18/18**。瀏覽器以真實 app／隔�
 放寬 production 資源界線。歷史 Step metadata 在政策撤回後仍可供本人控制，是
 契約澄清；私人 Work title/objective、Result 文字及新效果仍被當前政策阻擋。
 
-固定 source commit、標準完整回歸、發布／Worker 與隔離環境收尾證據待本批完整
-驗證後補入，定向綠燈不當作全套通過。新加的是中央契約／Node conditional
-product composition 與 UI，076–094 migration bytes 未改；staging/live 未動。
+實作 commit 為 `7a0cc3e`，固定完整驗證 source 為 `8a6c91f`。初次完整回歸
+**2,221/2,222**，唯一失敗是新增頁面沒有同步既有 human page-help；原失敗報告
+保留。补齊繁中操作說明及真正打開說明視窗的 browser assertion，定向 **3/3**
+後從頭重跑標準 verifier：158 個 runtime files **2,222/2,222**、11 個治理
+files **244/244**，全部沒有 failed/cancelled/skipped/todo，耗時 **578.939 秒**。
+新增 source 僅 page-help、受影響 E2E assertion 與 inventory；其他後端來源不變。
+
+發布診斷 **280/280**、Worker **28/28**、真正隔離 supervisor **6/6**、11 組
+generated checks、build 與三類 Worker 各環境 dry-run 通過。這些 component 檢查
+固定在 `7a0cc3e`；`8a6c91f` 另完成 typecheck/new build，受影響的 help/成功流程
+與 default unavailable browser 重跑 **2/2**。先前 6 項瀏覽器案例與這 2 項重跑
+分開保存，不加成 8 個唯一案例。1440／768／390 新截圖已檢視。啟動時舊 socket
+設定、supervisor bootstrap/未設明確 flag 的失敗均保留，不列為通過。
+
+標準 verifier 仍回 exit 2 **unavailable**，只保留既有
+`baseline_governance_unavailable`、`registration_behavior_audit_required`、
+`surface_unmapped`；本機 runtime 綠燈不是可信 CI 或發布批准。Opus 4.6 exit 1
+沒有 final、Grok 4.7 逾時沒有輸出，兩路都有 exact source hashes，均不列通過。
+完整索引為 ignored `.freedom/reports/member-model-product-final-evidence.json`。
+
+所有 schemas、合成 roles、其他 clients/databases、public relations 查核為 0，
+只清理本輪 exact container/task label、空 socket 與自有檢查 home，剩餘本輪
+容器 0；browser 自有 listener/helpers 已結束。主 checkout status SHA-256
+仍為 `c5baa881d9476c25a274af274e42b723bfcc643fe55450ff3c72612ee401f19a`。
+收尾 inventory **1,428 hashes、831 本機連結、0 failures**，diff-check 通過。
+076–094 migration bytes 未改；沒有 push、PR、merge、部署、正式 keys/設定或
+其他 PR 整合，staging/live 未動。168 項完整產品驗收維持 `not_run`。
+
+Ted 補充會員提案已凍結逾 24 小時。本輪唯讀核對中央 GitHub repo 有 9 個 open
+PR，尚無 review；不能用既有 verify/deploy-preflight checks 代替本批可信治理。
+main 仍 `3de70cc`；沒有修改凍結安排、rulesets 或待審內容。原計畫的 scope
+完成後受控前向 migration 決策仍有效；後續並行推工程與可信治理接線。
 
 ## 下一批
 
