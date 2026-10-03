@@ -38,7 +38,14 @@
     "migrations/097_credential_ingest_authorizations.sql",
     "apps/platform-api/src/credential-ingest-client.ts",
     "apps/platform-api/src/routes/member-credential-ingest-http.ts",
-    "tests/runtime/credential-ingest-authorizations.test.ts"
+    "tests/runtime/credential-ingest-authorizations.test.ts",
+    "apps/portal-web/src/modules/DeviceConnections.tsx",
+    "apps/portal-web/src/modules/DeviceConnections.css",
+    "apps/portal-web/src/modules/member-device-client.ts",
+    "tests/runtime/member-device-bootstrap-http.test.ts",
+    "tests/runtime/member-device-bootstrap-adversarial.test.ts",
+    "tests/runtime/member-device-browser.test.ts",
+    "tests/runtime/member-device-client.test.ts"
   ],
   "public_exports": [
     "contracts/execution/v1/runtime-registration.ts",
@@ -128,5 +135,45 @@
   "tests": [
     "runtime.full"
   ],
-  "surfaces": []
+  "surfaces": [
+    {
+      "surface_id": "member.device-connections",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/DeviceConnections.tsx",
+      "operations": [
+        "device.pairing.inspect",
+        "device.pairing.decide",
+        "agent.connection.list",
+        "agent.connection.read",
+        "agent.connection.revoke"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "member.device-connections-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/bootstrap-http.ts",
+      "operations": [
+        "device.pairing.inspect",
+        "device.pairing.decide",
+        "agent.connection.list",
+        "agent.connection.read",
+        "agent.connection.revoke"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "bootstrap.device-auth-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/bootstrap-http.ts",
+      "operations": [
+        "device.pairing.begin",
+        "device.pairing.poll",
+        "bootstrap.refresh",
+        "bootstrap.nonce",
+        "bootstrap.status"
+      ],
+      "auth_profile": "device-proof-and-bootstrap-purpose"
+    }
+  ]
 }

@@ -32,6 +32,7 @@ member-channels-core member-communications member-connections member-directory m
 model-broker-authorizations model-broker-bridge model-broker-client model-broker-process model-broker-bridge-adversarial
 model-step-service model-step-contracts model-step-adversarial member-model-http member-model-http-adversarial
 member-model-settings member-model-settings-adversarial member-model-settings-process
+member-device-bootstrap-http member-device-bootstrap-adversarial member-device-browser member-device-client
 model-adapter-common model-adapter-independent model-adapter-registry model-byok-adapter model-claude-adapter model-cli-probe model-codex-adapter
 member-services member-skill-registration notification-events onboarding-diagnostics onboarding opensource-marketing
 page-github page-issue-label page-tools-notification password-hash password-recovery platform-admin platform-credentials
