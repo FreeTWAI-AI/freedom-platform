@@ -1,49 +1,43 @@
-# 當頁龍娘與 NPC 台詞板
+# 當頁龍娘與 NPC 操作指引
 
-會員完成主要公會加入後，26 個會員分頁各有一位固定龍娘。入口只載入目前角色的 96×104 portrait；本人開啟交談後，才載入當頁 JSON、hero 與六個動作影格。每份知識包只含當頁審定 FAQ，沒有全站搜尋、模型推論或業務 API。
+26 個會員主頁各有一位固定龍娘。入口只載入當頁 96×104 portrait；開啟交談後，才載入該頁題庫、hero 與六個動作影格。角色插畫、六視圖與影格沿用原創 v2 WebP，沒有新增外部模型或業務 API。
 
-`apps/portal-web/src/modules/page-spirit/core.ts` 提供純函式回覆與當頁 session。題目名稱和完整別名只能回該頁固定答案；他頁 topic ID、他頁角色姓名、未知或混合問題回當頁範圍提醒。要求代付款、傳訊或刪除時，只解釋原按鈕。session 最多六輪，只存審定題目名稱或固定意圖標籤，不存未辨識輸入原文。
+## 對話與頁面範圍
 
-`PageSpirit.tsx` 掛載於會員 Workspace，以會員 ID、分頁與目前 URL 範圍重新建立 session。切頁、登出或 scope 改變會清除問題、台詞、待載入知識包與動畫回呼。相同頁面手動結束交談可再開啟目前台詞；這不會把台詞帶到其他頁面。
+每頁題庫包含審定答案與自然問法，合計 79 題、860 個題目名稱／別名。core 只去除固定的禮貌問句前後綴，最多 64 個候選、四層；剩餘完整問句須命中本頁唯一別名。未知、混合、跨頁、注入或超過 240 字的內容不猜答案，也不回顯原文。
 
-台詞板只顯示目前一句，沒有使用者氣泡或歷史列表。逐字最多三秒，「顯示全文」可立即完成；螢幕閱讀器一次取得完整句。招呼、FAQ 說明及道謝共用一組真實六 bitmap 影格，最多播放 1.5 秒後回 hero；其他狀態使用靜態圖。沒有整張圖片的 CSS 晃動，也不宣稱每種狀態都有獨立動作素材。
+71 題另有審定下一步。當頁 session 對「下一步呢」「再說一次」「我還是不懂」使用目前顯示的題目；按「上一句」後的追問不會偷用最新題目。API 的第三個 contextTopicId 明確對應這句，不接受他頁 topic。session 最多六輪，只存題目名稱或固定意圖；畫面最多保留六句審定回覆。沒有使用者氣泡、歷史逐字稿或私人資料摘要。
 
-「顯示全文」完成後將焦點移至結束交談按鈕，避免手機自動叫出鍵盤。原始 dialog 的 `open` 增減會重新檢查抑制狀態，不靠關閉後的焦點事件才恢復 NPC。
+「上一句」「回到最新」僅移動顯示位置，「重新開始」清除當頁 session、前句、草稿與指引。手動收合可在同頁續談並保留未送出的 NPC 草稿；結束交談與自動關閉會清掉草稿，已讀的審定答案仍可在同頁再看。換頁、登出、身份或 scope 改變、disabled 都清除本頁記憶與晚到回呼。
 
-原有 dialog、世界聊天抽屜、展開的 Game Console 或外部表單聚焦時，NPC 關閉並隱藏入口。元件只檢查焦點、可見性及版面，不讀取表單值或私訊草稿。省電、減少動態、背景分頁及關閉都會取消打字與影格，過期載入或回呼不能改寫新頁面。
+## 找到實際操作位置
 
-資產位於 `/art/page-spirit/v2-20261002/{pageId}/`。hero、frame 與 view 均為 384×576；每位有六視角及六個真實抬手／揮掌／眨眼影格。來源生成圖和維護紀錄見 `docs/design/page-spirit-art-manifest.json`。v2 採人物 body ROI framing，保留區內原始人物與柔光，省略框外照明；不是完全去背。角色插畫不是會員身分、進度、付款或業務成功的證據。
+guide-data.ts 有 26 頁、45 組指引、48 步，來源與 selector 核對見 [文案與來源紀錄](../design/page-spirit-copy-review.md)。每步最多 23 字，對應既有按鈕、欄位或內容分區。使用者必須明確點擊定位按鈕；只 focus、scroll 與暫時高亮，不會代按原控制項、打開 tab／details、讀取表單 value、傳送草稿、改變資格或推定操作完成。
 
-## 驗證
+resolver 限定當前 main#main-content，拒絕 hidden、inert、aria-hidden、aria-busy、disabled 與 dialog 內目標。入口缺失或後來無法使用時，撤掉高亮與臨時 tabindex，保留原指令及「重找入口」；不會自動換到另一個人或控制項。重新定位須由使用者再按按鈕。
 
-純函式測試無需 PostgreSQL：
+定位後 NPC 收成指引條。正在指向的單一欄位允許本人繼續輸入；其他表單、原 modal 與展開的 Game Console 仍會收起 NPC。指引 Esc 保留原欄位焦點與草稿；按結束指引則回到龍娘入口。暫存標記、臨時 tabindex、rAF 與原生 smooth 捲動都隨取消清理；停止捲動只使用當前座標，不回復舊頁座標。大型內容分區定位頂緣，小型操作位置避開頂欄、NPC 與 Console，校正最多 450 ms。
+
+## 手機、輸入與偏好
+
+手機預設使用完整 96×144 動態角色與當句並排、FAQ 跨整行，面板最多占可視高度 60%。低高度隱藏裝飾和偏好列，保留 44 px 關閉與送出。「看角色」可在有足夠空間時展開立繪；「收合交談」只留下小條。
+
+逐字最多三秒，可立即顯示全文；螢幕閱讀器一次取得完整句，相同句重新選取也會公告。中文 IME 組字中的 Enter 不送出，Escape 不關閉交談。原頁面工具的 X 改為先 native dialog.close()，再由 onClose 卸載，X 與 Esc 都還原原按鈕焦點。
+
+「靜態省電」「直接顯示全文」跨頁與重載保留，localStorage 固定 key freedom-page-spirit-ui-v1 只寫兩個布林值 energy／instantText，不含會員 ID、問題、回覆或私人草稿。封鎖或額滿儲存不影響使用。直接全文只停止打字，不會同時關掉角色動作；省電、reduced-motion、背景分頁及關閉會取消動態。招呼、FAQ 與道謝共用一組真實六 bitmap 影格，最多 1.5 秒回 hero，其他狀態靜態；不是六套獨立動畫。
+
+素材維護紀錄見 [原創素材 manifest](../design/page-spirit-art-manifest.json) 與 [本機素材核對](../design/page-spirit-asset-validation.json)。hero／frame／view 均為 384×576，每位有六視角及六張招呼動作幀。人物 ROI 保留原始柔光，不宣稱完全去背。
+
+## 實跑驗證
 
 ```sh
-npx tsx --test tests/runtime/page-spirit.test.ts
 npm run typecheck
-```
-
-本輪這兩個入口已執行：32 個 runtime tests 通過，涵蓋 26 頁、79 題與 790 個題目名稱／別名；TypeScript 檢查通過。
-
-介面測試使用 `tests/e2e/fixtures.ts` 的單 worker 隔離 schema、合成註冊會員及既有 `quickJoin`／`navigate` helper。先完成 build，再由維護者提供本機隔離 PostgreSQL 的 `TEST_DATABASE_URL` 後執行：
-
-```sh
 npm run build
-npx playwright test tests/e2e/page-spirit.spec.ts
+npx tsx --test tests/runtime/page-spirit.test.ts
+npx playwright test tests/e2e/page-spirit.spec.ts tests/e2e/page-tools.spec.ts
+npm run verify:inventory
 ```
 
-五個案例檢查懶載、當頁 FAQ、舊頁延遲知識包、raw input 不回顯、真實六影格、取消、省電、既有 dialog／聊天草稿，以及 320／390 px 控制項。第五案透過實際設定選單切換明亮、夜航與敘生，填入 NPC 輸入欄位後，檢查文字與背景對比；輸入框及角色六視圖連結的比值均須至少 4.5，輸入框並繼承 dark color-scheme。普通合成會員只走自己可見的 25 個導覽入口；公會管理知識包由 runtime 契約測試涵蓋，不在 UI 測試假造管理權限。
+瀏覽器使用既有單 worker 隔離 schema、本機專用 PostgreSQL 與合成會員；不使用正式／staging 會員、第三方 OAuth、金流或外部聊天模型。普通會員實際走 25 個可見入口，公會管理頁的資料範圍由 unit 和來源核對涵蓋，不假造正式管理權限。
 
-維護者已於最終 build 後，使用本機隔離 PostgreSQL 與真實 Chromium 重跑：5／5 E2E 通過，耗時 29.4 秒。完整 runtime suite 914／914 通過，耗時 619.5 秒；Worker 測試 20／20 通過。三個 Worker 環境與管理同步、維護者服務的 dry-run 由維護者完成，dry-run 不代表公開部署。
-
-另由維護者執行 Cloudflare 離線預檢測試：Windows 上 37 項中 34 項通過，3 項受 POSIX `0600` 私有檔權限判定限制而失敗。本輪沒有修改相關 deploy 程式或放寬 guard；Linux CI 仍使用既有預檢工作。這組預檢不能記為全數通過。
-
-新增主題案例透過實際設定選單切換明亮、夜航與敘生，再輸入文字並核對瀏覽器計算後的顏色；NPC 輸入欄及六視圖連結在三款主題的對比皆達 4.5：1。桌機與手機截圖已由維護者看圖確認，沒有輸入欄白底白字或深底暗色連結。
-
-Cloudflare 離線預檢本機為 34／37 通過；三項失敗涉及 Windows 無法表達 POSIX 0600 檔案權限。相關憑證檢查與預檢程式未修改，保留 Linux CI 驗證，未放寬權限檢查。正式部署尚未執行，本輪連線不含 freetwai.com 的既有發布權限。
-
-既有 PageTools 的 X 關閉以卸載 native dialog 結束，沒有明確還原 invoker 焦點。本輪先取得該行為 baseline，再確認 NPC 被抑制時不改變焦點、不搶焦點；沒有把這個既有問題稱為已修復。NPC 自身的 X／Esc 關閉仍嚴格檢查焦點返回 launcher。
-
-桌機 1440 px 與手機 390／320 px 的 NPC 圖片由最後的影格案例寫入當次 Playwright output 目錄，檔名為 `page-spirit-{width}.png`。截圖用於檢視實際版面，視覺結論另以維護者看圖結果為準。
-
-測試不使用正式／staging 會員、Provider OAuth 或金流，也不會在測試內 build、啟動外部聊天模型或公開部署。
+本輪 2026-10-03 最終實跑：TypeScript、正式 build、43／43 unit tests、14／14 瀏覽器案例（11 項 NPC＋3 項原頁面工具，52.3 秒）通過；快速開啟／Esc 關閉的焦點競態另連續三次通過。390×844、320×420／360 的實際截圖已看圖核對；輸入文字、讀屏、圖片、原控制項可點擊位置與 Console 都保留。45 組指引逐項核對來源，但沒有逐一實際操作全部 48 個目標；不存在或資格不可用的目標會明確提示並等待本人重找。先前 fe26d048 的 CI 已通過 914 runtime、399 E2E 與 Linux 37 個部署預檢；它們只屬先前版本，不當作這批 UX 修改的完成證明。正式站部署另需既有發布連線，本輪沒有變更帳號、資料庫、金流、DNS 或 Cloudflare 設定。

@@ -117,7 +117,7 @@ export function PageTools({pageId,client}:{pageId:string;client?:PortalClient}){
   return <>
     <div className="page-tools" role="group" aria-label={`${page.title}頁面工具`}>{(['idea','help','edit'] as const).map(item=><button key={item} type="button" className={`page-tool-button page-tool-button--${item}`} aria-label={names[item]} onClick={()=>{setCopied(false);setTool(item)}}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icons[item]}</svg><span className="page-tool-label">{names[item]}</span></button>)}</div>
     {tool&&<dialog ref={dialog} className="page-tools-dialog" aria-label={`${page.title}：${names[tool]}`} onClose={()=>setTool(null)}>
-      <header><div><span className="page-tools-kicker">自由工坊 · 頁面工具</span><h2>{names[tool]} <small>{page.title}</small></h2></div><button type="button" className="page-tools-close" aria-label="關閉" onClick={()=>setTool(null)}>×</button></header>
+      <header><div><span className="page-tools-kicker">自由工坊 · 頁面工具</span><h2>{names[tool]} <small>{page.title}</small></h2></div><button type="button" className="page-tools-close" aria-label="關閉" onClick={()=>dialog.current?.close()}>×</button></header>
       <div className="page-tools-body">
         {tool==='idea'&&<>
           <div className="page-tools-issue-heading"><p>這頁的 GitHub 提案列在下方；有相同想法可直接參與討論。你已確認發布的紀錄也會保留在清單中。</p><button type="button" onClick={()=>setRefreshTick(value=>value+1)} disabled={loading}>重新同步</button></div>

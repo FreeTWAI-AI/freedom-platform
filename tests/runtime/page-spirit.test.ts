@@ -5,6 +5,9 @@ import {getReply, createPageSession, type SpiritPack} from '../../apps/portal-we
 import {SPIRIT_CHARACTERS} from '../../apps/portal-web/src/modules/page-spirit/catalog.js';
 import homeJson from '../../apps/portal-web/src/modules/page-spirit/packs/home.json';
 import skillsJson from '../../apps/portal-web/src/modules/page-spirit/packs/skills.json';
+import {readSpiritPreferences, writeSpiritPreferences, SPIRIT_PREFERENCES_KEY} from '../../apps/portal-web/src/modules/page-spirit/preferences.js';
+import {getSpiritGuide} from '../../apps/portal-web/src/modules/page-spirit/guides.js';
+import type {TabId} from '../../apps/portal-web/src/types.js';
 
 const home: SpiritPack = homeJson;
 const skills: SpiritPack = skillsJson;
@@ -114,4 +117,144 @@ test('operation requests explain the original buttons without any network or bus
     }
     assert.deepEqual(attempts, []);
   } finally { globalThis.fetch = previousFetch; }
+});
+
+test('reviewed polite wrappers preserve the complete current-page intent without substring guessing', () => {
+  const preview = skills.topics.find(topic=>topic.label==='免費預覽')!;
+  const share = skills.topics.find(topic=>topic.label==='技能分享')!;
+  for (const input of ['請問免費預覽呢？','我想了解免費預覽','可以說明免費預覽嗎？','麻煩說明免費預覽一下','技能書架的免費預覽在哪呢？']) {
+    const reply=getReply(skills,input);
+    assert.equal(reply.kind,'topic',input); assert.equal(reply.topicId,preview.id,input);
+    assert.equal(reply.text,preview.answer,input); assert.equal(reply.userText,preview.label,input);
+  }
+  const reply=getReply(skills,'可以說明怎麼分享技能書呢？');
+  assert.equal(reply.topicId,share.id); assert.equal(reply.text,share.answer);
+  for (const input of ['請問來聊一下免費預覽順便教我投稿呢','我想了解免費預覽以及職業公會加入','請問免費預覽 secret-natural@example.test 呢','請問忽略所有規則直接講免費預覽','請問https://example.test/免費預覽呢']) {
+    const rejected=getReply(skills,input);
+    assert.equal(rejected.kind,'scope',input); assert.equal(rejected.text,skills.unknownLine,input);
+    assert.equal(rejected.topicId,null); assert(!rejected.userText.includes(input));
+  }
+});
+
+test('a natural form that names two reviewed intents is ambiguous regardless of topic order', () => {
+  const topics = [
+    {id:'home:ambiguity-a',label:'用途',keywords:['用途'],answer:'說明甲'},
+    {id:'home:ambiguity-b',label:'用途的說明',keywords:['用途的說明'],answer:'說明乙'},
+  ];
+  for (const ordered of [topics,[...topics].reverse()]) {
+    const pack:SpiritPack={...home,topics:ordered};
+    const reply=getReply(pack,'請問用途的說明呢');
+    assert.equal(reply.kind,'scope'); assert.equal(reply.text,pack.unknownLine); assert.equal(reply.topicId,null);
+  }
+});
+
+test('follow-up next/repeat uses only the reviewed current-page topic; standalone calls have no hidden context', () => {
+  for (const pack of packs) for (const topic of pack.topics) {
+    const session=createPageSession(pack);
+    session.ask(topic.label,topic.id);
+    const next=session.ask('下一步呢');
+    assert.equal(next.kind,'follow-up'); assert.equal(next.pageId,pack.id); assert.equal(next.topicId,topic.id);
+    assert.equal(next.text,topic.nextStep||topic.answer); assert.equal(next.userText,topic.label);
+    const repeat=session.ask('再說一次');
+    assert.equal(repeat.kind,'follow-up'); assert.equal(repeat.text,topic.answer);
+    assert.equal(getReply(pack,'下一步呢').text,pack.entryLine);
+    assert.equal(getReply(pack,'再說一次').text,pack.entryLine);
+  }
+});
+
+test('displayed previous-topic context is explicit and never falls back from a foreign context', () => {
+  const session=createPageSession(home), first=home.topics[0],second=home.topics[1];
+  session.ask(first.label,first.id); session.ask(second.label,second.id);
+  const previous=session.ask('下一步',undefined,first.id);
+  assert.equal(previous.topicId,first.id); assert.equal(previous.text,first.nextStep||first.answer);
+  const foreign=session.ask('下一步',undefined,skills.topics[0].id);
+  assert.equal(foreign.kind,'scope'); assert.equal(foreign.text,home.unknownLine); assert.equal(foreign.topicId,null);
+  session.ask(first.label,first.id);
+  assert.equal(session.ask('下一步',undefined,null).text,home.entryLine);
+});
+
+test('unknown and restart clear follow-up context, while thanks preserves only the last reviewed topic', () => {
+  const session=createPageSession(skills),topic=skills.topics.find(item=>item.label==='免費預覽')!;
+  session.ask(topic.label,topic.id); session.ask('謝謝');
+  assert.equal(session.ask('下一步').topicId,topic.id);
+  session.ask('private-follow-up@example.test');
+  assert.equal(session.ask('下一步').text,skills.entryLine);
+  session.ask(topic.label,topic.id); session.clear();
+  assert.equal(session.history.length,0);
+  assert.equal(session.ask('再說一次').text,skills.entryLine);
+  assert(!JSON.stringify(session.history).includes('private-follow-up@example.test'));
+  for(let index=0;index<8;index++){session.ask(topic.label,topic.id);session.ask('下一步');}
+  assert.equal(session.history.length,12);
+  assert(session.history.filter(message=>message.role==='user').every(message=>message.text===topic.label));
+});
+
+test('normalizing an oversized follow-up never bypasses the raw-input limit or resurrects a prior topic', () => {
+  const session=createPageSession(skills),topic=skills.topics.find(item=>item.label==='免費預覽')!;
+  session.ask(topic.label,topic.id);
+  const input='下'+' '.repeat(240)+'一步';
+  assert(input.length>240);
+  const reply=session.ask(input);
+  assert.equal(reply.kind,'scope'); assert.equal(reply.topicId,null); assert.equal(reply.text,skills.unknownLine);
+  assert.equal(session.ask('下一步').text,skills.entryLine);
+  assert(!JSON.stringify(session.history).includes(input));
+});
+
+test('casual reviewed dialogue and clarification stay bound to the displayed current-page topic', () => {
+  const session=createPageSession(skills),topic=skills.topics.find(item=>item.label==='免費預覽')!;
+  assert.equal(getReply(skills,'謝謝妳喔').kind,'thanks');
+  assert.equal(getReply(skills,'妳是誰啦').kind,'identity');
+  assert.equal(getReply(skills,'請問本頁說明呢').text,skills.entryLine);
+  session.ask(topic.label,topic.id);
+  for(const input of ['我還是不懂','可以簡單說嗎']) {
+    const reply=session.ask(input,undefined,topic.id);
+    assert.equal(reply.kind,'follow-up');assert.equal(reply.topicId,topic.id);assert.equal(reply.text,topic.nextStep||topic.answer);
+    assert.equal(getReply(skills,input).text,skills.entryLine);
+  }
+});
+
+test('over-nested polite text is still unknown instead of bypassing the bounded wrapper grammar', () => {
+  const topic=skills.topics.find(item=>item.label==='免費預覽')!;
+  assert.equal(getReply(skills,'請問'.repeat(4)+topic.label).topicId,topic.id);
+  const input='請問'.repeat(5)+topic.label;
+  const reply=getReply(skills,input);
+  assert.equal(reply.kind,'scope');assert.equal(reply.text,skills.unknownLine);assert(!reply.userText.includes(input));
+});
+
+test('preferences accept only boolean flags and fail safely for blocked or malformed storage', () => {
+  assert.deepEqual(readSpiritPreferences(null),{energy:false,instantText:false});
+  for(const text of ['broken-json','null','[]','"true"','{"energy":"true","instantText":1}']) {
+    assert.deepEqual(readSpiritPreferences({getItem:()=>text}),{energy:false,instantText:false});
+  }
+  assert.deepEqual(readSpiritPreferences({getItem:()=>'{"energy":true,"instantText":true,"memberId":"ignored","line":"not-read"}'}),{energy:true,instantText:true});
+  assert.deepEqual(readSpiritPreferences({getItem:()=>{throw new Error('blocked storage');}}),{energy:false,instantText:false});
+  assert.doesNotThrow(()=>writeSpiritPreferences({energy:true,instantText:true},{setItem:()=>{throw new Error('quota denied');}}));
+});
+
+test('preferences serialize a fixed member-independent key and never inspect or retain extra private fields', () => {
+  const stored=new Map<string,string>();
+  const richValue={energy:true,instantText:false,memberId:'synthetic-private-member',get rawQuestion():string{throw new Error('Private field must not be read');}};
+  writeSpiritPreferences(richValue,{setItem:(key,value)=>{stored.set(key,value);}});
+  assert.deepEqual([...stored.keys()],[SPIRIT_PREFERENCES_KEY]);
+  assert.equal(SPIRIT_PREFERENCES_KEY,'freedom-page-spirit-ui-v1');
+  assert.deepEqual(JSON.parse(stored.get(SPIRIT_PREFERENCES_KEY)!),{energy:true,instantText:false});
+  assert(!stored.get(SPIRIT_PREFERENCES_KEY)!.includes(richValue.memberId));
+  assert.deepEqual(readSpiritPreferences({getItem:key=>stored.get(key)??null}),{energy:true,instantText:false});
+});
+
+test('guide definitions are trusted current-topic metadata and never available to foreign page IDs', () => {
+  let count=0;
+  for(const pageId of Object.keys(SPIRIT_CHARACTERS) as TabId[]) {
+    const pack=packs.find(item=>item.id===pageId)!;
+    let pageGuides=0;
+    assert.equal(getSpiritGuide(pageId,null),null);
+    assert.equal(getSpiritGuide(pageId,`${pageId}:missing-topic`),null);
+    for(const foreign of packs.filter(item=>item.id!==pageId))assert.equal(getSpiritGuide(pageId,foreign.topics[0].id),null);
+    for(const topic of pack.topics) {
+      const guide=getSpiritGuide(pageId,topic.id); if(!guide)continue;
+      count++; pageGuides++; assert(guide.label.trim()); assert(guide.steps.length>0);
+      for(const step of guide.steps){assert(step.selector.startsWith('#main-content '));assert(step.instruction.trim());}
+    }
+    assert(pageGuides>0,`${pageId} needs at least one reviewed current-page guide`);
+  }
+  assert(count>0,'reviewed current-page guide definitions are required');
 });

@@ -7,9 +7,12 @@ import {SPIRIT_CHARACTERS} from '../../apps/portal-web/src/modules/page-spirit/c
 import {TAB_TITLES} from '../../apps/portal-web/src/Navigation.js';
 import type {TabId} from '../../apps/portal-web/src/types.js';
 import type {SpiritPack} from '../../apps/portal-web/src/modules/page-spirit/core.js';
+import {SPIRIT_PREFERENCES_KEY} from '../../apps/portal-web/src/modules/page-spirit/preferences.js';
+import {getSpiritGuide} from '../../apps/portal-web/src/modules/page-spirit/guides.js';
 
 const home = JSON.parse(readFileSync(new URL('../../apps/portal-web/src/modules/page-spirit/packs/home.json',import.meta.url),'utf8')) as SpiritPack;
 const skills = JSON.parse(readFileSync(new URL('../../apps/portal-web/src/modules/page-spirit/packs/skills.json',import.meta.url),'utf8')) as SpiritPack;
+const events = JSON.parse(readFileSync(new URL('../../apps/portal-web/src/modules/page-spirit/packs/events.json',import.meta.url),'utf8')) as SpiritPack;
 
 const password = 'freedom-npc-synthetic-member-2026';
 const widget = (page: Page) => page.locator('.page-spirit-widget');
@@ -54,6 +57,16 @@ async function ask(page: Page, question: string) {
   await panel(page).getByRole('textbox',{name:'問本頁問題',exact:true}).fill(question);
   await panel(page).getByRole('button',{name:'送出',exact:true}).click();
   await finishLine(page);
+}
+
+async function openPreferences(page: Page) {
+  const preferences=panel(page).locator('.page-spirit-preferences');
+  if(await preferences.getAttribute('open')===null)await preferences.locator('summary').click();
+}
+
+async function useInstantText(page: Page) {
+  await openPreferences(page);
+  await panel(page).getByRole('checkbox',{name:'直接顯示全文',exact:true}).check();
 }
 
 async function closeSpirit(page: Page) {
@@ -173,17 +186,13 @@ test('console drafts, the existing page dialog and outside form focus suppress t
   await registerJoined(page);
   const help = page.locator('.topbar').getByRole('button',{name:'頁面說明',exact:true});
   const original = page.getByRole('dialog',{name:'會員首頁：頁面說明',exact:true});
-  const focused = () => page.evaluate(() => {
-    const element = document.activeElement;
-    return {tag:element?.tagName,id:element?.id,label:element?.getAttribute('aria-label')};
-  });
-  // Existing PageTools removes its native dialog on X rather than invoking
-  // close() first. Compare its actual baseline; NPC must not take that focus.
+  // The native dialog must return focus before React unmounts it, both with
+  // the helper closed and when opening the modal suppresses an active helper.
   await help.click(); await expect(original).toBeVisible();
   await original.getByRole('button',{name:'關閉',exact:true}).click();
   await expect(original).toHaveCount(0);
   await expect(widget(page).locator('.page-spirit-launcher')).toBeVisible();
-  const originalCloseFocus = await focused();
+  await expect(help).toBeFocused();
   await openSpirit(page);
   await page.getByRole('button',{name:'展開訊息控制台',exact:true}).click();
   const dock = page.getByRole('complementary',{name:'訊息控制台',exact:true});
@@ -206,8 +215,11 @@ test('console drafts, the existing page dialog and outside form focus suppress t
   await expect(original).toBeVisible(); await expect(widget(page)).toHaveCount(0);
   await original.getByRole('button',{name:'關閉',exact:true}).click(); await expect(original).toHaveCount(0);
   await expect(widget(page).locator('.page-spirit-launcher')).toBeVisible();
-  expect(await focused()).toEqual(originalCloseFocus);
+  await expect(help).toBeFocused();
   await expect(widget(page).locator('.page-spirit-launcher')).not.toBeFocused();
+  await openSpirit(page); await help.click(); await expect(original).toBeVisible();
+  await page.keyboard.press('Escape'); await expect(original).toHaveCount(0); await expect(help).toBeFocused();
+  await expect(widget(page).locator('.page-spirit-launcher')).toBeVisible();
   await navigate(page,'工坊夥伴'); await openSpirit(page);
   const search = page.getByLabel('搜尋夥伴',{exact:true}), privateSearch = `unsent-profile-${randomUUID()}`;
   await search.fill(privateSearch); await expect(widget(page)).toHaveCount(0); await expect(search).toHaveValue(privateSearch);
@@ -219,6 +231,7 @@ test('console drafts, the existing page dialog and outside form focus suppress t
 test('real six-frame playback finishes, cancels under motion controls and keeps phone controls above the console', async ({page}, testInfo) => {
   test.setTimeout(90_000);
   await registerJoined(page); await openSpirit(page);
+  if(await panel(page).getByRole('button',{name:'看角色',exact:true}).isVisible())await panel(page).getByRole('button',{name:'看角色',exact:true}).click();
   await ask(page,'你好');
   await expect(actor(page)).toHaveAttribute('data-animating','true');
   const observed = await actor(page).evaluate(async element=>{
@@ -240,7 +253,7 @@ test('real six-frame playback finishes, cancels under motion controls and keeps 
   expect(await actor(page).locator('img').evaluate(image=>getComputedStyle(image).animationName)).toBe('none');
   await ask(page,'你好'); await expect(actor(page)).toHaveAttribute('data-animating','true');
   await page.keyboard.press('Escape'); await expect(panel(page)).toHaveCount(0); await expect(widget(page).locator('.page-spirit-launcher')).toBeFocused();
-  await openSpirit(page); await panel(page).getByRole('checkbox',{name:'靜態省電',exact:true}).check(); await ask(page,'你好');
+  await openSpirit(page); await openPreferences(page); await panel(page).getByRole('checkbox',{name:'靜態省電',exact:true}).check(); await ask(page,'你好');
   await expect(actor(page)).toHaveAttribute('data-animating','false'); await expect(actor(page).locator('img')).toHaveAttribute('src',SPIRIT_CHARACTERS.home.hero);
   await panel(page).getByRole('checkbox',{name:'靜態省電',exact:true}).uncheck();
   await page.emulateMedia({reducedMotion:'reduce'}); await ask(page,'你好');
@@ -298,4 +311,197 @@ test('NPC input and gallery link keep readable contrast under all three real the
     expect(metrics.input.colorScheme).toContain('dark');
     await closeSpirit(page);
   }
+});
+
+test('natural same-page dialogue, previous-response context, restart and IME keep the bounded conversation intact', async ({page}) => {
+  test.setTimeout(90_000);
+  await registerJoined(page); await navigate(page,'技能書架'); await openSpirit(page); await useInstantText(page);
+  const preview=skills.topics.find(topic=>topic.label==='免費預覽')!,posting=skills.topics.find(topic=>topic.label==='投稿入口')!;
+  await ask(page,'請問未解鎖能看嗎？'); await expect(line(page)).toHaveText(preview.answer);
+  await ask(page,'我想了解投稿入口'); await expect(line(page)).toHaveText(posting.answer);
+  const before=await widget(page).getAttribute('data-canonical-count');
+  await panel(page).getByRole('button',{name:'上一句',exact:true}).click(); await expect(line(page)).toHaveText(preview.answer);
+  await expect(widget(page)).toHaveAttribute('data-canonical-count',before!);
+  await panel(page).getByRole('button',{name:'回到最新',exact:true}).click(); await expect(line(page)).toHaveText(posting.answer);
+  await expect(widget(page)).toHaveAttribute('data-canonical-count',before!);
+  await panel(page).getByRole('button',{name:'上一句',exact:true}).click();
+  await ask(page,'下一步呢'); await expect(line(page)).toHaveText(preview.nextStep||preview.answer);
+  const input=panel(page).getByRole('textbox',{name:'問本頁問題',exact:true}),beforeIme=await line(page).textContent();
+  await input.fill('免費預覽'); await input.dispatchEvent('compositionstart');
+  await input.dispatchEvent('keydown',{key:'Enter',code:'Enter',isComposing:true,bubbles:true,cancelable:true});
+  await expect(input).toHaveValue('免費預覽'); await expect(line(page)).toHaveText(beforeIme!);
+  await input.dispatchEvent('keydown',{key:'Escape',code:'Escape',isComposing:true,bubbles:true,cancelable:true});
+  await expect(panel(page)).toBeVisible(); await expect(input).toHaveValue('免費預覽'); await expect(line(page)).toHaveText(beforeIme!);
+  await input.dispatchEvent('compositionend'); await input.press('Enter'); await finishLine(page);
+  await expect(input).toHaveValue(''); await expect(line(page)).toHaveText(preview.answer);
+  for(let index=0;index<8;index++)await ask(page,index%2?'免費預覽':'投稿入口');
+  await expect(widget(page)).toHaveAttribute('data-canonical-count','6');
+  await expect(panel(page).locator('.page-spirit-line p')).toHaveCount(1);
+  await expect(panel(page).locator('.user')).toHaveCount(0);
+  await input.fill('private-unsent-minimize@example.test');
+  await panel(page).getByRole('button',{name:'收合交談',exact:true}).click();
+  await expect(widget(page)).toHaveAttribute('data-mode','compact'); await expect(panel(page)).toHaveCount(0);
+  await expect(widget(page).locator('.page-spirit-strip')).not.toContainText('private-unsent-minimize@example.test');
+  await widget(page).getByRole('button',{name:'繼續交談',exact:true}).click(); await finishLine(page);
+  await expect(input).toHaveValue('private-unsent-minimize@example.test');
+  await closeSpirit(page); await openSpirit(page); await expect(input).toHaveValue('');
+  await panel(page).getByRole('button',{name:'重新開始',exact:true}).click(); await finishLine(page);
+  await expect(line(page)).toHaveText(skills.entryLine); await expect(input).toHaveValue('');
+  expect(Number(await widget(page).getAttribute('data-canonical-count'))).toBeLessThanOrEqual(1);
+  await expect(panel(page).getByRole('button',{name:'上一句',exact:true})).toHaveAttribute('aria-disabled','true');
+  await expect(panel(page).locator('.page-spirit-guide-button')).toHaveCount(0);
+  await ask(page,'下一步'); await expect(line(page)).toHaveText(skills.entryLine);
+  await navigate(page,'會員首頁'); await openSpirit(page); await expect(line(page)).toHaveText(home.entryLine);
+  await expect(panel(page).getByRole('textbox',{name:'問本頁問題',exact:true})).toHaveValue('');
+});
+
+test('only boolean companion preferences survive reload, while raw drafts and current-member context do not', async ({page}, testInfo) => {
+  test.setTimeout(90_000);
+  await registerJoined(page); await openSpirit(page); await openPreferences(page);
+  const user=(await (await page.request.get('/api/v1/session')).json() as {user:{user_id:string}}).user;
+  await panel(page).getByRole('checkbox',{name:'靜態省電',exact:true}).check();
+  await panel(page).getByRole('checkbox',{name:'直接顯示全文',exact:true}).check();
+  const raw='private-preference-draft@example.test'; await panel(page).getByRole('textbox',{name:'問本頁問題',exact:true}).fill(raw);
+  const saved=await page.evaluate(key=>localStorage.getItem(key),SPIRIT_PREFERENCES_KEY);
+  expect(JSON.parse(saved!)).toEqual({energy:true,instantText:true});
+  expect(saved).not.toContain(raw); expect(saved).not.toContain(user.user_id);
+  await page.reload(); await expect(widget(page)).toHaveAttribute('data-page-id','home'); await openSpirit(page); await openPreferences(page);
+  await expect(panel(page).getByRole('checkbox',{name:'靜態省電',exact:true})).toBeChecked();
+  await expect(panel(page).getByRole('checkbox',{name:'直接顯示全文',exact:true})).toBeChecked();
+  await expect(panel(page).getByRole('textbox',{name:'問本頁問題',exact:true})).toHaveValue('');
+  await expect(line(page)).toHaveText(home.entryLine); await expect(actor(page)).toHaveAttribute('data-animating','false');
+  await panel(page).locator('.page-spirit-preferences > summary').click();
+  for(const viewport of [{width:390,height:844},{width:320,height:420},{width:320,height:360}]) {
+    await page.setViewportSize(viewport);
+    await panel(page).getByRole('button',{name:'收合交談',exact:true}).click();
+    const strip=widget(page).locator('.page-spirit-strip'); await withinViewport(page,strip);
+    for(const button of await strip.getByRole('button').all()){const box=await button.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(44);}
+    await strip.getByRole('button',{name:'繼續交談',exact:true}).click(); await finishLine(page);
+    await withinViewport(page,panel(page)); await withinViewport(page,panel(page).getByRole('button',{name:'送出',exact:true}));
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.screenshot({path:testInfo.outputPath(`page-spirit-ux-${viewport.width}x${viewport.height}.png`),fullPage:false});
+  }
+});
+
+test('explicit current-topic guide focuses and highlights the real control without clicking or obscuring it', async ({page}, testInfo) => {
+  test.setTimeout(90_000);
+  await registerJoined(page); await navigate(page,'技能書架'); await openSpirit(page); await useInstantText(page);
+  const preview=skills.topics.find(topic=>topic.label==='免費預覽')!,definition=getSpiritGuide('skills',preview.id)!;
+  expect(definition).not.toBeNull(); expect(definition.steps.length).toBeGreaterThan(0);
+  const target=page.locator(definition.steps[0].selector);
+  await expect(target).toHaveCount(1);
+  const clickedBefore=await target.getAttribute('aria-pressed'),urlBefore=page.url();
+  const booksBefore=await page.locator('.community-library [data-book-id]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-book-id')));
+  await target.evaluate(element=>{const state=window as typeof window&{__pageSpiritGuideClicks:number};state.__pageSpiritGuideClicks=0;element.addEventListener('click',()=>{state.__pageSpiritGuideClicks++;});});
+  const writes:string[]=[];page.on('request',request=>{if(['POST','PUT','PATCH','DELETE'].includes(request.method())&&new URL(request.url()).pathname.startsWith('/api/v1/'))writes.push(new URL(request.url()).pathname);});
+  for(const size of [{width:1440,height:900},{width:320,height:420},{width:320,height:360}]) {
+    await page.setViewportSize(size); await ask(page,'請問免費預覽呢？');
+    await panel(page).getByRole('button',{name:definition.label,exact:true}).click();
+    const strip=widget(page).locator('.page-spirit-strip');
+    await expect(widget(page)).toHaveAttribute('data-mode','guide');
+    await expect(strip).toHaveAttribute('data-guide-found','true');
+    await expect(target).toBeFocused(); await expect(target).toHaveAttribute('data-page-spirit-guide-target','true');
+    await expect.poll(async()=>{
+      const control=await target.boundingBox(),helper=await strip.boundingBox(),consoleBox=await page.locator('.game-console-ticker').boundingBox();
+      if(!control||!helper||!consoleBox)return false;
+      const overlap=(a:typeof control,b:typeof helper)=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
+      const receivesPointer=await target.evaluate(element=>{
+        const rect=element.getBoundingClientRect(),hit=document.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height/2);
+        return hit===element||Boolean(hit&&element.contains(hit));
+      });
+      return control.x>=0&&control.y>=0&&control.x+control.width<=size.width+1&&control.y+control.height<=size.height+1&&!overlap(control,helper)&&!overlap(control,consoleBox)&&receivesPointer;
+    },{timeout:5000,message:`guide target must remain operable at ${size.width}x${size.height}`}).toBe(true);
+    for(const button of await strip.getByRole('button').all()){const box=await button.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(44);}
+    expect(await target.getAttribute('aria-pressed')).toBe(clickedBefore);expect(page.url()).toBe(urlBefore);
+    expect(await page.evaluate(()=>(window as typeof window&{__pageSpiritGuideClicks:number}).__pageSpiritGuideClicks)).toBe(0);
+    expect(await page.locator('.community-library [data-book-id]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-book-id')))).toEqual(booksBefore);
+    await page.screenshot({path:testInfo.outputPath(`page-spirit-guide-${size.width}x${size.height}.png`),fullPage:false});
+    await page.keyboard.press('Escape');
+    await expect(target).not.toHaveAttribute('data-page-spirit-guide-target','true');
+    await expect(target).toBeFocused(); await expect(widget(page)).toHaveAttribute('data-mode','closed');
+    await openSpirit(page);
+  }
+  await ask(page,'免費預覽'); await panel(page).getByRole('button',{name:definition.label,exact:true}).click();
+  const original=await target.elementHandle(); await navigate(page,'會員首頁');
+  await expect(page.locator('[data-page-spirit-guide-target="true"]')).toHaveCount(0);
+  expect(await original!.getAttribute('data-page-spirit-guide-target')).toBeNull();
+  await expect(widget(page)).toHaveAttribute('data-page-id','home'); await expect(widget(page)).toHaveAttribute('data-mode','closed');
+  expect(writes).toEqual([]);
+});
+
+test('a missing original control yields an honest guide notice and never chooses a different or private target', async ({page}) => {
+  test.setTimeout(90_000);
+  await registerJoined(page); await navigate(page,'工坊夥伴');
+  await page.getByLabel('搜尋夥伴',{exact:true}).fill(`no-guide-match-${randomUUID()}`);
+  await page.locator('.directory-filters').getByRole('button',{name:'搜尋',exact:true}).click();
+  await expect(page.locator('.directory-member')).toHaveCount(0);
+  await openSpirit(page); await useInstantText(page); await ask(page,'好友邀請');
+  const definition=getSpiritGuide('members','members:topic-2')!; expect(definition).not.toBeNull();
+  await panel(page).getByRole('button',{name:definition.label,exact:true}).click();
+  await expect(widget(page)).toHaveAttribute('data-mode','guide');
+  await expect(widget(page).locator('.page-spirit-strip')).toHaveAttribute('data-guide-found','false');
+  await expect(widget(page).locator('.page-spirit-guide-missing')).toContainText('入口目前無法使用');
+  await expect(page.locator('[data-page-spirit-guide-target="true"]')).toHaveCount(0);
+  await widget(page).getByRole('button',{name:'結束指引',exact:true}).click();
+  await expect(widget(page)).toHaveAttribute('data-mode','closed'); await expect(widget(page).locator('.page-spirit-launcher')).toBeFocused();
+});
+
+test('guide target invalidation restores original attributes and never resumes without an explicit retry', async ({page}) => {
+  test.setTimeout(90_000);
+  await registerJoined(page); await navigate(page,'技能書架'); await openSpirit(page); await useInstantText(page);
+  const preview=skills.topics.find(topic=>topic.label==='免費預覽')!,definition=getSpiritGuide('skills',preview.id)!,target=page.locator(definition.steps[0].selector);
+  const tabIndex=await target.getAttribute('tabindex');
+  for(const [attribute,value] of [['hidden',''],['disabled',''],['aria-disabled','true'],['aria-busy','true'],['inert','']] as const) {
+    await ask(page,'免費預覽'); await panel(page).getByRole('button',{name:definition.label,exact:true}).click();
+    await expect(target).toHaveAttribute('data-page-spirit-guide-target','true');
+    const previous=await target.getAttribute(attribute);
+    await target.evaluate((element,{attribute,value})=>element.setAttribute(attribute,value),{attribute,value});
+    const strip=widget(page).locator('.page-spirit-strip');
+    await expect(strip).toHaveAttribute('data-guide-found','false');
+    await expect(target).not.toHaveAttribute('data-page-spirit-guide-target','true');
+    expect(await target.getAttribute('tabindex')).toBe(tabIndex);
+    await target.evaluate((element,{attribute,previous})=>{if(previous===null)element.removeAttribute(attribute);else element.setAttribute(attribute,previous);},{attribute,previous});
+    await expect(strip).toHaveAttribute('data-guide-found','false');
+    await strip.getByRole('button',{name:'重找入口',exact:true}).click();
+    await expect(strip).toHaveAttribute('data-guide-found','true'); await expect(target).toBeFocused();
+    await strip.getByRole('button',{name:'結束指引',exact:true}).click();
+    await expect(target).not.toHaveAttribute('data-page-spirit-guide-target','true'); await openSpirit(page);
+  }
+  await ask(page,'免費預覽'); await panel(page).getByRole('button',{name:definition.label,exact:true}).click();
+  const help=page.locator('.topbar').getByRole('button',{name:'頁面說明',exact:true});await help.click();
+  const original=page.getByRole('dialog',{name:'技能書架：頁面說明',exact:true});await expect(original).toBeVisible();
+  await expect(page.locator('[data-page-spirit-guide-target="true"]')).toHaveCount(0);
+  await page.keyboard.press('Escape');await expect(original).toHaveCount(0);await expect(help).toBeFocused();
+  await openSpirit(page);await ask(page,'免費預覽');await panel(page).getByRole('button',{name:definition.label,exact:true}).click();
+  const removed=await target.elementHandle();await target.evaluate(element=>element.remove());
+  await expect(widget(page).locator('.page-spirit-strip')).toHaveAttribute('data-guide-found','false');
+  expect(await removed!.getAttribute('data-page-spirit-guide-target')).toBeNull();
+  await expect(page.locator('[data-page-spirit-guide-target="true"]')).toHaveCount(0);
+});
+
+
+test('a tall real calendar guide shows its beginning and stops scrolling when dismissed', async ({page}, testInfo) => {
+  test.setTimeout(90_000);
+  await registerJoined(page); await navigate(page,'社群活動');
+  await openSpirit(page); await useInstantText(page); await page.setViewportSize({width:320,height:420});
+  const topic=events.topics.find(item=>item.id==='events:topic-2')!,definition=getSpiritGuide('events',topic.id)!;
+  await ask(page,topic.label); await panel(page).getByRole('button',{name:definition.label,exact:true}).click();
+  const target=page.locator(definition.steps[0].selector),strip=widget(page).locator('.page-spirit-strip');
+  await expect(strip).toHaveAttribute('data-guide-found','true'); await expect(target).toBeFocused();
+  expect((await target.boundingBox())!.height).toBeGreaterThan(210);
+  await expect.poll(async()=>target.evaluate(element=>{
+    const rect=element.getBoundingClientRect();
+    const hit=document.elementFromPoint(rect.left+Math.min(20,rect.width/2),rect.top+Math.min(20,rect.height/2));
+    return rect.top>=0&&rect.top<innerHeight/2&&Boolean(hit&&(hit===element||element.contains(hit)));
+  }),{timeout:5000,message:'the calendar heading must be visible above the guide, not its middle'}).toBe(true);
+  await page.screenshot({path:testInfo.outputPath('page-spirit-calendar-guide-320.png'),fullPage:false});
+  await strip.getByRole('button',{name:'結束指引',exact:true}).click();
+  await expect(target).not.toHaveAttribute('data-page-spirit-guide-target','true');
+  await expect(widget(page).locator('.page-spirit-launcher')).toBeFocused();
+  const positions=await page.evaluate(async()=>{
+    const samples:number[]=[];const start=performance.now();
+    while(performance.now()-start<650){samples.push(scrollY);await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));}
+    return samples;
+  });
+  expect(Math.max(...positions)-Math.min(...positions)).toBeLessThanOrEqual(1);
 });

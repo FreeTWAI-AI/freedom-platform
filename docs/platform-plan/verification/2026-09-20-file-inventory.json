@@ -2609,8 +2609,8 @@
     },
     {
       "path": "apps/portal-web/src/PageTools.tsx",
-      "bytes": 27150,
-      "sha256": "b9e98272a2356c19c2ab6ed17bc0a07f99e9c1a023563e38c9b72ea98f6d0016"
+      "bytes": 27160,
+      "sha256": "62c7ed550a826ffc06ae105ea2803327c3181694c827b9470d8f97235e1e1a8b"
     },
     {
       "path": "apps/portal-web/src/WorkshopIcon.tsx",
@@ -3264,8 +3264,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/PageSpirit.tsx",
-      "bytes": 20783,
-      "sha256": "574bd5b0a04c024806913abb4ffa3cbe0ae9ece0de7447f2e17f0c7cb48d5616"
+      "bytes": 39000,
+      "sha256": "b014de7d481717941526ef436330ddda7e7a3663158c38fa09bbaf915cb30d87"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/catalog.ts",
@@ -3274,8 +3274,18 @@
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/core.ts",
-      "bytes": 4298,
-      "sha256": "fe2084d8bdbc1c98cb06368a33a726fb67f36d3ded799000e505d56148f71cfe"
+      "bytes": 7661,
+      "sha256": "0fdb6b3c4aa194572cbf38af4e7063fa36412e34c256a3e4b5fb2fa05af72559"
+    },
+    {
+      "path": "apps/portal-web/src/modules/page-spirit/guide-data.ts",
+      "bytes": 15923,
+      "sha256": "4e70c8b56a0f7f357b3e68e01057f1373358f8e5329b6bbb21e53e9d3b81a8cd"
+    },
+    {
+      "path": "apps/portal-web/src/modules/page-spirit/guides.ts",
+      "bytes": 3216,
+      "sha256": "7bbb348d119686ce556cf61dd4031858bd47ee99e898fb7e8c5123ffc3214d0d"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs.ts",
@@ -3284,138 +3294,143 @@
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/account.json",
-      "bytes": 2046,
-      "sha256": "c1e063fed3b1a6b4a808bf2f44216ba1efa5ef268201be1288e2e27d1e01a76f"
+      "bytes": 2713,
+      "sha256": "e5c0e0988d195353733d1fe3a706e193cc9758d7eead877b5ee17c12d8d20f40"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/cocreation.json",
-      "bytes": 1976,
-      "sha256": "a1d164c7d815a382fb8f434aad3d784c05c442bce3257c152c4017890b17c361"
+      "bytes": 2762,
+      "sha256": "ce4d749ede8b09297d8370dc73d0db2335dac9d02f4e41606484d650353eb71b"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/community.json",
-      "bytes": 1944,
-      "sha256": "ea4339e388c8bdb09c9495a497b1f1bdfad0206a67d032f40db5bf6f7907a0b0"
+      "bytes": 2570,
+      "sha256": "ee38965a66a7721bdc044fa243dd0d5c63605e2dbbc1f16299cc787e56e23105"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/engagement.json",
-      "bytes": 2027,
-      "sha256": "93ffee1df7d52be6bff6acb3a035f349ada7ce6758d32a6232c12801a9e35eb4"
+      "bytes": 2601,
+      "sha256": "fb9bcd09629c0aac12826ad25e8495e3d770b41e87f10e75ba2b790c743cf550"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/events.json",
-      "bytes": 2015,
-      "sha256": "cffdc3842f0ed4e189933c2dbf159a37979fc59696845a899a77ce003078d060"
+      "bytes": 2634,
+      "sha256": "bef03ce6198663225979e7872e7d20cb714589d6cc405bfdcc7ee4e26ae2d707"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/friends.json",
-      "bytes": 1973,
-      "sha256": "a36a0d14fbc23be975c51828fc4956248e9f86f3463c6526be92897307dd0080"
+      "bytes": 2633,
+      "sha256": "4a7e68ec92997777a8fe3afadaf515ad98471bff8de6e6fb5c1f92dc7c79c5c7"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/guild-workspace.json",
-      "bytes": 2090,
-      "sha256": "e8bf7d614ab24203ec6249756da54c1bc887887b4baa8d27feedfe39b3977f6f"
+      "bytes": 2664,
+      "sha256": "44d1854f917e118123dfef0bdfc58bf560f6930fe625e39d22eb7173fb9b5e4e"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/guilds.json",
-      "bytes": 2067,
-      "sha256": "9936b05c14f87a42a60d1e3362c3c4a419f697351cd797803497233bcb27d77e"
+      "bytes": 2700,
+      "sha256": "f74fa8be92f689de49129806ae2f89268765e43547624fc2c977eec4d808b846"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/highlights.json",
-      "bytes": 1969,
-      "sha256": "20578905e0cd3c1a30e10d9899a5207c0d09cca61fd03ed60c200fb58c63c5fe"
+      "bytes": 2611,
+      "sha256": "6d092de317593fdbaebc859b97271d54a963ccee9fd227efd9c369266c278b15"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/home.json",
-      "bytes": 2151,
-      "sha256": "778c46a74e6eb15ccaeb10b3f716ddb89ef3b3798225da9ef3aa400892bfb716"
+      "bytes": 2635,
+      "sha256": "f68130f5a8a43c46b66c749107fe3006b1e89166198e5552cf47482dd7f60dd0"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/marketing.json",
-      "bytes": 2064,
-      "sha256": "f3d501420c78e1aa7ad6cfe2e7974cb4466d2604ad95521ed2c389ccbf0ebb3f"
+      "bytes": 2757,
+      "sha256": "71d339988b3ec38591604dce689e942a2e5fbdbf01185c40e3256e0146f5339e"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/members.json",
-      "bytes": 1981,
-      "sha256": "69db64f98c3a531c57daa421ca5fea9a8f4dbf345958c0fd5471a07e5c67314d"
+      "bytes": 2641,
+      "sha256": "991d46f9dd80c846bfa14aad10be337ac4c3a974ed0d1f4292a84c50289552a3"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/messages.json",
-      "bytes": 2046,
-      "sha256": "1bbaceefa269c8d5e4b543b1b48dd5948a3494fe69d239aa194e9f01a798a550"
+      "bytes": 2633,
+      "sha256": "69dac8faedfe5a429984070beac414f37091d51b5e8702edc64204a7f5d18e82"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/opensource.json",
-      "bytes": 2006,
-      "sha256": "0e7d24116df5e0915713bd7dd1385865107a6ecc7e597e292dd0cf13b065ee26"
+      "bytes": 2691,
+      "sha256": "2cbd78562ef4de03c32d24272c4d230218dca45051236a669c2575985c572ecf"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/positioning.json",
-      "bytes": 2018,
-      "sha256": "029a67b4459c04a19f6ea5b06dbfdc656b33afc5624675282ae3f3c971ee75df"
+      "bytes": 2600,
+      "sha256": "f0d98b425655ca03832db18cf0d892ff75fc6a6e2acd278f3eb4d0c1f1852e69"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/promotion.json",
-      "bytes": 1975,
-      "sha256": "6fb03012371bb76d7038b3ed5c8d00bae3a208cefacec15b9ff0433c0f6a573d"
+      "bytes": 2482,
+      "sha256": "6704be79264ecc71720582f89b140088d100b262236a0e57fb44dab7d0264290"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/retail.json",
-      "bytes": 1942,
-      "sha256": "dc6e57981e84023fdfc626f33bbfb119271e0b275bb1c616adea49e64359549f"
+      "bytes": 2528,
+      "sha256": "27cfa828d5f42f17214c3d1f8041c400e394a8eb11bf98b83078e1d7cfe2ec39"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/services.json",
-      "bytes": 2036,
-      "sha256": "42c9c2e54d4105ad3c251300d8ec156156f333d4bb39028e99cd9e8dc8015241"
+      "bytes": 2738,
+      "sha256": "63c9cd0c783df1835b9dbc0e4cbea10664a1562e08d8541d6cb5c280a68317ff"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/showcase.json",
-      "bytes": 1960,
-      "sha256": "63003348af8ca2605867d05f452daefbfae6091215e2925d38f71e4c4dc077c5"
+      "bytes": 2629,
+      "sha256": "3c872615d2fc7b50dba668c9055ce52e26dade2dbff7380e89bba686a80323c9"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/skills.json",
-      "bytes": 2557,
-      "sha256": "c0dcb02fdb8b17b61e2265f4e509bc48c67dfb0f98294976853881c89dc4d959"
+      "bytes": 3373,
+      "sha256": "4313a60fd84108d168f0f375d957ae281ab88f415da0293b9411e6305e88aedc"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/social.json",
-      "bytes": 1950,
-      "sha256": "586a10d499039408765a389a19028fa2f3aa436e5e63c6c98fd63d67e9f8fefa"
+      "bytes": 2582,
+      "sha256": "42f6e97800148f62dd528aae101a63bb304aa5f91c4fbe16eafa84446d788913"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/squads.json",
-      "bytes": 2009,
-      "sha256": "70b301ac88487a546911cd10d8fdd8b493a4d79f9416ecff33bfd7d5b674413f"
+      "bytes": 2649,
+      "sha256": "346d1b620d122da5d7c825ac016fd74e26c83c2964a3a43faae91a870142b889"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/supplier.json",
-      "bytes": 2046,
-      "sha256": "2e8dca5c78ebc4e82611dacbca80dfb9d0d765707dd3e680ac1ac2d4fd54b303"
+      "bytes": 2726,
+      "sha256": "3bb068aa80c9f100bc065cac82a82e2279fcd575e7fcd08663c1f946a90efa36"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/tasks.json",
-      "bytes": 2014,
-      "sha256": "6da697c42cb327519075925d8b5ad7c7cb056963a6972b214a7ac7b85deff4fe"
+      "bytes": 2484,
+      "sha256": "862f07453e6cbe5cd13d16751c85535f084a0af41d4917e8845cd5c183a969d7"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/todos.json",
-      "bytes": 2014,
-      "sha256": "f4cfd72e637798cac9869914372605d4bf636daec1079f754902192fda8754c5"
+      "bytes": 2710,
+      "sha256": "43006dcfedbef2f64ed4bbaf6bea4de87a278b25756d84b0ad35c64612c3da71"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/packs/workbench.json",
-      "bytes": 1985,
-      "sha256": "03c2faeaa08e326fdf3ecab41879b382df197002f2a375098cc9d9eea5eca2f3"
+      "bytes": 2736,
+      "sha256": "e1e77b8499f08236d18d6bf6f4e3bd0c1f74c97374d555170f738141506b1307"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/page-spirit.css",
-      "bytes": 6452,
-      "sha256": "672ff53415e25bd0bee58a7eb892e95a780e79a6713fabb29ccf303c286ed7d9"
+      "bytes": 11019,
+      "sha256": "593d6339d2e99d5082314b00e731870bb7f67cd7dc24f5817c5b776ba7646a10"
+    },
+    {
+      "path": "apps/portal-web/src/modules/page-spirit/preferences.ts",
+      "bytes": 1301,
+      "sha256": "26b7641927a95da96d1d02a868d67963202579104bdeeb8a29634e3b36032c59"
     },
     {
       "path": "apps/portal-web/src/modules/review-center-shared.tsx",
@@ -3743,6 +3758,11 @@
       "sha256": "a3b41bc72e371b4fbd675c8a9e0c855622212fc26a311e4af3d5b05539d967f4"
     },
     {
+      "path": "docs/design/page-spirit-copy-review.md",
+      "bytes": 139528,
+      "sha256": "95a33e8ece60998fcda4734bd830890fa16a28d83a2e928879fa846f40d9d08a"
+    },
+    {
       "path": "docs/design/page-spirit-prompts.md",
       "bytes": 104953,
       "sha256": "b7f29ba3768f6af3dcfccbb9fde66b07dd407a4bde86ab5527bc5c5e867723d3"
@@ -4009,8 +4029,8 @@
     },
     {
       "path": "docs/development/page-spirit.md",
-      "bytes": 5426,
-      "sha256": "5d7ede78c2aadd49f682bb17e28cf7a83c016d9dcf571cbae68ce8697e697fd1"
+      "bytes": 5442,
+      "sha256": "e058683a1f50a2cd241f3fbaea81a18e429f861d019f4bd595dea88176dd9ab5"
     },
     {
       "path": "docs/development/page-tools.md",
@@ -6754,8 +6774,8 @@
     },
     {
       "path": "tests/e2e/page-spirit.spec.ts",
-      "bytes": 19933,
-      "sha256": "c62c2ba8eedcae1e53b227b739f50ed3a8179c16f27fe78f18cd941ebd088bd5"
+      "bytes": 37849,
+      "sha256": "b718e7abbf15435fa134e25684c8a766b88160c1c3755abf491075c9b4fe64f6"
     },
     {
       "path": "tests/e2e/page-tools-notification.spec.ts",
@@ -7144,8 +7164,8 @@
     },
     {
       "path": "tests/runtime/page-spirit.test.ts",
-      "bytes": 6644,
-      "sha256": "b0900440b90b3be3f05dddc6bb0342d0fe8c4a2c5337fe61782b743b6d95fdcc"
+      "bytes": 15900,
+      "sha256": "d65eeecda9467c98689992ef758477ea498effb0f43407acecbbd145ae2d5562"
     },
     {
       "path": "tests/runtime/page-tools-notification.test.ts",
