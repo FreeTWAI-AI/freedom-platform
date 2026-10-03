@@ -130,7 +130,12 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
       requireCondition(pending<settings.pending,409,'asset_upload_quota','進行中的上傳已達上限。');
       await profile.requireCapacity(q,context,actor,target,resolved,profile.outputMaxBytes);await assertCurrentSessionClock(q,actor);
       const assetId=randomUUID(),intentId=randomUUID(),representationId=randomUUID();
-      await q.query('INSERT INTO assets(asset_id,scope_id,owner_principal_id,owner_user_id,policy_revision,representation_id,purpose,scope_kind,community_ref) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[assetId,context.scope.scope_id,context.subject_principal.principal_id,actor.user_id,resolved.revision,representationId,profile.purpose,scopeKind,scopeKind==='community'?actor.community_id:null]);
+      // Personal writers keep their original column grants; database defaults
+      // supply personal scope and null community. Only community profiles need
+      // the new explicit identity columns.
+      const assetValues:unknown[]=[assetId,context.scope.scope_id,context.subject_principal.principal_id,actor.user_id,resolved.revision,representationId,profile.purpose];
+      if(scopeKind==='community')assetValues.push(scopeKind,actor.community_id);
+      await q.query(`INSERT INTO assets(asset_id,scope_id,owner_principal_id,owner_user_id,policy_revision,representation_id,purpose${scopeKind==='community'?',scope_kind,community_ref':''}) VALUES($1,$2,$3,$4,$5,$6,$7${scopeKind==='community'?',$8,$9':''})`,assetValues);
       const values:unknown[]=[intentId,assetId,representationId,context.scope.scope_id,context.subject_principal.principal_id,actor.user_id,resolved.revision,receiptKey,digest(body),input.contentType,input.byteSize,input.sha256,input.expectedVersion,settings.ttl,profile.purpose,profile.outputMaxBytes];
       const work=profile.targetKind!=='member.avatar',column=profile.targetKind==='community.event-video'?'target_video_event_id':profile.targetKind==='community.event-banner'?'target_event_id':profile.targetKind==='member.service-cover'?'target_service_id':'target_work_id';if(work)values.push(profile.targetKind,id);const banner=profile.purpose==='community.event-banner'||profile.purpose==='community.event-video';if(banner)values.push(actor.community_id,profile.purpose==='community.event-banner'?(input as P&{orientation:string}).orientation:null);
       const row=(await q.query(`INSERT INTO asset_upload_intents(intent_id,asset_id,representation_id,scope_id,owner_principal_id,target_user_id,policy_revision,prepare_key,request_digest,source_content_type,source_byte_size,source_sha256,expected_version,expires_at,purpose,reserved_bytes${work?',target_kind,'+column:''}${banner?',target_community_id,source_orientation':''}) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,clock_timestamp()+make_interval(secs=>$14),$15,$16${work?',$17,$18':''}${banner?',$19,$20':''}) RETURNING expires_at`,values)).rows[0];
@@ -172,8 +177,8 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
     },async q=>{
       if(row.state==='stored')requireCondition(digest(await metadata(q,row))===digest(verified.metadata),409,'asset_object_conflict','已儲存內容不同。');
       else{
-        const value=verified.metadata,work=profile.targetKind!=='member.avatar';const values:unknown[]=[row.asset_id,row.scope_id,row.representation_id,value.contentType,value.byteSize,value.sha256,value.transformVersion,value.policyRevision];if(work)values.push(profile.purpose,profile.variant);values.push(value.profileId??null);
-        await q.query(`INSERT INTO asset_objects(asset_id,scope_id,representation_id,content_type,byte_size,content_sha256,transform_version,policy_revision${work?',purpose,variant':''},profile_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8${work?',$9,$10':''},$${values.length})`,values);
+        const value=verified.metadata,work=profile.targetKind!=='member.avatar',hasProfile=value.profileId!==undefined;const values:unknown[]=[row.asset_id,row.scope_id,row.representation_id,value.contentType,value.byteSize,value.sha256,value.transformVersion,value.policyRevision];if(work)values.push(profile.purpose,profile.variant);if(hasProfile)values.push(value.profileId);
+        await q.query(`INSERT INTO asset_objects(asset_id,scope_id,representation_id,content_type,byte_size,content_sha256,transform_version,policy_revision${work?',purpose,variant':''}${hasProfile?',profile_id':''}) VALUES($1,$2,$3,$4,$5,$6,$7,$8${work?',$9,$10':''}${hasProfile?',$'+values.length:''})`,values);
         await q.query("UPDATE asset_upload_intents SET state='stored' WHERE intent_id=$1",[row.intent_id]);
       }
       return {intentId:row.intent_id,assetId:row.asset_id,state:'stored' as const};

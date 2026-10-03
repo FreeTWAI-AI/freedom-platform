@@ -51,6 +51,10 @@ test('actual broker Worker separate SQL roles open the vault, execute one native
     await admin.query(Object.values(roles).map(role=>`CREATE ROLE ${role} LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT`).join(';'));
     await admin.query(`CREATE DATABASE ${database} OWNER ${roles.owner}`);created=true;await migrate(owner);
     await template(owner,'public','20-runtime-grants.psql',roles.app,'runtime');await template(owner,'public','40-credential-broker-grants.psql',roles.broker,'broker');await template(owner,'public','45-model-broker-execution-grants.psql',roles.executor,'executor');
+    assert.deepEqual((await owner.query(`SELECT has_column_privilege($1,'assets','scope_kind','INSERT') AS scope_write,
+      has_column_privilege($1,'assets','community_ref','INSERT') AS community_write,
+      has_column_privilege($1,'asset_objects','profile_id','INSERT') AS media_profile_write`,[roles.executor])).rows,
+    [{scope_write:false,community_write:false,media_profile_write:false}], 'private executor gains no media column writes');
     let port:string|undefined;if(proxy){await new Promise<void>(r=>proxy.listen(0,'127.0.0.1',r));const address=proxy.address();assert(address&&typeof address==='object');port=String(address.port);}
     function hyperdrive(role:string){const url=new URL(roleUrl(role));if(proxy){url.hostname='127.0.0.1';url.port=port!;url.searchParams.delete('host');}return url.href;}
     const requestKeys=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']),responseKeys=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']),recoveryKeys=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);
