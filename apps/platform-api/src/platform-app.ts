@@ -53,12 +53,12 @@ import {publicMemberCard,publicMemberAvatar} from '../../../modules/identity-mem
 
 const COOKIE='freedom_local_session';
 const privateAiFamilies=['private-work','execution-runs','model-connections','execution-grants','execution-attempts',
-  'model-step-overview','model-step-approvals','model-steps'];
+  'model-step-overview','model-step-approvals','model-steps','credential-ingests'];
 function isPrivateAiPath(path:string) {
   return privateAiFamilies.some(family=>{const base='/api/v1/me/'+family;return path===base||path.startsWith(base+'/')||path.startsWith(base+':');});
 }
-function isModelStepPath(path:string) {
-  return ['model-step-overview','model-step-approvals','model-steps'].some(family=>{
+function isInstalledPrivateAiPath(path:string) {
+  return ['model-step-overview','model-step-approvals','model-steps','credential-ingests'].some(family=>{
     const base='/api/v1/me/'+family;return path===base||path.startsWith(base+'/')||path.startsWith(base+':');
   });
 }
@@ -119,7 +119,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     // These host-installed child transports authorize and bound the ORIGINAL
     // request body. The legacy generic text reader must not consume it first.
     if(isPrivateAiPath(c.req.path)&&runtime.privateAiProduct)return runtime.privateAiProduct(c.req.raw);
-    if(isModelStepPath(c.req.path)) {
+    if(isInstalledPrivateAiPath(c.req.path)) {
       c.header('Cache-Control','private, no-store');c.header('Pragma','no-cache');
       c.header('Vary','Origin, Cookie, Authorization, DPoP');c.header('X-Robots-Tag','noindex, nofollow');
       c.header('Cross-Origin-Resource-Policy','same-origin');
