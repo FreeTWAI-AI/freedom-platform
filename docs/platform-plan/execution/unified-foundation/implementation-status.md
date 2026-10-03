@@ -25,7 +25,7 @@
 
 此組權重得約 30–42%，對外使用「約三成到四成」。R2、AP 與 UF 有重疊，不能把三份計畫各自的完成百分比相加。剩餘 60–70% 是工程量估算，不是日曆工期；真實 provider、跨端及搬遷演練仍有不確定性。本輪只推進共同基礎；依 Ted 指示，不整合等待中的其他 PR。備份政策仍另確認。
 
-若「Milestone」指 [AP M0–M6](../../../plans/autopilot-vnext.md#54-遷移步驟)，目前位置是 **M1 基礎已建立、M2 認證核心完成本機接線，尚未完成整個 M2**。以下仍只估本機工程，不宣稱已達原文的部署／產品完成條件。
+若「Milestone」指 [AP M0–M6](../../../plans/autopilot-vnext.md#54-遷移步驟)，目前位置是 **M1 基礎已建立、M2 的配對／refresh／nonce／status 完成本機接線，尚未完成整個 M2**。以下仍只估本機工程，不宣稱已達原文的部署／產品完成條件。
 
 | AP Milestone | 本機工程估算 | 仍缺的完成條件 |
 | --- | --- | --- |
@@ -467,10 +467,93 @@ Worker 最終 **28/28** 通過：首輪直接傳 Unix socket URL 被 Miniflare H
 
 本輪 disposable PG18 使用固定 CI image digest、network-none、無公開 ports、2 GiB tmpfs、專屬 socket，明列 `max_locks_per_transaction=256`。收尾查得非預設 schema／role、其他 clients／databases、public tables 全為 0，再核對 exact container ID/task label 移除容器與空 socket 目錄。只移除可重建的合成資料，程式與 ignored 測試證據保留；主 checkout 的既有 staged 狀態雜湊亦保持相同。
 
+## 本批本人模型選擇、限定 Grant 與 blocked Attempt
+
+依 [13](13-member-execution-prerequisites.md) 新增封閉 `createExecutionPrerequisites`：
+會員本人可建立／讀取／撤銷 ModelConnection 和 Grant，建立／讀取不可改綁的
+Attempt。Model 只保存明確 provider/model/processing/custody/billing 選擇，狀態
+固定 unverified 或 revoked；沒有 secretRef、模型驗證或自動 fallback。
+
+Grant 必須明確同意，server 從真正 Runtime／connection／active refresh family、
+目前 draft Work／created Run／model／operator policy 推導 immutable binding、
+原始 Work version、Run version 與兩個獨立 epochs；TTL 至多一小時且剪裁到
+connection/family expiry。正常 refresh rotation 不撤銷同意；重用撤銷、Work
+編輯、Run 控制、model/Grant 撤銷或 policy revision 改變均擋住建立和舊成功
+receipt。歷史 read／本人 revoke 仍可在後端到期或撤回後使用。
+
+每個 Run 的 Attempt 序號 1–16，原始 Grant snapshot 不可更新、刪除或重綁。
+缺真正模型認證及 adapter，故全部 `preflight_blocked`，明列兩個 unavailable
+blockers；全部 metadata 都是 `operational_authority:false`。不建立假的 inference、
+lease、currentAttempt pointer、recovery authority、模型呼叫或 Result。
+
+092 是 additive migration，076–091 bytes 未動；完整 owner/scope composite FK、
+有限時間、immutable tombstones、目前 backing row locks、physical schema-qualified
+SQL guards 及 deferred INSERT 時效檢查涵蓋直接 runtime DML。SQL snapshot 在
+DB 端把所有 bigint version/epoch 保存為 decimal strings，不經 JS Number。
+每人最多 32 model／256 Grant lifetime records，撤銷不回收名額。Runtime 仍用
+既有 DML grants，不能改 operator policy、schema 或 disable trigger。
+
+scoped member helper 新增可信第五個 revalidate callback，在真正 receipt SELECT
+及 INSERT 等待後重查 domain authority，也在 callback 等待後重查 session。
+獨立審查找到初版缺後者：隔離複製程式只移除 post-hook session check，即
+4 個案例有 2 個因「未拒絕過期 session」失敗；目前版本 4/4 通過。沒有修改
+共享 source 來跑舊反例。Migration 初版語法錯誤及測試 fixture 問題亦先修正，
+不把 setup failure 列入通過證據。
+
+三位 GPT-6.1 Sol 分別交付契約、服務／SQL、獨立反例；新增四個檔案合計
+**49/49**（作者 20、獨立 20、契約 5、helper 4），均包含於全套結果，不另加總。
+涵蓋真正 device pairing／ES256／091 family、non-superuser LOGIN、錯 owner／
+environment／client、跨 connection、版本/CAS、policy revision、秘密掃描、
+SQL/TEMP/NULL/回溯時間、超過 2^53 精度、lifetime quota 與三類 sink 原子回滾。
+實際 `pg_blocking_pids` 確認連線/family 撤銷與 Attempt 等待；receipt SELECT／
+INSERT 及 deferred COMMIT 跨 Grant 到期均拒絕並回滾。
+
+Grok CLI 指定 `grok-4.7`，450 秒逾時且無輸出；agy CLI 指定
+`claude-opus-4-6-thinking`，exit 0 但沒有可採用的 final 審查內容。兩者均
+**沒有可用結論，不列為審查通過**。只送五個有界 repository source files，
+Grok 關閉 tools/subagents/web search；Opus 另用唯讀 filesystem sandbox。
+四個 code digests 與最終固定程式吻合，spec 鎖序文字後來修正；完整 local
+review binding 與無結論紀錄保留 `.freedom/reviews/`、`.freedom/reports/`。
+
+### 固定整合驗證與收尾
+
+固定程式 **`8920c8ea80e6f092736f7c0241030ead76007bb2`**，base
+`3de70ccbd24362a7925508fb42d36aaa256a0806`。首輪收集程序以 SIGTERM／143
+中止，測試子程序結束但沒有完整報告，**不算通過**；具體中止來源尚無證據。
+中止紀錄原樣保留。改用持續落盤的本機 controller，在同一乾淨 HEAD／workspace
+重跑標準 verifier，保留原 governance 60 秒、runtime 900 秒上限，未改測試或
+放寬限制。最終 `.freedom/reports/member-prerequisites-integrated-retry.json`
+SHA-256 為 `f5c534cfbee538ab302d381b8b86ef86b0e4f617e55ed3e9d548069d22dcb094`。
+
+| 檢查 | 實際結果 |
+| --- | --- |
+| 完整 runtime | **2,044/2,044，143 files**；0 failed/skipped/cancelled/todo |
+| 治理 unit | **244/244，11 files**；0 failed/skipped/cancelled/todo |
+| 發布／migration 相容性 | **256/256**；新增 13 項 092 shape／history／兩個 binaries 相依反例 |
+| Worker | **28/28**；task-owned loopback→Unix Hyperdrive proxy 及合成密碼，完成後關閉 |
+| 真實隔離 supervisor | **6/6**；真實 app、host files/network/role 隔離、偽造結果、output flood、busy loop、fixture 竄改；owned test containers 已清理 |
+| Typecheck／generated contracts／build／dry-run | passed；八組契約、三類 Worker 各三環境 dry-run；build 保留既有 large-chunk warning |
+| Descriptor／producer preview bytes | passed |
+| 整體治理 | local **unavailable**；`baseline_governance_unavailable`、`registration_behavior_audit_required`、`surface_unmapped` |
+
+最後核對 HEAD／workspace、143/11 selected files、逐例 counts 與零跳過；沒有
+重算或用本機結果偽造可信 CI。Manifest last=92、known_gaps=[22]，仍為未合併／
+未部署暫用編號。原始 **168 項完整產品驗收維持 not_run**；全計畫工程約
+30–40%、剩餘 60–70%，U3 約 30–40%、AP M2 50–65%、M3 15–25%。
+
+本輪 PG18 固定 CI image digest、network-none、無 published ports、2 GiB tmpfs
+與專屬 Unix socket。收尾確認非預設 schema／role、其他 clients／databases、
+public relations 都為 0，再核對 exact container ID/task label 移除容器及空 socket。
+只清可重建合成資料，程式與 ignored reports 保留；主 checkout 的 staged 狀態
+雜湊保持原值。沒有其他 PR 整合、push、PR、merge、正式設定、金鑰或部署，
+staging/live 未動。真正模型認證／adapter／token/lease／私人 AI、HTTP/UI 接線、
+跨端、媒體搬遷/restore、可信 CI 與正式信任仍待後續完成。收尾 inventory
+為 **1,358 hashes、794 本機連結、0 failures**，diff whitespace check 通過。
+
 ## 尚未交付
 
-- execution/service current-state validators、Invocation/Grant adapters，以及有真實 backing record 的 service/site schema；scoped composition/receipt 目前僅支援 member session。
-- 正式 avatar policy／quota 值與 storage cutover、備份政策／cloud restore／rollback floor；新增私人 Result/share 的完整讀取矩陣、RunAttempt／模型 broker／私人 AI 草稿及瀏覽器 execution guard。Local R2、bridge、quota、maintenance/pins 已有實作，但不等同正式啟用。
+- operational execution/service current-state validators、Invocation/Grant/token/lease adapters，以及有真實 backing record 的 service/site schema；本批限定會員同意 Grant 不取代執行端 Grant，scoped composition/receipt 目前僅支援 member session。
+- 正式 avatar policy／quota 值與 storage cutover、備份政策／cloud restore／rollback floor；新增私人 Result/share 的完整讀取矩陣、operational Attempt／lease／模型 broker／私人 AI 草稿及瀏覽器 execution guard。Local R2、bridge、quota、maintenance/pins 已有實作，但不等同正式啟用。
 - 已批准 ReleaseSet 的真實 consumer 發布、TS/Rust 共用樣本、Windows/macOS、packaged clients、cloud 備份恢復及 staging/prod 演練。Kit 與 Storefront 已完成本機接入，不能把兩倉本機測試當整組正式治理鏈完成。
 - 已批准的 publisher/trust profile、可信 CI publisher／required workflow、GitHub 強制審查與不可繞過的發布限制。
 
@@ -478,9 +561,9 @@ Worker 最終 **28/28** 通過：首輪直接傳 Unix socket URL 被 Miniflare H
 
 ## 下一批
 
-Runtime enrollment、connection backing record、[封閉 bootstrap status](09-bootstrap-status.md)、[裝置配對／一次性交換](10-device-authorization.md)、[refresh／nonce](11-bootstrap-sessions.md) 及 [HTTP 邊界](12-bootstrap-http.md) 已有本機實作。它們提供受限配對、可持續 refresh 及本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權，也不輸出通用 VerifiedContext。下一步接 ModelConnection、Grant 和 Attempt 真實 backing records，讓配對後的裝置依當前本人模型設定與精確 scope 取得受限執行授權。正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定，不重用 storefront/supplier 的 `fw_read` 連線。
+Runtime enrollment、connection backing record、[封閉 bootstrap status](09-bootstrap-status.md)、[裝置配對／一次性交換](10-device-authorization.md)、[refresh／nonce](11-bootstrap-sessions.md) 及 [HTTP 邊界](12-bootstrap-http.md) 已有本機實作。它們提供受限配對、可持續 refresh 及本人 connection 最小 status，不授私人 Work／Run／Grant／模型或 effect 權，也不輸出通用 VerifiedContext。[13](13-member-execution-prerequisites.md) 已建立未驗證 ModelConnection、精確限定同意 Grant 與 immutable blocked Attempt backing records，全部仍無 operational authority。下一步是明確選定一條真正模型認證／adapter 路徑，接完整 inference binding、execution token／operation validator、current Attempt／lease／獨立 fences，再串成模型產生私人 Result 的真實垂直流程。正式信任來源、模型/provider/billing/custody 選擇仍不擅自決定，不重用 storefront/supplier 的 `fw_read` 連線。
 
-治理已推進固定單一 profile 的 [本機隔離 supervisor](../../../../packages/contribution-tools/behavior-supervisor.md)：host harness 透過有界 HTTP response frames 呼叫隔離容器內的 candidate app，由 host 自行判斷結果；不能把 candidate stdout/JSON 當可信測試結果。隔離不成立就 unavailable，並保留 approved host source／runtime、完整入口、publisher/GitHub enforcement 的缺口。下一步是可信安裝、來源與 publisher 接線，不是把本機 observation 宣稱可合併。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代完整入口／外部保存／政策 restore 的證據。migration 076–091 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
+治理已推進固定單一 profile 的 [本機隔離 supervisor](../../../../packages/contribution-tools/behavior-supervisor.md)：host harness 透過有界 HTTP response frames 呼叫隔離容器內的 candidate app，由 host 自行判斷結果；不能把 candidate stdout/JSON 當可信測試結果。隔離不成立就 unavailable，並保留 approved host source／runtime、完整入口、publisher/GitHub enforcement 的缺口。下一步是可信安裝、來源與 publisher 接線，不是把本機 observation 宣稱可合併。未掛載 private HTTP、固定行為 harness 與歷史 ledger/capability 診斷不能取代完整入口／外部保存／政策 restore 的證據。migration 076–092 尚未合併或發布；完整私人讀取矩陣與正式 migration／grants／backup 恢復驗證齊備前不啟用正式私人寫入或頭像非 legacy 模式，備份政策仍另確認。不新增提早部署的過渡支線。
 
 早先唯讀查核 #85／#87 的衝突與 migration 重號紀錄保留歷史用途；依 Ted 最新指示，其他 PR 的 rebase／整合現在不在派工範圍。這次沒有修改作者 PR 或把舊 CI 結果當新整合驗收。
 
