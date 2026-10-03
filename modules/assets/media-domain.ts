@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { Pool,PoolClient } from 'pg';
 import type { Actor } from '../identity-membership/service.js';
@@ -21,7 +22,7 @@ export async function serviceCoverStorageMode(q:Pick<PoolClient,'query'>):Promis
  requireCondition(row,503,'media_upload_unavailable','內容上傳暫時無法使用。');return row.mode;
 }
 /** Existing service owner/CAS is authoritative; no new public ACL is introduced. */
-export function createServiceCoverAssetService(pool:Pool,dependencies:ServiceCoverAssetDependencies) {
+function serviceCoverLifecycle(pool:Pool,dependencies:ServiceCoverAssetDependencies,legacySource?:ServiceCoverLegacySource) {
  async function lockTarget(q:PoolClient,context:MemberScopeContext,actor:Actor,id:string,create:boolean):Promise<LifecycleTarget> {
   requireCondition(context.scope.kind==='personal',403,'asset_scope_required','需要本人的私人範圍。');
   const service=(await q.query("SELECT service_id,aggregate_version FROM member_services WHERE service_id=$1 AND community_id=$2 AND owner_user_id=$3 AND state IN ('active','paused') FOR UPDATE",[id,actor.community_id,actor.user_id])).rows[0];
@@ -29,11 +30,16 @@ export function createServiceCoverAssetService(pool:Pool,dependencies:ServiceCov
   if(create)await q.query('INSERT INTO member_service_cover_asset_targets(service_id,scope_id,owner_principal_id,owner_user_id) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',[id,context.scope.scope_id,context.subject_principal.principal_id,actor.user_id]);
   const pointer=(await q.query('SELECT asset_id FROM member_service_cover_asset_targets WHERE service_id=$1 AND scope_id=$2 AND owner_principal_id=$3 AND owner_user_id=$4 FOR UPDATE',[id,context.scope.scope_id,context.subject_principal.principal_id,actor.user_id])).rows[0];
   requireCondition(pointer,404,'asset_target_not_found','找不到這個目標。');
+  if(legacySource){
+   const source=(await q.query('SELECT image_bytes,storage_source FROM member_service_covers WHERE service_id=$1 FOR SHARE',[id])).rows[0];
+   if(source?.storage_source==='asset'){const prior=(await q.query("SELECT 1 FROM asset_upload_intents WHERE asset_id=$1 AND target_service_id=$2 AND expected_version=$3 AND source_sha256=$4 AND state='finalized'",[pointer.asset_id,id,legacySource.expectedVersion,legacySource.sha256])).rowCount;requireCondition(prior===1,409,'media_source_changed','原始內容已改變，請重新建立移轉計畫。');}
+   requireCondition(id===legacySource.serviceId&&source?.image_bytes&&source.image_bytes.length===legacySource.byteSize&&createHash('sha256').update(source.image_bytes).digest('hex')===legacySource.sha256,409,'media_source_changed','原始內容已改變，請重新建立移轉計畫。');
+  }
   return {targetId:id,aggregateVersion:service.aggregate_version,assetId:pointer.asset_id};
  }
  return createAssetLifecycle<ServiceCoverPrepareInput,{intentId:string;assetId:string;serviceId:string;aggregateVersion:string}>(pool,dependencies,{
   purpose:'member.service-cover',targetKind:'member.service-cover',variant:'cover',inputMaxBytes:4194304,outputMaxBytes:524288,retireReplacedAsset:true,
-  parsePrepare:raw=>input.parse(raw),targetId:value=>value.targetServiceId,lockTarget,
+  parsePrepare:raw=>{const parsed=input.parse(raw);if(legacySource)requireCondition(parsed.targetServiceId===legacySource.serviceId&&parsed.expectedVersion===legacySource.expectedVersion&&parsed.contentType==='image/webp'&&parsed.byteSize===legacySource.byteSize&&parsed.sha256===legacySource.sha256,409,'media_source_changed','原始內容已改變，請重新建立移轉計畫。');return parsed;},targetId:value=>value.targetServiceId,lockTarget,
   async resolvePolicy(q,context,id){requireCondition(await serviceCoverStorageMode(q)!=='legacy',503,'media_upload_unavailable','內容上傳暫時無法使用。');return dependencies.resolvePolicy(q,context,id);},
   async requireCapacity(q,_context,actor,_target,policy,reserve){
    const row=(await q.query(`SELECT COALESCE(sum(COALESCE(o.byte_size,i.reserved_bytes,524288)::bigint),0) AS used FROM assets a LEFT JOIN asset_objects o USING(asset_id) LEFT JOIN asset_upload_intents i USING(asset_id) WHERE a.owner_user_id=$1 AND a.purpose='member.service-cover'`,[actor.user_id])).rows[0];
@@ -41,7 +47,7 @@ export function createServiceCoverAssetService(pool:Pool,dependencies:ServiceCov
    requireCondition(BigInt(row.used)+BigInt(legacy.used)+BigInt(reserve)<=BigInt(policy.retainedByteLimit),409,'asset_retained_quota','內容儲存容量已達上限。');
   },
   async prepareRepresentation(body,mime,policy){
-   const raw=await readBounded(body,4194304),bytes=await normalizeServiceCover(mime,Buffer.from(raw));
+   const raw=await readBounded(body,4194304),bytes=legacySource?Buffer.from(raw):await normalizeServiceCover(mime,Buffer.from(raw));
    return prepareLegacyMediaRepresentation(new ReadableStream({start(c){c.enqueue(bytes);c.close();}}),'image/webp','member.service-cover',policy);
   },
   lockPublication:async q=>serviceCoverStorageMode(q),
@@ -55,5 +61,14 @@ export function createServiceCoverAssetService(pool:Pool,dependencies:ServiceCov
    return {aggregateVersion:result.aggregateVersion,result,fact:{aggregateType:'member_service',id:target.targetId,data:{asset_id:row.asset_id,intent_id:row.intent_id},eventType:'freedom.member.service.cover.replaced.v1'}};
   },
  });
+}
+export function createServiceCoverAssetService(pool:Pool,dependencies:ServiceCoverAssetDependencies){return serviceCoverLifecycle(pool,dependencies);}
+/** Trusted original DB snapshot only. An HTTP upload cannot select this path.
+ * Every phase locks the original owner/CAS target then rechecks retained bytes.
+ * Existing WebP is preserved byte-for-byte; publication retains its SQL source. */
+export interface ServiceCoverLegacySource {readonly serviceId:string;readonly expectedVersion:string;readonly byteSize:number;readonly sha256:string}
+export function createServiceCoverBackfillAssetService(pool:Pool,dependencies:ServiceCoverAssetDependencies,raw:ServiceCoverLegacySource){
+ const source=Object.freeze(z.object({serviceId:OpaqueId,expectedVersion:assetVersion,byteSize:z.number().int().min(1).max(524288),sha256:z.string().regex(/^[0-9a-f]{64}$/)}).strict().parse(raw));
+ return serviceCoverLifecycle(pool,dependencies,source);
 }
 export type ServiceCoverAssetService=ReturnType<typeof createServiceCoverAssetService>;
