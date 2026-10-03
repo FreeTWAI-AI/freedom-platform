@@ -113,7 +113,7 @@ async function browserPage(human:Awaited<ReturnType<typeof member>>) {
   await context.route('**/*',route=>new URL(route.request().url()).origin===origin?route.continue():route.abort());
   const page=await context.newPage(),logs:string[]=[],errors:string[]=[];clientLogs.set(page,logs);pageErrors.set(page,errors);
   page.on('console',message=>logs.push(message.text()));page.on('pageerror',error=>errors.push(error.message));
-  const html=await page.goto(origin+'/#private-ai');assert.equal(html?.status(),200);
+  const html=await page.goto(host.verificationUri);assert.equal(html?.status(),200);
   assert(html!.headers()['content-security-policy'].includes("form-action 'self'"));
   await page.getByRole('region',{name:'裝置與連線',exact:true}).waitFor();return page;
 }
