@@ -26,7 +26,7 @@ if __name__ == "__main__":
     try:
         if len(sys.argv) != 2:
             raise ValueError("invalid_profile_input")
-        fd = os.open(sys.argv[1], os.O_RDONLY | os.O_NOFOLLOW)
+        fd = os.open(sys.argv[1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         with os.fdopen(fd, "rb") as source:
             info = os.fstat(source.fileno())
             if not stat.S_ISREG(info.st_mode) or info.st_size > 16384:
