@@ -209,7 +209,7 @@ export function createOperatorMediaBackfill(pool:Pool,installation:{
     await q.query(`UPDATE media_backfill_jobs SET ${profiles[p.purpose].cursor}=$2 WHERE job_id=$1`,[p.jobId,item.target_id]);
     await audit(q,p,l,'stale',item.target_id);
   }
-  async function outcomes(p:OperatorBackfillPlan){return tx(p,async q=>{const row=(await q.query("SELECT count(*) FILTER(WHERE event='blocked_source')::int AS blocked,count(*) FILTER(WHERE event='stale')::int AS stale FROM media_backfill_audit WHERE job_id=$1",[p.jobId])).rows[0],profile=profiles[p.purpose];const remaining=(await q.query(`SELECT EXISTS(SELECT 1 FROM ${profile.bytesTable} WHERE storage_source='legacy'${p.purpose==='skill.submission-image'?' AND image_bytes IS NOT NULL':p.purpose==='community.event-highlight'?" AND kind IN ('photo','poster')":''}) AS remaining`)).rows[0].remaining;return {blocked:Number(row.blocked),stale:Number(row.stale),remainingLegacy:remaining===true};});}
+  async function outcomes(p:OperatorBackfillPlan){return tx(p,async q=>{const row=(await q.query("SELECT count(*) FILTER(WHERE event='blocked_source')::int AS blocked,count(*) FILTER(WHERE event='stale')::int AS stale FROM media_backfill_audit WHERE job_id=$1",[p.jobId])).rows[0],profile=profiles[p.purpose];const remaining=(await q.query(`SELECT EXISTS(SELECT 1 FROM ${profile.bytesTable} WHERE storage_source='legacy'${(p.purpose==='skill.submission-image'||p.purpose==='member.avatar')?' AND image_bytes IS NOT NULL':p.purpose==='community.event-highlight'?" AND kind IN ('photo','poster')":''}) AS remaining`)).rows[0].remaining;return {blocked:Number(row.blocked),stale:Number(row.stale),remainingLegacy:remaining===true};});}
   async function run(raw:unknown){
     let p:OperatorBackfillPlan;
     try{

@@ -6764,8 +6764,8 @@
     },
     {
       "path": "packages/media-migration/operator-backfill.ts",
-      "bytes": 40550,
-      "sha256": "ba6bc06052cf4cf72ee9ebf8d71241683a2d3c9802c4a21e4f40c6bdc0b47bdb"
+      "bytes": 40581,
+      "sha256": "74a3a1b89962d64a3456cc45def709de756bdf16c995e9c2ba323a97fd874e65"
     },
     {
       "path": "packages/media-migration/operator-domain-images.md",
@@ -8404,8 +8404,8 @@
     },
     {
       "path": "tests/runtime/operator-avatar-backfill.test.ts",
-      "bytes": 18312,
-      "sha256": "a5b90dbe601b40475ddcd37c6313cc342d4ae0f0bf0c841297716c97b84cd04b"
+      "bytes": 18414,
+      "sha256": "7ea26a862b7118925d97c44ca3f56df34bdcd3b174b7697721f5c157e40e0650"
     },
     {
       "path": "tests/runtime/operator-banner-social-backfill.test.ts",
