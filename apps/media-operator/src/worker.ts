@@ -16,7 +16,7 @@ export interface MediaOperatorBindings {
  OPERATOR_HYPERDRIVE?:{connectionString:string};
  MEDIA?:AssetR2Binding;
 }
-const profileSchema=z.object({target:z.unknown(),logicalStore:z.literal('MEDIA'),storeBindingId:z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/),purposes:z.array(z.enum(['member.service-cover','community.event-video','community.event-banner','community.social-thumbnail'])).min(1).max(4)}).strict();
+const profileSchema=z.object({target:z.unknown(),logicalStore:z.literal('MEDIA'),storeBindingId:z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/),purposes:z.array(z.enum(['member.service-cover','community.event-video','community.event-banner','community.social-thumbnail','skill.submission-image','community.event-highlight','member.avatar'])).min(1).max(7)}).strict();
 const unavailable=()=>new Error('operator_media_unavailable');
 function installation(env:MediaOperatorBindings){
  if(env.FREEDOM_MEDIA_OPERATOR_ENABLED!=='true'||!env.FREEDOM_MEDIA_OPERATOR_PROFILE||env.FREEDOM_MEDIA_OPERATOR_PROFILE.length>4096||!env.OPERATOR_HYPERDRIVE?.connectionString||!env.MEDIA)throw unavailable();
@@ -37,7 +37,7 @@ async function verifyRole(pool:Pool,target:ReturnType<typeof validateInventoryTa
    has_schema_privilege(current_user,$1,'CREATE') ddl,
    has_table_privilege(current_user,'broker_credential_vault','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN') vault,
    has_any_column_privilege(current_user,'broker_credential_vault','SELECT,INSERT,UPDATE,REFERENCES') vault_columns,
-   EXISTS(SELECT 1 FROM unnest(ARRAY['media_backfill_operator_policy','domain_media_storage_policy','users','principals','resource_scopes']) t
+   EXISTS(SELECT 1 FROM unnest(ARRAY['media_backfill_operator_policy','domain_media_storage_policy','avatar_storage_policy','users','principals','resource_scopes']) t
     WHERE has_table_privilege(current_user,t,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
       OR has_any_column_privilege(current_user,t,'INSERT,UPDATE,REFERENCES')) authority_write
    FROM pg_roles r WHERE rolname=current_user`,[target.schema])).rows[0];
