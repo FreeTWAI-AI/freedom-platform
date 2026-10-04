@@ -8,6 +8,8 @@ import { createRuntimeDatabases, isDisposableDatabaseUrl } from './runtime-datab
 import { verificationEnvironment } from './process-env.mjs';
 import { RUNTIME_SUITES, FULL_RUNTIME_BASELINE, NODE_CONSUMER_SUITES } from './runtime-suites.mjs';
 
+import { createProgressDecoder } from './test-reporter.mjs';
+
 const MAX_OUTPUT = 16_000_000, MAX_FILES = 512;
 const COUNT_KEYS = ['tests', 'passed', 'failed', 'cancelled', 'skipped', 'todo'];
 const reporter = fileURLToPath(new URL('./test-reporter.mjs', import.meta.url));
@@ -38,7 +40,16 @@ async function suiteFiles(root, id) {
 
 // No shell, package hooks, inherited NODE_OPTIONS, test context, credentials,
 // or default database URL. Kill the isolated process group on POSIX timeout.
-function execute(root, files, runtime, databaseUrl, timeoutMs, signal) {
+async function execute(root, files, runtime, databaseUrl, timeoutMs, signal) {
+  const diagnosticEpoch = performance.now();
+  let sources = [], sourceBytes = 0;
+  try {
+    for (const path of files) {
+      const bytes = await readBounded(root,path); sourceBytes += bytes.length;
+      if (sourceBytes > 32_000_000) throw Error('progress_source_limit');
+      sources.push({path,source_sha256:sha256(bytes)});
+    }
+  } catch { sources = []; /* progress is optional, never final result evidence */ }
   return new Promise(done => {
     let loader;
     try { if (runtime) loader = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href; }
@@ -46,9 +57,16 @@ function execute(root, files, runtime, databaseUrl, timeoutMs, signal) {
     const args = [...(runtime ? ['--import', loader] : []), '--test', '--test-concurrency=1',
       '--test-reporter=' + reporter, ...files];
     const env = verificationEnvironment();
+    if (sources.length === files.length) env.FREEDOM_TEST_PROGRESS_FILES = JSON.stringify(files);
     if (runtime) env.TEST_DATABASE_URL = databaseUrl;
     const group = process.platform !== 'win32';
-    const child = spawn(process.execPath, args, { cwd: root, env, detached: group, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(process.execPath, args, { cwd: root, env, detached: group, stdio: ['ignore', 'pipe', 'pipe', 'pipe'] });
+    const diagnostic = record => { try { process.stderr.write('freedom.test-progress ' + JSON.stringify(record) + '\n'); } catch { /* diagnostics never affect admission */ } };
+    const progress = sources.length === files.length ? createProgressDecoder(sources, diagnostic) : {
+      push() {}, finish: () => ({schema:'freedom.test-file-progress-summary/v1',selected_count:files.length,started_count:0,completed_count:0,incomplete:true}),
+    };
+    child.stdio[3].on('data', bytes => progress.push(bytes));
+    child.stdio[3].on('error', () => {});
     let size = 0, output = [], reason;
     const stop = code => {
       reason ??= code;
@@ -57,7 +75,7 @@ function execute(root, files, runtime, databaseUrl, timeoutMs, signal) {
     const abort = () => stop('test_cancelled');
     signal?.addEventListener('abort', abort, { once: true });
     if (signal?.aborted) abort();
-    const timer = setTimeout(() => stop('test_timeout'), timeoutMs);
+    const timer = setTimeout(() => stop('test_timeout'), Math.max(1,timeoutMs - (performance.now() - diagnosticEpoch)));
     child.stdout.on('data', bytes => {
       size += bytes.length;
       if (size > MAX_OUTPUT) stop('test_output_limit');
@@ -67,6 +85,7 @@ function execute(root, files, runtime, databaseUrl, timeoutMs, signal) {
     child.on('error', () => { reason ??= 'test_process_failed'; });
     child.on('close', (code, terminationSignal) => {
       clearTimeout(timer);
+      diagnostic(progress.finish());
       signal?.removeEventListener('abort', abort);
       done({ output: Buffer.concat(output), reason, exit_code: code, termination_signal: terminationSignal, failed: code !== 0 || terminationSignal !== null });
     });
