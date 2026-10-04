@@ -16,7 +16,7 @@ export interface MediaOperatorBindings {
  OPERATOR_HYPERDRIVE?:{connectionString:string};
  MEDIA?:AssetR2Binding;
 }
-const profileSchema=z.object({target:z.unknown(),logicalStore:z.literal('MEDIA'),storeBindingId:z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/),purposes:z.array(z.enum(['member.service-cover','community.event-video'])).min(1).max(2)}).strict();
+const profileSchema=z.object({target:z.unknown(),logicalStore:z.literal('MEDIA'),storeBindingId:z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/),purposes:z.array(z.enum(['member.service-cover','community.event-video','community.event-banner','community.social-thumbnail'])).min(1).max(4)}).strict();
 const unavailable=()=>new Error('operator_media_unavailable');
 function installation(env:MediaOperatorBindings){
  if(env.FREEDOM_MEDIA_OPERATOR_ENABLED!=='true'||!env.FREEDOM_MEDIA_OPERATOR_PROFILE||env.FREEDOM_MEDIA_OPERATOR_PROFILE.length>4096||!env.OPERATOR_HYPERDRIVE?.connectionString||!env.MEDIA)throw unavailable();
