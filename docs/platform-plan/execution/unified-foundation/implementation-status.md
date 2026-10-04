@@ -1,5 +1,15 @@
 # 共同基礎：本機與 CI 交付紀錄
 
+## 最新結果與隔離資源（2026-10-04）
+
+固定 head `5ddc013` 的 [Verify run37184409831](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37184409831) completed/failure：完整196檔／2,620項中2,619pass、1項 `sql_wait_not_observed`，零skip/cancel、四份cleanup true，680.991秒，原900秒window不變。Worker59pass／1項teardown `57P01`；restore未執行，不能沿用前代2/2當本次結果。獨立security check111383322592仍failure；Analyze成功不能替代安全核定。
+
+兩項test-only修正已整合：作者 `a1f0884` → root `11127cf` 等待真正PG client end後才DROP FORCE；作者 `be920ee` → root `3b534c3` 在真正provider POST handshake後才開始原SQL observer，early HTTP completion仍拒絕。前者作者controlled Terminate-frame hold反例及獨立genuine Worker1/1，後者作者controlled3.5秒provider delay反例／8/8及獨立actual PG／HTTP8/8均保留；TTL8秒、300次poll、SQL statement cap及原assertions不變。這不是5dd失敗改記PASS；新source仍需自己的完整hosted驗證。
+
+Ted已授權額外臨時Postgres與新環境copy/migrate，完成後關閉臨時環境；不須再次索取同範圍資源permission。根已實建並metadata-only查核私有R2 `freedom-foundation-candidate-20261004-media`：managed public URL disabled、custom domains0；只有default7-day incomplete-multipart abort，非object刪除政策。同prefix `-pg` 的Tokyo PS5 ARM、single-node／0 replicas已ready，基礎US$5/月另加usage；臨時計費token已revoke。此為真實provider metadata，不再是全部資源未知；account／token IDs與credentials不公開。
+
+尚未讀正式資料、部署Worker或切換flow。下一步採一致snapshot restore到新DB → canonical pending migrations → ACL lockdown／grants →驗收；最後短writefreeze、排空in-flight/background writes、final dump／restore後才cutover。既有media delta不是通用DB replication，不逐表COPY或另造schema。新DB開始寫入後舊DB即過時，回退須forward fix或一致reconcile，不能盲切回。Private AI／broker／machine保持OFF；CodeQL、安全gate與remote資料／ACL／restore acceptance未因此完成。
+
 查核日期：2026-10-04。本紀錄區分原始產品要求、本機實作、合成測試及尚缺的真實部署證據；不修改原計畫的歷史內容，也不把組件測試轉寫成完整產品 PASS。
 
 最新交付方向依 Ted 於 2026-10-03 的指示更新為基底優先：既有會員平台的移植、七類媒體搬遷／恢復與可信發布驗證先完成；未驗收的 Autopilot 功能保持關閉，保留原計畫後續 scope。這取代先前「完整原 scope 才正式 migration」的發布前置，但不降低資料保護、撤銷、失敗停機、權限與 staging 先行的要求。其他 PR 本輪不處理。完整決策集中於 [基準與決策](00-baseline-and-decisions.md#2026-10-03-基底優先的最新指示)。

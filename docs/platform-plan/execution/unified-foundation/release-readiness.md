@@ -1,5 +1,15 @@
 # Push, merge and deployment readiness
 
+## Current checkpoint: failed hosted source and isolated resources
+
+Exact `5ddc013` [Verify run37184409831](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37184409831) completed/failure: all196 files/2,620 cases finished, 2,619 passed and one `sql_wait_not_observed`; zero skips/cancellations, four cleanups verified, 680.991 seconds within the unchanged900-second window. Worker59 passed/one teardown `57P01`; restore did not run. Security check111383322592 failed independently of Analyze.
+
+Test-only fixes `a1f0884` and `be920ee` are integrated as `11127cf` and `3b534c3`: await real SQL client end before forced cleanup, and start the unchanged SQL observer after actual provider POST admission. Author counterexamples and independent genuine1/1 and8/8 runs are retained. No TTL, assertion or budget was relaxed; corrected source still needs its own complete hosted result.
+
+Ted authorized temporary PostgreSQL and migration/copy into a new environment. The new private R2 `freedom-foundation-candidate-20261004-media` has public URL disabled/custom domains0 and only the default7-day incomplete-multipart abort rule. The same-prefix `-pg` is ready in Tokyo, PS5 ARM single node/0 replicas, US$5/month base plus usage; the temporary billing token was revoked. Root performed provider metadata reads, not production-data reads. Earlier unavailable-auth/resource observations below are historical.
+
+No Worker deployment or flow cutover occurred. Use consistent snapshot restore into a new database, canonical pending migrations, restore ACL lockdown and grants, then acceptance. A final short write freeze/drain and fresh dump/restore precede cutover; media delta is not generic database replication. Retain old data, but after new writes do not blindly route back to the stale database. Account/token IDs and credentials remain private. Private execution stays OFF; security and remote data/ACL/restore gates remain incomplete.
+
 Checked 2026-10-03 at integration baseline `946d67bd200624ba61d23032ee7571e9fd47c602`. This checklist records conditions, not authorization or completed checks. The historical 40–55% engineering estimate is not a deployment completion rate or calendar forecast; the 168 original product acceptance items remain `not_run`, as recorded in [implementation status](implementation-status.md), [foundation acceptance](acceptance.md) and [source acceptance](source-acceptance.md).
 
 Ted’s latest scope is foundation-first; other PRs are not worked during this task. Full original Autopilot acceptance remains separate, and unaccepted functionality stays disabled. This changes development/release scope, not deployment authority.

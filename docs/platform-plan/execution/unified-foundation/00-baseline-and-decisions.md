@@ -1,5 +1,11 @@
 # 共同基礎現況與過渡決策
 
+## 2026-10-04：已授權隔離新環境與資料移植次序
+
+Ted允許新增臨時Postgres、migration後關閉，也允許新DB／表承接資料以避開live原地改造；同範圍不重問資源permission。採既有一致snapshot dump／restore到新空DB，再跑canonical pending migrations與restore ACL lockdown／grants，先驗收，最後短writefreeze／排空背景寫入／final dump後cutover。不採逐表COPY到另造schema；既有media delta不是generic DB replication。若已有R2 pointers，dump與object pins須共用exported snapshot。正式data read／restore／cutover仍未執行。
+
+根已實建私有 `freedom-foundation-candidate-20261004-media`（public URL disabled、custom domains0、default7-day incomplete-multipart abort）及同prefix `-pg`（Tokyo PS5 ARM、single／0 replicas、ready；US$5/月base＋usage）；metadata-only讀查已發生，臨時計費token已revoke。舊auth／resource unknown只是歷史，不公開account/token IDs或credentials。新DB寫入後舊DB回退需一致reconcile或forward fix；不以新資源或local PASS推定Worker已部署、安全gate完成或資料已移植。最新CI失敗與test-only修正見[交付紀錄](implementation-status.md#最新結果與隔離資源2026-10-04)。
+
 本文件記錄 2026-10-02 查核所得，以及把設計提案接到現行平台所需的過渡規則。以下 proposed 決策供這組 spec 使用，尚未改變線上政策或正式發布工具。
 
 ## 來源與查核範圍
