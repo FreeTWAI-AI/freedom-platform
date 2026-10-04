@@ -51,7 +51,7 @@ test('committed CREATE with a lost acknowledgement is still cleaned by its regis
   const original = pg.Client.prototype.query;
   let created;
   pg.Client.prototype.query = function(...args) {
-    const query = args[0];
+    const query = typeof args[0] === 'string' ? args[0] : args[0]?.text;
     if (typeof query === 'string' && query.startsWith('CREATE DATABASE "fp_suite_')) {
       created = query.match(/^CREATE DATABASE "([a-z0-9_]+)"/)[1];
       return original.apply(this, args).then(() => { throw Error('synthetic lost acknowledgement after actual commit'); });
@@ -152,4 +152,24 @@ test('cleanup refuses changed ownership and preserves that database and the supp
     for(const name of names)await admin.query(`DROP DATABASE IF EXISTS "${name}" WITH(FORCE)`);
     await admin.query(`DROP ROLE IF EXISTS "${foreign}"`);await admin.end();
   }
+});
+
+// Real server-side delay exercises the distinct DDL timeout, not a JS sleep.
+test('bounded CREATE budget tolerates DDL work beyond the metadata timeout', async () => {
+  const original = pg.Client.prototype.query;
+  let delayed = false, created;
+  pg.Client.prototype.query = function(...args) {
+    const text = typeof args[0] === 'string' ? args[0] : args[0]?.text;
+    if (!delayed && text?.startsWith('CREATE DATABASE "fp_suite_')) {
+      delayed = true;
+      return original.call(this,{text:'SELECT pg_sleep(2.2)',query_timeout:4000})
+        .then(()=>original.apply(this,args));
+    }
+    return original.apply(this,args);
+  };
+  try { created = await createRuntimeDatabases(database,4); }
+  finally { pg.Client.prototype.query = original; }
+  assert.equal(delayed,true);
+  assert.equal(created.urls.length,4);
+  assert.equal(await created.cleanup(),true);
 });

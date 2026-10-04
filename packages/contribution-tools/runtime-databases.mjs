@@ -24,8 +24,10 @@ export function isDisposableDatabaseUrl(value) {
 
 // The caller must explicitly provide a disposable, local test server. Each
 // invocation owns only these fresh databases; it never drops the supplied DB.
-export async function createRuntimeDatabases(baseUrl, count) {
+export async function createRuntimeDatabases(baseUrl, count, provisionTimeoutMs = 20_000) {
   if (![1, 2, 4].includes(count)) throw Error('invalid_runtime_shards');
+  if (!Number.isSafeInteger(provisionTimeoutMs) || provisionTimeoutMs < 1 || provisionTimeoutMs > 20_000) throw Error('invalid_provision_timeout');
+  const provisionDeadline = performance.now() + provisionTimeoutMs;
   if (!isDisposableDatabaseUrl(baseUrl)) throw Error('test_database_rejected');
   const { Client } = createRequire(import.meta.url)('pg');
   const prefix = `fp_suite_${process.pid}_${randomBytes(8).toString('hex')}`;
@@ -35,7 +37,7 @@ export async function createRuntimeDatabases(baseUrl, count) {
     client.on('error', () => { /* query/cleanup failures never print connection details */ });
     return client;
   };
-  const ownerApplication = prefix + '_owner', client = connection(ownerApplication);
+  const ownerApplication = prefix + '_owner', client = connection(ownerApplication, { connectionTimeoutMillis: Math.min(2000, provisionTimeoutMs) });
   const names = [], urls = [];
   let owner, ownerPid;
   const quote = value => '"' + value.replaceAll('"', '""') + '"';
@@ -109,21 +111,31 @@ export async function createRuntimeDatabases(baseUrl, count) {
     finally { await close(verifier, Math.min(1000, remaining())); }
   }
 
+  async function provisionQuery(text, values = [], maximum = 2000) {
+    const budget = Math.min(maximum, Math.floor(provisionDeadline - performance.now()));
+    if (budget <= 0) throw Error('provision_deadline');
+    return client.query({ text, values, query_timeout: budget });
+  }
   try {
     await client.connect();
-    const identity = await client.query('SELECT current_database() AS database, current_user AS owner, session_user AS session, pg_backend_pid() AS pid');
+    const identity = await provisionQuery('SELECT current_database() AS database, current_user AS owner, session_user AS session, pg_backend_pid() AS pid');
     owner = identity.rows[0].owner; ownerPid = identity.rows[0].pid;
     const supplied = new URL(baseUrl);
     if (identity.rows[0].database !== supplied.pathname.slice(1) || owner !== supplied.username
       || owner !== identity.rows[0].session) throw Error('runtime_database_identity');
     for (let index = 0; index < count; index++) {
       const name = `${prefix}_${index}`;
-      const existing = await client.query('SELECT 1 FROM pg_database WHERE datname=$1', [name]);
+      const existing = await provisionQuery('SELECT 1 FROM pg_database WHERE datname=$1', [name]);
       if (existing.rowCount) throw Error('runtime_database_collision');
       names.push(name); // register BEFORE CREATE, including unknown acknowledgements
-      await client.query(`CREATE DATABASE ${quote(name)} OWNER ${quote(owner)} TEMPLATE template0`);
+      const createTimeout = Math.min(6000, Math.floor(provisionDeadline - performance.now()) - 100);
+      if (createTimeout <= 0) throw Error('provision_deadline');
+      await provisionQuery("SELECT set_config('statement_timeout',$1,false)", [String(createTimeout)]);
+      await provisionQuery(`CREATE DATABASE ${quote(name)} OWNER ${quote(owner)} TEMPLATE template0`, [], createTimeout + 50);
+      await provisionQuery("SET statement_timeout=2000");
       const url = new URL(baseUrl); url.pathname = '/' + name; urls.push(url.href);
     }
+    if (performance.now() >= provisionDeadline) throw Error('provision_deadline');
     return { urls, cleanup };
   } catch {
     const error = Error('runtime_database_provision_failed');

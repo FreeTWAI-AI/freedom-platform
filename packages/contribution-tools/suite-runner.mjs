@@ -171,7 +171,8 @@ async function runSharded(root, selections, files, options, timeout, count) {
   let reason;
   try {
     partitions = partitionRuntimeFiles(files, count);
-    databases = await createRuntimeDatabases(options.testDatabaseUrl, count);
+    databases = await createRuntimeDatabases(options.testDatabaseUrl, count,
+      Math.max(1, Math.min(20_000, Math.floor(deadline - performance.now() - 24_000))));
     // Reserve bounded cleanup time within the original global budget.
     const remaining = deadline - performance.now() - 24_000;
     if (remaining <= 0 || options.signal?.aborted) reason = options.signal?.aborted ? 'test_cancelled' : 'test_timeout';
