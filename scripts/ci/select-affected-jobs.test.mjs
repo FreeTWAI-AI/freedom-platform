@@ -488,7 +488,11 @@ test('verify workflow keeps the required gate, unconditional integrity, and hist
   assert.doesNotMatch(on, /\n\s+paths:/u);
   assert.equal(text.includes('github.event.merge_group'), false);
   assert.match(text, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/u);
-  assert.match(text, /ref: \$\{\{ github\.workflow_sha \}\}/u);
+  for (const id of ['select', 'verify']) {
+    const trusted = jobBlock(text, id);
+    assert.match(trusted, /repository: \$\{\{ job\.workflow_repository \}\}/u);
+    assert.match(trusted, /ref: \$\{\{ job\.workflow_sha \}\}/u);
+  }
   assert.match(text, /ref: \$\{\{ github\.sha \}\}/u);
   const verify = jobBlock(text, 'verify');
   assert.match(verify, /if: \$\{\{ always\(\) \}\}/u);
