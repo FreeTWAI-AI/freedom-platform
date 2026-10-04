@@ -39,6 +39,15 @@ const secret = 'SYNTHETIC_PROCESS_ONLY_PROVIDER_SECRET';
 const output = 'SYNTHETIC_PRIVATE_PROCESS_RESULT';
 export function barrier() { let release!:()=>void; const promise=new Promise<void>(r=>{release=r;}); return {promise,release}; }
 
+/** Attach rejection handling immediately, including before the provider gate. */
+export function boundedSqlSinkObservation(request:Promise<unknown>,budgetMs:number) {
+  let timer:ReturnType<typeof setTimeout>|undefined;
+  const expired=new Promise<never>((_resolve,reject)=>{timer=setTimeout(()=>reject(new Error('SQL sink observation deadline exceeded')),budgetMs);});
+  return Promise.race([request,expired]).then(
+    ()=>({entered:true as const}),error=>({error}),
+  ).finally(()=>clearTimeout(timer));
+}
+
 /** Immutable actual filesystem bytes, shared by path across the two children. */
 export function fileStore(directory: string): ObjectStore {
   const file=(key:Parameters<ObjectStore['head']>[0])=>{assertObjectKey(key);return join(directory,key.replaceAll('/','_'));};
