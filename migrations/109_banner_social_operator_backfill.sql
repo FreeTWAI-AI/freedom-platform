@@ -51,7 +51,7 @@ BEGIN ATOMIC
  JOIN asset_objects o ON o.asset_id=a.asset_id AND o.purpose='community.event-banner' AND o.variant='banner' AND o.profile_id='community.event-banner'
  JOIN community_event_banner_asset_targets t ON t.event_id=m.banner_event_id AND t.asset_id=a.asset_id
  JOIN community_events s ON s.event_id=m.banner_event_id
- JOIN users u ON u.user_id=s.organizer_ref AND u.active
+ JOIN users u ON u.user_id=s.organizer_ref AND u.community_id=s.community_id AND u.active
  JOIN principals pr ON pr.principal_id=a.owner_principal_id AND pr.user_ref=u.user_id AND pr.kind='person' AND pr.status='active'
  JOIN resource_scopes rs ON rs.scope_id=a.scope_id AND rs.community_ref=s.community_id AND rs.kind='community' AND rs.status='active'
  JOIN domain_media_storage_policy dp ON dp.purpose=a.purpose AND dp.mode='bridge' AND dp.persistence_allowed AND dp.policy_revision=a.policy_revision
@@ -110,7 +110,7 @@ BEGIN ATOMIC
  JOIN asset_objects o ON o.asset_id=a.asset_id AND o.purpose='community.social-thumbnail' AND o.variant='thumbnail' AND o.profile_id='community.social-thumbnail'
  JOIN community_social_thumbnail_asset_targets t ON t.post_id=m.post_id AND t.asset_id=a.asset_id
  JOIN community_social_posts s ON s.post_id=m.post_id
- JOIN users u ON u.user_id=s.author_user_id AND u.active
+ JOIN users u ON u.user_id=s.author_user_id AND u.community_id=s.community_id AND u.active
  JOIN principals pr ON pr.principal_id=a.owner_principal_id AND pr.user_ref=u.user_id AND pr.kind='person' AND pr.status='active'
  JOIN resource_scopes rs ON rs.scope_id=a.scope_id AND rs.community_ref=s.community_id AND rs.kind='community' AND rs.status='active'
  JOIN domain_media_storage_policy dp ON dp.purpose=a.purpose AND dp.mode='bridge' AND dp.persistence_allowed AND dp.policy_revision=a.policy_revision
