@@ -16,7 +16,7 @@ import {
 } from '../asset-storage/index.js';
 const uuid=z.string().uuid(),name=z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/);
 const input=z.object({
-  target:z.unknown(),jobId:uuid,logicalStore:z.literal('MEDIA'),storeBindingId:name,migrationId:name.min(8),purpose:z.enum(['member.service-cover','community.event-video']),maxRows:z.number().int().min(1).max(16),maxBytes:z.number().int().min(3145728).max(134217728),leaseSeconds:z.number().int().min(1).max(60)
+  target:z.unknown(),jobId:uuid,logicalStore:z.literal('MEDIA'),storeBindingId:name,migrationId:name.min(8),purpose:z.enum(['member.service-cover','community.event-video','community.event-banner','community.social-thumbnail']),maxRows:z.number().int().min(1).max(16),maxBytes:z.number().int().min(3145728).max(134217728),leaseSeconds:z.number().int().min(1).max(60)
 }).strict();
 export interface OperatorBackfillPlan {
   target:InventoryTarget;
@@ -24,7 +24,7 @@ export interface OperatorBackfillPlan {
   logicalStore:'MEDIA';
   storeBindingId:string;
   migrationId:string;
-  purpose:'member.service-cover'|'community.event-video';
+  purpose:'member.service-cover'|'community.event-video'|'community.event-banner'|'community.social-thumbnail';
   maxRows:number;
   maxBytes:number;
   leaseSeconds:number;
@@ -79,7 +79,7 @@ const require:(condition:unknown)=>asserts condition=(condition:unknown)=>{
 export function planOperatorBackfill(raw:unknown):OperatorBackfillPlan{
   try{
     const p=input.parse(raw),target=validateInventoryTarget(p.target);
-    require(p.purpose==='member.service-cover'?p.maxBytes<=8388608:p.maxRows===1&&p.maxBytes>=125829120);
+    require(p.purpose==='community.event-video'?p.maxRows===1&&p.maxBytes>=125829120:p.maxBytes<=8388608);
     require(/^(fp_media_migrator_[a-z0-9_]+|freedom_media_migrator)$/.test(target.role));
     const canonical={
       target,jobId:p.jobId,logicalStore:p.logicalStore,storeBindingId:p.storeBindingId,migrationId:p.migrationId,purpose:p.purpose,maxRows:p.maxRows,maxBytes:p.maxBytes,leaseSeconds:p.leaseSeconds
@@ -93,14 +93,16 @@ export function planOperatorBackfill(raw:unknown):OperatorBackfillPlan{
 }
 const commonTables=['media_backfill_operator_policy','media_backfill_jobs','media_backfill_items','media_backfill_audit','users','principals','resource_scopes','domain_media_storage_policy','assets','asset_objects','asset_upload_intents'];
 const profiles=Object.freeze({
- 'member.service-cover':Object.freeze({max:524288,variant:'cover',scope:'personal',domain:'member_services',id:'service_id',bytesTable:'member_service_covers',bytesColumn:'image_bytes',targetTable:'member_service_cover_asset_targets',intentTarget:'target_service_id',cursor:'after_service_id',item:'service_id',consent:'lock_media_backfill_cover_consent',publish:'publish_media_backfill_cover'}),
- 'community.event-video':Object.freeze({max:20971520,variant:'video',scope:'community',domain:'community_events',id:'event_id',bytesTable:'community_event_videos',bytesColumn:'media_bytes',targetTable:'community_event_video_asset_targets',intentTarget:'target_video_event_id',cursor:'after_event_id',item:'event_id',consent:'lock_media_backfill_video_consent',publish:'publish_media_backfill_video'}),
+ 'member.service-cover':Object.freeze({max:524288,variant:'cover',scope:'personal',domain:'member_services',id:'service_id',bytesTable:'member_service_covers',bytesColumn:'image_bytes',targetTable:'member_service_cover_asset_targets',intentTarget:'target_service_id',cursor:'after_service_id',item:'service_id',version:'aggregate_version',authority:'lock_media_backfill_cover_owner',consent:'lock_media_backfill_cover_consent',publish:'publish_media_backfill_cover'}),
+ 'community.event-video':Object.freeze({max:20971520,variant:'video',scope:'community',domain:'community_events',id:'event_id',bytesTable:'community_event_videos',bytesColumn:'media_bytes',targetTable:'community_event_video_asset_targets',intentTarget:'target_video_event_id',cursor:'after_event_id',item:'event_id',version:'aggregate_version',authority:'lock_media_backfill_video_organizer',consent:'lock_media_backfill_video_consent',publish:'publish_media_backfill_video'}),
+ 'community.event-banner':Object.freeze({max:524288,variant:'banner',scope:'community',domain:'community_events',id:'event_id',bytesTable:'community_event_banners',bytesColumn:'image_bytes',targetTable:'community_event_banner_asset_targets',intentTarget:'target_event_id',cursor:'after_banner_event_id',item:'banner_event_id',version:'aggregate_version',authority:'lock_media_backfill_banner_organizer',consent:'lock_media_backfill_banner_consent',publish:'publish_media_backfill_banner'}),
+ 'community.social-thumbnail':Object.freeze({max:524288,variant:'thumbnail',scope:'community',domain:'community_social_posts',id:'post_id',bytesTable:'community_social_post_thumbnails',bytesColumn:'image_bytes',targetTable:'community_social_thumbnail_asset_targets',intentTarget:'target_post_id',cursor:'after_post_id',item:'post_id',version:'media_version',authority:'lock_media_backfill_social_author',consent:'lock_media_backfill_social_consent',publish:'publish_media_backfill_social'}),
 });
 type Lease={
   fence:string;
   token:string
 };
-type Source={target_id:string;owner_user_id:string;community_id:string;state:string;aggregate_version:string;bytes:Buffer;content_type:'image/webp'|'video/mp4'|'video/webm';storage_source:string;principal_id:string;scope_id:string;source_sha256:string;binding:string};
+type Source={target_id:string;owner_user_id:string;community_id:string;state:string;aggregate_version:string;bytes:Buffer;content_type:'image/webp'|'video/mp4'|'video/webm';storage_source:string;principal_id:string;scope_id:string;source_sha256:string;binding:string;orientation?:'landscape'|'portrait';source?:string;url?:string;platform?:string;title?:string;note?:string|null};
 /** Trusted host installation only. No member Actor/session/receipt is constructed.
  * Every publication uses the existing typed target, intent and immutable object.
  * Each SQL phase is a fresh transaction; no transaction spans ObjectStore I/O. */
@@ -152,14 +154,15 @@ export function createOperatorMediaBackfill(pool:Pool,installation:{
     await q.query(`INSERT INTO media_backfill_audit(job_id,${profiles[p.purpose].item},event,operator_role,job_fence) VALUES($1,$2,$3,current_user,$4)`,[p.jobId,id,event,l.fence]);
   }
   async function source(q:PoolClient,id:string,p:OperatorBackfillPlan):Promise<Source|null>{
-    const video=p.purpose==='community.event-video',profile=profiles[p.purpose];
-    const hint=(await q.query(video?'SELECT organizer_ref AS owner_user_id FROM community_events WHERE event_id=$1':'SELECT owner_user_id FROM member_services WHERE service_id=$1',[id])).rows[0];if(!hint)return null;
-    const authority=(await q.query(video?'SELECT * FROM lock_media_backfill_video_organizer($1,$2)':'SELECT * FROM lock_media_backfill_cover_owner($1,$2)',[p.planSha256,video?id:hint.owner_user_id])).rows[0];if(!authority)return null;
+    const video=p.purpose==='community.event-video',banner=p.purpose==='community.event-banner',social=p.purpose==='community.social-thumbnail',profile=profiles[p.purpose];
+    const hint=(await q.query(social?'SELECT author_user_id AS owner_user_id FROM community_social_posts WHERE post_id=$1':profile.scope==='community'?'SELECT organizer_ref AS owner_user_id FROM community_events WHERE event_id=$1':'SELECT owner_user_id FROM member_services WHERE service_id=$1',[id])).rows[0];if(!hint)return null;
+    const authority=(await q.query(`SELECT * FROM ${profile.authority}($1,$2)`,[p.planSha256,profile.scope==='community'?id:hint.owner_user_id])).rows[0];if(!authority)return null;
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`asset.quota/v1/${authority.scope_id}/${p.purpose}`]);
-    const row=(await q.query(video?'SELECT event_id AS target_id,organizer_ref AS owner_user_id,community_id,state,aggregate_version FROM community_events WHERE event_id=$1 AND organizer_ref=$2 FOR UPDATE':"SELECT service_id AS target_id,owner_user_id,community_id,state,aggregate_version FROM member_services WHERE service_id=$1 AND owner_user_id=$2 AND state IN ('active','paused') FOR UPDATE",[id,hint.owner_user_id])).rows[0];if(!row)return null;
-    const content=(await q.query(video?"SELECT CASE WHEN octet_length(media_bytes) BETWEEN 1 AND 20971520 THEN media_bytes END AS bytes,mime_type AS content_type,storage_source FROM community_event_videos WHERE event_id=$1 FOR UPDATE":"SELECT CASE WHEN octet_length(image_bytes) BETWEEN 1 AND 524288 THEN image_bytes END AS bytes,'image/webp'::text AS content_type,storage_source FROM member_service_covers WHERE service_id=$1 FOR UPDATE",[id])).rows[0];if(!content?.bytes)return null;
+    const row=(await q.query(social?"SELECT post_id AS target_id,author_user_id AS owner_user_id,community_id,state,media_version AS aggregate_version,url,platform,title,note FROM community_social_posts WHERE post_id=$1 AND author_user_id=$2 AND state='active' FOR UPDATE":profile.scope==='community'?'SELECT event_id AS target_id,organizer_ref AS owner_user_id,community_id,state,aggregate_version FROM community_events WHERE event_id=$1 AND organizer_ref=$2 FOR UPDATE':"SELECT service_id AS target_id,owner_user_id,community_id,state,aggregate_version FROM member_services WHERE service_id=$1 AND owner_user_id=$2 AND state IN ('active','paused') FOR UPDATE",[id,hint.owner_user_id])).rows[0];if(!row)return null;
+    const content=(await q.query(`SELECT CASE WHEN octet_length(${profile.bytesColumn}) BETWEEN 1 AND ${profile.max} THEN ${profile.bytesColumn} END AS bytes,${video?'mime_type':"'image/webp'::text"} AS content_type,storage_source${banner?',orientation':social?',source':''} FROM ${profile.bytesTable} WHERE ${profile.id}=$1 FOR UPDATE`,[id])).rows[0];if(!content?.bytes)return null;
     if(video&&(content.content_type==='video/mp4'?content.bytes.length<12||content.bytes.toString('ascii',4,8)!=='ftyp':content.content_type!=='video/webm'||content.bytes.length<4||!content.bytes.subarray(0,4).equals(Buffer.from([0x1a,0x45,0xdf,0xa3]))))return null;
-    const sha=hash(content.bytes),fields=[row.target_id,row.owner_user_id,row.community_id,row.state,row.aggregate_version,authority.principal_id,authority.scope_id,sha,content.bytes.length];if(video)fields.push(content.content_type);
+    if((banner||social)&&(content.bytes.length<12||content.bytes.toString('ascii',0,4)!=='RIFF'||content.bytes.toString('ascii',8,12)!=='WEBP'))return null;
+    const sha=hash(content.bytes),fields=[row.target_id,row.owner_user_id,row.community_id,row.state,row.aggregate_version,authority.principal_id,authority.scope_id,sha,content.bytes.length];if(video)fields.push(content.content_type);if(banner)fields.push(content.orientation);if(social){fields.push(content.source,...[row.url,row.platform,row.title,row.note].map(v=>v===null?'~':Buffer.from(v,'utf8').toString('hex')));}
     return {...row,...content,principal_id:authority.principal_id,scope_id:authority.scope_id,source_sha256:sha,binding:hash(fields.join('|'))};
   }
   async function consent(q:PoolClient,p:OperatorBackfillPlan,pinned?:string){
@@ -167,9 +170,9 @@ export function createOperatorMediaBackfill(pool:Pool,installation:{
     require(policy?.mode==='bridge'&&policy.persistence_allowed&&policy.policy_revision&&policy.retained_byte_limit&&(!pinned||policy.policy_revision===pinned));
     return policy;
   }
-  async function capacity(q:PoolClient,p:OperatorBackfillPlan,s:Source,policy:any,reserve=0){const profile=profiles[p.purpose],video=p.purpose==='community.event-video';
-    const used=(await q.query(`SELECT COALESCE(sum(COALESCE(o.byte_size,i.reserved_bytes,${profile.max})::bigint),0) AS used FROM assets a LEFT JOIN asset_objects o USING(asset_id) LEFT JOIN asset_upload_intents i USING(asset_id) WHERE ${video?'a.scope_id':'a.owner_user_id'}=$1 AND a.purpose=$2`,[video?s.scope_id:s.owner_user_id,p.purpose])).rows[0];
-    const legacy=(await q.query(video?'SELECT COALESCE(sum(octet_length(c.media_bytes)),0) AS used FROM community_event_videos c JOIN community_events e USING(event_id) WHERE e.community_id=$1':'SELECT COALESCE(sum(octet_length(c.image_bytes)),0) AS used FROM member_service_covers c JOIN member_services s USING(service_id) WHERE s.owner_user_id=$1',[video?s.community_id:s.owner_user_id])).rows[0];require(BigInt(used.used)+BigInt(legacy.used)+BigInt(reserve)<=BigInt(policy.retained_byte_limit));
+  async function capacity(q:PoolClient,p:OperatorBackfillPlan,s:Source,policy:any,reserve=0){const profile=profiles[p.purpose],community=profile.scope==='community';
+    const used=(await q.query(`SELECT COALESCE(sum(COALESCE(o.byte_size,i.reserved_bytes,${profile.max})::bigint),0) AS used FROM assets a LEFT JOIN asset_objects o USING(asset_id) LEFT JOIN asset_upload_intents i USING(asset_id) WHERE ${community?'a.scope_id':'a.owner_user_id'}=$1 AND a.purpose=$2`,[community?s.scope_id:s.owner_user_id,p.purpose])).rows[0];
+    const legacy=(await q.query(`SELECT COALESCE(sum(octet_length(c.${profile.bytesColumn})),0) AS used FROM ${profile.bytesTable} c JOIN ${profile.domain} s USING(${profile.id}) WHERE ${community?'s.community_id':'s.owner_user_id'}=$1`,[community?s.community_id:s.owner_user_id])).rows[0];require(BigInt(used.used)+BigInt(legacy.used)+BigInt(reserve)<=BigInt(policy.retained_byte_limit));
   }
   async function matches(q:PoolClient,item:any,p:OperatorBackfillPlan){
     const s=await source(q,item.target_id,p);
@@ -218,19 +221,19 @@ export function createOperatorMediaBackfill(pool:Pool,installation:{
           const j=await job(q,p,l);
           const pending=(await q.query("SELECT * FROM media_backfill_items WHERE job_id=$1 AND outcome='pending' ORDER BY target_id LIMIT 1",[p.jobId])).rows[0];
           if(pending)return pending;
-          const profile=profiles[p.purpose],video=p.purpose==='community.event-video';
-          const candidate=(await q.query(`SELECT s.${profile.id} AS target_id FROM ${profile.domain} s JOIN ${profile.bytesTable} c USING(${profile.id}) WHERE c.storage_source='legacy' AND ($1::uuid IS NULL OR s.${profile.id}>$1) ORDER BY s.${profile.id} LIMIT 1`,[j[profile.cursor]])).rows[0];
+          const profile=profiles[p.purpose],community=profile.scope==='community',banner=p.purpose==='community.event-banner';
+          const candidate=(await q.query(`SELECT c.${profile.id} AS target_id FROM ${profile.bytesTable} c WHERE c.storage_source='legacy' AND ($1::uuid IS NULL OR c.${profile.id}>$1) ORDER BY c.${profile.id} LIMIT 1`,[j[profile.cursor]])).rows[0];
           if(!candidate){await q.query('UPDATE media_backfill_jobs SET completed=true WHERE job_id=$1',[p.jobId]);await audit(q,p,l,'complete');return null;}
           const s=await source(q,candidate.target_id,p);
-          if(!s&&video){await q.query(`UPDATE media_backfill_jobs SET ${profile.cursor}=$2 WHERE job_id=$1`,[p.jobId,candidate.target_id]);await audit(q,p,l,'blocked_source',candidate.target_id);return {blocked:true,target_id:candidate.target_id};}
+          if(!s&&community){await q.query(`UPDATE media_backfill_jobs SET ${profile.cursor}=$2 WHERE job_id=$1`,[p.jobId,candidate.target_id]);await audit(q,p,l,'blocked_source',candidate.target_id);return {blocked:true,target_id:candidate.target_id};}
           require(s&&s.storage_source==='legacy');
           const policy=await consent(q,p);
           await capacity(q,p,s,policy,profile.max);
           const asset=randomUUID(),intent=randomUUID(),representation=randomUUID();
-          await q.query(`INSERT INTO ${profile.targetTable}(${profile.id},scope_id,owner_principal_id,owner_user_id${video?',community_id':''}) VALUES($1,$2,$3,$4${video?',$5':''}) ON CONFLICT DO NOTHING`,video?[s.target_id,s.scope_id,s.principal_id,s.owner_user_id,s.community_id]:[s.target_id,s.scope_id,s.principal_id,s.owner_user_id]);
+          await q.query(`INSERT INTO ${profile.targetTable}(${profile.id},scope_id,owner_principal_id,owner_user_id${community?',community_id':''}) VALUES($1,$2,$3,$4${community?',$5':''}) ON CONFLICT DO NOTHING`,community?[s.target_id,s.scope_id,s.principal_id,s.owner_user_id,s.community_id]:[s.target_id,s.scope_id,s.principal_id,s.owner_user_id]);
           const pointer=(await q.query(`SELECT * FROM ${profile.targetTable} WHERE ${profile.id}=$1 FOR UPDATE`,[s.target_id])).rows[0];require(pointer?.scope_id===s.scope_id&&pointer.owner_principal_id===s.principal_id&&pointer.owner_user_id===s.owner_user_id&&!pointer.asset_id);
-          await q.query(`INSERT INTO assets(asset_id,scope_id,owner_principal_id,owner_user_id,policy_revision,representation_id,purpose,scope_kind${video?',community_ref':''},write_effect_coverage) VALUES($1,$2,$3,$4,$5,$6,$7,$8${video?',$9':''},true)`,video?[asset,s.scope_id,s.principal_id,s.owner_user_id,policy.policy_revision,representation,p.purpose,profile.scope,s.community_id]:[asset,s.scope_id,s.principal_id,s.owner_user_id,policy.policy_revision,representation,p.purpose,profile.scope]);
-          await q.query(`INSERT INTO asset_upload_intents(intent_id,asset_id,representation_id,scope_id,owner_principal_id,target_user_id,policy_revision,prepare_key,request_digest,source_content_type,source_byte_size,source_sha256,expected_version,expires_at,purpose,reserved_bytes,target_kind,${profile.intentTarget}${video?',target_community_id':''}) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8,$15,$9,$10,$11,clock_timestamp()+interval '24 hours',$13,$14,$13,$12${video?',$16':''})`,[intent,asset,representation,s.scope_id,s.principal_id,s.owner_user_id,policy.policy_revision,hash(p.planSha256+s.target_id),s.bytes.length,s.source_sha256,s.aggregate_version,s.target_id,p.purpose,profile.max,s.content_type,...(video?[s.community_id]:[])]);
+          await q.query(`INSERT INTO assets(asset_id,scope_id,owner_principal_id,owner_user_id,policy_revision,representation_id,purpose,scope_kind${community?',community_ref':''},write_effect_coverage) VALUES($1,$2,$3,$4,$5,$6,$7,$8${community?',$9':''},true)`,community?[asset,s.scope_id,s.principal_id,s.owner_user_id,policy.policy_revision,representation,p.purpose,profile.scope,s.community_id]:[asset,s.scope_id,s.principal_id,s.owner_user_id,policy.policy_revision,representation,p.purpose,profile.scope]);
+          await q.query(`INSERT INTO asset_upload_intents(intent_id,asset_id,representation_id,scope_id,owner_principal_id,target_user_id,policy_revision,prepare_key,request_digest,source_content_type,source_byte_size,source_sha256,expected_version,expires_at,purpose,reserved_bytes,target_kind,${profile.intentTarget}${community?',target_community_id':''}${banner?',source_orientation':''}) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8,$15,$9,$10,$11,clock_timestamp()+interval '24 hours',$13,$14,$13,$12${community?',$16':''}${banner?',$17':''})`,[intent,asset,representation,s.scope_id,s.principal_id,s.owner_user_id,policy.policy_revision,hash(p.planSha256+s.target_id),s.bytes.length,s.source_sha256,s.aggregate_version,s.target_id,p.purpose,profile.max,s.content_type,...(community?[s.community_id]:[]),...(banner?[s.orientation]:[])]);
           const item=(await q.query(`INSERT INTO media_backfill_items(job_id,${profile.item},intent_id,asset_id,source_version,source_size,source_sha256,source_binding_sha256,source_content_type) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,[p.jobId,s.target_id,intent,asset,s.aggregate_version,s.bytes.length,s.source_sha256,s.binding,s.content_type])).rows[0];
           await audit(q,p,l,'prepared',s.target_id);
           return item;
@@ -305,7 +308,7 @@ export function createOperatorMediaBackfill(pool:Pool,installation:{
           await q.query("INSERT INTO asset_objects(asset_id,scope_id,representation_id,variant,content_type,byte_size,content_sha256,transform_version,policy_revision,profile_id,purpose) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING",[next.asset_id,i.scope_id,i.representation_id,profile.variant,m.contentType,m.byteSize,m.sha256,m.transformVersion,m.policyRevision,m.profileId,p.purpose]);
           await q.query("UPDATE asset_upload_intents SET state='stored' WHERE intent_id=$1",[next.intent_id]);await audit(q,p,l,'stored',next.target_id);
           await q.query("UPDATE assets SET state='ready',ready_at=clock_timestamp() WHERE asset_id=$1",[next.asset_id]);
-          const saved=(await q.query(`UPDATE ${profile.domain} SET aggregate_version=aggregate_version+1,updated_at=clock_timestamp() WHERE ${profile.id}=$1 AND aggregate_version=$2 RETURNING aggregate_version`,[next.target_id,next.source_version])).rows[0];require(saved);
+          const saved=(await q.query(`UPDATE ${profile.domain} SET ${profile.version}=${profile.version}+1,updated_at=clock_timestamp() WHERE ${profile.id}=$1 AND ${profile.version}=$2 RETURNING ${profile.version} AS aggregate_version`,[next.target_id,next.source_version])).rows[0];require(saved);
           await q.query(`UPDATE ${profile.targetTable} SET asset_id=$2,linked_at_version=$3 WHERE ${profile.id}=$1`,[next.target_id,next.asset_id,saved.aggregate_version]);
           require((await q.query(`SELECT * FROM ${profile.publish}($1,$2,$3,$4,$5)`,[p.planSha256,p.jobId,next.target_id,l.fence,l.token])).rowCount===1);
           await q.query("UPDATE asset_upload_intents SET state='finalized',finalized_at=clock_timestamp() WHERE intent_id=$1",[next.intent_id]);
