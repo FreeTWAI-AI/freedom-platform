@@ -1,5 +1,11 @@
 # 共同基礎現況與過渡決策
 
+## 2026-10-04：隔離candidate已部署，資料移植與驗收仍分開
+
+9cc的真正hosted Verify已完成196檔／2,620項全部通過，Worker60/60、synthetic restore2/2與UI413pass／5既有skip；CodeQL security仍failure。新隔離PG18.6已套110個canonical migrations through111並完成ownership／ACL／runtime及operator grants readback，0users／demo／backfill approvals。私有R2與兩個cache-OFF Hyperdrive，以及兩個全新private main/operator Workers均已建立／部署並由provider API核對；flags OFF、無routes/crons/workers.dev/previews/customdomains，現有Worker etags未改。
+
+此不等於正式資料已copy或真人HTTPS flow已驗收；caller／backfill未啟動。已授權的新DB移植仍選一致snapshot restore→canonical pending migrations→ACL lockdown/grants→驗收，最後short writefreeze/drain＋finaldump/restore才cutover；不另造schema／generic delta或逐表COPY。新target寫入後rollback須一致reconcile／forward fix。以下較早「target不存在／未deploy」為歷史。詳見[最新交付紀錄](implementation-status.md)與[release readiness](release-readiness.md)；保留未知ACK／正式gate與安全核定限制。
+
 ## 2026-10-04：已授權隔離新環境與資料移植次序
 
 Ted允許新增臨時Postgres、migration後關閉，也允許新DB／表承接資料以避開live原地改造；同範圍不重問資源permission。採既有一致snapshot dump／restore到新空DB，再跑canonical pending migrations與restore ACL lockdown／grants，先驗收，最後短writefreeze／排空背景寫入／final dump後cutover。不採逐表COPY到另造schema；既有media delta不是generic DB replication。若已有R2 pointers，dump與object pins須共用exported snapshot。正式data read／restore／cutover仍未執行。

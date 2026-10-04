@@ -1,6 +1,16 @@
 # 共同基礎：本機與 CI 交付紀錄
 
-## 最新結果與隔離資源（2026-10-04）
+## 最新已完成：9cc hosted 驗證與 private candidate（2026-10-04）
+
+固定 `9cc283c6976a920b5f481ec605a7f468044e3a1b` 的 [Verify run37186706935](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37186706935) completed/success。不可變 merge checkout `216fa14033511f8b674a375879e11454aebea429`：archive digests／source hashes／四分片完整聯集已重算，196檔、2,620/2,620，零fail/skip/cancel/todo、四份cleanup true，697.468秒，原900秒window不變。Worker60/60、七類synthetic DB/native R2 restore2/2；UI job111390048807實際413pass／5既有disabled-feature skips。獨立CodeQL security check111390111512仍failure；Verify或Analyze成功不代表安全核定。
+
+新隔離PG18.6已真正bootstrap完成110個canonical migrations through111，精確9cc source pins、migrator ownership、PUBLIC function ACL lockdown、runtime/operator grants與readback均通過；runtime DDL／ledger write／unsafe policy權限為false，operator閉集4表／24functions無unsafe權限。users/demo data/backfill approvals為0，未seed或開features。R2與兩個distinct cache-OFF candidate Hyperdrive已建立並readback；帳號／binding IDs與credentials不公開。
+
+兩個全新private Workers `fp-base-candidate-20261004-main`／`fp-base-candidate-20261004-operator` 已deploy exit0，provider API readback確認reviewed bindings/release、所有enabled flags false、workers.dev與previews false、schedules／production routes空、custom domains0。現有staging/live Worker etags未變；未安裝caller或啟動backfill。這是實際新API設定與部署證據，不是HTTPS/member-flow驗收或正式資料migration。Private AI／broker／machine仍OFF，durable未知ACK／App gate／CodeQL限制未解除。
+
+正式資料讀取／搬遷與flow cutover尚未發生。已授權的移植次序仍為一致snapshot restore到新DB → canonical pending migrations → ACL lockdown/grants →驗收 →最後短writefreeze/drain與final dump/restore →cutover；不以media delta冒充generic replication，不逐表COPY或另造schema。新DB開始寫入後舊DB不能盲切回，需forward fix或一致reconcile。以下5dd與早期「logical DB不存在／尚未deploy」只記當時checkpoint，不是目前狀態。
+
+## 歷史checkpoint：5dd結果與初始隔離資源（2026-10-04）
 
 固定 head `5ddc013` 的 [Verify run37184409831](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37184409831) completed/failure：完整196檔／2,620項中2,619pass、1項 `sql_wait_not_observed`，零skip/cancel、四份cleanup true，680.991秒，原900秒window不變。Worker59pass／1項teardown `57P01`；restore未執行，不能沿用前代2/2當本次結果。獨立security check111383322592仍failure；Analyze成功不能替代安全核定。
 

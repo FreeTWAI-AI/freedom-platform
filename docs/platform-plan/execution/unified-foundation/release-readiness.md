@@ -1,6 +1,14 @@
 # Push, merge and deployment readiness
 
-## Current checkpoint: failed hosted source and isolated resources
+## Current completed checkpoint: verified source and private candidate deployment
+
+Exact `9cc283c6` [Verify run37186706935](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37186706935) completed/success at immutable merge checkout `216fa14033511f8b674a375879e11454aebea429`. Root verified archive/source digests and the complete four-partition union:196 files, **2,620/2,620**, zero failures/skips/cancellations/todo, four verified cleanups,697.468 seconds within900. Worker60/60 and seven-kind synthetic DB/native-R2 restore2/2 passed; actual UI413passed/five existing disabled-feature skips. Separate CodeQL security check111390111512 still failed; no security adjudication or installed gate authority follows.
+
+The isolated PostgreSQL18.6 target now contains all110 canonical migrations through111, with exact9cc pins, migrator ownership, PUBLIC ACL lockdown, restricted runtime/operator grants and canonical readback completed. Users/demo data/backfill approvals remain0. The private R2 and two distinct cache-OFF Hyperdrives are created/read back. Two new private Workers, `fp-base-candidate-20261004-main` and `fp-base-candidate-20261004-operator`, deployed successfully: bindings/release and OFF flags match, workers.dev/previews are disabled, schedules/production routes are empty, custom domains0, and operational staging/live Worker etags unchanged. Caller/backfill activation did not occur.
+
+This is actual candidate schema/resource/Worker preparation, not HTTPS/member-flow acceptance or production data migration. Current data/ACL/offsite restore, security and installed publisher-gate requirements remain open. Use the authorized consistent snapshot restore→canonical pending migrations→ACL/grants→acceptance sequence, followed by a final short write freeze/drain and fresh dump/restore before cutover. After new writes, the old database is stale and needs consistent reconciliation or a forward fix. Historical absent-database/no-deployment and failed5dd checkpoints below remain preserved, not current claims. Account/resource IDs and credentials are omitted.
+
+## Historical checkpoint: failed5dd source and initial isolated resources
 
 Exact `5ddc013` [Verify run37184409831](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37184409831) completed/failure: all196 files/2,620 cases finished, 2,619 passed and one `sql_wait_not_observed`; zero skips/cancellations, four cleanups verified, 680.991 seconds within the unchanged900-second window. Worker59 passed/one teardown `57P01`; restore did not run. Security check111383322592 failed independently of Analyze.
 
