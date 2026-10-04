@@ -7,6 +7,8 @@ import { BrokerModelSelectionSchema,CredentialRecoveryFloorSchema } from '../../
 import { createR2ObjectStore,type AssetR2Binding } from '../../../packages/asset-storage/r2.js';
 import { parseBoundedJson } from '../../../packages/execution-state/decode.js';
 import { createSignedRecoverySource } from '../../credential-broker/src/recovery.js';
+import { createCredentialIngestAuthorizations } from '../../../modules/agent-control/credential-ingest-authorizations.js';
+import { createCredentialIngestClient } from './credential-ingest-client.js';
 import { createModelBrokerClient } from './model-broker-client.js';
 import { bindPrivateAiProductTransport,bindPrivateAiProductBrowserPolicy,createPrivateAiProductTransport } from './private-ai-product.js';
 import { bindPrivateAiJsonService,createModelBrokerServiceBindingExchange,type PrivateAiServiceBinding } from './model-broker-service-binding.js';
@@ -20,6 +22,8 @@ export interface WorkerPrivateAiBindings {
   FREEDOM_PRIVATE_AI_REQUEST_KEY?:string;
   /** Optional independent ES256 bootstrap issuer, only when profile.bootstrap is installed. */
   FREEDOM_PRIVATE_AI_BOOTSTRAP_KEY?:string;
+  /** Independent main-only signer for the optional browser credential handoff. */
+  FREEDOM_PRIVATE_AI_INGEST_KEY?:string;
   MODEL_BROKER?:PrivateAiServiceBinding;
   CREDENTIAL_RECOVERY_STATE?:PrivateAiServiceBinding;
   CREDENTIAL_RECOVERY_FLOOR?:PrivateAiServiceBinding;
@@ -32,7 +36,8 @@ const PublicKey=z.object({kty:z.literal('OKP'),crv:z.literal('Ed25519'),x:X}).st
 const Keys=z.array(z.object({keyId:Kid,publicJwk:PublicKey}).strict()).min(1).max(16);
 export const WorkerPrivateAiProfileSchema=z.object({environment:RuntimeEnvironmentSchema,platformOrigin:z.string().min(1).max(256),clientId:BootstrapClientIdSchema,issuer:Label,audience:Label,
   brokerIdentity:Label,responseAudience:Label,requestKid:Kid,responseKeys:Keys,recoveryAuthority:Kid,recoveryKeys:Keys,
-  settingsSelections:z.array(BrokerModelSelectionSchema).max(50),bootstrap:DeviceAuthorizationHostSchema.optional()}).strict();
+  settingsSelections:z.array(BrokerModelSelectionSchema).max(50),bootstrap:DeviceAuthorizationHostSchema.optional(),
+  ingest:z.object({setupOrigin:z.string().min(1).max(256),issuer:Label,audience:Label,keyId:Kid}).strict().optional()}).strict();
 const SignedState=z.object({signedState:z.string().min(1).max(4096)}).strict();
 const root='https://freedom-private-ai.internal';
 async function verificationKeys(raw:z.infer<typeof Keys>) {
@@ -74,10 +79,29 @@ export async function workerPrivateAiPorts(pool:Pool,bindings:WorkerPrivateAiBin
       const jwk=RuntimePublicJwkSchema.extend({d:X}).strict().parse(parseBoundedJson(bindings.FREEDOM_PRIVATE_AI_BOOTSTRAP_KEY));
       bootstrap={host:profile.bootstrap,signingKey:await crypto.subtle.importKey('jwk',jwk,{name:'ECDSA',namedCurve:'P-256'},false,['sign'])};
     }else if(bindings.FREEDOM_PRIVATE_AI_BOOTSTRAP_KEY)throw new Error('private_ai_unavailable');
-const store=createR2ObjectStore(bindings.MEDIA);
+    let ingest:Parameters<typeof createPrivateAiProductTransport>[1]['ingest'];
+    if(profile.ingest){
+      if(!bindings.FREEDOM_PRIVATE_AI_INGEST_KEY||bindings.FREEDOM_PRIVATE_AI_INGEST_KEY.length>4096)throw new Error('private_ai_unavailable');
+      const jwk=PublicKey.extend({d:X}).strict().parse(parseBoundedJson(bindings.FREEDOM_PRIVATE_AI_INGEST_KEY));
+      const signingKey=await crypto.subtle.importKey('jwk',jwk,{name:'Ed25519'},false,['sign']);
+      // Purpose headers do not replace signer isolation. Verify actual key
+      // correspondence instead of trusting key IDs or JWK labels.
+      const {d:unused,...requestPublicJwk}=privateJwk;
+      const requestPublicKey=await crypto.subtle.importKey('jwk',requestPublicJwk,{name:'Ed25519'},false,['verify']);
+      const separation=new TextEncoder().encode('freedom/private-ai/ingest-key-separation/v1');
+      const signed=await crypto.subtle.sign('Ed25519',signingKey,separation);
+      for(const key of [requestPublicKey,...responseKeys.values(),...recoveryKeys.values()]){
+        if(await crypto.subtle.verify('Ed25519',key,signed,separation))throw new Error('private_ai_unavailable');
+      }
+      const {setupOrigin,issuer,audience,keyId}=profile.ingest;
+      const authorizations=createCredentialIngestAuthorizations(pool,{environment,clientId:profile.clientId,issuer,audience,setupOrigin,recover:recovery.recover});
+      ingest=await createCredentialIngestClient(pool,{origin:config.origin,environment,clientId:profile.clientId,setupOrigin,
+        issuer,audience,keyId,signingKey,authorizations});
+    }else if(bindings.FREEDOM_PRIVATE_AI_INGEST_KEY)throw new Error('private_ai_unavailable');
+    const store=createR2ObjectStore(bindings.MEDIA);
 
     const product=await createPrivateAiProductTransport(pool,{origin:config.origin,environment,clientId:profile.clientId,broker,
-      store,settingsSelections:profile.settingsSelections,...(bootstrap?{bootstrap}:{})});
+      store,settingsSelections:profile.settingsSelections,...(bootstrap?{bootstrap}:{}),...(ingest?{ingest}:{})});
     return Object.freeze({privateAiProduct:bindPrivateAiProductTransport(product,pool,config.origin,config.freedomEnv),
       privateAiSetupOrigin:bindPrivateAiProductBrowserPolicy(product,pool,config.origin,config.freedomEnv)});
   }catch{return undefined;}
