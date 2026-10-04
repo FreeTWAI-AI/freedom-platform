@@ -90,7 +90,7 @@ CodeQL alert 39 or close GitHub default-branch dependency alerts. No merge,
 cloud installation, migration, deployment or real provider call was performed.
 
 
-Current completed hosted candidate: PR head `dd3ae0e` / checkout
+Earlier completed hosted candidate: PR head `dd3ae0e` / checkout
 `4fd27bf5ae743b1224de99a35022867d27e427ba`,
 [run 37179816610](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37179816610).
 All 196 files and 2,620 unique cases finished: **2,619 passed, one failed**, zero
@@ -142,3 +142,46 @@ The composed source at `7e78cde` separately passed the complete bounded local
 governance unit adapter: **283/283**, 16 files, 20.692 seconds, zero failures,
 skips, cancellations or todo. Its unchanged cap is 60 seconds. This verifies
 local behavior; it installs no formal trust or GitHub enforcement.
+
+
+Latest completed hosted candidate `750b808`,
+[run 37181339574](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37181339574),
+failed. Partition one did not start its mandatory producer: its diagnostic
+caught an unhandled fetch rejection in the sixth case and hit its 90-second cap
+before finishing all eight. The other three exact-digest artifacts cover only
+147 files/1,960 cases: 1,959 passed, one media deadline fixture failed, zero
+skips/cancellations/todo, three cleanups verified. This is not a full 196-file
+matrix. Worker60/60, restore2/2, governance, UI413pass/5existing-disabled-feature
+skips and preflight succeeded; aggregate/final verify correctly failed. Current
+CodeQL check111374442984 failed with one new high alert; analysis jobs succeeding
+do not resolve that check or formally adjudicate alert39.
+
+The next test-only corrections preserve original broker assertions and expose
+rather than accept fetch rejection. A genuine earlier-assertion/cleanup sequence
+proved its masking mechanism. Separate controlled real-DB delay reproduced the
+media fixture's unsupported pre-I/O reachability assumption; a context-owned
+clock now advances the same300ms only after actual storage entry and requires
+real late-stream cancellation. All metadata/SQL remains genuine and teardown
+restores mocks; this is controlled-clock evidence, not a300ms wall-clock bound
+on whole DB I/O. Actual eight broker cases and independent thirteen media cases
+passed with zero skips. Their original hosted assertions remain unclassified.
+
+A bounded signed-supervisor factory now composes the actual pinned host verifier
+with the existing publisher, with independent real-verifier/synthetic-signature
+positive and substitution/attempt/identity negatives. It installs no external
+service, baseline, keys or GitHub App; process-local replay still cannot establish
+durable supersession or enforced merge policy. The reviewed exact-source
+foundation install/probe plan is prepared, including operational collision
+checks, canonical grants and compatible-reader forward recovery. Nonsecret
+operator inputs and actual cloud/resource/role/restore acceptance remain absent;
+no deployment or authority is inferred from the plan or these local checks.
+
+
+The next candidate replaces the redundant blocking broker checkpoint with
+bounded actual-producer FD4 diagnostics for the same two fixed synthetic files.
+Every original196-file/case requirement, primary JSON verdict, FD3 behavior and
+900-second window remains mandatory. Independent16/16 focused checks confirmed
+private omission, strict malformed-record handling and retained failure/hang
+verdicts; diagnostics alone never authorize a pass. The fixture corrections
+and real-verifier publisher composition remain pending the next actual hosted
+candidate result, with all cloud/security/installed-gate conditions preserved.

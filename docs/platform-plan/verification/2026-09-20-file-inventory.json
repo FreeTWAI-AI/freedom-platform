@@ -14,8 +14,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 13959,
-      "sha256": "6f6f41a1730728ecee39234d8bf89b475748b8f282f2fe2dc7cc7ae81496967b"
+      "bytes": 13613,
+      "sha256": "ac547f4bc5fc06c9f767516e3da19410130429a147527d850320ff6117b08204"
     },
     {
       "path": ".gitignore",
@@ -3054,8 +3054,8 @@
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
-      "bytes": 9370,
-      "sha256": "1d65f0746b7069177deb6d557c3fa752ebd6123371a7e4cbbf1e21d72cd77e63"
+      "bytes": 10697,
+      "sha256": "1b7ea4fc78a4a91cfaf33d4530d4fe6ebeb3cb423c5af0c227a89e3101f77977"
     },
     {
       "path": "docs/development/service-cover-worker.md",
@@ -4284,13 +4284,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 200726,
-      "sha256": "56a5d8bd0e87e08584b690ca674a86d16ef08c70383d5fd961e33638811bb4c1"
+      "bytes": 205215,
+      "sha256": "0bba699e95d460baa88714c53946888862d44654280acf95868f26811f695c45"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
-      "bytes": 15327,
-      "sha256": "3907424110c2981d314cfe4987b10545e67fbf102465f0e7a8afbc52d36044fe"
+      "bytes": 18194,
+      "sha256": "b07bb11dd00f1cb435affc15999d612bfd044a3c84c3b46728aee69446585e8d"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -6224,8 +6224,8 @@
     },
     {
       "path": "packages/contribution-tools/export.mjs",
-      "bytes": 4672,
-      "sha256": "8cef151816e1b2edd00982b7ea84ea86173ae7d0da178087419fb1c75cb35f2a"
+      "bytes": 4699,
+      "sha256": "c35d90f6f88fef089803e1515d260c06f9729544fb3c3efc1d96dd6ee8f32a2d"
     },
     {
       "path": "packages/contribution-tools/formats.mjs",
@@ -6243,9 +6243,14 @@
       "sha256": "c890dba480a5d5a1dc3c030e4f1e3b38f7dc3c7b6fe391c288c88b4884b5ee53"
     },
     {
+      "path": "packages/contribution-tools/github-supervisor-publisher.mjs",
+      "bytes": 2267,
+      "sha256": "c5aa04ef3c88a577285a4f33a0d522ab20d233b0638eeb1f1a89920a1164097a"
+    },
+    {
       "path": "packages/contribution-tools/github-trusted-adapter.md",
-      "bytes": 12763,
-      "sha256": "297d41f6af467c513a3092a6a60e9fa1d780307e60f2cc547114615e2396935c"
+      "bytes": 13932,
+      "sha256": "e4242a44aa195d712742506f13da88e79245d0dd6e67d007f1aa26109e88ca1e"
     },
     {
       "path": "packages/contribution-tools/github-trusted-adapter.mjs",
@@ -6294,8 +6299,8 @@
     },
     {
       "path": "packages/contribution-tools/suite-runner.mjs",
-      "bytes": 23941,
-      "sha256": "2f09407fd20c7c16dc20da293a55a908b26879fcba7a1a4d931e53e76d18198c"
+      "bytes": 24313,
+      "sha256": "9a7abe0e50d305268983e1b0844713d57ecb3f96ce23b90c160e475bccfc9c0c"
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
@@ -6349,8 +6354,8 @@
     },
     {
       "path": "packages/contribution-tools/test/github-trusted-adapter.test.mjs",
-      "bytes": 10167,
-      "sha256": "c4aa2715117f709eaed692794c9b4b4c9843eb81ec2e4f27bb7e64d62b265660"
+      "bytes": 13562,
+      "sha256": "bf45eb13bb5a9d63fac9ff439762b6e31994be6979cedc481952d5a7ecea75d1"
     },
     {
       "path": "packages/contribution-tools/test/io.test.mjs",
@@ -6384,8 +6389,8 @@
     },
     {
       "path": "packages/contribution-tools/test/test-reporter-progress.test.mjs",
-      "bytes": 12605,
-      "sha256": "215c40ca2da9876de359a721b2d5bcb59fd794606417973a7ed69dd81aa59dae"
+      "bytes": 19100,
+      "sha256": "ebb42cf61d765acbda58c8bd59aaf78438e448ed4cef98dc81030f00d779f1b1"
     },
     {
       "path": "packages/contribution-tools/test/trusted-ci.test.mjs",
@@ -6393,14 +6398,19 @@
       "sha256": "47a246db21c67c11d048f6b4b9412e86250e3da1d7749a34533c926ab8fb4db8"
     },
     {
+      "path": "packages/contribution-tools/test-failure-diagnostic.mjs",
+      "bytes": 5422,
+      "sha256": "eb99de18cc01f2e5ff22588cddcefc8a65402a542bd5d8ce060491503bbb063c"
+    },
+    {
       "path": "packages/contribution-tools/test-progress.md",
-      "bytes": 2819,
-      "sha256": "2741875a78d719364cb90ffa3cb1121afe01c7f6e6cd027febbeb41de83133e8"
+      "bytes": 4451,
+      "sha256": "e1a0237b12d57eb8050e5e50d5c71fec7cd7686d64d232932c81aecd10c3f58f"
     },
     {
       "path": "packages/contribution-tools/test-reporter.mjs",
-      "bytes": 8761,
-      "sha256": "15c96cd176e519d05e105c529df04c5728ec9f732ecb5e9c877cd989389172eb"
+      "bytes": 9617,
+      "sha256": "ecfb45046f75ae5da8b8ede6be3bb782e37ff3308f979d96ae5aeab8f347b3d6"
     },
     {
       "path": "packages/contribution-tools/trusted-ci.mjs",
@@ -7879,8 +7889,8 @@
     },
     {
       "path": "tests/runtime/media-verify.test.ts",
-      "bytes": 22652,
-      "sha256": "6f48be6755de449c1f0aa9c2cb6fe6990296171b10ac1c0a24aaa61523353287"
+      "bytes": 23305,
+      "sha256": "48a886c0913724eb5cf24ca7ee66e3c0c5dc07e2d400f1f802cb8f11948b47cb"
     },
     {
       "path": "tests/runtime/member-channel-access.test.ts",
@@ -8034,8 +8044,8 @@
     },
     {
       "path": "tests/runtime/model-broker-bridge-adversarial.test.ts",
-      "bytes": 16703,
-      "sha256": "12dc2ab14ed692adf6665251c6b1bf547229548de317697096e069c484621ed0"
+      "bytes": 16941,
+      "sha256": "3f8dc29700af3b18d4cb3b2aaab8b1727231de0400c4806d659a65783af2951f"
     },
     {
       "path": "tests/runtime/model-broker-bridge.test.ts",

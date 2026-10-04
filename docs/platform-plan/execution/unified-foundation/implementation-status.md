@@ -1856,3 +1856,68 @@ Evidence SHA-256
 0cdb1da1342032e6e5f666b7ad680fd4a77482f235bbdd13090a7e7d5d56c3f8。
 這是 composed publisher source 的 local synthetic proof；未安裝 formal
 trust／enforcement，不取代下一個真正 hosted immutable candidate。
+
+
+固定750b808的 GitHub run37181339574 已真正 completed/failure，
+checkout c776c8e0cab7a186003ada156eb51433d43967e8。Partition1 固定
+八項 checkpoint 在第六項讀到 unhandledRejection／TypeError fetch
+failed，繼續第七項 pass，然後碰90秒 diagnostic cap，第八項未完整；
+該路 mandatory producer 未開始，沒有完整 artifact。不把這個局部
+checkpoint 當完整 runtime，亦不把 timeout 當 SQL／transport 原因。
+其他三份 artifact 的 exact IDs／archive digests／同 source/manifest
+已核對：147檔、1,960 cases、1,959 pass／1 fail，零 skip/cancel/todo，
+三份 cleanup true。失敗是 media-verify 第十三项 object deadline
+late-body cancellation；這是147檔局部結果，非196檔全套。Required
+aggregate/final verify 正確 failure。Worker60/60、七類 native restore2/2、
+治理及 preflight success；UI 真正413pass／5既有 disabled-feature skips。
+CodeQL check111374442984 真正 failure／1newhigh；Analyze success
+仍不代表 security check pass，未dismiss alert39或其他alerts。
+
+Broker fixture 的早期錯誤遮蔽已由 genuine SQL wait counter 重現：
+等待中的 fetch 沒有 rejection handler，較早 assertion failure 進入
+finally，關閉 main sockets 後變成 unhandled fetch failed。修正兩個
+expiry cases 的立即 response/error settlement；原位置仍 rethrow
+任何 rejected fetch、要求 HTTP>=400、provider1、Result/Asset/intent
+rollback、Work CAS、真實 SQL wait 與所有時效 assertions。故意早期
+assertion 在修正前後均 exit1，修正後保留原 AssertionError；不允許
+transport error 通過。作者 genuine8/8、零skip、53.31秒／typecheck
+pass；獨立 reversal byte-check 與兩個故意 red counters 通過。這證明
+masking mechanism，不宣稱已確定真正 Ubuntu 原始 assertion。
+
+Media deadline fixture 的 pre-I/O assumption 另以 real PG connect 加
+400ms controlled delay 重現13項中最後一項失敗，訊息為 actual asset
+read must reach the trusted port before deadline。Test-only context Date／
+setTimeout clock 在真正 metadata queries 期間暫停，真正 store.get
+entered 後才推進原300ms deadline；hanging promise 在 verification
+reject 後才交付 late ReadableStream，實際 cancel callback 必須發生。
+保留 safe error／port reach／cancel assertions、actual SQL queries 與
+statement caps；finally 恢復 clock/reader connect，再真正 teardown。
+這是 controlled-clock proof，不宣稱300ms real whole-DB-I/O walltime。
+作者原13項 genuine PG/native R2 全過；獨立13/13、14.19秒、零skip／
+exit0，另確認 genuine SQL lock50ms-cap case 在 mock前真正通過。
+不改 production verify code，不放寬300ms或900秒；真正 hosted 最初
+assertion 仍未取得，不能用本機重現替代其歸因。
+
+新的 operator-owned signed-supervisor composition 把 captured trust/pins
+及 supervisor closure 接到 actual runHostVerification，再交給 existing
+publisher；只收 bounded purpose-signed job/observation envelopes，沒有
+passed-report input。真正 bare Git／approved-policy／signature-purpose／
+closed-suite evidence 驗證後才可 mocked POST；missing/forged/wrongpurpose／
+stale attempt／report substitution 均零POST。作者35/35、獨立35/35及
+四個另外 mismatched ID/attempt／unsigned tamper／missing constructor
+反例通過。未安裝 supervisor service/App、未讀正式key/送真正POST；
+durable replay/supersession、baseline adoption、App gate 仍 pending。
+
+
+750b808 的額外八項 diagnostic timeout 曾阻止 mandatory partition1
+開始。下一候選移除這個重複 execution，改在原完整 mandatory producer
+保留 FD4：只含兩個固定 synthetic files 的 source/case hashes、finite
+SQL/asset-read reachability／expiry／fetch classifications、有限 code／
+小型 numeric/Boolean comparisons，256KiB/64records；不輸出 raw
+message／stack／name／env／requestbody／object比較。原FD3與 final
+closed JSON／全196檔／全部八項broker／原900秒 window 保留。作者
+affected36/36；獨立16/16含三個自訂私密欄位／malformed／cap反例，
+零skip，證明later hang保留診斷仍fail、65failed primary cases不被
+64diagnostic cap刪減、FD4有無時 finalJSON bytes相同。Portable export
+closure 同時補齊新靜態依賴。有限分類與generated Node line仍不保證
+literal TS定位；不把FD4當 host observation／passing evidence。

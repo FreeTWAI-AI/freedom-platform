@@ -58,7 +58,7 @@ after the bounded observed AppArmor deleted-entry fix. The broker adversarial
 final Result-INSERT expiry case is the remaining failure; its closed progress
 record does not contain assertion details, so no SQL/HTTP or TTL cause is inferred.
 
-Partition one now runs a fixed eight-case broker checkpoint after the native
+At candidate750b808, partition one ran a fixed eight-case broker checkpoint after the native
 prerequisite and before its full producer. Clean environment, explicit disposable
 local `fp_` database admission, process-group 90-second/256KiB limits, bounded TAP
 and strict closed JSON require exact eight passed cases and zero skipped cases.
@@ -66,3 +66,23 @@ All eight still execute in the full deterministic partition. This diagnostic
 does not expand the aggregate's earliest-start-to-latest-end 900-second window
 or the job's 40-minute cap. Local eight-case passes and synthetic skip/count/URL
 rejections are candidate diagnostics, not a hosted failure fix or trusted gate.
+
+
+The blocking checkpoint at750b808 hit its diagnostic90-second bound and prevented
+one mandatory partition from starting. The next candidate removes that extra
+execution and instead retains bounded FD4 failure records during the original
+mandatory producer for exactly the broker-adversarial and media-verify files.
+All196files and all eight broker cases remain mandatory; test-only fixture
+settlement and controlled-clock corrections do not remove any assertions.
+
+FD4 is separate from existing FD3/progress and final closed JSON. Its host-side
+decoder allows only source-pinned paths, unique case hashes, finite error/cause
+codes, fixed message classifications and small numeric/Boolean comparisons;
+no raw messages, stacks, names, environment or object comparisons are emitted.
+The independent256KiB/64-record limit never changes admission. A subsequent
+hang preserves diagnostics but still fails without a full final report;65failed
+cases retain all65primary records even when diagnostics cap at64. Author36/36
+affected checks and independent16/16 focused cases passed, zero skips. The
+required900-second global window and40-minute job cap remain unchanged.
+Generated Node lines/classifications still cannot always locate literal TS
+assertions; these are untrusted candidate diagnostics, not App evidence.
