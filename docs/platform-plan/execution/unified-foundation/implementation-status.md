@@ -1605,3 +1605,43 @@ a7ad05f9c1456aa9da206eb03466bd489bed2cc2e7dce47cbea74cef1ba1bcd8。
 根dc4e473相對該測量source只有publisher三檔差異，已由上述治理／
 focused／獨立反例驗證；runtime runner/test/migrations/app source相同。
 這是本機固定source完成證據，新的真正GitHub四路結果仍須push後驗。
+
+
+固定 `2f7d633db5fd0f85fdca335a1e6518f755aad9e5` 的真正
+[Verify run37174100522](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37174100522)
+已結束為 failure：runtime-full 與 verify 失敗，其餘 jobs 成功。
+Worker 57/57、七類 DB＋nativeR2 restore 2/2、governance 266/266，
+均零 skip；UI 413 pass／5 個未啟用 private-AI fixture skip。
+RAM、實際 PGDATA／4GiB tmpfs／durability／max_locks=256 讀回、
+namespace 前置及實際 PG integration 8/8 均通過，不能代替全套。
+
+同一 runner 上四個 49-file shards 只有一個完成，613/613 通過；
+另三個於原期限被終止，已完成檔案數分別為 47／30／32。
+有限進度合計 158 個已完成檔案、2,205 個 observed cases、13 個
+observed failures；這是部分資料，不能當原 196 檔／2,620 項完成。
+六個失敗檔案為 CLI probe 6、credential ingest adversarial 2、
+credential ingest authorizations 2、credential ingest process 1、
+broker bridge adversarial 1、member model settings process 1。
+所有 nonce DB cleanup_verified=true。artifact11293080544 的 SHA-256
+為 a204f84f697b3c2e7c0b20af9c18211290e06887b3efc03a4451ac4193513bef。
+原 failure／raw progress／PG log 留存，不改写成本機 pass。
+
+這六檔在同 source、正常 build 的本機診斷重跑為 36/36、零 skip。
+該 alternate reporter 僅保留有限 failure_type/source-line，屬診斷，
+不當正式 host proof。未取得遠端個別失敗原因；原 PG deadlocks／
+statement timeouts 並不能核定這 13 項的原因，沒有因此改 TTL、
+assertions、原 900 秒上限或產品功能。遠端 RAM 實際量到 16GiB，
+當時沒有 nproc／CPU quota 讀回，不以 runner 文件值充作實測。
+
+新的候選 CI 將四個 deterministic partitions 移至四個獨立 runner
+與 PG service，各用一個 nonce DB、一個串行 process；fail-fast=false，
+失敗 evidence 仍上傳。新 fragment 使用 runtime.partition.N 而非
+runtime.full；聚合在同 github.sha checkout 獨立核對四個 index、
+current source digest／tracked-tree cleanliness、完整 file/case 聯集、
+零 fail/skip/cancel/todo、cleanup，且 earliest start→latest end 仍受
+原 900 秒總上限約束。缺檔、部分報告、延遲跨期、取消或 skip 皆
+不能讓 final verify 通過。保留原本機四 process 行為；此為 diagnostic
+candidate CI，不是可信 App gate。獨立反例先重現主程式 tracked edit
+被漏驗、修正後拒絕；frozen 作者 runner 22/22、portable export 3/3，
+獨立含新 focused tests 29/29。尚未有真正四 runner 全套 pass 證據。
+[Matrix 契約](../../../../packages/contribution-tools/runtime-matrix.md)

@@ -14,8 +14,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 10878,
-      "sha256": "1e8b3855484463fe5a8014b5edcd74f4e1059d1eb67014df7001b329e0c7753d"
+      "bytes": 12718,
+      "sha256": "a1900d7e9bfdc35e179578580493590048bbda58913b74dc097e201bf821194a"
     },
     {
       "path": ".gitignore",
@@ -3029,8 +3029,8 @@
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
-      "bytes": 4800,
-      "sha256": "72b5ce79c20a85f0666c8be492daad1ace75d46bc2e3e268c50381b2e4a9c6fe"
+      "bytes": 6437,
+      "sha256": "00c115f7cbdbabb13739a28dd1b70c1e3cd4db48007eed7b1f1fb268ff87080f"
     },
     {
       "path": "docs/development/service-cover-worker.md",
@@ -4259,13 +4259,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 184073,
-      "sha256": "dbe053f1ce5a5afde028c65312cb2f30e5de89ab67621323e625e4b2b60809ff"
+      "bytes": 186788,
+      "sha256": "a67b4aa3e4337dfbeb609e80dfdc4dc2801fa8a61794461a380cebaf98acdf63"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
-      "bytes": 9269,
-      "sha256": "4f40588a709593d361f415be0f4f9f30b7f0611c71c264dffcf5643613e005e9"
+      "bytes": 9878,
+      "sha256": "c0aa6da763bced6103ee27ff57547822657651002d2b3a60082079f61a376ae0"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -6253,6 +6253,11 @@
       "sha256": "1440dbd1b3ed18963f7f2e56db54b7842df2fbfd5f42b300166f3db935bbece8"
     },
     {
+      "path": "packages/contribution-tools/runtime-matrix.md",
+      "bytes": 2959,
+      "sha256": "73181954dd9d9645b13a6d1c55d3e394bd996f645c5428eb6d5b033145ba22f1"
+    },
+    {
       "path": "packages/contribution-tools/runtime-suites.mjs",
       "bytes": 5101,
       "sha256": "3b68e02d54466f0d017f43188c69b0e5dd3c97fcf7aa0f41c628f1fd20c8a41a"
@@ -6264,8 +6269,8 @@
     },
     {
       "path": "packages/contribution-tools/suite-runner.mjs",
-      "bytes": 14752,
-      "sha256": "b7984b657d1bef66135c7a70664831d6c0ce35022e680b260c41c9b89eef03a3"
+      "bytes": 23886,
+      "sha256": "a1dd8af73eb6d737f8ae5861a448c351f4beeb8e14182db402a4f3c6161b4d6c"
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
@@ -6326,6 +6331,11 @@
       "path": "packages/contribution-tools/test/io.test.mjs",
       "bytes": 5714,
       "sha256": "a400de3901b8fa961696c19915cfede02284218ef45813abfd9c0f4c824474db"
+    },
+    {
+      "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
+      "bytes": 7363,
+      "sha256": "58b9286502025d22b1ab77cdc6d13529e6b9f74473924ebc2ab7fd310bb63936"
     },
     {
       "path": "packages/contribution-tools/test/runtime-sharding.test.mjs",
@@ -6838,9 +6848,14 @@
       "sha256": "b19e5d167bfd5172fb3552172c222873ffe09a0969e6299aa635d438cd09f5a2"
     },
     {
+      "path": "scripts/runtime-aggregate.mjs",
+      "bytes": 1326,
+      "sha256": "506a65ddb4e1c30773ba2c4035229b6f69054511da987c6532e0c64be53961c8"
+    },
+    {
       "path": "scripts/runtime-full.mjs",
-      "bytes": 1061,
-      "sha256": "fdc9d36aa276ba47e847cac2e38d5731c2f456cdd8053e458be47d1ee1333f55"
+      "bytes": 1705,
+      "sha256": "766ea96727c2b7940abde299c8e4944d5fd16c621cf5a08a6c478728c9deb93e"
     },
     {
       "path": "scripts/sync-admin-access.ts",

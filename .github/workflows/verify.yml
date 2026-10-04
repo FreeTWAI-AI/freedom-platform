@@ -18,7 +18,7 @@ jobs:
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
-    needs: [runtime-full, ui-e2e, static-worker, governance-consumers]
+    needs: [runtime-full, runtime-aggregate, ui-e2e, static-worker, governance-consumers]
     if: ${{ always() }}
     steps:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -30,15 +30,22 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           const needs = JSON.parse(process.env.NEEDS_JSON);
-          const required = ['runtime-full', 'ui-e2e', 'static-worker', 'governance-consumers'];
+          const required = ['runtime-full', 'runtime-aggregate', 'ui-e2e', 'static-worker', 'governance-consumers'];
           if (Object.keys(needs).length !== required.length || required.some(id => needs[id]?.result !== 'success')) {
             console.error('A required verification job failed, was cancelled, skipped, or is missing.');
             process.exit(1);
           }
           NODE
   runtime-full:
+    name: runtime-full (partition ${{ matrix.partition }})
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    # Independent runners and PostgreSQL services: one sequential test process
+    # per 49-file partition, rather than four competing on the same host.
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [0, 1, 2, 3]
     services:
       postgres:
         image: postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
@@ -71,6 +78,10 @@ jobs:
           cache: npm
       - name: Verify disposable PostgreSQL storage and checkpoint settings
         run: bash scripts/ci/verify-runtime-postgres.sh '${{ job.services.postgres.id }}'
+      - name: Record actual runner CPU capacity
+        run: |
+          nproc
+          cat /sys/fs/cgroup/cpu.max
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       # Retain the former sequential job's generated/browser build prerequisites.
@@ -83,19 +94,46 @@ jobs:
           # Load only Ubuntu's exact bwrap extra profile, retaining AppArmor and
           # userns restrictions, then prove namespaces as the unprivileged runner.
           bash scripts/ci/verify-native-cli-prerequisites.sh
-      - name: Complete runtime coverage in four isolated databases
+      - name: Complete this runtime partition in its owned database
         run: |
           node --test --test-concurrency=1 tests/contribution-tools/runtime-sharding.integration.test.mjs
-          node scripts/runtime-full.mjs
+          node scripts/runtime-full.mjs --partition-count 4 --partition-index ${{ matrix.partition }} --output .freedom/reports/runtime-partition-${{ matrix.partition }}.json
         env:
           # This job's synthetic PostgreSQL service uses loopback trust only.
           TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
-      - name: Preserve runtime shard evidence
+      - name: Preserve complete or failed runtime partition evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: runtime-full-shards
-          path: .freedom/reports/runtime-full-shards.json
+          name: runtime-partition-${{ matrix.partition }}
+          path: .freedom/reports/runtime-partition-${{ matrix.partition }}.json
+          if-no-files-found: warn
+  runtime-aggregate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs: runtime-full
+    if: ${{ always() }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Download only this run's four partition artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: runtime-partition-*
+          path: .freedom/reports/runtime-partitions
+          merge-multiple: true
+      - name: Require exact complete union and original overall runtime deadline
+        run: node scripts/runtime-aggregate.mjs --input-dir .freedom/reports/runtime-partitions --output .freedom/reports/runtime-full-matrix.json
+      - name: Preserve aggregate diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: runtime-full-matrix
+          path: .freedom/reports/runtime-full-matrix.json
           if-no-files-found: warn
   ui-e2e:
     runs-on: ubuntu-24.04
