@@ -67,3 +67,7 @@ env -i PATH=/usr/bin:/bin /usr/bin/bwrap --unshare-all --new-session --die-with-
     case "$label" in *unpriv_bwrap*) ;; *) exit 1;; esac
     printf "%s\n" "native_cli_namespace_readback=pass child_effective_capabilities=0"
   ' probe "${namespaces[@]}"
+
+# Exercise the real verified, inherited-FD snapshot path before the full suite.
+# The fixed helper rejects zero/skipped/incomplete cases and limits time/output.
+node scripts/ci/native-cli-snapshot-check.mjs

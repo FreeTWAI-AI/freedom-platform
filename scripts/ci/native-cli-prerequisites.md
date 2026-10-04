@@ -37,3 +37,15 @@ extracted official Noble AppArmor 4.0.1 parser also compiles its shipped extra
 profile with `--skip-kernel-load --skip-cache`; this validates syntax without
 loading it or changing local policy. Only a new real GitHub run can establish
 that the prerequisite and complete zero-skip suite pass on the target runner.
+
+After namespace attestation, `native-cli-snapshot-check.mjs` runs only the existing
+six native CLI probe tests with the clean verification environment. Its 30-second
+process-group deadline and 256-KiB output limit bound the diagnostic. Built-in
+TAP exposes errors from those synthetic fixtures; the separate closed JSON
+report must contain exactly six distinct passed cases in the expected file,
+zero skips/cancellations/todo/failures and a successful process exit. No DB,
+authentication, provider/model call or caller-selected command is admitted.
+All six cases remain in the full runtime selection. This is candidate diagnostic
+evidence, not trusted supervisor evidence. The actual Ubuntu 24.04 failure cause
+remains unknown until that runner executes this snapshot checkpoint; local
+Ubuntu 26.04 success does not establish target compatibility.
