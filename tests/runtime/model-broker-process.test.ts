@@ -39,6 +39,15 @@ const secret = 'SYNTHETIC_PROCESS_ONLY_PROVIDER_SECRET';
 const output = 'SYNTHETIC_PRIVATE_PROCESS_RESULT';
 export function barrier() { let release!:()=>void; const promise=new Promise<void>(r=>{release=r;}); return {promise,release}; }
 
+/** Attach rejection handling immediately, including before the provider gate. */
+export function boundedSqlSinkObservation(request:Promise<unknown>,budgetMs:number) {
+  let timer:ReturnType<typeof setTimeout>|undefined;
+  const expired=new Promise<never>((_resolve,reject)=>{timer=setTimeout(()=>reject(new Error('SQL sink observation deadline exceeded')),budgetMs);});
+  return Promise.race([request,expired]).then(
+    ()=>({entered:true as const}),error=>({error}),
+  ).finally(()=>clearTimeout(timer));
+}
+
 /** Immutable actual filesystem bytes, shared by path across the two children. */
 export function fileStore(directory: string): ObjectStore {
   const file=(key:Parameters<ObjectStore['head']>[0])=>{assertObjectKey(key);return join(directory,key.replaceAll('/','_'));};
@@ -151,8 +160,11 @@ async function fixtureChild(kind:string) {
   const sockets:{pid:number;method:string;origin:string;path:string}[]=[];
   const actualRequest=http.request;http.request=((...args:any[])=>{if(args[0] instanceof URL)sockets.push({pid:process.pid,method:args[1]?.method??'GET',origin:args[0].origin,path:args[0].pathname});return Reflect.apply(actualRequest,http,args);}) as typeof http.request;syncBuiltinESMExports();
   let requests:any[]=[],exchangeMode='normal',issuerDeadline=Infinity,objectStorePuts=0;const sqlErrors:{code:string;message:string;statement:string}[]=[];
+  let sqlSink:{kind:'result'|'asset_prepare_receipt';entered:ReturnType<typeof barrier>}|undefined;
   let config:any,pools:Pool[]=[],server:Server|undefined,origin='',bridge:any,store:ObjectStore,recover:()=>Promise<any>,credentials:any,execution:any,authorization:any;
-  const pool=(url:string)=>{const p=new Pool({connectionString:url,options:`-c search_path=${config.schema} -c statement_timeout=10000`,max:12});p.on('connect',client=>{const original=client.query;client.query=((...args:any[])=>{const result=Reflect.apply(original,client,args);if(result&&typeof result.catch==='function')return result.catch((error:any)=>{sqlErrors.push({code:error.code??'unknown',message:error.message,statement:typeof args[0]==='string'?args[0].trim().split('\n')[0]:''});throw error;});return result;}) as typeof client.query;});pools.push(p);return p;};
+  const pool=(url:string)=>{const p=new Pool({connectionString:url,options:`-c search_path=${config.schema} -c statement_timeout=10000`,max:12});p.on('connect',client=>{const original=client.query;client.query=((...args:any[])=>{const statement=typeof args[0]==='string'?args[0].trim():'';
+    if(sqlSink&&((sqlSink.kind==='result'&&statement.startsWith('INSERT INTO private_model_work_results('))||(sqlSink.kind==='asset_prepare_receipt'&&statement.startsWith('INSERT INTO scoped_command_receipts(')&&args[1]?.[3]==='asset.upload.prepare')))sqlSink.entered.release();
+    const result=Reflect.apply(original,client,args);if(result&&typeof result.catch==='function')return result.catch((error:any)=>{sqlErrors.push({code:error.code??'unknown',message:error.message,statement:typeof args[0]==='string'?args[0].trim().split('\n')[0]:''});throw error;});return result;}) as typeof client.query;});pools.push(p);return p;};
   process.on('message',async(message:any)=>{try{
     let value:unknown=null;
     if(message.kind==='init') {
@@ -215,6 +227,10 @@ async function fixtureChild(kind:string) {
     else if(message.kind==='sockets')value=sockets;
     else if(message.kind==='storeCounts')value={puts:objectStorePuts};
     else if(message.kind==='sqlErrors')value=sqlErrors;
+    // Test-only observation at the actual restricted client's SQL submission.
+    // It changes neither the query, transaction, deadline nor execution order.
+    else if(message.kind==='observeSqlSink'){assert.equal(kind,'broker');assert(['result','asset_prepare_receipt'].includes(message.value));sqlSink={kind:message.value,entered:barrier()};value=true;}
+    else if(message.kind==='sqlSinkEntered'){assert(sqlSink);await sqlSink.entered.promise;value=true;}
     else if(message.kind==='issuerDeadline'){issuerDeadline=message.value;value=true;}
     else if(message.kind==='exchangeMode'){exchangeMode=message.value;value=true;}
     else if(message.kind==='issue'){const actor=await authenticate(pools[0],message.value.token);const payload=await authorization.issue(actor,{operation:message.value.command.operation,command:message.value.command,nonce:message.value.nonce});const key=await importJWK(config.issuerPrivateJwk,'EdDSA') as CryptoKey;value={payload,request:{authorizationRef:payload.authorizationRef,nonce:payload.nonce,assertion:await new CompactSign(new TextEncoder().encode(JSON.stringify(payload))).setProtectedHeader({alg:'EdDSA',typ:'freedom-model-broker-assertion+jws',kid:'main-1'}).sign(key)}};}

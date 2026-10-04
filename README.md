@@ -34,6 +34,8 @@
 
 Cloudflare Workers＋PlanetScale 於 2026-09-25 首次切換；2026-10-04 09:03:44 UTC 已將 staging／公開入口切到新的 PostgreSQL branch，runtime 固定為 `9cc283c6`。原正式 387 位 users、staging 8 位 users 與 legacy 媒體 bytes 已搬入；新 R2 桶已分環境建立，backfill 與非 legacy 功能保持關閉，發布 gate 尚未完成。2026-09-24 候選站紀錄見 [遷移交接](./docs/development/cloudflare-migration-status-2026-09-24.md)。
 
+移植後的優先次序、現成程式入口、完成標準及恢復限制見[後續執行計畫](docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md)。
+
 工坊夥伴名冊支援公開資料搜尋、公會篩選、加入日期／暱稱排序與緊湊列表；詳細技能和聯絡方式可展開。舊會員依開站日 2026/9/23 記錄，新會員保存實際加入時間。
 
 名片可新增多個社群帳號或頻道，同平台也可重複加入；每筆獨立編輯、刪除及設定可見範圍，預設只有本人可見。詳見 [會員社群連結](./docs/development/member-social-links.md)。

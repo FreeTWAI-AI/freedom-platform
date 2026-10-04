@@ -3,7 +3,7 @@
 ## Exact local baselines
 
 - Main: `3de70ccbd24362a7925508fb42d36aaa256a0806`
-- Current aligned PR 108 base: `a1adecc9da819209dcc7248f3387cb355ea782de`, branch `feat/unified-foundation`
+- Current aligned PR 108 base: `9187acb8a706014fb7ef8ec0265d39c4e5a44f6d`, branch `feat/unified-foundation` (prior combined run used a1adecc9)
 - First authorized publication handoff: `f5bede3a7fb898e6183b2f13e6bd93583cea9669` (historical results below identify their source)
 - Original integration snapshot: `29d91ad13347f9cd7db55ed36d0535fd7bfc1960`; preserved candidate backup `f214f1a3f7bf9d1bacfc5fd823c5fd96976412b7`
 - Candidate branch: `integration/pr85-104-future108`
@@ -207,3 +207,11 @@ Two cloud-candidate mobile cases returned scrubbed `messages-mobile:TimeoutError
 The real-API member-settings case likewise attempted a role-based list assertion while the320px thread was open. It now navigates through back/current-thread controls and checks focus, visibility and draft preservation; all existing API/DB/unread/plaintext/idempotency assertions remain. The ecard reversion test’s setup expected shared-state success before enabling sharing; it now asserts the exact saved-but-unshared copy there, leaving the actual delayed-save/reversion scenario unchanged. No product authorization behavior or timeout is changed.
 
 Local typecheck, fresh build,43-case discovery across the three affected specs and diff check pass. Browser execution remains unavailable in this VM; the subsequent hosted run must verify the correction. Independent source review found no removed security gate or unread assertion. A pre-existing possibility of an activity response completing across pane navigation remains a timing risk, not a reproduced product defect. Current ownership context now includes two additional unowned verifier/test paths:58 unknown paths, all15 modules, `surface_unmapped` and `runtime.full` remain strict.
+
+## Bounded second base refresh for the UI correction
+
+The UI adapter correction was published as `5093a076bca601e7f05e975e3bb27e39b1377286`, with tree `1853f14772b6ad90e40aa564d8c0075aafc71e0f` identical to local `c53e96cd`. Before its new Verify could start, the actual PR108 branch had advanced to `9187acb8a706014fb7ef8ec0265d39c4e5a44f6d`; PR metadata briefly retained the older base SHA while the direct branch ref exposed the new one. The old a1 base remained an ancestor and merged cleanly, so the fresh conflict came from the base advancement rather than the UI fix.
+
+This refresh pins9187 once and preserves its five new commits: documentation plus broker test-fixture SQL sink observations with bounded early IPC error handling. No production code, dependency or migration changes are introduced upstream in this range. Only generated inventory conflicts; README retains both sides. Both fixture files are preserved byte-for-byte, including their original expiry window, actual SQL-wait verification, rollback/Work CAS, provider count and error assertions. Upstream security-disposition documentation is preserved as upstream evidence; this integration does not dismiss alerts or acquire merge/deployment authority from it. A later moving base requires a fresh decision rather than an endless automatic rebase loop.
+
+Focused exact9187 refresh validation passes **9/9** broker cases (eight adversarial plus one genuine two-process loopback case), with zero skips/failures and verified disposable PostgreSQL cleanup. The final-Result SQL-wait case that failed on the earlier local f5 baseline now passes with the retained upstream observation fix; this does not erase the earlier result or establish a general root cause outside this setup. Typecheck and inventory verification pass. Independent read-only review confirms original expiry/SQL/full-runtime limits, actual lock observation and rollback/CAS/provider assertions remain mandatory. No product/frontend code changed in this second base range; the just-built UI correction and all four hosted failures still require the next exact-head browser run.

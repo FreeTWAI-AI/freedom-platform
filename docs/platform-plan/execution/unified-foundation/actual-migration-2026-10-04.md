@@ -66,6 +66,6 @@ routine release／admin-sync 私有部署工具已更新新 Hyperdrive；release
 
 實際部署的 9cc 有其 [hosted Verify 證據](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37186706935)：runtime 2,620／2,620、Worker 60／60、合成 DB/native-R2 restore 2／2、UI 413 pass／5 既有 disabled-feature skips。這不是後續工具／文件 commit 的完整 CI 結果。整合後另實跑 `npm run typecheck`、maintenance Worker 3／3、文件 inventory 1,726 hashes／994 local links（0 failures）及 `git diff --check`，均通過；新 head 的完整 hosted CI 以 GitHub 實際結果為準。
 
-R2 全量 object backfill／非 legacy 切換、七類皆有正例的雲端 HTTP 媒體驗收、完整恢復產品驗收、CodeQL alert 39 正式核定、可信 publisher 與 App-bound GitHub 強制 gate 仍有剩餘工作。這些缺口沒有藉此次資料切換改記 PASS；PR #108 保持未合併。完整原始 Autopilot／私人模型／跨端執行仍在後續範圍。
+截至本次移植收尾的 09:18 UTC，R2 全量 object backfill／非 legacy 切換、七類皆有正例的雲端 HTTP 媒體驗收、完整恢復產品驗收、CodeQL alert 39 正式核定、可信 publisher 與 App-bound GitHub 強制 gate 仍有剩餘工作。這些缺口沒有藉此次資料切換改記 PASS；當時 PR #108 保持未合併；後續授權、安全判定及合併結果請讀[最新交接](handoff-2026-10-04.md)及 PR 紀錄。完整原始 Autopilot／私人模型／跨端執行仍在後續範圍。
 
 原始 dump、憑證、Access、完整 provider metadata、私有 journal 與驗收 JSON 保存於操作者本機 `~/.local/state/freedom-foundation-candidate-20261004/actual-migration/`，不隨 Git 公開。接手入口見[最新交接](handoff-2026-10-04.md)；過往 checkpoint 留在[交付紀錄](implementation-status.md)及[發布狀態](release-readiness.md)。

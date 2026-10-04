@@ -1,5 +1,13 @@
 # 共同基礎現況與過渡決策
 
+## 2026-10-04：移植完成後，修復檢查並合併基底
+
+Ted 明確要求：「該做的做一做，合併了，未來計劃也寫好。」本輪因此已獲准在完成必要修正、查核最新 source／CI／安全結果後，合併 #108 至 main；沿用此授權直接完成，不再重問合併許可。實際移植已於 09:03:44 UTC 完成，見[操作報告](actual-migration-2026-10-04.md)。
+
+這次合併範圍是已移植的會員平台與保持功能 OFF 的 foundation integration。R2 object backfill、完整私人 AI／broker／machine／Autopilot、可信 publisher／App-bound enforcement 依[後續計畫](post-migration-plan-2026-10-04.md)接續，不能因合併而宣稱它們已啟用或全部產品驗收完成。原始 168 項要求保留；不把全部未來工作重新設為本次整合合併的前置。合併本身不切換 live runtime 或執行新的資料庫／R2 migration。
+
+合併前核對 PR 的實際 head、base、檢查與 merge 條件；對已確認誤報的 CodeQL39 記錄具體資料流、判定與 GitHub readback，不排除 query 或降低密碼安全。測試失敗修具體根因，不跳過案例或靠重跑碰綠。實際 checks、merge SHA 與時間以 [PR108](https://github.com/FreeTWAI-AI/freedom-platform/pull/108) 記錄為準。下面為各階段的歷史決策。
+
 ## 2026-10-04 最新交接與直接移植方向
 
 Ted 要求先寫交接，並表示不要再反覆預演，希望直接推進、遇到問題修正。後續不再追加完整獨立搬遷／還原預演作為開工前置；沿已授權的新環境移植方向，把必要備份、資料核對及功能檢查放進真正操作。此決定更新下文較早的預演順序，不把未知狀態改成 PASS，也不代表這次寫交接已經搬移正式資料或切換流量。接手請讀[平台移植交接筆記](handoff-2026-10-04.md)。

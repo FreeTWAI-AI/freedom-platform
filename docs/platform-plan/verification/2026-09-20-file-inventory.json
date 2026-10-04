@@ -49,8 +49,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 17106,
-      "sha256": "7069e24f192d2959c071b93b97d763937a8f46f2edbfa278dd8486cb08f6d864"
+      "bytes": 17292,
+      "sha256": "eeb76af0d884b43a4ed7d429565a23d703803f87050a06a654aa800c9dc18ea8"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -2979,8 +2979,8 @@
     },
     {
       "path": "docs/development/codeql-alert-39.md",
-      "bytes": 7016,
-      "sha256": "987ee0c30490edf0085473629ea2ff9a287a2835ed0ecf4af512945af795260b"
+      "bytes": 10329,
+      "sha256": "b4649fa7bdbf249b43010917c76255e530582af9dc30d197126ec130400eb812"
     },
     {
       "path": "docs/development/community-author-skills.md",
@@ -3049,8 +3049,8 @@
     },
     {
       "path": "docs/development/integration-pr85-104-future108.md",
-      "bytes": 33449,
-      "sha256": "e6d9e41de27636678f7edbd2a2a6be6e14b0682f00e6bd0b5deeb9b430011ca4"
+      "bytes": 35600,
+      "sha256": "cabcedf6a6c7d420f29ac876eb19931641e5e874a4e6c9482453bf6292fe0f7f"
     },
     {
       "path": "docs/development/local-runtime.md",
@@ -4309,8 +4309,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
-      "bytes": 18349,
-      "sha256": "0fec97b12d35d5197b486ee96a77edd2aba81799a1818fad7bafc4f25f0b6c69"
+      "bytes": 19683,
+      "sha256": "78ce326cd17591f882b7b6a3e888fba64fe0b244ab2f388c0cbea175ad306ad1"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/01-contracts-and-governance.md",
@@ -4429,8 +4429,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/README.md",
-      "bytes": 11493,
-      "sha256": "e5e84a867ee67770395a5abbd018bb1d5f08b79636452fde3e4be0ec7a709118"
+      "bytes": 11739,
+      "sha256": "a5baf6baa464785830153bbe862f9c5bacd9e5b812c263df1b136917a8569891"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
@@ -4439,23 +4439,28 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/actual-migration-2026-10-04.md",
-      "bytes": 8782,
-      "sha256": "919ce8c9f5658c6ee3a877a6fc59a3293baa2bec23ef3cecefb025b576329950"
+      "bytes": 8930,
+      "sha256": "b122d9e33a071a71213e55592bc25f93dd0fab6a5280d387ea7959b847c30145"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md",
-      "bytes": 6374,
-      "sha256": "e4ad19ad7f2b419d42ae41306ac634aa376283790e07108b2940af511f73cef2"
+      "bytes": 7283,
+      "sha256": "c469e9b73c11e0752229de1aef0a733857dbfa84df5a25dcacb43594bc5830e0"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 215104,
-      "sha256": "b8887b53612ca13fad23a1bc50469973e87c1090a70c00274ac3d50b8cdb67f9"
+      "bytes": 217963,
+      "sha256": "c7f2ff6857831e3ffe39d39eef77b8ab6d66e4e87a7f03f84b79b6bed0964b1e"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md",
+      "bytes": 13291,
+      "sha256": "a51b46776a1a6697a3ddd754ec960d602ddda40518dbb06e248edb0dbd03e342"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
-      "bytes": 26909,
-      "sha256": "6fc63d036d40098334a4d659db405803bf944d8de26f837d0df93aa141e3b47f"
+      "bytes": 28205,
+      "sha256": "c9ec8b093cb1381ba9c4e650f7ec48e8b66610513cda1fb1459592c7f7fa2513"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -8289,8 +8294,8 @@
     },
     {
       "path": "tests/runtime/model-broker-bridge-adversarial.test.ts",
-      "bytes": 17317,
-      "sha256": "7097196198fd1fc6bde61a8bc0582e37170e1a92ac593b946720fd7435969d87"
+      "bytes": 18342,
+      "sha256": "279d2839761a891b80af1763c11e6f29b0468a33d515b9e22441585f0ec304d8"
     },
     {
       "path": "tests/runtime/model-broker-bridge.test.ts",
@@ -8304,8 +8309,8 @@
     },
     {
       "path": "tests/runtime/model-broker-process.test.ts",
-      "bytes": 35215,
-      "sha256": "2f15039a95867f0d0cd6a3f0486b11a9503336b26eb701a502d0448e9488d043"
+      "bytes": 36633,
+      "sha256": "d6653db4dd0c7a88fd90024b4b13944ee2abf834effaf8aedb58de68cf3136dd"
     },
     {
       "path": "tests/runtime/model-byok-adapter.test.ts",

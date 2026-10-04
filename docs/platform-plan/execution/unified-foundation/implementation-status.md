@@ -1,6 +1,22 @@
 # 共同基礎：本機與 CI 交付紀錄
 
+## 本輪合併授權與接續計畫
+
+Ted 已要求完成必要工作後合併 #108，並保留[未來 P0–P3 計畫](post-migration-plan-2026-10-04.md)。目前合併範圍是已移植的平台基底，未驗收功能保持 OFF；原始產品驗收與 installed gate 仍按計畫接續。實際 merge SHA／時間與最終 checks 由 [PR108](https://github.com/FreeTWAI-AI/freedom-platform/pull/108) 記錄。
+
+CodeQL39 經判定時固定 a1adecc 的 SARIF、十個來源及四條完整 flow 的獨立審查，再由根 agent 核對隨機 token／salted-scrypt 邊界，已於 16:34:38 UTC 以 false positive disposition 處理；GitHub readback 為 dismissed。未改 crypto、query 或 fixture 字串。最新完整 CI 仍需針對本輪最終 source 執行，不能沿用 9cc 結果，詳見[安全判定](../../../development/codeql-alert-39.md)。
+
 最新狀態：[2026-10-04 實際移植報告](actual-migration-2026-10-04.md)、[接手筆記](handoff-2026-10-04.md)。已依 Ted 指示直接完成來源備份、寫入凍結、真實 restore／pending migrations／ACL 核對與 staging／正式流量切換，沒有另加獨立預演。
+
+## 合併前的 CI 修正與驗證
+
+`a1adecc` 的 [Verify run37191742757](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37191742757) 已完成但失敗：runtime partition1 的第六個 broker adversarial case 回報 `sql_wait_not_observed`；其他三個 runtime 分片、UI、Worker／static、governance 及 preflight 通過，aggregate／final Verify 正確失敗。前置 harness 故意執行的失敗案例不是額外產品失敗，不可把它算進 full runtime 結果。
+
+可重現同步缺陷是：provider 回應後還需真正 Asset prepare／PUT／finalize，原 SQL observer 已先消耗 300×10ms 的等待視窗。作者只在測試 fixture 的實際 Asset INSERT 前注入 3,300ms 延遲，重現舊版相同失敗；修正版通過。此為受控反例，不推定 GitHub 當時的精確延遲量。
+
+修正提交 `1bb5cb4`／`8c3e1c2` 只改兩個測試檔：在受限 SQL client 提交 Result／prepare-receipt INSERT 時回報觀測，再啟動原有真實 SQL blocking 檢查。新增 observer 以既有 8 秒 phase budget 有界等待、立即處理 IPC rejection 並清 timer；provider gate 也遵守同一期限。真實 SQL、授權 TTL 8 秒、statement timeout 10 秒、300×10ms poll 與所有 rollback／CAS／provider-count 斷言保留。
+
+作者最終真實 PostgreSQL／HTTP adversarial 8／8 加 process 1／1，共 9／9、零 skip；無回應 timeout、早期 IPC 拒絕及 timer 清理反例通過。獨立 reviewer 另從最終 source 實跑 helper 的成功、timeout、早期拒絕、零 timer 殘留及無 unhandled rejection 檢查，均通過；先前無界等待的 review blocker 已修正。測試 schema／roles 及 owned container 已清理。根整合 typecheck 與文件檢查通過；完整 hosted CI 必須檢查本輪最後提交，不能把上述局部通過當成新 head 已全綠。合併者核對 [PR108 checks](https://github.com/FreeTWAI-AI/freedom-platform/pull/108/checks) 的實際結果後才執行合併。
 
 ## 最新已完成：會員資料與正式入口切換（2026-10-04 09:03:44 UTC）
 
@@ -8,7 +24,7 @@
 
 固定 9cc runtime 已部署到四個既有主站／admin-sync Workers，新 Hyperdrive、分環境 R2 bindings、secrets、OFF flags 與 cron 均核對。staging 與 public 首頁／health 200，各 66／66 真實 HTTPS 驗收通過。新庫專用唯讀 backup role 的兩個每日備份 service 已實跑成功、archive/checksum 核對通過，renewal 已接新庫且成功執行；後續 release plans 已改指新拓撲。
 
-R2 object backfill／非 legacy policy 仍 OFF；媒體資料搬入新 DB 不等於已轉存 R2。Private AI／broker／machine execution、可信 publisher／App-bound merge gate、CodeQL 39 正式核定仍未完成。舊來源已封鎖 app 寫入並保留作恢復材料；新庫已有寫入，不能盲切回舊庫。下面各 checkpoint 記錄當時結果，不再代表目前流量／資料狀態。
+R2 object backfill／非 legacy policy 仍 OFF；媒體資料搬入新 DB 不等於已轉存 R2。Private AI／broker／machine execution、可信 publisher／App-bound merge gate 仍未完成；CodeQL39 的後續判定見上節。舊來源已封鎖 app 寫入並保留作恢復材料；新庫已有寫入，不能盲切回舊庫。下面各 checkpoint 記錄當時結果，不再代表目前流量／資料狀態。
 
 ## 歷史 checkpoint：9cc hosted 驗證與 private candidate（2026-10-04）
 
