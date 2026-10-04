@@ -8,6 +8,12 @@ const keys = (value, expected) => value && typeof value === 'object' && !Array.i
   && Object.keys(value).length === expected.length && expected.every(k => Object.hasOwn(value, k));
 const placeholder = value => typeof value === 'string' && (/^REPLACE_/.test(value) || /^0+$/.test(value) || value.endsWith('.invalid'));
 const physicalHost = value => typeof value === 'string' ? value.toLowerCase().replace(/\.$/,'') : null;
+const planetScaleGateway = value => /^[a-z0-9][a-z0-9-]{0,62}\.pg\.psdb\.cloud$/.test(physicalHost(value) ?? '');
+const branchSuffix = (user, role) => {
+  if (typeof user !== 'string' || !user.startsWith(role + '.')) return null;
+  const suffix = user.slice(role.length + 1);
+  return /^[A-Za-z0-9_-]{8,100}$/.test(suffix) ? suffix : null;
+};
 const id = value => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
 const remaining = [
   'approved_resource_names', 'new_empty_synthetic_database_branch',
@@ -60,7 +66,7 @@ export function planIsolatedCandidate(request, manifest) {
   if (placeholder(request.hostname)) blockers.push('candidate_hostname_placeholder');
   else if (typeof request.hostname !== 'string' || !/^base-candidate-[a-z0-9-]{1,35}\.[a-z0-9.-]+$/.test(request.hostname) || protectedHosts.has(request.hostname)) errors.push('operational_or_invalid_hostname');
   if (placeholder(request.bucket)) blockers.push('private_bucket_placeholder');
-  else if (typeof request.bucket !== 'string' || !/^fp-base-candidate-[a-z0-9-]{1,40}-media$/.test(request.bucket) || protectedBuckets.has(request.bucket)) errors.push('operational_or_invalid_bucket');
+  else if (typeof request.bucket !== 'string' || !/^(?:fp-base-candidate|freedom-foundation-candidate)-[a-z0-9-]{1,40}-media$/.test(request.bucket) || protectedBuckets.has(request.bucket)) errors.push('operational_or_invalid_bucket');
   if (placeholder(request.database.branchId)) blockers.push('physical_branch_placeholder');
   else if (typeof request.database.branchId !== 'string' || !/^[A-Za-z0-9_-]{8,100}$/.test(request.database.branchId)) errors.push('physical_branch_invalid');
   if (placeholder(request.database.originHost)) blockers.push('physical_origin_placeholder');
@@ -125,22 +131,27 @@ export async function inspectCandidateProvider(request, manifest, {client,accoun
     if (!list.success || list.http !== 200 || !Array.isArray(list.result) || list.result.length>256 || !Number.isInteger(list.result_info?.total_count) || list.result_info.total_count !== list.result.length) {
       checks.push({check_id:'hyperdrive_complete_inventory',status:'unavailable'});return result();
     }
-    const protectedNames = Object.values(manifest.environments).map(e => e.hyperdrive.name);
+    // A shared gateway is not a branch identity. Only authenticated canonical
+    // role/suffix readback distinguishes routing; physical cluster proof stays not_run.
+    const protectedEnvironments = Object.values(manifest.environments);
     const protectedConfigs = [];
-    for (const name of protectedNames) {
-      const matches=list.result.filter(c=>c?.name===name);
+    for (const environment of protectedEnvironments) {
+      const matches=list.result.filter(c=>c?.name===environment.hyperdrive.name);
       if(matches.length!==1||!id(matches[0].id)){checks.push({check_id:'operational_hyperdrive_baseline',status:'unavailable'});return result();}
       const detail=await client.get(`/accounts/${accountId}/hyperdrive/configs/${matches[0].id}`);
-      if(!detail.success||detail.http!==200||detail.result?.id!==matches[0].id||!detail.result?.origin?.host){checks.push({check_id:'operational_hyperdrive_baseline',status:'unavailable'});return result();}
-      protectedConfigs.push(detail.result);
+      const origin = detail.result?.origin;
+      const branch = branchSuffix(origin?.user, environment.database.roles.runtime);
+      if(!detail.success||detail.http!==200||detail.result?.id!==matches[0].id||!planetScaleGateway(origin?.host)||origin?.database!==environment.database.dbname||!branch){checks.push({check_id:'operational_hyperdrive_baseline',status:'unavailable'});return result();}
+      protectedConfigs.push({...detail.result,branchId:branch});
     }
     let valid=true;
     const connectionUsers=planned.expected_connection_users;
     for(const [key,value] of Object.entries(request.hyperdrive)){
       if(protectedConfigs.some(c=>c.id===value)){valid=false;continue;}
       const detail=await client.get(`/accounts/${accountId}/hyperdrive/configs/${value}`),c=detail.result;
+      if(detail.success&&detail.http===200&&!planetScaleGateway(c?.origin?.host)){checks.push({check_id:'hyperdrive_planetscale_routing_identity',status:'unavailable'});return result();}
       if(!detail.success||detail.http!==200||c?.id!==value||c?.caching?.disabled!==true||physicalHost(c?.origin?.host)!==physicalHost(request.database.originHost)
-        ||c?.origin?.database!==planned.logical_database||c?.origin?.user!==connectionUsers[key]||protectedConfigs.some(p=>physicalHost(p.origin.host)===physicalHost(c?.origin?.host)))valid=false;
+        ||c?.origin?.database!==planned.logical_database||c?.origin?.user!==connectionUsers[key]||protectedConfigs.some(p=>p.branchId===request.database.branchId))valid=false;
     }
     checks.push({check_id:'hyperdrive_physical_origin_cache_and_declared_roles',status:valid?'observed':'rejected'});
   } catch {checks.push({check_id:'provider_reader',status:'unavailable'});}
