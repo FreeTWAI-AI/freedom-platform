@@ -1711,3 +1711,18 @@ baseline 為 179 檔加新 fixture 一檔；production discovery 仍 196 檔，
 以上是 local／synthetic proof，新 exact-head hosted matrix 尚需真正
 GitHub 產出四份完整 artifacts；CodeQL 正式核定與 cloud／offsite／
 installed App gate 仍保留，未 merge／deploy 或改 stage/live。
+
+
+固定 8ca270a 的 GitHub run37176912948 尚未開始四份 runtime：
+四 jobs 在新增 CPU readback step 因 /sys/fs/cgroup/cpu.max 不存在
+而 failure，required aggregate 正確拒絕缺少 artifacts。這是 host
+observability 的相容性錯誤，不是 runtime pass／產品 assertion 結果。
+partition2 實際 nproc=4；不能從缺少 quota 檔案推論無 quota。
+raw log 與有限 failure observation 留存。
+
+讀回已兼容 cgroup v2、兩種 v1 固定路徑；未暴露 quota 時明確輸出
+cpu_quota_not_exposed，仍保留真實 nproc，不偽造 quota 或成功測量。
+根實際 local 路徑與 absent-file synthetic fixture 均 exit0；local
+nproc=24、quota not exposed。無 continue-on-error／測試略過／新增
+deadline，僅修正 optional diagnostic，真正四 runner 結果仍待後續
+exact candidate；superseded-run concurrency 如實保留取消狀態。

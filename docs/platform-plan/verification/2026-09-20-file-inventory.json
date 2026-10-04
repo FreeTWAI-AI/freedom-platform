@@ -14,8 +14,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 13033,
-      "sha256": "bb2ab1ea4fc2395f65f0671a6cc5c01bfcc748be566357d189d0d18daaee35e5"
+      "bytes": 13606,
+      "sha256": "36182cae9c96ea07edcf2086b66b7beb3b32c2739189a657efbfe3794fa44409"
     },
     {
       "path": ".gitignore",
@@ -3034,8 +3034,8 @@
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
-      "bytes": 7706,
-      "sha256": "704dc810cdd70eadf11caf13d22e0452b84866bdcf36e190f5b4d6f8e50475b3"
+      "bytes": 8253,
+      "sha256": "ce0c2f0150737eb72febdb992f2dd165ff39abc4aad720bb7d857b7290075a04"
     },
     {
       "path": "docs/development/service-cover-worker.md",
@@ -4264,8 +4264,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 191009,
-      "sha256": "b836228f95b1cf9694254cd20c8b84281eeb203e775004be84ff1e226f27d671"
+      "bytes": 191911,
+      "sha256": "da97d2f3b6fde56d6de07365fb9b6be978581932a7693df97ebd619342c365bf"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",

@@ -40,3 +40,12 @@ required standalone integration step in `governance-consumers`, before the unit
 suite. The remaining runner unit cases passed 13/13 in 3.47 seconds. This keeps
 all baseline execution/deduplication checks and does not expand any unit, runtime
 or workflow deadline; the new complete unit result must be reported separately.
+
+
+Remote `8ca270a` failed before runtime execution: the diagnostic CPU step assumed
+`/sys/fs/cgroup/cpu.max` existed. It did not; one actual runner reported `nproc=4`.
+The readback now handles v2 and both fixed v1 CPU paths, explicitly reporting an
+unexposed quota when none are readable. Absence never proves an unlimited quota.
+Actual local and missing-file checks both succeeded. No runtime prerequisite,
+assertion, deadline or required result is waived by this diagnostic compatibility
+fix; missing partition artifacts still fail aggregation.

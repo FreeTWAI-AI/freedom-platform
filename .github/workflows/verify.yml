@@ -81,7 +81,15 @@ jobs:
       - name: Record actual runner CPU capacity
         run: |
           nproc
-          cat /sys/fs/cgroup/cpu.max
+          if [ -r /sys/fs/cgroup/cpu.max ]; then
+            cat /sys/fs/cgroup/cpu.max
+          elif [ -r /sys/fs/cgroup/cpu/cpu.cfs_quota_us ] && [ -r /sys/fs/cgroup/cpu/cpu.cfs_period_us ]; then
+            cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us /sys/fs/cgroup/cpu/cpu.cfs_period_us
+          elif [ -r /sys/fs/cgroup/cpu,cpuacct/cpu.cfs_quota_us ] && [ -r /sys/fs/cgroup/cpu,cpuacct/cpu.cfs_period_us ]; then
+            cat /sys/fs/cgroup/cpu,cpuacct/cpu.cfs_quota_us /sys/fs/cgroup/cpu,cpuacct/cpu.cfs_period_us
+          else
+            echo 'cpu_quota_not_exposed; nproc_only_readback'
+          fi
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       # Retain the former sequential job's generated/browser build prerequisites.
