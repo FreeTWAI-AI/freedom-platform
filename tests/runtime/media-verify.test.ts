@@ -67,4 +67,22 @@ test('genuine skill grant and atomic highlight pair verify all installed pointer
  assert.equal(bad.records.find(r=>r.key[0]===result.media_id&&r.key[1]==='thumb')?.status,'asset_object_unavailable_or_corrupt');assert.equal(bad.verificationCompleteness,'incomplete');
 });
 
-test('object deadline stops a hanging read and cancels a late body without emitting its private error',async()=>{let resolve!: (value:any)=>void,cancelled=false;const native=createR2ObjectStore(bucket),store={...native,get:async()=>new Promise<any>(r=>{resolve=r;})};const verification=verifyMedia(reader,{target:target(full),limits:{maxDurationMs:300}},store);await assert.rejects(verification,safe);assert.ok(resolve,'actual asset read must reach the trusted port before deadline');resolve({metadata:{},body:new ReadableStream({cancel(){cancelled=true;}},{highWaterMark:0})});await new Promise<void>(r=>setImmediate(r));assert.equal(cancelled,true);});
+test('object deadline stops a hanging read and cancels a late body without emitting its private error',async(t)=>{
+ // Keep setup latency out of this object-deadline fixture's decision clock.
+ // PostgreSQL and metadata queries remain real, with their original SQL caps.
+ const realSetTimeout=setTimeout,connect=reader.connect.bind(reader);let delayed=false;
+ t.mock.timers.enable({apis:['Date','setTimeout'],now:Date.now()});
+ (reader as any).connect=async()=>{if(!delayed){delayed=true;await new Promise<void>(r=>realSetTimeout(r,400));}return connect();};
+ let resolve!: (value:any)=>void,cancelled=false;
+ const native=createR2ObjectStore(bucket),store={...native,get:async()=>new Promise<any>(r=>{
+  resolve=r; // Advance only after the actual trusted port has been reached.
+  queueMicrotask(()=>t.mock.timers.tick(300));
+ })};
+ try{
+  const verification=verifyMedia(reader,{target:target(full),limits:{maxDurationMs:300}},store);
+  await assert.rejects(verification,safe);
+  assert.ok(resolve,'actual asset read must reach the trusted port before deadline');
+  resolve({metadata:{},body:new ReadableStream({cancel(){cancelled=true;}},{highWaterMark:0})});
+  await new Promise<void>(r=>setImmediate(r));assert.equal(cancelled,true);
+ }finally{(reader as any).connect=connect;t.mock.timers.reset();}
+});
