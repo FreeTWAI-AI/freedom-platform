@@ -61,12 +61,17 @@ test('BROKER-BRIDGE-ADV invocation expiry while actual final Result INSERT is bl
   await f.owner.query(`CREATE FUNCTION bridge_validation_result_gate() RETURNS trigger LANGUAGE plpgsql AS $gate$ BEGIN PERFORM pg_advisory_xact_lock(hashtextextended('${lock}',0)); RETURN NEW; END $gate$; CREATE TRIGGER z_bridge_validation_gate BEFORE INSERT ON private_model_work_results FOR EACH ROW EXECUTE FUNCTION bridge_validation_result_gate()`);
   holder=await f.owner.connect();await holder.query('BEGIN');await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[lock]);
   const provider=f.holdProvider();
+  await f.broker.request('observeSqlSink','result');const sinkEntered=f.broker.request('sqlSinkEntered');
   await f.main.request('issuerDeadline',Date.now()+expiryPhaseMs);
   const pending=f.post(member,`/api/v1/me/model-steps/${member.step.stepId}:execute`,{}).then(response=>({response}),error=>({error}));
   // Observe the Result sink only after the genuine provider POST, not while
   // main/broker authorization and provider preparation are still running.
   const providerReached=await Promise.race([provider.entered.then(()=>true),pending.then(()=>false)]);
-  assert(providerReached,'Actual provider POST was not observed');provider.release();await sqlBlocked(f,holder);
+  assert(providerReached,'Actual provider POST was not observed');provider.release();
+  // Asset preparation/PUT/finalize still follows the provider response. Start
+  // the unchanged SQL-wait poll only when the Result INSERT is submitted.
+  assert(await Promise.race([sinkEntered.then(()=>true),pending.then(()=>false)]),'Actual Result INSERT was not submitted');
+  await sqlBlocked(f,holder);
   // Only the command expires: main conservatively narrows a real signed
   // recovery observation for issuance. The broker's external source, original
   // session and Step remain current, isolating the invocation sink guard.
@@ -93,8 +98,11 @@ test('BROKER-BRIDGE-ADV invocation expiry during actual Asset prepare receipt IN
   // back when the delegated command expires after the receipt sink wait.
   await f.owner.query(`CREATE FUNCTION bridge_validation_prepare_gate() RETURNS trigger LANGUAGE plpgsql AS $gate$ BEGIN PERFORM pg_advisory_xact_lock(hashtextextended('${lock}',0)); RETURN NEW; END $gate$; CREATE TRIGGER z_bridge_validation_prepare_gate BEFORE INSERT ON scoped_command_receipts FOR EACH ROW WHEN (NEW.operation='asset.upload.prepare') EXECUTE FUNCTION bridge_validation_prepare_gate()`);
   holder=await f.owner.connect();await holder.query('BEGIN');await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[lock]);
+  await f.broker.request('observeSqlSink','asset_prepare_receipt');const sinkEntered=f.broker.request('sqlSinkEntered');
   await f.main.request('issuerDeadline',Date.now()+expiryPhaseMs);
-  const pending=f.post(member,`/api/v1/me/model-steps/${member.step.stepId}:execute`,{}).then(response=>({response}),error=>({error}));await sqlBlocked(f,holder);
+  const pending=f.post(member,`/api/v1/me/model-steps/${member.step.stepId}:execute`,{}).then(response=>({response}),error=>({error}));
+  assert(await Promise.race([sinkEntered.then(()=>true),pending.then(()=>false)]),'Actual Asset prepare receipt INSERT was not submitted');
+  await sqlBlocked(f,holder);
   const last=(await f.main.request('requests')).at(-1),claims=JSON.parse(new TextDecoder().decode(base64url.decode(last.assertion.split('.')[1]))),expires=Date.parse(claims.expiresAt);
   assert(expires>Date.now());assert(Date.parse(member.step.expiresAt)>expires+10000);assert((await f.owner.query('SELECT expires_at FROM sessions WHERE token_hash=$1',[member.actor.session_hash])).rows[0].expires_at.getTime()>expires+30000);
   const externalClaims=JSON.parse(new TextDecoder().decode(base64url.decode(f.recovery.raw.split('.')[1])));assert(Date.parse(externalClaims.expiresAt)>expires+30000);
