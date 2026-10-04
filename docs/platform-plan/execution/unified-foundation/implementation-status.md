@@ -1764,3 +1764,28 @@ fixed system library paths 的 uid/mode/size/readlink/realpath 與同 filter
 admission readback；不讀 file contents，明確 sandbox_mount_verified=false。
 作者 local 九個 admitted、六項 probe pass；真正 Ubuntu metadata
 與 sandbox exec 原因仍待查核。Production CLI 與隔離限制未改。
+
+2bd0747 真正 runner metadata 已讀回九個固定 libraries 均 admitted，
+loader root-owned／0755；仍 execvp /cli ENOENT。這排除 host admission
+filter 漏 loader，未證明 namespace mount。增加 failed-checkpoint
+唯讀、固定 30 秒 kernel window／5 秒 command／closed metadata
+audit，原 failure exit 保留，probe-only 不 sudo；僅查 exact AppArmor
+deleted-entry exec ENOENT，不輸出 raw kernel／argv。作者 parser 七項、
+probe-only 六項與 exit9 保留反例通過。準備中的 official flag-only
+compat renderer 尚未啟用：exact stock/output SHA，兩 profile 加
+mediate_deleted，其他規則逐 byte 保留；官方 4.0.1 parser no-load
+compile/names 通過。獨立 FIFO counter 先重現 blocking open，再以
+O_NONBLOCK 修正、維持相同 output；仍等待 actual kernel denial。
+
+補上真正 private operator caller source：separately explicit addon Worker，
+HTTP404、OFF／空 cron、無 DB/R2/key，單次 scheduled event 只送
+一份 finite canonical hashed installed plan，exact env/release/store/role
+匹配；無 retry loop／policy write，operator 重查 current SQL approval
+及 CAS/lease/effect fences。原兩 Worker foundation profile 未擴大。
+Service Binding 是受控 provider installation 的 capability，不虛構
+operator 的 caller identity check；account/IAM/binding readback 未驗收。
+作者 actual native named-RPC 三項、包含既有 profile 的 admission
+十九項及 typecheck 通過；真正 updated undici7.29.1 install 上新 native
+3/3／admission2/2、exit0、零 skip，根另 admission2/2。Receiving RPC
+fixture 是 synthetic，不冒充新的 real SQL/R2／cloud acceptance；既有
+required CI wildcards 均包含新測試。尚未安裝或啟用 caller/schedule。

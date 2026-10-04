@@ -153,6 +153,11 @@
       "sha256": "f84842a9d3196eee64bbc95a2fb2a68eeba126473425255fdef4db388b685714"
     },
     {
+      "path": "apps/media-operator-caller/src/worker.ts",
+      "bytes": 1925,
+      "sha256": "ad287b32e6819aa6e436d6714e96118b4a696e142d50ec14ee6cdba72018da8c"
+    },
+    {
       "path": "apps/platform-api/src/admin-sync-worker.ts",
       "bytes": 7476,
       "sha256": "d865386136b8ab2a1bf9b0f54f209dc5210ac3586f69adc23c2f3d761280349a"
@@ -2338,6 +2343,11 @@
       "sha256": "a83ac4fc413a627b5440f518db3306d35ce9d556221bcb811deda85246fdcd3e"
     },
     {
+      "path": "deploy/cloudflare/candidate/media-operator-caller.md",
+      "bytes": 3116,
+      "sha256": "364d07aacd69ebd1c64349afd60731a9bace81b416364b0870c4a8fab1ec4eb6"
+    },
+    {
       "path": "deploy/cloudflare/candidate-admission.mjs",
       "bytes": 1334,
       "sha256": "af81f167184ba2bd4d9861c67ceeefe7288733806cf00a07169db3a233fb8042"
@@ -2376,6 +2386,11 @@
       "path": "deploy/cloudflare/lib/manifest.mjs",
       "bytes": 15713,
       "sha256": "d1300ffb039958feb94fbee6a1fa497dc33ed127a8618df82b480427af464e1a"
+    },
+    {
+      "path": "deploy/cloudflare/lib/media-caller.mjs",
+      "bytes": 2167,
+      "sha256": "44da3db56c5880a7c411bc9ccde686b7426aece64f34e8e31d6eca4757ad2944"
     },
     {
       "path": "deploy/cloudflare/lib/media-wrangler.mjs",
@@ -2476,6 +2491,11 @@
       "path": "deploy/cloudflare/test/isolated-candidate.test.mjs",
       "bytes": 13548,
       "sha256": "3f0c37ec03464b40f93f4bee38e5afeffacf92fa1c53cc4766150fe02a1e81f8"
+    },
+    {
+      "path": "deploy/cloudflare/test/media-caller.test.mjs",
+      "bytes": 2117,
+      "sha256": "f17024d46618fd92249534211bdcc7ff020dfc2420957e0ca1807e683eb24450"
     },
     {
       "path": "deploy/cloudflare/test/media-wrangler.test.mjs",
@@ -4264,8 +4284,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 194610,
-      "sha256": "3326c118b06c59ab5b719e96dac67807b46c12e8711ecc657a5393adf5e4bf40"
+      "bytes": 196389,
+      "sha256": "4599817fb82e87cc04c2b556eca54f77ff96c8efc74476069175aa91e208bd0e"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
@@ -6763,6 +6783,16 @@
       "sha256": "b60b970743d8d73de18e1f93d042590b29b4ee6866fb63a2eecf11e753634b01"
     },
     {
+      "path": "scripts/ci/bwrap-deleted-compat.md",
+      "bytes": 2105,
+      "sha256": "a11020036cb9d44055e4b2b1b4a9384923a7b5b7429905409b3267c13c59dc9f"
+    },
+    {
+      "path": "scripts/ci/native-cli-audit-readback.mjs",
+      "bytes": 1545,
+      "sha256": "82ffb3dab5201047160d5166eb056e10768deb6887c09eff6ef25aab9c248c94"
+    },
+    {
       "path": "scripts/ci/native-cli-prerequisites.md",
       "bytes": 3777,
       "sha256": "7bec1d866f2436885694cbde138151beb434b59ca3ce51610a3a00584f4cbd86"
@@ -6773,9 +6803,14 @@
       "sha256": "bc8ebfbace821b9abcb14c94e8cb868e12e6aef61bd240d04cdcff4dad9d564b"
     },
     {
+      "path": "scripts/ci/render-bwrap-deleted-compat.py",
+      "bytes": 1436,
+      "sha256": "4b3ea7018bed2c44b988ab0d8ec23f0d9f422c0552e19532b113cb225a93d102"
+    },
+    {
       "path": "scripts/ci/verify-native-cli-prerequisites.sh",
-      "bytes": 4035,
-      "sha256": "bb982f6fb977ebe43837d8b6d15374a703c410739a3e95a17c6b11e7c11f9573"
+      "bytes": 4938,
+      "sha256": "631610a6ec0e174d153b5fa7a1f188b19e3c96f832ee15d3462d14ec89b3a102"
     },
     {
       "path": "scripts/ci/verify-runtime-postgres.sh",
@@ -8428,6 +8463,11 @@
       "sha256": "727c8ccb3c33838f2f43323ccd2697fe2d5d71b36edf537bf0c565ac445dbe69"
     },
     {
+      "path": "tests/worker/media-operator-caller.test.ts",
+      "bytes": 4851,
+      "sha256": "9d5868e98c3bf859a140fc98f885f9be843ac27ab08e8437be0551393669e78d"
+    },
+    {
       "path": "tests/worker/media-operator-images-worker.test.ts",
       "bytes": 18087,
       "sha256": "0683bd4ee8cf7603cda988321a68ee5490ba42930be85fa45f9c4fb345741b7c"
@@ -8521,6 +8561,11 @@
       "path": "wrangler.maintainer.jsonc",
       "bytes": 5964,
       "sha256": "46554261f2a1821c8ec10ec87088855014f78bd0cfd2b79c441c4f903b60707a"
+    },
+    {
+      "path": "wrangler.media-operator-caller.example.jsonc",
+      "bytes": 471,
+      "sha256": "621d217fff6e06a9a4aa43ae24ce441e2205df327a0a85691edcbbae9deaa7f4"
     },
     {
       "path": "wrangler.media-operator.example.jsonc",
