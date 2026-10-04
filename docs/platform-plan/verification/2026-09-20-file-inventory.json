@@ -4154,8 +4154,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
-      "bytes": 16642,
-      "sha256": "ac327865164376cb45487dc069c3ecdc33e70c314d31120c9b0357d0ab890ea3"
+      "bytes": 17811,
+      "sha256": "3bbf210f03ab970cfd5309aced77481c6c86a371299b28e8f01f5bed684547f7"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/01-contracts-and-governance.md",
@@ -4284,13 +4284,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 211132,
-      "sha256": "15083d3473586e82933f5dd9370ca88a6fc3bc2742946b54dec72e03a706da63"
+      "bytes": 213429,
+      "sha256": "7751e821c68ac768c11ec0de3ca749f2b5b635368be5c82174839f4f83203c48"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
-      "bytes": 22818,
-      "sha256": "b10f8d763a44d72460354c84f3d7b33987463bbe23c8312aa4755281bfdd5c86"
+      "bytes": 24921,
+      "sha256": "2a8605cab8d2e796b6a2dc5944a2527d5cad40d3243399194af1e00b2132401c"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
