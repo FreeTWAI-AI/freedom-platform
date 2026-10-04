@@ -22,20 +22,26 @@ const hdBindings = { main: 'HYPERDRIVE', cipher: 'CIPHER_HYPERDRIVE', executor: 
 /** Closed installation request, not a replacement environment manifest or deployment authority. */
 export function planIsolatedCandidate(request, manifest) {
   const errors = [], blockers = [];
+  const foundation = request?.schema === 'freedom.isolated-foundation-request/v1';
+  const workerKeys = foundation ? ['main','operator'] : ['main','broker','operator'];
+  const driveKeys = foundation ? ['main','operator'] : ['main','cipher','executor','operator'];
+  const remainingChecks = foundation ? remaining.map(check => check === 'fresh_candidate_only_keys_and_recovery_ports' ? 'fresh_candidate_only_sessions_and_operator_approval' : check) : remaining;
   const report = extra => redactDeep({ schema: 'freedom.isolated-candidate-admission/v1',
     status: errors.length ? 'invalid' : 'unavailable', structural: errors.length === 0,
     deployment_authority: false, execution_authority: false, restore_proof: false,
     provider_mutations: 0, database_connections: 0, remote_acceptance: 'not_run',
-    errors, blockers, remaining_checks: remaining.map(check_id => ({ check_id, status: 'not_run' })), ...extra });
+    errors, blockers, ...(foundation ? {profile:'foundation-media'} : {}), remaining_checks: remainingChecks.map(check_id => ({ check_id, status: 'not_run' })), ...extra });
   if (validateManifest(manifest).errors.length) { errors.push('canonical_manifest_invalid'); return report(); }
-  if (!keys(request, ['schema','environment','releaseSha','hostname','workers','database','hyperdrive','bucket'])) {
+  if (!keys(request, ['schema','environment','releaseSha','hostname','workers','database','hyperdrive','bucket',...(foundation ? ['features'] : [])])) {
     errors.push('closed_request_shape_required'); return report();
   }
-  if (request.schema !== 'freedom.isolated-candidate-request/v1' || request.environment !== 'staging-next') errors.push('isolated_staging_request_required');
+  if ((!foundation && request.schema !== 'freedom.isolated-candidate-request/v1') || request.environment !== 'staging-next') errors.push('isolated_staging_request_required');
+  if (foundation && (!keys(request.features,['private_ai','broker','machine_execution']) ||
+    Object.values(request.features).some(value => value !== 'false'))) errors.push('foundation_execution_features_must_be_off');
   if (!/^[a-f0-9]{40}$/.test(request.releaseSha ?? '')) errors.push('release_sha_invalid');
   else if (/^0+$/.test(request.releaseSha)) blockers.push('release_sha_placeholder');
-  if (!keys(request.workers,['main','broker','operator']) || !keys(request.database,['branchId','originHost'])
-    || !keys(request.hyperdrive,['main','cipher','executor','operator'])) errors.push('closed_resource_shape_required');
+  if (!keys(request.workers,workerKeys) || !keys(request.database,['branchId','originHost'])
+    || !keys(request.hyperdrive,driveKeys)) errors.push('closed_resource_shape_required');
   if (errors.length) return report();
   const fields=[request.hostname,request.bucket,request.database.branchId,request.database.originHost,...Object.values(request.workers),...Object.values(request.hyperdrive)];
   if(fields.some(value=>typeof value!=='string'||value.length>253||!/^[-A-Za-z0-9._]+$/.test(value))){errors.push('bounded_resource_strings_required');return report();}
@@ -46,7 +52,7 @@ export function planIsolatedCandidate(request, manifest) {
   const protectedHosts = new Set(['freetwai.com','staging.freetwai.com','next.freetwai.com','staging-next.freetwai.com',...envs.map(e => e.hostname)]);
   const protectedBuckets = new Set(envs.flatMap(e => e.r2_buckets.map(b => b.name)));
   const names = Object.values(request.workers);
-  if (new Set(names).size !== 3) errors.push('candidate_workers_must_be_distinct');
+  if (new Set(names).size !== workerKeys.length) errors.push('candidate_workers_must_be_distinct');
   for (const name of names) {
     if (placeholder(name)) blockers.push('worker_name_placeholder');
     else if (typeof name !== 'string' || !/^fp-base-candidate-[a-z0-9-]{1,35}-(?:main|broker|operator)$/.test(name) || protectedWorkers.has(name)) errors.push('operational_or_invalid_worker_name');
@@ -63,7 +69,8 @@ export function planIsolatedCandidate(request, manifest) {
   for (const value of ids) if (placeholder(value)) blockers.push('hyperdrive_placeholder'); else if (!id(value)) errors.push('hyperdrive_id_invalid');
   if (ids.filter(v => !placeholder(v)).length !== new Set(ids.filter(v => !placeholder(v))).size) errors.push('hyperdrive_roles_must_not_share_ids');
   // Never infer provider identity, private access or emptiness from these declarations.
-  blockers.push('resource_names_not_approved','physical_isolation_not_observed','broker_candidate_origin_unsupported');
+  blockers.push('resource_names_not_approved','physical_isolation_not_observed');
+  if (!foundation) blockers.push('broker_candidate_origin_unsupported');
   if (errors.length) return report();
   const origin = `https://${request.hostname}`;
   const shared = { compatibility_date:'2026-09-21',compatibility_flags:['nodejs_compat'],workers_dev:false,preview_urls:false,routes:[],triggers:{crons:[]} };
@@ -76,17 +83,17 @@ export function planIsolatedCandidate(request, manifest) {
       assets:{directory:'apps/portal-web/dist',binding:'ASSETS',run_worker_first:true,html_handling:'auto-trailing-slash',not_found_handling:'none'},
       vars:{FREEDOM_ENV:'staging',APP_ORIGIN:origin,FREEDOM_DATABASE_NAME:canonical.database.dbname,FREEDOM_RELEASE_SHA:request.releaseSha,FREEDOM_PRIVATE_AI_ENABLED:'false',...mediaFlags},
       hyperdrive:[binding('main')],images:{binding:'IMAGES'},r2_buckets:r2},
-    broker:{...shared,name:request.workers.broker,main:'apps/credential-broker/src/worker.ts',
+    ...(!foundation ? {broker:{...shared,name:request.workers.broker,main:'apps/credential-broker/src/worker.ts',
       alias:{'./model-step-node-transport.js':'./apps/credential-broker/src/worker-provider-transport.ts'},
       vars:{FREEDOM_BROKER_ENABLED:'false',FREEDOM_BROKER_ENVIRONMENT:'staging-next',APP_ORIGIN:origin},
-      hyperdrive:[binding('cipher'),binding('executor')],r2_buckets:r2},
+      hyperdrive:[binding('cipher'),binding('executor')],r2_buckets:r2}} : {}),
     operator:{...shared,name:request.workers.operator,main:'apps/media-operator/src/worker.ts',
       vars:{FREEDOM_MEDIA_OPERATOR_ENABLED:'false',FREEDOM_MEDIA_OPERATOR_ENVIRONMENT:'staging',FREEDOM_MEDIA_OPERATOR_RELEASE_SHA:request.releaseSha},
       hyperdrive:[binding('operator')],r2_buckets:r2},
   };
   // SQL role contracts stay bare. PlanetScale's connection routing requires
   // this exact branch suffix; neither name is accepted as a caller override.
-  const roles = {main:canonical.database.roles.runtime,cipher:canonical.database.dbname+'_broker',executor:canonical.database.dbname+'_broker_executor',operator:'freedom_media_migrator'};
+  const roles = {main:canonical.database.roles.runtime,...(!foundation ? {cipher:canonical.database.dbname+'_broker',executor:canonical.database.dbname+'_broker_executor'} : {}),operator:'freedom_media_migrator'};
   const connectionUsers = Object.fromEntries(Object.entries(roles).map(([key,role]) => [key,`${role}.${request.database.branchId}`]));
   return report({request_sha256:createHash('sha256').update(JSON.stringify(request)).digest('hex'), configs,
     planned_hostname:request.hostname, ingress:'none_until_separate_approved_installation',
@@ -94,7 +101,7 @@ export function planIsolatedCandidate(request, manifest) {
     expected_roles:roles, expected_connection_users:connectionUsers,
     media_mapping:MEDIA_WORKER_FEATURES.map(f => ({purpose:f.purpose,required_bindings:f.required_bindings,required_capabilities:f.required_capabilities,persistence_authorized:'not_run'})),
     runtime_constraints:{main:'current_database/non-superuser/optional initialized community; physical branch not checked by readiness',
-      broker:'existing compose pins operational platformOrigin; candidate origin requires independently reviewed explicit contract before activation',
+      ...(!foundation ? {broker:'existing compose pins operational platformOrigin; candidate origin requires independently reviewed explicit contract before activation'} : {private_execution:'private AI/broker/machine execution excluded; no broker/recovery/service bindings generated'}),
       operator:'staging logical database/public schema/freedom_media_migrator remain exact; purpose activation depends on installed source version'},
   });
 }

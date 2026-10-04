@@ -62,3 +62,40 @@ test('partial provider inventory or exceptions never prove absence and never pri
 test('default CLI never accesses environment/fetch and rejects execute/credentials flags',()=>{
  const saved=globalThis.fetch;globalThis.fetch=()=>{throw Error('network must not run');};try{const p=runCandidateAdmission([]);assert.equal(p.exitCode,2);assert.equal(p.report.database_connections,0);for(const args of [['--execute'],['--token','PRIVATE_SECRET'],['--request'],['--request','--execute']]){const result=runCandidateAdmission(args);assert.equal(result.exitCode,1);assert.ok(!JSON.stringify(result).includes('PRIVATE_SECRET'));}}finally{globalThis.fetch=saved;}
 });
+
+function foundationRequest(){const r=request();r.schema='freedom.isolated-foundation-request/v1';r.features={private_ai:'false',broker:'false',machine_execution:'false'};delete r.workers.broker;delete r.hyperdrive.cipher;delete r.hyperdrive.executor;return r;}
+test('explicit foundation profile removes only broker coupling, keeps actual main/operator entries and authority unavailable',()=>{
+ const r=foundationRequest(),p=planIsolatedCandidate(r,manifest);
+ assert.equal(p.structural,true);assert.equal(p.profile,'foundation-media');assert.equal(p.status,'unavailable');
+ assert.deepEqual(Object.keys(p.configs),['main','operator']);assert.deepEqual(p.expected_roles,{main:'freedom_staging_next_app',operator:'freedom_media_migrator'});
+ assert.deepEqual(Object.keys(p.expected_connection_users),['main','operator']);assert.ok(!p.blockers.includes('broker_candidate_origin_unsupported'));
+ assert.ok(p.blockers.includes('physical_isolation_not_observed'));assert.ok(p.remaining_checks.every(c=>c.status==='not_run'));
+ assert.ok(p.remaining_checks.some(c=>c.check_id==='fresh_candidate_only_sessions_and_operator_approval'));
+ assert.equal(p.configs.main.vars.FREEDOM_PRIVATE_AI_ENABLED,'false');assert.equal(p.configs.operator.vars.FREEDOM_MEDIA_OPERATOR_ENABLED,'false');
+ for(const f of MEDIA_WORKER_FEATURES.filter(f=>f.flag))assert.equal(p.configs.main.vars[f.flag],'false');
+ for(const c of Object.values(p.configs)){assert.equal(c.services,undefined);assert.deepEqual(c.routes,[]);assert.equal(c.workers_dev,false);assert.equal(c.preview_urls,false);assert.deepEqual(c.triggers.crons,[]);}
+ assert.equal(p.deployment_authority,false);assert.equal(p.database_connections,0);assert.equal(p.provider_mutations,0);
+});
+test('foundation rejects execution feature activation, unknown values/resources/keys and cross-environment role overrides',()=>{
+ for(const mutate of [r=>r.features.private_ai='true',r=>r.features.broker='true',r=>r.features.machine_execution='true',
+   r=>r.features.private_ai=false,r=>r.features.broker='FALSE',r=>delete r.features.machine_execution,r=>r.features.model='false',
+   r=>r.workers.broker='fp-base-candidate-unit-broker',r=>r.hyperdrive.executor='3'.repeat(32),r=>r.environment='next',
+   r=>r.database.role='freedom_next_app',r=>r.database.password='PRIVATE_SECRET',r=>r.keys={operator:'PRIVATE_SECRET'},
+   r=>r.services=[{binding:'MODEL_BROKER'}],r=>r.vars={FREEDOM_PRIVATE_AI_ENABLED:'true'},
+   r=>r.hyperdrive.operator=r.hyperdrive.main,r=>r.bucket=manifest.environments.next.r2_buckets[0].name]){
+   const r=foundationRequest();mutate(r);const p=planIsolatedCandidate(r,manifest);assert.equal(p.structural,false);assert.equal(p.configs,undefined);assert.ok(!JSON.stringify(p).includes('PRIVATE_SECRET'));
+ }
+});
+test('foundation two-role provider observations retain branch/cache/role rejection and never establish deployment',async()=>{
+ const r=foundationRequest(),f=nativeProvider(r),p=await inspectCandidateProvider(r,manifest,{client:f.client,accountId:account});
+ assert.equal(f.calls.length,5);assert.equal(p.provider_isolation_status,'partial_observation');assert.equal(p.deployment_authority,false);assert.equal(p.remote_acceptance,'not_run');
+ for(const mutation of ['role','cache','branch','shared-origin']){
+   const fixture=nativeProvider(r,rows=>{const row=rows.find(c=>c.id===r.hyperdrive.operator);if(mutation==='role')row.origin.user=`freedom_staging_next_broker.${r.database.branchId}`;if(mutation==='cache')row.caching.disabled=false;if(mutation==='branch')row.origin.user='freedom_media_migrator.foreign_branch';if(mutation==='shared-origin')row.origin.host=rows[0].origin.host;});
+   assert.equal((await inspectCandidateProvider(r,manifest,{client:fixture.client,accountId:account})).provider_isolation_status,'rejected');
+ }
+});
+test('foundation placeholders are unavailable and full profile retains four-role broker blocker unchanged',()=>{
+ const r=JSON.parse(readFileSync(new URL('../candidate/foundation-request.example.json',import.meta.url),'utf8'));
+ const foundation=planIsolatedCandidate(r,manifest);assert.equal(foundation.structural,true);assert.equal(foundation.status,'unavailable');assert.ok(foundation.blockers.includes('hyperdrive_placeholder'));
+ const full=planIsolatedCandidate(request(),manifest);assert.equal(Object.keys(full.configs).length,3);assert.equal(Object.keys(full.expected_roles).length,4);assert.ok(full.blockers.includes('broker_candidate_origin_unsupported'));
+});

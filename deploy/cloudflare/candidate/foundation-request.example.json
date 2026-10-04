@@ -1,0 +1,11 @@
+{
+  "schema": "freedom.isolated-foundation-request/v1",
+  "environment": "staging-next",
+  "releaseSha": "0000000000000000000000000000000000000000",
+  "features": {"private_ai":"false","broker":"false","machine_execution":"false"},
+  "hostname": "base-candidate-REPLACE.invalid",
+  "workers": {"main":"REPLACE_CANDIDATE_MAIN","operator":"REPLACE_CANDIDATE_OPERATOR"},
+  "database": {"branchId":"REPLACE_NEW_EMPTY_SYNTHETIC_BRANCH","originHost":"replace-new-empty-branch.invalid"},
+  "hyperdrive": {"main":"00000000000000000000000000000000","operator":"00000000000000000000000000000000"},
+  "bucket":"REPLACE_NEW_PRIVATE_R2_BUCKET"
+}

@@ -73,3 +73,45 @@ SQL roles, remote session/cache/ACL behavior, or remote operator atomicity.
 Every such acceptance remains `not_run` and deployment/execution authority
 remains false even after a successful mock or readback. The CLI deliberately
 installs no provider reader; this batch makes no credentialed request.
+
+## Foundation-only main + media operator
+
+Use the separate, finite `freedom.isolated-foundation-request/v1` schema with
+[foundation-request.example.json](foundation-request.example.json):
+
+```sh
+node deploy/cloudflare/candidate-admission.mjs --request deploy/cloudflare/candidate/foundation-request.example.json
+```
+
+This produces only the real main and media-operator configurations and requires
+only their two distinct Hyperdrives: canonical staging app runtime and
+`freedom_media_migrator`. It omits the broker Worker, cipher/executor resources,
+service bindings and the unsupported candidate broker origin blocker. The
+original `freedom.isolated-candidate-request/v1` full profile still requires all
+three Workers/four Hyperdrives and retains that blocker unchanged.
+
+Foundation requests must explicitly declare
+`features:{private_ai:"false",broker:"false",machine_execution:"false"}`.
+Missing, boolean, unknown or enabled values are invalid. Main's actual
+`FREEDOM_PRIVATE_AI_ENABLED` flag is generated false; this skips the existing
+private execution installation before broker/recovery ports are required.
+There is no invented independent machine feature flag. Media feature flags and
+operator activation also remain false. There is no implicit grant to enable
+models, broker or machines through a foundation request or generated binding.
+Adding arbitrary vars, service bindings, passwords, keys or additional resources
+to the request is rejected.
+
+The main still declares its original ASSETS/IMAGES/private MEDIA bindings, and
+the operator its own Hyperdrive/MEDIA bindings. Separate nonoperational names,
+staging-only logical database/schema, exact bare roles and branch-qualified
+connection users, cache-disabled provider observations and physical-origin
+separation remain required. Foundation does not acquire broker deployment
+permission or change any SQL installer, release capability or canonical consent.
+
+Admission remains **unavailable**, exit 2 for structurally valid requests:
+resource approval, physical branch emptiness/isolation, private R2 access,
+current roles/consent, synthetic sessions/operator approval, release floors and
+remote byte/ACL/atomicity acceptance remain unverified. Config generation or a
+local bundle never establishes remote dry-run success, deployment readiness or
+permission to add routes. No cloud request, database connection, key provisioning
+or resource activation occurs in this CLI.
