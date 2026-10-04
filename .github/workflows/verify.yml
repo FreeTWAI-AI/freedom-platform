@@ -73,14 +73,10 @@ jobs:
       - name: Install and verify native CLI isolation prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y bubblewrap gcc
-          /usr/bin/cc --version
-          # Fail here if the runner cannot create the real namespaces. Keep its
-          # AppArmor policy; no sysctl relaxation or passing skipped probe suite.
-          env -i PATH=/usr/bin:/bin /usr/bin/bwrap --unshare-all \
-            --ro-bind /usr /usr --symlink usr/bin /bin \
-            --symlink usr/lib /lib --symlink usr/lib64 /lib64 \
-            --proc /proc --dev /dev /usr/bin/true
+          sudo apt-get install --no-install-recommends -y bubblewrap gcc apparmor apparmor-profiles
+          # Load only Ubuntu's exact bwrap extra profile, retaining AppArmor and
+          # userns restrictions, then prove namespaces as the unprivileged runner.
+          bash scripts/ci/verify-native-cli-prerequisites.sh
       - name: Complete runtime coverage in two isolated databases
         run: |
           node --test --test-concurrency=1 tests/contribution-tools/runtime-sharding.integration.test.mjs
