@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { readdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
@@ -231,4 +231,114 @@ export async function runLocalSuites(root, ids, options = {}) {
 
 export async function runLocalSuite(root, id, options = {}) {
   return (await runLocalSuites(root, [id], options))[0];
+}
+
+
+const PARTITION_SCHEMA = 'freedom.runtime-partition/v1';
+const identical = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const strictKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value) &&
+  Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
+function partitionCheck(value, code) { if (!value) throw Error(code); }
+
+export async function runtimeSourceManifest(root) {
+  const git = spawnSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: root, env: verificationEnvironment(), encoding: 'utf8', timeout: 5000, maxBuffer: 4096 });
+  const candidate_commit = git.stdout?.trim();
+  const clean = spawnSync('git', ['diff', '--quiet', 'HEAD', '--'], {cwd:root,env:verificationEnvironment(),timeout:5000,maxBuffer:4096});
+  partitionCheck(clean.status === 0, 'runtime_source_changed');
+  partitionCheck(git.status === 0 && /^[a-f0-9]{40}$/.test(candidate_commit), 'runtime_candidate_unavailable');
+  const files = await suiteFiles(root, 'runtime.full');
+  const full_source_manifest = [];
+  for (const path of files) full_source_manifest.push({ path, source_sha256: sha256(await readBounded(root, path)) });
+  return { candidate_commit, full_source_manifest,
+    manifest_sha256: sha256(Buffer.from(JSON.stringify(full_source_manifest))) };
+}
+
+// A matrix fragment is never a runtime.full result. Own one fresh nonce DB and
+// one serial test process, including provisioning/cleanup inside the original cap.
+export async function runRuntimePartition(root, options = {}) {
+  partitionCheck(options.partitionCount === 4 && Number.isInteger(options.partitionIndex) &&
+    options.partitionIndex >= 0 && options.partitionIndex < 4, 'invalid_runtime_partition');
+  partitionCheck(Object.keys(options).every(key => ['partitionCount','partitionIndex','testDatabaseUrl','signal'].includes(key)), 'invalid_runtime_partition_options');
+  const started_at = new Date().toISOString(), deadline = performance.now() + 900_000;
+  const source = await runtimeSourceManifest(root);
+  const selected = partitionRuntimeFiles(source.full_source_manifest.map(file => file.path), 4)[options.partitionIndex];
+  const check_id = `runtime.partition.${options.partitionIndex}`;
+  let databases, cleanup = false, report;
+  try {
+    partitionCheck(isDisposableDatabaseUrl(options.testDatabaseUrl), 'test_database_rejected');
+    databases = await createRuntimeDatabases(options.testDatabaseUrl, 1, Math.max(1, Math.min(20_000, Math.floor(deadline - performance.now() - 24_000))));
+    const remaining = Math.floor(deadline - performance.now() - 24_000);
+    if (remaining <= 0) throw Error('test_timeout');
+    [report] = await runGroup(root, [{id: check_id, files: selected}], true,
+      {testDatabaseUrl: databases.urls[0], timeoutMs: remaining, runtimeShards: 1, signal: options.signal});
+  } catch (error) {
+    cleanup = error.cleanupVerified === true;
+    const allowed = ['test_database_rejected','test_timeout'];
+    report = result(check_id, 'failed', allowed.includes(error.message) ? error.message : 'runtime_database_provision_failed');
+  } finally { if (databases) cleanup = await databases.cleanup(); }
+  report = { ...report, selected_files: selected, database_cleanup_verified: cleanup };
+  if (!cleanup) report = { ...report, status: 'failed', reason: 'runtime_database_cleanup_failed' };
+  try { if (!identical(source, await runtimeSourceManifest(root))) report = {...report,status:'failed',reason:'runtime_source_changed'}; }
+  catch { report = {...report,status:'failed',reason:'runtime_source_changed'}; }
+  if (performance.now() > deadline) report = {...report,status:'failed',reason:'test_timeout'};
+  return { schema: PARTITION_SCHEMA, check_id, partition_index: options.partitionIndex, partition_count: 4,
+    ...source, started_at, ended_at: new Date().toISOString(), database_cleanup_verified: cleanup, report };
+}
+
+/** Diagnostic candidate artifacts are untrusted. Recompute selection and reject
+ * incomplete evidence; passing aggregation does not authenticate a host gate. */
+export async function aggregateRuntimePartitions(root, fragments) {
+  const failure = reason => ({check_id:'runtime.full',status:'failed',reason,gate_enforced:false,merge_authorized:false});
+  try {
+    partitionCheck(Array.isArray(fragments) && fragments.length === 4, 'runtime_partitions_missing');
+    const source = await runtimeSourceManifest(root);
+    const partitions = partitionRuntimeFiles(source.full_source_manifest.map(file => file.path), 4);
+    const seen = new Set(), identities = new Set(); let started = Infinity, ended = -Infinity;
+    const files = [], ordered = [];
+    for (const fragment of fragments) {
+      partitionCheck(strictKeys(fragment, ['schema','check_id','partition_index','partition_count','candidate_commit','full_source_manifest','manifest_sha256','started_at','ended_at','database_cleanup_verified','report']), 'runtime_partition_schema');
+      const index = fragment.partition_index;
+      partitionCheck(fragment.schema === PARTITION_SCHEMA && fragment.partition_count === 4 && Number.isInteger(index) && index >= 0 && index < 4 && !seen.has(index), 'runtime_partition_identity');
+      seen.add(index);
+      partitionCheck(fragment.check_id === `runtime.partition.${index}` && fragment.candidate_commit === source.candidate_commit &&
+        fragment.manifest_sha256 === source.manifest_sha256 && identical(fragment.full_source_manifest, source.full_source_manifest), 'runtime_partition_source_mismatch');
+      for (const [key, value] of [['started_at',fragment.started_at],['ended_at',fragment.ended_at]]) {
+        const timestamp = Date.parse(value);
+        partitionCheck(typeof value === 'string' && Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value, 'runtime_partition_clock');
+        if (key === 'started_at') started = Math.min(started,timestamp); else ended = Math.max(ended,timestamp);
+      }
+      partitionCheck(Date.parse(fragment.ended_at) >= Date.parse(fragment.started_at), 'runtime_partition_clock');
+      const report = fragment.report;
+      partitionCheck(strictKeys(report, ['check_id','status','reason','test_count','evidence_sha256','selected_files','test_files','database_cleanup_verified']) &&
+        report.check_id === fragment.check_id && report.status === 'passed' && report.reason === 'tests_executed' &&
+        fragment.database_cleanup_verified === true && report.database_cleanup_verified === true &&
+        /^[a-f0-9]{64}$/.test(report.evidence_sha256) && identical(report.selected_files,partitions[index]) &&
+        Array.isArray(report.test_files) && report.test_files.length === partitions[index].length, 'runtime_partition_incomplete');
+      const selected = new Set(partitions[index]), covered = new Set(); let count = 0;
+      for (const file of report.test_files) {
+        partitionCheck(strictKeys(file,['path','counts','cases','suite_events']) && selected.has(file.path) && !covered.has(file.path), 'runtime_partition_file_union');
+        covered.add(file.path);
+        partitionCheck(strictKeys(file.counts,COUNT_KEYS) && COUNT_KEYS.every(key => Number.isSafeInteger(file.counts[key]) && file.counts[key] >= 0) &&
+          file.counts.tests > 0 && file.counts.tests === file.counts.passed && COUNT_KEYS.slice(2).every(key => file.counts[key] === 0) &&
+          Array.isArray(file.cases) && file.cases.length === file.counts.tests && Array.isArray(file.suite_events), 'runtime_partition_counts');
+        for (const event of [...file.cases,...file.suite_events]) {
+          partitionCheck(strictKeys(event,['case_sha256','status']) && /^[a-f0-9]{64}$/.test(event.case_sha256) && event.status === 'passed' && !identities.has(event.case_sha256), 'runtime_partition_case_union');
+          identities.add(event.case_sha256);
+        }
+        count += file.counts.tests; files.push(file);
+      }
+      partitionCheck(Number.isSafeInteger(report.test_count) && report.test_count === count && count > 0, 'runtime_partition_counts');
+      ordered[index] = fragment;
+    }
+    partitionCheck(ended - started <= 900_000, 'runtime_full_window_exceeded');
+    files.sort((a,b) => a.path.localeCompare(b.path));
+    partitionCheck(identical(files.map(file => file.path), source.full_source_manifest.map(file => file.path)), 'runtime_partition_file_union');
+    partitionCheck(identical(source,await runtimeSourceManifest(root)), 'runtime_source_changed');
+    return {check_id:'runtime.full',status:'passed',reason:'tests_executed',gate_enforced:false,merge_authorized:false,
+      ...source, started_at:new Date(started).toISOString(),ended_at:new Date(ended).toISOString(),
+      selected_files:files.map(file => file.path),test_files:files,test_count:files.reduce((sum,file)=>sum+file.counts.tests,0),
+      database_cleanup_verified:true,partition_count:4,
+      evidence_sha256:sha256(Buffer.from(JSON.stringify(ordered))),
+      partition_evidence_sha256:ordered.map(fragment=>fragment.report.evidence_sha256)};
+  } catch (error) { return failure(/^runtime_[a-z_]+$/.test(error?.message ?? '') ? error.message : 'runtime_partition_invalid'); }
 }

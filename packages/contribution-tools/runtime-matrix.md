@@ -1,0 +1,16 @@
+# Diagnostic runtime matrix
+
+Four separate CI hosts can each run one deterministic partition against their own PostgreSQL server. This does not change the local `runLocalSuite(..., 'runtime.full')` default four-process behavior. Each matrix invocation creates and cleans exactly one fresh nonce database through the existing owned-database helper, runs one test process with `--test-concurrency=1`, and preserves its original process report. Arbitrary files, commands, partition counts or indexes are refused.
+
+```sh
+node scripts/runtime-full.mjs --partition-count 4 --partition-index 0 --output .freedom/reports/runtime-partition-0.json
+node scripts/runtime-aggregate.mjs --input-dir .freedom/reports/runtime-partitions --output .freedom/reports/runtime-full-matrix.json
+```
+
+Use indexes 0 through 3 on separate hosts. Upload each `runtime-partition-N.json` even on failure, then download the four files into one flat input directory. A fragment has schema `freedom.runtime-partition/v1` and check ID `runtime.partition.N`; it cannot represent a full-suite pass. Both its outer and nested cleanup flags must be true for acceptance. Failed artifacts remain intact and are never overwritten by aggregation.
+
+The producer snapshots the actual Git HEAD and full selected source manifest before execution and again after cleanup, rejecting tracked-tree changes. The manifest contains sorted `{path,source_sha256}` entries for all current full-suite files, including the closed baseline; deterministic partition membership is sorted-offset modulo four. At this source there are 196 files, 49 per partition. New selections change the manifest and must be rerun together. Untracked build output does not imply a tracked source change.
+
+The aggregate independently recomputes current HEAD and the full manifest. It requires four distinct indexes, exact source/candidate identities, exact deterministic file and case unions, complete nonempty per-file counts, zero failures/skips/cancellations/todo, unique case identities and verified database cleanup. Missing or malformed JSON, including duplicate keys, fails. All UTC timestamps must be canonical; the complete window from earliest start to latest end must remain at most 900 seconds, including producer provisioning and cleanup. Separate 900-second per-host allowances never multiply the aggregate window. Matrix scheduling delays can therefore fail the aggregate even if all fragments pass individually.
+
+The combined evidence digest hashes the four complete fragments ordered by index; individual original output hashes remain separately available. This is diagnostic candidate-controlled evidence, not authenticated supervisor evidence. All aggregate results retain `gate_enforced:false` and `merge_authorized:false`; this tool supplies no installed App gate, deployment approval or provider access. Local negative tests use synthetic reports and do not prove actual full-suite execution or hosted throughput.
