@@ -1,3 +1,6 @@
+import { createLocalGuideAssets } from '../../../packages/public-guide-assets/node.js';
+import { dragonManifestText } from '../../../packages/public-guide-assets/dragon-manifest.generated.js';
+import { DRAGON_GUIDE_RELEASE } from '../../../packages/public-guide-assets/release.js';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { createPool } from '../../../packages/db/index.js';
@@ -16,7 +19,13 @@ assertOriginAllowed(freedomEnv, origin);
 const pool = createPool();
 await pool.query('SELECT 1');
 if(freedomEnv==='public')await assertPublicDatabase(pool,{registrationCommunityId:process.env.FREEDOM_REGISTRATION_COMMUNITY_ID,databaseName:process.env.FREEDOM_DATABASE_NAME});
-const app = createApp(pool, origin, freedomEnv);
+if(process.env.FREEDOM_GUIDE_FIXTURE_ENABLED!==undefined&&!['true','false'].includes(process.env.FREEDOM_GUIDE_FIXTURE_ENABLED))throw new Error('invalid_guide_fixture_flag');
+if(process.env.FREEDOM_GUIDE_FIXTURE_ENABLED==='true'&&freedomEnv!=='local')throw new Error('guide_fixture_requires_local');
+const publicGuideAssets=process.env.FREEDOM_GUIDE_FIXTURE_ENABLED==='true'?await createLocalGuideAssets({
+  freedomEnv,fixtureDirectory:'assets/guide-packs/'+DRAGON_GUIDE_RELEASE.version,
+  manifestBytes:new TextEncoder().encode(dragonManifestText),expectedSha256:DRAGON_GUIDE_RELEASE.manifestSha256,
+}):undefined;
+const app = createApp(pool, origin, freedomEnv,{publicGuideAssets});
 app.use('/*', serveStatic({ root: './apps/portal-web/dist' }));
 app.get('*', serveStatic({ path: './apps/portal-web/dist/index.html' }));
 

@@ -1,0 +1,62 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "public-guide-assets",
+  "owner_role": "platform",
+  "owned_paths": [
+    "packages/public-guide-assets/**",
+    "contracts/guide-packs/**",
+    "assets/guide-packs/**",
+    "apps/platform-api/src/routes/guide-packs.ts",
+    "scripts/guide-pack-publish-plan.ts",
+    "tests/runtime/guide-pack-assets.test.ts",
+    "tests/worker/guide-pack-assets.test.ts",
+    "deploy/cloudflare/lib/r2-purposes.mjs",
+    "deploy/cloudflare/test/guide-r2-purposes.test.mjs",
+    "docs/development/public-guide-assets.md"
+  ],
+  "public_exports": [
+    "packages/public-guide-assets/index.ts",
+    "packages/public-guide-assets/r2.ts",
+    "packages/public-guide-assets/node.ts"
+  ],
+  "dependencies": [],
+  "contract_families": [
+    "guide-packs"
+  ],
+  "client_profiles": [],
+  "instructions": [
+    "docs/development/public-guide-assets.md"
+  ],
+  "invariants": [
+    "release-pinned-public-allowlist",
+    "actual-bytes-integrity",
+    "private-origin-purpose-separation",
+    "guide-default-off",
+    "no-member-media-authority"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "guide-assets.public-read",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/guide-packs.ts",
+      "operations": [
+        "guide-assets.get",
+        "guide-assets.head",
+        "guide-release.get"
+      ],
+      "auth_profile": "platform-public-release-allowlist"
+    },
+    {
+      "surface_id": "guide-assets.publish-plan",
+      "kind": "cli",
+      "entry": "scripts/guide-pack-publish-plan.ts",
+      "operations": [
+        "guide-assets.local-plan"
+      ],
+      "auth_profile": "local-read-only-no-publication"
+    }
+  ]
+}
