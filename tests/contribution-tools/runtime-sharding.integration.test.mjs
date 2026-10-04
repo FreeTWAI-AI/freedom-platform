@@ -115,3 +115,41 @@ test('global cancellation kills both active shards and cleans only invocation-ow
     assert.deepEqual(result.shards.flatMap(shard => shard.selected_files).sort(), names);
   } finally { clearTimeout(timer); }
 });
+
+test('lost DROP acknowledgement reconciles exact owned names on a fresh verified connection', {}, async () => {
+  const created = await createRuntimeDatabases(database, 2);
+  const owned = created.urls.map(url => new URL(url).pathname.slice(1));
+  const original = pg.Client.prototype.query;
+  let dropped = 0;
+  pg.Client.prototype.query = function(...args) {
+    const text = typeof args[0] === 'string' ? args[0] : args[0]?.text;
+    if (text?.startsWith('DROP DATABASE "fp_suite_') && owned.some(name => text.includes(`"${name}"`))) {
+      return original.apply(this,args).then(() => { dropped++; throw Error('synthetic lost DROP acknowledgement after actual commit'); });
+    }
+    return original.apply(this,args);
+  };
+  let cleanup;
+  try { cleanup = await created.cleanup(); } finally { pg.Client.prototype.query = original; }
+  const owner = await connect(database);
+  try {
+    assert.equal(dropped,2);
+    assert.equal((await owner.query('SELECT datname FROM pg_database WHERE datname=ANY($1)',[owned])).rowCount,0);
+    assert.equal((await owner.query('SELECT current_database() name')).rows[0].name,new URL(database).pathname.slice(1));
+    assert.equal(cleanup,true,'actual committed DROP lost acknowledgement must be reconciled, not reported as unverified');
+  } finally { await owner.end(); }
+});
+
+test('cleanup refuses changed ownership and preserves that database and the supplied base', {}, async () => {
+  const created=await createRuntimeDatabases(database,2),names=created.urls.map(url=>new URL(url).pathname.slice(1));
+  const admin=await connect(database),foreign=`fp_cleanup_foreign_${process.pid}`;
+  try {
+    await admin.query(`CREATE ROLE "${foreign}" NOLOGIN`);
+    await admin.query(`ALTER DATABASE "${names[0]}" OWNER TO "${foreign}"`);
+    assert.equal(await created.cleanup(),false);
+    assert.equal((await admin.query('SELECT pg_get_userbyid(datdba) owner FROM pg_database WHERE datname=$1',[names[0]])).rows[0].owner,foreign);
+    assert.equal((await admin.query('SELECT current_database() name')).rows[0].name,new URL(database).pathname.slice(1));
+  } finally {
+    for(const name of names)await admin.query(`DROP DATABASE IF EXISTS "${name}" WITH(FORCE)`);
+    await admin.query(`DROP ROLE IF EXISTS "${foreign}"`);await admin.end();
+  }
+});

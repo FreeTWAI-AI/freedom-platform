@@ -49,8 +49,12 @@ jobs:
           # Disposable runner-only synthetic DB: low-privilege fixture LOGIN roles
           # have no passwords. Never use this authentication mode outside CI.
           POSTGRES_HOST_AUTH_METHOD: trust
+          # Ephemeral test cluster: retain fsync/full_page_writes, avoid paced
+          # checkpoints blocking fixture DROP DATABASE behind a disk backlog.
+          POSTGRES_INITDB_ARGS: '-c checkpoint_completion_target=0'
         ports: ['127.0.0.1:5432:5432']
         options: >-
+          --tmpfs /var/lib/postgresql:rw,size=4294967296
           --health-cmd "pg_isready -U freedom_local -d fp_foundation_ci"
           --health-interval 5s --health-timeout 3s --health-retries 20
     env:
@@ -65,6 +69,8 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - name: Verify disposable PostgreSQL storage and checkpoint settings
+        run: bash scripts/ci/verify-runtime-postgres.sh '${{ job.services.postgres.id }}'
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       # Retain the former sequential job's generated/browser build prerequisites.
