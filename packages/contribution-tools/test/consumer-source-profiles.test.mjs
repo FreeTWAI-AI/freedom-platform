@@ -88,3 +88,13 @@ test('candidate Python shadow modules are ignored and symlinked profile files fa
   await symlink('/dev/null', join(state.root, '.tool-versions'));
   await assert.rejects(verifyConsumerSourceProfile(state), { code: 'artifact_symlink' });
 });
+
+test('approved directory profile protects Pages automation and requires its privacy product entrypoints', async t => {
+  const state = await fixture(t, 'FreeTWAI-AI/FreeTWAI-AI.github.io');
+  const path = '.github/workflows/pages.yml';
+  await put(state.root, path, 'name: changed deployment workflow\n');
+  await assert.rejects(verifyConsumerSourceProfile(state), { code: 'consumer_verification_entry_changed' });
+  await put(state.root, path, state.baseline.get(path));
+  await rm(join(state.root, 'src/privacy.mjs'));
+  await assert.rejects(verifyConsumerSourceProfile(state), { code: 'artifact_missing' });
+});

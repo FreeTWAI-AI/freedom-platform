@@ -24,7 +24,8 @@ function profile(id, entries, scripts, extraProtected = []) {
 export const CONSUMER_SOURCE_PROFILES = Object.freeze({
   'FreeTWAI-AI/.github': profile('community-automation', [], ['test', 'build'], ['.github/workflows/verify-template.yml']),
   'FreeTWAI-AI/FreeTWAI-AI.github.io': profile('source-directory',
-    ['scripts/build.mjs', 'src/index.mjs', 'data/directory.json', 'test/directory.test.mjs'], ['test', 'build']),
+    ['scripts/build.mjs', 'src/index.mjs', 'src/privacy.mjs', 'data/directory.json', 'data/privacy-discord-bot.json',
+      'test/directory.test.mjs', 'test/privacy.test.mjs'], ['test', 'build'], ['.github/workflows/pages.yml']),
   'FreeTWAI-AI/freedom-growth-automation': profile('campaign-preview',
     ['src/index.mjs', 'services/campaign-worker/index.mjs', 'services/publication-worker/index.mjs',
       'packages/channel-adapters/index.mjs', 'examples/preview-campaign.mjs', 'tests/growth.test.mjs'], ['test', 'preview']),
