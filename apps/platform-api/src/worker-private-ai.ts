@@ -44,6 +44,18 @@ async function verificationKeys(raw:z.infer<typeof Keys>) {
   const keys=new Map<string,CryptoKey>();for(const item of raw){if(keys.has(item.keyId))throw new Error('invalid_private_ai_profile');
     keys.set(item.keyId,await crypto.subtle.importKey('jwk',item.publicJwk,{name:'Ed25519'},false,['verify']));}return keys;
 }
+/** workerd may import a JWK whose public coordinates do not match d.
+ * Prove the declared public key before using it for signer separation. */
+async function importSigningKey(jwk:JsonWebKey,algorithm:'Ed25519'|{name:'ECDSA';namedCurve:'P-256'}) {
+  const key=await crypto.subtle.importKey('jwk',jwk,algorithm,false,['sign']);
+  const {d:privateMaterial,...publicJwk}=jwk;
+  const publicKey=await crypto.subtle.importKey('jwk',publicJwk,algorithm,false,['verify']);
+  const operation=algorithm==='Ed25519'?'Ed25519':{name:'ECDSA',hash:'SHA-256'};
+  const probe=crypto.getRandomValues(new Uint8Array(32));
+  const signature=await crypto.subtle.sign(operation,key,probe);
+  if(!await crypto.subtle.verify(operation,publicKey,signature,probe))throw new Error('private_ai_unavailable');
+  return {key,publicKey};
+}
 /** Request-scoped genuine product: owns only main Hyperdrive, private R2 and
  * main signing key. No process.env, Node listener, cipher pool or provider host.
  * Missing/invalid complete installation affects private AI only, never login. */
@@ -61,7 +73,7 @@ export async function workerPrivateAiPorts(pool:Pool,bindings:WorkerPrivateAiBin
     if(profile.environment!==environment||profile.platformOrigin!==config.origin)throw new Error('private_ai_unavailable');
 
     const privateJwk=PublicKey.extend({d:X}).strict().parse(parseBoundedJson(bindings.FREEDOM_PRIVATE_AI_REQUEST_KEY));
-    const requestKey=await crypto.subtle.importKey('jwk',privateJwk,{name:'Ed25519'},false,['sign']);
+    const {key:requestKey,publicKey:requestPublicKey}=await importSigningKey(privateJwk,'Ed25519');
     const responseKeys=await verificationKeys(profile.responseKeys),recoveryKeys=await verificationKeys(profile.recoveryKeys);
     const readState=bindPrivateAiJsonService(bindings.CREDENTIAL_RECOVERY_STATE),readFloor=bindPrivateAiJsonService(bindings.CREDENTIAL_RECOVERY_FLOOR);
     const recovery=createSignedRecoverySource({environment,authority:profile.recoveryAuthority,
@@ -77,17 +89,15 @@ export async function workerPrivateAiPorts(pool:Pool,bindings:WorkerPrivateAiBin
     if(profile.bootstrap){
       if(!bindings.FREEDOM_PRIVATE_AI_BOOTSTRAP_KEY||bindings.FREEDOM_PRIVATE_AI_BOOTSTRAP_KEY.length>4096)throw new Error('private_ai_unavailable');
       const jwk=RuntimePublicJwkSchema.extend({d:X}).strict().parse(parseBoundedJson(bindings.FREEDOM_PRIVATE_AI_BOOTSTRAP_KEY));
-      bootstrap={host:profile.bootstrap,signingKey:await crypto.subtle.importKey('jwk',jwk,{name:'ECDSA',namedCurve:'P-256'},false,['sign'])};
+      bootstrap={host:profile.bootstrap,signingKey:(await importSigningKey(jwk,{name:'ECDSA',namedCurve:'P-256'})).key};
     }else if(bindings.FREEDOM_PRIVATE_AI_BOOTSTRAP_KEY)throw new Error('private_ai_unavailable');
     let ingest:Parameters<typeof createPrivateAiProductTransport>[1]['ingest'];
     if(profile.ingest){
       if(!bindings.FREEDOM_PRIVATE_AI_INGEST_KEY||bindings.FREEDOM_PRIVATE_AI_INGEST_KEY.length>4096)throw new Error('private_ai_unavailable');
       const jwk=PublicKey.extend({d:X}).strict().parse(parseBoundedJson(bindings.FREEDOM_PRIVATE_AI_INGEST_KEY));
-      const signingKey=await crypto.subtle.importKey('jwk',jwk,{name:'Ed25519'},false,['sign']);
+      const {key:signingKey}=await importSigningKey(jwk,'Ed25519');
       // Purpose headers do not replace signer isolation. Verify actual key
       // correspondence instead of trusting key IDs or JWK labels.
-      const {d:unused,...requestPublicJwk}=privateJwk;
-      const requestPublicKey=await crypto.subtle.importKey('jwk',requestPublicJwk,{name:'Ed25519'},false,['verify']);
       const separation=new TextEncoder().encode('freedom/private-ai/ingest-key-separation/v1');
       const signed=await crypto.subtle.sign('Ed25519',signingKey,separation);
       for(const key of [requestPublicKey,...responseKeys.values(),...recoveryKeys.values()]){

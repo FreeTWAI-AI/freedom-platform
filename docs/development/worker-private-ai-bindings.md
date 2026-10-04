@@ -58,7 +58,10 @@ Enable only with literal `FREEDOM_PRIVATE_AI_ENABLED=true` and the complete
 
 `FREEDOM_PRIVATE_AI_REQUEST_KEY` is a **main assertion signer**, a secret JSON JWK
 with exactly `{kty:'OKP',crv:'Ed25519',x,d}`. It imports nonextractable with only
-`sign` usage. Broker response keys must be independent of this signer; the existing
+`sign` usage. Every imported private JWK (model request, optional ingest and
+bootstrap) must pass a real sign/verify probe against its declared public
+coordinates before installation: workerd import alone accepts mismatched Ed25519
+`x`/`d` material. Broker response keys must be independent of this signer; the existing
 client proves direction separation cryptographically. Optional bootstrap requires
 its independent `FREEDOM_PRIVATE_AI_BOOTSTRAP_KEY`, exactly the public P-256 JWK
 fields plus `d`; its genuine factory verifies host/key correspondence. Missing or
