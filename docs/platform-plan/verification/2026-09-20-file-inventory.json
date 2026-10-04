@@ -49,8 +49,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 15881,
-      "sha256": "2105ce8f59539aa3a4f5673c06e5276388b9e70f47068c5e88dcdcb2e1d5a09c"
+      "bytes": 16347,
+      "sha256": "ec7de7de96c2c1330c93e27861bb2d4db79e5185b3632e215e4e9959262ce553"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -156,6 +156,11 @@
       "path": "apps/media-operator-caller/src/worker.ts",
       "bytes": 1925,
       "sha256": "ad287b32e6819aa6e436d6714e96118b4a696e142d50ec14ee6cdba72018da8c"
+    },
+    {
+      "path": "apps/migration-maintenance/src/worker.ts",
+      "bytes": 825,
+      "sha256": "9a7b99a7e8a6ba9676a1a6f4e640cf3325f55a57b597ad94185ff90b0c88763b"
     },
     {
       "path": "apps/platform-api/src/admin-sync-worker.ts",
@@ -2319,8 +2324,8 @@
     },
     {
       "path": "deploy/cloudflare/README.md",
-      "bytes": 14066,
-      "sha256": "ff7e9ea31cb184180efd85da45a544c301ba4b4c4cd7f43d7a405e3bf1a360f6"
+      "bytes": 14570,
+      "sha256": "71b56da89f4b49d145fd94d1e007bf9fb8bd110ba7490c0d0bb63f1e2bc7f588"
     },
     {
       "path": "deploy/cloudflare/broker-preflight.mjs",
@@ -2598,6 +2603,11 @@
       "sha256": "9272ac7bbbfe099eecd1eeceacc3c757a7cdec67934ebc91a691abad5aa61b7c"
     },
     {
+      "path": "deploy/cloudflare/test/snapshot-evidence.test.ts",
+      "bytes": 6476,
+      "sha256": "e68ead5b7e387265d2e1e7168c56e25f17cecad00e176fb90a723d901ba8630d"
+    },
+    {
       "path": "deploy/public/freedom-public-backup.service",
       "bytes": 285,
       "sha256": "768b7a793edfdeae0af25cb8c7c143cde6e40e7a44946b9d96e22263eb13ac1a"
@@ -2844,8 +2854,8 @@
     },
     {
       "path": "docs/development/codeql-alert-39.md",
-      "bytes": 5646,
-      "sha256": "8ab54c9430c93f602085ea45078cb5c798a8b8677ce4a14c32bc5059039a49d5"
+      "bytes": 7016,
+      "sha256": "987ee0c30490edf0085473629ea2ff9a287a2835ed0ecf4af512945af795260b"
     },
     {
       "path": "docs/development/community-author-skills.md",
@@ -4274,8 +4284,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/README.md",
-      "bytes": 11001,
-      "sha256": "523840faa09f0d55d8f875551c4e5b277ae4bfcb8c5a5822cb4db96d09a04ac2"
+      "bytes": 11493,
+      "sha256": "e5e84a867ee67770395a5abbd018bb1d5f08b79636452fde3e4be0ec7a709118"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
@@ -4283,19 +4293,24 @@
       "sha256": "250573fe8630ae97be3d273d914eeca91513d290069683ba0863cdb0196740e2"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/actual-migration-2026-10-04.md",
+      "bytes": 8782,
+      "sha256": "919ce8c9f5658c6ee3a877a6fc59a3293baa2bec23ef3cecefb025b576329950"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md",
-      "bytes": 10260,
-      "sha256": "2afb1bdfb63595abaaa643da44669b9b242106f582291304c73ba6430b9a43db"
+      "bytes": 6374,
+      "sha256": "e4ad19ad7f2b419d42ae41306ac634aa376283790e07108b2940af511f73cef2"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 213736,
-      "sha256": "957693beb7e5ba19c50252338eab1a5637e775daf4213e58d6023fa054895784"
+      "bytes": 215104,
+      "sha256": "b8887b53612ca13fad23a1bc50469973e87c1090a70c00274ac3d50b8cdb67f9"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
-      "bytes": 25427,
-      "sha256": "81436be70983869eba85f17b80fac07ddfa62a1919f55d33183f4e952a16a18b"
+      "bytes": 26909,
+      "sha256": "6fc63d036d40098334a4d659db405803bf944d8de26f837d0df93aa141e3b47f"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -6473,6 +6488,11 @@
       "sha256": "dd9064fba0c4ab93554295bbf6610ef24bf2142bb4275281d69fc3ab0c338ceb"
     },
     {
+      "path": "packages/db/snapshot-evidence.ts",
+      "bytes": 12292,
+      "sha256": "4f3ac700a65c634c4d6a20d4e2c2782f94258e1a899bb11913b456f1c327a073"
+    },
+    {
       "path": "packages/db/transaction.ts",
       "bytes": 449,
       "sha256": "4dd8d49fb8de175f1049d3f93d07338d017593cf7087cccddca3ebd5a5011d11"
@@ -6879,8 +6899,8 @@
     },
     {
       "path": "scripts/media-inventory.ts",
-      "bytes": 4245,
-      "sha256": "5e69147a6903e35135a3061c15bdf23b170a844b9b635171476fac8200625d8c"
+      "bytes": 4446,
+      "sha256": "0d25bd55f1195cdcecc3c7792b9fb2882b6caf1386a82a4fcfeeb4c6b7289606"
     },
     {
       "path": "scripts/media-restore-acl.ts",
@@ -6889,8 +6909,8 @@
     },
     {
       "path": "scripts/media-verify.ts",
-      "bytes": 6608,
-      "sha256": "0167a66ecfae4ad58ed8f114cd62ffb308d5c56b0653e122932f1e3327221d9a"
+      "bytes": 6809,
+      "sha256": "5dadc37f3c3f1928ade48d1215671a3609a34af0b65b93adfa30e44a0d48d30e"
     },
     {
       "path": "scripts/repository-bootstrap/freedom.mjs",
@@ -8508,6 +8528,11 @@
       "sha256": "8ec86215bab689045a24ec6a6f12afeb57b19b04b5229abcdaf1dc24582afe98"
     },
     {
+      "path": "tests/worker/migration-maintenance.test.ts",
+      "bytes": 4232,
+      "sha256": "fbe7f488e26a874ef4859e2481ced108383d1e94c37ca96c80105f66a880452c"
+    },
+    {
       "path": "tests/worker/private-ai-composition.test.ts",
       "bytes": 14994,
       "sha256": "71e8a69a1c71d9ba61780c7c50cc38c15fc731a9b1684c59952b11fe268f2a35"
@@ -8596,6 +8621,11 @@
       "path": "wrangler.media-operator.example.jsonc",
       "bytes": 1330,
       "sha256": "d6c8998b79b56236ec37cc54c1a713d96a6ed19fcf0f220f8af3dfa6eb52ee1d"
+    },
+    {
+      "path": "wrangler.migration-maintenance.example.jsonc",
+      "bytes": 435,
+      "sha256": "a1930d9c7297b10ce9d04534275b4e58eecb32ca70a2fea30b8d11e7e90e529e"
     },
     {
       "path": "wrangler.private-ai.example.jsonc",
