@@ -94,3 +94,42 @@ actual bare Git objects, with mocked GitHub requests; it is not installed host
 authority. No webhook receiver, supervisor execution service, App provisioning,
 approved baseline delivery, durable replay or required-check enforcement is
 installed by this library. Gate and merge authority remain false.
+
+## Optional durable operator-host publisher (not installed)
+
+`createDurableSignedSupervisorPublisher` in `github-durable-publisher.mjs` accepts
+`{adapterConfig,publisherConfig,journalRoot}` and the same fixed authenticated
+request/signed-supervisor ports. It reuses the actual signed verifier. The journal
+must be a pre-created operator-owned 0700 directory outside candidate roots; it
+contains at most 128 head records, each at most 16 KiB. A single exclusive lock
+serializes hosts; a crash leaves the lock blocked, with no PID-based takeover.
+Records contain closed identity/phase metadata only. Atomic file replacement,
+file fsync and directory fsync precede every HTTP write. This requires a local
+filesystem with those durability semantics; no network-filesystem guarantee is
+claimed. Recovery of a stale lock or uncertain operation requires separate
+operator review, not a caller-controlled reset or automatic retry.
+
+An authenticated current run/attempt first receives a blocking completed/failure
+check, then the real verifier runs. Successful verification updates the same
+App/head-bound check ID to completed/success; subsequent attempts first update it
+to failure. Local pending is represented remotely by failure, avoiding assumptions
+about resetting completed checks to pending. Same-attempt replay remains blocked
+across restarts. A different run ID for an existing head is rejected: the current
+per-run API does not establish ordering between separate runs. Operator-reviewed
+cross-run supersession remains unavailable; run IDs are not treated as clocks.
+Unknown write acknowledgement is durable and never retried or
+inferred settled from time or a later GET. A known successful acknowledgement
+whose final freshness/readback fails may be compensated only after fresh
+App/run/attempt/PR/tree authentication and a check-ID/App/head/name read. GitHub
+provides no atomic freshness predicate for that write.
+
+This is bounded host lifecycle source, **not installed enforcement**. An unknown
+success acknowledgement can leave a remotely green check while the local journal
+is blocked. Authenticated latest-attempt event delivery, remote ordering and
+operator reconciliation, expected-App required-check selection, baseline and
+merge-queue behavior, and an actual installed negative PR proof remain `not_run`.
+All results retain `gate_enforced:false` and `merge_authorized:false`. No webhook,
+key provisioning, branch-rule installation, live API write or new database is
+provided. This host-only module is not added to the portable candidate verifier
+export closure. See GitHub's [check update API](https://docs.github.com/en/rest/checks/runs#update-a-check-run)
+and [required-check rules](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches).

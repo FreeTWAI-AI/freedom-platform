@@ -73,7 +73,7 @@ test('native transport signs bounded App JWT and restricts installation token to
     requests.push({url,options});
     if(redirectReadback && url.endsWith('/check-runs/6'))return new Response(null,{status:302,headers:{location:'https://evil.example/token'}});
     if(url.endsWith('/access_tokens'))return Response.json({token:'mock-installation',expires_at:new Date(Date.now()+3600000).toISOString(),repositories:[{id:1,full_name:'owner/repo'}],permissions:{checks:'write',contents:'read',actions:'read',pull_requests:'read',metadata:'read'}},{status:201});
-    return Response.json({id:2});
+    return Response.json({id:2},{status:options.method==='POST'?201:200});
   }});
   await transport.appRequest('GET','/app');
   const jwt=requests[0].options.headers.authorization.slice(7).split('.');
@@ -96,6 +96,18 @@ test('native transport signs bounded App JWT and restricts installation token to
   await assert.rejects(transport.installationRequest('GET','/repos/owner/repo/check-runs/0'),/publisher_endpoint_rejected/);
   await assert.rejects(transport.installationRequest('GET','/repos/other/repo/check-runs/6'),/publisher_endpoint_rejected/);
   assert.equal(requests.length,count);
+  redirectReadback=false;
+  const update={status:'completed',conclusion:'failure',external_id:'freedom:1:4:1:'+'b'.repeat(40),output:{title:'Fixed host verification',summary:'No current accepted host verification.'}};
+  await transport.installationRequest('PATCH','/repos/owner/repo/check-runs/6',update);
+  assert.equal(requests.at(-1).options.method,'PATCH');assert.deepEqual(JSON.parse(requests.at(-1).options.body),update);
+  await transport.installationRequest('PATCH','/repos/owner/repo/check-runs/6',{...update,conclusion:'success'});
+  await transport.installationRequest('POST','/repos/owner/repo/check-runs',{name:'fixed-host',head_sha:'b'.repeat(40),...update});
+  assert.equal(requests.at(-1).options.method,'POST');
+  for(const [path,body] of [['/repos/owner/repo/check-runs/0',update],['/repos/other/repo/check-runs/6',update],['/repos/owner/repo/check-runs/6',{...update,status:'in_progress'}],['/repos/owner/repo/check-runs/6',{...update,conclusion:'neutral'}],['/repos/owner/repo/check-runs/6',{...update,head_sha:'b'.repeat(40)}],['/repos/owner/repo/check-runs/6',{...update,output:{...update.output,secret:'private'}}],['/repos/owner/repo/check-runs/6',{...update,external_id:'x'.repeat(257)}]]){
+    const before=requests.length;await assert.rejects(transport.installationRequest('PATCH',path,body),/publisher_endpoint_rejected/);assert.equal(requests.length,before);
+  }
+
+  assert.equal(requests.length,count+3);
 });
 
 test('native transport rejects redirect, oversized response and overbroad token without disclosure',async()=>{

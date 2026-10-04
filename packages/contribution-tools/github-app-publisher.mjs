@@ -166,7 +166,15 @@ export function createGithubAppTransport(config, privateKey, { fetchImpl = globa
       requireThat(method === 'GET' && body === undefined && getAllowed ||
         method === 'POST' && path === `${prefix}/check-runs` && body &&
         exact(body, ['name', 'head_sha', 'status', 'conclusion', 'external_id', 'output']) && sha(body.head_sha) &&
-        body.status === 'completed' && body.conclusion === 'success', 'publisher_endpoint_rejected');
+        body.status === 'completed' && ['success', 'failure'].includes(body.conclusion) &&
+        typeof body.name === 'string' && body.name.length <= 128 && typeof body.external_id === 'string' && body.external_id.length <= 256 &&
+        exact(body.output, ['title', 'summary']) && typeof body.output.title === 'string' && body.output.title.length <= 128 &&
+        typeof body.output.summary === 'string' && body.output.summary.length <= 1024 ||
+        method === 'PATCH' && path.startsWith(`${prefix}/check-runs/`) && /^[1-9][0-9]*$/.test(path.slice(`${prefix}/check-runs/`.length)) &&
+        exact(body, ['status', 'conclusion', 'external_id', 'output']) && body.status === 'completed' &&
+        ['success', 'failure'].includes(body.conclusion) && typeof body.external_id === 'string' && body.external_id.length <= 256 &&
+        exact(body.output, ['title', 'summary']) && typeof body.output.title === 'string' && body.output.title.length <= 128 &&
+        typeof body.output.summary === 'string' && body.output.summary.length <= 1024, 'publisher_endpoint_rejected');
       return request(method, path, await installationToken(), body);
     }
   });
