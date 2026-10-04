@@ -1,0 +1,370 @@
+import {admitAssetObjectWriteEffect} from '../../modules/assets/object-write-effects.js';
+import {
+  createHash,randomUUID
+} from 'node:crypto';
+import {
+  z
+} from 'zod';
+import type {
+  Pool,PoolClient
+} from 'pg';
+import {
+  validateInventoryTarget,type InventoryTarget
+} from './inventory.js';
+import {
+  objectKey,prepareLegacyMediaRepresentation,writeVerifiedObject,verifyObject,type ObjectStore,type ObjectMetadata,type PreparedRepresentation
+} from '../asset-storage/index.js';
+const uuid=z.string().uuid(),name=z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/);
+const input=z.object({
+  target:z.unknown(),jobId:uuid,logicalStore:z.literal('MEDIA'),storeBindingId:name,migrationId:name.min(8),purpose:z.enum(['member.service-cover','community.event-video','community.event-banner','community.social-thumbnail','skill.submission-image','community.event-highlight','member.avatar']),maxRows:z.number().int().min(1).max(16),maxBytes:z.number().int().min(3145728).max(134217728),leaseSeconds:z.number().int().min(1).max(60)
+}).strict();
+export interface OperatorBackfillPlan {
+  target:InventoryTarget;
+  jobId:string;
+  logicalStore:'MEDIA';
+  storeBindingId:string;
+  migrationId:string;
+  purpose:'member.service-cover'|'community.event-video'|'community.event-banner'|'community.social-thumbnail'|'skill.submission-image'|'community.event-highlight'|'member.avatar';
+  maxRows:number;
+  maxBytes:number;
+  leaseSeconds:number;
+  planSha256:string
+}
+async function bounded<T>(operation:Promise<T>,ms:number):Promise<T>{
+  let timer:ReturnType<typeof setTimeout>|undefined;
+  try{
+    return await Promise.race([operation,new Promise<never>((_,reject)=>{
+      timer=setTimeout(()=>reject(new OperatorBackfillError()),ms);
+    })]);
+  }finally{
+    clearTimeout(timer);
+  }
+}
+/** Timed GET cancels late/blocked bodies; immutable PUT may finish late and
+ * remains unknown, therefore the durable common-intent fence is still required. */
+function deadlineStore(store:ObjectStore,deadline:number):ObjectStore {
+  const remaining=()=>{const ms=deadline-Date.now();require(ms>0);return ms;};
+  return {
+    putImmutable:(key,value)=>bounded(store.putImmutable(key,value),remaining()),
+    async get(key,range){
+      require(range===undefined);
+      const request=store.get(key);let object;
+      try{object=await bounded(request,remaining());}
+      catch{void request.then(o=>o?.body.cancel()).catch(()=>{});throw new OperatorBackfillError();}
+      if(!object)return null;
+      const reader=object.body.getReader();
+      const body=new ReadableStream<Uint8Array>({
+        async pull(controller){
+          try{const part=await bounded(reader.read(),remaining());if(part.done){controller.close();reader.releaseLock();}else controller.enqueue(part.value);}
+          catch{await reader.cancel().catch(()=>{});controller.error(new OperatorBackfillError());}
+        },
+        cancel:()=>reader.cancel(),
+      },{highWaterMark:0});
+      return {...object,body};
+    },
+    head:key=>bounded(store.head(key),remaining()),
+    async delete(){throw new OperatorBackfillError();},
+  };
+}
+const hash=(value:Uint8Array|string)=>createHash('sha256').update(value).digest('hex');
+export class OperatorBackfillError extends Error{
+  constructor(){
+    super('operator media backfill is unavailable');
+    this.name='OperatorBackfillError';
+  }
+}
+const require:(condition:unknown)=>asserts condition=(condition:unknown)=>{
+  if(!condition)throw new OperatorBackfillError();
+};
+export function planOperatorBackfill(raw:unknown):OperatorBackfillPlan{
+  try{
+    const p=input.parse(raw),target=validateInventoryTarget(p.target);
+    require(p.purpose==='community.event-video'?p.maxRows===1&&p.maxBytes>=125829120:p.purpose==='community.event-highlight'?p.maxRows===1&&p.maxBytes>=7520256&&p.maxBytes<=8388608:p.maxBytes<=8388608);
+    require(/^(fp_media_migrator_[a-z0-9_]+|freedom_media_migrator)$/.test(target.role));
+    const canonical={
+      target,jobId:p.jobId,logicalStore:p.logicalStore,storeBindingId:p.storeBindingId,migrationId:p.migrationId,purpose:p.purpose,maxRows:p.maxRows,maxBytes:p.maxBytes,leaseSeconds:p.leaseSeconds
+    };
+    return Object.freeze({
+      ...canonical,planSha256:hash(JSON.stringify(canonical))
+    });
+  }catch{
+    throw new OperatorBackfillError();
+  }
+}
+const commonTables=['media_backfill_operator_policy','media_backfill_jobs','media_backfill_items','media_backfill_audit','users','principals','resource_scopes','domain_media_storage_policy','assets','asset_objects','asset_upload_intents'];
+const profiles=Object.freeze({
+ 'member.avatar':Object.freeze({max:131072,variant:'avatar',scope:'personal',domain:'member_avatars',id:'user_id',bytesTable:'member_avatars',bytesColumn:'image_bytes',targetTable:'member_avatar_asset_targets',intentTarget:'target_user_id',cursor:'after_avatar_user_id',item:'avatar_user_id',version:'aggregate_version',authority:'lock_media_backfill_avatar_owner',consent:'lock_media_backfill_avatar_consent',publish:'publish_media_backfill_avatar'}),
+ 'member.service-cover':Object.freeze({max:524288,variant:'cover',scope:'personal',domain:'member_services',id:'service_id',bytesTable:'member_service_covers',bytesColumn:'image_bytes',targetTable:'member_service_cover_asset_targets',intentTarget:'target_service_id',cursor:'after_service_id',item:'service_id',version:'aggregate_version',authority:'lock_media_backfill_cover_owner',consent:'lock_media_backfill_cover_consent',publish:'publish_media_backfill_cover'}),
+ 'community.event-video':Object.freeze({max:20971520,variant:'video',scope:'community',domain:'community_events',id:'event_id',bytesTable:'community_event_videos',bytesColumn:'media_bytes',targetTable:'community_event_video_asset_targets',intentTarget:'target_video_event_id',cursor:'after_event_id',item:'event_id',version:'aggregate_version',authority:'lock_media_backfill_video_organizer',consent:'lock_media_backfill_video_consent',publish:'publish_media_backfill_video'}),
+ 'community.event-banner':Object.freeze({max:524288,variant:'banner',scope:'community',domain:'community_events',id:'event_id',bytesTable:'community_event_banners',bytesColumn:'image_bytes',targetTable:'community_event_banner_asset_targets',intentTarget:'target_event_id',cursor:'after_banner_event_id',item:'banner_event_id',version:'aggregate_version',authority:'lock_media_backfill_banner_organizer',consent:'lock_media_backfill_banner_consent',publish:'publish_media_backfill_banner'}),
+ 'community.social-thumbnail':Object.freeze({max:524288,variant:'thumbnail',scope:'community',domain:'community_social_posts',id:'post_id',bytesTable:'community_social_post_thumbnails',bytesColumn:'image_bytes',targetTable:'community_social_thumbnail_asset_targets',intentTarget:'target_post_id',cursor:'after_post_id',item:'post_id',version:'media_version',authority:'lock_media_backfill_social_author',consent:'lock_media_backfill_social_consent',publish:'publish_media_backfill_social'}),
+ 'skill.submission-image':Object.freeze({max:524288,variant:'illustration',scope:'personal',domain:'skill_submissions',id:'submission_id',bytesTable:'skill_submissions',bytesColumn:'image_bytes',targetTable:'skill_submission_image_asset_targets',intentTarget:'target_submission_id',cursor:'after_submission_id',item:'submission_id',version:'aggregate_version',authority:'lock_media_backfill_skill_owner',consent:'lock_media_backfill_skill_consent',publish:'publish_media_backfill_skill'}),
+ 'community.event-highlight':Object.freeze({max:1048576,variant:'image',scope:'community',domain:'community_event_highlights',id:'media_id',bytesTable:'community_event_highlights',bytesColumn:'bytes',targetTable:'community_event_highlight_asset_targets',intentTarget:'target_highlight_media_id',cursor:'after_highlight_media_id',item:'highlight_media_id',version:'aggregate_version',authority:'lock_media_backfill_highlight_uploader',consent:'lock_media_backfill_highlight_consent',publish:'publish_media_backfill_highlight'}),
+});
+type IntentProof={intent_id:string;fence:string;lease_token:string};
+type Lease={
+  fence:string;
+  token:string
+};
+type Source={target_id:string;owner_user_id:string;community_id:string;state:string;aggregate_version:string;bytes:Buffer;content_type:'image/webp'|'video/mp4'|'video/webm';storage_source:string;principal_id:string;scope_id:string;source_sha256:string;binding:string;thumb?:Buffer;thumb_sha256?:string;event_id?:string;orientation?:'landscape'|'portrait';source?:string;url?:string;platform?:string;title?:string;note?:string|null};
+/** Trusted host installation only. No member Actor/session/receipt is constructed.
+ * Every publication uses the existing typed target, intent and immutable object.
+ * Each SQL phase is a fresh transaction; no transaction spans ObjectStore I/O. */
+export function createOperatorMediaBackfill(pool:Pool,installation:{
+  store:ObjectStore;
+  logicalStore:'MEDIA';
+  storeBindingId:string
+}){
+  async function tx<T>(p:OperatorBackfillPlan,fn:(q:PoolClient,policy:any)=>Promise<T>,proof:{job?:Lease;intent?:IntentProof;intents?:IntentProof[];allowExpiredJob?:boolean}={}):Promise<T>{
+    const q=await pool.connect();
+    try{
+      await q.query('BEGIN');
+      await q.query("SELECT set_config('search_path',$1,true),set_config('statement_timeout','5000',true),set_config('lock_timeout','5000',true)",[p.target.schema]);
+      const identity=(await q.query('SELECT current_database() AS db,current_schema() AS schema,current_user AS role,rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user')).rows[0];
+      require(identity?.db===p.target.database&&identity.schema===p.target.schema&&identity.role===p.target.role&&!identity.rolsuper&&!identity.rolbypassrls);
+      const profile=profiles[p.purpose],tables=[...new Set([...commonTables,...(p.purpose==='member.avatar'?['avatar_storage_policy']:[]),profile.domain,profile.bytesTable,profile.targetTable,...(p.purpose==='community.event-highlight'?['community_event_highlight_images','community_events']:[])])];
+      const shapes=(await q.query("SELECT c.relname FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relname=ANY($2::text[]) AND c.relkind IN ('r','p') AND NOT c.relrowsecurity",[p.target.schema,tables])).rows;
+      require(shapes.length===tables.length);
+      const policy=(await q.query(`SELECT * FROM lock_media_backfill_operator_approval($9) WHERE role_name=current_user AND environment=$1 AND database_name=$2 AND schema_name=$3 AND release_sha=$4 AND logical_store=$5 AND store_binding_id=$6 AND migration_id=$7 AND purpose=$8 AND approved_plan_sha256=$9 AND allowed AND expires_at>clock_timestamp()`,[p.target.environment,p.target.database,p.target.schema,p.target.releaseSha,p.logicalStore,p.storeBindingId,p.migrationId,p.purpose,p.planSha256])).rows[0];
+      require(policy&&installation.logicalStore===p.logicalStore&&installation.storeBindingId===p.storeBindingId);
+      const result=await fn(q,policy);
+      await q.query('SET CONSTRAINTS ALL IMMEDIATE');
+      // Last SQL decision clock: no publication/audit lock wait may occur after
+      // this check. All referenced approval/job/intent rows are already locked.
+      const output=result as {fence?:string;token?:string;lease?:IntentProof;intentProofs?:IntentProof[]}|null;
+      const jobProof=proof.job??(output?.fence&&output.token?{fence:output.fence,token:output.token}:undefined);
+      const intentProof=proof.intent??output?.lease,intentProofs=proof.intents??output?.intentProofs??[];
+      const clock=(await q.query(`SELECT p.allowed AND p.expires_at>clock_timestamp()
+        AND ($2::uuid IS NULL OR EXISTS(SELECT 1 FROM media_backfill_jobs j WHERE j.job_id=$2 AND j.policy_id=p.policy_id AND j.plan_sha256=$3 AND j.fence=$4 AND j.lease_token=$5 AND ($9::boolean OR j.lease_expires_at>clock_timestamp())))
+        AND ($6::uuid IS NULL OR EXISTS(SELECT 1 FROM asset_upload_intents i WHERE i.intent_id=$6 AND i.fence=$7 AND i.lease_token=$8 AND i.expires_at>clock_timestamp() AND i.lease_expires_at>clock_timestamp())) AND NOT EXISTS(SELECT 1 FROM jsonb_to_recordset($10::jsonb) AS effect(intent_id uuid,fence bigint,lease_token uuid) WHERE NOT EXISTS(SELECT 1 FROM asset_upload_intents i WHERE i.intent_id=effect.intent_id AND i.fence=effect.fence AND i.lease_token=effect.lease_token AND i.expires_at>clock_timestamp() AND i.lease_expires_at>clock_timestamp())) AS live
+        FROM media_backfill_operator_policy p WHERE p.policy_id=$1`,[policy.policy_id,jobProof?p.jobId:null,p.planSha256,jobProof?.fence??null,jobProof?.token??null,intentProof?.intent_id??null,intentProof?.fence??null,intentProof?.lease_token??null,proof.allowExpiredJob===true,JSON.stringify(intentProofs.map(i=>({intent_id:i.intent_id,fence:i.fence,lease_token:i.lease_token})))])).rows[0];
+      require(clock?.live);
+      await q.query('COMMIT');
+      return result;
+    }catch{
+      await q.query('ROLLBACK').catch(()=>{
+      });
+      throw new OperatorBackfillError();
+    }finally{
+      q.release();
+    }
+  }
+  async function job(q:PoolClient,p:OperatorBackfillPlan,lease:Lease){
+    const row=(await q.query('SELECT * FROM media_backfill_jobs WHERE job_id=$1 AND plan_sha256=$2 AND fence=$3 AND lease_token=$4 AND lease_expires_at>clock_timestamp() FOR UPDATE',[p.jobId,p.planSha256,lease.fence,lease.token])).rows[0];
+    require(row&&!row.completed);
+    return row;
+  }
+  async function audit(q:PoolClient,p:OperatorBackfillPlan,l:Lease,event:string,id:string|null=null){
+    await q.query(`INSERT INTO media_backfill_audit(job_id,${profiles[p.purpose].item},event,operator_role,job_fence) VALUES($1,$2,$3,current_user,$4)`,[p.jobId,id,event,l.fence]);
+  }
+  async function highlightSource(q:PoolClient,id:string,p:OperatorBackfillPlan):Promise<Source|null>{
+    const authority=(await q.query('SELECT * FROM lock_media_backfill_highlight_uploader($1,$2)',[p.planSha256,id])).rows[0];if(!authority)return null;
+    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`asset.quota/v1/${authority.scope_id}/${p.purpose}`]);
+    const hint=(await q.query('SELECT event_id FROM community_event_highlights WHERE media_id=$1',[id])).rows[0];if(!hint)return null;
+    const event=(await q.query("SELECT event_id,state,organizer_ref,aggregate_version,extract(epoch FROM ends_at)::text AS ended FROM community_events WHERE event_id=$1 AND state='published' AND ends_at<=clock_timestamp() FOR UPDATE",[hint.event_id])).rows[0];if(!event)return null;
+    const variants=(await q.query('SELECT * FROM lock_media_backfill_highlight_bytes($1,$2)',[p.planSha256,id])).rows;const h=variants[0];if(!h||h.event_id!==event.event_id)return null;
+    const image=variants.find(v=>v.variant==='image')?.bytes,thumb=variants.find(v=>v.variant==='thumb')?.bytes;
+    if(variants.length!==2||!image||!thumb||h.byte_size!==image.length||![image,thumb].every(b=>b.length>=12&&b.toString('ascii',0,4)==='RIFF'&&b.toString('ascii',8,12)==='WEBP'))return null;
+    const sha=hash(image),thumbSha=hash(thumb),fields=[h.target_id,h.owner_user_id,h.community_id,h.state,event.aggregate_version,authority.principal_id,authority.scope_id,sha,image.length,thumbSha,thumb.length,h.event_id,event.state,event.organizer_ref,event.ended,h.kind,h.orientation,h.title===null?'~':Buffer.from(h.title,'utf8').toString('hex'),h.byte_size];
+    return {...h,aggregate_version:event.aggregate_version,bytes:image,thumb,thumb_sha256:thumbSha,content_type:'image/webp',principal_id:authority.principal_id,scope_id:authority.scope_id,source_sha256:sha,binding:hash(fields.join('|'))};
+  }
+  async function source(q:PoolClient,id:string,p:OperatorBackfillPlan):Promise<Source|null>{
+    if(p.purpose==='community.event-highlight')return highlightSource(q,id,p);
+    const video=p.purpose==='community.event-video',banner=p.purpose==='community.event-banner',social=p.purpose==='community.social-thumbnail',skill=p.purpose==='skill.submission-image',avatar=p.purpose==='member.avatar',profile=profiles[p.purpose];
+    const hint=(await q.query(avatar?'SELECT user_id AS owner_user_id FROM member_avatars WHERE user_id=$1':skill?'SELECT owner_ref AS owner_user_id FROM skill_submissions WHERE submission_id=$1':social?'SELECT author_user_id AS owner_user_id FROM community_social_posts WHERE post_id=$1':profile.scope==='community'?'SELECT organizer_ref AS owner_user_id FROM community_events WHERE event_id=$1':'SELECT owner_user_id FROM member_services WHERE service_id=$1',[id])).rows[0];if(!hint)return null;
+    const authority=(await q.query(`SELECT * FROM ${profile.authority}($1,$2)`,[p.planSha256,p.purpose==='member.service-cover'?hint.owner_user_id:id])).rows[0];if(!authority)return null;
+    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`asset.quota/v1/${authority.scope_id}/${p.purpose}`]);
+    const row=(await q.query(avatar?"SELECT user_id AS target_id,user_id AS owner_user_id,community_id,'active'::text AS state,aggregate_version FROM member_avatars WHERE user_id=$1 AND user_id=$2 FOR UPDATE":skill?"SELECT submission_id AS target_id,owner_ref AS owner_user_id,community_id,status AS state,aggregate_version,consent_to_share,project_id,project_version_id,payload_sha256,encode(sha256(convert_to(payload::text,'UTF8')),'hex') AS payload_digest,COALESCE(extract(epoch FROM published_at)::text,'~') AS publication_clock,COALESCE(extract(epoch FROM revoked_at)::text,'~') AS revocation_clock FROM skill_submissions WHERE submission_id=$1 AND owner_ref=$2 FOR UPDATE":social?"SELECT post_id AS target_id,author_user_id AS owner_user_id,community_id,state,media_version AS aggregate_version,url,platform,title,note FROM community_social_posts WHERE post_id=$1 AND author_user_id=$2 AND state='active' FOR UPDATE":profile.scope==='community'?'SELECT event_id AS target_id,organizer_ref AS owner_user_id,community_id,state,aggregate_version FROM community_events WHERE event_id=$1 AND organizer_ref=$2 FOR UPDATE':"SELECT service_id AS target_id,owner_user_id,community_id,state,aggregate_version FROM member_services WHERE service_id=$1 AND owner_user_id=$2 AND state IN ('active','paused') FOR UPDATE",[id,hint.owner_user_id])).rows[0];if(!row)return null;
+    const content=(await q.query(`SELECT CASE WHEN octet_length(${profile.bytesColumn}) BETWEEN 1 AND ${profile.max} THEN ${profile.bytesColumn} END AS bytes,${video?'mime_type':"'image/webp'::text"} AS content_type,storage_source${banner?',orientation':social?',source':''} FROM ${profile.bytesTable} WHERE ${profile.id}=$1 FOR UPDATE`,[id])).rows[0];if(!content?.bytes)return null;
+    if(video&&(content.content_type==='video/mp4'?content.bytes.length<12||content.bytes.toString('ascii',4,8)!=='ftyp':content.content_type!=='video/webm'||content.bytes.length<4||!content.bytes.subarray(0,4).equals(Buffer.from([0x1a,0x45,0xdf,0xa3]))))return null;
+    if((banner||social||skill||avatar)&&(content.bytes.length<12||content.bytes.toString('ascii',0,4)!=='RIFF'||content.bytes.toString('ascii',8,12)!=='WEBP'))return null;
+    const sha=hash(content.bytes),fields=[row.target_id,row.owner_user_id,row.community_id,row.state,row.aggregate_version,authority.principal_id,authority.scope_id,sha,content.bytes.length];if(video)fields.push(content.content_type);if(banner)fields.push(content.orientation);if(social){fields.push(content.source,...[row.url,row.platform,row.title,row.note].map(v=>v===null?'~':Buffer.from(v,'utf8').toString('hex')));}
+    if(skill)fields.push(String(row.consent_to_share),row.project_id??'~',row.project_version_id??'~',row.payload_sha256??'~',row.payload_digest??'~',row.publication_clock,row.revocation_clock);
+    return {...row,...content,principal_id:authority.principal_id,scope_id:authority.scope_id,source_sha256:sha,binding:hash(fields.join('|'))};
+  }
+  async function consent(q:PoolClient,p:OperatorBackfillPlan,pinned?:string){
+    const policy=(await q.query(`SELECT * FROM ${profiles[p.purpose].consent}($1)`,[p.planSha256])).rows[0];
+    require(policy?.mode==='bridge'&&policy.persistence_allowed&&policy.policy_revision&&policy.retained_byte_limit&&(!pinned||policy.policy_revision===pinned));
+    return policy;
+  }
+  async function capacity(q:PoolClient,p:OperatorBackfillPlan,s:Source,policy:any,reserve=0){const profile=profiles[p.purpose],community=profile.scope==='community';
+    const used=(await q.query(`SELECT COALESCE(sum(COALESCE(o.byte_size,i.reserved_bytes,${profile.max})::bigint),0) AS used FROM assets a LEFT JOIN asset_objects o USING(asset_id) LEFT JOIN asset_upload_intents i USING(asset_id) WHERE ${community?'a.scope_id':'a.owner_user_id'}=$1 AND a.purpose=$2`,[community?s.scope_id:s.owner_user_id,p.purpose])).rows[0];
+    const legacy=(await q.query(p.purpose==='member.avatar'?'SELECT COALESCE(sum(octet_length(image_bytes)),0) AS used FROM member_avatars WHERE user_id=$1':p.purpose==='community.event-highlight'?'SELECT COALESCE(sum(octet_length(c.bytes)),0) AS used FROM community_event_highlight_images c JOIN community_event_highlights h USING(media_id) WHERE h.community_id=$1':`SELECT COALESCE(sum(octet_length(c.${profile.bytesColumn})),0) AS used FROM ${profile.bytesTable} c JOIN ${profile.domain} s USING(${profile.id}) WHERE ${community?'s.community_id':p.purpose==='skill.submission-image'?'s.owner_ref':'s.owner_user_id'}=$1`,[community?s.community_id:s.owner_user_id])).rows[0];require(BigInt(used.used)+BigInt(legacy.used)+BigInt(reserve)<=BigInt(policy.retained_byte_limit));
+  }
+  async function createComponent(q:PoolClient,p:OperatorBackfillPlan,s:Source,policy:any,variant:'single'|'image'|'thumb'){
+    const profile=profiles[p.purpose],community=profile.scope==='community',banner=p.purpose==='community.event-banner',pair=p.purpose==='community.event-highlight',avatar=p.purpose==='member.avatar';
+    const data=variant==='thumb'?s.thumb!:s.bytes,sha=variant==='thumb'?s.thumb_sha256!:s.source_sha256,reserve=variant==='thumb'?204800:profile.max,kind=pair?`${p.purpose}.${variant}`:p.purpose;
+    const asset=randomUUID(),intent=randomUUID(),representation=randomUUID();
+    await q.query(`INSERT INTO assets(asset_id,scope_id,owner_principal_id,owner_user_id,policy_revision,representation_id,purpose,scope_kind${community?',community_ref':''},write_effect_coverage) VALUES($1,$2,$3,$4,$5,$6,$7,$8${community?',$9':''},true)`,community?[asset,s.scope_id,s.principal_id,s.owner_user_id,policy.policy_revision,representation,p.purpose,profile.scope,s.community_id]:[asset,s.scope_id,s.principal_id,s.owner_user_id,policy.policy_revision,representation,p.purpose,profile.scope]);
+    await q.query(`INSERT INTO asset_upload_intents(intent_id,asset_id,representation_id,scope_id,owner_principal_id,target_user_id,policy_revision,prepare_key,request_digest,source_content_type,source_byte_size,source_sha256,expected_version,expires_at,purpose,reserved_bytes,target_kind${avatar?'':','+profile.intentTarget}${community?',target_community_id':''}${banner?',source_orientation':''}) VALUES($1,$2,$3,$4,$5,${avatar?'CASE WHEN $6::uuid=$12::uuid THEN $6::uuid END':'$6'},$7,$8,$8,$15,$9,$10,$11,clock_timestamp()+interval '24 hours',$13,$14,$16${avatar?'':',$12'}${community?',$17':''}${banner?',$18':''})`,[intent,asset,representation,s.scope_id,s.principal_id,s.owner_user_id,policy.policy_revision,hash(p.planSha256+s.target_id+variant),data.length,sha,s.aggregate_version,s.target_id,p.purpose,reserve,s.content_type,kind,...(community?[s.community_id]:[]),...(banner?[s.orientation]:[])]);
+    return (await q.query(`INSERT INTO media_backfill_items(job_id,${profile.item},intent_id,asset_id,source_version,source_size,source_sha256,source_binding_sha256,source_content_type,variant) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,[p.jobId,s.target_id,intent,asset,s.aggregate_version,data.length,sha,s.binding,s.content_type,variant])).rows[0];
+  }
+  async function matches(q:PoolClient,item:any,p:OperatorBackfillPlan){
+    const s=await source(q,item.target_id,p);
+    const bytes=item.variant==='thumb'?s?.thumb:s?.bytes,sha=item.variant==='thumb'?s?.thumb_sha256:s?.source_sha256;
+    return s&&bytes&&s.storage_source==='legacy'&&s.aggregate_version===item.source_version&&bytes.length===item.source_size&&sha===item.source_sha256&&s.binding===item.source_binding_sha256&&s.content_type===item.source_content_type?s:null;
+  }
+  async function finishStale(q:PoolClient,p:OperatorBackfillPlan,l:Lease,item:any){
+    await q.query("UPDATE media_backfill_items SET outcome='stale',finished_at=clock_timestamp() WHERE job_id=$1 AND target_id=$2 AND outcome='pending'",[p.jobId,item.target_id]);
+    await q.query(`UPDATE media_backfill_jobs SET ${profiles[p.purpose].cursor}=$2 WHERE job_id=$1`,[p.jobId,item.target_id]);
+    await audit(q,p,l,'stale',item.target_id);
+  }
+  async function outcomes(p:OperatorBackfillPlan){return tx(p,async q=>{const row=(await q.query("SELECT count(*) FILTER(WHERE event='blocked_source')::int AS blocked,count(*) FILTER(WHERE event='stale')::int AS stale FROM media_backfill_audit WHERE job_id=$1",[p.jobId])).rows[0],profile=profiles[p.purpose];const remaining=(await q.query(`SELECT EXISTS(SELECT 1 FROM ${profile.bytesTable} WHERE storage_source='legacy'${p.purpose==='skill.submission-image'?' AND image_bytes IS NOT NULL':p.purpose==='community.event-highlight'?" AND kind IN ('photo','poster')":''}) AS remaining`)).rows[0].remaining;return {blocked:Number(row.blocked),stale:Number(row.stale),remainingLegacy:remaining===true};});}
+  async function run(raw:unknown){
+    let p:OperatorBackfillPlan;
+    try{
+      const candidate=raw as OperatorBackfillPlan;
+      if(candidate?.planSha256){
+        const {
+          planSha256,...body
+        }=candidate;
+        p=planOperatorBackfill(body);
+        require(p.planSha256===planSha256);
+      }else p=planOperatorBackfill(raw);
+    }catch{
+      throw new OperatorBackfillError();
+    }try{
+      const claimed=await tx(p,async(q,policy)=>{
+        await q.query('INSERT INTO media_backfill_jobs(job_id,policy_id,plan_sha256,max_rows,max_bytes,purpose) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING',[p.jobId,policy.policy_id,p.planSha256,p.maxRows,p.maxBytes,p.purpose]);
+        const row=(await q.query('SELECT * FROM media_backfill_jobs WHERE job_id=$1 FOR UPDATE',[p.jobId])).rows[0];
+        require(row?.plan_sha256===p.planSha256&&row.policy_id===policy.policy_id);
+        if(row.completed)return null;
+        const updated=(await q.query('UPDATE media_backfill_jobs SET fence=fence+1,lease_token=$2,lease_expires_at=clock_timestamp()+make_interval(secs=>$3) WHERE job_id=$1 AND (lease_expires_at IS NULL OR lease_expires_at<=clock_timestamp()) RETURNING fence,lease_token',[p.jobId,randomUUID(),p.leaseSeconds])).rows[0];
+        require(updated);
+        const l={
+          fence:updated.fence,token:updated.lease_token
+        };
+        await audit(q,p,l,'claimed');
+        return l;
+      });
+      if(!claimed){const counts=await outcomes(p);return {status:counts.blocked?'blocked':'complete',jobId:p.jobId,linked:0,...counts,allSourcesMigrated:counts.blocked===0&&counts.stale===0&&!counts.remainingLegacy,sourcePreserved:true};}
+      const l=claimed;
+      let linked=0,stale=0,bytes=0,complete=false;
+      for(let n=0;
+      n<Math.min(p.maxRows,Math.floor(p.maxBytes/((p.purpose==='community.event-highlight'?1253376:profiles[p.purpose].max)*6)));
+      n++){
+        const next=await tx(p,async(q)=>{
+          const j=await job(q,p,l);
+          const pending=(await q.query("SELECT * FROM media_backfill_items WHERE job_id=$1 AND outcome='pending' ORDER BY target_id LIMIT 1",[p.jobId])).rows[0];
+          if(pending){if(p.purpose==='community.event-highlight'){const components=(await q.query("SELECT * FROM media_backfill_items WHERE job_id=$1 AND target_id=$2 AND outcome='pending' ORDER BY variant",[p.jobId,pending.target_id])).rows;require(components.length===2);return {...components[0],components};}return pending;}
+          const profile=profiles[p.purpose],community=profile.scope==='community',banner=p.purpose==='community.event-banner';
+          const candidate=(await q.query(`SELECT c.${profile.id} AS target_id FROM ${profile.bytesTable} c WHERE c.storage_source='legacy'${(p.purpose==='skill.submission-image'||p.purpose==='member.avatar')?' AND c.image_bytes IS NOT NULL':p.purpose==='community.event-highlight'?" AND c.kind IN ('photo','poster')":''} AND ($1::uuid IS NULL OR c.${profile.id}>$1) ORDER BY c.${profile.id} LIMIT 1`,[j[profile.cursor]])).rows[0];
+          if(!candidate){await q.query('UPDATE media_backfill_jobs SET completed=true WHERE job_id=$1',[p.jobId]);await audit(q,p,l,'complete');return null;}
+          const s=await source(q,candidate.target_id,p);
+          if(!s&&p.purpose!=='member.service-cover'){await q.query(`UPDATE media_backfill_jobs SET ${profile.cursor}=$2 WHERE job_id=$1`,[p.jobId,candidate.target_id]);await audit(q,p,l,'blocked_source',candidate.target_id);return {blocked:true,target_id:candidate.target_id};}
+          require(s&&s.storage_source==='legacy');
+          const policy=await consent(q,p);
+          await capacity(q,p,s,policy,p.purpose==='community.event-highlight'?1253376:profile.max);
+          if(p.purpose==='community.event-highlight'){
+            await q.query('INSERT INTO community_event_highlight_asset_targets(media_id,event_id,community_id,scope_id,owner_principal_id,owner_user_id,source_digest) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING',[s.target_id,s.event_id,s.community_id,s.scope_id,s.principal_id,s.owner_user_id,s.binding]);
+          }else if(p.purpose==='member.avatar'){
+            await q.query('INSERT INTO member_avatar_asset_targets(user_id,scope_id,owner_principal_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[s.target_id,s.scope_id,s.principal_id]);
+          }else{
+            const targetCommunity=community||p.purpose==='skill.submission-image';
+            await q.query(`INSERT INTO ${profile.targetTable}(${profile.id},scope_id,owner_principal_id,owner_user_id${targetCommunity?',community_id':''}) VALUES($1,$2,$3,$4${targetCommunity?',$5':''}) ON CONFLICT DO NOTHING`,targetCommunity?[s.target_id,s.scope_id,s.principal_id,s.owner_user_id,s.community_id]:[s.target_id,s.scope_id,s.principal_id,s.owner_user_id]);
+          }
+          const pointer=(await q.query(`SELECT * FROM ${profile.targetTable} WHERE ${profile.id}=$1 FOR UPDATE`,[s.target_id])).rows[0];
+          if(p.purpose==='community.event-highlight'&&pointer?.source_digest!==s.binding){await q.query(`UPDATE media_backfill_jobs SET ${profile.cursor}=$2 WHERE job_id=$1`,[p.jobId,s.target_id]);await audit(q,p,l,'blocked_source',s.target_id);return {blocked:true,target_id:s.target_id};}
+          require(pointer?.scope_id===s.scope_id&&pointer.owner_principal_id===s.principal_id&&(p.purpose==='member.avatar'?pointer.user_id:pointer.owner_user_id)===s.owner_user_id&&!pointer.asset_id&&!pointer.image_asset_id&&!pointer.thumb_asset_id);
+          const components=[];for(const variant of p.purpose==='community.event-highlight'?['image','thumb'] as const:['single'] as const)components.push(await createComponent(q,p,s,policy,variant));
+          const item={...components[0],components};
+          await audit(q,p,l,'prepared',s.target_id);
+          return item;
+        },{job:l});
+        if(!next){
+          complete=true;
+          break;
+        }if(next.blocked)continue;
+        const components=next.components??[next],contentBytes=components.reduce((sum:number,c:any)=>sum+c.source_size,0);
+        if(bytes+contentBytes*6>p.maxBytes)break;
+        bytes+=contentBytes*6;
+        const prepared=await tx(p,async q=>{
+          await job(q,p,l);
+          const s=await matches(q,next,p);
+          if(!s){
+            await finishStale(q,p,l,next);
+            return null;
+          }const leases=[];let policy:any;
+          for(const component of components){
+            const data=component.variant==='thumb'?s.thumb:s.bytes,sha=component.variant==='thumb'?s.thumb_sha256:s.source_sha256;require(data&&data.length===component.source_size&&sha===component.source_sha256&&component.source_binding_sha256===s.binding&&component.source_version===s.aggregate_version);
+            const intent=(await q.query('SELECT * FROM asset_upload_intents WHERE intent_id=$1 FOR UPDATE',[component.intent_id])).rows[0];
+            const currentPolicy=await consent(q,p,intent.policy_revision);require(!policy||policy.policy_revision===currentPolicy.policy_revision);policy=currentPolicy;
+            const asset=(await q.query('SELECT state,deletion_fence FROM assets WHERE asset_id=$1 FOR UPDATE',[component.asset_id])).rows[0];require(asset?.state==='pending'&&asset.deletion_fence==='0');
+            const lease=(await q.query("UPDATE asset_upload_intents SET fence=fence+1,lease_token=$2,lease_expires_at=LEAST(expires_at,clock_timestamp()+make_interval(secs=>$3)),state=CASE WHEN state='stored' THEN 'stored' ELSE 'processing' END WHERE intent_id=$1 AND expires_at>clock_timestamp() AND (lease_expires_at IS NULL OR lease_expires_at<=clock_timestamp()) RETURNING *",[component.intent_id,randomUUID(),p.leaseSeconds])).rows[0];require(lease);leases.push({...lease,component});
+          }
+          await capacity(q,p,s,policy);
+          return {s,lease:leases[0],leases,policy,intentProofs:leases};
+        },{job:l});
+        if(!prepared){
+          stale++;
+          continue;
+        }const {s,lease,leases,policy}=prepared;
+        const verified:Array<{lease:any;component:any;value:PreparedRepresentation}>=[];let sourceStale=false;
+        for(const current of leases){
+          const component=current.component,data=component.variant==='thumb'?s.thumb!:s.bytes,profileId=p.purpose==='community.event-highlight'&&component.variant==='thumb'?'community.event-highlight.thumbnail':p.purpose;
+          const value=await prepareLegacyMediaRepresentation(new ReadableStream({start(c){c.enqueue(data);c.close();}}),s.content_type,profileId,{revision:policy.policy_revision,platformPersistenceAllowed:true});
+          const key=objectKey({scopeId:current.scope_id,assetId:current.asset_id,representationId:current.representation_id});
+          const effectStore=current.state==='stored'?undefined:await tx(p,async q=>{await job(q,p,l);if(!await matches(q,next,p)){await finishStale(q,p,l,next);return null;}await consent(q,p,current.policy_revision);return admitAssetObjectWriteEffect(q,pool,installation.store,{intentId:current.intent_id,fence:current.fence,leaseToken:current.lease_token},value.metadata);},{job:l,intents:leases});
+          if(effectStore===null){sourceStale=true;break;}
+          const io=deadlineStore(effectStore??installation.store,Date.now()+p.leaseSeconds*1000);
+          try{await bounded(current.state!=='stored'?writeVerifiedObject(io,key,value,{revision:policy.policy_revision,platformPersistenceAllowed:true}):verifyObject(io,key,value.metadata),p.leaseSeconds*1000);}
+          catch{await tx(p,async q=>{const live=(await q.query('SELECT 1 FROM media_backfill_jobs WHERE job_id=$1 AND fence=$2 AND lease_token=$3 FOR UPDATE',[p.jobId,l.fence,l.token])).rowCount;if(live)await audit(q,p,l,'object_outcome_unknown',next.target_id);},{job:l,allowExpiredJob:true}).catch(()=>{});throw new OperatorBackfillError();}
+          verified.push({lease:current,value,component});
+        }
+        if(sourceStale){stale++;continue;}
+        const result=await tx(p,async q=>{
+          await job(q,p,l);
+          const fresh=await matches(q,next,p);
+          if(!fresh){
+            await finishStale(q,p,l,next);
+            return false;
+          }const currentPolicy=await consent(q,p,lease.policy_revision);await capacity(q,p,fresh,currentPolicy);
+          const profile=profiles[p.purpose];
+          for(const v of verified){
+            const current=v.lease,i=(await q.query('SELECT * FROM asset_upload_intents WHERE intent_id=$1 FOR UPDATE',[current.intent_id])).rows[0];
+            const live=(await q.query('SELECT lease_expires_at>clock_timestamp() AND expires_at>clock_timestamp() AS live FROM asset_upload_intents WHERE intent_id=$1',[current.intent_id])).rows[0];require(i.fence===current.fence&&i.lease_token===current.lease_token&&live.live);
+            const a=(await q.query('SELECT state,deletion_fence FROM assets WHERE asset_id=$1 FOR UPDATE',[current.asset_id])).rows[0];require(a.state==='pending'&&a.deletion_fence==='0');
+            const m:ObjectMetadata=v.value.metadata,variant=p.purpose==='community.event-highlight'?v.component.variant:profile.variant;
+            await q.query("INSERT INTO asset_objects(asset_id,scope_id,representation_id,variant,content_type,byte_size,content_sha256,transform_version,policy_revision,profile_id,purpose) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING",[current.asset_id,i.scope_id,i.representation_id,variant,m.contentType,m.byteSize,m.sha256,m.transformVersion,m.policyRevision,m.profileId,p.purpose]);
+            await q.query("UPDATE asset_upload_intents SET state='stored' WHERE intent_id=$1",[current.intent_id]);
+            await q.query("UPDATE assets SET state='ready',ready_at=clock_timestamp() WHERE asset_id=$1",[current.asset_id]);
+          }
+          await audit(q,p,l,'stored',next.target_id);
+          if(p.purpose==='community.event-highlight'){
+            require(verified.length===2);
+            require((await q.query('UPDATE community_events SET aggregate_version=aggregate_version+1,updated_at=clock_timestamp() WHERE event_id=$1 AND aggregate_version=$2 RETURNING aggregate_version',[fresh.event_id,next.source_version])).rowCount===1);
+            const image=verified.find(v=>v.component.variant==='image')!,thumb=verified.find(v=>v.component.variant==='thumb')!;
+            await q.query('UPDATE community_event_highlight_asset_targets SET image_asset_id=$2,thumb_asset_id=$3,published_at=clock_timestamp() WHERE media_id=$1',[next.target_id,image.lease.asset_id,thumb.lease.asset_id]);
+          }else if(p.purpose!=='skill.submission-image'&&p.purpose!=='member.avatar'){
+            const saved=(await q.query(`UPDATE ${profile.domain} SET ${profile.version}=${profile.version}+1,updated_at=clock_timestamp() WHERE ${profile.id}=$1 AND ${profile.version}=$2 RETURNING ${profile.version} AS aggregate_version`,[next.target_id,next.source_version])).rows[0];require(saved);
+            await q.query(`UPDATE ${profile.targetTable} SET asset_id=$2,linked_at_version=$3 WHERE ${profile.id}=$1`,[next.target_id,next.asset_id,saved.aggregate_version]);
+          }
+          require((await q.query(`SELECT * FROM ${profile.publish}($1,$2,$3,$4,$5)`,[p.planSha256,p.jobId,next.target_id,l.fence,l.token])).rowCount===1);
+          for(const v of verified)await q.query("UPDATE asset_upload_intents SET state='finalized',finalized_at=clock_timestamp() WHERE intent_id=$1",[v.lease.intent_id]);
+          await q.query("UPDATE media_backfill_items SET outcome='linked',finished_at=clock_timestamp() WHERE job_id=$1 AND target_id=$2",[p.jobId,next.target_id]);
+          await q.query(`UPDATE media_backfill_jobs SET ${profiles[p.purpose].cursor}=$2 WHERE job_id=$1`,[p.jobId,next.target_id]);
+          await audit(q,p,l,'linked',next.target_id);
+          return true;
+        },{job:l,intents:leases});
+        if(result)linked++;
+        else stale++;
+      }
+      if(!complete)await tx(p,async q=>{
+        await job(q,p,l);
+        await q.query('UPDATE media_backfill_jobs SET lease_expires_at=clock_timestamp() WHERE job_id=$1',[p.jobId]);
+      },{job:l,allowExpiredJob:true});
+      const counts=await outcomes(p);
+      return {
+        status:counts.blocked?'blocked':complete?'complete':'partial',jobId:p.jobId,linked,stale,blocked:counts.blocked,remainingLegacy:counts.remainingLegacy,staleTotal:counts.stale,allSourcesMigrated:complete&&counts.blocked===0&&counts.stale===0&&!counts.remainingLegacy,contentReadUpperBound:bytes,sourcePreserved:true,releaseBinding:'operator_declared_not_runtime_verified',cleanup:'domain_media_gc_not_installed',profiles:[p.purpose]
+      };
+    }catch{
+      throw new OperatorBackfillError();
+    }
+  }
+  return Object.freeze({
+    run
+  });
+}
+
+/** Compatibility installation retains its original closed cover-only boundary. */
+export function createOperatorCoverBackfill(...args:Parameters<typeof createOperatorMediaBackfill>){const host=createOperatorMediaBackfill(...args);return Object.freeze({async run(raw:unknown){require((raw as {purpose?:unknown})?.purpose==='member.service-cover');return host.run(raw);}});}

@@ -1,0 +1,15 @@
+# Bootstrap refresh sessions
+
+`await createBootstrapSessions(pool, { host, signingKey })` exposes only `refresh({ familyId, refreshHandle, proof })` and `nonce({ connectionId, accessToken, proof })`. The host fixes environment, client, issuer trust and distinct canonical HTTPS refresh/nonce endpoints. The opaque nonextractable ES256 signing key must match the configured issuer. Native signature verification and constrained bootstrap issuance are mandatory.
+
+Device exchange creates generation 1 in its existing transaction and returns `refreshSupported: true` and `{ familyId, generation, handle, expiresAt }`. Only purpose-separated hashes and wire hashes persist. The internal store helper composes on the caller's existing transaction; it is not an authorization API.
+
+Refresh locks current user, person, personal scope, owner/environment, key, enrollment challenge, runtime, connection, family and generation in that order. The proof binds the saved generation and handle hash. A fresh unspent head rotates exactly once, retains its spent predecessor and writes a runtime-wide session proof JTI. All crypto awaits and final storage are followed by a fresh database clock check. Raw token and handle leave only after commit; failures roll back every sink.
+
+A genuine fresh proof for a spent handle revokes both family and connection before returning the fixed 401 `bootstrap_invalid`. This happens before duplicate-JTI or capacity checks, including exact and equivalent-signature replay. Wrong handles, keys and proofs cannot revoke. Lost committed responses have no recovery receipt or grace reissue: using the old handle revokes the connection and requires fresh-key pairing.
+
+Machine nonce acquisition requires a current bootstrap access token, independent nonce-purpose proof and active unexpired family. It adds a proof-ledger entry and a fresh 089 nonce atomically without consuming an existing nonce. Historical connections without a family cannot use this new method; existing 09 behavior remains unchanged. Nonce expiry is the earlier of database now plus 60 seconds and connection expiry, while subsequent status admission independently checks its token and nonce.
+
+Migration 091 retains immutable families/chains/proofs, one unspent head, contiguous generations and terminal revocation with physical-schema triggers and deferred whole-state checks. Member connection revocation cascades to its family. Family expiry cannot exceed connection expiry or its original 30 days. The service enforces 4,096 generations per family, 8,192 proof rows per connection and existing nonce limits of eight pending / 4,096 lifetime. These are bounded engineering limits, not retention or billing policy.
+
+Only `bootstrap.status.read` is issued. This internal service has no HTTP/UI, official issuer custody, key recovery, Grant/Attempt, model or execution authority. See [spec 11](../../docs/platform-plan/execution/unified-foundation/11-bootstrap-sessions.md) for the complete profile and validation requirements.

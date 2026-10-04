@@ -1,0 +1,9 @@
+{
+  "agent_connection_ref": "acon_01fw01",
+  "acting_profession_membership_ref": "prm_01fw01",
+  "authorization_level": "A2",
+  "action_types": ["work.claim"],
+  "resource_scopes": ["work_item:wi_01fw01"],
+  "starts_at": "2026-09-20T12:00:00Z",
+  "expires_at": "2026-09-21T12:00:00Z"
+}

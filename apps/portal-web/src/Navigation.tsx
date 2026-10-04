@@ -3,7 +3,7 @@ import { WorkshopIcon } from './WorkshopIcon';
 import type { TabId } from './types';
 
 export const TAB_TITLES: Record<TabId, string> = {
-  home: '會員首頁', positioning: '我的定位', guilds: '職業公會', skills: '技能書架',
+  'private-ai': '私人工作與 AI', home: '會員首頁', positioning: '我的定位', guilds: '職業公會', skills: '技能書架',
   friends: '我的好友', members: '工坊夥伴', account: '我的名片', cocreation: '一起開發', squads: '小隊集合',
   opensource: '開源投稿', workbench: '我的工作', showcase: '作品與需求', engagement: '合作紀錄',
   supplier: '我有東西要賣', retail: '我可以賣東西', marketing: '行銷工作室',
@@ -14,11 +14,11 @@ export const TAB_TITLES: Record<TabId, string> = {
 };
 
 const primary: TabId[] = ['home', 'guilds', 'skills', 'messages', 'events', 'tasks'];
-const keywords:Partial<Record<TabId,string>>={messages:'聊天室 對話 私訊',members:'人才 找夥伴 媒合',skills:'學習 資源 免費',tasks:'任務 貢獻 參與',workbench:'工作 任務',showcase:'作品 分享 展示 需求 找人',opensource:'投稿 提交 上傳 GitHub 開源 工具 技能',supplier:'商品 商店 供應商',retail:'電商 販售 商店',account:'個人資料 設定 暱稱',friends:'朋友 好友 私訊'};
+const keywords:Partial<Record<TabId,string>>={messages:'聊天室 對話 私訊',members:'人才 找夥伴 媒合',skills:'學習 資源 免費',tasks:'任務 貢獻 參與','private-ai':'私人 AI 草稿 模型 執行',workbench:'工作 任務',showcase:'作品 分享 展示 需求 找人',opensource:'投稿 提交 上傳 GitHub 開源 工具 技能',supplier:'商品 商店 供應商',retail:'電商 販售 商店',account:'個人資料 設定 暱稱',friends:'朋友 好友 私訊'};
 const groups: { label: string; pages: TabId[] }[] = [
   { label: '認識夥伴', pages: ['members', 'friends', 'highlights', 'positioning', 'squads', 'cocreation'] },
   { label: '分享推廣', pages: ['social', 'services', 'promotion'] },
-  { label: '創作與合作', pages: ['workbench', 'opensource', 'showcase', 'engagement'] },
+  { label: '創作與合作', pages: ['workbench', 'private-ai', 'opensource', 'showcase', 'engagement'] },
   { label: '供貨與銷售', pages: ['supplier', 'retail', 'marketing'] },
   { label: '管理', pages: ['guild-workspace'] },
 ];

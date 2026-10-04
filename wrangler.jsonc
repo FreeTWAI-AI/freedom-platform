@@ -47,7 +47,8 @@
   "compatibility_flags": ["nodejs_compat"],
   // Native libvips cannot load in Workers. Any `sharp` import resolves to a stub that
   // throws 503 image_processing_unavailable; image uploads never store raw bytes.
-  "alias": { "sharp": "./packages/shared/sharp-unavailable.ts" },
+  "alias": { "sharp": "./packages/shared/sharp-unavailable.ts",
+    "./model-step-node-transport.js": "./modules/agent-execution/model-step-worker-transport-unavailable.ts" },
   "workers_dev": false,
   "preview_urls": false,
   "assets": {
@@ -72,7 +73,7 @@
   // for FREEDOM_REGISTRATION_COMMUNITY_ID. Rules work without a model. To opt in
   // to provider inference in the private deployment overlay, add ai.binding=AI,
   // FREEDOM_GUILD_REVIEW_ENABLED="true" and FREEDOM_GUILD_REVIEW_MODEL (JSON-capable).
-  "vars": { "FREEDOM_ENV": "local", "APP_ORIGIN": "http://127.0.0.1:8787" },
+  "vars": { "FREEDOM_PRIVATE_AI_ENABLED": "false", "FREEDOM_ENV": "local", "APP_ORIGIN": "http://127.0.0.1:8787" },
   "env": {
     "staging-next": {
       "name": "freedom-platform-staging-next",
@@ -86,6 +87,7 @@
       "images": { "binding": "IMAGES" },
       "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["no-reply@mail.freetwai.com"] }],
       "vars": {
+        "FREEDOM_PRIVATE_AI_ENABLED": "false",
         "FREEDOM_ENV": "staging",
         "APP_ORIGIN": "https://staging.freetwai.com",
         "FREEDOM_PASSWORD_RESET_EMAIL_ENABLED": "false",
@@ -104,6 +106,7 @@
       "images": { "binding": "IMAGES" },
       "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["no-reply@mail.freetwai.com"] }],
       "vars": {
+        "FREEDOM_PRIVATE_AI_ENABLED": "false",
         "FREEDOM_ENV": "public",
         "APP_ORIGIN": "https://freetwai.com",
         "FREEDOM_PASSWORD_RESET_EMAIL_ENABLED": "false",

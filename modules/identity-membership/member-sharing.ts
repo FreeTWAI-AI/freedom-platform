@@ -7,6 +7,8 @@ import {capabilityCategories} from '../community/catalog.js';
 import type {Actor} from './service.js';
 import {memberCard,normalizedContacts} from './members.js';
 import {privateHost} from './social-links.js';
+import type {ObjectStore} from '../../packages/asset-storage/index.js';
+import {avatarReadColumns,avatarReadJoins,readAuthorizedAvatar,type AvatarReadSnapshot} from '../assets/avatar-read.js';
 
 const Token=z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 const designs=['calm','workshop','night','classic'] as const;
@@ -221,7 +223,7 @@ async function sharedRow(q:Pool|PoolClient,token:string){
   Token.parse(token);
   // Contacts, social links and the share predicate share this one statement snapshot.
   const row=(await q.query(`SELECT u.user_id,u.community_id,u.display_name,s.include_avatar,s.design,s.headline,s.links,s.show_profile_links,s.profile_link_prefs,
-      a.published_profile,(av.image_bytes IS NOT NULL) AS has_avatar,${profileColumns},
+      a.published_profile,(av.present) AS has_avatar,${profileColumns},
       (SELECT jsonb_build_object('guild_key',g.guild_key,'name',g.name) FROM guild_member_preferences p
         JOIN positioning_guild_catalog g ON g.guild_key=p.primary_guild_key
         JOIN positioning_profession_memberships m ON m.user_id=u.user_id AND m.community_id=u.community_id AND m.guild_key=g.guild_key AND m.state='active'
@@ -229,7 +231,7 @@ async function sharedRow(q:Pool|PoolClient,token:string){
     FROM member_card_shares s JOIN users u USING(user_id,community_id)
       LEFT JOIN member_accounts account USING(user_id,community_id)
       LEFT JOIN onboarding_assessments a USING(user_id,community_id)
-      LEFT JOIN member_avatars av USING(user_id,community_id)
+      LEFT JOIN member_avatar_presence av USING(user_id,community_id)
     WHERE s.share_token=$1 AND s.enabled AND u.active
       AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
       AND NOT is_verification_test_account(u.user_id)`,[token])).rows[0];
@@ -245,12 +247,18 @@ export async function publicMemberCard(pool:Pool,token:string){
     design:row.design,headline:row.headline??null,links,
     profile_links:presentProfileLinks(profileItemsFrom(row,prefs),Boolean(row.show_profile_links),links)};
 }
-export async function publicMemberAvatar(pool:Pool,token:string){
-  const row=await sharedRow(pool,token);
-  requireCondition(row.include_avatar&&row.has_avatar,404,'avatar_not_found','這張名片沒有公開頭像。');
-  const stored=(await pool.query('SELECT image_bytes FROM member_avatars WHERE user_id=$1 AND community_id=$2 AND image_bytes IS NOT NULL',[row.user_id,row.community_id])).rows[0];
-  requireCondition(stored?.image_bytes,404,'avatar_not_found','這張名片沒有公開頭像。');
-  return stored.image_bytes as Buffer;
+export async function publicMemberAvatar(pool:Pool,token:string,store?:ObjectStore){
+  token=Token.parse(token);
+  // There is currently no share expiry column. Both snapshots check the live
+  // token, generation, opt-in and member state; no generic private Asset URL.
+  const result=await readAuthorizedAvatar(async()=>(await pool.query<AvatarReadSnapshot>(`SELECT ${avatarReadColumns},s.aggregate_version AS share_generation
+    FROM member_avatars a ${avatarReadJoins}
+    JOIN member_card_shares s ON s.user_id=a.user_id AND s.community_id=a.community_id
+    JOIN users u ON u.user_id=a.user_id AND u.community_id=a.community_id
+    WHERE s.share_token=$1 AND s.enabled AND s.include_avatar AND u.active
+      AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
+      AND NOT is_verification_test_account(u.user_id)`,[token])).rows[0],store);
+  return result.image_bytes;
 }
 export async function sharedMemberForViewer(pool:Pool,actor:Actor,token:string){
   const row=await sharedRow(pool,token);

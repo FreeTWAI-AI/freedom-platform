@@ -1,3 +1,4 @@
+import type {PlatformRuntime} from '../runtime.js';
 import { Hono, type Context } from 'hono';
 import type { Pool } from 'pg';
 import { z } from 'zod';
@@ -70,7 +71,7 @@ const withEtag = (c: Context, value: { aggregate_version?: string } | undefined)
 };
 
 // Mount under /api/v1 after the browser session, Origin/CSRF and onboarding middleware.
-export function createSkillSubmissionRoutes(pool: Pool, origin: string, readToken: () => string | undefined = () => undefined) {
+export function createSkillSubmissionRoutes(pool: Pool, origin: string, readToken: () => string | undefined = () => undefined,runtime?:Pick<PlatformRuntime,'skillImageAssets'|'skillImageAssetStore'>) {
   const app = new Hono<PlatformEnv>();
   app.get('/me/skill-submissions', async c => c.json({ items: await listSubmissions(pool, c.get('actor')) }));
   app.post('/me/skill-submissions/manual', async c => {
@@ -94,7 +95,7 @@ export function createSkillSubmissionRoutes(pool: Pool, origin: string, readToke
     return c.json(result);
   });
   app.get('/me/skill-submissions/:id/illustration', async c => {
-    const bytes = await readOwnIllustration(pool, c.get('actor'), c.req.param('id'));
+    const bytes = await readOwnIllustration(pool, c.get('actor'), c.req.param('id'),runtime?.skillImageAssetStore);
     c.header('Content-Type', 'image/webp');
     c.header('Cache-Control', 'private, no-store');
     c.header('Vary', 'Cookie');
@@ -130,7 +131,7 @@ export function createSkillSubmissionRoutes(pool: Pool, origin: string, readToke
 
 // Mount at /agent-api/v1 outside cookie/CSRF middleware. Cookies are never read:
 // only a Bearer upload key (create) or a one-time grant (upload) authenticates.
-export function createAgentSkillSubmissionRoutes(pool: Pool, origin: string, network: (c: Context) => string = () => 'shared-server') {
+export function createAgentSkillSubmissionRoutes(pool: Pool, origin: string, network: (c: Context) => string = () => 'shared-server',runtime?:Pick<PlatformRuntime,'skillImageAssets'>) {
   const app = new Hono();
   app.use('*', async (c, next) => {
     c.header('Cache-Control', 'no-store');
@@ -164,7 +165,7 @@ export function createAgentSkillSubmissionRoutes(pool: Pool, origin: string, net
       if (error instanceof z.ZodError) throw new Problem(422, 'validation_failed', `請修正 JSON 後，用同一個授權再上傳一次（授權尚未被消耗）。${agentFields(error)}`);
       throw error;
     }
-    return c.json(await agentUploadSubmission(pool, grant, normalized, origin));
+    return c.json(await agentUploadSubmission(pool, grant, normalized, origin,runtime?.skillImageAssets));
   });
   app.all('*', c => c.json({ type: 'about:blank', title: 'Not found', status: 404, code: 'agent_route_not_found', detail: 'Agent 只能建立與上傳私人技能草稿。' }, 404));
   return app;

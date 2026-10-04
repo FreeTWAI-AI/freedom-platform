@@ -4,9 +4,9 @@
 
 工具能力：唯讀 preflight，沒有 execute 能力。本目錄沒有任何會改動 provider、資料庫或既有主機的程式，不產生 billing signature、不登入 pscale；Cloudflare client 只發 GET。
 
-階段是 `cutover_complete`（2026-09-25）。`next` 是正式環境：Worker `freedom-platform-next`，唯一路由是 zone route `freetwai.com/*`，`APP_ORIGIN` 為 `https://freetwai.com`。`staging-next` 是 staging：Worker `freedom-platform-staging-next`，唯一路由是 zone route `staging.freetwai.com/*`，`APP_ORIGIN` 為 `https://staging.freetwai.com`，`FREEDOM_ENV` 為 `staging`。`next.freetwai.com` 與 `staging-next.freetwai.com` 及其 Access application 已刪除。受保護 hostname 清單是空的：zone 裡不再有 Castle tunnel hostname，允許的 hostname 只有這兩個環境，其餘拒絕。Castle 只做本機開發。`plan --env next` 與 `plan --env staging-next` 都描述現行拓撲、同一個私有 helper 的發布路徑，以及 R3 回退；staging 的驗收目標是 `verify-cloud-candidate.ts execute --target staging`。
+目前已於 2026-10-04 09:03:44 UTC 完成 staging／公開入口的新 PostgreSQL branch 切換，runtime 固定為 `9cc283c6`；現行 bindings、資料核對、HTTPS 與日備份證據見 [實際移植報告](../../docs/platform-plan/execution/unified-foundation/actual-migration-2026-10-04.md)。舊來源保留封存，開始新寫入後不能盲切回。以下 2026-09-25 的 `cutover_complete` 記錄描述首次 Cloudflare 切換；manifest 的舊 Hyperdrive／資料庫部署參數保留當時歷史，不代表本輪現行資源。`next` 是正式環境：Worker `freedom-platform-next`，唯一路由是 zone route `freetwai.com/*`，`APP_ORIGIN` 為 `https://freetwai.com`。`staging-next` 是 staging：Worker `freedom-platform-staging-next`，唯一路由是 zone route `staging.freetwai.com/*`，`APP_ORIGIN` 為 `https://staging.freetwai.com`，`FREEDOM_ENV` 為 `staging`。`next.freetwai.com` 與 `staging-next.freetwai.com` 及其 Access application 已刪除。受保護 hostname 清單是空的：zone 裡不再有 Castle tunnel hostname，允許的 hostname 只有這兩個環境，其餘拒絕。Castle 只做本機開發。`plan --env next` 與 `plan --env staging-next` 都描述現行拓撲、同一個私有 helper 的發布路徑，以及 R3 回退；staging 的驗收目標是 `verify-cloud-candidate.ts execute --target staging`。
 
-2026-09-24 的候選站觀察（Workers Paid、Tokyo 報價、演練還原、132 項檢查）留在 manifest 的 historical 欄位，不是現行拓撲。細節見 [現況交接](../../docs/development/cloudflare-migration-status-2026-09-24.md) 與 [遷移手冊 §14](../../docs/development/cloudflare-migration.md#14-切換後現況2026-09-25)。切換前「候選 hostname 應該還沒有 DNS」「zone route 必須是 0」「兩個受保護 hostname 共用 tunnel」這類檢查已改成現行預期；舊判準寫在程式註解裡，沒有把 evidence 刪掉。
+2026-09-24 的候選站觀察（Workers Paid、Tokyo 報價、演練還原、132 項檢查）留在 manifest 的 historical 欄位，不是現行拓撲。細節見 [現況交接](../../docs/development/cloudflare-migration-status-2026-09-24.md) 與 [遷移手冊 §14](../../docs/development/cloudflare-migration.md#14-切換後現況2026-09-25)。切換前「候選 hostname 應該還沒有 DNS」「zone route 必須是 0」「兩個受保護 hostname 共用 tunnel」這類檢查已改成首次切換後預期；舊判準寫在程式註解裡，沒有把 evidence 刪掉。
 
 Repo 的 `wrangler.jsonc` Hyperdrive id 刻意維持全零 template，真實 id 只在私有 overlay；全零代表只靠 repo 不能部署，不代表資源不存在。受保護的對象見 [environments.json](environments.json) 的 `protected`：hostname 清單是空的；既有 Tunnel／Access（`Freedom public administrators`、`Freedom staging`、`Freedom staging administrators`，只引用、不建立）、R2、OCI 上既有的 VM，以及本機資料庫 `freedom_local`。`freedom_public` 與 `freedom_staging` 已 drop，回退不能指回那兩份凍結的舊 DB。Castle staging units、port 4310／4312 與對應路徑在 `historical_retired_2026_09_25`。PlanetScale 會自動安裝 `hypopg`（schema `pscale_extensions`，owner `pscale_admin`）；[30-verify-readonly.psql](sql/30-verify-readonly.psql) 列出 `plpgsql` 以外的 extension，讀結果時必須把 `hypopg` 列入 allowlist。
 
@@ -14,6 +14,7 @@ Repo 的 `wrangler.jsonc` Hyperdrive id 刻意維持全零 template，真實 id 
 | --- | --- |
 | [environments.json](environments.json) | `staging-next`／`next` 的名稱與隔離規則、單一 `HYPERDRIVE`、PS-5 size 與 Tokyo org 報價（org_quote_recorded）、觀察到的佈建進度（不含 ID）、OCI／D1 替代方案 |
 | [preflight.mjs](preflight.mjs) | CLI：`manifest`、`migrations`、`wrangler`、`cost`、`oci-alternative`、`cloudflare`、`oci`、`planetscale`、`plan`、`all` |
+| [release-compatibility.md](release-compatibility.md) | `compatibility --compatibility-input P`：來源／完整 schema ledger／rollback floor 的本機判定；可信 host port 另注入，沒有部署或還原授權 |
 | [lib/wrangler.mjs](lib/wrangler.mjs) | runtime config 靜態 checker：分開回報 structural、static checks 與 deployment readiness（注入未證明時為 false） |
 | [lib/credentials.mjs](lib/credentials.mjs) | `CLOUDFLARE_API_TOKEN`／`CLOUDFLARE_ACCOUNT_ID`（接受舊名 `CF_*`，衝突即拒絕） |
 | [lib/](lib/manifest.mjs) | manifest guard、cost、GET-only Cloudflare client、唯讀 pscale（process-scoped DBUS fallback、不轉交 token）／OCI runner、migration scanner、redaction |
@@ -26,9 +27,19 @@ node deploy/cloudflare/preflight.mjs all
 node deploy/cloudflare/preflight.mjs wrangler --config <runtime wrangler.jsonc>
 ```
 
-[environments.json](environments.json) 的 `database_defaults.migrations.last` 是目前最後一個 migration 的編號。新增 migration 的 PR 要一併把它改成新的編號；測試裡的檔案數和最後一個檔名都由它推算，不必另外改。GitHub Actions 的 verify 不跑這組測試，漏改不會擋住 PR，只會讓 `migrations` 與 `all` 回報失敗。
+[environments.json](environments.json) 的 `database_defaults.migrations.last` 是目前最後一個 migration 的編號。新增 migration 的 PR 要一併把它改成新的編號；測試裡的檔案數和最後一個檔名都由它推算，不必另外改。GitHub Actions 另有 `deploy-preflight` job 跑這組測試；它是否為必要合併檢查，仍以實際 GitHub 規則為準，不能由 workflow 註解推定。`migrations` 與 `all` 也會回報缺漏。
 
 Worker entry、`wrangler.jsonc`、`apps/platform-api`、`packages/db` 與套件依賴由其他工作流負責；本目錄只讀取並驗證它們。`preflight.mjs wrangler` 不驗證 [wrangler.admin-sync.jsonc](../../wrangler.admin-sync.jsonc) 與 [wrangler.maintainer.jsonc](../../wrangler.maintainer.jsonc)：那個 checker 要求平台 route、assets 與 images。兩支 cron Worker 分別由 `npm run worker:dry-run:admin-sync` 與 `npm run worker:dry-run:maintainer` 打包。見下方「管理員 Access 同步 Worker」與「維護者鏡像 Worker」。
+
+## 私人政策的應用角色邊界
+
+085 之後，公開 [runtime grants template](sql/20-runtime-grants.psql) 在同一交易內先套一般 grants，再移除私人政策表的所有直接 table／column grants，只給 SELECT 與生成常數 `scope_kind` 的 column UPDATE。後者只讓 PostgreSQL `FOR SHARE` 能執行，不能修改保存開關、配額、revision 或 owner。一般 SELECT-only 角色不能取得該 row lock。
+
+App role 必須是專用角色：沒有父角色 membership（包括 NOINHERIT 下仍可 SET ROLE 的 membership、ADMIN-only membership）或管理角色屬性。殘留 inherited／PUBLIC 寫入、其他 column UPDATE、grant option、生成欄位漂移都令 template 拒絕並 rollback；不自動撤銷別的角色／PUBLIC 權限。Operator 須處理根因後重跑，不能忽略錯誤。
+
+每次 migration 或 restore 後、應用程式連回前重跑。085 前表不存在不做變更；這不是 085 後可缺表的證據。[唯讀 checker](sql/30-verify-readonly.psql) 是報表，不以 exit 0 表示安全：085 後須恰有一列 `private_policy_read=true`、`private_policy_lock=true`、`private_policy_unsafe=false`，並另通過原有角色、ownership、public CREATE 與 ledger 檢查。只有 SQL ledger 相符不足以排除 ACL／DDL 漂移。
+
+這些是公開模板及隔離 PostgreSQL 測試，不會自動更新含秘密的 release helper。正式 grants-check 的接線與 redacted evidence 尚須另驗；未設定正式允許政策、quota、備份、私人 GC 或新的 HTTP/UI。
 
 ## 管理員 Access 同步 Worker
 

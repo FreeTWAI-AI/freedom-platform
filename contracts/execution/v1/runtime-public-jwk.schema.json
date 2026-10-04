@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "kty": {
+      "type": "string",
+      "const": "EC"
+    },
+    "crv": {
+      "type": "string",
+      "const": "P-256"
+    },
+    "x": {
+      "type": "string",
+      "minLength": 43,
+      "maxLength": 43,
+      "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+    },
+    "y": {
+      "type": "string",
+      "minLength": 43,
+      "maxLength": 43,
+      "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+    }
+  },
+  "required": [
+    "kty",
+    "crv",
+    "x",
+    "y"
+  ],
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/execution/v1/runtime-public-jwk",
+  "description": "Structural enrollment profile only. Actual curve/signature, exact payload, 300s binding, current member authorization, DB clock and atomic consumption require the server implementation; never execution authority."
+}

@@ -186,9 +186,9 @@ test('guild role avatars are batched and do not cross communities or survive vie
  const actor = await authenticate(pool, viewer.cookie.split('=')[1]); const queries: string[] = [];
  const observed = { query: async (text: string, values: unknown[]) => { queries.push(text); return pool.query(text, values); } } as unknown as Pool;
  let directory = (await guildDirectory(observed, actor)).find(item => item.guild_key === avatarGuild)!;
- assert.equal(directory.guild_master.avatar_url, masterPhoto.data.avatar_url); assert.equal(queries.filter(query => query.includes('member_avatars')).length, 1);
+ assert.equal(directory.guild_master.avatar_url, masterPhoto.data.avatar_url); assert.equal(queries.filter(query => query.includes('member_avatar_presence')).length, 1);
  // The only other reads load guild skill books; no role triggers an avatar query.
- assert.ok(queries.every(query => query.includes('member_avatars') || query.includes('guild_skill_book_bindings')));
+ assert.ok(queries.every(query => query.includes('member_avatar_presence') || query.includes('guild_skill_book_bindings')));
  const community = randomUUID(), outsiderId = randomUUID(); await pool.query('INSERT INTO communities VALUES($1,$2)', [community, 'Guild avatar outsider']);
  await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref) SELECT $1,$2,'guild-avatar-outsider@local.test','外部會員',password_hash,$3 FROM users WHERE user_id=$4`, [outsiderId, community, randomUUID(), master.userId]);
  const outsider = await login('guild-avatar-outsider@local.test'), outsideRoles = await visibleAvatarRoles(outsider); assert.equal(outsideRoles.guild_master, null); assert.deepEqual(outsideRoles.guild_experts, []); assert.equal((await image(masterPhoto.data.avatar_url, outsider)).status, 404);

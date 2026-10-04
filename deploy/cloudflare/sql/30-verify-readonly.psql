@@ -23,3 +23,59 @@ SELECT count(*) AS applied_migrations, min(name) AS first_migration, max(name) A
 SELECT count(*) AS local_demo_accounts FROM users WHERE email LIKE '%@local.test';
 SELECT count(*) AS runtime_ledger_write FROM information_schema.role_table_grants
   WHERE grantee = :'runtime' AND table_name = 'schema_migrations' AND privilege_type IN ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE');
+-- Effective privileges include inherited and PUBLIC ACLs, not just direct grants.
+-- Expect one protected policy at 085--092 and two at 093+. Missing rows are not safety evidence.
+-- BEGIN PRIVATE POLICY READBACK
+SELECT has_table_privilege(:'runtime',c.oid,'SELECT') AS private_policy_read,
+  has_column_privilege(:'runtime',c.oid,'scope_kind','UPDATE') AS private_policy_lock,
+  EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname=:'runtime' AND
+    (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls
+      OR EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=r.oid)))
+    OR NOT EXISTS (SELECT 1 FROM pg_attribute a JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
+      WHERE a.attrelid=c.oid AND a.attname='scope_kind' AND a.attgenerated='s'
+        AND pg_get_expr(d.adbin,d.adrelid)='''personal''::text')
+    OR has_table_privilege(:'runtime',c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+    OR EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+      AND (has_column_privilege(:'runtime',c.oid,a.attnum,'INSERT,REFERENCES,SELECT WITH GRANT OPTION,UPDATE WITH GRANT OPTION')
+        OR (a.attname<>'scope_kind' AND has_column_privilege(:'runtime',c.oid,a.attnum,'UPDATE')))) AS private_policy_unsafe
+FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND c.relname IN ('private_work_persistence_policy','model_inference_export_policy') AND c.relkind='r'
+ORDER BY c.relname DESC;
+-- END PRIVATE POLICY READBACK
+-- BEGIN DOMAIN MEDIA POLICY READBACK
+-- Exactly one row after migration098+; absence is unavailable, not safe.
+-- The generated lock appears only at100+. Expected after grants: true,true,false.
+SELECT has_table_privilege(:'runtime',c.oid,'SELECT') AS media_policy_read,
+  has_column_privilege(:'runtime',c.oid,'policy_lock','UPDATE') AS media_policy_lock,
+  EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname=:'runtime' AND
+    (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls
+      OR EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=r.oid)))
+    OR NOT EXISTS (SELECT 1 FROM pg_attribute a JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
+      WHERE a.attrelid=c.oid AND a.attname='policy_lock' AND a.attgenerated='s'
+        AND pg_get_expr(d.adbin,d.adrelid)='0')
+    OR has_table_privilege(:'runtime',c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+    OR EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+      AND (has_column_privilege(:'runtime',c.oid,a.attnum,'INSERT,REFERENCES,SELECT WITH GRANT OPTION,UPDATE WITH GRANT OPTION')
+        OR (a.attname<>'policy_lock' AND has_column_privilege(:'runtime',c.oid,a.attnum,'UPDATE')))) AS media_policy_unsafe
+FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND c.relname='domain_media_storage_policy' AND c.relkind='r';
+-- END DOMAIN MEDIA POLICY READBACK
+-- Expected after111: four operator tables and twenty-four closed functions, all
+-- inaccessible to the app. Zero rows/counts before105 are absence, not proof.
+-- BEGIN OPERATOR MEDIA READBACK
+SELECT (SELECT count(*)::int FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='public' AND c.relname IN ('media_backfill_operator_policy','media_backfill_jobs','media_backfill_items','media_backfill_audit') AND c.relkind='r') AS operator_media_tables,
+ (SELECT count(*)::int FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='public' AND p.proname IN ('lock_media_backfill_operator_approval','lock_media_backfill_cover_owner','lock_media_backfill_cover_consent','publish_media_backfill_cover','lock_media_backfill_video_organizer','lock_media_backfill_video_consent','publish_media_backfill_video','lock_media_backfill_banner_organizer','lock_media_backfill_banner_consent','publish_media_backfill_banner','lock_media_backfill_social_author','lock_media_backfill_social_consent','publish_media_backfill_social','lock_media_backfill_skill_owner','lock_media_backfill_skill_consent','publish_media_backfill_skill','lock_media_backfill_highlight_uploader','lock_media_backfill_highlight_consent','publish_media_backfill_highlight','lock_media_backfill_highlight_bytes','lock_media_backfill_avatar_owner','lock_media_backfill_avatar_consent','operator_avatar_intent_admitted','publish_media_backfill_avatar')) AS operator_media_functions,
+ EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='public' AND c.relname IN ('media_backfill_operator_policy','media_backfill_jobs','media_backfill_items','media_backfill_audit') AND c.relkind='r'
+  AND (pg_catalog.has_table_privilege(:'runtime',c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+    OR EXISTS(SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+      AND pg_catalog.has_column_privilege(:'runtime',c.oid,a.attnum,'SELECT,INSERT,UPDATE,REFERENCES'))))
+ OR EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='public' AND p.proname IN ('lock_media_backfill_operator_approval','lock_media_backfill_cover_owner','lock_media_backfill_cover_consent','publish_media_backfill_cover','lock_media_backfill_video_organizer','lock_media_backfill_video_consent','publish_media_backfill_video','lock_media_backfill_banner_organizer','lock_media_backfill_banner_consent','publish_media_backfill_banner','lock_media_backfill_social_author','lock_media_backfill_social_consent','publish_media_backfill_social','lock_media_backfill_skill_owner','lock_media_backfill_skill_consent','publish_media_backfill_skill','lock_media_backfill_highlight_uploader','lock_media_backfill_highlight_consent','publish_media_backfill_highlight','lock_media_backfill_highlight_bytes','lock_media_backfill_avatar_owner','lock_media_backfill_avatar_consent','operator_avatar_intent_admitted','publish_media_backfill_avatar')
+  AND pg_catalog.has_function_privilege(:'runtime',p.oid,'EXECUTE'))
+ OR EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='public' AND c.relname='media_backfill_audit_audit_id_seq' AND c.relkind='S'
+  AND pg_catalog.has_sequence_privilege(:'runtime',c.oid,'USAGE,SELECT,UPDATE')) AS operator_media_unsafe;
+-- END OPERATOR MEDIA READBACK

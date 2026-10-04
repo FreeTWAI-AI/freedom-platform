@@ -51,7 +51,7 @@ function respond(c: { header: (name: string, value: string) => void; json: (body
 
 export function registerPublicMemberServices(app: Hono<PlatformEnv>, pool: Pool, runtime: PlatformRuntime) {
   app.get('/api/v1/public/member-services/:id/cover', async c => {
-    const bytes = await publicMemberCover(pool, await resolvePublicCommunity(pool, runtime.registrationCommunityId()), c.req.param('id'));
+    const bytes = await publicMemberCover(pool, await resolvePublicCommunity(pool, runtime.registrationCommunityId()), c.req.param('id'),runtime.serviceCoverAssetStore);
     c.header('Content-Type', 'image/webp');
     c.header('Cache-Control', 'public, max-age=300');
     c.header('Cross-Origin-Resource-Policy', 'same-origin');
@@ -78,7 +78,7 @@ export function registerMemberServices(app: Hono<PlatformEnv>, pool: Pool, runti
     return respond(c, await createMemberService(pool, await moduleCommand(c), clock(runtime)), 201);
   });
   app.get('/api/v1/member-services/:id/cover', async c => {
-    const bytes = await readMemberCover(pool, c.get('actor'), id(c));
+    const bytes = await readMemberCover(pool, c.get('actor'), id(c),runtime.serviceCoverAssetStore);
     c.header('Content-Type', 'image/webp');
     c.header('Cache-Control', 'private, no-store');
     c.header('Cross-Origin-Resource-Policy', 'same-origin');
@@ -93,7 +93,7 @@ export function registerMemberServices(app: Hono<PlatformEnv>, pool: Pool, runti
     await authRateLimit(pool, 'member-service-cover', c.get('actor').user_id, 20, 3600);
     const bytes = await bounded(c.req.raw);
     const mime = (c.req.header('Content-Type') ?? '').split(';')[0]!.trim();
-    return respond(c, await saveMemberServiceCover(pool, { actor: c.get('actor'), operation: `${c.req.method} ${c.req.path}`, key, body: null, expected: version?.slice(1, -1) }, id(c), { bytes, mime }, clock(runtime)));
+    return respond(c, await saveMemberServiceCover(pool, { actor: c.get('actor'), operation: `${c.req.method} ${c.req.path}`, key, body: null, expected: version?.slice(1, -1) }, id(c), { bytes, mime }, clock(runtime),runtime.serviceCoverAssets));
   });
   app.post('/api/v1/member-services/:id/cover/remove', async c => respond(c, await removeMemberServiceCover(pool, await moduleCommand(c), id(c), clock(runtime))));
   app.put('/api/v1/member-services/:id', async c => respond(c, await editMemberService(pool, await moduleCommand(c), id(c), clock(runtime))));

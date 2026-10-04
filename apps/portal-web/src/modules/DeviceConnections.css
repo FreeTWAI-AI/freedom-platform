@@ -1,0 +1,25 @@
+.device-connections{min-width:0}
+.device-connections-head{display:flex;flex-wrap:wrap;gap:.75rem 1rem;align-items:flex-start;justify-content:space-between}
+.device-connections-head>div{min-width:0;flex:1 1 18rem}
+.device-connections-head h2,.device-connections h3{margin:0}
+.device-connections-head .btn,.device-connections .actions .btn{flex:0 1 auto}
+.device-connections-section{border-top:1px solid var(--line);padding-top:1rem}
+.device-connections .stack,.device-connections label{min-width:0}
+.device-connections label{display:grid;gap:.4rem}
+.device-connections .device-connections-consent{display:flex;gap:.6rem;align-items:flex-start}
+.device-connections-consent input{margin-top:.3rem;flex-shrink:0}
+.device-connections-consent span{min-width:0;overflow-wrap:anywhere}
+.device-connections-code{display:flex;flex-wrap:wrap;gap:.6rem;align-items:flex-end}
+.device-connections-code label{flex:1 1 12rem}
+.device-connections-code .btn{flex:0 0 auto}
+.device-connections select,.device-connections input:not([type=checkbox]){min-width:0;max-width:100%;width:100%}
+.device-connections-code input{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.06em;text-transform:uppercase}
+.device-connections-details{margin:0;display:grid;grid-template-columns:minmax(5.5rem,max-content) minmax(0,1fr);gap:.4rem .75rem}
+.device-connections-details dt{color:var(--muted)}
+.device-connections-details dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.device-connections-id{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-wrap:anywhere;word-break:break-all}
+.device-connections-list{list-style:none;margin:0;padding:0;display:grid;gap:.5rem}
+.device-connections-list li{display:grid;gap:.15rem;min-width:0;padding:.6rem .75rem;border:1px solid var(--line);border-radius:12px;overflow-wrap:anywhere}
+.device-connections-list span{min-width:0}
+.device-connections-revoke{border-top:1px solid var(--line);padding-top:.75rem}
+@media(max-width:860px){.device-connections input,.device-connections select,.device-connections textarea{font-size:16px}.device-connections-details{grid-template-columns:minmax(0,1fr);gap:.15rem}.device-connections-details dd{margin-bottom:.4rem}}

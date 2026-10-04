@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { AssetStorageError, objectKey } from '../../packages/asset-storage/index.js';
+import type { AssetR2Binding } from '../../packages/asset-storage/r2.js';
 import sharp from 'sharp';
 import { Hono } from 'hono';
 import { Pool } from 'pg';
@@ -179,6 +181,38 @@ test('concurrent requests with different bindings never share origin, community,
   assert.equal(ra.registrationCommunityId(), undefined); assert.equal(rb.registrationCommunityId(), COMMUNITY);
   assert.deepEqual([...ra.allowedHosts], ['staging-next.freetwai.com']); assert.deepEqual([...rb.allowedHosts], ['next.freetwai.com']);
   assert.equal(ra.publicOrigin, 'https://staging-next.freetwai.com'); assert.equal(rb.publicOrigin, 'https://next.freetwai.com');
+});
+
+test('optional MEDIA is request-scoped and app storage cannot perform deletion', async () => {
+  const calls: string[] = [];
+  const bucket = (name: string): AssetR2Binding => ({
+    head: async () => { calls.push(name); return null; },
+    get: async () => null,
+    put: async () => { throw new Error('unexpected native write'); },
+    delete: async () => { throw new Error('delete must not reach native binding'); },
+  }) as AssetR2Binding;
+  const a = env({ MEDIA: bucket('a') }), b = env({ MEDIA: bucket('b') });
+  const ra = workerRuntime(a, readWorkerConfig(a)), rb = workerRuntime(b, readWorkerConfig(b));
+  a.MEDIA = bucket('replacement');
+  const key = objectKey({ scopeId: randomUUID(), assetId: randomUUID(), representationId: randomUUID() });
+  assert.ok(ra.avatarAssetStore && rb.avatarAssetStore);
+  assert.deepEqual(await Promise.all([ra.avatarAssetStore.head(key), rb.avatarAssetStore.head(key)]), [null, null]);
+  assert.deepEqual(calls, ['a', 'b']);
+  await assert.rejects(ra.avatarAssetStore.delete(key), (error: unknown) =>
+    error instanceof AssetStorageError && error.code === 'object_unavailable');
+  const missing = env();
+  assert.equal(workerRuntime(missing, readWorkerConfig(missing)).avatarAssetStore, undefined);
+});
+
+test('invalid optional MEDIA stays unavailable without affecting health or disclosing binding data', async () => {
+  const invalid = { get put() { throw new Error('synthetic-private-storage-diagnostic'); } } as unknown as AssetR2Binding;
+  const e = env({ MEDIA: invalid }), h = harness();
+  assert.equal(workerRuntime(e, readWorkerConfig(e)).avatarAssetStore, undefined);
+  const { result, logged } = await quietly(() => h.fetch('http://127.0.0.1:8787/api/v1/health', e));
+  assert.equal(result.status, 200);
+  assert.ok(!(await result.text()).includes('synthetic-private-storage-diagnostic'));
+  assert.ok(logged.every(line => !line.includes('synthetic-private-storage-diagnostic')));
+  await h.settle();
 });
 
 test('admin API fails closed with 503 when Access bindings are missing or invalid', async () => {

@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "authorizationId": {
+      "type": "string",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "requestDigest": {
+      "type": "string",
+      "minLength": 43,
+      "maxLength": 43,
+      "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+    },
+    "clientId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$(?![\\s\\S])"
+    },
+    "clientDisplayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[^\\x00-\\x1f\\x7f]+$(?![\\s\\S])"
+    },
+    "environment": {
+      "type": "string",
+      "enum": [
+        "local",
+        "staging-next",
+        "next"
+      ]
+    },
+    "runtimeKind": {
+      "type": "string",
+      "enum": [
+        "agent-kit",
+        "extension",
+        "neo"
+      ]
+    },
+    "keyThumbprint": {
+      "type": "string",
+      "minLength": 43,
+      "maxLength": 43,
+      "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+    },
+    "scope": {
+      "type": "string",
+      "const": "bootstrap.status.read"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "denied",
+        "consumed"
+      ]
+    },
+    "operational_authority": {
+      "type": "boolean",
+      "const": false
+    }
+  },
+  "required": [
+    "authorizationId",
+    "requestDigest",
+    "clientId",
+    "clientDisplayName",
+    "environment",
+    "runtimeKind",
+    "keyThumbprint",
+    "scope",
+    "expiresAt",
+    "state",
+    "operational_authority"
+  ],
+  "additionalProperties": false,
+  "description": "Exact member review metadata, not proof of current membership or runtime capability.",
+  "$id": "https://freetwai.com/contracts/execution/v1/device-authorization-review"
+}

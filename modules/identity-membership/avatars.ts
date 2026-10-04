@@ -4,6 +4,9 @@ import { z } from 'zod';
 import { checkVersion, command, journal, type Command } from '../../packages/db/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { normalizeImage } from '../../packages/shared/image-runtime.js';
+import { snapshotBoundedBytes, type ObjectStore } from '../../packages/asset-storage/index.js';
+import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
+import { avatarReadColumns, avatarReadJoins, readAuthorizedAvatar, type AvatarReadSnapshot } from '../assets/avatar-read.js';
 import type { Actor } from './service.js';
 
 export const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
@@ -16,7 +19,15 @@ export function avatarUrl(userId: string, version: string | number, present: boo
   return present ? `/api/v1/members/${userId}/avatar?v=${version}` : null;
 }
 export async function avatarMetadata(pool: Pool, actor: Actor) {
-  const row = (await pool.query('SELECT aggregate_version,image_bytes IS NOT NULL AS present FROM member_avatars WHERE user_id=$1 AND community_id=$2', [actor.user_id, actor.community_id])).rows[0];
+  actor = Object.freeze({ ...actor });
+  // Account settings are available before guild onboarding. Self metadata must
+  // not block that page; content reads and writes keep their onboarding gates.
+  const row = (await pool.query(`SELECT a.aggregate_version,a.present FROM users u
+    JOIN sessions s ON s.user_id=u.user_id AND s.token_hash=$3
+    LEFT JOIN member_avatar_presence a ON a.user_id=u.user_id AND a.community_id=u.community_id
+    WHERE u.user_id=$1 AND u.community_id=$2 AND u.active
+      AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp()`, [actor.user_id, actor.community_id, actor.session_hash])).rows[0];
+  requireCondition(row, 404, 'avatar_not_found', '找不到這個頭像。');
   return { avatar_url: avatarUrl(actor.user_id, row?.aggregate_version ?? '1', Boolean(row?.present)), aggregate_version: row?.aggregate_version ?? '1' };
 }
 
@@ -58,37 +69,60 @@ async function normalizeAvatar(bytes: Buffer, mime: string): Promise<Buffer> {
 }
 
 export async function saveAvatar(pool: Pool, input: Command, upload: { bytes: Buffer; mime: string } | null) {
+  input = Object.freeze({ ...input, actor: Object.freeze({ ...input.actor }) });
+  upload = upload ? Object.freeze({ bytes: Buffer.from(snapshotBoundedBytes(upload.bytes, AVATAR_MAX_BYTES)), mime: upload.mime }) : null;
   const body = upload ? { content_type: upload.mime, sha256: createHash('sha256').update(upload.bytes).digest('hex') } : z.object({}).strict().parse(input.body);
+  let normalized: Buffer | undefined;
+  const needsNormalization = new Error('avatar_effect_phase');
   // Binary content never enters command receipts, journals or diagnostic logs.
-  return command(pool, { ...input, body }, async q => {
+  // The first short command transaction still checks the OLD receipt namespace
+  // first. Only a new effect exits to normalization, then re-enters the same
+  // command for fresh authorization/CAS. No image adapter I/O under row locks.
+  const execute = () => command(pool, { ...input, body }, async q => {
     const allowed = await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)', [input.actor.user_id, input.actor.community_id]);
     requireCondition(allowed.rowCount === 1, 403, 'onboarding_required', '請先選擇主要公會，完成加入後即可使用會員功能。');
   }, async q => {
     await q.query('INSERT INTO member_avatars(user_id,community_id) VALUES($1,$2) ON CONFLICT DO NOTHING', [input.actor.user_id, input.actor.community_id]);
-    const row = (await q.query('SELECT aggregate_version,image_bytes IS NOT NULL AS present FROM member_avatars WHERE user_id=$1 AND community_id=$2 FOR UPDATE', [input.actor.user_id, input.actor.community_id])).rows[0];
+    const row = (await q.query('SELECT aggregate_version,storage_source,image_bytes IS NOT NULL AS legacy_present FROM member_avatars WHERE user_id=$1 AND community_id=$2 FOR UPDATE', [input.actor.user_id, input.actor.community_id])).rows[0];
+    const mode = (await q.query("SELECT mode FROM avatar_storage_policy WHERE profile='member.avatar' FOR SHARE")).rows[0].mode;
     checkVersion(row.aggregate_version, input.expected);
-    if (!upload && !row.present) return { avatar_url: null, aggregate_version: row.aggregate_version };
-    const bytes = upload ? await normalizeAvatar(upload.bytes, upload.mime) : null;
+    const pointer = (await q.query('SELECT asset_id FROM member_avatar_asset_targets WHERE user_id=$1 FOR UPDATE', [input.actor.user_id])).rows[0];
+    await assertCurrentSessionClock(q, input.actor);
+    const present = row.storage_source === 'asset' ? Boolean(pointer?.asset_id) : row.legacy_present;
+    if (!upload && !present) return { avatar_url: null, aggregate_version: row.aggregate_version };
+    if (upload) {
+      requireCondition(mode !== 'r2_only' && row.storage_source === 'legacy', 503, 'avatar_upload_unavailable', '頭像上傳暫時無法使用。');
+      if (!normalized) { await assertCurrentSessionClock(q, input.actor); throw needsNormalization; }
+    }
+    // Explicit domain removal detaches first, then retires. No object deletion;
+    // retention/GC needs its own policy and fencing protocol.
+    if (!upload && pointer?.asset_id) {
+      await q.query('UPDATE member_avatar_asset_targets SET asset_id=NULL,linked_at_version=NULL WHERE user_id=$1', [input.actor.user_id]);
+      await q.query("UPDATE assets SET state='retired',retired_at=clock_timestamp() WHERE asset_id=$1 AND state='ready'", [pointer.asset_id]);
+    }
+    const bytes = upload ? normalized! : null;
     const saved = (await q.query('UPDATE member_avatars SET image_bytes=$2,aggregate_version=aggregate_version+1,updated_at=now() WHERE user_id=$1 RETURNING aggregate_version', [input.actor.user_id, bytes])).rows[0];
     await journal(q, input.actor, 'member_avatar', input.actor.user_id, saved.aggregate_version, upload ? 'save_avatar' : 'remove_avatar');
     return { avatar_url: avatarUrl(input.actor.user_id, saved.aggregate_version, Boolean(bytes)), aggregate_version: saved.aggregate_version };
   });
+  try { return await execute(); }
+  catch (error) { if (error !== needsNormalization) throw error; }
+  normalized = await normalizeAvatar(upload!.bytes, upload!.mime);
+  return execute();
 }
 
-export async function readAvatar(pool: Pool, actor: Actor, id: string, version?: string) {
+export async function readAvatar(pool: Pool, actor: Actor, id: string, version?: string, store?: ObjectStore) {
+  actor = Object.freeze({ ...actor });
   id = z.uuid().parse(id).toLowerCase();
-  if (version !== undefined) requireCondition(/^[1-9][0-9]*$/.test(version), 400, 'invalid_version', '頭像版本不正確。');
-  // Visibility and bytes share one snapshot; every request rechecks the reader,
-  // target's current community, active state and completed member visibility.
-  const row = (await pool.query(`SELECT a.image_bytes,a.aggregate_version FROM member_avatars a
+  if (version !== undefined) requireCondition(/^[1-9][0-9]{0,18}$/.test(version) && !/[\r\n]/.test(version), 400, 'invalid_version', '頭像版本不正確。');
+  return readAuthorizedAvatar(async () => (await pool.query<AvatarReadSnapshot>(`SELECT ${avatarReadColumns} FROM member_avatars a
+    ${avatarReadJoins}
     JOIN users owner ON owner.user_id=a.user_id AND owner.community_id=a.community_id
     JOIN users viewer ON viewer.user_id=$3 AND viewer.community_id=a.community_id
     JOIN sessions s ON s.user_id=viewer.user_id AND s.token_hash=$4
-    WHERE a.user_id=$1 AND a.community_id=$2 AND a.image_bytes IS NOT NULL
+    WHERE a.user_id=$1 AND a.community_id=$2
       AND owner.active AND (NOT owner.onboarding_required OR owner.onboarding_completed_at IS NOT NULL)
       AND (a.user_id=$3 OR NOT is_verification_test_account(owner.user_id))
       AND viewer.active AND (NOT viewer.onboarding_required OR viewer.onboarding_completed_at IS NOT NULL)
-      AND s.revoked_at IS NULL AND s.expires_at>now()`, [id, actor.community_id, actor.user_id, actor.session_hash])).rows[0];
-  requireCondition(row && (version === undefined || row.aggregate_version === version), 404, 'avatar_not_found', '找不到這個頭像。');
-  return row as { image_bytes: Buffer; aggregate_version: string };
+      AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp()`, [id, actor.community_id, actor.user_id, actor.session_hash])).rows[0], store, version);
 }

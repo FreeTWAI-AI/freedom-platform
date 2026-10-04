@@ -1,0 +1,63 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "credential-broker",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "apps/credential-broker/**",
+    "migrations/095_credential_vault.sql",
+    "tests/runtime/credential-broker-store.test.ts",
+    "tests/runtime/credential-broker-crypto.test.ts",
+    "tests/runtime/credential-broker-adversarial.test.ts",
+    "tests/runtime/model-broker-bridge.test.ts",
+    "tests/runtime/model-broker-process.test.ts",
+    "tests/runtime/model-broker-bridge-adversarial.test.ts",
+    "tests/runtime/credential-ingest-broker.test.ts",
+    "tests/runtime/credential-ingest-process.test.ts",
+    "tests/runtime/credential-ingest-adversarial.test.ts"
+  ],
+  "public_exports": [],
+  "dependencies": [
+    "execution-runs",
+    "resource-scopes",
+    "scoped-commands",
+    "runtime-registration"
+  ],
+  "contract_families": [
+    "model-credential",
+    "model-broker-bridge",
+    "model-credential-ingest"
+  ],
+  "client_profiles": [],
+  "instructions": [
+    "docs/platform-plan/execution/unified-foundation/18-credential-broker-core.md",
+    "packages/scoped-commands/README.md",
+    "docs/platform-plan/execution/unified-foundation/19-authenticated-broker-bridge.md",
+    "docs/platform-plan/execution/unified-foundation/20-direct-credential-ingest.md"
+  ],
+  "invariants": [
+    "no-ambient-secrets-or-default-key",
+    "broker-only-ciphertext-and-key-material",
+    "purpose-and-complete-binding-aead",
+    "external-recovery-floor-outside-restorable-db",
+    "immutable-model-selection-and-credential-generation",
+    "current-member-authority-before-replay",
+    "rotation-revokes-old-model-even-same-key",
+    "short-lived-opaque-write-intent",
+    "pinned-resolver-without-latest-key-fallback",
+    "bounded-ports-and-late-plaintext-zeroization",
+    "no-model-verification-or-operational-authority",
+    "no-serialized-actor-or-proof",
+    "original-session-purpose-bound-one-use-command",
+    "broker-only-original-model-step-finalizer",
+    "bounded-registry-without-proof-rehydration",
+    "uninstalled-without-reviewed-production-trust",
+    "distinct-cookie-hostname-https-protected-setup",
+    "one-use-bootstrap-and-submission-before-secret-pull",
+    "capture-unavailable-before-key-dom",
+    "original-opaque-intent-deadline-and-buffer-zeroization"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": []
+}

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "authorizationId": {
+      "type": "string",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "requestDigest": {
+      "type": "string",
+      "minLength": 43,
+      "maxLength": 43,
+      "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "approved",
+        "denied"
+      ]
+    },
+    "operational_authority": {
+      "type": "boolean",
+      "const": false
+    }
+  },
+  "required": [
+    "authorizationId",
+    "requestDigest",
+    "state",
+    "operational_authority"
+  ],
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/execution/v1/device-authorization-decision",
+  "description": "Closed pairing claim shape only. Real signatures, exact host and DB binding, current time, approval, replay and single consumption must be verified by the trusted service. Not OAuth transport compatibility or execution authority."
+}

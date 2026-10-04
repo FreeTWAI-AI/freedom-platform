@@ -801,7 +801,8 @@ test('migrations are PostgreSQL-18 managed-service compatible, ledger digest mat
   const sql = readFileSync(join(ROOT, 'migrations', '001_local_core.sql'), 'utf8');
   assert.equal(result.ledger[0].sha256, migrationDigest(sql));
   // packages/db digest(sql) hashes JSON.stringify(sql); keep the two in lockstep.
-  assert.match(readFileSync(join(ROOT, 'packages', 'db', 'index.ts'), 'utf8'), /createHash\('sha256'\)\.update\(JSON\.stringify\(stable\(value\)\)\)/);
+  assert.match(readFileSync(join(ROOT, 'packages', 'db', 'index.ts'), 'utf8'), /export \{ digest \} from '\.\/legacy-digest\.js'/);
+  assert.match(readFileSync(join(ROOT, 'packages', 'db', 'legacy-digest.ts'), 'utf8'), /createHash\('sha256'\)\.update\(JSON\.stringify\(stable\(value\)\)\)/);
 });
 
 test('migration scanner flags privileged statements and unexpected gaps', () => {

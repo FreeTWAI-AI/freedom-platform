@@ -31,7 +31,7 @@ test('registration saves salted password, private unverified contacts and server
   const result=await request('/auth/register',undefined,registration);assert.equal(result.status,201,JSON.stringify(result.data));const member=session(result);
   const row=(await pool.query('SELECT * FROM users WHERE user_id=$1',[member.user.user_id])).rows[0];
   assert.equal(row.email,'new.person@example.com');assert.notEqual(row.password_hash,registration.password);assert.equal(row.email_verified_at,null);assert.equal(row.onboarding_required,true);assert.equal(row.onboarding_completed_at,null);
-  const own=await request('/me/account',member);assert.deepEqual(own.data.contacts.email.audiences,[]);assert.equal(own.data.contacts.email.value,row.email);assert.equal(own.data.contacts.github.verified,false);
+  const own=await request('/me/account',member);assert.equal(own.status,200,JSON.stringify(own.data));assert.deepEqual(own.data.contacts.email.audiences,[]);assert.equal(own.data.contacts.email.value,row.email);assert.equal(own.data.contacts.github.verified,false);
   assert.equal((await request('/session',member)).status,200);assert.equal((await request('/assessment-definition',member)).status,200);assert.equal((await request('/guilds',member)).status,200);
   for(const path of ['/work-items','/dashboard','/members','/squads','/supplier/products','/retail/stores','/marketing/campaigns','/opensource/projects']) {
     const blocked=await request(path,member);assert.equal(blocked.status,403,`${path}: ${JSON.stringify(blocked.data)}`);assert.equal(blocked.data.code,'onboarding_required');

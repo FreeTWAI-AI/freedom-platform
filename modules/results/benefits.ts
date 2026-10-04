@@ -17,7 +17,7 @@ export const benefitInput=z.object({
 type Report=z.infer<typeof benefitInput>;
 type Queryable=Pool|PoolClient;
 async function participant(q:Queryable,actor:Actor,id:string,lock=false){
-  const work=(await q.query(`SELECT * FROM work_items WHERE work_item_id=$1 AND community_id=$2${lock?' FOR SHARE':''}`,[id,actor.community_id])).rows[0];
+  const work=(await q.query(`SELECT * FROM work_items WHERE work_item_id=$1 AND community_id=$2 AND work_mode='community_collaboration'${lock?' FOR SHARE':''}`,[id,actor.community_id])).rows[0];
   requireCondition(work,404,'not_found','找不到這次合作的回報。');
   const claim=(await q.query('SELECT claim_id,claimant_ref,state FROM work_claims WHERE work_item_id=$1',[id])).rows[0];
   requireCondition(work.owner_ref===actor.user_id||claim?.claimant_ref===actor.user_id,404,'not_found','找不到這次合作的回報。');

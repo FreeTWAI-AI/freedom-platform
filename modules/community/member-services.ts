@@ -1,9 +1,13 @@
 import { createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
-import { checkVersion, command, type Command } from '../../packages/db/index.js';
+import { checkVersion, command, digest, type Command } from '../../packages/db/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { SERVICE_CATEGORY_LABELS, SERVICE_LIMIT, SERVICE_MODE_LABELS, validateMemberService, type ServiceCategory, type ServiceContact, type ServiceMode } from '../../packages/shared/member-service.js';
+import { AssetStorageError,snapshotBoundedBytes,type ObjectStore } from '../../packages/asset-storage/index.js';
+import { serviceCoverMemberCommand } from '../../packages/scoped-commands/index.js';
+import { serviceCoverStorageMode,type ServiceCoverAssetService } from '../assets/media-domain.js';
+import { readDomainMedia,type DomainMediaSnapshot } from '../../packages/media-migration/domain-bridge.js';
 import { normalizeServiceCover } from '../skill-submissions/payload.js';
 import { avatarUrl } from '../identity-membership/avatars.js';
 import type { Actor } from '../identity-membership/service.js';
@@ -23,13 +27,13 @@ type Row = {
 
 const LIST = `SELECT s.service_id,s.title,s.category,s.summary,s.description,s.price_text,s.area_text,s.service_mode,s.contacts,s.state,
   s.aggregate_version::text AS aggregate_version,s.updated_at,s.owner_user_id,u.display_name,
-  a.aggregate_version::text AS avatar_version,a.image_bytes IS NOT NULL AS has_avatar,
+  a.aggregate_version::text AS avatar_version,a.present AS has_avatar,
   is_verification_test_account(u.user_id) AS test_account,c.service_id IS NOT NULL AS has_cover,
   (SELECT count(*)::int FROM promotion_clicks k JOIN promotion_links l ON l.link_id=k.link_id WHERE l.kind='member_service' AND l.target_key=s.service_id::text) AS total_points,
   (SELECT count(*)::int FROM promotion_clicks k JOIN promotion_links l ON l.link_id=k.link_id WHERE l.kind='member_service' AND l.target_key=s.service_id::text AND l.user_id=$2) AS my_points
   FROM member_services s
   JOIN users u ON u.user_id=s.owner_user_id
-  LEFT JOIN member_avatars a ON a.user_id=u.user_id AND a.community_id=s.community_id
+  LEFT JOIN member_avatar_presence a ON a.user_id=u.user_id AND a.community_id=s.community_id
   LEFT JOIN member_service_covers c ON c.service_id=s.service_id`;
 const PUBLIC_VISIBLE = `s.state='active' AND u.active AND NOT is_verification_test_account(u.user_id)`;
 
@@ -180,18 +184,41 @@ export async function hideMemberService(pool: Pool, input: Command, id: string, 
   });
 }
 
-export async function saveMemberServiceCover(pool: Pool, input: Command, id: string, file: { bytes: Buffer; mime: string }, now = new Date()) {
-  const digest = createHash('sha256').update(file.bytes).digest('hex');
-  return command(pool, { ...input, body: { sha256: digest } }, q => owned(q, input.actor, id), async q => {
+export async function saveMemberServiceCover(pool: Pool, input: Command, id: string, file: { bytes: Buffer; mime: string }, now = new Date(), assets?:ServiceCoverAssetService) {
+  const bytes=Buffer.from(snapshotBoundedBytes(file.bytes,4194304)),mime=file.mime;
+  const sourceSha = createHash('sha256').update(bytes).digest('hex');
+  const legacy={...input,actor:Object.freeze({...input.actor}),body:{sha256:sourceSha}};
+  if(await serviceCoverStorageMode(pool)!=='legacy')return saveAssetCover(pool,legacy,id,{bytes,mime},assets);
+  return command(pool, { ...input, body: { sha256: sourceSha } }, q => owned(q, input.actor, id), async q => {
     const row = await owned(q, input.actor, id, true);
     visibleToOwner(row);
     checkVersion(row.aggregate_version, input.expected);
-    const image = await normalizeServiceCover(file.mime, file.bytes);
+    const image = await normalizeServiceCover(mime, bytes);
     await q.query(`INSERT INTO member_service_covers(service_id,image_bytes,updated_at) VALUES($1,$2,$3)
       ON CONFLICT(service_id) DO UPDATE SET image_bytes=EXCLUDED.image_bytes,updated_at=EXCLUDED.updated_at`, [id, image, now]);
     await q.query('UPDATE member_services SET aggregate_version=aggregate_version+1,updated_at=$2 WHERE service_id=$1', [id, now]);
     return shown(q, input.actor, id);
   });
+}
+
+async function saveAssetCover(pool:Pool,input:Command,id:string,file:{bytes:Buffer;mime:string},assets?:ServiceCoverAssetService) {
+ const authorize=async(q:PoolClient)=>{const row=await owned(q,input.actor,id);visibleToOwner(row);};
+ const probe=async()=>{const miss=new Error('cover_receipt_miss');try{return await serviceCoverMemberCommand(pool,input,authorize,async()=>{throw miss;});}catch(error){if(error!==miss)throw error;return undefined;}};
+ const replay=await probe();if(replay)return replay;
+ requireCondition(assets,503,'media_upload_unavailable','內容上傳暫時無法使用。');
+ if(input.expected===undefined)checkVersion('1',input.expected);
+ const key=digest({operation:input.operation,key:input.key});
+ try {
+  const prepared=await assets!.prepare(input.actor,{key,targetServiceId:id,expectedVersion:input.expected!,contentType:file.mime as 'image/png'|'image/jpeg'|'image/webp',byteSize:file.bytes.length,sha256:(input.body as {sha256:string}).sha256});
+  const lease=await assets!.resumeUpload(input.actor,{key,intentId:prepared.intentId});
+  const binding={intentId:lease.intentId,fence:lease.fence,leaseToken:lease.leaseToken};
+  if(lease.state==='prepared'||lease.state==='processing')await assets!.write(input.actor,{...binding,key:digest({key,phase:'write',fence:lease.fence})},new ReadableStream({start(c){c.enqueue(file.bytes);c.close();}}));
+  let publicationClient:PoolClient;
+  return await assets!.finalizeVia<Awaited<ReturnType<typeof shown>>>(input.actor,{...binding,key:digest({key,phase:'finalize'})},{operation:'member.service.cover.replace',
+   execute:run=>serviceCoverMemberCommand(pool,input,authorize,async(q,context)=>{publicationClient=q;return run(q,context);}),
+   validateIntent:row=>requireCondition(row.expected_version===input.expected&&row.target_service_id===id&&row.source_sha256===(input.body as {sha256:string}).sha256,409,'asset_source_mismatch','上傳內容與準備紀錄不同。'),
+   result:()=>shown(publicationClient,input.actor,id)});
+ }catch(error){const committed=await probe();if(committed)return committed;if(error instanceof AssetStorageError)throw new Problem(503,'media_upload_unavailable','內容上傳暫時無法使用。');throw error;}
 }
 
 export async function removeMemberServiceCover(pool: Pool, input: Command, id: string, now = new Date()) {
@@ -206,12 +233,23 @@ export async function removeMemberServiceCover(pool: Pool, input: Command, id: s
   });
 }
 
-export async function readMemberCover(pool: Pool, actor: Actor, id: string) {
-  const row = (await pool.query(`SELECT c.image_bytes FROM member_service_covers c
-    JOIN member_services s ON s.service_id=c.service_id JOIN users u ON u.user_id=s.owner_user_id
-    WHERE s.service_id=$1 AND s.community_id=$2 AND ((s.owner_user_id=$3 AND s.state IN ('active','paused')) OR (${PUBLIC_VISIBLE}))`, [id, actor.community_id, actor.user_id])).rows[0];
-  requireCondition(row, 404, 'not_found', '找不到封面。');
-  return row.image_bytes as Buffer;
+async function coverSnapshot(pool:Pool,communityId:string,id:string,actor?:Actor):Promise<DomainMediaSnapshot|undefined> {
+ const row=(await pool.query(`SELECT s.aggregate_version::text AS version,s.state,u.active,is_verification_test_account(u.user_id) AS test_account,
+ c.storage_source,c.image_bytes,t.asset_id,t.scope_id,o.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id
+ FROM member_service_covers c JOIN member_services s USING(service_id) JOIN users u ON u.user_id=s.owner_user_id
+ LEFT JOIN member_service_cover_asset_targets t ON t.service_id=s.service_id AND t.linked_at_version<=s.aggregate_version
+ LEFT JOIN assets a ON a.asset_id=t.asset_id AND a.state='ready' AND a.purpose='member.service-cover'
+ LEFT JOIN asset_objects o ON o.asset_id=a.asset_id AND o.purpose='member.service-cover'
+ WHERE s.service_id=$1 AND s.community_id=$2 AND ${actor?`((s.owner_user_id=$3 AND s.state IN ('active','paused')) OR (${PUBLIC_VISIBLE}))` : PUBLIC_VISIBLE}`,
+ actor?[id,communityId,actor.user_id]:[id,communityId])).rows[0];
+ if(!row)return undefined;
+ return {purpose:'member.service-cover',targetId:id,variant:'cover',domainVersion:row.version,source:row.storage_source,
+ authorizationVersion:JSON.stringify([row.state,row.active,row.test_account]),legacyBytes:row.image_bytes,
+ assetId:row.asset_id,scopeId:row.scope_id,representationId:row.representation_id,
+ metadata:row.representation_id?{contentType:row.content_type,byteSize:row.byte_size,sha256:row.content_sha256,transformVersion:row.transform_version,policyRevision:row.policy_revision,profileId:row.profile_id}:null};
+}
+export async function readMemberCover(pool:Pool,actor:Actor,id:string,store?:ObjectStore) {
+ return (await readDomainMedia(()=>coverSnapshot(pool,actor.community_id,id,actor),{purpose:'member.service-cover',targetId:id,variant:'cover'},store)).bytes;
 }
 
 export async function resolvePublicCommunity(pool: Pool, configured?: string) {
@@ -220,13 +258,9 @@ export async function resolvePublicCommunity(pool: Pool, configured?: string) {
   return rows.rowCount === 1 ? rows.rows[0].id as string : null;
 }
 
-export async function publicMemberCover(pool: Pool, communityId: string | null, id: string) {
-  requireCondition(communityId && z.uuid().safeParse(id).success, 404, 'not_found', '找不到封面。');
-  const row = (await pool.query(`SELECT c.image_bytes FROM member_service_covers c
-    JOIN member_services s ON s.service_id=c.service_id JOIN users u ON u.user_id=s.owner_user_id
-    WHERE s.service_id=$1 AND s.community_id=$2 AND ${PUBLIC_VISIBLE}`, [id, communityId])).rows[0];
-  requireCondition(row, 404, 'not_found', '找不到封面。');
-  return row.image_bytes as Buffer;
+export async function publicMemberCover(pool:Pool,communityId:string|null,id:string,store?:ObjectStore) {
+ requireCondition(communityId&&z.uuid().safeParse(id).success,404,'not_found','找不到封面。');
+ return (await readDomainMedia(()=>coverSnapshot(pool,communityId!,id),{purpose:'member.service-cover',targetId:id,variant:'cover'},store)).bytes;
 }
 
 export async function readMemberServiceShare(pool: Pool, communityId: string, id: string) {

@@ -41,6 +41,7 @@ import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './
 import { PositioningPanel, GuildsPanel } from './modules/PositioningPanels'
 import { SupplierPanel, RetailPanel } from './modules/CommercePanels'
 import { OpenSourcePanel, MarketingPanel } from './modules/OpenSourcePanels'
+import { PrivateWorkAI } from './modules/PrivateWorkAI'
 import { WorkSharingEntry } from './modules/WorkSharingEntry'
 import {
   claimStateLabel,
@@ -91,6 +92,7 @@ const TAB_GUIDANCE: Record<TabId, string> = {
   cocreation: '查看一起開發的作品和參與入口。',
   squads: '查看小隊與共同進行的協作。',
   opensource: '貼上 GitHub 網址與介紹，預覽後分享到社群技能書。',
+  'private-ai': '建立私人工作、閱讀成果，並逐次確認模型推論的資料與上限。',
   workbench: '查看自己的工作、認領紀錄與進度。',
   showcase: '瀏覽作品和需求，尋找合作機會。',
   engagement: '查看合作紀錄與目前狀態。',
@@ -660,6 +662,7 @@ function Workspace({
             {tab === 'skills' && <SkillsPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'squads' && <SquadsPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'workbench' && <WorkbenchPanel />}
+            {tab === 'private-ai' && <PrivateWorkAI client={client} key={session.user.user_id}/>}
             {tab === 'showcase' && <ShowcasePanel />}
             {tab === 'engagement' && <EngagementPanel />}
             {tab === 'home' && <MemberHome client={client} session={session} onNavigate={selectTab} />}
@@ -683,6 +686,7 @@ function tabTitle(tab: TabId): string {
 
 function tabFromHash(): TabId {
   const value = window.location.hash.slice(1)
+  if(!value && window.location.pathname === '/device')return 'private-ai'
   if(value.startsWith('events/'))return 'events'
   if(value === 'highlights' || value.startsWith('highlights/'))return 'highlights'
   if(!value&&eventIdFromLocation())return 'events'

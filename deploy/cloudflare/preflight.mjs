@@ -7,28 +7,34 @@
 // stay in comments where the live topology made them contradictory.
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadCloudflareCredentials } from './lib/credentials.mjs';
 import { createReadOnlyClient, probeCloudflare, readHyperdriveCaching } from './lib/cloudflare.mjs';
 import { ociAlternativeCost, planetscaleCost } from './lib/cost.mjs';
 import { DEFAULT_MANIFEST, loadManifest, validateManifest } from './lib/manifest.mjs';
 import { checkMigrations } from './lib/migrations.mjs';
+import { evaluateReleaseCompatibility } from './lib/release-compatibility.mjs';
+import { parseJson, readBounded } from '../../packages/contribution-tools/io.mjs';
 import { assertProfile, ociAlternativeStatus, probeOci } from './lib/oci.mjs';
 import { probePlanetScale } from './lib/planetscale.mjs';
 import { buildProvisionPlan } from './lib/provision-plan.mjs';
 import { redactDeep, redactText } from './lib/redact.mjs';
 import { checkWranglerConfig, parseJsonc } from './lib/wrangler.mjs';
+import { checkMediaWranglerConfig } from './lib/media-wrangler.mjs';
 import { readFileSync, existsSync } from 'node:fs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DEFAULT_REPORT_DIR = join(homedir(), '.local', 'state', 'freedom-cloudflare-migration', 'reports');
-const COMMANDS = ['manifest', 'migrations', 'wrangler', 'cost', 'oci-alternative', 'cloudflare', 'oci', 'planetscale', 'plan', 'all'];
+const COMMANDS = ['manifest', 'migrations', 'compatibility', 'wrangler', 'cost', 'oci-alternative', 'cloudflare', 'oci', 'planetscale', 'plan', 'all'];
 const USAGE = `Usage: node deploy/cloudflare/preflight.mjs <command> [options]
 
 Commands (all read-only):
   manifest                 validate deploy/cloudflare/environments.json
   migrations               static PG18 compatibility check of migrations/
+  compatibility --compatibility-input P  local source/schema/rollback-floor diagnostic;
+                           requires a separately trusted host port for a compatible verdict.
+                           JSON never supplies approvals, observations or a clock.
   wrangler [--config P] [--env-file P]  validate the platform Worker config (default: wrangler.jsonc at repo root);
                            with --env-file also GET each real Hyperdrive id to prove caching.disabled.
                            Does not validate wrangler.admin-sync.jsonc: that checker requires platform routes, assets and images.
@@ -48,6 +54,8 @@ The --env-file is a chmod 600 file with CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API
 Options:
   --report                 also write the redacted JSON report to ${DEFAULT_REPORT_DIR} (0700/0600)
   --manifest P             alternate manifest (tests)
+  --compatibility-input P  bounded request JSON, also opts all into compatibility;
+                           no provider/DB reads, deployment permission or restore proof
   --execute                refused: this tool has no execute capability`;
 
 export function parseArgs(argv) {
@@ -57,7 +65,7 @@ export function parseArgs(argv) {
     if (!a.startsWith('--')) throw new Error(`Unexpected argument: ${a}`);
     const key = a.slice(2);
     if (['report', 'execute', 'help', 'compare', 'oci'].includes(key)) opts.flags[key] = true;
-    else if (['env-file', 'pscale-org', 'env', 'config', 'manifest', 'oci-profile'].includes(key)) {
+    else if (['env-file', 'pscale-org', 'env', 'config', 'manifest', 'oci-profile', 'compatibility-input'].includes(key)) {
       if (argv[i + 1] === undefined) throw new Error(`--${key} needs a value`);
       opts.flags[key] = argv[++i];
     } else throw new Error(`Unknown option --${key}`);
@@ -78,6 +86,7 @@ export async function run(argv, deps = {}) {
   if (!command || flags.help) return { code: command ? 0 : 2, output: USAGE };
   if (flags.execute) return { code: 3, output: 'Refused: this tool has no execute capability. Production releases are the operator private helper, outside this versioned preflight.' };
   if (!COMMANDS.includes(command)) return { code: 2, output: USAGE };
+  if (flags['compatibility-input'] && !['compatibility', 'all'].includes(command)) throw new Error('--compatibility-input is only valid with compatibility or all');
   if (flags['oci-profile']) assertProfile(flags['oci-profile']);
   const manifest = loadManifest(flags.manifest ?? DEFAULT_MANIFEST);
   const report = { tool: 'freedom-cloudflare-preflight/v3', generated_at: new Date().toISOString(), command, dry_run: true, provider_mutations: 0 };
@@ -85,6 +94,20 @@ export async function run(argv, deps = {}) {
 
   if (want('manifest')) report.manifest = validateManifest(manifest);
   if (want('migrations')) report.migrations = (({ ledger, ...rest }) => rest)(checkMigrations(join(ROOT, 'migrations'), manifest.database_defaults.migrations));
+  if (command === 'compatibility' || (command === 'all' && flags['compatibility-input'])) {
+    let input;
+    if (flags['compatibility-input']) {
+      const path = resolve(flags['compatibility-input']);
+      try { input = parseJson(await readBounded(dirname(path), basename(path), 16384), { maxBytes: 16384, maxDepth: 12, maxNodes: 256 }); }
+      catch { return { code: 2, output: 'compatibility input invalid or unavailable' }; }
+    }
+    // This port is supplied by a fixed trusted host, never by JSON, a flag,
+    // environment variable, candidate module, or this CLI's local clock.
+    report.compatibility = evaluateReleaseCompatibility(input, {
+      scan: checkMigrations(join(ROOT, 'migrations'), manifest.database_defaults.migrations),
+      host: deps.compatibilityHost,
+    });
+  }
   if (want('wrangler')) {
     const path = flags.config ?? join(ROOT, 'wrangler.jsonc');
     let hyperdriveConfigs;
@@ -95,6 +118,7 @@ export async function run(argv, deps = {}) {
       hyperdriveConfigs = await readHyperdriveCaching({ client: createReadOnlyClient({ credentials, fetchImpl: deps.fetchImpl }), accountId: credentials.accountId, ids });
     }
     report.wrangler = checkWranglerConfig(path, manifest, { hyperdriveConfigs });
+    report.media_wrangler = checkMediaWranglerConfig(path, manifest);
   }
   if (want('cost')) report.cost = { selected: planetscaleCost(manifest), oci_alternative: ['CI.Standard.E4.Flex', 'CI.Standard.A1.Flex'].map((connectorShape) => ociAlternativeCost(manifest, { connectorShape })) };
   if (want('oci-alternative')) report.oci_alternative = ociAlternativeStatus(manifest);
@@ -118,7 +142,9 @@ export async function run(argv, deps = {}) {
     report.planetscale = await probePlanetScale({ run: deps.pscaleRun, manifest, org: flags['pscale-org'] });
   }
 
-  const failed = report.manifest?.ok === false || report.migrations?.ok === false || report.wrangler?.status === 'fail';
+  const failed = report.manifest?.ok === false || report.migrations?.ok === false || report.wrangler?.status === 'fail'
+    || report.media_wrangler?.structural === false
+    || (report.compatibility !== undefined && report.compatibility.status !== 'compatible');
   const safe = redactDeep(report);
   if (flags.report) safe.report_file = writePrivateReport(report, deps.reportDir);
   return { code: failed ? 1 : 0, output: JSON.stringify(safe, null, 2) };

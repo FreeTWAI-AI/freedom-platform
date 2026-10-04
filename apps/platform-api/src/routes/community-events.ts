@@ -1,11 +1,14 @@
+import type {PlatformRuntime} from '../runtime.js';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import type { Pool } from 'pg';
 import { requireCondition } from '../../../../packages/shared/problem.js';
+import { sha256 } from '../../../../packages/asset-storage/index.js';
+import { planObjectHttpRequest } from '../../../../packages/asset-storage/http-range.js';
 import { authRateLimit } from '../../../../modules/identity-membership/members.js';
 import type { EventEmailSender } from '../../../../modules/community/events.js';
 import { moduleCommand, type PlatformEnv } from '../module-context.js';
-import { cancelEvent, createEvent, eventReferralReport, getEventShareCode, listEventBulletins, listEvents, readEvent, readEventBanner, readEventVideo, reviewEventAsGuildMaster, saveEventBanner, saveEventVideo, setRsvp, updateEvent } from '../../../../modules/community/events.js';
+import { eventVideoHttp, cancelEvent, createEvent, eventReferralReport, getEventShareCode, listEventBulletins, listEvents, readEvent, readEventBanner, readEventVideo, reviewEventAsGuildMaster, saveEventBanner, saveEventVideo, setRsvp, updateEvent } from '../../../../modules/community/events.js';
 
 const BANNER_MAX_BYTES=512*1024;
 const VIDEO_MAX_BYTES=20*1024*1024;
@@ -28,18 +31,30 @@ export async function boundedMedia(request:Request,max:number,message:string){
   requireCondition(size>0,422,'invalid_media','請先選擇檔案。');return Buffer.concat(chunks,size);
 }
 
-export function eventVideoResponse(c:Context,media:{bytes:Buffer;mime:string},publicCache=false){
-  const size=media.bytes.length,range=c.req.header('Range');let start=0,end=size-1,status:200|206=200;
-  if(range){const match=/^bytes=(\d+)-(\d*)$/.exec(range);start=match?Number(match[1]):-1;end=match&&match[2]?Number(match[2]):size-1;
-    if(!match||!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||start>=size||end<start){c.header('Content-Range',`bytes */${size}`);return c.body(null,416);}
-    end=Math.min(end,size-1);status=206;c.header('Content-Range',`bytes ${start}-${end}/${size}`);
-  }
-  c.header('Content-Type',media.mime);c.header('Content-Length',String(end-start+1));c.header('Accept-Ranges','bytes');
+/** Called only after the original member/public domain read authorizes media.
+ * This legacy bytea response uses the same range planner as future Asset reads;
+ * a range is transport evidence, never whole-object integrity verification. */
+export async function eventVideoResponse(c:Context,media:{bytes:Buffer;mime:string},publicCache=false){
+  const plan=planObjectHttpRequest({method:c.req.method==='HEAD'?'HEAD':'GET',byteSize:media.bytes.length,
+    contentType:media.mime,etag:await sha256(media.bytes),rangeHeader:c.req.header('Range'),ifRangeHeader:c.req.header('If-Range')});
+  for(const [name,value] of Object.entries(plan.headers))c.header(name,value);
   c.header('Cache-Control',publicCache?'public, max-age=300':'private, no-store');c.header('Cross-Origin-Resource-Policy','same-origin');
-  return c.body(new Uint8Array(media.bytes.subarray(start,end+1)),status);
+  if(!plan.sendBody)return c.body(null,plan.status);
+  const range=plan.range??{offset:0,length:media.bytes.length};
+  return c.body(new Uint8Array(media.bytes.subarray(range.offset,range.offset+range.length)),plan.status);
 }
 
-export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSender,origin='') {
+/** Asset range transport is lazy; the domain has rechecked its original ACL. */
+export async function eventAssetVideoResponse(c:Context,pool:Pool,id:string,store:PlatformRuntime['eventVideoAssetStore'],actor?:PlatformEnv['Variables']['actor']){
+ const media=await eventVideoHttp(pool,id,{method:c.req.method==='HEAD'?'HEAD':'GET',rangeHeader:c.req.header('Range'),ifRangeHeader:c.req.header('If-Range')},store,actor);
+ for(const [name,value] of Object.entries(media.plan.headers))c.header(name,value);
+ c.header('Cache-Control',actor?'private, no-store':'public, max-age=300');c.header('Cross-Origin-Resource-Policy','same-origin');if(actor)c.header('Vary','Cookie');
+ if(media.body===null)return c.body(null,media.plan.status);
+ if(media.body instanceof Uint8Array)return c.body(new Uint8Array(media.body),media.plan.status);
+ return c.body(media.body,media.plan.status);
+}
+
+export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSender,origin='',runtime?:Pick<PlatformRuntime,'eventBannerAssets'|'eventBannerAssetStore'|'eventVideoAssets'|'eventVideoAssetStore'>) {
   const app=new Hono<PlatformEnv>();
   const id=(raw:string)=>z.uuid().parse(raw);
   app.get('/events',async c=>c.json({items:await listEvents(pool,c.get('actor'))}));
@@ -48,7 +63,7 @@ export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSend
   app.get('/events/:id/referrals',async c=>c.json({items:await eventReferralReport(pool,c.get('actor'),id(c.req.param('id')))}));
   app.post('/events/:id/share-code',async c=>c.json(await getEventShareCode(pool,c.get('actor'),id(c.req.param('id')))));
   app.get('/events/:id/banner',async c=>{
-    const bytes=await readEventBanner(pool,c.get('actor'),id(c.req.param('id')));
+    const bytes=await readEventBanner(pool,c.get('actor'),id(c.req.param('id')),runtime?.eventBannerAssetStore);
     c.header('Content-Type','image/webp');c.header('Cache-Control','private, no-store');c.header('Vary','Cookie');c.header('Cross-Origin-Resource-Policy','same-origin');
     return c.body(new Uint8Array(bytes));
   });
@@ -60,18 +75,18 @@ export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSend
     await authRateLimit(pool,'event-banner-member',c.get('actor').user_id,12,60);
     const bytes=await boundedMedia(c.req.raw,BANNER_MAX_BYTES,'Banner 需為 512 KiB 以下。');
     const orientation=c.req.header('X-Poster-Orientation')??'landscape';requireCondition(orientation==='portrait'||orientation==='landscape',422,'invalid_orientation','海報方向不正確。');
-    const result=await saveEventBanner(pool,{actor:c.get('actor'),operation:`${c.req.method} ${c.req.path}`,key,expected:version.slice(1,-1),body:null},id(c.req.param('id')),{bytes,mime:c.req.header('Content-Type')!,orientation});
+    const result=await saveEventBanner(pool,{actor:c.get('actor'),operation:`${c.req.method} ${c.req.path}`,key,expected:version.slice(1,-1),body:null},id(c.req.param('id')),{bytes,mime:c.req.header('Content-Type')!,orientation},runtime?.eventBannerAssets);
     c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);
   });
   app.post('/events/:id/banner/remove',async c=>c.json(await saveEventBanner(pool,await moduleCommand(c),id(c.req.param('id')),null)));
-  app.get('/events/:id/video',async c=>eventVideoResponse(c,await readEventVideo(pool,c.get('actor'),id(c.req.param('id')))));
+  app.get('/events/:id/video',async c=>eventAssetVideoResponse(c,pool,id(c.req.param('id')),runtime?.eventVideoAssetStore,c.get('actor')));
   app.post('/events/:id/video',async c=>{
     checkEventVideoUploadHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
     const version=c.req.header('If-Match');requireCondition(version&&/^"[1-9][0-9]*"$/.test(version),version?400:428,'version_required','請重新整理活動後再保存影片。');
     const key=c.req.header('Idempotency-Key')??'';requireCondition(/^[A-Za-z0-9_-]{8,128}$/.test(key),400,'idempotency_required','請提供有效的 Idempotency-Key。');
     await authRateLimit(pool,'event-video-member',c.get('actor').user_id,8,3600);
     const bytes=await boundedMedia(c.req.raw,VIDEO_MAX_BYTES,'影片需為 20 MiB 以下。');
-    const result=await saveEventVideo(pool,{actor:c.get('actor'),operation:`${c.req.method} ${c.req.path}`,key,expected:version.slice(1,-1),body:null},id(c.req.param('id')),{bytes,mime:c.req.header('Content-Type') as 'video/mp4'|'video/webm'});
+    const result=await saveEventVideo(pool,{actor:c.get('actor'),operation:`${c.req.method} ${c.req.path}`,key,expected:version.slice(1,-1),body:null},id(c.req.param('id')),{bytes,mime:c.req.header('Content-Type') as 'video/mp4'|'video/webm'},runtime?.eventVideoAssets);
     c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);
   });
   app.post('/events/:id/video/remove',async c=>c.json(await saveEventVideo(pool,await moduleCommand(c),id(c.req.param('id')),null)));

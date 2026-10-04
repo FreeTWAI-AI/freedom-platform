@@ -57,7 +57,7 @@ const call = (path: string, init?: RequestInit) => mf.dispatchFetch(origin + pat
 test('workerd runs the exact compatibility date and sharp alias from wrangler.jsonc', async () => {
   const config = await readFile('wrangler.jsonc', 'utf8');
   assert.match(config, new RegExp(`"compatibility_date": "${compatibilityDate}"`));
-  assert.match(config, /"alias": \{ "sharp": "\.\/packages\/shared\/sharp-unavailable\.ts" \}/);
+  assert.match(config, /"sharp": "\.\/packages\/shared\/sharp-unavailable\.ts"/);
   const bundle = await readFile(resolve(bundleDir, 'worker.js'), 'utf8');
   assert.ok(bundle.includes('// packages/shared/sharp-unavailable.ts'));
   assert.ok(!/node_modules\/sharp\/|@img\/sharp-/.test(bundle), 'native sharp must not be bundled');

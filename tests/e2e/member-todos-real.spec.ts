@@ -33,7 +33,7 @@ async function removeOwned(db:Pool,own:Owned){
     users=[...new Set([...own.users,...(await q('SELECT user_id FROM users WHERE email=ANY($1::text[])',[own.emails])).rows.map(row=>row.user_id as string)])];
     await q('DELETE FROM outbox WHERE transition_id IN (SELECT transition_id FROM transition_journal WHERE actor_ref=ANY($1::uuid[]))',[users]);
     await q('DELETE FROM transition_journal WHERE actor_ref=ANY($1::uuid[])',[users]);
-    for(const table of ['member_guild_answers','member_social_links','member_avatars','onboarding_assessments','member_skill_book_grants','guild_member_preferences',
+    for(const table of ['member_client_errors','member_guild_answers','member_social_links','member_avatars','onboarding_assessments','member_skill_book_grants','guild_member_preferences',
       'positioning_profession_memberships','member_accounts','command_receipts','sessions'])await q(`DELETE FROM ${table} WHERE user_id=ANY($1::uuid[])`,[users]);
     await q('DELETE FROM users WHERE user_id=ANY($1::uuid[])',[users]);
     await client.query('COMMIT');
@@ -136,7 +136,11 @@ test('a legacy member completes profile and positioning todos through the real U
 
     // The member's own 設為主要公會 is what completes the primary guild task.
     await follow(page,'primary-guild','前往職業公會','guilds','職業公會');
+    const primaryResponse=page.waitForResponse(response=>response.url().endsWith(`/api/v1/guilds/${GUILD}/primary`)&&response.request().method()==='POST');
     await card.getByRole('button',{name:'設為主要公會',exact:true}).click();
+    const initialPrimary=await primaryResponse;
+    expect(initialPrimary.request().headers()['if-match']).toBeUndefined();
+    expect(initialPrimary.status()).toBe(200);
     await expect(page.getByRole('status').filter({hasText:`主要公會已設為${GUILD_NAME}。`})).toBeVisible();
     await openTodos(page);
     await expectStates(page,{'primary-guild':'done','skill-book':'done',onboarding:'todo'});

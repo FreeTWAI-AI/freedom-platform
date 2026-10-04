@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "binding": {
+      "type": "object",
+      "properties": {
+        "ownerUserId": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "principalId": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "scopeId": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "runtimeDeviceId": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "connectionId": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "connectionVersion": {
+          "type": "string",
+          "maxLength": 19,
+          "pattern": "^[1-9][0-9]{0,18}$(?![\\s\\S])"
+        },
+        "keyThumbprint": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43,
+          "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "ownerUserId",
+        "principalId",
+        "scopeId",
+        "runtimeDeviceId",
+        "connectionId",
+        "connectionVersion",
+        "keyThumbprint"
+      ],
+      "additionalProperties": false
+    },
+    "tokenId": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$(?![\\s\\S])"
+    },
+    "proofId": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$(?![\\s\\S])"
+    },
+    "issuedAt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "nonce": {
+      "type": "string",
+      "minLength": 43,
+      "maxLength": 43,
+      "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+    },
+    "validFromMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "validUntilMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "assurance": {
+      "type": "string",
+      "const": "cryptographic_only"
+    },
+    "operational_authority": {
+      "type": "boolean",
+      "const": false
+    }
+  },
+  "required": [
+    "binding",
+    "tokenId",
+    "proofId",
+    "issuedAt",
+    "expiresAt",
+    "nonce",
+    "validFromMs",
+    "validUntilMs",
+    "assurance",
+    "operational_authority"
+  ],
+  "additionalProperties": false,
+  "description": "Cryptographic evidence under caller-supplied host assumptions only; validFromMs inclusive and validUntilMs exclusive intersect token, issuer-key and proof clock windows for trusted post-await rechecks. No DB authority, replay prevention, nonce consumption, execution permission or VerifiedContext.",
+  "$id": "https://freetwai.com/contracts/execution/v1/bootstrap-proof-result"
+}

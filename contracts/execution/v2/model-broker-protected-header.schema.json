@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "alg": {
+      "type": "string",
+      "const": "EdDSA"
+    },
+    "typ": {
+      "type": "string",
+      "const": "freedom-model-broker-assertion+jws"
+    },
+    "kid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_-]+$(?![\\s\\S])"
+    }
+  },
+  "required": [
+    "alg",
+    "typ",
+    "kid"
+  ],
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/execution/v2/model-broker-protected-header",
+  "description": "Closed reference-only model broker data. Parsing grants no member authentication, secret access, proof or execution authority."
+}

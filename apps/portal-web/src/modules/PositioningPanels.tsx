@@ -47,7 +47,7 @@ export function PositioningPanel({client,session,onNavigate}:ModulePanelProps) {
   </section>;
 }
 
-type GuildPreferences={primary_guild_key:string|null;secondary_guild_keys?:string[];aggregate_version?:number};
+type GuildPreferences={primary_guild_key:string|null;secondary_guild_keys?:string[];aggregate_version?:number|null};
 type GuildApplication={application_id:string;name:string;profession:string;reason:string;state:string;created_at:string;reviewed_at:string|null;review_reason:string|null;approved_guild_key:string|null;approved_guild_name:string|null};
 const applicationStatus:Record<string,string>={pending:'待審核',approved:'已通過',declined:'未通過'};
 
@@ -84,8 +84,8 @@ export function GuildsPanel({client,session,onNavigate}:ModulePanelProps) {
     const result=await mutate(`/guilds/${g.guild_key}/${joining?'join':'leave'}`,{},g.membership?.aggregate_version);
     if(result){setEditing(false);announce(joining?`已加入${g.name}，技能書已解鎖。你會先以實習成員加入。`:`已退出${g.name}，已解鎖的技能書保留。`,joining?g.name:'');await load();window.dispatchEvent(new Event('freedom-profile-updated'));}
   }
-  async function primary(g:GuildSummary){setApplicationSuccess('');const result=await mutate(`/guilds/${g.guild_key}/primary`,{},preferences?.aggregate_version);if(result){setEditing(false);announce(`主要公會已設為${g.name}。`);await load();window.dispatchEvent(new Event('freedom-profile-updated'));}}
-  async function saveSecondary(event:FormEvent){event.preventDefault();setApplicationSuccess('');const result=await mutate('/me/guild-preferences/secondary',{secondary_guild_keys:secondaryDraft},preferences?.aggregate_version);if(result){setEditing(false);announce('次要公會已儲存。');await load();window.dispatchEvent(new Event('freedom-profile-updated'));}}
+  async function primary(g:GuildSummary){setApplicationSuccess('');const result=await mutate(`/guilds/${g.guild_key}/primary`,{},preferences?.aggregate_version??undefined);if(result){setEditing(false);announce(`主要公會已設為${g.name}。`);await load();window.dispatchEvent(new Event('freedom-profile-updated'));}}
+  async function saveSecondary(event:FormEvent){event.preventDefault();setApplicationSuccess('');const result=await mutate('/me/guild-preferences/secondary',{secondary_guild_keys:secondaryDraft},preferences?.aggregate_version??undefined);if(result){setEditing(false);announce('次要公會已儲存。');await load();window.dispatchEvent(new Event('freedom-profile-updated'));}}
   async function apply(event:FormEvent<HTMLFormElement>){
     event.preventDefault();setApplicationSuccess('');
     const submitted={name:draft.name.trim(),profession:draft.profession.trim(),reason:draft.reason.trim()};
@@ -116,7 +116,7 @@ export function GuildsPanel({client,session,onNavigate}:ModulePanelProps) {
     if(!removing&&secondaryKeys.length>=2)return;
     setApplicationSuccess('');
     const next=removing?secondaryKeys.filter(key=>key!==g.guild_key):[...secondaryKeys,g.guild_key];
-    const result=await mutate('/me/guild-preferences/secondary',{secondary_guild_keys:next},preferences?.aggregate_version);
+    const result=await mutate('/me/guild-preferences/secondary',{secondary_guild_keys:next},preferences?.aggregate_version??undefined);
     if(result){setEditing(false);announce(removing?`已取消${g.name}的次要公會。`:`已將${g.name}設為次要公會。`);await load();window.dispatchEvent(new Event('freedom-profile-updated'));}
   }
   return <section className="module-panel guilds-panel" aria-label="公會目錄">

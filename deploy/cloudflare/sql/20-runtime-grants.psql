@@ -10,4 +10,173 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE O
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO :"runtime";
 -- The migration ledger is read-only for the application.
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON schema_migrations FROM :"runtime";
+-- Operator-owned private policy: no application changes to policy content.
+-- FOR SHARE needs UPDATE on at least one column. The only column granted is
+-- generated scope_kind, whose only legal assignment is DEFAULT (a no-op).
+-- Clear old column ACLs as well as table ACLs. Inherited/PUBLIC privileges
+-- cannot be removed here; the guard aborts this transaction if they remain.
+-- App roles must be dedicated: no memberships (including SET-only/ADMIN-only)
+-- or role-administration attributes. NOINHERIT alone does not prevent SET ROLE.
+-- Absence before migration 085 is allowed; run again AFTER migrate/restore.
+-- BEGIN PRIVATE POLICY GRANTS
+SELECT format($policy$
+  REVOKE ALL PRIVILEGES ON TABLE %1$s FROM %2$I;
+  REVOKE ALL PRIVILEGES (%4$s) ON TABLE %1$s FROM %2$I;
+  GRANT SELECT, UPDATE (scope_kind) ON TABLE %1$s TO %2$I;
+  DO $guard$
+  BEGIN
+    IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=%2$L AND
+        (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls
+          OR EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)))
+      OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+        JOIN pg_catalog.pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
+        WHERE a.attrelid=%3$L::oid AND a.attname='scope_kind' AND a.attgenerated='s'
+          AND pg_catalog.pg_get_expr(d.adbin,d.adrelid)='''personal''::text')
+      OR pg_catalog.has_table_privilege(%2$L,%3$L::oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+      OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+        WHERE a.attrelid=%3$L::oid AND a.attnum>0 AND NOT a.attisdropped AND (
+          pg_catalog.has_column_privilege(%2$L,%3$L::oid,a.attnum,'INSERT,REFERENCES,SELECT WITH GRANT OPTION,UPDATE WITH GRANT OPTION')
+          OR (a.attname<>'scope_kind' AND pg_catalog.has_column_privilege(%2$L,%3$L::oid,a.attnum,'UPDATE'))))
+    THEN RAISE EXCEPTION 'Unsafe runtime private policy privileges'; END IF;
+  END $guard$;
+$policy$, c.oid::regclass, :'runtime', c.oid,
+  (SELECT string_agg(quote_ident(a.attname),',' ORDER BY a.attnum)
+    FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped))
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND c.relname IN ('private_work_persistence_policy','model_inference_export_policy') AND c.relkind='r'
+\gexec
+-- END PRIVATE POLICY GRANTS
+-- Runtime may lock canonical media policy, never grant or change persistence.
+-- BEGIN DOMAIN MEDIA POLICY GRANTS
+SELECT format($policy$
+  REVOKE ALL PRIVILEGES ON TABLE %1$s FROM %2$I;
+  REVOKE ALL PRIVILEGES (%4$s) ON TABLE %1$s FROM %2$I;
+  GRANT SELECT, UPDATE (policy_lock) ON TABLE %1$s TO %2$I;
+  DO $guard$
+  BEGIN
+    IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=%2$L AND
+        (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls
+          OR EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)))
+      OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+        JOIN pg_catalog.pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
+        WHERE a.attrelid=%3$L::oid AND a.attname='policy_lock' AND a.attgenerated='s'
+          AND pg_catalog.pg_get_expr(d.adbin,d.adrelid)='0')
+      OR pg_catalog.has_table_privilege(%2$L,%3$L::oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+      OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+        WHERE a.attrelid=%3$L::oid AND a.attnum>0 AND NOT a.attisdropped AND (
+          pg_catalog.has_column_privilege(%2$L,%3$L::oid,a.attnum,'INSERT,REFERENCES,SELECT WITH GRANT OPTION,UPDATE WITH GRANT OPTION')
+          OR (a.attname<>'policy_lock' AND pg_catalog.has_column_privilege(%2$L,%3$L::oid,a.attnum,'UPDATE'))))
+    THEN RAISE EXCEPTION 'Unsafe runtime domain media policy privileges'; END IF;
+  END $guard$;
+$policy$, c.oid::regclass, :'runtime', c.oid,
+  (SELECT string_agg(quote_ident(a.attname),',' ORDER BY a.attnum)
+    FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped))
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND c.relname IN ('domain_media_storage_policy') AND c.relkind='r'
+\gexec
+-- END DOMAIN MEDIA POLICY GRANTS
+-- An app role cannot approve, run or rewrite an operator migration.
+-- Remove table and stale column grants left by the broad legacy grant above.
+-- BEGIN OPERATOR MEDIA TABLE EXCLUSIONS
+SELECT format($operator$
+  REVOKE ALL PRIVILEGES ON TABLE %1$s FROM %2$I;
+  REVOKE ALL PRIVILEGES (%4$s) ON TABLE %1$s FROM %2$I;
+  DO $guard$
+  BEGIN
+    IF pg_catalog.has_table_privilege(%2$L,%3$L::oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+      OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid=%3$L::oid
+        AND a.attnum>0 AND NOT a.attisdropped
+        AND pg_catalog.has_column_privilege(%2$L,%3$L::oid,a.attnum,'SELECT,INSERT,UPDATE,REFERENCES'))
+    THEN RAISE EXCEPTION 'Unsafe runtime operator media privileges'; END IF;
+  END $guard$;
+$operator$, c.oid::regclass, :'runtime', c.oid,
+  (SELECT string_agg(quote_ident(a.attname),',' ORDER BY a.attnum)
+    FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped))
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND c.relname IN ('media_backfill_operator_policy','media_backfill_jobs','media_backfill_items','media_backfill_audit') AND c.relkind='r'
+\gexec
+-- END OPERATOR MEDIA TABLE EXCLUSIONS
+-- BEGIN OPERATOR MEDIA FUNCTION EXCLUSIONS
+SELECT format($operator$
+  REVOKE ALL PRIVILEGES ON FUNCTION %1$s FROM %2$I;
+  DO $guard$
+  BEGIN
+    IF pg_catalog.has_function_privilege(%2$L,%3$L::oid,'EXECUTE')
+    THEN RAISE EXCEPTION 'Unsafe runtime operator media privileges'; END IF;
+  END $guard$;
+$operator$, p.oid::regprocedure, :'runtime', p.oid)
+FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+WHERE n.nspname='public' AND p.proname IN ('lock_media_backfill_operator_approval','lock_media_backfill_cover_owner','lock_media_backfill_cover_consent','publish_media_backfill_cover','lock_media_backfill_video_organizer','lock_media_backfill_video_consent','publish_media_backfill_video','lock_media_backfill_banner_organizer','lock_media_backfill_banner_consent','publish_media_backfill_banner','lock_media_backfill_social_author','lock_media_backfill_social_consent','publish_media_backfill_social','lock_media_backfill_skill_owner','lock_media_backfill_skill_consent','publish_media_backfill_skill','lock_media_backfill_highlight_uploader','lock_media_backfill_highlight_consent','publish_media_backfill_highlight','lock_media_backfill_highlight_bytes','lock_media_backfill_avatar_owner','lock_media_backfill_avatar_consent','operator_avatar_intent_admitted','publish_media_backfill_avatar')
+\gexec
+-- END OPERATOR MEDIA FUNCTION EXCLUSIONS
+-- BEGIN OPERATOR MEDIA SEQUENCE EXCLUSIONS
+SELECT format($operator$
+  REVOKE ALL PRIVILEGES ON SEQUENCE %1$s FROM %2$I;
+  DO $guard$
+  BEGIN
+    IF pg_catalog.has_sequence_privilege(%2$L,%3$L::oid,'USAGE,SELECT,UPDATE')
+    THEN RAISE EXCEPTION 'Unsafe runtime operator media privileges'; END IF;
+  END $guard$;
+$operator$, c.oid::regclass, :'runtime', c.oid)
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND c.relname='media_backfill_audit_audit_id_seq' AND c.relkind='S'
+\gexec
+-- END OPERATOR MEDIA SEQUENCE EXCLUSIONS
+-- Broker ciphertext is excluded after the legacy broad application grant.
+-- Clear pre-existing column ACLs as well; role inheritance/SET ROLE is rejected.
+-- BEGIN BROKER CREDENTIAL EXCLUSIONS
+SELECT format($broker$
+  REVOKE ALL PRIVILEGES ON TABLE %1$s FROM %2$I;
+  REVOKE ALL PRIVILEGES (%4$s) ON TABLE %1$s FROM %2$I;
+  %5$s
+  DO $guard$
+  BEGIN
+    IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=%2$L AND
+        (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls
+          OR EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)))
+      OR pg_catalog.has_table_privilege(%2$L,%3$L::oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+      OR (%6$L='broker_credential_vault' AND pg_catalog.has_table_privilege(%2$L,%3$L::oid,'SELECT'))
+      OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid=%3$L::oid AND a.attnum>0 AND NOT a.attisdropped
+        AND (pg_catalog.has_column_privilege(%2$L,%3$L::oid,a.attnum,'INSERT,UPDATE,REFERENCES,SELECT WITH GRANT OPTION')
+          OR (%6$L='broker_credential_vault' AND pg_catalog.has_column_privilege(%2$L,%3$L::oid,a.attnum,'SELECT'))))
+    THEN RAISE EXCEPTION 'Unsafe runtime broker privileges'; END IF;
+  END $guard$;
+$broker$, c.oid::regclass, :'runtime', c.oid,
+  (SELECT string_agg(quote_ident(a.attname),',' ORDER BY a.attnum)
+    FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped),
+  CASE WHEN c.relname='broker_model_credentials' THEN format('GRANT SELECT ON TABLE %s TO %I;',c.oid::regclass,:'runtime') ELSE '' END,c.relname)
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND c.relname IN ('broker_model_credentials','broker_credential_vault') AND c.relkind='r'
+\gexec
+-- END BROKER CREDENTIAL EXCLUSIONS
+-- Original member session authorization is main-issued, broker-claimed.
+-- This table is never a public metadata DTO. Clear both table and column ACLs
+-- left by the historical broad grant; main cannot consume or rewrite a nonce.
+-- BEGIN MODEL BROKER AUTHORIZATION EXCLUSIONS
+SELECT format($authorization$
+  REVOKE ALL PRIVILEGES ON TABLE %1$s FROM %2$I;
+  REVOKE ALL PRIVILEGES (%4$s) ON TABLE %1$s FROM %2$I;
+  GRANT SELECT, INSERT ON TABLE %1$s TO %2$I;
+  DO $guard$
+  BEGIN
+    IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=%2$L AND
+        (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls
+          OR EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)))
+      OR pg_catalog.has_table_privilege(%2$L,%3$L::oid,'UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN,SELECT WITH GRANT OPTION,INSERT WITH GRANT OPTION')
+      OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid=%3$L::oid AND a.attnum>0 AND NOT a.attisdropped
+        AND pg_catalog.has_column_privilege(%2$L,%3$L::oid,a.attnum,'UPDATE,REFERENCES,SELECT WITH GRANT OPTION,INSERT WITH GRANT OPTION'))
+      OR EXISTS (SELECT 1 FROM pg_catalog.pg_class c,
+        LATERAL pg_catalog.aclexplode(COALESCE(c.relacl,pg_catalog.acldefault('r',c.relowner))) acl
+        WHERE c.oid=%3$L::oid AND acl.grantee=0)
+      OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a,LATERAL pg_catalog.aclexplode(a.attacl) acl
+        WHERE a.attrelid=%3$L::oid AND a.attnum>0 AND NOT a.attisdropped AND acl.grantee=0)
+    THEN RAISE EXCEPTION 'Unsafe runtime model broker authorization privileges'; END IF;
+  END $guard$;
+$authorization$, c.oid::regclass, :'runtime', c.oid,
+  (SELECT string_agg(quote_ident(a.attname),',' ORDER BY a.attnum)
+    FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped))
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND c.relname IN ('model_broker_authorizations','credential_ingest_authorizations') AND c.relkind='r'
+\gexec
+-- END MODEL BROKER AUTHORIZATION EXCLUSIONS
 COMMIT;

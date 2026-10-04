@@ -10,6 +10,11 @@ import type { GitHubSocialOptions } from './routes/github-social.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 import type { PasswordEmailSender } from '../../../modules/identity-membership/password-recovery.js';
 import type { EventEmailSender } from '../../../modules/community/events.js';
+import { bindPrivateAiProductTransport, bindPrivateAiProductBrowserPolicy, type PrivateAiProductTransport } from './private-ai-product.js';
+
+type NodeAppOptions = {adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;
+  eventEmailSender?:EventEmailSender;maintainerWebhookSecret?:string;now?:()=>Date;avatarAssetStore?:PlatformRuntime['avatarAssetStore'];serviceCoverAssets?:PlatformRuntime['serviceCoverAssets'];serviceCoverAssetStore?:PlatformRuntime['serviceCoverAssetStore'];eventBannerAssets?:PlatformRuntime['eventBannerAssets'];eventBannerAssetStore?:PlatformRuntime['eventBannerAssetStore'];eventVideoAssets?:PlatformRuntime['eventVideoAssets'];eventVideoAssetStore?:PlatformRuntime['eventVideoAssetStore'];skillImageAssets?:PlatformRuntime['skillImageAssets'];skillImageAssetStore?:PlatformRuntime['skillImageAssetStore'];socialThumbnailAssets?:PlatformRuntime['socialThumbnailAssets'];socialThumbnailAssetStore?:PlatformRuntime['socialThumbnailAssetStore'];eventHighlightAssets?:PlatformRuntime['eventHighlightAssets'];eventHighlightAssetStore?:PlatformRuntime['eventHighlightAssetStore'];
+  linkPreviewFetch?:PlatformRuntime['linkPreviewFetch'];privateAiProduct?:PrivateAiProductTransport};
 
 // Node host adapter. The Worker bundle never imports this module, so the
 // socket-based address below is only ever read from a real Node server.
@@ -22,7 +27,7 @@ function authNetwork(c:Context) {
 }
 
 /** Node runtime: settings are read from process configuration when used, as before. */
-export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:{adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;eventEmailSender?:EventEmailSender;maintainerWebhookSecret?:string;now?:()=>Date;linkPreviewFetch?:PlatformRuntime['linkPreviewFetch']}={}):PlatformRuntime {
+export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<NodeAppOptions,'privateAiProduct'>={}):PlatformRuntime {
   return {
     registrationCommunityId:()=>process.env.FREEDOM_REGISTRATION_COMMUNITY_ID,
     githubTokenKey:()=>options.githubSocial?.tokenKey??process.env.GITHUB_SOCIAL_TOKEN_KEY,
@@ -33,13 +38,19 @@ export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:{adminVe
     sourceNetwork:authNetwork,
     allowedHosts:allowedRequestHosts(freedomEnv,origin),
     publicOrigin:LIVE_PUBLIC_ORIGIN,
-    passwordEmailSender:options.passwordEmailSender,
+    passwordEmailSender:options.passwordEmailSender,avatarAssetStore:options.avatarAssetStore,serviceCoverAssets:options.serviceCoverAssets,serviceCoverAssetStore:options.serviceCoverAssetStore,eventBannerAssets:options.eventBannerAssets,eventBannerAssetStore:options.eventBannerAssetStore,eventVideoAssets:options.eventVideoAssets,eventVideoAssetStore:options.eventVideoAssetStore,skillImageAssets:options.skillImageAssets,skillImageAssetStore:options.skillImageAssetStore,socialThumbnailAssets:options.socialThumbnailAssets,socialThumbnailAssetStore:options.socialThumbnailAssetStore,eventHighlightAssets:options.eventHighlightAssets,eventHighlightAssetStore:options.eventHighlightAssetStore,
     eventEmailSender:options.eventEmailSender,
     now:options.now,
     linkPreviewFetch:options.linkPreviewFetch??((input,init)=>globalThis.fetch(input,init)),
   };
 }
 
-export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:FreedomEnv='local',options:{adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;eventEmailSender?:EventEmailSender;maintainerWebhookSecret?:string;now?:()=>Date;linkPreviewFetch?:PlatformRuntime['linkPreviewFetch']}={}) {
-  return createPlatformApp(pool,origin,freedomEnv,nodeRuntime(freedomEnv,origin,options),{githubSocial:options.githubSocial});
+export function createApp(pool:Pool,origin='http://127.0.0.1:4310',freedomEnv:FreedomEnv='local',options:NodeAppOptions={}) {
+  const runtime=nodeRuntime(freedomEnv,origin,options);
+  const product=options.privateAiProduct;
+  if(product!==undefined){
+    runtime.privateAiProduct=bindPrivateAiProductTransport(product,pool,origin,freedomEnv);
+    runtime.privateAiSetupOrigin=bindPrivateAiProductBrowserPolicy(product,pool,origin,freedomEnv);
+  }
+  return createPlatformApp(pool,origin,freedomEnv,runtime,{githubSocial:options.githubSocial});
 }

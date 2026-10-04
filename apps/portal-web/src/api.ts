@@ -52,13 +52,13 @@ export class ApiError extends Error {
 export type RequestOptions = {
   body?: unknown
   idempotencyKey?: string
-  ifMatch?: number
+  ifMatch?: number | string
   skipAuthHandler?: boolean
   background?: boolean
   suppressConsole?: boolean
 }
 
-function quoteEtag(version: number): string {
+function quoteEtag(version: number | string): string {
   const trimmed = String(version)
   if (trimmed.startsWith('"') && trimmed.endsWith('"')) return trimmed
   return `"${trimmed}"`
@@ -191,7 +191,7 @@ export class PortalClient {
       const key = options.idempotencyKey ?? crypto.randomUUID()
       headers['Idempotency-Key'] = key
     }
-    if (options.ifMatch) {
+    if (options.ifMatch !== undefined) {
       headers['If-Match'] = quoteEtag(options.ifMatch)
     }
 

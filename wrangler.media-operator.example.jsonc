@@ -1,0 +1,31 @@
+{
+  // Candidate only. No public ingress, implicit role, approval or feature activation.
+  "name": "freedom-media-operator-candidate",
+  "main": "apps/media-operator/src/worker.ts",
+  "compatibility_date": "2026-09-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [],
+  "vars": {"FREEDOM_MEDIA_OPERATOR_ENABLED": "false"},
+  "env": {
+    "staging-next": {
+      "name": "freedom-media-operator-staging-next",
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [],
+      "vars": {"FREEDOM_MEDIA_OPERATOR_ENABLED": "false", "FREEDOM_MEDIA_OPERATOR_ENVIRONMENT": "staging"},
+      "hyperdrive": [{"binding": "OPERATOR_HYPERDRIVE", "id": "00000000000000000000000000000000"}],
+      "r2_buckets": [{"binding": "MEDIA", "bucket_name": "replace-existing-staging-private-asset-bucket"}]
+    },
+    "next": {
+      "name": "freedom-media-operator-next",
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [],
+      "vars": {"FREEDOM_MEDIA_OPERATOR_ENABLED": "false", "FREEDOM_MEDIA_OPERATOR_ENVIRONMENT": "public"},
+      "hyperdrive": [{"binding": "OPERATOR_HYPERDRIVE", "id": "00000000000000000000000000000000"}],
+      "r2_buckets": [{"binding": "MEDIA", "bucket_name": "replace-existing-public-private-asset-bucket"}]
+    }
+  }
+}

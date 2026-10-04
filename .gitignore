@@ -12,3 +12,4 @@ test-results/
 *.log
 /apps/portal-web/public/downloads/freedom-skill-client.tgz
 .wrangler/
+.freedom/
