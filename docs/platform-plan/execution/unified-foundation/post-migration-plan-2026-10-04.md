@@ -1,6 +1,6 @@
 # 實際移植後的執行計畫（2026-10-04）
 
-**本日後續執行更新：** #110 的 d269 已部署；頭像／海報已真正使用 R2、DB＋R2 隔離恢復及每日異地備份已通過，兩個舊庫已核對後退役。詳細數量、失敗、恢復限制及仍未完成的 P0／P1 範圍見[操作報告](r2-recovery-retirement-2026-10-04.md)與[現行交接](handoff-2026-10-04.md)。下文的 9cc、25 頭像及全 OFF 描述是制定計畫時的基線，不能再當現行部署指令；P2／P3 仍未完成。
+**本日後續執行更新：** #110 的 d269 已部署；七類媒體已實際使用 R2、DB＋R2 隔離恢復及每日異地備份已通過，兩個舊庫已核對後退役。中央 main 已安裝固定 workflow／App-bound checks，真實正例通過、竄改／偽造 PR 被拒。詳見[搬移／退役](r2-recovery-retirement-2026-10-04.md)、[五類媒體啟用](media-profiles-activation-2026-10-04.md)、[治理實裝](governance-installation-2026-10-04.md)與[現行交接](handoff-2026-10-04.md)。下文 9cc、25 頭像、空用途及全 OFF 是制定計畫時的基線，不能當現行部署指令；P0 的營運改善、P1 其餘變體／purge 前置、完整 P2／P3 仍按未完成事項推進。
 
 本計畫從[已完成的實際移植](actual-migration-2026-10-04.md)接續：09:03:44 UTC staging／公開入口切到新 PostgreSQL branch，runtime 為 `9cc283c6`。原正式 387 users、staging 8 users、兩環境共 280 張來源表已完整核對後還原並套 migrations；每環境 66/66 HTTPS 核對及新庫日備份已成功。媒體仍保存為 legacy bytea，新 R2 分環境接線但 object backfill／非 legacy policy 未開啟，Private AI／broker／machine 仍 OFF。
 

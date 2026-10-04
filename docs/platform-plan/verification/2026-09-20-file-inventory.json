@@ -4443,9 +4443,14 @@
       "sha256": "b122d9e33a071a71213e55592bc25f93dd0fab6a5280d387ea7959b847c30145"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md",
+      "bytes": 7388,
+      "sha256": "0c8363a6c321b8e595c2b912c2fd808750bdf086be2ae8ebd1cefe8aca932b45"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md",
-      "bytes": 5733,
-      "sha256": "d9249b160f78156c40b277b4e776be699651480d60980440fa5044622a9484a2"
+      "bytes": 6566,
+      "sha256": "9f244e0ee870271d05e34d29f8100db5baf79c31e88c1b9cb4de6ce235d76d98"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
@@ -4453,9 +4458,14 @@
       "sha256": "c7f2ff6857831e3ffe39d39eef77b8ab6d66e4e87a7f03f84b79b6bed0964b1e"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/media-profiles-activation-2026-10-04.md",
+      "bytes": 8032,
+      "sha256": "a885a6e0abc9300b8a38c6be1d0a3858e9add6523f2d547519572785e108fb38"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md",
-      "bytes": 13768,
-      "sha256": "d27172478b3b57ce35dc034a70de4a7e23399af7fbad41ccd26cb56a3ee2c647"
+      "bytes": 14005,
+      "sha256": "0c7c0824046db9b18d7098acfed8d099a8c65ec08048cad1d79a935324f57d9f"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/r2-recovery-retirement-2026-10-04.md",
@@ -4501,6 +4511,11 @@
       "path": "docs/platform-plan/verification/2026-10-03-documentation-completeness.md",
       "bytes": 58160,
       "sha256": "a401db64dc0ed422805c3697d45f340dca2b21d67843fee0f4a74dc1a9740369"
+    },
+    {
+      "path": "docs/platform-plan/verification/main-ruleset-2026-10-04.json",
+      "bytes": 2121,
+      "sha256": "eb72c3cd36d09d9319ba95adc3463fe5c88883146484861c8bd0a2738716293b"
     },
     {
       "path": "docs/platform-plan/verification/verify_revision.py",
