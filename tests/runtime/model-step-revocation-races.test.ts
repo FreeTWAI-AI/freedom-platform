@@ -246,7 +246,8 @@ async function dispatched() {
   return { ...base, step, beginKey, capability: begun.capability, bytes, before, journals: await stepJournals(step.stepId) };
 }
 type Dispatched = Awaited<ReturnType<typeof dispatched>>;
-async function assertNoNewDispatch(row: Dispatched, unchanged: Durability) {
+type DispatchEvidence = Pick<Dispatched, 'actor' | 'run' | 'step' | 'beginKey' | 'capability' | 'bytes' | 'before' | 'journals'>;
+async function assertNoNewDispatch(row: DispatchEvidence, unchanged: Durability) {
   await assert.rejects(steps.begin(row.actor, { key: row.beginKey, stepId: row.step.stepId, expectedVersion: '1' }), problem(409, 'model_step_binding_stale'));
   await assert.rejects(steps.begin(row.actor, { key: randomUUID(), stepId: row.step.stepId, expectedVersion: row.before.stepVersion }), problem(409, 'model_step_binding_stale'));
   await assert.rejects(host.dispatch(row.capability, row.bytes), fault('execution_authority_unavailable'));
@@ -259,7 +260,7 @@ async function assertNoNewDispatch(row: Dispatched, unchanged: Durability) {
   assert.deepEqual(await durability(row.run.runId), unchanged);
   assert.equal(await stepJournals(row.step.stepId), row.journals);
 }
-async function assertOwnerStop(row: Dispatched) {
+async function assertOwnerStop(row: DispatchEvidence) {
   const current = await durability(row.run.runId);
   const stopped = await steps.control(row.actor, { key: randomUUID(), stepId: row.step.stepId, expectedVersion: current.stepVersion, action: 'stop' });
   assert.equal(stopped.state, 'outcome_unknown');
@@ -487,8 +488,8 @@ test('grant revoke waits on the run row, then still admits no new dispatch', asy
     assert.equal(posts, 0);
     await holder.query('ROLLBACK');
     const outcome = await settled;
-    assert.equal(outcome.ok, true);
     if (!outcome.ok) throw outcome.error;
+    assert.equal(outcome.ok, true);
     assert.equal(outcome.value.state, 'revoked');
   } finally {
     await holder.query('ROLLBACK');
@@ -531,7 +532,7 @@ test('a committed begin stays outcome_unknown when later recovery fails and does
       async unknown() { unknownCalls += 1; throw new AdapterFault('probe_unavailable'); },
       async read() { return metadata(binding.stepId); },
     },
-    host: { async dispatch() { dispatchCalls += 1; throw new AdapterFault('invalid_response'); } },
+    host: { verify: host.verify, async dispatch() { dispatchCalls += 1; throw new AdapterFault('invalid_response'); } },
     resultFinalizer: { async finalize() { return { published: false }; } },
   });
   await assert.rejects(failed.execute(actor, input), fault('outcome_unknown'));
@@ -548,7 +549,7 @@ test('a committed begin stays outcome_unknown when later recovery fails and does
       async unknown() { unknownCalls += 1; return metadata(binding.stepId); },
       async read() { return metadata(binding.stepId); },
     },
-    host: { async dispatch() { dispatchCalls += 1; throw new AdapterFault('invalid_response'); } },
+    host: { verify: host.verify, async dispatch() { dispatchCalls += 1; throw new AdapterFault('invalid_response'); } },
     resultFinalizer: { async finalize() { return { published: false }; } },
   });
   await assert.rejects(reconciled.execute(actor, { ...input, key: 'runner_unknown' }), fault('outcome_unknown'));
