@@ -77,3 +77,20 @@ integer (no leading zero, exponent, sign or fraction). Authenticated GitHub run
 IDs remain positive numeric values and must stringify exactly to this binding.
 This composes with the real host evidence validator's string identity contract;
 neutral local harness run IDs remain unchanged. This does not install a callback.
+
+`createSignedSupervisorPublisher` in `github-supervisor-publisher.mjs` composes
+the existing publisher with `runHostVerification`. The operator supplies
+`{adapterConfig,publisherConfig}` and fixed authenticated request closures plus
+`supervisor(binding)`. The supervisor returns only `{jobEnvelope,observationsEnvelope}`
+purpose-signed bytes (at most2MiB each), never a verdict/report. Configuration
+is copied before asynchronous work and repository/App/check identity must match.
+The real adapter authenticates envelopes, installs the externally pinned verifier
+and validates actual Git graph/policy/suite evidence. Its report passes unchanged
+to the existing publisher, which independently checks exact binding and current
+GitHub state. Missing or mismatched evidence cannot publish.
+
+Focused synthetic acceptance uses real signatures, a pinned copied verifier and
+actual bare Git objects, with mocked GitHub requests; it is not installed host
+authority. No webhook receiver, supervisor execution service, App provisioning,
+approved baseline delivery, durable replay or required-check enforcement is
+installed by this library. Gate and merge authority remain false.
