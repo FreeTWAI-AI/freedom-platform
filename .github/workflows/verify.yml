@@ -99,9 +99,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y bubblewrap gcc apparmor apparmor-profiles
-          # Load only Ubuntu's exact bwrap extra profile, retaining AppArmor and
-          # userns restrictions, then prove namespaces as the unprivileged runner.
+          # Verify the exact stock profile and render only the reviewed deleted-inode
+          # mediation flag; retain AppArmor/userns restrictions and prove isolation.
           bash scripts/ci/verify-native-cli-prerequisites.sh
+      # Setup diagnostic only; the same eight cases remain in the full partition.
+      - name: Diagnose the fixed synthetic broker bridge before partition 1
+        if: matrix.partition == 1
+        run: node scripts/ci/broker-bridge-check.mjs
+        env:
+          TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
       - name: Complete this runtime partition in its owned database
         run: |
           node --test --test-concurrency=1 tests/contribution-tools/runtime-sharding.integration.test.mjs
