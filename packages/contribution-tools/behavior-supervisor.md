@@ -122,3 +122,16 @@ all 27 real app requests; host-file/network/readonly-mount escape attempts;
 postgres/unknown-role login and app-role escalation attempts; forged outcomes;
 output flooding; a blocked candidate event loop; and retained DB tampering.
 No external writes, image pulls, production resources or publisher API are used.
+
+## Installed host binding
+
+The optional `hostEvidence` argument supplies `{binding,workflow,harness_sha256}`
+from the installed host adapter. The supervisor checks the candidate commit/tree,
+installed harness and verifier digest before candidate startup and uses the
+binding throughout the existing request sequence. This argument is structurally
+validated, not an authentication mechanism. Local calls without it keep their
+synthetic identifiers and unavailable status. Installed calls need no `.git`
+metadata in the host installation. See [the concrete installed runner and native
+required-workflow path](github-behavior-host.md) for authenticated input, pin,
+coverage and post-execution verification. The runner still does not approve the
+host OS or establish GitHub enforcement by itself.

@@ -6,7 +6,7 @@ import { join, dirname, basename, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { runMemberRouteBehavior, behaviorFixtureIdentity, installedBehaviorHarnessDigest } from './behavior-harness.mjs';
-import { installedVerifierDigest } from './trusted-ci.mjs';
+import { installedVerifierDigest, validateHostEvidenceBinding, validateHostWorkflow } from './trusted-ci.mjs';
 import { MEMBER_BEHAVIOR as manifest } from './behavior-manifest.mjs';
 import { artifactPath, parseJson } from './io.mjs';
 import { verificationEnvironment } from './process-env.mjs';
@@ -117,9 +117,10 @@ export async function validateBehaviorDependencyCache(source) {
   }
   await inspect(root); return { root, sha256: sha256(JSON.stringify(records)), files: count };
 }
-async function installedSupervisorIdentity() {
+export async function installedSupervisorIdentity() {
   const paths = ['packages/contribution-tools/behavior-supervisor.mjs', 'packages/contribution-tools/behavior-supervisor-fixture.mjs',
-    'packages/contribution-tools/behavior-supervisor-target.mjs', 'package-lock.json'];
+    'packages/contribution-tools/behavior-supervisor-target.mjs', 'packages/contribution-tools/github-behavior-host.mjs',
+    'packages/contribution-tools/github-trusted-adapter.mjs', 'package-lock.json'];
   for (const name of await readdir(join(ROOT, 'migrations'))) if (/^\d{3}_[a-z0-9_]+\.sql$/.test(name)) paths.push('migrations/' + name);
   const files = [];
   for (const path of paths.sort()) files.push([path, sha256(await readFile(join(ROOT, path)))]);
@@ -177,7 +178,7 @@ const safeCodes = new Set(['supervisor_host_command_failed','supervisor_candidat
 
 /** Explicit local host entrypoint. No candidate callbacks, reports or test lists.
  * A pass remains local/unavailable: GitHub workflow/source approval is absent. */
-export async function runIsolatedMemberBehavior({ candidateRepository, candidateCommit, dependencyRoot }) {
+export async function runIsolatedMemberBehavior({ candidateRepository, candidateCommit, dependencyRoot, hostEvidence = null }) {
   const label = randomUUID(), owned = [], started = Date.now(); let directory, pool, child, timer, timedOut = false, phase = 'preflight', outcome;
   const killCandidate = () => { if (child?.pid) { try { child.kill('SIGKILL'); } catch {} }
     const id = owned.find(value => value.kind === 'candidate')?.id; if (id) { try { docker(['kill', id]); } catch {} } };
@@ -207,6 +208,14 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
     phase = 'snapshot'; const snapshot = await materializeBehaviorCandidate(candidateRepository, candidateCommit, candidate);
     const dependency = await validateBehaviorDependencyCache(dependencyRoot), dependencies = dependency.root;
     const installation = await installedSupervisorIdentity();
+    // Only the installed host adapter supplies this object. Structural validation
+    // here is not authentication; pin/approval checks happen before this call.
+    const evidence = hostEvidence === null ? null : {
+      binding: validateHostEvidenceBinding(hostEvidence.binding), workflow: validateHostWorkflow(hostEvidence.workflow),
+      harness: hostEvidence.harness_sha256,
+    };
+    if (evidence && (evidence.binding.candidate_commit !== snapshot.commit || evidence.binding.candidate_tree !== snapshot.tree
+      || evidence.harness !== installation.harness_sha256 || evidence.binding.verifier_sha256 !== await installedVerifierDigest())) fail('supervisor_installation_changed');
     await mkdir(join(candidate, 'node_modules'));
     await writeFile(launcher, await readFile(new URL('./behavior-supervisor-target.mjs', import.meta.url)), { mode: 0o444, flag: 'wx' });
     const common = ['--pull=never', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
@@ -241,13 +250,14 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
     }
     if (!appObservation || timedOut) fail(timedOut ? 'supervisor_deadline' : 'supervisor_container_changed');
     const harness = await installedBehaviorHarnessDigest(), verifier = await installedVerifierDigest();
-    const hostCommit = git(ROOT, ['rev-parse', 'HEAD']).toString().trim();
-    // Explicitly local identities: never claim a real PR/run/policy approval.
-    const binding = { repository: 'local/isolated-candidate', pull_request: 1, run_id: 'local-' + label, run_attempt: 1,
+    const hostCommit = evidence ? null : git(ROOT, ['rev-parse', 'HEAD']).toString().trim();
+    // Local callers retain synthetic identities; the installed adapter supplies
+    // authenticated bindings without requiring Git metadata in its installation.
+    const binding = evidence?.binding ?? { repository: 'local/isolated-candidate', pull_request: 1, run_id: 'local-' + label, run_attempt: 1,
       base_commit: snapshot.commit, head_commit: snapshot.commit, candidate_commit: snapshot.commit, candidate_tree: snapshot.tree,
       source_commit: hostCommit, release_set_sha256: snapshot.source_sha256, policy_revision: 'local-supervisor-prototype',
       policy_sha256: sha256('local-supervisor-prototype'), verifier_commit: hostCommit, verifier_sha256: verifier };
-    const workflow = { identity: 'local/isolated-behavior', commit: hostCommit, publisher: 'unverified-local-host' };
+    const workflow = evidence?.workflow ?? { identity: 'local/isolated-behavior', commit: hostCommit, publisher: 'unverified-local-host' };
     phase = 'behavior'; const observed = await runMemberRouteBehavior({ binding, workflow, fixture, expectedHarnessSha256: harness }, {
       request, observeTarget: async () => { for (const item of owned) observeContainer(item); await checkSnapshot(candidate, snapshot.records);
         if (timedOut) fail('supervisor_deadline');
