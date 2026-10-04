@@ -61,13 +61,13 @@ test('BROKER-BRIDGE-ADV invocation expiry while actual final Result INSERT is bl
   await f.owner.query(`CREATE FUNCTION bridge_validation_result_gate() RETURNS trigger LANGUAGE plpgsql AS $gate$ BEGIN PERFORM pg_advisory_xact_lock(hashtextextended('${lock}',0)); RETURN NEW; END $gate$; CREATE TRIGGER z_bridge_validation_gate BEFORE INSERT ON private_model_work_results FOR EACH ROW EXECUTE FUNCTION bridge_validation_result_gate()`);
   holder=await f.owner.connect();await holder.query('BEGIN');await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[lock]);
   await f.main.request('issuerDeadline',Date.now()+expiryPhaseMs);
-  const pending=f.post(member,`/api/v1/me/model-steps/${member.step.stepId}:execute`,{});await sqlBlocked(f,holder);
+  const pending=f.post(member,`/api/v1/me/model-steps/${member.step.stepId}:execute`,{}).then(response=>({response}),error=>({error}));await sqlBlocked(f,holder);
   // Only the command expires: main conservatively narrows a real signed
   // recovery observation for issuance. The broker's external source, original
   // session and Step remain current, isolating the invocation sink guard.
   const last=(await f.main.request('requests')).at(-1);const claims=JSON.parse(new TextDecoder().decode(base64url.decode(last.assertion.split('.')[1])));
   const expires=Date.parse(claims.expiresAt);assert(expires>Date.now());assert(Date.parse(member.step.expiresAt)>expires+10000);const sessionExpiry=(await f.owner.query('SELECT expires_at FROM sessions WHERE token_hash=$1',[member.actor.session_hash])).rows[0].expires_at;assert(sessionExpiry.getTime()>expires+30000);const externalClaims=JSON.parse(new TextDecoder().decode(base64url.decode(f.recovery.raw.split('.')[1])));assert(Date.parse(externalClaims.expiresAt)>expires+30000);await delay(Math.max(0,expires-Date.now()+30));await holder.query('COMMIT');holder.release();holder=undefined;
-  const response=await pending;assert(response.status>=400);assert.equal(f.posts.length,1);assert.equal((await f.owner.query('SELECT count(*)::int n FROM private_model_work_results WHERE work_item_id=$1',[member.work.workId])).rows[0].n,0);assert.equal((await f.owner.query('SELECT aggregate_version::text version FROM work_items WHERE work_item_id=$1',[member.work.workId])).rows[0].version,'1');
+  const settled=await pending;if('error' in settled)throw settled.error;const response=settled.response;assert(response.status>=400);assert.equal(f.posts.length,1);assert.equal((await f.owner.query('SELECT count(*)::int n FROM private_model_work_results WHERE work_item_id=$1',[member.work.workId])).rows[0].n,0);assert.equal((await f.owner.query('SELECT aggregate_version::text version FROM work_items WHERE work_item_id=$1',[member.work.workId])).rows[0].version,'1');
  }finally{if(holder){await holder.query('ROLLBACK');holder.release();}await f.cleanup();}
 });
 
@@ -89,12 +89,12 @@ test('BROKER-BRIDGE-ADV invocation expiry during actual Asset prepare receipt IN
   await f.owner.query(`CREATE FUNCTION bridge_validation_prepare_gate() RETURNS trigger LANGUAGE plpgsql AS $gate$ BEGIN PERFORM pg_advisory_xact_lock(hashtextextended('${lock}',0)); RETURN NEW; END $gate$; CREATE TRIGGER z_bridge_validation_prepare_gate BEFORE INSERT ON scoped_command_receipts FOR EACH ROW WHEN (NEW.operation='asset.upload.prepare') EXECUTE FUNCTION bridge_validation_prepare_gate()`);
   holder=await f.owner.connect();await holder.query('BEGIN');await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[lock]);
   await f.main.request('issuerDeadline',Date.now()+expiryPhaseMs);
-  const pending=f.post(member,`/api/v1/me/model-steps/${member.step.stepId}:execute`,{});await sqlBlocked(f,holder);
+  const pending=f.post(member,`/api/v1/me/model-steps/${member.step.stepId}:execute`,{}).then(response=>({response}),error=>({error}));await sqlBlocked(f,holder);
   const last=(await f.main.request('requests')).at(-1),claims=JSON.parse(new TextDecoder().decode(base64url.decode(last.assertion.split('.')[1]))),expires=Date.parse(claims.expiresAt);
   assert(expires>Date.now());assert(Date.parse(member.step.expiresAt)>expires+10000);assert((await f.owner.query('SELECT expires_at FROM sessions WHERE token_hash=$1',[member.actor.session_hash])).rows[0].expires_at.getTime()>expires+30000);
   const externalClaims=JSON.parse(new TextDecoder().decode(base64url.decode(f.recovery.raw.split('.')[1])));assert(Date.parse(externalClaims.expiresAt)>expires+30000);
   await delay(Math.max(0,expires-Date.now()+30));await holder.query('COMMIT');holder.release();holder=undefined;
-  const response=await pending;assert(response.status>=400);assert.equal(f.posts.length,1);
+  const settled=await pending;if('error' in settled)throw settled.error;const response=settled.response;assert(response.status>=400);assert.equal(f.posts.length,1);
   for(const table of ['assets','asset_upload_intents','private_model_work_results'])assert.equal((await f.owner.query(`SELECT count(*)::int n FROM ${table} WHERE scope_id=$1`,[member.context.scope.scope_id])).rows[0].n,0,table+' must roll back');
   assert.deepEqual(await f.broker.request('storeCounts'),{puts:0});assert.equal((await f.owner.query("SELECT count(*)::int n FROM scoped_command_receipts WHERE scope_id=$1 AND operation='asset.upload.prepare'",[member.context.scope.scope_id])).rows[0].n,0);
   assert.equal((await f.owner.query('SELECT aggregate_version::text version FROM work_items WHERE work_item_id=$1',[member.work.workId])).rows[0].version,'1');const step=(await f.owner.query('SELECT state,reservation_held FROM model_text_steps WHERE step_id=$1',[member.step.stepId])).rows[0];assert.notEqual(step.state,'succeeded');assert.equal(step.reservation_held,true);
