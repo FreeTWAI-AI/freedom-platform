@@ -24,6 +24,10 @@ const REVIEWED_DEFINER = Object.freeze({
     sha256: 'e27f74e859485c264cadfd48d5841f0a35e32df3e47e53d115c260a49370814e',
     review: 'docs/development/operator-backfill-sql-review.md',
   }),
+  '107_operator_event_video_backfill.sql': Object.freeze({
+    sha256: '7afd5fa17f62d1827337ef3ee833fa42ec8d750aa622868b5c22a091f9bbdd11',
+    review: 'docs/development/operator-backfill-sql-review.md',
+  }),
 });
 
 /** Same digest as packages/db digest(sql): sha256 over JSON.stringify of the SQL string. */

@@ -56,7 +56,7 @@
     "extensions_required": [],
     "extensions_allowlist": ["plpgsql", "hypopg"],
     "extensions_allowlist_note": "The application does not CREATE EXTENSION. PlanetScale auto-installs hypopg (schema pscale_extensions, owner pscale_admin). A no-extensions reading of deploy/cloudflare/sql/30-verify-readonly.psql must allowlist hypopg alongside omitted plpgsql.",
-    "migrations": {"first": 1, "last": 106, "known_gaps": [22], "ledger_table": "schema_migrations"}
+    "migrations": {"first": 1, "last": 107, "known_gaps": [22], "ledger_table": "schema_migrations"}
   },
   "providers": {
     "selected": "planetscale_cloudflare_billed",

@@ -1,7 +1,6 @@
-# Operator backfill105 SQL source review
+# Operator backfill105 /107 SQL source review
 
-The migration scanner retains its general SECURITY DEFINER refusal. Its only
-exception is the exact105 SQL ledger digest
+The migration scanner retains its general SECURITY DEFINER refusal. The cover exception is the exact105 SQL ledger digest
 `e27f74e859485c264cadfd48d5841f0a35e32df3e47e53d115c260a49370814e`
 (SHA-256 over JSON.stringify(SQL), the canonical migration-ledger algorithm).
 Changed bytes, unlisted migrations and all other privileged statement categories
@@ -39,5 +38,19 @@ local R2; a genuine final-audit SQL lock crossing lease expiry rolls back all
 publication metadata. These are local synthetic proofs, not remote provider
 compatibility or formal security/publisher acceptance.
 
-This review covers105 only. Historical sources remain retained; cover GC,
+The video extension107 has separately reviewed exact ledger digest
+`7afd5fa17f62d1827337ef3ee833fa42ec8d750aa622868b5c22a091f9bbdd11`.
+Its three additional ports lock the original active organizer/person/community
+scope and canonical video consent, then publish only through the exact approved
+video job, common intent and ready object/pointer. The binding includes original
+state/version/MIME/size/SHA and current source bytes; publication requires the
+same approval policy identity, live leases and current domain owner. Historical
+organizer read authority permits byte-preserving migration without granting
+future upload authority. Dependencies bind in SQL-standard bodies; PUBLIC
+execution is revoked and only the trusted migration schema is additionally
+pinned for original attachment triggers. The runtime exclusions/readback now
+cover seven functions; the exact scanner exception still grants no installation
+or deployment authority. Root privilege regression is rerun after integration.
+
+This source review covers105 and107 only. Historical sources remain retained; cover GC,
 all-source backfill, cloud installation and release acceptance are incomplete.
