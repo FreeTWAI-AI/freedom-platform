@@ -37,6 +37,6 @@
     "getDashboard"
   ],
   "authentication": "member_session_csrf",
-  "external_job_execution": false,
+  "external_job_execution": true,
   "public_checkout": false
 }
