@@ -20,13 +20,16 @@ export class AdminClient {
   /** Only the latest request may flip the panel between expired and recovered. */
   private latestRequest = 0;
 
-  private failAccess(status: number, notify: boolean): never {
-    if (status === 401 || status === 403) this.csrf = null;
-    if (notify) this.onAccessExpired?.();
+  private failAccess(status: number, notify: boolean, currentSession: boolean): never {
+    if (currentSession) {
+      if (status === 401 || status === 403) this.csrf = null;
+      if (notify) this.onAccessExpired?.();
+    }
     throw new AdminRequestError(ADMIN_ACCESS_EXPIRED_MESSAGE, status, true);
   }
 
   async request<T>(path: string, body?: unknown, options: { key?: string; version?: number | null } = {}): Promise<T> {
+    const requestCsrf = this.csrf;
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (body !== undefined) {
       if (!this.csrf) throw new AdminRequestError('管理員驗證已過期，請重新確認管理身分。', 403);
@@ -48,15 +51,15 @@ export class AdminClient {
     } catch {
       throw new AdminRequestError(NETWORK_MESSAGE);
     }
-    if (await isExpiredAccessResponse(response)) this.failAccess(expiredAccessStatus(response), ticket === this.latestRequest);
+    if (await isExpiredAccessResponse(response)) this.failAccess(expiredAccessStatus(response), ticket === this.latestRequest, this.csrf === requestCsrf);
     let value: any;
     try { value = await response.json(); }
     catch { throw new AdminRequestError(INCOMPLETE_MESSAGE, response.status); }
     if (!response.ok) {
-      if (response.status === 401 || response.status === 403) this.csrf = null;
+      if (this.csrf === requestCsrf && (response.status === 401 || response.status === 403)) this.csrf = null;
       throw new AdminRequestError(typeof value?.detail === 'string' ? value.detail : '無法完成管理操作，請重新載入確認。', response.status);
     }
-    if (ticket === this.latestRequest) this.onAccessRecovered?.();
+    if (ticket === this.latestRequest && this.csrf === requestCsrf) this.onAccessRecovered?.();
     return value as T;
   }
 }
