@@ -21,6 +21,18 @@ cloud cutover or offsite acceptance. Formal full-source backfill/cutover,
 complete recovery acceptance and authenticated publisher/enforcement
 are still implementation work as well as configuration/acceptance dependencies.
 
+The current CI-host increment preserves the full 196-file/2,620-case union and
+the original 900-second cap, using four independently owned databases with
+bounded provisioning/cleanup and sanitized per-file diagnostics. A fixed-source
+local full run passed all 2,620 cases in 297.557 seconds with verified cleanup;
+root integration separately passed 266 governance cases and eight PostgreSQL
+counterexamples. The prior exact `8c3fea1` remote full run still failed by timeout
+despite verified cleanup; the new exact-head remote result remains required.
+An operator-only App JWT/installation transport and PR-head publisher library
+now exists with independent check readback. Trusted callback composition,
+durable replay/run-attempt state, queue support and actual enforcement are still
+pending. Local mocked publication never grants merge or deployment authority.
+
 ## What changes a remote system
 
 | Action | Effect and required condition |

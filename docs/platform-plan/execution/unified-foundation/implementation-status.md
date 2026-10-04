@@ -1518,3 +1518,90 @@ bytes未變；唯一packages變更是上述test-host runtime-databases.mjs，
 verify/delta、offsite restore、可信publisher／baseline/enforcement及
 CodeQL核定。私人模型/broker與未驗收Autopilot保持OFF，沒有merge、
 deploy、staging/live migration、正式key/trust/rules變更；其他PR未處理。
+
+公開固定8c3fea153aebef84787e79c3453df93d815a6f2d的
+[Verify run37170772322](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37170772322)
+已結束：static-worker、governance-consumers、deploy-preflight與ui-e2e
+成功，runtime-full與aggregate verify失敗。真正runner RAM為
+16,373,452KiB、4GiB tmpfs初始使用47,304KiB、PGDATA與durability
+readback通過；namespace前置及sharding integration7/7亦通過。
+Worker57/57、DB＋nativeR2 restore2/2、governance251/251、UI413 pass／
+5個未啟用private-AI fixture skip。兩個98-file shards仍在原900秒
+預算內逾時，未產出完整JSON，但這次database_cleanup_verified=true。
+實際checkpoints為5.179／6.545／2.618秒，儲存及清理修正有效，仍不能
+據此宣稱全套runtime通過。SQL日誌顯示期限前仍執行第84/98與69/98
+個檔案；沒有早期卡死的證據，確切每檔耗時仍缺當時的進度紀錄。
+artifact11290914498 SHA-256為
+47885de017987cf00ad95d2acd8b827afed03987fc01c66be5bf40236714a2d4。
+同head CodeQL security check111343176715仍failure、一筆new high，
+alert39正式核定尚未完成；Analyze success不代替security check。
+
+後續CI-only增量已將full預設改為四個nonce-owned DB／四個串行
+test processes，explicit shard count限1／2／4。固定196檔被分成
+四個49-file disjoint partitions，要求原完整file/case聯集；合成PG的
+max_locks_per_transaction=256需startup讀回，fsync/full_page_writes
+保持on。cleanup仍只有共用20秒deadline，依剩餘DB公平分配DROP
+預算並保留最終fresh absence驗證。作者actual PG integration7/7與
+governance251/251通過。四路全套與真正GitHub結果需另列，不能把
+更改分片或unit通過當成解決逾時的完成證據。
+
+[有限進度紀錄](../../../../packages/contribution-tools/test-progress.md)
+增量另由child FD3傳送validated source path／SHA-256、固定counts及
+elapsed time，parent核對selection後只在stderr重建閉合diagnostic。
+有明確record/bytes限額，不帶test names、errors、stdout、URLs或env；
+final JSON／pass決定不變，逾時的部分進度不能當通過或可信observation。
+作者exact fb1491b focused5/5、runner19/19、portable export8/8通過，
+沒有增加原900秒runtime或60秒governance上限。
+
+同source 731db97的第一輪四路實測完成196檔／2,620 cases，2,614 pass／
+6 fail／0 skip，四個nonce DB cleanup_verified=true。新worktree未先
+build portal；失敗精確落在device browser兩項、model settings process
+兩項及adversarial兩項root HTML案例。補跑原npm build後，同source
+這三檔11/11通過。兩次後續建庫在舊2秒DDL上限前置失敗、未開始shards，
+均verified cleanup；原失敗保留，不改寫成全套通過。
+
+6c6918d將metadata與DDL預算分開：整組provision只有monotonic20秒，
+另受原全套deadline扣24秒cleanup reserve限制；metadata仍2秒，每個
+CREATE最多6秒並受剩餘provision預算限制。實際PG server-side2.2秒
+等待反例在舊版約2.026秒失敗，新版約2.284秒通過，未知CREATE ACK
+仍須settle精確nonce backend並fresh確認刪除。作者integration8/8，
+根整合dc4e473在另一個owned cluster亦8/8通過，沒有正式DB連線。
+
+6c6918d固定四路全套首輪294.06秒完成196檔／2,620 cases，2,614 pass／
+6 fail／0 skip，四DB verified cleanup；portal相關案例已全部通過，
+只有native CLI probe六項失敗。該檔耗時15.125秒、與before-hook
+編譯15秒上限相近，但未取得當時raw setup原因，不能斷言已定位。
+同source立即targeted6/6通過；原full failed報告保留，不能以分開結果
+拼成全套通過。15秒間隔20次tmpfs採樣最大1,629,456KiB／4GiB，
+這是sampled maximum，不是continuous peak。控載完整重跑結果另列。
+
+[獨立App publisher程式](../../../../packages/contribution-tools/github-app-publisher.mjs)
+已新增operator-only PR exact-head library與真正GitHub API transport：
+native RSA App JWT、pinned repository/permission installation token、固定
+api.github.com、redirect拒絕、有限response/time，token留在private closure。
+固定installed-verifier callback而非candidate report決定是否可建立check；
+建立前後重查current App／installation／repo／run／PR／tree，exact SHA
+與external_id要同時符合POST response及獨立authenticated GET readback。
+獨立原反例證實923beeb會接受錯external_id，39f00eb已修正；原案例
+現在拒絕，作者14/14與獨立含該反例15/15通過，根已整合。
+此library沒有正式安裝／可信callback composition／durable replay及
+run-attempt授權／merge_group接線，未建立不可繞過gate；測試只用mock
+fetch與ephemeral RSA，無真實GitHub POST或正式key讀取。所有結果仍
+gate_enforced=false、merge_authorized=false，舊安全check不被取代。
+
+根整合dc4e473的governance.unit首輪在同機並行負載期間以原60秒cap
+逾時，failed報告保留；停止重負載後同source控載重跑266/266通過，
+15檔全完成、零fail/skip/cancel/todo，仍維持原60秒上限。
+
+固定6c6918d8128b7e10bf2d0a47eff85e3666b553d6的控載完整重跑已完成：
+196檔、四個49-file shards、2,620/2,620通過，零fail/skip/cancel/todo，
+297.557秒，四個nonce-owned DB verified cleanup、該cluster無fp_suite
+剩餘DB。全套內native CLI六项亦通過，安全的父層觀察只記錄owned
+compiler basename／pid／state／wchan／時間，未讀argv/env/private errors。
+原15秒native setup失敗原因仍未核定，不以這次通過改寫旧報告。
+15秒間隔20次tmpfs採樣最大1,659,172KiB／4GiB，非continuous peak。
+完整report evidence SHA-256為
+a7ad05f9c1456aa9da206eb03466bd489bed2cc2e7dce47cbea74cef1ba1bcd8。
+根dc4e473相對該測量source只有publisher三檔差異，已由上述治理／
+focused／獨立反例驗證；runtime runner/test/migrations/app source相同。
+這是本機固定source完成證據，新的真正GitHub四路結果仍須push後驗。

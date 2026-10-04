@@ -14,8 +14,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 10844,
-      "sha256": "0b724bc0b9f43de8fa92e7b103d90c98a3bc89e0f608d66eafc7e300cdf48717"
+      "bytes": 10878,
+      "sha256": "1e8b3855484463fe5a8014b5edcd74f4e1059d1eb67014df7001b329e0c7753d"
     },
     {
       "path": ".gitignore",
@@ -3029,8 +3029,8 @@
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
-      "bytes": 2686,
-      "sha256": "9da7bc3adca448d260170b0222999572082d99e0e2b9be5d1900b3afe881130b"
+      "bytes": 4800,
+      "sha256": "72b5ce79c20a85f0666c8be492daad1ace75d46bc2e3e268c50381b2e4a9c6fe"
     },
     {
       "path": "docs/development/service-cover-worker.md",
@@ -4259,13 +4259,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 177994,
-      "sha256": "cc17c5e3ca0d73742cc15a941f7d06099deeb4297e128528e3e78e290f5b52e7"
+      "bytes": 184073,
+      "sha256": "dbe053f1ce5a5afde028c65312cb2f30e5de89ab67621323e625e4b2b60809ff"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
-      "bytes": 8406,
-      "sha256": "a7988af197aa96a8984b6e6a9d26aaf94dcfec1684d88743700e54e53bcf5ebd"
+      "bytes": 9269,
+      "sha256": "4f40588a709593d361f415be0f4f9f30b7f0611c71c264dffcf5643613e005e9"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -4400,7 +4400,7 @@
     {
       "path": "governance/schemas/verifier-report.schema.json",
       "bytes": 11454,
-      "sha256": "f1beecc67c9895c9e90d15ffd1196dbe7281a93f20ffb75ade416082e9c84ba0"
+      "sha256": "c852505c3d87ac8d55d734f0f748dc7d9de3b6e43287b2c20b0b04bc3fef5849"
     },
     {
       "path": "migrations/001_local_core.sql",
@@ -6213,9 +6213,14 @@
       "sha256": "7bb0b2b958bdbbdfb83c0d01076bb2ec8d32adcb2f5f4e45196a759f19cf3973"
     },
     {
+      "path": "packages/contribution-tools/github-app-publisher.mjs",
+      "bytes": 11791,
+      "sha256": "7500a92982f7cf0340af2d979e123d51a637c2f0f7a94d9bb0c8e719a9533473"
+    },
+    {
       "path": "packages/contribution-tools/github-trusted-adapter.md",
-      "bytes": 6596,
-      "sha256": "c220242f324be33223dfa4a89814244bb9c2d1f61a792164c328e8f50b75562b"
+      "bytes": 11385,
+      "sha256": "9752dffe3de192cefacc2dcc00827d7d5c6dcc5486babcd57bdff6285517aae5"
     },
     {
       "path": "packages/contribution-tools/github-trusted-adapter.mjs",
@@ -6244,8 +6249,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-databases.mjs",
-      "bytes": 7639,
-      "sha256": "ff9e9afbe2c514d5f4013511a1f9845502aa42c92e7c7c54d80c374e71c7ac38"
+      "bytes": 8816,
+      "sha256": "1440dbd1b3ed18963f7f2e56db54b7842df2fbfd5f42b300166f3db935bbece8"
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
@@ -6259,8 +6264,8 @@
     },
     {
       "path": "packages/contribution-tools/suite-runner.mjs",
-      "bytes": 13411,
-      "sha256": "2f269461f21e9eaa694c277d4e2859831f72b6ebbc394048d144e8896659fcf4"
+      "bytes": 14752,
+      "sha256": "b7984b657d1bef66135c7a70664831d6c0ce35022e680b260c41c9b89eef03a3"
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
@@ -6308,6 +6313,11 @@
       "sha256": "af8090248c18b785b7c9a9e44d37bcffe79d27bdab00a36830727fdb81e9a6fb"
     },
     {
+      "path": "packages/contribution-tools/test/github-app-publisher.test.mjs",
+      "bytes": 10513,
+      "sha256": "35734054b6e0683487967ec82b510e06a438b7f686af55d225e7e7964ba27578"
+    },
+    {
       "path": "packages/contribution-tools/test/github-trusted-adapter.test.mjs",
       "bytes": 10025,
       "sha256": "f61755c2f860e909c9101280bd94912282ac76cacb09df9696ae64150e1530a8"
@@ -6319,8 +6329,8 @@
     },
     {
       "path": "packages/contribution-tools/test/runtime-sharding.test.mjs",
-      "bytes": 560,
-      "sha256": "c6643b34ad9ddfed2898af37ebc4528bf8f41e7ff3c2ca3780b725dbf59b9f55"
+      "bytes": 691,
+      "sha256": "d8e512de5bbf477efd94dd1f3776a9e8f3453f0bbb4ccffa52f3e048bc0b4f3b"
     },
     {
       "path": "packages/contribution-tools/test/suite-runner.test.mjs",
@@ -6338,14 +6348,24 @@
       "sha256": "936446bb2ea630acf6681585e974ed432767bbc1e1ad3198f7b82ffd770dd64c"
     },
     {
+      "path": "packages/contribution-tools/test/test-reporter-progress.test.mjs",
+      "bytes": 7718,
+      "sha256": "ae5f6f7e4c9c9bbbfeed21241b0c074995a0f0794c3a04e5314c742d942c3c27"
+    },
+    {
       "path": "packages/contribution-tools/test/trusted-ci.test.mjs",
       "bytes": 16212,
       "sha256": "83c9f31c7ecb351b3eb7e9774f9838350cb7e1822d8321fdf45439d9d986c5cb"
     },
     {
+      "path": "packages/contribution-tools/test-progress.md",
+      "bytes": 1758,
+      "sha256": "cf8823c2d451c76d1ed0b6b393e13c90d3d7a396837ef01a30ee2e4e19f70517"
+    },
+    {
       "path": "packages/contribution-tools/test-reporter.mjs",
-      "bytes": 1636,
-      "sha256": "e9da6c40b067729770aa974ec8a6f3b8a3adc09c751382d4d1bdddbdd1e137d0"
+      "bytes": 6827,
+      "sha256": "3803332949fd1bf957648ef9e3ba7cb386765699dfd2503ae37c294a62651805"
     },
     {
       "path": "packages/contribution-tools/trusted-ci.mjs",
@@ -6739,8 +6759,8 @@
     },
     {
       "path": "scripts/ci/verify-runtime-postgres.sh",
-      "bytes": 2113,
-      "sha256": "796596be0d5ee6f56599f15da616130ee0d569b9fcba1c80494893182e5813af"
+      "bytes": 2264,
+      "sha256": "f0d369c2fd3886bc6c4f5193524f0d3dfc9d275831eb0df6f05553913be2d258"
     },
     {
       "path": "scripts/database.ts",
@@ -6869,8 +6889,8 @@
     },
     {
       "path": "tests/contribution-tools/runtime-sharding.integration.test.mjs",
-      "bytes": 9878,
-      "sha256": "6be814a1ba409382dafdfc8f3b7731f6b5a3c27ac89201e7f33d0b5f35498a5c"
+      "bytes": 10800,
+      "sha256": "c6ffb9cb3c82ad9830f9777a327d43595812757b44bb43ab1522c8476f9f3e90"
     },
     {
       "path": "tests/e2e/admin-credentials.spec.ts",
