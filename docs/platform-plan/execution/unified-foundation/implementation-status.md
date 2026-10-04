@@ -1344,3 +1344,35 @@ reconciliation與general GC、真實cloud staging、可信GitHubpublisher／
 baseline／不可繞過gate及CodeQL核定仍未完成。尚未merge、deploy、
 套staging/live migration或處理其他PR。實際結果逐SHA保留，不使用
 歷史40–55%或測試數估算基底部署完成率。
+
+
+固定8b1279e回歸紀錄：有限兩批使用兩個自建隔離DB，193 runtime檔案、
+2,574 cases中2,573 pass／1 fail／0 skip，約612秒結束，兩DB清除已核實。
+失敗不是timeout：resource-scopes舊fixture假設整個schema沒有SECURITY
+DEFINER，與已新增的七個獨立operator ports衝突。相同反例已重現7≠0；
+43cd5a3改驗映射仍能用DML caller、每個operator port由migrator擁有且
+runtime無EXECUTE，27/27通過。仍須新的固定版完整回歸，不把此targeted
+修正改寫成8b的全套通過。原失敗與shard證據保留。
+
+8b1279e同版static實際typecheck／build、16生成/preflight、四類Worker
+各環境dry-run、原生Worker54/54、supervisor6/6、release355/355通過。
+七類實際nativeR2/pg_dump/pg_restore2/2，八variants、十captured objects，
+canonical工具撤銷七個PUBLIC函式權限後才允許runtime安裝。治理unit251/251，
+治理信任證據仍unavailable；8b整體verifier為failed，baseline、真實publisher、入口behavior audit未完成。
+公開6c4f306的static-worker失敗已確定為dump丟失107函式PUBLIC撤權；
+canonical復原工具已修正，沒有放寬runtime guard或把Analyze成功當安全通過。
+
+109新增原banner/social有限operator profiles，與原cover/video共用job、
+items、intent、Asset、typed pointers、effects/fences，保留bytes、URL與ACL。
+Root將canonical manifest/closed scanner/runtime排除/readback/restore工具
+擴到105/107/109共十三個受限函式，任意未知definer或ledger變更仍拒絕。
+私人operator Worker作者952a446實際service binding→受限PG→nativeR2
+cover/video：Unix/TCP各1/1，typecheck通過，HTTP404、externalHTTP0；
+僅inactive範例，沒有main平台caller或remote安裝。
+本批整合後完整固定SHA結果另列；skill/highlight與avatar全來源operator
+仍在隔離分支開發，cloud staging、正式全量inventory/delta/offsite restore、
+可信GitHub gate與CodeQL核定仍是正式merge/deploy條件。
+
+109整合工作樹的operator／runtime排除／domain GC／resource-scopes回歸79/79、
+release/scanner364/364、descriptor/surface單元80/80已通過，零跳過；
+這些結果不代替新的固定commit全套回歸或remote驗收。

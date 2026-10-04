@@ -1,4 +1,4 @@
-# Operator backfill105 /107 SQL source review
+# Operator backfill105 /107 /109 SQL source review
 
 The migration scanner retains its general SECURITY DEFINER refusal. The cover exception is the exact105 SQL ledger digest
 `e27f74e859485c264cadfd48d5841f0a35e32df3e47e53d115c260a49370814e`
@@ -52,7 +52,7 @@ pinned for original attachment triggers. The runtime exclusions/readback now
 cover seven functions; the exact scanner exception still grants no installation
 or deployment authority. The integrated cover/video/runtime-privilege regression is27/27 with zero skipped, including real denial of all seven ports, table/column grants and PUBLIC/inherited access. Release/scanner checks are354/354. These remain local synthetic results.
 
-This source review covers105 and107 only. Historical sources remain retained; cover GC,
+These earlier results cover105 and107. Historical sources remain retained;
 all-source backfill, cloud installation and release acceptance are incomplete.
 
 
@@ -65,3 +65,20 @@ support `media.write-effects.v1`, with old consumers fenced before enabling
 `media.domain-gc.v1`. The release diagnostic requires both capabilities and108
 in current and historical schema evidence. This is a release prerequisite, not
 an installed publisher or proof that an old process was actually stopped.
+
+Migration109 extends that host to original banners and social thumbnails. Its
+independently computed canonical ledger digest is
+`6df762d6de5dac13c93b42e070fde5de0c2af2612258c1a89ff8d678b33610a7`.
+Root reviewed all six additional SQL-standard ports. They lock the original
+active organizer/author, person and community mapping and canonical consent;
+publication requires the exact approved job, current owner/community, immutable
+common intent, ready typed representation and source SHA/size/version. Banner
+orientation and social source/URL/platform/title/note are bound, without fetching
+or regenerating historical media. Original bytes and visibility remain intact.
+PUBLIC execution is revoked; publication adds only the trusted migration schema
+to pg_catalog for existing attachment triggers. No arbitrary caller SQL/schema
+is accepted. The runtime exclusion/readback and canonical restore lockdown now
+cover thirteen functions across105/107/109; any unknown definer or ledger change
+still refuses restore. Exact-source scanner tests also reject renamed, changed
+or privileged-added109. These are source restrictions and local diagnostics,
+not remote installation or deployment authorization.

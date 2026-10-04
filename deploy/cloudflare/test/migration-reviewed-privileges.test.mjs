@@ -31,3 +31,11 @@ test('reviewed107 exact bytes preserve the exception while changed or renamed vi
   const bad=scan(name,sql);assert.equal(bad.ok,false);assert.equal(bad.reviewed_privileged.length,0);assert(bad.privileged.some(p=>p.statement.startsWith('SECURITY DEFINER')));
  }
 });
+const imageSource=readFileSync(fileURLToPath(new URL('../../../migrations/109_banner_social_operator_backfill.sql',import.meta.url)),'utf8');
+test('reviewed109 banner/social ports require exact installed source and reject privileged additions',()=>{
+ const name='109_banner_social_operator_backfill.sql',result=scan(name,imageSource);
+ assert.equal(result.ok,true);assert.equal(result.reviewed_privileged[0].sha256,'6df762d6de5dac13c93b42e070fde5de0c2af2612258c1a89ff8d678b33610a7');
+ for(const [file,sql] of [[name,imageSource+'\n-- changed source\n'],['109_unreviewed.sql',imageSource],[name,imageSource+'\nALTER SYSTEM SET work_mem=1;']]){
+  const changed=scan(file,sql);assert.equal(changed.ok,false);assert(changed.privileged.length>0);
+ }
+});

@@ -4,8 +4,8 @@ import type {Pool} from 'pg';
 import {transaction} from '../db/transaction.js';
 import {validateInventoryTarget,type InventoryTarget} from './inventory.js';
 
-const root=new URL('../../',import.meta.url),migrations=Object.freeze(['105_operator_service_cover_backfill.sql','107_operator_event_video_backfill.sql']);
-const signatures=Object.freeze(['lock_media_backfill_operator_approval(text)','lock_media_backfill_cover_owner(text,uuid)','lock_media_backfill_cover_consent(text)','publish_media_backfill_cover(text,uuid,uuid,bigint,uuid)','lock_media_backfill_video_organizer(text,uuid)','lock_media_backfill_video_consent(text)','publish_media_backfill_video(text,uuid,uuid,bigint,uuid)']);
+const root=new URL('../../',import.meta.url),migrations=Object.freeze(['105_operator_service_cover_backfill.sql','107_operator_event_video_backfill.sql','109_banner_social_operator_backfill.sql']);
+const signatures=Object.freeze(['lock_media_backfill_operator_approval(text)','lock_media_backfill_cover_owner(text,uuid)','lock_media_backfill_cover_consent(text)','publish_media_backfill_cover(text,uuid,uuid,bigint,uuid)','lock_media_backfill_video_organizer(text,uuid)','lock_media_backfill_video_consent(text)','publish_media_backfill_video(text,uuid,uuid,bigint,uuid)','lock_media_backfill_banner_organizer(text,uuid)','lock_media_backfill_banner_consent(text)','publish_media_backfill_banner(text,uuid,uuid,bigint,uuid)','lock_media_backfill_social_author(text,uuid)','lock_media_backfill_social_consent(text)','publish_media_backfill_social(text,uuid,uuid,bigint,uuid)']);
 export interface RestoreAclOptions {readonly target:InventoryTarget;readonly runtimeRole:string}
 export class RestoreAclError extends Error {
  constructor(readonly code:'invalid_target'|'canonical_source_unavailable'|'target_mismatch'|'ledger_mismatch'|'runtime_role_unsafe'|'runtime_active'|'function_shape_mismatch'|'lockdown_unavailable'){super(code);this.name='RestoreAclError';}
@@ -23,7 +23,7 @@ async function source(){
   const {checkMigrations}=await import(new URL('deploy/cloudflare/lib/migrations.mjs',root).href);
   const manifest=loadManifest(fileURLToPath(new URL('deploy/cloudflare/environments.json',root)));if(validateManifest(manifest).length)throw Error();
   const scan=checkMigrations(fileURLToPath(new URL('migrations/',root)),manifest.database_defaults.migrations);
-  if(scan.ok!==true||scan.reviewed_privileged?.length!==2)throw Error();
+  if(scan.ok!==true||scan.reviewed_privileged?.length!==migrations.length)throw Error();
   const revocations:string[]=[],reviewedSources:{migration:string;sha256:string}[]=[];
   for(const migration of migrations){
    const reviewed=scan.reviewed_privileged.find((r:{file:string})=>r.file===migration);
@@ -36,7 +36,7 @@ async function source(){
    const list=/^REVOKE ALL ON FUNCTION ([\s\S]+) FROM PUBLIC;$/.exec(statement)?.[1];if(!list)throw Error();
    const found=[...list.matchAll(/[a-z_]+\([a-z,]+\)/g)].map(m=>m[0]);if(found.join(',')!==list.replace(/\s/g,''))throw Error();return found;
   });
-  if(revocations.length!==5||JSON.stringify(selected)!==JSON.stringify(signatures))throw Error();
+  if(revocations.length!==9||JSON.stringify(selected)!==JSON.stringify(signatures))throw Error();
   return {manifest,statements:Object.freeze(revocations),ledger:scan.ledger as {name:string;sha256:string}[],ledgerDigest:scan.ledger_digest as string,reviewedSources:Object.freeze(reviewedSources)};
  }catch{throw new RestoreAclError('canonical_source_unavailable');}
 }
@@ -74,6 +74,6 @@ export async function lockdownRestoredMediaAcl(pool:Pool,raw:RestoreAclOptions){
   const observedFunctions=(await q.query('SELECT p.oid::text oid FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1 AND p.prosecdef ORDER BY p.oid::text',[target.schema])).rows.map(r=>r.oid);if(JSON.stringify(observedFunctions)!==JSON.stringify(expectedFunctions.sort()))throw new RestoreAclError('function_shape_mismatch');
   for(const statement of canonical.statements)await q.query(statement);
   for(const signature of signatures)if((await q.query("SELECT has_function_privilege($1,to_regprocedure($2),'EXECUTE') allowed",[runtimeRole,`"${target.schema}".${signature}`])).rows[0].allowed!==false)throw new RestoreAclError('runtime_role_unsafe');
-  return Object.freeze({format:'freedom.media-restore-acl/v1',...installed,execution:'public_execute_revoked',functionsRevoked:7,dataMoved:false,applicationInstalled:false,deploymentReady:false,releaseBinding:'operator_declared_not_runtime_verified',fullRecoveryAuthority:'not_run',reviewedSources:canonical.reviewedSources,ledgerDigest:canonical.ledgerDigest});
+  return Object.freeze({format:'freedom.media-restore-acl/v1',...installed,execution:'public_execute_revoked',functionsRevoked:signatures.length,dataMoved:false,applicationInstalled:false,deploymentReady:false,releaseBinding:'operator_declared_not_runtime_verified',fullRecoveryAuthority:'not_run',reviewedSources:canonical.reviewedSources,ledgerDigest:canonical.ledgerDigest});
  });}catch(error){if(error instanceof RestoreAclError)throw error;throw new RestoreAclError('lockdown_unavailable');}
 }

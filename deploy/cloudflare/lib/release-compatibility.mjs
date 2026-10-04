@@ -61,6 +61,7 @@ const FOUNDATION_NAMES = [
   '104_community_event_highlight_asset_pairs.sql',
   '105_operator_service_cover_backfill.sql', '106_social_preview_asset_creation.sql',
   '107_operator_event_video_backfill.sql', '108_domain_media_gc_write_effects.sql',
+  '109_banner_social_operator_backfill.sql',
 ];
 
 function reject(code) { throw new Error(code); }

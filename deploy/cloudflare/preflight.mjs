@@ -21,6 +21,7 @@ import { probePlanetScale } from './lib/planetscale.mjs';
 import { buildProvisionPlan } from './lib/provision-plan.mjs';
 import { redactDeep, redactText } from './lib/redact.mjs';
 import { checkWranglerConfig, parseJsonc } from './lib/wrangler.mjs';
+import { checkMediaWranglerConfig } from './lib/media-wrangler.mjs';
 import { readFileSync, existsSync } from 'node:fs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -117,6 +118,7 @@ export async function run(argv, deps = {}) {
       hyperdriveConfigs = await readHyperdriveCaching({ client: createReadOnlyClient({ credentials, fetchImpl: deps.fetchImpl }), accountId: credentials.accountId, ids });
     }
     report.wrangler = checkWranglerConfig(path, manifest, { hyperdriveConfigs });
+    report.media_wrangler = checkMediaWranglerConfig(path, manifest);
   }
   if (want('cost')) report.cost = { selected: planetscaleCost(manifest), oci_alternative: ['CI.Standard.E4.Flex', 'CI.Standard.A1.Flex'].map((connectorShape) => ociAlternativeCost(manifest, { connectorShape })) };
   if (want('oci-alternative')) report.oci_alternative = ociAlternativeStatus(manifest);
@@ -141,6 +143,7 @@ export async function run(argv, deps = {}) {
   }
 
   const failed = report.manifest?.ok === false || report.migrations?.ok === false || report.wrangler?.status === 'fail'
+    || report.media_wrangler?.structural === false
     || (report.compatibility !== undefined && report.compatibility.status !== 'compatible');
   const safe = redactDeep(report);
   if (flags.report) safe.report_file = writePrivateReport(report, deps.reportDir);
