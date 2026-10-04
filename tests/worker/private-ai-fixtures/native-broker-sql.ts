@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import {createHash,randomUUID,randomBytes} from 'node:crypto';
 import {createServer as netServer,createConnection,type Socket} from 'node:net';
-import {mkdtemp,mkdir,readFile,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,readFile,readdir,rm} from 'node:fs/promises';
 import {join,resolve} from 'node:path';
-import {Miniflare,convertV4MiniflareOptions,type V4WorkerOptions} from 'miniflare';
+import {Miniflare,convertV4MiniflareOptions,type V4WorkerOptions,type V4ModuleDefinition} from 'miniflare';
 import {CompactSign,exportJWK,generateKeyPair} from 'jose';
 import {Pool} from 'pg';
 import {migrate} from '../../../scripts/database.js';
@@ -77,7 +77,11 @@ export async function nativeBrokerSqlFixture(extend?:(context:{workers:V4WorkerO
     directory=await mkdtemp(resolve('.wrangler/broker-sql-'));
     const {execFile}=await import('node:child_process'),{promisify}=await import('node:util');await promisify(execFile)(process.execPath,['node_modules/wrangler/bin/wrangler.js','deploy','--dry-run','--config','wrangler.broker.example.jsonc','--env','staging-next','--outdir',directory],{maxBuffer:1024*1024});
     const provider=`let posts=0,gets=0;export default {async fetch(request){const url=new URL(request.url);if(url.pathname==='/counts')return Response.json({posts,gets});if(url.hostname!=='api.openai.com'||request.headers.get('Authorization')!=='Bearer ${secret}')return new Response('',{status:401});if(request.method==='GET'){gets++;return Response.json({id:'synthetic-model',object:'model',created:0,owned_by:'synthetic'});}posts++;const body=await request.json();if(body.tools.length!==0)return new Response('',{status:400});return Response.json({id:'synthetic-response',object:'response',model:'synthetic-model',status:'completed',output:[{id:'message',type:'message',role:'assistant',status:'completed',content:[{type:'output_text',text:'${output}',annotations:[]}]}],usage:{input_tokens:3,output_tokens:4,total_tokens:7}});}};`;
-    const brokerWorker={name:'broker',modules:true,scriptPath:join(directory,'worker.js'),compatibilityDate:'2026-09-21',compatibilityFlags:['nodejs_compat'],bindings,hyperdrives:{CIPHER_HYPERDRIVE:hyperdrive(roles.broker),EXECUTOR_HYPERDRIVE:hyperdrive(roles.executor)},r2Buckets:{MEDIA:'synthetic-broker-private-assets'},serviceBindings:{CREDENTIAL_RECOVERY_STATE:'recovery-state',CREDENTIAL_RECOVERY_FLOOR:'recovery-floor'},outboundService:'synthetic-provider'};
+    // Miniflare 5's V4 converter rejects modulesRules. Explicit modules preserve
+    // Wrangler's binary setup-brand asset and use the real emitted entry first.
+    const brokerModules:V4ModuleDefinition[]=[{type:'ESModule',path:join(directory,'worker.js')},
+      ...(await readdir(directory)).filter(name=>name.endsWith('.webp')).sort().map(name=>({type:'Data' as const,path:join(directory!,name)}))];
+    const brokerWorker={name:'broker',modules:brokerModules,modulesRoot:directory,compatibilityDate:'2026-09-21',compatibilityFlags:['nodejs_compat'],bindings,hyperdrives:{CIPHER_HYPERDRIVE:hyperdrive(roles.broker),EXECUTOR_HYPERDRIVE:hyperdrive(roles.executor)},r2Buckets:{MEDIA:'synthetic-broker-private-assets'},serviceBindings:{CREDENTIAL_RECOVERY_STATE:'recovery-state',CREDENTIAL_RECOVERY_FLOOR:'recovery-floor'},outboundService:'synthetic-provider'};
     const workers:V4WorkerOptions[]=[brokerWorker,
       {...brokerWorker,name:'foreign-profile',bindings:{...bindings,FREEDOM_BROKER_ENVIRONMENT:'next'}},
       {...brokerWorker,name:'swapped-roles',hyperdrives:{CIPHER_HYPERDRIVE:hyperdrive(roles.executor),EXECUTOR_HYPERDRIVE:hyperdrive(roles.broker)}},
