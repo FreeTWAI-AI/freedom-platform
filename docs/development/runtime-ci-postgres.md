@@ -49,3 +49,20 @@ unexposed quota when none are readable. Absence never proves an unlimited quota.
 Actual local and missing-file checks both succeeded. No runtime prerequisite,
 assertion, deadline or required result is waived by this diagnostic compatibility
 fix; missing partition artifacts still fail aggregation.
+
+
+Actual `dd3ae0e` hosted matrix completed all 196 files/2,620 unique cases in
+576.165 seconds with all four cleanups verified: 2,619 passed and one failed,
+zero skipped/cancelled/todo. The native prerequisite and runtime cases now pass
+after the bounded observed AppArmor deleted-entry fix. The broker adversarial
+final Result-INSERT expiry case is the remaining failure; its closed progress
+record does not contain assertion details, so no SQL/HTTP or TTL cause is inferred.
+
+Partition one now runs a fixed eight-case broker checkpoint after the native
+prerequisite and before its full producer. Clean environment, explicit disposable
+local `fp_` database admission, process-group 90-second/256KiB limits, bounded TAP
+and strict closed JSON require exact eight passed cases and zero skipped cases.
+All eight still execute in the full deterministic partition. This diagnostic
+does not expand the aggregate's earliest-start-to-latest-end 900-second window
+or the job's 40-minute cap. Local eight-case passes and synthetic skip/count/URL
+rejections are candidate diagnostics, not a hosted failure fix or trusted gate.

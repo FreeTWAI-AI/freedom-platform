@@ -1802,3 +1802,57 @@ hash、兩 profile names、no-load compile 後載入；installed stock files、
 sysctls、capability denial、px/pix、namespace/snapshot adapter 保留。
 不載 localhost policy、不升整套 package、不讓 test skip。真正新
 policy 的六項與完整 runtime 結果仍待新 immutable candidate。
+
+
+固定 PR head dd3ae0e 的真正 GitHub run37179816610 已完整結束，
+checkout 4fd27bf5ae743b1224de99a35022867d27e427ba；四份 archive
+SHA／固定單一檔名、同一 source manifest、196 檔唯一聯集及 2,620
+唯一 cases 已核對。結果 2,619 pass／1 fail、零 skip/cancel/todo，
+四份 cleanup true，整體 576.165 秒，原 900 秒未放寬。唯一失敗是
+model-broker-bridge-adversarial 的第六項「真正 final Result INSERT
+等待跨越 invocation expiry」；既有閉合 JSON 只有 unknown failure
+分類，未提供 assertion 原因，不把 tsx generated line1 當 TS 位置。
+aggregate／final verify 正確 failure，不列全綠。
+
+四個真正 Ubuntu runner 的 namespace／固定六項 snapshot prerequisites
+已通過；此前 observed AppArmor deleted-entry denial 的 reviewed
+flag-only 修正現有 actual hosted 證據。完整 runtime 同六項也全過。
+Worker 60/60、七類 DB+native R2 restore 2/2、UI、governance-consumers
+及 deploy-preflight 真正成功；這仍不是 cloud bucket／正式資料還原。
+d08bfab、2bd0747、092e4b1 的後續 superseded workflows 如實 cancelled，
+已取得的局部 failure／kernel 原因留存，不將取消改寫為完整 pass。
+
+補上固定既有八項 broker bridge 的 diagnostic checkpoint：只在
+partition1、clean env、明確 disposable fp_ database、90 秒 isolated
+process-group／256KiB、dual TAP 與閉合 JSON，要求 exact8 passed／
+零 skip／exit0；完整 runtime 的八項仍必跑，900 秒全組 window 與
+40 分鐘 workflow cap 保留。作者 actual8/8、53.60 秒；根前次獨立
+local8/8、54.37 秒。最後 duplicate-host URL guard 僅另做 boundary／
+syntax validation，不冒充其後完整 DB run。獨立九個 synthetic
+executions 證明完整八項 accepted、七項或 skip rejected，以及
+remote/original DB／arguments／prototype／duplicate-key 反例拒絕。
+真正 hosted failure 原因仍未知，未改 TTL、SQL sink、HTTP transport
+或 assertion；下一個 immutable candidate checkpoint 提供 actual TAP。
+
+可信 publisher 已加入 positive run_attempt，逐次綁 authenticated
+current run 與 exact /attempts/:attempt readback，簽署 host binding／
+runner observation 與 replay/external_id 同時帶 attempt。根另外發現
+publisher numeric run_id 與 actual trusted-ci string validator 不相容，
+作者先重現 invalid_host_identity，再固定 canonical safe decimal
+string，API numeric ID 只經 exact string equality 比對。保留 local
+symbolic host IDs。真實 validator composition／malformed ID／stale
+attempt／signature tamper 等反例已驗，根整合 affected80/80、零 skip、
+exit0。作者 run-attempt78/78、run-ID affected35/35；獨立 focused24/24
+與19/19，均零 skip。沒有 keys／GitHub POST／callback installation。
+Replay 仍 process-local；durable supersession、ambiguous POST reconciliation、
+trusted callback installation、baseline／library resolution／entry coverage
+與 App-bound enforcement 仍待交付，gate_enforced／merge_authorized
+維持 false。
+
+
+固定 7e78cde 根治理 unit adapter 已完整 283/283 通過，16 檔、
+20.692 秒、零 fail/skip/cancel/todo，仍用原 60 秒 cap。
+Evidence SHA-256
+0cdb1da1342032e6e5f666b7ad680fd4a77482f235bbdd13090a7e7d5d56c3f8。
+這是 composed publisher source 的 local synthetic proof；未安裝 formal
+trust／enforcement，不取代下一個真正 hosted immutable candidate。

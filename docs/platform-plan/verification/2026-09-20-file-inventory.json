@@ -14,8 +14,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 13606,
-      "sha256": "36182cae9c96ea07edcf2086b66b7beb3b32c2739189a657efbfe3794fa44409"
+      "bytes": 13959,
+      "sha256": "6f6f41a1730728ecee39234d8bf89b475748b8f282f2fe2dc7cc7ae81496967b"
     },
     {
       "path": ".gitignore",
@@ -3054,8 +3054,8 @@
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
-      "bytes": 8253,
-      "sha256": "ce0c2f0150737eb72febdb992f2dd165ff39abc4aad720bb7d857b7290075a04"
+      "bytes": 9370,
+      "sha256": "1d65f0746b7069177deb6d557c3fa752ebd6123371a7e4cbbf1e21d72cd77e63"
     },
     {
       "path": "docs/development/service-cover-worker.md",
@@ -4284,13 +4284,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 197253,
-      "sha256": "4854edac9d07e36550d9acc3a036fac0e77580b2b746a06508cbeb24385a0094"
+      "bytes": 200726,
+      "sha256": "56a5d8bd0e87e08584b690ca674a86d16ef08c70383d5fd961e33638811bb4c1"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
-      "bytes": 11583,
-      "sha256": "b2832f6e358180027d91a5a2419a36651fe20e73e2ef338ad33d8301d3031d9c"
+      "bytes": 15327,
+      "sha256": "3907424110c2981d314cfe4987b10545e67fbf102465f0e7a8afbc52d36044fe"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -6199,8 +6199,8 @@
     },
     {
       "path": "packages/contribution-tools/behavior-supervisor.mjs",
-      "bytes": 24251,
-      "sha256": "668ccf49568188daddfa83e92eccc5ccea141a17169da4f8b97e4871198c0f5c"
+      "bytes": 24267,
+      "sha256": "320226d943e6cfd749c26c3784f8a5a6b2135e3d318436623ad28fcf5bb88722"
     },
     {
       "path": "packages/contribution-tools/cli.mjs",
@@ -6239,18 +6239,18 @@
     },
     {
       "path": "packages/contribution-tools/github-app-publisher.mjs",
-      "bytes": 11791,
-      "sha256": "7500a92982f7cf0340af2d979e123d51a637c2f0f7a94d9bb0c8e719a9533473"
+      "bytes": 12630,
+      "sha256": "c890dba480a5d5a1dc3c030e4f1e3b38f7dc3c7b6fe391c288c88b4884b5ee53"
     },
     {
       "path": "packages/contribution-tools/github-trusted-adapter.md",
-      "bytes": 11385,
-      "sha256": "9752dffe3de192cefacc2dcc00827d7d5c6dcc5486babcd57bdff6285517aae5"
+      "bytes": 12763,
+      "sha256": "297d41f6af467c513a3092a6a60e9fa1d780307e60f2cc547114615e2396935c"
     },
     {
       "path": "packages/contribution-tools/github-trusted-adapter.mjs",
-      "bytes": 11376,
-      "sha256": "46567a29ddaac18a30aed01809817a7e1c7bc5cf0ed092ec824180fdf7e6736b"
+      "bytes": 11547,
+      "sha256": "02f2ea3296edd74fedf0b66cb7778d9bbe6a107c2085eb2b0df8b76fac8ac104"
     },
     {
       "path": "packages/contribution-tools/io.mjs",
@@ -6309,13 +6309,13 @@
     },
     {
       "path": "packages/contribution-tools/test/behavior-harness-adversarial.test.mjs",
-      "bytes": 14527,
-      "sha256": "b676cd258740bdc7f1e19bc3fbcf0bf40b364253a01c2353f22c0b4f0623dcfe"
+      "bytes": 14543,
+      "sha256": "3a89607ddea5fd52918842105cee70fa81b822afdb67615a5ec23dce756c586b"
     },
     {
       "path": "packages/contribution-tools/test/behavior-harness.test.mjs",
-      "bytes": 7738,
-      "sha256": "801da134fda8b0b05234416096a44f89f5ccd8e93cbb368669410953fc0fba6d"
+      "bytes": 7755,
+      "sha256": "a9c0e1fa40916d0985d91981c1061ef5e2a1e216a81e3ca665901b5c03596ec7"
     },
     {
       "path": "packages/contribution-tools/test/behavior-supervisor.test.mjs",
@@ -6344,13 +6344,13 @@
     },
     {
       "path": "packages/contribution-tools/test/github-app-publisher.test.mjs",
-      "bytes": 10513,
-      "sha256": "35734054b6e0683487967ec82b510e06a438b7f686af55d225e7e7964ba27578"
+      "bytes": 15213,
+      "sha256": "59f0108457785cd6331dd2c3b91d9e3a81deba928f732c3a40ee7a355a5fd5bb"
     },
     {
       "path": "packages/contribution-tools/test/github-trusted-adapter.test.mjs",
-      "bytes": 10025,
-      "sha256": "f61755c2f860e909c9101280bd94912282ac76cacb09df9696ae64150e1530a8"
+      "bytes": 10167,
+      "sha256": "c4aa2715117f709eaed692794c9b4b4c9843eb81ec2e4f27bb7e64d62b265660"
     },
     {
       "path": "packages/contribution-tools/test/io.test.mjs",
@@ -6389,8 +6389,8 @@
     },
     {
       "path": "packages/contribution-tools/test/trusted-ci.test.mjs",
-      "bytes": 16212,
-      "sha256": "83c9f31c7ecb351b3eb7e9774f9838350cb7e1822d8321fdf45439d9d986c5cb"
+      "bytes": 16248,
+      "sha256": "47a246db21c67c11d048f6b4b9412e86250e3da1d7749a34533c926ab8fb4db8"
     },
     {
       "path": "packages/contribution-tools/test-progress.md",
@@ -6404,8 +6404,8 @@
     },
     {
       "path": "packages/contribution-tools/trusted-ci.mjs",
-      "bytes": 18183,
-      "sha256": "3761abeaf052fd3ec079c16a6f08c1a5c94b5e36150e75a4971ac6d92041fc14"
+      "bytes": 18296,
+      "sha256": "f5ae6c6f82d1b0de07ff3a74e8b1a98765b6d53b25acbec93d73b18250069679"
     },
     {
       "path": "packages/contribution-tools/verify.mjs",
@@ -6781,6 +6781,11 @@
       "path": "scripts/checkout-repositories.mjs",
       "bytes": 1392,
       "sha256": "b60b970743d8d73de18e1f93d042590b29b4ee6866fb63a2eecf11e753634b01"
+    },
+    {
+      "path": "scripts/ci/broker-bridge-check.mjs",
+      "bytes": 4001,
+      "sha256": "3aae94bc9a2e2cfa8e296ef9809f1cfe8a99e94b7a0ce062f2123f8997aa83eb"
     },
     {
       "path": "scripts/ci/bwrap-deleted-compat.md",
@@ -7729,8 +7734,8 @@
     },
     {
       "path": "tests/runtime/fixed-behavior-harness.test.ts",
-      "bytes": 6455,
-      "sha256": "4536bcb1cdccf8821c1ac2fc16cb7a7174f89c6fba8c37219fcce2e1a79aeb91"
+      "bytes": 6472,
+      "sha256": "a2472f6e8a237cf0eb63e7a7625107ad262210fe6bae40ed4b5be6aa6f5f967d"
     },
     {
       "path": "tests/runtime/fixtures/repo-maintainer/pr-46-files.json",

@@ -81,10 +81,64 @@ other verification jobs succeeded; required aggregate and final verify failed.
 The new fixed six-case snapshot prerequisite supplies bounded synthetic TAP
 diagnostics plus strict complete JSON counts before the full runtime. Local
 success and skip/timeout rejection do not establish Ubuntu 24.04 compatibility.
-The actual runner cause remains unresolved until that checkpoint runs.
+At that candidate the actual runner cause was unresolved; subsequent observed-kernel evidence and the completed dd3ae0e result below supersede that diagnosis, while preserving the failed run.
 
 The scoped development-only Miniflare undici override to 7.29.1 was installed
 and tested with 57 Worker and two seven-kind restore cases; production package
 pins and Miniflare/workerd versions are unchanged. This does not adjudicate
 CodeQL alert 39 or close GitHub default-branch dependency alerts. No merge,
 cloud installation, migration, deployment or real provider call was performed.
+
+
+Current completed hosted candidate: PR head `dd3ae0e` / checkout
+`4fd27bf5ae743b1224de99a35022867d27e427ba`,
+[run 37179816610](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37179816610).
+All 196 files and 2,620 unique cases finished: **2,619 passed, one failed**, zero
+skipped/cancelled/todo, all four cleanup observations true, 576.165 seconds
+within the unchanged global 900-second cap. The sole failure is the sixth
+broker-bridge adversarial case, where a real final Result INSERT waits across
+invocation expiry. Its assertion cause remains unknown. The aggregate and final
+verify correctly failed; no merge or deployment green light is inferred.
+
+The AppArmor deleted-entry cause was established by six bounded actual kernel
+denials at `092e4b1`. The reviewed two-profile flag-only compatibility load then
+passed the namespace and all six snapshot prerequisites on all four actual
+Ubuntu runners at `dd3ae0e`; the same six runtime cases passed as well. No local
+host policy, installed stock policy files, global sysctls, production isolation,
+test selection or timing limits were relaxed. Worker **60/60** and the seven-kind
+DB+native-R2 restore drill **2/2** passed on that hosted candidate, together with
+UI, governance and deployment preflight. The optional private media caller now
+has default-OFF/no-cron source and actual native named-RPC tests, but its receiving
+operator fixture is synthetic and no account/IAM/binding installation occurred.
+Earlier superseded `d08bfab`, `2bd0747` and `092e4b1` runs remain cancelled,
+with their observed failures retained, rather than being recast as whole passes.
+
+The next source adds a fixed eight-case broker diagnostic before partition one,
+with a separate 90-second/256KiB bound, strict complete JSON admission and TAP;
+all eight remain in the full 196-file producer. Local author and independent
+runs passed eight cases, and boundary/case-count counterexamples passed; this
+supplies diagnostics, not a proven hosted transaction fix. Publisher evidence
+now binds exact positive workflow run attempts and canonical decimal run IDs;
+root integrated the real host-validator composition and counterexamples at
+**80/80**, zero skips. No authenticated GitHub POST or installed callback ran.
+Replay is still process-local: durable attempt supersession, ambiguous-POST
+reconciliation, installed verifier/publisher, controlled initial baseline,
+library resolution/entry coverage and actual App-bound enforcement remain
+engineering and operational gates. CodeQL alert 39 has no formal adjudication.
+
+Read-only local configuration and credential-presence inspection found only
+placeholder account/resource identities and no installed provider credentials
+at the inspected locations; it did not contact Cloudflare or inspect credential
+contents. Actual account/resource existence is **unknown**, not absent. A fresh
+isolated candidate requires operator-supplied nonsecret account, worker/bucket
+names, distinct cache-OFF Hyperdrive IDs and actual physical database/role
+readback. Existing staging/live resource names are not disposable. No resource
+creation, real HTTPS/member flow, formal data inventory/backfill/cutover, offsite
+recovery, merge or deployment has occurred. These remain substantive acceptance
+requirements even after a future complete CI pass.
+
+
+The composed source at `7e78cde` separately passed the complete bounded local
+governance unit adapter: **283/283**, 16 files, 20.692 seconds, zero failures,
+skips, cancellations or todo. Its unchanged cap is 60 seconds. This verifies
+local behavior; it installs no formal trust or GitHub enforcement.
