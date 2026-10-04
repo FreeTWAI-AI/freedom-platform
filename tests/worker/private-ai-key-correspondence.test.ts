@@ -16,6 +16,14 @@ test('native main composition verifies every private JWK before enforcing signer
     recoveryAuthority:'recovery',recoveryKeys:[{keyId:'recovery',publicJwk:recovery}],settingsSelections:[],
     ingest:{setupOrigin:'https://setup.test',issuer:'main-ingest',audience:'broker-ingest',keyId:'ingest'}};
   const independent=await jwk(pairs[3].privateKey);
+  // WebCrypto accepts noncanonical base64url pad bits. A different JWK string
+  // may still be the same key, so separation must compare actual signatures.
+  const alias=(x:string)=>{
+    const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    const value=x.slice(0,-1)+alphabet[alphabet.indexOf(x.at(-1)!)+1];
+    assert.notEqual(value,x);assert.deepEqual(Buffer.from(value,'base64url'),Buffer.from(x,'base64url'));
+    return value;
+  };
   const bootstrapPairs=await Promise.all(Array.from({length:2},()=>crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify'])));
   const bootstrapPrivate=await jwk(bootstrapPairs[0].privateKey),bootstrapPublic=await jwk(bootstrapPairs[0].publicKey),otherBootstrapPublic=await jwk(bootstrapPairs[1].publicKey);
   const bootstrap={environment:profile.environment,clientId:profile.clientId,issuer:'https://issuer.test/',audience:profile.platformOrigin+'/',
@@ -30,6 +38,11 @@ test('native main composition verifies every private JWK before enforcing signer
     {name:'mismatched-ingest',expected:false,bindings:{...baseBindings,FREEDOM_PRIVATE_AI_INGEST_KEY:JSON.stringify({...independent,x:request.x})}},
     {name:'mismatched-request-without-ingest',expected:false,bindings:{FREEDOM_PRIVATE_AI_ENABLED:'true',FREEDOM_PRIVATE_AI_PROFILE:JSON.stringify(withoutIngest),FREEDOM_PRIVATE_AI_REQUEST_KEY:JSON.stringify({...request,x:response.x})}},
     {name:'mismatched-bootstrap',expected:false,bindings:{...baseBindings,FREEDOM_PRIVATE_AI_PROFILE:JSON.stringify({...profile,bootstrap}),FREEDOM_PRIVATE_AI_BOOTSTRAP_KEY:JSON.stringify({...bootstrapPrivate,x:otherBootstrapPublic.x,y:otherBootstrapPublic.y})}},
+    {name:'aliased-request-ingest-reuse',expected:false,bindings:{...baseBindings,FREEDOM_PRIVATE_AI_REQUEST_KEY:JSON.stringify({...request,x:alias(request.x!)}),FREEDOM_PRIVATE_AI_INGEST_KEY:JSON.stringify(request)}},
+    {name:'aliased-response-ingest-reuse',expected:false,bindings:{...baseBindings,FREEDOM_PRIVATE_AI_PROFILE:JSON.stringify({...profile,responseKeys:[{keyId:'response',publicJwk:{kty:'OKP',crv:'Ed25519',x:alias(independent.x!)}}]})}},
+    {name:'aliased-recovery-ingest-reuse',expected:false,bindings:{...baseBindings,FREEDOM_PRIVATE_AI_PROFILE:JSON.stringify({...profile,recoveryKeys:[{keyId:'recovery',publicJwk:{kty:'OKP',crv:'Ed25519',x:alias(independent.x!)}}]})}},
+    {name:'aliased-request-response-reuse',expected:false,bindings:{FREEDOM_PRIVATE_AI_ENABLED:'true',FREEDOM_PRIVATE_AI_REQUEST_KEY:JSON.stringify(request),FREEDOM_PRIVATE_AI_PROFILE:JSON.stringify({...withoutIngest,responseKeys:[{keyId:'response',publicJwk:{kty:'OKP',crv:'Ed25519',x:alias(request.x!)}}]})}},
+    {name:'aliased-independent-keys',expected:true,bindings:{...baseBindings,FREEDOM_PRIVATE_AI_REQUEST_KEY:JSON.stringify({...request,x:alias(request.x!)}),FREEDOM_PRIVATE_AI_INGEST_KEY:JSON.stringify({...independent,x:alias(independent.x!)}),FREEDOM_PRIVATE_AI_PROFILE:JSON.stringify({...profile,responseKeys:[{keyId:'response',publicJwk:{...response,x:alias(response.x!)}}],recoveryKeys:[{keyId:'recovery',publicJwk:{...recovery,x:alias(recovery.x!)}}]})}},
     {name:'matching-all-private-keys',expected:true,bindings:{...baseBindings,FREEDOM_PRIVATE_AI_PROFILE:JSON.stringify({...profile,bootstrap}),FREEDOM_PRIVATE_AI_BOOTSTRAP_KEY:JSON.stringify(bootstrapPrivate)}},
   ];
   await mkdir(resolve('.wrangler'),{recursive:true});const directory=await mkdtemp(resolve('.wrangler/fp-key-correspondence-'));
