@@ -1,5 +1,7 @@
 # 自由工坊共同基礎開發規格
 
+移植後工作依[後續執行計畫](post-migration-plan-2026-10-04.md)推進：P0 營運與恢復、P1 R2、P2 可信發布門檻、P3 私人執行。Ted 已授權本輪修復檢查後合併基底；功能啟用與產品驗收分別記錄。
+
 接手目前工作先讀 [實際移植報告](actual-migration-2026-10-04.md) 與 [平台移植交接筆記](handoff-2026-10-04.md)。2026-10-04 09:03:44 UTC 已完成 staging／公開入口切換新 PostgreSQL branch，部署 runtime 固定為 `9cc283c6`。原正式 387 位 users、staging 8 位 users 與兩環境共 280 張來源表的逐欄 digest、列數及序列一致；legacy 媒體 bytea 完整搬入，每環境 HTTPS 驗收 66/66，日備份 services 成功並核對 digest。新 R2 桶分環境獨立，但 backfill／非 legacy、私人 AI／broker／machine 仍 OFF，可信發布 gate 尚未完成。以下原始分批規格與早期操作限制保留作歷史，後續授權以[最新決策](00-baseline-and-decisions.md)及當前對話為準。
 
 這組 spec 將 [Unified Foundation 1.1 計畫](../../../plans/unified-foundation.md) 轉成可分批開發、審查及驗收的工作。結論是可以依此計畫開發；先交付固定契約與開工工具、相容的身分及交易核心，再完成「會員換頭像」與「本人私人 AI 草稿」兩條完整流程。

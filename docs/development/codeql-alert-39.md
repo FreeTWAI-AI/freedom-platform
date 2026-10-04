@@ -1,12 +1,16 @@
 # CodeQL alert 39: random session-token dataflow
 
-Independent security review recommendation: dismiss **alert39 only** as a
-false positive. The SHA-256 input in these reported paths is an independently
-random 256-bit session token. Login passwords use salted scrypt. This review
-recommends a specific disposition; the authorized operator must apply it and
-read back GitHub's resulting state/check. No dismissal was performed here.
+Disposition applied: **alert39 only was dismissed as a false positive** on
+2026-10-04 at 16:34:38 UTC. The root agent acted under Ted's instruction to
+resolve the outstanding work and merge PR108, after the independent Sol review
+and a second source review. GitHub readback confirms `dismissed_reason: false
+positive` and PR-head instance state `dismissed`. The SHA-256 input is an
+independently random 256-bit session token; passwords use salted scrypt.
+This is a specific reviewed false-positive disposition, not acceptance of weak
+password hashing or removal of the CodeQL query. The new PR-head checks must
+still complete before merge; disposition alone does not establish CI success.
 
-Current evidence is PR108 head `a1adecc9da819209dcc7248f3387cb355ea782de`,
+Reviewed evidence is pinned to PR108 head `a1adecc9da819209dcc7248f3387cb355ea782de`,
 ref **`refs/pull/108/head`**, JavaScript/TypeScript analysis **1888288476**,
 created `2026-10-04T09:20:41Z`. The SARIF contains five results; this review
 addresses only `js/insufficient-password-hash`, alert39 at
@@ -76,8 +80,8 @@ rechecked from this source and SARIF. Current SARIF SHA-256 is
 [Analyze run37191741135](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37191741135)
 completed successfully, but
 [CodeQL security check111405290239](https://github.com/FreeTWAI-AI/freedom-platform/runs/111405290239)
-**failed**, reporting one new high security alert. Alert39's PR-head instance
-is still open. A zero-result merge-ref analysis, analyzer completion, local
+**failed** before disposition, reporting one new high security alert. Alert39's PR-head instance was open at that analysis; the readback above records the
+subsequent disposition. A zero-result merge-ref analysis, analyzer completion, local
 tests or this document cannot replace the failing PR-head security gate.
 The other four JavaScript SARIF result keys (rule, path, line) are unchanged
 from analysis1888173960 at d134371. Each current flagged expression was read:
@@ -95,13 +99,11 @@ other alerts. Improving test assertion coverage can remain follow-up work.
 Exact-head Python analysis1888286703 and Actions analysis1888286440 report
 zero results.
 
-Actionable next step: an authorized security reviewer can adjudicate alert39
-using this exact current analysis, source selections and hashes. A minimal
-upstream model reproducer should preserve real password verification and the
-independent random token. No alias rename, query exclusion, dismissal,
-password/token crypto change, trust/rules change or account migration was
-performed. This is a documentation-only update; no new CodeQL run or formal
-security approval is claimed.
+A minimal upstream model reproducer remains useful follow-up and should
+preserve real password verification and the independent random token. No alias
+rename, query exclusion, password/token crypto change, scanner configuration,
+trust/rules change or account migration was performed to resolve this alert.
+The only remote security mutation was the documented alert39 disposition.
 
 Current raw SARIF is retained in the isolated security worktree at
 `.freedom/reports/codeql-1888288476.sarif.json`. Previous structured audits
@@ -109,10 +111,9 @@ remain historical evidence.
 
 Historical GitHub gate readback earlier on 2026-10-04: `main` reports `protected: false`, the
 branch-protection endpoint returns `404 Branch not protected`, and repository
-rulesets are `[]`. Current head checks are emitted by GitHub Actions
+rulesets are `[]`. Head checks observed during that readback were emitted by GitHub Actions
 (App ID 15368) and CodeQL/GitHub Advanced Security (App ID 57789); no trusted
-operator publisher check appears for this head. The repository therefore has
-no observed required or App-bound merge gate. Installing and configuring the
+operator publisher check appears for this head. That readback observed no required or App-bound merge gate. Installing and configuring the
 trusted publisher, requiring its exact check name and App ID, and enforcing
 the security decision remain separate operator work. The diagnostic workflow
 or its comments do not establish this configuration. No remote settings or
@@ -120,7 +121,11 @@ alert dispositions were changed during this readback.
 
 ## Exact dismissal reason and acceptance boundary
 
-Suggested GitHub reason: `false positive`.
+Applied GitHub reason: `false positive`. The concise submitted comment is:
+
+> False positive: all 10 flows select login().token from independent randomBytes(32); SHA-256 is used for session lookup. Passwords use random salt + scrypt. Reviewed analysis 1888288476; full source/SARIF evidence in docs/development/codeql-alert-39.md.
+
+Full independent review rationale:
 
 > Reviewed PR108 source a1adecc9da819209dcc7248f3387cb355ea782de and
 > CodeQL2.27.1 analysis1888288476. All ten sources select login's returned
