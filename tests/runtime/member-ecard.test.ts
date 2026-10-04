@@ -28,6 +28,22 @@ async function member(name:string,ready=true,email=`${randomUUID()}@example.test
 }
 const link=(label:string,url:string)=>({label,url});
 const shareBody=(extra:Record<string,unknown>={})=>({enabled:true,include_avatar:false,design:'calm',headline:'一句話',links:[link('作品','https://example.com/a')],...extra});
+test('editorial is available by default, persists and leaves an existing choice unchanged',async()=>{
+  const owner=await member('新版名片');
+  assert.equal((await request('/me/member-card-share',owner)).data.design,'editorial');
+  const opened=await request('/me/member-card-share',owner,{enabled:true,include_avatar:false});
+  assert.equal(opened.status,200);assert.equal(opened.data.design,'editorial');
+  const publicCard=await request('/public'+opened.data.share_path);
+  assert.equal(publicCard.data.design,'editorial');
+  let version=opened.data.aggregate_version;
+  for(const design of ['calm','workshop','night','classic']){
+    const chosen=await request('/me/member-card-share',owner,{enabled:true,include_avatar:false,design},version);
+    assert.equal(chosen.status,200);
+    const preserved=await request('/me/member-card-share',owner,{enabled:true,include_avatar:false},chosen.data.aggregate_version);
+    assert.equal(preserved.status,200);assert.equal(preserved.data.design,design);assert.equal(preserved.data.share_path,opened.data.share_path);
+    version=preserved.data.aggregate_version;
+  }
+});
 function generationOf(path:string){return createHash('sha256').update(path.split('/').at(-1)!).digest('hex').slice(0,16);}
 async function stamp(){
   const shares=(await pool.query('SELECT count(*)::int AS n, coalesce(max(aggregate_version),0)::int AS v FROM member_card_shares')).rows[0];
@@ -50,7 +66,7 @@ test('card links, headlines and designs are rejected in zh-TW before anything is
     [shareBody({links:[link('名'.repeat(31),'https://example.com/a')]}),/連結名稱需要 1 到 30 個字/],
     [shareBody({links:[link('好\n名','https://example.com/a')]}),/連結名稱請使用單行文字/],
     [shareBody({headline:'介'.repeat(61)}),/一句話介紹最多 60 個字/],
-    [shareBody({design:'neon'}),/名片樣式請選擇清新、工坊、夜空或經典名片/],
+    [shareBody({design:'neon'}),/名片樣式請選擇工坊誌、清新、工坊、夜空或經典名片/],
   ];
   for(const [body,detail] of rejected){const result=await request('/me/member-card-share',owner,body);assert.equal(result.status,422);assert.match(result.data.detail,detail);}
   assert.equal((await pool.query('SELECT aggregate_version FROM member_card_shares WHERE user_id=$1',[owner.id])).rowCount,0);

@@ -10,12 +10,25 @@
     "apps/portal-web/src/modules/Membership.tsx",
     "apps/portal-web/src/modules/PublicMemberPage.tsx",
     "apps/portal-web/src/modules/MemberCardShareActions.tsx",
-    "tests/runtime/member-ecard.test.ts"
+    "tests/runtime/member-ecard.test.ts",
+    "apps/portal-web/src/modules/MemberShare.tsx",
+    "apps/portal-web/src/modules/MemberCardDownload.tsx",
+    "apps/portal-web/src/modules/MemberCardQr.tsx",
+    "apps/portal-web/src/modules/MemberEditorialCard.css",
+    "migrations/112_member_card_editorial.sql",
+    "tests/runtime/member-card-qr.test.ts",
+    "tests/e2e/member-editorial-card.spec.ts",
+    "apps/portal-web/public/licenses/member-card/dijkstrajs-MIT.txt",
+    "apps/portal-web/public/licenses/member-card/html-to-image-MIT.txt",
+    "apps/portal-web/public/licenses/member-card/qrcode-MIT.txt",
+    "apps/portal-web/public/licenses/member-card/qrcode-core-notice.txt"
   ],
   "public_exports": [
     "modules/identity-membership/member-sharing.ts"
   ],
-  "dependencies": ["command-core"],
+  "dependencies": [
+    "command-core"
+  ],
   "contract_families": [
     "preview"
   ],

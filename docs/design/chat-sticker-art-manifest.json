@@ -1,0 +1,11 @@
+{
+  "generated_at": "2026-10-02",
+  "tool": "built-in image_gen",
+  "source": "Original atlas generated for Hao0321 and freedom-platform; no third-party sticker asset copied.",
+  "path": "apps/portal-web/public/art/chat/workshop-v1.png",
+  "grid": {
+    "columns": 2,
+    "rows": 2
+  },
+  "prompt": "Use case: stylized-concept. Asset type: one production chat-sticker sprite atlas for FreeTWAI collaborative community web app. Create a perfectly square image with a strict invisible 2 by 2 grid of equal square cells. Each cell contains ONE full original cute rounded mint-green workshop helper creature, soft clay-like illustration, tiny darker green leaf antenna, warm friendly expressive face, consistent identity in all four cells, dark thin outline and a soft white sticker keyline, transparent background with real alpha. Keep every character and prop fully inside its own cell with at least 12 percent transparent padding on all four edges; nothing may cross the quadrant boundaries. Top left: greeting, waving one hand with bright smile. Top right: thank you, holding a small coral heart with closed happy eyes. Bottom left: cheering, raising both arms, two tiny golden sparkles, encouraging expression. Bottom right: collaboration, holding a small blue puzzle piece inviting a friend, eager smile. Center each pose precisely at the center of its quadrant, same scale, no background scene. No words, letters, numbers, captions, logos, borders, panel lines or watermark. No existing LINE character or branded character. This single atlas will be displayed by clipping each exact quadrant in CSS. Original asset, readable at 96 px, polished enough for a real chat sticker pack."
+}

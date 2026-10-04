@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {ApiError,type PortalClient} from '../api';
 import {BrandIcon} from './BrandIcon';
+import {MemberCardDownload} from './MemberCardDownload';
 import {MemberCardShareActions} from './MemberCardShareActions';
 import {MemberECard,cardDesigns,parseCardLink,type CardDesign,type CardLink,type CardProfileLink} from './MemberECard';
 import './MemberConnections.css';
@@ -140,13 +141,14 @@ export function MemberShare({client}:{client:PortalClient}){
   }
   refreshRef.current=()=>{void refreshProfile();};
   useEffect(()=>{const warn=(event:BeforeUnloadEvent)=>{if(!unsavedRef.current)return;event.preventDefault();event.returnValue='';};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[]);
-  useEffect(()=>{setLoadError('');void refreshProfile();
-    const profile=++profileGeneration.current;void (async()=>{try{
+  async function loadPreview(){const profile=++profileGeneration.current;try{
       const account=await client.get<{user_id:string;nickname:string;avatar:{avatar_url:string|null}}>('/me/account');
       const [member,labels]=await Promise.all([client.get<PreviewMember>(`/members/${account.user_id}`),client.get<{capability_categories:{options:{id:string;label:string}[]}[]}>('/assessment-definition').then(definition=>Object.fromEntries(definition.capability_categories.flatMap(group=>group.options.map(option=>[option.id,option.label])))).catch(()=>({} as Record<string,string>))]);
       if(profile!==profileGeneration.current)return;setPreview({userId:account.user_id,nickname:member.nickname||account.nickname,guild:member.primary_guild?.name??null,capabilities:featuredNames(member,labels),avatarUrl:member.avatar_url??account.avatar.avatar_url});
-    }catch{if(profile===profileGeneration.current)setPreview(null);}})();
-    const refresh=()=>refreshRef.current();
+    }catch{if(profile===profileGeneration.current)setPreview(null);}}
+  useEffect(()=>{setLoadError('');void refreshProfile();
+    void loadPreview();
+    const refresh=()=>{refreshRef.current();void loadPreview();};
     window.addEventListener('focus',refresh);window.addEventListener('freedom-profile-updated',refresh);window.addEventListener('freedom-social-links-updated',refresh);
     return()=>{profileGeneration.current++;fetchGen.current++;window.clearTimeout(debounce.current);window.removeEventListener('focus',refresh);window.removeEventListener('freedom-profile-updated',refresh);window.removeEventListener('freedom-social-links-updated',refresh);};},[client]);
   function commit(label:string,url:string,ignore?:string){const parsed=parseCardLink(label,url);if(!parsed.ok){setNotice(parsed.message);return null;}if(localRef.current.links.some(link=>link.url===parsed.link.url&&link.id!==ignore)){setNotice('這個連結已經在名片上。');return null;}setNotice('');return parsed.link;}
@@ -183,7 +185,7 @@ export function MemberShare({client}:{client:PortalClient}){
         {local.profileLinks.length===0?<p>你還沒有設為「平台公開」的聯絡方式或社群連結。在這頁上方的聯絡方式或社群連結設定公開對象後，就會出現在這裡。</p>:<ul className="ecard-profile-list">{local.profileLinks.map(item=><li className="ecard-profile-row" key={item.source}><BrandIcon platform={item.platform}/><div className="ecard-profile-copy"><strong>{item.label}</strong>{item.handle&&<span>{item.handle}</span>}</div><label className="checkbox-row"><input type="checkbox" checked={item.shown} aria-label={`顯示 ${item.label} 在名片上`} onChange={event=>{const shown=event.target.checked;assign({prefs:{...localRef.current.prefs,[item.source]:shown},profileLinks:localRef.current.profileLinks.map(row=>row.source===item.source?{...row,shown}:row)},'now');}}/>顯示在名片上</label>{item.source==='contact:email'&&<p className="field-hint">Email 是你的登入帳號，預設不放上名片。</p>}</li>)}</ul>}
       </section>
     </div>
-    <div className="member-share-preview"><aside className="ecard-preview" aria-label="名片預覽"><div className="ecard-preview-head"><h3>名片預覽</h3><p className="ecard-save-status" role="status">{status.message}{status.kind==='error'&&<button type="button" className="btn btn-ghost" onClick={()=>{setStatus({kind:'dirty',message:'有變更尚未儲存'});kick();}}>重試</button>}</p></div><div className="ecard-preview-stage" data-design={local.design}><MemberECard design={local.design} nickname={preview?.nickname||'會員'} headline={local.headline} guildName={preview?.guild??null} capabilities={preview?.capabilities??[]} avatarUrl={local.includeAvatar?preview?.avatarUrl??null:null} links={local.links} profileLinks={visibleProfile(local)} heading="p"/></div></aside>
+    <div className="member-share-preview"><aside className="ecard-preview" aria-label="名片預覽"><div className="ecard-preview-head"><h3>名片預覽</h3><p className="ecard-save-status" role="status">{status.message}{status.kind==='error'&&<button type="button" className="btn btn-ghost" onClick={()=>{setStatus({kind:'dirty',message:'有變更尚未儲存'});kick();}}>重試</button>}</p></div><div className="ecard-preview-stage" data-design={local.design}><MemberCardDownload shareUrl={url} disabled={blocked||actionBusy||!preview}><MemberECard design={local.design} nickname={preview?.nickname||'會員'} headline={local.headline} guildName={preview?.guild??null} capabilities={preview?.capabilities??[]} avatarUrl={local.includeAvatar?preview?.avatarUrl??null:null} links={local.links} profileLinks={visibleProfile(local)} heading="p" shareUrl={url}/></MemberCardDownload></div></aside>
       {local.enabled&&url?<MemberCardShareActions client={client} target={preview?.userId} title={preview?.nickname?`${preview.nickname}的工坊名片`:'工坊名片'} url={url} pending={pending} blocked={blocked}/>:<div className="actions"><button type="button" className="btn btn-primary" disabled={actionBusy} onClick={()=>runExplicit({enabled:true,rotate:false})}>建立分享連結</button></div>}
       {local.enabled&&url&&<div className="actions"><button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={()=>runExplicit({enabled:true,rotate:true})}>更新連結</button><button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={()=>runExplicit({enabled:false,rotate:false})}>停用分享</button></div>}
     </div></div>}

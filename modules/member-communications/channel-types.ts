@@ -3,6 +3,7 @@
 // created by hand and grant no role. Pages are newest first.
 // Sequences are bigint in PostgreSQL and serialized as decimal strings.
 
+import type {MessageContent,MessageContentInput} from './content-types.js';
 export const CHANNEL_KINDS=['guild','squad','world'] as const;
 export type ChannelKind=typeof CHANNEL_KINDS[number];
 
@@ -17,13 +18,13 @@ export type ChannelList={items:ChannelSummary[];unread_count:number;next_offset:
 export type ChannelMessage={
   message_id:string;kind:ChannelKind;channel_key:string;sequence:string;
   sender_ref:string;sender_name:string;body:string;created_at:string;
-};
+}&MessageContent;
 /** Newest sequence first; unread_count is this channel's unread for the viewer. */
 export type ChannelMessagePage={channel:Channel;items:ChannelMessage[];unread_count:number;next_offset:number|null;next_after_sequence?:string|null};
 /** Body-free update check for one currently authorized room. GET never marks read. */
 export type ChannelActivity={latest_sequence:string;unread_count:number};
 
-export type ChannelMessageInput={body:string};
+export type ChannelMessageInput=MessageContentInput;
 /** through_message_id must be a message of this channel the viewer has seen. */
 export type ChannelReadInput={through_message_id:string};
 export type ChannelReadResult={kind:ChannelKind;channel_key:string;read_sequence:string;read_at:string};

@@ -7,7 +7,7 @@ export const RUNTIME_SUITES = Object.freeze(Object.fromEntries(Object.entries({
   'runtime.resource-scopes': ['resource-scopes'],
   'runtime.scoped-member-command': ['scoped-member-command'],
   'runtime.avatar': ['avatar', 'image-runtime', 'image-cloudflare'],
-  'runtime.member-card': ['member-ecard', 'member-directory', 'social-links'],
+  'runtime.member-card': ['member-ecard', 'member-directory', 'social-links', 'member-card-qr'],
   'runtime.work': ['flows', 'benefits', 'co-creation'],
   'runtime.work-privacy': ['work-privacy'],
 }).map(([id, names]) => [id, Object.freeze(paths(names))])));
@@ -20,6 +20,7 @@ export const NODE_CONSUMER_SUITES = Object.freeze({
 });
 
 export const FULL_RUNTIME_BASELINE = Object.freeze(paths(`
+chat-content direct-message-receipts member-card-qr member-session-lifecycle
 admin-access-session admin-access-sync admin-access admin-appointments admin-guild-candidates admin-sync-worker
 agent-commerce agent-connections agent-connections-adversarial asset-engine asset-lifecycle-races asset-lifecycle asset-maintenance asset-r2 asset-storage asset-media-profiles media-inventory avatar avatar-bridge
 avatar-command-compat avatar-upload benefits bootstrap-contracts bootstrap-http bootstrap-http-contracts bootstrap-issuer bootstrap-proof bootstrap-session-contracts bootstrap-session-proof bootstrap-sessions bootstrap-sessions-adversarial bootstrap-status bootstrap-status-adversarial client-connections co-creation

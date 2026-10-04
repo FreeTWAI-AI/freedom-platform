@@ -38,7 +38,7 @@ The fixed registry in `runtime-suites.mjs` maps these existing IDs:
 | `runtime.resource-scopes` | `resource-scopes` |
 | `runtime.scoped-member-command` | `scoped-member-command` |
 | `runtime.avatar` | `avatar`, `image-runtime`, `image-cloudflare` |
-| `runtime.member-card` | `member-ecard`, `member-directory`, `social-links` |
+| `runtime.member-card` | `member-ecard`, `member-directory`, `social-links`, `member-card-qr` |
 | `runtime.work` | `flows`, `benefits`, `co-creation` |
 | `runtime.work-privacy` | `work-privacy` |
 | `runtime.full` | All baseline runtime files **plus newly added** direct `tests/runtime/*.test.ts` files |

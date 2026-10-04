@@ -1,6 +1,7 @@
 // Stable DTOs for member notifications and direct messages (migration 035).
 // All pages are newest first; limit 1..50 (default 20), offset >= 0.
 
+import type {MessageContent} from './content-types.js';
 export const NOTIFICATION_KINDS=[
   'friend_request','friend_accepted','friend_declined','squad_invitation',
   'guild_application_approved','guild_application_rejected',
@@ -33,7 +34,7 @@ export type NotificationList={items:Notification[];unread_count:number;next_offs
 export type Message={
   message_id:string;sender_ref:string;recipient_ref:string;body:string;
   created_at:string;read_at:string|null;
-};
+}&MessageContent;
 export type Participant={user_id:string;display_name:string;avatar_url:string|null;last_login_at:string|null;is_online:boolean};
 export type Conversation={participant:Participant;can_send:boolean;last_message:Message;unread_count:number};
 /** unread_count: total unread direct messages for the viewer. */
@@ -41,7 +42,7 @@ export type ConversationPage={items:Conversation[];unread_count:number;next_offs
 /** unread_count: unread messages from this participant to the viewer. */
 export type MessagePage={participant:Participant;can_send:boolean;items:Message[];unread_count:number;next_offset:number|null};
 /** Body-free update check for one conversation, under the same access rules as its history. */
-export type ConversationActivity={last_message_id:string|null;unread_count:number;can_send:boolean};
+export type ConversationActivity={last_message_id:string|null;unread_count:number;can_send:boolean;last_outgoing:{message_id:string;read_at:string|null}|null};
 
 export const COMMUNICATION_PAGE_DEFAULT_LIMIT=20;
 export const COMMUNICATION_PAGE_MAX_LIMIT=50;

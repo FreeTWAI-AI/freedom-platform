@@ -1,5 +1,7 @@
 # 移植後網站檢查與登入恢復修正
 
+**21:30 UTC 後續整合：** 本修正分支已合入 #110 的 main `d269a8d7605630cab1da605d7cac4d0c254e3258`，保留新版聊天／名片與共同基底；沒有重新移植另一份 UI。更新依賴後，typecheck、fresh build、原 50 項 targeted unit 及完整選定的 53 項 Chromium 案例再次通過（1.4 分鐘，專用 PostgreSQL／4346 埠）。Hosted CI 必須以更新後 PR head 為準。下文 17:24–17:36 的線上查核是歷史時點；較新的 d269 部署、R2 與舊庫退役見 [操作紀錄 PR113](https://github.com/FreeTWAI-AI/freedom-platform/pull/113)。本修正尚未合併／部署。
+
 2026-10-04。來源基底為已合併 #108 的 `main`／`a8aea1f`；本輪以獨立分支 `fix/post-migration-site-audit-20261004` 接續[移植後計畫](../platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md)的網站穩定性與 P0 查核。此文件記錄本輪實跑結果，不代表部署或全部 P0–P3 完成。
 
 ## 已重現及修正
