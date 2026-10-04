@@ -1,6 +1,6 @@
 // Candidate diagnostic only; not authenticated host evidence or a merge gate.
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, stat, readlink, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
@@ -13,6 +13,27 @@ const root = resolve(import.meta.dirname,'../..');
 const directory = await mkdtemp(join(tmpdir(),'fp-native-snapshot-check-'));
 let okay = false;
 try {
+  // Fixed public system metadata only, matching the adapter's current filter.
+  // Admission here does not establish that a file was mounted in the sandbox.
+  const libraries = [
+    '/lib64/ld-linux-x86-64.so.2', '/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2',
+    '/lib/x86_64-linux-gnu/libc.so.6', '/lib/x86_64-linux-gnu/libm.so.6',
+    '/lib/x86_64-linux-gnu/libdl.so.2', '/lib/x86_64-linux-gnu/libpthread.so.0',
+    '/lib/x86_64-linux-gnu/librt.so.1', '/lib/x86_64-linux-gnu/libgcc_s.so.1',
+    '/lib/x86_64-linux-gnu/libstdc++.so.6',
+  ];
+  for (const path of libraries) {
+    const info = await stat(path).catch(() => undefined);
+    const target = await readlink(path).catch(() => undefined);
+    const resolved = await realpath(path).catch(() => undefined);
+    const admitted = !!info?.isFile() && info.uid === 0 && !(info.mode & 0o022);
+    console.log('native_snapshot_library ' + JSON.stringify({path,
+      admission: !info ? 'missing' : admitted ? 'admitted' : 'rejected',
+      ...(info ? {uid:info.uid,mode:(info.mode & 0o7777).toString(8).padStart(4,'0'),isFile:info.isFile(),size:info.size} : {}),
+      ...(target !== undefined ? {readlink:target} : {}),
+      ...(resolved !== undefined ? {realpath:resolved} : {}),
+      sandbox_mount_verified:false}));
+  }
   const destination = join(directory,'report.json');
   const loader = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
   const reporter = resolve(root,'packages/contribution-tools/test-reporter.mjs');
