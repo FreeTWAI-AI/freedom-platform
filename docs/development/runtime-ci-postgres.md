@@ -30,3 +30,13 @@ classification and optional host-validated test declaration line, globally cappe
 at 64 records. They retain no assertion/message/stack/name/environment and never
 participate in final result admission. A hang after failure preserves the bounded
 diagnostic but still fails without a complete final report.
+
+
+The `8e1b325` local governance unit adapter exhausted its unchanged 60-second
+cap while running the existing synthetic full/subset union fixture; the failure
+and partial progress remain retained. That fixture separately passed in 44.44
+seconds. Its test block and all seven assertions have been moved unchanged to a
+required standalone integration step in `governance-consumers`, before the unit
+suite. The remaining runner unit cases passed 13/13 in 3.47 seconds. This keeps
+all baseline execution/deduplication checks and does not expand any unit, runtime
+or workflow deadline; the new complete unit result must be reported separately.

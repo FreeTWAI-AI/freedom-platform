@@ -1675,4 +1675,26 @@ SQL roles、physical branch/cache-off readback、private bucket 與無 ingress
 作者部署工具 386/386、獨立 41/41 通過；兩份 concrete generated config
 的本機 Wrangler bundle 通過。原 placeholder name／bucket bundle 失敗
 亦保留，沒有正式 cloud bucket／DB／provider／keys／activation 驗收。
-[基底候選](../../../../deploy/cloudflare/candidate/README.md#foundation-only-profile)
+[基底候選](../../../../deploy/cloudflare/candidate/README.md#foundation-only-main--media-operator)
+
+
+根整合 8e1b325 的 governance.unit 以原 60 秒 cap 逾時；failed
+report 與有限進度留存。11 檔在 11.75 秒完成，之後仍在原
+suite-runner 合成 full/subset union fixture，尚無完整 final JSON。
+此 fixture 串行啟動全部 baseline 檔案，單獨實測 44.44 秒；
+不是產品 assertion failure，也不以部分紀錄當整體 pass。
+
+9529b4c 僅把該完整 fixture 移到必跑的
+runtime-union.integration.test.mjs，測試區塊與七項斷言逐 byte 相同。
+治理 job 在 unit 前明確執行該 integration，失敗會令 required job
+失敗；原 60 秒 unit、900 秒 runtime 與 40 分鐘 job cap 不變。
+作者實測 integration 1/1、remaining runner unit 13/13 通過；
+獨立核對沒有刪減 baseline、斷言或 production 196-file coverage。
+根新的完整 unit adapter 結果另列，不能改寫 8e1b325 timeout。
+
+固定 8e1b325 另由根真正 key-free Wrangler 完成基底 main/operator
+兩份 concrete generated configs 的本機 bundle 2/2。configs 對應
+該 exact SHA、獨立 candidate names、合成 placeholder physical branch
+與 all-zero HD IDs，source HEAD/tracked tree 未變，marker-owned config
+cache 已移除。無 cloud mutation／DB connection／deploy／remote
+acceptance，不把 syntax-valid dry-run 當作正式資源或可部署證據。
