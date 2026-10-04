@@ -33,7 +33,7 @@ function ReceivedInvitations({client,mutate,busy,refreshToken,onChanged}:{client
     else await onChanged(''); // Keep the error visible, but replace a stale pending row with the current record.
   }
   return <section className="squad-invitations" aria-labelledby="received-squad-invitations">
-    <div className="squad-invitations-head"><h3 id="received-squad-invitations" ref={heading} tabIndex={-1}>收到的小隊邀請</h3>
+    <div className="squad-invitations-head"><h3 id="received-squad-invitations" data-guide-anchor="squads:invitations" ref={heading} tabIndex={-1}>收到的小隊邀請</h3>
       <label className="squad-invitations-toggle"><input type="checkbox" checked={showAll} onChange={event=>setShowAll(event.target.checked)}/>顯示已回覆</label></div>
     {page.items.length>0&&<ul className="squad-invitation-list">{page.items.map(invitation=><li key={invitation.invitation_id} className="squad-invitation">
       <div><strong>{invitation.squad_name}</strong><span className="muted">隊主：{invitation.owner_name} · {invitationLabels[invitation.state]}</span></div>
@@ -110,7 +110,7 @@ export function SquadsPanel({client,session}:ModulePanelProps){
     <section className="squad-directory" aria-labelledby="squad-directory-heading">
       <h3 id="squad-directory-heading">尋找小隊</h3>
       <p className="field-hint">申請加入後，需由隊主接受。接受前，看不到只分享給小隊夥伴的聯絡方式。</p>
-      <div className="discovery-toolbar"><label className="field discovery-search">搜尋小隊<input type="search" value={query} maxLength={150} onChange={event=>setQuery(event.target.value)} placeholder="小隊名稱、目標、頻道或隊主"/></label><label className="field">篩選小隊類型<select value={kind} onChange={event=>setKind(event.target.value as typeof kind)}><option value="all">全部類型</option><option value="project">專案小隊</option><option value="mutual_help">共同目標互助小隊</option><option value="coaching">陪跑小隊</option></select></label></div>
+      <div className="discovery-toolbar"><label className="field discovery-search">搜尋小隊<input data-guide-anchor="squads:search" type="search" value={query} maxLength={150} onChange={event=>setQuery(event.target.value)} placeholder="小隊名稱、目標、頻道或隊主"/></label><label className="field">篩選小隊類型<select value={kind} onChange={event=>setKind(event.target.value as typeof kind)}><option value="all">全部類型</option><option value="project">專案小隊</option><option value="mutual_help">共同目標互助小隊</option><option value="coaching">陪跑小隊</option></select></label></div>
       <div className="discovery-feedback">{squads.length>0&&<p role="status">顯示 {visibleSquads.length} / {squads.length} 支小隊</p>}{filtered&&<button className="btn btn-ghost" onClick={()=>{setQuery('');setKind('all');}}>清除小隊篩選</button>}</div>
       {nextOffset!==null&&<p className="field-hint">目前只篩選已載入的小隊。載入更多，可繼續找夥伴。</p>}
       <div className="card-grid">{visibleSquads.map(squad=><article className="card stack expedition-squad" key={squad.squad_id}>

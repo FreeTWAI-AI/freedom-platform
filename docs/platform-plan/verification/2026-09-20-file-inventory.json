@@ -44,8 +44,8 @@
     },
     {
       "path": "DESIGN.md",
-      "bytes": 7986,
-      "sha256": "4bf37ecfbb129070acbb9c127e384989944efd6ed19a419e1c2446da048c3d21"
+      "bytes": 8841,
+      "sha256": "8d29926fe248594e1decd6008f026223a97e4758d08a8c3c8721bba820a231b0"
     },
     {
       "path": "README.md",
@@ -169,8 +169,8 @@
     },
     {
       "path": "apps/platform-api/src/app.ts",
-      "bytes": 5047,
-      "sha256": "bc05150a36f79475c0969e2dd34c3530fb7690463eb9911bf36532d1de4909bb"
+      "bytes": 5254,
+      "sha256": "afac542289630e3cd606452d39aa65ec945c91c335009db68e4706e976d4e201"
     },
     {
       "path": "apps/platform-api/src/credential-ingest-client.ts",
@@ -224,8 +224,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 28272,
-      "sha256": "0a50a41fb39a1e066c1e8a97627bf1cd4b73bb9873f0187f86002c125199cd0f"
+      "bytes": 28850,
+      "sha256": "55af9da917f1a04928bdc18bcfcf2773d0dedd2d6fd8a380d0c002b4d2203694"
     },
     {
       "path": "apps/platform-api/src/private-ai-product.ts",
@@ -301,6 +301,11 @@
       "path": "apps/platform-api/src/routes/github-social.ts",
       "bytes": 3797,
       "sha256": "07803c3854b212468970cbb942c25ecf09eeea8e76b9b834a3858d227d226757"
+    },
+    {
+      "path": "apps/platform-api/src/routes/guide-packs.ts",
+      "bytes": 1221,
+      "sha256": "159f0af1db91a0884fd205057aab806525258abe0f7ab4855193fa20a4498e8c"
     },
     {
       "path": "apps/platform-api/src/routes/guild-workspace.ts",
@@ -394,13 +399,13 @@
     },
     {
       "path": "apps/platform-api/src/runtime.ts",
-      "bytes": 4057,
-      "sha256": "cf76e8fa25233a63ebd55dd5d23c2956855fc9422ce0a8ce3a4c8bdd34a4f82e"
+      "bytes": 4274,
+      "sha256": "4270d0e184a73cb3dd6421f6707715c67ae0c5dfac03370f98642ffdda0f6343"
     },
     {
       "path": "apps/platform-api/src/server.ts",
-      "bytes": 1404,
-      "sha256": "58ec4513211821b08eb0046a6a44d6734f6ef6c2012776715f4ba86ede47ebb4"
+      "bytes": 2321,
+      "sha256": "48c81e6defc853c409d965693d2d7a456313eb51e9a3ac08370ad3e2521e2d91"
     },
     {
       "path": "apps/platform-api/src/worker-private-ai.ts",
@@ -409,8 +414,8 @@
     },
     {
       "path": "apps/platform-api/src/worker.ts",
-      "bytes": 21362,
-      "sha256": "cc0ffaf763585c7bf1c14458cdcb43f3873866b93860774cc3a0183aabf3f500"
+      "bytes": 22251,
+      "sha256": "796c3d53e690ddf42ad6c59aadd02cb8a7ec524686cb6c741cd6380f1c4be8e7"
     },
     {
       "path": "apps/portal-web/index.html",
@@ -934,8 +939,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 86235,
-      "sha256": "af8f6fbdfaaba857cf062a9c518cc07a9571724a2a6e10d61f11c14ed72bab53"
+      "bytes": 86658,
+      "sha256": "2931657714cf3ccdab6fae45bb62c61ce7d5e1ecfc9a13df8f2295270c13f047"
     },
     {
       "path": "apps/portal-web/src/CalmExperience.css",
@@ -979,8 +984,8 @@
     },
     {
       "path": "apps/portal-web/src/PageTools.tsx",
-      "bytes": 27150,
-      "sha256": "b9e98272a2356c19c2ab6ed17bc0a07f99e9c1a023563e38c9b72ea98f6d0016"
+      "bytes": 27176,
+      "sha256": "1bc72e5771965d857a7d9e0d144ee9dc9062b1e4ab61c20b9ced57f93851008c"
     },
     {
       "path": "apps/portal-web/src/WorkshopIcon.tsx",
@@ -996,6 +1001,16 @@
       "path": "apps/portal-web/src/api.ts",
       "bytes": 15074,
       "sha256": "b26c554b9dea60a338a2285e052d8110d31b3049a5262b87f5fb9363c3c1ff07"
+    },
+    {
+      "path": "apps/portal-web/src/dragon-theme.css",
+      "bytes": 730,
+      "sha256": "e3eb7a2a1bbe51e911c3c74f05c9bfad2a828c99de059cdd7b279d2c0fde2118"
+    },
+    {
+      "path": "apps/portal-web/src/experience-profiles.ts",
+      "bytes": 1840,
+      "sha256": "3b0152018a70eae7578818821177bee2829a072512a39dade00ac50debf66a56"
     },
     {
       "path": "apps/portal-web/src/format.ts",
@@ -1024,8 +1039,8 @@
     },
     {
       "path": "apps/portal-web/src/main.tsx",
-      "bytes": 757,
-      "sha256": "315874dd9cc98a73c9965275b4851ffc3b082d6504afb15e08ba5eab7836b54b"
+      "bytes": 668,
+      "sha256": "fb513fc0dd0aa5c74129d66d8567a67323b24a0c719dd208b9169fccf2f29a16"
     },
     {
       "path": "apps/portal-web/src/module-light-theme.css",
@@ -1154,18 +1169,18 @@
     },
     {
       "path": "apps/portal-web/src/modules/CoCreationPanel.tsx",
-      "bytes": 24529,
-      "sha256": "9f0f78597242a8f983e8ec8da12419761add3110be8ade26c21f08aeab0ead62"
+      "bytes": 24611,
+      "sha256": "ae240926a08926942bf28ebb43922b665a2e93657d7314d22a182af7c5c900aa"
     },
     {
       "path": "apps/portal-web/src/modules/CommercePanels.tsx",
-      "bytes": 24343,
-      "sha256": "9da045c3f7179696dc39c409c1bfbe36b4ef6e3be5313cf7501bceac73b189f6"
+      "bytes": 24535,
+      "sha256": "e22448768457db6d2a47ec1374da16db384e7c54de2b5f0fd6fb532ff42ecca2"
     },
     {
       "path": "apps/portal-web/src/modules/Community.tsx",
-      "bytes": 10531,
-      "sha256": "4d4d98f77cc983911e6b0e74e574bd1324ea736b3ad1f73de84c739cc5605841"
+      "bytes": 10607,
+      "sha256": "a194240f06fa9d814fedb8fb555fcd2c0ac1589e06fce9bb9bc175437efb17f4"
     },
     {
       "path": "apps/portal-web/src/modules/CommunityHistory.css",
@@ -1214,8 +1229,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/EventCalendar.tsx",
-      "bytes": 2952,
-      "sha256": "2b09d40035a7eec35024d4a2f795d86b87e0402cc1f0cad93bb1cafe99abbed6"
+      "bytes": 2988,
+      "sha256": "304a07a6e62eef2bef0b71b90682a00987e8c29295a6e2a0428a3a33d3de9e10"
     },
     {
       "path": "apps/portal-web/src/modules/EventHighlights.css",
@@ -1224,13 +1239,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/EventHighlights.tsx",
-      "bytes": 18269,
-      "sha256": "1869467165cb5026facd0122ff18ce5c1ec8746e5f3603ca574a1e7355711480"
+      "bytes": 18343,
+      "sha256": "3c04fe5bdd3f8e0d485fee56aa9b2ac498a108eb353a95832535214a98f01654"
     },
     {
       "path": "apps/portal-web/src/modules/EventsPanel.tsx",
-      "bytes": 30135,
-      "sha256": "98030c2bdb5da5afebcf8a230d5e4aad2d758e9bf94d196599ce227978f909eb"
+      "bytes": 30175,
+      "sha256": "4f7d0798d2422215aba969fb346fbf46a9b6c5d906b99c4eb9459aa30578b7a6"
     },
     {
       "path": "apps/portal-web/src/modules/ExpeditionDesign.css",
@@ -1239,8 +1254,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/FriendsPanel.tsx",
-      "bytes": 5343,
-      "sha256": "45001b089af1db7be3cea388513f7eef86978b2afa14d27f4bba6aad7520ad66"
+      "bytes": 5443,
+      "sha256": "27f7799b17bbe09f3c1eac2f8ce3334ace7ab19357619fc6f96cbc916e1c8598"
     },
     {
       "path": "apps/portal-web/src/modules/GitHubCallback.tsx",
@@ -1324,8 +1339,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildWorkspace.tsx",
-      "bytes": 33347,
-      "sha256": "53dcfdc0e73f459f479d8a3226671c5eab77add1e48cdd88455ac041a31a9475"
+      "bytes": 33394,
+      "sha256": "655f9a9a3e54e24bed94f704c0f6bc560854048efa2f5e93fa71676f8cc4e118"
     },
     {
       "path": "apps/portal-web/src/modules/HomeDesign.css",
@@ -1399,13 +1414,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberHome.tsx",
-      "bytes": 12744,
-      "sha256": "52b2adbb32f56447f0280b5d1f893cef0fc0426c17afb4758c8b98a6fac747a4"
+      "bytes": 12819,
+      "sha256": "032a911efc445221fdd6d0346bbdd87a33c6220677cb4111cf6f0a2b2639f4a9"
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 44658,
-      "sha256": "78b01fe9b4dfdae83c2e83a5812145f627437e2a89f91f024417566ff2f5e6a5"
+      "bytes": 44766,
+      "sha256": "eef93f7188e833b440fbdf8010cfd669b250a3e9daab97be71f3e75ba25e323c"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -1429,8 +1444,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberServices.tsx",
-      "bytes": 18295,
-      "sha256": "45c03c055099c2820cf5f4bff45835332d96779e5edd13eec6a844a7f21c2406"
+      "bytes": 18365,
+      "sha256": "464ac14df137f0e6d147ac8d1ae5a288cdb04986b6029e1e5e74fa97b75b5221"
     },
     {
       "path": "apps/portal-web/src/modules/MemberSettings.css",
@@ -1454,13 +1469,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberTasks.tsx",
-      "bytes": 14009,
-      "sha256": "4da91a62adcc37acc50bb1d94ab439942e05794463f652ad4e6821f44fb17e13"
+      "bytes": 14073,
+      "sha256": "a65bb907d757acb3ac74c1f3728df3bafa2c579c3bc1e94f4e5db1d2dd0bf734"
     },
     {
       "path": "apps/portal-web/src/modules/Membership.tsx",
-      "bytes": 27987,
-      "sha256": "a5283d5e5023106ea3283381b126f8c293680340821699a01d8dcabf58f54594"
+      "bytes": 28172,
+      "sha256": "6bb9e255113bac025227d29ecb4afb4252bab58ba838238772d3a79314669cd6"
     },
     {
       "path": "apps/portal-web/src/modules/ModelSettings.css",
@@ -1499,13 +1514,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/OpenSourcePanels.tsx",
-      "bytes": 18323,
-      "sha256": "527be8df15afb7f533cad081da57c6696c16a7fd224abd0231a02f2b344bca10"
+      "bytes": 18397,
+      "sha256": "499b810c9641af0baaf80d6c5e0831316cace9fbdd6066fab769c53b03d88c62"
     },
     {
       "path": "apps/portal-web/src/modules/PositioningPanels.tsx",
-      "bytes": 21657,
-      "sha256": "a86bf0d94793043bee9120623cd4c8a39ae258654a97f865cd809e724acbb216"
+      "bytes": 21809,
+      "sha256": "f9373e6e973da3812e225074304bcfffbf30b61e33748ba936aa8db000a00a42"
     },
     {
       "path": "apps/portal-web/src/modules/PreviewProfileMenu.tsx",
@@ -1529,8 +1544,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/PromotionBoards.tsx",
-      "bytes": 5884,
-      "sha256": "3d473ccf4a030cfb3fcc2745a5e5cb36e21afa6994dc4c8526165dcbc14ed13c"
+      "bytes": 5921,
+      "sha256": "affc8a4a1ba26b2c86b73447b659400fdebccc0ef82bcb51c965d330ea30aa30"
     },
     {
       "path": "apps/portal-web/src/modules/PromotionShare.tsx",
@@ -1564,8 +1579,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SimpleSkillSubmission.tsx",
-      "bytes": 11091,
-      "sha256": "46beba84465b6da94e60c6bf990da95d802146c01b312e3e657cba99b3a75cea"
+      "bytes": 11173,
+      "sha256": "c048ed21a7a525ecac45e684d2eb8c2e00cc33267ee9d093cf4a7fc12adae732"
     },
     {
       "path": "apps/portal-web/src/modules/SkillBookBadges.tsx",
@@ -1614,8 +1629,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SkillsPanel.tsx",
-      "bytes": 9634,
-      "sha256": "0c3d80ad8c78d3b2324d8227c39ddba3b871fa2e095059c968b3965d9778b272"
+      "bytes": 9704,
+      "sha256": "f877e3a584698f09ed5decf41a584161afeff884f9483a3e00c080833de6df9f"
     },
     {
       "path": "apps/portal-web/src/modules/SocialZone.css",
@@ -1624,8 +1639,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SocialZone.tsx",
-      "bytes": 11887,
-      "sha256": "92f288615d96aa1595d053d54432d0eef1b793b1842793bed5c8cae50e056037"
+      "bytes": 11959,
+      "sha256": "e643e56d21123bb1d828c7d29b08dff009fcab04251975621a6850574160f198"
     },
     {
       "path": "apps/portal-web/src/modules/SquadInvitations.css",
@@ -1634,13 +1649,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/Squads.tsx",
-      "bytes": 20466,
-      "sha256": "6df4ef9472229a3817ff9749d1a3f1bd4160155f1703099174b6b3aac560174c"
+      "bytes": 20539,
+      "sha256": "74165091a9618d55afba857f1cfe8736b7a3a6d90158449bb97fb17b55f54804"
     },
     {
       "path": "apps/portal-web/src/modules/TaskBoardPanel.tsx",
-      "bytes": 8448,
-      "sha256": "89a83d489719ed5c965830bc3cb85ca3e7c2122322b476f63fcee21f966686e6"
+      "bytes": 8515,
+      "sha256": "65ed89112881fcd31a7b15d6d53def1ce27a40d21fdb13778f9e736908d4e862"
     },
     {
       "path": "apps/portal-web/src/modules/WelcomePreview.tsx",
@@ -1713,6 +1728,211 @@
       "sha256": "8d5ed5b085aa47f2b63605bbb687baf36198c7fb67524460cd93b2e80533f359"
     },
     {
+      "path": "apps/portal-web/src/modules/newcomer-guides/GuideHost.tsx",
+      "bytes": 2437,
+      "sha256": "3feb7e37a1f8c00ce9f0ff94e0f5316c917eb1a710e2848f9d1a2e55354dfd82"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/contracts.ts",
+      "bytes": 918,
+      "sha256": "57ae509d4ff98c6e5a2f68e982331d6b7ffeef313519b3cd472e40af9592f90b"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/engine/GuideEngine.tsx",
+      "bytes": 39918,
+      "sha256": "0b08c386b8b5ea312bd29da4288e14d1ec33a3968fae56fa5e71e69572479715"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/engine/GuideGallery.tsx",
+      "bytes": 2239,
+      "sha256": "bc948d7363341fd4057a3d00f3cc065a58290d251f57d9ec07b27743cc6c9efa"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/engine/core.ts",
+      "bytes": 7661,
+      "sha256": "0fdb6b3c4aa194572cbf38af4e7063fa36412e34c256a3e4b5fb2fa05af72559"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/engine/guides.ts",
+      "bytes": 3090,
+      "sha256": "97f159b0df5fa27a1b6049310050de7e92600bb72379d66b501ecc6babea1238"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/engine/page-spirit.css",
+      "bytes": 11588,
+      "sha256": "32b850cb5b8e667138b42e7f65219c6929761a7364e10ca5a13692fec82dd18a"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/engine/preferences.ts",
+      "bytes": 1301,
+      "sha256": "26b7641927a95da96d1d02a868d67963202579104bdeeb8a29634e3b36032c59"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/freedom.module.json",
+      "bytes": 1155,
+      "sha256": "42ad9a62822f913bfc22589db0722df75190c1025225400df600b84e91792ebb"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/gate.ts",
+      "bytes": 813,
+      "sha256": "e2f35b74f267876ba921f70a0ec5d1c06d8918bb7a0eef7417ae7cbd6ddf94b5"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/characters.json",
+      "bytes": 16844,
+      "sha256": "a4a513413bd0cb5b669b5a1421cf714d1c0dfe7a585e8a489b966a5ae10a8342"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/account.json",
+      "bytes": 2713,
+      "sha256": "e5c0e0988d195353733d1fe3a706e193cc9758d7eead877b5ee17c12d8d20f40"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/cocreation.json",
+      "bytes": 2762,
+      "sha256": "ce4d749ede8b09297d8370dc73d0db2335dac9d02f4e41606484d650353eb71b"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/community.json",
+      "bytes": 2570,
+      "sha256": "ee38965a66a7721bdc044fa243dd0d5c63605e2dbbc1f16299cc787e56e23105"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/engagement.json",
+      "bytes": 2601,
+      "sha256": "fb9bcd09629c0aac12826ad25e8495e3d770b41e87f10e75ba2b790c743cf550"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/events.json",
+      "bytes": 2634,
+      "sha256": "bef03ce6198663225979e7872e7d20cb714589d6cc405bfdcc7ee4e26ae2d707"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/friends.json",
+      "bytes": 2633,
+      "sha256": "4a7e68ec92997777a8fe3afadaf515ad98471bff8de6e6fb5c1f92dc7c79c5c7"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/guild-workspace.json",
+      "bytes": 2664,
+      "sha256": "44d1854f917e118123dfef0bdfc58bf560f6930fe625e39d22eb7173fb9b5e4e"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/guilds.json",
+      "bytes": 2700,
+      "sha256": "f74fa8be92f689de49129806ae2f89268765e43547624fc2c977eec4d808b846"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/highlights.json",
+      "bytes": 2611,
+      "sha256": "6d092de317593fdbaebc859b97271d54a963ccee9fd227efd9c369266c278b15"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/home.json",
+      "bytes": 2635,
+      "sha256": "f68130f5a8a43c46b66c749107fe3006b1e89166198e5552cf47482dd7f60dd0"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/marketing.json",
+      "bytes": 2757,
+      "sha256": "71d339988b3ec38591604dce689e942a2e5fbdbf01185c40e3256e0146f5339e"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/members.json",
+      "bytes": 2641,
+      "sha256": "991d46f9dd80c846bfa14aad10be337ac4c3a974ed0d1f4292a84c50289552a3"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/messages.json",
+      "bytes": 2633,
+      "sha256": "69dac8faedfe5a429984070beac414f37091d51b5e8702edc64204a7f5d18e82"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/opensource.json",
+      "bytes": 2691,
+      "sha256": "2cbd78562ef4de03c32d24272c4d230218dca45051236a669c2575985c572ecf"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/positioning.json",
+      "bytes": 2600,
+      "sha256": "f0d98b425655ca03832db18cf0d892ff75fc6a6e2acd278f3eb4d0c1f1852e69"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/promotion.json",
+      "bytes": 2482,
+      "sha256": "6704be79264ecc71720582f89b140088d100b262236a0e57fb44dab7d0264290"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/retail.json",
+      "bytes": 2528,
+      "sha256": "27cfa828d5f42f17214c3d1f8041c400e394a8eb11bf98b83078e1d7cfe2ec39"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/services.json",
+      "bytes": 2738,
+      "sha256": "63c9cd0c783df1835b9dbc0e4cbea10664a1562e08d8541d6cb5c280a68317ff"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/showcase.json",
+      "bytes": 2629,
+      "sha256": "3c872615d2fc7b50dba668c9055ce52e26dade2dbff7380e89bba686a80323c9"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/skills.json",
+      "bytes": 3373,
+      "sha256": "4313a60fd84108d168f0f375d957ae281ab88f415da0293b9411e6305e88aedc"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/social.json",
+      "bytes": 2582,
+      "sha256": "42f6e97800148f62dd528aae101a63bb304aa5f91c4fbe16eafa84446d788913"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/squads.json",
+      "bytes": 2649,
+      "sha256": "346d1b620d122da5d7c825ac016fd74e26c83c2964a3a43faae91a870142b889"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/supplier.json",
+      "bytes": 2726,
+      "sha256": "3bb068aa80c9f100bc065cac82a82e2279fcd575e7fcd08663c1f946a90efa36"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/tasks.json",
+      "bytes": 2484,
+      "sha256": "862f07453e6cbe5cd13d16751c85535f084a0af41d4917e8845cd5c183a969d7"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/todos.json",
+      "bytes": 2710,
+      "sha256": "43006dcfedbef2f64ed4bbaf6bea4de87a278b25756d84b0ad35c64612c3da71"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/workbench.json",
+      "bytes": 2736,
+      "sha256": "e1e77b8499f08236d18d6bf6f4e3bd0c1f74c97374d555170f738141506b1307"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/guide-data.ts",
+      "bytes": 14090,
+      "sha256": "80d415ebaa992751658821b3a9cf09ed7daf7bea77a53b4b7b68693ed99c1378"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/index.ts",
+      "bytes": 4014,
+      "sha256": "1d9e8534f54d5e942c24838be0cc68a424e3157fc3c017d54cb64a92a758e131"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/page-support.ts",
+      "bytes": 4819,
+      "sha256": "8dcdac51d8e11656daed16d5154c1ae6e57c303167c16b28d51cfc24661fbc47"
+    },
+    {
+      "path": "apps/portal-web/src/modules/newcomer-guides/release-pin.ts",
+      "bytes": 297,
+      "sha256": "8a41a7284af625229cef6c6f8d58d5631806694e7548689d1cc018e5d66860b5"
+    },
+    {
       "path": "apps/portal-web/src/modules/review-center-shared.tsx",
       "bytes": 13608,
       "sha256": "1fee59a6f80349fb60bb566fab86416d57e60549b8f351ce3177073c5cbb359a"
@@ -1774,13 +1994,1833 @@
     },
     {
       "path": "apps/portal-web/src/workshop-theme.ts",
-      "bytes": 1086,
-      "sha256": "3b9132109cefad818b879836b26d7f2c12a436fc8b0de4ab9641ba87c623aa5c"
+      "bytes": 1289,
+      "sha256": "bed82ae3e5a8b6df4d151d7ab6a0f1cbfc6a6cf36df4c7eef2ea35c7d81467f1"
     },
     {
       "path": "apps/portal-web/vite.config.ts",
       "bytes": 781,
       "sha256": "a13b3a4e466773615f11070957dae168d610da50e33a3903d5170d2cf2a1cbe2"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/account/frame-0.webp",
+      "bytes": 96854,
+      "sha256": "e78ffd54bf68a4980027909ea792b234340028498bfcd80ed8026668042b7e98"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/account/frame-1.webp",
+      "bytes": 93068,
+      "sha256": "89f3807a19894462c4f5a9c16d1373fb7e33d2d7446347ffd100b9125ef3af6f"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/account/frame-2.webp",
+      "bytes": 97406,
+      "sha256": "9b40fad0f276695fae3f0fcf86e2b373a5e58f92ee416af52479bb1d248438ca"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/account/frame-3.webp",
+      "bytes": 96602,
+      "sha256": "df733c02fa84ff31c44b918ae12c7c6c277d844edcc320f90021d471cd86187b"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/account/frame-4.webp",
+      "bytes": 97332,
+      "sha256": "61c5ad5d98266fda605c427f059b4eff2753708855bf02eab56dc9df055de4af"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/account/frame-5.webp",
+      "bytes": 94682,
+      "sha256": "6259e0eb1c0d12a44f21a79564feb59ff46e4a4b1f59086cfe66d88effc006c4"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/account/hero.webp",
+      "bytes": 96854,
+      "sha256": "e78ffd54bf68a4980027909ea792b234340028498bfcd80ed8026668042b7e98"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/account/portrait.webp",
+      "bytes": 5772,
+      "sha256": "9ce738ad69043766e151b4b0b66b47309c79020ecb59560767fcf8c99898edfb"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/account/view-0.webp",
+      "bytes": 95590,
+      "sha256": "ff4e6fdf6e4319c902dfbd63201befe9de51636d6b4e93815a136c879e9a3687"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/account/view-1.webp",
+      "bytes": 93474,
+      "sha256": "56cbe72a1ed87c09d6704905fc7895142760170419b6ee5994cbd07372e243eb"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/account/view-2.webp",
+      "bytes": 80332,
+      "sha256": "cdad6af3dd3bccb0ab4bce3addc76eadef0637ebc6827a0c18f5142c310c0407"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/account/view-3.webp",
+      "bytes": 93408,
+      "sha256": "5a18d4d5075a78b1e169f466ca2d41db864444ad21401f5b1c84c656e9386daf"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/account/view-4.webp",
+      "bytes": 79410,
+      "sha256": "54671c01e604e00c2ec2558959306e13e739509921cf588491f79f646785157e"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/account/view-5.webp",
+      "bytes": 90732,
+      "sha256": "62dc825012303e181619340a9a79956b51c7ec47e6cdde4dc705c3044eafad28"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/cocreation/frame-0.webp",
+      "bytes": 126468,
+      "sha256": "83047c4874ddd7ceab30c2c69b0164301dca3ad54fd97b0ccdbfaedab2aeda26"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/cocreation/frame-1.webp",
+      "bytes": 122496,
+      "sha256": "ca36f23dd341160ce8f8a680498d5df189b6a924b3ff3cfa1013c013cb9888fd"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/cocreation/frame-2.webp",
+      "bytes": 124832,
+      "sha256": "3828b994bf6d457d82768f18483879ce81762f43eecfc2863f8bd57b5a4912a6"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/cocreation/frame-3.webp",
+      "bytes": 127496,
+      "sha256": "7060cad473dda175f0f0c0021d8b7821e039ba49b382e6d43103e6647110977e"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/cocreation/frame-4.webp",
+      "bytes": 126472,
+      "sha256": "e241e8fd22878e55cbf246b79129dc998d180ed99b1d28206f3d048e028fe527"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/cocreation/frame-5.webp",
+      "bytes": 123850,
+      "sha256": "7b05ab5de447a3a2c2e413fe075702d524b93bcc67b6969d714afd02a71bcf60"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/cocreation/hero.webp",
+      "bytes": 126468,
+      "sha256": "83047c4874ddd7ceab30c2c69b0164301dca3ad54fd97b0ccdbfaedab2aeda26"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/cocreation/portrait.webp",
+      "bytes": 6558,
+      "sha256": "46ff0881f0401edbdde4b2e5a81e8e09e179473597467776b04ab81130921dc5"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/cocreation/view-0.webp",
+      "bytes": 128670,
+      "sha256": "594b4acf4dc24f6ebca40d99e5fc84e5b49849920c48777fcb3217cd6aa5137f"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/cocreation/view-1.webp",
+      "bytes": 121010,
+      "sha256": "27a8f78df02c1693b2b9d73b8ff601d61fa4eb61fc327bd255031ad35eb57336"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/cocreation/view-2.webp",
+      "bytes": 113228,
+      "sha256": "9c94840b80badf2b57a99de0766bd0eedc1a740bb12e255aa6c35f5a15ad0d0e"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/cocreation/view-3.webp",
+      "bytes": 133616,
+      "sha256": "f062fa452e3ebb3c987152b56b0608c31ea3723e57fde7f4e70fe7b1e5dddcf3"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/cocreation/view-4.webp",
+      "bytes": 101856,
+      "sha256": "98821ac64e63db4bd914a67efe39d18986b9ff96fb07e57f63e9292ce64e85ab"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/cocreation/view-5.webp",
+      "bytes": 135340,
+      "sha256": "e6c0e71f636b976e1ca06a586d8fe20429d74afe5554dfde786752b5fec49beb"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/community/frame-0.webp",
+      "bytes": 88766,
+      "sha256": "d5bd18ce317651724de20f448faba451a6c79e3dc06d16ff17cf51a9cd38c09b"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/community/frame-1.webp",
+      "bytes": 89886,
+      "sha256": "421b1f76fcb5923f984ba50f2154bf94b047ec574e94d9809c668b9ad603e36a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/community/frame-2.webp",
+      "bytes": 90648,
+      "sha256": "6c34581b0ac5c0702e178944e41fa0d21d64c42eb6dace4d8b557a268e910cb1"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/community/frame-3.webp",
+      "bytes": 92874,
+      "sha256": "c5146c9c7330605006499fc54ed96847dd6d25a436e1bf6e405f995a18767de3"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/community/frame-4.webp",
+      "bytes": 90792,
+      "sha256": "7bbd49b28e661973cf9bc25c46ba3cdfa7a3c61bd4279efda194c87c52ac9121"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/community/frame-5.webp",
+      "bytes": 88928,
+      "sha256": "81a25e2e46075b441f3dbb750b089632af08d459dd90d9be57ad47167a158f8b"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/community/hero.webp",
+      "bytes": 88766,
+      "sha256": "d5bd18ce317651724de20f448faba451a6c79e3dc06d16ff17cf51a9cd38c09b"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/community/portrait.webp",
+      "bytes": 4926,
+      "sha256": "1afdd5d84fb48e0ed7595a045d3a835a0361de1d5f041798e8b369b04b363bc4"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/community/view-0.webp",
+      "bytes": 89254,
+      "sha256": "752d685d8b0fc1a2ece071ee53ed6b957b8dfd9b82821db8e0998405bece8202"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/community/view-1.webp",
+      "bytes": 90220,
+      "sha256": "5a80b16d5645aa828759c735947b1d7db14cd0c6c1637b3c8cdb0127fa79daa1"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/community/view-2.webp",
+      "bytes": 84812,
+      "sha256": "bd65f439c37e7d50d81c15e202854be2c4cdae67d9d4a0cc5a296c6d41b327e1"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/community/view-3.webp",
+      "bytes": 83824,
+      "sha256": "c94917629493855adfa70e0369827e024e0b9b049c90e3898743e7cca233575d"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/community/view-4.webp",
+      "bytes": 82742,
+      "sha256": "3a0fe3b2cfbf2e039ef00da5d3a1abbc627efb81eb8fac41ef52c5e47efe6ecc"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/community/view-5.webp",
+      "bytes": 90580,
+      "sha256": "d293d20caa584cb454f17bce7d1f1775d3c2db975cee60f466425e6da5845f86"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/engagement/frame-0.webp",
+      "bytes": 87532,
+      "sha256": "53dc2c30b658f533ef3c198355b1c03ae7915bc4790d1570bf02eda005ad418d"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/engagement/frame-1.webp",
+      "bytes": 86596,
+      "sha256": "dcb480723cb833db9aa81119e2179aaa5e61ebb39da35a015075d3c668583078"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/engagement/frame-2.webp",
+      "bytes": 88628,
+      "sha256": "39f227be2143cdd329f343cd07659543b259724db2263ed46a59c0b732118a69"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/engagement/frame-3.webp",
+      "bytes": 90356,
+      "sha256": "c339b6dbf98b68e807430e284bc7ce53f3de7c76785553dd9a7f5c6f669b66a9"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/engagement/frame-4.webp",
+      "bytes": 90596,
+      "sha256": "74fed5a0bcd3da2d7ae57d0a6526ba537144155429bd56b73334b9034a31079a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/engagement/frame-5.webp",
+      "bytes": 85900,
+      "sha256": "0d43f870b36e3180022595d69ad70142a0a835b11d5da84093d6f23b0de37744"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/engagement/hero.webp",
+      "bytes": 87532,
+      "sha256": "53dc2c30b658f533ef3c198355b1c03ae7915bc4790d1570bf02eda005ad418d"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/engagement/portrait.webp",
+      "bytes": 4802,
+      "sha256": "5c53e6e046b68dd4fdec7f718088e2534eeca30af031008d2d1ea4fa3cb15c87"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/engagement/view-0.webp",
+      "bytes": 81412,
+      "sha256": "d8ff5e2876879270d57658b0fb9718c9da2e0436181b8893e60877145abb3aab"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/engagement/view-1.webp",
+      "bytes": 85198,
+      "sha256": "a73db23d44b26138af50425c780db357b8ef2ceb26272e4eab9033667a6df04a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/engagement/view-2.webp",
+      "bytes": 71746,
+      "sha256": "3c4e403ee9ccd1b37549e93daf20cb3d6cd175a69babfe4264df02bc6dd6ccce"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/engagement/view-3.webp",
+      "bytes": 79830,
+      "sha256": "ac283738d44acda6058e9fcffad92f23292956aa6712506fc09d9e12a87c476c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/engagement/view-4.webp",
+      "bytes": 71476,
+      "sha256": "b4437aba9b2202ad8197e681fe2ab93584d48b49d2f8b8c9f5d04082688f2f71"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/engagement/view-5.webp",
+      "bytes": 85702,
+      "sha256": "37463f0d9b1e822a6416bbbcfb9887ec050751ac463b42070a90a08a429b3ed6"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/events/frame-0.webp",
+      "bytes": 155732,
+      "sha256": "3ccc61814edb4853526cee05a3150759dbee589702f9bdfc59aad6521fd666af"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/events/frame-1.webp",
+      "bytes": 152562,
+      "sha256": "f3ab0c95a7a87420ab7a07d6ad999cfb829553f929fdbbb52bf2089756c8bec7"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/events/frame-2.webp",
+      "bytes": 152180,
+      "sha256": "5ef489065fc3a9e9775d7b3a1890181275d7e01fa8a9d02995da2c8490c9f47c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/events/frame-3.webp",
+      "bytes": 155082,
+      "sha256": "364a23b7a32ff7ed41c432be1679c87a9a5d0ed0c55f8878d7978937ae4d4a99"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/events/frame-4.webp",
+      "bytes": 153434,
+      "sha256": "e4fd20b9b778da5ac0599958e799094829aad3ee96582dde0e4183c410ad2342"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/events/frame-5.webp",
+      "bytes": 150202,
+      "sha256": "19cbc44d06c4d848d83d7a0ad205264c42dc48a3075824bd482fdd0d1edbdff4"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/events/hero.webp",
+      "bytes": 155732,
+      "sha256": "3ccc61814edb4853526cee05a3150759dbee589702f9bdfc59aad6521fd666af"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/events/portrait.webp",
+      "bytes": 7046,
+      "sha256": "150f77a77df19b22ebb611170a8d7d67db51ca6b92bfba8e841ad750982e1497"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/events/view-0.webp",
+      "bytes": 164974,
+      "sha256": "288092c57e464a3ed0aa2964e55df66bd803da9472cd1a1be5a387de57253eb8"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/events/view-1.webp",
+      "bytes": 158512,
+      "sha256": "fbc95042baa0f2b4d50d771d75e934ad7a96ad9de36882b1115f28432e424699"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/events/view-2.webp",
+      "bytes": 140734,
+      "sha256": "ef16a1735d8c558788fdd1412219dd373f23d2b226be9add8d1ce6df6c3dd23c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/events/view-3.webp",
+      "bytes": 154614,
+      "sha256": "6deecee26a5b2c2267706f42468afe5070aba864c3a6a3ffe1dd168258682e8c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/events/view-4.webp",
+      "bytes": 132948,
+      "sha256": "6f6815f1fac9e4d69505451002cc48da9f626029fc1dd849c2d0aa6ee1834992"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/events/view-5.webp",
+      "bytes": 163542,
+      "sha256": "25c3d0de3ad6cd078f0037a5803a79eaa484907109a343da96f36814bbb2e74c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/friends/frame-0.webp",
+      "bytes": 146860,
+      "sha256": "7c352bf0514d19d0efceaaf98de8168e162e823fa5559bf3a3b5dc1161c80d67"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/friends/frame-1.webp",
+      "bytes": 146294,
+      "sha256": "dab87659b41d12b4228c14f049f4b3eeda3afa7e789e89bf9a87f45e35216e7a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/friends/frame-2.webp",
+      "bytes": 148434,
+      "sha256": "89ae0e6820c789adec887a7aa8adb266d53748410b72796adafae3ba31dbf0b3"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/friends/frame-3.webp",
+      "bytes": 149602,
+      "sha256": "96faa9dee6c89eca00ea09d9d9ea126329725b0a5609a2b690af4094d1e8d574"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/friends/frame-4.webp",
+      "bytes": 144586,
+      "sha256": "f35ac1d0d35a6cb1041da3378296443743cf7f03e5bcf9f0a8e8ae38d0ab2803"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/friends/frame-5.webp",
+      "bytes": 144462,
+      "sha256": "99ec4543eb6a74cd1164010e9861aec84e093353df7718a879aa6db4af85ebef"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/friends/hero.webp",
+      "bytes": 146860,
+      "sha256": "7c352bf0514d19d0efceaaf98de8168e162e823fa5559bf3a3b5dc1161c80d67"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/friends/portrait.webp",
+      "bytes": 7072,
+      "sha256": "201879e4a93db1404a04d936d864efb456211ad24e001881f2a495998df2cd91"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/friends/view-0.webp",
+      "bytes": 151374,
+      "sha256": "607ca69cf6c75a1236a8c81e5056c01cc5123fe5fc036e2402ef9657b0eff8e2"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/friends/view-1.webp",
+      "bytes": 151678,
+      "sha256": "3676ece679d7e138aa4dfb2012b0055f3abc208dff05f1d49efbcee2b8f1df50"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/friends/view-2.webp",
+      "bytes": 113488,
+      "sha256": "30a9747da6c5f01de0dd442157726baa183f28b74a3df0d3b62040e267451299"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/friends/view-3.webp",
+      "bytes": 155136,
+      "sha256": "57516923d5e477a26e476c651e5e30a5286ffd7c18b0ef9a20b5850bb650c4f5"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/friends/view-4.webp",
+      "bytes": 116238,
+      "sha256": "ad32bfc4ec14aa4b1322ed0f13271e3157b2bb68fb61ec774d0285bff0886c51"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/friends/view-5.webp",
+      "bytes": 157226,
+      "sha256": "855cbcd32ebce314667ae9275b3f1af939cf4d63a0ae7912e1e922f9334f30bd"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guild-workspace/frame-0.webp",
+      "bytes": 89798,
+      "sha256": "a65e0dd2fd0251b618019b65097f99176395b4a907a22acceb6884126670f3a6"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guild-workspace/frame-1.webp",
+      "bytes": 90506,
+      "sha256": "9a023f6e620f3f612ba62112ffb658d007c5a21441dd983a2ec2c59335875e8e"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guild-workspace/frame-2.webp",
+      "bytes": 91698,
+      "sha256": "b9167e44374959cba344f3443a82ff0dd3c0a39f8b44f19b24b346a9aa6ba97f"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guild-workspace/frame-3.webp",
+      "bytes": 92094,
+      "sha256": "3d9e44d56892c6053c4689b6e5eae9e2d3e3a9bdd917ddad56f191ec25feaa49"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guild-workspace/frame-4.webp",
+      "bytes": 92322,
+      "sha256": "28e5adf22b35617a01ad4705f5a71de8df1800192ea947713ae7110fcda7a191"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guild-workspace/frame-5.webp",
+      "bytes": 90264,
+      "sha256": "6c9ecaedaec7cea7e97f61fbe29c0e9eaf2808e59cc51403bfb65167ec93c230"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guild-workspace/hero.webp",
+      "bytes": 89798,
+      "sha256": "a65e0dd2fd0251b618019b65097f99176395b4a907a22acceb6884126670f3a6"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guild-workspace/portrait.webp",
+      "bytes": 4574,
+      "sha256": "7b7a6bc399bcdbaf8ae53e4c5a10c722c6a1cd024c22a3f01e1cbb53757cf1f5"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guild-workspace/view-0.webp",
+      "bytes": 93846,
+      "sha256": "a8c410622abe674f6c49e3d12988b9292e879e3b41df8f7dfe20af996e59116b"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guild-workspace/view-1.webp",
+      "bytes": 90254,
+      "sha256": "f0d53dddfc5e6dc56945e383a6abf844d9b235b09d1a0bcfb48b9c16cb976949"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guild-workspace/view-2.webp",
+      "bytes": 79928,
+      "sha256": "e37084e7ea2c35a4b279f3dd7430e49eec6eb82901695b755a44eed66050d4e7"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guild-workspace/view-3.webp",
+      "bytes": 86026,
+      "sha256": "d610f20ba69e6fb74a66669d3aac3056aa1463127f127eac1de5db69072a35e9"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guild-workspace/view-4.webp",
+      "bytes": 78280,
+      "sha256": "3c5719ac90c26c98f07830ae6fb73e5327b7b5ea5514e9257ebca2e78da20aac"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guild-workspace/view-5.webp",
+      "bytes": 88126,
+      "sha256": "9eb5ec20dc19a20b8b0c2faace95ebee69e165880bf9856695ad66faad0396e6"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guilds/frame-0.webp",
+      "bytes": 167864,
+      "sha256": "018014e0cf2cd389f503eea8ad23d2be88f9f42be6e2aa7c38c10bf926c75a3f"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guilds/frame-1.webp",
+      "bytes": 165724,
+      "sha256": "5f6a94b7e8278e5031e37b4d1613ff973af52967d9fd72ce25a5b5a409b5e17a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guilds/frame-2.webp",
+      "bytes": 165664,
+      "sha256": "9c063b817480d4c3eb3daa7d1fa4726eb595b6da96bd205973bb81630abea3a8"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guilds/frame-3.webp",
+      "bytes": 165492,
+      "sha256": "6cb21c60e1ae771dad85009e59fa34d00475b6747df2acd6d0ba9cf7230f00ae"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guilds/frame-4.webp",
+      "bytes": 164734,
+      "sha256": "c4ec02ce8a6ee81ba229da61d6afcb26ce7cd60dcea10acf3b4eee39eaa1885c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guilds/frame-5.webp",
+      "bytes": 160388,
+      "sha256": "d7f2e3672b78cda6fecd0f48b526ca880f68d5e515788344a04b6d9d657fafeb"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guilds/hero.webp",
+      "bytes": 167864,
+      "sha256": "018014e0cf2cd389f503eea8ad23d2be88f9f42be6e2aa7c38c10bf926c75a3f"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guilds/portrait.webp",
+      "bytes": 6964,
+      "sha256": "988d581950799ecf465136ba60ddd4e4430f870a08a04cba1857b21901567341"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guilds/view-0.webp",
+      "bytes": 176896,
+      "sha256": "b2b3d0f1e83972cd4e010e90cbcdb4af841e9edf9374bbefe040e9993a251cde"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guilds/view-1.webp",
+      "bytes": 166228,
+      "sha256": "3ef3dd03adf134663e7e6f701e3fdd4a16982b799c78ce572f3db2e1ff1317de"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guilds/view-2.webp",
+      "bytes": 141752,
+      "sha256": "da28c0d6abd8e613cfb069ef4c4567055ede4562bb2b472588a4bd0f83fae042"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guilds/view-3.webp",
+      "bytes": 154798,
+      "sha256": "2c272bd51b011820a005a8cba0244a5380510939703486880db7915015376b08"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guilds/view-4.webp",
+      "bytes": 136656,
+      "sha256": "5f083ef7bcdc57a0c5a5351a78ea979450a58c154e241ef795b62f28d22319c6"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/guilds/view-5.webp",
+      "bytes": 172118,
+      "sha256": "7945c610f81bd299e5736229be8587faf4caf04b85bb8b54c5538907ccac18d7"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/highlights/frame-0.webp",
+      "bytes": 135178,
+      "sha256": "e8596dfb1bdff4f70a01168a7f2c3e8301202ffa7ab186a9174e7d9acae2dee9"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/highlights/frame-1.webp",
+      "bytes": 133854,
+      "sha256": "5b1455d232159cbd1c114d837b0ab019dd9c5769b5e5007e4dfdea12b744ee0a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/highlights/frame-2.webp",
+      "bytes": 133804,
+      "sha256": "c3263741c9ca46465e91259c84ec3617144d54425856b1d2da4591b833428942"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/highlights/frame-3.webp",
+      "bytes": 134448,
+      "sha256": "f5f03260d6fd98f58a0f951c3bf0c4c6cbe34457124d0954d634c9d90992f8f2"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/highlights/frame-4.webp",
+      "bytes": 134086,
+      "sha256": "40d0f7816118f525ff319786bdc93fd718b42af68803248f1af6bb2d2f44fbe7"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/highlights/frame-5.webp",
+      "bytes": 133386,
+      "sha256": "0275f40e4e142cb5750fea0b39e4b995ad0a824b3eccfe1dffd780429d819e0c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/highlights/hero.webp",
+      "bytes": 135178,
+      "sha256": "e8596dfb1bdff4f70a01168a7f2c3e8301202ffa7ab186a9174e7d9acae2dee9"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/highlights/portrait.webp",
+      "bytes": 7194,
+      "sha256": "7523d694ad613ee1f6d95dddb5e8d699558cfd592b0f46cc4f7cfb6f22cc02f2"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/highlights/view-0.webp",
+      "bytes": 139148,
+      "sha256": "300a06b5a08273274b65b210f4c2dc79b63cf805278ac35fa59333a886f71d97"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/highlights/view-1.webp",
+      "bytes": 141198,
+      "sha256": "e0bf6b71caeddf3c7db2a1d12a3d0be8617c7f4c1b0ffaa05f4282b5a880e3c0"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/highlights/view-2.webp",
+      "bytes": 123408,
+      "sha256": "cfa0eea15ae1c3456cff0a165fa21a58aaf771dd196cef6e9882e478ca8e3425"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/highlights/view-3.webp",
+      "bytes": 132040,
+      "sha256": "ecd0a241b88f850047de8e894bf708a6e4e5ff3022509cd64f93456f3e52f932"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/highlights/view-4.webp",
+      "bytes": 111848,
+      "sha256": "06e4d357100fde1d031aab6dbace1f1478f0d8c2f6c826783586fcd76b7d43fa"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/highlights/view-5.webp",
+      "bytes": 140360,
+      "sha256": "6f2e06bc64b87028fe0cd392b34bac47285b7cd81ef6965209c00046d50267f0"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/home/frame-0.webp",
+      "bytes": 175642,
+      "sha256": "5bffe003ef4decabfe5d869832ec1802757579261f3449a4ddd4d233a1036df5"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/home/frame-1.webp",
+      "bytes": 173836,
+      "sha256": "17469b53143852f48a699b75cbf8b3d414fbf35014944cbf65ea069c3a2605c4"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/home/frame-2.webp",
+      "bytes": 173680,
+      "sha256": "2769c4a89e840841173c2beb716ea31d8cc409d6950e2d520a3c62b830ddd82b"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/home/frame-3.webp",
+      "bytes": 173284,
+      "sha256": "9c524f4648357c59e762f4cbfaf4b2cd285286abc847c8c7eccd9cc64ecd07da"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/home/frame-4.webp",
+      "bytes": 173340,
+      "sha256": "664e02d510121a8430279035746ad7379a62beba64011288c7fbd3870a979a18"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/home/frame-5.webp",
+      "bytes": 173518,
+      "sha256": "dc3f0054ea1989d51012293b51b4bd4ca549ca927f41ae6424c398878e7aab88"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/home/hero.webp",
+      "bytes": 175642,
+      "sha256": "5bffe003ef4decabfe5d869832ec1802757579261f3449a4ddd4d233a1036df5"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/home/portrait.webp",
+      "bytes": 7514,
+      "sha256": "9e46e32f46660dcead5e646c3ffdef19e1c4ebdfc30eb1d07504ba39772c9a16"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/home/view-0.webp",
+      "bytes": 186176,
+      "sha256": "b1a5d615491b6cebe9c1e24473c9e3dfd745f44c1b9c36f6733cd21a0e2b2d2d"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/home/view-1.webp",
+      "bytes": 175038,
+      "sha256": "88d6722da149635c0ff2fd994e643b015e71495e998eb151f03872f10961f7d0"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/home/view-2.webp",
+      "bytes": 152004,
+      "sha256": "b953c8899e5d0b22363c1afbb38e50d7318346ed0eb85f9869d3096091971393"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/home/view-3.webp",
+      "bytes": 184886,
+      "sha256": "5f0ca40d3f5a15db1a2e89810d17f615ed0108c1e55b871439ec5f9b141dfee0"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/home/view-4.webp",
+      "bytes": 144278,
+      "sha256": "b6acff3b022a30e9ba7e99339470332cd88d74b32bc1deece0eb0cdf093d2ba5"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/home/view-5.webp",
+      "bytes": 172530,
+      "sha256": "9a7c5c09bdae2d6ff8bf94740c0a7f25e63a2d03636991448ee9b294fbe1123d"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/marketing/frame-0.webp",
+      "bytes": 97612,
+      "sha256": "2f698806642350e64a587cf7f9041b7affd8b9fd999fbcfab8877dec10e3250f"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/marketing/frame-1.webp",
+      "bytes": 94312,
+      "sha256": "24b5be380102704d5f3fd0851e9f974c8116e935121b4ed879125d9da28cbef4"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/marketing/frame-2.webp",
+      "bytes": 94314,
+      "sha256": "2a8ff968417236d65262617a6a7ba097d7d46508f1c4c283106c92cb917c1bb2"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/marketing/frame-3.webp",
+      "bytes": 96200,
+      "sha256": "0fe1261a1d63c567138a9a3b410948d52a5e235c376d0b2f390a9cd51143aa01"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/marketing/frame-4.webp",
+      "bytes": 94194,
+      "sha256": "aba7a03e4ca67a25cfacf9c1918b5d352d34a899ccc57922dd76686450c3efd1"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/marketing/frame-5.webp",
+      "bytes": 94520,
+      "sha256": "f34b05f822d1978c94907f1bb8e79c0db75c0b676925a05cd88d96b442fac663"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/marketing/hero.webp",
+      "bytes": 97612,
+      "sha256": "2f698806642350e64a587cf7f9041b7affd8b9fd999fbcfab8877dec10e3250f"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/marketing/portrait.webp",
+      "bytes": 6296,
+      "sha256": "02eb1a3fbeb0dde688d3ca525e2d14cc5e095e451cbb488cd31442ff653c482b"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/marketing/view-0.webp",
+      "bytes": 98744,
+      "sha256": "97d7e5de426fb6cfd5be90832c0d306a4e606b7b9d69872e1a4397fe3dc69227"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/marketing/view-1.webp",
+      "bytes": 99614,
+      "sha256": "83032f8633d10ea9d04d9de0ed2d0047d683cf3aab65232c85a1d31bc89d40f7"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/marketing/view-2.webp",
+      "bytes": 83268,
+      "sha256": "807d2f1c0697023dca53282bc5688fb298c0395a7166fdbca4aa0e6a75b08f99"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/marketing/view-3.webp",
+      "bytes": 93388,
+      "sha256": "6e1deeda489e0bb8a0f761046cfedd948f050b12f8ec99c7d3b2fa9673b7c8c9"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/marketing/view-4.webp",
+      "bytes": 82862,
+      "sha256": "45fa34d933d06f564619937d301756a123f9b36bf16ff8e950ae71bd02bada68"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/marketing/view-5.webp",
+      "bytes": 103026,
+      "sha256": "3dc135f4c342ff25888969af563efbbb667740fa81198da7302731b81d3c73f0"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/members/frame-0.webp",
+      "bytes": 148088,
+      "sha256": "d92ffac407027ca1c0b0d55bd37f1f32fbd2144e9c41d9a145610915f3029e6c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/members/frame-1.webp",
+      "bytes": 146182,
+      "sha256": "9b4ca6d5cef70544db0012497671353634a4839279749f7429b2e1998d00eb0e"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/members/frame-2.webp",
+      "bytes": 147650,
+      "sha256": "87c0119a6988341d5b0d19efc5412e21398d2e26fb99992f0be68db282bbc95a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/members/frame-3.webp",
+      "bytes": 148474,
+      "sha256": "fc860d28553a9f8ea46909a68ffa7cd83c6a2c7f3428eeb5dbfef82fa8023873"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/members/frame-4.webp",
+      "bytes": 147406,
+      "sha256": "23947054bce458b8ae2fa6050a68d6df10db31769a9d8c39ea09a642fda1220a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/members/frame-5.webp",
+      "bytes": 143982,
+      "sha256": "ad8a4d2a3cedc380fb553a1646a14e94d218337ae64771c465d47e54f4d69d99"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/members/hero.webp",
+      "bytes": 148088,
+      "sha256": "d92ffac407027ca1c0b0d55bd37f1f32fbd2144e9c41d9a145610915f3029e6c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/members/portrait.webp",
+      "bytes": 6788,
+      "sha256": "2607e75b2a87e8dd2430549b984a6dd3bf5cf116fb4a54c579eb05e2835550d4"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/members/view-0.webp",
+      "bytes": 156466,
+      "sha256": "a8eaebf987101195cb8ae7cc42838ac525b25f482015c4ad57b7ab1ce6953501"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/members/view-1.webp",
+      "bytes": 148500,
+      "sha256": "eba63a5b913046cd9eaac45ec8d906a0748d88d6cdd49c0ff06a38b261f967e1"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/members/view-2.webp",
+      "bytes": 116144,
+      "sha256": "434cd069567bd3d92ef8cb6c318ef05450d357b21c40a1fa9398818298e53ee5"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/members/view-3.webp",
+      "bytes": 138504,
+      "sha256": "e5cef92a6091cfdbb46e10e00a6f2390b02540e4adaca69730187d874a4038f9"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/members/view-4.webp",
+      "bytes": 109434,
+      "sha256": "4066a7ad2d872d7a1289cc0bf520a863b1b8f328032878b52e03330958b7023e"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/members/view-5.webp",
+      "bytes": 145606,
+      "sha256": "9254275be931844dbc6110762810ac24ca22a208dc275e45c98112b1c2d49568"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/messages/frame-0.webp",
+      "bytes": 121176,
+      "sha256": "7739d26948daaf79f63b59e217efe94607ff7360deefaa96ab15ba195978ea0c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/messages/frame-1.webp",
+      "bytes": 117828,
+      "sha256": "fed336712123411d7f857d71badfd594df36a596daba21f42ea1dd045b7e95e4"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/messages/frame-2.webp",
+      "bytes": 118890,
+      "sha256": "79deb757c0cd5d0704e7b0a5b0248845b3f937c9bc11565c726053be6a590fb9"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/messages/frame-3.webp",
+      "bytes": 121166,
+      "sha256": "48b0c225b7ba66e1238f6b8f4c906e49d3185a6368f4d86a968f23d6888a09b0"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/messages/frame-4.webp",
+      "bytes": 119778,
+      "sha256": "b3c889aa66de9aa73765c688837da683b7b8dd595486e74341d6f4308e07936a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/messages/frame-5.webp",
+      "bytes": 119264,
+      "sha256": "00cfbbb63c76a6b6e119a67e0b6ca1178ebac69a91b232da67ece1882ab1fe8a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/messages/hero.webp",
+      "bytes": 121176,
+      "sha256": "7739d26948daaf79f63b59e217efe94607ff7360deefaa96ab15ba195978ea0c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/messages/portrait.webp",
+      "bytes": 6904,
+      "sha256": "1f444863bfd54d92801544327b053a07181a97287bc007e0bec27047a3b14362"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/messages/view-0.webp",
+      "bytes": 130544,
+      "sha256": "d230007c84501c43d1c0f42cf6161893e2ae003fb3c525176c5963bf9fabc0cd"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/messages/view-1.webp",
+      "bytes": 121772,
+      "sha256": "a7ade8c8954829e656c638079a3813686f2e50949d5ce5879508ed7ec9763043"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/messages/view-2.webp",
+      "bytes": 93934,
+      "sha256": "3dbdeaec290c9ad00f56aca15bcfe14278dfbd7dc4ea9d1d1bb25c3b88673567"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/messages/view-3.webp",
+      "bytes": 115290,
+      "sha256": "bf54175aed7dc06dd99a051b41f10b2f7f54ed41047c2fe6ea695e6239c25665"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/messages/view-4.webp",
+      "bytes": 85070,
+      "sha256": "f5501e6dcc2dc0550b5341faa677a1e11fa6beb1bdd0b6a897078a5ddb7e86ab"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/messages/view-5.webp",
+      "bytes": 122814,
+      "sha256": "b9f35e576e08cce0a24629b16615fd0d4b855cc75007f189df96453415c1ac7f"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/opensource/frame-0.webp",
+      "bytes": 125238,
+      "sha256": "4efa354c41ebfbcb85ccbb56338b4ad70aa5f55a57ad7a291f7007d5804ef2e7"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/opensource/frame-1.webp",
+      "bytes": 117606,
+      "sha256": "b9ad62dc1e0fb8ba59cddd3ebff852523914e0fe112797f85e6b71e0a096cf88"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/opensource/frame-2.webp",
+      "bytes": 119880,
+      "sha256": "a5031fa34d5b4ed54fc62831288536be60a209ecaf6f4819fb995a32ef16f3dd"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/opensource/frame-3.webp",
+      "bytes": 120066,
+      "sha256": "e12f670bb7d817a54f3410702f7db37b891ffef5116263b682c0bfce3d6fa64f"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/opensource/frame-4.webp",
+      "bytes": 120590,
+      "sha256": "37862ca154c3572920fc3970490824863ebd85adaf66e79e0c77f56c522d5284"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/opensource/frame-5.webp",
+      "bytes": 118774,
+      "sha256": "9a41107d3857ca593ba5ef34b9743186fe51f74b5384df9d4ced366e35244980"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/opensource/hero.webp",
+      "bytes": 125238,
+      "sha256": "4efa354c41ebfbcb85ccbb56338b4ad70aa5f55a57ad7a291f7007d5804ef2e7"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/opensource/portrait.webp",
+      "bytes": 7038,
+      "sha256": "3be5d487e236901ef559eaa157b9bcd87ad4861ccaaeb83589822831c71e75ad"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/opensource/view-0.webp",
+      "bytes": 125144,
+      "sha256": "42ba0b6f57e3cd7f10fd6ade1f194cc19235b251136188620083d1eda60efb1d"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/opensource/view-1.webp",
+      "bytes": 127624,
+      "sha256": "7f975cb2daf5ef81adb2fddec5123a5373e9376379459735086294bd41311a26"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/opensource/view-2.webp",
+      "bytes": 97982,
+      "sha256": "4391fca7c9641f27ed11eff5295e413a09dd6656fb24cf1b08f3423c5ce067c6"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/opensource/view-3.webp",
+      "bytes": 121510,
+      "sha256": "4ba15a1eb905595c59b334a5ef0246b28cfade1981c952a0c57f147b9aa82106"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/opensource/view-4.webp",
+      "bytes": 93880,
+      "sha256": "703edc0dc89e8130975f2c621e9767b8e74f74e12f6d22c6cde6d707343aae2e"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/opensource/view-5.webp",
+      "bytes": 127284,
+      "sha256": "d8134a60c540a625ac554fc9ccf7f405ed99a477005607c495ca86ff3a1c365b"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/positioning/frame-0.webp",
+      "bytes": 148472,
+      "sha256": "05af5c63544aa9a25ffa8a85a9d31894f80f70b0d56868f6dabbe7ed20c1350d"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/positioning/frame-1.webp",
+      "bytes": 145620,
+      "sha256": "9bd83db65a5ccc15d0185cb2894bff87d7af3b70385a26a96d5fa55bcad4d8ef"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/positioning/frame-2.webp",
+      "bytes": 148538,
+      "sha256": "4641b3bda3063e38434a62ccc35c54dece71ca07a3070283d05338b1269e6864"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/positioning/frame-3.webp",
+      "bytes": 147794,
+      "sha256": "582011d648a5060213d55b16973b1ad9fa8459a1ee3df7968a983dacc78df389"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/positioning/frame-4.webp",
+      "bytes": 146878,
+      "sha256": "1da4d10b4d19c1c21b7c554ed0bdedba85ac6ba61e3d8b50542b1eef0c09dca4"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/positioning/frame-5.webp",
+      "bytes": 143690,
+      "sha256": "91efe1e2d41931923a32d08f3fc0f18098da9d7edf93e9b4b1e49fcab21b7306"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/positioning/hero.webp",
+      "bytes": 148472,
+      "sha256": "05af5c63544aa9a25ffa8a85a9d31894f80f70b0d56868f6dabbe7ed20c1350d"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/positioning/portrait.webp",
+      "bytes": 6548,
+      "sha256": "9c3d376648645dab6394eb9beb7bb8398e73edc4d8963e080f50523ba9a2d119"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/positioning/view-0.webp",
+      "bytes": 152078,
+      "sha256": "26a520be4449478557cd11fdeaa6909338cd6b439755cd009c412f39b2d219da"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/positioning/view-1.webp",
+      "bytes": 152690,
+      "sha256": "4fd7cebe661b97e383e477a248489db3f76f14d88047259154fd2d8453888e38"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/positioning/view-2.webp",
+      "bytes": 118988,
+      "sha256": "2b8456784ae132dd83f4faf81bb6d14d3f30dc335e79e736eb93d3be5eb92b33"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/positioning/view-3.webp",
+      "bytes": 142094,
+      "sha256": "7f472f4a1209211bd7c3cbcb3c03c493b8d9bc24175920ec51acefb5e43be8c8"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/positioning/view-4.webp",
+      "bytes": 114478,
+      "sha256": "179394a8cb2f852d699b71a072ce429aa0589c90d57dd97936747cbaa21f2a48"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/positioning/view-5.webp",
+      "bytes": 153434,
+      "sha256": "dfd291df860d33f1dc4fde214e0d1aa4405f9504fbbbb529515b736efa0ee3f3"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/promotion/frame-0.webp",
+      "bytes": 123288,
+      "sha256": "d8139a09cf9fff876b79a5b9e06ec4052d7b721e69484e88ddb0abfc67dfdd8d"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/promotion/frame-1.webp",
+      "bytes": 117498,
+      "sha256": "63ebdaf2bfbb4f6450fd9c32769c7c98d12cc0bb8fa645689735a228601500e3"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/promotion/frame-2.webp",
+      "bytes": 119752,
+      "sha256": "68cc8092efa041643ab56b738a3ceb22271c08ed01dbb164b259e433fdee1324"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/promotion/frame-3.webp",
+      "bytes": 120628,
+      "sha256": "ad38c5b9a81fdf5063dfde1571549de47c150a61d9f6c8beb7119f861446b3f5"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/promotion/frame-4.webp",
+      "bytes": 119978,
+      "sha256": "a109e3f0b589fd0b05de992750c2b685b0817387ea1d27f3aa05fd1c649014e3"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/promotion/frame-5.webp",
+      "bytes": 118248,
+      "sha256": "aa403c0d72e4b8f23c4f779f29b806600ac2e1542db0730832695ae58012db91"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/promotion/hero.webp",
+      "bytes": 123288,
+      "sha256": "d8139a09cf9fff876b79a5b9e06ec4052d7b721e69484e88ddb0abfc67dfdd8d"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/promotion/portrait.webp",
+      "bytes": 7094,
+      "sha256": "9236c51be3338b10d567c104c6afe9ecae1f8ecf49e9b0bd7af69532d5c65e0b"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/promotion/view-0.webp",
+      "bytes": 124180,
+      "sha256": "2e8d66afe83f2d56d513532f0e4ba523a7ee2235de10092b03149ce5e2ca94d6"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/promotion/view-1.webp",
+      "bytes": 121328,
+      "sha256": "8d83aa2faf10dc2ee0658d3735e3fb31dce13aa4e6dc305b3cf2c91ef0fa89fa"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/promotion/view-2.webp",
+      "bytes": 103352,
+      "sha256": "6fcf779605ba3a85d63463aa5074d47119bfedce017674fa79991ff83d4df320"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/promotion/view-3.webp",
+      "bytes": 124558,
+      "sha256": "8c95ff399078e29f44496b37e45731c8785ccb449f1189edbfc7440363d1f5c2"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/promotion/view-4.webp",
+      "bytes": 100546,
+      "sha256": "00d18a354662e749be4943152f2379603e94c0f929aeb269bae6d3a784dc1f15"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/promotion/view-5.webp",
+      "bytes": 122224,
+      "sha256": "5a1965316a66b9e0f9219dd96293af8ffa6c388aa4feff72e55f92abe1ca7449"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/retail/frame-0.webp",
+      "bytes": 109916,
+      "sha256": "9b9ff92ecbdd19691f61fb5d4bc77af53686a74e591a60405c1e21df1113f167"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/retail/frame-1.webp",
+      "bytes": 105740,
+      "sha256": "d68287b4d7f0af857693b2816457240bda2720cac2ac0f69ed164bdda55f4740"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/retail/frame-2.webp",
+      "bytes": 104028,
+      "sha256": "2e8fbf63b5d6f3a790d795bc4b490e8d74018c35ef6970b895db3469f632e5ca"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/retail/frame-3.webp",
+      "bytes": 106140,
+      "sha256": "a47a9a87d17e3349973c222d3019905d0604ae9702ccd063518033dfc10138ac"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/retail/frame-4.webp",
+      "bytes": 108430,
+      "sha256": "318944d332a96af5cc176dc84aa23f3abb224746cba563a7ec2159e5e22f1b9a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/retail/frame-5.webp",
+      "bytes": 105886,
+      "sha256": "349d284817937394d10c51e8d8d1bf0dfefe87cbd0cfc7feb340de860edd9574"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/retail/hero.webp",
+      "bytes": 109916,
+      "sha256": "9b9ff92ecbdd19691f61fb5d4bc77af53686a74e591a60405c1e21df1113f167"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/retail/portrait.webp",
+      "bytes": 6678,
+      "sha256": "6ef7fa7e356cbad992bccd3a39f1080676039f465acf8f26152da232302c9230"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/retail/view-0.webp",
+      "bytes": 106438,
+      "sha256": "bc01fc992d093f1d7ae526f5d7970eff3f039152c93dd8935f64bb0a06709909"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/retail/view-1.webp",
+      "bytes": 103820,
+      "sha256": "d69d1198da102a268fce8e2ededb9bdd47315b6aeee969a06f446533e7c921d3"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/retail/view-2.webp",
+      "bytes": 90968,
+      "sha256": "6ee56c2f4827db3b85c1b3feaf7499a905daf516cb16d8edd3a2a048d4a6f9fe"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/retail/view-3.webp",
+      "bytes": 104506,
+      "sha256": "fdfe20b07d015d6fb9262c0886d2c06f2b2ce1f0922131398d04cfa28d3e1288"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/retail/view-4.webp",
+      "bytes": 89166,
+      "sha256": "63161113d2db0b40a478de17507ab78768a7e79491120eb01ab639b22e819109"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/retail/view-5.webp",
+      "bytes": 100290,
+      "sha256": "ab2c384c5819992f7e4cfe74a6ebf0507850615b57ea1a4ecc15fde063b0f26d"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/services/frame-0.webp",
+      "bytes": 116960,
+      "sha256": "f3f18ee7d44ea3c739b5c51f6fd1f1a0d75297d3586fde7d2ae5fe0610de3f95"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/services/frame-1.webp",
+      "bytes": 113794,
+      "sha256": "37bb9aa7c08e2dd87ed36f7344c457e76d782b4624af687be123201f52dc6c0a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/services/frame-2.webp",
+      "bytes": 113850,
+      "sha256": "c5240ddca44cb1664d4d6d450ea58ec0876756e4ffa8e8d231577243a9f65f86"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/services/frame-3.webp",
+      "bytes": 116616,
+      "sha256": "291538b4aa7c4e436be88d3bb65cd4e1fe8ce5b81889bd156807510075d382bd"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/services/frame-4.webp",
+      "bytes": 115662,
+      "sha256": "1cde043979190f0552a8475bae1e035f619103b7339327fa05eeedc34ffb7e0e"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/services/frame-5.webp",
+      "bytes": 113606,
+      "sha256": "b2ea575ecde325215e1fddabb3cd9b473c957b6f806377804a6a0c5600049c73"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/services/hero.webp",
+      "bytes": 116960,
+      "sha256": "f3f18ee7d44ea3c739b5c51f6fd1f1a0d75297d3586fde7d2ae5fe0610de3f95"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/services/portrait.webp",
+      "bytes": 6046,
+      "sha256": "5a1f1a0b1eacc56de8941bde02adb82705da4639197e28453ac455ba5d7c7112"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/services/view-0.webp",
+      "bytes": 115792,
+      "sha256": "7d1813b91d212d89980c6171c79019d92597aa03af44e22a6774328e1054a41f"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/services/view-1.webp",
+      "bytes": 111240,
+      "sha256": "98a9518045e5822673ae27f5c56eab7d1fbf10b82609bcd6a1ceae725ba4b26c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/services/view-2.webp",
+      "bytes": 99266,
+      "sha256": "8e64b58dda11bb1482f67dffd9e5c48caf4da8c997ad5c2865949c930067b632"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/services/view-3.webp",
+      "bytes": 111826,
+      "sha256": "30894ce77095a52b40452ed2af556724abae3e7f2928a6634b7c75a31eafc605"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/services/view-4.webp",
+      "bytes": 97634,
+      "sha256": "9c74757a8c5b3f2d18542b51781398681c3d16b0203e1a64216e1cd6458983c1"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/services/view-5.webp",
+      "bytes": 111296,
+      "sha256": "6c4545765fb1bbe98c0d12074b5ea05a2fd2d52e6367f15a34064be0519b38f5"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/showcase/frame-0.webp",
+      "bytes": 142382,
+      "sha256": "2a767858c3e695b5b257baf72c211a799d1b2b62a553f9957eaa740fbd9bed5a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/showcase/frame-1.webp",
+      "bytes": 141298,
+      "sha256": "d4898f8ad7bdb117cd7d5f3305d86a647d05600c1b023de43e3cf8c981aba817"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/showcase/frame-2.webp",
+      "bytes": 140206,
+      "sha256": "d181e68e03b362d45c7b3b7b457f1045b71801788bcc8d66e14c2546179424c1"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/showcase/frame-3.webp",
+      "bytes": 141938,
+      "sha256": "92e566ab529c4269ea6b0b9fc73d4e351aa6e76aaa5ec0e7dcf10c7a193ba430"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/showcase/frame-4.webp",
+      "bytes": 138974,
+      "sha256": "6dd9a12a7cb5d0d44ef66bb5f94e8d8606e5b5f9bca1438eb32ca16cc0636167"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/showcase/frame-5.webp",
+      "bytes": 139682,
+      "sha256": "855b1dbf003317c4ae562c756349cb00b99fa969e7461b57c13031983b99a6e3"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/showcase/hero.webp",
+      "bytes": 142382,
+      "sha256": "2a767858c3e695b5b257baf72c211a799d1b2b62a553f9957eaa740fbd9bed5a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/showcase/portrait.webp",
+      "bytes": 7126,
+      "sha256": "5b9f36163bf49f926ed2ed7faa98a6c940afd9f860b4355a6c751e86c49cde73"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/showcase/view-0.webp",
+      "bytes": 139838,
+      "sha256": "daee01609f3e2f217ebe514dcbddd7884301f569938bd097bebb6b5b23cf11a0"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/showcase/view-1.webp",
+      "bytes": 143680,
+      "sha256": "f754e95b0f1c2e9c59a58e74f4ccf7e5cfbf6c8ee52ebce4c9f57b94c99ebedf"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/showcase/view-2.webp",
+      "bytes": 124022,
+      "sha256": "6425b39b90f46799939d10f68f96b62b3cd198fa2337625cfa66fa6c565ad5c4"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/showcase/view-3.webp",
+      "bytes": 136148,
+      "sha256": "7b960a1752b5a2b118b4449848f9a298bbde23db4df95520bda13b9b8b04ec2c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/showcase/view-4.webp",
+      "bytes": 124382,
+      "sha256": "e8c3dc68c6de49a4b86dbcb1686e7e81833a959ff74ebd5d0bec1c35999a7405"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/showcase/view-5.webp",
+      "bytes": 145334,
+      "sha256": "09755c20bc93536f7e5e8097ddb3182c4936a0ee2497207d90f2c9854ad51b4b"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/skills/frame-0.webp",
+      "bytes": 154010,
+      "sha256": "6cddad4c5031d3bd4902a14e7634ae02412b9435aae2774113e763c1c7f353cd"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/skills/frame-1.webp",
+      "bytes": 152072,
+      "sha256": "193a398558883f2fcb19af481bd7025a8b55bd4395c160db811251dc804e1e5a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/skills/frame-2.webp",
+      "bytes": 154280,
+      "sha256": "2f733e5c608082cac560467ef5974476f9791322d857cfbbe93d558434df5a7e"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/skills/frame-3.webp",
+      "bytes": 154408,
+      "sha256": "613e2ba0b23f01da0dbd1bb6cee5c87775e420bacec5eb3bc368206602fd20df"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/skills/frame-4.webp",
+      "bytes": 154236,
+      "sha256": "3a31df1814a2c72211a854e5c711eacc50d1d4a78f69884f2005aa56687ba52d"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/skills/frame-5.webp",
+      "bytes": 151606,
+      "sha256": "7874115447ba0eaa8989f509fc83ed525cc1efb669013bbf6c875f88428fd4ad"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/skills/hero.webp",
+      "bytes": 154010,
+      "sha256": "6cddad4c5031d3bd4902a14e7634ae02412b9435aae2774113e763c1c7f353cd"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/skills/portrait.webp",
+      "bytes": 6604,
+      "sha256": "4a2729d5c5f5c6aab68820e7d9bc4969bc2b5960ac7e77bd7102386e19f76342"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/skills/view-0.webp",
+      "bytes": 157330,
+      "sha256": "98d880df846b35d3d282271bb17eb7eae0832cb52c9119a1db38b835ce403c97"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/skills/view-1.webp",
+      "bytes": 169234,
+      "sha256": "c0975aeeef7c98f22d1853bb20eeabe4cb67281a6fd8accce1add93d2598ae03"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/skills/view-2.webp",
+      "bytes": 123838,
+      "sha256": "87f09e7f2399a9de2f58e626ba04be40ac77158b9db289531efd5cab0cb393f5"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/skills/view-3.webp",
+      "bytes": 153846,
+      "sha256": "83a2bab2ade02f72895fbdf5907b8a0b70840ea42b5261c97c2f7f48088d027d"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/skills/view-4.webp",
+      "bytes": 125618,
+      "sha256": "489dd0f45063dd54a7911217b65dae29eef31b7ed44f744283961b146c2546c5"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/skills/view-5.webp",
+      "bytes": 160706,
+      "sha256": "265368fc3c78c41f975e2b4ddf5e0c3276ffaa55b042f6c5d7cd99d43d1aa527"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/social/frame-0.webp",
+      "bytes": 118022,
+      "sha256": "dd8946813eb5d66f8e18f9a06d5f9007ef9df64f8cda8fbcdce16ac98a8d9421"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/social/frame-1.webp",
+      "bytes": 117976,
+      "sha256": "7b31ab73f23be645955197263fa840a747eaa01f80347ab67c94c887c26dafc9"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/social/frame-2.webp",
+      "bytes": 119536,
+      "sha256": "cf4808af92455e1bfb6d36c013fc9e4614d65fa8df2ed4670b1374d83c649d20"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/social/frame-3.webp",
+      "bytes": 120640,
+      "sha256": "5087f43de2fb20b5ccccf577a6131da8b30bf2590644eaef477f8634dec3b36f"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/social/frame-4.webp",
+      "bytes": 117884,
+      "sha256": "b99b93c3c63b50b2689802484ac903e8ec2a368b7e62c478aaa8cb5240ebac2c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/social/frame-5.webp",
+      "bytes": 116582,
+      "sha256": "2a409612532be15358d430e2b598e27fd03b1277ed9a6e12c2d6d6068e4074f8"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/social/hero.webp",
+      "bytes": 118022,
+      "sha256": "dd8946813eb5d66f8e18f9a06d5f9007ef9df64f8cda8fbcdce16ac98a8d9421"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/social/portrait.webp",
+      "bytes": 6644,
+      "sha256": "e1d270b07f7a013505408aec7cf928eba8fc3c5964fc60be477d5b07b876ae8e"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/social/view-0.webp",
+      "bytes": 123520,
+      "sha256": "16e265e8302eec668024b69d12f37b8288c1dbb2cf5d5969cadcf4f609faf734"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/social/view-1.webp",
+      "bytes": 111082,
+      "sha256": "adfe33a8bb7a6889fb0d7c441978a7dda0387dfa7aa595b8395d835b735dc3a9"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/social/view-2.webp",
+      "bytes": 90926,
+      "sha256": "3e428223e42c19e506005903c1ac60be4d66e707c1e9e48867d0b2b53d0867e7"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/social/view-3.webp",
+      "bytes": 123762,
+      "sha256": "f6c082f69b33fd402927cd4bf906782c455adec870a99cdb6749677441e676fd"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/social/view-4.webp",
+      "bytes": 89328,
+      "sha256": "a46d04fb74bd49a38652557852b7646a639540fea1acd13b974871c30b48c876"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/social/view-5.webp",
+      "bytes": 129038,
+      "sha256": "fae6cb98b11222050d6463b30c30fef1ab86bbb1a77ea9175ba4d172a8db8de5"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/squads/frame-0.webp",
+      "bytes": 132338,
+      "sha256": "48b0b00e566de529fa8a708e335bdd26544f56c070de12c187551aba0462cbef"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/squads/frame-1.webp",
+      "bytes": 130598,
+      "sha256": "ca3b9a2ad3ff4aef89447dbfe13345d55bdd921d98d099f1fb8481d8896eea29"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/squads/frame-2.webp",
+      "bytes": 132704,
+      "sha256": "af80a7a5055e22757c452b3c4f6753ed20930e7779731a638525eb16da9b566c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/squads/frame-3.webp",
+      "bytes": 132692,
+      "sha256": "d7b9d89db4c432e0f6f8a6ec2f5e8360a3f1ee6627aa5462a5369479a1d4f93a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/squads/frame-4.webp",
+      "bytes": 132810,
+      "sha256": "50461f1bcd943907453e31bc519219c2947fe2041e0f10968a9c3459dbd8c503"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/squads/frame-5.webp",
+      "bytes": 130058,
+      "sha256": "d3ba99eb211854b9779fff64e9cb742ec14d5a2435acafe158214f4eb45abea6"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/squads/hero.webp",
+      "bytes": 132338,
+      "sha256": "48b0b00e566de529fa8a708e335bdd26544f56c070de12c187551aba0462cbef"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/squads/portrait.webp",
+      "bytes": 6582,
+      "sha256": "4eebd99cee9521467a3b5ace1546951b26439e07abe209528a7f98da586218b2"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/squads/view-0.webp",
+      "bytes": 134440,
+      "sha256": "180d395d3ef8d5ee7a2b5b4bfd08f4bab62ecb8efc22fe1048425d3c0ed70b66"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/squads/view-1.webp",
+      "bytes": 125856,
+      "sha256": "652cb6ac38135daeb1818e0b5be4fd309784f9a91b5a57e0e5eb3193ad1d7594"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/squads/view-2.webp",
+      "bytes": 100512,
+      "sha256": "bdec2a14380df3c459cfddb9766301065cbb3b697fada824f8d2fc4fc97e0913"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/squads/view-3.webp",
+      "bytes": 130724,
+      "sha256": "2a5e73b6e5b76d480b2198853e4409639e9f279d3cdf7b20742bea5ff7b85297"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/squads/view-4.webp",
+      "bytes": 97070,
+      "sha256": "20e1f48424333e42b6057cfdd397baad8b53bb9f94520618b64a22fe80465622"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/squads/view-5.webp",
+      "bytes": 127278,
+      "sha256": "daaaf01d1e39a7b30085958a8afa1b3a8bf95057a6494e7dfe215535d30d1aca"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/supplier/frame-0.webp",
+      "bytes": 106734,
+      "sha256": "5318ba9885dab37f2ac677bb0defda8061fe69e3788bf0aa9283e5a65dc8dd84"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/supplier/frame-1.webp",
+      "bytes": 104656,
+      "sha256": "d04906876e10ffa56e437141cc5b5897592e7cc3e1daa5383941489baffe651d"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/supplier/frame-2.webp",
+      "bytes": 105156,
+      "sha256": "788a12f0b90c7f69c6bc671e983ebcecb307a550c6e6cc8afebe6cb90ec5d19b"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/supplier/frame-3.webp",
+      "bytes": 106938,
+      "sha256": "6c62a0ee098d4975365bfd0d6c66e1b1c483e84912e61fedec6709f8a3940022"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/supplier/frame-4.webp",
+      "bytes": 106392,
+      "sha256": "13753d561a22ef2c8e0e7de5302a5aa8be3f0b550ae1f15ae44cd0d0ef899c83"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/supplier/frame-5.webp",
+      "bytes": 104510,
+      "sha256": "5ac3554aedcaff6d9ac76f9448dcf2c8161afe45a2f4abf220cddc962366c5c4"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/supplier/hero.webp",
+      "bytes": 106734,
+      "sha256": "5318ba9885dab37f2ac677bb0defda8061fe69e3788bf0aa9283e5a65dc8dd84"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/supplier/portrait.webp",
+      "bytes": 6076,
+      "sha256": "43181870ed430467b45329623e44e4f1f3673a7dfd49b1b3ad2d0bbea86b0a2e"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/supplier/view-0.webp",
+      "bytes": 102848,
+      "sha256": "8440ab20754e31d9924d51695bb4f77a8c2854167c6841dedfc634189bb45f3d"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/supplier/view-1.webp",
+      "bytes": 101520,
+      "sha256": "b1c951dbfb068f7ba0bf64f68c7804fc370a402d18864287a88587886b093d8b"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/supplier/view-2.webp",
+      "bytes": 86702,
+      "sha256": "4ff5e796a6cb900a4d30a850fffccbfb53b4df30274a02d9bd1db920d97c3635"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/supplier/view-3.webp",
+      "bytes": 96018,
+      "sha256": "7bd72dd035e7d4282c3b8d57ff098f8316d81f93f6233d0d1661702a55862bb9"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/supplier/view-4.webp",
+      "bytes": 86176,
+      "sha256": "0fe568c1205f35df78cf13b98fe58ebde96892a0f2857225b6e114bb0350ace0"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/supplier/view-5.webp",
+      "bytes": 101590,
+      "sha256": "f84d0282208a2828daccef258d1b7aeb029c313f924278ac86e7a6f9ac584653"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/tasks/frame-0.webp",
+      "bytes": 139914,
+      "sha256": "e486814b07a937fcc7aa80583f75bee7bafe119e56e539d4c6f9e20df6e140c2"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/tasks/frame-1.webp",
+      "bytes": 140076,
+      "sha256": "569f6de8f354887c81a21cd2ce0855d11189c8b078bc13a42bfa6b84f6c2394c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/tasks/frame-2.webp",
+      "bytes": 140322,
+      "sha256": "384d4da7a9a11eb1822c3a0121dd1adcf24151a06953dee3c5347e8fce877eb1"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/tasks/frame-3.webp",
+      "bytes": 140172,
+      "sha256": "5b5f4823d8928288dab54cfe8239639f6158233e6da685eed8d9404c5680cc55"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/tasks/frame-4.webp",
+      "bytes": 139908,
+      "sha256": "210cc6e47fb196674b7fda5bc3fca10d61b48bb1793559a7604d6a07fc972948"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/tasks/frame-5.webp",
+      "bytes": 139350,
+      "sha256": "c29754c7550e72570d873e7d23d31dee729471e4f27e3cefcdaf38e965f39437"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/tasks/hero.webp",
+      "bytes": 139914,
+      "sha256": "e486814b07a937fcc7aa80583f75bee7bafe119e56e539d4c6f9e20df6e140c2"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/tasks/portrait.webp",
+      "bytes": 6532,
+      "sha256": "943f733112a037abe5ce6dc5e4847b04d59ac214145bd8d1d3c32a8f58023ee4"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/tasks/view-0.webp",
+      "bytes": 143502,
+      "sha256": "41b48da70de22868bbad2e6a3182a1c5f4058fc89200150658f3c61f6c34570a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/tasks/view-1.webp",
+      "bytes": 146448,
+      "sha256": "a781bea92e521c6dee18390f6342f32f573406f46520cca576b2c218a78752d2"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/tasks/view-2.webp",
+      "bytes": 118572,
+      "sha256": "e2858ba9165594e9a05a20a1c4d0231c6cf0dfc617456f3bbe638b613ac1f105"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/tasks/view-3.webp",
+      "bytes": 131522,
+      "sha256": "f865d88633a1e9bd8cf1c71604ad8bd92e185ba339d91add0b15819ec7593070"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/tasks/view-4.webp",
+      "bytes": 119438,
+      "sha256": "f7a578bfa7484cebb864865cf8a9c3bef070e40a968b1c49c99f60be394e96d3"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/tasks/view-5.webp",
+      "bytes": 141474,
+      "sha256": "e5ffdf340ffe0e059b3f9d440b226c2d0672c47a8a96b443fe0042587e36b89e"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/todos/frame-0.webp",
+      "bytes": 80440,
+      "sha256": "9eee9b7eb3bdc2d76e8db6ecc395e4eaef4dafcd61089e1c9843dccfeff154f2"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/todos/frame-1.webp",
+      "bytes": 77838,
+      "sha256": "11227612ccd3c8b082ad0aeb9e36f2f0a0f9b6765b4cecf6493973e3fb8a88f2"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/todos/frame-2.webp",
+      "bytes": 80700,
+      "sha256": "0de1f83ff006987cf640cb1a56bd07df9e647c7f00abe3e33fe32e0bfa638f87"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/todos/frame-3.webp",
+      "bytes": 81276,
+      "sha256": "b3911f220f3772a863cb62202e2e415454278b740dd066ba32f3cf74c3e1830e"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/todos/frame-4.webp",
+      "bytes": 80922,
+      "sha256": "df0c15e1017c96a534fcdb248b679d43974ad222f03c30186b523e40e0a3aa47"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/todos/frame-5.webp",
+      "bytes": 79244,
+      "sha256": "837e2165c0e9f9ff2f44a4f7d459616da321ea62b4489453bd8b019ea6c67883"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/todos/hero.webp",
+      "bytes": 80440,
+      "sha256": "9eee9b7eb3bdc2d76e8db6ecc395e4eaef4dafcd61089e1c9843dccfeff154f2"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/todos/portrait.webp",
+      "bytes": 5044,
+      "sha256": "141f4d266de5717439c714e295579182e0a86c9031ff2f717fc26fb6a24a35a6"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/todos/view-0.webp",
+      "bytes": 74386,
+      "sha256": "5738e5c7e779c14f3baf9a273671b88c89ab315502598c78664efe065e216e01"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/todos/view-1.webp",
+      "bytes": 71562,
+      "sha256": "948d57e65784524b9a5d76bc07b01cb67f4939848b3a8c125537894eaad7e65a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/todos/view-2.webp",
+      "bytes": 65422,
+      "sha256": "37f7c172687c0468675a4671af6ef893de41f979ad9b4ec7db0ca1bb3aff7ed0"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/todos/view-3.webp",
+      "bytes": 71254,
+      "sha256": "52740568b485b7673c8e9dbebdd1dfdf93fbc77a7d7fadcfa462eece03f3b08c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/todos/view-4.webp",
+      "bytes": 62774,
+      "sha256": "3b661c861c085d49a88a76ec31d0e0f53a855ef3dc07ac64992348517aaf900a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/todos/view-5.webp",
+      "bytes": 70884,
+      "sha256": "9d3d6a89b05002c53350dbd2cf3177430e4e9b51ce7c9a0a3eb03bd287517497"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/workbench/frame-0.webp",
+      "bytes": 111454,
+      "sha256": "8ec05c56cf393f249570ca8715222490c8ee02b9994e9e25650629651fe4632c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/workbench/frame-1.webp",
+      "bytes": 110370,
+      "sha256": "8bd7dab7a994d2da58687c9b6767bf1bac763b64669b9f537b5849fd44f34175"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/workbench/frame-2.webp",
+      "bytes": 112136,
+      "sha256": "6adbfc973e82ac123e47b362fccf348097721d42bb669350b6354f0cf1f1c6f8"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/workbench/frame-3.webp",
+      "bytes": 113784,
+      "sha256": "ac99f4feb17fa0fcc772b17fc13ed8f1e4e1eb9d4aefb0c77c6d79d06c1ef0c2"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/workbench/frame-4.webp",
+      "bytes": 111096,
+      "sha256": "549a789ff761340f890992ca947ef378cb4beedda3bc570b58bf0533e97beecf"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/workbench/frame-5.webp",
+      "bytes": 110080,
+      "sha256": "05d171cbc7c21e3b0b03e0a0be3a72f6e3b78e58b9d263c173c2fad4397e1bb5"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/workbench/hero.webp",
+      "bytes": 111454,
+      "sha256": "8ec05c56cf393f249570ca8715222490c8ee02b9994e9e25650629651fe4632c"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/workbench/portrait.webp",
+      "bytes": 5958,
+      "sha256": "497acc686f5d89a0ab9d2e9883516f96ae844f671ad2a5d19e4d98e7b40e6654"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/workbench/view-0.webp",
+      "bytes": 108276,
+      "sha256": "f4616c56aa1dda065142631581adc87953eb097ece7f27547a60f70577cef82a"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/workbench/view-1.webp",
+      "bytes": 108326,
+      "sha256": "dde870eafbb13d5ec76b4603ddf2f20370240b5bb2dd714b906d3ea20349b2da"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/workbench/view-2.webp",
+      "bytes": 93448,
+      "sha256": "bc6abe20b88daa23358a3a8581a5eb3212909ac8888ac78858e7cb2eeed2e357"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/workbench/view-3.webp",
+      "bytes": 111082,
+      "sha256": "02e37873d40db789ac5086dab10981a0617df3e1bc60d7f72c37b90e72415000"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/workbench/view-4.webp",
+      "bytes": 93180,
+      "sha256": "4644c8a04a2f93162084d2a23804ca96c828bf4c61e1e8d0730e13874227d0af"
+    },
+    {
+      "path": "assets/guide-packs/dragon-v1-20261004/workbench/view-5.webp",
+      "bytes": 109112,
+      "sha256": "72ec86c0a86c8f457f53998fb880276ab170da28257fc0a1b3c1e00f1ac4595c"
     },
     {
       "path": "compose.yaml",
@@ -2333,6 +4373,16 @@
       "sha256": "5bb0079321745d0a3f5cd1f706380753b9e6e0bf8f3374d6cbd743c685a3f2a5"
     },
     {
+      "path": "contracts/guide-packs/dragon-v1-20261004.json",
+      "bytes": 84313,
+      "sha256": "506d5fe7eb653874286baeb58b3bc47f44e243279104fae2d9a8ada2a65723ee"
+    },
+    {
+      "path": "contracts/guide-packs/manifest.schema.json",
+      "bytes": 2180,
+      "sha256": "cf84c9ccd07bc5cfeb7bc46392f273ee92a645133e112d2b44262e18901c49a7"
+    },
+    {
       "path": "contracts/preview/v1/bundle.json",
       "bytes": 1474,
       "sha256": "835e9a898d3c10eaabd16c92cfeb25eae050f658814da3aec055f019a7245d3d"
@@ -2424,13 +4474,13 @@
     },
     {
       "path": "deploy/cloudflare/environments.json",
-      "bytes": 30576,
-      "sha256": "49397d1979dca1ae046b2b93ce4e8e681dd17968fc0309e0be552d798967e784"
+      "bytes": 30992,
+      "sha256": "78c481f7f01ac20ff594a6af8cba65ee89114e7f66e3d3666974727117568c6e"
     },
     {
       "path": "deploy/cloudflare/lib/broker-wrangler.mjs",
-      "bytes": 4908,
-      "sha256": "7207500f3911a5ce53d3328b4bf0834dd6bc957187e27ae78238a910c54c31db"
+      "bytes": 4934,
+      "sha256": "687941bbbb9188ab2988a463a7fb415a9015f2458f75148f4b7d8992d4409158"
     },
     {
       "path": "deploy/cloudflare/lib/cloudflare.mjs",
@@ -2454,8 +4504,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/manifest.mjs",
-      "bytes": 15713,
-      "sha256": "d1300ffb039958feb94fbee6a1fa497dc33ed127a8618df82b480427af464e1a"
+      "bytes": 16358,
+      "sha256": "371364e6aaf9012909d51c405b22cda6202b853beb9e8b0580d8c4acc9681367"
     },
     {
       "path": "deploy/cloudflare/lib/media-caller.mjs",
@@ -2464,8 +4514,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/media-wrangler.mjs",
-      "bytes": 8477,
-      "sha256": "99ff97c883fa087d96a49f44688f1c79a8f91ba62ea412207e556d3c10141125"
+      "bytes": 8401,
+      "sha256": "547acffaa6e52c5d3c47cf9e87c8c9c98b4cd5d01efeac7bf9cedd0510aa507e"
     },
     {
       "path": "deploy/cloudflare/lib/migrations.mjs",
@@ -2488,6 +4538,11 @@
       "sha256": "ee2376549bc254abbbdacd56c86667b9e6b1de003ca137daae68af5f656ee8aa"
     },
     {
+      "path": "deploy/cloudflare/lib/r2-purposes.mjs",
+      "bytes": 3134,
+      "sha256": "954c6180d9f830da43231892d4f5059f51a211eb2676542cd860ff790e156988"
+    },
+    {
       "path": "deploy/cloudflare/lib/redact.mjs",
       "bytes": 1446,
       "sha256": "20f71857e477a63fc564528119a83a041808ca07f92d9c3bfe03acb3599f502c"
@@ -2499,8 +4554,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
-      "bytes": 10822,
-      "sha256": "279998c8ed331a2c75f453fd2900a42b7c2344c088e7e318d30b4476cc69855d"
+      "bytes": 11065,
+      "sha256": "e03c7995c8a156855693f82e661d60e01322f6b4ce5916b86c65055f9b4d38c1"
     },
     {
       "path": "deploy/cloudflare/media-preflight.md",
@@ -2556,6 +4611,11 @@
       "path": "deploy/cloudflare/test/broker-wrangler.test.mjs",
       "bytes": 3064,
       "sha256": "55973e75c9795c9dfeab989b1309e35ad338ff1a2f7c934ce6fab163c3827c1d"
+    },
+    {
+      "path": "deploy/cloudflare/test/guide-r2-purposes.test.mjs",
+      "bytes": 5437,
+      "sha256": "c54ec84de151a7022db5722e3ddf95e7759b16af8bcb7718958a9c5e0ae090f7"
     },
     {
       "path": "deploy/cloudflare/test/isolated-candidate.test.mjs",
@@ -2791,6 +4851,21 @@
       "path": "docs/design/orbital-workshop.md",
       "bytes": 2188,
       "sha256": "2cf9783d73d06ac9e379cfb6020a7af5f6fef855606a5135713327c97f1cdc0e"
+    },
+    {
+      "path": "docs/design/page-spirit-art-manifest.json",
+      "bytes": 80735,
+      "sha256": "09675d47b4d2ef7b2863d05b9d5539f5b17221eed437077bf299b953a26a39c1"
+    },
+    {
+      "path": "docs/design/page-spirit-copy-review.md",
+      "bytes": 139528,
+      "sha256": "95a33e8ece60998fcda4734bd830890fa16a28d83a2e928879fa846f40d9d08a"
+    },
+    {
+      "path": "docs/design/page-spirit-prompts.md",
+      "bytes": 104953,
+      "sha256": "b7f29ba3768f6af3dcfccbb9fde66b07dd407a4bde86ab5527bc5c5e867723d3"
     },
     {
       "path": "docs/design/rpg-art-manifest.json",
@@ -3118,6 +5193,11 @@
       "sha256": "554d2c5679ea8741ce336eca23d618a0f42d41a88a85e04c92b7a16a21b7176e"
     },
     {
+      "path": "docs/development/newcomer-guides.md",
+      "bytes": 7002,
+      "sha256": "f50325c6bb91665c165bd15d6582ca7f53a01bcda8551fd627d8d7eb5987bf0a"
+    },
+    {
       "path": "docs/development/onboarding-api.md",
       "bytes": 19750,
       "sha256": "1b969799478b27297cc4de578fc5b7e67871d48b7bab366090717bdd8fe198e8"
@@ -3151,6 +5231,11 @@
       "path": "docs/development/platform-admin-api.md",
       "bytes": 27689,
       "sha256": "0ef8d0dd72f1d4c6c73f964415d30092eb0d515d7878401845ec11da8071a5f8"
+    },
+    {
+      "path": "docs/development/public-guide-assets.md",
+      "bytes": 8408,
+      "sha256": "b226ca6201e4bad17d36e0395fff44023ff84a96a67d688376675480d34a0536"
     },
     {
       "path": "docs/development/public-operations.md",
@@ -6314,8 +8399,8 @@
     },
     {
       "path": "package.json",
-      "bytes": 7638,
-      "sha256": "4d40a27d2ac0c41e8808332ac14d722e73a9aefb75272aac663acdd78192ee52"
+      "bytes": 7720,
+      "sha256": "52d94c31ebed8c137dd2c04396bdd04f50373692efc8aa2882fa16bd68d99ef4"
     },
     {
       "path": "packages/asset-storage/README.md",
@@ -6489,8 +8574,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 5196,
-      "sha256": "03c710c4a32eb73ce9a9f51025a626181f6a48a8196333a079f5ae2018b63823"
+      "bytes": 5268,
+      "sha256": "96d6be3f9d9ce0ec52dc96f85794be76af2095c4c5fd7c4a1e84c7eb83bb4f1f"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -6584,8 +8669,8 @@
     },
     {
       "path": "packages/contribution-tools/test/surface-audit.test.mjs",
-      "bytes": 12493,
-      "sha256": "936446bb2ea630acf6681585e974ed432767bbc1e1ad3198f7b82ffd770dd64c"
+      "bytes": 12600,
+      "sha256": "6830e2d029f6deeafa2e52ac20002d4f0831b941c374da93f172836e3272d7e0"
     },
     {
       "path": "packages/contribution-tools/test/test-reporter-progress.test.mjs",
@@ -6756,6 +8841,41 @@
       "path": "packages/media-migration/verify.ts",
       "bytes": 24195,
       "sha256": "62e60bcda7daea58476184409f53529eb871fb2cf5c23678dc14e25be2e6cb7e"
+    },
+    {
+      "path": "packages/public-guide-assets/dragon-manifest.generated.ts",
+      "bytes": 94003,
+      "sha256": "ee99ee6516f4f6e21a87337d7c157790896042dbcc7585be72a5164e63a79e32"
+    },
+    {
+      "path": "packages/public-guide-assets/freedom.module.json",
+      "bytes": 1705,
+      "sha256": "ba0fc32d0067b9d88a54f256bb68f32e1ae75fd9124a89be34a06fbd077e023b"
+    },
+    {
+      "path": "packages/public-guide-assets/index.ts",
+      "bytes": 10081,
+      "sha256": "059f3391c9c44c711a3cfd4094f81ac734c62728b626abd8a5e264535abe4d4f"
+    },
+    {
+      "path": "packages/public-guide-assets/node.ts",
+      "bytes": 2528,
+      "sha256": "c79797e3dd444d1d5a622c2844a89fb54cdac0f2b7bfea5cac8ee681a657c118"
+    },
+    {
+      "path": "packages/public-guide-assets/r2.ts",
+      "bytes": 1405,
+      "sha256": "fb5441d207d4ef117f777b2d2478b5ab6ccbe001f9c7af8b073b5adb03dbecb6"
+    },
+    {
+      "path": "packages/public-guide-assets/release.ts",
+      "bytes": 486,
+      "sha256": "27f01a34d17bdfeeea3277effcc628b77db5bc8492c0289508678a3c6924c993"
+    },
+    {
+      "path": "packages/public-guide-assets/worker.ts",
+      "bytes": 998,
+      "sha256": "6e14b678a0c614319a4dae0e6159dbd14104284e38b1115830e85500e651c507"
     },
     {
       "path": "packages/resource-scopes/README.md",
@@ -6959,8 +9079,8 @@
     },
     {
       "path": "playwright.config.ts",
-      "bytes": 1503,
-      "sha256": "c9ba4d86426a1d7bfcd18b7c94f5f225afa2bc13c492ece7a689c8e5dd67581c"
+      "bytes": 1533,
+      "sha256": "f5308bd7170faa957395ee7459cde51598e5884950cbf469e56d66885d19d50f"
     },
     {
       "path": "repositories.lock.json",
@@ -7044,8 +9164,8 @@
     },
     {
       "path": "scripts/e2e-server.ts",
-      "bytes": 7191,
-      "sha256": "f7eb1f61112a1d24b5450ca57031e465e8f6b06a2bbe6814c726b942b5f827ac"
+      "bytes": 7903,
+      "sha256": "409348b968420634b3234d2d9136ae9996fb489d7e3b4df93695354fa7273649"
     },
     {
       "path": "scripts/export-contract-bundle.mjs",
@@ -7061,6 +9181,11 @@
       "path": "scripts/generate-runtime-text.mjs",
       "bytes": 1825,
       "sha256": "791936793b4262d060f210ba2886d93690a31a2bd8acd5ec4b9dc80ee04b2b53"
+    },
+    {
+      "path": "scripts/guide-pack-publish-plan.ts",
+      "bytes": 3279,
+      "sha256": "438a665c1524192a5ada13fd3f64336eb01dfec29b19b1c9f82a0894d3d5dde5"
     },
     {
       "path": "scripts/label-page-issue.ts",
@@ -7435,7 +9560,7 @@
     {
       "path": "tests/e2e/member-settings.spec.ts",
       "bytes": 42115,
-      "sha256": "6e6e75e3e33e2c57fe2eef9aac12f4f0b5b97fb481dd93077886efbcb1e5a1e4"
+      "sha256": "6ce338ba502cf8a55f6b71f7773d5803435ae137e630f37d646eb1c29de398fe"
     },
     {
       "path": "tests/e2e/member-todos-real.spec.ts",
@@ -7471,6 +9596,11 @@
       "path": "tests/e2e/navigation.ts",
       "bytes": 2325,
       "sha256": "84410e667d003eb2817d38cc1682f0d089a5b226b26f5f1ee7f7ffba83c849e2"
+    },
+    {
+      "path": "tests/e2e/newcomer-guides.spec.ts",
+      "bytes": 47078,
+      "sha256": "7ae6b0619295e408c1776203d4d18685d81b3a88cd94f02c35fea8bb80e8807d"
     },
     {
       "path": "tests/e2e/notification-bell-actions.spec.ts",
@@ -8058,6 +10188,16 @@
       "sha256": "394bb757ce1d6aab40a597f74a1f08196490f188bbb6cfb33674c995b667eba6"
     },
     {
+      "path": "tests/runtime/guide-anchors.test.ts",
+      "bytes": 4803,
+      "sha256": "add4abe83a75ee43c662b1a6fc71d5f105a595bd6327949501afd1429340823b"
+    },
+    {
+      "path": "tests/runtime/guide-pack-assets.test.ts",
+      "bytes": 13531,
+      "sha256": "51eb2132d87644e9fdd1fd84d37f73380bf97cb90e582f917301fe8aebe4c6f6"
+    },
+    {
       "path": "tests/runtime/guild-entry-questions.test.ts",
       "bytes": 19546,
       "sha256": "c05386fbe51b871bbf97911f3819f2b5032ee25c131670274276da7f590efbdf"
@@ -8346,6 +10486,16 @@
       "path": "tests/runtime/model-step-service.test.ts",
       "bytes": 21369,
       "sha256": "dd289223de152ee4ada7e37e8dad9ffa9c7673d1233fb251f24e4249a46b661c"
+    },
+    {
+      "path": "tests/runtime/newcomer-guide-dialogue.test.ts",
+      "bytes": 16217,
+      "sha256": "5e610e64e16e92d89f6acd6e9a128da664f1078b2b3212ce1818cec3e7ef0db7"
+    },
+    {
+      "path": "tests/runtime/newcomer-guides.test.ts",
+      "bytes": 5362,
+      "sha256": "22b92a001c913962749d8803dfae527ffddd9898d5a87a64e2d04a7033b9e1a5"
     },
     {
       "path": "tests/runtime/notification-events.test.ts",
@@ -8711,6 +10861,11 @@
       "path": "tests/worker/github-sync-scheduled.test.ts",
       "bytes": 3496,
       "sha256": "1353419ca06a43054c007e282b7c6b3f7ab4377a7e4da2535c70ac1318204ba7"
+    },
+    {
+      "path": "tests/worker/guide-pack-assets.test.ts",
+      "bytes": 4621,
+      "sha256": "ec16d20b40aad7b92c443a1565e00fef0b66b26da799c564d4b09d5f6618019b"
     },
     {
       "path": "tests/worker/maintainer-scheduled.test.ts",

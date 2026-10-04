@@ -47,7 +47,7 @@ export function PromotionBoards({client}: {client: PortalClient}) {
   }
   return <section className="promotion-page stack" aria-label="推廣排行榜">
     <header className="promotion-head">
-      <div className="promotion-periods" role="group" aria-label="統計期間">
+      <div className="promotion-periods" data-guide-anchor="promotion:period" role="group" aria-label="統計期間">
         {PERIODS.map(item => <button key={item.id} type="button" className="btn btn-ghost promotion-period" aria-pressed={period === item.id} onClick={() => { setExpanded(false); setPeriod(item.id); }}>{item.label}</button>)}
       </div>
       <PromotionShare client={client} kind="platform" target="workshop" title="自由工坊" text={WORKSHOP_TEXT} label="分享自由工坊"/>

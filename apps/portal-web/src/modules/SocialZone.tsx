@@ -132,7 +132,7 @@ export function SocialZone({client, canReview = false}: {client: PortalClient; c
   }
   return <section className="social-zone stack" aria-label="社群媒體分享專區">
     <details className="social-composer card">
-      <summary>分享一則貼文</summary>
+      <summary data-guide-anchor="social:composer">分享一則貼文</summary>
       <form onSubmit={event => void submit(event)} aria-busy={saving}>
         <label className="field">連結<input required type="url" inputMode="url" maxLength={2048} value={url} onChange={event => setUrl(event.target.value)} placeholder="https://"/></label>
         <label className="field">標題（選填）<input maxLength={120} value={title} onChange={event => setTitle(event.target.value)}/></label>
@@ -143,7 +143,7 @@ export function SocialZone({client, canReview = false}: {client: PortalClient; c
     </details>
     {notice && <p className="banner banner-info" role="status">{notice}</p>}
     {error && <div className="banner banner-error" role="alert"><p>{error}</p><button type="button" className="btn btn-ghost" onClick={() => void load(platform)}>重試</button></div>}
-    <div className="social-filters" role="group" aria-label="平台">
+    <div className="social-filters" data-guide-anchor="social:platform" role="group" aria-label="平台">
       {FILTERS.map(item => <button key={item.id || 'all'} type="button" className="btn btn-ghost social-filter" aria-pressed={platform === item.id} onClick={() => setPlatform(item.id)}>{item.label}</button>)}
     </div>
     {loading && <p role="status">正在載入貼文…</p>}

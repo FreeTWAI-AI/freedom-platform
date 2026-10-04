@@ -35,6 +35,7 @@ import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
 import { BenefitObservations } from './modules/BenefitObservations'
 import { GameConsoleProvider, GameConsolePopout } from './GameConsole'
 import {PageTools} from './PageTools'
+import {GuideHost} from './modules/newcomer-guides/GuideHost'
 import { logConsoleEvent } from './game-console-core'
 import { consoleChannel } from './game-console-routing'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
@@ -674,6 +675,7 @@ function Workspace({
             {tab === 'opensource' && <OpenSourcePanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'marketing' && <MarketingPanel client={client} session={session} onNavigate={selectTab} />}
           </main>
+          <GuideHost pageId={tab} scopeKey={session.user.user_id} memberAccess={!error?.accessExpired}/>
         </div>
       </div>
     </PortalContext.Provider>
@@ -744,7 +746,7 @@ function WorkbenchPanel() {
         <p>成果由合作當事人確認，不代表官方認證。</p>
       </section>
 
-      <Section title="現在進行" description="你正在處理的互助工作。">
+      <Section data-guide-anchor="workbench:current-work" title="現在進行" description="你正在處理的互助工作。">
         <WorkItemList
           items={dashboard.now}
           empty="目前沒有進行中的工作。可在「接下來」或「其他社群工作」認領，或在頁尾發布一張自願互助卡。"
@@ -1304,7 +1306,7 @@ function ShowcasePanel() {
           </div>
         )}
       </Section>
-      <Section title="與你相關的商機" description="只顯示你是提出者或作品作者的商機。">
+      <Section data-guide-anchor="showcase:opportunities" title="與你相關的商機" description="只顯示你是提出者或作品作者的商機。">
         {opportunities.length === 0 ? (
           <EmptyState title="還沒有商機" body="從其他人的作品提出需求後，雙方才會在這裡看到。" />
         ) : (
@@ -1396,7 +1398,7 @@ function CreateShowcaseForm({
       <form className="stack" aria-busy={busy} onSubmit={(event) => void onSubmit(event)}>
         <label className="field">
           <span className="field-label">作品標題</span>
-          <input required maxLength={120} placeholder="例如：我的品牌識別設計" value={title} onChange={(event) => setTitle(event.target.value)} disabled={busy} />
+          <input required maxLength={120} data-guide-anchor="showcase:title" placeholder="例如：我的品牌識別設計" value={title} onChange={(event) => setTitle(event.target.value)} disabled={busy} />
         </label>
         <label className="field">
           <span className="field-label">一句話介紹</span>
@@ -1863,7 +1865,7 @@ function ReceiptStatus({ receipt }: { receipt: Engagement['receipt'] }) {
 
 function FlowLegend() {
   return (
-    <ol className="flow" aria-label="合作流程">
+    <ol className="flow" data-guide-anchor="engagement:workflow" aria-label="合作流程">
       <li>作品曝光</li>
       <li>商機</li>
       <li>合作</li>
@@ -1873,9 +1875,9 @@ function FlowLegend() {
   )
 }
 
-function Section({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+function Section({ title, description, children, "data-guide-anchor": guideAnchor }: { title: string; description: string; children: React.ReactNode; "data-guide-anchor"?:string }) {
   return (
-    <section className="section">
+    <section className="section" data-guide-anchor={guideAnchor}>
       <header className="section-head">
         <h2>{title}</h2>
         <p>{description}</p>
