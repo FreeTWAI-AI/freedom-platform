@@ -934,8 +934,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 86235,
-      "sha256": "af8f6fbdfaaba857cf062a9c518cc07a9571724a2a6e10d61f11c14ed72bab53"
+      "bytes": 86558,
+      "sha256": "b4d4224b865fbd052f461d1281ad65586b1d82fec4e6a351d66bb3b4a0b574c2"
     },
     {
       "path": "apps/portal-web/src/CalmExperience.css",
@@ -994,8 +994,8 @@
     },
     {
       "path": "apps/portal-web/src/api.ts",
-      "bytes": 15074,
-      "sha256": "b26c554b9dea60a338a2285e052d8110d31b3049a5262b87f5fb9363c3c1ff07"
+      "bytes": 15483,
+      "sha256": "9d107d45b2d8d54f2bc34feb96134ded098b0cb046dd3281ba1e1c5c73075f43"
     },
     {
       "path": "apps/portal-web/src/format.ts",
@@ -1659,13 +1659,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/admin-client.ts",
-      "bytes": 2860,
-      "sha256": "6059129bdcd6ae66dbdb590a2ffcd338a1466720ae64a3710c394155270d6383"
+      "bytes": 3043,
+      "sha256": "4502128dc960fbbe1463ca23d6849d586aec89d1ef691d51a8b252f2e035d9e1"
     },
     {
       "path": "apps/portal-web/src/modules/avatar-client.ts",
-      "bytes": 2204,
-      "sha256": "100f3f5884025bc03a26b4f2dfed869dd89e66a7b01cf8b9cba0f0b04ced6a10"
+      "bytes": 2365,
+      "sha256": "f8ea34d6960cf1e787c745c00d766c6e7df58166a127af8ac7d9556183341b01"
     },
     {
       "path": "apps/portal-web/src/modules/chat-entry.ts",
@@ -1679,8 +1679,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/event-banner-client.ts",
-      "bytes": 3700,
-      "sha256": "cb6283e189b6a03a556fbf4c379926cced4c631c6b9d751acec1fdcff79bdca2"
+      "bytes": 4081,
+      "sha256": "79e4f4a7e07e644e823da33bd93512cd2428a9a2fb713867522d1c02d9fd90db"
     },
     {
       "path": "apps/portal-web/src/modules/freedom.module.json",
@@ -1699,8 +1699,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/highlight-media.ts",
-      "bytes": 2720,
-      "sha256": "e90924f3602ff2c361734c9185bd3b10a67194ee1d773bbdb2a5b6ffd5aa36d3"
+      "bytes": 2881,
+      "sha256": "84571217db57e0a02e02745d6246add14d682db4be785ebb01590e921ef23170"
     },
     {
       "path": "apps/portal-web/src/modules/member-device-client.ts",
@@ -3151,6 +3151,11 @@
       "path": "docs/development/platform-admin-api.md",
       "bytes": 27689,
       "sha256": "0ef8d0dd72f1d4c6c73f964415d30092eb0d515d7878401845ec11da8071a5f8"
+    },
+    {
+      "path": "docs/development/post-migration-site-audit-2026-10-04.md",
+      "bytes": 6737,
+      "sha256": "223d1ebefc9f0af6d4025d712e2c206f19d69c8a682f7fd7890cb3933632892e"
     },
     {
       "path": "docs/development/public-operations.md",
@@ -7553,6 +7558,11 @@
       "sha256": "f46088067ec8f9752f4e4b212ef21f4ffb7874e4eda73eed0bda5433ac1ff332"
     },
     {
+      "path": "tests/e2e/session-recovery.spec.ts",
+      "bytes": 4889,
+      "sha256": "36b28f0b9e79fd5dbb253782b161949e06aa05e43d428322e5f9d0006c2d87c0"
+    },
+    {
       "path": "tests/e2e/share-promotion.spec.ts",
       "bytes": 25691,
       "sha256": "662f1f05fee4b60e8cac912dcd1a769d4358e68583a1ae4d6a80dcd5f8bab5ef"
@@ -7644,8 +7654,8 @@
     },
     {
       "path": "tests/runtime/admin-access-session.test.ts",
-      "bytes": 13250,
-      "sha256": "1993cf9896a7dd04ecb793182283c95b0af29d54200e3a029823518d3ea094e2"
+      "bytes": 14066,
+      "sha256": "1c9577cb12516aaa630acd84b50966b5216e4875c2a1c367f04cd09760b2463d"
     },
     {
       "path": "tests/runtime/admin-access-sync.test.ts",
@@ -8148,6 +8158,11 @@
       "sha256": "8b330172a12a0bada78217fb3b33de6f914de5eeb42360bd4fba2ac9b40596a2"
     },
     {
+      "path": "tests/runtime/media-session-recovery.test.ts",
+      "bytes": 4054,
+      "sha256": "9fa8226b8b70eb69a1baeb074af3ddd82b6f986bf162a631cdb3b169d4b1c52e"
+    },
+    {
       "path": "tests/runtime/media-verify.test.ts",
       "bytes": 23305,
       "sha256": "48a886c0913724eb5cf24ca7ee66e3c0c5dc07e2d400f1f802cb8f11948b47cb"
@@ -8454,8 +8469,8 @@
     },
     {
       "path": "tests/runtime/portal-client-recovery.test.ts",
-      "bytes": 12813,
-      "sha256": "bd6fb2e1be7dba1e4cb928da7ab3ee45b8a0a8f70f40fd99c971bc7fe9ecd8aa"
+      "bytes": 15032,
+      "sha256": "bef39241da5c5b27f648e2f4b95758262ef06a851f00c10c580bfa835b4d306f"
     },
     {
       "path": "tests/runtime/positioning.test.ts",

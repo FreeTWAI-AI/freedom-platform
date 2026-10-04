@@ -135,6 +135,47 @@ test('malformed 401 responses still clear the current session and preserve unaut
   assert.equal(client.csrfToken,null);assert.equal(expired,1);
 });
 
+for (const accessExpired of [false, true]) {
+  test(`a delayed ${accessExpired ? 'Access denial' : 'member 401'} cannot sign out a newer session`, async t => {
+    let respond!: (response: Response) => void;
+    t.mock.method(globalThis, 'fetch', () => new Promise<Response>(resolve => { respond = resolve; }));
+    const client = new PortalClient(); client.csrfToken = 'old-session';
+    let expired = 0; client.onUnauthorized = () => { expired++; };
+    const pending = client.get('/me/notifications');
+    client.csrfToken = 'new-session';
+    respond(accessExpired
+      ? new Response('<html>Access expired</html>', { status: 403, headers: { 'content-type': 'text/html' } })
+      : Response.json({ code: 'unauthorized' }, { status: 401 }));
+    await assert.rejects(pending, ApiError);
+    assert.equal(client.csrfToken, 'new-session');
+    assert.equal(client.accessExpired, false);
+    assert.equal(expired, 0);
+  });
+}
+
+test('an expired request cannot later invalidate the session after its deadline', async t => {
+  let respond!: (response: Response) => void;
+  t.mock.method(globalThis, 'fetch', () => new Promise<Response>(resolve => { respond = resolve; }));
+  const client = new PortalClient({ timeoutMs: 25 }); client.csrfToken = 'current-session';
+  let expired = 0; client.onUnauthorized = () => { expired++; };
+  await assert.rejects(client.get('/me/notifications'), (cause: unknown) => cause instanceof ApiError && cause.timedOut);
+  respond(Response.json({ code: 'unauthorized' }, { status: 401 }));
+  await new Promise<void>(resolve => setImmediate(resolve));
+  assert.equal(client.csrfToken, 'current-session');
+  assert.equal(expired, 0);
+});
+
+test('a delayed successful response from an old session cannot clear the current Access expiry', async t => {
+  let respond!: (response: Response) => void;
+  t.mock.method(globalThis, 'fetch', () => new Promise<Response>(resolve => { respond = resolve; }));
+  const client = new PortalClient(); client.csrfToken = 'old-session';
+  const pending = client.get('/me/notifications');
+  client.csrfToken = 'new-session'; client.accessExpired = true;
+  respond(Response.json({ items: [] }));
+  await pending;
+  assert.equal(client.accessExpired, true);
+});
+
 test('upstream errors expose only a sanitized Cloudflare request identifier',async t=>{
   for(const [ray,expected] of [['8c1234567890abcd-TPE','8c1234567890abcd-TPE'],['<html>unexpected header</html>',undefined]]){
     const fetcher=t.mock.method(globalThis,'fetch',async()=>new Response('<html>origin failed</html>',{status:522,headers:{'cf-ray':ray!,'x-freedom-request-id':expected?'d58b4bd0-43bb-4736-992e-c2b21bf5f68a':'not-an-id'}}));
