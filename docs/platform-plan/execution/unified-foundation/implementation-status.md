@@ -1376,3 +1376,28 @@ cover/video：Unix/TCP各1/1，typecheck通過，HTTP404、externalHTTP0；
 109整合工作樹的operator／runtime排除／domain GC／resource-scopes回歸79/79、
 release/scanner364/364、descriptor/surface單元80/80已通過，零跳過；
 這些結果不代替新的固定commit全套回歸或remote驗收。
+
+
+固定19ae185完整回歸已結束：194檔／2,590 runtime cases全數通過，
+零fail／skip／cancel／todo；兩個nonce-owned DB已verified cleanup，
+原900秒上限內完成（controller約587秒）。governance unit251/251。
+整體verifier仍正確unavailable：baseline_governance_unavailable、
+registration_behavior_audit_required、surface_unmapped尚未完成，沒有
+以本機測試宣稱可信publisher或正式merge批准。
+
+同版Worker56/56、release/scanner364/364、supervisor6/6、七類實際
+restore2/2、typecheck/build、16生成/preflight與五類Worker各環境dry-run
+均通過，source_unchanged=true。新版namedRPC包含四profiles、未知PUT
+保留effecthistory、stale來源與原ACL、HTTP404、零externalHTTP。
+19ae185已普通push到同一Draft PR108。公開6c4f306 runtime真實log為
+2,558 pass／1 fail／6 skip；失敗與本機8b同為舊scope fixture7≠0。
+六skip為native CLI缺compiler/bwrap namespace環境，新增CI前置步驟安裝
+bubblewrap/gcc並實際unshare-all驗證；不放寬AppArmor、不改成passing skip。
+該前置namespace命令與原native probe六case在本機6/6通過；GitHub新head
+仍須實際驗證，這不是遠端runner環境通過的證據。
+
+普通push後唯一正式公開health GET回報原main3de70cc、HTTP200；
+staging GET302，沒有驗到staging應用健康。只讀觀察不能認證所有正常營運。
+沒有部署、migration、cloud寫入、密鑰或trust/rules修改，其他PR未處理。
+剩餘skill/highlight與avatar operator及其native RPC在隔離分支coding，
+尚不能宣稱七類全量搬遷或正式可merge/deploy。
