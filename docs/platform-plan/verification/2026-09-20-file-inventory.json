@@ -49,8 +49,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 17292,
-      "sha256": "eeb76af0d884b43a4ed7d429565a23d703803f87050a06a654aa800c9dc18ea8"
+      "bytes": 17526,
+      "sha256": "edb882a16905b40164580772453711169a721101a49cd6a9b570b6eaa4025ebe"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -4444,8 +4444,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md",
-      "bytes": 7283,
-      "sha256": "c469e9b73c11e0752229de1aef0a733857dbfa84df5a25dcacb43594bc5830e0"
+      "bytes": 5733,
+      "sha256": "d9249b160f78156c40b277b4e776be699651480d60980440fa5044622a9484a2"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
@@ -4454,8 +4454,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md",
-      "bytes": 13291,
-      "sha256": "a51b46776a1a6697a3ddd754ec960d602ddda40518dbb06e248edb0dbd03e342"
+      "bytes": 13768,
+      "sha256": "d27172478b3b57ce35dc034a70de4a7e23399af7fbad41ccd26cb56a3ee2c647"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/r2-recovery-retirement-2026-10-04.md",
+      "bytes": 12936,
+      "sha256": "37f9c86b5f0021dac21b9ba8c87ae9c2f63f130ea8207de9eaa3aa6e9340b36f"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",

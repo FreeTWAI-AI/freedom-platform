@@ -32,7 +32,7 @@
 
 公開會員入口：<https://freetwai.com>；內部入口：<https://staging.freetwai.com>（Cloudflare Access 限定名單）。兩者都由 Cloudflare Worker 提供。2026-10-04 的現行資料庫與部署證據見 [實際移植報告](./docs/platform-plan/execution/unified-foundation/actual-migration-2026-10-04.md)；[遷移手冊 §14](./docs/development/cloudflare-migration.md#14-切換後現況2026-09-25) 保留初次切換歷史。本輪行為與邊界見 [會員入口設計](./docs/development/member-onboarding-release.md)。
 
-Cloudflare Workers＋PlanetScale 於 2026-09-25 首次切換；2026-10-04 09:03:44 UTC 已將 staging／公開入口切到新的 PostgreSQL branch，runtime 固定為 `9cc283c6`。原正式 387 位 users、staging 8 位 users 與 legacy 媒體 bytes 已搬入；新 R2 桶已分環境建立，backfill 與非 legacy 功能保持關閉，發布 gate 尚未完成。2026-09-24 候選站紀錄見 [遷移交接](./docs/development/cloudflare-migration-status-2026-09-24.md)。
+Cloudflare Workers＋PlanetScale 於 2026-09-25 首次切換；2026-10-04 完成新 PostgreSQL 移植後，兩站主 Worker 已部署 #110 的 `d269a8d7`，現存 26 個頭像與 1 張活動海報已使用 R2，新上傳不再寫入 DB 媒體欄位。DB＋R2 恢復及每日異地備份已實跑，兩個舊資料庫已核對後退役；舊媒體副本仍留在新庫、GC 關閉。五類空媒體用途、強制治理與私人 AI 尚未全部驗收。現行版本、恢復限制與操作證據見 [R2／恢復／退役報告](./docs/platform-plan/execution/unified-foundation/r2-recovery-retirement-2026-10-04.md)與[現行交接](./docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md)。
 
 移植後的優先次序、現成程式入口、完成標準及恢復限制見[後續執行計畫](docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md)。
 

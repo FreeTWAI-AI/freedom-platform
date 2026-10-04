@@ -1,5 +1,7 @@
 # 實際移植後的執行計畫（2026-10-04）
 
+**本日後續執行更新：** #110 的 d269 已部署；頭像／海報已真正使用 R2、DB＋R2 隔離恢復及每日異地備份已通過，兩個舊庫已核對後退役。詳細數量、失敗、恢復限制及仍未完成的 P0／P1 範圍見[操作報告](r2-recovery-retirement-2026-10-04.md)與[現行交接](handoff-2026-10-04.md)。下文的 9cc、25 頭像及全 OFF 描述是制定計畫時的基線，不能再當現行部署指令；P2／P3 仍未完成。
+
 本計畫從[已完成的實際移植](actual-migration-2026-10-04.md)接續：09:03:44 UTC staging／公開入口切到新 PostgreSQL branch，runtime 為 `9cc283c6`。原正式 387 users、staging 8 users、兩環境共 280 張來源表已完整核對後還原並套 migrations；每環境 66/66 HTTPS 核對及新庫日備份已成功。媒體仍保存為 legacy bytea，新 R2 分環境接線但 object backfill／非 legacy policy 未開啟，Private AI／broker／machine 仍 OFF。
 
 Ted 已授權本輪合併 foundation integration 並保留未驗收功能 OFF。合併前置的 CodeQL alert 39 判定與目前 head 的 CI 由根 agent／CI 工作包本輪處理；本計畫不宣稱它們已 PASS 或 PR 已合併，實際結果以[發布狀態](release-readiness.md)及 merge 紀錄為準。原始 168 項產品要求仍保留在[共同基礎驗收](acceptance.md)與[來源驗收](source-acceptance.md)，不要求全部完成才合併這次已授權的基底範圍，也不把合併當完整產品驗收。
