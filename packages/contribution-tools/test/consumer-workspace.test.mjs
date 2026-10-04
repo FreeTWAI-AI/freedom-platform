@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadConnectedStorefront } from '../storefront-workspace.mjs';
+import { loadConnectedStorefront } from '../../client-connections/storefront-workspace.mjs';
 
 const token = 'fw_read_' + 'A'.repeat(43);
 function fixture(overrides = {}) {
