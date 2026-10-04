@@ -15,7 +15,7 @@ rejected without echoing raw input. Limits are 512 sources, 1024 file records pl
 continue to drain without accepting further records. A final bounded progress
 summary marks missing completions, rejected records or truncated failure diagnostics as incomplete.
 
-An optional `source_line` is the Node test-event declaration location, accepted only when its integer line is within the parent-read selected source. It is not extracted from a stack and is not the throwing assertion or hook line. A `hookFailed` classification identifies a setup/teardown failure; its retained line still identifies the affected test declaration. Locations may be coarse for transformed source. If a location cannot be validated, it is omitted. These new diagnostics do not establish the cause of earlier remote failures whose details were not retained.
+An optional `source_line` is the Node test-event location, accepted only when its integer line is within the parent-read selected source. It is not extracted from a stack and does not identify the throwing assertion or hook. Transformed TypeScript may report a generated location: the Ubuntu 24.04 native probe events reported line 30, which is not the literal TypeScript test declaration. The bounded integer check establishes only that the value is in range, not a source-map correspondence. A `hookFailed` classification identifies a setup/teardown failure without locating that hook. If a location cannot be validated, it is omitted. These diagnostics do not establish the cause of earlier remote failures whose details were not retained.
 
 Redirect stderr to a separate ignored report to retain completed files and the
 last started file when a timeout kills the child before final JSON exists.

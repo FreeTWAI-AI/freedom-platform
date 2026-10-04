@@ -1726,3 +1726,29 @@ cpu_quota_not_exposed，仍保留真實 nproc，不偽造 quota 或成功測量�
 nproc=24、quota not exposed。無 continue-on-error／測試略過／新增
 deadline，僅修正 optional diagnostic，真正四 runner 結果仍待後續
 exact candidate；superseded-run concurrency 如實保留取消狀態。
+
+固定 PR head 29d91ad 的 GitHub run 37177141974 已完成；四份 artifact
+的 archive SHA、單一固定檔名、相同 checkout c01ce088／source manifest、
+196 檔唯一聯集與 2,620 個唯一 cases 已逐項核對。結果為 2,614 pass、
+6 fail、零 skip/cancel/todo；四份 DB cleanup 均 true，整組 execution
+window 為 555.588 秒，原 900 秒未放寬。只有 model-cli-probe 六項
+失敗；其餘三分區、static-worker、UI、governance-consumers 與
+deploy-preflight 成功。aggregate／final verify 正確 failure，非全綠。
+
+namespace prerequisite 通過不代表 inherited-FD snapshot 能執行。
+新增固定六個既有 synthetic probe 的 bounded checkpoint，clean env、
+30 秒 process-group deadline／256 KiB output，另外要求完整 JSON
+六個 passed cases、零 skip 與 exit0；完整 runtime 仍保留同六項。
+作者與根實際 local 六項通過；作者 skip（Node exit0）及 30 秒 hang
+反例拒絕。未更改 production CLI 隔離或宣稱 Noble compatibility
+已修復；真正 runner 啟動原因仍待 checkpoint。tsx event line 30
+不能定位 literal TypeScript 宣告／assertion，已修正診斷文件說明。
+
+開發相依 Miniflare 的 exact undici 7.29.0 pin 阻止一般 lock-only
+update；新增 npm 支援的 scoped overrides.miniflare.undici=7.29.1，
+實際 owned npm ci／npm ls 確認。八個 production dependencies、
+Miniflare／workerd pins 保留；僅 undici lock entry 更新。作者使用
+真正更新後的 owned install 完成 Worker 57/57、七類 restore 2/2，
+零 fail/skip，兩命令 exit0；先前環境失敗與 wrapper143 證據留存。
+GitHub default-branch 六個 dependency alerts 尚未因此關閉，CodeQL
+alert39 是不同的未核定 failure；不以相依更新宣稱已清除 security gate。

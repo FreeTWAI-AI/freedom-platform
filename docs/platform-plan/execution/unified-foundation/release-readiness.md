@@ -72,3 +72,19 @@ role, physical-isolation, cache, consent and activation acceptance requirements.
 Both generated configs passed local bundling and the scoped planner passed
 independent counterexamples. This still supplies no cloud resources, ingress,
 provider/DB observation, installation authority or completed remote acceptance.
+
+PR head `29d91ad` subsequently completed its actual hosted run 37177141974
+against checkout `c01ce088`: all 196 files finished, with 2,614 passed and six
+failed native CLI probe cases, zero skipped/cancelled/todo, a 555.588-second
+overall execution window and verified cleanup in all four partitions. The
+other verification jobs succeeded; required aggregate and final verify failed.
+The new fixed six-case snapshot prerequisite supplies bounded synthetic TAP
+diagnostics plus strict complete JSON counts before the full runtime. Local
+success and skip/timeout rejection do not establish Ubuntu 24.04 compatibility.
+The actual runner cause remains unresolved until that checkpoint runs.
+
+The scoped development-only Miniflare undici override to 7.29.1 was installed
+and tested with 57 Worker and two seven-kind restore cases; production package
+pins and Miniflare/workerd versions are unchanged. This does not adjudicate
+CodeQL alert 39 or close GitHub default-branch dependency alerts. No merge,
+cloud installation, migration, deployment or real provider call was performed.

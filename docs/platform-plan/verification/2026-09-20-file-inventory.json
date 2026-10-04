@@ -4264,13 +4264,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 191911,
-      "sha256": "da97d2f3b6fde56d6de07365fb9b6be978581932a7693df97ebd619342c365bf"
+      "bytes": 193723,
+      "sha256": "f7a97981f5eb735da01427d05af86156719dba96838f963d29b9a874d1cc248f"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
-      "bytes": 10506,
-      "sha256": "cfa9c01ae4d133517440fdcb5dbfc66f4a36e08220b8e394840b1180c9dbe8a6"
+      "bytes": 11583,
+      "sha256": "b2832f6e358180027d91a5a2419a36651fe20e73e2ef338ad33d8301d3031d9c"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -6095,12 +6095,12 @@
     {
       "path": "package-lock.json",
       "bytes": 114857,
-      "sha256": "34e4f0f392bfef44a1ce102426b66b044b8c646dc2fafc75990bc963a0eb2a1f"
+      "sha256": "88864768f4b1fc073343afebc4ece60abd752bb334b6db940d2d343e945a0d47"
     },
     {
       "path": "package.json",
-      "bytes": 7460,
-      "sha256": "31da45508f7fc3d39a1faa8ac9c95fef41ccdc4df6bb766504cf8fefadf08358"
+      "bytes": 7532,
+      "sha256": "d59555c429d8148c5ccf2d9268da6a34d8387740f43db3511d2dad2ff2f8fda2"
     },
     {
       "path": "packages/asset-storage/README.md",
@@ -6374,8 +6374,8 @@
     },
     {
       "path": "packages/contribution-tools/test-progress.md",
-      "bytes": 2647,
-      "sha256": "fc0d48e1cfc53a8fff77c13b0ca98d2750b69a59c83aa097ff5d29522c596ba0"
+      "bytes": 2819,
+      "sha256": "2741875a78d719364cb90ffa3cb1121afe01c7f6e6cd027febbeb41de83133e8"
     },
     {
       "path": "packages/contribution-tools/test-reporter.mjs",
@@ -6764,13 +6764,18 @@
     },
     {
       "path": "scripts/ci/native-cli-prerequisites.md",
-      "bytes": 2928,
-      "sha256": "a13cfb6be586e904244c96df3fc9a54e700bf6d4cdaafb298c0eb6ab3247aafb"
+      "bytes": 3777,
+      "sha256": "7bec1d866f2436885694cbde138151beb434b59ca3ce51610a3a00584f4cbd86"
+    },
+    {
+      "path": "scripts/ci/native-cli-snapshot-check.mjs",
+      "bytes": 3354,
+      "sha256": "ea3e104404ffc7c307852e49ca0a52ba60d7f8d60f06187562d53a67ce7ff987"
     },
     {
       "path": "scripts/ci/verify-native-cli-prerequisites.sh",
-      "bytes": 3827,
-      "sha256": "e9472744cf3d7cea1f1eb5e121fbb3513783e2bd0383c1df71859c4d7375ef6e"
+      "bytes": 4035,
+      "sha256": "bb982f6fb977ebe43837d8b6d15374a703c410739a3e95a17c6b11e7c11f9573"
     },
     {
       "path": "scripts/ci/verify-runtime-postgres.sh",
