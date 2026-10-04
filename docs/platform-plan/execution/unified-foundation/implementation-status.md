@@ -1303,3 +1303,44 @@ SHA；source改一個byte或加入其他privileged statement仍拒絕，沒有�
 固定 `31850b8` 實測1/1，原URL／redirect／size guards11/11，沒有追加
 或宣稱原checker具備DNS pin。目前完整整合版本準備固定後重跑全部檢查；
 第一輪14項失敗及所有中間反例失敗紀錄保留。
+
+
+2026-10-03 基底優先增量：主 Worker 已接七類 finite domain profiles，
+含 skill 原 upload grant、集錦原雙 variants、社群 manual／automatic writer。
+原生 Worker 完整54/54在 `6712a76` 通過，typecheck同版通過；該版相對
+`3642603` 僅兩個 Worker fixture修改，production/runtime source完全相同。
+先前106 Worker作者型別通過紀錄不成立：raw log實有TS7022；固定
+`41f56fe` 已修正並實際重跑 typecheck，原失敗保留。Social負例也不再
+假設automatic writer未安裝，改驗歷史bytes阻擋、合法r2_only切換、
+legacy writer拒絕及current manual writer可用，沒有刪除floor檢查。
+
+`3642603` 的完整 verifier 實際為 **failed/test_timeout**：runtime.full
+超過原900秒预算，不能報完整runtime通過；governance unit250/250。
+第一輪 `a78f585` 的14項失敗與本輪timeout均保留，相關42501／grant
+fixture修正已有獨立42/42證據，但不代替本輪全套完成。已派coding
+修有限分批、獨立測試資料庫及完整file/case聯集驗證，原deadline不提高。
+同版實際UI9/9、supervisor6/6、build／16生成或preflight checks及四類
+Worker各環境dry-run通過；首次靜態typecheck失敗後的fixture版已實測修復。
+
+107既有operator host擴到歷史活動影片；保留organizer/person/community
+原權限、原MP4／WebM／20MiB、canonical consent、source CAS／SHA、
+common intent及job fences，無member session／scoped receipt或cutover。
+整合 `1137ba7` cover＋video＋runtime privilege為27/27，發布/scanner
+354/354，typecheck通過。原主站broad grant排除／readonly readback涵蓋
+105四個與107三個SQL ports；PUBLIC或inherited權限不能假冒安全安裝。
+105/107只對精確已查核source digest允許scanner diagnostic，非部署批准。
+
+七類實際DB＋native local R2 restore增量 `3df5711` 在作者隔離環境
+標準120秒內2/2通過：原domain APIs/factories發布八variants，加原
+ready／retired頭像共10objects，真實pg_dump／pg_restore、刪除source
+objects後還原、typed pointers/profile/hash／DTO/URL／ACL／session fence。
+真正抓到 --no-privileges 丟失105 SECURITY DEFINER的PUBLIC revoke，
+canonical20正確拒絕；canonical source重放撤權後才通過。此步將接成
+可復用restore lockdown工具，107七ports的整合驗證另列。這不代表
+remote R2/offsite／完整external recovery floor、grant、outbox或正式批准。
+
+目前operator僅cover／video；其他五類全來源operator、unknown PUT
+reconciliation與general GC、真實cloud staging、可信GitHubpublisher／
+baseline／不可繞過gate及CodeQL核定仍未完成。尚未merge、deploy、
+套staging/live migration或處理其他PR。實際結果逐SHA保留，不使用
+歷史40–55%或測試數估算基底部署完成率。

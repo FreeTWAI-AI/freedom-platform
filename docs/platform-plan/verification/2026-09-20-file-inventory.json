@@ -2315,7 +2315,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30576,
-      "sha256": "aa36c90859bdd0a0b559182d62668432f621882420757b108b2c57948b37a11b"
+      "sha256": "419194245c3f5c649c87e337d4183a5ebd6202bfa829d8b8efa43eae7f64d705"
     },
     {
       "path": "deploy/cloudflare/lib/broker-wrangler.mjs",
@@ -2344,8 +2344,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/migrations.mjs",
-      "bytes": 4147,
-      "sha256": "ed42396fd6ece82f73c87618e75b40e5066b5c1eb37801a627b67be8de980d7d"
+      "bytes": 4356,
+      "sha256": "e8dfabaf54bd4b32d45873b66e08466b1ef905c0876570cb7732e01cd7cefd38"
     },
     {
       "path": "deploy/cloudflare/lib/oci.mjs",
@@ -2369,8 +2369,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 24802,
-      "sha256": "e2490f30dbe0897d95815c055c24a3ae17babbf75235c95877758985090c5e4a"
+      "bytes": 24845,
+      "sha256": "6bd3d60781d000668bd8313f067f3c6af91c9a52fd7d480b6c9e11d9e1b9b640"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -2394,13 +2394,13 @@
     },
     {
       "path": "deploy/cloudflare/sql/20-runtime-grants.psql",
-      "bytes": 11854,
-      "sha256": "b5b11dc99890fe9e45565fea64b27def93952c12e41f2e146a72bf6c25d30328"
+      "bytes": 11959,
+      "sha256": "809a8e457b6864d6003b6c5c8b902f39f1945dd123896168d652e7531c90a2ad"
     },
     {
       "path": "deploy/cloudflare/sql/30-verify-readonly.psql",
-      "bytes": 7200,
-      "sha256": "42dad1692ba96d7f07df4b0bab0c14152bb481baa7d37df05fe66d2ba451d4ff"
+      "bytes": 7410,
+      "sha256": "c772d01bc890855cd2d3ac5d60169810e943c78a6d15687119abc22086fc31da"
     },
     {
       "path": "deploy/cloudflare/sql/40-credential-broker-grants.psql",
@@ -2409,8 +2409,8 @@
     },
     {
       "path": "deploy/cloudflare/sql/40-media-backfill-operator-grants.psql",
-      "bytes": 4799,
-      "sha256": "924a29046e3dee816de570c0849c7c4a342de9ca3a728b6063729c38a0304a1e"
+      "bytes": 5459,
+      "sha256": "05fab1e224d6dc5014d1153dd61912e47f51eafe6e3e238995a6d0b7dbe8a070"
     },
     {
       "path": "deploy/cloudflare/sql/45-model-broker-execution-grants.psql",
@@ -2424,8 +2424,8 @@
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
-      "bytes": 1964,
-      "sha256": "626ccb069e3ace372ed2afbd89c9aa93a27e98fd43dbf59d354cfeb3658acd7e"
+      "bytes": 2889,
+      "sha256": "0cfd90a0aa43dfec88612c4da1224d6e436ba96964fe8f4dc635b69c44ea5e15"
     },
     {
       "path": "deploy/cloudflare/test/preflight.test.mjs",
@@ -2899,8 +2899,8 @@
     },
     {
       "path": "docs/development/operator-backfill-sql-review.md",
-      "bytes": 2785,
-      "sha256": "c0a58f05822100e3eddd0ed09ab3175606ae5522db40f6f1750ccaee62ab8fa0"
+      "bytes": 3994,
+      "sha256": "5b1ba0cc5f4fcda899c2d76b8964e97ca2c88b7910a1cb1738be3bcfe5809a95"
     },
     {
       "path": "docs/development/page-tools.md",
@@ -2971,6 +2971,11 @@
       "path": "docs/development/service-cover-worker.md",
       "bytes": 1936,
       "sha256": "de29ba89858aeb2488ee2bb11fb0a94fb6a30fa1fef197acf05ffad4c3fba135"
+    },
+    {
+      "path": "docs/development/seven-media-backup-restore.md",
+      "bytes": 3072,
+      "sha256": "d9e2609604d626ef1350a65a9b74ea1c123831960ce84bbf8e401ae1b7f26d00"
     },
     {
       "path": "docs/development/share-promotion.md",
@@ -4089,8 +4094,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/05-media-operator-backfill.md",
-      "bytes": 5906,
-      "sha256": "dbe2ee6424530876a666016f9343cb6415c6f6a77891c3e252757ecadd6a5fc9"
+      "bytes": 7176,
+      "sha256": "aadaf2fa3166881c79836dcf879084784bbc9e78c0b3cb709f0fcc064817cf56"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/05-media-verification.md",
@@ -4189,13 +4194,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 162995,
-      "sha256": "cf8368d6cb269b4e2302df187ddf51ee95182f8513c6219a4257830b662ba1f1"
+      "bytes": 165849,
+      "sha256": "dac8a78d251fc5cb0f92bf108c40083591db7e2f084ddf66fa939fc426ed883e"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
       "bytes": 8068,
-      "sha256": "1424213a66146f96c27ea557e7297a43373aab7ee32639fd8e972ffdd012dfd6"
+      "sha256": "35d171f35460514607ea000d55ffcd84ceaaa4f70669c866c69cb29cc27dd91e"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -4851,6 +4856,11 @@
       "path": "migrations/106_social_preview_asset_creation.sql",
       "bytes": 4731,
       "sha256": "ca1f41518ba039d15d319518cf564cfc6d318b0b854e6106d3b646e705d87d90"
+    },
+    {
+      "path": "migrations/107_operator_event_video_backfill.sql",
+      "bytes": 9542,
+      "sha256": "1eac255272cec1bfc19fba972aa9ffb5f9782977998550627e49fa0597c0425f"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
@@ -6319,8 +6329,8 @@
     },
     {
       "path": "packages/media-migration/README.md",
-      "bytes": 7291,
-      "sha256": "7e11e8c4eec0f5539401b422e16b7b0eac592f7c46363cb69cb1d325394bf72a"
+      "bytes": 8010,
+      "sha256": "e099202264e1a854b928df031327a6077f640d321e5e3e73febbda856a766316"
     },
     {
       "path": "packages/media-migration/backup-coordinator.ts",
@@ -6349,8 +6359,8 @@
     },
     {
       "path": "packages/media-migration/operator-backfill.ts",
-      "bytes": 22648,
-      "sha256": "b8e452ccda8550731d55247ca4bc7ea0c0fccaf75ccaf05bf23dd770c08c3f7b"
+      "bytes": 27131,
+      "sha256": "f7719ae6248e8fb2e9e7673bd39a67aad18594ac9fc12f4137b89e7dba56342b"
     },
     {
       "path": "packages/media-migration/verify.ts",
@@ -6629,8 +6639,8 @@
     },
     {
       "path": "scripts/media-backfill.ts",
-      "bytes": 2535,
-      "sha256": "97d65cc1555c4cccd943e24bebef4387751adaa1e94cacc015e7372f957ec078"
+      "bytes": 2574,
+      "sha256": "fc1fa671abd9284b4e1e2cb91bbf70302ffd0b0c56c902a51d7b4968f685c9be"
     },
     {
       "path": "scripts/media-inventory.ts",
@@ -7118,9 +7128,14 @@
       "sha256": "d8cf2cba84c3625887d8e8b1f85b45dca4817a3802f0bb9435372640e2c59976"
     },
     {
+      "path": "tests/integration/helpers/media-restore-fixtures.ts",
+      "bytes": 11391,
+      "sha256": "c98fc3cb8a1e7300bbbcb117359dfa10d21ddefd4d2d444934721ac55609bdd7"
+    },
+    {
       "path": "tests/integration/media-backup-restore.test.ts",
-      "bytes": 13095,
-      "sha256": "879c7d609d146ca90b35cb8987c1e47cc8828531dfe96123d4b1fe84827c51d4"
+      "bytes": 21149,
+      "sha256": "9064c963f7f320cdb36ae312d64e8adbf1b02eb8114279bf0cf79a53e16f3c36"
     },
     {
       "path": "tests/integration/repositories.test.ts",
@@ -7848,14 +7863,19 @@
       "sha256": "ec4f0b646df6762180e4a01d2907cdbd73239541d70b23327e014bf4d2f34aad"
     },
     {
+      "path": "tests/runtime/operator-event-video-backfill.test.ts",
+      "bytes": 16625,
+      "sha256": "84b260ea7b58ea591315b7ed585feb3e1cdaa99048c53afd38ccdcf73c321721"
+    },
+    {
       "path": "tests/runtime/operator-media-backfill.test.ts",
       "bytes": 18975,
       "sha256": "d880b7739d84ca223422fc724e0caad50d61301bccd821c52ebd118e9d36eae1"
     },
     {
       "path": "tests/runtime/operator-media-runtime-grants.test.ts",
-      "bytes": 5633,
-      "sha256": "a46e76ea65c8b9bc79891f83ac9bbe602fd7ac4886d59c386607fd474bf2f7ec"
+      "bytes": 5879,
+      "sha256": "32d1dbb00c43f8bbd6de048cf66aef7a38543bfb145720a308b6ad43f5d0f120"
     },
     {
       "path": "tests/runtime/page-github.test.ts",
@@ -8229,13 +8249,13 @@
     },
     {
       "path": "tests/worker/social-preview-assets.test.ts",
-      "bytes": 11041,
-      "sha256": "4cffe589a8f607417c24cadd0a880742ae9789293692b6fdbd908366eddb72c7"
+      "bytes": 11070,
+      "sha256": "d909744a76ecd3634fa47e62691adb142dd8195389beb00db3ab8cdea61c262e"
     },
     {
       "path": "tests/worker/social-thumbnail-assets.test.ts",
-      "bytes": 12275,
-      "sha256": "6034a36d2becd9d46ada2ea0107d2f85be3d6f85d0d1b80c815ec475ce19944e"
+      "bytes": 13035,
+      "sha256": "13b93aedad87b82f6bb2af99179cf296fc79df0c4a05a2f7236b28f3e52f7a5c"
     },
     {
       "path": "tests/worker/workerd.test.ts",

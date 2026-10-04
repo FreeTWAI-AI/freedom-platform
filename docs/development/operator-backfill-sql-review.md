@@ -50,7 +50,7 @@ future upload authority. Dependencies bind in SQL-standard bodies; PUBLIC
 execution is revoked and only the trusted migration schema is additionally
 pinned for original attachment triggers. The runtime exclusions/readback now
 cover seven functions; the exact scanner exception still grants no installation
-or deployment authority. Root privilege regression is rerun after integration.
+or deployment authority. The integrated cover/video/runtime-privilege regression is27/27 with zero skipped, including real denial of all seven ports, table/column grants and PUBLIC/inherited access. Release/scanner checks are354/354. These remain local synthetic results.
 
 This source review covers105 and107 only. Historical sources remain retained; cover GC,
 all-source backfill, cloud installation and release acceptance are incomplete.
