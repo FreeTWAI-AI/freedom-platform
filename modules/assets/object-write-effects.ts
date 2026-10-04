@@ -3,7 +3,7 @@ import type {Pool,PoolClient} from 'pg';
 import {OpaqueId} from '../../contracts/common/v1/identity.js';
 import {objectKey,sha256,validateMetadata,type ObjectStore,type ObjectMetadata} from '../../packages/asset-storage/index.js';
 import {Problem} from '../../packages/shared/problem.js';
-const purposes=new Set(['member.service-cover','community.event-banner','community.event-video','community.social-thumbnail','skill.submission-image','community.event-highlight']);
+const purposes=new Set(['member.avatar','member.service-cover','community.event-banner','community.event-video','community.social-thumbnail','skill.submission-image','community.event-highlight']);
 const unavailable=()=>new Problem(503,'asset_effect_unavailable','內容維運證據暫時無法使用。');
 function require(value:unknown):asserts value{if(!value)throw unavailable();}
 /** Trusted live transaction only. No settlement ticket/function is exported.

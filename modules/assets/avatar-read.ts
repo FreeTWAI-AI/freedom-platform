@@ -5,19 +5,20 @@ import { Problem, requireCondition } from '../../packages/shared/problem.js';
 /** Internal SQL fragments require alias a=member_avatars; never client DTOs. */
 export const avatarReadColumns = `a.user_id,a.aggregate_version,a.storage_source,
   CASE WHEN a.storage_source='legacy' THEN a.image_bytes ELSE NULL END AS image_bytes,
-  t.asset_id,t.scope_id,o.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision`;
+  t.asset_id,t.scope_id,o.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id`;
 export const avatarReadJoins = `JOIN member_avatar_presence presence ON presence.user_id=a.user_id AND presence.present
   LEFT JOIN member_avatar_asset_targets t ON t.user_id=a.user_id AND t.linked_at_version=a.aggregate_version
   LEFT JOIN asset_objects o ON o.asset_id=t.asset_id`;
 export interface AvatarReadSnapshot {
   user_id: string; aggregate_version: string; storage_source: 'legacy'|'asset'; image_bytes: Buffer|null;
   asset_id: string|null; scope_id: string|null; representation_id: string|null;
-  content_type: 'image/webp'; byte_size: number; content_sha256: string; transform_version: 'avatar.webp.v1'; policy_revision: string;
+  content_type: 'image/webp'; byte_size: number; content_sha256: string; transform_version: 'avatar.webp.v1'|'member.avatar.legacy-bytes.v1'; policy_revision: string;
+  profile_id?: 'member.avatar'|null;
   share_generation?: string;
 }
 const missing = () => new Problem(404, 'avatar_not_found', '找不到這個頭像。');
 function identity(row: AvatarReadSnapshot): string {
-  return JSON.stringify([row.user_id,row.aggregate_version,row.storage_source,row.asset_id,row.scope_id,row.representation_id,row.share_generation]);
+  return JSON.stringify([row.user_id,row.aggregate_version,row.storage_source,row.asset_id,row.scope_id,row.representation_id,row.profile_id,row.transform_version,row.policy_revision,row.content_sha256,row.byte_size,row.share_generation]);
 }
 /** Domain callback must perform the SAME fresh ACL query twice, including any
  * share generation/opt-in. No SQL transaction or locks may span object I/O.
@@ -34,7 +35,8 @@ export async function readAuthorizedAvatar(snapshot: () => Promise<AvatarReadSna
     requireCondition(store && first.asset_id && first.scope_id && first.representation_id, 503, 'avatar_unavailable', '頭像暫時無法讀取。');
     try {
       const object = await readVerifiedObject(store!, objectKey({ scopeId: first.scope_id!, assetId: first.asset_id!, representationId: first.representation_id! }),
-        { contentType: first.content_type, byteSize: first.byte_size, sha256: first.content_sha256, transformVersion: first.transform_version, policyRevision: first.policy_revision });
+        { contentType: first.content_type, byteSize: first.byte_size, sha256: first.content_sha256, transformVersion: first.transform_version, policyRevision: first.policy_revision,
+          ...(first.profile_id ? {profileId:first.profile_id} : {}) });
       bytes = Buffer.from(object.bytes);
     } catch { throw new Problem(503, 'avatar_unavailable', '頭像暫時無法讀取。'); }
   }
