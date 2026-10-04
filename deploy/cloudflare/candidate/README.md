@@ -30,6 +30,16 @@ canonical staging runtime role, broker roles remain
 operator remains `freedom_media_migrator`. Existing SQL installers and runtime
 checks govern the role privileges; this tool installs no grants.
 
+`expected_roles` contains those bare SQL role names for grants and runtime SQL
+checks. `expected_connection_users` is derived from each role plus the exact
+requested physical `database.branchId`: `<role>.<branch-id>`. This follows
+[PlanetScale's role connection routing](https://planetscale.com/docs/postgres/connecting/roles#creating-roles-via-create-role)
+and the canonical `20-runtime-grants.psql` distinction. Hyperdrive readback
+must report that exact composite `origin.user` for each of the four roles.
+Bare roles, another branch suffix, extra suffixes and caller-supplied username
+overrides are rejected. This declared routing match still does not prove the
+branch's provider identity, emptiness, current SQL privileges or connectivity.
+
 Actual source constraints:
 
 - Main `worker.ts` and `readiness.ts` accept an explicit non-loopback staging

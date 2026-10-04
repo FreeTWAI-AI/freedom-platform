@@ -84,10 +84,14 @@ export function planIsolatedCandidate(request, manifest) {
       vars:{FREEDOM_MEDIA_OPERATOR_ENABLED:'false',FREEDOM_MEDIA_OPERATOR_ENVIRONMENT:'staging',FREEDOM_MEDIA_OPERATOR_RELEASE_SHA:request.releaseSha},
       hyperdrive:[binding('operator')],r2_buckets:r2},
   };
+  // SQL role contracts stay bare. PlanetScale's connection routing requires
+  // this exact branch suffix; neither name is accepted as a caller override.
+  const roles = {main:canonical.database.roles.runtime,cipher:canonical.database.dbname+'_broker',executor:canonical.database.dbname+'_broker_executor',operator:'freedom_media_migrator'};
+  const connectionUsers = Object.fromEntries(Object.entries(roles).map(([key,role]) => [key,`${role}.${request.database.branchId}`]));
   return report({request_sha256:createHash('sha256').update(JSON.stringify(request)).digest('hex'), configs,
     planned_hostname:request.hostname, ingress:'none_until_separate_approved_installation',
     logical_database:canonical.database.dbname, schema_name:'public',
-    expected_roles:{main:canonical.database.roles.runtime,cipher:canonical.database.dbname+'_broker',executor:canonical.database.dbname+'_broker_executor',operator:'freedom_media_migrator'},
+    expected_roles:roles, expected_connection_users:connectionUsers,
     media_mapping:MEDIA_WORKER_FEATURES.map(f => ({purpose:f.purpose,required_bindings:f.required_bindings,required_capabilities:f.required_capabilities,persistence_authorized:'not_run'})),
     runtime_constraints:{main:'current_database/non-superuser/optional initialized community; physical branch not checked by readiness',
       broker:'existing compose pins operational platformOrigin; candidate origin requires independently reviewed explicit contract before activation',
@@ -124,12 +128,12 @@ export async function inspectCandidateProvider(request, manifest, {client,accoun
       protectedConfigs.push(detail.result);
     }
     let valid=true;
-    const roles=planned.expected_roles;
+    const connectionUsers=planned.expected_connection_users;
     for(const [key,value] of Object.entries(request.hyperdrive)){
       if(protectedConfigs.some(c=>c.id===value)){valid=false;continue;}
       const detail=await client.get(`/accounts/${accountId}/hyperdrive/configs/${value}`),c=detail.result;
       if(!detail.success||detail.http!==200||c?.id!==value||c?.caching?.disabled!==true||physicalHost(c?.origin?.host)!==physicalHost(request.database.originHost)
-        ||c?.origin?.database!==planned.logical_database||c?.origin?.user!==roles[key]||protectedConfigs.some(p=>physicalHost(p.origin.host)===physicalHost(c?.origin?.host)))valid=false;
+        ||c?.origin?.database!==planned.logical_database||c?.origin?.user!==connectionUsers[key]||protectedConfigs.some(p=>physicalHost(p.origin.host)===physicalHost(c?.origin?.host)))valid=false;
     }
     checks.push({check_id:'hyperdrive_physical_origin_cache_and_declared_roles',status:valid?'observed':'rejected'});
   } catch {checks.push({check_id:'provider_reader',status:'unavailable'});}
