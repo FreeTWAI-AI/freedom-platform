@@ -1,13 +1,14 @@
 # CodeQL alert 39: random session-token dataflow
 
-Disposition for review: the SHA-256 input in these reported paths is an
-independently random session token, not the login password. This supports a
-specific false-positive disposition; it is not formal acceptance. Keep the
-GitHub security gate pending until an authorized decision.
+Independent security review recommendation: dismiss **alert39 only** as a
+false positive. The SHA-256 input in these reported paths is an independently
+random 256-bit session token. Login passwords use salted scrypt. This review
+recommends a specific disposition; the authorized operator must apply it and
+read back GitHub's resulting state/check. No dismissal was performed here.
 
-Current evidence is PR108 head `d134371f54322dbc1916a0e09a17c66b5cc81a53`,
-ref **`refs/pull/108/head`**, JavaScript/TypeScript analysis **1888173960**,
-created `2026-10-04T08:19:01Z`. The SARIF contains five results; this review
+Current evidence is PR108 head `a1adecc9da819209dcc7248f3387cb355ea782de`,
+ref **`refs/pull/108/head`**, JavaScript/TypeScript analysis **1888288476**,
+created `2026-10-04T09:20:41Z`. The SARIF contains five results; this review
 addresses only `js/insufficient-password-hash`, alert39 at
 `modules/identity-membership/service.ts:11`. Its message has **ten numbered
 login source locations**, while `codeFlows` still contains **four expanded
@@ -25,8 +26,8 @@ individually read, as were all 36 expanded path steps. Every site selects the
 | 1 | `tests/runtime/credential-ingest-authorizations.test.ts:83` | `signedIn.token` at line84 | 1 |
 | 2 | `tests/runtime/credential-ingest-authorizations.test.ts:139` | `signed.token` at line139 | 2 |
 | 3 | `tests/runtime/credential-ingest-helpers.ts:110` | `session.token` at line110 | 3 |
-| 4 | `tests/runtime/member-model-settings.test.ts:84` | `signed.token` at line84 | 4 |
-| 5 | `tests/runtime/member-model-settings-helpers.ts:108` | `session.token` at line108 | not supplied |
+| 4 | `tests/runtime/member-model-settings-helpers.ts:108` | `session.token` at line108 | 4 |
+| 5 | `tests/runtime/member-model-settings.test.ts:84` | `signed.token` at line84 | not supplied |
 | 6 | `tests/runtime/model-broker-authorizations.test.ts:89` | `signedIn.token` at line90 | not supplied |
 | 7 | `tests/runtime/model-broker-authorizations.test.ts:148` | `another.token` at line148 | not supplied |
 | 8 | `tests/runtime/model-broker-client.test.ts:89` | `signedIn.token` at line90 | not supplied |
@@ -70,15 +71,29 @@ The entire production service is byte-identical to current `origin/main`
 `deaf732ec639c417953404192dba057e7252caefc282a3db8e13379b97676276` on both.
 All ten current call/token excerpts and all 36 expanded path steps were
 rechecked from this source and SARIF. Current SARIF SHA-256 is
-`799f227a0f484dd8354fec43697b5163358603b7f33cef639f7ae4be481364ed`.
+`9a22a7610964ccc586106b9096b1519da408a95ea19140c7e150556664a7b395`.
 
-[Analyze run37188409283](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37188409283)
+[Analyze run37191741135](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37191741135)
 completed successfully, but
-[CodeQL security check111395330664](https://github.com/FreeTWAI-AI/freedom-platform/runs/111395330664)
+[CodeQL security check111405290239](https://github.com/FreeTWAI-AI/freedom-platform/runs/111405290239)
 **failed**, reporting one new high security alert. Alert39's PR-head instance
 is still open. A zero-result merge-ref analysis, analyzer completion, local
 tests or this document cannot replace the failing PR-head security gate.
-The other four SARIF results are outside this specific disposition.
+The other four JavaScript SARIF result keys (rule, path, line) are unchanged
+from analysis1888173960 at d134371. Each current flagged expression was read:
+
+| Rule | Location | Reviewed behavior |
+| --- | --- | --- |
+| `js/bad-tag-filter` | `tests/e2e/skill-book-library.spec.ts:191` | Assertion checking generated HTML script tags; lowercase regex is incomplete test coverage, not a production sanitizer. |
+| `js/incomplete-sanitization` | `packages/skill-upload-client/test/cli.test.mjs:137` | Regex built from the synthetic test server's locally generated origin; not untrusted URL escaping in the CLI. |
+| `js/incomplete-url-substring-sanitization` | `tests/runtime/published-skills.test.ts:39` | Assertion that Markdown includes a source issue URL; no URL authorization or sanitizer decision. |
+| `js/incomplete-url-substring-sanitization` | `tests/runtime/social-links.test.ts:62` | Negative assertion that a revoked private URL is absent from a captured DTO; no URL authorization or sanitizer decision. |
+
+No new production vulnerability or must-fix migration blocker was identified
+in those four reported expressions. This is not a blanket disposition of
+other alerts. Improving test assertion coverage can remain follow-up work.
+Exact-head Python analysis1888286703 and Actions analysis1888286440 report
+zero results.
 
 Actionable next step: an authorized security reviewer can adjudicate alert39
 using this exact current analysis, source selections and hashes. A minimal
@@ -89,10 +104,10 @@ performed. This is a documentation-only update; no new CodeQL run or formal
 security approval is claimed.
 
 Current raw SARIF is retained in the isolated security worktree at
-`.freedom/reports/codeql-1888173960.sarif.json`. Previous structured audits
+`.freedom/reports/codeql-1888288476.sarif.json`. Previous structured audits
 remain historical evidence.
 
-GitHub gate readback on 2026-10-04: `main` reports `protected: false`, the
+Historical GitHub gate readback earlier on 2026-10-04: `main` reports `protected: false`, the
 branch-protection endpoint returns `404 Branch not protected`, and repository
 rulesets are `[]`. Current head checks are emitted by GitHub Actions
 (App ID 15368) and CodeQL/GitHub Advanced Security (App ID 57789); no trusted
@@ -102,3 +117,25 @@ trusted publisher, requiring its exact check name and App ID, and enforcing
 the security decision remain separate operator work. The diagnostic workflow
 or its comments do not establish this configuration. No remote settings or
 alert dispositions were changed during this readback.
+
+## Exact dismissal reason and acceptance boundary
+
+Suggested GitHub reason: `false positive`.
+
+> Reviewed PR108 source a1adecc9da819209dcc7248f3387cb355ea782de and
+> CodeQL2.27.1 analysis1888288476. All ten sources select login's returned
+> .token, generated independently with randomBytes(32), before authenticate
+> hashes it for session lookup. Password verification/storage use randomly
+> salted scrypt (16-byte salt,64-byte derived key). The version-matched
+> SensitiveCall heuristic marks the entire login return as password data
+> because synthetic password arguments contain the literal word "password".
+> Four expanded paths confirm this object-to-token model mismatch. SHA256 is
+> hashing a random256-bit bearer token, not a user password. Disposition applies
+> only to alert39; no crypto, query, test text or scanner configuration changed.
+
+Acceptance depends on the verified token/password separation and actual
+randomness remaining intact. Re-review if passwords flow into tokenHash,
+randomness becomes predictable, or the reported flow changes. This is not
+risk acceptance of fast password hashing and does not exclude a query to
+obtain a green check. A doc-only follow-up commit changes this review's head
+but not the pinned source; new non-document changes require exact-head review.
