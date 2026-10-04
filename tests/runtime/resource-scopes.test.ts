@@ -373,7 +373,16 @@ test('non-superuser migrator and DML-only runtime roles can use the mappings wit
     await assert.rejects(app.query('DELETE FROM principals'), sqlCode('23514'));
     await assert.rejects(app.query('ALTER TABLE principals ADD COLUMN forbidden text'), sqlCode('42501'));
     await finishBackfill(migrator);
-    assert.equal((await migrator.query("SELECT count(*) FROM pg_proc WHERE pronamespace=$1::regnamespace AND prosecdef", [roleSchema])).rows[0].count, '0');
+    // Mapping operations run as the DML-only caller. Separate media operator
+    // ports may be installed in the same schema, but never confer authority on it.
+    const elevated = (await migrator.query(`SELECT proname,pg_get_userbyid(proowner) AS owner,
+      has_function_privilege($2,oid,'EXECUTE') AS runtime_execute
+      FROM pg_proc WHERE pronamespace=$1::regnamespace AND prosecdef`, [roleSchema,appRole])).rows;
+    for (const port of elevated) {
+      assert.match(port.proname,/^(lock_media_backfill_|publish_media_backfill_)/);
+      assert.equal(port.owner,role);
+      assert.equal(port.runtime_execute,false);
+    }
   } finally {
     await app?.end(); await migrator?.end(); await admin.query(`DROP SCHEMA IF EXISTS ${roleSchema} CASCADE`);
     await admin.query(`DROP ROLE ${appRole}`); await admin.query(`DROP ROLE ${role}`);
