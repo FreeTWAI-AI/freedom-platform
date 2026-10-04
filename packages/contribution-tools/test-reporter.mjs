@@ -1,3 +1,4 @@
+import { createFailureDiagnosticEmitter } from './test-failure-diagnostic.mjs';
 import { createHash } from 'node:crypto';
 import { relative } from 'node:path';
 import { writeSync } from 'node:fs';
@@ -78,14 +79,30 @@ async function fileProgress() {
   };
 }
 
+async function failureDiagnostics() {
+  try {
+    const paths=parseJson(process.env.FREEDOM_TEST_PROGRESS_FILES,{maxBytes:131072,maxDepth:2,maxNodes:514});
+    if(!Array.isArray(paths)||paths.length>512)return ()=>{};
+    const sources=[];
+    for(const path of ['tests/runtime/model-broker-bridge-adversarial.test.ts','tests/runtime/media-verify.test.ts']) {
+      if(!paths.includes(path))continue;
+      const bytes=await readBounded(process.cwd(),path);
+      sources.push({path,source_sha256:sha256(bytes),source_lines:bytes.toString('utf8').split('\n').length});
+    }
+    return createFailureDiagnosticEmitter(sources,line=>writeSync(4,line),caseDigest);
+  }catch{return ()=>{};}
+}
+
 // Structured events avoid accidental TAP/stdout confusion, not hostile-code
 // spoofing: this reporter and the tests still run in a candidate-controlled
 // local checkout. Never promote these records to authenticated host observations.
 export default async function* report(source) {
   const files = [], cases = [], suites = [];
   const progress = await fileProgress();
+  const failureDiagnostic = await failureDiagnostics();
   for await (const event of source) {
     progress(event);
+    failureDiagnostic(event);
     if (['test:pass', 'test:fail'].includes(event.type) && ['test', 'suite'].includes(event.data.details?.type)) {
       const d = event.data;
       const file = typeof d.file === 'string' ? relative(process.cwd(), d.file) : '';

@@ -24,3 +24,27 @@ observations or a test pass. They are never added to verifier JSON, selection
 projections or pass/coverage decisions. A timeout, cancelled child, empty final
 report or failed final report still fails through the original admission path.
 No additional timeout budget, database authority or provider access is granted.
+
+The mandatory producer also writes a separate FD4 failure diagnostic for only
+`tests/runtime/model-broker-bridge-adversarial.test.ts` and
+`tests/runtime/media-verify.test.ts`. Its host decoder reconstructs closed
+`freedom.test-failure-diagnostic/v1` records under the separate STDERR prefix
+`freedom.test-failure-diagnostic`. Source digest, opaque case hash and optional
+declaration line bind it to the selected source. These are untrusted diagnostics,
+never evidence of authority or pass, and no test is executed a second time.
+
+Only fixed error-name/code classifications are admitted. Known source messages
+distinguish an unobserved SQL wait and an asset read that never reached the
+trusted port; the known `expires>Date.now()` assertion has a finite classification.
+Other assertions remain `assertion_failed`; Boolean or safe-integer comparisons
+within±20000 can distinguish failed cancellation/count assertions. `fetch_failed`
+and optional `UND_ERR_SOCKET` identify a transport symptom, not its cause. No
+arbitrary message, test name, stack, request body, environment, string comparison
+or object actual/expected value is serialized. The source line remains the Node
+event declaration location, with the source-map limitation described above.
+
+FD4 is independently capped at64 records,2048 bytes per record and256KiB total.
+Unknown paths, source/hash mismatches, malformed/private fields, out-of-bounds
+locations and duplicate cases are discarded. A missing, invalid, truncated or
+hung sideband cannot change primary JSON, selected files, pass admission or the
+original deadline. FD3's schema and final JSON remain unchanged.

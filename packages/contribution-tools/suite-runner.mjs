@@ -1,3 +1,4 @@
+import { createFailureDiagnosticDecoder } from './test-failure-diagnostic.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { readdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -60,13 +61,16 @@ async function execute(root, files, runtime, databaseUrl, timeoutMs, signal) {
     if (sources.length === files.length) env.FREEDOM_TEST_PROGRESS_FILES = JSON.stringify(files);
     if (runtime) env.TEST_DATABASE_URL = databaseUrl;
     const group = process.platform !== 'win32';
-    const child = spawn(process.execPath, args, { cwd: root, env, detached: group, stdio: ['ignore', 'pipe', 'pipe', 'pipe'] });
+    const child = spawn(process.execPath, args, { cwd: root, env, detached: group, stdio: ['ignore', 'pipe', 'pipe', 'pipe', 'pipe'] });
     const diagnostic = record => { try { process.stderr.write('freedom.test-progress ' + JSON.stringify(record) + '\n'); } catch { /* diagnostics never affect admission */ } };
     const progress = sources.length === files.length ? createProgressDecoder(sources, diagnostic) : {
       push() {}, finish: () => ({schema:'freedom.test-file-progress-summary/v1',selected_count:files.length,started_count:0,completed_count:0,incomplete:true}),
     };
     child.stdio[3].on('data', bytes => progress.push(bytes));
     child.stdio[3].on('error', () => {});
+    const failureDiagnostic=createFailureDiagnosticDecoder(sources,record=>{try{process.stderr.write('freedom.test-failure-diagnostic '+JSON.stringify(record)+'\n');}catch{}});
+    child.stdio[4].on('data',bytes=>failureDiagnostic.push(bytes));
+    child.stdio[4].on('error',()=>{});
     let size = 0, output = [], reason;
     const stop = code => {
       reason ??= code;

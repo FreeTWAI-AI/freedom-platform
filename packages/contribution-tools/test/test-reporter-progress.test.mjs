@@ -1,3 +1,4 @@
+import {createFailureDiagnosticDecoder} from '../test-failure-diagnostic.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
@@ -10,11 +11,11 @@ import {verificationEnvironment} from '../process-env.mjs';
 import {fixtureRoot,put} from './fixtures.mjs';
 const reporter=fileURLToPath(new URL('../test-reporter.mjs',import.meta.url));
 const source="import{test}from'node:test';test('PRIVATE_CASE_NAME',()=>{console.log('PRIVATE_STDOUT');console.error('PRIVATE_STDERR');});\n";
-async function nodeRun(root,files,{config=files,killOnStart}={}){
- const child=spawn(process.execPath,['--test','--test-concurrency=1','--test-reporter='+reporter,...files],{cwd:root,detached:process.platform!=='win32',env:{...verificationEnvironment(),PRIVATE_ENV:'PRIVATE_ENV_VALUE',FREEDOM_TEST_PROGRESS_FILES:JSON.stringify(config)},stdio:['ignore','pipe','pipe','pipe']});
- let output='',stderr='',progress='';const kill=()=>{try{process.platform==='win32'?child.kill('SIGKILL'):process.kill(-child.pid,'SIGKILL');}catch{}};
- const timer=setTimeout(kill,5000);child.stdout.on('data',b=>output+=b);child.stderr.on('data',b=>stderr+=b);child.stdio[3].on('data',b=>{progress+=b;if(killOnStart&&progress.split('\n').filter(Boolean).some(line=>{try{const r=JSON.parse(line);return r.event==='started'&&r.path===killOnStart;}catch{return false;}}))kill();});
- const result=await new Promise((done,reject)=>{child.once('error',reject);child.once('close',(code,signal)=>done({code,signal}));});clearTimeout(timer);return {...result,output,stderr,progress};
+async function nodeRun(root,files,{config=files,killOnStart,failureDetail=false}={}){
+ const child=spawn(process.execPath,['--test','--test-concurrency=1','--test-reporter='+reporter,...files],{cwd:root,detached:process.platform!=='win32',env:{...verificationEnvironment(),PRIVATE_ENV:'PRIVATE_ENV_VALUE',FREEDOM_TEST_PROGRESS_FILES:JSON.stringify(config)},stdio:['ignore','pipe','pipe','pipe',...(failureDetail?['pipe']:[])]});
+ let output='',stderr='',progress='',failureDiagnostic='';if(failureDetail)child.stdio[4].on('data',b=>{failureDiagnostic+=b;if(killOnStart&&progress.includes(killOnStart))kill();});const kill=()=>{try{process.platform==='win32'?child.kill('SIGKILL'):process.kill(-child.pid,'SIGKILL');}catch{}};
+ const timer=setTimeout(kill,5000);child.stdout.on('data',b=>output+=b);child.stderr.on('data',b=>stderr+=b);child.stdio[3].on('data',b=>{progress+=b;if(killOnStart&&(!failureDetail||failureDiagnostic.includes('\n'))&&progress.split('\n').filter(Boolean).some(line=>{try{const r=JSON.parse(line);return r.event==='started'&&r.path===killOnStart;}catch{return false;}}))kill();});
+ const result=await new Promise((done,reject)=>{child.once('error',reject);child.once('close',(code,signal)=>done({code,signal}));});clearTimeout(timer);return {...result,output,stderr,progress,failureDiagnostic};
 }
 test('real Node file progress is source-digest pinned, count-only and separate from unchanged final JSON',async t=>{
  const root=await fixtureRoot(t),files=['tests/first.test.mjs','tests/second.test.mjs'];await put(root,files[0],source);await put(root,files[1],"import{test}from'node:test';test('PRIVATE_FAILURE',()=>{throw Error('https://PRIVATE_URL/?token=PRIVATE_ENV_VALUE');});test.skip('PRIVATE_SKIP',()=>{});\n");
@@ -78,4 +79,38 @@ test('failed-case diagnostics survive a later hung file without manufacturing fi
  assert.equal(failed.length,1);assert.equal(failed[0].path,files[0]);assert.equal(failed[0].failure_type,'testCodeFailure');assert.equal(failed[0].source_line,1);
  const accepted=[],d=createProgressDecoder(await Promise.all(files.map(async path=>({path,source_sha256:sha256(await readFile(join(root,path))),source_lines:2}))),r=>accepted.push(r));
  d.push(Buffer.from(ran.progress));assert.equal(accepted.filter(r=>r.event==='failed_case').length,1);assert.equal(d.finish().incomplete,true);assert.ok(!JSON.stringify(ran).includes('PRIVATE_'));
+});
+
+test('actual selected fail events expose only finite source classifications and numeric/Boolean comparisons on FD4',async t=>{
+ const root=await fixtureRoot(t),files=['tests/runtime/model-broker-bridge-adversarial.test.ts','tests/runtime/media-verify.test.ts'];
+ await put(root,files[0],"import{test}from'node:test';import assert from'node:assert/strict';test('PRIVATE_NAME',()=>assert.fail('Actual SQL wait was not observed'));test('PRIVATE_EXPIRY',()=>{const expires=0;assert(expires>Date.now())});test('PRIVATE_FETCH',()=>{throw new TypeError('fetch failed',{cause:Object.assign(new Error('PRIVATE_BODY'),{code:'UND_ERR_SOCKET'})})});\n");
+ await put(root,files[1],"import{test}from'node:test';import assert from'node:assert/strict';test('PRIVATE_READ',()=>assert.ok(false,'actual asset read must reach the trusted port before deadline'));test('PRIVATE_CANCEL',()=>assert.equal(false,true));test('PRIVATE_COUNT',()=>assert.equal(8,7));test('PRIVATE_ERROR',()=>{throw new Error('PRIVATE_ENV_VALUE https://private.example/requestbody')});test('PRIVATE_OBJECT',()=>assert.deepEqual({token:'PRIVATE_ENV_VALUE'},{body:'PRIVATE_BODY'}));\n");
+ const ran=await nodeRun(root,files,{failureDetail:true});assert.equal(ran.code,1);assert.equal(JSON.parse(ran.output).counts.failed,8);
+ const expected=await Promise.all(files.map(async path=>({path,source_sha256:sha256(await readFile(join(root,path))),source_lines:2}))),records=[],decoder=createFailureDiagnosticDecoder(expected,r=>records.push(r));decoder.push(Buffer.from(ran.failureDiagnostic));assert.equal(records.length,8);
+ assert(records.some(r=>r.detail.message_class==='sql_wait_not_observed'));assert(records.some(r=>r.detail.message_class==='asset_read_not_reached'));assert(records.some(r=>r.detail.message_class==='expiry_assertion'));assert(records.some(r=>r.detail.cause_code==='UND_ERR_SOCKET'));assert(records.some(r=>r.detail.comparison?.actual===false&&r.detail.comparison.expected===true));assert(records.some(r=>r.detail.comparison?.actual===8&&r.detail.comparison.expected===7));
+ const primary=JSON.parse(ran.output);assert(records.every(r=>primary.cases.some(c=>c.case_sha256===r.case_sha256&&c.status==='failed')));assert.ok(!JSON.stringify(ran).includes('PRIVATE_'));assert.ok(!ran.failureDiagnostic.includes('https:'));assert.ok(!ran.output.includes('failure-diagnostic'));
+});
+
+test('FD4 admission rejects foreign paths, hashes, source lines, raw fields and nonfinite comparisons',()=>{
+ const path='tests/runtime/media-verify.test.ts',source_sha256='a'.repeat(64),record={schema:'freedom.test-failure-diagnostic/v1',path,source_sha256,case_sha256:'b'.repeat(64),source_line:2,detail:{error_name:'AssertionError',error_code:'ERR_ASSERTION',message_class:'assertion_failed',comparison:{actual:8,expected:7}}};
+ const invalid=[{...record,path:'tests/runtime/other.test.ts'},{...record,source_sha256:'c'.repeat(64)},{...record,source_line:3},{...record,source_line:1.5},{...record,stack:'PRIVATE'},{...record,detail:{...record.detail,message:'PRIVATE'}},{...record,detail:{...record.detail,comparison:{actual:{token:'PRIVATE'},expected:7}}},{...record,detail:{...record.detail,cause_code:'PRIVATE'}},{...record,detail:{...record.detail,comparison:{actual:20001,expected:7}}}];
+ for(const r of invalid){const emitted=[],decoder=createFailureDiagnosticDecoder([{path,source_sha256,source_lines:2}],x=>emitted.push(x));decoder.push(Buffer.from(JSON.stringify(r)+'\n'));assert.equal(emitted.length,0);}
+ const emitted=[],decoder=createFailureDiagnosticDecoder([{path,source_sha256,source_lines:2}],x=>emitted.push(x));decoder.push(Buffer.from(JSON.stringify(record)+'\n'+JSON.stringify(record)+'\n'));assert.deepEqual(emitted,[record]);
+ const capped=[],limit=createFailureDiagnosticDecoder([{path,source_sha256,source_lines:2}],x=>capped.push(x));limit.push(Buffer.from(Array.from({length:65},(_,i)=>JSON.stringify({...record,case_sha256:i.toString(16).padStart(64,'0')})).join('\n')+'\n'));assert.equal(capped.length,64);
+ const exhausted=[],bytes=createFailureDiagnosticDecoder([{path,source_sha256,source_lines:2}],x=>exhausted.push(x));bytes.push(Buffer.alloc(262145,65));bytes.push(Buffer.from(JSON.stringify(record)+'\n'));assert.equal(exhausted.length,0);
+});
+
+test('unselected failure details stay absent and closed final report is byte identical when FD4 is unavailable',async t=>{
+ const root=await fixtureRoot(t),file='tests/other.test.mjs';await put(root,file,"import{test}from'node:test';test('PRIVATE_NAME',()=>{throw Error('PRIVATE_BODY')});\n");
+ const absent=await nodeRun(root,[file]),enabled=await nodeRun(root,[file],{failureDetail:true});assert.equal(absent.code,1);assert.equal(enabled.code,1);assert.equal(absent.output,enabled.output);assert.equal(enabled.failureDiagnostic,'');
+});
+
+test('FD4 failures survive a later hung selected file and cap without reducing final case evidence',async t=>{
+ const root=await fixtureRoot(t),files=['tests/runtime/media-verify.test.ts','tests/runtime/model-broker-bridge-adversarial.test.ts'];
+ await put(root,files[0],"import{test}from'node:test';import assert from'node:assert/strict';test('PRIVATE_FAIL',()=>assert.fail('Actual SQL wait was not observed'));\n");
+ await put(root,files[1],"import{test}from'node:test';test('PRIVATE_HANG',async()=>new Promise(()=>{setInterval(()=>{},1000)}));\n");
+ const killed=await nodeRun(root,files,{failureDetail:true,killOnStart:files[1]});assert.notEqual(killed.code,0);assert.equal(killed.output,'');const retained=killed.failureDiagnostic.trim().split('\n').map(JSON.parse);assert.equal(retained.length,1);assert.equal(retained[0].detail.message_class,'sql_wait_not_observed');
+ await put(root,files[0],"import{test}from'node:test';import assert from'node:assert/strict';"+Array.from({length:65},(_,i)=>`test('PRIVATE_${i}',()=>assert.equal(8,7));`).join('')+'\n');
+ const capped=await nodeRun(root,[files[0]],{failureDetail:true});assert.equal(capped.code,1);assert.equal(JSON.parse(capped.output).counts.failed,65);assert.equal(capped.failureDiagnostic.trim().split('\n').length,64);
+ const absent=await nodeRun(root,[files[0]]);assert.equal(absent.output,capped.output);
 });
