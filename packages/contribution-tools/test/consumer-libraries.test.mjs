@@ -36,7 +36,7 @@ async function setup(t) {
 
 test('exports exact pinned consumers without changing preview and independently verifies source bytes', async t => {
   const { sourceRoot, destinations, expectedSourceCommit } = await setup(t);
-  const report = await exportConsumerLibraries(destinations, { sourceRoot });
+  const report = await exportConsumerLibraries(destinations, { sourceRoot, expectedSourceCommit });
   assert.equal(report.library_usage, 'not_checked');
   for (const { root, repository } of destinations) {
     const verified = await verifyConsumerLibraries(root, { repository, expectedSourceCommit, sourceRoot });
@@ -57,7 +57,7 @@ test('exports exact pinned consumers without changing preview and independently 
 
 test('rewriting both candidate library and lock cannot forge a match to the selected source', async t => {
   const { sourceRoot, destinations, expectedSourceCommit } = await setup(t);
-  await exportConsumerLibraries(destinations, { sourceRoot });
+  await exportConsumerLibraries(destinations, { sourceRoot, expectedSourceCommit });
   const { root, repository } = destinations[0];
   const lock = JSON.parse(await readFile(join(root, LIBRARY_LOCK)));
   const fake = Buffer.from('export const forged = true;\n');
@@ -71,24 +71,84 @@ test('rewriting both candidate library and lock cannot forge a match to the sele
 });
 
 test('preflights every consumer and refuses dirty, wrong-base and symlink targets before writing', async t => {
-  const { sourceRoot, destinations } = await setup(t);
+  const { sourceRoot, destinations, expectedSourceCommit } = await setup(t);
   await put(destinations[1].root, 'dirty', 'untracked');
-  await assert.rejects(exportConsumerLibraries(destinations, { sourceRoot }), { code: 'consumer_worktree_dirty' });
+  await assert.rejects(exportConsumerLibraries(destinations, { sourceRoot, expectedSourceCommit }), { code: 'consumer_worktree_dirty' });
   assert(!((await readdir(destinations[0].root)).includes(LIBRARY_LOCK)));
   commit(destinations[1].root);
-  await assert.rejects(exportConsumerLibraries(destinations, { sourceRoot }), { code: 'consumer_base_mismatch' });
+  await assert.rejects(exportConsumerLibraries(destinations, { sourceRoot, expectedSourceCommit }), { code: 'consumer_base_mismatch' });
   const next = await setup(t), outside = await fixtureRoot(t);
   await symlink(outside, join(next.destinations[1].root, 'vendor/freedom-libraries'));
   // Ignoring the path cannot turn a symbolic link into an allowed destination.
   await put(next.destinations[1].root, '.git/info/exclude', 'vendor/freedom-libraries\n');
-  await assert.rejects(exportConsumerLibraries(next.destinations, { sourceRoot: next.sourceRoot }), { code: 'unsafe_export_destination' });
+  await assert.rejects(exportConsumerLibraries(next.destinations, { sourceRoot: next.sourceRoot, expectedSourceCommit: next.expectedSourceCommit }), { code: 'unsafe_export_destination' });
   assert(!((await readdir(next.destinations[0].root)).includes(LIBRARY_LOCK)));
   assert.deepEqual(await readdir(outside), []);
 });
 
 test('uncommitted source libraries cannot be labelled as committed exports', async t => {
-  const { sourceRoot, destinations } = await setup(t);
+  const { sourceRoot, destinations, expectedSourceCommit } = await setup(t);
   await put(sourceRoot, CONSUMER_LIBRARIES[destinations[0].repository][0], 'uncommitted');
-  await assert.rejects(exportConsumerLibraries(destinations, { sourceRoot }), { code: 'commit_before_export' });
+  await assert.rejects(exportConsumerLibraries(destinations, { sourceRoot, expectedSourceCommit }), { code: 'commit_before_export' });
   assert(!((await readdir(destinations[0].root)).includes(LIBRARY_LOCK)));
+});
+
+async function adopted(t) {
+  const state = await setup(t);
+  await exportConsumerLibraries(state.destinations, state);
+  for (const destination of state.destinations) {
+    // Actual consumer code is deliberately outside the exporter's managed paths.
+    await put(destination.root, 'src/index.mjs', 'export const consumerIntegration = "preserve me";\n');
+    destination.upgradeFrom = { consumerCommit: commit(destination.root), sourceCommit: state.expectedSourceCommit };
+  }
+  const path = CONSUMER_LIBRARIES[state.destinations[0].repository][0];
+  await put(state.sourceRoot, path, Buffer.concat([await readFile(join(state.sourceRoot, path)), Buffer.from('\n// Synthetic next library version.\n')]));
+  return { ...state, previousSourceCommit: state.expectedSourceCommit, expectedSourceCommit: commit(state.sourceRoot) };
+}
+
+test('repeat upgrade verifies old source and exact consumer head, preserves real imports and preview bytes', async t => {
+  const state = await adopted(t);
+  await exportConsumerLibraries(state.destinations, state);
+  for (const { root, repository, upgradeFrom } of state.destinations) {
+    const lock = JSON.parse(await readFile(join(root, LIBRARY_LOCK)));
+    assert.equal(lock.source_commit, state.expectedSourceCommit);
+    assert.equal(lock.consumer_base_commit, upgradeFrom.consumerCommit);
+    await verifyConsumerLibraries(root, { repository, expectedSourceCommit: state.expectedSourceCommit, sourceRoot: state.sourceRoot });
+    assert.equal(await readFile(join(root, 'src/index.mjs'), 'utf8'), 'export const consumerIntegration = "preserve me";\n');
+    assert.equal(git(root, ['diff', '--', 'contracts.lock.json', 'vendor/freedom-platform']), '');
+    const changed = git(root, ['diff', '--name-only']).split('\n');
+    assert(changed.every(path => path === LIBRARY_LOCK || path.startsWith(LIBRARY_PREFIX)));
+  }
+});
+
+test('repeat upgrade refuses wrong selected source/head, dirty consumer and forged prior library before any write', async t => {
+  const state = await adopted(t), [first, second] = state.destinations;
+  const original = await readFile(join(first.root, LIBRARY_LOCK));
+  await assert.rejects(exportConsumerLibraries(state.destinations, { sourceRoot: state.sourceRoot }), { code: 'expected_library_source_required' });
+  await assert.rejects(exportConsumerLibraries(state.destinations, { ...state, expectedSourceCommit: state.previousSourceCommit }), { code: 'library_source_mismatch' });
+  const wrongHead = state.destinations.map(item => ({ ...item, upgradeFrom: { ...item.upgradeFrom, consumerCommit: 'a'.repeat(40) } }));
+  await assert.rejects(exportConsumerLibraries(wrongHead, state), { code: 'consumer_base_mismatch' });
+  const wrongSource = state.destinations.map(item => ({ ...item, upgradeFrom: { ...item.upgradeFrom, sourceCommit: 'a'.repeat(40) } }));
+  await assert.rejects(exportConsumerLibraries(wrongSource, state), { code: 'library_source_mismatch' });
+  await put(second.root, 'src/index.mjs', 'uncommitted user changes');
+  await assert.rejects(exportConsumerLibraries(state.destinations, state), { code: 'consumer_worktree_dirty' });
+  assert((await readFile(join(first.root, LIBRARY_LOCK))).equals(original));
+  // Even a clean, explicitly selected commit cannot make changed bytes canonical.
+  const lock = JSON.parse(await readFile(join(second.root, LIBRARY_LOCK)));
+  const fake = Buffer.from('export const forged = true;\n');
+  await put(second.root, lock.files[0].path, fake);
+  lock.files[0].bytes = fake.length; lock.files[0].sha256 = sha256(fake);
+  await put(second.root, LIBRARY_LOCK, JSON.stringify(lock));
+  second.upgradeFrom.consumerCommit = commit(second.root);
+  await assert.rejects(exportConsumerLibraries(state.destinations, state), { code: 'library_source_bytes_mismatch' });
+  assert((await readFile(join(first.root, LIBRARY_LOCK))).equals(original));
+});
+
+test('repeat upgrade refuses to overwrite modified tooling even when consumer changes are committed', async t => {
+  const state = await adopted(t), [first, second] = state.destinations;
+  const original = await readFile(join(first.root, LIBRARY_LOCK));
+  await put(second.root, 'scripts/verify-consumer-libraries.mjs', '// consumer customization\n');
+  second.upgradeFrom.consumerCommit = commit(second.root);
+  await assert.rejects(exportConsumerLibraries(state.destinations, state), { code: 'library_previous_tooling_mismatch' });
+  assert((await readFile(join(first.root, LIBRARY_LOCK))).equals(original));
 });

@@ -9,7 +9,7 @@ import { exportConsumerLibraries } from './packages/contribution-tools/export.mj
 await exportConsumerLibraries([
   { repository: 'FreeTWAI-AI/freedom-agent-kit', root: '/absolute/agent-kit' },
   { repository: 'FreeTWAI-AI/freedom-storefront', root: '/absolute/storefront' },
-]);
+], { expectedSourceCommit: 'EXTERNALLY_SELECTED_PLATFORM_SHA' });
 ```
 
 Then make the concrete consumer source changes:
@@ -24,6 +24,21 @@ node scripts/verify-consumer-libraries.mjs FreeTWAI-AI/freedom-agent-kit EXPECTE
 ```
 
 Select the expected SHA outside the candidate lock. Local verification reads committed Git objects; `--remote` instead reads that exact public commit with bounded requests and no redirects. Before remote consumer publication, make the source commit publicly reachable or re-export from the final published Platform commit. A cherry-pick creates a different SHA; changing only a claimed source pin without matching its committed bytes is insufficient.
+
+## Upgrading already adopted consumers
+
+Do not reset an adopted consumer to its old repository-lock baseline. Commit and review its current imports/tests, then supply that exact current consumer SHA and the independently selected previous Platform source SHA:
+
+```js
+await exportConsumerLibraries([
+  {
+    repository: 'FreeTWAI-AI/freedom-agent-kit', root: '/absolute/agent-kit',
+    upgradeFrom: { consumerCommit: 'REVIEWED_CURRENT_CONSUMER_SHA', sourceCommit: 'PREVIOUS_PLATFORM_SHA' },
+  },
+], { sourceRoot: '/absolute/platform', expectedSourceCommit: 'NEW_PLATFORM_SHA' });
+```
+
+The producer HEAD must equal `expectedSourceCommit`; exported files must match that committed source. The previous source commit must be available in the producer Git object database. Upgrade verification compares the old manifest and every exported runtime/tooling file against that canonical old source, requires a clean consumer at the selected HEAD, and preflights the whole batch before writes. Modified exported tooling is rejected even if committed, so custom edits cannot be silently lost. Consumer-owned imports, tests, README, package scripts and preview files are preserved. The generated manifest records the reviewed current consumer commit as its new base. The exporter does not commit, reset, push or execute consumer code.
 
 ## Operation verification
 
