@@ -99,7 +99,7 @@ Publication uses only pg_catalog plus the trusted migration schema required
 by original attachment triggers; PUBLIC execution remains revoked.
 
 Migration111 has exact canonical ledger digest
-`3666c5bf466499f2244344aa5b76d24627cb5ba9b6149852324f53d1302205f8`.
+`695a8c84ac8f7e9c7d7f4ab4049c87b0b32a0e0061a3edebd00801e2ae071c1a`.
 Its four additional definer ports bind the approved avatar owner, canonical
 consent, exact pending operator intent and publication. Legacy avatars use the
 closed member.avatar profile and member.avatar.legacy-bytes.v1 transform,
@@ -122,3 +122,15 @@ old avatar.asset-bridge.v1 capability alone does not support these records.
 Synthetic compatibility inputs never prove a deployed fleet or authorize
 operator activation. Actual integrated regression results are recorded
 separately in the implementation status after a fixed candidate completes.
+
+
+The first111 integrated source exposed an ordinary-writer regression under
+canonical app grants: PostgreSQL planned a combined condition containing the
+private avatar-admission helper even for cover/social/other domain purposes,
+which correctly lacked EXECUTE on that helper. Fixed111 separates purpose
+selection and avatar admission into distinct PL/pgSQL statements. Root reviewed
+this source-only change and recomputed the exact ledger digest above. No app or
+PUBLIC execution grant was added. The failed4066563 Worker/restore evidence and
+cancelled runtime attempt remain retained; that candidate is not a completed
+regression. Standard canonical-role Worker and genuine dump/restore checks must
+pass on the corrected frozen candidate before this increment is accepted.

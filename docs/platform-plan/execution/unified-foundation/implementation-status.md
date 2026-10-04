@@ -1401,3 +1401,47 @@ staging GET302，沒有驗到staging應用健康。只讀觀察不能認證所�
 沒有部署、migration、cloud寫入、密鑰或trust/rules修改，其他PR未處理。
 剩餘skill/highlight與avatar operator及其native RPC在隔離分支coding，
 尚不能宣稱七類全量搬遷或正式可merge/deploy。
+
+七類基底後續整合：110/111與私人operator Worker已接到同一分支，
+七purposes/eight variants共用既有approved jobs/common intents/Assets/
+effect fences；skill與highlight保留原ACL與pair原子發布，avatar保留128KiB
+bytes與普通NULL-profile writer。Runtime排除/readback/restore閉集擴為
+五份精確審核SQL／二十四個函式／十七個PUBLIC撤權statements。
+歷史avatar新增avatar.legacy-bytes.v1 reader floor與schema111，不能
+只靠舊avatar.asset-bridge.v1宣稱mixed fleet相容；covered avatar GC拒絕。
+
+作者11066/66、111130/130與exact avatar11/11；作者097507b真正
+native七profile RPC三套Unix/TCP各3/3、零skip，typecheck通過。
+根最初固定4066563 Worker49/57、restore1/2，真實受限app角色發現
+普通domain effect INSERT會規劃111私人avatar helper而得到42501。
+已停止該known-bad版完整回歸，標為cancelled/incomplete而非pass；
+兩個nonce-owned DB cleanup verified，所有raw保留。SQL-only fd26472
+將avatar purpose與helper分成nested PL/pgSQL IF，未新增app/PUBLIC
+EXECUTE；作者avatar11/11，根更新精確canonical digest並完成
+release380/380、ACL/resource-scope32/32。新固定版完整runtime、
+canonical-role Worker和實際restore結果仍待完成，另以固定SHA記錄。
+
+真正GitHub f7b47f9 run37166738612：UI、static-worker、
+governance-consumers、deploy-preflight成功；runtime在native prerequisites
+以RTM_NEWADDR Operation not permitted失敗，沒有完整runtime結果。
+f8b6d6f改用Ubuntu官方apparmor-profiles提供的精確bwrap額外profile，
+只在受控ephemeral hosted runner載入；保留global restriction與非root
+執行，檢查六namespace、child CapEff0/NoNewPrivs與unpriv_bwrap。
+本機readonly probe與原native六case通過，Noble官方profile離線編譯
+通過；新GitHub runner結果pending，未將環境原因推論寫成已證實。
+
+隔離candidate admission CLI重用原manifest與七purpose registry，
+產出真main/broker/operator entries的OFF設定，無routes/crons/dev/preview。
+其十一反例已通過，根三份合成宣告config實際Wrangler dry-run均能
+bundle；這些是review artifacts，不是已建立資源或provider/runtime證據。
+新physical DB/R2/Hyperdrive、remote ACL/bytes/cache/consent仍not_run。
+Broker origin硬pin不支援獨立hostname，保持OFF並列明unsupported；
+此基底不將私人模型啟用列為已完成，亦不修改營運origin。
+沒有cloud/DB寫入或deployment、沒有keys/trust/rules變更，其他PR未動。
+
+獨立f32a9cb（406＋SQL-only fix＋隔離fixture）受限canonical20真正
+LOGIN app writer1/1通過：普通NULL-profile avatar與cover實際bytes/
+fulfilled effect成功，app及PUBLIC無private helper EXECUTE，偽造
+historical avatar仍拒絕；同來源native七profile RPC三套串行3/3與
+typecheck通過。獨立fixture僅保留隔離分支及證據，原既有native
+Worker/restore反例已提供持續回歸保護，不把此結果冒充根完整回歸。

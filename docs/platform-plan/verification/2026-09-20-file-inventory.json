@@ -14,8 +14,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 10577,
-      "sha256": "fb19520bfac3aeb35028f0dad60ad4a0b3ce8b325e50af363de9dacc41c954da"
+      "bytes": 10397,
+      "sha256": "756cb9307f96d02ca169ada4a1774730e257184e3d0e4128b3d95f711a9ec6f2"
     },
     {
       "path": ".gitignore",
@@ -2380,7 +2380,7 @@
     {
       "path": "deploy/cloudflare/lib/migrations.mjs",
       "bytes": 4984,
-      "sha256": "5872dc609c027025212d51534b3f5e31e0a7e399b137bcbdbad7f6fb4abb6d8c"
+      "sha256": "c327801e10f75b15e5cf234b1bd1a9d14b344418c9f20683ce502f17883767e0"
     },
     {
       "path": "deploy/cloudflare/lib/oci.mjs",
@@ -2480,7 +2480,7 @@
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
       "bytes": 4556,
-      "sha256": "6a47b5a20e2193edea5e330dcb35bdf078688a700151e75bb538f21f00e1437a"
+      "sha256": "d5623d8be7258bfbb0a4e1ace295844e68c1496a2c673012d7da1243b2d4399e"
     },
     {
       "path": "deploy/cloudflare/test/preflight.test.mjs",
@@ -2959,8 +2959,8 @@
     },
     {
       "path": "docs/development/operator-backfill-sql-review.md",
-      "bytes": 8554,
-      "sha256": "f599e7e3ec7af15c1b18859351e30dd9e61cc30e0dc988a31fc64986b73ceaa7"
+      "bytes": 9330,
+      "sha256": "9748d3bda2ec04f2f1b393f5644b835b09ec61837cf4356bb6a6f5276cd377cb"
     },
     {
       "path": "docs/development/page-tools.md",
@@ -4254,8 +4254,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 169747,
-      "sha256": "dabe11ecd2aa742b07057391937a245bcb008b90b3e5fe8f482f9dfe0f85ea1b"
+      "bytes": 172783,
+      "sha256": "812312af0945c27df884bcca39a60b503d1e49fb60265fcea982de09aa40058e"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
@@ -4944,8 +4944,8 @@
     },
     {
       "path": "migrations/111_operator_avatar_backfill.sql",
-      "bytes": 18241,
-      "sha256": "dc57f366a6579ecc5c2063bd209c7f761b805c4917327bd234b023c9eabe422e"
+      "bytes": 18486,
+      "sha256": "5b6bea03e364bb6a4fd416fa553497ae2abeaf95ec436312dec4daaeb7f17a97"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
@@ -6721,6 +6721,16 @@
       "path": "scripts/checkout-repositories.mjs",
       "bytes": 1392,
       "sha256": "b60b970743d8d73de18e1f93d042590b29b4ee6866fb63a2eecf11e753634b01"
+    },
+    {
+      "path": "scripts/ci/native-cli-prerequisites.md",
+      "bytes": 2928,
+      "sha256": "a13cfb6be586e904244c96df3fc9a54e700bf6d4cdaafb298c0eb6ab3247aafb"
+    },
+    {
+      "path": "scripts/ci/verify-native-cli-prerequisites.sh",
+      "bytes": 3827,
+      "sha256": "e9472744cf3d7cea1f1eb5e121fbb3513783e2bd0383c1df71859c4d7375ef6e"
     },
     {
       "path": "scripts/database.ts",

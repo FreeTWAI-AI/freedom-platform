@@ -37,7 +37,7 @@ const REVIEWED_DEFINER = Object.freeze({
     review: 'docs/development/operator-backfill-sql-review.md',
   }),
   '111_operator_avatar_backfill.sql': Object.freeze({
-    sha256: '3666c5bf466499f2244344aa5b76d24627cb5ba9b6149852324f53d1302205f8',
+    sha256: '695a8c84ac8f7e9c7d7f4ab4049c87b0b32a0e0061a3edebd00801e2ae071c1a',
     review: 'docs/development/operator-backfill-sql-review.md',
   }),
 });

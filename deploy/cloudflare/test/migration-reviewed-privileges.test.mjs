@@ -41,7 +41,7 @@ test('reviewed109 banner/social ports require exact installed source and reject 
 });
 for(const [name,digest] of [
  ['110_skill_highlight_operator_backfill.sql','30a7cfeb7488bede72c9da68e19689d555aee1e0ee4d7b9ab4cf151aee9cc46f'],
- ['111_operator_avatar_backfill.sql','3666c5bf466499f2244344aa5b76d24627cb5ba9b6149852324f53d1302205f8'],
+ ['111_operator_avatar_backfill.sql','695a8c84ac8f7e9c7d7f4ab4049c87b0b32a0e0061a3edebd00801e2ae071c1a'],
 ])test(`reviewed ${name} accepts exact source and refuses modified or renamed privileged SQL`,()=>{
  const sql=readFileSync(fileURLToPath(new URL('../../../migrations/'+name,import.meta.url)),'utf8');
  const result=scan(name,sql);assert.equal(result.ok,true);assert.equal(result.reviewed_privileged[0].sha256,digest);
