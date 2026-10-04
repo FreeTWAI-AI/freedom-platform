@@ -1698,3 +1698,16 @@ runtime-union.integration.test.mjs，測試區塊與七項斷言逐 byte 相同�
 與 all-zero HD IDs，source HEAD/tracked tree 未變，marker-owned config
 cache 已移除。無 cloud mutation／DB connection／deploy／remote
 acceptance，不把 syntax-valid dry-run 當作正式資源或可部署證據。
+
+
+固定 8aa34f6 根整合 governance.unit 已完整 276/276 通過，16 檔、
+20.214 秒、零 fail/skip/cancel/todo，原 60 秒 cap 未變。
+evidence SHA-256 為
+f6bb8831ae13c900d00ab24294029c4f6753cc09ef958747ecbb17ba3dcbcc12。
+另外必跑 integration 作者 1/1、獨立 1/1 實際通過；後者同時
+remaining units 13/13、合計 14/14、48.29 秒。原 union fixture
+baseline 為 179 檔加新 fixture 一檔；production discovery 仍 196 檔，
+不把兩種來源數量混用。根 deployment tools 386/386，零 skip。
+以上是 local／synthetic proof，新 exact-head hosted matrix 尚需真正
+GitHub 產出四份完整 artifacts；CodeQL 正式核定與 cloud／offsite／
+installed App gate 仍保留，未 merge／deploy 或改 stage/live。
