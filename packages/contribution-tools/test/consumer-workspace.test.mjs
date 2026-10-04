@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadConnectedStorefront } from '../../client-connections/storefront-workspace.mjs';
+import { loadSupplierWorkspace } from '../../client-connections/supplier-workspace.mjs';
 
 const token = 'fw_read_' + 'A'.repeat(43);
 function fixture(overrides = {}) {
@@ -26,6 +27,27 @@ test('scoped storefront adapter calls shared transport and returns only the appr
   assert.deepEqual(workspace.capabilities, { checkout: false, payments: false, public_publication: false, service_offers: false });
   assert.deepEqual(seen, ['/connection', '/retail/catalog', '/retail/stores', '/retail/listings']);
   assert(!JSON.stringify(workspace).includes(token));
+});
+
+test('shared supplier workspace preserves sequential scope checks and read-only result', async () => {
+  const calls = [], connection = { kind: 'supplier', scope: 'supplier:read', read_only: true };
+  const client = { read: async resource => {
+    calls.push(resource); return resource === 'connection' ? connection : { items: [{ resource }], read_only: true };
+  } };
+  assert.deepEqual(await loadSupplierWorkspace(client), {
+    connection, products: [{ resource: 'products' }], requests: [{ resource: 'requests' }], read_only: true,
+  });
+  assert.deepEqual(calls, ['connection', 'products', 'requests']);
+  calls.length = 0;
+  connection.kind = 'storefront';
+  await assert.rejects(loadSupplierWorkspace(client), /supplier read connection/);
+  assert.deepEqual(calls, ['connection']);
+});
+
+test('shared supplier workspace propagates revocation and refuses malformed lists', async () => {
+  await assert.rejects(loadSupplierWorkspace({ read: async () => { throw Object.assign(new Error('revoked'), { status: 401 }); } }), { status: 401 });
+  await assert.rejects(loadSupplierWorkspace({ read: async resource => resource === 'connection'
+    ? { kind: 'supplier', scope: 'supplier:read', read_only: true } : {} }), /Incompatible supplier list/);
 });
 
 test('rejects a supplier connection before requesting any storefront data', async () => {
