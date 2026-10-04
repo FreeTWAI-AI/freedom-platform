@@ -6,10 +6,11 @@ import { readBounded, parseJson, sha256, artifactPath, uniquePaths } from './io.
 import { validateFormat } from './formats.mjs';
 import { requireCondition as check } from './errors.mjs';
 import { verificationEnvironment } from './process-env.mjs';
+import { CONSUMER_LIBRARIES, LIBRARY_LOCK, LIBRARY_PREFIX, sourceGit } from './consumer-libraries.mjs';
 
 export const PORTABLE_TOOL_FILES = [
   ...['errors', 'io', 'schema', 'formats', 'contracts', 'pin-cli', 'workspace', 'context', 'verify', 'cli',
-    'local-artifacts', 'process-env', 'test-reporter', 'test-failure-diagnostic', 'suite-runner', 'runtime-suites', 'runtime-databases'].map(name => `packages/contribution-tools/${name}.mjs`),
+    'local-artifacts', 'process-env', 'consumer-libraries', 'test-reporter', 'test-failure-diagnostic', 'suite-runner', 'runtime-suites', 'runtime-databases'].map(name => `packages/contribution-tools/${name}.mjs`),
   'governance/README.md',
   ...['release-set', 'contract-pin-v1', 'contract-pin-v2', 'release-proof', 'release-trust', 'module', 'coding-context', 'verifier-report']
     .map(name => `governance/schemas/${name}.schema.json`),
@@ -28,6 +29,59 @@ async function checkDestination(root, path) {
     check(!next.isSymbolicLink(), 'unsafe_export_destination');
     check(index === parts.length - 1 ? next.isFile() && next.nlink === 1 : next.isDirectory(), 'unsafe_export_destination');
   }
+}
+
+export const LIBRARY_TOOL_FILES = ['errors', 'io', 'process-env', 'consumer-libraries']
+  .map(name => `packages/contribution-tools/${name}.mjs`);
+
+/** Opt-in library update for exact repositories.lock bases; leaves preview v1 untouched. */
+export async function exportConsumerLibraries(destinations, {
+  sourceRoot = fileURLToPath(new URL('../../', import.meta.url)),
+} = {}) {
+  check(Array.isArray(destinations) && destinations.length > 0 && destinations.length <= 9, 'export_destinations_required');
+  const root = resolve(sourceRoot), commit = sourceGit(root, ['rev-parse', 'HEAD']).toString().trim();
+  const committed = async path => {
+    const bytes = await readBounded(root, path);
+    check(sourceGit(root, ['show', `${commit}:${path}`]).equals(bytes), 'commit_before_export');
+    return bytes;
+  };
+  const repositories = parseJson(await committed('repositories.lock.json')).repositories;
+  const prepared = [], roots = [root], names = new Set();
+  for (const destination of destinations) {
+    const target = resolve(destination.root), repository = destination.repository;
+    check(Object.hasOwn(CONSUMER_LIBRARIES, repository) && !names.has(repository), 'unsupported_library_consumer');
+    names.add(repository);
+    for (const previous of roots) for (const [parent, child] of [[previous, target], [target, previous]]) {
+      const rel = relative(parent, child);
+      check(rel && (rel === '..' || rel.startsWith('../') || rel.startsWith('..\\') || isAbsolute(rel)), 'overlapping_export_destination');
+    }
+    roots.push(target);
+    const pinned = repositories.find(entry => entry.repository === repository);
+    check(pinned && sourceGit(target, ['rev-parse', 'HEAD']).toString().trim() === pinned.commit, 'consumer_base_mismatch');
+    check(sourceGit(target, ['status', '--porcelain', '--untracked-files=all']).length === 0, 'consumer_worktree_dirty');
+    const files = [], output = [];
+    for (const source_path of CONSUMER_LIBRARIES[repository]) {
+      const bytes = await committed(source_path), path = LIBRARY_PREFIX + source_path;
+      files.push({ source_path, path, sha256: sha256(bytes), bytes: bytes.length });
+      output.push({ path, bytes });
+    }
+    for (const path of LIBRARY_TOOL_FILES) output.push({ path: `vendor/freedom-tooling/${path}`, bytes: await committed(path) });
+    output.push({ path: 'scripts/verify-consumer-libraries.mjs', bytes: await committed('scripts/repository-bootstrap/verify-consumer-libraries.mjs') });
+    output.push({ path: LIBRARY_LOCK, bytes: Buffer.from(JSON.stringify({
+      format: 'freedom.consumer-libraries/v1', repository, consumer_base_commit: pinned.commit,
+      source_repository: 'FreeTWAI-AI/freedom-platform', source_commit: commit, files,
+    }, null, 2) + '\n') });
+    prepared.push({ target, repository, output });
+  }
+  // Preflight the entire batch before the first write. Locks are always written last.
+  for (const { target, output } of prepared) for (const file of output) await checkDestination(target, file.path);
+  for (const { target, output } of prepared) for (const file of output) {
+    await mkdir(dirname(resolve(target, file.path)), { recursive: true });
+    await checkDestination(target, file.path);
+    await writeFile(resolve(target, file.path), file.bytes);
+  }
+  return { source_commit: commit, consumers: prepared.map(({ repository, output }) => ({ repository, files_exported: output.length })),
+    verification: 'export_only', library_usage: 'not_checked', publisher_trust: 'unverified' };
 }
 
 export async function exportPreviewBundle(destinations, {
