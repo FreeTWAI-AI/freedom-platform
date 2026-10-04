@@ -11,7 +11,7 @@ import type {ObjectStore} from '../../packages/asset-storage/index.js';
 import {avatarReadColumns,avatarReadJoins,readAuthorizedAvatar,type AvatarReadSnapshot} from '../assets/avatar-read.js';
 
 const Token=z.string().regex(/^[A-Za-z0-9_-]{43}$/);
-const designs=['calm','workshop','night','classic'] as const;
+const designs=['editorial','calm','workshop','night','classic'] as const;
 export type MemberCardDesign=typeof designs[number];
 export type MemberCardLink={label:string;url:string};
 const control=/[\u0000-\u001f\u007f]/;
@@ -30,7 +30,7 @@ const contactMeta={line:{platform:'line',label:'LINE'},github:{platform:'github'
 const labels=Object.fromEntries(capabilityCategories.flatMap(group=>group.items.map(item=>[item.id,item.label])));
 
 function cardDesign(value:unknown):MemberCardDesign{
-  requireCondition(typeof value==='string'&&(designs as readonly string[]).includes(value),422,'member_card_design_invalid','名片樣式請選擇清新、工坊、夜空或經典名片。');
+  requireCondition(typeof value==='string'&&(designs as readonly string[]).includes(value),422,'member_card_design_invalid','名片樣式請選擇工坊誌、清新、工坊、夜空或經典名片。');
   return value as MemberCardDesign;
 }
 function cardHeadline(value:unknown){
@@ -176,7 +176,7 @@ function profileItemsFrom(row:any,prefs:Record<string,boolean>){
 const settings=(row:any,profileLinks:MemberCardProfileLink[],prefs:Record<string,boolean>)=>({
   enabled:row?.enabled??false,include_avatar:row?.include_avatar??false,aggregate_version:row?.aggregate_version??null,
   share_path:row?.enabled?`/member-cards/${row.share_token}`:null,
-  design:(row?.design??'calm') as MemberCardDesign,headline:row?.headline??null,links:row?storedLinks(row.links):[],
+  design:(row?.design??'editorial') as MemberCardDesign,headline:row?.headline??null,links:row?storedLinks(row.links):[],
   show_profile_links:row?Boolean(row.show_profile_links):true,
   profile_link_prefs:prefs,profile_links:profileLinks,
 });
@@ -204,7 +204,7 @@ export async function saveMemberShare(pool:Pool,input:Command){
     if(current)checkVersion(current.aggregate_version,input.expected);
     else requireCondition(!input.expected,412,'version_conflict','分享設定已變更，請重新載入。');
     const token=!current||body.rotate||body.enabled&&!current.enabled?randomBytes(32).toString('base64url'):current.share_token;
-    const nextDesign=design??current?.design??'calm';
+    const nextDesign=design??current?.design??'editorial';
     const nextHeadline=headline===undefined?(current?.headline??null):headline;
     const nextLinks=links===undefined?storedLinks(current?.links):links;
     const nextShow=showProfileLinks===undefined?(current?Boolean(current.show_profile_links):true):showProfileLinks;

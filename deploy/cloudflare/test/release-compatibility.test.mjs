@@ -170,6 +170,26 @@ test('migrating prefix checks BOTH current and planned schema for every consumer
   assert.equal(evaluate(f).status, 'compatible');
 });
 
+test('editorial and scoped-chat migrations preserve host approval and authority boundaries', () => {
+  const f = fixture();
+  assert.deepEqual(f.scan.ledger.slice(-2).map(row => row.name), ['112_member_card_editorial.sql', '113_chat_stickers_replies.sql']);
+  const result = evaluate(f);
+  assert.equal(result.status, 'compatible');
+  assert.deepEqual(result.required_capabilities, ['platform.legacy.v1', 'work.explicit-wire.v1']);
+  for (const field of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[field], false);
+  for (const filename of ['112_member_card_editorial.sql', '113_chat_stickers_replies.sql']) {
+    const renamed = fixture();
+    renamed.scan.ledger.find(row => row.name === filename).name = filename.replace('.sql', '_unreviewed.sql');
+    renamed.scan.ledger_digest = compatibilityLedgerDigest(renamed.scan.ledger);
+    assert.deepEqual(codes(evaluate(renamed)), ['schema_unknown']);
+    const changed = fixture();
+    changed.scan.ledger.find(row => row.name === filename).sha256 = 'd'.repeat(64);
+    changed.scan.ledger_digest = compatibilityLedgerDigest(changed.scan.ledger);
+    assert.notEqual(evaluate(changed).status, 'compatible');
+    assert(codes(evaluate(changed)).includes('schema_ledger_mismatch'));
+  }
+});
+
 test('schema extension is unavailable until its exact known migration rule is reviewed', () => {
   const f = fixture();
   const next = Number(f.scan.ledger.at(-1).name.slice(0, 3)) + 1;

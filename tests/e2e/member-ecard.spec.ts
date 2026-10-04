@@ -223,7 +223,7 @@ const SAVED='已自動儲存，分享頁就是這個樣子。';
 function shareRegion(page:Page){return page.getByRole('region',{name:'分享我的工坊名片'});}
 async function waitSaved(settings:Locator){await expect(settings.locator('.ecard-save-status')).toContainText(SAVED,{timeout:20000});}
 async function openHref(settings:Locator){
-  const open=settings.locator('a[href*="/member-cards/"]');
+  const open=settings.locator('.member-card-share-actions a[href*="/member-cards/"]');
   await expect(open).toHaveAttribute('href',/\/member-cards\/[A-Za-z0-9_-]{43}$/);
   return (await open.getAttribute('href'))!;
 }
@@ -327,7 +327,7 @@ test('autosave makes the preview the shared card without a save button',async({p
     await page.waitForTimeout(1200);
     expect(posts).toBe(0);
     page.off('request',count);
-    const open=reloaded.locator('a[href*="/member-cards/"]');
+    const open=reloaded.locator('.member-card-share-actions a[href*="/member-cards/"]');
     await expect(open).toHaveAttribute('aria-disabled','true');
     await expect(open).toHaveText('開啟名片');
     let popped=false;
@@ -355,7 +355,7 @@ test('a slow save keeps later headline keystrokes and leaves the field editable'
     const headline=settings.getByLabel('一句話介紹');
     await headline.fill('你好');
     await headline.blur();
-    const anchor=settings.locator('a[href*="/member-cards/"]');
+    const anchor=settings.locator('.member-card-share-actions a[href*="/member-cards/"]');
     await expect(settings.locator('.ecard-save-status')).toContainText('儲存中…');
     await expect(anchor).toHaveText('儲存中…');
     await expect(anchor).toHaveAttribute('aria-disabled','true');
@@ -444,7 +444,7 @@ test('platform-public profile links render with brand icons and match the public
   try{
     await guest.setViewportSize({width:390,height:844});
     await guest.goto(shareUrl);
-    await expect(guest.locator('.ecard')).toHaveAttribute('data-design','calm');
+    await expect(guest.locator('.ecard')).toHaveAttribute('data-design','editorial');
     await expect(guest.getByRole('link',{name:/LINE/})).toHaveAttribute('href','https://line.me/ti/p/~lineuser');
     await expect(guest.getByRole('link',{name:/GitHub/})).toHaveAttribute('href','https://github.com/octocat');
     await expect(guest.getByRole('button',{name:'複製 Discord 帳號',exact:true})).toBeVisible();
@@ -464,7 +464,7 @@ test('platform-public profile links render with brand icons and match the public
     await expect(profile.getByRole('checkbox',{name:'顯示 其他連結 在名片上'})).toBeChecked({timeout:20000});
     for(const [label,url] of [['Facebook','https://www.facebook.com/workshop'],['LinkedIn','https://www.linkedin.com/in/workshop'],['YouTube','https://youtu.be/workshopclip'],['Threads','https://www.threads.net/@workshop'],['TikTok','https://www.tiktok.com/@workshop'],['X','https://x.com/workshop'],['個人網站','https://example.net/site']] as const)await addManual(settings,label,url);
     await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).toHaveAttribute('href',shareUrl);
-    await expect(settings.locator('.ecard-preview .ecard-name')).toHaveText('圖示名片作者的工坊名片');
+    await expect(settings.locator('.ecard-preview .ecard-name')).toHaveText('圖示名片作者');
     await expect(settings.locator('.ecard-preview .ecard-guild')).toHaveText('AI 開發公會');
     await guest.goto(shareUrl);
     await expect(guest.locator('a[href^="mailto:"]')).toBeVisible();
@@ -729,6 +729,8 @@ test('reverting a design while its save is in flight keeps the original card',as
   await signup(page,'還原名片作者');
   await navigate(page,'我的名片');
   const settings=shareRegion(page);
+  await settings.getByRole('button',{name:'清新',exact:true}).click();
+  await waitSaved(settings);
   const shareUrl=await enableShare(settings);
   await waitSaved(settings);
   await expect(settings.getByRole('button',{name:'清新',exact:true})).toHaveAttribute('aria-pressed','true');

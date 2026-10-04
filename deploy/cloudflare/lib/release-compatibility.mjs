@@ -65,6 +65,9 @@ const FOUNDATION_NAMES = [
   '107_operator_event_video_backfill.sql', '108_domain_media_gc_write_effects.sql',
   '109_banner_social_operator_backfill.sql', '110_skill_highlight_operator_backfill.sql',
   '111_operator_avatar_backfill.sql',
+  // Additive member-card/chat integration only. Exact ledger digests and all
+  // independently supplied host approvals remain mandatory; no new authority.
+  '112_member_card_editorial.sql', '113_chat_stickers_replies.sql',
 ];
 
 function reject(code) { throw new Error(code); }

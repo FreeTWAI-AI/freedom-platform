@@ -10,7 +10,7 @@ GitHub 連結固定列為必做待辦，以 `/me/github` 的真實狀態顯示�
 
 每個已加入的公會與小隊各有一個閒聊頻道，先顯示本人可用的頻道，選擇後才讀取正文。公會閒聊開放給該公會的有效成員，不限幹部；小隊邀請或尚待核准的申請不授予小隊頻道存取。離開後撤銷讀寫權，既有聊天內容保留在原頻道。私人訊息只有對話雙方可讀。
 
-聊天室與底部控制台共用同一元件。頻道可依名稱搜尋；可見分頁每秒檢查所選對話的小型 `/activity` 回應，有變化才讀取正文；其他私訊對話列表維持每 8 秒更新。送出時立即顯示「傳送中」，伺服器確認後才成為正式訊息；不因送出而重讀整批平台動態。切換對話保留本次開頁草稿，Enter 送出、Shift+Enter 換行；不會在中文組字途中送出。載入較早內容保留捲動位置，閱讀舊內容時的新訊息提供「回到最新」操作。首頁及已加入公會卡片可直接開啟指定公會聊天室，仍由 API 即時核對會員資格。
+聊天室與底部控制台共用同一元件。頻道可依名稱搜尋；可見分頁每秒檢查所選對話的小型 `/activity` 回應，有變化時讀取正文。若目前私訊仍有已載入、尚未讀的 outgoing，另每 8 秒重讀原授權分頁核對實際 read_at，避免最新訊息掩蓋舊訊息的已讀變化；offset 上限 10000。其他私訊對話列表維持每 8 秒更新。送出時立即顯示「傳送中」，伺服器確認後才成為正式訊息；不因送出而重讀整批平台動態。切換對話保留本次開頁草稿，桌面 Enter 送出、Shift+Enter 換行，手機 Enter 換行、按送出才傳送；不會在中文組字途中送出。載入較早內容保留捲動位置，閱讀舊內容時的新訊息提供「回到最新」操作。首頁及已加入公會卡片可直接開啟指定公會聊天室，仍由 API 即時核對會員資格。
 
 設定選單的未讀提示於初次載入、開啟選單、回到視窗及站內已讀／傳送後更新；訊息頁提供重新整理。API、鎖定順序與私人資料存取細節見 [通知與私訊服務](member-communications.md)。
 
@@ -27,6 +27,8 @@ GitHub 連結固定列為必做待辦，以 `/me/github` 的真實狀態顯示�
 
 私訊使用純文字，每則最多 2,000 字；每位寄件者每分鐘最多 20 則。重試沿用同一操作識別碼避免重複傳送。對方停權後，既有對話保留給本人閱讀，但無法再傳新訊息。訊息正文只存在私訊資料表，不複製到操作收據或稽核日誌。
 
+本分支提供四張工坊原創圖片貼圖與指定訊息回覆，可用於公會、小隊、世界與私訊。可搜尋、預覽及取消引用；文字、貼圖與引用草稿按對話分開。貼圖使用固定 `sticker_id`，引用使用 `reply_to_message_id`，由 API 核對同一對話及讀取原文。詳見 [社群設計與聊天升級](social-project-upgrade.md)，部署需本整合候選的 migration 113（最終基底更新時重新核對編號）。
+
 頻道未讀排除自己發出的內容；第一次加入尚未標記已讀時，既有他人訊息也列為未讀。已讀只推進到本人指定的已載入訊息，新到的內容仍保留未讀。離開時保留已讀位置，重新加入後接續使用；離開期間的內容仍依該位置計算。公會與小隊頻道彼此獨立，也不會轉成每位成員各一則重複通知。
 
 ## API
@@ -39,11 +41,11 @@ GitHub 連結固定列為必做待辦，以 `/me/github` 的真實狀態顯示�
 | `POST /me/notifications/:id/read` | 將本人的單則通知標為已讀 |
 | `GET /me/conversations` | 本人對話列表、私訊總未讀數 |
 | `GET /me/conversations/:userId/messages` | 本人與指定會員的訊息 |
-| `POST /me/conversations/:userId/messages` | 傳送 `{body}` |
+| `POST /me/conversations/:userId/messages` | 傳送 `{body}` 或 `{sticker_id}`，可選填 `reply_to_message_id` |
 | `POST /me/conversations/:userId/read` | 將對方傳給本人的訊息標為已讀 |
 | `GET /me/channels?kind=guild` 或 `kind=squad` | 本人目前可用的頻道及未讀數；不包含正文 |
 | `GET /me/channels/:kind/:key/messages` | 本人有資格的指定頻道訊息 |
-| `POST /me/channels/:kind/:key/messages` | 傳送 `{body}` 到該頻道 |
+| `POST /me/channels/:kind/:key/messages` | 傳送 `{body}` 或 `{sticker_id}` 到該頻道，可選填 `reply_to_message_id` |
 | `POST /me/channels/:kind/:key/read` | 用 `{through_message_id}` 標記已看過的訊息範圍 |
 | `POST /squads/:id/invitations` | 發起人送出 `{recipient_ref}` 邀請 |
 | `GET /squads/:id/invitations` | 發起人查看送出的邀請 |
@@ -54,7 +56,7 @@ GitHub 連結固定列為必做待辦，以 `/me/github` 的真實狀態顯示�
 
 頻道列表可加 `search`（最多 100 字），在分頁前篩選名稱；回傳總未讀數仍涵蓋本人全部可用頻道。`GET /me/channels/:kind/:key/messages` 可加 `after_sequence` 非負 bigint 字串（上限 `9223372036854775807`），從該序號後依序讀取新訊息；不能與非零 `offset` 合用。有後續增量時回傳 `next_after_sequence`。未帶游標時仍沿用原本的最近訊息與 offset 分頁。
 
-`GET /me/channels/:kind/:key/activity` 回 `{latest_sequence, unread_count}`，`GET /me/conversations/:userId/activity` 回 `{last_message_id, unread_count, can_send}`。兩者不帶查詢參數、不含訊息正文、不標已讀，資格檢查與讀取同一對話的訊息相同。世界頻道使用 `kind=world&key=world` 的同一讀寫、已讀介面。
+`GET /me/channels/:kind/:key/activity` 回 `{latest_sequence, unread_count}`，`GET /me/conversations/:userId/activity` 回 `{last_message_id, unread_count, can_send, last_outgoing}`，其中 `last_outgoing` 是最近送出訊息的 `{message_id,read_at}` 或 `null`。兩者不帶查詢參數、不含訊息正文、不標已讀，資格檢查與讀取同一對話的訊息相同。世界頻道使用 `kind=world&key=world` 的同一讀寫、已讀介面。
 
 小隊邀請回覆帶 `If-Match` 邀請版本；邀請本身不建立小隊成員資格，也不開放小隊聯絡資料。接受時沿用既有小隊成員鎖，與申請、核准及退出協調；退出後重播舊的接受收據不會重新加入。
 

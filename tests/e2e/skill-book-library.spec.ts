@@ -276,6 +276,40 @@ test('every bookshelf uses compact illustrated rows with full copy, live counts 
   await navigate(page, '我的名片');await expect(page.locator('.member-bookshelf')).toHaveCount(0);
 });
 
+test('cards in one shelf row share a height and keep the GitHub footer on one line in every theme and width',async({page})=>{
+  test.setTimeout(90000);
+  const library=await openLibrary(page);
+  for(const [theme,label] of [['dark','自由工坊－夜航'],['light','自由工坊－明亮'],['versefolk','自由工坊－敘生']] as const){
+    await page.getByRole('button',{name:'設定',exact:true}).click();
+    await page.getByRole('menuitemradio',{name:label,exact:true}).click();
+    await page.getByRole('button',{name:'設定',exact:true}).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
+    // 1440px is three columns, 820px two; 390px is a single column, so no card shares a row there.
+    for(const [width,columns] of [[1440,3],[820,2],[390,1]] as const){
+      await page.setViewportSize({width,height:900});
+      for(const shelf of [library,page.locator('.community-skill-library')]){
+        const rows=await shelf.locator('article.skill-library-book').evaluateAll(cards=>{
+          const byTop=new Map<number,{height:number;footer:number}[]>();
+          for(const card of cards){
+            const box=card.getBoundingClientRect(),footer=card.querySelector(':scope > .github-book-social'),key=Math.round(box.top);
+            byTop.set(key,[...(byTop.get(key)??[]),{height:box.height,footer:footer?footer.getBoundingClientRect().bottom:NaN}]);
+          }
+          return [...byTop.values()];
+        });
+        const where=`${theme} ${width}px`;
+        expect(Math.max(...rows.map(row=>row.length)),`${where} columns`).toBe(columns);
+        for(const row of rows)for(const card of row){
+          expect(Number.isNaN(card.footer),`${where} footer present`).toBe(false);
+          expect(Math.abs(card.height-row[0].height),`${where} card height`).toBeLessThanOrEqual(1);
+          expect(Math.abs(card.footer-row[0].footer),`${where} footer line`).toBeLessThanOrEqual(1);
+        }
+      }
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${theme} ${width}px horizontal overflow`).toBe(true);
+      if(theme==='light')await page.screenshot({path:`test-results/skill-shelf-equal-rows-${width}.png`,fullPage:true});
+    }
+  }
+});
+
 test('a published member work is packaged as a 社群技能書 like every catalog book',async({page})=>{
   const id='11111111-1111-4111-8111-111111111111',repo='https://github.com/example/event-form',path=`/development/submissions/${id}`;
   const item={submission_id:id,title:'活動報名表產生器',description:'輸入活動名稱與日期，產生可分享的報名表與提醒訊息草稿。',repository_url:repo,relationship:'curator',relationship_verification:'self_declared',official:false,project_id:'22222222-2222-4222-8222-222222222222',public_path:path,cover_url:'/art/community-skills/default.webp',illustration_url:null,

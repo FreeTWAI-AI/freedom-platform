@@ -1,6 +1,6 @@
 # PR／Issue 審核中心（Freedom Maintainer）設計
 
-> 設計稿，2026-10-01 第二輪改版，對照 main `639a619`。階段 1a–1c 已合併並發布（PR #73，`2c7134d`）；階段 1d 與 2a 在分支 `feat/repo-maintainer-phase2-20261001` 實作，驗證結果記在該 PR。Maintainer GitHub App 與 `main` ruleset 還沒建立，所以鏡像 Worker 還沒部署；在那之前，後台與「公會管理」的「PR 審核」清單都是空的。本文的「採用」只代表設計決定，不代表功能已上線。
+> 設計稿，2026-10-01 第二輪改版，原對照 main `639a619`。2026-10-04 程式狀態更新：階段 1a–1c（[PR #73](https://github.com/FreeTWAI-AI/freedom-platform/pull/73)，`2c7134d`）與 1d、2a（[PR #91](https://github.com/FreeTWAI-AI/freedom-platform/pull/91)，`628c087`）都已合併。本輪沒有查驗真實 Maintainer App、Worker、Access 或 ruleset 安裝；階段 0 的實際 staging 驗收與 2b 決策仍須另外完成，不能從程式已合併推定已部署。詳見[既有功能驗收清單](../development/repo-maintainer-acceptance.md)。本文的「採用」只代表設計決定，不代表功能已上線。
 >
 > 2026-10-01 Ted 決定：公會長審自己公會的模組與技能書；管理員什麼都能審，審完可以指定歸屬；不設風險分級和 SLA；沒有人按按鈕，就不自動處理；AI 一開始用各人自己的訂閱。舊版的風險分級、SLA、逾時交 AI 與 policy 自動合併已移除。同一天的第二輪決定見 §15：新 repo 預設開放公會長認領、技能書維護者算審核人、認領時預設設定 requested reviewer、AI 按鈕先做本機交接。
 
@@ -373,8 +373,8 @@ GitHub 也能讓 Copilot 的使用者把 Claude 或 Codex 當成 GitHub 上的 a
 | 1a | 觀察：migration 061、webhook、維護 Worker（installation 同步、補查、reconcile、row lease、請求預算）、狀態推導、管理 API | grok-4.7 | 已完成（PR #73） |
 | 1b | 認領、指派、釋放（062；可選的 requested reviewer，預設不寫 GitHub）、後台「PR 審核」分頁 | grok-4.7 | 已完成（PR #73） |
 | 1c | 依公會分工：歸屬、資格檢視表、公會長的審核頁、審完歸入；拿掉風險分級、SLA 與預設到期 | grok-4.7 | 已完成（PR #73）；出口要等階段 0：Staging 上公會長與管理員各自看得到正確的範圍與狀態 |
-| 1d | 新 repo 預設開放公會長認領；技能書維護者算審核人（071）；認領時預設設定 requested reviewer；deploy preflight 進 CI（不擋合併） | grok-4.7 | 本輪 PR |
-| 2a | 本機 AI 交接：讓 AI 修、讓 AI 合併、把 Issue 做成 PR（072） | grok-4.7 | 本輪 PR；出口要等階段 0：在測試 repo 用三種 CLI 各跑一次 |
+| 1d | 新 repo 預設開放公會長認領；技能書維護者算審核人（071）；認領時預設設定 requested reviewer；deploy preflight 進 CI（不擋合併） | grok-4.7 | 已合併（PR #91）；實際安裝／staging 驗收另列清單 |
+| 2a | 本機 AI 交接：讓 AI 修、讓 AI 合併、把 Issue 做成 PR（072） | grok-4.7 | 已合併（PR #91）；出口要等階段 0：在測試 repo 用三種 CLI 各跑一次，須另行授權 |
 | 2b | 雲端 agent（§10.2） | 待定 | 先整理接法，Ted 決定要接哪些 |
 | 之後 | 路徑層級的模組歸屬、Issue 列進審核中心、通知 | 另案 | — |
 
@@ -382,7 +382,9 @@ GitHub 也能讓 Copilot 的使用者把 Claude 或 Codex 當成 GitHub 上的 a
 
 ## 14. 測試
 
-- **Runtime（`tests/runtime`，各自建 schema、封鎖真網路、注入 fetcher）：** webhook 驗簽（正確、錯誤、缺少、重送）、去重、允許清單、全站中介層的例外只放行那一個路徑；注意事項（表格驅動，含 #46 的 38 個檔案：待作者，原因包含衝突與 migration 撞號）；狀態推導；舊 SHA 的核准不算；資格檢視表（管理員、公會長、技能書維護者、開放 repo、卸任、離開公會與撤回任命）；認領、指派、釋放、歸屬、歸入與競爭；API 權限（非管理員、非審核人、CSRF、idempotency、`If-Match`）；任務檔（三種任務、惡意標題留在資料區塊、不安全的分支名與檢查名、長度上限）與交接 API（資格、head 變動、合併只限已核准、重播）。
+既有測試檔、精確驗收範圍與未覆蓋項目見[驗收清單](../development/repo-maintainer-acceptance.md)；本輪實跑與 `not_run` 見[整合報告](../development/integration-pr85-104-future108.md)。以下描述測試設計，不代替最新執行證據。
+
+- **Runtime（`tests/runtime`，資料庫套件各自建 schema；部分套件封鎖全域 fetch，需要 GitHub transport 的套件注入 fetcher）：** webhook 驗簽（正確、錯誤、缺少、重送）、去重、允許清單、全站中介層的例外只放行那一個路徑；注意事項（表格驅動，含 #46 的 38 個檔案：待作者，原因包含衝突與 migration 撞號）；狀態推導；舊 SHA 的核准不算；資格檢視表（管理員、公會長、技能書維護者、開放 repo、卸任、離開公會與撤回任命）；認領、指派、釋放、歸屬、歸入與競爭；API 權限（非管理員、非審核人、CSRF、idempotency、`If-Match`）；任務檔（三種任務、惡意標題留在資料區塊、不安全的分支名與檢查名、長度上限）與交接 API（資格、head 變動、合併只限已核准、重播）。
 - **Worker（`tests/worker`）：** 用真的 dry-run bundle 打 webhook 路由；maintainer Worker 的 `scheduled` 以 outbound stub 模擬 `api.github.com`；確認 token 不進 log、pool 一定關閉。
 - **E2E（Playwright，匯入 `./fixtures.js`）：** 後台的分頁、認領與釋放、歸屬、審核人；會員端審核頁的範圍（公會長、技能書維護者）、認領（含選公會）、放棄；交給本機 AI 與把 Issue 做成 PR；手機寬度與三種主題。
 - **CI：** `verify` 之外另跑 `deploy-preflight`（`node --test deploy/cloudflare/test/*.test.mjs`），結果看得到，但不是必要檢查，不擋合併。

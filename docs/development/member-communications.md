@@ -83,7 +83,7 @@ npx tsx --test --test-concurrency=1 tests/runtime/member-communications.test.ts 
 
 ## 目前限制
 
-- 沒有即時推送或輪詢頻率建議；前端需自行重新整理列表。
+- 沒有即時推送。前端目前僅對可見、選定的對話每秒讀取輕量 activity；待確認的已載入私訊 outgoing receipts 另每 8 秒以原授權訊息分頁核對，保留手動重讀與失敗退避。詳見[訊息介面](member-settings-messages.md)；這些週期性核對不會自動標已讀。
 - 沒有封鎖、檢舉、刪除或編輯訊息；也沒有通知「全部標為已讀」。
 - 會員因退出公會而自動解除的專家或公會長身分不發通知，只有管理員操作與提名確認會發。
 - 分頁使用 offset；有新訊息寫入時，翻頁可能看到重複或跳過的項目，前端應以 id 去重。

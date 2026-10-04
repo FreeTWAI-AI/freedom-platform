@@ -17,6 +17,8 @@
   --shadow: 0 10px 30px rgba(16, 36, 61, 0.08);
   --radius: 14px;
   font-family: "Segoe UI", "PingFang TC", "Hiragino Sans CNS", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  /* Browsers default to no spacing; this adds a thin gap where CJK text touches Latin letters or digits. */
+  text-autospace: normal;
   color: var(--ink);
   background: var(--bg);
   line-height: 1.55;

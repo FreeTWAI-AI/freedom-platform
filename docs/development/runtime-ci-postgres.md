@@ -98,3 +98,7 @@ checkpoint was required. All Verify jobs succeeded. Separate CodeQL failure,
 uninstalled trusted gate and actual cloud/data acceptance remain release gates.
 Earlier failures and bounded test-fixture counterexamples remain retained;
 this pass does not identify the original Ubuntu assertion causes.
+
+## PR 85–104 integration source union (2026-10-04)
+
+The integration rebased on PR 108 `f5bede3a7fb898e6183b2f13e6bd93583cea9669` adds four runtime source files to that upstream snapshot: `chat-content.test.ts`, `member-card-qr.test.ts`, `member-session-lifecycle.test.ts`, and `direct-message-receipts.test.ts`. The current union is **200 files**, dynamically divided into four **50-file** partitions. Historical 196-file / 49-file evidence above remains evidence only for its recorded upstream source; it is not a result for this candidate. The full-suite file-set, unique-case, deadline, cleanup, and zero-failure requirements are unchanged.
