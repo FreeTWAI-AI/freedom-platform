@@ -5194,8 +5194,8 @@
     },
     {
       "path": "docs/development/newcomer-guides.md",
-      "bytes": 7002,
-      "sha256": "f50325c6bb91665c165bd15d6582ca7f53a01bcda8551fd627d8d7eb5987bf0a"
+      "bytes": 7053,
+      "sha256": "6f77c0d83a95e49ef8bdb50dd246ce5ff7b848a698e46b83a4ac7b566a9111e5"
     },
     {
       "path": "docs/development/onboarding-api.md",
@@ -5234,8 +5234,8 @@
     },
     {
       "path": "docs/development/public-guide-assets.md",
-      "bytes": 8408,
-      "sha256": "b226ca6201e4bad17d36e0395fff44023ff84a96a67d688376675480d34a0536"
+      "bytes": 8517,
+      "sha256": "fbabc54a247feeda5eb4bc807fa6ba7f09f484cc154e7a3470b8f9de18c9d892"
     },
     {
       "path": "docs/development/public-operations.md",
@@ -9534,8 +9534,8 @@
     },
     {
       "path": "tests/e2e/member-experience.spec.ts",
-      "bytes": 22502,
-      "sha256": "50e4ae35df4ea70588d0c2118f2ceec046c98703dcf75278ab49763d143bcbe9"
+      "bytes": 22824,
+      "sha256": "68778e6e668f64c9e691d8f722defc82857343b6201e72839083649be5a08d05"
     },
     {
       "path": "tests/e2e/member-home-next-step.spec.ts",
@@ -9599,8 +9599,8 @@
     },
     {
       "path": "tests/e2e/newcomer-guides.spec.ts",
-      "bytes": 47078,
-      "sha256": "7ae6b0619295e408c1776203d4d18685d81b3a88cd94f02c35fea8bb80e8807d"
+      "bytes": 47340,
+      "sha256": "5b815bb2d45229dd63fa5c9efb6a6ab8e913cf5bde496b3879957f7948eac3a2"
     },
     {
       "path": "tests/e2e/notification-bell-actions.spec.ts",

@@ -597,11 +597,16 @@ test('gallery modal owns its shortcut keys and interruption never reopens a stal
   await registerJoined(page);await openSpirit(page);
   await panel(page).getByRole('button',{name:'角色六視圖',exact:true}).click();
   const gallery=page.getByRole('dialog',{name:'龍娘角色六視圖',exact:true});await expect(gallery).toBeVisible();
-  for(const key of ['~','`','Backquote']){await page.keyboard.press(key);await expect(gallery).toBeVisible();await expect(page.locator('.game-console-expanded')).toHaveCount(0);}
+  // The existing Console preserves drafts in a mounted, hidden aside.
+  const consoleDock=page.locator('.game-console-expanded');
+  await expect(consoleDock).toHaveCount(1);await expect(consoleDock).toBeHidden();
+  for(const key of ['~','`','Backquote']){await page.keyboard.press(key);await expect(gallery).toBeVisible();await expect(consoleDock).toBeHidden();}
   // External UI can change while a modal is open (e.g. a restored console state).
-  await page.locator('.game-console').evaluate(element=>element.classList.add('game-console-expanded'));
-  await expect(gallery).toHaveCount(0);
-  await page.locator('.game-console').evaluate(element=>element.classList.remove('game-console-expanded'));
+  await consoleDock.evaluate(element=>{(element as HTMLElement).hidden=false});
+  await expect(consoleDock).toBeVisible();
+  await expect(page.locator('.guide-gallery')).toHaveCount(0);
+  await consoleDock.evaluate(element=>{(element as HTMLElement).hidden=true});
+  await expect(consoleDock).toBeHidden();
   await expect(widget(page).locator('.page-spirit-launcher')).toBeVisible();
-  await expect(gallery).toHaveCount(0);await expect(panel(page)).toHaveCount(0);
+  await expect(page.locator('.guide-gallery')).toHaveCount(0);await expect(panel(page)).toHaveCount(0);
 });

@@ -32,10 +32,12 @@ check; the media checker selects the explicit MEDIA purpose rather than assuming
 that exactly one private bucket exists. The broker still accepts only MEDIA.
 
 This work does not edit media ACLs, consent, share-generation validation,
-PostgreSQL policy or media lifecycle. The live operator policy remains the
-separately verified avatar/banner rollout; the other five media domains and GC
-remain OFF. Repository templates and this local guide fixture are not evidence
-of the live operator overlay. Do not copy an old all-OFF template over it.
+PostgreSQL policy or media lifecycle. Preserve the latest operator-approved
+MEDIA domain flags, bridge/persistence policies, bucket binding and GC setting.
+Those settings are independent of the default-OFF guide release. Repository
+templates and this local guide fixture are not evidence of live operator state.
+Never replace the accepted operator release overlay with historical all-OFF or
+partial-rollout settings.
 
 The architecture already describes public sanitized and private R2 in
 [architecture](../platform-plan/02-architecture-repositories.md) and
