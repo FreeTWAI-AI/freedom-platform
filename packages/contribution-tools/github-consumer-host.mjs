@@ -9,7 +9,7 @@ import { CONSUMER_LIBRARIES, verifyConsumerLibraries, LIBRARY_LOCK, LIBRARY_PREF
 import { artifactPath, parseJson, sha256 } from './io.mjs';
 import { verificationEnvironment } from './process-env.mjs';
 import { requireCondition as check, safeFailure } from './errors.mjs';
-const CONSUMERS = Object.freeze(['FreeTWAI-AI/freedom-agent-kit', 'FreeTWAI-AI/freedom-storefront']);
+const CONSUMERS = Object.freeze(['FreeTWAI-AI/freedom-agent-kit', 'FreeTWAI-AI/freedom-storefront', 'FreeTWAI-AI/freedom-supplier-client']);
 const commit = value => check(typeof value === 'string' && /^[a-f0-9]{40}$/.test(value), 'consumer_host_commit_required');
 function git(root, args) {
   return execFileSync('/usr/bin/git', ['--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null',

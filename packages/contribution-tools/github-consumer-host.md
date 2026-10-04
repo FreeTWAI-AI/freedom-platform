@@ -1,4 +1,4 @@
-# Native two-consumer source gate
+# Native adopted-consumer source gate
 
 `.github/workflows/trusted-consumer-libraries.yml` uses existing GitHub-hosted
 Actions and the native organization required-workflow rule. It needs no new App,
@@ -6,7 +6,7 @@ signed-job gateway, self-hosted runner, private key, Docker, npm install or data
 It runs only fixed central verifier code and reads candidate Git objects as data.
 It does not run or import candidate tests, scripts, workflows or libraries.
 
-The current admission profiles are **agent-kit and storefront only**. A successful
+The current admission profiles are **agent-kit, storefront and supplier-client only**. A successful
 job proves exact shared-library source integrity and unchanged preview-v1 bytes;
 `library_usage` and `runtime_observation` remain `not_checked`. It cannot certify
 actual invocation, authorization behavior, discovered runtime routes, all nine
@@ -17,7 +17,7 @@ and retains its existing central verification workflow.
 
 1. Merge/publish the reviewed shared library source and the existing
    `consumer-libraries.mjs` verifier. Record the exact publicly reachable source
-   commit. Re-export/repoint both consumer source locks and bytes against that
+   commit. Re-export/repoint all three consumer source locks and bytes against that
    approved commit using the existing consumer exporter. A cherry-pick SHA is
    different from its original local source SHA.
 2. Replace `REQUIRED_APPROVED_REACHABLE_SOURCE_SHA` in the new workflow with that
@@ -25,15 +25,16 @@ and retains its existing central verification workflow.
    candidate code; it is not a deployable approval value. Review this workflow
    and host code together, publish their final central commit, and pin that exact
    workflow revision in the existing native org required-workflow rule for only
-   `FreeTWAI-AI/freedom-agent-kit` and `FreeTWAI-AI/freedom-storefront`. Preserve
+   `FreeTWAI-AI/freedom-agent-kit`, `FreeTWAI-AI/freedom-storefront` and `FreeTWAI-AI/freedom-supplier-client`. Preserve
    their other required checks/reviews. The library source and workflow commits
    may differ; neither comes from a candidate lock or repository variable.
 3. The workflow checks out its own source using `job.workflow_sha`, then checks
    out the event's exact `github.sha`, with full history and no persisted checkout
    credentials. The source checkout's committed `repositories.lock.json` is the
    **approved baseline source**, independently selected by the fixed workflow
-   revision. Current baselines are kit `201fdab8017e2850bafc7b2f1e8dec7e4c0d6233`
-   and storefront `9823df79f8eee86008c269437880ed2e49bdc394`. The host requires each
+   revision. Current baselines are kit `201fdab8017e2850bafc7b2f1e8dec7e4c0d6233`,
+   storefront `9823df79f8eee86008c269437880ed2e49bdc394` and supplier-client
+   `53fd5b0ac4a1b67ccd71a8cc4ba092ea15bb3534`. The host requires each
    candidate to descend from its baseline, and compares every preview lock/vendor
    object and file mode exactly against that baseline. Missing history, added or
    removed preview files, extra libraries or rewritten candidate lock+library
@@ -68,7 +69,7 @@ observation, or execute a candidate import in the verifier process.
 ## Tests
 
 `node --test packages/contribution-tools/test/github-consumer-host.test.mjs`
-uses real local Git objects and verifies both supported profiles, forged
+uses real local Git objects and verifies all three supported profiles, forged
 lock+library bytes, fake passing artifacts, candidate test replacements, unchanged
 preview baseline, extra libraries, symlinks, graph overrides, unavailable source
 pins and native CLI identity/event handling. Expected library content contains a

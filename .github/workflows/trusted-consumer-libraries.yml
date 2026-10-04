@@ -8,7 +8,7 @@ permissions:
 jobs:
   consumer-library-source:
     # This central workflow is installed as a native required workflow ONLY for
-    # agent-kit and storefront. It is not the central platform verification job.
+    # agent-kit, storefront and supplier-client. It is not the central platform verification job.
     if: ${{ github.repository != 'FreeTWAI-AI/freedom-platform' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
