@@ -14,8 +14,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 10397,
-      "sha256": "756cb9307f96d02ca169ada4a1774730e257184e3d0e4128b3d95f711a9ec6f2"
+      "bytes": 10844,
+      "sha256": "0b724bc0b9f43de8fa92e7b103d90c98a3bc89e0f608d66eafc7e300cdf48717"
     },
     {
       "path": ".gitignore",
@@ -2324,8 +2324,8 @@
     },
     {
       "path": "deploy/cloudflare/candidate/README.md",
-      "bytes": 4369,
-      "sha256": "02b371cedee641ae3b528b1b1a0a0b1d97d5d6fff826629816879028ba7634f6"
+      "bytes": 5114,
+      "sha256": "95b007f5cc5b70b2b56991afb586099e0e26a7ad969d4ffc6b70804033a8ed39"
     },
     {
       "path": "deploy/cloudflare/candidate/isolated-request.example.json",
@@ -2364,8 +2364,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/isolated-candidate.mjs",
-      "bytes": 12132,
-      "sha256": "a21758b73d5f7488e77cbf0805b49a315c33fda1ae68fda6549c9bab069f0df0"
+      "bytes": 12519,
+      "sha256": "be9c5cad6f5f7a24f02bfc7958b0d4169f8288f5ee1e426e3b96edf0785a5d58"
     },
     {
       "path": "deploy/cloudflare/lib/manifest.mjs",
@@ -2469,8 +2469,8 @@
     },
     {
       "path": "deploy/cloudflare/test/isolated-candidate.test.mjs",
-      "bytes": 7488,
-      "sha256": "eea62d9ffca094af36d9c09c7d1941c773cc67fb5d69b6a20069c765adee2ec4"
+      "bytes": 9078,
+      "sha256": "79c412e42196bd9c1f1b13e0343617f336cce10bb0d65513ccdb9833554dfbcc"
     },
     {
       "path": "deploy/cloudflare/test/media-wrangler.test.mjs",
@@ -2819,8 +2819,8 @@
     },
     {
       "path": "docs/development/codeql-alert-39.md",
-      "bytes": 3616,
-      "sha256": "1408799cef2f037beb33eb61787df24486ceb465624441f19137117c330eb5cb"
+      "bytes": 5646,
+      "sha256": "8ab54c9430c93f602085ea45078cb5c798a8b8677ce4a14c32bc5059039a49d5"
     },
     {
       "path": "docs/development/community-author-skills.md",
@@ -3026,6 +3026,11 @@
       "path": "docs/development/research/positioning-upstream.md",
       "bytes": 2523,
       "sha256": "ea85943482a077a4c5178b895a0a8f277793e4e2f36e221bc83525e1433fccd2"
+    },
+    {
+      "path": "docs/development/runtime-ci-postgres.md",
+      "bytes": 2686,
+      "sha256": "9da7bc3adca448d260170b0222999572082d99e0e2b9be5d1900b3afe881130b"
     },
     {
       "path": "docs/development/service-cover-worker.md",
@@ -4254,13 +4259,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 172783,
-      "sha256": "812312af0945c27df884bcca39a60b503d1e49fb60265fcea982de09aa40058e"
+      "bytes": 177994,
+      "sha256": "cc17c5e3ca0d73742cc15a941f7d06099deeb4297e128528e3e78e290f5b52e7"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
-      "bytes": 8068,
-      "sha256": "35d171f35460514607ea000d55ffcd84ceaaa4f70669c866c69cb29cc27dd91e"
+      "bytes": 8406,
+      "sha256": "a7988af197aa96a8984b6e6a9d26aaf94dcfec1684d88743700e54e53bcf5ebd"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -6239,8 +6244,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-databases.mjs",
-      "bytes": 5401,
-      "sha256": "47df7ac691783ecc97304645936a1825e11e3ec71b25d1d0300b9e032c766788"
+      "bytes": 7639,
+      "sha256": "ff9e9afbe2c514d5f4013511a1f9845502aa42c92e7c7c54d80c374e71c7ac38"
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
@@ -6733,6 +6738,11 @@
       "sha256": "e9472744cf3d7cea1f1eb5e121fbb3513783e2bd0383c1df71859c4d7375ef6e"
     },
     {
+      "path": "scripts/ci/verify-runtime-postgres.sh",
+      "bytes": 2113,
+      "sha256": "796596be0d5ee6f56599f15da616130ee0d569b9fcba1c80494893182e5813af"
+    },
+    {
       "path": "scripts/database.ts",
       "bytes": 1823,
       "sha256": "d9d860c7e0ae9aae2973fb2117acf2a07cea52904544bd69547c22807ec0ee64"
@@ -6859,8 +6869,8 @@
     },
     {
       "path": "tests/contribution-tools/runtime-sharding.integration.test.mjs",
-      "bytes": 7594,
-      "sha256": "121a093c521ea0194bca371299b29418fbfdd493c74fee02520377cdf66b0f76"
+      "bytes": 9878,
+      "sha256": "6be814a1ba409382dafdfc8f3b7731f6b5a3c27ac89201e7f33d0b5f35498a5c"
     },
     {
       "path": "tests/e2e/admin-credentials.spec.ts",

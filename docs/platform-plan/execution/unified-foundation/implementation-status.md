@@ -1418,8 +1418,8 @@ native七profile RPC三套Unix/TCP各3/3、零skip，typecheck通過。
 兩個nonce-owned DB cleanup verified，所有raw保留。SQL-only fd26472
 將avatar purpose與helper分成nested PL/pgSQL IF，未新增app/PUBLIC
 EXECUTE；作者avatar11/11，根更新精確canonical digest並完成
-release380/380、ACL/resource-scope32/32。新固定版完整runtime、
-canonical-role Worker和實際restore結果仍待完成，另以固定SHA記錄。
+release380/380、ACL/resource-scope32/32。修正版固定f900595的完整
+runtime、canonical-role Worker及實際restore結果見下列後續紀錄。
 
 真正GitHub f7b47f9 run37166738612：UI、static-worker、
 governance-consumers、deploy-preflight成功；runtime在native prerequisites
@@ -1428,7 +1428,8 @@ f8b6d6f改用Ubuntu官方apparmor-profiles提供的精確bwrap額外profile，
 只在受控ephemeral hosted runner載入；保留global restriction與非root
 執行，檢查六namespace、child CapEff0/NoNewPrivs與unpriv_bwrap。
 本機readonly probe與原native六case通過，Noble官方profile離線編譯
-通過；新GitHub runner結果pending，未將環境原因推論寫成已證實。
+通過；f900595的實際GitHub namespace前置步驟已通過，完整runtime
+另有測試DB效能／清理失敗，見下列後續紀錄。
 
 隔離candidate admission CLI重用原manifest與七purpose registry，
 產出真main/broker/operator entries的OFF設定，無routes/crons/dev/preview。
@@ -1445,3 +1446,75 @@ fulfilled effect成功，app及PUBLIC無private helper EXECUTE，偽造
 historical avatar仍拒絕；同來源native七profile RPC三套串行3/3與
 typecheck通過。獨立fixture僅保留隔離分支及證據，原既有native
 Worker/restore反例已提供持續回歸保護，不把此結果冒充根完整回歸。
+
+固定f9005950739b62a71ee71ed31b2480323cf6d848後續驗證：
+
+- 第一輪root完整runtime為2,597 pass／23 fail／0 skip，196檔／2,620
+  cases，兩個nonce-owned DB verified cleanup。當時同一PG cluster的
+  native Worker與runtime並行，PG實際記錄lock table耗盡；同source
+  兩個失敗檔在cluster閒置時58/58通過。原失敗與日誌保留。
+- 第二輪runtime獨占該合成PG cluster，2,620/2,620通過，零fail／
+  skip／cancel／todo，兩DB verified cleanup，source_unchanged=true。
+  同輪governance.unit以原60秒cap逾時，因此該整體verifier報告仍
+  failed；隨後同source獨立執行governance.unit251/251通過，沒有
+  改寫原failed報告，也不以這兩次結果宣稱可信CI已安裝。
+- 本機static release/scanner380/380、supervisor6/6、typecheck/build、
+  16生成/preflight、五類Worker各環境dry-run及實際七類restore2/2
+  通過。第一輪static Worker56 pass／1 fail，唯一fail在清理fixture
+  DROP SCHEMA時PG回報out of shared memory；同source在另一個
+  閒置cluster重跑完整Worker57/57、零skip，保留兩份結果。
+- 真正GitHub [Verify run37168543325](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37168543325)
+  的static-worker、governance-consumers、deploy-preflight、ui-e2e成功；
+  Worker57/57、DB＋nativeR2 restore2/2，原native CLI namespace前置
+  與sharding integration5/5通過。UI413 pass／5 skip；五skip全是
+  FREEDOM_E2E_PRIVATE_AI_FIXTURE未開啟的私人AI合成fixture，沒有
+  把私人模型驗收列為本次基底完成。
+- 同一公開run的runtime-full與aggregate verify失敗。兩shards在
+  期限到達時SIGKILL/test_timeout，未產出完整case報告；artifact
+  test_count=0表示沒有可採納的完整結果，不能解讀為沒有執行測試。
+  PG記錄長時間WAL checkpoints與DROP DATABASE兩秒statement
+  timeout，database_cleanup_verified=false。CI專用合成PG與有界清理
+  已修正，見下段；不縮減suite、不把skip或缺證據改成pass。
+- 最新JavaScript CodeQL analysis1887441437、refs/pull/108/head、
+  exact f900595有十個來源，但只有四條展開路徑共36steps。十個
+  login token表達式及36steps均已讀取；identity service與main3de70cc
+  bytes一致，token來自獨立randomBytes。此證據支持特定誤報核定，
+  仍不等於核定已完成；security check111336610411維持failure，
+  一筆new high，alert39 open。[查核紀錄](../../../development/codeql-alert-39.md)
+  不以Analyze job success、錯誤merge ref零結果或舊24筆數目代替
+  最新安全gate結果，沒有自行dismiss／exclude或改password crypto。
+
+隔離candidate provider reader另修正真實連線契約：PlanetScale
+Hyperdrive origin.user須為bare SQL role加上精確physical branch ID；
+SQL expected_roles維持原canonical值，新增derived connection users，
+不接受任意username override、bare role、錯branch或額外suffix。
+修正前真實格式fixture反例失敗、修正後13/13與根部署工具382/382
+通過。此修改僅部署前工具／測試／文件，沒有改產品runtime或migration；
+不將provider mock當作真正GET、DB身分或空branch證據。
+
+CI-only storage/cleanup修正997d105已整合為3082201：只有runtime-full
+的合成PG使用4GiB tmpfs，覆蓋PG18實際/var/lib/postgresql/18/docker；
+readonly helper檢查精確image/service ID、tmpfs type/size/used、data
+directory及至少6GiB runner RAM。checkpoint_completion_target=0，
+fsync/full_page_writes仍on。不是正式DB或backup durability設定。
+清理以一個20秒共同deadline涵蓋所有連線、query、settlement及absence
+verification；每次DROP最多6秒，保留原24秒reserve及900秒全套上限。
+lost DROP ACK不能當成功或永久失敗，需settle精確nonce backend後以
+新的identity-checked connection確認所有registered names不存在；
+foreign ownership拒絕清理，原supplied DB保持存在。
+作者與根整合3082201的actual PG integration均7/7，governance unit
+251/251在原60秒cap通過；根release/scanner382/382，零skip。
+作者實際PG18 tmpfs/readback通過，但GitHub-hosted guard在本機明確
+模擬；最新真正GitHub RAM、peak用量、全套耗時與cleanup仍待重跑。
+相對f900595，apps/modules/migrations/contracts及production packages
+bytes未變；唯一packages變更是上述test-host runtime-databases.mjs，
+不把f900595產品全套證據寫成新版完整host verifier已通過。
+[CI資料庫說明](../../../development/runtime-ci-postgres.md)
+
+上列fixed-source raw、原失敗與獨立重跑保存在root ignored reports。
+四個已結束且task/head marker精確相符的root test HOME已清除，
+只移除合成cache；原checkout、Ted真實資料、log與證據均未移除。
+尚無真正Cloudflare候選資源建立或HTTPS驗收、正式inventory/full
+verify/delta、offsite restore、可信publisher／baseline/enforcement及
+CodeQL核定。私人模型/broker與未驗收Autopilot保持OFF，沒有merge、
+deploy、staging/live migration、正式key/trust/rules變更；其他PR未處理。
