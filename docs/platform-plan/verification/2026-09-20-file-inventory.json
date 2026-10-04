@@ -4264,8 +4264,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 193723,
-      "sha256": "f7a97981f5eb735da01427d05af86156719dba96838f963d29b9a874d1cc248f"
+      "bytes": 194610,
+      "sha256": "3326c118b06c59ab5b719e96dac67807b46c12e8711ecc657a5393adf5e4bf40"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
@@ -6769,8 +6769,8 @@
     },
     {
       "path": "scripts/ci/native-cli-snapshot-check.mjs",
-      "bytes": 3354,
-      "sha256": "ea3e104404ffc7c307852e49ca0a52ba60d7f8d60f06187562d53a67ce7ff987"
+      "bytes": 4659,
+      "sha256": "bc8ebfbace821b9abcb14c94e8cb868e12e6aef61bd240d04cdcff4dad9d564b"
     },
     {
       "path": "scripts/ci/verify-native-cli-prerequisites.sh",

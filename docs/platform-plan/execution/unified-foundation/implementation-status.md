@@ -1752,3 +1752,15 @@ Miniflare／workerd pins 保留；僅 undici lock entry 更新。作者使用
 零 fail/skip，兩命令 exit0；先前環境失敗與 wrapper143 證據留存。
 GitHub default-branch 六個 dependency alerts 尚未因此關閉，CodeQL
 alert39 是不同的未核定 failure；不以相依更新宣稱已清除 security gate。
+
+d08bfab 的真正 Ubuntu checkpoint 已在 namespace 通過後立即失敗：
+第一項固定 synthetic fixture 回報 bwrap: execvp /cli: No such file or
+directory，0 pass／6 fail／零 skip；完整 runtime 尚未開始。其餘
+五項是同次啟動失敗下的結果，未推論為五個獨立缺陷。Worker、治理
+與 preflight 已成功，查詢時 UI 仍執行中，不把部分結果當 final pass。
+0.9／0.11 upstream readonly bind-data setup 與 perms 語義相同，fresh
+snapshot FD 起始 offset0；尚無版本／FD 缺陷證據。新增僅九個既有
+fixed system library paths 的 uid/mode/size/readlink/realpath 與同 filter
+admission readback；不讀 file contents，明確 sandbox_mount_verified=false。
+作者 local 九個 admitted、六項 probe pass；真正 Ubuntu metadata
+與 sandbox exec 原因仍待查核。Production CLI 與隔離限制未改。
