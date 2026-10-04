@@ -9,7 +9,7 @@ from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[3]
 MANIFEST = ROOT / "docs/platform-plan/verification/2026-09-20-file-inventory.json"
-IGNORE = {".git", ".gitdata", ".venv", "venv", "__pycache__", ".pytest_cache", ".DS_Store", "__MACOSX", "node_modules", "dist", ".wrangler", "test-results", "playwright-report"}
+IGNORE = {".git", ".gitdata", ".venv", "venv", "__pycache__", ".pytest_cache", ".DS_Store", "__MACOSX", "node_modules", "dist", ".wrangler", ".freedom", "test-results", "playwright-report"}
 GENERATED_FILES = {"apps/portal-web/public/downloads/freedom-skill-client.tgz"}
 
 def source_files():

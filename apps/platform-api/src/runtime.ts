@@ -1,8 +1,15 @@
+import type {EventHighlightAssetService} from '../../../modules/assets/event-highlight.js';
+import type {SkillImageAssetService} from '../../../modules/assets/skill-image.js';
+import type {SocialThumbnailAssetService} from '../../../modules/assets/social-thumbnail.js';
+import type {EventVideoAssetService} from '../../../modules/assets/event-video.js';
+import type {EventBannerAssetService} from '../../../modules/assets/event-banner.js';
 import type { Context } from 'hono';
 import type { AdminAccessVerifier } from '../../../modules/platform-admin/access.js';
 import type { PasswordEmailSender } from '../../../modules/identity-membership/password-recovery.js';
 import type { EventEmailSender } from '../../../modules/community/events.js';
 import type {GuildReviewer} from '../../../modules/community/guild-discovery.js';
+import type { ServiceCoverAssetService } from '../../../modules/assets/media-domain.js';
+import type { ObjectStore } from '../../../packages/asset-storage/index.js';
 
 /** Stable rate-limit key used whenever no trusted network address is available. */
 export const SHARED_NETWORK_KEY = 'shared-server';
@@ -33,6 +40,26 @@ export type PlatformRuntime = {
   /** Public event participation details are sent only when a mail adapter exists. */
   eventEmailSender?: EventEmailSender;
   guildReviewer?: GuildReviewer;
+  /** Explicit server port; absent keeps asset-backed reads unavailable. No mode activation. */
+  avatarAssetStore?: ObjectStore;
+  /** Explicit installed cover lifecycle/read store; no ambient activation. */
+  serviceCoverAssets?: ServiceCoverAssetService;
+  serviceCoverAssetStore?: ObjectStore;
+  eventBannerAssets?:EventBannerAssetService;
+  eventBannerAssetStore?:ObjectStore;
+  eventVideoAssets?:EventVideoAssetService;
+  eventVideoAssetStore?:ObjectStore;
+  skillImageAssets?:SkillImageAssetService;
+  skillImageAssetStore?:ObjectStore;
+  socialThumbnailAssets?:SocialThumbnailAssetService;
+  socialThumbnailAssetStore?:ObjectStore;
+  eventHighlightAssets?:EventHighlightAssetService;
+  eventHighlightAssetStore?:ObjectStore;
+  /** Explicit host-installed private Work/model product transport. No ambient
+   * credentials or default Worker activation; it owns its bounded HTTP body. */
+  privateAiProduct?: (request: Request) => Promise<Response>;
+  /** Same installed opaque product-derived browser policy. No wire/config DTO. */
+  privateAiSetupOrigin?: () => string | undefined;
   /** Extra non-secret fields merged into /api/v1/health. */
   health?: Readonly<Record<string, string | null>>;
   /** Clock for promotion days. Tests inject a fixed instant. */

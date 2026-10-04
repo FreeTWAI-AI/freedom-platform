@@ -44,7 +44,12 @@ export async function createWork(pool: Pool, input: Command) {
   });
 }
 function workView(row:any,reviewAvailable:boolean,myClaim:any) {
-  return {...row,terms_status:'declared',review_capacity:reviewAvailable?'available':'waiting_reviewer_capacity',my_claim:myClaim};
+  // Preserve the legacy wire/receipt shape; new DB identity is not a preview-v1 field.
+  const {work_item_id,community_id,owner_ref,title,objective,acceptance_criteria,gain,state,aggregate_version,
+    participation_terms,participation_terms_revision,participation_terms_sha256,claim_window_expires_at,due_at,created_at}=row;
+  return {work_item_id,community_id,owner_ref,title,objective,acceptance_criteria,gain,state,aggregate_version,
+    participation_terms,participation_terms_revision,participation_terms_sha256,claim_window_expires_at,due_at,created_at,
+    terms_status:'declared',review_capacity:reviewAvailable?'available':'waiting_reviewer_capacity',my_claim:myClaim};
 }
 async function claimView(q: Pick<PoolClient,'query'>, claim:any) {
   if(!claim)return null;
@@ -56,14 +61,14 @@ async function claimView(q: Pick<PoolClient,'query'>, claim:any) {
 }
 export async function listWorks(pool: Pool, actor: Actor) {
   const rows=(await pool.query(`SELECT w.*, EXISTS(SELECT 1 FROM work_review_routes r WHERE r.work_item_id=w.work_item_id AND r.revoked_at IS NULL AND r.valid_until>now()) AS review_available
-    FROM work_items w WHERE community_id=$1 ORDER BY created_at DESC,work_item_id`,[actor.community_id])).rows;
+    FROM work_items w WHERE community_id=$1 AND work_mode='community_collaboration' ORDER BY created_at DESC,work_item_id`,[actor.community_id])).rows;
   return Promise.all(rows.map(async row=>{
     const own=(await pool.query('SELECT * FROM work_claims WHERE work_item_id=$1 AND claimant_ref=$2',[row.work_item_id,actor.user_id])).rows[0];
     const {review_available,...work}=row;return workView(work,review_available,await claimView(pool,own));
   }));
 }
 async function scopedWork(q:PoolClient, actor:Actor,id:string,lock=false) {
-  const row=(await q.query(`SELECT * FROM work_items WHERE work_item_id=$1 AND community_id=$2${lock?' FOR UPDATE':''}`,[id,actor.community_id])).rows[0];
+  const row=(await q.query(`SELECT * FROM work_items WHERE work_item_id=$1 AND community_id=$2 AND work_mode='community_collaboration'${lock?' FOR UPDATE':''}`,[id,actor.community_id])).rows[0];
   requireCondition(row,404,'not_found','找不到這個工作。');return row;
 }
 export async function claimWork(pool:Pool,input:Command,id:string) {
@@ -87,7 +92,7 @@ export async function claimWork(pool:Pool,input:Command,id:string) {
 }
 async function scopedClaim(q:PoolClient,actor:Actor,id:string,review:boolean,lock=false) {
   const claim=(await q.query(`SELECT c.* FROM work_claims c JOIN work_items w USING(work_item_id)
-    WHERE c.claim_id=$1 AND w.community_id=$2${lock?' FOR UPDATE OF c':''}`,[id,actor.community_id])).rows[0];
+    WHERE c.claim_id=$1 AND w.community_id=$2 AND w.work_mode='community_collaboration'${lock?' FOR UPDATE OF c':''}`,[id,actor.community_id])).rows[0];
   requireCondition(claim,404,'not_found','找不到這次認領。');
   if(review) {
     requireCondition(claim.claimant_ref!==actor.user_id,403,'self_review','不能驗收自己的成果。');
@@ -131,10 +136,11 @@ export async function changeClaim(pool:Pool,input:Command,id:string,action:'star
 }
 export async function dashboard(pool:Pool,actor:Actor) {
   const works=await listWorks(pool,actor);
-  const gained=(await pool.query('SELECT contribution_id,work_item_id,title,summary,artifact_ref,accepted_at,official FROM contributions WHERE community_id=$1 AND user_id=$2 ORDER BY accepted_at DESC',[actor.community_id,actor.user_id])).rows;
+  const gained=(await pool.query(`SELECT c.contribution_id,c.work_item_id,c.title,c.summary,c.artifact_ref,c.accepted_at,c.official FROM contributions c
+    JOIN work_items w ON w.work_item_id=c.work_item_id WHERE c.community_id=$1 AND c.user_id=$2 AND w.work_mode='community_collaboration' ORDER BY c.accepted_at DESC`,[actor.community_id,actor.user_id])).rows;
   const reviewClaims=(await pool.query(`SELECT c.*,u.display_name AS claimant_name FROM work_claims c JOIN work_items w USING(work_item_id)
     JOIN work_review_routes r USING(work_item_id) JOIN users u ON u.user_id=c.claimant_ref
-    WHERE w.community_id=$1 AND r.reviewer_ref=$2 AND r.revoked_at IS NULL AND r.valid_until>now()
+    WHERE w.community_id=$1 AND w.work_mode='community_collaboration' AND r.reviewer_ref=$2 AND r.revoked_at IS NULL AND r.valid_until>now()
     AND c.claimant_ref<>$2 AND NOT is_verification_test_account(c.claimant_ref) AND c.state IN ('submitted','in_review') ORDER BY c.created_at`,[actor.community_id,actor.user_id])).rows;
   return {now:works.filter(w=>w.my_claim && w.my_claim.state!=='accepted'),next:works.filter(w=>w.state==='open'),gained,
     review_queue:await Promise.all(reviewClaims.map(async c=>({claim:await claimView(pool,c),work_item:works.find(w=>w.work_item_id===c.work_item_id),claimant_name:c.claimant_name}))),summary:{accepted_count:gained.length}};

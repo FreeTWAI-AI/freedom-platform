@@ -1,5 +1,7 @@
 # Execution spec index
 
+2026-10-02 新增：[共同基礎開發規格](./unified-foundation/README.md)，將 R2、Autopilot 及跨 repo 治理 1.1 計畫轉成分批實作 spec。這組文件為 draft，未修改下列歷史 packages 的完成狀態；現況差異、過渡規則與 168 項待跑驗收另列於新規格。
+
 > 狀態：現行 canonical baseline（2026-09-19 低維運互惠修訂）；planning 文件，不代表已部署。
 
 狀態詞：`draft-ready`＝可交實作者細化／實作，但沒有 code／test／runtime evidence；`後續`＝只固定跨模組契約與待驗證範圍。沒有任何列是 implemented 或 verified。全表平台建置 reviewer＝Grok adversarial review，verifier＝Claude verification；產品內的自然人 `ReviewerAppointment` 語意不變。

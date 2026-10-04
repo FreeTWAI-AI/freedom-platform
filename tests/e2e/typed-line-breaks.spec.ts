@@ -198,7 +198,8 @@ test('typed multi-line text keeps its line breaks on the pages that show it', as
     await e2eAuthPool.query('DELETE FROM community_events WHERE event_id=$1', [eventId]);
     await e2eAuthPool.query('DELETE FROM retail_stores WHERE store_id=$1', [storeId]);
     await e2eAuthPool.query('DELETE FROM member_services WHERE service_id=$1', [serviceId]);
-    await e2eAuthPool.query('DELETE FROM work_items WHERE work_item_id=$1', [workId]);
+    // Work IDs are immutable and cannot be deleted/rebound after WORK-A.
+    // This synthetic row is removed by the fixture's isolated schema teardown.
     await e2eAuthPool.query('DELETE FROM positioning_guild_catalog WHERE guild_key=$1', [guildKey]);
   }
 });

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "proofId": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$(?![\\s\\S])"
+    },
+    "validFromMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "validUntilMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "assurance": {
+      "type": "string",
+      "const": "cryptographic_only"
+    },
+    "operational_authority": {
+      "type": "boolean",
+      "const": false
+    },
+    "tokenId": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$(?![\\s\\S])"
+    }
+  },
+  "required": [
+    "proofId",
+    "validFromMs",
+    "validUntilMs",
+    "assurance",
+    "operational_authority",
+    "tokenId"
+  ],
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/execution/v1/bootstrap-nonce-proof-result",
+  "description": "Closed bootstrap session shape only. Real signatures, exact host and current DB authority, time, replay and committed rotation must be independently checked. No execution authority or approved production trust."
+}

@@ -1,3 +1,5 @@
+import {readSkillImage,skillImageStorageMode,type SkillImageAssetService} from '../assets/skill-image.js';
+import {lockSkillUploadGrant,assertSkillUploadGrantClock} from './upload-authority.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
@@ -18,7 +20,7 @@ export const MAX_ACTIVE_KEYS = 10;
 const IDEMPOTENCY = /^[A-Za-z0-9_-]{8,128}$/;
 const MEMBER_READY = 'active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)';
 // manual is a simple submission: no upload grant and not an upgrade draft.
-const SUBMISSION_COLUMNS = `submission_id,status,aggregate_version,payload,project_id,upgrades_submission_id,seed,image_bytes IS NOT NULL AS has_image,(grant_hash IS NULL AND seed IS NULL) AS manual,
+const SUBMISSION_COLUMNS = `submission_id,status,aggregate_version,payload,project_id,upgrades_submission_id,seed,(image_bytes IS NOT NULL OR storage_source='asset') AS has_image,(grant_hash IS NULL AND seed IS NULL) AS manual,
   LEAST(grant_expires_at,(SELECT k.expires_at FROM skill_upload_keys k WHERE k.key_id=skill_submissions.grant_key_id)) AS grant_expires_at,
   COALESCE(grant_revoked_at,(SELECT k.revoked_at FROM skill_upload_keys k WHERE k.key_id=skill_submissions.grant_key_id)) AS grant_revoked_at,
   grant_consumed_at,created_at,updated_at,
@@ -166,11 +168,8 @@ export async function reviseManualSubmission(pool: Pool, input: Command, id: str
 export async function readSubmission(pool: Pool, actor: Actor, id: string) {
   return submissionView(await ownedSubmission(pool, actor, uuidOrNotFound(id)));
 }
-export async function readOwnIllustration(pool: Pool, actor: Actor, id: string) {
-  const row = (await pool.query(`SELECT image_bytes FROM skill_submissions WHERE submission_id=$1 AND community_id=$2 AND owner_ref=$3 AND image_bytes IS NOT NULL`,
-    [uuidOrNotFound(id), actor.community_id, actor.user_id])).rows[0];
-  requireCondition(row, 404, 'illustration_not_found', '這份投稿沒有示意圖。');
-  return row.image_bytes as Buffer;
+export async function readOwnIllustration(pool: Pool, actor: Actor, id: string,store?:import('../../packages/asset-storage/index.js').ObjectStore) {
+  const bytes=await readSkillImage(pool,uuidOrNotFound(id),store,actor);requireCondition(bytes,404,'illustration_not_found','這份投稿沒有示意圖。');return bytes!;
 }
 
 // Raw grant secrets are created inside the transaction but kept outside the
@@ -430,26 +429,18 @@ export async function agentCreateSubmission(pool: Pool, key: Owner & { key_hash:
   };
 }
 
-export async function agentUploadSubmission(pool: Pool, grant: Owner & { grant_hash: string; submission_id: string }, normalized: NormalizedSubmission, origin: string) {
+export async function agentUploadSubmission(pool: Pool, grant: Owner & { grant_hash: string; submission_id: string }, normalized: NormalizedSubmission, origin: string, assets?:SkillImageAssetService) {
+  grant=Object.freeze({...grant});
+  const assetMode=normalized.image!==null&&await skillImageStorageMode(pool)!=='legacy';
+  requireCondition(!assetMode||assets,503,'media_upload_unavailable','內容上傳暫時無法使用。');
+  const imageStage=assetMode?await assets!.stage(grant,normalized):null;
+  if(imageStage)await assets!.verify(imageStage);
   return transaction(pool, async q => {
-    await lockAgentOwner(q, grant, grantInvalid);
-    const peek = (await q.query('SELECT grant_key_id FROM skill_submissions WHERE submission_id=$1 AND grant_hash=$2', [grant.submission_id, grant.grant_hash])).rows[0];
-    if (!peek) throw grantInvalid();
-    if (peek.grant_key_id) {
-      // A grant minted by an agent key dies with that key (revoked or expired).
-      const key = await q.query(`SELECT 1 FROM skill_upload_keys WHERE key_id=$1 AND user_id=$2 AND community_id=$3 AND revoked_at IS NULL AND expires_at>now() FOR UPDATE`,
-        [peek.grant_key_id, grant.user_id, grant.community_id]);
-      if (key.rowCount !== 1) throw grantInvalid();
-    }
-    const row = (await q.query(`SELECT submission_id,status,grant_key_id,grant_revoked_at,grant_expires_at>now() AS grant_live,grant_consumed_at,payload_sha256,seed
-      FROM skill_submissions WHERE submission_id=$1 AND grant_hash=$2 AND owner_ref=$3 AND community_id=$4 FOR UPDATE`,
-      [grant.submission_id, grant.grant_hash, grant.user_id, grant.community_id])).rows[0];
-    // Revoked, rotated, expired or re-bound grants are rejected even for identical replays.
-    if (!row || row.grant_revoked_at || !row.grant_live || row.status === 'revoked' || row.grant_key_id !== peek.grant_key_id) throw grantInvalid();
+    const row=await lockSkillUploadGrant(q,grant),peek={grant_key_id:row.grant_key_id};
     const ack = (status: string, consumedAt: Date | string) => ({ submission_id: row.submission_id, status, grant_consumed_at: iso(consumedAt), review_url: reviewUrl(origin) });
     if (row.grant_consumed_at) {
       requireCondition(row.payload_sha256 === normalized.payload_sha256, 409, 'upload_grant_consumed', '這份上傳授權已使用；內容不同的上傳需要新的草稿。');
-      return ack(row.status, row.grant_consumed_at);
+      await assertSkillUploadGrantClock(q,grant);return ack(row.status, row.grant_consumed_at);
     }
     requireCondition(row.status === 'awaiting_upload', 409, 'submission_not_awaiting_upload', '這份草稿目前不能上傳。');
     if (row.seed) {
@@ -459,12 +450,14 @@ export async function agentUploadSubmission(pool: Pool, grant: Owner & { grant_h
         throw new Problem(422, 'repository_mismatch', `這份草稿是為 ${label} 建立的；請上傳同一個儲存庫的內容，或撤銷草稿後重新建立。`);
       }
     }
-    const saved = (await q.query(`UPDATE skill_submissions SET status='ready_for_review',payload=$2,payload_sha256=$3,image_bytes=$4,grant_consumed_at=now(),
+    if(assetMode){requireCondition(imageStage,503,'media_upload_unavailable','內容上傳暫時無法使用。');await assets!.publishOnOriginalTransaction(q,grant,normalized,imageStage!);}
+    await assertSkillUploadGrantClock(q,grant);
+    const saved = (await q.query(`UPDATE skill_submissions SET status='ready_for_review',payload=$2,payload_sha256=$3,image_bytes=$4,storage_source=$5,grant_consumed_at=now(),
       aggregate_version=aggregate_version+1,updated_at=now() WHERE submission_id=$1 RETURNING aggregate_version,grant_consumed_at`,
-      [row.submission_id, JSON.stringify(normalized.payload), normalized.payload_sha256, normalized.image])).rows[0];
+      [row.submission_id, JSON.stringify(normalized.payload), normalized.payload_sha256, assetMode?null:normalized.image,assetMode?'asset':'legacy'])).rows[0];
     if (peek.grant_key_id) await q.query('UPDATE skill_upload_keys SET last_used_at=now() WHERE key_id=$1', [peek.grant_key_id]);
     await journal(q, journalActor(grant), 'skill_submission', row.submission_id, saved.aggregate_version, 'upload_private_draft',
       { payload_sha256: normalized.payload_sha256, has_cover_image: Boolean(normalized.image), via: peek.grant_key_id ? 'agent_key_grant' : 'browser_grant' });
-    return ack('ready_for_review', saved.grant_consumed_at);
+    await assertSkillUploadGrantClock(q,grant);return ack('ready_for_review', saved.grant_consumed_at);
   });
 }

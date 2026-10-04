@@ -1,0 +1,7 @@
+{
+  "milestone_id": "ms_01fw01",
+  "title": "First accepted deliverable",
+  "acceptance_criteria": ["exact artifact digest accepted"],
+  "value": {"amount_minor": "100", "currency": "USD"},
+  "due_at": "2026-10-01T00:00:00Z"
+}

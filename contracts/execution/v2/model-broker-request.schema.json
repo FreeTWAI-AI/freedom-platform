@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "authorizationRef": {
+      "type": "string",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "nonce": {
+      "type": "string",
+      "minLength": 43,
+      "maxLength": 43,
+      "pattern": "^[A-Za-z0-9_-]+$(?![\\s\\S])"
+    },
+    "assertion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8192,
+      "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$(?![\\s\\S])"
+    }
+  },
+  "required": [
+    "authorizationRef",
+    "nonce",
+    "assertion"
+  ],
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/execution/v2/model-broker-request",
+  "description": "Closed reference-only model broker data. Parsing grants no member authentication, secret access, proof or execution authority."
+}

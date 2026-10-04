@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/execution/v2/member-model-http-empty",
+  "description": "Closed member HTTP ModelStep data. Parsing grants no authentication, export approval or operational authority."
+}

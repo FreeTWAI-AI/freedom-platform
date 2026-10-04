@@ -4,7 +4,11 @@
 
 The full production planning contracts remain authored once in `docs/platform-plan/contracts/`. Three manifest/event schemas are mechanically exported with the bundle; they are not independently authored copies. Moving all historical planning tests/paths is a separate migration. Exporting an event schema does not activate event delivery or executor APIs.
 
+The local foundation [common identity references](common/README.md) have a separate Zod/TypeScript authoring source and generated JSON Schemas. They are not yet published in a ReleaseSet or preview SDK bundle; reserved service/site shapes do not enable those identities at runtime.
+
 Consumers pin a full `freedom-platform` commit and bundle SHA-256 in `contracts.lock.json`. The copied verifier checks every artifact locally and, with `--remote`, against that exact GitHub source. This proves byte identity, not official approval or release status. A contract change requires deliberate regeneration, review, updated pins and producer/consumer tests.
+
+New exports use a thin entrypoint backed by the shared contribution-tools implementation. Existing v1 pins and preview bytes remain valid; v2 ReleaseSet verification requires independently supplied publisher approval. The [governance implementation](../governance/README.md) documents the exact-byte signature profile and evidence limits. Adding governance schemas does not publish a production contract or require existing consumers to upgrade immediately.
 
 Current HTTP transport: JSON over HTTPS (HTTP loopback for development), `/api/v1`, member cookie + CSRF + exact Origin, explicit `Idempotency-Key`, quoted integer `If-Match`, structured problem responses. Native SDK writes never retry themselves or follow redirects. Protocol hash negotiation rejects version skew before mutation. No secrets belong in a manifest, bundle, URL, generated page or frontend build.
 

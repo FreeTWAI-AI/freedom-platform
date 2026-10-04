@@ -1,0 +1,58 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "governance",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "governance/**",
+    "packages/contribution-tools/**",
+    "tests/runtime/fixed-behavior-harness.test.ts",
+    "tests/integration/behavior-supervisor.test.ts",
+    "scripts/freedom.mjs",
+    "scripts/repository-bootstrap/**",
+    "scripts/export-contract-bundle.mjs",
+    "scripts/update-inventory.py",
+    "docs/platform-plan/verification/**",
+    "docs/platform-plan/execution/unified-foundation/**",
+    ".github/workflows/verify.yml",
+    ".gitignore",
+    "package.json",
+    "package-lock.json",
+    "contracts/README.md"
+  ],
+  "public_exports": [
+    "packages/contribution-tools/contracts.mjs",
+    "packages/contribution-tools/context.mjs"
+  ],
+  "dependencies": [],
+  "contract_families": [
+    "preview"
+  ],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "governance/README.md",
+    "packages/contribution-tools/behavior-supervisor.md",
+    "docs/platform-plan/execution/unified-foundation/01-contracts-and-governance.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "governance.unit", "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "development.freedom",
+      "kind": "cli",
+      "entry": "scripts/freedom.mjs",
+      "operations": [
+        "development.prepare",
+        "development.context",
+        "development.verify"
+      ],
+      "auth_profile": "local-checkout"
+    }
+  ]
+}

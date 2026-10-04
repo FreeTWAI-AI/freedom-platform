@@ -1,0 +1,46 @@
+// Candidate only: no routes, provisioned IDs, credentials or enabled ports.
+// Copy into the operator overlay after independent broker/recovery readiness.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "freedom-private-ai-candidate-local",
+  "main": "apps/platform-api/src/worker.ts",
+  "compatibility_date": "2026-09-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "alias": {
+    "sharp": "./packages/shared/sharp-unavailable.ts",
+    "./model-step-node-transport.js": "./modules/agent-execution/model-step-worker-transport-unavailable.ts"
+  },
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": { "directory": "apps/portal-web/dist", "binding": "ASSETS", "run_worker_first": true },
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
+  "vars": { "FREEDOM_ENV": "local", "APP_ORIGIN": "http://127.0.0.1:8787", "FREEDOM_PRIVATE_AI_ENABLED": "false" },
+  "env": {
+    "staging-next": {
+      "name": "freedom-private-ai-candidate-staging-next",
+      "workers_dev": false,
+      "preview_urls": false,
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
+      "services": [
+        { "binding": "MODEL_BROKER", "service": "replace-with-staging-model-broker" },
+        { "binding": "CREDENTIAL_RECOVERY_STATE", "service": "replace-with-staging-recovery-state" },
+        { "binding": "CREDENTIAL_RECOVERY_FLOOR", "service": "replace-with-staging-monotonic-floor" }
+      ],
+      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "replace-with-existing-staging-private-asset-bucket" }],
+      "vars": { "FREEDOM_ENV": "staging", "APP_ORIGIN": "https://staging.freetwai.com", "FREEDOM_PRIVATE_AI_ENABLED": "false" }
+    },
+    "next": {
+      "name": "freedom-private-ai-candidate-next",
+      "workers_dev": false,
+      "preview_urls": false,
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
+      "services": [
+        { "binding": "MODEL_BROKER", "service": "replace-with-production-model-broker" },
+        { "binding": "CREDENTIAL_RECOVERY_STATE", "service": "replace-with-production-recovery-state" },
+        { "binding": "CREDENTIAL_RECOVERY_FLOOR", "service": "replace-with-production-monotonic-floor" }
+      ],
+      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "replace-with-existing-production-private-asset-bucket" }],
+      "vars": { "FREEDOM_ENV": "public", "APP_ORIGIN": "https://freetwai.com", "FREEDOM_PRIVATE_AI_ENABLED": "false" }
+    }
+  }
+}

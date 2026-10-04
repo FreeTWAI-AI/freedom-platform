@@ -1,3 +1,4 @@
+import {readSkillImage} from '../assets/skill-image.js';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import { catalogRepositoryKeys } from './repository-match.js';
@@ -14,7 +15,7 @@ const PUBLISHED = `FROM skill_submissions s
   WHERE s.status='published' AND s.consent_to_share AND NOT p.official
     AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
     AND NOT is_verification_test_account(u.user_id)`;
-const COLUMNS = `s.submission_id,s.payload,s.project_id,s.published_at,s.image_bytes IS NOT NULL AS has_image,
+const COLUMNS = `s.submission_id,s.payload,s.project_id,s.published_at,(s.image_bytes IS NOT NULL OR s.storage_source='asset') AS has_image,
   v.repository_full_name,v.repository_url,v.commit_sha,v.license_spdx,v.license_evidence_url,v.is_fork,v.archived`;
 
 // Art the workshop drew for works whose submitters supplied none (docs/design/community-skill-art-manifest.json),
@@ -86,8 +87,7 @@ export async function readPublishedSkillSubmission(pool: Pool, id: string) {
   return { ...summary(row), use_notes: row.payload.use_notes as string, demo_url: (row.payload.demo_url ?? null) as string | null };
 }
 
-export async function readPublishedSkillIllustration(pool: Pool, id: string): Promise<{ bytes: Buffer; mime_type: 'image/webp' } | null> {
+export async function readPublishedSkillIllustration(pool: Pool, id: string,store?:import('../../packages/asset-storage/index.js').ObjectStore): Promise<{ bytes: Buffer; mime_type: 'image/webp' } | null> {
   if (!z.uuid().safeParse(id).success) return null;
-  const row = (await pool.query(`SELECT s.image_bytes ${PUBLISHED} AND s.submission_id=$1 AND s.image_bytes IS NOT NULL`, [id.toLowerCase()])).rows[0];
-  return row ? { bytes: row.image_bytes as Buffer, mime_type: 'image/webp' } : null;
+  const bytes=await readSkillImage(pool,id.toLowerCase(),store);return bytes?{bytes,mime_type:'image/webp'}:null;
 }

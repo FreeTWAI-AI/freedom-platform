@@ -1,3 +1,4 @@
+import type {PlatformRuntime} from '../runtime.js';
 import {Hono} from 'hono';
 import {z} from 'zod';
 import type {Pool} from 'pg';
@@ -33,13 +34,13 @@ function webp(c: {header: (name: string, value: string) => void}, bytes: Buffer)
   return new Uint8Array(bytes);
 }
 
-export function createEventHighlightPublicRoutes(pool: Pool, origin: string) {
+export function createEventHighlightPublicRoutes(pool: Pool, origin: string,runtime:Pick<PlatformRuntime,'eventHighlightAssetStore'|'eventBannerAssetStore'>={}) {
   const app = new Hono();
   app.get('/highlights.css', c => { c.header('Content-Type', 'text/css; charset=utf-8'); return c.body(highlightsCss); });
   app.get('/highlights', async c => c.html(await highlightsListHtml(pool, origin, {mode: c.req.query('mode'), before: c.req.query('before')})));
-  app.get('/api/v1/public/event-highlights/:eventId/banner', async c => c.body(webp(c, await highlightBannerBytes(pool, z.uuid().parse(c.req.param('eventId'))))));
-  app.get('/api/v1/public/event-highlights/media/:mediaId/image', async c => c.body(webp(c, await highlightImageBytes(pool, z.uuid().parse(c.req.param('mediaId')), 'image'))));
-  app.get('/api/v1/public/event-highlights/media/:mediaId/thumb', async c => c.body(webp(c, await highlightImageBytes(pool, z.uuid().parse(c.req.param('mediaId')), 'thumb'))));
+  app.get('/api/v1/public/event-highlights/:eventId/banner', async c => c.body(webp(c, await highlightBannerBytes(pool, z.uuid().parse(c.req.param('eventId')),runtime.eventBannerAssetStore))));
+  app.get('/api/v1/public/event-highlights/media/:mediaId/image', async c => c.body(webp(c, await highlightImageBytes(pool, z.uuid().parse(c.req.param('mediaId')), 'image',runtime.eventHighlightAssetStore))));
+  app.get('/api/v1/public/event-highlights/media/:mediaId/thumb', async c => c.body(webp(c, await highlightImageBytes(pool, z.uuid().parse(c.req.param('mediaId')), 'thumb',runtime.eventHighlightAssetStore))));
   app.get('/highlights/:eventId', async c => {
     const eventId = c.req.param('eventId');
     if (!uuidPattern.test(eventId)) return c.html(highlightsNotFoundHtml(origin), 404);
@@ -49,7 +50,7 @@ export function createEventHighlightPublicRoutes(pool: Pool, origin: string) {
   return app;
 }
 
-export function createEventHighlightMemberRoutes(pool: Pool) {
+export function createEventHighlightMemberRoutes(pool: Pool,runtime:Pick<PlatformRuntime,'eventHighlightAssets'>={}) {
   const app = new Hono<PlatformEnv>();
   app.get('/event-highlights', async c => {
     const actor = c.get('actor');
@@ -75,7 +76,7 @@ export function createEventHighlightMemberRoutes(pool: Pool) {
     const title = decodeMediaTitle(c.req.header('X-Media-Title'));
     const eventId = z.uuid().parse(c.req.param('eventId'));
     const stored = await normalizeHighlightImage(bytes, c.req.header('Content-Type')!, orientation);
-    const result = await addHighlightImage(pool, {actor: c.get('actor'), operation: `${c.req.method} ${c.req.path}`, key, body: highlightImageDigest(bytes, orientation, title)}, eventId, kind, stored.image, stored.thumb, orientation, title);
+    const result = await addHighlightImage(pool, {actor: c.get('actor'), operation: `${c.req.method} ${c.req.path}`, key, body: highlightImageDigest(bytes, orientation, title)}, eventId, kind, stored.image, stored.thumb, orientation, title,runtime.eventHighlightAssets);
     return c.json(result, 201);
   };
   app.post('/event-highlights/:eventId/photos', upload('photo'));

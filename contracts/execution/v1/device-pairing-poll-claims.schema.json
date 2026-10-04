@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "purpose": {
+      "type": "string",
+      "const": "device_pairing_poll"
+    },
+    "client_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$(?![\\s\\S])"
+    },
+    "environment": {
+      "type": "string",
+      "enum": [
+        "local",
+        "staging-next",
+        "next"
+      ]
+    },
+    "runtime_kind": {
+      "type": "string",
+      "enum": [
+        "agent-kit",
+        "extension",
+        "neo"
+      ]
+    },
+    "scope": {
+      "type": "string",
+      "const": "bootstrap.status.read"
+    },
+    "jti": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$(?![\\s\\S])"
+    },
+    "iat": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "htm": {
+      "type": "string",
+      "const": "POST"
+    },
+    "htu": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "authorization_id": {
+      "type": "string",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "nonce": {
+      "type": "string",
+      "minLength": 43,
+      "maxLength": 43,
+      "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+    },
+    "device_code_hash": {
+      "type": "string",
+      "minLength": 43,
+      "maxLength": 43,
+      "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+    },
+    "request_digest": {
+      "type": "string",
+      "minLength": 43,
+      "maxLength": 43,
+      "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+    }
+  },
+  "required": [
+    "purpose",
+    "client_id",
+    "environment",
+    "runtime_kind",
+    "scope",
+    "jti",
+    "iat",
+    "htm",
+    "htu",
+    "authorization_id",
+    "nonce",
+    "device_code_hash",
+    "request_digest"
+  ],
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/execution/v1/device-pairing-poll-claims",
+  "description": "Closed pairing claim shape only. Real signatures, exact host and DB binding, current time, approval, replay and single consumption must be verified by the trusted service. Not OAuth transport compatibility or execution authority."
+}

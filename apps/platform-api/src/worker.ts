@@ -1,8 +1,12 @@
+import {createEventHighlightAssetService,resolveEventHighlightUploadPolicy} from '../../../modules/assets/event-highlight.js';
+import {createSocialThumbnailAssetService,resolveSocialThumbnailUploadPolicy} from '../../../modules/assets/social-thumbnail.js';
+import {createSkillImageAssetService} from '../../../modules/assets/skill-image.js';
 import type { ExecutionContext, Hyperdrive, ImagesBinding as OfficialImagesBinding } from '@cloudflare/workers-types';
 import type { Context, Hono } from 'hono';
 import { isIP } from 'node:net';
 import type { Pool } from 'pg';
 import { createRequestPool } from '../../../packages/db/index.js';
+import { createR2ObjectStore, type AssetR2Binding } from '../../../packages/asset-storage/r2.js';
 import { Problem } from '../../../packages/shared/problem.js';
 import { createUnavailableImageProcessor, runWithImageProcessor } from '../../../packages/shared/image-runtime.js';
 import { createCloudflareImageProcessor, type ImagesBinding } from '../../../packages/shared/image-cloudflare.js';
@@ -13,6 +17,10 @@ import { assertDatabaseReady, ReadinessError } from './readiness.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 import { GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories } from '../../../modules/community/github-sync.js';
 import {refreshGuildDiscoveryReports} from '../../../modules/community/guild-discovery.js';
+import {createEventVideoAssetService,resolveEventVideoUploadPolicy} from '../../../modules/assets/event-video.js';
+import {createEventBannerAssetService,resolveEventBannerUploadPolicy} from '../../../modules/assets/event-banner.js';
+import {createServiceCoverAssetService,resolveServiceCoverUploadPolicy} from '../../../modules/assets/media-domain.js';
+import { workerPrivateAiPorts,type WorkerPrivateAiBindings } from './worker-private-ai.js';
 import {guildReviewerFromBindings,type GuildReviewBindings} from './guild-review.js';
 
 /**
@@ -25,13 +33,24 @@ import {guildReviewerFromBindings,type GuildReviewBindings} from './guild-review
  * - ASSETS: the built browser app (apps/portal-web/dist), with run_worker_first.
  * - IMAGES (optional): Cloudflare Images binding that decodes and re-encodes uploads.
  *   Without it only image mutations answer 503; everything else keeps working.
+ * - MEDIA (optional): private native R2 binding for asset-backed avatars. Absence
+ *   never enables a legacy fallback or GC; legacy avatars keep their current path.
  * Secrets arrive as bindings and are only passed into explicit per-request
  * options; process.env is never read or written here.
  */
-export interface WorkerEnv extends GuildReviewBindings {
+export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
+  /** Explicit cover composition; native MEDIA alone grants no persistence. */
+  FREEDOM_SERVICE_COVER_ENABLED?: string;
+  /** Explicit banner composition; canonical community policy remains required. */
+  FREEDOM_EVENT_BANNER_ENABLED?: string;
+  FREEDOM_EVENT_VIDEO_ENABLED?: string;
+  FREEDOM_SKILL_IMAGE_ENABLED?: string;
+  FREEDOM_SOCIAL_THUMBNAIL_ENABLED?: string;
+  FREEDOM_EVENT_HIGHLIGHT_ENABLED?: string;
   HYPERDRIVE: { readonly connectionString: string };
   ASSETS: { fetch(request: Request): Promise<Response> };
   IMAGES?: ImagesBinding;
+  MEDIA?: AssetR2Binding;
   EMAIL?: {send(message:{to:string;from:string;subject:string;text:string}):Promise<{messageId:string}>};
   FREEDOM_ENV?: string;
   APP_ORIGIN?: string;
@@ -78,6 +97,12 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   if (typeof env.ASSETS?.fetch !== 'function') throw new ReadinessError('ASSETS binding is required.');
   if (env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED !== undefined && !['true','false'].includes(env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED)) throw new ReadinessError('FREEDOM_PASSWORD_RESET_EMAIL_ENABLED must be true or false.');
   if (env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED === 'true' && typeof env.EMAIL?.send !== 'function') throw new ReadinessError('EMAIL binding is required when password recovery is enabled.');
+  for(const flag of [env.FREEDOM_SERVICE_COVER_ENABLED,env.FREEDOM_EVENT_BANNER_ENABLED,env.FREEDOM_SKILL_IMAGE_ENABLED,env.FREEDOM_SOCIAL_THUMBNAIL_ENABLED,env.FREEDOM_EVENT_HIGHLIGHT_ENABLED]){
+    if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Media installation flag must be true or false.');
+    if(flag==='true'&&(['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('MEDIA and IMAGES are required for enabled image lifecycle.');
+  }
+  if(env.FREEDOM_EVENT_VIDEO_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_EVENT_VIDEO_ENABLED))throw new ReadinessError('Video installation flag must be true or false.');
+  if(env.FREEDOM_EVENT_VIDEO_ENABLED==='true'&&(['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')))throw new ReadinessError('MEDIA is required for enabled video lifecycle.');
   return { freedomEnv, origin, release, trustConnectingIp };
 }
 
@@ -110,7 +135,12 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
   const community = env.FREEDOM_REGISTRATION_COMMUNITY_ID || undefined, tokenKey = env.GITHUB_SOCIAL_TOKEN_KEY || undefined;
   const metricsToken = env.GITHUB_METRICS_TOKEN || undefined;
   const maintainerWebhookSecret = env.GITHUB_MAINTAINER_WEBHOOK_SECRET || undefined;
+  let avatarAssetStore: PlatformRuntime['avatarAssetStore'];
+  // Optional storage failure is scoped to asset operations, not login/health.
+  // This request captures only its own binding. App ports cannot delete objects.
+  try { if (env.MEDIA) avatarAssetStore = createR2ObjectStore(env.MEDIA); } catch { /* unavailable, no binding diagnostics */ }
   return {
+    avatarAssetStore,
     registrationCommunityId: () => community,
     githubTokenKey: () => tokenKey,
     githubMetricsToken: () => metricsToken,
@@ -212,7 +242,33 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
           }
           verified.add(env);
         }
-        const app = createPlatformApp(pool, config.origin, config.freedomEnv, workerRuntime(env, config));
+        const runtime=workerRuntime(env,config),privateAi=await workerPrivateAiPorts(pool,env,config);
+        if(privateAi)Object.assign(runtime,privateAi);
+        if(env.FREEDOM_SERVICE_COVER_ENABLED==='true'&&runtime.avatarAssetStore){
+          runtime.serviceCoverAssetStore=runtime.avatarAssetStore;
+          runtime.serviceCoverAssets=createServiceCoverAssetService(pool,{store:runtime.avatarAssetStore,resolvePolicy:resolveServiceCoverUploadPolicy});
+        }
+        if(env.FREEDOM_EVENT_BANNER_ENABLED==='true'&&runtime.avatarAssetStore){
+          runtime.eventBannerAssetStore=runtime.avatarAssetStore;
+          runtime.eventBannerAssets=createEventBannerAssetService(pool,{store:runtime.avatarAssetStore,resolvePolicy:resolveEventBannerUploadPolicy});
+        }
+        if(env.FREEDOM_EVENT_VIDEO_ENABLED==='true'&&runtime.avatarAssetStore){
+          runtime.eventVideoAssetStore=runtime.avatarAssetStore;
+          runtime.eventVideoAssets=createEventVideoAssetService(pool,{store:runtime.avatarAssetStore,resolvePolicy:resolveEventVideoUploadPolicy});
+        }
+        if(env.FREEDOM_SKILL_IMAGE_ENABLED==='true'&&runtime.avatarAssetStore){
+          runtime.skillImageAssetStore=runtime.avatarAssetStore;
+          runtime.skillImageAssets=createSkillImageAssetService(pool,{store:runtime.avatarAssetStore});
+        }
+        if(env.FREEDOM_SOCIAL_THUMBNAIL_ENABLED==='true'&&runtime.avatarAssetStore){
+          runtime.socialThumbnailAssetStore=runtime.avatarAssetStore;
+          runtime.socialThumbnailAssets=createSocialThumbnailAssetService(pool,{store:runtime.avatarAssetStore,resolvePolicy:resolveSocialThumbnailUploadPolicy});
+        }
+        if(env.FREEDOM_EVENT_HIGHLIGHT_ENABLED==='true'&&runtime.avatarAssetStore){
+          runtime.eventHighlightAssetStore=runtime.avatarAssetStore;
+          runtime.eventHighlightAssets=createEventHighlightAssetService(pool,{store:runtime.avatarAssetStore,resolvePolicy:resolveEventHighlightUploadPolicy});
+        }
+        const app = createPlatformApp(pool, config.origin, config.freedomEnv, runtime);
         mountAssets(app, env.ASSETS);
         return await scope(env, async () => app.fetch(request, env, ctx as never));
       } catch (error) {

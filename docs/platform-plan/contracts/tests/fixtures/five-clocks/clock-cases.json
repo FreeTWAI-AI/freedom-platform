@@ -1,0 +1,190 @@
+{
+  "evidence_class": "synthetic_planning_reference_only",
+  "authority": "03 §11; ADR-062; RQ-061; FW-01",
+  "boundary": "2026-09-21T00:00:00Z",
+  "conventions": [
+    "Expiry is exclusive; the appointment state machine explicitly specifies at-or-after.",
+    "Delivery is overdue strictly after due_at; equality is a fixture convention, not a deployed scheduler.",
+    "Setter/effects/renewal are checked against prose; no runtime authorization is exercised."
+  ],
+  "rules": [
+    {
+      "id": "invite",
+      "row": "invite／claim window",
+      "field": "expires_at",
+      "schema": null,
+      "example": null,
+      "setter": [
+        "requester／WorkItem publisher",
+        "pinned policy"
+      ],
+      "expiry": [
+        "不能建立新 Claim",
+        "已成立的 Claim 不被抹除"
+      ],
+      "renewal": [
+        "到期前",
+        "新 revision",
+        "保留舊值 audit"
+      ],
+      "before": "open",
+      "at": "closed",
+      "after": "closed",
+      "forbidden": [
+        "delivery `due_at`",
+        "TaskLease",
+        "ExecutionGrant",
+        "evidence validity"
+      ]
+    },
+    {
+      "id": "delivery",
+      "row": "delivery commitment",
+      "field": "due_at",
+      "schema": "SowMilestoneDefinition",
+      "example": "delivery_sow_milestone.json",
+      "setter": [
+        "requester 與 claimant／Squad",
+        "SOW",
+        "accepted WorkItem revision"
+      ],
+      "expiry": [
+        "overdue",
+        "不自動判失敗",
+        "降 rank",
+        "移除技能"
+      ],
+      "renewal": [
+        "具權限者",
+        "versioned change",
+        "不回寫原承諾"
+      ],
+      "before": "on_time",
+      "at": "on_time",
+      "after": "overdue",
+      "forbidden": [
+        "claim availability",
+        "lease authority",
+        "grant authority",
+        "evidence validity"
+      ]
+    },
+    {
+      "id": "lease",
+      "row": "current executor authority",
+      "field": "expires_at",
+      "schema": "AgentRunLease",
+      "example": "lease_agent_run.json",
+      "setter": [
+        "server lease coordinator"
+      ],
+      "expiry": [
+        "stale fence 拒絕",
+        "WorkClaim 保留"
+      ],
+      "renewal": [
+        "renew／reassign",
+        "新有效期與 fence",
+        "不能沿用舊 token"
+      ],
+      "before": "current",
+      "at": "expired",
+      "after": "expired",
+      "forbidden": [
+        "WorkClaim ownership",
+        "delivery deadline",
+        "ExecutionGrant",
+        "evidence validity"
+      ]
+    },
+    {
+      "id": "grant",
+      "row": "Agent action authority",
+      "field": "expires_at",
+      "schema": "ExecutionGrantSummary",
+      "example": "grant_summary.json",
+      "setter": [
+        "principal",
+        "bounded grant",
+        "server另套上限"
+      ],
+      "expiry": [
+        "停止新的受控 action",
+        "reconciliation"
+      ],
+      "renewal": [
+        "新的 grant／revision",
+        "明示授權",
+        "不靜默延長"
+      ],
+      "before": "current",
+      "at": "expired",
+      "after": "expired",
+      "forbidden": [
+        "TaskLease",
+        "claim／invite window",
+        "delivery deadline",
+        "A4"
+      ]
+    },
+    {
+      "id": "evidence",
+      "row": "evidence／qualification currency",
+      "field": "valid_until",
+      "schema": null,
+      "example": null,
+      "setter": [
+        "evidence issuer／protocol owner",
+        "具名 appointer"
+      ],
+      "expiry": [
+        "不供需要 current evidence",
+        "歷史仍保留"
+      ],
+      "renewal": [
+        "重新驗證",
+        "新 evidence／appointment revision"
+      ],
+      "before": "current",
+      "at": "expired",
+      "after": "expired",
+      "forbidden": [
+        "membership",
+        "rank history",
+        "claim",
+        "lease",
+        "grant",
+        "delivery deadline"
+      ]
+    },
+    {
+      "id": "appointment",
+      "row": "evidence／qualification currency",
+      "field": "review_by",
+      "schema": "ReviewerAppointment",
+      "example": "appointment_reviewer.json",
+      "setter": [
+        "具名 appointer"
+      ],
+      "expiry": [
+        "不供需要 current evidence",
+        "歷史仍保留"
+      ],
+      "renewal": [
+        "重新驗證",
+        "新 evidence／appointment revision"
+      ],
+      "before": "current",
+      "at": "expired",
+      "after": "expired",
+      "forbidden": [
+        "membership",
+        "rank history",
+        "claim",
+        "lease",
+        "grant",
+        "delivery deadline"
+      ]
+    }
+  ]
+}

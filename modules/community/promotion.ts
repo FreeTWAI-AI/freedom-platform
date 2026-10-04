@@ -277,10 +277,10 @@ export const promotionLeaderboardSql = `WITH scored AS (
   SELECT kind,user_id,count(*)::int AS points FROM promotion_clicks
   WHERE community_id=$1 AND ($2::timestamptz IS NULL OR created_at>=$2)
   GROUP BY kind,user_id)
-SELECT s.kind,s.user_id,u.display_name,s.points,a.aggregate_version,a.image_bytes IS NOT NULL AS has_avatar
+SELECT s.kind,s.user_id,u.display_name,s.points,a.aggregate_version,a.present AS has_avatar
 FROM scored s
 JOIN users u ON u.user_id=s.user_id AND u.community_id=$1
-LEFT JOIN member_avatars a ON a.user_id=u.user_id AND a.community_id=u.community_id
+LEFT JOIN member_avatar_presence a ON a.user_id=u.user_id AND a.community_id=u.community_id
 WHERE u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
   AND (u.user_id=$3 OR NOT is_verification_test_account(u.user_id))`;
 

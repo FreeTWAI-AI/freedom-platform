@@ -1,0 +1,206 @@
+[
+  {
+    "id": "grant_add_fence",
+    "family": "grant",
+    "schema": "ExecutionGrantSummary",
+    "example": "examples/grant_summary.json",
+    "op": "add",
+    "field": "fencing_token",
+    "value": "1"
+  },
+  {
+    "id": "grant_rename_due",
+    "family": "grant",
+    "schema": "ExecutionGrantSummary",
+    "example": "examples/grant_summary.json",
+    "op": "rename",
+    "from": "expires_at",
+    "to": "due_at"
+  },
+  {
+    "id": "grant_rename_valid_until",
+    "family": "grant",
+    "schema": "ExecutionGrantSummary",
+    "example": "examples/grant_summary.json",
+    "op": "rename",
+    "from": "expires_at",
+    "to": "valid_until"
+  },
+  {
+    "id": "grant_lease_expires_at",
+    "family": "grant",
+    "schema": "ExecutionGrantSummary",
+    "example": "examples/grant_summary.json",
+    "op": "rename",
+    "from": "expires_at",
+    "to": "lease_expires_at"
+  },
+  {
+    "id": "grant_add_review_by",
+    "family": "grant",
+    "schema": "ExecutionGrantSummary",
+    "example": "examples/grant_summary.json",
+    "op": "add",
+    "field": "review_by",
+    "value": "2026-12-20T12:00:00Z"
+  },
+  {
+    "id": "grant_req_rename_due",
+    "family": "grant",
+    "schema": "CreateExecutionGrantRequest",
+    "example": "examples/grant_create_request.json",
+    "op": "rename",
+    "from": "expires_at",
+    "to": "due_at"
+  },
+  {
+    "id": "lease_drop_fence",
+    "family": "lease",
+    "schema": "AgentRunLease",
+    "example": "examples/lease_agent_run.json",
+    "op": "drop",
+    "field": "fencing_token"
+  },
+  {
+    "id": "lease_drop_expires",
+    "family": "lease",
+    "schema": "AgentRunLease",
+    "example": "examples/lease_agent_run.json",
+    "op": "drop",
+    "field": "expires_at"
+  },
+  {
+    "id": "lease_alias",
+    "family": "lease",
+    "schema": "AgentRunLease",
+    "example": "examples/lease_agent_run.json",
+    "op": "rename",
+    "from": "expires_at",
+    "to": "lease_expires_at"
+  },
+  {
+    "id": "lease_rename_due",
+    "family": "lease",
+    "schema": "AgentRunLease",
+    "example": "examples/lease_agent_run.json",
+    "op": "rename",
+    "from": "expires_at",
+    "to": "due_at"
+  },
+  {
+    "id": "lease_rename_review_by",
+    "family": "lease",
+    "schema": "AgentRunLease",
+    "example": "examples/lease_agent_run.json",
+    "op": "rename",
+    "from": "expires_at",
+    "to": "review_by"
+  },
+  {
+    "id": "lease_add_valid_until",
+    "family": "lease",
+    "schema": "AgentRunLease",
+    "example": "examples/lease_agent_run.json",
+    "op": "add",
+    "field": "valid_until",
+    "value": "2026-12-01T00:00:00Z"
+  },
+  {
+    "id": "joblease_alias",
+    "family": "lease",
+    "schema": "JobLease",
+    "example": "examples/lease_job.json",
+    "op": "rename",
+    "from": "expires_at",
+    "to": "lease_expires_at"
+  },
+  {
+    "id": "joblease_drop_fence",
+    "family": "lease",
+    "schema": "JobLease",
+    "example": "examples/lease_job.json",
+    "op": "drop",
+    "field": "fencing_token"
+  },
+  {
+    "id": "delivery_rename_expires",
+    "family": "delivery",
+    "schema": "SowMilestoneDefinition",
+    "example": "examples/delivery_sow_milestone.json",
+    "op": "rename",
+    "from": "due_at",
+    "to": "expires_at"
+  },
+  {
+    "id": "delivery_rename_review_by",
+    "family": "delivery",
+    "schema": "SowMilestoneDefinition",
+    "example": "examples/delivery_sow_milestone.json",
+    "op": "rename",
+    "from": "due_at",
+    "to": "review_by"
+  },
+  {
+    "id": "delivery_add_fence",
+    "family": "delivery",
+    "schema": "SowMilestoneDefinition",
+    "example": "examples/delivery_sow_milestone.json",
+    "op": "add",
+    "field": "fencing_token",
+    "value": "1"
+  },
+  {
+    "id": "delivery_valid_until",
+    "family": "delivery",
+    "schema": "SowMilestoneDefinition",
+    "example": "examples/delivery_sow_milestone.json",
+    "op": "rename",
+    "from": "due_at",
+    "to": "valid_until"
+  },
+  {
+    "id": "appt_rename_valid_until",
+    "family": "evidence_appointment",
+    "schema": "ReviewerAppointment",
+    "example": "examples/appointment_reviewer.json",
+    "op": "rename",
+    "from": "review_by",
+    "to": "valid_until"
+  },
+  {
+    "id": "appt_rename_expires",
+    "family": "evidence_appointment",
+    "schema": "ReviewerAppointment",
+    "example": "examples/appointment_reviewer.json",
+    "op": "rename",
+    "from": "review_by",
+    "to": "expires_at"
+  },
+  {
+    "id": "appt_rename_due",
+    "family": "evidence_appointment",
+    "schema": "ReviewerAppointment",
+    "example": "examples/appointment_reviewer.json",
+    "op": "rename",
+    "from": "review_by",
+    "to": "due_at"
+  },
+  {
+    "id": "appt_add_fence",
+    "family": "evidence_appointment",
+    "schema": "ReviewerAppointment",
+    "example": "examples/appointment_reviewer.json",
+    "op": "add",
+    "field": "fencing_token",
+    "value": "1"
+  },
+  {
+    "id": "appt_req_valid_until",
+    "family": "evidence_appointment",
+    "schema": "CreateReviewerAppointmentRequest",
+    "example": "examples/appointment_create_request.json",
+    "op": "rename",
+    "from": "review_by",
+    "to": "valid_until"
+  }
+]

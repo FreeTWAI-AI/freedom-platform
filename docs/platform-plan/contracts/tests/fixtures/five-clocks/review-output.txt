@@ -1,0 +1,133 @@
+Review snapshot before the documented Codex follow-up fixes.
+
+CLAUDE OPUS 5
+## Result: 3 failed, 111 passed, 114 collected — as expected
+
+```
+FAILED ...::test_lease_authority_requires_expiry_and_fence_on_same_object[ReleaseStatusJobLease]
+FAILED ...::test_lease_authority_requires_expiry_and_fence_on_same_object[ReleaseStatusJobHeartbeat]
+FAILED ...::test_every_new_claim_requires_its_own_window_guard[add_exclusive_claim_atomically]
+3 failed, 111 passed in 0.41s
+```
+
+**Baseline integrity: clean.** All 71 files in `baseline-sha256.json` are byte-identical (0 modified, 0 missing). 12 additions, all inside the two FW-01 `允許修改路徑` entries — `contracts/tests/test_five_clock_invariants.py` and `contracts/tests/fixtures/five-clocks/`. No canonical edit.
+
+**No concealment mechanisms.** No `xfail`, `skip`, `skipif`, or strict-marker usage in the file; no `conftest.py`, `pytest.ini`, `pyproject.toml`, `setup.cfg` or `tox.ini` anywhere in the tree that could mask results. The red is real and unhidden.
+
+## The three failures are correct, not false positives
+
+**Lease shape parity (2).** The test checks `{"expires_at","fencing_token"} - set(definition["required"])` on `ReleaseStatusJobLease` (8082) and `ReleaseStatusJobHeartbeat` (8130); `fencing_token` is absent because it sits in nested `lease_proof`. That matches the structural finding exactly. Importantly, `LEASE_SCHEMAS` (line 41-44) includes only the five authority objects and **excludes** `ReleaseStatusLeaseProof`, `JobHeartbeatRequest` and the other bare request proofs — so Codex avoided the false positive I flagged last turn. The docstring (190-195) states plainly this is a shape mismatch, not a runtime authorization failure. Honest.
+
+**Claim-window guard (1).** Verified directly against `state-machines/core.example.yaml`:
+
+| transition | guards |
+|---|---|
+| `add_first_nonexclusive_claim` | `…collaborative_or_competitive`, **`claim_window_open`**, `claim_capacity_available` |
+| `add_additional_nonexclusive_claim` | `…collaborative_or_competitive`, **`claim_window_open`**, `claim_capacity_available` |
+| `add_exclusive_claim_atomically` | `execution_mode_is_exclusive`, `no_existing_claim` — **no window guard** |
+
+`03 §11` invite/claim row states 到期後不能建立新 Claim unconditionally, and an exclusive claim is a new Claim. Genuine canonical asymmetry; the test is right to be red.
+
+## Test-correctness audit
+
+**Sound:** `assert_refs_resolve` (78-92) walks unused conditional branches and resolves offline via a preloaded local registry that cannot fetch HTTP (48). All 7 mutated schemas carry `additionalProperties: false` plus the relevant `required` field, so every `add`/`rename`/`drop` mutation genuinely errors. `test_current_executor_fence_and_human_claim_are_separate` and `test_appointment_uses_its_own_expiry_guard_and_renewal` read real state-machine invariants. `instant()` rejects naive timestamps.
+
+**Weakness — 42 of the 111 passes are near-tautological.** In `reference_status` (125-141) the oracle returns `rule["before"]` / `rule["at"]` / `rule["after"]` read from `clock-cases.json`, and `test_synthetic_reference_before_at_after_expiry` (18 cases) asserts the result equals those same fixture values. It can only fail on timestamp arithmetic, never on contract content. `test_synthetic_foreign_clock_cannot_extend_or_replace_own_clock` (6) has the same structure. `test_synthetic_non_clock_timestamp_cannot_replace_clock` (18) renames a key and asserts a dict lookup misses it — true by construction. Only the two stale-fence/renewal tests compare against literals rather than the rule dict.
+
+These are not fake gap-preservation passes — none asserts that a missing requirement must stay missing — and they are correctly prefixed `test_synthetic_` and disclaimed at 128-130. But the split matters for reporting:
+
+- **70 tests** exercise real canonical artifacts (openapi schemas, `core.example.yaml`, `03 §11` prose)
+- **44 tests** exercise only the in-file synthetic model; ~42 of those cannot fail on contract content
+
+A headline of "111 passed" overstates contract evidence by roughly 40%.
+
+**Minor:** rename mutations assert only that *some* error occurs, not which — they would still pass if a schema permitted the substitute name while still requiring the original. Given `additionalProperties: false` everywhere here, this is imprecision rather than a defect. `clock_table()` re-parses `03` on each call and admits header/separator rows as dict keys; harmless.
+
+## Remaining acceptance gaps
+
+FW-01 acceptance requires 五類各有正例、setter／expiry 邊界與「另一 clock 不能替代」負例. Against that:
+
+| family | positive schema example | schema-level substitution negative |
+|---|---|---|
+| invite／claim `expires_at` | **none** (`schema: null, example: null`) | **none** |
+| delivery `due_at` | yes (`SowMilestoneDefinition`) | yes (4 mutations) |
+| lease `expires_at`+fence | yes (`AgentRunLease`, `JobLease`) | yes (8 mutations) |
+| grant `expires_at` | yes (`ExecutionGrantSummary`) | yes (6 mutations) |
+| evidence `valid_until` | **none** (`schema: null, example: null`) | **none** |
+| — appointment `review_by` sub-case | yes (`ReviewerAppointment`) | yes (5 mutations) |
+
+So two of the five families have **zero** schema-carrier evidence; invite/claim is covered only by prose substring matching, the tautological synthetic block, and the state-machine guard test that currently fails. Additionally: setter/history/renewal are prose substring regressions, not behavioural checks (test file admits this at lines 3-5); `schema path 全部 resolve` is scoped to 11 schemas, not all contracts; no runtime, concurrency or deployment verification, and none is claimed anywhere in the file.
+
+## Verdict
+
+**Reportable as: FW-01 tests implemented; FW-01 acceptance NOT passed.**
+
+The implementation is faithful to the literal card wording, keeps canonical untouched, hides nothing, and the red state correctly documents two real defects — `ReleaseStatusJobLease`/`ReleaseStatusJobHeartbeat` fence nesting, and the missing `claim_window_open` guard on exclusive claims. Acceptance fails on three counts: the 3 red tests, the two families with no schema carrier, and setter/renewal coverage being prose-only. Closing the card requires a canonical decision on the two defects and a carrier for invite/claim and generic `valid_until` — both outside FW-01's permitted paths.
+
+Codex chose literal-red over my shape-independent-green suggestion. On reflection that is the better call here: green would have encoded a reading of 同物件 that four canonical locations (`03 §11` row 3, ADR-062, `specs/AGT-01.md:42` with its retracted `lease_expires_at` rename, and the FW-01 輸出 row) do not support, and would have silently absorbed the claim-window gap.
+
+No edits, subagents, git, or network. I did not read the earlier Grok draft.
+
+GROK 4.6
+I'll do a bounded read-only review: inspect the test file and five-clocks fixtures, pull the exact FW-01 / section 11 / ADR-062 snippets, then run the specified pytest.Next I’ll pull FW-01, ADR-062, and 03 §11, plus the lease/claim schema and fixture snippets those tests actually pin.I’ll now read only the contract snippets the tests pin: 03 §11, the lease/heartbeat schemas, and the claim-window guards.The three expected reds are real contract findings, not false positives. FW-01 acceptance is still incomplete even if those three were waived.## Result
+
+`PYTHONDONTWRITEBYTECODE=1 pytest -q -p no:cacheprovider docs/platform-plan/contracts/tests/test_five_clock_invariants.py`
+
+**3 failed, 111 passed, exit 1** (0.41s). File is 284 lines, all new. No `xfail`/`skip`. Matches the bundled `RESULT.md` trace.
+
+FW-01 does **not** pass. No runtime, deploy, or live authorization was exercised.
+
+## Expected reds — confirmed
+
+| # | Failure | Verdict |
+|---|---|---|
+| 1 | `ReleaseStatusJobLease` missing top-level required `fencing_token` | **Confirm.** Outer `expires_at`; `fencing_token` only on nested `ReleaseStatusLeaseProof`. |
+| 2 | `ReleaseStatusJobHeartbeat` same split | **Confirm.** |
+| 3 | `work_item.add_exclusive_claim_atomically` guards = `execution_mode_is_exclusive`, `no_existing_claim` | **Confirm.** Other create-claim commands declare `claim_window_open`. |
+
+**Shape vs exploit.** Failures 1–2 are literal same-layer JSON against FW-01 / ADR-062 / `03 §11` (“`expires_at` 必與 `fencing_token` 同物件出現”). The test docstring states they are **not** a runtime authority exploit. Nested fields still sit on one lease aggregate; Claude’s “aggregate-internal nesting might still be semantic” reading is an unresolved spec ambiguity, **not** a reason to green the test. The test did not widen “同物件” to recursive reachability. That is the right strictness.
+
+**Bare request proofs.** Confirmed excluded from `LEASE_SCHEMAS`. `JobHeartbeatRequest`, `ReleaseStatusJobHeartbeatRequest`, `JobBeginProviderOperationRequest`, `RecordExternalSourceVerificationRequest`, `SignProjectStatusAttestationRequest`, `ReleaseStatusJobCompleteRequest` carry fence / `lease_proof` and **no** `expires_at`. ADR-062 binds the rule to TaskLease / lease-proof **objects**, not mutation requests. Correct.
+
+**Exclusive-claim caveat (not a false positive).** `03 §11` expiry is “到期後不能建立新 Claim” with no mode exception. Collab/competitive text mentions 期限; exclusive text emphasizes atomic single-claim close. Missing `claim_window_open` is still a declared-guard gap on a create-claim transition. It is **not** proof that a deployed API can claim after expiry.
+
+None of the three reds is a false positive of the assertion actually written.
+
+## Codex rewrite — confirmed
+
+- No test asserts a canonical gap **must remain absent** in order to pass. `schema: null` in `clock-cases.json` is data, not `assert invite schema is missing`.
+- No constant case-ID-return oracle. Synthetic cases compare `reference_status(...)` to `before`/`at`/`after` labels (`open`/`closed`/`current`/`expired`), not the rule id.
+- Setter / history / renewal checks pin `03 §11` table phrases. They are prose regression, not authorization.
+
+## Tautologies and overclaims
+
+**Fixture-only (labeled; do not treat as product evidence):**
+
+- `reference_status` / `test_synthetic_*` only exercise the in-file planning model (`evidence_class: synthetic_planning_reference_only`). Foreign-clock and substitute-timestamp cases are true because the helper reads `objects[rule["id"]][rule["field"]]`.
+- `test_other_clock_setter_cannot_satisfy_source_rule` swaps one setter cell with the first other **row** and expects phrase mismatch. Appointment and evidence share a row, so they never test each other. Name overclaims “cannot satisfy source rule.”
+- Five `op: add` mutations (`grant_add_fence`, `grant_add_review_by`, `lease_add_valid_until`, `delivery_add_fence`, `appt_add_fence`) fail solely because those schemas are `additionalProperties: false`. Any unknown field would fail. That is closed-object JSON Schema, not a clock-mixing rule.
+- Rename/drop mutations **are** useful: they pin the canonical field name as required. Rejection reason is still missing-required + extra property, not a semantic “wrong clock” type.
+
+**Not tautological:** `test_canonical_field_setter_expiry_and_renewal` (real `03 §11` text); example validation against live OpenAPI; lease same-object shape; day-one `requested_duration_hours` 0/1/72/73 vs schema `minimum: 1, maximum: 72`; appointment `expire_at_review_by` + renewal invariant; claim/lease orthogonality guards; provider-timestamp sentence pin.
+
+## Coverage gaps (acceptance blockers beyond the 3 reds)
+
+FW-01 requires five families each with 正例, setter/expiry boundary, and “another clock cannot substitute” negatives, plus resolved schema paths.
+
+1. **Invite / claim window has no schema carrier.** No `invite` / `WorkItem` / claim-window `expires_at` in `contracts/`. `WorkClaim` has no `expires_at`. `clock-cases` `invite.schema` is `null`. Tests correctly did **not** launder `SubmissionDraft.expires_at` as invite.
+2. **Generic evidence `valid_until` has no schema carrier.** Only `ReviewerAppointment.review_by` is schema-backed. `valid_until` appears only in fixtures.
+3. That is **incomplete FW-01 acceptance**, even if the three reds were later waived or the spec relaxed.
+4. Prose helper never reads the `03 §11` **絕不可代替** column; substitution is left to the synthetic helper and closed-schema extras.
+5. Lease prose check only requires the substring `expires_at` in the field cell; it does **not** pin “同物件” / `fencing_token` in the table. Same-object lives only in the schema-shape test.
+6. Named lease-proof object `ReleaseStatusLeaseProof` is not in `LEASE_SCHEMAS`. It has `fencing_token` and no `expires_at`, so the split is real under both envelope and proof-object readings. Coverage hole, not a conflicting green.
+7. No schema-level pin that Grant/Claim/WorkItem `expires_at` is **not** a lease (ADR-062). Grant correctly has `expires_at` without fence; that case is unasserted.
+
+## Blockers
+
+- **Cannot claim FW-01 done** while those 3 tests fail and invite/`valid_until` carriers are absent.
+- Canonical files were not (and must not be) mutated here, so the reds cannot be “fixed” in this package without a later contract change **or** an explicit FW-01 exemption for nested release-status proofs / exclusive-claim guards.
+- Green counts (111) do not offset the reds or the missing carriers.
+
+## Limitations of this review
+
+Read-only; no git, network, subagents, or canonical writes. Pytest was re-run locally. OpenAPI was sampled only at the lease/grant/claim/appointment/milestone schemas the tests pin. No product runtime, no 09 inventory refresh. The synthetic evaluator is planning-reference-only; setter/history/renewal pins are canonical prose, not authorization.

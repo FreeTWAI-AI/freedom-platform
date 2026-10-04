@@ -14,6 +14,7 @@ Repo 的 `wrangler.jsonc` Hyperdrive id 刻意維持全零 template，真實 id 
 | --- | --- |
 | [environments.json](environments.json) | `staging-next`／`next` 的名稱與隔離規則、單一 `HYPERDRIVE`、PS-5 size 與 Tokyo org 報價（org_quote_recorded）、觀察到的佈建進度（不含 ID）、OCI／D1 替代方案 |
 | [preflight.mjs](preflight.mjs) | CLI：`manifest`、`migrations`、`wrangler`、`cost`、`oci-alternative`、`cloudflare`、`oci`、`planetscale`、`plan`、`all` |
+| [release-compatibility.md](release-compatibility.md) | `compatibility --compatibility-input P`：來源／完整 schema ledger／rollback floor 的本機判定；可信 host port 另注入，沒有部署或還原授權 |
 | [lib/wrangler.mjs](lib/wrangler.mjs) | runtime config 靜態 checker：分開回報 structural、static checks 與 deployment readiness（注入未證明時為 false） |
 | [lib/credentials.mjs](lib/credentials.mjs) | `CLOUDFLARE_API_TOKEN`／`CLOUDFLARE_ACCOUNT_ID`（接受舊名 `CF_*`，衝突即拒絕） |
 | [lib/](lib/manifest.mjs) | manifest guard、cost、GET-only Cloudflare client、唯讀 pscale（process-scoped DBUS fallback、不轉交 token）／OCI runner、migration scanner、redaction |
@@ -26,9 +27,19 @@ node deploy/cloudflare/preflight.mjs all
 node deploy/cloudflare/preflight.mjs wrangler --config <runtime wrangler.jsonc>
 ```
 
-[environments.json](environments.json) 的 `database_defaults.migrations.last` 是目前最後一個 migration 的編號。新增 migration 的 PR 要一併把它改成新的編號；測試裡的檔案數和最後一個檔名都由它推算，不必另外改。GitHub Actions 的 verify 不跑這組測試，漏改不會擋住 PR，只會讓 `migrations` 與 `all` 回報失敗。
+[environments.json](environments.json) 的 `database_defaults.migrations.last` 是目前最後一個 migration 的編號。新增 migration 的 PR 要一併把它改成新的編號；測試裡的檔案數和最後一個檔名都由它推算，不必另外改。GitHub Actions 另有 `deploy-preflight` job 跑這組測試；它是否為必要合併檢查，仍以實際 GitHub 規則為準，不能由 workflow 註解推定。`migrations` 與 `all` 也會回報缺漏。
 
 Worker entry、`wrangler.jsonc`、`apps/platform-api`、`packages/db` 與套件依賴由其他工作流負責；本目錄只讀取並驗證它們。`preflight.mjs wrangler` 不驗證 [wrangler.admin-sync.jsonc](../../wrangler.admin-sync.jsonc) 與 [wrangler.maintainer.jsonc](../../wrangler.maintainer.jsonc)：那個 checker 要求平台 route、assets 與 images。兩支 cron Worker 分別由 `npm run worker:dry-run:admin-sync` 與 `npm run worker:dry-run:maintainer` 打包。見下方「管理員 Access 同步 Worker」與「維護者鏡像 Worker」。
+
+## 私人政策的應用角色邊界
+
+085 之後，公開 [runtime grants template](sql/20-runtime-grants.psql) 在同一交易內先套一般 grants，再移除私人政策表的所有直接 table／column grants，只給 SELECT 與生成常數 `scope_kind` 的 column UPDATE。後者只讓 PostgreSQL `FOR SHARE` 能執行，不能修改保存開關、配額、revision 或 owner。一般 SELECT-only 角色不能取得該 row lock。
+
+App role 必須是專用角色：沒有父角色 membership（包括 NOINHERIT 下仍可 SET ROLE 的 membership、ADMIN-only membership）或管理角色屬性。殘留 inherited／PUBLIC 寫入、其他 column UPDATE、grant option、生成欄位漂移都令 template 拒絕並 rollback；不自動撤銷別的角色／PUBLIC 權限。Operator 須處理根因後重跑，不能忽略錯誤。
+
+每次 migration 或 restore 後、應用程式連回前重跑。085 前表不存在不做變更；這不是 085 後可缺表的證據。[唯讀 checker](sql/30-verify-readonly.psql) 是報表，不以 exit 0 表示安全：085 後須恰有一列 `private_policy_read=true`、`private_policy_lock=true`、`private_policy_unsafe=false`，並另通過原有角色、ownership、public CREATE 與 ledger 檢查。只有 SQL ledger 相符不足以排除 ACL／DDL 漂移。
+
+這些是公開模板及隔離 PostgreSQL 測試，不會自動更新含秘密的 release helper。正式 grants-check 的接線與 redacted evidence 尚須另驗；未設定正式允許政策、quota、備份、私人 GC 或新的 HTTP/UI。
 
 ## 管理員 Access 同步 Worker
 

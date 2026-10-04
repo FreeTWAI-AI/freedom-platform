@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "scope_id": {
+      "type": "string",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "community",
+        "personal",
+        "site"
+      ]
+    }
+  },
+  "required": [
+    "scope_id",
+    "kind"
+  ],
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/common/v1/resource-scope-ref"
+}

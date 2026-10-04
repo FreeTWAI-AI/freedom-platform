@@ -1,0 +1,23 @@
+{
+  "agent_run_id": "run_01fw01",
+  "work_item_id": "wi_01fw01",
+  "claim_id": "clm_01fw01",
+  "agent_connection_ref": "acon_01fw01",
+  "equipped_skill_version_refs": [],
+  "domain_skill_runtime_mode": "eligibility_and_provenance_only_v1",
+  "domain_skill_overlay": null,
+  "external_source_requirements": [],
+  "activation": {
+    "channel_id": "control.core",
+    "sequence": "1",
+    "activation_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "skill_package_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "skill_dependency_closure_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "plan_bundle_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "contract_bundle_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "task_lease_id": "tlea_01fw01",
+  "fencing_token": "1",
+  "state": "prepared",
+  "expires_at": "2026-09-20T13:00:00Z"
+}

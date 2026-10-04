@@ -1,0 +1,8 @@
+{
+  "template_key": "day1.learn-equip-and-claim",
+  "agent_connection_ref": "acon_01fw01",
+  "onboarding_journey_ref": "jny_01fw01",
+  "requested_duration_hours": 72,
+  "acknowledgement": "authorize_reversible_day_one_a0_a1_a2_actions_only",
+  "expected_journey_version": 0
+}

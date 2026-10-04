@@ -142,3 +142,21 @@ test('upstream errors expose only a sanitized Cloudflare request identifier',asy
     await assert.rejects(client.post('/example',{}),(cause:unknown)=>{assert.ok(cause instanceof ApiError);assert.equal(cause.cfRay,expected);assert.equal(cause.requestId,expected?'d58b4bd0-43bb-4736-992e-c2b21bf5f68a':undefined);return true;});fetcher.mock.restore();
   }
 });
+
+test('portal client preserves signed bigint string CAS and stable keys across member-initiated replay', async t => {
+  const requests: { version: string | null; key: string | null; body: string }[] = [];
+  t.mock.method(globalThis, 'fetch', async (_input: unknown, init?: RequestInit) => {
+    const headers = new Headers(init?.headers);
+    requests.push({ version: headers.get('If-Match'), key: headers.get('Idempotency-Key'), body: String(init?.body) });
+    return requests.length === 1 ? Response.json({ code: 'internal_error' }, { status: 503 }) : Response.json({ aggregateVersion: '9223372036854775807' });
+  });
+  const client = new PortalClient(); client.csrfToken = 'synthetic';
+  const options = { idempotencyKey: 'same-member-request', ifMatch: '9223372036854775807', suppressConsole: true };
+  await assert.rejects(client.post('/me/model-steps/11111111-1111-4111-8111-111111111111:execute', {}, options), ApiError);
+  assert.equal(requests.length, 1, 'an uncertain response never retries automatically');
+  await client.post('/me/model-steps/11111111-1111-4111-8111-111111111111:execute', {}, options);
+  assert.deepEqual(requests, [
+    { version: '"9223372036854775807"', key: 'same-member-request', body: '{}' },
+    { version: '"9223372036854775807"', key: 'same-member-request', body: '{}' },
+  ]);
+});

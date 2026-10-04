@@ -77,7 +77,7 @@ export function registerPublicPromotion(app: Hono<PlatformEnv>, pool: Pool, runt
     return c.json({ ok: true });
   });
   app.get('/api/v1/public/social-posts/:id/thumbnail', async c => {
-    const bytes = await publicSocialThumbnail(pool, z.uuid().parse(c.req.param('id')));
+    const bytes = await publicSocialThumbnail(pool, z.uuid().parse(c.req.param('id')),runtime.socialThumbnailAssetStore);
     c.header('Content-Type', 'image/webp');
     c.header('Cache-Control', 'public, max-age=300');
     c.header('Cross-Origin-Resource-Policy', 'same-origin');
@@ -102,14 +102,14 @@ export function registerMemberPromotion(app: Hono<PlatformEnv>, pool: Pool, runt
     }
     await authRateLimit(pool, 'social-post-preview', commandInput.actor.user_id, 30, 3600);
     const preview = await previewLink(draft.normalized.url, previewFetch(runtime));
-    try { return c.json(await createSocialPost(pool, commandInput, preview, clock(runtime), runtime.publicOrigin), 201); }
+    try { return c.json(await createSocialPost(pool, commandInput, preview, clock(runtime), runtime.publicOrigin,runtime.socialThumbnailAssets), 201); }
     catch (error) {
       if (error instanceof SocialPostExists) return c.json({ type: 'about:blank', title: 'social_post_exists', status: 409, code: 'social_post_exists', detail: '這則貼文已經有人分享過了。', post_id: error.post_id }, 409);
       throw error;
     }
   });
   app.get('/api/v1/social-posts/:id/thumbnail', async c => {
-    const bytes = await readSocialThumbnail(pool, c.get('actor'), z.uuid().parse(c.req.param('id')));
+    const bytes = await readSocialThumbnail(pool, c.get('actor'), z.uuid().parse(c.req.param('id')),runtime.socialThumbnailAssetStore);
     c.header('Content-Type', 'image/webp');
     c.header('Cache-Control', 'private, no-store');
     c.header('Cross-Origin-Resource-Policy', 'same-origin');
@@ -121,7 +121,7 @@ export function registerMemberPromotion(app: Hono<PlatformEnv>, pool: Pool, runt
     requireCondition(/^[A-Za-z0-9_-]{8,128}$/.test(key), 400, 'idempotency_required', '請提供有效的 Idempotency-Key。');
     await authRateLimit(pool, 'social-thumbnail-member', c.get('actor').user_id, 20, 3600);
     const bytes = await bounded(c.req.raw);
-    return c.json(await saveSocialThumbnail(pool, { actor: c.get('actor'), operation: `${c.req.method} ${c.req.path}`, key, body: null }, z.uuid().parse(c.req.param('id')), { bytes, mime: c.req.header('Content-Type')! }, clock(runtime)));
+    return c.json(await saveSocialThumbnail(pool, { actor: c.get('actor'), operation: `${c.req.method} ${c.req.path}`, key, body: null }, z.uuid().parse(c.req.param('id')), { bytes, mime: c.req.header('Content-Type')! }, clock(runtime),runtime.socialThumbnailAssets));
   });
   app.delete('/api/v1/social-posts/:id', async c => c.json(await deleteSocialPost(pool, await moduleCommand(c), z.uuid().parse(c.req.param('id')), clock(runtime))));
   app.post('/api/v1/social-posts/:id/hide', async c => c.json(await hideSocialPost(pool, await moduleCommand(c), z.uuid().parse(c.req.param('id')), clock(runtime))));

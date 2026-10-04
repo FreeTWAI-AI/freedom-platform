@@ -3,9 +3,10 @@ import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { z } from 'zod';
 import type { Pool } from 'pg';
-import { timingSafeEqual } from 'node:crypto';
-import { authenticate, login, sessionView, type Actor } from '../../../modules/identity-membership/service.js';
+import { login, sessionView, type Actor } from '../../../modules/identity-membership/service.js';
+import { memberBoundary } from './member-boundary.js';
 import { createWork,claimWork,changeClaim,listWorks,dashboard } from '../../../modules/opportunity-project-work/work.js';
+import { createPrivateWorkRoutes } from './routes/private-work.js';
 import { createShowcase,listShowcases,createOpportunity,listOpportunities,proposeEngagement,listEngagements,changeEngagement } from '../../../modules/opportunity-project-work/business.js';
 import { Problem,requireCondition } from '../../../packages/shared/problem.js';
 import type { Command } from '../../../packages/db/index.js';
@@ -41,7 +42,7 @@ import {createMaintainerWebhookRoutes,createRepoMaintainerMemberRoutes,isMaintai
 import {createPublishedSkillRoutes} from './routes/published-skills.js';
 import {createMemberCommunicationRoutes} from './routes/member-communications.js';
 import {PageGitHubReader,PageGitHubEventReader} from '../../../modules/development/page-github.js';
-import {createCommunityEventRoutes,checkEventBannerUploadHeaders,checkEventVideoUploadHeaders,eventVideoResponse,isEventBannerUpload,isEventVideoUpload} from './routes/community-events.js';
+import {createCommunityEventRoutes,checkEventBannerUploadHeaders,checkEventVideoUploadHeaders,eventVideoResponse,eventAssetVideoResponse,isEventBannerUpload,isEventVideoUpload} from './routes/community-events.js';
 import {checkHighlightPhotoUploadHeaders,checkHighlightPosterUploadHeaders,createEventHighlightMemberRoutes,createEventHighlightPublicRoutes,isHighlightPhotoUpload,isHighlightPosterUpload} from './routes/event-highlights.js';
 import {CollaborationGitHub} from '../../../modules/co-creation/github.js';
 import {acceptedWorkFeed,contributionRecords,previewTasks} from '../../../modules/community/task-board.js';
@@ -51,6 +52,19 @@ import {checkServiceCoverHeaders,isServiceCoverUpload,registerMemberServices,reg
 import {publicMemberCard,publicMemberAvatar} from '../../../modules/identity-membership/member-sharing.js';
 
 const COOKIE='freedom_local_session';
+const privateAiFamilies=['private-work','execution-runs','model-connections','execution-grants','execution-attempts',
+  'model-step-overview','model-step-approvals','model-steps','credential-ingests','model-settings','model-credentials',
+  'device-authorizations','agent-connections'];
+function isPrivateAiPath(path:string) {
+  if(path==='/execution-api/v1'||path.startsWith('/execution-api/v1/'))return true;
+  return privateAiFamilies.some(family=>{const base='/api/v1/me/'+family;return path===base||path.startsWith(base+'/')||path.startsWith(base+':');});
+}
+function isInstalledPrivateAiPath(path:string) {
+  if(path==='/execution-api/v1'||path.startsWith('/execution-api/v1/'))return true;
+  return ['device-authorizations','agent-connections','model-step-overview','model-step-approvals','model-steps','credential-ingests','model-settings','model-credentials'].some(family=>{
+    const base='/api/v1/me/'+family;return path===base||path.startsWith(base+'/')||path.startsWith(base+':');
+  });
+}
 function onboardingAllowed(path:string,method:string) {
   if(path==='/api/v1/me/client-errors'&&method==='POST')return true;
   if(path==='/api/v1/events'&&method==='POST')return true;
@@ -80,6 +94,13 @@ export function isMemberCardPage(path:string){return /^\/member-cards\/[A-Za-z0-
 export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions;coCreationGitHub?:CollaborationGitHub}={}) {
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
   const allowedHosts=runtime.allowedHosts,authNetwork=runtime.sourceNetwork;
+  const brokerFormOrigin=runtime.privateAiProduct?runtime.privateAiSetupOrigin?.():undefined;
+  if(brokerFormOrigin!==undefined){
+    const setup=new URL(brokerFormOrigin),main=new URL(origin);
+    if(setup.protocol!=='https:'||setup.origin!==brokerFormOrigin||setup.username||setup.password
+      ||setup.hostname===main.hostname||/[?#%\\\x00-\x20\x7f-\uffff]/.test(brokerFormOrigin))throw new Error('invalid_private_ai_browser_policy');
+  }
+
   const secureCookies=freedomEnv!=='local';
   const loadSocial=socialLoader(pool,origin,options.githubSocial,runtime.githubTokenKey,runtime.githubMetricsToken);
   const publicSocial=new GitHubSocial(pool,undefined,options.githubSocial?.fetcher??fetch,runtime.githubMetricsToken());
@@ -104,7 +125,17 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     c.header('Cache-Control','no-store');c.header('X-Content-Type-Options','nosniff');c.header('Referrer-Policy','no-referrer');
     if(isMemberCardPage(c.req.path))c.header('X-Robots-Tag','noindex, nofollow');
     const githubSetupForm=c.req.path==='/admin'||c.req.path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI-AI/settings/apps/new':'';
-    c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm);
+    c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm+(brokerFormOrigin?' '+brokerFormOrigin:''));
+    // These host-installed child transports authorize and bound the ORIGINAL
+    // request body. The legacy generic text reader must not consume it first.
+    if(isPrivateAiPath(c.req.path)&&runtime.privateAiProduct)return runtime.privateAiProduct(c.req.raw);
+    if(isInstalledPrivateAiPath(c.req.path)) {
+      c.header('Cache-Control','private, no-store');c.header('Pragma','no-cache');
+      c.header('Vary','Origin, Cookie, Authorization, DPoP');c.header('X-Robots-Tag','noindex, nofollow');
+      c.header('Cross-Origin-Resource-Policy','same-origin');
+      return c.json({type:'about:blank',title:'private_ai_product_unavailable',status:503,
+        code:'private_ai_product_unavailable',detail:'私人 AI 草稿服務尚未設定。'},503);
+    }
     if(!['GET','HEAD','OPTIONS'].includes(c.req.method)) {
       const agentUpload=isAgentSkillUploadPath(c.req.method,c.req.path)||isAgentDevelopmentPath(c.req.method,c.req.path);
       // Only the narrow Bearer-authenticated Agent endpoints accept a CLI
@@ -141,13 +172,19 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
       }
     }
     await next();
+    // A native cross-origin form uses the source document's referrer policy
+    // when deriving Origin. Suppressing all referrers makes that Origin null.
+    // Only installed HTML documents disclose the origin, never path or query;
+    // API replies and hosts without the genuine broker keep no-referrer.
+    if(brokerFormOrigin&&['GET','HEAD'].includes(c.req.method)
+      &&/^text\/html(?:;|$)/i.test(c.res.headers.get('Content-Type')??''))c.header('Referrer-Policy','strict-origin');
     if((c.req.path.startsWith('/api/')||c.req.path.startsWith('/agent-api/')||c.req.path.startsWith('/client-api/')||c.req.path.startsWith('/admin/api/')) && c.res.headers.get('Content-Type')?.includes('application/json')) {
       const data=wireVersions(await c.res.json());
       c.res=new Response(JSON.stringify(data),{status:c.res.status,headers:c.res.headers});
     }
   });
   app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken,guildReviewer:runtime.guildReviewer}));
-  app.route('/',createPublishedSkillRoutes(pool,runtime.publicOrigin));
+  app.route('/',createPublishedSkillRoutes(pool,runtime.publicOrigin,runtime.skillImageAssetStore));
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id)));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
@@ -158,20 +195,21 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     return c.json(await publicMemberCard(pool,c.req.param('token')));
   });
   app.get('/api/v1/public/member-cards/:token/avatar',async c=>{
-    const bytes=await publicMemberAvatar(pool,c.req.param('token'));
+    const bytes=await publicMemberAvatar(pool,c.req.param('token'),runtime.avatarAssetStore);
     c.header('Content-Type','image/webp');c.header('X-Robots-Tag','noindex, nofollow');
+    c.header('Cache-Control','no-store');c.header('Content-Length',String(bytes.length));
     return c.body(new Uint8Array(bytes));
   });
   app.get('/api/v1/public/events/:id',async c=>c.json(await publicEvent(pool,z.uuid().parse(c.req.param('id')))));
   app.get('/api/v1/public/events/:id/banner',async c=>{
-    const bytes=await publicEventBanner(pool,z.uuid().parse(c.req.param('id')));
+    const bytes=await publicEventBanner(pool,z.uuid().parse(c.req.param('id')),runtime.eventBannerAssetStore);
     c.header('Content-Type','image/webp');c.header('Cache-Control','public, max-age=300');c.header('Cross-Origin-Resource-Policy','same-origin');
     return c.body(new Uint8Array(bytes));
   });
-  app.get('/api/v1/public/events/:id/video',async c=>eventVideoResponse(c,await publicEventVideo(pool,z.uuid().parse(c.req.param('id'))),true));
+  app.get('/api/v1/public/events/:id/video',async c=>eventAssetVideoResponse(c,pool,z.uuid().parse(c.req.param('id')),runtime.eventVideoAssetStore));
   registerPublicPromotion(app,pool,runtime);
   registerPublicMemberServices(app,pool,runtime);
-  app.route('/',createEventHighlightPublicRoutes(pool,runtime.publicOrigin));
+  app.route('/',createEventHighlightPublicRoutes(pool,runtime.publicOrigin,runtime));
   app.post('/api/v1/public/events/:id/register',async c=>{
     requireCondition(runtime.eventEmailSender,503,'event_email_unavailable','活動郵件服務暫時無法使用。');
     const body=await c.req.json();
@@ -190,7 +228,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/client-api/v1',createClientApiRoutes(pool));
   app.route('/shop-api/v1',createShopMachineRoutes(pool));
   app.route('/',createPublicShopRoutes(pool));
-  app.route('/agent-api/v1',createAgentSkillSubmissionRoutes(pool,origin,authNetwork));
+  app.route('/agent-api/v1',createAgentSkillSubmissionRoutes(pool,origin,authNetwork,runtime));
   app.route('/development-agent/v1',createDevelopmentAgentRoutes(pool,loadSocial,authNetwork));
   app.post('/api/v1/auth/register',async c=>{
     await authRateLimit(pool,'registration-network',authNetwork(c),8);
@@ -233,15 +271,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     return c.json(result);
   });
   app.route('/',createMaintainerWebhookRoutes(pool,runtime.maintainerWebhookSecret));
-  app.use('/api/v1/*',async(c,next)=>{
-    const actor=await authenticate(pool,getCookie(c,COOKIE));c.set('actor',actor);
-    if(!['GET','HEAD'].includes(c.req.method)) {
-      const got=Buffer.from(c.req.header('X-CSRF-Token')??''),expected=Buffer.from(actor.csrf_token);
-      requireCondition(got.length===expected.length && timingSafeEqual(got,expected),403,'csrf_rejected','登入狀態已變更，請重新整理。');
-    }
-    requireCondition(!actor.onboarding_required||Boolean(actor.onboarding_completed_at)||onboardingAllowed(c.req.path,c.req.method),403,'onboarding_required','請先選擇主要公會，完成加入後即可使用會員功能。');
-    await next();
-  });
+  app.use('/api/v1/*',memberBoundary(pool,onboardingAllowed));
   const cmd=async(c:any):Promise<Command>=>{
     const ifMatch=c.req.header('If-Match') as string|undefined;
     if(ifMatch) requireCondition(/^"[1-9][0-9]*"$/.test(ifMatch),400,'invalid_version','If-Match 須為加引號的整數版本。');
@@ -260,6 +290,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   });
   app.post('/api/v1/auth/logout',async c=>{await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[c.get('actor').session_hash]);deleteCookie(c,COOKIE,{path:'/'});return c.json({logged_out:true});});
   app.get('/api/v1/work-items',async c=>c.json({items:await listWorks(pool,c.get('actor'))}));
+  app.route('/api/v1',createPrivateWorkRoutes(pool));
   app.post('/api/v1/work-items',async c=>respond(c,await createWork(pool,await cmd(c)),201));
   // Action suffix is part of the constrained segment; validate its UUID separately.
   app.post('/api/v1/work-items/:id{[0-9a-f-]+:claim}',async c=>respond(c,await claimWork(pool,await cmd(c),routeId(c)),201));
@@ -282,18 +313,18 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.post('/api/v1/engagements/:id/receipts',async c=>respond(c,await changeEngagement(pool,await cmd(c),routeId(c),'receipt'),201));
   app.route('/api/v1',createMemberRoutes(pool));
   app.route('/api/v1',createMemberCommunicationRoutes(pool));
-  app.route('/api/v1',createCommunityEventRoutes(pool,runtime.eventEmailSender,origin));
+  app.route('/api/v1',createCommunityEventRoutes(pool,runtime.eventEmailSender,origin,runtime));
   registerMemberPromotion(app,pool,runtime);
   registerMemberServices(app,pool,runtime);
-  app.route('/api/v1',createEventHighlightMemberRoutes(pool));
+  app.route('/api/v1',createEventHighlightMemberRoutes(pool,runtime));
   app.route('/api/v1',createGitHubSocialRoutes(loadSocial));
   app.route('/api/v1',createMemberAuthorClaimRoutes(pool,options.githubSocial?.fetcher??globalThis.fetch,runtime.githubMetricsToken));
   app.route('/api/v1',createDevelopmentAccessRoutes(pool,loadSocial));
   app.route('/api/v1',createGuildWorkspaceRoutes(pool));
   app.route('/api/v1',createRepoMaintainerMemberRoutes(pool));
-  app.route('/api/v1',createAvatarRoutes(pool));
+  app.route('/api/v1',createAvatarRoutes(pool,runtime.avatarAssetStore));
   app.route('/api/v1',createClientConnectionRoutes(pool));
-  app.route('/api/v1',createSkillSubmissionRoutes(pool,origin,runtime.githubMetricsToken));
+  app.route('/api/v1',createSkillSubmissionRoutes(pool,origin,runtime.githubMetricsToken,runtime));
   app.route('/api/v1',createPositioningRoutes(pool));
   app.route('/api/v1',createCommerceRoutes(pool));
   app.route('/api/v1',createAgentCommerceRoutes(pool,origin));

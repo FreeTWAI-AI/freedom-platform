@@ -97,14 +97,14 @@ export async function markNotificationRead(pool:Pool,input:Command,rawId:string)
 // ---------- direct messages ----------
 type Peer={participant:Participant;ready:boolean;viewer_ready:boolean;has_history:boolean};
 async function resolvePeer(q:PoolClient|Pool,actor:Actor,id:string):Promise<Peer>{
-  const row=(await q.query(`SELECT u.user_id,u.display_name,${ready('u')} AS ready,av.aggregate_version AS avatar_version,av.image_bytes IS NOT NULL AS avatar_present,
+  const row=(await q.query(`SELECT u.user_id,u.display_name,${ready('u')} AS ready,av.aggregate_version AS avatar_version,av.present AS avatar_present,
       (SELECT max(s.created_at) FROM sessions s WHERE s.user_id=u.user_id) AS last_login_at,
       EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.user_id AND s.revoked_at IS NULL AND s.expires_at>now()
         AND s.last_seen_at>now()-interval '2 minutes') AS is_online,
       (SELECT ${ready('v')} FROM users v WHERE v.user_id=$2 AND v.community_id=$1) AS viewer_ready,
       EXISTS(SELECT 1 FROM member_direct_messages d WHERE d.community_id=$1
         AND least(d.sender_ref,d.recipient_ref)=least($2::uuid,$3::uuid) AND greatest(d.sender_ref,d.recipient_ref)=greatest($2::uuid,$3::uuid)) AS has_history
-    FROM users u LEFT JOIN member_avatars av ON av.user_id=u.user_id AND av.community_id=u.community_id
+    FROM users u LEFT JOIN member_avatar_presence av ON av.user_id=u.user_id AND av.community_id=u.community_id
     WHERE u.user_id=$3 AND u.community_id=$1`,[actor.community_id,actor.user_id,id])).rows[0];
   // Cross-community, unknown, and history-less unavailable members are indistinguishable.
   requireCondition(row&&(row.ready||row.has_history),404,'member_not_found','找不到這位會員。');
@@ -123,13 +123,13 @@ export async function listConversations(pool:Pool,actor:Actor,raw:unknown):Promi
           SELECT CASE WHEN sender_ref=$2 THEN recipient_ref ELSE sender_ref END AS peer,* FROM member_direct_messages
           WHERE community_id=$1 AND (sender_ref=$2 OR recipient_ref=$2)) pair
         ORDER BY peer,created_at DESC,message_id DESC)
-      SELECT l.*,u.display_name,${ready('u')} AS ready,av.aggregate_version AS avatar_version,av.image_bytes IS NOT NULL AS avatar_present,
+      SELECT l.*,u.display_name,${ready('u')} AS ready,av.aggregate_version AS avatar_version,av.present AS avatar_present,
         (SELECT max(s.created_at) FROM sessions s WHERE s.user_id=u.user_id) AS last_login_at,
         EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.user_id AND s.revoked_at IS NULL AND s.expires_at>now()
           AND s.last_seen_at>now()-interval '2 minutes') AS is_online,
         (SELECT count(*)::int FROM member_direct_messages d WHERE d.community_id=$1 AND d.recipient_ref=$2 AND d.sender_ref=l.peer AND d.read_at IS NULL) AS unread_count
       FROM latest l JOIN users u ON u.user_id=l.peer AND u.community_id=$1
-      LEFT JOIN member_avatars av ON av.user_id=u.user_id AND av.community_id=u.community_id
+      LEFT JOIN member_avatar_presence av ON av.user_id=u.user_id AND av.community_id=u.community_id
       ORDER BY l.created_at DESC,l.message_id DESC LIMIT $3 OFFSET $4`,[actor.community_id,actor.user_id,limit+1,offset])).rows;
     const page=pageOf(rows,limit,offset);
     return {unread_count:unread,next_offset:page.next_offset,items:page.items.map(row=>({
