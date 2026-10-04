@@ -10,7 +10,7 @@ import { fixtureRoot, put } from './fixtures.mjs';
 // No database connection: fixture tests assert the supplied environment only.
 const database = 'postgresql://postgres@localhost/fp_fixture?host=%2Ftmp%2Ffp-fixture';
 const simple = "import {test} from 'node:test'; test('synthetic', () => {});\n";
-const runtimeOptions = { testDatabaseUrl: database };
+const runtimeOptions = { testDatabaseUrl: database, runtimeShards: 1 };
 async function runtimeFixture(t, id = 'runtime.command-core', source = simple) {
   const root = await fixtureRoot(t);
   for (const path of RUNTIME_SUITES[id]) await put(root, path, source);

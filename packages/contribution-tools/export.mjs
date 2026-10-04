@@ -9,7 +9,7 @@ import { verificationEnvironment } from './process-env.mjs';
 
 export const PORTABLE_TOOL_FILES = [
   ...['errors', 'io', 'schema', 'formats', 'contracts', 'pin-cli', 'workspace', 'context', 'verify', 'cli',
-    'local-artifacts', 'process-env', 'test-reporter', 'suite-runner', 'runtime-suites'].map(name => `packages/contribution-tools/${name}.mjs`),
+    'local-artifacts', 'process-env', 'test-reporter', 'suite-runner', 'runtime-suites', 'runtime-databases'].map(name => `packages/contribution-tools/${name}.mjs`),
   'governance/README.md',
   ...['release-set', 'contract-pin-v1', 'contract-pin-v2', 'release-proof', 'release-trust', 'module', 'coding-context', 'verifier-report']
     .map(name => `governance/schemas/${name}.schema.json`),

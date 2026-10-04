@@ -70,7 +70,20 @@ jobs:
       # Retain the former sequential job's generated/browser build prerequisites.
       - run: npm run contracts:build
       - run: npm run build
-      - run: npm test
+      - name: Complete runtime coverage in two isolated databases
+        run: |
+          node --test --test-concurrency=1 tests/contribution-tools/runtime-sharding.integration.test.mjs
+          node scripts/runtime-full.mjs
+        env:
+          # This job's synthetic PostgreSQL service uses loopback trust only.
+          TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
+      - name: Preserve runtime shard evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: runtime-full-shards
+          path: .freedom/reports/runtime-full-shards.json
+          if-no-files-found: warn
   ui-e2e:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
