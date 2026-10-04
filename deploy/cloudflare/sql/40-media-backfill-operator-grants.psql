@@ -19,7 +19,7 @@ BEGIN
  IF r !~ '^(fp_media_migrator_[a-z0-9_]+|freedom_media_migrator)$' OR s !~ '^[a-z_][a-z0-9_]{0,62}$' THEN RAISE EXCEPTION 'Invalid dedicated operator target';END IF;
  SELECT oid INTO roid FROM pg_roles WHERE rolname=r AND rolcanlogin AND NOT rolsuper AND NOT rolcreaterole AND NOT rolcreatedb AND NOT rolreplication AND NOT rolbypassrls;
  IF roid IS NULL OR EXISTS(SELECT 1 FROM pg_auth_members WHERE member=roid) OR has_schema_privilege(r,s,'CREATE') THEN RAISE EXCEPTION 'Unsafe dedicated operator role';END IF;
- FOR t IN SELECT unnest(ARRAY['media_backfill_operator_policy','media_backfill_jobs','media_backfill_items','media_backfill_audit','member_services','member_service_covers','member_service_cover_asset_targets','community_events','community_event_videos','community_event_video_asset_targets','community_event_banners','community_event_banner_asset_targets','community_social_posts','community_social_post_thumbnails','community_social_thumbnail_asset_targets','assets','asset_objects','asset_upload_intents']) LOOP
+ FOR t IN SELECT unnest(ARRAY['media_backfill_operator_policy','media_backfill_jobs','media_backfill_items','media_backfill_audit','member_services','member_service_covers','member_service_cover_asset_targets','community_events','community_event_videos','community_event_video_asset_targets','community_event_banners','community_event_banner_asset_targets','community_social_posts','community_social_post_thumbnails','community_social_thumbnail_asset_targets','skill_submissions','skill_submission_image_asset_targets','community_event_highlights','community_event_highlight_images','community_event_highlight_asset_targets','assets','asset_objects','asset_upload_intents']) LOOP
   IF NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=s AND c.relname=t AND c.relkind IN ('r','p') AND NOT c.relrowsecurity AND c.relowner<>roid) THEN RAISE EXCEPTION 'Operator source shape unavailable';END IF;
   SELECT string_agg(quote_ident(a.attname),',') INTO columns FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=s AND c.relname=t AND a.attnum>0 AND NOT a.attisdropped;
   EXECUTE format('REVOKE ALL PRIVILEGES ON TABLE %I.%I FROM %I',s,t,r);
@@ -33,14 +33,14 @@ BEGIN
   EXECUTE format('GRANT SELECT(effect_id,settlement_nonce,state) ON %I.asset_object_write_effects TO %I',s,r);
   EXECUTE format('GRANT INSERT(effect_id,intent_id,asset_id,intent_fence,settlement_nonce),UPDATE(state,finished_at) ON %I.asset_object_write_effects TO %I',s,r);
  END IF;
- FOREACH t IN ARRAY ARRAY['media_backfill_jobs','media_backfill_items','media_backfill_audit','member_services','member_service_covers','member_service_cover_asset_targets','community_events','community_event_videos','community_event_video_asset_targets','community_event_banners','community_event_banner_asset_targets','community_social_posts','community_social_post_thumbnails','community_social_thumbnail_asset_targets','assets','asset_objects','asset_upload_intents'] LOOP
+ FOREACH t IN ARRAY ARRAY['media_backfill_jobs','media_backfill_items','media_backfill_audit','member_services','member_service_covers','member_service_cover_asset_targets','community_events','community_event_videos','community_event_video_asset_targets','community_event_banners','community_event_banner_asset_targets','community_social_posts','community_social_post_thumbnails','community_social_thumbnail_asset_targets','skill_submissions','skill_submission_image_asset_targets','community_event_highlights','community_event_highlight_images','community_event_highlight_asset_targets','assets','asset_objects','asset_upload_intents'] LOOP
   EXECUTE format('GRANT SELECT ON %I.%I TO %I',s,t,r);
  END LOOP;
  EXECUTE format('GRANT SELECT(policy_id,allowed,expires_at) ON %I.media_backfill_operator_policy TO %I',s,r);
- FOREACH t IN ARRAY ARRAY['media_backfill_jobs','media_backfill_items','media_backfill_audit','member_service_cover_asset_targets','community_event_video_asset_targets','community_event_banner_asset_targets','community_social_thumbnail_asset_targets','assets','asset_objects','asset_upload_intents'] LOOP
+ FOREACH t IN ARRAY ARRAY['media_backfill_jobs','media_backfill_items','media_backfill_audit','member_service_cover_asset_targets','community_event_video_asset_targets','community_event_banner_asset_targets','community_social_thumbnail_asset_targets','skill_submission_image_asset_targets','community_event_highlight_asset_targets','assets','asset_objects','asset_upload_intents'] LOOP
   EXECUTE format('GRANT INSERT ON %I.%I TO %I',s,t,r);
  END LOOP;
- EXECUTE format('GRANT UPDATE(after_service_id,after_event_id,after_banner_event_id,after_post_id,fence,lease_token,lease_expires_at,completed) ON %I.media_backfill_jobs TO %I',s,r);
+ EXECUTE format('GRANT UPDATE(after_service_id,after_event_id,after_banner_event_id,after_post_id,after_submission_id,after_highlight_media_id,fence,lease_token,lease_expires_at,completed) ON %I.media_backfill_jobs TO %I',s,r);
  EXECUTE format('GRANT UPDATE(outcome,finished_at) ON %I.media_backfill_items TO %I',s,r);
  EXECUTE format('GRANT UPDATE(aggregate_version,updated_at) ON %I.member_services TO %I',s,r);
  -- Original read lock needs one UPDATE column; bytes/source remain unwritable.
@@ -54,10 +54,13 @@ BEGIN
  EXECUTE format('GRANT UPDATE(media_version,updated_at) ON %I.community_social_posts TO %I',s,r);
  EXECUTE format('GRANT UPDATE(updated_at) ON %I.community_social_post_thumbnails TO %I',s,r);
  EXECUTE format('GRANT UPDATE(asset_id,linked_at_version) ON %I.community_social_thumbnail_asset_targets TO %I',s,r);
+ EXECUTE format('GRANT UPDATE(updated_at) ON %I.skill_submissions TO %I',s,r);
+ EXECUTE format('GRANT UPDATE(asset_id,linked_at_version) ON %I.skill_submission_image_asset_targets TO %I',s,r);
+ EXECUTE format('GRANT UPDATE(image_asset_id,thumb_asset_id,published_at) ON %I.community_event_highlight_asset_targets TO %I',s,r);
  EXECUTE format('GRANT UPDATE(state,ready_at) ON %I.assets TO %I',s,r);
  EXECUTE format('GRANT UPDATE(fence,lease_token,lease_expires_at,state,finalized_at) ON %I.asset_upload_intents TO %I',s,r);
  EXECUTE format('GRANT USAGE ON SEQUENCE %s TO %I',pg_get_serial_sequence(format('%I.media_backfill_audit',s),'audit_id'),r);
- FOREACH c IN ARRAY ARRAY['lock_media_backfill_operator_approval(text)','lock_media_backfill_cover_owner(text,uuid)','lock_media_backfill_cover_consent(text)','publish_media_backfill_cover(text,uuid,uuid,bigint,uuid)','lock_media_backfill_video_organizer(text,uuid)','lock_media_backfill_video_consent(text)','publish_media_backfill_video(text,uuid,uuid,bigint,uuid)','lock_media_backfill_banner_organizer(text,uuid)','lock_media_backfill_banner_consent(text)','publish_media_backfill_banner(text,uuid,uuid,bigint,uuid)','lock_media_backfill_social_author(text,uuid)','lock_media_backfill_social_consent(text)','publish_media_backfill_social(text,uuid,uuid,bigint,uuid)'] LOOP
+ FOREACH c IN ARRAY ARRAY['lock_media_backfill_operator_approval(text)','lock_media_backfill_cover_owner(text,uuid)','lock_media_backfill_cover_consent(text)','publish_media_backfill_cover(text,uuid,uuid,bigint,uuid)','lock_media_backfill_video_organizer(text,uuid)','lock_media_backfill_video_consent(text)','publish_media_backfill_video(text,uuid,uuid,bigint,uuid)','lock_media_backfill_banner_organizer(text,uuid)','lock_media_backfill_banner_consent(text)','publish_media_backfill_banner(text,uuid,uuid,bigint,uuid)','lock_media_backfill_social_author(text,uuid)','lock_media_backfill_social_consent(text)','publish_media_backfill_social(text,uuid,uuid,bigint,uuid)','lock_media_backfill_skill_owner(text,uuid)','lock_media_backfill_skill_consent(text)','publish_media_backfill_skill(text,uuid,uuid,bigint,uuid)','lock_media_backfill_highlight_uploader(text,uuid)','lock_media_backfill_highlight_consent(text)','lock_media_backfill_highlight_bytes(text,uuid)','publish_media_backfill_highlight(text,uuid,uuid,bigint,uuid)'] LOOP
   EXECUTE format('GRANT EXECUTE ON FUNCTION %I.%s TO %I',s,c,r);
  END LOOP;
  -- Inherited/PUBLIC rights cannot be removed by a target-role REVOKE.

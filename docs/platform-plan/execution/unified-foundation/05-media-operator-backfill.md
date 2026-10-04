@@ -97,3 +97,35 @@ operational cloud CLI. A trusted operator application may inject the host and
 must supply its separately approved exact target and store binding. Reports
 contain aggregate results and the job ID, never source bytes, object keys,
 connection secrets or raw database/storage errors.
+
+### Migration 110: skill illustrations and highlight pairs
+
+The same explicitly approved operator host also admits `skill.submission-image`
+and `community.event-highlight`. Skill copies retain original bytes (up to
+512 KiB), owner/personal scope, status, consent, project references and grant
+history. No upload grant or member session is manufactured. Published and
+revoked attachments keep the original public/owner read predicates; revocation
+continues to retain the typed pointer. Bridge mode permits retained source
+bytes; `r2_only` still rejects them.
+
+A highlight job admits one parent per run with a 7,520,256–8,388,608 byte
+read budget. It validates the entire bounded image/thumb result (at most three
+rows), requires exactly one original image (up to 1 MiB) and thumb (up to
+200 KiB), and binds current uploader, organizer, community, ended published
+event, orientation and source metadata. Historical 1 MiB thumbnails exceeding
+the actual profile cap, absent/extra variants and ineligible parents remain
+blocked legacy sources. Each variant uses its own existing common intent,
+Asset and write-effect ledger entry. Both ready Assets, both pointers, source
+selector and one event version increment publish in one transaction. Failed,
+uncertain or stale second variants never publish half a pair. Original SQL
+bytes remain readable until successful publication and remain retained after
+it; original URLs and remove authority stay unchanged. An immutable prepared
+pair fingerprint cannot be rebound after source drift; this tool offers no
+reconciliation or purge operation.
+
+The seven additional SQL ports remain fixed-search-path, non-superuser-owned
+and non-PUBLIC. The read/lock port locks original highlight rows without
+granting write access to original bytes or metadata. These are synthetic
+PostgreSQL/native R2 proofs, not a production migration or cloud-quota claim.
+Avatar is not admitted by this increment. Default CLI planning opens no DB;
+execution still requires the explicitly installed trusted ObjectStore host.

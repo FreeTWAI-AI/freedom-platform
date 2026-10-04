@@ -6,7 +6,7 @@ import {
 } from '../packages/media-migration/operator-backfill.js';
 /** An installation supplies a trusted host; neither arguments nor environment
  * can construct an ObjectStore, credentials, a member session or approval.
- * --purpose is validated by the one closed cover/video/banner/social planner;
+ * --purpose is validated by the one closed six-purpose operator planner;
  * omitting it retains cover compatibility and dry-run opens no database. */
 export async function runMediaBackfill(args:string[],_env:NodeJS.ProcessEnv,installed?:{
   execute(plan:OperatorBackfillPlan):Promise<unknown>
