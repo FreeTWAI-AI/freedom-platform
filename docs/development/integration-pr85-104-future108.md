@@ -3,7 +3,8 @@
 ## Exact local baselines
 
 - Main: `3de70ccbd24362a7925508fb42d36aaa256a0806`
-- Current PR 108 handoff: `f5bede3a7fb898e6183b2f13e6bd93583cea9669`, branch `feat/unified-foundation` (open/draft when aligned)
+- Current aligned PR 108 base: `a1adecc9da819209dcc7248f3387cb355ea782de`, branch `feat/unified-foundation`
+- First authorized publication handoff: `f5bede3a7fb898e6183b2f13e6bd93583cea9669` (historical results below identify their source)
 - Original integration snapshot: `29d91ad13347f9cd7db55ed36d0535fd7bfc1960`; preserved candidate backup `f214f1a3f7bf9d1bacfc5fd823c5fd96976412b7`
 - Candidate branch: `integration/pr85-104-future108`
 - Candidate ports the seven unique open PRs: 85, 87, 100, 101, 102, 103, and 104. Publication is an authorized draft integration; no merge, deployment or remote-host mutation is part of this work.
@@ -166,3 +167,29 @@ Source code was validated after rebasing onto exact `f5bede3`; the following rep
 All candidate and baseline PostgreSQL runs used entirely owned temporary clusters; verified cleanup removes only synthetic data. Wrangler metrics/error reporting and Miniflare ambient metadata were disabled with isolated local configuration. Some nested Wrangler commands may perform a public package-version lookup; these flags are not a claim of blanket network isolation. The earlier skill-client command initially failed to create the unavailable default home npm cache; it passed after using the established writable workspace cache, with no test changes.
 
 Full200-file runtime, real browser interaction/PNG/mobile-focus behavior, Docker-specific restore/supervisor, actual hosted CI for the aggregate publication commit, independent security adjudication, and installed GitHub App enforcement are still distinct outstanding gates. The two Worker cleanup failures and inherited local broker failure are reported as failures, not converted to skips or hidden by a new timeout. No upstream security setting or failing assertion was modified.
+
+## Post-publication alignment with current PR 108
+
+Draft PR [#110](https://github.com/FreeTWAI-AI/freedom-platform/pull/110) published aggregate `98e2b79ad9d375817f0ab70940eb310c291bda76` with tree `2ee76b35a76584dceeb4d4590b79e0954b0d7d61`, byte-identical to local replay `f7f76a507285710d19a010a63b6869e9c32b3c6b`. The source-code/technical-document publication received explicit user confirmation. No original source PR was closed or commented on.
+
+The base had advanced eight commits to `a1adecc9da819209dcc7248f3387cb355ea782de`. GitHub reported a merge conflict and no merge candidate; the exact head initially had no workflow runs/checks. A separate owned worktree merges that pinned upstream into our published branch, preserving the original local replay. Only generated inventory conflicts; README auto-merges and retains both upstream migration-status links and our unshipped feature descriptions. Inventory is regenerated from the combined source rather than choosing either stale manifest.
+
+The upstream additions are a default-unattached maintenance Worker, local snapshot-evidence helper/tests, branch-qualified read-only media CLI username validation, and documentation. They are retained byte-for-byte; no production resource, credential, feature enablement, timeout, assertion, approval or merge gate is changed by this alignment. Upstream still ends at migration111, leaving this candidate’s additive112/113 unchanged. Canonical consumer exports and existing authorization contracts remain unchanged.
+
+Combined-source checks are recorded after execution below; earlier f5 results remain historical and are not automatically promoted to the new tree. The merge publication will fast-forward only our own branch and retain both parents, never rewrite PR108.
+
+### Combined a1adecc9 validation
+
+The clean local merge `c28909185a7d3119e110e4e38464af1ab95d0fcc` has both parents `98e2b79a` and `a1adecc9`; the following evidence-only report/inventory refresh does not change code or tests.
+
+- PASS: standard locked install, typecheck and fresh build (existing >500kB bundle warning).
+- PASS: **230/230** in the explicit22-file scoped PostgreSQL command: the original19 integration-focused files, media-inventory/media-verify and `deploy/cloudflare/test/snapshot-evidence.test.ts`. The latter contributes eight cases and ran against the required new synthetic `grok_snapshot_evidence_test` database in the owned temporary cluster; it is outside the ordinary deploy-mjs glob and tsconfig include, so it was run explicitly.
+- PASS: complete **23-file Worker suite,63/63**, zero failed/skipped/cancelled/todo, including all three new maintenance Worker cases. This is a fresh result for the combined source; the earlier f5 teardown failures remain recorded rather than erased.
+- PASS: governance **295/295** on clean `c2890918`; Cloudflare deployment unit tests **394/394**; static contracts **671 passed /4 existing skips**.
+- PASS: all five existing Worker dry-run families plus the maintenance fixture’s own dry-run; no deployment. Static migration preflight covers112 SQL files through113, expected gap22. Canonical preview/client exports remain unchanged.
+- PASS: inventory **1769 hashes /1033 local links /zero failures**, and `git diff --check`. Playwright still lists442 cases in80 files without browser execution.
+- Both PostgreSQL clusters completed verified cleanup. The metadata opt-out, synthetic-only credentials, isolated configuration and no production/provider-operation boundaries remain the same.
+
+Independent read-only review confirms both parents, exact upstream preservation, readonly/current-SQL authority checks, default-unattached maintenance configuration, full-row snapshot hashing and the unchanged migration/runtime allocations. Snapshot sequence state is not MVCC-isolated; external write/nextval fencing is still required for a real operation. The new branch-qualified remote username acceptance has no dedicated upstream unit case; local CLI and media tests do not claim a real remote/TLS acceptance.
+
+Current governance context still reports `surface_unmapped`,56 unknown paths and all15 modules with `runtime.full`; no gate is cleared by these scoped passes. Full runtime200, actual browser/UI, Docker restore, independent security adjudication, installed enforcement and exact updated hosted CI remain outstanding. The previously reproduced inherited local broker failure is retained; this alignment did not change that fixture or retry it until green.

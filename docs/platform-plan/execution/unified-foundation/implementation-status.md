@@ -1,6 +1,16 @@
 # 共同基礎：本機與 CI 交付紀錄
 
-## 最新已完成：9cc hosted 驗證與 private candidate（2026-10-04）
+最新狀態：[2026-10-04 實際移植報告](actual-migration-2026-10-04.md)、[接手筆記](handoff-2026-10-04.md)。已依 Ted 指示直接完成來源備份、寫入凍結、真實 restore／pending migrations／ACL 核對與 staging／正式流量切換，沒有另加獨立預演。
+
+## 最新已完成：會員資料與正式入口切換（2026-10-04 09:03:44 UTC）
+
+正式站原有 387 users、staging 8 users 已搬入新的 PostgreSQL 18.6；兩邊各 140 張來源表，最後快照分別 15,989／3,203 rows。還原後、migration 前的逐列全欄位摘要多重集合、欄位、counts 與 sequence values 全部一致；再套 36 份 pending migrations 至 110 files／最後編號 111，並恢復受限 runtime/operator grants。所有既有 legacy media bytea 隨來源資料完整保留，沒有 seed。
+
+固定 9cc runtime 已部署到四個既有主站／admin-sync Workers，新 Hyperdrive、分環境 R2 bindings、secrets、OFF flags 與 cron 均核對。staging 與 public 首頁／health 200，各 66／66 真實 HTTPS 驗收通過。新庫專用唯讀 backup role 的兩個每日備份 service 已實跑成功、archive/checksum 核對通過，renewal 已接新庫且成功執行；後續 release plans 已改指新拓撲。
+
+R2 object backfill／非 legacy policy 仍 OFF；媒體資料搬入新 DB 不等於已轉存 R2。Private AI／broker／machine execution、可信 publisher／App-bound merge gate、CodeQL 39 正式核定仍未完成。舊來源已封鎖 app 寫入並保留作恢復材料；新庫已有寫入，不能盲切回舊庫。下面各 checkpoint 記錄當時結果，不再代表目前流量／資料狀態。
+
+## 歷史 checkpoint：9cc hosted 驗證與 private candidate（2026-10-04）
 
 固定 `9cc283c6976a920b5f481ec605a7f468044e3a1b` 的 [Verify run37186706935](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37186706935) completed/success。不可變 merge checkout `216fa14033511f8b674a375879e11454aebea429`：archive digests／source hashes／四分片完整聯集已重算，196檔、2,620/2,620，零fail/skip/cancel/todo、四份cleanup true，697.468秒，原900秒window不變。Worker60/60、七類synthetic DB/native R2 restore2/2；UI job111390048807實際413pass／5既有disabled-feature skips。獨立CodeQL security check111390111512仍failure；Verify或Analyze成功不代表安全核定。
 
@@ -26,7 +36,7 @@ Ted已授權額外臨時Postgres與新環境copy/migrate，完成後關閉臨時
 
 最新交付方向依 Ted 於 2026-10-03 的指示更新為基底優先：既有會員平台的移植、七類媒體搬遷／恢復與可信發布驗證先完成；未驗收的 Autopilot 功能保持關閉，保留原計畫後續 scope。這取代先前「完整原 scope 才正式 migration」的發布前置，但不降低資料保護、撤銷、失敗停機、權限與 staging 先行的要求。其他 PR 本輪不處理。完整決策集中於 [基準與決策](00-baseline-and-decisions.md#2026-10-03-基底優先的最新指示)。
 
-## 最新已完成的基底驗證
+## 歷史 checkpoint：9339e27 基底驗證
 
 固定 PR head `9339e279f7d34a71529c80f7cebcc1f099397588` 的
 [真正 hosted Verify run37182554068](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37182554068)

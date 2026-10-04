@@ -49,7 +49,7 @@ export async function runMediaVerify(args: string[], env: NodeJS.ProcessEnv): Pr
     try {
       url = new URL(connectionString);
       if (!['postgres:', 'postgresql:'].includes(url.protocol) || url.hash
-        || decodeURIComponent(url.pathname.slice(1)) !== target.database || decodeURIComponent(url.username) !== target.role) return failure('database_target_mismatch');
+        || decodeURIComponent(url.pathname.slice(1)) !== target.database || !(decodeURIComponent(url.username) === target.role || (target.environment !== 'local' && decodeURIComponent(url.username).startsWith(target.role + '.') && /^[A-Za-z0-9_-]{1,80}$/.test(decodeURIComponent(url.username).slice(target.role.length + 1))))) return failure('database_target_mismatch');
       const entries = [...url.searchParams];
       if (new Set(entries.map(([key]) => key)).size !== entries.length) return failure('database_target_mismatch');
       if (target.environment === 'local') {

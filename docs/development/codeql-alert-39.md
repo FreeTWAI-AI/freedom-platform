@@ -5,9 +5,9 @@ independently random session token, not the login password. This supports a
 specific false-positive disposition; it is not formal acceptance. Keep the
 GitHub security gate pending until an authorized decision.
 
-Current evidence is PR108 head `f9005950739b62a71ee71ed31b2480323cf6d848`,
-ref **`refs/pull/108/head`**, JavaScript/TypeScript analysis **1887441437**,
-created `2026-10-04T01:39:45Z`. The SARIF contains five results; this review
+Current evidence is PR108 head `d134371f54322dbc1916a0e09a17c66b5cc81a53`,
+ref **`refs/pull/108/head`**, JavaScript/TypeScript analysis **1888173960**,
+created `2026-10-04T08:19:01Z`. The SARIF contains five results; this review
 addresses only `js/insufficient-password-hash`, alert39 at
 `modules/identity-membership/service.ts:11`. Its message has **ten numbered
 login source locations**, while `codeFlows` still contains **four expanded
@@ -31,7 +31,7 @@ individually read, as were all 36 expanded path steps. Every site selects the
 | 7 | `tests/runtime/model-broker-authorizations.test.ts:148` | `another.token` at line148 | not supplied |
 | 8 | `tests/runtime/model-broker-client.test.ts:89` | `signedIn.token` at line90 | not supplied |
 | 9 | `tests/runtime/model-broker-process.test.ts:104` | `session.token` at line104 | not supplied |
-| 10 | `tests/worker/broker-worker-sql.test.ts:89` | `session.token` at line89 | not supplied |
+| 10 | `tests/worker/broker-worker-sql.test.ts:93` | `session.token` at line93 | not supplied |
 
 Each expanded path starts at the return value of `login`, follows its awaited
 result/local variable, selects `.token`, enters `authenticate(raw)` at line56,
@@ -51,20 +51,30 @@ uses a random16-byte salt and a scrypt-derived64-byte value at lines12–18.
 `login` also hashes normalized email at line32 for the rate-limit key; that is
 not the input in these four expanded paths. No password-to-token assignment
 appears in this source. This alert is not evidence of fast unsalted password
-storage. The precise CodeQL source-model implementation was not independently
-inspected, so the model-confusion cause remains an interpretation of the
-reported paths and actual code.
+storage. The version-matched upstream CodeQL source model was inspected at the
+`codeql-cli/v2.27.1` tag (commit `e7871f5403f68f679e57d627cf0d43c5d25cde12`).
+[`SensitiveCall`](https://github.com/github/codeql/blob/codeql-cli/v2.27.1/javascript/ql/lib/semmle/javascript/security/SensitiveActions.qll#L29)
+classifies the entire return of a call as sensitive when any argument has a
+sensitive string value.
+[`maybePassword`](https://github.com/github/codeql/blob/codeql-cli/v2.27.1/shared/concepts/codeql/concepts/internal/SensitiveDataHeuristics.qll#L76)
+includes strings containing `password`. For example, the first source passes
+`synthetic-member-password` to `login`; the heuristic classifies its returned
+object as password data, then the reported flow selects the independently
+random `.token`. This identifies a concrete model mismatch, rather than a
+password-to-token assignment. Changing fixture strings or aliases merely to
+avoid this heuristic would not fix a cryptographic vulnerability; no such
+change is proposed.
 
 The entire production service is byte-identical to current `origin/main`
 `3de70ccbd24362a7925508fb42d36aaa256a0806`: SHA-256
 `deaf732ec639c417953404192dba057e7252caefc282a3db8e13379b97676276` on both.
-Current source-file hashes and all ten call/token excerpts are retained in the
-structured audit. Current SARIF SHA-256 is
-`11bc678a9c79f30f52da2dbfe20ab4582664946826608259f54e1678ff55d584`.
+All ten current call/token excerpts and all 36 expanded path steps were
+rechecked from this source and SARIF. Current SARIF SHA-256 is
+`799f227a0f484dd8354fec43697b5163358603b7f33cef639f7ae4be481364ed`.
 
-[Analyze run37168541892](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37168541892)
+[Analyze run37188409283](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37188409283)
 completed successfully, but
-[CodeQL security check111336610411](https://github.com/FreeTWAI-AI/freedom-platform/runs/111336610411)
+[CodeQL security check111395330664](https://github.com/FreeTWAI-AI/freedom-platform/runs/111395330664)
 **failed**, reporting one new high security alert. Alert39's PR-head instance
 is still open. A zero-result merge-ref analysis, analyzer completion, local
 tests or this document cannot replace the failing PR-head security gate.
@@ -78,10 +88,17 @@ password/token crypto change, trust/rules change or account migration was
 performed. This is a documentation-only update; no new CodeQL run or formal
 security approval is claimed.
 
-Locally retained raw evidence:
-`.freedom/reports/codeql-alert39-current-1887441437.sarif.json`,
-`codeql-alert39-current-alert.json`, `codeql-alert39-current-run.json`,
-`codeql-alert39-current-check.json`, and the structured
-`.freedom/reports/codeql-alert39-current-dataflow-audit.json`.
-The earlier analysis1886887877 remains historical evidence, not the authority
-for this ten-source review.
+Current raw SARIF is retained in the isolated security worktree at
+`.freedom/reports/codeql-1888173960.sarif.json`. Previous structured audits
+remain historical evidence.
+
+GitHub gate readback on 2026-10-04: `main` reports `protected: false`, the
+branch-protection endpoint returns `404 Branch not protected`, and repository
+rulesets are `[]`. Current head checks are emitted by GitHub Actions
+(App ID 15368) and CodeQL/GitHub Advanced Security (App ID 57789); no trusted
+operator publisher check appears for this head. The repository therefore has
+no observed required or App-bound merge gate. Installing and configuring the
+trusted publisher, requiring its exact check name and App ID, and enforcing
+the security decision remain separate operator work. The diagnostic workflow
+or its comments do not establish this configuration. No remote settings or
+alert dispositions were changed during this readback.
