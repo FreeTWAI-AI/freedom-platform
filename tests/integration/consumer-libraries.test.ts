@@ -12,22 +12,23 @@ import { migrate } from '../../scripts/database.js';
 import { seedLocal } from '../../packages/testing/seed.js';
 
 // Deliberate operator-selected candidate checkouts, separate from repositories.lock baseline.
-const roots = [process.env.FREEDOM_AGENT_KIT_ROOT, process.env.FREEDOM_STOREFRONT_ROOT];
-if (roots.some(root => !root || !isAbsolute(root))) throw new Error('Set absolute FREEDOM_AGENT_KIT_ROOT and FREEDOM_STOREFRONT_ROOT.');
+const roots = [process.env.FREEDOM_AGENT_KIT_ROOT, process.env.FREEDOM_STOREFRONT_ROOT, process.env.FREEDOM_SUPPLIER_CLIENT_ROOT];
+if (roots.some(root => !root || !isAbsolute(root))) throw new Error('Set absolute FREEDOM_AGENT_KIT_ROOT, FREEDOM_STOREFRONT_ROOT and FREEDOM_SUPPLIER_CLIENT_ROOT.');
 const databaseUrl = process.env.TEST_DATABASE_URL;
 if (!databaseUrl) throw new Error('Explicit isolated TEST_DATABASE_URL required.');
 const sourceCommit = process.env.FREEDOM_CONSUMER_SOURCE_COMMIT;
 if (!/^[a-f0-9]{40}$/.test(sourceCommit ?? '')) throw new Error('Set exact FREEDOM_CONSUMER_SOURCE_COMMIT.');
 const verifierPath = '../../packages/contribution-tools/consumer-libraries.mjs';
 const { verifyConsumerLibraries } = await import(verifierPath);
-for (const [index, name] of ['freedom-agent-kit', 'freedom-storefront'].entries()) {
+for (const [index, name] of ['freedom-agent-kit', 'freedom-storefront', 'freedom-supplier-client'].entries()) {
   await verifyConsumerLibraries(roots[index], { repository: 'FreeTWAI-AI/' + name,
-    expectedSourceCommit: sourceCommit, sourceRoot: resolve('.') });
+    expectedSourceCommit: index === 2 ? process.env.FREEDOM_SUPPLIER_SOURCE_COMMIT ?? sourceCommit : sourceCommit, sourceRoot: resolve('.') });
 }
 const importConsumer = (index: number, path: string) => import(pathToFileURL(resolve(roots[index]!, path)).href);
 const kit = await importConsumer(0, 'src/index.mjs');
 const { PlatformClient } = await importConsumer(0, 'packages/client/index.mjs');
 const storefront = await importConsumer(1, 'src/index.mjs');
+const supplierClient = await importConsumer(2, 'src/index.mjs');
 const { startPairing, pollPairing } = await importConsumer(1, 'vendor/freedom-libraries/packages/client-connections/read-client.mjs');
 const schema = `fp_consumer_libraries_${process.pid}_${Date.now()}`;
 const admin = createPool(databaseUrl);
@@ -60,7 +61,7 @@ test('updated kit executes the central shared member workspace through its own p
   await assert.rejects(kit.loadMemberWorkspace(client), { status: 401 });
 });
 
-test('updated storefront pairs through HTTP, reads only approved SQL rows and rejects supplier/revoked access', async () => {
+test('updated storefront and supplier pair through HTTP, read scoped SQL rows and reject wrong-scope/revoked access', async () => {
   const member = await login(), session = await member.call('getSession');
   // Synthetic fixture readiness; not a claim of human onboarding acceptance.
   await pool.query('UPDATE users SET onboarding_completed_at=now() WHERE user_id=$1', [session.user.user_id]);
@@ -72,6 +73,14 @@ test('updated storefront pairs through HTTP, reads only approved SQL rows and re
   } });
   const listing = await member.call('createListing', { ...intent(), body: { store_id: store.store_id,
     offer_version_id: product.current_offer.offer_version_id, retail_price_minor: 16000, sale_terms: 'Synthetic only' } });
+  await member.call('requestSupply', { ...intent(), params: { id: listing.listing_id }, version: listing.aggregate_version,
+    body: { snapshot_sha256: listing.snapshot_sha256 } });
+  const otherMember = await PlatformClient.loginDemo({ baseUrl: origin + '/api/v1', email: 'client@local.test', password: 'freedom-local-demo' });
+  await otherMember.call('createSupplierProduct', { ...intent(), body: {
+    title: 'Other supplier fixture', specifications: 'Must not appear in supplier workspace', net_price_minor: 14000,
+    currency: 'TWD', availability: 'manual_confirmation', stock: null, shipping_terms: 'Synthetic only', return_terms: 'Synthetic only',
+  } });
+  await otherMember.call('logout', { body: {} });
   // Browser authority is used only for approval/revoke, never handed to the read adapter.
   const response = await fetch(origin + '/api/v1/auth/login', { method: 'POST', redirect: 'error',
     headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'maker@local.test', password: 'freedom-local-demo' }) });
@@ -98,15 +107,28 @@ test('updated storefront pairs through HTTP, reads only approved SQL rows and re
   const workspace = await storefront.loadConnectedStorefront({ origin, token: connected.access_token, fetcher });
   assert.deepEqual(workspace.stores.map((row: any) => row.store_id), [store.store_id]);
   assert.deepEqual(workspace.listings.map((row: any) => row.listing_id), [listing.listing_id]);
-  assert.equal(workspace.catalog[0].product_id, product.product_id);
+  assert(workspace.catalog.some((row: any) => row.product_id === product.product_id));
   assert.equal(workspace.capabilities.checkout, false); assert.equal(workspace.capabilities.public_publication, false);
   assert(!JSON.stringify(workspace).includes(connected.access_token));
   const supplier = await connect('supplier'), start = seen.length;
   await assert.rejects(storefront.loadConnectedStorefront({ origin, token: supplier.access_token, fetcher }), /storefront:read/);
   assert.deepEqual(seen.slice(start), ['/client-api/v1/connection']);
+  const readClient = new supplierClient.ScopedReadClient({ origin, token: supplier.access_token, fetcher });
+  const supplierWorkspace = await supplierClient.loadSupplierWorkspace(readClient);
+  assert.deepEqual(supplierWorkspace.products.map((row: any) => row.product_id), [product.product_id]);
+  assert.deepEqual(supplierWorkspace.requests.map((row: any) => row.listing_id), [listing.listing_id]);
+  assert.equal(supplierWorkspace.read_only, true);
+  assert(!JSON.stringify(supplierWorkspace).includes(supplier.access_token));
+  const wrongScopeStart = seen.length;
+  await assert.rejects(supplierClient.loadSupplierWorkspace(new supplierClient.ScopedReadClient({ origin, token: connected.access_token, fetcher })), /supplier read connection/);
+  assert.deepEqual(seen.slice(wrongScopeStart), ['/client-api/v1/connection']);
   await command('/me/client-connections/' + connected.connection_id + '/revoke', {}, 1);
   const revokedStart = seen.length;
   await assert.rejects(storefront.loadConnectedStorefront({ origin, token: connected.access_token, fetcher }), { status: 401 });
   assert.deepEqual(seen.slice(revokedStart), ['/client-api/v1/connection']);
+  await command('/me/client-connections/' + supplier.connection_id + '/revoke', {}, 1);
+  const supplierRevokedStart = seen.length;
+  await assert.rejects(supplierClient.loadSupplierWorkspace(readClient), { status: 401 });
+  assert.deepEqual(seen.slice(supplierRevokedStart), ['/client-api/v1/connection']);
   await member.call('logout', { body: {} });
 });
