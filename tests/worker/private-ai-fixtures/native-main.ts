@@ -37,13 +37,20 @@ export async function installNativeMain(context:ExtensionContext,ingestKeys:Cryp
     serviceBindings:{MODEL_BROKER:'broker',CREDENTIAL_RECOVERY_STATE:'recovery-state',CREDENTIAL_RECOVERY_FLOOR:'recovery-floor'},
     assets:{directory:assets,binding:'ASSETS',routerConfig:{has_user_worker:true,invoke_user_worker_ahead_of_assets:true},assetConfig:{not_found_handling:'none'}}},
     {name:'synthetic-browser-ingress',modules:true,compatibilityDate:'2026-09-21',serviceBindings:{MAIN:'main',SETUP:setupWorker},bindings:{MAIN_ORIGIN:mainOrigin,SETUP_ORIGIN:setupOrigin},
-      script:`export default {fetch(request,env){const url=new URL(request.url),setup=url.pathname.startsWith('/setup/');
+      script:`export default {async fetch(request,env){const url=new URL(request.url),setup=url.pathname.startsWith('/setup/');
         const path=url.pathname.slice(setup?6:5),origin=setup?env.SETUP_ORIGIN:env.MAIN_ORIGIN,headers=new Headers(request.headers);
-        headers.set('Host',new URL(origin).host);const browserOrigin=headers.get('X-Synthetic-Origin');headers.delete('X-Synthetic-Origin');if(browserOrigin)headers.set('Origin',browserOrigin);
-        return env[setup?'SETUP':'MAIN'].fetch(new Request(origin+path,{method:request.method,headers,body:['GET','HEAD'].includes(request.method)?undefined:request.body,redirect:'manual'}));}};`});
+        headers.set('Host',new URL(origin).host);headers.delete('Transfer-Encoding');
+        for(const name of ['Origin','Sec-Fetch-Site','Sec-Fetch-Mode','Sec-Fetch-Dest']){const value=headers.get('X-Synthetic-'+name);headers.delete('X-Synthetic-'+name);if(value)headers.set(name,value);}
+        return env[setup?'SETUP':'MAIN'].fetch(new Request(origin+path,{method:request.method,headers,body:['GET','HEAD'].includes(request.method)?undefined:await request.arrayBuffer(),redirect:'manual'}));}};`});
 }
 export async function nativeCall(f:NativeBrokerFixture,target:'main'|'setup',path:string,init:RequestInit={}) {
-  const headers=new Headers(init.headers);if(headers.has('Origin')){headers.set('X-Synthetic-Origin',headers.get('Origin')!);headers.delete('Origin');}
+  // Undici rewrites Origin/Sec-Fetch-Mode and adds Node HTTP framing. Recreate
+  // the requested synthetic browser headers inside workerd, before the actual
+  // broker's unchanged strict transport checks. The synthetic ingress buffers
+  // fixture-only bytes to give workerd a known-length browser-style body; it
+  // does not test real browser ingress or upstream network read timing.
+  const headers=new Headers(init.headers);
+  for(const name of ['Origin','Sec-Fetch-Site','Sec-Fetch-Mode','Sec-Fetch-Dest'])if(headers.has(name)){headers.set('X-Synthetic-'+name,headers.get(name)!);headers.delete(name);}
   return (await f.mf.getWorker('synthetic-browser-ingress')).fetch('https://synthetic.test/'+target+path,{...init,headers} as never) as unknown as Promise<Response>;
 }
 export async function expectJson(response:Response,status=200){assert.equal(response.status,status,await response.clone().text());return response.json() as Promise<any>;}
