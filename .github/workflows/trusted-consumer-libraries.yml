@@ -1,0 +1,44 @@
+name: Trusted consumer library source
+on:
+  pull_request:
+  merge_group:
+    types: [checks_requested]
+permissions:
+  contents: read
+jobs:
+  consumer-library-source:
+    # This central workflow is installed as a native required workflow ONLY for
+    # agent-kit and storefront. It is not the central platform verification job.
+    if: ${{ github.repository != 'FreeTWAI-AI/freedom-platform' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      # Operator replaces before installing/pinning the required workflow.
+      # Deliberately invalid until the approved library source is reachable.
+      FREEDOM_LIBRARY_SOURCE_SHA: REQUIRED_APPROVED_REACHABLE_SOURCE_SHA
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: FreeTWAI-AI/freedom-platform
+          ref: ${{ job.workflow_sha }}
+          path: trusted-source
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      # No npm install/build/test/import from the candidate. Native workflow
+      # conclusion proves source integrity only; runtime adoption is NOT_CHECKED.
+      - name: Verify immutable candidate source against approved baseline and library SHA
+        env:
+          FREEDOM_WORKFLOW_SHA: ${{ job.workflow_sha }}
+          FREEDOM_WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
+          FREEDOM_WORKFLOW_PATH: ${{ job.workflow_file_path }}
+        run: node "$GITHUB_WORKSPACE/trusted-source/packages/contribution-tools/github-consumer-host.mjs" "$GITHUB_WORKSPACE/candidate" "$GITHUB_WORKSPACE/trusted-source"
