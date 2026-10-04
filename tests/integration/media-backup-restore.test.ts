@@ -20,6 +20,8 @@ import type { Actor } from '../../modules/identity-membership/service.js';
 import { createR2ObjectStore, type AssetR2Binding } from '../../packages/asset-storage/r2.js';
 import { objectKey, sha256, readVerifiedObject, writeVerifiedObject, type ObjectStore } from '../../packages/asset-storage/index.js';
 import { createConsistentAssetBackup, ConsistentBackupError } from '../../packages/media-migration/backup-coordinator.js';
+import {lockdownRestoredMediaAcl} from '../../packages/media-migration/restore-acl-lockdown.js';
+import {runMediaRestoreAcl} from '../../scripts/media-restore-acl.js';
 import { transferRestore } from '../../packages/media-migration/backup-transfer.js';
 
 const configured=process.env.TEST_DATABASE_URL,container=process.env.TEST_POSTGRES_CONTAINER_ID;
@@ -35,22 +37,24 @@ assert((details.Config.Labels?.['freedom.task']==='base-ci-20261003'&&details.Co
 assert(details.HostConfig.Tmpfs?.['/var/lib/postgresql']);
 const sourceDatabase=url.pathname.slice(1),schema='fp_base_backup_'+randomUUID().replaceAll('-','');
 const restoredDatabase='fp_base_restore_'+randomUUID().replaceAll('-',''),runtimeRole='fp_restore_app_'+randomUUID().replaceAll('-','');
+const runtimePassword=randomBytes(24).toString('hex'),runtimeUrl=new URL(url);runtimeUrl.username=runtimeRole;runtimeUrl.password=runtimePassword;
+function runtimeConnection(database:string){const connection=new URL(runtimeUrl);connection.pathname='/'+database;return connection.href;}
 const admin=new Pool({connectionString:url.href,max:2});
 const pool=new Pool({connectionString:url.href,options:`-c search_path=${schema} -c statement_timeout=10000`,max:6});
 const restoredUrl=new URL(url);restoredUrl.pathname='/'+restoredDatabase;
-const runtime=new Pool({connectionString:url.href,options:`-c role=${runtimeRole} -c search_path=${schema} -c statement_timeout=10000`,max:6});
+const runtime=new Pool({connectionString:runtimeUrl.href,options:`-c search_path=${schema} -c statement_timeout=10000`,max:6});
 let restoredRuntime:Pool|undefined,createdRole=false;
 let restored:Pool|undefined,mf:Miniflare|undefined,createdSchema=false,createdDatabase=false;
-let source:ObjectStore,backup:ObjectStore,destination:ObjectStore;
+let source:ObjectStore,backup:ObjectStore,destination:ObjectStore,outboundCalls=0;
 before(async()=>{
-  await admin.query(`CREATE ROLE ${runtimeRole} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT`);createdRole=true;
+  await admin.query(`CREATE ROLE ${runtimeRole} LOGIN PASSWORD '${runtimePassword}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT`);createdRole=true;
   await admin.query(`CREATE SCHEMA ${schema}`);createdSchema=true;await migrate(pool);await grantRuntime(pool);
   await admin.query(`CREATE DATABASE ${restoredDatabase}`);createdDatabase=true;
   restored=new Pool({connectionString:restoredUrl.href,options:`-c search_path=${schema} -c statement_timeout=10000`,max:4});
-  restoredRuntime=new Pool({connectionString:restoredUrl.href,options:`-c role=${runtimeRole} -c search_path=${schema} -c statement_timeout=10000`,max:4});
+  const restoredRuntimeUrl=new URL(runtimeUrl);restoredRuntimeUrl.pathname='/'+restoredDatabase;restoredRuntime=new Pool({connectionString:restoredRuntimeUrl.href,options:`-c search_path=${schema} -c statement_timeout=10000`,max:4});
   mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'synthetic-media-restore',modules:true,
     script:'export default {fetch(){return new Response(null,{status:503})}}',
-    compatibilityDate:'2026-09-21',r2Buckets:['SOURCE','BACKUP','RESTORED','INCOMPLETE'],outboundService:()=>new Response(null,{status:503})}]}));
+    compatibilityDate:'2026-09-21',r2Buckets:['SOURCE','BACKUP','RESTORED','INCOMPLETE'],outboundService:()=>{outboundCalls++;return new Response(null,{status:503});}}]}));
   await mf.ready;
   source=createR2ObjectStore(await mf.getR2Bucket('SOURCE') as unknown as AssetR2Binding,{allowDelete:true});
   backup=createR2ObjectStore(await mf.getR2Bucket('BACKUP') as unknown as AssetR2Binding);
@@ -62,7 +66,7 @@ after(async()=>{
   await mf?.dispose();await restoredRuntime?.end();await restored?.end();await runtime.end();await pool.end();
   try{if(createdDatabase)await admin.query(`DROP DATABASE ${restoredDatabase} WITH (FORCE)`);
     if(createdSchema)await admin.query(`DROP SCHEMA ${schema} CASCADE`);if(createdRole)await admin.query(`DROP ROLE ${runtimeRole}`);
-  }finally{await admin.end();}
+  }finally{await admin.end();}assert.equal(outboundCalls,0);
 });
 
 // Apply the actual canonical generator, changing only the fixture's schema and role.
@@ -133,16 +137,31 @@ test('Actual consistent PG dump and nativeR2 restore exclude concurrent addition
   assert.deepEqual(await pointerSnapshot(restored!),pointers,'Every original typed pointer and both highlight variants survive pg_dump.');
   assert.deepEqual((await restored!.query("SELECT a.asset_id,a.purpose,a.scope_kind,a.community_ref,o.variant,o.profile_id,o.content_sha256,o.byte_size,o.object_key FROM assets a JOIN asset_objects o USING(asset_id) WHERE a.owner_user_id=$1 ORDER BY a.asset_id",[seven.member.actor.user_id])).rows,seven.rows);
   await assert.rejects(restoredRuntime!.query(`SELECT * FROM ${schema}.schema_migrations`),(e:any)=>e.code==='42501','No ACLs imported from --no-privileges dump.');
+  await restoredRuntime!.end();restoredRuntime=undefined;
   // --no-privileges also strips migration105's PUBLIC function revocations.
   // The unchanged canonical guard must reject that unsafe restored default.
   await assert.rejects(grantRuntime(restored!),(e:any)=>e.code==='P0001'&&e.message==='Unsafe runtime operator media privileges');
-  const functionPrivileges=()=>restored!.query("SELECT p.proname,has_function_privilege($1,p.oid,'EXECUTE') allowed FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$2 AND p.proname IN ('lock_media_backfill_operator_approval','lock_media_backfill_cover_owner','lock_media_backfill_cover_consent','publish_media_backfill_cover') ORDER BY p.proname",[runtimeRole,schema]);
-  const unsafeFunctions=(await functionPrivileges()).rows;assert.equal(unsafeFunctions.length,4);assert(unsafeFunctions.every(r=>r.allowed===true),'Stripped ACLs restore PostgreSQL PUBLIC EXECUTE default.');
-  // Restore the exact source migration lockdown, not a new runtime authority.
-  const operatorMigration=await readFile('migrations/105_operator_service_cover_backfill.sql','utf8');
-  const revocations=[...operatorMigration.matchAll(/REVOKE ALL ON FUNCTION [\s\S]*? FROM PUBLIC;/g)].map(m=>m[0]);assert.equal(revocations.length,3);
-  for(const sql of revocations)await restored!.query(sql);
-  await grantRuntime(restored!);const closedFunctions=(await functionPrivileges()).rows;assert.equal(closedFunctions.length,4);assert(closedFunctions.every(r=>r.allowed===false));
+  const functionPrivileges=()=>restored!.query("SELECT p.proname,has_function_privilege($1,p.oid,'EXECUTE') allowed FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$2 AND p.proname IN ('lock_media_backfill_operator_approval','lock_media_backfill_cover_owner','lock_media_backfill_cover_consent','publish_media_backfill_cover','lock_media_backfill_video_organizer','lock_media_backfill_video_consent','publish_media_backfill_video') ORDER BY p.proname",[runtimeRole,schema]);
+  const unsafeFunctions=(await functionPrivileges()).rows;assert.equal(unsafeFunctions.length,7);assert(unsafeFunctions.every(r=>r.allowed===true),'Stripped ACLs restore PostgreSQL PUBLIC EXECUTE default.');
+  const aclTarget={environment:'local' as const,database:restoredDatabase,schema,role:'postgres',releaseSha:'a'.repeat(40)},aclOptions={target:aclTarget,runtimeRole};
+  const aclArgs=['--environment','local','--expected-database',restoredDatabase,'--schema',schema,'--expected-role','postgres','--release-sha','a'.repeat(40),'--runtime-role',runtimeRole];
+  const noDatabaseEnv=Object.defineProperty({},'FREEDOM_MEDIA_DATABASE_URL',{get(){throw Error('Plan must not read connection secret.');}});
+  const plan=await runMediaRestoreAcl(aclArgs,noDatabaseEnv);assert.equal(plan.exitCode,0);assert.equal((plan.report as {execution:string}).execution,'not_run');
+  const wrongEnvironment=await runMediaRestoreAcl(['--environment','staging','--expected-database','freedom_next','--schema','public','--expected-role','freedom_next_migrator','--release-sha','a'.repeat(40),'--runtime-role','freedom_next_app'],noDatabaseEnv);assert.equal(wrongEnvironment.exitCode,2);assert.equal((wrongEnvironment.report as {code:string}).code,'invalid_target');
+  const mismatch=await runMediaRestoreAcl([...aclArgs,'--execute-lockdown'],{FREEDOM_MEDIA_DATABASE_URL:url.href});assert.equal(mismatch.exitCode,2);assert.equal((mismatch.report as {code:string}).code,'database_target_mismatch');
+  await assert.rejects(lockdownRestoredMediaAcl(restored!,{...aclOptions,target:{...aclTarget,database:'fp_wrong_restore'}}),(e:any)=>e.code==='target_mismatch');
+  const originalHash=(await restored!.query("SELECT sha256 FROM schema_migrations WHERE name='107_operator_event_video_backfill.sql'")).rows[0].sha256;
+  await restored!.query("UPDATE schema_migrations SET sha256=repeat('f',64) WHERE name='107_operator_event_video_backfill.sql'");
+  try{await assert.rejects(lockdownRestoredMediaAcl(restored!,aclOptions),(e:any)=>e.code==='ledger_mismatch');}finally{await restored!.query("UPDATE schema_migrations SET sha256=$1 WHERE name='107_operator_event_video_backfill.sql'",[originalHash]);}
+  await restored!.query("CREATE FUNCTION fp_unknown_restore_port() RETURNS integer LANGUAGE sql SECURITY DEFINER AS 'SELECT 1';REVOKE ALL ON FUNCTION fp_unknown_restore_port() FROM PUBLIC");
+  try{await assert.rejects(lockdownRestoredMediaAcl(restored!,aclOptions),(e:any)=>e.code==='function_shape_mismatch');}finally{await restored!.query('DROP FUNCTION fp_unknown_restore_port()');}
+  const currentApp=new Pool({connectionString:runtimeConnection(restoredDatabase),max:1});
+  try{await currentApp.query('SELECT 1');await assert.rejects(lockdownRestoredMediaAcl(restored!,aclOptions),(e:any)=>e.code==='runtime_active');}finally{await currentApp.end();}
+  assert((await functionPrivileges()).rows.every(r=>r.allowed===true),'Every refused operation rolls back without masking unsafe restored defaults.');
+  const locked=await runMediaRestoreAcl([...aclArgs,'--execute-lockdown'],{FREEDOM_MEDIA_DATABASE_URL:restoredUrl.href});assert.equal(locked.exitCode,0,JSON.stringify(locked.report));assert.equal((locked.report as {functionsRevoked:number}).functionsRevoked,7);assert.equal((locked.report as {applicationInstalled:boolean}).applicationInstalled,false);
+  assert.equal((await lockdownRestoredMediaAcl(restored!,aclOptions)).functionsRevoked,7,'Lockdown can be safely rerun before installation.');
+  await grantRuntime(restored!);const closedFunctions=(await functionPrivileges()).rows;assert.equal(closedFunctions.length,7);assert(closedFunctions.every(r=>r.allowed===false));
+  restoredRuntime=new Pool({connectionString:runtimeConnection(restoredDatabase),options:`-c search_path=${schema} -c statement_timeout=10000`,max:4});
   await assert.rejects(restoredRuntime!.query("UPDATE domain_media_storage_policy SET persistence_allowed=true"),(e:any)=>e.code==='42501');
   await assert.rejects(restoredRuntime!.query("UPDATE schema_migrations SET sha256=sha256"),(e:any)=>e.code==='42501');
   // Restoring a DB alone also rewinds revocation. Fence all dispatch and apply
