@@ -730,7 +730,8 @@ test('reverting a design while its save is in flight keeps the original card',as
   await navigate(page,'我的名片');
   const settings=shareRegion(page);
   await settings.getByRole('button',{name:'清新',exact:true}).click();
-  await waitSaved(settings);
+  // This setup save happens before a public share exists; retain the exact unshared status.
+  await expect(settings.locator('.ecard-save-status')).toHaveText('已自動儲存。建立分享連結後，朋友看到的就是這個樣子。',{timeout:20000});
   const shareUrl=await enableShare(settings);
   await waitSaved(settings);
   await expect(settings.getByRole('button',{name:'清新',exact:true})).toHaveAttribute('aria-pressed','true');

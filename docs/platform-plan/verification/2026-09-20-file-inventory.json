@@ -3049,8 +3049,8 @@
     },
     {
       "path": "docs/development/integration-pr85-104-future108.md",
-      "bytes": 30815,
-      "sha256": "ebaaefff84455fd8cb5d874a28a9f7ec3d9a7d2d5558be6508736d29280f75d6"
+      "bytes": 33449,
+      "sha256": "e6d9e41de27636678f7edbd2a2a6be6e14b0682f00e6bd0b5deeb9b430011ca4"
     },
     {
       "path": "docs/development/local-runtime.md",
@@ -7134,8 +7134,8 @@
     },
     {
       "path": "scripts/verify-cloud-candidate-members.ts",
-      "bytes": 44797,
-      "sha256": "5e2491e8f3f6424c33db3a7d26a5a72fa203bf5b6257ac1fb14e2648878ab938"
+      "bytes": 45111,
+      "sha256": "937c9f9864906c672b3f856ec7e4d3aae67ddfb89c9c347822e727cc755b80d2"
     },
     {
       "path": "scripts/verify-cloud-candidate.md",
@@ -7394,8 +7394,8 @@
     },
     {
       "path": "tests/e2e/member-ecard.spec.ts",
-      "bytes": 55742,
-      "sha256": "212aaf7f145de74391057d15905cfbd3915efb6a15985c6a7cd5cdc2bcb9a1fa"
+      "bytes": 55971,
+      "sha256": "d8da5277f1237bcac6e6ce0b935c58d43fbb534d50869814fc5d95a7882dfbba"
     },
     {
       "path": "tests/e2e/member-editorial-card.spec.ts",
@@ -7424,8 +7424,8 @@
     },
     {
       "path": "tests/e2e/member-settings-real.spec.ts",
-      "bytes": 16607,
-      "sha256": "6ef3c77aee71518b420ec5a7b6a24eeaa3744fd3211bf589ff88e8944c7d07fd"
+      "bytes": 17479,
+      "sha256": "fa35fc58644b7de757da235de206fb23b17ab4d74328ace7ddf928c96442792f"
     },
     {
       "path": "tests/e2e/member-settings.spec.ts",

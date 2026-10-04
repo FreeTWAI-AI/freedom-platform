@@ -593,6 +593,9 @@ export async function runMessagesMobile(page: any, context: any, ctx: MemberCtx,
   await panel.getByLabel(`寫給 ${peer.nickname} 的訊息`).fill(uiBody);
   await panel.getByRole('button', { name: '送出', exact: true }).click();
   await panel.locator('.messages-bubbles .messages-body', { hasText: uiBody }).waitFor({ state: 'visible', timeout: 20000 });
+  const threadFits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth) === true;
+  // Mobile chat is single-pane: use the real back action before checking its list preview.
+  await panel.getByRole('button', { name: '← 返回對話列表', exact: true }).click();
   await row.filter({ hasText: uiBody }).waitFor({ state: 'visible', timeout: 20000 });
   ctx.check('ui_message_visible', true);
   let tabClear = false;
@@ -602,7 +605,7 @@ export async function runMessagesMobile(page: any, context: any, ctx: MemberCtx,
   // On next and public the shell's guild summary can count real messages. That badge is not cleared: history stays closed.
   if (guildSummaryUnreadAllowed) ctx.metric('guild_summary_unread', 'not_cleared');
   ctx.check('unread_consistent', !rowUnread && tabClear && !rowAfter.includes('則未讀') && (guildSummaryUnreadAllowed || dot === 0));
-  ctx.check('no_horizontal_overflow', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth) === true);
+  ctx.check('no_horizontal_overflow', threadFits && await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth) === true);
   await page.getByRole('button', { name: '設定', exact: true }).click();
   await page.getByRole('menuitem', { name: '登出', exact: true }).click();
   await page.getByRole('button', { name: '登入', exact: true }).waitFor({ state: 'visible', timeout: 20000 });

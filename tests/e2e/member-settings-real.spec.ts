@@ -120,11 +120,18 @@ test('two synthetic members exchange a private message and a friend notification
     await expect(r.getByRole('tab',{name:/私人訊息/})).toContainText('沒有未讀');await expect(rThread.getByRole('button',{name:/標為已讀|正在標記/})).toHaveCount(0);
     expect(await receiverSide.unread('conversations')).toBe(0);
     expect((await db.query('SELECT read_at FROM member_direct_messages WHERE message_id=$1',[stored[0].message_id])).rows[0].read_at).not.toBeNull();
+    // At 320px the list is deliberately hidden while reading; verify it through the back action.
+    const returnToList=rPanel.getByRole('button',{name:'← 返回對話列表',exact:true});
+    await returnToList.click();await expect(rList).toBeVisible();
+    await expect(rPanel.getByRole('heading',{name:'對話',exact:true})).toBeFocused();
     await expect(fromSender).not.toContainText('則未讀');
     await expectZero(r);
+    await rPanel.getByRole('button',{name:'回到目前對話',exact:true}).click();
+    await expect(rThread.getByRole('heading',{name:`與 ${sender.display_name} 的對話`})).toBeFocused();
 
-    // A second message while both pages stay open: the receiver re-reads by hand and keeps an unsent draft.
+    // Return to the list with a draft; manual list/thread refreshes must preserve it.
     const rBox=rThread.getByLabel(`寫給 ${sender.display_name} 的訊息`);await rBox.fill('還沒送出的草稿');
+    await returnToList.click();await expect(rList).toBeVisible();await expect(rThread).toBeHidden();
     const second=`第二則真實私訊 ${Date.now()}`;
     await sBox.fill(second);await sThread.getByRole('button',{name:'送出',exact:true}).click();
     await expect(sThread.locator('.messages-bubbles .messages-body').last()).toHaveText(second);
@@ -132,6 +139,9 @@ test('two synthetic members exchange a private message and a friend notification
     const refreshList=rPanel.getByRole('button',{name:'重新整理對話',exact:true});await refreshList.click();
     await expect(fromSender).toContainText(second.slice(0,20));await expect(fromSender).toContainText('1 則未讀');await expect(refreshList).toBeFocused();
     await expect(r.getByRole('tab',{name:/私人訊息/})).toContainText('1 則未讀');
+    await rPanel.getByRole('button',{name:'回到目前對話',exact:true}).click();
+    await expect(rThread.getByRole('heading',{name:`與 ${sender.display_name} 的對話`})).toBeFocused();
+    await expect(rBox).toHaveValue('還沒送出的草稿');
     const refreshThread=rThread.getByRole('button',{name:'重新讀取訊息',exact:true});await refreshThread.click();
     await expect(rThread.locator('.messages-bubbles .messages-body').last()).toHaveText(second);await expect(refreshThread).toBeFocused();
     await expect(rBox).toHaveValue('還沒送出的草稿');
