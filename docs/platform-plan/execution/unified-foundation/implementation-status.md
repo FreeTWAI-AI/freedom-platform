@@ -1,5 +1,7 @@
 # 共同基礎：本機與 CI 交付紀錄
 
+最新交接：[平台移植交接筆記](handoff-2026-10-04.md)。Ted 已要求停止追加完整獨立預演，改為直接推進實際移植與問題修復；必要備份與核對隨操作執行。以下已完成／未完成證據不變；本次只補交接，沒有新增正式資料或流量操作。
+
 ## 最新已完成：9cc hosted 驗證與 private candidate（2026-10-04）
 
 固定 `9cc283c6976a920b5f481ec605a7f468044e3a1b` 的 [Verify run37186706935](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37186706935) completed/success。不可變 merge checkout `216fa14033511f8b674a375879e11454aebea429`：archive digests／source hashes／四分片完整聯集已重算，196檔、2,620/2,620，零fail/skip/cancel/todo、四份cleanup true，697.468秒，原900秒window不變。Worker60/60、七類synthetic DB/native R2 restore2/2；UI job111390048807實際413pass／5既有disabled-feature skips。獨立CodeQL security check111390111512仍failure；Verify或Analyze成功不代表安全核定。

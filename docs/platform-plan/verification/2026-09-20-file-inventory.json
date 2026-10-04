@@ -4154,8 +4154,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
-      "bytes": 17811,
-      "sha256": "3bbf210f03ab970cfd5309aced77481c6c86a371299b28e8f01f5bed684547f7"
+      "bytes": 18349,
+      "sha256": "0fec97b12d35d5197b486ee96a77edd2aba81799a1818fad7bafc4f25f0b6c69"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/01-contracts-and-governance.md",
@@ -4274,8 +4274,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/README.md",
-      "bytes": 10606,
-      "sha256": "e4298cd8974bee40950b6f502be39a2cd91a0676ec1132875c93d0c7ae292159"
+      "bytes": 11001,
+      "sha256": "523840faa09f0d55d8f875551c4e5b277ae4bfcb8c5a5822cb4db96d09a04ac2"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
@@ -4283,14 +4283,19 @@
       "sha256": "250573fe8630ae97be3d273d914eeca91513d290069683ba0863cdb0196740e2"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md",
+      "bytes": 10260,
+      "sha256": "2afb1bdfb63595abaaa643da44669b9b242106f582291304c73ba6430b9a43db"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 213429,
-      "sha256": "7751e821c68ac768c11ec0de3ca749f2b5b635368be5c82174839f4f83203c48"
+      "bytes": 213736,
+      "sha256": "957693beb7e5ba19c50252338eab1a5637e775daf4213e58d6023fa054895784"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
-      "bytes": 24921,
-      "sha256": "2a8605cab8d2e796b6a2dc5944a2527d5cad40d3243399194af1e00b2132401c"
+      "bytes": 25427,
+      "sha256": "81436be70983869eba85f17b80fac07ddfa62a1919f55d33183f4e952a16a18b"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",

@@ -1,5 +1,9 @@
 # 共同基礎現況與過渡決策
 
+## 2026-10-04 最新交接與直接移植方向
+
+Ted 要求先寫交接，並表示不要再反覆預演，希望直接推進、遇到問題修正。後續不再追加完整獨立搬遷／還原預演作為開工前置；沿已授權的新環境移植方向，把必要備份、資料核對及功能檢查放進真正操作。此決定更新下文較早的預演順序，不把未知狀態改成 PASS，也不代表這次寫交接已經搬移正式資料或切換流量。接手請讀[平台移植交接筆記](handoff-2026-10-04.md)。
+
 ## 2026-10-04：隔離candidate已部署，資料移植與驗收仍分開
 
 9cc的真正hosted Verify已完成196檔／2,620項全部通過，Worker60/60、synthetic restore2/2與UI413pass／5既有skip；CodeQL security仍failure。新隔離PG18.6已套110個canonical migrations through111並完成ownership／ACL／runtime及operator grants readback，0users／demo／backfill approvals。私有R2與兩個cache-OFF Hyperdrive，以及兩個全新private main/operator Workers均已建立／部署並由provider API核對；flags OFF、無routes/crons/workers.dev/previews/customdomains，現有Worker etags未改。

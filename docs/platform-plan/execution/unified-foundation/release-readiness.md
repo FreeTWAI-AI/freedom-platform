@@ -1,5 +1,7 @@
 # Push, merge and deployment readiness
 
+Latest direction, 2026-10-04: Ted requested a handoff and direct migration progress instead of another complete standalone rehearsal. Integrate backups, data checks and functional checks into the actual operation; repair concrete failures as they appear. The [handoff](handoff-2026-10-04.md) supersedes earlier rehearsal sequencing below. Existing missing evidence and security results remain accurately recorded; this documentation change itself performs no production-data migration or traffic cutover.
+
 ## Current completed checkpoint: verified source and private candidate deployment
 
 Exact `9cc283c6` [Verify run37186706935](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37186706935) completed/success at immutable merge checkout `216fa14033511f8b674a375879e11454aebea429`. Root verified archive/source digests and the complete four-partition union:196 files, **2,620/2,620**, zero failures/skips/cancellations/todo, four verified cleanups,697.468 seconds within900. Worker60/60 and seven-kind synthetic DB/native-R2 restore2/2 passed; actual UI413passed/five existing disabled-feature skips. Separate CodeQL security check111390111512 still failed; no security adjudication or installed gate authority follows.
