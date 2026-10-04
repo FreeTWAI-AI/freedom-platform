@@ -10,6 +10,7 @@ function fixture(change = () => {}) {
     appRequest: async (_, path) => path === '/app' ? {id:2} : {id:3,app_id:2,suspended_at:null,permissions:{checks:'write'}},
     installationRequest: async (method,path,body) => {
       if(method==='POST'){posts.push(body);return {id:6,app:{id:2},...body};}
+      if(path.endsWith('/check-runs/6'))return {id:6,app:{id:2},...posts.at(-1)};
       if(path.endsWith('/actions/runs/4'))return {id:4,repository:{id:1},event:'pull_request',head_sha:binding.head_commit,pull_requests:[{number:5}]};
       if(path.endsWith('/pulls/5'))return {number:5,state:'open',merged:false,base:{repo:{id:1},sha:binding.base_commit},head:{sha:state.head}};
       if(path.includes('/git/commits/'))return {sha:binding.candidate_commit,tree:{sha:binding.candidate_tree}};
@@ -18,7 +19,7 @@ function fixture(change = () => {}) {
     verify: async current => accepted(current)
   };
   change(ports,state);
-  return {publisher:createGithubAppPublisher(config,ports),posts};
+  return {publisher:createGithubAppPublisher(config,ports),posts,ports};
 }
 test('exact verified SHA, fixed payload and bounded replay',async()=>{
   const f=fixture(); const result=await f.publisher.publish(binding);
@@ -66,9 +67,10 @@ test('native transport signs bounded App JWT and restricts installation token to
   const {generateKeyPairSync,verify}=await import('node:crypto');
   const {createGithubAppTransport}=await import('../github-app-publisher.mjs');
   const {privateKey,publicKey}=generateKeyPairSync('rsa',{modulusLength:2048});
-  const requests=[];
+  const requests=[]; let redirectReadback=false;
   const transport=createGithubAppTransport({repository:'owner/repo',repository_id:1,app_id:2,installation_id:3},privateKey,{fetchImpl:async(url,options)=>{
     requests.push({url,options});
+    if(redirectReadback && url.endsWith('/check-runs/6'))return new Response(null,{status:302,headers:{location:'https://evil.example/token'}});
     if(url.endsWith('/access_tokens'))return Response.json({token:'mock-installation',expires_at:new Date(Date.now()+3600000).toISOString(),repositories:[{id:1,full_name:'owner/repo'}],permissions:{checks:'write',contents:'read',actions:'read',pull_requests:'read',metadata:'read'}},{status:201});
     return Response.json({id:2});
   }});
@@ -80,10 +82,15 @@ test('native transport signs bounded App JWT and restricts installation token to
   assert.deepEqual(JSON.parse(requests[1].options.body).repository_ids,[1]);
   assert.equal(requests[2].options.headers.authorization,'Bearer mock-installation');
   assert.equal(requests[2].options.redirect,'error');assert.ok(requests[2].options.signal);
+  await transport.installationRequest('GET','/repos/owner/repo/check-runs/6');
   assert.deepEqual(Object.keys(transport),['appRequest','installationRequest']);
+  redirectReadback=true;
+  await assert.rejects(transport.installationRequest('GET','/repos/owner/repo/check-runs/6'),/publisher_transport_unavailable/);
   const count=requests.length;
   await assert.rejects(transport.installationRequest('GET','https://evil.example/token'),/publisher_endpoint_rejected/);
   await assert.rejects(transport.installationRequest('POST','/repos/owner/repo/issues',{}),/publisher_endpoint_rejected/);
+  await assert.rejects(transport.installationRequest('GET','/repos/owner/repo/check-runs/0'),/publisher_endpoint_rejected/);
+  await assert.rejects(transport.installationRequest('GET','/repos/other/repo/check-runs/6'),/publisher_endpoint_rejected/);
   assert.equal(requests.length,count);
 });
 
@@ -103,4 +110,38 @@ test('bare artifact-shaped verdict and missing/duplicate suite evidence remain u
     const f=fixture(ports=>{ports.verify=async current=>mutate(accepted(current));});
     assert.equal((await f.publisher.publish(binding)).code,'publisher_verified_decision_unavailable');assert.equal(f.posts.length,0);
   }
+});
+
+test('check POST attempt identity and independent readback must both match',async()=>{
+  for(const boundary of ['post-external','read-app','read-sha','read-external','read-id','read-name','read-status','read-conclusion']){
+    const f=fixture(ports=>{const original=ports.installationRequest;let posted;
+      ports.installationRequest=async(method,path,body)=>{
+        if(method==='POST'){
+          posted={id:6,app:{id:2},...body};
+          return boundary==='post-external'?{...posted,external_id:'unrelated-attempt'}:posted;
+        }
+        if(path.endsWith('/check-runs/6')){
+          const result=structuredClone(posted);
+          if(boundary==='read-app')result.app.id=99;
+          if(boundary==='read-sha')result.head_sha='d'.repeat(40);
+          if(boundary==='read-external')result.external_id='unrelated-attempt';
+          if(boundary==='read-id')result.id=7;
+          if(boundary==='read-name')result.name='candidate';
+          if(boundary==='read-status')result.status='in_progress';
+          if(boundary==='read-conclusion')result.conclusion='failure';
+          return result;
+        }
+        return original(method,path,body);
+      };
+    });
+    assert.equal((await f.publisher.publish(binding)).status,'unavailable',boundary);
+  }
+});
+
+test('publisher captures operator ports before their mutable registration object changes',async()=>{
+  const f=fixture();
+  f.ports.installationRequest=async()=>{throw new Error('changed registration');};
+  f.ports.appRequest=async()=>({id:99});
+  f.ports.verify=async()=>({status:'unavailable'});
+  assert.equal((await f.publisher.publish(binding)).status,'published');
 });

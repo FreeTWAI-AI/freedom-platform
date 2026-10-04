@@ -17,6 +17,7 @@ export function createGithubAppPublisher(config, ports) {
   requireThat(exact(ports, ['appRequest', 'installationRequest', 'verify']) &&
     Object.values(ports).every(value => typeof value === 'function'), 'publisher_ports_invalid');
   config = Object.freeze({ ...config });
+  ports = Object.freeze({ ...ports });
   const consumed = new Set();
   let busy = false;
   const prefix = `/repos/${config.repository}`;
@@ -66,13 +67,17 @@ export function createGithubAppPublisher(config, ports) {
           Object.keys(binding).every(field => report.binding[field] === binding[field]), 'publisher_verified_decision_unavailable');
         await current(binding);
         consumed.add(key); // Unknown POST acknowledgement cannot cause an automatic retry.
+        const externalId = `freedom:${config.repository_id}:${binding.run_id}:${binding.candidate_commit}`;
         const check = await ports.installationRequest('POST', `${prefix}/check-runs`, {
           name: config.check_name, head_sha: binding.candidate_commit, status: 'completed', conclusion: 'success',
-          external_id: `freedom:${config.repository_id}:${binding.run_id}:${binding.candidate_commit}`,
+          external_id: externalId,
           output: { title: 'Fixed host verification', summary: 'The installed verifier accepted this exact candidate.' }
         });
-        requireThat(positive(check.id) && check.app?.id === config.app_id && check.head_sha === binding.candidate_commit &&
-          check.name === config.check_name && check.status === 'completed' && check.conclusion === 'success', 'publisher_response_mismatch');
+        const matches = value => positive(value?.id) && value.app?.id === config.app_id && value.head_sha === binding.candidate_commit &&
+          value.name === config.check_name && value.status === 'completed' && value.conclusion === 'success' && value.external_id === externalId;
+        requireThat(matches(check), 'publisher_response_mismatch');
+        const readback = await ports.installationRequest('GET', `${prefix}/check-runs/${check.id}`);
+        requireThat(matches(readback) && readback.id === check.id, 'publisher_readback_mismatch');
         await current(binding);
         return { status: 'published', check_id: check.id, head_sha: binding.candidate_commit, app_id: config.app_id,
           gate_enforced: false, merge_authorized: false };
@@ -151,7 +156,7 @@ export function createGithubAppTransport(config, privateKey, { fetchImpl = globa
     },
     installationRequest: async (method, path, body) => {
       const getAllowed = path === prefix ||
-        path.startsWith(`${prefix}/`) && /^(actions\/runs\/[1-9][0-9]*|pulls\/[1-9][0-9]*|git\/commits\/[a-f0-9]{40})$/.test(path.slice(prefix.length + 1));
+        path.startsWith(`${prefix}/`) && /^(check-runs\/[1-9][0-9]*|actions\/runs\/[1-9][0-9]*|pulls\/[1-9][0-9]*|git\/commits\/[a-f0-9]{40})$/.test(path.slice(prefix.length + 1));
       requireThat(method === 'GET' && body === undefined && getAllowed ||
         method === 'POST' && path === `${prefix}/check-runs` && body &&
         exact(body, ['name', 'head_sha', 'status', 'conclusion', 'external_id', 'output']) && sha(body.head_sha) &&
