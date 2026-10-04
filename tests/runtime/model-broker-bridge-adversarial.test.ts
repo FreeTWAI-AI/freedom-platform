@@ -60,8 +60,13 @@ test('BROKER-BRIDGE-ADV invocation expiry while actual final Result INSERT is bl
   const lock='independent-broker-final-sink-'+randomUUID();
   await f.owner.query(`CREATE FUNCTION bridge_validation_result_gate() RETURNS trigger LANGUAGE plpgsql AS $gate$ BEGIN PERFORM pg_advisory_xact_lock(hashtextextended('${lock}',0)); RETURN NEW; END $gate$; CREATE TRIGGER z_bridge_validation_gate BEFORE INSERT ON private_model_work_results FOR EACH ROW EXECUTE FUNCTION bridge_validation_result_gate()`);
   holder=await f.owner.connect();await holder.query('BEGIN');await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[lock]);
+  const provider=f.holdProvider();
   await f.main.request('issuerDeadline',Date.now()+expiryPhaseMs);
-  const pending=f.post(member,`/api/v1/me/model-steps/${member.step.stepId}:execute`,{}).then(response=>({response}),error=>({error}));await sqlBlocked(f,holder);
+  const pending=f.post(member,`/api/v1/me/model-steps/${member.step.stepId}:execute`,{}).then(response=>({response}),error=>({error}));
+  // Observe the Result sink only after the genuine provider POST, not while
+  // main/broker authorization and provider preparation are still running.
+  const providerReached=await Promise.race([provider.entered.then(()=>true),pending.then(()=>false)]);
+  assert(providerReached,'Actual provider POST was not observed');provider.release();await sqlBlocked(f,holder);
   // Only the command expires: main conservatively narrows a real signed
   // recovery observation for issuance. The broker's external source, original
   // session and Step remain current, isolating the invocation sink guard.
