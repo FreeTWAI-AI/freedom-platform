@@ -3054,8 +3054,8 @@
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
-      "bytes": 10697,
-      "sha256": "1b7ea4fc78a4a91cfaf33d4530d4fe6ebeb3cb423c5af0c227a89e3101f77977"
+      "bytes": 11538,
+      "sha256": "79406106d14b852c0e2be22581fb359fae6597ed7ec547f7f9f267e5d76cd7e1"
     },
     {
       "path": "docs/development/service-cover-worker.md",
@@ -4284,13 +4284,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 205215,
-      "sha256": "0bba699e95d460baa88714c53946888862d44654280acf95868f26811f695c45"
+      "bytes": 208434,
+      "sha256": "eecaf44e01439dfc33519ac6a5a34aeb1ea56ca18c43619c59e0c8d6c48c4c00"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
-      "bytes": 18194,
-      "sha256": "b07bb11dd00f1cb435affc15999d612bfd044a3c84c3b46728aee69446585e8d"
+      "bytes": 20462,
+      "sha256": "5e3d600bcbfaa8d8d512edf948ca7fa9754f13cefb09fc8b1439447d67fc8910"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -6239,8 +6239,13 @@
     },
     {
       "path": "packages/contribution-tools/github-app-publisher.mjs",
-      "bytes": 12630,
-      "sha256": "c890dba480a5d5a1dc3c030e4f1e3b38f7dc3c7b6fe391c288c88b4884b5ee53"
+      "bytes": 13606,
+      "sha256": "695986a7e7ccb449b31e075c8a1e2c21106c76a5ece204c4f1b7656ea8f0d4c1"
+    },
+    {
+      "path": "packages/contribution-tools/github-durable-publisher.mjs",
+      "bytes": 12531,
+      "sha256": "98b6d4590c628ac082596968b419587b5cc49dd7266b52af8ad82d4eaea2e481"
     },
     {
       "path": "packages/contribution-tools/github-supervisor-publisher.mjs",
@@ -6249,8 +6254,8 @@
     },
     {
       "path": "packages/contribution-tools/github-trusted-adapter.md",
-      "bytes": 13932,
-      "sha256": "e4242a44aa195d712742506f13da88e79245d0dd6e67d007f1aa26109e88ca1e"
+      "bytes": 17106,
+      "sha256": "13107c13289e2d0132548122d31868bc748da8eb4cbb3c924f29e28c93aca1cb"
     },
     {
       "path": "packages/contribution-tools/github-trusted-adapter.mjs",
@@ -6349,13 +6354,13 @@
     },
     {
       "path": "packages/contribution-tools/test/github-app-publisher.test.mjs",
-      "bytes": 15213,
-      "sha256": "59f0108457785cd6331dd2c3b91d9e3a81deba928f732c3a40ee7a355a5fd5bb"
+      "bytes": 16688,
+      "sha256": "4267d16293dbc298857e98baffb7126049190733388293926ead2655d6c6edeb"
     },
     {
       "path": "packages/contribution-tools/test/github-trusted-adapter.test.mjs",
-      "bytes": 13562,
-      "sha256": "bf45eb13bb5a9d63fac9ff439762b6e31994be6979cedc481952d5a7ecea75d1"
+      "bytes": 23676,
+      "sha256": "b95edd7b121eb02f843d36b545cfccb1effab93d9b0f61454a7e0b0ea657efd6"
     },
     {
       "path": "packages/contribution-tools/test/io.test.mjs",

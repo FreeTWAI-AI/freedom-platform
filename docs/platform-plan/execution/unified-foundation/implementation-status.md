@@ -1,8 +1,50 @@
-# 共同基礎：本機交付紀錄
+# 共同基礎：本機與 CI 交付紀錄
 
-查核日期：2026-10-03。本紀錄區分原始產品要求、本機實作、合成測試及尚缺的真實部署證據；不修改原計畫的歷史內容，也不把組件測試轉寫成完整產品 PASS。
+查核日期：2026-10-04。本紀錄區分原始產品要求、本機實作、合成測試及尚缺的真實部署證據；不修改原計畫的歷史內容，也不把組件測試轉寫成完整產品 PASS。
 
 最新交付方向依 Ted 於 2026-10-03 的指示更新為基底優先：既有會員平台的移植、七類媒體搬遷／恢復與可信發布驗證先完成；未驗收的 Autopilot 功能保持關閉，保留原計畫後續 scope。這取代先前「完整原 scope 才正式 migration」的發布前置，但不降低資料保護、撤銷、失敗停機、權限與 staging 先行的要求。其他 PR 本輪不處理。完整決策集中於 [基準與決策](00-baseline-and-decisions.md#2026-10-03-基底優先的最新指示)。
+
+## 最新已完成的基底驗證
+
+固定 PR head `9339e279f7d34a71529c80f7cebcc1f099397588` 的
+[真正 hosted Verify run37182554068](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37182554068)
+已 completed/success，全部 workflow jobs 成功。不可變 merge checkout 是
+`6204a4c7b11d03936809ffdc29940b29c0b7023e`；五份 artifact 的 archive
+digests、closed metadata、相同 checkout/manifest、四份49檔完整聯集與
+unique cases，已由根重算並與 aggregate 比對。
+
+| 證據 | 實際結果與範圍 |
+| --- | --- |
+| 完整 runtime | 196檔、2,620/2,620；零fail/skip/cancel/todo，四份cleanup true，560.555秒；原900秒全組window不變 |
+| Hosted Worker／restore | Worker60/60、七類DB＋native R2 restore2/2；這是隔離合成資料，不是Cloudflare或正式資料還原 |
+| Hosted 其餘 jobs | 治理、preflight、aggregate/final Verify成功；UI413pass、5既有disabled-feature skips |
+| 同head本機治理unit | 287/287、16檔、20.705秒；零fail/skip/cancel/todo，原60秒cap |
+| 同headmain／operator bundles | 更新後owned Wrangler install的key-free dry-run2/2；placeholder IDs、source未改、無provider/DB mutation |
+| 下一批durable publisher | 作者固定960382ff的43/43、portable export3/3；獨立API/signature48/48、filesystem29/29與加四個真實檔案反例的12/12均通過，零skip |
+| 根整合durable source badc7eb | 治理unit295/295、16檔、41.193秒；零fail/skip/cancel/todo、exit0，原60秒cap；下一個immutable head仍須完成自己的hosted驗證 |
+
+最後一列root unit evidence SHA-256為
+`ffb6a7a39e11397fdcb1421020cf3ef64658af366d79c51e8fd93d30be9bcfac`。
+前代失敗/取消結果保留於下文；本機fixture反例不能替代原始Ubuntu失敗
+斷言的歸因。獨立CodeQL check111377959809仍completed/failure、1newhigh；
+Analyze成功不代表安全核定，未dismiss/exclude或更改password crypto。
+
+新增operator-owned durable factory重用actual pinned signed verifier，不收
+passing report。每次check-run POST/PATCH前保存並fsync閉合journal，先發
+failure barrier，再驗證並更新同一App/head/check；same-run較高attempt
+必須先重設failure。重啟後replay、unknown ACK與crash lock不能自動重送。
+不同run ID的同head無可信全域順序，明確unavailable，不能拿數字ID當時鐘。
+UNKNOWN success ACK可能仍留下遠端綠燈；local blocked不等於remote gate
+enforced。Protected parents/single trusted writer、正式event delivery/remote
+reconciliation/App-bound rule/baseline/library及入口覆蓋、惡意PR實際拒絕
+仍未安裝或驗收；gate_enforced/merge_authorized持續false。真正keys與API
+POST均未使用；此host-only module不加入portable candidate closure。
+
+真正Cloudflare新資源/physical DB與roles、真人HTTPS、正式七類inventory/
+全量backfill/verify/delta/cutover及offsite restore仍待交付。固定9339e27的
+安裝/probe plan已備妥，執行狀態為NOT_RUN，仍缺nonsecret operator inputs；
+現有stage/live不可當disposable target。未merge/deploy/migrate，其他PR
+未處理；以下原始scope百分比為歷史估算，不能當這批部署完成率。
 
 ## 原始完整範圍的歷史工程估算
 

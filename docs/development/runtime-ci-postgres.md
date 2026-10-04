@@ -86,3 +86,15 @@ affected checks and independent16/16 focused cases passed, zero skips. The
 required900-second global window and40-minute job cap remain unchanged.
 Generated Node lines/classifications still cannot always locate literal TS
 assertions; these are untrusted candidate diagnostics, not App evidence.
+
+Actual subsequent PR head9339e27 completed Verify run37182554068 against
+immutable merge checkout6204a4c7b11d03936809ffdc29940b29c0b7023e: all196files,
+2,620unique cases passed, zero fail/skip/cancel/todo, four cleanups verified,
+560.555seconds within the original900-second window. Root verified the four
+partition archives and aggregate archive digests, exact closed source/manifest
+bindings and complete unique-case union before accepting the result. The actual
+broker8/8 and media13/13 passed inside that mandatory producer; no duplicate
+checkpoint was required. All Verify jobs succeeded. Separate CodeQL failure,
+uninstalled trusted gate and actual cloud/data acceptance remain release gates.
+Earlier failures and bounded test-fixture counterexamples remain retained;
+this pass does not identify the original Ubuntu assertion causes.

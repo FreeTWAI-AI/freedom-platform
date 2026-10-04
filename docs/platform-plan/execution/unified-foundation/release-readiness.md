@@ -4,6 +4,37 @@ Checked 2026-10-03 at integration baseline `946d67bd200624ba61d23032ee7571e9fd47
 
 Ted’s latest scope is foundation-first; other PRs are not worked during this task. Full original Autopilot acceptance remains separate, and unaccepted functionality stays disabled. This changes development/release scope, not deployment authority.
 
+Latest completed verification, checked 2026-10-04: exact PR head `9339e27`,
+[Verify run37182554068](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37182554068),
+completed successfully against immutable merge checkout
+`6204a4c7b11d03936809ffdc29940b29c0b7023e`. Root independently checked all five
+archive digests and recomputed the complete four-partition union: 196 files,
+**2,620/2,620**, zero failures/skips/cancellations/todo, four cleanups verified,
+560.555 seconds within the unchanged 900-second cap. Worker **60/60**, seven-kind
+DB+native-R2 restore **2/2**, governance, preflight and final Verify passed;
+UI passed 413 cases with five existing disabled-feature skips. Exact-head
+main/operator key-free dry-run bundles passed **2/2**, using placeholders only.
+These are synthetic hosted/local proofs. Separate CodeQL check111377959809
+still failed with one new high; no alert was dismissed or formally adjudicated.
+
+The subsequent durable host-publisher source has actual signed-verifier,
+filesystem/crash/unknown-ACK proofs and two independent reviews; root integrated
+governance unit passed **295/295**, zero skips, at `badc7eb` within the original
+60-second cap. Its next immutable candidate needs its own hosted result. The
+factory persists closed state before check-run writes, blocks restart replays
+and unknown acknowledgements, and applies a failure barrier before same-run
+higher-attempt verification. Different run IDs require trusted reconciliation;
+their numeric IDs do not prove ordering. An unknown success ACK can still leave
+a remote green check, so local blocking is not installed enforcement. Parent
+directory protection, a single trusted writer, event delivery, remote ordering,
+App-bound required rules, approved baseline, library/entry coverage and actual
+negative PR/merge-queue acceptance remain substantive gates. Formal keys,
+GitHub writes, Cloudflare installation and production data operations have not
+occurred. The prepared exact-source installation/probe plan remains NOT_RUN,
+pending nonsecret operator inputs and separate exact-environment authorization.
+The chronology below retains earlier failures and uncompleted work as observed
+then; it does not supersede these current results or clear release conditions.
+
 The subsequent local target-runtime increment has passed standard runtime at
 `1584a77` (2,430), with Worker/host-tool supplement at `d238a87` (43 Worker,
 250 governance, six isolated supervisor cases). It adds Worker composition,

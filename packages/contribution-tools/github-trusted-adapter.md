@@ -103,8 +103,13 @@ request/signed-supervisor ports. It reuses the actual signed verifier. The journ
 must be a pre-created operator-owned 0700 directory outside candidate roots; it
 contains at most 128 head records, each at most 16 KiB. A single exclusive lock
 serializes hosts; a crash leaves the lock blocked, with no PID-based takeover.
+The operator must protect every parent directory and enforce a single trusted
+writer identity; the leaf mode and cooperative lock do not authenticate the
+operator or prevent a parent-directory rename by another privileged writer.
 Records contain closed identity/phase metadata only. Atomic file replacement,
-file fsync and directory fsync precede every HTTP write. This requires a local
+file fsync and directory fsync precede every check-run HTTP write. Installation
+token exchange is unchanged and does not put token material in the journal.
+This requires a local
 filesystem with those durability semantics; no network-filesystem guarantee is
 claimed. Recovery of a stale lock or uncertain operation requires separate
 operator review, not a caller-controlled reset or automatic retry.
