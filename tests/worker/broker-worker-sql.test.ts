@@ -45,6 +45,10 @@ test('actual broker Worker separate SQL roles open the vault, execute one native
   const database='freedom_staging_next',roles={owner:'fp_bw_owner_'+process.pid,app:'fp_bw_app_'+process.pid,broker:'freedom_staging_next_broker',executor:'freedom_staging_next_broker_executor'},password=randomBytes(24).toString('hex');
   const admin=new Pool({connectionString:raw}),roleUrl=(role:string)=>{const url=new URL(raw);url.pathname='/'+database;url.username=role;url.password=password;return url.href;};
   const owner=new Pool({connectionString:roleUrl(roles.owner)}),app=new Pool({connectionString:roleUrl(roles.app)}),cipher=new Pool({connectionString:roleUrl(roles.broker)}),executor=new Pool({connectionString:roleUrl(roles.executor)});
+  // Pool.end() resolves after removing clients, before their sockets necessarily close.
+  // Wait for actual client end events before DROP FORCE, so teardown cannot kill an idle closing client.
+  const closedClients:Promise<void>[]=[];
+  for(const pool of [owner,app,cipher,executor])pool.on('connect',client=>closedClients.push(new Promise<void>(resolve=>client.once('end',resolve))));
   const sockets=new Set<Socket>(),proxy=socket?netServer(client=>{const upstream=createConnection(join(socket,'.s.PGSQL.5432'));for(const socket of [client,upstream]){sockets.add(socket);socket.on('close',()=>sockets.delete(socket));socket.on('error',()=>{client.destroy();upstream.destroy();});}client.pipe(upstream).pipe(client);}):undefined;
   let created=false,mf:Miniflare|undefined,directory:string|undefined;
   try{
@@ -150,5 +154,5 @@ test('actual broker Worker separate SQL roles open the vault, execute one native
     assert.equal((await(await(await mf.getWorker('synthetic-provider')).fetch('https://api.openai.com/counts')).json() as {posts:number}).posts,1);
     assert(!JSON.stringify((await cipher.query('SELECT envelope FROM broker_credential_vault')).rows[0]).includes(secret));
     const objects=await bucket.list();assert.equal(objects.objects.length,1);const object=await bucket.get(objects.objects[0].key);assert(object);assert.equal(await object.text(),output);
-  }finally{await mf?.dispose();for(const socket of sockets)socket.destroy();if(proxy?.listening)await new Promise<void>(r=>proxy.close(()=>r()));await Promise.all([owner.end(),app.end(),cipher.end(),executor.end()]);if(created){await admin.query(`DROP DATABASE ${database} WITH (FORCE)`);await admin.query(`DROP ROLE ${Object.values(roles).join(',')}`);}await admin.end();if(directory)await rm(directory,{recursive:true,force:true});}
+  }finally{await mf?.dispose();for(const socket of sockets)socket.destroy();if(proxy?.listening)await new Promise<void>(r=>proxy.close(()=>r()));await Promise.all([owner.end(),app.end(),cipher.end(),executor.end()]);await Promise.all(closedClients);if(created){await admin.query(`DROP DATABASE ${database} WITH (FORCE)`);await admin.query(`DROP ROLE ${Object.values(roles).join(',')}`);}await admin.end();if(directory)await rm(directory,{recursive:true,force:true});}
 });
