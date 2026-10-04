@@ -267,7 +267,7 @@ async function loadRowHashes(
 ): Promise<string[]> {
   const rows = await query(
     client,
-    `SELECT pg_catalog.encode(${sha256Call}(pg_catalog.convert_to(pg_catalog.to_jsonb(t)::text, 'UTF8')), 'hex') AS hash
+    `SELECT pg_catalog.encode(${sha256Call}(pg_catalog.convert_to(pg_catalog.to_jsonb(t.*)::text, 'UTF8')), 'hex') AS hash
        FROM ${qualifiedName(schema, table)} AS t`,
   );
   if (rows.length > MAX_ROWS || count !== String(rows.length)) fail();

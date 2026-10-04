@@ -57,6 +57,16 @@ test('Grok snapshot evidence preserves complete row multiset and sequence facts 
       assert.equal(first.tables[0].count, '0');
       assert.equal(first.tables[1].columns[0].name, 'column"name');
     });
+    await t.test('alias-named column cannot hide changes in other row columns', async () => {
+      await client.query('CREATE TABLE fixture.alias_collision (t text, bytes bytea)');
+      await client.query(`INSERT INTO fixture.alias_collision VALUES ('unchanged scalar',decode('00ff','hex'))`);
+      const selected = [{ schema: 'fixture', table: 'alias_collision' }];
+      const first = await snapshot(selected);
+      await client.query(`UPDATE fixture.alias_collision SET bytes=decode('00fe','hex')`);
+      const second = await snapshot(selected);
+      assert.equal(first.tables[0].count, second.tables[0].count);
+      assert.notEqual(first.tables[0].fingerprint, second.tables[0].fingerprint);
+    });
     await t.test('sequence changes remain independently visible', async () => {
       const first = await snapshot();
       await client.query(`SELECT setval('fixture.records_id_seq',900,false)`);
