@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONSUMER_LIBRARIES, verifyConsumerLibraries, LIBRARY_LOCK, LIBRARY_PREFIX } from './consumer-libraries.mjs';
+import { CONSUMER_SOURCE_PROFILES, verifyConsumerSourceProfile } from './consumer-source-profiles.mjs';
 import { artifactPath, parseJson, sha256 } from './io.mjs';
 import { verificationEnvironment } from './process-env.mjs';
 import { requireCondition as check, safeFailure } from './errors.mjs';
@@ -48,7 +49,9 @@ export async function verifyNativeConsumerSource(input) {
   const keys = ['repository', 'candidateRoot', 'candidateCommit', 'sourceRoot', 'expectedSourceCommit', 'expectedWorkflowCommit'];
   check(input && Object.keys(input).length === keys.length && keys.every(key => Object.hasOwn(input, key)), 'consumer_host_input_invalid');
   const config = structuredClone(input);
-  check(CONSUMERS.includes(config.repository) && Object.hasOwn(CONSUMER_LIBRARIES, config.repository), 'unsupported_library_consumer');
+  const profile = CONSUMER_SOURCE_PROFILES[config.repository];
+  check((CONSUMERS.includes(config.repository) && Object.hasOwn(CONSUMER_LIBRARIES, config.repository))
+    || Object.hasOwn(CONSUMER_SOURCE_PROFILES, config.repository), 'unsupported_library_consumer');
   for (const key of ['candidateCommit', 'expectedSourceCommit', 'expectedWorkflowCommit']) commit(config[key]);
   const candidate = await objectRoot(config.candidateRoot), source = await objectRoot(config.sourceRoot);
   const rel = relative(candidate, source);
@@ -65,22 +68,37 @@ export async function verifyNativeConsumerSource(input) {
   const paths = [...new Set([...baselineFiles.keys(), ...candidateFiles.keys()])].filter(preview).sort();
   check(paths.includes('contracts.lock.json') && paths.some(path => path.startsWith('vendor/freedom-platform/')), 'consumer_preview_baseline_missing');
   for (const path of paths) check(JSON.stringify(candidateFiles.get(path)) === JSON.stringify(baselineFiles.get(path)), 'consumer_preview_baseline_changed');
-  const fixedLibraries = CONSUMER_LIBRARIES[config.repository].map(path => LIBRARY_PREFIX + path);
-  const actualLibraries = [...candidateFiles.keys()].filter(path => path.startsWith(LIBRARY_PREFIX)).sort();
-  check(JSON.stringify(actualLibraries) === JSON.stringify([...fixedLibraries].sort()), 'consumer_library_file_set_mismatch');
+  let selectedPaths;
+  if (profile) {
+    selectedPaths = [...new Set([...profile.required_paths, ...paths])];
+  } else {
+    const fixedLibraries = CONSUMER_LIBRARIES[config.repository].map(path => LIBRARY_PREFIX + path);
+    const actualLibraries = [...candidateFiles.keys()].filter(path => path.startsWith(LIBRARY_PREFIX)).sort();
+    check(JSON.stringify(actualLibraries) === JSON.stringify([...fixedLibraries].sort()), 'consumer_library_file_set_mismatch');
+    selectedPaths = [LIBRARY_LOCK, ...fixedLibraries];
+  }
   const snapshot = await mkdtemp(join(tmpdir(), 'fp-consumer-source-'));
   try {
     const evidence = [];
-    for (const path of [LIBRARY_LOCK, ...fixedLibraries]) {
+    for (const path of selectedPaths) {
       const bytes = read(candidate, candidateFiles, path); await mkdir(dirname(join(snapshot, path)), { recursive: true });
       await writeFile(join(snapshot, path), bytes, { flag: 'wx', mode: 0o444 }); evidence.push({ path, sha256: sha256(bytes) });
     }
-    const verified = await verifyConsumerLibraries(snapshot, { repository: config.repository, expectedSourceCommit: config.expectedSourceCommit, sourceRoot: source });
+    const canonicalFiles = profile ? tree(source, config.expectedSourceCommit) : null;
+    const verified = profile
+      ? await verifyConsumerSourceProfile({ repository: config.repository, repositoryRoot: snapshot,
+        readBaseline: path => read(candidate, baselineFiles, path),
+        readCanonical: path => read(source, canonicalFiles, path) })
+      : await verifyConsumerLibraries(snapshot, { repository: config.repository, expectedSourceCommit: config.expectedSourceCommit, sourceRoot: source });
+    check(!profile || verified.status === 'passed', 'consumer_profile_not_passed');
     return { format: 'freedom.native-consumer-source/v1', status: 'passed', gate_enforced: false, merge_authorized: false,
       repository: config.repository, candidate_commit: config.candidateCommit,
       candidate_tree: git(candidate, ['rev-parse', config.candidateCommit + '^{tree}']).toString().trim(),
       baseline_commit: baseline, workflow_commit: config.expectedWorkflowCommit, source_commit: config.expectedSourceCommit,
-      verification: verified.verification, preview: 'unchanged-from-approved-baseline', library_usage: 'not_checked', runtime_observation: 'not_checked', evidence };
+      verification: verified.verification, preview: verified.preview ?? 'unchanged-from-approved-baseline',
+      source_profile: profile ? verified.profile : 'adopted-shared-libraries',
+      ...(profile ? { profile_result: verified } : {}),
+      library_usage: 'not_checked', runtime_observation: 'not_checked', evidence };
   } finally { await rm(snapshot, { recursive: true, force: true }); }
 }
 async function cli() {
