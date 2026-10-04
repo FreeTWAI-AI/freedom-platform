@@ -1,10 +1,10 @@
 # 自由工坊共同基礎開發規格
 
-接手目前工作先讀 [平台移植交接筆記](handoff-2026-10-04.md)。2026-10-04 最新方向是基底優先、直接推進實際移植，不再追加完整獨立預演；既有雲端候選、已驗證版本與下一步集中在該筆記。以下原始分批規格與早期操作限制保留作歷史，後續授權以[最新決策](00-baseline-and-decisions.md)及當前對話為準。
+接手目前工作先讀 [實際移植報告](actual-migration-2026-10-04.md) 與 [平台移植交接筆記](handoff-2026-10-04.md)。2026-10-04 09:03:44 UTC 已完成 staging／公開入口切換新 PostgreSQL branch，部署 runtime 固定為 `9cc283c6`。原正式 387 位 users、staging 8 位 users 與兩環境共 280 張來源表的逐欄 digest、列數及序列一致；legacy 媒體 bytea 完整搬入，每環境 HTTPS 驗收 66/66，日備份 services 成功並核對 digest。新 R2 桶分環境獨立，但 backfill／非 legacy、私人 AI／broker／machine 仍 OFF，可信發布 gate 尚未完成。以下原始分批規格與早期操作限制保留作歷史，後續授權以[最新決策](00-baseline-and-decisions.md)及當前對話為準。
 
 這組 spec 將 [Unified Foundation 1.1 計畫](../../../plans/unified-foundation.md) 轉成可分批開發、審查及驗收的工作。結論是可以依此計畫開發；先交付固定契約與開工工具、相容的身分及交易核心，再完成「會員換頭像」與「本人私人 AI 草稿」兩條完整流程。
 
-版本：`0.2-draft`；查核日期：2026-10-03。已讀完 Unified Foundation 1.1、R2 及 Autopilot 原文並完成規格對照。中央程式查核基準為 `3de70ccbd24362a7925508fb42d36aaa256a0806`；其後已有本機契約 verifier、開工工具、會員相容交易核心及受約束的 person/community/personal 映射。目前另有 scoped member receipt、共用 Asset 引擎、原生 R2 adapter、頭像讀寫相容 bridge、私人 Work 命令、人工 Result 及封閉 Run 內部服務。Run 已接本人建立／讀取／暫停／取消；未驗證 ModelConnection、限定同意 Grant 及 blocked history 之上，另有逐次出口批准、active Attempt／lease、一次性單步派送、私人模型 Asset／Result，以及真實 cookie／CSRF 的本人 HTTP／畫面。加密 broker／外部 recovery 的內部核心已有本機證據；主 API／broker 的用途分離認證橋與真正隔離程序閉環已有本機完整回歸；會員模型設定與直接保管已有本機證據；opt-in Worker／native broker transport 與合成 Hyperdrive 的裝置／metadata 接線已完成；獨立 broker 部署、真人 provider／runtime 與真實 cloud 驗收仍待完成。本機 release 診斷保留歷史 schema/capability 下限。治理包含 host-owned 候選資料驗證、有限入口語法稽核，以及 Kit/Storefront 本機固定來源接入。範圍和測試證據見 [本機交付紀錄](implementation-status.md)；預設仍是 legacy／persistence 關閉，尚非正式新頭像啟用、私人 AI 草稿或完整治理驗收。
+原規格版本：`0.2-draft`；原規格查核日期：2026-10-03。已讀完 Unified Foundation 1.1、R2 及 Autopilot 原文並完成規格對照。原規格中央程式查核基準為 `3de70ccbd24362a7925508fb42d36aaa256a0806`；其後已有本機契約 verifier、開工工具、會員相容交易核心及受約束的 person/community/personal 映射。目前另有 scoped member receipt、共用 Asset 引擎、原生 R2 adapter、頭像讀寫相容 bridge、私人 Work 命令、人工 Result 及封閉 Run 內部服務。Run 已接本人建立／讀取／暫停／取消；未驗證 ModelConnection、限定同意 Grant 及 blocked history 之上，另有逐次出口批准、active Attempt／lease、一次性單步派送、私人模型 Asset／Result，以及真實 cookie／CSRF 的本人 HTTP／畫面。加密 broker／外部 recovery 的內部核心已有本機證據；主 API／broker 的用途分離認證橋與真正隔離程序閉環已有本機完整回歸；會員模型設定與直接保管已有本機證據；opt-in Worker／native broker transport 與合成 Hyperdrive 的裝置／metadata 接線已完成；獨立 broker 部署、真人 provider／runtime 與新功能的真實 cloud 驗收仍待完成。本機 release 診斷保留歷史 schema/capability 下限。治理包含 host-owned 候選資料驗證、有限入口語法稽核，以及 Kit/Storefront 本機固定來源接入。範圍和測試證據見 [本機交付紀錄](implementation-status.md)；預設仍是 legacy／persistence 關閉，尚非正式新頭像啟用、私人 AI 草稿或完整治理驗收。
 
 ## 文件與開工順序
 
@@ -55,7 +55,7 @@
 
 ## 開發與交付規則
 
-2026-10-02 Ted 的最新方向是完成原計畫 scope 後做受控前向 migration，不為提早上線另做相容過渡 release，也不把回到舊應用版本作交付目標。資料安全與發布保護仍保留，詳見 [發布決策](00-baseline-and-decisions.md)；目前不變更 staging/live。
+歷史方向（2026-10-02，已由 2026-10-03 基底優先與 2026-10-04 實際移植取代）：Ted 當時要求完成原計畫 scope 後做受控前向 migration，不為提早上線另做相容過渡 release，也不把回到舊應用版本作交付目標。資料安全與發布保護仍保留，詳見 [發布決策](00-baseline-and-decisions.md)；當時尚未變更 staging/live。
 
 Ted 在規格完成後已明確授權由目前 agent 直接實作並持續推進，後續又授權多隻 GPT-6 Astra，之後明確指定 GPT-6.1 Sol 並允許 Grok 4.7 與 Opus 4.6 平行分工，不再要求所有產品程式交給 grok 4.7。派工仍須提供固定 source SHA、此組 spec、可改檔案、預期反例及隔離測試方式；獨立 worktree 避免互踩，共同檔案由整合者負責。此授權不自動包含推送、合併、部署、正式設定或公告。
 

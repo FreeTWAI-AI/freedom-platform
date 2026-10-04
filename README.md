@@ -30,9 +30,9 @@
 
 前版 0.9.7 修正 GitHub Star 權限錯誤提示，App 建立流程明確申請 Metadata 讀取，後台提供權限與 Repo 安裝入口。既有 App 仍需在 GitHub 補齊設定；站內連結成功不代表每個按星請求都已獲 GitHub 允許。
 
-公開會員入口：<https://freetwai.com>；內部入口：<https://staging.freetwai.com>（Cloudflare Access 限定名單）。兩者都由 Cloudflare Worker 提供。現行拓撲見 [遷移手冊 §14](./docs/development/cloudflare-migration.md#14-切換後現況2026-09-25)。本輪行為與邊界見 [會員入口設計](./docs/development/member-onboarding-release.md)。
+公開會員入口：<https://freetwai.com>；內部入口：<https://staging.freetwai.com>（Cloudflare Access 限定名單）。兩者都由 Cloudflare Worker 提供。2026-10-04 的現行資料庫與部署證據見 [實際移植報告](./docs/platform-plan/execution/unified-foundation/actual-migration-2026-10-04.md)；[遷移手冊 §14](./docs/development/cloudflare-migration.md#14-切換後現況2026-09-25) 保留初次切換歷史。本輪行為與邊界見 [會員入口設計](./docs/development/member-onboarding-release.md)。
 
-Cloudflare Workers＋PlanetScale 已於 2026-09-25 切換。2026-09-24 候選站紀錄見 [遷移交接](./docs/development/cloudflare-migration-status-2026-09-24.md)。
+Cloudflare Workers＋PlanetScale 於 2026-09-25 首次切換；2026-10-04 09:03:44 UTC 已將 staging／公開入口切到新的 PostgreSQL branch，runtime 固定為 `9cc283c6`。原正式 387 位 users、staging 8 位 users 與 legacy 媒體 bytes 已搬入；新 R2 桶已分環境建立，backfill 與非 legacy 功能保持關閉，發布 gate 尚未完成。2026-09-24 候選站紀錄見 [遷移交接](./docs/development/cloudflare-migration-status-2026-09-24.md)。
 
 工坊夥伴名冊支援公開資料搜尋、公會篩選、加入日期／暱稱排序與緊湊列表；詳細技能和聯絡方式可展開。舊會員依開站日 2026/9/23 記錄，新會員保存實際加入時間。
 
