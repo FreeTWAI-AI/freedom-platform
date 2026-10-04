@@ -143,6 +143,11 @@
       "sha256": "48eb1d741b088eaa48453adc4d6e0aa213f88950061cd1cab02be406e0de97b5"
     },
     {
+      "path": "apps/media-operator-caller/src/worker.ts",
+      "bytes": 1925,
+      "sha256": "ad287b32e6819aa6e436d6714e96118b4a696e142d50ec14ee6cdba72018da8c"
+    },
+    {
       "path": "apps/media-operator/src/cloudflare-workers.d.ts",
       "bytes": 439,
       "sha256": "21b8df7c48e6c8f6b3a264cb47532427d001d1c72c5076c0a0603ffa10709f41"
@@ -151,11 +156,6 @@
       "path": "apps/media-operator/src/worker.ts",
       "bytes": 5469,
       "sha256": "f84842a9d3196eee64bbc95a2fb2a68eeba126473425255fdef4db388b685714"
-    },
-    {
-      "path": "apps/media-operator-caller/src/worker.ts",
-      "bytes": 1925,
-      "sha256": "ad287b32e6819aa6e436d6714e96118b4a696e142d50ec14ee6cdba72018da8c"
     },
     {
       "path": "apps/migration-maintenance/src/worker.ts",
@@ -2398,6 +2398,11 @@
       "sha256": "e8980c09fd23068597d0b6f4c61129310a401d2bad0109182578af83ebc7e3ba"
     },
     {
+      "path": "deploy/cloudflare/candidate-admission.mjs",
+      "bytes": 1334,
+      "sha256": "af81f167184ba2bd4d9861c67ceeefe7288733806cf00a07169db3a233fb8042"
+    },
+    {
       "path": "deploy/cloudflare/candidate/README.md",
       "bytes": 7549,
       "sha256": "ece36247fb052d2b01b68ab451d5cbeb1c95a257dc0fe37d3c750ffbb42d1f15"
@@ -2416,11 +2421,6 @@
       "path": "deploy/cloudflare/candidate/media-operator-caller.md",
       "bytes": 3116,
       "sha256": "364d07aacd69ebd1c64349afd60731a9bace81b416364b0870c4a8fab1ec4eb6"
-    },
-    {
-      "path": "deploy/cloudflare/candidate-admission.mjs",
-      "bytes": 1334,
-      "sha256": "af81f167184ba2bd4d9861c67ceeefe7288733806cf00a07169db3a233fb8042"
     },
     {
       "path": "deploy/cloudflare/environments.json",
@@ -3031,6 +3031,11 @@
       "path": "docs/development/github-social.md",
       "bytes": 8960,
       "sha256": "9f4bac4cdc42ef5272239b36f5f56a9be7cb9d44e8d890d872578ae31b9686b0"
+    },
+    {
+      "path": "docs/development/governance-positive-probe-20261004.md",
+      "bytes": 179,
+      "sha256": "1c0b8d51615af298c54cb6bcaa5518ecfbb788211588d601d40cb1dc8897a36a"
     },
     {
       "path": "docs/development/guild-collaboration.md",
@@ -5958,6 +5963,16 @@
       "sha256": "6176e2d27005a58e9720f923ca09ca4bb2a02ebd6f084ef3553164abb5f70583"
     },
     {
+      "path": "modules/development-access/guild-eligibility.ts",
+      "bytes": 2209,
+      "sha256": "03b051b623b82304a502bfc51264bfa1bc1690eff55032e9390716c35d2fb17a"
+    },
+    {
+      "path": "modules/development-access/service.ts",
+      "bytes": 17359,
+      "sha256": "3cec323a21e04edfe9c069e966a5b7bc77c1303d165115d529af0b03ec398ee1"
+    },
+    {
       "path": "modules/development/page-github.ts",
       "bytes": 9796,
       "sha256": "50328508a0f4a12ab5001a9a485bed3c4125fb3da0c4c0b593650736bd056530"
@@ -5971,16 +5986,6 @@
       "path": "modules/development/service.ts",
       "bytes": 42446,
       "sha256": "88603ac4bf7849dce161218f0592c2be59fea6b7aa5245984c7db010d7d85c3a"
-    },
-    {
-      "path": "modules/development-access/guild-eligibility.ts",
-      "bytes": 2209,
-      "sha256": "03b051b623b82304a502bfc51264bfa1bc1690eff55032e9390716c35d2fb17a"
-    },
-    {
-      "path": "modules/development-access/service.ts",
-      "bytes": 17359,
-      "sha256": "3cec323a21e04edfe9c069e966a5b7bc77c1303d165115d529af0b03ec398ee1"
     },
     {
       "path": "modules/github-social/provider.ts",
@@ -6513,6 +6518,21 @@
       "sha256": "c569913e07c9be00fbdc48b715314f62b21f92f456fb3e6e8f7a3ed18e4a7f80"
     },
     {
+      "path": "packages/contribution-tools/test-failure-diagnostic.mjs",
+      "bytes": 5422,
+      "sha256": "eb99de18cc01f2e5ff22588cddcefc8a65402a542bd5d8ce060491503bbb063c"
+    },
+    {
+      "path": "packages/contribution-tools/test-progress.md",
+      "bytes": 4451,
+      "sha256": "e1a0237b12d57eb8050e5e50d5c71fec7cd7686d64d232932c81aecd10c3f58f"
+    },
+    {
+      "path": "packages/contribution-tools/test-reporter.mjs",
+      "bytes": 9617,
+      "sha256": "ecfb45046f75ae5da8b8ede6be3bb782e37ff3308f979d96ae5aeab8f347b3d6"
+    },
+    {
       "path": "packages/contribution-tools/test/behavior-harness-adversarial.test.mjs",
       "bytes": 14543,
       "sha256": "3a89607ddea5fd52918842105cee70fa81b822afdb67615a5ec23dce756c586b"
@@ -6596,21 +6616,6 @@
       "path": "packages/contribution-tools/test/trusted-ci.test.mjs",
       "bytes": 16248,
       "sha256": "47a246db21c67c11d048f6b4b9412e86250e3da1d7749a34533c926ab8fb4db8"
-    },
-    {
-      "path": "packages/contribution-tools/test-failure-diagnostic.mjs",
-      "bytes": 5422,
-      "sha256": "eb99de18cc01f2e5ff22588cddcefc8a65402a542bd5d8ce060491503bbb063c"
-    },
-    {
-      "path": "packages/contribution-tools/test-progress.md",
-      "bytes": 4451,
-      "sha256": "e1a0237b12d57eb8050e5e50d5c71fec7cd7686d64d232932c81aecd10c3f58f"
-    },
-    {
-      "path": "packages/contribution-tools/test-reporter.mjs",
-      "bytes": 9617,
-      "sha256": "ecfb45046f75ae5da8b8ede6be3bb782e37ff3308f979d96ae5aeab8f347b3d6"
     },
     {
       "path": "packages/contribution-tools/trusted-ci.mjs",
