@@ -10,34 +10,33 @@ const version = z.string().refine(value => /^[1-9][0-9]{0,18}$/.test(value) && !
 const lease = z.object({ assetId: id, attempt: version, leaseToken: id }).strict();
 export type AssetDeletionLease = z.infer<typeof lease>;
 interface Policy {
-  enabled: boolean; revision: string; delete_lease_seconds: number; capture_seconds: number; pin_seconds: number; max_capture_objects: number;
+  enabled: boolean; domain_media_enabled:boolean; revision: string; delete_lease_seconds: number; capture_seconds: number; pin_seconds: number; max_capture_objects: number;
 }
-interface Asset { asset_id: string; scope_id: string; representation_id: string; owner_user_id: string }
+interface Asset { asset_id: string; scope_id: string; representation_id: string; owner_user_id: string; purpose:string }
 interface Capture { capture_id: string; state: string; capture_expires_at: Date; pin_expires_at: Date | null; reference_count: number | null }
 
 /** Closed trusted maintenance port, not member/service HTTP authorization.
  * Both this explicit opt-in and complete DB policy are required. No scheduling,
  * environment lookup, bucket LIST, backup copy, restore or default retention. */
-export function createAssetMaintenance(pool: Pool, dependencies: { store: ObjectStore; enabled?: boolean }) {
+export function createAssetMaintenance(pool: Pool, dependencies: { store: ObjectStore; enabled?: boolean; domainMediaEnabled?:boolean }) {
   const { store } = dependencies, enabled = dependencies.enabled === true;
   const active = () => requireCondition(enabled, 503, 'asset_maintenance_disabled', '資產維運尚未啟用。');
-  async function policy(q: PoolClient, lock: '' | 'SHARE' | 'UPDATE' = ''): Promise<Policy> {
+  async function policy(q: PoolClient, lock: '' | 'SHARE' | 'UPDATE' = '', purpose?:string): Promise<Policy> {
     const row = (await q.query<Policy>('SELECT * FROM asset_maintenance_policy WHERE singleton' + (lock ? ' FOR ' + lock : ''))).rows[0];
     requireCondition(row?.enabled === true, 503, 'asset_maintenance_disabled', '資產維運尚未啟用。');
+    if(purpose&&purpose!=='member.avatar')requireCondition(dependencies.domainMediaEnabled===true&&row.domain_media_enabled===true,503,'asset_domain_maintenance_disabled','內容維運尚未啟用。');
     return row;
   }
   async function claimDelete(assetId: string): Promise<AssetDeletionLease> {
     active(); assetId = id.parse(assetId);
     return transaction(pool, async q => {
-      const initial = (await q.query<Asset>('SELECT asset_id,scope_id,representation_id,owner_user_id FROM assets WHERE asset_id=$1', [assetId])).rows[0];
+      const initial = (await q.query<Asset>('SELECT asset_id,scope_id,representation_id,owner_user_id,purpose FROM assets WHERE asset_id=$1', [assetId])).rows[0];
       requireCondition(initial, 404, 'asset_not_found', '找不到資產。');
       // Exactly the upload owner order. Never hold the global gate while waiting
       // on these rows; backup begin only touches that gate and a new capture.
-      await q.query('SELECT 1 FROM member_avatars WHERE user_id=$1 FOR UPDATE', [initial.owner_user_id]);
-      await q.query('SELECT 1 FROM member_avatar_asset_targets WHERE user_id=$1 FOR UPDATE', [initial.owner_user_id]);
-      await q.query('SELECT 1 FROM asset_upload_intents WHERE asset_id=$1 FOR UPDATE', [assetId]);
-      await q.query('SELECT 1 FROM assets WHERE asset_id=$1 FOR UPDATE', [assetId]);
-      const current = await policy(q, 'SHARE');
+      requireCondition(initial.purpose==='member.avatar'||dependencies.domainMediaEnabled===true,503,'asset_domain_maintenance_disabled','內容維運尚未啟用。');
+      await q.query('SELECT lock_asset_deletion_domain($1)',[assetId]);
+      const current = await policy(q, 'SHARE',initial.purpose);
       const existing = (await q.query('SELECT * FROM asset_deletion_tombstones WHERE asset_id=$1 FOR UPDATE', [assetId])).rows[0];
       const token = randomUUID();
       if (!existing) {
@@ -57,11 +56,10 @@ export function createAssetMaintenance(pool: Pool, dependencies: { store: Object
   async function deleteObject(raw: AssetDeletionLease) {
     active(); const input = lease.parse(raw);
     const identity = await transaction(pool, async q => {
-      await policy(q);
-      const row = (await q.query<Asset>(`SELECT a.asset_id,a.scope_id,a.representation_id,a.owner_user_id FROM assets a
+      const row = (await q.query<Asset>(`SELECT a.asset_id,a.scope_id,a.representation_id,a.owner_user_id,a.purpose FROM assets a
         JOIN asset_deletion_tombstones t USING(asset_id) WHERE a.asset_id=$1 AND a.deletion_fence=1
         AND t.attempt=$2 AND t.lease_token=$3 AND t.lease_expires_at>clock_timestamp()`, [input.assetId, input.attempt, input.leaseToken])).rows[0];
-      requireCondition(row, 409, 'asset_delete_lease_stale', '清理租約已失效。'); return row;
+      requireCondition(row, 409, 'asset_delete_lease_stale', '清理租約已失效。'); await policy(q,'',row.purpose);return row;
     });
     const key = objectKey({ scopeId: identity.scope_id, assetId: identity.asset_id, representationId: identity.representation_id });
     let observation: 'missing' | 'present' | 'unknown';

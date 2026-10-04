@@ -1,3 +1,4 @@
+import {admitAssetObjectWriteEffect} from './object-write-effects.js';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
@@ -138,7 +139,7 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
       // the new explicit identity columns.
       const assetValues:unknown[]=[assetId,context.scope.scope_id,context.subject_principal.principal_id,actor.user_id,resolved.revision,representationId,profile.purpose];
       if(scopeKind==='community')assetValues.push(scopeKind,actor.community_id);
-      await q.query(`INSERT INTO assets(asset_id,scope_id,owner_principal_id,owner_user_id,policy_revision,representation_id,purpose${scopeKind==='community'?',scope_kind,community_ref':''}) VALUES($1,$2,$3,$4,$5,$6,$7${scopeKind==='community'?',$8,$9':''})`,assetValues);
+      await q.query(`INSERT INTO assets(asset_id,scope_id,owner_principal_id,owner_user_id,policy_revision,representation_id,purpose${scopeKind==='community'?',scope_kind,community_ref':''}${profile.purpose!=='member.avatar'&&profile.purpose!=='work.private-draft'?',write_effect_coverage':''}) VALUES($1,$2,$3,$4,$5,$6,$7${scopeKind==='community'?',$8,$9':''}${profile.purpose!=='member.avatar'&&profile.purpose!=='work.private-draft'?',true':''})`,assetValues);
       const values:unknown[]=[intentId,assetId,representationId,context.scope.scope_id,context.subject_principal.principal_id,actor.user_id,resolved.revision,receiptKey,digest(body),input.contentType,input.byteSize,input.sha256,input.expectedVersion,settings.ttl,profile.purpose,profile.outputMaxBytes];
       const work=profile.targetKind!=='member.avatar',column=profile.purpose==='community.event-highlight'?'target_highlight_media_id':profile.targetKind==='community.social-thumbnail'?'target_post_id':profile.targetKind==='community.event-video'?'target_video_event_id':profile.targetKind==='community.event-banner'?'target_event_id':profile.targetKind==='member.service-cover'?'target_service_id':'target_work_id';if(work)values.push(profile.targetKind,id);const banner=scopeKind==='community';if(banner)values.push(actor.community_id,profile.purpose==='community.event-banner'?(input as P&{orientation:string}).orientation:null);
       const row=(await q.query(`INSERT INTO asset_upload_intents(intent_id,asset_id,representation_id,scope_id,owner_principal_id,target_user_id,policy_revision,prepare_key,request_digest,source_content_type,source_byte_size,source_sha256,expected_version,expires_at,purpose,reserved_bytes${work?',target_kind,'+column:''}${banner?',target_community_id,source_orientation':''}) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,clock_timestamp()+make_interval(secs=>$14),$15,$16${work?',$17,$18':''}${banner?',$19,$20':''}) RETURNING expires_at`,values)).rows[0];
@@ -156,12 +157,12 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
       return {intentId:updated.intent_id,assetId:updated.asset_id,representationId:updated.representation_id,fence:updated.fence,leaseToken:updated.lease_token!,leaseExpiresAt:updated.lease_expires_at!.toISOString()};
     },revalidate);
   }
-  async function inspect(actor:Actor,input:AssetLeaseInput,allowFinalized=false){
+  async function inspect(actor:Actor,input:AssetLeaseInput,allowFinalized=false,effectMetadata?:ObjectMetadata){
     return withMemberScope(pool,{actor,scope:scopeKind,lockUser},async()=>{},async(q,context)=>{
       const {row}=await locked(q,context,actor,input.intentId),resolved=await policy(q,context,targetId(row),row.policy_revision);
       state(row.state==='processing'||row.state==='stored'||allowFinalized&&row.state==='finalized');
       if(row.state!=='finalized')await live(q,row,input);else requireCondition(row.fence===input.fence&&row.lease_token===input.leaseToken,409,'asset_lease_stale','上傳租約已失效。');
-      const storedMetadata=row.state==='stored'?await metadata(q,row):null;await assertCurrentSessionClock(q,actor);if(revalidate)await revalidate(q);return {row:Object.freeze({...row}),policy:resolved,metadata:storedMetadata};
+      const storedMetadata=row.state==='stored'?await metadata(q,row):null;await assertCurrentSessionClock(q,actor);if(revalidate)await revalidate(q);const effectStore=effectMetadata?await admitAssetObjectWriteEffect(q,pool,store,input,effectMetadata):undefined;await assertCurrentSessionClock(q,actor);if(row.state!=='finalized')await live(q,row,input);return {row:Object.freeze({...row}),policy:resolved,metadata:storedMetadata,effectStore};
     });
   }
   async function write(actor:Actor,raw:AssetLeaseInput,body:ReadableStream<Uint8Array>){
@@ -176,7 +177,7 @@ export function createAssetLifecycle<P extends LifecyclePrepare,R>(pool: Pool, d
       : profile.purpose==='community.event-banner'?prepared.metadata.profileId==='community.event-banner'&&prepared.metadata.contentType==='image/webp'&&prepared.metadata.transformVersion==='community.event-banner.legacy-bytes.v1'
       : profile.purpose==='community.event-video'?prepared.metadata.profileId==='community.event-video'&&['video/mp4','video/webm'].includes(prepared.metadata.contentType)&&prepared.metadata.transformVersion==='community.event-video.legacy-bytes.v1'
       : ['text/plain','text/markdown'].includes(prepared.metadata.contentType)&&prepared.metadata.transformVersion==='private-text.utf8.v1'),422,'asset_profile_invalid','內容不符合儲存規格。');
-    const verified=await writeVerifiedObject(store,storageKey(snapshot.row),prepared,snapshot.policy);let row!:LifecycleIntent;
+    const effect=profile.purpose==='member.avatar'||profile.purpose==='work.private-draft'?undefined:await inspect(actor,input,false,prepared.metadata);const verified=await writeVerifiedObject(effect?.effectStore??store,storageKey(snapshot.row),prepared,snapshot.policy);let row!:LifecycleIntent;
     return scopedMemberCommand(pool,{actor,scope:scopeKind,lockUser,operation:'asset.upload.write',key:input.key,target:{kind:'asset_upload_intent',id:input.intentId},body:{intentId:input.intentId,fence:input.fence,metadata:verified.metadata}},async(q,context)=>{
       ({row}=await locked(q,context,actor,input.intentId));await policy(q,context,targetId(row),row.policy_revision);state(row.state==='processing'||row.state==='stored');await live(q,row,input);
     },async q=>{

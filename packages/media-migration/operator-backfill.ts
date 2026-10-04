@@ -1,3 +1,4 @@
+import {admitAssetObjectWriteEffect} from '../../modules/assets/object-write-effects.js';
 import {
   createHash,randomUUID
 } from 'node:crypto';
@@ -228,7 +229,7 @@ export function createOperatorMediaBackfill(pool:Pool,installation:{
           const asset=randomUUID(),intent=randomUUID(),representation=randomUUID();
           await q.query(`INSERT INTO ${profile.targetTable}(${profile.id},scope_id,owner_principal_id,owner_user_id${video?',community_id':''}) VALUES($1,$2,$3,$4${video?',$5':''}) ON CONFLICT DO NOTHING`,video?[s.target_id,s.scope_id,s.principal_id,s.owner_user_id,s.community_id]:[s.target_id,s.scope_id,s.principal_id,s.owner_user_id]);
           const pointer=(await q.query(`SELECT * FROM ${profile.targetTable} WHERE ${profile.id}=$1 FOR UPDATE`,[s.target_id])).rows[0];require(pointer?.scope_id===s.scope_id&&pointer.owner_principal_id===s.principal_id&&pointer.owner_user_id===s.owner_user_id&&!pointer.asset_id);
-          await q.query(`INSERT INTO assets(asset_id,scope_id,owner_principal_id,owner_user_id,policy_revision,representation_id,purpose,scope_kind${video?',community_ref':''}) VALUES($1,$2,$3,$4,$5,$6,$7,$8${video?',$9':''})`,video?[asset,s.scope_id,s.principal_id,s.owner_user_id,policy.policy_revision,representation,p.purpose,profile.scope,s.community_id]:[asset,s.scope_id,s.principal_id,s.owner_user_id,policy.policy_revision,representation,p.purpose,profile.scope]);
+          await q.query(`INSERT INTO assets(asset_id,scope_id,owner_principal_id,owner_user_id,policy_revision,representation_id,purpose,scope_kind${video?',community_ref':''},write_effect_coverage) VALUES($1,$2,$3,$4,$5,$6,$7,$8${video?',$9':''},true)`,video?[asset,s.scope_id,s.principal_id,s.owner_user_id,policy.policy_revision,representation,p.purpose,profile.scope,s.community_id]:[asset,s.scope_id,s.principal_id,s.owner_user_id,policy.policy_revision,representation,p.purpose,profile.scope]);
           await q.query(`INSERT INTO asset_upload_intents(intent_id,asset_id,representation_id,scope_id,owner_principal_id,target_user_id,policy_revision,prepare_key,request_digest,source_content_type,source_byte_size,source_sha256,expected_version,expires_at,purpose,reserved_bytes,target_kind,${profile.intentTarget}${video?',target_community_id':''}) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8,$15,$9,$10,$11,clock_timestamp()+interval '24 hours',$13,$14,$13,$12${video?',$16':''})`,[intent,asset,representation,s.scope_id,s.principal_id,s.owner_user_id,policy.policy_revision,hash(p.planSha256+s.target_id),s.bytes.length,s.source_sha256,s.aggregate_version,s.target_id,p.purpose,profile.max,s.content_type,...(video?[s.community_id]:[])]);
           const item=(await q.query(`INSERT INTO media_backfill_items(job_id,${profile.item},intent_id,asset_id,source_version,source_size,source_sha256,source_binding_sha256,source_content_type) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,[p.jobId,s.target_id,intent,asset,s.aggregate_version,s.bytes.length,s.source_sha256,s.binding,s.content_type])).rows[0];
           await audit(q,p,l,'prepared',s.target_id);
@@ -273,7 +274,9 @@ export function createOperatorMediaBackfill(pool:Pool,installation:{
         const key=objectKey({
           scopeId:lease.scope_id,assetId:lease.asset_id,representationId:lease.representation_id
         });
-        const io=deadlineStore(installation.store,Date.now()+p.leaseSeconds*1000);
+        const effectStore=lease.state==='stored'?undefined:await tx(p,async q=>{await job(q,p,l);if(!await matches(q,next,p)){await finishStale(q,p,l,next);return null;}await consent(q,p,lease.policy_revision);return admitAssetObjectWriteEffect(q,pool,installation.store,{intentId:lease.intent_id,fence:lease.fence,leaseToken:lease.lease_token},value.metadata);},{job:l,intent:lease});
+        if(effectStore===null){stale++;continue;}
+        const io=deadlineStore(effectStore??installation.store,Date.now()+p.leaseSeconds*1000);
         try{
           await bounded(lease.state!=='stored'?writeVerifiedObject(io,key,value,{
             revision:policy.policy_revision,platformPersistenceAllowed:true

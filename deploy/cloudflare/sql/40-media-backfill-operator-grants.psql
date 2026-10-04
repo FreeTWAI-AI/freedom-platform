@@ -26,6 +26,13 @@ BEGIN
   EXECUTE format('REVOKE ALL PRIVILEGES (%s) ON TABLE %I.%I FROM %I',columns,s,t,r);
  END LOOP;
  EXECUTE format('GRANT USAGE ON SCHEMA %I TO %I',s,r);
+ -- 108 effect evidence is capability-bound by the trusted host; no approval
+ -- or owner authority is added. The immutable source coverage flag is explicit
+ -- on new asset INSERT only; old assets can never be UPDATE-adopted.
+ IF to_regclass(format('%I.asset_object_write_effects',s)) IS NOT NULL THEN
+  EXECUTE format('GRANT SELECT(effect_id,settlement_nonce,state) ON %I.asset_object_write_effects TO %I',s,r);
+  EXECUTE format('GRANT INSERT(effect_id,intent_id,asset_id,intent_fence,settlement_nonce),UPDATE(state,finished_at) ON %I.asset_object_write_effects TO %I',s,r);
+ END IF;
  FOREACH t IN ARRAY ARRAY['media_backfill_jobs','media_backfill_items','media_backfill_audit','member_services','member_service_covers','member_service_cover_asset_targets','community_events','community_event_videos','community_event_video_asset_targets','assets','asset_objects','asset_upload_intents'] LOOP
   EXECUTE format('GRANT SELECT ON %I.%I TO %I',s,t,r);
  END LOOP;
