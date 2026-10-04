@@ -12,7 +12,7 @@
     },
     {
       "repository": "FreeTWAI-AI/freedom-agent-kit",
-      "commit": "201fdab8017e2850bafc7b2f1e8dec7e4c0d6233"
+      "commit": "b2227bc36a571084f6c3d5c5ab340ed4485c6738"
     },
     {
       "repository": "FreeTWAI-AI/freedom-growth-automation",
@@ -32,11 +32,11 @@
     },
     {
       "repository": "FreeTWAI-AI/freedom-storefront",
-      "commit": "9823df79f8eee86008c269437880ed2e49bdc394"
+      "commit": "87eda4878fb761deb4f9a1c1d7e421c2701f3dcb"
     },
     {
       "repository": "FreeTWAI-AI/freedom-supplier-client",
-      "commit": "53fd5b0ac4a1b67ccd71a8cc4ba092ea15bb3534"
+      "commit": "7e98c3733e48aa96517d53de6944e3e365108979"
     }
   ]
 }

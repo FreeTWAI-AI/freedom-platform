@@ -372,9 +372,14 @@ jobs:
       - run: node scripts/checkout-repositories.mjs
         env:
           FREEDOM_REPOSITORIES_ROOT: ${{ runner.temp }}/freedom-consumers
+      # The merged consumers retain these exact reviewed library bytes. Fetch
+      # their source object even when the candidate checkout is shallow.
+      - name: Fetch the immutable adopted library source
+        run: git fetch --no-tags --depth=1 origin 91b943ac61e132fbbce72ea066cb2301aa065600
       - run: npm run test:repos
         env:
           FREEDOM_REPOSITORIES_ROOT: ${{ runner.temp }}/freedom-consumers
+          FREEDOM_CONSUMER_SOURCE_COMMIT: 91b943ac61e132fbbce72ea066cb2301aa065600
       - run: npm run test:contracts
       - run: npm run verify:inventory
   # Separate diagnostic; enforcement depends on actual branch/ruleset settings.

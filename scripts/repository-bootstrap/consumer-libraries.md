@@ -51,7 +51,17 @@ Pure tests (also included by `npm run test:governance`):
 node --test packages/contribution-tools/test/export.test.mjs packages/contribution-tools/test/consumer-libraries.test.mjs packages/contribution-tools/test/consumer-workspace.test.mjs
 ```
 
-Run each consumer's `npm test`, plus agent-kit `npm run build` and both read consumers’ `npm run verify:client-source`. For real API/PostgreSQL tests, use only an explicitly allocated disposable database and the actual candidate checkouts:
+Run each consumer's `npm test`, plus agent-kit `npm run build` and both read consumers’ `npm run verify:client-source`. The existing `governance-consumers` CI job runs both repository integration suites through `npm run test:repos`. It checks out `repositories.lock.json`, fetches the immutable library source, verifies the three adopted consumers' clean locked HEADs and canonical library bytes, and invokes their real entrypoints against isolated HTTP/PostgreSQL fixtures:
+
+```sh
+export FREEDOM_REPOSITORIES_ROOT=/absolute/fresh-consumer-checkouts
+export FREEDOM_CONSUMER_SOURCE_COMMIT=91b943ac61e132fbbce72ea066cb2301aa065600
+node scripts/checkout-repositories.mjs
+git fetch --no-tags --depth=1 origin "$FREEDOM_CONSUMER_SOURCE_COMMIT"
+npm run test:repos
+```
+
+This requires an explicitly allocated disposable `TEST_DATABASE_URL`. For local adoption work before a reviewed lock update, leave `FREEDOM_REPOSITORIES_ROOT` unset and select candidate checkouts explicitly:
 
 ```sh
 FREEDOM_AGENT_KIT_ROOT=/absolute/agent-kit \
@@ -61,7 +71,7 @@ FREEDOM_CONSUMER_SOURCE_COMMIT=EXPECTED_PLATFORM_SHA \
 node --import tsx --test --test-concurrency=1 tests/integration/consumer-libraries.test.ts
 ```
 
-This command requires `TEST_DATABASE_URL` and uses its own temporary schema. It verifies source bytes first, then tests the kit's real preview operations and storefront/supplier HTTP pairing, approved/owner-scoped SQL rows, wrong-scope rejection and revocation. Synthetic fixture onboarding is explicit. It does not establish human approval or production provider acceptance. Also run the existing `test:repos` with a directory containing the three candidates plus six pinned baseline checkouts; record their actual commits separately until an approved consumer batch updates the repository lock.
+These suites use their own temporary schemas. The adoption suite verifies source bytes first, then tests the kit's real preview operations and storefront/supplier HTTP pairing, approved/owner-scoped SQL rows, wrong-scope rejection and revocation. Synthetic fixture onboarding is explicit. The resulting behavior evidence is limited to these operations and fixtures; it does not establish human approval or production provider acceptance. The separate native source guard continues to report runtime library usage as `not_checked`.
 
 ## Nine locked consumers: runtime inventory
 

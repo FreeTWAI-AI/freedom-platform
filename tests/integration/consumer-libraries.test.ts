@@ -10,19 +10,30 @@ import { createPool } from '../../packages/db/index.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal } from '../../packages/testing/seed.js';
+import repositories from '../../repositories.lock.json' with { type: 'json' };
 
-// Deliberate operator-selected candidate checkouts, separate from repositories.lock baseline.
-const roots = [process.env.FREEDOM_AGENT_KIT_ROOT, process.env.FREEDOM_STOREFRONT_ROOT, process.env.FREEDOM_SUPPLIER_CLIENT_ROOT];
+// CI uses the exact repository lock. Explicit candidate roots remain available
+// for local adoption work before a reviewed lock update.
+const names = ['freedom-agent-kit', 'freedom-storefront', 'freedom-supplier-client'];
+const repositoriesRoot = process.env.FREEDOM_REPOSITORIES_ROOT;
+if (repositoriesRoot && !isAbsolute(repositoriesRoot)) throw new Error('FREEDOM_REPOSITORIES_ROOT must be absolute.');
+const roots = repositoriesRoot ? names.map(name => resolve(repositoriesRoot, name))
+  : [process.env.FREEDOM_AGENT_KIT_ROOT, process.env.FREEDOM_STOREFRONT_ROOT, process.env.FREEDOM_SUPPLIER_CLIENT_ROOT];
 if (roots.some(root => !root || !isAbsolute(root))) throw new Error('Set absolute FREEDOM_AGENT_KIT_ROOT, FREEDOM_STOREFRONT_ROOT and FREEDOM_SUPPLIER_CLIENT_ROOT.');
 const databaseUrl = process.env.TEST_DATABASE_URL;
 if (!databaseUrl) throw new Error('Explicit isolated TEST_DATABASE_URL required.');
 const sourceCommit = process.env.FREEDOM_CONSUMER_SOURCE_COMMIT;
 if (!/^[a-f0-9]{40}$/.test(sourceCommit ?? '')) throw new Error('Set exact FREEDOM_CONSUMER_SOURCE_COMMIT.');
 const verifierPath = '../../packages/contribution-tools/consumer-libraries.mjs';
-const { verifyConsumerLibraries } = await import(verifierPath);
-for (const [index, name] of ['freedom-agent-kit', 'freedom-storefront', 'freedom-supplier-client'].entries()) {
+const { verifyConsumerLibraries, sourceGit } = await import(verifierPath);
+for (const [index, name] of names.entries()) {
+  if (repositoriesRoot) {
+    const expected = repositories.repositories.find(entry => entry.repository === 'FreeTWAI-AI/' + name)?.commit;
+    assert.equal(sourceGit(roots[index], ['rev-parse', 'HEAD']).toString().trim(), expected, name + ' must match repositories.lock.json');
+    assert.equal(sourceGit(roots[index], ['status', '--porcelain']).toString().trim(), '', name + ' checkout must be clean');
+  }
   await verifyConsumerLibraries(roots[index], { repository: 'FreeTWAI-AI/' + name,
-    expectedSourceCommit: index === 2 ? process.env.FREEDOM_SUPPLIER_SOURCE_COMMIT ?? sourceCommit : sourceCommit, sourceRoot: resolve('.') });
+    expectedSourceCommit: !repositoriesRoot && index === 2 ? process.env.FREEDOM_SUPPLIER_SOURCE_COMMIT ?? sourceCommit : sourceCommit, sourceRoot: resolve('.') });
 }
 const importConsumer = (index: number, path: string) => import(pathToFileURL(resolve(roots[index]!, path)).href);
 const kit = await importConsumer(0, 'src/index.mjs');
