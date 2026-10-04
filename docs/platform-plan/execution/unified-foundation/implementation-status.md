@@ -8,6 +8,8 @@
 
 Ted已授權額外臨時Postgres與新環境copy/migrate，完成後關閉臨時環境；不須再次索取同範圍資源permission。根已實建並metadata-only查核私有R2 `freedom-foundation-candidate-20261004-media`：managed public URL disabled、custom domains0；只有default7-day incomplete-multipart abort，非object刪除政策。同prefix `-pg` 的Tokyo PS5 ARM、single-node／0 replicas已ready，基礎US$5/月另加usage；臨時計費token已revoke。此為真實provider metadata，不再是全部資源未知；account／token IDs與credentials不公開。
 
+新 candidate PostgreSQL 唯讀探測已確認 18.6、Node TLS 驗證通過、public 無 application relations，目標 logical DB 尚不存在。現有 PlanetScale branches 共用 gateway，故 `c0d8a30` 修正 candidate readback 為核對 canonical database／role／branch suffix；同 branch 即使換 host 仍拒絕，未知 routing unavailable。Cloudflare 393/393 通過；這只補 routing observation，provider physical identity／remote acceptance 仍須另外實測。
+
 尚未讀正式資料、部署Worker或切換flow。下一步採一致snapshot restore到新DB → canonical pending migrations → ACL lockdown／grants →驗收；最後短writefreeze、排空in-flight/background writes、final dump／restore後才cutover。既有media delta不是通用DB replication，不逐表COPY或另造schema。新DB開始寫入後舊DB即過時，回退須forward fix或一致reconcile，不能盲切回。Private AI／broker／machine保持OFF；CodeQL、安全gate與remote資料／ACL／restore acceptance未因此完成。
 
 查核日期：2026-10-04。本紀錄區分原始產品要求、本機實作、合成測試及尚缺的真實部署證據；不修改原計畫的歷史內容，也不把組件測試轉寫成完整產品 PASS。

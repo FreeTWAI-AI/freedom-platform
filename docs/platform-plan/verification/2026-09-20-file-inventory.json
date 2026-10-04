@@ -2379,8 +2379,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/isolated-candidate.mjs",
-      "bytes": 13506,
-      "sha256": "62a388ac1a1f79c95f10024c936be72c3c1c4784da0414f97ec92acadafc6c47"
+      "bytes": 14444,
+      "sha256": "bd4be350ea2296258dd19bb7f6daf368c02488ca9287fc06c9e879bd91d97b41"
     },
     {
       "path": "deploy/cloudflare/lib/manifest.mjs",
@@ -2489,8 +2489,8 @@
     },
     {
       "path": "deploy/cloudflare/test/isolated-candidate.test.mjs",
-      "bytes": 13548,
-      "sha256": "3f0c37ec03464b40f93f4bee38e5afeffacf92fa1c53cc4766150fe02a1e81f8"
+      "bytes": 16414,
+      "sha256": "3461b0db218aee2d3d128cf46d253425466180038bc41eea06ce98d2171e3ba0"
     },
     {
       "path": "deploy/cloudflare/test/media-caller.test.mjs",
@@ -4154,8 +4154,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
-      "bytes": 15372,
-      "sha256": "51145d3e4a4561b3aab069026ccd946a1fa766ce6a408cfddd083d177c407cb0"
+      "bytes": 16642,
+      "sha256": "ac327865164376cb45487dc069c3ecdc33e70c314d31120c9b0357d0ab890ea3"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/01-contracts-and-governance.md",
@@ -4284,13 +4284,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 208434,
-      "sha256": "eecaf44e01439dfc33519ac6a5a34aeb1ea56ca18c43619c59e0c8d6c48c4c00"
+      "bytes": 211132,
+      "sha256": "15083d3473586e82933f5dd9370ca88a6fc3bc2742946b54dec72e03a706da63"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
-      "bytes": 20462,
-      "sha256": "5e3d600bcbfaa8d8d512edf948ca7fa9754f13cefb09fc8b1439447d67fc8910"
+      "bytes": 22818,
+      "sha256": "b10f8d763a44d72460354c84f3d7b33987463bbe23c8312aa4755281bfdd5c86"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -8049,8 +8049,8 @@
     },
     {
       "path": "tests/runtime/model-broker-bridge-adversarial.test.ts",
-      "bytes": 16941,
-      "sha256": "3f8dc29700af3b18d4cb3b2aaab8b1727231de0400c4806d659a65783af2951f"
+      "bytes": 17317,
+      "sha256": "7097196198fd1fc6bde61a8bc0582e37170e1a92ac593b946720fd7435969d87"
     },
     {
       "path": "tests/runtime/model-broker-bridge.test.ts",
@@ -8434,8 +8434,8 @@
     },
     {
       "path": "tests/worker/broker-worker-sql.test.ts",
-      "bytes": 26414,
-      "sha256": "71e14c7a066d6c175afbb4565cda7f74115f0647098949e2f3b26a624c0439c6"
+      "bytes": 26835,
+      "sha256": "bff4f8092711f41091763a6bf20c1ed9c760a00b16d881c3ca3d15c8265ef08e"
     },
     {
       "path": "tests/worker/broker-worker.test.ts",
