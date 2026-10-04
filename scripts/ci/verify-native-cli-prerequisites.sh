@@ -70,4 +70,20 @@ env -i PATH=/usr/bin:/bin /usr/bin/bwrap --unshare-all --new-session --die-with-
 
 # Exercise the real verified, inherited-FD snapshot path before the full suite.
 # The fixed helper rejects zero/skipped/incomplete cases and limits time/output.
-node scripts/ci/native-cli-snapshot-check.mjs
+snapshot_started_epoch=$(date +%s)
+if node scripts/ci/native-cli-snapshot-check.mjs; then
+  :
+else
+  snapshot_status=$?
+  # Audit only the fixed checkpoint's first 30 seconds. Probe-only never uses
+  # sudo; metadata is not permission to change the shipped AppArmor profile.
+  if [[ ${1:-} != --probe-only && ${GITHUB_ACTIONS:-} == true && ${RUNNER_ENVIRONMENT:-} == github-hosted && $(id -u) != 0 ]]; then
+    source /etc/os-release
+    if [[ $ID == ubuntu && $VERSION_ID == 24.04 && $(cat /sys/module/apparmor/parameters/enabled) == Y && $(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns) == 1 ]]; then
+      if ! /usr/bin/timeout 5s sudo -n journalctl -k --since "@$snapshot_started_epoch" --until "@$((snapshot_started_epoch+30))" --output=json --no-pager 2>/dev/null | node scripts/ci/native-cli-audit-readback.mjs; then
+        printf '%s\n' 'native_cli_audit_readback=unavailable'
+      fi
+    fi
+  fi
+  exit "$snapshot_status"
+fi
