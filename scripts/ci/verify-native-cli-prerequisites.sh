@@ -35,9 +35,19 @@ PY
   printf '%s\n' 'runner=github-hosted ubuntu=24.04 apparmor_userns_restriction=1'
   dpkg-query -W -f='${Package} ${Version}\n' apparmor apparmor-profiles bubblewrap
   sha256sum "$profile"
-  # Ubuntu's shipped profile permits namespace setup in bwrap, then stacks a
-  # capability-denying child profile. No global profile/service/sysctl change.
-  sudo /usr/sbin/apparmor_parser --replace --skip-cache "$profile"
+  # Noble's stock flags reject bwrap's unlinked readonly-data executable at
+  # name lookup. Apply only the reviewed upstream deleted-mediation flags;
+  # namespace permissions, px/pix transitions and child capability denial stay.
+  compat_directory=$(mktemp -d "${RUNNER_TEMP:?}/fp-bwrap-compat.XXXXXX")
+  trap 'rm -rf -- "$compat_directory"' EXIT
+  python3 scripts/ci/render-bwrap-deleted-compat.py "$profile" > "$compat_directory/profile"
+  [[ $(sha256sum "$compat_directory/profile" | cut -d ' ' -f 1) == a964037f6cf0df1099f14226b037eaedde6237c86e715188e93eb460b30be859 ]]
+  [[ $(/usr/sbin/apparmor_parser --names "$compat_directory/profile") == $'bwrap\nunpriv_bwrap' ]]
+  /usr/sbin/apparmor_parser --skip-kernel-load --skip-cache "$compat_directory/profile"
+  printf '%s\n' 'native_cli_policy=reviewed_flag_only_deleted_mediation stock_source_unchanged=true'
+  sudo /usr/sbin/apparmor_parser --replace --skip-cache "$compat_directory/profile"
+  rm -rf -- "$compat_directory"
+  trap - EXIT
   sudo cat /sys/kernel/security/apparmor/profiles | grep -Fx 'bwrap (enforce)'
   sudo cat /sys/kernel/security/apparmor/profiles | grep -Fx 'unpriv_bwrap (enforce)'
   [[ $(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns) == 1 ]]

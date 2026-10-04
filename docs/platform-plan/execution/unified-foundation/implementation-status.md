@@ -1789,3 +1789,16 @@ operator 的 caller identity check；account/IAM/binding readback 未驗收。
 3/3／admission2/2、exit0、零 skip，根另 admission2/2。Receiving RPC
 fixture 是 synthetic，不冒充新的 real SQL/R2／cloud acceptance；既有
 required CI wildcards 均包含新測試。尚未安裝或啟用 caller/schedule。
+
+固定 092e4b1 的真正 Ubuntu run37179559187／job111369250745
+kernel audit bounded=true、matched_denials=6：AppArmor exec deleted-entry
+name lookup／error -2／profile bwrap，沒有 raw kernel/argv 輸出，
+policy_changed=false。Raw log SHA 為
+162b8b6f7d372516b2049d5b0991d2a6f9ae9847b2369f0129eae9c53087f8ec。
+與 Linux/AppArmor primary trace 及 readonly bind-data 的 backing inode
+unlink 一致，已取得實際原因證據。接入 reviewed official flag-only
+renderer，只在既有嚴格 GitHub-hosted Noble guard 中 exact input/output
+hash、兩 profile names、no-load compile 後載入；installed stock files、
+sysctls、capability denial、px/pix、namespace/snapshot adapter 保留。
+不載 localhost policy、不升整套 package、不讓 test skip。真正新
+policy 的六項與完整 runtime 結果仍待新 immutable candidate。

@@ -4284,8 +4284,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 196389,
-      "sha256": "4599817fb82e87cc04c2b556eca54f77ff96c8efc74476069175aa91e208bd0e"
+      "bytes": 197253,
+      "sha256": "4854edac9d07e36550d9acc3a036fac0e77580b2b746a06508cbeb24385a0094"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
@@ -6784,8 +6784,8 @@
     },
     {
       "path": "scripts/ci/bwrap-deleted-compat.md",
-      "bytes": 2105,
-      "sha256": "a11020036cb9d44055e4b2b1b4a9384923a7b5b7429905409b3267c13c59dc9f"
+      "bytes": 2786,
+      "sha256": "aca287447e84e43417a7366f962acce7375bcb2d284708b2570088d4ce996a09"
     },
     {
       "path": "scripts/ci/native-cli-audit-readback.mjs",
@@ -6794,8 +6794,8 @@
     },
     {
       "path": "scripts/ci/native-cli-prerequisites.md",
-      "bytes": 3777,
-      "sha256": "7bec1d866f2436885694cbde138151beb434b59ca3ce51610a3a00584f4cbd86"
+      "bytes": 4676,
+      "sha256": "84142cec00ba6a28080708cf158136ed851334ac006427077f9a84520752bfd9"
     },
     {
       "path": "scripts/ci/native-cli-snapshot-check.mjs",
@@ -6809,8 +6809,8 @@
     },
     {
       "path": "scripts/ci/verify-native-cli-prerequisites.sh",
-      "bytes": 4938,
-      "sha256": "631610a6ec0e174d153b5fa7a1f188b19e3c96f832ee15d3462d14ec89b3a102"
+      "bytes": 5710,
+      "sha256": "8f77cd9f5382f0cbe653029fa61dd6ae480bedd586085e67dec3d380318bb3ef"
     },
     {
       "path": "scripts/ci/verify-runtime-postgres.sh",

@@ -7,7 +7,7 @@ user namespaces; the original log did not record its loaded AppArmor profiles,
 so it does not independently prove the exact missing-profile state.
 [Ubuntu documents selective user-namespace policy and the purpose-built bwrap profile](https://discourse.ubuntu.com/t/understanding-apparmor-user-namespace-restriction/58007).
 
-The prerequisite installs `apparmor-profiles` and loads only its unchanged
+The prerequisite installs `apparmor-profiles` and starts from the exact pinned
 `/usr/share/apparmor/extra-profiles/bwrap-userns-restrict` profile. That extra
 profile is disabled by default. In the inspected official Noble package
 `4.0.1really4.0.1-0ubuntu0.24.04.9`, it is present in `apparmor-profiles` and
@@ -38,6 +38,18 @@ profile with `--skip-kernel-load --skip-cache`; this validates syntax without
 loading it or changing local policy. Only a new real GitHub run can establish
 that the prerequisite and complete zero-skip suite pass on the target runner.
 
+The later real Noble checkpoint at `092e4b1` observed six AppArmor exec denials
+for `Failed name lookup - deleted entry`, error -2, while all nine fixed libraries
+passed host admission. The inherited-FD snapshot is copied to a read-only bind
+whose backing pathname bubblewrap unlinks. Noble's attachment flags lack deleted
+mediation, so AppArmor rejects that inode before matching the exec transition.
+The [reviewed compatibility renderer](bwrap-deleted-compat.md) adds only the two
+upstream `mediate_deleted` flags after exact input/output SHA verification.
+Capability denial, px/pix transitions, ABI, namespace policy and all other bytes
+remain intact. The strict hosted guard compiles and loads only `bwrap` and
+`unpriv_bwrap`; installed policy files/global sysctls are unchanged. No local
+policy is loaded by this work. Modified-policy exec awaits the next actual run.
+
 After namespace attestation, `native-cli-snapshot-check.mjs` runs only the existing
 six native CLI probe tests with the clean verification environment. Its 30-second
 process-group deadline and 256-KiB output limit bound the diagnostic. Built-in
@@ -46,6 +58,6 @@ report must contain exactly six distinct passed cases in the expected file,
 zero skips/cancellations/todo/failures and a successful process exit. No DB,
 authentication, provider/model call or caller-selected command is admitted.
 All six cases remain in the full runtime selection. This is candidate diagnostic
-evidence, not trusted supervisor evidence. The actual Ubuntu 24.04 failure cause
-remains unknown until that runner executes this snapshot checkpoint; local
-Ubuntu 26.04 success does not establish target compatibility.
+evidence, not trusted supervisor evidence. The target's deleted-entry rejection
+is now observed; a passing modified-policy checkpoint and full runtime are still
+required. Local Ubuntu 26.04 success does not establish target compatibility.

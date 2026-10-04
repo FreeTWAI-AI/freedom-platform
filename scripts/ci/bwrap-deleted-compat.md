@@ -1,5 +1,9 @@
-This is an uninstalled compatibility candidate, pending actual Ubuntu kernel
-exec-denial evidence. The prerequisite loader does not invoke this renderer.
+The Ubuntu 24.04 checkpoint at `092e4b1`, run 37179559187/job111369250745,
+observed six bounded AppArmor exec denials with `Failed name lookup - deleted
+entry`, error -2, profile bwrap. Its nine fixed libraries all passed host
+admission. The prerequisite now invokes this renderer only inside the existing
+strict hosted-Noble policy-installation guard; `--probe-only` remains read-only.
+Actual modified-policy execution still requires the next hosted result.
 
 `render-bwrap-deleted-compat.py` accepts only the exact reviewed Noble stock
 profile (SHA256 `11d39094f044f0cda0febb3ad517b830301da6b2ce929664af09ee9e4dd264f9`).
@@ -19,11 +23,16 @@ returns ENOENT for a deleted positive dentry without deleted mediation;
 uses profile path flags before exec-transition lookup.
 [AppArmor4.0.1 compiler lines435–447](https://gitlab.com/apparmor/apparmor/-/blob/v4.0.1/parser/parser_interface.c#L435)
 serializes explicit attachment flags without implicitly adding deleted mediation.
-These explain a possible failure; they do not prove the remote failure cause.
+The kernel audit supplies target-runner evidence for this name-lookup failure;
+the source trace explains why binding an unlinked verified executable reaches it.
 
 The extracted official Noble AppArmor4.0.1 parser successfully compiled the
 candidate using `--skip-kernel-load --skip-cache` and its extracted policy include
 base. `--names` returned exactly `bwrap` and `unpriv_bwrap`. Three altered-input
 counterexamples (extra byte, changed capability denial, changed px transition)
-were rejected. No kernel policy was loaded, package upgraded, permission changed,
-or sandbox isolation reduced. Actual candidate-policy exec remains not_run.
+were rejected. Independent review found a blocking FIFO open; O_NONBLOCK now
+rejects it, retaining the identical output. No local kernel policy was loaded
+or package upgraded. Only two exact profile names may be compiled/loaded in the
+disposable hosted job, with exact stock/output hashes; installed source files,
+global sysctls, sandbox arguments and capability-denying rules are unchanged.
+Actual modified-policy snapshot execution remains pending.
