@@ -20,3 +20,13 @@ Sources: [Docker tmpfs semantics](https://docs.docker.com/engine/storage/tmpfs/)
 Exact `2f7d633` remote run [37174100522](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37174100522) failed. Four partitions on one runner did not establish a pass: only one finished (613 passing cases), while three exceeded the original runtime budget. Bounded progress recorded 158 completed files, 2,205 observed cases and 13 failures in six files; database cleanup was verified. These partial counts do not represent the complete 196-file/2,620-case union. The six files subsequently passed 36/36 in a local diagnostic run; their exact remote failure causes remain unverified, with no fixture lifetime or assertion changes.
 
 The candidate workflow now runs four literal matrix indexes on four independent runners and PostgreSQL services, with `fail-fast: false`. Each producer owns one fresh database and one sequential test process. The separate aggregate downloads only the current workflow's fixed artifact names and recomputes candidate identity, tracked-source cleanliness, complete deterministic file/case union and cleanup. The earliest producer start through latest producer end must fit the same 900-second window; delayed partition starts can therefore fail the aggregate. Cancelled, skipped, missing or failed matrix jobs fail the final verification. CPU count and cgroup quota are read back on each runner rather than inferred from public runner documentation. See the [diagnostic matrix contract](../../packages/contribution-tools/runtime-matrix.md). Actual hosted matrix execution is still required; these source changes and synthetic counterexamples are not a remote pass or an authenticated App gate.
+
+
+The new producer completed one genuine local partition at `27cbd7d`: 49 files,
+718 passing cases, zero failures/skips/cancellations/todo, 328.551 seconds and
+verified nonce-database cleanup. This is one partition, not a matrix or full-suite
+pass. Failed-case diagnostics now add only an existing case hash, finite failure
+classification and optional host-validated test declaration line, globally capped
+at 64 records. They retain no assertion/message/stack/name/environment and never
+participate in final result admission. A hang after failure preserves the bounded
+diagnostic but still fails without a complete final report.

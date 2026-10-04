@@ -1645,3 +1645,34 @@ candidate CI，不是可信 App gate。獨立反例先重現主程式 tracked ed
 被漏驗、修正後拒絕；frozen 作者 runner 22/22、portable export 3/3，
 獨立含新 focused tests 29/29。尚未有真正四 runner 全套 pass 證據。
 [Matrix 契約](../../../../packages/contribution-tools/runtime-matrix.md)
+
+
+固定 27cbd7d 的新 producer 已在另一個 owned PostgreSQL cluster 真正
+完成 partition 0：49 檔、718/718、零 fail/skip/cancel/todo、328.551 秒，
+nonce DB cleanup_verified=true，fresh readback 無 fp_suite 剩餘 DB。
+report evidence SHA-256 為
+847f105aefb12047de0b7c013cddba31726cf070eff6566c99d432a53dd4aa82。
+這只證明一個分片，不能宣稱四 runner／全套／cloud 通過。根同 head
+runner／matrix／portable export focused 24/24 通過。
+
+新的有限 failed_case diagnostic 保留同一 case SHA、白名單 failure_type
+與受 actual source line count 限制的 Node test declaration line；不讀
+stack／assertion／message／names／env。hookFailed 的 line 是受影響
+測試宣告，不是 throwing hook。跨檔整組最多 64 failure records，原
+bytes 限額保留；不足會標 incomplete，final JSON／verdict 不變。
+真實「先失敗、再 hang」反例在 final JSON 缺失時仍保留有限 diagnostic，
+不當 pass。作者 affected 30/30、focused 9/9；獨立 17/17 含全域 cap、
+秘密／未知欄位／來源與行數越界拒絕。未據此反推舊 13 項的原因。
+
+候選工具另修正真正基底發布的 scope coupling：原 full profile 在
+private AI OFF 時仍強制三個 Workers／四 Hyperdrives 及 unsupported
+broker origin。新增明確 freedom.isolated-foundation-request/v1，僅
+main＋media operator／兩個獨立 Hyperdrives；private_ai／broker／
+machine_execution 必須精確字串 false，不接受額外 resource／role／
+key／execute override。main 與 operator 真正 entry、既有 canonical
+SQL roles、physical branch/cache-off readback、private bucket 與無 ingress
+限制不變。原 full profile 仍保留 broker blocker，不以基底模式啟用。
+作者部署工具 386/386、獨立 41/41 通過；兩份 concrete generated config
+的本機 Wrangler bundle 通過。原 placeholder name／bucket bundle 失敗
+亦保留，沒有正式 cloud bucket／DB／provider／keys／activation 驗收。
+[基底候選](../../../../deploy/cloudflare/candidate/README.md#foundation-only-profile)

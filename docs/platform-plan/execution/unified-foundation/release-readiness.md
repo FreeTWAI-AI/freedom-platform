@@ -62,3 +62,13 @@ The [release compatibility diagnostic](../../../../deploy/cloudflare/release-com
 
 
 The later exact `2f7d633` remote run failed as well: one of four same-host partitions completed, while three timed out; bounded progress retained 13 failed cases across six files. Worker 57/57, restore 2/2, governance 266/266 and UI 413 pass/5 disabled-feature skips succeeded, and runtime database cleanup was verified. The proposed independent-runner matrix preserves the complete 196-file union, candidate/source checks and the original 900-second overall execution window. Its exact-head hosted result remains pending; successful local fragments or synthetic aggregate tests do not clear release gates.
+
+
+An explicit foundation-only installation request now produces main and media
+operator configs with two distinct Hyperdrives; private AI, broker and machine
+execution must remain OFF. It removes the unrelated broker-origin dependency
+from the base candidate, preserving the full private-execution profile and all
+role, physical-isolation, cache, consent and activation acceptance requirements.
+Both generated configs passed local bundling and the scoped planner passed
+independent counterexamples. This still supplies no cloud resources, ingress,
+provider/DB observation, installation authority or completed remote acceptance.
