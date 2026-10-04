@@ -7,39 +7,117 @@ on:
     types: [checks_requested]
 # Candidate CI is diagnostic; it cannot publish the operator's App-bound gate.
 # Only superseded PR runs are cancelled; queued merge candidates run independently.
+# verify always runs. source-integrity always runs inventory, the canonical preview
+# rebuild and diff, runtime-text drift, and the governance/publisher unit tests.
+# A pull request skips heavy jobs only when scripts/ci/select-affected-jobs.mjs proves
+# every changed path is on the docs allowlist. The exact generated manifest
+# docs/platform-plan/verification/2026-09-20-file-inventory.json may accompany those
+# docs and is not itself allowlisted. No other docs/platform-plan path is exempt.
+# Push, merge queue, rename, delete, unknown, governance, security, and
+# shared-runtime changes keep the full set.
+# The selector and aggregate script come from github.workflow_sha. Checks still
+# execute the candidate checkout. This is not an independent trusted harness.
 concurrency:
   group: verify-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
 jobs:
-  # This required check summarizes ALL parallel diagnostic jobs. A cancelled or
-  # skipped dependency is a failure here, never an implicit green aggregate.
-  verify:
+  select:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    needs: [runtime-full, runtime-aggregate, ui-e2e, static-worker, governance-consumers]
-    if: ${{ always() }}
+    timeout-minutes: 10
+    outputs:
+      mode: ${{ steps.decision.outputs.mode }}
+      reason: ${{ steps.decision.outputs.reason }}
+      runtime_full: ${{ steps.decision.outputs.runtime_full }}
+      runtime_aggregate: ${{ steps.decision.outputs.runtime_aggregate }}
+      ui_e2e: ${{ steps.decision.outputs.ui_e2e }}
+      static_worker: ${{ steps.decision.outputs.static_worker }}
+      governance_consumers: ${{ steps.decision.outputs.governance_consumers }}
+      deploy_preflight: ${{ steps.decision.outputs.deploy_preflight }}
     steps:
+      - name: Checkout the pinned selector
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: trusted-selector
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Checkout the candidate tree for comparison
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          path: candidate
+          fetch-depth: 1
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
-      - name: Require every verification job to succeed
+      - name: Test the pinned selector
+        run: node --test --test-concurrency=1 trusted-selector/scripts/ci/select-affected-jobs.test.mjs
+      - name: Select affected jobs
+        id: decision
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          node trusted-selector/scripts/ci/select-affected-jobs.mjs \
+            --allow-fetch \
+            --event "$EVENT_NAME" \
+            --repository "$GITHUB_WORKSPACE/candidate" \
+            --base "$BASE_SHA" \
+            --head "$HEAD_SHA" \
+            --pull-request "$PR_NUMBER" \
+            --github-output "$GITHUB_OUTPUT"
+  source-integrity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Test affected-job selection
+        run: node --test --test-concurrency=1 scripts/ci/select-affected-jobs.test.mjs
+      - run: npm ci
+      - run: npm run contracts:build
+      - run: git diff --exit-code -- contracts/preview/v1 packages/sdk
+      - run: npm run check:runtime-text
+      - run: npm run verify:inventory
+      - run: npm run test:governance
+  # This required check always runs. source-integrity must succeed. A selected
+  # job must succeed. An unselected heavy job may be skipped or may succeed.
+  # Failure, cancellation, and a skip of a selected job do not pass.
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs: [select, source-integrity, runtime-full, runtime-aggregate, ui-e2e, static-worker, governance-consumers]
+    if: ${{ always() }}
+    steps:
+      - name: Checkout the pinned aggregate script
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: trusted-selector
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Require integrity and every selected job
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
-        run: |
-          node --input-type=module <<'NODE'
-          const needs = JSON.parse(process.env.NEEDS_JSON);
-          const required = ['runtime-full', 'runtime-aggregate', 'ui-e2e', 'static-worker', 'governance-consumers'];
-          if (Object.keys(needs).length !== required.length || required.some(id => needs[id]?.result !== 'success')) {
-            console.error('A required verification job failed, was cancelled, skipped, or is missing.');
-            process.exit(1);
-          }
-          NODE
+        run: node trusted-selector/scripts/ci/select-affected-jobs.mjs --check-aggregate
   runtime-full:
     name: runtime-full (partition ${{ matrix.partition }})
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    needs: select
+    if: ${{ !cancelled() && (needs.select.result != 'success' || needs.select.outputs.runtime_full == 'true') }}
     # Independent runners and PostgreSQL services: one sequential test process
     # per 50-file partition (200 current runtime files), rather than four
     # competing on the same host. Selection and aggregation remain dynamic.
@@ -120,8 +198,8 @@ jobs:
   runtime-aggregate:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    needs: runtime-full
-    if: ${{ always() }}
+    needs: [select, runtime-full]
+    if: ${{ !cancelled() && (needs.select.result != 'success' || needs.select.outputs.runtime_aggregate == 'true') }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -147,6 +225,8 @@ jobs:
   ui-e2e:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    needs: select
+    if: ${{ !cancelled() && (needs.select.result != 'success' || needs.select.outputs.ui_e2e == 'true') }}
     services:
       postgres:
         image: postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
@@ -181,6 +261,8 @@ jobs:
   static-worker:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    needs: select
+    if: ${{ !cancelled() && (needs.select.result != 'success' || needs.select.outputs.static_worker == 'true') }}
     services:
       postgres:
         image: postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
@@ -240,6 +322,8 @@ jobs:
   governance-consumers:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    needs: select
+    if: ${{ !cancelled() && (needs.select.result != 'success' || needs.select.outputs.governance_consumers == 'true') }}
     services:
       postgres:
         image: postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
@@ -290,6 +374,8 @@ jobs:
   deploy-preflight:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    needs: select
+    if: ${{ !cancelled() && (needs.select.result != 'success' || needs.select.outputs.deploy_preflight == 'true') }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
