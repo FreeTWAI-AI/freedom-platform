@@ -39,3 +39,13 @@ test('reviewed109 banner/social ports require exact installed source and reject 
   const changed=scan(file,sql);assert.equal(changed.ok,false);assert(changed.privileged.length>0);
  }
 });
+for(const [name,digest] of [
+ ['110_skill_highlight_operator_backfill.sql','30a7cfeb7488bede72c9da68e19689d555aee1e0ee4d7b9ab4cf151aee9cc46f'],
+ ['111_operator_avatar_backfill.sql','3666c5bf466499f2244344aa5b76d24627cb5ba9b6149852324f53d1302205f8'],
+])test(`reviewed ${name} accepts exact source and refuses modified or renamed privileged SQL`,()=>{
+ const sql=readFileSync(fileURLToPath(new URL('../../../migrations/'+name,import.meta.url)),'utf8');
+ const result=scan(name,sql);assert.equal(result.ok,true);assert.equal(result.reviewed_privileged[0].sha256,digest);
+ for(const [file,body] of [[name,sql+'\n-- changed source\n'],[name.slice(0,3)+'_unreviewed.sql',sql],[name,sql+'\nALTER SYSTEM SET work_mem=1;']]){
+  const refused=scan(file,body);assert.equal(refused.ok,false);assert.equal(refused.reviewed_privileged.length,0);assert(refused.privileged.some(p=>p.statement.startsWith('SECURITY DEFINER')));
+ }
+});

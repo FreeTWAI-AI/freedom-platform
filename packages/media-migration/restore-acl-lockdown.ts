@@ -4,8 +4,8 @@ import type {Pool} from 'pg';
 import {transaction} from '../db/transaction.js';
 import {validateInventoryTarget,type InventoryTarget} from './inventory.js';
 
-const root=new URL('../../',import.meta.url),migrations=Object.freeze(['105_operator_service_cover_backfill.sql','107_operator_event_video_backfill.sql','109_banner_social_operator_backfill.sql']);
-const signatures=Object.freeze(['lock_media_backfill_operator_approval(text)','lock_media_backfill_cover_owner(text,uuid)','lock_media_backfill_cover_consent(text)','publish_media_backfill_cover(text,uuid,uuid,bigint,uuid)','lock_media_backfill_video_organizer(text,uuid)','lock_media_backfill_video_consent(text)','publish_media_backfill_video(text,uuid,uuid,bigint,uuid)','lock_media_backfill_banner_organizer(text,uuid)','lock_media_backfill_banner_consent(text)','publish_media_backfill_banner(text,uuid,uuid,bigint,uuid)','lock_media_backfill_social_author(text,uuid)','lock_media_backfill_social_consent(text)','publish_media_backfill_social(text,uuid,uuid,bigint,uuid)']);
+const root=new URL('../../',import.meta.url),migrations=Object.freeze(['105_operator_service_cover_backfill.sql','107_operator_event_video_backfill.sql','109_banner_social_operator_backfill.sql','110_skill_highlight_operator_backfill.sql','111_operator_avatar_backfill.sql']);
+const signatures=Object.freeze(['lock_media_backfill_operator_approval(text)','lock_media_backfill_cover_owner(text,uuid)','lock_media_backfill_cover_consent(text)','publish_media_backfill_cover(text,uuid,uuid,bigint,uuid)','lock_media_backfill_video_organizer(text,uuid)','lock_media_backfill_video_consent(text)','publish_media_backfill_video(text,uuid,uuid,bigint,uuid)','lock_media_backfill_banner_organizer(text,uuid)','lock_media_backfill_banner_consent(text)','publish_media_backfill_banner(text,uuid,uuid,bigint,uuid)','lock_media_backfill_social_author(text,uuid)','lock_media_backfill_social_consent(text)','publish_media_backfill_social(text,uuid,uuid,bigint,uuid)','lock_media_backfill_skill_owner(text,uuid)','lock_media_backfill_skill_consent(text)','publish_media_backfill_skill(text,uuid,uuid,bigint,uuid)','lock_media_backfill_highlight_uploader(text,uuid)','lock_media_backfill_highlight_consent(text)','publish_media_backfill_highlight(text,uuid,uuid,bigint,uuid)','lock_media_backfill_highlight_bytes(text,uuid)','lock_media_backfill_avatar_owner(text,uuid)','lock_media_backfill_avatar_consent(text)','operator_avatar_intent_admitted(uuid)','publish_media_backfill_avatar(text,uuid,uuid,bigint,uuid)']);
 export interface RestoreAclOptions {readonly target:InventoryTarget;readonly runtimeRole:string}
 export class RestoreAclError extends Error {
  constructor(readonly code:'invalid_target'|'canonical_source_unavailable'|'target_mismatch'|'ledger_mismatch'|'runtime_role_unsafe'|'runtime_active'|'function_shape_mismatch'|'lockdown_unavailable'){super(code);this.name='RestoreAclError';}
@@ -21,7 +21,7 @@ async function source(){
   // No caller path, SQL, manifest or override can replace the installed source.
   const {loadManifest,validateManifest}=await import(new URL('deploy/cloudflare/lib/manifest.mjs',root).href);
   const {checkMigrations}=await import(new URL('deploy/cloudflare/lib/migrations.mjs',root).href);
-  const manifest=loadManifest(fileURLToPath(new URL('deploy/cloudflare/environments.json',root)));if(validateManifest(manifest).length)throw Error();
+  const manifest=loadManifest(fileURLToPath(new URL('deploy/cloudflare/environments.json',root)));if(validateManifest(manifest).ok!==true)throw Error();
   const scan=checkMigrations(fileURLToPath(new URL('migrations/',root)),manifest.database_defaults.migrations);
   if(scan.ok!==true||scan.reviewed_privileged?.length!==migrations.length)throw Error();
   const revocations:string[]=[],reviewedSources:{migration:string;sha256:string}[]=[];
@@ -36,7 +36,7 @@ async function source(){
    const list=/^REVOKE ALL ON FUNCTION ([\s\S]+) FROM PUBLIC;$/.exec(statement)?.[1];if(!list)throw Error();
    const found=[...list.matchAll(/[a-z_]+\([a-z,]+\)/g)].map(m=>m[0]);if(found.join(',')!==list.replace(/\s/g,''))throw Error();return found;
   });
-  if(revocations.length!==9||JSON.stringify(selected)!==JSON.stringify(signatures))throw Error();
+  if(revocations.length!==17||JSON.stringify(selected)!==JSON.stringify(signatures))throw Error();
   return {manifest,statements:Object.freeze(revocations),ledger:scan.ledger as {name:string;sha256:string}[],ledgerDigest:scan.ledger_digest as string,reviewedSources:Object.freeze(reviewedSources)};
  }catch{throw new RestoreAclError('canonical_source_unavailable');}
 }

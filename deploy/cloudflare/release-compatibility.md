@@ -183,6 +183,7 @@ not merely after the first new-shape write. No SQL file or migration is changed.
 | --- | --- |
 | `platform.legacy.v1` | existing platform wire/read/write behavior supported for the exact approved ledger; always required |
 | `work.explicit-wire.v1` | explicit legacy Work DTO projection and mode-safe handling; required by schema 077 even with no private writes, because old row spread can leak added metadata |
+| `avatar.legacy-bytes.v1` | historical avatar profile/transform reader support; requires the existing avatar bridge and schema111; no operator activation or GC authority |
 | `avatar.asset-bridge.v1` | source-routed avatar reads/presence, same current ACL around external I/O, missing-object fail-closed behavior and legacy-writer fencing; not an R2 binding/backup proof |
 | `work.personal-owner-acl.v1` | current personal owner/scope checks and private Work compatibility without exposing it through old community projections |
 | `work.private-human-result.v1` | profile-bound private text lifecycle, typed Work target, immutable human Result history and legal reads; never model/Run provenance |
@@ -199,6 +200,7 @@ not merely after the first new-shape write. No SQL file or migration is changed.
 | Shape | Minimum schema | Additional capabilities |
 | --- | --- | --- |
 | `avatar.asset.v1` | 080 | avatar bridge |
+| `avatar.legacy-bytes.v1` | 111 | historical avatar representation plus avatar bridge |
 | `work.private.v1` | 081 | personal owner ACL |
 | `work.private-human-result.v1` | 084 | personal owner ACL + human Result |
 | `execution.member-run-record.v1` | 086 | personal owner ACL + server persistence policy + closed member Run records |

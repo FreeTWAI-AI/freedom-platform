@@ -106,7 +106,7 @@ SELECT format($operator$
   END $guard$;
 $operator$, p.oid::regprocedure, :'runtime', p.oid)
 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
-WHERE n.nspname='public' AND p.proname IN ('lock_media_backfill_operator_approval','lock_media_backfill_cover_owner','lock_media_backfill_cover_consent','publish_media_backfill_cover','lock_media_backfill_video_organizer','lock_media_backfill_video_consent','publish_media_backfill_video','lock_media_backfill_banner_organizer','lock_media_backfill_banner_consent','publish_media_backfill_banner','lock_media_backfill_social_author','lock_media_backfill_social_consent','publish_media_backfill_social')
+WHERE n.nspname='public' AND p.proname IN ('lock_media_backfill_operator_approval','lock_media_backfill_cover_owner','lock_media_backfill_cover_consent','publish_media_backfill_cover','lock_media_backfill_video_organizer','lock_media_backfill_video_consent','publish_media_backfill_video','lock_media_backfill_banner_organizer','lock_media_backfill_banner_consent','publish_media_backfill_banner','lock_media_backfill_social_author','lock_media_backfill_social_consent','publish_media_backfill_social','lock_media_backfill_skill_owner','lock_media_backfill_skill_consent','publish_media_backfill_skill','lock_media_backfill_highlight_uploader','lock_media_backfill_highlight_consent','publish_media_backfill_highlight','lock_media_backfill_highlight_bytes','lock_media_backfill_avatar_owner','lock_media_backfill_avatar_consent','operator_avatar_intent_admitted','publish_media_backfill_avatar')
 \gexec
 -- END OPERATOR MEDIA FUNCTION EXCLUSIONS
 -- BEGIN OPERATOR MEDIA SEQUENCE EXCLUSIONS

@@ -32,6 +32,14 @@ const REVIEWED_DEFINER = Object.freeze({
     sha256: '6df762d6de5dac13c93b42e070fde5de0c2af2612258c1a89ff8d678b33610a7',
     review: 'docs/development/operator-backfill-sql-review.md',
   }),
+  '110_skill_highlight_operator_backfill.sql': Object.freeze({
+    sha256: '30a7cfeb7488bede72c9da68e19689d555aee1e0ee4d7b9ab4cf151aee9cc46f',
+    review: 'docs/development/operator-backfill-sql-review.md',
+  }),
+  '111_operator_avatar_backfill.sql': Object.freeze({
+    sha256: '3666c5bf466499f2244344aa5b76d24627cb5ba9b6149852324f53d1302205f8',
+    review: 'docs/development/operator-backfill-sql-review.md',
+  }),
 });
 
 /** Same digest as packages/db digest(sql): sha256 over JSON.stringify of the SQL string. */

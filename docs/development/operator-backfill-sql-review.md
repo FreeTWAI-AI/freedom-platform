@@ -1,4 +1,4 @@
-# Operator backfill105 /107 /109 SQL source review
+# Operator backfill105 /107 /109 /110 /111 SQL source review
 
 The migration scanner retains its general SECURITY DEFINER refusal. The cover exception is the exact105 SQL ledger digest
 `e27f74e859485c264cadfd48d5841f0a35e32df3e47e53d115c260a49370814e`
@@ -82,3 +82,43 @@ cover thirteen functions across105/107/109; any unknown definer or ledger change
 still refuses restore. Exact-source scanner tests also reject renamed, changed
 or privileged-added109. These are source restrictions and local diagnostics,
 not remote installation or deployment authorization.
+
+
+Migration110 has exact canonical ledger digest
+`30a7cfeb7488bede72c9da68e19689d555aee1e0ee4d7b9ab4cf151aee9cc46f`.
+Its seven SQL-standard ports bind the original skill owner/personal scope and
+highlight uploader/community scope, lock current canonical consent and bounded
+original highlight bytes, and publish only through the same approved job,
+common intents and ready typed pointers. Skill status, payload, version and
+sharing metadata remain bound. Highlight publication requires both original
+variants, exact image/thumb profiles, sizes/SHA, source fingerprint, active
+uploader/organizer and published ended event. The original verification-email
+classification is preserved without invoking a search-path-dependent view
+helper. No new pair catalog, member grant, receipt or source deletion is added.
+Publication uses only pg_catalog plus the trusted migration schema required
+by original attachment triggers; PUBLIC execution remains revoked.
+
+Migration111 has exact canonical ledger digest
+`3666c5bf466499f2244344aa5b76d24627cb5ba9b6149852324f53d1302205f8`.
+Its four additional definer ports bind the approved avatar owner, canonical
+consent, exact pending operator intent and publication. Legacy avatars use the
+closed member.avatar profile and member.avatar.legacy-bytes.v1 transform,
+preserving original bytes at the original128KiB maximum. Ordinary transformed
+avatars retain their NULL profile. SQL admission denies ordinary writers this
+operator representation and effect path. Version/source/pointer publication
+is one guarded CTE; no direct avatar-version, bytes or policy mutation authority
+is given to the operator. Covered or legacy-profile avatars are excluded from
+old deletion tombstones, including takeover; this is not avatar GC completion.
+
+Root reviewed the frozen110/111 source, all eleven added ports and the host
+publication flow. The closed runtime exclusion/readback and restore lockdown
+now cover twenty-four functions across the five exact reviewed sources, using
+seventeen original PUBLIC revocation statements. Changed bytes, unknown
+definers and every other privileged category still refuse admission. The
+restored application's current role must remain inactive until lockdown and
+canonical grants succeed. The avatar.legacy-bytes.v1 compatibility floor
+requires schema111 and every active/retained reader's explicit support; the
+old avatar.asset-bridge.v1 capability alone does not support these records.
+Synthetic compatibility inputs never prove a deployed fleet or authorize
+operator activation. Actual integrated regression results are recorded
+separately in the implementation status after a fixed candidate completes.

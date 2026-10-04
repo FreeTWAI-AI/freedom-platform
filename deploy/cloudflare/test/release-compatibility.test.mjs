@@ -38,6 +38,37 @@ function prefix(value, last) {
   return { ...value, ledger: rows, ledger_digest: compatibilityLedgerDigest(rows) };
 }
 
+test('persisted historical avatar representation fences every old reader even after the feature is disabled',()=>{
+ const f=fixture(),old={source_sha:'c'.repeat(40),artifact_sha256:'d'.repeat(64)};
+ f.host.observation.written_shapes=['avatar.legacy-bytes.v1'];
+ f.host.release_records[0].capabilities.push('avatar.legacy-bytes.v1');
+ assert.equal(evaluate(f).status,'compatible');
+ f.host.observation.active_releases.push(old);
+ f.host.release_records.push({...structuredClone(f.host.release_records[0]),...old,evidence_id:'old-avatar-reader',capabilities:[...CAPABILITIES]});
+ const result=evaluate(f);assert.equal(result.status,'incompatible');
+ assert(result.issues.some(i=>i.code==='release_capability_missing'&&i.source_sha===old.source_sha&&i.capability==='avatar.legacy-bytes.v1'));
+ assert.equal(result.deployment_authority,false);assert.equal(result.restore_proof,false);
+});
+
+test('retained avatar legacy capability preserves bridge dependency and schema111 without claiming written data',()=>{
+ const f=fixture(),old=prefix(f.scan,110);
+ f.host.rollback_floor.capabilities=['avatar.legacy-bytes.v1'];
+ f.host.release_records[0].capabilities.push('avatar.legacy-bytes.v1');
+ assert.equal(evaluate(f).status,'compatible');
+ f.host.release_records[0].capabilities=f.host.release_records[0].capabilities.filter(c=>c!=='avatar.asset-bridge.v1');
+ assert(evaluate(f).issues.some(i=>i.code==='release_capability_missing'&&i.capability==='avatar.asset-bridge.v1'));
+ f.host.release_records[0].capabilities.push('avatar.asset-bridge.v1');
+ f.host.observation.schema_ledger=old.ledger;f.host.observation.schema_ledger_digest=old.ledger_digest;
+ f.host.release_records[0].schema_ledger_digests.push(old.ledger_digest);
+ const result=evaluate(f);assert.equal(result.status,'incompatible');
+ assert(result.issues.some(i=>i.code==='historical_shape_schema_missing'&&i.shape==='avatar.legacy-bytes.v1'));
+});
+
+test('ordinary avatar bridge does not acquire historical-byte reader capability from schema111 alone',()=>{
+ const f=fixture();f.input.enable_shapes=['avatar.asset.v1'];
+ const result=evaluate(f);assert.equal(result.status,'compatible');assert(!result.required_capabilities.includes('avatar.legacy-bytes.v1'));
+});
+
 test('exact current source/artifact, full ledger and synthetic host produce ONLY local compatibility', () => {
   const f = fixture();
   f.input.enable_shapes = ['avatar.asset.v1', 'work.private.v1', 'work.private-human-result.v1'];

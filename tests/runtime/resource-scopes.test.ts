@@ -379,7 +379,7 @@ test('non-superuser migrator and DML-only runtime roles can use the mappings wit
       has_function_privilege($2,oid,'EXECUTE') AS runtime_execute
       FROM pg_proc WHERE pronamespace=$1::regnamespace AND prosecdef`, [roleSchema,appRole])).rows;
     for (const port of elevated) {
-      assert.match(port.proname,/^(lock_media_backfill_|publish_media_backfill_)/);
+      assert.match(port.proname,/^(?:lock_media_backfill_|publish_media_backfill_|operator_avatar_intent_admitted$)/);
       assert.equal(port.owner,role);
       assert.equal(port.runtime_execute,false);
     }
