@@ -300,7 +300,8 @@ test('the kind check rejects a fix handoff that has no pull', async () => {
   ), (error: { code?: string }) => error.code === '23514');
 });
 
-test('an admin fix handoff records the row, the audit, and replays the same id', async () => {
+test('an admin fix handoff records the row, the audit, and replays the same id', async t => {
+  const outbound = t.mock.method(globalThis, 'fetch', async () => { throw new Error('local handoff must not call an external service'); });
   await asSelf();
   const repository = await insertRepo({ full: 'FreeTWAI-AI/freedom-platform' });
   const pull = await insertPull(repository, 7, { title: '修 CI' });
@@ -341,9 +342,12 @@ test('an admin fix handoff records the row, the audit, and replays the same id',
   assert.equal(detail.data.handoff.recent[0].kind, 'fix');
   assert.equal(detail.data.handoff.recent[0].github_login, 'self-reviewer');
   assert.equal(detail.data.handoff.recent[0].head_sha, SHA);
+  assert.equal(outbound.mock.callCount(), 0);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM maintainer_jobs')).rows[0].n, 0, 'task generation and replay must not enqueue GitHub work');
 });
 
-test('admin handoffs reject a merge that is not ready, a moved head, a paused pull, a missing GitHub link, a closed repository, and a bad body', async () => {
+test('admin handoffs reject a merge that is not ready, a moved head, a paused pull, a missing GitHub link, a closed repository, and a bad body', async t => {
+  const outbound = t.mock.method(globalThis, 'fetch', async () => { throw new Error('local handoff must not call an external service'); });
   const repository = await insertRepo({ full: 'FreeTWAI-AI/freedom-platform' });
   const pull = await insertPull(repository, 8);
   const unlinked = await adminRequest(`/review-center/pulls/${pull}/handoffs`, { kind: 'fix', cli: 'codex', expected_head_sha: SHA });
@@ -398,9 +402,12 @@ test('admin handoffs reject a merge that is not ready, a moved head, a paused pu
   assert.equal(issueRow.issue_number, 15);
   assert.equal(issueRow.head_sha, null);
   assert.equal(issueRow.requested_by_admin, adminId);
+  assert.equal(outbound.mock.callCount(), 0, 'generating a merge or issue command never runs it');
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM maintainer_jobs')).rows[0].n, 0);
 });
 
-test('members hand off only the repositories they can review', async () => {
+test('members hand off only the repositories they can review', async t => {
+  const outbound = t.mock.method(globalThis, 'fetch', async () => { throw new Error('local handoff must not call an external service'); });
   const leaderId = DEMO_USERS[0].user_id;
   const otherId = DEMO_USERS[1].user_id;
   const plainId = DEMO_USERS[2].user_id;
@@ -462,6 +469,8 @@ test('members hand off only the repositories they can review', async () => {
   const openDenied = await memberRequest(maintainer, `/guild-reviews/${openPull}/handoffs`, { kind: 'fix', cli: 'claude', expected_head_sha: SHA });
   assert.equal(openDenied.status, 404);
   assert.equal(openDenied.data.code, 'maintainer_pull_not_found');
+  assert.equal(outbound.mock.callCount(), 0);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM maintainer_jobs')).rows[0].n, 0);
 });
 
 const NO_GITHUB = '你的會員帳號還沒有連結 GitHub，所以不能交給 AI。';

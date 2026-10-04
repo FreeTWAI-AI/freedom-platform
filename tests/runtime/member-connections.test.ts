@@ -61,7 +61,7 @@ test('share cards are opt-in, bounded, revocable and never expose IDs, contacts,
   const enabled=await request('/me/member-card-share',owner,{enabled:true,include_avatar:true});assert.equal(enabled.status,200,JSON.stringify(enabled.data));
   const token=enabled.data.share_path.split('/').at(-1),shared=await request('/public/member-cards/'+token);assert.equal(shared.status,200);assert.equal(shared.response.headers.get('cache-control'),'no-store');
   assert.deepEqual(Object.keys(shared.data).sort(),['avatar_url','capabilities','design','headline','links','nickname','primary_guild','profile_links']);assert.deepEqual(shared.data.capabilities,['Python']);
-  assert.equal(shared.data.design,'calm');assert.equal(shared.data.headline,null);assert.deepEqual(shared.data.links,[]);
+  assert.equal(shared.data.design,'editorial');assert.equal(shared.data.headline,null);assert.deepEqual(shared.data.links,[]);
   assert.deepEqual(shared.data.profile_links,[{platform:'line',label:'LINE',handle:'私人LINE',url:null}]);
   for(const forbidden of [owner.id,'@','不公開職業','私密答案','private_tool'])assert.equal(JSON.stringify(shared.data).includes(forbidden),false);
   assert.equal((await request('/me/member-card-share',owner,{enabled:false,include_avatar:false},1)).status,200);

@@ -48,11 +48,30 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
       await expect(page.getByRole('alert')).toHaveCount(0);
       if(button==='會員首頁'){
         await expect(page.locator('.home-module-card')).toHaveCount(4);
+        for(const label of await page.locator('.home-member-skills > span,.home-next-eyebrow,.home-member-name > .positioning-title,.home-partner-heading h2,.home-partner-swap').all()){
+          expect(await label.evaluate(element=>parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(14);
+        }
+        const swap=page.locator('.home-partner-swap');
+        if(await swap.count()){const box=await swap.boundingBox();expect(box!.width).toBeGreaterThanOrEqual(44);expect(box!.height).toBeGreaterThanOrEqual(44);}
         for(const card of await page.locator('.home-module-card').all()){
           const cover=card.locator('.home-module-cover'),box=await cover.boundingBox();
-          expect(box!.height,'Module artwork should not dominate the phone').toBeLessThanOrEqual(96);
-          expect(box!.width).toBeLessThanOrEqual(96);
-          expect((await card.boundingBox())!.height).toBeLessThan(220);
+          if(width>=1100){
+            expect(box!.width).toBeLessThanOrEqual(112);
+            expect(box!.height).toBeLessThanOrEqual(112);
+            const body=await card.locator('.home-module-body').boundingBox();
+            expect(box!.x+box!.width).toBeLessThanOrEqual(body!.x);
+            expect((await card.boundingBox())!.height).toBeLessThan(220);
+          }else{
+            expect(box!.height,'Module artwork should not dominate the phone').toBeLessThanOrEqual(96);
+            expect(box!.width).toBeLessThanOrEqual(96);
+            expect((await card.boundingBox())!.height).toBeLessThan(220);
+          }
+        }
+        if(width<700){
+          const actions=page.locator('.home-member-actions'),bounds=await actions.boundingBox();
+          for(const button of await actions.locator('button.btn').all()){
+            const box=await button.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(44);expect(box!.width).toBeLessThan(bounds!.width);
+          }
         }
       }
       if (width === 390 && button === '職業公會') await page.screenshot({ path: 'test-results/design-guild-phone.png' });

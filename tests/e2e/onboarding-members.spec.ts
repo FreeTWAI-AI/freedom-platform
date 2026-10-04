@@ -225,14 +225,14 @@ test('skill trees preserve choices across screen sizes and show only three featu
   await page.getByRole('button',{name:'保存，繼續下一步 →',exact:true}).click();
   await expect(page.getByRole('button',{name:'移除裝備：我的錄音設備',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'看看適合我的公會',exact:true}).click();await finishGuild(page);
-  await expect(page.locator('.member-featured .pill')).toHaveCount(3);
-  await expect(page.locator('.member-featured')).toContainText('手工皮革製作');
+  await expect(page.locator('.home-member-skills .pill')).toHaveCount(3);
+  await expect(page.locator('.home-member-skills')).toContainText('手工皮革製作');
   await expect(page.locator('.member-card')).not.toContainText('這是我的私人補充');
   await navigate(page, '我的名片');
   const details=page.locator('.member-full-profile');await expect(details).not.toHaveAttribute('open');
   await details.locator('summary').click();for(const choice of choices)await expect(details).toContainText(choice.label);
   await expect(details).toContainText('我的錄音設備');
-  await page.reload();await expect(page.locator('.member-featured .pill')).toHaveCount(3);
+  await page.reload();await expect(page.locator('.member-profile-card .ecard-capabilities li')).toHaveCount(3);
   const draft=(await (await page.request.get('/api/v1/me/onboarding')).json()).draft;
   expect(draft.featured_capabilities).toEqual([choices[0].id,choices[1].id,'custom:手工皮革製作']);
   expect(Object.values(draft.question_notes)).toContain('這是我的私人補充，不公開在名片。');
@@ -335,7 +335,7 @@ test('re-exploration preserves the confirmed profile until completion and keeps 
   expect(publicPosition(await (await page.request.get(memberPath)).json())).toEqual(publicPosition(before));
   expect((await (await page.request.get('/api/v1/me/skill-books')).json()).items).toEqual(beforeBooks);
   await navigate(page, '我的名片');
-  await expect(page.locator('.member-featured')).toContainText('原本的教學整理');
+  await expect(page.locator('.member-profile-card .ecard-capabilities')).toContainText('原本的教學整理');
   await expect(page.locator('.member-card')).not.toContainText('草稿裡的私人職業');
   await navigate(page, '我的定位');
   await page.getByRole('button',{name:'重新探索定位',exact:true}).click();

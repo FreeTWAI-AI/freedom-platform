@@ -1,9 +1,11 @@
 import {useState} from 'react';
+import {MemberCardQr} from './MemberCardQr';
 import {MemberAvatar} from './MemberAvatar';
 import {BrandIcon,brandForUrl,brandPlatform} from './BrandIcon';
 import './MemberECard.css';
+import './MemberEditorialCard.css';
 
-export const cardDesigns=[['calm','清新'],['workshop','工坊'],['night','夜空'],['classic','經典名片']] as const;
+export const cardDesigns=[['editorial','工坊誌'],['calm','清新'],['workshop','工坊'],['night','夜空'],['classic','經典名片']] as const;
 export type CardDesign=(typeof cardDesigns)[number][0];
 export type CardLink={label:string;url:string};
 export type CardProfileLink={platform:string;label:string;handle:string|null;url:string|null};
@@ -56,12 +58,22 @@ function CardAnchor({url,platform,label,handle}:{url:string;platform:string;labe
   return <a className="ecard-link" href={url} {...(mail?{}:{target:'_blank',rel:'noopener noreferrer nofollow ugc'})}><LinkBody platform={platform} label={label} handle={handle}/></a>;
 }
 
-export function MemberECard({design,nickname,headline,guildName,capabilities,avatarUrl,links,profileLinks=[],heading='h1'}:{design:CardDesign;nickname:string;headline:string|null;guildName:string|null;capabilities:string[];avatarUrl:string|null;links:CardLink[];profileLinks?:CardProfileLink[];heading?:'h1'|'p'}){
+export function MemberECard({design,nickname,headline,guildName,capabilities,avatarUrl,links,profileLinks=[],heading='h1',shareUrl=''}:{design:CardDesign;nickname:string;headline:string|null;guildName:string|null;capabilities:string[];avatarUrl:string|null;links:CardLink[];profileLinks?:CardProfileLink[];heading?:'h1'|'h3'|'p';shareUrl?:string}){
   const Title=heading,line=headline?.trim()||null;
   const rows=[
     ...profileLinks.map((item,index)=>({key:`profile-${index}-${item.platform}-${item.label}`,platform:brandPlatform(item.platform),label:item.label,handle:item.handle,url:item.url})),
     ...links.map((item,index)=>({key:`manual-${index}-${item.url}`,platform:brandForUrl(item.url),label:item.label,handle:linkDomain(item.url)||null,url:item.url})),
   ];
+  if(design==='editorial')return <article className="ecard ecard-editorial" data-design="editorial" aria-label={`${nickname}的工坊名片`}>
+    <header className="editorial-masthead"><span>自由工坊<span className="editorial-brand-en">FREEDOM WORKSHOP</span></span><span className="editorial-edition">MEMBER CARD <span aria-hidden="true">↗</span></span></header>
+    <div className="editorial-hero">
+      <div className="editorial-person"><p className="ecard-kicker">一起，把想法做出來。</p><Title className="ecard-name" aria-label={heading==='h3'?nickname:`${nickname}的工坊名片`}>{nickname}</Title>{line&&<p className="ecard-headline">{line}</p>}</div>
+      <div className="editorial-portrait"><div className="editorial-orbit" aria-hidden="true"/><span className="editorial-cross" aria-hidden="true">＋</span><MemberAvatar nickname={nickname} avatarUrl={avatarUrl}/></div>
+    </div>
+    <div className="editorial-details"><div className="editorial-affiliation"><p className="editorial-label"><span aria-hidden="true">01 / </span>所屬公會</p><p className="ecard-guild">{guildName??'自由工坊夥伴'}</p></div><div className="editorial-skills"><p className="editorial-label"><span aria-hidden="true">02 / </span>擅長的事</p>{capabilities.length>0?<ul className="ecard-capabilities">{capabilities.slice(0,3).map((label,index)=><li key={`${index}-${label}`}>{label}</li>)}</ul>:<p className="editorial-empty">專長探索中</p>}</div></div>
+    {rows.length>0&&<ul className="ecard-links">{rows.map(item=>{const href=cardLinkHref(item.url);return <li key={item.key}>{href?<CardAnchor url={href} platform={item.platform} label={item.label} handle={item.handle}/>:!item.url&&item.handle?<CopyLink platform={item.platform} label={item.label} handle={item.handle}/>:<span className="ecard-link"><LinkBody platform={item.platform} label={item.label} handle={item.handle}/></span>}</li>;})}</ul>}
+    <footer className="editorial-footer"><div><span className="editorial-connect">LET’S<br/>CONNECT<span aria-hidden="true">.</span></span><p>學習・創作・共創</p></div>{shareUrl?<MemberCardQr url={shareUrl}/>:<p className="editorial-qr-pending">FREETWAI.COM<br/>自由工坊・共創夥伴</p>}</footer>
+  </article>;
   return <article className="ecard" data-design={design}>
     <div className="ecard-identity">
       <MemberAvatar nickname={nickname} avatarUrl={avatarUrl}/>
@@ -74,5 +86,6 @@ export function MemberECard({design,nickname,headline,guildName,capabilities,ava
     </div>
     {capabilities.length>0&&<ul className="ecard-capabilities">{capabilities.map((label,index)=><li key={`${index}-${label}`}>{label}</li>)}</ul>}
     {rows.length>0&&<ul className="ecard-links">{rows.map(item=>{const href=cardLinkHref(item.url);return <li key={item.key}>{href?<CardAnchor url={href} platform={item.platform} label={item.label} handle={item.handle}/>:!item.url&&item.handle?<CopyLink platform={item.platform} label={item.label} handle={item.handle}/>:<span className="ecard-link"><LinkBody platform={item.platform} label={item.label} handle={item.handle}/></span>}</li>;})}</ul>}
+    {shareUrl&&<MemberCardQr url={shareUrl}/>}
   </article>;
 }

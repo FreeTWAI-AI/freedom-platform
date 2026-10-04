@@ -20,37 +20,37 @@
 :is(.community-library,.community-skill-library) .home-eyebrow { margin: 0 0 .4rem; font-size: .875rem; font-weight: 700; line-height: 1.5; color: #aeb5c2; }
 .freedom-home .home-member-summary {
   position: relative; isolation: isolate; overflow: hidden;
-  display: flex; align-items: center; flex-wrap: wrap; gap: .75rem 1rem;
-  min-height: 100px; padding: 1rem; margin: 0;
+  display: grid; align-content: start; gap: 16px;
+  min-height: 100px; padding: 20px; margin: 0;
   border: 1px solid #333943; border-radius: 14px; background: #101318;
 }
 .freedom-home .guild-base-art { position: absolute; z-index: -2; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 80% 45%; opacity: .3; }
 .freedom-home .guild-base-hero::after { content: ''; position: absolute; z-index: -1; inset: 0; background: linear-gradient(90deg, #101318, #101318e8 50%, #10131866); }
 .freedom-home .home-member-identity { display: flex; align-items: center; gap: .75rem; min-width: 0; }
 .freedom-home .home-member-identity > div:last-child { min-width: 0; }
-.freedom-home .home-member-initial { flex: 0 0 48px; width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; background: #24293c; border: 1px solid #6573bb; color: #f4f6ef; font-weight: 700; }
+.freedom-home .home-member-identity .member-avatar.home-member-initial { flex: 0 0 56px; width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; background: #24293c; border: 0; box-shadow: none; color: #f4f6ef; font-weight: 700; }
 .freedom-home .home-member-name { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .65rem; margin: 0; color: #f4f6ef; font-weight: 700; overflow-wrap: anywhere; }
 .freedom-home .home-member-name > span { color: #c4ff20; font-size: .875rem; font-weight: 500; }
 .freedom-home .home-member-guild { color: #aeb5c2; font-size: .875rem; margin: .2rem 0 0; overflow-wrap: anywhere; }
-.freedom-home .home-member-skills { display: flex; flex-wrap: wrap; gap: .4rem; flex: 1 1 180px; min-width: 0; }
-.freedom-home .home-member-skills > span { padding: .25rem .5rem; border: 1px solid #3a414d; border-radius: 6px; color: #d0d6df; font-size: .875rem; background: #14161bd9; overflow-wrap: anywhere; }
-.freedom-home .home-member-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .5rem; margin-left: auto; max-width: 100%; min-width: 0; }
+.freedom-home .home-member-skills { display: flex; flex-wrap: nowrap; gap: 6px; min-width: 0; overflow-x: auto; }
+.freedom-home .home-member-skills > span { padding: .25rem .5rem; border: 1px solid #3a414d; border-radius: 6px; color: #d0d6df; font-size: .875rem; background: #14161bd9; white-space: nowrap; }
+.freedom-home .home-member-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; min-width: 0; }
 .freedom-home .home-member-actions .btn { min-height: 44px; font-size: .875rem; padding: .5rem .8rem; background: #14161be6; }
-.freedom-home .home-member-actions > .skill-share { flex: 0 1 auto; width: auto; }
-.freedom-home .home-member-actions > .skill-share > .btn { width: auto; }
+.freedom-home .home-member-actions > .btn,
+.freedom-home .home-member-actions > .skill-share > .btn { width: fit-content; max-width: 100%; border-radius: 10px; }
+.freedom-home .home-member-actions > .skill-share { width: fit-content; max-width: 100%; }
 .freedom-home .home-assessment-hint { margin: .35rem 0 0; max-width: min(36rem, 100%); padding: .45rem .7rem; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-elev); color: var(--ink); font-size: .875rem; line-height: 1.6; }
-.freedom-home .home-next-step { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem 1rem; min-width: 0; padding: .75rem 1rem; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-elev); }
-.freedom-home .home-next-step p { flex: 1 1 220px; min-width: 0; margin: 0; color: var(--muted); overflow-wrap: anywhere; }
+.freedom-home .home-next-step { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 26px 28px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg-elev); }
+.freedom-home .home-next-copy > p { min-width: 0; margin: 0; color: var(--muted); overflow-wrap: anywhere; }
 .freedom-home .home-next-step .btn { min-height: 44px; width: fit-content; margin: 0; padding: .5rem .8rem; font-size: .875rem; color: var(--ink); }
 .freedom-home .home-next-actions { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: .5rem; min-width: 0; }
 .freedom-home .home-next-actions > .btn,
 .freedom-home .home-next-actions > .skill-intro-entry { flex: 0 0 auto; width: fit-content; max-width: 100%; }
 .freedom-home .home-next-actions .skill-intro-trigger { width: fit-content; max-width: 100%; }
 .freedom-home .home-shortcuts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .65rem; }
-.freedom-home .home-shortcut { display: flex; align-items: center; gap: .65rem; min-width: 0; min-height: 64px; padding: .85rem; border: 1px solid #3b4350; border-radius: 12px; background: #1b1f27; color: #f4f6ef; font-size: 1rem; font-weight: 650; text-align: left; cursor: pointer; }
+.freedom-home .home-shortcut { display: flex; flex-direction: column; align-items: flex-start; gap: .65rem; min-width: 0; min-height: 64px; padding: .85rem; border: 1px solid #3b4350; border-radius: 12px; background: #1b1f27; color: #f4f6ef; font-size: 1rem; font-weight: 650; text-align: left; cursor: pointer; }
 .freedom-home .home-shortcut .workshop-icon { flex: 0 0 20px; color: #c4ff20; }
 .freedom-home .home-shortcut > span { overflow-wrap: anywhere; }
-.freedom-home .home-shortcut-arrow { margin-left: auto; color: #aeb5c2; }
 .freedom-home .home-shortcut:hover,
 .freedom-home .home-shortcut:focus-visible { background: #252b21; border-color: #91ae3d; }
 .freedom-home .home-module-section { display: grid; gap: .75rem; min-width: 0; }
@@ -58,7 +58,7 @@
 .freedom-community .home-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; }
 .freedom-home .home-section-heading h2 { font-size: 1.05rem; line-height: 1.5; margin: .35rem 0 0; color: #d1d7e0; }
 .freedom-home .home-module-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
-.freedom-home .home-module-card { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: .75rem; padding: .75rem; min-width: 0; border: 1px solid #30353e; border-radius: 12px; background: #14161b; }
+.freedom-home .home-module-card { position: relative; display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: .75rem; padding: .75rem; min-width: 0; border: 1px solid #30353e; border-radius: 12px; background: #14161b; }
 .freedom-home .home-module-card:hover,
 .freedom-home .home-module-card:focus-within { border-color: #64724a; }
 .freedom-home .home-module-cover { position: relative; overflow: hidden; width: 64px; height: 64px; border-radius: 10px; background: #171d31; }
@@ -149,7 +149,51 @@
 }
 @media (max-width: 440px) {
   :is(.community-library,.community-skill-library) .community-book-grid { grid-template-columns: minmax(0, 1fr); }
-  .freedom-home .home-shortcut-arrow { display: none; }
+}
+
+/* Homepage structure; narrow screens place the summary ahead visually.
+ * DOM/focus order remains main then rail and needs browser accessibility QA. */
+.freedom-home .home-layout { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.freedom-home .home-main,
+.freedom-home .home-rail { display: contents; }
+.freedom-home .home-member-summary { order: 0; }
+.freedom-home .home-load-error { order: 1; }
+.freedom-home .home-next-step { order: 2; }
+.freedom-home .home-shortcuts { order: 3; }
+.freedom-home .home-partner { order: 4; }
+.freedom-home .home-module-section { order: 5; }
+.freedom-home .home-next-copy { flex: 1; min-width: 0; }
+.freedom-home .home-next-copy > .home-next-eyebrow { margin-bottom: 8px; font-size: .875rem; font-weight: 700; }
+.freedom-home #home-next-step-description { margin-bottom: 18px; font-size: 1.4rem; line-height: 1.4; font-weight: 700; color: var(--ink); }
+.freedom-home .home-next-copy > .guild-intern-notice { margin-bottom: 12px; }
+.freedom-home .home-next-art { flex: none; width: 124px; height: 108px; object-fit: cover; border-radius: 12px; box-shadow: 0 10px 24px #1b293b2e; }
+.freedom-home .home-shortcut-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--bg-elev); }
+.freedom-home .home-shortcut-icon .workshop-icon { width: 18px; height: 18px; }
+.freedom-home .home-member-name > .positioning-title { border: 0; border-radius: 99px; padding: 3px 10px; font-size: .875rem; white-space: nowrap; }
+.freedom-home .home-module-button::after { content: ''; position: absolute; inset: 0; }
+.freedom-home .home-partner { min-width: 0; margin: 0; padding: 18px 20px; border-radius: 14px; gap: 12px; }
+.freedom-home .home-partner-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-block: -8px; }
+.freedom-home .home-partner-heading h2 { margin: 0; font-size: .875rem; color: var(--muted); }
+.freedom-home .home-partner-swap { margin: 0; padding: 0; min-width: 44px; min-height: 44px; border: 0; background: transparent; font-size: .875rem; }
+.freedom-home .home-partner > .connection-person .member-avatar { width: 48px; height: 48px; border: 0; box-shadow: none; border-radius: 12px; }
+.freedom-home .home-partner > .connection-person > div:last-child { min-width: 0; overflow-wrap: anywhere; }
+.freedom-home .home-partner > .connection-person h3 { font-size: 1rem; }
+.freedom-home .home-partner > .recommendation-reason { margin: 0; overflow-wrap: anywhere; }
+.freedom-home .home-partner > .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.freedom-home .home-partner > .actions > .btn { width: 100%; min-height: 44px; margin: 0; padding: 9px 6px; border-radius: 10px; font-size: .875rem; }
+@media (min-width: 1100px) {
+  .freedom-home .home-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+  .freedom-home .home-main { display: grid; gap: 20px; min-width: 0; }
+  .freedom-home .home-rail { display: grid; gap: 16px; min-width: 0; position: sticky; top: 16px; }
+  .freedom-home .home-module-grid { gap: 16px; }
+  /* Keep PR104's main/rail grid while honoring DESIGN's small-image rows. */
+  .freedom-home .home-module-body { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .freedom-home .home-module-button { grid-column: 1; grid-row: auto; justify-self: start; width: fit-content; }
+}
+@media (max-width: 700px) {
+  .freedom-home .home-next-step { flex-wrap: wrap; padding: 20px; }
+  .freedom-home .home-next-copy { flex-basis: 100%; }
+  .freedom-home .home-next-art { display: none; }
 }
 
 /* Search across the public collection without changing member book grants. */

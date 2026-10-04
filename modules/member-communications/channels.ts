@@ -4,6 +4,7 @@ import {command,type Command} from '../../packages/db/index.js';
 import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {lockMemberGuilds} from '../positioning/onboarding.js';
+import {MessageContentInput,messageContents,storedMessageBody} from './content.js';
 import {
   CHANNEL_KINDS,CHANNEL_KEY_MAX,CHANNEL_MESSAGE_BODY_MAX,CHANNEL_NOT_AVAILABLE,CHANNEL_PAGE_DEFAULT_LIMIT,CHANNEL_PAGE_MAX_LIMIT,CHANNEL_PAGE_MAX_OFFSET,
   GUILD_CHANNEL_KEY_PATTERN,
@@ -22,14 +23,7 @@ const page={
 export const ChannelListQuery=z.object({kind:z.enum(CHANNEL_KINDS),...page,search:z.string().trim().max(100).default('')}).strict();
 export const ChannelPageQuery=z.object({...page,after_sequence:z.string().regex(/^\d{1,19}$/).pipe(z.string().refine(value=>BigInt(value)<=9223372036854775807n,'新訊息游標超出範圍。')).optional()}).strict()
   .refine(value=>value.after_sequence===undefined||value.offset===0,'新訊息游標不可與位移頁碼一起使用。');
-// Plain text only, same rules as direct messages: stored and returned verbatim
-// after trimming; length counts code points like PostgreSQL.
-const ChannelMessageInput=z.object({
-  body:z.string().transform(value=>value.replace(/\r\n?/g,'\n').trim())
-    .refine(value=>value.length>0,'請輸入訊息內容。')
-    .refine(value=>[...value].length<=CHANNEL_MESSAGE_BODY_MAX,`訊息最多 ${CHANNEL_MESSAGE_BODY_MAX} 字。`)
-    .refine(value=>!/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(value),'訊息不可包含控制字元。'),
-}).strict();
+const ChannelMessageInput=MessageContentInput;
 const ChannelReadInput=z.object({through_message_id:z.uuid()}).strict();
 /** Shared by guild and squad sends; replays neither count nor are blocked. */
 export const CHANNEL_MESSAGE_RATE_LIMIT=20,CHANNEL_MESSAGE_RATE_WINDOW_SECONDS=60;
@@ -133,7 +127,7 @@ async function lockRooms(q:PoolClient,actor:Actor,kind:ChannelKind):Promise<Chan
 const unreadSql=`(SELECT count(*)::int FROM member_channel_messages x WHERE x.community_id=$1 AND x.kind=$2 AND x.channel_key=r.channel_key AND x.sender_ref<>$3
   AND ($2<>'world' OR NOT is_verification_test_account(x.sender_ref))
   AND x.sequence>COALESCE((SELECT d.last_read_sequence FROM member_channel_reads d WHERE d.community_id=$1 AND d.kind=$2 AND d.channel_key=r.channel_key AND d.user_id=$3),0))`;
-const messageColumns=`m.message_id,m.kind,m.channel_key,m.sequence::text AS sequence,m.sender_ref,u.display_name AS sender_name,m.body,m.created_at`;
+const messageColumns=`m.message_id,m.kind,m.channel_key,m.sequence::text AS sequence,m.sender_ref,u.display_name AS sender_name,m.body,m.created_at,m.sticker_id,m.reply_to_message_id`;
 function message(row:any):ChannelMessage{
   return {message_id:row.message_id,kind:row.kind,channel_key:row.channel_key,sequence:row.sequence,sender_ref:row.sender_ref,sender_name:row.sender_name,body:row.body,created_at:iso(row.created_at)};
 }
@@ -171,7 +165,8 @@ export async function channelMessages(pool:Pool,actor:Actor,rawKind:string,rawKe
         AND ($7::bigint IS NULL OR m.sequence>$7::bigint)
       ORDER BY CASE WHEN $7::bigint IS NOT NULL THEN m.sequence END ASC, m.sequence DESC LIMIT $4 OFFSET $5`,
       [actor.community_id,target.kind,target.key,limit+1,offset,actor.user_id,after_sequence??null])).rows;
-    return {channel,items:rows.slice(0,limit).map(message),unread_count:unread,next_offset:after_sequence===undefined&&rows.length>limit?offset+limit:null,
+    const shown=rows.slice(0,limit),contents=await messageContents(q,shown,'channel',actor.user_id);
+    return {channel,items:shown.map((row,index)=>({...message(row),...contents[index]})),unread_count:unread,next_offset:after_sequence===undefined&&rows.length>limit?offset+limit:null,
       ...(after_sequence!==undefined?{next_after_sequence:rows.length>limit?String(rows[limit-1].sequence):null}:{})};
   });
 }
@@ -195,7 +190,13 @@ export async function sendChannelMessage(pool:Pool,input:Command,rawKind:string,
   const target=room(rawKind,rawKey),body=ChannelMessageInput.parse(input.body),actor=input.actor;
   // Receipts keep only the message id, so message text never enters command
   // receipts, journals or outbox. Membership is rechecked before any replay.
-  const sent=await command(pool,input,async q=>{await currentMember(q,actor,false);await lockRoom(q,actor,target);},async q=>{
+  const sent=await command(pool,input,async q=>{
+    await currentMember(q,actor,false);await lockRoom(q,actor,target);
+    if(body.reply_to_message_id)requireCondition((await q.query(`SELECT 1 FROM member_channel_messages m
+      WHERE m.message_id=$1 AND m.community_id=$2 AND m.kind=$3 AND m.channel_key=$4
+      AND (m.kind<>'world' OR m.sender_ref=$5 OR NOT is_verification_test_account(m.sender_ref))`,
+      [body.reply_to_message_id,actor.community_id,target.kind,target.key,actor.user_id])).rowCount===1,404,'reply_not_available','找不到可回覆的訊息。');
+  },async q=>{
     // One budget per sender across both kinds; serialized so concurrent sends cannot exceed it.
     await advisory(q,`member-channel-sender/${actor.community_id}/${actor.user_id}`);
     const recent=(await q.query(`SELECT count(*)::int AS n FROM member_channel_messages WHERE community_id=$1 AND sender_ref=$2 AND created_at>clock_timestamp()-make_interval(secs=>$3)`,
@@ -207,8 +208,8 @@ export async function sendChannelMessage(pool:Pool,input:Command,rawKind:string,
     await q.query('INSERT INTO member_chat_channels(community_id,kind,channel_key) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[actor.community_id,target.kind,target.key]);
     const sequence=(await q.query('UPDATE member_chat_channels SET last_sequence=last_sequence+1 WHERE community_id=$1 AND kind=$2 AND channel_key=$3 RETURNING last_sequence',
       [actor.community_id,target.kind,target.key])).rows[0].last_sequence;
-    const row=(await q.query(`INSERT INTO member_channel_messages(community_id,kind,channel_key,sequence,sender_ref,body,created_at) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp()) RETURNING message_id`,
-      [actor.community_id,target.kind,target.key,sequence,actor.user_id,body.body])).rows[0];
+    const row=(await q.query(`INSERT INTO member_channel_messages(community_id,kind,channel_key,sequence,sender_ref,body,sticker_id,reply_to_message_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,clock_timestamp()) RETURNING message_id`,
+      [actor.community_id,target.kind,target.key,sequence,actor.user_id,storedMessageBody(body),body.sticker_id??null,body.reply_to_message_id??null])).rows[0];
     return {message_id:row.message_id as string};
   });
   // Read back under a fresh membership check, so a leave after the write cannot
@@ -219,7 +220,7 @@ export async function sendChannelMessage(pool:Pool,input:Command,rawKind:string,
       WHERE m.message_id=$1 AND m.community_id=$2 AND m.kind=$3 AND m.channel_key=$4 AND m.sender_ref=$5`,
       [sent.message_id,actor.community_id,target.kind,target.key,actor.user_id])).rows[0];
     requireCondition(row,404,'channel_message_not_found','找不到這則訊息。');
-    return message(row);
+    return {...message(row),...(await messageContents(q,[row],'channel',actor.user_id))[0]};
   });
 }
 

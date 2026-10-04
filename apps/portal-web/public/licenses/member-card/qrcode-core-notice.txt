@@ -1,0 +1,13 @@
+Source: qrcode 1.5.4, lib/core/qrcode.js
+https://github.com/soldair/node-qrcode
+
+QRCode for JavaScript
+modified by Ryan Day for nodejs support
+Copyright (c) 2011 Ryan Day
+Copyright (c) 2009 Kazuhiko Arase
+http://www.d-project.com/
+
+Licensed under the MIT license. The full MIT terms accompany this notice in
+qrcode-MIT.txt.
+
+The word "QR Code" is registered trademark of DENSO WAVE INCORPORATED.

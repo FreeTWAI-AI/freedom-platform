@@ -365,6 +365,10 @@ test('a skill-book maintainer is eligible only for the appointed book, with an a
   assert.equal(rows[0].guild_key, null);
   assert.equal(rows[0].skill_book_id, 'career-guide');
   assert.equal((await eligible(other)).some(row => row.user_id === user), false);
+  await pool.query('UPDATE users SET active=false WHERE user_id=$1', [user]);
+  assert.equal((await eligible(repository)).some(row => row.user_id === user), false, 'appointment and GitHub link cannot authorize an inactive account');
+  await pool.query('UPDATE users SET active=true WHERE user_id=$1', [user]);
+  assert.equal((await eligible(repository)).filter(row => row.user_id === user).length, 1);
 });
 
 test('a skill-book maintainer who is not a guild leader lists, claims and releases the book pull', async () => {

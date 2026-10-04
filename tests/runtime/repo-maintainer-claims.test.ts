@@ -417,7 +417,18 @@ test('requested-reviewer jobs honor the worker switch, the status code and a rel
   assert.equal(rejected.jobs_failed, 1);
   assert.equal((await claimRow(claimId)).github_request_state, 'failed');
   assert.equal((await claimRow(claimId)).github_request_error, 'github_http_422');
+  assert.equal((await claimRow(claimId)).state, 'active', 'GitHub refusal does not release the platform claim');
   assert.equal((await pool.query(`SELECT state, attempts FROM maintainer_jobs WHERE payload->>'claim_id'=$1 AND kind='request_reviewer' ORDER BY created_at DESC`, [claimId])).rows[0].state, 'failed');
+  let refusedRetries = 0;
+  const afterRefusal = await tick('requested_reviewers', async () => {
+    refusedRetries++;
+    throw new Error('a terminal requested-reviewer refusal must not retry');
+  }, () => CLOCK);
+  assert.equal(refusedRetries, 0);
+  assert.equal(afterRefusal.jobs_done, 0);
+  assert.equal(afterRefusal.jobs_failed, 0);
+  assert.equal((await claimRow(claimId)).state, 'active');
+  assert.equal((await claimRow(claimId)).github_request_error, 'github_http_422');
 
   const deniedPull = await insertPull(repository, 8);
   const denied = await insertClaim(deniedPull, identity, { github: 'pending' });
