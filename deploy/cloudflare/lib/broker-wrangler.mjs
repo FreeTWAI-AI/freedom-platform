@@ -30,7 +30,10 @@ export function checkBrokerWranglerConfig(path,manifest){
     }
     const media=block.r2_buckets??[];if(media.length!==1||media[0].binding!=='MEDIA')errors.push(`${environment}: existing private MEDIA binding is required.`);
     else if(media[0].bucket_name!==mapping[environment].media_bucket){if(/^replace-existing-/.test(media[0].bucket_name??''))blockers.push(`${environment}: existing MEDIA bucket identity is not installed.`);else errors.push(`${environment}: MEDIA must reference the canonical existing private bucket.`);}
-    const services=block.services??[];if(services.length!==2||['CREDENTIAL_RECOVERY_STATE','CREDENTIAL_RECOVERY_FLOOR'].some(binding=>services.filter(item=>item.binding===binding).length!==1)||new Set(services.map(item=>item.service)).size!==2)errors.push(`${environment}: distinct native recovery state and floor bindings are required.`);
+    const services=block.services??[],readiness=services.filter(item=>item.binding==='CREDENTIAL_INGEST_READINESS');
+    if(services.length!==2+readiness.length||readiness.length>1||services.some(item=>!['CREDENTIAL_RECOVERY_STATE','CREDENTIAL_RECOVERY_FLOOR','CREDENTIAL_INGEST_READINESS'].includes(item.binding))
+      ||['CREDENTIAL_RECOVERY_STATE','CREDENTIAL_RECOVERY_FLOOR'].some(binding=>services.filter(item=>item.binding===binding).length!==1)||new Set(services.map(item=>item.service)).size!==services.length)errors.push(`${environment}: distinct native recovery state and floor bindings (plus optional distinct ingest readiness) are required.`);
+    if(readiness.length)blockers.push(`${environment}: optional CREDENTIAL_INGEST_READINESS authority, setup Custom Domain and capture-disabled operation are not verified by static checks; a signed readiness statement is not capture evidence.`);
     blockers.push(`${environment}: remote Hyperdrive cache-off, exact origin database/role, private native recovery identities, KEK/signer injection and release authority are not verified by static checks.`);
   }
   return {schema:'freedom.broker-worker-candidate/v1',status:'candidate_only',structural:errors.length===0,static_checks_pass:errors.length===0&&blockers.length===0,remote_cloud:'not_run',deployment_ready:false,enabled_by_this_tool:false,mapping,errors,blockers};

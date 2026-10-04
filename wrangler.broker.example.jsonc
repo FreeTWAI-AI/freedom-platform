@@ -1,5 +1,7 @@
 {
-  // Candidate only: explicit private service bindings, no public routes or IDs.
+  // Candidate only: explicit private service bindings, no IDs. The optional direct
+  // credential setup host is a single Custom Domain route added by the operator
+  // (see apps/credential-broker/DEPLOYMENT.md); it is not installed here.
   "name": "freedom-model-broker-candidate",
   "main": "apps/credential-broker/src/worker.ts",
   "compatibility_date": "2026-09-21",
@@ -7,6 +9,7 @@
   "workers_dev": false,
   "preview_urls": false,
   "alias": {"./model-step-node-transport.js": "./apps/credential-broker/src/worker-provider-transport.ts"},
+  "rules": [{"type": "Data", "globs": ["**/freedom-workshop.webp"], "fallthrough": false}],
   "vars": {"FREEDOM_BROKER_ENABLED": "false"},
   "env": {
     "staging-next": {
@@ -14,14 +17,14 @@
       "vars": {"FREEDOM_BROKER_ENABLED": "false", "FREEDOM_BROKER_ENVIRONMENT": "staging-next", "APP_ORIGIN": "https://staging.freetwai.com"},
       "hyperdrive": [{"binding": "CIPHER_HYPERDRIVE", "id": "00000000000000000000000000000000"}, {"binding": "EXECUTOR_HYPERDRIVE", "id": "00000000000000000000000000000000"}],
       "r2_buckets": [{"binding": "MEDIA", "bucket_name": "replace-existing-staging-private-asset-bucket"}],
-      "services": [{"binding": "CREDENTIAL_RECOVERY_STATE", "service": "REPLACE_STAGING_SIGNED_RECOVERY"}, {"binding": "CREDENTIAL_RECOVERY_FLOOR", "service": "REPLACE_STAGING_INDEPENDENT_RECOVERY_FLOOR"}]
+      "services": [{"binding": "CREDENTIAL_RECOVERY_STATE", "service": "REPLACE_STAGING_SIGNED_RECOVERY"}, {"binding": "CREDENTIAL_RECOVERY_FLOOR", "service": "REPLACE_STAGING_INDEPENDENT_RECOVERY_FLOOR"}, {"binding": "CREDENTIAL_INGEST_READINESS", "service": "REPLACE_STAGING_CAPTURE_READINESS"}]
     },
     "next": {
       "name": "freedom-model-broker-next",
       "vars": {"FREEDOM_BROKER_ENABLED": "false", "FREEDOM_BROKER_ENVIRONMENT": "next", "APP_ORIGIN": "https://freetwai.com"},
       "hyperdrive": [{"binding": "CIPHER_HYPERDRIVE", "id": "00000000000000000000000000000000"}, {"binding": "EXECUTOR_HYPERDRIVE", "id": "00000000000000000000000000000000"}],
       "r2_buckets": [{"binding": "MEDIA", "bucket_name": "replace-existing-public-private-asset-bucket"}],
-      "services": [{"binding": "CREDENTIAL_RECOVERY_STATE", "service": "REPLACE_PUBLIC_SIGNED_RECOVERY"}, {"binding": "CREDENTIAL_RECOVERY_FLOOR", "service": "REPLACE_PUBLIC_INDEPENDENT_RECOVERY_FLOOR"}]
+      "services": [{"binding": "CREDENTIAL_RECOVERY_STATE", "service": "REPLACE_PUBLIC_SIGNED_RECOVERY"}, {"binding": "CREDENTIAL_RECOVERY_FLOOR", "service": "REPLACE_PUBLIC_INDEPENDENT_RECOVERY_FLOOR"}, {"binding": "CREDENTIAL_INGEST_READINESS", "service": "REPLACE_PUBLIC_CAPTURE_READINESS"}]
     }
   }
 }
