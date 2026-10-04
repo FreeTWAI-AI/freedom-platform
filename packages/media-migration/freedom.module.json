@@ -2,13 +2,78 @@
   "format": "freedom.module/v1",
   "module_id": "media-migration",
   "owner_role": "foundation",
-  "owned_paths": ["packages/media-migration/**", "scripts/media-inventory.ts", "tests/runtime/media-inventory.test.ts"],
-  "public_exports": ["packages/media-migration/inventory.ts"],
+  "owned_paths": [
+    "packages/media-migration/**",
+    "scripts/media-inventory.ts",
+    "tests/runtime/media-inventory.test.ts",
+    "scripts/media-verify.ts",
+    "scripts/media-backfill.ts",
+    "scripts/media-restore-acl.ts",
+    "scripts/run-media-restore-test.mjs",
+    "tests/runtime/media-verify.test.ts",
+    "tests/runtime/media-backup-transfer.test.ts",
+    "tests/runtime/operator-media-backfill.test.ts",
+    "tests/runtime/operator-event-video-backfill.test.ts",
+    "tests/integration/media-backup-restore.test.ts",
+    "tests/integration/helpers/media-restore-fixtures.ts"
+  ],
+  "public_exports": [
+    "packages/media-migration/inventory.ts"
+  ],
   "dependencies": [],
-  "contract_families": ["common"],
+  "contract_families": [
+    "common"
+  ],
   "client_profiles": [],
-  "instructions": ["packages/media-migration/README.md", "docs/platform-plan/execution/unified-foundation/05-media-migration.md"],
-  "invariants": ["explicit-readonly-target", "aggregate-only-report", "no-media-bytes-export", "inventory-is-not-migration-proof"],
-  "tests": ["runtime.full"],
-  "surfaces": [{"surface_id": "operations.media-inventory", "kind": "cli", "entry": "scripts/media-inventory.ts", "operations": ["media.inventory"], "auth_profile": "operator-readonly"}]
+  "instructions": [
+    "packages/media-migration/README.md",
+    "docs/platform-plan/execution/unified-foundation/05-media-migration.md"
+  ],
+  "invariants": [
+    "explicit-readonly-target",
+    "aggregate-only-report",
+    "no-media-bytes-export",
+    "inventory-is-not-migration-proof"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "operations.media-inventory",
+      "kind": "cli",
+      "entry": "scripts/media-inventory.ts",
+      "operations": [
+        "media.inventory"
+      ],
+      "auth_profile": "operator-readonly"
+    },
+    {
+      "surface_id": "operations.media-verify",
+      "kind": "cli",
+      "entry": "scripts/media-verify.ts",
+      "operations": [
+        "media.verify"
+      ],
+      "auth_profile": "operator-readonly"
+    },
+    {
+      "surface_id": "operations.media-backfill",
+      "kind": "cli",
+      "entry": "scripts/media-backfill.ts",
+      "operations": [
+        "media.backfill"
+      ],
+      "auth_profile": "operator-approved-plan"
+    },
+    {
+      "surface_id": "operations.media-restore-acl",
+      "kind": "cli",
+      "entry": "scripts/media-restore-acl.ts",
+      "operations": [
+        "media.restore-acl"
+      ],
+      "auth_profile": "operator-canonical-lockdown"
+    }
+  ]
 }

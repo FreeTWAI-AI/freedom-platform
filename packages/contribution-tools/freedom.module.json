@@ -17,7 +17,9 @@
     ".gitignore",
     "package.json",
     "package-lock.json",
-    "contracts/README.md"
+    "contracts/README.md",
+    "scripts/runtime-full.mjs",
+    "tests/contribution-tools/runtime-sharding.integration.test.mjs"
   ],
   "public_exports": [
     "packages/contribution-tools/contracts.mjs",
@@ -40,7 +42,8 @@
     "no-secrets-in-artifacts"
   ],
   "tests": [
-    "governance.unit", "runtime.full"
+    "governance.unit",
+    "runtime.full"
   ],
   "surfaces": [
     {
@@ -53,6 +56,15 @@
         "development.verify"
       ],
       "auth_profile": "local-checkout"
+    },
+    {
+      "surface_id": "verification.runtime-full",
+      "kind": "cli",
+      "entry": "scripts/runtime-full.mjs",
+      "operations": [
+        "verification.runtime-full"
+      ],
+      "auth_profile": "local-test-only"
     }
   ]
 }

@@ -91,3 +91,20 @@ test('automatic social writer capability cannot be supplied by a manual-thumbnai
   f.host.release_records[0].capabilities = f.host.release_records[0].capabilities.filter(x => x !== 'media.social-preview-create.v1');
   assert(run(f).issues.some(issue => issue.code === 'release_capability_missing' && issue.capability === 'media.social-preview-create.v1'));
 });
+
+
+test('domain GC requires instrumented writes in every active binary and retained floor', () => {
+ for(const source of ['enable_shapes','enabled_shapes','written_shapes','rollback_floor_shapes']){
+  const f=fixture(); for(const record of f.host.release_records)record.capabilities.push('media.write-effects.v1','media.domain-gc.v1');
+  (source==='enable_shapes'?f.input:source==='rollback_floor_shapes'?f.host:f.host.observation)[source]=['media.domain-gc.v1'];
+  assert.equal(run(f).status,'compatible');
+  for(const binary of [0,1])for(const capability of ['media.write-effects.v1','media.domain-gc.v1']){
+   const old=structuredClone(f);old.host.release_records[binary].capabilities=old.host.release_records[binary].capabilities.filter(value=>value!==capability);
+   assert(run(old).issues.some(issue=>issue.code==='release_capability_missing'&&issue.capability===capability&&issue.source_sha===old.host.release_records[binary].source_sha));
+  }
+  const lower=structuredClone(f);prefix(lower,107,{planned:source==='enable_shapes'});const issue=source==='enable_shapes'?'shape_schema_missing':source==='rollback_floor_shapes'?'historical_shape_schema_missing':'observed_shape_schema_missing';assert(run(lower).issues.some(item=>item.code===issue));
+ }
+ const retained=fixture();prefix(retained,107);retained.host.rollback_floor.capabilities=['media.write-effects.v1','media.domain-gc.v1'];
+ assert(run(retained).issues.some(issue=>issue.code==='shape_schema_missing'));
+ assert(run(retained).issues.some(issue=>issue.code==='historical_shape_schema_missing'));
+});

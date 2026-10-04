@@ -54,3 +54,14 @@ or deployment authority. The integrated cover/video/runtime-privilege regression
 
 This source review covers105 and107 only. Historical sources remain retained; cover GC,
 all-source backfill, cloud installation and release acceptance are incomplete.
+
+
+Migration108 adds immutable coverage and a durable common-intent PUT-effect
+ledger to the new domain writers and the two operator profiles. It adds no
+SECURITY DEFINER routine and receives no new scanner exception. Existing assets
+retain coverage=false permanently. Domain deletion remains explicitly disabled
+and cannot rely on coverage alone: every possible active/retained writer must
+support `media.write-effects.v1`, with old consumers fenced before enabling
+`media.domain-gc.v1`. The release diagnostic requires both capabilities and108
+in current and historical schema evidence. This is a release prerequisite, not
+an installed publisher or proof that an old process was actually stopped.
