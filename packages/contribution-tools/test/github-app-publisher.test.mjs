@@ -1,9 +1,10 @@
+import { validateHostEvidenceBinding } from '../trusted-ci.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGithubAppPublisher } from '../github-app-publisher.mjs';
 const config = {repository:'owner/repo',repository_id:1,app_id:2,installation_id:3,check_name:'fixed-host'};
 const accepted = current => ({format:'freedom.host-verifier-report/v1',status:'passed',binding:current,blockers:[],selected_suites:['runtime.full'],checks:[{suite_id:'runtime.full',status:'passed',evidence_sha256:'e'.repeat(64)}]});
-const binding = {repository:'owner/repo',run_id:4,run_attempt:1,pull_request:5,base_commit:'a'.repeat(40),head_commit:'b'.repeat(40),candidate_commit:'b'.repeat(40),candidate_tree:'c'.repeat(40)};
+const binding = {repository:'owner/repo',run_id:'4',run_attempt:1,pull_request:5,base_commit:'a'.repeat(40),head_commit:'b'.repeat(40),candidate_commit:'b'.repeat(40),candidate_tree:'c'.repeat(40)};
 function fixture(change = () => {}) {
   const posts = [], state = {head:binding.head_commit,attempt:binding.run_attempt};
   const ports = {
@@ -196,5 +197,18 @@ test('exact attempt response independently binds run, repository, event, head an
       if(args[1].includes('/attempts/'))value[field]={id:99,repository:{id:99},event:'workflow_dispatch',head_sha:'d'.repeat(40),pull_requests:[{number:99}]}[field];
       return value;
     };});assert.equal((await f.publisher.publish(binding)).code,'publisher_run_attempt_mismatch',field);assert.equal(f.posts.length,0);
+  }
+});
+
+test('publisher binding composes with real closed host evidence validator',async()=>{
+  const f=fixture(ports=>{ports.verify=async current=>{
+    const evidence=validateHostEvidenceBinding({...current,source_commit:'d'.repeat(40),release_set_sha256:'e'.repeat(64),policy_revision:'fixture-v1',policy_sha256:'f'.repeat(64),verifier_commit:'a'.repeat(40),verifier_sha256:'a'.repeat(64)});
+    return accepted(evidence);
+  };});assert.equal((await f.publisher.publish(binding)).status,'published');assert.equal(f.posts.length,1);
+});
+
+test('publisher run ID admits only safe canonical nonzero decimal strings',async()=>{
+  for(const run of [4,'04','0','4.0','4e0','+4',' 4','4\n','9007199254740992']){
+    const f=fixture();assert.equal((await f.publisher.publish({...binding,run_id:run})).code,'publisher_binding_invalid');assert.equal(f.posts.length,0);
   }
 });

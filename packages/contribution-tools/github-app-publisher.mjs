@@ -2,6 +2,7 @@ import { sign, KeyObject } from 'node:crypto';
 // Operator-installed library only. Never import a candidate's copy into a publisher host.
 const sha = value => typeof value === 'string' && /^[a-f0-9]{40}$/.test(value);
 const positive = value => Number.isSafeInteger(value) && value > 0;
+const runId = value => typeof value === 'string' && value.length <= 16 && /^[1-9][0-9]*$/.test(value) && positive(Number(value));
 function requireThat(value, code) { if (!value) throw new Error(code); }
 function exact(value, keys) {
   return value && Object.getPrototypeOf(value) === Object.prototype &&
@@ -30,11 +31,11 @@ export function createGithubAppPublisher(config, ports) {
     const repository = await ports.installationRequest('GET', prefix);
     requireThat(repository.id === config.repository_id && repository.full_name === config.repository, 'publisher_repository_mismatch');
     const run = await ports.installationRequest('GET', `${prefix}/actions/runs/${binding.run_id}`);
-    requireThat(run.id === binding.run_id && run.run_attempt === binding.run_attempt && run.repository?.id === config.repository_id &&
+    requireThat(positive(run.id) && String(run.id) === binding.run_id && run.run_attempt === binding.run_attempt && run.repository?.id === config.repository_id &&
       run.event === 'pull_request' && run.head_sha === binding.head_commit &&
       run.pull_requests?.some(pr => pr.number === binding.pull_request), 'publisher_run_mismatch');
     const attempt = await ports.installationRequest('GET', `${prefix}/actions/runs/${binding.run_id}/attempts/${binding.run_attempt}`);
-    requireThat(attempt.id === binding.run_id && attempt.run_attempt === binding.run_attempt &&
+    requireThat(positive(attempt.id) && String(attempt.id) === binding.run_id && attempt.run_attempt === binding.run_attempt &&
       attempt.repository?.id === config.repository_id && attempt.event === 'pull_request' &&
       attempt.head_sha === binding.head_commit &&
       attempt.pull_requests?.some(pr => pr.number === binding.pull_request), 'publisher_run_attempt_mismatch');
@@ -53,7 +54,7 @@ export function createGithubAppPublisher(config, ports) {
       try {
         requireThat(exact(input, ['repository', 'run_id', 'run_attempt', 'pull_request', 'base_commit', 'head_commit', 'candidate_commit', 'candidate_tree']), 'publisher_binding_invalid');
         const binding = Object.freeze({ ...input });
-        requireThat(binding.repository === config.repository && positive(binding.run_id) && positive(binding.run_attempt) && positive(binding.pull_request) &&
+        requireThat(binding.repository === config.repository && runId(binding.run_id) && positive(binding.run_attempt) && positive(binding.pull_request) &&
           ['base_commit', 'head_commit', 'candidate_commit', 'candidate_tree'].every(key => sha(binding[key])) &&
           binding.base_commit !== binding.candidate_commit, 'publisher_binding_invalid');
         requireThat(binding.candidate_commit === binding.head_commit, 'publisher_integration_candidate_unavailable');

@@ -71,3 +71,9 @@ a new authenticated attempt must obtain fresh matching verifier evidence.
 This replay guard remains process-local, not restart-durable. Installed callback
 composition, durable delivery/decision storage, queue publishing, baseline
 approval and external required-check enforcement remain uninstalled.
+
+Publisher `run_id` is a canonical positive decimal string representing a safe
+integer (no leading zero, exponent, sign or fraction). Authenticated GitHub run
+IDs remain positive numeric values and must stringify exactly to this binding.
+This composes with the real host evidence validator's string identity contract;
+neutral local harness run IDs remain unchanged. This does not install a callback.
