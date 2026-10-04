@@ -22,13 +22,14 @@ filesystem=$(docker exec "$service_id" df -PT /var/lib/postgresql)
 printf '%s\n' "$filesystem"
 [[ $(printf '%s\n' "$filesystem" | awk 'NR==2 {print $2}') == tmpfs ]]
 [[ $(printf '%s\n' "$filesystem" | awk 'NR==2 {print $3}') == 4194304 ]]
-settings=$(docker exec "$service_id" psql -U freedom_local -d fp_foundation_ci -v ON_ERROR_STOP=1 -tA -c "SELECT json_build_object('database',current_database(),'data_directory',current_setting('data_directory'),'checkpoint_completion_target',current_setting('checkpoint_completion_target'),'fsync',current_setting('fsync'),'full_page_writes',current_setting('full_page_writes'))")
+settings=$(docker exec "$service_id" psql -U freedom_local -d fp_foundation_ci -v ON_ERROR_STOP=1 -tA -c "SELECT json_build_object('database',current_database(),'data_directory',current_setting('data_directory'),'checkpoint_completion_target',current_setting('checkpoint_completion_target'),'max_locks_per_transaction',current_setting('max_locks_per_transaction'),'fsync',current_setting('fsync'),'full_page_writes',current_setting('full_page_writes'))")
 python3 - "$settings" <<'PY'
 import json,sys
 s=json.loads(sys.argv[1])
 assert s['database']=='fp_foundation_ci'
 assert s['data_directory']=='/var/lib/postgresql/18/docker'
 assert float(s['checkpoint_completion_target'])==0
+assert int(s['max_locks_per_transaction'])==256
 assert s['fsync']=='on' and s['full_page_writes']=='on'
-print('runtime_postgres_storage_readback=pass checkpoint_completion_target=0 fsync=on full_page_writes=on')
+print('runtime_postgres_storage_readback=pass checkpoint_completion_target=0 max_locks_per_transaction=256 fsync=on full_page_writes=on')
 PY

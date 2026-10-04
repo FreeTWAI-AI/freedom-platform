@@ -51,7 +51,7 @@ jobs:
           POSTGRES_HOST_AUTH_METHOD: trust
           # Ephemeral test cluster: retain fsync/full_page_writes, avoid paced
           # checkpoints blocking fixture DROP DATABASE behind a disk backlog.
-          POSTGRES_INITDB_ARGS: '-c checkpoint_completion_target=0'
+          POSTGRES_INITDB_ARGS: '-c checkpoint_completion_target=0 -c max_locks_per_transaction=256'
         ports: ['127.0.0.1:5432:5432']
         options: >-
           --tmpfs /var/lib/postgresql:rw,size=4294967296
@@ -83,7 +83,7 @@ jobs:
           # Load only Ubuntu's exact bwrap extra profile, retaining AppArmor and
           # userns restrictions, then prove namespaces as the unprivileged runner.
           bash scripts/ci/verify-native-cli-prerequisites.sh
-      - name: Complete runtime coverage in two isolated databases
+      - name: Complete runtime coverage in four isolated databases
         run: |
           node --test --test-concurrency=1 tests/contribution-tools/runtime-sharding.integration.test.mjs
           node scripts/runtime-full.mjs

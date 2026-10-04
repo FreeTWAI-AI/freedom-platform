@@ -113,8 +113,8 @@ async function runGroup(root, selections, runtime, options) {
     return selections.map(({ id }) => result(id, 'not_run', 'invalid_suite_timeout'));
   }
   const full = runtime && selections.some(item => item.id === 'runtime.full');
-  const shardCount = full ? (options.runtimeShards ?? 2) : 1;
-  if (![1, 2].includes(shardCount) || (!runtime && shardCount !== 1 && options.runtimeShards !== undefined)) {
+  const shardCount = full ? (options.runtimeShards ?? 4) : 1;
+  if (![1, 2, 4].includes(shardCount) || (!runtime && shardCount !== 1 && options.runtimeShards !== undefined)) {
     return selections.map(({ id }) => result(id, 'not_run', 'invalid_runtime_shards'));
   }
   if (runtime && shardCount > 1) return runSharded(root, selections, files, options, timeout, shardCount);
@@ -142,7 +142,7 @@ async function runGroup(root, selections, runtime, options) {
 
 // Deterministic disjoint partition of the already validated exact selection.
 export function partitionRuntimeFiles(files, count) {
-  if (count !== 2 || files.length < count || new Set(files).size !== files.length) throw Error('invalid_runtime_partition');
+  if (![1, 2, 4].includes(count) || files.length < count || new Set(files).size !== files.length) throw Error('invalid_runtime_partition');
   return Array.from({ length: count }, (_, index) => files.filter((_, offset) => offset % count === index));
 }
 

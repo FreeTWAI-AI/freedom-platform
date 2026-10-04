@@ -25,7 +25,7 @@ export function isDisposableDatabaseUrl(value) {
 // The caller must explicitly provide a disposable, local test server. Each
 // invocation owns only these fresh databases; it never drops the supplied DB.
 export async function createRuntimeDatabases(baseUrl, count) {
-  if (count !== 2) throw Error('invalid_runtime_shards');
+  if (![1, 2, 4].includes(count)) throw Error('invalid_runtime_shards');
   if (!isDisposableDatabaseUrl(baseUrl)) throw Error('test_database_rejected');
   const { Client } = createRequire(import.meta.url)('pg');
   const prefix = `fp_suite_${process.pid}_${randomBytes(8).toString('hex')}`;
@@ -82,13 +82,14 @@ export async function createRuntimeDatabases(baseUrl, count) {
       await cleaner.connect();
       cleanerPid = await identity(cleaner);
       await stop(cleaner, ownerPid, ownerApplication);
-      for (const name of names) {
+      for (const [index, name] of names.entries()) {
         const found = await boundedQuery(cleaner, 'SELECT pg_get_userbyid(datdba) AS owner FROM pg_database WHERE datname=$1', [name]);
         if (!found.rows.length) continue;
         if (found.rows[0].owner !== owner) { okay = false; continue; }
         const stopped = await boundedQuery(cleaner, 'SELECT pg_terminate_backend(pid,1000) AS stopped FROM pg_stat_activity WHERE datname=$1 AND pid<>pg_backend_pid()', [name]);
         if (stopped.rows.some(row => row.stopped !== true)) throw Error('database_backend_unsettled');
-        try { await boundedQuery(cleaner, `DROP DATABASE ${quote(name)}`, [], 6000); }
+        const dropBudget = Math.min(6000, Math.floor((remaining() - 4000) / (names.length - index)));
+        try { await boundedQuery(cleaner, `DROP DATABASE ${quote(name)}`, [], dropBudget); }
         catch { /* Unknown DROP acknowledgement requires fresh reconciliation. */ }
       }
     } catch { okay = false; }

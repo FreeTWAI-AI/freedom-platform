@@ -32,7 +32,7 @@ async function connect(url) {
 test('fresh owned databases isolate identical public tables and cleanup preserves base', {}, async () => {
   const owner = await connect(database);
   const before = (await owner.query('SELECT current_database() AS name')).rows[0].name;
-  const created = await createRuntimeDatabases(database, 2);
+  const created = await createRuntimeDatabases(database, 4);
   try {
     assert.notEqual(created.urls[0], created.urls[1]);
     const clients = await Promise.all(created.urls.map(connect));
@@ -58,7 +58,7 @@ test('committed CREATE with a lost acknowledgement is still cleaned by its regis
     }
     return original.apply(this, args);
   };
-  try { await assert.rejects(createRuntimeDatabases(database, 2), /runtime_database_provision_failed/); }
+  try { await assert.rejects(createRuntimeDatabases(database, 4), /runtime_database_provision_failed/); }
   finally { pg.Client.prototype.query = original; }
   assert(created);
   const owner = await connect(database);
@@ -74,7 +74,7 @@ test('successful shards merge the entire selected file/case union without duplic
   const result = await runLocalSuite(root, 'runtime.full', { testDatabaseUrl: database });
   validateReport(result);
   assert.equal(result.status, 'passed', JSON.stringify(result));
-  assert.equal(result.shards.length, 2); assert.equal(result.database_cleanup_verified, true);
+  assert.equal(result.shards.length, 4); assert.equal(result.database_cleanup_verified, true);
   const expected = [...names, 'tests/runtime/new-shard-coverage.test.ts'].sort();
   assert.deepEqual(result.test_files.map(file => file.path), expected);
   assert.deepEqual(result.shards.flatMap(shard => shard.selected_files).sort(), expected);
@@ -86,12 +86,12 @@ test('full shards cover every file once; one failing shard cannot hide the compl
   const root = await fullFixture(t);
   // Distinct shards execute the same public table name on independent DBs.
   const pgPath = createRequire(import.meta.url).resolve('pg');
-  for (const [index, path] of names.slice(0, 2).entries()) await put(root, path, `import {test} from 'node:test';import assert from 'node:assert/strict';import {createRequire} from 'node:module';const {Client}=createRequire(import.meta.url)(${JSON.stringify(pgPath)});test('real database',async()=>{const c=new Client({connectionString:process.env.TEST_DATABASE_URL});await c.connect();try{await c.query('CREATE TABLE public.shard_collision(value integer)');${index === 0 ? "assert.fail('bounded synthetic assertion');" : "await c.query('INSERT INTO public.shard_collision VALUES(2)');"}}finally{await c.end();}});`);
+  for (const [index, path] of names.slice(0, 4).entries()) await put(root, path, `import {test} from 'node:test';import assert from 'node:assert/strict';import {createRequire} from 'node:module';const {Client}=createRequire(import.meta.url)(${JSON.stringify(pgPath)});test('real database',async()=>{const c=new Client({connectionString:process.env.TEST_DATABASE_URL});await c.connect();try{await c.query('CREATE TABLE public.shard_collision(value integer)');${index === 0 ? "assert.fail('bounded synthetic assertion');" : "await c.query('INSERT INTO public.shard_collision VALUES(2)');"}}finally{await c.end();}});`);
   const result = await runLocalSuite(root, 'runtime.full', { testDatabaseUrl: database });
   validateReport(result);
   assert.equal(result.status, 'failed'); assert.equal(result.reason, 'test_process_failed');
-  assert.equal(result.shards.length, 2); assert.equal(result.database_cleanup_verified, true);
-  assert.equal(result.shards.filter(shard => shard.reason === 'tests_executed').length, 1);
+  assert.equal(result.shards.length, 4); assert.equal(result.database_cleanup_verified, true);
+  assert.equal(result.shards.filter(shard => shard.reason === 'tests_executed').length, 3);
   assert.deepEqual(result.shards.flatMap(shard => shard.selected_files).sort(), names);
   assert.deepEqual(result.test_files.map(file => file.path), names);
   assert.equal(result.test_count, names.length);
@@ -100,9 +100,9 @@ test('full shards cover every file once; one failing shard cannot hide the compl
   assert(result.shards.every(shard => /^[a-f0-9]{64}$/.test(shard.evidence_sha256)));
 });
 
-test('global cancellation kills both active shards and cleans only invocation-owned databases', {}, async t => {
+test('global cancellation kills all four active shards and cleans only invocation-owned databases', {}, async t => {
   const root = await fullFixture(t);
-  for (const path of names.slice(0, 2)) await put(root, path, "import {test} from 'node:test';test('pending',()=>new Promise(()=>setInterval(()=>{},1000))); ");
+  for (const path of names.slice(0, 4)) await put(root, path, "import {test} from 'node:test';test('pending',()=>new Promise(()=>setInterval(()=>{},1000))); ");
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 1000);
   try {
@@ -110,14 +110,14 @@ test('global cancellation kills both active shards and cleans only invocation-ow
     validateReport(result);
     assert.equal(result.status, 'failed'); assert.equal(result.reason, 'test_cancelled');
     assert.equal(result.database_cleanup_verified, true);
-    assert.equal(result.shards.length, 2);
+    assert.equal(result.shards.length, 4);
     assert(result.shards.every(shard => shard.reason === 'test_cancelled' && shard.termination_signal === 'SIGKILL'));
     assert.deepEqual(result.shards.flatMap(shard => shard.selected_files).sort(), names);
   } finally { clearTimeout(timer); }
 });
 
 test('lost DROP acknowledgement reconciles exact owned names on a fresh verified connection', {}, async () => {
-  const created = await createRuntimeDatabases(database, 2);
+  const created = await createRuntimeDatabases(database, 4);
   const owned = created.urls.map(url => new URL(url).pathname.slice(1));
   const original = pg.Client.prototype.query;
   let dropped = 0;
@@ -132,7 +132,7 @@ test('lost DROP acknowledgement reconciles exact owned names on a fresh verified
   try { cleanup = await created.cleanup(); } finally { pg.Client.prototype.query = original; }
   const owner = await connect(database);
   try {
-    assert.equal(dropped,2);
+    assert.equal(dropped,4);
     assert.equal((await owner.query('SELECT datname FROM pg_database WHERE datname=ANY($1)',[owned])).rowCount,0);
     assert.equal((await owner.query('SELECT current_database() name')).rows[0].name,new URL(database).pathname.slice(1));
     assert.equal(cleanup,true,'actual committed DROP lost acknowledgement must be reconciled, not reported as unverified');
@@ -140,7 +140,7 @@ test('lost DROP acknowledgement reconciles exact owned names on a fresh verified
 });
 
 test('cleanup refuses changed ownership and preserves that database and the supplied base', {}, async () => {
-  const created=await createRuntimeDatabases(database,2),names=created.urls.map(url=>new URL(url).pathname.slice(1));
+  const created=await createRuntimeDatabases(database,4),names=created.urls.map(url=>new URL(url).pathname.slice(1));
   const admin=await connect(database),foreign=`fp_cleanup_foreign_${process.pid}`;
   try {
     await admin.query(`CREATE ROLE "${foreign}" NOLOGIN`);
