@@ -48,7 +48,7 @@ test('fixed host profile exercises actual six createApp routes without mutating 
   const commit=git('HEAD'),tree=git('HEAD^{tree}');
   // Exact local Git target identity; source/policy/workflow are explicitly
   // synthetic assertions, NOT approval/authenticated workflow publication.
-  const binding={repository:'fixture/platform',pull_request:1,run_id:'local-app-smoke',base_commit:commit,head_commit:commit,candidate_commit:commit,candidate_tree:tree,
+  const binding={repository:'fixture/platform',pull_request:1,run_id: 'local-app-smoke', run_attempt: 1,base_commit:commit,head_commit:commit,candidate_commit:commit,candidate_tree:tree,
     source_commit:'1'.repeat(40),release_set_sha256:'2'.repeat(64),policy_revision:'synthetic-1',policy_sha256:'3'.repeat(64),verifier_commit:commit,verifier_sha256:'4'.repeat(64)};
   const workflow={identity:'fixture/local-app-smoke',commit,publisher:'synthetic-unverified'};
   const expectedHarnessSha256=await installedBehaviorHarnessDigest(),app=createApp(pool,manifest.origin);

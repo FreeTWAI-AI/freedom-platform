@@ -22,11 +22,11 @@ The verifier pin is the ordered `[path,sha256]` closure fingerprint from `instal
 
 Each operator trust key has `kid`, `purpose`, Ed25519 `public_jwk`, `not_before`, and `not_after`. Separate purposes are `verifier-installation`, `github-candidate`, and `runner-observations`; a release-signing key is insufficient. Exact payload bytes are signed with the domain `freedom.github-host/{purpose}/v1` followed by one NUL byte. Neither the bootstrap nor this repository generates or distributes operator private keys.
 
-The independently authenticated event gateway signs a job payload with `format:freedom.github-candidate/v1`, `publisher`, `issued_at`, `expires_at` (maximum five-minute window), `event`, `repository`, `run_id`, `pull_request`, `base_commit`, `head_commit`, `candidate_commit`, and `candidate_tree`. It must obtain current identities from authenticated GitHub delivery/API state and reject superseded/replayed events before signing. The executable validates identity, freshness and graph binding; it does not implement webhook HMAC verification, API re-fetch, delivery replay storage or supersession storage.
+The independently authenticated event gateway signs a job payload with `format:freedom.github-candidate/v1`, `publisher`, `issued_at`, `expires_at` (maximum five-minute window), `event`, `repository`, `run_id`, `run_attempt`, `pull_request`, `base_commit`, `head_commit`, `candidate_commit`, and `candidate_tree`. It must obtain current identities from authenticated GitHub delivery/API state and reject superseded/replayed events before signing. The executable validates identity, freshness and graph binding; it does not implement webhook HMAC verification, API re-fetch, delivery replay storage or supersession storage.
 
 For `pull_request`, the PR number is positive and the candidate is the exact head descended from base or the exact two-parent integration commit. For `merge_group`, PR number is null, candidate equals the authenticated queue head, and that head must descend from the authenticated queue base. Do not invent a single PR number for an aggregate candidate. Base equal to candidate is rejected. Actual Git object/tree/parent validation runs inside the pinned verifier using a complete host-owned bare repository with graph overrides prohibited.
 
-The isolated runner signs `format:freedom.github-runner-observations/v1`, `publisher`, `repository`, `run_id`, and `observations`. Every observation is still checked against the full candidate/tree/base/run/policy/verifier binding, workflow publisher/revision, suite and harness digest by the existing verifier. These signatures must originate from a separate trusted supervisor; candidate JSON or candidate exit status cannot obtain a signing key. A successful signed envelope does not prove the supervisor's behavioral adequacy or source approval.
+The isolated runner signs `format:freedom.github-runner-observations/v1`, `publisher`, `repository`, `run_id`, `run_attempt`, and `observations`. Every observation is still checked against the full candidate/tree/base/run/policy/verifier binding, workflow publisher/revision, suite and harness digest by the existing verifier. These signatures must originate from a separate trusted supervisor; candidate JSON or candidate exit status cannot obtain a signing key. A successful signed envelope does not prove the supervisor's behavioral adequacy or source approval.
 
 ## Pending production boundary
 
@@ -58,3 +58,16 @@ This increment supports PR exact-head candidates only. It re-fetches authenticat
 The publisher serializes calls and remembers at most 1,024 attempted run/SHA publications within its process. It consumes an attempt before POST, so unknown acknowledgement cannot automatically retry. This is **not durable replay/supersession storage**; cross-process restart recovery, run-attempt authorization and reconciliation of ambiguous POST acknowledgements still need an operator-owned transactional store. A PR may change between GitHub reads and POST; a check remains pinned to the old exact SHA, and the final recheck returns unavailable. GitHub provides no atomic PR-head predicate for creating a check. Never interpret that unavailable return as proof that no old-SHA check was created.
 
 All results retain `gate_enforced:false` and `merge_authorized:false`. Successful mocked publication is developer evidence only. Existing required security checks are not replaced. Operator install, independently trusted gateway/supervisor, durable state, merge-queue support, app-bound branch enforcement and an actual malicious PR rejected remain pending. Tests use injected fetch and newly generated ephemeral RSA keys; no live GitHub request, publisher POST or production credential was used.
+
+The closed candidate and observation bindings require a positive safe-integer
+`run_attempt`. Local synthetic harnesses explicitly use attempt1; they do not
+infer a remote attempt. The publisher reads both the current run and GitHub's
+[exact attempt endpoint](https://docs.github.com/en/rest/actions/workflow-runs#get-a-workflow-run-attempt),
+checking run ID, attempt, repository, event, head and PR before verification,
+before POST and after independent check readback. Stale attempts or reruns
+remain unavailable. Replay keys and check external IDs include the attempt.
+An unknown POST acknowledgement blocks automatic retry of that same attempt;
+a new authenticated attempt must obtain fresh matching verifier evidence.
+This replay guard remains process-local, not restart-durable. Installed callback
+composition, durable delivery/decision storage, queue publishing, baseline
+approval and external required-check enforcement remain uninstalled.

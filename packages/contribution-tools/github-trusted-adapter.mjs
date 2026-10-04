@@ -76,8 +76,9 @@ export async function installVerifier(config) {
 export async function runHostVerification(config,jobEnvelope,observationsEnvelope) {
   installerPlan(config);
   const job=authenticateEnvelope(jobEnvelope,config.trust,'github-candidate');
-  exact(job,['format','publisher','issued_at','expires_at','event','repository','run_id','pull_request','base_commit','head_commit','candidate_commit','candidate_tree']);
+  exact(job,['format','publisher','issued_at','expires_at','event','repository','run_id','run_attempt','pull_request','base_commit','head_commit','candidate_commit','candidate_tree']);
   check(job.format==='freedom.github-candidate/v1'&&job.publisher===config.trust.publisher&&job.repository===config.repository,'host_event_identity_mismatch');
+  check(Number.isSafeInteger(job.run_attempt)&&job.run_attempt>0,'invalid_run_attempt');
   const now=Date.now(),issued=Date.parse(job.issued_at),expires=Date.parse(job.expires_at);
   check(Number.isFinite(issued)&&issued<=now&&now<expires&&expires-issued<=300_000,'host_event_stale');
   check(['pull_request','merge_group'].includes(job.event),'unsupported_host_event');
@@ -85,14 +86,14 @@ export async function runHostVerification(config,jobEnvelope,observationsEnvelop
   check(job.base_commit!==job.candidate_commit,'candidate_base_equals_candidate');
   check(job.event==='merge_group'?job.pull_request===null&&job.candidate_commit===job.head_commit:Number.isSafeInteger(job.pull_request)&&job.pull_request>0,'host_event_candidate_mismatch');
   const observed=authenticateEnvelope(observationsEnvelope,config.trust,'runner-observations');
-  exact(observed,['format','publisher','repository','run_id','observations']);
-  check(observed.format==='freedom.github-runner-observations/v1'&&observed.publisher===config.trust.publisher&&observed.repository===job.repository&&observed.run_id===job.run_id,'host_runner_identity_mismatch');
+  exact(observed,['format','publisher','repository','run_id','run_attempt','observations']);
+  check(observed.format==='freedom.github-runner-observations/v1'&&observed.publisher===config.trust.publisher&&observed.repository===job.repository&&observed.run_id===job.run_id&&observed.run_attempt===job.run_attempt,'host_runner_identity_mismatch');
   const target=await installVerifier(config);
   const objects=await outside(config.object_repository,config.candidate_roots);
   const policyRoot=await outside(config.policy_root,config.candidate_roots);
   const policyBytes=await readBounded(policyRoot,'trusted-ci-policy.json');
   const verifier=await import(pathToFileURL(join(target,'packages/contribution-tools/trusted-ci.mjs')).href);
-  const binding=Object.fromEntries(['repository','run_id','pull_request','base_commit','head_commit','candidate_commit','candidate_tree'].map(k=>[k,job[k]]));
+  const binding=Object.fromEntries(['repository','run_id','run_attempt','pull_request','base_commit','head_commit','candidate_commit','candidate_tree'].map(k=>[k,job[k]]));
   const report=await verifier[job.event==='merge_group'?'verifyHostMergeGroupCandidate':'verifyHostCandidate']({objectRepository:objects,binding,policyBytes,expectedPolicy:config.expected_policy,observations:observed.observations});
   // Authentication is real, but no App publisher or GitHub enforcement is installed
   // by this executable. Never turn a local verifier pass into a green merge check.

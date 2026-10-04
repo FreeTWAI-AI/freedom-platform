@@ -51,8 +51,8 @@ test('authenticated host adapter executes external verifier on actual Git object
  const base=commit();await put(f.root,'.github/workflows/verify.yml','jobs: {fake: {steps: [{run: "echo success"}]}}\n');await put(f.root,'packages/contribution-tools/trusted-ci.mjs','throw Error("Candidate verifier executed")');const head=commit();const bare=await fixtureRoot(t);git(f.root,['clone','--quiet','--bare','--no-hardlinks',f.root,bare]);f.config.object_repository=bare;
  const policy={format:'freedom.trusted-ci-policy/v1',revision:'synthetic-policy',repository,source:{repository:f.manifest.source_repository,commit:f.manifest.source_commit,release_set_sha256:sha256(f.manifestBytes)},verifier:{commit:f.config.verifier_commit,sha256:f.config.verifier_sha256},workflow:{identity:'fixed-host/verify',commit:'c'.repeat(40),publisher:f.s.trust.publisher},required_suites:['source.approval'],fallback_suites:['runtime.full'],suites:['source.approval','runtime.full','governance.unit'].map(id=>({id,harness_sha256:sha256(id)}))};
  await put(f.policyRoot,'trusted-ci-policy.json',pretty(policy));f.config.expected_policy={revision:policy.revision,sha256:sha256(pretty(policy))};
- const job={format:'freedom.github-candidate/v1',publisher:f.s.trust.publisher,issued_at:new Date(Date.now()-1000).toISOString(),expires_at:new Date(Date.now()+60000).toISOString(),event:'pull_request',repository,run_id:'synthetic-run',pull_request:42,base_commit:base,head_commit:head,candidate_commit:head,candidate_tree:git(f.root,['rev-parse','HEAD^{tree}'])};
- const observed={format:'freedom.github-runner-observations/v1',publisher:f.s.trust.publisher,repository,run_id:job.run_id,observations:[]};
+ const job={format:'freedom.github-candidate/v1',publisher:f.s.trust.publisher,issued_at:new Date(Date.now()-1000).toISOString(),expires_at:new Date(Date.now()+60000).toISOString(),event:'pull_request',repository,run_id:'synthetic-run',run_attempt:1,pull_request:42,base_commit:base,head_commit:head,candidate_commit:head,candidate_tree:git(f.root,['rev-parse','HEAD^{tree}'])};
+ const observed={format:'freedom.github-runner-observations/v1',publisher:f.s.trust.publisher,repository,run_id:job.run_id,run_attempt:job.run_attempt,observations:[]};
  const run=(j=job,o=observed)=>runHostVerification(f.config,f.s.envelope('github-candidate',j),f.s.envelope('runner-observations',o));
  const result=await run();assert.equal(result.verification_status,'unavailable');assert.equal(result.gate_enforced,false);assert(result.report.changed_paths.includes('.github/workflows/verify.yml'));assert(result.report.selected_suites.includes('runtime.full'));
  await put(f.host,'host-config.json',pretty(f.config));await put(f.host,'job.proof.json',f.s.envelope('github-candidate',job));await put(f.host,'observations.proof.json',f.s.envelope('runner-observations',observed));
@@ -63,6 +63,7 @@ test('authenticated host adapter executes external verifier on actual Git object
  await assert.rejects(run({...job,event:'merge_group',pull_request:42}),{code:'host_event_candidate_mismatch'});
  await assert.rejects(run({...job,expires_at:new Date(Date.now()-1).toISOString()}),{code:'host_event_stale'});
  await assert.rejects(run(job,{...observed,run_id:'superseded-run'}),{code:'host_runner_identity_mismatch'});
+ await assert.rejects(run(job,{...observed,run_attempt:2}),{code:'host_runner_identity_mismatch'});
  await put(f.vendor,'client/client.mjs','export const candidateForged=true;');const altered=commit();git(f.root,['--git-dir='+bare,'fetch','--quiet',f.root,'+HEAD:refs/heads/candidate']);
  await assert.rejects(run({...job,head_commit:altered,candidate_commit:altered,candidate_tree:git(f.root,['rev-parse','HEAD^{tree}'])}),{code:'host_artifact_integrity_mismatch'});
 });

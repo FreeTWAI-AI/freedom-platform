@@ -6,7 +6,7 @@ import { MEMBER_BEHAVIOR as manifest, MEMBER_BEHAVIOR_CASES as cases } from '../
 import { VerificationError } from '../errors.mjs';
 
 async function fixture() {
-  const input = { binding: { repository:'fixture/repository', pull_request:1, run_id:'synthetic-run',
+  const input = { binding: { repository:'fixture/repository', pull_request:1, run_id: 'synthetic-run', run_attempt: 1,
     base_commit:'1'.repeat(40),head_commit:'2'.repeat(40),candidate_commit:'3'.repeat(40),candidate_tree:'4'.repeat(40),
     source_commit:'5'.repeat(40),release_set_sha256:'6'.repeat(64),policy_revision:'fixture-1',policy_sha256:'7'.repeat(64),
     verifier_commit:'8'.repeat(40),verifier_sha256:'9'.repeat(64) },

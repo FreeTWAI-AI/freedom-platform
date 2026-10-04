@@ -142,9 +142,10 @@ function readPolicy(bytes, expected) {
   return policy;
 }
 
-const BINDING_FIELDS = ['repository', 'pull_request', 'run_id', 'base_commit', 'head_commit', 'candidate_commit', 'candidate_tree'];
+const BINDING_FIELDS = ['repository', 'pull_request', 'run_id', 'run_attempt', 'base_commit', 'head_commit', 'candidate_commit', 'candidate_tree'];
 function validateBinding(value, mergeGroup = false) {
   fields(value, BINDING_FIELDS); id(value.repository); id(value.run_id);
+  check(Number.isSafeInteger(value.run_attempt) && value.run_attempt > 0, 'invalid_run_attempt');
   check(mergeGroup ? value.pull_request === null : Number.isSafeInteger(value.pull_request) && value.pull_request > 0, 'invalid_pull_request');
   if (mergeGroup) check(value.candidate_commit === value.head_commit, 'merge_group_candidate_mismatch');
   for (const key of ['base_commit', 'head_commit', 'candidate_commit', 'candidate_tree']) commit(value[key]);

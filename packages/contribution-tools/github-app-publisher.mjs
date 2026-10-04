@@ -30,9 +30,14 @@ export function createGithubAppPublisher(config, ports) {
     const repository = await ports.installationRequest('GET', prefix);
     requireThat(repository.id === config.repository_id && repository.full_name === config.repository, 'publisher_repository_mismatch');
     const run = await ports.installationRequest('GET', `${prefix}/actions/runs/${binding.run_id}`);
-    requireThat(run.id === binding.run_id && run.repository?.id === config.repository_id &&
+    requireThat(run.id === binding.run_id && run.run_attempt === binding.run_attempt && run.repository?.id === config.repository_id &&
       run.event === 'pull_request' && run.head_sha === binding.head_commit &&
       run.pull_requests?.some(pr => pr.number === binding.pull_request), 'publisher_run_mismatch');
+    const attempt = await ports.installationRequest('GET', `${prefix}/actions/runs/${binding.run_id}/attempts/${binding.run_attempt}`);
+    requireThat(attempt.id === binding.run_id && attempt.run_attempt === binding.run_attempt &&
+      attempt.repository?.id === config.repository_id && attempt.event === 'pull_request' &&
+      attempt.head_sha === binding.head_commit &&
+      attempt.pull_requests?.some(pr => pr.number === binding.pull_request), 'publisher_run_attempt_mismatch');
     const pr = await ports.installationRequest('GET', `${prefix}/pulls/${binding.pull_request}`);
     requireThat(pr.number === binding.pull_request && pr.state === 'open' && pr.merged === false &&
       pr.base?.repo?.id === config.repository_id && pr.base.sha === binding.base_commit &&
@@ -46,13 +51,13 @@ export function createGithubAppPublisher(config, ports) {
       if (busy) return unavailable('publisher_busy');
       busy = true;
       try {
-        requireThat(exact(input, ['repository', 'run_id', 'pull_request', 'base_commit', 'head_commit', 'candidate_commit', 'candidate_tree']), 'publisher_binding_invalid');
+        requireThat(exact(input, ['repository', 'run_id', 'run_attempt', 'pull_request', 'base_commit', 'head_commit', 'candidate_commit', 'candidate_tree']), 'publisher_binding_invalid');
         const binding = Object.freeze({ ...input });
-        requireThat(binding.repository === config.repository && positive(binding.run_id) && positive(binding.pull_request) &&
+        requireThat(binding.repository === config.repository && positive(binding.run_id) && positive(binding.run_attempt) && positive(binding.pull_request) &&
           ['base_commit', 'head_commit', 'candidate_commit', 'candidate_tree'].every(key => sha(binding[key])) &&
           binding.base_commit !== binding.candidate_commit, 'publisher_binding_invalid');
         requireThat(binding.candidate_commit === binding.head_commit, 'publisher_integration_candidate_unavailable');
-        const key = `${binding.run_id}:${binding.candidate_commit}`;
+        const key = `${binding.run_id}:${binding.run_attempt}:${binding.candidate_commit}`;
         requireThat(!consumed.has(key) && consumed.size < 1024, 'publisher_replay_unavailable');
         await current(binding);
         // Installed verifier obtains its own authenticated observations; no artifact/report parameter exists.
@@ -67,7 +72,7 @@ export function createGithubAppPublisher(config, ports) {
           Object.keys(binding).every(field => report.binding[field] === binding[field]), 'publisher_verified_decision_unavailable');
         await current(binding);
         consumed.add(key); // Unknown POST acknowledgement cannot cause an automatic retry.
-        const externalId = `freedom:${config.repository_id}:${binding.run_id}:${binding.candidate_commit}`;
+        const externalId = `freedom:${config.repository_id}:${binding.run_id}:${binding.run_attempt}:${binding.candidate_commit}`;
         const check = await ports.installationRequest('POST', `${prefix}/check-runs`, {
           name: config.check_name, head_sha: binding.candidate_commit, status: 'completed', conclusion: 'success',
           external_id: externalId,
@@ -156,7 +161,7 @@ export function createGithubAppTransport(config, privateKey, { fetchImpl = globa
     },
     installationRequest: async (method, path, body) => {
       const getAllowed = path === prefix ||
-        path.startsWith(`${prefix}/`) && /^(check-runs\/[1-9][0-9]*|actions\/runs\/[1-9][0-9]*|pulls\/[1-9][0-9]*|git\/commits\/[a-f0-9]{40})$/.test(path.slice(prefix.length + 1));
+        path.startsWith(`${prefix}/`) && /^(check-runs\/[1-9][0-9]*|actions\/runs\/[1-9][0-9]*(?:\/attempts\/[1-9][0-9]*)?|pulls\/[1-9][0-9]*|git\/commits\/[a-f0-9]{40})$/.test(path.slice(prefix.length + 1));
       requireThat(method === 'GET' && body === undefined && getAllowed ||
         method === 'POST' && path === `${prefix}/check-runs` && body &&
         exact(body, ['name', 'head_sha', 'status', 'conclusion', 'external_id', 'output']) && sha(body.head_sha) &&

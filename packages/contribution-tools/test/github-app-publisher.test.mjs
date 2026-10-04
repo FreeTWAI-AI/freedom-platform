@@ -3,15 +3,15 @@ import assert from 'node:assert/strict';
 import { createGithubAppPublisher } from '../github-app-publisher.mjs';
 const config = {repository:'owner/repo',repository_id:1,app_id:2,installation_id:3,check_name:'fixed-host'};
 const accepted = current => ({format:'freedom.host-verifier-report/v1',status:'passed',binding:current,blockers:[],selected_suites:['runtime.full'],checks:[{suite_id:'runtime.full',status:'passed',evidence_sha256:'e'.repeat(64)}]});
-const binding = {repository:'owner/repo',run_id:4,pull_request:5,base_commit:'a'.repeat(40),head_commit:'b'.repeat(40),candidate_commit:'b'.repeat(40),candidate_tree:'c'.repeat(40)};
+const binding = {repository:'owner/repo',run_id:4,run_attempt:1,pull_request:5,base_commit:'a'.repeat(40),head_commit:'b'.repeat(40),candidate_commit:'b'.repeat(40),candidate_tree:'c'.repeat(40)};
 function fixture(change = () => {}) {
-  const posts = [], state = {head:binding.head_commit};
+  const posts = [], state = {head:binding.head_commit,attempt:binding.run_attempt};
   const ports = {
     appRequest: async (_, path) => path === '/app' ? {id:2} : {id:3,app_id:2,suspended_at:null,permissions:{checks:'write'}},
     installationRequest: async (method,path,body) => {
       if(method==='POST'){posts.push(body);return {id:6,app:{id:2},...body};}
       if(path.endsWith('/check-runs/6'))return {id:6,app:{id:2},...posts.at(-1)};
-      if(path.endsWith('/actions/runs/4'))return {id:4,repository:{id:1},event:'pull_request',head_sha:binding.head_commit,pull_requests:[{number:5}]};
+      if(path.endsWith('/actions/runs/4') || /\/actions\/runs\/4\/attempts\/[1-9][0-9]*$/.test(path))return {id:4,run_attempt:state.attempt,repository:{id:1},event:'pull_request',head_sha:binding.head_commit,pull_requests:[{number:5}]};
       if(path.endsWith('/pulls/5'))return {number:5,state:'open',merged:false,base:{repo:{id:1},sha:binding.base_commit},head:{sha:state.head}};
       if(path.includes('/git/commits/'))return {sha:binding.candidate_commit,tree:{sha:binding.candidate_tree}};
       return {id:1,full_name:'owner/repo'};
@@ -19,7 +19,7 @@ function fixture(change = () => {}) {
     verify: async current => accepted(current)
   };
   change(ports,state);
-  return {publisher:createGithubAppPublisher(config,ports),posts,ports};
+  return {publisher:createGithubAppPublisher(config,ports),posts,ports,state};
 }
 test('exact verified SHA, fixed payload and bounded replay',async()=>{
   const f=fixture(); const result=await f.publisher.publish(binding);
@@ -86,7 +86,10 @@ test('native transport signs bounded App JWT and restricts installation token to
   assert.deepEqual(Object.keys(transport),['appRequest','installationRequest']);
   redirectReadback=true;
   await assert.rejects(transport.installationRequest('GET','/repos/owner/repo/check-runs/6'),/publisher_transport_unavailable/);
+  await transport.installationRequest('GET','/repos/owner/repo/actions/runs/4/attempts/1');
   const count=requests.length;
+  for(const route of ['actions/runs/4/attempts/0','actions/runs/4/attempts/1?exclude_pull_requests=true','actions/runs/4/attempts/1/logs','actions/runs/4/attempts/1/../2'])
+    await assert.rejects(transport.installationRequest('GET','/repos/owner/repo/'+route),/publisher_endpoint_rejected/);
   await assert.rejects(transport.installationRequest('GET','https://evil.example/token'),/publisher_endpoint_rejected/);
   await assert.rejects(transport.installationRequest('POST','/repos/owner/repo/issues',{}),/publisher_endpoint_rejected/);
   await assert.rejects(transport.installationRequest('GET','/repos/owner/repo/check-runs/0'),/publisher_endpoint_rejected/);
@@ -144,4 +147,54 @@ test('publisher captures operator ports before their mutable registration object
   f.ports.appRequest=async()=>({id:99});
   f.ports.verify=async()=>({status:'unavailable'});
   assert.equal((await f.publisher.publish(binding)).status,'published');
+});
+
+test('attempt is mandatory and stale authenticated attempt never posts',async()=>{
+  for(const attempt of [undefined,0,-1,1.5,'1',Number.MAX_SAFE_INTEGER+1]){
+    const f=fixture();const input={...binding,run_attempt:attempt};
+    if(attempt===undefined)delete input.run_attempt;
+    assert.equal((await f.publisher.publish(input)).code,'publisher_binding_invalid');assert.equal(f.posts.length,0);
+  }
+  const f=fixture(ports=>{const original=ports.installationRequest;ports.installationRequest=async(...args)=>{
+    const value=await original(...args);if(args[1].includes('/attempts/'))value.run_attempt=2;return value;
+  };});assert.equal((await f.publisher.publish(binding)).code,'publisher_run_attempt_mismatch');assert.equal(f.posts.length,0);
+});
+
+test('rerun during verification and stale verifier attempt fail before POST',async()=>{
+  for(const boundary of ['rerun','stale-evidence']){
+    const f=fixture((ports,state)=>{ports.verify=async current=>{
+      if(boundary==='rerun')state.attempt=2;
+      return accepted(boundary==='stale-evidence'?{...current,run_attempt:2}:current);
+    };});const result=await f.publisher.publish(binding);
+    assert.equal(result.code,boundary==='rerun'?'publisher_run_mismatch':'publisher_verified_decision_unavailable');assert.equal(f.posts.length,0);
+  }
+});
+
+test('completed earlier attempt cannot authorize after post/readback rerun',async()=>{
+  const f=fixture((ports,state)=>{const original=ports.installationRequest;ports.installationRequest=async(...args)=>{
+    const value=await original(...args);if(args[1].endsWith('/check-runs/6'))state.attempt=2;return value;
+  };});assert.equal((await f.publisher.publish(binding)).code,'publisher_run_mismatch');assert.equal(f.posts.length,1);
+  assert.equal((await f.publisher.publish(binding)).code,'publisher_replay_unavailable');
+});
+
+test('unknown POST blocks identical attempt but a separately verified rerun has distinct identity',async()=>{
+  let unknown=true;const f=fixture(ports=>{const original=ports.installationRequest;ports.installationRequest=async(...args)=>{
+    if(args[0]==='POST'&&unknown){unknown=false;throw new Error('private acknowledgement');}
+    return original(...args);
+  };});
+  assert.equal((await f.publisher.publish(binding)).code,'publisher_transport_unavailable');
+  assert.equal((await f.publisher.publish(binding)).code,'publisher_replay_unavailable');
+  f.state.attempt=2;
+  assert.equal((await f.publisher.publish({...binding,run_attempt:2})).status,'published');
+  assert.equal(f.posts[0].external_id,`freedom:1:4:2:${binding.candidate_commit}`);
+});
+
+test('exact attempt response independently binds run, repository, event, head and PR',async()=>{
+  for(const field of ['id','repository','event','head_sha','pull_requests']){
+    const f=fixture(ports=>{const original=ports.installationRequest;ports.installationRequest=async(...args)=>{
+      const value=await original(...args);
+      if(args[1].includes('/attempts/'))value[field]={id:99,repository:{id:99},event:'workflow_dispatch',head_sha:'d'.repeat(40),pull_requests:[{number:99}]}[field];
+      return value;
+    };});assert.equal((await f.publisher.publish(binding)).code,'publisher_run_attempt_mismatch',field);assert.equal(f.posts.length,0);
+  }
 });

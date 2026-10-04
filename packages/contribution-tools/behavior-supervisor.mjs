@@ -243,7 +243,7 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
     const harness = await installedBehaviorHarnessDigest(), verifier = await installedVerifierDigest();
     const hostCommit = git(ROOT, ['rev-parse', 'HEAD']).toString().trim();
     // Explicitly local identities: never claim a real PR/run/policy approval.
-    const binding = { repository: 'local/isolated-candidate', pull_request: 1, run_id: 'local-' + label,
+    const binding = { repository: 'local/isolated-candidate', pull_request: 1, run_id: 'local-' + label, run_attempt: 1,
       base_commit: snapshot.commit, head_commit: snapshot.commit, candidate_commit: snapshot.commit, candidate_tree: snapshot.tree,
       source_commit: hostCommit, release_set_sha256: snapshot.source_sha256, policy_revision: 'local-supervisor-prototype',
       policy_sha256: sha256('local-supervisor-prototype'), verifier_commit: hostCommit, verifier_sha256: verifier };

@@ -40,7 +40,7 @@ async function fixture(t) {
     workflow: { identity: 'central/verify', commit: 'c'.repeat(40), publisher: 'fixture-app' },
     required_suites: ['source.approval'], fallback_suites: ['runtime.full'],
     suites: suites.map(id => ({ id, harness_sha256: sha256(id) })) };
-  const input = { objectRepository: bare, binding: { repository: policy.repository, pull_request: 42, run_id: 'fixture-run-1',
+  const input = { objectRepository: bare, binding: { repository: policy.repository, pull_request: 42, run_id: 'fixture-run-1', run_attempt: 1,
     base_commit: base, head_commit: head, candidate_commit: head, candidate_tree: git(['rev-parse', head + '^{tree}']) },
     policyBytes: pretty(policy), expectedPolicy: { revision: policy.revision, sha256: sha256(pretty(policy)) }, observations: [] };
   const savePolicy = () => {
@@ -148,7 +148,7 @@ test('approved manifest cannot hide edited, extra, missing or repinned vendor ar
 
 test('base advancement, run replay, source and policy changes invalidate old observations', async t => {
   const f = await fixture(t); await f.observe();
-  for (const [key, value] of [['run_id', 'later-run'], ['base_commit', f.head], ['pull_request', 43]]) {
+  for (const [key, value] of [['run_attempt', 2], ['run_id', 'later-run'], ['base_commit', f.head], ['pull_request', 43]]) {
     const input = { ...f.input, binding: { ...f.input.binding, [key]: value } };
     await assert.rejects(verifyHostCandidate(input), { code: key === 'base_commit' ? 'candidate_base_equals_candidate' : 'host_evidence_binding_mismatch' });
   }
