@@ -4,18 +4,18 @@ The fixed suite runner installs a clean `FREEDOM_TEST_PROGRESS_FILES` containing
 its selected relative source paths and opens child FD 3. The existing Node
 reporter emits file-start and file-completion NDJSON there, separately from the
 unchanged final JSON on stdout. Sources must be bounded regular files under the
-selected checkout; records contain only the validated relative path, exact-byte
-SHA-256, monotonic elapsed milliseconds and fixed completion counts. Test names,
-assertions, errors, stdout/stderr, URLs and environment contents are omitted.
+selected checkout; records contain the validated relative path, exact-byte SHA-256, monotonic elapsed milliseconds and fixed completion counts. Failed-case records also retain the existing opaque case digest and a finite Node failure classification (`testCodeFailure`, `hookFailed`, `testTimeoutFailure`, `cancelledByParent`, `testAborted`, `subtestsFailed`, or `unknown`). Test names, assertions, exception messages, stacks, stdout/stderr, URLs and environment contents are omitted.
 
 The parent independently checks each record against the exact selection and
 source digests before reconstructing a closed diagnostic on **stderr**, prefixed
 `freedom.test-progress `. Unknown paths, changed digests, extra/duplicate keys,
 duplicate transitions, malformed/truncated records and invalid counts are
-rejected without echoing raw input. Limits are 512 sources, 1024 records,
+rejected without echoing raw input. Limits are 512 sources, 1024 file records plus at most 64 failed-case records,
 2048 bytes per line and 1 MiB per child diagnostic stream. Oversized streams
 continue to drain without accepting further records. A final bounded progress
-summary marks missing completions or rejected records as incomplete.
+summary marks missing completions, rejected records or truncated failure diagnostics as incomplete.
+
+An optional `source_line` is the Node test-event declaration location, accepted only when its integer line is within the parent-read selected source. It is not extracted from a stack and is not the throwing assertion or hook line. A `hookFailed` classification identifies a setup/teardown failure; its retained line still identifies the affected test declaration. Locations may be coarse for transformed source. If a location cannot be validated, it is omitted. These new diagnostics do not establish the cause of earlier remote failures whose details were not retained.
 
 Redirect stderr to a separate ignored report to retain completed files and the
 last started file when a timeout kills the child before final JSON exists.

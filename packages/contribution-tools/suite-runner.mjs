@@ -47,7 +47,7 @@ async function execute(root, files, runtime, databaseUrl, timeoutMs, signal) {
     for (const path of files) {
       const bytes = await readBounded(root,path); sourceBytes += bytes.length;
       if (sourceBytes > 32_000_000) throw Error('progress_source_limit');
-      sources.push({path,source_sha256:sha256(bytes)});
+      sources.push({path,source_sha256:sha256(bytes),source_lines:bytes.toString('utf8').split('\n').length});
     }
   } catch { sources = []; /* progress is optional, never final result evidence */ }
   return new Promise(done => {
