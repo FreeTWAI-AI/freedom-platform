@@ -95,7 +95,15 @@ BEGIN
   OR i.purpose NOT IN ('member.avatar','member.service-cover','community.event-banner','community.event-video','community.social-thumbnail','skill.submission-image','community.event-highlight')
   OR i.state NOT IN ('processing','stored') OR i.expires_at<=clock_timestamp() OR i.lease_expires_at<=clock_timestamp()
   OR a.state<>'pending' OR a.deletion_fence<>0 THEN RAISE EXCEPTION 'Write effect admission is invalid' USING ERRCODE='23514';END IF;
- IF i.purpose='member.avatar' AND (NOT a.write_effect_coverage OR NOT operator_avatar_intent_admitted(i.intent_id)) THEN RAISE EXCEPTION 'Avatar effect requires an approved operator intent' USING ERRCODE='23514';END IF;RETURN NEW;
+ -- Separate PL/pgSQL statements keep the privileged avatar port out of the
+ -- SQL expression planned for ordinary domain admission. SQL expression
+ -- planning checks function privileges even when its AND branch is false.
+ IF i.purpose='member.avatar' THEN
+  IF NOT a.write_effect_coverage OR NOT operator_avatar_intent_admitted(i.intent_id) THEN
+   RAISE EXCEPTION 'Avatar effect requires an approved operator intent' USING ERRCODE='23514';
+  END IF;
+ END IF;
+ RETURN NEW;
 END$$;
 CREATE FUNCTION enforce_operator_avatar_representation() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN
  IF NEW.purpose='member.avatar' AND NEW.transform_version='member.avatar.legacy-bytes.v1' THEN
