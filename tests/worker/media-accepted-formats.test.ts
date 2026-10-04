@@ -157,7 +157,7 @@ async function createFutureEvent(instance: Miniflare, human: Member) {
 }
 function uploadVideo(instance: Miniflare, human: Member, id: string, body: Uint8Array, contentType: string, version = '1', extra: Record<string, string> = {}) {
   return call(instance, '/api/v1/events/' + id + '/video', {
-    method: 'POST', body, headers: headers(human, { 'Content-Type': contentType, 'Idempotency-Key': extra['Idempotency-Key'] ?? randomUUID(), 'If-Match': '"' + version + '"', ...extra }),
+    method: 'POST', body: new Uint8Array(body), headers: headers(human, { 'Content-Type': contentType, 'Idempotency-Key': extra['Idempotency-Key'] ?? randomUUID(), 'If-Match': '"' + version + '"', ...extra }),
   });
 }
 async function endedEvent(organizer: Member) {
@@ -167,7 +167,7 @@ async function endedEvent(organizer: Member) {
 }
 function uploadHighlight(instance: Miniflare, human: Member, id: string, kind: 'photos' | 'posters', body: Uint8Array, contentType: string, extra: Record<string, string> = {}) {
   return call(instance, '/api/v1/event-highlights/' + id + '/' + kind, {
-    method: 'POST', body, headers: headers(human, { 'Content-Type': contentType, 'Idempotency-Key': extra['Idempotency-Key'] ?? randomUUID(), 'X-Photo-Orientation': 'landscape', ...extra }),
+    method: 'POST', body: new Uint8Array(body), headers: headers(human, { 'Content-Type': contentType, 'Idempotency-Key': extra['Idempotency-Key'] ?? randomUUID(), 'X-Photo-Orientation': 'landscape', ...extra }),
   });
 }
 function addLink(instance: Miniflare, human: Member, id: string, url: string) {

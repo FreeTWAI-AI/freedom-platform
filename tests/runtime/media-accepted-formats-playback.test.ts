@@ -32,7 +32,8 @@ test('Chromium decodes the portable MP4 fixture, seeks, and receives an exact by
     const method = request.method === 'HEAD' ? 'HEAD' : 'GET';
     const plan = planObjectHttpRequest({
       method, byteSize: fixtures.video.length, contentType: 'video/mp4', etag,
-      rangeHeader: request.headers.range, ifRangeHeader: request.headers['if-range'],
+      rangeHeader: request.headers.range,
+      ifRangeHeader: Array.isArray(request.headers['if-range']) ? request.headers['if-range'].join(', ') : request.headers['if-range'],
     });
     const slice = plan.range ?? { offset: 0, length: fixtures.video.length };
     ranges.push({ header: request.headers.range, status: plan.status, length: plan.sendBody ? slice.length : 0 });

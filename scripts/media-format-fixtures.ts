@@ -73,7 +73,7 @@ function sha256(bytes: Buffer): string {
 function fileRecord(file: string, contentType: MediaFixtureFile['contentType'], bytes: Buffer): MediaFixtureFile {
   return { file, contentType, byteSize: bytes.length, sha256: sha256(bytes) };
 }
-async function probeVideo(path: string): Promise<{ codec: string; pixFmt: string; width: number; height: number; durationSeconds: number }> {
+async function probeVideo(path: string): Promise<{ codec: 'h264'; pixFmt: 'yuv420p'; width: 160; height: 90; durationSeconds: number }> {
   const probe = spawnSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name,pix_fmt,width,height,duration', '-of', 'json', path], { encoding: 'utf8' });
   if (probe.status !== 0) throw new Error('ffprobe_failed');
   const stream = JSON.parse(probe.stdout).streams?.[0];
