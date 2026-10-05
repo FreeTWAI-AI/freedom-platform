@@ -77,6 +77,8 @@ const FOUNDATION_NAMES = [
   '114_credential_ingest_preparations.sql', '115_openrouter_byok.sql',
   // SQL media writer fence only; does not activate R2-only or retire legacy bytes.
   '116_social_thumbnail_writer_floor.sql',
+  // Closed machine admission records; recognition does not activate execution.
+  '117_machine_text_execution.sql',
 ];
 
 function reject(code) { throw new Error(code); }
