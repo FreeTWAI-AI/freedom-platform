@@ -1,3 +1,5 @@
+import { installWorkerGuideAssets } from '../../../packages/public-guide-assets/worker.js';
+import type { GuideR2Binding } from '../../../packages/public-guide-assets/r2.js';
 import {createEventHighlightAssetService,resolveEventHighlightUploadPolicy} from '../../../modules/assets/event-highlight.js';
 import {createSocialThumbnailAssetService,resolveSocialThumbnailUploadPolicy} from '../../../modules/assets/social-thumbnail.js';
 import {createSkillImageAssetService} from '../../../modules/assets/skill-image.js';
@@ -51,6 +53,9 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   ASSETS: { fetch(request: Request): Promise<Response> };
   IMAGES?: ImagesBinding;
   MEDIA?: AssetR2Binding;
+  /** Separate private-origin bucket, read-only purpose-specific public asset path. */
+  GUIDE_STATIC?: GuideR2Binding;
+  FREEDOM_PUBLIC_GUIDE_ENABLED?: string;
   EMAIL?: {send(message:{to:string;from:string;subject:string;text:string}):Promise<{messageId:string}>};
   FREEDOM_ENV?: string;
   APP_ORIGIN?: string;
@@ -103,6 +108,9 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   }
   if(env.FREEDOM_EVENT_VIDEO_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_EVENT_VIDEO_ENABLED))throw new ReadinessError('Video installation flag must be true or false.');
   if(env.FREEDOM_EVENT_VIDEO_ENABLED==='true'&&(['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')))throw new ReadinessError('MEDIA is required for enabled video lifecycle.');
+  if(env.FREEDOM_PUBLIC_GUIDE_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_PUBLIC_GUIDE_ENABLED))throw new ReadinessError('Guide release flag must be true or false.');
+  if(env.GUIDE_STATIC&&env.GUIDE_STATIC===env.MEDIA)throw new ReadinessError('Guide assets require a separate purpose binding.');
+  if(env.FREEDOM_PUBLIC_GUIDE_ENABLED==='true'&&typeof env.GUIDE_STATIC?.get!=='function')throw new ReadinessError('GUIDE_STATIC is required for public guide assets.');
   return { freedomEnv, origin, release, trustConnectingIp };
 }
 
@@ -244,6 +252,7 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
         }
         const runtime=workerRuntime(env,config),privateAi=await workerPrivateAiPorts(pool,env,config);
         if(privateAi)Object.assign(runtime,privateAi);
+        runtime.publicGuideAssets=await installWorkerGuideAssets(env);
         if(env.FREEDOM_SERVICE_COVER_ENABLED==='true'&&runtime.avatarAssetStore){
           runtime.serviceCoverAssetStore=runtime.avatarAssetStore;
           runtime.serviceCoverAssets=createServiceCoverAssetService(pool,{store:runtime.avatarAssetStore,resolvePolicy:resolveServiceCoverUploadPolicy});

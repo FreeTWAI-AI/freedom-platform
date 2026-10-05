@@ -1,3 +1,4 @@
+import { purposeBuckets } from './r2-purposes.mjs';
 import {readFileSync} from 'node:fs';
 import {parseJsonc} from './wrangler.mjs';
 
@@ -21,7 +22,7 @@ export function checkBrokerWranglerConfig(path,manifest){
     if(block.vars?.FREEDOM_BROKER_ENVIRONMENT!==environment||block.vars?.APP_ORIGIN!==origin)errors.push(`${environment}: exact canonical environment/origin correspondence is required.`);
     if(!['false','true'].includes(block.vars?.FREEDOM_BROKER_ENABLED))errors.push(`${environment}: explicit broker enable flag is required.`);
     const hyperdrives=block.hyperdrive??[];if(hyperdrives.length!==2||Object.keys(bindings).some(binding=>hyperdrives.filter(item=>item.binding===binding).length!==1))errors.push(`${environment}: exactly separate cipher and executor Hyperdrive bindings are required.`);
-    mapping[environment]={origin,database,hyperdrives:[],media_bucket:canonical.r2_buckets.find(bucket=>bucket.public===false)?.name};
+    mapping[environment]={origin,database,hyperdrives:[],media_bucket:purposeBuckets(canonical).MEDIA.name};
     for(const item of hyperdrives){
       if(!/^[0-9a-f]{32}$/.test(item.id??''))errors.push(`${environment}: invalid Hyperdrive identifier.`);
       else if(/^0{32}$/.test(item.id))blockers.push(`${environment}/${item.binding}: placeholder Hyperdrive is unprovisioned.`);

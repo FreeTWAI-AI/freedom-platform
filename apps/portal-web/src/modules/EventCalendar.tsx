@@ -16,7 +16,7 @@ export function EventCalendar({events,onOpen}:{events:CommunityEvent[];onOpen:(i
   const minOffset=Math.min(-12,oldestMonth-currentMonth);
   const grouped=new Map<string,CommunityEvent[]>();
   for(const event of events){const key=dayKey(new Date(event.starts_at));grouped.set(key,[...(grouped.get(key)??[]),event]);}
-  return <section className="event-calendar" aria-label="活動行事曆">
+  return <section className="event-calendar" data-guide-anchor="events:calendar" aria-label="活動行事曆">
     <div className="event-calendar-heading"><h2>活動行事曆</h2><div className="event-calendar-nav"><button className="btn btn-ghost" type="button" disabled={offset<=minOffset} onClick={()=>setOffset(value=>value-1)} aria-label="上個月">‹</button><strong aria-live="polite">{first.toLocaleDateString('zh-TW',{year:'numeric',month:'long'})}</strong><button className="btn btn-ghost" type="button" onClick={()=>setOffset(value=>value+1)} aria-label="下個月">›</button></div></div>
     <div className="event-calendar-grid" role="grid" aria-label={first.toLocaleDateString('zh-TW',{year:'numeric',month:'long'})}>
       {weekdays.map(day=><span className="event-calendar-weekday" role="columnheader" key={day}>{day}</span>)}

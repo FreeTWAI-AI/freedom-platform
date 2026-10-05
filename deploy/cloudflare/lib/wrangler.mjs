@@ -1,3 +1,4 @@
+import { checkPurposeBindings } from './r2-purposes.mjs';
 import { existsSync, readFileSync } from 'node:fs';
 
 /** Strip // and block comments and trailing commas outside of strings, then JSON.parse. */
@@ -133,6 +134,9 @@ export function checkWranglerConfig(path, manifest, { hyperdriveConfigs } = {}) 
       else if (provider.caching?.disabled !== true) errors.push(`${label}: provider reports Hyperdrive caching is not disabled`);
     }
 
+    const r2 = checkPurposeBindings(block, env);
+    errors.push(...r2.errors.map(error => `${label}: ${error}`));
+    blockers.push(...r2.blockers.map(error => `${label}: ${error}`));
     const vars = block.vars ?? {};
     for (const [k, v] of Object.entries(vars)) {
       if (/(URL|KEY|SECRET|TOKEN|PASSWORD)$/.test(k) && k !== 'APP_ORIGIN') errors.push(`${label}: ${k} must be a secret, not a plain var`);

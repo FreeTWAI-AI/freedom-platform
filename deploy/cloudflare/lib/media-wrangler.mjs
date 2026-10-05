@@ -1,3 +1,4 @@
+import { purposeBuckets } from './r2-purposes.mjs';
 import { lstatSync, readFileSync } from 'node:fs';
 import { checkWranglerConfig, parseJsonc } from './wrangler.mjs';
 import { validateManifest } from './manifest.mjs';
@@ -65,8 +66,7 @@ export function checkMediaWranglerConfig(path, manifest) {
     if (Object.keys(vars).some(key => mediaFlag.test(key) && !knownFlags.has(key))) errors.push(`${label}:unknown_media_flag`);
     if (label === 'default') continue;
     const canonical = manifest.environments[label];
-    const bucket = canonical.r2_buckets.filter(item => item.public === false);
-    if (bucket.length !== 1) { errors.push(`${label}:canonical_private_bucket_ambiguous`); continue; }
+    const bucket = [purposeBuckets(canonical).MEDIA];
     if (vars.FREEDOM_DATABASE_NAME !== undefined && vars.FREEDOM_DATABASE_NAME !== canonical.database.dbname) errors.push(`${label}:database_name_crossed`);
     if (vars.FREEDOM_DATABASE_NAME === undefined) blockers.push(`${label}:database_name_injection_unverified`);
     // No runtime role variable is consumed by the Worker. An invented declaration

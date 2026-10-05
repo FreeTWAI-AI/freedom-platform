@@ -147,10 +147,10 @@ export function MemberServices({client}: {client: PortalClient}) {
   }
   return <section className="service-zone stack" aria-label="社員服務分享區">
     <p className="service-intro">社員的本業服務都在這裡。看到適合朋友的服務，就用你的連結分享出去；每次點擊都算你的業務推廣分數。</p>
-    <section className="card service-mine" aria-label="我的服務">
+    <section className="card service-mine" data-guide-anchor="services:mine" aria-label="我的服務">
       <div className="service-mine-head">
         <h2>我的服務</h2>
-        <button type="button" className={formOpen ? 'btn btn-ghost' : 'btn btn-primary'} onClick={() => { if (formOpen) { setFormOpen(false); setIssues([]); } else openCreate(); }}>{formOpen ? '關閉表單' : '新增服務'}</button>
+        <button type="button" data-guide-anchor="services:create" className={formOpen ? 'btn btn-ghost' : 'btn btn-primary'} onClick={() => { if (formOpen) { setFormOpen(false); setIssues([]); } else openCreate(); }}>{formOpen ? '關閉表單' : '新增服務'}</button>
       </div>
       {mine.length === 0 ? <p className="muted">你還沒有建立服務。</p> : <ul>
         {mine.map(service => <li className="service-mine-row" key={service.service_id}>

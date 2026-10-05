@@ -55,7 +55,11 @@ test('new member explores, submits an event and selects each theme',async({page}
   await expect(page.getByText('活動已送出審核；核准後才會開放報名。')).toBeVisible();
   await expect(page.getByText('新會員一起畫工坊')).toBeVisible();
   await page.locator('.preview-profile-menu > summary').click();
-  await expect(page.locator('.preview-profile-menu').getByRole('radio')).toHaveCount(3);
+  await expect(page.locator('.preview-profile-menu').getByRole('radio')).toHaveCount(4);
+  await page.getByRole('radio',{name:'新手導覽－龍娘',exact:true}).check();
+  await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+  await expect(page.locator('html')).toHaveAttribute('data-experience-profile','guide-dragon');
+  await expect(page.locator('.page-spirit-widget')).toHaveCount(0);
   await expect(page.getByText('夜航（深色）')).toHaveCount(0);
   await page.getByRole('radio',{name:'自由工坊－敘生'}).check();
   await expect(page.locator('html')).toHaveAttribute('data-theme','versefolk');

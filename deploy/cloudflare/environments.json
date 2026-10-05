@@ -250,7 +250,10 @@
         "topology": "single_node",
         "roles": {"migrator": "freedom_staging_next_migrator", "runtime": "freedom_staging_next_app"}
       },
-      "r2_buckets": [{"name": "freedom-staging-next-private", "public": false, "optional": true}],
+      "r2_buckets": [
+        {"name": "freedom-staging-next-private", "public": false, "optional": true, "purpose": "member-private", "binding": "MEDIA"},
+        {"name": "freedom-staging-next-guide-static", "public": false, "optional": true, "purpose": "platform-public", "binding": "GUIDE_STATIC"}
+      ],
       "secret_names": ["GITHUB_SOCIAL_TOKEN_KEY", "FREEDOM_ADMIN_CSRF_SECRET"],
       "var_names": ["APP_ORIGIN", "FREEDOM_ENV", "FREEDOM_RELEASE_SHA", "FREEDOM_TRUST_CF_CONNECTING_IP", "FREEDOM_DATABASE_NAME", "FREEDOM_REGISTRATION_COMMUNITY_ID", "FREEDOM_ADMIN_ACCESS_ISSUER", "FREEDOM_ADMIN_ACCESS_AUD"],
       "current": {
@@ -295,7 +298,10 @@
         "topology": "ha",
         "roles": {"migrator": "freedom_next_migrator", "runtime": "freedom_next_app"}
       },
-      "r2_buckets": [{"name": "freedom-next-private", "public": false, "optional": true}],
+      "r2_buckets": [
+        {"name": "freedom-next-private", "public": false, "optional": true, "purpose": "member-private", "binding": "MEDIA"},
+        {"name": "freedom-next-guide-static", "public": false, "optional": true, "purpose": "platform-public", "binding": "GUIDE_STATIC"}
+      ],
       "secret_names": ["GITHUB_SOCIAL_TOKEN_KEY", "FREEDOM_ADMIN_CSRF_SECRET"],
       "var_names": ["APP_ORIGIN", "FREEDOM_ENV", "FREEDOM_RELEASE_SHA", "FREEDOM_TRUST_CF_CONNECTING_IP", "FREEDOM_DATABASE_NAME", "FREEDOM_REGISTRATION_COMMUNITY_ID", "FREEDOM_ADMIN_ACCESS_ISSUER", "FREEDOM_ADMIN_ACCESS_AUD"],
       "current": {

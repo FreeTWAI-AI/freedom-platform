@@ -1,0 +1,11 @@
+/* Opt-in skin uses the existing dark-base semantic tokens. No art/font fetches. */
+:root[data-guide-skin="dragon"] {
+  --bg:#111019;--bg-elev:#1d1928;--ink:#f7f2e7;--muted:#c7bccb;--line:#54445c;
+  --green:#edc06c;--green-2:#f6d798;--green-soft:#342719;--navy:#16111e;--navy-2:#292234;
+  --blue:#8f70d2;--blue-ink:#cfb6fa;--focus:#f6d798;
+}
+:root[data-guide-skin="dragon"] .btn-primary {background:#edc06c;color:#211506}
+:root[data-guide-skin="dragon"] .sidebar {background:#16111e}
+:root[data-guide-skin="dragon"] .nav-item.is-active {background:#342719;color:#f6d798;border-color:#a78349}
+:root[data-guide-skin="dragon"] .game-console {border-color:#54445c}
+.guide-load-retry {position:fixed;bottom:70px;right:16px;z-index:20}

@@ -35,7 +35,7 @@ export function PositioningPanel({client,session,onNavigate}:ModulePanelProps) {
     {summaryLoading&&<p role="status">正在載入你的定位結果…</p>}
     {summaryError&&<div className="banner banner-error" role="alert"><p>定位結果暫時無法載入：{summaryError}</p><button type="button" className="btn btn-ghost" onClick={()=>void loadSummary()}>重新載入定位結果</button></div>}
     {!summaryLoading&&!summaryError&&assessment&&member&&<section className="card positioning-result" aria-labelledby="positioning-result-title">
-      <div className="positioning-result-heading"><h2 id="positioning-result-title">我的定位結果</h2>{assessment.completed&&<span className="badge">{assessment.entry_mode==='quick'?'已選擇公會':'已完成定位'}</span>}</div>
+      <div className="positioning-result-heading"><h2 id="positioning-result-title" data-guide-anchor="positioning:result">我的定位結果</h2>{assessment.completed&&<span className="badge">{assessment.entry_mode==='quick'?'已選擇公會':'已完成定位'}</span>}</div>
       {member.positioning_title&&<p className="positioning-result-role">{member.positioning_title}</p>}
       <dl className="positioning-result-guilds"><div><dt>主要公會</dt><dd>{member.primary_guild?.name??'尚未選擇'}</dd></div><div><dt>次要公會</dt><dd>{member.secondary_guilds.map(g=>g.name).join('、')||'先專注在主要公會'}</dd></div></dl>
       {featuredLabels.length>0&&<div className="positioning-featured"><h3>擅長的能力</h3><div className="tag-list">{featuredLabels.map((label,index)=><span className="pill" key={`${index}-${label}`}>{label}</span>)}</div></div>}
@@ -122,7 +122,7 @@ export function GuildsPanel({client,session,onNavigate}:ModulePanelProps) {
   return <section className="module-panel guilds-panel" aria-label="公會目錄">
     <header className="guild-hub-heading">
       {!loading&&!loadError&&<p className="guild-overview" aria-label="我的公會概況"><span>已加入 <strong>{joinedCount}</strong> 個公會</span><span>共 {guilds.length} 個公會</span></p>}
-      <div className="actions"><button type="button" className="btn btn-ghost" onClick={()=>onNavigate?.('skills')}>前往技能書架</button><button type="button" className="btn btn-ghost" aria-expanded={showApply} aria-controls="guild-application" onClick={openApply}>{showApply?'收起創建申請':'申請創建公會'}</button></div>
+      <div className="actions"><button type="button" className="btn btn-ghost" onClick={()=>onNavigate?.('skills')}>前往技能書架</button><button type="button" className="btn btn-ghost" aria-expanded={showApply} aria-controls="guild-application" data-guide-anchor="guilds:create-application" onClick={openApply}>{showApply?'收起創建申請':'申請創建公會'}</button></div>
     </header>
     {applicationSuccess&&<p ref={successRef} role="status" tabIndex={-1} className="banner status-note">{applicationSuccess}</p>}
     {notice&&<div role="status" className="banner status-note guild-join-notice"><span>{notice}</span>{answerGuild&&<button type="button" className="btn btn-ghost" onClick={()=>onNavigate?.('positioning')}>回答{answerGuild}的小問題</button>}</div>}
@@ -144,8 +144,8 @@ export function GuildsPanel({client,session,onNavigate}:ModulePanelProps) {
       </article>;
     })}</div>{applications.length>3&&<button type="button" className="btn btn-ghost" aria-expanded={showAllApplications} onClick={()=>setShowAllApplications(value=>!value)}>{showAllApplications?'收合':`顯示全部 ${applications.length} 件申請`}</button>}</section>}
     <div className="guild-directory-tools">
-      <label className="field">搜尋公會<input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="名稱、專業、會長或技能書" maxLength={100}/></label>
-      <div className="guild-scope" role="group" aria-label="公會範圍"><button type="button" className="btn btn-ghost" aria-pressed={scope==='all'} onClick={()=>setScope('all')}>全部公會</button><button type="button" className="btn btn-ghost" aria-pressed={scope==='joined'} onClick={()=>setScope('joined')}>已加入</button></div>
+      <label className="field">搜尋公會<input data-guide-anchor="guilds:search" type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="名稱、專業、會長或技能書" maxLength={100}/></label>
+      <div className="guild-scope" data-guide-anchor="guilds:scope" role="group" aria-label="公會範圍"><button type="button" className="btn btn-ghost" aria-pressed={scope==='all'} onClick={()=>setScope('all')}>全部公會</button><button type="button" className="btn btn-ghost" aria-pressed={scope==='joined'} onClick={()=>setScope('joined')}>已加入</button></div>
     </div>
     <GuildTopicFilter value={topic} onChange={setTopic}/>
     {loading&&<p role="status">正在載入職業公會…</p>}

@@ -149,7 +149,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       <img className="home-next-art" src="/art/rpg/skill-codex.webp" alt="" width="124" height="108"/>
     </section>}
 
-    <nav className="home-shortcuts" aria-label="常用入口">
+    <nav className="home-shortcuts" data-guide-anchor="home:shortcuts" aria-label="常用入口">
       {shortcuts.map(entry => <button key={entry.id} type="button" className="home-shortcut" onClick={() => onNavigate?.(entry.id)}>
         <span className="home-shortcut-icon" aria-hidden="true"><WorkshopIcon name={entry.id}/></span><span>{entry.title}</span>
       </button>)}
@@ -170,7 +170,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
     </section>
     </div>
     <aside className="home-rail">
-    <section ref={summary} tabIndex={-1} className="member-card home-member-summary guild-base-hero" aria-label="我的會員摘要" aria-busy={loading}>
+    <section ref={summary} tabIndex={-1} className="member-card home-member-summary guild-base-hero" data-guide-anchor="home:member-summary" aria-label="我的會員摘要" aria-busy={loading}>
       <div className="home-member-identity">
         <MemberAvatar nickname={nickname} avatarUrl={member?.avatar_url} className="home-member-initial"/>
         <div>

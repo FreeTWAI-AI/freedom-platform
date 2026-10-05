@@ -77,12 +77,12 @@ function HighlightList({ client }: { client: PortalClient }) {
   return <>
     <p className="hl-intro">活動結束後會自動收進這裡，並公開給所有人看，方便分享社群活動。參加過的夥伴可以補上照片、海報和影片連結。</p>
     {error && <p role="alert">{error}</p>}
-    <div className="hl-chips" role="group" aria-label="活動形式">
+    <div className="hl-chips" data-guide-anchor="highlights:format" role="group" aria-label="活動形式">
       {([['all', '全部'], ['online', '線上'], ['in_person', '實體']] as const).map(([value, label]) =>
         <button key={value} type="button" className="hl-chip" aria-pressed={mode === value} onClick={() => setMode(value)}>{label}</button>)}
     </div>
     {items && items.length === 0 && <p className="hl-empty">還沒有已結束的活動。活動結束後會自動出現在這裡。</p>}
-    <div className="hl-grid">
+    <div className="hl-grid" data-guide-anchor="highlights:list">
       {items?.map(item => <article className="hl-card" key={item.event_id} aria-label={item.title}>
         <a className="hl-cover" href={`#highlights/${item.event_id}`}><Cover cover={item.cover} mode={item.mode} whenLabel={when(item.starts_at, item.ends_at)} /></a>
         <h2><a href={`#highlights/${item.event_id}`}>{item.title}</a></h2>

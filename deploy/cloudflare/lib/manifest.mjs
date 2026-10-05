@@ -1,3 +1,4 @@
+import { purposeBuckets } from './r2-purposes.mjs';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +21,9 @@ export function ownedResources(env) {
     hyperdrive: [env.hyperdrive.name],
     database: [env.database.name],
     db_role: Object.values(env.database.roles),
-    r2_bucket: env.r2_buckets.map((b) => b.name),
+    // A reviewed existing public-purpose origin may be referenced, never owned
+    // or mutated by this plan. Exact binding checks still apply to that name.
+    r2_bucket: env.r2_buckets.filter((b) => b.referenced_preexisting !== true).map((b) => b.name),
     // Production has no site-wide Access application. A referenced pre-existing
     // application is protected and is not owned or created by this plan.
     access_application: env.access?.required === true && env.access?.referenced_preexisting !== true
@@ -91,7 +94,7 @@ export function validateManifest(m) {
 
   const envs = Object.entries(m.environments ?? {});
   if (envs.map(([k]) => k).sort().join(',') !== 'next,staging-next') err('environments must be exactly staging-next and next');
-  const seen = new Map();
+  const seen = new Map(), seenBuckets = new Set();
   for (const [key, env] of envs) {
     const prefix = ENV_PREFIX[key];
     // Both environments are live zone routes as of the 2026-09-25 staging cutover.
@@ -152,6 +155,13 @@ export function validateManifest(m) {
     for (const secret of env.secret_names ?? []) if ((env.var_names ?? []).includes(secret)) err(`${key}: ${secret} listed as both secret and plain var`);
     for (const v of env.var_names ?? []) if (/(URL|KEY|SECRET|TOKEN|PASSWORD)$/.test(v) && v !== 'APP_ORIGIN') err(`${key}: ${v} looks secret and must not be a plain var`);
     if (rt.release_var && !(env.var_names ?? []).includes(rt.release_var)) err(`${key}: ${rt.release_var} must be a required var`);
+    try {
+      const buckets = Object.values(purposeBuckets(env));
+      for (const bucket of buckets) {
+        if (seenBuckets.has(bucket.name)) err(`${key}: R2 bucket must not be shared across environments`);
+        seenBuckets.add(bucket.name);
+      }
+    } catch { err(`${key}: canonical R2 purpose/binding mapping must be private and unambiguous`); }
     let owned;
     try { owned = ownedResources(env); } catch { err(`${key}: incomplete resource names`); continue; }
     for (const [kind, names] of Object.entries(owned)) {
