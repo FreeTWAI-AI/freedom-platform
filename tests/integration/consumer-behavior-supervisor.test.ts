@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { execFileSync } from 'node:child_process';
+import childProcess, { execFileSync } from 'node:child_process';
+import { syncBuiltinESMExports } from 'node:module';
 import { mkdtemp, mkdir, readFile, writeFile, chmod, rm, copyFile, cp, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, isAbsolute } from 'node:path';
@@ -234,3 +235,47 @@ for (const profile of profiles.slice(1)) {
     assert.equal(result.cases.at(-1).http_trace[0].status, status); assert.equal(result.cleanup_verified, true);
   });
 }
+
+
+test('unknown Docker create acknowledgement cannot pass full supervisor cleanup after empty scans', async () => {
+  // Trusted test-only host seam. Candidate source cannot install this callback;
+  // the production supervisor API still accepts only immutable input identities.
+  const original = childProcess.execFileSync;
+  let dispatches = 0, ownerLabel: string | undefined;
+  const cleanupLabels: string[] = [];
+  try {
+    childProcess.execFileSync = ((executable: string, args: string[], options: any) => {
+      if (executable === '/usr/bin/docker' && args[0] === 'create') {
+        dispatches++;
+        ownerLabel = args[args.indexOf('--label') + 1]?.replace('freedom.behavior-owner=', '');
+        // Do not actually dispatch a create: simulate a CLI losing its daemon
+        // acknowledgement. The separate lifecycle test models late completion.
+        throw Object.assign(new Error('Synthetic unknown create acknowledgement'), { code: 'ETIMEDOUT' });
+      }
+      if (executable === '/usr/bin/docker' && args[0] === 'ps' && ownerLabel) {
+        const filter = args[args.indexOf('--filter') + 1];
+        assert.equal(filter, 'label=freedom.behavior-owner=' + ownerLabel);
+        cleanupLabels.push(filter);
+        return Buffer.from(''); // Both recovery and final readback appear empty.
+      }
+      return original(executable, args, options);
+    }) as typeof childProcess.execFileSync;
+    syncBuiltinESMExports();
+    const result = await runIsolatedConsumerBehavior({ repository: 'FreeTWAI-AI/freedom-agent-kit',
+      candidateRepository: join(roots!, profiles[0][0]), candidateCommit: profiles[0][2] });
+    assert.equal(dispatches, 1, JSON.stringify(result));
+    assert.equal(cleanupLabels.length, 2);
+    assert.match(ownerLabel!, /^[a-f0-9-]{36}$/);
+    assert.equal(result.phase, 'candidate');
+    assert.equal(result.reason, 'supervisor_create_outcome_unknown');
+    assert.equal(result.operation_failure_reason, 'supervisor_host_command_failed');
+    assert.equal(result.cleanup_verified, false);
+    assert.equal(result.check.status, 'failed');
+    assert.equal(result.runtime_observation, 'not_checked');
+    assert.deepEqual(result.cleanup, { status: 'create_pending', cleanup_verified: false,
+      pending_creates: [{ kind: 'candidate', operation: 'create', state: 'create_pending' }], owner_label: ownerLabel });
+  } finally {
+    childProcess.execFileSync = original;
+    syncBuiltinESMExports();
+  }
+});
