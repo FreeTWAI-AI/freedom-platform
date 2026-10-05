@@ -182,9 +182,21 @@ test('two synthetic members chat in their own guild and squad through the real U
     for(const kind of ['guild','squad'] as const){
       const {key,name}=room[kind],r=receiver.page,s=sender.page,label=copy[kind].tab;
       receiver.channelRequests.length=0;
+      // The previous guild remains selected until the squad click commits. Its
+      // activity poll is valid during that interval; exercise the boundary with
+      // a real focus refresh so a timing-dependent poll cannot break this test.
+      const previousActivity=kind==='squad'?`GET /api/v1/me/channels/guild/${room.guild.key}/activity`:null;
+      if(previousActivity){
+        const priorPoll=r.waitForResponse(response=>`${response.request().method()} ${new URL(response.url()).pathname}`===previousActivity&&response.status()===200);
+        await r.evaluate(()=>window.dispatchEvent(new Event('focus')));
+        await priorPoll;
+        expect(receiver.channelRequests).toContain(previousActivity);
+      }
       await tab(r,label).click();await expect(channelButton(r,kind,key)).toHaveAccessibleName(name);
       await expect(thread(r,kind).locator('.messages-bubbles')).toHaveCount(0);
-      expect(receiver.channelRequests.filter(entry=>!entry.startsWith('GET /api/v1/me/channels?')),'a chat tab without a picked channel only lists').toEqual([]);
+      // Permit only that exact prior room's GET activity. Any history read,
+      // activity for the unselected room, or POST still fails this assertion.
+      expect(receiver.channelRequests.filter(entry=>!entry.startsWith('GET /api/v1/me/channels?')&&entry!==previousActivity),'a chat tab without a picked channel only lists').toEqual([]);
 
       // The sender writes plain text from the desktop UI.
       await tab(s,label).click();await channelButton(s,kind,key).click();

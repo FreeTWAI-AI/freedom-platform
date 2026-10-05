@@ -16974,8 +16974,8 @@
     },
     {
       "path": "tests/e2e/member-channels-real.spec.ts",
-      "bytes": 29244,
-      "sha256": "7e69ffcfb0fad430a93779f02e1d8f242838ab0ba2fb6c4cb5943f5c506872b6"
+      "bytes": 30147,
+      "sha256": "bbea6605549b90b823957c58a67ebf839d356a4f1faac2aaba1a24c9fda7ea8d"
     },
     {
       "path": "tests/e2e/member-channels.spec.ts",
