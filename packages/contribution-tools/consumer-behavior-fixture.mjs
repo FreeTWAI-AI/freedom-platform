@@ -12,11 +12,21 @@ export const CONSUMER_BEHAVIOR_PROFILES = Object.freeze({
   'FreeTWAI-AI/freedom-supplier-client': Object.freeze({ entry: 'loadSupplierWorkspace', scenarios: ['authorized', 'wrong_scope', 'revoked'] }),
 });
 export const AGENT_KIT_CLI_PROFILE = Object.freeze({ entry: 'src/cli.mjs#maker', scenarios: Object.freeze(['authorized']) });
+export const CONSUMER_CLI_PROFILES = Object.freeze({
+  'FreeTWAI-AI/freedom-agent-kit': AGENT_KIT_CLI_PROFILE,
+  ...Object.fromEntries([
+    ['freedom-storefront', ['connection', 'catalog', 'stores', 'listings']],
+    ['freedom-supplier-client', ['connection', 'products', 'requests']],
+  ].map(([name, resources]) => ['FreeTWAI-AI/' + name, Object.freeze({
+    entry: 'scripts/run-client.mjs#read→client/cli.mjs',
+    scenarios: Object.freeze([...resources.map(resource => 'authorized:' + resource), 'wrong_scope', 'revoked', 'server_error']),
+  })])),
+});
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const marker = () => randomBytes(24).toString('hex');
 const problem = status => ({ type: 'about:blank', title: 'Synthetic fixture denied', status, code: 'fixture_denied', detail: '' });
 function challenge(repository, scenario, profile) {
-  const cli = profile === 'kit-cli';
+  const cli = profile === 'kit-cli', scopedCli = profile === 'scoped-cli';
   const kit = repository.endsWith('/freedom-agent-kit'), storefront = repository.endsWith('/freedom-storefront');
   const credential = kit ? 'freedom_local_session=' + marker() : 'fw_read_' + randomBytes(32).toString('base64url');
   const routes = new Map(); let expected;
@@ -55,14 +65,27 @@ function challenge(repository, scenario, profile) {
       expected = { connection, products, requests, read_only: true };
     }
   }
-  return { kit, storefront, cli, credential, routes, expected, scenario, trace: [], invalid: false };
+  let resource, saved;
+  if (scopedCli) {
+    resource = scenario.startsWith('authorized:') ? scenario.split(':')[1] : 'connection';
+    const kind = storefront ? 'storefront' : 'supplier';
+    const path = '/client-api/v1/' + (resource === 'connection' ? resource : (storefront ? 'retail/' : 'supplier/') + resource);
+    routes.clear();
+    expected = { read_only: true, fixture_marker: marker(), resource, items: [{ id: randomUUID(), fixture_marker: marker() }] };
+    if (scenario !== 'wrong_scope') routes.set(path, expected);
+    saved = { format: 'freedom.read-connection/v1', origin: 'http://127.0.0.1:4310', access_token: credential,
+      scope: (scenario === 'wrong_scope' ? (storefront ? 'supplier' : 'storefront') : kind) + ':read',
+      expires_at: new Date(Date.now() + 60000).toISOString() };
+  }
+  return { kit, storefront, cli, scopedCli, resource, saved, credential, routes, expected, scenario, trace: [], invalid: false };
 }
 
 /** This server observes actual HTTP bytes from the isolated container's Unix socket.
  * Its synthetic denials test client handling, not the platform server's ACLs. */
 export async function createConsumerHttpFixture({ repository, socketPath, onViolation, profile = 'workspace' }) {
-  if (!Object.hasOwn(CONSUMER_BEHAVIOR_PROFILES, repository) || !['workspace', 'kit-cli'].includes(profile)
-    || (profile === 'kit-cli' && repository !== 'FreeTWAI-AI/freedom-agent-kit')) throw Error('consumer_profile_required');
+  if (!Object.hasOwn(CONSUMER_BEHAVIOR_PROFILES, repository) || !['workspace', 'kit-cli', 'scoped-cli'].includes(profile)
+    || (profile === 'kit-cli' && repository !== 'FreeTWAI-AI/freedom-agent-kit')
+    || (profile === 'scoped-cli' && repository === 'FreeTWAI-AI/freedom-agent-kit')) throw Error('consumer_profile_required');
   let active, fault = false, count = 0;
   const server = createServer({ maxHeaderSize: 8192, requestTimeout: 2000, headersTimeout: 2000 }, (request, response) => {
     const state = active, path = request.url;
@@ -74,8 +97,8 @@ export async function createConsumerHttpFixture({ repository, socketPath, onViol
         : request.headers.authorization !== 'Bearer ' + state.credential || request.headers.cookie !== undefined)) {
       fault = true; if (state) state.invalid = true; response.destroy(); onViolation(); return;
     }
-    const status = state.scenario === 'revoked' ? 401 : 200;
-    const body = JSON.stringify(status === 401 ? problem(401) : state.routes.get(path));
+    const status = state.scenario === 'revoked' ? 401 : state.scenario === 'server_error' ? 503 : 200;
+    const body = JSON.stringify(status !== 200 ? problem(status) : state.routes.get(path));
     state.trace.push({ method: 'GET', path, status, credential_matched: true, response_sha256: hash(body) });
     response.writeHead(status, { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body), connection: 'close' });
     response.end(body);
@@ -124,9 +147,9 @@ export async function createConsumerHttpFixture({ repository, socketPath, onViol
   await chmod(socketPath, 0o666);
   return {
     begin(scenario) {
-      if (!(profile === 'kit-cli' ? AGENT_KIT_CLI_PROFILE : CONSUMER_BEHAVIOR_PROFILES[repository]).scenarios.includes(scenario) || fault) throw Error('consumer_fixture_invalid');
+      if (!(profile === 'workspace' ? CONSUMER_BEHAVIOR_PROFILES[repository] : CONSUMER_CLI_PROFILES[repository]).scenarios.includes(scenario) || fault) throw Error('consumer_fixture_invalid');
       active = challenge(repository, scenario, profile);
-      return active.cli ? { repository } : { repository, credential: active.credential };
+      return active.scopedCli ? { repository, resource: active.resource, saved: active.saved } : active.cli ? { repository } : { repository, credential: active.credential };
     },
     async verify(response) {
       const state = active;
@@ -136,7 +159,14 @@ export async function createConsumerHttpFixture({ repository, socketPath, onViol
       let matched = !fault && !state.invalid && isDeepStrictEqual(paths, expectedPaths);
       if (state.cli) matched &&= state.trace[0]?.path === '/api/v1/protocol'
         && state.trace[1]?.path === '/api/v1/auth/login' && state.trace.at(-1)?.path === '/api/v1/auth/logout';
-      if (state.scenario === 'authorized') {
+      if (state.scopedCli) {
+        matched &&= response.status === 200 && value.signal === null;
+        if (state.scenario.startsWith('authorized:')) {
+          let output;
+          try { output = parseJson(value.output, { maxBytes: 65536, maxDepth: 12, maxNodes: 2048 }); } catch { matched = false; }
+          matched &&= value.exit_code === 0 && isDeepStrictEqual(output, parseJson(JSON.stringify(state.expected)));
+        } else matched &&= Number.isInteger(value.exit_code) && value.exit_code > 0 && value.output === '';
+      } else if (state.scenario === 'authorized') {
         if (state.storefront && value && typeof value === 'object') {
           matched &&= typeof value.generated_at === 'string' && Number.isFinite(Date.parse(value.generated_at));
           delete value.generated_at;

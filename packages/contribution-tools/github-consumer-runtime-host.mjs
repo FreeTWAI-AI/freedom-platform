@@ -3,8 +3,8 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyNativeConsumerSource } from './github-consumer-host.mjs';
-import { runIsolatedConsumerBehavior, runIsolatedAgentKitCliBehavior } from './behavior-supervisor.mjs';
-import { CONSUMER_BEHAVIOR_PROFILES } from './consumer-behavior-fixture.mjs';
+import { runIsolatedConsumerBehavior, runIsolatedConsumerCliBehavior } from './behavior-supervisor.mjs';
+import { CONSUMER_BEHAVIOR_PROFILES, CONSUMER_CLI_PROFILES } from './consumer-behavior-fixture.mjs';
 import { inspectConsumerRuntime } from './consumer-runtime-recipe.mjs';
 import { requireCondition as check, safeFailure } from './errors.mjs';
 
@@ -20,13 +20,14 @@ export async function verifyNativeConsumerRuntime(input) {
     && value.candidate?.commit === source.candidate_commit && value.candidate?.tree === source.candidate_tree;
   const profile = CONSUMER_BEHAVIOR_PROFILES[input.repository];
   const workspacePassed = observed(runtime, 'src/index.mjs#' + profile.entry, profile.scenarios.length);
-  const cliRequired = input.repository === 'FreeTWAI-AI/freedom-agent-kit';
+  const cliRequired = true;
+  const cliProfile = CONSUMER_CLI_PROFILES[input.repository];
   // Preserve the source/workspace prerequisite. A failed or unavailable workspace
   // cannot gain a passing gate from a separate successful CLI run.
-  const cliRuntime = workspacePassed && cliRequired
-    ? await runIsolatedAgentKitCliBehavior({ repository: input.repository,
+  const cliRuntime = workspacePassed
+    ? await runIsolatedConsumerCliBehavior({ repository: input.repository,
       candidateRepository: input.candidateRoot, candidateCommit: input.candidateCommit }) : null;
-  const passed = workspacePassed && (!cliRequired || observed(cliRuntime, 'src/cli.mjs#maker', 1));
+  const passed = workspacePassed && observed(cliRuntime, cliProfile.entry, cliProfile.scenarios.length);
   const failedStage = !workspacePassed ? 'workspace' : !passed ? 'cli' : null;
   const failedResult = failedStage === 'workspace' ? runtime : cliRuntime;
   const failure = passed ? null : { stage: failedStage,

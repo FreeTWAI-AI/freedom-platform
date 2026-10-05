@@ -10,7 +10,7 @@ import { installedVerifierDigest, validateHostEvidenceBinding, validateHostWorkf
 import { MEMBER_BEHAVIOR as manifest } from './behavior-manifest.mjs';
 import { artifactPath, parseJson } from './io.mjs';
 import { verificationEnvironment } from './process-env.mjs';
-import { createConsumerHttpFixture, CONSUMER_BEHAVIOR_PROFILES, AGENT_KIT_CLI_PROFILE } from './consumer-behavior-fixture.mjs';
+import { createConsumerHttpFixture, CONSUMER_BEHAVIOR_PROFILES, CONSUMER_CLI_PROFILES } from './consumer-behavior-fixture.mjs';
 import { inspectConsumerRuntime } from './consumer-runtime-recipe.mjs';
 
 // Member mode retains its cached local image identities; consumer mode uses the
@@ -314,8 +314,11 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
  * Local observations do not install a publisher or prove internal library calls. */
 export async function runIsolatedConsumerBehavior(input) { return runConsumerProfile(input, 'workspace'); }
 
-/** Fixed actual user-facing kit CLI; not selected by the existing native gate. */
+/** Fixed actual user-facing CLI, executed only in the candidate container. */
 export async function runIsolatedAgentKitCliBehavior(input) { return runConsumerProfile(input, 'kit-cli'); }
+export async function runIsolatedConsumerCliBehavior(input) {
+  return runConsumerProfile(input, input?.repository === 'FreeTWAI-AI/freedom-agent-kit' ? 'kit-cli' : 'scoped-cli');
+}
 
 async function runConsumerProfile(input, profile) {
   const keys = ['repository', 'candidateRepository', 'candidateCommit'];
@@ -323,7 +326,7 @@ async function runConsumerProfile(input, profile) {
     || !Object.hasOwn(CONSUMER_BEHAVIOR_PROFILES, input.repository)
     || (profile === 'kit-cli' && input.repository !== 'FreeTWAI-AI/freedom-agent-kit')) fail('consumer_profile_required');
   const { repository, candidateRepository, candidateCommit } = input;
-  const selected = profile === 'kit-cli' ? AGENT_KIT_CLI_PROFILE : CONSUMER_BEHAVIOR_PROFILES[repository];
+  const selected = profile === 'workspace' ? CONSUMER_BEHAVIOR_PROFILES[repository] : CONSUMER_CLI_PROFILES[repository];
   const label = randomUUID(), owned = [], cases = [];
   let directory, child, fixture, timer, timedOut = false, outcome, phase = 'preflight';
   const kill = () => {
@@ -387,7 +390,7 @@ async function runConsumerProfile(input, profile) {
       runtime_observation: passed ? 'host_observed_http' : 'not_checked', cases, isolation: [{ ...isolation, bind_destinations: owned[0].mounts.map(item => item[1]).sort() }],
       installation: { ...installation, node_executable: nodeExecutable, runtime_recipe: runtime },
       candidate: { commit: snapshot.commit, tree: snapshot.tree, source_sha256: snapshot.source_sha256 },
-      entry: profile === 'kit-cli' ? selected.entry : 'src/index.mjs#' + selected.entry,
+      entry: profile === 'workspace' ? 'src/index.mjs#' + selected.entry : selected.entry,
     });
   } catch (error) {
     return report(timedOut ? 'supervisor_deadline' : safeCodes.has(error.message) || ['consumer_fixture_invalid', 'consumer_image_unavailable', 'consumer_image_identity_mismatch', 'consumer_node_identity_mismatch', 'consumer_runtime_platform_mismatch'].includes(error.message)
@@ -415,7 +418,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     const [mode, repository, candidateRepository, candidateCommit, ...extra] = process.argv.slice(2);
     if (!['consumer', 'consumer-cli'].includes(mode) || extra.length) fail('consumer_supervisor_cli_usage');
-    const run = mode === 'consumer-cli' ? runIsolatedAgentKitCliBehavior : runIsolatedConsumerBehavior;
+    const run = mode === 'consumer-cli' ? runIsolatedConsumerCliBehavior : runIsolatedConsumerBehavior;
     const result = await run({ repository, candidateRepository, candidateCommit });
     console.log(JSON.stringify(result));
     if (result.check?.status !== 'passed' || result.cleanup_verified !== true) process.exitCode = 1;

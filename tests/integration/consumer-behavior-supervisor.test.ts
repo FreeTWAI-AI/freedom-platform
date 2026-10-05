@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // @ts-expect-error Host-installed JavaScript supervisor; candidate imports stay in Docker.
-import { runIsolatedConsumerBehavior, runIsolatedAgentKitCliBehavior, materializeBehaviorCandidate } from '../../packages/contribution-tools/behavior-supervisor.mjs';
+import { runIsolatedConsumerBehavior, runIsolatedAgentKitCliBehavior, runIsolatedConsumerCliBehavior, materializeBehaviorCandidate } from '../../packages/contribution-tools/behavior-supervisor.mjs';
 // @ts-expect-error Existing clean subprocess environment.
 import { verificationEnvironment } from '../../packages/contribution-tools/process-env.mjs';
 
@@ -209,3 +209,28 @@ test('CLI forged response-port output cannot replace independently observed logi
   assert(result.reason === 'consumer_behavior_mismatch' || (result.phase === 'behavior'
     && result.reason === 'consumer_supervisor_failed'), JSON.stringify(result));
 });
+
+for (const profile of profiles.slice(1)) {
+  const scopedMutation = (t: any, transform: (original: string) => string) => mutated(t, profile, transform,
+    { entry: 'client/cli.mjs', run: runIsolatedConsumerCliBehavior });
+  test(`${profile[0]} real CLI requests with forged stdout fail fresh response validation`, async t => {
+    const result = await scopedMutation(t, original => `console.log=()=>process.stdout.write('{"status":"passed"}');\n` + original);
+    assert.equal(result.check.status, 'failed'); assert.equal(result.reason, 'consumer_behavior_mismatch');
+    assert.equal(result.cases[0].observed_requests, 1); assert.equal(result.cases[0].response_matches_challenge, false);
+    assert.equal(result.cleanup_verified, true);
+  });
+  test(`${profile[0]} swallowing CLI errors cannot pass wrong-scope behavior`, async t => {
+    const result = await scopedMutation(t, original => `process.on('uncaughtException',()=>{process.exitCode=0;});\n` + original);
+    assert.equal(result.check.status, 'failed'); assert.equal(result.reason, 'consumer_behavior_mismatch');
+    assert(result.cases.slice(0, -1).every((c: any) => c.status === 'passed'));
+    assert.equal(result.cases.at(-1).scenario, 'wrong_scope'); assert.equal(result.cases.at(-1).status, 'failed');
+    assert.equal(result.cleanup_verified, true);
+  });
+  for (const status of [401, 503]) test(`${profile[0]} CLI hiding HTTP ${status} is rejected after successful reads`, async t => {
+    const result = await scopedMutation(t, original => `process.on('uncaughtException',error=>{process.exitCode=error.status===${status}?0:1;});\n` + original);
+    assert.equal(result.check.status, 'failed'); assert.equal(result.reason, 'consumer_behavior_mismatch');
+    assert(result.cases.slice(0, -1).every((c: any) => c.status === 'passed'));
+    assert.equal(result.cases.at(-1).scenario, status === 401 ? 'revoked' : 'server_error');
+    assert.equal(result.cases.at(-1).http_trace[0].status, status); assert.equal(result.cleanup_verified, true);
+  });
+}
