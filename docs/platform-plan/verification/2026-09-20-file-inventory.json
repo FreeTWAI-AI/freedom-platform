@@ -8599,8 +8599,8 @@
     },
     {
       "path": "packages/contribution-tools/behavior-supervisor.mjs",
-      "bytes": 34892,
-      "sha256": "2d3d266c3b335770bdc45b141a16a92f4ed3162f1c69f78ad957586007ca79b5"
+      "bytes": 35086,
+      "sha256": "ad1c47af1541e78097cc03b482197f6d7739b30c0b5abb8325f154cf9038417a"
     },
     {
       "path": "packages/contribution-tools/cli.mjs",
@@ -8609,18 +8609,18 @@
     },
     {
       "path": "packages/contribution-tools/consumer-behavior-fixture.mjs",
-      "bytes": 11743,
-      "sha256": "92ef58794f4c93966f08cb046bd5aba09af86fdd3eabbf0dc516d43a15da3696"
+      "bytes": 13963,
+      "sha256": "6d02799f6822d66fe661ebecd8d155ffc9559ac4825c0908518725945f276ac6"
     },
     {
       "path": "packages/contribution-tools/consumer-behavior-target.mjs",
-      "bytes": 3702,
-      "sha256": "32885fa0a40ddd26ef6c7336055c6790cb62095b235bd7efee860e366c874dc2"
+      "bytes": 5285,
+      "sha256": "e6a9c0da5cfa18e039c8df995bdb20bc9778f940c7b372334a223a8b1a54a7f5"
     },
     {
       "path": "packages/contribution-tools/consumer-behavior.md",
-      "bytes": 8829,
-      "sha256": "76e814d73c38da424b5b4a7f9599fc45953cf568a225eaf755c8a4491fa8b0d7"
+      "bytes": 11256,
+      "sha256": "d22e5986378aed87d34f366dfc8523ec04629e901be0131efdf5f880a4f95841"
     },
     {
       "path": "packages/contribution-tools/consumer-cli-canary-ruleset.example.json",
@@ -8631,6 +8631,11 @@
       "path": "packages/contribution-tools/consumer-cli-canary.md",
       "bytes": 6089,
       "sha256": "95381aed0b39e82ca6845536447922127d75018e5df804f0e6eec1abf5dacfa7"
+    },
+    {
+      "path": "packages/contribution-tools/consumer-entry-coverage.mjs",
+      "bytes": 3840,
+      "sha256": "648eef58f71484b058ca59368d7151bed91755aad0ef2e5125e19f2f6f753596"
     },
     {
       "path": "packages/contribution-tools/consumer-libraries.mjs",
@@ -8654,8 +8659,8 @@
     },
     {
       "path": "packages/contribution-tools/consumer-source-profiles.mjs",
-      "bytes": 8354,
-      "sha256": "585f78906253c096fa613c2453b72e89163b53a8dd0791f1ee41bb995bb7f1b6"
+      "bytes": 8505,
+      "sha256": "73aa74512de55c9d328051907b07bfb3250e7f6bb3a1172cd5ccc96b9dbfac0f"
     },
     {
       "path": "packages/contribution-tools/context.mjs",
@@ -8704,18 +8709,18 @@
     },
     {
       "path": "packages/contribution-tools/github-consumer-host.md",
-      "bytes": 6591,
-      "sha256": "ca69cf1855c3bb87eff6027679f733030a28b588e9ffb7493fd67c090dfb9f72"
+      "bytes": 8476,
+      "sha256": "20d353e96cc288079ee551f6ee95f1501797fb1d373da60da47f4cd1937c8550"
     },
     {
       "path": "packages/contribution-tools/github-consumer-host.mjs",
-      "bytes": 9094,
-      "sha256": "63b849dc354fbca07dd1b02e50f5e766bcabce1971276bdd749a50af669b998e"
+      "bytes": 9438,
+      "sha256": "883c9ca63157da3b482d459cfc09ac39f600593a6648273607c73f5df58feeb0"
     },
     {
       "path": "packages/contribution-tools/github-consumer-runtime-host.mjs",
-      "bytes": 4359,
-      "sha256": "72137fab4d8ab15e03beca91d4e4792ee6f63a0726ad8240e911be322bf047a1"
+      "bytes": 4386,
+      "sha256": "33e7b45dc0c9c49424cf7781e09c3b9a0863aeb2bff914a2c37f0baeb8792ae0"
     },
     {
       "path": "packages/contribution-tools/github-durable-publisher.mjs",
@@ -8813,6 +8818,11 @@
       "sha256": "5dc4c0b76eb1eef7f5625c67e792d0b6e2d7b3bfc21731089415b7916dfb26a3"
     },
     {
+      "path": "packages/contribution-tools/test/consumer-entry-coverage.test.mjs",
+      "bytes": 3052,
+      "sha256": "a9acabb87ac4cd53979eef918f12694e29a30d7297d9afef49809d19a77918e5"
+    },
+    {
       "path": "packages/contribution-tools/test/consumer-libraries.test.mjs",
       "bytes": 11346,
       "sha256": "526d721877ae2de5194907c0411c74496ec4a9746cd879efedd1d5000b2a81ca"
@@ -8874,8 +8884,8 @@
     },
     {
       "path": "packages/contribution-tools/test/github-consumer-host.test.mjs",
-      "bytes": 6843,
-      "sha256": "37ceff9b03362760eaa15fcc5f3e0274cb7215c6ccd85b84f35eb3e79bf74cd8"
+      "bytes": 10356,
+      "sha256": "4867d9fc0f89699389e3450a5feb06270d30f5ef44fdf577d62e4fc64c8dce77"
     },
     {
       "path": "packages/contribution-tools/test/github-consumer-profiles.test.mjs",
@@ -9534,8 +9544,8 @@
     },
     {
       "path": "scripts/repository-bootstrap/consumer-source-profiles.md",
-      "bytes": 3507,
-      "sha256": "3555d8e847daaff9300f05af15a2686cdcdbb3cf61adf7dd2f696b3e302ad400"
+      "bytes": 3845,
+      "sha256": "8fea9ab3f5fe29de5980bb0605fadb43754d2a2564124966c4602adf171136f9"
     },
     {
       "path": "scripts/repository-bootstrap/freedom.mjs",
@@ -10074,8 +10084,8 @@
     },
     {
       "path": "tests/integration/consumer-behavior-supervisor.test.ts",
-      "bytes": 15877,
-      "sha256": "eb4608389dd6230fefd20bcac4bbe458de8af058a864516445f7099096180d37"
+      "bytes": 17930,
+      "sha256": "ec6158b69ed0fcd9351f42aaab6fa2a352a91ae7178cce9bbb9f7825b39ebd8e"
     },
     {
       "path": "tests/integration/consumer-libraries.test.ts",
@@ -10099,8 +10109,8 @@
     },
     {
       "path": "tests/integration/native-consumer-runtime.test.ts",
-      "bytes": 10499,
-      "sha256": "16814d6efcc092a4e3380323cebdd0122c79984c9eebed3e2fbe055909dc0601"
+      "bytes": 12233,
+      "sha256": "2b76d3975d39798dde56f9cf68a2ac6748e0ad16c25463de92f3379bee093dd5"
     },
     {
       "path": "tests/integration/repositories.test.ts",
