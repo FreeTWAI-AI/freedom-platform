@@ -15,6 +15,6 @@ export function selectModelAdapterRoute(raw: unknown): AdapterAssessment['route'
   if (selection.credentialCustody === 'official_cli') {
     if (selection.providerRef === 'openai') return 'codex_subscription';
     if (selection.providerRef === 'anthropic') return 'claude_subscription';
-  } else if (selection.providerRef === 'openai' || selection.providerRef === 'anthropic') return 'byok';
+  } else if (selection.providerRef === 'openai' || selection.providerRef === 'anthropic' || selection.providerRef === 'openrouter') return 'byok';
   throw new AdapterFault('unsupported_selection');
 }

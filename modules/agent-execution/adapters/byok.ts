@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { OpenRouterModelRefSchema } from '../../../contracts/execution/v1/member-execution.js';
 import { AdapterFault, parseAdapterTextInput, parseModelJson, assertOutputText, copyModelBytes, MODEL_ADAPTER_LIMITS,
   type AdapterAssessment, type DecodedModelText } from './common.js';
 
@@ -11,6 +12,7 @@ import { AdapterFault, parseAdapterTextInput, parseModelJson, assertOutputText, 
 // provider authentication, model readiness, a Run permit or Result authority.
 const LIMITS = MODEL_ADAPTER_LIMITS;
 const registry = Object.freeze({
+  openrouter_chat_v1: Object.freeze({ providerRef: 'openrouter', endpoint: 'https://openrouter.ai/api/v1/chat/completions' }),
   openai_responses_v1: Object.freeze({ providerRef: 'openai', endpoint: 'https://api.openai.com/v1/responses' }),
   anthropic_messages_2023_06_01: Object.freeze({ providerRef: 'anthropic', endpoint: 'https://api.anthropic.com/v1/messages' }),
 });
@@ -59,6 +61,26 @@ const anthropicEnvelope = z.object({ id: z.string().min(1).max(256), type: z.lit
   stop_details: z.null().optional(), usage: anthropicUsage, container: z.null().optional(),
 }).strict();
 
+// OpenRouter chat completion reference and root's credential-free observed shape:
+// https://openrouter.ai/docs/api/api-reference/chat/create-a-chat-completion
+const cost = z.number().finite().nonnegative();
+const openrouterUsage = z.object({ prompt_tokens: integer, completion_tokens: integer.positive(), total_tokens: integer,
+  cost, is_byok: z.boolean().optional(),
+  prompt_tokens_details: z.object({ cached_tokens: integer.optional(), cache_write_tokens: integer.optional(),
+    audio_tokens: z.literal(0).optional(), video_tokens: z.literal(0).optional() }).strict().optional(),
+  completion_tokens_details: z.object({ reasoning_tokens: z.literal(0).optional(), image_tokens: z.literal(0).optional(), audio_tokens: z.literal(0).optional() }).strict().optional(),
+  cost_details: z.object({ upstream_inference_cost: cost.nullable().optional(), upstream_inference_prompt_cost: cost.nullable().optional(),
+    upstream_inference_completions_cost: cost.nullable().optional() }).strict().optional(),
+}).strict();
+const openrouterEnvelope = z.object({ id: z.string().min(1).max(256), object: z.literal('chat.completion'),
+  created: integer, model: OpenRouterModelRefSchema, provider: z.string().min(1).max(96).optional(),
+  system_fingerprint: z.string().max(256).nullable().optional(), service_tier: z.string().max(64).optional(),
+  choices: z.tuple([z.object({ index: z.literal(0), finish_reason: z.literal('stop'),
+    native_finish_reason: z.enum(['stop', 'completed']).optional(), logprobs: z.null().optional(),
+    message: z.object({ role: z.literal('assistant'), content: outputText, refusal: z.null().optional(), reasoning: z.null().optional() }).strict(),
+  }).strict()]), usage: openrouterUsage,
+}).strict();
+
 function invalid(): never { throw new AdapterFault('invalid_response'); }
 function safeSum(a: number, b: number) { const n = a + b; if (!Number.isSafeInteger(n)) invalid(); return n; }
 
@@ -68,8 +90,17 @@ function decode(protocol: Protocol, bytes: Uint8Array, model: string, outputCap:
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) invalid();
     const observed = raw as Record<string, unknown>;
     if (observed.model !== model) throw new AdapterFault('model_mismatch');
-    if (!observed.usage || !(protocol === 'openai_responses_v1' ? openaiUsage : anthropicUsage).safeParse(observed.usage).success)
+    if (!observed.usage || !(protocol === 'openai_responses_v1' ? openaiUsage : protocol === 'openrouter_chat_v1' ? openrouterUsage : anthropicUsage).safeParse(observed.usage).success)
       throw new AdapterFault('usage_unavailable');
+    if (protocol === 'openrouter_chat_v1') {
+      const r = openrouterEnvelope.parse(raw), u = r.usage;
+      if (u.completion_tokens > outputCap || u.total_tokens !== safeSum(u.prompt_tokens, u.completion_tokens)
+        || (u.prompt_tokens_details?.cached_tokens ?? 0) > u.prompt_tokens
+        || (u.prompt_tokens_details?.cache_write_tokens ?? 0) > u.prompt_tokens) invalid();
+      // Cost is validated metadata, not a debit/billing-authority assertion.
+      return { text: assertOutputText(r.choices[0].message.content), reportedModelRef: r.model,
+        inputTokens: u.prompt_tokens, outputTokens: u.completion_tokens };
+    }
     if (protocol === 'openai_responses_v1') {
       const r = openaiEnvelope.parse(raw);
       if (r.model !== model || r.usage.output_tokens > outputCap
@@ -108,8 +139,11 @@ export interface ByokObservation {
 function chosen(raw: unknown) {
   const input = parseAdapterTextInput(raw), s = input.selection;
   if (s.credentialCustody === 'official_cli' || s.billingSource !== 'user_byok'
-    || s.processingLocation !== 'provider_remote' || !['openai','anthropic'].includes(s.providerRef)) throw new AdapterFault('unsupported_selection');
-  const protocol: Protocol = s.providerRef === 'openai' ? 'openai_responses_v1' : 'anthropic_messages_2023_06_01';
+    || s.processingLocation !== 'provider_remote' || !['openai','anthropic','openrouter'].includes(s.providerRef)) throw new AdapterFault('unsupported_selection');
+  if (s.providerRef === 'openrouter' && !OpenRouterModelRefSchema.safeParse(s.modelRef).success) throw new AdapterFault('unsupported_selection');
+  const selected = Object.entries(registry).find(([, profile]) => profile.providerRef === s.providerRef);
+  if (!selected) throw new AdapterFault('unsupported_selection');
+  const protocol = selected[0] as Protocol;
   return { input, protocol, binding: registry[protocol] };
 }
 function observation(raw: ByokObservation) {
@@ -156,7 +190,10 @@ export function createByokTextAdapter() {
       const headerValues: Record<string,string> = { 'Content-Type': 'application/json' };
       if (protocol === 'anthropic_messages_2023_06_01') headerValues['anthropic-version'] = '2023-06-01';
       const headers: Readonly<Record<string,string>> = Object.freeze(headerValues);
-      const payload = protocol === 'openai_responses_v1'
+      const payload = protocol === 'openrouter_chat_v1'
+        ? { model: s.modelRef, messages: [{ role: 'user', content: input.prompt }], max_completion_tokens: input.maxOutputTokens,
+          stream: false, tools: [], tool_choice: 'none', provider: { allow_fallbacks: false, data_collection: 'deny', require_parameters: true }, usage: { include: true } }
+        : protocol === 'openai_responses_v1'
         ? { model: s.modelRef, input: [{ role: 'user', content: [{ type: 'input_text', text: input.prompt }] }],
           max_output_tokens: input.maxOutputTokens, stream: false, store: false, background: false,
           tools: [], tool_choice: 'none', parallel_tool_calls: false, truncation: 'disabled', text: { format: { type: 'text' } } }
