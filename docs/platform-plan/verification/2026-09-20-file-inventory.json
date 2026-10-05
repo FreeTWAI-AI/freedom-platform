@@ -13669,8 +13669,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 337519,
-      "sha256": "737371fb7c2be9c76d449a59f930ed61e30cc4d2ba054f92ad179914da5004a3"
+      "bytes": 338751,
+      "sha256": "929758751a3a5ed47ace71e128b2164307b1054e8874444ac669ebd650c0aec0"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/shop-key-expiry-evidence-2026-10-05.json",
+      "bytes": 5244,
+      "sha256": "e569cf2f495ae9dc989fd45212f213208a11069a71720fe9d3bd20e6ac7fd618"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -14439,8 +14444,8 @@
     },
     {
       "path": "modules/agent-commerce/orders.ts",
-      "bytes": 18519,
-      "sha256": "5065d797803592f7108d524e787cc6efdbed1b532871cd106151fb2d110dc1b9"
+      "bytes": 19335,
+      "sha256": "90a5fa951c102bb494e0048bed881bfb769beb26fc1464fdbdcc1315587f4700"
     },
     {
       "path": "modules/agent-commerce/schema.ts",
@@ -17346,6 +17351,11 @@
       "path": "tests/runtime/admin-sync-worker.test.ts",
       "bytes": 16068,
       "sha256": "d10b6d5cf472d0b710a03471f7a08ff530bfe428dd2b568d5577ebee2e48e4c3"
+    },
+    {
+      "path": "tests/runtime/agent-commerce-key-expiry.test.ts",
+      "bytes": 8184,
+      "sha256": "b6d8060d1e97b9857c587f72a8b3ee1a0564678288108b4174c77af4a446b64f"
     },
     {
       "path": "tests/runtime/agent-commerce.test.ts",

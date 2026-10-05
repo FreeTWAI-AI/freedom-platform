@@ -368,6 +368,25 @@
         "failed": 0,
         "skipped": 0
       }
+    },
+    "shop-key-expiry-candidate": {
+      "id": "shop-key-expiry-candidate",
+      "kind": "local_candidate_tests",
+      "source_sha": "fb15140b1857686b42a929927f452a4bddcc61bc",
+      "environment": "Real mounted HTTP handlers and isolated PostgreSQL18; synthetic credentials and shop data",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/shop-key-expiry-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Six real deadline cases incorrectly returned200 before the fix; fixed source passes23 tests with zero skips.",
+        "Current DB key clock is rechecked after community lock and domain callback, including successful replay; expired domain effects roll back."
+      ],
+      "limitations": [
+        "No real site/service common principal or scope implemented by A2a.",
+        "No key purpose/issuer/audience/environment binding or legacy key exit implemented by this patch; A2 design remains separate.",
+        "Pre-commit authorization decision; not a claim the key remains valid through commit/response delivery.",
+        "Local evidence only; no hosted CI, deployment, production DB, secret discovery, live key change, provider call or money operation."
+      ]
     }
   },
   "requirements": [
