@@ -29,6 +29,12 @@ const modelProfile = z.object({ data: z.object({ id: OpenRouterModelRefSchema, c
   per_request_limits: z.record(z.string().max(96), z.string().max(96)).nullable().optional(),
   supported_parameters: z.array(z.string().max(96)).max(64), supported_voices: z.array(z.string().max(96)).max(128).nullable().optional(),
   default_parameters: z.record(z.string().max(96), z.union([z.number().finite(), z.string().max(96), z.null()])).nullable().optional(),
+  knowledge_cutoff: z.iso.date().nullable().optional(),
+  benchmarks: z.object({
+    design_arena: z.array(z.object({ arena: z.string().max(96), category: z.string().max(96),
+      elo: z.number().finite(), win_rate: z.number().finite().min(0).max(100), rank: integer.positive() }).strict()).max(64).optional(),
+    artificial_analysis: z.object({ intelligence_index: amount.nullable(), coding_index: amount.nullable(), agentic_index: amount.nullable() }).strict().optional(),
+  }).strict().optional(),
   links: z.object({ details: z.string().max(512) }).strict().optional(),
 }).strict() }).strict();
 
