@@ -1,4 +1,4 @@
-import { buildContext } from './context.mjs';
+import { buildContextMetadata } from './context.mjs';
 import { inspectWorkspace, resolveCommit } from './workspace.mjs';
 import { readBounded, parseJson, sha256 } from './io.mjs';
 import { validateFormat } from './formats.mjs';
@@ -31,7 +31,7 @@ async function contractCheck(workspace) {
 }
 
 export async function verifyWorkspace(options, { suiteRunner, testDatabaseUrl } = {}) {
-  const built = await buildContext(options), { workspace, context, impact } = built;
+  const built = await buildContextMetadata(options), { workspace, context, impact } = built;
   const checks = [{ check_id: 'descriptors', status: 'passed', reason: 'schema_and_references_checked' }, await contractCheck(workspace)];
   for (const blocker of context.blockers) checks.push({ check_id: blocker, status: 'not_run', reason: blocker });
   const suites = new Set(impact.tests);

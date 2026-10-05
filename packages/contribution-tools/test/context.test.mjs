@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { readFile, unlink, rename, symlink, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { buildContext, selectImpact, validateDescriptor } from '../context.mjs';
+import { buildContext, buildContextDelivery, CONTEXT_LIMITS, readContextDelivery, writeContextDelivery, selectImpact, validateDescriptor } from '../context.mjs';
 import { inspectWorkspace, resolveCommit } from '../workspace.mjs';
 import { verifyWorkspace, runLocalSuite } from '../verify.mjs';
 import { writeLocalArtifact } from '../local-artifacts.mjs';
+import { sha256 } from '../io.mjs';
 import { verificationEnvironment } from '../process-env.mjs';
 import { legacyFixture, fixtureRoot, put, copy, pretty } from './fixtures.mjs';
 
@@ -307,4 +308,187 @@ test('CLI prepare/context/verify share the library, write only requested artifac
     ['verify', '--report', 'package.json'], ['context', '--base-ref', 'baseline', '--base-ref', 'HEAD']]) {
     result = run(args); assert.equal(result.status, 1, result.stderr); assert.equal(result.stderr, '');
   }
+});
+
+async function largeContextFixture(t) {
+  const f = await fixture(t);
+  f.options.scopes = ['governance'];
+  // A single instruction exceeds the v1 aggregate cap; UTF-8 boundaries and BOM
+  // must survive both baseline and candidate delivery without replacement.
+  f.rule = '\ufeff' + '界🙂\n'.repeat(70_000);
+  await put(f.root, 'docs/rules.md', f.rule);
+  f.base = f.commit(); f.git(['update-ref', 'refs/heads/baseline', f.base]);
+  return f;
+}
+const contextCliUrl = new URL('../cli.mjs', import.meta.url).href;
+function contextCli(root, args) {
+  return spawnSync(process.execPath, ['--input-type=module', '-e',
+    `import {runFreedomCli} from ${JSON.stringify(contextCliUrl)}; process.exitCode = await runFreedomCli(process.argv.slice(1));`, '--', ...args],
+  { cwd: root, encoding: 'utf8', maxBuffer: 1_000_000 });
+}
+
+test('large context delivers complete UTF-8 baseline/candidate rules and public version content in bounded chunks', async t => {
+  const f = await largeContextFixture(t);
+  await put(f.root, 'docs/rules.md', f.rule + 'Candidate amendment.\n');
+  await assert.rejects(buildContext(f.options), { code: 'context_size_limit' });
+  const delivery = await writeContextDelivery(f.options);
+  assert.equal(delivery.manifest.binding.publisher_trust, 'unverified');
+  assert.equal(delivery.manifest.binding.library_usage, 'not_checked');
+  assert.equal(delivery.manifest.delta.find(item => item.path === 'docs/rules.md').status, 'changed');
+  for (const source of delivery.manifest.sources) {
+    const parts = delivery.chunks.slice(source.first_chunk, source.first_chunk + source.chunk_count);
+    const bytes = Buffer.concat(parts.map(chunk => Buffer.from(chunk.value.content)));
+    assert.equal(bytes.length, source.content_bytes);
+    assert.equal(sha256(bytes), source.content_sha256);
+    if (source.kind === 'instruction') assert.equal(sha256(bytes), source.sha256);
+    assert(parts.every(chunk => chunk.bytes <= CONTEXT_LIMITS.artifact_bytes && chunk.value.bytes <= CONTEXT_LIMITS.chunk_content_bytes));
+    if (source.path === 'docs/rules.md') assert.equal(bytes.toString(), f.rule + (source.revision === 'candidate' ? 'Candidate amendment.\n' : ''));
+  }
+  const result = await readContextDelivery(f.root, delivery.manifestPath, { complete: true });
+  assert.equal(result.value.complete, true);
+  assert.equal(result.value.chunks, delivery.chunks.length);
+});
+
+test('context chunk reads reject missing, corrupt, reordered and linked fragments before returning even the first chunk', async t => {
+  const f = await largeContextFixture(t), d = await writeContextDelivery(f.options);
+  const a = d.chunks.at(-1), b = d.chunks.at(-2), original = await readFile(join(f.root, a.path));
+  await unlink(join(f.root, a.path));
+  await assert.rejects(readContextDelivery(f.root, d.manifestPath, { chunkIndex: 0 }), { code: 'artifact_missing' });
+  await put(f.root, a.path, await readFile(join(f.root, b.path)));
+  await assert.rejects(readContextDelivery(f.root, d.manifestPath, { complete: true }), { code: 'context_chunk_mismatch' });
+  await put(f.root, a.path, Buffer.from(original.toString().replace('"content":', '"changed":')));
+  await assert.rejects(readContextDelivery(f.root, d.manifestPath, { chunkIndex: 0 }), { code: 'context_chunk_mismatch' });
+  await unlink(join(f.root, a.path)); await symlink(join(f.root, b.path), join(f.root, a.path));
+  await assert.rejects(readContextDelivery(f.root, d.manifestPath, { complete: true }), { code: 'artifact_symlink' });
+  await unlink(join(f.root, a.path)); await put(f.root, a.path, original);
+  const forged = structuredClone(d.manifest); forged.chunks.pop();
+  await put(f.root, d.manifestPath, pretty(forged));
+  await assert.rejects(readContextDelivery(f.root, d.manifestPath, { complete: true }), { code: 'stale_or_modified_context_manifest' });
+  for (const path of ['../manifest.json', 'package.json', '.freedom/reports/manifest.json']) {
+    await assert.rejects(readContextDelivery(f.root, path, { complete: true }), { code: 'context_manifest_path_denied' });
+  }
+});
+
+test('saved context rejects candidate edits, scope replacement, branch changes and a moving baseline', async t => {
+  const f = await largeContextFixture(t), d = await writeContextDelivery(f.options);
+  await put(f.root, 'docs/rules.md', f.rule + 'later');
+  await assert.rejects(readContextDelivery(f.root, d.manifestPath, { complete: true }), { code: 'stale_or_modified_context_manifest' });
+  await put(f.root, 'docs/rules.md', f.rule);
+  const changedScope = structuredClone(d.manifest); changedScope.request.scopes = [];
+  await put(f.root, d.manifestPath, pretty(changedScope));
+  await assert.rejects(readContextDelivery(f.root, d.manifestPath, { complete: true }), { code: 'stale_or_modified_context_manifest' });
+  await put(f.root, d.manifestPath, pretty(d.manifest));
+  f.git(['checkout', '-q', '-b', 'different-task']);
+  await assert.rejects(readContextDelivery(f.root, d.manifestPath, { complete: true }), { code: 'stale_or_modified_context_manifest' });
+  const newer = await writeContextDelivery(f.options);
+  await put(f.root, 'packages/contribution-tools/value.mjs', 'export const changed = true;\n');
+  const nextHead = f.commit(); f.git(['update-ref', 'refs/heads/baseline', nextHead]);
+  await assert.rejects(readContextDelivery(f.root, newer.manifestPath, { complete: true }), { code: 'stale_or_modified_context_manifest' });
+});
+
+test('actual CLI preserves the small bundle and reads every large-context fragment from a fresh linked worktree', async t => {
+  const f = await largeContextFixture(t), worktree = await fixtureRoot(t);
+  f.git(['worktree', 'add', '--detach', worktree, f.base]);
+  const args = ['prepare', '--base-ref', f.base, '--paths', 'packages/contribution-tools/deep/value.mjs'];
+  const prepared = contextCli(worktree, args);
+  assert.equal(prepared.status, 0, prepared.stdout + prepared.stderr);
+  const summary = JSON.parse(prepared.stdout);
+  assert.equal(summary.format, 'freedom.coding-context-manifest/v1');
+  const manifest = JSON.parse(await readFile(join(worktree, summary.context_path)));
+  const collected = [];
+  for (const chunk of manifest.chunks) {
+    const read = contextCli(worktree, ['context', '--manifest', summary.context_path, '--chunk', String(chunk.index)]);
+    assert.equal(read.status, 0, read.stdout + read.stderr);
+    assert(Buffer.byteLength(read.stdout) <= CONTEXT_LIMITS.artifact_bytes);
+    collected.push(JSON.parse(read.stdout));
+  }
+  for (const source of manifest.sources.filter(item => item.kind === 'instruction')) {
+    const bytes = Buffer.from(collected.slice(source.first_chunk, source.first_chunk + source.chunk_count).map(chunk => chunk.content).join(''));
+    const original = source.revision === 'base'
+      ? execFileSync('git', ['show', `${f.base}:${source.path}`], { cwd: worktree }) : await readFile(join(worktree, source.path));
+    assert.equal(sha256(bytes), source.sha256);
+    assert.deepEqual(bytes, original);
+  }
+  const done = contextCli(worktree, ['context', '--manifest', summary.context_path, '--check', 'complete']);
+  assert.equal(done.status, 0, done.stdout); assert.equal(JSON.parse(done.stdout).complete, true);
+  for (const chunk of manifest.chunks) await put(f.root, chunk.path, await readFile(join(worktree, chunk.path)));
+  await put(f.root, summary.context_path, await readFile(join(worktree, summary.context_path)));
+  const mixed = contextCli(f.root, ['context', '--manifest', summary.context_path, '--chunk', '0']);
+  assert.equal(mixed.status, 1); assert.equal(JSON.parse(mixed.stdout).code, 'stale_or_modified_context_manifest');
+  for (const extra of [['--chunk', '-1'], ['--chunk', '0', '--check', 'complete'], ['--chunk', '0', '--base-ref', f.base]]) {
+    const rejected = contextCli(worktree, ['context', '--manifest', summary.context_path, ...extra]);
+    assert.equal(rejected.status, 1);
+  }
+});
+
+test('metadata verify reads large full-scope rules and preserves missing instruction blockers', async t => {
+  const f = await largeContextFixture(t), selected = [];
+  const suiteRunner = async (_root, id) => { selected.push(id); return { check_id: id, status: 'passed', reason: 'synthetic_selection_only' }; };
+  let report = await verifyWorkspace({ ...f.options, requestedPaths: ['AGENTS.md'] }, { suiteRunner });
+  assert.equal(report.status, 'passed'); assert.deepEqual(report.scope, ['governance']);
+  assert.deepEqual(selected, ['governance.unit']);
+  await unlink(join(f.root, 'docs/rules.md'));
+  report = await verifyWorkspace(f.options, { suiteRunner });
+  assert.equal(report.status, 'unavailable'); assert(report.blockers.includes('instruction_missing'));
+  // The baseline descriptor still references this absent rule. Candidate-only
+  // text must not silently replace the missing baseline obligation.
+  f.commit(); f.git(['update-ref', 'refs/heads/baseline', 'HEAD']);
+  await put(f.root, 'docs/rules.md', f.rule);
+  report = await verifyWorkspace(f.options, { suiteRunner });
+  assert.equal(report.status, 'unavailable'); assert(report.blockers.includes('baseline_instruction_missing'));
+});
+
+test('delivery rejects oversized instructions, invalid UTF-8 and excessive total content without publishing a manifest', async t => {
+  const f = await fixture(t);
+  f.options.scopes = ['governance'];
+  await put(f.root, 'docs/rules.md', Buffer.alloc(2_000_001, 65));
+  await assert.rejects(writeContextDelivery(f.options), { code: 'artifact_size_limit' });
+  await put(f.root, 'docs/rules.md', Buffer.from([0xc0, 0xaf]));
+  await assert.rejects(writeContextDelivery(f.options), { code: 'invalid_instruction_encoding' });
+  const d = descriptor(); d.instructions = [];
+  for (let index = 0; index < 9; index++) {
+    const path = `docs/large-${index}.md`; d.instructions.push(path); await put(f.root, path, 'x'.repeat(1_800_000));
+  }
+  await put(f.root, 'docs/rules.md', '# valid\n');
+  await put(f.root, 'packages/contribution-tools/freedom.module.json', pretty(d));
+  f.commit(); f.git(['update-ref', 'refs/heads/baseline', 'HEAD']);
+  await assert.rejects(writeContextDelivery({ ...f.options, scopes: ['governance'] }), { code: 'context_total_size_limit' });
+  await assert.rejects(readdir(join(f.root, '.freedom/context')), { code: 'ENOENT' });
+});
+
+test('interrupted chunk publication leaves no manifest and never follows a planted output link', async t => {
+  const f = await largeContextFixture(t), d = await buildContextDelivery(f.options);
+  const outside = await fixtureRoot(t);
+  await put(outside, 'unchanged.json', 'outside original bytes');
+  await put(f.root, d.chunks.at(-1).path, 'placeholder');
+  await unlink(join(f.root, d.chunks.at(-1).path));
+  await symlink(join(outside, 'unchanged.json'), join(f.root, d.chunks.at(-1).path));
+  await assert.rejects(writeContextDelivery(f.options), { code: 'unsafe_report_target' });
+  await assert.rejects(readFile(join(f.root, d.manifestPath)), { code: 'ENOENT' });
+  assert.equal(await readFile(join(outside, 'unchanged.json'), 'utf8'), 'outside original bytes');
+});
+
+test('unknown entry retains all baseline/candidate dependency rules while dependency bodies remain private', async t => {
+  const f = await fixture(t), dependent = descriptor('portal', ['apps/portal/**']);
+  dependent.dependencies = ['governance']; dependent.instructions = ['docs/portal.md'];
+  await put(f.root, 'apps/portal/freedom.module.json', pretty(dependent));
+  await put(f.root, 'docs/portal.md', '# Portal baseline rules\n');
+  await put(f.root, 'apps/portal/AGENTS.md', '# Nested portal rules\n');
+  await put(f.root, 'package-lock.json', pretty({ private_registry_value: 'fixture-sensitive-registry-marker' }));
+  f.commit(); f.git(['update-ref', 'refs/heads/baseline', 'HEAD']);
+  await put(f.root, 'docs/portal.md', '# Portal candidate rules\n');
+  const d = await writeContextDelivery({ ...f.options, requestedPaths: ['new-queue/handler.mjs'] });
+  assert.deepEqual(d.manifest.binding.module_ids, ['governance', 'portal']);
+  assert.deepEqual(d.manifest.selection.unknown_paths, ['new-queue/handler.mjs']);
+  for (const revision of ['baseline_modules', 'candidate_modules']) {
+    assert.deepEqual(d.manifest.selection[revision].find(item => item.module_id === 'portal').dependencies, ['governance']);
+  }
+  for (const path of ['docs/rules.md', 'docs/portal.md', 'apps/portal/AGENTS.md']) {
+    assert.deepEqual(d.manifest.sources.filter(source => source.path === path).map(source => source.revision), ['base', 'candidate']);
+  }
+  const serialized = JSON.stringify([d.manifest, ...d.chunks.map(chunk => chunk.value)]);
+  assert(!serialized.includes('fixture-sensitive-registry-marker'));
+  assert(d.manifest.binding.version_inputs.some(input => input.path === 'package-lock.json' && input.sha256 && !('content' in input)));
+  const complete = await readContextDelivery(f.root, d.manifestPath, { complete: true });
+  assert.equal(complete.value.complete, false); assert.deepEqual(complete.blockers, ['surface_unmapped']);
 });
