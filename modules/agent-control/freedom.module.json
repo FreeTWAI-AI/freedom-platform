@@ -50,7 +50,14 @@
     "tests/runtime/member-device-client.test.ts",
     "tests/e2e/device-connections.spec.ts",
     "tests/e2e/device-connections-visual.ts",
-    "packages/sdk/machine-device-cli.mjs"
+    "packages/sdk/machine-device-cli.mjs",
+    "contracts/execution/v3/machine-text-execution.ts",
+    "contracts/execution/v3/machine-text-proof.schema.json",
+    "contracts/execution/v3/machine-text-access.schema.json",
+    "migrations/117_machine_text_execution.sql",
+    "tests/runtime/machine-text-proof.test.ts",
+    "tests/runtime/machine-text-authority.test.ts",
+    "tests/runtime/machine-text-fixtures.ts"
   ],
   "public_exports": [
     "packages/sdk/machine-device-client.mjs",
