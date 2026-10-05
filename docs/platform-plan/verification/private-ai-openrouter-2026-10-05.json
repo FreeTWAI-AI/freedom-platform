@@ -1,16 +1,16 @@
 {
   "profile": "private-ai.real-provider-increment-evidence/v1",
-  "recordedAt": "2026-10-05T06:00:14.226138+00:00",
+  "recordedAt": "2026-10-05T06:33:59.835638+00:00",
   "provider": "openrouter",
   "model": "openai/gpt-4.1-mini",
   "approvedBudgetUsd": 10,
   "providerExpiresAt": "2026-10-06T05:09:37.573Z",
   "providerLimitReset": "daily",
   "sessionBudgetIndependentOfReset": true,
-  "providerReportedUsageUsd": 0.000154,
-  "providerRemainingUsd": 9.999846,
-  "providerInferencePosts": 3,
-  "conservativeReservedUsd": 0.4,
+  "providerReportedUsageUsd": 0.000206,
+  "providerRemainingUsd": 9.999794,
+  "providerInferencePosts": 4,
+  "conservativeReservedUsd": 0.5,
   "costAccounting": "observed provider usage and per-response costs; product USD debit ledger not implemented",
   "connectivity": {
     "httpStatus": 200,
@@ -103,6 +103,39 @@
       "humanResultEdit": "synthetic_owner_native_API_pass",
       "explanation": "complete bounded native API owner flow with real provider",
       "noAutomaticRetry": true
+    },
+    {
+      "source": "59131aa6c812874ff1591a6596c996a799ea37c5",
+      "startedAt": "2026-10-05T06:29:30.356Z",
+      "finishedAt": "2026-10-05T06:31:58.109Z",
+      "status": "pass",
+      "stage": "complete",
+      "checks": {
+        "separateOriginIngest": true,
+        "mainExecutorCipherDenied": true,
+        "brokerRestartBeforeExecution": true,
+        "activationAckMetadataOnly": true,
+        "ownerResultAndNativeR2Read": true,
+        "foreignOwnerDenied": true,
+        "completedReplayMetadataOnly": true,
+        "ownerResultEditPreservesSource": true,
+        "recoveryWithdrawalDenied": true,
+        "stop": true,
+        "revoke": true
+      },
+      "provider": {
+        "posts": 1,
+        "gets": 6,
+        "lastStatus": 200,
+        "usageBefore": 0.000154,
+        "maxRunUsd": 0.007167999999999999,
+        "reportedCostUsd": 5.2e-05,
+        "dispatchUnknown": false
+      },
+      "cleanup": "completed",
+      "humanResultEdit": "synthetic_owner_native_API_pass",
+      "noAutomaticRetry": true,
+      "explanation": "complete real-provider native owner flow after final synchronous credential deadline fence; cleanup waited for owned PostgreSQL checkpoint"
     }
   ],
   "boundaries": {
@@ -199,6 +232,56 @@
     },
     "build": "passed",
     "typecheck": "passed",
-    "hostedFinalHead": "pending"
-  }
+    "hostedFinalHead": "pending",
+    "finalDeployPreflight": {
+      "passed": 415,
+      "failed": 0
+    },
+    "actualMediaRestore": {
+      "passed": 2,
+      "failed": 0
+    },
+    "finalCredentialDeadline": {
+      "authorizationAndScoped": 45,
+      "brokerCryptoDomain": 20,
+      "realIngestChromium": 13,
+      "failed": 0,
+      "controlBeforeFixCustodyRows": {
+        "credential": 1,
+        "ciphertext": 1,
+        "receipt": 1
+      },
+      "afterFixCustodyRows": {
+        "credential": 0,
+        "ciphertext": 0,
+        "receipt": 0
+      },
+      "boundary": "decision before COMMIT; not a promise about COMMIT or network delivery"
+    },
+    "deviceBrowserAfterExclusionUpdate": {
+      "passed": 2,
+      "failed": 0
+    },
+    "firstHostedRun": {
+      "runId": 37270634229,
+      "head": "a73adc0e625741f2f1b7397901570b60c9a983d0",
+      "status": "failed",
+      "uiDefaultPassed": 463,
+      "uiDefaultSkipped": 10,
+      "uiConfiguredPrivateAiPassed": 10,
+      "uiConfiguredPrivateAiSkipped": 1,
+      "codeQL": "passed",
+      "correctedFindings": [
+        "migration manifest and canonical compatibility ended113",
+        "new preparation table missing from exact browser grant fixture",
+        "final SQL-result command expiry could commit custody",
+        "test setup consumed signed deadline before target barrier"
+      ],
+      "remainingOriginalCauseUnconfirmed": [
+        "adversarial receipt timing",
+        "cross-process browser test; both locally passed before and after setup-order correction"
+      ]
+    }
+  },
+  "providerUsageObservedAt": "2026-10-05T06:32:57.889Z"
 }
