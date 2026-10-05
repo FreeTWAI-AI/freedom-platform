@@ -86,16 +86,28 @@ export function PrivateWorkAI({ client }: { client: PortalClient }) {
 
   async function submit(command: Command) {
     if (lock.current || controlLocks.current.size || pendingControls.current.size) return; lock.current = true; setBusy(true); setError(''); setNotice('');
-    let succeeded = false;
+    let succeeded = false, executeStatePending = false;
     try {
       const value = await client.post(command.path, command.body, { idempotencyKey: command.key, ifMatch: command.version, suppressConsole: true });
+      // Same-key replay may return dispatched metadata while the original
+      // provider request still runs. HTTP 200 alone cannot settle uncertainty.
+      if (/^\/me\/model-steps\/[^/]+:execute$/.test(command.path)) {
+        executeStatePending = true;
+        const latest = await client.get<ModelStepMetadata>(command.path.replace(/:execute$/, ''), { background: true });
+        if (!live.current) return;
+        if (latest.stepId !== command.path.split('/').pop()!.replace(/:execute$/, '') || !terminal(latest)) {
+          setUnresolved(command); setNotice('推論仍未確認完成；請重新讀取狀態，停止與撤銷仍可使用。');
+          await refresh(); return;
+        }
+        executeStatePending = false;
+      }
       succeeded = true;
       if (!live.current) return;
       setUnresolved(null); command.accepted?.(value); setNotice(`${command.label}已保存。`);
       await refresh();
     } catch (cause) {
       if (!live.current) return;
-      if (!succeeded && cause instanceof ApiError && (cause.network || cause.timedOut || command.retainOnServerError && cause.status >= 500)) {
+      if (executeStatePending || !succeeded && cause instanceof ApiError && (cause.network || cause.timedOut || command.retainOnServerError && cause.status >= 500)) {
         setUnresolved(command); setError('尚未確認這次操作結果。先重新讀取狀態；需要補送時，使用下方「以原請求確認結果」。不會自動再次呼叫模型。');
       } else if (cause instanceof ApiError && cause.conflict) {
         setUnresolved(null); setExportConsent(false); setGrantConsent(false); setError('資料版本已更新，請重新讀取，再確認目前內容與模型。');

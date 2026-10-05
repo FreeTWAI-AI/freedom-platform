@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './fixtures.js';
+import { Pool } from 'pg';
 import { navigate } from './navigation.js';
 
 const fixtureEnabled = process.env.FREEDOM_E2E_PRIVATE_AI_FIXTURE === '1';
@@ -304,6 +305,37 @@ test.describe('isolated SQL and loopback synthetic model fixture', () => {
     await versions.selectOption({index:2});await expect(page.getByRole('heading', {name:'第 1 版 · 模型產出',exact:true})).toBeVisible();
     await expect(page.locator('.private-ai-text')).toHaveText(original);await expect(page.locator('.private-ai-panel')).toContainText('synthetic-text-model');
     expect(await page.evaluate(()=>Object.values(localStorage).some(value=>value.includes('本人補充'))||Object.values(sessionStorage).some(value=>value.includes('本人補充')))).toBe(false);
+  });
+
+  test('same-key dispatched replay keeps editing locked while the original provider response is pending', async ({ page, e2eAuthPool }) => {
+    await login(page);await readyStep(page,'合成測試：仍在處理的原請求');
+    const stepId=await page.getByRole('combobox',{name:'推論狀態',exact:true}).inputValue();
+    const workId=await page.getByRole('combobox',{name:'選擇私人工作',exact:true}).inputValue();
+    const schema=(await e2eAuthPool.query('SELECT current_schema() name')).rows[0].name;
+    const gatePool=new Pool({...e2eAuthPool.options,max:1}),holder=await gatePool.connect();
+    await holder.query('BEGIN');const pid=(await holder.query('SELECT pg_backend_pid() pid')).rows[0].pid;
+    await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`private-ai-browser-provider/${schema}`]);
+    let observed!:()=>void;const providerBlocked=new Promise<void>(resolve=>{observed=resolve;});
+    let original:Promise<unknown>|undefined,requests=0,freshReads=0;const replayStates:string[]=[],sent:{key?:string;version?:string;body:string|null}[]=[];
+    page.on('request',request=>{if(request.method()==='GET'&&request.url().endsWith(`/model-steps/${stepId}`))freshReads++;});
+    await page.route('**/api/v1/me/model-steps/*:execute',async route=>{
+      const request=route.request();sent.push({key:request.headers()['idempotency-key'],version:request.headers()['if-match'],body:request.postData()});
+      requests++;if(requests===1){original=route.fetch().catch(()=>undefined);await providerBlocked;await route.fulfill({status:503,json:{code:'synthetic_original_still_pending'}});}
+      else{const actual=await route.fetch();expect(actual.status()).toBe(200);replayStates.push((await actual.json()).state);await route.fulfill({response:actual});}
+    });
+    try{
+      await page.getByRole('button',{name:'執行一次推論',exact:true}).click();
+      await expect.poll(async()=>Number((await e2eAuthPool.query('SELECT count(*)::int n FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rows[0].n)).toBe(1);
+      observed();const replay=page.getByRole('button',{name:'以原請求確認結果',exact:true});await expect(replay).toBeVisible();
+      await replay.click();await expect.poll(()=>replayStates.length).toBe(1);expect(replayStates).toEqual(['dispatched']);
+      await expect.poll(()=>freshReads).toBe(1);await expect(replay).toBeEnabled();
+      await expect(page.getByLabel('工作標題',{exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'新增私人工作',exact:true})).toBeDisabled();
+      await expect(page.getByRole('button',{name:'停止推論',exact:true})).toBeEnabled();await expect(page.getByRole('button',{name:'撤銷單次同意',exact:true})).toBeEnabled();
+      expect(requests).toBe(2);expect(sent[1]).toEqual(sent[0]);await page.getByRole('button',{name:'停止推論',exact:true}).click();
+      await expect(page.getByRole('status').filter({hasText:/推論停止已保存/})).toBeVisible();
+      expect((await e2eAuthPool.query('SELECT state FROM model_text_steps WHERE step_id=$1',[stepId])).rows[0].state).toBe('outcome_unknown');
+    } finally {observed();await holder.query('COMMIT');holder.release();await gatePool.end();await original;}
+    expect((await e2eAuthPool.query('SELECT count(*)::int n FROM private_model_work_results WHERE work_item_id=$1',[workId])).rows[0].n).toBe(0);
   });
 
 });
