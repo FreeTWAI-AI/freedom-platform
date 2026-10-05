@@ -57,3 +57,12 @@ disposable PostgreSQL only; no production credentials or deployments are implied
 `createCredentialIngestService` and `createCredentialIngestHttp` implement the purpose-bound direct setup in [the canonical ingest specification](../../docs/platform-plan/execution/unified-foundation/20-direct-credential-ingest.md). The main API signs metadata; the protected document and key bytes remain on a different HTTPS cookie host. Bootstrap and submission are one-use SQL transitions. The original vault/store retain genuine intent provenance, a 30-second write deadline and commit guards; history remains readable without recovery/provider health.
 
 The optional main product `ingest` port is explicitly bound to its database/origin/environment/client. Missing ports return unavailable. This factory does not install a public service or supply default keys, KEK, capture readiness, external recovery, DNS or certificates. The local HTTPS/Chromium fixture uses synthetic readiness and provider/storage; it is not a production capture or deployment acceptance.
+
+Setup continuity uses migration 114's append-only preparation deadline and the
+existing original-session SQL claim. A replica verifies cookie/CSRF hashes,
+current owner/session/recovery and the unconsumed claim before deriving a fresh
+local invocation. Submission creates a fresh genuine store intent, capped by
+that original deadline, and commits its one-use SQL claim before reading bytes.
+No key bytes or opaque capabilities are serialized. Apply the updated runtime,
+cipher and executor grant templates after migration 114; this does not enable
+any private AI flags or establish production readiness.

@@ -195,6 +195,8 @@ not merely after the first new-shape write. No SQL file or migration is changed.
 | `execution.device-authorization.v1` | closed device requests, exact member approval, genuine enrollment proof and one-time bootstrap issuance with durable throttling; not refresh families, HTTP/UI, production issuer trust or execution Grants |
 | `execution.bootstrap-session.v1` | one-use refresh rotation, committed family/connection reuse revocation and purpose-bound machine nonce acquisition; not HTTP/UI, production issuer trust or execution Grants |
 | `execution.member-device-management.v1` | explicitly installed bootstrap HTTP and canonical member inspect/decide/read/revoke support with current owner/session/connection fences; not machine execution authority, issuer approval, model access or credential custody |
+| `execution.model-credential-preparation.v1` | read/write support for migration114's retained one-use preparation deadline, cross-instance setup and fresh local intent derivation; requires ingest and custody support; no key capture or provider authority |
+| `execution.openrouter-selection.v1` | read/write support for migration115's namespaced OpenRouter BYOK selections without losing their provider/model identity; requires member prerequisites; platform vault and dispatch remain separate capabilities |
 | `execution.member-prerequisites.v1` | unverified member model choice, exact bounded consent, and immutable blocked Attempt history with current-authority replay checks; never model authentication, execution, lease, billing or recovery support |
 
 | Shape | Minimum schema | Additional capabilities |
@@ -211,6 +213,30 @@ not merely after the first new-shape write. No SQL file or migration is changed.
 | `execution.bootstrap-session.v1` | 091 | runtime enrollment + connection records + bootstrap nonce admission + refresh/session records |
 | `execution.member-device-management.v1` | 091 | installed member device port + runtime enrollment + connection records + bootstrap status + device authorization + refresh/session |
 | `execution.member-prerequisites.v1` | 092 | personal owner ACL + server persistence policy + member Run + runtime enrollment + connection records + bootstrap status + refresh/session + member prerequisites |
+| `execution.model-credential-preparation.v1` | 114 | durable preparation + credential ingest + custody (and their existing prerequisites) |
+| `execution.openrouter-selection.v1` | 115 | namespaced OpenRouter selection + member prerequisites (and their existing prerequisites) |
+
+Migration114 changes the ingest writer contract: when schema114 or later is
+planned or retained, any required `execution.model-credential-ingest.v1` also
+requires `execution.model-credential-preparation.v1` from every active/candidate
+binary. A pre-114 writer cannot submit without the preparation row. Apply the
+updated runtime, cipher and executor grant templates independently; a compatible
+report does not apply grants.
+
+Before creating preparation rows or OpenRouter selections, the trusted host must
+record the corresponding enabled shape; observations of written rows must record
+its written shape and advance the independently retained rollback shape/capability
+floor. Keep that floor after expiry, revocation, feature disablement or database
+restore. Both new capability-only floors retain their dependencies and minimum
+schema, even with empty current shape sets. Schema115 alone does not imply that
+OpenRouter selections exist. Local-keychain selections do not imply platform
+custody; vault/ingest/dispatch usage retains those separate existing shapes too.
+
+Old generic ingest/custody approvals cannot stand in for either new capability.
+Every exact source/artifact approval must still cover both observed and planned
+ledger digests. Recognition of migration114/115, these capabilities, or a
+compatible result never supplies provider readiness, capture, execution, release
+approval or restore proof.
 
 Schema 085 alone does not enable a private shape. When it is planned or retained,
 any private shape in the required union also requires `work.server-policy.v1` from every

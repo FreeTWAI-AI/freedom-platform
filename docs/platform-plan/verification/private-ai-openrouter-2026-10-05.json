@@ -1,0 +1,749 @@
+{
+  "profile": "private-ai.real-provider-increment-evidence/v1",
+  "recordedAt": "2026-10-05T06:33:59.835638+00:00",
+  "provider": "openrouter",
+  "model": "openai/gpt-4.1-mini",
+  "approvedBudgetUsd": 10,
+  "providerExpiresAt": "2026-10-06T05:09:37.573Z",
+  "providerLimitReset": "daily",
+  "sessionBudgetIndependentOfReset": true,
+  "providerReportedUsageUsd": 0.000206,
+  "providerRemainingUsd": 9.999794,
+  "providerInferencePosts": 4,
+  "conservativeReservedUsd": 0.5,
+  "costAccounting": "observed provider usage and per-response costs; product USD debit ledger not implemented",
+  "connectivity": {
+    "httpStatus": 200,
+    "reportedCostUsd": 5.32e-05,
+    "platformOwnerFlow": false
+  },
+  "attempts": [
+    {
+      "source": "1888fae8c7cce7052e0335b206e9a14fbf51555f",
+      "startedAt": "2026-10-05T05:49:46.936Z",
+      "finishedAt": "2026-10-05T05:50:03.157Z",
+      "status": "unavailable",
+      "stage": "activation",
+      "checks": {
+        "separateOriginIngest": true,
+        "mainExecutorCipherDenied": true
+      },
+      "provider": {
+        "posts": 0,
+        "gets": 1,
+        "lastStatus": 200,
+        "usageBefore": 5.32e-05,
+        "maxRunUsd": null,
+        "reportedCostUsd": null,
+        "dispatchUnknown": false
+      },
+      "cleanup": "completed",
+      "humanResultEdit": "not_run",
+      "explanation": "authentication metadata rejected deprecated rate_limit.requests=-1; zero inference POST; fixed6499d68c",
+      "noAutomaticRetry": true
+    },
+    {
+      "source": "6499d68cd159e7212d21f2c572d1326c8b764f4c",
+      "startedAt": "2026-10-05T05:52:13.817Z",
+      "finishedAt": "2026-10-05T05:52:40.468Z",
+      "status": "unavailable",
+      "stage": "owner_result_edit",
+      "checks": {
+        "separateOriginIngest": true,
+        "mainExecutorCipherDenied": true,
+        "brokerRestartBeforeExecution": true,
+        "activationAckMetadataOnly": true,
+        "ownerResultAndNativeR2Read": true,
+        "foreignOwnerDenied": true,
+        "completedReplayMetadataOnly": true
+      },
+      "provider": {
+        "posts": 1,
+        "gets": 4,
+        "lastStatus": 200,
+        "usageBefore": 5.32e-05,
+        "maxRunUsd": 0.007167999999999999,
+        "reportedCostUsd": 5.2e-05,
+        "dispatchUnknown": false
+      },
+      "cleanup": "completed",
+      "humanResultEdit": "not_run",
+      "explanation": "confirmed model Result and metadata replay; harness held stale R2 resource handle after restart; fixedb26af1d0",
+      "noAutomaticRetry": true
+    },
+    {
+      "source": "5ee7dec7f36df026bfd996ff3b74a7cc8ade1bd0",
+      "startedAt": "2026-10-05T05:57:06.491Z",
+      "finishedAt": "2026-10-05T05:57:31.337Z",
+      "status": "pass",
+      "stage": "complete",
+      "checks": {
+        "separateOriginIngest": true,
+        "mainExecutorCipherDenied": true,
+        "brokerRestartBeforeExecution": true,
+        "activationAckMetadataOnly": true,
+        "ownerResultAndNativeR2Read": true,
+        "foreignOwnerDenied": true,
+        "completedReplayMetadataOnly": true,
+        "ownerResultEditPreservesSource": true,
+        "recoveryWithdrawalDenied": true,
+        "stop": true,
+        "revoke": true
+      },
+      "provider": {
+        "posts": 1,
+        "gets": 6,
+        "lastStatus": 200,
+        "usageBefore": 0.0001052,
+        "maxRunUsd": 0.007167999999999999,
+        "reportedCostUsd": 4.88e-05,
+        "dispatchUnknown": false
+      },
+      "cleanup": "completed",
+      "humanResultEdit": "synthetic_owner_native_API_pass",
+      "explanation": "complete bounded native API owner flow with real provider",
+      "noAutomaticRetry": true
+    },
+    {
+      "source": "59131aa6c812874ff1591a6596c996a799ea37c5",
+      "startedAt": "2026-10-05T06:29:30.356Z",
+      "finishedAt": "2026-10-05T06:31:58.109Z",
+      "status": "pass",
+      "stage": "complete",
+      "checks": {
+        "separateOriginIngest": true,
+        "mainExecutorCipherDenied": true,
+        "brokerRestartBeforeExecution": true,
+        "activationAckMetadataOnly": true,
+        "ownerResultAndNativeR2Read": true,
+        "foreignOwnerDenied": true,
+        "completedReplayMetadataOnly": true,
+        "ownerResultEditPreservesSource": true,
+        "recoveryWithdrawalDenied": true,
+        "stop": true,
+        "revoke": true
+      },
+      "provider": {
+        "posts": 1,
+        "gets": 6,
+        "lastStatus": 200,
+        "usageBefore": 0.000154,
+        "maxRunUsd": 0.007167999999999999,
+        "reportedCostUsd": 5.2e-05,
+        "dispatchUnknown": false
+      },
+      "cleanup": "completed",
+      "humanResultEdit": "synthetic_owner_native_API_pass",
+      "noAutomaticRetry": true,
+      "explanation": "complete real-provider native owner flow after final synchronous credential deadline fence; cleanup waited for owned PostgreSQL checkpoint"
+    }
+  ],
+  "boundaries": {
+    "owner": "synthetic_local",
+    "sql": "owned_disposable_postgresql",
+    "workerRuntime": "native_local_workerd",
+    "r2": "native_local_emulator",
+    "provider": "real_https",
+    "captureReadiness": "synthetic_local_assertion",
+    "recoveryAuthority": "synthetic_local",
+    "remoteR2": "not_run",
+    "remoteCloud": "not_run",
+    "realBrowserIngress": "not_run",
+    "productionPrivateAiEnabled": false
+  },
+  "cliConnectivity": {
+    "codex": {
+      "version": "0.160.0",
+      "exitCode": 0,
+      "replyIsPong": true,
+      "usage": [
+        {
+          "input_tokens": 7845,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 5,
+          "reasoning_output_tokens": 0
+        }
+      ],
+      "startupDiagnostic": "code-mode host disabled as configured",
+      "platformAdapterAcceptance": false,
+      "billing": "separate existing OpenAI CLI authentication; not this OpenRouter key"
+    },
+    "claude": {
+      "version": "2.1.288",
+      "exitCode": 1,
+      "isError": true,
+      "reportedCostUsd": 0,
+      "error": "OAuth session expired and could not be refreshed",
+      "platformAdapterAcceptance": false,
+      "billing": "separate existing Claude CLI authentication; not this OpenRouter key"
+    }
+  },
+  "parallelWork": {
+    "astra": 3,
+    "grok47InitialLanes": 10,
+    "agyOpus55InitialLanes": 2,
+    "agyOutcome": "headless command permission denied; no implementation delivered; Astra completed affected implementation",
+    "grokAuthorityFollowup": "initial candidate snapshot independently hardened and tested by Astra; duplicate follow-up stopped with sibling files preserved"
+  },
+  "validation": {
+    "combinedRuntime": {
+      "passed": 82,
+      "failed": 0
+    },
+    "contracts": {
+      "passed": 671,
+      "skipped": 4
+    },
+    "finalPrivateAiBrowser": {
+      "passed": 10,
+      "skippedDefaultOffCase": 1,
+      "upstreamMainIncluded": "fec67d0066c4abc3fe0d420ff025c5c6b83d8d58"
+    },
+    "workerFirstRun": {
+      "passed": 62,
+      "failed": 14,
+      "cause": "missing admin-sync/maintainer dry-run bundles and Hyperdrive fixture URL without password"
+    },
+    "workerCorrectedSetup": {
+      "passed": 22,
+      "failed": 0,
+      "scope": "all failed worker files plus two authority persistence and six acceptance guard tests"
+    },
+    "authorityProductionHttp": {
+      "passed": 4,
+      "failed": 0
+    },
+    "localBroadBrowserRun": {
+      "passed": 296,
+      "failed": 1,
+      "interrupted": 1,
+      "notRun": 171,
+      "interruption": "root stopped after upstream main122 merged to avoid mixed source validation"
+    },
+    "localLoginTimeoutReproduction": {
+      "passed": 19,
+      "failed": 1,
+      "symptom": "login POST remained pending past helper5s; no authentication error",
+      "hostIoFullPressureAvg60Percent": 31.46,
+      "requestBottleneck": "unproven",
+      "privateTracePreserved": true,
+      "codeOrTimeoutChanged": false
+    },
+    "build": "passed",
+    "typecheck": "passed",
+    "hostedFinalHead": "pending",
+    "finalDeployPreflight": {
+      "passed": 415,
+      "failed": 0
+    },
+    "actualMediaRestore": {
+      "passed": 2,
+      "failed": 0
+    },
+    "finalCredentialDeadline": {
+      "authorizationAndScoped": 45,
+      "brokerCryptoDomain": 20,
+      "realIngestChromium": 13,
+      "failed": 0,
+      "controlBeforeFixCustodyRows": {
+        "credential": 1,
+        "ciphertext": 1,
+        "receipt": 1
+      },
+      "afterFixCustodyRows": {
+        "credential": 0,
+        "ciphertext": 0,
+        "receipt": 0
+      },
+      "boundary": "decision before COMMIT; not a promise about COMMIT or network delivery"
+    },
+    "deviceBrowserAfterExclusionUpdate": {
+      "passed": 2,
+      "failed": 0
+    },
+    "firstHostedRun": {
+      "runId": 37270634229,
+      "head": "a73adc0e625741f2f1b7397901570b60c9a983d0",
+      "status": "failed",
+      "uiDefaultPassed": 463,
+      "uiDefaultSkipped": 10,
+      "uiConfiguredPrivateAiPassed": 10,
+      "uiConfiguredPrivateAiSkipped": 1,
+      "codeQL": "passed",
+      "correctedFindings": [
+        "migration manifest and canonical compatibility ended113",
+        "new preparation table missing from exact browser grant fixture",
+        "final SQL-result command expiry could commit custody",
+        "test setup consumed signed deadline before target barrier"
+      ],
+      "remainingOriginalCauseUnconfirmed": [
+        "adversarial receipt timing",
+        "cross-process browser test; both locally passed before and after setup-order correction"
+      ]
+    },
+    "hostedIntegratedMain": {
+      "source": "f9bfea99c88b7ea1cf043321d6f3a1d3e909180e",
+      "verifyRun": 37273271143,
+      "codeql": "success",
+      "baselineBrowser": {
+        "passed": 470,
+        "skipped": 10
+      },
+      "configuredPrivateAiBrowser": {
+        "passed": 10,
+        "skipped": 1
+      },
+      "runtimePartitions": {
+        "0": "failed",
+        "1": "passed",
+        "2": "failed",
+        "3": "passed"
+      },
+      "remainingFailures": {
+        "tests/runtime/credential-ingest-adversarial.test.ts": 2,
+        "tests/runtime/credential-ingest-process.test.ts": 1,
+        "tests/runtime/member-model-settings-process.test.ts": 1
+      },
+      "localExactSourceReproductions": {
+        "partition2PrefixPassed": 272,
+        "partition0SelectedFilesFourCpuPassed": 14
+      },
+      "cause": "not established; bounded hosted diagnostics added; local passes do not resolve hosted failures"
+    },
+    "hostedFailureDiagnosis": {
+      "source": "9217914e6f0c76f95643ea378372856b1a38b319",
+      "verifyRun": 37275427175,
+      "safeDiagnosticsOnly": true,
+      "ingestProcess": {
+        "observedStatus": 429,
+        "expectedStatus": 200,
+        "sourceLine": 14,
+        "deterministicReproduction": "57 owner-outcome GETs plus issue, approval and activation consume the 60/min execution-member network bucket; execution returns member_model_http_rate_limited and makes zero provider POSTs",
+        "fix": "successful browser helper awaits actual broker acknowledgement, then performs one owner outcome GET",
+        "beforeFixBlockedCustodyReads": 31,
+        "afterFixBlockedCustodyReads": 0,
+        "afterCommitOutcomeReads": 1,
+        "productRatePolicyChanged": false
+      },
+      "receiptBarrier": {
+        "observedFailure": "sql_wait_not_observed",
+        "deterministicReproduction": "3500ms trusted reader delay exceeds unrelated 300x10ms observer budget while signed command remains current",
+        "fix": "observe until existing signed command expiry or request settlement; release and drain before fixture cleanup",
+        "signedCommandWindowMs": 8000,
+        "productionDeadlineChanged": false,
+        "hostedCauseProven": false
+      },
+      "memberSettings": {
+        "observedFailure": "operation_timeout waiting for setup acknowledgement",
+        "cause": "not established",
+        "followup": "failure-only fixed request phase and numeric HTTP/status flags; controlled browser preparation abort verifies diagnostic; no production timeout change"
+      }
+    },
+    "postDiagnosisIntegration": {
+      "source": "b49d330900ab56fd9da573642b21d9c03de0c48e",
+      "passed": 18,
+      "failed": 0,
+      "freshBuild": true,
+      "sanitizedRunnerEnvironment": true,
+      "files": [
+        "credential-ingest-adversarial.test.ts",
+        "credential-ingest-process.test.ts",
+        "credential-ingest-rate-budget.test.ts",
+        "member-model-settings-process.test.ts"
+      ],
+      "durationSeconds": 160.83,
+      "fullHostedVerify": "pending new head"
+    },
+    "hostedPostDiagnosis": {
+      "source": "121f7908d7a9193794d0ece95c5d32d6ba3a8e39",
+      "verifyRun": 37278110711,
+      "status": "failed",
+      "codeql": "success",
+      "baselineBrowser": {
+        "passed": 470,
+        "skipped": 10
+      },
+      "configuredPrivateAiBrowser": {
+        "passed": 10,
+        "skipped": 1
+      },
+      "runtimePartitions": {
+        "0": "failed",
+        "1": "passed",
+        "2": "passed",
+        "3": "passed"
+      },
+      "partition0": {
+        "passed": 599,
+        "failed": 1
+      },
+      "onlyFailure": "new artificial 3500ms secret-reader delay variant: sql_wait_not_observed; original actual SQL barrier, process and settings cases passed",
+      "correction": "controlled-clock observer regression covers 3500ms, signed expiry and settled request; original real eight-second SQL rollback test retained without artificial delay",
+      "correctionSource": "c9cc1ffe65a2cf5d151a876cb60d21b25a6c5c09",
+      "targetedActualSqlAndObserver": {
+        "passed": 2,
+        "failed": 0
+      },
+      "localFullAdversarial": {
+        "passed": 12,
+        "failed": 1,
+        "failure": "unchanged secret reader expiry case observed zero pulls instead of one",
+        "cause": "not established; shared host or database scheduling is only a hypothesis"
+      },
+      "unchangedLateReaderExclusiveRerun": {
+        "passed": 1,
+        "failed": 0,
+        "seconds": 16.26
+      },
+      "productionCodeChanged": false,
+      "finalHostedHead": "pending"
+    },
+    "hostedObserverCorrection": {
+      "source": "3789877d215bc4a58b2302935b74d6feca02282b",
+      "verifyRun": 37280752891,
+      "status": "failed",
+      "baselineBrowser": {
+        "passed": 470,
+        "skipped": 10
+      },
+      "configuredPrivateAiBrowser": {
+        "passed": 10,
+        "skipped": 1
+      },
+      "codeql": "success",
+      "runtimePartitions": {
+        "0": "failed",
+        "1": "failed",
+        "2": "passed",
+        "3": "passed"
+      },
+      "failures": [
+        {
+          "file": "credential-ingest-adversarial.test.ts",
+          "case": "genuine rotation initial browser ingest",
+          "observed": "operation_timeout",
+          "sourceLine": 137
+        },
+        {
+          "file": "credential-ingest-rate-budget.test.ts",
+          "case": "browser waits for delayed custody commit before one owner observation",
+          "observed": "assertion detail unavailable in this head"
+        }
+      ],
+      "quota429Boundary": "passed",
+      "cause": "not established",
+      "unchangedRateLocal": {
+        "passed": 2,
+        "failed": 0
+      },
+      "instrumentedRateOneCpu": {
+        "passed": 1,
+        "failed": 0,
+        "durationSeconds": 8.204
+      },
+      "nextStep": "bounded helper phase, request status and fixture custody observation; local passes do not resolve hosted failure",
+      "diagnosticFollowup": {
+        "sources": [
+          "bdd8f3e0",
+          "5ba50314"
+        ],
+        "privacyReporterPassed": 18,
+        "controlledBrowserAndConnectionFailurePassed": 2,
+        "typecheck": "passed",
+        "independentReview": "passed",
+        "deadlinesChanged": false,
+        "rawPayloadsPublished": false,
+        "custodyObservation": "point-in-time active record count; not independent commit proof"
+      }
+    },
+    "actualStagingBackup115Rehearsal": {
+      "source": "3789877d215bc4a58b2302935b74d6feca02282b",
+      "status": "passed",
+      "postgresMajor": 18,
+      "archiveHashVerified": true,
+      "restoredBaseline": {
+        "tables": 192,
+        "rows": "4209",
+        "sequences": 2,
+        "sequencesAdvanced": 0
+      },
+      "ledgerBefore": 113,
+      "ledgerAfter": 115,
+      "onlyPendingMigrations": [
+        114,
+        115
+      ],
+      "migrationAndGrantsOneTransaction": true,
+      "grants": {
+        "runtimePreparationDenied": true,
+        "brokerPreparationReadInsertOnly": true,
+        "executorPreparationDenied": true,
+        "backupAllTableReadOnly": true,
+        "restrictedRoles": true
+      },
+      "restoreAcl": {
+        "functionsPublicExecuteRevoked": 24,
+        "runtimeSchemaUsageBootstrapped": true
+      },
+      "existingRowsPreserved": true,
+      "cleanupVerified": true,
+      "priorLocalAssumptionFailuresPreserved": 5,
+      "remoteDatabaseChanged": false,
+      "r2Restored": false,
+      "daily115PipelineValidated": false
+    },
+    "hostedBoundedIngestDiagnosis": {
+      "source": "b8497fbcf03d76024a46e40ffea7254ebcc604e7",
+      "verifyRun": 37283589044,
+      "status": "failed",
+      "codeql": "analysis jobs succeeded; aggregated CodeQL check failed with one test URL-substring finding",
+      "baselineBrowser": {
+        "passed": 470,
+        "skipped": 10
+      },
+      "configuredPrivateAiBrowser": {
+        "passed": 10,
+        "skipped": 1
+      },
+      "runtimePartitions": {
+        "0": "passed",
+        "1": "failed",
+        "2": "failed",
+        "3": "passed"
+      },
+      "partition1": {
+        "passed": 485,
+        "failed": 1
+      },
+      "partition2": {
+        "passed": 906,
+        "failed": 2
+      },
+      "ingestProcessAndDelayedCustody": {
+        "phase": "ack_wait",
+        "prepareState": "response",
+        "prepareStatus": 200,
+        "secretState": "failed",
+        "secretStatus": null,
+        "custody": "one_active",
+        "interpretation": "fresh model has an active custody row while browser secret delivery failed; ACK-only fixture success assumption is insufficient",
+        "specificNetworkDelayCause": "not established"
+      },
+      "memberSettings": {
+        "observed": "secret browser request failed",
+        "custody": "not observed in failure path",
+        "cause": "not established; separate ACK-only browser fixture requires bounded owner reconciliation"
+      },
+      "workerLane": {
+        "observed": "new controlled Chromium diagnostic ran without installed browser",
+        "correction": "move actual browser case into existing browser runtime file; preserve all coverage and file partition mapping"
+      },
+      "runtimeArtifactCleanup": true,
+      "rerunOrCancellation": false
+    },
+    "terminalDeliveryReconciliation": {
+      "source": "2b051468eb169e5ef09c053c478175b71713b6f3",
+      "integratedSource": "ffd2f185",
+      "oldHelperControlledLateAck": {
+        "passed": 1,
+        "responseDelayMs": 6000,
+        "realBrowserAbortMs": 5000,
+        "custodyRows": 1,
+        "prepareRequests": 1,
+        "secretRequests": 1,
+        "oldAckOnlyHelper": "TimeoutError",
+        "ownerOutcome": "committed"
+      },
+      "correctedRateFile": {
+        "passed": 6,
+        "failed": 0,
+        "durationSeconds": 41.16
+      },
+      "cases": [
+        "genuine quota boundary",
+        "delayed SQL custody with one owner observation",
+        "controlled browser diagnostic",
+        "actual response delivery after browser abort",
+        "preparation denial",
+        "custody SQL rollback"
+      ],
+      "mechanism": "wait bounded terminal browser state and trusted fixture request settlement, then perform one exact authorization owner GET; unknown browser delivery alone is never success",
+      "browserKeyClearedAndDisabled": true,
+      "inferencePosts": 0,
+      "ownerHttpPolling": false,
+      "productionDeadlineChanged": false,
+      "privacyReporterPassed": 18,
+      "typecheck": "passed",
+      "independentReview": "passed",
+      "finalHostedHead": "pending"
+    },
+    "settingsTerminalDeliveryReconciliation": {
+      "source": "f59d7c17c4f0ec6e1df0c3692c282ac9c96e3be7",
+      "integratedSource": "2bee9931",
+      "passed": 5,
+      "failed": 0,
+      "durationSeconds": 52.5,
+      "freshBuild": true,
+      "typecheck": "passed",
+      "independentReview": "passed",
+      "createAndRotation": "each exact captured authorization requires one owner GET confirming committed after bounded browser terminal state and genuine broker completion",
+      "cases": [
+        "ordinary create and rotation",
+        "actual secret responses delayed six seconds for both create and rotation",
+        "unchanged lost-main-ACK handling",
+        "preparation denied",
+        "SQL custody rollback"
+      ],
+      "inputClearedAndDisabled": true,
+      "priorRequestCannotSatisfyNextOperation": true,
+      "deniedAndRollbackCustodyRows": 0,
+      "inferencePosts": 0,
+      "productCodeChanged": false,
+      "productionDeadlineChanged": false,
+      "hostedOriginalSettingsCustody": "not observed; deterministic local cases do not establish hosted outcome",
+      "finalHostedHead": "pending"
+    },
+    "hostedTerminalDeliveryReconciliation": {
+      "source": "6fff466cf0469b47640c4d9ce238098b1890995a",
+      "verifyRun": 37286496943,
+      "verify": "success",
+      "runtimePartitions": [
+        "passed",
+        "passed",
+        "passed",
+        "passed"
+      ],
+      "baselineBrowser": {
+        "passed": 470,
+        "skipped": 10,
+        "durationMinutes": 20.1
+      },
+      "configuredPrivateAiBrowser": {
+        "passed": 10,
+        "skipped": 1,
+        "durationSeconds": 44.3
+      },
+      "staticWorker": "passed",
+      "sourceIntegrity": "passed",
+      "governance": "passed",
+      "deployPreflight": "passed",
+      "codeqlAnalysisJobs": "all three passed",
+      "codeqlAggregate": "neutral: reports one missing baseline configuration, zero annotations",
+      "codeqlBranchAlerts": [
+        {
+          "number": 41,
+          "rule": "js/incomplete-url-substring-sanitization",
+          "location": "tests/runtime/credential-ingest-rate-budget.test.ts",
+          "classification": "test",
+          "interpretation": "diagnostic JSON non-disclosure assertion was matched as URL sanitization; exact deepEqual already fixes every field and value"
+        }
+      ],
+      "correction": "retain the exact closed-shape assertion and remove redundant JSON substring checks; no alert dismissal or scanning rule changes",
+      "correctedChromiumCase": {
+        "passed": 1,
+        "failed": 0
+      },
+      "finalHostedHead": "pending after assertion cleanup"
+    }
+  },
+  "providerUsageObservedAt": "2026-10-05T06:32:57.889Z",
+  "remoteCloudProvisioning": {
+    "recordedAt": "2026-10-05T06:46:49.653Z",
+    "source": "f9bfea99c88b7ea1cf043321d6f3a1d3e909180e",
+    "environment": "staging-next",
+    "services": [
+      "recovery-state",
+      "recovery-floor",
+      "capture-readiness"
+    ],
+    "separateDurableObjectNamespaces": true,
+    "enabled": false,
+    "signersInstalled": false,
+    "publicRoutes": false,
+    "workersDev": false,
+    "previewUrls": false,
+    "mainBindingsChanged": false,
+    "databaseChanged": false,
+    "operationalAcceptance": "not_run",
+    "privateAiEnabled": false,
+    "remaining": [
+      "signer installation and correspondence",
+      "generation and floor readback; outage rejection",
+      "capture controls and readiness profile",
+      "broker SQL roles and Hyperdrives",
+      "main and broker bindings",
+      "real browser ingress and owner remote acceptance"
+    ]
+  },
+  "liveUnauthenticatedBrowser": {
+    "recordedAt": "2026-10-05T06:56:50.334Z",
+    "release": "89f64ace3b9c24e493fc367b1b489dc8749ee20e",
+    "health": "ok",
+    "widths": [
+      1366,
+      390,
+      320
+    ],
+    "httpStatus": 200,
+    "horizontalOverflow": false,
+    "pageErrors": 0,
+    "expectedUnauthenticatedSessionStatus": 401,
+    "memberOperations": "not_run"
+  },
+  "remoteRecoveryAuthorityAcceptance": {
+    "at": "2026-10-05T07:20:18.850Z",
+    "source": "9217914e6f0c76f95643ea378372856b1a38b319",
+    "status": "pass",
+    "privateCandidateAcceptance": true,
+    "mainPrivateAiEnabled": false,
+    "mainBindingsChanged": false,
+    "databaseChanged": false,
+    "providerCalls": 0,
+    "generation": "3",
+    "recoveryStateEnabled": true,
+    "recoveryFloorEnabled": true,
+    "captureReadinessEnabled": false,
+    "signerInstalled": "recovery-state-only",
+    "namespacesRetained": true,
+    "publicDomains": 0,
+    "checks": [
+      {
+        "label": "settled-generation-mismatch",
+        "pass": true
+      },
+      {
+        "label": "fresh-three-agrees",
+        "pass": true
+      },
+      {
+        "label": "fresh-state-withdrawal",
+        "pass": true
+      },
+      {
+        "label": "fresh-state-restored",
+        "pass": true
+      },
+      {
+        "label": "fresh-persisted-floor-rollback",
+        "pass": true
+      },
+      {
+        "label": "fresh-final-three-agrees",
+        "pass": true
+      }
+    ],
+    "priorFailurePreserved": true,
+    "initialAttemptInterpretation": "long-lived preview boundary observed; new sessions verify current releases; server-side version pin mechanism unproven",
+    "pending": [
+      "exact merged main release and migrations",
+      "capture readiness ingress attestation",
+      "broker roles and bindings",
+      "owner remote acceptance"
+    ],
+    "transport": "genuine recovery verifier in local Worker via authenticated remote service bindings to deployed staging Workers and existing Durable Object namespaces",
+    "firstAttemptMismatchNotProven": true,
+    "freshProbePerDeployedConfiguration": true,
+    "configurationConvergence": "transient 503 observed during version/configuration change; retained failures; later readback and six explicit assertions passed"
+  }
+}

@@ -62,10 +62,19 @@ test('local synthetic native main and broker: owner handoff, direct credential i
       return {work,run,grant,approval,step};
     }
     const first=await prepareStep('Synthetic native private draft');
+    await f.restartBroker(); // SQL reservation survives a genuine native isolate replacement.
     const final=await memberPost(f,human,'/api/v1/me/model-steps/'+first.step.stepId+':execute',{},first.step.aggregateVersion);assert.equal(final.state,'succeeded');
+    assert.equal((await expectJson(await(await f.mf.getWorker('synthetic-provider')).fetch('https://api.openai.com/counts') as unknown as Response)).posts,1);
+    await f.restartBroker(); // Native R2 emulator data survives the same restart path used by acceptance.
     const result=await expectJson(await get('/api/v1/me/private-work/'+first.work.workId+'/results/current'));assert.equal(result.text,output);assert.equal(result.provenance,'model');
     const bucket=await f.mf.getR2Bucket('MEDIA','main'),objects=await bucket.list();assert.equal(objects.objects.length,1);assert.equal(await(await bucket.get(objects.objects[0].key))!.text(),output);
     const foreign=await f.member();assert.equal((await nativeCall(f,'main','/api/v1/me/private-work/'+first.work.workId+'/results/current',{headers:{Cookie:foreign.headers.Cookie}})).status,404);
+    const edited=await memberPost(f,human,'/api/v1/me/private-work/'+first.work.workId+'/results/'+result.resultId+'/edit',
+      {text:output+'\nSynthetic owner clarification.'},result.aggregateVersion);
+    assert.equal(edited.provenance,'human');assert.equal(edited.revision,'2');
+    assert.equal((await expectJson(await get('/api/v1/me/private-work/'+first.work.workId+'/results/'+result.resultId))).text,output);
+    assert.equal((await expectJson(await get('/api/v1/me/private-work/'+first.work.workId+'/results/current'))).text,output+'\nSynthetic owner clarification.');
+    assert.equal((await bucket.list()).objects.length,2);
     const currentWork=await expectJson(await get('/api/v1/me/private-work/'+first.work.workId));
     await memberPost(f,human,'/api/v1/me/private-work/'+first.work.workId+'/edit',{title:'Synthetic owner edited draft',objective:'SYNTHETIC_UPDATED_OBJECTIVE'},String(currentWork.aggregate_version));
     const second=await prepareStep('Synthetic draft to stop');
@@ -77,7 +86,7 @@ test('local synthetic native main and broker: owner handoff, direct credential i
     await memberPost(f,human,'/api/v1/me/model-step-approvals/'+second.approval.approvalId+':revoke',{},second.approval.aggregateVersion);
     await memberPost(f,human,'/api/v1/me/agent-connections/'+paired.connectionId+':revoke',{},'1');
     assert.equal((await f.owner.query('SELECT state FROM bootstrap_refresh_families WHERE family_id=$1',[paired.refresh.familyId])).rows[0].state,'revoked');
-    assert.equal((await expectJson(await(await f.mf.getWorker('synthetic-provider')).fetch('https://api.openai.com/counts') as unknown as Response)).posts,1);
+    assert.equal((await expectJson(await(await f.mf.getWorker('synthetic-provider')).fetch('https://api.openai.com/counts') as unknown as Response)).posts,0);
     assert.equal((await f.owner.query('SELECT count(*)::int n FROM private_model_work_results')).rows[0].n,1);
   }finally{await f.cleanup();}
 });

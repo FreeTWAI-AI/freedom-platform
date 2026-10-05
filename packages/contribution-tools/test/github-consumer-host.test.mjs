@@ -16,6 +16,9 @@ async function fixture(t, repository = 'FreeTWAI-AI/freedom-agent-kit') {
   for (const root of [candidateRoot, sourceRoot]) git(root, ['-c', 'init.templateDir=', 'init', '-q']);
   await put(candidateRoot, 'contracts.lock.json', '{"preview":"synthetic baseline"}');
   await put(candidateRoot, 'vendor/freedom-platform/bundle.json', '{"approved":"synthetic baseline"}');
+  await put(candidateRoot, 'package.json', pretty({ type: 'module', scripts: { status: 'node src/cli.mjs' } }));
+  await put(candidateRoot, 'src/cli.mjs', 'throw Error("CANDIDATE_MUST_NOT_EXECUTE");');
+  await put(candidateRoot, '.github/workflows/verify.yml', 'run: echo success');
   const baseline = commit(candidateRoot);
   await put(sourceRoot, 'repositories.lock.json', pretty({ format: 'freedom.repository-set/v1', repositories: [{ repository, commit: baseline }] }));
   const files = [];
@@ -71,4 +74,59 @@ test('native Actions executable binds source/candidate identity and rejects unsu
   const run = env => spawnSync(process.execPath, [script, input.candidateRoot, input.sourceRoot], { env, encoding: 'utf8' });
   const good = run(environment); assert.equal(good.status, 0, good.stdout + good.stderr); assert.equal(JSON.parse(good.stdout).library_usage, 'not_checked');
   const wrong = run({ ...environment, GITHUB_EVENT_NAME: 'pull_request_target' }); assert.equal(wrong.status, 1); assert.equal(JSON.parse(wrong.stdout).code, 'unsupported_host_event');
+});
+
+test('source-valid new package entrances, aliases and lifecycle hooks cannot bypass the trusted baseline', async t => {
+  for (const change of [
+    p => { p.bin = { bypass: './src/bypass.mjs' }; },
+    p => { p.main = './src/bypass.mjs'; },
+    p => { p.module = './src/bypass.mjs'; },
+    p => { p.browser = { './src/cli.mjs': './src/bypass.mjs' }; },
+    p => { p.exports = { './unchecked': './src/bypass.mjs' }; },
+    p => { p.imports = { '#client': './src/bypass.mjs' }; },
+    p => { p.scripts.start = 'node src/bypass.mjs'; },
+    p => { p.scripts.preinstall = 'node src/bypass.mjs'; },
+    p => { p.scripts.poststatus = 'node src/bypass.mjs'; },
+    p => { p.scripts.status = 'node src/bypass.mjs'; },
+    p => { p.workspaces = ['unchecked']; },
+    p => { p.futureRunner = './src/bypass.mjs'; },
+  ]) {
+    const { input } = await fixture(t);
+    const pkg = { type: 'module', scripts: { status: 'node src/cli.mjs' } }; change(pkg);
+    await put(input.candidateRoot, 'package.json', pretty(pkg));
+    // Valid JS and intact canonical libraries/preview: this refusal is registration
+    // policy, not a syntax error, missing library, or observed invocation claim.
+    await put(input.candidateRoot, 'src/bypass.mjs', 'export const unchecked = () => fetch("https://platform.invalid/api/v1/member");');
+    input.candidateCommit = commit(input.candidateRoot);
+    await assert.rejects(verifyNativeConsumerSource(input), { code: 'consumer_entry_registration_changed' });
+  }
+});
+
+test('new nested manifests, native hooks, implicit start and workflow launchers fail closed', async t => {
+  for (const [path, bytes] of [
+    ['nested/package.json', '{"main":"./bypass.mjs"}'],
+    ['.husky/pre-commit', 'node src/cli.mjs'],
+    ['.npmrc', 'script-shell=./unchecked-shell'],
+    ['server.js', 'export const handler = () => {};'],
+    ['binding.gyp', '{"targets":[]}'],
+    ['wrangler.toml', 'main = "src/bypass.mjs"'],
+    ['.github/workflows/unchecked.yml', 'name: unchecked\non: push\njobs: {}'],
+  ]) {
+    const { input } = await fixture(t); await put(input.candidateRoot, path, bytes); input.candidateCommit = commit(input.candidateRoot);
+    await assert.rejects(verifyNativeConsumerSource(input), { code: 'consumer_entry_registry_set_changed' });
+  }
+});
+
+test('ordinary source and descriptive package edits pass without claiming runtime coverage', async t => {
+  const { input } = await fixture(t);
+  await put(input.candidateRoot, 'src/cli.mjs', 'export const message = "reviewable ordinary product edit";');
+  await put(input.candidateRoot, 'src/helper.mjs', 'export const helper = value => value + 1;');
+  await put(input.candidateRoot, 'package.json', pretty({ type: 'module', scripts: { status: 'node src/cli.mjs' },
+    version: '0.2.0', description: 'Edited description' }));
+  input.candidateCommit = commit(input.candidateRoot);
+  const result = await verifyNativeConsumerSource(input);
+  assert.equal(result.status, 'passed'); assert.equal(result.entry_coverage.status, 'passed');
+  assert.equal(result.entry_coverage.runtime_entry_discovery, 'not_checked');
+  assert.equal(result.entry_coverage.library_invocation, 'not_checked');
+  assert.equal(result.entry_coverage.candidate_code_executed, false);
 });

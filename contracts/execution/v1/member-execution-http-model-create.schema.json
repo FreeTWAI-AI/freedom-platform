@@ -9,7 +9,7 @@
       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
     },
     "selection": {
-      "oneOf": [
+      "anyOf": [
         {
           "type": "object",
           "properties": {
@@ -165,9 +165,105 @@
             "billingSource"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "providerRef": {
+              "type": "string",
+              "const": "openrouter"
+            },
+            "modelRef": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 96,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*\\/[A-Za-z0-9][A-Za-z0-9._:-]*$(?![\\s\\S])"
+            },
+            "processingLocation": {
+              "type": "string",
+              "const": "provider_remote"
+            },
+            "artifactCustody": {
+              "type": "string",
+              "enum": [
+                "runtime_local",
+                "platform_asset"
+              ]
+            },
+            "credentialCustody": {
+              "type": "string",
+              "const": "local_keychain"
+            },
+            "engineLocation": {
+              "type": "string",
+              "const": "runtime_local"
+            },
+            "billingSource": {
+              "type": "string",
+              "const": "user_byok"
+            }
+          },
+          "required": [
+            "providerRef",
+            "modelRef",
+            "processingLocation",
+            "artifactCustody",
+            "credentialCustody",
+            "engineLocation",
+            "billingSource"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "providerRef": {
+              "type": "string",
+              "const": "openrouter"
+            },
+            "modelRef": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 96,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*\\/[A-Za-z0-9][A-Za-z0-9._:-]*$(?![\\s\\S])"
+            },
+            "processingLocation": {
+              "type": "string",
+              "const": "provider_remote"
+            },
+            "artifactCustody": {
+              "type": "string",
+              "enum": [
+                "runtime_local",
+                "platform_asset"
+              ]
+            },
+            "credentialCustody": {
+              "type": "string",
+              "const": "platform_vault"
+            },
+            "engineLocation": {
+              "type": "string",
+              "const": "platform"
+            },
+            "billingSource": {
+              "type": "string",
+              "const": "user_byok"
+            }
+          },
+          "required": [
+            "providerRef",
+            "modelRef",
+            "processingLocation",
+            "artifactCustody",
+            "credentialCustody",
+            "engineLocation",
+            "billingSource"
+          ],
+          "additionalProperties": false
         }
       ],
-      "description": "Explicit member selection metadata only. Provider, model, processing/custody and billing labels are not authentication, verified availability, or operational support. No automatic fallback."
+      "description": "Explicit owner selection metadata only; OpenRouter requires an exact namespaced model and BYOK custody. No automatic fallback or authentication authority."
     }
   },
   "required": [

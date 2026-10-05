@@ -56,9 +56,9 @@ async function mutate(q: PoolClient, context: MemberScopeContext) {
     data: { state: 'synthetic' }, eventType: 'fixture.domain.changed.v1' });
   return { version: row.version };
 }
-const invoke = (actor: Actor, revalidate?: (q: PoolClient, context: MemberScopeContext) => Promise<unknown>) =>
+const invoke = (actor: Actor, revalidate?: (q: PoolClient, context: MemberScopeContext) => Promise<unknown>, assertCurrentTime?: () => void) =>
   scopedMemberCommand(pool, { actor, scope: 'personal', operation, key: 'synthetic-revalidate', body: {},
-    target: { kind: 'fixture_domain', id: target }, expected: '1' }, authorize, mutate, revalidate);
+    target: { kind: 'fixture_domain', id: target }, expected: '1' }, authorize, mutate, revalidate, assertCurrentTime);
 async function counts() {
   return (await pool.query(`SELECT (SELECT count(*)::int FROM scoped_command_receipts) receipts,
     (SELECT count(*)::int FROM scoped_transition_journal) journals,(SELECT count(*)::int FROM scoped_outbox) outbox,
@@ -120,3 +120,38 @@ test('replay is denied when an actual domain revalidation hook wait crosses memb
 test('effect and all three scoped sinks roll back when a post-write hook wait crosses member-session expiry', async () => waitCase('session', 'write'));
 test('historical replay is denied when domain authority expires during the post-read hook wait', async () => waitCase('domain', 'read'));
 test('effect and all three scoped sinks roll back when domain authority expires during the post-write hook wait', async () => waitCase('domain', 'write'));
+
+
+for (const phase of ['read','write'] as const) test(`final session-result delivery cannot outlive domain time authority on ${phase}`, async () => {
+  const actor = await member();
+  if (phase === 'read') assert.deepEqual(await invoke(actor), { version: '2' });
+  let current = true, revalidations = 0, delivered = 0;
+  const originalConnect = pool.connect.bind(pool);
+  // Keep the actual SQL result, but withdraw the server-owned time check when
+  // the last session result is delivered after domain SQL revalidation.
+  (pool as any).connect = async () => {
+    const q = await originalConnect(), originalQuery = q.query, originalRelease = q.release;
+    (q as any).query = async (...args: any[]) => {
+      const result = await (originalQuery as any).apply(q, args);
+      const sql = typeof args[0] === 'string' ? args[0] : args[0]?.text;
+      if (revalidations === (phase === 'read' ? 1 : 2) && delivered === 0
+        && sql?.startsWith('SELECT token_hash FROM sessions') && sql.includes('clock_timestamp()')) {
+        delivered++; current = false;
+      }
+      return result;
+    };
+    (q as any).release = (...args: any[]) => {
+      q.query = originalQuery; q.release = originalRelease; (originalRelease as any).apply(q, args);
+    };
+    return q;
+  };
+  try {
+    await assert.rejects(invoke(actor, async q => {
+      await q.query('SELECT clock_timestamp()'); revalidations++;
+    }, () => requireCondition(current, 403, 'fixture_domain_expired', 'Synthetic domain authority expired.')),
+    (error: unknown) => error instanceof Problem && error.code === 'fixture_domain_expired');
+    assert.equal(delivered, 1);
+    (pool as any).connect = originalConnect;
+    assert.deepEqual(await counts(), phase === 'read' ? retained : empty);
+  } finally { (pool as any).connect = originalConnect; }
+});

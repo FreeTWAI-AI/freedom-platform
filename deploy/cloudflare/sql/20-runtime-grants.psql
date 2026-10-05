@@ -135,10 +135,10 @@ SELECT format($broker$
         (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls
           OR EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)))
       OR pg_catalog.has_table_privilege(%2$L,%3$L::oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
-      OR (%6$L='broker_credential_vault' AND pg_catalog.has_table_privilege(%2$L,%3$L::oid,'SELECT'))
+      OR (%6$L IN ('broker_credential_vault','credential_ingest_preparations') AND pg_catalog.has_table_privilege(%2$L,%3$L::oid,'SELECT'))
       OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid=%3$L::oid AND a.attnum>0 AND NOT a.attisdropped
         AND (pg_catalog.has_column_privilege(%2$L,%3$L::oid,a.attnum,'INSERT,UPDATE,REFERENCES,SELECT WITH GRANT OPTION')
-          OR (%6$L='broker_credential_vault' AND pg_catalog.has_column_privilege(%2$L,%3$L::oid,a.attnum,'SELECT'))))
+          OR (%6$L IN ('broker_credential_vault','credential_ingest_preparations') AND pg_catalog.has_column_privilege(%2$L,%3$L::oid,a.attnum,'SELECT'))))
     THEN RAISE EXCEPTION 'Unsafe runtime broker privileges'; END IF;
   END $guard$;
 $broker$, c.oid::regclass, :'runtime', c.oid,
@@ -146,7 +146,7 @@ $broker$, c.oid::regclass, :'runtime', c.oid,
     FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped),
   CASE WHEN c.relname='broker_model_credentials' THEN format('GRANT SELECT ON TABLE %s TO %I;',c.oid::regclass,:'runtime') ELSE '' END,c.relname)
 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
-WHERE n.nspname='public' AND c.relname IN ('broker_model_credentials','broker_credential_vault') AND c.relkind='r'
+WHERE n.nspname='public' AND c.relname IN ('broker_model_credentials','broker_credential_vault','credential_ingest_preparations') AND c.relkind='r'
 \gexec
 -- END BROKER CREDENTIAL EXCLUSIONS
 -- Original member session authorization is main-issued, broker-claimed.

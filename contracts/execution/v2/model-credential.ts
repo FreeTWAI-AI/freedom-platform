@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { OpaqueId } from '../../common/v1/identity.js';
-import { MemberExecutionVersionSchema, ModelSelectionSchema } from '../v1/member-execution.js';
+import { MemberExecutionVersionSchema, LegacyModelSelectionSchema, OpenRouterModelSelectionSchema } from '../v1/member-execution.js';
 import { RuntimeEnvironmentSchema } from '../v1/runtime-registration.js';
 import { BootstrapClientIdSchema } from '../v1/bootstrap.js';
 
@@ -16,10 +16,10 @@ export const SignedCredentialRecoveryStateSchema = z.object({ profile: z.literal
 export const CredentialRecoveryFloorSchema = z.object({ generation: Version, expiresAt: Time }).strict();
 // This batch supports isolated broker custody only. Selection remains metadata,
 // never provider authentication or permission to export a Work.
-export const BrokerModelSelectionSchema = ModelSelectionSchema.options[2].extend({
+export const BrokerModelSelectionSchema = z.union([LegacyModelSelectionSchema.options[2].extend({
   providerRef: z.enum(['openai', 'anthropic']),
   processingLocation: z.literal('provider_remote'), artifactCustody: z.literal('platform_asset'),
-}).strict();
+}).strict(), OpenRouterModelSelectionSchema.options[1].extend({ artifactCustody: z.literal('platform_asset') }).strict()]);
 export const ModelCredentialBindingSchema = z.object({
   profile: z.literal('model-credential.binding/v1'), credentialId: OpaqueId, generation: Version,
   modelConnectionId: OpaqueId, modelVersion: Version,

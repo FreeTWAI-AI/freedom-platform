@@ -7,6 +7,7 @@ import { evaluateReleaseCompatibility, compatibilityLedgerDigest } from '../lib/
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const shape = 'execution.model-credential-ingest.v1';
+const preparation = 'execution.model-credential-preparation.v1';
 const prerequisites = ['execution.model-credential-custody.v1', 'work.personal-owner-acl.v1', 'work.server-policy.v1', 'execution.member-run-record.v1',
   'execution.runtime-enrollment.v1', 'execution.agent-connection-record.v1', 'execution.bootstrap-status.v1', 'execution.bootstrap-session.v1', 'execution.member-prerequisites.v1'];
 function fixture() {
@@ -21,7 +22,7 @@ function fixture() {
       schema_ledger: scan.ledger, schema_ledger_digest: scan.ledger_digest, enabled_shapes: [], written_shapes: [], active_releases: [active], complete: true },
     release_records: [active, candidate].map(identity => ({ ...identity, evidence_id: 'synthetic-approval', status: 'approved',
       environments: ['next'], schema_ledger_digests: [scan.ledger_digest],
-      capabilities: ['platform.legacy.v1', 'work.explicit-wire.v1', shape, ...prerequisites], approved_at_ms: 9000, expires_at_ms: 11000 })) };
+      capabilities: ['platform.legacy.v1', 'work.explicit-wire.v1', shape, preparation, ...prerequisites], approved_at_ms: 9000, expires_at_ms: 11000 })) };
   return { input: { schema: 'freedom.release-compatibility-request/v1', environment: 'next', candidate, enable_shapes: [] }, scan, host };
 }
 function run(f) {
@@ -39,7 +40,7 @@ for (const source of ['enable_shapes', 'enabled_shapes', 'written_shapes', 'roll
     const f = fixture();
     (source === 'enable_shapes' ? f.input : source === 'rollback_floor_shapes' ? f.host : f.host.observation)[source] = [shape];
     assert.equal(run(f).status, 'compatible');
-    for (const capability of [shape, ...prerequisites]) {
+    for (const capability of [shape, preparation, ...prerequisites]) {
       const changed = structuredClone(f);
       changed.host.release_records[binary].capabilities = changed.host.release_records[binary].capabilities.filter(c => c !== capability);
       assert(run(changed).issues.some(i => i.capability === capability && i.source_sha === changed.host.release_records[binary].source_sha));
@@ -50,7 +51,7 @@ test('capability-only history retains dependencies without inventing written sha
   const f = fixture(); f.host.rollback_floor.capabilities = [shape];
   const result = run(f); assert.equal(result.status, 'compatible'); assert.deepEqual(result.required_shapes, []);
   assert(!result.required_capabilities.includes('execution.device-authorization.v1'));
-  for (const capability of prerequisites) for (const binary of [0, 1]) {
+  for (const capability of [preparation, ...prerequisites]) for (const binary of [0, 1]) {
     const changed = structuredClone(f);
     changed.host.release_records[binary].capabilities = changed.host.release_records[binary].capabilities.filter(c => c !== capability);
     assert(run(changed).issues.some(i => i.capability === capability));
@@ -72,4 +73,21 @@ test('retained encrypted history requires actual097, not a future migration prom
   for (const portion of [f.host.observation, f.host.rollback_floor]) { portion.schema_ledger = old.ledger; portion.schema_ledger_digest = old.digest; }
   for (const record of f.host.release_records) record.schema_ledger_digests.push(old.digest);
   assert(run(f).issues.some(i => i.code === 'historical_shape_schema_missing' && i.shape === shape));
+});
+
+for (const last of [97, 113]) test(`historical schema${last} accepts original ingest support without preparation`, () => {
+  const f = fixture();
+  const ledger = f.scan.ledger.filter(row => Number(row.name.slice(0, 3)) <= last);
+  const digest = compatibilityLedgerDigest(ledger);
+  f.scan = { ...f.scan, ledger, ledger_digest: digest };
+  for (const portion of [f.host.observation, f.host.rollback_floor]) {
+    portion.schema_ledger = ledger; portion.schema_ledger_digest = digest;
+  }
+  for (const record of f.host.release_records) {
+    record.schema_ledger_digests = [digest];
+    record.capabilities = record.capabilities.filter(c => c !== preparation);
+  }
+  f.input.enable_shapes = [shape];
+  assert.equal(run(f).status, 'compatible');
+  assert(!run(f).required_capabilities.includes(preparation));
 });

@@ -57,11 +57,17 @@ before(async () => {
   const template = await readFile(new URL('../../deploy/cloudflare/sql/20-runtime-grants.psql',import.meta.url),'utf8');
   const prefix = template.slice(template.indexOf('BEGIN;'),template.indexOf('-- BEGIN PRIVATE POLICY GRANTS'))
     .replaceAll('SCHEMA public',`SCHEMA ${schema}`).replaceAll(':"runtime"',`"${runtime}"`);
-  const exclusions = ['PRIVATE POLICY GRANTS','BROKER CREDENTIAL EXCLUSIONS','MODEL BROKER AUTHORIZATION EXCLUSIONS'].map(marker=>
-    template.split('-- BEGIN '+marker+'\n')[1].split('\n\\gexec')[0].replaceAll(":'runtime'",`'${runtime}'`).replace("n.nspname='public'",`n.nspname='${schema}'`));
+  const exclusions = [
+    { marker:'PRIVATE POLICY GRANTS', tables:['private_work_persistence_policy','model_inference_export_policy'] },
+    { marker:'BROKER CREDENTIAL EXCLUSIONS', tables:['broker_model_credentials','broker_credential_vault','credential_ingest_preparations'] },
+    { marker:'MODEL BROKER AUTHORIZATION EXCLUSIONS', tables:['model_broker_authorizations','credential_ingest_authorizations'] },
+  ].map(({marker,tables})=>({tables,sql:template.split('-- BEGIN '+marker+'\n')[1].split('\n\\gexec')[0]
+    .replaceAll(":'runtime'",`'${runtime}'`).replace("n.nspname='public'",`n.nspname='${schema}'`)}));
   const q = await owner.connect();
-  try { await q.query(prefix);for(const exclusion of exclusions){const rows=await q.query(exclusion);assert.equal(rows.rowCount,2);
-    for(const row of rows.rows)await q.query(Object.values(row)[0] as string);}await q.query('COMMIT'); }
+  try { await q.query(prefix);for(const exclusion of exclusions){const rows=await q.query(exclusion.sql);
+    const statements=rows.rows.map(row=>Object.values(row)[0] as string);
+    assert.deepEqual(statements.map(sql=>/REVOKE ALL PRIVILEGES ON TABLE ([a-z_]+) FROM/.exec(sql)?.[1]).sort(),[...exclusion.tables].sort());
+    for(const statement of statements)await q.query(statement);}await q.query('COMMIT'); }
   catch(error) { await q.query('ROLLBACK'); throw error; } finally { q.release(); }
   tlsDirectory=await mkdtemp(join(tmpdir(),'fp-device-browser-tls-'));
   const generated=spawnSync('openssl',['req','-x509','-newkey','ec','-pkeyopt','ec_paramgen_curve:P-256','-nodes','-days','1',
@@ -223,6 +229,8 @@ test('DEVICE-BROWSER actual TLS portal reviews and approves bootstrap-only pairi
   const ownerList=await trustedRequest(origin+paths.list,{headers:f.headers});assert.equal(ownerList.status,200);
   assert.equal((await ownerList.json() as {items:unknown[]}).items.length,1);
   await assert.rejects(app.query('SELECT envelope FROM broker_credential_vault'),error=>(error as {code:string}).code==='42501');
+  for(const query of ['SELECT * FROM credential_ingest_preparations','INSERT INTO credential_ingest_preparations DEFAULT VALUES','UPDATE credential_ingest_preparations SET expires_at=expires_at','DELETE FROM credential_ingest_preparations'])
+    await assert.rejects(app.query(query),error=>(error as {code:string}).code==='42501','Main runtime cannot read or mutate broker preparation deadlines');
   await assertMainSafe(f.page,[f.authorization.deviceCode,f.issued.accessToken,f.issued.refresh.handle,f.issued.nonce.nonce]);
   await capturePortal(f.page,'owner-connection-'+f.issued.connectionId);
 });

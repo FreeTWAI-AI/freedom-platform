@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { ApiError, type PortalClient } from '../api';
 import type { ModelSelection, ModelConnectionMetadata, ExecutionGrantMetadata } from '../../../../contracts/execution/v1/member-execution';
 import type { MemberModelHttpOverview } from '../../../../contracts/execution/v2/member-model-http';
@@ -12,14 +12,14 @@ type Run = { runId: string; workId: string; inputWorkVersion: string; aggregateV
 type Overview = MemberModelHttpOverview;
 type Result = { resultId: string; revision: string; workVersion: string; createdAt: string; provenance: 'human' | 'model'; text?: string;
   model?: { selection: ModelSelection; evidenceOrigin: string; usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }; costStatus: 'unknown' } };
-type Command = { label: string; path: string; body: unknown; version?: number | string; key: string; accepted?: (value: unknown) => void };
+type Command = { label: string; path: string; body: unknown; version?: number | string; key: string; accepted?: (value: unknown) => void; retainOnServerError?: boolean };
 const label = (selection: ModelSelection) => `${selection.providerRef} / ${selection.modelRef}`;
 const time = (value: string) => new Date(value).toLocaleString('zh-TW');
 const stateLabels: Record<string, string> = { created: '已建立', paused: '已暫停', cancelled: '已停止', running: '執行中',
   reserved: '已啟用，尚未送出', dispatched: '已送出', awaiting_result: '等待成果', outcome_unknown: '結果未確認', succeeded: '已完成',
   active: '有效', revoked: '已撤銷', unverified: '尚未驗證', connected: '已配對', reconciling: '確認中', draft: '草稿' };
 const status = (value: string) => stateLabels[value] ?? value;
-const terminal = (step: ModelStepMetadata) => ['succeeded', 'cancelled', 'outcome_unknown'].includes(step.state);
+const terminal = (step: ModelStepMetadata) => ['succeeded', 'cancelled'].includes(step.state);
 const matching = (a: ModelSelection, b: ModelSelection) => JSON.stringify(a) === JSON.stringify(b);
 
 /** Private content, CSRF and unresolved command keys stay in memory only. Every
@@ -30,14 +30,19 @@ export function PrivateWorkAI({ client }: { client: PortalClient }) {
   const [title, setTitle] = useState(''), [objective, setObjective] = useState('');
   const [creating, setCreating] = useState(false), [loading, setLoading] = useState(false), [busy, setBusy] = useState(false);
   const [error, setError] = useState(''), [serviceError, setServiceError] = useState(''), [resultError, setResultError] = useState(''), [notice, setNotice] = useState('');
+  const resultEditorId = useId();
+  const [resultEdit, setResultEdit] = useState<{ sourceId: string; original: string; text: string; version: number | string } | null>(null);
   const [history, setHistory] = useState<Result[]>([]), [result, setResult] = useState<Result | null>(null);
   const [runId, setRunId] = useState(''), [connectionId, setConnectionId] = useState(''), [modelId, setModelId] = useState(''), [selectionIndex, setSelectionIndex] = useState('');
   const [grantId, setGrantId] = useState(''), [approvalId, setApprovalId] = useState(''), [stepId, setStepId] = useState('');
   const [grantConsent, setGrantConsent] = useState(false), [exportConsent, setExportConsent] = useState(false), [tokens, setTokens] = useState('256');
   const [unresolved, setUnresolved] = useState<Command | null>(null);
+  const [controlBusy, setControlBusy] = useState<string[]>([]), [unresolvedControls, setUnresolvedControls] = useState<Command[]>([]);
+  const [controlNotice, setControlNotice] = useState('');
+  const controlLocks = useRef(new Set<string>()), pendingControls = useRef(new Map<string, Command>());
   const lock = useRef(false), live = useRef(true), readSequence = useRef(0), workGeneration = useRef(0), resultSequence = useRef(0), selectedWork = useRef(workId);
   selectedWork.current = workId;
-  const disabled = busy || loading || Boolean(unresolved);
+  const disabled = busy || loading || Boolean(unresolved) || controlBusy.length > 0 || unresolvedControls.length > 0;
 
   useEffect(() => { live.current = true; return () => { live.current = false; readSequence.current++; workGeneration.current++; }; }, []);
   const readWork = useCallback(async (id: string) => {
@@ -65,7 +70,7 @@ export function PrivateWorkAI({ client }: { client: PortalClient }) {
     if (!live.current || sequence !== readSequence.current) return;
     if (values[0].status === 'fulfilled') setWorks(values[0].value.items);
     else { setWorks(null); setError('私人工作服務目前無法使用，請稍後重新整理。'); }
-    if (values[1].status === 'fulfilled') { setOverview(values[1].value); if (!values[1].value.persistenceAvailable) { workGeneration.current++; resultSequence.current++; setWork(null); setResult(null); setHistory([]); setTitle(''); setObjective(''); setCreating(false); setExportConsent(false); setGrantConsent(false); setWorks([]); } }
+    if (values[1].status === 'fulfilled') { setOverview(values[1].value); if (!values[1].value.persistenceAvailable) { workGeneration.current++; resultSequence.current++; setWork(null); setResult(null); setResultEdit(null); setHistory([]); setTitle(''); setObjective(''); setCreating(false); setExportConsent(false); setGrantConsent(false); setWorks([]); } }
     else { setOverview(null); setServiceError('模型執行服務目前無法使用。尚未確認供應商登入、模型可用性或費用。'); }
     if (values[1].status !== 'fulfilled' || values[1].value.persistenceAvailable) await readWork(selectedWork.current);
     if (live.current && sequence === readSequence.current) setLoading(false);
@@ -73,24 +78,36 @@ export function PrivateWorkAI({ client }: { client: PortalClient }) {
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
     setRunId(''); setGrantId(''); setApprovalId(''); setStepId(''); setGrantConsent(false); setExportConsent(false);
-    setWork(null); setHistory([]); setResult(null); setError(''); setNotice('');
+    setWork(null); setHistory([]); setResult(null); setResultEdit(null); setError(''); setNotice('');
     if (!workId) { setTitle(''); setObjective(''); return; }
     setCreating(false); void readWork(workId);
   }, [workId, readWork]);
   useEffect(() => { setGrantConsent(false); setExportConsent(false); }, [runId, modelId, connectionId, grantId, tokens, approvalId]);
 
   async function submit(command: Command) {
-    if (lock.current) return; lock.current = true; setBusy(true); setError(''); setNotice('');
-    let succeeded = false;
+    if (lock.current || controlLocks.current.size || pendingControls.current.size) return; lock.current = true; setBusy(true); setError(''); setNotice('');
+    let succeeded = false, executeStatePending = false;
     try {
       const value = await client.post(command.path, command.body, { idempotencyKey: command.key, ifMatch: command.version, suppressConsole: true });
+      // Same-key replay may return dispatched metadata while the original
+      // provider request still runs. HTTP 200 alone cannot settle uncertainty.
+      if (/^\/me\/model-steps\/[^/]+:execute$/.test(command.path)) {
+        executeStatePending = true;
+        const latest = await client.get<ModelStepMetadata>(command.path.replace(/:execute$/, ''), { background: true });
+        if (!live.current) return;
+        if (latest.stepId !== command.path.split('/').pop()!.replace(/:execute$/, '') || !terminal(latest)) {
+          setUnresolved(command); setNotice('推論仍未確認完成；請重新讀取狀態，停止與撤銷仍可使用。');
+          await refresh(); return;
+        }
+        executeStatePending = false;
+      }
       succeeded = true;
       if (!live.current) return;
       setUnresolved(null); command.accepted?.(value); setNotice(`${command.label}已保存。`);
       await refresh();
     } catch (cause) {
       if (!live.current) return;
-      if (!succeeded && cause instanceof ApiError && (cause.network || cause.timedOut)) {
+      if (executeStatePending || !succeeded && cause instanceof ApiError && (cause.network || cause.timedOut || command.retainOnServerError && cause.status >= 500)) {
         setUnresolved(command); setError('尚未確認這次操作結果。先重新讀取狀態；需要補送時，使用下方「以原請求確認結果」。不會自動再次呼叫模型。');
       } else if (cause instanceof ApiError && cause.conflict) {
         setUnresolved(null); setExportConsent(false); setGrantConsent(false); setError('資料版本已更新，請重新讀取，再確認目前內容與模型。');
@@ -100,6 +117,47 @@ export function PrivateWorkAI({ client }: { client: PortalClient }) {
   function command(labelText: string, path: string, body: unknown, version?: number | string, accepted?: Command['accepted']) {
     if (disabled) return; void submit({ label: labelText, path, body, version, accepted, key: crypto.randomUUID() });
   }
+  const controlDisabled = (path: string) => controlBusy.includes(path) || unresolvedControls.some(value => value.path === path);
+  // Safety commands have independent uncertainty records. An in-flight or
+  // ambiguous execute must never prevent Stop/Revoke, nor be cleared/replayed
+  // as a side effect of controlling it. Fresh controls read the current CAS;
+  // an explicit uncertain replay retains its original key, body and version.
+  async function control(labelText: string, path: string, replay?: Command) {
+    if (controlLocks.current.has(path) || pendingControls.current.has(path) && !replay) return;
+    controlLocks.current.add(path); setControlBusy([...controlLocks.current]); setControlNotice('');
+    let sent: Command | undefined, succeeded = false;
+    try {
+      let next = replay;
+      if (!next) {
+        const current = await client.get<{ aggregateVersion: string; state: string }>(path.replace(/:(pause|stop|revoke)$/, ''), { background: true });
+        if (!live.current) return;
+        if (typeof current.aggregateVersion !== 'string' || !/^[1-9][0-9]*$/.test(current.aggregateVersion)) throw new Error('invalid_control_version');
+        if (/:(pause|stop)$/.test(path) && ['succeeded', 'cancelled'].includes(current.state) || path.endsWith(':revoke') && current.state === 'revoked') {
+          setControlNotice(`${labelText}的對象已結束或撤銷；已重新讀取狀態。`);
+          await refresh(); return;
+        }
+        next = { label: labelText, path, body: {}, version: current.aggregateVersion, key: crypto.randomUUID() };
+      }
+      sent = next;
+      await client.post(next.path, next.body, { idempotencyKey: next.key, ifMatch: next.version, suppressConsole: true });
+      succeeded = true;
+      if (!live.current) return;
+      pendingControls.current.delete(path); setUnresolvedControls([...pendingControls.current.values()]);
+      setControlNotice(`${labelText}已保存。已送至供應商的請求與費用不會因此撤回。`);
+      await refresh();
+    } catch (cause) {
+      if (!live.current) return;
+      if (!succeeded && sent && cause instanceof ApiError && (cause.network || cause.timedOut)) {
+        pendingControls.current.set(path, sent); setUnresolvedControls([...pendingControls.current.values()]);
+        setControlNotice(`${labelText}的結果尚未確認；可用原控制請求確認，不會再次送出推論。`);
+      } else {
+        pendingControls.current.delete(path); setUnresolvedControls([...pendingControls.current.values()]);
+        setControlNotice(succeeded ? `${labelText}已保存，但狀態暫時無法讀取。請重新整理。` : cause instanceof ApiError && cause.conflict
+          ? `${labelText}遇到版本變更。請重新讀取狀態，再決定是否控制。`
+          : `${labelText}尚未確認成功。請重新讀取狀態後再試。`);
+      }
+    } finally { controlLocks.current.delete(path); if (live.current) setControlBusy([...controlLocks.current]); }
+  }
   function save(event: FormEvent) {
     event.preventDefault(); if (!title.trim() || !objective.trim()) return;
     const body = { title: title.trim(), objective: objective.trim() };
@@ -107,6 +165,15 @@ export function PrivateWorkAI({ client }: { client: PortalClient }) {
       const saved = value as { workId: string }; selectedWork.current = saved.workId; setWorkId(saved.workId); setCreating(false);
     });
     else if (work) command('工作修改', `/me/private-work/${workId}/edit`, body, work.aggregate_version);
+  }
+  const resultBytes = resultEdit ? new TextEncoder().encode(resultEdit.text).length : 0;
+  const resultWireBytes = resultEdit ? new TextEncoder().encode(JSON.stringify({ text: resultEdit.text })).length : 0;
+  function saveResult(event: FormEvent) {
+    event.preventDefault();
+    if (disabled || !resultEdit || !resultEdit.text.trim() || resultEdit.text === resultEdit.original || resultBytes > 16384 || resultWireBytes > 32768) return;
+    void submit({ label: '成果修改', path: `/me/private-work/${workId}/results/${resultEdit.sourceId}/edit`,
+      body: { text: resultEdit.text }, version: resultEdit.version, key: crypto.randomUUID(), retainOnServerError: true,
+      accepted: () => setResultEdit(null) });
   }
   const runs = overview?.runs.filter(value => value.workId === workId) ?? [];
   const run = runs.find(value => value.runId === runId);
@@ -134,9 +201,13 @@ export function PrivateWorkAI({ client }: { client: PortalClient }) {
     </div>
     {error && <p className="banner banner-error" role="alert">{error}</p>}
     {notice && <p role="status">{notice}</p>}
+    {controlNotice && <p role="status">{controlNotice}</p>}
     {unresolved && <div className="banner banner-info"><p>{unresolved.label}的結果尚未確認；補送沿用同一請求與原版本。</p><div className="actions">
-      <button type="button" className="btn btn-ghost" disabled={busy || loading} onClick={() => void submit(unresolved)}>以原請求確認結果</button>
+      <button type="button" className="btn btn-ghost" disabled={busy || loading || controlBusy.length > 0 || unresolvedControls.length > 0} onClick={() => void submit(unresolved)}>以原請求確認結果</button>
     </div></div>}
+    {unresolvedControls.map(pending => <div className="banner banner-info" key={pending.path}><p>{pending.label}的結果尚未確認；其他停止或撤銷操作仍可使用。</p><div className="actions">
+      <button type="button" className="btn btn-ghost" disabled={controlBusy.includes(pending.path)} onClick={() => void control(pending.label, pending.path, pending)}>以原控制請求確認{pending.label}</button>
+    </div></div>)}
     <DeviceConnections client={client} onChanged={() => void refresh()}/>
     <ModelSettings client={client}/>
     <div className="private-ai-grid">
@@ -156,8 +227,20 @@ export function PrivateWorkAI({ client }: { client: PortalClient }) {
         {!workId ? <p className="muted">選擇工作後查看本人可讀的成果。</p> : <>
           {resultError && <p role="alert">{resultError}</p>}
           {!result && !resultError && <p className="muted">尚無目前成果。</p>}
-          {result && <><ResultDetails result={result}/><pre className="private-ai-text">{result.text}</pre></>}
-          {history.length > 0 && <label>成果版本<select disabled={busy || loading} value={result?.resultId ?? ''} onChange={event => {
+          {result && <><ResultDetails result={result}/><pre className="private-ai-text">{result.text}</pre>
+            {!resultEdit && <div className="actions"><button type="button" className="btn btn-ghost" disabled={disabled || !work || work.state !== 'draft' || typeof result.text !== 'string'}
+              onClick={() => setResultEdit({ sourceId: result.resultId, original: result.text!, text: result.text!, version: work!.aggregate_version })}>編輯成果</button></div>}</>}
+          {resultEdit && <form className="stack" onSubmit={saveResult}>
+            <label htmlFor={resultEditorId}>成果修改內容</label><textarea id={resultEditorId} rows={9} value={resultEdit.text} maxLength={16384} disabled={disabled}
+              onChange={event => setResultEdit({ ...resultEdit, text: event.target.value })}/>
+            <p className="field-hint">保存為新的本人編修版本，原始成果與模型紀錄會保留。草稿只留在此頁；最多 16 KiB。</p>
+            {(resultBytes > 16384 || resultWireBytes > 32768) && <p role="alert">內容超過保存上限，請縮短文字。</p>}
+            {work && String(work.aggregate_version) !== String(resultEdit.version) && !unresolved && <p className="field-hint">工作版本已改變，修改仍保留。請確認目前成果後再保存。 <button type="button" className="btn btn-ghost" disabled={disabled}
+              onClick={() => setResultEdit({ ...resultEdit, version: work.aggregate_version })}>採用目前工作版本</button></p>}
+            <div className="actions"><button type="submit" className="btn btn-primary" disabled={disabled || !resultEdit.text.trim() || resultEdit.text === resultEdit.original || resultBytes > 16384 || resultWireBytes > 32768}>保存成果修改</button>
+              <button type="button" className="btn btn-ghost" disabled={disabled} onClick={() => setResultEdit(null)}>取消成果編輯</button></div>
+          </form>}
+          {history.length > 0 && <label>成果版本<select disabled={disabled || Boolean(resultEdit)} value={result?.resultId ?? ''} onChange={event => {
             const id = event.target.value, generation = workGeneration.current, resultRequest = ++resultSequence.current, selectedId = workId; setResult(null); setResultError('');
             void client.get<Result>(`/me/private-work/${workId}/results/${id}`, { background: true }).then(value => {
               if (live.current && generation === workGeneration.current && resultRequest === resultSequence.current && selectedWork.current === selectedId) setResult(value);
@@ -198,30 +281,30 @@ export function PrivateWorkAI({ client }: { client: PortalClient }) {
         <label>單次推論同意<select disabled={disabled} value={approvalId} onChange={event => { setApprovalId(event.target.value); setStepId(''); }}><option value="">選擇單次同意</option>{approvals.map(value => <option key={value.approvalId} value={value.approvalId}>{label(value.selection)} · {status(value.state)} · {value.maxOutputTokens} token · {time(value.issuedAt)}</option>)}</select></label>
         {approval && <><p className="field-hint">{label(approval.selection)}；同意工作版本 {approval.inputWorkVersion}，上限 {approval.maxOutputTokens} token，到期 {time(approval.expiresAt)}。</p><div className="actions">
           <button type="button" className="btn btn-ghost" disabled={disabled || !run || !workIsCurrent || approval.state !== 'active' || approval.inputWorkVersion !== String(work.aggregate_version) || Boolean(dirty)} onClick={() => command('推論啟用', '/me/model-steps', { approvalId, expectedRunVersion: run!.aggregateVersion }, approval.aggregateVersion, value => setStepId((value as ModelStepMetadata).stepId))}>啟用這次推論</button>
-          <button type="button" className="btn btn-ghost" disabled={disabled || approval.state !== 'active'} onClick={() => command('推論同意撤銷', `/me/model-step-approvals/${approvalId}:revoke`, {}, approval.aggregateVersion)}>撤銷單次同意</button>
+          <button type="button" className="btn btn-ghost" disabled={controlDisabled(`/me/model-step-approvals/${approvalId}:revoke`) || approval.state !== 'active'} onClick={() => void control('推論同意撤銷', `/me/model-step-approvals/${approvalId}:revoke`)}>撤銷單次同意</button>
         </div></>}
         <label>推論狀態<select disabled={disabled} value={stepId} onChange={event => setStepId(event.target.value)}><option value="">選擇推論紀錄</option>{steps.map((value, index) => <option key={value.stepId} value={value.stepId}>推論 {index + 1} · {label(value.selection)} · {status(value.state)}</option>)}</select></label>
         {step && <div className="stack"><p role="status">{status(step.state)} · {label(step.selection)} · {step.evidenceOrigin === 'synthetic_local_fixture' ? '本機合成測試，未呼叫真實供應商' : '供應商 HTTPS'} · 費用未知</p>
           {step.state === 'outcome_unknown' && <p className="banner banner-info">推論結果尚未確認，不會再送出模型請求。請重新讀取狀態。</p>}
           <div className="actions"><button type="button" className="btn btn-primary" disabled={disabled || step.state !== 'reserved' || step.inputWorkVersion !== String(work.aggregate_version) || Boolean(dirty)} onClick={() => command('單次推論', `/me/model-steps/${stepId}:execute`, {}, step.aggregateVersion)}>執行一次推論</button>
-            <button type="button" className="btn btn-ghost" disabled={disabled || terminal(step)} onClick={() => command('推論暫停', `/me/model-steps/${stepId}:pause`, {}, step.aggregateVersion)}>暫停推論</button>
-            <button type="button" className="btn btn-ghost" disabled={disabled || terminal(step)} onClick={() => command('推論停止', `/me/model-steps/${stepId}:stop`, {}, step.aggregateVersion)}>停止推論</button>
+            <button type="button" className="btn btn-ghost" disabled={controlDisabled(`/me/model-steps/${stepId}:pause`) || terminal(step)} onClick={() => void control('推論暫停', `/me/model-steps/${stepId}:pause`)}>暫停推論</button>
+            <button type="button" className="btn btn-ghost" disabled={controlDisabled(`/me/model-steps/${stepId}:stop`) || terminal(step)} onClick={() => void control('推論停止', `/me/model-steps/${stepId}:stop`)}>停止推論</button>
           </div><p className="field-hint">暫停、停止與撤銷會阻止後續平台操作；已送往供應商的請求可能仍在處理。</p>
         </div>}
-        {grant && <div className="actions"><button type="button" className="btn btn-ghost" disabled={disabled || grant.state !== 'active'} onClick={() => command('模型同意撤銷', `/me/execution-grants/${grantId}:revoke`, {}, grant.aggregateVersion)}>撤銷模型同意</button></div>}
+        {grant && <div className="actions"><button type="button" className="btn btn-ghost" disabled={controlDisabled(`/me/execution-grants/${grantId}:revoke`) || grant.state !== 'active'} onClick={() => void control('模型同意撤銷', `/me/execution-grants/${grantId}:revoke`)}>撤銷模型同意</button></div>}
       </>}
     </section>
     {overview && (!work || !overview.persistenceAvailable) && (!overview.persistenceAvailable || overview.steps.length > 0 || overview.approvals.length > 0 || overview.grants.length > 0) && <section className="card stack"><h2>既有推論與撤銷操作</h2>
       {!overview.persistenceAvailable && <p className="banner banner-info" role="status">私人內容儲存政策目前未開放。工作內容與成果暫不顯示；仍可讀取推論狀態、停止或撤銷同意。</p>}
       <label>既有推論<select value={stepId} disabled={disabled} onChange={event => setStepId(event.target.value)}><option value="">選擇要控制的推論</option>{overview.steps.map((value, index) => <option key={value.stepId} value={value.stepId}>推論 {index + 1} · {label(value.selection)} · {status(value.state)}</option>)}</select></label>
       {(() => { const current = overview.steps.find(value => value.stepId === stepId); return current && <><p role="status">{label(current.selection)} · {status(current.state)} · {current.evidenceOrigin === 'synthetic_local_fixture' ? '本機合成測試' : '供應商 HTTPS'} · 費用未知</p><div className="actions">
-        <button type="button" className="btn btn-ghost" disabled={disabled || terminal(current)} onClick={() => command('推論暫停', `/me/model-steps/${current.stepId}:pause`, {}, current.aggregateVersion)}>暫停推論</button>
-        <button type="button" className="btn btn-ghost" disabled={disabled || terminal(current)} onClick={() => command('推論停止', `/me/model-steps/${current.stepId}:stop`, {}, current.aggregateVersion)}>停止推論</button>
+        <button type="button" className="btn btn-ghost" disabled={controlDisabled(`/me/model-steps/${current.stepId}:pause`) || terminal(current)} onClick={() => void control('推論暫停', `/me/model-steps/${current.stepId}:pause`)}>暫停推論</button>
+        <button type="button" className="btn btn-ghost" disabled={controlDisabled(`/me/model-steps/${current.stepId}:stop`) || terminal(current)} onClick={() => void control('推論停止', `/me/model-steps/${current.stepId}:stop`)}>停止推論</button>
       </div></>; })()}
       <label>既有單次同意<select value={approvalId} disabled={disabled} onChange={event => setApprovalId(event.target.value)}><option value="">選擇要撤銷的單次同意</option>{overview.approvals.map((value, index) => <option key={value.approvalId} value={value.approvalId}>同意 {index + 1} · {label(value.selection)} · {status(value.state)}</option>)}</select></label>
-      {(() => { const current = overview.approvals.find(value => value.approvalId === approvalId); return current && <div className="actions"><button type="button" className="btn btn-ghost" disabled={disabled || current.state !== 'active'} onClick={() => command('推論同意撤銷', `/me/model-step-approvals/${current.approvalId}:revoke`, {}, current.aggregateVersion)}>撤銷單次同意</button></div>; })()}
+      {(() => { const current = overview.approvals.find(value => value.approvalId === approvalId); return current && <div className="actions"><button type="button" className="btn btn-ghost" disabled={controlDisabled(`/me/model-step-approvals/${current.approvalId}:revoke`) || current.state !== 'active'} onClick={() => void control('推論同意撤銷', `/me/model-step-approvals/${current.approvalId}:revoke`)}>撤銷單次同意</button></div>; })()}
       <label>既有模型同意<select value={grantId} disabled={disabled} onChange={event => setGrantId(event.target.value)}><option value="">選擇要撤銷的模型同意</option>{overview.grants.map((value, index) => <option key={value.grantId} value={value.grantId}>模型同意 {index + 1} · {label(value.selection)} · {status(value.state)}</option>)}</select></label>
-      {(() => { const current = overview.grants.find(value => value.grantId === grantId); return current && <div className="actions"><button type="button" className="btn btn-ghost" disabled={disabled || current.state !== 'active'} onClick={() => command('模型同意撤銷', `/me/execution-grants/${current.grantId}:revoke`, {}, current.aggregateVersion)}>撤銷模型同意</button></div>; })()}
+      {(() => { const current = overview.grants.find(value => value.grantId === grantId); return current && <div className="actions"><button type="button" className="btn btn-ghost" disabled={controlDisabled(`/me/execution-grants/${current.grantId}:revoke`) || current.state !== 'active'} onClick={() => void control('模型同意撤銷', `/me/execution-grants/${current.grantId}:revoke`)}>撤銷模型同意</button></div>; })()}
       {!overview.steps.length && <p className="muted">尚無推論紀錄。</p>}
     </section>}
   </section>;

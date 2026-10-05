@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { exchange } from './model-step-node-transport.js';
 import { z } from 'zod';
+import { openRouterModelPath, readOpenRouterKey, assertOpenRouterModel } from './openrouter-profile.js';
 import { ModelStepBindingSchema, ModelStepContextSchema, ModelStepLimits, ModelStepUsageSchema,
   type ModelStepBinding, type ModelStepEvidenceOrigin, type ModelStepUsage } from '../../contracts/execution/v2/model-step.js';
 import { MemberExecutionVersionSchema } from '../../contracts/execution/v1/member-execution.js';
@@ -196,9 +197,18 @@ function ports(raw: HostOptions) {
     || !descriptors[name].enumerable || typeof descriptors[name].value !== 'function') fail('invalid_input');
   return { recover: descriptors.recover.value as HostOptions['recover'], resolve: descriptors.resolveCredential.value as HostOptions['resolveCredential'] };
 }
+const providerNetwork = Object.freeze({
+  openai: Object.freeze({ origin: 'https://api.openai.com', auth: 'bearer' }),
+  anthropic: Object.freeze({ origin: 'https://api.anthropic.com', auth: 'anthropic' }),
+  openrouter: Object.freeze({ origin: 'https://openrouter.ai', auth: 'bearer' }),
+});
+function networkProfile(provider: string) {
+  if (!Object.hasOwn(providerNetwork, provider)) return fail('unsupported_selection');
+  return providerNetwork[provider as keyof typeof providerNetwork];
+}
 function authHeaders(binding: ModelStepBinding, key: Uint8Array): Record<string, string> {
   const text = new TextDecoder('utf-8', { fatal: true }).decode(key);
-  return binding.selection.providerRef === 'openai'
+  return networkProfile(binding.selection.providerRef).auth === 'bearer'
     ? { Authorization: `Bearer ${text}` }
     : { 'x-api-key': text, 'anthropic-version': '2023-06-01' };
 }
@@ -208,12 +218,13 @@ function authHeaders(binding: ModelStepBinding, key: Uint8Array): Record<string,
 function supported(binding: ModelStepBinding) {
   if (binding.selection.credentialCustody === 'official_cli' || binding.selection.billingSource !== 'user_byok'
     || binding.selection.processingLocation !== 'provider_remote' || binding.selection.artifactCustody !== 'platform_asset'
-    || !['openai', 'anthropic'].includes(binding.selection.providerRef)) fail('unsupported_selection');
+    || !Object.hasOwn(providerNetwork, binding.selection.providerRef)) fail('unsupported_selection');
+  if (binding.selection.providerRef === 'openrouter') openRouterModelPath(binding.selection.modelRef);
 }
 function host(options: HostOptions, origin: ModelStepEvidenceOrigin, fixtureOrigin?: string): ModelStepHost {
   const captured = ports(options), identity = token<object>();
   const target = (binding: ModelStepBinding, path: string) => new URL(path, fixtureOrigin
-    ?? (binding.selection.providerRef === 'openai' ? 'https://api.openai.com' : 'https://api.anthropic.com'));
+    ?? networkProfile(binding.selection.providerRef).origin);
   const result: ModelStepHost = Object.freeze({
     async verify(raw: ModelStepBinding) {
       const binding = parseModelStepBinding(raw); supported(binding);
@@ -223,12 +234,18 @@ function host(options: HostOptions, origin: ModelStepEvidenceOrigin, fixtureOrig
       if (origin === 'provider_https' && (binding.selection.credentialCustody !== 'platform_vault'
         || binding.selection.engineLocation !== 'platform')) fail('unsupported_selection');
       const before = await recovery(captured.recover), resolved = await credential(captured.resolve, binding);
-      let response: ByokObservation, credentialDigest: string;
+      let response: ByokObservation, credentialDigest: string, providerKeyExpiry: string | null = null;
       try {
         credentialDigest = digest(resolved.key);
-        response = await exchange(target(binding, `/v1/models/${encodeURIComponent(binding.selection.modelRef)}`), 'GET', authHeaders(binding, resolved.key));
+        if (binding.selection.providerRef === 'openrouter') {
+          const authenticated = await exchange(target(binding, '/api/v1/key'), 'GET', authHeaders(binding, resolved.key));
+          providerKeyExpiry = readOpenRouterKey(authenticated.body).expiresAt;
+          response = await exchange(target(binding, openRouterModelPath(binding.selection.modelRef)), 'GET', authHeaders(binding, resolved.key));
+        } else response = await exchange(target(binding, `/v1/models/${encodeURIComponent(binding.selection.modelRef)}`), 'GET', authHeaders(binding, resolved.key));
       }
       finally { resolved.key.fill(0); }
+      if (binding.selection.providerRef === 'openrouter') assertOpenRouterModel(response.body, binding.selection.modelRef, binding.maxOutputTokens);
+      else {
       const observed = parseModelJson(response.body);
       const model = binding.selection.providerRef === 'openai' ? openaiModel.safeParse(observed) : anthropicModel.safeParse(observed);
       if (!model.success) return fail('model_mismatch');
@@ -236,9 +253,10 @@ function host(options: HostOptions, origin: ModelStepEvidenceOrigin, fixtureOrig
       if ('shutdown_date' in model.data && model.data.shutdown_date && model.data.shutdown_date <= new Date().toISOString().slice(0, 10)) fail('unsupported_selection');
       if ('max_tokens' in model.data && model.data.max_tokens !== null && model.data.max_tokens !== undefined
         && model.data.max_tokens < binding.maxOutputTokens) fail('unsupported_selection');
+      }
       const after = await recovery(captured.recover);
       if (before.generation !== after.generation) fail('execution_authority_unavailable');
-      const expiresAt = new Date(Math.min(Date.now() + 90000, Date.parse(before.expiresAt), Date.parse(after.expiresAt), Date.parse(resolved.expiresAt))).toISOString();
+      const expiresAt = new Date(Math.min(Date.now() + 90000, Date.parse(before.expiresAt), Date.parse(after.expiresAt), Date.parse(resolved.expiresAt), providerKeyExpiry ? Date.parse(providerKeyExpiry) : Infinity)).toISOString();
       fresh(expiresAt);
       const data: VerifiedModelBindingData = freezeTree({ binding, bindingId: randomUUID(), evidenceDigest: digest(response.body),
         recoveryGeneration: after.generation, expiresAt, evidenceOrigin: origin, adapterProfile: 'byok-text/v1' });
@@ -266,7 +284,9 @@ function host(options: HostOptions, origin: ModelStepEvidenceOrigin, fixtureOrig
         if (immediatelyBefore.generation !== cap.verified.data.recoveryGeneration) fail('execution_authority_unavailable');
         await boundedHostPort(cap.beforeDispatch);
         fresh(cap.expiresAt); fresh(cap.verified.data.expiresAt); fresh(resolved.expiresAt);
-        response = await exchange(target(cap.binding, new URL(candidate.endpoint).pathname), 'POST', { ...candidate.headers, ...authHeaders(cap.binding, resolved.key) }, candidate.body);
+        const endpoint = new URL(candidate.endpoint);
+        if (endpoint.origin !== networkProfile(cap.binding.selection.providerRef).origin) fail('unsupported_selection');
+        response = await exchange(fixtureOrigin ? target(cap.binding, endpoint.pathname) : endpoint, 'POST', { ...candidate.headers, ...authHeaders(cap.binding, resolved.key) }, candidate.body);
       } finally { resolved?.key.fill(0); input.bytes.fill(0); candidate?.body.fill(0); }
       const decoded = byok.decode(response, { selection: cap.binding.selection, prompt: input.prompt, maxOutputTokens: cap.binding.maxOutputTokens });
       if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(decoded.text)) fail('invalid_response');

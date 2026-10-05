@@ -48,3 +48,12 @@ Unknown paths, source/hash mismatches, malformed/private fields, out-of-bounds
 locations and duplicate cases are discarded. A missing, invalid, truncated or
 hung sideband cannot change primary JSON, selected files, pass admission or the
 original deadline. FD3's schema and final JSON remain unchanged.
+
+Credential-ingest process, adversarial, settings and rate-budget failures may carry
+a closed `ingest` detail: helper phase, prepare/secret request state and nullable
+HTTP status, plus a failure-only custody snapshot enum. No URL, body, cookie,
+key, raw error or SQL text is admitted. Custody uses a separate read-only local
+fixture connection with 1-second connection and query/server limits; unavailable
+observations never replace the original error. A preexisting active credential
+can produce `one_active`, so this snapshot alone is not attempted-write commit
+evidence. The primary final report remains unchanged.

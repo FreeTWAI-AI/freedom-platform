@@ -71,7 +71,7 @@ after(async () => {
   try { if (created) await admin.query(`DROP SCHEMA ${schema} CASCADE; DROP ROLE ${brokerRole},${runtime},${migrator}`); } finally { await admin.end(); }
 });
 beforeEach(async()=>{ await owner.query('TRUNCATE communities CASCADE'); generation='1'; recoveryExpiry=undefined; unavailable=false; recoveryCalls=0; });
-async function fixture() {
+async function fixture(selected = selection) {
   const user = randomUUID(), community = randomUUID(), session = tokenHash(randomBytes(32).toString('base64url'));
   await owner.query("INSERT INTO communities VALUES($1,'Synthetic broker owner')",[community]);
   const row = (await owner.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref)
@@ -85,7 +85,7 @@ async function fixture() {
   const device = await enrollment.confirm(actor,{key:randomUUID(),challengeId:challenge.challenge_id,proof});
   const connection = await connections.create(actor,{key:randomUUID(),runtimeDeviceId:device.runtimeDeviceId});
   await transaction(app,q=>insertInitialRefreshFamily(q,connection.connectionId,new Date(connection.issuedAt),new Date(connection.expiresAt)));
-  const model = await prerequisites.models.create(actor,{key:randomUUID(),connectionId:connection.connectionId,expectedConnectionVersion:'1',selection});
+  const model = await prerequisites.models.create(actor,{key:randomUUID(),connectionId:connection.connectionId,expectedConnectionVersion:'1',selection:selected});
   return {actor,model,connection};
 }
 type Fixture = Awaited<ReturnType<typeof fixture>>;
@@ -215,4 +215,26 @@ test('actual receipt INSERT wait rechecks recovery and session decision clocks a
       await owner.query(`DROP TRIGGER broker_receipt_wait ON scoped_command_receipts; DROP FUNCTION ${schema}.broker_receipt_wait()`);
     }
   }
+});
+
+
+test('OpenRouter forward migration admits only explicit namespaced BYOK and retains real low-privilege vault isolation',async()=>{
+  const chosen={...selection,providerRef:'openrouter',modelRef:'openai/gpt-4.1-mini'};
+  const f=await fixture(chosen),p=await persist(f);
+  assert.deepEqual(p.metadata.selection,chosen);
+  assert.deepEqual((await owner.query('SELECT selection FROM model_connections WHERE model_connection_id=$1',[f.model.modelConnectionId])).rows[0].selection,chosen);
+  await assert.rejects(app.query('SELECT envelope FROM broker_credential_vault'),{code:'42501'});
+  const row=(await owner.query("SELECT pg_get_expr(conbin,conrelid) expression FROM pg_constraint WHERE conrelid='model_connections'::regclass AND conname='model_connections_selection_v2'")).rows[0];
+  assert(row);
+  const check=async(value:unknown)=>(await owner.query('SELECT '+row.expression+' AS valid FROM (SELECT $1::jsonb selection) selected',[JSON.stringify(value)])).rows[0].valid;
+  assert.equal(await check(chosen),true);
+  for(const providerRef of ['openai','anthropic','other'])assert.equal(await check({...chosen,providerRef}),false);
+  for(const modelRef of ['openai/../secret','openai/%2Fsecret','https://foreign.test/model','openai/a/b','openai/x?key=secret'])assert.equal(await check({...chosen,modelRef}),false);
+  assert.equal(await check({...chosen,credentialCustody:'official_cli',engineLocation:'runtime_local',billingSource:'user_cli'}),false);
+  for(const name of ['preserve_broker_credential','preserve_credential_ingest_authorization']){
+    const body=(await owner.query('SELECT prosrc FROM pg_proc WHERE oid=$1::regprocedure',[name+'()'])).rows[0].prosrc;
+    assert(body.includes("('openai','anthropic','openrouter')"));assert(body.includes("'openrouter'"));assert(body.includes("'^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._:-]*$'"));
+  }
+  const receipt=JSON.stringify((await owner.query("SELECT response FROM scoped_command_receipts WHERE operation='broker.credential.create'")).rows);
+  assert(!receipt.includes('NEVER-WIRE'));assert(!receipt.includes('ciphertext'));
 });

@@ -1,9 +1,10 @@
+import { assertProviderTarget } from '../../../modules/agent-execution/provider-target.js';
 import {AdapterFault} from '../../../modules/agent-execution/adapters/common.js';
 import type {ByokObservation} from '../../../modules/agent-execution/adapters/byok.js';
 
 /** Broker-only native HTTPS. Host selects the fixed provider URL; no RPC endpoint. */
 export async function exchange(url:URL,method:'GET'|'POST',headers:Record<string,string>,body?:Uint8Array):Promise<ByokObservation>{
-  if(url.protocol!=='https:'||url.username||url.password||url.hash)throw new AdapterFault('invalid_input');
+  assertProviderTarget(url,method);
   const abort=new AbortController();let timer:ReturnType<typeof setTimeout>|undefined,reader:ReadableStreamDefaultReader<Uint8Array>|undefined;
   try{
     return await Promise.race([(async()=>{

@@ -48,8 +48,27 @@ test('BROKER-BRIDGE-ADV actual committed dispatch ACK loss, tampered reply, and 
  for(const mode of ['dropNext','tamperNext']){const f=await bridgeFixture();try{const member=await f.activated();await f.main.request('exchangeMode',mode);const key=randomUUID();const response=await f.post(member,`/api/v1/me/model-steps/${member.step.stepId}:execute`,{}, {'Idempotency-Key':key});assert(response.status>=400);assert.equal(f.posts.length,1);assert.equal((await f.owner.query('SELECT count(*)::int n FROM private_model_work_results WHERE work_item_id=$1',[member.work.workId])).rows[0].n,1);const retry=await f.post(member,`/api/v1/me/model-steps/${member.step.stepId}:execute`,{}, {'Idempotency-Key':key});assert.equal(retry.status,200,await retry.clone().text());assert.equal(ModelStepMetadataSchema.parse(await retry.json()).state,'succeeded');const requests=await f.main.request('requests');assert.equal(requests.at(-1).authorizationRef,requests.at(-2).authorizationRef);assert.equal(requests.at(-1).nonce,requests.at(-2).nonce);assert.equal(f.posts.length,1);assert.equal((await f.owner.query('SELECT count(*)::int n FROM private_model_work_results WHERE work_item_id=$1',[member.work.workId])).rows[0].n,1);const refresh=await fetch(f.mainOrigin+`/api/v1/me/model-steps/${member.step.stepId}`,{headers:{Cookie:member.headers.Cookie}});assert.equal(refresh.status,200);assert.equal(ModelStepMetadataSchema.parse(await refresh.json()).state,'succeeded');}finally{await f.cleanup();}}
 });
 
-test('BROKER-BRIDGE-ADV wrong replica and restarted broker cannot reconstruct original opaque verification from DB or wire',async()=>{
- const f=await bridgeFixture();try{const member=await f.activated(),signed=await issue(f,member);const replica=await f.spawnReplica();const denied=payload(await replica.request('handle',signed.request));assert.equal(denied.outcome.kind,'problem');assert.equal(f.posts.length,0);assert.equal(payload(await f.broker.request('handle',signed.request)).outcome.kind,'metadata');assert.equal(f.posts.length,0);const fresh=await f.restartBroker();const reply=payload(await fresh.request('handle',signed.request));assert.equal(reply.outcome.kind,'problem');assert.equal(f.posts.length,0);assert.equal((await f.owner.query('SELECT state FROM model_text_steps WHERE step_id=$1',[member.step.stepId])).rows[0].state,'reserved');await fresh.request('handle',signed.request);assert.equal(f.posts.length,0);f.recovery.floor='2';assert.equal(payload(await fresh.request('handle',signed.request)).outcome.kind,'problem');assert.equal(f.posts.length,0);f.recovery.unavailable=true;const stop=await f.post(member,`/api/v1/me/model-steps/${member.step.stepId}:stop`,{});assert.equal(stop.status,200,await stop.clone().text());assert.equal(ModelStepMetadataSchema.parse(await stop.json()).state,'cancelled');}finally{await f.cleanup();}
+test('BROKER-BRIDGE-ADV separate broker verifies reserved SQL binding; restarted broker only replays metadata',async()=>{
+ const f=await bridgeFixture();try {
+  const member=await f.approved(),activation=await issue(f,member,'activate');
+  const activated=payload(await f.broker.request('handle',activation.request));assert.equal(activated.outcome.kind,'metadata');
+  const step=(await f.owner.query('SELECT step_id,verified_binding FROM model_text_steps')).rows[0];
+  const replica=await f.spawnReplica();
+  const ack=payload(await replica.request('handle',activation.request));assert.equal(ack.outcome.kind,'metadata');
+  assert.deepEqual(await replica.request('sockets'),[]);assert.equal(f.posts.length,0);
+  const signed=await issue(f,{...member,step:{stepId:step.step_id}});
+  const result=payload(await replica.request('handle',signed.request));assert.equal(result.outcome.kind,'metadata');
+  assert.equal(f.posts.length,1);
+  const persisted=(await f.owner.query('SELECT state,verified_binding FROM model_text_steps')).rows[0];
+  assert.equal(persisted.state,'succeeded');assert.notEqual(persisted.verified_binding.bindingId,step.verified_binding.bindingId);
+  assert.equal((await replica.request('sockets')).filter((s:any)=>s.method==='GET').length,1);
+  const restarted=await f.restartBroker();
+  assert.equal(payload(await restarted.request('handle',signed.request)).outcome.kind,'metadata');
+  assert.equal(payload(await restarted.request('handle',activation.request)).outcome.kind,'metadata');
+  assert.deepEqual(await restarted.request('sockets'),[]);assert.equal(f.posts.length,1);
+  assert.equal((await f.owner.query('SELECT count(*)::int n FROM private_model_work_results')).rows[0].n,1);
+  f.recovery.floor='2';assert.equal(payload(await restarted.request('handle',signed.request)).outcome.kind,'problem');assert.equal(f.posts.length,1);
+ }finally{await f.cleanup();}
 });
 
 test('BROKER-BRIDGE-ADV invocation expiry while actual final Result INSERT is blocked rolls back Result and Work CAS',async()=>{
@@ -89,6 +108,10 @@ test('BROKER-BRIDGE-ADV owner Stop committed during actual provider wait fences 
   const stop=await f.post(member,`/api/v1/me/model-steps/${member.step.stepId}:stop`,{}, {'If-Match':'"'+version+'"'});assert.equal(stop.status,200,await stop.clone().text());gate.release();const response=await execute;assert(response.status>=400);
   assert.equal(f.posts.length,1);assert.equal((await f.owner.query('SELECT count(*)::int n FROM private_model_work_results WHERE work_item_id=$1',[member.work.workId])).rows[0].n,0);assert.equal((await f.owner.query('SELECT aggregate_version::text version FROM work_items WHERE work_item_id=$1',[member.work.workId])).rows[0].version,'1');
   const step=(await f.owner.query('SELECT state,usage_status FROM model_text_steps WHERE step_id=$1',[member.step.stepId])).rows[0];assert.equal(step.state,'outcome_unknown');assert.equal(step.usage_status,'unknown');
+  const requests=await f.main.request('requests'),spent=requests.at(-1),replica=await f.spawnReplica();
+  assert.equal(payload(await replica.request('handle',spent)).outcome.kind,'metadata');
+  assert.equal(payload(await f.broker.request('handle',spent)).outcome.kind,'metadata');
+  assert.deepEqual(await replica.request('sockets'),[]);assert.equal(f.posts.length,1);
   await f.post(member,`/api/v1/me/model-steps/${member.step.stepId}:execute`,{}, {'If-Match':'"'+version+'"'});assert.equal(f.posts.length,1);
  }finally{await f.cleanup();}
 });

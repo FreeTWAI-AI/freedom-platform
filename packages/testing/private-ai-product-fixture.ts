@@ -43,12 +43,21 @@ export async function createPrivateAiBrowserFixture(owner: Pool, runtime: Pool, 
     }
     if (request.method !== 'POST' || request.url !== '/v1/responses') { response.writeHead(404); response.end('{}'); return; }
     let size = 0, raw = ''; request.on('data', chunk => { size += chunk.length; if (size > 32768) request.destroy(); else raw += chunk; });
-    request.on('end', () => {
+    request.on('end', async () => {
       try {
         const input = JSON.parse(raw);
         if (input.model !== selection.modelRef || !Array.isArray(input.tools) || input.tools.length
           || input.tool_choice !== 'none' || !Number.isInteger(input.max_output_tokens) || input.max_output_tokens < 8) throw new Error();
         providerPosts++;
+        // Test-only provider-response gate, scoped to this isolated schema.
+        // Browser tests may hold this advisory key while the real dispatch is
+        // pending; ordinary fixture calls pass through immediately.
+        const gate = await owner.connect();
+        try {
+          await gate.query('SELECT pg_advisory_lock(hashtextextended($1,0))', [`private-ai-browser-provider/${schema}`]);
+        } finally {
+          await gate.query('SELECT pg_advisory_unlock(hashtextextended($1,0))', [`private-ai-browser-provider/${schema}`]); gate.release();
+        }
         response.end(JSON.stringify({id:'synthetic-browser-response',object:'response',model:selection.modelRef,status:'completed',
           output:[{id:'synthetic-browser-message',type:'message',role:'assistant',status:'completed',
             content:[{type:'output_text',text:'這是本人可讀的私人 AI 草稿。\n本機合成模型回應，沒有公開分享。',annotations:[]}]}],

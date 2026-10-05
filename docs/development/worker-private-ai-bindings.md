@@ -187,12 +187,26 @@ assertions, device approval or model labels into an owner installation.
 | Recovery ports | Install both fixed state/floor bindings from the binding table, with current signed generation and independently persisted monotonic floor. Record state/floor agreement and fail-closed outage behavior. Neither authority is reconstructed from a platform DB/R2 backup. |
 | Protected capture readiness | Install the broker-only `CREDENTIAL_INGEST_READINESS` binding, authority and public pins specified in the broker document. Record actual ingress logging/tracing/body-capture controls and their trusted readiness source. A fresh signed `captureDisabled:true` assertion alone is insufficient operational evidence. |
 | Assets and secrets | Both Workers refer to the existing environment `MEDIA` bucket. Broker alone owns the KEK ring and cipher connection. Check purpose-separated key material, not merely different key IDs. Secrets and resource identifiers stay in the private installation record. |
-| Device and model | Record the actual device/bootstrap host and owner's explicit selection. The current broker catalog accepts `providerRef` openai or anthropic, the owner's exact `modelRef`, `credentialCustody:platform_vault`, `engineLocation:platform`, `billingSource:user_byok`, `processingLocation:provider_remote`, `artifactCustody:platform_asset`. Metadata does not verify availability or authorize a charge/export. |
+| Device and model | Record the actual device/bootstrap host and owner's explicit selection. The current broker catalog accepts `providerRef` openai, anthropic or openrouter, the owner's exact `modelRef`, `credentialCustody:platform_vault`, `engineLocation:platform`, `billingSource:user_byok`, `processingLocation:provider_remote`, `artifactCustody:platform_asset`. Metadata does not verify availability or authorize a charge/export. |
 
-The owner's model/provider choice is still an unanswered input for this P3 work;
-no default selection or owner credential has been supplied by this worksheet.
-Provider authentication occurs only through the installed independent setup
-surface and owner-approved workflow. Main does not need the provider secret.
+For the 2026-10-05 acceptance work, the owner explicitly authorized OpenRouter
+BYOK and supplied a temporary credential privately to root, with a 24-hour expiry
+and US$10 budget. The selected test model is `openai/gpt-4.1-mini`, with
+`providerRef:openrouter`, `credentialCustody:platform_vault`,
+`engineLocation:platform`, `billingSource:user_byok`,
+`processingLocation:provider_remote` and `artifactCustody:platform_asset`.
+This choice is no longer an unanswered input; it is not a default for other
+members or a standing authorization beyond that temporary credential's limits.
+
+Root's real-provider native acceptance has produced and owner-read a private
+model Result using that selection. Its SQL, member/device and R2 environment are
+local test infrastructure; this does not establish an installed staging/public
+broker, setup origin, recovery/readiness authorities or remote R2 acceptance.
+The [opt-in acceptance harness](openrouter-owner-acceptance.md) labels those bounds
+and keeps exact outcomes in private receipts. Credentials remain root-only and
+must never be copied into this worksheet, main Worker configuration or logs.
+Per-environment installation and the real browser/edge owner workflow still need
+the independent evidence below. Main does not need the provider secret.
 
 For repository preparation, run the existing static check and bundle check:
 
@@ -201,19 +215,83 @@ npm run check:broker-worker-candidate
 npm run worker:dry-run:broker
 ```
 
-The static command takes no profile or credential arguments and deliberately
-reports `deployment_ready:false`; these commands do not validate operator-filled
-profiles, install remote bindings or authorize enabling a flag. Compare the
-installation against the actual closed
-[main schema](../../apps/platform-api/src/worker-private-ai.ts) and
-[broker schema](../../apps/credential-broker/src/worker-profile.ts), then preserve
-remote resource and permission readback through the existing release procedure.
+The no-argument static command checks the repository examples. For filled
+installation profiles, the same release-preparation command also supports:
+
+```sh
+npm run check:broker-worker-candidate -- --installation \
+  --profiles /absolute/private/installation-public.json \
+  --main-config /absolute/private/main.jsonc \
+  --broker-config /absolute/private/broker.jsonc \
+  --main-artifact /absolute/private/main-worker.js \
+  --broker-artifact /absolute/private/broker-worker.js \
+  --expected-bindings /absolute/private/reviewed-bindings.json \
+  --expected-source-sha <reviewed-full-40-hex-source-sha>
+```
+
+All six input files must be regular, current-user-owned, absolute paths with
+mode 0600 or stricter; symlinks are rejected. Use private copies of the actual
+release artifacts, not placeholder bytes. The public installation JSON has
+exactly these fields:
+
+| Field | Content |
+| --- | --- |
+| `environment` | `staging-next` or `next` |
+| `release` | `source_sha`, `main_artifact_sha256`, `broker_artifact_sha256`; digests of the actual Worker files supplied above |
+| `main`, `broker` | Existing closed [main profile](../../apps/platform-api/src/worker-private-ai-profile.ts) and [broker profile](../../apps/credential-broker/src/worker-profile.ts) objects |
+| `requestPublicKey`, `responsePublicKey` | Public Ed25519 JWKs of the installed main request and broker response signers; only `kty`, `crv`, `x` |
+| `ingestRequestPublicKey`, `ingestResponsePublicKey` | Required when setup profiles are present; public JWKs of the separate main ingest and broker setup-response signers |
+
+The separate `--expected-bindings` file contains exactly `environment`,
+`media_bucket` and `source_root`. The operator obtains this expectation from
+reviewed deployment evidence independently of the candidate profiles/configs;
+the checker cannot attest the approval itself. Both Workers' MEDIA bindings
+must equal that exact environment-bound bucket. Never rewrite live MEDIA to
+match the historical repository manifest. For the reviewed 2026-10-04
+installation the names are `freedom-foundation-candidate-20261004-media` for
+`staging-next` and `freedom-foundation-production-20261004-media` for `next`;
+future checks still require the operator's explicit expected metadata rather
+than assuming those names remain current.
+
+`source_root` is the normalized absolute reviewed release-checkout path. Main
+and broker entries may be the exact repository-relative source entries or the
+exact absolute paths under that declared root. Other roots, traversal spellings
+and basename-only matches fail. Relative entries represent source-root-normalized
+configs; operational overlays can retain their absolute clean-release paths.
+This correspondence check does not prove checkout contents, symlink targets or
+source-to-artifact provenance; preserve those release checks separately.
+
+No private JWK, KEK, provider secret, device approval or claimed live-readiness
+receipt is accepted in that JSON. The checker verifies actual artifact bytes,
+canonical environment/SQL mapping, operator-expected MEDIA and source-entry
+correspondence, configured service correspondence,
+request/response/recovery pins, and key-material separation across purposes.
+Both candidate flags must remain OFF, both selected config blocks must pin
+`FREEDOM_RELEASE_SHA`, and broker public routes stay excluded from this offline
+preparation check. Secret vars and placeholder or reused Hyperdrives fail.
+
+Exit 0 means only the offline checks passed; the report still says
+`status:unavailable`, `deployment_ready:false` and `remote_cloud:not_run`.
+`operator_binding_correspondence:matched` means agreement with the separate
+operator input; `binding_remote_attestation:unavailable` remains explicit.
+Exit 1 means mismatched installation metadata/artifacts; exit 2 means private
+inputs or local tooling are unavailable. Diagnostics contain fixed codes, never
+operator paths, key material or profile contents. `checkPrivateAiInstallation`
+is also available to release preparation code using the same profile schemas.
+Byte verification does not establish source-to-artifact provenance, release
+approval, installed signer correspondence, remote bindings/permissions, recovery
+and capture controls, or actual owner model acceptance. Those remain explicit
+unavailable conditions and must retain separate evidence through the existing
+release procedure; this tool cannot authorize enabling either product flag.
 
 Before actual owner model acceptance, verify the setup POST, prepare and secret
-requests across real browser/edge routing. Setup sessions and activation proof
-registries are isolate-local; cross-isolate/restart behavior must stay fail-closed.
-Do not claim a usable multi-replica installation solely from the single-isolate
-native test or silently regenerate authority after an unavailable/ambiguous result.
+requests across real browser/edge routing. Setup preparation now resumes through
+one-use SQL records, and a reserved activation may continue on a fresh broker
+only after new provider verification and current SQL/recovery checks. A consumed
+execute request returns metadata and cannot dispatch again. Opaque capabilities
+remain local to their single dispatch. Cross-process tests cover these boundaries;
+they do not establish a usable Cloudflare installation or authorize retrying an
+unknown provider outcome as a new paid operation.
 
 Use the owner-action table above as the acceptance sequence. Record each step as
 `not_run`, `pass` or `fail`, with source/release, environment and a private receipt

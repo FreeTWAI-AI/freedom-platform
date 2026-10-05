@@ -3,7 +3,7 @@ import {createHash,randomUUID,randomBytes} from 'node:crypto';
 import {createServer as netServer,createConnection,type Socket} from 'node:net';
 import {mkdtemp,mkdir,readFile,readdir,rm} from 'node:fs/promises';
 import {join,resolve} from 'node:path';
-import {Miniflare,convertV4MiniflareOptions,type V4WorkerOptions,type V4ModuleDefinition} from 'miniflare';
+import {Miniflare,Log,LogLevel,convertV4MiniflareOptions,type V4WorkerOptions,type V4ModuleDefinition} from 'miniflare';
 import {CompactSign,exportJWK,generateKeyPair} from 'jose';
 import {Pool} from 'pg';
 import {migrate} from '../../../scripts/database.js';
@@ -41,7 +41,7 @@ async function template(owner:Pool,schema:string,file:string,role:string,variabl
  * intercepted by another local Worker; no live provider or owner evidence. */
 export async function nativeBrokerSqlFixture(extend?:(context:{workers:V4WorkerOptions[];brokerWorker:V4WorkerOptions;mainOrigin:string;
   database:string;appHyperdrive:string;directory:string;requestKeys:CryptoKeyPair;responseKeys:CryptoKeyPair;recoveryKeys:CryptoKeyPair;
-  workerProfile:Record<string,unknown>})=>Promise<void>) {
+  workerProfile:Record<string,unknown>})=>Promise<void>,fixtureOptions:{quiet?:boolean}={}) {
   const raw=process.env.TEST_DATABASE_URL;if(!raw||!/^\/fp_[a-z0-9_]+$/.test(new URL(raw).pathname))throw Error('Owned fp_* test database URL required');
   const adminUrl=new URL(raw),socket=adminUrl.searchParams.get('host');if(!socket&&!['127.0.0.1','localhost','[::1]'].includes(adminUrl.hostname))throw Error('Owned loopback/socket DB only');
   const database='freedom_staging_next',roles={owner:'fp_bw_owner_'+process.pid,app:'fp_bw_app_'+process.pid,broker:'freedom_staging_next_broker',executor:'freedom_staging_next_broker_executor'},password=randomBytes(24).toString('hex');
@@ -89,7 +89,7 @@ export async function nativeBrokerSqlFixture(extend?:(context:{workers:V4WorkerO
       {name:'recovery-state',modules:true,script:`let unavailable=false;export default {fetch(request){const path=new URL(request.url).pathname;if(path==='/unavailable')unavailable=true;if(path==='/reset')unavailable=false;return unavailable?new Response(null,{status:503}):Response.json({signedState:${JSON.stringify(signedState)}});}};`,compatibilityDate:'2026-09-21'},
       {name:'recovery-floor',modules:true,script:`let generation='1';export default {fetch(request){if(new URL(request.url).pathname==='/invalidate')generation='2';if(new URL(request.url).pathname==='/reset')generation='1';return Response.json({generation,expiresAt:${JSON.stringify(expiresAt)}});}};`,compatibilityDate:'2026-09-21'}];
     await extend?.({workers,brokerWorker,mainOrigin,database,appHyperdrive:hyperdrive(roles.app),directory,requestKeys,responseKeys,recoveryKeys,workerProfile});
-    mf=new Miniflare(convertV4MiniflareOptions({workers}));await mf.ready;
+    mf=new Miniflare(convertV4MiniflareOptions({workers,...(fixtureOptions.quiet?{log:new Log(LogLevel.NONE)}:{})}));await mf.ready;
     const broker=await mf.getWorker('broker');
     const requests:ModelBrokerRequest[]=[];
     const client=await createModelBrokerClient(app,{origin:mainOrigin,...profile,requestKid:'request',requestKey:requestKeys.privateKey,responseKeys:new Map([['response',responseKeys.publicKey]]),brokerIdentity:'synthetic-broker',responseAudience:'synthetic-main',recover,exchange:async request=>{requests.push(request);const response=await broker.fetch('https://freedom-private-ai.internal/internal/model-execution',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});assert.equal(response.status,200,await response.clone().text());return response.json() as Promise<{response:string}>;}});
@@ -141,7 +141,11 @@ export async function nativeBrokerSqlFixture(extend?:(context:{workers:V4WorkerO
   }
   async function activated() {const f=await approved();const response=await post(f,'/api/v1/me/model-steps',{approvalId:f.approval.approvalId,expectedRunVersion:'1'});assert.equal(response.status,201,await response.clone().text());return {...f,step:ModelStepMetadataSchema.parse(await response.json())};}
 
-    return {mf,broker,app,owner,cipher,executor,roles,requests,requestKeys,responseKeys,recoveryKeys,member,paired,post,approved,activated,
+    async function restartBroker() {
+      brokerWorker.bindings={...brokerWorker.bindings,ACCEPTANCE_RESTART:randomUUID()} as typeof brokerWorker.bindings;
+      await mf!.setOptions(convertV4MiniflareOptions({workers,...(fixtureOptions.quiet?{log:new Log(LogLevel.NONE)}:{})}));await mf!.ready;
+    }
+    return {mf,broker,restartBroker,app,owner,cipher,executor,roles,requests,requestKeys,responseKeys,recoveryKeys,member,paired,post,approved,activated,
       mainOrigin,database,workerProfile,prerequisites,runs,works,cleanup};
   }catch(error){await cleanup();throw error;}
 }
