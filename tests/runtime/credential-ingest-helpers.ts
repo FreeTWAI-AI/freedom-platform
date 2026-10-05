@@ -151,8 +151,10 @@ export async function ingestFixture() {
     await page.waitForURL(setupOrigin+'/credential-setup');return page;
   }
   async function ingestBrowser(human:Awaited<ReturnType<typeof member>>,modelConnectionId:string) {
+    // Browser startup is fixture preparation, not part of the signed setup lifetime.
+    const context=await browserContext(human);
     const response=await issue(human,modelConnectionId);assert.equal(response.status,201,await response.clone().text());const bootstrap=await response.json() as any;
-    const context=await browserContext(human),page=await navigateSetup(context,bootstrap.assertion);
+    const page=await navigateSetup(context,bootstrap.assertion);
     if(process.env.INGEST_SCREENSHOT_DIR){await mkdir(process.env.INGEST_SCREENSHOT_DIR,{recursive:true});for(const width of [390,768,1440]){await page.setViewportSize({width,height:1000});await page.screenshot({path:join(process.env.INGEST_SCREENSHOT_DIR,`protected-setup-${width}.png`),fullPage:true});}}
     await page.locator('#credential-key').fill(secret);await page.locator('#credential-consent').check();await page.locator('#credential-submit').click();
     let outcome:any;for(let i=0;i<100;i++){const read=await httpsFetch(mainOrigin+'/api/v1/me/credential-ingests/'+bootstrap.authorizationRef,{headers:{...human.headers,Origin:mainOrigin}});if(read.ok){outcome=await read.json();if(outcome.state==='committed')break;}await delay(100);}

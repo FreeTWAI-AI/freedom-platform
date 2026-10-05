@@ -87,9 +87,12 @@ test('INGEST-ADV restarted broker still rejects withdrawn original session befor
 });
 
 test('INGEST-ADV command-only expiry during the actual last receipt INSERT rolls back ciphertext, index and custody receipt',{timeout:60000},async()=>{
- const f=await ingestFixture();let holder:any;try{const human=await f.configured();await f.main.request('issuerDeadline',Date.now()+expiryPhaseMs);const s=await prepared(f,human),expiry=Date.parse(claims(s.bootstrap.assertion).expiresAt);
+ const f=await ingestFixture();let holder:any;try{const human=await f.configured();
   const lock='independent-ingest-receipt-'+randomUUID();await f.owner.query(`CREATE FUNCTION ingest_validation_receipt_gate() RETURNS trigger LANGUAGE plpgsql AS $gate$ BEGIN IF NEW.operation='broker.credential.create' THEN PERFORM pg_advisory_xact_lock(hashtextextended('${lock}',0)); END IF; RETURN NEW; END $gate$;CREATE TRIGGER z_ingest_validation_gate BEFORE INSERT ON scoped_command_receipts FOR EACH ROW EXECUTE FUNCTION ingest_validation_receipt_gate()`);
   holder=await f.owner.connect();await holder.query('BEGIN');await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[lock]);
+  // Install and acquire the test-only SQL barrier before starting the signed
+  // command deadline; test DDL scheduling is not the expiry under test.
+  await f.main.request('issuerDeadline',Date.now()+expiryPhaseMs);const s=await prepared(f,human),expiry=Date.parse(claims(s.bootstrap.assertion).expiresAt);
   assert(expiry>Date.now(),'Setup must complete before the command deadline');const pending=f.broker.request('direct',secretRequest(f,s));await sqlBlocked(f,holder);assert(expiry>Date.now(),'The receipt INSERT must block before command expiry');
   const sessionExpiry=(await f.owner.query('SELECT expires_at FROM sessions WHERE token_hash=$1',[human.actor.session_hash])).rows[0].expires_at;assert(sessionExpiry.getTime()>expiry+30000);assert(Date.parse(claims(f.recovery.raw).expiresAt)>expiry+30000);
   await delay(Math.max(0,expiry-Date.now()+50));await holder.query('COMMIT');holder.release();holder=undefined;const result=await pending;assert.equal(result.pulls,1);assert.equal(result.cleared,true);
