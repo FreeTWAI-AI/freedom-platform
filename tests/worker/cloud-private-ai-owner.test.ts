@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,writeFile,rm,readFile} from 'node:fs/promises';
 import {join} from 'node:path';import {tmpdir} from 'node:os';
 import {randomUUID} from 'node:crypto';
-import {runPrivateAiOwner,validatePrivateAiOwner,ownerRequestAllowed,type PrivateAiOwnerConfig} from '../../scripts/verify-cloud-private-ai-owner.js';
+import {runPrivateAiOwner,validatePrivateAiOwner,ownerRequestAllowed,ownerKeyRequestAllowed,type PrivateAiOwnerConfig} from '../../scripts/verify-cloud-private-ai-owner.js';
 import {CandidateClient,Secrets,candidateTarget,runCandidate,selectPhases} from '../../scripts/verify-cloud-candidate-lib.js';
 const origin='https://staging.freetwai.com',setup='https://synthetic-broker.freetwai.com',release='a'.repeat(40);
 const account={email:'dedicated@example.invalid',password:'private-password-synthetic',label:'test-owner'};
-async function fixture(lost=false){
+async function fixture(lost=false,forged:false|'body'|'header'=false){
  const directory=await mkdtemp(join(tmpdir(),'fp-owner-acceptance-')),keyFile=join(directory,'key');
  await mkdir(join(directory,'receipt'),{mode:0o700});
  const secret='sk-or-v1-SYNTHETIC_PRIVATE_KEY_ONLY';await writeFile(keyFile,secret,{mode:0o600});
@@ -19,11 +19,11 @@ async function fixture(lost=false){
  let committed=false,handler:any,key='',closed=0;const requests:any[]=[],metrics:Record<string,unknown>={},checks:string[]=[];
  const overview=()=>({profile:'member-model-settings/v1',connections:[{connectionId,runtimeDeviceId,state:'active',aggregateVersion:'1',expiresAt:future}],models:[model],credentials:committed?[credential]:[],selectionOptions:[selection],setup:{state:'installed',setupOrigin:setup},limit:50,operational_authority:false});
  const client=new CandidateClient(candidateTarget('staging'),async req=>{requests.push({kind:'api',method:req.method,url:req.url});return{status:200,headers:new Headers(),body:Buffer.from(JSON.stringify(overview()))};},null,new Secrets());
- const request=async(url:string,method='GET')=>{let aborted=false;await handler({request:()=>({url:()=>url,method:()=>method,headers:()=>({})}),abort:async()=>{aborted=true;},fetch:async(opts:any)=>{requests.push({kind:'browser',url,method,headers:opts.headers,maxRedirects:opts.maxRedirects});if(url===setup+'/credential-setup/secret'){committed=true;if(lost)throw Error('private response body must never appear');}return{};},fulfill:async()=>{}});return !aborted;};
+ const request=async(url:string,method='GET',body:string|null=null,headers:Record<string,string>={})=>{let aborted=false;await handler({request:()=>({url:()=>url,method:()=>method,headers:()=>({}),allHeaders:async()=>headers,postData:()=>body}),abort:async()=>{aborted=true;},fetch:async(opts:any)=>{requests.push({kind:'browser',url,method,headers:opts.headers,maxRedirects:opts.maxRedirects});if(url===setup+'/credential-setup/secret'){committed=true;if(lost)throw Error('private response body must never appear');}return{};},fulfill:async()=>{}});return !aborted;};
  const locator=(name:string):any=>({getByRole:(_:string,o:any)=>locator(o.name),getByLabel:(n:string)=>locator(n),locator,filter:()=>locator(name),waitFor:async()=>{if(lost&&name==='#credential-status')throw Error('private synthetic key leaked error');},fill:async(v:string)=>{if(name==='#credential-key')key=v;},inputValue:async()=>'',selectOption:async()=>{},check:async()=>{},click:async()=>{
   if(name==='登入')await request(origin+'/api/v1/auth/login','POST');
   if(name==='前往金鑰保管頁'){await request(origin+'/api/v1/me/credential-ingests','POST');await request(setup+'/credential-setup','POST');for(const path of ['/credential-setup.js','/credential-setup.css','/credential-setup-brand.webp'])assert(await request(setup+path));}
-  if(name==='#credential-submit'){assert.equal(key,secret);await request(setup+'/credential-setup/prepare','POST');await request(setup+'/credential-setup/secret','POST');key='';}
+  if(name==='#credential-submit'){assert.equal(key,secret);if(forged){assert.equal(await request(origin+'/api/v1/me/credential-ingests','POST',forged==='body'?JSON.stringify({credential:key}):'{}',forged==='header'?{cookie:'hidden='+key}:{}),false);return;}await request(setup+'/credential-setup/prepare','POST');await request(setup+'/credential-setup/secret','POST',JSON.stringify({key}));key='';}
  }});
  const page:any={...locator('page'),setDefaultTimeout(){},goto:async(url:string)=>request(url),waitForURL:async()=>{},evaluate:async()=>request(origin+'/api/v1/auth/logout','POST')};
  const browser={newContext:async()=>({route:async(_:string,h:any)=>{handler=h;},newPage:async()=>page,pages:()=>[page],close:async()=>{closed++;}})};
@@ -94,3 +94,23 @@ test('public report keeps successful ingest incomplete and hides failed browser 
   }finally{await f.cleanup();}
  }
 });
+
+test('key route guard permits only exact broker secret body and rejects URL/header/main copies',()=>{
+ const key='sk-or-v1-SYNTHETIC_PRIVATE_KEY_ONLY';
+ assert.equal(ownerKeyRequestAllowed(setup+'/credential-setup/secret','POST',{},JSON.stringify({key}),key,setup),true);
+ for(const [url,method,headers,body] of [
+  [origin+'/api/v1/auth/login','POST',{},JSON.stringify({password:key})],
+  [origin+'/api/v1/me/credential-ingests','POST',{},JSON.stringify({credential:key})],
+  [origin+'/?q='+key,'GET',{},null],
+  [setup+'/credential-setup/secret?q=1','POST',{},JSON.stringify({key})],
+  [setup+'/credential-setup/secret','POST',{'x-key':key},JSON.stringify({key})],
+  [origin+'/api/v1/auth/login','POST',{},JSON.stringify({key}).replace('sk-or','\\u0073k-or')],
+ ] as const)assert.equal(ownerKeyRequestAllowed(url,method,headers,body,key,setup),false);
+});
+for(const mode of ['body','header'] as const)test('forged main key '+mode+' is aborted before fetch and cannot produce ingest receipt',async()=>{const f=await fixture(false,mode);try{
+ await assert.rejects(runPrivateAiOwner({config:f.c,account,access:null,browser:f.browser,client:f.client,secrets:new Secrets(),ctx:f.ctx}));
+ assert.equal(f.metrics.key_route_guard,'blocked');assert.equal(f.requests.filter(r=>r.kind==='browser'&&r.url===origin+'/api/v1/me/credential-ingests').length,1);
+ assert.equal(f.requests.filter(r=>r.url===setup+'/credential-setup/secret').length,0);
+ await assert.rejects(readFile(join(f.c.receiptDirectory,'ingest-receipt.json')),{code:'ENOENT'});
+ assert(!JSON.stringify(f.metrics).includes(f.secret));
+}finally{await f.cleanup();}});

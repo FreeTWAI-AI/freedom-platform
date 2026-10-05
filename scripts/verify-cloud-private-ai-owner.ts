@@ -38,6 +38,19 @@ export function ownerRequestAllowed(origin:string,path:string,method:string,setu
   return origin===setupOrigin&&(method==='GET'&&['/credential-setup.js','/credential-setup.css','/credential-setup-brand.webp'].includes(path)
     ||method==='POST'&&['/credential-setup','/credential-setup/prepare','/credential-setup/secret'].includes(path));
 }
+/** Once loaded, key bytes may travel only in the exact broker secret POST body.
+ * URL/header copies are always rejected, including percent/JSON string escapes. */
+export function ownerKeyRequestAllowed(rawUrl:string,method:string,headers:Record<string,string>,body:string|null,key:string,setupOrigin:string):boolean {
+  const contains=(value:string):boolean=>{
+    if(value.includes(key))return true;
+    try{if(decodeURIComponent(value).includes(key))return true;}catch{}
+    try{if(JSON.stringify(JSON.parse(value)).includes(key))return true;}catch{}
+    return false;
+  };
+  if(contains(rawUrl)||Object.entries(headers).some(([name,value])=>contains(name)||contains(value)))return false;
+  if(body===null||!contains(body))return true;
+  return method==='POST'&&rawUrl===setupOrigin+'/credential-setup/secret';
+}
 export async function runPrivateAiOwner(input:{config:PrivateAiOwnerConfig;account:Account;access:AccessCredential|null;browser:BrowserLike;
   client:CandidateClient;secrets:Secrets;ctx:Context}) {
   const {config:c,account,access,browser,client,secrets,ctx}=input;
@@ -58,18 +71,19 @@ export async function runPrivateAiOwner(input:{config:PrivateAiOwnerConfig;accou
   // unknown outcomes never cause automatic bootstrap/secret submission retries.
   await durableCreate(join(c.receiptDirectory,'ingest-intent.json'),{profile:c.profile,release:c.mainReleaseSha,brokerRelease:c.brokerReleaseSha,
     bindingReviewSha256:c.bindingReviewSha256,accountLabel:c.accountLabel,modelConnectionId:c.modelConnectionId,modelVersion:c.modelVersion,setupOrigin:c.setupOrigin,at:new Date().toISOString(),paidExecution:false,providerPosts:0});
-  const context=await browser.newContext({serviceWorkers:'block'});let bytes:Uint8Array|undefined,loggedOut=false,blocked=false;
+  const context=await browser.newContext({serviceWorkers:'block'});let bytes:Uint8Array|undefined,loggedOut=false,blocked=false,guardedKey:string|null=null;
   const writes=new Map<string,number>();
   try {
     await context.route('**/*',async(route:any)=>{try{
-      const req=route.request(),url=new URL(req.url()),method=req.method();
+      const req=route.request(),url=new URL(req.url()),method=req.method(),requestHeaders=await req.allHeaders();
+      if(guardedKey!==null&&!ownerKeyRequestAllowed(req.url(),method,requestHeaders,req.postData(),guardedKey,c.setupOrigin)){blocked=true;ctx.metric('key_route_guard','blocked');await route.abort();return;}
       const allowed=ownerRequestAllowed(url.origin,url.pathname,method,c.setupOrigin)&&!url.username&&!url.password;
       if(!allowed){blocked=true;await route.abort();return;}
       if(method==='POST'){
         const count=(writes.get(url.pathname)??0)+1;writes.set(url.pathname,count);
         if(count>1){blocked=true;await route.abort();return;}
       }
-      const headers={...req.headers()};
+      const headers={...requestHeaders};
       // Never forward Access credentials across origins, including redirects.
       delete headers['cf-access-client-id'];delete headers['cf-access-client-secret'];
       if(url.origin===staging&&access){headers['CF-Access-Client-Id']=access.clientId;headers['CF-Access-Client-Secret']=access.clientSecret;}
@@ -86,7 +100,7 @@ export async function runPrivateAiOwner(input:{config:PrivateAiOwnerConfig;accou
     await panel.getByRole('checkbox',{name:`我同意為 openrouter / ${c.model} 前往獨立保管頁，另行輸入金鑰並確認加密保管。`,exact:true}).check();
     await panel.getByRole('button',{name:'前往金鑰保管頁',exact:true}).click();
     await page.waitForURL(c.setupOrigin+'/credential-setup');
-    bytes=await privateKeyBytes(c.keyFile);const key=new TextDecoder().decode(bytes);secrets.add(key);
+    bytes=await privateKeyBytes(c.keyFile);const key=new TextDecoder().decode(bytes);secrets.add(key);guardedKey=key;ctx.metric('key_route_guard','enforced');
     await page.locator('#credential-key').fill(key);await page.locator('#credential-consent').check();await page.locator('#credential-submit').click();
     await page.locator('#credential-status').filter({hasText:'已收到設定服務回覆'}).waitFor();
     ctx.check('key_input_cleared',await page.locator('#credential-key').inputValue()==='');
@@ -103,7 +117,7 @@ export async function runPrivateAiOwner(input:{config:PrivateAiOwnerConfig;accou
       const session=await fetch('/api/v1/session',{credentials:'same-origin'});if(!session.ok)return false;
       const body=await session.json();const response=await fetch('/api/v1/auth/logout',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':body.csrf_token},body:'{}'});return response.ok;
     });}}catch{}
-    try{await context.close();}catch{loggedOut=false;}
+    try{await context.close();}catch{loggedOut=false;}finally{guardedKey=null;}
     ctx.cleanup('browser member session',loggedOut?'restored':'cleanup_required');
     ctx.cleanup('synthetic owner ingest intent and credential history; no automatic retry or deletion','residual_expected');
   }
