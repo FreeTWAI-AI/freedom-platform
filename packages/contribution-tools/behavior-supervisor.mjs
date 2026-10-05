@@ -45,6 +45,41 @@ function command(executable, args, options = {}) {
     stdio: ['pipe', 'pipe', 'pipe'], ...options }); } catch { return fail('supervisor_host_command_failed'); }
 }
 const docker = (args, extraEnvironment = {}) => command('/usr/bin/docker', args, { env: { ...env(), ...extraEnvironment } });
+/** Docker may finish a create after its CLI times out. A later empty listing is
+ * not an acknowledgement or cancellation of that request. Keep uncertainty for
+ * this invocation even if best-effort cleanup finds and removes a labeled ID. */
+export function createSupervisorContainerLifecycle() {
+  const dispatches = [];
+  return Object.freeze({
+    dispatch(kind, operation, invoke) {
+      if (!['candidate', 'database'].includes(kind) || !['create', 'run'].includes(operation)
+        || typeof invoke !== 'function') fail('supervisor_create_dispatch_invalid');
+      const entry = { kind, operation, state: 'create_pending' };
+      dispatches.push(entry); // Before calling Docker, including timeout/unknown ACK paths.
+      const id = invoke().toString().trim();
+      if (!/^[a-f0-9]{64}$/.test(id)) fail('supervisor_host_command_failed');
+      entry.state = 'acknowledged';
+      return id;
+    },
+    cleanupState(labelScanEmpty) {
+      const pending = dispatches.filter(entry => entry.state === 'create_pending').map(entry => ({ ...entry }));
+      return { status: pending.length ? 'create_pending' : labelScanEmpty === true ? 'verified' : 'unverified',
+        cleanup_verified: pending.length === 0 && labelScanEmpty === true, pending_creates: pending };
+    },
+  });
+}
+function recordCleanupOutcome(outcome, lifecycle, label, labelScanEmpty, consumer) {
+  const cleanup = lifecycle.cleanupState(labelScanEmpty);
+  outcome.cleanup_verified = cleanup.cleanup_verified;
+  outcome.cleanup = { ...cleanup, owner_label: label };
+  if (!cleanup.cleanup_verified) {
+    outcome.operation_failure_reason = outcome.reason;
+    outcome.reason = cleanup.status === 'create_pending' ? 'supervisor_create_outcome_unknown' : 'supervisor_cleanup_failed';
+    if (consumer) { outcome.runtime_observation = 'not_checked'; outcome.check = { status: 'failed' }; }
+    else { outcome.observation = null; delete outcome.check; }
+  }
+}
+
 function git(repository, args, options = {}) {
   return command('/usr/bin/git', ['--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null',
     '-c', 'protocol.allow=never', ...args], { cwd: repository, ...options });
@@ -207,7 +242,7 @@ const safeCodes = new Set(['supervisor_host_command_failed','supervisor_candidat
 /** Explicit local host entrypoint. No candidate callbacks, reports or test lists.
  * A pass remains local/unavailable: GitHub workflow/source approval is absent. */
 export async function runIsolatedMemberBehavior({ candidateRepository, candidateCommit, dependencyRoot, hostEvidence = null }) {
-  const label = randomUUID(), owned = [], started = Date.now(); let directory, pool, child, timer, timedOut = false, phase = 'preflight', outcome;
+  const label = randomUUID(), owned = [], lifecycle = createSupervisorContainerLifecycle(), started = Date.now(); let directory, pool, child, timer, timedOut = false, phase = 'preflight', outcome;
   const killCandidate = () => { if (child?.pid) { try { child.kill('SIGKILL'); } catch {} }
     const id = owned.find(value => value.kind === 'candidate')?.id; if (id) { try { docker(['kill', id]); } catch {} } };
   const report = (reason, extra = {}) => (outcome = { assurance_level: 'local', status: 'unavailable', merge_authorized: false,
@@ -235,21 +270,21 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
     await writeFile(launcher, await readFile(new URL('./behavior-supervisor-target.mjs', import.meta.url)), { mode: 0o444, flag: 'wx' });
     const common = containerLimits(label);
     const adminPassword = randomBytes(32).toString('base64url'), appPassword = randomBytes(32).toString('base64url');
-    phase = 'database'; const pgId = docker(['run', '-d', ...common, '--ulimit', `nofile=${SUPERVISOR_NOFILE.database}:${SUPERVISOR_NOFILE.database}`, '--user', 'postgres', '--tmpfs', '/tmp:rw,nosuid,nodev,size=256m,mode=1777',
+    phase = 'database'; const pgId = lifecycle.dispatch('database', 'run', () => docker(['run', '-d', ...common, '--ulimit', `nofile=${SUPERVISOR_NOFILE.database}:${SUPERVISOR_NOFILE.database}`, '--user', 'postgres', '--tmpfs', '/tmp:rw,nosuid,nodev,size=256m,mode=1777',
       '--tmpfs', '/var/lib/postgresql:rw,nosuid,nodev,size=1m',
       '--mount', `type=bind,src=${socket},dst=/run/postgresql`, '-e', 'PGDATA=/tmp/data', '-e', 'POSTGRES_DB=' + FIXTURE_DATABASE,
       '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_INITDB_ARGS=--auth-local=scram-sha-256 --auth-host=reject',
-      PG_IMAGE, 'postgres', '-c', 'listen_addresses=', '-c', 'unix_socket_directories=/run/postgresql'], { POSTGRES_PASSWORD: adminPassword }).toString().trim();
+      PG_IMAGE, 'postgres', '-c', 'listen_addresses=', '-c', 'unix_socket_directories=/run/postgresql'], { POSTGRES_PASSWORD: adminPassword }));
     if (!/^[a-f0-9]{64}$/.test(pgId)) fail('supervisor_host_command_failed'); owned.push({ id: pgId, kind: 'database', mounts: [[socket, '/run/postgresql', true]] });
     observeContainer(owned[0]); pool = await openSupervisorDatabase(socket, adminPassword);
     phase = 'fixture'; const fixture = await initializeSupervisorFixture(pool, appPassword), before = await supervisorFixtureFacts(pool, fixture);
-    phase = 'candidate'; const appId = docker(['create', '-i', ...common, '--ulimit', `nofile=${SUPERVISOR_NOFILE.candidate}:${SUPERVISOR_NOFILE.candidate}`, '--user', `${process.getuid()}:${process.getgid()}`,
+    phase = 'candidate'; const appId = lifecycle.dispatch('candidate', 'create', () => docker(['create', '-i', ...common, '--ulimit', `nofile=${SUPERVISOR_NOFILE.candidate}:${SUPERVISOR_NOFILE.candidate}`, '--user', `${process.getuid()}:${process.getgid()}`,
       '--tmpfs', '/tmp:rw,nosuid,nodev,size=32m,mode=1777', '--mount', 'type=bind,src=/usr,dst=/usr,readonly',
       '--mount', `type=bind,src=${candidate},dst=/candidate,readonly`, '--mount', `type=bind,src=${dependencies},dst=/candidate/node_modules,readonly`,
       '--mount', `type=bind,src=${socket},dst=/database,readonly`, '--mount', `type=bind,src=${launcher},dst=/target.mjs,readonly`,
       '--workdir', '/candidate', '-e', 'TMPDIR=/tmp', '-e', 'NODE_ENV=test', '-e', 'FP_BEHAVIOR_DB_PASSWORD', '--entrypoint', '/usr/bin/node',
       BASE_IMAGE, '--max-old-space-size=256', '--import', '/candidate/node_modules/tsx/dist/loader.mjs', '/target.mjs'],
-    { FP_BEHAVIOR_DB_PASSWORD: appPassword }).toString().trim();
+    { FP_BEHAVIOR_DB_PASSWORD: appPassword }));
     if (!/^[a-f0-9]{64}$/.test(appId)) fail('supervisor_host_command_failed'); owned.push({ id: appId, kind: 'candidate', mounts:
       [['/usr', '/usr', false], [candidate, '/candidate', false], [dependencies, '/candidate/node_modules', false], [socket, '/database', false], [launcher, '/target.mjs', false]] });
     if (timedOut) fail('supervisor_deadline');
@@ -289,7 +324,7 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
   } catch (error) { return report(timedOut ? 'supervisor_deadline' : safeCodes.has(error.message) ? error.message : 'supervisor_failed', { phase }); }
   finally {
     clearTimeout(timer); killCandidate(); if (pool) await pool.end();
-    // Recover an ID if Docker created a container just before a command timeout.
+    // Best-effort removal only: a missing ID cannot settle a timed-out create.
     try { for (const id of docker(['ps', '-aq', '--no-trunc', '--filter', 'label=freedom.behavior-owner=' + label]).toString().trim().split('\n')) {
       if (/^[a-f0-9]{64}$/.test(id) && !owned.some(item => item.id === id)) owned.push({ id });
     } } catch {}
@@ -302,9 +337,9 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
       await rm(directory, { recursive: true, force: false });
     }
     if (outcome) {
-      try { outcome.cleanup_verified = docker(['ps', '-aq', '--filter', 'label=freedom.behavior-owner=' + label]).toString().trim() === ''; }
-      catch { outcome.cleanup_verified = false; }
-      if (!outcome.cleanup_verified) { outcome.reason = 'supervisor_cleanup_failed'; outcome.observation = null; delete outcome.check; }
+      let labelScanEmpty = false;
+      try { labelScanEmpty = docker(['ps', '-aq', '--filter', 'label=freedom.behavior-owner=' + label]).toString().trim() === ''; } catch {}
+      recordCleanupOutcome(outcome, lifecycle, label, labelScanEmpty, false);
     }
   }
 }
@@ -327,7 +362,7 @@ async function runConsumerProfile(input, profile) {
     || (profile === 'kit-cli' && input.repository !== 'FreeTWAI-AI/freedom-agent-kit')) fail('consumer_profile_required');
   const { repository, candidateRepository, candidateCommit } = input;
   const selected = profile === 'workspace' ? CONSUMER_BEHAVIOR_PROFILES[repository] : CONSUMER_CLI_PROFILES[repository];
-  const label = randomUUID(), owned = [], cases = [];
+  const label = randomUUID(), owned = [], lifecycle = createSupervisorContainerLifecycle(), cases = [];
   let directory, child, fixture, timer, timedOut = false, outcome, phase = 'preflight';
   const kill = () => {
     if (child?.pid) { try { child.kill('SIGKILL'); } catch {} }
@@ -350,14 +385,14 @@ async function runConsumerProfile(input, profile) {
     await writeFile(launcher, await readFile(new URL('./consumer-behavior-target.mjs', import.meta.url)), { mode: 0o444, flag: 'wx' });
     phase = 'fixture'; fixture = await createConsumerHttpFixture({ repository, socketPath: join(socket, 'http.sock'), onViolation: kill, profile });
     phase = 'candidate';
-    const id = docker(['create', '-i', ...containerLimits(label),
+    const id = lifecycle.dispatch('candidate', 'create', () => docker(['create', '-i', ...containerLimits(label),
       '--ulimit', `nofile=${SUPERVISOR_NOFILE.candidate}:${SUPERVISOR_NOFILE.candidate}`, '--user', `${process.getuid()}:${process.getgid()}`,
       '--tmpfs', '/tmp:rw,nosuid,nodev,size=32m,mode=1777',
       '--mount', `type=bind,src=${nodeExecutable},dst=/trusted-node,readonly`,
       '--mount', `type=bind,src=${candidate},dst=/candidate,readonly`, '--mount', `type=bind,src=${socket},dst=/fixture,readonly`,
       '--mount', `type=bind,src=${launcher},dst=/target.mjs,readonly`, '--workdir', '/candidate',
       '-e', 'TMPDIR=/tmp', '-e', 'NODE_ENV=test', '--entrypoint', '/trusted-node',
-      runtime.image.reference, '--max-old-space-size=256', '/target.mjs', profile]).toString().trim();
+      runtime.image.reference, '--max-old-space-size=256', '/target.mjs', profile]));
     if (!/^[a-f0-9]{64}$/.test(id)) fail('supervisor_host_command_failed');
     owned.push({ id, kind: 'candidate', image: runtime.image.local_id, imageReference: runtime.image.reference, mounts: [[nodeExecutable, '/trusted-node', false], [candidate, '/candidate', false],
       [socket, '/fixture', false], [launcher, '/target.mjs', false]] });
@@ -407,9 +442,9 @@ async function runConsumerProfile(input, profile) {
     }
     if (directory) await rm(directory, { recursive: true, force: false });
     if (outcome) {
-      try { outcome.cleanup_verified = docker(['ps', '-aq', '--filter', 'label=freedom.behavior-owner=' + label]).toString().trim() === ''; }
-      catch { outcome.cleanup_verified = false; }
-      if (!outcome.cleanup_verified) { outcome.reason = 'supervisor_cleanup_failed'; outcome.runtime_observation = 'not_checked'; outcome.check = { status: 'failed' }; }
+      let labelScanEmpty = false;
+      try { labelScanEmpty = docker(['ps', '-aq', '--filter', 'label=freedom.behavior-owner=' + label]).toString().trim() === ''; } catch {}
+      recordCleanupOutcome(outcome, lifecycle, label, labelScanEmpty, true);
     }
   }
 }

@@ -176,3 +176,19 @@ each entrypoint with unchanged vendor/lock bytes, stdout forgery, corrupted
 challenge output, swallowed scope/revocation failures, read-only/network isolation
 and an interpreter copied outside `/usr` to exercise the hosted toolcache layout.
 Every run removes only its randomly labeled containers and private snapshots.
+
+## Unknown Docker creation outcomes
+
+Every consumer container create, member candidate create and member database
+`docker run` is recorded before dispatch and acknowledged only by a valid container
+ID. A timeout, missing/invalid acknowledgement or host-command failure leaves that
+request `create_pending`. Docker can complete it after the CLI exits, so even an
+empty owner-label scan cannot establish cleanup. Such runs return
+`supervisor_create_outcome_unknown`, `cleanup_verified: false`, the original
+`operation_failure_reason`, and `cleanup.owner_label` with pending operation kinds.
+They cannot pass either native runtime gate. Known owned IDs still receive the
+existing bounded best-effort cleanup; no create retry or background deletion is
+started. The 15-second host-command timeout and existing run budgets are unchanged.
+An operator can use the recorded nonce to inspect a late container and verify its
+ownership separately; historical receipts without the nonce do not prove ownership
+from timestamp correlation alone.
