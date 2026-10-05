@@ -23,7 +23,8 @@
     ".github/workflows/trusted-consumer-libraries.yml",
     ".github/workflows/trusted-consumer-runtime.yml",
     "tests/integration/agent-kit-device-runtime.test.mjs",
-    "tests/integration/native-consumer-runtime.test.ts"
+    "tests/integration/native-consumer-runtime.test.ts",
+    "tests/integration/consumer-supported-transition.test.mjs"
   ],
   "public_exports": [
     "packages/contribution-tools/contracts.mjs",

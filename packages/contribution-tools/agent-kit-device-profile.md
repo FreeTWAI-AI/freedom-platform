@@ -80,3 +80,21 @@ rollout: review the paired Kit/source/runtime candidates, run owned-ref hosted
 positive and negative probes, then update the installed workflow under the normal
 review and explicit merge/installation authorization. This packet adds no new
 approval layer and does not claim that transition has occurred.
+
+## Supported previous consumer during adoption
+
+The native host explicitly supports two Agent Kit tuples: previous `legacy-v1`
+from `91b943ac61e132fbbce72ea066cb2301aa065600`, and current
+`agent-kit-device-cli-v1` from `057201218b6d4ae3e96b4ab838677f2b484b55fa`.
+The immutable candidate lock must match one complete installed tuple; it cannot
+introduce a source/profile or override policy with environment variables.
+Unknown and mixed tuples fail before execution. Every selected tuple still
+requires canonical artifact bytes and its exact approved entry registrations.
+Keeping the new device registration with old libraries is rejected.
+
+Previous consumers retain their workspace/CLI checks and receive no device
+invocation claim. Current consumers must additionally pass the canonical device
+closure and all device runtime cases. Ordinary product edits remain possible
+under either supported version. Removing an old tuple requires a reviewed host
+revision and native workflow installation; this local support table does not
+replace signed ReleaseSet/revocation policy or activate installed gates.
