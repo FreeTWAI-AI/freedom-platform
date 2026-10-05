@@ -2,6 +2,8 @@
 
 The operator APIs in `packages/media-migration/backup-archive.ts` bind one completed `createConsistentAssetBackup` result to an immutable recovery-set manifest. They do not install a schedule, change GC policy, enable a feature, or approve a cutover.
 
+The [daily coordinator entrypoint and timer-switch artifact](daily-recovery-backup-installation.md) compose these APIs with an explicit operator-owned adapter. They preserve the existing timer schedules and require independent live acceptance before replacing either service; their presence does not establish installation.
+
 The sequence is:
 
 1. Run `createConsistentAssetBackup` with an explicit target, maintenance port, source/backup object stores and a trusted `DatabaseSnapshotWriter`. That writer must use the supplied `pg_dump --snapshot` and schema, persist the custom-format dump, and return its exact size/digest. Set `snapshotEvidence: true` to collect table evidence.

@@ -5,7 +5,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn,execFileSync} from 'node:child_process';
 import {randomUUID,createHash} from 'node:crypto';
-import {mkdtemp,readFile,writeFile,open,rename,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,readFile,writeFile,open,rename,rm} from 'node:fs/promises';
 import {createReadStream} from 'node:fs';
 import {Readable} from 'node:stream';
 import {tmpdir} from 'node:os';
@@ -21,6 +21,8 @@ import {createR2ObjectStore,type AssetR2Binding} from '../../packages/asset-stor
 import {objectKey,sha256,writeVerifiedObject,readVerifiedObject} from '../../packages/asset-storage/index.js';
 import {createConsistentAssetBackup} from '../../packages/media-migration/backup-coordinator.js';
 import {createFileArchiveStore} from '../../packages/media-migration/backup-archive-fs.js';
+import {runDailyBackup} from '../../packages/media-migration/backup-daily.js';
+import {observeMediaGcState} from '../../packages/media-migration/backup-gc-precondition.js';
 import {sealRecoverySet,readbackRecoverySet,restoreRecoverySet,restoredReferenceAuthorization,recoverySetKeys,
   RecoveryArchiveError,type DatabaseRestoreWriter} from '../../packages/media-migration/backup-archive.js';
 
@@ -70,7 +72,7 @@ test('New recovery archive restores a real snapshot and native R2, and refuses c
     root=await mkdtemp(join(tmpdir(),'fp-real-recovery-archive-'));const dumpPathSource=join(root,'captured.dump');
     await admin.query(`CREATE SCHEMA ${schema}`);created=true;await migrate(pool);
     mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:'export default {fetch(){return new Response(null,{status:503})}}',
-      compatibilityDate:'2026-09-21',r2Buckets:['SOURCE','BACKUP','RESTORED','REVOKED','RESET','QUARANTINE'],
+      compatibilityDate:'2026-09-21',r2Buckets:['SOURCE','BACKUP','RESTORED','REVOKED','RESET','QUARANTINE','DAILY_REMOTE','DAILY_RESTORED'],
       outboundService:()=>{outbound++;return new Response(null,{status:503});}}));await mf.ready;
     const store=async(name:string)=>createR2ObjectStore(await mf!.getR2Bucket(name) as unknown as AssetR2Binding);
     const source=await store('SOURCE'),backupObjects=await store('BACKUP');
@@ -151,6 +153,47 @@ test('New recovery archive restores a real snapshot and native R2, and refuses c
     const quarantined=await restoreRecoverySet({archive,setId,backupObjects,destinationObjects:await store('QUARANTINE'),restoredPool:quarantine.pool,restoredDatabase:quarantine.name,database:writer(),
       objectAuthority:restoredReferenceAuthorization(quarantine.pool,{database:quarantine.name,schema,current:{mode:'quarantine'}})});
     assert.equal(quarantined.exposure,'quarantine_not_approved_for_exposure');
+
+    // The scheduled composition uses the same actual PG18/native-R2 ports.
+    // "Remote" here is a distinct downloaded fixture copy, not cloud evidence.
+    await mkdir(join(root,'daily-local'));await mkdir(join(root,'daily-remote'));
+    const dailyDump=join(root,'daily.dump'),dailyArchive=await createFileArchiveStore(join(root,'daily-local'));
+    const remoteArchive=await createFileArchiveStore(join(root,'daily-remote'));
+    let dailyTarget:Awaited<ReturnType<typeof target>>|undefined,dailyCleanup=0;
+    await pool.query('UPDATE asset_maintenance_policy SET enabled=false,domain_media_enabled=false');
+    const daily=await runDailyBackup({environment:'local',database,schema,sourceRelease:'a'.repeat(40),operatorSource:'b'.repeat(40),
+      setId:randomUUID(),createdAt:new Date().toISOString(),runDirectory:root,signal:new AbortController().signal},{
+      async preflight(){return observeMediaGcState(pool);},
+      async openCapture(){
+        await pool.query('UPDATE asset_maintenance_policy SET enabled=true');
+        return {pool,archive:dailyArchive,dump:{async open(){return Readable.toWeb(createReadStream(dailyDump)) as ReadableStream<Uint8Array>;}},
+          options:{maintenance,source,destination:backupObjects,databaseSnapshot:{async write(input){
+            const bytes=await pgTool('pg_dump',['--dbname',input.database,'--schema',input.schema,'--snapshot',input.snapshotId,'--format=custom','--no-owner','--no-privileges']);
+            const file=await open(dailyDump,'wx',0o600);try{await file.writeFile(bytes);await file.sync();}finally{await file.close();}
+            return {sha256:createHash('sha256').update(bytes).digest('hex'),byteSize:bytes.length};
+          }}}};
+      },
+      async publishAndOpen(context){
+        for(const key of await dailyArchive.list(recoverySetKeys(context.setId).base,100)){
+          const body=await dailyArchive.get(key);assert(body);await remoteArchive.putIfAbsent(key,body);
+        }
+        const from=await mf!.getR2Bucket('BACKUP'),to=await mf!.getR2Bucket('DAILY_REMOTE');
+        for(const entry of (await from.list()).objects){const object=await from.get(entry.key);assert(object);
+          await to.put(entry.key,await object.arrayBuffer(),{httpMetadata:object.httpMetadata,customMetadata:object.customMetadata});}
+        return {archive:remoteArchive,backupObjects:await store('DAILY_REMOTE'),publication:{mode:'unique_single_writer',atomicCreateOnly:false}};
+      },
+      async openRestore(){dailyTarget=await target();return {pool:dailyTarget.pool,databaseName:dailyTarget.name,database:writer(),objects:await store('DAILY_RESTORED')};},
+      async cleanup(){
+        dailyCleanup++;await pool.query('UPDATE asset_maintenance_policy SET enabled=false,domain_media_enabled=false');
+        if(dailyTarget){await dailyTarget.pool.end();await admin.query(`DROP DATABASE ${dailyTarget.name} WITH (FORCE)`);
+          targets.splice(targets.findIndex(value=>value.name===dailyTarget!.name),1);dailyTarget=undefined;}
+        return {gc:await observeMediaGcState(pool),ownedResourcesRemaining:0};
+      },
+    });
+    assert.equal(daily.status,'passed',JSON.stringify(daily));assert.equal(daily.remoteReadback,'verified');
+    assert.equal(daily.restore,'database_and_objects_restored');assert.equal(daily.objects?.count,3);
+    assert.equal(daily.exposure,'quarantine_not_approved_for_exposure');assert.equal(daily.cleanupVerified,true);assert.equal(dailyCleanup,1);
+    for(const object of [first,retired,late])assert.deepEqual((await readVerifiedObject(await store('DAILY_RESTORED'),object.key,object.metadata)).bytes,object.bytes);
 
     const dumpPath=join(root,recoverySetKeys(setId).dump),stored=await readFile(dumpPath),corrupt=Buffer.from(stored);corrupt[0]^=1;await writeFile(dumpPath,corrupt);
     let restores=0;
