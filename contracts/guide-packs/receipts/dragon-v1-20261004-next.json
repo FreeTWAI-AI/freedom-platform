@@ -1,0 +1,3070 @@
+{
+  "schema": "freedom.guide-publisher-receipt/v1",
+  "status": "verified",
+  "sourceCommit": "a8e2c2e82f1da1919f54a71002c7134ae216b2e3",
+  "manifestSha256": "506d5fe7eb653874286baeb58b3bc47f44e243279104fae2d9a8ada2a65723ee",
+  "target": "next",
+  "binding": "GUIDE_STATIC",
+  "bucket": "freedom-next-guide-static",
+  "objectCount": 338,
+  "totalBytes": 37769448,
+  "originBefore": {
+    "bucket": "freedom-next-guide-static",
+    "createdAt": "2026-10-05T01:26:13.305Z",
+    "managedEnabled": false,
+    "customDomains": [],
+    "checkedAt": "2026-10-05T01:30:02.038Z"
+  },
+  "originAfter": {
+    "bucket": "freedom-next-guide-static",
+    "createdAt": "2026-10-05T01:26:13.305Z",
+    "managedEnabled": false,
+    "customDomains": [],
+    "checkedAt": "2026-10-05T01:41:24.757Z"
+  },
+  "productionEnabled": false,
+  "objects": [
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/e78ffd54bf68a4980027909ea792b234340028498bfcd80ed8026668042b7e98.webp",
+      "sha256": "e78ffd54bf68a4980027909ea792b234340028498bfcd80ed8026668042b7e98",
+      "byteLength": 96854,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:06.060Z",
+      "cfRay": "a458a8b72fdc5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/89f3807a19894462c4f5a9c16d1373fb7e33d2d7446347ffd100b9125ef3af6f.webp",
+      "sha256": "89f3807a19894462c4f5a9c16d1373fb7e33d2d7446347ffd100b9125ef3af6f",
+      "byteLength": 93068,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:10.582Z",
+      "cfRay": "a458a8d49fd75e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9b40fad0f276695fae3f0fcf86e2b373a5e58f92ee416af52479bb1d248438ca.webp",
+      "sha256": "9b40fad0f276695fae3f0fcf86e2b373a5e58f92ee416af52479bb1d248438ca",
+      "byteLength": 97406,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:12.400Z",
+      "cfRay": "a458a8e07a0f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/df733c02fa84ff31c44b918ae12c7c6c277d844edcc320f90021d471cd86187b.webp",
+      "sha256": "df733c02fa84ff31c44b918ae12c7c6c277d844edcc320f90021d471cd86187b",
+      "byteLength": 96602,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:14.573Z",
+      "cfRay": "a458a8ec5c105e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/61c5ad5d98266fda605c427f059b4eff2753708855bf02eab56dc9df055de4af.webp",
+      "sha256": "61c5ad5d98266fda605c427f059b4eff2753708855bf02eab56dc9df055de4af",
+      "byteLength": 97332,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:16.609Z",
+      "cfRay": "a458a8fabbdc5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/6259e0eb1c0d12a44f21a79564feb59ff46e4a4b1f59086cfe66d88effc006c4.webp",
+      "sha256": "6259e0eb1c0d12a44f21a79564feb59ff46e4a4b1f59086cfe66d88effc006c4",
+      "byteLength": 94682,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:18.819Z",
+      "cfRay": "a458a908ab4b5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9ce738ad69043766e151b4b0b66b47309c79020ecb59560767fcf8c99898edfb.webp",
+      "sha256": "9ce738ad69043766e151b4b0b66b47309c79020ecb59560767fcf8c99898edfb",
+      "byteLength": 5772,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:20.554Z",
+      "cfRay": "a458a91398805e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/ff4e6fdf6e4319c902dfbd63201befe9de51636d6b4e93815a136c879e9a3687.webp",
+      "sha256": "ff4e6fdf6e4319c902dfbd63201befe9de51636d6b4e93815a136c879e9a3687",
+      "byteLength": 95590,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:22.843Z",
+      "cfRay": "a458a9206ec95e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/56cbe72a1ed87c09d6704905fc7895142760170419b6ee5994cbd07372e243eb.webp",
+      "sha256": "56cbe72a1ed87c09d6704905fc7895142760170419b6ee5994cbd07372e243eb",
+      "byteLength": 93474,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:24.729Z",
+      "cfRay": "a458a92d6d8d5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/cdad6af3dd3bccb0ab4bce3addc76eadef0637ebc6827a0c18f5142c310c0407.webp",
+      "sha256": "cdad6af3dd3bccb0ab4bce3addc76eadef0637ebc6827a0c18f5142c310c0407",
+      "byteLength": 80332,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:26.661Z",
+      "cfRay": "a458a938ea8b5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/5a18d4d5075a78b1e169f466ca2d41db864444ad21401f5b1c84c656e9386daf.webp",
+      "sha256": "5a18d4d5075a78b1e169f466ca2d41db864444ad21401f5b1c84c656e9386daf",
+      "byteLength": 93408,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:28.648Z",
+      "cfRay": "a458a945a8b55e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/54671c01e604e00c2ec2558959306e13e739509921cf588491f79f646785157e.webp",
+      "sha256": "54671c01e604e00c2ec2558959306e13e739509921cf588491f79f646785157e",
+      "byteLength": 79410,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:30.469Z",
+      "cfRay": "a458a9511e025e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/62dc825012303e181619340a9a79956b51c7ec47e6cdde4dc705c3044eafad28.webp",
+      "sha256": "62dc825012303e181619340a9a79956b51c7ec47e6cdde4dc705c3044eafad28",
+      "byteLength": 90732,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:32.600Z",
+      "cfRay": "a458a95e0c6b5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/83047c4874ddd7ceab30c2c69b0164301dca3ad54fd97b0ccdbfaedab2aeda26.webp",
+      "sha256": "83047c4874ddd7ceab30c2c69b0164301dca3ad54fd97b0ccdbfaedab2aeda26",
+      "byteLength": 126468,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:34.742Z",
+      "cfRay": "a458a96bbd995e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/ca36f23dd341160ce8f8a680498d5df189b6a924b3ff3cfa1013c013cb9888fd.webp",
+      "sha256": "ca36f23dd341160ce8f8a680498d5df189b6a924b3ff3cfa1013c013cb9888fd",
+      "byteLength": 122496,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:36.786Z",
+      "cfRay": "a458a978ba9c5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/3828b994bf6d457d82768f18483879ce81762f43eecfc2863f8bd57b5a4912a6.webp",
+      "sha256": "3828b994bf6d457d82768f18483879ce81762f43eecfc2863f8bd57b5a4912a6",
+      "byteLength": 124832,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:38.819Z",
+      "cfRay": "a458a985180f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/7060cad473dda175f0f0c0021d8b7821e039ba49b382e6d43103e6647110977e.webp",
+      "sha256": "7060cad473dda175f0f0c0021d8b7821e039ba49b382e6d43103e6647110977e",
+      "byteLength": 127496,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:40.714Z",
+      "cfRay": "a458a9913df65e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/e241e8fd22878e55cbf246b79129dc998d180ed99b1d28206f3d048e028fe527.webp",
+      "sha256": "e241e8fd22878e55cbf246b79129dc998d180ed99b1d28206f3d048e028fe527",
+      "byteLength": 126472,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:42.709Z",
+      "cfRay": "a458a99d09e75e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/7b05ab5de447a3a2c2e413fe075702d524b93bcc67b6969d714afd02a71bcf60.webp",
+      "sha256": "7b05ab5de447a3a2c2e413fe075702d524b93bcc67b6969d714afd02a71bcf60",
+      "byteLength": 123850,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:44.787Z",
+      "cfRay": "a458a9aadf1c5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/46ff0881f0401edbdde4b2e5a81e8e09e179473597467776b04ab81130921dc5.webp",
+      "sha256": "46ff0881f0401edbdde4b2e5a81e8e09e179473597467776b04ab81130921dc5",
+      "byteLength": 6558,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:46.499Z",
+      "cfRay": "a458a9b5e8dd5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/594b4acf4dc24f6ebca40d99e5fc84e5b49849920c48777fcb3217cd6aa5137f.webp",
+      "sha256": "594b4acf4dc24f6ebca40d99e5fc84e5b49849920c48777fcb3217cd6aa5137f",
+      "byteLength": 128670,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:48.603Z",
+      "cfRay": "a458a9c2cc085e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/27a8f78df02c1693b2b9d73b8ff601d61fa4eb61fc327bd255031ad35eb57336.webp",
+      "sha256": "27a8f78df02c1693b2b9d73b8ff601d61fa4eb61fc327bd255031ad35eb57336",
+      "byteLength": 121010,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:50.583Z",
+      "cfRay": "a458a9ceaf1b5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9c94840b80badf2b57a99de0766bd0eedc1a740bb12e255aa6c35f5a15ad0d0e.webp",
+      "sha256": "9c94840b80badf2b57a99de0766bd0eedc1a740bb12e255aa6c35f5a15ad0d0e",
+      "byteLength": 113228,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:52.532Z",
+      "cfRay": "a458a9daea215e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/f062fa452e3ebb3c987152b56b0608c31ea3723e57fde7f4e70fe7b1e5dddcf3.webp",
+      "sha256": "f062fa452e3ebb3c987152b56b0608c31ea3723e57fde7f4e70fe7b1e5dddcf3",
+      "byteLength": 133616,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:54.583Z",
+      "cfRay": "a458a9e6fcf85e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/98821ac64e63db4bd914a67efe39d18986b9ff96fb07e57f63e9292ce64e85ab.webp",
+      "sha256": "98821ac64e63db4bd914a67efe39d18986b9ff96fb07e57f63e9292ce64e85ab",
+      "byteLength": 101856,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:56.462Z",
+      "cfRay": "a458a9f38fac5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/e6c0e71f636b976e1ca06a586d8fe20429d74afe5554dfde786752b5fec49beb.webp",
+      "sha256": "e6c0e71f636b976e1ca06a586d8fe20429d74afe5554dfde786752b5fec49beb",
+      "byteLength": 135340,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:30:58.657Z",
+      "cfRay": "a458aa0029c75e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/d5bd18ce317651724de20f448faba451a6c79e3dc06d16ff17cf51a9cd38c09b.webp",
+      "sha256": "d5bd18ce317651724de20f448faba451a6c79e3dc06d16ff17cf51a9cd38c09b",
+      "byteLength": 88766,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:00.783Z",
+      "cfRay": "a458aa0eaf595e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/421b1f76fcb5923f984ba50f2154bf94b047ec574e94d9809c668b9ad603e36a.webp",
+      "sha256": "421b1f76fcb5923f984ba50f2154bf94b047ec574e94d9809c668b9ad603e36a",
+      "byteLength": 89886,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:02.581Z",
+      "cfRay": "a458aa1a096c5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/6c34581b0ac5c0702e178944e41fa0d21d64c42eb6dace4d8b557a268e910cb1.webp",
+      "sha256": "6c34581b0ac5c0702e178944e41fa0d21d64c42eb6dace4d8b557a268e910cb1",
+      "byteLength": 90648,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:04.738Z",
+      "cfRay": "a458aa279d9b5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/c5146c9c7330605006499fc54ed96847dd6d25a436e1bf6e405f995a18767de3.webp",
+      "sha256": "c5146c9c7330605006499fc54ed96847dd6d25a436e1bf6e405f995a18767de3",
+      "byteLength": 92874,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:06.497Z",
+      "cfRay": "a458aa32bf4f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/7bbd49b28e661973cf9bc25c46ba3cdfa7a3c61bd4279efda194c87c52ac9121.webp",
+      "sha256": "7bbd49b28e661973cf9bc25c46ba3cdfa7a3c61bd4279efda194c87c52ac9121",
+      "byteLength": 90792,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:08.280Z",
+      "cfRay": "a458aa3dc8705e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/81a25e2e46075b441f3dbb750b089632af08d459dd90d9be57ad47167a158f8b.webp",
+      "sha256": "81a25e2e46075b441f3dbb750b089632af08d459dd90d9be57ad47167a158f8b",
+      "byteLength": 88928,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:09.994Z",
+      "cfRay": "a458aa48894e5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/1afdd5d84fb48e0ed7595a045d3a835a0361de1d5f041798e8b369b04b363bc4.webp",
+      "sha256": "1afdd5d84fb48e0ed7595a045d3a835a0361de1d5f041798e8b369b04b363bc4",
+      "byteLength": 4926,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:11.678Z",
+      "cfRay": "a458aa533ac55e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/752d685d8b0fc1a2ece071ee53ed6b957b8dfd9b82821db8e0998405bece8202.webp",
+      "sha256": "752d685d8b0fc1a2ece071ee53ed6b957b8dfd9b82821db8e0998405bece8202",
+      "byteLength": 89254,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:13.846Z",
+      "cfRay": "a458aa602fff5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/5a80b16d5645aa828759c735947b1d7db14cd0c6c1637b3c8cdb0127fa79daa1.webp",
+      "sha256": "5a80b16d5645aa828759c735947b1d7db14cd0c6c1637b3c8cdb0127fa79daa1",
+      "byteLength": 90220,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:15.986Z",
+      "cfRay": "a458aa6cbd705e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/bd65f439c37e7d50d81c15e202854be2c4cdae67d9d4a0cc5a296c6d41b327e1.webp",
+      "sha256": "bd65f439c37e7d50d81c15e202854be2c4cdae67d9d4a0cc5a296c6d41b327e1",
+      "byteLength": 84812,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:18.037Z",
+      "cfRay": "a458aa797a4b5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/c94917629493855adfa70e0369827e024e0b9b049c90e3898743e7cca233575d.webp",
+      "sha256": "c94917629493855adfa70e0369827e024e0b9b049c90e3898743e7cca233575d",
+      "byteLength": 83824,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:19.997Z",
+      "cfRay": "a458aa86dec45e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/3a0fe3b2cfbf2e039ef00da5d3a1abbc627efb81eb8fac41ef52c5e47efe6ecc.webp",
+      "sha256": "3a0fe3b2cfbf2e039ef00da5d3a1abbc627efb81eb8fac41ef52c5e47efe6ecc",
+      "byteLength": 82742,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:21.791Z",
+      "cfRay": "a458aa91a8395e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/d293d20caa584cb454f17bce7d1f1775d3c2db975cee60f466425e6da5845f86.webp",
+      "sha256": "d293d20caa584cb454f17bce7d1f1775d3c2db975cee60f466425e6da5845f86",
+      "byteLength": 90580,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:23.886Z",
+      "cfRay": "a458aa9edc7e5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/53dc2c30b658f533ef3c198355b1c03ae7915bc4790d1570bf02eda005ad418d.webp",
+      "sha256": "53dc2c30b658f533ef3c198355b1c03ae7915bc4790d1570bf02eda005ad418d",
+      "byteLength": 87532,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:25.586Z",
+      "cfRay": "a458aaaa0f935e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/dcb480723cb833db9aa81119e2179aaa5e61ebb39da35a015075d3c668583078.webp",
+      "sha256": "dcb480723cb833db9aa81119e2179aaa5e61ebb39da35a015075d3c668583078",
+      "byteLength": 86596,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:27.578Z",
+      "cfRay": "a458aab60a755e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/39f227be2143cdd329f343cd07659543b259724db2263ed46a59c0b732118a69.webp",
+      "sha256": "39f227be2143cdd329f343cd07659543b259724db2263ed46a59c0b732118a69",
+      "byteLength": 88628,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:29.716Z",
+      "cfRay": "a458aac37d605e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/c339b6dbf98b68e807430e284bc7ce53f3de7c76785553dd9a7f5c6f669b66a9.webp",
+      "sha256": "c339b6dbf98b68e807430e284bc7ce53f3de7c76785553dd9a7f5c6f669b66a9",
+      "byteLength": 90356,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:31.578Z",
+      "cfRay": "a458aacf0f265e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/74fed5a0bcd3da2d7ae57d0a6526ba537144155429bd56b73334b9034a31079a.webp",
+      "sha256": "74fed5a0bcd3da2d7ae57d0a6526ba537144155429bd56b73334b9034a31079a",
+      "byteLength": 90596,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:33.380Z",
+      "cfRay": "a458aada79185e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/0d43f870b36e3180022595d69ad70142a0a835b11d5da84093d6f23b0de37744.webp",
+      "sha256": "0d43f870b36e3180022595d69ad70142a0a835b11d5da84093d6f23b0de37744",
+      "byteLength": 85900,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:35.834Z",
+      "cfRay": "a458aae5fc345e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/5c53e6e046b68dd4fdec7f718088e2534eeca30af031008d2d1ea4fa3cb15c87.webp",
+      "sha256": "5c53e6e046b68dd4fdec7f718088e2534eeca30af031008d2d1ea4fa3cb15c87",
+      "byteLength": 4802,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:37.646Z",
+      "cfRay": "a458aaf4f87d5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/d8ff5e2876879270d57658b0fb9718c9da2e0436181b8893e60877145abb3aab.webp",
+      "sha256": "d8ff5e2876879270d57658b0fb9718c9da2e0436181b8893e60877145abb3aab",
+      "byteLength": 81412,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:39.628Z",
+      "cfRay": "a458ab010ab55e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/a73db23d44b26138af50425c780db357b8ef2ceb26272e4eab9033667a6df04a.webp",
+      "sha256": "a73db23d44b26138af50425c780db357b8ef2ceb26272e4eab9033667a6df04a",
+      "byteLength": 85198,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:41.493Z",
+      "cfRay": "a458ab0d9bdc5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/3c4e403ee9ccd1b37549e93daf20cb3d6cd175a69babfe4264df02bc6dd6ccce.webp",
+      "sha256": "3c4e403ee9ccd1b37549e93daf20cb3d6cd175a69babfe4264df02bc6dd6ccce",
+      "byteLength": 71746,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:43.580Z",
+      "cfRay": "a458ab1aae195e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/ac283738d44acda6058e9fcffad92f23292956aa6712506fc09d9e12a87c476c.webp",
+      "sha256": "ac283738d44acda6058e9fcffad92f23292956aa6712506fc09d9e12a87c476c",
+      "byteLength": 79830,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:45.374Z",
+      "cfRay": "a458ab255e4a5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/b4437aba9b2202ad8197e681fe2ab93584d48b49d2f8b8c9f5d04082688f2f71.webp",
+      "sha256": "b4437aba9b2202ad8197e681fe2ab93584d48b49d2f8b8c9f5d04082688f2f71",
+      "byteLength": 71476,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:47.443Z",
+      "cfRay": "a458ab3219275e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/37463f0d9b1e822a6416bbbcfb9887ec050751ac463b42070a90a08a429b3ed6.webp",
+      "sha256": "37463f0d9b1e822a6416bbbcfb9887ec050751ac463b42070a90a08a429b3ed6",
+      "byteLength": 85702,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:49.968Z",
+      "cfRay": "a458ab416ee95e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/3ccc61814edb4853526cee05a3150759dbee589702f9bdfc59aad6521fd666af.webp",
+      "sha256": "3ccc61814edb4853526cee05a3150759dbee589702f9bdfc59aad6521fd666af",
+      "byteLength": 155732,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:52.041Z",
+      "cfRay": "a458ab4e8ea75e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/f3ab0c95a7a87420ab7a07d6ad999cfb829553f929fdbbb52bf2089756c8bec7.webp",
+      "sha256": "f3ab0c95a7a87420ab7a07d6ad999cfb829553f929fdbbb52bf2089756c8bec7",
+      "byteLength": 152562,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:54.062Z",
+      "cfRay": "a458ab5bdad95e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/5ef489065fc3a9e9775d7b3a1890181275d7e01fa8a9d02995da2c8490c9f47c.webp",
+      "sha256": "5ef489065fc3a9e9775d7b3a1890181275d7e01fa8a9d02995da2c8490c9f47c",
+      "byteLength": 152180,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:56.046Z",
+      "cfRay": "a458ab683cd05e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/364a23b7a32ff7ed41c432be1679c87a9a5d0ed0c55f8878d7978937ae4d4a99.webp",
+      "sha256": "364a23b7a32ff7ed41c432be1679c87a9a5d0ed0c55f8878d7978937ae4d4a99",
+      "byteLength": 155082,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:31:58.049Z",
+      "cfRay": "a458ab74adfc5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/e4fd20b9b778da5ac0599958e799094829aad3ee96582dde0e4183c410ad2342.webp",
+      "sha256": "e4fd20b9b778da5ac0599958e799094829aad3ee96582dde0e4183c410ad2342",
+      "byteLength": 153434,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:00.710Z",
+      "cfRay": "a458ab84ccb05e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/19cbc44d06c4d848d83d7a0ad205264c42dc48a3075824bd482fdd0d1edbdff4.webp",
+      "sha256": "19cbc44d06c4d848d83d7a0ad205264c42dc48a3075824bd482fdd0d1edbdff4",
+      "byteLength": 150202,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:02.772Z",
+      "cfRay": "a458ab922be95e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/150f77a77df19b22ebb611170a8d7d67db51ca6b92bfba8e841ad750982e1497.webp",
+      "sha256": "150f77a77df19b22ebb611170a8d7d67db51ca6b92bfba8e841ad750982e1497",
+      "byteLength": 7046,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:04.806Z",
+      "cfRay": "a458ab9d98215e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/288092c57e464a3ed0aa2964e55df66bd803da9472cd1a1be5a387de57253eb8.webp",
+      "sha256": "288092c57e464a3ed0aa2964e55df66bd803da9472cd1a1be5a387de57253eb8",
+      "byteLength": 164974,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:06.825Z",
+      "cfRay": "a458abab7fe45e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/fbc95042baa0f2b4d50d771d75e934ad7a96ad9de36882b1115f28432e424699.webp",
+      "sha256": "fbc95042baa0f2b4d50d771d75e934ad7a96ad9de36882b1115f28432e424699",
+      "byteLength": 158512,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:09.013Z",
+      "cfRay": "a458abb7ccd65e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/ef16a1735d8c558788fdd1412219dd373f23d2b226be9add8d1ce6df6c3dd23c.webp",
+      "sha256": "ef16a1735d8c558788fdd1412219dd373f23d2b226be9add8d1ce6df6c3dd23c",
+      "byteLength": 140734,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:10.987Z",
+      "cfRay": "a458abc53c615e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/6deecee26a5b2c2267706f42468afe5070aba864c3a6a3ffe1dd168258682e8c.webp",
+      "sha256": "6deecee26a5b2c2267706f42468afe5070aba864c3a6a3ffe1dd168258682e8c",
+      "byteLength": 154614,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:13.934Z",
+      "cfRay": "a458abd7db705e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/6f6815f1fac9e4d69505451002cc48da9f626029fc1dd849c2d0aa6ee1834992.webp",
+      "sha256": "6f6815f1fac9e4d69505451002cc48da9f626029fc1dd849c2d0aa6ee1834992",
+      "byteLength": 132948,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:15.872Z",
+      "cfRay": "a458abe3bfdd5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/25c3d0de3ad6cd078f0037a5803a79eaa484907109a343da96f36814bbb2e74c.webp",
+      "sha256": "25c3d0de3ad6cd078f0037a5803a79eaa484907109a343da96f36814bbb2e74c",
+      "byteLength": 163542,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:17.806Z",
+      "cfRay": "a458abefff1e5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/7c352bf0514d19d0efceaaf98de8168e162e823fa5559bf3a3b5dc1161c80d67.webp",
+      "sha256": "7c352bf0514d19d0efceaaf98de8168e162e823fa5559bf3a3b5dc1161c80d67",
+      "byteLength": 146860,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:19.824Z",
+      "cfRay": "a458abfcd8775e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/dab87659b41d12b4228c14f049f4b3eeda3afa7e789e89bf9a87f45e35216e7a.webp",
+      "sha256": "dab87659b41d12b4228c14f049f4b3eeda3afa7e789e89bf9a87f45e35216e7a",
+      "byteLength": 146294,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:21.916Z",
+      "cfRay": "a458ac09add25e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/89ae0e6820c789adec887a7aa8adb266d53748410b72796adafae3ba31dbf0b3.webp",
+      "sha256": "89ae0e6820c789adec887a7aa8adb266d53748410b72796adafae3ba31dbf0b3",
+      "byteLength": 148434,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:23.824Z",
+      "cfRay": "a458ac15ba9f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/96faa9dee6c89eca00ea09d9d9ea126329725b0a5609a2b690af4094d1e8d574.webp",
+      "sha256": "96faa9dee6c89eca00ea09d9d9ea126329725b0a5609a2b690af4094d1e8d574",
+      "byteLength": 149602,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:25.569Z",
+      "cfRay": "a458ac20fe3d5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/f35ac1d0d35a6cb1041da3378296443743cf7f03e5bcf9f0a8e8ae38d0ab2803.webp",
+      "sha256": "f35ac1d0d35a6cb1041da3378296443743cf7f03e5bcf9f0a8e8ae38d0ab2803",
+      "byteLength": 144586,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:27.601Z",
+      "cfRay": "a458ac2d2c0f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/99ec4543eb6a74cd1164010e9861aec84e093353df7718a879aa6db4af85ebef.webp",
+      "sha256": "99ec4543eb6a74cd1164010e9861aec84e093353df7718a879aa6db4af85ebef",
+      "byteLength": 144462,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:29.554Z",
+      "cfRay": "a458ac3958b75e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/201879e4a93db1404a04d936d864efb456211ad24e001881f2a495998df2cd91.webp",
+      "sha256": "201879e4a93db1404a04d936d864efb456211ad24e001881f2a495998df2cd91",
+      "byteLength": 7072,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:31.453Z",
+      "cfRay": "a458ac454a3f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/607ca69cf6c75a1236a8c81e5056c01cc5123fe5fc036e2402ef9657b0eff8e2.webp",
+      "sha256": "607ca69cf6c75a1236a8c81e5056c01cc5123fe5fc036e2402ef9657b0eff8e2",
+      "byteLength": 151374,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:33.634Z",
+      "cfRay": "a458ac531de95e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/3676ece679d7e138aa4dfb2012b0055f3abc208dff05f1d49efbcee2b8f1df50.webp",
+      "sha256": "3676ece679d7e138aa4dfb2012b0055f3abc208dff05f1d49efbcee2b8f1df50",
+      "byteLength": 151678,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:35.370Z",
+      "cfRay": "a458ac5e4f2d5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/30a9747da6c5f01de0dd442157726baa183f28b74a3df0d3b62040e267451299.webp",
+      "sha256": "30a9747da6c5f01de0dd442157726baa183f28b74a3df0d3b62040e267451299",
+      "byteLength": 113488,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:37.207Z",
+      "cfRay": "a458ac6968c35e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/57516923d5e477a26e476c651e5e30a5286ffd7c18b0ef9a20b5850bb650c4f5.webp",
+      "sha256": "57516923d5e477a26e476c651e5e30a5286ffd7c18b0ef9a20b5850bb650c4f5",
+      "byteLength": 155136,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:39.126Z",
+      "cfRay": "a458ac7579ad5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/ad32bfc4ec14aa4b1322ed0f13271e3157b2bb68fb61ec774d0285bff0886c51.webp",
+      "sha256": "ad32bfc4ec14aa4b1322ed0f13271e3157b2bb68fb61ec774d0285bff0886c51",
+      "byteLength": 116238,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:40.835Z",
+      "cfRay": "a458ac807b0e5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/855cbcd32ebce314667ae9275b3f1af939cf4d63a0ae7912e1e922f9334f30bd.webp",
+      "sha256": "855cbcd32ebce314667ae9275b3f1af939cf4d63a0ae7912e1e922f9334f30bd",
+      "byteLength": 157226,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:42.842Z",
+      "cfRay": "a458ac8cdc015e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/a65e0dd2fd0251b618019b65097f99176395b4a907a22acceb6884126670f3a6.webp",
+      "sha256": "a65e0dd2fd0251b618019b65097f99176395b4a907a22acceb6884126670f3a6",
+      "byteLength": 89798,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:44.669Z",
+      "cfRay": "a458ac981c445e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9a023f6e620f3f612ba62112ffb658d007c5a21441dd983a2ec2c59335875e8e.webp",
+      "sha256": "9a023f6e620f3f612ba62112ffb658d007c5a21441dd983a2ec2c59335875e8e",
+      "byteLength": 90506,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:46.585Z",
+      "cfRay": "a458aca46e885e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/b9167e44374959cba344f3443a82ff0dd3c0a39f8b44f19b24b346a9aa6ba97f.webp",
+      "sha256": "b9167e44374959cba344f3443a82ff0dd3c0a39f8b44f19b24b346a9aa6ba97f",
+      "byteLength": 91698,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:48.370Z",
+      "cfRay": "a458acaef85a5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/3d9e44d56892c6053c4689b6e5eae9e2d3e3a9bdd917ddad56f191ec25feaa49.webp",
+      "sha256": "3d9e44d56892c6053c4689b6e5eae9e2d3e3a9bdd917ddad56f191ec25feaa49",
+      "byteLength": 92094,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:32:50.068Z",
+      "cfRay": "a458acb9f8a95e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/28e5adf22b35617a01ad4705f5a71de8df1800192ea947713ae7110fcda7a191.webp",
+      "sha256": "28e5adf22b35617a01ad4705f5a71de8df1800192ea947713ae7110fcda7a191",
+      "byteLength": 92322,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:14.996Z",
+      "cfRay": "a458ad55cb2c5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/6c9ecaedaec7cea7e97f61fbe29c0e9eaf2808e59cc51403bfb65167ec93c230.webp",
+      "sha256": "6c9ecaedaec7cea7e97f61fbe29c0e9eaf2808e59cc51403bfb65167ec93c230",
+      "byteLength": 90264,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:16.813Z",
+      "cfRay": "a458ad614cd95e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/7b7a6bc399bcdbaf8ae53e4c5a10c722c6a1cd024c22a3f01e1cbb53757cf1f5.webp",
+      "sha256": "7b7a6bc399bcdbaf8ae53e4c5a10c722c6a1cd024c22a3f01e1cbb53757cf1f5",
+      "byteLength": 4574,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:18.532Z",
+      "cfRay": "a458ad6c0ce15e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/a8c410622abe674f6c49e3d12988b9292e879e3b41df8f7dfe20af996e59116b.webp",
+      "sha256": "a8c410622abe674f6c49e3d12988b9292e879e3b41df8f7dfe20af996e59116b",
+      "byteLength": 93846,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:20.518Z",
+      "cfRay": "a458ad778d685e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/f0d53dddfc5e6dc56945e383a6abf844d9b235b09d1a0bcfb48b9c16cb976949.webp",
+      "sha256": "f0d53dddfc5e6dc56945e383a6abf844d9b235b09d1a0bcfb48b9c16cb976949",
+      "byteLength": 90254,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:22.498Z",
+      "cfRay": "a458ad842ece5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/e37084e7ea2c35a4b279f3dd7430e49eec6eb82901695b755a44eed66050d4e7.webp",
+      "sha256": "e37084e7ea2c35a4b279f3dd7430e49eec6eb82901695b755a44eed66050d4e7",
+      "byteLength": 79928,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:24.285Z",
+      "cfRay": "a458ad90182e5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/d610f20ba69e6fb74a66669d3aac3056aa1463127f127eac1de5db69072a35e9.webp",
+      "sha256": "d610f20ba69e6fb74a66669d3aac3056aa1463127f127eac1de5db69072a35e9",
+      "byteLength": 86026,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:26.054Z",
+      "cfRay": "a458ad9b28ca5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/3c5719ac90c26c98f07830ae6fb73e5327b7b5ea5514e9257ebca2e78da20aac.webp",
+      "sha256": "3c5719ac90c26c98f07830ae6fb73e5327b7b5ea5514e9257ebca2e78da20aac",
+      "byteLength": 78280,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:27.840Z",
+      "cfRay": "a458ada5da305e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9eb5ec20dc19a20b8b0c2faace95ebee69e165880bf9856695ad66faad0396e6.webp",
+      "sha256": "9eb5ec20dc19a20b8b0c2faace95ebee69e165880bf9856695ad66faad0396e6",
+      "byteLength": 88126,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:30.304Z",
+      "cfRay": "a458adb5487f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/018014e0cf2cd389f503eea8ad23d2be88f9f42be6e2aa7c38c10bf926c75a3f.webp",
+      "sha256": "018014e0cf2cd389f503eea8ad23d2be88f9f42be6e2aa7c38c10bf926c75a3f",
+      "byteLength": 167864,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:32.472Z",
+      "cfRay": "a458adc1ab265e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/5f6a94b7e8278e5031e37b4d1613ff973af52967d9fd72ce25a5b5a409b5e17a.webp",
+      "sha256": "5f6a94b7e8278e5031e37b4d1613ff973af52967d9fd72ce25a5b5a409b5e17a",
+      "byteLength": 165724,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:34.522Z",
+      "cfRay": "a458adcfade65e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9c063b817480d4c3eb3daa7d1fa4726eb595b6da96bd205973bb81630abea3a8.webp",
+      "sha256": "9c063b817480d4c3eb3daa7d1fa4726eb595b6da96bd205973bb81630abea3a8",
+      "byteLength": 165664,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:36.398Z",
+      "cfRay": "a458addb5f995e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/6cb21c60e1ae771dad85009e59fa34d00475b6747df2acd6d0ba9cf7230f00ae.webp",
+      "sha256": "6cb21c60e1ae771dad85009e59fa34d00475b6747df2acd6d0ba9cf7230f00ae",
+      "byteLength": 165492,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:38.439Z",
+      "cfRay": "a458ade719105e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/c4ec02ce8a6ee81ba229da61d6afcb26ce7cd60dcea10acf3b4eee39eaa1885c.webp",
+      "sha256": "c4ec02ce8a6ee81ba229da61d6afcb26ce7cd60dcea10acf3b4eee39eaa1885c",
+      "byteLength": 164734,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:40.372Z",
+      "cfRay": "a458adf3aa3b5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/d7f2e3672b78cda6fecd0f48b526ca880f68d5e515788344a04b6d9d657fafeb.webp",
+      "sha256": "d7f2e3672b78cda6fecd0f48b526ca880f68d5e515788344a04b6d9d657fafeb",
+      "byteLength": 160388,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:42.677Z",
+      "cfRay": "a458ae027c285e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/988d581950799ecf465136ba60ddd4e4430f870a08a04cba1857b21901567341.webp",
+      "sha256": "988d581950799ecf465136ba60ddd4e4430f870a08a04cba1857b21901567341",
+      "byteLength": 6964,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:44.453Z",
+      "cfRay": "a458ae0d7cff5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/b2b3d0f1e83972cd4e010e90cbcdb4af841e9edf9374bbefe040e9993a251cde.webp",
+      "sha256": "b2b3d0f1e83972cd4e010e90cbcdb4af841e9edf9374bbefe040e9993a251cde",
+      "byteLength": 176896,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:46.492Z",
+      "cfRay": "a458ae1a4e4a5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/3ef3dd03adf134663e7e6f701e3fdd4a16982b799c78ce572f3db2e1ff1317de.webp",
+      "sha256": "3ef3dd03adf134663e7e6f701e3fdd4a16982b799c78ce572f3db2e1ff1317de",
+      "byteLength": 166228,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:48.569Z",
+      "cfRay": "a458ae2658755e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/da28c0d6abd8e613cfb069ef4c4567055ede4562bb2b472588a4bd0f83fae042.webp",
+      "sha256": "da28c0d6abd8e613cfb069ef4c4567055ede4562bb2b472588a4bd0f83fae042",
+      "byteLength": 141752,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:50.406Z",
+      "cfRay": "a458ae32da9d5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/2c272bd51b011820a005a8cba0244a5380510939703486880db7915015376b08.webp",
+      "sha256": "2c272bd51b011820a005a8cba0244a5380510939703486880db7915015376b08",
+      "byteLength": 154798,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:52.479Z",
+      "cfRay": "a458ae3fdd9e5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/5f083ef7bcdc57a0c5a5351a78ea979450a58c154e241ef795b62f28d22319c6.webp",
+      "sha256": "5f083ef7bcdc57a0c5a5351a78ea979450a58c154e241ef795b62f28d22319c6",
+      "byteLength": 136656,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:54.331Z",
+      "cfRay": "a458ae4be9445e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/7945c610f81bd299e5736229be8587faf4caf04b85bb8b54c5538907ccac18d7.webp",
+      "sha256": "7945c610f81bd299e5736229be8587faf4caf04b85bb8b54c5538907ccac18d7",
+      "byteLength": 172118,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:56.668Z",
+      "cfRay": "a458ae575bb55e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/e8596dfb1bdff4f70a01168a7f2c3e8301202ffa7ab186a9174e7d9acae2dee9.webp",
+      "sha256": "e8596dfb1bdff4f70a01168a7f2c3e8301202ffa7ab186a9174e7d9acae2dee9",
+      "byteLength": 135178,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:33:58.548Z",
+      "cfRay": "a458ae65ee3c5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/5b1455d232159cbd1c114d837b0ab019dd9c5769b5e5007e4dfdea12b744ee0a.webp",
+      "sha256": "5b1455d232159cbd1c114d837b0ab019dd9c5769b5e5007e4dfdea12b744ee0a",
+      "byteLength": 133854,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:00.315Z",
+      "cfRay": "a458ae713fc35e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/c3263741c9ca46465e91259c84ec3617144d54425856b1d2da4591b833428942.webp",
+      "sha256": "c3263741c9ca46465e91259c84ec3617144d54425856b1d2da4591b833428942",
+      "byteLength": 133804,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:02.226Z",
+      "cfRay": "a458ae7c79405e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/f5f03260d6fd98f58a0f951c3bf0c4c6cbe34457124d0954d634c9d90992f8f2.webp",
+      "sha256": "f5f03260d6fd98f58a0f951c3bf0c4c6cbe34457124d0954d634c9d90992f8f2",
+      "byteLength": 134448,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:04.157Z",
+      "cfRay": "a458ae894b6f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/40d0f7816118f525ff319786bdc93fd718b42af68803248f1af6bb2d2f44fbe7.webp",
+      "sha256": "40d0f7816118f525ff319786bdc93fd718b42af68803248f1af6bb2d2f44fbe7",
+      "byteLength": 134086,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:06.003Z",
+      "cfRay": "a458ae943c7e5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/0275f40e4e142cb5750fea0b39e4b995ad0a824b3eccfe1dffd780429d819e0c.webp",
+      "sha256": "0275f40e4e142cb5750fea0b39e4b995ad0a824b3eccfe1dffd780429d819e0c",
+      "byteLength": 133386,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:07.739Z",
+      "cfRay": "a458ae9fbe325e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/7523d694ad613ee1f6d95dddb5e8d699558cfd592b0f46cc4f7cfb6f22cc02f2.webp",
+      "sha256": "7523d694ad613ee1f6d95dddb5e8d699558cfd592b0f46cc4f7cfb6f22cc02f2",
+      "byteLength": 7194,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:09.746Z",
+      "cfRay": "a458aeac38f45e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/300a06b5a08273274b65b210f4c2dc79b63cf805278ac35fa59333a886f71d97.webp",
+      "sha256": "300a06b5a08273274b65b210f4c2dc79b63cf805278ac35fa59333a886f71d97",
+      "byteLength": 139148,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:11.905Z",
+      "cfRay": "a458aeb7ba575e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/e0bf6b71caeddf3c7db2a1d12a3d0be8617c7f4c1b0ffaa05f4282b5a880e3c0.webp",
+      "sha256": "e0bf6b71caeddf3c7db2a1d12a3d0be8617c7f4c1b0ffaa05f4282b5a880e3c0",
+      "byteLength": 141198,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:13.838Z",
+      "cfRay": "a458aec58dc35e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/cfa0eea15ae1c3456cff0a165fa21a58aaf771dd196cef6e9882e478ca8e3425.webp",
+      "sha256": "cfa0eea15ae1c3456cff0a165fa21a58aaf771dd196cef6e9882e478ca8e3425",
+      "byteLength": 123408,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:15.630Z",
+      "cfRay": "a458aed07e8a5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/ecd0a241b88f850047de8e894bf708a6e4e5ff3022509cd64f93456f3e52f932.webp",
+      "sha256": "ecd0a241b88f850047de8e894bf708a6e4e5ff3022509cd64f93456f3e52f932",
+      "byteLength": 132040,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:17.579Z",
+      "cfRay": "a458aedce86f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/06e4d357100fde1d031aab6dbace1f1478f0d8c2f6c826783586fcd76b7d43fa.webp",
+      "sha256": "06e4d357100fde1d031aab6dbace1f1478f0d8c2f6c826783586fcd76b7d43fa",
+      "byteLength": 111848,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:19.369Z",
+      "cfRay": "a458aee7c9845e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/6f2e06bc64b87028fe0cd392b34bac47285b7cd81ef6965209c00046d50267f0.webp",
+      "sha256": "6f2e06bc64b87028fe0cd392b34bac47285b7cd81ef6965209c00046d50267f0",
+      "byteLength": 140360,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:21.184Z",
+      "cfRay": "a458aef3ab755e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/5bffe003ef4decabfe5d869832ec1802757579261f3449a4ddd4d233a1036df5.webp",
+      "sha256": "5bffe003ef4decabfe5d869832ec1802757579261f3449a4ddd4d233a1036df5",
+      "byteLength": 175642,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:23.303Z",
+      "cfRay": "a458af003dbc5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/17469b53143852f48a699b75cbf8b3d414fbf35014944cbf65ea069c3a2605c4.webp",
+      "sha256": "17469b53143852f48a699b75cbf8b3d414fbf35014944cbf65ea069c3a2605c4",
+      "byteLength": 173836,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:25.116Z",
+      "cfRay": "a458af0baf6a5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/2769c4a89e840841173c2beb716ea31d8cc409d6950e2d520a3c62b830ddd82b.webp",
+      "sha256": "2769c4a89e840841173c2beb716ea31d8cc409d6950e2d520a3c62b830ddd82b",
+      "byteLength": 173680,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:27.029Z",
+      "cfRay": "a458af17eacf5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9c524f4648357c59e762f4cbfaf4b2cd285286abc847c8c7eccd9cc64ecd07da.webp",
+      "sha256": "9c524f4648357c59e762f4cbfaf4b2cd285286abc847c8c7eccd9cc64ecd07da",
+      "byteLength": 173284,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:28.847Z",
+      "cfRay": "a458af236c925e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/664e02d510121a8430279035746ad7379a62beba64011288c7fbd3870a979a18.webp",
+      "sha256": "664e02d510121a8430279035746ad7379a62beba64011288c7fbd3870a979a18",
+      "byteLength": 173340,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:30.861Z",
+      "cfRay": "a458af2f2fbc5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/dc3f0054ea1989d51012293b51b4bd4ca549ca927f41ae6424c398878e7aab88.webp",
+      "sha256": "dc3f0054ea1989d51012293b51b4bd4ca549ca927f41ae6424c398878e7aab88",
+      "byteLength": 173518,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:33.379Z",
+      "cfRay": "a458af3f3d2b5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9e46e32f46660dcead5e646c3ffdef19e1c4ebdfc30eb1d07504ba39772c9a16.webp",
+      "sha256": "9e46e32f46660dcead5e646c3ffdef19e1c4ebdfc30eb1d07504ba39772c9a16",
+      "byteLength": 7514,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:35.167Z",
+      "cfRay": "a458af4afebf5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/b1a5d615491b6cebe9c1e24473c9e3dfd745f44c1b9c36f6733cd21a0e2b2d2d.webp",
+      "sha256": "b1a5d615491b6cebe9c1e24473c9e3dfd745f44c1b9c36f6733cd21a0e2b2d2d",
+      "byteLength": 186176,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:37.314Z",
+      "cfRay": "a458af5768105e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/88d6722da149635c0ff2fd994e643b015e71495e998eb151f03872f10961f7d0.webp",
+      "sha256": "88d6722da149635c0ff2fd994e643b015e71495e998eb151f03872f10961f7d0",
+      "byteLength": 175038,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:39.109Z",
+      "cfRay": "a458af6379995e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/b953c8899e5d0b22363c1afbb38e50d7318346ed0eb85f9869d3096091971393.webp",
+      "sha256": "b953c8899e5d0b22363c1afbb38e50d7318346ed0eb85f9869d3096091971393",
+      "byteLength": 152004,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:41.139Z",
+      "cfRay": "a458af6f9c1f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/5f0ca40d3f5a15db1a2e89810d17f615ed0108c1e55b871439ec5f9b141dfee0.webp",
+      "sha256": "5f0ca40d3f5a15db1a2e89810d17f615ed0108c1e55b871439ec5f9b141dfee0",
+      "byteLength": 184886,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:43.103Z",
+      "cfRay": "a458af7c4e535e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/b6acff3b022a30e9ba7e99339470332cd88d74b32bc1deece0eb0cdf093d2ba5.webp",
+      "sha256": "b6acff3b022a30e9ba7e99339470332cd88d74b32bc1deece0eb0cdf093d2ba5",
+      "byteLength": 144278,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:44.963Z",
+      "cfRay": "a458af87efc85e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9a7c5c09bdae2d6ff8bf94740c0a7f25e63a2d03636991448ee9b294fbe1123d.webp",
+      "sha256": "9a7c5c09bdae2d6ff8bf94740c0a7f25e63a2d03636991448ee9b294fbe1123d",
+      "byteLength": 172530,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:46.887Z",
+      "cfRay": "a458af943a7c5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/2f698806642350e64a587cf7f9041b7affd8b9fd999fbcfab8877dec10e3250f.webp",
+      "sha256": "2f698806642350e64a587cf7f9041b7affd8b9fd999fbcfab8877dec10e3250f",
+      "byteLength": 97612,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:48.752Z",
+      "cfRay": "a458af9fbc4f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/24b5be380102704d5f3fd0851e9f974c8116e935121b4ed879125d9da28cbef4.webp",
+      "sha256": "24b5be380102704d5f3fd0851e9f974c8116e935121b4ed879125d9da28cbef4",
+      "byteLength": 94312,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:50.609Z",
+      "cfRay": "a458afab4eb65e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/2a8ff968417236d65262617a6a7ba097d7d46508f1c4c283106c92cb917c1bb2.webp",
+      "sha256": "2a8ff968417236d65262617a6a7ba097d7d46508f1c4c283106c92cb917c1bb2",
+      "byteLength": 94314,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:52.377Z",
+      "cfRay": "a458afb6587c5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/0fe1261a1d63c567138a9a3b410948d52a5e235c376d0b2f390a9cd51143aa01.webp",
+      "sha256": "0fe1261a1d63c567138a9a3b410948d52a5e235c376d0b2f390a9cd51143aa01",
+      "byteLength": 96200,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:54.192Z",
+      "cfRay": "a458afc1a9985e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/aba7a03e4ca67a25cfacf9c1918b5d352d34a899ccc57922dd76686450c3efd1.webp",
+      "sha256": "aba7a03e4ca67a25cfacf9c1918b5d352d34a899ccc57922dd76686450c3efd1",
+      "byteLength": 94194,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:56.115Z",
+      "cfRay": "a458afcd9a7c5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/f34b05f822d1978c94907f1bb8e79c0db75c0b676925a05cd88d96b442fac663.webp",
+      "sha256": "f34b05f822d1978c94907f1bb8e79c0db75c0b676925a05cd88d96b442fac663",
+      "byteLength": 94520,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:57.936Z",
+      "cfRay": "a458afd93b915e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/02eb1a3fbeb0dde688d3ca525e2d14cc5e095e451cbb488cd31442ff653c482b.webp",
+      "sha256": "02eb1a3fbeb0dde688d3ca525e2d14cc5e095e451cbb488cd31442ff653c482b",
+      "byteLength": 6296,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:34:59.623Z",
+      "cfRay": "a458afe39c695e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/97d7e5de426fb6cfd5be90832c0d306a4e606b7b9d69872e1a4397fe3dc69227.webp",
+      "sha256": "97d7e5de426fb6cfd5be90832c0d306a4e606b7b9d69872e1a4397fe3dc69227",
+      "byteLength": 98744,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:01.595Z",
+      "cfRay": "a458afeebcdd5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/83032f8633d10ea9d04d9de0ed2d0047d683cf3aab65232c85a1d31bc89d40f7.webp",
+      "sha256": "83032f8633d10ea9d04d9de0ed2d0047d683cf3aab65232c85a1d31bc89d40f7",
+      "byteLength": 99614,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:05.129Z",
+      "cfRay": "a458affddaaa5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/807d2f1c0697023dca53282bc5688fb298c0395a7166fdbca4aa0e6a75b08f99.webp",
+      "sha256": "807d2f1c0697023dca53282bc5688fb298c0395a7166fdbca4aa0e6a75b08f99",
+      "byteLength": 83268,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:07.073Z",
+      "cfRay": "a458b011fc195e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/6e1deeda489e0bb8a0f761046cfedd948f050b12f8ec99c7d3b2fa9673b7c8c9.webp",
+      "sha256": "6e1deeda489e0bb8a0f761046cfedd948f050b12f8ec99c7d3b2fa9673b7c8c9",
+      "byteLength": 93388,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:09.346Z",
+      "cfRay": "a458b0201fe75e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/45fa34d933d06f564619937d301756a123f9b36bf16ff8e950ae71bd02bada68.webp",
+      "sha256": "45fa34d933d06f564619937d301756a123f9b36bf16ff8e950ae71bd02bada68",
+      "byteLength": 82862,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:11.213Z",
+      "cfRay": "a458b02bb9fa5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/3dc135f4c342ff25888969af563efbbb667740fa81198da7302731b81d3c73f0.webp",
+      "sha256": "3dc135f4c342ff25888969af563efbbb667740fa81198da7302731b81d3c73f0",
+      "byteLength": 103026,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:13.001Z",
+      "cfRay": "a458b0377c605e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/d92ffac407027ca1c0b0d55bd37f1f32fbd2144e9c41d9a145610915f3029e6c.webp",
+      "sha256": "d92ffac407027ca1c0b0d55bd37f1f32fbd2144e9c41d9a145610915f3029e6c",
+      "byteLength": 148088,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:15.387Z",
+      "cfRay": "a458b0431d4a5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9b4ca6d5cef70544db0012497671353634a4839279749f7429b2e1998d00eb0e.webp",
+      "sha256": "9b4ca6d5cef70544db0012497671353634a4839279749f7429b2e1998d00eb0e",
+      "byteLength": 146182,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:17.327Z",
+      "cfRay": "a458b051ab025e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/87c0119a6988341d5b0d19efc5412e21398d2e26fb99992f0be68db282bbc95a.webp",
+      "sha256": "87c0119a6988341d5b0d19efc5412e21398d2e26fb99992f0be68db282bbc95a",
+      "byteLength": 147650,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:19.190Z",
+      "cfRay": "a458b05dee5f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/fc860d28553a9f8ea46909a68ffa7cd83c6a2c7f3428eeb5dbfef82fa8023873.webp",
+      "sha256": "fc860d28553a9f8ea46909a68ffa7cd83c6a2c7f3428eeb5dbfef82fa8023873",
+      "byteLength": 148474,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:21.775Z",
+      "cfRay": "a458b06c7af45e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/23947054bce458b8ae2fa6050a68d6df10db31769a9d8c39ea09a642fda1220a.webp",
+      "sha256": "23947054bce458b8ae2fa6050a68d6df10db31769a9d8c39ea09a642fda1220a",
+      "byteLength": 147406,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:23.889Z",
+      "cfRay": "a458b07aeeec5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/ad8a4d2a3cedc380fb553a1646a14e94d218337ae64771c465d47e54f4d69d99.webp",
+      "sha256": "ad8a4d2a3cedc380fb553a1646a14e94d218337ae64771c465d47e54f4d69d99",
+      "byteLength": 143982,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:25.910Z",
+      "cfRay": "a458b087b9275e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/2607e75b2a87e8dd2430549b984a6dd3bf5cf116fb4a54c579eb05e2835550d4.webp",
+      "sha256": "2607e75b2a87e8dd2430549b984a6dd3bf5cf116fb4a54c579eb05e2835550d4",
+      "byteLength": 6788,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:27.619Z",
+      "cfRay": "a458b092fb705e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/a8eaebf987101195cb8ae7cc42838ac525b25f482015c4ad57b7ab1ce6953501.webp",
+      "sha256": "a8eaebf987101195cb8ae7cc42838ac525b25f482015c4ad57b7ab1ce6953501",
+      "byteLength": 156466,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:29.983Z",
+      "cfRay": "a458b09fbf6f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/eba63a5b913046cd9eaac45ec8d906a0748d88d6cdd49c0ff06a38b261f967e1.webp",
+      "sha256": "eba63a5b913046cd9eaac45ec8d906a0748d88d6cdd49c0ff06a38b261f967e1",
+      "byteLength": 148500,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:31.877Z",
+      "cfRay": "a458b0ad8b965e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/434cd069567bd3d92ef8cb6c318ef05450d357b21c40a1fa9398818298e53ee5.webp",
+      "sha256": "434cd069567bd3d92ef8cb6c318ef05450d357b21c40a1fa9398818298e53ee5",
+      "byteLength": 116144,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:33.849Z",
+      "cfRay": "a458b0b92ef25e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/e5cef92a6091cfdbb46e10e00a6f2390b02540e4adaca69730187d874a4038f9.webp",
+      "sha256": "e5cef92a6091cfdbb46e10e00a6f2390b02540e4adaca69730187d874a4038f9",
+      "byteLength": 138504,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:35.919Z",
+      "cfRay": "a458b0c5da055e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/4066a7ad2d872d7a1289cc0bf520a863b1b8f328032878b52e03330958b7023e.webp",
+      "sha256": "4066a7ad2d872d7a1289cc0bf520a863b1b8f328032878b52e03330958b7023e",
+      "byteLength": 109434,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:38.042Z",
+      "cfRay": "a458b0d35d1d5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9254275be931844dbc6110762810ac24ca22a208dc275e45c98112b1c2d49568.webp",
+      "sha256": "9254275be931844dbc6110762810ac24ca22a208dc275e45c98112b1c2d49568",
+      "byteLength": 145606,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:39.882Z",
+      "cfRay": "a458b0df0ee05e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/7739d26948daaf79f63b59e217efe94607ff7360deefaa96ab15ba195978ea0c.webp",
+      "sha256": "7739d26948daaf79f63b59e217efe94607ff7360deefaa96ab15ba195978ea0c",
+      "byteLength": 121176,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:41.723Z",
+      "cfRay": "a458b0ea797d5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/fed336712123411d7f857d71badfd594df36a596daba21f42ea1dd045b7e95e4.webp",
+      "sha256": "fed336712123411d7f857d71badfd594df36a596daba21f42ea1dd045b7e95e4",
+      "byteLength": 117828,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:43.609Z",
+      "cfRay": "a458b0f62b845e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/79deb757c0cd5d0704e7b0a5b0248845b3f937c9bc11565c726053be6a590fb9.webp",
+      "sha256": "79deb757c0cd5d0704e7b0a5b0248845b3f937c9bc11565c726053be6a590fb9",
+      "byteLength": 118890,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:45.777Z",
+      "cfRay": "a458b1044f6b5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/48b0c225b7ba66e1238f6b8f4c906e49d3185a6368f4d86a968f23d6888a09b0.webp",
+      "sha256": "48b0c225b7ba66e1238f6b8f4c906e49d3185a6368f4d86a968f23d6888a09b0",
+      "byteLength": 121166,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:47.708Z",
+      "cfRay": "a458b10fc92b5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/b3c889aa66de9aa73765c688837da683b7b8dd595486e74341d6f4308e07936a.webp",
+      "sha256": "b3c889aa66de9aa73765c688837da683b7b8dd595486e74341d6f4308e07936a",
+      "byteLength": 119778,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:49.625Z",
+      "cfRay": "a458b11c2b9a5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/00cfbbb63c76a6b6e119a67e0b6ca1178ebac69a91b232da67ece1882ab1fe8a.webp",
+      "sha256": "00cfbbb63c76a6b6e119a67e0b6ca1178ebac69a91b232da67ece1882ab1fe8a",
+      "byteLength": 119264,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:51.523Z",
+      "cfRay": "a458b127fd815e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/1f444863bfd54d92801544327b053a07181a97287bc007e0bec27047a3b14362.webp",
+      "sha256": "1f444863bfd54d92801544327b053a07181a97287bc007e0bec27047a3b14362",
+      "byteLength": 6904,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:53.206Z",
+      "cfRay": "a458b132ae765e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/d230007c84501c43d1c0f42cf6161893e2ae003fb3c525176c5963bf9fabc0cd.webp",
+      "sha256": "d230007c84501c43d1c0f42cf6161893e2ae003fb3c525176c5963bf9fabc0cd",
+      "byteLength": 130544,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:54.990Z",
+      "cfRay": "a458b13e3f935e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/a7ade8c8954829e656c638079a3813686f2e50949d5ce5879508ed7ec9763043.webp",
+      "sha256": "a7ade8c8954829e656c638079a3813686f2e50949d5ce5879508ed7ec9763043",
+      "byteLength": 121772,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:56.818Z",
+      "cfRay": "a458b149598a5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/3dbdeaec290c9ad00f56aca15bcfe14278dfbd7dc4ea9d1d1bb25c3b88673567.webp",
+      "sha256": "3dbdeaec290c9ad00f56aca15bcfe14278dfbd7dc4ea9d1d1bb25c3b88673567",
+      "byteLength": 93934,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:35:58.683Z",
+      "cfRay": "a458b1542a555e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/bf54175aed7dc06dd99a051b41f10b2f7f54ed41047c2fe6ea695e6239c25665.webp",
+      "sha256": "bf54175aed7dc06dd99a051b41f10b2f7f54ed41047c2fe6ea695e6239c25665",
+      "byteLength": 115290,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:00.576Z",
+      "cfRay": "a458b160ac4b5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/f5501e6dcc2dc0550b5341faa677a1e11fa6beb1bdd0b6a897078a5ddb7e86ab.webp",
+      "sha256": "f5501e6dcc2dc0550b5341faa677a1e11fa6beb1bdd0b6a897078a5ddb7e86ab",
+      "byteLength": 85070,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:02.465Z",
+      "cfRay": "a458b16cad5b5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/b9f35e576e08cce0a24629b16615fd0d4b855cc75007f189df96453415c1ac7f.webp",
+      "sha256": "b9f35e576e08cce0a24629b16615fd0d4b855cc75007f189df96453415c1ac7f",
+      "byteLength": 122814,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:04.295Z",
+      "cfRay": "a458b1778e2c5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/4efa354c41ebfbcb85ccbb56338b4ad70aa5f55a57ad7a291f7007d5804ef2e7.webp",
+      "sha256": "4efa354c41ebfbcb85ccbb56338b4ad70aa5f55a57ad7a291f7007d5804ef2e7",
+      "byteLength": 125238,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:06.303Z",
+      "cfRay": "a458b183ff855e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/b9ad62dc1e0fb8ba59cddd3ebff852523914e0fe112797f85e6b71e0a096cf88.webp",
+      "sha256": "b9ad62dc1e0fb8ba59cddd3ebff852523914e0fe112797f85e6b71e0a096cf88",
+      "byteLength": 117606,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:08.258Z",
+      "cfRay": "a458b190aa5d5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/a5031fa34d5b4ed54fc62831288536be60a209ecaf6f4819fb995a32ef16f3dd.webp",
+      "sha256": "a5031fa34d5b4ed54fc62831288536be60a209ecaf6f4819fb995a32ef16f3dd",
+      "byteLength": 119880,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:10.153Z",
+      "cfRay": "a458b19c9cff5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/e12f670bb7d817a54f3410702f7db37b891ffef5116263b682c0bfce3d6fa64f.webp",
+      "sha256": "e12f670bb7d817a54f3410702f7db37b891ffef5116263b682c0bfce3d6fa64f",
+      "byteLength": 120066,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:13.447Z",
+      "cfRay": "a458b1b07b575e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/37862ca154c3572920fc3970490824863ebd85adaf66e79e0c77f56c522d5284.webp",
+      "sha256": "37862ca154c3572920fc3970490824863ebd85adaf66e79e0c77f56c522d5284",
+      "byteLength": 120590,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:15.287Z",
+      "cfRay": "a458b1bc8d0c5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9a41107d3857ca593ba5ef34b9743186fe51f74b5384df9d4ced366e35244980.webp",
+      "sha256": "9a41107d3857ca593ba5ef34b9743186fe51f74b5384df9d4ced366e35244980",
+      "byteLength": 118774,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:17.121Z",
+      "cfRay": "a458b1c7ee355e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/3be5d487e236901ef559eaa157b9bcd87ad4861ccaaeb83589822831c71e75ad.webp",
+      "sha256": "3be5d487e236901ef559eaa157b9bcd87ad4861ccaaeb83589822831c71e75ad",
+      "byteLength": 7038,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:18.867Z",
+      "cfRay": "a458b1d32f185e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/42ba0b6f57e3cd7f10fd6ade1f194cc19235b251136188620083d1eda60efb1d.webp",
+      "sha256": "42ba0b6f57e3cd7f10fd6ade1f194cc19235b251136188620083d1eda60efb1d",
+      "byteLength": 125144,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:20.795Z",
+      "cfRay": "a458b1debfd35e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/7f975cb2daf5ef81adb2fddec5123a5373e9376379459735086294bd41311a26.webp",
+      "sha256": "7f975cb2daf5ef81adb2fddec5123a5373e9376379459735086294bd41311a26",
+      "byteLength": 127624,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:22.705Z",
+      "cfRay": "a458b1eb098f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/4391fca7c9641f27ed11eff5295e413a09dd6656fb24cf1b08f3423c5ce067c6.webp",
+      "sha256": "4391fca7c9641f27ed11eff5295e413a09dd6656fb24cf1b08f3423c5ce067c6",
+      "byteLength": 97982,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:24.613Z",
+      "cfRay": "a458b1f629d25e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/4ba15a1eb905595c59b334a5ef0246b28cfade1981c952a0c57f147b9aa82106.webp",
+      "sha256": "4ba15a1eb905595c59b334a5ef0246b28cfade1981c952a0c57f147b9aa82106",
+      "byteLength": 121510,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:26.623Z",
+      "cfRay": "a458b2032c255e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/703edc0dc89e8130975f2c621e9767b8e74f74e12f6d22c6cde6d707343aae2e.webp",
+      "sha256": "703edc0dc89e8130975f2c621e9767b8e74f74e12f6d22c6cde6d707343aae2e",
+      "byteLength": 93880,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:28.508Z",
+      "cfRay": "a458b20f4eae5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/d8134a60c540a625ac554fc9ccf7f405ed99a477005607c495ca86ff3a1c365b.webp",
+      "sha256": "d8134a60c540a625ac554fc9ccf7f405ed99a477005607c495ca86ff3a1c365b",
+      "byteLength": 127284,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:30.364Z",
+      "cfRay": "a458b21a0edb5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/05af5c63544aa9a25ffa8a85a9d31894f80f70b0d56868f6dabbe7ed20c1350d.webp",
+      "sha256": "05af5c63544aa9a25ffa8a85a9d31894f80f70b0d56868f6dabbe7ed20c1350d",
+      "byteLength": 148472,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:32.263Z",
+      "cfRay": "a458b226c87f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9bd83db65a5ccc15d0185cb2894bff87d7af3b70385a26a96d5fa55bcad4d8ef.webp",
+      "sha256": "9bd83db65a5ccc15d0185cb2894bff87d7af3b70385a26a96d5fa55bcad4d8ef",
+      "byteLength": 145620,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:34.123Z",
+      "cfRay": "a458b23249e05e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/4641b3bda3063e38434a62ccc35c54dece71ca07a3070283d05338b1269e6864.webp",
+      "sha256": "4641b3bda3063e38434a62ccc35c54dece71ca07a3070283d05338b1269e6864",
+      "byteLength": 148538,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:36.118Z",
+      "cfRay": "a458b23ebb945e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/582011d648a5060213d55b16973b1ad9fa8459a1ee3df7968a983dacc78df389.webp",
+      "sha256": "582011d648a5060213d55b16973b1ad9fa8459a1ee3df7968a983dacc78df389",
+      "byteLength": 147794,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:38.086Z",
+      "cfRay": "a458b24a0c165e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/1da4d10b4d19c1c21b7c554ed0bdedba85ac6ba61e3d8b50542b1eef0c09dca4.webp",
+      "sha256": "1da4d10b4d19c1c21b7c554ed0bdedba85ac6ba61e3d8b50542b1eef0c09dca4",
+      "byteLength": 146878,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:39.903Z",
+      "cfRay": "a458b2569da55e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/91efe1e2d41931923a32d08f3fc0f18098da9d7edf93e9b4b1e49fcab21b7306.webp",
+      "sha256": "91efe1e2d41931923a32d08f3fc0f18098da9d7edf93e9b4b1e49fcab21b7306",
+      "byteLength": 143690,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:41.929Z",
+      "cfRay": "a458b26339265e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9c3d376648645dab6394eb9beb7bb8398e73edc4d8963e080f50523ba9a2d119.webp",
+      "sha256": "9c3d376648645dab6394eb9beb7bb8398e73edc4d8963e080f50523ba9a2d119",
+      "byteLength": 6548,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:43.638Z",
+      "cfRay": "a458b26dda305e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/26a520be4449478557cd11fdeaa6909338cd6b439755cd009c412f39b2d219da.webp",
+      "sha256": "26a520be4449478557cd11fdeaa6909338cd6b439755cd009c412f39b2d219da",
+      "byteLength": 152078,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:45.561Z",
+      "cfRay": "a458b2798a785e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/4fd7cebe661b97e383e477a248489db3f76f14d88047259154fd2d8453888e38.webp",
+      "sha256": "4fd7cebe661b97e383e477a248489db3f76f14d88047259154fd2d8453888e38",
+      "byteLength": 152690,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:47.529Z",
+      "cfRay": "a458b285bd915e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/2b8456784ae132dd83f4faf81bb6d14d3f30dc335e79e736eb93d3be5eb92b33.webp",
+      "sha256": "2b8456784ae132dd83f4faf81bb6d14d3f30dc335e79e736eb93d3be5eb92b33",
+      "byteLength": 118988,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:49.609Z",
+      "cfRay": "a458b2930fdd5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/7f472f4a1209211bd7c3cbcb3c03c493b8d9bc24175920ec51acefb5e43be8c8.webp",
+      "sha256": "7f472f4a1209211bd7c3cbcb3c03c493b8d9bc24175920ec51acefb5e43be8c8",
+      "byteLength": 142094,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:51.571Z",
+      "cfRay": "a458b29ed9485e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/179394a8cb2f852d699b71a072ce429aa0589c90d57dd97936747cbaa21f2a48.webp",
+      "sha256": "179394a8cb2f852d699b71a072ce429aa0589c90d57dd97936747cbaa21f2a48",
+      "byteLength": 114478,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:53.365Z",
+      "cfRay": "a458b2aa49aa5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/dfd291df860d33f1dc4fde214e0d1aa4405f9504fbbbb529515b736efa0ee3f3.webp",
+      "sha256": "dfd291df860d33f1dc4fde214e0d1aa4405f9504fbbbb529515b736efa0ee3f3",
+      "byteLength": 153434,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:55.201Z",
+      "cfRay": "a458b2b5fada5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/d8139a09cf9fff876b79a5b9e06ec4052d7b721e69484e88ddb0abfc67dfdd8d.webp",
+      "sha256": "d8139a09cf9fff876b79a5b9e06ec4052d7b721e69484e88ddb0abfc67dfdd8d",
+      "byteLength": 123288,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:57.003Z",
+      "cfRay": "a458b2c15abc5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/63ebdaf2bfbb4f6450fd9c32769c7c98d12cc0bb8fa645689735a228601500e3.webp",
+      "sha256": "63ebdaf2bfbb4f6450fd9c32769c7c98d12cc0bb8fa645689735a228601500e3",
+      "byteLength": 117498,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:36:58.934Z",
+      "cfRay": "a458b2cd6c2a5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/68cc8092efa041643ab56b738a3ceb22271c08ed01dbb164b259e433fdee1324.webp",
+      "sha256": "68cc8092efa041643ab56b738a3ceb22271c08ed01dbb164b259e433fdee1324",
+      "byteLength": 119752,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:02.057Z",
+      "cfRay": "a458b2e11a145e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/ad38c5b9a81fdf5063dfde1571549de47c150a61d9f6c8beb7119f861446b3f5.webp",
+      "sha256": "ad38c5b9a81fdf5063dfde1571549de47c150a61d9f6c8beb7119f861446b3f5",
+      "byteLength": 120628,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:04.047Z",
+      "cfRay": "a458b2ec59c45e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/a109e3f0b589fd0b05de992750c2b685b0817387ea1d27f3aa05fd1c649014e3.webp",
+      "sha256": "a109e3f0b589fd0b05de992750c2b685b0817387ea1d27f3aa05fd1c649014e3",
+      "byteLength": 119978,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:06.064Z",
+      "cfRay": "a458b2f99ae55e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/aa403c0d72e4b8f23c4f779f29b806600ac2e1542db0730832695ae58012db91.webp",
+      "sha256": "aa403c0d72e4b8f23c4f779f29b806600ac2e1542db0730832695ae58012db91",
+      "byteLength": 118248,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:08.111Z",
+      "cfRay": "a458b306aec05e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9236c51be3338b10d567c104c6afe9ecae1f8ecf49e9b0bd7af69532d5c65e0b.webp",
+      "sha256": "9236c51be3338b10d567c104c6afe9ecae1f8ecf49e9b0bd7af69532d5c65e0b",
+      "byteLength": 7094,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:09.922Z",
+      "cfRay": "a458b3116ef45e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/2e8d66afe83f2d56d513532f0e4ba523a7ee2235de10092b03149ce5e2ca94d6.webp",
+      "sha256": "2e8d66afe83f2d56d513532f0e4ba523a7ee2235de10092b03149ce5e2ca94d6",
+      "byteLength": 124180,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:11.904Z",
+      "cfRay": "a458b31d58385e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/8d83aa2faf10dc2ee0658d3735e3fb31dce13aa4e6dc305b3cf2c91ef0fa89fa.webp",
+      "sha256": "8d83aa2faf10dc2ee0658d3735e3fb31dce13aa4e6dc305b3cf2c91ef0fa89fa",
+      "byteLength": 121328,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:13.725Z",
+      "cfRay": "a458b329f9225e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/6fcf779605ba3a85d63463aa5074d47119bfedce017674fa79991ff83d4df320.webp",
+      "sha256": "6fcf779605ba3a85d63463aa5074d47119bfedce017674fa79991ff83d4df320",
+      "byteLength": 103352,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:15.617Z",
+      "cfRay": "a458b33569f55e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/8c95ff399078e29f44496b37e45731c8785ccb449f1189edbfc7440363d1f5c2.webp",
+      "sha256": "8c95ff399078e29f44496b37e45731c8785ccb449f1189edbfc7440363d1f5c2",
+      "byteLength": 124558,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:17.519Z",
+      "cfRay": "a458b3414a7f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/00d18a354662e749be4943152f2379603e94c0f929aeb269bae6d3a784dc1f15.webp",
+      "sha256": "00d18a354662e749be4943152f2379603e94c0f929aeb269bae6d3a784dc1f15",
+      "byteLength": 100546,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:19.859Z",
+      "cfRay": "a458b3502c445e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/5a1965316a66b9e0f9219dd96293af8ffa6c388aa4feff72e55f92abe1ca7449.webp",
+      "sha256": "5a1965316a66b9e0f9219dd96293af8ffa6c388aa4feff72e55f92abe1ca7449",
+      "byteLength": 122224,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:21.838Z",
+      "cfRay": "a458b35c7eb85e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9b9ff92ecbdd19691f61fb5d4bc77af53686a74e591a60405c1e21df1113f167.webp",
+      "sha256": "9b9ff92ecbdd19691f61fb5d4bc77af53686a74e591a60405c1e21df1113f167",
+      "byteLength": 109916,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:24.010Z",
+      "cfRay": "a458b3698a8c5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/d68287b4d7f0af857693b2816457240bda2720cac2ac0f69ed164bdda55f4740.webp",
+      "sha256": "d68287b4d7f0af857693b2816457240bda2720cac2ac0f69ed164bdda55f4740",
+      "byteLength": 105740,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:25.787Z",
+      "cfRay": "a458b3753c245e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/2e8fbf63b5d6f3a790d795bc4b490e8d74018c35ef6970b895db3469f632e5ca.webp",
+      "sha256": "2e8fbf63b5d6f3a790d795bc4b490e8d74018c35ef6970b895db3469f632e5ca",
+      "byteLength": 104028,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:27.682Z",
+      "cfRay": "a458b380dcf95e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/a47a9a87d17e3349973c222d3019905d0604ae9702ccd063518033dfc10138ac.webp",
+      "sha256": "a47a9a87d17e3349973c222d3019905d0604ae9702ccd063518033dfc10138ac",
+      "byteLength": 106140,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:29.466Z",
+      "cfRay": "a458b38c3da45e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/318944d332a96af5cc176dc84aa23f3abb224746cba563a7ec2159e5e22f1b9a.webp",
+      "sha256": "318944d332a96af5cc176dc84aa23f3abb224746cba563a7ec2159e5e22f1b9a",
+      "byteLength": 108430,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:31.464Z",
+      "cfRay": "a458b3982f235e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/349d284817937394d10c51e8d8d1bf0dfefe87cbd0cfc7feb340de860edd9574.webp",
+      "sha256": "349d284817937394d10c51e8d8d1bf0dfefe87cbd0cfc7feb340de860edd9574",
+      "byteLength": 105886,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:33.297Z",
+      "cfRay": "a458b3a44f2d5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/6ef7fa7e356cbad992bccd3a39f1080676039f465acf8f26152da232302c9230.webp",
+      "sha256": "6ef7fa7e356cbad992bccd3a39f1080676039f465acf8f26152da232302c9230",
+      "byteLength": 6678,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:35.169Z",
+      "cfRay": "a458b3afc8da5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/bc01fc992d093f1d7ae526f5d7970eff3f039152c93dd8935f64bb0a06709909.webp",
+      "sha256": "bc01fc992d093f1d7ae526f5d7970eff3f039152c93dd8935f64bb0a06709909",
+      "byteLength": 106438,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:36.998Z",
+      "cfRay": "a458b3bb59f15e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/d69d1198da102a268fce8e2ededb9bdd47315b6aeee969a06f446533e7c921d3.webp",
+      "sha256": "d69d1198da102a268fce8e2ededb9bdd47315b6aeee969a06f446533e7c921d3",
+      "byteLength": 103820,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:38.909Z",
+      "cfRay": "a458b3c70af65e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/6ee56c2f4827db3b85c1b3feaf7499a905daf516cb16d8edd3a2a048d4a6f9fe.webp",
+      "sha256": "6ee56c2f4827db3b85c1b3feaf7499a905daf516cb16d8edd3a2a048d4a6f9fe",
+      "byteLength": 90968,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:40.921Z",
+      "cfRay": "a458b3d35d515e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/fdfe20b07d015d6fb9262c0886d2c06f2b2ce1f0922131398d04cfa28d3e1288.webp",
+      "sha256": "fdfe20b07d015d6fb9262c0886d2c06f2b2ce1f0922131398d04cfa28d3e1288",
+      "byteLength": 104506,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:42.747Z",
+      "cfRay": "a458b3deff045e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/63161113d2db0b40a478de17507ab78768a7e79491120eb01ab639b22e819109.webp",
+      "sha256": "63161113d2db0b40a478de17507ab78768a7e79491120eb01ab639b22e819109",
+      "byteLength": 89166,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:44.763Z",
+      "cfRay": "a458b3eb589c5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/ab2c384c5819992f7e4cfe74a6ebf0507850615b57ea1a4ecc15fde063b0f26d.webp",
+      "sha256": "ab2c384c5819992f7e4cfe74a6ebf0507850615b57ea1a4ecc15fde063b0f26d",
+      "byteLength": 100290,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:46.698Z",
+      "cfRay": "a458b3f7ca4a5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/f3f18ee7d44ea3c739b5c51f6fd1f1a0d75297d3586fde7d2ae5fe0610de3f95.webp",
+      "sha256": "f3f18ee7d44ea3c739b5c51f6fd1f1a0d75297d3586fde7d2ae5fe0610de3f95",
+      "byteLength": 116960,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:48.574Z",
+      "cfRay": "a458b403dcaa5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/37bb9aa7c08e2dd87ed36f7344c457e76d782b4624af687be123201f52dc6c0a.webp",
+      "sha256": "37bb9aa7c08e2dd87ed36f7344c457e76d782b4624af687be123201f52dc6c0a",
+      "byteLength": 113794,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:50.584Z",
+      "cfRay": "a458b40ffde85e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/c5240ddca44cb1664d4d6d450ea58ec0876756e4ffa8e8d231577243a9f65f86.webp",
+      "sha256": "c5240ddca44cb1664d4d6d450ea58ec0876756e4ffa8e8d231577243a9f65f86",
+      "byteLength": 113850,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:52.418Z",
+      "cfRay": "a458b41b9f295e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/291538b4aa7c4e436be88d3bb65cd4e1fe8ce5b81889bd156807510075d382bd.webp",
+      "sha256": "291538b4aa7c4e436be88d3bb65cd4e1fe8ce5b81889bd156807510075d382bd",
+      "byteLength": 116616,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:54.417Z",
+      "cfRay": "a458b427dfdb5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/1cde043979190f0552a8475bae1e035f619103b7339327fa05eeedc34ffb7e0e.webp",
+      "sha256": "1cde043979190f0552a8475bae1e035f619103b7339327fa05eeedc34ffb7e0e",
+      "byteLength": 115662,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:56.197Z",
+      "cfRay": "a458b433b82d5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/b2ea575ecde325215e1fddabb3cd9b473c957b6f806377804a6a0c5600049c73.webp",
+      "sha256": "b2ea575ecde325215e1fddabb3cd9b473c957b6f806377804a6a0c5600049c73",
+      "byteLength": 113606,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:58.144Z",
+      "cfRay": "a458b43f18925e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/5a1f1a0b1eacc56de8941bde02adb82705da4639197e28453ac455ba5d7c7112.webp",
+      "sha256": "5a1f1a0b1eacc56de8941bde02adb82705da4639197e28453ac455ba5d7c7112",
+      "byteLength": 6046,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:37:59.698Z",
+      "cfRay": "a458b449bfb15e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/7d1813b91d212d89980c6171c79019d92597aa03af44e22a6774328e1054a41f.webp",
+      "sha256": "7d1813b91d212d89980c6171c79019d92597aa03af44e22a6774328e1054a41f",
+      "byteLength": 115792,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:01.520Z",
+      "cfRay": "a458b4548f135e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/98a9518045e5822673ae27f5c56eab7d1fbf10b82609bcd6a1ceae725ba4b26c.webp",
+      "sha256": "98a9518045e5822673ae27f5c56eab7d1fbf10b82609bcd6a1ceae725ba4b26c",
+      "byteLength": 111240,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:03.307Z",
+      "cfRay": "a458b45f4ffa5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/8e64b58dda11bb1482f67dffd9e5c48caf4da8c997ad5c2865949c930067b632.webp",
+      "sha256": "8e64b58dda11bb1482f67dffd9e5c48caf4da8c997ad5c2865949c930067b632",
+      "byteLength": 99266,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:05.294Z",
+      "cfRay": "a458b46b499a5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/30894ce77095a52b40452ed2af556724abae3e7f2928a6634b7c75a31eafc605.webp",
+      "sha256": "30894ce77095a52b40452ed2af556724abae3e7f2928a6634b7c75a31eafc605",
+      "byteLength": 111826,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:07.024Z",
+      "cfRay": "a458b4774a135e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9c74757a8c5b3f2d18542b51781398681c3d16b0203e1a64216e1cd6458983c1.webp",
+      "sha256": "9c74757a8c5b3f2d18542b51781398681c3d16b0203e1a64216e1cd6458983c1",
+      "byteLength": 97634,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:08.873Z",
+      "cfRay": "a458b481eaa05e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/6c4545765fb1bbe98c0d12074b5ea05a2fd2d52e6367f15a34064be0519b38f5.webp",
+      "sha256": "6c4545765fb1bbe98c0d12074b5ea05a2fd2d52e6367f15a34064be0519b38f5",
+      "byteLength": 111296,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:10.998Z",
+      "cfRay": "a458b48eed2f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/2a767858c3e695b5b257baf72c211a799d1b2b62a553f9957eaa740fbd9bed5a.webp",
+      "sha256": "2a767858c3e695b5b257baf72c211a799d1b2b62a553f9957eaa740fbd9bed5a",
+      "byteLength": 142382,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:13.123Z",
+      "cfRay": "a458b49bafae5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/d4898f8ad7bdb117cd7d5f3305d86a647d05600c1b023de43e3cf8c981aba817.webp",
+      "sha256": "d4898f8ad7bdb117cd7d5f3305d86a647d05600c1b023de43e3cf8c981aba817",
+      "byteLength": 141298,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:14.938Z",
+      "cfRay": "a458b4a838b45e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/d181e68e03b362d45c7b3b7b457f1045b71801788bcc8d66e14c2546179424c1.webp",
+      "sha256": "d181e68e03b362d45c7b3b7b457f1045b71801788bcc8d66e14c2546179424c1",
+      "byteLength": 140206,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:16.875Z",
+      "cfRay": "a458b4b4283e5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/92e566ab529c4269ea6b0b9fc73d4e351aa6e76aaa5ec0e7dcf10c7a193ba430.webp",
+      "sha256": "92e566ab529c4269ea6b0b9fc73d4e351aa6e76aaa5ec0e7dcf10c7a193ba430",
+      "byteLength": 141938,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:18.748Z",
+      "cfRay": "a458b4bfe9955e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/6dd9a12a7cb5d0d44ef66bb5f94e8d8606e5b5f9bca1438eb32ca16cc0636167.webp",
+      "sha256": "6dd9a12a7cb5d0d44ef66bb5f94e8d8606e5b5f9bca1438eb32ca16cc0636167",
+      "byteLength": 138974,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:20.626Z",
+      "cfRay": "a458b4cbbae65e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/855b1dbf003317c4ae562c756349cb00b99fa969e7461b57c13031983b99a6e3.webp",
+      "sha256": "855b1dbf003317c4ae562c756349cb00b99fa969e7461b57c13031983b99a6e3",
+      "byteLength": 139682,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:22.542Z",
+      "cfRay": "a458b4d75c2d5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/5b9f36163bf49f926ed2ed7faa98a6c940afd9f860b4355a6c751e86c49cde73.webp",
+      "sha256": "5b9f36163bf49f926ed2ed7faa98a6c940afd9f860b4355a6c751e86c49cde73",
+      "byteLength": 7126,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:24.224Z",
+      "cfRay": "a458b4e29c025e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/daee01609f3e2f217ebe514dcbddd7884301f569938bd097bebb6b5b23cf11a0.webp",
+      "sha256": "daee01609f3e2f217ebe514dcbddd7884301f569938bd097bebb6b5b23cf11a0",
+      "byteLength": 139838,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:26.074Z",
+      "cfRay": "a458b4ee0bcc5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/f754e95b0f1c2e9c59a58e74f4ccf7e5cfbf6c8ee52ebce4c9f57b94c99ebedf.webp",
+      "sha256": "f754e95b0f1c2e9c59a58e74f4ccf7e5cfbf6c8ee52ebce4c9f57b94c99ebedf",
+      "byteLength": 143680,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:27.905Z",
+      "cfRay": "a458b4f91c595e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/6425b39b90f46799939d10f68f96b62b3cd198fa2337625cfa66fa6c565ad5c4.webp",
+      "sha256": "6425b39b90f46799939d10f68f96b62b3cd198fa2337625cfa66fa6c565ad5c4",
+      "byteLength": 124022,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:29.722Z",
+      "cfRay": "a458b504cddd5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/7b960a1752b5a2b118b4449848f9a298bbde23db4df95520bda13b9b8b04ec2c.webp",
+      "sha256": "7b960a1752b5a2b118b4449848f9a298bbde23db4df95520bda13b9b8b04ec2c",
+      "byteLength": 136148,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:31.478Z",
+      "cfRay": "a458b50fce055e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/e8c3dc68c6de49a4b86dbcb1686e7e81833a959ff74ebd5d0bec1c35999a7405.webp",
+      "sha256": "e8c3dc68c6de49a4b86dbcb1686e7e81833a959ff74ebd5d0bec1c35999a7405",
+      "byteLength": 124382,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:33.271Z",
+      "cfRay": "a458b51b2cc25e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/09755c20bc93536f7e5e8097ddb3182c4936a0ee2497207d90f2c9854ad51b4b.webp",
+      "sha256": "09755c20bc93536f7e5e8097ddb3182c4936a0ee2497207d90f2c9854ad51b4b",
+      "byteLength": 145334,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:35.056Z",
+      "cfRay": "a458b525ed0b5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/6cddad4c5031d3bd4902a14e7634ae02412b9435aae2774113e763c1c7f353cd.webp",
+      "sha256": "6cddad4c5031d3bd4902a14e7634ae02412b9435aae2774113e763c1c7f353cd",
+      "byteLength": 154010,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:36.958Z",
+      "cfRay": "a458b530bef55e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/193a398558883f2fcb19af481bd7025a8b55bd4395c160db811251dc804e1e5a.webp",
+      "sha256": "193a398558883f2fcb19af481bd7025a8b55bd4395c160db811251dc804e1e5a",
+      "byteLength": 152072,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:38.853Z",
+      "cfRay": "a458b53d89905e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/2f733e5c608082cac560467ef5974476f9791322d857cfbbe93d558434df5a7e.webp",
+      "sha256": "2f733e5c608082cac560467ef5974476f9791322d857cfbbe93d558434df5a7e",
+      "byteLength": 154280,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:40.811Z",
+      "cfRay": "a458b5493bf75e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/613e2ba0b23f01da0dbd1bb6cee5c87775e420bacec5eb3bc368206602fd20df.webp",
+      "sha256": "613e2ba0b23f01da0dbd1bb6cee5c87775e420bacec5eb3bc368206602fd20df",
+      "byteLength": 154408,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:42.765Z",
+      "cfRay": "a458b5562d545e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/3a31df1814a2c72211a854e5c711eacc50d1d4a78f69884f2005aa56687ba52d.webp",
+      "sha256": "3a31df1814a2c72211a854e5c711eacc50d1d4a78f69884f2005aa56687ba52d",
+      "byteLength": 154236,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:44.508Z",
+      "cfRay": "a458b5610d955e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/7874115447ba0eaa8989f509fc83ed525cc1efb669013bbf6c875f88428fd4ad.webp",
+      "sha256": "7874115447ba0eaa8989f509fc83ed525cc1efb669013bbf6c875f88428fd4ad",
+      "byteLength": 151606,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:46.344Z",
+      "cfRay": "a458b56c5fa85e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/4a2729d5c5f5c6aab68820e7d9bc4969bc2b5960ac7e77bd7102386e19f76342.webp",
+      "sha256": "4a2729d5c5f5c6aab68820e7d9bc4969bc2b5960ac7e77bd7102386e19f76342",
+      "byteLength": 6604,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:48.142Z",
+      "cfRay": "a458b5777b565e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/98d880df846b35d3d282271bb17eb7eae0832cb52c9119a1db38b835ce403c97.webp",
+      "sha256": "98d880df846b35d3d282271bb17eb7eae0832cb52c9119a1db38b835ce403c97",
+      "byteLength": 157330,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:50.028Z",
+      "cfRay": "a458b583cd0d5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/c0975aeeef7c98f22d1853bb20eeabe4cb67281a6fd8accce1add93d2598ae03.webp",
+      "sha256": "c0975aeeef7c98f22d1853bb20eeabe4cb67281a6fd8accce1add93d2598ae03",
+      "byteLength": 169234,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:51.865Z",
+      "cfRay": "a458b58eedf45e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/87f09e7f2399a9de2f58e626ba04be40ac77158b9db289531efd5cab0cb393f5.webp",
+      "sha256": "87f09e7f2399a9de2f58e626ba04be40ac77158b9db289531efd5cab0cb393f5",
+      "byteLength": 123838,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:53.708Z",
+      "cfRay": "a458b59aefa85e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/83a2bab2ade02f72895fbdf5907b8a0b70840ea42b5261c97c2f7f48088d027d.webp",
+      "sha256": "83a2bab2ade02f72895fbdf5907b8a0b70840ea42b5261c97c2f7f48088d027d",
+      "byteLength": 153846,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:55.602Z",
+      "cfRay": "a458b5a658f95e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/489dd0f45063dd54a7911217b65dae29eef31b7ed44f744283961b146c2546c5.webp",
+      "sha256": "489dd0f45063dd54a7911217b65dae29eef31b7ed44f744283961b146c2546c5",
+      "byteLength": 125618,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:57.572Z",
+      "cfRay": "a458b5b289fe5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/265368fc3c78c41f975e2b4ddf5e0c3276ffaa55b042f6c5d7cd99d43d1aa527.webp",
+      "sha256": "265368fc3c78c41f975e2b4ddf5e0c3276ffaa55b042f6c5d7cd99d43d1aa527",
+      "byteLength": 160706,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:38:59.671Z",
+      "cfRay": "a458b5bfde665e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/dd8946813eb5d66f8e18f9a06d5f9007ef9df64f8cda8fbcdce16ac98a8d9421.webp",
+      "sha256": "dd8946813eb5d66f8e18f9a06d5f9007ef9df64f8cda8fbcdce16ac98a8d9421",
+      "byteLength": 118022,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:01.588Z",
+      "cfRay": "a458b5cbdff65e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/7b31ab73f23be645955197263fa840a747eaa01f80347ab67c94c887c26dafc9.webp",
+      "sha256": "7b31ab73f23be645955197263fa840a747eaa01f80347ab67c94c887c26dafc9",
+      "byteLength": 117976,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:03.796Z",
+      "cfRay": "a458b5d93bc65e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/cf4808af92455e1bfb6d36c013fc9e4614d65fa8df2ed4670b1374d83c649d20.webp",
+      "sha256": "cf4808af92455e1bfb6d36c013fc9e4614d65fa8df2ed4670b1374d83c649d20",
+      "byteLength": 119536,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:05.742Z",
+      "cfRay": "a458b5e54cdf5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/5087f43de2fb20b5ccccf577a6131da8b30bf2590644eaef477f8634dec3b36f.webp",
+      "sha256": "5087f43de2fb20b5ccccf577a6131da8b30bf2590644eaef477f8634dec3b36f",
+      "byteLength": 120640,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:07.764Z",
+      "cfRay": "a458b5f1cefe5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/b99b93c3c63b50b2689802484ac903e8ec2a368b7e62c478aaa8cb5240ebac2c.webp",
+      "sha256": "b99b93c3c63b50b2689802484ac903e8ec2a368b7e62c478aaa8cb5240ebac2c",
+      "byteLength": 117884,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:09.619Z",
+      "cfRay": "a458b5fddf415e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/2a409612532be15358d430e2b598e27fd03b1277ed9a6e12c2d6d6068e4074f8.webp",
+      "sha256": "2a409612532be15358d430e2b598e27fd03b1277ed9a6e12c2d6d6068e4074f8",
+      "byteLength": 116582,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:11.614Z",
+      "cfRay": "a458b609489b5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/e1d270b07f7a013505408aec7cf928eba8fc3c5964fc60be477d5b07b876ae8e.webp",
+      "sha256": "e1d270b07f7a013505408aec7cf928eba8fc3c5964fc60be477d5b07b876ae8e",
+      "byteLength": 6644,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:13.462Z",
+      "cfRay": "a458b6161a2c5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/16e265e8302eec668024b69d12f37b8288c1dbb2cf5d5969cadcf4f609faf734.webp",
+      "sha256": "16e265e8302eec668024b69d12f37b8288c1dbb2cf5d5969cadcf4f609faf734",
+      "byteLength": 123520,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:15.252Z",
+      "cfRay": "a458b6215a005e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/adfe33a8bb7a6889fb0d7c441978a7dda0387dfa7aa595b8395d835b735dc3a9.webp",
+      "sha256": "adfe33a8bb7a6889fb0d7c441978a7dda0387dfa7aa595b8395d835b735dc3a9",
+      "byteLength": 111082,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:17.103Z",
+      "cfRay": "a458b62d2aa45e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/3e428223e42c19e506005903c1ac60be4d66e707c1e9e48867d0b2b53d0867e7.webp",
+      "sha256": "3e428223e42c19e506005903c1ac60be4d66e707c1e9e48867d0b2b53d0867e7",
+      "byteLength": 90926,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:18.962Z",
+      "cfRay": "a458b638aae15e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/f6c082f69b33fd402927cd4bf906782c455adec870a99cdb6749677441e676fd.webp",
+      "sha256": "f6c082f69b33fd402927cd4bf906782c455adec870a99cdb6749677441e676fd",
+      "byteLength": 123762,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:21.394Z",
+      "cfRay": "a458b6477d6b5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/a46d04fb74bd49a38652557852b7646a639540fea1acd13b974871c30b48c876.webp",
+      "sha256": "a46d04fb74bd49a38652557852b7646a639540fea1acd13b974871c30b48c876",
+      "byteLength": 89328,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:23.438Z",
+      "cfRay": "a458b653ce765e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/fae6cb98b11222050d6463b30c30fef1ab86bbb1a77ea9175ba4d172a8db8de5.webp",
+      "sha256": "fae6cb98b11222050d6463b30c30fef1ab86bbb1a77ea9175ba4d172a8db8de5",
+      "byteLength": 129038,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:25.512Z",
+      "cfRay": "a458b66178a75e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/48b0b00e566de529fa8a708e335bdd26544f56c070de12c187551aba0462cbef.webp",
+      "sha256": "48b0b00e566de529fa8a708e335bdd26544f56c070de12c187551aba0462cbef",
+      "byteLength": 132338,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:27.424Z",
+      "cfRay": "a458b66d19875e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/ca3b9a2ad3ff4aef89447dbfe13345d55bdd921d98d099f1fb8481d8896eea29.webp",
+      "sha256": "ca3b9a2ad3ff4aef89447dbfe13345d55bdd921d98d099f1fb8481d8896eea29",
+      "byteLength": 130598,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:29.313Z",
+      "cfRay": "a458b6794aee5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/af80a7a5055e22757c452b3c4f6753ed20930e7779731a638525eb16da9b566c.webp",
+      "sha256": "af80a7a5055e22757c452b3c4f6753ed20930e7779731a638525eb16da9b566c",
+      "byteLength": 132704,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:31.158Z",
+      "cfRay": "a458b6842ad85e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/d7b9d89db4c432e0f6f8a6ec2f5e8360a3f1ee6627aa5462a5369479a1d4f93a.webp",
+      "sha256": "d7b9d89db4c432e0f6f8a6ec2f5e8360a3f1ee6627aa5462a5369479a1d4f93a",
+      "byteLength": 132692,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:33.054Z",
+      "cfRay": "a458b68fcb165e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/50461f1bcd943907453e31bc519219c2947fe2041e0f10968a9c3459dbd8c503.webp",
+      "sha256": "50461f1bcd943907453e31bc519219c2947fe2041e0f10968a9c3459dbd8c503",
+      "byteLength": 132810,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:34.971Z",
+      "cfRay": "a458b69b9c105e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/d3ba99eb211854b9779fff64e9cb742ec14d5a2435acafe158214f4eb45abea6.webp",
+      "sha256": "d3ba99eb211854b9779fff64e9cb742ec14d5a2435acafe158214f4eb45abea6",
+      "byteLength": 130058,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:36.949Z",
+      "cfRay": "a458b6a91e005e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/4eebd99cee9521467a3b5ace1546951b26439e07abe209528a7f98da586218b2.webp",
+      "sha256": "4eebd99cee9521467a3b5ace1546951b26439e07abe209528a7f98da586218b2",
+      "byteLength": 6582,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:38.622Z",
+      "cfRay": "a458b6b33d7f5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/180d395d3ef8d5ee7a2b5b4bfd08f4bab62ecb8efc22fe1048425d3c0ed70b66.webp",
+      "sha256": "180d395d3ef8d5ee7a2b5b4bfd08f4bab62ecb8efc22fe1048425d3c0ed70b66",
+      "byteLength": 134440,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:40.291Z",
+      "cfRay": "a458b6be6f1c5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/652cb6ac38135daeb1818e0b5be4fd309784f9a91b5a57e0e5eb3193ad1d7594.webp",
+      "sha256": "652cb6ac38135daeb1818e0b5be4fd309784f9a91b5a57e0e5eb3193ad1d7594",
+      "byteLength": 125856,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:42.444Z",
+      "cfRay": "a458b6cad8a25e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/bdec2a14380df3c459cfddb9766301065cbb3b697fada824f8d2fc4fc97e0913.webp",
+      "sha256": "bdec2a14380df3c459cfddb9766301065cbb3b697fada824f8d2fc4fc97e0913",
+      "byteLength": 100512,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:44.327Z",
+      "cfRay": "a458b6d6bcc75e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/2a5e73b6e5b76d480b2198853e4409639e9f279d3cdf7b20742bea5ff7b85297.webp",
+      "sha256": "2a5e73b6e5b76d480b2198853e4409639e9f279d3cdf7b20742bea5ff7b85297",
+      "byteLength": 130724,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:46.145Z",
+      "cfRay": "a458b6e23c625e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/20e1f48424333e42b6057cfdd397baad8b53bb9f94520618b64a22fe80465622.webp",
+      "sha256": "20e1f48424333e42b6057cfdd397baad8b53bb9f94520618b64a22fe80465622",
+      "byteLength": 97070,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:48.202Z",
+      "cfRay": "a458b6ef1ec25e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/daaaf01d1e39a7b30085958a8afa1b3a8bf95057a6494e7dfe215535d30d1aca.webp",
+      "sha256": "daaaf01d1e39a7b30085958a8afa1b3a8bf95057a6494e7dfe215535d30d1aca",
+      "byteLength": 127278,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:50.166Z",
+      "cfRay": "a458b6fb5f815e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/5318ba9885dab37f2ac677bb0defda8061fe69e3788bf0aa9283e5a65dc8dd84.webp",
+      "sha256": "5318ba9885dab37f2ac677bb0defda8061fe69e3788bf0aa9283e5a65dc8dd84",
+      "byteLength": 106734,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:52.006Z",
+      "cfRay": "a458b7071fe05e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/d04906876e10ffa56e437141cc5b5897592e7cc3e1daa5383941489baffe651d.webp",
+      "sha256": "d04906876e10ffa56e437141cc5b5897592e7cc3e1daa5383941489baffe651d",
+      "byteLength": 104656,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:53.918Z",
+      "cfRay": "a458b712e9825e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/788a12f0b90c7f69c6bc671e983ebcecb307a550c6e6cc8afebe6cb90ec5d19b.webp",
+      "sha256": "788a12f0b90c7f69c6bc671e983ebcecb307a550c6e6cc8afebe6cb90ec5d19b",
+      "byteLength": 105156,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:55.686Z",
+      "cfRay": "a458b71e49e75e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/6c62a0ee098d4975365bfd0d6c66e1b1c483e84912e61fedec6709f8a3940022.webp",
+      "sha256": "6c62a0ee098d4975365bfd0d6c66e1b1c483e84912e61fedec6709f8a3940022",
+      "byteLength": 106938,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:57.552Z",
+      "cfRay": "a458b729da505e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/13753d561a22ef2c8e0e7de5302a5aa8be3f0b550ae1f15ae44cd0d0ef899c83.webp",
+      "sha256": "13753d561a22ef2c8e0e7de5302a5aa8be3f0b550ae1f15ae44cd0d0ef899c83",
+      "byteLength": 106392,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:39:59.474Z",
+      "cfRay": "a458b7359b715e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/5ac3554aedcaff6d9ac76f9448dcf2c8161afe45a2f4abf220cddc962366c5c4.webp",
+      "sha256": "5ac3554aedcaff6d9ac76f9448dcf2c8161afe45a2f4abf220cddc962366c5c4",
+      "byteLength": 104510,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:02.740Z",
+      "cfRay": "a458b7423d105e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/43181870ed430467b45329623e44e4f1f3673a7dfd49b1b3ad2d0bbea86b0a2e.webp",
+      "sha256": "43181870ed430467b45329623e44e4f1f3673a7dfd49b1b3ad2d0bbea86b0a2e",
+      "byteLength": 6076,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:05.058Z",
+      "cfRay": "a458b7562bd65e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/8440ab20754e31d9924d51695bb4f77a8c2854167c6841dedfc634189bb45f3d.webp",
+      "sha256": "8440ab20754e31d9924d51695bb4f77a8c2854167c6841dedfc634189bb45f3d",
+      "byteLength": 102848,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:07.192Z",
+      "cfRay": "a458b7649eb85e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/b1c951dbfb068f7ba0bf64f68c7804fc370a402d18864287a88587886b093d8b.webp",
+      "sha256": "b1c951dbfb068f7ba0bf64f68c7804fc370a402d18864287a88587886b093d8b",
+      "byteLength": 101520,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:09.442Z",
+      "cfRay": "a458b772bc0a5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/4ff5e796a6cb900a4d30a850fffccbfb53b4df30274a02d9bd1db920d97c3635.webp",
+      "sha256": "4ff5e796a6cb900a4d30a850fffccbfb53b4df30274a02d9bd1db920d97c3635",
+      "byteLength": 86702,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:11.433Z",
+      "cfRay": "a458b77feebc5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/7bd72dd035e7d4282c3b8d57ff098f8316d81f93f6233d0d1661702a55862bb9.webp",
+      "sha256": "7bd72dd035e7d4282c3b8d57ff098f8316d81f93f6233d0d1661702a55862bb9",
+      "byteLength": 96018,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:13.771Z",
+      "cfRay": "a458b78d08cc5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/0fe568c1205f35df78cf13b98fe58ebde96892a0f2857225b6e114bb0350ace0.webp",
+      "sha256": "0fe568c1205f35df78cf13b98fe58ebde96892a0f2857225b6e114bb0350ace0",
+      "byteLength": 86176,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:15.774Z",
+      "cfRay": "a458b79acb3c5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/f84d0282208a2828daccef258d1b7aeb029c313f924278ac86e7a6f9ac584653.webp",
+      "sha256": "f84d0282208a2828daccef258d1b7aeb029c313f924278ac86e7a6f9ac584653",
+      "byteLength": 101590,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:17.627Z",
+      "cfRay": "a458b7a6dbe25e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/e486814b07a937fcc7aa80583f75bee7bafe119e56e539d4c6f9e20df6e140c2.webp",
+      "sha256": "e486814b07a937fcc7aa80583f75bee7bafe119e56e539d4c6f9e20df6e140c2",
+      "byteLength": 139914,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:19.255Z",
+      "cfRay": "a458b7b18b7a5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/569f6de8f354887c81a21cd2ce0855d11189c8b078bc13a42bfa6b84f6c2394c.webp",
+      "sha256": "569f6de8f354887c81a21cd2ce0855d11189c8b078bc13a42bfa6b84f6c2394c",
+      "byteLength": 140076,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:21.252Z",
+      "cfRay": "a458b7bcfd8a5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/384d4da7a9a11eb1822c3a0121dd1adcf24151a06953dee3c5347e8fce877eb1.webp",
+      "sha256": "384d4da7a9a11eb1822c3a0121dd1adcf24151a06953dee3c5347e8fce877eb1",
+      "byteLength": 140322,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:22.913Z",
+      "cfRay": "a458b7c7fde45e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/5b5f4823d8928288dab54cfe8239639f6158233e6da685eed8d9404c5680cc55.webp",
+      "sha256": "5b5f4823d8928288dab54cfe8239639f6158233e6da685eed8d9404c5680cc55",
+      "byteLength": 140172,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:24.446Z",
+      "cfRay": "a458b7d18c075e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/210cc6e47fb196674b7fda5bc3fca10d61b48bb1793559a7604d6a07fc972948.webp",
+      "sha256": "210cc6e47fb196674b7fda5bc3fca10d61b48bb1793559a7604d6a07fc972948",
+      "byteLength": 139908,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:26.124Z",
+      "cfRay": "a458b7dc6bfe5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/c29754c7550e72570d873e7d23d31dee729471e4f27e3cefcdaf38e965f39437.webp",
+      "sha256": "c29754c7550e72570d873e7d23d31dee729471e4f27e3cefcdaf38e965f39437",
+      "byteLength": 139350,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:27.451Z",
+      "cfRay": "a458b7e50a965e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/943f733112a037abe5ce6dc5e4847b04d59ac214145bd8d1d3c32a8f58023ee4.webp",
+      "sha256": "943f733112a037abe5ce6dc5e4847b04d59ac214145bd8d1d3c32a8f58023ee4",
+      "byteLength": 6532,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:28.853Z",
+      "cfRay": "a458b7ed58265e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/41b48da70de22868bbad2e6a3182a1c5f4058fc89200150658f3c61f6c34570a.webp",
+      "sha256": "41b48da70de22868bbad2e6a3182a1c5f4058fc89200150658f3c61f6c34570a",
+      "byteLength": 143502,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:30.309Z",
+      "cfRay": "a458b7f6aef95e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/a781bea92e521c6dee18390f6342f32f573406f46520cca576b2c218a78752d2.webp",
+      "sha256": "a781bea92e521c6dee18390f6342f32f573406f46520cca576b2c218a78752d2",
+      "byteLength": 146448,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:31.889Z",
+      "cfRay": "a458b7ffdcf05e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/e2858ba9165594e9a05a20a1c4d0231c6cf0dfc617456f3bbe638b613ac1f105.webp",
+      "sha256": "e2858ba9165594e9a05a20a1c4d0231c6cf0dfc617456f3bbe638b613ac1f105",
+      "byteLength": 118572,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:33.462Z",
+      "cfRay": "a458b809acc15e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/f865d88633a1e9bd8cf1c71604ad8bd92e185ba339d91add0b15819ec7593070.webp",
+      "sha256": "f865d88633a1e9bd8cf1c71604ad8bd92e185ba339d91add0b15819ec7593070",
+      "byteLength": 131522,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:35.007Z",
+      "cfRay": "a458b813fc735e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/f7a578bfa7484cebb864865cf8a9c3bef070e40a968b1c49c99f60be394e96d3.webp",
+      "sha256": "f7a578bfa7484cebb864865cf8a9c3bef070e40a968b1c49c99f60be394e96d3",
+      "byteLength": 119438,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:38.639Z",
+      "cfRay": "a458b81d0b445e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/e5ffdf340ffe0e059b3f9d440b226c2d0672c47a8a96b443fe0042587e36b89e.webp",
+      "sha256": "e5ffdf340ffe0e059b3f9d440b226c2d0672c47a8a96b443fe0042587e36b89e",
+      "byteLength": 141474,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:40.189Z",
+      "cfRay": "a458b833eb015e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9eee9b7eb3bdc2d76e8db6ecc395e4eaef4dafcd61089e1c9843dccfeff154f2.webp",
+      "sha256": "9eee9b7eb3bdc2d76e8db6ecc395e4eaef4dafcd61089e1c9843dccfeff154f2",
+      "byteLength": 80440,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:41.729Z",
+      "cfRay": "a458b83d4aff5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/11227612ccd3c8b082ad0aeb9e36f2f0a0f9b6765b4cecf6493973e3fb8a88f2.webp",
+      "sha256": "11227612ccd3c8b082ad0aeb9e36f2f0a0f9b6765b4cecf6493973e3fb8a88f2",
+      "byteLength": 77838,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:43.213Z",
+      "cfRay": "a458b8479cbc5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/0de1f83ff006987cf640cb1a56bd07df9e647c7f00abe3e33fe32e0bfa638f87.webp",
+      "sha256": "0de1f83ff006987cf640cb1a56bd07df9e647c7f00abe3e33fe32e0bfa638f87",
+      "byteLength": 80700,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:44.900Z",
+      "cfRay": "a458b850fcf75e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/b3911f220f3772a863cb62202e2e415454278b740dd066ba32f3cf74c3e1830e.webp",
+      "sha256": "b3911f220f3772a863cb62202e2e415454278b740dd066ba32f3cf74c3e1830e",
+      "byteLength": 81276,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:46.457Z",
+      "cfRay": "a458b85b7d575e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/df0c15e1017c96a534fcdb248b679d43974ad222f03c30186b523e40e0a3aa47.webp",
+      "sha256": "df0c15e1017c96a534fcdb248b679d43974ad222f03c30186b523e40e0a3aa47",
+      "byteLength": 80922,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:48.096Z",
+      "cfRay": "a458b8650dc25e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/837e2165c0e9f9ff2f44a4f7d459616da321ea62b4489453bd8b019ea6c67883.webp",
+      "sha256": "837e2165c0e9f9ff2f44a4f7d459616da321ea62b4489453bd8b019ea6c67883",
+      "byteLength": 79244,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:49.559Z",
+      "cfRay": "a458b86eed4a5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/141f4d266de5717439c714e295579182e0a86c9031ff2f717fc26fb6a24a35a6.webp",
+      "sha256": "141f4d266de5717439c714e295579182e0a86c9031ff2f717fc26fb6a24a35a6",
+      "byteLength": 5044,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:50.927Z",
+      "cfRay": "a458b877cca25e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/5738e5c7e779c14f3baf9a273671b88c89ab315502598c78664efe065e216e01.webp",
+      "sha256": "5738e5c7e779c14f3baf9a273671b88c89ab315502598c78664efe065e216e01",
+      "byteLength": 74386,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:52.377Z",
+      "cfRay": "a458b880ab885e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/948d57e65784524b9a5d76bc07b01cb67f4939848b3a8c125537894eaad7e65a.webp",
+      "sha256": "948d57e65784524b9a5d76bc07b01cb67f4939848b3a8c125537894eaad7e65a",
+      "byteLength": 71562,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:53.890Z",
+      "cfRay": "a458b889b9cd5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/37f7c172687c0468675a4671af6ef893de41f979ad9b4ec7db0ca1bb3aff7ed0.webp",
+      "sha256": "37f7c172687c0468675a4671af6ef893de41f979ad9b4ec7db0ca1bb3aff7ed0",
+      "byteLength": 65422,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:55.630Z",
+      "cfRay": "a458b8941a395e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/52740568b485b7673c8e9dbebdd1dfdf93fbc77a7d7fadcfa462eece03f3b08c.webp",
+      "sha256": "52740568b485b7673c8e9dbebdd1dfdf93fbc77a7d7fadcfa462eece03f3b08c",
+      "byteLength": 71254,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:57.083Z",
+      "cfRay": "a458b89e89975e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/3b661c861c085d49a88a76ec31d0e0f53a855ef3dc07ac64992348517aaf900a.webp",
+      "sha256": "3b661c861c085d49a88a76ec31d0e0f53a855ef3dc07ac64992348517aaf900a",
+      "byteLength": 62774,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:58.596Z",
+      "cfRay": "a458b8a7a8155e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/9d3d6a89b05002c53350dbd2cf3177430e4e9b51ce7c9a0a3eb03bd287517497.webp",
+      "sha256": "9d3d6a89b05002c53350dbd2cf3177430e4e9b51ce7c9a0a3eb03bd287517497",
+      "byteLength": 70884,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:40:59.994Z",
+      "cfRay": "a458b8b0aebd5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/8ec05c56cf393f249570ca8715222490c8ee02b9994e9e25650629651fe4632c.webp",
+      "sha256": "8ec05c56cf393f249570ca8715222490c8ee02b9994e9e25650629651fe4632c",
+      "byteLength": 111454,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:41:01.448Z",
+      "cfRay": "a458b8b88d005e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/8bd7dab7a994d2da58687c9b6767bf1bac763b64669b9f537b5849fd44f34175.webp",
+      "sha256": "8bd7dab7a994d2da58687c9b6767bf1bac763b64669b9f537b5849fd44f34175",
+      "byteLength": 110370,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:41:02.959Z",
+      "cfRay": "a458b8c29d005e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/6adbfc973e82ac123e47b362fccf348097721d42bb669350b6354f0cf1f1c6f8.webp",
+      "sha256": "6adbfc973e82ac123e47b362fccf348097721d42bb669350b6354f0cf1f1c6f8",
+      "byteLength": 112136,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:41:04.666Z",
+      "cfRay": "a458b8cc9cab5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/ac99f4feb17fa0fcc772b17fc13ed8f1e4e1eb9d4aefb0c77c6d79d06c1ef0c2.webp",
+      "sha256": "ac99f4feb17fa0fcc772b17fc13ed8f1e4e1eb9d4aefb0c77c6d79d06c1ef0c2",
+      "byteLength": 113784,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:41:06.066Z",
+      "cfRay": "a458b8d65c1e5e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/549a789ff761340f890992ca947ef378cb4beedda3bc570b58bf0533e97beecf.webp",
+      "sha256": "549a789ff761340f890992ca947ef378cb4beedda3bc570b58bf0533e97beecf",
+      "byteLength": 111096,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:41:07.588Z",
+      "cfRay": "a458b8df5cb65e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/05d171cbc7c21e3b0b03e0a0be3a72f6e3b78e58b9d263c173c2fad4397e1bb5.webp",
+      "sha256": "05d171cbc7c21e3b0b03e0a0be3a72f6e3b78e58b9d263c173c2fad4397e1bb5",
+      "byteLength": 110080,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:41:09.328Z",
+      "cfRay": "a458b8e97c945e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/497acc686f5d89a0ab9d2e9883516f96ae844f671ad2a5d19e4d98e7b40e6654.webp",
+      "sha256": "497acc686f5d89a0ab9d2e9883516f96ae844f671ad2a5d19e4d98e7b40e6654",
+      "byteLength": 5958,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:41:10.617Z",
+      "cfRay": "a458b8f2ebf45e61-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/f4616c56aa1dda065142631581adc87953eb097ece7f27547a60f70577cef82a.webp",
+      "sha256": "f4616c56aa1dda065142631581adc87953eb097ece7f27547a60f70577cef82a",
+      "byteLength": 108276,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:41:12.906Z",
+      "cfRay": "a458b9005d3a7327-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/dde870eafbb13d5ec76b4603ddf2f20370240b5bb2dd714b906d3ea20349b2da.webp",
+      "sha256": "dde870eafbb13d5ec76b4603ddf2f20370240b5bb2dd714b906d3ea20349b2da",
+      "byteLength": 108326,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:41:15.504Z",
+      "cfRay": "a458b9101e5a7327-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/bc6abe20b88daa23358a3a8581a5eb3212909ac8888ac78858e7cb2eeed2e357.webp",
+      "sha256": "bc6abe20b88daa23358a3a8581a5eb3212909ac8888ac78858e7cb2eeed2e357",
+      "byteLength": 93448,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:41:17.244Z",
+      "cfRay": "a458b91bb8967327-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/02e37873d40db789ac5086dab10981a0617df3e1bc60d7f72c37b90e72415000.webp",
+      "sha256": "02e37873d40db789ac5086dab10981a0617df3e1bc60d7f72c37b90e72415000",
+      "byteLength": 111082,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:41:19.344Z",
+      "cfRay": "a458b928fc9b7327-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/4644c8a04a2f93162084d2a23804ca96c828bf4c61e1e8d0730e13874227d0af.webp",
+      "sha256": "4644c8a04a2f93162084d2a23804ca96c828bf4c61e1e8d0730e13874227d0af",
+      "byteLength": 93180,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:41:21.458Z",
+      "cfRay": "a458b9348f417327-EWR"
+    },
+    {
+      "key": "guide-packs/dragon/dragon-v1-20261004/72ec86c0a86c8f457f53998fb880276ab170da28257fc0a1b3c1e00f1ac4595c.webp",
+      "sha256": "72ec86c0a86c8f457f53998fb880276ab170da28257fc0a1b3c1e00f1ac4595c",
+      "byteLength": 109112,
+      "mime": "image/webp",
+      "action": "uploaded",
+      "checkedAt": "2026-10-05T01:41:23.217Z",
+      "cfRay": "a458b940ea5a7327-EWR"
+    }
+  ]
+}

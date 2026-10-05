@@ -1,0 +1,25 @@
+{
+  "schema": "freedom.guide-publisher-receipt-set/v1",
+  "manifestSha256": "506d5fe7eb653874286baeb58b3bc47f44e243279104fae2d9a8ada2a65723ee",
+  "sourceCommit": "a8e2c2e82f1da1919f54a71002c7134ae216b2e3",
+  "binding": "GUIDE_STATIC",
+  "privateOriginRequired": true,
+  "receipts": [
+    {
+      "environment": "staging",
+      "bucket": "freedom-staging-next-guide-static",
+      "receipt": "dragon-v1-20261004-staging.json",
+      "sha256": "72785f79e53025810e49b4c8d98e59f1b0b19eab082e8b73d70ef375d7aac1ad",
+      "objectCount": 338,
+      "totalBytes": 37769448
+    },
+    {
+      "environment": "next",
+      "bucket": "freedom-next-guide-static",
+      "receipt": "dragon-v1-20261004-next.json",
+      "sha256": "112f84979358922fd0974bb6c15a4a3c666a34bab7823897afe295751836ffbb",
+      "objectCount": 338,
+      "totalBytes": 37769448
+    }
+  ]
+}
