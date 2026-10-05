@@ -43,3 +43,39 @@ test('native SQLite DO persists policy revision across process restart and rejec
     await boot(profile('3', 'c')); assert.equal((await call()).status, 200, 'reviewed higher policy revision remains possible');
   } finally { await mf?.dispose(); await rm(directory, { recursive: true, force: true }); }
 });
+
+test('native recovery state and floor retain independent monotonic namespaces across restart', async () => {
+  await mkdir(resolve('.wrangler'), { recursive: true });
+  const directory = await mkdtemp(resolve('.wrangler/authority-generations-'));
+  let mf: Miniflare | undefined;
+  try {
+    const bundle = join(directory, 'worker.mjs');
+    await build({ stdin: { contents: source, resolveDir: process.cwd(), sourcefile: 'authority-generation-fixture.ts' }, outfile: bundle, bundle: true, format: 'esm', platform: 'neutral', conditions: ['workerd', 'worker', 'browser'] });
+    const profiles = (state: string, floor: string) => [
+      { purpose: 'recovery-state', environment: 'staging-next', authority: 'synthetic-state', keyId: 'synthetic-state-key', generation: state },
+      { purpose: 'recovery-floor', environment: 'staging-next', authority: 'synthetic-floor', generation: floor },
+    ];
+    async function boot(state: string, floor: string) {
+      await mf?.dispose();
+      mf = new Miniflare(convertV4MiniflareOptions({ resourcePersistencePath: join(directory, 'persist'), workers: profiles(state, floor).map(p => ({ name: p.purpose, modules: true, scriptPath: bundle, compatibilityDate: '2026-09-21',
+        bindings: { FREEDOM_PRIVATE_AI_AUTHORITY_ENABLED: 'true', FREEDOM_AUTHORITY_PURPOSE: p.purpose, FREEDOM_AUTHORITY_ENVIRONMENT: p.environment, FREEDOM_AUTHORITY_PROFILE: JSON.stringify(p) },
+        durableObjects: { AUTHORITY_GENERATION: { className: 'AuthorityGeneration', useSQLite: true } } })) }));
+      await mf.ready;
+    }
+    const call = async (purpose: string, forged?: object) => (await mf!.getWorker(purpose)).fetch('https://fixture.test/', { headers: forged ? { 'x-test-profile': JSON.stringify(forged) } : {} });
+    await boot('1', '1');
+    for (const name of ['recovery-state', 'recovery-floor']) assert.deepEqual(await (await call(name)).json(), { kind: 'generation', value: '1' });
+    await boot('3', '2');
+    assert.deepEqual(await (await call('recovery-state')).json(), { kind: 'generation', value: '3' });
+    assert.deepEqual(await (await call('recovery-floor')).json(), { kind: 'generation', value: '2' });
+    await boot('2', '2');
+    assert.equal((await call('recovery-state')).status, 503, 'state rollback rejected after full restart');
+    assert.equal((await call('recovery-floor')).status, 200, 'independent floor remains on2');
+    await boot('3', '1');
+    assert.equal((await call('recovery-state')).status, 200, 'denied state rollback did not change high water');
+    assert.equal((await call('recovery-floor')).status, 503, 'floor rollback independently rejected');
+    await boot('3', '2');
+    assert.equal((await call('recovery-state', profiles('3', '2')[1])).status, 503, 'floor profile cannot advance or read state namespace');
+    for (const name of ['recovery-state', 'recovery-floor']) assert.equal((await call(name)).status, 200);
+  } finally { await mf?.dispose(); await rm(directory, { recursive: true, force: true }); }
+});
