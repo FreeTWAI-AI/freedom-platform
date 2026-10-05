@@ -87,6 +87,8 @@ function publicSession(session) {
 
 /** Trusted configuration only. fetch is an optional transport port for native
  * hosts/tests; it must honor redirect:error, credentials:omit and AbortSignal.
+ * Like standard Fetch, its response body must already be decoded for any
+ * gzip/deflate/br Content-Encoding header it retains.
  * No state import/export is provided. A future durable custody adapter must
  * durably reserve one-use material BEFORE sending and atomically settle it;
  * an interrupted reservation is terminal, including after a process crash.
@@ -138,16 +140,23 @@ export async function createMachineDeviceClient({ origin, environment, clientId,
       check(response instanceof Response && !response.redirected && response.status >= 200 && response.status < 600
         && (response.url === '' || response.url === origin + paths[path]));
       check(/^application\/(?:problem\+)?json(?:\s*;\s*charset=utf-8)?$/i.test(response.headers.get('Content-Type') ?? ''));
-      check(response.headers.get('Content-Encoding') === null);
+      // Native Fetch decodes compressed bytes but retains the wire headers.
+      // Bound decoded bytes below; only identity bodies can be compared with
+      // Content-Length. Unknown codings must not be guessed or decoded twice.
+      const encoding = response.headers.get('Content-Encoding');
+      const codings = encoding === null ? [] : encoding.toLowerCase().split(',').map(value => value.trim());
+      check(codings.length <= 3 && codings.every(value => ['identity', 'gzip', 'deflate', 'br'].includes(value)));
+      const compressed = codings.some(value => value !== 'identity');
       const length = response.headers.get('Content-Length');
-      check(length === null || /^\d+$/.test(length) && Number(length) <= 32768);
+      check(length === null || /^\d+$/.test(length) && Number.isSafeInteger(Number(length))
+        && (compressed || Number(length) <= 32768));
       check(response.body !== null); reader = response.body.getReader();
       let total = 0, count = 0; const chunks = [];
       while (true) {
         const { done, value } = await Promise.race([reader.read(), aborted]); if (done) break;
         total += value.byteLength; check(total <= 32768 && ++count <= 128); chunks.push(value);
       }
-      check(length === null || Number(length) === total);
+      check(compressed || length === null || Number(length) === total);
       const bytes = new Uint8Array(total); let offset = 0;
       for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
       check(!(bytes[0] === 239 && bytes[1] === 187 && bytes[2] === 191));

@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { before, after, test } from 'node:test';
 import { readFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { gzipSync, deflateSync, brotliCompressSync } from 'node:zlib';
 import { createHash, generateKeyPairSync, randomUUID, sign } from 'node:crypto';
 import { Pool } from 'pg';
 import { migrate } from '../../scripts/database.js';
@@ -236,7 +239,7 @@ test('abort while waiting to poll leaves enrollment unconsumed and sends no retr
   f.client.close();
 });
 
-for (const kind of ['unknown', 'extra', 'duplicate', 'redirect', 'bytes', 'chunks', 'length', 'utf8', 'hang', 'encoding'] as const)
+for (const kind of ['unknown', 'extra', 'duplicate', 'redirect', 'bytes', 'chunks', 'length', 'utf8', 'hang', 'encoding', 'content_coding'] as const)
 test('response boundary rejects '+kind+' without retaining secret output', async () => {
   const f = await machine(async (_request, send) => {
     const response = await send(), value = await response.json();
@@ -248,6 +251,7 @@ test('response boundary rejects '+kind+' without retaining secret output', async
     if (kind === 'length') return new Response(JSON.stringify(value), { status: 201, headers: { 'Content-Type':'application/json', 'Content-Length':'1' } });
     if (kind === 'utf8') return new Response(new Uint8Array([0xff]), { status: 201, headers: { 'Content-Type':'application/json' } });
     if (kind === 'encoding') return new Response(JSON.stringify(value), { status: 201, headers: { 'Content-Type':'text/html' } });
+    if (kind === 'content_coding') return new Response(JSON.stringify(value), { status: 201, headers: { 'Content-Type':'application/json', 'Content-Encoding':'unsupported' } });
     if (kind === 'hang') return new Response(new ReadableStream({ start() {} }), { status: 201, headers: { 'Content-Type':'application/json' } });
     return new Response(new ReadableStream({ start(controller) { for (let i=0;i<129;i++) controller.enqueue(new Uint8Array([32])); controller.close(); } }),
       { status: 201, headers: { 'Content-Type':'application/json' } });
@@ -281,4 +285,47 @@ test('invalid host/environment and pre-aborted request never reach the transport
     await rejects(createMachineDeviceClient({ origin, environment:'local', clientId:'synthetic' }), 'configuration_invalid');
   await rejects(createMachineDeviceClient({ origin, environment:'staging', clientId:'synthetic' }), 'configuration_invalid');
   const f = await machine(); await rejects(f.client.begin({ signal: AbortSignal.abort() }), 'aborted'); assert.equal(f.calls(), 0); f.client.close();
+});
+
+test('native Fetch compressed responses preserve genuine pairing/rotation/status and bound decoded bytes', async () => {
+  let coding = 'gzip', oversized = false, decodedLengthDiffers = false;
+  const server = createServer(async (request, response) => {
+    try {
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) chunks.push(Buffer.from(chunk));
+      const headers = new Headers();
+      for (const [name, value] of Object.entries(request.headers))
+        if (name !== 'host' && value !== undefined) headers.set(name, Array.isArray(value) ? value.join(', ') : value);
+      // This owned loopback bridge supplies the synthetic canonical origin to
+      // the genuine handler. It proves Fetch decoding, not deployed TLS/proxy.
+      const result = await transport.fetch(new Request(origin+request.url, { method: request.method, headers,
+        ...(request.method === 'POST' ? { body: Buffer.concat(chunks) } : {}) }));
+      const raw = Buffer.from(await result.arrayBuffer());
+      const body = oversized ? Buffer.concat([raw, Buffer.alloc(32769, 32)]) : raw;
+      const encoded = coding === 'br' ? brotliCompressSync(body) : coding === 'deflate' ? deflateSync(body) : gzipSync(body);
+      response.writeHead(result.status, { 'Content-Type':'application/json', 'Content-Encoding':coding, 'Content-Length':encoded.length });
+      response.end(encoded);
+    } catch { response.writeHead(500); response.end(); }
+  });
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  const socketOrigin = 'http://127.0.0.1:'+(server.address() as AddressInfo).port;
+  const make = () => createMachineDeviceClient({ origin, environment:host.environment, clientId:host.clientId,
+    fetch: async (url: string, init: RequestInit) => {
+      const response = await fetch(socketOrigin+new URL(url).pathname, init);
+      assert.equal(response.headers.get('Content-Encoding'), coding);
+      const decoded = await response.clone().arrayBuffer();
+      decodedLengthDiffers ||= decoded.byteLength !== Number(response.headers.get('Content-Length'));
+      // The injected transport maps only this owned fixture origin; retain the
+      // real native Fetch decoded stream and encoded headers without redecoding.
+      return new Response(response.body, { status:response.status, headers:response.headers });
+    } });
+  try {
+    const client = await make(), begun = await client.begin(); await approve(begun.userCode);
+    assert.equal((await client.pair()).refreshGeneration, '1');
+    coding = 'br'; assert.equal((await client.refresh()).refreshGeneration, '2');
+    coding = 'deflate'; assert.equal((await client.readStatus()).operation, 'bootstrap.status.read');
+    client.close(); assert.equal(decodedLengthDiffers, true);
+    coding = 'gzip'; oversized = true;
+    const excessive = await make(); await rejects(excessive.begin(), 'response_invalid');
+  } finally { server.closeAllConnections(); await new Promise<void>(resolve => server.close(()=>resolve())); }
 });
