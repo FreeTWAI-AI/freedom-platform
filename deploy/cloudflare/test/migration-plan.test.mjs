@@ -132,6 +132,11 @@ test('file loader keeps exact UTF-8/BOM bytes and rejects links, directories and
   rmSync(path); symlinkSync('/not-read-by-loader', path); assert.throws(() => readMigrationSources(dir), refused('migration_source_not_regular'));
   rmSync(path); mkdirSync(path); assert.throws(() => readMigrationSources(dir), refused('migration_source_not_regular'));
 }));
+test('file loader rejects a symlinked migration directory before reading its SQL', () => temporary(dir => {
+  const source = join(dir,'source'), link = join(dir,'linked'); mkdirSync(source);
+  writeFileSync(join(source,'001_a.sql'),'SELECT 1;'); symlinkSync(source,link);
+  assert.throws(() => readMigrationSources(link), refused('migration_source_directory_invalid'));
+}));
 
 test('public scanner rejects v2 and changed privileged statements while retaining legacy profile', () => temporary(dir => {
   for (const e of [...legacy, v2()]) writeFileSync(join(dir, e.name), e.sql);
