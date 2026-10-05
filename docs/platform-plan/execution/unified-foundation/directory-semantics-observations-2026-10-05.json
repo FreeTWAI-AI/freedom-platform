@@ -1,0 +1,2029 @@
+{
+  "format": "freedom.local-directory-profile-observations/v1",
+  "assurance_level": "local",
+  "source": "bf46d831ee0382c7e6370000a32e95025a7003db",
+  "workflow_candidate": "4921f8f025b09521cb267d814e862512112e44a7",
+  "directory_baseline": "01b18397f9c5356a14e4cc66fa46f57216f11154",
+  "command_log_sha256": "4b29e1f2a8b5ad3641bcb28c41c512d45a1008806fd7e44c1b9f34b65412720a",
+  "positive_build_variants": 4,
+  "negative_build_variants": 11,
+  "observations": [
+    {
+      "format": "freedom.directory-profile-test-observation/v1",
+      "assurance_level": "local",
+      "workflow_commit": "4921f8f025b09521cb267d814e862512112e44a7",
+      "source_commit": "91b943ac61e132fbbce72ea066cb2301aa065600",
+      "candidate_commit": "01b18397f9c5356a14e4cc66fa46f57216f11154",
+      "candidate_tree": "c9f9f78f3050ee3bb99c0dedb869cf419c4c8d69",
+      "status": "passed",
+      "reason": "isolated_directory_build_observed_only",
+      "semantic_profile": "freedom.directory-html/v2",
+      "cleanup_verified": true,
+      "installation": {
+        "supervisor_sha256": "7b535292f2cf00f1a8f8d33b1cd9770017abbb92cafdf8fafef666ba6045ba22",
+        "harness_sha256": "c294386c08d2595b0cee239d429c723e94f53484cb54d80b59febba4cf5686bf",
+        "node_runtime_sha256": "7610bc003717851ecd59189d70cc6c0985709ee60c357f1b8e5564a7ce21faaa",
+        "node_version": "v24.21.0",
+        "runtime_coverage": "node-and-listed-linked-libraries-only",
+        "host_os_approval": "unverified",
+        "directory_html_parser": {
+          "parse5": "8.0.1",
+          "entities": "8.0.0",
+          "files": 91,
+          "bytes": 573101,
+          "sha256": "23432fe7cdf370e67a8289a1cce223d6c23cf2969550a7f9864c40b353caa9be"
+        },
+        "runtime_recipe": {
+          "recipe": "freedom.consumer-runtime-recipe/v1",
+          "image": {
+            "reference": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "local_id": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "manifest": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "config": "sha256:160466e67bb85a4099d9d9c2356b4a6a64747b281a22c142efbd4539db1b8525",
+            "rootfs": "sha256:1d69a5fd31932841d7825ef4780c06f008eea65aaa9f3110fe09d5832ed5c7d8",
+            "platform": "linux/amd64"
+          },
+          "node": {
+            "executable": "/usr/bin/node",
+            "version": "v24.21.0",
+            "sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"
+          },
+          "host": {
+            "platform": "linux",
+            "architecture": "x64",
+            "glibc": "2.43",
+            "runner_image_version": null,
+            "hosted_os_checked": false
+          },
+          "candidate_userspace": "pinned-image-and-node-binary",
+          "host_os_approval": "unverified",
+          "publisher_trust": "unverified"
+        }
+      },
+      "cases": [
+        {
+          "id": "candidate-data",
+          "status": "passed",
+          "exec_id": "2fbcdf9a8a769fd8cdefdeb3bd02a4025031ed4d0d559bac0fb72adecc77661f",
+          "exit_code": 0,
+          "archive_sha256": "5d690072fd01d8ae3f9a151506dcc1564573c861af883f3304595c1318768e88",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "64e4f9ee77d7dd6f97a46e2ab1992df76f324cc58aef9994375514b0c68f973a"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "d2ee21e7cc1e8514e5aab32841077d4607c6d8c8d28bb8f1cfc720f973286213"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "a607d5a4420af556a3a25f69188970b10e80780d9226b82bc21eff2b040b5383"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "80a5d489670ebe51c97541a6539aba3ffbe85077b40cdf298c7eaec88865ff88"
+            ]
+          ]
+        },
+        {
+          "id": "escaped-challenge",
+          "status": "passed",
+          "exec_id": "78182ed85cf8005c93b6d562a31df034505e4d348efee19169395e07ca160408",
+          "exit_code": 0,
+          "archive_sha256": "d9bce06e74dea0a6a208ab56e11b2b4b31f8275a66518de3fb420c80066c5900",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "15ea727a8bb94a6d7100595d3e7868fd46a6079a9e36e9637c6b763c40f7c500"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "9faafa477bc5f8728b13b36e40016e963c49990583edede33e92908f6d65687d"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "8d4980379ccc67a810e13ec9799e81e512555cbd1c6082bed15f90b1fa4b9244"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "47c853a1e978905792a300310732dca45aa407ed030e0198948f0c2caf30b9d6"
+            ]
+          ]
+        },
+        {
+          "id": "empty-directory",
+          "status": "passed",
+          "exec_id": "cb006c2441724a30dcfd516817a2ff91c3d8d79e72ddb2a12cf625d0d213ad75",
+          "exit_code": 0,
+          "archive_sha256": "a65fcad2067d9a484be758c00c40fa104849f18291278c22e4f8e3c1abab8f2e",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "734131f2daeb3058cb626a60bfcd0ef21f69bad8465042de7ee040b3403b88ea"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "9faafa477bc5f8728b13b36e40016e963c49990583edede33e92908f6d65687d"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "1ac949b1909487a2f8812397623678e5aed8ecdb96bb72fdbbb0e28a4be3630d"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "47c853a1e978905792a300310732dca45aa407ed030e0198948f0c2caf30b9d6"
+            ]
+          ]
+        },
+        {
+          "id": "duplicate-repository",
+          "status": "passed",
+          "exec_id": "b4fdb08d47d542a35df0f98d90b218fea12bb51e9117a4f07ade73d33ad7916b",
+          "exit_code": 1,
+          "archive_sha256": "28d445107488e5d25d4c2cc84d555169f60a8f22226195ebc3f79398874885d1",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "36c68da7a1da2abd9cfe2f2fba354155c2295531cffa8428fab9e6772310fb05"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "47c853a1e978905792a300310732dca45aa407ed030e0198948f0c2caf30b9d6"
+            ]
+          ]
+        },
+        {
+          "id": "invalid-directory-schema",
+          "status": "passed",
+          "exec_id": "5128339705d205afa6b6e87c226962ec8c8b5266e431a4d014af0f5259f2a4a9",
+          "exit_code": 1,
+          "archive_sha256": "b83604cb97962036783dfbedcf1c546d201bfe2493480f050493678ef99effd0",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "aa30aaeb32f5898c18a16060164d3a385e06a3ff3c67b26ee231e1e47a1fc54c"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "47c853a1e978905792a300310732dca45aa407ed030e0198948f0c2caf30b9d6"
+            ]
+          ]
+        },
+        {
+          "id": "invalid-privacy-section",
+          "status": "passed",
+          "exec_id": "6c6f200df922e09667d7cc81fc0340cb067cc9e0ebda8bae36442ef15a10f968",
+          "exit_code": 1,
+          "archive_sha256": "c56a8bd0de1a334c5a4504e5a2254daf1e90169b5ff7aae9f858f276fd7fc33e",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "8d4980379ccc67a810e13ec9799e81e512555cbd1c6082bed15f90b1fa4b9244"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "e1fab7036d3f37149e631c9413e5aa50f89a4b33ef6120d559e395b7fbd78cb5"
+            ]
+          ]
+        },
+        {
+          "id": "traversal-path",
+          "status": "passed",
+          "exec_id": "09d1a23d393d98888fce8235cf833534c4282d518ae2dce2a8cbf033a410896b",
+          "exit_code": 1,
+          "archive_sha256": "15fac9136a63b819b33c4f16a42dd2f58b7692550f9fd75b562690b4a1eb0054",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "8d4980379ccc67a810e13ec9799e81e512555cbd1c6082bed15f90b1fa4b9244"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "b49b5f64468c9a1a1a4cc84036682e6952892a21489dfe8dd33be3b172e77bca"
+            ]
+          ]
+        },
+        {
+          "id": "absolute-path",
+          "status": "passed",
+          "exec_id": "6e1375a15519d998200c4449103b569ed8b6bedf157e5b2d35c3a6fa382569eb",
+          "exit_code": 1,
+          "archive_sha256": "4f91ef6d0930bd28d4e92efce0d6906fdf895a2002759b4d6be04ed52d3e40e2",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "8d4980379ccc67a810e13ec9799e81e512555cbd1c6082bed15f90b1fa4b9244"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "ff90483c051823b6acfc49de253d70533562bb1e75b1faca6741eacc9f098100"
+            ]
+          ]
+        },
+        {
+          "id": "encoded-path",
+          "status": "passed",
+          "exec_id": "1b7b0e0931c6909e7280ed00a7401595b7eed31621a10a6aa67b09ca1ac11f2a",
+          "exit_code": 1,
+          "archive_sha256": "3f03b4589b65b730a0e421198ce103df54d60feb6bca3ad49162d4dc63fc1ed2",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "8d4980379ccc67a810e13ec9799e81e512555cbd1c6082bed15f90b1fa4b9244"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "ac1a068a0e424180337ebeee937809e5102670dbbe11f8eb3f86f8d6064ef156"
+            ]
+          ]
+        },
+        {
+          "id": "malformed-privacy-json",
+          "status": "passed",
+          "exec_id": "fa23b136671ede227046385628deae0958ac2e7091f4a1d4a92b01440564ba98",
+          "exit_code": 1,
+          "archive_sha256": "e420a12fa2beaee9220a3ce18f7d40ab7d5d47b865fa9ee83d6a1423a398e3f8",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "8d4980379ccc67a810e13ec9799e81e512555cbd1c6082bed15f90b1fa4b9244"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "cbdf3b1f91ae32fe1ea292ac6cccf19222f97929f531523f0d15d885052c00c4"
+            ]
+          ]
+        }
+      ],
+      "gate_enforced": false,
+      "merge_authorized": false
+    },
+    {
+      "format": "freedom.directory-profile-test-observation/v1",
+      "assurance_level": "local",
+      "workflow_commit": "4921f8f025b09521cb267d814e862512112e44a7",
+      "source_commit": "91b943ac61e132fbbce72ea066cb2301aa065600",
+      "candidate_commit": "4ebb6a690899ab67600004bfa4036d89cf194209",
+      "candidate_tree": "6c71fdc78e5755f36a0eb0d8a7e2e7fa81a200c7",
+      "status": "passed",
+      "reason": "isolated_directory_build_observed_only",
+      "semantic_profile": "freedom.directory-html/v2",
+      "cleanup_verified": true,
+      "installation": {
+        "supervisor_sha256": "7b535292f2cf00f1a8f8d33b1cd9770017abbb92cafdf8fafef666ba6045ba22",
+        "harness_sha256": "c294386c08d2595b0cee239d429c723e94f53484cb54d80b59febba4cf5686bf",
+        "node_runtime_sha256": "7610bc003717851ecd59189d70cc6c0985709ee60c357f1b8e5564a7ce21faaa",
+        "node_version": "v24.21.0",
+        "runtime_coverage": "node-and-listed-linked-libraries-only",
+        "host_os_approval": "unverified",
+        "directory_html_parser": {
+          "parse5": "8.0.1",
+          "entities": "8.0.0",
+          "files": 91,
+          "bytes": 573101,
+          "sha256": "23432fe7cdf370e67a8289a1cce223d6c23cf2969550a7f9864c40b353caa9be"
+        },
+        "runtime_recipe": {
+          "recipe": "freedom.consumer-runtime-recipe/v1",
+          "image": {
+            "reference": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "local_id": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "manifest": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "config": "sha256:160466e67bb85a4099d9d9c2356b4a6a64747b281a22c142efbd4539db1b8525",
+            "rootfs": "sha256:1d69a5fd31932841d7825ef4780c06f008eea65aaa9f3110fe09d5832ed5c7d8",
+            "platform": "linux/amd64"
+          },
+          "node": {
+            "executable": "/usr/bin/node",
+            "version": "v24.21.0",
+            "sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"
+          },
+          "host": {
+            "platform": "linux",
+            "architecture": "x64",
+            "glibc": "2.43",
+            "runner_image_version": null,
+            "hosted_os_checked": false
+          },
+          "candidate_userspace": "pinned-image-and-node-binary",
+          "host_os_approval": "unverified",
+          "publisher_trust": "unverified"
+        }
+      },
+      "cases": [
+        {
+          "id": "candidate-data",
+          "status": "passed",
+          "exec_id": "95f140243d286c28ca6d41890769cd8b13d657af07be7a1adda35603a136f4ab",
+          "exit_code": 0,
+          "archive_sha256": "484a1cc65614ead1695037a5b20db72091306814afe89163123816a3a91c6540",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "70f50580ded189d3947bd42b1b55460890f3c96297a0bac6131d40c6f78fad68"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "d2ee21e7cc1e8514e5aab32841077d4607c6d8c8d28bb8f1cfc720f973286213"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "b7527eac51607e73f00e317fd20dfeca15813d8ab7baf842ae485c3fa3a8fedb"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "80a5d489670ebe51c97541a6539aba3ffbe85077b40cdf298c7eaec88865ff88"
+            ]
+          ]
+        },
+        {
+          "id": "escaped-challenge",
+          "status": "passed",
+          "exec_id": "2ab39a08a6bff588f792471ddea3337de069a02edb6bf383c9b100ced1ff9a26",
+          "exit_code": 0,
+          "archive_sha256": "0240656606876f939d6164eb6d0b6b278af59a88923b2cb1a3a110f90c684ce6",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "76d043f688ea050931fd110827e15a36e9b34d7b11f047c87efdb4c828c1e9c8"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "79fe95d4594f0a02e6f6013239a43f12f5767221cdf370a9873aa52da3499004"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "ecc07b923916ea37cdbd3ac130f35e721b96c21600afd447b285238e8857f622"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "8356d752a6b0e7be57737ea016e94e2d751975682242ba6621edf0254c95fa5d"
+            ]
+          ]
+        },
+        {
+          "id": "empty-directory",
+          "status": "passed",
+          "exec_id": "fcc61c79f2a6a543026452c4cff0aebdff51f1dab5ddcd4abdb12d06d000abb6",
+          "exit_code": 0,
+          "archive_sha256": "41be6caef762e20607eb96245c10bac189badcf4afa3bd8734f1123d2f8fd46d",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "734131f2daeb3058cb626a60bfcd0ef21f69bad8465042de7ee040b3403b88ea"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "79fe95d4594f0a02e6f6013239a43f12f5767221cdf370a9873aa52da3499004"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "1ac949b1909487a2f8812397623678e5aed8ecdb96bb72fdbbb0e28a4be3630d"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "8356d752a6b0e7be57737ea016e94e2d751975682242ba6621edf0254c95fa5d"
+            ]
+          ]
+        },
+        {
+          "id": "duplicate-repository",
+          "status": "passed",
+          "exec_id": "78355919ccadff36ebb52d9eb1bff038b132c424044604cd77e2c29b0b0d8b1f",
+          "exit_code": 1,
+          "archive_sha256": "ea4193ff18b2b635536a4d1dcc8cd4f7a9413886fd0ed29501d7d882f15e2956",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "009a779c9de846a780ad8533309b26f106992d1e3a1a267d4aa92fab67f3557d"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "8356d752a6b0e7be57737ea016e94e2d751975682242ba6621edf0254c95fa5d"
+            ]
+          ]
+        },
+        {
+          "id": "invalid-directory-schema",
+          "status": "passed",
+          "exec_id": "168459f5023cace4e9750b13d33a04975742298bd89ae7bd8175fa29dc5d4631",
+          "exit_code": 1,
+          "archive_sha256": "0b239693abe85c6ee5a154f98ed417b971f2e781d942a596f9f34747b23dcc42",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "fe56d8afa0443272e63ebce4494c494c20af373fe757f25f9c65393e928d4746"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "8356d752a6b0e7be57737ea016e94e2d751975682242ba6621edf0254c95fa5d"
+            ]
+          ]
+        },
+        {
+          "id": "invalid-privacy-section",
+          "status": "passed",
+          "exec_id": "3de740b1bd2952410d9d578c061ff9152431d0583c081476194c55f735219a60",
+          "exit_code": 1,
+          "archive_sha256": "3aed26ae83fc38d4e0d247812ebb84904d6570829573767029c57101e41051d5",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "ecc07b923916ea37cdbd3ac130f35e721b96c21600afd447b285238e8857f622"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "75601b08519b2922e77a65f48e76b8c589886d8e2bb2975649aba3a342a1ac5b"
+            ]
+          ]
+        },
+        {
+          "id": "traversal-path",
+          "status": "passed",
+          "exec_id": "8ec65a931eda7b69cce58157ba13489dcb7db76169b1b98baab197a68767c239",
+          "exit_code": 1,
+          "archive_sha256": "e062beeda9259f4ca32815ed56d7189fc8e13052f4965533f2a95b498be573f2",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "ecc07b923916ea37cdbd3ac130f35e721b96c21600afd447b285238e8857f622"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "43c46a275a0526fc285b018525e2281521f3dc2c4944c5ad15efe4edf7127e3c"
+            ]
+          ]
+        },
+        {
+          "id": "absolute-path",
+          "status": "passed",
+          "exec_id": "5b4e34a12f9abd33380342105a2c3d87b8279d14978fd77cacc37225a465058b",
+          "exit_code": 1,
+          "archive_sha256": "131d2ab6743773ced58043e8d14c417d8af7f2400c545154e0970f8472f2aa8f",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "ecc07b923916ea37cdbd3ac130f35e721b96c21600afd447b285238e8857f622"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "eb16b4f7c669207e35502b700141f03d17fe09328acfc98ee5bbaad70a03038e"
+            ]
+          ]
+        },
+        {
+          "id": "encoded-path",
+          "status": "passed",
+          "exec_id": "74d1b1d8a203f28e3de97bb3b28943def53631fb1f20b9b427199d0df48328a5",
+          "exit_code": 1,
+          "archive_sha256": "be86ef296ed6d24454ffca05f4be56dbd5fe420ae0b91f53cb1fa7cecb29121d",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "ecc07b923916ea37cdbd3ac130f35e721b96c21600afd447b285238e8857f622"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "8cef2159f0f47b1f98b6ab330312a3b49918a8a2fb194fa2afd270fa2cda885e"
+            ]
+          ]
+        },
+        {
+          "id": "malformed-privacy-json",
+          "status": "passed",
+          "exec_id": "6c315ec888f6bd76b85690564ca89b4a2a9323bf631fc7262ce68ff763a07f97",
+          "exit_code": 1,
+          "archive_sha256": "04a3bdf33dffe74cd2c0600fb328a187573a8d980c9978f0ddd3f5c3bf3c58bc",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "ecc07b923916ea37cdbd3ac130f35e721b96c21600afd447b285238e8857f622"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "cbdf3b1f91ae32fe1ea292ac6cccf19222f97929f531523f0d15d885052c00c4"
+            ]
+          ]
+        }
+      ],
+      "gate_enforced": false,
+      "merge_authorized": false
+    },
+    {
+      "format": "freedom.directory-profile-test-observation/v1",
+      "assurance_level": "local",
+      "workflow_commit": "4921f8f025b09521cb267d814e862512112e44a7",
+      "source_commit": "91b943ac61e132fbbce72ea066cb2301aa065600",
+      "candidate_commit": "05e297f2ae4a80b32c4a50c556274565b0185a43",
+      "candidate_tree": "9d8d3dfee31951fa1e03a768f7d49a517a50a89b",
+      "status": "passed",
+      "reason": "isolated_directory_build_observed_only",
+      "semantic_profile": "freedom.directory-html/v2",
+      "cleanup_verified": true,
+      "installation": {
+        "supervisor_sha256": "7b535292f2cf00f1a8f8d33b1cd9770017abbb92cafdf8fafef666ba6045ba22",
+        "harness_sha256": "c294386c08d2595b0cee239d429c723e94f53484cb54d80b59febba4cf5686bf",
+        "node_runtime_sha256": "7610bc003717851ecd59189d70cc6c0985709ee60c357f1b8e5564a7ce21faaa",
+        "node_version": "v24.21.0",
+        "runtime_coverage": "node-and-listed-linked-libraries-only",
+        "host_os_approval": "unverified",
+        "directory_html_parser": {
+          "parse5": "8.0.1",
+          "entities": "8.0.0",
+          "files": 91,
+          "bytes": 573101,
+          "sha256": "23432fe7cdf370e67a8289a1cce223d6c23cf2969550a7f9864c40b353caa9be"
+        },
+        "runtime_recipe": {
+          "recipe": "freedom.consumer-runtime-recipe/v1",
+          "image": {
+            "reference": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "local_id": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "manifest": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "config": "sha256:160466e67bb85a4099d9d9c2356b4a6a64747b281a22c142efbd4539db1b8525",
+            "rootfs": "sha256:1d69a5fd31932841d7825ef4780c06f008eea65aaa9f3110fe09d5832ed5c7d8",
+            "platform": "linux/amd64"
+          },
+          "node": {
+            "executable": "/usr/bin/node",
+            "version": "v24.21.0",
+            "sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"
+          },
+          "host": {
+            "platform": "linux",
+            "architecture": "x64",
+            "glibc": "2.43",
+            "runner_image_version": null,
+            "hosted_os_checked": false
+          },
+          "candidate_userspace": "pinned-image-and-node-binary",
+          "host_os_approval": "unverified",
+          "publisher_trust": "unverified"
+        }
+      },
+      "cases": [
+        {
+          "id": "candidate-data",
+          "status": "passed",
+          "exec_id": "d1bc483782b2efacabd961bc6bcf46109919361729292bba10ac34cfddbe77dc",
+          "exit_code": 0,
+          "archive_sha256": "de6ac9dddafee3d1354fbb3f09fd778ebcd944837e4cb2f483faebca7a57469b",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "0cb8f743bba3b36cee11587d2fac839cc5f81c68c554633b289570a6b0368571"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "d2ee21e7cc1e8514e5aab32841077d4607c6d8c8d28bb8f1cfc720f973286213"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "a607d5a4420af556a3a25f69188970b10e80780d9226b82bc21eff2b040b5383"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "80a5d489670ebe51c97541a6539aba3ffbe85077b40cdf298c7eaec88865ff88"
+            ]
+          ]
+        },
+        {
+          "id": "escaped-challenge",
+          "status": "passed",
+          "exec_id": "20077163e6cc0e3428d70611d3d9229c28c3df4690e4421e13d757e6b3a4c8e5",
+          "exit_code": 0,
+          "archive_sha256": "596f5a002c8cf3a2d96d6c3aa92c8e32a464b4ee011615f5b99fe5f72877212c",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "3ca1cd69183461f2a664f98f382582a5fa04f1a838052ad5e1f90505a6c3d48f"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "1448aa6ac43a141fb514c17d3a416f7f0fc043b729fe2dbd98cd115f5c3eb33d"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "c28ad9b79cd75154ba1904b373e5486e0499ae30ebf97cfef2a4f142eb11c496"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "74e2625de70b2632cba3debde1a8ee99e4dc678fe6603f293b7cbba9392ff39c"
+            ]
+          ]
+        },
+        {
+          "id": "empty-directory",
+          "status": "passed",
+          "exec_id": "706a8d074488ef82b838a3ec863bb84e8ecd9cc5488970c1654b3f0b6bef20e4",
+          "exit_code": 0,
+          "archive_sha256": "c63ee062103c56de434e45fe02b0c005ad70b80515b9f3d1708aa217dc0bc075",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "960904e6373335a381ce70109ea7da98766ddf8b49a0c0092cc1661211f1b051"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "1448aa6ac43a141fb514c17d3a416f7f0fc043b729fe2dbd98cd115f5c3eb33d"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "1ac949b1909487a2f8812397623678e5aed8ecdb96bb72fdbbb0e28a4be3630d"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "74e2625de70b2632cba3debde1a8ee99e4dc678fe6603f293b7cbba9392ff39c"
+            ]
+          ]
+        },
+        {
+          "id": "duplicate-repository",
+          "status": "passed",
+          "exec_id": "eb37d210a09bbb2e1977eae962a1ece8b5d685444198093acdac23e9a91e8a21",
+          "exit_code": 1,
+          "archive_sha256": "b0bdc35011bdd3a3dcf5f117a1f96250921a3f9c7c3832228adefdad5b280ad0",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "c6ce2127073345028d93cca27502f07a4b743f4ad27aa435a2826dd28a6403dc"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "74e2625de70b2632cba3debde1a8ee99e4dc678fe6603f293b7cbba9392ff39c"
+            ]
+          ]
+        },
+        {
+          "id": "invalid-directory-schema",
+          "status": "passed",
+          "exec_id": "95000cd34a21af68ba0b40ea43b0353a920992f4395863d677d46af3907c84d7",
+          "exit_code": 1,
+          "archive_sha256": "f5cc2fc4b2717d03402f5cf32b8347eadda9e8ba2d45f209618cff395c0c09e1",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "ee11bd704e816a16e9526db4763c4a1d67761e4260207ce0a83a41ef777437d2"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "74e2625de70b2632cba3debde1a8ee99e4dc678fe6603f293b7cbba9392ff39c"
+            ]
+          ]
+        },
+        {
+          "id": "invalid-privacy-section",
+          "status": "passed",
+          "exec_id": "5f411a86a80131216d345cc757e75a5ecba3112035088c72178e21f66d96c80c",
+          "exit_code": 1,
+          "archive_sha256": "21c5b35140abed566569b70cd3cfbfddee0853fc513ce1c6cfadb1978e2fb37a",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "c28ad9b79cd75154ba1904b373e5486e0499ae30ebf97cfef2a4f142eb11c496"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "4dbc1cdf645666238742249030d214fc8e18c514b2d182c3d74d60776c8d8a85"
+            ]
+          ]
+        },
+        {
+          "id": "traversal-path",
+          "status": "passed",
+          "exec_id": "229e2bfdcfbc1dbe4fb820a7850ce3ba68ba63b44970da5ddf549f280a47ab74",
+          "exit_code": 1,
+          "archive_sha256": "4380f978d28fa8b4c40f2d81034b1d22ffbc559e34ab4057b06e1d2c625ac072",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "c28ad9b79cd75154ba1904b373e5486e0499ae30ebf97cfef2a4f142eb11c496"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "1c1ed0a9b548dfc73fbfd5f85d1c4018c06ae89efa2dedf43f9febd53fd3a0fc"
+            ]
+          ]
+        },
+        {
+          "id": "absolute-path",
+          "status": "passed",
+          "exec_id": "a88e9edf03bc9184025ec5b9747c0b11af208737b8050c3815a42a1b92ff1929",
+          "exit_code": 1,
+          "archive_sha256": "a24a6c669dd8093b3280c3b007968cd5038d78b2bc97d6572e6894c2ab033523",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "c28ad9b79cd75154ba1904b373e5486e0499ae30ebf97cfef2a4f142eb11c496"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "58d6819cd084c78b8cf34a90fc7a2b118aba86853853f7bef56cc8ae2e12f3f5"
+            ]
+          ]
+        },
+        {
+          "id": "encoded-path",
+          "status": "passed",
+          "exec_id": "9ce9644c5147a539261338f3a518d71b6c0e4cce373d5a64bbdd6139d96128ec",
+          "exit_code": 1,
+          "archive_sha256": "0abfba41a373cf6ab7e65ecc7f1733392bf83c75717dfcc891653b54d35e0693",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "c28ad9b79cd75154ba1904b373e5486e0499ae30ebf97cfef2a4f142eb11c496"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "45285520e1064315239a71669e3ab2992ba3402cb3d56bcb97e90e41e5196087"
+            ]
+          ]
+        },
+        {
+          "id": "malformed-privacy-json",
+          "status": "passed",
+          "exec_id": "3e954397cb2ca3133f958e3357cb0ef3d0e8135b471aabe7e536b3fd5079a4d8",
+          "exit_code": 1,
+          "archive_sha256": "c3a1b77a99b0d13cc41122c3ff9e85a950461f57f5309ba4ad455fb5c9617caa",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "c28ad9b79cd75154ba1904b373e5486e0499ae30ebf97cfef2a4f142eb11c496"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "cbdf3b1f91ae32fe1ea292ac6cccf19222f97929f531523f0d15d885052c00c4"
+            ]
+          ]
+        }
+      ],
+      "gate_enforced": false,
+      "merge_authorized": false
+    },
+    {
+      "format": "freedom.directory-profile-test-observation/v1",
+      "assurance_level": "local",
+      "workflow_commit": "4921f8f025b09521cb267d814e862512112e44a7",
+      "source_commit": "91b943ac61e132fbbce72ea066cb2301aa065600",
+      "candidate_commit": "0edb5c9a2b9262f2e17a7f5201328b0fd3a1c437",
+      "candidate_tree": "bc467921558566ea33b942829147d663f9ba5eb7",
+      "status": "passed",
+      "reason": "isolated_directory_build_observed_only",
+      "semantic_profile": "freedom.directory-html/v2",
+      "cleanup_verified": true,
+      "installation": {
+        "supervisor_sha256": "7b535292f2cf00f1a8f8d33b1cd9770017abbb92cafdf8fafef666ba6045ba22",
+        "harness_sha256": "c294386c08d2595b0cee239d429c723e94f53484cb54d80b59febba4cf5686bf",
+        "node_runtime_sha256": "7610bc003717851ecd59189d70cc6c0985709ee60c357f1b8e5564a7ce21faaa",
+        "node_version": "v24.21.0",
+        "runtime_coverage": "node-and-listed-linked-libraries-only",
+        "host_os_approval": "unverified",
+        "directory_html_parser": {
+          "parse5": "8.0.1",
+          "entities": "8.0.0",
+          "files": 91,
+          "bytes": 573101,
+          "sha256": "23432fe7cdf370e67a8289a1cce223d6c23cf2969550a7f9864c40b353caa9be"
+        },
+        "runtime_recipe": {
+          "recipe": "freedom.consumer-runtime-recipe/v1",
+          "image": {
+            "reference": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "local_id": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "manifest": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "config": "sha256:160466e67bb85a4099d9d9c2356b4a6a64747b281a22c142efbd4539db1b8525",
+            "rootfs": "sha256:1d69a5fd31932841d7825ef4780c06f008eea65aaa9f3110fe09d5832ed5c7d8",
+            "platform": "linux/amd64"
+          },
+          "node": {
+            "executable": "/usr/bin/node",
+            "version": "v24.21.0",
+            "sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"
+          },
+          "host": {
+            "platform": "linux",
+            "architecture": "x64",
+            "glibc": "2.43",
+            "runner_image_version": null,
+            "hosted_os_checked": false
+          },
+          "candidate_userspace": "pinned-image-and-node-binary",
+          "host_os_approval": "unverified",
+          "publisher_trust": "unverified"
+        }
+      },
+      "cases": [
+        {
+          "id": "candidate-data",
+          "status": "passed",
+          "exec_id": "10c024e8abe5f8b159cf4531bc58d12d76ecba766a6cce055b5e6087c85d18a4",
+          "exit_code": 0,
+          "archive_sha256": "ce808e022db56706f944bb5936310ad50519d8bcf3c37f41e8b40ec81a858534",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "f48f2c335bca4edea6b376ea5e33590092b7d3e8b1f434fb48dcadb993345d8d"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "d2ee21e7cc1e8514e5aab32841077d4607c6d8c8d28bb8f1cfc720f973286213"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "a607d5a4420af556a3a25f69188970b10e80780d9226b82bc21eff2b040b5383"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "80a5d489670ebe51c97541a6539aba3ffbe85077b40cdf298c7eaec88865ff88"
+            ]
+          ]
+        },
+        {
+          "id": "escaped-challenge",
+          "status": "passed",
+          "exec_id": "cf4ef2a84f4174fd56b4730be210819bc95cbd1eaa31352bb9b6b89e68f450cb",
+          "exit_code": 0,
+          "archive_sha256": "672099d31cd824f990ed8cc7cbc0a9afb19b6756f89e1509e5943e8aec42d3a4",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "b8327a2651db7ebf728fa679a16feaa79c6cd379849eda73b144345b03ffc7e8"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "2ee28b98c99f12aa8ed10d650a6f706e011438355176336f7c2336c64543cae8"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "2a3609e00e83b7450f4f9c4e5ee92cbbe0b7e395db47eeb280eff5e3e014aa9b"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "9eee1892ce7fc6baf3c69d594b3345d4f98631ad189242fecb7e33b56cce622b"
+            ]
+          ]
+        },
+        {
+          "id": "empty-directory",
+          "status": "passed",
+          "exec_id": "a01c87e5b106cda72e7ae6a945ac792617363cd0c4a506a5c08bebe5825ac8b2",
+          "exit_code": 0,
+          "archive_sha256": "128dad9b1fbaba1b0ac24f20de4eb43d068936a10c0b15c4bfd421db0da2a3cb",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "1ea9f8764be07b77a792a1c4ee1696408b210816a8f9a03ea6ddcf1130d64237"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "2ee28b98c99f12aa8ed10d650a6f706e011438355176336f7c2336c64543cae8"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "1ac949b1909487a2f8812397623678e5aed8ecdb96bb72fdbbb0e28a4be3630d"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "9eee1892ce7fc6baf3c69d594b3345d4f98631ad189242fecb7e33b56cce622b"
+            ]
+          ]
+        },
+        {
+          "id": "duplicate-repository",
+          "status": "passed",
+          "exec_id": "ad6d63bd312e7fbf417216345ac778497ba06824074a183bc652d9fa352d80b3",
+          "exit_code": 1,
+          "archive_sha256": "5c4d4adc2e227a910f56387995816e23823ef26f42422720601b51403a7fa595",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "d5bcd25423d13ae85b1d71ce386e6ffdab93464f450c9cb0b5a5acff04dd9bb5"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "9eee1892ce7fc6baf3c69d594b3345d4f98631ad189242fecb7e33b56cce622b"
+            ]
+          ]
+        },
+        {
+          "id": "invalid-directory-schema",
+          "status": "passed",
+          "exec_id": "77f0dd24380f8f4cc9114d52839e7b4c094dc7ca2a40121cc8bbddc1bf817557",
+          "exit_code": 1,
+          "archive_sha256": "c55db5983605c8cc8f05b94698bc66ff4d74a469ac2db434a47de5be478b03e7",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "df2e2476f65000d9cbacdc8a68ed4355f17de0efc39a27d29766f7fdf60e790c"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "9eee1892ce7fc6baf3c69d594b3345d4f98631ad189242fecb7e33b56cce622b"
+            ]
+          ]
+        },
+        {
+          "id": "invalid-privacy-section",
+          "status": "passed",
+          "exec_id": "82d47e5ac8c3caf119c6d2bea0cb4e79647f8cd3e4cbd37a0138e0fc8ecfd60c",
+          "exit_code": 1,
+          "archive_sha256": "b252c2fa0b3427779d2fc4470a2a8c72a99eff0cfc3c507e7eb72fb0f16fe81d",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "2a3609e00e83b7450f4f9c4e5ee92cbbe0b7e395db47eeb280eff5e3e014aa9b"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "03791f3673a4fd8373777c9159ada19562e4bd29666cc127528e49a1f52dac40"
+            ]
+          ]
+        },
+        {
+          "id": "traversal-path",
+          "status": "passed",
+          "exec_id": "843fffcbf4e29d4ac40d22f340d67809eba88c8a7fcdf668843108845a6f2303",
+          "exit_code": 1,
+          "archive_sha256": "2d57f3fb8e3111109ac0c1dcdbcc0dfe7cad1a29d33ae4006bf83676f627bdc0",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "2a3609e00e83b7450f4f9c4e5ee92cbbe0b7e395db47eeb280eff5e3e014aa9b"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "c156daf93302decbaab054957c7d9686a7de20bf9eca830b95d1f2df06e7aea2"
+            ]
+          ]
+        },
+        {
+          "id": "absolute-path",
+          "status": "passed",
+          "exec_id": "82f39735ca30cf7801a4eaa6184d5993af08f2bf24619197d7a86ab412150282",
+          "exit_code": 1,
+          "archive_sha256": "9ac87186397c2bc6e1208f7df1eacb9792333fb176bb9929bc88a796b52e3805",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "2a3609e00e83b7450f4f9c4e5ee92cbbe0b7e395db47eeb280eff5e3e014aa9b"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "7e30b7bc9d63b7082f24258bfa1cf6fca3df88e528dc2518577fd7e64829341b"
+            ]
+          ]
+        },
+        {
+          "id": "encoded-path",
+          "status": "passed",
+          "exec_id": "814df51e949e1626a4e9f760844bedcefd386f8924f0cffdedff941ec514d234",
+          "exit_code": 1,
+          "archive_sha256": "968e926bfd4c19bf3416e454ed70d5a1fdee1ed89067973f13d0dd81a695653d",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "2a3609e00e83b7450f4f9c4e5ee92cbbe0b7e395db47eeb280eff5e3e014aa9b"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "a15bfb0d1791c5c3d5735d709a3471233cd58180c66bf1501707efb96f884094"
+            ]
+          ]
+        },
+        {
+          "id": "malformed-privacy-json",
+          "status": "passed",
+          "exec_id": "9193b15426a8b04a266ce17bd44357dd6d966639a1bce11ffa9f55cca50ca1eb",
+          "exit_code": 1,
+          "archive_sha256": "563a62d5f196b8bac67f169d4a5def9b876780f2abe4bdc9420e230626fce9f2",
+          "files": 32,
+          "output_sha256": [],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "2a3609e00e83b7450f4f9c4e5ee92cbbe0b7e395db47eeb280eff5e3e014aa9b"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "cbdf3b1f91ae32fe1ea292ac6cccf19222f97929f531523f0d15d885052c00c4"
+            ]
+          ]
+        }
+      ],
+      "gate_enforced": false,
+      "merge_authorized": false
+    },
+    {
+      "format": "freedom.directory-profile-test-observation/v1",
+      "assurance_level": "local",
+      "workflow_commit": "4921f8f025b09521cb267d814e862512112e44a7",
+      "source_commit": "91b943ac61e132fbbce72ea066cb2301aa065600",
+      "candidate_commit": "f6c5a1649d4c86180003ba4189d962161fc0f1b5",
+      "candidate_tree": "a89aec0e8ce0abfa4bb69cb91064d32efc6ba06d",
+      "status": "failed",
+      "reason": "directory_behavior_mismatch",
+      "semantic_profile": "freedom.directory-html/v2",
+      "cleanup_verified": true,
+      "installation": {
+        "supervisor_sha256": "7b535292f2cf00f1a8f8d33b1cd9770017abbb92cafdf8fafef666ba6045ba22",
+        "harness_sha256": "c294386c08d2595b0cee239d429c723e94f53484cb54d80b59febba4cf5686bf",
+        "node_runtime_sha256": "7610bc003717851ecd59189d70cc6c0985709ee60c357f1b8e5564a7ce21faaa",
+        "node_version": "v24.21.0",
+        "runtime_coverage": "node-and-listed-linked-libraries-only",
+        "host_os_approval": "unverified",
+        "directory_html_parser": {
+          "parse5": "8.0.1",
+          "entities": "8.0.0",
+          "files": 91,
+          "bytes": 573101,
+          "sha256": "23432fe7cdf370e67a8289a1cce223d6c23cf2969550a7f9864c40b353caa9be"
+        },
+        "runtime_recipe": {
+          "recipe": "freedom.consumer-runtime-recipe/v1",
+          "image": {
+            "reference": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "local_id": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "manifest": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "config": "sha256:160466e67bb85a4099d9d9c2356b4a6a64747b281a22c142efbd4539db1b8525",
+            "rootfs": "sha256:1d69a5fd31932841d7825ef4780c06f008eea65aaa9f3110fe09d5832ed5c7d8",
+            "platform": "linux/amd64"
+          },
+          "node": {
+            "executable": "/usr/bin/node",
+            "version": "v24.21.0",
+            "sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"
+          },
+          "host": {
+            "platform": "linux",
+            "architecture": "x64",
+            "glibc": "2.43",
+            "runner_image_version": null,
+            "hosted_os_checked": false
+          },
+          "candidate_userspace": "pinned-image-and-node-binary",
+          "host_os_approval": "unverified",
+          "publisher_trust": "unverified"
+        }
+      },
+      "cases": [
+        {
+          "id": "candidate-data",
+          "status": "failed",
+          "exec_id": "03f216c8ec6379428e25dc53397e5ace0282e294863b9fad6ddf7ba438cbb9b2",
+          "exit_code": 0,
+          "archive_sha256": "b9ccaaf85e2834ff8021e110c8e67a5a781776d964fade8925c245592645ec25",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "eefddc07e96fabc28f3c85b71aad05a9d94e4bcca9395d78c945555630131c1d"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "d2ee21e7cc1e8514e5aab32841077d4607c6d8c8d28bb8f1cfc720f973286213"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "a607d5a4420af556a3a25f69188970b10e80780d9226b82bc21eff2b040b5383"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "80a5d489670ebe51c97541a6539aba3ffbe85077b40cdf298c7eaec88865ff88"
+            ]
+          ]
+        }
+      ],
+      "gate_enforced": false,
+      "merge_authorized": false
+    },
+    {
+      "format": "freedom.directory-profile-test-observation/v1",
+      "assurance_level": "local",
+      "workflow_commit": "4921f8f025b09521cb267d814e862512112e44a7",
+      "source_commit": "91b943ac61e132fbbce72ea066cb2301aa065600",
+      "candidate_commit": "a33a2d9498564fae33277b42502368ab8c0f00a4",
+      "candidate_tree": "b0ef443ffe0a8798149e87f1c69a5eb4b3c79008",
+      "status": "failed",
+      "reason": "directory_behavior_mismatch",
+      "semantic_profile": "freedom.directory-html/v2",
+      "cleanup_verified": true,
+      "installation": {
+        "supervisor_sha256": "7b535292f2cf00f1a8f8d33b1cd9770017abbb92cafdf8fafef666ba6045ba22",
+        "harness_sha256": "c294386c08d2595b0cee239d429c723e94f53484cb54d80b59febba4cf5686bf",
+        "node_runtime_sha256": "7610bc003717851ecd59189d70cc6c0985709ee60c357f1b8e5564a7ce21faaa",
+        "node_version": "v24.21.0",
+        "runtime_coverage": "node-and-listed-linked-libraries-only",
+        "host_os_approval": "unverified",
+        "directory_html_parser": {
+          "parse5": "8.0.1",
+          "entities": "8.0.0",
+          "files": 91,
+          "bytes": 573101,
+          "sha256": "23432fe7cdf370e67a8289a1cce223d6c23cf2969550a7f9864c40b353caa9be"
+        },
+        "runtime_recipe": {
+          "recipe": "freedom.consumer-runtime-recipe/v1",
+          "image": {
+            "reference": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "local_id": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "manifest": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "config": "sha256:160466e67bb85a4099d9d9c2356b4a6a64747b281a22c142efbd4539db1b8525",
+            "rootfs": "sha256:1d69a5fd31932841d7825ef4780c06f008eea65aaa9f3110fe09d5832ed5c7d8",
+            "platform": "linux/amd64"
+          },
+          "node": {
+            "executable": "/usr/bin/node",
+            "version": "v24.21.0",
+            "sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"
+          },
+          "host": {
+            "platform": "linux",
+            "architecture": "x64",
+            "glibc": "2.43",
+            "runner_image_version": null,
+            "hosted_os_checked": false
+          },
+          "candidate_userspace": "pinned-image-and-node-binary",
+          "host_os_approval": "unverified",
+          "publisher_trust": "unverified"
+        }
+      },
+      "cases": [
+        {
+          "id": "candidate-data",
+          "status": "passed",
+          "exec_id": "3de3d70fb1c93519569a083da21bc8f124cfc5d172420fbe6fad05e56fb561a9",
+          "exit_code": 0,
+          "archive_sha256": "439c361a6f89156cda5fab27c6094cc83ff0c9d6037b22590987b2a628fab33d",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "64e4f9ee77d7dd6f97a46e2ab1992df76f324cc58aef9994375514b0c68f973a"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "d2ee21e7cc1e8514e5aab32841077d4607c6d8c8d28bb8f1cfc720f973286213"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "a607d5a4420af556a3a25f69188970b10e80780d9226b82bc21eff2b040b5383"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "80a5d489670ebe51c97541a6539aba3ffbe85077b40cdf298c7eaec88865ff88"
+            ]
+          ]
+        },
+        {
+          "id": "escaped-challenge",
+          "status": "failed",
+          "exec_id": "9534a389b85aa13e72551bf9e953d7cc241a1d91a3ddea07f365ba6286371cb4",
+          "exit_code": 0,
+          "archive_sha256": "2a6187854953f7af2cd170166671942e5363dd5694ce6345d0d74e8d5f835a16",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "618203de11695f7c926cea0420c629c1a894a4991fcb2659abb3c6f09b89e57a"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "bfb43d0218f27467e60da939405d8ccfa76f91cc3d4fe33eaf794ae0e4802018"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "0887fd4fe3e21b375d6d9ff11f31427293ee6651d1d0fb36cfc478c9d83ed747"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "3184ae6543929c3a20fb55ab6165b2abf7e515b095fe94eac8c345901e2e02bc"
+            ]
+          ]
+        }
+      ],
+      "gate_enforced": false,
+      "merge_authorized": false
+    },
+    {
+      "format": "freedom.directory-profile-test-observation/v1",
+      "assurance_level": "local",
+      "workflow_commit": "4921f8f025b09521cb267d814e862512112e44a7",
+      "source_commit": "91b943ac61e132fbbce72ea066cb2301aa065600",
+      "candidate_commit": "9a962af9f4174094e3bd03840752891f9c8d124c",
+      "candidate_tree": "a7c8507e84172892197d5d49a54808847048564b",
+      "status": "failed",
+      "reason": "directory_behavior_mismatch",
+      "semantic_profile": "freedom.directory-html/v2",
+      "cleanup_verified": true,
+      "installation": {
+        "supervisor_sha256": "7b535292f2cf00f1a8f8d33b1cd9770017abbb92cafdf8fafef666ba6045ba22",
+        "harness_sha256": "c294386c08d2595b0cee239d429c723e94f53484cb54d80b59febba4cf5686bf",
+        "node_runtime_sha256": "7610bc003717851ecd59189d70cc6c0985709ee60c357f1b8e5564a7ce21faaa",
+        "node_version": "v24.21.0",
+        "runtime_coverage": "node-and-listed-linked-libraries-only",
+        "host_os_approval": "unverified",
+        "directory_html_parser": {
+          "parse5": "8.0.1",
+          "entities": "8.0.0",
+          "files": 91,
+          "bytes": 573101,
+          "sha256": "23432fe7cdf370e67a8289a1cce223d6c23cf2969550a7f9864c40b353caa9be"
+        },
+        "runtime_recipe": {
+          "recipe": "freedom.consumer-runtime-recipe/v1",
+          "image": {
+            "reference": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "local_id": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "manifest": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "config": "sha256:160466e67bb85a4099d9d9c2356b4a6a64747b281a22c142efbd4539db1b8525",
+            "rootfs": "sha256:1d69a5fd31932841d7825ef4780c06f008eea65aaa9f3110fe09d5832ed5c7d8",
+            "platform": "linux/amd64"
+          },
+          "node": {
+            "executable": "/usr/bin/node",
+            "version": "v24.21.0",
+            "sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"
+          },
+          "host": {
+            "platform": "linux",
+            "architecture": "x64",
+            "glibc": "2.43",
+            "runner_image_version": null,
+            "hosted_os_checked": false
+          },
+          "candidate_userspace": "pinned-image-and-node-binary",
+          "host_os_approval": "unverified",
+          "publisher_trust": "unverified"
+        }
+      },
+      "cases": [
+        {
+          "id": "candidate-data",
+          "status": "passed",
+          "exec_id": "4005e53ac8133d353ad7459dbe43b7283e8dd2e47034e2e7785b69db110a7f12",
+          "exit_code": 0,
+          "archive_sha256": "60c5009f7516a7b097b3abf79d55f0759a65068df7e1acfdff1272afcf1e49fa",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "64e4f9ee77d7dd6f97a46e2ab1992df76f324cc58aef9994375514b0c68f973a"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "d2ee21e7cc1e8514e5aab32841077d4607c6d8c8d28bb8f1cfc720f973286213"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "a607d5a4420af556a3a25f69188970b10e80780d9226b82bc21eff2b040b5383"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "80a5d489670ebe51c97541a6539aba3ffbe85077b40cdf298c7eaec88865ff88"
+            ]
+          ]
+        },
+        {
+          "id": "escaped-challenge",
+          "status": "passed",
+          "exec_id": "3cfabfac62fb8d27cb0eb5a47152a20cb75ac2ae6aa0c7d74ba36ea530d994ea",
+          "exit_code": 0,
+          "archive_sha256": "07dc60fd0fafaeb5e28a4df193034dd603e2ae13c46f021666ee1f34559a0cb5",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "ad89a843d37814b7007685462f8b50dd9384a8ce0a2e9acdd9aef89c4fece5a1"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "86a2ada831b145fa3d6cde1890e1db51e853f34da20689a245f42bf432a2a1c2"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "ce36e00ba3073da73aa88000064be00221ce0b42ea3c9d0d60575f0fb091c628"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "695e1aa0fb072d6f3f0427facbfff32f733dc51960c992b81459ae6ca3b09d0c"
+            ]
+          ]
+        },
+        {
+          "id": "empty-directory",
+          "status": "passed",
+          "exec_id": "fe1676768b47c0cef2e3515532664c0240d165a16100fe45ce57fe10ea146dba",
+          "exit_code": 0,
+          "archive_sha256": "1494ebc417cb6b31790ed990c747d139aa3c2a9d441e25d8080606019e4aaced",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "734131f2daeb3058cb626a60bfcd0ef21f69bad8465042de7ee040b3403b88ea"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "86a2ada831b145fa3d6cde1890e1db51e853f34da20689a245f42bf432a2a1c2"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "1ac949b1909487a2f8812397623678e5aed8ecdb96bb72fdbbb0e28a4be3630d"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "695e1aa0fb072d6f3f0427facbfff32f733dc51960c992b81459ae6ca3b09d0c"
+            ]
+          ]
+        },
+        {
+          "id": "duplicate-repository",
+          "status": "failed",
+          "exec_id": "d6b0a0b914a5c2068f25f0531cd0ddab589df1421cd06c4b00c18fcf16245e01",
+          "exit_code": 0,
+          "archive_sha256": "a5450b5ecc458311df525820bd5affa4e2e8c57f7059cf597f69c8761923288a",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "313fccd88f2c84e5614c603e3b8fc39493b6d91a95dcd4e104f4969b16839c4e"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "86a2ada831b145fa3d6cde1890e1db51e853f34da20689a245f42bf432a2a1c2"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "9c254f4ad1998524bda5e4915dfada81391cfcf1c1e4715c0bd9a19801d875b8"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "695e1aa0fb072d6f3f0427facbfff32f733dc51960c992b81459ae6ca3b09d0c"
+            ]
+          ]
+        }
+      ],
+      "gate_enforced": false,
+      "merge_authorized": false
+    },
+    {
+      "format": "freedom.directory-profile-test-observation/v1",
+      "assurance_level": "local",
+      "workflow_commit": "4921f8f025b09521cb267d814e862512112e44a7",
+      "source_commit": "91b943ac61e132fbbce72ea066cb2301aa065600",
+      "candidate_commit": "3288390da5454600aaa8da7cc17f89152079ff04",
+      "candidate_tree": "612ab44125bdfc57d6942f8b81b5cf1e095abd5d",
+      "status": "failed",
+      "reason": "directory_behavior_mismatch",
+      "semantic_profile": "freedom.directory-html/v2",
+      "cleanup_verified": true,
+      "installation": {
+        "supervisor_sha256": "7b535292f2cf00f1a8f8d33b1cd9770017abbb92cafdf8fafef666ba6045ba22",
+        "harness_sha256": "c294386c08d2595b0cee239d429c723e94f53484cb54d80b59febba4cf5686bf",
+        "node_runtime_sha256": "7610bc003717851ecd59189d70cc6c0985709ee60c357f1b8e5564a7ce21faaa",
+        "node_version": "v24.21.0",
+        "runtime_coverage": "node-and-listed-linked-libraries-only",
+        "host_os_approval": "unverified",
+        "directory_html_parser": {
+          "parse5": "8.0.1",
+          "entities": "8.0.0",
+          "files": 91,
+          "bytes": 573101,
+          "sha256": "23432fe7cdf370e67a8289a1cce223d6c23cf2969550a7f9864c40b353caa9be"
+        },
+        "runtime_recipe": {
+          "recipe": "freedom.consumer-runtime-recipe/v1",
+          "image": {
+            "reference": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "local_id": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "manifest": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "config": "sha256:160466e67bb85a4099d9d9c2356b4a6a64747b281a22c142efbd4539db1b8525",
+            "rootfs": "sha256:1d69a5fd31932841d7825ef4780c06f008eea65aaa9f3110fe09d5832ed5c7d8",
+            "platform": "linux/amd64"
+          },
+          "node": {
+            "executable": "/usr/bin/node",
+            "version": "v24.21.0",
+            "sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"
+          },
+          "host": {
+            "platform": "linux",
+            "architecture": "x64",
+            "glibc": "2.43",
+            "runner_image_version": null,
+            "hosted_os_checked": false
+          },
+          "candidate_userspace": "pinned-image-and-node-binary",
+          "host_os_approval": "unverified",
+          "publisher_trust": "unverified"
+        }
+      },
+      "cases": [
+        {
+          "id": "candidate-data",
+          "status": "passed",
+          "exec_id": "4ec09ae690a6467af0e9b961de01053fcf68dd3a22b7fe461f7dea3898b466ae",
+          "exit_code": 0,
+          "archive_sha256": "c3ea55cf4e6bb8315e9b617386d163508aa0aa83ef9c99e535efb5cfdfffe2dd",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "64e4f9ee77d7dd6f97a46e2ab1992df76f324cc58aef9994375514b0c68f973a"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "d2ee21e7cc1e8514e5aab32841077d4607c6d8c8d28bb8f1cfc720f973286213"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "a607d5a4420af556a3a25f69188970b10e80780d9226b82bc21eff2b040b5383"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "80a5d489670ebe51c97541a6539aba3ffbe85077b40cdf298c7eaec88865ff88"
+            ]
+          ]
+        },
+        {
+          "id": "escaped-challenge",
+          "status": "passed",
+          "exec_id": "464e3351001ed7b64448b3847cfad6fa8dcb0777e85c802b791d2021593281e5",
+          "exit_code": 0,
+          "archive_sha256": "606641f78e2a0c4c212b0d28d2a25ba5c059d35d8bfecf28fd1174ed16a5ebf4",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "e872c10129cc6ba609548115f583119bb94a4b5692f4fb0cb8c696a12855c1e0"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "f312f6f87214c17b986ee18d45325e84f6ea4c3da153f11421a5a1629a4e7c9e"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "2b46f560a8d194d303968d8c8a549dab5c482a888819be3252c7642e863fc324"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "2541015e55a8685d2997f5d4ac6ae521a9341c68b229e97c16f171d8497cd648"
+            ]
+          ]
+        },
+        {
+          "id": "empty-directory",
+          "status": "passed",
+          "exec_id": "f3326cdc052b49c8cec38b7b7402b44836fcf15f4487c2a283a2e7fc58767edc",
+          "exit_code": 0,
+          "archive_sha256": "92a3b35a3ed50b1a4e4b9b2a505b8e33ae34803bca71bad5711a6d851a1021df",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "734131f2daeb3058cb626a60bfcd0ef21f69bad8465042de7ee040b3403b88ea"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "f312f6f87214c17b986ee18d45325e84f6ea4c3da153f11421a5a1629a4e7c9e"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "1ac949b1909487a2f8812397623678e5aed8ecdb96bb72fdbbb0e28a4be3630d"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "2541015e55a8685d2997f5d4ac6ae521a9341c68b229e97c16f171d8497cd648"
+            ]
+          ]
+        },
+        {
+          "id": "duplicate-repository",
+          "status": "failed",
+          "exec_id": "615421b05295fc67c83aee44aa47e367651c61471f01731e2c15357831b9728e",
+          "exit_code": 1,
+          "archive_sha256": "da071962485d1061e29e742871cab0b223fd6e5d002d474f4b511759dbad2a1b",
+          "files": 33,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "9834a14ab9bcaa0f6a8da71073617eac8f004e596a3fa11d807b84631b825d9d"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "cd1459d2e1247a9e3e2a35160ec60ebb4f32c187efc11ef60b925af6fa059e92"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "2541015e55a8685d2997f5d4ac6ae521a9341c68b229e97c16f171d8497cd648"
+            ]
+          ]
+        }
+      ],
+      "gate_enforced": false,
+      "merge_authorized": false
+    },
+    {
+      "format": "freedom.directory-profile-test-observation/v1",
+      "assurance_level": "local",
+      "workflow_commit": "4921f8f025b09521cb267d814e862512112e44a7",
+      "source_commit": "91b943ac61e132fbbce72ea066cb2301aa065600",
+      "candidate_commit": "7ce132d2cda4bc44d4b6416a000fcc63b532da3e",
+      "candidate_tree": "6ea582dde1e34bb8ed7b3472b1c4a16e6659d0c9",
+      "status": "failed",
+      "reason": "directory_behavior_mismatch",
+      "semantic_profile": "freedom.directory-html/v2",
+      "cleanup_verified": true,
+      "installation": {
+        "supervisor_sha256": "7b535292f2cf00f1a8f8d33b1cd9770017abbb92cafdf8fafef666ba6045ba22",
+        "harness_sha256": "c294386c08d2595b0cee239d429c723e94f53484cb54d80b59febba4cf5686bf",
+        "node_runtime_sha256": "7610bc003717851ecd59189d70cc6c0985709ee60c357f1b8e5564a7ce21faaa",
+        "node_version": "v24.21.0",
+        "runtime_coverage": "node-and-listed-linked-libraries-only",
+        "host_os_approval": "unverified",
+        "directory_html_parser": {
+          "parse5": "8.0.1",
+          "entities": "8.0.0",
+          "files": 91,
+          "bytes": 573101,
+          "sha256": "23432fe7cdf370e67a8289a1cce223d6c23cf2969550a7f9864c40b353caa9be"
+        },
+        "runtime_recipe": {
+          "recipe": "freedom.consumer-runtime-recipe/v1",
+          "image": {
+            "reference": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "local_id": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "manifest": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "config": "sha256:160466e67bb85a4099d9d9c2356b4a6a64747b281a22c142efbd4539db1b8525",
+            "rootfs": "sha256:1d69a5fd31932841d7825ef4780c06f008eea65aaa9f3110fe09d5832ed5c7d8",
+            "platform": "linux/amd64"
+          },
+          "node": {
+            "executable": "/usr/bin/node",
+            "version": "v24.21.0",
+            "sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"
+          },
+          "host": {
+            "platform": "linux",
+            "architecture": "x64",
+            "glibc": "2.43",
+            "runner_image_version": null,
+            "hosted_os_checked": false
+          },
+          "candidate_userspace": "pinned-image-and-node-binary",
+          "host_os_approval": "unverified",
+          "publisher_trust": "unverified"
+        }
+      },
+      "cases": [
+        {
+          "id": "candidate-data",
+          "status": "failed",
+          "exec_id": "f00f068813499482c1d6d7473b9f6e3fb4664feb01a479965a96a91e1abb3e07",
+          "exit_code": 0,
+          "archive_sha256": "644163412eb6b2aa26c48e7a1f4fd5b856a61318203379b3c9c074207c599ca1",
+          "files": 35,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "64e4f9ee77d7dd6f97a46e2ab1992df76f324cc58aef9994375514b0c68f973a"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "d2ee21e7cc1e8514e5aab32841077d4607c6d8c8d28bb8f1cfc720f973286213"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "a607d5a4420af556a3a25f69188970b10e80780d9226b82bc21eff2b040b5383"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "80a5d489670ebe51c97541a6539aba3ffbe85077b40cdf298c7eaec88865ff88"
+            ]
+          ]
+        }
+      ],
+      "gate_enforced": false,
+      "merge_authorized": false
+    },
+    {
+      "format": "freedom.directory-profile-test-observation/v1",
+      "assurance_level": "local",
+      "workflow_commit": "4921f8f025b09521cb267d814e862512112e44a7",
+      "source_commit": "91b943ac61e132fbbce72ea066cb2301aa065600",
+      "candidate_commit": "ec24cd6270116d451ea2ed1e1a073e40aed7e8b2",
+      "candidate_tree": "e9eab93713e66d18ba50d4d09ebe1be0d2c62fb2",
+      "status": "failed",
+      "reason": "directory_behavior_mismatch",
+      "semantic_profile": "freedom.directory-html/v2",
+      "cleanup_verified": true,
+      "installation": {
+        "supervisor_sha256": "7b535292f2cf00f1a8f8d33b1cd9770017abbb92cafdf8fafef666ba6045ba22",
+        "harness_sha256": "c294386c08d2595b0cee239d429c723e94f53484cb54d80b59febba4cf5686bf",
+        "node_runtime_sha256": "7610bc003717851ecd59189d70cc6c0985709ee60c357f1b8e5564a7ce21faaa",
+        "node_version": "v24.21.0",
+        "runtime_coverage": "node-and-listed-linked-libraries-only",
+        "host_os_approval": "unverified",
+        "directory_html_parser": {
+          "parse5": "8.0.1",
+          "entities": "8.0.0",
+          "files": 91,
+          "bytes": 573101,
+          "sha256": "23432fe7cdf370e67a8289a1cce223d6c23cf2969550a7f9864c40b353caa9be"
+        },
+        "runtime_recipe": {
+          "recipe": "freedom.consumer-runtime-recipe/v1",
+          "image": {
+            "reference": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "local_id": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "manifest": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "config": "sha256:160466e67bb85a4099d9d9c2356b4a6a64747b281a22c142efbd4539db1b8525",
+            "rootfs": "sha256:1d69a5fd31932841d7825ef4780c06f008eea65aaa9f3110fe09d5832ed5c7d8",
+            "platform": "linux/amd64"
+          },
+          "node": {
+            "executable": "/usr/bin/node",
+            "version": "v24.21.0",
+            "sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"
+          },
+          "host": {
+            "platform": "linux",
+            "architecture": "x64",
+            "glibc": "2.43",
+            "runner_image_version": null,
+            "hosted_os_checked": false
+          },
+          "candidate_userspace": "pinned-image-and-node-binary",
+          "host_os_approval": "unverified",
+          "publisher_trust": "unverified"
+        }
+      },
+      "cases": [
+        {
+          "id": "candidate-data",
+          "status": "failed",
+          "exec_id": "f247e9fb37dccd43773bba05eeeaf1ae019e27b31f019c214423e7b8e8bef634",
+          "exit_code": 0,
+          "archive_sha256": "96df0f2d38294edf0fd254dc6c2b065a9ff77a30a0325546e42d5a3683a779c3",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "62ecf7018cfb0c6f8527791af89e59cc6ed27bacc46ec6afa4caaa0f092a57a5"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "d2ee21e7cc1e8514e5aab32841077d4607c6d8c8d28bb8f1cfc720f973286213"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "a607d5a4420af556a3a25f69188970b10e80780d9226b82bc21eff2b040b5383"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "80a5d489670ebe51c97541a6539aba3ffbe85077b40cdf298c7eaec88865ff88"
+            ]
+          ]
+        }
+      ],
+      "gate_enforced": false,
+      "merge_authorized": false
+    },
+    {
+      "format": "freedom.directory-profile-test-observation/v1",
+      "assurance_level": "local",
+      "workflow_commit": "4921f8f025b09521cb267d814e862512112e44a7",
+      "source_commit": "91b943ac61e132fbbce72ea066cb2301aa065600",
+      "candidate_commit": "3ba07335243827493c82aa9125248e19738a71b3",
+      "candidate_tree": "dfca6a2045d20638033ce365d03b831a70624c02",
+      "status": "failed",
+      "reason": "directory_behavior_mismatch",
+      "semantic_profile": "freedom.directory-html/v2",
+      "cleanup_verified": true,
+      "installation": {
+        "supervisor_sha256": "7b535292f2cf00f1a8f8d33b1cd9770017abbb92cafdf8fafef666ba6045ba22",
+        "harness_sha256": "c294386c08d2595b0cee239d429c723e94f53484cb54d80b59febba4cf5686bf",
+        "node_runtime_sha256": "7610bc003717851ecd59189d70cc6c0985709ee60c357f1b8e5564a7ce21faaa",
+        "node_version": "v24.21.0",
+        "runtime_coverage": "node-and-listed-linked-libraries-only",
+        "host_os_approval": "unverified",
+        "directory_html_parser": {
+          "parse5": "8.0.1",
+          "entities": "8.0.0",
+          "files": 91,
+          "bytes": 573101,
+          "sha256": "23432fe7cdf370e67a8289a1cce223d6c23cf2969550a7f9864c40b353caa9be"
+        },
+        "runtime_recipe": {
+          "recipe": "freedom.consumer-runtime-recipe/v1",
+          "image": {
+            "reference": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "local_id": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "manifest": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "config": "sha256:160466e67bb85a4099d9d9c2356b4a6a64747b281a22c142efbd4539db1b8525",
+            "rootfs": "sha256:1d69a5fd31932841d7825ef4780c06f008eea65aaa9f3110fe09d5832ed5c7d8",
+            "platform": "linux/amd64"
+          },
+          "node": {
+            "executable": "/usr/bin/node",
+            "version": "v24.21.0",
+            "sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"
+          },
+          "host": {
+            "platform": "linux",
+            "architecture": "x64",
+            "glibc": "2.43",
+            "runner_image_version": null,
+            "hosted_os_checked": false
+          },
+          "candidate_userspace": "pinned-image-and-node-binary",
+          "host_os_approval": "unverified",
+          "publisher_trust": "unverified"
+        }
+      },
+      "cases": [
+        {
+          "id": "candidate-data",
+          "status": "failed",
+          "exec_id": "92bc5e9886fa2f1141b3694440c5a741b3d9245754f4946594eee2bc069ba59a",
+          "exit_code": 0,
+          "archive_sha256": "8c25b732e9bc19a4843f6a6c0de42281dbcc3eff6fed603f8c07de5aaf04ca8d",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "417ea0e0e007a0998b3f64f90ee09d354c6ba6f96fe3d40dcecf63f1745f4767"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "d2ee21e7cc1e8514e5aab32841077d4607c6d8c8d28bb8f1cfc720f973286213"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "a607d5a4420af556a3a25f69188970b10e80780d9226b82bc21eff2b040b5383"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "80a5d489670ebe51c97541a6539aba3ffbe85077b40cdf298c7eaec88865ff88"
+            ]
+          ]
+        }
+      ],
+      "gate_enforced": false,
+      "merge_authorized": false
+    },
+    {
+      "format": "freedom.directory-profile-test-observation/v1",
+      "assurance_level": "local",
+      "workflow_commit": "4921f8f025b09521cb267d814e862512112e44a7",
+      "source_commit": "91b943ac61e132fbbce72ea066cb2301aa065600",
+      "candidate_commit": "20a6899d14e894b07115393ac022a3b8aeac067d",
+      "candidate_tree": "0aa84b461d9c86f6af8fad286fef7df094b2f308",
+      "status": "failed",
+      "reason": "directory_behavior_mismatch",
+      "semantic_profile": "freedom.directory-html/v2",
+      "cleanup_verified": true,
+      "installation": {
+        "supervisor_sha256": "7b535292f2cf00f1a8f8d33b1cd9770017abbb92cafdf8fafef666ba6045ba22",
+        "harness_sha256": "c294386c08d2595b0cee239d429c723e94f53484cb54d80b59febba4cf5686bf",
+        "node_runtime_sha256": "7610bc003717851ecd59189d70cc6c0985709ee60c357f1b8e5564a7ce21faaa",
+        "node_version": "v24.21.0",
+        "runtime_coverage": "node-and-listed-linked-libraries-only",
+        "host_os_approval": "unverified",
+        "directory_html_parser": {
+          "parse5": "8.0.1",
+          "entities": "8.0.0",
+          "files": 91,
+          "bytes": 573101,
+          "sha256": "23432fe7cdf370e67a8289a1cce223d6c23cf2969550a7f9864c40b353caa9be"
+        },
+        "runtime_recipe": {
+          "recipe": "freedom.consumer-runtime-recipe/v1",
+          "image": {
+            "reference": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "local_id": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "manifest": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+            "config": "sha256:160466e67bb85a4099d9d9c2356b4a6a64747b281a22c142efbd4539db1b8525",
+            "rootfs": "sha256:1d69a5fd31932841d7825ef4780c06f008eea65aaa9f3110fe09d5832ed5c7d8",
+            "platform": "linux/amd64"
+          },
+          "node": {
+            "executable": "/usr/bin/node",
+            "version": "v24.21.0",
+            "sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"
+          },
+          "host": {
+            "platform": "linux",
+            "architecture": "x64",
+            "glibc": "2.43",
+            "runner_image_version": null,
+            "hosted_os_checked": false
+          },
+          "candidate_userspace": "pinned-image-and-node-binary",
+          "host_os_approval": "unverified",
+          "publisher_trust": "unverified"
+        }
+      },
+      "cases": [
+        {
+          "id": "candidate-data",
+          "status": "failed",
+          "exec_id": "7e68eefe5f00bed00caa2115f6f9d8e4265ad90251fd9175713242d15bed13b9",
+          "exit_code": 0,
+          "archive_sha256": "7f2f58dd9f97ce9be3c09e71ce758901a3fbbcce9aeaca57081b1cdee2427b03",
+          "files": 34,
+          "output_sha256": [
+            [
+              "work/dist/index.html",
+              "18a9f87f026276508dc2ca268cd44f9925b1c5ba8fa4abf53004e943e3a3a7bd"
+            ],
+            [
+              "work/dist/privacy/discord-bot/index.html",
+              "d2ee21e7cc1e8514e5aab32841077d4607c6d8c8d28bb8f1cfc720f973286213"
+            ]
+          ],
+          "input_sha256": [
+            [
+              "data/directory.json",
+              "a607d5a4420af556a3a25f69188970b10e80780d9226b82bc21eff2b040b5383"
+            ],
+            [
+              "data/privacy-discord-bot.json",
+              "80a5d489670ebe51c97541a6539aba3ffbe85077b40cdf298c7eaec88865ff88"
+            ]
+          ]
+        }
+      ],
+      "gate_enforced": false,
+      "merge_authorized": false
+    },
+    {
+      "format": "freedom.directory-profile-test-observation/v1",
+      "assurance_level": "local",
+      "workflow_commit": "4921f8f025b09521cb267d814e862512112e44a7",
+      "source_commit": "91b943ac61e132fbbce72ea066cb2301aa065600",
+      "candidate_commit": "0957eb3c410b68e135698928eb9c0778110186a7",
+      "candidate_tree": "a32249825c7bc306860400afc7e5d84e3e15431a",
+      "status": "failed",
+      "reason": "directory_data_invalid",
+      "semantic_profile": "freedom.directory-html/v2",
+      "cleanup_verified": true,
+      "installation": null,
+      "cases": [],
+      "gate_enforced": false,
+      "merge_authorized": false
+    },
+    {
+      "format": "freedom.directory-profile-test-observation/v1",
+      "assurance_level": "local",
+      "workflow_commit": "4921f8f025b09521cb267d814e862512112e44a7",
+      "source_commit": "91b943ac61e132fbbce72ea066cb2301aa065600",
+      "candidate_commit": "aaf63cf7ba785c4122f1a9b42a3399f1603f95d5",
+      "candidate_tree": "15fa476f49f77d3630b64a27c78fc3fb2d3fd6d9",
+      "status": "failed",
+      "reason": "supervisor_host_command_failed",
+      "semantic_profile": "freedom.directory-html/v2",
+      "cleanup_verified": true,
+      "installation": null,
+      "cases": [],
+      "gate_enforced": false,
+      "merge_authorized": false
+    },
+    {
+      "format": "freedom.directory-profile-test-observation/v1",
+      "assurance_level": "local",
+      "workflow_commit": "4921f8f025b09521cb267d814e862512112e44a7",
+      "source_commit": "91b943ac61e132fbbce72ea066cb2301aa065600",
+      "candidate_commit": "18e24acc5d7465a24737cfaa3d4dcb16593eb611",
+      "candidate_tree": "dbdc5ddbb99a5a13f19f22d9832f740b6a24b35b",
+      "status": "failed",
+      "reason": "directory_build_unavailable",
+      "semantic_profile": "freedom.directory-html/v2",
+      "cleanup_verified": true,
+      "installation": null,
+      "cases": [],
+      "gate_enforced": false,
+      "merge_authorized": false
+    }
+  ],
+  "installed_pin_changed": false
+}

@@ -4,8 +4,8 @@
   "files": [
     {
       "path": ".github/workflows/directory-runtime-profile.yml",
-      "bytes": 2480,
-      "sha256": "780d0df57278589b8c21eb2e3c180a2a5ddd36b5d195a5bbc9209c1d5ddf61fb"
+      "bytes": 2981,
+      "sha256": "315f2495e0cb626160c12a3ee82b049daec63591247e64340b7f5419c391f4e4"
     },
     {
       "path": ".github/workflows/page-issue-label.yml",
@@ -24,8 +24,8 @@
     },
     {
       "path": ".github/workflows/trusted-consumer-runtime.yml",
-      "bytes": 2736,
-      "sha256": "da297a100a7fedf4a8942174049f9de63244c1f121ed0c898e52ea536c4f2f8d"
+      "bytes": 3205,
+      "sha256": "973bd788ca9796c1999fcd39ecfd24931e3758a16ff581583490c3887a067945"
     },
     {
       "path": ".github/workflows/verify.yml",
@@ -13633,6 +13633,16 @@
       "sha256": "a6fee607e6604def651869c3a6888b0b3629b55f60250a7d4cc043d9f42dd68e"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/directory-semantics-evidence-2026-10-05.json",
+      "bytes": 12837,
+      "sha256": "12dfd783fc2be91bc88d69d3fe5c7cbd8b8f3787e4d34e043de15c896bcc6673"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/directory-semantics-observations-2026-10-05.json",
+      "bytes": 80534,
+      "sha256": "013432b7ffebfca7ba858273e7d5c2a686e020164db4702d3fece1faa4d70f2d"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md",
       "bytes": 32394,
       "sha256": "714ade34f19c881f8a9565f8f037bc02d020156f0e89175664b4166656ce716a"
@@ -13669,8 +13679,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 337519,
-      "sha256": "737371fb7c2be9c76d449a59f930ed61e30cc4d2ba054f92ad179914da5004a3"
+      "bytes": 338875,
+      "sha256": "8ba422297917073aa296d855dd81c5e90f519900ca36019c3724825e2be424f0"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -15679,8 +15689,8 @@
     },
     {
       "path": "packages/contribution-tools/behavior-supervisor.mjs",
-      "bytes": 50312,
-      "sha256": "a9069fd28ea25264b66386ce8ab81c18406d8fa1815c61db24be740b8f1e262d"
+      "bytes": 51094,
+      "sha256": "c0d7686a0c22d28673ad9916643b06c1803721d5781ac8818eb67f46945ca056"
     },
     {
       "path": "packages/contribution-tools/cli.mjs",
@@ -15754,18 +15764,38 @@
     },
     {
       "path": "packages/contribution-tools/directory-build-archive.py",
-      "bytes": 2003,
-      "sha256": "bf1508d6279520af50da9a24756c10f685f0d05fa904b1b1b3cccd7f39bb3b32"
+      "bytes": 2509,
+      "sha256": "36cb16eb711e243e508c2bb5beb2d69ed60ab5afb4e559fa6529aa139bc1356e"
     },
     {
       "path": "packages/contribution-tools/directory-build-fixture.mjs",
-      "bytes": 4047,
-      "sha256": "084d9771802872c01594cd922187916bd8afffc32df4357f2c304dd7b5c2a1c7"
+      "bytes": 6194,
+      "sha256": "f86d482b2340fdc7ac6f3684a3062554b28b04faabd279ceffe1f6de991ed9fb"
     },
     {
       "path": "packages/contribution-tools/directory-build-profile.md",
-      "bytes": 5113,
-      "sha256": "4806fe76b8562f02a2e702bb66e30c3c1d36112876d399f0ba532522917a630a"
+      "bytes": 8830,
+      "sha256": "a1b87f95b96e7e2e328ba22e8d07389120068640fec151cbbb4e8066e3a40e1e"
+    },
+    {
+      "path": "packages/contribution-tools/directory-html-dependencies.mjs",
+      "bytes": 1809,
+      "sha256": "fd3726b05beec58f48ae1adc09b81d95b851d53a32c91a907baec8ed13d886b2"
+    },
+    {
+      "path": "packages/contribution-tools/directory-html-host/package-lock.json",
+      "bytes": 1126,
+      "sha256": "fa9f8e172ac878d814dfe7d2ee8613700e3f269e96b1ecd160e953859766752d"
+    },
+    {
+      "path": "packages/contribution-tools/directory-html-host/package.json",
+      "bytes": 157,
+      "sha256": "a04e55922959b6ee7bb7a936ef6be0f2503c67cf21ce8520ea04e6510dcd47db"
+    },
+    {
+      "path": "packages/contribution-tools/directory-html-profile.mjs",
+      "bytes": 12229,
+      "sha256": "864928ef04297e9bc127500621e1e577ae6b284d0e3b5c86923ab0a605e04f88"
     },
     {
       "path": "packages/contribution-tools/directory-reference/index.mjs",
@@ -17263,9 +17293,14 @@
       "sha256": "6d0f7fab40e99c2281562521bbd15d316c12cbd559e53e052d162f553ed696fb"
     },
     {
+      "path": "tests/integration/directory-html-semantics.test.mjs",
+      "bytes": 11829,
+      "sha256": "9fb950f512b84517d74c7aa3b8ae48037776d66842f8b65d2e7d6a68e97fea10"
+    },
+    {
       "path": "tests/integration/directory-runtime.test.mjs",
-      "bytes": 6615,
-      "sha256": "992703c740535efa6dec425433d371dbc1a5bae731e404561d26e6a54c1c0ae2"
+      "bytes": 8519,
+      "sha256": "5e8e91be421cd05b8ebeea5b0b8694c699be95e7ae4f03364d6ef88874636d05"
     },
     {
       "path": "tests/integration/helpers/media-restore-fixtures.ts",

@@ -368,6 +368,25 @@
         "failed": 0,
         "skipped": 0
       }
+    },
+    "directory-semantics-4921f8f": {
+      "id": "directory-semantics-4921f8f",
+      "kind": "local_isolated_actual_directory_build",
+      "source_sha": "4921f8f025b09521cb267d814e862512112e44a7",
+      "environment": "Fixed local Docker/Node recipe; network-none nonroot build; host-only HTML5 parser; not installed hosted gate",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/directory-semantics-evidence-2026-10-05.json",
+        "docs/platform-plan/execution/unified-foundation/directory-semantics-observations-2026-10-05.json"
+      ],
+      "observations": [
+        "Legal CSS/wrapper/ARIA redesigns pass the actual build; missing data, unsafe markup/links, weak CSP and filesystem violations fail.",
+        "Four positive and eleven negative actual build variants preserve exact candidate, tree and output hashes; all owned cleanup verified."
+      ],
+      "limitations": [
+        "GOV-04 private-client bypass, GOV-06 mounted auth and GOV-20 effect-to-publish originals are not replaced by static build checks. Original row states remain unchanged.",
+        "Installed ruleset24516222 and source5b471fe remain unchanged; hosted reviewed canaries and fixed source publication required.",
+        "No computed CSS visibility, browser visual acceptance or actual shared-library invocation claim."
+      ]
     }
   },
   "requirements": [
