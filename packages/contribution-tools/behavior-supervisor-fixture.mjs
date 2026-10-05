@@ -1,6 +1,9 @@
 // Host-side fixture only. No candidate imports or candidate migration scripts.
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
-import { readdir, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { readMigrationSources } from '../db/migration-files.mjs';
+import { legacyMigrationProfile, resolveMigrationPlan } from '../db/migration-plan.mjs';
 import pg from 'pg';
 import sharp from 'sharp';
 import { MEMBER_BEHAVIOR as manifest } from './behavior-manifest.mjs';
@@ -17,10 +20,12 @@ export async function openSupervisorDatabase(socketDirectory, password) {
 }
 export async function initializeSupervisorFixture(pool, appPassword) {
   const migrations = new URL('../../migrations/', import.meta.url);
+  const migrationManifest = JSON.parse(await readFile(new URL('../../deploy/cloudflare/environments.json', import.meta.url), 'utf8'));
+  const plan = resolveMigrationPlan(readMigrationSources(fileURLToPath(migrations)), legacyMigrationProfile(migrationManifest.database_defaults.migrations));
   await pool.query('BEGIN');
   try {
-    for (const name of (await readdir(migrations)).filter(name => /^\d{3}_[a-z0-9_]+\.sql$/.test(name)).sort()) {
-      await pool.query(await readFile(new URL(name, migrations), 'utf8'));
+    for (const name of plan.execution_order) {
+      await pool.query(plan.sql[name]);
     }
     await pool.query('COMMIT');
   } catch (error) { await pool.query('ROLLBACK'); throw error; }

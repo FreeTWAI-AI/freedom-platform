@@ -18,6 +18,7 @@ import { consumerHostTuple } from './consumer-host-tuples.mjs';
 import { inspectConsumerRuntime } from './consumer-runtime-recipe.mjs';
 import { DIRECTORY_REPOSITORY, directoryBuildCases, checkDirectoryBuildArchive } from './directory-build-fixture.mjs';
 import { directoryHtmlDependencyIdentity } from './directory-html-dependencies.mjs';
+import { readMigrationSources } from '../db/migration-files.mjs';
 
 // Member mode retains its cached local image identities; consumer mode uses the
 // separately provisioned public recipe. Neither is operator trust approval.
@@ -169,11 +170,14 @@ export async function installedSupervisorIdentity({ nodeExecutable = '/usr/bin/n
     'packages/contribution-tools/directory-reference/index.mjs', 'packages/contribution-tools/directory-reference/privacy.mjs',
     'contracts/preview/v1/protocol.mjs',
     'packages/contribution-tools/github-behavior-host.mjs',
-    'packages/contribution-tools/github-trusted-adapter.mjs', 'package-lock.json'];
+    'packages/contribution-tools/github-trusted-adapter.mjs', 'package-lock.json',
+    'packages/db/migration-plan.mjs', 'packages/db/migration-files.mjs', 'deploy/cloudflare/environments.json'];
   const directoryParser = directoryHtml ? await directoryHtmlDependencyIdentity() : null;
   if (directoryHtml) paths.push('packages/contribution-tools/directory-html-profile.mjs', 'packages/contribution-tools/directory-html-host/package.json',
     'packages/contribution-tools/directory-html-host/package-lock.json');
-  for (const name of await readdir(join(ROOT, 'migrations'))) if (/^\d{3}_[a-z0-9_]+\.sql$/.test(name)) paths.push('migrations/' + name);
+  // Include every SQL file even when its naming profile is not yet admitted;
+  // the fixed fixture planner rejects it rather than silently omitting it.
+  for (const { name } of readMigrationSources(join(ROOT, 'migrations'))) paths.push('migrations/' + name);
   const files = [];
   for (const path of paths.sort()) files.push([path, sha256(await readFile(join(ROOT, path)))]);
   const runtimeFiles = [];

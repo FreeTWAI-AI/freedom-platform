@@ -1,5 +1,8 @@
 # Member command compatibility core
 
+Migration runner compatibility and the closed DAG transition are documented in
+[migrations.md](migrations.md). They do not change this command/receipt core.
+
 `index.ts` retains the public `command(pool, input, authorize, run)`, `transaction`, `digest`, `journal` and `checkVersion` entrypoints. `command` is an alias of `memberCommand`. Existing callers and historical receipts do not migrate.
 
 The internal orchestration in [command-core.ts](command-core.ts) depends on PostgreSQL types, transaction handling and neutral Problem errors, not the identity or execution domain. Server-owned adapter ports provide current authentication/locking, receipt serialization, digest and receipt storage. The public DB command entrypoint still selects only the legacy member adapter. No service/execution API or credential acceptance is enabled.
