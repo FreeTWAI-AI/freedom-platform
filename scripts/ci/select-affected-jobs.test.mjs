@@ -7,7 +7,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateDescriptor } from '../../packages/contribution-tools/context.mjs';
 import {
-  ALWAYS_ON_INTEGRITY_COMMANDS, DOCS_ALLOWLIST_PREFIXES, GENERATED_INVENTORY_PATH, JOB_OUTPUT_KEYS, REQUIRED_SELECTED_JOBS, SELECTABLE_JOBS,
+  ALWAYS_ON_INTEGRITY_COMMANDS, DOCS_ALLOWLIST_PREFIXES, GENERATED_INVENTORY_PATH, JOB_OUTPUT_KEYS, SELECTABLE_JOBS,
   changesFromTrees, collectRepositoryDecision, decideAffectedJobs, evaluateVerifyAggregate, githubOutput,
   heavyJobCondition, isDocsAllowlisted, loadModuleDescriptors, parseLsTreeZ, parseNameStatusZ,
 } from './select-affected-jobs.mjs';
@@ -41,11 +41,11 @@ function needsFor(selection, results, { select = 'success', integrity = 'success
     'source-integrity': { result: integrity, outputs: {} },
     ...extra,
   };
-  for (const id of REQUIRED_SELECTED_JOBS) needs[id] = { result: results[id], outputs: {} };
+  for (const id of SELECTABLE_JOBS) needs[id] = { result: results[id], outputs: {} };
   return needs;
 }
 function allResults(result) {
-  return Object.fromEntries(REQUIRED_SELECTED_JOBS.map(id => [id, result]));
+  return Object.fromEntries(SELECTABLE_JOBS.map(id => [id, result]));
 }
 function jobBlock(text, name) {
   const marker = `\n  ${name}:\n`;
@@ -237,6 +237,27 @@ test('aggregate passes a proven docs skip and a complete full run', () => {
   assert.equal(evaluateVerifyAggregate(extraSuccess).ok, true);
 });
 
+test('deployment preflight must be observed and succeed when selected, while docs may skip it', () => {
+  for (const [selection, otherResult] of [
+    [pull([edited('deploy/cloudflare/lib/migrations.mjs')]), 'success'],
+    [pull([edited('docs/development/guide.md')]), 'skipped'],
+  ]) {
+    for (const result of [undefined, 'failure', 'cancelled', 'skipped', 'success']) {
+      const needs = needsFor(selection, allResults(otherResult));
+      if (result === undefined) delete needs['deploy-preflight'];
+      else needs['deploy-preflight'].result = result;
+      const verdict = evaluateVerifyAggregate(needs);
+      const shouldPass = result === 'success' || (selection.mode === 'docs' && result === 'skipped');
+      assert.equal(verdict.ok, shouldPass, `${selection.mode}: deploy-preflight ${result ?? 'missing'}`);
+      if (!shouldPass) assert.deepEqual(verdict, {
+        ok: false,
+        reason: selection.mode === 'full' ? 'selected_job_not_success' : 'unselected_job_not_clean',
+        job: 'deploy-preflight', result: result ?? 'missing',
+      });
+    }
+  }
+});
+
 test('failed, cancelled, missing, and inconsistent dependencies never pass', () => {
   const docsDecision = pull([edited('docs/development/guide.md')]);
   const fullDecision = pull([edited('package.json')]);
@@ -251,7 +272,7 @@ test('failed, cancelled, missing, and inconsistent dependencies never pass', () 
     needsFor(docsDecision, allResults('skipped'), { integrity: 'cancelled' }),
     needsFor(fullDecision, allResults('success'), { select: 'failure' }),
     needsFor(fullDecision, allResults('success'), { select: 'cancelled' }),
-    needsFor(docsDecision, allResults('skipped'), { extra: { 'deploy-preflight': { result: 'failure', outputs: {} } } }),
+    needsFor(docsDecision, allResults('skipped'), { extra: { 'unexpected-job': { result: 'failure', outputs: {} } } }),
   ];
   for (const needs of cases) assert.equal(evaluateVerifyAggregate(needs).ok, false);
   for (const integrity of ['failure', 'cancelled', 'skipped']) {
@@ -496,7 +517,10 @@ test('verify workflow keeps the required gate, unconditional integrity, and hist
   assert.match(text, /ref: \$\{\{ github\.sha \}\}/u);
   const verify = jobBlock(text, 'verify');
   assert.match(verify, /if: \$\{\{ always\(\) \}\}/u);
-  for (const id of ['select', 'source-integrity', ...REQUIRED_SELECTED_JOBS]) assert.match(verify, new RegExp(id));
+  const needsLine = /^ {4}needs: \[([^\]]+)\]$/mu.exec(verify);
+  assert.ok(needsLine, 'verify declares the actual job dependencies');
+  assert.deepEqual(needsLine[1].split(',').map(id => id.trim()).sort(),
+    ['select', 'source-integrity', ...SELECTABLE_JOBS].sort());
   assert.match(verify, /--check-aggregate/);
   assert.doesNotMatch(verify, /required\.some/);
   const integrity = jobBlock(text, 'source-integrity');

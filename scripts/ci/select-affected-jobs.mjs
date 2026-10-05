@@ -20,9 +20,9 @@ import { runtimeTextSources } from '../generate-runtime-text.mjs';
 export const SELECTABLE_JOBS = Object.freeze([
   'runtime-full', 'runtime-aggregate', 'ui-e2e', 'static-worker', 'governance-consumers', 'deploy-preflight',
 ]);
-export const REQUIRED_SELECTED_JOBS = Object.freeze([
-  'runtime-full', 'runtime-aggregate', 'ui-e2e', 'static-worker', 'governance-consumers',
-]);
+// Every selectable job must report a result, including an intentional docs skip.
+// Keep one list so a selected check cannot disappear from aggregate validation.
+export const REQUIRED_SELECTED_JOBS = SELECTABLE_JOBS;
 export const JOB_OUTPUT_KEYS = Object.freeze({
   'runtime-full': 'runtime_full',
   'runtime-aggregate': 'runtime_aggregate',
