@@ -201,13 +201,51 @@ npm run check:broker-worker-candidate
 npm run worker:dry-run:broker
 ```
 
-The static command takes no profile or credential arguments and deliberately
-reports `deployment_ready:false`; these commands do not validate operator-filled
-profiles, install remote bindings or authorize enabling a flag. Compare the
-installation against the actual closed
-[main schema](../../apps/platform-api/src/worker-private-ai.ts) and
-[broker schema](../../apps/credential-broker/src/worker-profile.ts), then preserve
-remote resource and permission readback through the existing release procedure.
+The no-argument static command checks the repository examples. For filled
+installation profiles, the same release-preparation command also supports:
+
+```sh
+npm run check:broker-worker-candidate -- --installation \
+  --profiles /absolute/private/installation-public.json \
+  --main-config /absolute/private/main.jsonc \
+  --broker-config /absolute/private/broker.jsonc \
+  --main-artifact /absolute/private/main-worker.js \
+  --broker-artifact /absolute/private/broker-worker.js \
+  --expected-source-sha <reviewed-full-40-hex-source-sha>
+```
+
+All five input files must be regular, current-user-owned, absolute paths with
+mode 0600 or stricter; symlinks are rejected. Use private copies of the actual
+release artifacts, not placeholder bytes. The public installation JSON has
+exactly these fields:
+
+| Field | Content |
+| --- | --- |
+| `environment` | `staging-next` or `next` |
+| `release` | `source_sha`, `main_artifact_sha256`, `broker_artifact_sha256`; digests of the actual Worker files supplied above |
+| `main`, `broker` | Existing closed [main profile](../../apps/platform-api/src/worker-private-ai-profile.ts) and [broker profile](../../apps/credential-broker/src/worker-profile.ts) objects |
+| `requestPublicKey`, `responsePublicKey` | Public Ed25519 JWKs of the installed main request and broker response signers; only `kty`, `crv`, `x` |
+| `ingestRequestPublicKey`, `ingestResponsePublicKey` | Required when setup profiles are present; public JWKs of the separate main ingest and broker setup-response signers |
+
+No private JWK, KEK, provider secret, device approval or claimed live-readiness
+receipt is accepted in that JSON. The checker verifies actual artifact bytes,
+canonical environment/SQL/MEDIA mapping, configured service correspondence,
+request/response/recovery pins, and key-material separation across purposes.
+Both candidate flags must remain OFF, both selected config blocks must pin
+`FREEDOM_RELEASE_SHA`, and broker public routes stay excluded from this offline
+preparation check. Secret vars and placeholder or reused Hyperdrives fail.
+
+Exit 0 means only the offline checks passed; the report still says
+`status:unavailable`, `deployment_ready:false` and `remote_cloud:not_run`.
+Exit 1 means mismatched installation metadata/artifacts; exit 2 means private
+inputs or local tooling are unavailable. Diagnostics contain fixed codes, never
+operator paths, key material or profile contents. `checkPrivateAiInstallation`
+is also available to release preparation code using the same profile schemas.
+Byte verification does not establish source-to-artifact provenance, release
+approval, installed signer correspondence, remote bindings/permissions, recovery
+and capture controls, or actual owner model acceptance. Those remain explicit
+unavailable conditions and must retain separate evidence through the existing
+release procedure; this tool cannot authorize enabling either product flag.
 
 Before actual owner model acceptance, verify the setup POST, prepare and secret
 requests across real browser/edge routing. Setup sessions and activation proof
