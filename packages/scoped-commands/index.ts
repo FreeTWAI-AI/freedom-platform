@@ -7,6 +7,7 @@ import { runCommandCore } from '../db/command-core.js';
 import { digest } from '../db/legacy-digest.js';
 import { assertCurrentSessionClock } from '../db/member-session.js';
 import { legacyMemberReceiptPorts, type Command } from '../db/member-command.js';
+import { registerScopedCommand, authorizeScopedCommand, forgetScopedCommand, currentScopedCommand, type ScopedFactContext } from './command-context.js';
 
 export interface ScopedMemberCommand extends MemberScopeInput {
   operation: string;
@@ -27,10 +28,7 @@ export interface ScopedJournalInput {
 const ID = /^[a-z][a-z0-9_.-]{0,159}$/;
 const MAX_JSON_BYTES = 256 * 1024;
 const MAX_METADATA_BYTES = 32 * 1024;
-const activeCommands = new WeakMap<MemberScopeContext, {
-  q: PoolClient; operation: string; authorized: boolean;
-  journalTarget?: { aggregate_type: 'member_avatar'|'member_service'|'community_event'|'social_post'|'community_event_highlight'; id: string };
-}>();
+
 function stableId(value: unknown): value is string {
   return typeof value === 'string' && value.length <= 160 && ID.test(value) && !/[\r\n]/.test(value);
 }
@@ -128,7 +126,7 @@ export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberComm
       async authenticateAndLock(q) {
         context = await lockMemberScope(q, { actor, scope, lockUser });
         await assertCurrentSessionClock(q, actor);
-        activeCommands.set(context, { q, operation, authorized: false });
+        registerScopedCommand(context, q, operation);
       },
       async lockReceipt(q) {
         await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
@@ -166,9 +164,9 @@ export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberComm
       await authorize(q, context);
       await assertCurrentSessionClock(q, actor);
       assertCurrentTime?.();
-      activeCommands.get(context)!.authorized = true;
+      authorizeScopedCommand(context);
     }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T);
-  } finally { if (context!) activeCommands.delete(context); }
+  } finally { if (context!) forgetScopedCommand(context); }
 }
 
 /** Closed member-avatar replacement compatibility adapter. Current personal
@@ -206,8 +204,7 @@ export async function avatarMemberCommand<T>(pool: Pool, input: Command,
       async authenticateAndLock(q) {
         context = await lockMemberScope(q, { actor, scope: 'personal', lockUser: snapshot.lockUser });
         await assertCurrentSessionClock(q, actor);
-        activeCommands.set(context, { q, operation: 'member.avatar.replace', authorized: false,
-          journalTarget: { aggregate_type: 'member_avatar', id: actor.user_id } });
+        registerScopedCommand(context, q, 'member.avatar.replace', { aggregate_type: 'member_avatar', id: actor.user_id });
       },
       async readReceipt(q) {
         const prior = await receipts.readReceipt(q);
@@ -216,9 +213,9 @@ export async function avatarMemberCommand<T>(pool: Pool, input: Command,
     }, async q => {
       await authorize(q, context);
       await assertCurrentSessionClock(q, actor);
-      activeCommands.get(context)!.authorized = true;
+      authorizeScopedCommand(context);
     }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T);
-  } finally { if (context!) activeCommands.delete(context); }
+  } finally { if (context!) forgetScopedCommand(context); }
 }
 
 /** Closed existing service-cover PUT receipt adapter; current scope precedes replay. */
@@ -250,8 +247,7 @@ export async function serviceCoverMemberCommand<T>(pool: Pool, input: Command,
       async authenticateAndLock(q) {
         context = await lockMemberScope(q, { actor, scope: 'personal', lockUser: snapshot.lockUser });
         await assertCurrentSessionClock(q, actor);
-        activeCommands.set(context, { q, operation: 'member.service.cover.replace', authorized: false,
-          journalTarget: { aggregate_type: 'member_service', id: input.operation.split('/')[4] } });
+        registerScopedCommand(context, q, 'member.service.cover.replace', { aggregate_type: 'member_service', id: input.operation.split('/')[4] });
       },
       async readReceipt(q) {
         const prior = await receipts.readReceipt(q);
@@ -260,9 +256,9 @@ export async function serviceCoverMemberCommand<T>(pool: Pool, input: Command,
     }, async q => {
       await authorize(q, context);
       await assertCurrentSessionClock(q, actor);
-      activeCommands.get(context)!.authorized = true;
+      authorizeScopedCommand(context);
     }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T);
-  } finally { if (context!) activeCommands.delete(context); }
+  } finally { if (context!) forgetScopedCommand(context); }
 }
 
 export async function eventBannerMemberCommand<T>(pool: Pool, input: Command,
@@ -293,8 +289,7 @@ export async function eventBannerMemberCommand<T>(pool: Pool, input: Command,
       async authenticateAndLock(q) {
         context = await lockMemberScope(q, { actor, scope: 'community', lockUser: snapshot.lockUser });
         await assertCurrentSessionClock(q, actor);
-        activeCommands.set(context, { q, operation: 'community.event.banner.replace', authorized: false,
-          journalTarget: { aggregate_type: 'community_event', id: input.operation.split('/')[4] } });
+        registerScopedCommand(context, q, 'community.event.banner.replace', { aggregate_type: 'community_event', id: input.operation.split('/')[4] });
       },
       async readReceipt(q) {
         const prior = await receipts.readReceipt(q);
@@ -303,9 +298,9 @@ export async function eventBannerMemberCommand<T>(pool: Pool, input: Command,
     }, async q => {
       await authorize(q, context);
       await assertCurrentSessionClock(q, actor);
-      activeCommands.get(context)!.authorized = true;
+      authorizeScopedCommand(context);
     }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T);
-  } finally { if (context!) activeCommands.delete(context); }
+  } finally { if (context!) forgetScopedCommand(context); }
 }
 
 export async function eventVideoMemberCommand<T>(pool: Pool, input: Command,
@@ -336,8 +331,7 @@ export async function eventVideoMemberCommand<T>(pool: Pool, input: Command,
       async authenticateAndLock(q) {
         context = await lockMemberScope(q, { actor, scope: 'community', lockUser: snapshot.lockUser });
         await assertCurrentSessionClock(q, actor);
-        activeCommands.set(context, { q, operation: 'community.event.video.replace', authorized: false,
-          journalTarget: { aggregate_type: 'community_event', id: input.operation.split('/')[4] } });
+        registerScopedCommand(context, q, 'community.event.video.replace', { aggregate_type: 'community_event', id: input.operation.split('/')[4] });
       },
       async readReceipt(q) {
         const prior = await receipts.readReceipt(q);
@@ -346,9 +340,9 @@ export async function eventVideoMemberCommand<T>(pool: Pool, input: Command,
     }, async q => {
       await authorize(q, context);
       await assertCurrentSessionClock(q, actor);
-      activeCommands.get(context)!.authorized = true;
+      authorizeScopedCommand(context);
     }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T);
-  } finally { if (context!) activeCommands.delete(context); }
+  } finally { if (context!) forgetScopedCommand(context); }
 }
 
 export async function socialThumbnailMemberCommand<T>(pool: Pool, input: Command,
@@ -379,8 +373,7 @@ export async function socialThumbnailMemberCommand<T>(pool: Pool, input: Command
       async authenticateAndLock(q) {
         context = await lockMemberScope(q, { actor, scope: 'community', lockUser: snapshot.lockUser });
         await assertCurrentSessionClock(q, actor);
-        activeCommands.set(context, { q, operation: 'community.social.thumbnail.replace', authorized: false,
-          journalTarget: { aggregate_type: 'social_post', id: input.operation.split('/')[4] } });
+        registerScopedCommand(context, q, 'community.social.thumbnail.replace', { aggregate_type: 'social_post', id: input.operation.split('/')[4] });
       },
       async readReceipt(q) {
         const prior = await receipts.readReceipt(q);
@@ -389,9 +382,9 @@ export async function socialThumbnailMemberCommand<T>(pool: Pool, input: Command
     }, async q => {
       await authorize(q, context);
       await assertCurrentSessionClock(q, actor);
-      activeCommands.get(context)!.authorized = true;
+      authorizeScopedCommand(context);
     }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T);
-  } finally { if (context!) activeCommands.delete(context); }
+  } finally { if (context!) forgetScopedCommand(context); }
 }
 
 export async function socialPostCreateMemberCommand<T>(pool: Pool, input: Command, postId:string,
@@ -420,8 +413,7 @@ export async function socialPostCreateMemberCommand<T>(pool: Pool, input: Comman
       async authenticateAndLock(q) {
         context = await lockMemberScope(q, { actor, scope: 'community', lockUser: snapshot.lockUser });
         await assertCurrentSessionClock(q, actor);
-        activeCommands.set(context, { q, operation: 'community.social.post.create', authorized: false,
-          journalTarget: { aggregate_type: 'social_post', id:postId } });
+        registerScopedCommand(context, q, 'community.social.post.create', { aggregate_type: 'social_post', id:postId });
       },
       async readReceipt(q) {
         const prior = await receipts.readReceipt(q);
@@ -430,9 +422,9 @@ export async function socialPostCreateMemberCommand<T>(pool: Pool, input: Comman
     }, async q => {
       await authorize(q, context);
       await assertCurrentSessionClock(q, actor);
-      activeCommands.get(context)!.authorized = true;
+      authorizeScopedCommand(context);
     }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T);
-  } finally { if (context!) activeCommands.delete(context); }
+  } finally { if (context!) forgetScopedCommand(context); }
 }
 
 export async function highlightMemberCommand<T>(pool: Pool, input: Command, mediaId:string,
@@ -463,8 +455,7 @@ export async function highlightMemberCommand<T>(pool: Pool, input: Command, medi
       async authenticateAndLock(q) {
         context = await lockMemberScope(q, { actor, scope: 'community', lockUser: snapshot.lockUser });
         await assertCurrentSessionClock(q, actor);
-        activeCommands.set(context, { q, operation: 'community.event.highlight.create', authorized: false,
-          journalTarget: { aggregate_type: 'community_event_highlight', id: mediaId } });
+        registerScopedCommand(context, q, 'community.event.highlight.create', { aggregate_type: 'community_event_highlight', id: mediaId });
       },
       async readReceipt(q) {
         const prior = await receipts.readReceipt(q);
@@ -473,17 +464,16 @@ export async function highlightMemberCommand<T>(pool: Pool, input: Command, medi
     }, async q => {
       await authorize(q, context);
       await assertCurrentSessionClock(q, actor);
-      activeCommands.get(context)!.authorized = true;
+      authorizeScopedCommand(context);
     }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T);
-  } finally { if (context!) activeCommands.delete(context); }
+  } finally { if (context!) forgetScopedCommand(context); }
 }
 
 /** Explicit server-selected metadata only. The context must be from the run
  * callback of the current scoped command on the same client. This is not a
  * serialized authorization token and it never writes the community outbox. */
-export async function scopedJournal(q: PoolClient, context: MemberScopeContext, input: ScopedJournalInput): Promise<void> {
-  const active = activeCommands.get(context);
-  requireCondition(active?.q === q && active.authorized, 403, 'scoped_context_required', '需要目前交易的操作範圍。');
+export async function scopedJournal(q: PoolClient, context: ScopedFactContext, input: ScopedJournalInput): Promise<void> {
+  const active = currentScopedCommand(q, context);
   requireCondition(input && typeof input === 'object' && Object.keys(input).every(key =>
     ['aggregate_type', 'id', 'version', 'operation', 'data', 'eventType'].includes(key))
     && stableId(input.aggregate_type) && uuid(input.id) && stableId(input.operation),
@@ -499,7 +489,15 @@ export async function scopedJournal(q: PoolClient, context: MemberScopeContext, 
     400, 'invalid_scoped_journal', '操作紀錄只能包含明選的中繼資料。');
   const aggregateType = input.aggregate_type, id = input.id, operation = input.operation, eventType = input.eventType;
   const transition = randomUUID();
-  await q.query(`INSERT INTO scoped_transition_journal(transition_id,scope_id,scope_kind,principal_id,principal_kind,
+  if(context.authn_kind==='execution_token') {
+    requireCondition(active.execution,403,'scoped_context_required','需要目前交易的操作範圍。');
+    const b=active.execution;
+    await q.query(`INSERT INTO scoped_transition_journal(transition_id,scope_id,scope_kind,principal_id,principal_kind,
+      authn_kind,aggregate_type,aggregate_id,aggregate_version,operation,data,execution_authorization_id,execution_attempt_id,
+      execution_grant_id,execution_runtime_device_id,execution_connection_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+    [transition,context.scope.scope_id,context.scope.kind,context.subject_principal.principal_id,context.subject_principal.kind,
+      context.authn_kind,aggregateType,id,version,operation,metadata.json,b.authorizationId,b.attemptId,b.grantId,b.runtimeDeviceId,b.connectionId]);
+  } else await q.query(`INSERT INTO scoped_transition_journal(transition_id,scope_id,scope_kind,principal_id,principal_kind,
     authn_kind,aggregate_type,aggregate_id,aggregate_version,operation,data) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
   [transition, context.scope.scope_id, context.scope.kind, context.subject_principal.principal_id, context.subject_principal.kind,
     context.authn_kind, aggregateType, id, version, operation, metadata.json]);
