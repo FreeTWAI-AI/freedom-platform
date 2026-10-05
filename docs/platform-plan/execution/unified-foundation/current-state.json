@@ -99,7 +99,11 @@
       115
     ],
     "fresh_live_ledger_read": "not_run",
-    "limitation": "The latest rollout reports no migrations applied. Neither health nor main manifest proves the current SQL ledger; re-read exact names/digests/roles before the next schema or recovery operation."
+    "limitation": "The latest rollout reports no migrations applied. Neither health nor main manifest proves the current SQL ledger; re-read exact names/digests/roles before the next schema or recovery operation.",
+    "declared_historical_number_gaps": [
+      22
+    ],
+    "gap_evidence": "deploy/cloudflare/environments.json#/database_defaults/migrations/known_gaps"
   },
   "topology": {
     "member_runtime": "Cloudflare Workers",
@@ -148,7 +152,8 @@
       "No fresh restore of source567/current full schema",
       "Second authorized operator in a new environment not yet accepted",
       "Daily adapter requires GC OFF; retention executor and historical unsettled PUT remain open"
-    ]
+    ],
+    "operator_source_note": "The coordinator and native workflow intentionally use the same c3e commit for different purposes; daily-scheduled-2026-10-05.json records operator_source independently."
   },
   "governance_pins": [
     {
@@ -162,7 +167,9 @@
       "dismiss_stale_reviews": true,
       "bypass_actors": [],
       "evidence": "docs/platform-plan/verification/main-ruleset-2026-10-05.json",
-      "limitation": "Candidate-checkout suites are not all an independently trusted behavioral harness; preflight fix is not installed."
+      "limitation": "Candidate-checkout suites are not all an independently trusted behavioral harness; preflight fix is not installed.",
+      "publication_ref": "refs/heads/main",
+      "selection": "The exact configured SHA fixes workflow bytes; main is a mutable ref descriptor, not an immutable branch claim."
     },
     {
       "purpose": "Nine consumer source gates",
